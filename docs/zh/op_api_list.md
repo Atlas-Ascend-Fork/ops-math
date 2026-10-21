@@ -241,7 +241,7 @@
 | [aclnnInplaceRandomWithoutFromToTensor](../../random/dsa_random_uniform/docs/aclnnInplaceRandomWithoutFromToTensor.md)     | 给定seed/offset(tensor),默认从 [0, DTYPE_MAX_VALUE] 的离散均匀分布中采样整数填充selfRef张量。                         | - | - |  默认确定性实现 |
 | [aclnnRandperm](../../random/stateless_randperm/docs/aclnnRandperm.md)     | 返回从0到n-1的整数随机排列。                         | 默认确定性实现| 默认确定性实现|  默认确定性实现 |
 | [aclnnRange](../../math/range/docs/aclnnRange.md)               | 从start起始到end结束按照step的间隔取值。                     | 默认确定性实现| 默认确定性实现| 默认确定性实现 |
-| [aclnnReal](../../math/real/docs/aclnnReal.md)                  | 为输入张量的每一个元素取实数部分。                           | 默认确定性实现| 默认确定性实现| 默认确定性实现 |
+| [aclnnReal](../../math/real/docs/aclnnReal.md)                  | 为输入张量的每一个元素取实数部分。                           | 默认确定性实现| 默认确定性实现| - |
 | [aclnnReciprocal&aclnnInplaceReciprocal](../../math/reciprocal/docs/aclnnReciprocal&aclnnInplaceReciprocal.md) | 返回一个具有每个输入元素倒数的新张量。                       | 默认确定性实现| 默认确定性实现| 默认确定性实现|
 | [aclnnReduceLogSum](../../math/reduce_log_sum/docs/aclnnReduceLogSum.md) | 返回给定维度中输入张量每行的和再取对数。                     | 默认确定性实现| 默认确定性实现| 默认确定性实现|
 | [aclnnReduceNansum](../../math/reduce_nansum/docs/aclnnReduceNansum.md) | 将tensor中NaN处理为0后，返回输入tensor给定维度上的和。       | 默认确定性实现| 默认确定性实现| 默认确定性实现|
@@ -281,7 +281,7 @@
 | [aclnnSimThreadExponential](../../random/sim_thread_exponential/docs/aclnnSimThreadExponential.md) | 生成服从参数为lambda的指数分布随机数，并将其填充到selfRef张量中。                                    | 默认确定性实现| 默认确定性实现| 默认确定性实现 |
 | [aclnnSin&aclnnInplaceSin](../../math/sin/docs/aclnnSin&aclnnInplaceSin.md) | 对输入Tensor完成sin运算。                                    | 默认确定性实现| 默认确定性实现| 默认确定性实现|
 | [aclnnSinc&aclnnInplaceSinc](../../math/sinc/docs/aclnnSinc&aclnnInplaceSinc.md) | 对输入Tensor完成sinc运算。                                   | 默认确定性实现| 默认确定性实现| 默认确定性实现 |
-| [aclnnSinh&aclnnInplaceSinh](../../math/sinh/docs/aclnnSinh&aclnnInplaceSinh.md) | 对输入Tensor完成sinh运算。                                   | 默认确定性实现| 默认确定性实现| 默认确定性实现 |
+| [aclnnSinh&aclnnInplaceSinh](../../math/sinh/docs/aclnnSinh&aclnnInplaceSinh.md) | 对输入Tensor完成sinh运算。                                   | 默认确定性实现| 默认确定性实现| - |
 | [aclnnSinkhorn](../../math/sinkhorn/docs/aclnnSinkhorn.md)      | 计算Sinkhorn距离，可以用于MoE模型中的专家路由。              | 默认确定性实现| 默认确定性实现| - |
 | [aclnnSlice](../../conversion/slice/docs/aclnnSlice.md) | 在指定维度dim上，根据给定的范围[start,end]和步长step，从输入张量self中提取子张量out。 | 默认确定性实现| 默认确定性实现| 默认确定性实现|
 | [aclnnSliceV2](../../conversion/strided_slice_v3/docs/aclnnSliceV2.md) | 根据给定的维度axes、范围[starts,ends]和步长steps，从输入张量self中提取张量out。 | 默认确定性实现| 默认确定性实现| 默认确定性实现|
@@ -302,7 +302,7 @@
 | [aclnnSum](../../math/accumulate_nv2/docs/aclnnSum.md)          | 返回输入tensors列表中每个输入tensor依次做add求和。           | 默认确定性实现| 默认确定性实现| - |
 | [aclnnSvd](../../math/svd/docs/aclnnSvd.md)          | 计算一个或多个矩阵的奇异值分解。           | 默认确定性实现| 默认确定性实现| 默认确定性实现 |
 | [aclnnSWhere](../../math/select/docs/aclnnSWhere.md)            | 根据条件选取self或other中元素并返回（支持广播）。            | 默认确定性实现| 默认确定性实现| 默认确定性实现 |
-| [aclnnTan&aclnnInplaceTan](../../math/tan/docs/aclnnTan&aclnnInplaceTan.md) | 它计算输入张量self中每个元素的正切值，并将结果存储在输出张量out中。 | 默认确定性实现| 默认确定性实现| 默认确定性实现 |
+| [aclnnTan&aclnnInplaceTan](../../math/tan/docs/aclnnTan&aclnnInplaceTan.md) | 它计算输入张量self中每个元素的正切值，并将结果存储在输出张量out中。 | 默认确定性实现| 默认确定性实现| - |
 | [aclnnTanh&aclnnInplaceTanh](../../math/tanh/docs/aclnnTanh&aclnnInplaceTanh.md) | 激活函数。返回与输入tensor shape相同的tensor，对输入tensor进行elementwise的计算。 | 默认确定性实现| 默认确定性实现| 默认确定性实现|
 | [aclnnTanhBackward](../../math/tanh_grad/docs/aclnnTanhBackward.md) | aclnnTanh的反向。                                            | 默认确定性实现| 默认确定性实现| 默认确定性实现 |
 | [aclnnTopk](../../math/topk/docs/aclnnTopk.md) | 返回输入Tensor在指定维度上的k个极值及索引。                                            | 默认确定性实现| 默认确定性实现| 默认确定性实现 |
