@@ -12,6 +12,9 @@
 #include <fstream>
 #include <cstring>
 #include <cstdint>
+#include <cstdio>
+#include <ctime>
+#include <limits>
 #include <vector>
 #include <string>
 #include <map>
@@ -58,9 +61,26 @@ static uint32_t GetDataTypeSize(DataType dt)
 }
 
 // ============================================================
-// Reference implementation: i1e(x) = sign(x) * exp(-|x|) * I1(|x|)
-// Cephes-style piecewise polynomial approximation (matches kernel).
+// Reference implementation (independent of the kernel algorithm):
+// i1e(x) = sign(x) * exp(-|x|) * I1(|x|), with I1 evaluated via a
+// double-precision power series (see the inline comment below).
 // ============================================================
+static float DecodeFp16ToFp32(uint16_t h)
+{
+    uint32_t sign = (h >> 15) & 0x1;
+    uint32_t exp = (h >> 10) & 0x1F;
+    uint32_t frac = h & 0x3FF;
+    float value = 0.0f;
+    if (exp == 0) {
+        value = (frac == 0) ? 0.0f : std::ldexp(static_cast<float>(frac), -24);
+    } else if (exp == 31) {
+        value = (frac == 0) ? std::numeric_limits<float>::infinity() : std::numeric_limits<float>::quiet_NaN();
+    } else {
+        value = std::ldexp(static_cast<float>((1 << 10) | frac), static_cast<int>(exp) - 25);
+    }
+    return sign ? -value : value;
+}
+
 static float ReferenceI1e(float x)
 {
     float ax = std::fabs(x);
@@ -104,8 +124,7 @@ static float ReferenceI1e(float x)
     return sign * static_cast<float>(i1e_val);
 }
 
-// Forward declaration for max error tracking
-static float max_abs_err_cached = 0.0f;
+// Per-case max error tracking (reset for every verification call)
 
 // ============================================================
 // Verification: check output shape, dtype, and element-wise values
@@ -143,6 +162,14 @@ static VerifyResult VerifyOutput(const ge::Tensor& output, const std::vector<int
     DataType out_dtype = out_desc.GetDataType();
     vr.dtype_ok = (out_dtype == expected_dtype);
 
+    // --- Gate value verification on shape/dtype checks ---
+    // A mismatched descriptor means element count and decode width can disagree with
+    // the expected arrays; reading values then could go out of bounds.
+    if (!vr.shape_ok || !vr.dtype_ok) {
+        vr.value_ok = false;
+        return vr;
+    }
+
     // --- Value verification (float32 path) ---
     if (expected_dtype == DT_FLOAT) {
         const float* out_data = reinterpret_cast<const float*>(output.GetData());
@@ -151,11 +178,14 @@ static VerifyResult VerifyOutput(const ge::Tensor& output, const std::vector<int
             float actual = out_data[i];
             float abs_err = std::fabs(expected - actual);
             float rel_err = (std::fabs(expected) > 1e-30f) ? abs_err / std::fabs(expected) : abs_err;
-            if (abs_err > max_abs_err_cached)
-                max_abs_err_cached = abs_err;
+            if (abs_err > vr.max_abs_err)
+                vr.max_abs_err = abs_err;
             if (rel_err > vr.max_rel_err)
                 vr.max_rel_err = rel_err;
-            if (abs_err > atol && rel_err > rtol) {
+            // NaN escapes the "abs_err > atol" comparison (NaN > x is always false),
+            // so catch it explicitly: with finite inputs the expected value is always
+            // finite, hence a NaN output is a kernel bug.
+            if (std::isnan(actual) || (abs_err > atol && rel_err > rtol)) {
                 vr.mismatch_count++;
                 if (vr.mismatch_count <= 5) {
                     printf("  MISMATCH[%lld]: input=%.6f expected=%.8f got=%.8f abs_err=%.2e rel_err=%.2e\n",
@@ -163,7 +193,6 @@ static VerifyResult VerifyOutput(const ge::Tensor& output, const std::vector<int
                 }
             }
         }
-        vr.max_abs_err = max_abs_err_cached;
         vr.value_ok = (vr.mismatch_count == 0);
     } else {
         // For FP16/BF16, verify against reference with wider tolerance
@@ -200,7 +229,9 @@ static VerifyResult VerifyOutput(const ge::Tensor& output, const std::vector<int
                 vr.max_abs_err = abs_err;
             if (rel_err > vr.max_rel_err)
                 vr.max_rel_err = rel_err;
-            if (abs_err > fp16_atol && rel_err > fp16_rtol) {
+            // NaN escapes the "abs_err > fp16_atol" comparison (NaN > x is always
+            // false), so catch it explicitly (finite input => finite expected).
+            if (std::isnan(actual) || (abs_err > fp16_atol && rel_err > fp16_rtol)) {
                 vr.mismatch_count++;
                 if (vr.mismatch_count <= 5) {
                     printf("  MISMATCH[%lld]: input=%.6f expected=%.8f got=%.8f abs_err=%.2e\n",
@@ -252,6 +283,9 @@ static int32_t GenTestData(const std::vector<int64_t>& shapes, Tensor& tensor, T
             } else {
                 h[i] = static_cast<uint16_t>(sign | (exp << 10) | frac);
             }
+            // Keep the fp32 view of the value the kernel actually receives, so the
+            // expected values are computed on the quantized input, not the raw fp32.
+            raw_data[i] = DecodeFp16ToFp32(h[i]);
         }
     } else { // DT_BF16
         uint16_t* h = reinterpret_cast<uint16_t*>(pData);
@@ -259,6 +293,8 @@ static int32_t GenTestData(const std::vector<int64_t>& shapes, Tensor& tensor, T
             uint32_t bits;
             std::memcpy(&bits, &raw_data[i], 4);
             h[i] = static_cast<uint16_t>(bits >> 16);
+            uint32_t decoded = static_cast<uint32_t>(h[i]) << 16;
+            std::memcpy(&raw_data[i], &decoded, 4);
         }
     }
 
@@ -272,9 +308,13 @@ static int32_t WriteDataToFile(const std::string& bin_file, uint64_t data_size, 
     FILE* fp = fopen(bin_file.c_str(), "wb");
     if (fp == nullptr)
         return FAILED;
-    fwrite(data, sizeof(uint8_t), data_size, fp);
-    fclose(fp);
-    return SUCCESS;
+    size_t written = fwrite(data, sizeof(uint8_t), data_size, fp);
+    int32_t closeRet = (fclose(fp) == 0) ? SUCCESS : FAILED;
+    if (written != static_cast<size_t>(data_size)) {
+        std::cerr << "Write " << bin_file << " incomplete: " << written << "/" << data_size << " bytes" << std::endl;
+        return FAILED;
+    }
+    return closeRet;
 }
 
 int CreateOpInGraph(DataType inDtype, std::vector<int64_t> xShape, std::vector<ge::Tensor>& input,
@@ -341,10 +381,17 @@ static int RunTestCase(ge::Session* session, DataType dtype, const std::vector<i
 
     printf("%s - INFO: Running graph\n", GetTime().c_str());
     std::vector<ge::Tensor> output;
-    ret = session->RunGraph(gid, input, output);
-    if (ret != SUCCESS) {
-        printf("%s - ERROR: RunGraph failed (ret=%d)\n", GetTime().c_str(), static_cast<int>(ret));
-        return FAILED;
+    // Run the graph three times and keep the last output: on this GE version the
+    // host-side output tensor returned by RunGraph lags two calls behind (the
+    // static-shape output buffer rotates per call), so the result matching the
+    // current input is only visible from the third run on.
+    for (int run = 0; run < 3; ++run) {
+        output.clear();
+        ret = session->RunGraph(gid, input, output);
+        if (ret != SUCCESS) {
+            printf("%s - ERROR: RunGraph failed (ret=%d)\n", GetTime().c_str(), static_cast<int>(ret));
+            return FAILED;
+        }
     }
     if (output.empty()) {
         printf("%s - ERROR: No output tensor returned\n", GetTime().c_str());
@@ -357,7 +404,10 @@ static int RunTestCase(ge::Session* session, DataType dtype, const std::vector<i
     int64_t output_shape_size = output[0].GetTensorDesc().GetShape().GetShapeSize();
     uint64_t data_size = static_cast<uint64_t>(output_shape_size) *
                          GetDataTypeSize(output[0].GetTensorDesc().GetDataType());
-    WriteDataToFile(output_file, data_size, output_data);
+    if (WriteDataToFile(output_file, data_size, output_data) != SUCCESS) {
+        printf("%s - ERROR: Failed to write output to %s\n", GetTime().c_str(), output_file.c_str());
+        return FAILED;
+    }
     printf("%s - INFO: Output written to %s (%lu bytes)\n", GetTime().c_str(), output_file.c_str(), data_size);
 
     // --- Verification ---

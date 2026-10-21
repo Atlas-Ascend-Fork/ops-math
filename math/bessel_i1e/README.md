@@ -17,13 +17,16 @@ Copyright (c) 2026 Huawei Technologies Co., Ltd.
 | <term>Atlas推理系列产品</term>                       |    √     |
 | <term>Atlas训练系列产品</term>                       |    √     |
 
+> 说明：本仓交付 Ascend C 实现（注册 ascend950、ascend910_93、ascend910b），支持 Ascend 950PR&950DT 系列、Atlas A3 系列、Atlas A2 系列产品；Atlas 200I/500 A2 推理、Atlas 推理系列、Atlas 训练系列产品经 CANN 内置算子实现提供支持，共同构成上表产品覆盖。
+> Atlas训练系列产品、Atlas推理系列产品及Atlas 200I/500 A2推理产品：数据类型不支持BFLOAT16。
+
 ## 功能说明
 
-- 算子功能：计算指数缩放的第一阶修正贝塞尔函数，计算公式为：
+- 算子功能：计算指数缩放的第一阶修正贝塞尔函数，对输入张量x逐元素计算，计算公式为：
 
-$$out_i = e^{-|input_i|} \cdot I_1(input_i)$$
+$$y_i = e^{-|x_i|} \cdot I_1(x_i)$$
 
-其中$I_1(x)$是第一阶修正贝塞尔函数。指数缩放因子$e^{-|x|}$使得函数在大参数值时数值稳定。
+其中$x$是输入张量（参数表中输入参数x），$y$是输出张量（参数表中输出参数y），$I_1(x)$是第一阶修正贝塞尔函数。指数缩放因子$e^{-|x|}$使得函数在大参数值时数值稳定。
 
 ## 参数说明
 
@@ -62,12 +65,21 @@ $$out_i = e^{-|input_i|} \cdot I_1(input_i)$$
 ## 约束说明
 
 - 输出的数据类型和Shape由框架根据输入推导，数据格式为ND。
-- 支持0维标量、空Tensor和动态Shape，Tensor维度范围为0～8维。
+- 支持动态shape与动态rank（-1未知维度与-2未知Rank均支持，shape维度可运行时确定，rank支持0～8维）。
+- 支持0维标量与空Tensor（元素数为0时输出为空Tensor）。
 - 非连续Tensor输入由框架自动转换为连续Tensor后执行。
 - 输入为FLOAT16或BF16时，算子内部提升为FLOAT计算，输出再转换回输入数据类型。
+- 特殊输入值的输出语义：输入为NaN时输出NaN；输入为±Inf时输出0；输入为±0时输出0。
+- 支持 GE 图模式调用，不提供 aclnn 算子接口；TensorFlow 图模式经框架插件适配调用，见下方「第三方框架兼容性」。
 
 ## 调用说明
 
-| 调用方式 | 调用样例 | 说明 |
+| 调用方式 | 样例代码 | 说明 |
 |:---------|:---------|:-----|
-| 图模式调用 | [test_geir_bessel_i1e](./examples/test_geir_bessel_i1e.cpp) | 通过[算子IR](./op_graph/bessel_i1e_proto.h)构图方式调用BesselI1e算子。 |
+| GE图模式 | [test_geir_bessel_i1e](./examples/test_geir_bessel_i1e.cpp) | 通过[算子IR](./op_graph/bessel_i1e_proto.h)构图方式调用BesselI1e算子。 |
+| GE图模式 | [test_geir_bessel_i1e_dynamic](./examples/arch35/test_geir_bessel_i1e_dynamic.cpp) | 通过[算子IR](./op_graph/bessel_i1e_proto.h)动态构图方式调用BesselI1e算子，演示-1未知维度与-2未知Rank场景。 |
+
+## 第三方框架兼容性
+
+- 对标 TensorFlow 的 tf.math.bessel_i1e 算子，已交付框架插件适配（framework/bessel_i1e_tf_plugin.cpp），TensorFlow 图模式下自动映射到本算子。
+- TensorFlow 调用指引：安装与CANN版本配套的TF-Ascend适配层（npu_device）后，通过 tf.math.bessel_i1e / tf.raw_ops.BesselI1e 接口调用。环境前提：宿主环境 npu_supported_ops.json 已声明 BesselI1e 算子映射（洁净环境需确认该声明随包交付或手动配置）。
