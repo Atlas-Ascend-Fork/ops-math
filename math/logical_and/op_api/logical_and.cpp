@@ -37,33 +37,31 @@ static bool IsAiCoreSupport(const aclTensor* self)
 }
 
 // AICORE算子kernel
-static const aclTensor* LogicalAndAiCore(
-    const aclTensor* self, const aclTensor* other, aclTensor* logical_andOut, aclOpExecutor* executor)
+static const aclTensor* LogicalAndAiCore(const aclTensor* self, const aclTensor* other, aclTensor* logical_andOut,
+                                         aclOpExecutor* executor)
 {
     L0_DFX(LogicalAndAiCore, self, other, logical_andOut);
     // 使用框架宏ADD_TO_LAUNCHER_LIST_AICORE，将AiCore LogicalAnd算子加入任务队列
     // LogicalAnd是算子的OpType，self、other是算子的输入，logical_andOut是算子的输出
     auto ret = ADD_TO_LAUNCHER_LIST_AICORE(LogicalAnd, OP_INPUT(self, other), OP_OUTPUT(logical_andOut));
-    OP_CHECK(
-        ret == ACLNN_SUCCESS, OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "LogicalAndAiCore ADD_TO_LAUNCHER_LIST_AICORE failed."),
-        return nullptr);
+    OP_CHECK(ret == ACLNN_SUCCESS,
+             OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "LogicalAndAiCore ADD_TO_LAUNCHER_LIST_AICORE failed."), return nullptr);
     return logical_andOut;
 }
 
 // AICPU算子kernel
-static const aclTensor* LogicalAndAiCpu(
-    const aclTensor* self, const aclTensor* other, aclTensor* logical_andOut, aclOpExecutor* executor)
+static const aclTensor* LogicalAndAiCpu(const aclTensor* self, const aclTensor* other, aclTensor* logical_andOut,
+                                        aclOpExecutor* executor)
 {
     // 使用框架宏ADD_TO_LAUNCHER_LIST_AICPU，将AiCpu LogicalAnd算子加入任务队列
     // LogicalAnd是算子的OpType，self、other是算子的输入，logical_andOut是算子的输出
     L0_DFX(LogicalAndAiCpu, self, other);
 
     static internal::AicpuTaskSpace space("LogicalAnd");
-    auto ret =
-        ADD_TO_LAUNCHER_LIST_AICPU(LogicalAnd, OP_ATTR_NAMES(), OP_INPUT(self, other), OP_OUTPUT(logical_andOut));
-    OP_CHECK(
-        ret == ACLNN_SUCCESS, OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "LogicalAndAiCpu ADD_TO_LAUNCHER_LIST_AICPU failed."),
-        return nullptr);
+    auto ret = ADD_TO_LAUNCHER_LIST_AICPU(LogicalAnd, OP_ATTR_NAMES(), OP_INPUT(self, other),
+                                          OP_OUTPUT(logical_andOut));
+    OP_CHECK(ret == ACLNN_SUCCESS,
+             OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "LogicalAndAiCpu ADD_TO_LAUNCHER_LIST_AICPU failed."), return nullptr);
     return logical_andOut;
 }
 
@@ -71,9 +69,8 @@ const aclTensor* LogicalAnd(const aclTensor* self, const aclTensor* other, aclOp
 {
     op::Shape broadcastShape;
     if (!BroadcastInferShape(self->GetViewShape(), other->GetViewShape(), broadcastShape)) {
-        OP_LOGE(
-            ACLNN_ERR_PARAM_INVALID, "Broadcast %s and %s failed.", op::ToString(self->GetViewShape()).GetString(),
-            op::ToString(other->GetViewShape()).GetString());
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "Broadcast %s and %s failed.", op::ToString(self->GetViewShape()).GetString(),
+                op::ToString(other->GetViewShape()).GetString());
         return nullptr;
     }
 

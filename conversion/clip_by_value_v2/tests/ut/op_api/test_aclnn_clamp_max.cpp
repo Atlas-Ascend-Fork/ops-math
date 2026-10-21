@@ -23,15 +23,9 @@ using namespace std;
 
 class l2_clamp_max_test : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        std::cout << "clamp_max_test SetUp" << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "clamp_max_test SetUp" << std::endl; }
 
-    static void TearDownTestCase()
-    {
-        std::cout << "clamp_max_test TearDown" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "clamp_max_test TearDown" << std::endl; }
 };
 
 // 各元素特殊类型覆盖用例

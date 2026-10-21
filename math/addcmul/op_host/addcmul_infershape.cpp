@@ -23,4 +23,4 @@ static ge::graphStatus InferShape4Addcmul(gert::InferShapeContext* context)
     return Ops::Base::InferShape4Broadcast(context, INPUT_NUM_THREE);
 }
 IMPL_OP_INFERSHAPE(Addcmul).InferShape(InferShape4Addcmul);
-}
+} // namespace ops

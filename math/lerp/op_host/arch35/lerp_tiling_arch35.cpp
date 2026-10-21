@@ -17,7 +17,6 @@
 #include "log/log.h"
 #include "platform/platform_info.h"
 
-
 using namespace AscendC;
 using namespace ge;
 
@@ -40,8 +39,7 @@ ge::graphStatus LerpTiling::GetPlatformInfo()
     auto platformInfo = context_->GetPlatformInfo();
     if (platformInfo == nullptr) {
         auto compileInfoPtr = static_cast<const LerpCompileInfo*>(context_->GetCompileInfo());
-        OP_CHECK_IF(compileInfoPtr == nullptr, OP_LOGE(context_, "compile info is null"),
-                        return ge::GRAPH_FAILED);
+        OP_CHECK_IF(compileInfoPtr == nullptr, OP_LOGE(context_, "compile info is null"), return ge::GRAPH_FAILED);
         coreNum = compileInfoPtr->coreNum;
         ubSize = compileInfoPtr->ubSize;
     } else {
@@ -57,8 +55,8 @@ ge::graphStatus LerpTiling::GetPlatformInfo()
 uint64_t LerpTiling::GetOpKey(ge::DataType startDtype, ge::DataType endDtype, ge::DataType weightDtype,
                               ge::DataType yDtype)
 {
-    bool opKey1Flag =
-        startDtype == DT_FLOAT16 && endDtype == DT_FLOAT16 && weightDtype == DT_FLOAT16 && yDtype == DT_FLOAT16;
+    bool opKey1Flag = startDtype == DT_FLOAT16 && endDtype == DT_FLOAT16 && weightDtype == DT_FLOAT16 &&
+                      yDtype == DT_FLOAT16;
     if (opKey1Flag) {
         return OP_KEY_1;
     }
@@ -74,8 +72,8 @@ uint64_t LerpTiling::GetOpKey(ge::DataType startDtype, ge::DataType endDtype, ge
     if (opKey4Flag) {
         return OP_KEY_4;
     }
-    bool opKey5Flag =
-        startDtype == DT_FLOAT16 && endDtype == DT_FLOAT16 && weightDtype == DT_FLOAT && yDtype == DT_FLOAT16;
+    bool opKey5Flag = startDtype == DT_FLOAT16 && endDtype == DT_FLOAT16 && weightDtype == DT_FLOAT &&
+                      yDtype == DT_FLOAT16;
     if (opKey5Flag) {
         return OP_KEY_5;
     }
@@ -144,19 +142,18 @@ ge::graphStatus LerpTiling::GetShapeAttrsInfo()
 
     opKey = GetOpKey(startDtype, endDtype, weightDtype, yDtype);
     OP_CHECK_IF((opKey == OP_KEY_INVALID),
-                    OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(context_->GetNodeName(), "start, end, weight and y",
-                        (Ops::Base::ToString(startDtype) + ", " + Ops::Base::ToString(endDtype) + ", " +
-                         Ops::Base::ToString(weightDtype) + " and " + Ops::Base::ToString(yDtype)).c_str(),
-                        "The dtypes of start, end, weight and y must be one of: all float16, all float, all bf16, "
-                        "(bf16, bf16, float, bf16), or (float16, float16, float, float16)"),
-                    return ge::GRAPH_FAILED);
+                OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(
+                    context_->GetNodeName(), "start, end, weight and y",
+                    (Ops::Base::ToString(startDtype) + ", " + Ops::Base::ToString(endDtype) + ", " +
+                     Ops::Base::ToString(weightDtype) + " and " + Ops::Base::ToString(yDtype))
+                        .c_str(),
+                    "The dtypes of start, end, weight and y must be one of: all float16, all float, all bf16, "
+                    "(bf16, bf16, float, bf16), or (float16, float16, float, float16)"),
+                return ge::GRAPH_FAILED);
     return ge::GRAPH_SUCCESS;
 }
 
-bool LerpTiling::IsCapable()
-{
-    return true;
-}
+bool LerpTiling::IsCapable() { return true; }
 
 ge::graphStatus LerpTiling::DoOpTiling()
 {
@@ -227,15 +224,9 @@ std::string LerpTiling::ToString(LerpTilingData& inputTilingData)
     return str;
 }
 
-ge::graphStatus LerpTiling::DoLibApiTiling()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus LerpTiling::DoLibApiTiling() { return ge::GRAPH_SUCCESS; }
 
-uint64_t LerpTiling::GetTilingKey() const
-{
-    return tilingKey_;
-}
+uint64_t LerpTiling::GetTilingKey() const { return tilingKey_; }
 
 ge::graphStatus LerpTiling::GetWorkspaceSize()
 {
@@ -274,4 +265,4 @@ ge::graphStatus TilingPrepareForLerp(gert::TilingParseContext* context)
 }
 
 IMPL_OP_OPTILING(Lerp).Tiling(TilingForLerp).TilingParse<LerpCompileInfo>(TilingPrepareForLerp);
-}  // namespace optiling
+} // namespace optiling

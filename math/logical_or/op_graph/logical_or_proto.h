@@ -25,7 +25,8 @@ namespace ge {
 
 *
 *@par Inputs:
-*@li x1: A ND tensor. Must be one of the following types: bool, int8, uint8, int16, int32, int64, float16, bfloat16, float32.
+*@li x1: A ND tensor. Must be one of the following types: bool, int8, uint8, int16, int32, int64, float16, bfloat16,
+float32.
 *@li x2: A ND tensor of the same dtype as "x1".
 *
 *@attention Constraints:
@@ -47,4 +48,3 @@ REG_OP(LogicalOr)
 } // namespace ge
 
 #endif // OPS_OP_PROTO_INC_LOGICAL_OR_H_
-

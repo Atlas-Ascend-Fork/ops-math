@@ -24,19 +24,12 @@ using namespace std;
 
 class l2_remainder_inplace_tensor_tensor_test : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        std::cout << "remainder_inplace_tensor_tensor_test SetUp" << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "remainder_inplace_tensor_tensor_test SetUp" << std::endl; }
 
-    static void TearDownTestCase()
-    {
-        std::cout << "remainder_inplace_tensor_tensor_test TearDown" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "remainder_inplace_tensor_tensor_test TearDown" << std::endl; }
 
-    void test_run(
-        vector<int64_t> selfDims, aclDataType selfDtype, aclFormat selfFormat, vector<int64_t> selfRange,
-        vector<int64_t> otherDims, aclDataType otherDtype, aclFormat otherFormat, vector<int64_t> otherRange)
+    void test_run(vector<int64_t> selfDims, aclDataType selfDtype, aclFormat selfFormat, vector<int64_t> selfRange,
+                  vector<int64_t> otherDims, aclDataType otherDtype, aclFormat otherFormat, vector<int64_t> otherRange)
     {
         auto self = TensorDesc(selfDims, selfDtype, selfFormat).ValueRange(selfRange[0], selfRange[1]);
         auto other = TensorDesc(otherDims, otherDtype, otherFormat).ValueRange(otherRange[0], otherRange[1]);
@@ -48,9 +41,9 @@ protected:
         // ut.TestPrecision();
     }
 
-    void test_run_invalid(
-        vector<int64_t> selfDims, aclDataType selfDtype, aclFormat selfFormat, vector<int64_t> selfRange,
-        vector<int64_t> otherDims, aclDataType otherDtype, aclFormat otherFormat, vector<int64_t> otherRange)
+    void test_run_invalid(vector<int64_t> selfDims, aclDataType selfDtype, aclFormat selfFormat,
+                          vector<int64_t> selfRange, vector<int64_t> otherDims, aclDataType otherDtype,
+                          aclFormat otherFormat, vector<int64_t> otherRange)
     {
         auto self = TensorDesc(selfDims, selfDtype, selfFormat).ValueRange(selfRange[0], selfRange[1]);
         auto other = TensorDesc(otherDims, otherDtype, otherFormat).ValueRange(otherRange[0], otherRange[1]);
@@ -104,10 +97,10 @@ TEST_F(l2_remainder_inplace_tensor_tensor_test, l2_remainder_inplace_tensor_tens
     test_run_invalid({2, 3, 3}, ACL_INT8, ACL_FORMAT_ND, {-10, 10}, {2, 3, 3}, ACL_INT8, ACL_FORMAT_ND, {-15, -10});
     test_run_invalid({2, 3, 3}, ACL_INT16, ACL_FORMAT_ND, {-10, 10}, {2, 3, 3}, ACL_INT16, ACL_FORMAT_ND, {-15, -10});
     // test_run_invalid({2, 3, 3}, ACL_BF16, ACL_FORMAT_ND, {-10, 10}, {2, 3, 3}, ACL_BF16, ACL_FORMAT_ND, {-15, -10});
-    test_run_invalid(
-        {2, 3, 3}, ACL_COMPLEX64, ACL_FORMAT_ND, {-10, 10}, {2, 3, 3}, ACL_COMPLEX64, ACL_FORMAT_ND, {-15, -10});
-    test_run_invalid(
-        {2, 3, 3}, ACL_COMPLEX128, ACL_FORMAT_ND, {-10, 10}, {2, 3, 3}, ACL_COMPLEX128, ACL_FORMAT_ND, {-15, -10});
+    test_run_invalid({2, 3, 3}, ACL_COMPLEX64, ACL_FORMAT_ND, {-10, 10}, {2, 3, 3}, ACL_COMPLEX64, ACL_FORMAT_ND,
+                     {-15, -10});
+    test_run_invalid({2, 3, 3}, ACL_COMPLEX128, ACL_FORMAT_ND, {-10, 10}, {2, 3, 3}, ACL_COMPLEX128, ACL_FORMAT_ND,
+                     {-15, -10});
 }
 
 // self.dtype != other.dtype 会进行promote type  promoteType必须符合预期
@@ -230,10 +223,11 @@ TEST_F(l2_remainder_inplace_tensor_tensor_test, l2_remainder_inplace_tensor_tens
 // {
 //     // self.shape为broadcast以后的shape
 //     test_run({5, 3, 3, 5}, ACL_DOUBLE, ACL_FORMAT_ND, {-10, 10}, {3, 3, 5}, ACL_DOUBLE, ACL_FORMAT_ND, {1, 10});
-//     test_run({2, 5, 3, 3, 5}, ACL_DOUBLE, ACL_FORMAT_ND, {-10, 10}, {5, 3, 3, 5}, ACL_DOUBLE, ACL_FORMAT_ND, {1, 10});
+//     test_run({2, 5, 3, 3, 5}, ACL_DOUBLE, ACL_FORMAT_ND, {-10, 10}, {5, 3, 3, 5}, ACL_DOUBLE, ACL_FORMAT_ND, {1,
+//     10});
 //     // self.shape不为broadcast以后的shape
-//     test_run_invalid({2, 3, 3}, ACL_DOUBLE, ACL_FORMAT_ND, {-10, 10}, {2, 2, 3, 3}, ACL_DOUBLE, ACL_FORMAT_ND, {1, 10});
-//     test_run_invalid(
+//     test_run_invalid({2, 3, 3}, ACL_DOUBLE, ACL_FORMAT_ND, {-10, 10}, {2, 2, 3, 3}, ACL_DOUBLE, ACL_FORMAT_ND, {1,
+//     10}); test_run_invalid(
 //         {5, 3, 3, 5}, ACL_DOUBLE, ACL_FORMAT_ND, {-10, 10}, {2, 5, 3, 3, 5}, ACL_DOUBLE, ACL_FORMAT_ND, {1, 10});
 // }
 

@@ -57,6 +57,7 @@ target_link_libraries(${OPHOST_NAME}_ut PRIVATE
         rt2_registry_static
     -Wl,--no-whole-archive
     tiling_api
+    graph_base
 )
 
 ## add ophost ut exe:  math_op_host_ut

@@ -22,8 +22,8 @@ using namespace AscendC;
 using namespace Ops::Base;
 
 template <uint64_t schMode>
-__global__ __aicore__ void clip_by_value(
-    GM_ADDR x, GM_ADDR clipValueMin, GM_ADDR clipValueMax, GM_ADDR y, GM_ADDR workspace, GM_ADDR tiling)
+__global__ __aicore__ void clip_by_value(GM_ADDR x, GM_ADDR clipValueMin, GM_ADDR clipValueMax, GM_ADDR y,
+                                         GM_ADDR workspace, GM_ADDR tiling)
 {
     using OpDag = ClipByValueOp::ClipByValueCompute<DTYPE_X>::OpDag;
     BroadcastSch<schMode, OpDag> sch(tiling);

@@ -25,12 +25,10 @@ class MethodTorchClipApi(BaseApi):
         OpsDataset.seed_everything()
         self.change_flag = None
 
-
     def __call__(self, input_data: InputDataset, with_output: bool = False):
-
         input_tensor = input_data.kwargs["self"]
         clip_value_min = input_data.kwargs["clipValueMin"]
-        
+
         output = torch.clip(input_tensor, min=clip_value_min)
 
         return output

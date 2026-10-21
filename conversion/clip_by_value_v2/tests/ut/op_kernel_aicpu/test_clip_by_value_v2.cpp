@@ -89,14 +89,14 @@ TEST_F(TEST_CLIP_BY_VALUE_V2_UT, TEST_COMPLEX64_SUCCESS)
 {
     vector<DataType> data_types = {DT_COMPLEX64, DT_COMPLEX64, DT_COMPLEX64, DT_COMPLEX64};
     vector<vector<int64_t>> shapes = {{1, 4}, {1, 4}, {1, 4}, {1, 4}};
-    std::complex<float> input0[4] = {
-        std::complex<float>(1, 1), std::complex<float>(2, 2), std::complex<float>(3, 3), std::complex<float>(4, 4)};
-    std::complex<float> input1[4] = {
-        std::complex<float>(2, 1), std::complex<float>(2, 2), std::complex<float>(5, 4), std::complex<float>(4, 4)};
-    std::complex<float> input2[4] = {
-        std::complex<float>(1, 1), std::complex<float>(3, 2), std::complex<float>(4, 3), std::complex<float>(3, 4)};
-    std::complex<float> expect_output[4] = {
-        std::complex<float>(1, 1), std::complex<float>(2, 2), std::complex<float>(4, 3), std::complex<float>(3, 4)};
+    std::complex<float> input0[4] = {std::complex<float>(1, 1), std::complex<float>(2, 2), std::complex<float>(3, 3),
+                                     std::complex<float>(4, 4)};
+    std::complex<float> input1[4] = {std::complex<float>(2, 1), std::complex<float>(2, 2), std::complex<float>(5, 4),
+                                     std::complex<float>(4, 4)};
+    std::complex<float> input2[4] = {std::complex<float>(1, 1), std::complex<float>(3, 2), std::complex<float>(4, 3),
+                                     std::complex<float>(3, 4)};
+    std::complex<float> expect_output[4] = {std::complex<float>(1, 1), std::complex<float>(2, 2),
+                                            std::complex<float>(4, 3), std::complex<float>(3, 4)};
     std::complex<float> output[4] = {0};
     vector<void*> datas = {(void*)input0, (void*)input1, (void*)input2, (void*)output};
     CREATE_NODEDEF(shapes, data_types, datas);
@@ -123,12 +123,12 @@ TEST_F(TEST_CLIP_BY_VALUE_V2_UT, TEST_COMPLEX64_MIN_AND_MAX_SUCCESS)
 {
     vector<DataType> data_types = {DT_COMPLEX64, DT_COMPLEX64, DT_COMPLEX64, DT_COMPLEX64};
     vector<vector<int64_t>> shapes = {{1, 4}, {}, {}, {1, 4}};
-    std::complex<float> input0[4] = {
-        std::complex<float>(1, 1), std::complex<float>(2, 2), std::complex<float>(3, 3), std::complex<float>(4, 4)};
+    std::complex<float> input0[4] = {std::complex<float>(1, 1), std::complex<float>(2, 2), std::complex<float>(3, 3),
+                                     std::complex<float>(4, 4)};
     std::complex<float> input1 = std::complex<float>(5, 4);
     std::complex<float> input2 = std::complex<float>(4, 3);
-    std::complex<float> expect_output[4] = {
-        std::complex<float>(4, 3), std::complex<float>(4, 3), std::complex<float>(4, 3), std::complex<float>(4, 3)};
+    std::complex<float> expect_output[4] = {std::complex<float>(4, 3), std::complex<float>(4, 3),
+                                            std::complex<float>(4, 3), std::complex<float>(4, 3)};
     std::complex<float> output[4] = {0};
     vector<void*> datas = {(void*)input0, (void*)&input1, (void*)&input2, (void*)output};
     CREATE_NODEDEF(shapes, data_types, datas);
@@ -140,14 +140,14 @@ TEST_F(TEST_CLIP_BY_VALUE_V2_UT, TEST_COMPLEX128_SUCCESS)
 {
     vector<DataType> data_types = {DT_COMPLEX128, DT_COMPLEX128, DT_COMPLEX128, DT_COMPLEX128};
     vector<vector<int64_t>> shapes = {{1, 4}, {1, 4}, {1, 4}, {1, 4}};
-    std::complex<double> input0[4] = {
-        std::complex<double>(1, 1), std::complex<double>(2, 2), std::complex<double>(3, 3), std::complex<double>(4, 4)};
-    std::complex<double> input1[4] = {
-        std::complex<double>(2, 1), std::complex<double>(2, 2), std::complex<double>(5, 4), std::complex<double>(4, 4)};
-    std::complex<double> input2[4] = {
-        std::complex<double>(1, 1), std::complex<double>(3, 2), std::complex<double>(4, 3), std::complex<double>(3, 4)};
-    std::complex<double> expect_output[4] = {
-        std::complex<double>(1, 1), std::complex<double>(2, 2), std::complex<double>(4, 3), std::complex<double>(3, 4)};
+    std::complex<double> input0[4] = {std::complex<double>(1, 1), std::complex<double>(2, 2),
+                                      std::complex<double>(3, 3), std::complex<double>(4, 4)};
+    std::complex<double> input1[4] = {std::complex<double>(2, 1), std::complex<double>(2, 2),
+                                      std::complex<double>(5, 4), std::complex<double>(4, 4)};
+    std::complex<double> input2[4] = {std::complex<double>(1, 1), std::complex<double>(3, 2),
+                                      std::complex<double>(4, 3), std::complex<double>(3, 4)};
+    std::complex<double> expect_output[4] = {std::complex<double>(1, 1), std::complex<double>(2, 2),
+                                             std::complex<double>(4, 3), std::complex<double>(3, 4)};
     std::complex<double> output[4] = {0};
     vector<void*> datas = {(void*)input0, (void*)input1, (void*)input2, (void*)output};
     CREATE_NODEDEF(shapes, data_types, datas);
@@ -309,14 +309,14 @@ TEST_F(TEST_CLIP_BY_VALUE_V2_UT, TEST_NAN_SUCCESS)
 // Large parallel path (>200KB): scalar min/max branch
 TEST_F(TEST_CLIP_BY_VALUE_V2_UT, TEST_LARGE_SCALAR_PARALLEL_FLOAT)
 {
-    const int64_t n = 128 * 1024;  // 512KB > 200KB parallel thresh
+    const int64_t n = 128 * 1024; // 512KB > 200KB parallel thresh
     vector<DataType> data_types = {DT_FLOAT, DT_FLOAT, DT_FLOAT, DT_FLOAT};
     vector<vector<int64_t>> shapes = {{n}, {}, {}, {n}};
     std::vector<float> input0(n);
     std::vector<float> output(n, 0.0f);
     std::vector<float> expect_output(n);
     for (int64_t i = 0; i < n; ++i) {
-        input0[i] = static_cast<float>((i % 10) - 5);  // -5..4
+        input0[i] = static_cast<float>((i % 10) - 5); // -5..4
         float v = input0[i];
         v = v < -2.0f ? -2.0f : v;
         v = v > 2.0f ? 2.0f : v;
@@ -333,7 +333,7 @@ TEST_F(TEST_CLIP_BY_VALUE_V2_UT, TEST_LARGE_SCALAR_PARALLEL_FLOAT)
 // Large parallel path: elementwise min/max (tensor bounds)
 TEST_F(TEST_CLIP_BY_VALUE_V2_UT, TEST_LARGE_ELEM_PARALLEL_INT32)
 {
-    const int64_t n = 128 * 1024;  // 512KB
+    const int64_t n = 128 * 1024; // 512KB
     vector<DataType> data_types = {DT_INT32, DT_INT32, DT_INT32, DT_INT32};
     vector<vector<int64_t>> shapes = {{n}, {n}, {n}, {n}};
     std::vector<int32_t> input0(n), input1(n), input2(n), output(n, 0), expect(n);
@@ -342,8 +342,10 @@ TEST_F(TEST_CLIP_BY_VALUE_V2_UT, TEST_LARGE_ELEM_PARALLEL_INT32)
         input1[i] = -10;
         input2[i] = 100;
         int32_t v = input0[i];
-        if (v < input1[i]) v = input1[i];
-        if (v > input2[i]) v = input2[i];
+        if (v < input1[i])
+            v = input1[i];
+        if (v > input2[i])
+            v = input2[i];
         expect[i] = v;
     }
     vector<void*> datas = {(void*)input0.data(), (void*)input1.data(), (void*)input2.data(), (void*)output.data()};
@@ -355,7 +357,7 @@ TEST_F(TEST_CLIP_BY_VALUE_V2_UT, TEST_LARGE_ELEM_PARALLEL_INT32)
 // Large parallel path: complex64, scalar bounds (worth parallelizing due to norm comp)
 TEST_F(TEST_CLIP_BY_VALUE_V2_UT, TEST_LARGE_COMPLEX64_SCALAR_PARALLEL)
 {
-    const int64_t n = 8 * 1024;  // ~64KB of complex64 > 40KB thresh
+    const int64_t n = 8 * 1024; // ~64KB of complex64 > 40KB thresh
     vector<DataType> data_types = {DT_COMPLEX64, DT_COMPLEX64, DT_COMPLEX64, DT_COMPLEX64};
     vector<vector<int64_t>> shapes = {{n}, {}, {}, {n}};
     std::vector<std::complex<float>> input0(n), output(n), expect(n);
@@ -394,14 +396,15 @@ TEST_F(TEST_CLIP_BY_VALUE_V2_UT, TEST_BFLOAT16_SCALAR_BOUNDS)
 {
     vector<DataType> data_types = {DT_BFLOAT16, DT_BFLOAT16, DT_BFLOAT16, DT_BFLOAT16};
     vector<vector<int64_t>> shapes = {{4}, {}, {}, {4}};
-    Eigen::bfloat16 input0[4] = {
-        Eigen::bfloat16(-3.0f), Eigen::bfloat16(-1.0f), Eigen::bfloat16(1.0f), Eigen::bfloat16(3.0f)};
+    Eigen::bfloat16 input0[4] = {Eigen::bfloat16(-3.0f), Eigen::bfloat16(-1.0f), Eigen::bfloat16(1.0f),
+                                 Eigen::bfloat16(3.0f)};
     Eigen::bfloat16 mn(-2.0f);
     Eigen::bfloat16 mx(2.0f);
-    Eigen::bfloat16 expect_output[4] = {
-        Eigen::bfloat16(-2.0f), Eigen::bfloat16(-1.0f), Eigen::bfloat16(1.0f), Eigen::bfloat16(2.0f)};
+    Eigen::bfloat16 expect_output[4] = {Eigen::bfloat16(-2.0f), Eigen::bfloat16(-1.0f), Eigen::bfloat16(1.0f),
+                                        Eigen::bfloat16(2.0f)};
     Eigen::bfloat16 output[4];
-    for (int i = 0; i < 4; ++i) output[i] = Eigen::bfloat16(0.0f);
+    for (int i = 0; i < 4; ++i)
+        output[i] = Eigen::bfloat16(0.0f);
     vector<void*> datas = {(void*)input0, (void*)&mn, (void*)&mx, (void*)output};
     CREATE_NODEDEF(shapes, data_types, datas);
     RUN_KERNEL(node_def, HOST, KERNEL_STATUS_OK);

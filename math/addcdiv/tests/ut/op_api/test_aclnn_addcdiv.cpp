@@ -25,15 +25,9 @@ using namespace op;
 
 class l2_addcdiv_test : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        cout << "addcdiv_test SetUp" << endl;
-    }
+    static void SetUpTestCase() { cout << "addcdiv_test SetUp" << endl; }
 
-    static void TearDownTestCase()
-    {
-        cout << "addcdiv_test TearDown" << endl;
-    }
+    static void TearDownTestCase() { cout << "addcdiv_test TearDown" << endl; }
 };
 
 // 普通场景（含精度）

@@ -17,8 +17,7 @@
 #include "tiling/math/power_tiling.h"
 #include "op_host/math_tiling_templates_registry.h"
 
-namespace optiling
-{
+namespace optiling {
 constexpr int64_t BUFFER_ALIGN = 512;
 constexpr uint64_t ASCENDC_API_TENSOR_SCALAR_FLOAT16_PATTERN = 1001;
 constexpr uint64_t ASCENDC_API_TENSOR_SCALAR_BFLOAT16_PATTERN = 2001;
@@ -79,10 +78,8 @@ ge::graphStatus PowTensorScalarTiling::DoOpTiling()
     int64_t graphNode = 5;
     uint32_t powsApiNode;
     uint32_t powsApiTmpBuffer;
-    bool isTypeInt = ((params_.baseDtype == ge::DT_UINT8)
-                      || (params_.baseDtype == ge::DT_INT8)
-                      || (params_.baseDtype == ge::DT_INT16)
-                      || (params_.baseDtype == ge::DT_INT32));
+    bool isTypeInt = ((params_.baseDtype == ge::DT_UINT8) || (params_.baseDtype == ge::DT_INT8) ||
+                      (params_.baseDtype == ge::DT_INT16) || (params_.baseDtype == ge::DT_INT32));
     uint32_t baseTypeSize = static_cast<uint32_t>(params_.computeDtypeSize);
     AscendC::GetPowerTmpBufferFactorSize(true, false, isTypeInt, baseTypeSize, powsApiNode, powsApiTmpBuffer);
     OP_LOGD(context_->GetNodeName(),
@@ -144,4 +141,4 @@ ge::graphStatus PowTensorScalarTiling::PostTiling()
 }
 
 REGISTER_OPS_TILING_TEMPLATE(Pow, PowTensorScalarTiling, 0);
-}  // namespace optiling
+} // namespace optiling

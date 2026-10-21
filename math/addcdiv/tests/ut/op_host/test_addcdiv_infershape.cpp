@@ -20,15 +20,9 @@
 using namespace ge;
 class AddcdivInfershape : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        std::cout << "AddcdivInfershape SetUp" << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "AddcdivInfershape SetUp" << std::endl; }
 
-    static void TearDownTestCase()
-    {
-        std::cout << "AddcdivInfershape TearDown" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "AddcdivInfershape TearDown" << std::endl; }
 };
 
 TEST_F(AddcdivInfershape, addcdiv_verify_test1_failed)

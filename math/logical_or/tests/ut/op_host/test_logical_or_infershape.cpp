@@ -13,17 +13,12 @@
 #include "infershape_context_faker.h"
 #include "infershape_case_executor.h"
 
-class logical_or:public testing::Test{
-    protected:
-        static void SetUpTestCase(){
-            std::cout<<"logical_or Proto Test SetUp"<<std::endl;
-        }
+class logical_or : public testing::Test {
+protected:
+    static void SetUpTestCase() { std::cout << "logical_or Proto Test SetUp" << std::endl; }
 
-        static void TearDownTestCase(){
-            std::cout<<"logical_or Proto Test TearDown"<<std::endl;
-        }
+    static void TearDownTestCase() { std::cout << "logical_or Proto Test TearDown" << std::endl; }
 };
-
 
 // TEST_F(logical_or,logical_or_infershape_diff_test){
 //     gert::InfershapeContextPara infershapeContextPara("LogicalOr",
@@ -41,15 +36,14 @@ class logical_or:public testing::Test{
 
 TEST_F(logical_or, logical_or_infershape_diff_test)
 {
-    gert::InfershapeContextPara infershapeContextPara(
-        "LogicalOr",
-        {
-            {{{4, 3, 4}, {4, 3, 4}}, ge::DT_INT8, ge::FORMAT_ND},
-            {{{4, 3, 4}, {4, 3, 4}}, ge::DT_INT8, ge::FORMAT_ND},
-        },
-        {
-            {{{}, {}}, ge::DT_INT8, ge::FORMAT_ND},
-        });
+    gert::InfershapeContextPara infershapeContextPara("LogicalOr",
+                                                      {
+                                                          {{{4, 3, 4}, {4, 3, 4}}, ge::DT_INT8, ge::FORMAT_ND},
+                                                          {{{4, 3, 4}, {4, 3, 4}}, ge::DT_INT8, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_INT8, ge::FORMAT_ND},
+                                                      });
     std::vector<std::vector<int64_t>> expectOutputShape = {
         {4, 3, 4},
     };
@@ -58,15 +52,14 @@ TEST_F(logical_or, logical_or_infershape_diff_test)
 
 TEST_F(logical_or, logical_or_infershape_same_test)
 {
-    gert::InfershapeContextPara infershapeContextPara(
-        "LogicalOr",
-        {
-            {{{1, 3, 4}, {1, 3, 4}}, ge::DT_INT8, ge::FORMAT_ND},
-            {{{1, 3, 4}, {1, 3, 4}}, ge::DT_INT8, ge::FORMAT_ND},
-        },
-        {
-            {{{}, {}}, ge::DT_INT8, ge::FORMAT_ND},
-        });
+    gert::InfershapeContextPara infershapeContextPara("LogicalOr",
+                                                      {
+                                                          {{{1, 3, 4}, {1, 3, 4}}, ge::DT_INT8, ge::FORMAT_ND},
+                                                          {{{1, 3, 4}, {1, 3, 4}}, ge::DT_INT8, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_INT8, ge::FORMAT_ND},
+                                                      });
     std::vector<std::vector<int64_t>> expectOutputShape = {
         {1, 3, 4},
     };

@@ -22,15 +22,9 @@ using namespace ge;
 
 class FloorModInfershape : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        std::cout << "FloorModInfershape SetUp" << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "FloorModInfershape SetUp" << std::endl; }
 
-    static void TearDownTestCase()
-    {
-        std::cout << "FloorModInfershape TearDown" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "FloorModInfershape TearDown" << std::endl; }
 };
 
 TEST_F(FloorModInfershape, floor_mod_infershape_diff_test_4)
@@ -52,15 +46,14 @@ TEST_F(FloorModInfershape, floor_mod_infershape_diff_test_4)
 
 TEST_F(FloorModInfershape, floor_mod_infershape_diff_test_5)
 {
-    gert::InfershapeContextPara infershapeContextPara(
-        "FloorMod",
-        {
-            {{{-2}, {-2}}, ge::DT_INT32, ge::FORMAT_ND},
-            {{{10, -1}, {10, -1}}, ge::DT_INT32, ge::FORMAT_ND},
-        },
-        {
-            {{{}, {}}, ge::DT_INT32, ge::FORMAT_ND},
-        });
+    gert::InfershapeContextPara infershapeContextPara("FloorMod",
+                                                      {
+                                                          {{{-2}, {-2}}, ge::DT_INT32, ge::FORMAT_ND},
+                                                          {{{10, -1}, {10, -1}}, ge::DT_INT32, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_INT32, ge::FORMAT_ND},
+                                                      });
     std::vector<std::vector<int64_t>> expectOutputShape = {
         {-2},
     };
@@ -86,15 +79,14 @@ TEST_F(FloorModInfershape, floor_mod_infershape_diff_test_6)
 
 TEST_F(FloorModInfershape, floor_mod_infershape_diff_test_7)
 {
-    gert::InfershapeContextPara infershapeContextPara(
-        "FloorMod",
-        {
-            {{{-2}, {-2}}, ge::DT_INT32, ge::FORMAT_ND},
-            {{{-2}, {-2}}, ge::DT_INT32, ge::FORMAT_ND},
-        },
-        {
-            {{{}, {}}, ge::DT_INT32, ge::FORMAT_ND},
-        });
+    gert::InfershapeContextPara infershapeContextPara("FloorMod",
+                                                      {
+                                                          {{{-2}, {-2}}, ge::DT_INT32, ge::FORMAT_ND},
+                                                          {{{-2}, {-2}}, ge::DT_INT32, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_INT32, ge::FORMAT_ND},
+                                                      });
     std::vector<std::vector<int64_t>> expectOutputShape = {
         {-2},
     };
@@ -103,15 +95,14 @@ TEST_F(FloorModInfershape, floor_mod_infershape_diff_test_7)
 
 TEST_F(FloorModInfershape, floor_mod_infershape_diff_test_8)
 {
-    gert::InfershapeContextPara infershapeContextPara(
-        "FloorMod",
-        {
-            {{{-1, 2}, {-1, 2}}, ge::DT_INT32, ge::FORMAT_ND},
-            {{{1}, {1}}, ge::DT_INT32, ge::FORMAT_ND},
-        },
-        {
-            {{{}, {}}, ge::DT_INT32, ge::FORMAT_ND},
-        });
+    gert::InfershapeContextPara infershapeContextPara("FloorMod",
+                                                      {
+                                                          {{{-1, 2}, {-1, 2}}, ge::DT_INT32, ge::FORMAT_ND},
+                                                          {{{1}, {1}}, ge::DT_INT32, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_INT32, ge::FORMAT_ND},
+                                                      });
     std::vector<std::vector<int64_t>> expectOutputShape = {
         {-1, 2},
     };
@@ -120,15 +111,14 @@ TEST_F(FloorModInfershape, floor_mod_infershape_diff_test_8)
 
 TEST_F(FloorModInfershape, floor_mod_infershape_diff_test_9)
 {
-    gert::InfershapeContextPara infershapeContextPara(
-        "FloorMod",
-        {
-            {{{-1}, {-1}}, ge::DT_INT32, ge::FORMAT_ND},
-            {{{17, 2, 5, 1}, {17, 2, 5, 1}}, ge::DT_INT32, ge::FORMAT_ND},
-        },
-        {
-            {{{}, {}}, ge::DT_INT32, ge::FORMAT_ND},
-        });
+    gert::InfershapeContextPara infershapeContextPara("FloorMod",
+                                                      {
+                                                          {{{-1}, {-1}}, ge::DT_INT32, ge::FORMAT_ND},
+                                                          {{{17, 2, 5, 1}, {17, 2, 5, 1}}, ge::DT_INT32, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_INT32, ge::FORMAT_ND},
+                                                      });
     std::vector<std::vector<int64_t>> expectOutputShape = {
         {17, 2, 5, -1},
     };

@@ -26,7 +26,6 @@ class MethodTorchClipApi(BaseApi):
         self.change_flag = None
 
     def __call__(self, input_data: InputDataset, with_output: bool = False):
-
         input_tensor = input_data.kwargs["self"]
         val_min = input_data.kwargs["clipValueMinTensor"]
         val_max = input_data.kwargs["clipValueMaxTensor"]

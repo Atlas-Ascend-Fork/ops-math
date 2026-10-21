@@ -23,8 +23,7 @@
 #include "atvoss/broadcast/broadcast_tiling.h"
 #include "log/log.h"
 
-namespace optiling
-{
+namespace optiling {
 const int INPUT_MAX_DIMS = 8;
 using namespace Ops::Base;
 BEGIN_TILING_DATA_DEF(PowBaseTilingData)
@@ -134,16 +133,11 @@ struct InputParams {
     int64_t computeDtypeSize;
 };
 
-class PowTilingBase : public Ops::Base::TilingBaseClass
-{
+class PowTilingBase : public Ops::Base::TilingBaseClass {
 public:
-    explicit PowTilingBase(gert::TilingContext* context) : Ops::Base::TilingBaseClass(context)
-    {
-    }
+    explicit PowTilingBase(gert::TilingContext* context) : Ops::Base::TilingBaseClass(context) {}
 
-    ~PowTilingBase() override
-    {
-    }
+    ~PowTilingBase() override {}
     InputParams params_;
 
 protected:
@@ -157,15 +151,10 @@ protected:
     ge::graphStatus PostTiling() override;
 };
 
-class PowTensorScalarTiling : public PowTilingBase
-{
+class PowTensorScalarTiling : public PowTilingBase {
 public:
-    explicit PowTensorScalarTiling(gert::TilingContext* context) : PowTilingBase(context)
-    {
-    }
-    ~PowTensorScalarTiling() override
-    {
-    }
+    explicit PowTensorScalarTiling(gert::TilingContext* context) : PowTilingBase(context) {}
+    ~PowTensorScalarTiling() override {}
     PowTensorScalarTilingData tilingData_;
 
 protected:
@@ -176,15 +165,10 @@ protected:
     int64_t GetUbFactor(int64_t dim0, int64_t oriUbFactor) const;
 };
 
-class PowTensorTensorTiling : public PowTilingBase
-{
+class PowTensorTensorTiling : public PowTilingBase {
 public:
-    explicit PowTensorTensorTiling(gert::TilingContext* context) : PowTilingBase(context)
-    {
-    }
-    ~PowTensorTensorTiling() override
-    {
-    }
+    explicit PowTensorTensorTiling(gert::TilingContext* context) : PowTilingBase(context) {}
+    ~PowTensorTensorTiling() override {}
     PowTensorTensorTilingData tilingData_;
 
 protected:
@@ -209,5 +193,5 @@ protected:
     int64_t outputStrides[INPUT_MAX_DIMS] = {0};
 };
 
-}  // namespace optiling
-#endif  // POW_CANNDEV_OPS_BUILT_IN_OP_TILING_RUNTIME_POW_POW_TILING_H_
+} // namespace optiling
+#endif // POW_CANNDEV_OPS_BUILT_IN_OP_TILING_RUNTIME_POW_POW_TILING_H_

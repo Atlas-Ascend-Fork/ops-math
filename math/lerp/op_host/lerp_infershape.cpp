@@ -19,7 +19,7 @@
 namespace ops {
 constexpr size_t INPUT_NUM_THREE = 3;
 
-static ge::graphStatus InferShape4Lerp(gert::InferShapeContext *context)
+static ge::graphStatus InferShape4Lerp(gert::InferShapeContext* context)
 {
     return Ops::Base::InferShape4Broadcast(context, INPUT_NUM_THREE);
 }

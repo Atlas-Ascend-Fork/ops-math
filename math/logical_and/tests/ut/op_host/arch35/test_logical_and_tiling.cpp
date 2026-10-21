@@ -22,30 +22,23 @@
 using namespace std;
 class LogicalAndTiling : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        std::cout << "LogicalAndTiling SetUp" << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "LogicalAndTiling SetUp" << std::endl; }
 
-    static void TearDownTestCase()
-    {
-        std::cout << "LogicalAndTiling TearDown" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "LogicalAndTiling TearDown" << std::endl; }
 };
 
 TEST_F(LogicalAndTiling, logical_and_test_0)
 {
     optiling::LogicalAndCompileInfo compileInfo = {64, 245760};
-    gert::TilingContextPara tilingContextPara(
-        "LogicalAnd",
-        {
-            {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_BOOL, ge::FORMAT_ND},
-            {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_BOOL, ge::FORMAT_ND},
-        },
-        {
-            {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_BOOL, ge::FORMAT_ND},
-        },
-        &compileInfo);
+    gert::TilingContextPara tilingContextPara("LogicalAnd",
+                                              {
+                                                  {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_BOOL, ge::FORMAT_ND},
+                                                  {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_BOOL, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_BOOL, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
     uint64_t expectTilingKey = 8;
     string expectTilingData = "2048 281483566645760 ";
     std::vector<size_t> expectWorkspaces = {16777216};
@@ -76,16 +69,15 @@ TEST_F(LogicalAndTiling, logical_and_test_1)
 TEST_F(LogicalAndTiling, logical_and_test_failed_invalid_dtype)
 {
     optiling::LogicalAndCompileInfo compileInfo = {64, 245760};
-    gert::TilingContextPara tilingContextPara(
-        "LogicalAnd",
-        {
-            {{{4, 17, 1, 12}, {4, 17, 1, 12}}, ge::DT_INT16, ge::FORMAT_ND},
-            {{{1, 1, 1, 12}, {1, 1, 1, 12}}, ge::DT_INT16, ge::FORMAT_ND},
-        },
-        {
-            {{{4, 17, 1, 12}, {4, 17, 1, 12}}, ge::DT_INT16, ge::FORMAT_ND},
-        },
-        &compileInfo);
+    gert::TilingContextPara tilingContextPara("LogicalAnd",
+                                              {
+                                                  {{{4, 17, 1, 12}, {4, 17, 1, 12}}, ge::DT_INT16, ge::FORMAT_ND},
+                                                  {{{1, 1, 1, 12}, {1, 1, 1, 12}}, ge::DT_INT16, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{4, 17, 1, 12}, {4, 17, 1, 12}}, ge::DT_INT16, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
     uint64_t expectTilingKey = 1;
     string expectTilingData = "11 549755814016 16 1 1 0 0 ";
     std::vector<size_t> expectWorkspaces = {16777216};

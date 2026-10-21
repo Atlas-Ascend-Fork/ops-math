@@ -16,15 +16,9 @@
 using namespace ge;
 class AddcmulInfershape : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        std::cout << "AddcmulInfershape SetUp" << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "AddcmulInfershape SetUp" << std::endl; }
 
-    static void TearDownTestCase()
-    {
-        std::cout << "AddcmulInfershape TearDown" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "AddcmulInfershape TearDown" << std::endl; }
 };
 
 TEST_F(AddcmulInfershape, addcmul_verify_test1_failed)

@@ -24,19 +24,12 @@ using namespace std;
 
 class l2_remainder_inplace_tensor_scalar_test : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        std::cout << "remainder_inplace_tensor_scalar_test SetUp" << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "remainder_inplace_tensor_scalar_test SetUp" << std::endl; }
 
-    static void TearDownTestCase()
-    {
-        std::cout << "remainder_inplace_tensor_scalar_test TearDown" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "remainder_inplace_tensor_scalar_test TearDown" << std::endl; }
 
-    void test_run(
-        vector<int64_t> selfDims, aclDataType selfDtype, aclFormat selfFormat, vector<int64_t> selfRange,
-        ScalarDesc other)
+    void test_run(vector<int64_t> selfDims, aclDataType selfDtype, aclFormat selfFormat, vector<int64_t> selfRange,
+                  ScalarDesc other)
     {
         auto self = TensorDesc(selfDims, selfDtype, selfFormat)
                         .ValueRange(selfRange[0], selfRange[1])
@@ -49,9 +42,8 @@ protected:
         // ut.TestPrecision();
     }
 
-    void test_run_invalid(
-        vector<int64_t> selfDims, aclDataType selfDtype, aclFormat selfFormat, vector<int64_t> selfRange,
-        ScalarDesc other)
+    void test_run_invalid(vector<int64_t> selfDims, aclDataType selfDtype, aclFormat selfFormat,
+                          vector<int64_t> selfRange, ScalarDesc other)
     {
         auto self = TensorDesc(selfDims, selfDtype, selfFormat)
                         .ValueRange(selfRange[0], selfRange[1])
@@ -251,7 +243,8 @@ TEST_F(l2_remainder_inplace_tensor_scalar_test, l2_remainder_inplace_tensor_scal
 //     uint64_t workspaceSize = 0;
 //     auto self = TensorDesc({5, 4}, ACL_INT32, ACL_FORMAT_ND).ValueRange(-10, 10).Precision(0.00001, 0.00001);
 //     auto selfT =
-//         TensorDesc({5, 4}, ACL_INT32, ACL_FORMAT_ND, {1, 5}, 0, {4, 5}).ValueRange(-10, 10).Precision(0.00001, 0.00001);
+//         TensorDesc({5, 4}, ACL_INT32, ACL_FORMAT_ND, {1, 5}, 0, {4, 5}).ValueRange(-10, 10).Precision(0.00001,
+//         0.00001);
 //     auto other_desc = ScalarDesc(7);
 
 //     // self not contiguous

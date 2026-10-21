@@ -21,15 +21,9 @@ using namespace std;
 
 class l2_clamp_test : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        cout << "clamp_test SetUp" << endl;
-    }
+    static void SetUpTestCase() { cout << "clamp_test SetUp" << endl; }
 
-    static void TearDownTestCase()
-    {
-        cout << "clamp_test TearDown" << endl;
-    }
+    static void TearDownTestCase() { cout << "clamp_test TearDown" << endl; }
 };
 
 TEST_F(l2_clamp_test, case_unsupport_shape)
@@ -41,8 +35,8 @@ TEST_F(l2_clamp_test, case_unsupport_shape)
     auto tensor_desc_1 = TensorDesc({5, 4, 3, 2}, ACL_INT64, ACL_FORMAT_NCHW);
     auto out_tensor_desc_1 = TensorDesc({2, 3, 4, 5}, ACL_INT64, ACL_FORMAT_ND).Precision(0.0001, 0.0001);
 
-    auto ut_1 =
-        OP_API_UT(aclnnClamp, INPUT(tensor_desc_1, min_scalar_desc, max_scalar_desc), OUTPUT(out_tensor_desc_1));
+    auto ut_1 = OP_API_UT(aclnnClamp, INPUT(tensor_desc_1, min_scalar_desc, max_scalar_desc),
+                          OUTPUT(out_tensor_desc_1));
 
     aclnnStatus aclRet = ut_1.TestGetWorkspaceSize(&workspace_size);
     EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
@@ -78,8 +72,8 @@ TEST_F(l2_clamp_test, case_9dim)
     auto tensor_desc = TensorDesc({2, 3, 4, 5, 6, 7, 8, 9, 10}, ACL_INT64, ACL_FORMAT_NCDHW);
     auto min_scalar_desc = ScalarDesc(-1);
     auto max_scalar_desc = ScalarDesc(2);
-    auto out_tensor_desc =
-        TensorDesc({2, 3, 4, 5, 6, 7, 8, 9, 10}, ACL_INT64, ACL_FORMAT_NCDHW).Precision(0.0001, 0.0001);
+    auto out_tensor_desc = TensorDesc({2, 3, 4, 5, 6, 7, 8, 9, 10}, ACL_INT64, ACL_FORMAT_NCDHW)
+                               .Precision(0.0001, 0.0001);
 
     auto ut = OP_API_UT(aclnnClamp, INPUT(tensor_desc, min_scalar_desc, max_scalar_desc), OUTPUT(out_tensor_desc));
 

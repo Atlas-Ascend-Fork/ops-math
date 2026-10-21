@@ -58,9 +58,9 @@ extern "C" {
  * @param [out] executor: 返回op执行器，包含算子计算流程。
  * @return aclnnStatus: 返回状态码。
  */
-ACLNN_API aclnnStatus aclnnHardtanhGetWorkspaceSize(
-    const aclTensor* self, const aclScalar* clipValueMin, const aclScalar* clipValueMax, aclTensor* out,
-    uint64_t* workspaceSize, aclOpExecutor** executor);
+ACLNN_API aclnnStatus aclnnHardtanhGetWorkspaceSize(const aclTensor* self, const aclScalar* clipValueMin,
+                                                    const aclScalar* clipValueMax, aclTensor* out,
+                                                    uint64_t* workspaceSize, aclOpExecutor** executor);
 
 /**
  * @brief aclnnHardtanh的第二段接口，用于执行计算。
@@ -70,8 +70,8 @@ ACLNN_API aclnnStatus aclnnHardtanhGetWorkspaceSize(
  * @param [in] stream: acl stream流。
  * @return aclnnStatus: 返回状态码。
  */
-ACLNN_API aclnnStatus
-aclnnHardtanh(void* workspace, uint64_t workspaceSize, aclOpExecutor* executor, aclrtStream stream);
+ACLNN_API aclnnStatus aclnnHardtanh(void* workspace, uint64_t workspaceSize, aclOpExecutor* executor,
+                                    aclrtStream stream);
 
 /**
  * @brief aclnnInplaceHardtanh的第一段接口，根据具体的计算流程，计算workspace大小。
@@ -110,9 +110,9 @@ aclnnHardtanh(void* workspace, uint64_t workspaceSize, aclOpExecutor* executor, 
  * @param [out] executor: 返回op执行器，包含算子计算流程。
  * @return aclnnStatus: 返回状态码。
  */
-ACLNN_API aclnnStatus aclnnInplaceHardtanhGetWorkspaceSize(
-    aclTensor* selfRef, const aclScalar* clipValueMin, const aclScalar* clipValueMax, uint64_t* workspaceSize,
-    aclOpExecutor** executor);
+ACLNN_API aclnnStatus aclnnInplaceHardtanhGetWorkspaceSize(aclTensor* selfRef, const aclScalar* clipValueMin,
+                                                           const aclScalar* clipValueMax, uint64_t* workspaceSize,
+                                                           aclOpExecutor** executor);
 
 /**
  * @brief aclnnInplaceHardtanh的第二段接口，用于执行计算。
@@ -122,8 +122,8 @@ ACLNN_API aclnnStatus aclnnInplaceHardtanhGetWorkspaceSize(
  * @param [in] stream: acl stream流。
  * @return aclnnStatus: 返回状态码。
  */
-ACLNN_API aclnnStatus
-aclnnInplaceHardtanh(void* workspace, uint64_t workspaceSize, aclOpExecutor* executor, aclrtStream stream);
+ACLNN_API aclnnStatus aclnnInplaceHardtanh(void* workspace, uint64_t workspaceSize, aclOpExecutor* executor,
+                                           aclrtStream stream);
 
 #ifdef __cplusplus
 }

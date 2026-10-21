@@ -18,91 +18,94 @@
 #include "infershape_context_faker.h"
 #include "infershape_case_executor.h"
 
-class LerpInfershape : public testing::Test
-{
+class LerpInfershape : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        std::cout << "LerpInfershape SetUp" << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "LerpInfershape SetUp" << std::endl; }
 
-    static void TearDownTestCase()
-    {
-        std::cout << "LerpInfershape TearDown" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "LerpInfershape TearDown" << std::endl; }
 };
 
-TEST_F(LerpInfershape, InfershapeLerp_001) {
+TEST_F(LerpInfershape, InfershapeLerp_001)
+{
     gert::InfershapeContextPara infershapeContextPara("Lerp",
                                                       {
-                                                        {{{6}, {6}}, ge::DT_FLOAT16, ge::FORMAT_NCHW},
-                                                        {{{5, 4}, {5, 4}}, ge::DT_FLOAT16, ge::FORMAT_NCHW},
-                                                        {{{3, 2, 1}, {3, 2, 1}}, ge::DT_FLOAT16, ge::FORMAT_NCHW},
+                                                          {{{6}, {6}}, ge::DT_FLOAT16, ge::FORMAT_NCHW},
+                                                          {{{5, 4}, {5, 4}}, ge::DT_FLOAT16, ge::FORMAT_NCHW},
+                                                          {{{3, 2, 1}, {3, 2, 1}}, ge::DT_FLOAT16, ge::FORMAT_NCHW},
                                                       },
                                                       {
-                                                        {{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-                                                      }
-                                                     );
+                                                          {{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                      });
     std::vector<std::vector<int64_t>> expectOutputShape = {};
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED, expectOutputShape);
 }
 
-TEST_F(LerpInfershape, InfershapeLerp_002) {
+TEST_F(LerpInfershape, InfershapeLerp_002)
+{
     gert::InfershapeContextPara infershapeContextPara("Lerp",
                                                       {
-                                                        {{{2, 2, 2}, {2, 2, 2}}, ge::DT_FLOAT16, ge::FORMAT_NCHW},
-                                                        {{{2, 1, 2}, {2, 1, 2}}, ge::DT_FLOAT16, ge::FORMAT_NCHW},
-                                                        {{{2, 1, 2}, {2, 1, 2}}, ge::DT_FLOAT16, ge::FORMAT_NCHW},
+                                                          {{{2, 2, 2}, {2, 2, 2}}, ge::DT_FLOAT16, ge::FORMAT_NCHW},
+                                                          {{{2, 1, 2}, {2, 1, 2}}, ge::DT_FLOAT16, ge::FORMAT_NCHW},
+                                                          {{{2, 1, 2}, {2, 1, 2}}, ge::DT_FLOAT16, ge::FORMAT_NCHW},
                                                       },
                                                       {
-                                                        {{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-                                                      }
-                                                     );
-    std::vector<std::vector<int64_t>> expectOutputShape = {{2, 2, 2},};
+                                                          {{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                      });
+    std::vector<std::vector<int64_t>> expectOutputShape = {
+        {2, 2, 2},
+    };
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
 
-TEST_F(LerpInfershape, InfershapeLerp_003) {
-    gert::InfershapeContextPara infershapeContextPara("Lerp",
-                                                      {
-                                                        {{{2, 1}, {2, 1}}, ge::DT_FLOAT16, ge::FORMAT_NCHW},
-                                                        {{{2, 1, 1}, {2, 1, 1}}, ge::DT_FLOAT16, ge::FORMAT_NCHW},
-                                                        {{{2, 2, 2, 2}, {2, 2, 2, 2}}, ge::DT_FLOAT16, ge::FORMAT_NCHW},
-                                                      },
-                                                      {
-                                                        {{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-                                                      }
-                                                     );
-    std::vector<std::vector<int64_t>> expectOutputShape = {{2, 2, 2, 2},};
+TEST_F(LerpInfershape, InfershapeLerp_003)
+{
+    gert::InfershapeContextPara infershapeContextPara(
+        "Lerp",
+        {
+            {{{2, 1}, {2, 1}}, ge::DT_FLOAT16, ge::FORMAT_NCHW},
+            {{{2, 1, 1}, {2, 1, 1}}, ge::DT_FLOAT16, ge::FORMAT_NCHW},
+            {{{2, 2, 2, 2}, {2, 2, 2, 2}}, ge::DT_FLOAT16, ge::FORMAT_NCHW},
+        },
+        {
+            {{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+        });
+    std::vector<std::vector<int64_t>> expectOutputShape = {
+        {2, 2, 2, 2},
+    };
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
 
-TEST_F(LerpInfershape, InfershapeLerp_unknown_shape_case) {
+TEST_F(LerpInfershape, InfershapeLerp_unknown_shape_case)
+{
     gert::InfershapeContextPara infershapeContextPara("Lerp",
                                                       {
-                                                        {{{1, 1, -1}, {1, 1, -1}}, ge::DT_FLOAT16, ge::FORMAT_NCHW},
-                                                        {{{1, 1, -1}, {1, 1, -1}}, ge::DT_FLOAT16, ge::FORMAT_NCHW},
-                                                        {{{1, 1, -1}, {1, 1, -1}}, ge::DT_FLOAT16, ge::FORMAT_NCHW},
+                                                          {{{1, 1, -1}, {1, 1, -1}}, ge::DT_FLOAT16, ge::FORMAT_NCHW},
+                                                          {{{1, 1, -1}, {1, 1, -1}}, ge::DT_FLOAT16, ge::FORMAT_NCHW},
+                                                          {{{1, 1, -1}, {1, 1, -1}}, ge::DT_FLOAT16, ge::FORMAT_NCHW},
                                                       },
                                                       {
-                                                        {{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-                                                      }
-                                                     );
-    std::vector<std::vector<int64_t>> expectOutputShape = {{1, 1, -1},};
+                                                          {{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                      });
+    std::vector<std::vector<int64_t>> expectOutputShape = {
+        {1, 1, -1},
+    };
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
 
-TEST_F(LerpInfershape, InfershapeLerp_empty_tensor) {
-    gert::InfershapeContextPara infershapeContextPara("Lerp",
-                                                      {
-                                                        {{{9, 8, 0, 9}, {9, 8, 0, 9}}, ge::DT_FLOAT16, ge::FORMAT_NCHW},
-                                                        {{{9, 8, 0, 9}, {9, 8, 0, 9}}, ge::DT_FLOAT16, ge::FORMAT_NCHW},
-                                                        {{{1}, {1}}, ge::DT_FLOAT16, ge::FORMAT_NCHW},
-                                                      },
-                                                      {
-                                                        {{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-                                                      }
-                                                     );
-    std::vector<std::vector<int64_t>> expectOutputShape = {{9, 8, 0, 9},};
+TEST_F(LerpInfershape, InfershapeLerp_empty_tensor)
+{
+    gert::InfershapeContextPara infershapeContextPara(
+        "Lerp",
+        {
+            {{{9, 8, 0, 9}, {9, 8, 0, 9}}, ge::DT_FLOAT16, ge::FORMAT_NCHW},
+            {{{9, 8, 0, 9}, {9, 8, 0, 9}}, ge::DT_FLOAT16, ge::FORMAT_NCHW},
+            {{{1}, {1}}, ge::DT_FLOAT16, ge::FORMAT_NCHW},
+        },
+        {
+            {{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+        });
+    std::vector<std::vector<int64_t>> expectOutputShape = {
+        {9, 8, 0, 9},
+    };
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }

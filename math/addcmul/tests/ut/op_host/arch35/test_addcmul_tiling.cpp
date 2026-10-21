@@ -16,32 +16,25 @@
 using namespace std;
 class AddcmulTiling : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        std::cout << "AddcmulTiling SetUp" << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "AddcmulTiling SetUp" << std::endl; }
 
-    static void TearDownTestCase()
-    {
-        std::cout << "AddcmulTiling TearDown" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "AddcmulTiling TearDown" << std::endl; }
 };
 
 TEST_F(AddcmulTiling, addcmul_test_0)
 {
     optiling::AddcmulCompileInfo compileInfo = {64, 245760};
-    gert::TilingContextPara tilingContextPara(
-        "Addcmul",
-        {
-            {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-            {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-            {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-            {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-        },
-        {
-            {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-        },
-        &compileInfo);
+    gert::TilingContextPara tilingContextPara("Addcmul",
+                                              {
+                                                  {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                  {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                  {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                  {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
     uint64_t expectTilingKey = 7;
     string expectTilingData = "11 549755814016 16 1 1 0 0 ";
     std::vector<size_t> expectWorkspaces = {16777216};
@@ -51,18 +44,17 @@ TEST_F(AddcmulTiling, addcmul_test_0)
 TEST_F(AddcmulTiling, addcmul_test_1)
 {
     optiling::AddcmulCompileInfo compileInfo = {64, 245760};
-    gert::TilingContextPara tilingContextPara(
-        "Addcmul",
-        {
-            {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_FLOAT, ge::FORMAT_ND},
-            {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_FLOAT, ge::FORMAT_ND},
-            {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_FLOAT, ge::FORMAT_ND},
-            {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_FLOAT, ge::FORMAT_ND},
-        },
-        {
-            {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_FLOAT, ge::FORMAT_ND},
-        },
-        &compileInfo);
+    gert::TilingContextPara tilingContextPara("Addcmul",
+                                              {
+                                                  {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                  {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                  {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                  {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
     uint64_t expectTilingKey = 7;
     string expectTilingData = "11 549755814048 13 1 1 0 0 ";
     std::vector<size_t> expectWorkspaces = {16777216};
@@ -72,18 +64,17 @@ TEST_F(AddcmulTiling, addcmul_test_1)
 TEST_F(AddcmulTiling, addcmul_test_2)
 {
     optiling::AddcmulCompileInfo compileInfo = {64, 245760};
-    gert::TilingContextPara tilingContextPara(
-        "Addcmul",
-        {
-            {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_BF16, ge::FORMAT_ND},
-            {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_BF16, ge::FORMAT_ND},
-            {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_BF16, ge::FORMAT_ND},
-            {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_BF16, ge::FORMAT_ND},
-        },
-        {
-            {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_BF16, ge::FORMAT_ND},
-        },
-        &compileInfo);
+    gert::TilingContextPara tilingContextPara("Addcmul",
+                                              {
+                                                  {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_BF16, ge::FORMAT_ND},
+                                                  {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_BF16, ge::FORMAT_ND},
+                                                  {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_BF16, ge::FORMAT_ND},
+                                                  {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_BF16, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_BF16, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
     uint64_t expectTilingKey = 7;
     string expectTilingData = "11 549755814016 16 1 1 0 0 ";
     std::vector<size_t> expectWorkspaces = {16777216};
@@ -93,18 +84,17 @@ TEST_F(AddcmulTiling, addcmul_test_2)
 TEST_F(AddcmulTiling, addcmul_test_3)
 {
     optiling::AddcmulCompileInfo compileInfo = {64, 245760};
-    gert::TilingContextPara tilingContextPara(
-        "Addcmul",
-        {
-            {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_INT32, ge::FORMAT_ND},
-            {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_INT32, ge::FORMAT_ND},
-            {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_INT32, ge::FORMAT_ND},
-            {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_INT32, ge::FORMAT_ND},
-        },
-        {
-            {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_INT32, ge::FORMAT_ND},
-        },
-        &compileInfo);
+    gert::TilingContextPara tilingContextPara("Addcmul",
+                                              {
+                                                  {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_INT32, ge::FORMAT_ND},
+                                                  {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_INT32, ge::FORMAT_ND},
+                                                  {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_INT32, ge::FORMAT_ND},
+                                                  {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_INT32, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_INT32, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
     uint64_t expectTilingKey = 7;
     string expectTilingData = "11 549755814048 13 1 1 0 0 ";
     std::vector<size_t> expectWorkspaces = {16777216};
@@ -114,18 +104,17 @@ TEST_F(AddcmulTiling, addcmul_test_3)
 TEST_F(AddcmulTiling, addcmul_test_4)
 {
     optiling::AddcmulCompileInfo compileInfo = {64, 245760};
-    gert::TilingContextPara tilingContextPara(
-        "Addcmul",
-        {
-            {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-            {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_FLOAT, ge::FORMAT_ND},
-            {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-            {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_FLOAT, ge::FORMAT_ND},
-        },
-        {
-            {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_FLOAT, ge::FORMAT_ND},
-        },
-        &compileInfo);
+    gert::TilingContextPara tilingContextPara("Addcmul",
+                                              {
+                                                  {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                  {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                  {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                  {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
     uint64_t expectTilingKey = 7;
     string expectTilingData = "11 549755814016 16 1 1 0 0 ";
     std::vector<size_t> expectWorkspaces = {16777216};
@@ -135,18 +124,17 @@ TEST_F(AddcmulTiling, addcmul_test_4)
 TEST_F(AddcmulTiling, addcmul_test_failed_0)
 {
     optiling::AddcmulCompileInfo compileInfo = {64, 245760};
-    gert::TilingContextPara tilingContextPara(
-        "Addcmul",
-        {
-            {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_INT8, ge::FORMAT_ND},
-            {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_INT8, ge::FORMAT_ND},
-            {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_INT8, ge::FORMAT_ND},
-            {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_INT8, ge::FORMAT_ND},
-        },
-        {
-            {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_INT8, ge::FORMAT_ND},
-        },
-        &compileInfo);
+    gert::TilingContextPara tilingContextPara("Addcmul",
+                                              {
+                                                  {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_INT8, ge::FORMAT_ND},
+                                                  {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_INT8, ge::FORMAT_ND},
+                                                  {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_INT8, ge::FORMAT_ND},
+                                                  {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_INT8, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_INT8, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
     uint64_t expectTilingKey = 7;
     string expectTilingData = "11 549755814016 16 1 1 0 0 ";
     std::vector<size_t> expectWorkspaces = {16777216};
@@ -156,18 +144,17 @@ TEST_F(AddcmulTiling, addcmul_test_failed_0)
 TEST_F(AddcmulTiling, addcmul_test_failed_1)
 {
     optiling::AddcmulCompileInfo compileInfo = {64, 245760};
-    gert::TilingContextPara tilingContextPara(
-        "Addcmul",
-        {
-            {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_INT8, ge::FORMAT_ND},
-            {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-            {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-            {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-        },
-        {
-            {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_FLOAT, ge::FORMAT_ND},
-        },
-        &compileInfo);
+    gert::TilingContextPara tilingContextPara("Addcmul",
+                                              {
+                                                  {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_INT8, ge::FORMAT_ND},
+                                                  {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                  {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                  {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
     uint64_t expectTilingKey = 7;
     string expectTilingData = "11 549755814016 16 1 1 0 0 ";
     std::vector<size_t> expectWorkspaces = {16777216};

@@ -18,7 +18,6 @@
 
 #include "op_host/tiling_base_class.h"
 
-
 namespace optiling {
 
 struct FloorModCompileInfo {
@@ -28,8 +27,7 @@ struct FloorModCompileInfo {
 
 class FloorModTiling : public Ops::Base::TilingBaseClass {
 public:
-    explicit FloorModTiling(gert::TilingContext* context) : Ops::Base::TilingBaseClass(context)
-    {}
+    explicit FloorModTiling(gert::TilingContext* context) : Ops::Base::TilingBaseClass(context) {}
 
 protected:
     bool IsCapable() override;
@@ -43,8 +41,8 @@ protected:
 
 private:
     uint64_t tilingKey = 0;
-    bool CheckDtype(
-        const ge::DataType& inputX1Dtype, const ge::DataType& inputX2Dtype, const ge::DataType& outputDtype) const;
+    bool CheckDtype(const ge::DataType& inputX1Dtype, const ge::DataType& inputX2Dtype,
+                    const ge::DataType& outputDtype) const;
     int64_t ubSize_ = 0;
 };
 

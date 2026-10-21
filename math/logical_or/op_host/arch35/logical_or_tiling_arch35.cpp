@@ -8,7 +8,6 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-
 /*!
  * \file    logical_or_tiling_arch35.cpp
  * \brief   logical_or_tiling source file
@@ -28,15 +27,9 @@ namespace optiling {
 
 static constexpr uint64_t LOGICAL_OR_COMMON_TILING_PRIORITY = 0;
 
-ge::graphStatus LogicalOrTiling::GetShapeAttrsInfo()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus LogicalOrTiling::GetShapeAttrsInfo() { return ge::GRAPH_SUCCESS; }
 
-bool LogicalOrTiling::IsCapable()
-{
-    return true;
-}
+bool LogicalOrTiling::IsCapable() { return true; }
 
 ge::graphStatus LogicalOrTiling::DoOpTiling()
 {
@@ -50,8 +43,8 @@ ge::graphStatus LogicalOrTiling::DoOpTiling()
     if (input0DType != input1DType) {
         std::string dtypesStr = ge::TypeUtils::DataTypeToSerialString(input0DType) + " and " +
                                 ge::TypeUtils::DataTypeToSerialString(input1DType);
-        OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(context_->GetNodeName(), "x1 and x2",
-            dtypesStr.c_str(), "The dtypes of x1 and x2 must be the same");
+        OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(context_->GetNodeName(), "x1 and x2", dtypesStr.c_str(),
+                                               "The dtypes of x1 and x2 must be the same");
         return ge::GRAPH_FAILED;
     }
 
@@ -94,37 +87,22 @@ ge::graphStatus LogicalOrTiling::DoOpTiling()
         tilingKey = GET_TPL_TILING_KEY(brcBaseTiling.GetSchMode());
     } else {
         OP_LOGE_FOR_INVALID_DTYPE(context_->GetNodeName(), "x1",
-            ge::TypeUtils::DataTypeToSerialString(input0DType).c_str(),
-            "bool, int8, uint8, int16, int32, int64, float16, bfloat16 and float32");
+                                  ge::TypeUtils::DataTypeToSerialString(input0DType).c_str(),
+                                  "bool, int8, uint8, int16, int32, int64, float16, bfloat16 and float32");
         return ge::GRAPH_FAILED;
     }
     return ret;
 }
 
-ge::graphStatus LogicalOrTiling::DoLibApiTiling()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus LogicalOrTiling::DoLibApiTiling() { return ge::GRAPH_SUCCESS; }
 
-uint64_t LogicalOrTiling::GetTilingKey() const
-{
-    return tilingKey;
-}
+uint64_t LogicalOrTiling::GetTilingKey() const { return tilingKey; }
 
-ge::graphStatus LogicalOrTiling::GetWorkspaceSize()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus LogicalOrTiling::GetWorkspaceSize() { return ge::GRAPH_SUCCESS; }
 
-ge::graphStatus LogicalOrTiling::PostTiling()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus LogicalOrTiling::PostTiling() { return ge::GRAPH_SUCCESS; }
 
-ge::graphStatus LogicalOrTiling::GetPlatformInfo()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus LogicalOrTiling::GetPlatformInfo() { return ge::GRAPH_SUCCESS; }
 
 static ge::graphStatus Tiling4LogicalOr(gert::TilingContext* context)
 {
@@ -141,11 +119,11 @@ static ge::graphStatus Tiling4LogicalOr(gert::TilingContext* context)
     return Ops::Math::OpTiling::TilingRegistry::GetInstance().DoTilingImpl(context);
 }
 
-static ge::graphStatus TilingPrepareForBroadcastLogicalOr(gert::TilingParseContext *context)
+static ge::graphStatus TilingPrepareForBroadcastLogicalOr(gert::TilingParseContext* context)
 {
     auto compileInfoPtr = context->GetCompiledInfo<Ops::Base::BroadcastCompileInfo>();
     OP_CHECK_NULL_WITH_CONTEXT(context, compileInfoPtr);
-    fe::PlatFormInfos *platformInfoPtr = context->GetPlatformInfo();
+    fe::PlatFormInfos* platformInfoPtr = context->GetPlatformInfo();
     OP_CHECK_NULL_WITH_CONTEXT(context, platformInfoPtr);
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfoPtr);
     compileInfoPtr->coreNum = ascendcPlatform.GetCoreNumAiv();

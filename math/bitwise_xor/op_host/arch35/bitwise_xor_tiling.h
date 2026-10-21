@@ -28,23 +28,23 @@ struct BitWiseXorCompileInfo {
 };
 
 class BitwiseXorTiling : public Ops::Base::TilingBaseClass {
-    public:
-        explicit BitwiseXorTiling(gert::TilingContext* context) : Ops::Base::TilingBaseClass(context) {}
+public:
+    explicit BitwiseXorTiling(gert::TilingContext* context) : Ops::Base::TilingBaseClass(context) {}
 
-    protected:
-        bool IsCapable() override;
-        ge::graphStatus GetPlatformInfo() override;
-        ge::graphStatus GetShapeAttrsInfo() override;
-        ge::graphStatus DoOpTiling() override;
-        ge::graphStatus DoLibApiTiling() override;
-        uint64_t GetTilingKey() const override;
-        ge::graphStatus GetWorkspaceSize() override;
-        ge::graphStatus PostTiling() override;
+protected:
+    bool IsCapable() override;
+    ge::graphStatus GetPlatformInfo() override;
+    ge::graphStatus GetShapeAttrsInfo() override;
+    ge::graphStatus DoOpTiling() override;
+    ge::graphStatus DoLibApiTiling() override;
+    uint64_t GetTilingKey() const override;
+    ge::graphStatus GetWorkspaceSize() override;
+    ge::graphStatus PostTiling() override;
 
-    private:
-        uint64_t tilingKey = 0;
+private:
+    uint64_t tilingKey = 0;
 };
 
-}   // namespace optiling
+} // namespace optiling
 
 #endif // OPS_BUILD_IN_OP_TILING_RUNTIME_BITWISE_XOR_TILING_H

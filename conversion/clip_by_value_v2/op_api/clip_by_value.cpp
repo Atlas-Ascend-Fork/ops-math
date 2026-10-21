@@ -34,12 +34,12 @@ static bool IsAiCoreSupport(const aclTensor* self)
 }
 
 // AICORE算子kernel
-static const aclTensor* ClipByValueV2AiCore(
-    const aclTensor* self, const aclTensor* clipValueMin, const aclTensor* clipValueMax, aclOpExecutor* executor)
+static const aclTensor* ClipByValueV2AiCore(const aclTensor* self, const aclTensor* clipValueMin,
+                                            const aclTensor* clipValueMax, aclOpExecutor* executor)
 {
     L0_DFX(ClipByValueV2AiCore);
-    auto out = executor->AllocTensor(
-        self->GetDataType(), static_cast<op::Format>(self->GetStorageFormat()), self->GetOriginalFormat());
+    auto out = executor->AllocTensor(self->GetDataType(), static_cast<op::Format>(self->GetStorageFormat()),
+                                     self->GetOriginalFormat());
     auto ret = INFER_SHAPE(ClipByValueV2, OP_INPUT(self, clipValueMin, clipValueMax), OP_OUTPUT(out));
     if (ret != ACLNN_SUCCESS) {
         OP_LOGE(ACLNN_ERR_PARAM_INVALID, "infershape failed.");
@@ -47,30 +47,29 @@ static const aclTensor* ClipByValueV2AiCore(
     }
 
     ret = ADD_TO_LAUNCHER_LIST_AICORE(ClipByValueV2, OP_INPUT(self, clipValueMin, clipValueMax), OP_OUTPUT(out));
-    OP_CHECK(
-        ret == ACL_SUCCESS, OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "ClipByValueV2AiCore ADD_TO_LAUNCHER_LIST_AICORE failed."),
-        return nullptr);
+    OP_CHECK(ret == ACL_SUCCESS,
+             OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "ClipByValueV2AiCore ADD_TO_LAUNCHER_LIST_AICORE failed."),
+             return nullptr);
     return out;
 }
 
 // AICPU算子kernel
-static const aclTensor* ClipByValueV2AiCpu(
-    const aclTensor* self, const aclTensor* clipValueMin, const aclTensor* clipValueMax, aclOpExecutor* executor)
+static const aclTensor* ClipByValueV2AiCpu(const aclTensor* self, const aclTensor* clipValueMin,
+                                           const aclTensor* clipValueMax, aclOpExecutor* executor)
 {
     L0_DFX(ClipByValueV2AiCpu);
     auto out = executor->AllocTensor(self->GetViewShape(), self->GetDataType());
 
     static internal::AicpuTaskSpace space("ClipByValueV2");
-    auto ret = ADD_TO_LAUNCHER_LIST_AICPU(
-        ClipByValueV2, OP_ATTR_NAMES(), OP_INPUT(self, clipValueMin, clipValueMax), OP_OUTPUT(out));
-    OP_CHECK(
-        ret == ACL_SUCCESS, OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "ClipByValueV2AiCpu ADD_TO_LAUNCHER_LIST_AICPU failed."),
-        return nullptr);
+    auto ret = ADD_TO_LAUNCHER_LIST_AICPU(ClipByValueV2, OP_ATTR_NAMES(), OP_INPUT(self, clipValueMin, clipValueMax),
+                                          OP_OUTPUT(out));
+    OP_CHECK(ret == ACL_SUCCESS,
+             OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "ClipByValueV2AiCpu ADD_TO_LAUNCHER_LIST_AICPU failed."), return nullptr);
     return out;
 }
 
-const aclTensor* ClipByValueV2(
-    const aclTensor* self, const aclTensor* clipValueMin, const aclTensor* clipValueMax, aclOpExecutor* executor)
+const aclTensor* ClipByValueV2(const aclTensor* self, const aclTensor* clipValueMin, const aclTensor* clipValueMax,
+                               aclOpExecutor* executor)
 {
     if (IsAiCoreSupport(self)) {
         return ClipByValueV2AiCore(self, clipValueMin, clipValueMax, executor);

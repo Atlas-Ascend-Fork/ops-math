@@ -21,15 +21,9 @@ using namespace std;
 
 class l2_clamp_tensor_test : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        std::cout << "clamp_tensor_test SetUp" << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "clamp_tensor_test SetUp" << std::endl; }
 
-    static void TearDownTestCase()
-    {
-        std::cout << "clamp_tensor_test TearDown" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "clamp_tensor_test TearDown" << std::endl; }
 };
 
 TEST_F(l2_clamp_tensor_test, case_empty)
@@ -39,8 +33,8 @@ TEST_F(l2_clamp_tensor_test, case_empty)
     auto max_tensor_desc = TensorDesc({2, 1}, ACL_INT64, ACL_FORMAT_ND).ValueRange(2, 3);
     auto out_tensor_desc = TensorDesc({2, 0}, ACL_INT64, ACL_FORMAT_ND).Precision(0.0001, 0.0001);
 
-    auto ut =
-        OP_API_UT(aclnnClampTensor, INPUT(tensor_desc, min_tensor_desc, max_tensor_desc), OUTPUT(out_tensor_desc));
+    auto ut = OP_API_UT(aclnnClampTensor, INPUT(tensor_desc, min_tensor_desc, max_tensor_desc),
+                        OUTPUT(out_tensor_desc));
 
     uint64_t workspace_size = 0;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
@@ -54,8 +48,8 @@ TEST_F(l2_clamp_tensor_test, case_all_empty)
     auto max_tensor_desc = TensorDesc({2, 0}, ACL_INT64, ACL_FORMAT_ND).ValueRange(2, 3);
     auto out_tensor_desc = TensorDesc({2, 0}, ACL_INT64, ACL_FORMAT_ND).Precision(0.0001, 0.0001);
 
-    auto ut =
-        OP_API_UT(aclnnClampTensor, INPUT(tensor_desc, min_tensor_desc, max_tensor_desc), OUTPUT(out_tensor_desc));
+    auto ut = OP_API_UT(aclnnClampTensor, INPUT(tensor_desc, min_tensor_desc, max_tensor_desc),
+                        OUTPUT(out_tensor_desc));
 
     uint64_t workspace_size = 0;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
@@ -69,8 +63,8 @@ TEST_F(l2_clamp_tensor_test, case_cannot_brc)
     auto max_tensor_desc = TensorDesc({2, 3, 4, 2}, ACL_DOUBLE, ACL_FORMAT_ND).ValueRange(2, 3);
     auto out_tensor_desc = TensorDesc({2, 3, 4, 5}, ACL_DOUBLE, ACL_FORMAT_ND).Precision(0.0001, 0.0001);
 
-    auto ut =
-        OP_API_UT(aclnnClampTensor, INPUT(tensor_desc, min_tensor_desc, max_tensor_desc), OUTPUT(out_tensor_desc));
+    auto ut = OP_API_UT(aclnnClampTensor, INPUT(tensor_desc, min_tensor_desc, max_tensor_desc),
+                        OUTPUT(out_tensor_desc));
 
     uint64_t workspace_size = 0;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
@@ -86,8 +80,8 @@ TEST_F(l2_clamp_tensor_test, case_unsupport_shape)
     auto tensor_desc_1 = TensorDesc({5, 4, 3, 2}, ACL_INT64, ACL_FORMAT_NCHW);
     auto out_tensor_desc_1 = TensorDesc({2, 3, 4, 5}, ACL_INT64, ACL_FORMAT_ND).Precision(0.0001, 0.0001);
 
-    auto ut_1 =
-        OP_API_UT(aclnnClampTensor, INPUT(tensor_desc_1, min_tensor_desc, max_tensor_desc), OUTPUT(out_tensor_desc_1));
+    auto ut_1 = OP_API_UT(aclnnClampTensor, INPUT(tensor_desc_1, min_tensor_desc, max_tensor_desc),
+                          OUTPUT(out_tensor_desc_1));
 
     aclnnStatus aclRet = ut_1.TestGetWorkspaceSize(&workspace_size);
     EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
@@ -102,8 +96,8 @@ TEST_F(l2_clamp_tensor_test, case_null)
     auto tensor_desc_1 = TensorDesc({2, 3, 4, 5}, ACL_INT64, ACL_FORMAT_NCHW);
     auto out_tensor_desc_1 = TensorDesc({2, 3, 4, 5}, ACL_INT64, ACL_FORMAT_ND).Precision(0.0001, 0.0001);
 
-    auto ut_1 =
-        OP_API_UT(aclnnClampTensor, INPUT(nullptr, min_tensor_desc, max_tensor_desc), OUTPUT(out_tensor_desc_1));
+    auto ut_1 = OP_API_UT(aclnnClampTensor, INPUT(nullptr, min_tensor_desc, max_tensor_desc),
+                          OUTPUT(out_tensor_desc_1));
 
     aclnnStatus aclRet_1 = ut_1.TestGetWorkspaceSize(&workspace_size);
     EXPECT_EQ(aclRet_1, ACLNN_ERR_PARAM_NULLPTR);
@@ -124,11 +118,11 @@ TEST_F(l2_clamp_tensor_test, case_9dim)
     auto tensor_desc = TensorDesc({2, 3, 4, 5, 6, 7, 8, 9, 10}, ACL_INT64, ACL_FORMAT_NCDHW);
     auto min_tensor_desc = TensorDesc({2, 3, 4, 5, 6, 7, 8, 9, 10}, ACL_INT64, ACL_FORMAT_NCDHW);
     auto max_tensor_desc = TensorDesc({2, 3, 4, 5, 6, 7, 8, 9, 10}, ACL_INT64, ACL_FORMAT_NCDHW);
-    auto out_tensor_desc =
-        TensorDesc({2, 3, 4, 5, 6, 7, 8, 9, 10}, ACL_INT64, ACL_FORMAT_NCDHW).Precision(0.0001, 0.0001);
+    auto out_tensor_desc = TensorDesc({2, 3, 4, 5, 6, 7, 8, 9, 10}, ACL_INT64, ACL_FORMAT_NCDHW)
+                               .Precision(0.0001, 0.0001);
 
-    auto ut =
-        OP_API_UT(aclnnClampTensor, INPUT(tensor_desc, min_tensor_desc, max_tensor_desc), OUTPUT(out_tensor_desc));
+    auto ut = OP_API_UT(aclnnClampTensor, INPUT(tensor_desc, min_tensor_desc, max_tensor_desc),
+                        OUTPUT(out_tensor_desc));
 
     uint64_t workspace_size = 0;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
@@ -142,8 +136,8 @@ TEST_F(l2_clamp_tensor_test, case_min_9dim)
     auto max_tensor_desc = TensorDesc({2, 3, 4, 5, 6, 7, 8, 9, 10}, ACL_INT64, ACL_FORMAT_NCDHW);
     auto out_tensor_desc = TensorDesc({4, 5, 6, 7, 8, 9, 10}, ACL_INT64, ACL_FORMAT_NCDHW).Precision(0.0001, 0.0001);
 
-    auto ut =
-        OP_API_UT(aclnnClampTensor, INPUT(tensor_desc, min_tensor_desc, max_tensor_desc), OUTPUT(out_tensor_desc));
+    auto ut = OP_API_UT(aclnnClampTensor, INPUT(tensor_desc, min_tensor_desc, max_tensor_desc),
+                        OUTPUT(out_tensor_desc));
 
     uint64_t workspace_size = 0;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
@@ -157,8 +151,8 @@ TEST_F(l2_clamp_tensor_test, ascend910pr_9589_case_min_9dim)
     auto max_tensor_desc = TensorDesc({2, 3, 4, 5, 6, 7, 8, 9, 10}, ACL_INT64, ACL_FORMAT_NCDHW);
     auto out_tensor_desc = TensorDesc({4, 5, 6, 7, 8, 9, 10}, ACL_INT64, ACL_FORMAT_NCDHW).Precision(0.0001, 0.0001);
 
-    auto ut =
-        OP_API_UT(aclnnClampTensor, INPUT(tensor_desc, min_tensor_desc, max_tensor_desc), OUTPUT(out_tensor_desc));
+    auto ut = OP_API_UT(aclnnClampTensor, INPUT(tensor_desc, min_tensor_desc, max_tensor_desc),
+                        OUTPUT(out_tensor_desc));
 
     uint64_t workspace_size = 0;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);

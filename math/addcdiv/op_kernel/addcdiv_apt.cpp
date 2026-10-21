@@ -21,8 +21,8 @@
 using namespace AscendC;
 
 template <uint64_t schMode>
-__global__ __aicore__ void addcdiv(
-    GM_ADDR input_data, GM_ADDR x1, GM_ADDR x2, GM_ADDR value, GM_ADDR y, GM_ADDR workspace, GM_ADDR tiling)
+__global__ __aicore__ void addcdiv(GM_ADDR input_data, GM_ADDR x1, GM_ADDR x2, GM_ADDR value, GM_ADDR y,
+                                   GM_ADDR workspace, GM_ADDR tiling)
 {
     using OpDag = AddcdivOp::AddcdivOp<DTYPE_INPUT_DATA, DTYPE_VALUE>::OpDag;
     Ops::Base::BroadcastSch<schMode, OpDag> sch(tiling);

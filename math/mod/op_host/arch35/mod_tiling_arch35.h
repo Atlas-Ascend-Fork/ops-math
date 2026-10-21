@@ -27,8 +27,7 @@ namespace optiling {
 using namespace Ops::Base;
 class ModTiling : public Ops::Base::TilingBaseClass {
 public:
-    explicit ModTiling(gert::TilingContext* context) : Ops::Base::TilingBaseClass(context)
-    {}
+    explicit ModTiling(gert::TilingContext* context) : Ops::Base::TilingBaseClass(context) {}
 
 protected:
     bool IsCapable() override;
@@ -40,8 +39,8 @@ protected:
     ge::graphStatus DoLibApiTiling() override;
     ge::graphStatus GetPlatformInfo() override;
     ge::graphStatus GetShapeAttrsInfo() override;
-    bool CheckDtype(
-        const ge::DataType& inputX1Dtype, const ge::DataType& inputX2Dtype, const ge::DataType& outputDtype) const;
+    bool CheckDtype(const ge::DataType& inputX1Dtype, const ge::DataType& inputX2Dtype,
+                    const ge::DataType& outputDtype) const;
 
 private:
     uint64_t tilingKey = 0;

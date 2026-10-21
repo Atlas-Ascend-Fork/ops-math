@@ -27,15 +27,9 @@ namespace optiling {
 
 constexpr static uint64_t ADDCDIV_COMMON_TILING_PRIORITY = 0;
 
-ge::graphStatus AddcdivTiling::GetShapeAttrsInfo()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus AddcdivTiling::GetShapeAttrsInfo() { return ge::GRAPH_SUCCESS; }
 
-bool AddcdivTiling::IsCapable()
-{
-    return true;
-}
+bool AddcdivTiling::IsCapable() { return true; }
 
 bool AddcdivTiling::IsMixedDtype(const ge::DataType& inputDataDtype, const ge::DataType& inputValDtype) const
 {
@@ -43,9 +37,9 @@ bool AddcdivTiling::IsMixedDtype(const ge::DataType& inputDataDtype, const ge::D
            (inputDataDtype == ge::DT_BF16 && inputValDtype == ge::DT_FLOAT);
 }
 
-bool AddcdivTiling::CheckDtype(
-    const ge::DataType& inputDataDtype, const ge::DataType& inputX1Dtype, const ge::DataType& inputX2Dtype,
-    const ge::DataType& inputValDtype, const ge::DataType& outputDtype, const bool isMixedDtype) const
+bool AddcdivTiling::CheckDtype(const ge::DataType& inputDataDtype, const ge::DataType& inputX1Dtype,
+                               const ge::DataType& inputX2Dtype, const ge::DataType& inputValDtype,
+                               const ge::DataType& outputDtype, const bool isMixedDtype) const
 {
     auto nodeName = context_->GetNodeName();
     if (!isMixedDtype && (inputDataDtype != inputX1Dtype || inputDataDtype != inputX2Dtype ||
@@ -54,18 +48,17 @@ bool AddcdivTiling::CheckDtype(
                                 ge::TypeUtils::DataTypeToSerialString(inputX1Dtype) + ", " +
                                 ge::TypeUtils::DataTypeToSerialString(inputX2Dtype) + ", " +
                                 ge::TypeUtils::DataTypeToSerialString(inputValDtype) + " and " +
-                                ge::TypeUtils::DataTypeToSerialString(outputDtype) + " of x1, x2, value and y, "
+                                ge::TypeUtils::DataTypeToSerialString(outputDtype) +
+                                " of x1, x2, value and y, "
                                 "when the dtypes of input_data and value are not within the supported floating-point "
                                 "type combinations: value is float,  and input_data is float16 or bfloat16";
         OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(
-            nodeName, "input_data", ge::TypeUtils::DataTypeToSerialString(inputDataDtype).c_str(),
-            reasonMsg.c_str());
+            nodeName, "input_data", ge::TypeUtils::DataTypeToSerialString(inputDataDtype).c_str(), reasonMsg.c_str());
         return false;
     }
     if (isMixedDtype && inputValDtype != ge::DT_FLOAT) {
         OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(
-            nodeName, "value",
-            ge::TypeUtils::DataTypeToSerialString(inputValDtype).c_str(),
+            nodeName, "value", ge::TypeUtils::DataTypeToSerialString(inputValDtype).c_str(),
             "The dtype of parameter value must be fp32 when the dtype of input_data is float16 or bfloat16");
         return false;
     }
@@ -111,39 +104,23 @@ ge::graphStatus AddcdivTiling::DoOpTiling()
         ret = brcBaseTiling.DoTiling();
         tilingKey = GET_TPL_TILING_KEY(brcBaseTiling.GetSchMode());
     } else {
-        OP_LOGE_FOR_INVALID_DTYPE(
-            context_->GetNodeName(), "input_data", ge::TypeUtils::DataTypeToSerialString(input0Dtype).c_str(),
-            "fp16, bf16, fp32");
+        OP_LOGE_FOR_INVALID_DTYPE(context_->GetNodeName(), "input_data",
+                                  ge::TypeUtils::DataTypeToSerialString(input0Dtype).c_str(), "fp16, bf16, fp32");
         return ge::GRAPH_FAILED;
     }
 
     return ret;
 }
 
-ge::graphStatus AddcdivTiling::DoLibApiTiling()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus AddcdivTiling::DoLibApiTiling() { return ge::GRAPH_SUCCESS; }
 
-uint64_t AddcdivTiling::GetTilingKey() const
-{
-    return tilingKey;
-}
+uint64_t AddcdivTiling::GetTilingKey() const { return tilingKey; }
 
-ge::graphStatus AddcdivTiling::GetWorkspaceSize()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus AddcdivTiling::GetWorkspaceSize() { return ge::GRAPH_SUCCESS; }
 
-ge::graphStatus AddcdivTiling::PostTiling()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus AddcdivTiling::PostTiling() { return ge::GRAPH_SUCCESS; }
 
-ge::graphStatus AddcdivTiling::GetPlatformInfo()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus AddcdivTiling::GetPlatformInfo() { return ge::GRAPH_SUCCESS; }
 
 ge::graphStatus TilingForAddcdiv(gert::TilingContext* context)
 {

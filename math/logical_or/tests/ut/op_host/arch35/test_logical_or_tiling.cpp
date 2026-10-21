@@ -17,14 +17,10 @@
 
 using namespace Ops::Base;
 class LogicalOrTiling : public testing::Test {
-  protected:
-    static void SetUpTestCase() {
-      std::cout << "LogicalOrTiling SetUp" << std::endl;
-    }
+protected:
+    static void SetUpTestCase() { std::cout << "LogicalOrTiling SetUp" << std::endl; }
 
-    static void TearDownTestCase() {
-      std::cout << "LogicalOrTiling TearDown" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "LogicalOrTiling TearDown" << std::endl; }
 };
 
 TEST_F(LogicalOrTiling, logical_or_test_0)
@@ -32,16 +28,15 @@ TEST_F(LogicalOrTiling, logical_or_test_0)
     BroadcastCompileInfo compileInfo;
     compileInfo.coreNum = 64;
     compileInfo.ubSize = 245760;
-    gert::TilingContextPara tilingContextPara(
-        "LogicalOr",
-        {
-            {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_BOOL, ge::FORMAT_ND},
-            {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_BOOL, ge::FORMAT_ND},
-        },
-        {
-            {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_BOOL, ge::FORMAT_ND},
-        },
-        &compileInfo);
+    gert::TilingContextPara tilingContextPara("LogicalOr",
+                                              {
+                                                  {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_BOOL, ge::FORMAT_ND},
+                                                  {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_BOOL, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_BOOL, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
     uint64_t expectTilingKey = 8;
     string expectTilingData = "2048 281483566645760 ";
     std::vector<size_t> expectWorkspaces = {16777216};

@@ -12,11 +12,8 @@
 import numpy as np
 import torch
 
-__golden__ = {
-   	"kernel": {
-   	    "floor_mod": "floor_mod_golden"
-   	}
-}
+__golden__ = {"kernel": {"floor_mod": "floor_mod_golden"}}
+
 
 def numpy_to_torch_tensor(x_np):
     """
@@ -27,16 +24,16 @@ def numpy_to_torch_tensor(x_np):
         return torch.from_numpy(x_np.view(dtype=np.int16)).view(torch.bfloat16).float()
     return torch.from_numpy(x_np)
 
-def floor_mod_golden(x1, x2,
-                     **kwargs):
-    '''
+
+def floor_mod_golden(x1, x2, **kwargs):
+    """
     Kernel golden for floor_mod.
     All the parameters follow @floor_mod_def.cpp without outputs.
     All the input Tensors are numpy.ndarray.
-    kwargs may contain: short_soc_version, input_ori_shapes, output_ori_shapes, 
-  	    input_formats, output_formats, input_ori_formats, output_ori_formats,
-  	    input_dtypes, output_dtypes.
-    '''
+    kwargs may contain: short_soc_version, input_ori_shapes, output_ori_shapes,
+              input_formats, output_formats, input_ori_formats, output_ori_formats,
+              input_dtypes, output_dtypes.
+    """
     x1_dtype = x1.dtype
     type_int = [torch.int64, torch.int32]
     type_float = [torch.float, torch.float16, torch.bfloat16]

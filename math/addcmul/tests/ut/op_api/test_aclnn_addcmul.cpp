@@ -22,15 +22,9 @@ using namespace std;
 
 class l2_addcmul_test : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        cout << "addcmul_test SetUp" << endl;
-    }
+    static void SetUpTestCase() { cout << "addcmul_test SetUp" << endl; }
 
-    static void TearDownTestCase()
-    {
-        cout << "addcmul_test TearDown" << endl;
-    }
+    static void TearDownTestCase() { cout << "addcmul_test TearDown" << endl; }
 };
 
 // Test for Empty tensor
@@ -41,9 +35,8 @@ TEST_F(l2_addcmul_test, test_empty_tensor)
     auto out_tensor_desc = TensorDesc(self_tensor_desc);
     auto scalar_desc = ScalarDesc(1.0f);
 
-    auto ut = OP_API_UT(
-        aclnnAddcmul, INPUT(self_tensor_desc, other_tensor_desc, other_tensor_desc, scalar_desc),
-        OUTPUT(out_tensor_desc));
+    auto ut = OP_API_UT(aclnnAddcmul, INPUT(self_tensor_desc, other_tensor_desc, other_tensor_desc, scalar_desc),
+                        OUTPUT(out_tensor_desc));
 
     // SAMPLE: only test GetWorkspaceSize
     uint64_t workspace_size = 0;
@@ -59,9 +52,8 @@ TEST_F(l2_addcmul_test, test_promote)
     auto out_tensor_desc = TensorDesc(other_tensor_desc);
     auto scalar_desc = ScalarDesc(5.9f);
 
-    auto ut = OP_API_UT(
-        aclnnAddcmul, INPUT(self_tensor_desc, other_tensor_desc, other_tensor_desc, scalar_desc),
-        OUTPUT(out_tensor_desc));
+    auto ut = OP_API_UT(aclnnAddcmul, INPUT(self_tensor_desc, other_tensor_desc, other_tensor_desc, scalar_desc),
+                        OUTPUT(out_tensor_desc));
 
     // SAMPLE: only test GetWorkspaceSize
     uint64_t workspace_size = 0;
@@ -73,13 +65,14 @@ TEST_F(l2_addcmul_test, test_promote)
 TEST_F(l2_addcmul_test, test_null_scalar)
 {
     auto tensor_desc = TensorDesc({10, 20}, ACL_FLOAT, ACL_FORMAT_ND).ValueRange(-2, 2).Value(vector<float>(200, 1.0f));
-    auto other_tensor_desc =
-        TensorDesc({10, 20}, ACL_FLOAT, ACL_FORMAT_ND).ValueRange(-2, 2).Value(vector<float>(200, 2.0f));
+    auto other_tensor_desc = TensorDesc({10, 20}, ACL_FLOAT, ACL_FORMAT_ND)
+                                 .ValueRange(-2, 2)
+                                 .Value(vector<float>(200, 2.0f));
     auto scalar_desc = nullptr;
     auto out_tensor_desc = TensorDesc(tensor_desc).Precision(0.0001, 0.0001);
 
-    auto ut = OP_API_UT(
-        aclnnAddcmul, INPUT(tensor_desc, other_tensor_desc, other_tensor_desc, scalar_desc), OUTPUT(out_tensor_desc));
+    auto ut = OP_API_UT(aclnnAddcmul, INPUT(tensor_desc, other_tensor_desc, other_tensor_desc, scalar_desc),
+                        OUTPUT(out_tensor_desc));
 
     uint64_t workspace_size = 0;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
@@ -89,15 +82,16 @@ TEST_F(l2_addcmul_test, test_null_scalar)
 // Test for Invalid DataType
 TEST_F(l2_addcmul_test, test_invalid_data_type)
 {
-    auto tensor_desc =
-        TensorDesc({10, 20}, ACL_UINT32, ACL_FORMAT_ND).ValueRange(0, 255).Value(vector<uint8_t>(200, 1));
-    auto other_tensor_desc =
-        TensorDesc({10, 20}, ACL_UINT32, ACL_FORMAT_ND).ValueRange(-2, 2).Value(vector<float>(200, 2.0f));
+    auto
+        tensor_desc = TensorDesc({10, 20}, ACL_UINT32, ACL_FORMAT_ND).ValueRange(0, 255).Value(vector<uint8_t>(200, 1));
+    auto other_tensor_desc = TensorDesc({10, 20}, ACL_UINT32, ACL_FORMAT_ND)
+                                 .ValueRange(-2, 2)
+                                 .Value(vector<float>(200, 2.0f));
     auto scalar_desc = ScalarDesc(static_cast<int64_t>(5));
     auto out_tensor_desc = TensorDesc(tensor_desc).Precision(0.0001, 0.0001);
 
-    auto ut = OP_API_UT(
-        aclnnAddcmul, INPUT(tensor_desc, other_tensor_desc, other_tensor_desc, scalar_desc), OUTPUT(out_tensor_desc));
+    auto ut = OP_API_UT(aclnnAddcmul, INPUT(tensor_desc, other_tensor_desc, other_tensor_desc, scalar_desc),
+                        OUTPUT(out_tensor_desc));
 
     uint64_t workspace_size = 0;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
@@ -112,9 +106,8 @@ TEST_F(l2_addcmul_test, test_invalid_data_type_1)
     auto out_tensor_desc = TensorDesc(other_tensor_desc);
     auto scalar_desc = ScalarDesc(5.9f);
 
-    auto ut = OP_API_UT(
-        aclnnAddcmul, INPUT(self_tensor_desc, other_tensor_desc, other_tensor_desc, scalar_desc),
-        OUTPUT(out_tensor_desc));
+    auto ut = OP_API_UT(aclnnAddcmul, INPUT(self_tensor_desc, other_tensor_desc, other_tensor_desc, scalar_desc),
+                        OUTPUT(out_tensor_desc));
 
     // SAMPLE: only test GetWorkspaceSize
     uint64_t workspace_size = 0;
@@ -131,9 +124,8 @@ TEST_F(l2_addcmul_test, test_invalid_data_type_2)
     auto out_tensor_desc = TensorDesc(other_tensor_desc);
     auto scalar_desc = ScalarDesc(5.9f);
 
-    auto ut = OP_API_UT(
-        aclnnAddcmul, INPUT(self_tensor_desc, other_tensor_desc, other_tensor_desc2, scalar_desc),
-        OUTPUT(out_tensor_desc));
+    auto ut = OP_API_UT(aclnnAddcmul, INPUT(self_tensor_desc, other_tensor_desc, other_tensor_desc2, scalar_desc),
+                        OUTPUT(out_tensor_desc));
 
     // SAMPLE: only test GetWorkspaceSize
     uint64_t workspace_size = 0;
@@ -163,9 +155,8 @@ TEST_F(l2_addcmul_test, test_broadcat_err)
     auto out_tensor_desc = TensorDesc(self_tensor_desc).Precision(0.0001, 0.0001);
     auto scalar_desc = ScalarDesc(5.9f);
 
-    auto ut = OP_API_UT(
-        aclnnAddcmul, INPUT(self_tensor_desc, other_tensor_desc, other_tensor_desc, scalar_desc),
-        OUTPUT(out_tensor_desc));
+    auto ut = OP_API_UT(aclnnAddcmul, INPUT(self_tensor_desc, other_tensor_desc, other_tensor_desc, scalar_desc),
+                        OUTPUT(out_tensor_desc));
 
     // SAMPLE: only test GetWorkspaceSize
     uint64_t workspace_size = 0;
@@ -181,9 +172,8 @@ TEST_F(l2_addcmul_test, test_broadcast)
     auto out_tensor_desc = TensorDesc(other_tensor_desc).Precision(0.0001, 0.0001);
     auto scalar_desc = ScalarDesc(5.9f);
 
-    auto ut = OP_API_UT(
-        aclnnAddcmul, INPUT(self_tensor_desc, other_tensor_desc, other_tensor_desc, scalar_desc),
-        OUTPUT(out_tensor_desc));
+    auto ut = OP_API_UT(aclnnAddcmul, INPUT(self_tensor_desc, other_tensor_desc, other_tensor_desc, scalar_desc),
+                        OUTPUT(out_tensor_desc));
 
     // SAMPLE: only test GetWorkspaceSize
     uint64_t workspace_size = 0;
@@ -197,8 +187,8 @@ TEST_F(l2_addcmul_test, test_int32)
     auto out_tensor_desc = TensorDesc(tensor_desc).Precision(0.0001, 0.0001);
     auto scalar_desc = ScalarDesc(2.0f);
 
-    auto ut =
-        OP_API_UT(aclnnAddcmul, INPUT(tensor_desc, tensor_desc, tensor_desc, scalar_desc), OUTPUT(out_tensor_desc));
+    auto ut = OP_API_UT(aclnnAddcmul, INPUT(tensor_desc, tensor_desc, tensor_desc, scalar_desc),
+                        OUTPUT(out_tensor_desc));
 
     // SAMPLE: only test GetWorkspaceSize
     uint64_t workspace_size = 0;
@@ -213,8 +203,8 @@ TEST_F(l2_addcmul_test, test_shape_err)
     auto out_tensor_desc = TensorDesc(tensor_desc).Precision(0.0001, 0.0001);
     auto scalar_desc = ScalarDesc(1.0f);
 
-    auto ut =
-        OP_API_UT(aclnnAddcmul, INPUT(tensor_desc, tensor_desc, tensor_desc, scalar_desc), OUTPUT(out_tensor_desc));
+    auto ut = OP_API_UT(aclnnAddcmul, INPUT(tensor_desc, tensor_desc, tensor_desc, scalar_desc),
+                        OUTPUT(out_tensor_desc));
 
     // SAMPLE: only test GetWorkspaceSize
     uint64_t workspace_size = 0;
@@ -228,8 +218,8 @@ TEST_F(l2_addcmul_test, test_float)
     auto out_tensor_desc = TensorDesc(tensor_desc).Precision(0.0001, 0.0001);
     auto scalar_desc = ScalarDesc(2.0f);
 
-    auto ut =
-        OP_API_UT(aclnnAddcmul, INPUT(tensor_desc, tensor_desc, tensor_desc, scalar_desc), OUTPUT(out_tensor_desc));
+    auto ut = OP_API_UT(aclnnAddcmul, INPUT(tensor_desc, tensor_desc, tensor_desc, scalar_desc),
+                        OUTPUT(out_tensor_desc));
 
     // SAMPLE: only test GetWorkspaceSize
     uint64_t workspace_size = 0;
@@ -243,8 +233,8 @@ TEST_F(l2_addcmul_test, test_float_nhwc)
     auto out_tensor_desc = TensorDesc(tensor_desc).Precision(0.0001, 0.0001);
     auto scalar_desc = ScalarDesc(2.0f);
 
-    auto ut =
-        OP_API_UT(aclnnAddcmul, INPUT(tensor_desc, tensor_desc, tensor_desc, scalar_desc), OUTPUT(out_tensor_desc));
+    auto ut = OP_API_UT(aclnnAddcmul, INPUT(tensor_desc, tensor_desc, tensor_desc, scalar_desc),
+                        OUTPUT(out_tensor_desc));
 
     // SAMPLE: only test GetWorkspaceSize
     uint64_t workspace_size = 0;
@@ -258,8 +248,8 @@ TEST_F(l2_addcmul_test, test_float_nd)
     auto out_tensor_desc = TensorDesc(tensor_desc).Precision(0.0001, 0.0001);
     auto scalar_desc = ScalarDesc(2.0f);
 
-    auto ut =
-        OP_API_UT(aclnnAddcmul, INPUT(tensor_desc, tensor_desc, tensor_desc, scalar_desc), OUTPUT(out_tensor_desc));
+    auto ut = OP_API_UT(aclnnAddcmul, INPUT(tensor_desc, tensor_desc, tensor_desc, scalar_desc),
+                        OUTPUT(out_tensor_desc));
 
     // SAMPLE: only test GetWorkspaceSize
     uint64_t workspace_size = 0;
@@ -273,8 +263,8 @@ TEST_F(l2_addcmul_test, test_float_ndhwc)
     auto out_tensor_desc = TensorDesc(tensor_desc).Precision(0.0001, 0.0001);
     auto scalar_desc = ScalarDesc(2.0f);
 
-    auto ut =
-        OP_API_UT(aclnnAddcmul, INPUT(tensor_desc, tensor_desc, tensor_desc, scalar_desc), OUTPUT(out_tensor_desc));
+    auto ut = OP_API_UT(aclnnAddcmul, INPUT(tensor_desc, tensor_desc, tensor_desc, scalar_desc),
+                        OUTPUT(out_tensor_desc));
 
     // SAMPLE: only test GetWorkspaceSize
     uint64_t workspace_size = 0;
@@ -288,8 +278,8 @@ TEST_F(l2_addcmul_test, test_float_ncdhw)
     auto out_tensor_desc = TensorDesc(tensor_desc).Precision(0.0001, 0.0001);
     auto scalar_desc = ScalarDesc(2.0f);
 
-    auto ut =
-        OP_API_UT(aclnnAddcmul, INPUT(tensor_desc, tensor_desc, tensor_desc, scalar_desc), OUTPUT(out_tensor_desc));
+    auto ut = OP_API_UT(aclnnAddcmul, INPUT(tensor_desc, tensor_desc, tensor_desc, scalar_desc),
+                        OUTPUT(out_tensor_desc));
 
     // SAMPLE: only test GetWorkspaceSize
     uint64_t workspace_size = 0;
@@ -304,8 +294,8 @@ TEST_F(l2_addcmul_test, test_non_continuous)
     auto out_tensor_desc = TensorDesc(tensor_desc).Precision(0.0001, 0.0001);
     auto scalar_desc = ScalarDesc(2.0f);
 
-    auto ut =
-        OP_API_UT(aclnnAddcmul, INPUT(tensor_desc, tensor_desc, tensor_desc, scalar_desc), OUTPUT(out_tensor_desc));
+    auto ut = OP_API_UT(aclnnAddcmul, INPUT(tensor_desc, tensor_desc, tensor_desc, scalar_desc),
+                        OUTPUT(out_tensor_desc));
 
     // SAMPLE: only test GetWorkspaceSize
     uint64_t workspace_size = 0;
@@ -321,9 +311,8 @@ TEST_F(l2_addcmul_test, test_float16)
     auto out_tensor_desc = TensorDesc(other_tensor_desc);
     auto scalar_desc = ScalarDesc(5.9f);
 
-    auto ut = OP_API_UT(
-        aclnnAddcmul, INPUT(self_tensor_desc, other_tensor_desc, other_tensor_desc, scalar_desc),
-        OUTPUT(out_tensor_desc));
+    auto ut = OP_API_UT(aclnnAddcmul, INPUT(self_tensor_desc, other_tensor_desc, other_tensor_desc, scalar_desc),
+                        OUTPUT(out_tensor_desc));
 
     // SAMPLE: only test GetWorkspaceSize
     uint64_t workspace_size = 0;

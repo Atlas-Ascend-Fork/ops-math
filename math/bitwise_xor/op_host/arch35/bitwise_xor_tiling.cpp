@@ -28,15 +28,9 @@ namespace optiling {
 
 static constexpr uint64_t BITWISE_XOR_COMMON_TILING_PRIORITY = 0;
 
-ge::graphStatus BitwiseXorTiling::GetShapeAttrsInfo()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus BitwiseXorTiling::GetShapeAttrsInfo() { return ge::GRAPH_SUCCESS; }
 
-bool BitwiseXorTiling::IsCapable()
-{
-    return true;
-}
+bool BitwiseXorTiling::IsCapable() { return true; }
 
 ge::graphStatus BitwiseXorTiling::DoOpTiling()
 {
@@ -55,9 +49,9 @@ ge::graphStatus BitwiseXorTiling::DoOpTiling()
         std::string reasonMsg = "The dtype of x1 must be the same as the dtypes " +
                                 ge::TypeUtils::DataTypeToSerialString(input1DType) + " and " +
                                 ge::TypeUtils::DataTypeToSerialString(outputDtype) + " of x2 and y";
-        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(
-            context_->GetNodeName(), "x1", ge::TypeUtils::DataTypeToSerialString(input0DType).c_str(),
-            reasonMsg.c_str());
+        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context_->GetNodeName(), "x1",
+                                              ge::TypeUtils::DataTypeToSerialString(input0DType).c_str(),
+                                              reasonMsg.c_str());
         return ge::GRAPH_FAILED;
     }
     if (input0DType == ge::DT_INT8) {
@@ -93,38 +87,23 @@ ge::graphStatus BitwiseXorTiling::DoOpTiling()
         brcBaseTiling.DoTiling();
         tilingKey = GET_TPL_TILING_KEY(brcBaseTiling.GetSchMode());
     } else {
-        OP_LOGE_FOR_INVALID_DTYPE(
-            context_->GetNodeName(), "x1", ge::TypeUtils::DataTypeToSerialString(input0DType).c_str(),
-            "int8, uint8, int16, uint16, int32, uint32, int64 or uint64");
+        OP_LOGE_FOR_INVALID_DTYPE(context_->GetNodeName(), "x1",
+                                  ge::TypeUtils::DataTypeToSerialString(input0DType).c_str(),
+                                  "int8, uint8, int16, uint16, int32, uint32, int64 or uint64");
         return ge::GRAPH_FAILED;
     }
     return ge::GRAPH_SUCCESS;
 }
 
-ge::graphStatus BitwiseXorTiling::DoLibApiTiling()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus BitwiseXorTiling::DoLibApiTiling() { return ge::GRAPH_SUCCESS; }
 
-uint64_t BitwiseXorTiling::GetTilingKey() const
-{
-    return tilingKey;
-}
+uint64_t BitwiseXorTiling::GetTilingKey() const { return tilingKey; }
 
-ge::graphStatus BitwiseXorTiling::GetWorkspaceSize()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus BitwiseXorTiling::GetWorkspaceSize() { return ge::GRAPH_SUCCESS; }
 
-ge::graphStatus BitwiseXorTiling::PostTiling()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus BitwiseXorTiling::PostTiling() { return ge::GRAPH_SUCCESS; }
 
-ge::graphStatus BitwiseXorTiling::GetPlatformInfo()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus BitwiseXorTiling::GetPlatformInfo() { return ge::GRAPH_SUCCESS; }
 
 ge::graphStatus TilingForBitwiseXor(gert::TilingContext* context)
 {
@@ -153,9 +132,7 @@ ge::graphStatus TilingPrepareForBitwiseXor(gert::TilingParseContext* context)
     return ge::GRAPH_SUCCESS;
 }
 
-IMPL_OP_OPTILING(BitwiseXor)
-    .Tiling(TilingForBitwiseXor)
-    .TilingParse<BitWiseXorCompileInfo>(TilingPrepareForBitwiseXor);
+IMPL_OP_OPTILING(BitwiseXor).Tiling(TilingForBitwiseXor).TilingParse<BitWiseXorCompileInfo>(TilingPrepareForBitwiseXor);
 
 REGISTER_OPS_TILING_TEMPLATE(BitwiseXor, BitwiseXorTiling, BITWISE_XOR_COMMON_TILING_PRIORITY);
 } // namespace optiling

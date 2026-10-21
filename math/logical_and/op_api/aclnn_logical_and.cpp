@@ -84,9 +84,8 @@ inline static bool CheckShape(const aclTensor* self, const aclTensor* other, con
     OP_CHECK_BROADCAST_AND_INFER_SHAPE(self, other, broadcastShape, return false);
 
     if (broadcastShape != out->GetViewShape()) {
-        OP_LOGE(
-            ACLNN_ERR_PARAM_INVALID, "Shape of out should be %s, but current is %s.",
-            op::ToString(broadcastShape).GetString(), op::ToString(out->GetViewShape()).GetString());
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "Shape of out should be %s, but current is %s.",
+                op::ToString(broadcastShape).GetString(), op::ToString(out->GetViewShape()).GetString());
         return false;
     }
     return true;
@@ -106,16 +105,17 @@ inline static aclnnStatus CheckParams(const aclTensor* self, const aclTensor* ot
     return ACLNN_SUCCESS;
 }
 
-static void CheckFormat(const aclTensor* self, const aclTensor* other){
-  ge::Format selfStorageFormat = self->GetStorageFormat();
-  ge::Format otherStorageFormat = other->GetStorageFormat();
-  if (selfStorageFormat != ge::Format::FORMAT_ND || otherStorageFormat != ge::Format::FORMAT_ND){
-    OP_LOGW("aclnnLogicalAnd only support format ND.");
-  }
+static void CheckFormat(const aclTensor* self, const aclTensor* other)
+{
+    ge::Format selfStorageFormat = self->GetStorageFormat();
+    ge::Format otherStorageFormat = other->GetStorageFormat();
+    if (selfStorageFormat != ge::Format::FORMAT_ND || otherStorageFormat != ge::Format::FORMAT_ND) {
+        OP_LOGW("aclnnLogicalAnd only support format ND.");
+    }
 }
 
-static aclnnStatus CalculateResult(
-    const aclTensor* self, const aclTensor* other, aclTensor* out, aclOpExecutor* executor)
+static aclnnStatus CalculateResult(const aclTensor* self, const aclTensor* other, aclTensor* out,
+                                   aclOpExecutor* executor)
 {
     // 参数检查
     auto ret = CheckParams(self, other, out);
@@ -127,7 +127,7 @@ static aclnnStatus CalculateResult(
     }
 
     CheckFormat(self, other);
-    
+
     // 将输入self转换成连续的tensor
     auto selfContiguous = l0op::Contiguous(self, executor);
     CHECK_RET(selfContiguous != nullptr, ACLNN_ERR_INNER_NULLPTR);
@@ -165,8 +165,8 @@ static aclnnStatus CalculateResult(
     return ACLNN_SUCCESS;
 }
 
-aclnnStatus aclnnLogicalAndGetWorkspaceSize(
-    const aclTensor* self, const aclTensor* other, aclTensor* out, uint64_t* workspaceSize, aclOpExecutor** executor)
+aclnnStatus aclnnLogicalAndGetWorkspaceSize(const aclTensor* self, const aclTensor* other, aclTensor* out,
+                                            uint64_t* workspaceSize, aclOpExecutor** executor)
 {
     L2_DFX_PHASE_1(aclnnLogicalAnd, DFX_IN(self, other), DFX_OUT(out));
 
@@ -183,8 +183,8 @@ aclnnStatus aclnnLogicalAndGetWorkspaceSize(
     return ACLNN_SUCCESS;
 }
 
-aclnnStatus aclnnInplaceLogicalAndGetWorkspaceSize(
-    aclTensor* selfRef, const aclTensor* other, uint64_t* workspaceSize, aclOpExecutor** executor)
+aclnnStatus aclnnInplaceLogicalAndGetWorkspaceSize(aclTensor* selfRef, const aclTensor* other, uint64_t* workspaceSize,
+                                                   aclOpExecutor** executor)
 {
     L2_DFX_PHASE_1(aclnnInplaceLogicalAnd, DFX_IN(selfRef, other), DFX_OUT(selfRef));
 

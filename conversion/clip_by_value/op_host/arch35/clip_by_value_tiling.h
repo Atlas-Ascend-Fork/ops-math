@@ -27,8 +27,7 @@ struct ClipByValueCompileInfo {
 
 class ClipByValueTiling : public Ops::Base::TilingBaseClass {
 public:
-    explicit ClipByValueTiling(gert::TilingContext* context) : Ops::Base::TilingBaseClass(context)
-    {}
+    explicit ClipByValueTiling(gert::TilingContext* context) : Ops::Base::TilingBaseClass(context) {}
 
 protected:
     bool IsCapable() override;
@@ -42,9 +41,8 @@ protected:
 
 private:
     uint64_t tilingKey = 0;
-    bool CheckDtype(
-        const ge::DataType& xDtype, const ge::DataType& minDtype, const ge::DataType& maxDtype,
-        const ge::DataType& yDtype) const;
+    bool CheckDtype(const ge::DataType& xDtype, const ge::DataType& minDtype, const ge::DataType& maxDtype,
+                    const ge::DataType& yDtype) const;
 };
 
 } // namespace optiling

@@ -39,8 +39,8 @@ struct AddcdivOp {
     using OpCastVal = Ops::Base::Bind<Ops::Base::Vec::Cast<float, T2, CAST_NONE_MODE>, OpInputValue>;
 
     using OpDivX1X2Res = Ops::Base::Bind<Ops::Base::Vec::DivHighPrecision<float>, OpCastX1, OpCastX2>;
-    using OpMulAddDstRes =
-        Ops::Base::Bind<Ops::Base::Vec::FusedMulAdd<float>, OpCastInputData, OpDivX1X2Res, OpCastVal>;
+    using OpMulAddDstRes = Ops::Base::Bind<Ops::Base::Vec::FusedMulAdd<float>, OpCastInputData, OpDivX1X2Res,
+                                           OpCastVal>;
     using OpCastRes = Ops::Base::Bind<Ops::Base::Vec::Cast<T1, float, CAST_RINT_MODE>, OpMulAddDstRes>;
 
     using OpCopyOut = Ops::Base::Bind<Ops::Base::Vec::CopyOut<T1>, Ops::Base::Placeholder::Out0<T1>, OpCastRes>;

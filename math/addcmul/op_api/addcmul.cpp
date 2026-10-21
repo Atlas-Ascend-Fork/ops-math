@@ -39,35 +39,31 @@ static bool IsAiCoreSupport(const aclTensor* self)
 }
 
 // AICORE算子kernel
-static const aclTensor* AddcmulAiCore(
-    const aclTensor* self, const aclTensor* tensor1, const aclTensor* tensor2, const aclTensor* value,
-    const aclTensor* out, aclOpExecutor* executor)
+static const aclTensor* AddcmulAiCore(const aclTensor* self, const aclTensor* tensor1, const aclTensor* tensor2,
+                                      const aclTensor* value, const aclTensor* out, aclOpExecutor* executor)
 {
     L0_DFX(AddcmulAiCore, self, tensor1, tensor2, out);
     auto ret = ADD_TO_LAUNCHER_LIST_AICORE(Addcmul, OP_INPUT(self, tensor1, tensor2, value), OP_OUTPUT(out));
-    OP_CHECK(
-        ret == ACL_SUCCESS, OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "AddcmulAiCore ADD_TO_LAUNCHER_LIST_AICORE failed."),
-        return nullptr);
+    OP_CHECK(ret == ACL_SUCCESS, OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "AddcmulAiCore ADD_TO_LAUNCHER_LIST_AICORE failed."),
+             return nullptr);
     return out;
 }
 
 // AICPU算子kernel
-static const aclTensor* AddcmulAiCpu(
-    const aclTensor* self, const aclTensor* tensor1, const aclTensor* tensor2, const aclTensor* value, aclTensor* out,
-    aclOpExecutor* executor)
+static const aclTensor* AddcmulAiCpu(const aclTensor* self, const aclTensor* tensor1, const aclTensor* tensor2,
+                                     const aclTensor* value, aclTensor* out, aclOpExecutor* executor)
 {
     L0_DFX(AddcmulAiCpu, self, tensor1, tensor2, out);
     static internal::AicpuTaskSpace space("Addcmul");
-    auto ret =
-        ADD_TO_LAUNCHER_LIST_AICPU(Addcmul, OP_ATTR_NAMES(), OP_INPUT(self, tensor1, tensor2, value), OP_OUTPUT(out));
-    OP_CHECK(
-        ret == ACL_SUCCESS, OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "AddcmulAiCpu ADD_TO_LAUNCHER_LIST_AICPU failed."),
-        return nullptr);
+    auto ret = ADD_TO_LAUNCHER_LIST_AICPU(Addcmul, OP_ATTR_NAMES(), OP_INPUT(self, tensor1, tensor2, value),
+                                          OP_OUTPUT(out));
+    OP_CHECK(ret == ACL_SUCCESS, OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "AddcmulAiCpu ADD_TO_LAUNCHER_LIST_AICPU failed."),
+             return nullptr);
     return out;
 }
 
-static bool InferShape(
-    const aclTensor* self, const aclTensor* tensor1, const aclTensor* tensor2, op::Shape& broadcastShape)
+static bool InferShape(const aclTensor* self, const aclTensor* tensor1, const aclTensor* tensor2,
+                       op::Shape& broadcastShape)
 {
     if (!BroadcastInferShape(tensor1->GetViewShape(), tensor2->GetViewShape(), broadcastShape)) {
         return false;
@@ -78,9 +74,8 @@ static bool InferShape(
     return true;
 }
 
-const aclTensor* Addcmul(
-    const aclTensor* self, const aclTensor* tensor1, const aclTensor* tensor2, const aclTensor* value,
-    aclOpExecutor* executor)
+const aclTensor* Addcmul(const aclTensor* self, const aclTensor* tensor1, const aclTensor* tensor2,
+                         const aclTensor* value, aclOpExecutor* executor)
 {
     op::Shape broadcastShape;
     if (!InferShape(self, tensor1, tensor2, broadcastShape)) {

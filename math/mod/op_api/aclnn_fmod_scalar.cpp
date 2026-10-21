@@ -40,8 +40,7 @@ static const std::initializer_list<op::DataType> ASCEND910B_DTYPE_DTYPE_SUPPORT_
 static const std::initializer_list<DataType>& GetDtypeSupportList()
 {
     auto socVersion = GetCurrentPlatformInfo().GetSocVersion();
-    if (socVersion == SocVersion::ASCEND910B || socVersion == SocVersion::ASCEND910_93 ||
-        IsRegBase()) {
+    if (socVersion == SocVersion::ASCEND910B || socVersion == SocVersion::ASCEND910_93 || IsRegBase()) {
         return ASCEND910B_DTYPE_DTYPE_SUPPORT_LIST;
     }
     return ASCEND910_DTYPE_DTYPE_SUPPORT_LIST;
@@ -144,21 +143,18 @@ static bool CheckPromoteType(const aclTensor* self, const aclTensor* other)
     // 检查self和other能否做数据类型推导
     op::DataType promoteType = PromoteTypeScalar(self->GetDataType(), other->GetDataType());
     if (promoteType == DataType::DT_UNDEFINED) {
-        OP_LOGE(
-            ACLNN_ERR_PARAM_INVALID, "Self dtype %s and other dtype %s can not promote dtype.",
-            op::ToString(self->GetDataType()).GetString(), op::ToString(other->GetDataType()).GetString());
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "Self dtype %s and other dtype %s can not promote dtype.",
+                op::ToString(self->GetDataType()).GetString(), op::ToString(other->GetDataType()).GetString());
         return false;
     }
-    OP_LOGI(
-        "Self dtype %s and other dtype %s need promote dtype to %s", op::ToString(self->GetDataType()).GetString(),
-        op::ToString(other->GetDataType()).GetString(), op::ToString(promoteType).GetString());
+    OP_LOGI("Self dtype %s and other dtype %s need promote dtype to %s", op::ToString(self->GetDataType()).GetString(),
+            op::ToString(other->GetDataType()).GetString(), op::ToString(promoteType).GetString());
     auto supportList = GetDtypeSupportList();
     if (!CheckType(promoteType, supportList)) {
-        OP_LOGE(
-            ACLNN_ERR_PARAM_INVALID,
-            "Self dtype %s and other dtype %s need promote dtype to %s, but now not support promote dtype %s.",
-            op::ToString(self->GetDataType()).GetString(), op::ToString(other->GetDataType()).GetString(),
-            op::ToString(promoteType).GetString(), op::ToString(promoteType).GetString());
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID,
+                "Self dtype %s and other dtype %s need promote dtype to %s, but now not support promote dtype %s.",
+                op::ToString(self->GetDataType()).GetString(), op::ToString(other->GetDataType()).GetString(),
+                op::ToString(promoteType).GetString(), op::ToString(promoteType).GetString());
         return false;
     }
     return true;
@@ -193,8 +189,8 @@ static aclnnStatus CheckParams(const aclTensor* self, const aclTensor* other, co
     return ACLNN_SUCCESS;
 }
 
-static aclnnStatus GetWorkspaceSizeCommon(
-    const aclTensor* self, const aclScalar* other, aclTensor* out, uint64_t* workspaceSize, aclOpExecutor** executor)
+static aclnnStatus GetWorkspaceSizeCommon(const aclTensor* self, const aclScalar* other, aclTensor* out,
+                                          uint64_t* workspaceSize, aclOpExecutor** executor)
 {
     // 固定写法，创建OpExecutor
     auto uniqueExecutor = CREATE_EXECUTOR();
@@ -252,8 +248,8 @@ static aclnnStatus GetWorkspaceSizeCommon(
     return ACLNN_SUCCESS;
 }
 
-aclnnStatus aclnnFmodScalarGetWorkspaceSize(
-    const aclTensor* self, const aclScalar* other, aclTensor* out, uint64_t* workspaceSize, aclOpExecutor** executor)
+aclnnStatus aclnnFmodScalarGetWorkspaceSize(const aclTensor* self, const aclScalar* other, aclTensor* out,
+                                            uint64_t* workspaceSize, aclOpExecutor** executor)
 {
     L2_DFX_PHASE_1(aclnnFmodScalar, DFX_IN(self, other), DFX_OUT(out));
     return GetWorkspaceSizeCommon(self, other, out, workspaceSize, executor);
@@ -266,8 +262,8 @@ aclnnStatus aclnnFmodScalar(void* workspace, uint64_t workspaceSize, aclOpExecut
     return CommonOpExecutorRun(workspace, workspaceSize, executor, stream);
 }
 
-aclnnStatus aclnnInplaceFmodScalarGetWorkspaceSize(
-    aclTensor* selfRef, const aclScalar* other, uint64_t* workspaceSize, aclOpExecutor** executor)
+aclnnStatus aclnnInplaceFmodScalarGetWorkspaceSize(aclTensor* selfRef, const aclScalar* other, uint64_t* workspaceSize,
+                                                   aclOpExecutor** executor)
 {
     L2_DFX_PHASE_1(aclnnInplaceFmodScalar, DFX_IN(selfRef, other), DFX_OUT(selfRef));
     return GetWorkspaceSizeCommon(selfRef, other, selfRef, workspaceSize, executor);

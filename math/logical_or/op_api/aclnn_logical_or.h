@@ -102,4 +102,4 @@ ACLNN_API aclnnStatus aclnnInplaceLogicalOr(void* workspace, uint64_t workspaceS
 }
 #endif
 
-#endif  // OP_API_INC_LogicalOr_H_
+#endif // OP_API_INC_LogicalOr_H_

@@ -23,15 +23,9 @@ using namespace op;
 
 class l2_logical_or_test : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        cout << "logical_or_test SetUp" << endl;
-    }
+    static void SetUpTestCase() { cout << "logical_or_test SetUp" << endl; }
 
-    static void TearDownTestCase()
-    {
-        cout << "logical_or_test TearDown" << endl;
-    }
+    static void TearDownTestCase() { cout << "logical_or_test TearDown" << endl; }
 };
 
 TEST_F(l2_logical_or_test, aclnnLogicalOr_223_32_17_17_float16_nchw_223_1_1_17_float16_nchw_testcase002)
@@ -442,8 +436,6 @@ TEST_F(l2_logical_or_test, aclnnLogicalOr_1_11_21_6_float_nd_12_1_1_1_int32_nchw
     // ut.TestPrecision();
 }
 
-
-
 TEST_F(l2_logical_or_test, aclnnLogicalOr_223_32_17_17_float16_nchw_223_1_1_17_float16_ValueRange_testcase020)
 {
     // left input
@@ -609,10 +601,10 @@ TEST_F(l2_logical_or_test, aclnnLogicalOr_5_4_float32_not_contiguous_testcase026
     aclDataType outDtype = ACL_FLOAT;
     aclFormat outFormat = ACL_FORMAT_ND;
 
-    auto selfTensorDesc =
-        TensorDesc(selfShape, selfDtype, selfFormat, selfViewDim, selfOffset, selfStorageDim).ValueRange(-2, 2);
-    auto otherTensorDesc =
-        TensorDesc(otherShape, otherDtype, otherFormat, otherViewDim, otherOffset, otherStorageDim).ValueRange(-2, 2);
+    auto selfTensorDesc = TensorDesc(selfShape, selfDtype, selfFormat, selfViewDim, selfOffset, selfStorageDim)
+                              .ValueRange(-2, 2);
+    auto otherTensorDesc = TensorDesc(otherShape, otherDtype, otherFormat, otherViewDim, otherOffset, otherStorageDim)
+                               .ValueRange(-2, 2);
     auto outTensorDesc = TensorDesc(outShape, outDtype, outFormat).Precision(0.0001, 0.0001);
 
     auto ut = OP_API_UT(aclnnLogicalOr, INPUT(selfTensorDesc, otherTensorDesc), OUTPUT(outTensorDesc));

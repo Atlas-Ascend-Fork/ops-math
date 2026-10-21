@@ -25,31 +25,24 @@ using namespace Ops::Base;
 
 class ModTilingTest : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        std::cout << "ModTilingTest SetUp" << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "ModTilingTest SetUp" << std::endl; }
 
-    static void TearDownTestCase()
-    {
-        std::cout << "ModTilingTest TearDown" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "ModTilingTest TearDown" << std::endl; }
 };
 
 // Test: mod tiling with float32
 TEST_F(ModTilingTest, test_tiling_float32)
 {
     BroadcastCompileInfo compileInfo{};
-    gert::TilingContextPara tilingContextPara(
-        "Mod",
-        {
-            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_FLOAT, ge::FORMAT_ND},
-            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_FLOAT, ge::FORMAT_ND},
-        },
-        {
-            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_FLOAT, ge::FORMAT_ND},
-        },
-        &compileInfo);
+    gert::TilingContextPara tilingContextPara("Mod",
+                                              {
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
 
     uint64_t expectTilingKey = 8;
     string expectTilingData = "8192 137438953600 ";
@@ -61,16 +54,15 @@ TEST_F(ModTilingTest, test_tiling_float32)
 TEST_F(ModTilingTest, test_tiling_float16)
 {
     BroadcastCompileInfo compileInfo{};
-    gert::TilingContextPara tilingContextPara(
-        "Mod",
-        {
-            {{{1, 32, 4, 32}, {1, 32, 4, 32}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-            {{{1, 32, 4, 32}, {1, 32, 4, 32}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-        },
-        {
-            {{{1, 32, 4, 32}, {1, 32, 4, 32}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-        },
-        &compileInfo);
+    gert::TilingContextPara tilingContextPara("Mod",
+                                              {
+                                                  {{{1, 32, 4, 32}, {1, 32, 4, 32}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                  {{{1, 32, 4, 32}, {1, 32, 4, 32}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{1, 32, 4, 32}, {1, 32, 4, 32}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
 
     uint64_t expectTilingKey = 8;
     string expectTilingData = "4096 34359738624 ";
@@ -82,16 +74,15 @@ TEST_F(ModTilingTest, test_tiling_float16)
 TEST_F(ModTilingTest, test_tiling_int32)
 {
     BroadcastCompileInfo compileInfo{};
-    gert::TilingContextPara tilingContextPara(
-        "Mod",
-        {
-            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT32, ge::FORMAT_ND},
-            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT32, ge::FORMAT_ND},
-        },
-        {
-            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT32, ge::FORMAT_ND},
-        },
-        &compileInfo);
+    gert::TilingContextPara tilingContextPara("Mod",
+                                              {
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT32, ge::FORMAT_ND},
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT32, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT32, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
 
     uint64_t expectTilingKey = 8;
     string expectTilingData = "8192 137438953600 ";
@@ -103,16 +94,15 @@ TEST_F(ModTilingTest, test_tiling_int32)
 TEST_F(ModTilingTest, test_tiling_broadcast)
 {
     BroadcastCompileInfo compileInfo{};
-    gert::TilingContextPara tilingContextPara(
-        "Mod",
-        {
-            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_FLOAT, ge::FORMAT_ND},
-            {{{1, 1, 1, 1}, {1, 1, 1, 1}}, ge::DT_FLOAT, ge::FORMAT_ND},
-        },
-        {
-            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_FLOAT, ge::FORMAT_ND},
-        },
-        &compileInfo);
+    gert::TilingContextPara tilingContextPara("Mod",
+                                              {
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                  {{{1, 1, 1, 1}, {1, 1, 1, 1}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
 
     TilingInfo tilingInfo;
     bool success = ExecuteTiling(tilingContextPara, tilingInfo);
@@ -123,16 +113,15 @@ TEST_F(ModTilingTest, test_tiling_broadcast)
 TEST_F(ModTilingTest, test_tiling_small_shape)
 {
     BroadcastCompileInfo compileInfo{};
-    gert::TilingContextPara tilingContextPara(
-        "Mod",
-        {
-            {{{2, 3}, {2, 3}}, ge::DT_FLOAT, ge::FORMAT_ND},
-            {{{2, 3}, {2, 3}}, ge::DT_FLOAT, ge::FORMAT_ND},
-        },
-        {
-            {{{2, 3}, {2, 3}}, ge::DT_FLOAT, ge::FORMAT_ND},
-        },
-        &compileInfo);
+    gert::TilingContextPara tilingContextPara("Mod",
+                                              {
+                                                  {{{2, 3}, {2, 3}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                  {{{2, 3}, {2, 3}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{2, 3}, {2, 3}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
 
     TilingInfo tilingInfo;
     bool success = ExecuteTiling(tilingContextPara, tilingInfo);
@@ -163,16 +152,15 @@ TEST_F(ModTilingTest, test_tiling_large_shape)
 TEST_F(ModTilingTest, test_tiling_1d)
 {
     BroadcastCompileInfo compileInfo{};
-    gert::TilingContextPara tilingContextPara(
-        "Mod",
-        {
-            {{{1000}, {1000}}, ge::DT_FLOAT, ge::FORMAT_ND},
-            {{{1000}, {1000}}, ge::DT_FLOAT, ge::FORMAT_ND},
-        },
-        {
-            {{{1000}, {1000}}, ge::DT_FLOAT, ge::FORMAT_ND},
-        },
-        &compileInfo);
+    gert::TilingContextPara tilingContextPara("Mod",
+                                              {
+                                                  {{{1000}, {1000}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                  {{{1000}, {1000}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{1000}, {1000}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
 
     TilingInfo tilingInfo;
     bool success = ExecuteTiling(tilingContextPara, tilingInfo);
@@ -183,16 +171,15 @@ TEST_F(ModTilingTest, test_tiling_1d)
 TEST_F(ModTilingTest, test_tiling_nhwc)
 {
     BroadcastCompileInfo compileInfo{};
-    gert::TilingContextPara tilingContextPara(
-        "Mod",
-        {
-            {{{1, 16, 16, 3}, {1, 16, 16, 3}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
-            {{{1, 16, 16, 3}, {1, 16, 16, 3}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
-        },
-        {
-            {{{1, 16, 16, 3}, {1, 16, 16, 3}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
-        },
-        &compileInfo);
+    gert::TilingContextPara tilingContextPara("Mod",
+                                              {
+                                                  {{{1, 16, 16, 3}, {1, 16, 16, 3}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
+                                                  {{{1, 16, 16, 3}, {1, 16, 16, 3}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
+                                              },
+                                              {
+                                                  {{{1, 16, 16, 3}, {1, 16, 16, 3}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
+                                              },
+                                              &compileInfo);
 
     TilingInfo tilingInfo;
     bool success = ExecuteTiling(tilingContextPara, tilingInfo);
@@ -203,16 +190,15 @@ TEST_F(ModTilingTest, test_tiling_nhwc)
 TEST_F(ModTilingTest, test_tiling_int8)
 {
     BroadcastCompileInfo compileInfo{};
-    gert::TilingContextPara tilingContextPara(
-        "Mod",
-        {
-            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT8, ge::FORMAT_ND},
-            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT8, ge::FORMAT_ND},
-        },
-        {
-            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT8, ge::FORMAT_ND},
-        },
-        &compileInfo);
+    gert::TilingContextPara tilingContextPara("Mod",
+                                              {
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT8, ge::FORMAT_ND},
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT8, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT8, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
 
     uint64_t expectTilingKey = 8;
     string expectTilingData = "8192 34359738880 ";
@@ -224,16 +210,15 @@ TEST_F(ModTilingTest, test_tiling_int8)
 TEST_F(ModTilingTest, test_tiling_uint8)
 {
     BroadcastCompileInfo compileInfo{};
-    gert::TilingContextPara tilingContextPara(
-        "Mod",
-        {
-            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_UINT8, ge::FORMAT_ND},
-            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_UINT8, ge::FORMAT_ND},
-        },
-        {
-            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_UINT8, ge::FORMAT_ND},
-        },
-        &compileInfo);
+    gert::TilingContextPara tilingContextPara("Mod",
+                                              {
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_UINT8, ge::FORMAT_ND},
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_UINT8, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_UINT8, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
 
     uint64_t expectTilingKey = 8;
     string expectTilingData = "8192 34359738880 ";
@@ -245,16 +230,15 @@ TEST_F(ModTilingTest, test_tiling_uint8)
 TEST_F(ModTilingTest, test_tiling_int64)
 {
     BroadcastCompileInfo compileInfo{};
-    gert::TilingContextPara tilingContextPara(
-        "Mod",
-        {
-            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT64, ge::FORMAT_ND},
-            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT64, ge::FORMAT_ND},
-        },
-        {
-            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT64, ge::FORMAT_ND},
-        },
-        &compileInfo);
+    gert::TilingContextPara tilingContextPara("Mod",
+                                              {
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT64, ge::FORMAT_ND},
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT64, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT64, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
 
     uint64_t expectTilingKey = 8;
     string expectTilingData = "8192 137438953600 ";
@@ -265,16 +249,15 @@ TEST_F(ModTilingTest, test_tiling_int64)
 TEST_F(ModTilingTest, test_tiling_bf16)
 {
     BroadcastCompileInfo compileInfo{};
-    gert::TilingContextPara tilingContextPara(
-        "Mod",
-        {
-            {{{1, 32, 4, 32}, {1, 32, 4, 32}}, ge::DT_BF16, ge::FORMAT_ND},
-            {{{1, 32, 4, 32}, {1, 32, 4, 32}}, ge::DT_BF16, ge::FORMAT_ND},
-        },
-        {
-            {{{1, 32, 4, 32}, {1, 32, 4, 32}}, ge::DT_BF16, ge::FORMAT_ND},
-        },
-        &compileInfo);
+    gert::TilingContextPara tilingContextPara("Mod",
+                                              {
+                                                  {{{1, 32, 4, 32}, {1, 32, 4, 32}}, ge::DT_BF16, ge::FORMAT_ND},
+                                                  {{{1, 32, 4, 32}, {1, 32, 4, 32}}, ge::DT_BF16, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{1, 32, 4, 32}, {1, 32, 4, 32}}, ge::DT_BF16, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
 
     TilingInfo tilingInfo;
     bool success = ExecuteTiling(tilingContextPara, tilingInfo);

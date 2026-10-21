@@ -19,10 +19,10 @@ using namespace ge;
 namespace ops {
 constexpr size_t INPUT_NUM_TWO = 2;
 
-static ge::graphStatus InferShape4BitwiseXor(gert::InferShapeContext *context)
+static ge::graphStatus InferShape4BitwiseXor(gert::InferShapeContext* context)
 {
     return Ops::Base::InferShape4Broadcast(context, INPUT_NUM_TWO);
 }
 
 IMPL_OP_INFERSHAPE(BitwiseXor).InferShape(InferShape4BitwiseXor);
-}
+} // namespace ops

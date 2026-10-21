@@ -22,15 +22,9 @@ using namespace std;
 
 class l2_inplace_addcmul_test : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        cout << "inplace_addcmul_test SetUp" << endl;
-    }
+    static void SetUpTestCase() { cout << "inplace_addcmul_test SetUp" << endl; }
 
-    static void TearDownTestCase()
-    {
-        cout << "inplace_addcmul_test TearDown" << endl;
-    }
+    static void TearDownTestCase() { cout << "inplace_addcmul_test TearDown" << endl; }
 };
 
 // Test for Empty tensor
@@ -41,8 +35,8 @@ TEST_F(l2_inplace_addcmul_test, test_empty_tensor)
 
     auto scalar_desc = ScalarDesc(1.0f);
 
-    auto ut = OP_API_UT(
-        aclnnInplaceAddcmul, INPUT(self_tensor_desc, other_tensor_desc, other_tensor_desc, scalar_desc), OUTPUT());
+    auto ut = OP_API_UT(aclnnInplaceAddcmul, INPUT(self_tensor_desc, other_tensor_desc, other_tensor_desc, scalar_desc),
+                        OUTPUT());
 
     // SAMPLE: only test GetWorkspaceSize
     uint64_t workspace_size = 0;
@@ -58,8 +52,8 @@ TEST_F(l2_inplace_addcmul_test, test_promote)
 
     auto scalar_desc = ScalarDesc(5.9f);
 
-    auto ut = OP_API_UT(
-        aclnnInplaceAddcmul, INPUT(self_tensor_desc, other_tensor_desc, other_tensor_desc, scalar_desc), OUTPUT());
+    auto ut = OP_API_UT(aclnnInplaceAddcmul, INPUT(self_tensor_desc, other_tensor_desc, other_tensor_desc, scalar_desc),
+                        OUTPUT());
 
     // SAMPLE: only test GetWorkspaceSize
     uint64_t workspace_size = 0;
@@ -71,12 +65,13 @@ TEST_F(l2_inplace_addcmul_test, test_promote)
 TEST_F(l2_inplace_addcmul_test, test_null_scalar)
 {
     auto tensor_desc = TensorDesc({10, 20}, ACL_FLOAT, ACL_FORMAT_ND).ValueRange(-2, 2).Value(vector<float>(200, 1.0f));
-    auto other_tensor_desc =
-        TensorDesc({10, 20}, ACL_FLOAT, ACL_FORMAT_ND).ValueRange(-2, 2).Value(vector<float>(200, 2.0f));
+    auto other_tensor_desc = TensorDesc({10, 20}, ACL_FLOAT, ACL_FORMAT_ND)
+                                 .ValueRange(-2, 2)
+                                 .Value(vector<float>(200, 2.0f));
     auto scalar_desc = nullptr;
 
-    auto ut =
-        OP_API_UT(aclnnInplaceAddcmul, INPUT(tensor_desc, other_tensor_desc, other_tensor_desc, scalar_desc), OUTPUT());
+    auto ut = OP_API_UT(aclnnInplaceAddcmul, INPUT(tensor_desc, other_tensor_desc, other_tensor_desc, scalar_desc),
+                        OUTPUT());
 
     uint64_t workspace_size = 0;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
@@ -86,14 +81,15 @@ TEST_F(l2_inplace_addcmul_test, test_null_scalar)
 // Test for Invalid DataType
 TEST_F(l2_inplace_addcmul_test, test_invalid_data_type)
 {
-    auto tensor_desc =
-        TensorDesc({10, 20}, ACL_UINT32, ACL_FORMAT_ND).ValueRange(0, 255).Value(vector<uint8_t>(200, 1));
-    auto other_tensor_desc =
-        TensorDesc({10, 20}, ACL_UINT32, ACL_FORMAT_ND).ValueRange(-2, 2).Value(vector<float>(200, 2.0f));
+    auto
+        tensor_desc = TensorDesc({10, 20}, ACL_UINT32, ACL_FORMAT_ND).ValueRange(0, 255).Value(vector<uint8_t>(200, 1));
+    auto other_tensor_desc = TensorDesc({10, 20}, ACL_UINT32, ACL_FORMAT_ND)
+                                 .ValueRange(-2, 2)
+                                 .Value(vector<float>(200, 2.0f));
     auto scalar_desc = ScalarDesc(static_cast<int64_t>(5));
 
-    auto ut =
-        OP_API_UT(aclnnInplaceAddcmul, INPUT(tensor_desc, other_tensor_desc, other_tensor_desc, scalar_desc), OUTPUT());
+    auto ut = OP_API_UT(aclnnInplaceAddcmul, INPUT(tensor_desc, other_tensor_desc, other_tensor_desc, scalar_desc),
+                        OUTPUT());
 
     uint64_t workspace_size = 0;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
@@ -108,8 +104,8 @@ TEST_F(l2_inplace_addcmul_test, test_invalid_data_type_1)
 
     auto scalar_desc = ScalarDesc(5.9f);
 
-    auto ut = OP_API_UT(
-        aclnnInplaceAddcmul, INPUT(self_tensor_desc, other_tensor_desc, other_tensor_desc, scalar_desc), OUTPUT());
+    auto ut = OP_API_UT(aclnnInplaceAddcmul, INPUT(self_tensor_desc, other_tensor_desc, other_tensor_desc, scalar_desc),
+                        OUTPUT());
 
     // SAMPLE: only test GetWorkspaceSize
     uint64_t workspace_size = 0;
@@ -126,8 +122,8 @@ TEST_F(l2_inplace_addcmul_test, test_invalid_data_type_2)
 
     auto scalar_desc = ScalarDesc(5.9f);
 
-    auto ut = OP_API_UT(
-        aclnnInplaceAddcmul, INPUT(self_tensor_desc, other_tensor_desc, other_tensor_desc2, scalar_desc), OUTPUT());
+    auto ut = OP_API_UT(aclnnInplaceAddcmul,
+                        INPUT(self_tensor_desc, other_tensor_desc, other_tensor_desc2, scalar_desc), OUTPUT());
 
     // SAMPLE: only test GetWorkspaceSize
     uint64_t workspace_size = 0;
@@ -157,8 +153,8 @@ TEST_F(l2_inplace_addcmul_test, test_broadcat_err)
 
     auto scalar_desc = ScalarDesc(5.9f);
 
-    auto ut = OP_API_UT(
-        aclnnInplaceAddcmul, INPUT(self_tensor_desc, other_tensor_desc, other_tensor_desc, scalar_desc), OUTPUT());
+    auto ut = OP_API_UT(aclnnInplaceAddcmul, INPUT(self_tensor_desc, other_tensor_desc, other_tensor_desc, scalar_desc),
+                        OUTPUT());
 
     // SAMPLE: only test GetWorkspaceSize
     uint64_t workspace_size = 0;
@@ -174,8 +170,8 @@ TEST_F(l2_inplace_addcmul_test, test_broadcast)
 
     auto scalar_desc = ScalarDesc(5.9f);
 
-    auto ut = OP_API_UT(
-        aclnnInplaceAddcmul, INPUT(self_tensor_desc, other_tensor_desc, other_tensor_desc, scalar_desc), OUTPUT());
+    auto ut = OP_API_UT(aclnnInplaceAddcmul, INPUT(self_tensor_desc, other_tensor_desc, other_tensor_desc, scalar_desc),
+                        OUTPUT());
 
     // SAMPLE: only test GetWorkspaceSize
     uint64_t workspace_size = 0;
@@ -305,8 +301,8 @@ TEST_F(l2_inplace_addcmul_test, test_float16)
 
     auto scalar_desc = ScalarDesc(5.9f);
 
-    auto ut = OP_API_UT(
-        aclnnInplaceAddcmul, INPUT(self_tensor_desc, other_tensor_desc, other_tensor_desc, scalar_desc), OUTPUT());
+    auto ut = OP_API_UT(aclnnInplaceAddcmul, INPUT(self_tensor_desc, other_tensor_desc, other_tensor_desc, scalar_desc),
+                        OUTPUT());
 
     // SAMPLE: only test GetWorkspaceSize
     uint64_t workspace_size = 0;

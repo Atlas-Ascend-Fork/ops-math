@@ -28,28 +28,21 @@ using namespace Ops::Base;
 
 constexpr static uint64_t CLIP_BY_VALUE_COMMON_TILING_PRIORITY = 0;
 
-ge::graphStatus ClipByValueTiling::GetShapeAttrsInfo()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus ClipByValueTiling::GetShapeAttrsInfo() { return ge::GRAPH_SUCCESS; }
 
-bool ClipByValueTiling::IsCapable()
-{
-    return true;
-}
+bool ClipByValueTiling::IsCapable() { return true; }
 
-bool ClipByValueTiling::CheckDtype(
-    const ge::DataType& xDtype, const ge::DataType& minDtype, const ge::DataType& maxDtype,
-    const ge::DataType& yDtype) const
+bool ClipByValueTiling::CheckDtype(const ge::DataType& xDtype, const ge::DataType& minDtype,
+                                   const ge::DataType& maxDtype, const ge::DataType& yDtype) const
 {
     if (xDtype != minDtype || xDtype != maxDtype || xDtype != yDtype) {
         std::string dtypeMsg = ge::TypeUtils::DataTypeToSerialString(xDtype) + ", " +
                                ge::TypeUtils::DataTypeToSerialString(minDtype) + ", " +
                                ge::TypeUtils::DataTypeToSerialString(maxDtype) + " and " +
                                ge::TypeUtils::DataTypeToSerialString(yDtype);
-        OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(
-            context_->GetNodeName(), "x, clip_value_min, clip_value_max and y", dtypeMsg.c_str(),
-            "The dtype of x, clip_value_min, clip_value_max and y must be the same");
+        OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(context_->GetNodeName(), "x, clip_value_min, clip_value_max and y",
+                                               dtypeMsg.c_str(),
+                                               "The dtype of x, clip_value_min, clip_value_max and y must be the same");
         return false;
     }
     return true;
@@ -94,39 +87,23 @@ ge::graphStatus ClipByValueTiling::DoOpTiling()
         ret = brcBaseTiling.DoTiling();
         tilingKey = GET_TPL_TILING_KEY(brcBaseTiling.GetSchMode());
     } else {
-        OP_LOGE_FOR_INVALID_DTYPE(
-            context_->GetNodeName(), "x", ge::TypeUtils::DataTypeToSerialString(xDtype).c_str(),
-            "fp16, bf16, fp32, int32 or int64");
+        OP_LOGE_FOR_INVALID_DTYPE(context_->GetNodeName(), "x", ge::TypeUtils::DataTypeToSerialString(xDtype).c_str(),
+                                  "fp16, bf16, fp32, int32 or int64");
         return ge::GRAPH_FAILED;
     }
 
     return ret;
 }
 
-ge::graphStatus ClipByValueTiling::DoLibApiTiling()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus ClipByValueTiling::DoLibApiTiling() { return ge::GRAPH_SUCCESS; }
 
-uint64_t ClipByValueTiling::GetTilingKey() const
-{
-    return tilingKey;
-}
+uint64_t ClipByValueTiling::GetTilingKey() const { return tilingKey; }
 
-ge::graphStatus ClipByValueTiling::GetWorkspaceSize()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus ClipByValueTiling::GetWorkspaceSize() { return ge::GRAPH_SUCCESS; }
 
-ge::graphStatus ClipByValueTiling::PostTiling()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus ClipByValueTiling::PostTiling() { return ge::GRAPH_SUCCESS; }
 
-ge::graphStatus ClipByValueTiling::GetPlatformInfo()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus ClipByValueTiling::GetPlatformInfo() { return ge::GRAPH_SUCCESS; }
 
 static ge::graphStatus TilingForClipByValue(gert::TilingContext* context)
 {

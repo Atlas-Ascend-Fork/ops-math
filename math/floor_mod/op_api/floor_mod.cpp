@@ -26,9 +26,8 @@ const aclTensor* FloorModAiCore(const aclTensor* input, const aclTensor* other, 
 {
     L0_DFX(FloorModAiCore, input, other, out);
     auto ret = ADD_TO_LAUNCHER_LIST_AICORE(FloorMod, OP_INPUT(input, other), OP_OUTPUT(out));
-    OP_CHECK(
-        ret == ACLNN_SUCCESS, OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "FloorModAiCore ADD_TO_LAUNCHER_LIST_AICORE failed."),
-        return nullptr);
+    OP_CHECK(ret == ACLNN_SUCCESS,
+             OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "FloorModAiCore ADD_TO_LAUNCHER_LIST_AICORE failed."), return nullptr);
     return out;
 }
 
@@ -39,9 +38,8 @@ const aclTensor* FloorModAiCpu(const aclTensor* input, const aclTensor* other, a
 
     static internal::AicpuTaskSpace space("FloorMod", ge::DEPEND_IN_SHAPE, true);
     auto ret = ADD_TO_LAUNCHER_LIST_AICPU(FloorMod, OP_ATTR_NAMES(), OP_INPUT(input, other), OP_OUTPUT(out));
-    OP_CHECK(
-        ret == ACLNN_SUCCESS, OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "FloorModAiCpu ADD_TO_LAUNCHER_LIST_AICPU failed."),
-        return nullptr);
+    OP_CHECK(ret == ACLNN_SUCCESS, OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "FloorModAiCpu ADD_TO_LAUNCHER_LIST_AICPU failed."),
+             return nullptr);
     return out;
 }
 
@@ -51,9 +49,8 @@ const aclTensor* FloorMod(const aclTensor* input, const aclTensor* other, aclOpE
     L0_DFX(FloorMod, input, other);
     op::Shape broadcastShape;
     if (!BroadcastInferShape(input->GetViewShape(), other->GetViewShape(), broadcastShape)) {
-        OP_LOGE(
-            ACLNN_ERR_PARAM_INVALID, "Broadcast %s and %s failed.", op::ToString(input->GetViewShape()).GetString(),
-            op::ToString(other->GetViewShape()).GetString());
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "Broadcast %s and %s failed.", op::ToString(input->GetViewShape()).GetString(),
+                op::ToString(other->GetViewShape()).GetString());
         return nullptr;
     }
     auto out = executor->AllocTensor(broadcastShape, input->GetDataType());

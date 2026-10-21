@@ -21,8 +21,8 @@
 using namespace AscendC;
 
 template <uint64_t schMode>
-__global__ __aicore__ void addcmul(
-    GM_ADDR input_data, GM_ADDR x1, GM_ADDR x2, GM_ADDR value, GM_ADDR y, GM_ADDR workspace, GM_ADDR tiling)
+__global__ __aicore__ void addcmul(GM_ADDR input_data, GM_ADDR x1, GM_ADDR x2, GM_ADDR value, GM_ADDR y,
+                                   GM_ADDR workspace, GM_ADDR tiling)
 {
     if constexpr (std::is_same<DTYPE_INPUT_DATA, int32_t>::value) {
         using OpDag = AddcmulOp::AddcmulInt32Op<int32_t>::OpDag;

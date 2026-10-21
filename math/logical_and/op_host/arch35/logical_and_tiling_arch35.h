@@ -25,8 +25,7 @@ namespace optiling {
 
 class LogicalAndTiling : public Ops::Base::TilingBaseClass {
 public:
-    explicit LogicalAndTiling(gert::TilingContext* context) : Ops::Base::TilingBaseClass(context)
-    {}
+    explicit LogicalAndTiling(gert::TilingContext* context) : Ops::Base::TilingBaseClass(context) {}
 
 protected:
     bool IsCapable() override;

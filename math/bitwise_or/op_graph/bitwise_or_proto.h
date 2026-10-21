@@ -44,4 +44,3 @@ REG_OP(BitwiseOr)
 } // namespace ge
 
 #endif // OPS_OP_PROTO_INC_BITWISE_OR_H_
-

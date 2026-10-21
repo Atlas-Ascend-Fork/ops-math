@@ -14,7 +14,7 @@
 #include "opdev/op_executor.h"
 
 namespace l0op {
-const aclTensor *BitwiseOr(const aclTensor *self, const aclTensor* other, aclOpExecutor *executor);
+const aclTensor* BitwiseOr(const aclTensor* self, const aclTensor* other, aclOpExecutor* executor);
 }
 
 #endif // OP_API_INC_LEVEL0_BITWISE_OR_H_

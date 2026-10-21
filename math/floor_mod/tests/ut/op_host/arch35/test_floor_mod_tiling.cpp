@@ -22,33 +22,25 @@
 using namespace std;
 using namespace ge;
 
-class FloorModTiling : public testing::Test
-{
+class FloorModTiling : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        std::cout << "FloorModTiling SetUp" << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "FloorModTiling SetUp" << std::endl; }
 
-    static void TearDownTestCase()
-    {
-        std::cout << "FloorModTiling TearDown" << std::endl;
-    }    
+    static void TearDownTestCase() { std::cout << "FloorModTiling TearDown" << std::endl; }
 };
 
 TEST_F(FloorModTiling, floor_mod_test_0)
 {
     optiling::FloorModCompileInfo compileInfo = {64, 245760};
-    gert::TilingContextPara tilingContextPara(
-        "FloorMod",
-        {
-            {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_BF16, ge::FORMAT_ND},
-            {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_BF16, ge::FORMAT_ND},
-        },
-        {
-            {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_BF16, ge::FORMAT_ND},
-        },
-        &compileInfo);
+    gert::TilingContextPara tilingContextPara("FloorMod",
+                                              {
+                                                  {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_BF16, ge::FORMAT_ND},
+                                                  {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_BF16, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_BF16, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
     uint64_t expectTilingKey = 8;
     string expectTilingData = "2048 281492156580096 ";
     std::vector<size_t> expectWorkspaces = {16777216};
@@ -58,16 +50,15 @@ TEST_F(FloorModTiling, floor_mod_test_0)
 TEST_F(FloorModTiling, floor_mod_test_float16)
 {
     optiling::FloorModCompileInfo compileInfo = {64, 245760};
-    gert::TilingContextPara tilingContextPara(
-        "FloorMod",
-        {
-            {{{1, 32, 4, 32}, {1, 32, 4, 32}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-            {{{1, 32, 4, 32}, {1, 32, 4, 32}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-        },
-        {
-            {{{1, 32, 4, 32}, {1, 32, 4, 32}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-        },
-        &compileInfo);
+    gert::TilingContextPara tilingContextPara("FloorMod",
+                                              {
+                                                  {{{1, 32, 4, 32}, {1, 32, 4, 32}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                  {{{1, 32, 4, 32}, {1, 32, 4, 32}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{1, 32, 4, 32}, {1, 32, 4, 32}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
     TilingInfo tilingInfo;
     bool success = ExecuteTiling(tilingContextPara, tilingInfo);
     EXPECT_TRUE(success);
@@ -76,16 +67,15 @@ TEST_F(FloorModTiling, floor_mod_test_float16)
 TEST_F(FloorModTiling, floor_mod_test_int64)
 {
     optiling::FloorModCompileInfo compileInfo = {64, 245760};
-    gert::TilingContextPara tilingContextPara(
-        "FloorMod",
-        {
-            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT64, ge::FORMAT_ND},
-            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT64, ge::FORMAT_ND},
-        },
-        {
-            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT64, ge::FORMAT_ND},
-        },
-        &compileInfo);
+    gert::TilingContextPara tilingContextPara("FloorMod",
+                                              {
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT64, ge::FORMAT_ND},
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT64, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT64, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
     TilingInfo tilingInfo;
     bool success = ExecuteTiling(tilingContextPara, tilingInfo);
     EXPECT_TRUE(success);

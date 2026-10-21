@@ -14,8 +14,8 @@
 #include "opdev/op_executor.h"
 
 namespace l0op {
-const aclTensor* ClipByValueV2(
-    const aclTensor* self, const aclTensor* clipValueMin, const aclTensor* clipValueMax, aclOpExecutor* executor);
+const aclTensor* ClipByValueV2(const aclTensor* self, const aclTensor* clipValueMin, const aclTensor* clipValueMax,
+                               aclOpExecutor* executor);
 } // namespace l0op
 
 #endif // OP_API_INC_LEVEL0_CLIPBYVALUE_H_

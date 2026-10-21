@@ -23,15 +23,9 @@ using namespace std;
 
 class ClipByValueTiling : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        std::cout << "ClipByValueTiling SetUp" << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "ClipByValueTiling SetUp" << std::endl; }
 
-    static void TearDownTestCase()
-    {
-        std::cout << "ClipByValueTiling TearDown" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "ClipByValueTiling TearDown" << std::endl; }
 };
 
 static gert::StorageShape MakeStorageShape(const std::vector<int64_t>& shape)
@@ -45,8 +39,8 @@ static gert::StorageShape MakeStorageShape(const std::vector<int64_t>& shape)
 }
 
 static void RunClipByValueSuccessCase(ge::DataType dtype, const std::vector<int64_t>& xShape,
-    const std::vector<int64_t>& minShape, const std::vector<int64_t>& maxShape,
-    const std::vector<int64_t>& yShape)
+                                      const std::vector<int64_t>& minShape, const std::vector<int64_t>& maxShape,
+                                      const std::vector<int64_t>& yShape)
 {
     optiling::ClipByValueCompileInfo compileInfo = {64, 245760};
     gert::StorageShape xStorageShape = MakeStorageShape(xShape);
@@ -61,8 +55,7 @@ static void RunClipByValueSuccessCase(ge::DataType dtype, const std::vector<int6
     std::vector<gert::TilingContextPara::TensorDescription> outputTensorDesc = {
         {yStorageShape, dtype, ge::FORMAT_ND},
     };
-    gert::TilingContextPara tilingContextPara(
-        "ClipByValue", inputTensorDesc, outputTensorDesc, &compileInfo);
+    gert::TilingContextPara tilingContextPara("ClipByValue", inputTensorDesc, outputTensorDesc, &compileInfo);
     ExecuteTestCaseForEle(tilingContextPara, ge::GRAPH_SUCCESS, false, 0, false, "", {16777216});
 }
 
@@ -73,31 +66,24 @@ TEST_F(ClipByValueTiling, same_shape_fp16)
 
 TEST_F(ClipByValueTiling, last_dim_broadcast_fp16)
 {
-    RunClipByValueSuccessCase(
-        ge::DT_FLOAT16, {48, 16, 16, 16}, {48, 16, 16, 1}, {48, 16, 16, 1}, {48, 16, 16, 16});
+    RunClipByValueSuccessCase(ge::DT_FLOAT16, {48, 16, 16, 16}, {48, 16, 16, 1}, {48, 16, 16, 1}, {48, 16, 16, 16});
 }
 
 TEST_F(ClipByValueTiling, fp32_broadcast)
 {
-    RunClipByValueSuccessCase(
-        ge::DT_FLOAT, {48, 16, 16, 16}, {48, 16, 16, 1}, {48, 16, 16, 1}, {48, 16, 16, 16});
+    RunClipByValueSuccessCase(ge::DT_FLOAT, {48, 16, 16, 16}, {48, 16, 16, 1}, {48, 16, 16, 1}, {48, 16, 16, 16});
 }
 
-TEST_F(ClipByValueTiling, bf16_scalar_bounds)
-{
-    RunClipByValueSuccessCase(ge::DT_BF16, {32, 64}, {1}, {1}, {32, 64});
-}
+TEST_F(ClipByValueTiling, bf16_scalar_bounds) { RunClipByValueSuccessCase(ge::DT_BF16, {32, 64}, {1}, {1}, {32, 64}); }
 
 TEST_F(ClipByValueTiling, int32_broadcast)
 {
-    RunClipByValueSuccessCase(
-        ge::DT_INT32, {48, 16, 16, 16}, {48, 16, 16, 1}, {48, 16, 16, 1}, {48, 16, 16, 16});
+    RunClipByValueSuccessCase(ge::DT_INT32, {48, 16, 16, 16}, {48, 16, 16, 1}, {48, 16, 16, 1}, {48, 16, 16, 16});
 }
 
 TEST_F(ClipByValueTiling, int64_broadcast)
 {
-    RunClipByValueSuccessCase(
-        ge::DT_INT64, {48, 16, 16, 16}, {48, 16, 16, 1}, {48, 16, 16, 1}, {48, 16, 16, 16});
+    RunClipByValueSuccessCase(ge::DT_INT64, {48, 16, 16, 16}, {48, 16, 16, 1}, {48, 16, 16, 1}, {48, 16, 16, 16});
 }
 
 TEST_F(ClipByValueTiling, mismatched_dtype_failed)
@@ -113,7 +99,6 @@ TEST_F(ClipByValueTiling, mismatched_dtype_failed)
     std::vector<gert::TilingContextPara::TensorDescription> outputTensorDesc = {
         {xStorageShape, ge::DT_FLOAT16, ge::FORMAT_ND},
     };
-    gert::TilingContextPara tilingContextPara(
-        "ClipByValue", inputTensorDesc, outputTensorDesc, &compileInfo);
+    gert::TilingContextPara tilingContextPara("ClipByValue", inputTensorDesc, outputTensorDesc, &compileInfo);
     ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
 }

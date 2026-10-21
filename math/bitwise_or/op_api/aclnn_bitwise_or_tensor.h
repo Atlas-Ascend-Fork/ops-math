@@ -118,4 +118,4 @@ ACLNN_API aclnnStatus aclnnInplaceBitwiseOrTensor(void* workspace, uint64_t work
 }
 #endif
 
-#endif  // OP_API_INC_LEVEL2_ACLNN_BITWISE_OR_TENSOR_H_
+#endif // OP_API_INC_LEVEL2_ACLNN_BITWISE_OR_TENSOR_H_

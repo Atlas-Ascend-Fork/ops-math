@@ -39,8 +39,9 @@ extern "C" {
  * @param [out] executor: 返回op执行器，包含算子计算流程。
  * @return aclnnStatus: 返回状态码
  */
-ACLNN_API aclnnStatus aclnnRemainderTensorTensorGetWorkspaceSize(
-    const aclTensor* self, const aclTensor* other, aclTensor* out, uint64_t* workspaceSize, aclOpExecutor** executor);
+ACLNN_API aclnnStatus aclnnRemainderTensorTensorGetWorkspaceSize(const aclTensor* self, const aclTensor* other,
+                                                                 aclTensor* out, uint64_t* workspaceSize,
+                                                                 aclOpExecutor** executor);
 
 /**
  * @brief: aclnnRemainderTensorTensor的第二段接口，用于执行计算
@@ -53,8 +54,8 @@ ACLNN_API aclnnStatus aclnnRemainderTensorTensorGetWorkspaceSize(
  * @param [in] stream: acl stream流。
  * @return aclnnStatus: 返回状态码。
  */
-ACLNN_API aclnnStatus
-aclnnRemainderTensorTensor(void* workspace, uint64_t workspaceSize, aclOpExecutor* executor, aclrtStream stream);
+ACLNN_API aclnnStatus aclnnRemainderTensorTensor(void* workspace, uint64_t workspaceSize, aclOpExecutor* executor,
+                                                 aclrtStream stream);
 
 // tensor self, scalar other
 /**
@@ -75,8 +76,9 @@ aclnnRemainderTensorTensor(void* workspace, uint64_t workspaceSize, aclOpExecuto
  * @param [out] executor: 返回op执行器，包含算子计算流程。
  * @return aclnnStatus: 返回状态码
  */
-ACLNN_API aclnnStatus aclnnRemainderTensorScalarGetWorkspaceSize(
-    const aclTensor* self, const aclScalar* other, aclTensor* out, uint64_t* workspaceSize, aclOpExecutor** executor);
+ACLNN_API aclnnStatus aclnnRemainderTensorScalarGetWorkspaceSize(const aclTensor* self, const aclScalar* other,
+                                                                 aclTensor* out, uint64_t* workspaceSize,
+                                                                 aclOpExecutor** executor);
 
 /**
  * @brief: aclnnRemainderTensorScalar的第二段接口，用于执行计算
@@ -89,8 +91,8 @@ ACLNN_API aclnnStatus aclnnRemainderTensorScalarGetWorkspaceSize(
  * @param [in] stream: acl stream流。
  * @return aclnnStatus: 返回状态码。
  */
-ACLNN_API aclnnStatus
-aclnnRemainderTensorScalar(void* workspace, uint64_t workspaceSize, aclOpExecutor* executor, aclrtStream stream);
+ACLNN_API aclnnStatus aclnnRemainderTensorScalar(void* workspace, uint64_t workspaceSize, aclOpExecutor* executor,
+                                                 aclrtStream stream);
 
 // scalar self, tensor other
 /**
@@ -109,8 +111,9 @@ aclnnRemainderTensorScalar(void* workspace, uint64_t workspaceSize, aclOpExecuto
  * @param [out] executor: 返回op执行器，包含算子计算流程。
  * @return aclnnStatus: 返回状态码
  */
-ACLNN_API aclnnStatus aclnnRemainderScalarTensorGetWorkspaceSize(
-    const aclScalar* self, const aclTensor* other, aclTensor* out, uint64_t* workspaceSize, aclOpExecutor** executor);
+ACLNN_API aclnnStatus aclnnRemainderScalarTensorGetWorkspaceSize(const aclScalar* self, const aclTensor* other,
+                                                                 aclTensor* out, uint64_t* workspaceSize,
+                                                                 aclOpExecutor** executor);
 
 /**
  * @brief: aclnnRemainderScalarTensor的第二段接口，用于执行计算
@@ -123,8 +126,8 @@ ACLNN_API aclnnStatus aclnnRemainderScalarTensorGetWorkspaceSize(
  * @param [in] stream: acl stream流。
  * @return aclnnStatus: 返回状态码。
  */
-ACLNN_API aclnnStatus
-aclnnRemainderScalarTensor(void* workspace, uint64_t workspaceSize, aclOpExecutor* executor, aclrtStream stream);
+ACLNN_API aclnnStatus aclnnRemainderScalarTensor(void* workspace, uint64_t workspaceSize, aclOpExecutor* executor,
+                                                 aclrtStream stream);
 
 // inplace
 // tensor self, tensor other
@@ -145,8 +148,9 @@ aclnnRemainderScalarTensor(void* workspace, uint64_t workspaceSize, aclOpExecuto
  * @param [out] executor: 返回op执行器，包含算子计算流程。
  * @return aclnnStatus: 返回状态码
  */
-ACLNN_API aclnnStatus aclnnInplaceRemainderTensorTensorGetWorkspaceSize(
-    aclTensor* selfRef, const aclTensor* other, uint64_t* workspaceSize, aclOpExecutor** executor);
+ACLNN_API aclnnStatus aclnnInplaceRemainderTensorTensorGetWorkspaceSize(aclTensor* selfRef, const aclTensor* other,
+                                                                        uint64_t* workspaceSize,
+                                                                        aclOpExecutor** executor);
 
 /**
  * @brief: aclnnInplaceRemainderTensorTensor的第二段接口，用于执行计算
@@ -159,8 +163,8 @@ ACLNN_API aclnnStatus aclnnInplaceRemainderTensorTensorGetWorkspaceSize(
  * @param [in] stream: acl stream流。
  * @return aclnnStatus: 返回状态码。
  */
-ACLNN_API aclnnStatus
-aclnnInplaceRemainderTensorTensor(void* workspace, uint64_t workspaceSize, aclOpExecutor* executor, aclrtStream stream);
+ACLNN_API aclnnStatus aclnnInplaceRemainderTensorTensor(void* workspace, uint64_t workspaceSize,
+                                                        aclOpExecutor* executor, aclrtStream stream);
 
 // tensor self, scalar other
 /**
@@ -178,8 +182,9 @@ aclnnInplaceRemainderTensorTensor(void* workspace, uint64_t workspaceSize, aclOp
  * @param [out] executor: 返回op执行器，包含算子计算流程。
  * @return aclnnStatus: 返回状态码
  */
-ACLNN_API aclnnStatus aclnnInplaceRemainderTensorScalarGetWorkspaceSize(
-    aclTensor* selfRef, const aclScalar* other, uint64_t* workspaceSize, aclOpExecutor** executor);
+ACLNN_API aclnnStatus aclnnInplaceRemainderTensorScalarGetWorkspaceSize(aclTensor* selfRef, const aclScalar* other,
+                                                                        uint64_t* workspaceSize,
+                                                                        aclOpExecutor** executor);
 
 /**
  * @brief: aclnnInplaceRemainderTensorScalar的第二段接口，用于执行计算
@@ -192,8 +197,8 @@ ACLNN_API aclnnStatus aclnnInplaceRemainderTensorScalarGetWorkspaceSize(
  * @param [in] stream: acl stream流。
  * @return aclnnStatus: 返回状态码。
  */
-ACLNN_API aclnnStatus
-aclnnInplaceRemainderTensorScalar(void* workspace, uint64_t workspaceSize, aclOpExecutor* executor, aclrtStream stream);
+ACLNN_API aclnnStatus aclnnInplaceRemainderTensorScalar(void* workspace, uint64_t workspaceSize,
+                                                        aclOpExecutor* executor, aclrtStream stream);
 
 #ifdef __cplusplus
 }

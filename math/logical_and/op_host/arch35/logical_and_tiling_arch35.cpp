@@ -26,15 +26,9 @@ namespace optiling {
 
 static constexpr uint64_t LOGICAL_AND_COMMON_TILING_PRIORITY = 0;
 
-ge::graphStatus LogicalAndTiling::GetShapeAttrsInfo()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus LogicalAndTiling::GetShapeAttrsInfo() { return ge::GRAPH_SUCCESS; }
 
-bool LogicalAndTiling::IsCapable()
-{
-    return true;
-}
+bool LogicalAndTiling::IsCapable() { return true; }
 
 ge::graphStatus LogicalAndTiling::DoOpTiling()
 {
@@ -53,8 +47,8 @@ ge::graphStatus LogicalAndTiling::DoOpTiling()
         std::string dtypesStr = ge::TypeUtils::DataTypeToSerialString(input0DType) + ", " +
                                 ge::TypeUtils::DataTypeToSerialString(input1DType) + " and " +
                                 ge::TypeUtils::DataTypeToSerialString(outputDtype);
-        OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(
-            context_->GetNodeName(), "x1, x2 and y", dtypesStr.c_str(), "The dtypes of x1, x2 and y must be bool");
+        OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(context_->GetNodeName(), "x1, x2 and y", dtypesStr.c_str(),
+                                               "The dtypes of x1, x2 and y must be bool");
         return ge::GRAPH_FAILED;
     }
 
@@ -64,30 +58,15 @@ ge::graphStatus LogicalAndTiling::DoOpTiling()
     return ret;
 }
 
-ge::graphStatus LogicalAndTiling::DoLibApiTiling()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus LogicalAndTiling::DoLibApiTiling() { return ge::GRAPH_SUCCESS; }
 
-uint64_t LogicalAndTiling::GetTilingKey() const
-{
-    return tilingKey;
-}
+uint64_t LogicalAndTiling::GetTilingKey() const { return tilingKey; }
 
-ge::graphStatus LogicalAndTiling::GetWorkspaceSize()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus LogicalAndTiling::GetWorkspaceSize() { return ge::GRAPH_SUCCESS; }
 
-ge::graphStatus LogicalAndTiling::PostTiling()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus LogicalAndTiling::PostTiling() { return ge::GRAPH_SUCCESS; }
 
-ge::graphStatus LogicalAndTiling::GetPlatformInfo()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus LogicalAndTiling::GetPlatformInfo() { return ge::GRAPH_SUCCESS; }
 
 ge::graphStatus Tiling4LogicalAnd(gert::TilingContext* context)
 {

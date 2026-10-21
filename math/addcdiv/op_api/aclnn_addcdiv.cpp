@@ -43,9 +43,8 @@ static const std::initializer_list<op::DataType> DTYPE_SUPPORT_LIST_910B = {
     op::DataType::DT_FLOAT, op::DataType::DT_INT64, op::DataType::DT_FLOAT16, op::DataType::DT_DOUBLE,
     op::DataType::DT_BF16};
 
-static bool CheckNotNull(
-    const aclTensor* self, const aclTensor* tensor1, const aclTensor* tensor2, const aclScalar* value,
-    const aclTensor* out)
+static bool CheckNotNull(const aclTensor* self, const aclTensor* tensor1, const aclTensor* tensor2,
+                         const aclScalar* value, const aclTensor* out)
 {
     // 校验输入输出是否为空
     OP_CHECK_NULL(self, return false);
@@ -69,11 +68,10 @@ static op::DataType GetScalarDefaultDtype(const op::DataType input)
 static bool CheckDtypeValid(const aclTensor* self, const aclTensor* tensor1, const aclTensor* tensor2)
 {
     auto socVersion = GetCurrentPlatformInfo().GetSocVersion();
-    bool is910BSocVersion =
-        (socVersion == SocVersion::ASCEND910B || socVersion == SocVersion::ASCEND910_93 ||
-         IsRegBase());
-    const std::initializer_list<DataType> DTYPE_SUPPORT_LIST =
-        is910BSocVersion ? DTYPE_SUPPORT_LIST_910B : DTYPE_SUPPORT_LIST_910;
+    bool is910BSocVersion = (socVersion == SocVersion::ASCEND910B || socVersion == SocVersion::ASCEND910_93 ||
+                             IsRegBase());
+    const std::initializer_list<DataType> DTYPE_SUPPORT_LIST = is910BSocVersion ? DTYPE_SUPPORT_LIST_910B :
+                                                                                  DTYPE_SUPPORT_LIST_910;
 
     // 检查self的数据类型是否在addcdiv算子的支持列表内
     OP_CHECK_DTYPE_NOT_SUPPORT(self, DTYPE_SUPPORT_LIST, return false);
@@ -87,25 +85,23 @@ static bool CheckDtypeValid(const aclTensor* self, const aclTensor* tensor1, con
     return true;
 }
 
-static bool CheckPromoteType(
-    const aclTensor* self, const aclTensor* tensor1, const aclTensor* tensor2, const aclTensor* out)
+static bool CheckPromoteType(const aclTensor* self, const aclTensor* tensor1, const aclTensor* tensor2,
+                             const aclTensor* out)
 {
     // 检查tensor1和tensor2能否做数据类型推导
     op::DataType promoteType = op::PromoteType(tensor1->GetDataType(), tensor2->GetDataType());
     if (promoteType == DataType::DT_UNDEFINED) {
-        OP_LOGE(
-            ACLNN_ERR_PARAM_INVALID, "tensor1 dtype %s and tensor2 dtype %s can not promote dtype.",
-            op::ToString(tensor1->GetDataType()).GetString(), op::ToString(tensor2->GetDataType()).GetString());
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "tensor1 dtype %s and tensor2 dtype %s can not promote dtype.",
+                op::ToString(tensor1->GetDataType()).GetString(), op::ToString(tensor2->GetDataType()).GetString());
         return false;
     }
 
     // 检查self和tensor1 * tensor2的结果能否做数据类型推导
     promoteType = op::PromoteType(self->GetDataType(), promoteType);
     if (promoteType == DataType::DT_UNDEFINED) {
-        OP_LOGE(
-            ACLNN_ERR_PARAM_INVALID, "self dtype %s and tensor1 * tensor2 dtype %s * %s can not promote dtype.",
-            op::ToString(self->GetDataType()).GetString(), op::ToString(tensor1->GetDataType()).GetString(),
-            op::ToString(tensor2->GetDataType()).GetString());
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "self dtype %s and tensor1 * tensor2 dtype %s * %s can not promote dtype.",
+                op::ToString(self->GetDataType()).GetString(), op::ToString(tensor1->GetDataType()).GetString(),
+                op::ToString(tensor2->GetDataType()).GetString());
         return false;
     }
 
@@ -114,8 +110,8 @@ static bool CheckPromoteType(
     return true;
 }
 
-static bool CheckMaxDimension(
-    const aclTensor* self, const aclTensor* tensor1, const aclTensor* tensor2, const aclTensor* out)
+static bool CheckMaxDimension(const aclTensor* self, const aclTensor* tensor1, const aclTensor* tensor2,
+                              const aclTensor* out)
 {
     OP_CHECK_MAX_DIM(self, MAX_SUPPORT_DIM, return false);
     OP_CHECK_MAX_DIM(tensor1, MAX_SUPPORT_DIM, return false);
@@ -125,8 +121,8 @@ static bool CheckMaxDimension(
     return true;
 }
 
-static bool CheckInAndOutShape(
-    const aclTensor* self, const aclTensor* tensor1, const aclTensor* tensor2, const aclTensor* out)
+static bool CheckInAndOutShape(const aclTensor* self, const aclTensor* tensor1, const aclTensor* tensor2,
+                               const aclTensor* out)
 {
     op::Shape shape1;
     op::Shape shape2;
@@ -137,9 +133,8 @@ static bool CheckInAndOutShape(
     return true;
 }
 
-static aclnnStatus CheckParams(
-    const aclTensor* self, const aclTensor* tensor1, const aclTensor* tensor2, const aclScalar* value,
-    const aclTensor* out)
+static aclnnStatus CheckParams(const aclTensor* self, const aclTensor* tensor1, const aclTensor* tensor2,
+                               const aclScalar* value, const aclTensor* out)
 {
     // 1. 检查参数是否为空指针
     CHECK_RET(CheckNotNull(self, tensor1, tensor2, value, out), ACLNN_ERR_PARAM_NULLPTR);
@@ -167,9 +162,9 @@ static bool IsMixedDType(const aclTensor* self, const aclScalar* value)
            (valueDtype == op::DataType::DT_FLOAT);
 }
 
-aclnnStatus aclnnAddcdivGetWorkspaceSize(
-    const aclTensor* self, const aclTensor* tensor1, const aclTensor* tensor2, const aclScalar* value,
-    const aclTensor* out, uint64_t* workspaceSize, aclOpExecutor** executor)
+aclnnStatus aclnnAddcdivGetWorkspaceSize(const aclTensor* self, const aclTensor* tensor1, const aclTensor* tensor2,
+                                         const aclScalar* value, const aclTensor* out, uint64_t* workspaceSize,
+                                         aclOpExecutor** executor)
 {
     OP_CHECK_COMM_INPUT(workspaceSize, executor);
 
@@ -191,8 +186,8 @@ aclnnStatus aclnnAddcdivGetWorkspaceSize(
     }
 
     // 对输入做隐式数据类型转换，根据具体算子语义按需调用
-    auto promoteType =
-        op::PromoteType(self->GetDataType(), op::PromoteType(tensor1->GetDataType(), tensor2->GetDataType()));
+    auto promoteType = op::PromoteType(self->GetDataType(),
+                                       op::PromoteType(tensor1->GetDataType(), tensor2->GetDataType()));
 
     // 固定写法，将输入self转换成连续的tensor
     auto selfContiguous = l0op::Contiguous(self, uniqueExecutor.get());
@@ -216,8 +211,7 @@ aclnnStatus aclnnAddcdivGetWorkspaceSize(
     CHECK_RET(tensor2Casted != nullptr, ACLNN_ERR_INNER_NULLPTR);
 
     // 如果是混合数据类型（self为bf16或float16,且value为float32），则value dtype保持float32类型
-    bool isToFloat = IsRegBase() &&
-                     IsMixedDType(self, value) && promoteType != op::DataType::DT_DOUBLE;
+    bool isToFloat = IsRegBase() && IsMixedDType(self, value) && promoteType != op::DataType::DT_DOUBLE;
     auto valueDtype = isToFloat ? op::DataType::DT_FLOAT : promoteType;
     auto valueTensor = uniqueExecutor.get()->ConvertToTensor(value, valueDtype);
     CHECK_RET(valueTensor != nullptr, ACLNN_ERR_INNER_NULLPTR);
@@ -247,15 +241,15 @@ aclnnStatus aclnnAddcdiv(void* workspace, uint64_t workspaceSize, aclOpExecutor*
     return CommonOpExecutorRun(workspace, workspaceSize, executor, stream);
 }
 
-aclnnStatus aclnnInplaceAddcdivGetWorkspaceSize(
-    const aclTensor* selfRef, const aclTensor* tensor1, const aclTensor* tensor2, const aclScalar* value,
-    uint64_t* workspaceSize, aclOpExecutor** executor)
+aclnnStatus aclnnInplaceAddcdivGetWorkspaceSize(const aclTensor* selfRef, const aclTensor* tensor1,
+                                                const aclTensor* tensor2, const aclScalar* value,
+                                                uint64_t* workspaceSize, aclOpExecutor** executor)
 {
     return aclnnAddcdivGetWorkspaceSize(selfRef, tensor1, tensor2, value, selfRef, workspaceSize, executor);
 }
 
-aclnnStatus aclnnInplaceAddcdiv(
-    void* workspace, uint64_t workspaceSize, aclOpExecutor* executor, const aclrtStream stream)
+aclnnStatus aclnnInplaceAddcdiv(void* workspace, uint64_t workspaceSize, aclOpExecutor* executor,
+                                const aclrtStream stream)
 {
     L2_DFX_PHASE_2(aclnnInplaceAddcdiv);
     // 固定写法，调用框架能力，完成计算

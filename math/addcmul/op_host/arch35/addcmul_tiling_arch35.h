@@ -24,8 +24,7 @@ namespace optiling {
 
 class AddcmulTiling : public Ops::Base::TilingBaseClass {
 public:
-    explicit AddcmulTiling(gert::TilingContext* context) : Ops::Base::TilingBaseClass(context)
-    {}
+    explicit AddcmulTiling(gert::TilingContext* context) : Ops::Base::TilingBaseClass(context) {}
 
 protected:
     bool IsCapable() override;
@@ -40,9 +39,9 @@ protected:
 private:
     uint64_t tilingKey = 0;
     bool IsMixedDtype(const ge::DataType& inputDataDtype, const ge::DataType& inputValDtype) const;
-    bool CheckDtype(
-        const ge::DataType& inputDataDtype, const ge::DataType& inputX1Dtype, const ge::DataType& inputX2Dtype,
-        const ge::DataType& inputValDtype, const ge::DataType& outputDtype, const bool isMixedDtype) const;
+    bool CheckDtype(const ge::DataType& inputDataDtype, const ge::DataType& inputX1Dtype,
+                    const ge::DataType& inputX2Dtype, const ge::DataType& inputValDtype,
+                    const ge::DataType& outputDtype, const bool isMixedDtype) const;
 };
 
 struct AddcmulCompileInfo {

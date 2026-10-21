@@ -23,19 +23,19 @@
 using namespace Ops::Base;
 
 namespace BitwiseOrOp {
-    using namespace AscendC;
-    template <typename T>
-    struct BitwiseOrCompute {
-        using InputX1 = Bind<Vec::CopyInBrc<T>, Placeholder::In0<T>>;
-        using InputX2 = Bind<Vec::CopyInBrc<T>, Placeholder::In1<T>>;
+using namespace AscendC;
+template <typename T>
+struct BitwiseOrCompute {
+    using InputX1 = Bind<Vec::CopyInBrc<T>, Placeholder::In0<T>>;
+    using InputX2 = Bind<Vec::CopyInBrc<T>, Placeholder::In1<T>>;
 
-        using OpBitwiseOrRes = Bind<Vec::Or<T>, InputX1, InputX2>;
+    using OpBitwiseOrRes = Bind<Vec::Or<T>, InputX1, InputX2>;
 
-        using OpCopyOut = Bind<Vec::CopyOut<T>, Placeholder::Out0<T>, OpBitwiseOrRes>;
+    using OpCopyOut = Bind<Vec::CopyOut<T>, Placeholder::Out0<T>, OpBitwiseOrRes>;
 
-        using Outputs = Elems<OpCopyOut>;
-        using MemCfg = MemOptCfg<MemLevel::LEVEL_2>;
-        using OpDag = DAGSch<Outputs, void, MemCfg>;
-    };
-}
+    using Outputs = Elems<OpCopyOut>;
+    using MemCfg = MemOptCfg<MemLevel::LEVEL_2>;
+    using OpDag = DAGSch<Outputs, void, MemCfg>;
+};
+} // namespace BitwiseOrOp
 #endif // BITWISE_OR_DAG_H

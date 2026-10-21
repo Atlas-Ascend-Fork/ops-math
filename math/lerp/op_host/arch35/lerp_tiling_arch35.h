@@ -53,12 +53,10 @@ struct LerpCompileInfo {
 };
 
 class LerpTiling : public Ops::Base::TilingBaseClass {
-   public:
-    explicit LerpTiling(gert::TilingContext* context) : Ops::Base::TilingBaseClass(context)
-    {
-    }
+public:
+    explicit LerpTiling(gert::TilingContext* context) : Ops::Base::TilingBaseClass(context) {}
 
-   protected:
+protected:
     bool IsCapable() override;
     ge::graphStatus GetPlatformInfo() override;
     ge::graphStatus GetShapeAttrsInfo() override;
@@ -69,7 +67,7 @@ class LerpTiling : public Ops::Base::TilingBaseClass {
     ge::graphStatus PostTiling() override;
     std::string ToString(LerpTilingData& inputTilingData);
 
-   private:
+private:
     uint64_t GetOpKey(ge::DataType startDtype, ge::DataType endDtype, ge::DataType weightDtype, ge::DataType yDtype);
     uint64_t GenerateTilingKey(uint64_t innerKey);
     std::map<uint64_t, Ops::Base::BroadcastComputeParams> GetComputeMap(uint64_t inputOpKey);
@@ -89,6 +87,6 @@ class LerpTiling : public Ops::Base::TilingBaseClass {
     int64_t outputStrides[LERP_MAX_DIM_SIZE] = {0};
 };
 
-}  // namespace optiling
+} // namespace optiling
 
-#endif  // AIR_CXX_RUNTIME_V2_OP_IMPL_LERP_H_
+#endif // AIR_CXX_RUNTIME_V2_OP_IMPL_LERP_H_

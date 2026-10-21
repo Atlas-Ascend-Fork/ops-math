@@ -19,9 +19,8 @@
 #include "opdev/op_executor.h"
 
 namespace l0op {
-const aclTensor* Addcmul(
-    const aclTensor* self, const aclTensor* tensor1, const aclTensor* tensor2, const aclTensor* value,
-    aclOpExecutor* executor);
+const aclTensor* Addcmul(const aclTensor* self, const aclTensor* tensor1, const aclTensor* tensor2,
+                         const aclTensor* value, aclOpExecutor* executor);
 
 }
 

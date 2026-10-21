@@ -16,29 +16,22 @@ using namespace ge;
 
 class ClipByValueV2Test : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        std::cout << "ClipByValueV2Test SetUp" << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "ClipByValueV2Test SetUp" << std::endl; }
 
-    static void TearDownTestCase()
-    {
-        std::cout << "ClipByValueV2Test TearDown" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "ClipByValueV2Test TearDown" << std::endl; }
 };
 
 TEST_F(ClipByValueV2Test, clip_by_value_infershape_scalar_test_success)
 {
-    gert::InfershapeContextPara infershapeContextPara(
-        "ClipByValueV2",
-        {
-            {{{3, 1, 5}, {3, 1, 5}}, ge::DT_FLOAT, ge::FORMAT_ND},
-            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
-            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
-        },
-        {
-            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
-        });
+    gert::InfershapeContextPara infershapeContextPara("ClipByValueV2",
+                                                      {
+                                                          {{{3, 1, 5}, {3, 1, 5}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      });
     std::vector<std::vector<int64_t>> expectOutputShape = {
         {3, 1, 5},
     };
@@ -47,16 +40,15 @@ TEST_F(ClipByValueV2Test, clip_by_value_infershape_scalar_test_success)
 
 TEST_F(ClipByValueV2Test, clip_by_value_infershape_test_sucsess)
 {
-    gert::InfershapeContextPara infershapeContextPara(
-        "ClipByValueV2",
-        {
-            {{{3, 1, 5}, {3, 1, 5}}, ge::DT_FLOAT, ge::FORMAT_ND},
-            {{{3, 1, 5}, {3, 1, 5}}, ge::DT_FLOAT, ge::FORMAT_ND},
-            {{{3, 1, 5}, {3, 1, 5}}, ge::DT_FLOAT, ge::FORMAT_ND},
-        },
-        {
-            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
-        });
+    gert::InfershapeContextPara infershapeContextPara("ClipByValueV2",
+                                                      {
+                                                          {{{3, 1, 5}, {3, 1, 5}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                          {{{3, 1, 5}, {3, 1, 5}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                          {{{3, 1, 5}, {3, 1, 5}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      });
     std::vector<std::vector<int64_t>> expectOutputShape = {
         {3, 1, 5},
     };
@@ -65,16 +57,15 @@ TEST_F(ClipByValueV2Test, clip_by_value_infershape_test_sucsess)
 
 TEST_F(ClipByValueV2Test, clip_by_value_dynamic_infershape_sucsess)
 {
-    gert::InfershapeContextPara infershapeContextPara(
-        "ClipByValueV2",
-        {
-            {{{3, -1, 5}, {3, -1, 5}}, ge::DT_FLOAT, ge::FORMAT_ND},
-            {{{3, 1, 5}, {3, 1, 5}}, ge::DT_FLOAT, ge::FORMAT_ND},
-            {{{3, 1, 5}, {3, 1, 5}}, ge::DT_FLOAT, ge::FORMAT_ND},
-        },
-        {
-            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
-        });
+    gert::InfershapeContextPara infershapeContextPara("ClipByValueV2",
+                                                      {
+                                                          {{{3, -1, 5}, {3, -1, 5}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                          {{{3, 1, 5}, {3, 1, 5}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                          {{{3, 1, 5}, {3, 1, 5}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      });
     std::vector<std::vector<int64_t>> expectOutputShape = {
         {3, -1, 5},
     };
@@ -83,16 +74,15 @@ TEST_F(ClipByValueV2Test, clip_by_value_dynamic_infershape_sucsess)
 
 TEST_F(ClipByValueV2Test, clip_by_value_empty_tensor_test_sucsess)
 {
-    gert::InfershapeContextPara infershapeContextPara(
-        "ClipByValueV2",
-        {
-            {{{3, 0, 5}, {3, 0, 5}}, ge::DT_FLOAT, ge::FORMAT_ND},
-            {{{3, 1, 5}, {3, 1, 5}}, ge::DT_FLOAT, ge::FORMAT_ND},
-            {{{3, 1, 5}, {3, 1, 5}}, ge::DT_FLOAT, ge::FORMAT_ND},
-        },
-        {
-            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
-        });
+    gert::InfershapeContextPara infershapeContextPara("ClipByValueV2",
+                                                      {
+                                                          {{{3, 0, 5}, {3, 0, 5}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                          {{{3, 1, 5}, {3, 1, 5}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                          {{{3, 1, 5}, {3, 1, 5}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      });
     std::vector<std::vector<int64_t>> expectOutputShape = {
         {3, 0, 5},
     };
@@ -101,16 +91,15 @@ TEST_F(ClipByValueV2Test, clip_by_value_empty_tensor_test_sucsess)
 
 TEST_F(ClipByValueV2Test, clip_by_value_verify_test_success)
 {
-    gert::InfershapeContextPara infershapeContextPara(
-        "ClipByValueV2",
-        {
-            {{{3, 1, 5}, {3, 1, 5}}, ge::DT_FLOAT, ge::FORMAT_ND},
-            {{{3, 1, 5}, {3, 1, 5}}, ge::DT_FLOAT, ge::FORMAT_ND},
-            {{{3, 1, 5}, {3, 1, 5}}, ge::DT_FLOAT, ge::FORMAT_ND},
-        },
-        {
-            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
-        });
+    gert::InfershapeContextPara infershapeContextPara("ClipByValueV2",
+                                                      {
+                                                          {{{3, 1, 5}, {3, 1, 5}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                          {{{3, 1, 5}, {3, 1, 5}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                          {{{3, 1, 5}, {3, 1, 5}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      });
     std::vector<std::vector<int64_t>> expectOutputShape = {
         {3, 1, 5},
     };
@@ -119,16 +108,15 @@ TEST_F(ClipByValueV2Test, clip_by_value_verify_test_success)
 
 TEST_F(ClipByValueV2Test, clip_by_value_verify_scalar_test_success)
 {
-    gert::InfershapeContextPara infershapeContextPara(
-        "ClipByValueV2",
-        {
-            {{{3, 1, 5}, {3, 1, 5}}, ge::DT_FLOAT, ge::FORMAT_ND},
-            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
-            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
-        },
-        {
-            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
-        });
+    gert::InfershapeContextPara infershapeContextPara("ClipByValueV2",
+                                                      {
+                                                          {{{3, 1, 5}, {3, 1, 5}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      });
     std::vector<std::vector<int64_t>> expectOutputShape = {
         {3, 1, 5},
     };
@@ -137,16 +125,15 @@ TEST_F(ClipByValueV2Test, clip_by_value_verify_scalar_test_success)
 
 TEST_F(ClipByValueV2Test, clip_by_value_verify_dtype_test_failed)
 {
-    gert::InfershapeContextPara infershapeContextPara(
-        "ClipByValueV2",
-        {
-            {{{3, 1, 5}, {3, 1, 5}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-            {{{3, 1, 5}, {3, 1, 5}}, ge::DT_FLOAT, ge::FORMAT_ND},
-            {{{3, 1, 5}, {3, 1, 5}}, ge::DT_FLOAT, ge::FORMAT_ND},
-        },
-        {
-            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
-        });
+    gert::InfershapeContextPara infershapeContextPara("ClipByValueV2",
+                                                      {
+                                                          {{{3, 1, 5}, {3, 1, 5}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                          {{{3, 1, 5}, {3, 1, 5}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                          {{{3, 1, 5}, {3, 1, 5}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      });
     std::vector<std::vector<int64_t>> expectOutputShape = {
         {3, 1, 5},
     };

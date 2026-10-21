@@ -30,8 +30,8 @@ namespace l0op {
 
 OP_TYPE_REGISTER(Addcdiv);
 
-static const std::initializer_list<op::DataType> AICORE_DTYPE_SUPPORT_LIST_910 = {
-    op::DataType::DT_FLOAT, op::DataType::DT_FLOAT16};
+static const std::initializer_list<op::DataType> AICORE_DTYPE_SUPPORT_LIST_910 = {op::DataType::DT_FLOAT,
+                                                                                  op::DataType::DT_FLOAT16};
 
 static const std::initializer_list<op::DataType> AICORE_DTYPE_SUPPORT_LIST_910B = {
     op::DataType::DT_FLOAT, op::DataType::DT_FLOAT16, op::DataType::DT_BF16};
@@ -39,11 +39,11 @@ static const std::initializer_list<op::DataType> AICORE_DTYPE_SUPPORT_LIST_910B 
 static bool IsAiCoreSupport(const aclTensor* self)
 {
     auto socVersion = GetCurrentPlatformInfo().GetSocVersion();
-    bool is910BSocVersion =
-        (socVersion == SocVersion::ASCEND910B || socVersion == SocVersion::ASCEND910_93 ||
-         IsRegBase());
-    const std::initializer_list<DataType> AICORE_DTYPE_SUPPORT_LIST =
-        is910BSocVersion ? AICORE_DTYPE_SUPPORT_LIST_910B : AICORE_DTYPE_SUPPORT_LIST_910;
+    bool is910BSocVersion = (socVersion == SocVersion::ASCEND910B || socVersion == SocVersion::ASCEND910_93 ||
+                             IsRegBase());
+    const std::initializer_list<DataType> AICORE_DTYPE_SUPPORT_LIST = is910BSocVersion ?
+                                                                          AICORE_DTYPE_SUPPORT_LIST_910B :
+                                                                          AICORE_DTYPE_SUPPORT_LIST_910;
     return CheckType(self->GetDataType(), AICORE_DTYPE_SUPPORT_LIST);
 }
 
@@ -56,44 +56,38 @@ static bool CanBroadcast(const aclTensor* t1, const aclTensor* t2, const aclTens
     return false;
 }
 
-static const aclTensor* AddcdivAiCore(
-    const aclTensor* self, const aclTensor* tensor1, const aclTensor* tensor2, const aclTensor* value,
-    const aclTensor* addcdivOut, aclOpExecutor* executor)
+static const aclTensor* AddcdivAiCore(const aclTensor* self, const aclTensor* tensor1, const aclTensor* tensor2,
+                                      const aclTensor* value, const aclTensor* addcdivOut, aclOpExecutor* executor)
 {
     L0_DFX(AddcdivAiCore, self, tensor1, tensor2, value);
 
     auto ret = ADD_TO_LAUNCHER_LIST_AICORE(Addcdiv, OP_INPUT(self, tensor1, tensor2, value), OP_OUTPUT(addcdivOut));
-    OP_CHECK(
-        ret == ACL_SUCCESS, OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "AddcdivAiCore ADD_TO_LAUNCHER_LIST_AICORE failed."),
-        return nullptr);
+    OP_CHECK(ret == ACL_SUCCESS, OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "AddcdivAiCore ADD_TO_LAUNCHER_LIST_AICORE failed."),
+             return nullptr);
     return addcdivOut;
 }
 
-static const aclTensor* AddcdivAiCpu(
-    const aclTensor* self, const aclTensor* tensor1, const aclTensor* tensor2, const aclTensor* value,
-    const aclTensor* addcdivOut, aclOpExecutor* executor)
+static const aclTensor* AddcdivAiCpu(const aclTensor* self, const aclTensor* tensor1, const aclTensor* tensor2,
+                                     const aclTensor* value, const aclTensor* addcdivOut, aclOpExecutor* executor)
 {
     L0_DFX(AddcdivAiCpu, self, tensor1, tensor2, value);
 
     static internal::AicpuTaskSpace space("Addcdiv", ge::DEPEND_IN_SHAPE, false);
-    auto ret = ADD_TO_LAUNCHER_LIST_AICPU(
-        Addcdiv, OP_ATTR_NAMES(), OP_INPUT(self, tensor1, tensor2, value), OP_OUTPUT(addcdivOut));
-    OP_CHECK(
-        ret == ACL_SUCCESS, OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "AddcdivAiCpu ADD_TO_LAUNCHER_LIST_AICPU failed."),
-        return nullptr);
+    auto ret = ADD_TO_LAUNCHER_LIST_AICPU(Addcdiv, OP_ATTR_NAMES(), OP_INPUT(self, tensor1, tensor2, value),
+                                          OP_OUTPUT(addcdivOut));
+    OP_CHECK(ret == ACL_SUCCESS, OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "AddcdivAiCpu ADD_TO_LAUNCHER_LIST_AICPU failed."),
+             return nullptr);
     return addcdivOut;
 }
 
-const aclTensor* Addcdiv(
-    const aclTensor* self, const aclTensor* tensor1, const aclTensor* tensor2, const aclTensor* value,
-    aclOpExecutor* executor)
+const aclTensor* Addcdiv(const aclTensor* self, const aclTensor* tensor1, const aclTensor* tensor2,
+                         const aclTensor* value, aclOpExecutor* executor)
 {
     op::Shape broadcastShape;
     if (!CanBroadcast(tensor1, tensor2, self, broadcastShape)) {
-        OP_LOGE(
-            ACL_ERROR_INVALID_PARAM, "broadcast self: %s, tensor1: %s, tensor2: %s failed.",
-            op::ToString(self->GetViewShape()).GetString(), op::ToString(tensor1->GetViewShape()).GetString(),
-            op::ToString(tensor2->GetViewShape()).GetString());
+        OP_LOGE(ACL_ERROR_INVALID_PARAM, "broadcast self: %s, tensor1: %s, tensor2: %s failed.",
+                op::ToString(self->GetViewShape()).GetString(), op::ToString(tensor1->GetViewShape()).GetString(),
+                op::ToString(tensor2->GetViewShape()).GetString());
         return nullptr;
     }
     auto addcdivOut = executor->AllocTensor(broadcastShape, self->GetDataType());

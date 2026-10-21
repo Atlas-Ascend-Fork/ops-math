@@ -8,7 +8,6 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-
 /*!
  * \file logical_or_struct.h
  * \brief logical_or struct
@@ -22,8 +21,6 @@
 // 算子自定义的tiling key字段
 ASCENDC_TPL_ARGS_DECL(LogicalOr, BRC_TEMP_SCH_MODE_KEY_DECL(schMode));
 
-ASCENDC_TPL_SEL(
-    ASCENDC_TPL_ARGS_SEL(BRC_TEMP_SCH_MODE_KEY_SEL(schMode))
-);
+ASCENDC_TPL_SEL(ASCENDC_TPL_ARGS_SEL(BRC_TEMP_SCH_MODE_KEY_SEL(schMode)));
 
 #endif // LOGICAL_OR_STRUCT_H

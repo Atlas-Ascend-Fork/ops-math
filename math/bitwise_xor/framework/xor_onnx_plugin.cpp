@@ -57,18 +57,13 @@ static Status ParseOpToGraphXor(const ge::Operator& op, Graph& graph)
 
 REGISTER_CUSTOM_OP("PartitionedCall")
     .FrameworkType(ONNX)
-    .OriginOpType({ge::AscendString("ai.onnx::8::Xor"),
-                   ge::AscendString("ai.onnx::9::Xor"),
-                   ge::AscendString("ai.onnx::10::Xor"),
-                   ge::AscendString("ai.onnx::11::Xor"),
-                   ge::AscendString("ai.onnx::12::Xor"),
-                   ge::AscendString("ai.onnx::13::Xor"),
-                   ge::AscendString("ai.onnx::14::Xor"),
-                   ge::AscendString("ai.onnx::15::Xor"),
-                   ge::AscendString("ai.onnx::16::Xor"),
-                   ge::AscendString("ai.onnx::17::Xor"),
+    .OriginOpType({ge::AscendString("ai.onnx::8::Xor"), ge::AscendString("ai.onnx::9::Xor"),
+                   ge::AscendString("ai.onnx::10::Xor"), ge::AscendString("ai.onnx::11::Xor"),
+                   ge::AscendString("ai.onnx::12::Xor"), ge::AscendString("ai.onnx::13::Xor"),
+                   ge::AscendString("ai.onnx::14::Xor"), ge::AscendString("ai.onnx::15::Xor"),
+                   ge::AscendString("ai.onnx::16::Xor"), ge::AscendString("ai.onnx::17::Xor"),
                    ge::AscendString("ai.onnx::18::Xor")})
     .ParseParamsFn(parseParamsXor)
     .ParseOpToGraphFn(ParseOpToGraphXor)
     .ImplyType(ImplyType::TVM);
-}  // namespace domi
+} // namespace domi

@@ -23,15 +23,9 @@ using namespace std;
 
 class PowTilingTest : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        std::cout << "PowTilingTest SetUp" << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "PowTilingTest SetUp" << std::endl; }
 
-    static void TearDownTestCase()
-    {
-        std::cout << "PowTilingTest TearDown" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "PowTilingTest TearDown" << std::endl; }
 };
 /*
 TEST_F(PowTilingTest, test0_tiling)

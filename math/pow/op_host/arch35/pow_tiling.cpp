@@ -38,9 +38,8 @@ static ge::graphStatus TilingPrepareForPow(gert::TilingParseContext* context)
     compileInfo->coreNum = ascendcPlatform.GetCoreNumAiv();
     OP_CHECK_IF(
         (compileInfo->coreNum <= 0),
-        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
-            context->GetNodeName(), "coreNum",std::to_string(compileInfo->coreNum),
-            "The value of coreNum must be greater than 0"),
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "coreNum", std::to_string(compileInfo->coreNum),
+                                              "The value of coreNum must be greater than 0"),
         return ge::GRAPH_FAILED);
 
     uint64_t ubSize;
@@ -48,8 +47,8 @@ static ge::graphStatus TilingPrepareForPow(gert::TilingParseContext* context)
     compileInfo->ubSize = ubSize;
     OP_CHECK_IF(
         (compileInfo->ubSize <= 0),
-        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
-            context->GetNodeName(), "ubSize", std::to_string(compileInfo->ubSize), "The value of ubSize must be greater than 0"),
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "ubSize", std::to_string(compileInfo->ubSize),
+                                              "The value of ubSize must be greater than 0"),
         return ge::GRAPH_FAILED);
     compileInfo->isRegBase = Ops::Base::IsRegbaseSocVersion(context);
     compileInfo->blockSize = Ops::Base::GetUbBlockSize(context);

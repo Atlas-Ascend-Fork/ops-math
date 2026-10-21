@@ -7,7 +7,7 @@
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
- 
+
 #include "onnx_common.h"
 #include "math/add/op_graph/add_proto.h"
 #include "math/mul/op_graph/mul_proto.h"
@@ -24,9 +24,8 @@ static Status ParseParamsAddcmul(const Message* op_src, ge::Operator& op_dest)
     }
     float value = 0.0;
     auto attrs = node->attribute();
-    auto it = std::find_if(attrs.begin(), attrs.end(), [](const ge::onnx::AttributeProto& attr) -> bool {
-        return attr.name() == "value";
-    });
+    auto it = std::find_if(attrs.begin(), attrs.end(),
+                           [](const ge::onnx::AttributeProto& attr) -> bool { return attr.name() == "value"; });
     if (it != attrs.end()) {
         value = it->f();
     } else {
@@ -76,4 +75,4 @@ REGISTER_CUSTOM_OP("PartitionedCall")
     .ParseParamsFn(ParseParamsAddcmul)
     .ParseOpToGraphFn(ParseOpToGraph)
     .ImplyType(ImplyType::GELOCAL);
-}  // namespace domi
+} // namespace domi

@@ -32,8 +32,8 @@ static const std::initializer_list<op::DataType> ASCEND910B_AICORE_DTYPE_SUPPORT
     op::DataType::DT_FLOAT16, op::DataType::DT_UINT8, op::DataType::DT_BF16};
 
 static const std::initializer_list<op::DataType> ASCEND950_AICORE_DTYPE_SUPPORT_LIST = {
-    op::DataType::DT_FLOAT,   op::DataType::DT_INT32, op::DataType::DT_INT8,
-    op::DataType::DT_FLOAT16, op::DataType::DT_UINT8, op::DataType::DT_BF16, op::DataType::DT_INT64};
+    op::DataType::DT_FLOAT, op::DataType::DT_INT32, op::DataType::DT_INT8, op::DataType::DT_FLOAT16,
+    op::DataType::DT_UINT8, op::DataType::DT_BF16,  op::DataType::DT_INT64};
 
 // 根据芯片类型、dtype判断算子是否支持走aicore
 static bool IsAiCoreSupport(const aclTensor* self)
@@ -49,8 +49,8 @@ static bool IsAiCoreSupport(const aclTensor* self)
 }
 
 // AICORE算子kernel
-static const aclTensor* ModAiCore(
-    const aclTensor* self, const aclTensor* other, aclTensor* out, aclOpExecutor* executor)
+static const aclTensor* ModAiCore(const aclTensor* self, const aclTensor* other, aclTensor* out,
+                                  aclOpExecutor* executor)
 {
     L0_DFX(ModAiCore, self, other, out);
     // 使用框架宏ADD_TO_KERNEL_OBJ_LIST，将Mod算子加入任务队列
@@ -79,9 +79,8 @@ const aclTensor* Mod(const aclTensor* self, const aclTensor* other, aclOpExecuto
     // 不同算子语义不同，推导的逻辑也不同，需要根据算子具体功能实现推导逻辑
     op::Shape broadcastShape;
     if (!BroadcastInferShape(self->GetViewShape(), other->GetViewShape(), broadcastShape)) {
-        OP_LOGE(
-            ACLNN_ERR_PARAM_INVALID, "Broadcast %s and %s failed.", op::ToString(self->GetViewShape()).GetString(),
-            op::ToString(other->GetViewShape()).GetString());
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "Broadcast %s and %s failed.", op::ToString(self->GetViewShape()).GetString(),
+                op::ToString(other->GetViewShape()).GetString());
         return nullptr;
     }
 

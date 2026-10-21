@@ -33,12 +33,12 @@ static const std::initializer_list<DataType> ASCEND910B_DTYPE_DTYPE_SUPPORT_LIST
 
 static const std::initializer_list<DataType>& GetDtypeSupportList()
 {
-  auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
-  if (curArch == NpuArch::DAV_2201 || IsRegBase(curArch)) {
-    return ASCEND910B_DTYPE_DTYPE_SUPPORT_LIST;
-  } else {
-    return ASCEND910_DTYPE_DTYPE_SUPPORT_LIST;
-  }
+    auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
+    if (curArch == NpuArch::DAV_2201 || IsRegBase(curArch)) {
+        return ASCEND910B_DTYPE_DTYPE_SUPPORT_LIST;
+    } else {
+        return ASCEND910_DTYPE_DTYPE_SUPPORT_LIST;
+    }
 }
 
 static bool CheckDtypeValid(const aclTensor* self, const aclTensor* out, const aclScalar* min, const aclScalar* max)
@@ -65,18 +65,16 @@ static bool CheckMinMaxValue(const aclScalar* min, const aclScalar* max)
         int64_t imin = min->ToInt64();
         int64_t imax = max->ToInt64();
         if (imin > imax) {
-            OP_LOGE(
-                ACLNN_ERR_PARAM_INVALID, "min must less than max or equal to max, but min is %ld and max is %ld.", imin,
-                imax);
+            OP_LOGE(ACLNN_ERR_PARAM_INVALID, "min must less than max or equal to max, but min is %ld and max is %ld.",
+                    imin, imax);
             return false;
         }
     } else if (IsFloatingType(min->GetDataType())) {
         double fmin = min->ToDouble();
         double fmax = max->ToDouble();
         if (fmin > fmax) {
-            OP_LOGE(
-                ACLNN_ERR_PARAM_INVALID, "min must less than max or equal to max, but min is %f and max is %f.", fmin,
-                fmax);
+            OP_LOGE(ACLNN_ERR_PARAM_INVALID, "min must less than max or equal to max, but min is %f and max is %f.",
+                    fmin, fmax);
             return false;
         }
     }
@@ -99,13 +97,13 @@ static void CheckFormat(const aclTensor* self)
 {
     // 检查format，若是NZ格式，则添加警告
     if (self->GetStorageFormat() == Format::FORMAT_FRACTAL_NZ) {
-        OP_LOGW("Format of self gets [%s], this format may lead to precision failure.", 
-        op::ToString(self->GetStorageFormat()).GetString());
+        OP_LOGW("Format of self gets [%s], this format may lead to precision failure.",
+                op::ToString(self->GetStorageFormat()).GetString());
     }
 }
 
-static aclnnStatus CheckParams(
-    const aclTensor* self, const aclScalar* clipValueMin, const aclScalar* clipValueMax, const aclTensor* out)
+static aclnnStatus CheckParams(const aclTensor* self, const aclScalar* clipValueMin, const aclScalar* clipValueMax,
+                               const aclTensor* out)
 {
     // 检查输入的数据类型是否在API支持的数据类型范围之内，需要根据api定义校验
     CHECK_RET(CheckDtypeValid(self, out, clipValueMin, clipValueMax), ACLNN_ERR_PARAM_INVALID);
@@ -122,9 +120,9 @@ static aclnnStatus CheckParams(
     return ACLNN_SUCCESS;
 }
 
-static aclnnStatus GetWorkspaceSizeCommon(
-    const aclTensor* self, const aclScalar* clipValueMin, const aclScalar* clipValueMax, aclTensor* out,
-    uint64_t* workspaceSize, aclOpExecutor** executor)
+static aclnnStatus GetWorkspaceSizeCommon(const aclTensor* self, const aclScalar* clipValueMin,
+                                          const aclScalar* clipValueMax, aclTensor* out, uint64_t* workspaceSize,
+                                          aclOpExecutor** executor)
 {
     CHECK_NOT_NULL(self, clipValueMin, clipValueMax, out);
     // 固定写法，创建OpExecutor
@@ -164,9 +162,9 @@ static aclnnStatus GetWorkspaceSizeCommon(
     return ACLNN_SUCCESS;
 }
 
-aclnnStatus aclnnHardtanhGetWorkspaceSize(
-    const aclTensor* self, const aclScalar* clipValueMin, const aclScalar* clipValueMax, aclTensor* out,
-    uint64_t* workspaceSize, aclOpExecutor** executor)
+aclnnStatus aclnnHardtanhGetWorkspaceSize(const aclTensor* self, const aclScalar* clipValueMin,
+                                          const aclScalar* clipValueMax, aclTensor* out, uint64_t* workspaceSize,
+                                          aclOpExecutor** executor)
 {
     L2_DFX_PHASE_1(aclnnHardtanh, DFX_IN(self, clipValueMin, clipValueMax), DFX_OUT(out));
     return GetWorkspaceSizeCommon(self, clipValueMin, clipValueMax, out, workspaceSize, executor);
@@ -179,9 +177,9 @@ aclnnStatus aclnnHardtanh(void* workspace, uint64_t workspaceSize, aclOpExecutor
     return CommonOpExecutorRun(workspace, workspaceSize, executor, stream);
 }
 
-aclnnStatus aclnnInplaceHardtanhGetWorkspaceSize(
-    aclTensor* selfRef, const aclScalar* clipValueMin, const aclScalar* clipValueMax, uint64_t* workspaceSize,
-    aclOpExecutor** executor)
+aclnnStatus aclnnInplaceHardtanhGetWorkspaceSize(aclTensor* selfRef, const aclScalar* clipValueMin,
+                                                 const aclScalar* clipValueMax, uint64_t* workspaceSize,
+                                                 aclOpExecutor** executor)
 {
     L2_DFX_PHASE_1(aclnnInplaceHardtanh, DFX_IN(selfRef, clipValueMin, clipValueMax), DFX_OUT(selfRef));
     return GetWorkspaceSizeCommon(selfRef, clipValueMin, clipValueMax, selfRef, workspaceSize, executor);
