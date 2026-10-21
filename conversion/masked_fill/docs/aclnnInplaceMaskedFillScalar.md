@@ -85,7 +85,7 @@ aclnnStatus aclnnInplaceMaskedFillScalar(
       <td>输入/输出</td>
       <td>输入输出tensor</td>
       <td>被填充的张量。shape需等于selfRef与mask进行broadcast后的shape。</td>
-      <td>BOOL、INT8、INT32、INT64、FLOAT、FLOAT16、BFLOAT16</td>
+      <td>BOOL、INT8、INT16、INT32、INT64、FLOAT、FLOAT16、BFLOAT16</td>
       <td>ND</td>
       <td>-</td>
       <td>√</td>
@@ -105,7 +105,7 @@ aclnnStatus aclnnInplaceMaskedFillScalar(
       <td>输入</td>
       <td>用于填充的标量值。</td>
       <td>数据类型需要可以推导到selfRef的数据类型（参见<a href="../../../docs/zh/context/conversion_relationship.md" target="_blank">互转换关系</a>）。</td>
-      <td>BOOL、INT8、INT32、INT64、FLOAT、FLOAT16、BFLOAT16</td>
+      <td>BOOL、INT8、INT16、INT32、INT64、FLOAT、FLOAT16、BFLOAT16</td>
       <td>-</td>
       <td>-</td>
       <td>-</td>
@@ -135,6 +135,10 @@ aclnnStatus aclnnInplaceMaskedFillScalar(
   <!-- npu="910,310p" id7 -->
   - <term>Atlas推理系列产品</term>、<term>Atlas训练系列产品</term>：selfRef和value数据类型不支持BFLOAT16。
   <!-- end id7 -->
+
+  <!-- npu="A3,910b,310p,910" id8 -->
+  - <term>Atlas A3系列产品</term>、<term>Atlas A2系列产品</term>、<term>Atlas推理系列产品</term>、<term>Atlas训练系列产品</term>：selfRef数据类型不支持INT16。
+  <!-- end id8 -->
 
 - **返回值**
 

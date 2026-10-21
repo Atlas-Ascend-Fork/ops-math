@@ -47,7 +47,7 @@
       <td>x</td>
       <td>输入</td>
       <td>公式中的输入x。</td>
-      <td>FLOAT32、FLOAT16、BFLOAT16、INT8、INT32、BOOL</td>
+      <td>FLOAT32、FLOAT16、BFLOAT16、INT8、INT16、INT32、INT64、BOOL</td>
       <td>ND</td>
     </tr>
     <tr>
@@ -61,25 +61,25 @@
       <td>value</td>
       <td>输入</td>
       <td>公式中的输入value。</td>
-      <td>FLOAT32、FLOAT16、BFLOAT16、INT8、INT32、BOOL</td>
+      <td>FLOAT32、FLOAT16、BFLOAT16、INT8、INT16、INT32、INT64、BOOL</td>
       <td>ND</td>
     </tr>
     <tr>
       <td>y</td>
       <td>输出</td>
       <td>公式中的输出y。</td>
-      <td>FLOAT32、FLOAT16、BFLOAT16、INT8、INT32、BOOL</td>
+      <td>FLOAT32、FLOAT16、BFLOAT16、INT8、INT16、INT32、INT64、BOOL</td>
       <td>ND</td>
     </tr>
   </tbody></table>
 
 * Atlas训练系列产品、Atlas推理系列产品、Atlas 200I/500 A2推理产品：不支持BFLOAT16。
+* 仅Ascend 950PR&950DT系列产品支持INT16、INT64。
 
 ## 约束说明
 
-* value的dtype与x不一致时，需保证进行类型转换时不会溢出。
+* value的dtype与x必须一致。
 * x和mask需要满足广播关系。
-* value的数据类型能够转换为x的数据类型。
 * y的shape可以由x、mask、value共同广播。
 
 ## 调用说明
