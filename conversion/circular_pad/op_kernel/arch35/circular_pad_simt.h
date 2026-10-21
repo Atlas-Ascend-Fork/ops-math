@@ -175,7 +175,8 @@ __simt_callee__ __aicore__ inline void CopyRunDualAligned(__gm__ T* yGm, __gm__ 
     const uint64_t dstByte = (uint64_t)dstElem * S + head * S; // 此处 dst 已 16B 对齐
     const uint64_t srcByte = (uint64_t)srcElem * S + head * S;
     const uint64_t remBytes = ((uint64_t)len - head) * S;
-    const uint64_t dMod = srcByte & (VEC_ALIGN_BYTES - 1); // src 相对 16B 网格错位量（dst 已对齐）
+    const uint64_t dMod = ((uint64_t)srcAlign + srcByte) &
+                          (VEC_ALIGN_BYTES - 1); // src 相对 16B 网格错位量（dst 已对齐）
     const uint64_t g = (dMod == 0) ? GRAIN_BYTES_16 :
                                      (((dMod & (GRAIN_BYTES_8 - 1)) == 0) ?
                                           GRAIN_BYTES_8 :
