@@ -26,7 +26,10 @@
     X(MM_A16S4_PERGROUP, 4)   \
     X(MM_A16S4_PERTENSOR, 5)  \
     X(MM_A16F4_PERGROUP, 6)   \
-    X(MM_A16MXF4, 7)
+    X(MM_A16MXF4, 7)          \
+    X(MM_MX_A16HIF4, 8)       \
+    X(MM_C064_A16W4, 9)       \
+    X(MM_C064_PerG_A16W4, 10)
 
 enum class QuantDataFlow : uint32_t {
 #define X(name, value) name = value,

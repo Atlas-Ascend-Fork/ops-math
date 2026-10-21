@@ -84,6 +84,7 @@ private:
     bool GetTransFormatAndDType();
     bool GetTransNz2NdFormatAndDType();
     bool GetShapeInfo();
+    bool IsDtypeB4();
     bool CalcC0Size();
     void CalcHSize();
     void CalcNCSize();

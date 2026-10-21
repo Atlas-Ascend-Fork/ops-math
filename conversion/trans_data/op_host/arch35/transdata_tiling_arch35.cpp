@@ -176,6 +176,12 @@ bool TransDataTilingAscendC::CalcNzToNdShapeSize()
     return true;
 }
 
+bool TransDataTilingAscendC::IsDtypeB4()
+{
+    return srcDtype_ == ge::DT_FLOAT4_E2M1 || srcDtype_ == ge::DT_FLOAT4_E1M2 || srcDtype_ == ge::DT_INT4 ||
+           srcDtype_ == ge::DT_HIFLOAT4;
+}
+
 bool TransDataTilingAscendC::CalcC0Size()
 {
     auto dimCnt = outShape_.GetDimNum();
@@ -206,7 +212,7 @@ bool TransDataTilingAscendC::CalcC0Size()
         return false);
 
     c0_ = tmpC0;
-    if (srcDtype_ == ge::DT_FLOAT4_E2M1 || srcDtype_ == ge::DT_FLOAT4_E1M2 || srcDtype_ == ge::DT_INT4) {
+    if (IsDtypeB4()) {
         // 当作u8处理，c0缩小一半
         c0_ = c0_ >> 1;
     }
@@ -233,7 +239,7 @@ void TransDataTilingAscendC::CalcNCSize()
     auto dimCnt = inShape_.GetDimNum();
     n_ = inShape_.GetDim(dimCnt - nTwo);
     c_ = inShape_.GetDim(dimCnt - 1);
-    if (srcDtype_ == ge::DT_FLOAT4_E2M1 || srcDtype_ == ge::DT_FLOAT4_E1M2 || srcDtype_ == ge::DT_INT4) {
+    if (IsDtypeB4()) {
         // 当作u8处理，c缩小一半
         c_ = c_ >> 1;
     }
