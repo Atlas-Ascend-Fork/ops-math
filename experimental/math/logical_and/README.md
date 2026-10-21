@@ -104,7 +104,7 @@ $$
 
 | 调用方式 | 调用样例                                                                   | 说明                                                           |
 |--------------|------------------------------------------------------------------------|--------------------------------------------------------------|
-| aclnn调用 | [test_aclnn_logical_and.cpp](./examples/test_aclnn_logical_and.cpp) | 通过[test_aclnn_logical_and](./docs/aclnnLogicalAnd.md)接口方式调用SelectV2算子。 |
+| aclnn调用 | [test_aclnn_logical_and.cpp](./examples/test_aclnn_logical_and.cpp) | 通过[aclnnLogicalAnd](./docs/aclnnLogicalAnd.md)接口方式调用LogicalAnd算子。 |
 
 ## 贡献说明
 

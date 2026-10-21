@@ -66,7 +66,7 @@ $$
 
 | 调用方式 | 调用样例                                                                   | 说明                                                           |
 |--------------|------------------------------------------------------------------------|--------------------------------------------------------------|
-| aclnn调用 | [test_aclnn_pow2.cpp](./examples/test_aclnn_pow2.cpp) | 通过[test_aclnn_pow2](./docs/test_aclnn_pow2.md)接口方式调用SelectV2算子。 |
+| aclnn调用 | [test_aclnn_pow2.cpp](./examples/test_aclnn_pow2.cpp) | 通过[aclnnPow2](./docs/test_aclnn_pow2.md)接口方式调用Pow2算子。 |
 
 ## 贡献说明
 
