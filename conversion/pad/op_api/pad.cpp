@@ -55,7 +55,7 @@ inline const aclTensor* PadAiCore(const aclTensor* self, const aclTensor* paddin
     L0_DFX(PadAiCore, self, paddings, out);
     auto retAicore = ADD_TO_LAUNCHER_LIST_AICORE(Pad, OP_INPUT(self, paddings), OP_OUTPUT(out));
     OP_CHECK_ADD_TO_LAUNCHER_LIST_AICORE(retAicore != ACLNN_SUCCESS, return nullptr,
-                                         "Pad add to aicore launch list failed.");
+                                         "Pad add to aicore launch list failed, ret: %d.", static_cast<int>(retAicore));
     return out;
 }
 

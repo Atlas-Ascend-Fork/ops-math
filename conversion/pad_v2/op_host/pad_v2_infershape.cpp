@@ -12,6 +12,7 @@
  * \file pad_v2_infershape.cpp
  * \brief PadV2 InferShape implementation
  */
+#include <string>
 #include "log/log.h"
 #include "register/op_impl_registry.h"
 #include "util/shape_util.h"
@@ -39,19 +40,24 @@ static ge::graphStatus PadV2Infershape(const gert::InferShapeContext* context, c
     OP_LOGD(context->GetNodeName(), "Begin to do PadV2Infershape");
     OP_LOGD(context->GetNodeName(), "input x = %s", Ops::Base::ToString(*x_shape).c_str());
 
-    OP_CHECK_IF(paddings_num > 0 && paddings_value == nullptr,
-                OP_LOGE(context->GetNodeName(), "paddings const data cannot be nullptr"), return ge::GRAPH_FAILED);
+    if (paddings_num > 0 && paddings_value == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "paddings");
+        return ge::GRAPH_FAILED;
+    }
 
     // input shape check
     size_t input_dim_size = x_shape->GetDimNum();
-    OP_CHECK_IF(input_dim_size == 0, OP_LOGE(context->GetNodeName(), "input shape cannot be empty"),
-                return ge::GRAPH_FAILED);
+    if (input_dim_size == 0) {
+        OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "x", std::to_string(input_dim_size).c_str(),
+                                                 "input x must have at least one dimension");
+        return ge::GRAPH_FAILED;
+    }
 
     // pad size check
     if (input_dim_size * PAIR != paddings_num) {
-        OP_LOGE(context->GetNodeName(),
-                "the paddings num must be twice of the input x rank. but paddings num is %zu, input x rank is %zu",
-                paddings_num, input_dim_size);
+        OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(
+            context->GetNodeName(), "paddings", std::to_string(paddings_num).c_str(),
+            ("paddings must contain 2 * rank(x) = " + std::to_string(input_dim_size * PAIR) + " elements").c_str());
         return ge::GRAPH_FAILED;
     }
 
@@ -64,11 +70,13 @@ static ge::graphStatus PadV2Infershape(const gert::InferShapeContext* context, c
         int64_t dim_value = x_shape->GetDim(i) == UNKNOWN_DIM_VALUE_ ? UNKNOWN_DIM_VALUE_ :
                                                                        (x_shape->GetDim(i) + pad_front + pad_end);
         if (x_shape->GetDim(i) != UNKNOWN_DIM_VALUE_ && dim_value < 0) {
-            OP_LOGE(context->GetNodeName(),
-                    "The output shape at index %zu is %ld, but output shape CANNOT contain negative values. x_shape at "
-                    "index %zu: %ld, corresponding pad_front: %ld, corresponding pad_end: %ld.",
-                    i, dim_value, i, x_shape->GetDim(i), static_cast<int64_t>(pad_front),
-                    static_cast<int64_t>(pad_end));
+            OP_LOGE_FOR_INVALID_VALUES_WITH_REASON(
+                context->GetNodeName(), "x, paddings", std::to_string(dim_value).c_str(),
+                (std::string("x[") + std::to_string(i) + "] + paddings[" + std::to_string(PAIR * i) + "] + paddings[" +
+                 std::to_string(PAIR * i + 1) + "] = " + std::to_string(x_shape->GetDim(i)) + " + (" +
+                 std::to_string(pad_front) + ") + (" + std::to_string(pad_end) + ") = " + std::to_string(dim_value) +
+                 ", but output shape cannot contain negative values")
+                    .c_str());
             return ge::GRAPH_FAILED;
         }
         y_shape->SetDim(i, dim_value);
@@ -93,9 +101,15 @@ static ge::graphStatus SetAllUnknownDim(const int64_t rank, gert::Shape* output_
 static ge::graphStatus InferShape4PadV2(gert::InferShapeContext* context)
 {
     const gert::Shape* x_shape = context->GetInputShape(INDEX_X);
-    OP_CHECK_NULL_WITH_CONTEXT(context, x_shape);
+    if (x_shape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x");
+        return ge::GRAPH_FAILED;
+    }
     gert::Shape* y_shape = context->GetOutputShape(INDEX_Y);
-    OP_CHECK_NULL_WITH_CONTEXT(context, y_shape);
+    if (y_shape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "y");
+        return ge::GRAPH_FAILED;
+    }
 
     // if x_shape is unknown rank [-2] that means cannot know how many ranks,
     // which make output unknown rank.
@@ -105,7 +119,10 @@ static ge::graphStatus InferShape4PadV2(gert::InferShapeContext* context)
     }
 
     const gert::Tensor* paddings_tensor = context->GetInputTensor(INDEX_PADDINGS);
-    OP_CHECK_NULL_WITH_CONTEXT(context, paddings_tensor);
+    if (paddings_tensor == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "paddings");
+        return ge::GRAPH_FAILED;
+    }
 
     if (!IsConstTensor(paddings_tensor)) {
         return SetAllUnknownDim(x_shape->GetDimNum(), y_shape);

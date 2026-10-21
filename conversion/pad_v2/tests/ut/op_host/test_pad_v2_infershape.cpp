@@ -439,3 +439,23 @@ TEST_F(PadV2InferShapeTest, TestEmptyPaddings)
     std::vector<std::vector<int64_t>> expectOutputShape = {};
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED, expectOutputShape);
 }
+
+// OP-PadV2-L2-infershape-024: paddings 张量为空指针（EZ0004）
+TEST_F(PadV2InferShapeTest, TestNullPaddingsTensor)
+{
+    gert::StorageShape xShape = {{3, 3}, {3, 3}};
+    gert::StorageShape paddingsShape = {{2, 2}, {2, 2}};
+    gert::StorageShape constantValuesShape = {{1}, {1}};
+    std::vector<float> constantValues = {0.0f};
+    std::vector<uint32_t> noInstanceNum = {};
+    std::vector<size_t> nullInputIndices = {1};
+
+    gert::InfershapeContextPara infershapeContextPara(
+        "PadV2",
+        {{xShape, ge::DT_FLOAT, ge::FORMAT_ND},
+         {paddingsShape, ge::DT_INT32, ge::FORMAT_ND},
+         {constantValuesShape, ge::DT_FLOAT, ge::FORMAT_ND, true, constantValues.data()}},
+        {{{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND}}, noInstanceNum, {}, nullInputIndices);
+
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED);
+}

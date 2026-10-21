@@ -30,11 +30,20 @@ static constexpr size_t PAD_OUT_IDX_Y = 0;
 static ge::graphStatus InferShapeForPad(gert::InferShapeContext* context)
 {
     const gert::Shape* x_shape = context->GetInputShape(PAD_IN_IDX_X);
-    OP_CHECK_NULL_WITH_CONTEXT(context, x_shape);
+    if (x_shape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x");
+        return ge::GRAPH_FAILED;
+    }
     gert::Shape* y_shape = context->GetOutputShape(PAD_OUT_IDX_Y);
-    OP_CHECK_NULL_WITH_CONTEXT(context, y_shape);
+    if (y_shape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "y");
+        return ge::GRAPH_FAILED;
+    }
     const gert::Tensor* paddings_tensor = context->GetInputTensor(PAD_IN_IDX_PADDINGS);
-    OP_CHECK_NULL_WITH_CONTEXT(context, paddings_tensor);
+    if (paddings_tensor == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "paddings");
+        return ge::GRAPH_FAILED;
+    }
 
     // if x_shape is unknown rank [-2] that means cannot know how many ranks,
     // which make output unknown rank.

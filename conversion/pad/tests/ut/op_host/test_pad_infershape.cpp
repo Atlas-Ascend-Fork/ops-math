@@ -157,3 +157,17 @@ TEST_F(Pad, Pad_infer_dynamic_paddings)
     std::vector<std::vector<int64_t>> expectOutputShape = {{-1, -1}};
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
+
+// Test scenario: paddings tensor is nullptr (EZ0004), expect infershape to fail
+TEST_F(Pad, Pad_infer_null_paddings_tensor)
+{
+    std::vector<uint32_t> noInstanceNum = {};
+    std::vector<size_t> nullInputIndices = {1};
+    gert::InfershapeContextPara infershapeContextPara(
+        "Pad", {{{{3, 5}, {3, 5}}, ge::DT_FLOAT, ge::FORMAT_ND}, {{{2, 2}, {2, 2}}, ge::DT_INT32, ge::FORMAT_ND}},
+        {
+            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        noInstanceNum, {}, nullInputIndices);
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED);
+}
