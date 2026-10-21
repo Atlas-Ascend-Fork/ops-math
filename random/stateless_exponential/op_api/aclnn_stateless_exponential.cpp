@@ -61,7 +61,10 @@ static inline bool CheckDtypeValid(const aclTensor* self, const aclTensor* seedT
 static inline bool CheckLambdability(double lambd)
 {
     if (lambd <= 0) {
-        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "The value of lambd has to be greater than 0, but current is %f.", lambd);
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID,
+                "The value of lambd has to be greater than 0 (extremely small values that underflow to 0 in "
+                "double-to-fp32 conversion, i.e. not representable in fp32, are also rejected), but current is %g.",
+                lambd);
         return false;
     }
     return true;

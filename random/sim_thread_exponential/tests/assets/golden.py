@@ -11,7 +11,17 @@
 # ----------------------------------------------------------------------------
 
 
+import torch
+import numpy as np
+
 __golden__ = {"kernel": {"sim_thread_exponential": "sim_thread_exponential_golden"}}
+
+__spec__ = {
+    "aclnnSimThreadExponential": "aclnnSimThreadExponentialSpec",
+}
+
+_GPU_SERVER_IP = "127.0.0.1"
+_GPU_SERVER_PORT = 8888
 
 
 class MaxPool3DGradGoldenGpuClient:
@@ -84,9 +94,57 @@ def sim_thread_exponential_golden(self, count, lambd=1.0, seed=0, offset=0, **kw
     input_dtypes = kwargs.get("input_dtypes", [])
     dtype = input_dtypes[0] if input_dtypes else "float32"
 
-    GPU_SERVER_IP = "127.0.0.1"
-    GPU_SERVER_PORT = 8888
-    client = MaxPool3DGradGoldenGpuClient(GPU_SERVER_IP, GPU_SERVER_PORT)
+    client = MaxPool3DGradGoldenGpuClient(_GPU_SERVER_IP, _GPU_SERVER_PORT)
     result = client.compute_on_gpu(count, seed, offset, lambd, dtype)
 
     return result
+
+
+class AclnnSimThreadExponentialThirdPartyImpl:
+    """对标 PyTorch：lambd 以 Python float(double) 直传 torch CUDA exponential_，host 侧按 double 校验。"""
+
+    def __init__(self, *args, **kwargs):
+        self_t, count, lambd, seed, offset = (list(args) + [None] * 5)[:5]
+        self.count = int(count) if count is not None else self_t.numel()
+        self.lambd = lambd if lambd is not None else 1.0
+        self.seed = int(seed) if seed is not None else 0
+        self.offset = int(offset) if offset is not None else 0
+        self.dtype = self_t.dtype
+
+    def __call__(self, **kwargs):
+        device = torch.device("cuda:0")
+        torch.cuda.set_device(device)
+        torch.cuda.manual_seed(self.seed)
+        default_gen = torch.cuda.default_generators[0]
+        if hasattr(default_gen, "set_offset"):
+            default_gen.set_offset(self.offset)
+        return torch.empty(self.count, device=device, dtype=self.dtype).exponential_(
+            self.lambd
+        )
+
+
+class aclnnSimThreadExponentialSpec:
+    """ACLNN 流程 — golden / third_party 均收到 torch.Tensor（已在设备上）。"""
+
+    def golden(self, count, lambd=1.0, seed=0, offset=0, **kwargs):
+        output_dtypes = kwargs.get("output_dtypes") or kwargs.get("input_dtypes") or []
+        dtype = output_dtypes[0] if output_dtypes else "float32"
+        client = MaxPool3DGradGoldenGpuClient(_GPU_SERVER_IP, _GPU_SERVER_PORT)
+        result = client.compute_on_gpu(int(count), int(seed), int(offset), lambd, dtype)
+        if result is None:
+            raise RuntimeError(
+                "gpu golden server unavailable for aclnnSimThreadExponential"
+            )
+        tensor = (
+            result
+            if isinstance(result, torch.Tensor)
+            else torch.from_numpy(np.asarray(result))
+        )
+        return tensor.reshape(tuple(self.shape))
+
+    third_party = {"torch": AclnnSimThreadExponentialThirdPartyImpl}
+    tolerance = {
+        "float32": {"standard": "cross_check", "level": "L1"},
+        "float16": {"standard": "cross_check", "level": "L1"},
+        "bfloat16": {"standard": "cross_check", "level": "L1"},
+    }

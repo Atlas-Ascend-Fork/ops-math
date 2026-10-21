@@ -128,7 +128,7 @@ aclnnStatus aclnnStatelessExponentialTensor(
       <td>lambd</td>
       <td>输入</td>
       <td>指数分布的速率参数。</td>
-      <td>取值范围为大于0的实数。</td>
+      <td>取值范围为大于0的实数。lambd在算子内部以fp32精度参与计算，极小值可能在double转fp32后下溢为0，等同于小于等于0，将被拒绝。</td>
       <td>DOUBLE</td>
       <td>-</td>
       <td>-</td>
@@ -189,7 +189,7 @@ aclnnStatus aclnnStatelessExponentialTensor(
       <td>seedTensor、offsetTensor的数据类型不是INT64。</td>
     </tr>
     <tr>
-      <td>lambd的值小于等于0。</td>
+      <td>lambd的值小于等于0，或为fp32无法表示的极小值（double转fp32后下溢为0）。</td>
     </tr>
     <tr>
       <td>seedTensor、offsetTensor的维度不为1。</td>

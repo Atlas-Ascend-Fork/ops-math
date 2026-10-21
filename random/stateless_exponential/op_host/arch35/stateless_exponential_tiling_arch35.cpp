@@ -81,7 +81,9 @@ OpTilingConfig StatelessExponentialTilingSimt::BuildOpConfig()
              }
              if (*lambdAttr <= 0.0f) {
                  std::string valueStr = std::to_string(*lambdAttr);
-                 std::string reasonMsg = "lambd must be greater than 0";
+                 std::string
+                     reasonMsg = "lambd must be greater than 0; extremely small lambd values that underflow to 0 in "
+                                 "double-to-fp32 conversion (not representable in fp32) are also rejected";
                  OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(ctx->GetNodeName(), "attr lambd", valueStr.c_str(),
                                                        reasonMsg.c_str());
                  return false;
