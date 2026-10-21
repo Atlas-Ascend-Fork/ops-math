@@ -132,9 +132,13 @@ private:
                     vreg0, bufferIn0Addr + i * (AscendC::VECTOR_REG_WIDTH / 4));
                 AscendC::Reg::Cast<float, bfloat16_t, castTrait0>(vreg1, vreg0, preg0);
                 AscendC::Reg::Duplicate<float, float>(vreg4, 1.0);
+#if defined(__NPU_ARCH__) && (__NPU_ARCH__ == 9201 || __NPU_ARCH__ == 9202)
+                AscendC::Reg::FusedMulSubDst<float, AscendC::Reg::MaskMergeMode::ZEROING>(vreg4, vreg1, vreg1, preg0);
+#else
                 AscendC::Reg::Muls<float, float, AscendC::Reg::MaskMergeMode::ZEROING>(vreg2, vreg1,
                                                                                        static_cast<float>(-1), preg0);
                 AscendC::Reg::MulAddDst<float, AscendC::Reg::MaskMergeMode::ZEROING>(vreg4, vreg2, vreg1, preg0);
+#endif
                 AscendC::Reg::LoadAlign<half, AscendC::Reg::LoadDist::DIST_UNPACK_B16>(
                     vreg5, bufferIn1Addr + i * (AscendC::VECTOR_REG_WIDTH / 4));
                 AscendC::Reg::Cast<float, half, castTrait0>(vreg6, vreg5, preg0);

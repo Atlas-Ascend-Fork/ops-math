@@ -127,9 +127,13 @@ private:
                 AscendC::Reg::LoadAlign<float, AscendC::Reg::LoadDist::DIST_NORM>(
                     vreg0, bufferIn0Addr + i * (AscendC::VECTOR_REG_WIDTH / 4));
                 AscendC::Reg::Duplicate<float, float>(vreg3, 1.0);
+#if defined(__NPU_ARCH__) && (__NPU_ARCH__ == 9201 || __NPU_ARCH__ == 9202)
+                AscendC::Reg::FusedMulSubDst<float, AscendC::Reg::MaskMergeMode::ZEROING>(vreg3, vreg0, vreg0, preg0);
+#else
                 AscendC::Reg::Muls<float, float, AscendC::Reg::MaskMergeMode::ZEROING>(vreg2, vreg0,
                                                                                        static_cast<float>(-1), preg0);
                 AscendC::Reg::MulAddDst<float, AscendC::Reg::MaskMergeMode::ZEROING>(vreg3, vreg2, vreg0, preg0);
+#endif
                 AscendC::Reg::LoadAlign<float, AscendC::Reg::LoadDist::DIST_NORM>(
                     vreg4, bufferIn1Addr + i * (AscendC::VECTOR_REG_WIDTH / 4));
                 AscendC::Reg::Mul<float, AscendC::Reg::MaskMergeMode::ZEROING>(vreg5, vreg3, vreg4, preg0);

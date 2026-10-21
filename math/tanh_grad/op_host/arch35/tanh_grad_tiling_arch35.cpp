@@ -46,6 +46,7 @@ ge::graphStatus TanhGradTiling::GetPlatformInfo()
     uint64_t ubSizePlatForm;
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSizePlatForm);
     ubSize = ubSizePlatForm;
+    preferMultiCore = (ascendcPlatform.GetCurNpuArch() == NpuArch::DAV_9201);
 
     return ge::GRAPH_SUCCESS;
 }
@@ -185,10 +186,7 @@ ge::graphStatus TanhGradTiling::GetShapeAttrsInfo()
     return ge::GRAPH_SUCCESS;
 }
 
-bool TanhGradTiling::IsCapable()
-{
-    return true;
-}
+bool TanhGradTiling::IsCapable() { return true; }
 
 ge::graphStatus TanhGradTiling::DoOpTiling()
 {
@@ -204,6 +202,7 @@ ge::graphStatus TanhGradTiling::DoOpTiling()
     broadcastTilingParams.computeMap = GetComputeMap(opKey);
     broadcastTilingParams.coreNum = coreNum;
     broadcastTilingParams.ubSize = ubSize;
+    broadcastTilingParams.preferMultiCore = preferMultiCore;
 
     Ops::Base::BroadcastTilingData broadcastTilingData;
     ge::graphStatus status = BroadcastTiling(broadcastTilingParams, broadcastTilingData);
@@ -255,15 +254,9 @@ std::string TanhGradTiling::ToString(TanhGradTilingData& tilingDataInput)
     return str;
 }
 
-ge::graphStatus TanhGradTiling::DoLibApiTiling()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus TanhGradTiling::DoLibApiTiling() { return ge::GRAPH_SUCCESS; }
 
-uint64_t TanhGradTiling::GetTilingKey() const
-{
-    return tilingKey_;
-}
+uint64_t TanhGradTiling::GetTilingKey() const { return tilingKey_; }
 
 ge::graphStatus TanhGradTiling::GetWorkspaceSize()
 {

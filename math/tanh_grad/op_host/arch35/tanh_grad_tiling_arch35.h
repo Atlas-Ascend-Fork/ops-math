@@ -53,8 +53,7 @@ struct TanhGradCompileInfo {
 
 class TanhGradTiling : public Ops::Base::TilingBaseClass {
 public:
-    explicit TanhGradTiling(gert::TilingContext* context) : Ops::Base::TilingBaseClass(context)
-    {}
+    explicit TanhGradTiling(gert::TilingContext* context) : Ops::Base::TilingBaseClass(context) {}
 
 protected:
     bool IsCapable() override;
@@ -77,6 +76,7 @@ private:
     int64_t coreNum;
     int64_t ubSize;
     uint64_t blockNum;
+    bool preferMultiCore{false};
     int64_t input0Dims[TANH_GRAD_MAX_DIM_SIZE] = {0};
     int64_t input1Dims[TANH_GRAD_MAX_DIM_SIZE] = {0};
     int64_t outputDims[TANH_GRAD_MAX_DIM_SIZE] = {0};
