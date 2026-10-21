@@ -27,7 +27,7 @@
  *   - y、dy、z 三者的 dtype 必须一致
  *
  * 数据类型支持：FLOAT16, FLOAT32, BFLOAT16
- * 芯片支持：Ascend950 (DAV_3510)
+ * 芯片支持：Ascend950 (DAV_3510)、Ascend960DT、Ascend960PR（复用 arch35 tiling/kernel 实现）
  */
 #include "register/op_def_registry.h"
 
@@ -62,6 +62,7 @@ public:
 
         // Ascend950 (DAV_3510) 配置
         // 使用 atvoss 框架，Kernel 入口文件为 reciprocal_grad.cpp
+        // ascend960dt/ascend960pr 复用相同 AICore 配置与 arch35 tiling/kernel 实现
         OpAICoreConfig aicoreConfig950;
         aicoreConfig950.DynamicCompileStaticFlag(true)
             .DynamicFormatFlag(false)
@@ -71,6 +72,8 @@ public:
             .PrecisionReduceFlag(true)
             .ExtendCfgInfo("opFile.value", "reciprocal_grad"); // Kernel 入口文件名
         this->AICore().AddConfig("ascend950", aicoreConfig950);
+        this->AICore().AddConfig("ascend960dt", aicoreConfig950);
+        this->AICore().AddConfig("ascend960pr", aicoreConfig950);
     }
 };
 OP_ADD(ReciprocalGrad); // 添加算子信息库
