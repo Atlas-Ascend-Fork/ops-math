@@ -17,6 +17,7 @@
 
 #include "graph/operator_reg.h"
 #include "graph/types.h"
+#include "op_const_def_math.h"
 
 namespace ge {
 
@@ -31,17 +32,18 @@ namespace ge {
 *
 *@attention Constraints:
 * The output has the same shape and type as the input.
-* The dtype DT_FLOAT8_E5M2, DT_FLOAT8_E4M3FN, DT_HIFLOAT8, DT_FLOAT4_E1M2, DT_FLOAT4_E2M1 only support version since
-Ascend950
+* The dtype DT_FLOAT8_E5M2, DT_FLOAT8_E4M3FN, DT_HIFLOAT8, DT_FLOAT4_E1M2, DT_FLOAT4_E2M1
+* only support version since Ascend950
+* The dtype DT_HIFLOAT4, DT_HIFLOAT4_SCALE only support version since Ascend960dt
 *
 *@par Third-party framework compatibility
 * Compatible with the TensorFlow operator zeros_like.
 */
 REG_OP(ZerosLike)
     .INPUT(x, TensorType({BasicType(), DT_VARIANT, DT_FLOAT8_E5M2, DT_FLOAT8_E4M3FN, DT_HIFLOAT8, DT_FLOAT4_E1M2,
-                          DT_FLOAT4_E2M1}))
+                          DT_FLOAT4_E2M1, Ops::Math::DT_HIFLOAT4, Ops::Math::DT_HIFLOAT4_SCALE}))
     .OUTPUT(y, TensorType({BasicType(), DT_VARIANT, DT_FLOAT8_E5M2, DT_FLOAT8_E4M3FN, DT_HIFLOAT8, DT_FLOAT4_E1M2,
-                           DT_FLOAT4_E2M1}))
+                           DT_FLOAT4_E2M1, Ops::Math::DT_HIFLOAT4, Ops::Math::DT_HIFLOAT4_SCALE}))
     .OP_END_FACTORY_REG(ZerosLike)
 } // namespace ge
 

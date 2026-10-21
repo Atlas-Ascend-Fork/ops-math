@@ -27,6 +27,7 @@
 #include "opdev/tensor_view_utils.h"
 #include "opdev/make_op_executor.h"
 #include "op_api/aclnn_check.h"
+#include "common/inc/op_host/op_const_def_math.h"
 
 using namespace op;
 #ifdef __cplusplus
@@ -53,7 +54,8 @@ static const std::initializer_list<op::DataType> DTYPE_SUPPORT_960dt_LIST = {
     op::DataType::DT_BOOL,     op::DataType::DT_DOUBLE,      op::DataType::DT_INT16,
     op::DataType::DT_UINT16,   op::DataType::DT_COMPLEX128,  op::DataType::DT_COMPLEX64,
     op::DataType::DT_BF16,     op::DataType::DT_FLOAT8_E5M2, op::DataType::DT_FLOAT8_E4M3FN,
-    op::DataType::DT_HIFLOAT8, op::DataType::DT_FLOAT4_E1M2, op::DataType::DT_FLOAT4_E2M1};
+    op::DataType::DT_HIFLOAT8, op::DataType::DT_FLOAT4_E1M2, op::DataType::DT_FLOAT4_E2M1,
+    Ops::Math::DT_HIFLOAT4,    Ops::Math::DT_HIFLOAT4_SCALE};
 
 static bool CheckNotNull(const aclTensor* self)
 {

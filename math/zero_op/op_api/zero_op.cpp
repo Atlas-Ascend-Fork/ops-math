@@ -19,6 +19,7 @@
 #include "opdev/shape_utils.h"
 #include "opdev/platform.h"
 #include "aclnn_kernels/common/op_error_check.h"
+#include "common/inc/op_host/op_const_def_math.h"
 
 using namespace op;
 
@@ -46,7 +47,7 @@ static const std::initializer_list<op::DataType> AICORE960dt_DTYPE_SUPPORT_LIST 
     op::DataType::DT_UINT8,         op::DataType::DT_FLOAT16,  op::DataType::DT_FLOAT,
     op::DataType::DT_BOOL,          op::DataType::DT_BF16,     op::DataType::DT_FLOAT8_E5M2,
     op::DataType::DT_FLOAT8_E4M3FN, op::DataType::DT_HIFLOAT8, op::DataType::DT_FLOAT4_E1M2,
-    op::DataType::DT_FLOAT4_E2M1};
+    op::DataType::DT_FLOAT4_E2M1,   Ops::Math::DT_HIFLOAT4,    Ops::Math::DT_HIFLOAT4_SCALE};
 
 static constexpr size_t MAX_DIM_LEN = 8;
 

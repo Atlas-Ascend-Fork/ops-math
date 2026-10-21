@@ -19,6 +19,7 @@
 #include "platform/platform_info.h"
 #include "op_host/util/fp16.h"
 #include "log/log.h"
+#include "common/inc/op_host/op_const_def_math.h"
 #include "conversion/zeros_like/op_kernel/arch35/zeros_like_dag.h"
 #include "conversion/zeros_like/op_kernel/arch35/zeros_like_tiling_key.h"
 
@@ -32,13 +33,21 @@ static constexpr size_t ZL_DTYPE_SIZE_4 = 3;
 static constexpr size_t ZL_DTYPE_SIZE_8 = 4;
 
 std::map<ge::DataType, size_t> ZLDtypeNormalize = {
-    {ge::DT_FLOAT4_E1M2, ZL_DTYPE_SIZE_0_5}, {ge::DT_FLOAT4_E2M1, ZL_DTYPE_SIZE_0_5},
-    {ge::DT_BOOL, ZL_DTYPE_SIZE_1},          {ge::DT_INT8, ZL_DTYPE_SIZE_1},
-    {ge::DT_UINT8, ZL_DTYPE_SIZE_1},         {ge::DT_FLOAT8_E5M2, ZL_DTYPE_SIZE_1},
-    {ge::DT_FLOAT8_E4M3FN, ZL_DTYPE_SIZE_1}, {ge::DT_HIFLOAT8, ZL_DTYPE_SIZE_1},
-    {ge::DT_FLOAT16, ZL_DTYPE_SIZE_2},       {ge::DT_BF16, ZL_DTYPE_SIZE_2},
-    {ge::DT_FLOAT, ZL_DTYPE_SIZE_4},         {ge::DT_INT32, ZL_DTYPE_SIZE_4},
+    {ge::DT_FLOAT4_E1M2, ZL_DTYPE_SIZE_0_5},
+    {ge::DT_FLOAT4_E2M1, ZL_DTYPE_SIZE_0_5},
+    {ge::DT_BOOL, ZL_DTYPE_SIZE_1},
+    {ge::DT_INT8, ZL_DTYPE_SIZE_1},
+    {ge::DT_UINT8, ZL_DTYPE_SIZE_1},
+    {ge::DT_FLOAT8_E5M2, ZL_DTYPE_SIZE_1},
+    {ge::DT_FLOAT8_E4M3FN, ZL_DTYPE_SIZE_1},
+    {ge::DT_HIFLOAT8, ZL_DTYPE_SIZE_1},
+    {ge::DT_FLOAT16, ZL_DTYPE_SIZE_2},
+    {ge::DT_BF16, ZL_DTYPE_SIZE_2},
+    {ge::DT_FLOAT, ZL_DTYPE_SIZE_4},
+    {ge::DT_INT32, ZL_DTYPE_SIZE_4},
     {ge::DT_INT64, ZL_DTYPE_SIZE_8},
+    {Ops::Math::DT_HIFLOAT4, ZL_DTYPE_SIZE_0_5},
+    {Ops::Math::DT_HIFLOAT4_SCALE, ZL_DTYPE_SIZE_4},
 };
 
 ge::graphStatus ZerosLikeTiling::SetTilingData()

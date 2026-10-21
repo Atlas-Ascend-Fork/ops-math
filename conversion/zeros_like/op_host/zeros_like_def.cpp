@@ -14,6 +14,7 @@
  */
 
 #include "register/op_def_registry.h"
+#include "common/inc/op_host/op_const_def_math.h"
 
 namespace ops {
 static const std::vector<ge::DataType> dataType = {
@@ -26,13 +27,14 @@ static const std::vector<ge::Format> dataFormat = {
     ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND};
 
 static const std::vector<ge::DataType> dataType_91096 = {
-    ge::DT_FLOAT16,  ge::DT_FLOAT,       ge::DT_INT32,      ge::DT_INT64,       ge::DT_INT8,
-    ge::DT_UINT8,    ge::DT_BF16,        ge::DT_BOOL,       ge::DT_FLOAT8_E5M2, ge::DT_FLOAT8_E4M3FN,
-    ge::DT_HIFLOAT8, ge::DT_FLOAT4_E1M2, ge::DT_FLOAT4_E2M1};
+    ge::DT_FLOAT16,  ge::DT_FLOAT,       ge::DT_INT32,       ge::DT_INT64,           ge::DT_INT8,
+    ge::DT_UINT8,    ge::DT_BF16,        ge::DT_BOOL,        ge::DT_FLOAT8_E5M2,     ge::DT_FLOAT8_E4M3FN,
+    ge::DT_HIFLOAT8, ge::DT_FLOAT4_E1M2, ge::DT_FLOAT4_E2M1, Ops::Math::DT_HIFLOAT4, Ops::Math::DT_HIFLOAT4_SCALE};
 
-static const std::vector<ge::Format> dataFormat_91096 = {
-    ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND,
-    ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND};
+static const std::vector<ge::Format> dataFormat_91096 = {ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND,
+                                                         ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND,
+                                                         ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND,
+                                                         ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND};
 
 class ZerosLike : public OpDef {
 public:
