@@ -37,16 +37,15 @@ namespace NsSparseBincount {
 using namespace AscendC;
 
 // Thread count constants for different index width paths
-static constexpr uint32_t THREAD_NUM_U32 = 1024;  // uint32 index: more threads for latency hiding
-static constexpr uint32_t THREAD_NUM_U64 = 512;   // uint64 index: fewer threads due to larger registers
+static constexpr uint32_t THREAD_NUM_U32 = 1024; // uint32 index: more threads for latency hiding
+static constexpr uint32_t THREAD_NUM_U64 = 512;  // uint64 index: fewer threads due to larger registers
 
 // Helper: 1D scatter write (compile-time dispatch via template params)
 // NOTE: BINARY_OUTPUT uses asc_atomic_add (not plain store) to avoid WAW hazard
 // when multiple threads write to the same bin concurrently. A post-processing
 // clamp phase (Phase 3) converts counts to binary 0/1.
 template <bool BINARY_OUTPUT, bool HAS_WEIGHTS>
-__simt_callee__ inline void ScatterWrite1D(
-    __gm__ float* output, int64_t binIdx, uint64_t idx, __gm__ float* weights)
+__simt_callee__ inline void ScatterWrite1D(__gm__ float* output, int64_t binIdx, uint64_t idx, __gm__ float* weights)
 {
     if constexpr (BINARY_OUTPUT) {
         asc_atomic_add(&output[binIdx], 1.0f);
@@ -60,10 +59,9 @@ __simt_callee__ inline void ScatterWrite1D(
 // Helper: ND scatter write (compile-time dispatch via template params)
 // NOTE: BINARY_OUTPUT uses asc_atomic_add (not plain store) to avoid WAW hazard.
 template <bool BINARY_OUTPUT, bool HAS_WEIGHTS>
-__simt_callee__ inline void ScatterWriteND(
-    __gm__ float* output, __gm__ int64_t* indices, uint64_t idx,
-    int64_t indicesColNum, int64_t binIdx, int64_t sizeVal,
-    int64_t denseShapeRows, __gm__ float* weights)
+__simt_callee__ inline void ScatterWriteND(__gm__ float* output, __gm__ int64_t* indices, uint64_t idx,
+                                           int64_t indicesColNum, int64_t binIdx, int64_t sizeVal,
+                                           int64_t denseShapeRows, __gm__ float* weights)
 {
     int64_t batch = indices[idx * indicesColNum];
     if (batch >= 0 && batch < denseShapeRows) {
@@ -80,39 +78,30 @@ __simt_callee__ inline void ScatterWriteND(
 
 // VF Phase 1: Clear output (IDX_T selects launch_bounds)
 template <typename V, typename IDX_T, uint32_t THREAD_NUM>
-__simt_vf__ __aicore__ __launch_bounds__(THREAD_NUM)
-inline void OpSparseBincountClearOutput(
-    int64_t outputSize, __gm__ float* output)
+__simt_vf__ __aicore__ __launch_bounds__(THREAD_NUM) inline void OpSparseBincountClearOutput(int64_t outputSize,
+                                                                                             __gm__ float* output)
 {
-    for (IDX_T idx = static_cast<IDX_T>(blockIdx.x * blockDim.x + threadIdx.x);
-         idx < static_cast<IDX_T>(outputSize);
+    for (IDX_T idx = static_cast<IDX_T>(blockIdx.x * blockDim.x + threadIdx.x); idx < static_cast<IDX_T>(outputSize);
          idx += static_cast<IDX_T>(blockDim.x * gridDim.x)) {
         output[idx] = 0.0f;
     }
 }
 
 // VF Phase 2: Scatter accumulate (compile-time dispatch + IDX_T selection)
-template <typename V, typename IDX_T, uint32_t THREAD_NUM,
-          bool IS_1D, bool BINARY_OUTPUT, bool HAS_WEIGHTS>
-__simt_vf__ __aicore__ __launch_bounds__(THREAD_NUM)
-inline void OpSparseBincountScatterAccumulate(
-    int64_t numValues, int64_t sizeVal, int64_t denseShapeRows,
-    int64_t indicesColNum,
-    __gm__ int64_t* indices, __gm__ V* values,
-    __gm__ float* weights, __gm__ float* output)
+template <typename V, typename IDX_T, uint32_t THREAD_NUM, bool IS_1D, bool BINARY_OUTPUT, bool HAS_WEIGHTS>
+__simt_vf__ __aicore__ __launch_bounds__(THREAD_NUM) inline void OpSparseBincountScatterAccumulate(
+    int64_t numValues, int64_t sizeVal, int64_t denseShapeRows, int64_t indicesColNum, __gm__ int64_t* indices,
+    __gm__ V* values, __gm__ float* weights, __gm__ float* output)
 {
-    for (IDX_T idx = static_cast<IDX_T>(blockIdx.x * blockDim.x + threadIdx.x);
-         idx < static_cast<IDX_T>(numValues);
+    for (IDX_T idx = static_cast<IDX_T>(blockIdx.x * blockDim.x + threadIdx.x); idx < static_cast<IDX_T>(numValues);
          idx += static_cast<IDX_T>(blockDim.x * gridDim.x)) {
         int64_t binIdx = static_cast<int64_t>(values[idx]);
         if (binIdx >= 0 && binIdx < sizeVal) {
             if constexpr (IS_1D) {
-                ScatterWrite1D<BINARY_OUTPUT, HAS_WEIGHTS>(
-                    output, binIdx, idx, weights);
+                ScatterWrite1D<BINARY_OUTPUT, HAS_WEIGHTS>(output, binIdx, idx, weights);
             } else {
-                ScatterWriteND<BINARY_OUTPUT, HAS_WEIGHTS>(
-                    output, indices, idx, indicesColNum,
-                    binIdx, sizeVal, denseShapeRows, weights);
+                ScatterWriteND<BINARY_OUTPUT, HAS_WEIGHTS>(output, indices, idx, indicesColNum, binIdx, sizeVal,
+                                                           denseShapeRows, weights);
             }
         }
     }
@@ -122,12 +111,10 @@ inline void OpSparseBincountScatterAccumulate(
 // After Phase 2 atomic_add, output[i] may be > 1.0f (multiple hits).
 // This phase clamps: output[i] = (output[i] > 0.0f) ? 1.0f : 0.0f
 template <typename V, typename IDX_T, uint32_t THREAD_NUM>
-__simt_vf__ __aicore__ __launch_bounds__(THREAD_NUM)
-inline void OpSparseBincountClampBinary(
-    int64_t outputSize, __gm__ float* output)
+__simt_vf__ __aicore__ __launch_bounds__(THREAD_NUM) inline void OpSparseBincountClampBinary(int64_t outputSize,
+                                                                                             __gm__ float* output)
 {
-    for (IDX_T idx = static_cast<IDX_T>(blockIdx.x * blockDim.x + threadIdx.x);
-         idx < static_cast<IDX_T>(outputSize);
+    for (IDX_T idx = static_cast<IDX_T>(blockIdx.x * blockDim.x + threadIdx.x); idx < static_cast<IDX_T>(outputSize);
          idx += static_cast<IDX_T>(blockDim.x * gridDim.x)) {
         if (output[idx] > 0.0f) {
             output[idx] = 1.0f;
@@ -138,10 +125,8 @@ inline void OpSparseBincountClampBinary(
 // Process function: read size/dense_shape from GM, launch VF phases with SyncAll
 // Template params: V=values dtype, S=size dtype, IS_1D/binary/weights from TilingKey
 template <typename V, typename S, bool IS_1D, bool BINARY_OUTPUT, bool HAS_WEIGHTS>
-__aicore__ inline void Process(
-    GM_ADDR indices, GM_ADDR values, GM_ADDR denseShape,
-    GM_ADDR size, GM_ADDR weights, GM_ADDR output,
-    const SparseBincountTilingData* tilingData)
+__aicore__ inline void Process(GM_ADDR indices, GM_ADDR values, GM_ADDR denseShape, GM_ADDR size, GM_ADDR weights,
+                               GM_ADDR output, const SparseBincountTilingData* tilingData)
 {
     // Read size[0] from GM
     __gm__ S* sizeGm = (__gm__ S*)size;
@@ -163,57 +148,54 @@ __aicore__ inline void Process(
     __gm__ float* outputGm = (__gm__ float*)output;
 
     // R003+R006: Select index width based on numValues
-    // uint32 path for small data (< 4B elements), uint64 for large data
-    constexpr uint64_t U32_MAX_VAL = 0xFFFFFFFFULL;
-    uint64_t numValuesU64 = static_cast<uint64_t>(tilingData->numValues);
+    // uint32 path for small data (< 4B elements), uint64 for large data.
+    // u32 path admits only length <= 2^32 - step (step = THREAD_NUM_U32 * launched cores) or the grid-stride index
+    // wraps and hangs.
+    constexpr uint64_t U32_WRAP_BOUND = 0x100000000ULL;
+    const uint64_t numValuesU64 = static_cast<uint64_t>(tilingData->numValues);
+    const uint64_t outputSizeU64 = static_cast<uint64_t>(outputSize);
+    const uint64_t u32Step = static_cast<uint64_t>(THREAD_NUM_U32) * static_cast<uint64_t>(AscendC::GetBlockNum());
+    const uint64_t u32SafeLimit = U32_WRAP_BOUND - u32Step;
 
-    if (numValuesU64 <= U32_MAX_VAL && outputSize <= static_cast<int64_t>(U32_MAX_VAL)) {
+    if (numValuesU64 <= u32SafeLimit && outputSizeU64 <= u32SafeLimit) {
         // uint32 index path: more threads (1024) for better latency hiding
         constexpr uint32_t TN = THREAD_NUM_U32;
 
         // Phase 1: Clear output
-        asc_vf_call<OpSparseBincountClearOutput<V, uint32_t, TN>>(
-            dim3(TN), outputSize, outputGm);
+        asc_vf_call<OpSparseBincountClearOutput<V, uint32_t, TN>>(dim3(TN), outputSize, outputGm);
 
         // SyncAll: ensure all cores finish clearing before accumulation
         SyncAll();
 
         // Phase 2: Scatter accumulate
         asc_vf_call<OpSparseBincountScatterAccumulate<V, uint32_t, TN, IS_1D, BINARY_OUTPUT, HAS_WEIGHTS>>(
-            dim3(TN),
-            tilingData->numValues, sizeVal, denseShapeRows,
-            tilingData->indicesColNum,
-            indicesGm, valuesGm, weightsGm, outputGm);
+            dim3(TN), tilingData->numValues, sizeVal, denseShapeRows, tilingData->indicesColNum, indicesGm, valuesGm,
+            weightsGm, outputGm);
 
         // Phase 3: Clamp to binary 0/1 (only for binary_output mode)
         if constexpr (BINARY_OUTPUT) {
-            SyncAll();  // Ensure all Phase 2 atomic_add complete
-            asc_vf_call<OpSparseBincountClampBinary<V, uint32_t, TN>>(
-                dim3(TN), outputSize, outputGm);
+            SyncAll(); // Ensure all Phase 2 atomic_add complete
+            asc_vf_call<OpSparseBincountClampBinary<V, uint32_t, TN>>(dim3(TN), outputSize, outputGm);
         }
     } else {
         // uint64 index path: fewer threads (512) due to larger register usage
         constexpr uint32_t TN = THREAD_NUM_U64;
 
         // Phase 1: Clear output
-        asc_vf_call<OpSparseBincountClearOutput<V, uint64_t, TN>>(
-            dim3(TN), outputSize, outputGm);
+        asc_vf_call<OpSparseBincountClearOutput<V, uint64_t, TN>>(dim3(TN), outputSize, outputGm);
 
         // SyncAll: ensure all cores finish clearing before accumulation
         SyncAll();
 
         // Phase 2: Scatter accumulate
         asc_vf_call<OpSparseBincountScatterAccumulate<V, uint64_t, TN, IS_1D, BINARY_OUTPUT, HAS_WEIGHTS>>(
-            dim3(TN),
-            tilingData->numValues, sizeVal, denseShapeRows,
-            tilingData->indicesColNum,
-            indicesGm, valuesGm, weightsGm, outputGm);
+            dim3(TN), tilingData->numValues, sizeVal, denseShapeRows, tilingData->indicesColNum, indicesGm, valuesGm,
+            weightsGm, outputGm);
 
         // Phase 3: Clamp to binary 0/1 (only for binary_output mode)
         if constexpr (BINARY_OUTPUT) {
-            SyncAll();  // Ensure all Phase 2 atomic_add complete
-            asc_vf_call<OpSparseBincountClampBinary<V, uint64_t, TN>>(
-                dim3(TN), outputSize, outputGm);
+            SyncAll(); // Ensure all Phase 2 atomic_add complete
+            asc_vf_call<OpSparseBincountClampBinary<V, uint64_t, TN>>(dim3(TN), outputSize, outputGm);
         }
     }
 }
