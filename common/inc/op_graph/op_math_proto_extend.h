@@ -20,25 +20,6 @@
 
 namespace ge {
 /**
-*@brief Inserts a dimension of 1 into a tensor's shape. Only the tensor shape is changed, without changing the data. \n
-
-*@par Inputs:
-*@li x: A tensor.
-*@li axis: The dimension index at which to expand. \n
-
-*@par Outputs:
-*y: A tensor with the same data as input, with an additional dimension inserted at the index specified by axis. \n
-
-*@par Third-party framework compatibility
-*Compatible with the TensorFlow operator ExpandDims.
-*/
-REG_OP(ExpandDims)
-    .INPUT(x, TensorType::ALL())
-    .INPUT(axis, TensorType({DT_INT32, DT_INT64}))
-    .OUTPUT(y, TensorType::ALL())
-    .OP_END_FACTORY_REG(ExpandDims)
-
-    /**
     * @brief Draws binary random numbers (0 or 1) from a Bernoulli distribution.The input tensor
     * should be a tensor containing probabilities p (a value in the range [0, 1]) to be used for
     * drawing the binary random number, where an output of 1 is produced with ptobability p and
@@ -61,7 +42,7 @@ REG_OP(ExpandDims)
     * @par Third-party framework compatibility
     * Compatible with the Onnx operator Bernoulli
     */
-    REG_OP(StatelessBernoulliV2)
+REG_OP(StatelessBernoulliV2)
     .INPUT(x, TensorType({DT_FLOAT16, DT_FLOAT, DT_DOUBLE}))
     .INPUT(seed, TensorType({DT_INT64}))
     .INPUT(offset, TensorType({DT_INT64}))
@@ -225,83 +206,6 @@ REG_OP(ExpandDims)
     .ATTR(seed, Int, 0)
     .ATTR(seed2, Int, 0)
     .OP_END_FACTORY_REG(Multinomial)
-
-    /**
-    * @brief Concatenates a list of "N" tensors along "concat_dim".
-            All input of the PhonyConcat are allocated with the same memory block.
-            GE calculates the memory offset of each input,
-            and the custom operators before write the memory by offset.
-    * Warning: This operator is used only to identify that the GE allocates continuous memory and does not perform any
-    calculation.
-
-    * @par Inputs:
-    * Dynamic input: A list of input tensors. Has the same type and format as "x" .
-    * @li x:An ND Tensor.
-    * Must be one of the following types: float16, float32, int32, int8, int16,
-      int64, uint8, uint16, uint32, uint64, bool, bfloat16.
-
-    * @par Attributes:
-    * @li concat_dim: A required list of int32. Specifies the dimensions along which to concat. No default value.
-    * @li N: A required list of int32. Specifies the number of concat tensors. No default value .
-    * @li keep_input_offset: A optional Bool. Specifies whether calculate the memory offset of input tensors. Default
-    True .
-
-    * @par Outputs:
-    * @li y:One output.
-
-    * @attention Constraints:
-    * @li "concat_dim" is in the range [-len(x.shape), (x.shape)-1] .
-    * @li "N" is greater than or equals to 1.
-
-    * @par Third-party framework support
-    * Support ONNX  framework.
-    */
-    REG_OP(PhonyConcat)
-    .DYNAMIC_INPUT(x, TensorType::ALL())
-    .OUTPUT(y, TensorType::ALL())
-    .REQUIRED_ATTR(concat_dim, ListInt)
-    .REQUIRED_ATTR(N, ListInt)
-    .ATTR(keep_input_offset, Bool, true)
-    .OP_END_FACTORY_REG(PhonyConcat)
-
-    /**
-    * @brief Splits a tensor along dimension "split_dim" into "num_split" smaller tensors.
-            All outputs of the PhonySplit are allocated with the same memory block.
-            GE calculates the memory offset of each output,
-            and the custom operators next read the memory by offset.
-    * Warning: This operator is used only to identify that the GE allocates continuous memory and does not perform any
-    calculation.
-
-    * @par Inputs:
-    * One input:
-    * @li x:An ND Tensor.
-    * Must be one of the following types: float16, float32, int32, int8, int16,
-      int64, uint8, uint16, uint32, uint64, bool, bfloat16.
-
-    * @par Attributes:
-    * @li split_dim: A required int32. Specifies the dimension along which to split. No default value.
-    * @li num_split: A required int32. Specifies the number of output tensors. No default value .
-    * @li keep_output_offset: A optional Bool. Specifies whether calculate the memory offset of outpute tensors. Default
-    True .
-
-    * @par Outputs:
-    * @li y:Dynamic output. A list of output tensors. Has the same type and format as "x" .
-
-    * @attention Constraints:
-    * @li "num_split" is greater than or equals to 1.
-    * @li "num_split" is divisible by the size of dimension "split_dim".
-    * @li "split_dim" is in the range [-len(x.shape), (x.shape)-1] .
-
-    * @par Third-party framework support
-    * Support ONNX  framework.
-    */
-    REG_OP(PhonySplit)
-    .INPUT(x, TensorType::ALL())
-    .DYNAMIC_OUTPUT(y, TensorType::ALL())
-    .REQUIRED_ATTR(split_dim, ListInt)
-    .REQUIRED_ATTR(num_split, ListInt)
-    .ATTR(keep_output_offset, Bool, true)
-    .OP_END_FACTORY_REG(PhonySplit)
 
     /**
     *@brief Outputs random integers from a uniform distribution. \n

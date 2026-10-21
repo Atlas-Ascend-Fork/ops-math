@@ -2388,6 +2388,16 @@
   </tr>
   <tr>
     <td>conversion</td>
+    <td><a href="../../conversion/bitcast/README.md">bitcast</a></td>
+    <td>×</td>
+    <td>√</td>
+    <td>×</td>
+    <td>×</td>
+    <td>Host CPU</td>
+    <td>将输入tensor按照比特位重新解释为目标数据类型，不改变底层数据的存储内容，仅改变dataType和shape。</td>
+  </tr>
+  <tr>
+    <td>conversion</td>
     <td><a href="../../conversion/calc_buckets_limit_and_offset/README.md">calc_buckets_limit_and_offset</a></td>
     <td>√</td>
     <td>√</td>
@@ -2828,6 +2838,16 @@
   </tr>
   <tr>
     <td>conversion</td>
+    <td><a href="../../conversion/expand_dims/README.md">expand_dims</a></td>
+    <td>×</td>
+    <td>√</td>
+    <td>×</td>
+    <td>√</td>
+    <td>Host CPU</td>
+    <td>在输入张量shape的指定位置插入一个大小为1的维度，仅改变张量的shape，不改变底层数据。</td>
+  </tr>
+  <tr>
+    <td>conversion</td>
     <td><a href="../../conversion/fill/README.md">fill</a></td>
     <td>√</td>
     <td>√</td>
@@ -2855,6 +2875,16 @@
     <td>×</td>
     <td>AI Core</td>
     <td>该算子暂无Ascend C代码实现，欢迎开发者补充贡献，贡献方式参考<a href="../../CONTRIBUTING.md">贡献指南</a>。</td>
+  </tr>
+  <tr>
+    <td>conversion</td>
+    <td><a href="../../conversion/flatten_v2/README.md">flatten_v2</a></td>
+    <td>×</td>
+    <td>√</td>
+    <td>×</td>
+    <td>√</td>
+    <td>Host CPU</td>
+    <td>将输入张量[axis, end_axis]范围内的维度展平为一个维度，不改变底层数据。</td>
   </tr>
   <tr>
     <td>conversion</td>
@@ -2945,6 +2975,26 @@
     <td>√</td>
     <td>AI Core</td>
     <td>pad_v3之后的输入的反向传播。</td>
+  </tr>
+  <tr>
+    <td>conversion</td>
+    <td><a href="../../conversion/phony_concat/README.md">phony_concat</a></td>
+    <td>×</td>
+    <td>√</td>
+    <td>×</td>
+    <td>√</td>
+    <td>Host CPU</td>
+    <td>标识GE为所有输入分配同一块连续内存并计算偏移，不执行任何计算，供前置自定义算子按偏移写入。</td>
+  </tr>
+  <tr>
+    <td>conversion</td>
+    <td><a href="../../conversion/phony_split/README.md">phony_split</a></td>
+    <td>×</td>
+    <td>√</td>
+    <td>×</td>
+    <td>√</td>
+    <td>Host CPU</td>
+    <td>标识GE为所有输出分配同一块连续内存并计算偏移，不执行任何计算，供后置自定义算子按偏移读取。</td>
   </tr>
   <tr>
     <td>conversion</td>
@@ -3053,8 +3103,18 @@
     <td>√</td>
     <td>√</td>
     <td>√</td>
-    <td>AI Core</td>
+    <td>AI Core/Host CPU</td>
     <td>移除输入张量中大小为1的维度。</td>
+  </tr>
+  <tr>
+    <td>conversion</td>
+    <td><a href="../../conversion/squeezev3/README.md">squeezev3</a></td>
+    <td>×</td>
+    <td>√</td>
+    <td>×</td>
+    <td>√</td>
+    <td>Host CPU</td>
+    <td>删除Tensor中维度值为1的维度，axes以可选输入的形式提供。</td>
   </tr>
   <tr>
     <td>conversion</td>
@@ -3138,6 +3198,16 @@
   </tr>
   <tr>
     <td>conversion</td>
+    <td><a href="../../conversion/trans_shape/README.md">trans_shape</a></td>
+    <td>×</td>
+    <td>√</td>
+    <td>×</td>
+    <td>√</td>
+    <td>Host CPU</td>
+    <td>根据outShape属性改变输出的shape，不改变底层数据。</td>
+  </tr>
+  <tr>
+    <td>conversion</td>
     <td><a href="../../conversion/transpose/README.md">transpose</a></td>
     <td>√</td>
     <td>√</td>
@@ -3173,8 +3243,18 @@
     <td>√</td>
     <td>√</td>
     <td>√</td>
-    <td>AI Core</td>
+    <td>AI Core/Host CPU</td>
     <td>在指定位置插入一个大小为1的维度。</td>
+  </tr>
+  <tr>
+    <td>conversion</td>
+    <td><a href="../../conversion/unsqueezev3/README.md">unsqueezev3</a></td>
+    <td>×</td>
+    <td>√</td>
+    <td>×</td>
+    <td>√</td>
+    <td>Host CPU</td>
+    <td>在输入Tensor的指定位置插入维度值为1的维度，仅改变shape不改变数据。</td>
   </tr>
   <tr>
     <td>conversion</td>
@@ -3618,6 +3698,16 @@
   </tr>
   <tr>
     <td>ge</td>
+    <td><a href="../../ge/control_trigger/README.md">control_trigger</a></td>
+    <td>×</td>
+    <td>√</td>
+    <td>×</td>
+    <td>√</td>
+    <td>Host CPU</td>
+    <td>仅用作控制边的占位符。类似于NoOp，但即使部分控制输入已失效，也始终产生活跃的控制输出。</td>
+  </tr>
+  <tr>
+    <td>ge</td>
     <td><a href="../../ge/data/README.md">data</a></td>
     <td>×</td>
     <td>√</td>
@@ -3665,6 +3755,16 @@
     <td>√</td>
     <td>Host CPU</td>
     <td>检查张量是否已初始化。IsVariableInitialized算子接收输入张量x，输出标量布尔值y，表示输入张量是否已初始化。InferShape将输出shape设置为标量（0维），InferDataType将输出数据类型设置为DT_BOOL。</td>
+  </tr>
+  <tr>
+    <td>ge</td>
+    <td><a href="../../ge/no_op/README.md">no_op</a></td>
+    <td>×</td>
+    <td>√</td>
+    <td>×</td>
+    <td>√</td>
+    <td>Host CPU</td>
+    <td>不做任何操作，仅用作控制边的占位符。</td>
   </tr>
   <tr>
     <td>ge</td>

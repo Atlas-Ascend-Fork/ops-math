@@ -10,7 +10,7 @@
 
 #include "onnx_common.h"
 #include "stub_ops.h"
-#include "op_math_proto_extend.h"
+#include "conversion/expand_dims/op_graph/expand_dims_proto.h"
 #include "math/arg_min/op_graph/arg_min_proto.h"
 #include "platform/soc_spec.h"
 #include <set>

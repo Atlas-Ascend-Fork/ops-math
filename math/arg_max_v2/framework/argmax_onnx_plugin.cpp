@@ -10,7 +10,7 @@
 
 #include "onnx_common.h"
 #include "stub_ops.h"
-#include "op_math_proto_extend.h"
+#include "conversion/expand_dims/op_graph/expand_dims_proto.h"
 #include "math/arg_max_v2/op_graph/arg_max_v2_proto.h"
 
 using namespace ge;
@@ -84,8 +84,8 @@ static Status ParseOpToGraphArgMax(const Operator& op, Graph& graph)
     if (keep_dims == 1) {
         auto data1 = op::Const((ori_name + "_data1").c_str()).set_attr_value(axis);
 
-        auto expandDims =
-            op::ExpandDims((ori_name + "_ExpandDims").c_str()).set_input_x(ArgMaxV2).set_input_axis(data1);
+        auto
+            expandDims = op::ExpandDims((ori_name + "_ExpandDims").c_str()).set_input_x(ArgMaxV2).set_input_axis(data1);
         outputs.emplace_back(expandDims, vector<std::size_t>{0});
     } else {
         outputs.emplace_back(ArgMaxV2, vector<std::size_t>{0});
@@ -97,18 +97,13 @@ static Status ParseOpToGraphArgMax(const Operator& op, Graph& graph)
 // register ArgMax op info to GE
 REGISTER_CUSTOM_OP("PartitionedCall")
     .FrameworkType(ONNX)
-    .OriginOpType({ge::AscendString("ai.onnx::8::ArgMax"),
-                   ge::AscendString("ai.onnx::9::ArgMax"),
-                   ge::AscendString("ai.onnx::10::ArgMax"),
-                   ge::AscendString("ai.onnx::11::ArgMax"),
-                   ge::AscendString("ai.onnx::12::ArgMax"),
-                   ge::AscendString("ai.onnx::13::ArgMax"),
-                   ge::AscendString("ai.onnx::14::ArgMax"),
-                   ge::AscendString("ai.onnx::15::ArgMax"),
-                   ge::AscendString("ai.onnx::16::ArgMax"),
-                   ge::AscendString("ai.onnx::17::ArgMax"),
+    .OriginOpType({ge::AscendString("ai.onnx::8::ArgMax"), ge::AscendString("ai.onnx::9::ArgMax"),
+                   ge::AscendString("ai.onnx::10::ArgMax"), ge::AscendString("ai.onnx::11::ArgMax"),
+                   ge::AscendString("ai.onnx::12::ArgMax"), ge::AscendString("ai.onnx::13::ArgMax"),
+                   ge::AscendString("ai.onnx::14::ArgMax"), ge::AscendString("ai.onnx::15::ArgMax"),
+                   ge::AscendString("ai.onnx::16::ArgMax"), ge::AscendString("ai.onnx::17::ArgMax"),
                    ge::AscendString("ai.onnx::18::ArgMax")})
     .ParseParamsFn(ParseParamsArgMax)
     .ParseOpToGraphFn(ParseOpToGraphArgMax)
     .ImplyType(ImplyType::TVM);
-}  // namespace domi
+} // namespace domi

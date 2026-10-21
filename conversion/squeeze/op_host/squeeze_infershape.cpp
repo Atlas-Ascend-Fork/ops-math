@@ -1,70 +1,124 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
- * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
- * Please refer to the License for details. You may not use this file except in compliance with the License.
- * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
- * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
- * See LICENSE in the root of the software repository for the full text of the License.
- */
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
 
 /*!
  * \file squeeze_infershape.cpp
- * \brief
+ * \brief InferShape and InferDataType implementation for Squeeze operator.
  */
-#include "runtime/infer_shape_context.h"
 #include "register/op_impl_registry.h"
+#include "exe_graph/runtime/infer_shape_context.h"
+#include "exe_graph/runtime/infer_datatype_context.h"
 #include "log/log.h"
 
 using namespace ge;
 namespace ops {
-static ge::graphStatus InferShapeForSqueeze(gert::InferShapeContext* context) {
-  const auto x_shape = context->GetInputShape(0);
-  auto y_shape = context->GetOutputShape(0);
-  const gert::RuntimeAttrs *attrs = context->GetAttrs();
-  OP_CHECK_IF(x_shape == nullptr, OP_LOGE(context, "x_shape is null."), return ge::GRAPH_FAILED);
-  OP_CHECK_IF(y_shape == nullptr, OP_LOGE(context, "y_shape is null."), return ge::GRAPH_FAILED);
-  OP_CHECK_IF(attrs == nullptr, OP_LOGE(context, "attrs is null."), return ge::GRAPH_FAILED);
-  auto axis = attrs->GetAttrPointer<gert::TypedContinuousVector<int64_t>>(0);
-  OP_CHECK_IF(axis == nullptr, OP_LOGE(context, "axis is null."), return ge::GRAPH_FAILED);
-
-  // todo 增加编译期处理逻辑
-  y_shape->SetDimNum(0);
-  auto dim_size = x_shape->GetDimNum();
-  if (axis->GetSize() == 0UL) {
-    // squeeze all 1
-    for (size_t index = 0UL; index < dim_size; ++index) {
-      if (x_shape->GetDim(index) != 1) {
-        y_shape->AppendDim(x_shape->GetDim(index));
-      }
-    }
-    return ge::GRAPH_SUCCESS;
-  }
-  // squeeze by axes
-  bool dim_index[gert::Shape::kMaxDimNum] = {false};
-  for (size_t i = 0UL; i < axis->GetSize(); ++i) {
-    const int64_t tmp_axis = (axis->GetData())[i];
-    const int64_t real_axis = (tmp_axis < 0) ? (tmp_axis + static_cast<int64_t>(dim_size)) : tmp_axis;
-    if ((real_axis < 0) || (real_axis >= static_cast<int64_t>(dim_size))) {
-      OP_LOGE(context, "Squeeze axis[%ld] must be in range [-%ld, %ld)!", tmp_axis,
-              static_cast<int64_t>(dim_size), static_cast<int64_t>(dim_size));
-      return ge::GRAPH_FAILED;
-    }
-    if (x_shape->GetDim(real_axis) != 1) {
-      OP_LOGE(context, "Cannot squeeze the shape whose dim was not 1!");
-      return ge::GRAPH_FAILED;
-    }
-
-    dim_index[real_axis] = true;
-  }
-
-  for (size_t i = 0UL; i < dim_size; ++i) {
-    if (dim_index[i] != true) {
-      y_shape->AppendDim(x_shape->GetDim(i));
-    }
-  }
-  return ge::GRAPH_SUCCESS;
+namespace {
+bool IsUnknownRank(const gert::Shape& shape)
+{
+    return (shape.GetDimNum() == 1U) && (shape.GetDim(0U) == ge::UNKNOWN_DIM_NUM);
 }
 
-IMPL_OP_INFERSHAPE(Squeeze).InferShape(InferShapeForSqueeze);
-}  // namespace ops
+bool IsUnknownDim(const gert::Shape& shape)
+{
+    for (size_t i = 0U; i < shape.GetDimNum(); ++i) {
+        if (shape.GetDim(i) == ge::UNKNOWN_DIM) {
+            return true;
+        }
+    }
+    return false;
+}
+
+ge::graphStatus SetOutputShapeAsUnknownRank(gert::Shape* y_shape)
+{
+    y_shape->SetDimNum(1U);
+    y_shape->SetDim(0U, ge::UNKNOWN_DIM_NUM);
+    return ge::GRAPH_SUCCESS;
+}
+
+// squeeze x by squeeze_dims; when squeeze_dims is nullptr, squeeze all dims whose value is 1;
+// unknown dim(-1) pointed by axis is treated as 1, as no method to verify it on compile stage
+ge::graphStatus SqueezeImpl(const gert::Shape* x_shape, const bool* squeeze_dims, gert::Shape* y_shape)
+{
+    y_shape->SetDimNum(0U);
+    for (size_t idx = 0U; idx < x_shape->GetDimNum(); ++idx) {
+        const auto x_shape_dim = x_shape->GetDim(idx);
+        const bool squeeze = (squeeze_dims == nullptr) ? (x_shape_dim == 1) : squeeze_dims[idx];
+        if (!squeeze) {
+            y_shape->AppendDim(x_shape_dim);
+        } else if ((x_shape_dim != 1) && (x_shape_dim != ge::UNKNOWN_DIM)) {
+            OP_LOGE("Squeeze",
+                    "Squeeze failed, cannot squeeze dim which was not 1 or -1! Axis is %zu, while "
+                    "x_shape[%zu]=%ld.",
+                    idx, idx, x_shape_dim);
+            return ge::GRAPH_FAILED;
+        }
+    }
+    return ge::GRAPH_SUCCESS;
+}
+
+// validate axes in range [-x_dim_num, x_dim_num), mark the squeeze positions on squeeze_dims
+bool GetSqueezeDims(const gert::Shape* x_shape, const gert::TypedContinuousVector<int64_t>* axes, bool* squeeze_dims)
+{
+    const auto x_dim_num = static_cast<int64_t>(x_shape->GetDimNum());
+    for (size_t idx = 0U; idx < axes->GetSize(); ++idx) {
+        const auto raw_axis = axes->GetData()[idx];
+        const auto real_axis = (raw_axis < 0) ? (raw_axis + x_dim_num) : raw_axis;
+        if ((real_axis < 0) || (real_axis >= x_dim_num)) {
+            OP_LOGE("Squeeze", "Squeeze axis[%ld] must be in range [-%ld, %ld)!", raw_axis, x_dim_num, x_dim_num);
+            return false;
+        }
+        squeeze_dims[real_axis] = true;
+    }
+    return true;
+}
+} // namespace
+
+static ge::graphStatus InferShapeForSqueeze(gert::InferShapeContext* context)
+{
+    const auto x_shape = context->GetInputShape(0U);
+    auto y_shape = context->GetOutputShape(0U);
+    const gert::RuntimeAttrs* attrs = context->GetAttrs();
+    OP_CHECK_NULL_WITH_CONTEXT(context, x_shape);
+    OP_CHECK_NULL_WITH_CONTEXT(context, y_shape);
+    OP_CHECK_NULL_WITH_CONTEXT(context, attrs);
+    auto axes = attrs->GetListInt(0);
+    // the axis attr is optional with an empty-list default: a missing attr is the same as an
+    // explicitly empty one, both squeeze all 1-dims
+    const auto axes_size = (axes == nullptr) ? 0U : axes->GetSize();
+
+    // case 1: input shape is unknown rank(-2), or has unknown dims(-1) while axes is empty,
+    // cannot determine which unknown dim is 1, set output shape as unknown rank
+    if (IsUnknownRank(*x_shape) || (IsUnknownDim(*x_shape) && (axes_size == 0U))) {
+        OP_LOGD(context, "Input shape is unknown rank, or has unknown dims while axes is empty. Set output shape as "
+                         "unknown rank.");
+        return SetOutputShapeAsUnknownRank(y_shape);
+    }
+
+    // case 2: axes is empty, squeeze all dims whose value is 1
+    if (axes_size == 0U) {
+        OP_LOGD(context, "Axes is empty. Squeeze all dims whose value is 1.");
+        return SqueezeImpl(x_shape, nullptr, y_shape);
+    }
+
+    // case 3: squeeze by axes, unknown dim(-1) pointed by axis is treated as 1
+    bool squeeze_dims[gert::Shape::kMaxDimNum] = {false};
+    if (!GetSqueezeDims(x_shape, axes, squeeze_dims)) {
+        return ge::GRAPH_FAILED;
+    }
+    return SqueezeImpl(x_shape, squeeze_dims, y_shape);
+}
+
+static ge::graphStatus InferDataTypeForSqueeze(gert::InferDataTypeContext* context)
+{
+    return context->SetOutputDataType(0U, context->GetInputDataType(0U));
+}
+
+IMPL_OP_INFERSHAPE(Squeeze).InferShape(InferShapeForSqueeze).InferDataType(InferDataTypeForSqueeze);
+} // namespace ops
