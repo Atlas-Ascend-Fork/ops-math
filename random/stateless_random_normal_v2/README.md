@@ -78,5 +78,5 @@
 |--------------|------------------------------------------------------------------------|--------------------------------------------------------------|
 | aclnn调用 | [test_aclnn_normal_float_float](./examples/test_aclnn_normal_float_float.cpp) | 通过[aclnnNormalFloatFloat](./docs/aclnnNormalFloatFloat.md)接口方式调用stateless_random_normal_v2算子。 |
 | aclnn调用 | [test_aclnn_normal_float_tensor](./examples/test_aclnn_normal_float_tensor.cpp) | 通过[aclnnNormalFloatTensor](./docs/aclnnNormalFloatTensor.md)接口方式调用stateless_random_normal_v2算子。 |
-| aclnn调用 | [test_aclnn_normal_tensor_float](./examples/test_aclnn_normal_tensor_float.cpp) | 通过[aclnnNormalFloatTensor](./docs/aclnnNormalTensorFloat.md)接口方式调用stateless_random_normal_v2算子。 |
+| aclnn调用 | [test_aclnn_normal_tensor_float](./examples/test_aclnn_normal_tensor_float.cpp) | 通过[aclnnNormalTensorFloat](./docs/aclnnNormalTensorFloat.md)接口方式调用stateless_random_normal_v2算子。 |
 | aclnn调用 | [test_aclnn_normal_tensor_tensor](./examples/test_aclnn_normal_tensor_tensor.cpp) | 通过[aclnnNormalTensorTensor](./docs/aclnnNormalTensorTensor.md)接口方式调用stateless_random_normal_v2算子。 |
