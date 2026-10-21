@@ -21,11 +21,7 @@ namespace ops {
 constexpr size_t ATTR_IDX = 2;
 constexpr int32_t NPU_ARCH_DECIMAL_BASE = 10;
 
-// 需要 indice_dtype 属性必填的 NpuArch 白名单。
-// 按 NpuArch 而非 short_soc_version 字符串判定：一个 arch 覆盖多个 soc
-// （DAV_3510 -> Ascend950/Ascend350，DAV_5102 -> MC62，DAV_9201 -> Ascend960DT）。
-// 后续新增兼容 ARCH 只需在此追加枚举值。
-static const std::set<NpuArch> SUPPORTED_NPU_ARCH_LIST = {NpuArch::DAV_3510};
+static const std::set<NpuArch> SUPPORTED_NPU_ARCH_LIST = {NpuArch::DAV_3510, NpuArch::DAV_9201};
 
 static bool IsSupportedNpuArch()
 {
@@ -58,7 +54,7 @@ static ge::graphStatus InferDataType4ArgMaxWithValue(gert::InferDataTypeContext*
         auto attrs = context->GetAttrs();
         OP_CHECK_NULL_WITH_CONTEXT(context, attrs);
         auto indice_dtype_ptr = attrs->GetAttrPointer<int64_t>(ATTR_IDX);
-        OP_CHECK_NULL_WITH_CONTEXT(context, indice_dtype_ptr); // 白名单 NpuArch 要求属性存在
+        OP_CHECK_NULL_WITH_CONTEXT(context, indice_dtype_ptr);
         indiceDtype = static_cast<ge::DataType>(*indice_dtype_ptr);
         OP_LOGI(context->GetNodeName(), "argmaxwithvalueOutputDtypeInfer 2.0, output dtype is %d",
                 static_cast<int>(indiceDtype));

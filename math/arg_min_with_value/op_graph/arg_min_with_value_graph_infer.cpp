@@ -10,28 +10,53 @@
 
 #include "register/op_impl_registry.h"
 #include "log/log.h"
-#include "platform/platform_infos_def.h"
 #include "platform/platform_info.h"
+#include "platform/soc_spec.h"
+#include <cstdlib>
+#include <set>
+#include <string>
 
 using namespace ge;
 namespace ops {
 constexpr size_t ATTR_IDX = 2;
+constexpr int32_t NPU_ARCH_DECIMAL_BASE = 10;
+
+static const std::set<NpuArch> SUPPORTED_NPU_ARCH_LIST = {NpuArch::DAV_3510, NpuArch::DAV_9201};
+
+static bool IsSupportedNpuArch()
+{
+    fe::PlatFormInfos platformInfos;
+    fe::OptionalInfos optionalInfos;
+    if (fe::PlatformInfoManager::Instance().GetPlatformInfoWithOutSocVersion(platformInfos, optionalInfos) !=
+        ge::GRAPH_SUCCESS) {
+        OP_LOGW("ArgMinWithValue", "Get platform info failed.");
+        return false;
+    }
+    std::string npuArchStr;
+    if (!platformInfos.GetPlatformRes("version", "NpuArch", npuArchStr)) {
+        OP_LOGW("ArgMinWithValue", "Get NpuArch from platform info failed.");
+        return false;
+    }
+    auto npuArch = static_cast<NpuArch>(std::strtoul(npuArchStr.c_str(), nullptr, NPU_ARCH_DECIMAL_BASE));
+    bool isSupported = SUPPORTED_NPU_ARCH_LIST.count(npuArch) != 0U;
+    OP_LOGD("ArgMinWithValue", "Current NpuArch is %s, supported=%d", npuArchStr.c_str(),
+            static_cast<int>(isSupported));
+    return isSupported;
+}
+
 static ge::graphStatus InferDataType4ArgMinWithValue(gert::InferDataTypeContext* context)
 {
     OP_LOGD("Begin InferDataType4ArgMinWithValue");
     auto input_x_dtype = context->GetInputDataType(0);
     ge::DataType indiceDtype = ge::DT_INT32;
 
-    fe::PlatformInfo platform_info;
-    fe::OptionalInfo optional_info;
-    auto result = fe::PlatformInfoManager::Instance().GetPlatformInfoWithOutSocVersion(platform_info, optional_info);
-    if (result == ge::GRAPH_SUCCESS && platform_info.str_info.short_soc_version == "Ascend950") {
+    if (IsSupportedNpuArch()) {
         auto attrs = context->GetAttrs();
         OP_CHECK_NULL_WITH_CONTEXT(context, attrs);
         auto indice_dtype_ptr = attrs->GetAttrPointer<int64_t>(ATTR_IDX);
-        OP_CHECK_NULL_WITH_CONTEXT(context, indice_dtype_ptr); // 仅 Ascend950 要求属性存在
+        OP_CHECK_NULL_WITH_CONTEXT(context, indice_dtype_ptr);
         indiceDtype = static_cast<ge::DataType>(*indice_dtype_ptr);
-        OP_LOGI(context->GetNodeName(), "argminwithvalueOutputDtypeInfer 1.0, output dtype is %d",
+        OP_LOGI(context->GetNodeName(), "argminwithvalueOutputDtypeInfer 2.0, output dtype is %d",
                 static_cast<int>(indiceDtype));
     }
 
