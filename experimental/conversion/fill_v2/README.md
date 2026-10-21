@@ -68,4 +68,4 @@ $$
 
 | 调用方式 | 调用样例                                                                   | 说明                                                           |
 |--------------|------------------------------------------------------------------------|--------------------------------------------------------------|
-| aclnn调用 | [test_aclnn_fill_v2.cpp](./examples/test_aclnn_fill_v2.cpp) | 通过[test_aclnn_s_where]接口方式调用Fill算子。 |
+| aclnn调用 | [test_aclnn_fill_v2.cpp](./examples/test_aclnn_fill_v2.cpp) | 通过aclnnFillV2接口方式调用Fill算子。 |

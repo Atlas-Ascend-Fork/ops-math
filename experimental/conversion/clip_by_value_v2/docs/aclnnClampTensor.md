@@ -22,7 +22,7 @@
 
 ```cpp
 aclnnStatus aclnnClampTensorGetWorkspaceSize(
-    const aclTensor* elf,
+    const aclTensor* self,
     const aclTensor* clipValueMin,
     const aclTensor* clipValueMax,
     aclTensor*       out,
