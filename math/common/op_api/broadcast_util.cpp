@@ -80,6 +80,7 @@ struct PaddedInput {
     std::vector<int64_t> shape;
     std::vector<int64_t> strides;
     bool isContiguous;
+    int64_t dtypeSize;
 };
 
 // 前置条件：dims.size() <= maxDim（调用方已按广播 shape 对齐维度）；
@@ -105,6 +106,7 @@ bool PadSingleInput(const CollapsedTensor& input, int64_t maxDim, PaddedInput& o
         }
     }
     out.isContiguous = input.isContiguous;
+    out.dtypeSize = input.dtypeSize;
     return true;
 }
 
@@ -198,11 +200,12 @@ std::vector<CollapseAction> ComputeBroadcastCollapsePlan(const std::vector<Padde
 }
 
 CollapsedTensor BuildCollapsedTensor(const std::vector<int64_t>& dims, std::vector<int64_t>& workingStrides,
-                                     bool isContiguous)
+                                     bool isContiguous, int64_t dtypeSize)
 {
     CollapsedTensor ct;
     ct.dims = dims;
     ct.isContiguous = isContiguous;
+    ct.dtypeSize = dtypeSize;
     if (!isContiguous) {
         for (int64_t j = 0; j < static_cast<int64_t>(workingStrides.size()); j++) {
             if (workingStrides[j] >= 0) {
@@ -236,7 +239,7 @@ CollapsedTensor CollapseSingleTensor(const PaddedInput& padded, const std::vecto
             collapsedDims.push_back(padded.shape[j]);
         }
     }
-    return BuildCollapsedTensor(collapsedDims, workingStrides, padded.isContiguous);
+    return BuildCollapsedTensor(collapsedDims, workingStrides, padded.isContiguous, padded.dtypeSize);
 }
 
 bool DoDimensionCollapse(const std::vector<CollapsedTensor>& inputs, const op::Shape& outputShape,
@@ -275,6 +278,8 @@ bool DoDimensionCollapse(const std::vector<CollapsedTensor>& inputs, const op::S
 
     CollapsedTensor outputCt;
     outputCt.isContiguous = true;
+    // 输出侧 ct 仅供取 dims（合轴对齐），dtypeSize 无消费方，置 0 防御未初始化
+    outputCt.dtypeSize = 0;
     for (int64_t i = 0; i < maxDim; i++) {
         outputCt.dims.push_back(outputShape.GetDim(i));
     }
@@ -470,7 +475,11 @@ bool CollectInput(const aclTensor* input, CollapsedTensor& ct)
     if (input == nullptr) {
         return false;
     }
-    int64_t typeSize = static_cast<int64_t>(op::TypeSize(input->GetDataType()));
+    // sub-bit 类型（INT4/FLOAT6/HIFLOAT4 等）的 TypeSize 返回 kDataTypeSizeBitOffset+位宽
+    // 的标记编码而非真实字节宽，直接参与 dimLimit/inputSize 计算会导致 dimLimit=0 恒真污染；
+    // 此处按 1 字节近似（与 ge::GetSizeByDataType 的 sub-bit 语义对齐）。
+    size_t rawSize = op::TypeSize(input->GetDataType());
+    int64_t typeSize = static_cast<int64_t>(rawSize >= static_cast<size_t>(kDataTypeSizeBitOffset) ? 1 : rawSize);
     if (typeSize == 0) {
         OP_LOGD("Broadcast Template NonContiguous UnSupported. typeSize is 0");
         return false;
