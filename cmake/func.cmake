@@ -872,7 +872,7 @@ macro(add_all_modules_sources)
   # Not subject to manifest control — preserves existing behavior
   if(MODULE_HOSTCPU AND BUILD_WITH_INSTALLED_DEPENDENCY_CANN_PKG AND NOT ENABLE_CUSTOM)
     file(GLOB AICPU_HOST_SRCS ${SOURCE_DIR}/op_kernel_aicpu/*_aicpu.cpp)
-    if(AICPU_HOST_SRCS AND NOT DISABLE_AICPU)
+    if(AICPU_HOST_SRCS)
       set(HOST_OBJ_NAME ${OP_NAME}_host_const_obj)
       add_aicpu_host_kernel_modules(${HOST_OBJ_NAME})
       target_sources(${HOST_OBJ_NAME} PRIVATE ${AICPU_HOST_SRCS})
