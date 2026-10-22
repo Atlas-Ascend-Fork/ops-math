@@ -35,10 +35,15 @@ public:
     ge::graphStatus CalculateOutputInfo();
     void DoUbSplit();
     void DoBlockSplit();
+    void DoUbSplitByBlock();
+    void DoBlockSplitFirst();
     void SetTilingData(ChunkCatTilingData* tilingData);
+    bool IsAscend960() const { return isAscend960dt_; }
     std::string TilingDataToString() const;
 
 private:
+    int64_t FindMaxAlignedDivisor(int64_t block, int64_t limit, int64_t align) const;
+    int64_t FindMaxAlignedFactor(int64_t block, int64_t limit, int64_t align) const;
     gert::TilingContext* context_;
     bool isRegBase{false};
     int32_t coreNum_{0};
@@ -51,6 +56,7 @@ private:
     bool isAllAlign_{true};
     bool isHalfAlign_{true};
     bool isOneConcat_{false};
+    bool isAscend960dt_{false};
     int64_t inputNum_{0};
     int64_t dim_{0};
     int64_t numChunk_{0};

@@ -25,6 +25,7 @@ constexpr uint32_t TRANS_BLOCK = 16;   // 转置行数
 constexpr uint32_t HALF = 2;           // 半对齐/UB对半切分
 constexpr int64_t NUM_THIRTY_ONE = 31;
 constexpr int64_t NUM_TWO = 2;
+constexpr int64_t UINT16_LIMIT = 65535;
 
 struct TensorInfo {
     bool isSplit{false};
@@ -149,6 +150,9 @@ public:
 #if __CCE_AICORE__ == 310
         AscendC::DataCopyPad<T1, PaddingMode::Compact>(srcLocal_[localOffset], srcGlobal_[gmOffset], copyParams,
                                                        padParams);
+#elif __NPU_ARCH__ == 9201
+        AscendC::DataCopyPad<T1, PaddingMode::Compact>(srcLocal_[localOffset], srcGlobal_[gmOffset], copyParams,
+                                                       padParams, true);
 #else
         AscendC::DataCopyPad(srcLocal_[localOffset], srcGlobal_[gmOffset], copyParams, padParams);
 #endif
@@ -203,7 +207,7 @@ public:
             // 1.3.1
             blockLen = (remainderCol - tensorInfo.startOffset) * sizeof(T1);
             int64_t localOffsetPart = 0;
-#if __CCE_AICORE__ == 310
+#if __CCE_AICORE__ == 310 || __NPU_ARCH__ == 9201
             localOffsetPart = localOffset + GetAlign((tensorInfo.chunkRow - ubLoopInfo.rowStart) * tensorInfo.splitCol,
                                                      srcEleUbBlock_);
 #else

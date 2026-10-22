@@ -60,7 +60,7 @@ static const std::initializer_list<op::DataType> ASCEND950_DTYPE_SUPPORT_LIST = 
 
 static inline bool IsArch22(NpuArch arch) { return arch == NpuArch::DAV_2201; }
 
-static inline bool IsArch35(NpuArch arch) { return arch == NpuArch::DAV_3510; }
+static inline bool IsArch35(NpuArch arch) { return arch == NpuArch::DAV_3510 || arch == NpuArch::DAV_9201; }
 
 static bool UseAicpuPath(const aclTensor* self, int64_t selfSize)
 {

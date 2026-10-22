@@ -41,7 +41,8 @@ std::string ChunkCatTiling::TilingDataToString() const
            ", ubRowFactor = " + std::to_string(ubRowFactor_) + ", ubColFactor = " + std::to_string(ubColFactor_) +
            ", inputNum = " + std::to_string(inputNum_) + ", inUbSize = " + std::to_string(inUbSize_) +
            ", outUbSize = " + std::to_string(outUbSize_) + ", isAllAlign = " + std::to_string(isAllAlign_) +
-           ", isHalfAlign = " + std::to_string(isHalfAlign_) + ", isOneConcat = " + std::to_string(isOneConcat_);
+           ", isHalfAlign = " + std::to_string(isHalfAlign_) + ", isOneConcat = " + std::to_string(isOneConcat_) +
+           ", isAscend960dt = " + std::to_string(isAscend960dt_) + ", usedCoreNum = " + std::to_string(usedCoreNum_);
 }
 
 // 获取硬件信息
@@ -57,6 +58,7 @@ ge::graphStatus ChunkCatTiling::GetPlatformInfo()
     OP_CHECK_IF(ubSize_ == 0, OP_LOGE(context_, "ubSize is 0"), return ge::GRAPH_FAILED);
     sysWorkspaceSize_ = ascendcPlatform.GetLibApiWorkSpaceSize();
     isRegBase = Ops::Base::IsRegbaseSocVersion(context_);
+    isAscend960dt_ = ascendcPlatform.GetCurNpuArch() == NpuArch::DAV_9201;
     return ge::GRAPH_SUCCESS;
 }
 
@@ -202,6 +204,77 @@ void ChunkCatTiling::DoBlockSplit()
     usedCoreNum_ = blockRowNum_ * blockColNum_;
 }
 
+// 先切核：优先沿行方向把核铺满，行数不足时再沿列方向补足，最后才考虑UB切分
+void ChunkCatTiling::DoBlockSplitFirst()
+{
+    // 行切：尽量让每个核都能参与计算
+    blockRowFactor_ = (outputRow_ + coreNum_ - 1) / coreNum_;
+    blockRowNum_ = (outputRow_ + blockRowFactor_ - 1) / blockRowFactor_;
+    tailBlockRowFactor_ = outputRow_ - blockRowFactor_ * (blockRowNum_ - 1);
+    tailBlockRowFactor_ = tailBlockRowFactor_ == 0 ? blockRowFactor_ : tailBlockRowFactor_;
+
+    // 列切：行方向切分不足以铺满核时，剩余核沿列方向继续切分
+    int64_t leftCoreNum = coreNum_ / blockRowNum_;
+    blockColFactor_ = (outputCol_ + leftCoreNum - 1) / leftCoreNum;
+    blockColFactor_ = (blockColFactor_ + static_cast<int64_t>(srcEleUbBlock_) - 1) /
+                      static_cast<int64_t>(srcEleUbBlock_) * static_cast<int64_t>(srcEleUbBlock_);
+    blockColNum_ = (outputCol_ + blockColFactor_ - 1) / blockColFactor_;
+    tailBlockColFactor_ = outputCol_ - blockColFactor_ * (blockColNum_ - 1);
+    tailBlockColFactor_ = tailBlockColFactor_ == 0 ? blockColFactor_ : tailBlockColFactor_;
+    usedCoreNum_ = blockRowNum_ * blockColNum_;
+}
+
+void ChunkCatTiling::DoUbSplitByBlock()
+{
+    const int64_t align = static_cast<int64_t>(srcEleUbBlock_);
+    int64_t rowAlign = 1;
+    // 列切：UB能容纳的最大列数，各分支与DoUbSplit保持一致
+    int64_t colLimit = static_cast<int64_t>(inUbSize_) / static_cast<int64_t>(srcDtypeSize_);
+    colLimit -= NUM_THIRTY_TWO * align;
+
+    int64_t colCap = blockColFactor_ < colLimit ? blockColFactor_ : colLimit;
+    ubColFactor_ = FindMaxAlignedDivisor(colCap, colLimit, align);
+    if (ubColFactor_ == 0) {
+        ubColFactor_ = FindMaxAlignedFactor(colCap, colLimit, align);
+    }
+
+    // 行切：行方向尽量取block行数的因子，使UB行循环无尾块
+    int64_t colLoop = (blockColFactor_ + ubColFactor_ - 1) / ubColFactor_;
+    int64_t rowLimit = static_cast<int64_t>(inUbSize_) / colLoop / static_cast<int64_t>(srcDtypeSize_) / ubColFactor_;
+    int64_t rowCap = blockRowFactor_ < rowLimit ? blockRowFactor_ : rowLimit;
+    ubRowFactor_ = FindMaxAlignedDivisor(rowCap, rowLimit, rowAlign);
+    if (ubRowFactor_ < 1) {
+        ubRowFactor_ = rowCap > 0 ? rowCap : 1;
+    }
+}
+
+int64_t ChunkCatTiling::FindMaxAlignedDivisor(int64_t block, int64_t limit, int64_t align) const
+{
+    if (block <= 0 || limit <= 0 || align <= 0) {
+        return 0;
+    }
+    int64_t upper = block < limit ? block : limit;
+    upper = upper / align * align;
+    for (int64_t factor = upper; factor >= align; factor -= align) {
+        if (block % factor == 0) {
+            return factor;
+        }
+    }
+    return 0;
+}
+
+int64_t ChunkCatTiling::FindMaxAlignedFactor(int64_t block, int64_t limit, int64_t align) const
+{
+    int64_t factor = block < limit ? block : limit;
+    if (factor <= 0) {
+        return 1;
+    }
+    if (align <= 0 || factor < align) {
+        return factor;
+    }
+    return factor / align * align;
+}
+
 void ChunkCatTiling::SetTilingData(ChunkCatTilingData* tilingData)
 {
     tilingData->isAllAlign = isAllAlign_;
@@ -239,8 +312,13 @@ static ge::graphStatus Tiling4ChunkCat(gert::TilingContext* context)
                 return ge::GRAPH_FAILED);
     OP_CHECK_IF(tiling.CalculateOutputInfo() != ge::GRAPH_SUCCESS, OP_LOGE(context, "CalculateOutputInfo error"),
                 return ge::GRAPH_FAILED);
-    tiling.DoUbSplit();
-    tiling.DoBlockSplit();
+    if (tiling.IsAscend960()) {
+        tiling.DoBlockSplitFirst();
+        tiling.DoUbSplitByBlock();
+    } else {
+        tiling.DoUbSplit();
+        tiling.DoBlockSplit();
+    }
 
     ChunkCatTilingData* tilingData = context->GetTilingData<ChunkCatTilingData>();
     OP_CHECK_NULL_WITH_CONTEXT(context, tilingData);

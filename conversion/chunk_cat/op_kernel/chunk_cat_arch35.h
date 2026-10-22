@@ -371,10 +371,17 @@ private:
         uint16_t rowLoop1 = 0;
         uint16_t rowLoop2 = 0;
         // 部分pad情况下pad部分
+#if __NPU_ARCH__ == 9201
+        uint32_t colLen0 = 0;
+        uint32_t colLen1 = 0;
+        uint16_t colLoop1 = 0;
+        uint32_t tailPad = 0;
+#else
         uint16_t colLen0 = 0;
         uint16_t colLen1 = 0;
         uint16_t colLoop1 = 0;
         uint32_t tailPad = 0;
+#endif
 
         if (ubLoopInfo.rowStart >= tensorInfo.chunkRowAlign) {
             // 无搬运，纯pad
@@ -397,6 +404,17 @@ private:
             }
         }
         uint32_t rowNum = GetVRegSize() / sizeof(T2) / srcLen;
+#if __NPU_ARCH__ == 9201
+        if constexpr (IS_SCATTER) {
+            if constexpr (std::is_same_v<T2, bfloat16_t> || std::is_same_v<T2, half>) {
+                uint32_t rowNumSafe = srcLen < UINT16_LIMIT ? (UINT16_LIMIT - srcLen) / rowStride + 1 : rowNum;
+                rowNum = rowNumSafe < rowNum ? rowNumSafe : rowNum;
+                if (rowNum == 0) {
+                    rowNum = 1;
+                }
+            }
+        }
+#endif
         uint16_t rowLoop00 = rowLoop0 / rowNum;
         uint32_t rowNumTailLoop0 = rowLoop0 - rowNum * rowLoop00;
         uint16_t rowLoop20 = rowLoop2 / rowNum;
