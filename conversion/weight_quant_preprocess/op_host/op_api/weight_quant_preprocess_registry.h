@@ -18,18 +18,22 @@
 #include <unordered_map>
 #include <vector>
 
-#define QUANT_DATA_FLOW_LIST  \
-    X(UNKNOWN, 0)             \
-    X(MM_MX_A8W4, 1)          \
-    X(GMM_MX_A8W4, 2)         \
-    X(MM_A16S4_PERCHANNEL, 3) \
-    X(MM_A16S4_PERGROUP, 4)   \
-    X(MM_A16S4_PERTENSOR, 5)  \
-    X(MM_A16F4_PERGROUP, 6)   \
-    X(MM_A16MXF4, 7)          \
-    X(MM_MX_A16HIF4, 8)       \
-    X(MM_C064_A16W4, 9)       \
-    X(MM_C064_PerG_A16W4, 10)
+#define QUANT_DATA_FLOW_LIST     \
+    X(UNKNOWN, 0)                \
+    X(MM_MX_A8W4, 1)             \
+    X(GMM_MX_A8W4, 2)            \
+    X(MM_A16S4_PERCHANNEL, 3)    \
+    X(MM_A16S4_PERGROUP, 4)      \
+    X(MM_A16S4_PERTENSOR, 5)     \
+    X(MM_A16F4_PERGROUP, 6)      \
+    X(MM_A16MXF4, 7)             \
+    X(MM_MX_A16HIF4, 8)          \
+    X(MM_C064_A16W4, 9)          \
+    X(MM_C064_PerG_A16W4, 10)    \
+    X(MM_A16INT8_PERTENSOR, 11)  \
+    X(MM_A16INT8_PERCHANNEL, 12) \
+    X(MM_A16INT8_PERGROUP, 13)   \
+    X(MM_A16FP8HIF8_PERCHANNEL, 14)
 
 enum class QuantDataFlow : uint32_t {
 #define X(name, value) name = value,

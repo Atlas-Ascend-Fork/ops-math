@@ -239,6 +239,70 @@ static bool IsMMA16MXF4NonTransNzDataFlow(QuantContext& ctx)
     return false;
 }
 
+// ===== A16W8 judge 判定件 =====
+// A16W8：x fp16/bf16 + weight INT8（1 字节元素，无 4-bit 打包约束）；
+// scale 与 x dtype 一致（fp16/bf16），xScale 无语义统一排除
+static bool IsA16INT8Base(const QuantContext& ctx)
+{
+    bool xDtypeMatch = (ctx.xDtype == op::DataType::DT_FLOAT16 || ctx.xDtype == op::DataType::DT_BF16);
+    return ctx.weight->GetDataType() == op::DataType::DT_INT8 && xDtypeMatch &&
+           ctx.weight->GetViewShape().GetDimNum() == DIMS_2;
+}
+
+static bool IsA16INT8ScaleDtypeMatch(const QuantContext& ctx)
+{
+    auto scaleDtype = ctx.weightScale->GetDataType();
+    return scaleDtype == op::DataType::DT_FLOAT16 || scaleDtype == op::DataType::DT_BF16;
+}
+
+// A16INT8 per-tensor：转置/非转置均 ND 直拷（wqbmmv2 INT8-NZ 不支持 per-tensor，无 NZ 路径）
+static bool IsMMA16INT8PerTensorDataFlow(QuantContext& ctx)
+{
+    if (IsA16INT8Base(ctx) && IsA16INT8ScaleDtypeMatch(ctx) && IsXScaleUndefined(ctx) && IsScalePerTensor(ctx)) {
+        ctx.dataFlow = QuantDataFlow::MM_A16INT8_PERTENSOR;
+        return true;
+    }
+    return false;
+}
+
+// A16INT8 per-channel：转置/非转置均 ND 直拷（物理透传，weight ND 场景不提供 NZ 转换路径）
+static bool IsMMA16INT8PerChannelDataFlow(QuantContext& ctx)
+{
+    if (IsA16INT8Base(ctx) && IsA16INT8ScaleDtypeMatch(ctx) && IsXScaleUndefined(ctx) && IsScalePerChannel(ctx)) {
+        ctx.dataFlow = QuantDataFlow::MM_A16INT8_PERCHANNEL;
+        return true;
+    }
+    return false;
+}
+
+// A16INT8 per-group：转置/非转置均 ND 直拷（wqbmmv2 INT8-NZ 不支持 per-group）
+static bool IsMMA16INT8PerGroupDataFlow(QuantContext& ctx)
+{
+    if (IsA16INT8Base(ctx) && IsA16INT8ScaleDtypeMatch(ctx) && IsXScaleUndefined(ctx) && IsScalePerGroup(ctx)) {
+        ctx.dataFlow = QuantDataFlow::MM_A16INT8_PERGROUP;
+        return true;
+    }
+    return false;
+}
+
+// A16FP8HIF8 per-channel：weight FLOAT8_E4M3FN/HIFLOAT8，仅 per-channel（C 量化），
+// 转置/非转置均 ND 直拷（wqbmmv2 FP8 不支持 weightNZ）；offset 无透传 process，约束下放下游 wqbmmv2 拦截
+static bool IsMMA16FP8HIF8PerChannelDataFlow(QuantContext& ctx)
+{
+    auto weightDtype = ctx.weight->GetDataType();
+    bool weightDtypeMatch = (weightDtype == op::DataType::DT_FLOAT8_E4M3FN || weightDtype == op::DataType::DT_HIFLOAT8);
+    bool xDtypeMatch = (ctx.xDtype == op::DataType::DT_FLOAT16 || ctx.xDtype == op::DataType::DT_BF16);
+    auto scaleDtype = ctx.weightScale->GetDataType();
+    bool scaleDtypeMatch = (scaleDtype == op::DataType::DT_FLOAT16 || scaleDtype == op::DataType::DT_BF16);
+
+    if (weightDtypeMatch && xDtypeMatch && scaleDtypeMatch && IsXScaleUndefined(ctx) &&
+        ctx.weight->GetViewShape().GetDimNum() == DIMS_2 && IsScalePerChannel(ctx)) {
+        ctx.dataFlow = QuantDataFlow::MM_A16FP8HIF8_PERCHANNEL;
+        return true;
+    }
+    return false;
+}
+
 static bool IsMMMxA16W4DataFlow(QuantContext& ctx)
 {
     auto weightDtype = ctx.weight->GetDataType();
@@ -2159,7 +2223,31 @@ const std::unordered_map<NpuArch, std::vector<DataFlowEntry>> NPU_DATA_FLOW_REGI
                    CheckOutWeightDtypeSame, // NZ 出 dtype 与输入一致
                    CheckOutWeightNzStorageDim, CheckOutWeightTransNz<NZ_C0_16, op::Format::FORMAT_FRACTAL_NZ_C0_16>,
                    CheckOutWeightScaleSameAsInput, CheckOutBiasOptionalSameAsInput},
-        .processes = {ProcessWeightNonTransNd2Nz<IDX_0>, ProcessWeightScaleDirectCopy, ProcessBiasDirectCopy}}}},
+        .processes = {ProcessWeightNonTransNd2Nz<IDX_0>, ProcessWeightScaleDirectCopy, ProcessBiasDirectCopy}},
+       // ===== A16W8 数据流 =====
+       // A16INT8 per-tensor：转置/非转置均 ND 直拷，offset/bias 透传
+       {.judge = IsMMA16INT8PerTensorDataFlow,
+        .checks = {CheckOutWeightSameAsInput, CheckOutWeightScaleSameAsInput, CheckOutWeightOffsetOptionalSameAsInput,
+                   CheckOutBiasOptionalSameAsInput},
+        .processes = {ProcessWeightDirectCopy, ProcessWeightScaleDirectCopy, ProcessWeightOffsetDirectCopy,
+                      ProcessBiasDirectCopy}},
+       // A16INT8 per-channel：转置/非转置均 ND 直拷（物理透传）
+       {.judge = IsMMA16INT8PerChannelDataFlow,
+        .checks = {CheckOutWeightSameAsInput, CheckOutWeightScaleSameAsInput, CheckOutWeightOffsetOptionalSameAsInput,
+                   CheckOutBiasOptionalSameAsInput},
+        .processes = {ProcessWeightDirectCopy, ProcessWeightScaleDirectCopy, ProcessWeightOffsetDirectCopy,
+                      ProcessBiasDirectCopy}},
+       // A16INT8 per-group：转置/非转置均 ND 直拷（wqbmmv2 INT8-NZ 不支持 per-group）
+       {.judge = IsMMA16INT8PerGroupDataFlow,
+        .checks = {CheckOutWeightSameAsInput, CheckOutWeightScaleSameAsInput, CheckOutWeightOffsetOptionalSameAsInput,
+                   CheckOutBiasOptionalSameAsInput},
+        .processes = {ProcessWeightDirectCopy, ProcessWeightScaleDirectCopy, ProcessWeightOffsetDirectCopy,
+                      ProcessBiasDirectCopy}},
+       // A16FP8HIF8 per-channel（E4M3FN/HIF8）：转置/非转置均 ND 直拷；offset 无透传 process（wqbmmv2 FP8 无 offset）
+       {.judge = IsMMA16FP8HIF8PerChannelDataFlow,
+        .checks = {CheckOutWeightSameAsInput, CheckOutWeightScaleSameAsInput, CheckOutWeightOffsetOptionalSameAsInput,
+                   CheckOutBiasOptionalSameAsInput},
+        .processes = {ProcessWeightDirectCopy, ProcessWeightScaleDirectCopy, ProcessBiasDirectCopy}}}},
      {NpuArch::DAV_9201,
       {{.judge = IsMMMxA8W4DataFlow,
         .checks =
