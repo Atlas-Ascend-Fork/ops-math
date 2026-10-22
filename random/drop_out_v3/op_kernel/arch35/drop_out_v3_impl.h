@@ -73,7 +73,7 @@ __aicore__ inline void DropOutV3Impl<T, U>::Init(GM_ADDR p, GM_ADDR mask, GM_ADD
     queSize_ = Ops::Base::FloorAlign((tilingData->ubSize / NUM_4), static_cast<int64_t>(NUM_256));
     pipe_->InitBuffer(maskInQueue_, NUM_2, queSize_);
     pipe_->InitBuffer(maskOutQueue_, NUM_2, queSize_);
-    realSeed_ = *(reinterpret_cast<__gm__ int64_t*>(seed));
+    realSeed_ = static_cast<int64_t>(*(reinterpret_cast<__gm__ U*>(seed)));
     realOffset_ = *(reinterpret_cast<__gm__ int64_t*>(offset) + 1);
 }
 

@@ -226,7 +226,7 @@ __aicore__ inline void DropOutV3SimdImpl<T, U>::Init(GM_ADDR x, GM_ADDR y, GM_AD
     prob_ = tilingData->prob;
     vec_ = tilingData->vec;
     totalThreads_ = tilingData->totalThreads;
-    realSeed_ = *(reinterpret_cast<__gm__ int64_t*>(seed));
+    realSeed_ = static_cast<int64_t>(*(reinterpret_cast<__gm__ U*>(seed)));
     realOffset_ = *(reinterpret_cast<__gm__ int64_t*>(offset) + 1);
 
     GetUintDivMagicAndShift<uint64_t>(magic64_, shift64_, static_cast<uint64_t>(totalThreads_));
