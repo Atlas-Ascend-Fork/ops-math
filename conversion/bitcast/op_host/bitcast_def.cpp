@@ -139,7 +139,9 @@ public:
             .DynamicRankSupportFlag(true)
             .DynamicShapeSupportFlag(true)
             .NeedCheckSupportFlag(false)
-            .ExtendCfgInfo("opFile.value", "Null");
+            .PrecisionReduceFlag(false)
+            .ExtendCfgInfo("opFile.value", "Null")
+            .ExtendCfgInfo("heavyOp.flag", "false");
         this->AICore().AddConfig("ascend950", aicoreConfig);
     }
 };

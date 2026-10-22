@@ -77,7 +77,15 @@ public:
 
         this->Attr("axis").AttrType(OPTIONAL).ListInt({});
 
-        this->AICore().AddConfig("ascend950");
+        OpAICoreConfig aicoreConfig;
+        aicoreConfig.DynamicCompileStaticFlag(false)
+            .DynamicFormatFlag(false)
+            .DynamicRankSupportFlag(false)
+            .DynamicShapeSupportFlag(false)
+            .NeedCheckSupportFlag(false)
+            .PrecisionReduceFlag(false)
+            .ExtendCfgInfo("opFile.value", "Null");
+        this->AICore().AddConfig("ascend950", aicoreConfig);
     }
 };
 

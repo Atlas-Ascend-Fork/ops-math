@@ -90,14 +90,14 @@ public:
             .UnknownShapeFormat(std::vector<ge::Format>(FORMAT_LIST.begin(), FORMAT_LIST.end()));
 
         OpAICoreConfig aicoreConfig;
-        aicoreConfig.DynamicCompileStaticFlag(true)
+        aicoreConfig.DynamicCompileStaticFlag(false)
             .DynamicFormatFlag(false)
-            .DynamicRankSupportFlag(true)
-            .DynamicShapeSupportFlag(true)
+            .DynamicRankSupportFlag(false)
+            .DynamicShapeSupportFlag(false)
             .NeedCheckSupportFlag(false)
+            .PrecisionReduceFlag(false)
             .ExtendCfgInfo("opFile.value", "Null");
         this->AICore().AddConfig("ascend950", aicoreConfig);
-        this->AICore().AddConfig("ascend350", aicoreConfig);
     }
 };
 
