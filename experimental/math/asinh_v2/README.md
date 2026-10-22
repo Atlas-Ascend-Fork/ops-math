@@ -83,18 +83,16 @@ AsinhV2 算子通过 ACLNN（Ascend C Logical Neural Network）接口提供两�
 ```cpp
 // 获取工作空间大小
 aclnnStatus aclnnAsinhV2GetWorkspaceSize(
-    aclTensor *inputTensor,
-    aclTensor *outputTensor,
+    const aclTensor *x,
+    const aclTensor *out,
     uint64_t *workspaceSize,
-    aclHandle *handle);
+    aclOpExecutor **executor);
 
 // 执行算子
 aclnnStatus aclnnAsinhV2(
-    aclHandle *handle,
-    aclTensor *inputTensor,
-    aclTensor *outputTensor,
-    void *workspaceAddr,
+    void *workspace,
     uint64_t workspaceSize,
+    aclOpExecutor *executor,
     aclrtStream stream);
 ```
 
@@ -123,8 +121,8 @@ int main() {
 
     // 获取工作空间大小
     uint64_t workspaceSize = 0;
-    aclHandle *handle = aclrtGetCurrentStream();
-    aclnnAsinhV2GetWorkspaceSize(inputTensor, outputTensor, &workspaceSize, handle);
+    aclOpExecutor *executor = nullptr;
+    aclnnAsinhV2GetWorkspaceSize(inputTensor, outputTensor, &workspaceSize, &executor);
 
     // 分配工作空间
     void *workspaceAddr = nullptr;
@@ -132,8 +130,10 @@ int main() {
 
     // 执行算子
     aclrtStream stream = aclrtGetCurrentStream();
-    aclnnAsinhV2(handle, inputTensor, outputTensor,
-                        workspaceAddr, workspaceSize, stream);
+    aclnnAsinhV2(workspaceAddr, workspaceSize, executor, stream);
+
+    // 同步等待算子执行完成（接口为异步执行）
+    aclrtSynchronizeStream(stream);
 
     // 获取结果
     float *outputData = (float*)malloc(1024 * sizeof(float));
@@ -143,6 +143,7 @@ int main() {
 
     // 清理资源
     aclrtFree(workspaceAddr);
+    aclnnDestroyExecutor(executor);
     aclDestroyTensor(inputTensor);
     aclDestroyTensor(outputTensor);
     aclFinalize();
