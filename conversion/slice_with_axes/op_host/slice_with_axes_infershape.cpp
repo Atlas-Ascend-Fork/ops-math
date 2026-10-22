@@ -39,6 +39,10 @@ static ge::graphStatus Infershape4SliceWithAxes(gert::InferShapeContext* context
     for (size_t i = 0; i < dimNum; ++i) {
         yShape->SetDim(i, xShape->GetDim(i));
     }
+    if ((dimNum == 1UL) && (xShape->GetDim(0) == ge::UNKNOWN_DIM_NUM)) {
+        OP_LOGI(context->GetNodeName(), "SliceWithAxes input rank is unknown, keep output rank unknown.");
+        return ge::GRAPH_SUCCESS;
+    }
 
     size_t axesLen = axesList->GetSize();
     const int64_t* axesData = axesList->GetData();
@@ -61,7 +65,8 @@ static ge::graphStatus Infershape4SliceWithAxes(gert::InferShapeContext* context
             int64_t offsetVal = 0;
             auto offsetTensor = context->GetInputTensor(INPUT_IDX_OFFSETS);
             if (offsetTensor != nullptr) {
-                if (sizeDataType == ge::DT_INT32) {
+                const DataType offsetsDataType = offsetTensor->GetDataType();
+                if (offsetsDataType == ge::DT_INT32) {
                     const int32_t* oData = offsetTensor->GetData<int32_t>();
                     if (oData != nullptr) {
                         offsetVal = static_cast<int64_t>(oData[i]);
