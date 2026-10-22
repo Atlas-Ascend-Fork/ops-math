@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file hans_encode_proto.h
+ * \file histogram_v2_proto.h
  * \brief
  */
 #ifndef OP_PROTO_HISTOGRAM_V2_PROTO_H_
@@ -46,7 +46,6 @@ REG_OP(HistogramV2)
     .ATTR(y_dtype, Type, DT_INT32)
     .OP_END_FACTORY_REG(HistogramV2);
 
-}  // namespace ge
+} // namespace ge
 
-
-#endif  //OP_PROTO_HISTOGRAM_V2_PROTO_H_
+#endif // OP_PROTO_HISTOGRAM_V2_PROTO_H_

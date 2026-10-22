@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file transpose_proto.h
+ * \file space_to_depth_proto.h
  * \brief
  */
 #ifndef SPACE_TO_DEPTH_PROTO_H
