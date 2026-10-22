@@ -19,8 +19,8 @@
  *   - PrecisionReduceFlag(false)：19 步内部已升 FP32 精度，无需框架降精度
  *   - ascend950、ascend350（DAV_3510 / arch35，复用 arch35 tiling）
  *
- * 迭代一范围：仅 FP32 完整实现；FP16/BF16 在迭代二落地。
- * 但 DataType 列表声明 3 个 dtype 保证 TilingKey 接口稳定。
+ * dtype 范围：FP32、FP16、BF16 均已实现。
+ * DataType 列表声明 3 个 dtype 保证 TilingKey 接口稳定。
  */
 #include "register/op_def_registry.h"
 

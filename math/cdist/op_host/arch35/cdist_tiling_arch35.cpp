@@ -485,8 +485,9 @@ void CdistTiling::DoTiling()
     if (M_ >= kHlMMin && M_ <= M_SIZE && hlVectorWins) {
         is_small_m_ = 0;    // launch on the Normal-shaped tiling
         use_reduce_hl_ = 1; // but dispatch to the high-level reduce kernel (KERNEL_MODE=3)
-        // Reserve UB for the two fixed HL fp32 compute planes (x1exp + diff, 4096 elems each = 32KB) plus
-        // the fp32 M-split accumulator margin, so the extra planes never overflow UB on large P·R tiles.
+        // Reserve UB for the two fixed HL fp32 compute planes (x1exp + diff, 8192 elems each = 32KB per
+        // plane, 64KB total) plus the fp32 M-split accumulator margin, so the extra planes never overflow
+        // UB on large P·R tiles.
         int64_t savedUb = ubSize_;
         ubSize_ = ubSize_ - HL_UB_RESERVE;
         if (ubSize_ < BLOCK_BYTES)
