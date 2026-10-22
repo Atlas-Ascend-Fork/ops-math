@@ -2,6 +2,48 @@
   "op_type": "BroadcastTo",
   "op_list": [
     {
+      "bin_filename": "BroadcastTo_4bit_int32",
+      "inputs": [
+        {
+          "name": "x",
+          "index": 0,
+          "dtype": "hifloat4",
+          "format": "ND",
+          "paramType": "required",
+          "shape": [
+            -2
+          ],
+          "format_match_mode": "FormatAgnostic",
+          "dtype_match_mode": "DtypeByte"
+        },
+        {
+          "name": "shape",
+          "index": 1,
+          "dtype": "int32",
+          "format": "ND",
+          "paramType": "required",
+          "shape": [
+            -2
+          ],
+          "format_match_mode": "FormatAgnostic"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "y",
+          "index": 0,
+          "dtype": "hifloat4",
+          "format": "ND",
+          "paramType": "required",
+          "shape": [
+            -2
+          ],
+          "format_match_mode": "FormatAgnostic",
+          "dtype_match_mode": "DtypeByte"
+        }
+      ]
+    },
+    {
       "bin_filename": "BroadcastTo_5ce316c9f935f0585864b2d372bcc32211",
       "inputs": [
         {
@@ -159,6 +201,48 @@
           "name": "y",
           "index": 0,
           "dtype": "int64",
+          "format": "ND",
+          "paramType": "required",
+          "shape": [
+            -2
+          ],
+          "format_match_mode": "FormatAgnostic",
+          "dtype_match_mode": "DtypeByte"
+        }
+      ]
+    },
+    {
+      "bin_filename": "BroadcastTo_4bit_int64",
+      "inputs": [
+        {
+          "name": "x",
+          "index": 0,
+          "dtype": "hifloat4",
+          "format": "ND",
+          "paramType": "required",
+          "shape": [
+            -2
+          ],
+          "format_match_mode": "FormatAgnostic",
+          "dtype_match_mode": "DtypeByte"
+        },
+        {
+          "name": "shape",
+          "index": 1,
+          "dtype": "int64",
+          "format": "ND",
+          "paramType": "required",
+          "shape": [
+            -2
+          ],
+          "format_match_mode": "FormatAgnostic"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "y",
+          "index": 0,
+          "dtype": "hifloat4",
           "format": "ND",
           "paramType": "required",
           "shape": [

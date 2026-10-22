@@ -23,6 +23,7 @@
 #include "tiling/tiling_api.h"
 #include "platform/platform_ascendc.h"
 #include "util/platform_util.h"
+#include "common/inc/op_host/op_const_def_math.h"
 
 namespace optiling {
 
@@ -99,6 +100,9 @@ public:
         OP_CHECK_NULL_WITH_CONTEXT(context_, inputDesc);
         auto dtype = inputDesc->GetDataType();
         dtypeSize_ = GetSizeByDataType(dtype);
+        if (dtype == ge::DT_FLOAT4_E1M2 || dtype == ge::DT_FLOAT4_E2M1 || dtype == Ops::Math::DT_HIFLOAT4) {
+            dtypeSize_ = GetSizeByDataType(ge::DT_INT8);
+        }
         OP_LOGI(context_->GetNodeName(), "The ub size is: %ld", ubSize_);
 
         return ge::GRAPH_SUCCESS;

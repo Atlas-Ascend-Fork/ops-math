@@ -22,6 +22,7 @@
 #include "opdev/shape_utils.h"
 #include "opdev/platform.h"
 #include "op_api/aclnn_check.h"
+#include "common/inc/op_host/op_const_def_math.h"
 
 using namespace op;
 
@@ -46,6 +47,12 @@ static const std::initializer_list<DataType> REGBASE_AICORE_DTYPE_SUPPORT_LIST =
     DataType::DT_FLOAT16, DataType::DT_FLOAT,    DataType::DT_BF16,        DataType::DT_UINT32,
     DataType::DT_BOOL,    DataType::DT_HIFLOAT8, DataType::DT_FLOAT8_E5M2, DataType::DT_FLOAT8_E4M3FN};
 
+static const std::initializer_list<DataType> ASCEND_ARCH92_AICORE_DTYPE_SUPPORT_LIST = {
+    DataType::DT_INT8,        DataType::DT_INT32,       DataType::DT_INT64,       DataType::DT_UINT8,
+    DataType::DT_FLOAT16,     DataType::DT_FLOAT,       DataType::DT_BF16,        DataType::DT_UINT32,
+    DataType::DT_BOOL,        DataType::DT_HIFLOAT8,    DataType::DT_FLOAT8_E5M2, DataType::DT_FLOAT8_E4M3FN,
+    DataType::DT_FLOAT4_E2M1, DataType::DT_FLOAT4_E1M2, Ops::Math::DT_HIFLOAT4,   Ops::Math::DT_HIFLOAT4_SCALE};
+
 static bool IsAiCoreSupport(const aclTensor* self)
 {
     auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
@@ -54,6 +61,8 @@ static bool IsAiCoreSupport(const aclTensor* self)
         return CheckType(self->GetDataType(), ASCEND910B_AICORE_DTYPE_SUPPORT_LIST);
     } else if (curArch == NpuArch::DAV_2002) {
         return CheckType(self->GetDataType(), ASCEND310P_AICORE_DTYPE_SUPPORT_LIST);
+    } else if (curArch == NpuArch::DAV_9201 || curArch == NpuArch::DAV_9202) {
+        return CheckType(self->GetDataType(), ASCEND_ARCH92_AICORE_DTYPE_SUPPORT_LIST);
     } else if (IsRegBase(curArch)) {
         return CheckType(self->GetDataType(), REGBASE_AICORE_DTYPE_SUPPORT_LIST);
     } else {

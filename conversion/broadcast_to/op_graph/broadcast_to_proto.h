@@ -15,6 +15,7 @@
 #define OP_PROTO_BROADCAST_TO_H_
 
 #include "graph/operator_reg.h"
+#include "op_const_def_math.h"
 
 namespace ge {
 /**
@@ -26,7 +27,9 @@ namespace ge {
  *  and works its way forward.
  *
  * @par Inputs:
- * @li x: A tensor, support all dtype include(BasicType, bool, string, hifloat8, float8_e5m2, float8_e4m3fn).
+ * @li x: A tensor, support all dtype include(BasicType, bool, string, hifloat8, float8_e5m2,
+ * float8_e4m3fn，float4_e2m1, float4_e1m2, hifloat4, hifloat4_scale, and the maximum dimension should not exceed 8).
+ * If the type of x is float4_e2m1, float4_e1m2 or hifloat4, x's shape should be even number.
  * @li shape: A tensor.
  *     A 1D tensor of type int32 or int64, for the shape of the desired output.
  *
@@ -38,9 +41,11 @@ namespace ge {
  *
  */
 REG_OP(BroadcastTo)
-    .INPUT(x, TensorType({BasicType(), DT_BOOL, DT_STRING, DT_HIFLOAT8, DT_FLOAT8_E5M2, DT_FLOAT8_E4M3FN}))
+    .INPUT(x, TensorType({BasicType(), DT_BOOL, DT_STRING, DT_HIFLOAT8, DT_FLOAT8_E5M2, DT_FLOAT8_E4M3FN,
+                          DT_FLOAT4_E2M1, DT_FLOAT4_E1M2, Ops::Math::DT_HIFLOAT4, Ops::Math::DT_HIFLOAT4_SCALE}))
     .INPUT(shape, TensorType({DT_INT32, DT_INT64}))
-    .OUTPUT(y, TensorType({BasicType(), DT_BOOL, DT_STRING, DT_HIFLOAT8, DT_FLOAT8_E5M2, DT_FLOAT8_E4M3FN}))
+    .OUTPUT(y, TensorType({BasicType(), DT_BOOL, DT_STRING, DT_HIFLOAT8, DT_FLOAT8_E5M2, DT_FLOAT8_E4M3FN,
+                           DT_FLOAT4_E2M1, DT_FLOAT4_E1M2, Ops::Math::DT_HIFLOAT4, Ops::Math::DT_HIFLOAT4_SCALE}))
     .OP_END_FACTORY_REG(BroadcastTo)
 
 } // namespace ge

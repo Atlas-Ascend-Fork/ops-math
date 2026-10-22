@@ -275,6 +275,24 @@ ge::graphStatus GetShapeInfo(const gert::TilingContext* context, gert::Shape& in
     OP_LOGI(context->GetNodeName(), "The input and output are: %s and %s", Shape2String(inShape).c_str(),
             Shape2String(outShape).c_str());
 
+    // get input desc
+    auto shape_tensor_x = context->GetInputTensor(0);
+    OP_CHECK_NULL_WITH_CONTEXT(context, shape_tensor_x);
+    ge::DataType inputDtype = shape_tensor_x->GetDataType();
+    if (inputDtype == ge::DT_FLOAT4_E2M1 || inputDtype == ge::DT_FLOAT4_E1M2 || inputDtype == Ops::Math::DT_HIFLOAT4) {
+        OP_CHECK_IF(inShape[inShape.GetDimNum() - 1] & 1,
+                    OP_LOGE(context->GetNodeName(),
+                            "Expected last dimension of input to be even for fp4 input, but got input = %s",
+                            Ops::Base::ToString(inShape).c_str()),
+                    return ge::GRAPH_FAILED);
+        OP_CHECK_IF(outShape[outShape.GetDimNum() - 1] & 1,
+                    OP_LOGE(context->GetNodeName(),
+                            "Expected last dimension of output to be even for fp4 input, but got output = %s",
+                            Ops::Base::ToString(outShape).c_str()),
+                    return ge::GRAPH_FAILED);
+        inShape[inShape.GetDimNum() - 1] /= nTwo;
+        outShape[outShape.GetDimNum() - 1] /= nTwo;
+    }
     if (ReshapeAxes(context, inShape, outShape) != ge::GRAPH_SUCCESS) {
         return ge::GRAPH_FAILED;
     }

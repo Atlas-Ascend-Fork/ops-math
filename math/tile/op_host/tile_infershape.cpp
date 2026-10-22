@@ -65,7 +65,7 @@ ge::graphStatus TileInferShapeCommon(gert::InferShapeContext* context, const T* 
     for (uint64_t i = 0; i < in_shape_len; i++) {
         if (in_shape_new[i] >= 0) {
             int32_t multiples_index = multiples_len - in_shape_len + i;
-            out_shape->SetDim(i, in_shape_new[i] * (multiples_index >= 0 ? multiples_data[i] : 1));
+            out_shape->SetDim(i, in_shape_new[i] * (multiples_index >= 0 ? multiples_data[multiples_index] : 1));
         } else {
             OP_LOGE(context->GetNodeName(), "Runtime infershape illegal input dim:%lu, value is %ld", i,
                     in_shape_new[i]);
