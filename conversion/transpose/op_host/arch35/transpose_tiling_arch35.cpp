@@ -1121,10 +1121,9 @@ int64_t TransposeNddmaTiling::CalcBlockSplitInfoForNoCutForMultiCore(int64_t i, 
  * SIMT 模式不经过 UB，每个核直接 GM→GM。分核目标是让每核处理的数据
  * 量对齐 128 字节（SMALL_SHAPE_SPLIT_BYTES_ALIGN_SIZE），避免跨核访问
  * 边界不对齐：
- *   - 总元素 < coreNum：按元素数开核（每核 1 个元素）
- *   - 否则：先取 ceil（向上对齐 128B）与 floor（向下对齐 128B）两个候选，
- *     若 floor×核数仍能容纳全部数据则直接开满核，否则用 ceil 对齐后的核数
- *     （ceilAlignFactor 比 floor 大 → 实际核数略少但每核数据对齐）
+ *   - 总元素不足 128B 对齐量或不足 coreNum：只使用 1 核
+ *   - 否则：按 128B 向上对齐后的块长 ceilAlignFactor 开核，
+ *     核数 = CeilDiv(totalElements, ceilAlignFactor)
  */
 void TransposeNddmaTiling::CalcBlockSplitInfoForSmallShape()
 {

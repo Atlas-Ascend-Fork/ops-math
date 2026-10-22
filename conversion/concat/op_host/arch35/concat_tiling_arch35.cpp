@@ -478,7 +478,7 @@ inline static void GenTilingKey(ConcatTilingParam& param)
     int64_t isInputShapeSame = (shapeSame && !param.isGather && !param.isRowConcat) ? 1 : 2;
     int64_t isFirstDim = DIGIT_TWO;
 
-    // 判断是否可用 compact: 所有 tensor 的 dim1 < UINT32_MAX
+    // 判断是否可用 compact: 所有 tensor 的 dim1 < INT32_MAX
     bool canCompact = true;
     for (const auto& dim1 : param.tensorListDim1) {
         if (static_cast<uint64_t>(dim1) >= COMPACT_THRESHOLD) {
