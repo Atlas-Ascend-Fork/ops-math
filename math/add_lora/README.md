@@ -116,7 +116,7 @@
     <tr>
       <td>ySliceSize</td>
       <td>属性</td>
-      <td><ul><li>y更新时的范围。</li><li>值需要小于y的第二个维度H3。</li></ul></td>
+      <td><ul><li>y更新时的范围。</li><li>值需要小于等于y的第二个维度H3。</li></ul></td>
       <td>INT</td>
       <td>-</td>
     </tr>
