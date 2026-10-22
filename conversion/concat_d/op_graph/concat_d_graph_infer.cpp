@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file concat_graph_infer.h
+ * \file concat_d_graph_infer.cpp
  * \brief
  */
 

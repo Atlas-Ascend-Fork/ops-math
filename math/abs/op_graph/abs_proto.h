@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file cast_proto.h
+ * \file abs_proto.h
  * \brief
  */
 #ifndef OP_PROTO_ABS_PROTO_H_
@@ -17,8 +17,7 @@
 
 #include "graph/operator_reg.h"
 
-namespace ge
-{
+namespace ge {
 /**
 *@brief Computes the absolute value of a tensor.
 
@@ -36,8 +35,8 @@ namespace ge
 REG_OP(Abs)
     .INPUT(x, "T")
     .OUTPUT(y, "T")
-    .DATATYPE(T, TensorType({DT_UINT8, DT_BOOL, DT_FLOAT16, DT_BF16, DT_FLOAT, DT_DOUBLE, DT_INT8, DT_INT16,
-                             DT_INT32, DT_INT64, DT_COMPLEX32, DT_COMPLEX64}))
+    .DATATYPE(T, TensorType({DT_UINT8, DT_BOOL, DT_FLOAT16, DT_BF16, DT_FLOAT, DT_DOUBLE, DT_INT8, DT_INT16, DT_INT32,
+                             DT_INT64, DT_COMPLEX32, DT_COMPLEX64}))
     .OP_END_FACTORY_REG(Abs)
 
 } // namespace ge
