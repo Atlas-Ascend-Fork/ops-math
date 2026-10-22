@@ -27,6 +27,7 @@ public:
             .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND});
         this->Input("paddings")
             .ParamType(REQUIRED)
+            .ValueDepend(OPTIONAL)
             .DataType({ge::DT_INT64, ge::DT_INT64, ge::DT_INT64})
             .Format({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND});
@@ -49,6 +50,7 @@ public:
         this->AICore().AddConfig("ascend950", aicore_config);
         this->AICore().AddConfig("ascend960dt", aicore_config);
         this->AICore().AddConfig("ascend960pr", aicore_config);
+        this->AICore().AddConfig("ascend350", aicore_config);
     }
 };
 OP_ADD(CircularPadGrad);
