@@ -23,7 +23,7 @@
  * - Histogram: min/max are attributes
  * - HistogramV2: min/max are input tensors
  * - min/max tensors dtype should match x's dtype
- * - is_out_dtype_int32 attr depends on x dtype (false for float/f16)
+ * - y_dtype attr is selected from x dtype (DT_FLOAT for float/f16)
  */
 
 #include <vector>

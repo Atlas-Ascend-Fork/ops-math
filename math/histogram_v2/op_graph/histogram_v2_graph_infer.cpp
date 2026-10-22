@@ -24,7 +24,7 @@ static ge::graphStatus HistogramV2InferDataTypeFunc(gert::InferDataTypeContext* 
     auto inputDtype = context->GetInputDataType(0);
     OP_LOGD(context, "x dtype: %s", Ops::Base::ToString(inputDtype).c_str());
 
-    // y_dtype属性指定输出类型，默认为DT_INT32(3)，可设置为DT_FLOAT(9)
+    // y_dtype属性指定输出类型，默认为DT_INT32(3)，可设置为DT_FLOAT(0)
     auto attrs = context->GetAttrs();
     ge::DataType outDtype = ge::DT_INT32;
     if (attrs != nullptr) {
