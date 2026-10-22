@@ -133,6 +133,7 @@ es::EsTensorHolder BuildConcatDTree(es::EsGraphBuilder& builder, std::vector<es:
             if (matchedNode.GetInputDesc(static_cast<int32_t>(srcInputIdxs[i]), tensorDesc) == SUCCESS) {
                 // Normalize to FORMAT_ND to match the ConcatD op information library.
                 tensorDesc.SetFormat(FORMAT_ND);
+                tensorDesc.SetOriginFormat(FORMAT_ND);
                 (void)concatDNode.UpdateInputDesc(static_cast<int32_t>(i), tensorDesc);
             }
         }
@@ -357,6 +358,7 @@ Status ConcatToConcatDFusionPass::Run(GraphPtr& graph, CustomPassContext& passCo
             // ConcatD op information library only accepts FORMAT_ND (see the Data-node
             // note above); keep the source dtype/shape but normalize the format.
             srcOutputDesc.SetFormat(FORMAT_ND);
+            srcOutputDesc.SetOriginFormat(FORMAT_ND);
             (void)topNode.UpdateOutputDesc(0, srcOutputDesc);
         } else {
             TensorDesc firstDataDesc;
@@ -365,6 +367,7 @@ Status ConcatToConcatDFusionPass::Run(GraphPtr& graph, CustomPassContext& passCo
                 if (topNode.GetOutputDesc(0, dstOutputDesc) == SUCCESS) {
                     dstOutputDesc.SetDataType(firstDataDesc.GetDataType());
                     dstOutputDesc.SetFormat(FORMAT_ND);
+                    dstOutputDesc.SetOriginFormat(FORMAT_ND);
                     (void)topNode.UpdateOutputDesc(0, dstOutputDesc);
                 }
             }
