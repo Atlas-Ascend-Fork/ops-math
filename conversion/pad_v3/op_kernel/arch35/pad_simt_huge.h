@@ -298,7 +298,7 @@ __simt_vf__ LAUNCH_BOUND(HALF_THREAD_DIM) __aicore__
         int64_t dimSevenInIndex0 = dimSevenIndex0 - tD->leftPad[0];
 
         if (dimSevenInIndex6 >= 0 && dimSevenInIndex6 < tD->inShape[6] && dimSevenInIndex5 >= 0 &&
-            dimSevenInIndex5 < tD->inShape[6] && dimSevenInIndex4 >= 0 && dimSevenInIndex4 < tD->inShape[4] &&
+            dimSevenInIndex5 < tD->inShape[5] && dimSevenInIndex4 >= 0 && dimSevenInIndex4 < tD->inShape[4] &&
             dimSevenInIndex3 >= 0 && dimSevenInIndex3 < tD->inShape[3] && dimSevenInIndex2 >= 0 &&
             dimSevenInIndex2 < tD->inShape[2] && dimSevenInIndex1 >= 0 && dimSevenInIndex1 < tD->inShape[1] &&
             dimSevenInIndex0 >= 0 && dimSevenInIndex0 < tD->inShape[0]) {
