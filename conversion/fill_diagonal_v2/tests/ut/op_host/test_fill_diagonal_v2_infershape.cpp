@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 /*!
- * \file test_fill_diagonal_v2_proto.cpp
+ * \file test_fill_diagonal_v2_infershape.cpp
  * \brief
  */
 #include <gtest/gtest.h>
@@ -17,14 +17,10 @@
 #include "base/registry/op_impl_space_registry_v2.h"
 
 class FillDiagonalV2Test : public testing::Test {
- protected:
-  static void SetUpTestCase() {
-    std::cout << "fill_diagonal_v2 Proto Test SetUp" << std::endl;
-  }
+protected:
+    static void SetUpTestCase() { std::cout << "fill_diagonal_v2 Proto Test SetUp" << std::endl; }
 
-  static void TearDownTestCase() {
-    std::cout << "fill_diagonal_v2 Proto Test TearDown" << std::endl;
-  }
+    static void TearDownTestCase() { std::cout << "fill_diagonal_v2 Proto Test TearDown" << std::endl; }
 };
 
 static std::vector<int64_t> ToVectorForFillDiagonalV2(const gert::Shape& shape)
@@ -39,36 +35,31 @@ static std::vector<int64_t> ToVectorForFillDiagonalV2(const gert::Shape& shape)
 
 static void ExeTestCaseForFillDiagonalV2(
     std::vector<std::vector<int64_t> > expectResults,
-    const std::vector<gert::StorageShape>& inputShapes,  // 存储所有输入StorageShape参数
-    const std::vector<ge::DataType>& dtypes,             // 存储所有DataType参数
-    gert::StorageShape& outStorageShape,
-    ge::graphStatus testCaseResult = ge::GRAPH_SUCCESS,
-    bool attr = false)
+    const std::vector<gert::StorageShape>& inputShapes, // 存储所有输入StorageShape参数
+    const std::vector<ge::DataType>& dtypes,            // 存储所有DataType参数
+    gert::StorageShape& outStorageShape, ge::graphStatus testCaseResult = ge::GRAPH_SUCCESS, bool attr = false)
 {
     // 从vector中取出对应参数（保持原顺序）
     const auto& selfStorageShape = inputShapes[0];
     const auto& fillValueStorageShape = inputShapes[1];
-    
+
     ge::DataType input1Dtype = dtypes[0];
     ge::DataType input2Dtype = dtypes[1];
     ge::DataType outputDtype = dtypes[2];
 
     /* make infershape context */
-    std::vector<gert::Tensor *> inputTensors = {
-        (gert::Tensor *)&selfStorageShape,
-        (gert::Tensor *)&fillValueStorageShape
-    };
-    std::vector<gert::StorageShape *> outputShapes = {&outStorageShape};
+    std::vector<gert::Tensor*> inputTensors = {(gert::Tensor*)&selfStorageShape, (gert::Tensor*)&fillValueStorageShape};
+    std::vector<gert::StorageShape*> outputShapes = {&outStorageShape};
     auto contextHolder = gert::InferShapeContextFaker()
-        .SetOpType("FillDiagonalV2")
-        .NodeIoNum(2, 1)
-        .NodeInputTd(0, input1Dtype, ge::FORMAT_ND, ge::FORMAT_ND)
-        .NodeInputTd(1, input2Dtype, ge::FORMAT_ND, ge::FORMAT_ND)
-        .NodeOutputTd(0, outputDtype, ge::FORMAT_ND, ge::FORMAT_ND)
-        .InputTensors(inputTensors)
-        .OutputShapes(outputShapes)
-        .Attr("wrap", attr)
-        .Build();
+                             .SetOpType("FillDiagonalV2")
+                             .NodeIoNum(2, 1)
+                             .NodeInputTd(0, input1Dtype, ge::FORMAT_ND, ge::FORMAT_ND)
+                             .NodeInputTd(1, input2Dtype, ge::FORMAT_ND, ge::FORMAT_ND)
+                             .NodeOutputTd(0, outputDtype, ge::FORMAT_ND, ge::FORMAT_ND)
+                             .InputTensors(inputTensors)
+                             .OutputShapes(outputShapes)
+                             .Attr("wrap", attr)
+                             .Build();
 
     /* get infershape func */
     auto spaceRegistry = gert::DefaultOpImplSpaceRegistryV2::GetInstance().GetSpaceRegistry();
@@ -88,13 +79,13 @@ TEST_F(FillDiagonalV2Test, fill_diagonal_v2_infer_shape)
 
     // 用vector存储同类型参数（顺序与原参数列表一致）
     std::vector<gert::StorageShape> inputShapes = {
-        {{size1, size1}, {size1, size1}},    // self_shape
-        {{size1, size1}, {size1, size1}}     // fill_value_shape
+        {{size1, size1}, {size1, size1}}, // self_shape
+        {{size1, size1}, {size1, size1}}  // fill_value_shape
     };
     std::vector<ge::DataType> dtypes = {
-        ge::DT_FLOAT16,  // input1Dtype
-        ge::DT_FLOAT,    // input2Dtype
-        ge::DT_FLOAT16   // outputDtype
+        ge::DT_FLOAT16, // input1Dtype
+        ge::DT_FLOAT,   // input2Dtype
+        ge::DT_FLOAT16  // outputDtype
     };
 
     std::vector<int64_t> expectResult = {size1, size1};

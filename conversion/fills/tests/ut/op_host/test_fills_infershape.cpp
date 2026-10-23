@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file test_fills_proto.cpp
+ * \file test_fills_infershape.cpp
  * \brief
  */
 
@@ -19,22 +19,25 @@
 #include "infershape_case_executor.h"
 
 class FillsInfershape : public testing::Test {
- protected:
-  static void SetUpTestCase() {
-    std::cout << "fills Proto Test SetUp" << std::endl;
-  }
+protected:
+    static void SetUpTestCase() { std::cout << "fills Proto Test SetUp" << std::endl; }
 
-  static void TearDownTestCase() {
-    std::cout << "fills Proto Test TearDown" << std::endl;
-  }
+    static void TearDownTestCase() { std::cout << "fills Proto Test TearDown" << std::endl; }
 };
 
 TEST_F(FillsInfershape, fills_infershape_diff_test)
 {
-    gert::InfershapeContextPara infershapeContextPara("Fills",
-                                                      {{{{3, 4}, {3, 4}}, ge::DT_FLOAT, ge::FORMAT_ND},},
-                                                      {{{{3, 4}, {3, 4}}, ge::DT_FLOAT, ge::FORMAT_ND},},
-                                                      {gert::InfershapeContextPara::OpAttr("value", Ops::Math::AnyValue::CreateFrom<float>(1.5))});
-    std::vector<std::vector<int64_t>> expectOutputShape = {{3, 4},};
+    gert::InfershapeContextPara infershapeContextPara(
+        "Fills",
+        {
+            {{{3, 4}, {3, 4}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        {
+            {{{3, 4}, {3, 4}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        {gert::InfershapeContextPara::OpAttr("value", Ops::Math::AnyValue::CreateFrom<float>(1.5))});
+    std::vector<std::vector<int64_t>> expectOutputShape = {
+        {3, 4},
+    };
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }

@@ -42,4 +42,4 @@ REG_OP(FillV2)
     .OP_END_FACTORY_REG(FillV2)
 #endif
 } // namespace ge
-#endif // OP_PROTO_FILL_V2_H_
+#endif // FILL_V2_PROTO_H_

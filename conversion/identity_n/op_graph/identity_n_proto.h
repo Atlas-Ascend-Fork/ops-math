@@ -40,4 +40,4 @@ REG_OP(IdentityN)
                                    DT_UINT32, DT_UINT64, DT_BOOL, DT_DOUBLE, DT_STRING}))
     .OP_END_FACTORY_REG(IdentityN)
 } // namespace ge
-#endif // SHAPE_N_PROTO_H_
+#endif // IDENTITY_N_PROTO_H_
