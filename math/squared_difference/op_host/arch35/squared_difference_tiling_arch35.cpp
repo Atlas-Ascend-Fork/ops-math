@@ -28,15 +28,9 @@ using namespace ge;
 namespace optiling {
 static constexpr uint64_t SQUARED_DIFFERENCE_COMMON_TILING_PRIORITY = 0;
 
-ge::graphStatus SquaredDifferenceTiling::GetShapeAttrsInfo()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus SquaredDifferenceTiling::GetShapeAttrsInfo() { return ge::GRAPH_SUCCESS; }
 
-bool SquaredDifferenceTiling::IsCapable()
-{
-    return true;
-}
+bool SquaredDifferenceTiling::IsCapable() { return true; }
 
 ge::graphStatus SquaredDifferenceTiling::DoOpTiling()
 {
@@ -55,8 +49,8 @@ ge::graphStatus SquaredDifferenceTiling::DoOpTiling()
         std::string dtypesStr = ge::TypeUtils::DataTypeToSerialString(input0DType) + ", " +
                                 ge::TypeUtils::DataTypeToSerialString(input1DType) + " and " +
                                 ge::TypeUtils::DataTypeToSerialString(outputDtype);
-        OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(context_->GetNodeName(), "x1, x2 and y",
-            dtypesStr.c_str(), "The dtypes of x1, x2 and y must be the same");
+        OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(context_->GetNodeName(), "x1, x2 and y", dtypesStr.c_str(),
+                                               "The dtypes of x1, x2 and y must be the same");
         return ge::GRAPH_FAILED;
     }
 
@@ -81,37 +75,22 @@ ge::graphStatus SquaredDifferenceTiling::DoOpTiling()
     } else {
         std::string dtypeStr = ge::TypeUtils::DataTypeToSerialString(input0DType);
         OP_LOGE_FOR_INVALID_DTYPE(context_->GetNodeName(), "x1", dtypeStr.c_str(),
-            "int64, int32, float16, bf16 or fp32");
+                                  "int64, int32, float16, bf16 or fp32");
         return ge::GRAPH_FAILED;
     }
 
     return ret;
 }
 
-ge::graphStatus SquaredDifferenceTiling::DoLibApiTiling()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus SquaredDifferenceTiling::DoLibApiTiling() { return ge::GRAPH_SUCCESS; }
 
-uint64_t SquaredDifferenceTiling::GetTilingKey() const
-{
-    return tilingKey;
-}
+uint64_t SquaredDifferenceTiling::GetTilingKey() const { return tilingKey; }
 
-ge::graphStatus SquaredDifferenceTiling::GetWorkspaceSize()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus SquaredDifferenceTiling::GetWorkspaceSize() { return ge::GRAPH_SUCCESS; }
 
-ge::graphStatus SquaredDifferenceTiling::PostTiling()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus SquaredDifferenceTiling::PostTiling() { return ge::GRAPH_SUCCESS; }
 
-ge::graphStatus SquaredDifferenceTiling::GetPlatformInfo()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus SquaredDifferenceTiling::GetPlatformInfo() { return ge::GRAPH_SUCCESS; }
 
 ge::graphStatus TilingForSquaredDifference(gert::TilingContext* context)
 {

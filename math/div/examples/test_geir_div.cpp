@@ -63,9 +63,8 @@ int32_t GenTensorData(const vector<int64_t>& shapes, const vector<T>& values, Te
         return FAILED;
     }
 
-    tensor = Tensor(
-        tensor_desc, reinterpret_cast<const uint8_t*>(values.data()),
-        values.size() * sizeof(typename vector<T>::value_type));
+    tensor = Tensor(tensor_desc, reinterpret_cast<const uint8_t*>(values.data()),
+                    values.size() * sizeof(typename vector<T>::value_type));
     return SUCCESS;
 }
 

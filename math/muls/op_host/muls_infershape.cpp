@@ -17,5 +17,5 @@
 
 using namespace ge;
 namespace ops {
-    IMPL_OP_INFERSHAPE(Muls).InferShape(Ops::Base::InferShape4Elewise);
+IMPL_OP_INFERSHAPE(Muls).InferShape(Ops::Base::InferShape4Elewise);
 }

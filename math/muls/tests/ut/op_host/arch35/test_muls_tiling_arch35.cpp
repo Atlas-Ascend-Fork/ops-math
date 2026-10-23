@@ -19,13 +19,9 @@ using namespace std;
 
 class MulsTilingTest : public testing::Test {
 protected:
-    static void SetUpTestCase() {
-        std::cout << "MulsTilingTest SetUp" << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "MulsTilingTest SetUp" << std::endl; }
 
-    static void TearDownTestCase() {
-        std::cout << "MulsTilingTest TearDown" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "MulsTilingTest TearDown" << std::endl; }
 };
 
 TEST_F(MulsTilingTest, muls_test_tiling_001)

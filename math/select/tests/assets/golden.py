@@ -11,24 +11,20 @@
 # ----------------------------------------------------------------------------
 import numpy
 
-__golden__ = {
-  	"kernel": {
-  	    "select": "select_golden"
-  	}
-}
+__golden__ = {"kernel": {"select": "select_golden"}}
+
 
 def select_golden(condition, x1, x2, **kwargs):
-    '''
+    """
     Kernel golden for select.
     All the parameters follow @select_def.cpp without outputs.
     All the input Tensors are numpy.ndarray.
     kwargs may contain: short_soc_version, input_ori_shapes, output_ori_shapes,
-	    input_formats, output_formats, input_ori_formats, output_ori_formats,
-	    input_dtypes, output_dtypes.
-    '''
+            input_formats, output_formats, input_ori_formats, output_ori_formats,
+            input_dtypes, output_dtypes.
+    """
     import torch
 
-    conditionDim = condition.ndim
     conditionShape = condition.shape
     x1Shape = x1.shape
     extraDims = len(x1Shape) - len(conditionShape)

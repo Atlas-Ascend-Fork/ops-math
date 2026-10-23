@@ -22,8 +22,7 @@
 
 using namespace op;
 
-namespace l0op
-{
+namespace l0op {
 
 OP_TYPE_REGISTER(AxpyV2);
 
@@ -32,8 +31,7 @@ static const std::initializer_list<op::DataType> AICORE_DTYPE_SUPPORT_LIST = {
     DataType::DT_UINT8, DataType::DT_INT8,  DataType::DT_INT64,   DataType::DT_BOOL,
 };
 static const std::initializer_list<op::DataType> ASCEND910B_DTYPE_SUPPORT_LIST = {
-    DataType::DT_FLOAT, DataType::DT_INT32, DataType::DT_FLOAT16, DataType::DT_BF16
-};
+    DataType::DT_FLOAT, DataType::DT_INT32, DataType::DT_FLOAT16, DataType::DT_BF16};
 // 根据芯片类型、dtype判断算子是否支持走aicore
 static bool IsAiCoreSupport(const aclTensor* self)
 {
@@ -80,4 +78,4 @@ const aclTensor* AxpyV2(const aclTensor* self, const aclTensor* other, const acl
 
     return AxpyV2AiCore(self, other, alpha, out, executor);
 }
-}  // namespace l0op
+} // namespace l0op

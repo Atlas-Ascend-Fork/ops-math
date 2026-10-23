@@ -10,17 +10,12 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ----------------------------------------------------------------------------
 
-import numpy as np
 
-__golden__ = {
-    "kernel": {
-        "bias_add": "bias_add_golden"
-    }
-}
+__golden__ = {"kernel": {"bias_add": "bias_add_golden"}}
 
 
 def bias_add_golden(x, bias, *, data_format=None, **kwargs):
-    '''
+    """
     Golden function for bias_add.
     All the parameters (names and order) follow @bias_add_def.cpp without outputs.
     All the input Tensors are numpy.ndarray.
@@ -31,7 +26,7 @@ def bias_add_golden(x, bias, *, data_format=None, **kwargs):
 
     Returns:
         Output tensor
-    '''
+    """
     import tensorflow as tf
 
     tf.compat.v1.disable_eager_execution()
@@ -45,4 +40,4 @@ def bias_add_golden(x, bias, *, data_format=None, **kwargs):
     with tf.compat.v1.Session() as sess:
         sess.run(init_op)
         res = sess.run(out, feed_dict=feed_dict)
-    return res.astype(kwargs['output_dtypes'][0])
+    return res.astype(kwargs["output_dtypes"][0])

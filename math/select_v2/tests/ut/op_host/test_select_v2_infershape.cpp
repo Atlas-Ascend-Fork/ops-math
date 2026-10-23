@@ -14,27 +14,21 @@
 #include "infershape_case_executor.h"
 
 class SelectV2Test : public testing::Test {
- protected:
-  static void SetUpTestCase() {
-    std::cout << "SelectV2Test SetUp" << std::endl;
-  }
+protected:
+    static void SetUpTestCase() { std::cout << "SelectV2Test SetUp" << std::endl; }
 
-  static void TearDownTestCase() {
-    std::cout << "SelectV2Test TearDown" << std::endl;
-  }
+    static void TearDownTestCase() { std::cout << "SelectV2Test TearDown" << std::endl; }
 };
 
-TEST_F(SelectV2Test, select_v2_infer_shape_0) {
+TEST_F(SelectV2Test, select_v2_infer_shape_0)
+{
     gert::StorageShape shape = {{2, 100}, {2, 100}};
     gert::StorageShape yShape = {{2, 100}, {2, 100}};
     gert::InfershapeContextPara::TensorDescription condition(shape, ge::DT_FLOAT16, ge::FORMAT_ND);
     gert::InfershapeContextPara::TensorDescription x1(shape, ge::DT_FLOAT16, ge::FORMAT_ND);
     gert::InfershapeContextPara::TensorDescription x2(shape, ge::DT_FLOAT16, ge::FORMAT_ND);
     gert::InfershapeContextPara::TensorDescription y(yShape, ge::DT_FLOAT16, ge::FORMAT_ND);
-    gert::InfershapeContextPara infershapeContextPara(
-        "SelectV2",
-        { condition, x1, x2 },
-        { y });
+    gert::InfershapeContextPara infershapeContextPara("SelectV2", {condition, x1, x2}, {y});
     std::vector<std::vector<int64_t>> expectOutputShape = {
         {2, 100},
     };

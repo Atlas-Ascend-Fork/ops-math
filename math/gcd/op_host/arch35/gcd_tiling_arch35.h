@@ -22,8 +22,7 @@ namespace optiling {
 using namespace Ops::Base;
 class GcdTiling : public Ops::Base::TilingBaseClass {
 public:
-    explicit GcdTiling(gert::TilingContext* context) : Ops::Base::TilingBaseClass(context)
-    {}
+    explicit GcdTiling(gert::TilingContext* context) : Ops::Base::TilingBaseClass(context) {}
 
 protected:
     bool IsCapable() override;

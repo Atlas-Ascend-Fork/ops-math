@@ -13,20 +13,17 @@
 
 namespace ops {
 class TanhGrad : public OpDef {
- public:
-  explicit TanhGrad(const char *name) : OpDef(name)
-  {
-    this->Input("y").DataType({ge::DT_FLOAT16, ge::DT_FLOAT, ge::DT_DOUBLE,
-                                ge::DT_COMPLEX64, ge::DT_COMPLEX128});
-    this->Input("dy").DataType({ge::DT_FLOAT16, ge::DT_FLOAT, ge::DT_DOUBLE,
-                                 ge::DT_COMPLEX64, ge::DT_COMPLEX128});
-    this->Output("z").DataType({ge::DT_FLOAT16, ge::DT_FLOAT, ge::DT_DOUBLE,
-                                 ge::DT_COMPLEX64, ge::DT_COMPLEX128});
-    this->Attr("complex_conj").AttrType(OPTIONAL).Bool(false);
+public:
+    explicit TanhGrad(const char* name) : OpDef(name)
+    {
+        this->Input("y").DataType({ge::DT_FLOAT16, ge::DT_FLOAT, ge::DT_DOUBLE, ge::DT_COMPLEX64, ge::DT_COMPLEX128});
+        this->Input("dy").DataType({ge::DT_FLOAT16, ge::DT_FLOAT, ge::DT_DOUBLE, ge::DT_COMPLEX64, ge::DT_COMPLEX128});
+        this->Output("z").DataType({ge::DT_FLOAT16, ge::DT_FLOAT, ge::DT_DOUBLE, ge::DT_COMPLEX64, ge::DT_COMPLEX128});
+        this->Attr("complex_conj").AttrType(OPTIONAL).Bool(false);
 
-    ApplyMathAicpuDefaultCfg(*this);
-  }
+        ApplyMathAicpuDefaultCfg(*this);
+    }
 };
 
 OP_ADD(TanhGrad);
-}  // namespace ops
+} // namespace ops

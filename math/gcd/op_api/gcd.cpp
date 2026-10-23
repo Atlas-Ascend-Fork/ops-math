@@ -28,13 +28,14 @@ static const std::initializer_list<op::DataType> ASCEND910B_AICORE_DTYPE_SUPPORT
     op::DataType::DT_INT32, op::DataType::DT_INT16, op::DataType::DT_INT64};
 
 static const std::initializer_list<op::DataType> ASCEND950_AICORE_DTYPE_SUPPORT_LIST = {
-    op::DataType::DT_UINT8, op::DataType::DT_INT8, op::DataType::DT_INT32, op::DataType::DT_INT16, op::DataType::DT_INT64};
+    op::DataType::DT_UINT8, op::DataType::DT_INT8, op::DataType::DT_INT32, op::DataType::DT_INT16,
+    op::DataType::DT_INT64};
 
 // 判断走AiCore还是AiCPU
 static bool IsAiCoreSupport(const aclTensor* self, const aclTensor* other)
 {
     std::initializer_list<op::DataType> AICORE_DTYPE_SUPPORT_LIST = IsRegBase() ? ASCEND950_AICORE_DTYPE_SUPPORT_LIST :
-                                                                                ASCEND910B_AICORE_DTYPE_SUPPORT_LIST;
+                                                                                  ASCEND910B_AICORE_DTYPE_SUPPORT_LIST;
     if (!CheckType(self->GetDataType(), AICORE_DTYPE_SUPPORT_LIST)) {
         return false;
     }
@@ -64,9 +65,8 @@ const aclTensor* Gcd(const aclTensor* self, const aclTensor* other, aclOpExecuto
     // 对self和other的shape进行broadcast
     op::Shape broadcastShape;
     if (!BroadcastInferShape(self->GetViewShape(), other->GetViewShape(), broadcastShape)) {
-        OP_LOGE(
-            ACLNN_ERR_PARAM_INVALID, "Self tensor shape:%s and other tensor shape:%s can't broadcast.",
-            ToString(self->GetViewShape()).GetString(), ToString(other->GetViewShape()).GetString());
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "Self tensor shape:%s and other tensor shape:%s can't broadcast.",
+                ToString(self->GetViewShape()).GetString(), ToString(other->GetViewShape()).GetString());
         return nullptr;
     }
 

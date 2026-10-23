@@ -29,8 +29,11 @@ params_info = {
     "case5": case5_params,
 }
 
+
 def main():
-    params_list = params_info[sys.argv[1]]   # python gen_tiling.py case0  sys.argv[1]="case0"
+    params_list = params_info[
+        sys.argv[1]
+    ]  # python gen_tiling.py case0  sys.argv[1]="case0"
 
     base_params = np.array(params_list, dtype=np.int64)
 
@@ -38,5 +41,5 @@ def main():
     base_params.tofile(tiling_file)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

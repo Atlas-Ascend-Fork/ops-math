@@ -22,17 +22,16 @@
 using namespace AscendC;
 
 template <uint64_t schMode, uint64_t userDef>
-__global__ __aicore__ void select(GM_ADDR condition, GM_ADDR x1, GM_ADDR x2, GM_ADDR y,
-                                  GM_ADDR workspace, GM_ADDR tiling)
+__global__ __aicore__ void select(GM_ADDR condition, GM_ADDR x1, GM_ADDR x2, GM_ADDR y, GM_ADDR workspace,
+                                  GM_ADDR tiling)
 {
-    if constexpr(userDef == 1) {
+    if constexpr (userDef == 1) {
         GET_TILING_DATA_WITH_STRUCT(SelectSimtTilingData, tilingDataIn, tiling);
         SelectOp::SelectSimt<int64_t> selectOp;
         selectOp.Init(condition, x1, x2, y, &tilingDataIn);
         selectOp.Process();
-    }
-    else{
-        if constexpr (std::is_same<DTYPE_X1, bool>::value) {    
+    } else {
+        if constexpr (std::is_same<DTYPE_X1, bool>::value) {
             using OpDag = SelectOp::Select<uint8_t>::OpDag;
             Ops::Base::BroadcastSch<schMode, OpDag> sch(tiling);
             sch.Process(condition, x1, x2, y);

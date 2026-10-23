@@ -22,27 +22,20 @@ using namespace ge;
 
 class SignbitInfershape : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        std::cout << "SignbitInfershape SetUp" << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "SignbitInfershape SetUp" << std::endl; }
 
-    static void TearDownTestCase()
-    {
-        std::cout << "SignbitInfershape TearDown" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "SignbitInfershape TearDown" << std::endl; }
 };
 
 TEST_F(SignbitInfershape, signbit_infer_shape_fp16)
 {
-    gert::InfershapeContextPara infershapeContextPara(
-        "Signbit",
-        {
-            {{{-1}, {-1}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-        },
-        {
-            {{{}, {}}, ge::DT_BOOL, ge::FORMAT_ND},
-        });
+    gert::InfershapeContextPara infershapeContextPara("Signbit",
+                                                      {
+                                                          {{{-1}, {-1}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_BOOL, ge::FORMAT_ND},
+                                                      });
     std::vector<std::vector<int64_t>> expectOutputShape = {
         {-1},
     };

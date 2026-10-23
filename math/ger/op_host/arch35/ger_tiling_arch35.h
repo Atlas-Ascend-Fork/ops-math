@@ -25,12 +25,8 @@ namespace optiling {
 
 class GerTiling : public Ops::Base::TilingBaseClass {
 public:
-    explicit GerTiling(gert::TilingContext* context) : Ops::Base::TilingBaseClass(context)
-    {}
-    gert::TilingContext* GetContext() const
-    {
-        return context_;
-    }
+    explicit GerTiling(gert::TilingContext* context) : Ops::Base::TilingBaseClass(context) {}
+    gert::TilingContext* GetContext() const { return context_; }
 
 protected:
     bool IsCapable() override;

@@ -42,11 +42,11 @@ namespace ge {
 * precision loss occurs when the parameter value exceeds 2^24. it is recommended to use Mul.
 */
 REG_OP(Muls)
-     .INPUT(x, TensorType({DT_FLOAT, DT_INT16, DT_INT32, DT_INT64, DT_FLOAT16, DT_BF16, DT_COMPLEX32, DT_COMPLEX64}))
-     .OUTPUT(y, TensorType({DT_FLOAT, DT_INT16, DT_INT32, DT_INT64, DT_FLOAT16, DT_BF16, DT_COMPLEX32, DT_COMPLEX64}))
-     .REQUIRED_ATTR(value, Float)
-     .OP_END_FACTORY_REG(Muls)
+    .INPUT(x, TensorType({DT_FLOAT, DT_INT16, DT_INT32, DT_INT64, DT_FLOAT16, DT_BF16, DT_COMPLEX32, DT_COMPLEX64}))
+    .OUTPUT(y, TensorType({DT_FLOAT, DT_INT16, DT_INT32, DT_INT64, DT_FLOAT16, DT_BF16, DT_COMPLEX32, DT_COMPLEX64}))
+    .REQUIRED_ATTR(value, Float)
+    .OP_END_FACTORY_REG(Muls)
 
-}  // namespace ge
+} // namespace ge
 
-#endif  // MULS_PROTO_H_
+#endif // MULS_PROTO_H_

@@ -11,21 +11,18 @@
 # ----------------------------------------------------------------------------
 import numpy
 
-__golden__ = {
-  	"kernel": {
-  	    "select_v2": "select_v2_golden"
-  	}
-}
+__golden__ = {"kernel": {"select_v2": "select_v2_golden"}}
+
 
 def select_v2_golden(condition, x1, x2, **kwargs):
-    '''
+    """
     Kernel golden for select_v2.
     All the parameters follow @select_v2_def.cpp without outputs.
     All the input Tensors are numpy.ndarray.
     kwargs may contain: short_soc_version, input_ori_shapes, output_ori_shapes,
-	    input_formats, output_formats, input_ori_formats, output_ori_formats,
-	    input_dtypes, output_dtypes.
-    '''
+            input_formats, output_formats, input_ori_formats, output_ori_formats,
+            input_dtypes, output_dtypes.
+    """
     import torch
 
     dtype = x1.dtype

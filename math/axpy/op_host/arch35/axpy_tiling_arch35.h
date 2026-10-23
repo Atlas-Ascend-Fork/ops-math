@@ -18,19 +18,15 @@
 
 #include "op_host/tiling_base_class.h"
 
-namespace optiling
-{
+namespace optiling {
 struct AxpyCompileInfo {
     uint64_t coreNum = 0;
     uint64_t ubSize = 0;
 };
 
-class AxpyTiling : public Ops::Base::TilingBaseClass
-{
+class AxpyTiling : public Ops::Base::TilingBaseClass {
 public:
-    explicit AxpyTiling(gert::TilingContext* context) : Ops::Base::TilingBaseClass(context)
-    {
-    }
+    explicit AxpyTiling(gert::TilingContext* context) : Ops::Base::TilingBaseClass(context) {}
 
 protected:
     bool IsCapable() override;
@@ -48,6 +44,6 @@ private:
                     const ge::DataType& outputDtype) const;
 };
 
-}  // namespace optiling
+} // namespace optiling
 
-#endif  // OPS_BUILD_IN_OP_TILING_RUNTIME_AXPY_TILING_H
+#endif // OPS_BUILD_IN_OP_TILING_RUNTIME_AXPY_TILING_H

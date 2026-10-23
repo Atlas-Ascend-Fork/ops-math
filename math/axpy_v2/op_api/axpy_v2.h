@@ -7,16 +7,15 @@
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
- 
+
 #ifndef OP_API_INC_LEVEL0_OP_AXPY_V2_OP_H_
 #define OP_API_INC_LEVEL0_OP_AXPY_V2_OP_H_
 
 #include "opdev/op_executor.h"
 
-namespace l0op
-{
+namespace l0op {
 const aclTensor* AxpyV2(const aclTensor* self, const aclTensor* other, const aclTensor* alpha, aclOpExecutor* executor);
 
 }
 
-#endif  // OP_API_INC_LEVEL0_OP_AXPY_V2_OP_H_
+#endif // OP_API_INC_LEVEL0_OP_AXPY_V2_OP_H_

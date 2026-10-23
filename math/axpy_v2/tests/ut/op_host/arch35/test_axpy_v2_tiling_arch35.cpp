@@ -22,16 +22,10 @@
 using namespace std;
 
 class AxpyV2Tiling : public testing::Test {
-   protected:
-    static void SetUpTestCase()
-    {
-        std::cout << "AxpyV2Tiling SetUp" << std::endl;
-    }
+protected:
+    static void SetUpTestCase() { std::cout << "AxpyV2Tiling SetUp" << std::endl; }
 
-    static void TearDownTestCase()
-    {
-        std::cout << "AxpyV2Tiling TearDown" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "AxpyV2Tiling TearDown" << std::endl; }
 };
 
 TEST_F(AxpyV2Tiling, axpy_v2_test_float16)
@@ -39,12 +33,12 @@ TEST_F(AxpyV2Tiling, axpy_v2_test_float16)
     optiling::AxpyV2CompileInfo compileInfo = {64, 245760};
     gert::TilingContextPara tilingContextPara("AxpyV2",
                                               {
-                                                {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-                                                {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-                                                {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                  {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                  {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                  {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_FLOAT16, ge::FORMAT_ND},
                                               },
                                               {
-                                                {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                  {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_FLOAT16, ge::FORMAT_ND},
                                               },
                                               &compileInfo);
     uint64_t expectTilingKey = 8;
@@ -58,12 +52,12 @@ TEST_F(AxpyV2Tiling, axpy_v2_test_float32)
     optiling::AxpyV2CompileInfo compileInfo = {64, 245760};
     gert::TilingContextPara tilingContextPara("AxpyV2",
                                               {
-                                                {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_FLOAT, ge::FORMAT_ND},
-                                                {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_FLOAT, ge::FORMAT_ND},
-                                                {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                  {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                  {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                  {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_FLOAT, ge::FORMAT_ND},
                                               },
                                               {
-                                                {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                  {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_FLOAT, ge::FORMAT_ND},
                                               },
                                               &compileInfo);
     uint64_t expectTilingKey = 8;
@@ -77,12 +71,12 @@ TEST_F(AxpyV2Tiling, axpy_v2_test_int32)
     optiling::AxpyV2CompileInfo compileInfo = {64, 245760};
     gert::TilingContextPara tilingContextPara("AxpyV2",
                                               {
-                                                {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_INT32, ge::FORMAT_ND},
-                                                {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_INT32, ge::FORMAT_ND},
-                                                {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_INT32, ge::FORMAT_ND},
+                                                  {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_INT32, ge::FORMAT_ND},
+                                                  {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_INT32, ge::FORMAT_ND},
+                                                  {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_INT32, ge::FORMAT_ND},
                                               },
                                               {
-                                                {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_INT32, ge::FORMAT_ND},
+                                                  {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_INT32, ge::FORMAT_ND},
                                               },
                                               &compileInfo);
     uint64_t expectTilingKey = 8;
@@ -96,12 +90,12 @@ TEST_F(AxpyV2Tiling, axpy_v2_test_int64)
     optiling::AxpyV2CompileInfo compileInfo = {64, 245760};
     gert::TilingContextPara tilingContextPara("AxpyV2",
                                               {
-                                                {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_INT64, ge::FORMAT_ND},
-                                                {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_INT64, ge::FORMAT_ND},
-                                                {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_INT64, ge::FORMAT_ND},
+                                                  {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_INT64, ge::FORMAT_ND},
+                                                  {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_INT64, ge::FORMAT_ND},
+                                                  {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_INT64, ge::FORMAT_ND},
                                               },
                                               {
-                                                {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_INT64, ge::FORMAT_ND},
+                                                  {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_INT64, ge::FORMAT_ND},
                                               },
                                               &compileInfo);
     uint64_t expectTilingKey = 8;
@@ -115,12 +109,12 @@ TEST_F(AxpyV2Tiling, axpy_v2_test_int8)
     optiling::AxpyV2CompileInfo compileInfo = {64, 245760};
     gert::TilingContextPara tilingContextPara("AxpyV2",
                                               {
-                                                {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_INT8, ge::FORMAT_ND},
-                                                {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_INT8, ge::FORMAT_ND},
-                                                {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_INT8, ge::FORMAT_ND},
+                                                  {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_INT8, ge::FORMAT_ND},
+                                                  {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_INT8, ge::FORMAT_ND},
+                                                  {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_INT8, ge::FORMAT_ND},
                                               },
                                               {
-                                                {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_INT8, ge::FORMAT_ND},
+                                                  {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_INT8, ge::FORMAT_ND},
                                               },
                                               &compileInfo);
     uint64_t expectTilingKey = 8;
@@ -134,12 +128,12 @@ TEST_F(AxpyV2Tiling, axpy_v2_test_uint8)
     optiling::AxpyV2CompileInfo compileInfo = {64, 245760};
     gert::TilingContextPara tilingContextPara("AxpyV2",
                                               {
-                                                {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_UINT8, ge::FORMAT_ND},
-                                                {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_UINT8, ge::FORMAT_ND},
-                                                {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_UINT8, ge::FORMAT_ND},
+                                                  {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_UINT8, ge::FORMAT_ND},
+                                                  {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_UINT8, ge::FORMAT_ND},
+                                                  {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_UINT8, ge::FORMAT_ND},
                                               },
                                               {
-                                                {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_UINT8, ge::FORMAT_ND},
+                                                  {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_UINT8, ge::FORMAT_ND},
                                               },
                                               &compileInfo);
     uint64_t expectTilingKey = 8;
@@ -153,12 +147,12 @@ TEST_F(AxpyV2Tiling, axpy_v2_test_bool)
     optiling::AxpyV2CompileInfo compileInfo = {64, 245760};
     gert::TilingContextPara tilingContextPara("AxpyV2",
                                               {
-                                                {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_BOOL, ge::FORMAT_ND},
-                                                {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_BOOL, ge::FORMAT_ND},
-                                                {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_BOOL, ge::FORMAT_ND},
+                                                  {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_BOOL, ge::FORMAT_ND},
+                                                  {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_BOOL, ge::FORMAT_ND},
+                                                  {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_BOOL, ge::FORMAT_ND},
                                               },
                                               {
-                                                {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_BOOL, ge::FORMAT_ND},
+                                                  {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_BOOL, ge::FORMAT_ND},
                                               },
                                               &compileInfo);
     uint64_t expectTilingKey = 8;
@@ -172,12 +166,12 @@ TEST_F(AxpyV2Tiling, axpy_v2_test_dtype_not_same)
     optiling::AxpyV2CompileInfo compileInfo = {64, 245760};
     gert::TilingContextPara tilingContextPara("AxpyV2",
                                               {
-                                                {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_BOOL, ge::FORMAT_ND},
-                                                {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_FLOAT, ge::FORMAT_ND},
-                                                {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_BOOL, ge::FORMAT_ND},
+                                                  {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_BOOL, ge::FORMAT_ND},
+                                                  {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                  {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_BOOL, ge::FORMAT_ND},
                                               },
                                               {
-                                                {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_BOOL, ge::FORMAT_ND},
+                                                  {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_BOOL, ge::FORMAT_ND},
                                               },
                                               &compileInfo);
     ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
@@ -188,12 +182,12 @@ TEST_F(AxpyV2Tiling, axpy_v2_test_not_support_dtype)
     optiling::AxpyV2CompileInfo compileInfo = {64, 245760};
     gert::TilingContextPara tilingContextPara("AxpyV2",
                                               {
-                                                {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_INT16, ge::FORMAT_ND},
-                                                {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_INT16, ge::FORMAT_ND},
-                                                {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_INT16, ge::FORMAT_ND},
+                                                  {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_INT16, ge::FORMAT_ND},
+                                                  {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_INT16, ge::FORMAT_ND},
+                                                  {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_INT16, ge::FORMAT_ND},
                                               },
                                               {
-                                                {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_INT16, ge::FORMAT_ND},
+                                                  {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_INT16, ge::FORMAT_ND},
                                               },
                                               &compileInfo);
     ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);

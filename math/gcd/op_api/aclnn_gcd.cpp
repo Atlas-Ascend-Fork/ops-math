@@ -39,7 +39,8 @@ static const std::initializer_list<op::DataType> ASCEND910B_DTYPE_SUPPORT_LIST =
     op::DataType::DT_INT32, op::DataType::DT_INT16, op::DataType::DT_INT64};
 
 static const std::initializer_list<op::DataType> ASCEND950_DTYPE_SUPPORT_LIST = {
-     op::DataType::DT_UINT8, op::DataType::DT_INT8, op::DataType::DT_INT16, op::DataType::DT_INT32, op::DataType::DT_INT64};
+    op::DataType::DT_UINT8, op::DataType::DT_INT8, op::DataType::DT_INT16, op::DataType::DT_INT32,
+    op::DataType::DT_INT64};
 
 // 检查入参是否为nullptr
 static bool CheckNotNull(const aclTensor* self, const aclTensor* other, const aclTensor* out)
@@ -59,18 +60,16 @@ static bool CheckDtypeValid(const aclTensor* self, const aclTensor* other, const
         return false;
     }
     if (!IsIntegralType(out->GetDataType())) {
-        OP_LOGE(
-            ACLNN_ERR_PARAM_INVALID, "Out type should be integral but got %s.",
-            ToString(out->GetDataType()).GetString());
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "Out type should be integral but got %s.",
+                ToString(out->GetDataType()).GetString());
         return false;
     }
 
     // 检查self和other能否做数据类型推导
     op::DataType promoteType = op::PromoteType(self->GetDataType(), other->GetDataType());
     if (promoteType == DataType::DT_UNDEFINED) {
-        OP_LOGE(
-            ACLNN_ERR_PARAM_INVALID, "Self dtype %s and other dtype %s can not be promoted.",
-            op::ToString(self->GetDataType()).GetString(), op::ToString(other->GetDataType()).GetString());
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "Self dtype %s and other dtype %s can not be promoted.",
+                op::ToString(self->GetDataType()).GetString(), op::ToString(other->GetDataType()).GetString());
         return false;
     }
     std::initializer_list<op::DataType> DTYPE_SUPPORT_LIST;
@@ -78,18 +77,17 @@ static bool CheckDtypeValid(const aclTensor* self, const aclTensor* other, const
     if (IsRegBase()) {
         DTYPE_SUPPORT_LIST = ASCEND950_DTYPE_SUPPORT_LIST;
     } else {
-        DTYPE_SUPPORT_LIST = currentSocVersion == SocVersion::ASCEND910 ? ASCEND910_DTYPE_SUPPORT_LIST : 
-                                                                        ASCEND910B_DTYPE_SUPPORT_LIST;
+        DTYPE_SUPPORT_LIST = currentSocVersion == SocVersion::ASCEND910 ? ASCEND910_DTYPE_SUPPORT_LIST :
+                                                                          ASCEND910B_DTYPE_SUPPORT_LIST;
     }
-        
+
     // 检查promoteType的数据类型是否在支持列表内
     if (!CheckType(promoteType, DTYPE_SUPPORT_LIST)) {
-        OP_LOGE(
-            ACLNN_ERR_PARAM_INVALID,
-            "Self dtype %s and other dtype %s get promoteType dtype %s should be in "
-            "dtype support list %s.",
-            op::ToString(self->GetDataType()).GetString(), op::ToString(other->GetDataType()).GetString(),
-            op::ToString(promoteType).GetString(), op::ToString(DTYPE_SUPPORT_LIST).GetString());
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID,
+                "Self dtype %s and other dtype %s get promoteType dtype %s should be in "
+                "dtype support list %s.",
+                op::ToString(self->GetDataType()).GetString(), op::ToString(other->GetDataType()).GetString(),
+                op::ToString(promoteType).GetString(), op::ToString(DTYPE_SUPPORT_LIST).GetString());
         return false;
     }
 
@@ -111,9 +109,8 @@ static bool CheckShape(const aclTensor* self, const aclTensor* other, const aclT
 
     // broadcast后的shape需要与out一致。
     if (broadcastShape != out->GetViewShape()) {
-        OP_LOGE(
-            ACLNN_ERR_PARAM_INVALID, "Expected out tensor shape to be %s, but got %s.",
-            op::ToString(broadcastShape).GetString(), op::ToString(out->GetViewShape()).GetString());
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "Expected out tensor shape to be %s, but got %s.",
+                op::ToString(broadcastShape).GetString(), op::ToString(out->GetViewShape()).GetString());
         return false;
     }
 
@@ -134,8 +131,8 @@ static aclnnStatus CheckParams(const aclTensor* self, const aclTensor* other, co
     return ACLNN_SUCCESS;
 }
 
-aclnnStatus aclnnGcdGetWorkspaceSize(
-    const aclTensor* self, const aclTensor* other, aclTensor* out, uint64_t* workspaceSize, aclOpExecutor** executor)
+aclnnStatus aclnnGcdGetWorkspaceSize(const aclTensor* self, const aclTensor* other, aclTensor* out,
+                                     uint64_t* workspaceSize, aclOpExecutor** executor)
 {
     L2_DFX_PHASE_1(aclnnGcd, DFX_IN(self, other), DFX_OUT(out));
 

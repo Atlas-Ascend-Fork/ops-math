@@ -24,29 +24,22 @@ using namespace ge;
 
 class SignbitTiling : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        std::cout << "SignbitTiling SetUp" << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "SignbitTiling SetUp" << std::endl; }
 
-    static void TearDownTestCase()
-    {
-        std::cout << "SignbitTiling TearDown" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "SignbitTiling TearDown" << std::endl; }
 };
 
 TEST_F(SignbitTiling, less_test_0)
 {
     optiling::SignbitCompileInfo compileInfo = {64, 245760};
-    gert::TilingContextPara tilingContextPara(
-        "Signbit",
-        {
-            {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_BF16, ge::FORMAT_ND},
-        },
-        {
-            {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_BOOL, ge::FORMAT_ND},
-        },
-        &compileInfo);
+    gert::TilingContextPara tilingContextPara("Signbit",
+                                              {
+                                                  {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_BF16, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_BOOL, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
     uint64_t expectTilingKey = 5;
     string expectTilingData = "2048 56075093016577 2048 1 1 1 2048 2048 13056 1 ";
     std::vector<size_t> expectWorkspaces = {0};

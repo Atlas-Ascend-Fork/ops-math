@@ -21,30 +21,29 @@
 #include "atvoss/util/placeholder.h"
 
 namespace SelectOp {
-    using namespace AscendC;
-    const int SELECT_MODE = 2;
-    const int CMP_MODE = 2;
+using namespace AscendC;
+const int SELECT_MODE = 2;
+const int CMP_MODE = 2;
 
-    template <typename T>
-    struct Select {
-          // 通过Compute构造计算图
-          using ConstOne = MAKE_CONST(uint8_t, 1);
+template <typename T>
+struct Select {
+    // 通过Compute构造计算图
+    using ConstOne = MAKE_CONST(uint8_t, 1);
 
-          using Condition = Ops::Base::Bind<Ops::Base::Vec::CopyInBrc<uint8_t>, Ops::Base::Placeholder::In0<uint8_t>>;
-          using InputX1 = Ops::Base::Bind<Ops::Base::Vec::CopyInBrc<T>, Ops::Base::Placeholder::In1<T>>;
-          using InputX2 = Ops::Base::Bind<Ops::Base::Vec::CopyInBrc<T>, Ops::Base::Placeholder::In2<T>>;
+    using Condition = Ops::Base::Bind<Ops::Base::Vec::CopyInBrc<uint8_t>, Ops::Base::Placeholder::In0<uint8_t>>;
+    using InputX1 = Ops::Base::Bind<Ops::Base::Vec::CopyInBrc<T>, Ops::Base::Placeholder::In1<T>>;
+    using InputX2 = Ops::Base::Bind<Ops::Base::Vec::CopyInBrc<T>, Ops::Base::Placeholder::In2<T>>;
 
-          using CompareMask = Ops::Base::Bind<Ops::Base::Vec::Compare<uint8_t, uint8_t, CMP_MODE>, Condition, ConstOne>;
+    using CompareMask = Ops::Base::Bind<Ops::Base::Vec::Compare<uint8_t, uint8_t, CMP_MODE>, Condition, ConstOne>;
 
-          using SelectRes = Ops::Base::Bind<Ops::Base::Vec::Select<uint8_t, T, SELECT_MODE>, CompareMask, InputX1, InputX2>;
+    using SelectRes = Ops::Base::Bind<Ops::Base::Vec::Select<uint8_t, T, SELECT_MODE>, CompareMask, InputX1, InputX2>;
 
-          using OpCopyOut = Ops::Base::Bind<Ops::Base::Vec::CopyOut<T>, Ops::Base::Placeholder::Out0<T>, SelectRes>;
- 
-          // 指定输出节点
-          using Outputs = Ops::Base::Elems<OpCopyOut>;  //设置输出
-          using MemCfg = Ops::Base::MemOptCfg<Ops::Base::MemLevel::LEVEL_2>;
-          using OpDag = Ops::Base::DAGSch<Outputs, void, MemCfg>;
-    };
-}
- #endif // SELECT_DAG_H
- 
+    using OpCopyOut = Ops::Base::Bind<Ops::Base::Vec::CopyOut<T>, Ops::Base::Placeholder::Out0<T>, SelectRes>;
+
+    // 指定输出节点
+    using Outputs = Ops::Base::Elems<OpCopyOut>; // 设置输出
+    using MemCfg = Ops::Base::MemOptCfg<Ops::Base::MemLevel::LEVEL_2>;
+    using OpDag = Ops::Base::DAGSch<Outputs, void, MemCfg>;
+};
+} // namespace SelectOp
+#endif // SELECT_DAG_H

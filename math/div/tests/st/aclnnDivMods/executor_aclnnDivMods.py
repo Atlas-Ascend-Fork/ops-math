@@ -21,11 +21,11 @@ class FunctionApi(BaseApi):
     def __call__(self, input_data: InputDataset, with_output: bool = False):
         if self.device == "cpu":
             mode = input_data.kwargs["mode"]
-            mode_map ={
-                0: None,
-                1: "trunc",
-                2: "floor"
-            }
-            str_mode = mode_map.get(mode,None)
-            output = torch.div(input_data.kwargs["self"], input_data.kwargs["other"], rounding_mode=str_mode)
+            mode_map = {0: None, 1: "trunc", 2: "floor"}
+            str_mode = mode_map.get(mode, None)
+            output = torch.div(
+                input_data.kwargs["self"],
+                input_data.kwargs["other"],
+                rounding_mode=str_mode,
+            )
         return output

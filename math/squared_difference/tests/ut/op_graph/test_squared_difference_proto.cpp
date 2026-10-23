@@ -22,15 +22,9 @@ using namespace ge;
 
 class squared_difference : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        std::cout << "squared_difference SetUp" << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "squared_difference SetUp" << std::endl; }
 
-    static void TearDownTestCase()
-    {
-        std::cout << "squared_difference TearDown" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "squared_difference TearDown" << std::endl; }
 };
 
 TEST_F(squared_difference, squared_difference_infer_shape_fp16)
@@ -82,8 +76,8 @@ TEST_F(squared_difference, squared_difference_infer_shape_2)
     auto tensor_desc = create_desc_shape_range({60}, ge::DT_FLOAT16, ge::FORMAT_ND, {64}, ge::FORMAT_ND, shape_range);
     op.UpdateInputDesc("x1", tensor_desc);
     std::vector<std::pair<int64_t, int64_t>> shape_range_x2 = {{2, 100}, {2, 100}, {2, 100}, {2, 100}};
-    auto tensor_desc_x2 =
-        create_desc_shape_range({60, 60, 60, 60}, ge::DT_FLOAT16, ge::FORMAT_ND, {64}, ge::FORMAT_ND, shape_range_x2);
+    auto tensor_desc_x2 = create_desc_shape_range({60, 60, 60, 60}, ge::DT_FLOAT16, ge::FORMAT_ND, {64}, ge::FORMAT_ND,
+                                                  shape_range_x2);
     op.UpdateInputDesc("x2", tensor_desc_x2);
 
     auto ret = op.InferShapeAndType();
@@ -103,8 +97,8 @@ TEST_F(squared_difference, squared_difference_infer_shape_3)
     auto tensor_desc = create_desc_shape_range({-1}, ge::DT_FLOAT16, ge::FORMAT_ND, {64}, ge::FORMAT_ND, shape_range);
     op.UpdateInputDesc("x1", tensor_desc);
     std::vector<std::pair<int64_t, int64_t>> shape_range_x2 = {{2, 100}, {2, 100}, {2, 100}, {2, 100}};
-    auto tensor_desc_x2 =
-        create_desc_shape_range({-1, -1, -1, 60}, ge::DT_FLOAT16, ge::FORMAT_ND, {64}, ge::FORMAT_ND, shape_range_x2);
+    auto tensor_desc_x2 = create_desc_shape_range({-1, -1, -1, 60}, ge::DT_FLOAT16, ge::FORMAT_ND, {64}, ge::FORMAT_ND,
+                                                  shape_range_x2);
     op.UpdateInputDesc("x2", tensor_desc_x2);
 
     auto ret = op.InferShapeAndType();
@@ -126,9 +120,9 @@ TEST_F(squared_difference, squared_difference_infer_shape_3)
     EXPECT_EQ(output_shape_range, expected_shape_range);
 }
 
-static ge::Operator BuildGraph4InferAxisType(
-    const std::initializer_list<int64_t>& dims1, const std::initializer_list<int64_t>& dims2, const ge::Format& format,
-    const ge::DataType& dataType)
+static ge::Operator BuildGraph4InferAxisType(const std::initializer_list<int64_t>& dims1,
+                                             const std::initializer_list<int64_t>& dims2, const ge::Format& format,
+                                             const ge::DataType& dataType)
 {
     auto apply_op = op::SquaredDifference("SquaredDifference");
     TENSOR_INPUT_WITH_SHAPE(apply_op, x1, dims1, dataType, format, {});

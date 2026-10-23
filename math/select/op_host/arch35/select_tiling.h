@@ -25,31 +25,31 @@
 
 namespace optiling {
 struct SelectCompileInfo {
-  uint64_t coreNum = 0;
-  uint64_t ubSize = 0;
-  bool isUnknownRank;
+    uint64_t coreNum = 0;
+    uint64_t ubSize = 0;
+    bool isUnknownRank;
 };
 
 class SelectTiling : public Ops::Base::TilingBaseClass {
-    public:
-        explicit SelectTiling(gert::TilingContext* context) : Ops::Base::TilingBaseClass(context) {}
+public:
+    explicit SelectTiling(gert::TilingContext* context) : Ops::Base::TilingBaseClass(context) {}
 
-    protected:
-        bool IsCapable() override;
-        ge::graphStatus GetPlatformInfo() override;
-        ge::graphStatus GetShapeAttrsInfo() override;
-        ge::graphStatus DoOpTiling() override;
-        ge::graphStatus DoLibApiTiling() override;
-        uint64_t GetTilingKey() const override;
-        ge::graphStatus GetWorkspaceSize() override;
-        ge::graphStatus PostTiling() override;
+protected:
+    bool IsCapable() override;
+    ge::graphStatus GetPlatformInfo() override;
+    ge::graphStatus GetShapeAttrsInfo() override;
+    ge::graphStatus DoOpTiling() override;
+    ge::graphStatus DoLibApiTiling() override;
+    uint64_t GetTilingKey() const override;
+    ge::graphStatus GetWorkspaceSize() override;
+    ge::graphStatus PostTiling() override;
 
-    private:
-        uint64_t tilingKey = 0;
+private:
+    uint64_t tilingKey = 0;
 };
 
 ge::graphStatus SelectCheckInputDtype(gert::TilingContext* context);
 ge::graphStatus InferSelectShape(gert::TilingContext* context, std::vector<gert::Shape>& inputShapes);
-}   // namespace optiling
+} // namespace optiling
 
 #endif // OPS_BUILD_IN_OP_TILING_RUNTIME_SELECT_TILING_H

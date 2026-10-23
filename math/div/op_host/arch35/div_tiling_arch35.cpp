@@ -28,15 +28,9 @@ namespace optiling {
 
 constexpr static uint64_t DIV_COMMON_TILING_PRIORITY = 0;
 
-ge::graphStatus DivTiling::GetShapeAttrsInfo()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus DivTiling::GetShapeAttrsInfo() { return ge::GRAPH_SUCCESS; }
 
-bool DivTiling::IsCapable()
-{
-    return true;
-}
+bool DivTiling::IsCapable() { return true; }
 
 ge::graphStatus DivTiling::DoOpTiling()
 {
@@ -49,8 +43,8 @@ ge::graphStatus DivTiling::DoOpTiling()
     if (input0DType != input1DType) {
         std::string dtypeMsg = ge::TypeUtils::DataTypeToSerialString(input0DType) + " and " +
                                ge::TypeUtils::DataTypeToSerialString(input1DType);
-        OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(
-            context_->GetNodeName(), "x1 and x2", dtypeMsg.c_str(), "The dtypes of x1 and x2 must be the same");
+        OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(context_->GetNodeName(), "x1 and x2", dtypeMsg.c_str(),
+                                               "The dtypes of x1 and x2 must be the same");
         return ge::GRAPH_FAILED;
     }
     ge::graphStatus ret = ge::GRAPH_SUCCESS;
@@ -83,38 +77,23 @@ ge::graphStatus DivTiling::DoOpTiling()
         ret = brcBaseTiling.DoTiling();
         tilingKey = GET_TPL_TILING_KEY(brcBaseTiling.GetSchMode());
     } else {
-        OP_LOGE_FOR_INVALID_DTYPE(
-            context_->GetNodeName(), "x1", ge::TypeUtils::DataTypeToSerialString(input0DType).c_str(),
-            "fp16, bf16, fp32, int32, uint8, int8, complex32 and complex64");
+        OP_LOGE_FOR_INVALID_DTYPE(context_->GetNodeName(), "x1",
+                                  ge::TypeUtils::DataTypeToSerialString(input0DType).c_str(),
+                                  "fp16, bf16, fp32, int32, uint8, int8, complex32 and complex64");
         return ge::GRAPH_FAILED;
     }
     return ret;
 }
 
-ge::graphStatus DivTiling::DoLibApiTiling()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus DivTiling::DoLibApiTiling() { return ge::GRAPH_SUCCESS; }
 
-uint64_t DivTiling::GetTilingKey() const
-{
-    return tilingKey;
-}
+uint64_t DivTiling::GetTilingKey() const { return tilingKey; }
 
-ge::graphStatus DivTiling::GetWorkspaceSize()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus DivTiling::GetWorkspaceSize() { return ge::GRAPH_SUCCESS; }
 
-ge::graphStatus DivTiling::PostTiling()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus DivTiling::PostTiling() { return ge::GRAPH_SUCCESS; }
 
-ge::graphStatus DivTiling::GetPlatformInfo()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus DivTiling::GetPlatformInfo() { return ge::GRAPH_SUCCESS; }
 
 ge::graphStatus TilingForDiv(gert::TilingContext* context)
 {
@@ -131,10 +110,7 @@ ge::graphStatus TilingForDiv(gert::TilingContext* context)
     return Ops::Math::OpTiling::TilingRegistry::GetInstance().DoTilingImpl(context);
 }
 
-ge::graphStatus TilingPrepareForDiv([[maybe_unused]] gert::TilingParseContext* context)
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus TilingPrepareForDiv([[maybe_unused]] gert::TilingParseContext* context) { return ge::GRAPH_SUCCESS; }
 
 IMPL_OP_OPTILING(Div).Tiling(TilingForDiv).TilingParse<BroadcastCompileInfo>(TilingPrepareForDiv);
 

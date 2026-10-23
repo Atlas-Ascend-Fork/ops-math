@@ -33,25 +33,25 @@ struct SignbitTilingData {
 
 #pragma pack()
 
-#define CONVERT_TILING_DATA(tilingStruct, tilingDataPointer, tilingPointer) \
-  __ubuf__ tilingStruct* tilingDataPointer =                                \
-      reinterpret_cast<__ubuf__ tilingStruct*>((__ubuf__ uint8_t*)(tilingPointer));
+#define CONVERT_TILING_DATA(tilingStruct, tilingDataPointer, tilingPointer)              \
+    __ubuf__ tilingStruct* tilingDataPointer = reinterpret_cast<__ubuf__ tilingStruct*>( \
+        (__ubuf__ uint8_t*)(tilingPointer));
 
 #define INIT_TILING_DATA(tilingStruct, tilingDataPointer, tilingPointer) \
-  CONVERT_TILING_DATA(tilingStruct, tilingDataPointer, tilingPointer);
+    CONVERT_TILING_DATA(tilingStruct, tilingDataPointer, tilingPointer);
 
-#define GET_TILING_DATA(tilingData, tilingPointer)                                \
-  SignbitTilingData tilingData;                                                     \
-  INIT_TILING_DATA(SignbitTilingData, tilingDataPointer, tilingPointer);            \
-  (tilingData).dim0 = tilingDataPointer->dim0;                      \
-  (tilingData).coreNum = tilingDataPointer->coreNum;                          \
-  (tilingData).ubFormer = tilingDataPointer->ubFormer;                              \
-  (tilingData).blockFormer = tilingDataPointer->blockFormer;                    \
-  (tilingData).blockNum = tilingDataPointer->blockNum;                        \
-  (tilingData).ubLoopOfFormerBlock = tilingDataPointer->ubLoopOfFormerBlock;         \
-  (tilingData).ubLoopOfTailBlock = tilingDataPointer->ubLoopOfTailBlock;        \
-  (tilingData).ubTailOfFormerBlock = tilingDataPointer->ubTailOfFormerBlock;                            \
-  (tilingData).ubTailOfTailBlock = tilingDataPointer->ubTailOfTailBlock;                            \
-  (tilingData).elemNum = tilingDataPointer->elemNum;                            \
-  (tilingData).scheMode = tilingDataPointer->scheMode;
+#define GET_TILING_DATA(tilingData, tilingPointer)                             \
+    SignbitTilingData tilingData;                                              \
+    INIT_TILING_DATA(SignbitTilingData, tilingDataPointer, tilingPointer);     \
+    (tilingData).dim0 = tilingDataPointer->dim0;                               \
+    (tilingData).coreNum = tilingDataPointer->coreNum;                         \
+    (tilingData).ubFormer = tilingDataPointer->ubFormer;                       \
+    (tilingData).blockFormer = tilingDataPointer->blockFormer;                 \
+    (tilingData).blockNum = tilingDataPointer->blockNum;                       \
+    (tilingData).ubLoopOfFormerBlock = tilingDataPointer->ubLoopOfFormerBlock; \
+    (tilingData).ubLoopOfTailBlock = tilingDataPointer->ubLoopOfTailBlock;     \
+    (tilingData).ubTailOfFormerBlock = tilingDataPointer->ubTailOfFormerBlock; \
+    (tilingData).ubTailOfTailBlock = tilingDataPointer->ubTailOfTailBlock;     \
+    (tilingData).elemNum = tilingDataPointer->elemNum;                         \
+    (tilingData).scheMode = tilingDataPointer->scheMode;
 #endif // _FAST_OP_TEST_SIGNBIT_H_

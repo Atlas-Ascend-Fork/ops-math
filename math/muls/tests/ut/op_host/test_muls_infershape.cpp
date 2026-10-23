@@ -14,14 +14,10 @@
 #include "infershape_case_executor.h"
 
 class Muls : public testing::Test {
- protected:
-  static void SetUpTestCase() {
-    std::cout << "Muls SetUp" << std::endl;
-  }
+protected:
+    static void SetUpTestCase() { std::cout << "Muls SetUp" << std::endl; }
 
-  static void TearDownTestCase() {
-    std::cout << "Muls TearDown" << std::endl;
-  }
+    static void TearDownTestCase() { std::cout << "Muls TearDown" << std::endl; }
 };
 
 TEST_F(Muls, muls_infershape_case_0)
@@ -32,7 +28,9 @@ TEST_F(Muls, muls_infershape_case_0)
             {{{3, 4}, {3, 4}}, ge::DT_FLOAT, ge::FORMAT_ND},
         },
         {{{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND}},
-        {gert::InfershapeContextPara::OpAttr("value", Ops::Math::AnyValue::CreateFrom<int64_t>(1.0)),});
+        {
+            gert::InfershapeContextPara::OpAttr("value", Ops::Math::AnyValue::CreateFrom<int64_t>(1.0)),
+        });
 
     std::vector<std::vector<int64_t>> expectOutputShape = {
         {3, 4},

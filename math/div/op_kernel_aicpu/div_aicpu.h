@@ -34,12 +34,12 @@ private:
     uint32_t DivParamCheckZero(CpuKernelContext& ctx);
 
     template <typename T>
-    uint32_t SpecialComputeInt(
-        BcastShapeType type, int64_t start, int64_t end, const T* input1, const T* input2, T* output);
+    uint32_t SpecialComputeInt(BcastShapeType type, int64_t start, int64_t end, const T* input1, const T* input2,
+                               T* output);
 
     template <typename T>
-    uint32_t SpecialCompute(
-        BcastShapeType type, int64_t start, int64_t end, const T* input1, const T* input2, T* output);
+    uint32_t SpecialCompute(BcastShapeType type, int64_t start, int64_t end, const T* input1, const T* input2,
+                            T* output);
 
     template <typename T>
     uint32_t NoBcastComputeInt(CpuKernelContext& ctx);

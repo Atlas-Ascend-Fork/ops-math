@@ -64,4 +64,4 @@ ACLNN_API aclnnStatus aclnnTanhBackward(void* workspace, uint64_t workspaceSize,
 }
 #endif
 
-#endif  // OP_API_INC_TANH_BACKWARD_H_
+#endif // OP_API_INC_TANH_BACKWARD_H_

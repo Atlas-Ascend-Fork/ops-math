@@ -13,13 +13,9 @@
 #include "opdev/op_executor.h"
 
 namespace l0op {
-const aclTensor *Muls(const aclTensor *self,
-                      float alpha,
-                      aclOpExecutor *executor);
+const aclTensor* Muls(const aclTensor* self, float alpha, aclOpExecutor* executor);
 
-const aclTensor *MulsInplace(const aclTensor *self,
-                      float alpha,
-                      aclOpExecutor *executor);
-}
+const aclTensor* MulsInplace(const aclTensor* self, float alpha, aclOpExecutor* executor);
+} // namespace l0op
 
 #endif // PTA_NPU_OP_API_INC_LEVEL0_OP_MULS_OP_H_

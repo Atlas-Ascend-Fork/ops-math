@@ -24,7 +24,7 @@ using namespace Ops::Base;
 
 class MulsTiling {
 public:
-    explicit MulsTiling(gert::TilingContext *context) : tilingContext(context){};
+    explicit MulsTiling(gert::TilingContext* context) : tilingContext(context) {};
     ge::graphStatus RunTiling();
     MulsTilingData* tiling = nullptr;
 
@@ -35,9 +35,9 @@ protected:
 private:
     ge::graphStatus CheckShape();
 
-    gert::TilingContext *tilingContext;
+    gert::TilingContext* tilingContext;
     ge::DataType outputDtype;
 };
 
-}  // namespace optiling
-#endif  // OPS_BUILD_IN_OP_TILING_RUNTIME_MULS_TILING_H
+} // namespace optiling
+#endif // OPS_BUILD_IN_OP_TILING_RUNTIME_MULS_TILING_H

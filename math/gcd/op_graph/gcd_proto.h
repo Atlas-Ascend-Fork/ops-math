@@ -21,7 +21,7 @@
 namespace ge {
 
 /**
-* @brief Returns x1 and x2 greatest common divisor element-wise. 
+* @brief Returns x1 and x2 greatest common divisor element-wise.
 * Support broadcasting operations.
 
 * @par Inputs:

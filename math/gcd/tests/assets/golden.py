@@ -11,19 +11,16 @@
 # ----------------------------------------------------------------------------
 import numpy
 
-__golden__ = {
-  	"kernel": {
-  	    "gcd": "gcd_golden"
-  	}
-}
+__golden__ = {"kernel": {"gcd": "gcd_golden"}}
+
 
 def gcd_golden(x1, x2, **kwargs):
-    '''
+    """
     Kernel golden for gcd.
     All the parameters follow @gcd_def.cpp without outputs.
     All the input Tensors are numpy.ndarray.
     kwargs may contain: short_soc_version, input_ori_shapes, output_ori_shapes,
-	    input_formats, output_formats, input_ori_formats, output_ori_formats,
-	    input_dtypes, output_dtypes.
-    '''
+            input_formats, output_formats, input_ori_formats, output_ori_formats,
+            input_dtypes, output_dtypes.
+    """
     return numpy.gcd(x1, x2)

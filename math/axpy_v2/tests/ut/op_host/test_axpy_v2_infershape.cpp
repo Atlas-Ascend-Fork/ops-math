@@ -18,104 +18,109 @@
 #include "infershape_context_faker.h"
 #include "infershape_case_executor.h"
 
-class AxpyV2Infershape : public testing::Test
-{
+class AxpyV2Infershape : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        std::cout << "AxpyV2Infershape SetUp" << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "AxpyV2Infershape SetUp" << std::endl; }
 
-    static void TearDownTestCase()
-    {
-        std::cout << "AxpyV2Infershape TearDown" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "AxpyV2Infershape TearDown" << std::endl; }
 };
 
-TEST_F(AxpyV2Infershape, axpy_v2_infershape_diff_test) {
+TEST_F(AxpyV2Infershape, axpy_v2_infershape_diff_test)
+{
     gert::InfershapeContextPara infershapeContextPara("AxpyV2",
                                                       {
-                                                        {{{4, 3, 4}, {4, 3, 4}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-                                                        {{{4, 3, 4}, {4, 3, 4}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                          {{{4, 3, 4}, {4, 3, 4}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                          {{{4, 3, 4}, {4, 3, 4}}, ge::DT_FLOAT16, ge::FORMAT_ND},
                                                       },
                                                       {
-                                                        {{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-                                                      }
-                                                     );
-    std::vector<std::vector<int64_t>> expectOutputShape = {{4, 3, 4},};
+                                                          {{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                      });
+    std::vector<std::vector<int64_t>> expectOutputShape = {
+        {4, 3, 4},
+    };
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
 
-TEST_F(AxpyV2Infershape, axpy_v2_verify_int8) {
+TEST_F(AxpyV2Infershape, axpy_v2_verify_int8)
+{
     gert::InfershapeContextPara infershapeContextPara("AxpyV2",
                                                       {
-                                                        {{{4, 3, 4}, {4, 3, 4}}, ge::DT_INT8, ge::FORMAT_ND},
-                                                        {{{4, 3, 4}, {4, 3, 4}}, ge::DT_INT8, ge::FORMAT_ND},
-                                                        {{{1}, {1}}, ge::DT_INT8, ge::FORMAT_ND},
+                                                          {{{4, 3, 4}, {4, 3, 4}}, ge::DT_INT8, ge::FORMAT_ND},
+                                                          {{{4, 3, 4}, {4, 3, 4}}, ge::DT_INT8, ge::FORMAT_ND},
+                                                          {{{1}, {1}}, ge::DT_INT8, ge::FORMAT_ND},
                                                       },
                                                       {
-                                                        {{{}, {}}, ge::DT_INT8, ge::FORMAT_ND},
-                                                      }
-                                                     );
-    std::vector<std::vector<int64_t>> expectOutputShape = {{4, 3, 4},};
+                                                          {{{}, {}}, ge::DT_INT8, ge::FORMAT_ND},
+                                                      });
+    std::vector<std::vector<int64_t>> expectOutputShape = {
+        {4, 3, 4},
+    };
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
 
-TEST_F(AxpyV2Infershape, axpy_v2_infershape_same_test) {
+TEST_F(AxpyV2Infershape, axpy_v2_infershape_same_test)
+{
     gert::InfershapeContextPara infershapeContextPara("AxpyV2",
                                                       {
-                                                        {{{1, 3, 4}, {1, 3, 4}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-                                                        {{{4, 3, 4}, {4, 3, 4}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                          {{{1, 3, 4}, {1, 3, 4}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                          {{{4, 3, 4}, {4, 3, 4}}, ge::DT_FLOAT16, ge::FORMAT_ND},
                                                       },
                                                       {
-                                                        {{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-                                                      }
-                                                     );
-    std::vector<std::vector<int64_t>> expectOutputShape = {{4, 3, 4},};
+                                                          {{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                      });
+    std::vector<std::vector<int64_t>> expectOutputShape = {
+        {4, 3, 4},
+    };
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
 
-TEST_F(AxpyV2Infershape, axpy_v2_infershape_dynamic_test) {
+TEST_F(AxpyV2Infershape, axpy_v2_infershape_dynamic_test)
+{
     gert::InfershapeContextPara infershapeContextPara("AxpyV2",
                                                       {
-                                                        {{{-1}, {-1}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-                                                        {{{-1}, {-1}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-                                                        {{{-1}, {-1}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                          {{{-1}, {-1}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                          {{{-1}, {-1}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                          {{{-1}, {-1}}, ge::DT_FLOAT16, ge::FORMAT_ND},
                                                       },
                                                       {
-                                                        {{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-                                                      }
-                                                     );
-    std::vector<std::vector<int64_t>> expectOutputShape = {{-1},};
+                                                          {{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                      });
+    std::vector<std::vector<int64_t>> expectOutputShape = {
+        {-1},
+    };
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
 
-TEST_F(AxpyV2Infershape, axpy_v2_alpha_int64_test) {
+TEST_F(AxpyV2Infershape, axpy_v2_alpha_int64_test)
+{
     gert::InfershapeContextPara infershapeContextPara("AxpyV2",
                                                       {
-                                                        {{{-1}, {-1}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-                                                        {{{-1}, {-1}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-                                                        {{{-1}, {-1}}, ge::DT_INT64, ge::FORMAT_ND},
+                                                          {{{-1}, {-1}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                          {{{-1}, {-1}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                          {{{-1}, {-1}}, ge::DT_INT64, ge::FORMAT_ND},
                                                       },
                                                       {
-                                                        {{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-                                                      }
-                                                     );
-    std::vector<std::vector<int64_t>> expectOutputShape = {{-1},};
+                                                          {{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                      });
+    std::vector<std::vector<int64_t>> expectOutputShape = {
+        {-1},
+    };
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
 
-TEST_F(AxpyV2Infershape, axpy_v2_input_int64_test) {
+TEST_F(AxpyV2Infershape, axpy_v2_input_int64_test)
+{
     gert::InfershapeContextPara infershapeContextPara("AxpyV2",
                                                       {
-                                                        {{{-1}, {-1}}, ge::DT_INT64, ge::FORMAT_ND},
-                                                        {{{-1}, {-1}}, ge::DT_INT64, ge::FORMAT_ND},
-                                                        {{{-1}, {-1}}, ge::DT_INT32, ge::FORMAT_ND},
+                                                          {{{-1}, {-1}}, ge::DT_INT64, ge::FORMAT_ND},
+                                                          {{{-1}, {-1}}, ge::DT_INT64, ge::FORMAT_ND},
+                                                          {{{-1}, {-1}}, ge::DT_INT32, ge::FORMAT_ND},
                                                       },
                                                       {
-                                                        {{{}, {}}, ge::DT_INT64, ge::FORMAT_ND},
-                                                      }
-                                                     );
-    std::vector<std::vector<int64_t>> expectOutputShape = {{-1},};
+                                                          {{{}, {}}, ge::DT_INT64, ge::FORMAT_ND},
+                                                      });
+    std::vector<std::vector<int64_t>> expectOutputShape = {
+        {-1},
+    };
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }

@@ -19,15 +19,9 @@ using namespace ge;
 
 class BiasAddTiling : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        std::cout << "BiasAddTiling SetUp" << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "BiasAddTiling SetUp" << std::endl; }
 
-    static void TearDownTestCase()
-    {
-        std::cout << "BiasAddTiling TearDown" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "BiasAddTiling TearDown" << std::endl; }
 };
 
 TEST_F(BiasAddTiling, BiasAdd_test_tiling_001)

@@ -20,8 +20,7 @@
 #include "atvoss/util/vec.h"
 #include "atvoss/util/placeholder.h"
 
-namespace AxpyV2Op
-{
+namespace AxpyV2Op {
 using namespace Ops::Base;
 
 constexpr int CAST_NONE_MODE = 0;
@@ -116,5 +115,5 @@ struct AxpyV2ComputeBool {
     using OpDag = DAGSch<Outputs, void, MemCfg>;
 };
 
-}  // namespace AxpyV2Op
-#endif  // AXPY_V2_DAG_H
+} // namespace AxpyV2Op
+#endif // AXPY_V2_DAG_H

@@ -23,30 +23,23 @@ using namespace std;
 
 class SquaredDifferenceTiling : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        std::cout << "SquaredDifferenceTiling SetUp" << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "SquaredDifferenceTiling SetUp" << std::endl; }
 
-    static void TearDownTestCase()
-    {
-        std::cout << "SquaredDifferenceTiling TearDown" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "SquaredDifferenceTiling TearDown" << std::endl; }
 };
 
 TEST_F(SquaredDifferenceTiling, squared_difference_test_0)
 {
     optiling::SquaredDifferenceCompileInfo compileInfo = {64, 245760};
-    gert::TilingContextPara tilingContextPara(
-        "SquaredDifference",
-        {
-            {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_BF16, ge::FORMAT_ND},
-            {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_BF16, ge::FORMAT_ND},
-        },
-        {
-            {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_BF16, ge::FORMAT_ND},
-        },
-        &compileInfo);
+    gert::TilingContextPara tilingContextPara("SquaredDifference",
+                                              {
+                                                  {{{1, 1, 1, 1, 1}, {1, 1, 1, 1, 1}}, ge::DT_BF16, ge::FORMAT_ND},
+                                                  {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_BF16, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_BF16, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
     uint64_t expectTilingKey = 8;
     std::vector<size_t> expectWorkspaces = {16777216};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
@@ -109,16 +102,15 @@ TEST_F(SquaredDifferenceTiling, squared_difference_test_3)
 TEST_F(SquaredDifferenceTiling, squared_difference_test_4)
 {
     optiling::SquaredDifferenceCompileInfo compileInfo = {64, 245760};
-    gert::TilingContextPara tilingContextPara(
-        "SquaredDifference",
-        {
-            {{{15, 5}, {15, 5}}, ge::DT_BF16, ge::FORMAT_ND},
-            {{{1, 5}, {1, 5}}, ge::DT_BF16, ge::FORMAT_ND},
-        },
-        {
-            {{{15, 5}, {15, 5}}, ge::DT_BF16, ge::FORMAT_ND},
-        },
-        &compileInfo);
+    gert::TilingContextPara tilingContextPara("SquaredDifference",
+                                              {
+                                                  {{{15, 5}, {15, 5}}, ge::DT_BF16, ge::FORMAT_ND},
+                                                  {{{1, 5}, {1, 5}}, ge::DT_BF16, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{15, 5}, {15, 5}}, ge::DT_BF16, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
     uint64_t expectTilingKey = 0;
     std::vector<size_t> expectWorkspaces = {16777216};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
@@ -145,16 +137,15 @@ TEST_F(SquaredDifferenceTiling, squared_difference_test_5)
 TEST_F(SquaredDifferenceTiling, squared_difference_test_6)
 {
     optiling::SquaredDifferenceCompileInfo compileInfo = {64, 245760};
-    gert::TilingContextPara tilingContextPara(
-        "SquaredDifference",
-        {
-            {{{1, 1, 1}, {1, 1, 1}}, ge::DT_INT32, ge::FORMAT_ND},
-            {{{15, 2, 1}, {15, 2, 1}}, ge::DT_INT32, ge::FORMAT_ND},
-        },
-        {
-            {{{15, 2, 1}, {15, 2, 1}}, ge::DT_INT32, ge::FORMAT_ND},
-        },
-        &compileInfo);
+    gert::TilingContextPara tilingContextPara("SquaredDifference",
+                                              {
+                                                  {{{1, 1, 1}, {1, 1, 1}}, ge::DT_INT32, ge::FORMAT_ND},
+                                                  {{{15, 2, 1}, {15, 2, 1}}, ge::DT_INT32, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{15, 2, 1}, {15, 2, 1}}, ge::DT_INT32, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
     uint64_t expectTilingKey = 8;
     std::vector<size_t> expectWorkspaces = {16777216};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
@@ -181,16 +172,15 @@ TEST_F(SquaredDifferenceTiling, squared_difference_test_7)
 TEST_F(SquaredDifferenceTiling, squared_difference_test_8)
 {
     optiling::SquaredDifferenceCompileInfo compileInfo = {64, 245760};
-    gert::TilingContextPara tilingContextPara(
-        "SquaredDifference",
-        {
-            {{{14, 16}, {14, 16}}, ge::DT_INT64, ge::FORMAT_ND},
-            {{{14, 16}, {14, 16}}, ge::DT_INT64, ge::FORMAT_ND},
-        },
-        {
-            {{{14, 16}, {14, 16}}, ge::DT_INT64, ge::FORMAT_ND},
-        },
-        &compileInfo);
+    gert::TilingContextPara tilingContextPara("SquaredDifference",
+                                              {
+                                                  {{{14, 16}, {14, 16}}, ge::DT_INT64, ge::FORMAT_ND},
+                                                  {{{14, 16}, {14, 16}}, ge::DT_INT64, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{14, 16}, {14, 16}}, ge::DT_INT64, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
     uint64_t expectTilingKey = 8;
     std::vector<size_t> expectWorkspaces = {16777216};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
@@ -199,16 +189,15 @@ TEST_F(SquaredDifferenceTiling, squared_difference_test_8)
 TEST_F(SquaredDifferenceTiling, squared_difference_test_failed_different_dtype)
 {
     optiling::SquaredDifferenceCompileInfo compileInfo = {64, 245760};
-    gert::TilingContextPara tilingContextPara(
-        "SquaredDifference",
-        {
-            {{{4, 17, 1, 12}, {4, 17, 1, 12}}, ge::DT_BF16, ge::FORMAT_ND},
-            {{{1, 1, 1, 12}, {1, 1, 1, 12}}, ge::DT_INT64, ge::FORMAT_ND},
-        },
-        {
-            {{{4, 17, 1, 12}, {4, 17, 1, 12}}, ge::DT_BF16, ge::FORMAT_ND},
-        },
-        &compileInfo);
+    gert::TilingContextPara tilingContextPara("SquaredDifference",
+                                              {
+                                                  {{{4, 17, 1, 12}, {4, 17, 1, 12}}, ge::DT_BF16, ge::FORMAT_ND},
+                                                  {{{1, 1, 1, 12}, {1, 1, 1, 12}}, ge::DT_INT64, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{4, 17, 1, 12}, {4, 17, 1, 12}}, ge::DT_BF16, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
     uint64_t expectTilingKey = 0;
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED, expectTilingKey, expectWorkspaces);
@@ -217,16 +206,15 @@ TEST_F(SquaredDifferenceTiling, squared_difference_test_failed_different_dtype)
 TEST_F(SquaredDifferenceTiling, squared_difference_test_failed_invalid_dtype)
 {
     optiling::SquaredDifferenceCompileInfo compileInfo = {64, 245760};
-    gert::TilingContextPara tilingContextPara(
-        "SquaredDifference",
-        {
-            {{{4, 17, 1, 12}, {4, 17, 1, 12}}, ge::DT_INT16, ge::FORMAT_ND},
-            {{{1, 1, 1, 12}, {1, 1, 1, 12}}, ge::DT_INT16, ge::FORMAT_ND},
-        },
-        {
-            {{{4, 17, 1, 12}, {4, 17, 1, 12}}, ge::DT_INT16, ge::FORMAT_ND},
-        },
-        &compileInfo);
+    gert::TilingContextPara tilingContextPara("SquaredDifference",
+                                              {
+                                                  {{{4, 17, 1, 12}, {4, 17, 1, 12}}, ge::DT_INT16, ge::FORMAT_ND},
+                                                  {{{1, 1, 1, 12}, {1, 1, 1, 12}}, ge::DT_INT16, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{4, 17, 1, 12}, {4, 17, 1, 12}}, ge::DT_INT16, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
     uint64_t expectTilingKey = 8;
     std::vector<size_t> expectWorkspaces = {16777216};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED, expectTilingKey, expectWorkspaces);

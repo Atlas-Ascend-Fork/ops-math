@@ -27,8 +27,7 @@ struct SquaredDifferenceCompileInfo {
 
 class SquaredDifferenceTiling : public Ops::Base::TilingBaseClass {
 public:
-    explicit SquaredDifferenceTiling(gert::TilingContext* context) : Ops::Base::TilingBaseClass(context)
-    {}
+    explicit SquaredDifferenceTiling(gert::TilingContext* context) : Ops::Base::TilingBaseClass(context) {}
 
 protected:
     bool IsCapable() override;

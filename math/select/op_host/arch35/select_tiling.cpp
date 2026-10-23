@@ -46,15 +46,9 @@ std::string Shape2String(const T& shape)
     return oss.str();
 }
 
-ge::graphStatus SelectTiling::GetShapeAttrsInfo()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus SelectTiling::GetShapeAttrsInfo() { return ge::GRAPH_SUCCESS; }
 
-bool SelectTiling::IsCapable()
-{
-    return true;
-}
+bool SelectTiling::IsCapable() { return true; }
 
 ge::graphStatus SelectCheckInputDtype(gert::TilingContext* context)
 {
@@ -78,8 +72,9 @@ ge::graphStatus SelectCheckInputDtype(gert::TilingContext* context)
                                 ge::TypeUtils::DataTypeToSerialString(input1DType) + ", " +
                                 ge::TypeUtils::DataTypeToSerialString(input2DType) + " and " +
                                 ge::TypeUtils::DataTypeToSerialString(outputDtype);
-        OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(context->GetNodeName(), "condition, x1, x2 and y",
-            dtypesStr.c_str(), "The dtype of Condition must be bool, and the dtypes of x1, x2 and y must be the same");
+        OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(
+            context->GetNodeName(), "condition, x1, x2 and y", dtypesStr.c_str(),
+            "The dtype of Condition must be bool, and the dtypes of x1, x2 and y must be the same");
         return ge::GRAPH_FAILED;
     }
     return ge::GRAPH_SUCCESS;
@@ -105,17 +100,18 @@ ge::graphStatus InferSelectShape(gert::TilingContext* context, vector<gert::Shap
         std::string x1ShapeStr = Ops::Base::ToString(x1Shape);
         std::string x2ShapeStr = Ops::Base::ToString(x2Shape);
         std::string shapesStr = x1ShapeStr + " and " + x2ShapeStr;
-        OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(context->GetNodeName(), "x1 and x2",
-            shapesStr.c_str(), "The shapes of x1 and x2 must be the same");
+        OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(context->GetNodeName(), "x1 and x2", shapesStr.c_str(),
+                                               "The shapes of x1 and x2 must be the same");
         return ge::GRAPH_FAILED;
     }
-        
+
     int64_t conditionResize = x1DimNum - conditionDimNum;
     OP_CHECK_IF(conditionResize < 0,
-        OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "condition and x1",
-            (std::to_string(conditionDimNum) + " and " + std::to_string(x1DimNum)).c_str(),
-            "The shape dim of condition should not be greater than the shape dim of x1"),
-        return ge::GRAPH_FAILED);
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(
+                    context->GetNodeName(), "condition and x1",
+                    (std::to_string(conditionDimNum) + " and " + std::to_string(x1DimNum)).c_str(),
+                    "The shape dim of condition should not be greater than the shape dim of x1"),
+                return ge::GRAPH_FAILED);
 
     gert::Shape conditionNewShape;
     conditionNewShape.SetDimNum(0);
@@ -130,21 +126,19 @@ ge::graphStatus InferSelectShape(gert::TilingContext* context, vector<gert::Shap
     }
     inputShapes.push_back(conditionNewShape);
     inputShapes.push_back(x1Shape);
-    inputShapes.push_back(x2Shape);  
-    
+    inputShapes.push_back(x2Shape);
+
     return ge::GRAPH_SUCCESS;
 }
 
 ge::graphStatus SelectTiling::DoOpTiling()
 {
     OP_CHECK_IF(SelectCheckInputDtype(context_) != ge::GRAPH_SUCCESS,
-        OP_LOGE(context_->GetNodeName(), "SelectCheckInputDtype error!"),
-        return ge::GRAPH_FAILED);
+                OP_LOGE(context_->GetNodeName(), "SelectCheckInputDtype error!"), return ge::GRAPH_FAILED);
 
     vector<gert::Shape> inputShapes;
     OP_CHECK_IF(InferSelectShape(context_, inputShapes) != ge::GRAPH_SUCCESS,
-        OP_LOGE(context_->GetNodeName(), "InferSelectShape error!"),
-        return ge::GRAPH_FAILED);
+                OP_LOGE(context_->GetNodeName(), "InferSelectShape error!"), return ge::GRAPH_FAILED);
 
     auto input1Desc = context_->GetInputDesc(X1_IDX);
     OP_CHECK_NULL_WITH_CONTEXT(context_, input1Desc);
@@ -184,37 +178,22 @@ ge::graphStatus SelectTiling::DoOpTiling()
     } else {
         std::string dtypeStr = ge::TypeUtils::DataTypeToSerialString(input1DType);
         OP_LOGE_FOR_INVALID_DTYPE(context_->GetNodeName(), "x1", dtypeStr.c_str(),
-            "int64, int32, int8, uint8, float16, bf16, fp32 or bool");
+                                  "int64, int32, int8, uint8, float16, bf16, fp32 or bool");
         return ge::GRAPH_FAILED;
     }
 
     return ret;
 }
 
-ge::graphStatus SelectTiling::DoLibApiTiling()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus SelectTiling::DoLibApiTiling() { return ge::GRAPH_SUCCESS; }
 
-uint64_t SelectTiling::GetTilingKey() const
-{
-    return tilingKey;
-}
+uint64_t SelectTiling::GetTilingKey() const { return tilingKey; }
 
-ge::graphStatus SelectTiling::GetWorkspaceSize()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus SelectTiling::GetWorkspaceSize() { return ge::GRAPH_SUCCESS; }
 
-ge::graphStatus SelectTiling::PostTiling()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus SelectTiling::PostTiling() { return ge::GRAPH_SUCCESS; }
 
-ge::graphStatus SelectTiling::GetPlatformInfo()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus SelectTiling::GetPlatformInfo() { return ge::GRAPH_SUCCESS; }
 
 ge::graphStatus TilingForSelect(gert::TilingContext* context)
 {
@@ -233,7 +212,7 @@ ge::graphStatus TilingForSelect(gert::TilingContext* context)
 
 ge::graphStatus SelectTilingPrepareAscendC(gert::TilingParseContext* context)
 {
-    fe::PlatFormInfos *platformInfo = context->GetPlatformInfo();
+    fe::PlatFormInfos* platformInfo = context->GetPlatformInfo();
     auto compileInfo = context->GetCompiledInfo<SelectCompileInfo>();
     OP_CHECK_NULL_WITH_CONTEXT(context, platformInfo);
 
@@ -244,7 +223,7 @@ ge::graphStatus SelectTilingPrepareAscendC(gert::TilingParseContext* context)
     return ge::GRAPH_SUCCESS;
 }
 
- ge::graphStatus TilingPrepareForSelect(gert::TilingParseContext* context)
+ge::graphStatus TilingPrepareForSelect(gert::TilingParseContext* context)
 {
     OP_LOGD("TilingPrepareForSelect", "Enter TilingPrepareForSelect");
     if (context == nullptr) {
@@ -258,9 +237,7 @@ ge::graphStatus SelectTilingPrepareAscendC(gert::TilingParseContext* context)
     OP_LOGD(context, "Enter SelectTilingPrepareAscendC");
     return SelectTilingPrepareAscendC(context);
 }
- 
- IMPL_OP_OPTILING(Select)
-     .Tiling(TilingForSelect)
-     .TilingParse<SelectCompileInfo>(TilingPrepareForSelect);
- REGISTER_OPS_TILING_TEMPLATE(Select, SelectTiling, SELECT_COMMON_TILING_PRIORITY);
- }   // namespace optiling 
+
+IMPL_OP_OPTILING(Select).Tiling(TilingForSelect).TilingParse<SelectCompileInfo>(TilingPrepareForSelect);
+REGISTER_OPS_TILING_TEMPLATE(Select, SelectTiling, SELECT_COMMON_TILING_PRIORITY);
+} // namespace optiling

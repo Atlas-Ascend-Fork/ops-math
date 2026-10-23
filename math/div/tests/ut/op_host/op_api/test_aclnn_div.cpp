@@ -25,15 +25,9 @@ using namespace std;
 
 class l2_div_test : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        cout << "div_test SetUp" << endl;
-    }
+    static void SetUpTestCase() { cout << "div_test SetUp" << endl; }
 
-    static void TearDownTestCase()
-    {
-        cout << "div_test TearDown" << endl;
-    }
+    static void TearDownTestCase() { cout << "div_test TearDown" << endl; }
 };
 
 // 测试aicore:FLOAT,FLOAT32类型支持

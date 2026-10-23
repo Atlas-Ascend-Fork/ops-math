@@ -23,38 +23,30 @@
 using namespace std;
 using namespace ge;
 
-struct DivCompileInfo{
+struct DivCompileInfo {
     uint64_t coreNum;
     uint64_t ubSize;
 };
 
-
 class DivTiling : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        std::cout << "DivTiling SetUp" << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "DivTiling SetUp" << std::endl; }
 
-    static void TearDownTestCase()
-    {
-        std::cout << "DivTiling TearDown" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "DivTiling TearDown" << std::endl; }
 };
 
 TEST_F(DivTiling, div_test_0)
 {
     DivCompileInfo compileInfo = {64, 245760};
-    gert::TilingContextPara tilingContextPara(
-        "Div",
-        {
-            {{{5, 5, 64, 128}, {5, 5, 64, 128}}, ge::DT_BF16, ge::FORMAT_ND},
-            {{{5, 5, 64, 128}, {5, 5, 64, 128}}, ge::DT_BF16, ge::FORMAT_ND},
-        },
-        {
-            {{{5, 5, 64, 128}, {5, 5, 64, 128}}, ge::DT_BF16, ge::FORMAT_ND},
-        },
-        &compileInfo);
+    gert::TilingContextPara tilingContextPara("Div",
+                                              {
+                                                  {{{5, 5, 64, 128}, {5, 5, 64, 128}}, ge::DT_BF16, ge::FORMAT_ND},
+                                                  {{{5, 5, 64, 128}, {5, 5, 64, 128}}, ge::DT_BF16, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{5, 5, 64, 128}, {5, 5, 64, 128}}, ge::DT_BF16, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
     uint64_t expectTilingKey = 8;
     string expectTilingData = "204800 137438956672 ";
     std::vector<size_t> expectWorkspaces = {16777216};
@@ -64,16 +56,15 @@ TEST_F(DivTiling, div_test_0)
 TEST_F(DivTiling, div_test_1)
 {
     DivCompileInfo compileInfo = {64, 245760};
-    gert::TilingContextPara tilingContextPara(
-        "Div",
-        {
-            {{{5, 5, 64, 128}, {5, 5, 64, 128}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-            {{{5, 5, 64, 128}, {5, 5, 64, 128}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-        },
-        {
-            {{{5, 5, 64, 128}, {5, 5, 64, 128}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-        },
-        &compileInfo);
+    gert::TilingContextPara tilingContextPara("Div",
+                                              {
+                                                  {{{5, 5, 64, 128}, {5, 5, 64, 128}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                  {{{5, 5, 64, 128}, {5, 5, 64, 128}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{5, 5, 64, 128}, {5, 5, 64, 128}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
     uint64_t expectTilingKey = 8;
     string expectTilingData = "204800 137438956672 ";
     std::vector<size_t> expectWorkspaces = {16777216};

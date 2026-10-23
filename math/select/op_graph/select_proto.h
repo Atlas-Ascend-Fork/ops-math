@@ -49,4 +49,3 @@ REG_OP(Select)
 } // namespace ge
 
 #endif // OPS_OP_PROTO_INC_SELECT_H_
-

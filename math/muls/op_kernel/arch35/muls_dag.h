@@ -20,8 +20,7 @@
 #include "atvoss/util/vec.h"
 #include "atvoss/util/placeholder.h"
 
-namespace MulsDag
-{
+namespace MulsDag {
 using namespace Ops::Base;
 
 constexpr int CAST_MODE_NONE = 0;
@@ -31,7 +30,7 @@ constexpr int CAST_MODE_TRUNC = 5;
 constexpr uint32_t COUNT_DOUBLE = 2;
 constexpr int8_t REG_BIT_59 = 59;
 
-template <class T1, class T2>  // complex64, complex32
+template <class T1, class T2> // complex64, complex32
 struct CastComplex32ToComplex64 : public Vec::ElemwiseUnaryOP<T1, T2> {
     __aicore__ inline CastComplex32ToComplex64(LocalTensor<T1>& dst, LocalTensor<T2>& src, uint32_t count)
     {
@@ -41,7 +40,7 @@ struct CastComplex32ToComplex64 : public Vec::ElemwiseUnaryOP<T1, T2> {
 #endif
     }
 };
-template <class T1, class T2>  // complex32, complex64
+template <class T1, class T2> // complex32, complex64
 struct CastComplex64ToComplex32 : public Vec::ElemwiseUnaryOP<T1, T2> {
     __aicore__ inline CastComplex64ToComplex32(LocalTensor<T1>& dst, LocalTensor<T2>& src, uint32_t count)
     {
@@ -51,7 +50,7 @@ struct CastComplex64ToComplex32 : public Vec::ElemwiseUnaryOP<T1, T2> {
 #endif
     }
 };
-template <class T1, class T2>  // complex64
+template <class T1, class T2> // complex64
 struct MulsComplex64Float : public Vec::ElemwiseBinaryOP<T1, T1, T2> {
     __aicore__ inline MulsComplex64Float(const LocalTensor<T1>& dst, const LocalTensor<T1>& src, const T2& scalar,
                                          int count)
@@ -63,7 +62,7 @@ struct MulsComplex64Float : public Vec::ElemwiseBinaryOP<T1, T1, T2> {
     }
 };
 
-template <class T1, class T2>  // int16_t, float
+template <class T1, class T2> // int16_t, float
 struct CastFp32ToInt16 : public Vec::ElemwiseUnaryOP<int16_t, float> {
     __aicore__ inline CastFp32ToInt16(LocalTensor<T1>& dst, LocalTensor<T2>& src, uint32_t count)
     {
@@ -124,5 +123,5 @@ struct MulsComplex64Op {
     using MemCfg = MemOptCfg<MemLevel::LEVEL_2>;
     using OpDag = DAGSch<Outputs, void, MemCfg>;
 };
-}  // namespace MulsDag
-#endif  // MULS_DAG_H
+} // namespace MulsDag
+#endif // MULS_DAG_H

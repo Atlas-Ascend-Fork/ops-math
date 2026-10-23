@@ -24,35 +24,27 @@ namespace l0op {
 
 OP_TYPE_REGISTER(Muls);
 
-const aclTensor *Muls(const aclTensor *self,
-                      float alpha,
-                      aclOpExecutor *executor) {
-  L0_DFX(Muls, self, alpha);
+const aclTensor* Muls(const aclTensor* self, float alpha, aclOpExecutor* executor)
+{
+    L0_DFX(Muls, self, alpha);
 
-  auto mulsOut = executor->AllocTensor(self->GetViewShape(), self->GetDataType());
+    auto mulsOut = executor->AllocTensor(self->GetViewShape(), self->GetDataType());
 
-  auto retAicore = ADD_TO_LAUNCHER_LIST_AICORE(Muls,
-                                               OP_INPUT(self),
-                                               OP_OUTPUT(mulsOut),
-                                               OP_ATTR(alpha));
-  OP_CHECK_ADD_TO_LAUNCHER_LIST_AICORE(retAicore != ACLNN_SUCCESS, return nullptr,
-                                       "Muls ADD_TO_LAUNCHER_LIST_AICORE failed.");
-  return mulsOut;
+    auto retAicore = ADD_TO_LAUNCHER_LIST_AICORE(Muls, OP_INPUT(self), OP_OUTPUT(mulsOut), OP_ATTR(alpha));
+    OP_CHECK_ADD_TO_LAUNCHER_LIST_AICORE(retAicore != ACLNN_SUCCESS, return nullptr,
+                                         "Muls ADD_TO_LAUNCHER_LIST_AICORE failed.");
+    return mulsOut;
 }
 
-const aclTensor *MulsInplace(const aclTensor *self,
-                      float alpha,
-                      aclOpExecutor *executor) {
-  L0_DFX(MulsInplace, self, alpha);
+const aclTensor* MulsInplace(const aclTensor* self, float alpha, aclOpExecutor* executor)
+{
+    L0_DFX(MulsInplace, self, alpha);
 
-  auto mulsOut = self;
+    auto mulsOut = self;
 
-  auto retAicore = ADD_TO_LAUNCHER_LIST_AICORE(Muls,
-                                               OP_INPUT(self),
-                                               OP_OUTPUT(mulsOut),
-                                               OP_ATTR(alpha));
-  OP_CHECK_ADD_TO_LAUNCHER_LIST_AICORE(retAicore != ACLNN_SUCCESS, return nullptr,
-                                       "Muls ADD_TO_LAUNCHER_LIST_AICORE failed.");
-  return mulsOut;
+    auto retAicore = ADD_TO_LAUNCHER_LIST_AICORE(Muls, OP_INPUT(self), OP_OUTPUT(mulsOut), OP_ATTR(alpha));
+    OP_CHECK_ADD_TO_LAUNCHER_LIST_AICORE(retAicore != ACLNN_SUCCESS, return nullptr,
+                                         "Muls ADD_TO_LAUNCHER_LIST_AICORE failed.");
+    return mulsOut;
 }
-}
+} // namespace l0op

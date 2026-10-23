@@ -24,13 +24,9 @@
 
 using namespace std;
 
-extern "C" __global__ __aicore__ void signbit(GM_ADDR x,GM_ADDR y, GM_ADDR workspace, GM_ADDR tiling);
+extern "C" __global__ __aicore__ void signbit(GM_ADDR x, GM_ADDR y, GM_ADDR workspace, GM_ADDR tiling);
 class signbit_test : public testing::Test {
-    protected:
-    static void SetUpTestCase() {
-        cout << "signbit_test SetUp\n" << endl;
-    }
-    static void TearDownTestCase() {
-        cout << "signbit_test TearDown\n" << endl;
-    }
+protected:
+    static void SetUpTestCase() { cout << "signbit_test SetUp\n" << endl; }
+    static void TearDownTestCase() { cout << "signbit_test TearDown\n" << endl; }
 };

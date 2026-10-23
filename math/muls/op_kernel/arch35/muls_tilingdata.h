@@ -25,5 +25,4 @@ struct MulsTilingData {
     float value;
 };
 
-
 #endif // _FILLS_TILINGDATA_

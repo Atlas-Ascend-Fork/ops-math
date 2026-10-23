@@ -15,14 +15,10 @@
 #include "base/registry/op_impl_space_registry_v2.h"
 
 class TanhGradInfershapeTest : public testing::Test {
- protected:
-  static void SetUpTestCase() {
-    std::cout << "TanhGradInfershapeTest SetUp" << std::endl;
-  }
+protected:
+    static void SetUpTestCase() { std::cout << "TanhGradInfershapeTest SetUp" << std::endl; }
 
-  static void TearDownTestCase() {
-    std::cout << "TanhGradInfershapeTest TearDown" << std::endl;
-  }
+    static void TearDownTestCase() { std::cout << "TanhGradInfershapeTest TearDown" << std::endl; }
 };
 
 TEST_F(TanhGradInfershapeTest, tanh_grad_infershape_test_01)
@@ -30,8 +26,7 @@ TEST_F(TanhGradInfershapeTest, tanh_grad_infershape_test_01)
     gert::StorageShape shape = {{32, 32}, {32, 32}};
 
     gert::InfershapeContextPara infershapeContextPara(
-        "TanhGrad",
-        {{shape, ge::DT_FLOAT, ge::FORMAT_ND}, {shape, ge::DT_FLOAT, ge::FORMAT_ND}},
+        "TanhGrad", {{shape, ge::DT_FLOAT, ge::FORMAT_ND}, {shape, ge::DT_FLOAT, ge::FORMAT_ND}},
         {{{{-2}, {-2}}, ge::DT_FLOAT, ge::FORMAT_ND}});
 
     std::vector<std::vector<int64_t>> expectOutputShape = {{32, 32}};

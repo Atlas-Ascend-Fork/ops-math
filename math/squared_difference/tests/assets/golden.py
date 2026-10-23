@@ -9,24 +9,21 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # ----------------------------------------------------------------------------
-import numpy
 
-__golden__ = {
-  	"kernel": {
-  	    "squared_difference": "squared_difference_golden"
-  	}
-}
+__golden__ = {"kernel": {"squared_difference": "squared_difference_golden"}}
+
 
 def squared_difference_golden(x1, x2, **kwargs):
-    '''
+    """
     Kernel golden for squared_difference.
     All the parameters follow @squared_difference_def.cpp without outputs.
     All the input Tensors are numpy.ndarray.
     kwargs may contain: short_soc_version, input_ori_shapes, output_ori_shapes,
-	    input_formats, output_formats, input_ori_formats, output_ori_formats,
-	    input_dtypes, output_dtypes.
-    '''
+            input_formats, output_formats, input_ori_formats, output_ori_formats,
+            input_dtypes, output_dtypes.
+    """
     import tensorflow as tf
+
     tf.compat.v1.disable_eager_execution()
 
     dtype_name = str(x1.dtype)

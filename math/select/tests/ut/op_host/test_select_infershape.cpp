@@ -14,27 +14,21 @@
 #include "infershape_case_executor.h"
 
 class SelectTest : public testing::Test {
- protected:
-  static void SetUpTestCase() {
-    std::cout << "SelectTest SetUp" << std::endl;
-  }
+protected:
+    static void SetUpTestCase() { std::cout << "SelectTest SetUp" << std::endl; }
 
-  static void TearDownTestCase() {
-    std::cout << "SelectTest TearDown" << std::endl;
-  }
+    static void TearDownTestCase() { std::cout << "SelectTest TearDown" << std::endl; }
 };
 
-TEST_F(SelectTest, select_infer_shape_0) {
+TEST_F(SelectTest, select_infer_shape_0)
+{
     gert::StorageShape shape = {{2, 100}, {2, 100}};
     gert::StorageShape yShape = {{2, 100}, {2, 100}};
     gert::InfershapeContextPara::TensorDescription condition(shape, ge::DT_FLOAT16, ge::FORMAT_ND);
     gert::InfershapeContextPara::TensorDescription x1(shape, ge::DT_FLOAT16, ge::FORMAT_ND);
     gert::InfershapeContextPara::TensorDescription x2(shape, ge::DT_FLOAT16, ge::FORMAT_ND);
     gert::InfershapeContextPara::TensorDescription y(yShape, ge::DT_FLOAT16, ge::FORMAT_ND);
-    gert::InfershapeContextPara infershapeContextPara(
-        "Select",
-        { condition, x1, x2 },
-        { y });
+    gert::InfershapeContextPara infershapeContextPara("Select", {condition, x1, x2}, {y});
     std::vector<std::vector<int64_t>> expectOutputShape = {
         {2, 100},
     };

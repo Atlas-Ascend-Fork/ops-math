@@ -27,8 +27,7 @@ namespace optiling {
 
 class DivTiling : public Ops::Base::TilingBaseClass {
 public:
-    explicit DivTiling(gert::TilingContext* context) : Ops::Base::TilingBaseClass(context)
-    {}
+    explicit DivTiling(gert::TilingContext* context) : Ops::Base::TilingBaseClass(context) {}
 
 protected:
     bool IsCapable() override;

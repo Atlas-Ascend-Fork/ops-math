@@ -18,20 +18,20 @@
 
 namespace aicpu {
 class TanhGradCpuKernel : public CpuKernel {
- public:
-  TanhGradCpuKernel() = default;
-  ~TanhGradCpuKernel() override = default;
-  uint32_t Compute(CpuKernelContext &ctx) override;
+public:
+    TanhGradCpuKernel() = default;
+    ~TanhGradCpuKernel() override = default;
+    uint32_t Compute(CpuKernelContext& ctx) override;
 
- private:
-  uint32_t CheckInputs(const CpuKernelContext &ctx) const;
-  uint32_t DispatchCompute(const CpuKernelContext &ctx);
+private:
+    uint32_t CheckInputs(const CpuKernelContext& ctx) const;
+    uint32_t DispatchCompute(const CpuKernelContext& ctx);
 
-  template <typename T>
-  uint32_t TanhGradCompute(const CpuKernelContext &ctx);
+    template <typename T>
+    uint32_t TanhGradCompute(const CpuKernelContext& ctx);
 
-  template <typename T>
-  uint32_t TanhGradComputeConj(const CpuKernelContext &ctx);
+    template <typename T>
+    uint32_t TanhGradComputeConj(const CpuKernelContext& ctx);
 };
-}  // namespace aicpu
-#endif  // AICPU_KERNELS_NORMALIZED_TANH_GRAD_H_
+} // namespace aicpu
+#endif // AICPU_KERNELS_NORMALIZED_TANH_GRAD_H_

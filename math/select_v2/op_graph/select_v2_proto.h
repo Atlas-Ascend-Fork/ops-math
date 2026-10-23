@@ -25,8 +25,9 @@ namespace ge {
 
 * @par Inputs:
 * Three inputs, including:
-* @li condition: A tensor of type bool. If condittion is true, outputs will be set as then. If condittion is false, outputs will be set as else.
-* @li then: A tensor. Must be one of the following types: float16, float32, double, int8, int16, int32, int64, 
+* @li condition: A tensor of type bool. If condittion is true, outputs will be set as then. If condittion is false,
+outputs will be set as else.
+* @li then: A tensor. Must be one of the following types: float16, float32, double, int8, int16, int32, int64,
  *uint8, uint16, uint32, uint64, complex64, complex128, bool, bfloat16
 * @li else: A tensor of the same type as "then" . \n
 
@@ -42,13 +43,14 @@ namespace ge {
 */
 REG_OP(SelectV2)
     .INPUT(condition, TensorType({DT_BOOL}))
-    .INPUT(then,TensorType({DT_COMPLEX128,DT_COMPLEX64,DT_DOUBLE,DT_FLOAT,DT_FLOAT16,DT_INT16,DT_INT32,DT_INT64,DT_INT8,DT_UINT16,DT_UINT32,DT_UINT64,DT_UINT8,DT_BOOL,DT_BF16}))
-    .INPUT(else,TensorType({DT_COMPLEX128,DT_COMPLEX64,DT_DOUBLE,DT_FLOAT,DT_FLOAT16,DT_INT16,DT_INT32,DT_INT64,DT_INT8,DT_UINT16,DT_UINT32,DT_UINT64,DT_UINT8,DT_BOOL,DT_BF16}))
-    .OUTPUT(result,TensorType({DT_COMPLEX128,DT_COMPLEX64,DT_DOUBLE,DT_FLOAT,DT_FLOAT16,DT_INT16,DT_INT32,DT_INT64,DT_INT8,DT_UINT16,DT_UINT32,DT_UINT64,DT_UINT8,DT_BOOL,DT_BF16}))
+    .INPUT(then, TensorType({DT_COMPLEX128, DT_COMPLEX64, DT_DOUBLE, DT_FLOAT, DT_FLOAT16, DT_INT16, DT_INT32, DT_INT64,
+                             DT_INT8, DT_UINT16, DT_UINT32, DT_UINT64, DT_UINT8, DT_BOOL, DT_BF16}))
+    .INPUT(else, TensorType({DT_COMPLEX128, DT_COMPLEX64, DT_DOUBLE, DT_FLOAT, DT_FLOAT16, DT_INT16, DT_INT32, DT_INT64,
+                             DT_INT8, DT_UINT16, DT_UINT32, DT_UINT64, DT_UINT8, DT_BOOL, DT_BF16}))
+    .OUTPUT(result, TensorType({DT_COMPLEX128, DT_COMPLEX64, DT_DOUBLE, DT_FLOAT, DT_FLOAT16, DT_INT16, DT_INT32,
+                                DT_INT64, DT_INT8, DT_UINT16, DT_UINT32, DT_UINT64, DT_UINT8, DT_BOOL, DT_BF16}))
     .OP_END_FACTORY_REG(SelectV2)
-
 
 } // namespace ge
 
 #endif // OPS_OP_PROTO_INC_SELECT_V2_H_
-

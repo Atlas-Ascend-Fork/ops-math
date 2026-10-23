@@ -13,16 +13,14 @@
  * \brief select_v2 struct
  */
 
- #ifndef SELECT_V2_STRUCT_H
- #define SELECT_V2_STRUCT_H
- 
- #include "atvoss/broadcast/broadcast_base_struct.h"
- 
- // 算子自定义的tiling key字段
- ASCENDC_TPL_ARGS_DECL(SelectV2, BRC_TEMP_SCH_MODE_KEY_DECL(schMode));
- 
- ASCENDC_TPL_SEL(
-     ASCENDC_TPL_ARGS_SEL(BRC_TEMP_SCH_MODE_KEY_SEL(schMode))
- );
- 
- #endif // SELECT_V2_STRUCT_H
+#ifndef SELECT_V2_STRUCT_H
+#define SELECT_V2_STRUCT_H
+
+#include "atvoss/broadcast/broadcast_base_struct.h"
+
+// 算子自定义的tiling key字段
+ASCENDC_TPL_ARGS_DECL(SelectV2, BRC_TEMP_SCH_MODE_KEY_DECL(schMode));
+
+ASCENDC_TPL_SEL(ASCENDC_TPL_ARGS_SEL(BRC_TEMP_SCH_MODE_KEY_SEL(schMode)));
+
+#endif // SELECT_V2_STRUCT_H

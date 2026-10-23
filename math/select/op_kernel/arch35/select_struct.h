@@ -13,12 +13,12 @@
  * \brief select struct
  */
 
- #ifndef SELECT_STRUCT_H
- #define SELECT_STRUCT_H
- 
- #include "atvoss/broadcast/broadcast_base_struct.h"
- 
- struct SelectSimtTilingData {
+#ifndef SELECT_STRUCT_H
+#define SELECT_STRUCT_H
+
+#include "atvoss/broadcast/broadcast_base_struct.h"
+
+struct SelectSimtTilingData {
     int64_t needCoreNum;
     int64_t threadNum;
     int64_t aSize;
@@ -28,14 +28,12 @@
 };
 
 // 算子自定义的tiling key字段
- ASCENDC_TPL_ARGS_DECL(Select, 
-    BRC_TEMP_SCH_MODE_KEY_DECL(schMode),
-    ASCENDC_TPL_UINT_DECL(userDef, 8, ASCENDC_TPL_UI_LIST, 0, 1)
-);
- 
- ASCENDC_TPL_SEL(
-    ASCENDC_TPL_ARGS_SEL(BRC_TEMP_SCH_MODE_KEY_SEL(schMode),ASCENDC_TPL_UINT_SEL(userDef, ASCENDC_TPL_UI_LIST, 0)),
-    ASCENDC_TPL_ARGS_SEL(BRC_TEMP_SCH_CUSTOM_MODE_KEY_SEL(schMode), ASCENDC_TPL_UINT_SEL(userDef, ASCENDC_TPL_UI_LIST, 1))
- );
- 
- #endif // SELECT_STRUCT_H
+ASCENDC_TPL_ARGS_DECL(Select, BRC_TEMP_SCH_MODE_KEY_DECL(schMode),
+                      ASCENDC_TPL_UINT_DECL(userDef, 8, ASCENDC_TPL_UI_LIST, 0, 1));
+
+ASCENDC_TPL_SEL(ASCENDC_TPL_ARGS_SEL(BRC_TEMP_SCH_MODE_KEY_SEL(schMode),
+                                     ASCENDC_TPL_UINT_SEL(userDef, ASCENDC_TPL_UI_LIST, 0)),
+                ASCENDC_TPL_ARGS_SEL(BRC_TEMP_SCH_CUSTOM_MODE_KEY_SEL(schMode),
+                                     ASCENDC_TPL_UINT_SEL(userDef, ASCENDC_TPL_UI_LIST, 1)));
+
+#endif // SELECT_STRUCT_H

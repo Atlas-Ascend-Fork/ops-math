@@ -8,11 +8,10 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-
 /*!
  * \file ger_proto.h
  * \brief
-*/
+ */
 
 #ifndef OPS_OP_PROTO_INC_GER_H_
 #define OPS_OP_PROTO_INC_GER_H_
@@ -27,7 +26,7 @@ namespace ge {
 
 *@par Inputs:
 *The input x1 and x2 has to be a 1D vector.Inputs include:
-*@li x1:A Tensor. Must be one of the following types: float16, float32, bfloat16. 
+*@li x1:A Tensor. Must be one of the following types: float16, float32, bfloat16.
 Shape is [N] . \n
 *@li x2:A Tensor. Must have the same type as x1. Shape is [M] . \n
 

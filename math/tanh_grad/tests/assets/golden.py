@@ -11,21 +11,18 @@
 # ----------------------------------------------------------------------------
 import numpy
 
-__golden__ = {
-  	"kernel": {
-  	    "tanh_grad": "tanh_grad_golden"
-  	}
-}
+__golden__ = {"kernel": {"tanh_grad": "tanh_grad_golden"}}
+
 
 def tanh_grad_golden(y, dy, **kwargs):
-    '''
+    """
     Kernel golden for tanh_grad.
     All the parameters follow @tanh_grad_def.cpp without outputs.
     All the input Tensors are numpy.ndarray.
     kwargs may contain: short_soc_version, input_ori_shapes, output_ori_shapes,
-	    input_formats, output_formats, input_ori_formats, output_ori_formats,
-	    input_dtypes, output_dtypes.
-    '''
+            input_formats, output_formats, input_ori_formats, output_ori_formats,
+            input_dtypes, output_dtypes.
+    """
     dtype = y.dtype
     is_mix_dtype = y.dtype != dy.dtype
     y = y.astype("float32")

@@ -7,7 +7,7 @@
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
- 
+
 /*!
  * \file select_v2.cpp
  * \brief
@@ -20,11 +20,11 @@ using namespace ge;
 namespace ops {
 constexpr size_t INPUT_NUM_THREE = 3;
 
-static ge::graphStatus InferShapeForSelectV2(gert::InferShapeContext* context) {
-  return Ops::Base::InferShape4Broadcast(context, INPUT_NUM_THREE);
+static ge::graphStatus InferShapeForSelectV2(gert::InferShapeContext* context)
+{
+    return Ops::Base::InferShape4Broadcast(context, INPUT_NUM_THREE);
 }
-
 
 IMPL_OP_INFERSHAPE(SelectV2).InferShape(InferShapeForSelectV2);
 
-}  // namespace ops
+} // namespace ops

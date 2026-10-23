@@ -21,8 +21,8 @@ extern "C" {
  * @brief aclnnSWhere的第一段接口，根据具体的计算流程，计算workspace大小。
  * @domain aclnn_math
  */
-ACLNN_API aclnnStatus aclnnSWhereGetWorkspaceSize(
-    const aclTensor* condition, const aclTensor* self, const aclTensor* other, aclTensor* out, uint64_t* workspaceSize,
+ACLNN_API aclnnStatus aclnnSWhereGetWorkspaceSize(const aclTensor* condition, const aclTensor* self,
+                                                  const aclTensor* other, aclTensor* out, uint64_t* workspaceSize,
                                                   aclOpExecutor** executor);
 
 /**

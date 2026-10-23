@@ -24,16 +24,13 @@ using namespace ge;
 
 class SelectTiling : public testing::Test {
 protected:
-    static void SetUpTestCase() {
-        std::cout << "SelectTiling SetUp" << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "SelectTiling SetUp" << std::endl; }
 
-    static void TearDownTestCase() {
-        std::cout << "SelectTiling TearDown" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "SelectTiling TearDown" << std::endl; }
 };
 
-TEST_F(SelectTiling, select_test_0) {
+TEST_F(SelectTiling, select_test_0)
+{
     optiling::SelectCompileInfo compileInfo = {64, 245760};
     gert::StorageShape conditionShape = {{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}};
     gert::StorageShape x1Shape = {{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}};
@@ -42,51 +39,43 @@ TEST_F(SelectTiling, select_test_0) {
     gert::TilingContextPara::TensorDescription condition(conditionShape, ge::DT_BOOL, ge::FORMAT_ND);
     gert::TilingContextPara::TensorDescription x1(x1Shape, ge::DT_BF16, ge::FORMAT_ND);
     gert::TilingContextPara::TensorDescription x2(x2Shape, ge::DT_BF16, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara(
-        "Select",
-        {condition, x1, x2},
-        {{ yShape, ge::DT_BF16, ge::FORMAT_ND }},
-        &compileInfo);
+    gert::TilingContextPara tilingContextPara("Select", {condition, x1, x2}, {{yShape, ge::DT_BF16, ge::FORMAT_ND}},
+                                              &compileInfo);
     uint64_t expectedTilingKey = 8;
-    std::vector<size_t> expectedWorkspaces = { 16777216 };
+    std::vector<size_t> expectedWorkspaces = {16777216};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectedTilingKey, expectedWorkspaces);
 }
 
-
-TEST_F(SelectTiling, select_test_1) {
-   optiling::SelectCompileInfo compileInfo = {64, 245760};
-   gert::StorageShape conditionShape = {{8, 11, 12, 14, 6}, {8, 11, 12, 14, 6}};
-   gert::StorageShape x1Shape = {{8, 11, 12, 14, 6}, {8, 11, 12, 14, 6}};
-   gert::StorageShape x2Shape = {{8, 11, 12, 14, 6}, {8, 11, 12, 14, 6}};
-   gert::StorageShape yShape = {{8, 11, 12, 14, 6}, {8, 11, 12, 14, 6}};
-   gert::TilingContextPara::TensorDescription condition(conditionShape, ge::DT_BOOL, ge::FORMAT_ND);
-   gert::TilingContextPara::TensorDescription x1(x1Shape, ge::DT_UINT8, ge::FORMAT_ND);
-   gert::TilingContextPara::TensorDescription x2(x2Shape, ge::DT_UINT8, ge::FORMAT_ND);
-   gert::TilingContextPara tilingContextPara(
-       "Select",
-       {condition, x1, x2},
-       {{ yShape, ge::DT_UINT8, ge::FORMAT_ND }},
-       &compileInfo);
-   uint64_t expectedTilingKey = 8;
-   std::vector<size_t> expectedWorkspaces = { 16777216 };
-   ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectedTilingKey, expectedWorkspaces);
+TEST_F(SelectTiling, select_test_1)
+{
+    optiling::SelectCompileInfo compileInfo = {64, 245760};
+    gert::StorageShape conditionShape = {{8, 11, 12, 14, 6}, {8, 11, 12, 14, 6}};
+    gert::StorageShape x1Shape = {{8, 11, 12, 14, 6}, {8, 11, 12, 14, 6}};
+    gert::StorageShape x2Shape = {{8, 11, 12, 14, 6}, {8, 11, 12, 14, 6}};
+    gert::StorageShape yShape = {{8, 11, 12, 14, 6}, {8, 11, 12, 14, 6}};
+    gert::TilingContextPara::TensorDescription condition(conditionShape, ge::DT_BOOL, ge::FORMAT_ND);
+    gert::TilingContextPara::TensorDescription x1(x1Shape, ge::DT_UINT8, ge::FORMAT_ND);
+    gert::TilingContextPara::TensorDescription x2(x2Shape, ge::DT_UINT8, ge::FORMAT_ND);
+    gert::TilingContextPara tilingContextPara("Select", {condition, x1, x2}, {{yShape, ge::DT_UINT8, ge::FORMAT_ND}},
+                                              &compileInfo);
+    uint64_t expectedTilingKey = 8;
+    std::vector<size_t> expectedWorkspaces = {16777216};
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectedTilingKey, expectedWorkspaces);
 }
- 
-TEST_F(SelectTiling, select_test_2) {
-   optiling::SelectCompileInfo compileInfo = {64, 245760};
-   gert::StorageShape conditionShape = {{20, 5, 1, 9, 17, 10, 3}, {20, 5, 1, 9, 17, 10, 3}};
-   gert::StorageShape x1Shape = {{20, 5, 1, 9, 17, 10, 3}, {20, 5, 1, 9, 17, 10, 3}};
-   gert::StorageShape x2Shape = {{20, 5, 1, 9, 17, 10, 3}, {20, 5, 1, 9, 17, 10, 3}};
-   gert::StorageShape yShape = {{20, 5, 1, 9, 17, 10, 3}, {20, 5, 1, 9, 17, 10, 3}};
-   gert::TilingContextPara::TensorDescription condition(conditionShape, ge::DT_BOOL, ge::FORMAT_ND);
-   gert::TilingContextPara::TensorDescription x1(x1Shape, ge::DT_FLOAT16, ge::FORMAT_ND);
-   gert::TilingContextPara::TensorDescription x2(x2Shape, ge::DT_FLOAT16, ge::FORMAT_ND);
-   gert::TilingContextPara tilingContextPara(
-       "Select",
-       {condition, x1, x2},
-       {{ yShape, ge::DT_FLOAT16, ge::FORMAT_ND }},
-       &compileInfo);
-   uint64_t expectedTilingKey = 8;
-   std::vector<size_t> expectedWorkspaces = { 16777216 };
-   ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectedTilingKey, expectedWorkspaces);
+
+TEST_F(SelectTiling, select_test_2)
+{
+    optiling::SelectCompileInfo compileInfo = {64, 245760};
+    gert::StorageShape conditionShape = {{20, 5, 1, 9, 17, 10, 3}, {20, 5, 1, 9, 17, 10, 3}};
+    gert::StorageShape x1Shape = {{20, 5, 1, 9, 17, 10, 3}, {20, 5, 1, 9, 17, 10, 3}};
+    gert::StorageShape x2Shape = {{20, 5, 1, 9, 17, 10, 3}, {20, 5, 1, 9, 17, 10, 3}};
+    gert::StorageShape yShape = {{20, 5, 1, 9, 17, 10, 3}, {20, 5, 1, 9, 17, 10, 3}};
+    gert::TilingContextPara::TensorDescription condition(conditionShape, ge::DT_BOOL, ge::FORMAT_ND);
+    gert::TilingContextPara::TensorDescription x1(x1Shape, ge::DT_FLOAT16, ge::FORMAT_ND);
+    gert::TilingContextPara::TensorDescription x2(x2Shape, ge::DT_FLOAT16, ge::FORMAT_ND);
+    gert::TilingContextPara tilingContextPara("Select", {condition, x1, x2}, {{yShape, ge::DT_FLOAT16, ge::FORMAT_ND}},
+                                              &compileInfo);
+    uint64_t expectedTilingKey = 8;
+    std::vector<size_t> expectedWorkspaces = {16777216};
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectedTilingKey, expectedWorkspaces);
 }

@@ -18,18 +18,15 @@
 
 #include "op_host/tiling_base_class.h"
 
-namespace optiling
-{
+namespace optiling {
 struct AxpyV2CompileInfo {
     uint64_t coreNum = 0;
     uint64_t ubSize = 0;
 };
 
-class AxpyV2Tiling : public Ops::Base::TilingBaseClass
-{
+class AxpyV2Tiling : public Ops::Base::TilingBaseClass {
 public:
-    explicit AxpyV2Tiling(gert::TilingContext* context) : Ops::Base::TilingBaseClass(context)
-    {}
+    explicit AxpyV2Tiling(gert::TilingContext* context) : Ops::Base::TilingBaseClass(context) {}
 
 protected:
     ge::graphStatus PostTiling() override;
@@ -47,6 +44,6 @@ private:
                     const ge::DataType& inputAlphaDtype, const ge::DataType& outputDtype) const;
 };
 
-}  // namespace optiling
+} // namespace optiling
 
-#endif  // OPS_BUILD_IN_OP_TILING_RUNTIME_AXPY_V2_TILING_H
+#endif // OPS_BUILD_IN_OP_TILING_RUNTIME_AXPY_V2_TILING_H

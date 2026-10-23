@@ -26,21 +26,14 @@ using namespace Ops::Base;
 using namespace AscendC;
 using namespace ge;
 
-namespace optiling
-{
+namespace optiling {
 
 constexpr static uint64_t AXPY_V2_COMMON_TILING_PRIORITY = 0;
 constexpr static uint32_t INPUT_ALPHA_IDX = 2;
 
-ge::graphStatus AxpyV2Tiling::GetShapeAttrsInfo()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus AxpyV2Tiling::GetShapeAttrsInfo() { return ge::GRAPH_SUCCESS; }
 
-bool AxpyV2Tiling::IsCapable()
-{
-    return true;
-}
+bool AxpyV2Tiling::IsCapable() { return true; }
 
 bool AxpyV2Tiling::CheckDtype(const ge::DataType& input0Dtype, const ge::DataType& input1Dtype,
                               const ge::DataType& inputAlphaDtype, const ge::DataType& outputDtype) const
@@ -54,15 +47,15 @@ bool AxpyV2Tiling::CheckDtype(const ge::DataType& input0Dtype, const ge::DataTyp
                                 ge::TypeUtils::DataTypeToSerialString(input1Dtype) + ", " +
                                 ge::TypeUtils::DataTypeToSerialString(inputAlphaDtype) + " and " +
                                 ge::TypeUtils::DataTypeToSerialString(outputDtype) + " of x2, alpha and y";
-        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(
-            context_->GetNodeName(), "x1", ge::TypeUtils::DataTypeToSerialString(input0Dtype).c_str(),
-            reasonMsg.c_str());
+        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context_->GetNodeName(), "x1",
+                                              ge::TypeUtils::DataTypeToSerialString(input0Dtype).c_str(),
+                                              reasonMsg.c_str());
         return false;
     }
     if (!isDtypeSupported) {
-        OP_LOGE_FOR_INVALID_DTYPE(
-            context_->GetNodeName(), "x1", ge::TypeUtils::DataTypeToSerialString(input0Dtype).c_str(),
-            "float32, float16, bfloat16, int32, int64, int8, uint8 or bool");
+        OP_LOGE_FOR_INVALID_DTYPE(context_->GetNodeName(), "x1",
+                                  ge::TypeUtils::DataTypeToSerialString(input0Dtype).c_str(),
+                                  "float32, float16, bfloat16, int32, int64, int8, uint8 or bool");
         return false;
     }
     return true;
@@ -121,30 +114,15 @@ ge::graphStatus AxpyV2Tiling::DoOpTiling()
     return ret;
 }
 
-ge::graphStatus AxpyV2Tiling::DoLibApiTiling()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus AxpyV2Tiling::DoLibApiTiling() { return ge::GRAPH_SUCCESS; }
 
-uint64_t AxpyV2Tiling::GetTilingKey() const
-{
-    return tilingKey;
-}
+uint64_t AxpyV2Tiling::GetTilingKey() const { return tilingKey; }
 
-ge::graphStatus AxpyV2Tiling::GetWorkspaceSize()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus AxpyV2Tiling::GetWorkspaceSize() { return ge::GRAPH_SUCCESS; }
 
-ge::graphStatus AxpyV2Tiling::PostTiling()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus AxpyV2Tiling::PostTiling() { return ge::GRAPH_SUCCESS; }
 
-ge::graphStatus AxpyV2Tiling::GetPlatformInfo()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus AxpyV2Tiling::GetPlatformInfo() { return ge::GRAPH_SUCCESS; }
 
 ge::graphStatus TilingForAxpyV2(gert::TilingContext* context)
 {
@@ -161,11 +139,11 @@ ge::graphStatus TilingForAxpyV2(gert::TilingContext* context)
     return Ops::Math::OpTiling::TilingRegistry::GetInstance().DoTilingImpl(context);
 }
 
-ge::graphStatus TilingPrepareForAxpyV2(gert::TilingParseContext *context)
+ge::graphStatus TilingPrepareForAxpyV2(gert::TilingParseContext* context)
 {
     auto compileInfoPtr = context->GetCompiledInfo<AxpyV2CompileInfo>();
     OP_CHECK_NULL_WITH_CONTEXT(context, compileInfoPtr);
-    fe::PlatFormInfos *platformInfoPtr = context->GetPlatformInfo();
+    fe::PlatFormInfos* platformInfoPtr = context->GetPlatformInfo();
     OP_CHECK_NULL_WITH_CONTEXT(context, platformInfoPtr);
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfoPtr);
     compileInfoPtr->coreNum = ascendcPlatform.GetCoreNumAiv();
@@ -176,4 +154,4 @@ ge::graphStatus TilingPrepareForAxpyV2(gert::TilingParseContext *context)
 IMPL_OP_OPTILING(AxpyV2).Tiling(TilingForAxpyV2).TilingParse<AxpyV2CompileInfo>(TilingPrepareForAxpyV2);
 
 REGISTER_OPS_TILING_TEMPLATE(AxpyV2, AxpyV2Tiling, AXPY_V2_COMMON_TILING_PRIORITY);
-}  // namespace optiling
+} // namespace optiling

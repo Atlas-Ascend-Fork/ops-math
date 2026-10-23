@@ -23,15 +23,9 @@ using namespace std;
 
 class l2_div_mod_test : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        cout << "div_test SetUp" << endl;
-    }
+    static void SetUpTestCase() { cout << "div_test SetUp" << endl; }
 
-    static void TearDownTestCase()
-    {
-        cout << "div_test TearDown" << endl;
-    }
+    static void TearDownTestCase() { cout << "div_test TearDown" << endl; }
 };
 
 // 测试所有数据格式支持
@@ -72,8 +66,8 @@ TEST_F(l2_div_mod_test, case_NonContiguous)
 {
     auto self_tensor_desc = TensorDesc({2, 3}, ACL_INT32, ACL_FORMAT_ND, {1, 2}, 0, {3, 2})
                                 .Value(vector<float>{-10.5, -20, -30, -40, 50, 60});
-    auto other_tensor_desc =
-        TensorDesc({2, 3}, ACL_INT64, ACL_FORMAT_ND, {1, 2}, 0, {3, 2}).Value(vector<float>{-2, -3, -2, -4, 2, 4});
+    auto other_tensor_desc = TensorDesc({2, 3}, ACL_INT64, ACL_FORMAT_ND, {1, 2}, 0, {3, 2})
+                                 .Value(vector<float>{-2, -3, -2, -4, 2, 4});
     auto out_tensor_desc = TensorDesc({2, 3}, ACL_FLOAT, ACL_FORMAT_ND).Precision(0.0001, 0.0001);
     int mode = 0;
 

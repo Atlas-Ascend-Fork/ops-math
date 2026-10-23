@@ -137,11 +137,11 @@ inline aicpu::BcastShapeType GetNoBcastShapeType(int64_t input0_elements_nums, i
     return input0_elements_nums == input1_elements_nums ?
                aicpu::BcastShapeType::SAME_SHAPE :
                (input0_elements_nums == 1 ? aicpu::BcastShapeType::X_ONE_ELEMENT :
-                                           aicpu::BcastShapeType::Y_ONE_ELEMENT);
+                                            aicpu::BcastShapeType::Y_ONE_ELEMENT);
 }
 
-inline uint32_t GetDivParallelCoreNum(
-    const aicpu::CpuKernelContext& ctx, int64_t data_num, int64_t parallel_data_num_mid)
+inline uint32_t GetDivParallelCoreNum(const aicpu::CpuKernelContext& ctx, int64_t data_num,
+                                      int64_t parallel_data_num_mid)
 {
     uint32_t min_core_num = 1;
     uint32_t max_core_num = std::max(min_core_num, aicpu::CpuKernelUtils::GetCPUNum(ctx) - 2);
@@ -156,7 +156,7 @@ inline uint32_t GetDivParallelCoreNum(
 
 template <typename ComputeFn>
 uint32_t RunDivRangeCompute(const aicpu::CpuKernelContext& ctx, int64_t data_num, int64_t parallel_data_num,
-    int64_t parallel_data_num_mid, const ComputeFn& compute)
+                            int64_t parallel_data_num_mid, const ComputeFn& compute)
 {
     if (data_num < parallel_data_num) {
         return compute(0, data_num);
@@ -185,8 +185,8 @@ uint32_t ComputeIntDivValue(T lhs, T rhs, T* output)
 }
 
 template <typename T, typename LhsGetter, typename RhsGetter>
-uint32_t ComputeIntDivRange(
-    int64_t start, int64_t end, T* output, const LhsGetter& lhs_getter, const RhsGetter& rhs_getter)
+uint32_t ComputeIntDivRange(int64_t start, int64_t end, T* output, const LhsGetter& lhs_getter,
+                            const RhsGetter& rhs_getter)
 {
     for (int64_t i = start; i < end; ++i) {
         uint32_t result = ComputeIntDivValue(lhs_getter(i), rhs_getter(i), output + i);
@@ -198,8 +198,8 @@ uint32_t ComputeIntDivRange(
 }
 
 template <typename T, typename LhsGetter, typename RhsGetter>
-uint32_t ComputeDivRange(
-    int64_t start, int64_t end, T* output, const LhsGetter& lhs_getter, const RhsGetter& rhs_getter)
+uint32_t ComputeDivRange(int64_t start, int64_t end, T* output, const LhsGetter& lhs_getter,
+                         const RhsGetter& rhs_getter)
 {
     for (int64_t i = start; i < end; ++i) {
         *(output + i) = lhs_getter(i) / rhs_getter(i);
@@ -264,15 +264,13 @@ uint32_t DivCpuKernel::DivParamCheck(CpuKernelContext& ctx)
     KERNEL_CHECK_NULLPTR(output->GetData(), KERNEL_STATUS_PARAM_INVALID, "Get output data failed")
     DataType input0_type = input_0->GetDataType();
     DataType input1_type = input_1->GetDataType();
-    KERNEL_CHECK_FALSE(
-        (input0_type == input1_type), KERNEL_STATUS_PARAM_INVALID,
-        "The data type of input0 [%s] need be same with "
-        "input1 [%s].",
-        DTypeStr(input0_type).c_str(), DTypeStr(input1_type).c_str())
-    KERNEL_LOG_DEBUG(
-        "DivCpuKernel[%s], input0: size[%llu];"
-        "input1: size[%llu], output: size[%llu].",
-        ctx.GetOpType().c_str(), input_0->GetDataSize(), input_1->GetDataSize(), output->GetDataSize());
+    KERNEL_CHECK_FALSE((input0_type == input1_type), KERNEL_STATUS_PARAM_INVALID,
+                       "The data type of input0 [%s] need be same with "
+                       "input1 [%s].",
+                       DTypeStr(input0_type).c_str(), DTypeStr(input1_type).c_str())
+    KERNEL_LOG_DEBUG("DivCpuKernel[%s], input0: size[%llu];"
+                     "input1: size[%llu], output: size[%llu].",
+                     ctx.GetOpType().c_str(), input_0->GetDataSize(), input_1->GetDataSize(), output->GetDataSize());
 
     return KERNEL_STATUS_OK;
 }
@@ -299,8 +297,8 @@ special compute is used in the following situations.
 4. the shapes of input1 and input2 are different
 */
 template <typename T>
-uint32_t DivCpuKernel::SpecialComputeInt(
-    BcastShapeType type, int64_t start, int64_t end, const T* input1, const T* input2, T* output)
+uint32_t DivCpuKernel::SpecialComputeInt(BcastShapeType type, int64_t start, int64_t end, const T* input1,
+                                         const T* input2, T* output)
 {
     switch (type) {
         case BcastShapeType::SAME_SHAPE:
@@ -320,8 +318,8 @@ uint32_t DivCpuKernel::SpecialComputeInt(
 }
 
 template <typename T>
-uint32_t DivCpuKernel::SpecialCompute(
-    BcastShapeType type, int64_t start, int64_t end, const T* input1, const T* input2, T* output)
+uint32_t DivCpuKernel::SpecialCompute(BcastShapeType type, int64_t start, int64_t end, const T* input1, const T* input2,
+                                      T* output)
 {
     switch (type) {
         case BcastShapeType::SAME_SHAPE:
@@ -350,7 +348,8 @@ uint32_t DivCpuKernel::NoBcastComputeInt(CpuKernelContext& ctx)
     int64_t in1_elements_nums = ctx.Input(1)->NumElements();
     int64_t data_num = ctx.Output(0)->NumElements();
     BcastShapeType type = GetNoBcastShapeType(in0_elements_nums, in1_elements_nums);
-    return RunDivRangeCompute(ctx, data_num, kParallelDataNumSameShape, kParallelDataNumSameShapeMid,
+    return RunDivRangeCompute(
+        ctx, data_num, kParallelDataNumSameShape, kParallelDataNumSameShapeMid,
         [&](int64_t start, int64_t end) { return SpecialComputeInt<T>(type, start, end, in0, in1, out); });
 }
 
@@ -364,7 +363,8 @@ uint32_t DivCpuKernel::NoBcastCompute(CpuKernelContext& ctx)
     int64_t in1_elements_nums = ctx.Input(1)->NumElements();
     int64_t data_num = ctx.Output(0)->NumElements();
     BcastShapeType type = GetNoBcastShapeType(in0_elements_nums, in1_elements_nums);
-    return RunDivRangeCompute(ctx, data_num, kParallelDataNumSameShape, kParallelDataNumSameShapeMid,
+    return RunDivRangeCompute(
+        ctx, data_num, kParallelDataNumSameShape, kParallelDataNumSameShapeMid,
         [&](int64_t start, int64_t end) { return SpecialCompute<T>(type, start, end, in0, in1, out); });
 }
 
@@ -375,11 +375,11 @@ uint32_t DivCpuKernel::BcastComputeInt(CpuKernelContext& ctx, Bcast& bcast)
     auto in1 = reinterpret_cast<T*>(ctx.Input(1)->GetData());
     auto out = reinterpret_cast<T*>(ctx.Output(0)->GetData());
     int64_t data_num = ctx.Output(0)->NumElements();
-    return RunDivRangeCompute(ctx, data_num, kParallelDataNum, kParallelDataNumMid,
-        [&](int64_t start, int64_t end) {
-            return ComputeIntDivRange<T>(start, end, out, [&](int64_t i) { return *(in0 + bcast.GetBroadcastXIndex(i)); },
-                [&](int64_t i) { return *(in1 + bcast.GetBroadcastYIndex(i)); });
-        });
+    return RunDivRangeCompute(ctx, data_num, kParallelDataNum, kParallelDataNumMid, [&](int64_t start, int64_t end) {
+        return ComputeIntDivRange<T>(
+            start, end, out, [&](int64_t i) { return *(in0 + bcast.GetBroadcastXIndex(i)); },
+            [&](int64_t i) { return *(in1 + bcast.GetBroadcastYIndex(i)); });
+    });
 }
 
 template <typename T>
@@ -389,11 +389,11 @@ uint32_t DivCpuKernel::BcastCompute(CpuKernelContext& ctx, Bcast& bcast)
     auto in1 = reinterpret_cast<T*>(ctx.Input(1)->GetData());
     auto out = reinterpret_cast<T*>(ctx.Output(0)->GetData());
     int64_t data_num = ctx.Output(0)->NumElements();
-    return RunDivRangeCompute(ctx, data_num, kParallelDataNum, kParallelDataNumMid,
-        [&](int64_t start, int64_t end) {
-            return ComputeDivRange<T>(start, end, out, [&](int64_t i) { return *(in0 + bcast.GetBroadcastXIndex(i)); },
-                [&](int64_t i) { return *(in1 + bcast.GetBroadcastYIndex(i)); });
-        });
+    return RunDivRangeCompute(ctx, data_num, kParallelDataNum, kParallelDataNumMid, [&](int64_t start, int64_t end) {
+        return ComputeDivRange<T>(
+            start, end, out, [&](int64_t i) { return *(in0 + bcast.GetBroadcastXIndex(i)); },
+            [&](int64_t i) { return *(in1 + bcast.GetBroadcastYIndex(i)); });
+    });
 }
 
 template <typename T>

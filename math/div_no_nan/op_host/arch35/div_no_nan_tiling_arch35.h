@@ -33,8 +33,7 @@ struct DivNoNanCompileInfo {
 
 class DivNoNanTiling : public Ops::Base::TilingBaseClass {
 public:
-    explicit DivNoNanTiling(gert::TilingContext* context) : Ops::Base::TilingBaseClass(context)
-    {}
+    explicit DivNoNanTiling(gert::TilingContext* context) : Ops::Base::TilingBaseClass(context) {}
 
 protected:
     bool IsCapable() override;

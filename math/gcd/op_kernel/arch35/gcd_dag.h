@@ -36,8 +36,8 @@ union U {
 
 #ifdef __CCE_AICORE__
 template <typename T>
-__simt_vf__ __aicore__
-    LAUNCH_BOUND(512) inline void GcdVecInt64(__ubuf__ T* dst, __ubuf__ T* src1, __ubuf__ T* src2, int count)
+__simt_vf__ __aicore__ LAUNCH_BOUND(512) inline void GcdVecInt64(__ubuf__ T* dst, __ubuf__ T* src1, __ubuf__ T* src2,
+                                                                 int count)
 {
     for (uint32_t index = static_cast<uint32_t>(threadIdx.x); index < count;
          index += static_cast<uint32_t>(blockDim.x)) {
@@ -95,7 +95,7 @@ __simt_vf__ __aicore__
             if (b.i[0] != 0) {
                 offset = __builtin_ffs(b.i[0]);
             } else if (b.i[1] != 0) {
-            offset = __builtin_ffs(b.i[1]) + 32;
+                offset = __builtin_ffs(b.i[1]) + 32;
             }
             b.u >>= offset - 1;
             if (a.u > b.u) {
@@ -112,8 +112,8 @@ __simt_vf__ __aicore__
 
 #ifdef __CCE_AICORE__
 template <typename T1, typename T2>
-__simt_vf__ __aicore__
-    LAUNCH_BOUND(1024) inline void GcdVec(__ubuf__ T1* dst, __ubuf__ T1* src1, __ubuf__ T1* src2, uint8_t attr, int count)
+__simt_vf__ __aicore__ LAUNCH_BOUND(1024) inline void GcdVec(__ubuf__ T1* dst, __ubuf__ T1* src1, __ubuf__ T1* src2,
+                                                             uint8_t attr, int count)
 {
     for (uint32_t index = static_cast<uint32_t>(threadIdx.x); index < count;
          index += static_cast<uint32_t>(blockDim.x)) {
@@ -176,7 +176,6 @@ struct GcdNode : public Vec::ElemwiseBinaryOP<T, T, T> {
 #endif
     }
 };
-
 
 template <typename T>
 struct GcdCompute {

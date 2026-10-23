@@ -17,28 +17,21 @@ using namespace ge;
 
 class squared_difference : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        std::cout << "squared_difference SetUp" << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "squared_difference SetUp" << std::endl; }
 
-    static void TearDownTestCase()
-    {
-        std::cout << "squared_difference TearDown" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "squared_difference TearDown" << std::endl; }
 };
 
 TEST_F(squared_difference, squared_difference_infer_shape_fp16)
 {
-    gert::InfershapeContextPara infershapeContextPara(
-        "SquaredDifference",
-        {
-            {{{-1}, {-1}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-            {{{-1}, {-1}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-        },
-        {
-            {{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-        });
+    gert::InfershapeContextPara infershapeContextPara("SquaredDifference",
+                                                      {
+                                                          {{{-1}, {-1}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                          {{{-1}, {-1}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                      });
     std::vector<std::vector<int64_t>> expectOutputShape = {
         {-1},
     };
@@ -47,15 +40,14 @@ TEST_F(squared_difference, squared_difference_infer_shape_fp16)
 
 TEST_F(squared_difference, squared_difference_infer_shape_1)
 {
-    gert::InfershapeContextPara infershapeContextPara(
-        "SquaredDifference",
-        {
-            {{{60}, {60}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-            {{{60}, {60}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-        },
-        {
-            {{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-        });
+    gert::InfershapeContextPara infershapeContextPara("SquaredDifference",
+                                                      {
+                                                          {{{60}, {60}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                          {{{60}, {60}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                      });
     std::vector<std::vector<int64_t>> expectOutputShape = {
         {60},
     };
@@ -98,15 +90,14 @@ TEST_F(squared_difference, squared_difference_infer_shape_3)
 
 TEST_F(squared_difference, infer_axis_type_with_input_dim_num_great_than_1)
 {
-    gert::InfershapeContextPara infershapeContextPara(
-        "SquaredDifference",
-        {
-            {{{-1, -1}, {-1, -1}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-            {{{-1, -1}, {-1, -1}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-        },
-        {
-            {{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-        });
+    gert::InfershapeContextPara infershapeContextPara("SquaredDifference",
+                                                      {
+                                                          {{{-1, -1}, {-1, -1}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                          {{{-1, -1}, {-1, -1}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                      });
     std::vector<std::vector<int64_t>> expectOutputShape = {
         {-1, -1},
     };

@@ -23,28 +23,21 @@ using namespace ge;
 // ----------------DivInfershape-------------------
 class DivInfershape : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        std::cout << "DivInfershape SetUp" << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "DivInfershape SetUp" << std::endl; }
 
-    static void TearDownTestCase()
-    {
-        std::cout << "DivInfershape TearDown" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "DivInfershape TearDown" << std::endl; }
 };
 
 TEST_F(DivInfershape, div_infershape_test_0)
 {
-    gert::InfershapeContextPara infershapeContextPara(
-        "Div",
-        {
-            {{{2, 2, 1}, {2, 2, 1}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-            {{{2, 2, 3}, {2, 2, 3}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-        },
-        {
-            {{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-        });
+    gert::InfershapeContextPara infershapeContextPara("Div",
+                                                      {
+                                                          {{{2, 2, 1}, {2, 2, 1}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                          {{{2, 2, 3}, {2, 2, 3}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                      });
     std::vector<std::vector<int64_t>> expectOutputShape = {
         {2, 2, 3},
     };
