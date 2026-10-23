@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file matrix_diag_infershape.cpp
+ * \file matrix_diag_graph_infer.cpp
  * \brief infershape func of MatrixDiag
  */
 #include "log/log.h"

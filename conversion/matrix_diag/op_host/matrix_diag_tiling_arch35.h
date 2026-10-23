@@ -36,7 +36,7 @@ struct MatrixDiagCompileInfo {
 
 class MatrixDiagTiling {
 public:
-    explicit MatrixDiagTiling(gert::TilingContext* context) : context_(context){};
+    explicit MatrixDiagTiling(gert::TilingContext* context) : context_(context) {};
     ge::graphStatus DoTiling();
 
 private:
@@ -79,4 +79,4 @@ private:
 };
 } // namespace MatrixDiagAsc
 } // namespace optiling
-#endif // OPS_BUILT_IN_OP_TILING_RUNTIME_MATRIX_DIAG_TILING_H_
+#endif // OPS_MATH_CONVERSION_MATRIX_DIAG_OP_HOST_MATRIX_DIAG_TILING_ARCH35_H_

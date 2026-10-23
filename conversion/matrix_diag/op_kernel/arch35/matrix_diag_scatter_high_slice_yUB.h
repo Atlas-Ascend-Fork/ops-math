@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file matrix_diag_big_n.h
+ * \file matrix_diag_scatter_high_slice_yUB.h
  * \brief impl of MatrixDiagAsc  n > 128B
  */
 
