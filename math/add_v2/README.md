@@ -114,7 +114,8 @@ x1 shape (3, 1), x2 shape (1, 4) -> y shape (3, 4)
 
 ## 约束说明
 
-无
+- 输入、输出的数据类型以参数说明为准，不支持DOUBLE、COMPLEX128。
+- 各产品的rank、动态shape和空Tensor限制见产品差异说明。
 
 ## 调用说明
 

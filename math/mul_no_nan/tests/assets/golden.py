@@ -49,27 +49,19 @@ def mul_no_nan_golden(x1, x2, **kwargs):
     product is returned as is, so x1 == 0 with x2 == inf still yields NaN and
     NOT 0. This is the core differentiator vs plain Mul.
     """
-    import tensorflow as tf
+    import torch
 
-    with tf.device("/CPU:0"):
-        x, y = (
-            tf.convert_to_tensor(np.asarray(x1)),
-            tf.convert_to_tensor(np.asarray(x2)),
-        )
-        output_dtype = x.dtype
-        promote = kwargs.get("golden_mode") == "Promote"
-        if not promote and output_dtype in (tf.float16, tf.bfloat16):
-            x, y = tf.cast(x, tf.float32), tf.cast(y, tf.float32)
-        if output_dtype.is_integer:
-            # The native TF op excludes int32; its primitive composition has
-            # the same mask-on-x2 and native integer overflow semantics.
-            product = tf.multiply(x, y)
-            output = tf.where(tf.equal(y, 0), tf.zeros_like(product), product)
-        else:
-            output = tf.raw_ops.MulNoNan(x=x, y=y)
-        if not promote:
-            output = tf.cast(output, output_dtype)
-        return np.asarray(output.numpy())
+    output_dtype = np.asarray(x1).dtype
+    is_integer = np.issubdtype(output_dtype, np.integer)
+    compute_dtype = output_dtype if is_integer else np.float64
+    x = torch.from_numpy(np.array(x1, dtype=compute_dtype, copy=True))
+    y = torch.from_numpy(np.array(x2, dtype=compute_dtype, copy=True))
+    # int32 multiplication intentionally retains native wraparound semantics.
+    product = torch.mul(x, y)
+    output = torch.where(y == 0, torch.zeros_like(product), product).numpy()
+    if kwargs.get("golden_mode") == "Promote":
+        return output
+    return output.astype(output_dtype)
 
 
 class _MulNoNanCompose:
@@ -88,7 +80,7 @@ class _MulNoNanCompose:
 
 
 class MulNoNanKernelSpec:
-    """Kernel/GEIR: TensorFlow CPU golden and a Torch GPU competitor."""
+    """Kernel/GEIR: high-precision Torch CPU golden and a Torch GPU competitor."""
 
     @staticmethod
     def golden(x1, x2, **kwargs):

@@ -19,6 +19,7 @@
 #include "register/op_def_registry.h"
 #include "op_host/tiling_base_class.h"
 #include "register/op_impl_registry.h"
+#include "atvoss/broadcast/broadcast_tiling_base.h"
 
 namespace optiling {
 
@@ -42,10 +43,7 @@ private:
     bool CheckShape() const;
 };
 
-struct MulNoNanCompileInfo {
-    uint64_t coreNum = 0;
-    uint64_t ubSize = 0;
-};
+using MulNoNanCompileInfo = Ops::Base::BroadcastCompileInfo;
 
 } // namespace optiling
 

@@ -52,6 +52,7 @@ using std::vector;
         return FAILED;                                                                                                 \
     }                                                                                                                  \
     placeholder##inputIndex.update_input_desc_x(placeholder##inputIndex##_desc);                                       \
+    placeholder##inputIndex.update_output_desc_y(placeholder##inputIndex##_desc);                                      \
     input.push_back(tensor_placeholder##inputIndex);                                                                   \
     graph.AddOp(placeholder##inputIndex);                                                                              \
     add1.set_input_##inputName(placeholder##inputIndex);                                                               \
@@ -128,7 +129,12 @@ int32_t GenOnesData(vector<int64_t> shapes, Tensor& input_tensor, TensorDesc& in
         return FAILED;
     }
 
-    if (data_type == ge::DT_INT64 || data_type == ge::DT_UINT64) {
+    if (data_type == ge::DT_FLOAT) {
+        float* data = reinterpret_cast<float*>(pData);
+        for (size_t i = 0; i < size; ++i) {
+            data[i] = static_cast<float>(value);
+        }
+    } else if (data_type == ge::DT_INT64 || data_type == ge::DT_UINT64) {
         int64_t* data = reinterpret_cast<int64_t*>(pData);
         for (size_t i = 0; i < size; ++i) {
             data[i] = static_cast<int64_t>(value);
@@ -263,7 +269,7 @@ bool DumpAndRunGraph(ge::Session* session, Graph& graph, std::vector<ge::Tensor>
     return true;
 }
 
-void ProcessInputData(std::vector<ge::Tensor>& input)
+int ProcessInputData(std::vector<ge::Tensor>& input)
 {
     int input_num = input.size();
     for (int i = 0; i < input_num; i++) {
@@ -273,11 +279,14 @@ void ProcessInputData(std::vector<ge::Tensor>& input)
         int64_t input_shape = input[i].GetTensorDesc().GetShape().GetShapeSize();
         std::cout << "this is " << i << "th input, input shape size =" << input_shape << std::endl;
         uint32_t data_size = input_shape * GetDataTypeSize(input[i].GetTensorDesc().GetDataType());
-        WriteDataToFile((const char*)input_file.c_str(), data_size, input_data_i);
+        if (WriteDataToFile(input_file, data_size, input_data_i) != SUCCESS) {
+            return FAILED;
+        }
     }
+    return SUCCESS;
 }
 
-void ProcessOutputData(std::vector<ge::Tensor>& output)
+int ProcessOutputData(std::vector<ge::Tensor>& output)
 {
     int output_num = output.size();
     for (int i = 0; i < output_num; i++) {
@@ -287,11 +296,14 @@ void ProcessOutputData(std::vector<ge::Tensor>& output)
         int64_t output_shape = output[i].GetTensorDesc().GetShape().GetShapeSize();
         std::cout << "this is " << i << "th output, output shape size =" << output_shape << std::endl;
         uint32_t data_size = output_shape * GetDataTypeSize(output[i].GetTensorDesc().GetDataType());
-        WriteDataToFile((const char*)output_file.c_str(), data_size, output_data_i);
+        if (WriteDataToFile(output_file, data_size, output_data_i) != SUCCESS) {
+            return FAILED;
+        }
         for (int64_t j = 0; j < output_shape; j++) {
             LOG_PRINT("result[%ld] is: %u\n", j, output_data_i[j]);
         }
     }
+    return SUCCESS;
 }
 
 int FinalizeRes()
@@ -325,6 +337,7 @@ int main(int argc, char* argv[])
     Graph graph(graph_name);
     std::vector<ge::Tensor> input;
     if (!CreateAndConfigGraph(graph, input)) {
+        ge::GEFinalize();
         return FAILED;
     }
 
@@ -333,7 +346,11 @@ int main(int argc, char* argv[])
 
     };
     printf("%s - INFO - [XIR]: Start to create ir session using build options\n", GetTime().c_str());
-    ge::Session* session = new Session(build_options);
+    ge::Session* session = new (std::nothrow) Session(build_options);
+    if (session == nullptr) {
+        ge::GEFinalize();
+        return FAILED;
+    }
 
     uint32_t graph_id = 0;
     if (!AddGraphToSession(session, graph, graph_id)) {
@@ -346,9 +363,19 @@ int main(int argc, char* argv[])
         return FAILED;
     }
     // 处理输入输出数据
-    ProcessInputData(input);
-    ProcessOutputData(output);
+    const bool outputValid = output.size() == 1 && input.size() == 1 &&
+                             output[0].GetTensorDesc().GetDataType() == input[0].GetTensorDesc().GetDataType() &&
+                             output[0].GetTensorDesc().GetShape().GetDims() ==
+                                 input[0].GetTensorDesc().GetShape().GetDims() &&
+                             output[0].GetSize() == input[0].GetSize() && output[0].GetData() != nullptr &&
+                             memcmp(output[0].GetData(), input[0].GetData(), input[0].GetSize()) == 0;
+    if (!outputValid || ProcessInputData(input) != SUCCESS || ProcessOutputData(output) != SUCCESS) {
+        delete session;
+        ge::GEFinalize();
+        return FAILED;
+    }
 
     // 清理资源
+    delete session;
     return FinalizeRes();
 }

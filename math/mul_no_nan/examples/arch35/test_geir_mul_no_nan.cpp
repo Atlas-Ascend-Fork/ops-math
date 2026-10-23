@@ -32,6 +32,8 @@
 #include <map>
 #include <cmath>
 #include <limits>
+#include <memory>
+#include <new>
 #include "assert.h"
 
 #include "graph.h"
@@ -65,10 +67,14 @@ static string GetTime()
 
 static uint32_t GetDataTypeSize(DataType dt)
 {
-    if (dt == ge::DT_FLOAT)   return 4;
-    if (dt == ge::DT_FLOAT16) return 2;
-    if (dt == ge::DT_BF16)    return 2;
-    if (dt == ge::DT_INT32)   return 4;
+    if (dt == ge::DT_FLOAT)
+        return 4;
+    if (dt == ge::DT_FLOAT16)
+        return 2;
+    if (dt == ge::DT_BF16)
+        return 2;
+    if (dt == ge::DT_INT32)
+        return 4;
     return 1;
 }
 
@@ -77,9 +83,9 @@ static uint16_t FloatToHalfBits(float v)
 {
     uint32_t x;
     memcpy(&x, &v, sizeof(x));
-    uint32_t sign  = (x >> 31) & 0x1;
+    uint32_t sign = (x >> 31) & 0x1;
     uint32_t exp32 = (x >> 23) & 0xff;
-    uint32_t mant  = x & 0x7fffff;
+    uint32_t mant = x & 0x7fffff;
     uint16_t out;
     if (exp32 == 0xff) {
         out = (uint16_t)((sign << 15) | 0x7c00 | (mant ? 0x200 : 0));
@@ -95,7 +101,8 @@ static uint16_t FloatToHalfBits(float v)
             uint32_t roundBit = (mant >> 12) & 0x1;
             uint16_t m = (uint16_t)(mant >> 13);
             out = (uint16_t)((sign << 15) | (newExp << 10) | m);
-            if (roundBit) out++;
+            if (roundBit)
+                out++;
         }
     }
     return out;
@@ -103,9 +110,9 @@ static uint16_t FloatToHalfBits(float v)
 
 static float HalfBitsToFloat(uint16_t h)
 {
-    uint32_t sign  = (h >> 15) & 0x1;
+    uint32_t sign = (h >> 15) & 0x1;
     uint32_t exp16 = (h >> 10) & 0x1f;
-    uint32_t mant  = h & 0x3ff;
+    uint32_t mant = h & 0x3ff;
     uint32_t out;
     if (exp16 == 0) {
         out = sign << 31;
@@ -143,33 +150,62 @@ static float Bf16BitsToFloat(uint16_t b)
 
 // Allocate a tensor and fill with a single value of the given dtype.
 // `value` is a double so that callers can pass inf / nan / -0.0 directly.
-static int32_t GenConstTensor(
-    const vector<int64_t>& shape, DataType dtype, double value, Tensor& tensor, TensorDesc& desc)
+static int32_t GenConstTensor(const vector<int64_t>& shape, DataType dtype, double value, Tensor& tensor,
+                              TensorDesc& desc)
 {
     desc.SetRealDimCnt(shape.size());
     size_t numel = 1;
-    for (auto d : shape) numel *= (size_t)d;
+    for (auto d : shape)
+        numel *= (size_t)d;
     size_t bytes = numel * GetDataTypeSize(dtype);
 
     if (dtype == ge::DT_FLOAT) {
-        float* p = new (std::nothrow) float[numel];
+        std::unique_ptr<float[]> p(new (std::nothrow) float[numel]);
+        if (!p) {
+            return FAILED;
+        }
         float v = (float)value;
-        for (size_t i = 0; i < numel; ++i) p[i] = v;
-        tensor = Tensor(desc, (uint8_t*)p, bytes);
+        for (size_t i = 0; i < numel; ++i)
+            p[i] = v;
+        tensor = Tensor(desc);
+        if (tensor.SetData(reinterpret_cast<const uint8_t*>(p.get()), bytes) != ge::GRAPH_SUCCESS) {
+            return FAILED;
+        }
     } else if (dtype == ge::DT_FLOAT16) {
-        uint16_t* p = new (std::nothrow) uint16_t[numel];
+        std::unique_ptr<uint16_t[]> p(new (std::nothrow) uint16_t[numel]);
+        if (!p) {
+            return FAILED;
+        }
         uint16_t v = FloatToHalfBits((float)value);
-        for (size_t i = 0; i < numel; ++i) p[i] = v;
-        tensor = Tensor(desc, (uint8_t*)p, bytes);
+        for (size_t i = 0; i < numel; ++i)
+            p[i] = v;
+        tensor = Tensor(desc);
+        if (tensor.SetData(reinterpret_cast<const uint8_t*>(p.get()), bytes) != ge::GRAPH_SUCCESS) {
+            return FAILED;
+        }
     } else if (dtype == ge::DT_BF16) {
-        uint16_t* p = new (std::nothrow) uint16_t[numel];
+        std::unique_ptr<uint16_t[]> p(new (std::nothrow) uint16_t[numel]);
+        if (!p) {
+            return FAILED;
+        }
         uint16_t v = FloatToBf16Bits((float)value);
-        for (size_t i = 0; i < numel; ++i) p[i] = v;
-        tensor = Tensor(desc, (uint8_t*)p, bytes);
+        for (size_t i = 0; i < numel; ++i)
+            p[i] = v;
+        tensor = Tensor(desc);
+        if (tensor.SetData(reinterpret_cast<const uint8_t*>(p.get()), bytes) != ge::GRAPH_SUCCESS) {
+            return FAILED;
+        }
     } else if (dtype == ge::DT_INT32) {
-        int32_t* p = new (std::nothrow) int32_t[numel];
-        for (size_t i = 0; i < numel; ++i) p[i] = (int32_t)value;
-        tensor = Tensor(desc, (uint8_t*)p, bytes);
+        std::unique_ptr<int32_t[]> p(new (std::nothrow) int32_t[numel]);
+        if (!p) {
+            return FAILED;
+        }
+        for (size_t i = 0; i < numel; ++i)
+            p[i] = (int32_t)value;
+        tensor = Tensor(desc);
+        if (tensor.SetData(reinterpret_cast<const uint8_t*>(p.get()), bytes) != ge::GRAPH_SUCCESS) {
+            return FAILED;
+        }
     } else {
         return FAILED;
     }
@@ -177,11 +213,10 @@ static int32_t GenConstTensor(
 }
 
 // Build a graph that computes y = MulNoNan(x1, x2) with two constant inputs.
-static int BuildMulNoNanGraph(
-    Graph& graph, std::vector<ge::Tensor>& inputData, std::vector<Operator>& inputs,
-    std::vector<Operator>& outputs, DataType dtype, double v1, double v2,
-    const vector<int64_t>& s1, const vector<int64_t>& s2,
-    const vector<int64_t>& outShape, const string& caseTag)
+static int BuildMulNoNanGraph(Graph& graph, std::vector<ge::Tensor>& inputData, std::vector<Operator>& inputs,
+                              std::vector<Operator>& outputs, DataType dtype, double v1, double v2,
+                              const vector<int64_t>& s1, const vector<int64_t>& s2, const vector<int64_t>& outShape,
+                              const string& caseTag)
 {
     auto op = ge::op::MulNoNan("mnn_" + caseTag);
 
@@ -192,8 +227,10 @@ static int BuildMulNoNanGraph(
         d.SetPlacement(ge::kPlacementHost);
         d.SetFormat(FORMAT_ND);
         Tensor t;
-        if (GenConstTensor(s1, dtype, v1, t, d) != SUCCESS) return FAILED;
+        if (GenConstTensor(s1, dtype, v1, t, d) != SUCCESS)
+            return FAILED;
         ph.update_input_desc_x(d);
+        ph.update_output_desc_y(d);
         inputData.push_back(t);
         graph.AddOp(ph);
         op.set_input_x1(ph);
@@ -201,13 +238,15 @@ static int BuildMulNoNanGraph(
     }
     // Input x2
     {
-        auto ph = ge::op::Data("ph2_" + caseTag).set_attr_index(0);
+        auto ph = ge::op::Data("ph2_" + caseTag).set_attr_index(1);
         TensorDesc d(ge::Shape(s2), FORMAT_ND, dtype);
         d.SetPlacement(ge::kPlacementHost);
         d.SetFormat(FORMAT_ND);
         Tensor t;
-        if (GenConstTensor(s2, dtype, v2, t, d) != SUCCESS) return FAILED;
+        if (GenConstTensor(s2, dtype, v2, t, d) != SUCCESS)
+            return FAILED;
         ph.update_input_desc_x(d);
+        ph.update_output_desc_y(d);
         inputData.push_back(t);
         graph.AddOp(ph);
         op.set_input_x2(ph);
@@ -227,17 +266,17 @@ static int BuildMulNoNanGraph(
 //   kIsNaN: got must be NaN regardless of expected
 struct ExpectPolicy {
     enum class Mode { kExact, kIsNaN };
-    Mode   mode;
+    Mode mode;
     double expected;
     double absTol;
 };
 
 struct CaseSpec {
-    string                 tag;
-    DataType               dtype;
-    double                 v1, v2;
-    vector<int64_t>        s1, s2, outShape;
-    ExpectPolicy           expect;
+    string tag;
+    DataType dtype;
+    double v1, v2;
+    vector<int64_t> s1, s2, outShape;
+    ExpectPolicy expect;
 };
 
 static bool MatchOne(double got, const ExpectPolicy& expect)
@@ -245,7 +284,7 @@ static bool MatchOne(double got, const ExpectPolicy& expect)
     if (expect.mode == ExpectPolicy::Mode::kIsNaN) {
         return std::isnan(got);
     }
-    if (got == expect.expected) {  // handles inf==inf / -inf==-inf where (got-expected) would be NaN
+    if (got == expect.expected) { // handles inf==inf / -inf==-inf where (got-expected) would be NaN
         return true;
     }
     return std::abs(got - expect.expected) <= expect.absTol;
@@ -258,17 +297,17 @@ static int RunOneCase(const CaseSpec& spec)
     std::vector<ge::Tensor> inputData;
     std::vector<Operator> inputs;
     std::vector<Operator> outputs;
-    if (BuildMulNoNanGraph(graph, inputData, inputs, outputs, spec.dtype,
-                           spec.v1, spec.v2,
-                           spec.s1, spec.s2, spec.outShape, spec.tag) != SUCCESS) {
+    if (BuildMulNoNanGraph(graph, inputData, inputs, outputs, spec.dtype, spec.v1, spec.v2, spec.s1, spec.s2,
+                           spec.outShape, spec.tag) != SUCCESS) {
         printf("BuildMulNoNanGraph failed\n");
         return FAILED;
     }
     graph.SetInputs(inputs).SetOutputs(outputs);
 
     std::map<AscendString, AscendString> buildOpts;
-    ge::Session* session = new Session(buildOpts);
-    if (!session) return FAILED;
+    ge::Session* session = new (std::nothrow) Session(buildOpts);
+    if (!session)
+        return FAILED;
 
     std::map<AscendString, AscendString> graphOpts;
     uint32_t graphId = 1;
@@ -286,17 +325,23 @@ static int RunOneCase(const CaseSpec& spec)
         return FAILED;
     }
 
-    int64_t expNumel = 1;
-    for (auto d : spec.outShape) expNumel *= d;
-
+    if (output.size() != 1) {
+        printf("Expected exactly one output, got %zu\n", output.size());
+        delete session;
+        return FAILED;
+    }
     int failCount = 0;
     for (size_t i = 0; i < output.size(); ++i) {
-        int64_t numel = output[i].GetTensorDesc().GetShape().GetShapeSize();
-        if (numel != expNumel) {
-            printf("  SHAPE MISMATCH: output numel=%ld expected=%ld\n", (long)numel, (long)expNumel);
-            failCount++;
-        }
+        const auto& desc = output[i].GetTensorDesc();
+        int64_t numel = desc.GetShape().GetShapeSize();
         uint8_t* raw = output[i].GetData();
+        if (desc.GetShape().GetDims() != spec.outShape || desc.GetDataType() != spec.dtype || numel < 0 ||
+            output[i].GetSize() != static_cast<size_t>(numel) * GetDataTypeSize(spec.dtype) ||
+            (numel != 0 && raw == nullptr)) {
+            printf("Output shape, dtype or buffer mismatch\n");
+            delete session;
+            return FAILED;
+        }
         for (int64_t j = 0; j < numel; ++j) {
             double got;
             if (spec.dtype == ge::DT_FLOAT) {
@@ -312,8 +357,8 @@ static int RunOneCase(const CaseSpec& spec)
                 if (spec.expect.mode == ExpectPolicy::Mode::kIsNaN) {
                     printf("  MISMATCH @%ld: got=%.6f expected=NaN\n", (long)j, got);
                 } else {
-                    printf("  MISMATCH @%ld: got=%.6f expected=%.6f absTol=%.6f\n",
-                           (long)j, got, spec.expect.expected, spec.expect.absTol);
+                    printf("  MISMATCH @%ld: got=%.6f expected=%.6f absTol=%.6f\n", (long)j, got, spec.expect.expected,
+                           spec.expect.absTol);
                 }
                 failCount++;
             }
@@ -322,91 +367,107 @@ static int RunOneCase(const CaseSpec& spec)
     delete session;
 
     if (failCount != 0) {
-        printf("%s - FAIL - case %s: %d mismatches (numel=%ld)\n",
-               GetTime().c_str(), spec.tag.c_str(), failCount,
+        printf("%s - FAIL - case %s: %d mismatches (numel=%ld)\n", GetTime().c_str(), spec.tag.c_str(), failCount,
                (long)output[0].GetTensorDesc().GetShape().GetShapeSize());
         return FAILED;
     }
     if (spec.expect.mode == ExpectPolicy::Mode::kIsNaN) {
         printf("%s - PASS - case %s (expected=NaN)\n", GetTime().c_str(), spec.tag.c_str());
     } else {
-        printf("%s - PASS - case %s (expected=%.4f)\n",
-               GetTime().c_str(), spec.tag.c_str(), spec.expect.expected);
+        printf("%s - PASS - case %s (expected=%.4f)\n", GetTime().c_str(), spec.tag.c_str(), spec.expect.expected);
     }
     return SUCCESS;
 }
 
 int main(int argc, char* argv[])
 {
-    (void)argc; (void)argv;
-
-    std::map<AscendString, AscendString> globalOpts = {
-        {"ge.exec.deviceId", "0"}, {"ge.graphRunMode", "1"}};
-    if (ge::GEInitialize(globalOpts) != SUCCESS) {
-        printf("GEInitialize failed\n");
+    if (argc > 2) {
+        printf("Usage: %s [case_tag|--list]\n", argv[0]);
         return FAILED;
     }
 
-    const double kInf  = std::numeric_limits<double>::infinity();
+    const double kInf = std::numeric_limits<double>::infinity();
     const double kNeg0 = -0.0;
-    const double kNaN  = std::numeric_limits<double>::quiet_NaN();
+    const double kNaN = std::numeric_limits<double>::quiet_NaN();
 
-    auto exact = [](double v, double tol) {
-        return ExpectPolicy{ExpectPolicy::Mode::kExact, v, tol};
-    };
-    auto nan = []() {
-        return ExpectPolicy{ExpectPolicy::Mode::kIsNaN, 0.0, 0.0};
-    };
+    auto exact = [](double v, double tol) { return ExpectPolicy{ExpectPolicy::Mode::kExact, v, tol}; };
+    auto nan = []() { return ExpectPolicy{ExpectPolicy::Mode::kIsNaN, 0.0, 0.0}; };
 
     std::vector<CaseSpec> cases = {
         // tag                       dtype           v1     v2    s1       s2       out      expect
         // --- fp32 basics + special values ---
-        {"fp32_basic",             ge::DT_FLOAT,   2.0,   3.0,  {2,2},  {2,2},  {2,2},  exact(6.0,    1e-5)},
-        {"fp32_zero_y",            ge::DT_FLOAT,   5.0,   0.0,  {2,2},  {2,2},  {2,2},  exact(0.0,    1e-5)},
-        {"fp32_inf_times_zero",    ge::DT_FLOAT,   kInf,  0.0,  {2,2},  {2,2},  {2,2},  exact(0.0,    1e-5)},
-        {"fp32_nan_times_zero",    ge::DT_FLOAT,   kNaN,  0.0,  {2,2},  {2,2},  {2,2},  exact(0.0,    1e-5)},
-        {"fp32_normal_nan",        ge::DT_FLOAT,   kNaN,  2.0,  {2,2},  {2,2},  {2,2},  nan()              },
-        {"fp32_inf_normal",        ge::DT_FLOAT,   kInf,  2.0,  {2,2},  {2,2},  {2,2},  exact(kInf,   0.0 )},
+        {"fp32_basic", ge::DT_FLOAT, 2.0, 3.0, {2, 2}, {2, 2}, {2, 2}, exact(6.0, 1e-5)},
+        {"fp32_zero_y", ge::DT_FLOAT, 5.0, 0.0, {2, 2}, {2, 2}, {2, 2}, exact(0.0, 1e-5)},
+        {"fp32_inf_times_zero", ge::DT_FLOAT, kInf, 0.0, {2, 2}, {2, 2}, {2, 2}, exact(0.0, 1e-5)},
+        {"fp32_nan_times_zero", ge::DT_FLOAT, kNaN, 0.0, {2, 2}, {2, 2}, {2, 2}, exact(0.0, 1e-5)},
+        {"fp32_normal_nan", ge::DT_FLOAT, kNaN, 2.0, {2, 2}, {2, 2}, {2, 2}, nan()},
+        {"fp32_inf_normal", ge::DT_FLOAT, kInf, 2.0, {2, 2}, {2, 2}, {2, 2}, exact(kInf, 0.0)},
         // --- fp16 ---
-        {"fp16_basic",             ge::DT_FLOAT16, 1.5,   2.0,  {4},    {4},    {4},    exact(3.0,    5e-3)},
-        {"fp16_zero_y",            ge::DT_FLOAT16, 6.5e4, 0.0,  {4},    {4},    {4},    exact(0.0,    5e-3)},
+        {"fp16_basic", ge::DT_FLOAT16, 1.5, 2.0, {4}, {4}, {4}, exact(3.0, 5e-3)},
+        {"fp16_zero_y", ge::DT_FLOAT16, 6.5e4, 0.0, {4}, {4}, {4}, exact(0.0, 5e-3)},
         // --- bf16 ---
-        {"bf16_basic",             ge::DT_BF16,    1.0,   2.0,  {4},    {4},    {4},    exact(2.0,    2e-2)},
-        {"bf16_inf_times_zero",    ge::DT_BF16,    kInf,  0.0,  {4},    {4},    {4},    exact(0.0,    2e-2)},
+        {"bf16_basic", ge::DT_BF16, 1.0, 2.0, {4}, {4}, {4}, exact(2.0, 2e-2)},
+        {"bf16_inf_times_zero", ge::DT_BF16, kInf, 0.0, {4}, {4}, {4}, exact(0.0, 2e-2)},
         // --- int32 ---
-        {"int32_basic",            ge::DT_INT32,   3.0,   4.0,  {3},    {3},    {3},    exact(12.0,   0.5 )},
-        {"int32_zero_y",           ge::DT_INT32,   7.0,   0.0,  {3},    {3},    {3},    exact(0.0,    0.5 )},
+        {"int32_basic", ge::DT_INT32, 3.0, 4.0, {3}, {3}, {3}, exact(12.0, 0.5)},
+        {"int32_zero_y", ge::DT_INT32, 7.0, 0.0, {3}, {3}, {3}, exact(0.0, 0.5)},
         // --- broadcast ---
-        {"fp32_broadcast_zero",    ge::DT_FLOAT,   2.0,   0.0,  {4,1},  {1,4},  {4,4},  exact(0.0,    1e-5)},
-        {"fp32_broadcast_mixed",   ge::DT_FLOAT,   2.0,   3.0,  {4,1},  {1,4},  {4,4},  exact(6.0,    1e-5)},
+        {"fp32_broadcast_zero", ge::DT_FLOAT, 2.0, 0.0, {4, 1}, {1, 4}, {4, 4}, exact(0.0, 1e-5)},
+        {"fp32_broadcast_mixed", ge::DT_FLOAT, 2.0, 3.0, {4, 1}, {1, 4}, {4, 4}, exact(6.0, 1e-5)},
         // x1 scalar broadcast against a 2-D x2
-        {"fp32_bc_scalar_x1",      ge::DT_FLOAT,   3.0,   2.0,  {1},    {3,4},  {3,4},  exact(6.0,    1e-5)},
+        {"fp32_bc_scalar_x1", ge::DT_FLOAT, 3.0, 2.0, {1}, {3, 4}, {3, 4}, exact(6.0, 1e-5)},
         // x2 scalar zero broadcast must still trigger the zero arm everywhere
-        {"fp32_bc_scalar_zero",    ge::DT_FLOAT,   5.0,   0.0,  {3,4},  {1},    {3,4},  exact(0.0,    1e-5)},
+        {"fp32_bc_scalar_zero", ge::DT_FLOAT, 5.0, 0.0, {3, 4}, {1}, {3, 4}, exact(0.0, 1e-5)},
         // row-vector x1 broadcast over rows
-        {"fp32_bc_row",            ge::DT_FLOAT,   2.0,   4.0,  {1,5},  {3,5},  {3,5},  exact(8.0,    1e-5)},
+        {"fp32_bc_row", ge::DT_FLOAT, 2.0, 4.0, {1, 5}, {3, 5}, {3, 5}, exact(8.0, 1e-5)},
         // column-vector x1 broadcast over columns
-        {"fp32_bc_col",            ge::DT_FLOAT,   2.0,   4.0,  {3,1},  {3,5},  {3,5},  exact(8.0,    1e-5)},
+        {"fp32_bc_col", ge::DT_FLOAT, 2.0, 4.0, {3, 1}, {3, 5}, {3, 5}, exact(8.0, 1e-5)},
         // 3-D mutual broadcast {2,1,4} x {1,3,4} -> {2,3,4}
-        {"fp32_bc_3d",             ge::DT_FLOAT,   2.0,   3.0,  {2,1,4},{1,3,4},{2,3,4},exact(6.0,    1e-5)},
+        {"fp32_bc_3d", ge::DT_FLOAT, 2.0, 3.0, {2, 1, 4}, {1, 3, 4}, {2, 3, 4}, exact(6.0, 1e-5)},
         // fp16 2-D mutual broadcast
-        {"fp16_bc_mixed",          ge::DT_FLOAT16, 1.5,   2.0,  {2,1},  {1,3},  {2,3},  exact(3.0,    5e-3)},
+        {"fp16_bc_mixed", ge::DT_FLOAT16, 1.5, 2.0, {2, 1}, {1, 3}, {2, 3}, exact(3.0, 5e-3)},
         // cross-rank: lower-rank x1 broadcast against higher-rank x2
-        {"fp32_bc_cross_rank",     ge::DT_FLOAT,   2.0,   4.0,  {5},    {3,4,5},{3,4,5},exact(8.0,    1e-5)},
+        {"fp32_bc_cross_rank", ge::DT_FLOAT, 2.0, 4.0, {5}, {3, 4, 5}, {3, 4, 5}, exact(8.0, 1e-5)},
         // trailing column-vector broadcast {4,1} x {4,6} -> {4,6}
-        {"fp32_bc_col_trailing",   ge::DT_FLOAT,   2.0,   3.0,  {4,1},  {4,6},  {4,6},  exact(6.0,    1e-5)},
+        {"fp32_bc_col_trailing", ge::DT_FLOAT, 2.0, 3.0, {4, 1}, {4, 6}, {4, 6}, exact(6.0, 1e-5)},
         // int32 2-D mutual broadcast
-        {"int32_bc_mixed",         ge::DT_INT32,   3.0,   4.0,  {3,1},  {1,4},  {3,4},  exact(12.0,   0.5 )},
+        {"int32_bc_mixed", ge::DT_INT32, 3.0, 4.0, {3, 1}, {1, 4}, {3, 4}, exact(12.0, 0.5)},
         // bf16 2-D mutual broadcast
-        {"bf16_bc_mixed",          ge::DT_BF16,    1.0,   2.0,  {2,1},  {1,3},  {2,3},  exact(2.0,    2e-2)},
+        {"bf16_bc_mixed", ge::DT_BF16, 1.0, 2.0, {2, 1}, {1, 3}, {2, 3}, exact(2.0, 2e-2)},
         // --- negative zero: -0 == 0 should still trigger the zero arm ---
-        {"fp32_neg_zero",          ge::DT_FLOAT,   kNaN,  kNeg0,{2,2},  {2,2},  {2,2},  exact(0.0,    1e-5)},
+        {"fp32_neg_zero", ge::DT_FLOAT, kNaN, kNeg0, {2, 2}, {2, 2}, {2, 2}, exact(0.0, 1e-5)},
         // --- empty tensor scenarios (numel == 0) ---
         // both inputs empty 1-D -> empty output
-        {"fp32_empty",             ge::DT_FLOAT,   2.0,   3.0,  {0},    {0},    {0},    exact(6.0,    1e-5)},
+        {"fp32_empty", ge::DT_FLOAT, 2.0, 3.0, {0}, {0}, {0}, exact(6.0, 1e-5)},
         // empty leading dim carried by x1, x2 broadcast up -> empty [0,4]
-        {"fp32_empty_bc",          ge::DT_FLOAT,   2.0,   3.0,  {0,4},  {1,4},  {0,4},  exact(6.0,    1e-5)},
+        {"fp32_empty_bc", ge::DT_FLOAT, 2.0, 3.0, {0, 4}, {1, 4}, {0, 4}, exact(6.0, 1e-5)},
     };
+
+    if (argc == 2 && string(argv[1]) == "--list") {
+        for (const auto& c : cases) {
+            std::cout << c.tag << std::endl;
+        }
+        return SUCCESS;
+    }
+    if (argc == 2) {
+        vector<CaseSpec> selected;
+        for (const auto& c : cases) {
+            if (c.tag == argv[1]) {
+                selected.push_back(c);
+            }
+        }
+        if (selected.empty()) {
+            printf("Unknown case: %s\n", argv[1]);
+            return FAILED;
+        }
+        cases = std::move(selected);
+    }
+
+    std::map<AscendString, AscendString> globalOpts = {{"ge.exec.deviceId", "0"}, {"ge.graphRunMode", "1"}};
+    if (ge::GEInitialize(globalOpts) != SUCCESS) {
+        printf("GEInitialize failed\n");
+        return FAILED;
+    }
 
     int allFail = 0;
     for (const auto& c : cases) {
@@ -417,16 +478,15 @@ int main(int argc, char* argv[])
 
     ge::AscendString errMsg = ge::GEGetErrorMsgV2();
     string errStr(errMsg.GetString());
-    if (!errStr.empty()) std::cout << "GE error: " << errStr << std::endl;
+    if (!errStr.empty())
+        std::cout << "GE error: " << errStr << std::endl;
 
     ge::GEFinalize();
 
     if (allFail != 0) {
-        printf("\n%s - FAIL - [XIR]: %d / %zu cases failed\n",
-               GetTime().c_str(), allFail, cases.size());
+        printf("\n%s - FAIL - [XIR]: %d / %zu cases failed\n", GetTime().c_str(), allFail, cases.size());
         return FAILED;
     }
-    printf("\n%s - PASS - [XIR]: all %zu mul_no_nan cases passed\n",
-           GetTime().c_str(), cases.size());
+    printf("\n%s - PASS - [XIR]: all %zu mul_no_nan cases passed\n", GetTime().c_str(), cases.size());
     return SUCCESS;
 }

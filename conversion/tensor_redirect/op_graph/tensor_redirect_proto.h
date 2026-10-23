@@ -24,7 +24,7 @@ namespace ge {
 * One input, including:
 * x: A ND Tensor. Must be one of the following types:
      bfloat16, float16, float32, int8, uint8, int16, uint16, int32, uint32, int64, uint64. \n
-     Format is ND, Support 1D ~ 8D. \n
+     Format is ND. On <term>Ascend 950PR&950DT系列产品</term>, supports 0D ~ 8D, including scalars. \n
 
 * @par Outputs:
 * output_x: A ND Tensor. Has the same dtype and format as "x". \n

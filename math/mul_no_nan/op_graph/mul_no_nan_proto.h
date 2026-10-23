@@ -36,7 +36,8 @@ namespace ge {
 *    y[i] = x1[i]*x2[i] otherwise \n
 
 * @par Third-party framework compatibility
-* Compatible with the TensorFlow operator MulNoNan (tf.math.multiply_no_nans).
+* The floating-point types follow TensorFlow MulNoNan (tf.math.multiply_no_nan).
+* INT32 uses the same zero-selection rule with integer multiplication.
 */
 #ifndef OPS_PROTO_DEF_MULNONAN
 #define OPS_PROTO_DEF_MULNONAN

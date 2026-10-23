@@ -73,7 +73,7 @@ $$
     <td>FLOAT、FLOAT16、BFLOAT16、INT8、UINT8、INT16、UINT16、INT32、UINT32、INT64、UINT64</td>
     <td>输入ND→输出ND</td>
     <td>输入ND→输出ND；支持固定rank动态shape和dynamic rank</td>
-    <td>rank取值范围为[1, 8]；支持空Tensor</td>
+    <td>rank取值范围为[0, 8]，rank为0时表示标量；支持空Tensor</td>
   </tr>
   <tr>
     <td><term>Atlas A3系列产品</term><br>

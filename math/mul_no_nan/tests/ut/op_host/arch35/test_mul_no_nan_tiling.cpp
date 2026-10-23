@@ -30,7 +30,7 @@ protected:
 // Case 1: fp16 same shape.
 TEST_F(MulNoNanTilingTest, same_shape_fp16)
 {
-    optiling::MulNoNanCompileInfo compileInfo = {64, 245760};
+    optiling::MulNoNanCompileInfo compileInfo = {false, 64, 245760};
     gert::TilingContextPara para("MulNoNan",
                                  {
                                      {{{16, 16}, {16, 16}}, ge::DT_FLOAT16, ge::FORMAT_ND},
@@ -46,7 +46,7 @@ TEST_F(MulNoNanTilingTest, same_shape_fp16)
 // Case 2: fp32 same shape.
 TEST_F(MulNoNanTilingTest, same_shape_fp32)
 {
-    optiling::MulNoNanCompileInfo compileInfo = {64, 245760};
+    optiling::MulNoNanCompileInfo compileInfo = {false, 64, 245760};
     gert::TilingContextPara para("MulNoNan",
                                  {
                                      {{{16, 16}, {16, 16}}, ge::DT_FLOAT, ge::FORMAT_ND},
@@ -62,7 +62,7 @@ TEST_F(MulNoNanTilingTest, same_shape_fp32)
 // Case 3: int32 same shape.
 TEST_F(MulNoNanTilingTest, same_shape_int32)
 {
-    optiling::MulNoNanCompileInfo compileInfo = {64, 245760};
+    optiling::MulNoNanCompileInfo compileInfo = {false, 64, 245760};
     gert::TilingContextPara para("MulNoNan",
                                  {
                                      {{{16, 16}, {16, 16}}, ge::DT_INT32, ge::FORMAT_ND},
@@ -78,7 +78,7 @@ TEST_F(MulNoNanTilingTest, same_shape_int32)
 // Case 4: bf16 same shape.
 TEST_F(MulNoNanTilingTest, same_shape_bf16)
 {
-    optiling::MulNoNanCompileInfo compileInfo = {64, 245760};
+    optiling::MulNoNanCompileInfo compileInfo = {false, 64, 245760};
     gert::TilingContextPara para("MulNoNan",
                                  {
                                      {{{16, 16}, {16, 16}}, ge::DT_BF16, ge::FORMAT_ND},
@@ -94,7 +94,7 @@ TEST_F(MulNoNanTilingTest, same_shape_bf16)
 // Case 5: per-axis broadcast, fp16.
 TEST_F(MulNoNanTilingTest, axis_broadcast_fp16)
 {
-    optiling::MulNoNanCompileInfo compileInfo = {64, 245760};
+    optiling::MulNoNanCompileInfo compileInfo = {false, 64, 245760};
     gert::TilingContextPara para("MulNoNan",
                                  {
                                      {{{16, 1}, {16, 1}}, ge::DT_FLOAT16, ge::FORMAT_ND},
@@ -110,7 +110,7 @@ TEST_F(MulNoNanTilingTest, axis_broadcast_fp16)
 // Case 6: cross-rank broadcast, fp32.
 TEST_F(MulNoNanTilingTest, cross_rank_broadcast_fp32)
 {
-    optiling::MulNoNanCompileInfo compileInfo = {64, 245760};
+    optiling::MulNoNanCompileInfo compileInfo = {false, 64, 245760};
     gert::TilingContextPara para("MulNoNan",
                                  {
                                      {{{3, 4, 5}, {3, 4, 5}}, ge::DT_FLOAT, ge::FORMAT_ND},
@@ -126,7 +126,7 @@ TEST_F(MulNoNanTilingTest, cross_rank_broadcast_fp32)
 // Case 7: x2 is a scalar, fp32.
 TEST_F(MulNoNanTilingTest, x2_scalar_fp32)
 {
-    optiling::MulNoNanCompileInfo compileInfo = {64, 245760};
+    optiling::MulNoNanCompileInfo compileInfo = {false, 64, 245760};
     gert::TilingContextPara para("MulNoNan",
                                  {
                                      {{{32, 64}, {32, 64}}, ge::DT_FLOAT, ge::FORMAT_ND},
@@ -142,7 +142,7 @@ TEST_F(MulNoNanTilingTest, x2_scalar_fp32)
 // Case 8: x1 is a scalar, bf16.
 TEST_F(MulNoNanTilingTest, x1_scalar_bf16)
 {
-    optiling::MulNoNanCompileInfo compileInfo = {64, 245760};
+    optiling::MulNoNanCompileInfo compileInfo = {false, 64, 245760};
     gert::TilingContextPara para("MulNoNan",
                                  {
                                      {{{1}, {1}}, ge::DT_BF16, ge::FORMAT_ND},
@@ -158,7 +158,7 @@ TEST_F(MulNoNanTilingTest, x1_scalar_bf16)
 // Case 9: large tensor that triggers multi-core, fp32.
 TEST_F(MulNoNanTilingTest, large_tensor_fp32)
 {
-    optiling::MulNoNanCompileInfo compileInfo = {64, 245760};
+    optiling::MulNoNanCompileInfo compileInfo = {false, 64, 245760};
     gert::TilingContextPara para("MulNoNan",
                                  {
                                      {{{1024, 1024}, {1024, 1024}}, ge::DT_FLOAT, ge::FORMAT_ND},
@@ -174,7 +174,7 @@ TEST_F(MulNoNanTilingTest, large_tensor_fp32)
 // Case 10: tiny tensor (1 element each), int32.
 TEST_F(MulNoNanTilingTest, tiny_tensor_int32)
 {
-    optiling::MulNoNanCompileInfo compileInfo = {64, 245760};
+    optiling::MulNoNanCompileInfo compileInfo = {false, 64, 245760};
     gert::TilingContextPara para("MulNoNan",
                                  {
                                      {{{1}, {1}}, ge::DT_INT32, ge::FORMAT_ND},
@@ -190,7 +190,7 @@ TEST_F(MulNoNanTilingTest, tiny_tensor_int32)
 // Case 11: dtype mismatch x1 vs x2 -> failure.
 TEST_F(MulNoNanTilingTest, dtype_mismatch_failed)
 {
-    optiling::MulNoNanCompileInfo compileInfo = {64, 245760};
+    optiling::MulNoNanCompileInfo compileInfo = {false, 64, 245760};
     gert::TilingContextPara para("MulNoNan",
                                  {
                                      {{{8}, {8}}, ge::DT_FLOAT16, ge::FORMAT_ND},
@@ -207,7 +207,7 @@ TEST_F(MulNoNanTilingTest, dtype_mismatch_failed)
 // {fp16, fp32, int32, bf16}; double is rejected even though shapes match).
 TEST_F(MulNoNanTilingTest, unsupported_double_failed)
 {
-    optiling::MulNoNanCompileInfo compileInfo = {64, 245760};
+    optiling::MulNoNanCompileInfo compileInfo = {false, 64, 245760};
     gert::TilingContextPara para("MulNoNan",
                                  {
                                      {{{8}, {8}}, ge::DT_DOUBLE, ge::FORMAT_ND},
@@ -223,7 +223,7 @@ TEST_F(MulNoNanTilingTest, unsupported_double_failed)
 // Case 13: 8D inputs -> success (8 is the inclusive upper bound on dim num).
 TEST_F(MulNoNanTilingTest, max_dim_num_8d_fp32)
 {
-    optiling::MulNoNanCompileInfo compileInfo = {64, 245760};
+    optiling::MulNoNanCompileInfo compileInfo = {false, 64, 245760};
     gert::TilingContextPara para(
         "MulNoNan",
         {
@@ -240,7 +240,7 @@ TEST_F(MulNoNanTilingTest, max_dim_num_8d_fp32)
 // Case 14: 9D x1 -> failure (dim num exceeds 8).
 TEST_F(MulNoNanTilingTest, x1_dim_num_over_8_failed)
 {
-    optiling::MulNoNanCompileInfo compileInfo = {64, 245760};
+    optiling::MulNoNanCompileInfo compileInfo = {false, 64, 245760};
     gert::TilingContextPara para(
         "MulNoNan",
         {
@@ -257,7 +257,7 @@ TEST_F(MulNoNanTilingTest, x1_dim_num_over_8_failed)
 // Case 15: 9D x2 only -> failure (every input is checked, not just x1).
 TEST_F(MulNoNanTilingTest, x2_dim_num_over_8_failed)
 {
-    optiling::MulNoNanCompileInfo compileInfo = {64, 245760};
+    optiling::MulNoNanCompileInfo compileInfo = {false, 64, 245760};
     gert::TilingContextPara para(
         "MulNoNan",
         {

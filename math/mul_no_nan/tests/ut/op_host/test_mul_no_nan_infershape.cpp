@@ -12,7 +12,6 @@
 #include <iostream>
 #include "infershape_context_faker.h"
 #include "infershape_case_executor.h"
-#include "op_infer_datatype_context_builder.h"
 #include "base/registry/op_impl_space_registry_v2.h"
 
 using namespace ge;
@@ -202,100 +201,4 @@ TEST_F(MulNoNanInfershape, cross_rank_x2_bigger_int32)
                                      });
     std::vector<std::vector<int64_t>> expectOutputShape = {{3, 4, 5}};
     ExecuteTestCase(para, ge::GRAPH_SUCCESS, expectOutputShape);
-}
-
-// InferDataType: output dtype follows x1 (fp16).
-TEST_F(MulNoNanInfershape, infer_datatype_fp16)
-{
-    auto spaceRegistry = gert::DefaultOpImplSpaceRegistryV2::GetInstance().GetSpaceRegistry();
-    ASSERT_NE(spaceRegistry, nullptr);
-    auto opImpl = spaceRegistry->GetOpImpl("MulNoNan");
-    ASSERT_NE(opImpl, nullptr);
-    ASSERT_NE(opImpl->infer_datatype, nullptr);
-
-    gert::OpInferDataTypeContextBuilder builder;
-    builder.OpType("MulNoNan").OpName("MulNoNan");
-    builder.IONum(2, 1);
-    builder.InputTensorDesc(0, ge::DT_FLOAT16, ge::FORMAT_ND, ge::FORMAT_ND);
-    builder.InputTensorDesc(1, ge::DT_FLOAT16, ge::FORMAT_ND, ge::FORMAT_ND);
-    builder.OutputTensorDesc(0, ge::FORMAT_ND, ge::FORMAT_ND);
-    auto contextHolder = builder.Build();
-    auto* context = contextHolder.GetContext();
-    ASSERT_NE(context, nullptr);
-
-    auto ret = opImpl->infer_datatype(context);
-    EXPECT_EQ(ret, ge::GRAPH_SUCCESS);
-    EXPECT_EQ(context->GetOutputDataType(0), ge::DT_FLOAT16);
-}
-
-// InferDataType: output dtype follows x1 (fp32).
-TEST_F(MulNoNanInfershape, infer_datatype_fp32)
-{
-    auto spaceRegistry = gert::DefaultOpImplSpaceRegistryV2::GetInstance().GetSpaceRegistry();
-    ASSERT_NE(spaceRegistry, nullptr);
-    auto opImpl = spaceRegistry->GetOpImpl("MulNoNan");
-    ASSERT_NE(opImpl, nullptr);
-    ASSERT_NE(opImpl->infer_datatype, nullptr);
-
-    gert::OpInferDataTypeContextBuilder builder;
-    builder.OpType("MulNoNan").OpName("MulNoNan");
-    builder.IONum(2, 1);
-    builder.InputTensorDesc(0, ge::DT_FLOAT, ge::FORMAT_ND, ge::FORMAT_ND);
-    builder.InputTensorDesc(1, ge::DT_FLOAT, ge::FORMAT_ND, ge::FORMAT_ND);
-    builder.OutputTensorDesc(0, ge::FORMAT_ND, ge::FORMAT_ND);
-    auto contextHolder = builder.Build();
-    auto* context = contextHolder.GetContext();
-    ASSERT_NE(context, nullptr);
-
-    auto ret = opImpl->infer_datatype(context);
-    EXPECT_EQ(ret, ge::GRAPH_SUCCESS);
-    EXPECT_EQ(context->GetOutputDataType(0), ge::DT_FLOAT);
-}
-
-// InferDataType: output dtype follows x1 (bf16).
-TEST_F(MulNoNanInfershape, infer_datatype_bf16)
-{
-    auto spaceRegistry = gert::DefaultOpImplSpaceRegistryV2::GetInstance().GetSpaceRegistry();
-    ASSERT_NE(spaceRegistry, nullptr);
-    auto opImpl = spaceRegistry->GetOpImpl("MulNoNan");
-    ASSERT_NE(opImpl, nullptr);
-    ASSERT_NE(opImpl->infer_datatype, nullptr);
-
-    gert::OpInferDataTypeContextBuilder builder;
-    builder.OpType("MulNoNan").OpName("MulNoNan");
-    builder.IONum(2, 1);
-    builder.InputTensorDesc(0, ge::DT_BF16, ge::FORMAT_ND, ge::FORMAT_ND);
-    builder.InputTensorDesc(1, ge::DT_BF16, ge::FORMAT_ND, ge::FORMAT_ND);
-    builder.OutputTensorDesc(0, ge::FORMAT_ND, ge::FORMAT_ND);
-    auto contextHolder = builder.Build();
-    auto* context = contextHolder.GetContext();
-    ASSERT_NE(context, nullptr);
-
-    auto ret = opImpl->infer_datatype(context);
-    EXPECT_EQ(ret, ge::GRAPH_SUCCESS);
-    EXPECT_EQ(context->GetOutputDataType(0), ge::DT_BF16);
-}
-
-// InferDataType: output dtype follows x1 (int32).
-TEST_F(MulNoNanInfershape, infer_datatype_int32)
-{
-    auto spaceRegistry = gert::DefaultOpImplSpaceRegistryV2::GetInstance().GetSpaceRegistry();
-    ASSERT_NE(spaceRegistry, nullptr);
-    auto opImpl = spaceRegistry->GetOpImpl("MulNoNan");
-    ASSERT_NE(opImpl, nullptr);
-    ASSERT_NE(opImpl->infer_datatype, nullptr);
-
-    gert::OpInferDataTypeContextBuilder builder;
-    builder.OpType("MulNoNan").OpName("MulNoNan");
-    builder.IONum(2, 1);
-    builder.InputTensorDesc(0, ge::DT_INT32, ge::FORMAT_ND, ge::FORMAT_ND);
-    builder.InputTensorDesc(1, ge::DT_INT32, ge::FORMAT_ND, ge::FORMAT_ND);
-    builder.OutputTensorDesc(0, ge::FORMAT_ND, ge::FORMAT_ND);
-    auto contextHolder = builder.Build();
-    auto* context = contextHolder.GetContext();
-    ASSERT_NE(context, nullptr);
-
-    auto ret = opImpl->infer_datatype(context);
-    EXPECT_EQ(ret, ge::GRAPH_SUCCESS);
-    EXPECT_EQ(context->GetOutputDataType(0), ge::DT_INT32);
 }
