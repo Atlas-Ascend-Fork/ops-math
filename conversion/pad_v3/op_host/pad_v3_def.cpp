@@ -92,7 +92,6 @@ public:
         this->AICore().AddConfig("ascend950", aicore_config);
         this->AICore().AddConfig("ascend350", aicore_config);
 
-#if defined(METADEF_VERSION_NUM) && METADEF_VERSION_NUM >= 90300000
         OpAICoreConfig config960;
         config960.Input("x").ParamType(REQUIRED).DataType(valueDataType_960).Format(format_960);
         config960.Input("paddings")
@@ -114,7 +113,7 @@ public:
             .PrecisionReduceFlag(true)
             .ExtendCfgInfo("opFile.value", "pad_v3_apt");
         this->AICore().AddConfig("ascend960dt", config960);
-#endif
+        this->AICore().AddConfig("ascend960pr", config960);
     }
 };
 
