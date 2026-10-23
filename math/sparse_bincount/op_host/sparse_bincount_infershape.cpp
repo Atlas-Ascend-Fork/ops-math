@@ -67,15 +67,18 @@ static ge::graphStatus InferShapeSparseBincount(gert::InferShapeContext* context
     OP_CHECK_NULL_WITH_CONTEXT(context, sizeDesc);
     auto sizeDtype = sizeDesc->GetDataType();
 
-    int64_t sizeValue = 0;
+    // size 为动态输入时编译期无数据，输出维度置 -1，由运行时按真实数据推导
+    int64_t sizeValue = -1;
     if (sizeDtype == DT_INT32) {
         const int32_t* sizeData = sizeTensor->GetData<int32_t>();
-        OP_CHECK_IF(sizeData == nullptr, OP_LOGE(context, "size data is null"), return GRAPH_FAILED);
-        sizeValue = static_cast<int64_t>(sizeData[0]);
+        if (sizeData != nullptr) {
+            sizeValue = static_cast<int64_t>(sizeData[0]);
+        }
     } else {
         const int64_t* sizeData = sizeTensor->GetData<int64_t>();
-        OP_CHECK_IF(sizeData == nullptr, OP_LOGE(context, "size data is null"), return GRAPH_FAILED);
-        sizeValue = sizeData[0];
+        if (sizeData != nullptr) {
+            sizeValue = sizeData[0];
+        }
     }
 
     if (denseShapeNum == 1) {
@@ -87,8 +90,10 @@ static ge::graphStatus InferShapeSparseBincount(gert::InferShapeContext* context
         const auto* denseShapeTensor = context->GetInputTensor(IDX_DENSE_SHAPE);
         OP_CHECK_NULL_WITH_CONTEXT(context, denseShapeTensor);
         const int64_t* denseShapeData = denseShapeTensor->GetData<int64_t>();
-        OP_CHECK_IF(denseShapeData == nullptr, OP_LOGE(context, "dense_shape data is null"), return GRAPH_FAILED);
-        int64_t denseShapeRows = denseShapeData[0];
+        int64_t denseShapeRows = -1;
+        if (denseShapeData != nullptr) {
+            denseShapeRows = denseShapeData[0];
+        }
 
         yShape->SetDimNum(2);
         yShape->SetDim(0, denseShapeRows);
@@ -101,5 +106,7 @@ static ge::graphStatus InferShapeSparseBincount(gert::InferShapeContext* context
     return GRAPH_SUCCESS;
 }
 
-IMPL_OP_INFERSHAPE(SparseBincount).InferShape(InferShapeSparseBincount);
+IMPL_OP_INFERSHAPE(SparseBincount)
+    .InferShape(InferShapeSparseBincount)
+    .InputsDataDependency({IDX_DENSE_SHAPE, IDX_SIZE});
 } // namespace ops
