@@ -30,13 +30,9 @@ protected:
     static void TearDownTestCase() { std::cout << "CholeskyTiling TearDown" << std::endl; }
 };
 
-struct CholeskyCompileInfo {
-    int32_t coreNum = 0;
-};
-
 TEST_F(CholeskyTiling, cholesky_test_tiling_case0)
 {
-    CholeskyCompileInfo compileInfo = {48};
+    optiling::CholeskyCompileInfo compileInfo = {48, false};
     gert::TilingContextPara tilingContextPara(
         "Cholesky",
         {
@@ -54,7 +50,7 @@ TEST_F(CholeskyTiling, cholesky_test_tiling_case0)
 
 TEST_F(CholeskyTiling, cholesky_test_tiling_single_large_matrix)
 {
-    CholeskyCompileInfo compileInfo = {48};
+    optiling::CholeskyCompileInfo compileInfo = {48, true};
     gert::TilingContextPara tilingContextPara(
         "Cholesky",
         {
@@ -72,7 +68,7 @@ TEST_F(CholeskyTiling, cholesky_test_tiling_single_large_matrix)
 
 TEST_F(CholeskyTiling, cholesky_test_tiling_rejects_rank_nine)
 {
-    CholeskyCompileInfo compileInfo = {48};
+    optiling::CholeskyCompileInfo compileInfo = {48, false};
     gert::TilingContextPara tilingContextPara(
         "Cholesky",
         {
@@ -87,7 +83,7 @@ TEST_F(CholeskyTiling, cholesky_test_tiling_rejects_rank_nine)
 
 TEST_F(CholeskyTiling, cholesky_test_tiling_rejects_non_square_matrix)
 {
-    CholeskyCompileInfo compileInfo = {48};
+    optiling::CholeskyCompileInfo compileInfo = {48, false};
     gert::TilingContextPara tilingContextPara(
         "Cholesky",
         {
@@ -102,7 +98,7 @@ TEST_F(CholeskyTiling, cholesky_test_tiling_rejects_non_square_matrix)
 
 TEST_F(CholeskyTiling, cholesky_test_tiling_rejects_oversized_matrix)
 {
-    CholeskyCompileInfo compileInfo = {48};
+    optiling::CholeskyCompileInfo compileInfo = {48, false};
     gert::TilingContextPara tilingContextPara(
         "Cholesky",
         {
@@ -117,7 +113,7 @@ TEST_F(CholeskyTiling, cholesky_test_tiling_rejects_oversized_matrix)
 
 TEST_F(CholeskyTiling, cholesky_test_tiling_rejects_unsupported_dtype)
 {
-    CholeskyCompileInfo compileInfo = {48};
+    optiling::CholeskyCompileInfo compileInfo = {48, false};
     gert::TilingContextPara tilingContextPara(
         "Cholesky",
         {
@@ -132,7 +128,7 @@ TEST_F(CholeskyTiling, cholesky_test_tiling_rejects_unsupported_dtype)
 
 TEST_F(CholeskyTiling, cholesky_test_tiling_rejects_unsupported_format)
 {
-    CholeskyCompileInfo compileInfo = {48};
+    optiling::CholeskyCompileInfo compileInfo = {48, false};
     gert::TilingContextPara tilingContextPara(
         "Cholesky",
         {
