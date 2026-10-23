@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file batch_to_space_largec.h
+ * \file batch_to_space_nd_large_c.h
  * \brief batch_to_space_largec
  */
 

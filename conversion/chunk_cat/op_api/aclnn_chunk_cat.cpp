@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file aclnn_cat.cpp
+ * \file aclnn_chunk_cat.cpp
  * \brief
  */
 #include "aclnn_chunk_cat.h"

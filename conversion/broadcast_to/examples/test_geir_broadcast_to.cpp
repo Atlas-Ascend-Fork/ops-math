@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file test_geir_add.cpp
+ * \file test_geir_broadcast_to.cpp
  * \brief
  */
 
