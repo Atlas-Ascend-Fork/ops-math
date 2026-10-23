@@ -12,6 +12,7 @@
  * \file squeeze_infershape.cpp
  * \brief InferShape and InferDataType implementation for Squeeze operator.
  */
+#include <string>
 #include "register/op_impl_registry.h"
 #include "exe_graph/runtime/infer_shape_context.h"
 #include "exe_graph/runtime/infer_datatype_context.h"
@@ -53,10 +54,10 @@ ge::graphStatus SqueezeImpl(const gert::Shape* x_shape, const bool* squeeze_dims
         if (!squeeze) {
             y_shape->AppendDim(x_shape_dim);
         } else if ((x_shape_dim != 1) && (x_shape_dim != ge::UNKNOWN_DIM)) {
-            OP_LOGE("Squeeze",
-                    "Squeeze failed, cannot squeeze dim which was not 1 or -1! Axis is %zu, while "
-                    "x_shape[%zu]=%ld.",
-                    idx, idx, x_shape_dim);
+            OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON(
+                "Squeeze", "x",
+                ("dimension " + std::to_string(idx) + " has size " + std::to_string(x_shape_dim)).c_str(),
+                "dimensions selected by axis must have size 1 or be unknown (-1)");
             return ge::GRAPH_FAILED;
         }
     }
@@ -71,7 +72,9 @@ bool GetSqueezeDims(const gert::Shape* x_shape, const gert::TypedContinuousVecto
         const auto raw_axis = axes->GetData()[idx];
         const auto real_axis = (raw_axis < 0) ? (raw_axis + x_dim_num) : raw_axis;
         if ((real_axis < 0) || (real_axis >= x_dim_num)) {
-            OP_LOGE("Squeeze", "Squeeze axis[%ld] must be in range [-%ld, %ld)!", raw_axis, x_dim_num, x_dim_num);
+            OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                "Squeeze", "axis", std::to_string(raw_axis).c_str(),
+                ("axis must be in [" + std::to_string(-x_dim_num) + ", " + std::to_string(x_dim_num) + ")").c_str());
             return false;
         }
         squeeze_dims[real_axis] = true;
@@ -85,8 +88,14 @@ static ge::graphStatus InferShapeForSqueeze(gert::InferShapeContext* context)
     const auto x_shape = context->GetInputShape(0U);
     auto y_shape = context->GetOutputShape(0U);
     const gert::RuntimeAttrs* attrs = context->GetAttrs();
-    OP_CHECK_NULL_WITH_CONTEXT(context, x_shape);
-    OP_CHECK_NULL_WITH_CONTEXT(context, y_shape);
+    if (x_shape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x.shape");
+        return ge::GRAPH_FAILED;
+    }
+    if (y_shape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "y.shape");
+        return ge::GRAPH_FAILED;
+    }
     OP_CHECK_NULL_WITH_CONTEXT(context, attrs);
     auto axes = attrs->GetListInt(0);
     // the axis attr is optional with an empty-list default: a missing attr is the same as an

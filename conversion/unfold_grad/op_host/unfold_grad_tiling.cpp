@@ -47,7 +47,7 @@ constexpr uint32_t ONE_OPERATION_TQUE_NUM = 2;
 constexpr uint32_t ONE_OPERATION_TQUE_SIZE = 17;
 constexpr uint32_t BIG_SIZE = 1000;
 constexpr uint32_t SIZE_LEVEL_NORMAL = 0; // under the limit of UB Trans
-constexpr uint32_t SIZE_LEVEL_BIG = 1; // beyond the limit of UB Trans
+constexpr uint32_t SIZE_LEVEL_BIG = 1;    // beyond the limit of UB Trans
 } // namespace
 
 namespace optiling {
@@ -69,15 +69,19 @@ ge::graphStatus CopyData2Array(const gert::Tensor* listTensor, int64_t listSize,
 }
 
 template <typename T>
-ge::graphStatus GetConstInputData(
-    gert::TilingContext* context, const size_t idxInput, T& dataList, int64_t& dataListLength)
+ge::graphStatus GetConstInputData(gert::TilingContext* context, const size_t idxInput, T& dataList,
+                                  int64_t& dataListLength)
 {
     auto listTensor = context->GetInputTensor(idxInput);
     if (listTensor == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "input_sizes");
         return ge::GRAPH_FAILED;
     }
     auto inputSizeDesc = context->GetInputDesc(INPUT_INPUTSIZE_IDX);
-    OP_CHECK_NULL_WITH_CONTEXT(context, inputSizeDesc);
+    if (inputSizeDesc == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "input_sizes.desc");
+        return ge::GRAPH_FAILED;
+    }
     auto listDataType = inputSizeDesc->GetDataType();
     auto inputSizeShapePtr = context->GetInputShape(INPUT_INPUTSIZE_IDX);
     OP_CHECK_NULL_WITH_CONTEXT(context, inputSizeShapePtr);
@@ -86,12 +90,23 @@ ge::graphStatus GetConstInputData(
     dataListLength = listSize;
 
     if (listDataType == ge::DT_INT32) {
-        return CopyData2Array<int32_t>(listTensor, listSize, dataList);
+        const auto ret = CopyData2Array<int32_t>(listTensor, listSize, dataList);
+        if (ret != ge::GRAPH_SUCCESS) {
+            OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "input_sizes.data");
+        }
+        return ret;
     }
     if (listDataType == ge::DT_INT64) {
-        return CopyData2Array<int64_t>(listTensor, listSize, dataList);
+        const auto ret = CopyData2Array<int64_t>(listTensor, listSize, dataList);
+        if (ret != ge::GRAPH_SUCCESS) {
+            OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "input_sizes.data");
+        }
+        return ret;
     }
 
+    OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "input_sizes",
+                                          Ops::Base::ToString(listDataType).c_str(),
+                                          "supported dtypes are int32 and int64");
     return ge::GRAPH_FAILED;
 }
 
@@ -204,41 +219,51 @@ ge::graphStatus UnfoldGradTiling::GetInputTensorInfo()
     int64_t inputSizeArray[MAX_DIM_NUM] = {0};
 
     if (GetConstInputData(context, INPUT_INPUTSIZE_IDX, inputSizeArray, inputSizeLength) != ge::GRAPH_SUCCESS) {
-        OP_LOGE(context, "GetConstInputData inputSize failed.");
+        OP_LOGE_WITHOUT_REPORT(context, "GetConstInputData inputSize failed.");
         return ge::GRAPH_FAILED;
     }
 
-    OP_CHECK_IF(size <= 0, OP_LOGE(nodeName, "Size %ld must be greater than 0.", size), return ge::GRAPH_FAILED);
-    OP_CHECK_IF(step <= 0, OP_LOGE(nodeName, "Step %ld must be greater than 0.", size), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(size <= 0,
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(nodeName, "size", std::to_string(size).c_str(),
+                                                      "size must be greater than 0"),
+                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(step <= 0,
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(nodeName, "step", std::to_string(step).c_str(),
+                                                      "step must be greater than 0"),
+                return ge::GRAPH_FAILED);
     OP_CHECK_IF(
         dim < 0 || dim >= inputSizeLength,
-        OP_LOGE(nodeName, "Dim %ld must be greater than or equal to 0 and less than the shape size of inputSize.", dim),
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(nodeName, "dim", std::to_string(dim).c_str(),
+                                              ("dim must be in [0, " + std::to_string(inputSizeLength) + ")").c_str()),
         return ge::GRAPH_FAILED);
 
     // 获取第一个输入gradOut的信息
     auto gradOutShapePtr = context->GetInputShape(INPUT_GRADOUT_IDX);
-    OP_CHECK_NULL_WITH_CONTEXT(context, gradOutShapePtr);
+    if (gradOutShapePtr == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "grad_out.shape");
+        return ge::GRAPH_FAILED;
+    }
     auto gradOutShape = gradOutShapePtr->GetStorageShape();
 
-    OP_CHECK_IF(
-        gradOutShape.GetDimNum() != static_cast<size_t>(inputSizeLength) + 1,
-        OP_LOGE(
-            nodeName, "The number of dimension in the gradOut %ld must be equal to (inputSizeLength + 1) %ld.",
-            static_cast<int64_t>(gradOutShape.GetDimNum()), static_cast<int64_t>(inputSizeLength) + 1),
-        return ge::GRAPH_FAILED);
+    OP_CHECK_IF(gradOutShape.GetDimNum() != static_cast<size_t>(inputSizeLength) + 1,
+                OP_LOGE_FOR_INVALID_SHAPEDIM(nodeName, "grad_out", std::to_string(gradOutShape.GetDimNum()).c_str(),
+                                             std::to_string(inputSizeLength + 1).c_str()),
+                return ge::GRAPH_FAILED);
     gradOutSizeDim = gradOutShape[dim];
-    OP_CHECK_IF(
-        gradOutSizeDim != (inputSizeArray[dim] - size) / step + 1,
-        OP_LOGE(
-            nodeName, "The size of dimension dim in the gradOut %ld must be ((inputSize[dim] - size) / step + 1) %ld.",
-            gradOutSizeDim, (inputSizeArray[dim] - size) / step + 1),
-        return ge::GRAPH_FAILED);
-    OP_CHECK_IF(
-        gradOutShape[gradOutShape.GetDimNum() - 1] != size,
-        OP_LOGE(
-            nodeName, "The last dimension of gradOut %ld must be size %ld.", gradOutShape[gradOutShape.GetDimNum() - 1],
-            size),
-        return ge::GRAPH_FAILED);
+    OP_CHECK_IF(gradOutSizeDim != (inputSizeArray[dim] - size) / step + 1,
+                OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON(
+                    nodeName, "grad_out",
+                    ("dimension " + std::to_string(dim) + " has size " + std::to_string(gradOutSizeDim)).c_str(),
+                    ("expected (input_sizes[dim] - size) / step + 1 = " +
+                     std::to_string((inputSizeArray[dim] - size) / step + 1))
+                        .c_str()),
+                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(gradOutShape[gradOutShape.GetDimNum() - 1] != size,
+                OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON(
+                    nodeName, "grad_out",
+                    ("last dimension has size " + std::to_string(gradOutShape[gradOutShape.GetDimNum() - 1])).c_str(),
+                    ("last dimension must equal size = " + std::to_string(size)).c_str()),
+                return ge::GRAPH_FAILED);
 
     inputSizeLastDim = inputSizeArray[inputSizeLength - 1];
     for (size_t i = dim; i < static_cast<size_t>(inputSizeLength); i++) {
@@ -258,10 +283,10 @@ ge::graphStatus UnfoldGradTiling::GetInputTensorInfo()
     auto gradOutDesc = context->GetInputDesc(INPUT_GRADOUT_IDX);
     OP_CHECK_NULL_WITH_CONTEXT(context, gradOutDesc);
     gardInDType = gradOutDesc->GetDataType();
-    OP_CHECK_IF(
-        GetDataTypeKey(gardInDType) == false,
-        OP_LOGE(nodeName, "The dtype of input gradOut must be in [float32, float16, bfloat16]."),
-        return ge::GRAPH_FAILED);
+    OP_CHECK_IF(GetDataTypeKey(gardInDType) == false,
+                OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(nodeName, "grad_out", Ops::Base::ToString(gardInDType).c_str(),
+                                                      "supported dtypes are float32, float16 and bfloat16"),
+                return ge::GRAPH_FAILED);
 
     return ge::GRAPH_SUCCESS;
 }
@@ -273,29 +298,31 @@ ge::graphStatus UnfoldGradTiling::TilingBlock4SizeLevelBig()
     handleNUMOnceIterationPerCore = gradOutSizeDim * size;
     // 计算size对齐32占用空间
     int64_t neededSpaceForOnePaddedSize = 0;
-    
+
     // 重新划分UB空间
     if (gardInDType == ge::DT_FLOAT16 || gardInDType == ge::DT_BF16) {
         ubSizeT2 = ubSize / (TOTAL_SIZE - DOUBLE) * DOUBLE;
         ubSizeT1 = ubSize / (TOTAL_SIZE - DOUBLE);
-        neededSpaceForOnePaddedSize = (size * typeSizeT1 + BLOCK_SIZE - 1) 
-                                            / BLOCK_SIZE * BLOCK_SIZE
-                                            / typeSizeT1 * FP32_TYPESIZE;
+        neededSpaceForOnePaddedSize = (size * typeSizeT1 + BLOCK_SIZE - 1) / BLOCK_SIZE * BLOCK_SIZE / typeSizeT1 *
+                                      FP32_TYPESIZE;
     } else if (gardInDType == ge::DT_FLOAT) {
         ubSizeT2 = ubSize;
-        neededSpaceForOnePaddedSize = (size * FP32_TYPESIZE + BLOCK_SIZE - 1) 
-                                            / BLOCK_SIZE * BLOCK_SIZE;
+        neededSpaceForOnePaddedSize = (size * FP32_TYPESIZE + BLOCK_SIZE - 1) / BLOCK_SIZE * BLOCK_SIZE;
     } else {
         return ge::GRAPH_FAILED;
     }
-    
+
     tasksOnceMaxPerCore = ubSizeT2 / neededSpaceForOnePaddedSize * size;
 
     OP_CHECK_IF(
         tasksOnceMaxPerCore <= 0,
-        OP_LOGE(nodeName, "TasksOnceMaxPerCore %ld must be greater than 0. This is because size should be less than %ld.", tasksOnceMaxPerCore, ubSizeT2 / FP32_TYPESIZE),
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(nodeName, "size", std::to_string(size).c_str(),
+                                              ("TasksOnceMaxPerCore " + std::to_string(tasksOnceMaxPerCore) +
+                                               " must be greater than 0. This is because size should be less than " +
+                                               std::to_string(ubSizeT2 / FP32_TYPESIZE))
+                                                  .c_str()),
         return ge::GRAPH_FAILED);
-    
+
     return ge::GRAPH_SUCCESS;
 }
 
@@ -324,17 +351,17 @@ ge::graphStatus UnfoldGradTiling::Tiling4Block()
 
     if (dim == inputSizeLength - 1) {
         // 计算ub使用Trans的上限
-        int64_t colHandleNum = ubSizeT2 / (TRANS_BLOCK * FP32_TYPESIZE) /neededAmountForOneSize * size;
+        int64_t colHandleNum = ubSizeT2 / (TRANS_BLOCK * FP32_TYPESIZE) / neededAmountForOneSize * size;
         // 判断size是否超出
         sizeLevel = neededAmountForOneSize > colHandleNum ? SIZE_LEVEL_BIG : SIZE_LEVEL_NORMAL;
         // 最后一轴的情况下：对BigSize进行处理
-        if (sizeLevel == SIZE_LEVEL_BIG){
-            OP_CHECK_IF(
-                TilingBlock4SizeLevelBig() != ge::GRAPH_SUCCESS, OP_LOGE(nodeName, "TilingBlock4SizeLevelBig failed."),
-                return ge::GRAPH_FAILED);
-        }else{
+        if (sizeLevel == SIZE_LEVEL_BIG) {
+            OP_CHECK_IF(TilingBlock4SizeLevelBig() != ge::GRAPH_SUCCESS,
+                        OP_LOGE_WITHOUT_REPORT(nodeName, "TilingBlock4SizeLevelBig failed."), return ge::GRAPH_FAILED);
+        } else {
             handleNUMOnceIterationPerCore = gradOutSizeDim * size;
-            tasksOnceMaxPerCore = ubSizeT2 / (TRANS_BLOCK * FP32_TYPESIZE) / neededAmountForOneSize * size * TRANS_BLOCK; 
+            tasksOnceMaxPerCore = ubSizeT2 / (TRANS_BLOCK * FP32_TYPESIZE) / neededAmountForOneSize * size *
+                                  TRANS_BLOCK;
         }
     } else {
         iterationNumPerCore = gradOutSizeDim;
@@ -346,30 +373,30 @@ ge::graphStatus UnfoldGradTiling::Tiling4Block()
         tasksOnceMaxPerCore = colOnceMaxPerUB * lowestCommonMultiple / neededAmountForOneSize;
 
         int32_t maxSize = FP16BF16_SIZE_CEIL;
-        if(typeSizeT1 == FP32_TYPESIZE) {
+        if (typeSizeT1 == FP32_TYPESIZE) {
             maxSize = FP32_SIZE_CEIL;
         }
-        OP_CHECK_IF(
-            tasksOnceMaxPerCore <= 0,
-            OP_LOGE(nodeName, "TasksOnceMaxPerCore %ld must be greater than 0. This is because size should be less than %d.", tasksOnceMaxPerCore, maxSize),
-            return ge::GRAPH_FAILED);
+        OP_CHECK_IF(tasksOnceMaxPerCore <= 0,
+                    OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                        nodeName, "size", std::to_string(size).c_str(),
+                        ("TasksOnceMaxPerCore " + std::to_string(tasksOnceMaxPerCore) +
+                         " must be greater than 0. This is because size should be less than " + std::to_string(maxSize))
+                            .c_str()),
+                    return ge::GRAPH_FAILED);
     }
 
     loop = handleNUMOnceIterationPerCore / tasksOnceMaxPerCore;
     tail = handleNUMOnceIterationPerCore % tasksOnceMaxPerCore;
-    OP_CHECK_IF(
-        lowestCommonMultiple <= 0,
-        OP_LOGE(nodeName, "lowestCommonMultiple %ld must be greater than 0.", lowestCommonMultiple),
-        return ge::GRAPH_FAILED);
+    OP_CHECK_IF(lowestCommonMultiple <= 0,
+                OP_LOGE(nodeName, "lowestCommonMultiple %ld must be greater than 0.", lowestCommonMultiple),
+                return ge::GRAPH_FAILED);
     tailColLength = (tail * neededAmountForOneSize + lowestCommonMultiple - 1) /
                     lowestCommonMultiple; // tailColLength仅用于非尾轴情况
 
-    OP_CHECK_IF(
-        inputNumPerCore <= 0 && outputNumPerCore <= 0,
-        OP_LOGE(
-            nodeName, "InputNumPerCore %ld or outputNumPerCore %ld must be greater than 0.", inputNumPerCore,
-            outputNumPerCore),
-        return ge::GRAPH_FAILED);
+    OP_CHECK_IF(inputNumPerCore <= 0 && outputNumPerCore <= 0,
+                OP_LOGE(nodeName, "InputNumPerCore %ld or outputNumPerCore %ld must be greater than 0.",
+                        inputNumPerCore, outputNumPerCore),
+                return ge::GRAPH_FAILED);
     maxBatchNum4Ub = tasksOnceMaxPerCore / Max(inputNumPerCore, outputNumPerCore);
 
     return ge::GRAPH_SUCCESS;
@@ -381,13 +408,15 @@ ge::graphStatus UnfoldGradTiling::SetAttrParams()
     OP_CHECK_NULL_WITH_CONTEXT(context, attrs);
 
     const int64_t* dimPtr = attrs->GetAttrPointer<int64_t>(ATTR_0);
-    OP_CHECK_NULL_WITH_CONTEXT(context, dimPtr);
+    OP_CHECK_IF(dimPtr == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "dim"), return ge::GRAPH_FAILED);
     dim = static_cast<int64_t>(*dimPtr);
     const int64_t* sizePtr = attrs->GetAttrPointer<int64_t>(ATTR_1);
-    OP_CHECK_NULL_WITH_CONTEXT(context, sizePtr);
+    OP_CHECK_IF(sizePtr == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "size"),
+                return ge::GRAPH_FAILED);
     size = static_cast<int64_t>(*sizePtr);
     const int64_t* stepPtr = attrs->GetAttrPointer<int64_t>(ATTR_2);
-    OP_CHECK_NULL_WITH_CONTEXT(context, stepPtr);
+    OP_CHECK_IF(stepPtr == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "step"),
+                return ge::GRAPH_FAILED);
     step = static_cast<int64_t>(*stepPtr);
 
     tiling.set_dim(dim);
@@ -414,24 +443,20 @@ void UnfoldGradTiling::SetTilingKey()
     }
 }
 
-uint64_t UnfoldGradTiling::GetTilingKey()
-{
-    return tilingKey_;
-}
+uint64_t UnfoldGradTiling::GetTilingKey() { return tilingKey_; }
 
 ge::graphStatus UnfoldGradTiling::DoTiling()
 {
     auto nodeName = context->GetNodeName();
 
-    OP_CHECK_IF(
-        SetAttrParams() != ge::GRAPH_SUCCESS, OP_LOGE(nodeName, "SetAttrParams failed."), return ge::GRAPH_FAILED);
-    OP_CHECK_IF(
-        GetInputTensorInfo() != ge::GRAPH_SUCCESS, OP_LOGE(nodeName, "GetInputTensorInfo failed."),
-        return ge::GRAPH_FAILED);
-    OP_CHECK_IF(
-        GetPlatformInfo() != ge::GRAPH_SUCCESS, OP_LOGE(nodeName, "GetPlatformInfo failed."), return ge::GRAPH_FAILED);
-    OP_CHECK_IF(
-        Tiling4Block() != ge::GRAPH_SUCCESS, OP_LOGE(nodeName, "Tiling4Block failed."), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(SetAttrParams() != ge::GRAPH_SUCCESS, OP_LOGE_WITHOUT_REPORT(nodeName, "SetAttrParams failed."),
+                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(GetInputTensorInfo() != ge::GRAPH_SUCCESS,
+                OP_LOGE_WITHOUT_REPORT(nodeName, "GetInputTensorInfo failed."), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(GetPlatformInfo() != ge::GRAPH_SUCCESS, OP_LOGE(nodeName, "GetPlatformInfo failed."),
+                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(Tiling4Block() != ge::GRAPH_SUCCESS, OP_LOGE_WITHOUT_REPORT(nodeName, "Tiling4Block failed."),
+                return ge::GRAPH_FAILED);
     SetTilingData();
 
     SetTilingKey();
@@ -444,10 +469,11 @@ ge::graphStatus UnfoldGradTiling::DoTiling()
 
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
     size_t* currentWorkspace = context->GetWorkspaceSizes(1);
-    currentWorkspace[0] =
-        usrWorkspaceSize +
-        ascendcPlatform.GetLibApiWorkSpaceSize(); // 设置总的workspace的数值大小，总的workspace空间由框架来申请并管理。
-                                                  // 该workspace作为中转空间用来放T2类型数据
+    currentWorkspace
+        [0] = usrWorkspaceSize +
+              ascendcPlatform
+                  .GetLibApiWorkSpaceSize(); // 设置总的workspace的数值大小，总的workspace空间由框架来申请并管理。
+                                             // 该workspace作为中转空间用来放T2类型数据
 
     return ge::GRAPH_SUCCESS;
 }

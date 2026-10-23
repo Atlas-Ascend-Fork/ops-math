@@ -34,7 +34,10 @@ static graphStatus UpdateDynamicShape(gert::InferShapeContext* context, const ge
 {
     for (int64_t i = 0; i < numSplit; i++) {
         gert::Shape* outShapeDynamic = context->GetOutputShape(i);
-        OP_CHECK_NULL_WITH_CONTEXT(context, outShapeDynamic);
+        if (outShapeDynamic == nullptr) {
+            OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), ("y[" + std::to_string(i) + "].shape").c_str());
+            return ge::GRAPH_FAILED;
+        }
         *outShapeDynamic = *xShape;
     }
     return GRAPH_SUCCESS;
@@ -43,14 +46,17 @@ static graphStatus UpdateDynamicShape(gert::InferShapeContext* context, const ge
 static graphStatus CheckSplitParams(gert::InferShapeContext* context, const gert::Shape* xShape, int64_t splitDim,
                                     int64_t numSplit)
 {
-    OP_CHECK_IF(numSplit <= 0,
-                OP_LOGE(context->GetNodeName(), "%s",
-                        ConcatString("num_split must be greater than 0, but it's ", numSplit).c_str()),
-                return GRAPH_FAILED);
+    OP_CHECK_IF(
+        numSplit <= 0,
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "num_split", std::to_string(numSplit).c_str(),
+                                              "num_split must be greater than 0"),
+        return GRAPH_FAILED);
 
     int64_t xShapeDim = static_cast<int64_t>(xShape->GetDimNum());
     OP_CHECK_IF(!IsDimValid(xShapeDim, splitDim),
-                OP_LOGE(context->GetNodeName(), "%s", GenInvalidDimMsg("split_dim", xShapeDim, splitDim).c_str()),
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                    context->GetNodeName(), "split_dim", std::to_string(splitDim).c_str(),
+                    ConcatString("split_dim must be in [", -xShapeDim, ", ", xShapeDim, ")").c_str()),
                 return GRAPH_FAILED);
 
     if (splitDim < 0) {
@@ -58,10 +64,11 @@ static graphStatus CheckSplitParams(gert::InferShapeContext* context, const gert
     }
 
     OP_CHECK_IF((xShape->GetDim(splitDim) % numSplit != 0) && (xShape->GetDim(splitDim) != -1),
-                OP_LOGE(context->GetNodeName(), "%s",
-                        ConcatString("the split_dim dimension of x_shape must be divided by num_split.",
-                                     " x_shape on split_dim is ", xShape->GetDim(splitDim), ", num_split is ", numSplit)
-                            .c_str()),
+                OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(
+                    context->GetNodeName(), "x, split_dim, num_split",
+                    ConcatString("x dimension ", splitDim, " has size ", xShape->GetDim(splitDim),
+                                 ", which must be divisible by num_split ", numSplit)
+                        .c_str()),
                 return GRAPH_FAILED);
     return GRAPH_SUCCESS;
 }
@@ -77,17 +84,22 @@ static graphStatus InferShape4SplitD(gert::InferShapeContext* context)
 {
     OP_LOGD(context->GetNodeName(), "Begin to do InferShape4SplitD");
     const gert::Shape* xShape = context->GetInputShape(SPLIT_D_IDX_IN_X);
-    OP_CHECK_NULL_WITH_CONTEXT(context, xShape);
+    if (xShape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x.shape");
+        return ge::GRAPH_FAILED;
+    }
 
     auto attrs = context->GetAttrs();
     OP_CHECK_NULL_WITH_CONTEXT(context, attrs);
 
     const int64_t* splitDimPtr = attrs->GetAttrPointer<int64_t>(SPLIT_D_IDX_ATTR_SPLIT_DIM);
-    OP_CHECK_NULL_WITH_CONTEXT(context, splitDimPtr);
+    OP_CHECK_IF(splitDimPtr == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "split_dim"),
+                return ge::GRAPH_FAILED);
     int64_t splitDim = *splitDimPtr;
 
     const int64_t* numSplitPtr = attrs->GetAttrPointer<int64_t>(SPLIT_D_IDX_ATTR_NUM_SPLIT);
-    OP_CHECK_NULL_WITH_CONTEXT(context, numSplitPtr);
+    OP_CHECK_IF(numSplitPtr == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "num_split"),
+                return ge::GRAPH_FAILED);
     int64_t numSplit = *numSplitPtr;
 
     OP_CHECK_IF(IsUnknownRank(*xShape),
@@ -95,7 +107,7 @@ static graphStatus InferShape4SplitD(gert::InferShapeContext* context)
                 return UpdateDynamicShape(context, xShape, numSplit));
 
     OP_CHECK_IF(CheckSplitParams(context, xShape, splitDim, numSplit) == GRAPH_FAILED,
-                OP_LOGE(context->GetNodeName(), "check split params failed."), return GRAPH_FAILED);
+                OP_LOGE_WITHOUT_REPORT(context->GetNodeName(), "check split params failed."), return GRAPH_FAILED);
 
     splitDim = splitDim < 0 ? splitDim + static_cast<int64_t>(xShape->GetDimNum()) : splitDim;
     if (xShape->GetDim(splitDim) == -1) {
@@ -104,13 +116,19 @@ static graphStatus InferShape4SplitD(gert::InferShapeContext* context)
     }
 
     gert::Shape* outShape = context->GetOutputShape(SPLIT_D_IDX_OUT_Y);
-    OP_CHECK_NULL_WITH_CONTEXT(context, outShape);
+    if (outShape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "y[0].shape");
+        return ge::GRAPH_FAILED;
+    }
     CalOutShape(xShape, outShape, numSplit, splitDim);
 
     // update dynamic output
     for (int64_t i = 1; i < numSplit; i++) {
         gert::Shape* outShapeDynamic = context->GetOutputShape(i);
-        OP_CHECK_NULL_WITH_CONTEXT(context, outShapeDynamic);
+        if (outShapeDynamic == nullptr) {
+            OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), ("y[" + std::to_string(i) + "].shape").c_str());
+            return ge::GRAPH_FAILED;
+        }
         *outShapeDynamic = *outShape;
     }
 
@@ -133,18 +151,29 @@ static graphStatus InferShapeRange4SplitD(gert::InferShapeRangeContext* context)
     auto attrs = context->GetAttrs();
     OP_CHECK_NULL_WITH_CONTEXT(context, attrs);
     const int64_t* splitDimPtr = attrs->GetAttrPointer<int64_t>(SPLIT_D_IDX_ATTR_SPLIT_DIM);
-    OP_CHECK_NULL_WITH_CONTEXT(context, splitDimPtr);
+    OP_CHECK_IF(splitDimPtr == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "split_dim"),
+                return ge::GRAPH_FAILED);
     int64_t splitDim = *splitDimPtr;
     const int64_t* numSplitPtr = attrs->GetAttrPointer<int64_t>(SPLIT_D_IDX_ATTR_NUM_SPLIT);
-    OP_CHECK_NULL_WITH_CONTEXT(context, numSplitPtr);
+    OP_CHECK_IF(numSplitPtr == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "num_split"),
+                return ge::GRAPH_FAILED);
     int64_t numSplit = *numSplitPtr;
 
     const auto* xRange = context->GetInputShapeRange(SPLIT_D_IDX_IN_X);
-    OP_CHECK_NULL_WITH_CONTEXT(context, xRange);
+    if (xRange == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x.shape_range");
+        return ge::GRAPH_FAILED;
+    }
     const auto* xRangeMax = xRange->GetMax();
     const auto* xRangeMin = xRange->GetMin();
-    OP_CHECK_NULL_WITH_CONTEXT(context, xRangeMax);
-    OP_CHECK_NULL_WITH_CONTEXT(context, xRangeMin);
+    if (xRangeMax == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x.shape_range.max");
+        return ge::GRAPH_FAILED;
+    }
+    if (xRangeMin == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x.shape_range.min");
+        return ge::GRAPH_FAILED;
+    }
 
     int64_t xDim = static_cast<int64_t>(xRangeMax->GetDimNum());
     if (splitDim < 0) {
@@ -153,11 +182,23 @@ static graphStatus InferShapeRange4SplitD(gert::InferShapeRangeContext* context)
 
     for (int64_t outIdx = 0; outIdx < numSplit; outIdx++) {
         auto* yRange = context->GetOutputShapeRange(static_cast<size_t>(outIdx));
-        OP_CHECK_NULL_WITH_CONTEXT(context, yRange);
+        if (yRange == nullptr) {
+            OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(),
+                                       ("y[" + std::to_string(outIdx) + "].shape_range").c_str());
+            return ge::GRAPH_FAILED;
+        }
         auto* yRangeMax = yRange->GetMax();
         auto* yRangeMin = yRange->GetMin();
-        OP_CHECK_NULL_WITH_CONTEXT(context, yRangeMax);
-        OP_CHECK_NULL_WITH_CONTEXT(context, yRangeMin);
+        if (yRangeMax == nullptr) {
+            OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(),
+                                       ("y[" + std::to_string(outIdx) + "].shape_range.max").c_str());
+            return ge::GRAPH_FAILED;
+        }
+        if (yRangeMin == nullptr) {
+            OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(),
+                                       ("y[" + std::to_string(outIdx) + "].shape_range.min").c_str());
+            return ge::GRAPH_FAILED;
+        }
         yRangeMax->SetDimNum(static_cast<size_t>(xDim));
         yRangeMin->SetDimNum(static_cast<size_t>(xDim));
         for (int64_t i = 0; i < xDim; ++i) {

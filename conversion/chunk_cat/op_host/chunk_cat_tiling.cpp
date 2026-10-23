@@ -67,33 +67,54 @@ ge::graphStatus ChunkCatTiling::GetInputInfo()
     // 获取属性
     const gert::RuntimeAttrs* attrs = context_->GetAttrs();
     const int64_t* dimPtr = attrs->GetAttrPointer<int64_t>(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, dimPtr);
+    OP_CHECK_IF(dimPtr == nullptr, OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "dim"), return ge::GRAPH_FAILED);
     dim_ = static_cast<int64_t>(*dimPtr);
-    OP_CHECK_IF(dim_ != 0, OP_LOGE(context_, "dim must be 0 now"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(dim_ != 0,
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context_->GetNodeName(), "dim", std::to_string(dim_).c_str(),
+                                                      "only dim = 0 is supported"),
+                return ge::GRAPH_FAILED);
     const int64_t* numChunkPtr = attrs->GetAttrPointer<int64_t>(1);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, numChunkPtr);
+    OP_CHECK_IF(numChunkPtr == nullptr, OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "num_chunks"),
+                return ge::GRAPH_FAILED);
     numChunk_ = static_cast<int64_t>(*numChunkPtr);
-    OP_CHECK_IF(numChunk_ <= 0, OP_LOGE(context_, "numChunk must be greater than 0 now"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        numChunk_ <= 0,
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context_->GetNodeName(), "num_chunks", std::to_string(numChunk_).c_str(),
+                                              "num_chunks must be greater than 0"),
+        return ge::GRAPH_FAILED);
 
     auto computeNodeInfo = context_->GetComputeNodeInfo();
     OP_CHECK_NULL_WITH_CONTEXT(context_, computeNodeInfo);
     auto anchorInstanceInfo = computeNodeInfo->GetInputInstanceInfo(0);
     OP_CHECK_NULL_WITH_CONTEXT(context_, anchorInstanceInfo);
     inputNum_ = anchorInstanceInfo->GetInstanceNum();
-    OP_CHECK_IF(inputNum_ == 0, OP_LOGE(context_, "input num can not be 0"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(inputNum_ == 0, OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "x"), return ge::GRAPH_FAILED);
     // 获取数据类型
     auto inputDesc = context_->GetDynamicInputDesc(0, 0);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, inputDesc);
+    if (inputDesc == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "x[0].desc");
+        return ge::GRAPH_FAILED;
+    }
     auto inputDataType = inputDesc->GetDataType();
     auto outputDesc = context_->GetOutputDesc(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, outputDesc);
+    if (outputDesc == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "y.desc");
+        return ge::GRAPH_FAILED;
+    }
     auto outputDataType = outputDesc->GetDataType();
-    OP_CHECK_IF(supportedDtype.count(inputDataType) == 0, OP_LOGE(context_, "input dtype is invalid"),
-                return ge::GRAPH_FAILED);
-    OP_CHECK_IF(supportedDtype.count(outputDataType) == 0, OP_LOGE(context_, "output dtype is invalid"),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        supportedDtype.count(inputDataType) == 0,
+        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context_->GetNodeName(), "x", Ops::Base::ToString(inputDataType).c_str(),
+                                              "supported dtypes are float32, float16 and bfloat16"),
+        return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        supportedDtype.count(outputDataType) == 0,
+        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context_->GetNodeName(), "y", Ops::Base::ToString(outputDataType).c_str(),
+                                              "supported dtypes are float32, float16 and bfloat16"),
+        return ge::GRAPH_FAILED);
     if (inputDataType == ge::DT_FLOAT && outputDataType != ge::DT_FLOAT) {
-        OP_LOGE(context_, "output dtype must be float when input dtype is float");
+        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context_->GetNodeName(), "y", Ops::Base::ToString(outputDataType).c_str(),
+                                              "y must be float32 when x is float32");
         return ge::GRAPH_FAILED;
     }
     srcDtypeSize_ = ge::GetSizeByDataType(inputDataType);
@@ -113,7 +134,10 @@ ge::graphStatus ChunkCatTiling::CalculateOutputInfo()
 {
     for (int64_t i = 0; i < inputNum_; i++) {
         auto inputTensorShapePtr = context_->GetDynamicInputShape(0, i);
-        OP_CHECK_NULL_WITH_CONTEXT(context_, inputTensorShapePtr);
+        if (inputTensorShapePtr == nullptr) {
+            OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), ("x[" + std::to_string(i) + "].shape").c_str());
+            return ge::GRAPH_FAILED;
+        }
         gert::Shape inputTensorShape = inputTensorShapePtr->GetStorageShape();
 
         int64_t chunkDimSize = inputTensorShape.GetDim(dim_);
@@ -306,12 +330,12 @@ static ge::graphStatus Tiling4ChunkCat(gert::TilingContext* context)
 {
     OP_LOGD(context, "ChunkCatTiling");
     ChunkCatTiling tiling(context);
-    OP_CHECK_IF(tiling.GetPlatformInfo() != ge::GRAPH_SUCCESS, OP_LOGE(context, "GetPlatformInfo error"),
+    OP_CHECK_IF(tiling.GetPlatformInfo() != ge::GRAPH_SUCCESS, OP_LOGE_WITHOUT_REPORT(context, "GetPlatformInfo error"),
                 return ge::GRAPH_FAILED);
-    OP_CHECK_IF(tiling.GetInputInfo() != ge::GRAPH_SUCCESS, OP_LOGE(context, "GetInputInfo error"),
+    OP_CHECK_IF(tiling.GetInputInfo() != ge::GRAPH_SUCCESS, OP_LOGE_WITHOUT_REPORT(context, "GetInputInfo error"),
                 return ge::GRAPH_FAILED);
-    OP_CHECK_IF(tiling.CalculateOutputInfo() != ge::GRAPH_SUCCESS, OP_LOGE(context, "CalculateOutputInfo error"),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(tiling.CalculateOutputInfo() != ge::GRAPH_SUCCESS,
+                OP_LOGE_WITHOUT_REPORT(context, "CalculateOutputInfo error"), return ge::GRAPH_FAILED);
     if (tiling.IsAscend960()) {
         tiling.DoBlockSplitFirst();
         tiling.DoUbSplitByBlock();

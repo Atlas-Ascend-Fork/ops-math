@@ -27,10 +27,9 @@ constexpr uint32_t OUTPUT_GRADIN_IDX = 0;
 
 namespace ops {
 template <typename T>
-static ge::graphStatus InferShapeCopyData2Array(const gert::Tensor *listTensor,
-    int64_t listSize, int64_t dataList[])
+static ge::graphStatus InferShapeCopyData2Array(const gert::Tensor* listTensor, int64_t listSize, int64_t dataList[])
 {
-    const T *listDataPtr = listTensor->GetData<T>();
+    const T* listDataPtr = listTensor->GetData<T>();
     for (int64_t i = 0; i < listSize; i++) {
         dataList[i] = listDataPtr[i];
     }
@@ -39,15 +38,18 @@ static ge::graphStatus InferShapeCopyData2Array(const gert::Tensor *listTensor,
 }
 
 template <typename T>
-static ge::graphStatus InferShapeGetConstInputData(gert::InferShapeContext *context, const size_t idxInput, T &dataList,
-    int64_t &dataListLength)
+static ge::graphStatus InferShapeGetConstInputData(gert::InferShapeContext* context, const size_t idxInput, T& dataList,
+                                                   int64_t& dataListLength)
 {
     auto listTensor = context->GetInputTensor(idxInput);
     if (listTensor == nullptr) {
         return ge::GRAPH_FAILED;
     }
     auto inputSizeDesc = context->GetInputDesc(INPUT_INPUTSIZE_IDX);
-    OP_CHECK_NULL_WITH_CONTEXT(context, inputSizeDesc);
+    if (inputSizeDesc == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "input_sizes.desc");
+        return ge::GRAPH_FAILED;
+    }
     auto listDataType = inputSizeDesc->GetDataType();
     auto inputSizeShapePtr = context->GetInputShape(INPUT_INPUTSIZE_IDX);
     OP_CHECK_NULL_WITH_CONTEXT(context, inputSizeShapePtr);
@@ -64,7 +66,7 @@ static ge::graphStatus InferShapeGetConstInputData(gert::InferShapeContext *cont
     return ge::GRAPH_FAILED;
 }
 
-static ge::graphStatus InferShapeForUnfoldGrad(gert::InferShapeContext *context)
+static ge::graphStatus InferShapeForUnfoldGrad(gert::InferShapeContext* context)
 {
     int64_t inputSizeArray[MAX_DIM_NUM] = {0};
     int64_t inputSizeLength2 = 0;
@@ -74,8 +76,11 @@ static ge::graphStatus InferShapeForUnfoldGrad(gert::InferShapeContext *context)
         return ge::GRAPH_FAILED;
     }
 
-    gert::Shape *y_shape = context->GetOutputShape(OUTPUT_GRADIN_IDX);
-    OP_CHECK_NULL_WITH_CONTEXT(context, y_shape);
+    gert::Shape* y_shape = context->GetOutputShape(OUTPUT_GRADIN_IDX);
+    if (y_shape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "grad_in.shape");
+        return ge::GRAPH_FAILED;
+    }
     y_shape->SetDimNum(inputSizeLength2);
     for (int i = 0; i < inputSizeLength2; i++) {
         y_shape->SetDim(i, inputSizeArray[i]);
@@ -84,7 +89,7 @@ static ge::graphStatus InferShapeForUnfoldGrad(gert::InferShapeContext *context)
     return GRAPH_SUCCESS;
 }
 
-static ge::graphStatus InferDataTypeForUnfoldGrad(gert::InferDataTypeContext *context)
+static ge::graphStatus InferDataTypeForUnfoldGrad(gert::InferDataTypeContext* context)
 {
     const auto gardInDTypeInfer = context->GetInputDataType(INPUT_GRADOUT_IDX);
     context->SetOutputDataType(OUTPUT_GRADIN_IDX, gardInDTypeInfer);
