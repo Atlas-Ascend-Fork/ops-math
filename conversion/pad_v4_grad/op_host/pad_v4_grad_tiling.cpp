@@ -231,24 +231,26 @@ static ge::graphStatus Tiling4PadV4Grad(gert::TilingContext* tilingContext)
 
     ge::DataType inputDatatype = tilingContext->GetInputDesc(0)->GetDataType();
     OP_CHECK_IF(inputDatatype != ge::DT_FLOAT && inputDatatype != ge::DT_FLOAT16 && inputDatatype != ge::DT_BF16,
-                OP_LOGE(tilingContext->GetNodeName(),
-                        "the current x dtype is not in dtype support list [bfloat16, float16, float]."),
+                OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(tilingContext->GetNodeName(), "x",
+                                                      Ops::Base::ToString(inputDatatype).c_str(),
+                                                      "the dtype of x must be bfloat16, float16 or float."),
                 return ge::GRAPH_FAILED);
 
     ge::DataType paddingDatatype = tilingContext->GetInputDesc(1)->GetDataType();
-    OP_CHECK_IF(
-        paddingDatatype != ge::DT_INT32 && paddingDatatype != ge::DT_INT64,
-        OP_LOGE(tilingContext->GetNodeName(), "the current padding dtype is not in dtype support list [int32, int64]."),
-        return ge::GRAPH_FAILED);
+    OP_CHECK_IF(paddingDatatype != ge::DT_INT32 && paddingDatatype != ge::DT_INT64,
+                OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(tilingContext->GetNodeName(), "paddings",
+                                                      Ops::Base::ToString(paddingDatatype).c_str(),
+                                                      "the dtype of paddings must be int32 or int64."),
+                return ge::GRAPH_FAILED);
     InputParamsInfo params;
     params.dtype = GetDtypeMap()[inputDatatype];
 
     if (paddingDatatype == ge::DT_INT32) {
         OP_CHECK_IF(GetInputInfo<int32_t>(tilingContext, params) != ge::GRAPH_SUCCESS,
-                    OP_LOGE(tilingContext->GetNodeName(), "get op inputs failed."), return ge::GRAPH_FAILED);
+                    OP_LOGE_WITHOUT_REPORT(tilingContext, "get op inputs failed."), return ge::GRAPH_FAILED);
     } else if (paddingDatatype == ge::DT_INT64) {
         OP_CHECK_IF(GetInputInfo<int64_t>(tilingContext, params) != ge::GRAPH_SUCCESS,
-                    OP_LOGE(tilingContext->GetNodeName(), "get op inputs failed."), return ge::GRAPH_FAILED);
+                    OP_LOGE_WITHOUT_REPORT(tilingContext, "get op inputs failed."), return ge::GRAPH_FAILED);
     }
 
     PadV4GradTilingData tilingData;

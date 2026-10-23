@@ -30,24 +30,28 @@ constexpr int64_t TYPE_MODE5 = 5;
 // CircularPadTiling
 ge::graphStatus CircularPadTiling::CheckLeftAndRight()
 {
-    std::stringstream ss;
+    std::string shapeMsg = "left: " + std::to_string(left) + ", right: " + std::to_string(right) +
+                           ", x's W: " + std::to_string(inputW);
     if ((left > 0 && left > inputW) || (right > 0 && right > inputW)) {
-        ss << "left/right should not be greater than inputW," << "when left/right is greater than 0.";
-        OP_LOGE(context_->GetNodeName(), "%s", ss.str().c_str());
+        OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(
+            context_->GetNodeName(), "left, right and x's W", shapeMsg.c_str(),
+            "left/right should not be greater than inputW when left/right is greater than 0.");
         return ge::GRAPH_FAILED;
     } else if (left > 0 && right < 0 && (left > inputW + right || -right >= inputW)) {
-        ss << "left should not be greater than inputW + right," << "and abs(right) should not be greater than inputW,"
-           << "when left is greater than 0 and right is not greater than 0.";
-        OP_LOGE(context_->GetNodeName(), "%s", ss.str().c_str());
+        OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(
+            context_->GetNodeName(), "left, right and x's W", shapeMsg.c_str(),
+            "left should not be greater than inputW + right and abs(right) should not be greater than inputW when left "
+            "is greater than 0 and right is not greater than 0.");
         return ge::GRAPH_FAILED;
     } else if (left < 0 && right > 0 && (-left >= inputW || right > inputW + left)) {
-        ss << "right should not be greater than inputW + left," << "and abs(left) should not be greater than inputW,"
-           << "when right is greater than 0 and left is not greater than 0.";
-        OP_LOGE(context_->GetNodeName(), "%s", ss.str().c_str());
+        OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(
+            context_->GetNodeName(), "left, right and x's W", shapeMsg.c_str(),
+            "right should not be greater than inputW + left and abs(left) should not be greater than inputW when right "
+            "is greater than 0 and left is not greater than 0.");
         return ge::GRAPH_FAILED;
     } else if (left < 0 && right < 0 && (-left - right >= inputW)) {
-        ss << "abs(left + right) should not be greater than inputW.";
-        OP_LOGE(context_->GetNodeName(), "%s", ss.str().c_str());
+        OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(context_->GetNodeName(), "left, right and x's W", shapeMsg.c_str(),
+                                               "abs(left + right) must be less than inputW.");
         return ge::GRAPH_FAILED;
     }
     return ge::GRAPH_SUCCESS;
@@ -55,24 +59,28 @@ ge::graphStatus CircularPadTiling::CheckLeftAndRight()
 
 ge::graphStatus CircularPadTiling::CheckTopAndBottom()
 {
-    std::stringstream ss;
+    std::string shapeMsg = "top: " + std::to_string(top) + ", bottom: " + std::to_string(bottom) +
+                           ", x's H: " + std::to_string(inputH);
     if ((top > 0 && top > inputH) || (bottom > 0 && bottom > inputH)) {
-        ss << "top/bottom should not be greater than inputH," << "when top/bottom is greater than 0.";
-        OP_LOGE(context_->GetNodeName(), "%s", ss.str().c_str());
+        OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(
+            context_->GetNodeName(), "top, bottom and x's H", shapeMsg.c_str(),
+            "top/bottom should not be greater than inputH when top/bottom is greater than 0.");
         return ge::GRAPH_FAILED;
     } else if (top > 0 && bottom < 0 && (top > inputH + bottom || -bottom >= inputH)) {
-        ss << "top should not be greater than inputH + bottom," << "and abs(bottom) should not be greater than inputH,"
-           << "when top is greater than 0 and bottom is not greater than 0.";
-        OP_LOGE(context_->GetNodeName(), "%s", ss.str().c_str());
+        OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(
+            context_->GetNodeName(), "top, bottom and x's H", shapeMsg.c_str(),
+            "top should not be greater than inputH + bottom and abs(bottom) should not be greater than inputH when top "
+            "is greater than 0 and bottom is not greater than 0.");
         return ge::GRAPH_FAILED;
     } else if (top < 0 && bottom > 0 && (-top >= inputH || bottom > inputH + top)) {
-        ss << "bottom should not be greater than inputH + top," << "and abs(top) should not be greater than inputH,"
-           << "when bottom is greater than 0 and top is not greater than 0.";
-        OP_LOGE(context_->GetNodeName(), "%s", ss.str().c_str());
+        OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(
+            context_->GetNodeName(), "top, bottom and x's H", shapeMsg.c_str(),
+            "bottom should not be greater than inputH + top and abs(top) should not be greater than inputH when bottom "
+            "is greater than 0 and top is not greater than 0.");
         return ge::GRAPH_FAILED;
     } else if (top < 0 && bottom < 0 && (-top - bottom >= inputH)) {
-        ss << "abs(top + bottom) should not be greater than inputH.";
-        OP_LOGE(context_->GetNodeName(), "%s", ss.str().c_str());
+        OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(context_->GetNodeName(), "top, bottom and x's H", shapeMsg.c_str(),
+                                               "abs(top + bottom) must be less than inputH.");
         return ge::GRAPH_FAILED;
     }
     return ge::GRAPH_SUCCESS;
@@ -80,24 +88,28 @@ ge::graphStatus CircularPadTiling::CheckTopAndBottom()
 
 ge::graphStatus CircularPadTiling::CheckFrontAndBack()
 {
-    std::stringstream ss;
+    std::string shapeMsg = "front: " + std::to_string(front) + ", back: " + std::to_string(back) +
+                           ", x's D: " + std::to_string(inputL);
     if ((front > 0 && front > inputL) || (back > 0 && back > inputL)) {
-        ss << "front/back should not be greater than inputL," << "when front/back is greater than 0.";
-        OP_LOGE(context_->GetNodeName(), "%s", ss.str().c_str());
+        OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(
+            context_->GetNodeName(), "front, back and x's D", shapeMsg.c_str(),
+            "front/back should not be greater than inputL when front/back is greater than 0.");
         return ge::GRAPH_FAILED;
     } else if (front > 0 && back < 0 && (front > inputL + back || -back >= inputL)) {
-        ss << "front should not be greater than inputL + back," << "and abs(back) should not be greater than inputL,"
-           << "when front is greater than 0 and back is not greater than 0.";
-        OP_LOGE(context_->GetNodeName(), "%s", ss.str().c_str());
+        OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(
+            context_->GetNodeName(), "front, back and x's D", shapeMsg.c_str(),
+            "front should not be greater than inputL + back and abs(back) should not be greater than inputL when front "
+            "is greater than 0 and back is not greater than 0.");
         return ge::GRAPH_FAILED;
     } else if (front < 0 && back > 0 && (-front >= inputL || back > inputL + front)) {
-        ss << "back should not be greater than inputL + front," << "and abs(front) should not be greater than inputL,"
-           << "when back is greater than 0 and front is not greater than 0.";
-        OP_LOGE(context_->GetNodeName(), "%s", ss.str().c_str());
+        OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(
+            context_->GetNodeName(), "front, back and x's D", shapeMsg.c_str(),
+            "back should not be greater than inputL + front and abs(front) should not be greater than inputL when back "
+            "is greater than 0 and front is not greater than 0.");
         return ge::GRAPH_FAILED;
     } else if (front < 0 && back < 0 && (-front - back >= inputL)) {
-        ss << "abs(front + back) should not be greater than inputL.";
-        OP_LOGE(context_->GetNodeName(), "%s", ss.str().c_str());
+        OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(context_->GetNodeName(), "front, back and x's D", shapeMsg.c_str(),
+                                               "abs(front + back) must be less than inputL.");
         return ge::GRAPH_FAILED;
     }
     return ge::GRAPH_SUCCESS;
@@ -110,7 +122,12 @@ ge::graphStatus CircularPadTiling::CheckInput()
         return ge::GRAPH_FAILED;
     }
     if ((outputH != inputH + top + bottom || outputW != inputW + left + right || outputL != inputL + front + back)) {
-        OP_LOGE(context_->GetNodeName(), "output's shape error.");
+        std::string shapeMsg = "y: [" + std::to_string(outputH) + ", " + std::to_string(outputW) + ", " +
+                               std::to_string(outputL) + "], expected: [" + std::to_string(inputH + top + bottom) +
+                               ", " + std::to_string(inputW + left + right) + ", " +
+                               std::to_string(inputL + front + back) + "]";
+        OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(context_->GetNodeName(), "y, x and paddings", shapeMsg.c_str(),
+                                               "the shape of y must equal the shape of x plus the paddings.");
         return ge::GRAPH_FAILED;
     }
     auto ret = CheckLeftAndRight();
@@ -148,7 +165,8 @@ ge::graphStatus CircularPadTiling::CheckDtype()
         dataType = TYPE_MODE5;
         tSize = sizeof(int32_t);
     } else {
-        OP_LOGE(context_->GetNodeName(), "Unsupported type.");
+        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context_->GetNodeName(), "x", Ops::Base::ToString(xDataType).c_str(),
+                                              "the dtype of x must be int8, float16, bfloat16, float or int32.");
         return ge::GRAPH_FAILED;
     }
     return ge::GRAPH_SUCCESS;

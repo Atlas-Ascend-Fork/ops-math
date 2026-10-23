@@ -131,15 +131,20 @@ static ge::graphStatus GetInputInfo(gert::TilingContext* tilingContext, InputPar
     const gert::StorageShape* xShape = tilingContext->GetInputShape(X_INPUT_INDEX);
     OP_CHECK_NULL_WITH_CONTEXT(tilingContext, xShape);
     OP_CHECK_IF(xShape->GetStorageShape().GetDimNum() != CHECK_DIM_NUM,
-                OP_LOGE(tilingContext->GetNodeName(), "input dim is not 4, please check input shape dimension."),
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(tilingContext->GetNodeName(), "x",
+                                                         std::to_string(xShape->GetStorageShape().GetDimNum()).c_str(),
+                                                         "the rank of x must be 4."),
                 return ge::GRAPH_FAILED);
     const gert::StorageShape* paddingShape = tilingContext->GetInputShape(PAD_INPUT_INDEX);
     OP_CHECK_NULL_WITH_CONTEXT(tilingContext, paddingShape);
-    OP_CHECK_IF(static_cast<int32_t>(xShape->GetStorageShape().GetDimNum() * 2) !=
-                    static_cast<int32_t>(paddingShape->GetStorageShape().GetDim(0)),
-                OP_LOGE(tilingContext->GetNodeName(),
-                        "input dim num does not match padding shape size, expected padding size = input dim num * 2."),
-                return ge::GRAPH_FAILED);
+    std::string paddingDimMsg = "paddings' dim0: " + std::to_string(paddingShape->GetStorageShape().GetDim(0)) +
+                                ", x's rank: " + std::to_string(xShape->GetStorageShape().GetDimNum());
+    OP_CHECK_IF(
+        static_cast<int32_t>(xShape->GetStorageShape().GetDimNum() * 2) !=
+            static_cast<int32_t>(paddingShape->GetStorageShape().GetDim(0)),
+        OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(tilingContext->GetNodeName(), "x and paddings", paddingDimMsg.c_str(),
+                                               "the dim0 of paddings must be 2 times of the rank of x."),
+        return ge::GRAPH_FAILED);
     const gert::Tensor* paddingsTensor = tilingContext->GetInputTensor(PAD_INPUT_INDEX);
     OP_CHECK_NULL_WITH_CONTEXT(tilingContext, paddingsTensor);
 
@@ -160,9 +165,15 @@ static ge::graphStatus GetInputInfo(gert::TilingContext* tilingContext, InputPar
     params.outHeight = outHeight;
     params.outWidth = outWidth;
 
-    OP_CHECK_IF((outHeight != (params.height - params.padTop - params.padBottom)) ||
-                    (outWidth != (params.width - params.padLeft - params.padRight)),
-                OP_LOGE(tilingContext->GetNodeName(), "Please check input or output shape"), return ge::GRAPH_FAILED);
+    std::string shapeMsg = "y: [" + std::to_string(outHeight) + ", " + std::to_string(outWidth) + "], expected: [" +
+                           std::to_string(params.height - params.padTop - params.padBottom) + ", " +
+                           std::to_string(params.width - params.padLeft - params.padRight) + "]";
+    OP_CHECK_IF(
+        (outHeight != (params.height - params.padTop - params.padBottom)) ||
+            (outWidth != (params.width - params.padLeft - params.padRight)),
+        OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(tilingContext->GetNodeName(), "x, y and paddings", shapeMsg.c_str(),
+                                               "the shape of y must be x minus paddings on H and W."),
+        return ge::GRAPH_FAILED);
 
     params.alignHeight = CeilAlignStatus(params.height, ALIGN_16);
     params.alignWidth = CeilAlignStatus(params.width, ALIGN_16);
@@ -175,11 +186,13 @@ static ge::graphStatus GetInputInfo(gert::TilingContext* tilingContext, InputPar
     const std::string mode = std::string(attrs->GetAttrPointer<char>(MODE_INDEX));
     if (allowConstantMode) {
         OP_CHECK_IF(mode != "reflect" && mode != "edge" && mode != "constant",
-                    OP_LOGE(tilingContext->GetNodeName(), "%s is not supported", mode.c_str()),
+                    OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(tilingContext->GetNodeName(), "mode", mode.c_str(),
+                                                          "the mode must be reflect, edge or constant."),
                     return ge::GRAPH_FAILED);
     } else {
         OP_CHECK_IF(mode != "reflect" && mode != "edge",
-                    OP_LOGE(tilingContext->GetNodeName(), "%s is not supported", mode.c_str()),
+                    OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(tilingContext->GetNodeName(), "mode", mode.c_str(),
+                                                          "the mode must be reflect or edge."),
                     return ge::GRAPH_FAILED);
     }
 

@@ -36,7 +36,10 @@ ge::graphStatus CircularPadCommonTiling::GetShapeAttrsInfo()
     auto paddings = context_->GetInputTensor(DIM_1);
     OP_CHECK_NULL_WITH_CONTEXT(context_, paddings);
     auto paddingsNum = paddings->GetShapeSize();
-    OP_CHECK_IF(paddingsNum < DIM_4, OP_LOGE(context_->GetNodeName(), "paddings num should be greater than 4"),
+    OP_CHECK_IF(paddingsNum < DIM_4,
+                OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(
+                    context_->GetNodeName(), "paddings", std::to_string(paddingsNum).c_str(),
+                    "the element count of paddings must be greater than or equal to 4."),
                 return ge::GRAPH_FAILED);
     auto padding_valus = paddings->GetData<int64_t>();
     int32_t paddingDim = paddingsNum - DIM_4;
@@ -53,7 +56,9 @@ ge::graphStatus CircularPadCommonTiling::GetShapeAttrsInfo()
     auto x_shape = context_->GetInputShape(0);
     OP_CHECK_NULL_WITH_CONTEXT(context_, x_shape);
     auto xDimNum = x_shape->GetStorageShape().GetDimNum();
-    OP_CHECK_IF(xDimNum < DIM_2, OP_LOGE(context_->GetNodeName(), "x dims should be greater than 2"),
+    OP_CHECK_IF(xDimNum < DIM_2,
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context_->GetNodeName(), "x", std::to_string(xDimNum).c_str(),
+                                                         "the rank of x must be greater than or equal to 2."),
                 return ge::GRAPH_FAILED);
     int32_t xDim = xDimNum - DIM_2;
     for (int32_t i = 0; i < xDim; i++) {
@@ -70,7 +75,9 @@ ge::graphStatus CircularPadCommonTiling::GetShapeAttrsInfo()
     auto y_shape = context_->GetOutputShape(0);
     OP_CHECK_NULL_WITH_CONTEXT(context_, y_shape);
     auto yDimNum = y_shape->GetStorageShape().GetDimNum();
-    OP_CHECK_IF(yDimNum < DIM_2, OP_LOGE(context_->GetNodeName(), "y dims should be greater than 2"),
+    OP_CHECK_IF(yDimNum < DIM_2,
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context_->GetNodeName(), "y", std::to_string(yDimNum).c_str(),
+                                                         "the rank of y must be greater than or equal to 2."),
                 return ge::GRAPH_FAILED);
     int32_t yDim = yDimNum - DIM_2;
     outputH = y_shape->GetStorageShape().GetDim(yDim);
