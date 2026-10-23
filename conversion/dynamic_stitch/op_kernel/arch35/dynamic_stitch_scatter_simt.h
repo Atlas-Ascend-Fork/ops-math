@@ -15,7 +15,7 @@
  */
 
 /*!
- * \file dynamic_stitch_simt.h
+ * \file dynamic_stitch_scatter_simt.h
  * \brief
  */
 #ifndef DYNAMIC_STITCH_SIMT_H
@@ -29,8 +29,7 @@ namespace DynamicStitch {
 constexpr uint32_t FIRST_DIM_THREAD_NUM = 2;
 
 template <typename T>
-class DynamicStitchScatterSimt
-{
+class DynamicStitchScatterSimt {
 public:
     __aicore__ inline DynamicStitchScatterSimt(TPipe* pipe, const DynamicStitchTilingData* tiling)
         : pipe_(pipe), tilingData_(tiling){};
@@ -39,7 +38,7 @@ public:
 
 private:
     __aicore__ inline void ParseTilingData();
-    
+
     TPipe* pipe_;
     const DynamicStitchTilingData* tilingData_;
     TBuf<TPosition::VECCALC> assistBuffer_;
@@ -64,8 +63,8 @@ __simt_vf__ __aicore__ LAUNCH_BOUND(THREAD_NUM) inline void SimtDataCopy(
     GM_ADDR inTensorsPtr, int64_t startTensorIndex, int64_t endTensorIndex, int64_t startOffset, int64_t endOffset,
     __ubuf__ int64_t* tensorCumsum, __gm__ int32_t* workspaceGmAddr, __gm__ T* yGmAddr, const int64_t sliceSize)
 {
-    for (int32_t tensorIndex = startTensorIndex + static_cast<int32_t>(threadIdx.x);
-         tensorIndex <= endTensorIndex; tensorIndex += static_cast<int32_t>(blockDim.x)) {
+    for (int32_t tensorIndex = startTensorIndex + static_cast<int32_t>(threadIdx.x); tensorIndex <= endTensorIndex;
+         tensorIndex += static_cast<int32_t>(blockDim.x)) {
         __gm__ T* inputTensor = GetTensorSimtAddr<T>(tensorIndex, inTensorsPtr);
         int64_t curElemCount = tensorCumsum[tensorIndex + 1] - tensorCumsum[tensorIndex]; // 获取当前tensor的个数
         int64_t curStartIndex = 0;
@@ -105,8 +104,7 @@ __aicore__ inline void DynamicStitchScatterSimt<T>::Init(GM_ADDR x, GM_ADDR y, G
     xGmAddr_ = x;
     yGm_.SetGlobalBuffer((__gm__ T*)y);
     workspaceGm_.SetGlobalBuffer((__gm__ int32_t*)workspace);
-    pipe_->InitBuffer(
-        assistBuffer_, AlignUp((MAX_LIST_TENSOR_CNT + 1) * sizeof(int64_t), Ops::Base::GetUbBlockSize()));
+    pipe_->InitBuffer(assistBuffer_, AlignUp((MAX_LIST_TENSOR_CNT + 1) * sizeof(int64_t), Ops::Base::GetUbBlockSize()));
 }
 
 template <typename T>
@@ -135,15 +133,14 @@ __aicore__ inline void DynamicStitchScatterSimt<T>::Process()
         __ubuf__ int64_t* tensorCumsumAddr = (__ubuf__ int64_t*)tensorCumsumListLocalTensor.GetPhyAddr();
 
         if (THREAD_NUM / (curTensorNum_ * sliceSize_) > 0) {
-            asc_vf_call<SimtDataCopy<T>>(
-                dim3{curTensorNum_, THREAD_NUM / (curTensorNum_ * sliceSize_), sliceSize_}, xGmAddr_,
-                startTensorIndex_, endTensorIndex_, startOffset_, endOffset_, tensorCumsumAddr, workspaceGmAddr,
-                yGmAddr, sliceSize_);
+            asc_vf_call<SimtDataCopy<T>>(dim3{curTensorNum_, THREAD_NUM / (curTensorNum_ * sliceSize_), sliceSize_},
+                                         xGmAddr_, startTensorIndex_, endTensorIndex_, startOffset_, endOffset_,
+                                         tensorCumsumAddr, workspaceGmAddr, yGmAddr, sliceSize_);
         } else {
             asc_vf_call<SimtDataCopy<T>>(
-                dim3{FIRST_DIM_THREAD_NUM, THREAD_NUM / (FIRST_DIM_THREAD_NUM * sliceSize_), sliceSize_},
-                xGmAddr_, startTensorIndex_, endTensorIndex_, startOffset_, endOffset_, tensorCumsumAddr,
-                workspaceGmAddr, yGmAddr, sliceSize_);
+                dim3{FIRST_DIM_THREAD_NUM, THREAD_NUM / (FIRST_DIM_THREAD_NUM * sliceSize_), sliceSize_}, xGmAddr_,
+                startTensorIndex_, endTensorIndex_, startOffset_, endOffset_, tensorCumsumAddr, workspaceGmAddr,
+                yGmAddr, sliceSize_);
         }
     }
 }

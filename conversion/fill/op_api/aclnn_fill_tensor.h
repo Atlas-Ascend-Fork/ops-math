@@ -8,7 +8,6 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-
 #ifndef OP_API_ACLNN_FILL_TENSOR_H_
 #define OP_API_ACLNN_FILL_TENSOR_H_
 
@@ -45,8 +44,8 @@ extern "C" {
  * @param [out] executor: 返回op执行器，包含算子计算流程。
  * @return aclnnStatus: 返回状态码。
  */
-ACLNN_API aclnnStatus aclnnInplaceFillTensorGetWorkspaceSize(
-    aclTensor* selfRef, const aclTensor* value, uint64_t* workspaceSize, aclOpExecutor** executor);
+ACLNN_API aclnnStatus aclnnInplaceFillTensorGetWorkspaceSize(aclTensor* selfRef, const aclTensor* value,
+                                                             uint64_t* workspaceSize, aclOpExecutor** executor);
 
 /**
  * @brief aclnnInplaceFillTensor的第二段接口，用于执行计算。
@@ -56,11 +55,11 @@ ACLNN_API aclnnStatus aclnnInplaceFillTensorGetWorkspaceSize(
  * @param [in] stream: acl stream流。
  * @return aclnnStatus: 返回状态码。
  */
-ACLNN_API aclnnStatus
-aclnnInplaceFillTensor(void* workspace, uint64_t workspaceSize, aclOpExecutor* executor, aclrtStream stream);
+ACLNN_API aclnnStatus aclnnInplaceFillTensor(void* workspace, uint64_t workspaceSize, aclOpExecutor* executor,
+                                             aclrtStream stream);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // OP_API_INC_LEVEL2_ACLNN_FILL_TENSOR_H_
+#endif // OP_API_ACLNN_FILL_TENSOR_H_

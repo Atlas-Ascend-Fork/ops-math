@@ -21,8 +21,7 @@ namespace DiagV2 {
 using namespace AscendC;
 
 template <typename T>
-class DiagV2B32 : public DiagV2Base<T>
-{
+class DiagV2B32 : public DiagV2Base<T> {
 public:
     __aicore__ inline DiagV2B32(){};
     __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, GM_ADDR workspace, const DiagV2TilingData* tilingData);
@@ -102,8 +101,8 @@ __aicore__ inline void DiagV2B32<T>::Process()
 }
 
 template <typename T>
-__aicore__ inline void DiagV2B32<T>::ProcessPerBlock(
-    const LocalTensor<int16_t>& ubAssist, int64_t loopNum, int64_t loopTail)
+__aicore__ inline void DiagV2B32<T>::ProcessPerBlock(const LocalTensor<int16_t>& ubAssist, int64_t loopNum,
+                                                     int64_t loopTail)
 {
     for (int64_t idx = 0; idx < loopNum; idx++) {
         gmOutOffset = blockIdx * m_tilingData.numPerCore + idx * m_tilingData.matrixRowLength;
@@ -120,8 +119,8 @@ __aicore__ inline void DiagV2B32<T>::ProcessPerBlock(
 }
 
 template <typename T>
-__aicore__ inline void DiagV2B32<T>::ProcessLastBlock(
-    const LocalTensor<int16_t>& ubAssist, int64_t loopNum, int64_t loopTail)
+__aicore__ inline void DiagV2B32<T>::ProcessLastBlock(const LocalTensor<int16_t>& ubAssist, int64_t loopNum,
+                                                      int64_t loopTail)
 {
     for (int64_t idx = 0; idx < loopNum; idx++) {
         gmOutOffset = blockIdx * m_tilingData.numPerCore + idx * m_tilingData.matrixRowLength;
@@ -212,4 +211,4 @@ __aicore__ inline void DiagV2B32<T>::CopyInB32WithPad(int64_t index, int64_t dat
 }
 
 } // namespace DiagV2
-#endif // DIAG_V2_B64_H
+#endif // DIAG_V2_B32_H
