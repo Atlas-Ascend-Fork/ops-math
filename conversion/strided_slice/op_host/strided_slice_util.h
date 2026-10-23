@@ -135,10 +135,7 @@ static inline uint64_t bit1value(int i)
     return bit_i;
 }
 
-static bool FwdOutOfBound(int64_t fwd, int64_t lower, int64_t upper)
-{
-    return (fwd < lower) || (fwd >= upper);
-}
+static bool FwdOutOfBound(int64_t fwd, int64_t lower, int64_t upper) { return (fwd < lower) || (fwd >= upper); }
 
 static void BuildSparseSpec(StridedSliceParams& params, StridedSliceSparseSpec& sparse_spec)
 {
@@ -180,8 +177,8 @@ static bool BuildDenseSpec(const StridedSliceSparseSpec& sparse, StridedSliceDen
         if ((bit_i & sparse.ellipsis_mask) != 0) {
             // Expand the ellipsis into the appropriate indices
             // NOTE: this only works because we guaranteed one ellipsis
-            int32_t next_index =
-                std::min(dense->dims - (sparse.dims - i) + 1 + sparse.num_add_axis_after_ellipsis, dense->dims);
+            int32_t next_index = std::min(dense->dims - (sparse.dims - i) + 1 + sparse.num_add_axis_after_ellipsis,
+                                          dense->dims);
             for (; full_index < next_index; full_index++) {
                 // new_axis' aren't real axis so you have to skip
                 dense->begin[full_index] = dense->end[full_index] = 0;
@@ -194,9 +191,10 @@ static bool BuildDenseSpec(const StridedSliceSparseSpec& sparse, StridedSliceDen
             dense->final_shape_gather_indices.AppendDim(kStridedSliceNewAxis);
         } else {
             if (static_cast<size_t>(full_index) == dense->begin.GetDimNum()) {
-                OP_LOGE(
-                    OP_NAME, "Index out of range using input dim %d; input has only %ld dims.", full_index,
-                    dense->dims);
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(OP_NAME.c_str(), "x", std::to_string(dense->dims).c_str(),
+                                                         (std::string("slice index ") + std::to_string(full_index) +
+                                                          " is out of range; indices must stay within the input rank")
+                                                             .c_str());
                 return false;
             }
 
@@ -228,9 +226,8 @@ static bool BuildDenseSpec(const StridedSliceSparseSpec& sparse, StridedSliceDen
     return true;
 }
 
-static void BuildProcessingShape(
-    StridedSliceDenseSpec& dense_spec, InputParamUnit& input_param_unit, const bool begin_and_end_masked,
-    gert::Shape& processing_shape)
+static void BuildProcessingShape(StridedSliceDenseSpec& dense_spec, InputParamUnit& input_param_unit,
+                                 const bool begin_and_end_masked, gert::Shape& processing_shape)
 {
     int64_t interval_length;
     bool known_interval = false;
@@ -262,8 +259,8 @@ static void BuildProcessingShape(
         if (interval_length == 0 || ((interval_length < 0) != (input_param_unit.stride < 0))) {
             size_i = 0;
         } else {
-            size_i =
-                interval_length / input_param_unit.stride + (interval_length % input_param_unit.stride != 0 ? 1 : 0);
+            size_i = interval_length / input_param_unit.stride +
+                     (interval_length % input_param_unit.stride != 0 ? 1 : 0);
         }
         processing_shape.AppendDim(size_i);
     } else {
@@ -271,8 +268,8 @@ static void BuildProcessingShape(
     }
 }
 
-static bool BuildProcessingData(
-    StridedSliceDenseSpec& dense_spec, StridedSliceParams& params, ProcessingData& processing_data)
+static bool BuildProcessingData(StridedSliceDenseSpec& dense_spec, StridedSliceParams& params,
+                                ProcessingData& processing_data)
 {
     bool is_identity = true;
     bool slice_dim0 = true;
@@ -283,7 +280,9 @@ static bool BuildProcessingData(
         auto& stride_i = params.strides[i];
         auto dim_i = params.input_shape.GetDim(i);
         if (stride_i == 0) {
-            OP_LOGE(OP_NAME, "strides[%d] must be non-zero", i);
+            OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                OP_NAME.c_str(), "strides", std::to_string(stride_i).c_str(),
+                (std::string("strides[") + std::to_string(i) + "] must be non-zero").c_str());
             return false;
         }
 
@@ -316,13 +315,13 @@ static bool BuildProcessingData(
         };
 
         if (shrink_i && stride_i <= 0) {
-            OP_LOGE(OP_NAME, "only stride 1 allowed on non-range indexing.");
+            OP_LOGE_FOR_INVALID_STRIDE(OP_NAME.c_str(), "strides", std::to_string(stride_i).c_str(), "1");
             return false;
         }
         is_simple_slice = is_simple_slice && (stride_i == 1);
 
-        const bool begin_and_end_masked =
-            ((dense_spec.begin_mask & bit_i) != 0) && ((dense_spec.end_mask & bit_i) != 0);
+        const bool begin_and_end_masked = ((dense_spec.begin_mask & bit_i) != 0) &&
+                                          ((dense_spec.end_mask & bit_i) != 0);
         if (dense_spec.begin_valid && dense_spec.end_valid) {
             if (shrink_i) {
                 // If we are shrinking, the end index is now possibly incorrect. In
@@ -334,7 +333,11 @@ static bool BuildProcessingData(
                     begin_i = x_fwd;
                     end_i = begin_i + 1;
                     if (FwdOutOfBound(x_fwd, 0, dim_i)) {
-                        OP_LOGE(OP_NAME, "slice index %ld of dimension %d  out of bounds.", begin_i, i);
+                        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                            OP_NAME.c_str(), "begin", std::to_string(begin_i).c_str(),
+                            (std::string("shrink index of dimension ") + std::to_string(i) + " must be in [0, " +
+                             std::to_string(dim_i) + ")")
+                                .c_str());
                         return false;
                     }
                 } else {
@@ -348,9 +351,9 @@ static bool BuildProcessingData(
 
             // -3 invalid, diff from valid_range
             if ((!real_valid[0] || !real_valid[1]) && (begin_i == -3 || end_i == -3)) {
-                OP_LOGE(
-                    OP_NAME, "begin_i:%ld end_i:%ld is invalid while unconst begin or end, shrink_i:%d masks:%lu %lu",
-                    begin_i, end_i, shrink_i, masks[0], masks[1]);
+                OP_LOGE_FOR_INVALID_VALUES_WITH_REASON(
+                    OP_NAME.c_str(), "begin, end", (std::to_string(begin_i) + ", " + std::to_string(end_i)).c_str(),
+                    "begin and end must be constant, or begin_mask and end_mask must cover this dimension");
                 return false;
             }
 
@@ -377,9 +380,8 @@ static bool BuildProcessingData(
     return true;
 }
 
-static void BuildFinalShape(
-    ProcessingData& processing_data, StridedSliceDenseSpec& dense_spec, StridedSliceParams& params,
-    gert::Shape* out_shape)
+static void BuildFinalShape(ProcessingData& processing_data, StridedSliceDenseSpec& dense_spec,
+                            StridedSliceParams& params, gert::Shape* out_shape)
 {
     params.begin.SetDimNum(0);
     params.end.SetDimNum(0);
@@ -425,24 +427,25 @@ inline bool InferShape(StridedSliceParams& params, gert::Shape* out_shape)
     // i.e. there exists only no more than one ellipsis
     auto& ellipsis_mask = params.ellipsis_mask;
     if ((ellipsis_mask != 0) && ((ellipsis_mask & (ellipsis_mask - 1)) != 0)) {
-        OP_LOGE(OP_NAME, "Multiple ellipses in slice spec not allowed.");
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+            OP_NAME.c_str(), "ellipsis_mask", std::to_string(ellipsis_mask).c_str(),
+            "at most one ellipsis is allowed; ellipsis_mask must be 0 or a single bit");
         return false;
     }
 
     // Step 1: Account for ellipsis and new axis
     //
     // Check for ellipses and count how many non-newaxis' there are after
-    StridedSliceSparseSpec sparse_spec = {
-        0,
-        0,
-        params.begin,
-        params.end,
-        params.strides,
-        params.begin_mask,
-        params.end_mask,
-        params.ellipsis_mask,
-        params.new_axis_mask,
-        params.shrink_axis_mask};
+    StridedSliceSparseSpec sparse_spec = {0,
+                                          0,
+                                          params.begin,
+                                          params.end,
+                                          params.strides,
+                                          params.begin_mask,
+                                          params.end_mask,
+                                          params.ellipsis_mask,
+                                          params.new_axis_mask,
+                                          params.shrink_axis_mask};
     BuildSparseSpec(params, sparse_spec);
 
     // Step 2: Make a sparse spec into a full index spec
@@ -455,26 +458,25 @@ inline bool InferShape(StridedSliceParams& params, gert::Shape* out_shape)
     // dimensions i.e. from begin_mask_spec=0, end_mask_spec=2
     // we achieve begin_mask=6, end_mask=7
     gert::Shape final_shape_gather_indices;
-    StridedSliceDenseSpec dense_spec = {
-        static_cast<int64_t>(params.input_shape.GetDimNum()),
-        0,
-        0,
-        params.begin_valid,
-        params.end_valid,
-        params.begin,
-        params.end,
-        params.strides,
-        final_shape_gather_indices,
-        0};
+    StridedSliceDenseSpec dense_spec = {static_cast<int64_t>(params.input_shape.GetDimNum()),
+                                        0,
+                                        0,
+                                        params.begin_valid,
+                                        params.end_valid,
+                                        params.begin,
+                                        params.end,
+                                        params.strides,
+                                        final_shape_gather_indices,
+                                        0};
     if (!BuildDenseSpec(sparse_spec, &dense_spec)) {
         return false;
     }
 
-    OP_LOGD(
-        OP_NAME, "DenseSpec: begin_mask:%lu end_mask:%lu begin:%s end:%s strides:%s indices:%s shrink_axis_mask:%lu",
-        dense_spec.begin_mask, dense_spec.end_mask, Ops::Base::ToString(dense_spec.begin).c_str(),
-        Ops::Base::ToString(dense_spec.end).c_str(), Ops::Base::ToString(dense_spec.strides).c_str(),
-        Ops::Base::ToString(dense_spec.final_shape_gather_indices).c_str(), dense_spec.shrink_axis_mask);
+    OP_LOGD(OP_NAME,
+            "DenseSpec: begin_mask:%lu end_mask:%lu begin:%s end:%s strides:%s indices:%s shrink_axis_mask:%lu",
+            dense_spec.begin_mask, dense_spec.end_mask, Ops::Base::ToString(dense_spec.begin).c_str(),
+            Ops::Base::ToString(dense_spec.end).c_str(), Ops::Base::ToString(dense_spec.strides).c_str(),
+            Ops::Base::ToString(dense_spec.final_shape_gather_indices).c_str(), dense_spec.shrink_axis_mask);
 
     // Step 3: Make implicit ranges (non-zero begin_masks and end_masks) explicit
     //         and bounds check!
@@ -486,12 +488,11 @@ inline bool InferShape(StridedSliceParams& params, gert::Shape* out_shape)
         return false;
     }
 
-    OP_LOGD(
-        OP_NAME, "ProcessingData: shape:%s begin:%s end:%s strides:%s.",
-        Ops::Base::ToString(processing_data.processing_shape).c_str(),
-        Ops::Base::ToString(processing_data.processing_begin).c_str(),
-        Ops::Base::ToString(processing_data.processing_end).c_str(),
-        Ops::Base::ToString(processing_data.processing_strides).c_str());
+    OP_LOGD(OP_NAME, "ProcessingData: shape:%s begin:%s end:%s strides:%s.",
+            Ops::Base::ToString(processing_data.processing_shape).c_str(),
+            Ops::Base::ToString(processing_data.processing_begin).c_str(),
+            Ops::Base::ToString(processing_data.processing_end).c_str(),
+            Ops::Base::ToString(processing_data.processing_strides).c_str());
 
     // Step 4: Compute the final shape
     //
@@ -500,9 +501,8 @@ inline bool InferShape(StridedSliceParams& params, gert::Shape* out_shape)
     // This cannot be done earlier, because it depends on Step 3.
     BuildFinalShape(processing_data, dense_spec, params, out_shape);
 
-    OP_LOGI(
-        OP_NAME, "after infershape params:%s, output_shape:%s.", params.to_string().c_str(),
-        Ops::Base::ToString(*out_shape).c_str());
+    OP_LOGI(OP_NAME, "after infershape params:%s, output_shape:%s.", params.to_string().c_str(),
+            Ops::Base::ToString(*out_shape).c_str());
 
     return true;
 }

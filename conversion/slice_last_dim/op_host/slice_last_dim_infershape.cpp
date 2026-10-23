@@ -21,16 +21,25 @@ static constexpr int64_t UNKNOWN_DIM = -1;
 static ge::graphStatus Infershape4SliceLastDim(gert::InferShapeContext* context)
 {
     auto xShape = context->GetInputShape(INPUT_IDX_X);
-    OP_CHECK_NULL_WITH_CONTEXT(context, xShape);
+    OP_CHECK_IF(xShape == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x"), return ge::GRAPH_FAILED);
     auto yShape = context->GetOutputShape(OUTPUT_IDX_Y);
     OP_CHECK_NULL_WITH_CONTEXT(context, yShape);
 
     auto attrs = context->GetAttrs();
-    OP_CHECK_NULL_WITH_CONTEXT(context, attrs);
+    OP_CHECK_IF(
+        attrs == nullptr,
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "start", "null", "required attribute is missing"),
+        return ge::GRAPH_FAILED);
     auto startPtr = attrs->GetAttrPointer<int64_t>(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context, startPtr);
+    OP_CHECK_IF(
+        startPtr == nullptr,
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "start", "null", "required attribute is missing"),
+        return ge::GRAPH_FAILED);
     auto endPtr = attrs->GetAttrPointer<int64_t>(1);
-    OP_CHECK_NULL_WITH_CONTEXT(context, endPtr);
+    OP_CHECK_IF(
+        endPtr == nullptr,
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "end", "null", "required attribute is missing"),
+        return ge::GRAPH_FAILED);
 
     int64_t stride = 1;
     auto stridePtr = attrs->GetAttrPointer<int64_t>(2);

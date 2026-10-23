@@ -20,7 +20,7 @@
 using namespace ge;
 
 namespace ops {
-static graphStatus InferDataType4SameAsInput(gert::InferDataTypeContext *context)
+static graphStatus InferDataType4SameAsInput(gert::InferDataTypeContext* context)
 {
     OP_LOGD(context->GetNodeName(), "InferDataType4SameAsInput enter");
     auto input_x_dtype = context->GetInputDataType(0);
@@ -29,10 +29,11 @@ static graphStatus InferDataType4SameAsInput(gert::InferDataTypeContext *context
     return GRAPH_SUCCESS;
 }
 
-static graphStatus InferShape4Elewise(gert::InferShapeContext *context)
+static graphStatus InferShape4Elewise(gert::InferShapeContext* context)
 {
     auto in_shape = context->GetInputShape(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context, in_shape);
+    OP_CHECK_IF(in_shape == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "var"),
+                return ge::GRAPH_FAILED);
     auto out_shape = context->GetOutputShape(0);
     OP_CHECK_NULL_WITH_CONTEXT(context, out_shape);
 
@@ -48,5 +49,5 @@ static graphStatus InferShape4Elewise(gert::InferShapeContext *context)
 IMPL_OP_INFERSHAPE(StridedSliceAssignV2)
     .InferShape(InferShape4Elewise)
     .InferDataType(InferDataType4SameAsInput)
-    .InputsDataDependency({ 2, 3, 4, 5 });
+    .InputsDataDependency({2, 3, 4, 5});
 } // namespace ops

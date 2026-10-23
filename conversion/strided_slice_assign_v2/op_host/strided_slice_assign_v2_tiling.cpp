@@ -13,6 +13,7 @@
  * \brief
  */
 
+#include <string>
 #include <vector>
 #include "util/math_util.h"
 #include "log/log.h"
@@ -29,12 +30,38 @@ static const size_t INDEX_AXES = 5;
 constexpr int32_t INPUT_VAR_INDEX = 0;
 constexpr int32_t INPUT_INPUTVAL_INDEX = 1;
 
+static const char* ConstInputParamName(size_t idxInput)
+{
+    if (idxInput == INDEX_END) {
+        return "end";
+    }
+    if (idxInput == INDEX_STRIDES) {
+        return "strides";
+    }
+    if (idxInput == INDEX_AXES) {
+        return "axes";
+    }
+    return "begin";
+}
+
+static void ReportTilingFailure(const char* opName, const char* reason)
+{
+    const std::string opNameStr(opName);
+    const std::string reasonStr(reason);
+    const std::string msg = "Failed to execute operator " + opNameStr + ". Reason: " + reasonStr + ".";
+    const std::vector<const char*> msgKey = {"opName", "reason"};
+    const std::vector<const char*> msgValue = {opNameStr.c_str(), reasonStr.c_str()};
+    OP_LOGE_WITHOUT_REPORT(opNameStr.c_str(), "%s", msg.c_str());
+    REPORT_PREDEFINED_ERR_MSG("EZ1008", msgKey, msgValue);
+}
+
 template <typename T>
 static ge::graphStatus CopyData2Array(gert::TilingContext* context, const gert::Tensor* listTensor, int64_t listSize,
-                                      int64_t dataList[])
+                                      int64_t dataList[], const char* paramName)
 {
     const T* listDataPtr = listTensor->GetData<T>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, listDataPtr);
+    OP_CHECK_IF(listDataPtr == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), paramName),
+                return ge::GRAPH_FAILED);
     for (int64_t i = 0; i < listSize; i++) {
         dataList[i] = listDataPtr[i];
     }
@@ -43,10 +70,11 @@ static ge::graphStatus CopyData2Array(gert::TilingContext* context, const gert::
 
 template <typename T>
 static ge::graphStatus CopyData2Array(gert::TilingContext* context, const gert::Tensor* listTensor, int64_t listSize,
-                                      std::vector<int64_t>& dataList)
+                                      std::vector<int64_t>& dataList, const char* paramName)
 {
     const T* listDataPtr = listTensor->GetData<T>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, listDataPtr);
+    OP_CHECK_IF(listDataPtr == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), paramName),
+                return ge::GRAPH_FAILED);
     for (int64_t i = 0; i < listSize; i++) {
         dataList.emplace_back(listDataPtr[i]);
     }
@@ -56,18 +84,21 @@ static ge::graphStatus CopyData2Array(gert::TilingContext* context, const gert::
 template <typename T>
 static ge::graphStatus GetConstInputData(gert::TilingContext* context, const size_t idxInput, T& dataList)
 {
+    const char* paramName = ConstInputParamName(idxInput);
     auto listTensor = context->GetInputTensor(idxInput);
-    OP_CHECK_NULL_WITH_CONTEXT(context, listTensor);
+    OP_CHECK_IF(listTensor == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), paramName),
+                return ge::GRAPH_FAILED);
     auto listDataType = listTensor->GetDataType();
     int64_t listSize = listTensor->GetShapeSize();
     if (listDataType == ge::DT_INT32) {
-        return CopyData2Array<int32_t>(context, listTensor, listSize, dataList);
+        return CopyData2Array<int32_t>(context, listTensor, listSize, dataList, paramName);
     }
     if (listDataType == ge::DT_INT64) {
-        return CopyData2Array<int64_t>(context, listTensor, listSize, dataList);
+        return CopyData2Array<int64_t>(context, listTensor, listSize, dataList, paramName);
     }
 
-    OP_LOGE(context->GetNodeName(), "Input begin/end/strides/axes only support int32/int64.");
+    OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), paramName, Ops::Base::ToString(listDataType).c_str(),
+                                          "only int32 and int64 are supported");
     return ge::GRAPH_FAILED;
 }
 
@@ -76,7 +107,8 @@ static ge::graphStatus AdjustWithAxes(gert::TilingContext* context, size_t dimNu
 {
     std::vector<int64_t> axes;
     OP_CHECK_IF(GetConstInputData(context, INDEX_AXES, axes) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context->GetNodeName(), "Get const input axes data failed."), return ge::GRAPH_FAILED);
+                OP_LOGE_WITHOUT_REPORT(context->GetNodeName(), "Get const input axes data failed."),
+                return ge::GRAPH_FAILED);
     // adjust begin/end/strides
     std::vector<int64_t> beginAdjust(dimNum, 0);
     std::vector<int64_t> endAdjust(dimNum, 0);
@@ -92,11 +124,14 @@ static ge::graphStatus AdjustWithAxes(gert::TilingContext* context, size_t dimNu
             axis += dimNumI64;
         }
         OP_CHECK_IF(axis < 0 || axis >= dimNumI64,
-                    OP_LOGE(context->GetNodeName(), "axes[%zu] value %ld is out of range [-%ld, %ld).", i, axes[i],
-                            dimNumI64, dimNumI64),
+                    OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                        context->GetNodeName(), "axes", std::to_string(axes[i]).c_str(),
+                        ("axis is out of range [-" + std::to_string(dimNumI64) + ", " + std::to_string(dimNumI64) + ")")
+                            .c_str()),
                     return ge::GRAPH_FAILED);
         OP_CHECK_IF(axisUsed[static_cast<size_t>(axis)],
-                    OP_LOGE(context->GetNodeName(), "axes[%zu] value %ld is duplicated.", i, axes[i]),
+                    OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "axes",
+                                                          std::to_string(axes[i]).c_str(), "axis value is duplicated"),
                     return ge::GRAPH_FAILED);
         axisUsed[static_cast<size_t>(axis)] = true;
         beginAdjust[static_cast<size_t>(axis)] = begin[i];
@@ -149,9 +184,14 @@ static ge::graphStatus CheckInputShape(const gert::TilingContext* context, size_
     for (size_t i = 0; i < dimNum; i++) {
         int64_t calcValue = Ops::Base::CeilDiv(end[i] - begin[i], strides[i]);
         calcValue = calcValue < 0 ? 0 : calcValue;
-        OP_CHECK_IF(calcValue != inputValueDim[i],
-                    OP_LOGE(context->GetNodeName(), "Input shape does not match, please check!"),
-                    return ge::GRAPH_FAILED);
+        OP_CHECK_IF(
+            calcValue != inputValueDim[i],
+            OP_LOGE_FOR_INVALID_SHAPEDIMS_WITH_REASON(
+                context->GetNodeName(), "input_value,begin,end,strides",
+                (std::to_string(inputValueDim[i]) + "," + std::to_string(calcValue)).c_str(),
+                ("input_value dim " + std::to_string(i) + " must equal the slice length from begin, end and strides")
+                    .c_str()),
+            return ge::GRAPH_FAILED);
     }
     return ge::GRAPH_SUCCESS;
 }
@@ -166,19 +206,33 @@ static ge::graphStatus Tiling4StridedSliceAssignV2(gert::TilingContext* context)
 
     const gert::StorageShape* varShape = context->GetInputShape(INPUT_VAR_INDEX);
     const gert::StorageShape* inputValueShape = context->GetInputShape(INPUT_INPUTVAL_INDEX);
-    OP_CHECK_NULL_WITH_CONTEXT(context, varShape);
-    OP_CHECK_NULL_WITH_CONTEXT(context, inputValueShape);
+    OP_CHECK_IF(varShape == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "var"),
+                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(inputValueShape == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "input_value"),
+                return ge::GRAPH_FAILED);
 
     size_t dimNum = varShape->GetStorageShape().GetDimNum();
-    OP_CHECK_IF(dimNum != inputValueShape->GetStorageShape().GetDimNum(),
-                OP_LOGE(context->GetNodeName(), "Var's dim num must equal to input_value's"), return ge::GRAPH_FAILED);
-    OP_CHECK_IF(dimNum <= 0, OP_LOGE(context->GetNodeName(), "Var's dim num should not be smaller or equal to zero."),
+    OP_CHECK_IF(
+        dimNum != inputValueShape->GetStorageShape().GetDimNum(),
+        OP_LOGE_FOR_INVALID_SHAPEDIMS_WITH_REASON(
+            context->GetNodeName(), "var,input_value",
+            (std::to_string(dimNum) + "," + std::to_string(inputValueShape->GetStorageShape().GetDimNum())).c_str(),
+            "var rank must equal input_value rank"),
+        return ge::GRAPH_FAILED);
+    OP_CHECK_IF(dimNum <= 0,
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "var", std::to_string(dimNum).c_str(),
+                                                         "rank must be greater than 0"),
                 return ge::GRAPH_FAILED);
-    OP_CHECK_IF(dimNum > 8, OP_LOGE(context->GetNodeName(), "Var's dim num should not be greater than eight."),
+    OP_CHECK_IF(dimNum > 8,
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "var", std::to_string(dimNum).c_str(),
+                                                         "rank must not be greater than 8"),
                 return ge::GRAPH_FAILED);
     for (uint32_t i = 0; i < dimNum; i++) {
         OP_CHECK_IF(varShape->GetStorageShape().GetDim(i) <= 0,
-                    OP_LOGE(context->GetNodeName(), "Input var shape can not less or equal 0."), return false);
+                    OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(
+                        context->GetNodeName(), "var", std::to_string(varShape->GetStorageShape().GetDim(i)).c_str(),
+                        ("dim " + std::to_string(i) + " must be greater than 0").c_str()),
+                    return ge::GRAPH_FAILED);
     }
 
     int64_t varDim[MAX_DIM_NUM] = {0};
@@ -196,24 +250,31 @@ static ge::graphStatus Tiling4StridedSliceAssignV2(gert::TilingContext* context)
     int64_t end[MAX_DIM_NUM] = {0};
     int64_t strides[MAX_DIM_NUM] = {0};
     OP_CHECK_IF(GetConstInputData(context, INDEX_BEGIN, begin) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context->GetNodeName(), "Get const input begin data failed."), return ge::GRAPH_FAILED);
+                OP_LOGE_WITHOUT_REPORT(context->GetNodeName(), "Get const input begin data failed."),
+                return ge::GRAPH_FAILED);
     OP_CHECK_IF(GetConstInputData(context, INDEX_END, end) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context->GetNodeName(), "Get const input end data failed."), return ge::GRAPH_FAILED);
+                OP_LOGE_WITHOUT_REPORT(context->GetNodeName(), "Get const input end data failed."),
+                return ge::GRAPH_FAILED);
     OP_CHECK_IF(GetConstInputData(context, INDEX_STRIDES, strides) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context->GetNodeName(), "Get const input strides data failed."), return ge::GRAPH_FAILED);
+                OP_LOGE_WITHOUT_REPORT(context->GetNodeName(), "Get const input strides data failed."),
+                return ge::GRAPH_FAILED);
     if (isHasAxes) {
         OP_CHECK_IF(AdjustWithAxes(context, dimNum, varDim, begin, end, strides) != ge::GRAPH_SUCCESS,
-                    OP_LOGE(context->GetNodeName(), "Adjust begin, end and strides failed."), return ge::GRAPH_FAILED);
+                    OP_LOGE_WITHOUT_REPORT(context->GetNodeName(), "Adjust begin, end and strides failed."),
+                    return ge::GRAPH_FAILED);
     }
 
     OP_CHECK_IF(AdjustBegin(dimNum, varDim, begin) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context->GetNodeName(), "Adjust begin data failed."), return ge::GRAPH_FAILED);
+                OP_LOGE_WITHOUT_REPORT(context->GetNodeName(), "Adjust begin data failed."), return ge::GRAPH_FAILED);
     OP_CHECK_IF(AdjustEnd(dimNum, varDim, end) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context->GetNodeName(), "Adjust end data failed."), return ge::GRAPH_FAILED);
+                OP_LOGE_WITHOUT_REPORT(context->GetNodeName(), "Adjust end data failed."), return ge::GRAPH_FAILED);
     OP_CHECK_IF(CheckInputShape(context, dimNum, inputValueDim, begin, end, strides) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context->GetNodeName(), "Get const input strides data failed."), return ge::GRAPH_FAILED);
-    OP_CHECK_IF(strides[dimNum - 1] != 1, OP_LOGE(context->GetNodeName(), "The stride of last dim must be 1."),
+                OP_LOGE_WITHOUT_REPORT(context->GetNodeName(), "Check input_value shape failed."),
                 return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        strides[dimNum - 1] != 1,
+        OP_LOGE_FOR_INVALID_STRIDE(context->GetNodeName(), "strides", std::to_string(strides[dimNum - 1]).c_str(), "1"),
+        return ge::GRAPH_FAILED);
 
     int64_t varCumShape[MAX_DIM_NUM] = {0};
     int64_t inputCumShape[MAX_DIM_NUM] = {0};
@@ -254,22 +315,34 @@ static ge::graphStatus TilingPrepare4StridedSliceAssignV2(gert::TilingParseConte
 {
     OP_LOGD(context->GetNodeName(), "TilingPrepare4StridedSliceAssignV2 running.");
     auto compileInfo = context->GetCompiledInfo<StridedSliceAssignV2CompileInfo>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, compileInfo);
+    OP_CHECK_IF(compileInfo == nullptr,
+                ReportTilingFailure(context->GetNodeName(),
+                                    "TilingPrepare4StridedSliceAssignV2 failed because compile info is null"),
+                return ge::GRAPH_FAILED);
     auto platformInfo = context->GetPlatformInfo();
-    OP_CHECK_NULL_WITH_CONTEXT(context, platformInfo);
+    OP_CHECK_IF(platformInfo == nullptr,
+                ReportTilingFailure(context->GetNodeName(),
+                                    "TilingPrepare4StridedSliceAssignV2 failed because platform info is null"),
+                return ge::GRAPH_FAILED);
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
     compileInfo->totalCoreNum = ascendcPlatform.GetCoreNumAiv();
     // no vector core enabled
-    OP_CHECK_IF((compileInfo->totalCoreNum <= 0),
-                OP_LOGE(context->GetNodeName(), "TilingPrepare4StridedSliceAssignV2 fail to get core num."),
-                return ge::GRAPH_FAILED);
+    if (compileInfo->totalCoreNum <= 0) {
+        std::string reason = "TilingPrepare4StridedSliceAssignV2 failed to get AIV core number, actual=" +
+                             std::to_string(compileInfo->totalCoreNum);
+        ReportTilingFailure(context->GetNodeName(), reason.c_str());
+        return ge::GRAPH_FAILED;
+    }
 
     uint64_t ubSizePlatForm;
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSizePlatForm);
     compileInfo->ubSize = static_cast<int64_t>(ubSizePlatForm);
-    OP_CHECK_IF((compileInfo->ubSize <= 0),
-                OP_LOGE(context->GetNodeName(), "TilingPrepare4StridedSliceAssignV2 fail to get ub size."),
-                return ge::GRAPH_FAILED);
+    if (compileInfo->ubSize <= 0) {
+        std::string reason = "TilingPrepare4StridedSliceAssignV2 failed to get UB size, actual=" +
+                             std::to_string(compileInfo->ubSize);
+        ReportTilingFailure(context->GetNodeName(), reason.c_str());
+        return ge::GRAPH_FAILED;
+    }
 
     OP_LOGD(context->GetNodeName(), "TilingPrepare4StridedSliceAssignV2 exit.");
     return ge::GRAPH_SUCCESS;

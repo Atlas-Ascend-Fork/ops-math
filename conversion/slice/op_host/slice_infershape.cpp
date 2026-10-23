@@ -79,22 +79,21 @@ static bool CheckSliceInfo(const gert::Shape* x_shape, const SliceConstParams& s
     const size_t input_dim = x_shape->GetDimNum();
     if (slice_infer_info.is_offset_const) {
         OP_LOGD("CheckSliceInfo", "will check offset const value.");
-        OP_CHECK_IF(slice_infer_info.offset.GetDimNum() != input_dim,
-                    OP_LOGE("CheckSliceInfo", "%s",
-                            ops::ConcatString("offset num and input rank must be the same, but offset_value is ",
-                                              Ops::Base::ToString(slice_infer_info.offset).c_str(), ", input shape is ",
-                                              Ops::Base::ToString(*x_shape).c_str())
-                                .c_str()),
-                    return false);
+        OP_CHECK_IF(
+            slice_infer_info.offset.GetDimNum() != input_dim,
+            OP_LOGE_FOR_INVALID_SHAPESIZES_WITH_REASON(
+                "Slice", "offsets, x",
+                (std::to_string(slice_infer_info.offset.GetDimNum()) + ", " + std::to_string(input_dim)).c_str(),
+                "offsets length and input rank must be the same"),
+            return false);
     }
     if (slice_infer_info.is_size_const) {
         OP_LOGD("CheckSliceInfo", "will check size const value.");
         OP_CHECK_IF(slice_infer_info.size.GetDimNum() != input_dim,
-                    OP_LOGE("CheckSliceInfo", "%s",
-                            ops::ConcatString("size num and input rank must be the same, but size_value is ",
-                                              Ops::Base::ToString(slice_infer_info.size).c_str(), ", input shape is ",
-                                              Ops::Base::ToString(*x_shape).c_str())
-                                .c_str()),
+                    OP_LOGE_FOR_INVALID_SHAPESIZES_WITH_REASON(
+                        "Slice", "size, x",
+                        (std::to_string(slice_infer_info.size.GetDimNum()) + ", " + std::to_string(input_dim)).c_str(),
+                        "size length and input rank must be the same"),
                     return false);
     }
 
@@ -117,10 +116,9 @@ static graphStatus SliceInferShapeFnWithConstSize(gert::InferShapeContext* conte
     for (size_t i = 0; i < output_rank; ++i) {
         int64_t size_value = out_shape->GetDim(i);
         OP_CHECK_IF(size_value < -1,
-                    OP_LOGE(context->GetNodeName(), "%s",
-                            ops::ConcatString("the value of size can not < -1, but is ",
-                                              Ops::Base::ToString(slice_infer_info.size).c_str())
-                                .c_str()),
+                    OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "size",
+                                                          Ops::Base::ToString(slice_infer_info.size).c_str(),
+                                                          "each size value must be greater than or equal to -1"),
                     return ge::GRAPH_FAILED);
         if (!is_unknown_rank_x && slice_infer_info.is_offset_const) {
             int64_t x_dim_value = x_shape->GetDim(i);
@@ -142,7 +140,8 @@ static graphStatus SliceInferShapeFn(gert::InferShapeContext* context, const ger
     OP_LOGD(context->GetNodeName(), "slice input shape is %s", Ops::Base::ToString(*x_shape).c_str());
     OP_LOGD(context->GetNodeName(), "slice const info is %s", slice_infer_info.to_string().c_str());
     // check the input info
-    OP_CHECK_IF(!CheckSliceInfo(x_shape, slice_infer_info), OP_LOGE(context->GetNodeName(), "check input info failed."),
+    OP_CHECK_IF(!CheckSliceInfo(x_shape, slice_infer_info),
+                OP_LOGE_WITHOUT_REPORT(context->GetNodeName(), "check input info failed; propagate the first error."),
                 return ge::GRAPH_FAILED);
     if (slice_infer_info.is_size_const) {
         return SliceInferShapeFnWithConstSize(context, x_shape, slice_infer_info, out_shape);
@@ -167,7 +166,7 @@ static graphStatus SliceInferShapeFn(gert::InferShapeContext* context, const ger
 static graphStatus InferShape4Slice(gert::InferShapeContext* context)
 {
     const gert::Shape* x_shape = context->GetInputShape(SLICE_IN_X);
-    OP_CHECK_NULL_WITH_CONTEXT(context, x_shape);
+    OP_CHECK_IF(x_shape == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x"), return ge::GRAPH_FAILED);
     gert::Shape* out_shape = context->GetOutputShape(SLICE_OUT_Y);
     OP_CHECK_NULL_WITH_CONTEXT(context, out_shape);
 
@@ -179,7 +178,8 @@ static graphStatus InferShape4Slice(gert::InferShapeContext* context)
         OP_LOGD(context->GetNodeName(), "Get const of size unsuccessful, will do dynamic infershape.");
         slice_infer_info.offset.SetDimNum(0);
         const gert::Shape* offset_shape = context->GetInputShape(SLICE_IN_OFFSET);
-        OP_CHECK_NULL_WITH_CONTEXT(context, offset_shape);
+        OP_CHECK_IF(offset_shape == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "offsets"),
+                    return ge::GRAPH_FAILED);
         slice_infer_info.offset_num = offset_shape->GetDimNum() == 0 ? 1 : offset_shape->GetDim(0);
     }
 
@@ -188,7 +188,8 @@ static graphStatus InferShape4Slice(gert::InferShapeContext* context)
         OP_LOGD(context->GetNodeName(), "Get const of offset unsuccessful, will do dynamic infershape.");
         slice_infer_info.size.SetDimNum(0);
         const gert::Shape* size_shape = context->GetInputShape(SLICE_IN_SIZE);
-        OP_CHECK_NULL_WITH_CONTEXT(context, size_shape);
+        OP_CHECK_IF(size_shape == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "size"),
+                    return ge::GRAPH_FAILED);
         slice_infer_info.size_num = size_shape->GetDimNum() == 0 ? 1 : size_shape->GetDim(0);
     }
 

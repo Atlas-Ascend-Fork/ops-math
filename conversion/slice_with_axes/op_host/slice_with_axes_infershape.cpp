@@ -22,17 +22,24 @@ static constexpr size_t OUTPUT_IDX_Y = 0;
 static ge::graphStatus Infershape4SliceWithAxes(gert::InferShapeContext* context)
 {
     auto xShape = context->GetInputShape(INPUT_IDX_X);
-    OP_CHECK_NULL_WITH_CONTEXT(context, xShape);
+    OP_CHECK_IF(xShape == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x"), return ge::GRAPH_FAILED);
     auto yShape = context->GetOutputShape(OUTPUT_IDX_Y);
     OP_CHECK_NULL_WITH_CONTEXT(context, yShape);
 
     auto attrs = context->GetAttrs();
-    OP_CHECK_NULL_WITH_CONTEXT(context, attrs);
+    OP_CHECK_IF(
+        attrs == nullptr,
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "axes", "null", "required attribute is missing"),
+        return ge::GRAPH_FAILED);
     auto axesList = attrs->GetListInt(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context, axesList);
+    OP_CHECK_IF(
+        axesList == nullptr,
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "axes", "null", "required attribute is missing"),
+        return ge::GRAPH_FAILED);
 
     auto sizeTensor = context->GetInputTensor(INPUT_IDX_SIZE);
-    OP_CHECK_NULL_WITH_CONTEXT(context, sizeTensor);
+    OP_CHECK_IF(sizeTensor == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "size"),
+                return ge::GRAPH_FAILED);
 
     size_t dimNum = xShape->GetDimNum();
     yShape->SetDimNum(dimNum);
@@ -46,7 +53,10 @@ static ge::graphStatus Infershape4SliceWithAxes(gert::InferShapeContext* context
 
     size_t axesLen = axesList->GetSize();
     const int64_t* axesData = axesList->GetData();
-    OP_CHECK_NULL_WITH_CONTEXT(context, axesData);
+    OP_CHECK_IF(
+        axesData == nullptr,
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "axes", "null", "required attribute is missing"),
+        return ge::GRAPH_FAILED);
     DataType sizeDataType = sizeTensor->GetDataType();
 
     for (size_t i = 0; i < axesLen; ++i) {
@@ -54,11 +64,13 @@ static ge::graphStatus Infershape4SliceWithAxes(gert::InferShapeContext* context
         int64_t sliceSize = 0;
         if (sizeDataType == ge::DT_INT32) {
             const int32_t* data = sizeTensor->GetData<int32_t>();
-            OP_CHECK_NULL_WITH_CONTEXT(context, data);
+            OP_CHECK_IF(data == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "size"),
+                        return ge::GRAPH_FAILED);
             sliceSize = static_cast<int64_t>(data[i]);
         } else {
             const int64_t* data = sizeTensor->GetData<int64_t>();
-            OP_CHECK_NULL_WITH_CONTEXT(context, data);
+            OP_CHECK_IF(data == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "size"),
+                        return ge::GRAPH_FAILED);
             sliceSize = data[i];
         }
         if (sliceSize == -1) {

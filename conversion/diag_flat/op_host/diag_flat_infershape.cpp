@@ -31,12 +31,21 @@ static ge::graphStatus InfershapeForDiagFlat(gert::InferShapeContext* context)
     OP_LOGD(context->GetNodeName(), "Begin to do DiagflatInfershape.");
     // 获取输入值shape
     const gert::Shape* inputShape = context->GetInputShape(DIAGFLAT_IN_X_IDX);
-    OP_CHECK_NULL_WITH_CONTEXT(context, inputShape);
+    OP_CHECK_IF(inputShape == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x"),
+                return ge::GRAPH_FAILED);
 
     // 获取属性值
     auto attrs = context->GetAttrs();
-    OP_CHECK_NULL_WITH_CONTEXT(context, attrs);
-    int64_t diagonal = *(attrs->GetInt(kAxisAttrIdx));
+    OP_CHECK_IF(attrs == nullptr,
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "diagonal", "null",
+                                                      "required attribute is missing"),
+                return ge::GRAPH_FAILED);
+    const int64_t* diagonalPtr = attrs->GetInt(kAxisAttrIdx);
+    OP_CHECK_IF(diagonalPtr == nullptr,
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "diagonal", "null",
+                                                      "required attribute is missing"),
+                return ge::GRAPH_FAILED);
+    int64_t diagonal = *diagonalPtr;
 
     // 获取输出值shape
     gert::Shape* output_y_shape = context->GetOutputShape(DIAGFLAT_OUT_Y_IDX);

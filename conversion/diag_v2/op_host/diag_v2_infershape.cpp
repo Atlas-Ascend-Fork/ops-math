@@ -13,6 +13,7 @@
  * \brief
  */
 #include <cmath>
+#include <string>
 #include "register/op_impl_registry.h"
 #include "log/log.h"
 #include "util/shape_util.h"
@@ -34,19 +35,27 @@ static ge::graphStatus Infershape4DiagV2(gert::InferShapeContext* context)
     OP_LOGD(context, "Begin to do DiagV2Infershape.");
     // 获取输入值shape
     const gert::Shape* input_x_shape = context->GetInputShape(DiagV2_IN_X_IDX);
-    OP_CHECK_NULL_WITH_CONTEXT(context, input_x_shape);
+    OP_CHECK_IF(input_x_shape == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x"),
+                return ge::GRAPH_FAILED);
 
     size_t x_dim_num = input_x_shape->GetDimNum();
     if (x_dim_num > DIM_TWO) {
-        OP_LOGD("The dim number of input should be less than 3.");
+        OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "x", std::to_string(x_dim_num).c_str(),
+                                                 "rank must be 1 or 2");
         return ge::GRAPH_FAILED;
     }
 
     // 获取属性值
     auto attrs = context->GetAttrs();
-    OP_CHECK_NULL_WITH_CONTEXT(context, attrs);
+    OP_CHECK_IF(attrs == nullptr,
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "diagonal", "null",
+                                                      "required attribute is missing"),
+                return ge::GRAPH_FAILED);
     auto pkAxisAttrIdx = attrs->GetInt(kAxisAttrIdx);
-    OP_CHECK_NULL_WITH_CONTEXT(context, pkAxisAttrIdx);
+    OP_CHECK_IF(pkAxisAttrIdx == nullptr,
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "diagonal", "null",
+                                                      "required attribute is missing"),
+                return ge::GRAPH_FAILED);
     int64_t diagonal = *pkAxisAttrIdx;
 
     // 获取输出值shape

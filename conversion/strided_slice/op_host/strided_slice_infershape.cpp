@@ -122,23 +122,28 @@ static void MakeParamSameLen(int64_t shape_max, const gert::Shape* shape_x, Quic
 static ge::graphStatus InferShape4StridedSlice(gert::InferShapeContext* context)
 {
     StridedSliceParams input_params;
-
     const auto shape_x = context->GetInputShape(IDX_X);
-    OP_CHECK_NULL_WITH_CONTEXT(context, shape_x);
+    OP_CHECK_IF(shape_x == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x"), return ge::GRAPH_FAILED);
     auto shape_y = context->GetOutputShape(IDX_Y);
     OP_CHECK_NULL_WITH_CONTEXT(context, shape_y);
     auto shape_begin = context->GetInputShape(IDX_BEGIN);
-    OP_CHECK_NULL_WITH_CONTEXT(context, shape_begin);
+    OP_CHECK_IF(shape_begin == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "begin"),
+                return ge::GRAPH_FAILED);
     auto shape_end = context->GetInputShape(IDX_END);
-    OP_CHECK_NULL_WITH_CONTEXT(context, shape_end);
+    OP_CHECK_IF(shape_end == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "end"),
+                return ge::GRAPH_FAILED);
     auto shape_strides = context->GetInputShape(IDX_STRIDES);
-    OP_CHECK_NULL_WITH_CONTEXT(context, shape_strides);
+    OP_CHECK_IF(shape_strides == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "strides"),
+                return ge::GRAPH_FAILED);
     auto tensor_begin = context->GetInputTensor(IDX_BEGIN);
-    OP_CHECK_NULL_WITH_CONTEXT(context, tensor_begin);
+    OP_CHECK_IF(tensor_begin == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "begin"),
+                return ge::GRAPH_FAILED);
     auto tensor_end = context->GetInputTensor(IDX_END);
-    OP_CHECK_NULL_WITH_CONTEXT(context, tensor_end);
+    OP_CHECK_IF(tensor_end == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "end"),
+                return ge::GRAPH_FAILED);
     auto tensor_strides = context->GetInputTensor(IDX_STRIDES);
-    OP_CHECK_NULL_WITH_CONTEXT(context, tensor_strides);
+    OP_CHECK_IF(tensor_strides == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "strides"),
+                return ge::GRAPH_FAILED);
 
     // calc max shape of (begin, end, strides)
     int64_t shape_max = CalcMaxShapeSize(shape_begin->GetDim(0), shape_end->GetDim(0), shape_strides->GetDim(0));
@@ -159,23 +164,45 @@ static ge::graphStatus InferShape4StridedSlice(gert::InferShapeContext* context)
 
     // check (begin, end) shape size same
     if (input_params.end.GetDimNum() != input_params.begin.GetDimNum()) {
-        OP_LOGE(OP_NAME, "end shape, begin shape length mismatch!");
+        OP_LOGE_FOR_INVALID_SHAPESIZES_WITH_REASON(
+            context->GetNodeName(), "begin, end",
+            (std::to_string(input_params.begin.GetDimNum()) + ", " + std::to_string(input_params.end.GetDimNum()))
+                .c_str(),
+            "begin and end must have the same length");
         return GRAPH_FAILED;
     }
 
     // Get relevant masks from const node
     auto attrs = context->GetAttrs();
-    OP_CHECK_NULL_WITH_CONTEXT(context, attrs);
+    OP_CHECK_IF(attrs == nullptr,
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "begin_mask", "null",
+                                                      "required attribute is missing"),
+                return ge::GRAPH_FAILED);
     const int64_t* mask_begin = attrs->GetAttrPointer<int64_t>(IDX_MASK_BEGIN);
-    OP_CHECK_NULL_WITH_CONTEXT(context, mask_begin);
+    OP_CHECK_IF(mask_begin == nullptr,
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "begin_mask", "null",
+                                                      "required attribute is missing"),
+                return ge::GRAPH_FAILED);
     const int64_t* mask_end = attrs->GetAttrPointer<int64_t>(IDX_MASK_END);
-    OP_CHECK_NULL_WITH_CONTEXT(context, mask_end);
+    OP_CHECK_IF(mask_end == nullptr,
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "end_mask", "null",
+                                                      "required attribute is missing"),
+                return ge::GRAPH_FAILED);
     const int64_t* mask_ellipsis = attrs->GetAttrPointer<int64_t>(IDX_MASK_ELLIPSIS);
-    OP_CHECK_NULL_WITH_CONTEXT(context, mask_ellipsis);
+    OP_CHECK_IF(mask_ellipsis == nullptr,
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "ellipsis_mask", "null",
+                                                      "required attribute is missing"),
+                return ge::GRAPH_FAILED);
     const int64_t* mask_new_axis = attrs->GetAttrPointer<int64_t>(IDX_MASK_NEW_AXIS);
-    OP_CHECK_NULL_WITH_CONTEXT(context, mask_new_axis);
+    OP_CHECK_IF(mask_new_axis == nullptr,
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "new_axis_mask", "null",
+                                                      "required attribute is missing"),
+                return ge::GRAPH_FAILED);
     const int64_t* mask_shrink_axis = attrs->GetAttrPointer<int64_t>(IDX_MASK_SHRINK_AXIS);
-    OP_CHECK_NULL_WITH_CONTEXT(context, mask_shrink_axis);
+    OP_CHECK_IF(mask_shrink_axis == nullptr,
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "shrink_axis_mask", "null",
+                                                      "required attribute is missing"),
+                return ge::GRAPH_FAILED);
 
     // infer shape
     input_params.input_shape = *shape_x;

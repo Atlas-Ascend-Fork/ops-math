@@ -19,7 +19,20 @@
 #include "platform/platform_ascendc.h"
 #include "platform/platform_infos_def.h"
 
+#include <string>
+#include <vector>
+
 namespace optiling {
+static void ReportTilingFailure(const char* opName, const char* reason)
+{
+    const std::string opNameStr(opName);
+    const std::string reasonStr(reason);
+    const std::string msg = "Failed to execute operator " + opNameStr + ". Reason: " + reasonStr + ".";
+    const std::vector<const char*> msgKey = {"opName", "reason"};
+    const std::vector<const char*> msgValue = {opNameStr.c_str(), reasonStr.c_str()};
+    OP_LOGE_WITHOUT_REPORT(opNameStr.c_str(), "%s", msg.c_str());
+    REPORT_PREDEFINED_ERR_MSG("EZ1008", msgKey, msgValue);
+}
 
 static const int32_t B16_INPUT_LENGTH = 16;
 
@@ -88,18 +101,26 @@ ge::graphStatus TilingDiagFlat(gert::TilingContext* context)
 {
     OP_LOGD(context->GetNodeName(), "TilingDiagFlat running begin");
     auto input = context->GetInputTensor(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context, input);
+    OP_CHECK_IF(input == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x"), return ge::GRAPH_FAILED);
     auto inputShape = input->GetStorageShape();
     DiagV2TilingData tilingData;
     auto attrs = context->GetAttrs();
-    OP_CHECK_NULL_WITH_CONTEXT(context, attrs);
+    OP_CHECK_IF(attrs == nullptr,
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "diagonal", "null",
+                                                      "required attribute is missing"),
+                return ge::GRAPH_FAILED);
     const int64_t* diagonalPtr = attrs->GetAttrPointer<int64_t>(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context, diagonalPtr);
+    OP_CHECK_IF(diagonalPtr == nullptr,
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "diagonal", "null",
+                                                      "required attribute is missing"),
+                return ge::GRAPH_FAILED);
     const int64_t diagonal = *diagonalPtr;
     tilingData.set_diagonal(diagonal);
     // set coreNum
     auto compileInfo = reinterpret_cast<const DiagV2CompileInfo*>(context->GetCompileInfo());
-    OP_CHECK_NULL_WITH_CONTEXT(context, compileInfo);
+    OP_CHECK_IF(compileInfo == nullptr,
+                ReportTilingFailure(context->GetNodeName(), "TilingDiagFlat failed because compile info is null"),
+                return ge::GRAPH_FAILED);
     int64_t totalCoreNum = static_cast<int64_t>(compileInfo->totalCoreNum);
     tilingData.set_totalCoreNum(totalCoreNum);
     // set ubSize
@@ -115,10 +136,10 @@ ge::graphStatus TilingDiagFlat(gert::TilingContext* context)
     tilingData.set_inputNum(inputShape.GetShapeSize());
     if (tilingData.get_inputNum() <= SCALAR_THRESHOLD_NUM) {
         OP_CHECK_IF(CalcScalarTiling(context, tilingData) != ge::GRAPH_SUCCESS,
-                    OP_LOGE(context->GetNodeName(), "CalcScalarTiling fail."), return ge::GRAPH_FAILED);
+                    ReportTilingFailure(context->GetNodeName(), "CalcScalarTiling failed"), return ge::GRAPH_FAILED);
     } else {
         OP_CHECK_IF(CalcAuxMatrixTiling(context, tilingData) != ge::GRAPH_SUCCESS,
-                    OP_LOGE(context->GetNodeName(), "CalcAuxMatrixTiling fail."), return ge::GRAPH_FAILED);
+                    ReportTilingFailure(context->GetNodeName(), "CalcAuxMatrixTiling failed"), return ge::GRAPH_FAILED);
     }
     size_t userSize = tilingData.get_totalCoreNum() * 32;
     size_t sysWorkspaceSize = 16 * 1024 * 1024;
@@ -127,7 +148,7 @@ ge::graphStatus TilingDiagFlat(gert::TilingContext* context)
     tilingData.set_workspaceSize(currentWorkspace[0]);
     // set tilingData
     OP_CHECK_IF(DiagFlatSetTilingData(context, tilingData) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context->GetNodeName(), "DiagFlatSetTilingData set tiling data fail."),
+                ReportTilingFailure(context->GetNodeName(), "DiagFlatSetTilingData failed to serialize tiling data"),
                 return ge::GRAPH_FAILED);
     context->SetBlockDim(tilingData.get_totalCoreNum());
     context->SetTilingKey(tilingData.get_tilingKey());
@@ -139,21 +160,33 @@ ge::graphStatus TilingDiagFlat(gert::TilingContext* context)
 static ge::graphStatus TilingPrepareForDiagFlat(gert::TilingParseContext* context)
 {
     auto compileInfo = context->GetCompiledInfo<DiagV2CompileInfo>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, compileInfo);
+    OP_CHECK_IF(
+        compileInfo == nullptr,
+        ReportTilingFailure(context->GetNodeName(), "TilingPrepare4DiagFlat failed because compile info is null"),
+        return ge::GRAPH_FAILED);
     auto platformInfo = context->GetPlatformInfo();
-    OP_CHECK_NULL_WITH_CONTEXT(context, platformInfo);
+    OP_CHECK_IF(
+        platformInfo == nullptr,
+        ReportTilingFailure(context->GetNodeName(), "TilingPrepare4DiagFlat failed because platform info is null"),
+        return ge::GRAPH_FAILED);
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
     compileInfo->totalCoreNum = ascendcPlatform.GetCoreNumAiv();
-    OP_CHECK_IF((compileInfo->totalCoreNum <= 0),
-                OP_LOGE(context->GetNodeName(), "TilingPrepare4DiagFlat fail to get core num."),
-                return ge::GRAPH_FAILED);
+    if (compileInfo->totalCoreNum <= 0) {
+        std::string reason = "TilingPrepare4DiagFlat failed to get AIV core number, actual=" +
+                             std::to_string(compileInfo->totalCoreNum);
+        ReportTilingFailure(context->GetNodeName(), reason.c_str());
+        return ge::GRAPH_FAILED;
+    }
 
     uint64_t ubSizePlatForm;
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSizePlatForm);
     compileInfo->ubSizePlatForm = static_cast<int64_t>(ubSizePlatForm);
-    OP_CHECK_IF((compileInfo->ubSizePlatForm <= 0),
-                OP_LOGE(context->GetNodeName(), "TilingPrepare4DiagFlat fail to get ub size."),
-                return ge::GRAPH_FAILED);
+    if (compileInfo->ubSizePlatForm <= 0) {
+        std::string reason = "TilingPrepare4DiagFlat failed to get UB size, actual=" +
+                             std::to_string(compileInfo->ubSizePlatForm);
+        ReportTilingFailure(context->GetNodeName(), reason.c_str());
+        return ge::GRAPH_FAILED;
+    }
 
     return ge::GRAPH_SUCCESS;
 }

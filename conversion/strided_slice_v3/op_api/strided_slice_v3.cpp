@@ -21,20 +21,27 @@ namespace l0op {
 OP_TYPE_REGISTER(StridedSliceV3);
 
 // AICORE算子kernel
-const aclTensor* StridedSliceV3AiCore(
-    const aclTensor* self, const aclTensor* begin, const aclTensor* end, const aclTensor* axis,
-    const aclTensor* strideds, const aclTensor* out, aclOpExecutor* executor)
+const aclTensor* StridedSliceV3AiCore(const aclTensor* self, const aclTensor* begin, const aclTensor* end,
+                                      const aclTensor* axis, const aclTensor* strideds, const aclTensor* out,
+                                      aclOpExecutor* executor)
 {
     L0_DFX(StridedSliceV3AiCore, self, begin, end, axis, strideds, out);
     auto ret = ADD_TO_LAUNCHER_LIST_AICORE(StridedSliceV3, OP_INPUT(self, begin, end, axis, strideds), OP_OUTPUT(out));
-    OP_CHECK(
-        ret == ACLNN_SUCCESS,
-        OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "StridedSliceV3AiCore ADD_TO_LAUNCHER_LIST_AICORE failed."), return nullptr);
+    if (ret != ACLNN_SUCCESS) {
+        if (ret == ACLNN_ERR_PARAM_NULLPTR) {
+            OP_LOGE(ret,
+                    "StridedSliceV3AiCore ADD_TO_LAUNCHER_LIST_AICORE failed because executor or args is null, ret=%d.",
+                    ret);
+        } else {
+            OP_LOGE_WITHOUT_REPORT(ret, "StridedSliceV3AiCore ADD_TO_LAUNCHER_LIST_AICORE failed, ret=%d.", ret);
+        }
+        return nullptr;
+    }
     return out;
 }
 
-const aclTensor* StridedSliceV3(
-    const aclTensor* self, int64_t begin, int64_t end, int64_t axis, int64_t strideds, aclOpExecutor* executor)
+const aclTensor* StridedSliceV3(const aclTensor* self, int64_t begin, int64_t end, int64_t axis, int64_t strideds,
+                                aclOpExecutor* executor)
 {
     auto out = executor->AllocTensor(self->GetDataType(), self->GetStorageFormat(), self->GetOriginalFormat());
     auto beginTensor = executor->ConvertToTensor(&begin, 1, op::DataType::DT_INT64);
@@ -46,9 +53,8 @@ const aclTensor* StridedSliceV3(
     return StridedSliceV3AiCore(self, beginTensor, endTensor, axisTensor, stridesTensor, out, executor);
 }
 
-const aclTensor* StridedSliceV3V2(
-    const aclTensor* self, const aclIntArray* begins, const aclIntArray* ends, const aclIntArray* axis,
-    const aclIntArray* strideds, aclOpExecutor* executor)
+const aclTensor* StridedSliceV3V2(const aclTensor* self, const aclIntArray* begins, const aclIntArray* ends,
+                                  const aclIntArray* axis, const aclIntArray* strideds, aclOpExecutor* executor)
 {
     auto out = executor->AllocTensor(self->GetDataType(), self->GetStorageFormat(), self->GetOriginalFormat());
     auto beginTensor = executor->ConvertToTensor(begins, op::DataType::DT_INT64);

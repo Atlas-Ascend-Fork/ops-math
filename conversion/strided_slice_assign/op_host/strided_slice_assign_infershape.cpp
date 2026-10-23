@@ -23,6 +23,8 @@
 #include "log/log.h"
 #include "util/shape_util.h"
 
+#include <string>
+
 using namespace ge;
 
 namespace ops {
@@ -38,15 +40,31 @@ static constexpr int64_t kAttrEllipsisMaskIdx = 2;
 static constexpr int64_t kAttrNewAxisMaskIdx = 3;
 static constexpr int64_t kAttrShrinkAxisMaskIdx = 4;
 
+static const char* SpecInputName(int64_t idx)
+{
+    if (idx == kEndIdx) {
+        return "end";
+    }
+    if (idx == kStridesIdx) {
+        return "strides";
+    }
+    return "begin";
+}
+
 // var shape 校验：dimNum ∈ [1, 8]，各静态维 > 0
 static ge::graphStatus ValidateVarShape(gert::InferShapeContext* context, const gert::Shape* varShape, size_t& dimNum)
 {
     dimNum = varShape->GetDimNum();
     OP_CHECK_IF(dimNum < 1 || dimNum > static_cast<size_t>(kMaxDimNum),
-                OP_LOGE(context, "var dimNum must be in [1, 8], got %zu", dimNum), return ge::GRAPH_FAILED);
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "var", std::to_string(dimNum).c_str(),
+                                                         "var dimNum must be in [1, 8]"),
+                return ge::GRAPH_FAILED);
     for (size_t d = 0; d < dimNum; d++) {
         int64_t dim = varShape->GetDim(d);
-        OP_CHECK_IF(dim == 0, OP_LOGE(context, "var dim %zu must be > 0 (empty var not supported)", d),
+        OP_CHECK_IF(dim == 0,
+                    OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(
+                        context->GetNodeName(), "var", std::to_string(dim).c_str(),
+                        ("dim " + std::to_string(d) + " must be > 0 (empty var not supported)").c_str()),
                     return ge::GRAPH_FAILED);
     }
     return ge::GRAPH_SUCCESS;
@@ -56,21 +74,33 @@ static ge::graphStatus ValidateVarShape(gert::InferShapeContext* context, const 
 static ge::graphStatus ValidateSpecShapes(gert::InferShapeContext* context, int64_t& specLen)
 {
     specLen = -1;
+    const char* anchorName = "begin";
     for (int64_t idx : {kBeginIdx, kEndIdx, kStridesIdx}) {
         const gert::Shape* shape = context->GetInputShape(idx);
-        OP_CHECK_NULL_WITH_CONTEXT(context, shape);
+        const char* paramName = SpecInputName(idx);
+        OP_CHECK_IF(shape == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), paramName),
+                    return ge::GRAPH_FAILED);
         OP_CHECK_IF(shape->GetDimNum() != 1,
-                    OP_LOGE(context, "begin/end/strides must be 1-D, got %zu-D", shape->GetDimNum()),
+                    OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), paramName,
+                                                             std::to_string(shape->GetDimNum()).c_str(),
+                                                             "begin, end and strides must be 1-D"),
                     return ge::GRAPH_FAILED);
         int64_t len = shape->GetDim(0);
         if (specLen < 0) {
             specLen = len;
+            anchorName = paramName;
         } else {
-            OP_CHECK_IF(len != specLen, OP_LOGE(context, "begin/end/strides length mismatch, %ld vs %ld", len, specLen),
+            OP_CHECK_IF(len != specLen,
+                        OP_LOGE_FOR_INVALID_SHAPESIZES_WITH_REASON(
+                            context->GetNodeName(), (std::string(anchorName) + "," + paramName).c_str(),
+                            (std::to_string(specLen) + "," + std::to_string(len)).c_str(),
+                            "begin, end and strides length must be equal"),
                         return ge::GRAPH_FAILED);
         }
     }
-    OP_CHECK_IF(specLen >= kMaxSpecLen, OP_LOGE(context, "spec length must be < 32, got %ld", specLen),
+    OP_CHECK_IF(specLen >= kMaxSpecLen,
+                OP_LOGE_FOR_INVALID_SHAPESIZES_WITH_REASON(context->GetNodeName(), "begin,end,strides",
+                                                           std::to_string(specLen).c_str(), "spec length must be < 32"),
                 return ge::GRAPH_FAILED);
     return ge::GRAPH_SUCCESS;
 }
@@ -79,16 +109,30 @@ static ge::graphStatus ValidateSpecShapes(gert::InferShapeContext* context, int6
 static ge::graphStatus ValidateMasksAndValueRank(gert::InferShapeContext* context, size_t dimNum, int64_t specLen)
 {
     const gert::RuntimeAttrs* attrs = context->GetAttrs();
-    OP_CHECK_NULL_WITH_CONTEXT(context, attrs);
+    OP_CHECK_IF(attrs == nullptr,
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "ellipsis_mask", "null",
+                                                      "required attribute is missing"),
+                return ge::GRAPH_FAILED);
     const int64_t* ellipsisMaskPtr = attrs->GetAttrPointer<int64_t>(kAttrEllipsisMaskIdx);
     const int64_t* newAxisMaskPtr = attrs->GetAttrPointer<int64_t>(kAttrNewAxisMaskIdx);
     const int64_t* shrinkMaskPtr = attrs->GetAttrPointer<int64_t>(kAttrShrinkAxisMaskIdx);
-    OP_CHECK_NULL_WITH_CONTEXT(context, ellipsisMaskPtr);
-    OP_CHECK_NULL_WITH_CONTEXT(context, newAxisMaskPtr);
-    OP_CHECK_NULL_WITH_CONTEXT(context, shrinkMaskPtr);
+    OP_CHECK_IF(ellipsisMaskPtr == nullptr,
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "ellipsis_mask", "null",
+                                                      "required attribute is missing"),
+                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(newAxisMaskPtr == nullptr,
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "new_axis_mask", "null",
+                                                      "required attribute is missing"),
+                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(shrinkMaskPtr == nullptr,
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "shrink_axis_mask", "null",
+                                                      "required attribute is missing"),
+                return ge::GRAPH_FAILED);
     int64_t ellipsisMask = *ellipsisMaskPtr;
     OP_CHECK_IF((ellipsisMask & (ellipsisMask - 1)) != 0,
-                OP_LOGE(context, "at most one ellipsis allowed, ellipsis_mask=%ld", ellipsisMask),
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "ellipsis_mask",
+                                                      std::to_string(ellipsisMask).c_str(),
+                                                      "at most one ellipsis bit is allowed"),
                 return ge::GRAPH_FAILED);
     // 掩码位统计逻辑与 tiling 侧 CountSpecDims 等价（infershape 为独立编译单元，保留本地副本）
     int64_t numReal = 0;
@@ -103,14 +147,18 @@ static ge::graphStatus ValidateMasksAndValueRank(gert::InferShapeContext* contex
         shrinkBits += ((shrinkMask >> i) & 1);
     }
     OP_CHECK_IF(numReal > static_cast<int64_t>(dimNum),
-                OP_LOGE(context, "dense spec length %ld exceeds var dimNum %zu", numReal, dimNum),
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                    context->GetNodeName(), "begin,end,strides", std::to_string(numReal).c_str(),
+                    ("dense spec length must not exceed var dimNum " + std::to_string(dimNum)).c_str()),
                 return ge::GRAPH_FAILED);
     const gert::Shape* valueShape = context->GetInputShape(kInputValueIdx);
-    OP_CHECK_NULL_WITH_CONTEXT(context, valueShape);
+    OP_CHECK_IF(valueShape == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "input_value"),
+                return ge::GRAPH_FAILED);
     int64_t finalRank = static_cast<int64_t>(dimNum) - shrinkBits + newAxisBits;
     OP_CHECK_IF(static_cast<int64_t>(valueShape->GetDimNum()) != finalRank,
-                OP_LOGE(context, "input_value rank must be %ld (final slice rank), got %zu", finalRank,
-                        valueShape->GetDimNum()),
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(
+                    context->GetNodeName(), "input_value", std::to_string(valueShape->GetDimNum()).c_str(),
+                    ("rank must be " + std::to_string(finalRank) + " (final slice rank)").c_str()),
                 return ge::GRAPH_FAILED);
     return ge::GRAPH_SUCCESS;
 }
@@ -119,28 +167,31 @@ static ge::graphStatus ValidateMasksAndValueRank(gert::InferShapeContext* contex
 static ge::graphStatus ValidateNoValue(gert::InferShapeContext* context)
 {
     const gert::Shape* varShape = context->GetInputShape(kVarIdx);
-    OP_CHECK_NULL_WITH_CONTEXT(context, varShape);
+    OP_CHECK_IF(varShape == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "var"),
+                return ge::GRAPH_FAILED);
     if (Ops::Base::IsUnknownRank(*varShape)) {
         return ge::GRAPH_SUCCESS; // unknown rank：跳过静态校验，输出透传
     }
     size_t dimNum = 0;
     OP_CHECK_IF(ValidateVarShape(context, varShape, dimNum) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context, "ValidateVarShape failed"), return ge::GRAPH_FAILED);
+                OP_LOGE_WITHOUT_REPORT(context->GetNodeName(), "ValidateVarShape failed"), return ge::GRAPH_FAILED);
     int64_t specLen = -1;
     OP_CHECK_IF(ValidateSpecShapes(context, specLen) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context, "ValidateSpecShapes failed"), return ge::GRAPH_FAILED);
+                OP_LOGE_WITHOUT_REPORT(context->GetNodeName(), "ValidateSpecShapes failed"), return ge::GRAPH_FAILED);
     OP_CHECK_IF(ValidateMasksAndValueRank(context, dimNum, specLen) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context, "ValidateMasksAndValueRank failed"), return ge::GRAPH_FAILED);
+                OP_LOGE_WITHOUT_REPORT(context->GetNodeName(), "ValidateMasksAndValueRank failed"),
+                return ge::GRAPH_FAILED);
     return ge::GRAPH_SUCCESS;
 }
 
 static ge::graphStatus InferShapeStridedSliceAssign(gert::InferShapeContext* context)
 {
     OP_LOGD(context->GetNodeName(), "Begin to do InferShapeStridedSliceAssign");
-    OP_CHECK_IF(ValidateNoValue(context) != ge::GRAPH_SUCCESS, OP_LOGE(context, "ValidateNoValue failed"),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(ValidateNoValue(context) != ge::GRAPH_SUCCESS,
+                OP_LOGE_WITHOUT_REPORT(context->GetNodeName(), "ValidateNoValue failed"), return ge::GRAPH_FAILED);
     const gert::Shape* varShape = context->GetInputShape(kVarIdx);
-    OP_CHECK_NULL_WITH_CONTEXT(context, varShape);
+    OP_CHECK_IF(varShape == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "var"),
+                return ge::GRAPH_FAILED);
     gert::Shape* outShape = context->GetOutputShape(kOutVarIdx);
     OP_CHECK_NULL_WITH_CONTEXT(context, outShape);
     // 输出 var shape 恒等于输入 var shape（unknown rank 透传）

@@ -52,8 +52,15 @@ static const aclTensor* FlattenAiCore(const aclTensor* self, int64_t axis, aclTe
     L0_DFX(FlattenAiCore, self, axis, out);
     // 使用框架宏ADD_TO_LAUNCHER_LIST_AICORE，将AiCore FlattenV2算子加入任务队列
     auto ret = ADD_TO_LAUNCHER_LIST_AICORE(Flatten, OP_INPUT(self), OP_OUTPUT(out), OP_ATTR(axis));
-    OP_CHECK(ret == ACLNN_SUCCESS,
-             OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "FlattenAiCore ADD_TO_LAUNCHER_LIST_AICORE failed."), return nullptr);
+    if (ret != ACLNN_SUCCESS) {
+        if (ret == ACLNN_ERR_PARAM_NULLPTR) {
+            OP_LOGE(ret, "FlattenAiCore ADD_TO_LAUNCHER_LIST_AICORE failed because executor or args is null, ret=%d.",
+                    ret);
+        } else {
+            OP_LOGE_WITHOUT_REPORT(ret, "FlattenAiCore ADD_TO_LAUNCHER_LIST_AICORE failed, ret=%d.", ret);
+        }
+        return nullptr;
+    }
     return out;
 }
 
@@ -80,7 +87,8 @@ const aclTensor* Flatten(const aclTensor* self, aclOpExecutor* executor, int64_t
     outShape.AppendDim(dim1);
     auto flattenOut = executor->AllocTensor(outShape, self->GetDataType(), op::Format::FORMAT_ND);
     if (flattenOut == nullptr) {
-        OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "[Flatten] alloc out tensor failed.");
+        OP_LOGE_WITHOUT_REPORT(ACLNN_ERR_INNER_NULLPTR,
+                               "[Flatten] alloc out tensor failed; propagate allocator result.");
         return flattenOut;
     }
 

@@ -190,19 +190,22 @@ static void ConstructEndList(const gert::Tensor* endTensor, const QuickVector* x
 static ge::graphStatus InferShape4StridedSliceV2(gert::InferShapeContext* context)
 {
     StridedSliceParams input_params;
-
     const auto shape_x = context->GetInputShape(IDX_X);
-    OP_CHECK_NULL_WITH_CONTEXT(context, shape_x);
+    OP_CHECK_IF(shape_x == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x"), return ge::GRAPH_FAILED);
     auto shape_y = context->GetOutputShape(IDX_Y);
     OP_CHECK_NULL_WITH_CONTEXT(context, shape_y);
     auto shape_begin = context->GetInputShape(IDX_BEGIN);
-    OP_CHECK_NULL_WITH_CONTEXT(context, shape_begin);
+    OP_CHECK_IF(shape_begin == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "begin"),
+                return ge::GRAPH_FAILED);
     auto shape_end = context->GetInputShape(IDX_END);
-    OP_CHECK_NULL_WITH_CONTEXT(context, shape_end);
+    OP_CHECK_IF(shape_end == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "end"),
+                return ge::GRAPH_FAILED);
     auto tensor_begin = context->GetInputTensor(IDX_BEGIN);
-    OP_CHECK_NULL_WITH_CONTEXT(context, tensor_begin);
+    OP_CHECK_IF(tensor_begin == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "begin"),
+                return ge::GRAPH_FAILED);
     auto tensor_end = context->GetInputTensor(IDX_END);
-    OP_CHECK_NULL_WITH_CONTEXT(context, tensor_end);
+    OP_CHECK_IF(tensor_end == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "end"),
+                return ge::GRAPH_FAILED);
 
     if (Ops::Base::IsUnknownRank(*shape_x)) {
         Ops::Base::SetUnknownRank(*shape_y);
@@ -241,18 +244,28 @@ static ge::graphStatus InferShape4StridedSliceV2(gert::InferShapeContext* contex
 
     // Check (begin, end) shape size same
     if (input_params.end.GetDimNum() != input_params.begin.GetDimNum()) {
-        OP_LOGE(OP_NAME, "end shape, begin shape length mismatch!");
+        OP_LOGE_FOR_INVALID_SHAPESIZES_WITH_REASON(
+            context->GetNodeName(), "begin, end",
+            (std::to_string(input_params.begin.GetDimNum()) + ", " + std::to_string(input_params.end.GetDimNum()))
+                .c_str(),
+            "begin and end must have the same length");
         return GRAPH_FAILED;
     }
 
     // Get relevant masks from const node
     auto attrs = context->GetAttrs();
-    OP_CHECK_NULL_WITH_CONTEXT(context, attrs);
+    OP_CHECK_IF(attrs == nullptr,
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "begin_mask", "null",
+                                                      "required attribute is missing"),
+                return ge::GRAPH_FAILED);
 
 // Helper macro to safely get mask values
-#define GET_MASK_VALUE(index, mask_name)                                     \
-    const int64_t* mask_##mask_name = attrs->GetAttrPointer<int64_t>(index); \
-    OP_CHECK_NULL_WITH_CONTEXT(context, mask_##mask_name);                   \
+#define GET_MASK_VALUE(index, mask_name)                                                                  \
+    const int64_t* mask_##mask_name = attrs->GetAttrPointer<int64_t>(index);                              \
+    OP_CHECK_IF(mask_##mask_name == nullptr,                                                              \
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), #mask_name "_mask", "null", \
+                                                      "required attribute is missing"),                   \
+                return ge::GRAPH_FAILED);                                                                 \
     input_params.mask_name##_mask = static_cast<uint64_t>(*mask_##mask_name)
 
     GET_MASK_VALUE(IDX_MASK_BEGIN, begin);
@@ -269,7 +282,7 @@ static ge::graphStatus InferShape4StridedSliceV2(gert::InferShapeContext* contex
     input_params.end_valid = valid_end;
     input_params.stride_valid = valid_strides;
     if (!InferShape(input_params, shape_y)) {
-        OP_LOGE(OP_NAME, "StridedSliceV2 inferShape fail.");
+        OP_LOGE_WITHOUT_REPORT(context->GetNodeName(), "StridedSliceV2 inferShape fail.");
         return GRAPH_FAILED;
     }
 

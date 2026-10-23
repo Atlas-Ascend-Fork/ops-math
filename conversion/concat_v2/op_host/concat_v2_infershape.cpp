@@ -12,10 +12,24 @@
 #include "log/log.h"
 #include "op_common/op_host/util/shape_util.h"
 
+#include <string>
+#include <vector>
+
 using namespace ge;
 namespace ops {
 constexpr size_t INDEX_CONCAT_DIM_FOR_CONCAT_V2 = 1;
 constexpr size_t INPUT_IDX_FOR_CONCAT_V2 = 0;
+
+static void ReportInferShapeExecutionError(const char* opName, const char* reason)
+{
+    const std::string opNameStr(opName == nullptr ? "" : opName);
+    const std::string reasonStr(reason == nullptr ? "" : reason);
+    const std::string msg = "Failed to execute operator " + opNameStr + ". Reason: " + reasonStr + ".";
+    const std::vector<const char*> msgKey = {"opName", "reason"};
+    const std::vector<const char*> msgValue = {opNameStr.c_str(), reasonStr.c_str()};
+    OP_LOGE_WITHOUT_REPORT(opNameStr.c_str(), "%s", msg.c_str());
+    REPORT_PREDEFINED_ERR_MSG("EZ1014", msgKey, msgValue);
+}
 
 template <typename T>
 static inline bool GetAxisValue(gert::InferShapeContext* context, int64_t dimIdx, int64_t& axisValue)
@@ -39,7 +53,11 @@ static ge::graphStatus InferShape4ConcatV2(gert::InferShapeContext* context)
 {
     OP_LOGI(context, "Begin to do InferShape4ConcatV2 Func");
     auto computeNodeInfo = context->GetComputeNodeInfo();
-    OP_CHECK_NULL_WITH_CONTEXT(context, computeNodeInfo);
+    if (computeNodeInfo == nullptr) {
+        ReportInferShapeExecutionError(context->GetNodeName(),
+                                       "InferShape4ConcatV2 failed because compute node info is null");
+        return ge::GRAPH_FAILED;
+    }
 
     auto xInfo = computeNodeInfo->GetInputInstanceInfo(INPUT_IDX_FOR_CONCAT_V2);
     OP_CHECK_NULL_WITH_CONTEXT(context, xInfo);
@@ -47,12 +65,13 @@ static ge::graphStatus InferShape4ConcatV2(gert::InferShapeContext* context)
     int64_t numInputs = static_cast<int64_t>(xInfo->GetInstanceNum());
     OP_LOGW(context, "ConcatV2 Dynamic input count = %ld", numInputs);
     if (numInputs <= 1) {
-        OP_LOGE(context, "ConcatV2 requires at least 2 inputs");
+        OP_LOGE_FOR_INVALID_TENSORNUM(context->GetNodeName(), "x", numInputs, "at least 2");
         return ge::GRAPH_FAILED;
     }
 
     auto concatDimPtr = context->GetRequiredInputDesc(INDEX_CONCAT_DIM_FOR_CONCAT_V2);
-    OP_CHECK_NULL_WITH_CONTEXT(context, concatDimPtr);
+    OP_CHECK_IF(concatDimPtr == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "concat_dim"),
+                return ge::GRAPH_FAILED);
 
     auto dtype = concatDimPtr->GetDataType();
     int64_t axis = 0;
@@ -62,7 +81,8 @@ static ge::graphStatus InferShape4ConcatV2(gert::InferShapeContext* context)
     } else if (dtype == ge::DT_INT64) {
         axisAvailable = GetAxisValue<int64_t>(context, INDEX_CONCAT_DIM_FOR_CONCAT_V2, axis);
     } else {
-        OP_LOGE(context, "ConcatV2: unsupported concat_dim dtype %s", Ops::Base::ToString(dtype).c_str());
+        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "concat_dim", Ops::Base::ToString(dtype).c_str(),
+                                              "supported dtypes are DT_INT32 and DT_INT64");
         return ge::GRAPH_FAILED;
     }
     if (!axisAvailable) {
@@ -102,7 +122,9 @@ static ge::graphStatus InferShape4ConcatV2(gert::InferShapeContext* context)
     if (axis < 0)
         axis += rank;
     if (axis < 0 || axis >= static_cast<int64_t>(rank)) {
-        OP_LOGE(context, "Invalid concat_dim=%ld, rank=%zu.", axis, rank);
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+            context->GetNodeName(), "concat_dim", std::to_string(axis).c_str(),
+            ("concat_dim must be in [-rank, rank), rank=" + std::to_string(rank)).c_str());
         return ge::GRAPH_FAILED;
     }
 

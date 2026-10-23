@@ -37,16 +37,50 @@ static constexpr size_t ATTR_NEW_AXIS_IDX = 3;
 static constexpr size_t ATTR_SHRINK_AXIS_IDX = 4;
 static constexpr int64_t UNKNOWN_DIM_VALUE_ = -1L;
 
+static const char* StrideInputName(size_t inputIdx)
+{
+    if (inputIdx == IN_END_IDX) {
+        return "end";
+    }
+    if (inputIdx == IN_STRIDES_IDX) {
+        return "strides";
+    }
+    return "begin";
+}
+
+static const char* MaskAttrName(size_t attrIdx)
+{
+    if (attrIdx == ATTR_END_IDX) {
+        return "end_mask";
+    }
+    if (attrIdx == ATTR_ELLIPSIS_IDX) {
+        return "ellipsis_mask";
+    }
+    if (attrIdx == ATTR_NEW_AXIS_IDX) {
+        return "new_axis_mask";
+    }
+    if (attrIdx == ATTR_SHRINK_AXIS_IDX) {
+        return "shrink_axis_mask";
+    }
+    return "begin_mask";
+}
+
 static ge::graphStatus IsMasksAllZero(gert::InferShapeContext* context, bool& is_mask_all_zero)
 {
     is_mask_all_zero = true;
     static const std::vector<size_t> attr_list = {ATTR_BEGIN_IDX, ATTR_END_IDX, ATTR_ELLIPSIS_IDX, ATTR_NEW_AXIS_IDX,
                                                   ATTR_SHRINK_AXIS_IDX};
     auto attrs = context->GetAttrs();
-    OP_CHECK_NULL_WITH_CONTEXT(context, attrs);
+    OP_CHECK_IF(attrs == nullptr,
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "begin_mask", "null",
+                                                      "required attribute is missing"),
+                return ge::GRAPH_FAILED);
     for (const auto& param : attr_list) {
         const int64_t* mask_value = attrs->GetAttrPointer<int64_t>(param);
-        OP_CHECK_NULL_WITH_CONTEXT(context, mask_value);
+        OP_CHECK_IF(mask_value == nullptr,
+                    OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), MaskAttrName(param), "null",
+                                                          "required attribute is missing"),
+                    return ge::GRAPH_FAILED);
         if (*mask_value != 0) {
             is_mask_all_zero = false;
         }
@@ -61,7 +95,8 @@ static ge::graphStatus GetMaxStridedLen(gert::InferShapeContext* context, int64_
     static const std::vector<size_t> input_list = {IN_BEGIN_IDX, IN_END_IDX, IN_STRIDES_IDX};
     for (const auto& param : input_list) {
         const gert::Shape* param_shape = context->GetInputShape(param);
-        OP_CHECK_NULL_WITH_CONTEXT(context, param_shape);
+        OP_CHECK_IF(param_shape == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), StrideInputName(param)),
+                    return ge::GRAPH_FAILED);
         const int64_t param_shape_value = param_shape->IsScalar() ? 1 : param_shape->GetDim(0);
         begin_len = std::max(param_shape_value, begin_len);
     }
@@ -83,18 +118,22 @@ static ge::graphStatus InferShape4StridedSliceGrad(gert::InferShapeContext* cont
 
     // dynamic infershape scenario
     const gert::Shape* in_dy_shape = context->GetInputShape(IN_DY_IDX);
-    OP_CHECK_NULL_WITH_CONTEXT(context, in_dy_shape);
+    OP_CHECK_IF(in_dy_shape == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "dy"),
+                return ge::GRAPH_FAILED);
     const gert::Shape* in_shape_shape = context->GetInputShape(IN_SHAPE_IDX);
-    OP_CHECK_NULL_WITH_CONTEXT(context, in_shape_shape);
+    OP_CHECK_IF(in_shape_shape == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "shape"),
+                return ge::GRAPH_FAILED);
     OP_CHECK_IF(in_shape_shape->GetDimNum() > 1,
-                OP_LOGE(context->GetNodeName(), "the rank of in_shape shape must be 1, but shape is %s",
-                        Ops::Base::ToString(*in_shape_shape).c_str()),
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(
+                    context->GetNodeName(), "shape", std::to_string(in_shape_shape->GetDimNum()).c_str(),
+                    ("rank must be 1, but shape is " + Ops::Base::ToString(*in_shape_shape)).c_str()),
                 return ge::GRAPH_FAILED);
     const int64_t in_shape_shape_value = in_shape_shape->IsScalar() ? 1 : in_shape_shape->GetDim(0);
 
     OP_CHECK_IF(in_shape_shape_value == 0,
-                OP_LOGE(context->GetNodeName(), "in_shape cannot be empty tensor, but shape is %s",
-                        Ops::Base::ToString(*in_shape_shape).c_str()),
+                OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(context->GetNodeName(), "shape",
+                                                          std::to_string(in_shape_shape_value).c_str(),
+                                                          "shape cannot be an empty tensor"),
                 return ge::GRAPH_FAILED);
 
     // shape is unknown, out_shape is -2
@@ -114,9 +153,9 @@ static ge::graphStatus InferShape4StridedSliceGrad(gert::InferShapeContext* cont
     int64_t begin_len = -1;
     bool no_mask = true;
     OP_CHECK_IF(GetMaxStridedLen(context, begin_len) == ge::GRAPH_FAILED,
-                OP_LOGE(context->GetNodeName(), "get max strided len failed!"), return ge::GRAPH_FAILED);
+                OP_LOGE_WITHOUT_REPORT(context->GetNodeName(), "get max strided len failed!"), return ge::GRAPH_FAILED);
     OP_CHECK_IF(IsMasksAllZero(context, no_mask) == ge::GRAPH_FAILED,
-                OP_LOGE(context->GetNodeName(), "check masks zero failed!"), return ge::GRAPH_FAILED);
+                OP_LOGE_WITHOUT_REPORT(context->GetNodeName(), "check masks zero failed!"), return ge::GRAPH_FAILED);
 
     if (no_mask && begin_len > 0 && begin_len < in_shape_shape_value) {
         OP_LOGD(context->GetNodeName(), "Enter the special branch when shape is not const.");

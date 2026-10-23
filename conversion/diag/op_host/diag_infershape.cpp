@@ -26,7 +26,8 @@ static ge::graphStatus Infershape4Diag(gert::InferShapeContext* context)
 {
     OP_LOGD(context->GetNodeName(), "Begin to do DiagInfershape.");
     const gert::Shape* input_x_shape = context->GetInputShape(DIAG_IN_X_IDX);
-    OP_CHECK_NULL_WITH_CONTEXT(context, input_x_shape);
+    OP_CHECK_IF(input_x_shape == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x"),
+                return ge::GRAPH_FAILED);
     gert::Shape* output_y_shape = context->GetOutputShape(DIAG_OUT_Y_IDX);
     OP_CHECK_NULL_WITH_CONTEXT(context, output_y_shape);
 
