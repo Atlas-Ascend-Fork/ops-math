@@ -90,6 +90,18 @@ def _inject_non_finite(arr):
     return arr
 
 
+def _fill_negative_zero(arr):
+    """Overwrite arr with exact -0.0 values.
+
+    rng.uniform loses the sign of zero ((-0.0, -0.0) samples as +0.0), so a
+    fixed negative-zero witness needs an explicit fill; positions are the whole
+    tensor so every cumsum/exp path sees signed zeros.
+    """
+    if arr.size == 0:
+        return arr
+    return np.full_like(arr, -0.0)
+
+
 def segsum_input(x, *, testcase_name="", input_ranges=None, **kwargs):
     """Deterministic input so a rerun of the same case compares against the same golden."""
     rng = _stable_rng(testcase_name)
@@ -97,6 +109,8 @@ def segsum_input(x, *, testcase_name="", input_ranges=None, **kwargs):
     data = rng.uniform(low, high, x.shape).astype(x.dtype, copy=False)
     if "infnan" in str(testcase_name):
         data = _inject_non_finite(data)
+    if "negzero" in str(testcase_name):
+        data = _fill_negative_zero(data)
     return (data,)
 
 
@@ -191,10 +205,22 @@ def segsum_golden(x, **kwargs):
 class _SegsumCompose:
     """Third-party reference executed on the remote GPU server."""
 
-    def __call__(self, x=None, *tensors, self_=None, **kwargs):
-        if x is None:
-            x = self_ if self_ is not None else tensors[0]
-        return _compute(x)
+    def __call__(instance, self=None, x=None, *tensors, **kwargs):
+        # aclnn pool binds the input by header name 'self'; kernel/geir
+        # pool binds it by def.cpp name 'x'. bind_params never routes a
+        # pool entry named 'self' into *args, so both must be explicit
+        # keyword params (instance renamed to free the 'self' name).
+        del kwargs, tensors
+        v = self if self is not None else x
+        if v is None:
+            raise ValueError("segsum third_party: no input bound (self/x)")
+        return _compute(v)
+
+
+# 模块级判据与三方声明: __golden__/__input__ 模块级路由与 __spec__ 类路由共用同一份,
+# 任一路由加载 golden 时 cross_check 判据与 third_party 均生效, 不依赖 Spec 类属性。
+tolerance = _TOL_KERNEL
+third_party = {"torch": _SegsumCompose}
 
 
 class SegsumKernelSpec:

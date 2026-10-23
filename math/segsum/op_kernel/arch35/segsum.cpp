@@ -14,10 +14,12 @@
  */
 
 #include "segsum_arch35.h"
+#include "segsum_struct.h"
 
 using namespace SegsumArch35;
 
-extern "C" __global__ __aicore__ void segsum(GM_ADDR x, GM_ADDR y, GM_ADDR workspace, GM_ADDR tiling)
+template <uint64_t schMode>
+__global__ __aicore__ void segsum(GM_ADDR x, GM_ADDR y, GM_ADDR workspace, GM_ADDR tiling)
 {
     KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_AIV_ONLY);
 
@@ -29,15 +31,7 @@ extern "C" __global__ __aicore__ void segsum(GM_ADDR x, GM_ADDR y, GM_ADDR works
     REGISTER_TILING_DEFAULT(SegsumTilingDataArch35);
     GET_TILING_DATA_WITH_STRUCT(SegsumTilingDataArch35, tilingData, tiling);
 
-    if (TILING_KEY_IS(0)) {
-        Segsum<DTYPE_X, 0> op;
-        op.Init(x, y, &tilingData);
-        op.Process();
-    } else if (TILING_KEY_IS(1)) {
-        Segsum<DTYPE_X, 1> op;
-        op.Init(x, y, &tilingData);
-        op.Process();
-    } else {
-        return;
-    }
+    Segsum<DTYPE_X, static_cast<int32_t>(schMode)> op;
+    op.Init(x, y, &tilingData);
+    op.Process();
 }

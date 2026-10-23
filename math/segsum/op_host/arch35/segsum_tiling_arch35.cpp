@@ -14,9 +14,12 @@
  */
 #include <algorithm>
 #include "segsum_tiling_arch35.h"
+#include "../../op_kernel/arch35/segsum_struct.h"
 #include "log/log.h"
 
 namespace optiling {
+
+using namespace SegsumArch35;
 
 namespace {
 constexpr uint8_t BYTE_LEN_4 = 4;
@@ -151,7 +154,7 @@ ge::graphStatus SegsumTilingArch35::RunTiling()
     FillTilingData(tiling);
 
     tilingContext->SetBlockDim(needCoreNum);
-    tilingContext->SetTilingKey(tilingKey);
+    tilingContext->SetTilingKey(GET_TPL_TILING_KEY(static_cast<uint64_t>(tilingKey)));
 
     size_t sysWsSize = ascendcPlatform.GetLibApiWorkSpaceSize();
     size_t* workspaces = tilingContext->GetWorkspaceSizes(1);

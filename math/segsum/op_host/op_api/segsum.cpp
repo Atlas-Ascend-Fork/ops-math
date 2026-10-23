@@ -33,14 +33,14 @@ OP_TYPE_REGISTER(Segsum);
 static const std::initializer_list<op::DataType> AICORE_DTYPE_SUPPORT_LIST = {
     op::DataType::DT_FLOAT, op::DataType::DT_FLOAT16, op::DataType::DT_BF16};
 
+const aclTensor* Segsum(const aclTensor* self, aclTensor* output, aclOpExecutor* executor)
+{
+    L0_DFX(Segsum, self);
 
-const aclTensor* Segsum(const aclTensor* self,aclTensor *output, aclOpExecutor* executor) {
-  L0_DFX(Segsum, self);
+    const aclTensor* out = executor->AllocTensor(output->GetViewShape(), self->GetDataType(), self->GetStorageFormat());
+    CHECK_RET(out != nullptr, nullptr);
 
-  const aclTensor* out = executor->AllocTensor(output->GetViewShape(), self->GetDataType(), self->GetStorageFormat());
-  CHECK_RET(out != nullptr, nullptr);
-  
-  ADD_TO_LAUNCHER_LIST_AICORE(Segsum, OP_INPUT(self), OP_OUTPUT(out));
-  return out;
+    ADD_TO_LAUNCHER_LIST_AICORE(Segsum, OP_INPUT(self), OP_OUTPUT(out));
+    return out;
 }
-}  // namespace l0op
+} // namespace l0op

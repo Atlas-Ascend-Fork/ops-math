@@ -18,7 +18,7 @@
 #include "opdev/op_executor.h"
 
 namespace l0op {
-const aclTensor *Segsum(const aclTensor *self, aclTensor *output, aclOpExecutor *executor);
+const aclTensor* Segsum(const aclTensor* self, aclTensor* output, aclOpExecutor* executor);
 }
 
-#endif  // PTA_NPU_OP_API_INC_LEVEL0_OP_SEGSUM_H_
+#endif // PTA_NPU_OP_API_INC_LEVEL0_OP_SEGSUM_H_

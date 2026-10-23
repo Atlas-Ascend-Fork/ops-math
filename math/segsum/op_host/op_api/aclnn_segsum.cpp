@@ -81,9 +81,10 @@ static bool CheckShape(const aclTensor* self, const aclTensor* out)
         }
     }
     if (selfShape.GetDim(selfDimSize - 1) != outShape.GetDim(outDimSize - 1)) {
-        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "It is expected output size at index %zu equals to input size at index %zu, \
-            but got input size %s, output size %s.",
-                selfDimSize - 1, outDimSize - 1, op::ToString(selfShape).GetString(),
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID,
+                "It is expected output size at index %zu equals to input size at index %zu, but got input size %s, "
+                "output size %s.",
+                outDimSize - 1, selfDimSize - 1, op::ToString(selfShape).GetString(),
                 op::ToString(outShape).GetString());
         return false;
     }
