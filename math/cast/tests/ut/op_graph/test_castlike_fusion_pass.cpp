@@ -69,16 +69,12 @@ protected:
     {
         ge::Graph* graph = builder.GetCGraphBuilder()->GetGraph();
         GNode castlike = es::CompliantNodeBuilder(graph)
-            .OpType("CastLike")
-            .Name("CastLike")
-            .IrDefInputs({
-                {"input", es::CompliantNodeBuilder::kEsIrInputRequired, ""},
-                {"target_type", es::CompliantNodeBuilder::kEsIrInputRequired, ""}
-            })
-            .IrDefOutputs({
-                {"output", es::CompliantNodeBuilder::kEsIrOutputRequired, ""}
-            })
-            .Build();
+                             .OpType("CastLike")
+                             .Name("CastLike")
+                             .IrDefInputs({{"input", es::CompliantNodeBuilder::kEsIrInputRequired, ""},
+                                           {"target_type", es::CompliantNodeBuilder::kEsIrInputRequired, ""}})
+                             .IrDefOutputs({{"output", es::CompliantNodeBuilder::kEsIrOutputRequired, ""}})
+                             .Build();
 
         // Connect input to two input one output castlike using AddEdgeAndUpdatePeerDesc
         es::AddEdgeAndUpdatePeerDesc(*graph, *x.GetProducer(), x.GetProducerOutIndex(), castlike, 0);
@@ -88,9 +84,8 @@ protected:
         return output;
     }
 
-    static void InferShapeForTest(
-        DataType dtypeX, DataType dtypeY, Shape& shape,
-        es::EsTensorHolder& x, es::EsTensorHolder& y, es::EsTensorHolder& castlike)
+    static void InferShapeForTest(DataType dtypeX, DataType dtypeY, Shape& shape, es::EsTensorHolder& x,
+                                  es::EsTensorHolder& y, es::EsTensorHolder& castlike)
     {
         // set input
         TensorDesc xDesc;
@@ -134,10 +129,9 @@ TEST_F(CastlikeFusionPassTest, fusionSuccessFp16ToFp32)
 
     std::shared_ptr<Graph> graph = graphBuilder.BuildAndReset({{output}});
 
-    // Use dynamic allocation to avoid CustomPassContextImpl incomplete type destructor issue
-    CustomPassContext* passContextPtr = new CustomPassContext();
+    CustomPassContext passContext;
     CastlikeFusionPass pass;
-    Status status = pass.Run(graph, *passContextPtr);
+    Status status = pass.Run(graph, passContext);
     EXPECT_TRUE(status == SUCCESS || status == GRAPH_NOT_CHANGED);
 
     bool findCast = false;
@@ -169,10 +163,9 @@ TEST_F(CastlikeFusionPassTest, fusionSuccessFp32ToFp16)
 
     std::shared_ptr<Graph> graph = graphBuilder.BuildAndReset({output});
 
-    // Use dynamic allocation to avoid CustomPassContextImpl incomplete type destructor issue
-    CustomPassContext* passContextPtr = new CustomPassContext();
+    CustomPassContext passContext;
     CastlikeFusionPass pass;
-    Status status = pass.Run(graph, *passContextPtr);
+    Status status = pass.Run(graph, passContext);
     EXPECT_TRUE(status == SUCCESS || status == GRAPH_NOT_CHANGED);
 
     bool findCast = false;
@@ -204,10 +197,9 @@ TEST_F(CastlikeFusionPassTest, fusionSuccessBF16ToFp32)
 
     std::shared_ptr<Graph> graph = graphBuilder.BuildAndReset({output});
 
-    // Use dynamic allocation to avoid CustomPassContextImpl incomplete type destructor issue
-    CustomPassContext* passContextPtr = new CustomPassContext();
+    CustomPassContext passContext;
     CastlikeFusionPass pass;
-    Status status = pass.Run(graph, *passContextPtr);
+    Status status = pass.Run(graph, passContext);
     EXPECT_TRUE(status == SUCCESS || status == GRAPH_NOT_CHANGED);
 
     bool findCast = false;
