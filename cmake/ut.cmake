@@ -315,8 +315,9 @@ endfunction()
 
 function(add_modules_ut_sources)
   set(options OPTION_RESERVED)
-  set(oneValueArgs UT_NAME MODE DIR TILING_DIR)
-  set(multiValueArgs MULIT_RESERVED)
+  # TILING_DIR 支持多个目录（一个芯片型号可配置多个tiling目录）
+  set(oneValueArgs UT_NAME MODE DIR)
+  set(multiValueArgs TILING_DIR MULIT_RESERVED)
   cmake_parse_arguments(MODULE "${options}" "${oneValueArgs}"
                         "${multiValueArgs}" ${ARGN})
 
@@ -332,8 +333,15 @@ function(add_modules_ut_sources)
       return()
     endif()
 
-    file(GLOB OPHOST_TILING_CASES_SRC ${MODULE_DIR}/test_*_tiling.cpp
-         ${MODULE_DIR}/${MODULE_TILING_DIR}/test_*_tiling*.cpp)
+    # MODULE_TILING_DIR 可为单个目录或目录列表（一个芯片型号可配置多个tiling目录），
+    # 逐目录拼接 glob 模式，避免列表展开后路径与通配符错位
+    set(_ut_tiling_globs ${MODULE_DIR}/test_*_tiling.cpp)
+    foreach(_tiling_sub_dir IN LISTS MODULE_TILING_DIR)
+      if(NOT "${_tiling_sub_dir}" STREQUAL "")
+        list(APPEND _ut_tiling_globs ${MODULE_DIR}/${_tiling_sub_dir}/test_*_tiling*.cpp)
+      endif()
+    endforeach()
+    file(GLOB OPHOST_TILING_CASES_SRC ${_ut_tiling_globs})
     if(NOT OPHOST_TILING_CASES_SRC)
       return()
     endif()

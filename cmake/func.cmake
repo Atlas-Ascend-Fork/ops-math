@@ -538,6 +538,29 @@ function(find_value_by_key key_list value_list search_key result)
   set(${result} ${found_value} PARENT_SCOPE)
 endfunction()
 
+# 从两个长度一致的列表中收集所有 key 等于 search_key 的位置对应的 value（按出现顺序）
+# 同一 key 允许在 key_list 中重复出现，用于一个芯片型号配置多个 tiling 目录的场景
+function(find_values_by_key key_list value_list search_key result)
+  list(LENGTH key_list key_list_length)
+  list(LENGTH value_list value_list_length)
+  if(NOT ${key_list_length} EQUAL ${value_list_length})
+    message(FATAL_ERROR "key_list length is ${key_list_length}, value_list length is ${value_list_length}, not equal")
+  endif()
+  set(found_values "")
+  set(index 0)
+  while(index LESS key_list_length)
+    list(GET key_list ${index} key)
+    if("${key}" STREQUAL "${search_key}")
+      list(GET value_list ${index} value)
+      if(NOT "${value}" STREQUAL "")
+        list(APPEND found_values ${value})
+      endif()
+    endif()
+    math(EXPR index "${index} + 1")
+  endwhile()
+  set(${result} "${found_values}" PARENT_SCOPE)
+endfunction()
+
 ###################################################################################################
 # get npuArch by socVersion
 # 映射列表 ASCEND_ALL_COMPUTE_UNIT/SOC_TO_ARCH_VALUES 定义在 soc_arch_variables.cmake，两者按位置一一对应
@@ -734,11 +757,15 @@ function(add_tiling_sources tiling_dir disable_in_opp)
   endif()
 
   set(SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
-  if("${tiling_dir}" STREQUAL "")
-    file(GLOB OPTILING_SRCS ${SOURCE_DIR}/op_host/*_tiling*.cpp)
-  else()
-    file(GLOB OPTILING_SRCS ${SOURCE_DIR}/op_host/*_tiling*.cpp ${SOURCE_DIR}/op_host/${tiling_dir}/*_tiling*.cpp)
-  endif()
+  # tiling_dir 支持传入单个目录或目录列表（一个芯片型号可配置多个目录），
+  # 逐目录拼接 glob 模式，避免列表展开后路径与通配符错位
+  set(_tiling_globs ${SOURCE_DIR}/op_host/*_tiling*.cpp)
+  foreach(_tiling_sub_dir IN LISTS tiling_dir)
+    if(NOT "${_tiling_sub_dir}" STREQUAL "")
+      list(APPEND _tiling_globs ${SOURCE_DIR}/op_host/${_tiling_sub_dir}/*_tiling*.cpp)
+    endif()
+  endforeach()
+  file(GLOB OPTILING_SRCS ${_tiling_globs})
 
   if(OPTILING_SRCS)
     add_tiling_modules()
@@ -754,6 +781,8 @@ endfunction()
 # COMPUTE_UNIT 兼容参数：设置支持芯片版本号（soc列表），必须与TILING_DIR一一对应，内部逐项转换为npuArch后统一按arch匹配；与NPU_ARCH互斥
 # NPU_ARCH 设置支持的npuArch列表，必须与TILING_DIR一一对应，示例：dav_2201 dav_3510
 # TILING_DIR 设置所支持芯片类型对应的tiling文件目录，必须与NPU_ARCH（或COMPUTE_UNIT）一一对应，示例：arch22 arch35
+#            同一芯片型号如需配置多个tiling目录，可在NPU_ARCH（或COMPUTE_UNIT）中重复填写该型号并按位置配对多个目录，
+#            示例：NPU_ARCH dav_2201 dav_2201 dav_3510 TILING_DIR arch22 arch22_common arch35
 # DISABLE_IN_OPP 设置是否在opp包中编译tiling文件，布尔类型：TRUE，FALSE
 macro(add_all_modules_sources)
   set(oneValueArgs DISABLE_IN_OPP HOSTCPU)
@@ -817,6 +846,7 @@ macro(add_all_modules_sources)
   # 添加tiling文件：NPU_ARCH 与 TILING_DIR 按位置一一配对；兼容旧 COMPUTE_UNIT 参数，
   # 逐项转换为 npuArch（字符串拼接保留空元素位置，避免 list(APPEND) 丢弃空元素导致错位），
   # 当前构建芯片同样转换为 npuArch 后统一按 arch 匹配
+  # 同一芯片型号允许出现多次，此时会收集所有配对的 tiling 目录（一个芯片型号可配置多个目录）
   if(MODULE_NPU_ARCH)
     get_npu_arch_by_soc_version("${ASCEND_COMPUTE_UNIT}" _cur_key)
     set(_cur_keys "${MODULE_NPU_ARCH}")
@@ -825,7 +855,7 @@ macro(add_all_modules_sources)
     set(_cur_keys "${MODULE_COMPUTE_UNIT}")
   endif()
 
-  find_value_by_key("${_cur_keys}" "${MODULE_TILING_DIR}" "${_cur_key}" TILING_SOC_DIR)
+  find_values_by_key("${_cur_keys}" "${MODULE_TILING_DIR}" "${_cur_key}" TILING_SOC_DIR)
   add_tiling_sources("${TILING_SOC_DIR}" "${MODULE_DISABLE_IN_OPP}")
 
   file(GLOB AICPU_SRCS ${SOURCE_DIR}/op_kernel_aicpu/*_aicpu.cpp)
@@ -946,9 +976,11 @@ macro(add_all_modules_sources)
 endmacro()
 
 # usage: add_all_ut_sources()
+# UT_TILING_DIR 支持多个目录（宏内 ${ARGN} 会按分号重新展开，须声明为多值参数才能保留完整列表）
 macro(add_all_ut_sources)
-  set(oneValueArgs UT_TILING_DIR OP_NAME)
-  cmake_parse_arguments(MODULE "" "${oneValueArgs}" "" ${ARGN})
+  set(oneValueArgs OP_NAME)
+  set(multiValueArgs UT_TILING_DIR)
+  cmake_parse_arguments(MODULE "" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
   set(SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
   if(UT_TEST_ALL OR OP_API_UT)
     add_modules_ut_sources(UT_NAME ${OP_API_MODULE_NAME} MODE PRIVATE DIR ${SOURCE_DIR}/tests/ut/op_api TILING_DIR ${MODULE_UT_TILING_DIR})
