@@ -59,6 +59,9 @@ static constexpr int64_t NZ_C0_32 = 32;
 static constexpr int64_t NZ_C0_64 = 64;
 
 static constexpr int64_t B4_NUMS_PER_BYTE = 2; // 1 字节打包 2 个 4-bit 值（INT4/FP4 通用）
+// CheckOutWeightNz 的 weight 转置状态：决定 NZ 块序（转置 -> K 块在前；非转置 -> N 块在前）
+static constexpr bool TRANS_WEIGHT = true;
+static constexpr bool NON_TRANS_WEIGHT = false;
 
 inline int64_t CeilDiv(int64_t a, int64_t b)
 {
@@ -117,6 +120,15 @@ static bool IsWeightLastTwoDimsTrans(const QuantContext& ctx)
     const auto& viewStrides = ctx.weight->GetViewStrides();
     int64_t dimNum = static_cast<int64_t>(viewShape.GetDimNum());
     return viewStrides[dimNum - IDX_2] == 1 && viewStrides[dimNum - IDX_1] == viewShape.GetDim(dimNum - IDX_2);
+}
+
+// 非转置探测：最后两维 strides [size(-1), 1]；与 IsWeightLastTwoDimsTrans 互补，均不命中 -> UNSUPPORTED
+static bool IsWeightLastTwoDimsNonTrans(const QuantContext& ctx)
+{
+    const auto& viewShape = ctx.weight->GetViewShape();
+    const auto& viewStrides = ctx.weight->GetViewStrides();
+    int64_t dimNum = static_cast<int64_t>(viewShape.GetDimNum());
+    return viewStrides[dimNum - IDX_1] == 1 && viewStrides[dimNum - IDX_2] == viewShape.GetDim(dimNum - IDX_1);
 }
 
 // scale 模式判定：per-tensor 单元素 / per-channel 1D 或 [1,N] 且 numel>1 / per-group 2D 且 G>1
@@ -298,6 +310,39 @@ static bool IsMMA16FP8HIF8PerChannelDataFlow(QuantContext& ctx)
     if (weightDtypeMatch && xDtypeMatch && scaleDtypeMatch && IsXScaleUndefined(ctx) &&
         ctx.weight->GetViewShape().GetDimNum() == DIMS_2 && IsScalePerChannel(ctx)) {
         ctx.dataFlow = QuantDataFlow::MM_A16FP8HIF8_PERCHANNEL;
+        return true;
+    }
+    return false;
+}
+
+// ===== A8F4 T-CG judge 判定件 =====
+// A8F4 T-CG：FP4 weight + FP16/BF16 per-group scale {ceildiv(K,32), N}（G>1）+ FP8 x；
+// 与 MX（scale=E8M0）、A16（x=F16/BF16）按 dtype 互斥
+static bool IsMMA8F4TcgBase(const QuantContext& ctx)
+{
+    auto scaleDtype = ctx.weightScale->GetDataType();
+    bool scaleDtypeMatch = (scaleDtype == op::DataType::DT_FLOAT16 || scaleDtype == op::DataType::DT_BF16);
+
+    return ctx.weight->GetDataType() == op::DataType::DT_FLOAT4_E2M1 && scaleDtypeMatch &&
+           ctx.xDtype == op::DataType::DT_FLOAT8_E4M3FN && IsXScaleUndefined(ctx) &&
+           ctx.weight->GetViewShape().GetDimNum() == DIMS_2 && IsScalePerGroup(ctx);
+}
+
+// 转置 → ND 直拷（下游 T-CG ND 入口要求转置输入）
+static bool IsMMA8F4TcgTransDataFlow(QuantContext& ctx)
+{
+    if (IsMMA8F4TcgBase(ctx) && IsWeightLastTwoDimsTrans(ctx)) {
+        ctx.dataFlow = QuantDataFlow::MM_A8F4_TCG;
+        return true;
+    }
+    return false;
+}
+
+// 非转置 → ND→NZ 分形转换；outWeight 的 C0_32 format 由 checks 的 CheckOutWeightNz 校验（judge 不探测 format）
+static bool IsMMA8F4TcgNonTransDataFlow(QuantContext& ctx)
+{
+    if (IsMMA8F4TcgBase(ctx) && IsWeightLastTwoDimsNonTrans(ctx)) {
+        ctx.dataFlow = QuantDataFlow::MM_A8F4_TCG;
         return true;
     }
     return false;
@@ -547,10 +592,11 @@ static aclnnStatus CheckWeightPackingDimEven(const QuantContext& ctx)
     return ACLNN_SUCCESS;
 }
 
-// 4-bit 直拷（ProcessWeightDirectCopy）以 GetViewOffset()/2 建 UINT8 打包视图按字节物理透传：
-// weight 视图必须为连续或末两维严格转置（其余 strides 模式会按错误的打包维寻址），
-// 且 weight/outWeight 的 viewOffset 须为偶数（奇数偏移除以 2 截断后错位半字节）
-static aclnnStatus CheckWeight4BitDirectCopyView(const QuantContext& ctx)
+// 紧凑 4-bit（INT4/FP4，1 字节打包 2 个值）weight 视图的物理寻址前提：
+// 视图必须连续或末两维严格转置（其余 strides 模式会按错误的打包维寻址），
+// 且 weight/outWeight 的 viewOffset 须为偶数（奇数偏移落在半字节边界，物理寻址错位）。
+// ND 直拷（按字节物理透传）与 NZ 转换（TransData 搬运）都依赖此前提
+static aclnnStatus CheckWeight4BitPackedView(const QuantContext& ctx)
 {
     if (ctx.weight->GetDataType() != op::DataType::DT_INT4 &&
         ctx.weight->GetDataType() != op::DataType::DT_FLOAT4_E2M1) {
@@ -638,6 +684,46 @@ static aclnnStatus CheckOutWeightTransNz(const QuantContext& ctx)
     OP_CHECK(
         outStorageShape.GetDim(outStorageDim - IDX_4) == expectedBlocks4 &&
             outStorageShape.GetDim(outStorageDim - IDX_3) == expectedBlocks3 &&
+            outStorageShape.GetDim(outStorageDim - IDX_2) == NZ_16 &&
+            outStorageShape.GetDim(outStorageDim - IDX_1) == nzC0,
+        OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(
+            "weight_quant_preprocess", "outWeight, weight",
+            (op::ToString(outStorageShape).GetString() + std::string(", ") + op::ToString(weightViewShape).GetString())
+                .c_str(),
+            (std::string("outWeight storage shape last four dims must be ") + layoutDesc +
+             std::string(" when dataFlow is ") + QuantDataFlowToString(ctx.dataFlow))
+                .c_str()),
+        return ACLNN_ERR_PARAM_INVALID);
+
+    return ACLNN_SUCCESS;
+}
+
+// out weight NZ 校验：format 匹配 + storageShape 末四维 == {ceildiv(c0轴, nzC0), ceildiv(另一轴, 16), 16, nzC0}
+// transWeight 决定块序：非转置 N 块在前，转置 K 块在前
+template <int64_t nzC0, op::Format outWeightFormat, bool transWeight>
+static aclnnStatus CheckOutWeightNz(const QuantContext& ctx)
+{
+    auto outFormat = ctx.outWeight->GetStorageFormat();
+    OP_CHECK(outFormat == outWeightFormat,
+             OP_LOGE_FOR_INVALID_FORMAT("weight_quant_preprocess", "outWeight", op::ToString(outFormat).GetString(),
+                                        op::ToString(outWeightFormat).GetString()),
+             return ACLNN_ERR_PARAM_INVALID);
+
+    auto outStorageShape = ctx.outWeight->GetStorageShape();
+    auto weightViewShape = ctx.weight->GetViewShape();
+    size_t outStorageDim = outStorageShape.GetDimNum();
+    size_t viewDim = weightViewShape.GetDimNum();
+
+    int64_t k = weightViewShape.GetDim(viewDim - IDX_2);
+    int64_t n = weightViewShape.GetDim(viewDim - IDX_1);
+
+    int64_t c0AxisSize = transWeight ? k : n;
+    int64_t otherAxisSize = transWeight ? n : k;
+    const char* layoutDesc = transWeight ? "{ceildiv(K, nzC0), ceildiv(N, 16), 16, nzC0}" :
+                                           "{ceildiv(N, nzC0), ceildiv(K, 16), 16, nzC0}";
+    OP_CHECK(
+        outStorageShape.GetDim(outStorageDim - IDX_4) == CeilDiv(c0AxisSize, nzC0) &&
+            outStorageShape.GetDim(outStorageDim - IDX_3) == CeilDiv(otherAxisSize, NZ_16) &&
             outStorageShape.GetDim(outStorageDim - IDX_2) == NZ_16 &&
             outStorageShape.GetDim(outStorageDim - IDX_1) == nzC0,
         OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(
@@ -826,35 +912,41 @@ static aclnnStatus ProcessWeightTransNd2Nz(QuantContext& ctx)
     return ACLNN_SUCCESS;
 }
 
-// 非转置 weight 的 ND 到 NZ 转换（用于 A16INT4 等场景）
-template <size_t viewKIdx>
-static aclnnStatus ProcessWeightNonTransNd2Nz(QuantContext& ctx)
+// weight ND→NZ：viewKIdx 为 k 在 viewShape 的下标（MM=IDX_0，GMM=IDX_1，前面多 g 轴）；
+// transWeight 决定喂入 TransData 的 shape 是否交换 k/n 轴：转置 -> K 块在前；非转置 -> N 块在前
+template <size_t viewKIdx, bool transWeight>
+static aclnnStatus ProcessWeightNd2Nz(QuantContext& ctx)
 {
     auto viewShape = ctx.weight->GetViewShape();
     auto dstFormat = ctx.outWeight->GetStorageFormat();
 
-    // INT4 和 FP4 一样，传入逻辑 shape [K, N]，不除以 2
-    // runtime 会根据 dtype 自动计算物理大小
+    // INT4 和 FP4 一样，传入逻辑 shape [K, N]，不除以 2，runtime 会根据 dtype 自动计算物理大小
     op::Shape storageShape(viewShape);
+    if (transWeight) {
+        // torch 侧传入的 storageShape 为 1 维，需要手动构造转置后的 storageShape
+        std::swap(storageShape[viewKIdx], storageShape[viewKIdx + IDX_1]);
+    }
 
     auto weightTensor = const_cast<aclTensor*>(ctx.weight);
+    // TransData 要求输入连续 Tensor，设置所有 Shape 为喂入的 storageShape
     weightTensor->SetViewShape(storageShape);
     weightTensor->SetOriginalShape(storageShape);
     weightTensor->SetStorageShape(storageShape);
-
     auto outTensor = const_cast<aclTensor*>(l0op::TransData(weightTensor, dstFormat, 0, ctx.executor));
     OP_CHECK(outTensor != nullptr,
              LOGE_WITH_SCENARIO(ACLNN_ERR_INNER_NULLPTR, "TransData failed, storageShape=%s, dstFormat=%d.",
                                 op::ToString(storageShape).GetString(), static_cast<int>(dstFormat)),
              return ACLNN_ERR_INNER_NULLPTR);
+    // TransData 输出 storageFormat 为 (dstFormat, 0) 组合状态，因 ViewCopy 要求完全一致，需要重新设置
     outTensor->SetStorageFormat(dstFormat);
     outTensor->SetViewShape(viewShape);
+    // SetViewShape 内部会隐式设置 viewStride 为非转置连续，重新设置为与输入一致的转置状态
     op::Strides viewStrides(outTensor->GetViewStrides());
     OP_CHECK(static_cast<int64_t>(viewStrides.size()) > static_cast<int64_t>(viewKIdx + IDX_1),
              LOGE_WITH_SCENARIO(ACLNN_ERR_PARAM_INVALID, "viewStrides size too small for viewKIdx."),
              return ACLNN_ERR_PARAM_INVALID);
-    viewStrides[viewKIdx] = viewShape.GetDim(viewKIdx + IDX_1);
-    viewStrides[viewKIdx + IDX_1] = 1;
+    viewStrides[viewKIdx] = transWeight ? 1 : viewShape.GetDim(viewKIdx + IDX_1);
+    viewStrides[viewKIdx + IDX_1] = transWeight ? viewShape.GetDim(viewKIdx) : 1;
     outTensor->SetViewStrides(viewStrides);
 
     auto viewCopyResult = l0op::ViewCopy(outTensor, ctx.outWeight, ctx.executor);
@@ -1017,7 +1109,7 @@ static aclnnStatus CheckWeightLayoutA16(const QuantContext& ctx)
     return ACLNN_SUCCESS;
 }
 
-static aclnnStatus CheckOutWeightNz(const QuantContext& ctx)
+static aclnnStatus CheckOutWeightNz9201(const QuantContext& ctx)
 {
     auto weightShape = ctx.weight->GetViewShape();
     auto storageShape = ctx.outWeight->GetStorageShape();
@@ -1741,7 +1833,7 @@ static aclnnStatus CheckOutMxScale(const QuantContext& ctx)
 }
 
 template <size_t viewKIdx, bool transposedOutput, bool nz_16 = false>
-static aclnnStatus ProcessWeightNd2Nz(const aclTensor* weight, const op::Shape& physicalShape, QuantContext& ctx)
+static aclnnStatus ProcessWeightNd2Nz9201(const aclTensor* weight, const op::Shape& physicalShape, QuantContext& ctx)
 {
     auto viewShape = ctx.weight->GetViewShape();
     auto dstFormat = nz_16 ? op::Format::FORMAT_FRACTAL_NZ_C0_16 : ctx.outWeight->GetStorageFormat();
@@ -1846,7 +1938,7 @@ static aclnnStatus ProcessWeightA16C016(QuantContext& ctx)
         preparedWeight = PreprocessTransposedToNonTransposedWeight(ctx);
         CHECK_RET(preparedWeight != nullptr, ACLNN_ERR_INNER_NULLPTR);
     }
-    return ProcessWeightNd2Nz<IDX_0, false, true>(preparedWeight, preparedWeight->GetViewShape(), ctx);
+    return ProcessWeightNd2Nz9201<IDX_0, false, true>(preparedWeight, preparedWeight->GetViewShape(), ctx);
 }
 
 static aclnnStatus ProcessWeightA16C064(QuantContext& ctx)
@@ -1859,7 +1951,7 @@ static aclnnStatus ProcessWeightA16C064(QuantContext& ctx)
     preparedWeight = PreprocessNonTransposedToTransposedWeight(ctx);
     CHECK_RET(preparedWeight != nullptr, ACLNN_ERR_INNER_NULLPTR);
     physicalShape = preparedWeight->GetViewShape();
-    return ProcessWeightNd2Nz<IDX_0, true>(preparedWeight, physicalShape, ctx);
+    return ProcessWeightNd2Nz9201<IDX_0, true>(preparedWeight, physicalShape, ctx);
 }
 
 static aclnnStatus ProcessWeightMxFp4(QuantContext& ctx)
@@ -1876,7 +1968,7 @@ static aclnnStatus ProcessWeightMxFp4(QuantContext& ctx)
         std::swap(storageShape[IDX_0], storageShape[IDX_1]);
     }
 
-    return ProcessWeightNd2Nz<IDX_0, true>(preparedWeight, storageShape, ctx);
+    return ProcessWeightNd2Nz9201<IDX_0, true>(preparedWeight, storageShape, ctx);
 }
 
 static aclnnStatus CopyToTargetLayout(const aclTensor* source, aclTensor* target, QuantContext& ctx)
@@ -2111,30 +2203,39 @@ static aclnnStatus ProcessPerGroupScaleAndOffset(QuantContext& ctx)
 
 } // namespace
 
-// ===== A16S4/A16F4 检查组合：按粒度拼装，条目间无内部分流 =====
-// 输入公共检查（紧凑 4-bit 打包维须为偶数；4-bit 直拷视图须连续/严格转置且偏移字节对齐）
+// ===== A16S4/A16F4/A8W4-MX 检查组合：按粒度拼装，条目间无内部分流 =====
+// 紧凑 4-bit 输入公共检查（打包维须为偶数；打包视图须连续/严格转置且偏移字节对齐，
+// ND 直拷与 NZ TransData 共用此前提），ND 入 + NZ 出的条目均可复用
 // scale/offset/bias 为透传参数：out 侧 same 校验已保证输出与输入完全一致，
-// 其自身的 dtype/format/shape 约束 preprocess 不消费也不处理，统一下放下游 wqbmmv2 拦截
-const std::vector<CheckFunc> INPUT_BASE_CHECKS = {CheckWeightNotEmpty, CheckWeightFormatND, CheckWeightPackingDimEven,
-                                                  CheckWeight4BitDirectCopyView};
+// 其自身的 dtype/format/shape 约束 preprocess 不消费也不处理，统一下放下游（wqbmmv2/qbmmv4）拦截
+const std::vector<CheckFunc> INPUT_4BIT_BASE_CHECKS = {CheckWeightNotEmpty, CheckWeightFormatND,
+                                                       CheckWeightPackingDimEven, CheckWeight4BitPackedView};
 
-// F4/A8W4-MX 条目无 offset 直拷 process：入参 offset 必须 nullptr，否则会被静默丢弃
+// A16F4/A8W4-MX 条目无 offset 直拷 process：入参 offset 必须 nullptr，否则会被静默丢弃
 const std::vector<CheckFunc> OFFSET_NULL_CHECK = {CheckWeightOffsetOptionalNull};
 
 // out weight ND 直拷检查
 const std::vector<CheckFunc> OUT_WEIGHT_ND_CHECKS = {CheckOutWeightSameAsInput};
 
-// 非转置防御（judge 已保证非转置）：供 CombineChecks 条目在 OUT_WEIGHT_NZ_C016_CHECKS 前插入
+// 非转置防御（judge 已保证非转置）：供 CombineChecks 条目在 OUT_WEIGHT_NZ_C016/C032_CHECKS 前插入
 const std::vector<CheckFunc> WEIGHT_NOT_TRANS_CHECK = {CheckWeightNotTrans};
 
 // out weight NZ_C0_16 分形检查（非转置防御由 WEIGHT_NOT_TRANS_CHECK 承担）
 const std::vector<CheckFunc> OUT_WEIGHT_NZ_C016_CHECKS = {
     CheckOutWeightSameBase, CheckOutWeightDtypeSame, CheckOutWeightNzStorageDim,
-    CheckOutWeightTransNz<NZ_C0_16, op::Format::FORMAT_FRACTAL_NZ_C0_16>};
+    CheckOutWeightNz<NZ_C0_16, op::Format::FORMAT_FRACTAL_NZ_C0_16, NON_TRANS_WEIGHT>};
+
+// out weight NZ_C0_32 分形检查（非转置 -> N 块在前）
+const std::vector<CheckFunc> OUT_WEIGHT_NZ_C032_CHECKS = {
+    CheckOutWeightSameBase, CheckOutWeightDtypeSame, CheckOutWeightNzStorageDim,
+    CheckOutWeightNz<NZ_C0_32, op::Format::FORMAT_FRACTAL_NZ_C0_32, NON_TRANS_WEIGHT>};
 
 // 输出 scale/offset/bias 与入参一致性检查（公共尾部）
 const std::vector<CheckFunc> OUT_TAIL_CHECKS = {CheckOutWeightScaleSameAsInput, CheckOutWeightOffsetOptionalSameAsInput,
                                                 CheckOutBiasOptionalSameAsInput};
+
+// 输出 scale/bias 与入参一致性检查（offset 无直拷 process、必须 nullptr 的条目用此尾部）
+const std::vector<CheckFunc> OUT_SCALE_BIAS_CHECKS = {CheckOutWeightScaleSameAsInput, CheckOutBiasOptionalSameAsInput};
 
 template <typename... Groups>
 static std::vector<CheckFunc> CombineChecks(const Groups&... groups)
@@ -2144,373 +2245,378 @@ static std::vector<CheckFunc> CombineChecks(const Groups&... groups)
     return combined;
 }
 
-const std::unordered_map<NpuArch, std::vector<DataFlowEntry>> NPU_DATA_FLOW_REGISTRY_MAP =
-    {{NpuArch::DAV_3510,
-      {{.judge = IsMMMxA8W4DataFlow,
-        .checks = {CheckWeightNotEmpty, CheckWeightFormatND,
-                   CheckWeightTrans,              // 校验 weight 最后 2 维是否转置
-                   CheckWeightOffsetOptionalNull, // offset 无直拷 process，入参必须 nullptr，否则被静默丢弃
-                   CheckOutWeightSameBase,        // out 与 input 的 nullptr/empty/viewShape 一致
-                   CheckOutWeightDtypeSame,       // NZ 出 dtype 与输入一致
-                   CheckOutWeightNzStorageDim, // 输出 weight 为 NZ 格式，校验 storageShape 维度是否正确
-                   CheckOutWeightTransNz<NZ_C0_32, op::Format::FORMAT_FRACTAL_NZ_C0_32>, // 校验输出 weight storageShape
-                                                                                         // 符合 C0_32
-                   CheckOutWeightScaleSameAsInput, CheckOutBiasOptionalSameAsInput},
-        .processes = {ProcessWeightTransNd2Nz<IDX_0>, // 对 weight 进行 Nd2Nz 转换，参数表示 k 在 viewShape 中的下标
-                      ProcessWeightScaleDirectCopy, ProcessBiasDirectCopy}},
-       {.judge = IsGMMMxA8W4DataFlow,
-        .checks = {CheckWeightNotEmpty, CheckWeightFormatND,
-                   CheckWeightTrans,              // 校验 weight 最后 2 维是否转置
-                   CheckWeightOffsetOptionalNull, // offset 无直拷 process，入参必须 nullptr，否则被静默丢弃
-                   CheckOutWeightSameBase,        // out 与 input 的 nullptr/empty/viewShape 一致
-                   CheckOutWeightDtypeSame,       // NZ 出 dtype 与输入一致
-                   CheckOutWeightNzStorageDim, // 输出 weight 为 NZ 格式，校验 storageShape 维度是否正确
-                   CheckOutWeightTransNz<NZ_C0_32, op::Format::FORMAT_FRACTAL_NZ_C0_32>, // 校验输出 weight storageShape
-                                                                                         // 符合 C0_32
-                   CheckOutWeightScaleSameAsInput, CheckOutBiasOptionalSameAsInput},
-        .processes = {ProcessWeightTransNd2Nz<IDX_1>, // 对 weight 进行 Nd2Nz 转换，参数表示 k 在 viewShape 中的下标
-                      ProcessWeightScaleDirectCopy, ProcessBiasDirectCopy}},
-       {.judge = IsMMA16S4PerTensorDataFlow,
-        .checks = {CheckWeightNotEmpty, CheckWeightFormatND,
-                   CheckWeightPackingDimEven,     // 紧凑 4-bit 打包维须为偶数
-                   CheckWeight4BitDirectCopyView, // 4-bit 直拷视图须连续/严格转置且偏移字节对齐
-                   // per-tensor 不支持 NZ：outWeight 须与 weight 完全一致（format==），转置/非转置 weight 均直拷
-                   CheckOutWeightSameAsInput, CheckOutWeightScaleSameAsInput, CheckOutWeightOffsetOptionalSameAsInput,
-                   CheckOutBiasOptionalSameAsInput},
-        .processes = {ProcessWeightDirectCopy, ProcessWeightScaleDirectCopy, ProcessWeightOffsetDirectCopy,
-                      ProcessBiasDirectCopy}},
-       // A16S4 per-channel 转置：ND 直拷（物理透传）
-       {.judge = IsMMA16S4PerChannelTransDataFlow,
-        .checks = CombineChecks(INPUT_BASE_CHECKS, OUT_WEIGHT_ND_CHECKS, OUT_TAIL_CHECKS),
-        .processes = {ProcessWeightDirectCopy, ProcessWeightScaleDirectCopy, ProcessWeightOffsetDirectCopy,
-                      ProcessBiasDirectCopy}},
-       // A16S4 per-channel 非转置 + NZ_C0_16 出：ND→NZ 转换（非转置仅支持 NZ 出）
-       {.judge = IsMMA16S4PerChannelNonTransNzDataFlow,
-        .checks = CombineChecks(INPUT_BASE_CHECKS, WEIGHT_NOT_TRANS_CHECK, OUT_WEIGHT_NZ_C016_CHECKS, OUT_TAIL_CHECKS),
-        .processes = {ProcessWeightNonTransNd2Nz<IDX_0>, ProcessWeightScaleDirectCopy, ProcessWeightOffsetDirectCopy,
-                      ProcessBiasDirectCopy}},
-       // A16S4 per-group 转置：ND 直拷（scale 形状须匹配 per-group 分组语义）
-       {.judge = IsMMA16S4PerGroupTransDataFlow,
-        .checks = CombineChecks(INPUT_BASE_CHECKS, OUT_WEIGHT_ND_CHECKS, OUT_TAIL_CHECKS),
-        .processes = {ProcessWeightDirectCopy, ProcessWeightScaleDirectCopy, ProcessWeightOffsetDirectCopy,
-                      ProcessBiasDirectCopy}},
-       // A16S4 per-group 非转置 + NZ_C0_16 出：ND→NZ 转换（非转置仅支持 NZ 出）
-       {.judge = IsMMA16S4PerGroupNonTransNzDataFlow,
-        .checks = CombineChecks(INPUT_BASE_CHECKS, WEIGHT_NOT_TRANS_CHECK, OUT_WEIGHT_NZ_C016_CHECKS, OUT_TAIL_CHECKS),
-        .processes = {ProcessWeightNonTransNd2Nz<IDX_0>, ProcessWeightScaleDirectCopy, ProcessWeightOffsetDirectCopy,
-                      ProcessBiasDirectCopy}},
-       {.judge = IsMMA16F4PerGroupDataFlow,
-        .checks = {CheckWeightNotEmpty, CheckWeightFormatND,
-                   CheckWeightNotTrans,       // A16F4 per-group NZ 路径仅支持非转置 weight，转置返回错误
-                   CheckWeightPackingDimEven, // 紧凑 FP4 打包维须为偶数（与 INT4 同约束）
-                   CheckWeightOffsetOptionalNull, // offset 无直拷 process，入参必须 nullptr，否则被静默丢弃
-                   CheckOutWeightSameBase,
-                   CheckOutWeightDtypeSame, // NZ 出 dtype 与输入一致
-                   CheckOutWeightNzStorageDim, CheckOutWeightTransNz<NZ_C0_16, op::Format::FORMAT_FRACTAL_NZ_C0_16>,
-                   CheckOutWeightScaleSameAsInput, CheckOutBiasOptionalSameAsInput},
-        .processes = {ProcessWeightNonTransNd2Nz<IDX_0>, ProcessWeightScaleDirectCopy, ProcessBiasDirectCopy}},
-       // A16MXFP4 转置：ND 直拷（wqbmmv2 MX kernel 支持 ND 转置输入；offset 不支持必须 nullptr）
-       {.judge = IsMMA16MXF4TransDataFlow,
-        .checks = CombineChecks(INPUT_BASE_CHECKS, OFFSET_NULL_CHECK, OUT_WEIGHT_ND_CHECKS, OUT_TAIL_CHECKS),
-        .processes = {ProcessWeightDirectCopy, ProcessWeightScaleDirectCopy, ProcessBiasDirectCopy}},
-       // A16MXFP4 非转置 + NZ_C0_16 出：ND→NZ 分形转换（NZ 出仅支持非转置）
-       {.judge = IsMMA16MXF4NonTransNzDataFlow,
-        .checks = {CheckWeightNotEmpty, CheckWeightFormatND,
-                   CheckWeightNotTrans, // A16MXFP4 NZ 路径仅支持非转置 weight，转置由转置条目拦截
-                   CheckWeightPackingDimEven,
-                   CheckWeightOffsetOptionalNull, // offset 无直拷 process，入参必须 nullptr，否则被静默丢弃
-                   CheckOutWeightSameBase,
-                   CheckOutWeightDtypeSame, // NZ 出 dtype 与输入一致
-                   CheckOutWeightNzStorageDim, CheckOutWeightTransNz<NZ_C0_16, op::Format::FORMAT_FRACTAL_NZ_C0_16>,
-                   CheckOutWeightScaleSameAsInput, CheckOutBiasOptionalSameAsInput},
-        .processes = {ProcessWeightNonTransNd2Nz<IDX_0>, ProcessWeightScaleDirectCopy, ProcessBiasDirectCopy}},
-       // ===== A16W8 数据流 =====
-       // A16INT8 per-tensor：转置/非转置均 ND 直拷，offset/bias 透传
-       {.judge = IsMMA16INT8PerTensorDataFlow,
-        .checks = {CheckOutWeightSameAsInput, CheckOutWeightScaleSameAsInput, CheckOutWeightOffsetOptionalSameAsInput,
-                   CheckOutBiasOptionalSameAsInput},
-        .processes = {ProcessWeightDirectCopy, ProcessWeightScaleDirectCopy, ProcessWeightOffsetDirectCopy,
-                      ProcessBiasDirectCopy}},
-       // A16INT8 per-channel：转置/非转置均 ND 直拷（物理透传）
-       {.judge = IsMMA16INT8PerChannelDataFlow,
-        .checks = {CheckOutWeightSameAsInput, CheckOutWeightScaleSameAsInput, CheckOutWeightOffsetOptionalSameAsInput,
-                   CheckOutBiasOptionalSameAsInput},
-        .processes = {ProcessWeightDirectCopy, ProcessWeightScaleDirectCopy, ProcessWeightOffsetDirectCopy,
-                      ProcessBiasDirectCopy}},
-       // A16INT8 per-group：转置/非转置均 ND 直拷（wqbmmv2 INT8-NZ 不支持 per-group）
-       {.judge = IsMMA16INT8PerGroupDataFlow,
-        .checks = {CheckOutWeightSameAsInput, CheckOutWeightScaleSameAsInput, CheckOutWeightOffsetOptionalSameAsInput,
-                   CheckOutBiasOptionalSameAsInput},
-        .processes = {ProcessWeightDirectCopy, ProcessWeightScaleDirectCopy, ProcessWeightOffsetDirectCopy,
-                      ProcessBiasDirectCopy}},
-       // A16FP8HIF8 per-channel（E4M3FN/HIF8）：转置/非转置均 ND 直拷；offset 无透传 process（wqbmmv2 FP8 无 offset）
-       {.judge = IsMMA16FP8HIF8PerChannelDataFlow,
-        .checks = {CheckOutWeightSameAsInput, CheckOutWeightScaleSameAsInput, CheckOutWeightOffsetOptionalSameAsInput,
-                   CheckOutBiasOptionalSameAsInput},
-        .processes = {ProcessWeightDirectCopy, ProcessWeightScaleDirectCopy, ProcessBiasDirectCopy}}}},
-     {NpuArch::DAV_9201,
-      {{.judge = IsMMMxA8W4DataFlow,
-        .checks =
-            {CheckWeightNotEmpty, CheckWeightFormatND,
-             CheckWeightTrans, // 校验 weight 最后 2 维是否转置
-             CheckWeightScaleNotEmpty, CheckWeightScaleFormatND,
-             CheckWeightScaleMx<DIMS_3>, // 校验 weightScale 的 viewShape 是否符合 Mx 场景的 3 维形式 (k/64, n, 2)
-             CheckWeightScaleTrans<IDX_0>, // 校验 weightScale 的第 0 维和第 1 维是否转置
-             CheckWeightOffsetOptionalNull,
-             CheckKGroupSizeMx, // Mx 场景要求 kGroupSize 为 32
-             CheckOutWeightSameBase, CheckOutWeightDtypeSame,
-             CheckOutWeightNzStorageDim, // 输出 weight 为 NZ 格式，校验 storageShape 维度是否正确
-             CheckOutWeightTransNz<NZ_C0_64, op::Format::FORMAT_FRACTAL_NZ>, // 校验输出 weight storageShape 符合 C0_64
-             CheckOutWeightScaleNotNullEmpty, CheckOutWeightScaleFormatND, CheckOutWeightScaleDtypeSame,
-             CheckOutWeightScaleViewShapeSame, CheckOutWeightScaleStorageShapeSame, CheckOutBiasOptionalSameAsInput},
-        .processes = {ProcessWeightTransNd2Nz<IDX_0>, // 对 weight 进行 Nd2Nz 转换，参数表示 k 在 viewShape 中的下标
-                      ProcessWeightScaleDirectCopy, ProcessBiasDirectCopy}},
-       {.judge = IsMMMxA16HIF4DataFlow,
-        .checks =
-            {
-                CheckWeightNotEmpty,
-                CheckWeightFormatND,
-                CheckWeightTrans, // 校验 weight 最后 2 维是否转置
-                CheckWeightScaleNotEmpty,
-                CheckWeightScaleFormatND,
-                CheckWeightScaleMx<DIMS_3, SINGLE>, // 校验 weightScale 的 viewShape 是否符合 Mx 场景的 3 维形式 (k/64,
-                                                    // n, 1)
-                CheckWeightScaleTrans<IDX_0>, // 校验 weightScale 的第 0 维和第 1 维是否转置
-                CheckWeightOffsetOptionalNull,
-                CheckGroupSize<KGROUP_SIZE_HIF4>, // HIF4 场景要求 kGroupSize 为 64
-                CheckOutWeightSameBase,
-                CheckOutWeightDtypeSame,
-                CheckOutWeightNzStorageDim, // 输出 weight 为 NZ 格式，校验 storageShape 维度是否正确
-                CheckOutWeightTransNz<NZ_C0_64, op::Format::FORMAT_FRACTAL_NZ>, // 校验输出 weight storageShape 符合
-                                                                                // C0_64
-                CheckOutWeightScaleNotNullEmpty,
-                CheckOutWeightScaleFormatND,
-                CheckOutWeightScaleDtypeSame,
-                CheckOutWeightScaleViewShapeSame,
-                CheckOutWeightScaleStorageShapeSame,
-                CheckOutBiasOptionalSameAsInput,
-            },
-        .processes = {ProcessWeightTransNd2Nz<IDX_0>, // 对 weight 进行 Nd2Nz 转换，参数表示 k 在 viewShape 中的下标
-                      ProcessWeightScaleDirectCopy, ProcessBiasDirectCopy}},
-       {.judge = IsMMC064A16W4DataFlow,
-        .checks =
-            {
-                CheckWeightNotEmpty,
-                CheckWeightFormatND,
-                CheckWeightLayoutA16,
-                CheckGroupSize<KGROUP_SIZE_INT4>,
-                CheckOutWeightNotNullEmpty,
-                CheckOutWeightDtypeSame,
-                CheckOutWeightViewShapeSame,
-                CheckOutWeightNzStorageDim,
-                CheckOutWeightTransNz<NZ_C0_64, op::Format::FORMAT_FRACTAL_NZ>,
-                CheckWeightScaleNotEmpty,
-                CheckWeightScaleFormatND,
-                CheckPerChannelScaleOrOffset<false>,
-                CheckOutWeightScaleNotNullEmpty,
-                CheckOutWeightScaleFormatND,
-                CheckOutC064Scale,
-                CheckWeightOffsetOptionalNull,
-                CheckOutBiasOptionalSameAsInput,
-            },
-        .processes =
-            {
-                ProcessWeightA16C064,
-                ProcessWeightScaleA16C064,
-                ProcessBiasDirectCopy,
-            }},
-       {.judge = IsMMA16S4PerTensorDataFlow_9201,
-        .checks =
-            {
-                CheckWeightNotEmpty,
-                CheckWeightFormatND,
-                CheckWeightLayoutA16,
-                CheckGroupSize<KGROUP_SIZE_INT4>,
-                CheckWeightEven,
-                CheckOutWeightNotNullEmpty,
-                CheckOutWeightDtypeSame,
-                CheckOutWeightViewShapeSame,
-                CheckOutWeightNzStorageDim,
-                CheckOutWeightNz,
-                CheckWeightScaleNotEmpty,
-                CheckWeightScaleFormatND,
-                CheckPerTensorScaleOrOffset<false>,
-                CheckOutWeightScaleNotNullEmpty,
-                CheckOutWeightScaleFormatND,
-                CheckOutWeightScaleDtypeSame,
-                CheckOutPerTensorScaleOrOffset<false>,
-                CheckOffsetNotEmpty,
-                CheckOffsetDtype,
-                CheckOffsetFormat,
-                CheckPerTensorScaleOrOffset<true>,
-                CheckOutOffsetNotEmpty,
-                CheckOutOffsetFormat,
-                CheckOutOffsetDtypeSame,
-                CheckOutPerTensorScaleOrOffset<true>,
-                CheckOutBiasOptionalSameAsInput,
-            },
-        .processes =
-            {
-                ProcessWeightA16C016,
-                ProcessWeightScaleA16C016,
-                ProcessBiasDirectCopy,
-            }},
-       {.judge = IsMMA16S4PerChannelDataFlow,
-        .checks =
-            {
-                CheckWeightNotEmpty,
-                CheckWeightFormatND,
-                CheckWeightLayoutA16,
-                CheckGroupSize<KGROUP_SIZE_INT4>,
-                CheckWeightEven,
-                CheckOutWeightNotNullEmpty,
-                CheckOutWeightDtypeSame,
-                CheckOutWeightViewShapeSame,
-                CheckOutWeightNzStorageDim,
-                CheckOutWeightNz,
-                CheckWeightScaleNotEmpty,
-                CheckWeightScaleFormatND,
-                CheckPerChannelScaleOrOffset<false>,
-                CheckOutWeightScaleNotNullEmpty,
-                CheckOutWeightScaleFormatND,
-                CheckOutWeightScaleDtypeSame,
-                CheckOutPerChannelScaleOrOffset<false>,
-                CheckOffsetNotEmpty,
-                CheckOffsetDtype,
-                CheckOffsetFormat,
-                CheckPerChannelScaleOrOffset<true>,
-                CheckOutOffsetNotEmpty,
-                CheckOutOffsetFormat,
-                CheckOutOffsetDtypeSame,
-                CheckOutPerChannelScaleOrOffset<true>,
-                CheckOutBiasOptionalSameAsInput,
-            },
-        .processes =
-            {
-                ProcessWeightA16C016,
-                ProcessWeightScaleA16C016,
-                ProcessBiasDirectCopy,
-            }},
-       {.judge = IsMMC064PerGroupA16W4DataFlow,
-        .checks =
-            {
-                CheckWeightNotEmpty,
-                CheckWeightFormatND,
-                CheckWeightLayoutA16,
-                CheckGroupSize<KGROUP_SIZE_HIF4, KGROUP_SIZE_128>,
-                CheckWeightKDivisibleByGroupSize,
-                CheckOutWeightNotNullEmpty,
-                CheckOutWeightDtypeSame,
-                CheckOutWeightViewShapeSame,
-                CheckOutWeightNzStorageDim,
-                CheckOutWeightTransNz<NZ_C0_64, op::Format::FORMAT_FRACTAL_NZ>,
-                CheckWeightScaleNotEmpty,
-                CheckWeightScaleFormatND,
-                CheckPerGroupScaleOrOffset<false>,
-                CheckOutWeightScaleNotNullEmpty,
-                CheckOutWeightScaleFormatND,
-                CheckOutWeightScaleDtypeSame,
-                CheckOutPerGroupScaleOrOffset<false>,
-                CheckWeightOffsetOptionalNull,
-                CheckOutBiasOptionalSameAsInput,
-            },
-        .processes =
-            {
-                ProcessWeightA16C064,
-                ProcessPerGroupScaleAndOffset,
-                ProcessBiasDirectCopy,
-            }},
-       {.judge = IsMMA16S4PerGroupDataFlow,
-        .checks =
-            {
-                CheckWeightNotEmpty,
-                CheckWeightFormatND,
-                CheckWeightLayoutA16,
-                CheckGroupSize<KGROUP_SIZE_MX, KGROUP_SIZE_HIF4, KGROUP_SIZE_128, KGROUP_SIZE_256>,
-                CheckWeightEven,
-                CheckOutWeightNotNullEmpty,
-                CheckOutWeightDtypeSame,
-                CheckOutWeightViewShapeSame,
-                CheckOutWeightNzStorageDim,
-                CheckOutWeightNz,
-                CheckWeightScaleNotEmpty,
-                CheckWeightScaleFormatND,
-                CheckPerGroupScaleOrOffset<false>,
-                CheckOutWeightScaleNotNullEmpty,
-                CheckOutWeightScaleFormatND,
-                CheckOutWeightScaleDtypeSame,
-                CheckOutPerGroupScaleOrOffset<false>,
-                CheckOffsetNotEmpty,
-                CheckOffsetDtype,
-                CheckOffsetFormat,
-                CheckPerGroupScaleOrOffset<true>,
-                CheckOutOffsetNotEmpty,
-                CheckOutOffsetFormat,
-                CheckOutOffsetDtypeSame,
-                CheckOutPerGroupScaleOrOffset<true>,
-                CheckOutBiasOptionalSameAsInput,
-            },
-        .processes =
-            {
-                ProcessWeightA16C016,
-                ProcessPerGroupScaleAndOffset,
-                ProcessBiasDirectCopy,
-            }},
-       {.judge = IsMMA16Fp4PerGroupDataFlow,
-        .checks =
-            {
-                CheckWeightNotEmpty,
-                CheckWeightFormatND,
-                CheckWeightLayoutA16,
-                CheckGroupSize<KGROUP_SIZE_MX, KGROUP_SIZE_HIF4, KGROUP_SIZE_128, KGROUP_SIZE_256>,
-                CheckWeightEven,
-                CheckOutWeightNotNullEmpty,
-                CheckOutWeightDtypeSame,
-                CheckOutWeightViewShapeSame,
-                CheckOutWeightNzStorageDim,
-                CheckOutWeightNz,
-                CheckWeightScaleNotEmpty,
-                CheckWeightScaleFormatND,
-                CheckPerGroupScaleOrOffset<false>,
-                CheckOutWeightScaleNotNullEmpty,
-                CheckOutWeightScaleFormatND,
-                CheckOutWeightScaleDtypeSame,
-                CheckOutPerGroupScaleOrOffset<false>,
-                CheckWeightOffsetOptionalNull,
-                CheckOutBiasOptionalSameAsInput,
-            },
-        .processes =
-            {
-                ProcessWeightA16C016,
-                ProcessPerGroupScaleAndOffset,
-                ProcessBiasDirectCopy,
-            }},
-       {.judge = IsMMMxA16W4DataFlow,
-        .checks =
-            {
-                CheckWeightNotEmpty,
-                CheckWeightFormatND,
-                CheckWeightLayoutA16,
-                CheckKGroupSizeMx,
-                CheckOutWeightNotNullEmpty,
-                CheckOutWeightDtypeSame,
-                CheckOutWeightViewShapeSame,
-                CheckOutWeightNzStorageDim,
-                CheckOutWeightTransNz<NZ_C0_64, op::Format::FORMAT_FRACTAL_NZ>,
-                CheckWeightScaleNotEmpty,
-                CheckWeightScaleFormatND,
-                CheckMxA16ScaleDim,
-                CheckMxA16ScaleShape,
-                CheckMxA16ScaleLayout,
-                CheckOutWeightScaleNotNullEmpty,
-                CheckOutWeightScaleFormatND,
-                CheckOutWeightScaleDtypeSame,
-                CheckOutMxScale,
-                CheckWeightOffsetOptionalNull,
-                CheckOutBiasOptionalSameAsInput,
-            },
-        .processes = {
-            ProcessWeightMxFp4,
-            ProcessMxScale,
-            ProcessBiasDirectCopy,
-        }}}}};
+const std::unordered_map<NpuArch, std::vector<DataFlowEntry>> NPU_DATA_FLOW_REGISTRY_MAP = {
+    {NpuArch::DAV_3510,
+     {{.judge = IsMMMxA8W4DataFlow,
+       .checks = {CheckWeightNotEmpty, CheckWeightFormatND,
+                  CheckWeightTrans,              // 校验 weight 最后 2 维是否转置
+                  CheckWeightOffsetOptionalNull, // offset 无直拷 process，入参必须 nullptr，否则被静默丢弃
+                  CheckOutWeightSameBase,        // out 与 input 的 nullptr/empty/viewShape 一致
+                  CheckOutWeightDtypeSame,       // NZ 出 dtype 与输入一致
+                  CheckOutWeightNzStorageDim,    // 输出 weight 为 NZ 格式，校验 storageShape 维度是否正确
+                  // 校验输出 weight storageShape 符合 C0_32（转置 -> K 块在前）
+                  CheckOutWeightNz<NZ_C0_32, op::Format::FORMAT_FRACTAL_NZ_C0_32, TRANS_WEIGHT>,
+                  CheckOutWeightScaleSameAsInput, CheckOutBiasOptionalSameAsInput},
+       .processes = {ProcessWeightNd2Nz<IDX_0, TRANS_WEIGHT>, // weight ND→NZ 转换，模板参为 k 下标与转置状态
+                     ProcessWeightScaleDirectCopy, ProcessBiasDirectCopy}},
+      {.judge = IsGMMMxA8W4DataFlow,
+       .checks = {CheckWeightNotEmpty, CheckWeightFormatND,
+                  CheckWeightTrans,              // 校验 weight 最后 2 维是否转置
+                  CheckWeightOffsetOptionalNull, // offset 无直拷 process，入参必须 nullptr，否则被静默丢弃
+                  CheckOutWeightSameBase,        // out 与 input 的 nullptr/empty/viewShape 一致
+                  CheckOutWeightDtypeSame,       // NZ 出 dtype 与输入一致
+                  CheckOutWeightNzStorageDim,    // 输出 weight 为 NZ 格式，校验 storageShape 维度是否正确
+                  // 校验输出 weight storageShape 符合 C0_32（转置 -> K 块在前）
+                  CheckOutWeightNz<NZ_C0_32, op::Format::FORMAT_FRACTAL_NZ_C0_32, TRANS_WEIGHT>,
+                  CheckOutWeightScaleSameAsInput, CheckOutBiasOptionalSameAsInput},
+       .processes = {ProcessWeightNd2Nz<IDX_1, TRANS_WEIGHT>, // weight ND→NZ 转换，模板参为 k 下标与转置状态
+                     ProcessWeightScaleDirectCopy, ProcessBiasDirectCopy}},
+      {.judge = IsMMA16S4PerTensorDataFlow,
+       .checks = {CheckWeightNotEmpty, CheckWeightFormatND,
+                  CheckWeightPackingDimEven, // 紧凑 4-bit 打包维须为偶数
+                  CheckWeight4BitPackedView, // 4-bit 打包视图须连续/严格转置且偏移字节对齐
+                  // per-tensor 不支持 NZ：outWeight 须与 weight 完全一致（format==），转置/非转置 weight 均直拷
+                  CheckOutWeightSameAsInput, CheckOutWeightScaleSameAsInput, CheckOutWeightOffsetOptionalSameAsInput,
+                  CheckOutBiasOptionalSameAsInput},
+       .processes = {ProcessWeightDirectCopy, ProcessWeightScaleDirectCopy, ProcessWeightOffsetDirectCopy,
+                     ProcessBiasDirectCopy}},
+      // A16S4 per-channel 转置：ND 直拷（物理透传）
+      {.judge = IsMMA16S4PerChannelTransDataFlow,
+       .checks = CombineChecks(INPUT_4BIT_BASE_CHECKS, OUT_WEIGHT_ND_CHECKS, OUT_TAIL_CHECKS),
+       .processes = {ProcessWeightDirectCopy, ProcessWeightScaleDirectCopy, ProcessWeightOffsetDirectCopy,
+                     ProcessBiasDirectCopy}},
+      // A16S4 per-channel 非转置 + NZ_C0_16 出：ND→NZ 转换（非转置仅支持 NZ 出）
+      {.judge = IsMMA16S4PerChannelNonTransNzDataFlow,
+       .checks = CombineChecks(INPUT_4BIT_BASE_CHECKS, WEIGHT_NOT_TRANS_CHECK, OUT_WEIGHT_NZ_C016_CHECKS,
+                               OUT_TAIL_CHECKS),
+       .processes = {ProcessWeightNd2Nz<IDX_0, NON_TRANS_WEIGHT>, ProcessWeightScaleDirectCopy,
+                     ProcessWeightOffsetDirectCopy, ProcessBiasDirectCopy}},
+      // A16S4 per-group 转置：ND 直拷（scale 形状须匹配 per-group 分组语义）
+      {.judge = IsMMA16S4PerGroupTransDataFlow,
+       .checks = CombineChecks(INPUT_4BIT_BASE_CHECKS, OUT_WEIGHT_ND_CHECKS, OUT_TAIL_CHECKS),
+       .processes = {ProcessWeightDirectCopy, ProcessWeightScaleDirectCopy, ProcessWeightOffsetDirectCopy,
+                     ProcessBiasDirectCopy}},
+      // A16S4 per-group 非转置 + NZ_C0_16 出：ND→NZ 转换（非转置仅支持 NZ 出）
+      {.judge = IsMMA16S4PerGroupNonTransNzDataFlow,
+       .checks = CombineChecks(INPUT_4BIT_BASE_CHECKS, WEIGHT_NOT_TRANS_CHECK, OUT_WEIGHT_NZ_C016_CHECKS,
+                               OUT_TAIL_CHECKS),
+       .processes = {ProcessWeightNd2Nz<IDX_0, NON_TRANS_WEIGHT>, ProcessWeightScaleDirectCopy,
+                     ProcessWeightOffsetDirectCopy, ProcessBiasDirectCopy}},
+      // A16F4 per-group 非转置 + NZ_C0_16 出：ND→NZ 转换（NZ 出仅支持非转置）
+      {.judge = IsMMA16F4PerGroupDataFlow,
+       .checks = CombineChecks(INPUT_4BIT_BASE_CHECKS, WEIGHT_NOT_TRANS_CHECK, OFFSET_NULL_CHECK,
+                               OUT_WEIGHT_NZ_C016_CHECKS, OUT_SCALE_BIAS_CHECKS),
+       .processes = {ProcessWeightNd2Nz<IDX_0, NON_TRANS_WEIGHT>, ProcessWeightScaleDirectCopy, ProcessBiasDirectCopy}},
+      // A16MXFP4 转置：ND 直拷（wqbmmv2 MX kernel 支持 ND 转置输入；offset 不支持必须 nullptr）
+      {.judge = IsMMA16MXF4TransDataFlow,
+       .checks = CombineChecks(INPUT_4BIT_BASE_CHECKS, OFFSET_NULL_CHECK, OUT_WEIGHT_ND_CHECKS, OUT_TAIL_CHECKS),
+       .processes = {ProcessWeightDirectCopy, ProcessWeightScaleDirectCopy, ProcessBiasDirectCopy}},
+      // A16MXFP4 非转置 + NZ_C0_16 出：ND→NZ 分形转换（NZ 出仅支持非转置）
+      {.judge = IsMMA16MXF4NonTransNzDataFlow,
+       .checks = CombineChecks(INPUT_4BIT_BASE_CHECKS, WEIGHT_NOT_TRANS_CHECK, OFFSET_NULL_CHECK,
+                               OUT_WEIGHT_NZ_C016_CHECKS, OUT_SCALE_BIAS_CHECKS),
+       .processes = {ProcessWeightNd2Nz<IDX_0, NON_TRANS_WEIGHT>, ProcessWeightScaleDirectCopy, ProcessBiasDirectCopy}},
+      // ===== A16W8 数据流 =====
+      // A16INT8 per-tensor：转置/非转置均 ND 直拷，offset/bias 透传
+      {.judge = IsMMA16INT8PerTensorDataFlow,
+       .checks = {CheckOutWeightSameAsInput, CheckOutWeightScaleSameAsInput, CheckOutWeightOffsetOptionalSameAsInput,
+                  CheckOutBiasOptionalSameAsInput},
+       .processes = {ProcessWeightDirectCopy, ProcessWeightScaleDirectCopy, ProcessWeightOffsetDirectCopy,
+                     ProcessBiasDirectCopy}},
+      // A16INT8 per-channel：转置/非转置均 ND 直拷（物理透传）
+      {.judge = IsMMA16INT8PerChannelDataFlow,
+       .checks = {CheckOutWeightSameAsInput, CheckOutWeightScaleSameAsInput, CheckOutWeightOffsetOptionalSameAsInput,
+                  CheckOutBiasOptionalSameAsInput},
+       .processes = {ProcessWeightDirectCopy, ProcessWeightScaleDirectCopy, ProcessWeightOffsetDirectCopy,
+                     ProcessBiasDirectCopy}},
+      // A16INT8 per-group：转置/非转置均 ND 直拷（wqbmmv2 INT8-NZ 不支持 per-group）
+      {.judge = IsMMA16INT8PerGroupDataFlow,
+       .checks = {CheckOutWeightSameAsInput, CheckOutWeightScaleSameAsInput, CheckOutWeightOffsetOptionalSameAsInput,
+                  CheckOutBiasOptionalSameAsInput},
+       .processes = {ProcessWeightDirectCopy, ProcessWeightScaleDirectCopy, ProcessWeightOffsetDirectCopy,
+                     ProcessBiasDirectCopy}},
+      // A16FP8HIF8 per-channel（E4M3FN/HIF8）：转置/非转置均 ND 直拷；offset 无透传 process（wqbmmv2 FP8 无 offset）
+      {.judge = IsMMA16FP8HIF8PerChannelDataFlow,
+       .checks = {CheckOutWeightSameAsInput, CheckOutWeightScaleSameAsInput, CheckOutWeightOffsetOptionalSameAsInput,
+                  CheckOutBiasOptionalSameAsInput},
+       .processes = {ProcessWeightDirectCopy, ProcessWeightScaleDirectCopy, ProcessBiasDirectCopy}},
+      // ===== A8F4 T-CG 数据流 =====
+      // 转置：ND 直拷（输入侧查非空/format/打包视图；打包奇偶/x2Offset 等下沉下游 V5 入口拦截）
+      {.judge = IsMMA8F4TcgTransDataFlow,
+       .checks = {CheckWeightNotEmpty, CheckWeightFormatND, CheckWeight4BitPackedView, CheckOutWeightSameAsInput,
+                  CheckOutWeightScaleSameAsInput, CheckOutWeightOffsetOptionalSameAsInput,
+                  CheckOutBiasOptionalSameAsInput},
+       .processes = {ProcessWeightDirectCopy, ProcessWeightScaleDirectCopy, ProcessWeightOffsetDirectCopy,
+                     ProcessBiasDirectCopy}},
+      // 非转置 + C0_32 出：复用 MX 的 TransData 注册（非转置喂入使 c0 轴落在 N）；
+      // x2Offset 由下游 WeightNz 入口拦截
+      {.judge = IsMMA8F4TcgNonTransDataFlow,
+       .checks = CombineChecks(INPUT_4BIT_BASE_CHECKS, OUT_WEIGHT_NZ_C032_CHECKS, OUT_TAIL_CHECKS),
+       .processes = {ProcessWeightNd2Nz<IDX_0, NON_TRANS_WEIGHT>, ProcessWeightScaleDirectCopy,
+                     ProcessWeightOffsetDirectCopy, ProcessBiasDirectCopy}}}},
+    {NpuArch::DAV_9201,
+     {{.judge = IsMMMxA8W4DataFlow,
+       .checks =
+           {CheckWeightNotEmpty, CheckWeightFormatND,
+            CheckWeightTrans, // 校验 weight 最后 2 维是否转置
+            CheckWeightScaleNotEmpty, CheckWeightScaleFormatND,
+            CheckWeightScaleMx<DIMS_3>, // 校验 weightScale 的 viewShape 是否符合 Mx 场景的 3 维形式 (k/64, n, 2)
+            CheckWeightScaleTrans<IDX_0>, // 校验 weightScale 的第 0 维和第 1 维是否转置
+            CheckWeightOffsetOptionalNull,
+            CheckKGroupSizeMx, // Mx 场景要求 kGroupSize 为 32
+            CheckOutWeightSameBase, CheckOutWeightDtypeSame,
+            CheckOutWeightNzStorageDim, // 输出 weight 为 NZ 格式，校验 storageShape 维度是否正确
+            CheckOutWeightTransNz<NZ_C0_64, op::Format::FORMAT_FRACTAL_NZ>, // 校验输出 weight storageShape 符合 C0_64
+            CheckOutWeightScaleNotNullEmpty, CheckOutWeightScaleFormatND, CheckOutWeightScaleDtypeSame,
+            CheckOutWeightScaleViewShapeSame, CheckOutWeightScaleStorageShapeSame, CheckOutBiasOptionalSameAsInput},
+       .processes = {ProcessWeightTransNd2Nz<IDX_0>, // 对 weight 进行 Nd2Nz 转换，参数表示 k 在 viewShape 中的下标
+                     ProcessWeightScaleDirectCopy, ProcessBiasDirectCopy}},
+      {.judge = IsMMMxA16HIF4DataFlow,
+       .checks =
+           {
+               CheckWeightNotEmpty,
+               CheckWeightFormatND,
+               CheckWeightTrans, // 校验 weight 最后 2 维是否转置
+               CheckWeightScaleNotEmpty,
+               CheckWeightScaleFormatND,
+               CheckWeightScaleMx<DIMS_3, SINGLE>, // 校验 weightScale 的 viewShape 是否符合 Mx 场景的 3 维形式 (k/64,
+                                                   // n, 1)
+               CheckWeightScaleTrans<IDX_0>, // 校验 weightScale 的第 0 维和第 1 维是否转置
+               CheckWeightOffsetOptionalNull,
+               CheckGroupSize<KGROUP_SIZE_HIF4>, // HIF4 场景要求 kGroupSize 为 64
+               CheckOutWeightSameBase,
+               CheckOutWeightDtypeSame,
+               CheckOutWeightNzStorageDim, // 输出 weight 为 NZ 格式，校验 storageShape 维度是否正确
+               CheckOutWeightTransNz<NZ_C0_64, op::Format::FORMAT_FRACTAL_NZ>, // 校验输出 weight storageShape 符合
+                                                                               // C0_64
+               CheckOutWeightScaleNotNullEmpty,
+               CheckOutWeightScaleFormatND,
+               CheckOutWeightScaleDtypeSame,
+               CheckOutWeightScaleViewShapeSame,
+               CheckOutWeightScaleStorageShapeSame,
+               CheckOutBiasOptionalSameAsInput,
+           },
+       .processes = {ProcessWeightTransNd2Nz<IDX_0>, // 对 weight 进行 Nd2Nz 转换，参数表示 k 在 viewShape 中的下标
+                     ProcessWeightScaleDirectCopy, ProcessBiasDirectCopy}},
+      {.judge = IsMMC064A16W4DataFlow,
+       .checks =
+           {
+               CheckWeightNotEmpty,
+               CheckWeightFormatND,
+               CheckWeightLayoutA16,
+               CheckGroupSize<KGROUP_SIZE_INT4>,
+               CheckOutWeightNotNullEmpty,
+               CheckOutWeightDtypeSame,
+               CheckOutWeightViewShapeSame,
+               CheckOutWeightNzStorageDim,
+               CheckOutWeightTransNz<NZ_C0_64, op::Format::FORMAT_FRACTAL_NZ>,
+               CheckWeightScaleNotEmpty,
+               CheckWeightScaleFormatND,
+               CheckPerChannelScaleOrOffset<false>,
+               CheckOutWeightScaleNotNullEmpty,
+               CheckOutWeightScaleFormatND,
+               CheckOutC064Scale,
+               CheckWeightOffsetOptionalNull,
+               CheckOutBiasOptionalSameAsInput,
+           },
+       .processes =
+           {
+               ProcessWeightA16C064,
+               ProcessWeightScaleA16C064,
+               ProcessBiasDirectCopy,
+           }},
+      {.judge = IsMMA16S4PerTensorDataFlow_9201,
+       .checks =
+           {
+               CheckWeightNotEmpty,
+               CheckWeightFormatND,
+               CheckWeightLayoutA16,
+               CheckGroupSize<KGROUP_SIZE_INT4>,
+               CheckWeightEven,
+               CheckOutWeightNotNullEmpty,
+               CheckOutWeightDtypeSame,
+               CheckOutWeightViewShapeSame,
+               CheckOutWeightNzStorageDim,
+               CheckOutWeightNz9201,
+               CheckWeightScaleNotEmpty,
+               CheckWeightScaleFormatND,
+               CheckPerTensorScaleOrOffset<false>,
+               CheckOutWeightScaleNotNullEmpty,
+               CheckOutWeightScaleFormatND,
+               CheckOutWeightScaleDtypeSame,
+               CheckOutPerTensorScaleOrOffset<false>,
+               CheckOffsetNotEmpty,
+               CheckOffsetDtype,
+               CheckOffsetFormat,
+               CheckPerTensorScaleOrOffset<true>,
+               CheckOutOffsetNotEmpty,
+               CheckOutOffsetFormat,
+               CheckOutOffsetDtypeSame,
+               CheckOutPerTensorScaleOrOffset<true>,
+               CheckOutBiasOptionalSameAsInput,
+           },
+       .processes =
+           {
+               ProcessWeightA16C016,
+               ProcessWeightScaleA16C016,
+               ProcessBiasDirectCopy,
+           }},
+      {.judge = IsMMA16S4PerChannelDataFlow,
+       .checks =
+           {
+               CheckWeightNotEmpty,
+               CheckWeightFormatND,
+               CheckWeightLayoutA16,
+               CheckGroupSize<KGROUP_SIZE_INT4>,
+               CheckWeightEven,
+               CheckOutWeightNotNullEmpty,
+               CheckOutWeightDtypeSame,
+               CheckOutWeightViewShapeSame,
+               CheckOutWeightNzStorageDim,
+               CheckOutWeightNz9201,
+               CheckWeightScaleNotEmpty,
+               CheckWeightScaleFormatND,
+               CheckPerChannelScaleOrOffset<false>,
+               CheckOutWeightScaleNotNullEmpty,
+               CheckOutWeightScaleFormatND,
+               CheckOutWeightScaleDtypeSame,
+               CheckOutPerChannelScaleOrOffset<false>,
+               CheckOffsetNotEmpty,
+               CheckOffsetDtype,
+               CheckOffsetFormat,
+               CheckPerChannelScaleOrOffset<true>,
+               CheckOutOffsetNotEmpty,
+               CheckOutOffsetFormat,
+               CheckOutOffsetDtypeSame,
+               CheckOutPerChannelScaleOrOffset<true>,
+               CheckOutBiasOptionalSameAsInput,
+           },
+       .processes =
+           {
+               ProcessWeightA16C016,
+               ProcessWeightScaleA16C016,
+               ProcessBiasDirectCopy,
+           }},
+      {.judge = IsMMC064PerGroupA16W4DataFlow,
+       .checks =
+           {
+               CheckWeightNotEmpty,
+               CheckWeightFormatND,
+               CheckWeightLayoutA16,
+               CheckGroupSize<KGROUP_SIZE_HIF4, KGROUP_SIZE_128>,
+               CheckWeightKDivisibleByGroupSize,
+               CheckOutWeightNotNullEmpty,
+               CheckOutWeightDtypeSame,
+               CheckOutWeightViewShapeSame,
+               CheckOutWeightNzStorageDim,
+               CheckOutWeightTransNz<NZ_C0_64, op::Format::FORMAT_FRACTAL_NZ>,
+               CheckWeightScaleNotEmpty,
+               CheckWeightScaleFormatND,
+               CheckPerGroupScaleOrOffset<false>,
+               CheckOutWeightScaleNotNullEmpty,
+               CheckOutWeightScaleFormatND,
+               CheckOutWeightScaleDtypeSame,
+               CheckOutPerGroupScaleOrOffset<false>,
+               CheckWeightOffsetOptionalNull,
+               CheckOutBiasOptionalSameAsInput,
+           },
+       .processes =
+           {
+               ProcessWeightA16C064,
+               ProcessPerGroupScaleAndOffset,
+               ProcessBiasDirectCopy,
+           }},
+      {.judge = IsMMA16S4PerGroupDataFlow,
+       .checks =
+           {
+               CheckWeightNotEmpty,
+               CheckWeightFormatND,
+               CheckWeightLayoutA16,
+               CheckGroupSize<KGROUP_SIZE_MX, KGROUP_SIZE_HIF4, KGROUP_SIZE_128, KGROUP_SIZE_256>,
+               CheckWeightEven,
+               CheckOutWeightNotNullEmpty,
+               CheckOutWeightDtypeSame,
+               CheckOutWeightViewShapeSame,
+               CheckOutWeightNzStorageDim,
+               CheckOutWeightNz9201,
+               CheckWeightScaleNotEmpty,
+               CheckWeightScaleFormatND,
+               CheckPerGroupScaleOrOffset<false>,
+               CheckOutWeightScaleNotNullEmpty,
+               CheckOutWeightScaleFormatND,
+               CheckOutWeightScaleDtypeSame,
+               CheckOutPerGroupScaleOrOffset<false>,
+               CheckOffsetNotEmpty,
+               CheckOffsetDtype,
+               CheckOffsetFormat,
+               CheckPerGroupScaleOrOffset<true>,
+               CheckOutOffsetNotEmpty,
+               CheckOutOffsetFormat,
+               CheckOutOffsetDtypeSame,
+               CheckOutPerGroupScaleOrOffset<true>,
+               CheckOutBiasOptionalSameAsInput,
+           },
+       .processes =
+           {
+               ProcessWeightA16C016,
+               ProcessPerGroupScaleAndOffset,
+               ProcessBiasDirectCopy,
+           }},
+      {.judge = IsMMA16Fp4PerGroupDataFlow,
+       .checks =
+           {
+               CheckWeightNotEmpty,
+               CheckWeightFormatND,
+               CheckWeightLayoutA16,
+               CheckGroupSize<KGROUP_SIZE_MX, KGROUP_SIZE_HIF4, KGROUP_SIZE_128, KGROUP_SIZE_256>,
+               CheckWeightEven,
+               CheckOutWeightNotNullEmpty,
+               CheckOutWeightDtypeSame,
+               CheckOutWeightViewShapeSame,
+               CheckOutWeightNzStorageDim,
+               CheckOutWeightNz9201,
+               CheckWeightScaleNotEmpty,
+               CheckWeightScaleFormatND,
+               CheckPerGroupScaleOrOffset<false>,
+               CheckOutWeightScaleNotNullEmpty,
+               CheckOutWeightScaleFormatND,
+               CheckOutWeightScaleDtypeSame,
+               CheckOutPerGroupScaleOrOffset<false>,
+               CheckWeightOffsetOptionalNull,
+               CheckOutBiasOptionalSameAsInput,
+           },
+       .processes =
+           {
+               ProcessWeightA16C016,
+               ProcessPerGroupScaleAndOffset,
+               ProcessBiasDirectCopy,
+           }},
+      {.judge = IsMMMxA16W4DataFlow,
+       .checks =
+           {
+               CheckWeightNotEmpty,
+               CheckWeightFormatND,
+               CheckWeightLayoutA16,
+               CheckKGroupSizeMx,
+               CheckOutWeightNotNullEmpty,
+               CheckOutWeightDtypeSame,
+               CheckOutWeightViewShapeSame,
+               CheckOutWeightNzStorageDim,
+               CheckOutWeightTransNz<NZ_C0_64, op::Format::FORMAT_FRACTAL_NZ>,
+               CheckWeightScaleNotEmpty,
+               CheckWeightScaleFormatND,
+               CheckMxA16ScaleDim,
+               CheckMxA16ScaleShape,
+               CheckMxA16ScaleLayout,
+               CheckOutWeightScaleNotNullEmpty,
+               CheckOutWeightScaleFormatND,
+               CheckOutWeightScaleDtypeSame,
+               CheckOutMxScale,
+               CheckWeightOffsetOptionalNull,
+               CheckOutBiasOptionalSameAsInput,
+           },
+       .processes = {
+           ProcessWeightMxFp4,
+           ProcessMxScale,
+           ProcessBiasDirectCopy,
+       }}}}};
