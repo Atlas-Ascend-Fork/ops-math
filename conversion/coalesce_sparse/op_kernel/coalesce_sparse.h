@@ -25,9 +25,8 @@ template <typename uIdxType, typename idxType, typename dataType>
 class KernelCoalesceSparse {
 public:
     __aicore__ inline KernelCoalesceSparse() = default;
-    __aicore__ inline void Init(
-        GM_ADDR uniqueIndices, GM_ADDR indices, GM_ADDR values, GM_ADDR newIndices, GM_ADDR newValue,
-        const CoalesceSparseTilingData* __restrict tilingData);
+    __aicore__ inline void Init(GM_ADDR uniqueIndices, GM_ADDR indices, GM_ADDR values, GM_ADDR newIndices,
+                                GM_ADDR newValue, const CoalesceSparseTilingData* __restrict tilingData);
     __aicore__ inline void Process();
 
 private:
@@ -182,8 +181,8 @@ __aicore__ inline void KernelCoalesceSparse<uIdxType, idxType, dataType>::CopyIn
 }
 
 template <typename uIdxType, typename idxType, typename dataType>
-__aicore__ inline void KernelCoalesceSparse<uIdxType, idxType, dataType>::ComputeAndCopyOut(
-    uint64_t repeatTime, uint64_t taskLen)
+__aicore__ inline void KernelCoalesceSparse<uIdxType, idxType, dataType>::ComputeAndCopyOut(uint64_t repeatTime,
+                                                                                            uint64_t taskLen)
 {
     // maybe the value_size too big and should move many times ---> moveValueTimes and moveValueTail
     // need moveValueTimes, moveValueLen and moveValueTail tiling
@@ -222,8 +221,9 @@ __aicore__ inline void KernelCoalesceSparse<uIdxType, idxType, dataType>::Comput
 }
 
 template <typename uIdxType, typename idxType, typename dataType>
-__aicore__ inline void KernelCoalesceSparse<uIdxType, idxType, dataType>::valueMove(
-    uint64_t valueOffset, uint64_t ubValueOffset, uint64_t moveValueLen)
+__aicore__ inline void KernelCoalesceSparse<uIdxType, idxType, dataType>::valueMove(uint64_t valueOffset,
+                                                                                    uint64_t ubValueOffset,
+                                                                                    uint64_t moveValueLen)
 {
     uint64_t valueByte = moveValueLen * sizeof(dataType);
     LocalTensor<dataType> valueLocal = valueQueue.AllocTensor<dataType>();
@@ -246,4 +246,4 @@ __aicore__ inline uint64_t KernelCoalesceSparse<uIdxType, idxType, dataType>::Ce
     return y == 0 ? x : (x + y - 1) / y;
 }
 
-#endif // COALESCE_SPARSE
+#endif // COALESCE_SPARSE_H

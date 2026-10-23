@@ -54,4 +54,4 @@ ACLNN_API aclnnStatus aclnnCircularPad2d(void* workspace, uint64_t workspaceSize
 }
 #endif
 
-#endif // OP_API_INC_CIRCULAR_PAD_H_
+#endif // OP_API_INC_CIRCULAR_PAD2D_H_

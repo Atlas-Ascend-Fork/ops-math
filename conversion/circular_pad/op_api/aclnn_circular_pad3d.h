@@ -55,4 +55,4 @@ ACLNN_API aclnnStatus aclnnCircularPad3d(void* workspace, uint64_t workspaceSize
 }
 #endif
 
-#endif // OP_API_INC_CIRCULAR_PAD_H_
+#endif // OP_API_INC_CIRCULAR_PAD3D_H_

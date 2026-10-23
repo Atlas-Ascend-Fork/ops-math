@@ -172,4 +172,4 @@ __aicore__ inline void KernelCoalesceSparseSimt<uIdxType, idxType, dataType>::Pr
     }
 }
 
-#endif // COALESCE_SPARSE_SIMT
+#endif // COALESCE_SPARSE_SIMT_H

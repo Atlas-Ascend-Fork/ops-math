@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file test_geir_add_n.cpp
+ * \file test_geir_clip_by_value.cpp
  * \brief
  */
 
