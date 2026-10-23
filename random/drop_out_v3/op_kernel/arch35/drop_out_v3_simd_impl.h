@@ -192,6 +192,17 @@ private:
     __aicore__ inline int64_t GetCurrElements(bool isTailCore, bool isTailLoop,
                                               const DropOutV3TilingDataStruct* tilingData);
 
+    __aicore__ inline void ProcessDisContinuous(const DropOutV3TilingDataStruct* tilingData);
+    __aicore__ inline void CopyInDisContinuous(int64_t gmOffset, int64_t currRows, int64_t cols, int64_t lastColRows);
+    __aicore__ inline void ComputeDisContinuous(int64_t baseLinearIndex, int64_t currRows, int64_t cols,
+                                                int64_t lastColRows, const DropOutV3TilingDataStruct* tilingData);
+    template <int32_t VEC>
+    __aicore__ inline void ComputeDisContinuousSimd(int64_t baseLinearIndex, int64_t currRows, int64_t cols,
+                                                    int64_t lastColRows, const DropOutV3TilingDataStruct* tilingData,
+                                                    LocalTensor<T>& inputUb, LocalTensor<T>& outputUb,
+                                                    LocalTensor<uint8_t>& maskBitUb, LocalTensor<float>& randomFloatUb);
+    __aicore__ inline void CopyOutDisContinuous(int64_t gmOffset, int64_t currRows, int64_t cols, int64_t lastColRows);
+
 private:
     TPipe* pipe_ = nullptr;
     GlobalTensor<T> xGm_;
@@ -232,14 +243,26 @@ __aicore__ inline void DropOutV3SimdImpl<T, U>::Init(GM_ADDR x, GM_ADDR y, GM_AD
     GetUintDivMagicAndShift<uint64_t>(magic64_, shift64_, static_cast<uint64_t>(totalThreads_));
     blockIdx_ = GetBlockIdx();
 
-    uint32_t randBufNum = (vec_ == NUM_2) ? NUM_2 : 1;
+    uint32_t randBufNum = 1;
     int64_t sizeofT = static_cast<int64_t>(sizeof(T));
-    int64_t ubFactor = tilingData->ubFactorElements;
+    int64_t ubFactor = 0;
+    if ((vec_ == 1) && (prob_ > double_epsilon)) {
+        ubFactor = tilingData->ubFactorRows;
+    } else {
+        ubFactor = tilingData->ubFactorElements;
+        randBufNum = (vec_ == NUM_2) ? NUM_2 : 1;
+    }
     int64_t inputBufSize = Ops::Base::CeilAlign(ubFactor * sizeofT, ALIGNMENT_32);
     int64_t outputBufSize = Ops::Base::CeilAlign(ubFactor * sizeofT, ALIGNMENT_32);
     int64_t maskBitBufSize = Ops::Base::CeilAlign(ubFactor / NUM_8, ALIGNMENT_32);
     int64_t randomFloatBufSize = Ops::Base::CeilAlign(ubFactor * static_cast<int64_t>(sizeof(float)) * randBufNum,
                                                       ALIGNMENT_32);
+    if ((vec_ == 1) && (prob_ > double_epsilon)) {
+        inputBufSize *= NUM_4;
+        outputBufSize *= NUM_4;
+        maskBitBufSize *= NUM_4;
+        randomFloatBufSize *= NUM_4;
+    }
     pipe_->InitBuffer(inputQue_, NUM_2, inputBufSize);
     pipe_->InitBuffer(outputQue_, NUM_2, outputBufSize);
     pipe_->InitBuffer(maskBitQue_, NUM_2, maskBitBufSize);
@@ -355,7 +378,7 @@ __aicore__ inline void DropOutV3SimdImpl<T, U>::ComputeContinuousSimd(int64_t ba
     uint32_t counter[ALG_COUNTER_SIZE] = {0, 0, 0, 0};
     key[0] = static_cast<uint32_t>(realSeed_);
     key[1] = static_cast<uint32_t>(static_cast<uint64_t>(realSeed_) >> RIGHT_SHIFT);
-    uint64_t skipOffset = Ops::Base::CeilDiv(realOffset_, static_cast<int64_t>(VEC_4));
+    uint64_t skipOffset = Ops::Base::CeilDiv(realOffset_, static_cast<int64_t>(NUM_4));
     counter[0] = static_cast<uint32_t>(skipOffset);
     counter[1] = static_cast<uint32_t>(skipOffset >> RIGHT_SHIFT);
 
@@ -593,12 +616,12 @@ __aicore__ inline void DropOutV3SimdImpl<T, U>::ComputeContinuousSimd(int64_t ba
             rand0 = cInvHalfReg;
             rand1 = cInvHalfReg;
 
-            pg = Reg::UpdateMask<float>(currCount0);
+            pg = Reg::UpdateMask<uint32_t>(currCount0);
             PhiloxCtrConvertUniform(ctr0, mask16Reg, cHiReg, cInvReg, pg, rand0);
             Reg::StoreAlign<float>(tailRandomPtr, rand0, pg);
             PhiloxDropoutApply<T>(rand0, zeroFloatReg, oneFloatReg, pg, scale, prob_, tailInputPtr, tailOutputPtr);
 
-            pg = Reg::UpdateMask<float>(currCount1);
+            pg = Reg::UpdateMask<uint32_t>(currCount1);
             PhiloxCtrConvertUniform(ctr1, mask16Reg, cHiReg, cInvReg, pg, rand1);
             Reg::StoreAlign<float>(tailRandomPtr + counterPerBatch, rand1, pg);
             PhiloxDropoutApply<T>(rand1, zeroFloatReg, oneFloatReg, pg, scale, prob_, tailInputPtr + counterPerBatch,
@@ -613,13 +636,13 @@ __aicore__ inline void DropOutV3SimdImpl<T, U>::ComputeContinuousSimd(int64_t ba
                 rand2 = cInvHalfReg;
                 rand3 = cInvHalfReg;
 
-                pg = Reg::UpdateMask<float>(currCount2);
+                pg = Reg::UpdateMask<uint32_t>(currCount2);
                 PhiloxCtrConvertUniform(ctr2, mask16Reg, cHiReg, cInvReg, pg, rand2);
                 Reg::StoreAlign<float>(tailRandomPtr + NUM_2 * counterPerBatch, rand2, pg);
                 PhiloxDropoutApply<T>(rand2, zeroFloatReg, oneFloatReg, pg, scale, prob_,
                                       tailInputPtr + NUM_2 * counterPerBatch, tailOutputPtr + NUM_2 * counterPerBatch);
 
-                pg = Reg::UpdateMask<float>(currCount3);
+                pg = Reg::UpdateMask<uint32_t>(currCount3);
                 PhiloxCtrConvertUniform(ctr3, mask16Reg, cHiReg, cInvReg, pg, rand3);
                 Reg::StoreAlign<float>(tailRandomPtr + NUM_3 * counterPerBatch, rand3, pg);
                 PhiloxDropoutApply<T>(rand3, zeroFloatReg, oneFloatReg, pg, scale, prob_,
@@ -682,6 +705,381 @@ __aicore__ inline void DropOutV3SimdImpl<T, U>::ProcessContinuous(const DropOutV
 }
 
 template <typename T, typename U>
+__aicore__ inline void DropOutV3SimdImpl<T, U>::CopyInDisContinuous(int64_t gmOffset, int64_t currRows, int64_t cols,
+                                                                    int64_t lastColRows)
+{
+    LocalTensor<T> inputUb = inputQue_.template AllocTensor<T>();
+
+    if (cols != 0) {
+        DataCopyExtParams copyParams{static_cast<uint16_t>(cols), static_cast<uint32_t>(currRows * sizeof(T)),
+                                     static_cast<uint32_t>((totalThreads_ - currRows) * sizeof(T)),
+                                     static_cast<uint32_t>(0), static_cast<uint32_t>(0)};
+        DataCopyPadExtParams<T> padParams{
+            true, static_cast<uint8_t>(0),
+            static_cast<uint8_t>(Ops::Base::CeilAlign(currRows, static_cast<int64_t>(NUM_8)) - currRows),
+            static_cast<uint8_t>(0)};
+        DataCopyPad(inputUb, xGm_[gmOffset], copyParams, padParams);
+    }
+
+    if (lastColRows != 0) {
+        DataCopyExtParams copy1Params{static_cast<uint16_t>(1), static_cast<uint32_t>(lastColRows * sizeof(T)),
+                                      static_cast<uint32_t>(0), static_cast<uint32_t>(0), static_cast<uint32_t>(0)};
+        DataCopyPadExtParams<T> pad1Params{
+            true, static_cast<uint8_t>(0),
+            static_cast<uint8_t>(Ops::Base::CeilAlign(lastColRows, static_cast<int64_t>(NUM_8)) - lastColRows),
+            static_cast<uint8_t>(0)};
+        DataCopyPad(inputUb[cols * currRows], xGm_[gmOffset + cols * totalThreads_], copy1Params, pad1Params);
+    }
+
+    inputQue_.EnQue(inputUb);
+}
+
+template <typename T, typename U>
+__aicore__ inline void DropOutV3SimdImpl<T, U>::ComputeDisContinuous(int64_t baseLinearIndex, int64_t currRows,
+                                                                     int64_t cols, int64_t lastColRows,
+                                                                     const DropOutV3TilingDataStruct* tilingData)
+{
+    LocalTensor<T> inputUb = inputQue_.template DeQue<T>();
+    LocalTensor<T> outputUb = outputQue_.template AllocTensor<T>();
+    LocalTensor<uint8_t> maskBitUb = maskBitQue_.template AllocTensor<uint8_t>();
+    LocalTensor<float> randomFloatUb = randomFloatBuf_.Get<float>();
+
+    ComputeDisContinuousSimd<static_cast<int32_t>(VEC_4)>(baseLinearIndex, currRows, cols, lastColRows, tilingData,
+                                                          inputUb, outputUb, maskBitUb, randomFloatUb);
+
+    outputQue_.EnQue(outputUb);
+    maskBitQue_.EnQue(maskBitUb);
+    inputQue_.FreeTensor(inputUb);
+}
+
+template <typename T, typename U>
+template <int32_t VEC>
+__aicore__ inline void DropOutV3SimdImpl<T, U>::ComputeDisContinuousSimd(
+    int64_t baseLinearIndex, int64_t currRows, int64_t cols, int64_t lastColRows,
+    const DropOutV3TilingDataStruct* tilingData, LocalTensor<T>& inputUb, LocalTensor<T>& outputUb,
+    LocalTensor<uint8_t>& maskBitUb, LocalTensor<float>& randomFloatUb)
+{
+    constexpr uint32_t counterPerBatch = static_cast<uint32_t>(PhiloxInternal::ELE_CNT_B32_ONCE);
+    constexpr uint32_t elemPerBatch = counterPerBatch * NUM_4;
+
+    uint32_t key[ALG_KEY_SIZE] = {0, 0};
+    uint32_t counter[ALG_COUNTER_SIZE] = {0, 0, 0, 0};
+    key[0] = static_cast<uint32_t>(realSeed_);
+    key[1] = static_cast<uint32_t>(static_cast<uint64_t>(realSeed_) >> RIGHT_SHIFT);
+    uint64_t skipOffset = Ops::Base::CeilDiv(realOffset_, static_cast<int64_t>(NUM_4));
+    counter[0] = static_cast<uint32_t>(skipOffset);
+    counter[1] = static_cast<uint32_t>(skipOffset >> RIGHT_SHIFT);
+
+    float scale = 1.0f / prob_;
+
+    uint32_t totalBatches = Ops::Base::CeilDiv(static_cast<uint32_t>(currRows), counterPerBatch);
+    uint32_t fullBatches = (totalBatches > 0) ? (totalBatches - 1) : 0;
+
+    uint32_t baseGti = static_cast<uint32_t>(baseLinearIndex % totalThreads_);
+    uint32_t baseRepeat = static_cast<uint32_t>(baseLinearIndex / totalThreads_ / VEC);
+
+    __ubuf__ T* inputPtr = (__ubuf__ T*)inputUb.GetPhyAddr();
+    __ubuf__ T* outputPtr = (__ubuf__ T*)outputUb.GetPhyAddr();
+    __ubuf__ float* randomFloatPtr = (__ubuf__ float*)randomFloatUb.GetPhyAddr();
+    __ubuf__ uint32_t* ctrBufPtr = (__ubuf__ uint32_t*)randomFloatPtr;
+
+    uint32_t key0Phase2 = key[0];
+    uint32_t key1Phase2 = key[1];
+    uint32_t key0Phase3 = key[0] + NUM_4 * PhiloxInternal::CONST_KEY_ADD_0;
+    uint32_t key1Phase3 = key[1] + NUM_4 * PhiloxInternal::CONST_KEY_ADD_1;
+    uint32_t key0Phase4 = key[0] + NUM_8 * PhiloxInternal::CONST_KEY_ADD_0;
+    uint32_t key1Phase4 = key[1] + NUM_8 * PhiloxInternal::CONST_KEY_ADD_1;
+
+    __VEC_SCOPE__
+    {
+        Reg::MaskReg pg = Reg::CreateMask<uint32_t>();
+
+        Reg::RegTensor<uint32_t> cMul0, cMul1;
+        Reg::Duplicate(cMul0, PhiloxInternal::CONST_MUL_0);
+        Reg::Duplicate(cMul1, PhiloxInternal::CONST_MUL_1);
+
+        Reg::RegTensor<uint32_t> zeroReg, initCtr0, initCtr1, initCtr2;
+        Reg::Duplicate(zeroReg, 0);
+        Reg::Duplicate(initCtr0, counter[0]);
+        Reg::Duplicate(initCtr1, counter[1]);
+        Reg::Duplicate(initCtr2, baseGti);
+        VectorThreadMapping<VEC>(baseRepeat, zeroReg, initCtr0, initCtr1, initCtr2, pg);
+
+        for (uint16_t batch = 0; batch < static_cast<uint16_t>(fullBatches); batch++) {
+            __ubuf__ uint32_t* bufPtr = ctrBufPtr + batch * counterPerBatch;
+
+            Reg::RegTensor<uint32_t> ctr0, ctr1, ctr2, ctr3;
+            ctr0 = initCtr0;
+            ctr1 = initCtr1;
+            Reg::Adds(ctr2, initCtr2, batch * counterPerBatch, pg);
+            ctr3 = zeroReg;
+
+            Reg::RegTensor<uint32_t> key0, key1;
+            Reg::Duplicate(key0, key0Phase2);
+            Reg::Duplicate(key1, key1Phase2);
+
+            Reg::RegTensor<uint32_t> tmpL0, tmpH0, tmpL1, tmpH1;
+            SpNetworkKernel<4>(tmpL0, tmpH0, tmpL1, tmpH1, ctr0, ctr1, ctr2, ctr3, key0, key1, cMul0, cMul1, pg);
+
+            Reg::StoreAlign<uint32_t>(bufPtr, ctr0, pg);
+            Reg::StoreAlign<uint32_t>(bufPtr + currRows, ctr1, pg);
+            Reg::StoreAlign<uint32_t>(bufPtr + NUM_2 * currRows, ctr2, pg);
+            Reg::StoreAlign<uint32_t>(bufPtr + NUM_3 * currRows, ctr3, pg);
+        }
+
+        Reg::LocalMemBar<Reg::MemType::VEC_STORE, Reg::MemType::VEC_LOAD>();
+
+        for (uint16_t batch = 0; batch < static_cast<uint16_t>(fullBatches); batch++) {
+            __ubuf__ uint32_t* bufPtr = ctrBufPtr + batch * counterPerBatch;
+
+            Reg::RegTensor<uint32_t> ctr0, ctr1, ctr2, ctr3;
+            Reg::LoadAlign<uint32_t>(ctr0, bufPtr);
+            Reg::LoadAlign<uint32_t>(ctr1, bufPtr + currRows);
+            Reg::LoadAlign<uint32_t>(ctr2, bufPtr + NUM_2 * currRows);
+            Reg::LoadAlign<uint32_t>(ctr3, bufPtr + NUM_3 * currRows);
+
+            Reg::RegTensor<uint32_t> key0, key1;
+            Reg::Duplicate(key0, key0Phase3);
+            Reg::Duplicate(key1, key1Phase3);
+
+            Reg::RegTensor<uint32_t> tmpL0, tmpH0, tmpL1, tmpH1;
+            SpNetworkKernel<4>(tmpL0, tmpH0, tmpL1, tmpH1, ctr0, ctr1, ctr2, ctr3, key0, key1, cMul0, cMul1, pg);
+
+            Reg::StoreAlign<uint32_t>(bufPtr, ctr0, pg);
+            Reg::StoreAlign<uint32_t>(bufPtr + currRows, ctr1, pg);
+            Reg::StoreAlign<uint32_t>(bufPtr + NUM_2 * currRows, ctr2, pg);
+            Reg::StoreAlign<uint32_t>(bufPtr + NUM_3 * currRows, ctr3, pg);
+        }
+
+        Reg::LocalMemBar<Reg::MemType::VEC_STORE, Reg::MemType::VEC_LOAD>();
+
+        for (uint16_t batch = 0; batch < static_cast<uint16_t>(fullBatches); batch++) {
+            __ubuf__ uint32_t* bufPtr = ctrBufPtr + batch * counterPerBatch;
+
+            Reg::RegTensor<uint32_t> ctr0, ctr1, ctr2, ctr3;
+            Reg::LoadAlign<uint32_t>(ctr0, bufPtr);
+            Reg::LoadAlign<uint32_t>(ctr1, bufPtr + currRows);
+            Reg::LoadAlign<uint32_t>(ctr2, bufPtr + NUM_2 * currRows);
+            Reg::LoadAlign<uint32_t>(ctr3, bufPtr + NUM_3 * currRows);
+
+            Reg::RegTensor<uint32_t> key0, key1;
+            Reg::Duplicate(key0, key0Phase4);
+            Reg::Duplicate(key1, key1Phase4);
+
+            Reg::RegTensor<uint32_t> tmpL0, tmpH0, tmpL1, tmpH1;
+            SpNetworkKernel<2>(tmpL0, tmpH0, tmpL1, tmpH1, ctr0, ctr1, ctr2, ctr3, key0, key1, cMul0, cMul1, pg);
+
+            Reg::StoreAlign<uint32_t>(bufPtr, ctr0, pg);
+            Reg::StoreAlign<uint32_t>(bufPtr + currRows, ctr1, pg);
+            Reg::StoreAlign<uint32_t>(bufPtr + NUM_2 * currRows, ctr2, pg);
+            Reg::StoreAlign<uint32_t>(bufPtr + NUM_3 * currRows, ctr3, pg);
+        }
+
+        Reg::LocalMemBar<Reg::MemType::VEC_STORE, Reg::MemType::VEC_LOAD>();
+
+        Reg::RegTensor<uint32_t> mask16Reg;
+        Reg::Duplicate(mask16Reg, 0xFFFF);
+
+        Reg::RegTensor<float> cHiReg, cInvReg, cInvHalfReg;
+        Reg::Duplicate(cHiReg, HIFLOAT_MULS);
+        Reg::Duplicate(cInvReg, RAND_2POW32_INV);
+        Reg::Duplicate(cInvHalfReg, RAND_2POW32_INV_HALF);
+
+        Reg::RegTensor<float> zeroFloatReg;
+        Reg::Duplicate(zeroFloatReg, 0.0f);
+
+        Reg::RegTensor<float> oneFloatReg;
+        Reg::Duplicate(oneFloatReg, 1.0f);
+
+        for (uint16_t batch = 0; batch < static_cast<uint16_t>(fullBatches); batch++) {
+            uint32_t batchStart = batch * counterPerBatch;
+            __ubuf__ uint32_t* bufPtr = ctrBufPtr + batchStart;
+            __ubuf__ float* batchRandomPtr = randomFloatPtr + batchStart;
+            __ubuf__ T* batchInputPtr = inputPtr + batchStart;
+            __ubuf__ T* batchOutputPtr = outputPtr + batchStart;
+
+            for (uint16_t colIdx = 0; colIdx < static_cast<uint16_t>(cols); colIdx++) {
+                Reg::RegTensor<uint32_t> ctr0;
+                Reg::RegTensor<float> rand0;
+                rand0 = cInvHalfReg;
+
+                Reg::LoadAlign<uint32_t>(ctr0, bufPtr + colIdx * currRows);
+                PhiloxCtrConvertUniform(ctr0, mask16Reg, cHiReg, cInvReg, pg, rand0);
+                Reg::StoreAlign<float>(batchRandomPtr + colIdx * currRows, rand0, pg);
+                PhiloxDropoutApply<T>(rand0, zeroFloatReg, oneFloatReg, pg, scale, prob_,
+                                      batchInputPtr + colIdx * currRows, batchOutputPtr + colIdx * currRows);
+            }
+            if (lastColRows > batch * counterPerBatch) {
+                Reg::RegTensor<uint32_t> ctr1;
+                Reg::RegTensor<float> rand1;
+                rand1 = cInvHalfReg;
+                uint32_t batchLens = lastColRows - batch * counterPerBatch;
+                batchLens = (batchLens > counterPerBatch) ? counterPerBatch : batchLens;
+                Reg::MaskReg mask = Reg::UpdateMask<uint32_t>(batchLens);
+                Reg::LoadAlign<uint32_t>(ctr1, bufPtr + cols * currRows);
+                PhiloxCtrConvertUniform(ctr1, mask16Reg, cHiReg, cInvReg, mask, rand1);
+                Reg::StoreAlign<float>(batchRandomPtr + cols * currRows, rand1, mask);
+                PhiloxDropoutApply<T>(rand1, zeroFloatReg, oneFloatReg, mask, scale, prob_,
+                                      batchInputPtr + cols * currRows, batchOutputPtr + cols * currRows);
+            }
+        }
+
+        if (totalBatches > 0) {
+            uint32_t batchStart = fullBatches * counterPerBatch;
+            __ubuf__ T* tailInputPtr = inputPtr + batchStart;
+            __ubuf__ T* tailOutputPtr = outputPtr + batchStart;
+            __ubuf__ float* tailRandomPtr = randomFloatPtr + batchStart;
+            __ubuf__ uint32_t* tailBufPtr = ctrBufPtr + batchStart;
+
+            uint32_t tailRows = static_cast<uint32_t>(currRows) - batchStart;
+            pg = Reg::UpdateMask<uint32_t>(tailRows);
+
+            Reg::RegTensor<uint32_t> key0, key1;
+            Reg::Duplicate(key0, key[0]);
+            Reg::Duplicate(key1, key[1]);
+
+            Reg::RegTensor<uint32_t> ctr0, ctr1, ctr2, ctr3;
+            ctr0 = initCtr0;
+            ctr1 = initCtr1;
+            Reg::Adds(ctr2, initCtr2, fullBatches * counterPerBatch, pg);
+            ctr3 = zeroReg;
+
+            Reg::RegTensor<uint32_t> tmpL0, tmpH0, tmpL1, tmpH1;
+            SpNetworkKernel<10>(tmpL0, tmpH0, tmpL1, tmpH1, ctr0, ctr1, ctr2, ctr3, key0, key1, cMul0, cMul1, pg);
+
+            Reg::StoreAlign<uint32_t>(tailBufPtr, ctr0, pg);
+            Reg::StoreAlign<uint32_t>(tailBufPtr + currRows, ctr1, pg);
+            Reg::StoreAlign<uint32_t>(tailBufPtr + NUM_2 * currRows, ctr2, pg);
+            Reg::StoreAlign<uint32_t>(tailBufPtr + NUM_3 * currRows, ctr3, pg);
+
+            Reg::LocalMemBar<Reg::MemType::VEC_STORE, Reg::MemType::VEC_LOAD>();
+
+            for (uint16_t colIdx = 0; colIdx < static_cast<uint16_t>(cols); colIdx++) {
+                Reg::RegTensor<uint32_t> ctr0;
+                Reg::RegTensor<float> rand0;
+                rand0 = cInvHalfReg;
+
+                Reg::LoadAlign<uint32_t>(ctr0, tailBufPtr + colIdx * currRows);
+                PhiloxCtrConvertUniform(ctr0, mask16Reg, cHiReg, cInvReg, pg, rand0);
+                Reg::StoreAlign<float>(tailRandomPtr + colIdx * currRows, rand0, pg);
+                PhiloxDropoutApply<T>(rand0, zeroFloatReg, oneFloatReg, pg, scale, prob_,
+                                      tailInputPtr + colIdx * currRows, tailOutputPtr + colIdx * currRows);
+            }
+            if (lastColRows > fullBatches * counterPerBatch) {
+                Reg::RegTensor<uint32_t> ctr1;
+                Reg::RegTensor<float> rand1;
+                rand1 = cInvHalfReg;
+                uint32_t batchLens = lastColRows - fullBatches * counterPerBatch;
+                batchLens = (batchLens > counterPerBatch) ? counterPerBatch : batchLens;
+                Reg::MaskReg mask = Reg::UpdateMask<uint32_t>(batchLens);
+                Reg::LoadAlign<uint32_t>(ctr1, tailBufPtr + cols * currRows);
+                PhiloxCtrConvertUniform(ctr1, mask16Reg, cHiReg, cInvReg, mask, rand1);
+                Reg::StoreAlign<float>(tailRandomPtr + cols * currRows, rand1, mask);
+                PhiloxDropoutApply<T>(rand1, zeroFloatReg, oneFloatReg, mask, scale, prob_,
+                                      tailInputPtr + cols * currRows, tailOutputPtr + cols * currRows);
+            }
+        }
+
+        Reg::LocalMemBar<Reg::MemType::VEC_STORE, Reg::MemType::VEC_LOAD>();
+    }
+
+#pragma unroll
+    for (uint16_t colIdx = 0; colIdx < static_cast<uint16_t>(cols); colIdx++) {
+        int64_t offsetAlignBytes = colIdx * Ops::Base::CeilAlign(currRows / NUM_8, ALIGNMENT_32);
+        CompareScalar<float, uint8_t>(maskBitUb[offsetAlignBytes], randomFloatUb[colIdx * currRows], prob_, CMPMODE::LT,
+                                      currRows);
+    }
+    if (lastColRows != 0) {
+        int64_t offsetAlignBytes = cols * Ops::Base::CeilAlign(currRows / NUM_8, ALIGNMENT_32);
+        CompareScalar<float, uint8_t>(maskBitUb[offsetAlignBytes], randomFloatUb[currRows * cols], prob_, CMPMODE::LT,
+                                      lastColRows);
+    }
+}
+
+template <typename T, typename U>
+__aicore__ inline void DropOutV3SimdImpl<T, U>::CopyOutDisContinuous(int64_t gmOffset, int64_t currRows, int64_t cols,
+                                                                     int64_t lastColRows)
+{
+    LocalTensor<T> outputUb = outputQue_.template DeQue<T>();
+    LocalTensor<uint8_t> maskBitUb = maskBitQue_.template DeQue<uint8_t>();
+
+    if (cols != 0) {
+        DataCopyExtParams copyParamsY{
+            static_cast<uint16_t>(cols), static_cast<uint32_t>(currRows * sizeof(T)), static_cast<uint32_t>(0),
+            static_cast<uint32_t>((totalThreads_ - currRows) * sizeof(T)), static_cast<uint32_t>(0)};
+        DataCopyPad(yGm_[gmOffset], outputUb, copyParamsY);
+
+        int64_t maskBytes = Ops::Base::CeilDiv(currRows, static_cast<int64_t>(NUM_8));
+        int64_t strideBytes = Ops::Base::CeilDiv(totalThreads_ - currRows, static_cast<int64_t>(NUM_8));
+        DataCopyExtParams copyParamsMask{
+            static_cast<uint16_t>(cols), static_cast<uint32_t>(maskBytes * sizeof(uint8_t)), static_cast<uint32_t>(0),
+            static_cast<uint32_t>(strideBytes * sizeof(uint8_t)), static_cast<uint32_t>(0)};
+        DataCopyPad(maskGm_[gmOffset / NUM_8], maskBitUb, copyParamsMask);
+    }
+
+    if (lastColRows != 0) {
+        DataCopyExtParams copy1ParamsY{static_cast<uint16_t>(1), static_cast<uint32_t>(lastColRows * sizeof(T)),
+                                       static_cast<uint32_t>(0), static_cast<uint32_t>(0), static_cast<uint32_t>(0)};
+        DataCopyPad(yGm_[gmOffset + cols * totalThreads_], outputUb[cols * currRows], copy1ParamsY);
+
+        int64_t mask1Bytes = Ops::Base::CeilDiv(lastColRows, static_cast<int64_t>(NUM_8));
+        int64_t offsetAlignBytes = cols * Ops::Base::CeilAlign(currRows / NUM_8, ALIGNMENT_32);
+        DataCopyExtParams copy1ParamsMask{static_cast<uint16_t>(1), static_cast<uint32_t>(mask1Bytes * sizeof(uint8_t)),
+                                          static_cast<uint32_t>(0), static_cast<uint32_t>(0), static_cast<uint32_t>(0)};
+        DataCopyPad(maskGm_[(gmOffset + cols * totalThreads_) / NUM_8], maskBitUb[offsetAlignBytes], copy1ParamsMask);
+    }
+
+    outputQue_.FreeTensor(outputUb);
+    maskBitQue_.FreeTensor(maskBitUb);
+}
+
+template <typename T, typename U>
+__aicore__ inline void DropOutV3SimdImpl<T, U>::ProcessDisContinuous(const DropOutV3TilingDataStruct* tilingData)
+{
+    int64_t rowOffset = static_cast<int64_t>(blockIdx_) * tilingData->perCoreRows;
+    int64_t blockIdx = rowOffset / totalThreads_;
+    int64_t threadIdx = rowOffset % totalThreads_;
+    int64_t gmOffset = blockIdx * totalThreads_ * NUM_4 + threadIdx;
+
+    bool isTailCore = (blockIdx_ == tilingData->usedCoreNum - 1);
+    int64_t coreEnd = rowOffset + (isTailCore ? tilingData->tailCoreRows : tilingData->perCoreRows);
+    int64_t ttPeriod = static_cast<int64_t>(totalThreads_);
+    int64_t ttRemain = ttPeriod - (rowOffset % ttPeriod);
+
+    while (rowOffset < coreEnd) {
+        int64_t currRows = static_cast<int64_t>(tilingData->ubFactorRows);
+        if (coreEnd - rowOffset < currRows) {
+            currRows = coreEnd - rowOffset;
+        }
+        if (ttRemain < currRows) {
+            currRows = ttRemain;
+        }
+        currRows = Ops::Base::CeilAlign(currRows, ALIGNMENT_32 / static_cast<int64_t>(sizeof(T)));
+        int64_t cols = (tilingData->outputSize - gmOffset) / totalThreads_;
+        int64_t lastColRows = (tilingData->outputSize - gmOffset) % totalThreads_;
+        if (cols >= NUM_4) {
+            cols = NUM_4;
+            lastColRows = 0;
+        } else {
+            if (lastColRows >= currRows) {
+                cols++;
+                lastColRows = 0;
+            }
+        }
+        CopyInDisContinuous(gmOffset, currRows, cols, lastColRows);
+        ComputeDisContinuous(gmOffset, currRows, cols, lastColRows, tilingData);
+        CopyOutDisContinuous(gmOffset, currRows, cols, lastColRows);
+        rowOffset += currRows;
+        gmOffset += currRows;
+        ttRemain -= currRows;
+        if (ttRemain == 0) {
+            ttRemain = ttPeriod;
+            gmOffset += totalThreads_ * NUM_3;
+        }
+    }
+}
+
+template <typename T, typename U>
 __aicore__ inline void DropOutV3SimdImpl<T, U>::ProcessProbZero(const DropOutV3TilingDataStruct* tilingData)
 {
     int64_t gmOffset = static_cast<int64_t>(blockIdx_) * tilingData->perCoreElements;
@@ -721,6 +1119,8 @@ __aicore__ inline void DropOutV3SimdImpl<T, U>::Process(const DropOutV3TilingDat
 
     if (IsProbEqual(prob_, 0.0f)) {
         ProcessProbZero(tilingData);
+    } else if (vec_ == 1) {
+        ProcessDisContinuous(tilingData);
     } else {
         ProcessContinuous(tilingData);
     }
@@ -732,7 +1132,7 @@ __aicore__ inline void DropOutV3SimdImpl<T, U>::Process(const DropOutV3TilingDat
         int64_t maskTotalBytes = Ops::Base::CeilAlign(tilingData->outputSize, BIT_NUMBER) / UINT8_BIT_NUMBER;
         __gm__ uint8_t* maskU8 = (__gm__ uint8_t*)maskGm_.GetPhyAddr();
         for (int64_t i = maskWrittenBytes; i < maskTotalBytes; i++) {
-            WriteGmByPassDCache<uint8_t>(maskU8 + i, 0);
+            WriteGmBypassDCache<uint8_t>(maskU8 + i, 0);
         }
     }
 }

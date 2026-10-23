@@ -43,6 +43,7 @@ static constexpr int64_t NUM_4 = 4;
 static constexpr int64_t NUM_8 = 8;
 static constexpr int64_t NUM_16 = 16;
 static constexpr int64_t DROPOUT_CORE_GRANULARITY = 32;
+static constexpr float double_epsilon = 2.22045e-16f; // std::numeric_limits<double>::epsilon()
 
 OpTilingConfig DropOutV3Tiling::BuildOpConfig(gert::TilingContext* context)
 {
@@ -168,40 +169,87 @@ ge::graphStatus DropOutV3Tiling::UniqueProcess()
     // 计算 totalThreads
     dropOutV3TilingData_.totalThreads = AIC_CLUSTER_COUNT * MAX_THREADS_PER_AIC;
 
-    // 分核
-    int64_t coreGranularity = DROPOUT_CORE_GRANULARITY;
-    int64_t avgPerCore = Ops::Base::CeilDiv(outputSize, totalCoreNum);
-    int64_t perCoreElements = Ops::Base::CeilAlign(avgPerCore, coreGranularity);
-    perCoreElements = std::max(perCoreElements, coreGranularity);
-    int64_t usedCoreNum = std::min(totalCoreNum, Ops::Base::CeilDiv(outputSize, perCoreElements));
-    usedCoreNum = std::max(1L, usedCoreNum);
-    int64_t tailCoreElements = outputSize - (perCoreElements * (usedCoreNum - 1));
+    if ((vec == 1) && (prob > double_epsilon)) {
+        // 非连续模式 分核
+        int64_t totalCols = Ops::Base::CeilDiv(outputSize, dropOutV3TilingData_.totalThreads);
+        int64_t tailColRows = outputSize % dropOutV3TilingData_.totalThreads;
+        int64_t totalBlocks = Ops::Base::CeilDiv(totalCols, NUM_4);
+        int64_t tailBlockCols = totalCols % NUM_4;
+        int64_t tailBlockRows = dropOutV3TilingData_.totalThreads;
+        if (tailBlockCols == 1) {
+            tailBlockRows = tailColRows;
+        }
+        int64_t totalRows = (totalBlocks - 1) * dropOutV3TilingData_.totalThreads + tailBlockRows;
 
-    dropOutV3TilingData_.usedCoreNum = usedCoreNum;
-    dropOutV3TilingData_.perCoreElements = perCoreElements;
-    dropOutV3TilingData_.tailCoreElements = tailCoreElements;
+        int64_t coreGranularity = DROPOUT_CORE_GRANULARITY;
+        int64_t avgPerCore = Ops::Base::CeilDiv(totalRows, totalCoreNum);
+        int64_t perCoreRows = Ops::Base::CeilAlign(avgPerCore, coreGranularity);
+        perCoreRows = std::max(perCoreRows, coreGranularity);
+        int64_t usedCoreNum = std::min(totalCoreNum, Ops::Base::CeilDiv(totalRows, perCoreRows));
+        usedCoreNum = std::max(1L, usedCoreNum);
+        int64_t tailCoreRows = totalRows - (perCoreRows * (usedCoreNum - 1));
 
-    // 分 UB (双buffer: 2*input + 2*output + 2*maskBit + [2/1]*randomFloatBuf)
-    uint32_t randBufNum = (vec == NUM_2) ? NUM_2 : 1;
-    int64_t perBlockBytes = (NUM_2 * coreGranularity * sizeofT) + (NUM_2 * coreGranularity * sizeofT) +
-                            (NUM_2 * coreGranularity / NUM_8) + (coreGranularity * NUM_4 * randBufNum);
-    int64_t ubFactorElements = Ops::Base::FloorDiv(ubSize_, perBlockBytes) * coreGranularity;
-    while (NUM_2 * Ops::Base::CeilAlign(ubFactorElements * sizeofT, ALIGNMENT_32) +
-               NUM_2 * Ops::Base::CeilAlign(ubFactorElements * sizeofT, ALIGNMENT_32) +
-               NUM_2 * Ops::Base::CeilAlign(ubFactorElements / NUM_8, ALIGNMENT_32) +
-               Ops::Base::CeilAlign(ubFactorElements * NUM_4 * randBufNum, ALIGNMENT_32) >
-           ubSize_) {
-        ubFactorElements -= coreGranularity;
+        dropOutV3TilingData_.usedCoreNum = usedCoreNum;
+        dropOutV3TilingData_.perCoreRows = perCoreRows;
+        dropOutV3TilingData_.tailCoreRows = tailCoreRows;
+
+        // 非连续模式 分 UB (双buffer: 2*input + 2*output + 2*maskBit + 1*randomFloatBuf)
+        int64_t perBlockBytes = (NUM_2 * coreGranularity * NUM_4 * sizeofT) +
+                                (NUM_2 * coreGranularity * NUM_4 * sizeofT) +
+                                (NUM_2 * coreGranularity * NUM_4 / NUM_8) + (coreGranularity * NUM_4 * NUM_4);
+        int64_t ubFactorRows = Ops::Base::FloorDiv(ubSize_, perBlockBytes) * coreGranularity;
+        while (NUM_2 * Ops::Base::CeilAlign(ubFactorRows * sizeofT, ALIGNMENT_32) * NUM_4 +
+                   NUM_2 * Ops::Base::CeilAlign(ubFactorRows * sizeofT, ALIGNMENT_32) * NUM_4 +
+                   NUM_2 * Ops::Base::CeilAlign(ubFactorRows / NUM_8, ALIGNMENT_32) * NUM_4 +
+                   Ops::Base::CeilAlign(ubFactorRows * NUM_4, ALIGNMENT_32) * NUM_4 >
+               ubSize_) {
+            ubFactorRows -= coreGranularity;
+        }
+        ubFactorRows = std::max(ubFactorRows, coreGranularity);
+        dropOutV3TilingData_.ubFactorRows = ubFactorRows;
+
+        dropOutV3TilingData_.ubLoopCount = Ops::Base::CeilDiv(perCoreRows, ubFactorRows);
+        dropOutV3TilingData_.tailUbFactorRows = perCoreRows - (dropOutV3TilingData_.ubLoopCount - 1) * ubFactorRows;
+        dropOutV3TilingData_.tailUbLoopCount = Ops::Base::CeilDiv(tailCoreRows, ubFactorRows);
+        dropOutV3TilingData_.tailCoreTailUbFactorRows = tailCoreRows -
+                                                        (dropOutV3TilingData_.tailUbLoopCount - 1) * ubFactorRows;
+    } else {
+        // 连续模式 分核
+        int64_t coreGranularity = DROPOUT_CORE_GRANULARITY;
+        int64_t avgPerCore = Ops::Base::CeilDiv(outputSize, totalCoreNum);
+        int64_t perCoreElements = Ops::Base::CeilAlign(avgPerCore, coreGranularity);
+        perCoreElements = std::max(perCoreElements, coreGranularity);
+        int64_t usedCoreNum = std::min(totalCoreNum, Ops::Base::CeilDiv(outputSize, perCoreElements));
+        usedCoreNum = std::max(1L, usedCoreNum);
+        int64_t tailCoreElements = outputSize - (perCoreElements * (usedCoreNum - 1));
+
+        dropOutV3TilingData_.usedCoreNum = usedCoreNum;
+        dropOutV3TilingData_.perCoreElements = perCoreElements;
+        dropOutV3TilingData_.tailCoreElements = tailCoreElements;
+
+        // 连续模式 分 UB (双buffer: 2*input + 2*output + 2*maskBit + [2/1]*randomFloatBuf)
+        uint32_t randBufNum = (vec == NUM_2) ? NUM_2 : 1;
+        int64_t perBlockBytes = (NUM_2 * coreGranularity * sizeofT) + (NUM_2 * coreGranularity * sizeofT) +
+                                (NUM_2 * coreGranularity / NUM_8) + (coreGranularity * NUM_4 * randBufNum);
+        int64_t ubFactorElements = Ops::Base::FloorDiv(ubSize_, perBlockBytes) * coreGranularity;
+        while (NUM_2 * Ops::Base::CeilAlign(ubFactorElements * sizeofT, ALIGNMENT_32) +
+                   NUM_2 * Ops::Base::CeilAlign(ubFactorElements * sizeofT, ALIGNMENT_32) +
+                   NUM_2 * Ops::Base::CeilAlign(ubFactorElements / NUM_8, ALIGNMENT_32) +
+                   Ops::Base::CeilAlign(ubFactorElements * NUM_4 * randBufNum, ALIGNMENT_32) >
+               ubSize_) {
+            ubFactorElements -= coreGranularity;
+        }
+        ubFactorElements = std::max(ubFactorElements, coreGranularity);
+        dropOutV3TilingData_.ubFactorElements = ubFactorElements;
+
+        dropOutV3TilingData_.ubLoopCount = Ops::Base::CeilDiv(perCoreElements, ubFactorElements);
+        dropOutV3TilingData_.tailUbFactorElements = perCoreElements -
+                                                    (dropOutV3TilingData_.ubLoopCount - 1) * ubFactorElements;
+        dropOutV3TilingData_.tailUbLoopCount = Ops::Base::CeilDiv(tailCoreElements, ubFactorElements);
+        dropOutV3TilingData_.tailCoreTailUbFactorElements = tailCoreElements -
+                                                            (dropOutV3TilingData_.tailUbLoopCount - 1) *
+                                                                ubFactorElements;
     }
-    ubFactorElements = std::max(ubFactorElements, coreGranularity);
-    dropOutV3TilingData_.ubFactorElements = ubFactorElements;
-
-    dropOutV3TilingData_.ubLoopCount = Ops::Base::CeilDiv(perCoreElements, ubFactorElements);
-    dropOutV3TilingData_.tailUbFactorElements = perCoreElements -
-                                                (dropOutV3TilingData_.ubLoopCount - 1) * ubFactorElements;
-    dropOutV3TilingData_.tailUbLoopCount = Ops::Base::CeilDiv(tailCoreElements, ubFactorElements);
-    dropOutV3TilingData_.tailCoreTailUbFactorElements = tailCoreElements -
-                                                        (dropOutV3TilingData_.tailUbLoopCount - 1) * ubFactorElements;
 
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(context_->GetPlatformInfo());
     workspaceSize_ = Ops::Base::CeilAlign(outputSize, ALIGNMENT_32) * sizeof(uint8_t) +

@@ -32,6 +32,13 @@ public:
     int64_t tailUbFactorElements = 0;
     int64_t tailCoreTailUbFactorElements = 0;
 
+    // 非连续模式 tiling
+    int64_t perCoreRows = 0;
+    int64_t tailCoreRows = 0;
+    int64_t ubFactorRows = 0;
+    int64_t tailUbFactorRows = 0;
+    int64_t tailCoreTailUbFactorRows = 0;
+
     std::string DumpTilingInfo() const
     {
         std::ostringstream info;
