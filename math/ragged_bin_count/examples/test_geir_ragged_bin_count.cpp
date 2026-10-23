@@ -236,8 +236,22 @@ bool DumpAndRunGraph(ge::Session* session, Graph& graph, std::vector<ge::Tensor>
     return true;
 }
 
-void ProcessOutputData(std::vector<ge::Tensor>& output)
+bool ProcessOutputData(std::vector<ge::Tensor>& output)
 {
+    const std::vector<float> expected = {1, 1, 1, 0, 1, 1, 0, 1};
+    if (output.size() != 1 || output[0].GetTensorDesc().GetDataType() != DT_FLOAT ||
+        output[0].GetTensorDesc().GetShape().GetDims() != std::vector<int64_t>({2, 4}) ||
+        output[0].GetSize() != expected.size() * sizeof(float) || output[0].GetData() == nullptr) {
+        LOG_PRINT("Unexpected output count, dtype, shape or byte size.\n");
+        return false;
+    }
+    const float* result = reinterpret_cast<const float*>(output[0].GetData());
+    for (size_t i = 0; i < expected.size(); ++i) {
+        if (result[i] != expected[i]) {
+            LOG_PRINT("Output mismatch at %zu: got %f, expected %f.\n", i, result[i], expected[i]);
+            return false;
+        }
+    }
     int output_num = output.size();
     for (int i = 0; i < output_num; i++) {
         std::cout << "output " << i << " dtype :  " << output[i].GetTensorDesc().GetDataType() << std::endl;
@@ -252,6 +266,7 @@ void ProcessOutputData(std::vector<ge::Tensor>& output)
             LOG_PRINT("result[%ld] is: %f\n", j, values[j]);
         }
     }
+    return true;
 }
 
 int FinalizeRes()
@@ -284,6 +299,7 @@ int main(int argc, char* argv[])
     Graph graph(graph_name);
     std::vector<ge::Tensor> input;
     if (!CreateAndConfigGraph(graph, input)) {
+        ge::GEFinalize();
         return FAILED;
     }
 
@@ -305,8 +321,10 @@ int main(int argc, char* argv[])
         return FAILED;
     }
     // 处理输出数据
-    ProcessOutputData(output);
+    const bool outputValid = ProcessOutputData(output);
 
     // 清理资源
-    return FinalizeRes();
+    delete session;
+    const int finalizeStatus = FinalizeRes();
+    return outputValid ? finalizeStatus : FAILED;
 }

@@ -18,33 +18,14 @@
 | kernel | ✅   | op_kernel/arch35/square_sum_all.cpp 有 arch35 实现 |
 | geir   | ✅   | op_graph/square_sum_all_proto.h 有 REG_OP(SquareSumAll) |
 | aclnn  | ❌   | CMakeLists.txt 配置 ACLNNTYPE aclnn_exclude，无 op_api 目录，无 aclnn 文档 |
-| e2e    | ❌   | libtorch_npu.so 中 `aclnnSquareSumAll` 符号数为 0；对照组 `aclnnAdd*` 有命中，证明该判定方法有效 |
+| e2e    | 未注册 | 尚未验证能独立派发到本算子的框架 API；缺少 ACLNN 符号不能证明没有框架通路 |
 
 kernel 与 geir 共用一个注册键（算子蛇形名），geir 不另写 Spec 类。
 
-判据（tolerance）为什么是 cross_check：
-    cross_check 是 TTK 里唯一会去取 third_party 输出来判精度的标准。配任何别的标准，
-    third_party 照样会被执行、xpu_metrics 照样有 device_us，但三方数据不进判定——
-    "三方精度"那一栏实际上只是两方（NPU vs golden）。本算子交付三方精度腿，
-    因此 Spec 默认判据必须是 cross_check。
-
-    代价：cross_check 拿不到三方输出时判 GOLDEN_FAILURE。泛化档（1000 例）与性能档
-    （200 例）不接远端 XPU，跑这两档时必须在命令行显式覆盖判据：
-        python3 -m ttk kernel ... --compare close
-    优先级是 CLI > Spec.tolerance > 默认（见 ttk/core_modules/comparison/resolve.py
-    的 _float_choice），所以 CLI 覆盖是受支持的正规用法，不是绕过。
-
-    为什么这两档选 close(isclose) 而不是 stat_rel_err：判据完全由用例 CSV 驱动——
-    `precision_tolerances` 给 (rtol=2**-10, ptol=0.01)、`absolute_precision` 给
-    2**-16，isclose 按 |o-g| <= atol + rtol*|g| 逐元素判、再按 ptol 卡匹配率；且它是
-    少数会把**匹配率百分比**写进结果 CSV 的标准（stat_rel_err / cross_check 只写
-    PASS/FAIL），泛化档要逐例呈现精度百分比，靠的就是这条。
-
-    与原先自写 compare 的差异（不是等价替换，如实记）：混合容差、99% 匹配率、
-    NaN/同号 Inf 三条一致；原先另有一条与量级无关的绝对上限 max_abs_error <= 1e-2，
-    isclose 没有对应项。该上限并不是更好的判据——它不随量级缩放，当 |y| 超过约
-    8.4e4 时 1 个 fp32 ulp 已大于 1e-2，等于要求逐位相等；平方和的量级随 N 线性增长，
-    这条迟早会在合法用例上失效。改用纯相对判据是有意为之，但对大量级输出确实比原先松。
+精度约定：默认 cross_check 由 TTK Promote 输入并执行 Torch 三方腿。
+CPU golden 保持 TTK 下发的精度，不额外加宽或窄回；两方 FP32 输入按
+NPU 的 FP32 精度计算。两方运行不代表三方验收通过，缺少 XPU 时应记录
+三方验证未完成。两路输出均为 rank-0 标量，与 InferShape 的接口一致。
 
 本 Spec 不实现 compare 钩子：
     TTK 的 try_custom_compare 只要拿到非 None 返回值就直接采信，**跳过标准判据**
@@ -68,27 +49,14 @@ __golden__ = {
 
 
 def _reduce_one(x):
-    """Reduce a single input with torch competitor interfaces (R3: no hand-rolled formula).
-
-    torch.square + torch.sum are used instead of a numpy expression so the golden and the
-    kernel cannot share the same misreading of the semantics. Accumulating in float64 is a
-    deliberate tier choice for this large-reduction operator rather than a precision cast:
-    the kernel accumulates in float32, so a float32 golden would sit on the same error
-    floor and could not flag a real regression.
-    """
-    # Widening to float64 in numpy always yields a fresh writable buffer, so from_numpy
-    # never has to warn about a read-only input array.
-    tensor = torch.from_numpy(np.ascontiguousarray(x, dtype=np.float64))
+    """Use the supplied precision: FP32 normally, FP64 after TTK Promote."""
+    tensor = torch.from_numpy(np.array(x, copy=True, order="C"))
     reduced = torch.sum(torch.square(tensor))
-    # Keep the high-precision reference in FP64.  In cross_check mode TTK promotes
-    # FP32 inputs to FP64 before invoking the golden; casting the result back to
-    # FP32 would quantize the reference onto the same grid as the NPU/GPU outputs
-    # and make scalar error ratios collapse to integer ULP ratios.
-    return reduced.numpy().reshape(1)
+    return reduced.numpy().reshape(())
 
 
 def square_sum_all_golden(x1, x2, **kwargs):
-    """Compute and return both independent reductions in float64."""
+    """Compute both reductions without overriding TTK's input/output precision."""
     del kwargs
     return [_reduce_one(x1), _reduce_one(x2)]
 
@@ -116,7 +84,7 @@ class _Compose:
         outputs = []
         for tensor in (x1, x2):
             flat = tensor.reshape(-1).to(torch.float32)
-            outputs.append(torch.dot(flat, flat).to(torch.float32).reshape(1))
+            outputs.append(torch.dot(flat, flat).to(torch.float32).reshape(()))
         return outputs
 
 
@@ -136,8 +104,5 @@ class SquareSumAllTestSpec:
 
 # 【不存在】aclnn 通路：CMakeLists.txt 配置 ACLNNTYPE aclnn_exclude，算子无 op_api 目录，
 # 也不交付 docs/aclnnSquareSumAll.md，因此不注册 SquareSumAllAclnnSpec。
-# 【不存在】e2e 通路：strings libtorch_npu.so | grep -c aclnnSquareSumAll = 0
-# （对照组 aclnnAdd* 有命中，证明该判定方法有效；legacy SquareSumAll 动态实现于 2021-07-05 入仓，
-# 当前 torch_npu 安装于 2026-07-30，版本晚于算子既有接口），
-# torch 侧没有任何接口会执行本算子，因此不注册 SquareSumAllTorchSpec。
-# 上述两条不是漏写，勿反复重查。
+# E2E 暂未注册：本文件只验证 Kernel/GEIR 路径，没有确认独立框架 API 的派发绑定。
+# 不以缺少同名 ACLNN 符号推断所有框架路径均不存在。

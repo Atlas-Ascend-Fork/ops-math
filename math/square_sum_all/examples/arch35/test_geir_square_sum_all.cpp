@@ -119,6 +119,13 @@ int32_t RunOneCase(ge::Session& session, uint32_t graphId, const TestCase& testC
         std::printf("[FAIL] %s: expected two non-null outputs, got %zu\n", testCase.name.c_str(), outputs.size());
         return FAILED_CODE;
     }
+    for (const auto& output : outputs) {
+        if (output.GetTensorDesc().GetDataType() != ge::DT_FLOAT ||
+            !output.GetTensorDesc().GetShape().GetDims().empty() || output.GetSize() != sizeof(float)) {
+            std::printf("[FAIL] %s: expected FLOAT scalar outputs\n", testCase.name.c_str());
+            return FAILED_CODE;
+        }
+    }
 
     const int64_t elementCount = GetElementCount(testCase.shape);
     const float expectedY1 = static_cast<float>(static_cast<double>(elementCount) * testCase.x1Value *

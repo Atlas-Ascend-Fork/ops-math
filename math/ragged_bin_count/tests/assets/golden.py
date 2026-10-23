@@ -15,11 +15,11 @@ Only one registration key is needed: kernel and GEIR both resolve the snake-case
 operator name and share :class:`RaggedBinCountKernelSpec`.  The legacy
 ``__golden__`` entry stays available and calls the same Torch computation core.
 
-The general reference math is a Torch competitor composition
-(``torch.bincount`` per ragged row).  Fixed numerical-corner cases use an
-independent arbitrary-precision CPU oracle because even FP64 cannot retain
-every FP32 cancellation gap.  ``torch.bincount`` is semantically the per-row
-form of the TensorFlow ``RaggedBincount`` operator this IR is compatible with.
+The reference uses ``torch.bincount`` per ragged row in the dtype supplied
+by TTK. All testcases use the same computation, including numerical corners;
+the reference does not select a different algorithm from the testcase name.
+``torch.bincount`` is semantically the per-row form of the TensorFlow
+``RaggedBincount`` operator this IR is compatible with.
 
 Frozen contract points mirrored from ``README.md``:
   * within the public rank-0-to-2 range, ``weights`` is judged by element count
@@ -32,8 +32,6 @@ Frozen contract points mirrored from ``README.md``:
   * if any split is illegal or any value is negative, the **whole** output is
     bitwise ``+0.0`` and no weight is ever read.
 """
-
-import math
 
 import numpy as np
 import torch
@@ -50,23 +48,10 @@ __golden__ = {
 
 
 _TOL = {
-    # The only native output dtype is FP32 (ragged_bin_count_def.cpp).
-    #
-    # ``cross_check`` compares the NPU and competitor against an FP64
-    # high-precision approximation (see :func:`_compute`); its ratio answers
-    # "is the NPU within the same order of accuracy as a mature GPU
-    # implementation" -- which is the question worth asking for
-    # the legacy long-row and unbounded VALUE fallback paths, whose FP32
-    # summation order is not reproducible (``asc_atomic_add`` across multiple
-    # AIV cores).  The bounded short ROW and bounded VALUE paths instead use
-    # fixed-order accumulation/reduction.
-    # Fixed numerical-corner cases use the exact integer oracle below because
-    # FP64 is not exact across every possible FP32 cancellation gap.
-    #
-    # This requires a reachable remote XPU endpoint to execute ``third_party``.
-    # Runs without one must pass ``--compare close`` (or ``stat_rel_err``)
-    # explicitly on the command line, which overrides this entry.
     "float32": {"standard": "cross_check", "level": "L1"},
+    # Integer input types are declared as well; the sole output is float32.
+    "int32": {"standard": "binary_equal"},
+    "int64": {"standard": "binary_equal"},
 }
 
 
@@ -201,9 +186,9 @@ _PRECISION_SPECIAL_WEIGHTS = {
         _FLOAT32_MAX,
     ],
     "rbc_k_precision_p0_negative_inf_i32": [-float("inf"), 1.0, 2.0, 3.0],
-    # FP64 cannot retain the unit term across this cancellation.  This case is
-    # therefore also a regression for the integer-superaccumulator oracle
-    # below, rather than relying on an FP64 approximation of the exact sum.
+    # FP64 cannot retain the unit term across this cancellation. This input
+    # probes the limit of the promoted reference too; a discrepancy requires
+    # numerical analysis before attributing a failure to the device.
     "rbc_k_precision_p0_twosum_fp64_gap_i64": [
         2.0**100,
         1.0,
@@ -377,141 +362,6 @@ def _runtime_invalid(splits_flat, values_flat):
     return False
 
 
-def _float32_from_exact_units(total):
-    """Round an integer multiple of 2^-149 to FP32, ties to even.
-
-    Every finite FP32 input is exactly representable in these units.  Keeping
-    the sum as a Python integer avoids the cancellation gap of an FP64 oracle
-    (for example 2^100 + 1 - 2^100) and makes the special precision cases an
-    independent correctly-rounded reference for the device superaccumulator.
-    """
-    negative = total < 0
-    magnitude = -total if negative else total
-    sign_bit = 0x80000000 if negative else 0
-    if magnitude == 0:
-        bits = 0
-    else:
-        highest_bit = magnitude.bit_length() - 1
-        if highest_bit <= 22:
-            bits = sign_bit | magnitude
-        else:
-            right_shift = highest_bit - 23
-            significand = magnitude >> right_shift
-            if right_shift != 0:
-                remainder = magnitude & ((1 << right_shift) - 1)
-                halfway = 1 << (right_shift - 1)
-                if remainder > halfway or (
-                    remainder == halfway and (significand & 1) != 0
-                ):
-                    significand += 1
-                    if significand == 1 << 24:
-                        significand >>= 1
-                        highest_bit += 1
-            exponent = highest_bit - 22
-            if exponent >= 255:
-                bits = sign_bit | 0x7F800000
-            else:
-                bits = sign_bit | (exponent << 23) | (significand & 0x007FFFFF)
-    return np.asarray([bits], dtype=np.uint32).view(np.float32)[0]
-
-
-def _float64_from_exact_units(total):
-    """Round an integer multiple of 2^-149 to FP64, ties to even."""
-    negative = total < 0
-    magnitude = -total if negative else total
-    sign_bit = 0x8000000000000000 if negative else 0
-    if magnitude == 0:
-        bits = 0
-    else:
-        highest_bit = magnitude.bit_length() - 1
-        if highest_bit <= 52:
-            significand = magnitude << (52 - highest_bit)
-        else:
-            right_shift = highest_bit - 52
-            significand = magnitude >> right_shift
-            remainder = magnitude & ((1 << right_shift) - 1)
-            halfway = 1 << (right_shift - 1)
-            if remainder > halfway or (remainder == halfway and (significand & 1) != 0):
-                significand += 1
-                if significand == 1 << 53:
-                    significand >>= 1
-                    highest_bit += 1
-        unbiased_exponent = highest_bit - 149
-        if unbiased_exponent > 1023:
-            bits = sign_bit | 0x7FF0000000000000
-        else:
-            exponent = unbiased_exponent + 1023
-            bits = sign_bit | (exponent << 52) | (significand & 0x000FFFFFFFFFFFFF)
-    return np.asarray([bits], dtype=np.uint64).view(np.float64)[0]
-
-
-def _canonical_nan(result_dtype):
-    if np.dtype(result_dtype) == np.dtype(np.float64):
-        return np.asarray([0x7FF8000000000000], dtype=np.uint64).view(np.float64)[0]
-    return np.asarray([0x7FC00000], dtype=np.uint32).view(np.float32)[0]
-
-
-def _exact_sum(values, result_dtype):
-    """Return the exact FP32-input sum rounded once to ``result_dtype``."""
-    result_dtype = np.dtype(result_dtype)
-    if result_dtype not in (np.dtype(np.float32), np.dtype(np.float64)):
-        raise ValueError(f"Unsupported exact-reference dtype: {result_dtype}")
-
-    total = 0
-    has_nan = False
-    has_positive_inf = False
-    has_negative_inf = False
-    for raw_value in np.asarray(values).reshape(-1):
-        value = float(raw_value)
-        if math.isnan(value):
-            has_nan = True
-            continue
-        if math.isinf(value):
-            if value > 0:
-                has_positive_inf = True
-            else:
-                has_negative_inf = True
-            continue
-
-        numerator, denominator = value.as_integer_ratio()
-        denominator_shift = denominator.bit_length() - 1
-        unit_shift = 149 - denominator_shift
-        if unit_shift >= 0:
-            total += numerator << unit_shift
-        else:
-            divisor = 1 << (-unit_shift)
-            if numerator % divisor != 0:
-                raise ValueError("Exact-reference input is not on the FP32 value grid")
-            total += numerator // divisor
-
-    if has_nan or (has_positive_inf and has_negative_inf):
-        return _canonical_nan(result_dtype)
-    if has_positive_inf:
-        return result_dtype.type(float("inf"))
-    if has_negative_inf:
-        return result_dtype.type(-float("inf"))
-    if result_dtype == np.dtype(np.float64):
-        return _float64_from_exact_units(total)
-    return _float32_from_exact_units(total)
-
-
-def _compute_exact_weighted_reference(
-    splits_flat, values_flat, bins, weights_flat, result_dtype
-):
-    """Independent exact oracle for the fixed numerical-corner payloads."""
-    rows = max(splits_flat.numel() - 1, 0)
-    result = np.zeros((rows, bins), dtype=result_dtype)
-    values_np = values_flat.cpu().numpy()
-    weights_np = weights_flat.cpu().numpy()
-    for row in range(rows):
-        begin = int(splits_flat[row].item())
-        end = int(splits_flat[row + 1].item())
-        for bin_index in range(bins):
-            selected = weights_np[begin:end][values_np[begin:end] == bin_index]
-            result[row, bin_index] = _exact_sum(selected, result_dtype)
-    return torch.from_numpy(result)
-
-
 def _compute(splits, values, size, weights, **kwargs):
     """Return ``[output]`` as a Torch tensor in def.cpp output order."""
     binary_output = _attr(kwargs, "binary_output", False)
@@ -521,49 +371,17 @@ def _compute(splits, values, size, weights, **kwargs):
 
     rows = max(splits_flat.numel() - 1, 0)
     bins = int(size_flat[0].item()) if size_flat.numel() > 0 else 0
-    output = torch.zeros((rows, bins), dtype=torch.float32)
+    output = torch.zeros((rows, bins), dtype=weights_flat.dtype)
 
     # Invalid input returns bitwise +0.0 before any weight is read.
     if _runtime_invalid(splits_flat, values_flat) or rows == 0 or bins == 0:
         return [output]
 
     has_weights = weights_flat.numel() > 0
-    testcase_name = str(kwargs.get("testcase_name", ""))
-    if (
-        has_weights
-        and not binary_output
-        and testcase_name in _PRECISION_SPECIAL_WEIGHTS
-    ):
-        output_dtypes = _output_dtype_names(kwargs)
-        result_dtype = (
-            np.dtype(output_dtypes[0]) if output_dtypes else np.dtype(np.float32)
-        )
-        return [
-            _compute_exact_weighted_reference(
-                splits_flat, values_flat, bins, weights_flat, result_dtype
-            )
-        ]
-
-    # Accumulate in FP64 and leave the final dtype decision to
-    # ``_kernel_golden``.  Under ``cross_check`` TTK promotes
-    # ``output_dtypes`` from FP32 to FP64, so the three-way gate must retain
-    # this accumulator without an intermediate FP32 rounding.  Under
-    # ``--compare close`` the adapter casts it exactly once to the declared
-    # FP32 interface dtype.
-    #
-    # The legacy long-row and
-    # VALUE fallback NPU paths use ``asc_atomic_add`` across multiple cores,
-    # while the competitor has its own FP32 order; both can therefore be
-    # reorderings of the same exact sum.  The bounded precise ROW/VALUE paths
-    # are fixed-order, but use this same independent high-precision reference.
-    # Comparing fallback outputs against another FP32 reordering would only
-    # measure "how differently did these two reorder", which is not a precision
-    # statement about either.  The unrounded FP64 accumulation is the
-    # high-precision approximation used by the three-way gate.
-    # It is not an exact oracle for arbitrarily wide cancellation gaps; fixed
-    # numerical-corner payloads take the integer-superaccumulator path above.
-    accumulator = torch.zeros((rows, bins), dtype=torch.float64)
-    weights_fp64 = weights_flat.to(torch.float64) if has_weights else None
+    # Float32 is the NPU accumulation type. Under Promote, TTK supplies
+    # float64 weights; preserve that dtype without additional casts.
+    dtype = weights_flat.dtype
+    accumulator = torch.zeros((rows, bins), dtype=dtype)
 
     for row in range(rows):
         begin = int(splits_flat[row].item())
@@ -578,39 +396,21 @@ def _compute(splits, values, size, weights, **kwargs):
             # Bitwise exact 0/1; weights are never read on this path.
             accumulator[row] = accumulator[row].index_fill(0, kept, 1.0)
         elif has_weights:
-            segment_weights = weights_fp64[begin:end][keep]
+            segment_weights = weights_flat[begin:end][keep]
             accumulator[row] = torch.bincount(
                 kept, weights=segment_weights, minlength=bins
             )[:bins]
         else:
-            accumulator[row] = torch.bincount(kept, minlength=bins)[:bins].to(
-                torch.float64
-            )
+            # Integer hit counts are assigned into the declared accumulator.
+            accumulator[row] = torch.bincount(kept, minlength=bins)[:bins]
 
     return [accumulator]
-
-
-def _output_dtype_names(kwargs):
-    output_dtypes = kwargs.get("output_dtypes") or []
-    names = []
-    for dtype in output_dtypes:
-        if isinstance(dtype, (list, tuple)):
-            dtype = dtype[0]
-        names.append(str(dtype))
-    return names
 
 
 def _kernel_golden(splits, values, size, weights, **kwargs):
     """Kernel/GEIR container adapter: NumPy in, NumPy list out."""
     outputs = _compute(splits, values, size, weights, **kwargs)
-    output_dtypes = _output_dtype_names(kwargs)
-    result = []
-    for index, output in enumerate(outputs):
-        array = output.detach().cpu().contiguous().numpy()
-        if index < len(output_dtypes):
-            array = array.astype(output_dtypes[index], copy=False)
-        result.append(np.ascontiguousarray(array))
-    return result
+    return [np.ascontiguousarray(output.detach().cpu().numpy()) for output in outputs]
 
 
 def _competitor_forward(splits_flat, values_flat, bins, weights_flat, binary_output):
@@ -652,7 +452,7 @@ class _RaggedBinCountCompose:
 
     * It must not share an implementation with :func:`_compute`, or the two
       reference paths cannot cross-validate each other.  ``_compute`` is a
-      per-row ``torch.bincount`` accumulating in FP64; this is a single flat
+      per-row ``torch.bincount`` in the TTK-supplied dtype; this is a single flat
       ``index_add_`` in FP32 over a ``repeat_interleave``-derived row index.
     * It must be the competitor's **optimal** form, or the G/N ratio is
       inflated and the comparison is not an honest one.  The whole ragged
@@ -711,14 +511,10 @@ class RaggedBinCountKernelSpec:
 def ragged_bin_count_golden(splits, values, size, weights, *args, **kwargs):
     """Compatibility entry for the historical ``__golden__`` kernel loader."""
     del args
-    legacy_kwargs = dict(kwargs)
-    if not legacy_kwargs.get("output_dtypes"):
-        # The old entry predates TestSpec and promises the fixed FP32 output.
-        legacy_kwargs["output_dtypes"] = [["float32"]]
-    return _kernel_golden(splits, values, size, weights, **legacy_kwargs)[0]
+    return _kernel_golden(splits, values, size, weights, **kwargs)[0]
 
 
 # 【不存在】ACLNN 通路：CMakeLists.txt 显式配置 ``ACLNNTYPE aclnn_exclude``，
-# 本算子既无 op_host/op_api 目录，也不交付 aclnnRaggedBinCount 符号。
-# 【不存在】e2e 通路：获批支持面为 Graph IR only（README.md 调用说明），
-# torch_npu 二进制中无本算子的 aclnn 绑定入口。
+# 本算子无 op_api 目录，不交付 aclnnRaggedBinCount 接口。
+# E2E 暂未注册：本文件验证 README 声明的 Graph IR 路径，没有确认独立框架
+# API 的派发绑定；缺少同名 ACLNN 符号不能证明所有框架通路均不存在。
