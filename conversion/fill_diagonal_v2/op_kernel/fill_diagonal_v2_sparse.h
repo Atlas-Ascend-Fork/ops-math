@@ -26,8 +26,7 @@ constexpr uint64_t CACHE_BLOCK_SIZE = 128;
 template <typename T>
 class Kernel {
 public:
-    __aicore__ inline Kernel()
-    {}
+    __aicore__ inline Kernel() {}
 
     __aicore__ inline void Init(GM_ADDR x, GM_ADDR fill_value, const FillDiagonalV2TilingData* tilingData)
     {
@@ -40,7 +39,10 @@ public:
         blockEnd = blockStart + blockLength;
         // 处理完整的cache Line, 避免缓存一致性问题
         uint64_t cacheBlockLength = CACHE_BLOCK_SIZE / sizeof(T);
-        blockStart -= (blockStart * sizeof(T) + reinterpret_cast<uint64_t>(x)) % CACHE_BLOCK_SIZE / sizeof(T);
+        // 把blockStart向前对齐到所在128B cache line的起始元素：misalign是blockStart在本line内的偏移元素数。
+        // 首块blockStart为0时misalign可能大于blockStart，直接相减会使uint64下溢回绕成极大值，故不够减时钳到0
+        uint64_t misalign = (blockStart * sizeof(T) + reinterpret_cast<uint64_t>(x)) % CACHE_BLOCK_SIZE / sizeof(T);
+        blockStart = blockStart >= misalign ? blockStart - misalign : 0;
         blockEnd += cacheBlockLength - 1;
         blockEnd -= (blockEnd * sizeof(T) + reinterpret_cast<uint64_t>(x)) % CACHE_BLOCK_SIZE / sizeof(T);
         xGm.SetGlobalBuffer(reinterpret_cast<__gm__ T*>(x), tilingData->totalLength);
@@ -50,15 +52,11 @@ public:
         this->val = this->valGm.GetValue(0);
     }
 
-    __aicore__ inline void Process()
-    {
-        Compute();
-    }
+    __aicore__ inline void Process() { Compute(); }
 
 private:
     __aicore__ inline void Compute()
     {
-        blockStart = blockStart >= 0 ? blockStart : 0;
         blockEnd = blockEnd > this->end ? this->end : blockEnd;
         uint64_t diagIndex;
         if (blockStart % this->step == 0) {

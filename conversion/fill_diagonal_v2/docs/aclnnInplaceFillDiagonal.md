@@ -77,10 +77,10 @@ aclnnStatus aclnnInplaceFillDiagonal(
       <td>selfRef（aclTensor*）</td>
       <td>输入/输出</td>
       <td>表示需要填充的输入、输出Tensor。</td>
-      <td>selfRef最大维度不能超过2，当selfRef的总字节数超过2^31字节时（即超过2GB时），会触发算子执行超时。</td>
-      <td>FLOAT、FLOAT16、DOUBLE、INT32、INT64、INT16、INT8、UINT8、BOOL、COMPLEX64、BFLOAT16。</td>
+      <td>selfRef维度必须大于等于2且不超过8，当selfRef的维度大于2时，各维度的长度必须相同；支持零元素空Tensor（不执行填充，直接返回成功），不支持0维标量Tensor；当selfRef的总字节数超过2^31字节时（即超过2GB时），会触发算子执行超时。</td>
+      <td>FLOAT、FLOAT16、DOUBLE、INT32、INT64、INT16、INT8、UINT8、BOOL、BFLOAT16。</td>
       <td>ND</td>
-      <td>1、2</td>
+      <td>2~8</td>
       <td>√</td>
     </tr>
     <tr>
@@ -91,17 +91,17 @@ aclnnStatus aclnnInplaceFillDiagonal(
       <td>FLOAT、FLOAT16、DOUBLE、UINT8、INT8、INT16、INT32、INT64、BOOL</td>
       <td>-</td>
       <td>-</td>
-      <td>√</td>
+      <td>-</td>
     </tr>
     <tr>
       <td>wrap（bool）</td>
       <td>输入</td>
       <td>表示填充方式，公式中的wrap。</td>
-      <td>对于高矩阵（行数row大于列数col），若为True，每经过N行形成一条新的对角线，其中N = min(col, row)。</td>
+      <td>仅对二维输入Tensor有效，当输入维度大于2时该参数被忽略。对于高矩阵（行数row大于列数col），若为True，每经过m+1行形成一条新的对角线，其中m = min(col, row)。</td>
       <td>BOOL</td>
       <td>-</td>
-      <td>1、2</td>
-      <td>√</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
       <td>workspaceSize（uint64_t*）</td>
@@ -114,7 +114,7 @@ aclnnStatus aclnnInplaceFillDiagonal(
       <td>-</td>
     </tr>
     <tr>
-      <td>（aclOpExecutor**）</td>
+      <td>executor（aclOpExecutor**）</td>
       <td>输出</td>
       <td>返回op执行器，包含了算子计算流程。</td>
       <td>-</td>
@@ -124,6 +124,10 @@ aclnnStatus aclnnInplaceFillDiagonal(
       <td>-</td>
     </tr>
   </tbody></table>
+
+  <!-- npu="310p" id7 -->
+  - <term>Atlas推理系列产品</term>：不支持BFLOAT16数据类型。
+  <!-- end id7 -->
 
 - **返回值：**
 
@@ -148,12 +152,15 @@ aclnnStatus aclnnInplaceFillDiagonal(
       <td>传入的fillValue或selfRef是空指针。</td>
     </tr>
     <tr>
-      <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="5">161002</td>
+      <td rowspan="6">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="6">161002</td>
       <td>selfRef的数据类型不在支持的范围之内。</td>
     </tr>
     <tr>
       <td>selfRef的维度小于等于1。</td>
+    </tr>
+    <tr>
+      <td>selfRef的维度大于8。</td>
     </tr>
     <tr>
       <td>当selfRef的维度大于2时，各维度的长度不相同。</td>

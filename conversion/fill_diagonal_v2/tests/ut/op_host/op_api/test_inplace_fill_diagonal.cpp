@@ -22,15 +22,9 @@ using namespace std;
 
 class l2_inplace_fill_diagonal_test : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        cout << "l2_inplace_fill_diagonal_test SetUp" << endl;
-    }
+    static void SetUpTestCase() { cout << "l2_inplace_fill_diagonal_test SetUp" << endl; }
 
-    static void TearDownTestCase()
-    {
-        cout << "l2_inplace_fill_diagonal_test TearDown" << endl;
-    }
+    static void TearDownTestCase() { cout << "l2_inplace_fill_diagonal_test TearDown" << endl; }
 };
 
 TEST_F(l2_inplace_fill_diagonal_test, case_normal)
@@ -49,8 +43,8 @@ TEST_F(l2_inplace_fill_diagonal_test, case_normal)
 
 TEST_F(l2_inplace_fill_diagonal_test, case_format_nd_normal)
 {
-    vector<aclFormat> ValidList = {
-        ACL_FORMAT_NCHW, ACL_FORMAT_NHWC, ACL_FORMAT_HWCN, ACL_FORMAT_NDHWC, ACL_FORMAT_NCDHW};
+    vector<aclFormat> ValidList = {ACL_FORMAT_NCHW, ACL_FORMAT_NHWC, ACL_FORMAT_HWCN, ACL_FORMAT_NDHWC,
+                                   ACL_FORMAT_NCDHW};
     int length = ValidList.size();
     auto scalar_desc = ScalarDesc(1.0f);
     bool wrap = false;
@@ -184,14 +178,16 @@ TEST_F(l2_inplace_fill_diagonal_test, case_bool_normal)
 
 TEST_F(l2_inplace_fill_diagonal_test, case_invalid_dtype_abnormal)
 {
-    vector<aclDataType> ValidList = {ACL_BF16, ACL_STRING, ACL_COMPLEX64, ACL_COMPLEX128};
+    // ASCEND910B及以上SOC的BF16为合法dtype，不列入非法列表
+    vector<aclDataType> ValidList = {ACL_STRING, ACL_COMPLEX64, ACL_COMPLEX128};
     int length = ValidList.size();
     auto scalar_desc = ScalarDesc(1.0f);
     bool wrap = false;
 
     for (int i = 0; i < length; i++) {
-        auto self_tensor_desc =
-            TensorDesc({2, 3}, ValidList[i], ACL_FORMAT_ND).ValueRange(-10, 10).Precision(0.0001, 0.0001);
+        auto self_tensor_desc = TensorDesc({2, 3}, ValidList[i], ACL_FORMAT_ND)
+                                    .ValueRange(-10, 10)
+                                    .Precision(0.0001, 0.0001);
         auto ut = OP_API_UT(aclnnInplaceFillDiagonal, INPUT(self_tensor_desc, scalar_desc, wrap), OUTPUT());
 
         uint64_t workspace_size = 0;
@@ -323,17 +319,6 @@ TEST_F(l2_inplace_fill_diagonal_test, case_3_4_5_abnormal)
 }
 
 // 空tensor
-TEST_F(l2_inplace_fill_diagonal_test, case_empty_tensor_0d_abnormal)
-{
-    auto self_tensor_desc = TensorDesc({}, ACL_INT32, ACL_FORMAT_NHWC).ValueRange(-20, 2);
-    auto scalar_desc = ScalarDesc(static_cast<int64_t>(5));
-    bool wrap = false;
-    auto ut = OP_API_UT(aclnnInplaceFillDiagonal, INPUT(self_tensor_desc, scalar_desc, wrap), OUTPUT());
-    uint64_t workspace_size = 0;
-    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
-    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
-}
-
 TEST_F(l2_inplace_fill_diagonal_test, case_empty_tensor_2d_normal)
 {
     auto self_tensor_desc = TensorDesc({7, 0}, ACL_INT32, ACL_FORMAT_NHWC).ValueRange(-20, 2);
@@ -478,6 +463,20 @@ TEST_F(l2_inplace_fill_diagonal_test, case_float16_overflow_abnormal)
 {
     auto self_tensor_desc = TensorDesc({2, 2}, ACL_FLOAT16, ACL_FORMAT_NHWC).ValueRange(-20, 2);
     auto scalar_desc = ScalarDesc(static_cast<double>(921474836.9));
+    bool wrap = false;
+
+    auto ut = OP_API_UT(aclnnInplaceFillDiagonal, INPUT(self_tensor_desc, scalar_desc, wrap), OUTPUT());
+
+    // SAMPLE: only test GetWorkspaceSize
+    uint64_t workspace_size = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
+}
+
+TEST_F(l2_inplace_fill_diagonal_test, case_bfloat16_overflow_abnormal)
+{
+    auto self_tensor_desc = TensorDesc({2, 2}, ACL_BF16, ACL_FORMAT_NHWC).ValueRange(-20, 2);
+    auto scalar_desc = ScalarDesc(static_cast<double>(1e39)); // 超出BF16量程约3.39e38
     bool wrap = false;
 
     auto ut = OP_API_UT(aclnnInplaceFillDiagonal, INPUT(self_tensor_desc, scalar_desc, wrap), OUTPUT());

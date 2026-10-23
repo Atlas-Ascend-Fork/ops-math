@@ -23,14 +23,16 @@ namespace ge {
 
 * @par Inputs:
 * @li x: A tensor. Must be one of the following types:float16, float32, float64, int8,
-                                                    int16, int32, int64, uint8, bool, bfloat16. \n
+                                                    int16, int32, int64, uint8, bool, bfloat16.
+* The rank of x must be in range [2, 8]; when the rank is greater than 2, all dimensions must be of equal length. \n
 * @li fill_value: A tensor. Scalar value to be filled, Must have the same type as "x". \n
 
 * @par Outputs:
 * x: A tensor. Refers to the same tensor as input "x". \n
 
 * @par Attributes:
-* wrap: An optional bool. Defaults to "False". If "True", use recursive fill. \n
+* wrap: An optional bool. Defaults to "False". If "True", use wrap-around fill.
+* Effective only for 2D inputs; ignored when the rank of x is greater than 2. \n
 
 * @par Third-party framework compatibility
 * Compatible with the Pytorch operator FillDiagonal.

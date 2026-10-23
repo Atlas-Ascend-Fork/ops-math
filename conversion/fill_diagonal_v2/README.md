@@ -18,7 +18,7 @@
 - 算子功能：以fillValue填充tensor对角线。
 - 计算公式：
   - 以二维为例，`wrap`为False时，填充位置为`[r, r]`，其中`0 <= r < m`，`m = min(col, row)`，`col`为列的长度，`row`为行的长度。
-  - `wrap`为True时，填充位置为`[r + (m + 1) * i , r]`，其中`0 <= r < m`，`m = min(col, row)`，`col`为列的长度，`row`为行的长度，`0 <= i < col // m`。
+  - `wrap`为True时，按展开后的一维索引填充：对于满足`(col + 1) * i < row * col`的非负整数`i`，填充位置为`[floor((col + 1) * i / col), ((col + 1) * i) % col]`。
 
 ## 参数说明
 
@@ -47,22 +47,22 @@
   </tr>
   <tr>
     <td>fillValue</td>
-    <td>输入属性</td>
-    <td>表示填充值，数据类型需要是可转换为FLOAT的数据类型。</td>
+    <td>输入</td>
+    <td>表示填充值，数据类型需要是可转换为FLOAT且转换为selfRef数据类型时不溢出的数据类型。</td>
     <td>可转换为FLOAT的数据类型</td>
     <td>-</td>
   </tr>
   <tr>
     <td>wrap</td>
-    <td>输入属性</td>
-    <td>表示填充方式，对于高矩阵（行数row大于列数col），若wrap值为True，每经过N行形成一条新的对角线，其中N = min(col, row)。</td>
+    <td>属性</td>
+    <td>可选属性，默认False。表示填充方式，仅对二维输入Tensor有效，当输入维度大于2时该参数被忽略。对于高矩阵（行数row大于列数col），若wrap值为True，每经过m+1行形成一条新的对角线，其中m = min(col, row)。</td>
     <td>BOOL</td>
     <td>-</td>
   </tr>
 </tbody>
 </table>
 
-- Kirin X90/Kirin 9030处理器系列产品：不支持BFLOAT16。
+- Atlas推理系列产品、Kirin X90/Kirin 9030处理器系列产品：不支持BFLOAT16。
 
 ## 约束说明
 
@@ -74,4 +74,4 @@
 
 | 调用方式  | 样例代码                                                     | 说明                                                         |
 | --------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| aclnn接口 | [test_aclnn_inplace_fill_diagonal](./examples/test_aclnn_fill_diagonal_v2.cpp) | 通过[aclnnInplaceFillDiagonal](docs/aclnnInplaceFillDiagonal.md)接口方式调用InplaceFillDiagonal算子。 |
+| aclnn API | [test_aclnn_inplace_fill_diagonal](./examples/test_aclnn_fill_diagonal_v2.cpp) | 通过[aclnnInplaceFillDiagonal](docs/aclnnInplaceFillDiagonal.md)接口方式调用InplaceFillDiagonal算子。 |

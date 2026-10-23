@@ -20,6 +20,7 @@
 #include "fill_diagonal_v2_tiling.h"
 
 constexpr size_t MAX_DIM_NUM = 8;
+constexpr size_t MIN_DIM_NUM = 2;
 
 namespace optiling {
 inline ge::graphStatus SetTilingKey4FillDiagonalV2(gert::TilingContext* context, uint64_t step, uint64_t end, bool wrap)
@@ -75,6 +76,24 @@ static ge::graphStatus Tiling4FillDiagonalV2(gert::TilingContext* context)
                                                          std::to_string(shape->GetStorageShape().GetDimNum()).c_str(),
                                                          "The dim num of x must be less than or equal to 8"),
                 return ge::GRAPH_FAILED);
+
+    OP_CHECK_IF(shape->GetStorageShape().GetDimNum() < MIN_DIM_NUM,
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "x",
+                                                         std::to_string(shape->GetStorageShape().GetDimNum()).c_str(),
+                                                         "The dim num of x must be greater than or equal to 2"),
+                return ge::GRAPH_FAILED);
+
+    if (shape->GetStorageShape().GetDimNum() > MIN_DIM_NUM) {
+        const int64_t dimLength = shape->GetStorageShape().GetDim(0);
+        for (size_t i = 1; i < shape->GetStorageShape().GetDimNum(); ++i) {
+            OP_CHECK_IF(shape->GetStorageShape().GetDim(i) != dimLength,
+                        OP_LOGE(context->GetNodeName(),
+                                "When the dim num of x is greater than 2, all dimensions must be of equal length, "
+                                "dim %zu is %ld, dim 0 is %ld.",
+                                i, shape->GetStorageShape().GetDim(i), dimLength),
+                        return ge::GRAPH_FAILED);
+        }
+    }
 
     auto inputDesc = context->GetInputDesc(0);
     OP_CHECK_NULL_WITH_CONTEXT(context, inputDesc);

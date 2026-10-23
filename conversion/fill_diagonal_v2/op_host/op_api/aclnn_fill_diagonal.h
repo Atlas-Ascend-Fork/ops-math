@@ -7,8 +7,8 @@
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
-#ifndef OP_API_INC_ADD_H_
-#define OP_API_INC_ADD_H_
+#ifndef OP_API_INC_ACLNN_FILL_DIAGONAL_H_
+#define OP_API_INC_ACLNN_FILL_DIAGONAL_H_
 
 #include "aclnn/aclnn_base.h"
 #include "aclnn_util.h"
@@ -32,8 +32,9 @@ extern "C" {
  * @param [out] executor: 返回op执行器，包含了算子计算流程。
  * @return aclnnStatus: 返回状态码。
  */
-ACLNN_API aclnnStatus aclnnInplaceFillDiagonalGetWorkspaceSize(
-    aclTensor* selfRef, const aclScalar* fillValue, bool wrap, uint64_t* workspaceSize, aclOpExecutor** executor);
+ACLNN_API aclnnStatus aclnnInplaceFillDiagonalGetWorkspaceSize(aclTensor* selfRef, const aclScalar* fillValue,
+                                                               bool wrap, uint64_t* workspaceSize,
+                                                               aclOpExecutor** executor);
 
 /**
  * @brief aclnnInplaceFillDiagonal的第二段接口，用于执行计算。
@@ -47,11 +48,11 @@ ACLNN_API aclnnStatus aclnnInplaceFillDiagonalGetWorkspaceSize(
  * @param [in] stream: acl stream流。
  * @return aclnnStatus: 返回状态码。
  */
-ACLNN_API aclnnStatus
-aclnnInplaceFillDiagonal(void* workspace, uint64_t workspaceSize, aclOpExecutor* executor, aclrtStream stream);
+ACLNN_API aclnnStatus aclnnInplaceFillDiagonal(void* workspace, uint64_t workspaceSize, aclOpExecutor* executor,
+                                               aclrtStream stream);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // OP_API_INC_ADD_H_
+#endif // OP_API_INC_ACLNN_FILL_DIAGONAL_H_

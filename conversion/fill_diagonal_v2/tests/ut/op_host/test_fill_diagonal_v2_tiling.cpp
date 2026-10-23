@@ -79,3 +79,30 @@ TEST_F(FillDiagonalV2Tiling, test_fill_diagonal_v2_float16)
     std::vector<size_t> expectWorkspaces = {16777216};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
+
+TEST_F(FillDiagonalV2Tiling, test_fill_diagonal_v2_rank1_abnormal)
+{
+    optiling::FillDiagonalV2CompileInfo compileInfo = {48, 196608, 16777216};
+
+    gert::TilingContextPara tilingContextPara(
+        "FillDiagonalV2", {{{{5}, {5}}, ge::DT_FLOAT, ge::FORMAT_ND}, {{{5}, {5}}, ge::DT_FLOAT, ge::FORMAT_ND}},
+        {
+            {{{5}, {5}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        {gert::TilingContextPara::OpAttr("wrap", Ops::Math::AnyValue::CreateFrom<bool>(false))}, &compileInfo);
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
+}
+
+TEST_F(FillDiagonalV2Tiling, test_fill_diagonal_v2_dims_not_equal_abnormal)
+{
+    optiling::FillDiagonalV2CompileInfo compileInfo = {48, 196608, 16777216};
+
+    gert::TilingContextPara tilingContextPara(
+        "FillDiagonalV2",
+        {{{{2, 2, 3}, {2, 2, 3}}, ge::DT_FLOAT, ge::FORMAT_ND}, {{{2, 2, 3}, {2, 2, 3}}, ge::DT_FLOAT, ge::FORMAT_ND}},
+        {
+            {{{2, 2, 3}, {2, 2, 3}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        {gert::TilingContextPara::OpAttr("wrap", Ops::Math::AnyValue::CreateFrom<bool>(false))}, &compileInfo);
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
+}

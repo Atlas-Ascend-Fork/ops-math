@@ -527,7 +527,7 @@
     {"name":"CumsumCube", "compute_units": ["ascend910b","ascend910_93"], "auto_sync" : true},
     {"name":"AlltoAllAllGatherBatchMatMul", "compute_units": ["ascend910_93"], "auto_sync" : false, "compile_options": {"ascend910_93":["-DAICORE_EXCEPTION_RESTART"]}},
     {"name":"AlltoAllvGroupedMatMul", "compute_units": ["ascend910_93", "ascend950"], "auto_sync": false, "compile_options": {"ascend910_93":["-DAICORE_EXCEPTION_RESTART"]}},
-    {"name":"FillDiagonalV2", "compute_units": ["ascend910b", "ascend910_93", "ascend310p", "kirinx90", "kirin9030"], "auto_sync" : true},
+    {"name":"FillDiagonalV2", "compute_units": ["ascend910b", "ascend910_93", "ascend950", "ascend310p", "kirinx90", "kirin9030"], "auto_sync" : true},
     {"name":"CircularPad", "compute_units": ["ascend910b","ascend910_93", "kirinx90", "kirin9030"], "auto_sync" : true},
     {"name":"CircularPadGrad", "compute_units": ["ascend910b","ascend910_93"], "auto_sync" : true},
     {"name":"PadV3GradReplication", "compute_units": ["ascend910b", "ascend910_93", "ascend350"], "auto_sync": false},

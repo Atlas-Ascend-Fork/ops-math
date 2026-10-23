@@ -119,6 +119,10 @@ static bool CheckNotOverflow(const aclTensor* selfRef, const aclScalar* fillValu
             overFlowFlag = fillValue->CheckOverflows<op::fp16_t>() ? overFlowFlag << floatFlag : overFlowFlag;
             break;
         }
+        case op::DataType::DT_BF16: {
+            overFlowFlag = fillValue->CheckOverflows<op::bfloat16>() ? overFlowFlag << floatFlag : overFlowFlag;
+            break;
+        }
         case op::DataType::DT_DOUBLE: {
             overFlowFlag = fillValue->CheckOverflows<double>() ? overFlowFlag << floatFlag : overFlowFlag;
             break;

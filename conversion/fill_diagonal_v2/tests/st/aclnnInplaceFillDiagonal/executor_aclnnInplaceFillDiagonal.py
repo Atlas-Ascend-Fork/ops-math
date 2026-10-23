@@ -10,13 +10,12 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ----------------------------------------------------------------------------
 # Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
-import torch
 from atk.configs.dataset_config import InputDataset
 from atk.configs.results_config import TaskResult
 from atk.tasks.api_execute import register
 from atk.tasks.api_execute.base_api import BaseApi
 from atk.tasks.api_execute.aclnn_base_api import AclnnBaseApi
-from atk.tasks.backends.lib_interface.acl_wrapper import AclTensorStruct, AclFormat
+from atk.tasks.backends.lib_interface.acl_wrapper import AclTensorStruct
 from atk.tasks.dataset.base_dataset import OpsDataset
 
 
@@ -26,7 +25,6 @@ class MethodTorchFillDiagonalApi(BaseApi):
         super(MethodTorchFillDiagonalApi, self).__init__(task_result)
         OpsDataset.seed_everything()
         self.change_flag = None
-
 
     def __call__(self, input_data: InputDataset, with_output: bool = False):
         input_selfRef = input_data.kwargs["selfRef"]
@@ -44,6 +42,7 @@ class MethodTorchFillDiagonalApi(BaseApi):
 
         return input_selfRef.fill_diagonal_(value, wrap)
 
+
 @register("aclnn_inplace_fill_diagonal")
 class FillDiagonalAclnnApi(AclnnBaseApi):
     def __call__(self):
@@ -60,5 +59,3 @@ class FillDiagonalAclnnApi(AclnnBaseApi):
         for output_pack in output_packages:
             output.append(self.acl_tensor_to_torch(output_pack))
         return output
-
-
