@@ -236,7 +236,7 @@ aclnnStatus aclnnBincount(
   - <term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>、<term>Atlas推理系列产品</term>、 <term>Atlas训练系列产品</term>：默认确定性实现。
   <!-- end id7 -->
   <!-- npu="950" id8 -->
-  - <term>Ascend 950PR&950DT系列产品</term>：默认非确定性实现，支持通过aclrtCtxSetSysParamOpt开启确定性。
+  - <term>Ascend 950PR&950DT系列产品</term>：默认非确定性实现，支持通过aclrtSetSysParamOpt开启确定性。
   <!-- end id8 -->
 
 ## 调用示例

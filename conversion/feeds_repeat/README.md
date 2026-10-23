@@ -30,40 +30,40 @@
 </colgroup>
 <thead>
   <tr>
-    <th class="tg-0pky">参数名</th>
-    <th class="tg-0pky">输入/输出/属性</th>
-    <th class="tg-0pky">描述</th>
-    <th class="tg-0pky">数据类型</th>
-    <th class="tg-0pky">数据格式</th>
+    <th>参数名</th>
+    <th>输入/输出/属性</th>
+    <th>描述</th>
+    <th>数据类型</th>
+    <th>数据格式</th>
   </tr></thead>
 <tbody>
   <tr>
-    <td class="tg-0pky">feeds</td>
-    <td class="tg-0pky">输入</td>
-    <td class="tg-0pky">等待处理的对象。</td>
-    <td class="tg-0pky">BFLOAT16、FLOAT16、FLOAT32</td>
-    <td class="tg-0pky">ND</td>
+    <td>feeds</td>
+    <td>输入</td>
+    <td>等待处理的对象。</td>
+    <td>BFLOAT16、FLOAT16、FLOAT32</td>
+    <td>ND</td>
   </tr>
   <tr>
-    <td class="tg-0pky">feeds_repeat_times</td>
-    <td class="tg-0pky">输入</td>
-    <td class="tg-0pky">描述对feeds每行的repeat次数。</td>
-    <td class="tg-0pky">INT32、INT64</td>
-    <td class="tg-0pky">ND</td>
+    <td>feeds_repeat_times</td>
+    <td>输入</td>
+    <td>描述对feeds每行的repeat次数。</td>
+    <td>INT32、INT64</td>
+    <td>ND</td>
   </tr>
   <tr>
-    <td class="tg-0lax">y</td>
-    <td class="tg-0lax">输出</td>
-    <td class="tg-0lax">repeat完成后的张量，dtype与feeds保持一致。</td>
-    <td class="tg-0lax">BFLOAT16、FLOAT16、FLOAT32</td>
-    <td class="tg-0lax">ND</td>
+    <td>y</td>
+    <td>输出</td>
+    <td>repeat完成后的张量，dtype与feeds保持一致。</td>
+    <td>BFLOAT16、FLOAT16、FLOAT32</td>
+    <td>ND</td>
   </tr>
   <tr>
-    <td class="tg-0lax">output_feeds_size</td>
-    <td class="tg-0lax">属性</td>
-    <td class="tg-0lax">输出的第0维的数值等于该数值。</td>
-    <td class="tg-0lax">INT</td>
-    <td class="tg-0lax"></td>
+    <td>output_feeds_size</td>
+    <td>属性</td>
+    <td>输出的第0维的数值等于该数值。</td>
+    <td>INT</td>
+    <td></td>
   </tr>
 </tbody></table>
 

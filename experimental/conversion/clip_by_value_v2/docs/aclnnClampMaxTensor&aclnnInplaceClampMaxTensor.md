@@ -73,65 +73,65 @@ aclnnStatus aclnnInplaceClampMaxTensor(
   </colgroup>
   <thead>
     <tr>
-      <th class="tg-0pky">参数名</th>
-      <th class="tg-0pky">输入/输出</th>
-      <th class="tg-0pky">描述</th>
-      <th class="tg-0pky">使用说明</th>
-      <th class="tg-0pky">数据类型</th>
-      <th class="tg-0pky">数据格式</th>
-      <th class="tg-0pky">维度(shape)</th>
-      <th class="tg-0pky">非连续Tensor</th>
+      <th>参数名</th>
+      <th>输入/输出</th>
+      <th>描述</th>
+      <th>使用说明</th>
+      <th>数据类型</th>
+      <th>数据格式</th>
+      <th>维度(shape)</th>
+      <th>非连续Tensor</th>
     </tr></thead>
   <tbody>
     <tr>
-      <td class="tg-0pky">self（aclTensor*）</td>
-      <td class="tg-0pky">输入</td>
-      <td class="tg-0pky">输入tensor，需要进行限制的张量，即公式中的self<sub>i</sub>。</td>
-      <td class="tg-0pky">shape可以与max进行<a href="../../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast</a>，数据类型与clipValueMax的数据类型需满足数据类型推导规则（参见<a href="../../../../docs/zh/context/conversion_relationship.md" target="_blank">互转换关系</a>）。</td>
-      <td class="tg-0pky">FLOAT16、FLOAT、DOUBLE、INT8、UINT8、INT16、INT32、INT64、BFLOAT16</td>
-      <td class="tg-0pky">ND</td>
-      <td class="tg-0pky">1-8</td>
-      <td class="tg-0pky">√</td>
+      <td>self（aclTensor*）</td>
+      <td>输入</td>
+      <td>输入tensor，需要进行限制的张量，即公式中的self<sub>i</sub>。</td>
+      <td>shape可以与max进行<a href="../../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast</a>，数据类型与clipValueMax的数据类型需满足数据类型推导规则（参见<a href="../../../../docs/zh/context/conversion_relationship.md" target="_blank">互转换关系</a>）。</td>
+      <td>FLOAT16、FLOAT、DOUBLE、INT8、UINT8、INT16、INT32、INT64、BFLOAT16</td>
+      <td>ND</td>
+      <td>1-8</td>
+      <td>√</td>
     </tr>
     <tr>
-      <td class="tg-0pky">max（aclTensor*）</td>
-      <td class="tg-0pky">输入</td>
-      <td class="tg-0pky">输入tensor，对self的上界进行限制，即公式中的max<sub>i</sub>。</td>
-      <td class="tg-0pky">shape可以与self进行<a href="../../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast</a>，数据类型与self的数据类型需满足数据类型推导规则（参见<a href="../../../../docs/zh/context/conversion_relationship.md" target="_blank">互转换关系</a>）。</td>
-      <td class="tg-0pky">FLOAT16、FLOAT、DOUBLE、INT8、UINT8、INT16、INT32、INT64、BFLOAT16、BOOL</td>
-      <td class="tg-0pky">ND</td>
-      <td class="tg-0pky">1-8</td>
-      <td class="tg-0pky">√</td>
+      <td>max（aclTensor*）</td>
+      <td>输入</td>
+      <td>输入tensor，对self的上界进行限制，即公式中的max<sub>i</sub>。</td>
+      <td>shape可以与self进行<a href="../../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast</a>，数据类型与self的数据类型需满足数据类型推导规则（参见<a href="../../../../docs/zh/context/conversion_relationship.md" target="_blank">互转换关系</a>）。</td>
+      <td>FLOAT16、FLOAT、DOUBLE、INT8、UINT8、INT16、INT32、INT64、BFLOAT16、BOOL</td>
+      <td>ND</td>
+      <td>1-8</td>
+      <td>√</td>
     </tr>
     <tr>
-      <td class="tg-0lax">out（aclTensor*）</td>
-      <td class="tg-0lax">输出</td>
-      <td class="tg-0lax">输出tensor，即公式中的out<sub>i</sub>。</td>
-      <td class="tg-0lax">shape需要是self与max <a href="../../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast</a>之后的shape，且数据类型需要是self与max推导之后可转换的数据类型。</td>
-      <td class="tg-0lax">FLOAT16、FLOAT、DOUBLE、INT8、UINT8、INT16、INT32、INT64、BFLOAT16</td>
-      <td class="tg-0lax">ND</td>
-      <td class="tg-0lax">1-8</td>
-      <td class="tg-0lax">√</td>
+      <td>out（aclTensor*）</td>
+      <td>输出</td>
+      <td>输出tensor，即公式中的out<sub>i</sub>。</td>
+      <td>shape需要是self与max <a href="../../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast</a>之后的shape，且数据类型需要是self与max推导之后可转换的数据类型。</td>
+      <td>FLOAT16、FLOAT、DOUBLE、INT8、UINT8、INT16、INT32、INT64、BFLOAT16</td>
+      <td>ND</td>
+      <td>1-8</td>
+      <td>√</td>
     </tr>
     <tr>
-      <td class="tg-0pky">workspaceSize（uint64_t*）</td>
-      <td class="tg-0pky">输出</td>
-      <td class="tg-0pky">返回需要在Device侧申请的workspace大小。</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>workspaceSize（uint64_t*）</td>
+      <td>输出</td>
+      <td>返回需要在Device侧申请的workspace大小。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0pky">（aclOpExecutor**）</td>
-      <td class="tg-0pky">输出</td>
-      <td class="tg-0pky">返回op执行器，包含了算子计算流程。</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>（aclOpExecutor**）</td>
+      <td>输出</td>
+      <td>返回op执行器，包含了算子计算流程。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
   </tbody></table>
 
@@ -151,29 +151,29 @@ aclnnStatus aclnnInplaceClampMaxTensor(
   </colgroup>
   <thead>
     <tr>
-      <th class="tg-0pky">返回值</th>
-      <th class="tg-0pky">错误码</th>
-      <th class="tg-0pky">描述</th>
+      <th>返回值</th>
+      <th>错误码</th>
+      <th>描述</th>
     </tr></thead>
   <tbody>
     <tr>
-      <td class="tg-0pky">ACLNN_ERR_PARAM_NULLPTR</td>
-      <td class="tg-0pky">161001</td>
-      <td class="tg-0pky">传入的self、out其中一个为空指针，clipValueMax为空指针。</td>
+      <td>ACLNN_ERR_PARAM_NULLPTR</td>
+      <td>161001</td>
+      <td>传入的self、out其中一个为空指针，clipValueMax为空指针。</td>
     </tr>
     <tr>
-      <td class="tg-0pky" rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
-      <td class="tg-0pky" rowspan="4">161002</td>
-      <td class="tg-0pky">self、max和out的数据类型不在支持范围内。</td>
+      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="4">161002</td>
+      <td>self、max和out的数据类型不在支持范围内。</td>
     </tr>
     <tr>
-      <td class="tg-0lax">self与max的shape不满足<a href="../../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast</a>关系，或<a href="../../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast</a>后的shape与输出out的shape不一致。</td>
+      <td>self与max的shape不满足<a href="../../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast</a>关系，或<a href="../../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast</a>后的shape与输出out的shape不一致。</td>
     </tr>
     <tr>
-      <td class="tg-0lax">self与max类型推导失败，或推导类型无法转为out的数据类型。</td>
+      <td>self与max类型推导失败，或推导类型无法转为out的数据类型。</td>
     </tr>
     <tr>
-      <td class="tg-0lax">self、max或out的维度超过8维。</td>
+      <td>self、max或out的维度超过8维。</td>
     </tr>
   </tbody>
   </table>
@@ -236,55 +236,55 @@ aclnnStatus aclnnInplaceClampMaxTensor(
   </colgroup>
   <thead>
     <tr>
-      <th class="tg-0pky">参数名</th>
-      <th class="tg-0pky">输入/输出</th>
-      <th class="tg-0pky">描述</th>
-      <th class="tg-0pky">使用说明</th>
-      <th class="tg-0pky">数据类型</th>
-      <th class="tg-0pky">数据格式</th>
-      <th class="tg-0pky">维度(shape)</th>
-      <th class="tg-0pky">非连续Tensor</th>
+      <th>参数名</th>
+      <th>输入/输出</th>
+      <th>描述</th>
+      <th>使用说明</th>
+      <th>数据类型</th>
+      <th>数据格式</th>
+      <th>维度(shape)</th>
+      <th>非连续Tensor</th>
     </tr></thead>
   <tbody>
     <tr>
-      <td class="tg-0pky">selfRef（aclTensor*）</td>
-      <td class="tg-0pky">输入/输出</td>
-      <td class="tg-0pky">输入tensor，需要进行限制的张量，即公式中的self<sub>i</sub>与out<sub>i</sub>。</td>
-      <td class="tg-0pky">shape可以与max进行<a href="../../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast</a>，数据类型与max的数据类型需满足数据类型推导规则（参见<a href="../../../../docs/zh/context/conversion_relationship.md" target="_blank">互转换关系</a>）。</td>
-      <td class="tg-0pky">FLOAT16、FLOAT、DOUBLE、INT8、UINT8、INT16、INT32、INT64、BFLOAT16</td>
-      <td class="tg-0pky">ND</td>
-      <td class="tg-0pky">1-8</td>
-      <td class="tg-0pky">√</td>
+      <td>selfRef（aclTensor*）</td>
+      <td>输入/输出</td>
+      <td>输入tensor，需要进行限制的张量，即公式中的self<sub>i</sub>与out<sub>i</sub>。</td>
+      <td>shape可以与max进行<a href="../../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast</a>，数据类型与max的数据类型需满足数据类型推导规则（参见<a href="../../../../docs/zh/context/conversion_relationship.md" target="_blank">互转换关系</a>）。</td>
+      <td>FLOAT16、FLOAT、DOUBLE、INT8、UINT8、INT16、INT32、INT64、BFLOAT16</td>
+      <td>ND</td>
+      <td>1-8</td>
+      <td>√</td>
     </tr>
     <tr>
-      <td class="tg-0pky">max（aclTensor*）</td>
-      <td class="tg-0pky">输入</td>
-      <td class="tg-0pky">输入tensor，对self的上界进行限制，即公式中的max<sub>i</sub>。</td>
-      <td class="tg-0pky">shape可以与selfRef进行<a href="../../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast</a>，数据类型与self的数据类型需满足数据类型推导规则（参见<a href="../../../../docs/zh/context/conversion_relationship.md" target="_blank">互转换关系</a>）。</td>
-      <td class="tg-0pky">FLOAT16、FLOAT、DOUBLE、INT8、UINT8、INT16、INT32、INT64、BFLOAT16、BOOL</td>
-      <td class="tg-0pky">ND</td>
-      <td class="tg-0pky">1-8</td>
-      <td class="tg-0pky">√</td>
+      <td>max（aclTensor*）</td>
+      <td>输入</td>
+      <td>输入tensor，对self的上界进行限制，即公式中的max<sub>i</sub>。</td>
+      <td>shape可以与selfRef进行<a href="../../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast</a>，数据类型与self的数据类型需满足数据类型推导规则（参见<a href="../../../../docs/zh/context/conversion_relationship.md" target="_blank">互转换关系</a>）。</td>
+      <td>FLOAT16、FLOAT、DOUBLE、INT8、UINT8、INT16、INT32、INT64、BFLOAT16、BOOL</td>
+      <td>ND</td>
+      <td>1-8</td>
+      <td>√</td>
     </tr>
     <tr>
-      <td class="tg-0pky">workspaceSize（uint64_t*）</td>
-      <td class="tg-0pky">输出</td>
-      <td class="tg-0pky">返回需要在Device侧申请的workspace大小。</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>workspaceSize（uint64_t*）</td>
+      <td>输出</td>
+      <td>返回需要在Device侧申请的workspace大小。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0pky">（aclOpExecutor**）</td>
-      <td class="tg-0pky">输出</td>
-      <td class="tg-0pky">返回op执行器，包含了算子计算流程。</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>（aclOpExecutor**）</td>
+      <td>输出</td>
+      <td>返回op执行器，包含了算子计算流程。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
   </tbody></table>
 
@@ -309,32 +309,32 @@ aclnnStatus aclnnInplaceClampMaxTensor(
   </colgroup>
   <thead>
     <tr>
-      <th class="tg-0pky">返回值</th>
-      <th class="tg-0pky">错误码</th>
-      <th class="tg-0pky">描述</th>
+      <th>返回值</th>
+      <th>错误码</th>
+      <th>描述</th>
     </tr></thead>
   <tbody>
     <tr>
-      <td class="tg-0pky">ACLNN_ERR_PARAM_NULLPTR</td>
-      <td class="tg-0pky">161001</td>
-      <td class="tg-0pky">传入的selfRef或max为空指针。</td>
+      <td>ACLNN_ERR_PARAM_NULLPTR</td>
+      <td>161001</td>
+      <td>传入的selfRef或max为空指针。</td>
     </tr>
     <tr>
-      <td class="tg-0pky" rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
-      <td class="tg-0pky" rowspan="5">161002</td>
-      <td class="tg-0pky">selfRef与max的数据类型不在支持范围内。</td>
+      <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="5">161002</td>
+      <td>selfRef与max的数据类型不在支持范围内。</td>
     </tr>
     <tr>
-      <td class="tg-0lax">selfRef与max的shape不满足<a href="../../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast</a>关系。</td>
+      <td>selfRef与max的shape不满足<a href="../../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast</a>关系。</td>
     </tr>
     <tr>
-      <td class="tg-0lax">selfRef与max类型推导失败。</td>
+      <td>selfRef与max类型推导失败。</td>
     </tr>
     <tr>
-      <td class="tg-0lax">selfRef或max的维度超过8维。</td>
+      <td>selfRef或max的维度超过8维。</td>
     </tr>
     <tr>
-      <td class="tg-0lax">selfRef与max类型推导失败，或推导后的数据类型无法转为selfRef的数据类型。</td>
+      <td>selfRef与max类型推导失败，或推导后的数据类型无法转为selfRef的数据类型。</td>
     </tr>
   </tbody>
   </table>

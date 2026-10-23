@@ -118,20 +118,20 @@ aclnnStatus aclnnCalculateConvolutionWeightSize(
   </colgroup>
   <thead>
     <tr>
-      <th class="tg-0pky">返回值</th>
-      <th class="tg-0pky">错误码</th>
-      <th class="tg-0pky">描述</th>
+      <th>返回值</th>
+      <th>错误码</th>
+      <th>描述</th>
     </tr></thead>
   <tbody>
     <tr>
-      <td class="tg-0pky">ACLNN_ERR_PARAM_NULLPTR</td>
-      <td class="tg-0pky">161001</td>
-      <td class="tg-0pky">输入是空指针。</td>
+      <td>ACLNN_ERR_PARAM_NULLPTR</td>
+      <td>161001</td>
+      <td>输入是空指针。</td>
     </tr>
     <tr>
-      <td class="tg-0pky">ACLNN_ERR_PARAM_INVALID</td>
-      <td class="tg-0pky">161002</td>
-      <td class="tg-0pky">输入shape校验失败或其他输入不符合预期。</td>
+      <td>ACLNN_ERR_PARAM_INVALID</td>
+      <td>161002</td>
+      <td>输入shape校验失败或其他输入不符合预期。</td>
     </tr>
   </tbody>
   </table>

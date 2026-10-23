@@ -75,7 +75,7 @@
 | aclnn调用 | [test_aclnn_polar](./examples/test_aclnn_polar.cpp) | 通过[aclnnPolar](./docs/aclnnPolar.md)接口方式调用Polar算子。 |
 | 图模式调用 | | |
 
-本目录包含Polar算子的aclnn接口及AscendC实现；关于该算子的设计与自测，请参考[设计文档](./docs/design.md)与[自测报告](./tests/自测报告.md)。
+本目录包含Polar算子的aclnn接口及Ascend C实现；关于该算子的设计与自测，请参考[设计文档](./docs/design.md)与[自测报告](./tests/自测报告.md)。
 
 ## 贡献说明
 

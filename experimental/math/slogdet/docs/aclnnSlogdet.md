@@ -1,10 +1,10 @@
 # aclnnSlogdet
 
-> 本文档对应 `experimental/math/slogdet` 的原生 AscendC 实现（registry-invoke 方式），接口与 `math/slogdet` 真值源保持一致。
+> 本文档对应`experimental/math/slogdet` 的原生Ascend C实现（registry-invoke 方式），接口与`math/slogdet`真值源保持一致。
 
 ## 产品支持情况
 
-> 本次原生 AscendC 实现目标芯片为 Atlas A2/A3 训练/推理系列产品（Ascend 910B / 910C，其中 910C/A3 对应构建参数 `ascend910_93`），其余产品沿用 `math/slogdet` 的 aclnn 转发实现，不在本次交付范围内。
+> 本次原生Ascend C实现目标芯片为 Atlas A2/A3系列产品（Ascend 910B/910C，其中910C/A3对应构建参数`ascend910_93`），其余产品沿用`math/slogdet`的aclnn转发实现，不在本次交付范围内。
 
 | 产品 | 是否支持 |
 | :----------------------------------------- | :------:|

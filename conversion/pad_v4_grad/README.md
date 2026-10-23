@@ -26,40 +26,40 @@
 </colgroup>
 <thead>
   <tr>
-    <th class="tg-0pky">参数名</th>
-    <th class="tg-0pky">输入/输出/属性</th>
-    <th class="tg-0lax">描述</th>
-    <th class="tg-0lax">数据类型</th>
-    <th class="tg-0lax">数据格式</th>
+    <th>参数名</th>
+    <th>输入/输出/属性</th>
+    <th>描述</th>
+    <th>数据类型</th>
+    <th>数据格式</th>
   </tr></thead>
 <tbody>
   <tr>
-    <td class="tg-0pky">gradOutput</td>
-    <td class="tg-0pky">输入</td>
-    <td class="tg-0lax">reflection_pad1d/reflection_pad2d的正向传播，shape支持2~4维且维度需要与self和gradInput保持一致，reflection_pad1d的反向算子对应维度为2/3维，reflection_pad2d的反向算子对应维度为3/4维。</td>
-    <td class="tg-0lax">BFLOAT16、FLOAT16、FLOAT32、DOUBLE、COMPLEX64、COMPLEX128</td>
-    <td class="tg-0lax">ND</td>
+    <td>gradOutput</td>
+    <td>输入</td>
+    <td>reflection_pad1d/reflection_pad2d的正向传播，shape支持2~4维且维度需要与self和gradInput保持一致，reflection_pad1d的反向算子对应维度为2/3维，reflection_pad2d的反向算子对应维度为3/4维。</td>
+    <td>BFLOAT16、FLOAT16、FLOAT32、DOUBLE、COMPLEX64、COMPLEX128</td>
+    <td>ND</td>
   </tr>
   <tr>
-    <td class="tg-0pky">self</td>
-    <td class="tg-0pky">输入</td>
-    <td class="tg-0lax">shape支持2~4维且维度需要与self和gradInput保持一致，shape与gradInput一致。</td>
-    <td class="tg-0lax">BFLOAT16、FLOAT16、FLOAT32、DOUBLE、COMPLEX64、COMPLEX128</td>
-    <td class="tg-0lax">ND</td>
+    <td>self</td>
+    <td>输入</td>
+    <td>shape支持2~4维且维度需要与self和gradInput保持一致，shape与gradInput一致。</td>
+    <td>BFLOAT16、FLOAT16、FLOAT32、DOUBLE、COMPLEX64、COMPLEX128</td>
+    <td>ND</td>
   </tr>
   <tr>
-    <td class="tg-0pky">padding</td>
-    <td class="tg-0pky">输入</td>
-    <td class="tg-0lax">padding描述了向外填充的大小，长度为2或4。<li>长度为2时表示1d左右需要填充的值，padding的前两个值都需要小于self最后一维度的数值。</li><li>长度为4时表示2d左右上下需要填充的值，padding的前两个值都需要小于self最后一维度的数值，后两个值需要小于倒数第二维的数值。</li></td>
-    <td class="tg-0lax">INT64</td>
-    <td class="tg-0lax"></td>
+    <td>padding</td>
+    <td>输入</td>
+    <td>padding描述了向外填充的大小，长度为2或4。<li>长度为2时表示1d左右需要填充的值，padding的前两个值都需要小于self最后一维度的数值。</li><li>长度为4时表示2d左右上下需要填充的值，padding的前两个值都需要小于self最后一维度的数值，后两个值需要小于倒数第二维的数值。</li></td>
+    <td>INT64</td>
+    <td></td>
   </tr>
   <tr>
-    <td class="tg-0pky">gradInput</td>
-    <td class="tg-0pky">输出</td>
-    <td class="tg-0lax">数据类型与self保持一致。</td>
-    <td class="tg-0lax">BFLOAT16、FLOAT16、FLOAT32、DOUBLE、COMPLEX64、COMPLEX128</td>
-    <td class="tg-0lax">ND</td>
+    <td>gradInput</td>
+    <td>输出</td>
+    <td>数据类型与self保持一致。</td>
+    <td>BFLOAT16、FLOAT16、FLOAT32、DOUBLE、COMPLEX64、COMPLEX128</td>
+    <td>ND</td>
   </tr>
 </tbody></table>
 

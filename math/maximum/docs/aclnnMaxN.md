@@ -67,65 +67,65 @@ aclnnStatus aclnnMaxN(
   </colgroup>
   <thead>
     <tr>
-      <th class="tg-0pky">参数名</th>
-      <th class="tg-0pky">输入/输出</th>
-      <th class="tg-0pky">描述</th>
-      <th class="tg-0pky">使用说明</th>
-      <th class="tg-0pky">数据类型</th>
-      <th class="tg-0pky">数据格式</th>
-      <th class="tg-0pky">维度(shape)</th>
-      <th class="tg-0pky">非连续Tensor</th>
+      <th>参数名</th>
+      <th>输入/输出</th>
+      <th>描述</th>
+      <th>使用说明</th>
+      <th>数据类型</th>
+      <th>数据格式</th>
+      <th>维度(shape)</th>
+      <th>非连续Tensor</th>
     </tr></thead>
   <tbody>
     <tr>
-      <td class="tg-0pky">tensors（aclTensorList*）</td>
-      <td class="tg-0pky">输入</td>
-      <td class="tg-0pky">公式中的input。</td>
-      <td class="tg-0pky">
+      <td>tensors（aclTensorList*）</td>
+      <td>输入</td>
+      <td>公式中的input。</td>
+      <td>
         <ul>
           <li>tensors里面的tensor的shape需要互相满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>。</li>
           <li>tensors里面的tensor的dtype需要保持一致。</li>
         </ul>
       </td>
-      <td class="tg-0pky">FLOAT16、FLOAT、INT8、UINT8、INT32、INT64、BFLOAT16</td>
-      <td class="tg-0pky">ND</td>
-      <td class="tg-0pky">0-8</td>
-      <td class="tg-0pky">√</td>
+      <td>FLOAT16、FLOAT、INT8、UINT8、INT32、INT64、BFLOAT16</td>
+      <td>ND</td>
+      <td>0-8</td>
+      <td>√</td>
     </tr>
     <tr>
-      <td class="tg-0pky">out（aclTensor*）</td>
-      <td class="tg-0pky">输出</td>
-      <td class="tg-0pky">公式中的out。</td>
-      <td class="tg-0pky">
+      <td>out（aclTensor*）</td>
+      <td>输出</td>
+      <td>公式中的out。</td>
+      <td>
         <ul>
           <li>dtype需要和tensors中的tensor的dtype一致。</li>
           <li>shape需要是输入tensorlist中所有tensor broadcast之后的shape。</li>
         </ul>
       </td>
-      <td class="tg-0pky">FLOAT16、FLOAT、INT8、UINT8、INT32、INT64、BFLOAT16</td>
-      <td class="tg-0pky">ND</td>
-      <td class="tg-0pky">0-8</td>
-      <td class="tg-0pky">√</td>
+      <td>FLOAT16、FLOAT、INT8、UINT8、INT32、INT64、BFLOAT16</td>
+      <td>ND</td>
+      <td>0-8</td>
+      <td>√</td>
     </tr>
     <tr>
-      <td class="tg-0pky">workspaceSize（uint64_t*）</td>
-      <td class="tg-0pky">输出</td>
-      <td class="tg-0pky">返回需要在Device侧申请的workspace大小。</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>workspaceSize（uint64_t*）</td>
+      <td>输出</td>
+      <td>返回需要在Device侧申请的workspace大小。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0pky">executor（aclOpExecutor**）</td>
-      <td class="tg-0pky">输出</td>
-      <td class="tg-0pky">返回op执行器，包含了算子计算流程。</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>executor（aclOpExecutor**）</td>
+      <td>输出</td>
+      <td>返回op执行器，包含了算子计算流程。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
   </tbody></table>
 

@@ -69,90 +69,90 @@ aclnnStatus aclnnMaxV2(
   </colgroup>
   <thead>
     <tr>
-      <th class="tg-0pky">参数名</th>
-      <th class="tg-0pky">输入/输出</th>
-      <th class="tg-0pky">描述</th>
-      <th class="tg-0pky">使用说明</th>
-      <th class="tg-0pky">数据类型</th>
-      <th class="tg-0pky">数据格式</th>
-      <th class="tg-0pky">维度(shape)</th>
-      <th class="tg-0pky">非连续Tensor</th>
+      <th>参数名</th>
+      <th>输入/输出</th>
+      <th>描述</th>
+      <th>使用说明</th>
+      <th>数据类型</th>
+      <th>数据格式</th>
+      <th>维度(shape)</th>
+      <th>非连续Tensor</th>
     </tr></thead>
   <tbody>
     <tr>
-      <td class="tg-0pky">self（aclTensor*）</td>
-      <td class="tg-0pky">输入</td>
-      <td class="tg-0pky">参与计算的输入tensor。</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">FLOAT、FLOAT16、INT8、INT16、INT32、INT64、UINT8、DOUBLE、BOOL、BFLOAT16</td>
-      <td class="tg-0pky">ND</td>
-      <td class="tg-0pky">0-8</td>
-      <td class="tg-0pky">√</td>
+      <td>self（aclTensor*）</td>
+      <td>输入</td>
+      <td>参与计算的输入tensor。</td>
+      <td>-</td>
+      <td>FLOAT、FLOAT16、INT8、INT16、INT32、INT64、UINT8、DOUBLE、BOOL、BFLOAT16</td>
+      <td>ND</td>
+      <td>0-8</td>
+      <td>√</td>
     </tr>
     <tr>
-      <td class="tg-0pky">dims（aclIntArray*）</td>
-      <td class="tg-0pky">输入</td>
-      <td class="tg-0pky">参与计算的维度。</td>
-      <td class="tg-0pky">取值范围为[-self.dim(), self.dim()-1]。</td>
-      <td class="tg-0pky">INT64</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>dims（aclIntArray*）</td>
+      <td>输入</td>
+      <td>参与计算的维度。</td>
+      <td>取值范围为[-self.dim(), self.dim()-1]。</td>
+      <td>INT64</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0pky">keepDims（bool）</td>
-      <td class="tg-0pky">输入</td>
-      <td class="tg-0pky">是否保留reduce轴的维度。</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">BOOL</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>keepDims（bool）</td>
+      <td>输入</td>
+      <td>是否保留reduce轴的维度。</td>
+      <td>-</td>
+      <td>BOOL</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0pky">noopWithEmptyDims（bool）</td>
-      <td class="tg-0pky">输入</td>
-      <td class="tg-0pky">定义dims为空时的行为。</td>
-      <td class="tg-0pky">
+      <td>noopWithEmptyDims（bool）</td>
+      <td>输入</td>
+      <td>定义dims为空时的行为。</td>
+      <td>
         <ul>
           <li>为true时，dims为空输入tensor不会reduce，即输出tensor和输入tensor一致。</li>
           <li>为false时，dims为空输入tensor会reduce所有轴。</li>
         </ul>
       </td>
-      <td class="tg-0pky">BOOL</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>BOOL</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0pky">out（aclTensor*）</td>
-      <td class="tg-0pky">输出</td>
-      <td class="tg-0pky">输出tensor。</td>
-      <td class="tg-0pky">out数据类型与self保持一致。</td>
-      <td class="tg-0pky">FLOAT、FLOAT16、INT8、INT16、INT32、INT64、UINT8、DOUBLE、BOOL、BFLOAT16</td>
-      <td class="tg-0pky">ND</td>
-      <td class="tg-0pky">0-8</td>
-      <td class="tg-0pky">√</td>
+      <td>out（aclTensor*）</td>
+      <td>输出</td>
+      <td>输出tensor。</td>
+      <td>out数据类型与self保持一致。</td>
+      <td>FLOAT、FLOAT16、INT8、INT16、INT32、INT64、UINT8、DOUBLE、BOOL、BFLOAT16</td>
+      <td>ND</td>
+      <td>0-8</td>
+      <td>√</td>
     </tr>
     <tr>
-      <td class="tg-0pky">workspaceSize（uint64_t*）</td>
-      <td class="tg-0pky">输出</td>
-      <td class="tg-0pky">返回需要在Device侧申请的workspace大小。</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>workspaceSize（uint64_t*）</td>
+      <td>输出</td>
+      <td>返回需要在Device侧申请的workspace大小。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0pky">executor（aclOpExecutor**）</td>
-      <td class="tg-0pky">输出</td>
-      <td class="tg-0pky">返回op执行器，包含了算子计算流程。</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>executor（aclOpExecutor**）</td>
+      <td>输出</td>
+      <td>返回op执行器，包含了算子计算流程。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
   </tbody></table>
 

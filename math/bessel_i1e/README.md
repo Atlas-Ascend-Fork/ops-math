@@ -17,8 +17,7 @@ Copyright (c) 2026 Huawei Technologies Co., Ltd.
 | <term>Atlas推理系列产品</term>                       |    √     |
 | <term>Atlas训练系列产品</term>                       |    √     |
 
-> 说明：本仓交付 Ascend C 实现（注册 ascend950、ascend910_93、ascend910b），支持 Ascend 950PR&950DT 系列、Atlas A3 系列、Atlas A2 系列产品；Atlas 200I/500 A2 推理、Atlas 推理系列、Atlas 训练系列产品经 CANN 内置算子实现提供支持，共同构成上表产品覆盖。
-> Atlas训练系列产品、Atlas推理系列产品及Atlas 200I/500 A2推理产品：数据类型不支持BFLOAT16。
+> 说明：本仓交付Ascend C实现（注册ascend950、ascend910_93、ascend910b），支持Ascend 950PR&950DT系列产品、tlas A3系列产品、Atlas A2系列产品；而Atlas 200I/500 A2推理产品、Atlas推理系列产品、Atlas训练系列产品经CANN内置算子实现提供支持，共同构成上表产品覆盖。
 
 ## 功能说明
 
@@ -64,6 +63,7 @@ $$y_i = e^{-|x_i|} \cdot I_1(x_i)$$
 
 ## 约束说明
 
+- Atlas训练系列产品、Atlas推理系列产品、Atlas 200I/500 A2推理产品：数据类型不支持BFLOAT16。
 - 输出的数据类型和Shape由框架根据输入推导，数据格式为ND。
 - 支持动态shape与动态rank（-1未知维度与-2未知Rank均支持，shape维度可运行时确定，rank支持0～8维）。
 - 支持0维标量与空Tensor（元素数为0时输出为空Tensor）。

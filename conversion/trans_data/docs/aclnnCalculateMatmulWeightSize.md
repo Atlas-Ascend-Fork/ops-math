@@ -63,35 +63,35 @@ aclnnStatus aclnnCalculateMatmulWeightSize(
   </colgroup>
   <thead>
     <tr>
-      <th class="tg-0pky">参数名</th>
-      <th class="tg-0pky">输入/输出</th>
-      <th class="tg-0pky">描述</th>
-      <th class="tg-0pky">使用说明</th>
-      <th class="tg-0pky">数据类型</th>
-      <th class="tg-0pky">数据格式</th>
-      <th class="tg-0pky">维度(shape)</th>
-      <th class="tg-0pky">非连续Tensor</th>
+      <th>参数名</th>
+      <th>输入/输出</th>
+      <th>描述</th>
+      <th>使用说明</th>
+      <th>数据类型</th>
+      <th>数据格式</th>
+      <th>维度(shape)</th>
+      <th>非连续Tensor</th>
     </tr></thead>
   <tbody>
     <tr>
-      <td class="tg-0pky">tensorShape（aclIntArray*）</td>
-      <td class="tg-0pky">输入</td>
-      <td class="tg-0pky">用于表达该次Matmul载入权重矩阵的Shape，公式中的Shapesize。</td>
-      <td class="tg-0pky">输入shape支持2-6维，即（batch，n，k），其中batch表示权重矩阵的批次大小，支持0-4维，n表示单个batch权重矩阵第1维的大小，k表示单个batch权重矩阵第2维的大小，不支持空Array。</td>
-      <td class="tg-0pky">INT64</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">2-6</td>
-      <td class="tg-0pky">-</td>
+      <td>tensorShape（aclIntArray*）</td>
+      <td>输入</td>
+      <td>用于表达该次Matmul载入权重矩阵的Shape，公式中的Shapesize。</td>
+      <td>输入shape支持2-6维，即（batch，n，k），其中batch表示权重矩阵的批次大小，支持0-4维，n表示单个batch权重矩阵第1维的大小，k表示单个batch权重矩阵第2维的大小，不支持空Array。</td>
+      <td>INT64</td>
+      <td>-</td>
+      <td>2-6</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0pky">weightTensorSize（uint64_t*）</td>
-      <td class="tg-0pky">输出</td>
-      <td class="tg-0pky">根据MatMul内部处理逻辑，计算该输入下weight需要多少个元素的数据量，公式中的result。</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>weightTensorSize（uint64_t*）</td>
+      <td>输出</td>
+      <td>根据MatMul内部处理逻辑，计算该输入下weight需要多少个元素的数据量，公式中的result。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
   </tbody></table>
 
@@ -108,20 +108,20 @@ aclnnStatus aclnnCalculateMatmulWeightSize(
   </colgroup>
   <thead>
     <tr>
-      <th class="tg-0pky">返回值</th>
-      <th class="tg-0pky">错误码</th>
-      <th class="tg-0pky">描述</th>
+      <th>返回值</th>
+      <th>错误码</th>
+      <th>描述</th>
     </tr></thead>
   <tbody>
     <tr>
-      <td class="tg-0pky">ACLNN_ERR_PARAM_NULLPTR</td>
-      <td class="tg-0pky">161001</td>
-      <td class="tg-0pky">输入是空指针。</td>
+      <td>ACLNN_ERR_PARAM_NULLPTR</td>
+      <td>161001</td>
+      <td>输入是空指针。</td>
     </tr>
     <tr>
-      <td class="tg-0pky">ACLNN_ERR_PARAM_INVALID</td>
-      <td class="tg-0pky">161002</td>
-      <td class="tg-0pky">计算过程失败。</td>
+      <td>ACLNN_ERR_PARAM_INVALID</td>
+      <td>161002</td>
+      <td>计算过程失败。</td>
     </tr>
   </tbody>
   </table>

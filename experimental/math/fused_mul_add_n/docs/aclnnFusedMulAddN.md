@@ -14,7 +14,7 @@
 | <term>Atlas推理系列产品</term> | × |
 | <term>Atlas训练系列产品</term> | × |
 
-> 本实验态实现仅适配 `ascend910b`（Atlas A2 训练/推理系列产品，DAV_2201）。内建算子
+> 本实验态实现仅适配 `ascend910b`（Atlas A2系列产品，DAV_2201）。内建算子
 > `math/fused_mul_add_n` 另行覆盖 `ascend950`（arch35），不在本实验态范围内。
 
 ## 功能说明

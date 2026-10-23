@@ -62,65 +62,65 @@ aclnnStatus aclnnChannelShuffle(
   </colgroup>
   <thead>
     <tr>
-      <th class="tg-0pky">参数名</th>
-      <th class="tg-0pky">输入/输出</th>
-      <th class="tg-0pky">描述</th>
-      <th class="tg-0pky">使用说明</th>
-      <th class="tg-0pky">数据类型</th>
-      <th class="tg-0pky">数据格式</th>
-      <th class="tg-0pky">维度(shape)</th>
-      <th class="tg-0pky">非连续Tensor</th>
+      <th>参数名</th>
+      <th>输入/输出</th>
+      <th>描述</th>
+      <th>使用说明</th>
+      <th>数据类型</th>
+      <th>数据格式</th>
+      <th>维度(shape)</th>
+      <th>非连续Tensor</th>
     </tr></thead>
   <tbody>
     <tr>
-      <td class="tg-0pky">self（aclTensor*）</td>
-      <td class="tg-0pky">输入</td>
-      <td class="tg-0pky">输入Tensor。</td>
-      <td class="tg-0pky">数据维度大于2且不支持7维以上。</td>
-      <td class="tg-0pky">FLOAT16、FLOAT、DOUBLE、UINT8、INT8、INT16、INT32、INT64、COMPLEX64、COMPLEX128、BOOL</td>
-      <td class="tg-0pky">ND</td>
-      <td class="tg-0pky">3-7</td>
-      <td class="tg-0pky">√</td>
+      <td>self（aclTensor*）</td>
+      <td>输入</td>
+      <td>输入Tensor。</td>
+      <td>数据维度大于2且不支持7维以上。</td>
+      <td>FLOAT16、FLOAT、DOUBLE、UINT8、INT8、INT16、INT32、INT64、COMPLEX64、COMPLEX128、BOOL</td>
+      <td>ND</td>
+      <td>3-7</td>
+      <td>√</td>
     </tr>
     <tr>
-      <td class="tg-0lax">groups（int64_t）</td>
-      <td class="tg-0lax">输入</td>
-      <td class="tg-0lax">表示将输入self的channels分成多少组。</td>
-      <td class="tg-0lax">值需要大于0且要能被self的channels整除。</td>
-      <td class="tg-0lax">INT64</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
+      <td>groups（int64_t）</td>
+      <td>输入</td>
+      <td>表示将输入self的channels分成多少组。</td>
+      <td>值需要大于0且要能被self的channels整除。</td>
+      <td>INT64</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0pky">out（aclTensor*）</td>
-      <td class="tg-0pky">输出</td>
-      <td class="tg-0pky">输出Tensor。</td>
-      <td class="tg-0pky">数据维度大于2且不支持7维以上。</td>
-      <td class="tg-0pky">FLOAT16、FLOAT、DOUBLE、UINT8、INT8、INT16、INT32、INT64、COMPLEX64、COMPLEX128、BOOL、BFLOAT16。</td>
-      <td class="tg-0pky">ND</td>
-      <td class="tg-0pky">3-7</td>
-      <td class="tg-0pky">√</td>
+      <td>out（aclTensor*）</td>
+      <td>输出</td>
+      <td>输出Tensor。</td>
+      <td>数据维度大于2且不支持7维以上。</td>
+      <td>FLOAT16、FLOAT、DOUBLE、UINT8、INT8、INT16、INT32、INT64、COMPLEX64、COMPLEX128、BOOL、BFLOAT16。</td>
+      <td>ND</td>
+      <td>3-7</td>
+      <td>√</td>
     </tr>
     <tr>
-      <td class="tg-0lax">workspaceSize（uint64_t*）</td>
-      <td class="tg-0lax">输出</td>
-      <td class="tg-0lax">返回需要在Device侧申请的workspace大小。</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
+      <td>workspaceSize（uint64_t*）</td>
+      <td>输出</td>
+      <td>返回需要在Device侧申请的workspace大小。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0lax">executor（aclOpExecutor**）</td>
-      <td class="tg-0lax">输出</td>
-      <td class="tg-0lax">返回op执行器，包含了算子计算流程。</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
+      <td>executor（aclOpExecutor**）</td>
+      <td>输出</td>
+      <td>返回op执行器，包含了算子计算流程。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
   </tbody></table>
 
@@ -136,32 +136,32 @@ aclnnStatus aclnnChannelShuffle(
   </colgroup>
   <thead>
     <tr>
-      <th class="tg-0pky">返回值</th>
-      <th class="tg-0pky">错误码</th>
-      <th class="tg-0pky">描述</th>
+      <th>返回值</th>
+      <th>错误码</th>
+      <th>描述</th>
     </tr></thead>
   <tbody>
     <tr>
-      <td class="tg-0pky">ACLNN_ERR_PARAM_NULLPTR</td>
-      <td class="tg-0pky">161001</td>
-      <td class="tg-0pky">参数self、out是空指针。</td>
+      <td>ACLNN_ERR_PARAM_NULLPTR</td>
+      <td>161001</td>
+      <td>参数self、out是空指针。</td>
     </tr>
     <tr>
-      <td class="tg-0pky" rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
-      <td class="tg-0pky" rowspan="5">161002</td>
-      <td class="tg-0pky">参数out的数据类型和self不一致。</td>
+      <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="5">161002</td>
+      <td>参数out的数据类型和self不一致。</td>
     </tr>
     <tr>
-      <td class="tg-0lax">参数out的数据类型和self不一致。</td>
+      <td>参数out的数据类型和self不一致。</td>
     </tr>
     <tr>
-      <td class="tg-0lax">参数self、out的shape不一致。</td>
+      <td>参数self、out的shape不一致。</td>
     </tr>
     <tr>
-      <td class="tg-0lax">参数self、out的维度数大于7或小于3。</td>
+      <td>参数self、out的维度数大于7或小于3。</td>
     </tr>
     <tr>
-      <td class="tg-0lax">参数groups值小于等于0或不能被self的channels整除。</td>
+      <td>参数groups值小于等于0或不能被self的channels整除。</td>
     </tr>
   </tbody>
   </table>

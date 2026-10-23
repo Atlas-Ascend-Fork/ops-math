@@ -67,70 +67,70 @@ aclnnStatus aclnnMaskedSelect(
   </colgroup>
   <thead>
     <tr>
-      <th class="tg-0pky">参数名</th>
-      <th class="tg-0pky">输入/输出</th>
-      <th class="tg-0pky">描述</th>
-      <th class="tg-0pky">使用说明</th>
-      <th class="tg-0pky">数据类型</th>
-      <th class="tg-0pky">数据格式</th>
-      <th class="tg-0pky">维度(shape)</th>
-      <th class="tg-0pky">非连续Tensor</th>
+      <th>参数名</th>
+      <th>输入/输出</th>
+      <th>描述</th>
+      <th>使用说明</th>
+      <th>数据类型</th>
+      <th>数据格式</th>
+      <th>维度(shape)</th>
+      <th>非连续Tensor</th>
     </tr></thead>
   <tbody>
     <tr>
-      <td class="tg-0pky">self（aclTensor*）</td>
-      <td class="tg-0pky">输入</td>
-      <td class="tg-0pky">功能说明中的输入张量self。</td>
-      <td class="tg-0pky">shape需要与mask满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>。</td>
-      <td class="tg-0pky">BFLOAT16、FLOAT16、FLOAT32、DOUBLE、INT8、INT16、INT32、INT64、UINT8、BOOL</td>
-      <td class="tg-0pky">ND</td>
-      <td class="tg-0pky">0-8</td>
-      <td class="tg-0pky">√</td>
+      <td>self（aclTensor*）</td>
+      <td>输入</td>
+      <td>功能说明中的输入张量self。</td>
+      <td>shape需要与mask满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>。</td>
+      <td>BFLOAT16、FLOAT16、FLOAT32、DOUBLE、INT8、INT16、INT32、INT64、UINT8、BOOL</td>
+      <td>ND</td>
+      <td>0-8</td>
+      <td>√</td>
     </tr>
     <tr>
-      <td class="tg-0pky">mask（aclTensor*）</td>
-      <td class="tg-0pky">输入</td>
-      <td class="tg-0pky">功能说明中的布尔掩码张量mask。</td>
-      <td class="tg-0pky">
+      <td>mask（aclTensor*）</td>
+      <td>输入</td>
+      <td>功能说明中的布尔掩码张量mask。</td>
+      <td>
         <ul>
           <li>shape需要与self满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>。</li>
           <li>当数据类型是UINT8时，值只能是0或1。</li>
         </ul>
       </td>
-      <td class="tg-0pky">UINT8、BOOL</td>
-      <td class="tg-0pky">ND</td>
-      <td class="tg-0pky">0-8</td>
-      <td class="tg-0pky">√</td>
+      <td>UINT8、BOOL</td>
+      <td>ND</td>
+      <td>0-8</td>
+      <td>√</td>
     </tr>
     <tr>
-      <td class="tg-0pky">out（aclTensor*）</td>
-      <td class="tg-0pky">输出</td>
-      <td class="tg-0pky">功能说明中的输出一维张量。</td>
-      <td class="tg-0pky">shape为一维，且元素个数为mask和self广播后的shapesize。</td>
-      <td class="tg-0pky">BFLOAT16、FLOAT16、FLOAT32、DOUBLE、INT8、INT16、INT32、INT64、UINT8、BOOL</td>
-      <td class="tg-0pky">ND</td>
-      <td class="tg-0pky">0-8</td>
-      <td class="tg-0pky">×</td>
+      <td>out（aclTensor*）</td>
+      <td>输出</td>
+      <td>功能说明中的输出一维张量。</td>
+      <td>shape为一维，且元素个数为mask和self广播后的shapesize。</td>
+      <td>BFLOAT16、FLOAT16、FLOAT32、DOUBLE、INT8、INT16、INT32、INT64、UINT8、BOOL</td>
+      <td>ND</td>
+      <td>0-8</td>
+      <td>×</td>
     </tr>
     <tr>
-      <td class="tg-0pky">workspaceSize（uint64_t*）</td>
-      <td class="tg-0pky">输出</td>
-      <td class="tg-0pky">返回需要在Device侧申请的workspace大小。</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>workspaceSize（uint64_t*）</td>
+      <td>输出</td>
+      <td>返回需要在Device侧申请的workspace大小。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0pky">executor（aclOpExecutor**）</td>
-      <td class="tg-0pky">输出</td>
-      <td class="tg-0pky">返回op执行器，包含了算子计算流程。</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>executor（aclOpExecutor**）</td>
+      <td>输出</td>
+      <td>返回op执行器，包含了算子计算流程。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
   </tbody></table>
 

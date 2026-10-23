@@ -79,85 +79,85 @@ aclnnStatus aclnnConfusionTranspose(
   </colgroup>
   <thead>
     <tr>
-      <th class="tg-0pky">参数名</th>
-      <th class="tg-0pky">输入/输出</th>
-      <th class="tg-0pky">描述</th>
-      <th class="tg-0pky">使用说明</th>
-      <th class="tg-0pky">数据类型</th>
-      <th class="tg-0pky">数据格式</th>
-      <th class="tg-0pky">维度(shape)</th>
-      <th class="tg-0pky">非连续Tensor</th>
+      <th>参数名</th>
+      <th>输入/输出</th>
+      <th>描述</th>
+      <th>使用说明</th>
+      <th>数据类型</th>
+      <th>数据格式</th>
+      <th>维度(shape)</th>
+      <th>非连续Tensor</th>
     </tr></thead>
   <tbody>
     <tr>
-      <td class="tg-0pky">x（aclTensor*）</td>
-      <td class="tg-0pky">输入/输出</td>
-      <td class="tg-0pky">输入Tensor，对应公式中的x。</td>
-      <td class="tg-0pky">支持空tensor。</td>
-      <td class="tg-0pky">INT8、INT16、 INT32、 INT64、UINT8、UINT16、UINT32、UINT64、FLOAT16、FLOAT、BFLOAT16</td>
-      <td class="tg-0pky">ND</td>
-      <td class="tg-0pky">1-8</td>
-      <td class="tg-0pky">-</td>
+      <td>x（aclTensor*）</td>
+      <td>输入/输出</td>
+      <td>输入Tensor，对应公式中的x。</td>
+      <td>支持空tensor。</td>
+      <td>INT8、INT16、 INT32、 INT64、UINT8、UINT16、UINT32、UINT64、FLOAT16、FLOAT、BFLOAT16</td>
+      <td>ND</td>
+      <td>1-8</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0pky">perm（aclIntArray*）</td>
-      <td class="tg-0pky">输入</td>
-      <td class="tg-0pky">转置后每根轴对应的转置前轴索引，对应公式中的perm。</td>
-      <td class="tg-0pky">1、该输入中元素必须唯一，并在[0,perm的维度数量-1]范围内。<br>2、当transpose_first为True时，perm的长度必须与x的shape的长度相同，即len(perm)=len(x_shape)。 <br>3、当transpose_first为False时，perm长度必须与属性输入shape的长度相同，即len(perm)=len(shape)。</td>
-      <td class="tg-0pky">INT64</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>perm（aclIntArray*）</td>
+      <td>输入</td>
+      <td>转置后每根轴对应的转置前轴索引，对应公式中的perm。</td>
+      <td>1、该输入中元素必须唯一，并在[0,perm的维度数量-1]范围内。<br>2、当transpose_first为True时，perm的长度必须与x的shape的长度相同，即len(perm)=len(x_shape)。 <br>3、当transpose_first为False时，perm长度必须与属性输入shape的长度相同，即len(perm)=len(shape)。</td>
+      <td>INT64</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0lax">shape（aclIntArray*）</td>
-      <td class="tg-0lax">输入</td>
-      <td class="tg-0lax">reshape后的shape大小，对应公式中的shape。</td>
-      <td class="tg-0lax">shape中的所有维度乘积必须等于输入张量x的元素总数。</td>
-      <td class="tg-0lax">INT64</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
+      <td>shape（aclIntArray*）</td>
+      <td>输入</td>
+      <td>reshape后的shape大小，对应公式中的shape。</td>
+      <td>shape中的所有维度乘积必须等于输入张量x的元素总数。</td>
+      <td>INT64</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0lax">transpose_first（bool）</td>
-      <td class="tg-0lax">输入</td>
-      <td class="tg-0lax">判断是否先执行transpose操作。</td>
-      <td class="tg-0lax">如果值为True，首先执行transpose，否则先执行reshape。</td>
-      <td class="tg-0lax">BOOL</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
+      <td>transpose_first（bool）</td>
+      <td>输入</td>
+      <td>判断是否先执行transpose操作。</td>
+      <td>如果值为True，首先执行transpose，否则先执行reshape。</td>
+      <td>BOOL</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0lax">out（aclTensor*）</td>
-      <td class="tg-0lax">输出</td>
-      <td class="tg-0lax">表示reshape和transpose之后的计算结果。</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">与输入x保持一致</td>
-      <td class="tg-0lax">与输入x保持一致</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
+      <td>out（aclTensor*）</td>
+      <td>输出</td>
+      <td>表示reshape和transpose之后的计算结果。</td>
+      <td>-</td>
+      <td>与输入x保持一致</td>
+      <td>与输入x保持一致</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0pky">workspaceSize(uint64_t*)</td>
-      <td class="tg-0pky">输出</td>
-      <td class="tg-0pky">返回需要在Device侧申请的workspace大小。</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>workspaceSize(uint64_t*)</td>
+      <td>输出</td>
+      <td>返回需要在Device侧申请的workspace大小。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0pky">executor(aclOpExecutor**)</td>
-      <td class="tg-0pky">输出</td>
-      <td class="tg-0pky">返回op执行器，包含了算子计算流程。</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>executor(aclOpExecutor**)</td>
+      <td>输出</td>
+      <td>返回op执行器，包含了算子计算流程。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
   </tbody></table>
 
@@ -174,25 +174,25 @@ aclnnStatus aclnnConfusionTranspose(
   </colgroup>
   <thead>
     <tr>
-      <th class="tg-0pky">返回值</th>
-      <th class="tg-0pky">错误码</th>
-      <th class="tg-0pky">描述</th>
+      <th>返回值</th>
+      <th>错误码</th>
+      <th>描述</th>
     </tr></thead>
   <tbody>
     <tr>
-      <td class="tg-0pky">ACLNN_ERR_PARAM_NULLPTR</td>
-      <td class="tg-0pky">161001</td>
-      <td class="tg-0pky">传入的x或out是空指针。</td>
+      <td>ACLNN_ERR_PARAM_NULLPTR</td>
+      <td>161001</td>
+      <td>传入的x或out是空指针。</td>
     </tr>
     <tr>
-      <td class="tg-0pky">ACLNN_ERR_PARAM_INVALID</td>
-      <td class="tg-0pky">161002</td>
-      <td class="tg-0pky">传入的x、out的数据类型不在支持的范围之内。</td>
+      <td>ACLNN_ERR_PARAM_INVALID</td>
+      <td>161002</td>
+      <td>传入的x、out的数据类型不在支持的范围之内。</td>
     </tr>
     <tr>
-      <td class="tg-0lax">ACLNN_ERR_INNER_NULLPTR</td>
-      <td class="tg-0lax">561103</td>
-      <td class="tg-0lax">API内部校验错误，通常由于输入数据或属性的规格不在支持的范围之内/输入和输出的shape不满足参数说明中的要求。</td>
+      <td>ACLNN_ERR_INNER_NULLPTR</td>
+      <td>561103</td>
+      <td>API内部校验错误，通常由于输入数据或属性的规格不在支持的范围之内/输入和输出的shape不满足参数说明中的要求。</td>
     </tr>
   </tbody>
   </table>

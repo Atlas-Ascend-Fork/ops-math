@@ -64,85 +64,85 @@ aclnnStatus aclnnDropoutGenMask(
   </colgroup>
   <thead>
     <tr>
-      <th class="tg-5agr">参数名</th>
-      <th class="tg-0pky">输入/输出</th>
-      <th class="tg-0pky">描述</th>
-      <th class="tg-0pky">使用说明</th>
-      <th class="tg-0pky">数据类型</th>
-      <th class="tg-0pky">数据格式</th>
-      <th class="tg-0pky">维度(shape)</th>
-      <th class="tg-0pky">非连续tensor</th>
+      <th>参数名</th>
+      <th>输入/输出</th>
+      <th>描述</th>
+      <th>使用说明</th>
+      <th>数据类型</th>
+      <th>数据格式</th>
+      <th>维度(shape)</th>
+      <th>非连续tensor</th>
     </tr></thead>
   <tbody>
     <tr>
-      <td class="tg-0pky">shape（aclIntArray*）</td>
-      <td class="tg-0pky">输入</td>
-      <td class="tg-0pky">表示待处理的数据量。</td>
-      <td class="tg-0pky">数组元素个数为1-8。</td>
-      <td class="tg-0pky">INT32、INT64</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">1</td>
-      <td class="tg-0pky">-</td>
+      <td>shape（aclIntArray*）</td>
+      <td>输入</td>
+      <td>表示待处理的数据量。</td>
+      <td>数组元素个数为1-8。</td>
+      <td>INT32、INT64</td>
+      <td>-</td>
+      <td>1</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0pky">prob（double）</td>
-      <td class="tg-0pky">输入</td>
-      <td class="tg-0pky">元素置零的概率。</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>prob（double）</td>
+      <td>输入</td>
+      <td>元素置零的概率。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0pky">seed（int64_t）</td>
-      <td class="tg-0pky">输入</td>
-      <td class="tg-0pky">随机数的种子，影响生成的随机数序列。</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>seed（int64_t）</td>
+      <td>输入</td>
+      <td>随机数的种子，影响生成的随机数序列。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0pky">offset（int64_t）</td>
-      <td class="tg-0pky">输入</td>
-      <td class="tg-0pky">随机数的偏移量，它影响生成的随机数序列的位置。</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>offset（int64_t）</td>
+      <td>输入</td>
+      <td>随机数的偏移量，它影响生成的随机数序列的位置。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0pky">out（aclTensor*）</td>
-      <td class="tg-0pky">输出</td>
-      <td class="tg-0pky">输出的tensor。bit类型并使用UINT8类型存储的mask数据。</td>
-      <td class="tg-0pky">shape需要为(align(input的元素个数, 128)/8)。</td>
-      <td class="tg-0pky">UINT8</td>
-      <td class="tg-0pky">ND</td>
-      <td class="tg-0pky">1</td>
-      <td class="tg-0pky">√</td>
+      <td>out（aclTensor*）</td>
+      <td>输出</td>
+      <td>输出的tensor。bit类型并使用UINT8类型存储的mask数据。</td>
+      <td>shape需要为(align(input的元素个数, 128)/8)。</td>
+      <td>UINT8</td>
+      <td>ND</td>
+      <td>1</td>
+      <td>√</td>
     </tr>
     <tr>
-      <td class="tg-0pky">workspaceSize（uint64_t*）</td>
-      <td class="tg-0pky">输出</td>
-      <td class="tg-0pky">返回需要在Device侧申请的workspace大小。</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>workspaceSize（uint64_t*）</td>
+      <td>输出</td>
+      <td>返回需要在Device侧申请的workspace大小。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0pky">executor（aclOpExecutor**）</td>
-      <td class="tg-0pky">输出</td>
-      <td class="tg-0pky">返回op执行器，包括了算子计算流程。</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>executor（aclOpExecutor**）</td>
+      <td>输出</td>
+      <td>返回op执行器，包括了算子计算流程。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
   </tbody></table>
 

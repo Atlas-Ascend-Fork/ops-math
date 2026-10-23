@@ -64,85 +64,85 @@ aclnnStatus aclnnInplaceNormal(
   </colgroup>
   <thead>
     <tr>
-      <th class="tg-5agr">参数名</th>
-      <th class="tg-0pky">输入/输出</th>
-      <th class="tg-0pky">描述</th>
-      <th class="tg-0pky">使用说明</th>
-      <th class="tg-0pky">数据类型</th>
-      <th class="tg-0pky">数据格式</th>
-      <th class="tg-0pky">维度(shape)</th>
-      <th class="tg-0pky">非连续tensor</th>
+      <th>参数名</th>
+      <th>输入/输出</th>
+      <th>描述</th>
+      <th>使用说明</th>
+      <th>数据类型</th>
+      <th>数据格式</th>
+      <th>维度(shape)</th>
+      <th>非连续tensor</th>
     </tr></thead>
   <tbody>
     <tr>
-      <td class="tg-0pky">selfRef（aclTensor*）</td>
-      <td class="tg-0pky">输入/输出</td>
-      <td class="tg-0pky">输入输出tensor。</td>
-      <td class="tg-0pky">当selfRef为空tensor时，直接返回成功，不执行计算。</td>
-      <td class="tg-0pky">FLOAT32、INT32、INT64、BFLOAT16、FLOAT16、INT16、INT8、UINT8、BOOL、DOUBLE</td>
-      <td class="tg-0pky">ND</td>
-      <td class="tg-0pky">支持0-8维</td>
-      <td class="tg-0pky">√</td>
+      <td>selfRef（aclTensor*）</td>
+      <td>输入/输出</td>
+      <td>输入输出tensor。</td>
+      <td>当selfRef为空tensor时，直接返回成功，不执行计算。</td>
+      <td>FLOAT32、INT32、INT64、BFLOAT16、FLOAT16、INT16、INT8、UINT8、BOOL、DOUBLE</td>
+      <td>ND</td>
+      <td>支持0-8维</td>
+      <td>√</td>
     </tr>
     <tr>
-      <td class="tg-0pky">mean（float）</td>
-      <td class="tg-0pky">输入</td>
-      <td class="tg-0pky">表示随机均值。</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">FLOAT32</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>mean（float）</td>
+      <td>输入</td>
+      <td>表示随机均值。</td>
+      <td>-</td>
+      <td>FLOAT32</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0lax">std（float）</td>
-      <td class="tg-0lax">输入</td>
-      <td class="tg-0lax">表示随机数的标准差，需要大于等于0。</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">FLOAT32</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
+      <td>std（float）</td>
+      <td>输入</td>
+      <td>表示随机数的标准差，需要大于等于0。</td>
+      <td>-</td>
+      <td>FLOAT32</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0pky">seed（int64_t）</td>
-      <td class="tg-0pky">输入</td>
-      <td class="tg-0pky">设置随机数生成器的种子值。</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">INT64</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>seed（int64_t）</td>
+      <td>输入</td>
+      <td>设置随机数生成器的种子值。</td>
+      <td>-</td>
+      <td>INT64</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0pky">offset（int64_t）</td>
-      <td class="tg-0pky">输入</td>
-      <td class="tg-0pky">表示随机数的偏移量。</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">INT64</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>offset（int64_t）</td>
+      <td>输入</td>
+      <td>表示随机数的偏移量。</td>
+      <td>-</td>
+      <td>INT64</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0pky">workspaceSize（uint64_t*）</td>
-      <td class="tg-0pky">输出</td>
-      <td class="tg-0pky">返回需要在Device侧申请的workspace大小。</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>workspaceSize（uint64_t*）</td>
+      <td>输出</td>
+      <td>返回需要在Device侧申请的workspace大小。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0pky">executor（aclOpExecutor**）</td>
-      <td class="tg-0pky">输出</td>
-      <td class="tg-0pky">返回op执行器，包括了算子计算流程。</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>executor（aclOpExecutor**）</td>
+      <td>输出</td>
+      <td>返回op执行器，包括了算子计算流程。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
   </tbody></table>
 

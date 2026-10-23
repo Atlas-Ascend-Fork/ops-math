@@ -94,65 +94,65 @@ aclnnStatus aclnnInplaceSinh(
   </colgroup>
   <thead>
     <tr>
-      <th class="tg-0pky">参数名</th>
-      <th class="tg-0pky">输入/输出</th>
-      <th class="tg-0pky">描述</th>
-      <th class="tg-0pky">使用说明</th>
-      <th class="tg-0pky">数据类型</th>
-      <th class="tg-0pky">数据格式</th>
-      <th class="tg-0pky">维度(shape)</th>
-      <th class="tg-0pky">非连续Tensor</th>
+      <th>参数名</th>
+      <th>输入/输出</th>
+      <th>描述</th>
+      <th>使用说明</th>
+      <th>数据类型</th>
+      <th>数据格式</th>
+      <th>维度(shape)</th>
+      <th>非连续Tensor</th>
     </tr></thead>
   <tbody>
     <tr>
-      <td class="tg-0pky">self（aclTensor*）</td>
-      <td class="tg-0pky">输入</td>
-      <td class="tg-0pky">输入张量，公式中的self。</td>
-      <td class="tg-0pky">
+      <td>self（aclTensor*）</td>
+      <td>输入</td>
+      <td>输入张量，公式中的self。</td>
+      <td>
         <ul>
           <li>数据类型与out的数据类型需满足数据类型推导规则（参见<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>）。</li>
           <li>shape需要与out一致。</li>
         </ul>
       </td>
-      <td class="tg-0pky">INT8、INT16、INT32、INT64、UINT8、BOOL、FLOAT16、BFLOAT16、FLOAT、DOUBLE、COMPLEX64、COMPLEX128</td>
-      <td class="tg-0pky">ND</td>
-      <td class="tg-0pky">0-8</td>
-      <td class="tg-0pky">√</td>
+      <td>INT8、INT16、INT32、INT64、UINT8、BOOL、FLOAT16、BFLOAT16、FLOAT、DOUBLE、COMPLEX64、COMPLEX128</td>
+      <td>ND</td>
+      <td>0-8</td>
+      <td>√</td>
     </tr>
     <tr>
-      <td class="tg-0pky">out（aclTensor*）</td>
-      <td class="tg-0pky">输出</td>
-      <td class="tg-0pky">输出张量，公式中的out。</td>
-      <td class="tg-0pky">
+      <td>out（aclTensor*）</td>
+      <td>输出</td>
+      <td>输出张量，公式中的out。</td>
+      <td>
         <ul>
           <li>数据类型与self的数据类型需满足数据类型推导规则（参见<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>）。</li>
           <li>shape需要与self一致。</li>
         </ul>
       </td>
-      <td class="tg-0pky">FLOAT16、FLOAT、DOUBLE、COMPLEX64、COMPLEX128、BFLOAT16</td>
-      <td class="tg-0pky">ND</td>
-      <td class="tg-0pky">0-8</td>
-      <td class="tg-0pky">√</td>
+      <td>FLOAT16、FLOAT、DOUBLE、COMPLEX64、COMPLEX128、BFLOAT16</td>
+      <td>ND</td>
+      <td>0-8</td>
+      <td>√</td>
     </tr>
     <tr>
-      <td class="tg-0pky">workspaceSize（uint64_t*）</td>
-      <td class="tg-0pky">输出</td>
-      <td class="tg-0pky">返回需要在Device侧申请的workspace大小。</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>workspaceSize（uint64_t*）</td>
+      <td>输出</td>
+      <td>返回需要在Device侧申请的workspace大小。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0pky">executor（aclOpExecutor**）</td>
-      <td class="tg-0pky">输出</td>
-      <td class="tg-0pky">返回op执行器，包含了算子计算流程。</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>executor（aclOpExecutor**）</td>
+      <td>输出</td>
+      <td>返回op执行器，包含了算子计算流程。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
   </tbody></table>
 
@@ -259,45 +259,45 @@ aclnnStatus aclnnInplaceSinh(
   </colgroup>
   <thead>
     <tr>
-      <th class="tg-0pky">参数名</th>
-      <th class="tg-0pky">输入/输出</th>
-      <th class="tg-0pky">描述</th>
-      <th class="tg-0pky">使用说明</th>
-      <th class="tg-0pky">数据类型</th>
-      <th class="tg-0pky">数据格式</th>
-      <th class="tg-0pky">维度(shape)</th>
-      <th class="tg-0pky">非连续Tensor</th>
+      <th>参数名</th>
+      <th>输入/输出</th>
+      <th>描述</th>
+      <th>使用说明</th>
+      <th>数据类型</th>
+      <th>数据格式</th>
+      <th>维度(shape)</th>
+      <th>非连续Tensor</th>
     </tr></thead>
   <tbody>
     <tr>
-      <td class="tg-0pky">selfRef（aclTensor*）</td>
-      <td class="tg-0pky">输入|输出</td>
-      <td class="tg-0pky">输入|输出张量，公式中的self/out。</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">FLOAT16、FLOAT、DOUBLE、COMPLEX64、COMPLEX128、BFLOAT16</td>
-      <td class="tg-0pky">ND</td>
-      <td class="tg-0pky">0-8</td>
-      <td class="tg-0pky">√</td>
+      <td>selfRef（aclTensor*）</td>
+      <td>输入|输出</td>
+      <td>输入|输出张量，公式中的self/out。</td>
+      <td>-</td>
+      <td>FLOAT16、FLOAT、DOUBLE、COMPLEX64、COMPLEX128、BFLOAT16</td>
+      <td>ND</td>
+      <td>0-8</td>
+      <td>√</td>
     </tr>
     <tr>
-      <td class="tg-0pky">workspaceSize（uint64_t*）</td>
-      <td class="tg-0pky">输出</td>
-      <td class="tg-0pky">返回需要在Device侧申请的workspace大小。</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>workspaceSize（uint64_t*）</td>
+      <td>输出</td>
+      <td>返回需要在Device侧申请的workspace大小。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0pky">executor（aclOpExecutor**）</td>
-      <td class="tg-0pky">输出</td>
-      <td class="tg-0pky">返回op执行器，包含了算子计算流程。</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>executor（aclOpExecutor**）</td>
+      <td>输出</td>
+      <td>返回op执行器，包含了算子计算流程。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
   </tbody></table>
 

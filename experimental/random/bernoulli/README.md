@@ -14,8 +14,8 @@
 
 | 产品 | 构建参数 | 架构 | 支持状态 |
 | --- | --- | --- | :---: |
-| Atlas A2 训练/推理系列产品 | `ascend910b` | DAV_2201 | 支持 |
-| Atlas A3 训练/推理系列产品 | `ascend910_93` | DAV_2201 | 支持 |
+| Atlas A2系列产品 | `ascend910b` | DAV_2201 | 支持 |
+| Atlas A3系列产品 | `ascend910_93` | DAV_2201 | 支持 |
 
 两个产品使用同一份 Ascend C Kernel 和 `arch22` tiling。核数与 UB 大小由
 `PlatformAscendC` 在运行时获取，不依赖固定型号参数。

@@ -90,95 +90,95 @@ aclnnStatus aclnnUnfoldGrad(
   </colgroup>
   <thead>
     <tr>
-      <th class="tg-0pky">参数名</th>
-      <th class="tg-0pky">输入/输出</th>
-      <th class="tg-0pky">描述</th>
-      <th class="tg-0pky">使用说明</th>
-      <th class="tg-0pky">数据类型</th>
-      <th class="tg-0pky">数据格式</th>
-      <th class="tg-0pky">维度(shape)</th>
-      <th class="tg-0pky">非连续Tensor</th>
+      <th>参数名</th>
+      <th>输入/输出</th>
+      <th>描述</th>
+      <th>使用说明</th>
+      <th>数据类型</th>
+      <th>数据格式</th>
+      <th>维度(shape)</th>
+      <th>非连续Tensor</th>
     </tr></thead>
   <tbody>
     <tr>
-      <td class="tg-0pky">gradOut（aclTensor *）</td>
-      <td class="tg-0pky">输入</td>
-      <td class="tg-0pky">表示梯度更新系数。</td>
-      <td class="tg-0pky">shape为(..., (sizedim-size)/step+1, size)，要求满足gradOut的第dim维等于(inputSizes[dim]-size)/step+1和gradOut的size等于inputSizes的size+1。</td>
-      <td class="tg-0pky">FLOAT、FLOAT16、BFLOAT16</td>
-      <td class="tg-0pky">ND</td>
-      <td class="tg-0pky">1-8</td>
-      <td class="tg-0pky">-</td>
+      <td>gradOut（aclTensor *）</td>
+      <td>输入</td>
+      <td>表示梯度更新系数。</td>
+      <td>shape为(..., (sizedim-size)/step+1, size)，要求满足gradOut的第dim维等于(inputSizes[dim]-size)/step+1和gradOut的size等于inputSizes的size+1。</td>
+      <td>FLOAT、FLOAT16、BFLOAT16</td>
+      <td>ND</td>
+      <td>1-8</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0lax">inputSizes（aclIntArray*）</td>
-      <td class="tg-0lax">输入</td>
-      <td class="tg-0lax">表示输出张量的形状。</td>
-      <td class="tg-0lax">值为(..., sizedim)，inputSizes的size小于等于8。</td>
-      <td class="tg-0lax">INT64</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
+      <td>inputSizes（aclIntArray*）</td>
+      <td>输入</td>
+      <td>表示输出张量的形状。</td>
+      <td>值为(..., sizedim)，inputSizes的size小于等于8。</td>
+      <td>INT64</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0pky">dim（int64_t）</td>
-      <td class="tg-0pky">输入</td>
-      <td class="tg-0pky">表示展开发生的维度，公式中的dim。</td>
-      <td class="tg-0pky">dim仅支持len(inputSizes)-1或者len(inputSizes)-2。</td>
-      <td class="tg-0pky">INT64</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>dim（int64_t）</td>
+      <td>输入</td>
+      <td>表示展开发生的维度，公式中的dim。</td>
+      <td>dim仅支持len(inputSizes)-1或者len(inputSizes)-2。</td>
+      <td>INT64</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0lax">size（int64_t）</td>
-      <td class="tg-0lax">输入</td>
-      <td class="tg-0lax">表示展开的每个切片的大小，公式中的size。</td>
-      <td class="tg-0lax">size需要满足size大于0且size小于等于inputSizes的第dim维。</td>
-      <td class="tg-0lax">INT64</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
+      <td>size（int64_t）</td>
+      <td>输入</td>
+      <td>表示展开的每个切片的大小，公式中的size。</td>
+      <td>size需要满足size大于0且size小于等于inputSizes的第dim维。</td>
+      <td>INT64</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0lax">step（int64_t）</td>
-      <td class="tg-0lax">输入</td>
-      <td class="tg-0lax">表示每个切片之间的步长，公式中的step。</td>
-      <td class="tg-0lax">step需要满足step大于0。</td>
-      <td class="tg-0lax">INT64</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
+      <td>step（int64_t）</td>
+      <td>输入</td>
+      <td>表示每个切片之间的步长，公式中的step。</td>
+      <td>step需要满足step大于0。</td>
+      <td>INT64</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0lax">gradIn（aclTensor *）</td>
-      <td class="tg-0lax">输出</td>
-      <td class="tg-0lax">表示Unfold的对应梯度。</td>
-      <td class="tg-0lax">shape为inputSizes。</td>
-      <td class="tg-0lax">与gradOut保持一致</td>
-      <td class="tg-0lax">ND</td>
-      <td class="tg-0lax">1-8</td>
-      <td class="tg-0lax">-</td>
+      <td>gradIn（aclTensor *）</td>
+      <td>输出</td>
+      <td>表示Unfold的对应梯度。</td>
+      <td>shape为inputSizes。</td>
+      <td>与gradOut保持一致</td>
+      <td>ND</td>
+      <td>1-8</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0lax">workspaceSize（uint64_t*）</td>
-      <td class="tg-0lax">输出</td>
-      <td class="tg-0lax">返回需要在Device侧申请的workspace大小。</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
+      <td>workspaceSize（uint64_t*）</td>
+      <td>输出</td>
+      <td>返回需要在Device侧申请的workspace大小。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0lax">executor（aclOpExecutor**）</td>
-      <td class="tg-0lax">输出</td>
-      <td class="tg-0lax">返回op执行器，包含了算子计算流程。</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
+      <td>executor（aclOpExecutor**）</td>
+      <td>输出</td>
+      <td>返回op执行器，包含了算子计算流程。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
   </tbody></table>
 
@@ -194,37 +194,37 @@ aclnnStatus aclnnUnfoldGrad(
     </colgroup>
     <thead>
       <tr>
-        <th class="tg-0pky">返回值</th>
-        <th class="tg-0pky">错误码</th>
-        <th class="tg-0pky">描述</th>
+        <th>返回值</th>
+        <th>错误码</th>
+        <th>描述</th>
       </tr></thead>
     <tbody>
       <tr>
-        <td class="tg-0pky">ACLNN_ERR_PARAM_NULLPTR</td>
-        <td class="tg-0pky">161001</td>
-        <td class="tg-0pky">输入和输出的Tensor是空指针。</td>
+        <td>ACLNN_ERR_PARAM_NULLPTR</td>
+        <td>161001</td>
+        <td>输入和输出的Tensor是空指针。</td>
       </tr>
       <tr>
-        <td class="tg-0pky">ACLNN_ERR_PARAM_INVALID</td>
-        <td class="tg-0pky">161002</td>
-        <td class="tg-0pky">输入和输出的数据类型和数据格式不在支持的范围之内。</td>
+        <td>ACLNN_ERR_PARAM_INVALID</td>
+        <td>161002</td>
+        <td>输入和输出的数据类型和数据格式不在支持的范围之内。</td>
       </tr>
       <tr>
-        <td class="tg-0lax" rowspan="5">ACLNN_ERR_INNER_TILING_ERROR</td>
-        <td class="tg-0lax" rowspan="5">561002</td>
-        <td class="tg-0lax">gradOut的第dim维不等于(inputSizes[dim]-size)/step+1。</td>
+        <td rowspan="5">ACLNN_ERR_INNER_TILING_ERROR</td>
+        <td rowspan="5">561002</td>
+        <td>gradOut的第dim维不等于(inputSizes[dim]-size)/step+1。</td>
       </tr>
       <tr>
-        <td class="tg-0lax">gradOut的size不等于inputSizes的size+1。</td>
+        <td>gradOut的size不等于inputSizes的size+1。</td>
       </tr>
       <tr>
-        <td class="tg-0lax">size小于等于0或size大于inputSizes的第dim维。</td>
+        <td>size小于等于0或size大于inputSizes的第dim维。</td>
       </tr>
       <tr>
-        <td class="tg-0lax">step小于等于0。</td>
+        <td>step小于等于0。</td>
       </tr>
       <tr>
-        <td class="tg-0lax">dim不等于len(inputSizes)-1且dim不等于len(inputSizes)-2轴。</td>
+        <td>dim不等于len(inputSizes)-1且dim不等于len(inputSizes)-2轴。</td>
       </tr>
     </tbody>
     </table>

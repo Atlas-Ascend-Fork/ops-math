@@ -65,95 +65,95 @@ aclnnStatus aclnnStridedSliceAssignV2(
   </colgroup>
   <thead>
     <tr>
-      <th class="tg-0pky">参数名</th>
-      <th class="tg-0pky">输入/输出</th>
-      <th class="tg-0pky">描述</th>
-      <th class="tg-0pky">使用说明</th>
-      <th class="tg-0pky">数据类型</th>
-      <th class="tg-0pky">数据格式</th>
-      <th class="tg-0pky">维度(shape)</th>
-      <th class="tg-0pky">非连续Tensor</th>
+      <th>参数名</th>
+      <th>输入/输出</th>
+      <th>描述</th>
+      <th>使用说明</th>
+      <th>数据类型</th>
+      <th>数据格式</th>
+      <th>维度(shape)</th>
+      <th>非连续Tensor</th>
     </tr></thead>
   <tbody>
     <tr>
-      <td class="tg-0pky">varRef（aclTensor*）</td>
-      <td class="tg-0pky">输入/输出</td>
-      <td class="tg-0pky">输入Tensor。</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">FLOAT16、FLOAT、BFLOAT16、INT32、INT64、DOUBLE、INT8</td>
-      <td class="tg-0pky">ND</td>
-      <td class="tg-0pky">1-8</td>
-      <td class="tg-0pky">√</td>
+      <td>varRef（aclTensor*）</td>
+      <td>输入/输出</td>
+      <td>输入Tensor。</td>
+      <td>-</td>
+      <td>FLOAT16、FLOAT、BFLOAT16、INT32、INT64、DOUBLE、INT8</td>
+      <td>ND</td>
+      <td>1-8</td>
+      <td>√</td>
     </tr>
     <tr>
-      <td class="tg-0pky">inputValue（aclTensor*）</td>
-      <td class="tg-0pky">输入</td>
-      <td class="tg-0pky">输入axis。</td>
-      <td class="tg-0pky">shape需要与varRef计算得出的切片shape保持一致。</td>
-      <td class="tg-0pky">FLOAT16、FLOAT、BFLOAT16、INT32、INT64、DOUBLE、INT8</td>
-      <td class="tg-0pky">ND</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">√</td>
+      <td>inputValue（aclTensor*）</td>
+      <td>输入</td>
+      <td>输入axis。</td>
+      <td>shape需要与varRef计算得出的切片shape保持一致。</td>
+      <td>FLOAT16、FLOAT、BFLOAT16、INT32、INT64、DOUBLE、INT8</td>
+      <td>ND</td>
+      <td>-</td>
+      <td>√</td>
     </tr>
     <tr>
-      <td class="tg-0lax">begin（aclIntArray*）</td>
-      <td class="tg-0lax">输入</td>
-      <td class="tg-0lax">切片位置的起始索引。</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">INT64</td>
-      <td class="tg-0lax">ND</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
+      <td>begin（aclIntArray*）</td>
+      <td>输入</td>
+      <td>切片位置的起始索引。</td>
+      <td>-</td>
+      <td>INT64</td>
+      <td>ND</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0lax">end（aclIntArray*）</td>
-      <td class="tg-0lax">输入</td>
-      <td class="tg-0lax">切片位置的终止索引。</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">INT64</td>
-      <td class="tg-0lax">ND</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
+      <td>end（aclIntArray*）</td>
+      <td>输入</td>
+      <td>切片位置的终止索引。</td>
+      <td>-</td>
+      <td>INT64</td>
+      <td>ND</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0lax">strides（aclIntArray*）</td>
-      <td class="tg-0lax">输入</td>
-      <td class="tg-0lax">切片步长。</td>
-      <td class="tg-0lax">strides必须为正数，varRef最后一维对应的strides取值必须为1。</td>
-      <td class="tg-0lax">INT64</td>
-      <td class="tg-0lax">ND</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
+      <td>strides（aclIntArray*）</td>
+      <td>输入</td>
+      <td>切片步长。</td>
+      <td>strides必须为正数，varRef最后一维对应的strides取值必须为1。</td>
+      <td>INT64</td>
+      <td>ND</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0lax">axesOptional（aclIntArray*）</td>
-      <td class="tg-0lax">输入</td>
-      <td class="tg-0lax">可选参数，切片的轴。</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">INT64</td>
-      <td class="tg-0lax">ND</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
+      <td>axesOptional（aclIntArray*）</td>
+      <td>输入</td>
+      <td>可选参数，切片的轴。</td>
+      <td>-</td>
+      <td>INT64</td>
+      <td>ND</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0pky">workspaceSize（uint64_t*）</td>
-      <td class="tg-0pky">输出</td>
-      <td class="tg-0pky">返回需要在Device侧申请的workspace大小。</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>workspaceSize（uint64_t*）</td>
+      <td>输出</td>
+      <td>返回需要在Device侧申请的workspace大小。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0pky">（aclOpExecutor**）</td>
-      <td class="tg-0pky">输出</td>
-      <td class="tg-0pky">返回op执行器，包含了算子计算流程。</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>（aclOpExecutor**）</td>
+      <td>输出</td>
+      <td>返回op执行器，包含了算子计算流程。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
   </tbody></table>
 
@@ -169,20 +169,20 @@ aclnnStatus aclnnStridedSliceAssignV2(
   </colgroup>
   <thead>
     <tr>
-      <th class="tg-0pky">返回值</th>
-      <th class="tg-0pky">错误码</th>
-      <th class="tg-0pky">描述</th>
+      <th>返回值</th>
+      <th>错误码</th>
+      <th>描述</th>
     </tr></thead>
   <tbody>
     <tr>
-      <td class="tg-0pky">ACLNN_ERR_PARAM_NULLPTR</td>
-      <td class="tg-0pky">161001</td>
-      <td class="tg-0pky">传入的self、out或dim是空指针。</td>
+      <td>ACLNN_ERR_PARAM_NULLPTR</td>
+      <td>161001</td>
+      <td>传入的self、out或dim是空指针。</td>
     </tr>
     <tr>
-      <td class="tg-0pky">ACLNN_ERR_PARAM_INVALID</td>
-      <td class="tg-0pky">161002</td>
-      <td class="tg-0pky">输入和输出的数据类型不在支持的范围之内。</td>
+      <td>ACLNN_ERR_PARAM_INVALID</td>
+      <td>161002</td>
+      <td>输入和输出的数据类型不在支持的范围之内。</td>
     </tr>
   </tbody>
   </table>

@@ -63,65 +63,65 @@ aclnnStatus aclnnInplaceFillDiagonal(
   </colgroup>
   <thead>
     <tr>
-      <th class="tg-0pky">参数名</th>
-      <th class="tg-0pky">输入/输出</th>
-      <th class="tg-0pky">描述</th>
-      <th class="tg-0pky">使用说明</th>
-      <th class="tg-0pky">数据类型</th>
-      <th class="tg-0pky">数据格式</th>
-      <th class="tg-0pky">维度(shape)</th>
-      <th class="tg-0pky">非连续Tensor</th>
+      <th>参数名</th>
+      <th>输入/输出</th>
+      <th>描述</th>
+      <th>使用说明</th>
+      <th>数据类型</th>
+      <th>数据格式</th>
+      <th>维度(shape)</th>
+      <th>非连续Tensor</th>
     </tr></thead>
   <tbody>
     <tr>
-      <td class="tg-0pky">selfRef（aclTensor*）</td>
-      <td class="tg-0pky">输入/输出</td>
-      <td class="tg-0pky">表示需要填充的输入、输出Tensor。</td>
-      <td class="tg-0pky">selfRef最大维度不能超过2，当selfRef的总字节数超过2^31字节时（即超过2GB时），会触发算子执行超时。</td>
-      <td class="tg-0pky">FLOAT、FLOAT16、DOUBLE、INT32、INT64、INT16、INT8、UINT8、BOOL、COMPLEX64、BFLOAT16。</td>
-      <td class="tg-0pky">ND</td>
-      <td class="tg-0pky">1、2</td>
-      <td class="tg-0pky">√</td>
+      <td>selfRef（aclTensor*）</td>
+      <td>输入/输出</td>
+      <td>表示需要填充的输入、输出Tensor。</td>
+      <td>selfRef最大维度不能超过2，当selfRef的总字节数超过2^31字节时（即超过2GB时），会触发算子执行超时。</td>
+      <td>FLOAT、FLOAT16、DOUBLE、INT32、INT64、INT16、INT8、UINT8、BOOL、COMPLEX64、BFLOAT16。</td>
+      <td>ND</td>
+      <td>1、2</td>
+      <td>√</td>
     </tr>
     <tr>
-      <td class="tg-0pky">fillValue（aclScalar*）</td>
-      <td class="tg-0pky">输入</td>
-      <td class="tg-0pky">表示填充值。</td>
-      <td class="tg-0pky">数据类型需要是可转换为FLOAT且转换为selfRef数据类型时不溢出的数据类型。</td>
-      <td class="tg-0pky">FLOAT、FLOAT16、DOUBLE、UINT8、INT8、INT16、INT32、INT64、BOOL</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">√</td>
+      <td>fillValue（aclScalar*）</td>
+      <td>输入</td>
+      <td>表示填充值。</td>
+      <td>数据类型需要是可转换为FLOAT且转换为selfRef数据类型时不溢出的数据类型。</td>
+      <td>FLOAT、FLOAT16、DOUBLE、UINT8、INT8、INT16、INT32、INT64、BOOL</td>
+      <td>-</td>
+      <td>-</td>
+      <td>√</td>
     </tr>
     <tr>
-      <td class="tg-0lax">wrap（bool）</td>
-      <td class="tg-0lax">输入</td>
-      <td class="tg-0lax">表示填充方式，公式中的wrap。</td>
-      <td class="tg-0lax">对于高矩阵（行数row大于列数col），若为True，每经过N行形成一条新的对角线，其中N = min(col, row)。</td>
-      <td class="tg-0lax">BOOL</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">1、2</td>
-      <td class="tg-0lax">√</td>
+      <td>wrap（bool）</td>
+      <td>输入</td>
+      <td>表示填充方式，公式中的wrap。</td>
+      <td>对于高矩阵（行数row大于列数col），若为True，每经过N行形成一条新的对角线，其中N = min(col, row)。</td>
+      <td>BOOL</td>
+      <td>-</td>
+      <td>1、2</td>
+      <td>√</td>
     </tr>
     <tr>
-      <td class="tg-0pky">workspaceSize（uint64_t*）</td>
-      <td class="tg-0pky">输出</td>
-      <td class="tg-0pky">返回需要在Device侧申请的workspace大小。</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>workspaceSize（uint64_t*）</td>
+      <td>输出</td>
+      <td>返回需要在Device侧申请的workspace大小。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0pky">（aclOpExecutor**）</td>
-      <td class="tg-0pky">输出</td>
-      <td class="tg-0pky">返回op执行器，包含了算子计算流程。</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>（aclOpExecutor**）</td>
+      <td>输出</td>
+      <td>返回op执行器，包含了算子计算流程。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
   </tbody></table>
 
@@ -137,32 +137,32 @@ aclnnStatus aclnnInplaceFillDiagonal(
   </colgroup>
   <thead>
     <tr>
-      <th class="tg-0pky">返回值</th>
-      <th class="tg-0pky">错误码</th>
-      <th class="tg-0pky">描述</th>
+      <th>返回值</th>
+      <th>错误码</th>
+      <th>描述</th>
     </tr></thead>
   <tbody>
     <tr>
-      <td class="tg-0pky">ACLNN_ERR_PARAM_NULLPTR</td>
-      <td class="tg-0pky">161001</td>
-      <td class="tg-0pky">传入的fillValue或selfRef是空指针。</td>
+      <td>ACLNN_ERR_PARAM_NULLPTR</td>
+      <td>161001</td>
+      <td>传入的fillValue或selfRef是空指针。</td>
     </tr>
     <tr>
-      <td class="tg-0pky" rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
-      <td class="tg-0pky" rowspan="5">161002</td>
-      <td class="tg-0pky">selfRef的数据类型不在支持的范围之内。</td>
+      <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="5">161002</td>
+      <td>selfRef的数据类型不在支持的范围之内。</td>
     </tr>
     <tr>
-      <td class="tg-0lax">selfRef的维度小于等于1。</td>
+      <td>selfRef的维度小于等于1。</td>
     </tr>
     <tr>
-      <td class="tg-0lax">当selfRef的维度大于2时，各维度的长度不相同。</td>
+      <td>当selfRef的维度大于2时，各维度的长度不相同。</td>
     </tr>
     <tr>
-      <td class="tg-0lax">当fillValue不能转换为FLOAT时。</td>
+      <td>当fillValue不能转换为FLOAT时。</td>
     </tr>
     <tr>
-      <td class="tg-0lax">当fillValue转换为selfRef的数据类型时发生溢出。</td>
+      <td>当fillValue转换为selfRef的数据类型时发生溢出。</td>
     </tr>
   </tbody>
   </table>

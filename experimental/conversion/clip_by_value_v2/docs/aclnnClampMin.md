@@ -53,65 +53,65 @@ aclnnStatus aclnnClampMin(
   </colgroup>
   <thead>
     <tr>
-      <th class="tg-0pky">参数名</th>
-      <th class="tg-0pky">输入/输出</th>
-      <th class="tg-0pky">描述</th>
-      <th class="tg-0pky">使用说明</th>
-      <th class="tg-0pky">数据类型</th>
-      <th class="tg-0pky">数据格式</th>
-      <th class="tg-0pky">维度(shape)</th>
-      <th class="tg-0pky">非连续Tensor</th>
+      <th>参数名</th>
+      <th>输入/输出</th>
+      <th>描述</th>
+      <th>使用说明</th>
+      <th>数据类型</th>
+      <th>数据格式</th>
+      <th>维度(shape)</th>
+      <th>非连续Tensor</th>
     </tr></thead>
   <tbody>
     <tr>
-      <td class="tg-0pky">self（aclTensor*）</td>
-      <td class="tg-0pky">输入</td>
-      <td class="tg-0pky">输入Tensor，需要进行限制的张量，即公式中的x<sub>i</sub>。</td>
-      <td class="tg-0pky">数据类型与max的数据类型需满足数据类型推导规则（参见<a href="../../../../docs/zh/context/conversion_relationship.md" target="_blank">互转换关系</a>）。</td>
-      <td class="tg-0pky">FLOAT16、FLOAT、DOUBLE、INT8、UINT8、INT16、INT32、INT64、BFLOAT16</td>
-      <td class="tg-0pky">ND</td>
-      <td class="tg-0pky">1-8</td>
-      <td class="tg-0pky">√</td>
+      <td>self（aclTensor*）</td>
+      <td>输入</td>
+      <td>输入Tensor，需要进行限制的张量，即公式中的x<sub>i</sub>。</td>
+      <td>数据类型与max的数据类型需满足数据类型推导规则（参见<a href="../../../../docs/zh/context/conversion_relationship.md" target="_blank">互转换关系</a>）。</td>
+      <td>FLOAT16、FLOAT、DOUBLE、INT8、UINT8、INT16、INT32、INT64、BFLOAT16</td>
+      <td>ND</td>
+      <td>1-8</td>
+      <td>√</td>
     </tr>
     <tr>
-      <td class="tg-0pky">clipValueMin（aclScalar*）</td>
-      <td class="tg-0pky">输入</td>
-      <td class="tg-0pky">输入Scalar，对self的下界进行限制，即公式中的min<sub>i</sub>。</td>
-      <td class="tg-0pky">数据类型与self的数据类型需满足数据类型推导规则（参见<a href="../../../../docs/zh/context/conversion_relationship.md" target="_blank">互转换关系</a>）。</td>
-      <td class="tg-0pky">FLOAT16、FLOAT、DOUBLE、INT8、UINT8、INT16、INT32、INT64、BFLOAT16、BOOL</td>
-      <td class="tg-0pky">ND</td>
-      <td class="tg-0pky">1-8</td>
-      <td class="tg-0pky">-</td>
+      <td>clipValueMin（aclScalar*）</td>
+      <td>输入</td>
+      <td>输入Scalar，对self的下界进行限制，即公式中的min<sub>i</sub>。</td>
+      <td>数据类型与self的数据类型需满足数据类型推导规则（参见<a href="../../../../docs/zh/context/conversion_relationship.md" target="_blank">互转换关系</a>）。</td>
+      <td>FLOAT16、FLOAT、DOUBLE、INT8、UINT8、INT16、INT32、INT64、BFLOAT16、BOOL</td>
+      <td>ND</td>
+      <td>1-8</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0lax">out（aclTensor*）</td>
-      <td class="tg-0lax">输出</td>
-      <td class="tg-0lax">输出Tensor，即公式中的out<sub>i</sub>。</td>
-      <td class="tg-0lax">数据类型需要是self、clipValueMin推导之后可转换的数据类型。</td>
-      <td class="tg-0lax">FLOAT16、FLOAT、DOUBLE、INT8、UINT8、INT16、INT32、INT64、BFLOAT16</td>
-      <td class="tg-0lax">ND</td>
-      <td class="tg-0lax">与self保持一致</td>
-      <td class="tg-0lax">√</td>
+      <td>out（aclTensor*）</td>
+      <td>输出</td>
+      <td>输出Tensor，即公式中的out<sub>i</sub>。</td>
+      <td>数据类型需要是self、clipValueMin推导之后可转换的数据类型。</td>
+      <td>FLOAT16、FLOAT、DOUBLE、INT8、UINT8、INT16、INT32、INT64、BFLOAT16</td>
+      <td>ND</td>
+      <td>与self保持一致</td>
+      <td>√</td>
     </tr>
     <tr>
-      <td class="tg-0pky">workspaceSize（uint64_t*）</td>
-      <td class="tg-0pky">输出</td>
-      <td class="tg-0pky">返回需要在Device侧申请的workspace大小。</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>workspaceSize（uint64_t*）</td>
+      <td>输出</td>
+      <td>返回需要在Device侧申请的workspace大小。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0pky">（aclOpExecutor**）</td>
-      <td class="tg-0pky">输出</td>
-      <td class="tg-0pky">返回op执行器，包含了算子计算流程。</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>（aclOpExecutor**）</td>
+      <td>输出</td>
+      <td>返回op执行器，包含了算子计算流程。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
   </tbody></table>
 
@@ -131,20 +131,20 @@ aclnnStatus aclnnClampMin(
   </colgroup>
   <thead>
     <tr>
-      <th class="tg-0pky">返回值</th>
-      <th class="tg-0pky">错误码</th>
-      <th class="tg-0pky">描述</th>
+      <th>返回值</th>
+      <th>错误码</th>
+      <th>描述</th>
     </tr></thead>
   <tbody>
     <tr>
-      <td class="tg-0pky">ACLNN_ERR_PARAM_NULLPTR</td>
-      <td class="tg-0pky">161001</td>
-      <td class="tg-0pky">传入的self、out其中一个为空指针，clipValueMin为空指针。</td>
+      <td>ACLNN_ERR_PARAM_NULLPTR</td>
+      <td>161001</td>
+      <td>传入的self、out其中一个为空指针，clipValueMin为空指针。</td>
     </tr>
     <tr>
-      <td class="tg-0pky">ACLNN_ERR_PARAM_INVALID</td>
-      <td class="tg-0pky">161002</td>
-      <td class="tg-0pky">self、out的数据类型和数据格式不在支持的范围之内。</td>
+      <td>ACLNN_ERR_PARAM_INVALID</td>
+      <td>161002</td>
+      <td>self、out的数据类型和数据格式不在支持的范围之内。</td>
     </tr>
   </tbody>
   </table>

@@ -65,65 +65,65 @@ aclnnStatus aclnnFlatten(
   </colgroup>
   <thead>
     <tr>
-      <th class="tg-0pky">参数名</th>
-      <th class="tg-0pky">输入/输出</th>
-      <th class="tg-0pky">描述</th>
-      <th class="tg-0pky">使用说明</th>
-      <th class="tg-0pky">数据类型</th>
-      <th class="tg-0pky">数据格式</th>
-      <th class="tg-0pky">维度(shape)</th>
-      <th class="tg-0pky">非连续Tensor</th>
+      <th>参数名</th>
+      <th>输入/输出</th>
+      <th>描述</th>
+      <th>使用说明</th>
+      <th>数据类型</th>
+      <th>数据格式</th>
+      <th>维度(shape)</th>
+      <th>非连续Tensor</th>
     </tr></thead>
   <tbody>
     <tr>
-      <td class="tg-0pky">self（aclTensor*）</td>
-      <td class="tg-0pky">输入</td>
-      <td class="tg-0pky">表示需要进行flatten的输入。</td>
-      <td class="tg-0pky">self最大维度不能超过8。</td>
-      <td class="tg-0pky">INT8、INT16、INT32、INT64、UINT8、UINT16、UINT32、UINT64、BOOL、BFLOAT16、FLOAT、FLOAT16</td>
-      <td class="tg-0pky">ND</td>
-      <td class="tg-0pky">2-8</td>
-      <td class="tg-0pky">√</td>
+      <td>self（aclTensor*）</td>
+      <td>输入</td>
+      <td>表示需要进行flatten的输入。</td>
+      <td>self最大维度不能超过8。</td>
+      <td>INT8、INT16、INT32、INT64、UINT8、UINT16、UINT32、UINT64、BOOL、BFLOAT16、FLOAT、FLOAT16</td>
+      <td>ND</td>
+      <td>2-8</td>
+      <td>√</td>
     </tr>
     <tr>
-      <td class="tg-0pky">axis（int64_t）</td>
-      <td class="tg-0pky">输入</td>
-      <td class="tg-0pky">输入axis。</td>
-      <td class="tg-0pky">表示flatten计算的基准轴。<br>取值范围为[-self.dim(),self.dim()-1]，若self的dim为0或者1，axis=0，其余情况仅支持axis=1。</td>
-      <td class="tg-0pky">INT64</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">√</td>
+      <td>axis（int64_t）</td>
+      <td>输入</td>
+      <td>输入axis。</td>
+      <td>表示flatten计算的基准轴。<br>取值范围为[-self.dim(),self.dim()-1]，若self的dim为0或者1，axis=0，其余情况仅支持axis=1。</td>
+      <td>INT64</td>
+      <td>-</td>
+      <td>-</td>
+      <td>√</td>
     </tr>
     <tr>
-      <td class="tg-0lax">out（aclTensor*）</td>
-      <td class="tg-0lax">输出</td>
-      <td class="tg-0lax">输出out。</td>
-      <td class="tg-0lax">shape为2D。</td>
-      <td class="tg-0lax">与self保持一致</td>
-      <td class="tg-0lax">ND</td>
-      <td class="tg-0lax">2</td>
-      <td class="tg-0lax">√</td>
+      <td>out（aclTensor*）</td>
+      <td>输出</td>
+      <td>输出out。</td>
+      <td>shape为2D。</td>
+      <td>与self保持一致</td>
+      <td>ND</td>
+      <td>2</td>
+      <td>√</td>
     </tr>
     <tr>
-      <td class="tg-0pky">workspaceSize（uint64_t*）</td>
-      <td class="tg-0pky">输出</td>
-      <td class="tg-0pky">返回需要在Device侧申请的workspace大小。</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>workspaceSize（uint64_t*）</td>
+      <td>输出</td>
+      <td>返回需要在Device侧申请的workspace大小。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0pky">executor（aclOpExecutor**）</td>
-      <td class="tg-0pky">输出</td>
-      <td class="tg-0pky">返回op执行器，包含了算子计算流程。</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>executor（aclOpExecutor**）</td>
+      <td>输出</td>
+      <td>返回op执行器，包含了算子计算流程。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
   </tbody></table>
 
@@ -139,29 +139,29 @@ aclnnStatus aclnnFlatten(
   </colgroup>
   <thead>
     <tr>
-      <th class="tg-0pky">返回值</th>
-      <th class="tg-0pky">错误码</th>
-      <th class="tg-0pky">描述</th>
+      <th>返回值</th>
+      <th>错误码</th>
+      <th>描述</th>
     </tr></thead>
   <tbody>
     <tr>
-      <td class="tg-0pky">ACLNN_ERR_PARAM_NULLPTR</td>
-      <td class="tg-0pky">161001</td>
-      <td class="tg-0pky">传入的self、out是空指针。</td>
+      <td>ACLNN_ERR_PARAM_NULLPTR</td>
+      <td>161001</td>
+      <td>传入的self、out是空指针。</td>
     </tr>
     <tr>
-      <td class="tg-0pky" rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
-      <td class="tg-0pky" rowspan="4">161002</td>
-      <td class="tg-0pky">self和out的数据类型不在支持的范围之内。</td>
+      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="4">161002</td>
+      <td>self和out的数据类型不在支持的范围之内。</td>
     </tr>
     <tr>
-      <td class="tg-0lax">self和out的数据类型不一致。</td>
+      <td>self和out的数据类型不一致。</td>
     </tr>
     <tr>
-      <td class="tg-0lax">axis不在输入self的合理维度范围之内。</td>
+      <td>axis不在输入self的合理维度范围之内。</td>
     </tr>
     <tr>
-      <td class="tg-0lax">self的维度大于8。</td>
+      <td>self的维度大于8。</td>
     </tr>
   </tbody>
   </table>

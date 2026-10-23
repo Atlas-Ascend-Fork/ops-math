@@ -85,146 +85,146 @@ aclnnStatus aclnnWeightQuantPreprocess(
   </colgroup>
   <thead>
     <tr>
-      <th class="tg-0pky">参数名</th>
-      <th class="tg-0pky">输入/输出</th>
-      <th class="tg-0pky">描述</th>
-      <th class="tg-0pky">使用说明</th>
-      <th class="tg-0pky">数据类型</th>
-      <th class="tg-0pky">数据格式</th>
-      <th class="tg-0pky">维度（shape）</th>
-      <th class="tg-0pky">非连续Tensor</th>
+      <th>参数名</th>
+      <th>输入/输出</th>
+      <th>描述</th>
+      <th>使用说明</th>
+      <th>数据类型</th>
+      <th>数据格式</th>
+      <th>维度（shape）</th>
+      <th>非连续Tensor</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td class="tg-0pky">weight(aclTensor *)</td>
-      <td class="tg-0pky">输入</td>
-      <td class="tg-0pky">Matmul的权重矩阵</td>
-      <td class="tg-0pky">不支持空tensor</td>
-      <td class="tg-0pky">float4_e2m1/int4/int8/float8_e4m3fn/hifloat8</td>
-      <td class="tg-0pky">ND</td>
-      <td class="tg-0pky">2-3</td>
-      <td class="tg-0pky">仅转置场景支持</td>
+      <td>weight(aclTensor *)</td>
+      <td>输入</td>
+      <td>Matmul的权重矩阵</td>
+      <td>不支持空tensor</td>
+      <td>float4_e2m1/int4/int8/float8_e4m3fn/hifloat8</td>
+      <td>ND</td>
+      <td>2-3</td>
+      <td>仅转置场景支持</td>
     </tr>
     <tr>
-      <td class="tg-0pky">weightScale(aclTensor *)</td>
-      <td class="tg-0pky">输入</td>
-      <td class="tg-0pky">权重的反量化scale参数</td>
-      <td class="tg-0pky">不支持空tensor</td>
-      <td class="tg-0pky">float8_e8m0/float16/bfloat16</td>
-      <td class="tg-0pky">ND/NCL/NCHW</td>
-      <td class="tg-0pky">1-4</td>
-      <td class="tg-0pky">仅转置场景支持</td>
+      <td>weightScale(aclTensor *)</td>
+      <td>输入</td>
+      <td>权重的反量化scale参数</td>
+      <td>不支持空tensor</td>
+      <td>float8_e8m0/float16/bfloat16</td>
+      <td>ND/NCL/NCHW</td>
+      <td>1-4</td>
+      <td>仅转置场景支持</td>
     </tr>
     <tr>
-      <td class="tg-0pky">weightOffsetOptional(aclTensor *)</td>
-      <td class="tg-0pky">可选输入</td>
-      <td class="tg-0pky">权重的反量化offset参数</td>
-      <td class="tg-0pky">MM_A16S4/MM_A16INT8数据流支持透传（要求与weightScale同viewShape、同数据类型）；其余数据流不支持，必须为nullptr</td>
-      <td class="tg-0pky">float16/bfloat16</td>
-      <td class="tg-0pky">ND</td>
-      <td class="tg-0pky">1-2</td>
-      <td class="tg-0pky">仅转置场景支持</td>
+      <td>weightOffsetOptional(aclTensor *)</td>
+      <td>可选输入</td>
+      <td>权重的反量化offset参数</td>
+      <td>MM_A16S4/MM_A16INT8数据流支持透传（要求与weightScale同viewShape、同数据类型）；其余数据流不支持，必须为nullptr</td>
+      <td>float16/bfloat16</td>
+      <td>ND</td>
+      <td>1-2</td>
+      <td>仅转置场景支持</td>
     </tr>
     <tr>
-      <td class="tg-0pky">biasOptional(aclTensor *)</td>
-      <td class="tg-0pky">可选输入</td>
-      <td class="tg-0pky">Matmul的偏置矩阵</td>
-      <td class="tg-0pky">不支持空tensor，必须contiguous</td>
-      <td class="tg-0pky">float16/bfloat16</td>
-      <td class="tg-0pky">ND</td>
-      <td class="tg-0pky">1-2</td>
-      <td class="tg-0pky">不支持</td>
+      <td>biasOptional(aclTensor *)</td>
+      <td>可选输入</td>
+      <td>Matmul的偏置矩阵</td>
+      <td>不支持空tensor，必须contiguous</td>
+      <td>float16/bfloat16</td>
+      <td>ND</td>
+      <td>1-2</td>
+      <td>不支持</td>
     </tr>
     <tr>
-      <td class="tg-0pky">xDtype(aclDataType)</td>
-      <td class="tg-0pky">输入</td>
-      <td class="tg-0pky">Matmul的激活矩阵的数据类型</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">aclDataType</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>xDtype(aclDataType)</td>
+      <td>输入</td>
+      <td>Matmul的激活矩阵的数据类型</td>
+      <td>-</td>
+      <td>aclDataType</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0pky">xScaleDtype(aclDataType)</td>
-      <td class="tg-0pky">输入</td>
-      <td class="tg-0pky">激活的量化scale参数的数据类型</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">aclDataType</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>xScaleDtype(aclDataType)</td>
+      <td>输入</td>
+      <td>激活的量化scale参数的数据类型</td>
+      <td>-</td>
+      <td>aclDataType</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0pky">kGroupSize(int64_t)</td>
-      <td class="tg-0pky">输入</td>
-      <td class="tg-0pky">权重在pergroup量化时K维度的group的大小</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">int64</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>kGroupSize(int64_t)</td>
+      <td>输入</td>
+      <td>权重在pergroup量化时K维度的group的大小</td>
+      <td>-</td>
+      <td>int64</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0pky">outWeight(aclTensor *)</td>
-      <td class="tg-0pky">输出</td>
-      <td class="tg-0pky">预处理后的weight</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">int8/int4/fp8_e4m3/hif8/fp4_e2m1</td>
-      <td class="tg-0pky">ND/NZ</td>
-      <td class="tg-0pky">2-5</td>
-      <td class="tg-0pky">仅转置场景支持</td>
+      <td>outWeight(aclTensor *)</td>
+      <td>输出</td>
+      <td>预处理后的weight</td>
+      <td>-</td>
+      <td>int8/int4/fp8_e4m3/hif8/fp4_e2m1</td>
+      <td>ND/NZ</td>
+      <td>2-5</td>
+      <td>仅转置场景支持</td>
     </tr>
     <tr>
-      <td class="tg-0pky">outWeightScale(aclTensor *)</td>
-      <td class="tg-0pky">输出</td>
-      <td class="tg-0pky">预处理后的weightScale</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">float16/bfloat16/fp8_e8m0</td>
-      <td class="tg-0pky">ND/NCL/NCHW</td>
-      <td class="tg-0pky">1-4</td>
-      <td class="tg-0pky">仅转置场景支持</td>
+      <td>outWeightScale(aclTensor *)</td>
+      <td>输出</td>
+      <td>预处理后的weightScale</td>
+      <td>-</td>
+      <td>float16/bfloat16/fp8_e8m0</td>
+      <td>ND/NCL/NCHW</td>
+      <td>1-4</td>
+      <td>仅转置场景支持</td>
     </tr>
     <tr>
-      <td class="tg-0pky">outWeightOffsetOptional(aclTensor *)</td>
-      <td class="tg-0pky">输出</td>
-      <td class="tg-0pky">预处理后的weightOffset</td>
-      <td class="tg-0pky">weightOffsetOptional非空时不可为nullptr，且要求与weightOffsetOptional同viewShape、同storageShape、同数据类型；其余场景必须为nullptr</td>
-      <td class="tg-0pky">float16/bfloat16</td>
-      <td class="tg-0pky">ND</td>
-      <td class="tg-0pky">1-2</td>
-      <td class="tg-0pky">仅转置场景支持</td>
+      <td>outWeightOffsetOptional(aclTensor *)</td>
+      <td>输出</td>
+      <td>预处理后的weightOffset</td>
+      <td>weightOffsetOptional非空时不可为nullptr，且要求与weightOffsetOptional同viewShape、同storageShape、同数据类型；其余场景必须为nullptr</td>
+      <td>float16/bfloat16</td>
+      <td>ND</td>
+      <td>1-2</td>
+      <td>仅转置场景支持</td>
     </tr>
     <tr>
-      <td class="tg-0pky">outBiasOptional(aclTensor *)</td>
-      <td class="tg-0pky">输出</td>
-      <td class="tg-0pky">预处理后的bias</td>
-      <td class="tg-0pky">必须contiguous</td>
-      <td class="tg-0pky">float16/bfloat16</td>
-      <td class="tg-0pky">ND</td>
-      <td class="tg-0pky">1-2</td>
-      <td class="tg-0pky">不支持</td>
+      <td>outBiasOptional(aclTensor *)</td>
+      <td>输出</td>
+      <td>预处理后的bias</td>
+      <td>必须contiguous</td>
+      <td>float16/bfloat16</td>
+      <td>ND</td>
+      <td>1-2</td>
+      <td>不支持</td>
     </tr>
     <tr>
-      <td class="tg-0pky">workspaceSize(uint64_t *)</td>
-      <td class="tg-0pky">输出</td>
-      <td class="tg-0pky">计算所需的workspace大小</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">uint64*</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>workspaceSize(uint64_t *)</td>
+      <td>输出</td>
+      <td>计算所需的workspace大小</td>
+      <td>-</td>
+      <td>uint64*</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0pky">executor(aclOpExecutor **)</td>
-      <td class="tg-0pky">输出</td>
-      <td class="tg-0pky">包含算子计算流程的执行器</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">aclOpExecutor**</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>executor(aclOpExecutor **)</td>
+      <td>输出</td>
+      <td>包含算子计算流程的执行器</td>
+      <td>-</td>
+      <td>aclOpExecutor**</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
   </tbody>
   </table>
@@ -241,50 +241,50 @@ aclnnStatus aclnnWeightQuantPreprocess(
   </colgroup>
   <thead>
     <tr>
-      <th class="tg-0pky">返回值</th>
-      <th class="tg-0pky">错误码</th>
-      <th class="tg-0pky">描述</th>
+      <th>返回值</th>
+      <th>错误码</th>
+      <th>描述</th>
     </tr></thead>
   <tbody>
     <tr>
-      <td class="tg-0pky">ACLNN_ERR_PARAM_NULLPTR</td>
-      <td class="tg-0pky">161001</td>
-      <td class="tg-0pky">weight、weightScale、outWeight或outWeightScale是空指针；或biasOptional非空但outBiasOptional是空指针。</td>
+      <td>ACLNN_ERR_PARAM_NULLPTR</td>
+      <td>161001</td>
+      <td>weight、weightScale、outWeight或outWeightScale是空指针；或biasOptional非空但outBiasOptional是空指针。</td>
     </tr>
     <tr>
-      <td class="tg-0pky" rowspan="6">ACLNN_ERR_PARAM_INVALID</td>
-      <td class="tg-0pky" rowspan="6">161002</td>
-      <td class="tg-0pky">输入的数据类型组合不支持，无法匹配当前支持的任何数据流（MM_MX_A8W4/GMM_MX_A8W4/MM_A16S4/MM_A16F4/MM_A16MXF4/MM_A16INT8/MM_A16FP8HIF8）。</td>
+      <td rowspan="6">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="6">161002</td>
+      <td>输入的数据类型组合不支持，无法匹配当前支持的任何数据流（MM_MX_A8W4/GMM_MX_A8W4/MM_A16S4/MM_A16F4/MM_A16MXF4/MM_A16INT8/MM_A16FP8HIF8）。</td>
     </tr>
     <tr>
-      <td class="tg-0lax">weight、weightScale、outWeight或outWeightScale是空tensor；或biasOptional/outBiasOptional在提供时为空tensor。</td>
+      <td>weight、weightScale、outWeight或outWeightScale是空tensor；或biasOptional/outBiasOptional在提供时为空tensor。</td>
     </tr>
     <tr>
-      <td class="tg-0lax">weight、weightScale、biasOptional、outWeight、outWeightScale或outBiasOptional的数据类型和数据格式不在支持的范围之内。</td>
+      <td>weight、weightScale、biasOptional、outWeight、outWeightScale或outBiasOptional的数据类型和数据格式不在支持的范围之内。</td>
     </tr>
     <tr>
-      <td class="tg-0lax">weight、weightScale、biasOptional、outWeight、outWeightScale或outBiasOptional的shape或storage shape不满足校验条件。</td>
+      <td>weight、weightScale、biasOptional、outWeight、outWeightScale或outBiasOptional的shape或storage shape不满足校验条件。</td>
     </tr>
     <tr>
-      <td class="tg-0lax">weight或weightScale的stride不满足转置要求，或biasOptional/outBiasOptional在提供时不连续。</td>
+      <td>weight或weightScale的stride不满足转置要求，或biasOptional/outBiasOptional在提供时不连续。</td>
     </tr>
     <tr>
-      <td class="tg-0lax">weightOffsetOptional或outWeightOffsetOptional非空（MM_MX_A8W4/GMM_MX_A8W4/MM_A16F4/MM_A16MXF4数据流；MM_A16FP8HIF8数据流offset不透传，weightOffsetOptional与outWeightOffsetOptional须同时为空或同时非空，否则报错），或kGroupSize不等于32（MM_MX_A8W4/GMM_MX_A8W4/MM_A16MXF4数据流）；MM_A16S4/MM_A16F4/MM_A16INT8/MM_A16FP8HIF8数据流kGroupSize与weightScale量化粒度的匹配约束不在本算子拦截，由下游WeightQuantBatchMatmulV2校验。</td>
+      <td>weightOffsetOptional或outWeightOffsetOptional非空（MM_MX_A8W4/GMM_MX_A8W4/MM_A16F4/MM_A16MXF4数据流；MM_A16FP8HIF8数据流offset不透传，weightOffsetOptional与outWeightOffsetOptional须同时为空或同时非空，否则报错），或kGroupSize不等于32（MM_MX_A8W4/GMM_MX_A8W4/MM_A16MXF4数据流）；MM_A16S4/MM_A16F4/MM_A16INT8/MM_A16FP8HIF8数据流kGroupSize与weightScale量化粒度的匹配约束不在本算子拦截，由下游WeightQuantBatchMatmulV2校验。</td>
     </tr>
     <tr>
-      <td class="tg-0pky">ACLNN_ERR_RUNTIME_ERROR</td>
-      <td class="tg-0pky">361001</td>
-      <td class="tg-0pky">产品型号不支持。</td>
+      <td>ACLNN_ERR_RUNTIME_ERROR</td>
+      <td>361001</td>
+      <td>产品型号不支持。</td>
     </tr>
     <tr>
-      <td class="tg-0pky">ACLNN_ERR_INNER_CREATE_EXECUTOR</td>
-      <td class="tg-0pky">561101</td>
-      <td class="tg-0pky">内部错误，执行器创建失败。</td>
+      <td>ACLNN_ERR_INNER_CREATE_EXECUTOR</td>
+      <td>561101</td>
+      <td>内部错误，执行器创建失败。</td>
     </tr>
     <tr>
-      <td class="tg-0pky">ACLNN_ERR_INNER_NULLPTR</td>
-      <td class="tg-0pky">561103</td>
-      <td class="tg-0pky">workspaceSize或executor是空指针，或API内部构图接口返回空指针。</td>
+      <td>ACLNN_ERR_INNER_NULLPTR</td>
+      <td>561103</td>
+      <td>workspaceSize或executor是空指针，或API内部构图接口返回空指针。</td>
     </tr>
   </tbody>
   </table>

@@ -2,7 +2,7 @@
 
 ## 概述
 
-本目录提供面向 Atlas A2/A3 训练系列产品的 `aclnnBernoulli` 和
+本目录提供面向 Atlas A2/A3训练系列产品的 `aclnnBernoulli` 和
 `aclnnInplaceBernoulli` 低内存实现。算子保留 `DSAGenBitMask` 的
 `seed/offset` 随机序列生成逻辑，由 Ascend C `BernoulliMask` Kernel 将压缩
 bit mask 直接展开为目标数据类型的 `0` 或 `1`。

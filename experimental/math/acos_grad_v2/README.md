@@ -1,8 +1,6 @@
 # AcosGradV2
 
-AcosGrad 算子的 A2（Atlas A2 训练/推理系列产品，Ascend910B / DAV_2201）适配版本，基于
-`math/acos_grad` 的功能定义实现，采用 aclnn（registry-invoke）工程结构，便于在 A2 设备上
-编译、部署与精度验证。
+AcosGrad算子的A2（Atlas A2系列产品，Ascend910B/DAV_2201）适配版本，基于`math/acos_grad`的功能定义实现，采用aclnn（registry-invoke）工程结构，便于在A2设备上编译、部署与精度验证。
 
 ## 产品支持情况
 

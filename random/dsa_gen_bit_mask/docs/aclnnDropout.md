@@ -71,105 +71,105 @@ aclnnStatus aclnnDropout(
   </colgroup>
   <thead>
     <tr>
-      <th class="tg-5agr">参数名</th>
-      <th class="tg-0pky">输入/输出</th>
-      <th class="tg-0pky">描述</th>
-      <th class="tg-0pky">使用说明</th>
-      <th class="tg-0pky">数据类型</th>
-      <th class="tg-0pky">数据格式</th>
-      <th class="tg-0pky">维度(shape)</th>
-      <th class="tg-0pky">非连续tensor</th>
+      <th>参数名</th>
+      <th>输入/输出</th>
+      <th>描述</th>
+      <th>使用说明</th>
+      <th>数据类型</th>
+      <th>数据格式</th>
+      <th>维度(shape)</th>
+      <th>非连续tensor</th>
     </tr></thead>
   <tbody>
     <tr>
-      <td class="tg-0pky">input（aclTensor*）</td>
-      <td class="tg-0pky">输入</td>
-      <td class="tg-0pky">表示待处理的张量，公式中的input。</td>
-      <td class="tg-0pky">不支持空Tensor。</td>
-      <td class="tg-0pky">BFLOAT16、FLOAT16、FLOAT32</td>
-      <td class="tg-0pky">ND</td>
-      <td class="tg-0pky">1-8</td>
-      <td class="tg-0pky">√</td>
+      <td>input（aclTensor*）</td>
+      <td>输入</td>
+      <td>表示待处理的张量，公式中的input。</td>
+      <td>不支持空Tensor。</td>
+      <td>BFLOAT16、FLOAT16、FLOAT32</td>
+      <td>ND</td>
+      <td>1-8</td>
+      <td>√</td>
     </tr>
     <tr>
-      <td class="tg-0pky">p（double）</td>
-      <td class="tg-0pky">输入</td>
-      <td class="tg-0pky">元素置零的概率，公式中的p。</td>
-      <td class="tg-0pky">数值的值域为[0, 1]。</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>p（double）</td>
+      <td>输入</td>
+      <td>元素置零的概率，公式中的p。</td>
+      <td>数值的值域为[0, 1]。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0pky">train（bool）</td>
-      <td class="tg-0pky">输入</td>
-      <td class="tg-0pky">是否为训练场景。</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>train（bool）</td>
+      <td>输入</td>
+      <td>是否为训练场景。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0pky">seed（int64_t）</td>
-      <td class="tg-0pky">输入</td>
-      <td class="tg-0pky">随机数的种子，影响生成的随机数序列。</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>seed（int64_t）</td>
+      <td>输入</td>
+      <td>随机数的种子，影响生成的随机数序列。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0pky">offset（int64_t）</td>
-      <td class="tg-0pky">输入</td>
-      <td class="tg-0pky">随机数的偏移量，它影响生成的随机数序列的位置。</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>offset（int64_t）</td>
+      <td>输入</td>
+      <td>随机数的偏移量，它影响生成的随机数序列的位置。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0lax">out（aclTensor*）</td>
-      <td class="tg-0lax">输出</td>
-      <td class="tg-0lax">输出的tensor，公式中的out。</td>
-      <td class="tg-0lax"><ul><li>不支持空Tensor。</li><li>数据类型需要是input可转换的数据类型，shape需要与input一致。</li></ul></td>
-      <td class="tg-0lax">BFLOAT16、FLOAT16、FLOAT32</td>
-      <td class="tg-0lax">ND</td>
-      <td class="tg-0lax">1-8</td>
-      <td class="tg-0lax">√</td>
+      <td>out（aclTensor*）</td>
+      <td>输出</td>
+      <td>输出的tensor，公式中的out。</td>
+      <td><ul><li>不支持空Tensor。</li><li>数据类型需要是input可转换的数据类型，shape需要与input一致。</li></ul></td>
+      <td>BFLOAT16、FLOAT16、FLOAT32</td>
+      <td>ND</td>
+      <td>1-8</td>
+      <td>√</td>
     </tr>
     <tr>
-      <td class="tg-0lax">maskOut（aclTensor*）</td>
-      <td class="tg-0lax">输出</td>
-      <td class="tg-0lax">bit类型并使用UINT8类型存储的mask数据。</td>
-      <td class="tg-0lax"><ul><li>不支持空Tensor。</li><li>当p=0、p=1或train=false场景下，不对传入的maskOut做任何处理；其他场景下以给定的p为置零概率生成mask。</li><li>shape需要为(align(input的元素个数, 128)/8)，表示比特数需要与128对齐，其中，align表示将input的元素个数向上对齐为128的倍数，如align(1111, 128)的结果为1152。</li></ul></td>
-      <td class="tg-0lax">UINT8</td>
-      <td class="tg-0lax">ND</td>
-      <td class="tg-0lax">1</td>
-      <td class="tg-0lax">√</td>
+      <td>maskOut（aclTensor*）</td>
+      <td>输出</td>
+      <td>bit类型并使用UINT8类型存储的mask数据。</td>
+      <td><ul><li>不支持空Tensor。</li><li>当p=0、p=1或train=false场景下，不对传入的maskOut做任何处理；其他场景下以给定的p为置零概率生成mask。</li><li>shape需要为(align(input的元素个数, 128)/8)，表示比特数需要与128对齐，其中，align表示将input的元素个数向上对齐为128的倍数，如align(1111, 128)的结果为1152。</li></ul></td>
+      <td>UINT8</td>
+      <td>ND</td>
+      <td>1</td>
+      <td>√</td>
     </tr>
     <tr>
-      <td class="tg-0lax">workspaceSize（uint64_t*）</td>
-      <td class="tg-0lax">输出</td>
-      <td class="tg-0lax">返回需要在Device侧申请的workspace大小。</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
+      <td>workspaceSize（uint64_t*）</td>
+      <td>输出</td>
+      <td>返回需要在Device侧申请的workspace大小。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0lax">executor（aclOpExecutor**）</td>
-      <td class="tg-0lax">输出</td>
-      <td class="tg-0lax">返回op执行器，包括了算子计算流程。</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
+      <td>executor（aclOpExecutor**）</td>
+      <td>输出</td>
+      <td>返回op执行器，包括了算子计算流程。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
   </tbody></table>
 

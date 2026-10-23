@@ -63,75 +63,75 @@ aclnnStatus aclnnRandperm(
   </colgroup>
   <thead>
     <tr>
-      <th class="tg-5agr">参数名</th>
-      <th class="tg-0pky">输入/输出</th>
-      <th class="tg-0pky">描述</th>
-      <th class="tg-0pky">使用说明</th>
-      <th class="tg-0pky">数据类型</th>
-      <th class="tg-0pky">数据格式</th>
-      <th class="tg-0pky">维度(shape)</th>
-      <th class="tg-0pky">非连续tensor</th>
+      <th>参数名</th>
+      <th>输入/输出</th>
+      <th>描述</th>
+      <th>使用说明</th>
+      <th>数据类型</th>
+      <th>数据格式</th>
+      <th>维度(shape)</th>
+      <th>非连续tensor</th>
     </tr></thead>
   <tbody>
     <tr>
-      <td class="tg-0pky">n（int64_t）</td>
-      <td class="tg-0pky">输入</td>
-      <td class="tg-0pky">取随机数的上界。</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">INT64</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>n（int64_t）</td>
+      <td>输入</td>
+      <td>取随机数的上界。</td>
+      <td>-</td>
+      <td>INT64</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0pky">seed（int64_t）</td>
-      <td class="tg-0pky">输入</td>
-      <td class="tg-0pky">随机数生成器的种子，它影响生成的随机数序列。</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">INT64</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>seed（int64_t）</td>
+      <td>输入</td>
+      <td>随机数生成器的种子，它影响生成的随机数序列。</td>
+      <td>-</td>
+      <td>INT64</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0lax">offset（int64_t）</td>
-      <td class="tg-0lax">输入</td>
-      <td class="tg-0lax">随机数生成器的偏移量，它影响生成的随机数序列的位置。设置偏移量后，生成的随机数序列会从指定位置开始。</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">INT64</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
+      <td>offset（int64_t）</td>
+      <td>输入</td>
+      <td>随机数生成器的偏移量，它影响生成的随机数序列的位置。设置偏移量后，生成的随机数序列会从指定位置开始。</td>
+      <td>-</td>
+      <td>INT64</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0lax">out（aclTensor*）</td>
-      <td class="tg-0lax">输出</td>
-      <td class="tg-0lax">输出tensor。</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">INT64、INT32、INT16、UINT8、INT8、FLOAT、FLOAT16、DOUBLE、BFLOAT16</td>
-      <td class="tg-0lax">ND</td>
-      <td class="tg-0lax">为[n]。</td>
-      <td class="tg-0lax">√</td>
+      <td>out（aclTensor*）</td>
+      <td>输出</td>
+      <td>输出tensor。</td>
+      <td>-</td>
+      <td>INT64、INT32、INT16、UINT8、INT8、FLOAT、FLOAT16、DOUBLE、BFLOAT16</td>
+      <td>ND</td>
+      <td>为[n]。</td>
+      <td>√</td>
     </tr>
     <tr>
-      <td class="tg-0pky">workspaceSize（uint64_t*）</td>
-      <td class="tg-0pky">输出</td>
-      <td class="tg-0pky">返回需要在Device侧申请的workspace大小。</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>workspaceSize（uint64_t*）</td>
+      <td>输出</td>
+      <td>返回需要在Device侧申请的workspace大小。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0pky">executor（aclOpExecutor**）</td>
-      <td class="tg-0pky">输出</td>
-      <td class="tg-0pky">返回op执行器，包括了算子计算流程。</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>executor（aclOpExecutor**）</td>
+      <td>输出</td>
+      <td>返回op执行器，包括了算子计算流程。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
   </tbody></table>
 

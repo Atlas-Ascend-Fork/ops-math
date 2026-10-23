@@ -64,85 +64,85 @@ aclnnStatus aclnnInplaceUniform(
   </colgroup>
   <thead>
     <tr>
-      <th class="tg-5agr">参数名</th>
-      <th class="tg-0pky">输入/输出</th>
-      <th class="tg-0pky">描述</th>
-      <th class="tg-0pky">使用说明</th>
-      <th class="tg-0pky">数据类型</th>
-      <th class="tg-0pky">数据格式</th>
-      <th class="tg-0pky">维度(shape)</th>
-      <th class="tg-0pky">非连续tensor</th>
+      <th>参数名</th>
+      <th>输入/输出</th>
+      <th>描述</th>
+      <th>使用说明</th>
+      <th>数据类型</th>
+      <th>数据格式</th>
+      <th>维度(shape)</th>
+      <th>非连续tensor</th>
     </tr></thead>
   <tbody>
     <tr>
-      <td class="tg-0pky">selfRef（aclTensor*）</td>
-      <td class="tg-0pky">输入/输出</td>
-      <td class="tg-0pky">输入输出tensor。</td>
-      <td class="tg-0pky">支持空tensor场景。</td>
-      <td class="tg-0pky">FLOAT32、INT32、INT64、BFLOAT16、FLOAT16、INT16、INT8、UINT8、DOUBLE</td>
-      <td class="tg-0pky">ND</td>
-      <td class="tg-0pky">0-8</td>
-      <td class="tg-0pky">√</td>
+      <td>selfRef（aclTensor*）</td>
+      <td>输入/输出</td>
+      <td>输入输出tensor。</td>
+      <td>支持空tensor场景。</td>
+      <td>FLOAT32、INT32、INT64、BFLOAT16、FLOAT16、INT16、INT8、UINT8、DOUBLE</td>
+      <td>ND</td>
+      <td>0-8</td>
+      <td>√</td>
     </tr>
     <tr>
-      <td class="tg-0pky">from（double）</td>
-      <td class="tg-0pky">输入</td>
-      <td class="tg-0pky">进行离散均匀分布取值的左边界。</td>
-      <td class="tg-0pky">from的值需要在selfRef的数据类型取值范围内，from的取值需要小于等于to。</td>
-      <td class="tg-0pky">DOUBLE</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>from（double）</td>
+      <td>输入</td>
+      <td>进行离散均匀分布取值的左边界。</td>
+      <td>from的值需要在selfRef的数据类型取值范围内，from的取值需要小于等于to。</td>
+      <td>DOUBLE</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0lax">to（double）</td>
-      <td class="tg-0lax">输入</td>
-      <td class="tg-0lax">进行离散均匀分布取值的右边界。</td>
-      <td class="tg-0lax">to的值需要在selfRef的数据类型取值范围内。</td>
-      <td class="tg-0lax">DOUBLE</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
+      <td>to（double）</td>
+      <td>输入</td>
+      <td>进行离散均匀分布取值的右边界。</td>
+      <td>to的值需要在selfRef的数据类型取值范围内。</td>
+      <td>DOUBLE</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0pky">seed（uint64_t）</td>
-      <td class="tg-0pky">输入</td>
-      <td class="tg-0pky">随机数生成器的种子，它影响生成的随机数序列。</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">UINT64</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>seed（uint64_t）</td>
+      <td>输入</td>
+      <td>随机数生成器的种子，它影响生成的随机数序列。</td>
+      <td>-</td>
+      <td>UINT64</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0pky">offset（uint64_t）</td>
-      <td class="tg-0pky">输入</td>
-      <td class="tg-0pky">随机数生成器的偏移量，它影响生成的随机数序列的位置。设置偏移量后，生成的随机数序列会从指定位置开始。</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">UINT64</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>offset（uint64_t）</td>
+      <td>输入</td>
+      <td>随机数生成器的偏移量，它影响生成的随机数序列的位置。设置偏移量后，生成的随机数序列会从指定位置开始。</td>
+      <td>-</td>
+      <td>UINT64</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0pky">workspaceSize（uint64_t*）</td>
-      <td class="tg-0pky">输出</td>
-      <td class="tg-0pky">返回需要在Device侧申请的workspace大小。</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>workspaceSize（uint64_t*）</td>
+      <td>输出</td>
+      <td>返回需要在Device侧申请的workspace大小。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0pky">executor（aclOpExecutor**）</td>
-      <td class="tg-0pky">输出</td>
-      <td class="tg-0pky">返回op执行器，包括了算子计算流程。</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
-      <td class="tg-0pky">-</td>
+      <td>executor（aclOpExecutor**）</td>
+      <td>输出</td>
+      <td>返回op执行器，包括了算子计算流程。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
   </tbody></table>
 

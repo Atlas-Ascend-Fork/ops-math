@@ -82,55 +82,55 @@ aclnnStatus aclnnInplaceCopy(
   </colgroup>
   <thead>
     <tr>
-      <th class="tg-0pky">参数名</th>
-      <th class="tg-0pky">输入/输出</th>
-      <th class="tg-0pky">描述</th>
-      <th class="tg-0pky">使用说明</th>
-      <th class="tg-0pky">数据类型</th>
-      <th class="tg-0pky">数据格式</th>
-      <th class="tg-0pky">维度(shape)</th>
-      <th class="tg-0pky">非连续Tensor</th>
+      <th>参数名</th>
+      <th>输入/输出</th>
+      <th>描述</th>
+      <th>使用说明</th>
+      <th>数据类型</th>
+      <th>数据格式</th>
+      <th>维度(shape)</th>
+      <th>非连续Tensor</th>
     </tr></thead>
   <tbody>
     <tr>
-      <td class="tg-0pky">selfRef（aclTensor *）</td>
-      <td class="tg-0pky">输入/输出</td>
-      <td class="tg-0pky">公式中的selfRef。</td>
-      <td class="tg-0pky">注意目前只有selfRef为连续时，才支持复数间的拷贝，shape需要与src满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>。</td>
-      <td class="tg-0pky">INT8、INT16、INT32、INT64、UINT8、FLOAT16、FLOAT32、BOOL、DOUBLE、COMPLEX64、COMPLEX128、UINT16、UINT32、UINT64、BFLOAT16</td>
-      <td class="tg-0pky">ND</td>
-      <td class="tg-0pky">1-8</td>
-      <td class="tg-0pky">√</td>
+      <td>selfRef（aclTensor *）</td>
+      <td>输入/输出</td>
+      <td>公式中的selfRef。</td>
+      <td>注意目前只有selfRef为连续时，才支持复数间的拷贝，shape需要与src满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>。</td>
+      <td>INT8、INT16、INT32、INT64、UINT8、FLOAT16、FLOAT32、BOOL、DOUBLE、COMPLEX64、COMPLEX128、UINT16、UINT32、UINT64、BFLOAT16</td>
+      <td>ND</td>
+      <td>1-8</td>
+      <td>√</td>
     </tr>
     <tr>
-      <td class="tg-0lax">src（aclTensor *）</td>
-      <td class="tg-0lax">输入</td>
-      <td class="tg-0lax">公式中的src。</td>
-      <td class="tg-0lax">注意目前只有selfRef为连续时，才支持复数间的拷贝，shape需要与selfRef满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>。</td>
-      <td class="tg-0lax">INT8、INT16、INT32、INT64、UINT8、FLOAT16、FLOAT32、BOOL、DOUBLE、COMPLEX64、COMPLEX128、UINT16、UINT32、UINT64、BFLOAT16</td>
-      <td class="tg-0lax">ND</td>
-      <td class="tg-0lax">1-8</td>
-      <td class="tg-0lax">√</td>
+      <td>src（aclTensor *）</td>
+      <td>输入</td>
+      <td>公式中的src。</td>
+      <td>注意目前只有selfRef为连续时，才支持复数间的拷贝，shape需要与selfRef满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>。</td>
+      <td>INT8、INT16、INT32、INT64、UINT8、FLOAT16、FLOAT32、BOOL、DOUBLE、COMPLEX64、COMPLEX128、UINT16、UINT32、UINT64、BFLOAT16</td>
+      <td>ND</td>
+      <td>1-8</td>
+      <td>√</td>
     </tr>
     <tr>
-      <td class="tg-0lax">workspaceSize（uint64_t*）</td>
-      <td class="tg-0lax">输出</td>
-      <td class="tg-0lax">返回需要在Device侧申请的workspace大小。</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
+      <td>workspaceSize（uint64_t*）</td>
+      <td>输出</td>
+      <td>返回需要在Device侧申请的workspace大小。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
-      <td class="tg-0lax">executor（aclOpExecutor**）</td>
-      <td class="tg-0lax">输出</td>
-      <td class="tg-0lax">返回op执行器，包含了算子计算流程。</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
+      <td>executor（aclOpExecutor**）</td>
+      <td>输出</td>
+      <td>返回op执行器，包含了算子计算流程。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
   </tbody></table>
 
@@ -146,29 +146,29 @@ aclnnStatus aclnnInplaceCopy(
     </colgroup>
     <thead>
       <tr>
-        <th class="tg-0pky">返回值</th>
-        <th class="tg-0pky">错误码</th>
-        <th class="tg-0pky">描述</th>
+        <th>返回值</th>
+        <th>错误码</th>
+        <th>描述</th>
       </tr></thead>
     <tbody>
       <tr>
-        <td class="tg-0pky">ACLNN_ERR_PARAM_NULLPTR</td>
-        <td class="tg-0pky">161001</td>
-        <td class="tg-0pky">传入的selfRef或src是空指针时。</td>
+        <td>ACLNN_ERR_PARAM_NULLPTR</td>
+        <td>161001</td>
+        <td>传入的selfRef或src是空指针时。</td>
       </tr>
       <tr>
-        <td class="tg-0pky" rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
-        <td class="tg-0pky" rowspan="4">161002</td>
-        <td class="tg-0pky">传入的selfRef或src是空指针时。</td>
+        <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
+        <td rowspan="4">161002</td>
+        <td>传入的selfRef或src是空指针时。</td>
       </tr>
       <tr>
-        <td class="tg-0lax">selfRef的shape超过8维。</td>
+        <td>selfRef的shape超过8维。</td>
       </tr>
       <tr>
-        <td class="tg-0lax">src的shape不能广播至selfRef。</td>
+        <td>src的shape不能广播至selfRef。</td>
       </tr>
       <tr>
-        <td class="tg-0lax">src的数据类型不在支持范围内，或不能转换到selfRef。</td>
+        <td>src的数据类型不在支持范围内，或不能转换到selfRef。</td>
       </tr>
     </tbody>
     </table>
@@ -235,20 +235,20 @@ aclnnStatus aclnnInplaceCopy(
   输入数据中存在nan，则将nan转换为0。
 
 <!-- npu="A3,910b" id7 -->
-- <term>Atlas A2 训练系列产品/Atlas A2 推理系列产品</term>、<term>Atlas A3 训练系列产品/Atlas A3 推理系列产品</term>：不支持src或selfRef数据类型为HIFLOAT8、FLOAT8_E5M2、FLOAT8_E4M3FN的类型转换。
+- <term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>：不支持src或selfRef数据类型为HIFLOAT8、FLOAT8_E5M2、FLOAT8_E4M3FN的类型转换。
 <!-- end id7 -->
 <!-- npu="A3,910b,910,310p" id8 -->
-- <term>Atlas 推理系列产品</term>、<term>Atlas 训练系列产品</term>、<term>Atlas A2 训练系列产品/Atlas A2 推理系列产品</term>、<term>Atlas A3 训练系列产品/Atlas A3 推理系列产品</term>：
+- <term>Atlas推理系列产品</term>、<term>Atlas训练系列产品</term>、<term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>：
   - 针对数据类型从int32转换为int8的场景：只能保证输入数据在(-2048, 1920)范围内精度无误差。
   - 针对数据类型从float64/complex64/complex128转换为uint8的场景：只能保证输入数据为非负数精度无误差。
 <!-- end id8 -->
 <!-- npu="310p" id9 -->
-- <term>Atlas 推理系列产品</term>：
+- <term>Atlas推理系列产品</term>：
   - 针对数据类型从float32转换为int64和float32转换为uint8的场景：只能保证输入数据在(-2147483648, 2147483583)范围内精度无误差。
   - 针对数据类型从int64转换为float32的场景：只能保证输入数据在(-2147483648, 2147483647)范围内精度无误差。
 <!-- end id9 -->
 <!-- npu="950" id10 -->
-- <term>Ascend 950PR/Ascend 950DT</term>：
+- <term>Ascend 950PR&950DT系列产品</term>：
   - 针对src、selfRef数据类型涉及HIFLOAT8、FLOAT8_E5M2、FLOAT8_E4M3FN的类型转换场景，只支持如下表格中的转换路径：
 
     | `src`数据类型 | `selfRef`数据类型 |
