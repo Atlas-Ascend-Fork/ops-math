@@ -9,13 +9,12 @@
  * - Liu Jun <@kbryantttt>
  * - Su Tonghua <@sutonghua>
  *
- * This program is free software: you can redistribute it and/or modify it.
- * Licensed under the CANN Open Software License Agreement Version 2.0 (the "License").
- * You may not use this file except in compliance with the License.
- * See the LICENSE file at the root of the repository for the full text of the License.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTIES OF ANY KIND, EXPRESS OR IMPLIED,
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
  */
 
 /*!
@@ -42,18 +41,6 @@ const uint32_t BlockSize = 32;
 const uint32_t computeBatchSize = 256;
 const uint32_t sizeHalf = 2;
 const uint32_t VAL_ZRRO = 0;
-uint32_t type_Size = VAL_ZRRO;
-uint64_t key_value = keyOne;
-// buffer for queue
-uint64_t ub_Sharing_Num = 2;
-int64_t row_Length = VAL_ZRRO;
-int64_t column_Length = VAL_ZRRO;
-int64_t matrix_Num = 1, matrix_Size = 1;
-int64_t diag_Val = VAL_ZRRO;
-uint32_t align_Num = VAL_ZRRO;
-uint32_t total_Length_Aligned = VAL_ZRRO;
-uint64_t loop_Cnt = VAL_ZRRO, full_Tile_Length = VAL_ZRRO, last_Tile_Length = VAL_ZRRO;
-int32_t full_Cnt = VAL_ZRRO, last_Cnt = VAL_ZRRO;
 struct TrilCompileInfo {};
 } // namespace
 
@@ -100,18 +87,29 @@ static ge::graphStatus GetWorkspaceSize(gert::TilingContext* context)
 // tiling 分发入口
 static ge::graphStatus TrilTilingFunc(gert::TilingContext* context)
 {
+    // Keep all intermediate state local to this invocation, including concurrent tiling calls.
+    uint32_t type_Size = VAL_ZRRO;
+    uint64_t key_value = keyOne;
+    uint64_t ub_Sharing_Num = 2;
+    int64_t row_Length = VAL_ZRRO;
+    int64_t column_Length = VAL_ZRRO;
+    int64_t matrix_Num = 1, matrix_Size = 1;
+    int64_t diag_Val = VAL_ZRRO;
+    uint32_t align_Num = VAL_ZRRO;
+    uint32_t total_Length_Aligned = VAL_ZRRO;
+    uint64_t loop_Cnt = VAL_ZRRO, full_Tile_Length = VAL_ZRRO, last_Tile_Length = VAL_ZRRO;
+    int32_t full_Cnt = VAL_ZRRO, last_Cnt = VAL_ZRRO;
+
     // 1、获取平台运行信息
     uint64_t ubSize;
     int64_t coreNum;
-    OP_CHECK_IF(
-        GetPlatformInfo(context, ubSize, coreNum) != ge::GRAPH_SUCCESS, OP_LOGE(context, "GetPlatformInfo error"),
-        return ge::GRAPH_FAILED);
+    OP_CHECK_IF(GetPlatformInfo(context, ubSize, coreNum) != ge::GRAPH_SUCCESS,
+                OP_LOGE(context, "GetPlatformInfo error"), return ge::GRAPH_FAILED);
     // 2、获取shape、属性信息
     int64_t totalIdx = 0;
     ge::DataType dataType;
-    OP_CHECK_IF(
-        GetShapeAttrsInfo(context, totalIdx, dataType) != ge::GRAPH_SUCCESS,
-        OP_LOGE(context, "GetShapeAttrsInfo error"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(GetShapeAttrsInfo(context, totalIdx, dataType) != ge::GRAPH_SUCCESS,
+                OP_LOGE(context, "GetShapeAttrsInfo error"), return ge::GRAPH_FAILED);
     // handle empty input
     if (totalIdx <= 0) {
         TrilTilingData* tiling = context->GetTilingData<TrilTilingData>();
@@ -122,16 +120,14 @@ static ge::graphStatus TrilTilingFunc(gert::TilingContext* context)
         return ge::GRAPH_SUCCESS;
     }
     // 3、获取WorkspaceSize信息
-    OP_CHECK_IF(
-        GetWorkspaceSize(context) != ge::GRAPH_SUCCESS, OP_LOGE(context, "GetWorkspaceSize error"),
-        return ge::GRAPH_FAILED);
+    OP_CHECK_IF(GetWorkspaceSize(context) != ge::GRAPH_SUCCESS, OP_LOGE(context, "GetWorkspaceSize error"),
+                return ge::GRAPH_FAILED);
 
     // 4、设置tiling信息
     TrilTilingData* tiling = context->GetTilingData<TrilTilingData>();
     OP_CHECK_NULL_WITH_CONTEXT(context, tiling);
-    OP_CHECK_IF(
-        memset_s(tiling, sizeof(TrilTilingData), 0, sizeof(TrilTilingData)) != EOK,
-        OP_LOGE(context, "set tiling data error"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(memset_s(tiling, sizeof(TrilTilingData), 0, sizeof(TrilTilingData)) != EOK,
+                OP_LOGE(context, "set tiling data error"), return ge::GRAPH_FAILED);
 
     ge::TypeUtils::GetDataTypeLength(context->GetInputDesc(0)->GetDataType(), type_Size);
     if (type_Size == 0) {
@@ -167,11 +163,6 @@ static ge::graphStatus TrilTilingFunc(gert::TilingContext* context)
     }
     align_Num = BlockSize / type_Size;
     total_Length_Aligned = (matrix_Num * matrix_Size + align_Num - 1) / align_Num * align_Num;
-    loop_Cnt = VAL_ZRRO;
-    full_Tile_Length = VAL_ZRRO;
-    last_Tile_Length = VAL_ZRRO;
-    full_Cnt = VAL_ZRRO;
-    last_Cnt = VAL_ZRRO;
     uint64_t ub_length = ((ubSize / type_Size / ub_Sharing_Num) / align_Num * align_Num) - align_Num;
     if (key_value == keyOne && diag_Val <= 0 && column_Length % (computeBatchSize / type_Size) == 0) {
         // A faster method for aligned processing only
@@ -199,20 +190,20 @@ static ge::graphStatus TrilTilingFunc(gert::TilingContext* context)
         full_Tile_Length = full_Cnt * column_Length;
         last_Tile_Length = last_Cnt * column_Length;
     } else if (key_value == keyThree) {
-        loop_Cnt = (total_Length_Aligned + ub_length - 1) / ub_length;
         ub_Sharing_Num = bufferFour;
         ub_length = ((ubSize / type_Size / ub_Sharing_Num) / align_Num * align_Num) - align_Num;
+        loop_Cnt = (total_Length_Aligned + ub_length - 1) / ub_length;
         full_Tile_Length = ub_length;
-        last_Tile_Length =
-            (total_Length_Aligned - full_Tile_Length * (loop_Cnt - 1) + align_Num - 1) / align_Num * align_Num;
+        last_Tile_Length = (total_Length_Aligned - full_Tile_Length * (loop_Cnt - 1) + align_Num - 1) / align_Num *
+                           align_Num;
         if (loop_Cnt == 1) {
             full_Tile_Length = 0;
         }
     } else {
         loop_Cnt = (total_Length_Aligned + ub_length - 1) / ub_length;
         full_Tile_Length = ub_length;
-        last_Tile_Length =
-            (total_Length_Aligned - full_Tile_Length * (loop_Cnt - 1) + align_Num - 1) / align_Num * align_Num;
+        last_Tile_Length = (total_Length_Aligned - full_Tile_Length * (loop_Cnt - 1) + align_Num - 1) / align_Num *
+                           align_Num;
         if (loop_Cnt == 1) {
             full_Tile_Length = 0;
         }
