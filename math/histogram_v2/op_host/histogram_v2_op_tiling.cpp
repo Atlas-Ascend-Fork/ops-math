@@ -263,7 +263,7 @@ public:
 protected:
     bool IsCapable() override
     {
-        if (Ops::Base::IsRegbaseSocVersion(context_)) {
+        if (Ops::Base::IsRegbaseSocVersion(context_) || npuArch == NpuArch::DAV_9201 || npuArch == NpuArch::DAV_9202) {
             return false;
         }
         return true;

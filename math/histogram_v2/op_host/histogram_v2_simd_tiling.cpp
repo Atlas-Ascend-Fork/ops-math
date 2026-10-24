@@ -76,7 +76,7 @@ private:
 
 bool HistogramV2SimdTiling::IsCapable()
 {
-    if (!Ops::Base::IsRegbaseSocVersion(context_)) {
+    if (!(Ops::Base::IsRegbaseSocVersion(context_) || npuArch == NpuArch::DAV_9201 || npuArch == NpuArch::DAV_9202)) {
         return false;
     }
     if (isDeterministic_ != 1 || !isFp32Output_) {
