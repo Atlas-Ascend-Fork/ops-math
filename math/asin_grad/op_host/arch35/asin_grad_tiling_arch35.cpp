@@ -49,6 +49,22 @@ static inline const gert::Shape EnsureNotScalar(const gert::Shape& in_shape)
     return in_shape;
 }
 
+// README: y/dy/z 的 shape 必须完全相同，不支持广播。只比较 GetShapeSize()
+// 会放行元素总数相同、维度排列不同的组合（如 y=[2,3] 与 dy=[3,2]），
+// kernel 按扁平顺序逐元素计算会给出未定义语义的结果，故此处逐维比较。
+static inline bool ShapesExactlyEqual(const gert::Shape& lhs, const gert::Shape& rhs)
+{
+    if (lhs.GetDimNum() != rhs.GetDimNum()) {
+        return false;
+    }
+    for (size_t i = 0; i < lhs.GetDimNum(); ++i) {
+        if (lhs.GetDim(i) != rhs.GetDim(i)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 static ge::graphStatus GetPlatformInfo(gert::TilingContext* context, uint64_t& ubSize, int64_t& coreNum)
 {
     fe::PlatFormInfos* platformInfoPtr = context->GetPlatformInfo();
@@ -79,10 +95,14 @@ static ge::graphStatus GetShapeAttrsInfo(gert::TilingContext* context, int64_t& 
     OP_CHECK_NULL_WITH_CONTEXT(context, outZ);
     auto zShape = EnsureNotScalar(outZ->GetStorageShape());
 
-    // Shape validation: y, dy, z must have same shape
-    OP_CHECK_IF(yShape.GetShapeSize() != dyShape.GetShapeSize() || yShape.GetShapeSize() != zShape.GetShapeSize(),
-                OP_LOGE(context, "AsinGrad: shape size mismatch: y=%ld, dy=%ld, z=%ld", yShape.GetShapeSize(),
-                        dyShape.GetShapeSize(), zShape.GetShapeSize()),
+    // Shape validation: y, dy, z must have exactly the same shape (no broadcast)
+    OP_CHECK_IF(!ShapesExactlyEqual(yShape, dyShape),
+                OP_LOGE(context, "AsinGrad: y shape mismatches dy shape: y=%s, dy=%s",
+                        Ops::Base::ToString(yShape).c_str(), Ops::Base::ToString(dyShape).c_str()),
+                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(!ShapesExactlyEqual(yShape, zShape),
+                OP_LOGE(context, "AsinGrad: y shape mismatches z shape: y=%s, z=%s",
+                        Ops::Base::ToString(yShape).c_str(), Ops::Base::ToString(zShape).c_str()),
                 return ge::GRAPH_FAILED);
 
     totalNum = yShape.GetShapeSize();

@@ -7,7 +7,7 @@
 | <term>Ascend 950PR&950DT系列产品</term>                       |    √     |
 | <term>Atlas A3系列产品</term>     |    √     |
 | <term>Atlas A2系列产品</term>     |    √     |
-| <term>Atlas 200I/500 A2推理产品</term>                      |    √     |
+| <term>Atlas 200I/500 A2推理产品</term>                      |    ×     |
 | <term>Atlas推理系列产品</term>                              |    √     |
 | <term>Atlas训练系列产品</term>                              |    √     |
 
@@ -79,4 +79,4 @@
 
 | 调用方式   | 样例代码           | 说明                                         |
 | ---------------- | --------------------------- | --------------------------------------------------- |
-| 图模式  | [test_geir_asin_grad.cpp](examples/test_geir_asin_grad.cpp) | 通过图模式方式调用AsinGrad算子。 |
+| GE图模式 | [test_geir_asin_grad.cpp](examples/test_geir_asin_grad.cpp) | 通过GE图模式调用AsinGrad算子，算子IR定义见[asin_grad_proto.h](op_graph/asin_grad_proto.h)。 |

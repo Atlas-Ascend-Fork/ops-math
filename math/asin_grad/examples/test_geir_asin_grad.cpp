@@ -46,29 +46,28 @@ using std::map;
 using std::string;
 using std::vector;
 
-#define ADD_INPUT(inputIndex, inputName, inputDtype, inputShape)                                                \
-    vector<int64_t> placeholder##inputIndex##_shape = inputShape;                                               \
-    auto placeholder##inputIndex = op::Data("placeholder" #inputIndex).set_attr_index(inputIndex - 1);          \
-    TensorDesc placeholder##inputIndex##_desc =                                                                 \
-        TensorDesc(ge::Shape(placeholder##inputIndex##_shape), FORMAT_ND, inputDtype);                          \
-    placeholder##inputIndex##_desc.SetPlacement(ge::kPlacementHost);                                            \
-    placeholder##inputIndex##_desc.SetFormat(FORMAT_ND);                                                        \
-    Tensor tensor_placeholder##inputIndex;                                                                      \
-    ret = GenInputData(                                                                                         \
-        placeholder##inputIndex##_shape, tensor_placeholder##inputIndex, placeholder##inputIndex##_desc,        \
-        inputDtype, inputIndex);                                                                                \
-    if (ret != SUCCESS) {                                                                                       \
-        printf("%s - ERROR - [XIR]: Generate input data failed\n", GetTime().c_str());                          \
-        return FAILED;                                                                                          \
-    }                                                                                                           \
-    placeholder##inputIndex.update_input_desc_x(placeholder##inputIndex##_desc);                                \
-    input.push_back(tensor_placeholder##inputIndex);                                                            \
-    graph.AddOp(placeholder##inputIndex);                                                                       \
-    asinGradOp.set_input_##inputName(placeholder##inputIndex);                                                  \
+#define ADD_INPUT(inputIndex, inputName, inputDtype, inputShape)                                                  \
+    vector<int64_t> placeholder##inputIndex##_shape = inputShape;                                                 \
+    auto placeholder##inputIndex = op::Data("placeholder" #inputIndex).set_attr_index(inputIndex - 1);            \
+    TensorDesc placeholder##inputIndex##_desc = TensorDesc(ge::Shape(placeholder##inputIndex##_shape), FORMAT_ND, \
+                                                           inputDtype);                                           \
+    placeholder##inputIndex##_desc.SetPlacement(ge::kPlacementHost);                                              \
+    placeholder##inputIndex##_desc.SetFormat(FORMAT_ND);                                                          \
+    Tensor tensor_placeholder##inputIndex;                                                                        \
+    ret = GenInputData(placeholder##inputIndex##_shape, tensor_placeholder##inputIndex,                           \
+                       placeholder##inputIndex##_desc, inputDtype, inputIndex);                                   \
+    if (ret != SUCCESS) {                                                                                         \
+        printf("%s - ERROR - [XIR]: Generate input data failed\n", GetTime().c_str());                            \
+        return FAILED;                                                                                            \
+    }                                                                                                             \
+    placeholder##inputIndex.update_input_desc_x(placeholder##inputIndex##_desc);                                  \
+    input.push_back(tensor_placeholder##inputIndex);                                                              \
+    graph.AddOp(placeholder##inputIndex);                                                                         \
+    asinGradOp.set_input_##inputName(placeholder##inputIndex);                                                    \
     inputs.push_back(placeholder##inputIndex);
 
-#define ADD_OUTPUT(outputIndex, outputName, outputDtype, outputShape)                                            \
-    TensorDesc outputName##outputIndex##_desc = TensorDesc(ge::Shape(outputShape), FORMAT_ND, outputDtype);     \
+#define ADD_OUTPUT(outputIndex, outputName, outputDtype, outputShape)                                       \
+    TensorDesc outputName##outputIndex##_desc = TensorDesc(ge::Shape(outputShape), FORMAT_ND, outputDtype); \
     asinGradOp.update_output_desc_##outputName(outputName##outputIndex##_desc);
 
 string GetTime()
@@ -90,39 +89,64 @@ uint32_t GetDataTypeSize(DataType dt)
     return 4;
 }
 
-int32_t GenInputData(
-    vector<int64_t> shapes, Tensor& input_tensor, TensorDesc& input_tensor_desc, DataType data_type, int inputIndex)
+// 与仓内样例（math/asin/examples/test_aclnn_asin_fp16.cpp）一致的位级转换。
+static inline uint16_t FloatToFp16Bits(float value)
+{
+    uint32_t bits = *reinterpret_cast<uint32_t*>(&value);
+    uint16_t sign = static_cast<uint16_t>((bits >> 16) & 0x8000u);
+    int32_t exponent = static_cast<int32_t>((bits >> 23) & 0xffu) - 127 + 15;
+    uint32_t mantissa = bits & 0x7fffffu;
+    if (exponent <= 0) {
+        return sign; // 采样值不会进入非规格化区间，直接置零
+    }
+    if (exponent >= 31) {
+        return static_cast<uint16_t>(sign | 0x7c00u); // 溢出为 inf
+    }
+    return static_cast<uint16_t>(sign | (static_cast<uint16_t>(exponent) << 10) | (mantissa >> 13));
+}
+
+static inline uint16_t FloatToBf16Bits(float value)
+{
+    uint32_t bits = *reinterpret_cast<uint32_t*>(&value);
+    if ((bits & 0x7f800000u) == 0x7f800000u) {
+        return static_cast<uint16_t>(bits >> 16); // inf / NaN 原样保留
+    }
+    bits += 0x7fffu + ((bits >> 16) & 1u); // round to nearest even
+    return static_cast<uint16_t>(bits >> 16);
+}
+
+int32_t GenInputData(vector<int64_t> shapes, Tensor& input_tensor, TensorDesc& input_tensor_desc, DataType data_type,
+                     int inputIndex)
 {
     input_tensor_desc.SetRealDimCnt(shapes.size());
     size_t size = 1;
     for (uint32_t i = 0; i < shapes.size(); i++) {
         size *= shapes[i];
     }
+    // 缓冲宽度必须与 TensorDesc 声明的 dtype 一致（fp16/bf16 为 2 字节/元素），
+    // 否则 Tensor 只会复制并重新解释 float 缓冲的前半段字节。
     uint32_t data_len = size * GetDataTypeSize(data_type);
-    float* pData = new (std::nothrow) float[size];
-    if (pData == nullptr) {
-        return FAILED;
-    }
-
-    if (inputIndex == 1) {
-        // y: linearly spaced values [-3.0, 3.3]
-        for (size_t i = 0; i < size; ++i) {
-            pData[i] = static_cast<float>(i) * 0.01f - 0.5f;
+    std::vector<uint8_t> data(data_len, 0);
+    for (size_t i = 0; i < size; ++i) {
+        // y: 线性分布的值，shape {4,4,4} 时实际为 [-0.5, 0.13]；
+        // dy: 常量梯度 1.0。两者均按所选 dtype 写入。
+        float value = (inputIndex == 1) ? (static_cast<float>(i) * 0.01f - 0.5f) : 1.0f;
+        if (data_type == ge::DT_FLOAT) {
+            reinterpret_cast<float*>(data.data())[i] = value;
+        } else if (data_type == ge::DT_FLOAT16) {
+            reinterpret_cast<uint16_t*>(data.data())[i] = FloatToFp16Bits(value);
+        } else if (data_type == ge::DT_BF16) {
+            reinterpret_cast<uint16_t*>(data.data())[i] = FloatToBf16Bits(value);
+        } else {
+            return FAILED;
         }
-    } else {
-        // dy: uniform gradient = 1.0
-        for (size_t i = 0; i < size; ++i) {
-            pData[i] = 1.0f;
-        }
     }
-    input_tensor = Tensor(input_tensor_desc, reinterpret_cast<uint8_t*>(pData), data_len);
-    delete[] pData;
+    input_tensor = Tensor(input_tensor_desc, data.data(), data_len);
     return SUCCESS;
 }
 
-int CreateOppInGraph(
-    DataType inDtype, std::vector<ge::Tensor>& input, std::vector<Operator>& inputs, std::vector<Operator>& outputs,
-    Graph& graph)
+int CreateOppInGraph(DataType inDtype, std::vector<ge::Tensor>& input, std::vector<Operator>& inputs,
+                     std::vector<Operator>& outputs, Graph& graph)
 {
     Status ret = SUCCESS;
     auto asinGradOp = op::AsinGrad("asin_grad_1");
@@ -205,8 +229,7 @@ int main(int argc, char* argv[])
     int output_num = output.size();
     for (int i = 0; i < output_num; i++) {
         int64_t output_shape = output[i].GetTensorDesc().GetShape().GetShapeSize();
-        printf("%s - INFO - [XIR]: output %d shape size = %ld, dtype = %d\n",
-               GetTime().c_str(), i, output_shape,
+        printf("%s - INFO - [XIR]: output %d shape size = %ld, dtype = %d\n", GetTime().c_str(), i, output_shape,
                static_cast<int>(output[i].GetTensorDesc().GetDataType()));
 
         if (output[i].GetTensorDesc().GetDataType() == DT_FLOAT && output_shape > 0) {

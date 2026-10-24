@@ -116,3 +116,62 @@ TEST_F(AsinGradTilingTest, asin_grad_tiling_rejects_shape_mismatch)
     TilingInfo tilingInfo;
     EXPECT_FALSE(ExecuteTiling(context, tilingInfo));
 }
+
+// README: y/dy shape 必须完全相同且不支持广播。元素总数相同但维度排列不同
+// 的组合必须被拒绝，否则 kernel 会按扁平顺序算出未定义语义的结果。
+TEST_F(AsinGradTilingTest, asin_grad_tiling_rejects_permuted_shape_with_same_size)
+{
+    std::vector<gert::TilingContextPara::TensorDescription> inputs = {
+        {MakeStorageShape({2, 3}), ge::DT_FLOAT, ge::FORMAT_ND},
+        {MakeStorageShape({3, 2}), ge::DT_FLOAT, ge::FORMAT_ND},
+    };
+    std::vector<gert::TilingContextPara::TensorDescription> outputs = {
+        {MakeStorageShape({2, 3}), ge::DT_FLOAT, ge::FORMAT_ND},
+    };
+    gert::TilingContextPara context("AsinGrad", inputs, outputs, {}, &g_compileInfo);
+    TilingInfo tilingInfo;
+    EXPECT_FALSE(ExecuteTiling(context, tilingInfo));
+}
+
+TEST_F(AsinGradTilingTest, asin_grad_tiling_rejects_different_rank_with_same_size)
+{
+    std::vector<gert::TilingContextPara::TensorDescription> inputs = {
+        {MakeStorageShape({6}), ge::DT_FLOAT, ge::FORMAT_ND},
+        {MakeStorageShape({3, 2}), ge::DT_FLOAT, ge::FORMAT_ND},
+    };
+    std::vector<gert::TilingContextPara::TensorDescription> outputs = {
+        {MakeStorageShape({6}), ge::DT_FLOAT, ge::FORMAT_ND},
+    };
+    gert::TilingContextPara context("AsinGrad", inputs, outputs, {}, &g_compileInfo);
+    TilingInfo tilingInfo;
+    EXPECT_FALSE(ExecuteTiling(context, tilingInfo));
+}
+
+// 正向对照：完全相同（含等元素数的多维）shape 仍然执行成功。
+TEST_F(AsinGradTilingTest, asin_grad_tiling_accepts_identical_shapes)
+{
+    std::vector<gert::TilingContextPara::TensorDescription> inputs = {
+        {MakeStorageShape({2, 3}), ge::DT_FLOAT, ge::FORMAT_ND},
+        {MakeStorageShape({2, 3}), ge::DT_FLOAT, ge::FORMAT_ND},
+    };
+    std::vector<gert::TilingContextPara::TensorDescription> outputs = {
+        {MakeStorageShape({2, 3}), ge::DT_FLOAT, ge::FORMAT_ND},
+    };
+    gert::TilingContextPara context("AsinGrad", inputs, outputs, {}, &g_compileInfo);
+    TilingInfo tilingInfo;
+    EXPECT_TRUE(ExecuteTiling(context, tilingInfo));
+}
+
+TEST_F(AsinGradTilingTest, asin_grad_tiling_rejects_output_shape_mismatch)
+{
+    std::vector<gert::TilingContextPara::TensorDescription> inputs = {
+        {MakeStorageShape({2, 3}), ge::DT_FLOAT, ge::FORMAT_ND},
+        {MakeStorageShape({2, 3}), ge::DT_FLOAT, ge::FORMAT_ND},
+    };
+    std::vector<gert::TilingContextPara::TensorDescription> outputs = {
+        {MakeStorageShape({3, 2}), ge::DT_FLOAT, ge::FORMAT_ND},
+    };
+    gert::TilingContextPara context("AsinGrad", inputs, outputs, {}, &g_compileInfo);
+    TilingInfo tilingInfo;
+    EXPECT_FALSE(ExecuteTiling(context, tilingInfo));
+}

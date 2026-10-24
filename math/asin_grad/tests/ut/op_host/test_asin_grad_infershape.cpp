@@ -14,60 +14,56 @@
 #include "infershape_case_executor.h"
 
 class AsinGradInfershapeTest : public testing::Test {
- protected:
-  static void SetUpTestCase() {
-    std::cout << "AsinGradInfershapeTest SetUp" << std::endl;
-  }
+protected:
+    static void SetUpTestCase() { std::cout << "AsinGradInfershapeTest SetUp" << std::endl; }
 
-  static void TearDownTestCase() {
-    std::cout << "AsinGradInfershapeTest TearDown" << std::endl;
-  }
+    static void TearDownTestCase() { std::cout << "AsinGradInfershapeTest TearDown" << std::endl; }
 };
 
-TEST_F(AsinGradInfershapeTest, asin_grad_infershape_2d) {
-  gert::StorageShape shape = {{32, 32}, {32, 32}};
+TEST_F(AsinGradInfershapeTest, asin_grad_infershape_2d)
+{
+    gert::StorageShape shape = {{32, 32}, {32, 32}};
 
-  gert::InfershapeContextPara infershapeContextPara(
-      "AsinGrad",
-      {{shape, ge::DT_FLOAT, ge::FORMAT_ND}, {shape, ge::DT_FLOAT, ge::FORMAT_ND}},
-      {{shape, ge::DT_FLOAT, ge::FORMAT_ND}});
+    gert::InfershapeContextPara infershapeContextPara(
+        "AsinGrad", {{shape, ge::DT_FLOAT, ge::FORMAT_ND}, {shape, ge::DT_FLOAT, ge::FORMAT_ND}},
+        {{shape, ge::DT_FLOAT, ge::FORMAT_ND}});
 
-  std::vector<std::vector<int64_t>> expectOutputShape = {{32, 32}};
-  ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+    std::vector<std::vector<int64_t>> expectOutputShape = {{32, 32}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
 
-TEST_F(AsinGradInfershapeTest, asin_grad_infershape_1d) {
-  gert::StorageShape shape = {{128}, {128}};
+TEST_F(AsinGradInfershapeTest, asin_grad_infershape_1d)
+{
+    gert::StorageShape shape = {{128}, {128}};
 
-  gert::InfershapeContextPara infershapeContextPara(
-      "AsinGrad",
-      {{shape, ge::DT_FLOAT16, ge::FORMAT_ND}, {shape, ge::DT_FLOAT16, ge::FORMAT_ND}},
-      {{shape, ge::DT_FLOAT16, ge::FORMAT_ND}});
+    gert::InfershapeContextPara infershapeContextPara(
+        "AsinGrad", {{shape, ge::DT_FLOAT16, ge::FORMAT_ND}, {shape, ge::DT_FLOAT16, ge::FORMAT_ND}},
+        {{shape, ge::DT_FLOAT16, ge::FORMAT_ND}});
 
-  std::vector<std::vector<int64_t>> expectOutputShape = {{128}};
-  ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+    std::vector<std::vector<int64_t>> expectOutputShape = {{128}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
 
-TEST_F(AsinGradInfershapeTest, asin_grad_infershape_3d) {
-  gert::StorageShape shape = {{4, 8, 16}, {4, 8, 16}};
+TEST_F(AsinGradInfershapeTest, asin_grad_infershape_3d)
+{
+    gert::StorageShape shape = {{4, 8, 16}, {4, 8, 16}};
 
-  gert::InfershapeContextPara infershapeContextPara(
-      "AsinGrad",
-      {{shape, ge::DT_BF16, ge::FORMAT_ND}, {shape, ge::DT_BF16, ge::FORMAT_ND}},
-      {{shape, ge::DT_BF16, ge::FORMAT_ND}});
+    gert::InfershapeContextPara infershapeContextPara(
+        "AsinGrad", {{shape, ge::DT_BF16, ge::FORMAT_ND}, {shape, ge::DT_BF16, ge::FORMAT_ND}},
+        {{shape, ge::DT_BF16, ge::FORMAT_ND}});
 
-  std::vector<std::vector<int64_t>> expectOutputShape = {{4, 8, 16}};
-  ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+    std::vector<std::vector<int64_t>> expectOutputShape = {{4, 8, 16}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
 
-TEST_F(AsinGradInfershapeTest, asin_grad_infershape_4d) {
-  gert::StorageShape shape = {{2, 3, 4, 5}, {2, 3, 4, 5}};
+TEST_F(AsinGradInfershapeTest, asin_grad_infershape_4d)
+{
+    gert::StorageShape shape = {{2, 3, 4, 5}, {2, 3, 4, 5}};
 
-  gert::InfershapeContextPara infershapeContextPara(
-      "AsinGrad",
-      {{shape, ge::DT_FLOAT, ge::FORMAT_ND}, {shape, ge::DT_FLOAT, ge::FORMAT_ND}},
-      {{shape, ge::DT_FLOAT, ge::FORMAT_ND}});
+    gert::InfershapeContextPara infershapeContextPara(
+        "AsinGrad", {{shape, ge::DT_FLOAT, ge::FORMAT_ND}, {shape, ge::DT_FLOAT, ge::FORMAT_ND}},
+        {{shape, ge::DT_FLOAT, ge::FORMAT_ND}});
 
-  std::vector<std::vector<int64_t>> expectOutputShape = {{2, 3, 4, 5}};
-  ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+    std::vector<std::vector<int64_t>> expectOutputShape = {{2, 3, 4, 5}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }

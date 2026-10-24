@@ -11,15 +11,11 @@
 
 import numpy as np
 
-__golden__ = {
-    "kernel": {
-        "asin_grad": "asin_grad_golden"
-    }
-}
+__golden__ = {"kernel": {"asin_grad": "asin_grad_golden"}}
 
 
 def asin_grad_golden(y, dy, **kwargs):
-    '''
+    """
     Kernel golden for asin_grad.
     Computes z = dy / sqrt(1 - y * y).
 
@@ -29,11 +25,14 @@ def asin_grad_golden(y, dy, **kwargs):
 
     Returns:
         z (numpy.ndarray) with the same dtype as y.
-    '''
+    """
     ori_dtype = y.dtype
     if ori_dtype.name in ("float16", "bfloat16"):
         y_cast = y.astype(np.float32)
         dy_cast = dy.astype(np.float32)
         res = dy_cast / np.sqrt(np.float32(1.0) - y_cast * y_cast)
         return res.astype(ori_dtype, copy=False)
-    return dy / np.sqrt(1.0 - y * y)
+    # 0 维输入时 NumPy 走标量路径，Python float 字面量会把结果提升为 float64；
+    # 用输入 dtype 的 1.0 并在返回前强制回写，保证 z 与 y 的 dtype 一致。
+    res = dy / np.sqrt(ori_dtype.type(1.0) - y * y)
+    return res.astype(ori_dtype, copy=False)
