@@ -23,17 +23,17 @@ namespace ge {
 * @brief Clips tensor values to a specified min and max.
 * When the input is bfloat16, float16, float32, int32 or int64, broadcasting operations are supported.  \n
 
-* @par Inputs:
+* @par Inputs
 * Three inputs, including:
-* @li x: A ND tensor with TensorType::NumberType().
-* @li clip_value_min: A ND tensor of the same dtype as "x".
-* @li clip_value_max: A ND tensor of the same dtype as "x". \n
+* @li x: An ND tensor with TensorType::NumberType().
+* @li clip_value_min: An ND tensor of the same dtype as "x".
+* @li clip_value_max: An ND tensor of the same dtype as "x". \n
 
-* @par Outputs:
-* y: A ND tensor. Has the same dtype as "x". \n
+* @par Outputs
+* y: An ND tensor. Has the same dtype as "x". \n
 
 * @par Third-party framework compatibility
-* Compatible with the PyTorch operator clip.
+* Compatible with the PyTorch operator Clip.
 */
 REG_OP(ClipByValueV2)
     .INPUT(x, TensorType::NumberType())

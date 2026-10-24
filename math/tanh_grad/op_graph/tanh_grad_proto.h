@@ -21,19 +21,19 @@
 namespace ge {
 
 /**
-*@brief Computes the gradient for the tanh of "x" .
+*@brief Computes the gradient for the tanh of "x".
 
-*@par Inputs:
+*@par Inputs
 *Two inputs, including:
 * @li y: A Tensor. Must be one of the following types: float16, float32, bfloat16,
 *     double, complex64, complex128.
 * @li dy: A Tensor. Must be one of the following types: float16, float32, bfloat16,
 *     double, complex64, complex128. \n
 
-*@par Attributes:
-* @li complex_conj: An optional attribute indicates whether to use conjugate operations for complex dtype.
+*@par Attributes
+* @li complex_conj: An optional attribute indicating whether to use conjugate operations for complex dtype.
 
-*@par Outputs:
+*@par Outputs
 *z: A Tensor. Must be one of the following types: float16, float32, bfloat16,
 *     double, complex64, complex128.
 *@par Third-party framework compatibility

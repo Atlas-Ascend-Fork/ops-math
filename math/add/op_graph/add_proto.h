@@ -19,16 +19,16 @@
 
 namespace ge {
 /**
-*@brief Returns x1 + x2 element-wise. Support broadcasting operations.
-*@par Inputs:
+*@brief Returns x1 + x2 element-wise. Supports broadcasting operations.
+*@par Inputs
 *Two inputs, including:
-* @li x1: A ND Tensor. Must be one of the following types: bool, int8, int16, int32, int64, uint8, float64,
+* @li x1: An ND Tensor. Must be one of the following types: bool, int8, int16, int32, int64, uint8, float64,
 *     float16, bfloat16, float32, complex128, complex64, complex32, string.
-* @li x2: A ND Tensor. Must be one of the following types: bool, int8, int16, int32, int64, uint8, float64,
+* @li x2: An ND Tensor. Must be one of the following types: bool, int8, int16, int32, int64, uint8, float64,
 *     float16, bfloat16, float32, complex128, complex64, complex32, string. \n
 
-*@par Outputs:
-*y: A ND Tensor. Must be one of the following types: bool, int8, int16, int32, int64, uint8, float64,
+*@par Outputs
+*y: An ND Tensor. Must be one of the following types: bool, int8, int16, int32, int64, uint8, float64,
 *     float16, bfloat16, float32, complex128, complex64, complex32, string.
 *@par Third-party framework compatibility
 *Compatible with the TensorFlow operator Add.

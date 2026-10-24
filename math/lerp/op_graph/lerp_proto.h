@@ -21,19 +21,19 @@
 namespace ge {
 
 /**
- * @brief Calculate the lerp function. \n
+ * @brief Calculates the lerp function. \n
 
- * @par Inputs:
+ * @par Inputs
  * Three inputs, including:
- * @li start: A ND tensor. Must be one of the following types:
+ * @li start: An ND tensor. Must be one of the following types:
  *     float16, float32, bfloat16. \n
  * The shape of start, end and weight should satisfy the broadcast relationship. \n
- * @li end: A ND tensor. The same dtype as start. \n
- * @li weight: A ND tensor. The same dtype as start. \n
+ * @li end: An ND tensor. The same dtype as start. \n
+ * @li weight: An ND tensor. The same dtype as start. \n
 
- * @par Outputs:
- * y: A ND tensor with the same dtype of start's. \n
- * The shape of 'y' is same as the shape of the tensor \n
+ * @par Outputs
+ * y: An ND tensor with the same dtype as start. \n
+ * The shape of 'y' is the same as the shape of the tensor \n
  * whose shape is generated after 'start', 'end', and 'weight' broadcast operation.
 
  * @par Third-party framework compatibility

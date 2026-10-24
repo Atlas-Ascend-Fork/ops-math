@@ -21,22 +21,22 @@
 namespace ge {
 
 /**
-*@brief Returns the truth value of x1 OR x2 element-wise. Support broadcasting operations.
+*@brief Returns the truth value of x1 OR x2 element-wise. Supports broadcasting operations.
 
 *
-*@par Inputs:
-*@li x1: A ND tensor. Must be one of the following types: bool, int8, uint8, int16, int32, int64, float16, bfloat16,
-float32.
-*@li x2: A ND tensor of the same dtype as "x1".
+*@par Inputs
+*@li x1: An ND tensor. Must be one of the following types: bool, int8, uint8, int16, int32, int64, float16, bfloat16,
+* float32.
+*@li x2: An ND tensor of the same dtype as "x1".
 *
-*@attention Constraints:
+*@attention Constraints
 * LogicalOr supports broadcasting.
 *
-*@par Outputs:
-* y: A ND tensor of type bool.
+*@par Outputs
+* y: An ND tensor of type bool.
 *
 *@par Third-party framework compatibility
-*Compatible with the PyTorch operator torch.logical_or.
+*Compatible with the PyTorch operator LogicalOr.
 *
 */
 REG_OP(LogicalOr)

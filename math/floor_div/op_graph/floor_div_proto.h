@@ -22,17 +22,17 @@ namespace ge {
 
 /**
 *@brief Divides "x1/x2" element-wise, rounding toward the
-*        most negative integer. Support broadcasting operations.
+*        most negative integer. Supports broadcasting operations.
 
-*@par Inputs:
+*@par Inputs
 *Two inputs, including:
-* @li x1: A ND Tensor.
+* @li x1: An ND Tensor.
 * Must be one of the following types: float16, float32, int32, int64, int8,
 *     uint8, int16, uint16, double, bfloat16.
-* @li x2: A ND Tensor of the same dtype as "x1". \n
+* @li x2: An ND Tensor of the same dtype as "x1". \n
 
-*@par Outputs:
-*y: A ND Tensor. Has the same dtype as "x1". \n
+*@par Outputs
+*y: An ND Tensor. Has the same dtype as "x1". \n
 
 *@par Third-party framework compatibility
 * Compatible with the TensorFlow operator FloorDiv.

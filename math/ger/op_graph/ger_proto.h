@@ -22,16 +22,16 @@
 namespace ge {
 
 /**
-*@brief Computes the outer product of two 1D vectors . \n
+*@brief Computes the outer product of two 1D vectors. \n
 
-*@par Inputs:
-*The input x1 and x2 has to be a 1D vector.Inputs include:
-*@li x1:A Tensor. Must be one of the following types: float16, float32, bfloat16.
-Shape is [N] . \n
-*@li x2:A Tensor. Must have the same type as x1. Shape is [M] . \n
+*@par Inputs
+*The input x1 and x2 have to be a 1D vector. Inputs include:
+*@li x1: A Tensor. Must be one of the following types: float16, float32, bfloat16.
+* Shape is [N]. \n
+*@li x2: A Tensor. Must have the same type as x1. Shape is [M]. \n
 
-*@par Outputs:
-*y:A Tensor. Has the same type as x1. \n
+*@par Outputs
+*y: A Tensor. Has the same type as x1. \n
 */
 
 REG_OP(Ger)

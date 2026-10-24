@@ -21,20 +21,20 @@
 namespace ge {
 
 /**
-*@brief Returns (x1 - x2)(x1 - x2) element-wise. Support broadcasting operations.
+*@brief Returns (x1 - x2)(x1 - x2) element-wise. Supports broadcasting operations.
 
-*@par Inputs:
+*@par Inputs
 *Two inputs, including: \n
-*@li x1: A ND Tensor. Must be one of the following types: bfloat16, float16, float32,
+*@li x1: An ND Tensor. Must be one of the following types: bfloat16, float16, float32,
 * float64, int32, int64, complex64, complex128.
-*@li x2: A ND Tensor. Has the same dtype as "x1".
+*@li x2: An ND Tensor. Has the same dtype as "x1".
 * The shape of x1 and x2 must meet the requirements of the broadcast relationship. \n
 
-*@par Outputs:
-*y: A ND Tensor. Has the same dtype as "x1". \n
+*@par Outputs
+*y: An ND Tensor. Has the same dtype as "x1". \n
 
 *@par Third-party framework compatibility
-* Compatible with TensorFlow operator SquaredDifference.
+* Compatible with the TensorFlow operator SquaredDifference.
 */
 REG_OP(SquaredDifference)
     .INPUT(x1, TensorType({DT_BF16, DT_FLOAT16, DT_FLOAT, DT_DOUBLE, DT_INT32, DT_INT64, DT_COMPLEX64, DT_COMPLEX128}))

@@ -21,16 +21,16 @@
 namespace ge {
 
 /**
-*@brief Returns the max of "x1" and "x2" (i.e. x1 > x2 ? x1: x2) element-wise. Support broadcasting operations. \n
+*@brief Returns the max of "x1" and "x2" (i.e. x1 > x2 ? x1: x2) element-wise. Supports broadcasting operations. \n
 
-*@par Inputs:
+*@par Inputs
 *Two inputs, including:
-* @li x1: A ND Tensor. Must be one of the following types: float16, float32, double, int32, int64, bfloat16, int8,
-uint8.
-* @li x2: A ND Tensor of the same dtype as "x1". \n
+* @li x1: An ND Tensor. Must be one of the following types: float16, float32, double, int32, int64, bfloat16, int8,
+* uint8.
+* @li x2: An ND Tensor of the same dtype as "x1". \n
 
-*@par Outputs:
-*y: A ND Tensor. Has the same dtype as "x1". \n
+*@par Outputs
+*y: An ND Tensor. Has the same dtype as "x1". \n
 
 *@par Third-party framework compatibility
 *Compatible with the TensorFlow operator Maximum.

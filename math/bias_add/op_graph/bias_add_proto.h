@@ -21,24 +21,24 @@
 namespace ge {
 
 /**
-*@brief Adds 'bias' to 'x'. Support broadcasting operations.
+*@brief Adds 'bias' to 'x'. Supports broadcasting operations.
 
-*@par Inputs:
+*@par Inputs
 *Two inputs, including:
-* @li x: A ND tensor of type NumberType, format list [ND, NCHW, NHWC, NCDHW, NDHWC].
+* @li x: An ND tensor of type NumberType, format list [ND, NCHW, NHWC, NCDHW, NDHWC].
 *Must be one of the following types: float32, float64, int32, uint8, int16,
 *int8, complex64, int64, qint8, quint8, qint32, bfloat16, uint16, complex128, float16, uint32, uint64.
-* @li bias: A 1D tensor with size the C dimension of x:
+* @li bias: A 1D tensor with a size equal to the C dimension of x:
 *when x format is NCHW or NCDHW, C dimension is x.shape[1]. \n
 *When x format is NHWC or NDHWC, C dimension is x.shape[-1]. \n
-*when x format is ND and data_format is in [NCHW, NCDHW], C dimension is x.shape[1]. \n
-*when x format is ND and data_format is in [NHWC, NDHWC], C dimension is x.shape[-1]. \n
+*When x format is ND and data_format is in [NCHW, NCDHW], C dimension is x.shape[1]. \n
+*When x format is ND and data_format is in [NHWC, NDHWC], C dimension is x.shape[-1]. \n
 
-*@par Attributes:
+*@par Attributes
 *data_format: An optional string. Defaults to "NHWC". \n
 
-*@par Outputs:
-*y: A ND tensor with same type and shape and format as "x". \n
+*@par Outputs
+*y: An ND tensor with the same type, shape, and format as "x". \n
 
 *@par Third-party framework compatibility
 *Compatible with the TensorFlow operator BiasAdd.

@@ -22,15 +22,15 @@ namespace ge {
 * @brief Clips tensor values to a specified min and max.
 * When the input is bfloat16, float16, float32, int32 or int64, broadcasting operations are supported.  \n
 
-* @par Inputs:
+* @par Inputs
 * Three inputs, including:
-* @li x: A ND tensor of type complex128, complex64, double, float32, float16, int16，
+* @li x: An ND tensor of type complex128, complex64, double, float32, float16, int16,
 * int32, int64, int8, qint32, qint8, quint8, uint16, uint8, bfloat16, complex32.
-* @li clip_value_min: A ND tensor of the same dtype as "x".
-* @li clip_value_max: A ND tensor of the same dtype as "x". \n
+* @li clip_value_min: An ND tensor of the same dtype as "x".
+* @li clip_value_max: An ND tensor of the same dtype as "x". \n
 
-* @par Outputs:
-* y: A ND tensor. Has the same dtype as "x". \n
+* @par Outputs
+* y: An ND tensor. Has the same dtype as "x". \n
 
 * @par Third-party framework compatibility
 * Compatible with the TensorFlow operator ClipByValue.

@@ -23,24 +23,24 @@ namespace ge {
 /**
 * @brief Returns element-wise remainder of division.
 * Consistent with: floor(x1/x2) * x2 + mod(x1, x2) = x1.
-* Integer division by zero on NPU returns x1. Support broadcasting operations.
+* Integer division by zero on NPU returns x1. Supports broadcasting operations.
 
-* @par Inputs:
+* @par Inputs
 * Two inputs, including:
-* @li x1: A ND tensor. Must be one of the following types:
+* @li x1: An ND tensor. Must be one of the following types:
 *    int32, int64, float, float16, double, bfloat16
-* @li x2: A ND tensor. Must have the same dtype as "x1".
+* @li x2: An ND tensor. Must have the same dtype as "x1".
 *
-* @par Outputs:
-* y: A ND tensor. Has the same dtype as "x1".
+* @par Outputs
+* y: An ND tensor. Has the same dtype as "x1".
 
-* @attention Constraints:
-* @li x2: The input data does not support 0
-* @li When value of tensor exceeds 2048 , the accuracy of operator cannot guarantee the
+* @attention Constraints
+* @li x2: The input data does not support 0.
+* @li When value of tensor exceeds 2048, the accuracy of the operator cannot guarantee the
 * requirement of double thousandths in the mini platform
 * @li Due to different architectures, the calculation results of this operator
 * on NPU and CPU may be inconsistent
-* @li If shape is expressed as (D1,D2... ,Dn), then D1*D2... *DN<=1000000,n<=8
+* @li If shape is expressed as (D1, D2, ..., Dn), then D1*D2...*Dn<=1000000, n<=8
 
 * @par Third-party framework compatibility
 * Compatible with the TensorFlow operator FloorMod.

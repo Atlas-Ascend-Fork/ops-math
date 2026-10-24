@@ -21,15 +21,15 @@
 namespace ge {
 
 /**
-*@brief Returns x1 - x2 element-wise. Support broadcasting operations.
-*@par Inputs:
+*@brief Returns x1 - x2 element-wise. Supports broadcasting operations.
+*@par Inputs
 *Two inputs, including:
-* @li x1: A ND Tensor. Must be one of the following types: int8, int16, int32, int64, uint8, float64,
+* @li x1: An ND Tensor. Must be one of the following types: int8, int16, int32, int64, uint8, float64,
 *     float16, float32, complex128, complex64, complex32, uint16, bfloat16, bool.
-* @li x2: A ND Tensor of the same dtype as "x1". \n
+* @li x2: An ND Tensor of the same dtype as "x1". \n
 
-*@par Outputs:
-*y: A ND Tensor. Has the same dtype as "x1".
+*@par Outputs
+*y: An ND Tensor. Has the same dtype as "x1".
 *@par Third-party framework compatibility
 *Compatible with the TensorFlow operator Subtract.
 */

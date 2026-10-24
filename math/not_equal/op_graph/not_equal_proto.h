@@ -22,15 +22,15 @@
 namespace ge {
 
 /**
-* @brief Returns the truth value of (x1 != x2) element-wise. Support broadcasting operations.
+* @brief Returns the truth value of (x1 != x2) element-wise. Supports broadcasting operations.
 
-* @par Inputs:
+* @par Inputs
 * Two inputs, including:
-* @li x1: A ND Tensor with TensorType::RealNumberType().
-* @li x2: A ND Tensor to be compared to "x1", and the data type is the same as "x1".
+* @li x1: An ND Tensor with TensorType::RealNumberType().
+* @li x2: An ND Tensor to be compared to "x1", and the data type is the same as "x1".
 
-*@par Outputs:
-*y: A ND Tensor. Has the bool dtype. True means x1 != x2, false means x1 == x2.
+*@par Outputs
+*y: An ND Tensor. Has the bool dtype. True means x1 != x2, false means x1 == x2.
 
 * @par Third-party framework compatibility:
 * Compatible with the TensorFlow operator NotEqual.

@@ -21,16 +21,16 @@
 namespace ge {
 
 /**
-*@brief Element-wise computes the bitwise AND of "x1" and "x2". Support broadcasting operations.
+*@brief Element-wise computes the bitwise AND of "x1" and "x2". Supports broadcasting operations.
 
-*@par Inputs:
+*@par Inputs
 *Two inputs, including:
-* @li x1: A ND Tensor. Must be one of the following types: int8, int16,
+* @li x1: An ND Tensor. Must be one of the following types: int8, int16,
 *     int32, int64, uint8, uint16, uint32, uint64. Broadcasting is supported.
-* @li x2: A ND Tensor of the same dtype as "x1". \n
+* @li x2: An ND Tensor of the same dtype as "x1". \n
 
-*@par Outputs:
-*y: A ND Tensor. Has the same dtype as "x1". \n
+*@par Outputs
+*y: An ND Tensor. Has the same dtype as "x1". \n
 
 *@par Third-party framework compatibility
 *Compatible with the TensorFlow operator BitwiseAnd.

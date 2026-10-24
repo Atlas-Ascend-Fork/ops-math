@@ -23,21 +23,21 @@ namespace ge {
 
 /**
 * @brief Returns x1 * x2 element-wise.
-* y = x1 * x2. Support broadcasting operations.
+* y = x1 * x2. Supports broadcasting operations.
 
-* @par Inputs:
-* @li x1: A ND tensor. Must be one of the following types: bool, float16, float32, bfloat16,
+* @par Inputs
+* @li x1: An ND tensor. Must be one of the following types: bool, float16, float32, bfloat16,
 * float64, uint8, int8, uint16, int16, int32, int64, complex32, complex64, complex128.
-* @li x2: A ND tensor. Must be one of the following types: bool, float16, float32, bfloat16,
+* @li x2: An ND tensor. Must be one of the following types: bool, float16, float32, bfloat16,
 * float64, uint8, int8, uint16, int16, int32, int64, complex32, complex64, complex128.
 * The shape of x1 and x2 must meet the requirements of the broadcast relationship.
 
-* @par Outputs:
-* y: A ND tensor. Must be one of the following types: bool, float16, float32, float64, bfloat16,
+* @par Outputs
+* y: An ND tensor. Must be one of the following types: bool, float16, float32, float64, bfloat16,
 * uint8, int8, uint16, int16, int32, int64, complex32, complex64, complex128.
 
-* @attention Constraints:
-* "x1" and "x2" have incompatible shapes or types.
+* @attention Constraints
+* The shapes and types of "x1" and "x2" must be compatible.
 
 * @par Third-party framework compatibility
 * Compatible with the TensorFlow operator Multiply.

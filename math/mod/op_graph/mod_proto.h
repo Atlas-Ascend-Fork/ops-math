@@ -20,25 +20,24 @@
 
 namespace ge {
 /**
-* @brief Returns element-wise remainder of division. Support broadcasting operations.
+* @brief Returns element-wise remainder of division. Supports broadcasting operations.
 
-* @par Inputs:
+* @par Inputs
 * Two inputs, including:
-* @li x1: A ND tensor. Must be one of the following types: bfloat16, float16, float32,
+* @li x1: An ND tensor. Must be one of the following types: bfloat16, float16, float32,
 * int32, int64, int8, uint8, double.
-* @li x2: A ND tensor of the same dtype as "x1". \n
+* @li x2: An ND tensor of the same dtype as "x1". The input data does not support 0. \n
 
-* @par Outputs:
-* y: A ND tensor. Has the same dtype as "x1". \n
+* @par Outputs
+* y: An ND tensor. Has the same dtype as "x1". \n
 
-* @attention Constraints:
-* @li x2: The input data does not support 0.
-* @li When NUM exceeds 2048 , the accuracy of operator cannot guarantee the
-* requirement of double thousandths in the mini form.
+* @attention Constraints
+* @li When NUM exceeds 2048, the accuracy of the operator cannot guarantee the
+* requirement of double thousandths in the mini platform.
 * @li Due to different architectures, the calculation results of this operator
 * on NPU and CPU may be inconsistent.
-* @li If shape is expressed as (D1,D2... ,Dn),
-* then D1*D2... *DN<=1000000,n<=8. \n
+* @li If shape is expressed as (D1, D2, ..., Dn),
+* then D1*D2...*Dn<=1000000, n<=8. \n
 
 * @par Third-party framework compatibility:
 * Compatible with the TensorFlow operator Mod.

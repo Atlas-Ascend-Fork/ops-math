@@ -21,20 +21,20 @@
 namespace ge {
 
 /**
-* @brief Select elements from "then" or "else", depending on "condition" .
+* @brief Selects elements from "then" or "else", depending on "condition".
 
-* @par Inputs:
+* @par Inputs
 * Three inputs, including:
-* @li condition: A tensor of type bool. If condittion is true, outputs will be set as then. If condittion is false,
-outputs will be set as else.
+* @li condition: A tensor of type bool. If condition is true, outputs will be set as then. If condition is false,
+* outputs will be set as else.
 * @li then: A tensor. Must be one of the following types: float16, float32, double, int8, int16, int32, int64,
  *uint8, uint16, uint32, uint64, complex64, complex128, bool, bfloat16
-* @li else: A tensor of the same type as "then" . \n
+* @li else: A tensor of the same type as "then". \n
 
-* @par Outputs:
-* result: A tensor. Has the same type as "then" . \n
+* @par Outputs
+* result: A tensor. Has the same type as "then". \n
 
-* @attention Constraints:
+* @attention Constraints
 * @li The input tensors of condition, then and else must meet the broadcast relationship.
 * @li The shape of result is formed by broadcasting condition, then and else.
 

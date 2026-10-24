@@ -21,17 +21,17 @@
 namespace ge {
 
 /**
-*@brief Returns 0 if the denominator is zero, else, like Div.  Support broadcasting operations.
+*@brief Returns 0 if the denominator is zero, otherwise behaves like Div. Supports broadcasting operations.
 
-*@par Inputs:
+*@par Inputs
 * Two inputs, including:
-*@li x1: A ND Tensor. Must be one of the following types:float16, float32, int32,
+*@li x1: An ND Tensor. Must be one of the following types: float16, float32, int32,
 *    int8, uint8, double, bfloat16.
-*@li x2: A ND Tensor which has the same dtype as "x1". The shapes of "x1", "x2",
+*@li x2: An ND Tensor which has the same dtype as "x1". The shapes of "x1", "x2",
 *    and "y" must comply with the broadcast rule. \n
 
-*@par Outputs:
-*y: A ND Tensor which has the same dtype as "x1".The shapes of "x1", "x2",
+*@par Outputs
+*y: An ND Tensor which has the same dtype as "x1". The shapes of "x1", "x2",
 *and "y" must comply with the broadcast rule. \n
 
 *@par Third-party framework compatibility

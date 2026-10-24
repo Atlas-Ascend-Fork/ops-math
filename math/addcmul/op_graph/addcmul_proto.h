@@ -22,19 +22,19 @@ namespace ge {
 
 /**
 * @brief Performs the element-wise multiplication of tensor x1 by tensor x2,
-* multiply the result by the scalar value and add it to tensor input_data
+* multiplies the result by the scalar value and adds it to tensor input_data.
 
-* @par Inputs:
+* @par Inputs
 * Four inputs, including:
 * @li input_data: A mutable input Tensor. Must be one of the following types:
 *     float16, bfloat16, float32, double, int64, int8, int32, uint8.
 * @li x1: A mutable input Tensor of the same dtype as input_data.
 * @li x2: A mutable input Tensor of the same dtype as input_data.
-* @li value: A ND mutable input tensor which includes only one element.
+* @li value: An ND mutable input tensor which includes only one element.
 *            Must be one of the following types:
 *            float16, bfloat16, float32, double, int64, int8, int32, uint8. \n
 
-* @par Outputs:
+* @par Outputs
 * y: A mutable output Tensor. Has the same dtype as input_data. \n
 
 * @par Third-party framework compatibility

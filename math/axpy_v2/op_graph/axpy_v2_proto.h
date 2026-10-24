@@ -23,15 +23,15 @@ namespace ge {
 /**
 * @brief Computes the result of x2 * alpha + x1.
 
-* @par Inputs:
+* @par Inputs
 * @li x1: An ND tensor of type float16, bfloat16, float32, int32, int64, uint8, int8, bool.
 * @li x2: An ND tensor of type float16, bfloat16, float32, int32, int64, uint8, int8, bool.
 * The shapes of "x1", "x2" must comply with the broadcast rule.
 * @li alpha: A scalar tensor of type float16, bfloat16, float32, int32, int64, uint8, int8, bool. Shape must be [1]. \n
 
-* @par Outputs:
-* y: An ND tensor with type is after 'x1', 'x2' and 'alpha' type promotion,
-* whose shape is generated after 'x1', 'x2' broadcast opratioan. \n
+* @par Outputs
+* y: An ND tensor whose type is the type promotion result of 'x1', 'x2' and 'alpha',
+* whose shape is generated after 'x1', 'x2' broadcast operation. \n
 
 * @par Third-party framework compatibility
 * Compatible with the PyTorch operator Axpy.

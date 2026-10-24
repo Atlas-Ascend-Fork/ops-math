@@ -21,17 +21,17 @@
 namespace ge {
 
 /**
-* @brief Add tensor with scale y = x1 + x2*alpha. Support broadcasting operations.
+* @brief Computes the result of x1 + x2 * alpha. Supports broadcasting operations.
 
-* @par Inputs:
-* @li x1: A ND Tensor dtype of int32, float16, float32, bfloat16.
-* @li x2: A ND Tensor dtype of int32, float16, float32, bfloat16. \n
+* @par Inputs
+* @li x1: An ND tensor of type int32, float16, float32, bfloat16.
+* @li x2: An ND tensor of type int32, float16, float32, bfloat16. \n
 
-* @par Attributes:
-* alpha: a float required attr, apply to x2:x2*alpha
+* @par Attributes
+* alpha: A required float attribute, applied to x2: x2 * alpha.
 
-* @par Outputs:
-* y: A ND Tensor. should be broadcast shape of x1 and x2. \n
+* @par Outputs
+* y: An ND Tensor. Should be broadcast shape of x1 and x2. \n
 
 * @par Third-party framework compatibility:
 * Compatible with the PyTorch operator Axpy.

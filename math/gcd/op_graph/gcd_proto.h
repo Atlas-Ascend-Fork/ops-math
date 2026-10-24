@@ -21,20 +21,20 @@
 namespace ge {
 
 /**
-* @brief Returns x1 and x2 greatest common divisor element-wise.
-* Support broadcasting operations.
+* @brief Returns the greatest common divisor of x1 and x2 element-wise.
+* Supports broadcasting operations.
 
-* @par Inputs:
+* @par Inputs
 * Two inputs, including:
-* @li x1: A ND Tensor, support 1D ~ 8D.
+* @li x1: An ND Tensor, supports 1D ~ 8D.
 * Must be one of the following types: uint8, int8, int16, int32, int64.
-* @li x2: A ND Tensor of the same dtype as "x1", support 1D ~ 8D. \n
+* @li x2: An ND Tensor of the same dtype as "x1", supports 1D ~ 8D. \n
 
-* @par Outputs:
-* y: A ND Tensor. Has the same dtype as "x1". \n
+* @par Outputs
+* y: An ND Tensor. Has the same dtype as "x1". \n
 
 * @par Third-party framework compatibility
-* Compatible with the Torch operator Gcd.
+* Compatible with the PyTorch operator Gcd.
 */
 REG_OP(Gcd)
     .INPUT(x1, "T")

@@ -21,14 +21,14 @@
 namespace ge {
 
 /**
-*@brief computes the sign bit of each input element. return true if x<0 or x=-0.0\n
-*aicore accuracy is not guaranteed.
+*@brief Computes the sign bit of each input element. Returns true if x<0 or x=-0.0.\n
+*AiCore accuracy is not guaranteed.
 
-*@par Inputs:
-* x: A ND Tensor with TensorType::RealNumberType().
+*@par Inputs
+* x: An ND Tensor with TensorType::RealNumberType().
 
-*@par Outputs:
-*y: A ND tensor. Has the bool dtype. True means x<0 or x=-0.0.
+*@par Outputs
+*y: An ND tensor. Has the bool dtype. True means x<0 or x=-0.0.
 
 *@par Third-party framework compatibility:
 * Compatible with the TensorFlow operator Signbit.

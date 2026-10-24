@@ -21,20 +21,20 @@
 namespace ge {
 
 /**
-* @brief Selects elements from "x1" or "x2", depending on "condition" . \n
+* @brief Selects elements from "x1" or "x2", depending on "condition". \n
 
-* @par Inputs:
+* @par Inputs
 * Three inputs, including:
 * @li condition: A tensor of type bool. Select x1 or x2 depending on this condition,
  * when condition is true, return x1, otherwise return x2.
 * @li x1: A tensor. Must be one of the following types: bfloat16, float16, float32,
  * int32, int8, uint8, int16, uint16, double, complex64, int64, complex128, bool,
  * qint8, quint8, qint16, quint16, qint32, uint32, uint64, string.
- * Format:ND
-* @li x2: A tensor of the same type, size, and shape as "x1". Format:ND
+ * Format: ND
+* @li x2: A tensor of the same type, size, and shape as "x1". Format: ND
 
-* @par Outputs:
-* y: A Tensor. Has the same type as "x1". format:ND
+* @par Outputs
+* y: A Tensor. Has the same type as "x1". Format: ND
 
 * @par Third-party framework compatibility
 * Compatible with the TensorFlow operator Select.

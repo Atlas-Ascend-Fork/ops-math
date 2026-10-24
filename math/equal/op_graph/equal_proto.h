@@ -21,17 +21,17 @@
 namespace ge {
 
 /**
-*@brief Returns the truth value of (x = y) element-wise. Support broadcasting operations. \n
+*@brief Returns the truth value of (x1 == x2) element-wise. Supports broadcasting operations. \n
 
-*@par Inputs:
+*@par Inputs
 * Two inputs, including:
-*@li x1: A ND Tensor. Must be one of the following types:
+*@li x1: An ND Tensor. Must be one of the following types:
 *    bfloat16, float16, float32, int32, int8, uint8, double, int16, int64, complex64,
-*    complex128, quint8, qint8, qint32, string, bool. the format can be [NCHW, NHWC, ND]
-*@li x2: A ND Tensor of the same dtype and format as "x1". \n
+*    complex128, quint8, qint8, qint32, string, bool. The format can be [NCHW, NHWC, ND].
+*@li x2: An ND Tensor of the same dtype and format as "x1". \n
 
-*@par Outputs:
-*y: A ND Tensor. Has the bool dtype. True means x1 == x2, false means x1 != x2.
+*@par Outputs
+*y: An ND Tensor. Has the bool dtype. True means x1 == x2, false means x1 != x2.
 
 *@par Third-party framework compatibility
 * Compatible with the TensorFlow operator Equal.

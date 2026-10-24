@@ -24,22 +24,22 @@ namespace ge {
 /**
 *@brief Multiply tensor with scale.
 
-*@par Inputs:
+*@par Inputs
 *One input, including:
-* x: An ND or 5HD tensor. support 1D ~ 8D. Must be one of the following types:
+* x: An ND or 5HD tensor. Supports 1D ~ 8D. Must be one of the following types:
 * bfloat16, int32, int16, int64, float16, float32, complex32, complex64.
 *
-*@par Outputs:
-* y: A ND Tensor. Has the same dtype and shape as "x".
+*@par Outputs
+* y: An ND Tensor. Has the same dtype and shape as "x".
 *
-*@par Attributes:
-*@li value: An required attribute. Must be float.
+*@par Attributes
+* value: A required attribute. Must be float.
 *
 *@par Third-party framework compatibility:
 * Compatible with the PyTorch operator muls.
-*@attention Constraints:
+*@attention Constraints
 * For parameters of the float32 type, there is no precision loss. For INT32 and INT64 parameters,
-* precision loss occurs when the parameter value exceeds 2^24. it is recommended to use Mul.
+* precision loss occurs when the parameter value exceeds 2^24. It is recommended to use Mul.
 */
 REG_OP(Muls)
     .INPUT(x, TensorType({DT_FLOAT, DT_INT16, DT_INT32, DT_INT64, DT_FLOAT16, DT_BF16, DT_COMPLEX32, DT_COMPLEX64}))

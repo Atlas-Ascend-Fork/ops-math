@@ -21,17 +21,17 @@
 namespace ge {
 
 /**
-*@brief Returns the truth value of x1 AND x2 element-wise. Support broadcasting operations.
+*@brief Returns the truth value of x1 AND x2 element-wise. Supports broadcasting operations.
 
 *
-*@par Inputs:
+*@par Inputs
 *@li x1: A tensor of type bool.
 *@li x2: A tensor of the same dtype as "x1".
 *
-*@attention Constraints:
+*@attention Constraints
 * LogicalAnd supports broadcasting.
 *
-*@par Outputs:
+*@par Outputs
 * y: A tensor of the same dtype as "x1".
 *
 *@par Third-party framework compatibility
