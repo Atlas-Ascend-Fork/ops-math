@@ -54,7 +54,11 @@ protected:
 
     ge::graphStatus DoLibApiTiling() override { return ge::GRAPH_SUCCESS; }
 
-    bool IsCapable() override { return !Ops::Base::IsRegbaseSocVersion(context_); }
+    bool IsCapable() override
+    {
+        auto ascendcPlatform = platform_ascendc::PlatformAscendC(context_->GetPlatformInfo());
+        return !(Ops::Base::IsRegbaseSocVersion(context_) || ascendcPlatform.GetCurNpuArch() == NpuArch::DAV_9201);
+    }
 
     // 3、计算数据切分TilingData
     ge::graphStatus DoOpTiling() override;

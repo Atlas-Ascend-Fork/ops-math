@@ -286,7 +286,11 @@ static ge::graphStatus CalcLinSpaceTilingParam(LinSpaceRegbaseTilingParam& tilin
     return ge::GRAPH_SUCCESS;
 }
 
-bool LinSpaceRegbaseTilingClass::IsCapable() { return Ops::Base::IsRegbaseSocVersion(context_); }
+bool LinSpaceRegbaseTilingClass::IsCapable()
+{
+    auto ascendcPlatform = platform_ascendc::PlatformAscendC(context_->GetPlatformInfo());
+    return Ops::Base::IsRegbaseSocVersion(context_) || ascendcPlatform.GetCurNpuArch() == NpuArch::DAV_9201;
+}
 
 ge::graphStatus LinSpaceRegbaseTilingClass::GetPlatformInfo()
 {
