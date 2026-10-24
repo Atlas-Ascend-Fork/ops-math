@@ -23,7 +23,7 @@
 #include "es_math_ops.h"
 #include "platform/soc_spec.h"
 #include "ge/fusion/pass/pattern_fusion_pass.h"
-#include "ge/fusion/graph_rewriter.h"
+#include "fusion_pass_compat_weak_symbols.h"
 #include "log/log.h"
 #include "graph/tensor.h"
 #include "version/ge-compiler_version.h"
@@ -43,6 +43,7 @@ using namespace ge::fusion;
 namespace ops {
 
 #define GE_COMPILER_VERSION_900 90000000
+#define GE_COMPILER_VERSION_910 90100000
 
 namespace {
 const std::string kPassName = "ConcatToConcatDFusionPass";
@@ -51,6 +52,15 @@ const std::string kTypeConcatV2 = "ConcatV2";
 const std::string kTypeConcatV2D = "ConcatV2D";
 constexpr int32_t kConcatDimIdxConcat = 0;
 constexpr int64_t kMaxConcatDInputs = 512; // max data inputs per ConcatD node; more are split into a tree
+// Dtypes ConcatD supports; mirrors the TensorType of the ConcatD IR definition
+// (op_graph/concat_d_proto.h). Keep in sync when the proto dtype range changes.
+// Unsupported dtypes (e.g. DT_STRING) skip fusion and stay on the original
+// Concat/ConcatV2/ConcatV2D (AICPU), matching the canndev built-in pass which
+// rejects them via CheckOpSupported before rewriting.
+const std::set<DataType> kConcatDDtypeSupportList = {
+    DT_BF16,          DT_FLOAT,       DT_FLOAT16,  DT_INT8,        DT_INT16,       DT_BOOL,       DT_INT32,
+    DT_INT64,         DT_UINT8,       DT_UINT16,   DT_UINT32,      DT_UINT64,      DT_DOUBLE,     DT_COMPLEX64,
+    DT_FLOAT8_E4M3FN, DT_FLOAT8_E5M2, DT_HIFLOAT8, DT_FLOAT8_E8M0, DT_FLOAT4_E1M2, DT_FLOAT4_E2M1};
 
 #if GE_COMPILER_VERSION_NUM >= GE_COMPILER_VERSION_900
 CustomPassStage GetConcatToConcatDPassStage()
@@ -156,12 +166,6 @@ es::EsTensorHolder BuildConcatDTree(es::EsGraphBuilder& builder, std::vector<es:
 
 Status ConcatToConcatDFusionPass::Run(GraphPtr& graph, CustomPassContext& passContext)
 {
-    // The framework sets the pass name before invoking Run in real compilation; set it
-    // here for direct Run calls (e.g. UT with a default-constructed context) so the
-    // fusion-result reporting works everywhere.
-    if (passContext.GetPassName().GetLength() == 0) {
-        passContext.SetPassName(kPassName.c_str());
-    }
     OP_LOGI(kPassName.c_str(), "ConcatToConcatDFusionPass fusion start.");
     int32_t geVersion = 0;
     const bool versionQueryOk = (aclsysGetVersionNum != nullptr);
@@ -259,6 +263,23 @@ Status ConcatToConcatDFusionPass::Run(GraphPtr& graph, CustomPassContext& passCo
         const int64_t dataInputNum = static_cast<int64_t>(keepIdxs.size());
         if (dataInputNum < 1) {
             OP_LOGD(kPassName.c_str(), "Node %s has no data input, skip node.", nodeNameStr.GetString());
+            continue;
+        }
+
+        // Dtype whitelist: any kept data input outside ConcatD's dtype range skips
+        // fusion (canndev parity: CheckOpSupported rejected those before rewriting).
+        bool dtypeSupported = true;
+        for (const int64_t idx : keepIdxs) {
+            TensorDesc tensorDesc;
+            if (matchedNode.GetInputDesc(static_cast<int32_t>(idx), tensorDesc) == SUCCESS &&
+                kConcatDDtypeSupportList.count(tensorDesc.GetDataType()) == 0) {
+                OP_LOGD(kPassName.c_str(), "Node %s input %ld dtype %d is not supported by ConcatD, skip node.",
+                        nodeNameStr.GetString(), idx, static_cast<int32_t>(tensorDesc.GetDataType()));
+                dtypeSupported = false;
+                break;
+            }
+        }
+        if (!dtypeSupported) {
             continue;
         }
 
@@ -373,7 +394,14 @@ Status ConcatToConcatDFusionPass::Run(GraphPtr& graph, CustomPassContext& passCo
             }
         }
 
-        const Status replaceStatus = SubgraphRewriter::Replace(*boundary, *replaceGraphPtr, passContext);
+        // D2 degraded execution: the ctx overload (built-in fusibility check +
+        // fusion-result reporting) exists since GE 9.1.0 and is referenced weakly
+        // (see fusion_pass_compat_weak_symbols.h); on a 9.0.x runtime it resolves to
+        // null, so take the plain overload (8.5.0+, strong reference) instead. The
+        // runtime version gate above already rejected anything older than 9.0.0.
+        const Status replaceStatus = (versionQueryOk && geVersion >= GE_COMPILER_VERSION_910) ?
+                                         SubgraphRewriter::Replace(*boundary, *replaceGraphPtr, passContext) :
+                                         SubgraphRewriter::Replace(*boundary, *replaceGraphPtr);
         if (replaceStatus != SUCCESS) {
             OP_LOGE(kPassName.c_str(), "SubgraphRewriter::Replace failed for node %s, status=%d.",
                     nodeNameStr.GetString(), static_cast<int32_t>(replaceStatus));

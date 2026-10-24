@@ -59,6 +59,12 @@ __attribute__((weak)) rtError_t rtGetSocSpec(const char* label, const char* key,
 static void SetNpuArch(const char* arch) { (void)setenv("ASCEND_NPU_ARCH", arch, 1); }
 } // namespace
 
+// The real framework sets the pass name on the context before invoking Run; the pass
+// itself no longer touches CustomPassContext::GetPassName/SetPassName (9.0.0+ member
+// functions, kept out of the .so for old-runtime dlopen compatibility), so direct Run
+// calls in UT must set the name themselves for the ctx-based Replace reporting.
+static void SetTestPassName(CustomPassContext& passContext) { passContext.SetPassName("ConcatToConcatDFusionPass"); }
+
 class ConcatToConcatDFusionPassTest : public testing::Test {
 protected:
     static void SetUpTestCase()
@@ -202,6 +208,7 @@ TEST_F(ConcatToConcatDFusionPassTest, concatFusionSuccess)
 
     ConcatToConcatDFusionPass pass;
     CustomPassContext passContext;
+    SetTestPassName(passContext);
     Status status = pass.Run(graphPtr, passContext);
     EXPECT_EQ(status, SUCCESS);
 
@@ -236,6 +243,7 @@ TEST_F(ConcatToConcatDFusionPassTest, concatV2FusionSuccess)
 
     ConcatToConcatDFusionPass pass;
     CustomPassContext passContext;
+    SetTestPassName(passContext);
     Status status = pass.Run(graphPtr, passContext);
     EXPECT_EQ(status, SUCCESS);
 
@@ -292,6 +300,7 @@ TEST_F(ConcatToConcatDFusionPassTest, concatV2DFusionSuccess)
 
     ConcatToConcatDFusionPass pass;
     CustomPassContext passContext;
+    SetTestPassName(passContext);
     Status status = pass.Run(graphPtr, passContext);
     EXPECT_EQ(status, SUCCESS);
 
@@ -326,6 +335,7 @@ TEST_F(ConcatToConcatDFusionPassTest, concatNonConstDimNotFused)
 
     ConcatToConcatDFusionPass pass;
     CustomPassContext passContext;
+    SetTestPassName(passContext);
     Status status = pass.Run(graphPtr, passContext);
     EXPECT_EQ(status, GRAPH_NOT_CHANGED);
     EXPECT_FALSE(HasNodeType(graphPtr, kTypeConcatD));
@@ -363,6 +373,7 @@ TEST_F(ConcatToConcatDFusionPassTest, sharedAxisConstFusionSuccess)
 
     ConcatToConcatDFusionPass pass;
     CustomPassContext passContext;
+    SetTestPassName(passContext);
     Status status = pass.Run(graphPtr, passContext);
     EXPECT_EQ(status, SUCCESS);
 
@@ -395,6 +406,7 @@ TEST_F(ConcatToConcatDFusionPassTest, negativeAxisFusionSuccess)
 
     ConcatToConcatDFusionPass pass;
     CustomPassContext passContext;
+    SetTestPassName(passContext);
     Status status = pass.Run(graphPtr, passContext);
     EXPECT_EQ(status, SUCCESS);
 
@@ -421,6 +433,7 @@ TEST_F(ConcatToConcatDFusionPassTest, thirtyInputsFusionSuccess)
 
     ConcatToConcatDFusionPass pass;
     CustomPassContext passContext;
+    SetTestPassName(passContext);
     Status status = pass.Run(graphPtr, passContext);
     EXPECT_EQ(status, SUCCESS);
 
@@ -446,6 +459,7 @@ TEST_F(ConcatToConcatDFusionPassTest, pruneZeroDimInputsFused)
 
     ConcatToConcatDFusionPass pass;
     CustomPassContext passContext;
+    SetTestPassName(passContext);
     Status status = pass.Run(graphPtr, passContext);
     EXPECT_EQ(status, SUCCESS);
 
@@ -474,6 +488,7 @@ TEST_F(ConcatToConcatDFusionPassTest, allZeroDimInputsKeepAll)
 
     ConcatToConcatDFusionPass pass;
     CustomPassContext passContext;
+    SetTestPassName(passContext);
     Status status = pass.Run(graphPtr, passContext);
     EXPECT_EQ(status, SUCCESS);
 
@@ -529,6 +544,7 @@ TEST_F(ConcatToConcatDFusionPassTest, concatV2DZeroDimNoPrune)
 
     ConcatToConcatDFusionPass pass;
     CustomPassContext passContext;
+    SetTestPassName(passContext);
     Status status = pass.Run(graphPtr, passContext);
     EXPECT_EQ(status, SUCCESS);
 
@@ -558,6 +574,7 @@ TEST_F(ConcatToConcatDFusionPassTest, over512InputsSplit)
 
     ConcatToConcatDFusionPass pass;
     CustomPassContext passContext;
+    SetTestPassName(passContext);
     Status status = pass.Run(graphPtr, passContext);
     EXPECT_EQ(status, SUCCESS);
 
@@ -604,6 +621,7 @@ TEST_F(ConcatToConcatDFusionPassTest, noConcatNodeNotChanged)
 
     ConcatToConcatDFusionPass pass;
     CustomPassContext passContext;
+    SetTestPassName(passContext);
     Status status = pass.Run(graphPtr, passContext);
     EXPECT_EQ(status, GRAPH_NOT_CHANGED);
     EXPECT_FALSE(HasNodeType(graphPtr, kTypeConcatD));
@@ -636,9 +654,27 @@ TEST_F(ConcatToConcatDFusionPassTest, concatAxisFloatConstNotFused)
 
     ConcatToConcatDFusionPass pass;
     CustomPassContext passContext;
+    SetTestPassName(passContext);
     Status status = pass.Run(graphPtr, passContext);
     EXPECT_EQ(status, GRAPH_NOT_CHANGED);
     EXPECT_TRUE(HasNodeType(graphPtr, kTypeConcat));
+}
+
+TEST_F(ConcatToConcatDFusionPassTest, concatV2StringDtypeNotFused)
+{
+    // Path: DT_STRING data inputs are outside ConcatD's dtype range (string runs on
+    // AICPU only) -> skip node, matching canndev where CheckOpSupported rejects the
+    // rewrite; the ConcatV2 must survive untouched.
+    std::vector<std::vector<int64_t>> dimsVec{{2, 3}, {2, 5}};
+    std::shared_ptr<Graph> graphPtr = BuildConcatV2Graph(1, dimsVec, DT_STRING);
+
+    ConcatToConcatDFusionPass pass;
+    CustomPassContext passContext;
+    SetTestPassName(passContext);
+    Status status = pass.Run(graphPtr, passContext);
+    EXPECT_EQ(status, GRAPH_NOT_CHANGED);
+    EXPECT_FALSE(HasNodeType(graphPtr, kTypeConcatD));
+    EXPECT_TRUE(HasNodeType(graphPtr, kTypeConcatV2));
 }
 
 TEST_F(ConcatToConcatDFusionPassTest, concatV2DNoAttrNotFused)
@@ -676,6 +712,7 @@ TEST_F(ConcatToConcatDFusionPassTest, concatV2DNoAttrNotFused)
 
     ConcatToConcatDFusionPass pass;
     CustomPassContext passContext;
+    SetTestPassName(passContext);
     Status status = pass.Run(graphPtr, passContext);
     EXPECT_EQ(status, GRAPH_NOT_CHANGED);
     EXPECT_TRUE(HasNodeType(graphPtr, "ConcatV2D"));
@@ -702,6 +739,7 @@ TEST_F(ConcatToConcatDFusionPassTest, concatOnlyAxisNoDataNotFused)
 
     ConcatToConcatDFusionPass pass;
     CustomPassContext passContext;
+    SetTestPassName(passContext);
     Status status = pass.Run(graphPtr, passContext);
     EXPECT_EQ(status, GRAPH_NOT_CHANGED);
     EXPECT_TRUE(HasNodeType(graphPtr, kTypeConcat));
@@ -787,6 +825,7 @@ TEST_F(ConcatToConcatDFusionPassTest, mixedTypesOneGraphFusionSuccess)
 
     ConcatToConcatDFusionPass pass;
     CustomPassContext passContext;
+    SetTestPassName(passContext);
     Status status = pass.Run(graphPtr, passContext);
     EXPECT_EQ(status, SUCCESS);
 
@@ -808,6 +847,7 @@ TEST_F(ConcatToConcatDFusionPassTest, exactly512InputsNoSplit)
 
     ConcatToConcatDFusionPass pass;
     CustomPassContext passContext;
+    SetTestPassName(passContext);
     Status status = pass.Run(graphPtr, passContext);
     EXPECT_EQ(status, SUCCESS);
 
@@ -833,6 +873,7 @@ TEST_F(ConcatToConcatDFusionPassTest, five13InputsSplit)
 
     ConcatToConcatDFusionPass pass;
     CustomPassContext passContext;
+    SetTestPassName(passContext);
     Status status = pass.Run(graphPtr, passContext);
     EXPECT_EQ(status, SUCCESS);
 
@@ -867,6 +908,7 @@ TEST_F(ConcatToConcatDFusionPassTest, nonRegbaseArchNotFused)
 
     ConcatToConcatDFusionPass pass;
     CustomPassContext passContext;
+    SetTestPassName(passContext);
     Status status = pass.Run(graphPtr, passContext);
     EXPECT_EQ(status, GRAPH_NOT_CHANGED);
     EXPECT_FALSE(HasNodeType(graphPtr, kTypeConcatD));
@@ -900,6 +942,7 @@ TEST_F(ConcatToConcatDFusionPassTest, concatAxisInt32FusionSuccess)
 
     ConcatToConcatDFusionPass pass;
     CustomPassContext passContext;
+    SetTestPassName(passContext);
     Status status = pass.Run(graphPtr, passContext);
     EXPECT_EQ(status, SUCCESS);
     EXPECT_EQ(CountNodesOfType(graphPtr, kTypeConcatD), 1);
@@ -943,6 +986,7 @@ TEST_F(ConcatToConcatDFusionPassTest, mixedDtypeInputsRewrittenToConcatD)
 
     ConcatToConcatDFusionPass pass;
     CustomPassContext passContext;
+    SetTestPassName(passContext);
     Status status = pass.Run(graphPtr, passContext);
     EXPECT_EQ(status, SUCCESS);
     EXPECT_EQ(CountNodesOfType(graphPtr, kTypeConcatD), 1);
@@ -958,6 +1002,7 @@ TEST_F(ConcatToConcatDFusionPassTest, unsupportedPlatformFail)
 
     ConcatToConcatDFusionPass pass;
     CustomPassContext passContext;
+    SetTestPassName(passContext);
     Status status = pass.Run(graphPtr, passContext);
     EXPECT_EQ(status, GRAPH_NOT_CHANGED);
     EXPECT_FALSE(HasNodeType(graphPtr, kTypeConcatD));
@@ -973,6 +1018,7 @@ TEST_F(ConcatToConcatDFusionPassTest, ascend950FusionSuccess)
 
     ConcatToConcatDFusionPass pass;
     CustomPassContext passContext;
+    SetTestPassName(passContext);
     Status status = pass.Run(graphPtr, passContext);
     EXPECT_EQ(status, SUCCESS);
 
@@ -989,6 +1035,7 @@ TEST_F(ConcatToConcatDFusionPassTest, regbaseDav5102FusionSuccess)
 
     ConcatToConcatDFusionPass pass;
     CustomPassContext passContext;
+    SetTestPassName(passContext);
     Status status = pass.Run(graphPtr, passContext);
     EXPECT_EQ(status, SUCCESS);
 
