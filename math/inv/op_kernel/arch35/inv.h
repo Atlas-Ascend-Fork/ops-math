@@ -18,15 +18,13 @@
  *
  * 精度策略：
  *   - float32：Div(ones, x) 使用 0 ULP、非 FTZ 模式（不使用 Reciprocal，精度要求）
- *   - float16 / bfloat16：Cast to fp32 -> Div(ones, x) -> Cast back
+ *   - float16 / bfloat16：Cast to fp32 -> Div(ones, x, 0 ULP 非 FTZ，同 float32 分支) -> Cast back
  *   - int32：截断向零整数倒数，等价三值映射 {+1->+1, -1->-1, 其他->0}。
  *            整型 Compare(==1)/Compare(==-1) + 嵌套 Select 实现，禁止对 INT_MIN 取负、不经 fp32 中转。
  *
- * 模板分发（由 TilingKey 对应）：
- *   key 0 -> Inv<float>
- *   key 1 -> Inv<half>
- *   key 2 -> Inv<bfloat16_t>
- *   key 3 -> Inv<int32_t>
+ * 模板分发：dtype 由构建系统按 def 的 DataType profile 生成 DTYPE_X 宏、在编译期
+ * 完成实例化（Inv<float> / Inv<half> / Inv<bfloat16_t> / Inv<int32_t> 共 4 个实例），
+ * 与 TilingKey 无关（inv_tiling_key.h 仅声明 MODE 维度且取值恒为 0）。
  *
  * Buffer 布局：
  *   inputQueue (BUFFER_NUM=2)  : ubFactor * sizeof(T)
@@ -180,9 +178,13 @@ __aicore__ inline void Inv<T>::ComputeWithCast(LocalTensor<SrcT>& xLocal, LocalT
 {
     LocalTensor<float> xFloat = tmpBuf1_.template Get<float>();
     LocalTensor<float> ones = tmpBuf2_.template Get<float>();
+    // 与 float32 分支同配置（0 ULP 非 FTZ）。bf16 与 fp32 同为 8 位指数域，bf16 次正规输入
+    // Cast 后仍是 fp32 次正规数，默认 INTRINSIC 除法按 FTZ 将其清零致 1/0=inf（违背 IEEE-754 契约）；
+    // fp16 次正规在 fp32 中为正规数、无此问题，统一此配置是为保证升精度中间商的正确舍入。
+    static constexpr AscendC::DivConfig config = {AscendC::DivAlgo::PRECISION_0ULP_FTZ_FALSE};
 
     Cast(xFloat, xLocal, RoundMode::CAST_NONE, static_cast<uint32_t>(alignedNum));
-    Div(xFloat, ones, xFloat, static_cast<int32_t>(alignedNum));
+    AscendC::Div<float, config>(xFloat, ones, xFloat, static_cast<int32_t>(alignedNum));
     Cast(yLocal, xFloat, RoundMode::CAST_RINT, static_cast<uint32_t>(alignedNum));
 }
 
@@ -191,7 +193,8 @@ __aicore__ inline void Inv<T>::ComputeWithCast(LocalTensor<SrcT>& xLocal, LocalT
 // 不经 fp32 中转，不对 INT_MIN 取负 —— x=0/|x|>=2/INT_MIN/INT_MAX 均落入 else->0。
 //
 // 迭代二 A1-Main 边界/对齐落实（结构对齐同仓已上库 adjacent_difference 的 Reg 尾块模式）：
-//   - 多 rank（1D~8D）：Host 已将任意 rank 扁平化为 totalElements，本分支只处理一维 currentNum，
+//   - 多 rank（0D~8D，rank0 经 EnsureNotScalar 提升）：Host 已将任意 rank 扁平化为 totalElements，本分支只处理一维
+//   currentNum，
 //                       对 rank 无依赖。
 //   - 256B 对齐 / 尾块：vLength = VRegSize/sizeof(int32)（arch35=64），loopTimes 向上取整覆盖尾块；
 //                       remain 经 UpdateMask<int32> 按引用逐段自递减，最后一段 mask 仅覆盖有效元素。

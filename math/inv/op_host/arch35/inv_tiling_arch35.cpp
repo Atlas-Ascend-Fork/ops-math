@@ -24,11 +24,10 @@
  *   3. Buffer layout: inputQueue(BUFFER_NUM) + outputQueue(BUFFER_NUM) + [tmpBuf1(fp32, 仅FP16/BF16)] + [tmpBuf2(fp32
  * ones, 仅浮点)] int32 路径仅 input+output（纯整型 Compare/Select，无 fp32 中转，评审 MED-2）
  *
- * TilingKey 编码（按 dtype 维度 D_T_SELF 分发）：
- *   key 0 -> C_DT_FLOAT   (float32 直接 Div)
- *   key 1 -> C_DT_FLOAT16 (float16: Cast→Div→Cast)
- *   key 2 -> C_DT_BF16    (bfloat16: Cast→Div→Cast)
- *   key 3 -> C_DT_INT32   (int32: 整型 Compare+Select 三值映射)
+ * TilingKey 说明：inv_tiling_key.h 仅声明 MODE 维度且取值恒为 0，不编码 dtype；
+ * dtype 分发由构建系统按 def 的 DataType profile 生成 DTYPE_X 宏、在编译期完成
+ * （float32 直接 Div；float16/bfloat16: Cast→Div→Cast；int32: 整型 Compare+Select 三值映射），
+ * Host 侧经 ASCENDC_TPL_SEL_PARAM 恒传 mode=0。
  */
 
 #include "register/op_def_registry.h"
@@ -72,7 +71,15 @@ static ge::graphStatus GetShapeInfo(gert::TilingContext* context, int64_t& total
 {
     auto inputSelf = context->GetInputShape(0);
     OP_CHECK_NULL_WITH_CONTEXT(context, inputSelf);
-    auto inputShape = EnsureNotScalar(inputSelf->GetStorageShape());
+    // README 约束 shape 维度 0-8：rank 上界在 Tiling 显式拒绝（EZ0012），不依赖框架 para_check 兜底
+    constexpr size_t kMaxRank = 8;
+    const gert::Shape& rawShape = inputSelf->GetStorageShape();
+    OP_CHECK_IF(
+        rawShape.GetDimNum() > kMaxRank,
+        OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(
+            context->GetNodeName(), "x", std::to_string(rawShape.GetDimNum()).c_str(), "input rank must be in [0, 8]"),
+        return ge::GRAPH_FAILED);
+    auto inputShape = EnsureNotScalar(rawShape);
     totalElements = inputShape.GetShapeSize();
 
     auto inputDesc = context->GetInputDesc(0);

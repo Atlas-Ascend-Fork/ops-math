@@ -12,7 +12,7 @@
  * \file inv_tiling_key.h
  * \brief Inv TilingKey definition (arch35)
  *
- * dtype 由 def 驱动（构建系统按 def 的 DataType profile 生成 DTYPE_SELF 宏），
+ * dtype 由 def 驱动（构建系统按 def 的 DataType profile 生成 DTYPE_X 宏，X 取自输入端口名 x），
  * tiling_key 不再编码 dtype 维度。
  */
 

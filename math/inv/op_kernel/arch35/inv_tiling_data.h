@@ -19,9 +19,9 @@
 #define OPS_MATH_INV_KERNEL_ARCH35_INV_TILING_DATA_H_
 
 struct InvTilingData {
-    int64_t totalElements = 0;   // 元素总数（已扁平化）
-    int64_t blockFactor   = 0;   // 每核处理元素数
-    int64_t ubFactor      = 0;   // 每个 UB 循环处理元素数
+    int64_t totalElements = 0; // 元素总数（已扁平化）
+    int64_t blockFactor = 0;   // 每核处理元素数
+    int64_t ubFactor = 0;      // 每个 UB 循环处理元素数
 };
 
 #endif // OPS_MATH_INV_KERNEL_ARCH35_INV_TILING_DATA_H_

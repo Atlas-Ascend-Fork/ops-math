@@ -19,8 +19,8 @@
  *     UT 这里复刻一个本地 InvCompileInfoStub 仅用于提供非空 void* 指针，让
  *     TilingContextBuilder 通过 "Compile info is nullptr" 校验。
  *   - 平台 coreNum/ubSize 通过 gert::TilingContextPara 的 coreNum_/ubSize_ 字段 mock 注入。
- *   - tilingKey 的具体取值（FP32=0, FP16=1, BF16=27）由 ASCENDC_TPL_SEL_PARAM 基于
- *     C_DT_* 枚举生成，与同模式算子（approximate_equal 等）保持一致。
+ *   - tilingKey 恒为 0：inv_tiling_key.h 仅声明 MODE 维度且取值恒为 0，dtype 不经
+ *     TilingKey 编码（由构建系统按 def 生成 DTYPE_X 宏在编译期分派）。
  */
 
 #include <iostream>
@@ -228,13 +228,13 @@ TEST_F(InvTilingTest, test_tiling_fp32_multi_dim_010)
 }
 
 // ====================================================================
-// int32 核心路径用例（A2 / 迭代一）—— key3 = C_DT_INT32 三值截断整数倒数
-// 覆盖点：supportedDtype 识别 int32 / typeSize=4 / bytesPerElem(int32) 分支 / TilingKey 选到 key3
+// int32 核心路径用例（A2 / 迭代一）—— int32 三值截断整数倒数（dtype 编译期分派）
+// 覆盖点：supportedDtype 识别 int32 / typeSize=4 / bytesPerElem(int32) 分支
 // ====================================================================
 
 // Tiling_int32_basic_011: int32 基础 shape [32]，单核刚好对齐
 // 覆盖 supportedDtype 识别 int32 + typeSize=4(ubBlockSize=8) + bytesPerElem(int32)=2*BUFFER_NUM*4=16
-// + TilingKey 选到 key3 (C_DT_INT32, 实测编码值=3)
+// + tilingKey 断言恒为 0（MODE 维度，不编码 dtype）
 // totalElements=32, blockFactor=ceildiv(32,64)=1→align8=8
 // ubFactor=floor_align(262144/16, 8)=floor_align(16384,8)=16384
 TEST_F(InvTilingTest, test_tiling_int32_basic_011)
@@ -256,7 +256,7 @@ TEST_F(InvTilingTest, test_tiling_int32_basic_011)
 
 // Tiling_int32_multi_core_012: int32 多核切分 shape [8192]
 // totalElements=8192, blockFactor=ceildiv(8192,64)=128→align8=128, usedCoreNum=64
-// bytesPerElem(int32)=16, ubFactor=16384, key3
+// bytesPerElem(int32)=16, ubFactor=16384
 TEST_F(InvTilingTest, test_tiling_int32_multi_core_012)
 {
     InvCompileInfoStub compileInfo;
@@ -275,7 +275,7 @@ TEST_F(InvTilingTest, test_tiling_int32_multi_core_012)
 }
 
 // Tiling_int32_multi_dim_013: int32 多维 shape [2,4,8]，与一维同分支
-// totalElements=64, blockFactor=ceildiv(64,64)=1→align8=8, usedCoreNum=8, ubFactor=16384, key3
+// totalElements=64, blockFactor=ceildiv(64,64)=1→align8=8, usedCoreNum=8, ubFactor=16384
 TEST_F(InvTilingTest, test_tiling_int32_multi_dim_013)
 {
     InvCompileInfoStub compileInfo;
@@ -294,7 +294,7 @@ TEST_F(InvTilingTest, test_tiling_int32_multi_dim_013)
 }
 
 // Tiling_int32_empty_014: int32 空 tensor 边界 (shape=[0])
-// 早返回：totalElements=0, blockFactor=0, ubFactor=0, blockDim=1, key3
+// 早返回：totalElements=0, blockFactor=0, ubFactor=0, blockDim=1
 TEST_F(InvTilingTest, test_tiling_int32_empty_014)
 {
     InvCompileInfoStub compileInfo;
@@ -315,9 +315,9 @@ TEST_F(InvTilingTest, test_tiling_int32_empty_014)
 // ====================================================================
 // int32 多 rank tiling 用例（A2 / 迭代二）—— 验证 GetShapeSize() 扁平化任意 rank
 // 关键点：Host tiling 用 inputShape.GetShapeSize() 把任意 rank 摊平成 totalElements，
-//        因此 tiling 分支（blockFactor/ubFactor/usedCoreNum/key3）只取决于 total，
-//        与 rank 维度结构无关。下列用例覆盖 1D~8D 各代表性 shape，逐一确认
-//        tiling 字段与按 total 计算的预期完全一致，且 TilingKey 恒为 key3。
+//        因此 tiling 分支（blockFactor/ubFactor/usedCoreNum）只取决于 total，
+//        与 rank 维度结构无关。下列用例覆盖 0D~8D 各代表性 shape，逐一确认
+//        tiling 字段与按 total 计算的预期完全一致，且 tilingKey 恒为 0。
 // 通用公式（int32, coreNum=64, ub=262144）：
 //   typeSize=4, ubBlockSize=8, bytesPerElem=2*BUFFER_NUM*4=16
 //   blockFactor = CeilAlign(CeilDiv(total,64), 8)
@@ -463,7 +463,7 @@ TEST_F(InvTilingTest, test_tiling_int32_8d_large_021)
 }
 
 // ====================================================================
-// int32 边界 tiling 用例（A2 / 迭代二）—— 非对齐长度 / 尾块切分 / 极值 dtype 选 key3
+// int32 边界 tiling 用例（A2 / 迭代二）—— 非对齐长度 / 尾块切分 / 极值 int32 dtype 路径
 // ====================================================================
 
 // Tiling_int32_nonalign_7_022: int32 非对齐长度 [7]（total < ubBlockSize=8）
@@ -508,7 +508,7 @@ TEST_F(InvTilingTest, test_tiling_int32_nonalign_65_023)
 
 // Tiling_int32_value_irrelevant_024: int32 普通值范围 [16]（含 INT_MIN/INT_MAX/0 等极值，
 // 但 tiling 与具体数值无关 —— 仅取决于 dtype 与 total）。本用例确认无论张量内携带何种值，
-// dtype=int32 恒选 key3，tiling 字段与同 total 浮点路径除 bytesPerElem 外结构一致。
+// dtype=int32 路径，tiling 字段与同 total 浮点路径除 bytesPerElem 外结构一致。
 // total=16, blockFactor=8, usedCore=CeilDiv(16,8)=2, ubFactor=16384
 TEST_F(InvTilingTest, test_tiling_int32_value_irrelevant_024)
 {
@@ -529,9 +529,9 @@ TEST_F(InvTilingTest, test_tiling_int32_value_irrelevant_024)
 
 // ====================================================================
 // 迭代三 A2：全覆盖收口 —— spec 全量维度核查补齐
-// 目标：op_host Tiling UT 覆盖 spec 全 dtype 选 key（key0/1/2(27)/3）正确、
-//       全 rank 0..8（含 rank0 标量）、各 float dtype 与 int32 的 key 选择
-//       与 rank 无关（仅取决于 dtype 与 total）。补齐既有用例未覆盖项：
+// 目标：op_host Tiling UT 覆盖 spec 全 dtype 的 tiling 字段计算正确、
+//       全 rank 0..8（含 rank0 标量）、各 float dtype 与 int32 的 tiling 字段
+//       与 rank 无关（仅取决于 dtype 与 total，tilingKey 恒为 0）。补齐既有用例未覆盖项：
 //         - int32 rank0 标量 tiling（infershape 已有，tiling 缺）
 //         - fp32/fp16/bf16 的高 rank（6D/8D）tiling，确认浮点 key 同样 rank 无关
 //         - fp16/bf16 rank0 标量 tiling，确认半精度 key 选择在标量场景成立
@@ -544,7 +544,7 @@ TEST_F(InvTilingTest, test_tiling_int32_value_irrelevant_024)
 // ====================================================================
 
 // Tiling_int32_scalar_025: int32 rank0 标量（DimNum=0）→ EnsureNotScalar 提升为 [1]
-// total=1, blockFactor=CeilAlign(CeilDiv(1,64)=1,8)=8, usedCore=1, ubFactor=16384, key3
+// total=1, blockFactor=CeilAlign(CeilDiv(1,64)=1,8)=8, usedCore=1, ubFactor=16384
 // 补齐 spec boundary "rank=0 标量" 在 int32 tiling 路径的覆盖（既有仅 fp32 标量 006）
 TEST_F(InvTilingTest, test_tiling_int32_scalar_025)
 {
@@ -563,7 +563,7 @@ TEST_F(InvTilingTest, test_tiling_int32_scalar_025)
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
-// Tiling_fp16_scalar_026: fp16 rank0 标量 → 提升为 [1]，确认半精度 key1 在标量场景成立
+// Tiling_fp16_scalar_026: fp16 rank0 标量 → 提升为 [1]，确认半精度路径在标量场景成立
 // total=1, ubBlockSize=16, blockFactor=CeilAlign(CeilDiv(1,64)=1,16)=16, usedCore=1, ubFactor=16384
 TEST_F(InvTilingTest, test_tiling_fp16_scalar_026)
 {
@@ -582,7 +582,7 @@ TEST_F(InvTilingTest, test_tiling_fp16_scalar_026)
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
-// Tiling_bf16_scalar_027: bf16 rank0 标量 → 提升为 [1]，确认 bf16 key(=27) 在标量场景成立
+// Tiling_bf16_scalar_027: bf16 rank0 标量 → 提升为 [1]，确认 bf16 路径在标量场景成立（tilingKey 恒 0）
 // total=1, ubBlockSize=16, blockFactor=16, usedCore=1, ubFactor=16384
 TEST_F(InvTilingTest, test_tiling_bf16_scalar_027)
 {
@@ -601,7 +601,7 @@ TEST_F(InvTilingTest, test_tiling_bf16_scalar_027)
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
-// Tiling_fp32_6d_028: fp32 6D [2,2,2,2,2,2] -> total=64，确认 fp32 key0 与 rank 无关
+// Tiling_fp32_6d_028: fp32 6D [2,2,2,2,2,2] -> total=64，确认 fp32 路径 tiling 字段与 rank 无关
 // blockFactor=CeilAlign(CeilDiv(64,64)=1,8)=8, usedCore=8, ubFactor=13104
 TEST_F(InvTilingTest, test_tiling_fp32_6d_028)
 {
@@ -622,7 +622,7 @@ TEST_F(InvTilingTest, test_tiling_fp32_6d_028)
 }
 
 // Tiling_fp32_8d_029: fp32 8D [2,2,2,2,2,2,2,2] -> total=256（最大 rank 边界）
-// blockFactor=8, usedCore=CeilDiv(256,8)=32, ubFactor=13104, key0
+// blockFactor=8, usedCore=CeilDiv(256,8)=32, ubFactor=13104
 TEST_F(InvTilingTest, test_tiling_fp32_8d_029)
 {
     InvCompileInfoStub compileInfo;
@@ -641,7 +641,7 @@ TEST_F(InvTilingTest, test_tiling_fp32_8d_029)
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
-// Tiling_fp16_8d_030: fp16 8D [2,2,2,2,2,2,2,2] -> total=256，确认 fp16 key1 与 rank 无关
+// Tiling_fp16_8d_030: fp16 8D [2,2,2,2,2,2,2,2] -> total=256，确认 fp16 路径 tiling 字段与 rank 无关
 // ubBlockSize=16, blockFactor=CeilAlign(CeilDiv(256,64)=4,16)=16, usedCore=CeilDiv(256,16)=16, ubFactor=16384
 TEST_F(InvTilingTest, test_tiling_fp16_8d_030)
 {
@@ -661,7 +661,7 @@ TEST_F(InvTilingTest, test_tiling_fp16_8d_030)
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
-// Tiling_bf16_6d_031: bf16 6D [2,2,2,2,2,2] -> total=64，确认 bf16 key(=27) 与 rank 无关
+// Tiling_bf16_6d_031: bf16 6D [2,2,2,2,2,2] -> total=64，确认 bf16 路径 tiling 字段与 rank 无关（tilingKey 恒 0）
 // ubBlockSize=16, blockFactor=CeilAlign(CeilDiv(64,64)=1,16)=16, usedCore=CeilDiv(64,16)=4, ubFactor=16384
 TEST_F(InvTilingTest, test_tiling_bf16_6d_031)
 {
@@ -683,7 +683,7 @@ TEST_F(InvTilingTest, test_tiling_bf16_6d_031)
 
 // Tiling_fp32_nonalign_7_032: fp32 非对齐长度 [7]（total < ubBlockSize=8）
 // blockFactor=CeilAlign(CeilDiv(7,64)=1,8)=8 >= total，usedCore=CeilDiv(7,8)=1（单核尾块=7）
-// 与 int32 022 对照：浮点路径 blockFactor 同样向上对齐到 ubBlockSize，key0
+// 与 int32 022 对照：浮点路径 blockFactor 同样向上对齐到 ubBlockSize
 TEST_F(InvTilingTest, test_tiling_fp32_nonalign_7_032)
 {
     InvCompileInfoStub compileInfo;
@@ -703,7 +703,7 @@ TEST_F(InvTilingTest, test_tiling_fp32_nonalign_7_032)
 
 // Tiling_fp16_nonalign_17_033: fp16 非对齐长度 [17]（跨 ubBlockSize=16 的尾块）
 // blockFactor=CeilAlign(CeilDiv(17,64)=1,16)=16, usedCore=CeilDiv(17,16)=2（最后一核处理 1 个元素）
-// 验证 fp16 非对齐尾块切分，key1
+// 验证 fp16 非对齐尾块切分
 TEST_F(InvTilingTest, test_tiling_fp16_nonalign_17_033)
 {
     InvCompileInfoStub compileInfo;
@@ -721,7 +721,7 @@ TEST_F(InvTilingTest, test_tiling_fp16_nonalign_17_033)
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
-// Tiling_bf16_empty_034: bf16 空 tensor [0] → 早返回，确认 bf16 key(=27) 在空 Tensor 分支成立
+// Tiling_bf16_empty_034: bf16 空 tensor [0] → 早返回，确认 bf16 路径在空 Tensor 分支成立（tilingKey 恒 0）
 // totalElements=0, blockFactor=0, ubFactor=0, blockDim=1
 TEST_F(InvTilingTest, test_tiling_bf16_empty_034)
 {
@@ -740,7 +740,7 @@ TEST_F(InvTilingTest, test_tiling_bf16_empty_034)
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
-// Tiling_fp16_empty_035: fp16 空 tensor [0] → 早返回，确认 fp16 key1 在空 Tensor 分支成立
+// Tiling_fp16_empty_035: fp16 空 tensor [0] → 早返回，确认 fp16 路径在空 Tensor 分支成立
 TEST_F(InvTilingTest, test_tiling_fp16_empty_035)
 {
     InvCompileInfoStub compileInfo;
@@ -771,5 +771,46 @@ TEST_F(InvTilingTest, test_tiling_failed_unsupported_int64_036)
                                                   {{{32}, {32}}, ge::DT_INT64, ge::FORMAT_ND},
                                               },
                                               &compileInfo);
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED, 0, "", {0});
+}
+
+// ====================================================================
+// Rank 上界校验用例 —— README 约束 shape 维度 0-8，rank>8 由 Tiling 显式拒绝
+// （EZ0012 INVALID_SHAPEDIM，不再依赖框架 para_check 兜底）
+// ====================================================================
+
+// Tiling_failed_rank9_037: 9 维输入（刚越界）→ kMaxRank 校验返回 GRAPH_FAILED
+TEST_F(InvTilingTest, test_tiling_failed_rank9_037)
+{
+    InvCompileInfoStub compileInfo;
+    gert::TilingContextPara tilingContextPara(
+        "Inv",
+        {
+            {{{2, 2, 2, 2, 2, 2, 2, 2, 2}, {2, 2, 2, 2, 2, 2, 2, 2, 2}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        {
+            {{{2, 2, 2, 2, 2, 2, 2, 2, 2}, {2, 2, 2, 2, 2, 2, 2, 2, 2}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        &compileInfo);
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED, 0, "", {0});
+}
+
+// Tiling_failed_rank12_038: 12 维输入（明显越界）→ 同一校验拒绝，覆盖各 dtype 共用路径
+TEST_F(InvTilingTest, test_tiling_failed_rank12_038)
+{
+    InvCompileInfoStub compileInfo;
+    gert::TilingContextPara tilingContextPara(
+        "Inv",
+        {
+            {{{2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1}, {2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1}},
+             ge::DT_FLOAT16,
+             ge::FORMAT_ND},
+        },
+        {
+            {{{2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1}, {2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1}},
+             ge::DT_FLOAT16,
+             ge::FORMAT_ND},
+        },
+        &compileInfo);
     ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED, 0, "", {0});
 }

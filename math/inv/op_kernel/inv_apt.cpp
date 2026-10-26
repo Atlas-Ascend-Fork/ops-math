@@ -14,8 +14,9 @@
  * \file inv_apt.cpp
  * \brief Inv 算子 Kernel 入口（arch35 / Ascend950）
  *
- * 模板参数 D_T_SELF 由 inv_tiling_key.h 中 ASCENDC_TPL_ARGS_DECL 定义。
- * dtype 静态分发：Inv<float> / Inv<half> / Inv<bfloat16_t> / Inv<int32_t> 共 4 个实例。
+ * 模板参数 MODE 来自 inv_tiling_key.h 的 ASCENDC_TPL_ARGS_DECL（未使用，恒为 0）；
+ * dtype 静态分发由构建系统按 def 的 DataType profile 生成 DTYPE_X 宏决定：
+ * Inv<float> / Inv<half> / Inv<bfloat16_t> / Inv<int32_t> 共 4 个实例。
  */
 
 #include "arch35/inv.h"
