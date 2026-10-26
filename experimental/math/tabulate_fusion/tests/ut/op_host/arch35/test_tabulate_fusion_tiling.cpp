@@ -26,7 +26,7 @@ protected:
     static void TearDownTestCase() { std::cout << "TabulateFusionTiling TearDown" << std::endl; }
 };
 
-std::map<std::string, std::string> soc_version_infos = {{"Short_SoC_version", "Ascend950"}};
+static std::map<std::string, std::string> soc_version_infos = {{"Short_SoC_version", "Ascend950"}};
 
 // float32 用例: nloc=2, nnei=3, last_layer_size=4
 // table: (10, 384), table_info: (5,), em_x: (6, 1), em: (2, 3, 4), descriptor: (2, 4, 4)
