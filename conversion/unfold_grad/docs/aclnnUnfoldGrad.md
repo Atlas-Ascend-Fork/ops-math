@@ -124,7 +124,7 @@ aclnnStatus aclnnUnfoldGrad(
       <td>dim（int64_t）</td>
       <td>输入</td>
       <td>表示展开发生的维度，公式中的dim。</td>
-      <td>dim仅支持len(inputSizes)-1或者len(inputSizes)-2。</td>
+      <td>dim大于等于0且小于len(inputSizes)。</td>
       <td>INT64</td>
       <td>-</td>
       <td>-</td>
@@ -207,11 +207,11 @@ aclnnStatus aclnnUnfoldGrad(
       <tr>
         <td>ACLNN_ERR_PARAM_INVALID</td>
         <td>161002</td>
-        <td>输入和输出的数据类型和数据格式不在支持的范围之内。</td>
+        <td>输入和输出的数据类型和数据格式不在支持的范围之内，或dim小于0或大于等于len(inputSizes)。</td>
       </tr>
       <tr>
-        <td rowspan="5">ACLNN_ERR_INNER_TILING_ERROR</td>
-        <td rowspan="5">561002</td>
+        <td rowspan="4">ACLNN_ERR_INNER_TILING_ERROR</td>
+        <td rowspan="4">561002</td>
         <td>gradOut的第dim维不等于(inputSizes[dim]-size)/step+1。</td>
       </tr>
       <tr>
@@ -222,9 +222,6 @@ aclnnStatus aclnnUnfoldGrad(
       </tr>
       <tr>
         <td>step小于等于0。</td>
-      </tr>
-      <tr>
-        <td>dim不等于len(inputSizes)-1且dim不等于len(inputSizes)-2轴。</td>
       </tr>
     </tbody>
     </table>
@@ -282,7 +279,7 @@ aclnnStatus aclnnUnfoldGrad(
 2. dim、size、step的要求：
     - size大于0且size小于等于inputSizes的第dim维。
     - step大于0。
-    - dim等于len(inputSizes)-1或者dim等于len(inputSizes)-2轴。
+    - dim大于等于0且小于len(inputSizes)。
 
 ## 调用示例
 

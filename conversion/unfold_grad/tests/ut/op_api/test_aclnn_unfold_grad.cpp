@@ -78,3 +78,33 @@ TEST_F(l2_unfold_grad_test, case_empty_grad_out_nonzero_grad_in)
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
     EXPECT_EQ(aclRet, ACLNN_SUCCESS);
 }
+
+TEST_F(l2_unfold_grad_test, case_null_grad_out)
+{
+    auto input_sizes_desc = IntArrayDesc(vector<int64_t>{2, 3, 4});
+    auto out_desc = TensorDesc({2, 3, 4}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto ut = OP_API_UT(aclnnUnfoldGrad, INPUT(nullptr, input_sizes_desc, 2, 2, 1), OUTPUT(out_desc));
+    uint64_t workspace_size = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_NULLPTR);
+}
+
+TEST_F(l2_unfold_grad_test, case_null_input_sizes)
+{
+    auto grad_out_desc = TensorDesc({2, 3, 3, 2}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto out_desc = TensorDesc({2, 3, 4}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto ut = OP_API_UT(aclnnUnfoldGrad, INPUT(grad_out_desc, nullptr, 2, 2, 1), OUTPUT(out_desc));
+    uint64_t workspace_size = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_NULLPTR);
+}
+
+TEST_F(l2_unfold_grad_test, case_null_grad_in)
+{
+    auto grad_out_desc = TensorDesc({2, 3, 3, 2}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto input_sizes_desc = IntArrayDesc(vector<int64_t>{2, 3, 4});
+    auto ut = OP_API_UT(aclnnUnfoldGrad, INPUT(grad_out_desc, input_sizes_desc, 2, 2, 1), OUTPUT(nullptr));
+    uint64_t workspace_size = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_NULLPTR);
+}

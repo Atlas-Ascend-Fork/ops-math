@@ -46,7 +46,7 @@
 | ---------- | -------------- | ------------------------------------------------------------ | ------------------------ | -------- |
 | gradOutput | 输入张量       | 表示梯度更新系数，shape为(..., (sizedim-size)/step+1, size)，要求满足gradOutput的第dim维等于$(inputSizes[dim]-size)/step+1$和gradOut的size等于inputSizes的size+1。 | FLOAT、FLOAT16、BFLOAT16 | ND       |
 | inputSizes | 输入数组       | 表示输出张量的形状，值为(..., sizedim)，inputSizes的size小于等于8。 | INT64                    | ND       |
-| dim        | 输入           | 公式中的$dim$。表示展开发生的维度。$dim$仅支持len($inputSizes$)-1或者len($inputSizes$)-2。 | INT64                    | -        |
+| dim        | 输入           | 公式中的$dim$。表示展开发生的维度。$dim$大于等于0且小于len($inputSizes$)。 | INT64                    | -        |
 | size       | 输入           | 公式中的$size$。表示展开的每个切片的大小。$size$需要满足$size$大于0且$size$小于等于$inputSizes$的第$dim$维。 | INT64                    | -        |
 | step       | 输入           | 公式中的$step$。表示每个切片之间的步长。$step$需要满足$step$大于0。 | INT64                    |          |
 | gradIn     | 输出           | 表示Unfold的对应梯度，数据类型必须和gradOut一致。            | FLOAT、FLOAT16、BFLOAT16 |          |
@@ -59,7 +59,7 @@
 2. dim、size、step的要求：
     - size大于0且size小于等于inputSizes的第dim维。
     - step大于0。
-    - dim等于len(inputSizes)-1或者dim等于len(inputSizes)-2轴。
+    - dim大于等于0且小于len(inputSizes)。
 
 ## 调用说明
 

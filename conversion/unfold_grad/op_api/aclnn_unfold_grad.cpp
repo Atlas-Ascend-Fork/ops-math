@@ -118,7 +118,7 @@ static bool CheckFormat(const aclTensor* gradOut)
 static aclnnStatus CheckParams(const aclTensor* gradOut, const aclIntArray* inputSizes, int64_t dim, int64_t size,
                                int64_t step, const aclTensor* gradIn)
 {
-    CHECK_RET(CheckNotNull(gradOut, inputSizes, gradIn), ACLNN_ERR_INNER_NULLPTR);
+    CHECK_RET(CheckNotNull(gradOut, inputSizes, gradIn), ACLNN_ERR_PARAM_NULLPTR);
 
     CHECK_RET(CheckDtypeValid(gradOut, gradIn), ACLNN_ERR_PARAM_INVALID);
 
