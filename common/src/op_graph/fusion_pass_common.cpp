@@ -36,6 +36,9 @@ STUB_REG_PASS("RandomUniformIntFusionPass", fe::BUILT_IN_GRAPH_PASS, 0x01);
 STUB_REG_PASS("DropOutV3FusionPass", fe::BUILT_IN_GRAPH_PASS, 0x05);
 STUB_REG_PASS("DropOutV3SplitFusionPass", fe::BUILT_IN_GRAPH_PASS, 0x05);
 STUB_REG_PASS("BernoulliFusionPass", fe::BUILT_IN_GRAPH_PASS, 0);
+// HardMaxPass attr 0x01 = FORBIDDEN_CLOSE，与 canndev 原注册 REG_PASS("HardMaxPass", BUILT_IN_GRAPH_PASS,
+// HardMaxPass, FORBIDDEN_CLOSE) 一致（禁止用户通过开关关闭该 pass），故与默认 0 的 MulAddNPass 不同
+STUB_REG_PASS("HardMaxPass", fe::BUILT_IN_GRAPH_PASS, 0x01);
 // MulAddN：math 侧 Stage=kCompatibleInherited，且在 OPP 白名单 3510(ascend950) 内，登记后生效
 STUB_REG_PASS("MulAddNPass", fe::BUILT_IN_GRAPH_PASS, 0);
 
