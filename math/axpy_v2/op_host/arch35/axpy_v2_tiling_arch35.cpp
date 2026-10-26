@@ -84,9 +84,7 @@ ge::graphStatus AxpyV2Tiling::DoOpTiling()
         ret = brcBaseTiling.DoTiling();
         tilingKey = GET_TPL_TILING_KEY(brcBaseTiling.GetSchMode());
     } else if (input0Dtype == ge::DT_BF16 || input0Dtype == ge::DT_FLOAT16) {
-        BroadcastBaseTiling<
-            AxpyV2Op::AxpyV2ComputeFp16Bf16<half, AxpyV2Op::CAST_NONE_MODE, AxpyV2Op::CAST_RINT_MODE>::OpDag>
-            brcBaseTiling(context_);
+        BroadcastBaseTiling<AxpyV2Op::AxpyV2ComputeFp16Bf16<half>::OpDag> brcBaseTiling(context_);
         ret = brcBaseTiling.DoTiling();
         tilingKey = GET_TPL_TILING_KEY(brcBaseTiling.GetSchMode());
     } else if (input0Dtype == ge::DT_INT32) {
@@ -98,11 +96,11 @@ ge::graphStatus AxpyV2Tiling::DoOpTiling()
         ret = brcBaseTiling.DoTiling();
         tilingKey = GET_TPL_TILING_KEY(brcBaseTiling.GetSchMode());
     } else if (input0Dtype == ge::DT_INT8) {
-        BroadcastBaseTiling<AxpyV2Op::AxpyV2ComputeUint8Int8<int8_t, int32_t>::OpDag> brcBaseTiling(context_);
+        BroadcastBaseTiling<AxpyV2Op::AxpyV2ComputeUint8Int8<int8_t, uint16_t>::OpDag> brcBaseTiling(context_);
         ret = brcBaseTiling.DoTiling();
         tilingKey = GET_TPL_TILING_KEY(brcBaseTiling.GetSchMode());
     } else if (input0Dtype == ge::DT_UINT8) {
-        BroadcastBaseTiling<AxpyV2Op::AxpyV2ComputeUint8Int8<uint8_t, uint32_t>::OpDag> brcBaseTiling(context_);
+        BroadcastBaseTiling<AxpyV2Op::AxpyV2ComputeUint8Int8<uint8_t, uint16_t>::OpDag> brcBaseTiling(context_);
         ret = brcBaseTiling.DoTiling();
         tilingKey = GET_TPL_TILING_KEY(brcBaseTiling.GetSchMode());
     } else if (input0Dtype == ge::DT_BOOL) {

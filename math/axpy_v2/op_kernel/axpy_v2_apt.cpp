@@ -28,8 +28,7 @@ __global__ __aicore__ void axpy_v2_op(GM_ADDR x1, GM_ADDR x2, GM_ADDR alpha, GM_
     constexpr bool isFp16Bf16 = (std::is_same<T, half>::value || std::is_same<T, bfloat16_t>::value);
     constexpr bool isInt32Int64 = (std::is_same<T, int32_t>::value || std::is_same<T, int64_t>::value);
     if constexpr (isFp16Bf16) {
-        using OpDag = typename AxpyV2Op::AxpyV2ComputeFp16Bf16<T, AxpyV2Op::CAST_NONE_MODE,
-                                                               AxpyV2Op::CAST_RINT_MODE>::OpDag;
+        using OpDag = typename AxpyV2Op::AxpyV2ComputeFp16Bf16<T>::OpDag;
         BroadcastSch<Mode, OpDag> sch(tiling);
         sch.Process(x1, x2, alpha, y);
     } else if constexpr (std::is_same<T, float>::value) {
@@ -41,11 +40,11 @@ __global__ __aicore__ void axpy_v2_op(GM_ADDR x1, GM_ADDR x2, GM_ADDR alpha, GM_
         BroadcastSch<Mode, OpDag> sch(tiling);
         sch.Process(x1, x2, alpha, y);
     } else if constexpr (std::is_same<T, int8_t>::value) {
-        using OpDag = typename AxpyV2Op::AxpyV2ComputeUint8Int8<T, int32_t>::OpDag;
+        using OpDag = typename AxpyV2Op::AxpyV2ComputeUint8Int8<T, uint16_t>::OpDag;
         BroadcastSch<Mode, OpDag> sch(tiling);
         sch.Process(x1, x2, alpha, y);
     } else if constexpr (std::is_same<T, uint8_t>::value) {
-        using OpDag = typename AxpyV2Op::AxpyV2ComputeUint8Int8<T, uint32_t>::OpDag;
+        using OpDag = typename AxpyV2Op::AxpyV2ComputeUint8Int8<T, uint16_t>::OpDag;
         BroadcastSch<Mode, OpDag> sch(tiling);
         sch.Process(x1, x2, alpha, y);
     } else if constexpr (std::is_same<T, bool>::value) {
