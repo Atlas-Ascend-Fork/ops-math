@@ -114,6 +114,10 @@ __aicore__ inline void RealOp<T, IS_COMPLEX>::Init(GM_ADDR self, GM_ADDR out, GM
 
         // Build offset vector once during init (reused for all UB iterations)
         BuildOffsetVector();
+        // Wait for scalar SetValue (S pipe) writes to offsetBuf before vector Gather (V pipe) reads it
+        AscendC::TEventID eventIDSv = pipe.FetchEventID(AscendC::HardEvent::S_V);
+        AscendC::SetFlag<AscendC::HardEvent::S_V>(eventIDSv);
+        AscendC::WaitFlag<AscendC::HardEvent::S_V>(eventIDSv);
     }
 }
 
