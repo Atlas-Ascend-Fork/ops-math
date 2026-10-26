@@ -21,6 +21,11 @@
  *      BOOL + 8 integer dtypes (INT8/16/32/64, UINT8/16/32/64).
  *  - aclnnBitwiseAndScalar / aclnnInplaceBitwiseAndScalar:
  *      BOOL + 8 integer dtypes (INT8/16/32/64, UINT8/16/32/64).
+ *
+ * Platform convention (same as test_aclnn_bitwise_and.cpp): every case that needs the
+ * RegBase dtype list explicitly switches the mock platform to ASCEND950 and restores
+ * ASCEND910B (the process default) before returning, so the global platform state does
+ * not leak into the suites that run afterwards (see issue #3875).
  */
 
 #include <cstdint>
@@ -99,6 +104,7 @@ TEST_F(l2_bitwise_and_dtype_contract, tensor_all_supported)
     EXPECT_TENSOR_OK(aclnnBitwiseAndTensor, ACL_UINT32);
     EXPECT_TENSOR_OK(aclnnBitwiseAndTensor, ACL_INT64);
     EXPECT_TENSOR_OK(aclnnBitwiseAndTensor, ACL_UINT64);
+    op::SetPlatformSocVersion(op::SocVersion::ASCEND910B);
 }
 
 TEST_F(l2_bitwise_and_dtype_contract, inplace_tensor_all_supported)
@@ -113,6 +119,7 @@ TEST_F(l2_bitwise_and_dtype_contract, inplace_tensor_all_supported)
     EXPECT_INPLACE_TENSOR_OK(aclnnInplaceBitwiseAndTensor, ACL_UINT32);
     EXPECT_INPLACE_TENSOR_OK(aclnnInplaceBitwiseAndTensor, ACL_INT64);
     EXPECT_INPLACE_TENSOR_OK(aclnnInplaceBitwiseAndTensor, ACL_UINT64);
+    op::SetPlatformSocVersion(op::SocVersion::ASCEND910B);
 }
 
 // ---- Out APIs: BOOL + 8 integer dtypes (same as the tensor APIs) ----
@@ -128,6 +135,7 @@ TEST_F(l2_bitwise_and_dtype_contract, tensor_out_contract)
     EXPECT_TENSOR_OK(aclnnBitwiseAndTensorOut, ACL_INT64);
     EXPECT_TENSOR_OK(aclnnBitwiseAndTensorOut, ACL_UINT32);
     EXPECT_TENSOR_OK(aclnnBitwiseAndTensorOut, ACL_UINT64);
+    op::SetPlatformSocVersion(op::SocVersion::ASCEND910B);
 }
 
 TEST_F(l2_bitwise_and_dtype_contract, inplace_tensor_out_contract)
@@ -142,6 +150,7 @@ TEST_F(l2_bitwise_and_dtype_contract, inplace_tensor_out_contract)
     EXPECT_INPLACE_TENSOR_OK(aclnnInplaceBitwiseAndTensorOut, ACL_INT64);
     EXPECT_INPLACE_TENSOR_OK(aclnnInplaceBitwiseAndTensorOut, ACL_UINT32);
     EXPECT_INPLACE_TENSOR_OK(aclnnInplaceBitwiseAndTensorOut, ACL_UINT64);
+    op::SetPlatformSocVersion(op::SocVersion::ASCEND910B);
 }
 
 // ---- Scalar APIs on RegBase (Ascend 950): UINT32/UINT64 additionally supported ----
@@ -152,6 +161,7 @@ TEST_F(l2_bitwise_and_dtype_contract, scalar_regbase_contract)
     EXPECT_SCALAR_OK(aclnnBitwiseAndScalar, ACL_UINT64, uint64_t(1));
     EXPECT_INPLACE_SCALAR_OK(aclnnInplaceBitwiseAndScalar, ACL_UINT32, uint32_t(1));
     EXPECT_INPLACE_SCALAR_OK(aclnnInplaceBitwiseAndScalar, ACL_UINT64, uint64_t(1));
+    op::SetPlatformSocVersion(op::SocVersion::ASCEND910B);
 }
 
 // ---- RegBase (Ascend 950) rejection paths ----
@@ -188,11 +198,13 @@ TEST_F(l2_bitwise_and_dtype_contract, regbase_mixed_rejections)
         uint64_t ws = 0;
         EXPECT_EQ(ut.TestGetWorkspaceSize(&ws), ACLNN_ERR_PARAM_INVALID);
     }
+    op::SetPlatformSocVersion(op::SocVersion::ASCEND910B);
 }
 
 // ---- Shape / dim / format contract ----
 TEST_F(l2_bitwise_and_dtype_contract, shape_dim_format_contract)
 {
+    op::SetPlatformSocVersion(op::SocVersion::ASCEND950);
     {
         // <= 8 dims supported
         auto d8 = TensorDesc({2, 2, 2, 2, 2, 2, 2, 2}, ACL_INT32, ACL_FORMAT_ND);
@@ -232,11 +244,14 @@ TEST_F(l2_bitwise_and_dtype_contract, shape_dim_format_contract)
         uint64_t ws = 0;
         EXPECT_EQ(ut.TestGetWorkspaceSize(&ws), ACLNN_ERR_PARAM_INVALID);
     }
+    op::SetPlatformSocVersion(op::SocVersion::ASCEND910B);
 }
 
 // ---- Mixed dtype promotion and out-dtype cast rules ----
 TEST_F(l2_bitwise_and_dtype_contract, mixed_promote_and_out_cast)
 {
+    // the UINT16/UINT32/UINT64 promotion expectations below are the RegBase rules
+    op::SetPlatformSocVersion(op::SocVersion::ASCEND950);
     {
         auto a = TensorDesc({2, 3}, ACL_BOOL, ACL_FORMAT_ND);
         auto b = TensorDesc({2, 3}, ACL_INT8, ACL_FORMAT_ND);
@@ -298,4 +313,5 @@ TEST_F(l2_bitwise_and_dtype_contract, mixed_promote_and_out_cast)
         uint64_t ws = 0;
         EXPECT_EQ(ut.TestGetWorkspaceSize(&ws), ACLNN_ERR_PARAM_INVALID);
     }
+    op::SetPlatformSocVersion(op::SocVersion::ASCEND910B);
 }
