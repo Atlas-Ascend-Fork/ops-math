@@ -13,6 +13,7 @@
  * \brief
  */
 
+#include <string>
 #include "transpose021_tiling.h"
 #include "transpose102_tiling.h"
 
@@ -22,14 +23,10 @@ template <typename T>
 static ge::graphStatus DoOpTiling(gert::TilingContext* context)
 {
     T transposeV2Tiling(context);
-    auto ret = transposeV2Tiling.GetPlatformInfo();
+    transposeV2Tiling.GetPlatformInfo();
+    auto ret = transposeV2Tiling.DoTiling();
     if (ret != ge::GRAPH_SUCCESS) {
-        OP_LOGE(context->GetNodeName(), "GetPlatformInfo failed");
-        return ret;
-    }
-    ret = transposeV2Tiling.DoTiling();
-    if (ret != ge::GRAPH_SUCCESS) {
-        OP_LOGE(context->GetNodeName(), "DoTiling failed");
+        OP_LOGE_WITHOUT_REPORT(context->GetNodeName(), "DoTiling failed");
         return ret;
     }
     transposeV2Tiling.ComputeTilingKey();
@@ -65,7 +62,16 @@ static ge::graphStatus Tiling4TransposeV2(gert::TilingContext* context)
     } else if (perm == std::vector<int64_t>{1, 0, 2} || perm == std::vector<int64_t>{0, 2, 1, 3}) {
         ret = DoOpTiling<Transpose102Tiling>(context);
     } else {
-        OP_LOGE(context->GetNodeName(), "Unsupported perm.");
+        std::string permStr = "[";
+        for (size_t i = 0; i < perm.size(); ++i) {
+            permStr += std::to_string(perm[i]);
+            if (i + 1 < perm.size()) {
+                permStr += ", ";
+            }
+        }
+        permStr += "]";
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "perm", permStr.c_str(),
+                                              "supported perm values are [0, 2, 1], [1, 0, 2] and [0, 2, 1, 3]");
         return ge::GRAPH_FAILED;
     }
     return ret;

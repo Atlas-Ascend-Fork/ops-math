@@ -332,8 +332,7 @@ static aclnnStatus CheckCalculateSizeAndFormatInputs(const aclTensor* srcTensor,
     auto socVersion = GetCurrentPlatformInfo().GetSocVersion();
     OP_CHECK(IsRegBase() || socVersion == SocVersion::ASCEND910_93 || socVersion == SocVersion::ASCEND910B,
              OP_LOGW("Only support Ascend950/ASCEND910_93/ASCEND910B"), return ACLNN_ERR_RUNTIME_ERROR);
-    OP_CHECK(srcTensor != nullptr, OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "srcTensor is nullptr."),
-             return ACLNN_ERR_INNER_NULLPTR);
+    OP_CHECK_NULL(srcTensor, return ACLNN_ERR_PARAM_NULLPTR);
 
     // check dtype
     OP_CHECK_DTYPE_NOT_SUPPORT_WITH_REASON(ACLNN_NAME, srcTensor, WEIGHT_DTYPE_SUPPORT_LIST,

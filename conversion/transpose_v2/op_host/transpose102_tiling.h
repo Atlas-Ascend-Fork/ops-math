@@ -94,7 +94,8 @@ public:
         } else if (xDataType == ge::DataType::DT_FLOAT) {
             params.typeSize = sizeof(float);
         } else {
-            OP_LOGE(context->GetNodeName(), "Unsupported type.");
+            OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "x", Ops::Base::ToString(xDataType).c_str(),
+                                                  "supported dtypes are DT_FLOAT16, DT_BF16 and DT_FLOAT");
             return ge::GRAPH_FAILED;
         }
         params.block = BLOCK_SIZE / params.typeSize;

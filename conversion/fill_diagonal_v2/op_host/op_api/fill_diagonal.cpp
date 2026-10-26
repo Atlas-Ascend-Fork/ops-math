@@ -28,18 +28,17 @@ namespace l0op {
 OP_TYPE_REGISTER(FillDiagonal);
 
 // AICPU算子kernel
-static const aclTensor* FillDiagonalAiCpu(
-    const aclTensor* self, const aclScalar* fillValue, bool wrap, aclTensor* out, aclOpExecutor* executor)
+static const aclTensor* FillDiagonalAiCpu(const aclTensor* self, const aclScalar* fillValue, bool wrap, aclTensor* out,
+                                          aclOpExecutor* executor)
 {
     L0_DFX(FillDiagonalAiCpu, self, fillValue, wrap, out);
     static internal::AicpuTaskSpace space("FillDiagonal");
     // 使用框架宏ADD_TO_LAUNCHER_LIST_AICPU，将FillDiagonal算子加入任务队列
-    auto ret = ADD_TO_LAUNCHER_LIST_AICPU(
-        FillDiagonal, OP_ATTR_NAMES({"fill_value", "wrap"}), OP_INPUT(self), OP_OUTPUT(out),
-        OP_ATTR(fillValue->ToFloat(), wrap));
-    OP_CHECK(
-        ret == ACL_SUCCESS, OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "FillDiagonalAiCpu ADD_TO_LAUNCHER_LIST_AICPU failed."),
-        return nullptr);
+    auto ret = ADD_TO_LAUNCHER_LIST_AICPU(FillDiagonal, OP_ATTR_NAMES({"fill_value", "wrap"}), OP_INPUT(self),
+                                          OP_OUTPUT(out), OP_ATTR(fillValue->ToFloat(), wrap));
+    OP_CHECK(ret == ACL_SUCCESS,
+             OP_LOGE_WITHOUT_REPORT(ACLNN_ERR_INNER_NULLPTR, "FillDiagonalAiCpu ADD_TO_LAUNCHER_LIST_AICPU failed."),
+             return nullptr);
     return out;
 }
 

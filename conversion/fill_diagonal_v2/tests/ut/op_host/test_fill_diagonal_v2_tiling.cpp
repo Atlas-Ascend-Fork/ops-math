@@ -106,3 +106,31 @@ TEST_F(FillDiagonalV2Tiling, test_fill_diagonal_v2_dims_not_equal_abnormal)
         {gert::TilingContextPara::OpAttr("wrap", Ops::Math::AnyValue::CreateFrom<bool>(false))}, &compileInfo);
     ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
 }
+
+TEST_F(FillDiagonalV2Tiling, test_fill_diagonal_v2_invalid_dtype_uint16_rejected)
+{
+    optiling::FillDiagonalV2CompileInfo compileInfo = {48, 196608, 16777216};
+
+    gert::TilingContextPara tilingContextPara(
+        "FillDiagonalV2",
+        {{{{16, 16}, {16, 16}}, ge::DT_UINT16, ge::FORMAT_ND}, {{{16, 16}, {16, 16}}, ge::DT_UINT16, ge::FORMAT_ND}},
+        {
+            {{{16, 16}, {16, 16}}, ge::DT_UINT16, ge::FORMAT_ND},
+        },
+        {gert::TilingContextPara::OpAttr("wrap", Ops::Math::AnyValue::CreateFrom<bool>(false))}, &compileInfo);
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
+}
+
+TEST_F(FillDiagonalV2Tiling, test_fill_diagonal_v2_dtype_mismatch_rejected)
+{
+    optiling::FillDiagonalV2CompileInfo compileInfo = {48, 196608, 16777216};
+
+    gert::TilingContextPara tilingContextPara(
+        "FillDiagonalV2",
+        {{{{16, 16}, {16, 16}}, ge::DT_FLOAT, ge::FORMAT_ND}, {{{16, 16}, {16, 16}}, ge::DT_FLOAT16, ge::FORMAT_ND}},
+        {
+            {{{16, 16}, {16, 16}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        {gert::TilingContextPara::OpAttr("wrap", Ops::Math::AnyValue::CreateFrom<bool>(false))}, &compileInfo);
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
+}

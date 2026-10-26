@@ -27,27 +27,60 @@ using namespace optiling;
 
 class TransposeV2Tiling : public testing::Test {
 protected:
-    static void SetUpTestCase() {
-        std::cout << "TransposeV2 Tiling SetUp" << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "TransposeV2 Tiling SetUp" << std::endl; }
 
-    static void TearDownTestCase() {
-        std::cout << "TransposeV2 Tiling TearDown" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "TransposeV2 Tiling TearDown" << std::endl; }
 };
 
-TEST_F(TransposeV2Tiling, transpose_v2_float16_021_success_case) {
+TEST_F(TransposeV2Tiling, transpose_v2_float16_021_success_case)
+{
     optiling::Tiling4TransposeV2CompileInfo compileInfo = {48, 196608, 16777216};
-    std::vector<int64_t> permValue = {0, 2, 1};  // constValue
+    std::vector<int64_t> permValue = {0, 2, 1}; // constValue
     gert::TilingContextPara tilingContextPara("TransposeV2",
-                                              {{{{1, 30, 68}, {1, 30, 68}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-                                               {{{3}, {3}}, ge::DT_INT64, ge::FORMAT_ND, true, permValue.data()},},
-                                              {{{{1, 68, 30}, {1, 68, 30}}, ge::DT_INT32, ge::FORMAT_ND},},
-                                                &compileInfo);
+                                              {
+                                                  {{{1, 30, 68}, {1, 30, 68}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                  {{{3}, {3}}, ge::DT_INT64, ge::FORMAT_ND, true, permValue.data()},
+                                              },
+                                              {
+                                                  {{{1, 68, 30}, {1, 68, 30}}, ge::DT_INT32, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
     uint64_t expectTilingKey = 20;
     string expectTilingData = "0 0 0 0 0 0 0 0 0 2 1 30 68 32 80 256 8 1 2 ";
     std::vector<size_t> expectWorkspaces = {16777216};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
+}
+
+TEST_F(TransposeV2Tiling, transpose_v2_unsupported_perm_rejected)
+{
+    optiling::Tiling4TransposeV2CompileInfo compileInfo = {48, 196608, 16777216};
+    std::vector<int64_t> permValue = {2, 1, 0};
+    gert::TilingContextPara tilingContextPara("TransposeV2",
+                                              {
+                                                  {{{1, 30, 68}, {1, 30, 68}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                  {{{3}, {3}}, ge::DT_INT64, ge::FORMAT_ND, true, permValue.data()},
+                                              },
+                                              {
+                                                  {{{1, 68, 30}, {1, 68, 30}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
+}
+
+TEST_F(TransposeV2Tiling, transpose_v2_unsupported_dtype_rejected)
+{
+    optiling::Tiling4TransposeV2CompileInfo compileInfo = {48, 196608, 16777216};
+    std::vector<int64_t> permValue = {0, 2, 1};
+    gert::TilingContextPara tilingContextPara("TransposeV2",
+                                              {
+                                                  {{{1, 30, 68}, {1, 30, 68}}, ge::DT_INT32, ge::FORMAT_ND},
+                                                  {{{3}, {3}}, ge::DT_INT64, ge::FORMAT_ND, true, permValue.data()},
+                                              },
+                                              {
+                                                  {{{1, 68, 30}, {1, 68, 30}}, ge::DT_INT32, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
 }
 
 // TEST_F(TransposeV2Tiling, transpose_v2_float16_102_success_case) {

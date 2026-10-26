@@ -23,9 +23,15 @@ ge::graphStatus FillDiagonalV2InferShapeFunc(gert::InferShapeContext* context)
 {
     OP_LOGD(context, "Begin to do FillDiagonalV2InferShapeFunc");
     auto x_shape = context->GetInputShape(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context, x_shape);
+    if (x_shape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x");
+        return ge::GRAPH_FAILED;
+    }
     gert::Shape* y_shape = context->GetOutputShape(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context, y_shape);
+    if (y_shape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "y");
+        return ge::GRAPH_FAILED;
+    }
     *y_shape = *x_shape;
     OP_LOGD(context, "x dtype: %s", Ops::Base::ToString(*y_shape).c_str());
     OP_LOGI(context->GetNodeName(), "[InferShape] output shape=%s", Ops::Base::ToString(*y_shape).c_str());

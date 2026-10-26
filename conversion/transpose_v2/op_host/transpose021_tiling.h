@@ -58,8 +58,11 @@ public:
     {
         const gert::StorageShape* x_shape = context->GetInputShape(0);
         auto dimNum = x_shape->GetStorageShape().GetDimNum();
-        OP_CHECK_IF(dimNum < 2, // 2 is x's dims min
-                    OP_LOGE(context->GetNodeName(), "x's dims should be greater than 2"), return ge::GRAPH_FAILED);
+        OP_CHECK_IF(
+            dimNum < 2, // 2 is x's dims min
+            OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "x", std::to_string(dimNum).c_str(),
+                                                     "x's dims must be greater than or equal to 2"),
+            return ge::GRAPH_FAILED);
         for (uint64_t i = 0; i < dimNum - 2; i++) { // 2 is x's dims min
             params.inputNC *= x_shape->GetStorageShape().GetDim(i);
         }
@@ -78,7 +81,8 @@ public:
         } else if (xDataType == ge::DataType::DT_FLOAT) {
             params.typeSize = sizeof(float);
         } else {
-            OP_LOGE(context->GetNodeName(), "Unsupported type.");
+            OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "x", Ops::Base::ToString(xDataType).c_str(),
+                                                  "supported dtypes are DT_FLOAT16, DT_BF16 and DT_FLOAT");
             return ge::GRAPH_FAILED;
         }
 
@@ -93,7 +97,12 @@ public:
         }
 
         if (params.inputH16Align > LIMIT_H || params.inputWAlign > LIMIT_W) {
-            OP_LOGE(context->GetNodeName(), "Unsupported shape.");
+            OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON(
+                context->GetNodeName(), "x",
+                (std::to_string(params.inputH) + "x" + std::to_string(params.inputW)).c_str(),
+                ("aligned H must be <= " + std::to_string(LIMIT_H) +
+                 " and aligned W must be <= " + std::to_string(LIMIT_W))
+                    .c_str());
             return ge::GRAPH_FAILED;
         }
         params.hOnce = params.inputWAlign == params.inputW ? params.inputH16Align : TRANS_BLOCK * block;

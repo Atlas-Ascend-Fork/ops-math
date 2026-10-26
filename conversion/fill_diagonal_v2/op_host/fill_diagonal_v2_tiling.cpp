@@ -42,7 +42,10 @@ inline ge::graphStatus SetTilingKey4FillDiagonalV2(gert::TilingContext* context,
     } else if (dtype == ge::DT_INT64 || dtype == ge::DT_DOUBLE) {
         stepThreshold = stepThreshold8B;
     } else {
-        OP_LOGE(context, "Unsupported data type %d.", dtype);
+        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(
+            context->GetNodeName(), "x", Ops::Base::ToString(dtype).c_str(),
+            "supported dtypes are DT_FLOAT16, DT_FLOAT, DT_DOUBLE, DT_UINT8, DT_BOOL, DT_INT8, "
+            "DT_INT16, DT_INT32, DT_BFLOAT16, DT_INT64");
         return ge::GRAPH_FAILED;
     }
     auto platformInfo = context->GetPlatformInfo();
@@ -63,13 +66,22 @@ static ge::graphStatus Tiling4FillDiagonalV2(gert::TilingContext* context)
 {
     OP_LOGD(context, "Begin the tiling process for Arch35 architecture");
     auto compileInfo = reinterpret_cast<const FillDiagonalV2CompileInfo*>(context->GetCompileInfo());
-    OP_CHECK_NULL_WITH_CONTEXT(context, compileInfo);
+    if (compileInfo == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "compileInfo");
+        return ge::GRAPH_FAILED;
+    }
     auto tilingCoreNum = compileInfo->totalCoreNum;
     FillDiagonalV2TilingData tiling;
     auto attrPtr = context->GetAttrs();
-    OP_CHECK_NULL_WITH_CONTEXT(context, attrPtr);
+    if (attrPtr == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "attrs");
+        return ge::GRAPH_FAILED;
+    }
     auto shape = context->GetInputShape(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context, shape);
+    if (shape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x");
+        return ge::GRAPH_FAILED;
+    }
 
     OP_CHECK_IF(shape->GetStorageShape().GetDimNum() > MAX_DIM_NUM,
                 OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "x",
@@ -87,31 +99,42 @@ static ge::graphStatus Tiling4FillDiagonalV2(gert::TilingContext* context)
         const int64_t dimLength = shape->GetStorageShape().GetDim(0);
         for (size_t i = 1; i < shape->GetStorageShape().GetDimNum(); ++i) {
             OP_CHECK_IF(shape->GetStorageShape().GetDim(i) != dimLength,
-                        OP_LOGE(context->GetNodeName(),
-                                "When the dim num of x is greater than 2, all dimensions must be of equal length, "
-                                "dim %zu is %ld, dim 0 is %ld.",
-                                i, shape->GetStorageShape().GetDim(i), dimLength),
+                        OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON(
+                            context->GetNodeName(), "x",
+                            ("dim " + std::to_string(i) + " is " + std::to_string(shape->GetStorageShape().GetDim(i)) +
+                             ", dim 0 is " + std::to_string(dimLength))
+                                .c_str(),
+                            "When the dim num of x is greater than 2, all dimensions must be of equal length"),
                         return ge::GRAPH_FAILED);
         }
     }
 
     auto inputDesc = context->GetInputDesc(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context, inputDesc);
+    if (inputDesc == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x");
+        return ge::GRAPH_FAILED;
+    }
     auto dtype = inputDesc->GetDataType();
     const std::set<ge::DataType> supportedDtypes = {ge::DT_FLOAT16, ge::DT_FLOAT, ge::DT_DOUBLE, ge::DT_UINT8,
                                                     ge::DT_BOOL,    ge::DT_INT8,  ge::DT_INT16,  ge::DT_INT32,
                                                     ge::DT_BF16,    ge::DT_INT64};
     OP_CHECK_IF(supportedDtypes.count(dtype) == 0,
-                OP_LOGE_WITH_INVALID_INPUT_DTYPE(context->GetNodeName(), "x", Ops::Base::ToString(dtype).c_str(),
-                                                 "DT_FLOAT16, DT_FLOAT, DT_DOUBLE, DT_UINT8, DT_BOOL, DT_INT8, "
-                                                 "DT_INT16, DT_INT32, DT_BFLOAT16, DT_INT64"),
+                OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(
+                    context->GetNodeName(), "x", Ops::Base::ToString(dtype).c_str(),
+                    "supported dtypes are DT_FLOAT16, DT_FLOAT, DT_DOUBLE, DT_UINT8, DT_BOOL, DT_INT8, "
+                    "DT_INT16, DT_INT32, DT_BFLOAT16, DT_INT64"),
                 return ge::GRAPH_FAILED);
 
     auto fillValueDesc = context->GetInputDesc(1);
-    OP_CHECK_NULL_WITH_CONTEXT(context, fillValueDesc);
+    if (fillValueDesc == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "fill_value");
+        return ge::GRAPH_FAILED;
+    }
     OP_CHECK_IF(fillValueDesc->GetDataType() != dtype,
-                OP_LOGE(context->GetNodeName(), "fill_value dtype %s must be same as x dtype %s",
-                        Ops::Base::ToString(fillValueDesc->GetDataType()).c_str(), Ops::Base::ToString(dtype).c_str()),
+                OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(
+                    context->GetNodeName(), "x, fill_value",
+                    (Ops::Base::ToString(dtype) + ", " + Ops::Base::ToString(fillValueDesc->GetDataType())).c_str(),
+                    "fill_value dtype must be the same as x dtype"),
                 return ge::GRAPH_FAILED);
 
     uint64_t totalLength = 1;
@@ -158,15 +181,22 @@ static ge::graphStatus TilingPrepare4FillDiagonalV2(gert::TilingParseContext* co
 {
     OP_LOGD(context, "Tiling Prepare For FillDiagonalV2 start.");
     auto compileInfo = context->GetCompiledInfo<FillDiagonalV2CompileInfo>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, compileInfo);
-    auto platformInfo = context->GetPlatformInfo();
-    OP_CHECK_NULL_WITH_CONTEXT(context, platformInfo);
-    auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
-    compileInfo->totalCoreNum = ascendcPlatform.GetCoreNumAiv();
-    if (compileInfo->totalCoreNum < 1) {
-        OP_LOGE(context->GetNodeName(), "Core num is %lu.", compileInfo->totalCoreNum);
+    if (compileInfo == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "compileInfo");
         return ge::GRAPH_FAILED;
     }
+    auto platformInfo = context->GetPlatformInfo();
+    if (platformInfo == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "platformInfo");
+        return ge::GRAPH_FAILED;
+    }
+    auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
+    compileInfo->totalCoreNum = ascendcPlatform.GetCoreNumAiv();
+    OP_CHECK_IF(compileInfo->totalCoreNum < 1,
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "core num",
+                                                      std::to_string(compileInfo->totalCoreNum).c_str(),
+                                                      "must be greater than or equal to 1"),
+                return ge::GRAPH_FAILED);
     uint64_t ubSizePlatForm;
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSizePlatForm);
     compileInfo->ubSizePlatForm = static_cast<int64_t>(ubSizePlatForm);
