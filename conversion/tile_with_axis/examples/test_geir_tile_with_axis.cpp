@@ -184,7 +184,7 @@ int32_t WriteDataToFile(string bin_file, uint64_t data_size, uint8_t* inputData)
     return SUCCESS;
 }
 
-void ProcessInputData(vector<Tensor>& input)
+int ProcessInputData(vector<Tensor>& input)
 {
     for (size_t i = 0; i < input.size(); i++) {
         string input_file = "./tc_ge_irrun_test_0008_npu_input_" + std::to_string(i) + ".bin";
@@ -193,14 +193,18 @@ void ProcessInputData(vector<Tensor>& input)
         uint32_t type_size = GetDataTypeSize(input[i].GetTensorDesc().GetDataType());
         if (type_size == 0U) {
             printf("ERROR: input %zu has unsupported dtype\n", i);
-            continue;
+            return FAILED;
         }
         uint32_t data_size = static_cast<uint32_t>(input_shape * type_size);
-        WriteDataToFile(input_file.c_str(), data_size, input_data_i);
+        if (WriteDataToFile(input_file.c_str(), data_size, input_data_i) != SUCCESS) {
+            printf("ERROR: write input bin %s failed\n", input_file.c_str());
+            return FAILED;
+        }
     }
+    return SUCCESS;
 }
 
-void ProcessOutputData(vector<Tensor>& output)
+int ProcessOutputData(vector<Tensor>& output)
 {
     for (size_t i = 0; i < output.size(); i++) {
         string output_file = "./tc_ge_irrun_test_0008_npu_output_" + std::to_string(i) + ".bin";
@@ -209,11 +213,15 @@ void ProcessOutputData(vector<Tensor>& output)
         uint32_t type_size = GetDataTypeSize(output[i].GetTensorDesc().GetDataType());
         if (type_size == 0U) {
             printf("ERROR: output %zu has unsupported dtype\n", i);
-            continue;
+            return FAILED;
         }
         uint32_t data_size = static_cast<uint32_t>(output_shape * type_size);
-        WriteDataToFile(output_file.c_str(), data_size, output_data_i);
+        if (WriteDataToFile(output_file.c_str(), data_size, output_data_i) != SUCCESS) {
+            printf("ERROR: write output bin %s failed\n", output_file.c_str());
+            return FAILED;
+        }
     }
+    return SUCCESS;
 }
 
 int CreateOppInGraph(DataType inDtype, vector<Tensor>& input, vector<Operator>& inputs, vector<Operator>& outputs,
@@ -280,6 +288,7 @@ int main(int argc, char* argv[])
     ret = CreateOppInGraph(inDtype, input, inputs, outputs, graph);
     if (ret != SUCCESS) {
         printf("%s - ERROR - [XIR]: Create graph failed\n", GetTime().c_str());
+        GEFinalize();
         return FAILED;
     }
 
@@ -291,6 +300,7 @@ int main(int argc, char* argv[])
     ge::Session* session = new Session(build_options);
     if (session == nullptr) {
         printf("%s - ERROR - [XIR]: Create session failed\n", GetTime().c_str());
+        GEFinalize();
         return FAILED;
     }
 
@@ -314,8 +324,18 @@ int main(int argc, char* argv[])
     }
     printf("%s - INFO - [XIR]: Run graph success\n", GetTime().c_str());
 
-    ProcessInputData(input);
-    ProcessOutputData(output);
+    if (ProcessInputData(input) != SUCCESS) {
+        printf("%s - ERROR - [XIR]: Process input data failed\n", GetTime().c_str());
+        delete session;
+        GEFinalize();
+        return FAILED;
+    }
+    if (ProcessOutputData(output) != SUCCESS) {
+        printf("%s - ERROR - [XIR]: Process output data failed\n", GetTime().c_str());
+        delete session;
+        GEFinalize();
+        return FAILED;
+    }
 
     delete session;
     ret = ge::GEFinalize();

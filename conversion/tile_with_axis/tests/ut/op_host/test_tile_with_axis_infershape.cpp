@@ -34,7 +34,7 @@ static const string OP_NAME = "TileWithAxis";
 // Helper: create InfershapeContextPara with axis/tiles attributes
 // ============================================================================
 static InfershapeContextPara MakeInfershapePara(const string& caseName, initializer_list<int64_t> xShape,
-                                                DataType dtype, int64_t axis, int64_t tiles)
+                                                DataType dtype, int64_t axis, int64_t tiles, bool includeTiles = true)
 {
     StorageShape inputShape = {xShape, xShape};
     // Output placeholder: unknown shape
@@ -42,8 +42,10 @@ static InfershapeContextPara MakeInfershapePara(const string& caseName, initiali
 
     vector<InfershapeContextPara::TensorDescription> inputs = {{inputShape, dtype, FORMAT_ND}};
     vector<InfershapeContextPara::TensorDescription> outputs = {{outputPlaceholder, dtype, FORMAT_ND}};
-    vector<InfershapeContextPara::OpAttr> attrs = {{"axis", Ops::Math::AnyValue::CreateFrom<int64_t>(axis)},
-                                                   {"tiles", Ops::Math::AnyValue::CreateFrom<int64_t>(tiles)}};
+    vector<InfershapeContextPara::OpAttr> attrs = {{"axis", Ops::Math::AnyValue::CreateFrom<int64_t>(axis)}};
+    if (includeTiles) {
+        attrs.push_back({"tiles", Ops::Math::AnyValue::CreateFrom<int64_t>(tiles)});
+    }
 
     return InfershapeContextPara(OP_NAME, inputs, outputs, attrs);
 }
@@ -156,6 +158,43 @@ TEST(TileWithAxisInfershape, invalid_axis_positive_is_rejected)
 TEST(TileWithAxisInfershape, invalid_axis_negative_is_rejected)
 {
     auto para = MakeInfershapePara("invalid_axis_negative", {2, 3, 4}, DT_FLOAT16, -4, 2);
+    ExecuteTestCase(para, GRAPH_FAILED);
+}
+
+// ============================================================================
+// 回归: axis 维为未知维标记 -1 时原样传播（COMPAT.02/1 / GEIR.03/2）
+// 输入 shape=[-1, 3, 4], axis=1, tiles=2 → 输出 shape=[-1, 6, 4]（非 -1*2=-2）
+// ============================================================================
+TEST(TileWithAxisInfershape, unknown_dim_axis_propagated)
+{
+    auto para = MakeInfershapePara("unknown_dim_axis", {-1, 3, 4}, DT_FLOAT16, 1, 2);
+    vector<vector<int64_t>> expected = {{-1, 6, 4}};
+    ExecuteTestCase(para, GRAPH_SUCCESS, expected);
+}
+
+TEST(TileWithAxisInfershape, unknown_dim_negative_axis_propagated)
+{
+    auto para = MakeInfershapePara("unknown_dim_neg_axis", {2, -1, 4}, DT_FLOAT16, -1, 3);
+    vector<vector<int64_t>> expected = {{2, -1, 12}};
+    ExecuteTestCase(para, GRAPH_SUCCESS, expected);
+}
+
+// ============================================================================
+// 回归: axis 维乘法 int64 溢出时拒绝（GEIR.04/1）
+// dim=5e9, tiles=2e9 → 乘积 1e19 > INT64_MAX，返回 GRAPH_FAILED
+// ============================================================================
+TEST(TileWithAxisInfershape, axis_dim_overflow_rejected)
+{
+    auto para = MakeInfershapePara("axis_dim_overflow", {5000000000LL, 3}, DT_FLOAT16, 0, 2000000000LL);
+    ExecuteTestCase(para, GRAPH_FAILED);
+}
+
+// ============================================================================
+// 回归: tiles 属性缺失时拒绝而非静默回退 1（GEIR.07/1 / CODE.01/1）
+// ============================================================================
+TEST(TileWithAxisInfershape, tiles_missing_rejected)
+{
+    auto para = MakeInfershapePara("tiles_missing", {2, 3, 4}, DT_FLOAT16, 1, 0, false);
     ExecuteTestCase(para, GRAPH_FAILED);
 }
 

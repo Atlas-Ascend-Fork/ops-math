@@ -12,8 +12,7 @@
           "paramType": "required",
           "shape": [
             -2
-          ],
-          "dtype_match_mode": "DtypeByte"
+          ]
         }
       ],
       "outputs": [
@@ -25,8 +24,7 @@
           "paramType": "required",
           "shape": [
             -2
-          ],
-          "dtype_match_mode": "DtypeByte"
+          ]
         }
       ],
       "attrs": [
@@ -53,8 +51,7 @@
           "paramType": "required",
           "shape": [
             -2
-          ],
-          "dtype_match_mode": "DtypeByte"
+          ]
         }
       ],
       "outputs": [
@@ -66,8 +63,7 @@
           "paramType": "required",
           "shape": [
             -2
-          ],
-          "dtype_match_mode": "DtypeByte"
+          ]
         }
       ],
       "attrs": [
@@ -94,8 +90,7 @@
           "paramType": "required",
           "shape": [
             -2
-          ],
-          "dtype_match_mode": "DtypeByte"
+          ]
         }
       ],
       "outputs": [
@@ -107,8 +102,7 @@
           "paramType": "required",
           "shape": [
             -2
-          ],
-          "dtype_match_mode": "DtypeByte"
+          ]
         }
       ],
       "attrs": [
@@ -135,8 +129,7 @@
           "paramType": "required",
           "shape": [
             -2
-          ],
-          "dtype_match_mode": "DtypeByte"
+          ]
         }
       ],
       "outputs": [
@@ -148,8 +141,7 @@
           "paramType": "required",
           "shape": [
             -2
-          ],
-          "dtype_match_mode": "DtypeByte"
+          ]
         }
       ],
       "attrs": [
@@ -176,8 +168,7 @@
           "paramType": "required",
           "shape": [
             -2
-          ],
-          "dtype_match_mode": "DtypeByte"
+          ]
         }
       ],
       "outputs": [
@@ -189,8 +180,7 @@
           "paramType": "required",
           "shape": [
             -2
-          ],
-          "dtype_match_mode": "DtypeByte"
+          ]
         }
       ],
       "attrs": [
@@ -217,8 +207,7 @@
           "paramType": "required",
           "shape": [
             -2
-          ],
-          "dtype_match_mode": "DtypeByte"
+          ]
         }
       ],
       "outputs": [
@@ -230,8 +219,7 @@
           "paramType": "required",
           "shape": [
             -2
-          ],
-          "dtype_match_mode": "DtypeByte"
+          ]
         }
       ],
       "attrs": [

@@ -28,17 +28,17 @@
 
 struct TileWithAxisTilingData {
     // ==== A. LayoutTransform 单切分公共字段 ====
-    int64_t  inShape[3];        // 输入展平 shape: [outerDim, 1, rowLength]
-    int64_t  outShape[3];       // 输出展平 shape: [outerDim, tiles, rowLength]
-    uint64_t totalCount;        // UB 切分块总数（基于 outShape 计算）
-    uint64_t perCoreCount;      // 每核处理的块数（totalCount 均分给 coreNum 个核）
-    uint8_t  ubAxis;            // UB 切分轴（0=outerDim, 1=tiles, 2=rowLength）
-    uint32_t ubFactor;          // 切分因子（沿 ubAxis 每次搬运该轴多少个元素）
-    uint32_t bufferSize;        // UB buffer 字节大小（ping-pong 单个 buffer 的字节数）
+    int64_t inShape[3];    // 输入展平 shape: [outerDim, 1, rowLength]
+    int64_t outShape[3];   // 输出展平 shape: [outerDim, tiles, rowLength]
+    uint64_t totalCount;   // UB 切分块总数（基于 outShape 计算）
+    uint64_t perCoreCount; // 每核处理的块数（totalCount 均分给 coreNum 个核）
+    uint8_t ubAxis;        // UB 切分轴（0=outerDim, 1=tiles, 2=rowLength）
+    uint32_t ubFactor;     // 切分因子（沿 ubAxis 每次搬运该轴多少个元素）
+    uint32_t bufferSize;   // UB buffer 字节大小（ping-pong 单个 buffer 的字节数）
 
     // ==== B. TileWithAxis 特有字段 ====
-    int64_t  tiles;             // 复制次数
-    int64_t  rowLength;         // 折叠后每行长度 = axisDim * innerDim
+    int64_t tiles;     // 复制次数
+    int64_t rowLength; // 折叠后每行长度 = axisDim * innerDim
 };
 
 #endif // _TILE_WITH_AXIS_TILING_DATA_H_

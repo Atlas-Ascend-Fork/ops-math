@@ -37,11 +37,11 @@ public:
                 {ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})
             .AutoContiguous();
 
-        // 属性: axis (int64_t) -- 复制维度
-        this->Attr("axis").AttrType(OPTIONAL).Int();
+        // 属性: axis (int64_t) -- 复制维度（缺省按实现默认 1 处理，与 TBE/AICPU 一致）
+        this->Attr("axis").AttrType(OPTIONAL).Int(1);
 
-        // 属性: tiles (int64_t) -- 复制次数
-        this->Attr("tiles").AttrType(OPTIONAL).Int();
+        // 属性: tiles (int64_t) -- 复制次数（必选，与 proto REQUIRED_ATTR / README / AICPU def 一致）
+        this->Attr("tiles").AttrType(REQUIRED).Int();
 
         // Ascend950 (DAV_3510) 配置
         OpAICoreConfig aicoreConfig950;

@@ -25,8 +25,7 @@
 using namespace AscendC;
 
 template <int UB_AXIS>
-__aicore__ inline void LaunchKernel(GM_ADDR x, GM_ADDR y,
-                                     const TileWithAxisTilingData* td)
+__aicore__ inline void LaunchKernel(GM_ADDR x, GM_ADDR y, const TileWithAxisTilingData* td)
 {
     TileWithAxisKernel<DTYPE_X, UB_AXIS> op;
     op.Init(x, y, td);
@@ -34,8 +33,7 @@ __aicore__ inline void LaunchKernel(GM_ADDR x, GM_ADDR y,
 }
 
 template <int UB_AXIS>
-__global__ __aicore__ void tile_with_axis(
-    GM_ADDR x, GM_ADDR y, GM_ADDR workspace, GM_ADDR tiling)
+__global__ __aicore__ void tile_with_axis(GM_ADDR x, GM_ADDR y, GM_ADDR workspace, GM_ADDR tiling)
 {
     SetSysWorkspace(workspace);
     KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_AIV_ONLY);

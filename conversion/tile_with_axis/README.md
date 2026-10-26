@@ -4,12 +4,12 @@
 
 | 产品                                                         | 是否支持 |
 | :----------------------------------------------------------- | :------: |
-| Ascend 950PR&950DT系列产品                                    |    √     |
-| Atlas A3系列产品                    |    √     |
-| Atlas A2系列产品                    |    √     |
-| Atlas 200I/500 A2推理产品                                   |    √     |
-| Atlas推理系列产品                                            |    √     |
-| Atlas训练系列产品                                            |    √     |
+| <term>Ascend 950PR&950DT系列产品</term>                       |    √     |
+| <term>Atlas A3系列产品</term>                                 |    √     |
+| <term>Atlas A2系列产品</term>                                 |    √     |
+| <term>Atlas 200I/500 A2推理产品</term>                        |    √     |
+| <term>Atlas推理系列产品</term>                                |    √     |
+| <term>Atlas训练系列产品</term>                                |    √     |
 
 ## 功能说明
 
@@ -27,10 +27,10 @@
 
 | 参数名 | 输入/输出/属性 | 描述 | 数据类型 | 数据格式 |
 |--------|---------------|------|----------|----------|
-| x      | 输入          | 输入张量 | FLOAT16、FLOAT、INT8、INT16、INT32、INT64、UINT8、UINT16、UINT32、UINT64 | ND |
-| axis   | 属性（可选）   | 指定复制的维度，默认为1 | INT | - |
-| tiles  | 属性（必选）   | 复制次数，必须大于0 | INT | - |
-| y      | 输出          | 输出张量，与x具有相同的数据类型和格式 | 与x一致 | ND |
+| x      | 输入          | 输入张量。 | BFLOAT16、FLOAT16、FLOAT、INT32、INT8、UINT8 | ND |
+| y      | 输出          | 输出张量，与x具有相同的数据类型和格式。 | 与x一致 | ND |
+| axis   | 可选属性       | 指定复制的维度，默认为1。 | INT | - |
+| tiles  | 属性          | 复制次数，必须大于0。 | INT | - |
 
 ## 约束说明
 
@@ -38,9 +38,11 @@
 - tiles 必须大于0。
 - 输出Tensor在 axis 维度的大小必须等于输入Tensor在 axis 维度的大小乘以 tiles。
 - 输入Tensor维度不超过8维。
+- 支持标量输入（rank=0）：输出 shape 为 [tiles]，即输入标量值复制 tiles 份；此时 axis 不生效。
+- 输入Tensor任一维允许为 0（空 Tensor）：输出对应维仍为 0，输出Tensor为空。
 
 ## 调用说明
 
 | 调用方式   | 样例代码 | 说明 |
 |------------|----------|------|
-| 图模式调用 | [test_geir_tile_with_axis](./examples/test_geir_tile_with_axis.cpp) | 通过[算子IR](./op_graph/tile_with_axis_proto.h)构图方式调用TileWithAxis算子。 |
+| GE图模式 | [test_geir_tile_with_axis](./examples/test_geir_tile_with_axis.cpp) | 通过[算子IR](./op_graph/tile_with_axis_proto.h)构图方式调用TileWithAxis算子。 |

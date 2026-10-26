@@ -36,43 +36,31 @@ static const std::string OP_NAME = "TileWithAxis";
 // ============================================================================
 // Helper: build TilingContextPara with attributes
 // ============================================================================
-static TilingContextPara MakeTilingPara(
-    const string& caseName,
-    initializer_list<int64_t> xShape,
-    DataType xDtype,
-    int64_t axis,
-    int64_t tiles,
-    uint64_t ubSize = 253952,    // Ascend950 UB = 248KB
-    uint64_t coreNum = 64,
-    uint64_t tilingDataSize = 4096)
+static TilingContextPara MakeTilingPara(const string& caseName, initializer_list<int64_t> xShape, DataType xDtype,
+                                        int64_t axis, int64_t tiles,
+                                        uint64_t ubSize = 253952, // Ascend950 UB = 248KB
+                                        uint64_t coreNum = 64, uint64_t tilingDataSize = 4096, bool includeTiles = true)
 {
     StorageShape shape = {xShape, xShape};
-    vector<TilingContextPara::TensorDescription> inputs = {
-        {shape, xDtype, FORMAT_ND}
-    };
+    vector<TilingContextPara::TensorDescription> inputs = {{shape, xDtype, FORMAT_ND}};
     // Output shape: not used by tiling function directly; infershape computes it
-    StorageShape outShape = {xShape, xShape};  // placeholder
-    vector<TilingContextPara::TensorDescription> outputs = {
-        {outShape, xDtype, FORMAT_ND}
-    };
+    StorageShape outShape = {xShape, xShape}; // placeholder
+    vector<TilingContextPara::TensorDescription> outputs = {{outShape, xDtype, FORMAT_ND}};
 
-    vector<TilingContextPara::OpAttr> attrs = {
-        {"axis",  Ops::Math::AnyValue::CreateFrom<int64_t>(axis)},
-        {"tiles", Ops::Math::AnyValue::CreateFrom<int64_t>(tiles)}
-    };
+    vector<TilingContextPara::OpAttr> attrs = {{"axis", Ops::Math::AnyValue::CreateFrom<int64_t>(axis)}};
+    if (includeTiles) {
+        attrs.push_back({"tiles", Ops::Math::AnyValue::CreateFrom<int64_t>(tiles)});
+    }
 
-    struct TileWithAxisCompileInfo {} compileInfo;
-    return TilingContextPara(OP_NAME, inputs, outputs, attrs, &compileInfo,
-                             coreNum, ubSize, tilingDataSize);
+    struct TileWithAxisCompileInfo {
+    } compileInfo;
+    return TilingContextPara(OP_NAME, inputs, outputs, attrs, &compileInfo, coreNum, ubSize, tilingDataSize);
 }
 
 // ============================================================================
 // Helper: execute tiling and extract TilingData
 // ============================================================================
-static bool GetTilingData(const TilingContextPara& para, TilingInfo& info)
-{
-    return ExecuteTiling(para, info);
-}
+static bool GetTilingData(const TilingContextPara& para, TilingInfo& info) { return ExecuteTiling(para, info); }
 
 // ============================================================================
 // P0: ubAxis=0 分支 — 切 outerDim
@@ -83,21 +71,20 @@ static bool GetTilingData(const TilingContextPara& para, TilingInfo& info)
 // ============================================================================
 TEST(TileWithAxisTiling, ubAxis0_cut_outerDim_fp16)
 {
-    auto para = MakeTilingPara("ubAxis0_fp16",
-        {100, 10, 10}, DT_FLOAT16, 1, 3);
+    auto para = MakeTilingPara("ubAxis0_fp16", {100, 10, 10}, DT_FLOAT16, 1, 3);
     TilingInfo info;
     ASSERT_TRUE(GetTilingData(para, info));
 
     auto* td = reinterpret_cast<const TileWithAxisTilingData*>(info.tilingData.get());
     EXPECT_EQ(td->ubAxis, static_cast<uint8_t>(0));
     EXPECT_EQ(td->tiles, 3);
-    EXPECT_EQ(td->rowLength, 100);     // axisDim=10 * innerDim=10
-    EXPECT_EQ(td->inShape[0], 100);    // outerDim
-    EXPECT_EQ(td->inShape[1], 1);      // 输入中间维=1
-    EXPECT_EQ(td->inShape[2], 100);    // rowLength
-    EXPECT_EQ(td->outShape[0], 100);   // outerDim
-    EXPECT_EQ(td->outShape[1], 3);     // tiles
-    EXPECT_EQ(td->outShape[2], 100);   // rowLength
+    EXPECT_EQ(td->rowLength, 100);   // axisDim=10 * innerDim=10
+    EXPECT_EQ(td->inShape[0], 100);  // outerDim
+    EXPECT_EQ(td->inShape[1], 1);    // 输入中间维=1
+    EXPECT_EQ(td->inShape[2], 100);  // rowLength
+    EXPECT_EQ(td->outShape[0], 100); // outerDim
+    EXPECT_EQ(td->outShape[1], 3);   // tiles
+    EXPECT_EQ(td->outShape[2], 100); // rowLength
     // Step 2.5 核数感知: totalCount=1 < threshold=51, 降 ubFactor 增加 block
     // targetBlocks=min(51, 30000/4096=7, 100)=7, ubFactor=CeilDiv(100,7)=15
     EXPECT_EQ(td->totalCount, static_cast<uint64_t>(7));
@@ -115,14 +102,13 @@ TEST(TileWithAxisTiling, ubAxis0_cut_outerDim_fp16)
 // ============================================================================
 TEST(TileWithAxisTiling, ubAxis0_cut_outerDim_fp32)
 {
-    auto para = MakeTilingPara("ubAxis0_fp32",
-        {100, 6, 50}, DT_FLOAT, 1, 3);
+    auto para = MakeTilingPara("ubAxis0_fp32", {100, 6, 50}, DT_FLOAT, 1, 3);
     TilingInfo info;
     ASSERT_TRUE(GetTilingData(para, info));
 
     auto* td = reinterpret_cast<const TileWithAxisTilingData*>(info.tilingData.get());
     EXPECT_EQ(td->ubAxis, static_cast<uint8_t>(0));
-    EXPECT_EQ(td->rowLength, 300);     // axisDim=6 * innerDim=50
+    EXPECT_EQ(td->rowLength, 300); // axisDim=6 * innerDim=50
     EXPECT_EQ(td->outShape[0], 100);
     EXPECT_EQ(td->outShape[1], 3);
     EXPECT_EQ(td->outShape[2], 300);
@@ -141,8 +127,7 @@ TEST(TileWithAxisTiling, ubAxis0_cut_outerDim_fp32)
 // ============================================================================
 TEST(TileWithAxisTiling, ubAxis1_cut_tiles_fp16)
 {
-    auto para = MakeTilingPara("ubAxis1_fp16",
-        {3, 1000, 60}, DT_FLOAT16, 1, 3);
+    auto para = MakeTilingPara("ubAxis1_fp16", {3, 1000, 60}, DT_FLOAT16, 1, 3);
     TilingInfo info;
     ASSERT_TRUE(GetTilingData(para, info));
 
@@ -151,7 +136,7 @@ TEST(TileWithAxisTiling, ubAxis1_cut_tiles_fp16)
     // candTarget=51, bpot=CeilDiv(51,9)=6, ubFactor=CeilDiv(60000,6)=10000
     EXPECT_EQ(td->ubAxis, static_cast<uint8_t>(2));
     EXPECT_EQ(td->ubFactor, static_cast<uint32_t>(10000));
-    EXPECT_EQ(td->rowLength, 60000);   // axisDim=1000 * innerDim=60
+    EXPECT_EQ(td->rowLength, 60000); // axisDim=1000 * innerDim=60
     EXPECT_EQ(td->outShape[0], 3);
     EXPECT_EQ(td->outShape[1], 3);
     EXPECT_EQ(td->outShape[2], 60000);
@@ -167,8 +152,7 @@ TEST(TileWithAxisTiling, ubAxis1_cut_tiles_fp16)
 // ============================================================================
 TEST(TileWithAxisTiling, ubAxis1_cut_tiles_fp32)
 {
-    auto para = MakeTilingPara("ubAxis1_fp32",
-        {3, 500, 40}, DT_FLOAT, 1, 5);
+    auto para = MakeTilingPara("ubAxis1_fp32", {3, 500, 40}, DT_FLOAT, 1, 5);
     TilingInfo info;
     ASSERT_TRUE(GetTilingData(para, info));
 
@@ -192,8 +176,7 @@ TEST(TileWithAxisTiling, ubAxis1_cut_tiles_fp32)
 // ============================================================================
 TEST(TileWithAxisTiling, ubAxis2_cut_rowLength_fp16)
 {
-    auto para = MakeTilingPara("ubAxis2_fp16",
-        {2, 65536, 16}, DT_FLOAT16, 1, 3);
+    auto para = MakeTilingPara("ubAxis2_fp16", {2, 65536, 16}, DT_FLOAT16, 1, 3);
     TilingInfo info;
     ASSERT_TRUE(GetTilingData(para, info));
 
@@ -217,8 +200,7 @@ TEST(TileWithAxisTiling, ubAxis2_cut_rowLength_fp16)
 // ============================================================================
 TEST(TileWithAxisTiling, ubAxis2_cut_rowLength_fp32)
 {
-    auto para = MakeTilingPara("ubAxis2_fp32",
-        {2, 32768, 16}, DT_FLOAT, 1, 3);
+    auto para = MakeTilingPara("ubAxis2_fp32", {2, 32768, 16}, DT_FLOAT, 1, 3);
     TilingInfo info;
     ASSERT_TRUE(GetTilingData(para, info));
 
@@ -237,8 +219,7 @@ TEST(TileWithAxisTiling, ubAxis2_cut_rowLength_fp32)
 // ============================================================================
 TEST(TileWithAxisTiling, scalar_input)
 {
-    auto para = MakeTilingPara("scalar",
-        {}, DT_FLOAT16, 0, 5);
+    auto para = MakeTilingPara("scalar", {}, DT_FLOAT16, 0, 5);
     TilingInfo info;
     ASSERT_TRUE(GetTilingData(para, info));
 
@@ -265,8 +246,7 @@ TEST(TileWithAxisTiling, scalar_input)
 // ============================================================================
 TEST(TileWithAxisTiling, negative_axis)
 {
-    auto para = MakeTilingPara("negative_axis",
-        {2, 3, 4}, DT_FLOAT16, -1, 3);
+    auto para = MakeTilingPara("negative_axis", {2, 3, 4}, DT_FLOAT16, -1, 3);
     TilingInfo info;
     ASSERT_TRUE(GetTilingData(para, info));
 
@@ -275,8 +255,8 @@ TEST(TileWithAxisTiling, negative_axis)
     // candTarget=12, bpot=CeilDiv(12,6)=2, ubFactor=CeilDiv(4,2)=2
     EXPECT_EQ(td->ubAxis, static_cast<uint8_t>(2));
     EXPECT_EQ(td->tiles, 3);
-    EXPECT_EQ(td->rowLength, 4);       // axisDim=4, innerDim=1
-    EXPECT_EQ(td->inShape[0], 6);      // outerDim = 2*3 = 6
+    EXPECT_EQ(td->rowLength, 4);  // axisDim=4, innerDim=1
+    EXPECT_EQ(td->inShape[0], 6); // outerDim = 2*3 = 6
     EXPECT_EQ(td->outShape[0], 6);
     EXPECT_EQ(td->outShape[1], 3);
     EXPECT_EQ(td->outShape[2], 4);
@@ -289,8 +269,7 @@ TEST(TileWithAxisTiling, negative_axis)
 // ============================================================================
 TEST(TileWithAxisTiling, tiles_equals_one)
 {
-    auto para = MakeTilingPara("tiles_1",
-        {2, 3, 4}, DT_FLOAT16, 1, 1);
+    auto para = MakeTilingPara("tiles_1", {2, 3, 4}, DT_FLOAT16, 1, 1);
     TilingInfo info;
     ASSERT_TRUE(GetTilingData(para, info));
 
@@ -305,8 +284,7 @@ TEST(TileWithAxisTiling, tiles_equals_one)
 // ============================================================================
 TEST(TileWithAxisTiling, tiles_invalid_zero)
 {
-    auto para = MakeTilingPara("tiles_0",
-        {2, 3, 4}, DT_FLOAT16, 0, 0);
+    auto para = MakeTilingPara("tiles_0", {2, 3, 4}, DT_FLOAT16, 0, 0);
     TilingInfo info;
     EXPECT_FALSE(GetTilingData(para, info));
 }
@@ -317,8 +295,7 @@ TEST(TileWithAxisTiling, tiles_invalid_zero)
 TEST(TileWithAxisTiling, axis_out_of_range)
 {
     // rank=3, axis=3 → 越界
-    auto para = MakeTilingPara("axis_oob",
-        {2, 3, 4}, DT_FLOAT16, 3, 2);
+    auto para = MakeTilingPara("axis_oob", {2, 3, 4}, DT_FLOAT16, 3, 2);
     TilingInfo info;
     EXPECT_FALSE(ExecuteTiling(para, info));
 }
@@ -331,8 +308,7 @@ TEST(TileWithAxisTiling, axis_out_of_range)
 // ============================================================================
 TEST(TileWithAxisTiling, high_dim_4d_axis_2)
 {
-    auto para = MakeTilingPara("4d_axis2",
-        {2, 4, 8, 16}, DT_FLOAT16, 2, 3);
+    auto para = MakeTilingPara("4d_axis2", {2, 4, 8, 16}, DT_FLOAT16, 2, 3);
     TilingInfo info;
     ASSERT_TRUE(GetTilingData(para, info));
 
@@ -340,10 +316,103 @@ TEST(TileWithAxisTiling, high_dim_4d_axis_2)
     // Step 2.5 跨轴回退: ubAxis=0 totalCount=1 < threshold=51, 回退到 ubAxis=2
     // candTarget=51, bpot=CeilDiv(51,24)=3, ubFactor=CeilDiv(128,3)=43
     EXPECT_EQ(td->ubAxis, static_cast<uint8_t>(2));
-    EXPECT_EQ(td->rowLength, 128);     // axisDim=8 * innerDim=16
-    EXPECT_EQ(td->inShape[0], 8);      // outerDim = 2*4
+    EXPECT_EQ(td->rowLength, 128); // axisDim=8 * innerDim=16
+    EXPECT_EQ(td->inShape[0], 8);  // outerDim = 2*4
     EXPECT_EQ(td->outShape[1], 3);
     EXPECT_EQ(td->outShape[2], 128);
+}
+
+// ============================================================================
+// 回归（SAFE.01/1 / CODE.09/1）: 标量输入 tiles 超过单缓冲容量时按 ubAxis=1 分块
+// shape=[], fp16, tiles=200000, ubSize=253952
+//   bufferSize=126976B, bufferSizeElements=63488 < 200000
+//   → ubAxis=1, ubFactor=63488, totalCount=CeilDiv(200000,63488)=4
+//   perCoreCount=CeilDiv(4,64)=1, realCoreNum=CeilDiv(4,1)=4
+// ============================================================================
+TEST(TileWithAxisTiling, scalar_input_huge_tiles_chunked)
+{
+    auto para = MakeTilingPara("scalar_huge_tiles", {}, DT_FLOAT16, 0, 200000);
+    TilingInfo info;
+    ASSERT_TRUE(GetTilingData(para, info));
+
+    auto* td = reinterpret_cast<const TileWithAxisTilingData*>(info.tilingData.get());
+    EXPECT_EQ(td->ubAxis, static_cast<uint8_t>(1));
+    EXPECT_EQ(td->ubFactor, static_cast<uint32_t>(63488));
+    EXPECT_EQ(td->totalCount, static_cast<uint64_t>(4));
+    EXPECT_EQ(td->outShape[0], 1);
+    EXPECT_EQ(td->outShape[1], 200000);
+    EXPECT_EQ(td->outShape[2], 1);
+    EXPECT_EQ(info.blockNum, static_cast<size_t>(4));
+}
+
+// ============================================================================
+// 回归（空张量兜底，REQUIREMENTS §3.5.2）: 某维为 0 时 totalCount=0
+// SetBlockDim(1)（而非 0），kernel 空循环
+// shape=[2, 0, 3], axis=1, tiles=2, fp16: rowLength=0 → totalCount=0
+// ============================================================================
+TEST(TileWithAxisTiling, empty_tensor_blockdim_one)
+{
+    auto para = MakeTilingPara("empty_tensor", {2, 0, 3}, DT_FLOAT16, 1, 2);
+    TilingInfo info;
+    ASSERT_TRUE(GetTilingData(para, info));
+
+    auto* td = reinterpret_cast<const TileWithAxisTilingData*>(info.tilingData.get());
+    EXPECT_EQ(td->totalCount, static_cast<uint64_t>(0));
+    EXPECT_EQ(td->perCoreCount, static_cast<uint64_t>(1));
+    EXPECT_EQ(info.blockNum, static_cast<size_t>(1));
+}
+
+// ============================================================================
+// 回归（CODE.18/1 / CODE.06/1）: int64 维度乘积溢出时 tiling 干净拒绝
+//   rowLength = axisDim * innerDim = 4e18 * 2 = 8e18（int64 可表示），
+//   但 rowOutElements = tiles * rowLength = 2 * 8e18 = 1.6e19 溢出 int64，
+//   应返回 GRAPH_FAILED，而不是生成错误 TilingData。
+// ============================================================================
+TEST(TileWithAxisTiling, int64_product_overflow_rejected)
+{
+    auto para = MakeTilingPara("int64_overflow", {1, 4000000000000000000LL, 2}, DT_FLOAT16, 1, 2);
+    TilingInfo info;
+    EXPECT_FALSE(ExecuteTiling(para, info));
+}
+
+// ============================================================================
+// 回归（CODE.18/1 / CODE.06/1）: rowLength = axisDim * innerDim 溢出时干净拒绝
+//   rank=2, axis=0: axisDim=4e18, innerDim=3 → rowLength=1.2e19 溢出 int64
+// ============================================================================
+TEST(TileWithAxisTiling, rowLength_product_overflow_rejected)
+{
+    auto para = MakeTilingPara("rowLength_overflow", {4000000000000000000LL, 3}, DT_FLOAT16, 0, 2);
+    TilingInfo info;
+    EXPECT_FALSE(ExecuteTiling(para, info));
+}
+
+// ============================================================================
+// 回归（CODE.18/1 / CODE.06/1）: outerDim 连乘溢出时干净拒绝
+//   rank=3, axis=2: outerDim = 2e9 * 3e9 = 6e18 溢出 int64
+// ============================================================================
+TEST(TileWithAxisTiling, outerDim_product_overflow_rejected)
+{
+    auto para = MakeTilingPara("outerDim_overflow", {2000000000LL, 3000000000LL, 4}, DT_FLOAT16, 2, 2);
+    TilingInfo info;
+    EXPECT_FALSE(ExecuteTiling(para, info));
+}
+
+// ============================================================================
+// 回归（CODE.18/1 / CODE.06/1）: totalOutElements = outerDim*tiles*rowLength 溢出时干净拒绝
+//   outerDim=4e18, rowLength=3 → total = 4e18*2*3 = 2.4e19 溢出 int64
+// ============================================================================
+TEST(TileWithAxisTiling, totalOutElements_overflow_rejected)
+{
+    auto para = MakeTilingPara("total_overflow", {4000000000000000000LL, 3}, DT_FLOAT16, 1, 2);
+    TilingInfo info;
+    EXPECT_FALSE(ExecuteTiling(para, info));
+}
+
+TEST(TileWithAxisTiling, tiles_missing_rejected)
+{
+    auto para = MakeTilingPara("tiles_missing", {2, 3, 4}, DT_FLOAT16, 1, 0, 253952, 64, 4096, false);
+    TilingInfo info;
+    EXPECT_FALSE(ExecuteTiling(para, info));
 }
 
 } // namespace TileWithAxisUT
