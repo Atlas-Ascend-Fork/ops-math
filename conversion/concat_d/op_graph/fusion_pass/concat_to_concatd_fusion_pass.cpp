@@ -24,6 +24,7 @@
 #include "platform/soc_spec.h"
 #include "ge/fusion/pass/pattern_fusion_pass.h"
 #include "fusion_pass_compat_weak_symbols.h"
+#include "ge/ge_utils.h"
 #include "log/log.h"
 #include "graph/tensor.h"
 #include "version/ge-compiler_version.h"
@@ -50,6 +51,7 @@ const std::string kPassName = "ConcatToConcatDFusionPass";
 const std::string kTypeConcat = "Concat";
 const std::string kTypeConcatV2 = "ConcatV2";
 const std::string kTypeConcatV2D = "ConcatV2D";
+const std::string kTypeConcatD = "ConcatD";
 constexpr int32_t kConcatDimIdxConcat = 0;
 constexpr int64_t kMaxConcatDInputs = 512; // max data inputs per ConcatD node; more are split into a tree
 // Dtypes ConcatD supports; mirrors the TensorType of the ConcatD IR definition
@@ -141,7 +143,8 @@ es::EsTensorHolder BuildConcatDTree(es::EsGraphBuilder& builder, std::vector<es:
         for (size_t i = 0; i < holders.size(); ++i) {
             TensorDesc tensorDesc;
             if (matchedNode.GetInputDesc(static_cast<int32_t>(srcInputIdxs[i]), tensorDesc) == SUCCESS) {
-                // Normalize to FORMAT_ND to match the ConcatD op information library.
+                // Normalize format and origin format together: a split pair is
+                // rejected by symbolic shape inference.
                 tensorDesc.SetFormat(FORMAT_ND);
                 tensorDesc.SetOriginFormat(FORMAT_ND);
                 (void)concatDNode.UpdateInputDesc(static_cast<int32_t>(i), tensorDesc);
@@ -368,6 +371,29 @@ Status ConcatToConcatDFusionPass::Run(GraphPtr& graph, CustomPassContext& passCo
             continue;
         }
 
+        // Tree case only (>512 inputs): levels beyond the top node get no manual desc
+        // handling and would keep ES-default descs (dtype FLOAT, empty shape). Run the
+        // repo-standard GeUtils::InferShape (8.5.0 API, same as mul_addn/reduce_mean)
+        // over the replacement graph; skip the node on failure.
+        if (dataInputNum > kMaxConcatDInputs) {
+            std::vector<Shape> inputShapes;
+            for (int64_t i = 0; i < inputNum; ++i) {
+                TensorDesc tensorDesc;
+                if (matchedNode.GetInputDesc(static_cast<int32_t>(i), tensorDesc) == SUCCESS) {
+                    inputShapes.emplace_back(tensorDesc.GetShape());
+                } else {
+                    inputShapes.emplace_back(Shape());
+                }
+            }
+            const Status inferStatus = GeUtils::InferShape(*replaceGraphPtr, inputShapes);
+            if (inferStatus != SUCCESS) {
+                OP_LOGE_WITHOUT_REPORT(kPassName.c_str(),
+                                       "GeUtils::InferShape failed for node %s, status=%d, skip node.",
+                                       nodeNameStr.GetString(), static_cast<int32_t>(inferStatus));
+                continue;
+            }
+        }
+
         // Inherit the source output desc BEFORE the support check: ConcatD keeps the
         // output dtype/shape/format of the source node. Without this the freshly built
         // ConcatD carries a default output desc (measured: es default dtype FLOAT),
@@ -376,8 +402,7 @@ Status ConcatToConcatDFusionPass::Run(GraphPtr& graph, CustomPassContext& passCo
         GNode topNode = *y.GetProducer();
         TensorDesc srcOutputDesc;
         if (matchedNode.GetOutputDesc(0, srcOutputDesc) == SUCCESS) {
-            // ConcatD op information library only accepts FORMAT_ND (see the Data-node
-            // note above); keep the source dtype/shape but normalize the format.
+            // Normalize format and origin format together for symbolic shape inference.
             srcOutputDesc.SetFormat(FORMAT_ND);
             srcOutputDesc.SetOriginFormat(FORMAT_ND);
             (void)topNode.UpdateOutputDesc(0, srcOutputDesc);
@@ -390,6 +415,34 @@ Status ConcatToConcatDFusionPass::Run(GraphPtr& graph, CustomPassContext& passCo
                     dstOutputDesc.SetFormat(FORMAT_ND);
                     dstOutputDesc.SetOriginFormat(FORMAT_ND);
                     (void)topNode.UpdateOutputDesc(0, dstOutputDesc);
+                }
+            }
+        }
+
+        // The inference above may re-propagate a non-ND format from the original
+        // boundary descs; re-normalize every ConcatD desc to ND/ND.
+        for (auto node : replaceGraphPtr->GetAllNodes()) {
+            AscendString treeTypeStr;
+            node.GetType(treeTypeStr);
+            if (treeTypeStr.GetString() != kTypeConcatD) {
+                continue;
+            }
+            for (size_t i = 0; i < node.GetInputsSize(); ++i) {
+                TensorDesc tensorDesc;
+                if (node.GetInputDesc(static_cast<int32_t>(i), tensorDesc) == SUCCESS &&
+                    (tensorDesc.GetFormat() != FORMAT_ND || tensorDesc.GetOriginFormat() != FORMAT_ND)) {
+                    tensorDesc.SetFormat(FORMAT_ND);
+                    tensorDesc.SetOriginFormat(FORMAT_ND);
+                    (void)node.UpdateInputDesc(static_cast<int32_t>(i), tensorDesc);
+                }
+            }
+            for (size_t i = 0; i < node.GetOutputsSize(); ++i) {
+                TensorDesc tensorDesc;
+                if (node.GetOutputDesc(static_cast<int32_t>(i), tensorDesc) == SUCCESS &&
+                    (tensorDesc.GetFormat() != FORMAT_ND || tensorDesc.GetOriginFormat() != FORMAT_ND)) {
+                    tensorDesc.SetFormat(FORMAT_ND);
+                    tensorDesc.SetOriginFormat(FORMAT_ND);
+                    (void)node.UpdateOutputDesc(static_cast<int32_t>(i), tensorDesc);
                 }
             }
         }
