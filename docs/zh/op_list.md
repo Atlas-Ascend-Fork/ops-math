@@ -1603,8 +1603,8 @@
     <td>√</td>
     <td>×</td>
     <td>√</td>
-    <td>AI Core</td>
-    <td>该算子暂无Ascend C代码实现，欢迎开发者补充贡献，贡献方式参考<a href="../../CONTRIBUTING.md">贡献指南</a>。</td>
+    <td>AI Core/Host CPU</td>
+    <td>返回输入张量的秩（rank），即张量的维度数，输出为INT32标量。</td>
   </tr>
   <tr>
     <td>math</td>
@@ -1903,8 +1903,8 @@
     <td>√</td>
     <td>×</td>
     <td>√</td>
-    <td>AI Core</td>
-    <td>该算子暂无Ascend C代码实现，欢迎开发者补充贡献，贡献方式参考<a href="../../CONTRIBUTING.md">贡献指南</a>。</td>
+    <td>AI Core/Host CPU</td>
+    <td>返回输入tensor的shape，即由输入各维度值组成的一维tensor。</td>
   </tr>
   <tr>
     <td>math</td>
@@ -1913,8 +1913,8 @@
     <td>√</td>
     <td>×</td>
     <td>√</td>
-    <td>AI Core</td>
-    <td>该算子暂无Ascend C代码实现，欢迎开发者补充贡献，贡献方式参考<a href="../../CONTRIBUTING.md">贡献指南</a>。</td>
+    <td>AI Core/Host CPU</td>
+    <td>返回多个输入tensor的shape，每个输入对应一个输出，输出为由对应输入各维度值组成的一维tensor。</td>
   </tr>
   <tr>
     <td>math</td>
@@ -2888,6 +2888,16 @@
   </tr>
   <tr>
     <td>conversion</td>
+    <td><a href="../../conversion/gather_shapes/README.md">gather_shapes</a></td>
+    <td>×</td>
+    <td>√</td>
+    <td>×</td>
+    <td>√</td>
+    <td>Host CPU</td>
+    <td>从多个输入tensor的shape中收集指定的维度值，按axes顺序拼接为一维tensor输出。</td>
+  </tr>
+  <tr>
+    <td>conversion</td>
     <td><a href="../../conversion/im2col/README.md">im2col</a></td>
     <td>√</td>
     <td>√</td>
@@ -3028,6 +3038,16 @@
   </tr>
   <tr>
     <td>conversion</td>
+    <td><a href="../../conversion/size/README.md">size</a></td>
+    <td>×</td>
+    <td>√</td>
+    <td>×</td>
+    <td>√</td>
+    <td>Host CPU</td>
+    <td>返回输入张量的尺寸，即张量元素个数的整数标量。</td>
+  </tr>
+  <tr>
+    <td>conversion</td>
     <td><a href="../../conversion/slice/README.md">slice</a></td>
     <td>√</td>
     <td>√</td>
@@ -3105,6 +3125,16 @@
     <td>√</td>
     <td>AI Core/Host CPU</td>
     <td>移除输入张量中大小为1的维度。</td>
+  </tr>
+  <tr>
+    <td>conversion</td>
+    <td><a href="../../conversion/squeezev2/README.md">squeezev2</a></td>
+    <td>×</td>
+    <td>√</td>
+    <td>×</td>
+    <td>√</td>
+    <td>Host CPU</td>
+    <td>删除张量shape中大小为1的维度。axis为空时删除所有大小为1的维度，指定axis时仅删除指定维度（需为1或未知维）。输出数据类型与输入一致。</td>
   </tr>
   <tr>
     <td>conversion</td>
@@ -3245,6 +3275,16 @@
     <td>√</td>
     <td>AI Core/Host CPU</td>
     <td>在指定位置插入一个大小为1的维度。</td>
+  </tr>
+  <tr>
+    <td>conversion</td>
+    <td><a href="../../conversion/unsqueezev2/README.md">unsqueezev2</a></td>
+    <td>×</td>
+    <td>√</td>
+    <td>×</td>
+    <td>√</td>
+    <td>Host CPU</td>
+    <td>在张量shape中插入维度值为1的维度。axis为空时不插入任何维度，指定axis时在归一化后的位置插入。输出数据类型与输入一致。</td>
   </tr>
   <tr>
     <td>conversion</td>
@@ -3668,6 +3708,26 @@
   </tr>
   <tr>
     <td>ge</td>
+    <td><a href="../../ge/aipp_data/README.md">aipp_data</a></td>
+    <td>×</td>
+    <td>√</td>
+    <td>×</td>
+    <td>√</td>
+    <td>Host CPU</td>
+    <td>动态AIPP场景的数据透传节点。将输入张量data直接传递给输出张量out，通过index属性标识AIPP序号，输出shape和数据类型与输入一致。</td>
+  </tr>
+  <tr>
+    <td>ge</td>
+    <td><a href="../../ge/case/README.md">case</a></td>
+    <td>×</td>
+    <td>√</td>
+    <td>×</td>
+    <td>√</td>
+    <td>Host CPU</td>
+    <td>根据`branch_index`的值选择一个子图分支执行，将输入张量传递给所选子图并返回其输出张量。</td>
+  </tr>
+  <tr>
+    <td>ge</td>
     <td><a href="../../ge/const/README.md">const</a></td>
     <td>×</td>
     <td>√</td>
@@ -3728,6 +3788,36 @@
   </tr>
   <tr>
     <td>ge</td>
+    <td><a href="../../ge/end/README.md">end</a></td>
+    <td>×</td>
+    <td>√</td>
+    <td>×</td>
+    <td>√</td>
+    <td>Host CPU</td>
+    <td>标记按引擎类型切分的子图的输出。End算子为图引擎内部节点，与PlaceHolder配对使用，输出张量y的形状和数据类型与输入张量x一致。</td>
+  </tr>
+  <tr>
+    <td>ge</td>
+    <td><a href="../../ge/enter/README.md">enter</a></td>
+    <td>×</td>
+    <td>√</td>
+    <td>×</td>
+    <td>√</td>
+    <td>Host CPU</td>
+    <td>创建或查找子帧（child frame），并使输入张量x在子帧内可用。Enter算子与Exit算子配合使用在图中创建循环，执行器通过唯一的frame_name属性标识帧。当is_constant为true时，输出张量y在子帧内为常量。输出张量y与输入张量x具有相同的形状和数据类型。</td>
+  </tr>
+  <tr>
+    <td>ge</td>
+    <td><a href="../../ge/exit/README.md">exit</a></td>
+    <td>×</td>
+    <td>√</td>
+    <td>×</td>
+    <td>√</td>
+    <td>Host CPU</td>
+    <td>退出当前帧（frame）到其父帧。Exit算子与Enter算子配合使用在图中创建循环，将输入张量x传递到父帧使其可用。输出张量y与输入张量x具有相同的形状和数据类型。</td>
+  </tr>
+  <tr>
+    <td>ge</td>
     <td><a href="../../ge/file_constant/README.md">file_constant</a></td>
     <td>×</td>
     <td>√</td>
@@ -3735,6 +3825,16 @@
     <td>√</td>
     <td>Host CPU</td>
     <td>创建文件常量张量，用于处理存储在文件中的超大权重数据。根据shape和dtype属性推导输出张量y的形状和数据类型。输出形状与shape属性一致，输出数据类型与dtype属性一致。</td>
+  </tr>
+  <tr>
+    <td>ge</td>
+    <td><a href="../../ge/for/README.md">for</a></td>
+    <td>×</td>
+    <td>√</td>
+    <td>×</td>
+    <td>√</td>
+    <td>Host CPU</td>
+    <td>循环执行`body`子图：循环计数器从`start`起始、按`delta`步进、不超过`limit`，将输入张量传递给子图并返回其输出张量。</td>
   </tr>
   <tr>
     <td>ge</td>
@@ -3748,6 +3848,16 @@
   </tr>
   <tr>
     <td>ge</td>
+    <td><a href="../../ge/if/README.md">if</a></td>
+    <td>×</td>
+    <td>√</td>
+    <td>×</td>
+    <td>√</td>
+    <td>Host CPU</td>
+    <td>根据布尔条件`cond`的值选择执行`then_branch`或`else_branch`子图，将输入张量传递给所选子图并返回其输出张量。</td>
+  </tr>
+  <tr>
+    <td>ge</td>
     <td><a href="../../ge/is_variable_initialized/README.md">is_variable_initialized</a></td>
     <td>×</td>
     <td>√</td>
@@ -3758,6 +3868,36 @@
   </tr>
   <tr>
     <td>ge</td>
+    <td><a href="../../ge/loop_cond/README.md">loop_cond</a></td>
+    <td>×</td>
+    <td>√</td>
+    <td>×</td>
+    <td>√</td>
+    <td>Host CPU</td>
+    <td>表示循环终止条件。LoopCond算子将布尔标量输入张量x转发到输出张量y，用于向Switch算子传递while循环的终止条件，InferShape校验输入为标量后复制shape，InferDataType校验输入为DT_BOOL后复制dtype。</td>
+  </tr>
+  <tr>
+    <td>ge</td>
+    <td><a href="../../ge/merge/README.md">merge</a></td>
+    <td>×</td>
+    <td>√</td>
+    <td>×</td>
+    <td>√</td>
+    <td>Host CPU</td>
+    <td>将输入x中第一个变为可用的张量转发到输出y，并在value_index中给出该张量在输入中的索引；通常与Switch配合实现分支汇聚。</td>
+  </tr>
+  <tr>
+    <td>ge</td>
+    <td><a href="../../ge/next_iteration/README.md">next_iteration</a></td>
+    <td>×</td>
+    <td>√</td>
+    <td>×</td>
+    <td>√</td>
+    <td>Host CPU</td>
+    <td>使输入在下一轮迭代中可用。NextIteration算子将输入张量x直接传递到输出张量y，用于在while循环中将当前迭代的计算结果传递给下一轮迭代，InferShape将输入shape复制到输出，InferDataType将输入dtype复制到输出。</td>
+  </tr>
+  <tr>
+    <td>ge</td>
     <td><a href="../../ge/no_op/README.md">no_op</a></td>
     <td>×</td>
     <td>√</td>
@@ -3765,6 +3905,16 @@
     <td>√</td>
     <td>Host CPU</td>
     <td>不做任何操作，仅用作控制边的占位符。</td>
+  </tr>
+  <tr>
+    <td>ge</td>
+    <td><a href="../../ge/partitioned_call/README.md">partitioned_call</a></td>
+    <td>×</td>
+    <td>√</td>
+    <td>×</td>
+    <td>√</td>
+    <td>Host CPU</td>
+    <td>将输入张量`args`传递给子图`f`执行并返回其输出张量。</td>
   </tr>
   <tr>
     <td>ge</td>
@@ -3818,6 +3968,96 @@
   </tr>
   <tr>
     <td>ge</td>
+    <td><a href="../../ge/ref_enter/README.md">ref_enter</a></td>
+    <td>×</td>
+    <td>√</td>
+    <td>×</td>
+    <td>√</td>
+    <td>Host CPU</td>
+    <td>创建或查找子帧（child frame），并使可被引用覆盖的输入张量x在子帧内可用。RefEnter算子与Exit算子配合使用在图中创建循环，执行器通过唯一的frame_name属性标识帧。当is_constant为true时，输出张量y在子帧内为常量。与Enter算子不同，RefEnter的输入可被ref类算子覆盖，起到变量的作用。</td>
+  </tr>
+  <tr>
+    <td>ge</td>
+    <td><a href="../../ge/ref_exit/README.md">ref_exit</a></td>
+    <td>×</td>
+    <td>√</td>
+    <td>×</td>
+    <td>√</td>
+    <td>Host CPU</td>
+    <td>退出当前帧（frame）到其父帧。RefExit算子与Enter算子配合使用在图中创建循环，将可被引用覆盖的输入张量x传递到父帧使其可用。与Exit算子不同，RefExit作用于可被ref类算子覆盖的引用张量。输出张量y与输入张量x具有相同的形状和数据类型。</td>
+  </tr>
+  <tr>
+    <td>ge</td>
+    <td><a href="../../ge/ref_identity/README.md">ref_identity</a></td>
+    <td>×</td>
+    <td>×</td>
+    <td>×</td>
+    <td>×</td>
+    <td>Host CPU</td>
+    <td>功能与Identity一致：输出张量y与输入张量x的形状、数据类型和内容相同，用于引用（ref）类型数据。</td>
+  </tr>
+  <tr>
+    <td>ge</td>
+    <td><a href="../../ge/ref_merge/README.md">ref_merge</a></td>
+    <td>×</td>
+    <td>√</td>
+    <td>×</td>
+    <td>√</td>
+    <td>Host CPU</td>
+    <td>功能与Merge一致：将输入x中第一个变为可用的张量转发到输出y，并在value_index中给出该张量在输入中的索引，用于引用（ref）类型数据。</td>
+  </tr>
+  <tr>
+    <td>ge</td>
+    <td><a href="../../ge/ref_next_iteration/README.md">ref_next_iteration</a></td>
+    <td>×</td>
+    <td>√</td>
+    <td>×</td>
+    <td>√</td>
+    <td>Host CPU</td>
+    <td>使输入张量在循环的下一次迭代中可用。RefNextIteration算子作为循环控制流算子，将可被引用覆盖的输入张量x传递给下一次迭代，用于while循环中迭代间传递变量状态。输出张量y与输入张量x具有相同的形状和数据类型。</td>
+  </tr>
+  <tr>
+    <td>ge</td>
+    <td><a href="../../ge/refswitch/README.md">refswitch</a></td>
+    <td>×</td>
+    <td>√</td>
+    <td>×</td>
+    <td>√</td>
+    <td>Host CPU</td>
+    <td>功能与Switch一致：根据布尔标量输入pred将输入张量data转发到output_true或output_false，两个输出的形状与数据类型均与data一致，用于引用（ref）类型数据。</td>
+  </tr>
+  <tr>
+    <td>ge</td>
+    <td><a href="../../ge/switch/README.md">switch</a></td>
+    <td>×</td>
+    <td>√</td>
+    <td>×</td>
+    <td>√</td>
+    <td>Host CPU</td>
+    <td>根据布尔标量输入pred将输入张量data转发到对应的输出端口：pred为true时转发到output_true，否则转发到output_false，两个输出的形状与数据类型均与data一致。</td>
+  </tr>
+  <tr>
+    <td>ge</td>
+    <td><a href="../../ge/switch_by_index/README.md">switch_by_index</a></td>
+    <td>×</td>
+    <td>√</td>
+    <td>×</td>
+    <td>√</td>
+    <td>Host CPU</td>
+    <td>将指定下标的输入数据写入指定寄存器。SwitchByIndex算子接收int32下标张量x1（shape为(1,)）与一维uint64张量x2，无输出张量，用于运行时label切换，InferShape/InferDataType注册为直接返回成功。</td>
+  </tr>
+  <tr>
+    <td>ge</td>
+    <td><a href="../../ge/switch_n/README.md">switch_n</a></td>
+    <td>×</td>
+    <td>√</td>
+    <td>×</td>
+    <td>√</td>
+    <td>Host CPU</td>
+    <td>根据整型张量输入pred_value将输入张量data转发到对应的动态输出端口，被选中的输出形状与数据类型与data一致。</td>
+  </tr>
+  <tr>
+    <td>ge</td>
     <td><a href="../../ge/temporary_variable/README.md">temporary_variable</a></td>
     <td>×</td>
     <td>√</td>
@@ -3855,6 +4095,16 @@
     <td>√</td>
     <td>Host CPU</td>
     <td>创建一个变量张量。Variable算子通过输入x赋值，在内部记录变量张量的值，输出y为创建的变量张量。InferShape函数返回成功但不显式设置输出描述，由框架默认推导（output跟随input）。</td>
+  </tr>
+  <tr>
+    <td>ge</td>
+    <td><a href="../../ge/while/README.md">while</a></td>
+    <td>×</td>
+    <td>√</td>
+    <td>×</td>
+    <td>√</td>
+    <td>Host CPU</td>
+    <td>循环执行`body`子图直到`cond`子图返回false：cond为真时反复执行body并将循环变量传递到下一轮迭代，否则返回当前循环变量作为输出。</td>
   </tr>
 </tbody>
 </table>

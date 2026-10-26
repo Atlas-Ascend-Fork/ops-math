@@ -1,0 +1,58 @@
+/**
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file ref_enter_proto.h
+ * \brief
+ */
+#ifndef REF_ENTER_PROTO_H_
+#define REF_ENTER_PROTO_H_
+
+#include "graph/operator_reg.h"
+
+namespace ge {
+/**
+ *@brief Creates or finds a child frame, and makes "x" available to the child
+ *       frame. This op is used together with Exit to create loops in the graph.
+ *       The Executor uses the unique "frame_name" to identify frames.
+ *       If "is_constant" is "true", output "y" is a constant in the child
+ *       frame; otherwise it may be changed in the child frame .
+
+ *@par Inputs:
+ *x: The tensor to be made available to the child frame.
+ *   Must be one of the following types: float16, float32, float64, int8,
+ *   int16, int32, int64, uint8, uint16, uint32, uint64, bool . \n
+
+ *@par Attributes:
+ *@li frame_name: A required string. The name of the child frame.
+ *@li is_constant: A required bool. If true, the output is constant in
+ *                 the child frame . \n
+
+ *@par Outputs:
+ *y: A tensor. Has the same type as "x" . \n
+
+ *@see Exit() | Enter()
+
+ *@par Third-party framework compatibility
+ *Compatible with the TensorFlow operator RefEnter.
+ */
+#ifndef OPS_PROTO_DEF_REFENTER
+#define OPS_PROTO_DEF_REFENTER
+REG_OP(RefEnter)
+    .INPUT(x, TensorType({DT_FLOAT16, DT_FLOAT, DT_DOUBLE, DT_INT8, DT_INT16, DT_INT32, DT_INT64, DT_UINT8, DT_UINT16,
+                          DT_UINT32, DT_UINT64, DT_BOOL}))
+    .OUTPUT(y, TensorType({DT_FLOAT16, DT_FLOAT, DT_DOUBLE, DT_INT8, DT_INT16, DT_INT32, DT_INT64, DT_UINT8, DT_UINT16,
+                           DT_UINT32, DT_UINT64, DT_BOOL}))
+    .REQUIRED_ATTR(frame_name, String)
+    .REQUIRED_ATTR(is_constant, Bool)
+    .OP_END_FACTORY_REG(RefEnter)
+#endif
+} // namespace ge
+#endif // REF_ENTER_PROTO_H_

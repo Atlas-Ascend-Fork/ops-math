@@ -10,25 +10,32 @@
 
 /*!
  * \file rank_infershape.cpp
- * \brief
+ * \brief Runtime shape and data-type inference for Rank.
  */
 #include "register/op_impl_registry.h"
 #include "runtime/infer_shape_context.h"
-#include "runtime/storage_shape.h"
+#include "runtime/infer_datatype_context.h"
 
-using namespace gert;
 namespace ops {
-static ge::graphStatus InferShapeForRankLike(InferShapeContext *context) {
-  auto x_shape = context->GetInputShape(0);
-  auto y_shape = context->GetOutputShape(0);
-  if ((x_shape == nullptr) || (y_shape == nullptr)) {
-    return ge::GRAPH_FAILED;
-  }
+// Rank returns the number of dimensions of the input tensor as a scalar.
+// Equivalent to the RT1.0 logic in rank_infer_v1.cpp: the output shape is a
+// scalar (empty dim vector) and the output dtype is the fixed DT_INT32
+// declared in the proto.
+static ge::graphStatus InferShapeForRank(gert::InferShapeContext* context)
+{
+    auto y_shape = context->GetOutputShape(0);
+    if (y_shape == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
 
-  y_shape->SetScalar();
-  return ge::GRAPH_SUCCESS;
+    y_shape->SetScalar();
+    return ge::GRAPH_SUCCESS;
 }
-IMPL_OP_INFERSHAPE(Rank).InferShape(InferShapeForRankLike);
-IMPL_OP_INFERSHAPE(Size).InferShape(InferShapeForRankLike);
-}  // namespace ops
 
+static ge::graphStatus InferDataTypeForRank(gert::InferDataTypeContext* context)
+{
+    return context->SetOutputDataType(0, ge::DT_INT32);
+}
+
+IMPL_OP_INFERSHAPE(Rank).InferShape(InferShapeForRank).InferDataType(InferDataTypeForRank);
+} // namespace ops

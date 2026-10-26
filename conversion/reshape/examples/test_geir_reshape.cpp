@@ -8,258 +8,372 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include <cmath>
-#include <ctime>
 #include <iostream>
-#include <map>
-#include <new>
-#include <sstream>
-#include <string>
+#include <fstream>
+#include <string.h>
+#include <stdint.h>
 #include <vector>
+#include <string>
+#include <map>
+#include "assert.h"
 
-#include "array_ops.h"
-#include "ge_api.h"
-#include "ge_api_types.h"
-#include "ge_error_codes.h"
-#include "ge_ir_build.h"
 #include "graph.h"
-#include "nn_other.h"
-#include "tensor.h"
 #include "types.h"
+#include "tensor.h"
+#include "ge_error_codes.h"
+#include "ge_api_types.h"
+#include "ge_api.h"
+#include "ge_ir_build.h"
 
+#include "../../../ge/data/op_graph/data_proto.h"
+#include "../../../ge/constant/op_graph/constant_proto.h"
+#include "../op_graph/reshape_proto.h"
+
+#define FAILED -1
+#define SUCCESS 0
+
+using std::map;
+using std::string;
+using std::vector;
 using namespace ge;
 
-namespace {
-constexpr int kFailed = -1;
-constexpr int kSuccess = 0;
-constexpr size_t kExpectedOutputDimNum = 2U;
-constexpr size_t kExpectedOutputElementNum = 6U;
-constexpr float kFloatCompareTolerance = 1e-5F;
-const std::vector<int64_t> kExpectedOutputShape = {3, 2};
-
-std::string GetTime()
+string GetTime()
 {
-    time_t now;
-    time(&now);
-    char buffer[64] = {0};
-    strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S,000", localtime(&now));
-    return buffer;
+    time_t timep;
+    time(&timep);
+    char tmp[64];
+    strftime(tmp, sizeof(tmp), "%Y-%m-%d %H:%M:%S,000", localtime(&timep));
+    return string(tmp);
 }
 
-std::string ShapeToString(const ge::Shape& shape)
+// build the shape input: int64 tensor of target dims
+static void BuildShapeConst(op::Constant& shape_node, const vector<int64_t>& target)
 {
-    std::ostringstream oss;
-    oss << "[";
-    for (size_t idx = 0U; idx < shape.GetDimNum(); ++idx) {
-        if (idx != 0U) {
-            oss << ",";
-        }
-        oss << shape.GetDim(idx);
+    ge::TensorDesc shape_desc = ge::TensorDesc(ge::Shape({static_cast<int64_t>(target.size())}), ge::FORMAT_ND,
+                                               ge::DT_INT64);
+    int64_t* shape_data = new int64_t[target.size()];
+    for (size_t i = 0; i < target.size(); i++) {
+        shape_data[i] = target[i];
     }
-    oss << "]";
-    return oss.str();
+    ge::Tensor shape_tensor(shape_desc, (uint8_t*)shape_data, sizeof(int64_t) * target.size());
+    shape_node.set_attr_value(shape_tensor);
+    shape_node.update_output_desc_y(shape_desc);
 }
 
-std::string VectorToString(const std::vector<int64_t>& shape)
+// static shape: x={2,3}, shape={3,-1}, -1 is inferred and y={3,2}
+ge::Graph BuildGraph(std::vector<ge::Tensor>& input)
 {
-    std::ostringstream oss;
-    oss << "[";
-    for (size_t idx = 0U; idx < shape.size(); ++idx) {
-        if (idx != 0U) {
-            oss << ",";
-        }
-        oss << shape[idx];
+    ge::Graph graph("test_reshape_ir");
+    ge::DataType inDtype = ge::DT_FLOAT;
+    vector<int64_t> xShape = {2, 3};
+
+    auto data_node = op::Data("data_node");
+    data_node.set_attr_index(0);
+    ge::TensorDesc data_desc = ge::TensorDesc(ge::Shape(xShape), ge::FORMAT_ND, inDtype);
+    data_desc.SetPlacement(ge::kPlacementHost);
+    data_desc.SetFormat(ge::FORMAT_ND);
+    data_node.update_input_desc_x(data_desc);
+
+    auto shape_node = op::Constant("shape_node");
+    BuildShapeConst(shape_node, {3, -1});
+
+    auto reshape_node = op::Reshape("reshape_node");
+    reshape_node.set_input_x(data_node);
+    reshape_node.set_input_shape(shape_node);
+
+    float* pData = new float[6];
+    for (int i = 0; i < 6; i++) {
+        pData[i] = static_cast<float>(i + 1);
     }
-    oss << "]";
-    return oss.str();
+    ge::Tensor tensor_data(data_desc, (uint8_t*)pData, 24);
+    input.push_back(tensor_data);
+
+    std::vector<ge::Operator> inputs{data_node};
+    std::vector<ge::Operator> outputs{reshape_node};
+    graph.SetInputs(inputs).SetOutputs(outputs);
+    graph.AddOp(data_node);
+    graph.AddOp(shape_node);
+    graph.AddOp(reshape_node);
+    return graph;
 }
 
-ge::TensorDesc MakeTensorDesc(const std::vector<int64_t>& shape, ge::DataType dtype)
+// dynamic shape(-1): x={-1,3}, shape={3,-1}, y={3,2}; feed real shape {2,3} when RunGraph.
+ge::Graph BuildDynamicShapeGraphDimNeg1(std::vector<ge::Tensor>& input)
 {
-    ge::TensorDesc desc(ge::Shape(shape), ge::FORMAT_ND, dtype);
-    desc.SetPlacement(ge::kPlacementHost);
-    desc.SetFormat(ge::FORMAT_ND);
-    desc.SetRealDimCnt(shape.size());
-    return desc;
-}
+    ge::Graph graph("test_reshape_dynamic_dim_neg1");
+    ge::DataType inDtype = ge::DT_FLOAT;
+    vector<int64_t> xShape = {-1, 3};
 
-ge::Tensor MakeFloatTensor(const std::vector<int64_t>& shape)
-{
-    ge::TensorDesc desc = MakeTensorDesc(shape, ge::DT_FLOAT);
+    auto data_node = op::Data("data_node");
+    data_node.set_attr_index(0);
+    ge::TensorDesc data_desc = ge::TensorDesc(ge::Shape(xShape), ge::FORMAT_ND, inDtype);
+    data_desc.SetPlacement(ge::kPlacementHost);
+    data_desc.SetFormat(ge::FORMAT_ND);
+    data_desc.SetShapeRange({{1, 10}, {3, 3}});
+    data_node.update_input_desc_x(data_desc);
 
-    size_t elem_count = 1U;
-    for (auto dim : shape) {
-        elem_count *= static_cast<size_t>(dim);
+    auto shape_node = op::Constant("shape_node");
+    BuildShapeConst(shape_node, {3, -1});
+
+    auto reshape_node = op::Reshape("reshape_node");
+    reshape_node.set_input_x(data_node);
+    reshape_node.set_input_shape(shape_node);
+
+    float* pData = new float[6];
+    for (int i = 0; i < 6; i++) {
+        pData[i] = static_cast<float>(i + 1);
     }
-    auto* buffer = new (std::nothrow) float[elem_count];
-    for (size_t idx = 0U; idx < elem_count; ++idx) {
-        buffer[idx] = static_cast<float>(idx + 1U);
-    }
-    ge::Tensor tensor(desc, reinterpret_cast<uint8_t*>(buffer), elem_count * sizeof(float));
-    delete[] buffer;
-    return tensor;
+    ge::TensorDesc real_desc = ge::TensorDesc(ge::Shape({2, 3}), ge::FORMAT_ND, inDtype);
+    ge::Tensor tensor_data(real_desc, (uint8_t*)pData, 24);
+    input.push_back(tensor_data);
+
+    std::vector<ge::Operator> inputs{data_node};
+    std::vector<ge::Operator> outputs{reshape_node};
+    graph.SetInputs(inputs).SetOutputs(outputs);
+    graph.AddOp(data_node);
+    graph.AddOp(shape_node);
+    graph.AddOp(reshape_node);
+    return graph;
 }
 
-ge::Tensor MakeInt64Tensor(const std::vector<int64_t>& shape, const std::vector<int64_t>& values)
+// dynamic shape(-2): x={-2}, shape={3,-1}, y={3,2}; feed real shape {2,3} when RunGraph
+ge::Graph BuildDynamicShapeGraphDimNeg2(std::vector<ge::Tensor>& input)
 {
-    ge::TensorDesc desc = MakeTensorDesc(shape, ge::DT_INT64);
+    ge::Graph graph("test_reshape_dynamic_dim_neg2");
+    ge::DataType inDtype = ge::DT_FLOAT;
+    vector<int64_t> xShape = {-2};
 
-    auto* buffer = new (std::nothrow) int64_t[values.size()];
-    for (size_t idx = 0U; idx < values.size(); ++idx) {
-        buffer[idx] = values[idx];
+    auto data_node = op::Data("data_node");
+    data_node.set_attr_index(0);
+    ge::TensorDesc data_desc = ge::TensorDesc(ge::Shape(xShape), ge::FORMAT_ND, inDtype);
+    data_desc.SetPlacement(ge::kPlacementHost);
+    data_desc.SetFormat(ge::FORMAT_ND);
+    // unknown rank(-2) has unknown dim num, no shape range is set;
+    // the real input shape {2,3} is fed on RunGraph
+    data_node.update_input_desc_x(data_desc);
+
+    auto shape_node = op::Constant("shape_node");
+    BuildShapeConst(shape_node, {3, -1});
+
+    auto reshape_node = op::Reshape("reshape_node");
+    reshape_node.set_input_x(data_node);
+    reshape_node.set_input_shape(shape_node);
+
+    float* pData = new float[6];
+    for (int i = 0; i < 6; i++) {
+        pData[i] = static_cast<float>(i + 1);
     }
-    ge::Tensor tensor(desc, reinterpret_cast<uint8_t*>(buffer), values.size() * sizeof(int64_t));
-    delete[] buffer;
-    return tensor;
+    ge::TensorDesc real_desc = ge::TensorDesc(ge::Shape({2, 3}), ge::FORMAT_ND, inDtype);
+    ge::Tensor tensor_data(real_desc, (uint8_t*)pData, 24);
+    input.push_back(tensor_data);
+
+    std::vector<ge::Operator> inputs{data_node};
+    std::vector<ge::Operator> outputs{reshape_node};
+    graph.SetInputs(inputs).SetOutputs(outputs);
+    graph.AddOp(data_node);
+    graph.AddOp(shape_node);
+    graph.AddOp(reshape_node);
+    return graph;
 }
 
-int CreateGraph(const std::string& case_name, const std::vector<int64_t>& shape_value, ge::Graph& graph,
-                std::vector<ge::Tensor>& inputs, std::vector<ge::Operator>& graph_inputs,
-                std::vector<ge::Operator>& graph_outputs, bool use_dynamic_shape_input)
+// allowzero(0) set by name (a private attr, same channel as the ONNX plugin):
+// x={2,6}, shape={0,3,2}, 0 copies the x dim, y={2,3,2}
+ge::Graph BuildAllowZeroGraph(std::vector<ge::Tensor>& input)
 {
-    auto reshape = op::Reshape((case_name + "_reshape").c_str());
-    auto data = op::Data((case_name + "_x").c_str()).set_attr_index(0);
+    ge::Graph graph("test_reshape_allowzero");
+    ge::DataType inDtype = ge::DT_FLOAT;
+    vector<int64_t> xShape = {2, 6};
 
-    const std::vector<int64_t> x_shape = {2, 3};
-    const std::vector<int64_t> graph_x_shape = use_dynamic_shape_input ? std::vector<int64_t>({-1, -1}) : x_shape;
-    ge::TensorDesc x_desc = MakeTensorDesc(graph_x_shape, ge::DT_FLOAT);
-    data.update_input_desc_x(x_desc);
-    data.update_output_desc_y(x_desc);
-    inputs.push_back(MakeFloatTensor(x_shape));
-    graph.AddOp(data);
-    reshape.set_input_x(data);
-    reshape.update_input_desc_x(x_desc);
-    graph_inputs.push_back(data);
+    auto data_node = op::Data("data_node");
+    data_node.set_attr_index(0);
+    ge::TensorDesc data_desc = ge::TensorDesc(ge::Shape(xShape), ge::FORMAT_ND, inDtype);
+    data_desc.SetPlacement(ge::kPlacementHost);
+    data_desc.SetFormat(ge::FORMAT_ND);
+    data_node.update_input_desc_x(data_desc);
 
-    const std::vector<int64_t> shape_shape = {2};
-    ge::TensorDesc shape_desc = MakeTensorDesc(shape_shape, ge::DT_INT64);
-    if (use_dynamic_shape_input) {
-        auto shape_data = op::Data((case_name + "_shape").c_str()).set_attr_index(1);
-        shape_data.update_input_desc_x(shape_desc);
-        shape_data.update_output_desc_y(shape_desc);
-        graph.AddOp(shape_data);
-        reshape.set_input_shape(shape_data);
-        graph_inputs.push_back(shape_data);
-        inputs.push_back(MakeInt64Tensor(shape_shape, shape_value));
-    } else {
-        auto shape_const = op::Const((case_name + "_shape").c_str());
-        shape_const.SetAttr("value", MakeInt64Tensor(shape_shape, shape_value));
-        shape_const.update_output_desc_y(shape_desc);
-        graph.AddOp(shape_const);
-        reshape.set_input_shape(shape_const);
+    auto shape_node = op::Constant("shape_node");
+    BuildShapeConst(shape_node, {0, 3, 2});
+
+    auto reshape_node = op::Reshape("reshape_node");
+    reshape_node.set_input_x(data_node);
+    reshape_node.set_input_shape(shape_node);
+    reshape_node.SetAttr("allowzero", static_cast<int64_t>(0));
+
+    float* pData = new float[12];
+    for (int i = 0; i < 12; i++) {
+        pData[i] = static_cast<float>(i + 1);
     }
-    reshape.update_input_desc_shape(shape_desc);
+    ge::Tensor tensor_data(data_desc, (uint8_t*)pData, 48);
+    input.push_back(tensor_data);
 
-    const std::vector<int64_t> y_shape = use_dynamic_shape_input ? graph_x_shape : kExpectedOutputShape;
-    ge::TensorDesc y_desc = MakeTensorDesc(y_shape, ge::DT_FLOAT);
-    reshape.update_output_desc_y(y_desc);
-    graph_outputs.push_back(reshape);
-    return kSuccess;
+    std::vector<ge::Operator> inputs{data_node};
+    std::vector<ge::Operator> outputs{reshape_node};
+    graph.SetInputs(inputs).SetOutputs(outputs);
+    graph.AddOp(data_node);
+    graph.AddOp(shape_node);
+    graph.AddOp(reshape_node);
+    return graph;
 }
 
-bool VerifyOutput(const std::string& case_name, const ge::Tensor& output)
+// the output tensor of RunGraph is the contractual result
+bool CheckOutputTensor(const ge::Tensor& output, const vector<int64_t>& expected)
 {
-    const auto& output_desc = output.GetTensorDesc();
-    const auto& output_shape = output_desc.GetShape();
-    if (output_shape.GetDimNum() != kExpectedOutputDimNum || output_shape.GetDim(0) != kExpectedOutputShape[0] ||
-        output_shape.GetDim(1) != kExpectedOutputShape[1]) {
-        std::cerr << GetTime() << " - ERROR - " << case_name
-                  << " unexpected output shape: " << ShapeToString(output_shape) << std::endl;
+    auto desc = output.GetTensorDesc();
+    auto shape = desc.GetShape();
+    printf("%s - INFO - [XIR]: output desc: dim_num=%zu", GetTime().c_str(), shape.GetDimNum());
+    for (size_t i = 0; i < shape.GetDimNum(); i++) {
+        printf(" dim%zu=%ld", i, shape.GetDim(i));
+    }
+    printf(" shape_size=%ld dtype=%d | expected: dim_num=%zu", shape.GetShapeSize(), desc.GetDataType(),
+           expected.size());
+    for (size_t i = 0; i < expected.size(); i++) {
+        printf(" dim%zu=%ld", i, expected[i]);
+    }
+    printf(" dtype=%d\n", ge::DT_FLOAT);
+
+    if (shape.GetDimNum() != expected.size()) {
+        printf("%s - ERROR - [XIR]: Output shape FAILED: expected dim_num=%zu\n", GetTime().c_str(), expected.size());
         return false;
     }
-
-    auto* output_data = reinterpret_cast<const float*>(output.GetData());
-    for (size_t idx = 0U; idx < kExpectedOutputElementNum; ++idx) {
-        const float expected = static_cast<float>(idx + 1U);
-        if (std::fabs(output_data[idx] - expected) > kFloatCompareTolerance) {
-            std::cerr << GetTime() << " - ERROR - " << case_name << " unexpected output value at " << idx << ": "
-                      << output_data[idx] << std::endl;
+    for (size_t i = 0; i < expected.size(); i++) {
+        if (shape.GetDim(i) != expected[i]) {
+            printf("%s - ERROR - [XIR]: Output shape FAILED: dim%zu expected=%ld actual=%ld\n", GetTime().c_str(), i,
+                   expected[i], shape.GetDim(i));
             return false;
         }
+    }
+    if (desc.GetDataType() != ge::DT_FLOAT) {
+        printf("%s - ERROR - [XIR]: Output dtype FAILED: expected=%d actual=%d\n", GetTime().c_str(), ge::DT_FLOAT,
+               desc.GetDataType());
+        return false;
     }
     return true;
 }
 
-int RunCase(const std::string& case_name, const std::vector<int64_t>& shape_value, bool use_dynamic_shape_input,
-            uint32_t graph_id)
+struct RunContext {
+    const map<ge::AscendString, ge::AscendString>& session_options;
+    uint32_t graph_id;
+};
+
+// runtime_shape is the expected full shape of the RunGraph output tensor
+struct ExpectedResult {
+    vector<int64_t> runtime_shape;
+    int64_t size;
+};
+
+bool RunScenario(const string& tag, ge::Graph (*builder)(vector<ge::Tensor>&), const ExpectedResult& expected,
+                 RunContext& ctx, const string& om_name)
 {
-    ge::Graph graph((case_name + "_graph").c_str());
-    std::vector<ge::Tensor> inputs;
-    std::vector<ge::Operator> graph_inputs;
-    std::vector<ge::Operator> graph_outputs;
+    printf("%s - INFO - [XIR]: === %s ===\n", GetTime().c_str(), tag.c_str());
 
-    std::cout << GetTime() << " - INFO - ===== begin case: " << case_name << " =====" << std::endl;
-    std::cout << GetTime() << " - INFO - " << case_name
-              << " graph mode: " << (use_dynamic_shape_input ? "dynamic-shape-input" : "static-const-shape")
-              << std::endl;
-    std::cout << GetTime() << " - INFO - " << case_name << " case input: x=[2,3], shape=" << VectorToString(shape_value)
-              << std::endl;
+    vector<ge::Tensor> input;
+    ge::Graph graph = builder(input);
 
-    if (CreateGraph(case_name, shape_value, graph, inputs, graph_inputs, graph_outputs, use_dynamic_shape_input) !=
-        kSuccess) {
-        std::cerr << GetTime() << " - ERROR - CreateGraph failed for " << case_name << std::endl;
-        std::cerr << GetTime() << " - ERROR - ===== case failed: " << case_name << " =====" << std::endl;
-        return kFailed;
+    ge::Session* session = new ge::Session(ctx.session_options);
+    if (session == nullptr) {
+        printf("%s - ERROR - [XIR]: Create session failed\n", GetTime().c_str());
+        return false;
     }
-    graph.SetInputs(graph_inputs).SetOutputs(graph_outputs);
-
-    std::map<ge::AscendString, ge::AscendString> build_options = {};
-    ge::Session session(build_options);
-    std::map<ge::AscendString, ge::AscendString> graph_options = {};
-    std::cout << GetTime() << " - INFO - AddGraph for " << case_name << std::endl;
-    if (session.AddGraph(graph_id, graph, graph_options) != ge::GRAPH_SUCCESS) {
-        std::cerr << GetTime() << " - ERROR - AddGraph failed for " << case_name << std::endl;
-        std::cerr << GetTime() << " - ERROR - ===== case failed: " << case_name << " =====" << std::endl;
-        return kFailed;
+    ge::Status ret = session->AddGraph(ctx.graph_id, graph, ctx.session_options);
+    if (ret != SUCCESS) {
+        printf("%s - ERROR - [XIR]: Add graph failed\n", GetTime().c_str());
+        delete session;
+        return false;
     }
 
-    std::cout << GetTime() << " - INFO - RunGraph for " << case_name << std::endl;
-    std::vector<ge::Tensor> outputs;
-    if (session.RunGraph(graph_id, inputs, outputs) != ge::GRAPH_SUCCESS) {
-        std::cerr << GetTime() << " - ERROR - RunGraph failed for " << case_name << std::endl;
-        std::cerr << GetTime() << " - ERROR - ===== case failed: " << case_name << " =====" << std::endl;
-        return kFailed;
+    vector<ge::Tensor> output;
+    ret = session->RunGraph(ctx.graph_id, input, output);
+    if (ret != SUCCESS) {
+        printf("%s - ERROR - [XIR]: RunGraph failed\n", GetTime().c_str());
+        delete session;
+        return false;
     }
+    printf("%s - INFO - [XIR]: RunGraph success, output count=%zu\n", GetTime().c_str(), output.size());
 
-    if (outputs.size() != 1U) {
-        std::cerr << GetTime() << " - ERROR - no output returned for " << case_name << std::endl;
-        std::cerr << GetTime() << " - ERROR - ===== case failed: " << case_name << " =====" << std::endl;
-        return kFailed;
+    if (output.empty() || !CheckOutputTensor(output[0], expected.runtime_shape)) {
+        delete session;
+        return false;
     }
-
-    if (!VerifyOutput(case_name, outputs[0])) {
-        std::cerr << GetTime() << " - ERROR - ===== case failed: " << case_name << " =====" << std::endl;
-        return kFailed;
+    // Reshape is a view op: output values should be the same as input values in order
+    {
+        const auto* out_data = reinterpret_cast<const float*>(output[0].GetData());
+        const auto* in_data = reinterpret_cast<const float*>(input[0].GetData());
+        bool values_ok = true;
+        for (int64_t i = 0; i < expected.size; i++) {
+            if (out_data[i] != in_data[i]) {
+                printf("%s - ERROR - [XIR]: Output value verification FAILED: out[%ld]=%.4f expected=%.4f\n",
+                       GetTime().c_str(), i, out_data[i], in_data[i]);
+                values_ok = false;
+                break;
+            }
+        }
+        if (!values_ok) {
+            delete session;
+            return false;
+        }
+        printf("%s - INFO - [XIR]: Output value verification success (view: output == input)\n", GetTime().c_str());
     }
+    delete session;
 
-    const auto& output_desc = outputs[0].GetTensorDesc();
-    std::cout << GetTime() << " - INFO - " << case_name << " case output: y=" << ShapeToString(output_desc.GetShape())
-              << std::endl;
-    std::cout << GetTime() << " - INFO - ===== case passed: " << case_name << " =====" << std::endl;
-
-    return kSuccess;
+    vector<ge::Tensor> input_om;
+    ge::Graph graph_om = builder(input_om);
+    ge::ModelBufferData model_buffer;
+    ret = aclgrphBuildModel(graph_om, ctx.session_options, model_buffer);
+    if (ret != SUCCESS) {
+        printf("%s - ERROR - [XIR]: BuildModel failed\n", GetTime().c_str());
+        return false;
+    }
+    aclgrphSaveModel(om_name.c_str(), model_buffer);
+    printf("%s - INFO - [XIR]: Save OM success: %s\n", GetTime().c_str(), om_name.c_str());
+    printf("%s - INFO - [XIR]: %s PASSED\n", GetTime().c_str(), tag.c_str());
+    ctx.graph_id++;
+    return true;
 }
-} // namespace
 
-int main()
+int main(int argc, char* argv[])
 {
-    std::cout << GetTime() << " - INFO - initialize ge" << std::endl;
+    printf("%s - INFO - [XIR]: Start to initialize ge\n", GetTime().c_str());
     std::map<ge::AscendString, ge::AscendString> global_options = {{"ge.exec.deviceId", "0"}, {"ge.graphRunMode", "1"}};
-    if (ge::GEInitialize(global_options) != ge::GRAPH_SUCCESS) {
-        std::cerr << GetTime() << " - ERROR - GEInitialize failed" << std::endl;
-        return kFailed;
+    ge::Status ret = ge::GEInitialize(global_options);
+    if (ret != SUCCESS) {
+        printf("%s - ERROR - [XIR]: Initialize ge failed\n", GetTime().c_str());
+        return FAILED;
+    }
+    printf("%s - INFO - [XIR]: Initialize ge success\n", GetTime().c_str());
+
+    std::map<ge::AscendString, ge::AscendString> session_options;
+    RunContext ctx{session_options, 0};
+
+    // static scenario shape is determined at compile stage with -1 inferred;
+    // dynamic scenarios feed {2,3} at runtime, output is {3,2} after reshape
+    ExpectedResult static_expected{{3, 2}, 6};
+    ExpectedResult neg1_expected{{3, 2}, 6};
+    ExpectedResult neg2_expected{{3, 2}, 6};
+
+    if (!RunScenario("static", BuildGraph, static_expected, ctx, "./reshape_model.om")) {
+        ge::GEFinalize();
+        return FAILED;
     }
 
-    if (RunCase("reshape_dynamic", {3, 2}, true, 0U) != kSuccess) {
+    if (!RunScenario("dynamic(-1)", BuildDynamicShapeGraphDimNeg1, neg1_expected, ctx,
+                     "./reshape_dynamic_neg1_model.om")) {
         ge::GEFinalize();
-        return kFailed;
+        return FAILED;
     }
 
-    if (RunCase("reshape_static", {3, 2}, false, 1U) != kSuccess) {
+    if (!RunScenario("dynamic(-2)", BuildDynamicShapeGraphDimNeg2, neg2_expected, ctx,
+                     "./reshape_dynamic_neg2_model.om")) {
         ge::GEFinalize();
-        return kFailed;
+        return FAILED;
+    }
+
+    ExpectedResult az_expected{{2, 3, 2}, 12};
+    if (!RunScenario("allowzero(0)", BuildAllowZeroGraph, az_expected, ctx, "./reshape_allowzero_model.om")) {
+        ge::GEFinalize();
+        return FAILED;
     }
 
     ge::GEFinalize();
-    return kSuccess;
+    printf("%s - INFO - [XIR]: Finalize success\n", GetTime().c_str());
+    return SUCCESS;
 }

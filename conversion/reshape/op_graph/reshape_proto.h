@@ -37,7 +37,6 @@ namespace ge {
 
 *@par Third-party framework compatibility
 *@li Compatible with the TensorFlow operator Reshape.
-*@li Compatible with the Caffe operator Reshape.
 *@li Compatible with the ONNX operator Reshape.
 */
 REG_OP(Reshape)

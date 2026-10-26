@@ -17,13 +17,14 @@
 
 #include "graph/operator_reg.h"
 
-namespace ge
-{
+namespace ge {
 /**
-*@brief Returns an integer representing the rank of input tensor. The rank of a tensor is the number of indices required to uniquely select each element of the tensor, that is, the dimension size of the tensor. \n
+*@brief Returns an integer representing the rank of input tensor. The rank of a tensor is the number of indices required
+to uniquely select each element of the tensor, that is, the dimension size of the tensor. \n
 
 *@par Inputs:
-*x: A Tensor of type float32, float16, int8, int16, uint16, uint8, int32, int64, uint32, uint64, bool, double, string. \n
+*x: A Tensor of type float32, float16, int8, int16, uint16, uint8, int32, int64, uint32, uint64, bool, double, string.
+\n
 
 *@par Outputs:
 *y: A tensor. The rank of input tensor. Type is int32. \n
@@ -31,10 +32,6 @@ namespace ge
 *@par Third-party framework compatibility
 *Compatible with the TensorFlow operator Rank.
 */
-REG_OP(Rank)
-    .INPUT(x, TensorType({DT_FLOAT, DT_FLOAT16, DT_INT8, DT_INT16, DT_UINT16, DT_UINT8,
-        DT_INT32, DT_INT64, DT_UINT32, DT_UINT64, DT_BOOL, DT_DOUBLE, DT_STRING}))
-    .OUTPUT(y, TensorType({DT_INT32}))
-    .OP_END_FACTORY_REG(Rank)
+REG_OP(Rank).INPUT(x, TensorType::ALL()).OUTPUT(y, TensorType({DT_INT32})).OP_END_FACTORY_REG(Rank)
 } // namespace ge
 #endif // RANK_PROTO_H_

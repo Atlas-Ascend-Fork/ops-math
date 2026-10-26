@@ -10,28 +10,69 @@
 
 /*!
  * \file shape_n_infershape.cpp
- * \brief
+ * \brief InferShape and InferDataType implementation for ShapeN operator.
  */
 #include "register/op_impl_registry.h"
-#include "runtime/infer_shape_context.h"
+#include "exe_graph/runtime/infer_shape_context.h"
+#include "exe_graph/runtime/infer_datatype_context.h"
 #include "runtime/storage_shape.h"
+#include "log/log.h"
+#include "util/shape_util.h"
 
-using namespace gert;
+using namespace ge;
+
+namespace {
+// REG_OP(ShapeN) 中 dtype 为第 0 个（且唯一）Int 属性
+constexpr size_t kAttrDtypeIndex = 0U;
+} // namespace
+
 namespace ops {
-static ge::graphStatus InferShapeForShapeN(InferShapeContext *context) {
-  auto input_num = context->GetComputeNodeInputNum();
-  for (size_t i = 0U; i < input_num; ++i) {
-    auto x_shape = context->GetInputShape(i);
-    auto y_shape = context->GetOutputShape(i);
-    if ((x_shape == nullptr) || (y_shape == nullptr)) {
-      return ge::GRAPH_FAILED;
+static ge::graphStatus InferShapeForShapeN(gert::InferShapeContext* context)
+{
+    auto input_num = context->GetComputeNodeInputNum();
+    for (size_t i = 0U; i < input_num; ++i) {
+        auto x_shape = context->GetInputShape(i);
+        OP_CHECK_NULL_WITH_CONTEXT(context, x_shape);
+        auto y_shape = context->GetOutputShape(i);
+        OP_CHECK_NULL_WITH_CONTEXT(context, y_shape);
+        // 与 V1 行为对齐：输入为未知秩(-2)时，输出为一维未知形状 {-1}
+        if (Ops::Base::IsUnknownRank(*x_shape)) {
+            Ops::Base::SetUnknownShape(1, *y_shape);
+            continue;
+        }
+        y_shape->SetDimNum(1);
+        y_shape->SetDim(0, static_cast<int64_t>(x_shape->GetDimNum()));
     }
-    y_shape->SetDimNum(1);
-    y_shape->SetDim(0, static_cast<int64_t>(x_shape->GetDimNum()));
-  }
-  return ge::GRAPH_SUCCESS;
+    return ge::GRAPH_SUCCESS;
 }
 
-IMPL_OP_INFERSHAPE(ShapeN).InferShape(InferShapeForShapeN);
-}  // namespace ops
+static ge::graphStatus InferDataTypeForShapeN(gert::InferDataTypeContext* context)
+{
+    // 与 V1 行为对齐：dtype 为可选属性，缺省/读取失败时沿用 proto 默认值 DT_INT32
+    ge::DataType out_type = ge::DT_INT32;
+    const auto* attrs = context->GetAttrs();
+    const int64_t* dtype = nullptr;
+    if (attrs != nullptr) {
+        dtype = attrs->GetAttrPointer<int64_t>(kAttrDtypeIndex);
+    }
+    if (dtype != nullptr) {
+        out_type = static_cast<ge::DataType>(*dtype);
+    }
+    if ((out_type != ge::DT_INT32) && (out_type != ge::DT_INT64)) {
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "dtype",
+                                              std::to_string(static_cast<int64_t>(out_type)).c_str(),
+                                              "dtype must be DT_INT32 or DT_INT64");
+        return ge::GRAPH_FAILED;
+    }
+    auto output_num = context->GetComputeNodeOutputNum();
+    for (size_t i = 0U; i < output_num; ++i) {
+        const auto ret = context->SetOutputDataType(i, out_type);
+        if (ret != ge::GRAPH_SUCCESS) {
+            return ge::GRAPH_FAILED;
+        }
+    }
+    return ge::GRAPH_SUCCESS;
+}
 
+IMPL_OP_INFERSHAPE(ShapeN).InferShape(InferShapeForShapeN).InferDataType(InferDataTypeForShapeN);
+} // namespace ops

@@ -11,32 +11,79 @@
 #include <gtest/gtest.h>
 #include "register/op_impl_registry.h"
 #include "infershape_context_faker.h"
+#include "op_infer_datatype_context_builder.h"
 #include "base/registry/op_impl_space_registry_v2.h"
 
 class Rank_UT : public testing::Test {
 protected:
-    static void SetUpTestCase() {
-      std::cout << "Rank_UT SetUp" << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "Rank_UT SetUp" << std::endl; }
 
-    static void TearDownTestCase() {
-      std::cout << "Rank_UT TearDown" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "Rank_UT TearDown" << std::endl; }
 };
 
-TEST_F(Rank_UT, InferShape_succ) {
-  ASSERT_NE(gert::DefaultOpImplSpaceRegistryV2::GetInstance().GetSpaceRegistry()->GetOpImpl("Rank"), nullptr);
-  auto infer_shape_func = gert::DefaultOpImplSpaceRegistryV2::GetInstance().GetSpaceRegistry()->GetOpImpl("Rank")->infer_shape;
-  gert::StorageShape input_shape = {{1, 3, 4, 5}, {1, 3, 4, 5}};
-  gert::StorageShape output_shape = {{}, {}};
+// 迁移自源仓 Rank_UT.InferShape_succ：x {1,3,4,5}，输出为标量
+TEST_F(Rank_UT, InferShape_succ)
+{
+    ASSERT_NE(gert::DefaultOpImplSpaceRegistryV2::GetInstance().GetSpaceRegistry()->GetOpImpl("Rank"), nullptr);
+    auto infer_shape_func = gert::DefaultOpImplSpaceRegistryV2::GetInstance()
+                                .GetSpaceRegistry()
+                                ->GetOpImpl("Rank")
+                                ->infer_shape;
+    gert::StorageShape input_shape = {{1, 3, 4, 5}, {1, 3, 4, 5}};
+    gert::StorageShape output_shape = {{}, {}};
 
-  auto holder = gert::InferShapeContextFaker()
-                    .SetOpType("Rank")
-                    .NodeIoNum(1, 1)
-                    .InputTensors({(gert::Tensor *)&input_shape})
-                    .OutputShapes({&output_shape})
-                    .Build();
+    auto holder = gert::InferShapeContextFaker()
+                      .SetOpType("Rank")
+                      .NodeIoNum(1, 1)
+                      .InputTensors({(gert::Tensor*)&input_shape})
+                      .OutputShapes({&output_shape})
+                      .Build();
 
-  EXPECT_EQ(infer_shape_func(holder.GetContext()), ge::GRAPH_SUCCESS);
-  EXPECT_EQ(output_shape.GetOriginShape().IsScalar(), true);  
+    EXPECT_EQ(infer_shape_func(holder.GetContext()), ge::GRAPH_SUCCESS);
+    EXPECT_EQ(output_shape.GetOriginShape().IsScalar(), true);
+}
+
+// 边界场景：动态 shape 输入（含 -1 维度），输出仍为标量
+TEST_F(Rank_UT, InferShape_dynamic_input_succ)
+{
+    ASSERT_NE(gert::DefaultOpImplSpaceRegistryV2::GetInstance().GetSpaceRegistry()->GetOpImpl("Rank"), nullptr);
+    auto infer_shape_func = gert::DefaultOpImplSpaceRegistryV2::GetInstance()
+                                .GetSpaceRegistry()
+                                ->GetOpImpl("Rank")
+                                ->infer_shape;
+    gert::StorageShape input_shape = {{-1, 3}, {-1, 3}};
+    gert::StorageShape output_shape = {{}, {}};
+
+    auto holder = gert::InferShapeContextFaker()
+                      .SetOpType("Rank")
+                      .NodeIoNum(1, 1)
+                      .InputTensors({(gert::Tensor*)&input_shape})
+                      .OutputShapes({&output_shape})
+                      .Build();
+
+    EXPECT_EQ(infer_shape_func(holder.GetContext()), ge::GRAPH_SUCCESS);
+    EXPECT_EQ(output_shape.GetOriginShape().IsScalar(), true);
+}
+
+// InferDataType：输出 dtype 为固定的 DT_INT32（与 RT1.0 rank_infer_v1.cpp 一致）
+TEST_F(Rank_UT, InferDataType_succ)
+{
+    auto space_registry = gert::DefaultOpImplSpaceRegistryV2::GetInstance().GetSpaceRegistry();
+    ASSERT_NE(space_registry, nullptr);
+    auto op_impl = space_registry->GetOpImpl("Rank");
+    ASSERT_NE(op_impl, nullptr);
+    ASSERT_NE(op_impl->infer_datatype, nullptr);
+
+    gert::OpInferDataTypeContextBuilder builder;
+    builder.OpType("Rank").OpName("Rank");
+    builder.IONum(1, 1);
+    builder.InputTensorDesc(0, ge::DT_FLOAT, ge::FORMAT_ND, ge::FORMAT_ND);
+    builder.OutputTensorDesc(0, ge::FORMAT_ND, ge::FORMAT_ND);
+    auto context_holder = builder.Build();
+    auto* context = context_holder.GetContext();
+    ASSERT_NE(context, nullptr);
+
+    auto ret = op_impl->infer_datatype(context);
+    EXPECT_EQ(ret, ge::GRAPH_SUCCESS);
+    EXPECT_EQ(context->GetOutputDataType(0), ge::DT_INT32);
 }

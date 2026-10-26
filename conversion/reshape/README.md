@@ -7,7 +7,7 @@
 | <term>Ascend 950PR&950DT系列产品</term> | √ |
 | <term>Atlas A3系列产品</term> | √ |
 | <term>Atlas A2系列产品</term> | √ |
-| <term>Atlas 200I/500 A2推理产品</term> | × |
+| <term>Atlas 200I/500 A2推理产品</term> | √ |
 | <term>Atlas推理系列产品</term> | √ |
 | <term>Atlas训练系列产品</term> | √ |
 
@@ -38,45 +38,45 @@
    <td>x</td>
    <td>输入</td>
    <td>待重塑的输入张量。</td>
-   <td>BOOL, FLOAT, FLOAT16, INT8, INT16, UINT16, UINT8, INT32, INT64, UINT32, UINT64, DOUBLE, COMPLEX64, COMPLEX128, BF16</td>
-   <td>ND</td>
+    <td>BOOL, FLOAT16, FLOAT, INT4, INT8, UINT8, INT16, UINT16, INT32, UINT32, INT64, UINT64, DOUBLE, COMPLEX64</td>
+   <td>ND、FRACTAL_NZ</td>
   </tr>
   <tr>
    <td>shape</td>
    <td>输入</td>
-   <td>目标形状张量，支持一个 <code>-1</code>；默认模式下 <code>0</code> 表示复制对应输入维度。</td>
+    <td>目标形状张量，支持一个<code>-1</code>；allowzero为0时<code>0</code>表示复制对应输入维度。</td>
    <td>INT32, INT64</td>
    <td>1D</td>
   </tr>
-  <tr>
-   <td>axis</td>
-   <td>属性</td>
-   <td>起始替换维度，默认值为0。</td>
-   <td>INT</td>
-   <td>-</td>
-  </tr>
-  <tr>
-   <td>num_axes</td>
-   <td>属性</td>
-   <td>被替换的连续维度数，默认值为 -1。</td>
-   <td>INT</td>
-   <td>-</td>
-  </tr>
-  <tr>
+   <tr>
+    <td>axis</td>
+    <td>属性</td>
+    <td>起始替换维度，默认值为0。</td>
+    <td>INT</td>
+    <td>-</td>
+   </tr>
+   <tr>
+    <td>num_axes</td>
+     <td>属性</td>
+     <td>被替换的连续维度数，默认值为-1。</td>
+     <td>INT</td>
+     <td>-</td>
+    </tr>
+    <tr>
    <td>y</td>
    <td>输出</td>
    <td>重塑后的输出张量，数据类型与输入x相同。</td>
    <td>与x相同</td>
-   <td>ND</td>
+   <td>ND、FRACTAL_NZ</td>
   </tr>
- </tbody>
-</table>
+  </tbody>
+ </table>
 
 ## 约束说明
 
 - 输出元素总数必须与输入元素总数一致。
-- shape中最多只能出现一个 <code>-1</code>。
-- 当allowzero未设置或为0时，shape中的 <code>0</code> 会复制对应输入维度；当allowzero为1时，<code>0</code> 按字面值参与计算。
+- shape中最多只能出现一个<code>-1</code>。
+- 当allowzero为0时，shape中的<code>0</code>会复制对应输入维度；当allowzero未设置或为非0值时，<code>0</code>按字面值参与计算。
 
 ## 调用说明
 

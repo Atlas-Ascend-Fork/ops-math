@@ -58,7 +58,11 @@ if(NOT "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     string(APPEND OPS_MATH_CXX_FLAGS " -Werror")
   endif()
   string(APPEND OPS_MATH_CXX_FLAGS " -Wno-error=deprecated-declarations")
-  string(APPEND OPS_MATH_CXX_FLAGS " -Wno-class-memaccess")
+  # -Wclass-memaccess 由 GCC 8 引入；旧版 GCC（如 7.3.1）在编译单元产生其他诊断时
+  # 会把未知的 -Wno-class-memaccess 报为错误（-Werror 下直接失败），因此仅在 GCC>=8 时追加该选项
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 8.0)
+    string(APPEND OPS_MATH_CXX_FLAGS " -Wno-class-memaccess")
+  endif()
   string(APPEND OPS_MATH_CXX_FLAGS " -Wformat-signedness")
 endif()
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OPS_MATH_CXX_FLAGS}")

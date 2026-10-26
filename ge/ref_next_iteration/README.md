@@ -1,0 +1,63 @@
+# RefNextIteration
+
+## 产品支持情况
+
+| 产品                                                         | 是否支持 |
+| :----------------------------------------------------------- | :------: |
+| <term>Ascend 950PR&950DT系列产品</term>                             |    √     |
+| <term>Atlas A3系列产品</term>     |    √     |
+| <term>Atlas A2系列产品</term> |    √     |
+| <term>Atlas 200I/500 A2推理产品</term>                      |    √     |
+| <term>Atlas推理系列产品</term>                             |    √     |
+| <term>Atlas训练系列产品</term>                              |    √     |
+
+## 功能说明
+
+使输入张量在循环的下一次迭代中可用。RefNextIteration算子作为循环控制流算子，将可被引用覆盖的输入张量x传递给下一次迭代，用于while循环中迭代间传递变量状态。输出张量y与输入张量x具有相同的形状和数据类型。
+
+## 参数说明
+
+<table style="undefined;table-layout: fixed; width: 996px"><colgroup>
+  <col style="width: 102px">
+  <col style="width: 168px">
+  <col style="width: 203px">
+  <col style="width: 403px">
+  <col style="width: 120px">
+  </colgroup>
+  <thead>
+    <tr>
+      <th>参数名</th>
+      <th>输入/输出/属性</th>
+      <th>描述</th>
+      <th>数据类型</th>
+      <th>数据格式</th>
+    </tr></thead>
+  <tbody>
+    <tr>
+      <td>x</td>
+      <td>输入</td>
+      <td>输入张量。需要在下一次迭代中可用的可被引用覆盖的张量。</td>
+      <td>float16、float32、float64、int8、int16、int32、int64、uint8、uint16、uint32、uint64、bool</td>
+      <td>ND</td>
+    </tr>
+    <tr>
+      <td>y</td>
+      <td>输出</td>
+      <td>与输入张量x具有相同形状和数据类型的张量。</td>
+      <td>float16、float32、float64、int8、int16、int32、int64、uint8、uint16、uint32、uint64、bool</td>
+      <td>ND</td>
+    </tr>
+
+  </tbody></table>
+
+## 约束说明
+
+- 输出张量y的数据类型和形状必须与输入张量x一致。
+
+## 调用说明
+
+RefNextIteration算子为控制流算子，通常与Enter、Exit算子配合使用在图中创建循环，用于迭代间传递变量状态，不单独调用。
+
+| 调用方式 | 调用样例 | 说明 |
+|---------|---------|------|
+| 图模式调用 | [test_geir_ref_next_iteration](./examples/test_geir_ref_next_iteration.cpp) | 通过[算子IR](./op_graph/ref_next_iteration_proto.h)构图方式调用RefNextIteration算子 |
