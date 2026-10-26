@@ -12,6 +12,7 @@
  * \file unsqueezev3_infershape.cpp
  * \brief InferShape and InferDataType implementation for UnsqueezeV3 operator.
  */
+#include <string>
 #include "register/op_impl_registry.h"
 #include "exe_graph/runtime/infer_shape_context.h"
 #include "exe_graph/runtime/infer_datatype_context.h"
@@ -28,8 +29,8 @@ ge::graphStatus UnsqueezeImpl(const gert::Shape* x_shape, const int64_t* axes_da
 {
     const auto out_dim_size = x_shape->GetDimNum() + axes_size;
     if (out_dim_size > gert::Shape::kMaxDimNum) {
-        OP_LOGE("UnsqueezeV3", "DimNum of output shape is %zu, larger than kMaxDimNum which is %zu!", out_dim_size,
-                gert::Shape::kMaxDimNum);
+        OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON("UnsqueezeV3", "y", std::to_string(out_dim_size).c_str(),
+                                                 "DimNum of output shape must be less than or equal to kMaxDimNum");
         return ge::GRAPH_FAILED;
     }
     bool insert_dims[gert::Shape::kMaxDimNum] = {false};
@@ -37,12 +38,16 @@ ge::graphStatus UnsqueezeImpl(const gert::Shape* x_shape, const int64_t* axes_da
         const auto raw_axis = axes_data[idx];
         const auto real_axis = (raw_axis < 0) ? (raw_axis + static_cast<int64_t>(out_dim_size)) : raw_axis;
         if ((real_axis < 0) || (real_axis >= static_cast<int64_t>(out_dim_size))) {
-            OP_LOGE("UnsqueezeV3", "UnsqueezeV3 axes[%ld] must be in range [-%zu, %zu)!", raw_axis, out_dim_size,
-                    out_dim_size);
+            OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                "UnsqueezeV3", "axes", std::to_string(raw_axis).c_str(),
+                ("Each value of axes must be in the range of [-" + std::to_string(out_dim_size) + ", " +
+                 std::to_string(out_dim_size) + ")")
+                    .c_str());
             return ge::GRAPH_FAILED;
         }
         if (insert_dims[real_axis]) {
-            OP_LOGE("UnsqueezeV3", "UnsqueezeV3 axes[%ld] repeated!", raw_axis);
+            OP_LOGE_FOR_INVALID_VALUE_WITH_REASON("UnsqueezeV3", "axes", std::to_string(raw_axis).c_str(),
+                                                  "The values of axes must not be duplicated");
             return ge::GRAPH_FAILED;
         }
         insert_dims[real_axis] = true;
@@ -66,9 +71,18 @@ static ge::graphStatus InferShapeForUnsqueezeV3(gert::InferShapeContext* context
     const auto x_shape = context->GetInputShape(0U);
     auto y_shape = context->GetOutputShape(0U);
     const auto axes = context->GetInputTensor(1U);
-    OP_CHECK_NULL_WITH_CONTEXT(context, x_shape);
-    OP_CHECK_NULL_WITH_CONTEXT(context, y_shape);
-    OP_CHECK_NULL_WITH_CONTEXT(context, axes);
+    if (x_shape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x.shape");
+        return ge::GRAPH_FAILED;
+    }
+    if (y_shape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "y.shape");
+        return ge::GRAPH_FAILED;
+    }
+    if (axes == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "axes");
+        return ge::GRAPH_FAILED;
+    }
 
     // case 1: input shape is unknown rank(-2), output shape is unknown rank
     if ((x_shape->GetDimNum() == 1U) && (x_shape->GetDim(0U) == ge::UNKNOWN_DIM_NUM)) {
@@ -81,7 +95,9 @@ static ge::graphStatus InferShapeForUnsqueezeV3(gert::InferShapeContext* context
     // the axes input is constrained to DT_INT64 by the proto, other dtypes would be misread as
     // int64 and cause misparse or out of range access
     if (axes->GetDataType() != ge::DT_INT64) {
-        OP_LOGE(context, "Data type of axes input is %d, must be DT_INT64!", static_cast<int32_t>(axes->GetDataType()));
+        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON("UnsqueezeV3", "axes",
+                                              std::to_string(static_cast<int32_t>(axes->GetDataType())).c_str(),
+                                              "dtype of the axes input must be DT_INT64");
         return ge::GRAPH_FAILED;
     }
 

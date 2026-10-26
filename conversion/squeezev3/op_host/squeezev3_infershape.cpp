@@ -12,6 +12,7 @@
  * \file squeezev3_infershape.cpp
  * \brief InferShape and InferDataType implementation for SqueezeV3 operator.
  */
+#include <string>
 #include "register/op_impl_registry.h"
 #include "exe_graph/runtime/infer_shape_context.h"
 #include "exe_graph/runtime/infer_datatype_context.h"
@@ -53,10 +54,10 @@ ge::graphStatus SqueezeImpl(const gert::Shape* x_shape, const bool* squeeze_dims
         if (!squeeze) {
             y_shape->AppendDim(x_shape_dim);
         } else if ((x_shape_dim != 1) && (x_shape_dim != ge::UNKNOWN_DIM)) {
-            OP_LOGE("SqueezeV3",
-                    "SqueezeV3 failed, cannot squeeze dim which was not 1 or -1! Axes is %zu, "
-                    "while x_shape[%zu]=%ld.",
-                    idx, idx, x_shape_dim);
+            OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON(
+                "SqueezeV3", "x",
+                ("dimension " + std::to_string(idx) + " has size " + std::to_string(x_shape_dim)).c_str(),
+                "dimensions selected by axes must have size 1 or be unknown (-1)");
             return ge::GRAPH_FAILED;
         }
     }
@@ -71,7 +72,9 @@ bool GetSqueezeDims(const gert::Shape* x_shape, const int64_t* axes_data, const 
         const auto raw_axis = axes_data[idx];
         const auto real_axis = (raw_axis < 0) ? (raw_axis + x_dim_num) : raw_axis;
         if ((real_axis < 0) || (real_axis >= x_dim_num)) {
-            OP_LOGE("SqueezeV3", "SqueezeV3 axes[%ld] must be in range [-%ld, %ld)!", raw_axis, x_dim_num, x_dim_num);
+            OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                "SqueezeV3", "axes", std::to_string(raw_axis).c_str(),
+                ("axes must be in [" + std::to_string(-x_dim_num) + ", " + std::to_string(x_dim_num) + ")").c_str());
             return false;
         }
         squeeze_dims[real_axis] = true;
@@ -84,8 +87,14 @@ static ge::graphStatus InferShapeForSqueezeV3(gert::InferShapeContext* context)
 {
     const auto x_shape = context->GetInputShape(0U);
     auto y_shape = context->GetOutputShape(0U);
-    OP_CHECK_NULL_WITH_CONTEXT(context, x_shape);
-    OP_CHECK_NULL_WITH_CONTEXT(context, y_shape);
+    if (x_shape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x.shape");
+        return ge::GRAPH_FAILED;
+    }
+    if (y_shape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "y.shape");
+        return ge::GRAPH_FAILED;
+    }
 
     // case 1: input shape is unknown rank(-2), output shape is unknown rank
     if (IsUnknownRank(*x_shape)) {
@@ -97,7 +106,9 @@ static ge::graphStatus InferShapeForSqueezeV3(gert::InferShapeContext* context)
     // the axes input is constrained to DT_INT64 by the proto, other dtypes would be misread as
     // int64 and cause misparse or out of range access
     if ((axes != nullptr) && (axes->GetDataType() != ge::DT_INT64)) {
-        OP_LOGE(context, "Data type of axes input is %d, must be DT_INT64!", static_cast<int32_t>(axes->GetDataType()));
+        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON("SqueezeV3", "axes",
+                                              std::to_string(static_cast<int32_t>(axes->GetDataType())).c_str(),
+                                              "dtype of the axes input must be DT_INT64");
         return ge::GRAPH_FAILED;
     }
     const auto axes_data = (axes == nullptr) ? nullptr : static_cast<const int64_t*>(axes->GetTensorData().GetAddr());

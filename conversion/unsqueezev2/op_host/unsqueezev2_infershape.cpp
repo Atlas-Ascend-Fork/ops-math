@@ -12,6 +12,7 @@
  * \file unsqueezev2_infershape.cpp
  * \brief InferShape and InferDataType implementation for UnsqueezeV2 operator.
  */
+#include <string>
 #include "register/op_impl_registry.h"
 #include "exe_graph/runtime/infer_shape_context.h"
 #include "exe_graph/runtime/infer_datatype_context.h"
@@ -40,8 +41,8 @@ ge::graphStatus UnsqueezeImpl(const gert::Shape* x_shape, const gert::TypedConti
     const auto x_dim_num = x_shape->GetDimNum();
     const auto y_dim_num = x_dim_num + axes->GetSize();
     if (y_dim_num > gert::Shape::kMaxDimNum) {
-        OP_LOGE("UnsqueezeV2", "DimNum of output shape is %zu, larger than kMaxDimNum which is %zu!", y_dim_num,
-                gert::Shape::kMaxDimNum);
+        OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON("UnsqueezeV2", "y", std::to_string(y_dim_num).c_str(),
+                                                 "DimNum of output shape must be less than or equal to kMaxDimNum");
         return ge::GRAPH_FAILED;
     }
     y_shape->SetDimNum(y_dim_num);
@@ -53,12 +54,16 @@ ge::graphStatus UnsqueezeImpl(const gert::Shape* x_shape, const gert::TypedConti
         const auto raw_axis = axes->GetData()[i];
         const auto real_axis = (raw_axis < 0) ? (raw_axis + signed_y_dim_num) : raw_axis;
         if ((real_axis < 0) || (real_axis >= signed_y_dim_num)) {
-            OP_LOGE("UnsqueezeV2", "UnsqueezeV2 axis[%ld] is not in range [-%ld, %ld)!", raw_axis, signed_y_dim_num,
-                    signed_y_dim_num);
+            OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                "UnsqueezeV2", "axis", std::to_string(raw_axis).c_str(),
+                ("Each value of axis must be in the range of [-" + std::to_string(signed_y_dim_num) + ", " +
+                 std::to_string(signed_y_dim_num) + ")")
+                    .c_str());
             return ge::GRAPH_FAILED;
         }
         if (y_shape->GetDim(real_axis) == 1) {
-            OP_LOGE("UnsqueezeV2", "UnsqueezeV2 axis repeated!");
+            OP_LOGE_FOR_INVALID_VALUE_WITH_REASON("UnsqueezeV2", "axis", std::to_string(raw_axis).c_str(),
+                                                  "The values of axis must not be duplicated");
             return ge::GRAPH_FAILED;
         }
         y_shape->SetDim(real_axis, 1);
@@ -80,8 +85,14 @@ static ge::graphStatus InferShapeForUnsqueezeV2(gert::InferShapeContext* context
     const auto x_shape = context->GetInputShape(0U);
     auto y_shape = context->GetOutputShape(0U);
     const gert::RuntimeAttrs* attrs = context->GetAttrs();
-    OP_CHECK_NULL_WITH_CONTEXT(context, x_shape);
-    OP_CHECK_NULL_WITH_CONTEXT(context, y_shape);
+    if (x_shape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x.shape");
+        return ge::GRAPH_FAILED;
+    }
+    if (y_shape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "y.shape");
+        return ge::GRAPH_FAILED;
+    }
     OP_CHECK_NULL_WITH_CONTEXT(context, attrs);
     const auto axes = attrs->GetListInt(0U);
     // the axis attr is not set, GetListInt returns nullptr: same as an explicit empty list,

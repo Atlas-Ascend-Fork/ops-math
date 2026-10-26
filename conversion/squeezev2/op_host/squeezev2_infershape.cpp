@@ -13,6 +13,7 @@
  * \brief InferShape and InferDataType implementation for SqueezeV2 operator.
  */
 #include <algorithm>
+#include <string>
 #include <vector>
 
 #include "register/op_impl_registry.h"
@@ -56,10 +57,10 @@ ge::graphStatus SqueezeImpl(const gert::Shape* x_shape, const bool* squeeze_dims
         if (!squeeze) {
             y_shape->AppendDim(x_shape_dim);
         } else if ((x_shape_dim != 1) && (x_shape_dim != ge::UNKNOWN_DIM)) {
-            OP_LOGE("SqueezeV2",
-                    "SqueezeV2 failed, cannot squeeze dim which was not 1 or -1! Axes is %zu, "
-                    "while x_shape[%zu]=%ld.",
-                    idx, idx, x_shape_dim);
+            OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON(
+                "SqueezeV2", "x",
+                ("dimension " + std::to_string(idx) + " has size " + std::to_string(x_shape_dim)).c_str(),
+                "dimensions selected by axis must have size 1 or be unknown (-1)");
             return ge::GRAPH_FAILED;
         }
     }
@@ -98,8 +99,14 @@ static ge::graphStatus InferShapeForSqueezeV2(gert::InferShapeContext* context)
     const auto x_shape = context->GetInputShape(0U);
     auto y_shape = context->GetOutputShape(0U);
     const gert::RuntimeAttrs* attrs = context->GetAttrs();
-    OP_CHECK_NULL_WITH_CONTEXT(context, x_shape);
-    OP_CHECK_NULL_WITH_CONTEXT(context, y_shape);
+    if (x_shape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x.shape");
+        return ge::GRAPH_FAILED;
+    }
+    if (y_shape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "y.shape");
+        return ge::GRAPH_FAILED;
+    }
     OP_CHECK_NULL_WITH_CONTEXT(context, attrs);
     const auto axes = attrs->GetListInt(0U);
     // the axis attr is not set, GetListInt returns nullptr: same as an explicit empty list,
