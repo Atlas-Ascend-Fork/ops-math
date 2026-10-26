@@ -19,6 +19,11 @@ using namespace ge;
 
 namespace ops {
 
+static inline bool IsUnknownRankShape(const gert::Shape* shape)
+{
+    return shape->GetDimNum() == 1U && shape->GetDim(0) == -2;
+}
+
 static ge::graphStatus InferShape4AccumulateNV2(gert::InferShapeContext* context)
 {
     auto attrs = context->GetAttrs();
@@ -26,13 +31,64 @@ static ge::graphStatus InferShape4AccumulateNV2(gert::InferShapeContext* context
     const int64_t* attrN = attrs->GetAttrPointer<int64_t>(0);
     OP_CHECK_NULL_WITH_CONTEXT(context, attrN);
     OP_CHECK_IF(*attrN < 1, OP_LOGE(context, "attr N must be >= 1, but got %ld", *attrN), return ge::GRAPH_FAILED);
-    auto ret = Ops::Base::InferShape4Broadcast(context, static_cast<size_t>(*attrN));
-    if (ret != ge::GRAPH_SUCCESS) {
-        return ret;
+    const size_t inputNum = context->GetComputeNodeInputNum();
+    OP_CHECK_IF(static_cast<int64_t>(inputNum) != *attrN,
+                OP_LOGE(context, "attr N must be equal to the actual input count, but got N: %ld, input count: %zu",
+                        *attrN, inputNum),
+                return ge::GRAPH_FAILED);
+
+    // The operator itself does not support broadcast: every input must share the
+    // first input's shape. aclnnSum performs its own BroadcastTo alignment in
+    // op_api before the inner operator is composed, so aligned calls still pass.
+    // Dynamic-shape markers keep their inference-time semantics: -2 (unknown
+    // rank) inputs are runtime-determined and skipped; -1 (unknown dim) is a
+    // wildcard that resolves against the first concrete value seen for that
+    // dim (output keeps the resolved dim), and two different concrete values
+    // for the same dim fail (tiling independently rejects non-concrete shapes).
+    auto firstShape = context->GetInputShape(0);
+    OP_CHECK_NULL_WITH_CONTEXT(context, firstShape);
+    const bool firstUnknownRank = IsUnknownRankShape(firstShape);
+    std::vector<int64_t> resolved(firstShape->GetDimNum());
+    for (size_t d = 0; d < firstShape->GetDimNum(); ++d) {
+        resolved[d] = firstShape->GetDim(d);
+    }
+    for (size_t i = 1; i < inputNum; ++i) {
+        auto inputShape = context->GetInputShape(i);
+        OP_CHECK_NULL_WITH_CONTEXT(context, inputShape);
+        if (firstUnknownRank || IsUnknownRankShape(inputShape)) {
+            continue;
+        }
+        OP_CHECK_IF(inputShape->GetDimNum() != firstShape->GetDimNum(),
+                    OP_LOGE(context,
+                            "input[%zu] rank %zu differs from input[0] rank %zu, broadcast is not supported, but got "
+                            "input[%zu] shape %s and input[0] shape %s",
+                            i, inputShape->GetDimNum(), firstShape->GetDimNum(), i,
+                            Ops::Base::ToString(*inputShape).c_str(), Ops::Base::ToString(*firstShape).c_str()),
+                    return ge::GRAPH_FAILED);
+        for (size_t d = 0; d < firstShape->GetDimNum(); ++d) {
+            const int64_t inputDim = inputShape->GetDim(d);
+            if (inputDim == -1) {
+                continue;
+            }
+            if (resolved[d] == -1) {
+                resolved[d] = inputDim;
+                continue;
+            }
+            OP_CHECK_IF(inputDim != resolved[d],
+                        OP_LOGE(context,
+                                "input[%zu] dim[%zu] is %ld, differs from resolved dim[%zu] %ld, broadcast is not "
+                                "supported",
+                                i, d, inputDim, d, resolved[d]),
+                        return ge::GRAPH_FAILED);
+        }
     }
 
     auto outputShape = context->GetOutputShape(0);
     OP_CHECK_NULL_WITH_CONTEXT(context, outputShape);
+    *outputShape = *firstShape;
+    for (size_t d = 0; d < firstShape->GetDimNum(); ++d) {
+        outputShape->SetDim(d, resolved[d]);
+    }
     OP_LOGI(context->GetNodeName(), "[InferShape] output0 shape=%s", Ops::Base::ToString(*outputShape).c_str());
     return ge::GRAPH_SUCCESS;
 }

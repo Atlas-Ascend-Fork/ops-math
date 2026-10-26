@@ -30,18 +30,13 @@ static Status ParseParamsSum(const Message* op_src, ge::Operator& op_dest)
 }
 
 REGISTER_CUSTOM_OP("AccumulateNV2")
-  .FrameworkType(ONNX)
-  .OriginOpType({ge::AscendString("ai.onnx::8::Sum"),
-                 ge::AscendString("ai.onnx::9::Sum"),
-                 ge::AscendString("ai.onnx::10::Sum"),
-                 ge::AscendString("ai.onnx::11::Sum"),
-                 ge::AscendString("ai.onnx::12::Sum"),
-                 ge::AscendString("ai.onnx::13::Sum"),
-                 ge::AscendString("ai.onnx::14::Sum"),
-                 ge::AscendString("ai.onnx::15::Sum"),
-                 ge::AscendString("ai.onnx::16::Sum"),
-                 ge::AscendString("ai.onnx::17::Sum"),
-                 ge::AscendString("ai.onnx::18::Sum")})
-  .ParseParamsFn(ParseParamsSum)
-  .ImplyType(ImplyType::TVM);
-}  // namespace domi
+    .FrameworkType(ONNX)
+    .OriginOpType({ge::AscendString("ai.onnx::8::Sum"), ge::AscendString("ai.onnx::9::Sum"),
+                   ge::AscendString("ai.onnx::10::Sum"), ge::AscendString("ai.onnx::11::Sum"),
+                   ge::AscendString("ai.onnx::12::Sum"), ge::AscendString("ai.onnx::13::Sum"),
+                   ge::AscendString("ai.onnx::14::Sum"), ge::AscendString("ai.onnx::15::Sum"),
+                   ge::AscendString("ai.onnx::16::Sum"), ge::AscendString("ai.onnx::17::Sum"),
+                   ge::AscendString("ai.onnx::18::Sum")})
+    .ParseParamsFn(ParseParamsSum)
+    .ImplyType(ImplyType::TVM);
+} // namespace domi

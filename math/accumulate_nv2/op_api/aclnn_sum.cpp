@@ -58,6 +58,14 @@ static bool CheckDtypeValid(const aclTensorList* tensors, const aclTensor* out)
         }
     }
     OP_CHECK_DTYPE_NOT_SUPPORT(out, DTYPE_SUPPORT_LIST, return false);
+    for (uint64_t i = 0; i < tensors->Size(); i++) {
+        if ((*tensors)[i]->GetDataType() != out->GetDataType()) {
+            OP_LOGE(ACLNN_ERR_PARAM_INVALID, "tensors[%lu] dtype %s is not the same as out dtype %s.", i,
+                    op::ToString((*tensors)[i]->GetDataType()).GetString(),
+                    op::ToString(out->GetDataType()).GetString());
+            return false;
+        }
+    }
     return true;
 }
 

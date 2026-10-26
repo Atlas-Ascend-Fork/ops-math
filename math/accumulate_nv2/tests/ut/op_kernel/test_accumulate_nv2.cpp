@@ -262,9 +262,10 @@ TEST_F(AccumulateNV2KernelTest, test_float32_2inputs_double_buffer)
     AscendC::GmFree(tiling);
 }
 
-// float32 uses compensated sequential accumulation so a small term is not
-// lost permanently when later inputs cancel a much larger partial sum.
-TEST_F(AccumulateNV2KernelTest, test_float32_compensated_cancellation)
+// float32 uses TensorFlow-compatible sequential summation: 1e8 + 1 rounds back
+// to 1e8 (ulp(1e8) = 8), the -1e8 term then cancels the partial sum to 0 and
+// only the trailing 3 survives.
+TEST_F(AccumulateNV2KernelTest, test_float32_sequential_cancellation)
 {
     constexpr int32_t INPUT_NUM = 4;
     constexpr int64_t TOTAL_NUM = 32;
@@ -289,11 +290,6 @@ TEST_F(AccumulateNV2KernelTest, test_float32_compensated_cancellation)
     td->blockFactor = TOTAL_NUM;
     td->ubFactor = TOTAL_NUM;
     td->inputNum = INPUT_NUM;
-    td->rank = 1;
-    td->outputShape[0] = TOTAL_NUM;
-    for (int32_t i = 0; i < INPUT_NUM; ++i) {
-        td->inputStrides[i][0] = 1;
-    }
 
     ICPU_SET_TILING_KEY(0UL);
     AscendC::SetKernelMode(KernelMode::AIV_MODE);
@@ -301,7 +297,7 @@ TEST_F(AccumulateNV2KernelTest, test_float32_compensated_cancellation)
 
     auto* result = reinterpret_cast<float*>(y);
     for (int64_t j = 0; j < TOTAL_NUM; ++j) {
-        EXPECT_FLOAT_EQ(result[j], 4.0f);
+        EXPECT_FLOAT_EQ(result[j], 3.0f);
     }
 
     builder.Free();
@@ -476,59 +472,8 @@ TEST_F(AccumulateNV2KernelTest, test_float32_4inputs_unaligned_tail)
     AscendC::GmFree(tiling);
 }
 
-// float32 broadcast: [2, 1] + [1, 3] => [2, 3]
-TEST_F(AccumulateNV2KernelTest, test_float32_broadcast)
-{
-    constexpr int32_t INPUT_NUM = 2;
-    constexpr int64_t TOTAL_NUM = 6;
-
-    TensorListBuilder builder;
-    float* input0 = (float*)AscendC::GmAlloc(2 * sizeof(float));
-    input0[0] = 1.0f;
-    input0[1] = 2.0f;
-    builder.tensors.push_back((uint8_t*)input0);
-    float* input1 = (float*)AscendC::GmAlloc(3 * sizeof(float));
-    input1[0] = 10.0f;
-    input1[1] = 20.0f;
-    input1[2] = 30.0f;
-    builder.tensors.push_back((uint8_t*)input1);
-
-    uint8_t* x = builder.Build(INPUT_NUM);
-    uint8_t* y = (uint8_t*)AscendC::GmAlloc(TOTAL_NUM * sizeof(float));
-    memset(y, 0, TOTAL_NUM * sizeof(float));
-    uint8_t* workspace = (uint8_t*)AscendC::GmAlloc(1024);
-    uint8_t* tiling = (uint8_t*)AscendC::GmAlloc(sizeof(AccumulateNV2TilingData));
-    auto* td = reinterpret_cast<AccumulateNV2TilingData*>(tiling);
-    td->totalNum = TOTAL_NUM;
-    td->blockFactor = TOTAL_NUM;
-    td->ubFactor = 32;
-    td->inputNum = INPUT_NUM;
-    td->rank = 2;
-    td->needBroadcast = 1;
-    td->outputShape[0] = 2;
-    td->outputShape[1] = 3;
-    td->inputStrides[0][0] = 1;
-    td->inputStrides[0][1] = 0;
-    td->inputStrides[1][0] = 0;
-    td->inputStrides[1][1] = 1;
-
-    ICPU_SET_TILING_KEY(0UL);
-    AscendC::SetKernelMode(KernelMode::AIV_MODE);
-    ICPU_RUN_KF(kernel_accumulate_nv2_float_single, 1, x, y, workspace, tiling);
-
-    const float expected[TOTAL_NUM] = {11.0f, 21.0f, 31.0f, 12.0f, 22.0f, 32.0f};
-    auto* result = reinterpret_cast<float*>(y);
-    for (int64_t j = 0; j < TOTAL_NUM; ++j) {
-        EXPECT_FLOAT_EQ(result[j], expected[j]);
-    }
-
-    builder.Free();
-    AscendC::GmFree(y);
-    AscendC::GmFree(workspace);
-    AscendC::GmFree(tiling);
-}
-
-// FP16 inputs are converted to FP32 before accumulation and cast back once.
+// FP16 inputs are promoted to FP32 before accumulation and cast back once:
+// 2048 + 1 + 1 = 2050 survives the single rounding exactly.
 TEST_F(AccumulateNV2KernelTest, test_float16_promote_before_accumulate)
 {
     constexpr int32_t INPUT_NUM = 3;
@@ -553,11 +498,6 @@ TEST_F(AccumulateNV2KernelTest, test_float16_promote_before_accumulate)
     td->blockFactor = TOTAL_NUM;
     td->ubFactor = 32;
     td->inputNum = INPUT_NUM;
-    td->rank = 1;
-    td->outputShape[0] = TOTAL_NUM;
-    for (int32_t i = 0; i < INPUT_NUM; ++i) {
-        td->inputStrides[i][0] = 1;
-    }
 
     ICPU_SET_TILING_KEY(0UL);
     AscendC::SetKernelMode(KernelMode::AIV_MODE);
@@ -566,6 +506,49 @@ TEST_F(AccumulateNV2KernelTest, test_float16_promote_before_accumulate)
     auto* result = reinterpret_cast<half*>(y);
     for (int64_t j = 0; j < TOTAL_NUM; ++j) {
         EXPECT_FLOAT_EQ(static_cast<float>(result[j]), 2050.0f);
+    }
+
+    builder.Free();
+    AscendC::GmFree(y);
+    AscendC::GmFree(workspace);
+    AscendC::GmFree(tiling);
+}
+
+// fp16, 4 inputs of 15 elements: verifies the Cast-based promote pipeline on a
+// non-32-byte-aligned tail (currentNum not a multiple of the vector block).
+TEST_F(AccumulateNV2KernelTest, test_float16_4inputs_unaligned_tail)
+{
+    constexpr int32_t INPUT_NUM = 4;
+    constexpr int64_t TOTAL_NUM = 15;
+    const float values[INPUT_NUM] = {1.5f, 2.25f, 3.0f, 4.0f};
+
+    TensorListBuilder builder;
+    for (int32_t i = 0; i < INPUT_NUM; ++i) {
+        half* tensor = (half*)AscendC::GmAlloc(TOTAL_NUM * sizeof(half));
+        for (int64_t j = 0; j < TOTAL_NUM; ++j) {
+            tensor[j] = static_cast<half>(values[i]);
+        }
+        builder.tensors.push_back((uint8_t*)tensor);
+    }
+    uint8_t* x = builder.Build(INPUT_NUM);
+    uint8_t* y = (uint8_t*)AscendC::GmAlloc(TOTAL_NUM * sizeof(half));
+    memset(y, 0, TOTAL_NUM * sizeof(half));
+    uint8_t* workspace = (uint8_t*)AscendC::GmAlloc(1024);
+    uint8_t* tiling = (uint8_t*)AscendC::GmAlloc(sizeof(AccumulateNV2TilingData));
+    auto* td = reinterpret_cast<AccumulateNV2TilingData*>(tiling);
+    memset(td, 0, sizeof(AccumulateNV2TilingData));
+    td->totalNum = TOTAL_NUM;
+    td->blockFactor = TOTAL_NUM;
+    td->ubFactor = 8;
+    td->inputNum = INPUT_NUM;
+
+    ICPU_SET_TILING_KEY(0UL);
+    AscendC::SetKernelMode(KernelMode::AIV_MODE);
+    ICPU_RUN_KF(kernel_accumulate_nv2_half_single, 1, x, y, workspace, tiling);
+
+    auto* result = reinterpret_cast<half*>(y);
+    for (int64_t j = 0; j < TOTAL_NUM; ++j) {
+        EXPECT_FLOAT_EQ(static_cast<float>(result[j]), 10.75f);
     }
 
     builder.Free();

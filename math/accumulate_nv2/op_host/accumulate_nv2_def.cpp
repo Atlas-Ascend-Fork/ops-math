@@ -29,9 +29,7 @@ public:
             .Format({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})
             .AutoContiguous();
-        this->Attr("N")
-            .AttrType(REQUIRED)
-            .Int();
+        this->Attr("N").AttrType(REQUIRED).Int();
 
         OpAICoreConfig aiCoreConfig;
         aiCoreConfig.DynamicCompileStaticFlag(true)
@@ -40,7 +38,7 @@ public:
             .DynamicShapeSupportFlag(true)
             .NeedCheckSupportFlag(false)
             .PrecisionReduceFlag(true)
-            .ExtendCfgInfo("opFile.value", "accumulate_nv2_apt");
+            .ExtendCfgInfo("opFile.value", "accumulate_nv2");
         this->AICore().AddConfig("ascend950", aiCoreConfig);
     }
 };

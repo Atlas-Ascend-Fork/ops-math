@@ -83,7 +83,7 @@ aclnnStatus aclnnSum(
       <td>tensors（aclTensorList*）</td>
       <td>输入</td>
       <td>需要求和的输入tensor列表，公式中的tensors<sub>i</sub>表示列表中的第i个tensor。</td>
-      <td>需要与out数据类型相同。tensors中各tensor的shape需要与out满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>。</td>
+      <td>需要与out数据类型相同。tensors中各tensor的shape需要与out满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>。支持空Tensor（shape含0轴）。</td>
       <td>FLOAT16、FLOAT、INT8、INT32、UINT8</td>
       <td>ND</td>
       <td>不大于8</td>
@@ -93,7 +93,7 @@ aclnnStatus aclnnSum(
       <td>out（aclTensor*）</td>
       <td>输出</td>
       <td>求和结果tensor，公式中的out。</td>
-      <td>需要与tensors数据类型相同。shape需要与tensors中各tensor的shape满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>。</td>
+      <td>需要与tensors数据类型相同。shape需要与tensors中各tensor的shape满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>。支持空Tensor（shape含0轴，此时输出为空Tensor）。</td>
       <td>FLOAT、FLOAT16、INT8、INT32、UINT8</td>
       <td>ND</td>
       <td>-</td>
@@ -140,20 +140,29 @@ aclnnStatus aclnnSum(
     </tr></thead>
   <tbody>
     <tr>
-      <td>ACLNN_ERR_PARAM_NULLPTR</td>
-      <td>161001</td>
+      <td rowspan="2">ACLNN_ERR_PARAM_NULLPTR</td>
+      <td rowspan="2">161001</td>
       <td>传入的tensors或out是空指针时。</td>
     </tr>
     <tr>
-      <td rowspan="3">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="3">161002</td>
+      <td>tensors列表中存在空指针元素时。</td>
+    </tr>
+    <tr>
+      <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="5">161002</td>
       <td>tensors列表中tensor或out的数据类型不在支持的范围之内。</td>
     </tr>
     <tr>
       <td>tensors列表和out的数据类型不一致。</td>
     </tr>
     <tr>
+      <td>传入空的TensorList（tensors->Size()==0）。</td>
+    </tr>
+    <tr>
       <td>tensors和out的shape不满足broadcast规则，或者broadcast后的shape与out不一致。</td>
+    </tr>
+    <tr>
+      <td>tensors列表或out的维度大于8。</td>
     </tr>
   </tbody>
   </table>
@@ -202,6 +211,10 @@ aclnnStatus aclnnSum(
   aclnnStatus：返回状态码，具体参见[aclnn返回码](../../../docs/zh/context/aclnn_return_code.md)。
 
 ## 约束说明
+
+- NaN 输入传播：任一输入含 NaN 时，对应输出位置为 NaN。
+- ±Inf 求和：同号 Inf 相加为该符号 Inf；异号 Inf 相加为 NaN（IEEE 754 语义）。
+- 动态 shape 标记（图模式直连路径）：-1（未知维度）在输入间逐维比对时按字面值处理（各输入的 -1 位置须一致）；-2（未知 rank）作为首输入时输出透传未知 rank，后续输入跳过比对。
 
 - 确定性计算：
   - aclnnSum默认确定性实现。

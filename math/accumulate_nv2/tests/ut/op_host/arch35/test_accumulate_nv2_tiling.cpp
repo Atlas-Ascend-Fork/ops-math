@@ -87,8 +87,7 @@ TEST_F(AccumulateNV2Tiling, single_input_scalar)
     ASSERT_EQ(info.tilingKey, KEY_SINGLE);
     const auto* data = reinterpret_cast<const AccumulateNV2TilingData*>(info.tilingData.get());
     EXPECT_EQ(data->totalNum, 1);
-    EXPECT_EQ(data->rank, 1);
-    EXPECT_EQ(data->needBroadcast, 0);
+    EXPECT_EQ(data->inputNum, 1);
 }
 
 TEST_F(AccumulateNV2Tiling, int32_double_buffer)
@@ -109,9 +108,16 @@ TEST_F(AccumulateNV2Tiling, uint8_single_buffer)
     ExecuteTestCase(context, ge::GRAPH_SUCCESS, KEY_SINGLE, std::vector<size_t>{0});
 }
 
-TEST_F(AccumulateNV2Tiling, broadcast_metadata)
+TEST_F(AccumulateNV2Tiling, broadcast_shapes_rejected)
 {
+    // The operator itself does not support broadcast; mismatched shapes are rejected.
     auto context = MakeTilingContext({{2, 1}, {1, 3}}, {2, 3}, ge::DT_FLOAT);
+    ExecuteTestCase(context, ge::GRAPH_FAILED);
+}
+
+TEST_F(AccumulateNV2Tiling, same_shape_fills_tiling_data)
+{
+    auto context = MakeTilingContext({{2, 3}, {2, 3}}, {2, 3}, ge::DT_FLOAT);
     TilingInfo info;
     ASSERT_TRUE(ExecuteTiling(context, info));
     ASSERT_EQ(info.tilingKey, KEY_SINGLE);
@@ -119,21 +125,12 @@ TEST_F(AccumulateNV2Tiling, broadcast_metadata)
     const auto* data = reinterpret_cast<const AccumulateNV2TilingData*>(info.tilingData.get());
     EXPECT_EQ(data->totalNum, 6);
     EXPECT_EQ(data->inputNum, 2);
-    EXPECT_EQ(data->rank, 2);
-    EXPECT_EQ(data->needBroadcast, 1);
-    EXPECT_EQ(data->outputShape[0], 2);
-    EXPECT_EQ(data->outputShape[1], 3);
-    EXPECT_EQ(data->inputStrides[0][0], 1);
-    EXPECT_EQ(data->inputStrides[0][1], 0);
-    EXPECT_EQ(data->inputStrides[1][0], 0);
-    EXPECT_EQ(data->inputStrides[1][1], 1);
 }
 
-TEST_F(AccumulateNV2Tiling, zero_element_broadcast)
+TEST_F(AccumulateNV2Tiling, zero_element_same_shape)
 {
-    // The first input is non-empty, while broadcasting with the second input
-    // produces an empty output.
-    auto context = MakeTilingContext({{1, 2, 1, 2}, {0, 1, 3, 2}}, {0, 2, 3, 2}, ge::DT_FLOAT);
+    // All inputs and output share the same zero-element shape (no broadcast).
+    auto context = MakeTilingContext({{0, 2, 3}, {0, 2, 3}}, {0, 2, 3}, ge::DT_FLOAT);
     TilingInfo info;
     ASSERT_TRUE(ExecuteTiling(context, info));
     const auto* data = reinterpret_cast<const AccumulateNV2TilingData*>(info.tilingData.get());
@@ -162,7 +159,7 @@ TEST_F(AccumulateNV2Tiling, incompatible_input_shapes_fail)
     ExecuteTestCase(context, ge::GRAPH_FAILED);
 }
 
-TEST_F(AccumulateNV2Tiling, output_must_equal_broadcast_shape)
+TEST_F(AccumulateNV2Tiling, output_must_equal_input_shape)
 {
     auto context = MakeTilingContext({{1, 3}, {1, 3}}, {2, 3}, ge::DT_FLOAT);
     ExecuteTestCase(context, ge::GRAPH_FAILED);

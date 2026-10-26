@@ -61,16 +61,18 @@ TEST_F(AccumulateNV2InferShape, same_shape)
     ExecuteTestCase(context, ge::GRAPH_SUCCESS, {{8, 1024}});
 }
 
-TEST_F(AccumulateNV2InferShape, broadcast_shape)
+TEST_F(AccumulateNV2InferShape, same_shape_required)
 {
+    // Broadcast is not supported by the operator itself; different shapes are rejected.
     auto context = MakeInferShapeContext({{2, 1, 5}, {1, 3, 1}, {5}}, ge::DT_FLOAT16);
-    ExecuteTestCase(context, ge::GRAPH_SUCCESS, {{2, 3, 5}});
+    ExecuteTestCase(context, ge::GRAPH_FAILED);
 }
 
-TEST_F(AccumulateNV2InferShape, scalar_and_tensor)
+TEST_F(AccumulateNV2InferShape, scalar_and_tensor_rejected)
 {
+    // Rank-0 scalar mixed with higher-rank input is a shape mismatch (no broadcast).
     auto context = MakeInferShapeContext({{}, {7, 11}}, ge::DT_INT32);
-    ExecuteTestCase(context, ge::GRAPH_SUCCESS, {{7, 11}});
+    ExecuteTestCase(context, ge::GRAPH_FAILED);
 }
 
 TEST_F(AccumulateNV2InferShape, incompatible_shapes_fail)
@@ -83,4 +85,37 @@ TEST_F(AccumulateNV2InferShape, n_must_be_positive)
 {
     auto context = MakeInferShapeContext({{1}}, ge::DT_FLOAT, 0);
     ExecuteTestCase(context, ge::GRAPH_FAILED, {});
+}
+
+TEST_F(AccumulateNV2InferShape, unknown_dim_wildcard_first)
+{
+    // First input carries -1 (unknown dim): it is a runtime wildcard, so a
+    // concrete same-rank input passes inference-time checks.
+    auto context = MakeInferShapeContext({{-1, -1, -1}, {4, 2, 3}, {4, 2, 3}}, ge::DT_UINT8);
+    // -1 resolves against the first concrete value: the output keeps the
+    // resolved dims.
+    ExecuteTestCase(context, ge::GRAPH_SUCCESS, {{4, 2, 3}});
+}
+
+TEST_F(AccumulateNV2InferShape, unknown_dim_wildcard_later)
+{
+    // -1 on a later input is equally a wildcard (the concrete value is only
+    // known at runtime).
+    auto context = MakeInferShapeContext({{12, 3, 77, 75}, {-1, -1, -1, -1}}, ge::DT_FLOAT);
+    ExecuteTestCase(context, ge::GRAPH_SUCCESS, {{12, 3, 77, 75}});
+}
+
+TEST_F(AccumulateNV2InferShape, unknown_rank_later_input_skipped)
+{
+    // A -2 (unknown rank) input is runtime-determined; its comparison is
+    // skipped even when it is not the first input.
+    auto context = MakeInferShapeContext({{}, {}, {-2}, {}}, ge::DT_FLOAT16);
+    ExecuteTestCase(context, ge::GRAPH_SUCCESS, {{}});
+}
+
+TEST_F(AccumulateNV2InferShape, unknown_dim_does_not_mask_real_mismatch)
+{
+    // -1 is a wildcard, but two different concrete dims still fail.
+    auto context = MakeInferShapeContext({{-1, 5}, {4, 5}, {3, 5}}, ge::DT_FLOAT);
+    ExecuteTestCase(context, ge::GRAPH_FAILED);
 }

@@ -11,18 +11,14 @@
 #ifndef ACCUMULATE_NV2_GRAPH_INFER_H_
 #define ACCUMULATE_NV2_GRAPH_INFER_H_
 
-#include <cstdint>
-#include <vector>
-
 #include "graph/ge_error_codes.h"
 
 namespace ge {
-namespace accumulate_nv2 {
 
-graphStatus MergeBroadcastShape(const std::vector<int64_t>& lhs, const std::vector<int64_t>& rhs,
-                                std::vector<int64_t>& output);
+// V1 legacy InferShape registered via COMMON_INFER_FUNC_REG in the .cpp file.
+// The operator itself does not support broadcast (all inputs must share the
+// first input's shape); aclnnSum aligns tensors in op_api before composing.
 
-} // namespace accumulate_nv2
 } // namespace ge
 
 #endif // ACCUMULATE_NV2_GRAPH_INFER_H_

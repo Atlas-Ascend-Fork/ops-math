@@ -28,87 +28,56 @@ using namespace AscendC;
 constexpr uint32_t ACCUMULATE_NV2_SIMT_THREAD_NUM = 1024;
 constexpr int64_t ACCUMULATE_NV2_UB_BLOCK_BYTES = 32;
 constexpr int32_t ACCUMULATE_NV2_SIMT_PTR_OFFSET = 0;
-constexpr int32_t ACCUMULATE_NV2_SIMT_SHAPE_OFFSET = ACCUMULATE_NV2_MAX_INPUT_NUM;
-constexpr int32_t ACCUMULATE_NV2_SIMT_STRIDE_OFFSET = ACCUMULATE_NV2_SIMT_SHAPE_OFFSET + ACCUMULATE_NV2_MAX_RANK;
-constexpr int32_t ACCUMULATE_NV2_SIMT_META_ELEMS = ACCUMULATE_NV2_SIMT_STRIDE_OFFSET +
-                                                   ACCUMULATE_NV2_MAX_INPUT_NUM * ACCUMULATE_NV2_MAX_RANK;
+constexpr int32_t ACCUMULATE_NV2_SIMT_META_ELEMS = ACCUMULATE_NV2_MAX_INPUT_NUM;
 constexpr int32_t ACCUMULATE_NV2_SIMT_META_BYTES = ACCUMULATE_NV2_SIMT_META_ELEMS * sizeof(uint64_t);
 
-__simt_callee__ __aicore__ inline int64_t GetBroadcastInputOffset(__ubuf__ int64_t* outputShape,
-                                                                  __ubuf__ int64_t* inputStrides, int32_t rank,
-                                                                  int32_t inputIndex, int64_t outputIndex)
-{
-    int64_t inputOffset = 0;
-    int64_t remaining = outputIndex;
-    for (int32_t d = rank - 1; d >= 0; --d) {
-        int64_t coordinate = remaining % outputShape[d];
-        remaining /= outputShape[d];
-        inputOffset += coordinate * inputStrides[inputIndex * ACCUMULATE_NV2_MAX_RANK + d];
-    }
-    return inputOffset;
-}
-
-template <typename T>
+// fp32 path only: TensorFlow-compatible sequential summation (AddNOp,
+// aggregate_ops.cc). Matches the TF competitor's exact rounding pattern for
+// cross_check:
+//   N <= 9:  out = in0 + in1 + ... + inN  (left-to-right)
+//   N > 9:   remainder-first chunking — first r inputs sequentially,
+//            then groups of 8 summed left-to-right and accumulated with +=
+//            (r = num%8; r==0 → 8, r==1 → 9, else r)
 __simt_vf__ __aicore__ LAUNCH_BOUND(ACCUMULATE_NV2_SIMT_THREAD_NUM) inline void AccumulateNV2SimtKernel(
-    __ubuf__ uint64_t* tensorPtr, __ubuf__ int64_t* outputShape, __ubuf__ int64_t* inputStrides, __gm__ T* output,
-    int32_t inputNum, int32_t rank, int32_t needBroadcast, int64_t blockOffset, int64_t blockLength)
+    __ubuf__ uint64_t* tensorPtr, __gm__ float* output, int32_t inputNum, int64_t blockOffset, int64_t blockLength)
 {
     uint64_t threadNum = static_cast<uint64_t>(Simt::GetThreadNum());
     for (uint64_t localIndex = static_cast<uint64_t>(Simt::GetThreadIdx());
          localIndex < static_cast<uint64_t>(blockLength); localIndex += threadNum) {
         int64_t outputIndex = blockOffset + static_cast<int64_t>(localIndex);
-        if constexpr (std::is_same_v<T, half>) {
-            float sum = 0.0f;
-            for (int32_t i = 0; i < inputNum; ++i) {
-                int64_t inputOffset = needBroadcast == 0 ?
-                                          outputIndex :
-                                          GetBroadcastInputOffset(outputShape, inputStrides, rank, i, outputIndex);
-                __gm__ half* input = reinterpret_cast<__gm__ half*>(tensorPtr[i]);
-                sum += __half2float(input[inputOffset]);
-            }
-            output[outputIndex] = __float2half_rn(sum);
-        } else if constexpr (std::is_same_v<T, int32_t>) {
-            uint32_t sum = 0;
-            for (int32_t i = 0; i < inputNum; ++i) {
-                int64_t inputOffset = needBroadcast == 0 ?
-                                          outputIndex :
-                                          GetBroadcastInputOffset(outputShape, inputStrides, rank, i, outputIndex);
-                __gm__ int32_t* input = reinterpret_cast<__gm__ int32_t*>(tensorPtr[i]);
-                sum += static_cast<uint32_t>(input[inputOffset]);
-            }
-            output[outputIndex] = static_cast<int32_t>(sum);
-        } else if constexpr (std::is_same_v<T, float>) {
-            float sum = 0.0f;
-            float correction = 0.0f;
-            for (int32_t i = 0; i < inputNum; ++i) {
-                int64_t inputOffset = needBroadcast == 0 ?
-                                          outputIndex :
-                                          GetBroadcastInputOffset(outputShape, inputStrides, rank, i, outputIndex);
-                __gm__ float* input = reinterpret_cast<__gm__ float*>(tensorPtr[i]);
-                float value = input[inputOffset];
-
-                // Preserve the round-off discarded by each sequential FP32 addition.
-                // AccumulateNV2 accepts mixed-sign inputs, so cancellation can make a
-                // small true result disappear even though every individual add is valid.
-                // TwoSum recovers that local error without changing the input order.
-                float nextSum = sum + value;
-                float valueInSum = nextSum - sum;
-                float roundOff = (sum - (nextSum - valueInSum)) + (value - valueInSum);
-                correction += roundOff;
-                sum = nextSum;
-            }
-            output[outputIndex] = sum + correction;
-        } else {
-            int32_t sum = 0;
-            for (int32_t i = 0; i < inputNum; ++i) {
-                int64_t inputOffset = needBroadcast == 0 ?
-                                          outputIndex :
-                                          GetBroadcastInputOffset(outputShape, inputStrides, rank, i, outputIndex);
-                __gm__ T* input = reinterpret_cast<__gm__ T*>(tensorPtr[i]);
-                sum += static_cast<int32_t>(input[inputOffset]);
-            }
-            output[outputIndex] = static_cast<T>(sum);
+        float sum;
+        {
+            __gm__ float* input = reinterpret_cast<__gm__ float*>(tensorPtr[0]);
+            sum = input[outputIndex];
         }
+        if (inputNum <= 9) {
+            for (int32_t i = 1; i < inputNum; ++i) {
+                __gm__ float* input = reinterpret_cast<__gm__ float*>(tensorPtr[i]);
+                sum += input[outputIndex];
+            }
+        } else {
+            constexpr int32_t CHUNK = 8;
+            int32_t rem = inputNum % CHUNK;
+            int32_t first = (rem == 0) ? CHUNK : (rem == 1) ? CHUNK + 1 : rem;
+            for (int32_t i = 1; i < first; ++i) {
+                __gm__ float* input = reinterpret_cast<__gm__ float*>(tensorPtr[i]);
+                sum += input[outputIndex];
+            }
+            for (int32_t c = first; c < inputNum; c += CHUNK) {
+                float chunkSum;
+                {
+                    __gm__ float* input = reinterpret_cast<__gm__ float*>(tensorPtr[c]);
+                    chunkSum = input[outputIndex];
+                }
+                int32_t end = (c + CHUNK < inputNum) ? c + CHUNK : inputNum;
+                for (int32_t i = c + 1; i < end; ++i) {
+                    __gm__ float* input = reinterpret_cast<__gm__ float*>(tensorPtr[i]);
+                    chunkSum += input[outputIndex];
+                }
+                sum += chunkSum;
+            }
+        }
+        output[outputIndex] = sum;
     }
 }
 
@@ -141,8 +110,10 @@ private:
     int64_t blockLength_ = 0;
     int64_t ubLength_ = 0;
     int32_t inputNum_ = 0;
-    int32_t needBroadcast_ = 0;
-    int32_t tilingDataRank_ = 0;
+
+    // fp16 precision contract: accumulate in fp32 inside the Vector pipeline.
+    TBuf<QuePosition::VECCALC> fp32AccBuf;
+    TBuf<QuePosition::VECCALC> fp32CastBuf;
 
     __aicore__ inline __gm__ T* GetTensorAddr(uint16_t index);
 };
@@ -155,8 +126,6 @@ __aicore__ inline void AccumulateNV2<T, BUFFER_MODE>::Init(GM_ADDR x, GM_ADDR y,
     blockLength_ = (remainderLength > tilingData->blockFactor) ? tilingData->blockFactor : remainderLength;
     ubLength_ = tilingData->ubFactor;
     inputNum_ = tilingData->inputNum;
-    needBroadcast_ = tilingData->needBroadcast;
-    tilingDataRank_ = tilingData->rank;
 
     tensorListPtr_ = x;
     __gm__ uint64_t* dataAddr = reinterpret_cast<__gm__ uint64_t*>(tensorListPtr_);
@@ -167,26 +136,21 @@ __aicore__ inline void AccumulateNV2<T, BUFFER_MODE>::Init(GM_ADDR x, GM_ADDR y,
     globalOffset_ = blockOffset;
     outputGM.SetGlobalBuffer(outputPtr_ + blockOffset, blockLength_);
 
-    if (needBroadcast_ != 0 || std::is_same_v<T, half> || std::is_same_v<T, float>) {
+    if constexpr (std::is_same_v<T, float>) {
         pipe.InitBuffer(simtMetaBuffer, ACCUMULATE_NV2_SIMT_META_BYTES);
         LocalTensor<uint64_t> simtMeta = simtMetaBuffer.Get<uint64_t>();
         for (int32_t i = 0; i < inputNum_; ++i) {
             simtMeta.SetValue(ACCUMULATE_NV2_SIMT_PTR_OFFSET + i, tensorPtr_[i]);
-        }
-        for (int32_t d = 0; d < tilingData->rank; ++d) {
-            simtMeta.SetValue(ACCUMULATE_NV2_SIMT_SHAPE_OFFSET + d, static_cast<uint64_t>(tilingData->outputShape[d]));
-        }
-        for (int32_t i = 0; i < inputNum_; ++i) {
-            for (int32_t d = 0; d < tilingData->rank; ++d) {
-                int32_t metaIndex = ACCUMULATE_NV2_SIMT_STRIDE_OFFSET + i * ACCUMULATE_NV2_MAX_RANK + d;
-                simtMeta.SetValue(metaIndex, static_cast<uint64_t>(tilingData->inputStrides[i][d]));
-            }
         }
         DataSyncBarrier<MemDsbT::UB>();
     } else {
         pipe.InitBuffer(inputQueueA, BUFFER_NUM, ubLength_ * sizeof(T));
         pipe.InitBuffer(inputQueueB, BUFFER_NUM, ubLength_ * sizeof(T));
         pipe.InitBuffer(outputQueue, BUFFER_NUM, ubLength_ * sizeof(T));
+        if constexpr (std::is_same_v<T, half>) {
+            pipe.InitBuffer(fp32AccBuf, ubLength_ * sizeof(float));
+            pipe.InitBuffer(fp32CastBuf, ubLength_ * sizeof(float));
+        }
     }
 }
 
@@ -215,6 +179,43 @@ __aicore__ inline void AccumulateNV2<T, BUFFER_MODE>::ProcessTile(int64_t offset
     copyParams.srcStride = 0;
     copyParams.dstStride = 0;
     int64_t alignedNum = GetAlignedNum(currentNum);
+
+    if constexpr (std::is_same_v<T, half>) {
+        // fp16 precision contract: cast every input tile to fp32, accumulate
+        // with vector Add in fp32, and cast back to half exactly once
+        // (single rounding, matching the documented promote semantics).
+        LocalTensor<float> accF32 = fp32AccBuf.Get<float>();
+        LocalTensor<float> castF32 = fp32CastBuf.Get<float>();
+
+        curInputGM.SetGlobalBuffer(GetTensorAddr(0) + globalOffset_, blockLength_);
+        LocalTensor<half> firstLocal = inputQueueA.template AllocTensor<half>();
+        DataCopyPad(firstLocal, curInputGM[offset], copyParams, {false, 0, 0, 0});
+        inputQueueA.EnQue(firstLocal);
+        firstLocal = inputQueueA.template DeQue<half>();
+        // half→float requires CAST_NONE (Cast.md table 6); the conversion is exact.
+        Cast(accF32, firstLocal, RoundMode::CAST_NONE, currentNum);
+        inputQueueA.FreeTensor(firstLocal);
+
+        for (int32_t i = 1; i < inputNum_; i++) {
+            curInputGM.SetGlobalBuffer(GetTensorAddr(i) + globalOffset_, blockLength_);
+            LocalTensor<half> nextLocal = inputQueueB.template AllocTensor<half>();
+            DataCopyPad(nextLocal, curInputGM[offset], copyParams, {false, 0, 0, 0});
+            inputQueueB.EnQue(nextLocal);
+            nextLocal = inputQueueB.template DeQue<half>();
+            Cast(castF32, nextLocal, RoundMode::CAST_NONE, currentNum);
+            Add(accF32, accF32, castF32, currentNum);
+            inputQueueB.FreeTensor(nextLocal);
+        }
+
+        LocalTensor<half> outLocal = outputQueue.template AllocTensor<half>();
+        // float→half uses CAST_RINT (round-to-nearest-even): single rounding.
+        Cast(outLocal, accF32, RoundMode::CAST_RINT, currentNum);
+        outputQueue.EnQue(outLocal);
+        outLocal = outputQueue.template DeQue<half>();
+        DataCopyPad(outputGM[offset], outLocal, copyParams);
+        outputQueue.FreeTensor(outLocal);
+        return;
+    }
 
     if (inputNum_ == 1) {
         curInputGM.SetGlobalBuffer(GetTensorAddr(0) + globalOffset_, blockLength_);
@@ -275,15 +276,12 @@ __aicore__ inline void AccumulateNV2<T, BUFFER_MODE>::Process()
     if (blockLength_ <= 0) {
         return;
     }
-    if (needBroadcast_ != 0 || std::is_same_v<T, half> || std::is_same_v<T, float>) {
+    if constexpr (std::is_same_v<T, float>) {
         LocalTensor<uint64_t> simtMeta = simtMetaBuffer.Get<uint64_t>();
         __ubuf__ uint64_t* metaPtr = reinterpret_cast<__ubuf__ uint64_t*>(simtMeta.GetPhyAddr());
-        __ubuf__ int64_t* outputShape = reinterpret_cast<__ubuf__ int64_t*>(metaPtr + ACCUMULATE_NV2_SIMT_SHAPE_OFFSET);
-        __ubuf__ int64_t* inputStrides = reinterpret_cast<__ubuf__ int64_t*>(metaPtr +
-                                                                             ACCUMULATE_NV2_SIMT_STRIDE_OFFSET);
-        Simt::VF_CALL<AccumulateNV2SimtKernel<T>>(
-            Simt::Dim3(ACCUMULATE_NV2_SIMT_THREAD_NUM), metaPtr + ACCUMULATE_NV2_SIMT_PTR_OFFSET, outputShape,
-            inputStrides, outputPtr_, inputNum_, tilingDataRank_, needBroadcast_, globalOffset_, blockLength_);
+        Simt::VF_CALL<AccumulateNV2SimtKernel>(Simt::Dim3(ACCUMULATE_NV2_SIMT_THREAD_NUM),
+                                               metaPtr + ACCUMULATE_NV2_SIMT_PTR_OFFSET, outputPtr_, inputNum_,
+                                               globalOffset_, blockLength_);
         return;
     }
 

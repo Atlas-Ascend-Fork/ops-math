@@ -12,6 +12,10 @@
 
 #include "arch35/accumulate_nv2.h"
 
+// DTYPE_X is provided by the AscendC device build system per dtype. Unit-test
+// builds compile this file with UT_SOC_VERSION defined and supply their own
+// dtype-specific wrappers (tests/ut/op_kernel), so skip the template there.
+#ifndef UT_SOC_VERSION
 template <uint32_t BUFFER_MODE>
 __global__ __aicore__ void accumulate_nv2(GM_ADDR x, GM_ADDR y, GM_ADDR workspace, GM_ADDR tiling)
 {
@@ -21,3 +25,4 @@ __global__ __aicore__ void accumulate_nv2(GM_ADDR x, GM_ADDR y, GM_ADDR workspac
     op.Init(x, y, &tilingData);
     op.Process();
 }
+#endif

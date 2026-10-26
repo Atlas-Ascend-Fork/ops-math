@@ -40,11 +40,11 @@ since minimum temporary storage is proportional to the output size rather than t
 *
 */
 REG_OP(AccumulateNV2)
-   .DYNAMIC_INPUT(x, TensorType({DT_FLOAT16, DT_FLOAT, DT_INT32, DT_INT8, DT_UINT8}))
-   .OUTPUT(y, TensorType({DT_FLOAT16, DT_FLOAT, DT_INT32, DT_INT8, DT_UINT8}))
-   .REQUIRED_ATTR(N, Int)
-   .OP_END_FACTORY_REG(AccumulateNV2)
+    .DYNAMIC_INPUT(x, TensorType({DT_FLOAT16, DT_FLOAT, DT_INT32, DT_INT8, DT_UINT8}))
+    .OUTPUT(y, TensorType({DT_FLOAT16, DT_FLOAT, DT_INT32, DT_INT8, DT_UINT8}))
+    .REQUIRED_ATTR(N, Int)
+    .OP_END_FACTORY_REG(AccumulateNV2)
 
-}  // namespace ge
+} // namespace ge
 
-#endif  // ARG_MAX_V2_PROTO_H_
+#endif // ARG_MAX_V2_PROTO_H_
