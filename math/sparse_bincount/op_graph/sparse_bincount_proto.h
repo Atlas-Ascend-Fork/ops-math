@@ -31,13 +31,14 @@ namespace ge {
  * @li values: A 1D Tensor of type int32 or int64. Sparse tensor values (bin indices), shape (N,).
  * @li dense_shape: A 1D Tensor of type int64. Sparse tensor dense shape, shape (R,).
  * @li size: A scalar Tensor of type int32 or int64. Number of bins.
- * @li weights: A 1D Tensor of type float32. Weights for each value, shape (N,) or (0,).
+ * @li weights: A 1D Tensor of type int32 or int64 or float32 or double. Weights for each value, shape (N,) or (0,).
  *
  *@par Attributes:
  * @li binary_output: An optional bool (default false). If true, output is binary (0 or 1).
  *
  *@par Outputs:
- *output: A Tensor of type float32. Shape is [size] for 1D or [dense_shape[0], size] for multi-dim.
+ *output: A Tensor of type int32 or int64 or float32 or double. Must have the same type as input weights.
+ *Shape is [size] for 1D or [dense_shape[0], size] for multi-dim.
  *@par Third-party framework compatibility
  *Compatible with the TensorFlow operator SparseBincount.
  */

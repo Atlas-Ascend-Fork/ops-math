@@ -1990,9 +1990,9 @@
     <td>math</td>
     <td><a href="../../math/sparse_bincount/README.md">sparse_bincount</a></td>
     <td>√</td>
+    <td>√</td>
     <td>×</td>
-    <td>×</td>
-    <td>×</td>
+    <td>√</td>
     <td>AI Core</td>
     <td>统计稀疏张量中每个值的出现次数或加权累加和。</td>
   </tr>

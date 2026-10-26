@@ -43,7 +43,8 @@ constexpr int64_t RANK_1D = 1;
 constexpr int64_t DIM_N = 0;
 constexpr int64_t DIM_R = 1;
 
-// Scene mode bit encoding (is1D: bit2, binaryOutput: bit1, hasWeights: bit0)
+// Scene mode bit encoding (isDeterministic: bit3, is1D: bit2, binaryOutput: bit1, hasWeights: bit0)
+constexpr int32_t SCH_MODE_DETERMINISTIC_SHIFT = 3;
 constexpr int32_t SCH_MODE_IS1D_SHIFT = 2;
 constexpr int32_t SCH_MODE_BINARY_SHIFT = 1;
 constexpr int32_t SCH_MODE_WEIGHTS_SHIFT = 0;
@@ -182,6 +183,22 @@ static ge::graphStatus SparseBincountTilingFunc(gert::TilingContext* context)
         return ge::GRAPH_FAILED;
     }
 
+    // --- element count checks ---
+    // size 为 shape (1,) 的标量，多元素输入违反接口契约（910 基线 GetConstIntSizeData
+    // 同样要求 size_total_num == 1）；dense_shape 为 (R,) 向量，至少 1 个元素（R>=1）
+    int64_t sizeNum = sizeShape->GetStorageShape().GetShapeSize();
+    if (sizeNum != 1) {
+        OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(context->GetNodeName(), "size", std::to_string(sizeNum).c_str(),
+                                                  "The shape size of size should be equal to 1");
+        return ge::GRAPH_FAILED;
+    }
+    if (denseShapeNum < 1) {
+        OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(context->GetNodeName(), "dense_shape",
+                                               std::to_string(denseShapeNum).c_str(),
+                                               "The shape size of dense_shape should be at least 1");
+        return ge::GRAPH_FAILED;
+    }
+
     // --- shape consistency checks ---
     int64_t indicesRows = indicesShape->GetStorageShape().GetDim(DIM_N);
     if (indicesRows != numValues) {
@@ -251,9 +268,14 @@ static ge::graphStatus SparseBincountTilingFunc(gert::TilingContext* context)
     auto res = context->SetLocalMemorySize(static_cast<uint32_t>(ubSize - DCACHE_SIZE - STATIC_UB_ESTIMATE));
     OP_CHECK_IF((res != ge::GRAPH_SUCCESS), OP_LOGE(context, "SetLocalMemorySize failed"), return ge::GRAPH_FAILED);
 
-    // 11. Set tiling key (scene mode encoding: is1D:bit2, binaryOutput:bit1, hasWeights:bit0)
+    // 11. Set tiling key (scene mode encoding:
+    //     isDeterministic:bit3, is1D:bit2, binaryOutput:bit1, hasWeights:bit0)
+    // 确定性计算开启时派发固定顺序累加路径（对齐同仓 bincount/histogram_v2），
+    // 避免带权重浮点原子加因跨核/跨线程累加顺序不定导致输出无法按位复现
     int32_t is1D = (denseShapeNum == RANK_1D) ? 1 : 0;
-    uint32_t schMode = static_cast<uint32_t>(is1D << SCH_MODE_IS1D_SHIFT | binaryOutput << SCH_MODE_BINARY_SHIFT |
+    int32_t isDeterministic = (context->GetDeterministic() == 1) ? 1 : 0;
+    uint32_t schMode = static_cast<uint32_t>(isDeterministic << SCH_MODE_DETERMINISTIC_SHIFT |
+                                             is1D << SCH_MODE_IS1D_SHIFT | binaryOutput << SCH_MODE_BINARY_SHIFT |
                                              hasWeights << SCH_MODE_WEIGHTS_SHIFT);
     uint64_t tilingKey = GET_TPL_TILING_KEY(schMode);
     context->SetTilingKey(tilingKey);

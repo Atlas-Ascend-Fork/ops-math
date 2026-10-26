@@ -13,7 +13,7 @@
 
 ## 功能说明
 
-- 算子功能：统计稀疏张量中每个值（bin index）的出现次数或加权累加和。支持 1D 和多维模式，支持 binary_output 模式。
+- 算子功能：统计稀疏张量中每个值（bin index）的出现次数或加权累加和。支持1D和多维模式，支持binary_output模式。
 
 - 计算公式：
 
@@ -67,21 +67,21 @@ $$
     <tr>
       <td>size</td>
       <td>输入</td>
-      <td>bin 的数量（标量 tensor），shape (1,)。</td>
+      <td>bin的数量（标量tensor），shape (1,)。</td>
       <td>INT32、INT64</td>
       <td>ND</td>
     </tr>
     <tr>
       <td>weights</td>
       <td>输入</td>
-      <td>权重，1D tensor，shape (N,) 或 (0,)。为空时每个出现计为1。</td>
+      <td>权重，1D tensor，shape (N,)或(0,)。为空时每个出现计为1。</td>
       <td>FLOAT</td>
       <td>ND</td>
     </tr>
     <tr>
       <td>binary_output</td>
-      <td>属性</td>
-      <td>是否二值输出。True时出现过的bin设为1，False时输出计数或加权累加。</td>
+      <td>可选属性</td>
+      <td>是否二值输出，缺省值为false。True时出现过的bin设为1，False时输出计数或加权累加。</td>
       <td>BOOL</td>
       <td>-</td>
     </tr>
@@ -96,18 +96,18 @@ $$
 
 ## 约束说明
 
-- indices 为 2D tensor，shape (N, R)；values、dense_shape、size、weights 均为 1D tensor
-- indices 行数(N) 必须等于 values 元素数(N)
-- indices 列数(R) 必须等于 dense_shape 元素数(R)
-- indices[:, j] 必须在 [0, dense_shape[j]) 范围内
-- values[i] 必须在 [0, size) 范围内
-- weights 非空时，元素数必须与 values 元素数(N) 相等
-- size 为非负标量
-- weights 为空（元素数为0）时，每个出现计为 1.0
-- binary_output = True 时，出现过的 bin 设为 1.0，忽略权重
+- indices为2D tensor，shape (N, R)；values、dense_shape、size、weights均为1D tensor
+- indices行数（N）必须等于values元素数（N）
+- indices列数（R）必须等于dense_shape元素数（R），且dense_shape元素数（R）至少为1（dense_shape非空）
+- indices[:, j]必须在[0, dense_shape[j])范围内
+- values[i]必须在[0, size)范围内
+- weights非空时，元素数必须与values元素数（N）相等
+- size为非负标量，shape为(1,)
+- weights为空（元素数为0）时，每个出现计为1.0
+- binary_output = True时，出现过的bin设为1.0，忽略权重
 
 ## 调用说明
 
-| 调用方式 | 调用样例 | 说明 |
+| 调用方式 | 样例代码 | 说明 |
 |--------------|--------|------|
-| 图模式调用 | [test_geir_sparse_bincount](./examples/test_geir_sparse_bincount.cpp) | 通过[算子IR](./op_graph/sparse_bincount_proto.h)构图方式调用SparseBincount算子。 |
+| GE图模式 | [test_geir_sparse_bincount](./examples/test_geir_sparse_bincount.cpp) | 通过[算子IR](./op_graph/sparse_bincount_proto.h)构图方式调用SparseBincount算子。 |

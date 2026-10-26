@@ -122,9 +122,52 @@ __simt_vf__ __aicore__ __launch_bounds__(THREAD_NUM) inline void OpSparseBincoun
     }
 }
 
+// VF deterministic path: each thread owns disjoint output elements and accumulates every
+// matching value in fixed array order, replacing cross-thread/cross-core atomic adds so
+// weighted float results are bitwise reproducible (aligned with bincount determine mode).
+// This single phase writes every output element; clear/clamp phases are not needed.
+template <typename V, typename IDX_T, uint32_t THREAD_NUM, bool IS_1D, bool BINARY_OUTPUT, bool HAS_WEIGHTS>
+__simt_vf__ __aicore__ __launch_bounds__(THREAD_NUM) inline void OpSparseBincountDetermineAccumulate(
+    int64_t numValues, int64_t sizeVal, int64_t denseShapeRows, int64_t indicesColNum, __gm__ int64_t* indices,
+    __gm__ V* values, __gm__ float* weights, __gm__ float* output, int64_t outputSize)
+{
+    for (IDX_T outIdx = static_cast<IDX_T>(blockIdx.x * blockDim.x + threadIdx.x);
+         outIdx < static_cast<IDX_T>(outputSize); outIdx += static_cast<IDX_T>(blockDim.x * gridDim.x)) {
+        float acc = 0.0f;
+        for (int64_t j = 0; j < numValues; ++j) {
+            int64_t target = -1;
+            int64_t binIdx = static_cast<int64_t>(values[j]);
+            if (binIdx >= 0 && binIdx < sizeVal) {
+                if constexpr (IS_1D) {
+                    target = binIdx;
+                } else {
+                    int64_t batch = indices[j * indicesColNum];
+                    if (batch >= 0 && batch < denseShapeRows) {
+                        target = batch * sizeVal + binIdx;
+                    }
+                }
+            }
+            if (target == static_cast<int64_t>(outIdx)) {
+                if constexpr (BINARY_OUTPUT) {
+                    acc += 1.0f;
+                } else if constexpr (HAS_WEIGHTS) {
+                    acc += weights[j];
+                } else {
+                    acc += 1.0f;
+                }
+            }
+        }
+        if constexpr (BINARY_OUTPUT) {
+            output[outIdx] = (acc > 0.0f) ? 1.0f : 0.0f;
+        } else {
+            output[outIdx] = acc;
+        }
+    }
+}
+
 // Process function: read size/dense_shape from GM, launch VF phases with SyncAll
-// Template params: V=values dtype, S=size dtype, IS_1D/binary/weights from TilingKey
-template <typename V, typename S, bool IS_1D, bool BINARY_OUTPUT, bool HAS_WEIGHTS>
+// Template params: V=values dtype, S=size dtype, IS_1D/binary/weights/deterministic from TilingKey
+template <typename V, typename S, bool IS_1D, bool BINARY_OUTPUT, bool HAS_WEIGHTS, bool IS_DETERMINISTIC>
 __aicore__ inline void Process(GM_ADDR indices, GM_ADDR values, GM_ADDR denseShape, GM_ADDR size, GM_ADDR weights,
                                GM_ADDR output, const SparseBincountTilingData* tilingData)
 {
@@ -161,6 +204,14 @@ __aicore__ inline void Process(GM_ADDR indices, GM_ADDR values, GM_ADDR denseSha
         // uint32 index path: more threads (1024) for better latency hiding
         constexpr uint32_t TN = THREAD_NUM_U32;
 
+        if constexpr (IS_DETERMINISTIC) {
+            // Deterministic path: fixed-order gather accumulation, single phase covers clear/accumulate/clamp
+            asc_vf_call<OpSparseBincountDetermineAccumulate<V, uint32_t, TN, IS_1D, BINARY_OUTPUT, HAS_WEIGHTS>>(
+                dim3(TN), tilingData->numValues, sizeVal, denseShapeRows, tilingData->indicesColNum, indicesGm,
+                valuesGm, weightsGm, outputGm, outputSize);
+            return;
+        }
+
         // Phase 1: Clear output
         asc_vf_call<OpSparseBincountClearOutput<V, uint32_t, TN>>(dim3(TN), outputSize, outputGm);
 
@@ -180,6 +231,14 @@ __aicore__ inline void Process(GM_ADDR indices, GM_ADDR values, GM_ADDR denseSha
     } else {
         // uint64 index path: fewer threads (512) due to larger register usage
         constexpr uint32_t TN = THREAD_NUM_U64;
+
+        if constexpr (IS_DETERMINISTIC) {
+            // Deterministic path: fixed-order gather accumulation, single phase covers clear/accumulate/clamp
+            asc_vf_call<OpSparseBincountDetermineAccumulate<V, uint64_t, TN, IS_1D, BINARY_OUTPUT, HAS_WEIGHTS>>(
+                dim3(TN), tilingData->numValues, sizeVal, denseShapeRows, tilingData->indicesColNum, indicesGm,
+                valuesGm, weightsGm, outputGm, outputSize);
+            return;
+        }
 
         // Phase 1: Clear output
         asc_vf_call<OpSparseBincountClearOutput<V, uint64_t, TN>>(dim3(TN), outputSize, outputGm);

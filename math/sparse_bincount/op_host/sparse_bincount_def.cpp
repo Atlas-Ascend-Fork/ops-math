@@ -42,6 +42,7 @@ public:
             .Format({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})
             .AutoContiguous();
+        // InferShape 读取 dense_shape/size 的数值推导输出 shape，按仓内约定声明值依赖
         this->Input("dense_shape")
             .ParamType(REQUIRED)
             .ValueDepend(OPTIONAL)
@@ -78,7 +79,7 @@ public:
             .DynamicShapeSupportFlag(true)
             .NeedCheckSupportFlag(false)
             .PrecisionReduceFlag(true)
-            .ExtendCfgInfo("opFile.value", "sparse_bincount_apt");
+            .ExtendCfgInfo("opFile.value", "sparse_bincount");
         this->AICore().AddConfig("ascend950", aicoreConfig);
         this->AICore().AddConfig("ascend350", aicoreConfig);
     }
