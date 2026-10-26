@@ -36,6 +36,7 @@
 
 #include "aclnn_npu_format_cast.h"
 #include "op_api/aclnn_check.h"
+#include "common/inc/op_host/op_const_def_math.h"
 
 #define OP_CHECK_DTYPE_NOT_SUPPORT_WITH_REASON(aclnnName, tensor, supportList, retExpr)                               \
     do {                                                                                                              \
@@ -92,15 +93,31 @@ const std::set<std::pair<op::Format, op::Format>> kTransdataForwardFormatPairs91
     {op::Format::FORMAT_NDHWC, op::Format::FORMAT_NDC1HWC0},
 };
 
-static const std::initializer_list<DataType> ASCEND950_WEIGHT_DTYPE_SUPPORT_LIST = {
+static const std::initializer_list<DataType> ARCH35_WEIGHT_DTYPE_SUPPORT_LIST = {
     DataType::DT_INT8,  DataType::DT_FLOAT,         DataType::DT_FLOAT16,     DataType::DT_BF16,
     DataType::DT_INT32, DataType::DT_FLOAT8_E4M3FN, DataType::DT_FLOAT4_E2M1, DataType::DT_HIFLOAT8,
     DataType::DT_UINT8, DataType::DT_FLOAT4_E1M2,   DataType::DT_FLOAT8_E8M0};
 
+static const std::initializer_list<DataType> ARCH92_WEIGHT_DTYPE_SUPPORT_LIST = {
+    DataType::DT_INT8,  DataType::DT_FLOAT,         DataType::DT_FLOAT16,     DataType::DT_BF16,
+    DataType::DT_INT32, DataType::DT_FLOAT8_E4M3FN, DataType::DT_FLOAT4_E2M1, DataType::DT_HIFLOAT8,
+    DataType::DT_UINT8, DataType::DT_FLOAT4_E1M2,   DataType::DT_FLOAT8_E8M0, Ops::Math::DT_HIFLOAT4};
+
+static const std::initializer_list<DataType>& GetRegBaseWeightDtypeSupportList()
+{
+    return GetCurrentPlatformInfo().GetCurNpuArch() == NpuArch::DAV_3510 ? ARCH35_WEIGHT_DTYPE_SUPPORT_LIST :
+                                                                           ARCH92_WEIGHT_DTYPE_SUPPORT_LIST;
+}
+
 static const std::initializer_list<DataType> WEIGHT_DTYPE_SUPPORT_LIST = {
     DataType::DT_INT8,        DataType::DT_UINT8,    DataType::DT_FLOAT,       DataType::DT_FLOAT16,
     DataType::DT_BF16,        DataType::DT_INT32,    DataType::DT_UINT32,      DataType::DT_FLOAT8_E4M3FN,
-    DataType::DT_FLOAT4_E2M1, DataType::DT_HIFLOAT8, DataType::DT_FLOAT4_E1M2, DataType::DT_FLOAT8_E8M0};
+    DataType::DT_FLOAT4_E2M1, DataType::DT_HIFLOAT8, DataType::DT_FLOAT4_E1M2, DataType::DT_FLOAT8_E8M0,
+    Ops::Math::DT_HIFLOAT4};
+
+static const std::initializer_list<DataType> QUANT_MATMUL_DTYPE_SUPPORT_LIST = {
+    DataType::DT_INT8,        DataType::DT_UINT8,       DataType::DT_FLOAT8_E4M3FN, DataType::DT_HIFLOAT8,
+    DataType::DT_FLOAT4_E2M1, DataType::DT_FLOAT4_E1M2, Ops::Math::DT_HIFLOAT4};
 
 static const std::initializer_list<DataType> ASCEND910B_DTYPE_SUPPORT_LIST = {
     DataType::DT_INT8, DataType::DT_UINT8, DataType::DT_FLOAT, DataType::DT_FLOAT16,
@@ -151,9 +168,8 @@ static bool IsNonQuantMatmulDtype(int dtype, op::Format dstFormat = op::Format::
 static bool IsQuantMatmulDtype(const DataType srcDtype, const DataType dstDtype)
 {
     return srcDtype == dstDtype &&
-           (srcDtype == ge::DT_INT8 || srcDtype == ge::DT_UINT8 || srcDtype == ge::DT_FLOAT8_E4M3FN ||
-            srcDtype == ge::DT_HIFLOAT8 || srcDtype == ge::DT_UINT8 || srcDtype == ge::DT_FLOAT4_E2M1 ||
-            srcDtype == ge::DT_FLOAT4_E1M2);
+           std::find(QUANT_MATMUL_DTYPE_SUPPORT_LIST.begin(), QUANT_MATMUL_DTYPE_SUPPORT_LIST.end(), srcDtype) !=
+               QUANT_MATMUL_DTYPE_SUPPORT_LIST.end();
 }
 
 static bool CheckInputFormatSupportedToNz(const op::Format inputFormat)
@@ -273,12 +289,11 @@ static aclnnStatus ValidateNonQuantMatmulParams([[maybe_unused]] int32_t additio
 static aclnnStatus ValidateQuantMatmulParams(int32_t additionalDtype, [[maybe_unused]] const gert::Shape& viewShape,
                                              size_t viewShapeDim)
 {
-    OP_CHECK(additionalDtype == ge::DT_INT8 || additionalDtype == ge::DT_UINT8 ||
-                 additionalDtype == ge::DT_FLOAT8_E4M3FN || additionalDtype == ge::DT_HIFLOAT8 ||
-                 additionalDtype == ge::DT_FLOAT4_E2M1 || additionalDtype == ge::DT_FLOAT4_E1M2,
+    OP_CHECK(std::find(QUANT_MATMUL_DTYPE_SUPPORT_LIST.begin(), QUANT_MATMUL_DTYPE_SUPPORT_LIST.end(),
+                       static_cast<DataType>(additionalDtype)) != QUANT_MATMUL_DTYPE_SUPPORT_LIST.end(),
              OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
                  ACLNN_NAME, "additionalDtype", op::ToString(static_cast<op::DataType>(additionalDtype)).GetString(),
-                 "additionalDtype must be int8/uint8/float8_e4m3fn/hifloat8/float4_e2m1/float4_e1m2 "
+                 "additionalDtype must be int8/uint8/float8_e4m3fn/hifloat8/float4_e2m1/float4_e1m2/hifloat4 "
                  "when additionalDtype equals the dtype of srcTensor and additionalDtype is not float16 or bfloat16"),
              return ACLNN_ERR_PARAM_INVALID);
 
@@ -331,7 +346,7 @@ static aclnnStatus CheckCalculateSizeAndFormatInputs(const aclTensor* srcTensor,
 {
     auto socVersion = GetCurrentPlatformInfo().GetSocVersion();
     OP_CHECK(IsRegBase() || socVersion == SocVersion::ASCEND910_93 || socVersion == SocVersion::ASCEND910B,
-             OP_LOGW("Only support Ascend950/ASCEND910_93/ASCEND910B"), return ACLNN_ERR_RUNTIME_ERROR);
+             OP_LOGW("Only support Ascend950/Ascend960/ASCEND910_93/ASCEND910B"), return ACLNN_ERR_RUNTIME_ERROR);
     OP_CHECK_NULL(srcTensor, return ACLNN_ERR_PARAM_NULLPTR);
 
     // check dtype
@@ -365,12 +380,12 @@ static aclnnStatus FallbackAclop(const aclTensor* tensor)
     return ACLNN_SUCCESS;
 }
 
-static aclnnStatus Check95NdToNzCalculateSizeAndFormatInputs(const aclTensor* srcTensor, const int dstFormat,
-                                                             const int additionalDtype)
+static aclnnStatus CheckRegBaseNdToNzCalculateSizeAndFormatInputs(const aclTensor* srcTensor, const int dstFormat,
+                                                                  const int additionalDtype)
 {
     // check dtype
-    OP_CHECK_DTYPE_NOT_SUPPORT_WITH_REASON(ACLNN_NAME, srcTensor, ASCEND950_WEIGHT_DTYPE_SUPPORT_LIST,
-                                           return ACLNN_ERR_PARAM_INVALID);
+    const auto& supportList = GetRegBaseWeightDtypeSupportList();
+    OP_CHECK_DTYPE_NOT_SUPPORT_WITH_REASON(ACLNN_NAME, srcTensor, supportList, return ACLNN_ERR_PARAM_INVALID);
     [[maybe_unused]] op::Format srcFormat = srcTensor->GetStorageFormat();
     auto srcDtype = srcTensor->GetDataType();
     auto viewShape = srcTensor->GetViewShape();
@@ -410,7 +425,7 @@ static bool CheckFormatValid(DataType srcDtype, DataType dstDtype, op::Format sr
                      ACLNN_NAME, "srcTensor, dstTensor",
                      std::string(op::ToString(srcFormat).GetString()) + ", " + op::ToString(dstFormat).GetString(),
                      "The format of srcTensor must be ND/NCL/NCHW/NCDHW and the format of dstTensor must be FRACTAL_NZ "
-                     "when the dtype of srcTensor equals int8/uint8/float8_e4m3fn/hifloat8"),
+                     "when the dtype of srcTensor equals int8/uint8/float8_e4m3fn/hifloat8/float4_e2m1/hifloat4"),
                  return false);
     } else if (IsNonQuantMatmulDtype(srcDtype, dstFormat)) {
         // 非量化Matmul 拦截场景
@@ -444,7 +459,7 @@ static aclnnStatus CheckGetWorkSpaceSizeInputs(const aclTensor* srcTensor, aclTe
 {
     auto socVersion = GetCurrentPlatformInfo().GetSocVersion();
     OP_CHECK(IsRegBase() || socVersion == SocVersion::ASCEND910_93 || socVersion == SocVersion::ASCEND910B,
-             OP_LOGW("Only support Ascend950/ASCEND910_93/ASCEND910B"), return ACLNN_ERR_RUNTIME_ERROR);
+             OP_LOGW("Only support Ascend950/Ascend960/ASCEND910_93/ASCEND910B"), return ACLNN_ERR_RUNTIME_ERROR);
     OP_CHECK(IsContiguous(srcTensor),
              OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON(ACLNN_NAME, "srcTensor", "non-contiguous",
                                                    "srcTensor must be contiguous."),
@@ -462,13 +477,12 @@ static aclnnStatus CheckGetWorkSpaceSizeInputs(const aclTensor* srcTensor, aclTe
     return ACLNN_SUCCESS;
 }
 
-static aclnnStatus Check95NdToNzGetWorkSpaceSizeInputs(const aclTensor* srcTensor, const aclTensor* dstTensor)
+static aclnnStatus CheckRegBaseNdToNzGetWorkSpaceSizeInputs(const aclTensor* srcTensor, const aclTensor* dstTensor)
 {
     // check dtype
-    OP_CHECK_DTYPE_NOT_SUPPORT_WITH_REASON(ACLNN_NAME, srcTensor, ASCEND950_WEIGHT_DTYPE_SUPPORT_LIST,
-                                           return ACLNN_ERR_PARAM_INVALID);
-    OP_CHECK_DTYPE_NOT_SUPPORT_WITH_REASON(ACLNN_NAME, dstTensor, ASCEND950_WEIGHT_DTYPE_SUPPORT_LIST,
-                                           return ACLNN_ERR_PARAM_INVALID);
+    const auto& supportList = GetRegBaseWeightDtypeSupportList();
+    OP_CHECK_DTYPE_NOT_SUPPORT_WITH_REASON(ACLNN_NAME, srcTensor, supportList, return ACLNN_ERR_PARAM_INVALID);
+    OP_CHECK_DTYPE_NOT_SUPPORT_WITH_REASON(ACLNN_NAME, dstTensor, supportList, return ACLNN_ERR_PARAM_INVALID);
 
     op::Format srcFormat = srcTensor->GetStorageFormat();
     auto srcViewShape = srcTensor->GetViewShape();
@@ -535,6 +549,15 @@ static bool IsNz2Nd(op::Format srcFormat, op::Format dstFormat)
     return IsNzFormat(srcFormat) && isDstNd;
 }
 
+static int64_t GetNzC0ByDtype(DataType dtype)
+{
+    // 当前要求C0对应的数据大小为32B，4bit类型的C0为64
+    if (dtype == ge::DT_FLOAT4_E2M1 || dtype == ge::DT_FLOAT4_E1M2 || dtype == Ops::Math::DT_HIFLOAT4) {
+        return FRACTAL_NZ_C0_4B;
+    }
+    return BLOCK_SIZE / ge::GetSizeByDataType(dtype);
+}
+
 static bool ValidNzShape(const aclTensor* srcTensor)
 {
     auto srcStorageShape = srcTensor->GetStorageShape();
@@ -560,9 +583,7 @@ static bool ValidNzShape(const aclTensor* srcTensor)
     int64_t expectedC0 = -1;
     op::Format srcFormat = srcTensor->GetStorageFormat();
     if (srcFormat == op::Format::FORMAT_FRACTAL_NZ) {
-        auto srcDataType = srcTensor->GetDataType();
-        expectedC0 = srcDataType == ge::DT_FLOAT4_E2M1 ? FRACTAL_NZ_C0_4B :
-                                                         BLOCK_SIZE / ge::GetSizeByDataType(srcDataType);
+        expectedC0 = GetNzC0ByDtype(srcTensor->GetDataType());
     } else if (srcFormat == op::Format::FORMAT_FRACTAL_NZ_C0_2) {
         expectedC0 = 2; // c0 should be 2
     } else if (srcFormat == op::Format::FORMAT_FRACTAL_NZ_C0_4) {
@@ -646,13 +667,12 @@ static bool ValidDtypeFormatForNz2Nd(const aclTensor* srcTensor)
     return true;
 }
 
-static aclnnStatus Check95NzToNdGetWorkSpaceSizeInputs(const aclTensor* srcTensor, const aclTensor* dstTensor)
+static aclnnStatus CheckRegBaseNzToNdGetWorkSpaceSizeInputs(const aclTensor* srcTensor, const aclTensor* dstTensor)
 {
     // check dtype
-    OP_CHECK_DTYPE_NOT_SUPPORT_WITH_REASON(ACLNN_NAME, srcTensor, ASCEND950_WEIGHT_DTYPE_SUPPORT_LIST,
-                                           return ACLNN_ERR_PARAM_INVALID);
-    OP_CHECK_DTYPE_NOT_SUPPORT_WITH_REASON(ACLNN_NAME, dstTensor, ASCEND950_WEIGHT_DTYPE_SUPPORT_LIST,
-                                           return ACLNN_ERR_PARAM_INVALID);
+    const auto& supportList = GetRegBaseWeightDtypeSupportList();
+    OP_CHECK_DTYPE_NOT_SUPPORT_WITH_REASON(ACLNN_NAME, srcTensor, supportList, return ACLNN_ERR_PARAM_INVALID);
+    OP_CHECK_DTYPE_NOT_SUPPORT_WITH_REASON(ACLNN_NAME, dstTensor, supportList, return ACLNN_ERR_PARAM_INVALID);
     // check the shape of input tensor matches Nz format
     OP_CHECK(ValidNzShape(srcTensor), OP_LOGE(ACLNN_ERR_PARAM_INVALID, "The shape of input Nz tensor is invalid."),
              return ACLNN_ERR_PARAM_INVALID);
@@ -693,11 +713,7 @@ aclnnStatus CalcNdToNz(const aclTensor* srcTensor, int additionalDtype, int64_t*
     // 根据A矩阵和B矩阵数据类型计算实际转换成NZ格式后的C0大小
     if (IsRegBase()) {
         if (static_cast<op::DataType>(additionalDtype) == srcDtype) {
-            // 当前要求C0 * ge::GetSizeByDataType(dtype) = 32B
-            c0 = BLOCK_SIZE / ge::GetSizeByDataType(srcDtype);
-            if (additionalDtype == ge::DT_FLOAT4_E2M1 || additionalDtype == ge::DT_FLOAT4_E1M2) {
-                c0 = FRACTAL_NZ_C0_4B;
-            }
+            c0 = GetNzC0ByDtype(srcDtype);
             *actualFormat = op::Format::FORMAT_FRACTAL_NZ;
         } else {
             // 当A矩阵数据类型大小为2B，C0 = 16
@@ -1257,18 +1273,19 @@ aclnnStatus aclnnNpuFormatCastCalculateSizeAndFormat(const aclTensor* srcTensor,
     }
     if (IsFloat8E8m0NdToNn(srcTensor->GetDataType(), additionalDtype, srcFormat, static_cast<op::Format>(dstFormat))) {
         OP_CHECK(IsRegBase(),
-                 OP_LOGE(ACLNN_ERR_PARAM_INVALID, "FLOAT8_E8M0 ND to Ascend affinity format only supports Ascend950."),
+                 OP_LOGE(ACLNN_ERR_PARAM_INVALID,
+                         "FLOAT8_E8M0 ND to Ascend affinity format only supports Ascend950/Ascend960."),
                  return ACLNN_ERR_PARAM_INVALID);
-        auto retNdToNn = Check95NdToNzCalculateSizeAndFormatInputs(srcTensor, dstFormat, additionalDtype);
+        auto retNdToNn = CheckRegBaseNdToNzCalculateSizeAndFormatInputs(srcTensor, dstFormat, additionalDtype);
         OP_CHECK(retNdToNn == ACLNN_SUCCESS, OP_LOGW("Failed to check inputs"), return ACLNN_ERR_PARAM_INVALID);
         return CalcFloat8E8m0NdToNn(srcTensor, dstShape, dstShapeSize, actualFormat);
     }
     if (dstFormat == op::Format::FORMAT_FRACTAL_NZ &&
         ((srcFormat == op::Format::FORMAT_ND || srcFormat == op::Format::FORMAT_NCL) ||
          (additionalDtype == static_cast<int>(srcTensor->GetDataType()) && CheckInputFormatSupportedToNz(srcFormat)))) {
-        // ASCEND950校验特殊场景
+        // ASCEND950/960校验特殊场景
         if (IsRegBase()) {
-            auto retNdToNz = Check95NdToNzCalculateSizeAndFormatInputs(srcTensor, dstFormat, additionalDtype);
+            auto retNdToNz = CheckRegBaseNdToNzCalculateSizeAndFormatInputs(srcTensor, dstFormat, additionalDtype);
             OP_CHECK(retNdToNz == ACLNN_SUCCESS, OP_LOGW("Failed to check inputs"), return ACLNN_ERR_PARAM_INVALID);
         }
         return CalcNdToNz(srcTensor, additionalDtype, dstShape, dstShapeSize, actualFormat);
@@ -1279,7 +1296,7 @@ aclnnStatus aclnnNpuFormatCastCalculateSizeAndFormat(const aclTensor* srcTensor,
                                                 "FORMAT_FRACTAL_NZ"),
                      return ACLNN_ERR_PARAM_INVALID);
         } else {
-            // ASCEND950校验特殊场景
+            // ASCEND950/960校验特殊场景
             OP_CHECK(ValidNzShape(srcTensor),
                      OP_LOGE(ACLNN_ERR_PARAM_INVALID, "The shape of input Nz tensor is invalid."),
                      return ACLNN_ERR_PARAM_INVALID);
@@ -1336,14 +1353,14 @@ aclnnStatus aclnnNpuFormatCastGetWorkspaceSize(const aclTensor* srcTensor, aclTe
     op::Format dstFormat = dstTensor->GetStorageFormat();
     bool isFloat8E8m0Nn = IsFloat8E8m0NdToNn(srcTensor->GetDataType(), static_cast<int>(dstTensor->GetDataType()),
                                              srcFormat, dstFormat);
-    // ASCEND950校验特殊场景
+    // ASCEND950/960校验特殊场景
     if (IsRegBase()) {
         if (dstFormat == op::Format::FORMAT_FRACTAL_NZ &&
             ((srcFormat == op::Format::FORMAT_ND || srcFormat == op::Format::FORMAT_NCL) ||
              (srcTensor->GetDataType() == dstTensor->GetDataType() && CheckInputFormatSupportedToNz(srcFormat)))) {
-            ret = Check95NdToNzGetWorkSpaceSizeInputs(srcTensor, dstTensor);
+            ret = CheckRegBaseNdToNzGetWorkSpaceSizeInputs(srcTensor, dstTensor);
         } else if (IsNz2Nd(srcFormat, dstFormat)) {
-            ret = Check95NzToNdGetWorkSpaceSizeInputs(srcTensor, dstTensor);
+            ret = CheckRegBaseNzToNdGetWorkSpaceSizeInputs(srcTensor, dstTensor);
         }
     } else {
         // check输入参数合法性 910B场景
