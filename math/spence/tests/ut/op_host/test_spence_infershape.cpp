@@ -17,15 +17,9 @@
 
 class SpenceInfershape : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        std::cout << "SpenceInfershape SetUp" << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "SpenceInfershape SetUp" << std::endl; }
 
-    static void TearDownTestCase()
-    {
-        std::cout << "SpenceInfershape TearDown" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "SpenceInfershape TearDown" << std::endl; }
 };
 
 // ========== FP32 ==========
@@ -248,4 +242,37 @@ TEST_F(SpenceInfershape, infershape_4d_bf16)
         {2, 3, 4, 5},
     };
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+TEST_F(SpenceInfershape, infershape_dynamic_dim_minus1_fp32)
+{
+    gert::StorageShape shape = {{-1}, {-1}};
+    gert::InfershapeContextPara::TensorDescription x(shape, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::InfershapeContextPara::TensorDescription y(shape, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::InfershapeContextPara infershapeContextPara("Spence", {x}, {y});
+    std::vector<std::vector<int64_t>> expectOutputShape = {
+        {-1},
+    };
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+TEST_F(SpenceInfershape, infershape_dynamic_rank_minus2_fp32)
+{
+    gert::StorageShape shape = {{-2}, {-2}};
+    gert::InfershapeContextPara::TensorDescription x(shape, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::InfershapeContextPara::TensorDescription y(shape, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::InfershapeContextPara infershapeContextPara("Spence", {x}, {y});
+    std::vector<std::vector<int64_t>> expectOutputShape = {
+        {-2},
+    };
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+TEST_F(SpenceInfershape, infershape_9d_fp32_rejected)
+{
+    gert::StorageShape shape = {{1, 1, 1, 2, 2, 2, 2, 2, 2}, {1, 1, 1, 2, 2, 2, 2, 2, 2}};
+    gert::InfershapeContextPara::TensorDescription x(shape, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::InfershapeContextPara::TensorDescription y(shape, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::InfershapeContextPara infershapeContextPara("Spence", {x}, {y});
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED);
 }

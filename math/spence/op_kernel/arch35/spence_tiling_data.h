@@ -19,16 +19,16 @@
 #define _SPENCE_TILING_DATA_H_
 
 struct SpenceTilingData {
-    int64_t dim0 = 0;                  // 展平元素总数
-    int32_t coreNum = 0;               // 实际使用核数
-    int64_t blockFormer = 0;           // 每核基础元素数（对齐后）
-    int64_t blockNum = 0;              // 虚拟 block 数量
-    int64_t ubFormer = 0;              // 每个 UB tile 的元素数（kernel 用作 chunk size）
-    int64_t ubLoopOfFormerBlock = 0;   // 首 block 的 UB 循环次数（预留，供未来 kernel 优化）
-    int64_t ubTailOfFormerBlock = 0;   // 首 block 尾部元素数（预留，供未来 kernel 优化）
-    int64_t ubLoopOfTailBlock = 0;     // 尾 block 的 UB 循环次数（预留，供未来 kernel 优化）
-    int64_t ubTailOfTailBlock = 0;     // 尾 block 尾部元素数（预留，供未来 kernel 优化）
-    int32_t dtype = 0;                 // 数据类型标识
+    int64_t dim0 = 0;        // 展平元素总数
+    int32_t coreNum = 0;     // 实际使用核数
+    int64_t blockFormer = 0; // 每核基础元素数（对齐后）
+    int64_t blockNum = 0;    // 虚拟 block 数量
+    int64_t ubFormer = 0; // 每个 UB tile 的元素数（预留，kernel 实际以编译期常量 SPENCE_CHUNK 分块）
+    int64_t ubLoopOfFormerBlock = 0; // 首 block 的 UB 循环次数（预留，供未来 kernel 优化）
+    int64_t ubTailOfFormerBlock = 0; // 首 block 尾部元素数（预留，供未来 kernel 优化）
+    int64_t ubLoopOfTailBlock = 0;   // 尾 block 的 UB 循环次数（预留，供未来 kernel 优化）
+    int64_t ubTailOfTailBlock = 0;   // 尾 block 尾部元素数（预留，供未来 kernel 优化）
+    int32_t dtype = 0;               // 数据类型标识
 };
 
 #endif

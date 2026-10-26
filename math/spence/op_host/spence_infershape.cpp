@@ -27,8 +27,18 @@ using namespace ge;
 
 namespace ops {
 
+static constexpr size_t MAX_DIM_NUM = 8; // max supported dim num
+
 static ge::graphStatus InferShape4Spence(gert::InferShapeContext* context)
 {
+    const gert::Shape* input = context->GetInputShape(0);
+    OP_CHECK_NULL_WITH_CONTEXT(context, input);
+    OP_CHECK_IF(input->GetDimNum() > MAX_DIM_NUM,
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "x",
+                                                         std::to_string(input->GetDimNum()).c_str(),
+                                                         "The dim num of x must be less than or equal to 8"),
+                return ge::GRAPH_FAILED);
+
     const ge::graphStatus inferStatus = Ops::Base::InferShape4Elewise(context);
     if (inferStatus != ge::GRAPH_SUCCESS) {
         return inferStatus;

@@ -89,28 +89,6 @@ static ge::graphStatus GetShapeAttrsInfo(gert::TilingContext* context, int64_t& 
                                                  "DT_FLOAT, DT_FLOAT16, DT_BFLOAT16"),
                 return ge::GRAPH_FAILED);
 
-    const ge::Format inputOriginFormat = inputDesc->GetOriginFormat();
-    const ge::Format inputStorageFormat = inputDesc->GetStorageFormat();
-    OP_CHECK_IF(inputOriginFormat != ge::FORMAT_ND || inputStorageFormat != ge::FORMAT_ND,
-                OP_LOGE_WITH_INVALID_INPUT_FORMAT(context->GetNodeName(), "x",
-                                                  (std::string(ge::GetFormatName(inputOriginFormat)) + " (origin), " +
-                                                   ge::GetFormatName(inputStorageFormat) + " (storage)")
-                                                      .c_str(),
-                                                  "ND"),
-                return ge::GRAPH_FAILED);
-
-    auto outputDesc = context->GetOutputDesc(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context, outputDesc);
-    const ge::Format outputOriginFormat = outputDesc->GetOriginFormat();
-    const ge::Format outputStorageFormat = outputDesc->GetStorageFormat();
-    OP_CHECK_IF(outputOriginFormat != ge::FORMAT_ND || outputStorageFormat != ge::FORMAT_ND,
-                OP_LOGE_WITH_INVALID_INPUT_FORMAT(context->GetNodeName(), "y",
-                                                  (std::string(ge::GetFormatName(outputOriginFormat)) + " (origin), " +
-                                                   ge::GetFormatName(outputStorageFormat) + " (storage)")
-                                                      .c_str(),
-                                                  "ND"),
-                return ge::GRAPH_FAILED);
-
     return ge::GRAPH_SUCCESS;
 }
 

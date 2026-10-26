@@ -18,7 +18,6 @@
 #include <cstdio>
 #include <cstring>
 #include <map>
-#include <new>
 #include <string>
 #include <vector>
 
@@ -47,25 +46,26 @@ bool MakeFilledTensor(const std::vector<int64_t>& shape, float value, ge::Tensor
     for (int64_t dim : shape) {
         numel *= static_cast<size_t>(dim);
     }
-    float* data = new (std::nothrow) float[numel];
-    if (data == nullptr) {
-        return false;
-    }
-    for (size_t index = 0; index < numel; ++index) {
-        data[index] = value;
-    }
-    tensor = ge::Tensor(desc, reinterpret_cast<uint8_t*>(data), numel * sizeof(float));
+    std::vector<float> data(numel, value);
+    tensor = ge::Tensor(desc, reinterpret_cast<uint8_t*>(data.data()), numel * sizeof(float));
     return true;
 }
 
-void WriteDataToFile(const std::string& binFile, uint64_t dataSize, const uint8_t* inputData)
+bool WriteDataToFile(const std::string& binFile, uint64_t dataSize, const uint8_t* inputData)
 {
-    FILE* fp = fopen(binFile.c_str(), "w");
+    FILE* fp = fopen(binFile.c_str(), "wb");
     if (fp == nullptr) {
-        return;
+        std::printf("Failed to open %s for writing\n", binFile.c_str());
+        return false;
     }
-    fwrite(inputData, sizeof(uint8_t), dataSize, fp);
-    fclose(fp);
+    const size_t written = fwrite(inputData, sizeof(uint8_t), dataSize, fp);
+    const bool writeOk = (written == dataSize);
+    const bool closeOk = (fclose(fp) == 0);
+    if (!writeOk || !closeOk) {
+        std::printf("Failed to write %s completely\n", binFile.c_str());
+        return false;
+    }
+    return true;
 }
 
 } // namespace
@@ -135,8 +135,14 @@ int main()
         }
     }
 
-    WriteDataToFile("./tc_ge_irrun_test_npu_input_0.bin", numel * sizeof(float), input.GetData());
-    WriteDataToFile("./tc_ge_irrun_test_npu_output_0.bin", numel * sizeof(float), outputs[0].GetData());
+    const bool inputSaved = WriteDataToFile("./tc_ge_irrun_test_npu_input_0.bin", numel * sizeof(float),
+                                            input.GetData());
+    const bool outputSaved = WriteDataToFile("./tc_ge_irrun_test_npu_output_0.bin", numel * sizeof(float),
+                                             outputs[0].GetData());
+    if (!inputSaved || !outputSaved) {
+        ge::GEFinalize();
+        return -1;
+    }
 
     if (ge::GEFinalize() != ge::SUCCESS) {
         return -1;

@@ -35,6 +35,9 @@
  *   特殊值：x=1→0, x=0→π²/6, x<0→NaN, x=+inf→NaN
  *   （x=+inf 经反射恒等式 y=1/x=+0, ln(y)=-inf, (-inf)·ln(1-y)=(-inf)·0=NaN，
  *    与竞品 TF Eigen spence_op 及 oracle scipy.special.spence 的实际行为一致）
+ *   大正数 x ∈ (1/FLT_MIN, FLT_MAX]：ln(y) 不对 y=1/x 直接取对数（次正规 FTZ→0→Ln=-inf，
+ *   与 ln(1-y)=0 相乘得 NaN），改用恒等式 ln(1/x)=-ln(x) 对原始输入取对数，
+ *   结果为有限负数 -½ln²(x)-π²/6+O(1/x)，与 fp64 oracle 一致（2026-10-15 修复）
  *
  * 参考：Cephes math library (dilog.c), scipy.special.spence, TF spence_op
  */
@@ -103,7 +106,8 @@ private:
         AscendC::Reg::RegTensor<float>& yReg, AscendC::Reg::RegTensor<float>& spencePolReg,
         AscendC::Reg::RegTensor<float>& resultReg, AscendC::Reg::RegTensor<float>& t1Reg,
         AscendC::Reg::RegTensor<float>& constReg, AscendC::Reg::MaskReg& mask, AscendC::Reg::MaskReg& cmpMask2,
-        AscendC::Reg::MaskReg& cmpMaskYlo, AscendC::Reg::MaskReg& cmpMaskXgt);
+        AscendC::Reg::MaskReg& cmpMaskYlo, AscendC::Reg::MaskReg& cmpMaskXgt, AscendC::Reg::RegTensor<float>& xsReg,
+        AscendC::Reg::MaskReg& cmpMaskXsLtTwo);
 
     AscendC::TPipe* pipe_;
     const SpenceTilingData* tiling_;
@@ -240,7 +244,7 @@ __aicore__ inline void KernelSpence<T>::SpenceVFBody(__ubuf__ float* xAddr, __ub
 
             EvaluateSpenceHorner(wReg, spencePolReg, mask);
             ComputeSpenceCorrections(yReg, spencePolReg, resultReg, t1Reg, constReg, mask, cmpMask2, cmpMaskYlo,
-                                     cmpMaskXgt);
+                                     cmpMaskXgt, xsReg, cmpMask1);
             HandleSpenceSpecialValues(xReg, xsReg, resultReg, constReg, zeroReg, mask, cmpMask1);
 
             // ============================================================
@@ -318,11 +322,18 @@ __aicore__ inline void KernelSpence<T>::ComputeSpenceCorrections(
     AscendC::Reg::RegTensor<float>& yReg, AscendC::Reg::RegTensor<float>& spencePolReg,
     AscendC::Reg::RegTensor<float>& resultReg, AscendC::Reg::RegTensor<float>& t1Reg,
     AscendC::Reg::RegTensor<float>& constReg, AscendC::Reg::MaskReg& mask, AscendC::Reg::MaskReg& cmpMask2,
-    AscendC::Reg::MaskReg& cmpMaskYlo, AscendC::Reg::MaskReg& cmpMaskXgt)
+    AscendC::Reg::MaskReg& cmpMaskYlo, AscendC::Reg::MaskReg& cmpMaskXgt, AscendC::Reg::RegTensor<float>& xsReg,
+    AscendC::Reg::MaskReg& cmpMaskXsLtTwo)
 {
     using namespace AscendC::Reg;
     RegTensor<float> lnYReg, oneMinusYReg, lnOneMinusYReg, spence1Reg, corrXgtReg;
-    Ln(lnYReg, yReg, mask);
+    // ln(y) 改由裁剪后的原始输入 xs 计算：y = xs（xs<2）或 1/xs（xs≥2），故 ln(y) = ln(xs) 或 −ln(xs)
+    // （恒等式 ln(1/x) = −ln(x) 严格成立）。不直接对 y=1/xs 取对数：xs > 1/FLT_MIN≈8.5e37 时
+    // 1/xs 为 fp32 次正规，FTZ 后 Ln(0)=−inf，与 ln(1−y)=0 相乘得 NaN；而数学正确值为有限负数
+    // −½ln²(x)−π²/6+O(1/x)。xs 恒为正常数（clip 下界 1e-30，上界 +inf 单独经特殊值路径）。
+    Ln(lnYReg, xsReg, mask);
+    Neg(t1Reg, lnYReg, mask);
+    Select<float>(lnYReg, lnYReg, t1Reg, cmpMaskXsLtTwo); // xs<2 → ln(x)；xs≥2 → −ln(x)
     Duplicate(constReg, 1.0f, mask);
     Sub(oneMinusYReg, constReg, yReg, mask);
     Duplicate(constReg, SAFE_EPS_F, mask);

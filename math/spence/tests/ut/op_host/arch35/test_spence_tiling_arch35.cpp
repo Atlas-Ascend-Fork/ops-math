@@ -355,6 +355,32 @@ static SpenceTestParam testCases[] = {
      48,
      253952,
      4096},
+
+    {"spence_tiling_24_rank9_reject",
+     {1, 1, 1, 1, 1, 1, 1, 1, 1},
+     ge::DT_FLOAT,
+     ge::FORMAT_ND,
+     {1, 1, 1, 1, 1, 1, 1, 1, 1},
+     ge::DT_FLOAT,
+     ge::FORMAT_ND,
+     ge::GRAPH_FAILED,
+     {0},
+     48,
+     253952,
+     4096},
+
+    {"spence_tiling_26_non_concrete_dim_reject",
+     {-1},
+     ge::DT_FLOAT,
+     ge::FORMAT_ND,
+     {-1},
+     ge::DT_FLOAT,
+     ge::FORMAT_ND,
+     ge::GRAPH_FAILED,
+     {0},
+     48,
+     253952,
+     4096},
 };
 
 class SpenceTilingTest : public testing::TestWithParam<SpenceTestParam> {

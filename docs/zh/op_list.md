@@ -2064,7 +2064,7 @@
     <td>×</td>
     <td>√</td>
     <td>AI Core</td>
-    <td>计算Spence函数（dilogarithm）：S(x) = -integral_0^x ln(1-t)/t dt。</td>
+    <td>计算Spence函数（dilogarithm）：S(x) = -integral_0^(1-x) ln(1-t)/t dt = Li2(1-x)。</td>
   </tr>
   <tr>
     <td>math</td>

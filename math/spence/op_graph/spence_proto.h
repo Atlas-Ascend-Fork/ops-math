@@ -23,7 +23,7 @@
 namespace ge {
 
 /**
- *@brief Computes the Spence function (dilogarithm): S(x) = -integral_0^x ln(1-t)/t dt.
+ *@brief Computes the Spence function (dilogarithm): S(x) = -integral_0^(1-x) ln(1-t)/t dt = Li2(1-x).
  *@par Inputs:
  *One input:
  * @li x: A ND Tensor. Must be one of the following types: float16, float32, float64, bfloat16.
