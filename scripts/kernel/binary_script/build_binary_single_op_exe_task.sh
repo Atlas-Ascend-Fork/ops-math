@@ -12,7 +12,7 @@
 set -e
 
 main() {
-  echo "[INFO]excute file: $0"
+  echo "[INFO]execute file: $0"
   if [ $# -lt 3 ]; then
     echo "[ERROR]input error"
     echo "[ERROR]bash $0 {task_path} {compile_thread_num} {out_path}"
@@ -29,6 +29,11 @@ main() {
   mkdir -p $output_path/build_logs/
 
   source build_env.sh
+  # kernel 编译会加载 host/tiling so，其注册日志会随编译日志一起被打印，失败时造成日志刷屏。
+  # 用户未显式指定日志级别时，仅保留 ERROR 级别日志，避免失败输出被注册日志淹没。
+  if [ "${USER_SET_LOG_LEVEL}" != "true" ]; then
+    export ASCEND_GLOBAL_LOG_LEVEL=3
+  fi
   opc_cmd_file="${task_path}/${OPC_TASK_NAME}"
   out_cmd_file="${task_path}/${OUT_TASK_NAME}"
   echo "[INFO]exe_task: opc_cmd_file = ${opc_cmd_file}"
@@ -86,14 +91,14 @@ main() {
       if grep -qi 'error:' "${output_path}/build_logs/${key}.log"; then
         # 标记编译失败
         touch "${error_flag_file}"
-        
+
         echo "[ERROR]exe_task: ${cmd_task}"
         echo "[ERROR]exe_task error log: ${output_path}/build_logs/${key}.log"
         echo "[ERROR]exe_task error detail:"
         echo "------------------------------------------------------------"
         cat "${output_path}/build_logs/${key}.log"
         echo "============================================================"
-        
+
         echo >&8
         exit 1
       fi

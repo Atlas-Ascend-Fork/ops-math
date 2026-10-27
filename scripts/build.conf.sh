@@ -48,6 +48,8 @@ export GRAPH_LIBRARY_PATH="${ASCEND_HOME_PATH}/lib64"
 
 USER_SET_SLOG=${ASCEND_SLOG_PRINT_TO_STDOUT:+true}
 USER_SET_LOG_LEVEL=${ASCEND_GLOBAL_LOG_LEVEL:+true}
+# kernel 编译脚本在独立子进程中运行，需 export 才能据此判断用户是否显式设置过日志级别
+export USER_SET_LOG_LEVEL
 if [[ ! -v ASCEND_SLOG_PRINT_TO_STDOUT ]]; then
   export ASCEND_SLOG_PRINT_TO_STDOUT=1
 fi

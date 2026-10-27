@@ -12,7 +12,7 @@
 set -e
 
 main() {
-  echo "[INFO]excute file: $0"
+  echo "[INFO]execute file: $0"
   if [ $# -lt 2 ]; then
     echo "[ERROR]input error"
     echo "[ERROR]bash $0 {out_path} {task_id}"
@@ -27,6 +27,11 @@ main() {
   local task_path=$output_path/opc_cmd
   mkdir -p $output_path/build_logs/
   source build_env.sh
+  # kernel 编译会加载 host/tiling so，其注册日志会随编译日志一起被打印，失败时造成日志刷屏。
+  # 用户未显式指定日志级别时，仅保留 ERROR 级别日志，避免失败输出被注册日志淹没。
+  if [ "${USER_SET_LOG_LEVEL}" != "true" ]; then
+    export ASCEND_GLOBAL_LOG_LEVEL=3
+  fi
   opc_cmd_file="${task_path}/${OPC_TASK_NAME}"
   out_cmd_file="${task_path}/${OUT_TASK_NAME}"
   echo "[INFO]exe_task: opc_cmd_file = ${opc_cmd_file}"
@@ -47,7 +52,7 @@ main() {
   echo "[$start_timestamp] Build started: ${cmd_task}" > "$log_file"
   timeout --foreground 2h ${cmd_task} >> "${log_file}" 2>&1
   compile_rc=$?
-  set -e  
+  set -e
 
   end_time=$(date +%s)
   exe_time=$((end_time - start_time))
