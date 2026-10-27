@@ -25,6 +25,8 @@
 #include "conversion/tensor_move/op_api/tensor_move.h"
 #include "conversion/view_copy/op_api/view_copy.h"
 
+#include "log/log.h"
+
 using namespace op;
 
 namespace l0op {
@@ -612,7 +614,8 @@ const aclTensor* Contiguous(const aclTensor* x, aclOpExecutor* executor)
     if (CanOptimizeContiguous(viewShape, viewStrides, viewOffset, storageSize, param)) {
         auto contiguousTensor = OptimizeContiguous(x, param, executor);
         if (contiguousTensor == nullptr) {
-            OP_LOGE(ACLNN_ERR_INNER, "OptimizeContiguous failed.");
+            OP_LOGE_WITHOUT_REPORT(ACLNN_ERR_INNER_NULLPTR,
+                                   "OptimizeContiguous failed; propagate the first error reported by the callee.");
             return nullptr;
         }
         return ResetFormat(contiguousTensor, x);
@@ -620,7 +623,8 @@ const aclTensor* Contiguous(const aclTensor* x, aclOpExecutor* executor)
 
     auto contiguousTensor = AsStridedToContiguous(x, executor);
     if (contiguousTensor == nullptr) {
-        OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "Convert tensor to contiguous failed.");
+        OP_LOGE_WITHOUT_REPORT(ACLNN_ERR_INNER_NULLPTR,
+                               "AsStridedToContiguous failed; propagate the first error reported by the callee.");
         return nullptr;
     }
     return ResetFormat(contiguousTensor, x);
