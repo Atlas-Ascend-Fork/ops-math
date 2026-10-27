@@ -31,22 +31,23 @@ extern "C" {
  * @param [in] dim: npu host侧的int。
  * @param [in] size: npu host侧的int。
  * @param [in] step: npu host侧的int。
- * @param [in] gradIn:
+ * @param [out] gradIn:
  * npu device侧的aclTensor，数据类型支持BF16、FLOAT16、FLOAT。
  * 支持[非连续的Tensor](#)，数据格式支持ND。
- * 
+ *
  * @param [out] workspaceSize: 返回用户需要在npu device侧申请的workspace大小。
  * @param [out] executor: 返回op执行器，包含了算子计算流程。
  * @return aclnnStatus: 返回状态码。
  */
-ACLNN_API aclnnStatus aclnnUnfoldGradGetWorkspaceSize(
-    const aclTensor* gradOut, const aclIntArray* inputSizes, int64_t dim, int64_t size, int64_t step, 
-    const aclTensor* gradIn, uint64_t* workspaceSize, aclOpExecutor** executor);
+ACLNN_API aclnnStatus aclnnUnfoldGradGetWorkspaceSize(const aclTensor* gradOut, const aclIntArray* inputSizes,
+                                                      int64_t dim, int64_t size, int64_t step, const aclTensor* gradIn,
+                                                      uint64_t* workspaceSize, aclOpExecutor** executor);
 
 /**
  * @brief aclnnUnfoldGrad的第二段接口，用于执行计算。
  */
-ACLNN_API aclnnStatus aclnnUnfoldGrad(void* workspace, uint64_t workspaceSize, aclOpExecutor* executor, aclrtStream stream);
+ACLNN_API aclnnStatus aclnnUnfoldGrad(void* workspace, uint64_t workspaceSize, aclOpExecutor* executor,
+                                      aclrtStream stream);
 
 #ifdef __cplusplus
 }
