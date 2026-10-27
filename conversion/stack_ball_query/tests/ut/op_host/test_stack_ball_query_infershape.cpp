@@ -282,3 +282,46 @@ TEST_F(StackBallQueryInfershape, stack_ball_query_infershape_neg_center_batch_cn
         });
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED);
 }
+
+// ===== 必选输入为空 / 输入输出数量非法 =====
+
+TEST_F(StackBallQueryInfershape, stack_ball_query_infershape_neg_null_xyz_input)
+{
+    std::vector<size_t> nullInputIndices = {0};
+    gert::InfershapeContextPara infershapeContextPara(
+        "StackBallQuery",
+        {
+            {{{3, 20}, {3, 20}}, ge::DT_FLOAT, ge::FORMAT_ND},
+            {{{10, 3}, {10, 3}}, ge::DT_FLOAT, ge::FORMAT_ND},
+            {{{2}, {2}}, ge::DT_INT32, ge::FORMAT_ND},
+            {{{2}, {2}}, ge::DT_INT32, ge::FORMAT_ND},
+        },
+        {
+            {{{}, {}}, ge::DT_INT32, ge::FORMAT_ND},
+        },
+        {
+            gert::InfershapeContextPara::OpAttr("max_radius", Ops::Math::AnyValue::CreateFrom<float>(1.0)),
+            gert::InfershapeContextPara::OpAttr("sample_num", Ops::Math::AnyValue::CreateFrom<int64_t>(5)),
+        },
+        {}, {}, nullInputIndices);
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED);
+}
+
+TEST_F(StackBallQueryInfershape, stack_ball_query_infershape_neg_input_num_mismatch)
+{
+    gert::InfershapeContextPara infershapeContextPara(
+        "StackBallQuery",
+        {
+            {{{3, 20}, {3, 20}}, ge::DT_FLOAT, ge::FORMAT_ND},
+            {{{10, 3}, {10, 3}}, ge::DT_FLOAT, ge::FORMAT_ND},
+            {{{2}, {2}}, ge::DT_INT32, ge::FORMAT_ND},
+        },
+        {
+            {{{}, {}}, ge::DT_INT32, ge::FORMAT_ND},
+        },
+        {
+            gert::InfershapeContextPara::OpAttr("max_radius", Ops::Math::AnyValue::CreateFrom<float>(1.0)),
+            gert::InfershapeContextPara::OpAttr("sample_num", Ops::Math::AnyValue::CreateFrom<int64_t>(5)),
+        });
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED);
+}

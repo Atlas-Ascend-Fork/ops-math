@@ -35,7 +35,7 @@ namespace ops {
 static ge::graphStatus InferShape4StackBallQuery(gert::InferShapeContext* context)
 {
     if (context == nullptr) {
-        OP_LOGE("InferShape4StackBallQuery", "Context is nullptr, check failed.");
+        OP_LOGE_WITH_INVALID_INPUT("StackBallQuery", "context");
         return GRAPH_FAILED;
     }
     if (context->GetComputeNodeInputNum() != INPUT_NODE_NUM || context->GetComputeNodeOutputNum() != OUTPUT_NODE_NUM) {
@@ -43,16 +43,31 @@ static ge::graphStatus InferShape4StackBallQuery(gert::InferShapeContext* contex
     }
 
     const gert::Shape* xyz_shape = context->GetInputShape(INDEX_INPUT_XYZ);
-    OP_CHECK_NULL_WITH_CONTEXT(context, xyz_shape);
+    if (xyz_shape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "xyz");
+        return GRAPH_FAILED;
+    }
     const gert::Shape* center_xyz_shape = context->GetInputShape(INDEX_INPUT_CENTER_XYZ);
-    OP_CHECK_NULL_WITH_CONTEXT(context, center_xyz_shape);
+    if (center_xyz_shape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "center_xyz");
+        return GRAPH_FAILED;
+    }
     const gert::Shape* xyz_batch_cnt_shape = context->GetInputShape(INDEX_INPUT_XYZ_BATCH_CNT);
-    OP_CHECK_NULL_WITH_CONTEXT(context, xyz_batch_cnt_shape);
+    if (xyz_batch_cnt_shape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "xyz_batch_cnt");
+        return GRAPH_FAILED;
+    }
     const gert::Shape* center_xyz_batch_cnt_shape = context->GetInputShape(INDEX_INPUT_CENTER_XYZ_BATCH_CNT);
-    OP_CHECK_NULL_WITH_CONTEXT(context, center_xyz_batch_cnt_shape);
+    if (center_xyz_batch_cnt_shape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "center_xyz_batch_cnt");
+        return GRAPH_FAILED;
+    }
 
     gert::Shape* idx_shape = context->GetOutputShape(INDEX_OUTPUT_IDX);
-    OP_CHECK_NULL_WITH_CONTEXT(context, idx_shape);
+    if (idx_shape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "idx");
+        return GRAPH_FAILED;
+    }
 
     // unknown rank：输出置 unknown rank 后直接返回
     if (Ops::Base::IsUnknownRank(*xyz_shape) || Ops::Base::IsUnknownRank(*center_xyz_shape) ||
@@ -90,9 +105,16 @@ static ge::graphStatus InferShape4StackBallQuery(gert::InferShapeContext* contex
     }
 
     auto* attrs = context->GetAttrs();
-    OP_CHECK_NULL_WITH_CONTEXT(context, attrs);
+    if (attrs == nullptr) {
+        OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(context->GetNodeName(), "attrs",
+                                                 "attribute container must not be null");
+        return GRAPH_FAILED;
+    }
     auto* sampl_num_ptr = attrs->GetAttrPointer<int64_t>(INDEX_ATTR_SAMPLE_NUM);
-    OP_CHECK_NULL_WITH_CONTEXT(context, sampl_num_ptr);
+    if (sampl_num_ptr == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "sample_num");
+        return GRAPH_FAILED;
+    }
     auto sampl_num = *sampl_num_ptr;
 
     idx_shape->SetDimNum(IDX_DIM_NUM);

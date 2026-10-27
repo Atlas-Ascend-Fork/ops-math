@@ -296,3 +296,56 @@ TEST_F(StackBallQueryTiling, stack_ball_query_tiling_neg_max_radius_negative)
         &compileInfo);
     ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
 }
+
+// ===== 属性缺失拦截 =====
+
+TEST_F(StackBallQueryTiling, stack_ball_query_tiling_neg_missing_sample_num)
+{
+    optiling::StackBallQueryCompileInfo compileInfo = {0, 0};
+
+    gert::TilingContextPara tilingContextPara(
+        "StackBallQuery",
+        {{{{3, 20}, {3, 20}}, ge::DT_FLOAT, ge::FORMAT_ND},
+         {{{10, 3}, {10, 3}}, ge::DT_FLOAT, ge::FORMAT_ND},
+         {{{2}, {2}}, ge::DT_INT32, ge::FORMAT_ND},
+         {{{2}, {2}}, ge::DT_INT32, ge::FORMAT_ND}},
+        {{{{10, 5}, {10, 5}}, ge::DT_INT32, ge::FORMAT_ND}},
+        {gert::TilingContextPara::OpAttr("max_radius", Ops::Math::AnyValue::CreateFrom<float>(1.0))}, &compileInfo);
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
+}
+
+// ===== shape 维度溢出 / 乘积溢出 =====
+
+TEST_F(StackBallQueryTiling, stack_ball_query_tiling_neg_shape_dim_overflow)
+{
+    optiling::StackBallQueryCompileInfo compileInfo = {0, 0};
+
+    gert::TilingContextPara tilingContextPara(
+        "StackBallQuery",
+        {{{{3, 2147483648LL}, {3, 2147483648LL}}, ge::DT_FLOAT, ge::FORMAT_ND},
+         {{{10, 3}, {10, 3}}, ge::DT_FLOAT, ge::FORMAT_ND},
+         {{{2}, {2}}, ge::DT_INT32, ge::FORMAT_ND},
+         {{{2}, {2}}, ge::DT_INT32, ge::FORMAT_ND}},
+        {{{{10, 5}, {10, 5}}, ge::DT_INT32, ge::FORMAT_ND}},
+        {gert::TilingContextPara::OpAttr("max_radius", Ops::Math::AnyValue::CreateFrom<float>(1.0)),
+         gert::TilingContextPara::OpAttr("sample_num", Ops::Math::AnyValue::CreateFrom<int64_t>(5))},
+        &compileInfo);
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
+}
+
+TEST_F(StackBallQueryTiling, stack_ball_query_tiling_neg_total_idx_overflow)
+{
+    optiling::StackBallQueryCompileInfo compileInfo = {0, 0};
+
+    gert::TilingContextPara tilingContextPara(
+        "StackBallQuery",
+        {{{{3, 20}, {3, 20}}, ge::DT_FLOAT, ge::FORMAT_ND},
+         {{{2147483647LL, 3}, {2147483647LL, 3}}, ge::DT_FLOAT, ge::FORMAT_ND},
+         {{{1}, {1}}, ge::DT_INT32, ge::FORMAT_ND},
+         {{{1}, {1}}, ge::DT_INT32, ge::FORMAT_ND}},
+        {{{{2147483647, 5}, {2147483647, 5}}, ge::DT_INT32, ge::FORMAT_ND}},
+        {gert::TilingContextPara::OpAttr("max_radius", Ops::Math::AnyValue::CreateFrom<float>(1.0)),
+         gert::TilingContextPara::OpAttr("sample_num", Ops::Math::AnyValue::CreateFrom<int64_t>(2))},
+        &compileInfo);
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
+}

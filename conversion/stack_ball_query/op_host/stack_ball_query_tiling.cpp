@@ -50,7 +50,10 @@ static ge::graphStatus ValidateDtype(gert::TilingContext* context)
     auto opName = context->GetNodeName();
 
     auto xyzDesc = context->GetInputDesc(INDEX_INPUT_XYZ);
-    OP_CHECK_NULL_WITH_CONTEXT(context, xyzDesc);
+    if (xyzDesc == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(opName, "xyz");
+        return ge::GRAPH_FAILED;
+    }
     auto xyzDtype = xyzDesc->GetDataType();
     OP_CHECK_IF(xyzDtype != ge::DT_FLOAT16 && xyzDtype != ge::DT_FLOAT,
                 OP_LOGE_FOR_INVALID_DTYPE(opName, "xyz", std::to_string(static_cast<int32_t>(xyzDtype)).c_str(),
@@ -58,7 +61,10 @@ static ge::graphStatus ValidateDtype(gert::TilingContext* context)
                 return ge::GRAPH_FAILED);
 
     auto centerXyzDesc = context->GetInputDesc(INDEX_INPUT_CENTER_XYZ);
-    OP_CHECK_NULL_WITH_CONTEXT(context, centerXyzDesc);
+    if (centerXyzDesc == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(opName, "center_xyz");
+        return ge::GRAPH_FAILED;
+    }
     auto centerXyzDtype = centerXyzDesc->GetDataType();
     OP_CHECK_IF(centerXyzDtype != xyzDtype,
                 OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(opName, "xyz and center_xyz",
@@ -69,7 +75,10 @@ static ge::graphStatus ValidateDtype(gert::TilingContext* context)
                 return ge::GRAPH_FAILED);
 
     auto xyzBatchCntDesc = context->GetInputDesc(INDEX_INPUT_XYZ_BATCH_CNT);
-    OP_CHECK_NULL_WITH_CONTEXT(context, xyzBatchCntDesc);
+    if (xyzBatchCntDesc == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(opName, "xyz_batch_cnt");
+        return ge::GRAPH_FAILED;
+    }
     auto xyzBatchCntDtype = xyzBatchCntDesc->GetDataType();
     OP_CHECK_IF(
         xyzBatchCntDtype != ge::DT_INT32 && xyzBatchCntDtype != ge::DT_INT64,
@@ -78,7 +87,10 @@ static ge::graphStatus ValidateDtype(gert::TilingContext* context)
         return ge::GRAPH_FAILED);
 
     auto centerXyzBatchCntDesc = context->GetInputDesc(INDEX_INPUT_CENTER_XYZ_BATCH_CNT);
-    OP_CHECK_NULL_WITH_CONTEXT(context, centerXyzBatchCntDesc);
+    if (centerXyzBatchCntDesc == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(opName, "center_xyz_batch_cnt");
+        return ge::GRAPH_FAILED;
+    }
     auto centerXyzBatchCntDtype = centerXyzBatchCntDesc->GetDataType();
     OP_CHECK_IF(
         centerXyzBatchCntDtype != xyzBatchCntDtype,
@@ -98,7 +110,10 @@ static ge::graphStatus ValidateShape(gert::TilingContext* context)
     auto opName = context->GetNodeName();
 
     auto xyzShape = context->GetInputShape(INDEX_INPUT_XYZ);
-    OP_CHECK_NULL_WITH_CONTEXT(context, xyzShape);
+    if (xyzShape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(opName, "xyz");
+        return ge::GRAPH_FAILED;
+    }
     OP_CHECK_IF(xyzShape->GetStorageShape().GetDimNum() != 2,
                 OP_LOGE_FOR_INVALID_SHAPEDIM(
                     opName, "xyz", (std::to_string(xyzShape->GetStorageShape().GetDimNum()) + "D").c_str(), "2D"),
@@ -112,7 +127,10 @@ static ge::graphStatus ValidateShape(gert::TilingContext* context)
                 return ge::GRAPH_FAILED);
 
     auto centerXyzShape = context->GetInputShape(INDEX_INPUT_CENTER_XYZ);
-    OP_CHECK_NULL_WITH_CONTEXT(context, centerXyzShape);
+    if (centerXyzShape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(opName, "center_xyz");
+        return ge::GRAPH_FAILED;
+    }
     OP_CHECK_IF(
         centerXyzShape->GetStorageShape().GetDimNum() != 2,
         OP_LOGE_FOR_INVALID_SHAPEDIM(
@@ -128,7 +146,10 @@ static ge::graphStatus ValidateShape(gert::TilingContext* context)
                 return ge::GRAPH_FAILED);
 
     auto xyzBatchCntShape = context->GetInputShape(INDEX_INPUT_XYZ_BATCH_CNT);
-    OP_CHECK_NULL_WITH_CONTEXT(context, xyzBatchCntShape);
+    if (xyzBatchCntShape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(opName, "xyz_batch_cnt");
+        return ge::GRAPH_FAILED;
+    }
     OP_CHECK_IF(xyzBatchCntShape->GetStorageShape().GetDimNum() != 1,
                 OP_LOGE_FOR_INVALID_SHAPEDIM(
                     opName, "xyz_batch_cnt",
@@ -136,7 +157,10 @@ static ge::graphStatus ValidateShape(gert::TilingContext* context)
                 return ge::GRAPH_FAILED);
 
     auto centerXyzBatchCntShape = context->GetInputShape(INDEX_INPUT_CENTER_XYZ_BATCH_CNT);
-    OP_CHECK_NULL_WITH_CONTEXT(context, centerXyzBatchCntShape);
+    if (centerXyzBatchCntShape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(opName, "center_xyz_batch_cnt");
+        return ge::GRAPH_FAILED;
+    }
     OP_CHECK_IF(centerXyzBatchCntShape->GetStorageShape().GetDimNum() != 1,
                 OP_LOGE_FOR_INVALID_SHAPEDIM(
                     opName, "center_xyz_batch_cnt",
@@ -159,19 +183,33 @@ static ge::graphStatus ValidateShape(gert::TilingContext* context)
     auto xyzDim1 = xyzShape->GetStorageShape().GetDim(1);
     auto centerXyzDim0 = centerXyzShape->GetStorageShape().GetDim(0);
     OP_CHECK_IF(xyzDim0 > INT32_MAX || xyzDim1 > INT32_MAX || centerXyzDim0 > INT32_MAX || xyzBatchB > INT32_MAX,
-                OP_LOGE(opName, "shape dim exceeds INT32_MAX: xyz=[%ld, %ld], centerXyz=[%ld, ...], batchSize=%ld",
-                        xyzDim0, xyzDim1, centerXyzDim0, xyzBatchB),
+                OP_LOGE_FOR_INVALID_SHAPESIZES_WITH_REASON(
+                    opName, "xyz, center_xyz and xyz_batch_cnt",
+                    ("xyz=[" + std::to_string(xyzDim0) + ", " + std::to_string(xyzDim1) + "], center_xyz dim0=" +
+                     std::to_string(centerXyzDim0) + ", xyz_batch_cnt dim0=" + std::to_string(xyzBatchB))
+                        .c_str(),
+                    "shape dimensions must not exceed INT32_MAX"),
                 return ge::GRAPH_FAILED);
 
     const gert::RuntimeAttrs* attrs = context->GetAttrs();
-    OP_CHECK_NULL_WITH_CONTEXT(context, attrs);
+    if (attrs == nullptr) {
+        OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(opName, "attrs", "attribute container must not be null");
+        return ge::GRAPH_FAILED;
+    }
     const int64_t* sampleNumPtr = attrs->GetAttrPointer<int64_t>(SAMPLE_NUM_IDX);
-    OP_CHECK_NULL_WITH_CONTEXT(context, sampleNumPtr);
+    if (sampleNumPtr == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(opName, "sample_num");
+        return ge::GRAPH_FAILED;
+    }
     int64_t sampleNum = *sampleNumPtr;
     int64_t totalIdxLength = centerXyzDim0 * sampleNum;
     OP_CHECK_IF(totalIdxLength > INT32_MAX,
-                OP_LOGE(opName, "totalIdxLength overflow: centerXyz=%ld * sampleNum=%ld = %ld", centerXyzDim0,
-                        sampleNum, totalIdxLength),
+                OP_LOGE_FOR_INVALID_VALUES_WITH_REASON(
+                    opName, "center_xyz and sample_num",
+                    ("center_xyz dim0=" + std::to_string(centerXyzDim0) + ", sample_num=" + std::to_string(sampleNum) +
+                     ", center_xyz dim0 * sample_num=" + std::to_string(totalIdxLength))
+                        .c_str(),
+                    "center_xyz dim0 multiplied by sample_num must not exceed INT32_MAX"),
                 return ge::GRAPH_FAILED);
 
     return ge::GRAPH_SUCCESS;
@@ -181,10 +219,17 @@ static ge::graphStatus ValidateShape(gert::TilingContext* context)
 static ge::graphStatus ValidateAttrs(gert::TilingContext* context)
 {
     const gert::RuntimeAttrs* attrs = context->GetAttrs();
-    OP_CHECK_NULL_WITH_CONTEXT(context, attrs);
+    if (attrs == nullptr) {
+        OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(context->GetNodeName(), "attrs",
+                                                 "attribute container must not be null");
+        return ge::GRAPH_FAILED;
+    }
 
     const int64_t* sampleNumPtr = attrs->GetAttrPointer<int64_t>(SAMPLE_NUM_IDX);
-    OP_CHECK_NULL_WITH_CONTEXT(context, sampleNumPtr);
+    if (sampleNumPtr == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "sample_num");
+        return ge::GRAPH_FAILED;
+    }
     int64_t sampleNum = *sampleNumPtr;
     OP_CHECK_IF(sampleNum <= 0,
                 OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "sample_num",
@@ -193,7 +238,10 @@ static ge::graphStatus ValidateAttrs(gert::TilingContext* context)
                 return ge::GRAPH_FAILED);
 
     const float* maxRadiusPtr = attrs->GetAttrPointer<float>(MAX_RADIUS_IDX);
-    OP_CHECK_NULL_WITH_CONTEXT(context, maxRadiusPtr);
+    if (maxRadiusPtr == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "max_radius");
+        return ge::GRAPH_FAILED;
+    }
     float maxRadius = *maxRadiusPtr;
     OP_CHECK_IF(maxRadius <= 0.0f,
                 OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "max_radius",
@@ -207,11 +255,11 @@ static ge::graphStatus ValidateAttrs(gert::TilingContext* context)
 // ========== ValidateInputs ==========
 static ge::graphStatus ValidateInputs(gert::TilingContext* context)
 {
-    OP_CHECK_IF(ValidateDtype(context) != ge::GRAPH_SUCCESS, OP_LOGE(context, "ValidateDtype failed"),
+    OP_CHECK_IF(ValidateDtype(context) != ge::GRAPH_SUCCESS, OP_LOGE_WITHOUT_REPORT(context, "ValidateDtype failed"),
                 return ge::GRAPH_FAILED);
-    OP_CHECK_IF(ValidateShape(context) != ge::GRAPH_SUCCESS, OP_LOGE(context, "ValidateShape failed"),
+    OP_CHECK_IF(ValidateShape(context) != ge::GRAPH_SUCCESS, OP_LOGE_WITHOUT_REPORT(context, "ValidateShape failed"),
                 return ge::GRAPH_FAILED);
-    OP_CHECK_IF(ValidateAttrs(context) != ge::GRAPH_SUCCESS, OP_LOGE(context, "ValidateAttrs failed"),
+    OP_CHECK_IF(ValidateAttrs(context) != ge::GRAPH_SUCCESS, OP_LOGE_WITHOUT_REPORT(context, "ValidateAttrs failed"),
                 return ge::GRAPH_FAILED);
     return ge::GRAPH_SUCCESS;
 }
@@ -277,7 +325,6 @@ void StackBallQueryTiling::TilingDataPrint() const
 void StackBallQueryTiling::CalRunningInfo(gert::TilingContext* context, const uint64_t actCoreNum)
 {
     const gert::RuntimeAttrs* attrs = context->GetAttrs();
-    OP_CHECK_IF(attrs == nullptr, OP_LOGE(context, "[CalRunningInfo] attrs is null."), return);
     const int64_t* sampleNumPtr = attrs->GetAttrPointer<int64_t>(SAMPLE_NUM_IDX);
     this->sampleNum = static_cast<int32_t>(*sampleNumPtr);
 
@@ -285,18 +332,12 @@ void StackBallQueryTiling::CalRunningInfo(gert::TilingContext* context, const ui
     this->maxRadius = *maxRadiusPtr;
 
     auto runtimeCenterXyzShapePtr = context->GetInputShape(INDEX_INPUT_CENTER_XYZ);
-    OP_CHECK_IF(runtimeCenterXyzShapePtr == nullptr,
-                OP_LOGE(context, "[CalRunningInfo] runtimeCenterXyzShapePtr is null."), return);
     const gert::Shape& centerXyzShape = runtimeCenterXyzShapePtr->GetStorageShape();
 
     auto runtimeXyzShapePtr = context->GetInputShape(INDEX_INPUT_XYZ);
-    OP_CHECK_IF(runtimeXyzShapePtr == nullptr, OP_LOGE(context, "[CalRunningInfo] runtimeXyzShapePtr is null."),
-                return);
     const gert::Shape& xyzShape = runtimeXyzShapePtr->GetStorageShape();
 
     auto runtimeXyzBatchCntShapePtr = context->GetInputShape(INDEX_INPUT_XYZ_BATCH_CNT);
-    OP_CHECK_IF(runtimeXyzBatchCntShapePtr == nullptr,
-                OP_LOGE(context, "[CalRunningInfo] runtimeXyzBatchCntShapePtr is null."), return);
     const gert::Shape& xyzBatchCntShape = runtimeXyzBatchCntShapePtr->GetStorageShape();
 
     int64_t batchSizeInt64 = xyzBatchCntShape.GetDim(0);
@@ -333,8 +374,10 @@ ge::graphStatus StackBallQueryTiling::RunKernelTiling()
     OP_LOGD(tilingContext, "RunKernelTiling start.");
 
     // 1. 校验输入
-    OP_CHECK_IF(ValidateInputs(tilingContext) != ge::GRAPH_SUCCESS, OP_LOGE(tilingContext, "ValidateInputs failed"),
-                return ge::GRAPH_FAILED);
+    ge::graphStatus validateRet = ValidateInputs(tilingContext);
+    if (validateRet != ge::GRAPH_SUCCESS) {
+        return validateRet;
+    }
 
     // 2. 设置 TilingKey
     Init();
@@ -378,22 +421,34 @@ static ge::graphStatus TilingPrepare4StackBallQuery(gert::TilingParseContext* co
 {
     OP_LOGD(context->GetNodeName(), "TilingPrepare4StackBallQuery enter.");
     auto compileInfo = context->GetCompiledInfo<StackBallQueryCompileInfo>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, compileInfo);
+    if (compileInfo == nullptr) {
+        OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(context->GetNodeName(), "compile_info",
+                                                 "compile info must not be null");
+        return ge::GRAPH_FAILED;
+    }
     auto platformInfo = context->GetPlatformInfo();
-    OP_CHECK_NULL_WITH_CONTEXT(context, platformInfo);
+    if (platformInfo == nullptr) {
+        OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(context->GetNodeName(), "platform_info",
+                                                 "platform info must not be null");
+        return ge::GRAPH_FAILED;
+    }
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
     compileInfo->aicore_num = static_cast<uint32_t>(ascendcPlatform.GetCoreNumAiv());
-    OP_CHECK_IF((compileInfo->aicore_num <= 0),
-                OP_LOGE(context->GetNodeName(), "Get core num failed, core num: %u",
-                        static_cast<uint32_t>(compileInfo->aicore_num)),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        (compileInfo->aicore_num <= 0),
+        OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(
+            context->GetNodeName(), "platform_info",
+            ("AIV core number must be greater than 0, but got " + std::to_string(compileInfo->aicore_num)).c_str()),
+        return ge::GRAPH_FAILED);
 
     uint64_t ubSizePlatForm;
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSizePlatForm);
     compileInfo->ub_platform_byte_size = static_cast<int64_t>(ubSizePlatForm);
     OP_CHECK_IF((compileInfo->ub_platform_byte_size <= 0),
-                OP_LOGE(context->GetNodeName(), "Get ub size failed, ub size: %u",
-                        static_cast<uint32_t>(compileInfo->ub_platform_byte_size)),
+                OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(context->GetNodeName(), "platform_info",
+                                                         ("UB size must be greater than 0, but got " +
+                                                          std::to_string(compileInfo->ub_platform_byte_size) + " bytes")
+                                                             .c_str()),
                 return ge::GRAPH_FAILED);
 
     return ge::GRAPH_SUCCESS;
