@@ -26,7 +26,6 @@
 #include "array_ops.h"
 #include "ge_ir_build.h"
 
-#include "experiment_ops.h"
 #include "nn_other.h"
 #include "../op_graph/ragged_bin_count_proto.h"
 
@@ -82,9 +81,8 @@ int32_t WriteDataToFile(string bin_file, uint64_t data_size, uint8_t* inputData)
 /**
  * Build one host-placement Data node carrying the supplied payload.
  *
- * RaggedBinCount declares InputsDataDependency({size}), so the bin count must be
- * readable on host at infer time; splits is kept on host as well so the graph can
- * be dumped and replayed without a device round trip.
+ * The bin count is built separately as a Const node so shape inference can read
+ * it during graph compilation. Runtime inputs remain host-placement Data nodes.
  */
 template <typename T>
 static int32_t AddHostInput(const string& name, int32_t index, const vector<int64_t>& shape, DataType dtype,
@@ -144,19 +142,27 @@ int CreateOppInGraph(std::vector<ge::Tensor>& input, std::vector<Operator>& inpu
                               valuesTensor) != SUCCESS) {
         return FAILED;
     }
-    if (AddHostInput<int32_t>("size", 2, {1}, DT_INT32, sizeData, raggedBinCount, graph, input, inputs, sizeTensor) !=
-        SUCCESS) {
-        return FAILED;
-    }
-    if (AddHostInput<float>("weights", 3, {0}, DT_FLOAT, weightsData, raggedBinCount, graph, input, inputs,
+    TensorDesc sizeDesc(ge::Shape({1}), ge::FORMAT_ND, DT_INT32);
+    sizeDesc.SetPlacement(ge::kPlacementHost);
+    sizeTensor = Tensor(sizeDesc, reinterpret_cast<const uint8_t*>(sizeData.data()), sizeData.size() * sizeof(int32_t));
+    auto sizeConst = op::Const("size");
+    sizeConst.set_attr_value(sizeTensor);
+    sizeConst.update_output_desc_y(sizeDesc);
+    graph.AddOp(sizeConst);
+
+    if (AddHostInput<float>("weights", 2, {0}, DT_FLOAT, weightsData, raggedBinCount, graph, input, inputs,
                             weightsTensor) != SUCCESS) {
         return FAILED;
     }
 
+    raggedBinCount.update_input_desc_splits(splitsTensor.GetTensorDesc());
+    raggedBinCount.update_input_desc_values(valuesTensor.GetTensorDesc());
+    raggedBinCount.update_input_desc_size(sizeDesc);
+    raggedBinCount.update_input_desc_weights(weightsTensor.GetTensorDesc());
     raggedBinCount.set_input_splits(inputs[0]);
     raggedBinCount.set_input_values(inputs[1]);
-    raggedBinCount.set_input_size(inputs[2]);
-    raggedBinCount.set_input_weights(inputs[3]);
+    raggedBinCount.set_input_size(sizeConst);
+    raggedBinCount.set_input_weights(inputs[2]);
     raggedBinCount.set_attr_binary_output(false);
 
     TensorDesc outputDesc(ge::Shape({2, 4}), ge::FORMAT_ND, DT_FLOAT);

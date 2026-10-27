@@ -522,7 +522,7 @@ TEST_F(RaggedBinCountTilingTest, test_splits_must_be_strictly_one_dimensional)
     ExecuteTestCase(rankTwoContext, ge::GRAPH_FAILED);
 }
 
-TEST_F(RaggedBinCountTilingTest, test_values_rank_must_be_one_or_two)
+TEST_F(RaggedBinCountTilingTest, test_values_rank_must_be_zero_to_two)
 {
     RaggedBinCountCompileInfo compileInfo;
     int32_t sizeData[1] = {4};
@@ -537,7 +537,8 @@ TEST_F(RaggedBinCountTilingTest, test_values_rank_must_be_one_or_two)
                                               {{{2, 4}, {2, 4}}, ge::DT_FLOAT, ge::FORMAT_ND},
                                           },
                                           {}, &compileInfo);
-    ExecuteTestCase(scalarContext, ge::GRAPH_FAILED);
+    ExecuteTestCase(scalarContext, ge::GRAPH_SUCCESS, 0U, "2 3 1 4 8 " + CoreAndPrivateHistogram(1U, 8U),
+                    {EXPECTED_TOTAL_WORKSPACE});
 
     gert::TilingContextPara rankThreeContext("RaggedBinCount",
                                              {

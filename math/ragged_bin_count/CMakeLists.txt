@@ -16,3 +16,11 @@ add_all_modules_sources(OPTYPE ragged_bin_count ACLNNTYPE aclnn_exclude COMPUTE_
 if(TARGET ${OP_TILING_MODULE_NAME}_cases_obj)
     target_include_directories(${OP_TILING_MODULE_NAME}_cases_obj PRIVATE ${ASCEND_DIR}/pkg_inc)
 endif()
+
+if(ENABLE_TEST AND (UT_TEST_ALL OR OP_HOST_UT) AND
+   (NOT ASCEND_OP_NAME OR "ragged_bin_count" IN_LIST ASCEND_OP_NAME))
+    add_framework_ut_modules(${OP_FRAMEWORK_MODULE_NAME})
+    target_sources(${OP_FRAMEWORK_MODULE_NAME}_cases_obj PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/ut/framework/test_ragged_bin_count_tf_plugin.cpp)
+    target_include_directories(${OP_FRAMEWORK_MODULE_NAME}_cases_obj PRIVATE ${TF_PLUGIN_COMMON_INCLUDE})
+endif()

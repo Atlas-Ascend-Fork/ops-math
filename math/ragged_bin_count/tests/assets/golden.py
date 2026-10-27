@@ -186,9 +186,8 @@ _PRECISION_SPECIAL_WEIGHTS = {
         _FLOAT32_MAX,
     ],
     "rbc_k_precision_p0_negative_inf_i32": [-float("inf"), 1.0, 2.0, 3.0],
-    # FP64 cannot retain the unit term across this cancellation. This input
-    # probes the limit of the promoted reference too; a discrepancy requires
-    # numerical analysis before attributing a failure to the device.
+    # A single FP64 accumulator loses the unit term across this cancellation;
+    # the promoted reference must retain the addition residual.
     "rbc_k_precision_p0_twosum_fp64_gap_i64": [
         2.0**100,
         1.0,
@@ -295,6 +294,24 @@ _PRECISION_SPECIAL_VALUES = {
 }
 
 
+_PRECISION_SPECIAL_WEIGHTS.update(
+    {
+        f"rbc_k_promoted_cancellation_order_{index}": payload
+        for index, payload in enumerate(
+            [
+                [2.0**100, 1.0, -(2.0**100)],
+                [2.0**100, -(2.0**100), 1.0],
+                [1.0, 2.0**100, -(2.0**100)],
+                [1.0, -(2.0**100), 2.0**100],
+                [-(2.0**100), 2.0**100, 1.0],
+                [-(2.0**100), 1.0, 2.0**100],
+                [-(2.0**100), -1.0, 2.0**100],
+            ]
+        )
+    }
+)
+
+
 def _customize_precision_inputs(splits, values, size, weights, **kwargs):
     """Inject fixed numerical corner cases used by the precision ST."""
     testcase_name = str(kwargs.get("testcase_name", ""))
@@ -362,6 +379,49 @@ def _runtime_invalid(splits_flat, values_flat):
     return False
 
 
+def _sum_with_residuals(values):
+    """Sum finite promoted weights using nonoverlapping Torch partials.
+
+    FastTwoSum retains each rounded addition's residual. This prevents a
+    subsequent cancellation from discarding small terms, without changing the
+    input/output dtype or depending on the testcase name.
+    """
+    partials = []
+    for value in values.unbind():
+        residuals = []
+        for partial in partials:
+            if bool(torch.abs(value) < torch.abs(partial)):
+                value, partial = partial, value
+            high = value + partial
+            low = partial - (high - value)
+            if bool(low != 0):
+                residuals.append(low)
+            value = high
+        partials = residuals + [value]
+    return torch.stack(partials).sum()
+
+
+def _weighted_bincount(indices, weights, bins):
+    result = torch.bincount(indices, weights=weights, minlength=bins)[:bins]
+    if (
+        weights.dtype != torch.float64
+        or not bool((weights < 0).any())
+        or not bool((weights > 0).any())
+    ):
+        return result
+    # Only promoted, finite, mixed-sign bins need cancellation recovery.
+    # Nonfinite bins retain the native Torch Inf/NaN behavior.
+    for index in torch.unique(indices):
+        terms = weights[indices == index]
+        if (
+            bool(torch.isfinite(terms).all())
+            and bool((terms < 0).any())
+            and bool((terms > 0).any())
+        ):
+            result[index] = _sum_with_residuals(terms)
+    return result
+
+
 def _compute(splits, values, size, weights, **kwargs):
     """Return ``[output]`` as a Torch tensor in def.cpp output order."""
     binary_output = _attr(kwargs, "binary_output", False)
@@ -397,9 +457,7 @@ def _compute(splits, values, size, weights, **kwargs):
             accumulator[row] = accumulator[row].index_fill(0, kept, 1.0)
         elif has_weights:
             segment_weights = weights_flat[begin:end][keep]
-            accumulator[row] = torch.bincount(
-                kept, weights=segment_weights, minlength=bins
-            )[:bins]
+            accumulator[row] = _weighted_bincount(kept, segment_weights, bins)
         else:
             # Integer hit counts are assigned into the declared accumulator.
             accumulator[row] = torch.bincount(kept, minlength=bins)[:bins]

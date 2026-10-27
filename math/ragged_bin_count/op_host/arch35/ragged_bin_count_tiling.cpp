@@ -41,7 +41,7 @@ constexpr int64_t OUTPUT_RESULT = 0;
 constexpr int64_t ATTR_BINARY_OUTPUT = 0;
 
 constexpr size_t RANK_SPLITS = 1U;
-constexpr size_t MIN_VALUES_RANK = 1U;
+constexpr size_t MIN_VALUES_RANK = 0U;
 constexpr size_t MAX_VALUES_RANK = 2U;
 constexpr size_t MIN_WEIGHTS_RANK = 0U;
 constexpr size_t MAX_WEIGHTS_RANK = 2U;
@@ -367,15 +367,18 @@ ge::graphStatus ResolvePlatformBudget(gert::TilingContext* context, PlatformBudg
 // is bounded by the UB budget by then.
 uint32_t DecidePrivateHistElems(const ProblemSize& problem, const PlatformBudget& budget, int64_t coreNum)
 {
-    if (problem.outputElements <= 0 || problem.numValues <= 0) {
+    if (problem.outputElements <= 0 || problem.numValues <= 0 || coreNum <= 0) {
         return 0U;
     }
-    const uint64_t histBytes = static_cast<uint64_t>(problem.outputElements) * OUTPUT_ELEMENT_BYTES;
-    const uint64_t alignedHistBytes = ((histBytes + UB_ALIGN_BYTES - 1U) / UB_ALIGN_BYTES) * UB_ALIGN_BYTES;
-    if (alignedHistBytes > budget.localMemorySize) {
+    // Round the budget down instead of rounding a potentially huge byte count up.
+    const uint64_t maxHistElems = (budget.localMemorySize / UB_ALIGN_BYTES) * UB_ALIGN_BYTES / OUTPUT_ELEMENT_BYTES;
+    if (static_cast<uint64_t>(problem.outputElements) > maxHistElems ||
+        static_cast<uint64_t>(problem.outputElements) > std::numeric_limits<uint32_t>::max() ||
+        problem.outputElements > std::numeric_limits<int64_t>::max() / coreNum) {
         return 0U;
     }
-    if (problem.outputElements * coreNum > problem.numValues * PRIVATE_WRITEBACK_FACTOR) {
+    // Compare the required value count, avoiding numValues * factor overflow.
+    if (SafeCeilDiv(problem.outputElements * coreNum, PRIVATE_WRITEBACK_FACTOR) > problem.numValues) {
         return 0U;
     }
     return static_cast<uint32_t>(problem.outputElements);
@@ -527,9 +530,7 @@ ge::graphStatus PublishTiling(gert::TilingContext* context, const ProblemSize& p
 ge::graphStatus RaggedBinCountTilingFunc(gert::TilingContext* context)
 {
     OP_CHECK_IF(CheckDataTypes(context) != ge::GRAPH_SUCCESS,
-                OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "splits, values, size, weights, output",
-                                                      "see the preceding dtype diagnostic",
-                                                      "RaggedBinCount dtype validation failed"),
+                OP_LOGE(context->GetNodeName(), "RaggedBinCount input or output dtype validation failed."),
                 return ge::GRAPH_FAILED);
 
     InputShapes shapes;

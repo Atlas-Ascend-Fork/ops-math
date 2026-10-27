@@ -83,6 +83,14 @@ TEST(RaggedBinCountRegisteredInfer, PreservesEmptyWeights)
 
 TEST(RaggedBinCountRegisteredInfer, PreservesScalarWeights) { CheckRegisteredInfer({1}, {}, {1, -1}); }
 
+TEST(RaggedBinCountRegisteredInfer, PreservesScalarValues)
+{
+    int32_t bins32 = 4;
+    int64_t bins64 = 4;
+    CheckRegisteredInfer({}, {}, {1, 4}, {2}, {1}, ge::DT_INT32, &bins32);
+    CheckRegisteredInfer({}, {0}, {1, 4}, {2}, {1}, ge::DT_INT64, &bins64);
+}
+
 TEST(RaggedBinCountRegisteredInfer, ReadsInt32ConstantSize)
 {
     int32_t bins = 7;

@@ -71,7 +71,7 @@ $$
     <tr>
       <td>values</td>
       <td>输入</td>
-      <td>0D、1D或2D bin index tensor，按连续元素顺序展平；各产品支持的rank见产品差异说明。</td>
+      <td>0D、1D或2D bin index tensor，按连续元素顺序展平。</td>
       <td>INT32、INT64</td>
       <td>ND</td>
     </tr>
@@ -105,29 +105,9 @@ $$
     </tr>
   </tbody></table>
 
-### 产品差异说明
-
-各支持产品的静态shape与动态shape均使用ND格式，支持的数据类型组合和其余shape约束一致，仅`values`的rank范围不同。
-
-<table><thead>
-  <tr>
-    <th>产品</th>
-    <th>values支持的rank</th>
-  </tr></thead>
-<tbody>
-  <tr>
-    <td><term>Ascend 950PR&950DT系列产品</term></td>
-    <td>1～2</td>
-  </tr>
-  <tr>
-    <td><term>Atlas A3系列产品</term><br>
-      <term>Atlas A2系列产品</term><br>
-      <term>Atlas训练系列产品</term></td>
-    <td>0～2</td>
-  </tr>
-</tbody></table>
-
 ## 约束说明
+
+- 各支持产品的静态shape与动态shape均使用ND格式，支持的数据类型组合和shape约束一致，`values`支持0～2维。
 
 - 图编译期用`-1`表示未知维度、`[-2]`表示未知rank。输出rank固定为2；无法由`splits`长度或常量`size`确定的输出轴记为`-1`。执行期各输入须解析为具体非负维度，并满足各参数的rank与元素数约束。
 
@@ -163,4 +143,4 @@ $$
   </tr>
 </tbody></table>
 
-本算子不提供同名aclnn接口，仅支持上表的GE图模式调用。
+本算子不提供同名aclnn接口。

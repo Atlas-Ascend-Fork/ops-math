@@ -253,7 +253,7 @@ TEST_F(RaggedBinCountInfershapeTest, test_splits_rank_two_is_rejected)
     ExecuteTestCase(context, ge::GRAPH_FAILED);
 }
 
-TEST_F(RaggedBinCountInfershapeTest, test_values_scalar_is_rejected)
+TEST_F(RaggedBinCountInfershapeTest, test_values_scalar_is_accepted)
 {
     int32_t sizeData[1] = {5};
     gert::InfershapeContextPara context("RaggedBinCount",
@@ -266,7 +266,7 @@ TEST_F(RaggedBinCountInfershapeTest, test_values_scalar_is_rejected)
                                         {
                                             {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
                                         });
-    ExecuteTestCase(context, ge::GRAPH_FAILED);
+    ExecuteTestCase(context, ge::GRAPH_SUCCESS, {{2, 5}});
 }
 
 TEST_F(RaggedBinCountInfershapeTest, test_values_rank_three_is_rejected)
