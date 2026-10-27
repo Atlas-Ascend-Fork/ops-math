@@ -2951,10 +2951,10 @@
     <td><a href="../../conversion/pad/README.md">pad</a></td>
     <td>√</td>
     <td>√</td>
+    <td>×</td>
     <td>√</td>
-    <td>√</td>
-    <td>AI Core</td>
-    <td>对输入Tensor做填充。</td>
+    <td>AI Core/AI CPU</td>
+    <td>按照输入paddings的配置，对输入x的每一维进行前后常量填充，填充值为0。兼容TensorFlow的Pad算子。</td>
   </tr>
   <tr>
     <td>conversion</td>
