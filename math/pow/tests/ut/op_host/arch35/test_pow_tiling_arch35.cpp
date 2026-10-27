@@ -49,7 +49,7 @@ TEST_F(PowTilingTest, test0_tiling)
     uint64_t expectTilingKey = 5001;
     string expectTilingData =
         " ";
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
 
     // ExecuteTestCaseForEle(tilingContextPara, ge::GRAPH_SUCCESS, false, 0, true, expectTilingData, expectWorkspaces);
 }

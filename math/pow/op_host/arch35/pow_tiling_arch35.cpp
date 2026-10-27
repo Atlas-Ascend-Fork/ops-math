@@ -14,7 +14,6 @@
  */
 
 #include "pow_tiling_arch35.h"
-#include "platform/platform_ascendc.h"
 
 namespace optiling {
 using namespace Ops::Base;
@@ -98,10 +97,7 @@ ge::graphStatus PowTilingBase::GetWorkspaceSize()
 {
     size_t* workspaces = context_->GetWorkspaceSizes(1);
     OP_CHECK_IF(workspaces == nullptr, OP_LOGE("Pow", "failed to get workspace size"), return ge::GRAPH_FAILED);
-    auto platformPtr = context_->GetPlatformInfo();
-    OP_CHECK_NULL_WITH_CONTEXT(context_, platformPtr);
-    auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformPtr);
-    workspaces[0] = ascendcPlatform.GetLibApiWorkSpaceSize();
+    workspaces[0] = 0;
 
     return ge::GRAPH_SUCCESS;
 }

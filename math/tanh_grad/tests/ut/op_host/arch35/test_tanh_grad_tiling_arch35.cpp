@@ -40,6 +40,6 @@ TEST_F(TanhGradTilingTest, tanh_grad_tiling_test_001)
     uint64_t expectTilingKey = 100000001000100;
     string expectTilingData = "1 21760 1 1024 1 1 0 1 21760 1024 0 0 0 0 0 0 0 1024 0 0 0 0 0 0 0 1024 0 0 0 0 0 0 0 1 "
                               "0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 ";
-    std::vector<size_t> expectWorkspaces = {32};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }

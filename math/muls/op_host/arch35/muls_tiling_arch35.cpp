@@ -30,7 +30,7 @@ ge::graphStatus MulsTiling::SetTilingData()
     auto platformInfo = tilingContext->GetPlatformInfo();
     OP_CHECK_NULL_WITH_CONTEXT(tilingContext, platformInfo);
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
-    currentWorkspace[0] = ascendcPlatform.GetLibApiWorkSpaceSize();
+    currentWorkspace[0] = 0;
     tilingContext->SetBlockDim(tiling->baseTiling.blockNum);
     return ge::GRAPH_SUCCESS;
 }

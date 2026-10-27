@@ -36,7 +36,7 @@ static constexpr uint64_t OP_KEY_9 = 9;
 static constexpr uint64_t INDEX_0 = 0;
 static constexpr uint64_t INDEX_1 = 1;
 static constexpr uint64_t INDEX_2 = 2;
-static constexpr uint64_t WORKSPACE_SIZE = 32;
+static constexpr uint64_t WORKSPACE_SIZE = 0;
 
 ge::graphStatus TanhGradTiling::GetPlatformInfo()
 {

@@ -42,7 +42,7 @@ TEST_F(MulsTilingTest, muls_test_tiling_001)
         &compileInfo);
 
     string expectTilingData = "4096 2 10880 2048 2 1 1 2048 2048 10880 1 ";
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCaseForEle(tilingContextPara, ge::GRAPH_SUCCESS, false, 0, true, expectTilingData, expectWorkspaces);
 }
 
@@ -64,7 +64,7 @@ TEST_F(MulsTilingTest, muls_test_tiling_002)
         &compileInfo);
 
     string expectTilingData = "4096 4 16384 1024 4 1 1 1024 1024 16384 1 ";
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCaseForEle(tilingContextPara, ge::GRAPH_SUCCESS, false, 0, true, expectTilingData, expectWorkspaces);
 }
 
@@ -86,7 +86,7 @@ TEST_F(MulsTilingTest, muls_test_tiling_003)
         &compileInfo);
 
     string expectTilingData = "4096 4 10880 1024 4 1 1 1024 1024 10880 1 ";
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCaseForEle(tilingContextPara, ge::GRAPH_SUCCESS, false, 0, true, expectTilingData, expectWorkspaces);
 }
 
@@ -108,7 +108,7 @@ TEST_F(MulsTilingTest, muls_test_tiling_004)
         &compileInfo);
 
     string expectTilingData = "4096 2 10880 2048 2 1 1 2048 2048 10880 1 ";
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCaseForEle(tilingContextPara, ge::GRAPH_SUCCESS, false, 0, true, expectTilingData, expectWorkspaces);
 }
 
@@ -130,7 +130,7 @@ TEST_F(MulsTilingTest, muls_test_tiling_005)
         &compileInfo);
 
     string expectTilingData = "4096 4 5440 1024 4 1 1 1024 1024 5440 1 ";
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCaseForEle(tilingContextPara, ge::GRAPH_SUCCESS, false, 0, true, expectTilingData, expectWorkspaces);
 }
 
@@ -152,7 +152,7 @@ TEST_F(MulsTilingTest, muls_test_tiling_006)
         &compileInfo);
 
     string expectTilingData = "4096 2 10880 2048 2 1 1 2048 2048 10880 1 ";
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCaseForEle(tilingContextPara, ge::GRAPH_SUCCESS, false, 0, true, expectTilingData, expectWorkspaces);
 }
 
@@ -174,7 +174,7 @@ TEST_F(MulsTilingTest, muls_test_tiling_007)
         &compileInfo);
 
     string expectTilingData = "4096 4 5440 1024 4 1 1 1024 1024 5440 1 ";
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCaseForEle(tilingContextPara, ge::GRAPH_SUCCESS, false, 0, true, expectTilingData, expectWorkspaces);
 }
 
@@ -196,7 +196,7 @@ TEST_F(MulsTilingTest, muls_test_tiling_008)
         &compileInfo);
 
     string expectTilingData = "4096 8 8192 512 8 1 1 512 512 8192 1 ";
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCaseForEle(tilingContextPara, ge::GRAPH_SUCCESS, false, 0, true, expectTilingData, expectWorkspaces);
 }
 
@@ -218,6 +218,6 @@ TEST_F(MulsTilingTest, muls_test_tiling_009)
         &compileInfo);
 
     string expectTilingData = "4096 2 10880 2048 2 1 1 2048 2048 10880 1 ";
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCaseForEle(tilingContextPara, ge::GRAPH_FAILED, false, 0, true, expectTilingData, expectWorkspaces);
 }

@@ -71,16 +71,6 @@ using namespace Pow;
 
 extern "C" __global__ __aicore__ void pow(GM_ADDR base, GM_ADDR exponent, GM_ADDR y, GM_ADDR workspace, GM_ADDR tiling)
 {
-    if (workspace == nullptr) {
-        return;
-    }
-
-    SetSysWorkspace(workspace);
-    GM_ADDR userWS = GetUserWorkspace(workspace);
-    if (userWS == nullptr) {
-        return;
-    }
-
     KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_AIV_ONLY);
     TPipe tPipe;
     if (TILING_KEY_IS(FP16_TILING_KEY)) {
