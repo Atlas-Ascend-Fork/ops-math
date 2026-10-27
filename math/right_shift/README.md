@@ -54,6 +54,13 @@ $$
       <td>ND</td>
     </tr>
     <tr>
+      <td>negMode</td>
+      <td>属性</td>
+      <td>一个可选的整数属性，取值0或1，默认值为0。取值为0时，y为负数则按移位0位计算；取值为1时，y为负数则按移位最大位数计算。</td>
+      <td>INT</td>
+      <td>-</td>
+    </tr>
+    <tr>
       <td>z</td>
       <td>输出</td>
       <td>待进行right_shift计算的出参，公式中的z_i。</td>

@@ -33,6 +33,10 @@ are 0D scalars.
 int64, uint8, uint16, uint32, uint64.
 * @li y: A Tensor. Has the same type as "x".  \n
 
+*@par Attributes:
+* negMode: An optional int attr. When it is "0", a negative "y" is treated as shift by 0 bit.
+* When it is "1", a negative "y" is treated as shift by the max shift bit (bit width - 1). Defaults to "0".
+
 *@par Outputs:
 * z: A Tensor. Has the same type as "x".  \n
 
@@ -47,6 +51,7 @@ REG_OP(RightShift)
     .INPUT(x, TensorType({DT_INT8, DT_INT16, DT_INT32, DT_INT64, DT_UINT8, DT_UINT16, DT_UINT32, DT_UINT64}))
     .INPUT(y, TensorType({DT_INT8, DT_INT16, DT_INT32, DT_INT64, DT_UINT8, DT_UINT16, DT_UINT32, DT_UINT64}))
     .OUTPUT(z, TensorType({DT_INT8, DT_INT16, DT_INT32, DT_INT64, DT_UINT8, DT_UINT16, DT_UINT32, DT_UINT64}))
+    .ATTR(negMode, Int, 0)
     .OP_END_FACTORY_REG(RightShift)
 } // namespace ge
 

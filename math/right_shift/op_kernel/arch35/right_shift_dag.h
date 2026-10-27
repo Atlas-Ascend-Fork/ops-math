@@ -23,7 +23,7 @@
 namespace RightShiftOp {
 using namespace Ops::Base;
 
-template <typename T>
+template <typename T, bool negMode = false>
 struct RightShiftCustom8 : public Vec::ElemwiseBinaryOP<T, T, T> {
     __aicore__ inline RightShiftCustom8(LocalTensor<T>& dst, LocalTensor<T>& src1, LocalTensor<T>& src2, uint32_t count)
     {
@@ -59,15 +59,26 @@ struct RightShiftCustom8 : public Vec::ElemwiseBinaryOP<T, T, T> {
                 mask = Reg::UpdateMask<T, Reg::RegTraitNumOne>(count);
                 Reg::DataCopy(xReg, (__ubuf__ T*)(src1Addr + loopIdx * vlSize));
                 Reg::DataCopy(yReg, (__ubuf__ T*)(src2Addr + loopIdx * vlSize));
-
-                if constexpr (std::is_same_v<T, int8_t>) {
-                    Reg::Compare<T, CMPMODE::GE>(calcMask, yReg, zeroReg, mask);
-                    Reg::Select(yReg, yReg, zeroReg, calcMask);
-                    Reg::ShiftRight(zReg, xReg, (Reg::RegTensor<T>&)yReg, mask);
-                } else if constexpr (std::is_same_v<T, uint8_t>) {
-                    Reg::Compare<T, CMPMODE::LE>(calcMask, yReg, sizeReg, mask);
-                    Reg::Select(yReg, yReg, sizeReg, calcMask);
-                    Reg::ShiftRight(zReg, xReg, (Reg::RegTensor<int8_t>&)yReg, mask);
+                if constexpr (negMode) {
+                    if constexpr (std::is_same_v<T, int8_t>) {
+                        Reg::Compare<T, CMPMODE::GE>(calcMask, yReg, zeroReg, mask);
+                        Reg::Select(yReg, yReg, sizeReg, calcMask);
+                        Reg::ShiftRight(zReg, xReg, (Reg::RegTensor<T>&)yReg, mask);
+                    } else if constexpr (std::is_same_v<T, uint8_t>) {
+                        Reg::Compare<T, CMPMODE::LE>(calcMask, yReg, sizeReg, mask);
+                        Reg::Select(yReg, yReg, sizeReg, calcMask);
+                        Reg::ShiftRight(zReg, xReg, (Reg::RegTensor<int8_t>&)yReg, mask);
+                    }
+                } else {
+                    if constexpr (std::is_same_v<T, int8_t>) {
+                        Reg::Compare<T, CMPMODE::GE>(calcMask, yReg, zeroReg, mask);
+                        Reg::Select(yReg, yReg, zeroReg, calcMask);
+                        Reg::ShiftRight(zReg, xReg, (Reg::RegTensor<T>&)yReg, mask);
+                    } else if constexpr (std::is_same_v<T, uint8_t>) {
+                        Reg::Compare<T, CMPMODE::LE>(calcMask, yReg, sizeReg, mask);
+                        Reg::Select(yReg, yReg, sizeReg, calcMask);
+                        Reg::ShiftRight(zReg, xReg, (Reg::RegTensor<int8_t>&)yReg, mask);
+                    }
                 }
                 Reg::DataCopy((__ubuf__ T*)(dstAddr + loopIdx * vlSize), zReg, mask);
             }
@@ -76,7 +87,7 @@ struct RightShiftCustom8 : public Vec::ElemwiseBinaryOP<T, T, T> {
     }
 };
 
-template <typename T>
+template <typename T, bool negMode = false>
 struct RightShiftCustom16 : public Vec::ElemwiseBinaryOP<T, T, T> {
     __aicore__ inline RightShiftCustom16(LocalTensor<T>& dst, LocalTensor<T>& src1, LocalTensor<T>& src2,
                                          uint32_t count)
@@ -114,14 +125,26 @@ struct RightShiftCustom16 : public Vec::ElemwiseBinaryOP<T, T, T> {
                 Reg::DataCopy(xReg, (__ubuf__ T*)(src1Addr + loopIdx * vlSize));
                 Reg::DataCopy(yReg, (__ubuf__ T*)(src2Addr + loopIdx * vlSize));
 
-                if constexpr (std::is_same_v<T, int16_t>) {
-                    Reg::Compare<T, CMPMODE::GE>(calcMask, yReg, zeroReg, mask);
-                    Reg::Select(yReg, yReg, zeroReg, calcMask);
-                    Reg::ShiftRight(zReg, xReg, (Reg::RegTensor<T>&)yReg, mask);
-                } else if constexpr (std::is_same_v<T, uint16_t>) {
-                    Reg::Compare<T, CMPMODE::LE>(calcMask, yReg, sizeReg, mask);
-                    Reg::Select(yReg, yReg, sizeReg, calcMask);
-                    Reg::ShiftRight(zReg, xReg, (Reg::RegTensor<int16_t>&)yReg, mask);
+                if constexpr (negMode) {
+                    if constexpr (std::is_same_v<T, int16_t>) {
+                        Reg::Compare<T, CMPMODE::GE>(calcMask, yReg, zeroReg, mask);
+                        Reg::Select(yReg, yReg, sizeReg, calcMask);
+                        Reg::ShiftRight(zReg, xReg, (Reg::RegTensor<T>&)yReg, mask);
+                    } else if constexpr (std::is_same_v<T, uint16_t>) {
+                        Reg::Compare<T, CMPMODE::LE>(calcMask, yReg, sizeReg, mask);
+                        Reg::Select(yReg, yReg, sizeReg, calcMask);
+                        Reg::ShiftRight(zReg, xReg, (Reg::RegTensor<int16_t>&)yReg, mask);
+                    }
+                } else {
+                    if constexpr (std::is_same_v<T, int16_t>) {
+                        Reg::Compare<T, CMPMODE::GE>(calcMask, yReg, zeroReg, mask);
+                        Reg::Select(yReg, yReg, zeroReg, calcMask);
+                        Reg::ShiftRight(zReg, xReg, (Reg::RegTensor<T>&)yReg, mask);
+                    } else if constexpr (std::is_same_v<T, uint16_t>) {
+                        Reg::Compare<T, CMPMODE::LE>(calcMask, yReg, sizeReg, mask);
+                        Reg::Select(yReg, yReg, sizeReg, calcMask);
+                        Reg::ShiftRight(zReg, xReg, (Reg::RegTensor<int16_t>&)yReg, mask);
+                    }
                 }
                 Reg::DataCopy((__ubuf__ T*)(dstAddr + loopIdx * vlSize), zReg, mask);
             }
@@ -130,7 +153,7 @@ struct RightShiftCustom16 : public Vec::ElemwiseBinaryOP<T, T, T> {
     }
 };
 
-template <typename T>
+template <typename T, bool negMode = false>
 struct RightShiftCustom32 : public Vec::ElemwiseBinaryOP<T, T, T> {
     __aicore__ inline RightShiftCustom32(LocalTensor<T>& dst, LocalTensor<T>& src1, LocalTensor<T>& src2,
                                          uint32_t count)
@@ -168,14 +191,26 @@ struct RightShiftCustom32 : public Vec::ElemwiseBinaryOP<T, T, T> {
                 Reg::DataCopy(xReg, (__ubuf__ T*)(src1Addr + loopIdx * vlSize));
                 Reg::DataCopy(yReg, (__ubuf__ T*)(src2Addr + loopIdx * vlSize));
 
-                if constexpr (std::is_same_v<T, int32_t>) {
-                    Reg::Compare<T, CMPMODE::GE>(calcMask, yReg, zeroReg, mask);
-                    Reg::Select(yReg, yReg, zeroReg, calcMask);
-                    Reg::ShiftRight(zReg, xReg, (Reg::RegTensor<T>&)yReg, mask);
-                } else if constexpr (std::is_same_v<T, uint32_t>) {
-                    Reg::Compare<T, CMPMODE::LE>(calcMask, yReg, sizeReg, mask);
-                    Reg::Select(yReg, yReg, sizeReg, calcMask);
-                    Reg::ShiftRight(zReg, xReg, (Reg::RegTensor<int32_t>&)yReg, mask);
+                if constexpr (negMode) {
+                    if constexpr (std::is_same_v<T, int32_t>) {
+                        Reg::Compare<T, CMPMODE::GE>(calcMask, yReg, zeroReg, mask);
+                        Reg::Select(yReg, yReg, sizeReg, calcMask);
+                        Reg::ShiftRight(zReg, xReg, (Reg::RegTensor<T>&)yReg, mask);
+                    } else if constexpr (std::is_same_v<T, uint32_t>) {
+                        Reg::Compare<T, CMPMODE::LE>(calcMask, yReg, sizeReg, mask);
+                        Reg::Select(yReg, yReg, sizeReg, calcMask);
+                        Reg::ShiftRight(zReg, xReg, (Reg::RegTensor<int32_t>&)yReg, mask);
+                    }
+                } else {
+                    if constexpr (std::is_same_v<T, int32_t>) {
+                        Reg::Compare<T, CMPMODE::GE>(calcMask, yReg, zeroReg, mask);
+                        Reg::Select(yReg, yReg, zeroReg, calcMask);
+                        Reg::ShiftRight(zReg, xReg, (Reg::RegTensor<T>&)yReg, mask);
+                    } else if constexpr (std::is_same_v<T, uint32_t>) {
+                        Reg::Compare<T, CMPMODE::LE>(calcMask, yReg, sizeReg, mask);
+                        Reg::Select(yReg, yReg, sizeReg, calcMask);
+                        Reg::ShiftRight(zReg, xReg, (Reg::RegTensor<int32_t>&)yReg, mask);
+                    }
                 }
                 Reg::DataCopy((__ubuf__ T*)(dstAddr + loopIdx * vlSize), zReg, mask);
             }
@@ -184,7 +219,7 @@ struct RightShiftCustom32 : public Vec::ElemwiseBinaryOP<T, T, T> {
     }
 };
 
-template <typename T>
+template <typename T, bool negMode = false>
 struct RightShiftCustom64 : public Vec::ElemwiseBinaryOP<T, T, T> {
     __aicore__ inline RightShiftCustom64(LocalTensor<T>& dst, LocalTensor<T>& src1, LocalTensor<T>& src2,
                                          uint32_t count)
@@ -222,14 +257,26 @@ struct RightShiftCustom64 : public Vec::ElemwiseBinaryOP<T, T, T> {
                 Reg::DataCopy(xReg, (__ubuf__ T*)(src1Addr + loopIdx * vlSize));
                 Reg::DataCopy(yReg, (__ubuf__ T*)(src2Addr + loopIdx * vlSize));
 
-                if constexpr (std::is_same_v<T, int64_t>) {
-                    Reg::Compare<T, CMPMODE::GE>(calcMask, yReg, zeroReg, mask);
-                    Reg::Select(yReg, yReg, zeroReg, calcMask);
-                    Reg::ShiftRight(zReg, xReg, (Reg::RegTensor<T>&)yReg, mask);
-                } else if constexpr (std::is_same_v<T, uint64_t>) {
-                    Reg::Compare<T, CMPMODE::LE>(calcMask, yReg, sizeReg, mask);
-                    Reg::Select(yReg, yReg, sizeReg, calcMask);
-                    Reg::ShiftRight(zReg, xReg, (Reg::RegTensor<int64_t>&)yReg, mask);
+                if constexpr (negMode) {
+                    if constexpr (std::is_same_v<T, int64_t>) {
+                        Reg::Compare<T, CMPMODE::GE>(calcMask, yReg, zeroReg, mask);
+                        Reg::Select(yReg, yReg, sizeReg, calcMask);
+                        Reg::ShiftRight(zReg, xReg, (Reg::RegTensor<T>&)yReg, mask);
+                    } else if constexpr (std::is_same_v<T, uint64_t>) {
+                        Reg::Compare<T, CMPMODE::LE>(calcMask, yReg, sizeReg, mask);
+                        Reg::Select(yReg, yReg, sizeReg, calcMask);
+                        Reg::ShiftRight(zReg, xReg, (Reg::RegTensor<int64_t>&)yReg, mask);
+                    }
+                } else {
+                    if constexpr (std::is_same_v<T, int64_t>) {
+                        Reg::Compare<T, CMPMODE::GE>(calcMask, yReg, zeroReg, mask);
+                        Reg::Select(yReg, yReg, zeroReg, calcMask);
+                        Reg::ShiftRight(zReg, xReg, (Reg::RegTensor<T>&)yReg, mask);
+                    } else if constexpr (std::is_same_v<T, uint64_t>) {
+                        Reg::Compare<T, CMPMODE::LE>(calcMask, yReg, sizeReg, mask);
+                        Reg::Select(yReg, yReg, sizeReg, calcMask);
+                        Reg::ShiftRight(zReg, xReg, (Reg::RegTensor<int64_t>&)yReg, mask);
+                    }
                 }
                 Reg::DataCopy((__ubuf__ T*)(dstAddr + loopIdx * vlSize), zReg, mask);
             }
@@ -238,12 +285,12 @@ struct RightShiftCustom64 : public Vec::ElemwiseBinaryOP<T, T, T> {
     }
 };
 
-template <typename T>
+template <typename T, bool negMode = false>
 struct RightShiftDag8 {
     using InputX = Bind<Vec::CopyInBrc<T>, Placeholder::In0<T>>;
     using InputY = Bind<Vec::CopyInBrc<T>, Placeholder::In1<T>>;
 
-    using OpResult = Bind<RightShiftCustom8<T>, InputX, InputY>;
+    using OpResult = Bind<RightShiftCustom8<T, negMode>, InputX, InputY>;
 
     using OpCopyOut = Bind<Vec::CopyOut<T>, Placeholder::Out0<T>, OpResult>;
 
@@ -253,12 +300,12 @@ struct RightShiftDag8 {
     using OpDag = DAGSch<Outputs, void, MemCfg>;
 };
 
-template <typename T>
+template <typename T, bool negMode = false>
 struct RightShiftDag16 {
     using InputX = Bind<Vec::CopyInBrc<T>, Placeholder::In0<T>>;
     using InputY = Bind<Vec::CopyInBrc<T>, Placeholder::In1<T>>;
 
-    using OpResult = Bind<RightShiftCustom16<T>, InputX, InputY>;
+    using OpResult = Bind<RightShiftCustom16<T, negMode>, InputX, InputY>;
 
     using OpCopyOut = Bind<Vec::CopyOut<T>, Placeholder::Out0<T>, OpResult>;
 
@@ -268,12 +315,12 @@ struct RightShiftDag16 {
     using OpDag = DAGSch<Outputs, void, MemCfg>;
 };
 
-template <typename T>
+template <typename T, bool negMode = false>
 struct RightShiftDag32 {
     using InputX = Bind<Vec::CopyInBrc<T>, Placeholder::In0<T>>;
     using InputY = Bind<Vec::CopyInBrc<T>, Placeholder::In1<T>>;
 
-    using OpResult = Bind<RightShiftCustom32<T>, InputX, InputY>;
+    using OpResult = Bind<RightShiftCustom32<T, negMode>, InputX, InputY>;
 
     using OpCopyOut = Bind<Vec::CopyOut<T>, Placeholder::Out0<T>, OpResult>;
 
@@ -283,12 +330,12 @@ struct RightShiftDag32 {
     using OpDag = DAGSch<Outputs, void, MemCfg>;
 };
 
-template <typename T>
+template <typename T, bool negMode = false>
 struct RightShiftDag64 {
     using InputX = Bind<Vec::CopyInBrc<T>, Placeholder::In0<T>>;
     using InputY = Bind<Vec::CopyInBrc<T>, Placeholder::In1<T>>;
 
-    using OpResult = Bind<RightShiftCustom64<T>, InputX, InputY>;
+    using OpResult = Bind<RightShiftCustom64<T, negMode>, InputX, InputY>;
 
     using OpCopyOut = Bind<Vec::CopyOut<T>, Placeholder::Out0<T>, OpResult>;
 

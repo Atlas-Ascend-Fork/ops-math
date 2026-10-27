@@ -31,34 +31,50 @@ using namespace Ops::Base;
 namespace optiling {
 
 static constexpr uint64_t RIGHT_SHIFT_COMMON_TILING_PRIORITY = 0;
+static constexpr uint32_t ATTR_NEG_MODE_IDX = 0;
+static constexpr int64_t NEG_MODE_VALUE_OFF = 0;
+static constexpr int64_t NEG_MODE_VALUE_ON = 1;
 
-bool RightShiftTiling::CheckDtype(
-    const ge::DataType& xDtype, const ge::DataType& yDtype, const ge::DataType& zDtype) const
+bool RightShiftTiling::CheckDtype(const ge::DataType& xDtype, const ge::DataType& yDtype,
+                                  const ge::DataType& zDtype) const
 {
     if (xDtype != yDtype || xDtype != zDtype) {
-        OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(
-            context_->GetNodeName(), "x, y, z",
-            std::string(ge::TypeUtils::DataTypeToSerialString(xDtype)) + ", " + std::string(ge::TypeUtils::DataTypeToSerialString(yDtype)) + ", " + std::string(ge::TypeUtils::DataTypeToSerialString(zDtype)),
-            "The dtypes of x, y and z must be the same");
+        OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(context_->GetNodeName(), "x, y, z",
+                                               std::string(ge::TypeUtils::DataTypeToSerialString(xDtype)) + ", " +
+                                                   std::string(ge::TypeUtils::DataTypeToSerialString(yDtype)) + ", " +
+                                                   std::string(ge::TypeUtils::DataTypeToSerialString(zDtype)),
+                                               "The dtypes of x, y and z must be the same");
         return false;
     }
     return true;
 }
 
-bool RightShiftTiling::IsCapable()
-{
-    return true;
-}
+bool RightShiftTiling::IsCapable() { return true; }
 
-ge::graphStatus RightShiftTiling::GetPlatformInfo()
+ge::graphStatus RightShiftTiling::GetNegModeAttr(uint64_t& negMode) const
 {
+    negMode = TPL_NEG_MODE_OFF;
+    const gert::RuntimeAttrs* attrs = context_->GetAttrs();
+    if (attrs == nullptr) {
+        return ge::GRAPH_SUCCESS;
+    }
+
+    const int64_t* negModeAttr = attrs->GetAttrPointer<int64_t>(ATTR_NEG_MODE_IDX);
+    if (negModeAttr == nullptr) {
+        return ge::GRAPH_SUCCESS;
+    }
+
+    OP_CHECK_IF(
+        *negModeAttr != NEG_MODE_VALUE_OFF && *negModeAttr != NEG_MODE_VALUE_ON,
+        OP_LOGE_FOR_INVALID_VALUE(context_->GetNodeName(), "negMode", std::to_string(*negModeAttr).c_str(), "0 or 1"),
+        return ge::GRAPH_FAILED);
+    negMode = static_cast<uint64_t>(*negModeAttr);
     return ge::GRAPH_SUCCESS;
 }
 
-ge::graphStatus RightShiftTiling::GetShapeAttrsInfo()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus RightShiftTiling::GetPlatformInfo() { return ge::GRAPH_SUCCESS; }
+
+ge::graphStatus RightShiftTiling::GetShapeAttrsInfo() { return ge::GRAPH_SUCCESS; }
 
 ge::graphStatus RightShiftTiling::DoOpTiling()
 {
@@ -78,73 +94,64 @@ ge::graphStatus RightShiftTiling::DoOpTiling()
         return ge::GRAPH_FAILED;
     }
 
+    uint64_t negMode = TPL_NEG_MODE_OFF;
+    if (GetNegModeAttr(negMode) != ge::GRAPH_SUCCESS) {
+        return ge::GRAPH_FAILED;
+    }
+
     ge::graphStatus baseTilingResult = ge::GRAPH_FAILED;
 
     OP_LOGD(context_->GetNodeName(), "Current data type is %s.", ge::TypeUtils::DataTypeToSerialString(xDType).c_str());
     if (xDType == ge::DT_INT8) {
         BroadcastBaseTiling<RightShiftDag8<int8_t>::OpDag> brcBaseTiling(context_);
         baseTilingResult = brcBaseTiling.DoTiling();
-        tilingKey = GET_TPL_TILING_KEY(brcBaseTiling.GetSchMode(), TPL_INT8);
+        tilingKey = GET_TPL_TILING_KEY(brcBaseTiling.GetSchMode(), TPL_INT8, negMode);
     } else if (xDType == ge::DT_UINT8) {
         BroadcastBaseTiling<RightShiftDag8<uint8_t>::OpDag> brcBaseTiling(context_);
         baseTilingResult = brcBaseTiling.DoTiling();
-        tilingKey = GET_TPL_TILING_KEY(brcBaseTiling.GetSchMode(), TPL_UINT8);
+        tilingKey = GET_TPL_TILING_KEY(brcBaseTiling.GetSchMode(), TPL_UINT8, negMode);
     } else if (xDType == ge::DT_INT16) {
         BroadcastBaseTiling<RightShiftDag16<int16_t>::OpDag> brcBaseTiling(context_);
         baseTilingResult = brcBaseTiling.DoTiling();
-        tilingKey = GET_TPL_TILING_KEY(brcBaseTiling.GetSchMode(), TPL_INT16);
+        tilingKey = GET_TPL_TILING_KEY(brcBaseTiling.GetSchMode(), TPL_INT16, negMode);
     } else if (xDType == ge::DT_UINT16) {
         BroadcastBaseTiling<RightShiftDag16<uint16_t>::OpDag> brcBaseTiling(context_);
         baseTilingResult = brcBaseTiling.DoTiling();
-        tilingKey = GET_TPL_TILING_KEY(brcBaseTiling.GetSchMode(), TPL_UINT16);
+        tilingKey = GET_TPL_TILING_KEY(brcBaseTiling.GetSchMode(), TPL_UINT16, negMode);
     } else if (xDType == ge::DT_INT32) {
         BroadcastBaseTiling<RightShiftDag32<int32_t>::OpDag> brcBaseTiling(context_);
         baseTilingResult = brcBaseTiling.DoTiling();
-        tilingKey = GET_TPL_TILING_KEY(brcBaseTiling.GetSchMode(), TPL_INT32);
+        tilingKey = GET_TPL_TILING_KEY(brcBaseTiling.GetSchMode(), TPL_INT32, negMode);
     } else if (xDType == ge::DT_UINT32) {
         BroadcastBaseTiling<RightShiftDag32<uint32_t>::OpDag> brcBaseTiling(context_);
         baseTilingResult = brcBaseTiling.DoTiling();
-        tilingKey = GET_TPL_TILING_KEY(brcBaseTiling.GetSchMode(), TPL_UINT32);
+        tilingKey = GET_TPL_TILING_KEY(brcBaseTiling.GetSchMode(), TPL_UINT32, negMode);
     } else if (xDType == ge::DT_INT64) {
         BroadcastBaseTiling<RightShiftDag64<int64_t>::OpDag> brcBaseTiling(context_);
         baseTilingResult = brcBaseTiling.DoTiling();
-        tilingKey = GET_TPL_TILING_KEY(brcBaseTiling.GetSchMode(), TPL_INT64);
+        tilingKey = GET_TPL_TILING_KEY(brcBaseTiling.GetSchMode(), TPL_INT64, negMode);
     } else if (xDType == ge::DT_UINT64) {
         BroadcastBaseTiling<RightShiftDag64<uint64_t>::OpDag> brcBaseTiling(context_);
         baseTilingResult = brcBaseTiling.DoTiling();
-        tilingKey = GET_TPL_TILING_KEY(brcBaseTiling.GetSchMode(), TPL_UINT64);
+        tilingKey = GET_TPL_TILING_KEY(brcBaseTiling.GetSchMode(), TPL_UINT64, negMode);
     } else {
-        OP_LOGE_FOR_INVALID_DTYPE(
-            context_->GetNodeName(), "x",
-            ge::TypeUtils::DataTypeToSerialString(xDType), "INT8, INT16, INT32, INT64, UINT8, UINT16, UINT32, UINT64");
+        OP_LOGE_FOR_INVALID_DTYPE(context_->GetNodeName(), "x", ge::TypeUtils::DataTypeToSerialString(xDType),
+                                  "INT8, INT16, INT32, INT64, UINT8, UINT16, UINT32, UINT64");
         return ge::GRAPH_FAILED;
     }
-    OP_CHECK_IF(
-        baseTilingResult == ge::GRAPH_FAILED, OP_LOGE(context_->GetNodeName(), "broadcastBaseTiling doTiling failed."),
-        return ge::GRAPH_FAILED);
+    OP_CHECK_IF(baseTilingResult == ge::GRAPH_FAILED,
+                OP_LOGE(context_->GetNodeName(), "broadcastBaseTiling doTiling failed."), return ge::GRAPH_FAILED);
     OP_LOGD(context_->GetNodeName(), "[RightShiftTilingData] : tilingKey=%lu", tilingKey);
     return baseTilingResult;
 }
 
-ge::graphStatus RightShiftTiling::DoLibApiTiling()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus RightShiftTiling::DoLibApiTiling() { return ge::GRAPH_SUCCESS; }
 
-uint64_t RightShiftTiling::GetTilingKey() const
-{
-    return tilingKey;
-}
+uint64_t RightShiftTiling::GetTilingKey() const { return tilingKey; }
 
-ge::graphStatus RightShiftTiling::GetWorkspaceSize()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus RightShiftTiling::GetWorkspaceSize() { return ge::GRAPH_SUCCESS; }
 
-ge::graphStatus RightShiftTiling::PostTiling()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus RightShiftTiling::PostTiling() { return ge::GRAPH_SUCCESS; }
 
 ge::graphStatus Tiling4RightShift(gert::TilingContext* context)
 {

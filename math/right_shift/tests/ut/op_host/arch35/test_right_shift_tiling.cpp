@@ -19,15 +19,9 @@ using namespace std;
 
 class RightShiftTilingTest : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        std::cout << "RightShiftTilingTest SetUp" << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "RightShiftTilingTest SetUp" << std::endl; }
 
-    static void TearDownTestCase()
-    {
-        std::cout << "RightShiftTilingTest TearDown" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "RightShiftTilingTest TearDown" << std::endl; }
 };
 
 TEST_F(RightShiftTilingTest, right_shift_test_tiling_int8)
@@ -36,16 +30,15 @@ TEST_F(RightShiftTilingTest, right_shift_test_tiling_int8)
     compileInfo.coreNum = 64;
     compileInfo.ubSize = 253952;
 
-    gert::TilingContextPara tilingContextPara(
-        "RightShift",
-        {
-            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT8, ge::FORMAT_ND},
-            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT8, ge::FORMAT_ND},
-        },
-        {
-            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT8, ge::FORMAT_ND},
-        },
-        {}, &compileInfo);
+    gert::TilingContextPara tilingContextPara("RightShift",
+                                              {
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT8, ge::FORMAT_ND},
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT8, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT8, ge::FORMAT_ND},
+                                              },
+                                              {}, &compileInfo);
 
     uint64_t expectTilingKey = 65544;
     string expectTilingData = "8192 34359738880 ";
@@ -59,16 +52,15 @@ TEST_F(RightShiftTilingTest, right_shift_test_tiling_uint8)
     compileInfo.coreNum = 64;
     compileInfo.ubSize = 253952;
 
-    gert::TilingContextPara tilingContextPara(
-        "RightShift",
-        {
-            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_UINT8, ge::FORMAT_ND},
-            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_UINT8, ge::FORMAT_ND},
-        },
-        {
-            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_UINT8, ge::FORMAT_ND},
-        },
-        {}, &compileInfo);
+    gert::TilingContextPara tilingContextPara("RightShift",
+                                              {
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_UINT8, ge::FORMAT_ND},
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_UINT8, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_UINT8, ge::FORMAT_ND},
+                                              },
+                                              {}, &compileInfo);
 
     uint64_t expectTilingKey = 131080;
     string expectTilingData = "8192 34359738880 ";
@@ -82,16 +74,15 @@ TEST_F(RightShiftTilingTest, right_shift_test_tiling_int16)
     compileInfo.coreNum = 64;
     compileInfo.ubSize = 253952;
 
-    gert::TilingContextPara tilingContextPara(
-        "RightShift",
-        {
-            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT16, ge::FORMAT_ND},
-            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT16, ge::FORMAT_ND},
-        },
-        {
-            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT16, ge::FORMAT_ND},
-        },
-        {}, &compileInfo);
+    gert::TilingContextPara tilingContextPara("RightShift",
+                                              {
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT16, ge::FORMAT_ND},
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT16, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT16, ge::FORMAT_ND},
+                                              },
+                                              {}, &compileInfo);
 
     uint64_t expectTilingKey = 196616;
     string expectTilingData = "8192 68719476992 ";
@@ -105,16 +96,15 @@ TEST_F(RightShiftTilingTest, right_shift_test_tiling_uint16)
     compileInfo.coreNum = 64;
     compileInfo.ubSize = 253952;
 
-    gert::TilingContextPara tilingContextPara(
-        "RightShift",
-        {
-            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_UINT16, ge::FORMAT_ND},
-            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_UINT16, ge::FORMAT_ND},
-        },
-        {
-            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_UINT16, ge::FORMAT_ND},
-        },
-        {}, &compileInfo);
+    gert::TilingContextPara tilingContextPara("RightShift",
+                                              {
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_UINT16, ge::FORMAT_ND},
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_UINT16, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_UINT16, ge::FORMAT_ND},
+                                              },
+                                              {}, &compileInfo);
 
     uint64_t expectTilingKey = 262152;
     string expectTilingData = "8192 68719476992 ";
@@ -128,16 +118,15 @@ TEST_F(RightShiftTilingTest, right_shift_test_tiling_int32)
     compileInfo.coreNum = 64;
     compileInfo.ubSize = 253952;
 
-    gert::TilingContextPara tilingContextPara(
-        "RightShift",
-        {
-            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT32, ge::FORMAT_ND},
-            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT32, ge::FORMAT_ND},
-        },
-        {
-            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT32, ge::FORMAT_ND},
-        },
-        {}, &compileInfo);
+    gert::TilingContextPara tilingContextPara("RightShift",
+                                              {
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT32, ge::FORMAT_ND},
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT32, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT32, ge::FORMAT_ND},
+                                              },
+                                              {}, &compileInfo);
 
     uint64_t expectTilingKey = 327688;
     string expectTilingData = "8192 137438953600 ";
@@ -151,16 +140,15 @@ TEST_F(RightShiftTilingTest, right_shift_test_tiling_uint32)
     compileInfo.coreNum = 64;
     compileInfo.ubSize = 253952;
 
-    gert::TilingContextPara tilingContextPara(
-        "RightShift",
-        {
-            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_UINT32, ge::FORMAT_ND},
-            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_UINT32, ge::FORMAT_ND},
-        },
-        {
-            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_UINT32, ge::FORMAT_ND},
-        },
-        {}, &compileInfo);
+    gert::TilingContextPara tilingContextPara("RightShift",
+                                              {
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_UINT32, ge::FORMAT_ND},
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_UINT32, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_UINT32, ge::FORMAT_ND},
+                                              },
+                                              {}, &compileInfo);
 
     uint64_t expectTilingKey = 393224;
     string expectTilingData = "8192 137438953600 ";
@@ -174,16 +162,15 @@ TEST_F(RightShiftTilingTest, right_shift_test_tiling_int64)
     compileInfo.coreNum = 64;
     compileInfo.ubSize = 253952;
 
-    gert::TilingContextPara tilingContextPara(
-        "RightShift",
-        {
-            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT64, ge::FORMAT_ND},
-            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT64, ge::FORMAT_ND},
-        },
-        {
-            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT64, ge::FORMAT_ND},
-        },
-        {}, &compileInfo);
+    gert::TilingContextPara tilingContextPara("RightShift",
+                                              {
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT64, ge::FORMAT_ND},
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT64, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT64, ge::FORMAT_ND},
+                                              },
+                                              {}, &compileInfo);
 
     uint64_t expectTilingKey = 458760;
     string expectTilingData = "8192 137438953600 ";
@@ -197,16 +184,15 @@ TEST_F(RightShiftTilingTest, right_shift_test_tiling_uint64)
     compileInfo.coreNum = 64;
     compileInfo.ubSize = 253952;
 
-    gert::TilingContextPara tilingContextPara(
-        "RightShift",
-        {
-            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_UINT64, ge::FORMAT_ND},
-            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_UINT64, ge::FORMAT_ND},
-        },
-        {
-            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_UINT64, ge::FORMAT_ND},
-        },
-        {}, &compileInfo);
+    gert::TilingContextPara tilingContextPara("RightShift",
+                                              {
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_UINT64, ge::FORMAT_ND},
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_UINT64, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_UINT64, ge::FORMAT_ND},
+                                              },
+                                              {}, &compileInfo);
 
     uint64_t expectTilingKey = 524296;
     string expectTilingData = "8192 137438953600 ";
@@ -220,18 +206,86 @@ TEST_F(RightShiftTilingTest, right_shift_test_tiling_invalid_dtype)
     compileInfo.coreNum = 64;
     compileInfo.ubSize = 253952;
 
+    gert::TilingContextPara tilingContextPara("RightShift",
+                                              {
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT8, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT8, ge::FORMAT_ND},
+                                              },
+                                              {}, &compileInfo);
+
+    uint64_t expectTilingKey = 65536;
+    string expectTilingData = "";
+    std::vector<size_t> expectWorkspaces = {16777216};
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED, expectTilingKey, expectTilingData, expectWorkspaces);
+}
+
+TEST_F(RightShiftTilingTest, right_shift_test_tiling_int32_neg_mode_off)
+{
+    Ops::Base::BroadcastCompileInfo compileInfo;
+    compileInfo.coreNum = 64;
+    compileInfo.ubSize = 253952;
+
     gert::TilingContextPara tilingContextPara(
         "RightShift",
         {
-            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT8, ge::FORMAT_ND},
+            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT32, ge::FORMAT_ND},
+            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT32, ge::FORMAT_ND},
         },
         {
-            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT8, ge::FORMAT_ND},
+            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT32, ge::FORMAT_ND},
         },
-        {}, &compileInfo);
+        {gert::TilingContextPara::OpAttr("negMode", Ops::Math::AnyValue::CreateFrom<int64_t>(0))}, &compileInfo);
 
-    uint64_t expectTilingKey = 65536;
+    uint64_t expectTilingKey = 327688;
+    string expectTilingData = "8192 137438953600 ";
+    std::vector<size_t> expectWorkspaces = {16777216};
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
+}
+
+TEST_F(RightShiftTilingTest, right_shift_test_tiling_int32_neg_mode_on)
+{
+    Ops::Base::BroadcastCompileInfo compileInfo;
+    compileInfo.coreNum = 64;
+    compileInfo.ubSize = 253952;
+
+    gert::TilingContextPara tilingContextPara(
+        "RightShift",
+        {
+            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT32, ge::FORMAT_ND},
+            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT32, ge::FORMAT_ND},
+        },
+        {
+            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT32, ge::FORMAT_ND},
+        },
+        {gert::TilingContextPara::OpAttr("negMode", Ops::Math::AnyValue::CreateFrom<int64_t>(1))}, &compileInfo);
+
+    uint64_t expectTilingKey = 17104904;
+    string expectTilingData = "8192 137438953600 ";
+    std::vector<size_t> expectWorkspaces = {16777216};
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
+}
+
+TEST_F(RightShiftTilingTest, right_shift_test_tiling_invalid_neg_mode)
+{
+    Ops::Base::BroadcastCompileInfo compileInfo;
+    compileInfo.coreNum = 64;
+    compileInfo.ubSize = 253952;
+
+    gert::TilingContextPara tilingContextPara(
+        "RightShift",
+        {
+            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT32, ge::FORMAT_ND},
+            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT32, ge::FORMAT_ND},
+        },
+        {
+            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT32, ge::FORMAT_ND},
+        },
+        {gert::TilingContextPara::OpAttr("negMode", Ops::Math::AnyValue::CreateFrom<int64_t>(2))}, &compileInfo);
+
+    uint64_t expectTilingKey = 0;
     string expectTilingData = "";
     std::vector<size_t> expectWorkspaces = {16777216};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED, expectTilingKey, expectTilingData, expectWorkspaces);

@@ -24,8 +24,7 @@ namespace optiling {
 
 class RightShiftTiling : public Ops::Base::TilingBaseClass {
 public:
-    explicit RightShiftTiling(gert::TilingContext* context) : Ops::Base::TilingBaseClass(context)
-    {}
+    explicit RightShiftTiling(gert::TilingContext* context) : Ops::Base::TilingBaseClass(context) {}
 
 protected:
     bool IsCapable() override;
@@ -40,6 +39,7 @@ protected:
 private:
     uint64_t tilingKey = 0;
     bool CheckDtype(const ge::DataType& xDtype, const ge::DataType& yDtype, const ge::DataType& zDtype) const;
+    ge::graphStatus GetNegModeAttr(uint64_t& negMode) const;
 };
 } // namespace optiling
 #endif // OPS_MATH_RIGHT_SHIFT_TILING_ARCH35_H
