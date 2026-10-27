@@ -11,6 +11,7 @@
 #include "dsa_random_normal.h"
 #include "opdev/make_op_executor.h"
 #include "opdev/op_dfx.h"
+#include "opdev/op_log.h"
 #include "opdev/shape_utils.h"
 
 using namespace op;
@@ -18,29 +19,33 @@ namespace l0op {
 OP_TYPE_REGISTER(DSARandomNormal);
 OP_TYPE_REGISTER(DSARandomNormalTensor);
 
-const aclTensor* DSARandomNormal(
-    const aclIntArray* outShape, uint64_t seed, uint64_t offset, const aclScalar* mean, const aclScalar* stdev,
-    aclOpExecutor* executor)
+const aclTensor* DSARandomNormal(const aclIntArray* outShape, uint64_t seed, uint64_t offset, const aclScalar* mean,
+                                 const aclScalar* stdev, aclOpExecutor* executor)
 {
     L0_DFX(DSARandomNormal, outShape, seed, offset, mean, stdev);
     op::Shape shape;
     op::ToShape(outShape->GetData(), outShape->Size(), shape);
     auto out = executor->AllocTensor(shape, mean->GetDataType(), op::Format::FORMAT_ND);
-    CHECK_RET(out != nullptr, nullptr);
+    if (out == nullptr) {
+        OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "DSARandomNormal alloc out tensor failed.");
+        return nullptr;
+    }
     uint64_t count = static_cast<uint64_t>(shape.GetShapeSize());
     ADD_TO_LAUNCHER_LIST_DSA(DSARandomNormal, OP_INPUT(count, seed, offset, mean, stdev), OP_OUTPUT(out), OP_ATTR(0));
     return out;
 }
 
-const aclTensor* DSARandomNormalTensor(
-    const aclIntArray* outShape, const aclTensor* seed, const aclTensor* offset, const aclScalar* mean,
-    const aclScalar* stdev, aclOpExecutor* executor)
+const aclTensor* DSARandomNormalTensor(const aclIntArray* outShape, const aclTensor* seed, const aclTensor* offset,
+                                       const aclScalar* mean, const aclScalar* stdev, aclOpExecutor* executor)
 {
     L0_DFX(DSARandomNormalTensor, outShape, seed, offset, mean, stdev);
     op::Shape shape;
     op::ToShape(outShape->GetData(), outShape->Size(), shape);
     auto out = executor->AllocTensor(shape, mean->GetDataType(), op::Format::FORMAT_ND);
-    CHECK_RET(out != nullptr, nullptr);
+    if (out == nullptr) {
+        OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "DSARandomNormalTensor alloc out tensor failed.");
+        return nullptr;
+    }
     uint64_t count = static_cast<uint64_t>(shape.GetShapeSize());
     ADD_TO_LAUNCHER_LIST_DSA(DSARandomNormal, OP_INPUT(count, seed, offset, mean, stdev), OP_OUTPUT(out), OP_ATTR(0));
     return out;

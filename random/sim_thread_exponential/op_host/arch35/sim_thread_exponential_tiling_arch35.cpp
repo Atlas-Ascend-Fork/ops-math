@@ -30,6 +30,13 @@ static constexpr uint64_t TILING_KEY_BF16 = 2;
 static constexpr uint64_t TILING_KEY_FP32 = 3;
 static constexpr uint32_t NUM_FOUR = 4;
 
+// 空指针检查仅写日志不注册错误码，GetNodeName为空时回退到字面算子名（参照官方整改基线）
+static const char* OpNameOf(gert::TilingContext* ctx)
+{
+    const char* name = ctx->GetNodeName();
+    return name == nullptr ? "SimThreadExponential" : name;
+}
+
 OpTilingConfig SimThreadExponentialTilingSimt::BuildOpConfig()
 {
     OpTilingConfig config;
@@ -40,13 +47,22 @@ OpTilingConfig SimThreadExponentialTilingSimt::BuildOpConfig()
 
     config.getOutputSize = [](gert::TilingContext* ctx, int64_t& size) {
         auto attrs = ctx->GetAttrs();
-        OP_CHECK_NULL_WITH_CONTEXT(ctx, attrs);
+        if (attrs == nullptr) {
+            OP_LOGE_WITHOUT_REPORT(OpNameOf(ctx), "attrs is nullptr");
+            return ge::GRAPH_FAILED;
+        }
         const auto* countAttr = attrs->GetAttrPointer<int64_t>(0);
-        OP_CHECK_NULL_WITH_CONTEXT(ctx, countAttr);
+        if (countAttr == nullptr) {
+            OP_LOGE_WITHOUT_REPORT(OpNameOf(ctx), "countAttr is nullptr");
+            return ge::GRAPH_FAILED;
+        }
         size = *countAttr;
 
         auto outputShape = ctx->GetOutputShape(OUTPUT_IDX_SELF);
-        OP_CHECK_NULL_WITH_CONTEXT(ctx, outputShape);
+        if (outputShape == nullptr) {
+            OP_LOGE_WITHOUT_REPORT(OpNameOf(ctx), "outputShape is nullptr");
+            return ge::GRAPH_FAILED;
+        }
         auto outTensor = outputShape->GetStorageShape();
         int64_t outputShapeSize = outTensor.GetShapeSize();
         if (size != outputShapeSize) {
@@ -62,12 +78,21 @@ OpTilingConfig SimThreadExponentialTilingSimt::BuildOpConfig()
 
     config.getSeedAndOffset = [](gert::TilingContext* ctx, int64_t& seed, int64_t& offset) {
         auto attrs = ctx->GetAttrs();
-        OP_CHECK_NULL_WITH_CONTEXT(ctx, attrs);
+        if (attrs == nullptr) {
+            OP_LOGE_WITHOUT_REPORT(OpNameOf(ctx), "attrs is nullptr");
+            return ge::GRAPH_FAILED;
+        }
         const auto* seedAttr = attrs->GetAttrPointer<int64_t>(2);
-        OP_CHECK_NULL_WITH_CONTEXT(ctx, seedAttr);
+        if (seedAttr == nullptr) {
+            OP_LOGE_WITHOUT_REPORT(OpNameOf(ctx), "seedAttr is nullptr");
+            return ge::GRAPH_FAILED;
+        }
         seed = *seedAttr;
         const auto* offsetAttr = attrs->GetAttrPointer<int64_t>(3);
-        OP_CHECK_NULL_WITH_CONTEXT(ctx, offsetAttr);
+        if (offsetAttr == nullptr) {
+            OP_LOGE_WITHOUT_REPORT(OpNameOf(ctx), "offsetAttr is nullptr");
+            return ge::GRAPH_FAILED;
+        }
         offset = *offsetAttr;
         if (offset % OFFSET_MULTIPLE != 0) {
             std::string valueStr = std::to_string(offset);
@@ -110,14 +135,23 @@ OpTilingConfig SimThreadExponentialTilingSimt::BuildOpConfig()
 ge::graphStatus SimThreadExponentialTilingSimt::UniqueProcess()
 {
     auto attrs = context_->GetAttrs();
-    OP_CHECK_NULL_WITH_CONTEXT(context_, attrs);
+    if (attrs == nullptr) {
+        OP_LOGE_WITHOUT_REPORT(OpNameOf(context_), "attrs is nullptr");
+        return ge::GRAPH_FAILED;
+    }
 
     const auto* lambdAttr = attrs->GetAttrPointer<float>(1);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, lambdAttr);
+    if (lambdAttr == nullptr) {
+        OP_LOGE_WITHOUT_REPORT(OpNameOf(context_), "lambdAttr is nullptr");
+        return ge::GRAPH_FAILED;
+    }
     simtTilingData_.prob = *lambdAttr;
 
     auto outputDesc = context_->GetOutputDesc(OUTPUT_IDX_SELF);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, outputDesc);
+    if (outputDesc == nullptr) {
+        OP_LOGE_WITHOUT_REPORT(OpNameOf(context_), "outputDesc is nullptr");
+        return ge::GRAPH_FAILED;
+    }
     auto outputDtype = outputDesc->GetDataType();
     if (outputDtype == ge::DT_FLOAT16) {
         tilingKey_ = TILING_KEY_FP16;

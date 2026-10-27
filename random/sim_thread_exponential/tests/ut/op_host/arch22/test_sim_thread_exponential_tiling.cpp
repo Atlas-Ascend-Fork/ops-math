@@ -94,3 +94,85 @@ TEST_F(SimThreadExponentialTilingTest, SimThreadExponentialTilingData_test_bf16_
     std::vector<size_t> expectWorkspaces = {16778000};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
+
+// ---------------------- 错误路径用例（验证错误码整改后的失败出口）----------------------
+
+// attr count 为负数 → OP_LOGE_FOR_INVALID_VALUE_WITH_REASON 首报后返回 GRAPH_FAILED
+TEST_F(SimThreadExponentialTilingTest, SimThreadExponentialTilingData_test_count_negative_failed)
+{
+    optiling::Tiling4SimThreadExponentialCompileInfo compileInfo = {};
+    gert::TilingContextPara tilingContextPara(
+        "SimThreadExponential",
+        {
+            {{{300000}, {300000}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        {
+            {{{300000}, {300000}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        {gert::TilingContextPara::OpAttr("count", Ops::Math::AnyValue::CreateFrom<int64_t>(-1)),
+         gert::TilingContextPara::OpAttr("lambd", Ops::Math::AnyValue::CreateFrom<float>(1.0)),
+         gert::TilingContextPara::OpAttr("seed", Ops::Math::AnyValue::CreateFrom<int64_t>(5)),
+         gert::TilingContextPara::OpAttr("offset", Ops::Math::AnyValue::CreateFrom<int64_t>(4))},
+        &compileInfo);
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
+}
+
+// attr count 与 self shape 元素积不相等 → OP_LOGE_FOR_INVALID_VALUE_WITH_REASON 首报后返回 GRAPH_FAILED
+TEST_F(SimThreadExponentialTilingTest, SimThreadExponentialTilingData_test_count_not_match_shape_failed)
+{
+    optiling::Tiling4SimThreadExponentialCompileInfo compileInfo = {};
+    gert::TilingContextPara tilingContextPara(
+        "SimThreadExponential",
+        {
+            {{{300000}, {300000}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        {
+            {{{300000}, {300000}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        {gert::TilingContextPara::OpAttr("count", Ops::Math::AnyValue::CreateFrom<int64_t>(100)),
+         gert::TilingContextPara::OpAttr("lambd", Ops::Math::AnyValue::CreateFrom<float>(1.0)),
+         gert::TilingContextPara::OpAttr("seed", Ops::Math::AnyValue::CreateFrom<int64_t>(5)),
+         gert::TilingContextPara::OpAttr("offset", Ops::Math::AnyValue::CreateFrom<int64_t>(4))},
+        &compileInfo);
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
+}
+
+// attr lambd 为 0（分母非零约束）→ OP_LOGE_FOR_INVALID_VALUE_WITH_REASON 首报后返回 GRAPH_FAILED
+TEST_F(SimThreadExponentialTilingTest, SimThreadExponentialTilingData_test_lambd_zero_failed)
+{
+    optiling::Tiling4SimThreadExponentialCompileInfo compileInfo = {};
+    gert::TilingContextPara tilingContextPara(
+        "SimThreadExponential",
+        {
+            {{{300000}, {300000}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        {
+            {{{300000}, {300000}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        {gert::TilingContextPara::OpAttr("count", Ops::Math::AnyValue::CreateFrom<int64_t>(300000)),
+         gert::TilingContextPara::OpAttr("lambd", Ops::Math::AnyValue::CreateFrom<float>(0.0)),
+         gert::TilingContextPara::OpAttr("seed", Ops::Math::AnyValue::CreateFrom<int64_t>(5)),
+         gert::TilingContextPara::OpAttr("offset", Ops::Math::AnyValue::CreateFrom<int64_t>(4))},
+        &compileInfo);
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
+}
+
+// 输入 self dtype 不在支持列表 → OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON 首报后返回 GRAPH_FAILED
+TEST_F(SimThreadExponentialTilingTest, SimThreadExponentialTilingData_test_unsupported_dtype_failed)
+{
+    optiling::Tiling4SimThreadExponentialCompileInfo compileInfo = {};
+    gert::TilingContextPara tilingContextPara(
+        "SimThreadExponential",
+        {
+            {{{300000}, {300000}}, ge::DT_INT32, ge::FORMAT_ND},
+        },
+        {
+            {{{300000}, {300000}}, ge::DT_INT32, ge::FORMAT_ND},
+        },
+        {gert::TilingContextPara::OpAttr("count", Ops::Math::AnyValue::CreateFrom<int64_t>(300000)),
+         gert::TilingContextPara::OpAttr("lambd", Ops::Math::AnyValue::CreateFrom<float>(1.0)),
+         gert::TilingContextPara::OpAttr("seed", Ops::Math::AnyValue::CreateFrom<int64_t>(5)),
+         gert::TilingContextPara::OpAttr("offset", Ops::Math::AnyValue::CreateFrom<int64_t>(4))},
+        &compileInfo);
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
+}

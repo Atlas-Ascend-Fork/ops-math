@@ -14,6 +14,7 @@
  */
 
 #include "sim_thread_exponential_tiling_arch22.h"
+#include <string>
 #include "register/op_impl_registry.h"
 #include "log/log.h"
 #include "util/math_util.h"
@@ -43,6 +44,13 @@ inline int64_t Ceil(int64_t a, int64_t b)
         return a;
     }
     return (a + b - 1) / b;
+}
+
+// 空指针检查仅写日志不注册错误码，GetNodeName为空时回退到字面算子名（参照官方整改基线）
+const char* OpNameOf(gert::TilingContext* tilingContext)
+{
+    const char* name = tilingContext->GetNodeName();
+    return name == nullptr ? "SimThreadExponential" : name;
 }
 } // namespace
 
@@ -131,40 +139,59 @@ ge::graphStatus SimThreadExponentialTiling::GetInputTensorInfo()
 {
     auto nodeName = context->GetNodeName();
 
-    OP_CHECK_IF(count < 0, OP_LOGE(nodeName, "Count %ld must be greater than or equal to 0.", count),
+    OP_CHECK_IF(count < 0,
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(nodeName, "attr count", std::to_string(count).c_str(),
+                                                      "count must be greater than or equal to 0"),
                 return ge::GRAPH_FAILED);
     OP_CHECK_IF(threadPerProcessor <= 0,
-                OP_LOGE(nodeName, "ThreadPerProcessor %d must be greater than 0.", threadPerProcessor),
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(nodeName, "threadPerProcessor",
+                                                      std::to_string(threadPerProcessor).c_str(),
+                                                      "threadPerProcessor must be greater than 0"),
                 return ge::GRAPH_FAILED);
     OP_CHECK_IF(streamProcessorCount <= 0,
-                OP_LOGE(nodeName, "StreamProcessorCount %d must be greater than 0.", streamProcessorCount),
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(nodeName, "streamProcessorCount",
+                                                      std::to_string(streamProcessorCount).c_str(),
+                                                      "streamProcessorCount must be greater than 0"),
                 return ge::GRAPH_FAILED);
     OP_CHECK_IF(start > end, // 如何获取start、end？
-                OP_LOGE(nodeName, "Start %f must be less than or equal to end %f.", start, end),
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(nodeName, "start, end",
+                                                      (std::to_string(start) + " and " + std::to_string(end)).c_str(),
+                                                      "start must be less than or equal to end"),
                 return ge::GRAPH_FAILED);
 
-    // 获取第一个输入gradOut的信息
+    // 获取第一个输入gradOut的信息：空指针为框架契约防御检查，仅写日志透传，不再隐式注册EZ9999
     auto selfShapePtr = context->GetInputShape(INPUT_SELF_IDX);
-    OP_CHECK_NULL_WITH_CONTEXT(context, selfShapePtr);
+    if (selfShapePtr == nullptr) {
+        OP_LOGE_WITHOUT_REPORT(OpNameOf(context), "selfShapePtr is nullptr");
+        return ge::GRAPH_FAILED;
+    }
     auto selfShape = selfShapePtr->GetStorageShape();
 
     for (size_t i = 0; i < selfShape.GetDimNum(); ++i) {
         usrWorkspaceSize *= selfShape[i];
     }
-    OP_CHECK_IF(usrWorkspaceSize != count,
-                OP_LOGE(nodeName, "Count %ld must be equal to the product of the elements in selfShape.", count),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        usrWorkspaceSize != count,
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+            nodeName, "attr count", (std::to_string(count) + " and " + std::to_string(usrWorkspaceSize)).c_str(),
+            "count must be equal to the product of the elements in "
+            "selfShape"),
+        return ge::GRAPH_FAILED);
     usrWorkspaceSize = Ceil(usrWorkspaceSize, BATCHNUMPERHANDLE * BLOCKSIZE);
     usrWorkspaceSize *= FP32_TYPESIZE;
 
     auto selfDesc = context->GetInputDesc(INPUT_SELF_IDX);
-    OP_CHECK_NULL_WITH_CONTEXT(context, selfDesc);
+    if (selfDesc == nullptr) {
+        OP_LOGE_WITHOUT_REPORT(OpNameOf(context), "selfDesc is nullptr");
+        return ge::GRAPH_FAILED;
+    }
     selfDType = selfDesc->GetDataType();
     GetDataTypeKey(selfDType);
-    OP_CHECK_IF(GetDataTypeKey(selfDType) == false,
-                OP_LOGE(nodeName, "The dtype %d of input self must be in [float32, float16, bfloat16].",
-                        static_cast<int>(selfDType)),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        GetDataTypeKey(selfDType) == false,
+        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(nodeName, "self", std::to_string(static_cast<int>(selfDType)).c_str(),
+                                              "dtype must be one of [float32, float16, bfloat16]"),
+        return ge::GRAPH_FAILED);
 
     return ge::GRAPH_SUCCESS;
 }
@@ -196,7 +223,9 @@ ge::graphStatus SimThreadExponentialTiling::Tiling4Block()
     // 分核计算
     useCoreNum = static_cast<int64_t>(
         Ops::Base::CeilDiv(batchNumTotal, Ops::Base::CeilDiv(batchNumTotal, totalCoreNum)));
-    OP_CHECK_IF(useCoreNum == 0, OP_LOGE(nodeName, "useCoreNum %u must not be equal to 0.", useCoreNum),
+    OP_CHECK_IF(useCoreNum == 0,
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(nodeName, "useCoreNum", std::to_string(useCoreNum).c_str(),
+                                                      "useCoreNum must not be equal to 0"),
                 return ge::GRAPH_FAILED);
     // useCoreNum = static_cast<int64_t>(CeilDiv(batchNumTotal, CeilDiv(batchNumTotal, totalCoreNum)));
     batchNumPerCore = (batchNumTotal + useCoreNum - 1) / useCoreNum;
@@ -205,8 +234,11 @@ ge::graphStatus SimThreadExponentialTiling::Tiling4Block()
     handleNumLoop = batchNumPerCore / BATCHNUMPERHANDLE;
     handleNumTail = batchNumPerCore - handleNumLoop * BATCHNUMPERHANDLE;
 
-    OP_CHECK_IF(batchNumPerCore <= 0, OP_LOGE(nodeName, "batchNumPerCore %u must be greater than 0.", batchNumPerCore),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        batchNumPerCore <= 0,
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(nodeName, "batchNumPerCore", std::to_string(batchNumPerCore).c_str(),
+                                              "batchNumPerCore must be greater than 0"),
+        return ge::GRAPH_FAILED);
 
     return ge::GRAPH_SUCCESS;
 }
@@ -214,23 +246,40 @@ ge::graphStatus SimThreadExponentialTiling::Tiling4Block()
 ge::graphStatus SimThreadExponentialTiling::SetAttrParams()
 {
     auto attrs = context->GetAttrs();
-    OP_CHECK_NULL_WITH_CONTEXT(context, attrs);
+    if (attrs == nullptr) {
+        OP_LOGE_WITHOUT_REPORT(OpNameOf(context), "attrs is nullptr");
+        return ge::GRAPH_FAILED;
+    }
     const int64_t* countPtr = attrs->GetAttrPointer<int64_t>(ATTR_0);
-    OP_CHECK_NULL_WITH_CONTEXT(context, countPtr);
+    if (countPtr == nullptr) {
+        OP_LOGE_WITHOUT_REPORT(OpNameOf(context), "countPtr is nullptr");
+        return ge::GRAPH_FAILED;
+    }
     count = static_cast<int64_t>(*countPtr);
     start = SIM_THREAD_EXPONENTIAL_LOW;
     end = SIM_THREAD_EXPONENTIAL_HIGH; // sim_expinential功能与sim_random_uniform类似，start固定为0.0，end固定为1.0
     const float* lambdaPtr = attrs->GetAttrPointer<float>(ATTR_1);
-    OP_CHECK_NULL_WITH_CONTEXT(context, lambdaPtr);
+    if (lambdaPtr == nullptr) {
+        OP_LOGE_WITHOUT_REPORT(OpNameOf(context), "lambdaPtr is nullptr");
+        return ge::GRAPH_FAILED;
+    }
     lambda = static_cast<float>(*lambdaPtr);
-    OP_CHECK_IF(lambda == 0,
-                OP_LOGE(context->GetNodeName(), "lambda is the denominator and cannot be zero, but got %f.", lambda),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        lambda == 0,
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "attr lambd", std::to_string(lambda).c_str(),
+                                              "lambd is the denominator and cannot be zero"),
+        return ge::GRAPH_FAILED);
     const int64_t* seedPtr = attrs->GetAttrPointer<int64_t>(ATTR_2);
-    OP_CHECK_NULL_WITH_CONTEXT(context, seedPtr);
+    if (seedPtr == nullptr) {
+        OP_LOGE_WITHOUT_REPORT(OpNameOf(context), "seedPtr is nullptr");
+        return ge::GRAPH_FAILED;
+    }
     seed = static_cast<uint64_t>(*seedPtr);
     const int64_t* offsetPtr = attrs->GetAttrPointer<int64_t>(ATTR_3);
-    OP_CHECK_NULL_WITH_CONTEXT(context, offsetPtr);
+    if (offsetPtr == nullptr) {
+        OP_LOGE_WITHOUT_REPORT(OpNameOf(context), "offsetPtr is nullptr");
+        return ge::GRAPH_FAILED;
+    }
     offset = static_cast<uint64_t>(*offsetPtr);
     threadPerProcessor = THREAD_PER_PROCESSOR;
     streamProcessorCount = STREAM_PROCESSOR_COUNT;
@@ -247,13 +296,14 @@ ge::graphStatus SimThreadExponentialTiling::DoTiling()
 {
     auto nodeName = context->GetNodeName();
 
-    OP_CHECK_IF(SetAttrParams() != ge::GRAPH_SUCCESS, OP_LOGE(nodeName, "SetAttrParams failed."),
+    // 下层函数失败时已完成正式错误码首报，此处仅补PLOG日志并原样透传，避免重复首报
+    OP_CHECK_IF(SetAttrParams() != ge::GRAPH_SUCCESS, OP_LOGW(nodeName, "SetAttrParams failed."),
                 return ge::GRAPH_FAILED);
-    OP_CHECK_IF(GetInputTensorInfo() != ge::GRAPH_SUCCESS, OP_LOGE(nodeName, "GetInputTensorInfo failed."),
+    OP_CHECK_IF(GetInputTensorInfo() != ge::GRAPH_SUCCESS, OP_LOGW(nodeName, "GetInputTensorInfo failed."),
                 return ge::GRAPH_FAILED);
-    OP_CHECK_IF(GetPlatformInfo() != ge::GRAPH_SUCCESS, OP_LOGE(nodeName, "GetPlatformInfo failed."),
+    OP_CHECK_IF(GetPlatformInfo() != ge::GRAPH_SUCCESS, OP_LOGW(nodeName, "GetPlatformInfo failed."),
                 return ge::GRAPH_FAILED);
-    OP_CHECK_IF(Tiling4Block() != ge::GRAPH_SUCCESS, OP_LOGE(nodeName, "Tiling4Block failed."),
+    OP_CHECK_IF(Tiling4Block() != ge::GRAPH_SUCCESS, OP_LOGW(nodeName, "Tiling4Block failed."),
                 return ge::GRAPH_FAILED);
     SetTilingData();
 

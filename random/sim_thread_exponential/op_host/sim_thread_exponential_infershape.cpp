@@ -21,15 +21,28 @@ using namespace ge;
 namespace {
 constexpr uint32_t INPUT_SELF_IDX = 0;
 constexpr uint32_t OUTPUT_SELF_IDX = 0;
+
+// 空指针检查仅写日志不注册错误码，GetNodeName为空时回退到字面算子名（参照官方整改基线）
+const char* OpNameOf(gert::InferShapeContext* inferContext)
+{
+    const char* name = inferContext->GetNodeName();
+    return name == nullptr ? "SimThreadExponential" : name;
+}
 } // namespace
 
 namespace ops {
 static ge::graphStatus InferShape4SimThreadExponential(gert::InferShapeContext* context)
 {
     const gert::Shape* inputSelfShape = context->GetInputShape(INPUT_SELF_IDX);
-    OP_CHECK_NULL_WITH_CONTEXT(context, inputSelfShape);
+    if (inputSelfShape == nullptr) {
+        OP_LOGE_WITHOUT_REPORT(OpNameOf(context), "inputSelfShape is nullptr");
+        return ge::GRAPH_FAILED;
+    }
     gert::Shape* outputSelfShape = context->GetOutputShape(OUTPUT_SELF_IDX);
-    OP_CHECK_NULL_WITH_CONTEXT(context, outputSelfShape);
+    if (outputSelfShape == nullptr) {
+        OP_LOGE_WITHOUT_REPORT(OpNameOf(context), "outputSelfShape is nullptr");
+        return ge::GRAPH_FAILED;
+    }
     *outputSelfShape = *inputSelfShape;
     return GRAPH_SUCCESS;
 }
