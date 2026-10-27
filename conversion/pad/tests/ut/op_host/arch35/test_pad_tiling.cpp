@@ -43,7 +43,7 @@ TEST_F(PadTilingTest, Pad_AC_tiling_NDDMA_20000) // NDDMA_20000
          {paddingsShape, ge::DT_INT32, ge::FORMAT_ND, true, paddingsValue.data()}},
         {{yShape, ge::DT_FLOAT, ge::FORMAT_ND}}, &compileInfo);
     uint64_t expectedTilingKey = 20000;
-    std::vector<size_t> expectedWorkspaces = {16777216};
+    std::vector<size_t> expectedWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectedTilingKey, expectedWorkspaces);
 }
 
@@ -62,7 +62,7 @@ TEST_F(PadTilingTest, Pad_AC_tiling_NDDMA_30010) // NDDMA_30010  ----
          {paddingsShape, ge::DT_INT32, ge::FORMAT_ND, true, paddingsValue.data()}},
         {{yShape, ge::DT_FLOAT, ge::FORMAT_ND}}, &compileInfo);
     uint64_t expectedTilingKey = 30010;
-    std::vector<size_t> expectedWorkspaces = {16777216};
+    std::vector<size_t> expectedWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectedTilingKey, expectedWorkspaces);
 }
 
@@ -81,7 +81,7 @@ TEST_F(PadTilingTest, Pad_AC_tiling_NDDMA_30021) // NDDMA_30021
          {paddingsShape, ge::DT_INT32, ge::FORMAT_ND, true, paddingsValue.data()}},
         {{yShape, ge::DT_BOOL, ge::FORMAT_ND}}, &compileInfo);
     uint64_t expectedTilingKey = 30021;
-    std::vector<size_t> expectedWorkspaces = {16777216};
+    std::vector<size_t> expectedWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectedTilingKey, expectedWorkspaces);
 }
 
@@ -100,7 +100,7 @@ TEST_F(PadTilingTest, Pad_AC_tiling_NDDMA_30023) // NDDMA_30023   ---
          {paddingsShape, ge::DT_INT32, ge::FORMAT_ND, true, paddingsValue.data()}},
         {{yShape, ge::DT_INT8, ge::FORMAT_ND}}, &compileInfo);
     uint64_t expectedTilingKey = 30023;
-    std::vector<size_t> expectedWorkspaces = {16777216};
+    std::vector<size_t> expectedWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectedTilingKey, expectedWorkspaces);
 }
 
@@ -119,7 +119,7 @@ TEST_F(PadTilingTest, Pad_AC_tiling_NDDMA_30031) // NDDMA_30031   ---
          {paddingsShape, ge::DT_INT32, ge::FORMAT_ND, true, paddingsValue.data()}},
         {{yShape, ge::DT_FLOAT16, ge::FORMAT_ND}}, &compileInfo);
     uint64_t expectedTilingKey = 30031;
-    std::vector<size_t> expectedWorkspaces = {16777216};
+    std::vector<size_t> expectedWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectedTilingKey, expectedWorkspaces);
 }
 
@@ -138,6 +138,6 @@ TEST_F(PadTilingTest, Pad_AC_tiling_NDDMA_30032) // NDDMA_30033   ---
          {paddingsShape, ge::DT_INT32, ge::FORMAT_ND, true, paddingsValue.data()}},
         {{yShape, ge::DT_BOOL, ge::FORMAT_ND}}, &compileInfo);
     uint64_t expectedTilingKey = 30033;
-    std::vector<size_t> expectedWorkspaces = {16777216};
+    std::vector<size_t> expectedWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectedTilingKey, expectedWorkspaces);
 }

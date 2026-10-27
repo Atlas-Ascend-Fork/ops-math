@@ -40,6 +40,6 @@ TEST_F(MirrorPadTiling, mirror_pad_tiling_test_001)
     uint64_t expectTilingKey = 21000;
     string
         expectTilingData = "1 0 0 24 3 4 0 0 0 0 0 24 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ";
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }

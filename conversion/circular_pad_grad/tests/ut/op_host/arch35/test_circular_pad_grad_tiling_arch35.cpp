@@ -52,7 +52,7 @@ TEST_F(CircularPadGradTilingArch35, circular_pad_grad_tiling_1d_fp32_success)
          {paddingsShape, ge::DT_INT64, ge::FORMAT_ND, true, paddingsValue.data()}},
         {{yShape, ge::DT_FLOAT, ge::FORMAT_ND}}, DUMMY_ATTRS, &compileInfo);
 
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, 20, expectWorkspaces);
 }
 
@@ -72,7 +72,7 @@ TEST_F(CircularPadGradTilingArch35, circular_pad_grad_tiling_2d_fp16_success)
          {paddingsShape, ge::DT_INT64, ge::FORMAT_ND, true, paddingsValue.data()}},
         {{yShape, ge::DT_FLOAT16, ge::FORMAT_ND}}, DUMMY_ATTRS, &compileInfo);
 
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, 20, expectWorkspaces);
 }
 
@@ -92,7 +92,7 @@ TEST_F(CircularPadGradTilingArch35, circular_pad_grad_tiling_3d_bf16_success)
          {paddingsShape, ge::DT_INT64, ge::FORMAT_ND, true, paddingsValue.data()}},
         {{yShape, ge::DT_BF16, ge::FORMAT_ND}}, DUMMY_ATTRS, &compileInfo);
 
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, 20, expectWorkspaces);
 }
 
@@ -112,7 +112,7 @@ TEST_F(CircularPadGradTilingArch35, circular_pad_grad_tiling_large_shape_success
          {paddingsShape, ge::DT_INT64, ge::FORMAT_ND, true, paddingsValue.data()}},
         {{yShape, ge::DT_FLOAT, ge::FORMAT_ND}}, DUMMY_ATTRS, &compileInfo);
 
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, 20, expectWorkspaces);
 }
 
@@ -132,7 +132,7 @@ TEST_F(CircularPadGradTilingArch35, circular_pad_grad_tiling_int32_paddings_succ
          {paddingsShape, ge::DT_INT32, ge::FORMAT_ND, true, paddingsValue.data()}},
         {{yShape, ge::DT_FLOAT, ge::FORMAT_ND}}, DUMMY_ATTRS, &compileInfo);
 
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, 20, expectWorkspaces);
 }
 
@@ -152,7 +152,7 @@ TEST_F(CircularPadGradTilingArch35, circular_pad_grad_tiling_all_zero_paddings_s
          {paddingsShape, ge::DT_INT64, ge::FORMAT_ND, true, paddingsValue.data()}},
         {{yShape, ge::DT_FLOAT, ge::FORMAT_ND}}, DUMMY_ATTRS, &compileInfo);
 
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, 20, expectWorkspaces);
 }
 
@@ -172,7 +172,7 @@ TEST_F(CircularPadGradTilingArch35, circular_pad_grad_tiling_mixed_paddings_succ
          {paddingsShape, ge::DT_INT64, ge::FORMAT_ND, true, paddingsValue.data()}},
         {{yShape, ge::DT_FLOAT, ge::FORMAT_ND}}, DUMMY_ATTRS, &compileInfo);
 
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, 20, expectWorkspaces);
 }
 
@@ -192,7 +192,7 @@ TEST_F(CircularPadGradTilingArch35, circular_pad_grad_tiling_negative_paddings_s
          {paddingsShape, ge::DT_INT64, ge::FORMAT_ND, true, paddingsValue.data()}},
         {{yShape, ge::DT_FLOAT, ge::FORMAT_ND}}, DUMMY_ATTRS, &compileInfo);
 
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, 20, expectWorkspaces);
 }
 
@@ -212,7 +212,7 @@ TEST_F(CircularPadGradTilingArch35, circular_pad_grad_tiling_mixed_positive_nega
          {paddingsShape, ge::DT_INT64, ge::FORMAT_ND, true, paddingsValue.data()}},
         {{yShape, ge::DT_FLOAT, ge::FORMAT_ND}}, DUMMY_ATTRS, &compileInfo);
 
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, 20, expectWorkspaces);
 }
 
@@ -232,7 +232,7 @@ TEST_F(CircularPadGradTilingArch35, circular_pad_grad_tiling_empty_tensor_succes
          {paddingsShape, ge::DT_INT64, ge::FORMAT_ND, true, paddingsValue.data()}},
         {{yShape, ge::DT_FLOAT, ge::FORMAT_ND}}, DUMMY_ATTRS, &compileInfo);
 
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, 20, expectWorkspaces);
 }
 
@@ -252,7 +252,7 @@ TEST_F(CircularPadGradTilingArch35, circular_pad_grad_tiling_big_shape_success)
          {paddingsShape, ge::DT_INT64, ge::FORMAT_ND, true, paddingsValue.data()}},
         {{yShape, ge::DT_FLOAT, ge::FORMAT_ND}}, DUMMY_ATTRS, &compileInfo);
 
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, 4, expectWorkspaces);
 }
 

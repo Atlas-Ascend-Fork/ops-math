@@ -85,7 +85,7 @@ TEST_F(PadV2TilingTest, pad_v2_tiling_simt_branch_001)
         {{yShape, ge::DT_FLOAT, ge::FORMAT_ND}}, &compileInfo);
 
     uint64_t expectTilingKey = 20000; // SIMT 分支
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
 
@@ -115,7 +115,7 @@ TEST_F(PadV2TilingTest, pad_v2_tiling_simt_huge_branch_002)
         {{yShape, ge::DT_FLOAT, ge::FORMAT_ND}}, &compileInfo);
 
     uint64_t expectTilingKey = 30010; // SIMT_HUGE 分支（修正）
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
 
@@ -144,7 +144,7 @@ TEST_F(PadV2TilingTest, pad_v2_tiling_cut_last_dim_branch_003)
         {{yShape, ge::DT_FLOAT, ge::FORMAT_ND}}, &compileInfo);
 
     uint64_t expectTilingKey = 30010; // 切尾轴分支
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
 
@@ -174,7 +174,7 @@ TEST_F(PadV2TilingTest, pad_v2_tiling_cut_other_axis_branch_004)
 
     // 预期 TilingKey 在 30021~30041 范围内（切其他轴）
     uint64_t expectTilingKey = 30021;
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
 
@@ -203,7 +203,7 @@ TEST_F(PadV2TilingTest, pad_v2_tiling_gather_branch_005)
         {{yShape, ge::DT_FLOAT, ge::FORMAT_ND}}, &compileInfo);
 
     uint64_t expectTilingKey = 30010;
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
 
@@ -232,7 +232,7 @@ TEST_F(PadV2TilingTest, pad_v2_tiling_scatter_branch_006)
         {{yShape, ge::DT_FLOAT, ge::FORMAT_ND}}, &compileInfo);
 
     uint64_t expectTilingKey = 20000;
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
 
@@ -290,7 +290,7 @@ TEST_F(PadV2TilingTest, pad_v2_tiling_dimension_collapse_008)
         {{yShape, ge::DT_FLOAT, ge::FORMAT_ND}}, &compileInfo);
 
     uint64_t expectTilingKey = 20000;
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
 
@@ -319,7 +319,7 @@ TEST_F(PadV2TilingTest, pad_v2_tiling_empty_tensor_009)
         {{yShape, ge::DT_FLOAT, ge::FORMAT_ND}}, &compileInfo);
 
     uint64_t expectTilingKey = 20000;
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
 
@@ -348,7 +348,7 @@ TEST_F(PadV2TilingTest, pad_v2_tiling_core_utilization_010)
         {{yShape, ge::DT_FLOAT, ge::FORMAT_ND}}, &compileInfo);
 
     uint64_t expectTilingKey = 30021;
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
 
@@ -412,7 +412,7 @@ TEST_F(PadV2TilingTest, pad_v2_tiling_paddings_dim_mismatch_012)
     // 注意：当前 Tiling 实现不校验 paddings 第一维是否等于 x 的维度数
     // 因此返回 GRAPH_SUCCESS，建议后续添加校验
     uint64_t expectTilingKey = 20000;
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
 
@@ -498,7 +498,7 @@ TEST_F(PadV2TilingTest, pad_v2_tiling_invalid_paddings_shape_015)
     // 注意：当前 Tiling 实现不校验 paddings 第二维是否为 2
     // 因此返回 GRAPH_SUCCESS，建议后续添加校验
     uint64_t expectTilingKey = 20000;
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
 
@@ -531,7 +531,7 @@ TEST_F(PadV2TilingTest, pad_v2_tiling_min_shape_016)
         {{yShape, ge::DT_FLOAT, ge::FORMAT_ND}}, &compileInfo);
 
     uint64_t expectTilingKey = 20000;
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
 
@@ -561,7 +561,7 @@ TEST_F(PadV2TilingTest, pad_v2_tiling_max_shape_017)
         {{yShape, ge::DT_FLOAT, ge::FORMAT_ND}}, &compileInfo);
 
     uint64_t expectTilingKey = 30010;
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
 
@@ -619,6 +619,6 @@ TEST_F(PadV2TilingTest, pad_v2_tiling_max_padding_019)
         {{yShape, ge::DT_FLOAT, ge::FORMAT_ND}}, &compileInfo);
 
     uint64_t expectTilingKey = 30021;
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
