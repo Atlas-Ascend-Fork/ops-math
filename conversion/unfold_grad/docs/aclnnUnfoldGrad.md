@@ -202,26 +202,29 @@ aclnnStatus aclnnUnfoldGrad(
       <tr>
         <td>ACLNN_ERR_PARAM_NULLPTR</td>
         <td>161001</td>
-        <td>输入和输出的Tensor是空指针。</td>
+        <td>gradOut、gradIn或inputSizes是空指针。</td>
       </tr>
       <tr>
-        <td>ACLNN_ERR_PARAM_INVALID</td>
-        <td>161002</td>
-        <td>输入和输出的数据类型和数据格式不在支持的范围之内，或dim小于0或大于等于len(inputSizes)。</td>
+        <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
+        <td rowspan="4">161002</td>
+        <td>输入或输出的数据类型不在支持的范围之内，或gradOut的数据格式为FRACTAL_NZ，或dim小于0或大于等于len(inputSizes)。</td>
       </tr>
       <tr>
-        <td rowspan="4">ACLNN_ERR_INNER_TILING_ERROR</td>
-        <td rowspan="4">561002</td>
-        <td>gradOut的第dim维不等于(inputSizes[dim]-size)/step+1。</td>
+        <td>gradOut的维数不等于inputSizes的元素个数加1。</td>
       </tr>
       <tr>
-        <td>gradOut的size不等于inputSizes的size+1。</td>
-      </tr>
-      <tr>
-        <td>size小于等于0或size大于inputSizes的第dim维。</td>
+        <td>size小于等于0。</td>
       </tr>
       <tr>
         <td>step小于等于0。</td>
+      </tr>
+      <tr>
+        <td rowspan="2">ACLNN_ERR_INNER_TILING_ERROR</td>
+        <td rowspan="2">561002</td>
+        <td>gradOut的第dim维不等于(inputSizes[dim]-size)/step+1。</td>
+      </tr>
+      <tr>
+        <td>size大于inputSizes的第dim维。</td>
       </tr>
     </tbody>
     </table>
