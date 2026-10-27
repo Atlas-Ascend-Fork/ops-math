@@ -23,15 +23,9 @@ using namespace std;
 
 class l2_left_shift_test : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        cout << "left_shift_test SetUp" << endl;
-    }
+    static void SetUpTestCase() { cout << "left_shift_test SetUp" << endl; }
 
-    static void TearDownTestCase()
-    {
-        cout << "left_shift_test TearDown" << endl;
-    }
+    static void TearDownTestCase() { cout << "left_shift_test TearDown" << endl; }
 };
 
 // 正常场景_INT8_ND
@@ -425,6 +419,70 @@ TEST_F(l2_left_shift_test, normal_uncontiguous)
     auto selfDesc = TensorDesc({2, 4}, ACL_INT32, ACL_FORMAT_ND, {1, 2}, 0, {4, 2});
     auto shiftBitsDesc = TensorDesc({2, 4}, ACL_INT32, ACL_FORMAT_ND, {1, 2}, 0, {4, 2});
     auto outDesc = TensorDesc({2, 4}, ACL_INT32, ACL_FORMAT_ND, {1, 2}, 0, {4, 2});
+
+    auto ut = OP_API_UT(aclnnLeftShift, INPUT(selfDesc, shiftBitsDesc), OUTPUT(outDesc));
+
+    // only test GetWorkspaceSize
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACLNN_SUCCESS);
+}
+
+// A5(950)平台_同shape：RegBase路径由kernel原生支持广播，无需显式BroadcastTo
+TEST_F(l2_left_shift_test, normal_int32_same_shape_950)
+{
+    op::SetPlatformNpuArch(NpuArch::DAV_3510);
+    auto selfDesc = TensorDesc({2, 4}, ACL_INT32, ACL_FORMAT_ND);
+    auto shiftBitsDesc = TensorDesc({2, 4}, ACL_INT32, ACL_FORMAT_ND);
+    auto outDesc = TensorDesc({2, 4}, ACL_INT32, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnLeftShift, INPUT(selfDesc, shiftBitsDesc), OUTPUT(outDesc));
+
+    // only test GetWorkspaceSize
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACLNN_SUCCESS);
+}
+
+// A5(950)平台_shiftBits广播：shiftBits的shape小于out，跳过显式BroadcastTo
+TEST_F(l2_left_shift_test, normal_int32_broadcast_shiftBits_950)
+{
+    op::SetPlatformNpuArch(NpuArch::DAV_3510);
+    auto selfDesc = TensorDesc({2, 4}, ACL_INT32, ACL_FORMAT_ND);
+    auto shiftBitsDesc = TensorDesc({4}, ACL_INT32, ACL_FORMAT_ND);
+    auto outDesc = TensorDesc({2, 4}, ACL_INT32, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnLeftShift, INPUT(selfDesc, shiftBitsDesc), OUTPUT(outDesc));
+
+    // only test GetWorkspaceSize
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACLNN_SUCCESS);
+}
+
+// A5(950)平台_self广播：self的shape小于out，跳过显式BroadcastTo
+TEST_F(l2_left_shift_test, normal_int32_broadcast_self_950)
+{
+    op::SetPlatformNpuArch(NpuArch::DAV_3510);
+    auto selfDesc = TensorDesc({4}, ACL_INT32, ACL_FORMAT_ND);
+    auto shiftBitsDesc = TensorDesc({2, 4}, ACL_INT32, ACL_FORMAT_ND);
+    auto outDesc = TensorDesc({2, 4}, ACL_INT32, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnLeftShift, INPUT(selfDesc, shiftBitsDesc), OUTPUT(outDesc));
+
+    // only test GetWorkspaceSize
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACLNN_SUCCESS);
+}
+
+// A5(950)平台_双向广播：self和shiftBits均小于out
+TEST_F(l2_left_shift_test, normal_int32_broadcast_both_950)
+{
+    op::SetPlatformNpuArch(NpuArch::DAV_3510);
+    auto selfDesc = TensorDesc({2, 1}, ACL_INT32, ACL_FORMAT_ND);
+    auto shiftBitsDesc = TensorDesc({1, 4}, ACL_INT32, ACL_FORMAT_ND);
+    auto outDesc = TensorDesc({2, 4}, ACL_INT32, ACL_FORMAT_ND);
 
     auto ut = OP_API_UT(aclnnLeftShift, INPUT(selfDesc, shiftBitsDesc), OUTPUT(outDesc));
 

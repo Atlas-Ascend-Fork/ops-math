@@ -13,7 +13,9 @@
 #include "opdev/op_log.h"
 #include "opdev/op_dfx.h"
 #include "opdev/shape_utils.h"
+#include "opdev/platform.h"
 #include "opdev/make_op_executor.h"
+#include "op_api/aclnn_check.h"
 
 using namespace op;
 
@@ -24,7 +26,7 @@ static const std::initializer_list<op::DataType> DTYPE_SUPPORT_LIST = {
     op::DataType::DT_INT8,  op::DataType::DT_INT16,  op::DataType::DT_INT32,  op::DataType::DT_INT64,
     op::DataType::DT_UINT8, op::DataType::DT_UINT16, op::DataType::DT_UINT32, op::DataType::DT_UINT64};
 
-static bool LeftShiftAiCpuSupported(const aclTensor* x, const aclTensor* y)
+static bool IsLeftShiftSupported(const aclTensor* x, const aclTensor* y)
 {
     if (!op::CheckType(x->GetDataType(), DTYPE_SUPPORT_LIST)) {
         return false;
@@ -35,20 +37,46 @@ static bool LeftShiftAiCpuSupported(const aclTensor* x, const aclTensor* y)
     return true;
 }
 
+const aclTensor* LeftShiftAiCore(const aclTensor* x, const aclTensor* y, const aclTensor* z, aclOpExecutor* executor)
+{
+    L0_DFX(LeftShiftAiCore, x, y, z);
+
+    auto ret = ADD_TO_LAUNCHER_LIST_AICORE(LeftShift, OP_INPUT(x, y), OP_OUTPUT(z));
+    OP_CHECK(ret == ACLNN_SUCCESS,
+             OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "LeftShiftAiCore ADD_TO_LAUNCHER_LIST_AICORE failed."), return nullptr);
+    return z;
+}
+
+const aclTensor* LeftShiftAiCpu(const aclTensor* x, const aclTensor* y, const aclTensor* z, aclOpExecutor* executor)
+{
+    L0_DFX(LeftShiftAiCpu, x, y, z);
+
+    static internal::AicpuTaskSpace space("LeftShift");
+    auto ret = ADD_TO_LAUNCHER_LIST_AICPU(LeftShift, OP_ATTR_NAMES(), OP_INPUT(x, y), OP_OUTPUT(z));
+    OP_CHECK(ret == ACLNN_SUCCESS,
+             OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "LeftShiftAiCpu ADD_TO_LAUNCHER_LIST_AICPU failed."), return nullptr);
+    return z;
+}
+
 const aclTensor* LeftShift(const aclTensor* x, const aclTensor* y, aclOpExecutor* executor)
 {
-    auto out = executor->AllocTensor(x->GetViewShape(), x->GetDataType());
-    CHECK_RET(out != nullptr, nullptr);
-    if (!LeftShiftAiCpuSupported(x, y)) {
+    Shape broadcastShape;
+    if (!BroadcastInferShape(x->GetViewShape(), y->GetViewShape(), broadcastShape)) {
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "Broadcast %s and %s failed.", op::ToString(x->GetViewShape()).GetString(),
+                op::ToString(y->GetViewShape()).GetString());
+        return nullptr;
+    }
+    auto z = executor->AllocTensor(broadcastShape, x->GetDataType());
+    CHECK_RET(z != nullptr, nullptr);
+    if (!IsLeftShiftSupported(x, y)) {
         OP_LOGE(ACLNN_ERR_PARAM_INVALID, "The input dtype for LeftShift is not supported.");
         return nullptr;
     }
-
-    L0_DFX(LeftShift, x, y, out);
-
-    static internal::AicpuTaskSpace space("LeftShift");
-    ADD_TO_LAUNCHER_LIST_AICPU(LeftShift, OP_ATTR_NAMES(), OP_INPUT(x, y), OP_OUTPUT(out));
-    return out;
+    if (!IsRegBase()) {
+        return LeftShiftAiCpu(x, y, z, executor);
+    } else {
+        return LeftShiftAiCore(x, y, z, executor);
+    }
 }
 
 } // namespace l0op

@@ -23,15 +23,9 @@ using namespace std;
 
 class l2_left_shifts_test : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        cout << "left_shifts_test SetUp" << endl;
-    }
+    static void SetUpTestCase() { cout << "left_shifts_test SetUp" << endl; }
 
-    static void TearDownTestCase()
-    {
-        cout << "left_shifts_test TearDown" << endl;
-    }
+    static void TearDownTestCase() { cout << "left_shifts_test TearDown" << endl; }
 };
 
 // 正常场景_INT8_ND
@@ -65,7 +59,7 @@ TEST_F(l2_left_shifts_test, normal_INT16_NHWC)
     // only test GetWorkspaceSize
     uint64_t workspaceSize = 0;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
-    // EXPECT_EQ(aclRet, ACLNN_ERR_INNER_NULLPTR); // 暂不支持broadcastto的aicpu
+    // EXPECT_EQ(aclRet, ACLNN_ERR_INNER_NULLPTR);
 }
 
 // 正常场景_INT32_HWCN
@@ -449,6 +443,40 @@ TEST_F(l2_left_shifts_test, normal_uncontiguous)
     int32_t value = 1;
     auto shiftBitsDesc = ScalarDesc(value);
     auto outDesc = TensorDesc({2, 4}, ACL_INT32, ACL_FORMAT_ND, {1, 2}, 0, {4, 2});
+
+    auto ut = OP_API_UT(aclnnLeftShifts, INPUT(selfDesc, shiftBitsDesc), OUTPUT(outDesc));
+
+    // only test GetWorkspaceSize
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACLNN_SUCCESS);
+}
+
+// A5(950)平台：标量通路，RegBase路径由kernel原生支持广播，无需显式BroadcastTo
+TEST_F(l2_left_shifts_test, normal_int32_950)
+{
+    op::SetPlatformNpuArch(NpuArch::DAV_3510);
+    auto selfDesc = TensorDesc({2, 4}, ACL_INT32, ACL_FORMAT_ND);
+    int32_t value = 1;
+    auto shiftBitsDesc = ScalarDesc(value);
+    auto outDesc = TensorDesc({2, 4}, ACL_INT32, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnLeftShifts, INPUT(selfDesc, shiftBitsDesc), OUTPUT(outDesc));
+
+    // only test GetWorkspaceSize
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACLNN_SUCCESS);
+}
+
+// A5(950)平台_INT64
+TEST_F(l2_left_shifts_test, normal_int64_950)
+{
+    op::SetPlatformNpuArch(NpuArch::DAV_3510);
+    auto selfDesc = TensorDesc({4}, ACL_INT64, ACL_FORMAT_ND);
+    int64_t value = 2;
+    auto shiftBitsDesc = ScalarDesc(value);
+    auto outDesc = TensorDesc({4}, ACL_INT64, ACL_FORMAT_ND);
 
     auto ut = OP_API_UT(aclnnLeftShifts, INPUT(selfDesc, shiftBitsDesc), OUTPUT(outDesc));
 

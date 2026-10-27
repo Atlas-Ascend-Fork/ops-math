@@ -10,7 +10,7 @@
 
 #include "onnx_common.h"
 #include "stub_ops.h"
-#include "op_math_proto_extend.h"
+#include "math/left_shift/op_graph/left_shift_proto.h"
 #include "math/right_shift/op_graph/right_shift_proto.h"
 
 using namespace std;
@@ -83,16 +83,12 @@ static Status ParseOpToGraphBitShift(const Operator& op, Graph& graph)
 
 // register BitShift op info to GE
 REGISTER_CUSTOM_OP("PartitionedCall")
-  .FrameworkType(ONNX)
-  .OriginOpType({ge::AscendString("ai.onnx::11::BitShift"),
-                 ge::AscendString("ai.onnx::12::BitShift"),
-                 ge::AscendString("ai.onnx::13::BitShift"),
-                 ge::AscendString("ai.onnx::14::BitShift"),
-                 ge::AscendString("ai.onnx::15::BitShift"),
-                 ge::AscendString("ai.onnx::16::BitShift"),
-                 ge::AscendString("ai.onnx::17::BitShift"),
-                 ge::AscendString("ai.onnx::18::BitShift")})
-  .ParseParamsFn(ParseParamsBitShift)
-  .ParseOpToGraphFn(ParseOpToGraphBitShift)
-  .ImplyType(ImplyType::TVM);
-}  // namespace domi
+    .FrameworkType(ONNX)
+    .OriginOpType({ge::AscendString("ai.onnx::11::BitShift"), ge::AscendString("ai.onnx::12::BitShift"),
+                   ge::AscendString("ai.onnx::13::BitShift"), ge::AscendString("ai.onnx::14::BitShift"),
+                   ge::AscendString("ai.onnx::15::BitShift"), ge::AscendString("ai.onnx::16::BitShift"),
+                   ge::AscendString("ai.onnx::17::BitShift"), ge::AscendString("ai.onnx::18::BitShift")})
+    .ParseParamsFn(ParseParamsBitShift)
+    .ParseOpToGraphFn(ParseOpToGraphBitShift)
+    .ImplyType(ImplyType::TVM);
+} // namespace domi

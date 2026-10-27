@@ -23,6 +23,7 @@
 #include "opdev/tensor_view_utils.h"
 #include "aclnn_kernels/common/op_error_check.h"
 #include "opdev/platform.h"
+#include "op_api/aclnn_check.h"
 
 using namespace op;
 #ifdef __cplusplus
@@ -61,18 +62,15 @@ static bool CheckShape(const aclTensor* self, const aclTensor* shiftBits, aclTen
 {
     const int64_t selfDim = self->GetViewShape().GetDimNum();
     const int64_t shiftBitsDim = shiftBits->GetViewShape().GetDimNum();
-    OP_CHECK(
-        selfDim <= MAX_INPUT_DIM, OP_LOGE(ACLNN_ERR_PARAM_INVALID, "Self dim num should be less than or equal to 8."),
-        return false);
-    OP_CHECK(
-        shiftBitsDim <= MAX_INPUT_DIM,
-        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "ShiftBits dim num should be less than or equal to 8."), return false);
+    OP_CHECK(selfDim <= MAX_INPUT_DIM,
+             OP_LOGE(ACLNN_ERR_PARAM_INVALID, "Self dim num should be less than or equal to 8."), return false);
+    OP_CHECK(shiftBitsDim <= MAX_INPUT_DIM,
+             OP_LOGE(ACLNN_ERR_PARAM_INVALID, "ShiftBits dim num should be less than or equal to 8."), return false);
     op::Shape broadcastShape;
     OP_CHECK_BROADCAST_AND_INFER_SHAPE(self, shiftBits, broadcastShape, return false);
     if (broadcastShape != out->GetViewShape()) {
-        OP_LOGE(
-            ACLNN_ERR_PARAM_INVALID, "Shape of out should be %s, but current is %s.",
-            op::ToString(broadcastShape).GetString(), op::ToString(out->GetViewShape()).GetString());
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "Shape of out should be %s, but current is %s.",
+                op::ToString(broadcastShape).GetString(), op::ToString(out->GetViewShape()).GetString());
         return false;
     }
     return true;
@@ -81,7 +79,7 @@ static bool CheckShape(const aclTensor* self, const aclTensor* shiftBits, aclTen
 static bool CheckFormatValid(const aclTensor* input)
 {
     if (IsPrivateFormat(input->GetStorageFormat())) {
-        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "Format only support ND、NCHW、NHWC、HWCN、NDHWC、NCDHW.");
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "Format only supports ND/NCHW/NHWC/HWCN/NDHWC/NCDHW.");
         return false;
     }
     return true;
@@ -98,14 +96,14 @@ static aclnnStatus CheckParams(const aclTensor* self, const aclTensor* shiftBits
     return ACLNN_SUCCESS;
 }
 
-static bool CheckPromoteType(
-    const aclTensor* self, const aclTensor* shiftBits, aclTensor* out, op::DataType promoteType)
+static bool CheckPromoteType(const aclTensor* self, const aclTensor* shiftBits, aclTensor* out,
+                             op::DataType promoteType)
 {
     // 检查self和shiftBits能否做数据类型推导
     if (promoteType == DataType::DT_UNDEFINED) {
-        OP_LOGE(
-            ACLNN_ERR_PARAM_INVALID, "Self dtype [%s] and shiftBits dtype [%s] can not promote dtype.",
-            op::ToString(self->GetDataType()).GetString(), op::ToString(shiftBits->GetDataType()).GetString());
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID,
+                "Self dtype [%s] and shiftBits dtype [%s] cannot be promoted to a common dtype.",
+                op::ToString(self->GetDataType()).GetString(), op::ToString(shiftBits->GetDataType()).GetString());
         return false;
     }
     // 检查推导后的数据类型是否能转换为输出的数据类型
@@ -133,13 +131,12 @@ static bool CheckDtypeValidScalar(const aclTensor* self, const aclScalar* shiftB
 static bool CheckShapeScalar(const aclTensor* self, aclTensor* out)
 {
     const int64_t selfDim = self->GetViewShape().GetDimNum();
-    OP_CHECK(
-        selfDim <= MAX_INPUT_DIM, OP_LOGE(ACLNN_ERR_PARAM_INVALID, "Self dim num should be less than or equal to 8."),
-        return false);
+    OP_CHECK(selfDim <= MAX_INPUT_DIM,
+             OP_LOGE(ACLNN_ERR_PARAM_INVALID, "Self dim num should be less than or equal to 8."), return false);
     const auto selfShape = self->GetViewShape();
     const auto outShape = out->GetViewShape();
-    OP_CHECK(
-        selfShape == outShape, OP_LOGE(ACLNN_ERR_PARAM_INVALID, "Self shape should be the same as out."), return false);
+    OP_CHECK(selfShape == outShape, OP_LOGE(ACLNN_ERR_PARAM_INVALID, "Self shape should be the same as out."),
+             return false);
     return true;
 }
 
@@ -153,14 +150,14 @@ static aclnnStatus CheckParamsScalar(const aclTensor* self, const aclScalar* shi
     return ACLNN_SUCCESS;
 }
 
-static bool CheckPromoteTypeScalar(
-    const aclTensor* self, const aclScalar* shiftBits, aclTensor* out, op::DataType promoteType)
+static bool CheckPromoteTypeScalar(const aclTensor* self, const aclScalar* shiftBits, aclTensor* out,
+                                   op::DataType promoteType)
 {
     // 检查self和shiftBits能否做数据类型推导
     if (promoteType == DataType::DT_UNDEFINED) {
-        OP_LOGE(
-            ACLNN_ERR_PARAM_INVALID, "Self dtype [%s] and shiftBits dtype [%s] can not promote dtype.",
-            op::ToString(self->GetDataType()).GetString(), op::ToString(shiftBits->GetDataType()).GetString());
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID,
+                "Self dtype [%s] and shiftBits dtype [%s] cannot be promoted to a common dtype.",
+                op::ToString(self->GetDataType()).GetString(), op::ToString(shiftBits->GetDataType()).GetString());
         return false;
     }
     // 检查推导后的数据类型是否能转换为输出的数据类型
@@ -168,9 +165,8 @@ static bool CheckPromoteTypeScalar(
     return true;
 }
 
-aclnnStatus aclnnLeftShiftsGetWorkspaceSize(
-    const aclTensor* self, const aclScalar* shiftBits, aclTensor* out, uint64_t* workspaceSize,
-    aclOpExecutor** executor)
+aclnnStatus aclnnLeftShiftsGetWorkspaceSize(const aclTensor* self, const aclScalar* shiftBits, aclTensor* out,
+                                            uint64_t* workspaceSize, aclOpExecutor** executor)
 {
     L2_DFX_PHASE_1(aclnnLeftShifts, DFX_IN(self, shiftBits), DFX_OUT(out));
 
@@ -203,12 +199,15 @@ aclnnStatus aclnnLeftShiftsGetWorkspaceSize(
     CHECK_RET(shiftBitsdTensor != nullptr, ACLNN_ERR_INNER_NULLPTR);
 
     auto shiftBitsdBroadcast = shiftBitsdTensor;
-    op::FVector<int64_t, op::MAX_DIM_NUM> broadcastDims = op::ToShapeVector(out->GetViewShape());
-    auto broadcastShapeArray = uniqueExecutor.get()->AllocIntArray(broadcastDims.data(), broadcastDims.size());
-    CHECK_RET(broadcastShapeArray != nullptr, ACLNN_ERR_INNER_NULLPTR);
-    if (shiftBitsdBroadcast->GetViewShape() != out->GetViewShape()) {
-        shiftBitsdBroadcast = l0op::BroadcastTo(shiftBitsdTensor, broadcastShapeArray, uniqueExecutor.get());
-        CHECK_RET(shiftBitsdBroadcast != nullptr, ACLNN_ERR_INNER_NULLPTR);
+    // 仅AICPU执行时需要显式BroadcastTo，AICORE的LeftShift kernel原生支持广播
+    if (!IsRegBase()) {
+        op::FVector<int64_t, op::MAX_DIM_NUM> broadcastDims = op::ToShapeVector(out->GetViewShape());
+        auto broadcastShapeArray = uniqueExecutor.get()->AllocIntArray(broadcastDims.data(), broadcastDims.size());
+        CHECK_RET(broadcastShapeArray != nullptr, ACLNN_ERR_INNER_NULLPTR);
+        if (shiftBitsdBroadcast->GetViewShape() != out->GetViewShape()) {
+            shiftBitsdBroadcast = l0op::BroadcastTo(shiftBitsdTensor, broadcastShapeArray, uniqueExecutor.get());
+            CHECK_RET(shiftBitsdBroadcast != nullptr, ACLNN_ERR_INNER_NULLPTR);
+        }
     }
 
     auto outShifted = l0op::LeftShift(selfCasted, shiftBitsdBroadcast, uniqueExecutor.get());
@@ -234,9 +233,8 @@ aclnnStatus aclnnLeftShifts(void* workspace, uint64_t workspaceSize, aclOpExecut
     return CommonOpExecutorRun(workspace, workspaceSize, executor, stream);
 }
 
-aclnnStatus aclnnLeftShiftGetWorkspaceSize(
-    const aclTensor* self, const aclTensor* shiftBits, aclTensor* out, uint64_t* workspaceSize,
-    aclOpExecutor** executor)
+aclnnStatus aclnnLeftShiftGetWorkspaceSize(const aclTensor* self, const aclTensor* shiftBits, aclTensor* out,
+                                           uint64_t* workspaceSize, aclOpExecutor** executor)
 {
     L2_DFX_PHASE_1(aclnnLeftShift, DFX_IN(self, shiftBits), DFX_OUT(out));
 
@@ -272,16 +270,19 @@ aclnnStatus aclnnLeftShiftGetWorkspaceSize(
 
     auto selfBroadcast = selfCasted;
     auto shiftBitsdBroadcast = shiftBitsdCasted;
-    op::FVector<int64_t, op::MAX_DIM_NUM> broadcastDims = op::ToShapeVector(out->GetViewShape());
-    auto broadcastShapeArray = uniqueExecutor.get()->AllocIntArray(broadcastDims.data(), broadcastDims.size());
-    CHECK_RET(broadcastShapeArray != nullptr, ACLNN_ERR_INNER_NULLPTR);
-    if (selfBroadcast->GetViewShape() != out->GetViewShape()) {
-        selfBroadcast = l0op::BroadcastTo(selfBroadcast, broadcastShapeArray, uniqueExecutor.get());
-        CHECK_RET(selfBroadcast != nullptr, ACLNN_ERR_INNER_NULLPTR);
-    }
-    if (shiftBitsdBroadcast->GetViewShape() != out->GetViewShape()) {
-        shiftBitsdBroadcast = l0op::BroadcastTo(shiftBitsdCasted, broadcastShapeArray, uniqueExecutor.get());
-        CHECK_RET(shiftBitsdBroadcast != nullptr, ACLNN_ERR_INNER_NULLPTR);
+    // 仅AICPU执行时需要显式BroadcastTo，AICORE的LeftShift kernel原生支持广播
+    if (!IsRegBase()) {
+        op::FVector<int64_t, op::MAX_DIM_NUM> broadcastDims = op::ToShapeVector(out->GetViewShape());
+        auto broadcastShapeArray = uniqueExecutor.get()->AllocIntArray(broadcastDims.data(), broadcastDims.size());
+        CHECK_RET(broadcastShapeArray != nullptr, ACLNN_ERR_INNER_NULLPTR);
+        if (selfBroadcast->GetViewShape() != out->GetViewShape()) {
+            selfBroadcast = l0op::BroadcastTo(selfBroadcast, broadcastShapeArray, uniqueExecutor.get());
+            CHECK_RET(selfBroadcast != nullptr, ACLNN_ERR_INNER_NULLPTR);
+        }
+        if (shiftBitsdBroadcast->GetViewShape() != out->GetViewShape()) {
+            shiftBitsdBroadcast = l0op::BroadcastTo(shiftBitsdCasted, broadcastShapeArray, uniqueExecutor.get());
+            CHECK_RET(shiftBitsdBroadcast != nullptr, ACLNN_ERR_INNER_NULLPTR);
+        }
     }
 
     auto outShifted = l0op::LeftShift(selfBroadcast, shiftBitsdBroadcast, uniqueExecutor.get());

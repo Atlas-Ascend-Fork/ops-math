@@ -223,6 +223,17 @@ aclnnStatus aclnnLeftShift(
 
 - 只能保证shiftBits的数值小于self数据类型位宽时，精度无误差。
 
+- 当shiftBits为负数或不小于self数据类型的位宽时，输出为0。
+
+- 广播（broadcast）说明：
+
+  <!-- npu="950" id7 -->
+  - <term>Ascend 950PR&950DT系列产品</term>：LeftShift kernel原生支持广播，接口内部不额外插入BroadcastTo算子。
+  <!-- end id7 -->
+  <!-- npu="A3,910b" id8 -->
+  - <term>Atlas A3系列产品</term>、<term>Atlas A2系列产品</term>：接口内部会显式调用BroadcastTo，将输入广播至out的shape后再计算。
+  <!-- end id8 -->
+
 ## 调用示例
 
 示例代码如下，仅供参考，具体编译和执行过程请参考[编译与运行样例](../../../docs/zh/context/compile_and_run_sample.md)。
