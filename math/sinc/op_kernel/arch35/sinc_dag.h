@@ -19,6 +19,10 @@
 #include "atvoss/util/dag.h"
 #include "atvoss/util/vec.h"
 #include "atvoss/util/placeholder.h"
+#ifdef __CCE_AICORE__
+#include "simt_api/math_functions.h"
+#include "simt_api/asc_simt.h"
+#endif
 
 namespace SincOp {
 using namespace Ops::Base;
@@ -28,6 +32,9 @@ const int CAST_MODE_RINT = 1;
 constexpr uint32_t THREAD_NUM = 1024;
 constexpr float PI = 3.14159265358979323846f;
 constexpr float EPSILON = 1e-6f;
+// |x| < 2^-126/pi 时，PI*x 为 float32 次正规数（0 或 subnormal），SIMT 除法按 0 处理会产生 NaN；
+// 此时 sinc(x) 在 float32 精度下精确等于 1，直接输出 1。用单次 abs 比较实现，性能开销最小。
+constexpr float SINC_X_THRESHOLD = 3.741714929575447e-39f;
 
 #ifdef __CCE_AICORE__
 template <typename T>
@@ -35,7 +42,7 @@ __simt_vf__ __aicore__ LAUNCH_BOUND(THREAD_NUM) inline void SincSimtCompute(__ub
                                                                             const int64_t totalNum)
 {
     for (int64_t i = Simt::GetThreadIdx(); i < totalNum; i += Simt::GetThreadNum()) {
-        if (x[i] == 0.0f) {
+        if (fabsf(x[i]) < SINC_X_THRESHOLD) {
             y[i] = 1.0f;
         } else {
             y[i] = Simt::Sin(PI * x[i]) / (PI * x[i]);
