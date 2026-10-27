@@ -134,7 +134,6 @@ aclnnStatus aclnnTrilGetWorkspaceSize(const aclTensor* self, int64_t diagonal, a
 
     // 固定写法，创建OpExecutor
     auto uniqueExecutor = CREATE_EXECUTOR();
-    CHECK_RET(uniqueExecutor.get() != nullptr, ACLNN_ERR_INNER_CREATE_EXECUTOR);
 
     // 空Tensor处理
     if (self->IsEmpty()) {

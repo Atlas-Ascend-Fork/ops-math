@@ -143,7 +143,6 @@ aclnnStatus aclnnAngleV2GetWorkspaceSize(const aclTensor* x, aclTensor* out, uin
 
     // 创建OpExecutor
     auto uniqueExecutor = CREATE_EXECUTOR();
-    CHECK_RET(uniqueExecutor.get() != nullptr, ACLNN_ERR_INNER_CREATE_EXECUTOR);
 
     auto ret = CheckParams(x, out);
     CHECK_RET(ret == ACLNN_SUCCESS, ret);

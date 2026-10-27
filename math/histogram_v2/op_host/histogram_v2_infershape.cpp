@@ -26,15 +26,23 @@ static ge::graphStatus HistogramV2InferShapeFunc(gert::InferShapeContext* contex
     OP_LOGD(context, "Begin to do HistogramV2InferShapeFunc");
     // 获取bins
     auto attr = context->GetAttrs();
-    OP_CHECK_NULL_WITH_CONTEXT(context, attr);
+    if (attr == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "attr");
+        return ge::GRAPH_FAILED;
+    }
     auto binsPtr = attr->GetAttrPointer<int64_t>(BINS_IDX);
     // 属性缺失时回落默认值，与 tiling 侧行为保持一致
     int64_t bins = (binsPtr == nullptr) ? DEFAULT_BINS : *binsPtr;
     OP_LOGD(context, "bins = %ld", bins);
-    OP_CHECK_IF(bins <= 0, OP_LOGE(context, "bins has to be positive, but got %ld", bins), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(bins <= 0,
+                OP_LOGE_FOR_INVALID_VALUE(context->GetNodeName(), "bins", std::to_string(bins).c_str(), ">0"),
+                return ge::GRAPH_FAILED);
 
     gert::Shape* y_shape = context->GetOutputShape(OUTPUT_IDX);
-    OP_CHECK_NULL_WITH_CONTEXT(context, y_shape);
+    if (y_shape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "y");
+        return ge::GRAPH_FAILED;
+    }
     y_shape->SetDimNum(1);
     y_shape->SetDim(0, bins);
     return ge::GRAPH_SUCCESS;

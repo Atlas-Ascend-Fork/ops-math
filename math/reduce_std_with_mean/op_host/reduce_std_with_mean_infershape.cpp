@@ -112,7 +112,10 @@ static ge::graphStatus HandleScalarInput(gert::InferShapeContext* context, const
         return GRAPH_SUCCESS;
     }
     auto attrs = context->GetAttrs();
-    OP_CHECK_NULL_WITH_CONTEXT(context, attrs);
+    if (attrs == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "attrs");
+        return ge::GRAPH_FAILED;
+    }
     const bool keepDim = ReadKeepDim(attrs);
     if (keepDim) {
         *yShape = gert::Shape({1});
@@ -129,9 +132,15 @@ static ge::graphStatus InferShape4ReduceStdWithMean(gert::InferShapeContext* con
     OP_LOGD(context->GetNodeName(), "Begin InferShape4ReduceStdWithMean");
 
     const gert::Shape* xShape = context->GetInputShape(INPUT_X_IDX);
-    OP_CHECK_NULL_WITH_CONTEXT(context, xShape);
+    if (xShape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x");
+        return ge::GRAPH_FAILED;
+    }
     gert::Shape* yShape = context->GetOutputShape(OUTPUT_Y_IDX);
-    OP_CHECK_NULL_WITH_CONTEXT(context, yShape);
+    if (yShape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "y");
+        return ge::GRAPH_FAILED;
+    }
 
     // 1) unknown rank 透传
     if (IsUnknownRank(*xShape)) {
@@ -157,7 +166,10 @@ static ge::graphStatus InferShape4ReduceStdWithMean(gert::InferShapeContext* con
 
     // 3) 读取属性 dim / keepdim
     auto attrs = context->GetAttrs();
-    OP_CHECK_NULL_WITH_CONTEXT(context, attrs);
+    if (attrs == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "attrs");
+        return ge::GRAPH_FAILED;
+    }
     const bool keepDim = ReadKeepDim(attrs);
 
     std::vector<int64_t> axes;

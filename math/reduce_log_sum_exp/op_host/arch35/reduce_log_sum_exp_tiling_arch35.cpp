@@ -51,7 +51,10 @@ ge::graphStatus Tiling4ReduceLogSumExp(gert::TilingContext* context)
 
     if (opInput.axes.empty()) {
         auto attrs = context->GetAttrs();
-        OP_CHECK_NULL_WITH_CONTEXT(context, attrs);
+        if (attrs == nullptr) {
+            OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "attrs");
+            return ge::GRAPH_FAILED;
+        }
         const bool isNoopWithEmpty = *(attrs->GetAttrPointer<bool>(1));
         if (!isNoopWithEmpty) {
             opInput.axes.resize(opInput.shape.size());

@@ -136,7 +136,6 @@ aclnnStatus aclnnSinkhornGetWorkspaceSize(const aclTensor* cost, const aclScalar
 
     // 固定写法，创建OpExecutor
     auto uniqueExecutor = CREATE_EXECUTOR();
-    CHECK_RET(uniqueExecutor.get() != nullptr, ACLNN_ERR_INNER_CREATE_EXECUTOR);
 
     // 固定写法，参数检查
     auto ret = CheckParams(cost, tol, p);

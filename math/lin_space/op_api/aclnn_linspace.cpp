@@ -175,7 +175,6 @@ aclnnStatus aclnnLinspaceGetWorkspaceSize(const aclScalar* start, const aclScala
     L2_DFX_PHASE_1(aclnnLinspace, DFX_IN(start, end, steps), DFX_OUT(out));
     // 创建OpExcutor
     auto uniqueExecutor = CREATE_EXECUTOR();
-    CHECK_RET(uniqueExecutor.get() != nullptr, ACLNN_ERR_INNER_CREATE_EXECUTOR);
 
     // 参数检查
     auto ret = CheckParams(start, end, steps, out);

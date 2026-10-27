@@ -23,7 +23,10 @@ ge::graphStatus CrossTiling::GetPlatformInfo()
 {
     OP_LOGD(context_, "CrossTiling GetPlatformInfo.");
     compileInfo_ = static_cast<const CrossCompileInfo*>(context_->GetCompileInfo());
-    OP_CHECK_NULL_WITH_CONTEXT(context_, compileInfo_);
+    if (compileInfo_ == nullptr) {
+        OP_LOGE(context_->GetNodeName(), "Get compile info failed.");
+        return ge::GRAPH_FAILED;
+    }
     return ge::GRAPH_SUCCESS;
 }
 
@@ -32,8 +35,14 @@ ge::graphStatus CrossTiling::CheckBaseShapeAndAttrs()
     OP_LOGD(context_, "CrossTiling CheckBaseShapeAndAttrs.");
     const gert::StorageShape* shape1 = context_->GetInputShape(INPUT_X1);
     const gert::StorageShape* shape2 = context_->GetInputShape(INPUT_X2);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, shape1);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, shape2);
+    if (shape1 == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "x1");
+        return ge::GRAPH_FAILED;
+    }
+    if (shape2 == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "x2");
+        return ge::GRAPH_FAILED;
+    }
 
     auto s1 = shape1->GetStorageShape();
     auto s2 = shape2->GetStorageShape();
@@ -52,10 +61,13 @@ ge::graphStatus CrossTiling::CheckBaseShapeAndAttrs()
     }
 
     OP_CHECK_IF((dim < -dimNum1_ || dim >= dimNum1_),
-                OP_LOGE(context_, "dim must be in [%ld, %ld], dim: [%ld].", -dimNum1_, dimNum1_ - 1, dim),
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context_->GetNodeName(), "dim", std::to_string(dim).c_str(),
+                                                      "dim must be in [-dimNum1, dimNum1-1]"),
                 return ge::GRAPH_FAILED);
     OP_CHECK_IF((dimNum1_ != dimNum2_),
-                OP_LOGE(context_, "x1 and x2 dim count mismatch: %ld vs %ld.", dimNum1_, dimNum2_),
+                OP_LOGE_FOR_INVALID_SHAPEDIMS_WITH_REASON(context_->GetNodeName(), "x1, x2",
+                                                          std::to_string(dimNum1_) + ", " + std::to_string(dimNum2_),
+                                                          "x1 and x2 dim count mismatch"),
                 return ge::GRAPH_FAILED);
 
     int64_t tempDimNum = dimNum1_ == 0 ? 1 : dimNum1_;
@@ -64,10 +76,12 @@ ge::graphStatus CrossTiling::CheckBaseShapeAndAttrs()
     int64_t dimSize1 = x1Dims_[normalizedDim_];
     int64_t dimSize2 = x2Dims_[normalizedDim_];
     OP_CHECK_IF((dimSize1 != CROSS_DIM_SIZE),
-                OP_LOGE(context_, "x1 dim[%ld] must be 3, got %ld.", normalizedDim_, dimSize1),
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context_->GetNodeName(), "x1", std::to_string(dimSize1).c_str(),
+                                                      "x1 dim must be 3"),
                 return ge::GRAPH_FAILED);
     OP_CHECK_IF((dimSize2 != CROSS_DIM_SIZE),
-                OP_LOGE(context_, "x2 dim[%ld] must be 3, got %ld.", normalizedDim_, dimSize2),
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context_->GetNodeName(), "x2", std::to_string(dimSize2).c_str(),
+                                                      "x2 dim must be 3"),
                 return ge::GRAPH_FAILED);
 
     {
@@ -119,7 +133,9 @@ ge::graphStatus CrossTiling::CheckBroadcastAndMergeShape()
         int64_t size1 = x1Dims_[i];
         int64_t size2 = x2Dims_[i];
         OP_CHECK_IF((size1 != size2 && size1 != 1 && size2 != 1),
-                    OP_LOGE(context_, "Shapes not broadcastable at dim %ld: %ld vs %ld.", i, size1, size2),
+                    OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(context_->GetNodeName(), "x1, x2",
+                                                           std::to_string(size1) + " vs " + std::to_string(size2),
+                                                           "shapes not broadcastable"),
                     return ge::GRAPH_FAILED);
     }
 
@@ -254,7 +270,10 @@ ge::graphStatus CrossTiling::PostTiling()
     OP_LOGD(context_, "CrossTiling PostTiling.");
 
     auto workspaces = context_->GetWorkspaceSizes(1);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, workspaces);
+    if (workspaces == nullptr) {
+        OP_LOGE(context_->GetNodeName(), "Get workspace sizes failed.");
+        return ge::GRAPH_FAILED;
+    }
     workspaces[0] = 0;
 
     auto res = context_->SetBlockDim(static_cast<uint32_t>(blockDim_));
@@ -288,9 +307,15 @@ static ge::graphStatus TilingPrepare4CrossAscendc(gert::TilingParseContext* cont
 
     auto compileInfo = context->GetCompiledInfo<CrossCompileInfo>();
 
-    OP_CHECK_NULL_WITH_CONTEXT(context, compileInfo);
+    if (compileInfo == nullptr) {
+        OP_LOGE(context->GetNodeName(), "Get compiled info failed.");
+        return ge::GRAPH_FAILED;
+    }
     auto platformInfo = context->GetPlatformInfo();
-    OP_CHECK_NULL_WITH_CONTEXT(context, platformInfo);
+    if (platformInfo == nullptr) {
+        OP_LOGE(context->GetNodeName(), "Get platform info failed.");
+        return ge::GRAPH_FAILED;
+    }
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
 
     compileInfo->coreNum = ascendcPlatform.GetCoreNumAiv();
@@ -304,7 +329,10 @@ static ge::graphStatus TilingPrepare4CrossAscendc(gert::TilingParseContext* cont
 static ge::graphStatus TilingPrepare4Cross(gert::TilingParseContext* context)
 {
     auto compile_info = context->GetCompiledInfo<CrossCompileInfo>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, compile_info);
+    if (compile_info == nullptr) {
+        OP_LOGE(context->GetNodeName(), "Get compiled info failed.");
+        return ge::GRAPH_FAILED;
+    }
     OP_LOGD("TilingPrepare4Cross", "Ascend C TilingPrepare4Cross success.");
     return TilingPrepare4CrossAscendc(context);
 }

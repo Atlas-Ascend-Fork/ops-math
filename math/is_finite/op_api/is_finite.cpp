@@ -23,17 +23,16 @@ OP_TYPE_REGISTER(IsFinite);
 static const std::initializer_list<op::DataType> AICORE_DTYPE_SUPPORT_LIST = {
     op::DataType::DT_FLOAT, op::DataType::DT_FLOAT16, op::DataType::DT_BF16};
 
-static const std::initializer_list<op::DataType> AICORE_310P_DTYPE_SUPPORT_LIST = {
-    op::DataType::DT_FLOAT, op::DataType::DT_FLOAT16};
+static const std::initializer_list<op::DataType> AICORE_310P_DTYPE_SUPPORT_LIST = {op::DataType::DT_FLOAT,
+                                                                                   op::DataType::DT_FLOAT16};
 
 const aclTensor* IsFiniteAiCore(const aclTensor* self, aclTensor* out, aclOpExecutor* executor)
 {
     L0_DFX(IsFiniteAiCore, self, out);
 
     auto ret = ADD_TO_LAUNCHER_LIST_AICORE(IsFinite, OP_INPUT(self), OP_OUTPUT(out));
-    OP_CHECK(
-        ret == ACLNN_SUCCESS, OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "IsFiniteAiCore ADD_TO_LAUNCHER_LIST_AICORE failed."),
-        return nullptr);
+    OP_CHECK(ret == ACLNN_SUCCESS,
+             OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "IsFiniteAiCore ADD_TO_LAUNCHER_LIST_AICORE failed."), return nullptr);
     return out;
 }
 
@@ -42,11 +41,10 @@ const aclTensor* IsFiniteAiCpu(const aclTensor* self, aclTensor* out, aclOpExecu
     L0_DFX(IsFiniteAiCpu, self, out);
 
     static internal::AicpuTaskSpace space("IsFinite", ge::DEPEND_IN_SHAPE, true);
-    auto ret = ADD_TO_LAUNCHER_LIST_AICPU(
-        IsFinite, OP_ATTR_NAMES({"T"}), OP_INPUT(self), OP_OUTPUT(out), OP_ATTR(self->GetDataType()));
-    OP_CHECK(
-        ret == ACLNN_SUCCESS, OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "IsFiniteAiCpu ADD_TO_LAUNCHER_LIST_AICPU failed."),
-        return nullptr);
+    auto ret = ADD_TO_LAUNCHER_LIST_AICPU(IsFinite, OP_ATTR_NAMES({"T"}), OP_INPUT(self), OP_OUTPUT(out),
+                                          OP_ATTR(self->GetDataType()));
+    OP_CHECK(ret == ACLNN_SUCCESS, OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "IsFiniteAiCpu ADD_TO_LAUNCHER_LIST_AICPU failed."),
+             return nullptr);
     return out;
 }
 
@@ -54,8 +52,7 @@ const aclTensor* IsFinite(const aclTensor* self, aclOpExecutor* executor)
 {
     auto out = executor->AllocTensor(self->GetViewShape(), op::DataType::DT_BOOL, op::Format::FORMAT_ND);
     auto npuArch = op::GetCurrentPlatformInfo().GetCurNpuArch();
-    bool socSupported =
-        (npuArch == NpuArch::DAV_2201 || IsRegBase(npuArch));
+    bool socSupported = (npuArch == NpuArch::DAV_2201 || IsRegBase(npuArch));
     if (socSupported && CheckType(self->GetDataType(), AICORE_DTYPE_SUPPORT_LIST)) {
         return IsFiniteAiCore(self, out, executor);
     } else if ((npuArch == NpuArch::DAV_2002) && CheckType(self->GetDataType(), AICORE_310P_DTYPE_SUPPORT_LIST)) {

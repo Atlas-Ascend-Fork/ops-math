@@ -22,10 +22,16 @@ namespace ops {
 static ge::graphStatus InferShape4BesselI1e(gert::InferShapeContext* context)
 {
     const gert::Shape* input_shape = context->GetInputShape(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context, input_shape);
+    if (input_shape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x");
+        return ge::GRAPH_FAILED;
+    }
 
     gert::Shape* output_shape = context->GetOutputShape(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context, output_shape);
+    if (output_shape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "y");
+        return ge::GRAPH_FAILED;
+    }
 
     *output_shape = *input_shape;
     OP_LOGI(context, "[InferShape] output shape=%s", Ops::Base::ToString(*output_shape).c_str());

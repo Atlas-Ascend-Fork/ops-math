@@ -34,13 +34,12 @@ static constexpr int32_t SIZE2 = 2;
 static ge::graphStatus DoTiling(gert::TilingContext* context, ReduceOpInputParam& opInput, ReduceTilingKey& key)
 {
     // Debug: print input parameters before tiling
-    OP_LOGI(
-        context->GetNodeName(),
-        "[DEBUG] Input: dtype:%d, shape size:%zu, axes size:%zu, shape:[%s], strides:[%s], axes:[%s]",
-        static_cast<int>(opInput.inputDtype), opInput.shape.size(), opInput.axes.size(),
-        ReduceOpTmpl::VectorToString(opInput.shape).c_str(),
-        ReduceOpTmpl::VectorToString(opInput.dimStrides).c_str(),
-        ReduceOpTmpl::VectorToString(opInput.axes).c_str());
+    OP_LOGI(context->GetNodeName(),
+            "[DEBUG] Input: dtype:%d, shape size:%zu, axes size:%zu, shape:[%s], strides:[%s], axes:[%s]",
+            static_cast<int>(opInput.inputDtype), opInput.shape.size(), opInput.axes.size(),
+            ReduceOpTmpl::VectorToString(opInput.shape).c_str(),
+            ReduceOpTmpl::VectorToString(opInput.dimStrides).c_str(),
+            ReduceOpTmpl::VectorToString(opInput.axes).c_str());
 
     ge::graphStatus status = ge::GRAPH_FAILED;
 
@@ -49,27 +48,30 @@ static ge::graphStatus DoTiling(gert::TilingContext* context, ReduceOpInputParam
     } else if (ge::GetSizeByDataType(opInput.inputDtype) == SIZE2) {
         status = Tiling4ReduceOp<ReduceNansum::ReduceNansumDag<half, float>::OpDag>(context, opInput, key);
     }
-    OP_CHECK_IF(
-        (status == ge::GRAPH_FAILED),
-        OP_LOGE(
-            context->GetNodeName(), "ReduceOp Tiling failed, dtype shoude be in (bfloat16/float16/float)"),
-        return ge::GRAPH_FAILED);
+    OP_CHECK_IF((status == ge::GRAPH_FAILED),
+                OP_LOGE(context->GetNodeName(), "ReduceOp Tiling failed, dtype shoude be in (bfloat16/float16/float)"),
+                return ge::GRAPH_FAILED);
     return status;
 }
 
 static ge::graphStatus Tiling4ReduceNansum(gert::TilingContext* context)
 {
     auto compileInfo = reinterpret_cast<const ReduceOpCompileInfo*>(context->GetCompileInfo());
-    OP_CHECK_NULL_WITH_CONTEXT(context, compileInfo);
+    if (compileInfo == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "compileInfo");
+        return ge::GRAPH_FAILED;
+    }
 
     ReduceOpInputParam opInput;
-    OP_CHECK_IF(
-        (ReduceOpTmpl::GetInputParam(context, opInput, 0, 1, 0) == ge::GRAPH_FAILED),
-        OP_LOGE(context->GetNodeName(), "ReduceOp get x input param failed"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF((ReduceOpTmpl::GetInputParam(context, opInput, 0, 1, 0) == ge::GRAPH_FAILED),
+                OP_LOGE(context->GetNodeName(), "ReduceOp get x input param failed"), return ge::GRAPH_FAILED);
 
     if (opInput.axes.empty()) {
         auto attrs = context->GetAttrs();
-        OP_CHECK_NULL_WITH_CONTEXT(context, attrs);
+        if (attrs == nullptr) {
+            OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "attrs");
+            return ge::GRAPH_FAILED;
+        }
         const bool isNoopWithEmpty = *(attrs->GetAttrPointer<bool>(1));
         if (!isNoopWithEmpty) {
             opInput.axes.resize(opInput.shape.size());
@@ -80,16 +82,14 @@ static ge::graphStatus Tiling4ReduceNansum(gert::TilingContext* context)
     }
 
     ReduceTilingKey key;
-    OP_CHECK_IF(
-        (DoTiling(context, opInput, key) == ge::GRAPH_FAILED),
-        OP_LOGE(context->GetNodeName(), "DoTiling Failed for ReduceNansum"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF((DoTiling(context, opInput, key) == ge::GRAPH_FAILED),
+                OP_LOGE(context->GetNodeName(), "DoTiling Failed for ReduceNansum"), return ge::GRAPH_FAILED);
 
     uint64_t tilingKey;
     GEN_REDUCE_TILING_KEY(tilingKey, key);
-    OP_LOGI(
-        context->GetNodeName(),
-        "patternID:%u, loopARCount:%u, loopInnerARCount:%u, isContiguous:%d, Tiling Key is:%lu",
-        key.patternID, key.loopARCount, key.loopInnerARCount, key.isContiguous ? 1 : 0, tilingKey);
+    OP_LOGI(context->GetNodeName(),
+            "patternID:%u, loopARCount:%u, loopInnerARCount:%u, isContiguous:%d, Tiling Key is:%lu", key.patternID,
+            key.loopARCount, key.loopInnerARCount, key.isContiguous ? 1 : 0, tilingKey);
     context->SetTilingKey(tilingKey);
     return ge::GRAPH_SUCCESS;
 }
@@ -101,4 +101,4 @@ static ge::graphStatus TilingPrepare4ReduceNansum(gert::TilingParseContext* cont
 }
 
 IMPL_OP_OPTILING(ReduceNansum).Tiling(Tiling4ReduceNansum).TilingParse<ReduceOpCompileInfo>(TilingPrepare4ReduceNansum);
-}  // namespace optiling
+} // namespace optiling

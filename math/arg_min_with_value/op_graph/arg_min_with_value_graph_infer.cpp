@@ -52,9 +52,15 @@ static ge::graphStatus InferDataType4ArgMinWithValue(gert::InferDataTypeContext*
 
     if (IsSupportedNpuArch()) {
         auto attrs = context->GetAttrs();
-        OP_CHECK_NULL_WITH_CONTEXT(context, attrs);
+        if (attrs == nullptr) {
+            OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "attrs");
+            return ge::GRAPH_FAILED;
+        }
         auto indice_dtype_ptr = attrs->GetAttrPointer<int64_t>(ATTR_IDX);
-        OP_CHECK_NULL_WITH_CONTEXT(context, indice_dtype_ptr);
+        if (indice_dtype_ptr == nullptr) { // 仅 DAV_3510/DAV_9201 要求属性存在
+            OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "indice_dtype");
+            return ge::GRAPH_FAILED;
+        }
         indiceDtype = static_cast<ge::DataType>(*indice_dtype_ptr);
         OP_LOGI(context->GetNodeName(), "argminwithvalueOutputDtypeInfer 2.0, output dtype is %d",
                 static_cast<int>(indiceDtype));

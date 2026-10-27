@@ -31,11 +31,20 @@ static ge::graphStatus InferShapeForAtan2(gert::InferShapeContext* context)
     OP_LOGD(context->GetNodeName(), "Begin to do InferShapeForAtan2");
     // kernel 不支持混合 dtype，两个输入必须为相同 dtype
     const auto* x1Desc = context->GetInputDesc(INPUT_X1_INDEX);
-    OP_CHECK_NULL_WITH_CONTEXT(context, x1Desc);
+    if (x1Desc == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x1");
+        return ge::GRAPH_FAILED;
+    }
     const auto* x2Desc = context->GetInputDesc(INPUT_X2_INDEX);
-    OP_CHECK_NULL_WITH_CONTEXT(context, x2Desc);
+    if (x2Desc == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x2");
+        return ge::GRAPH_FAILED;
+    }
     OP_CHECK_IF(x1Desc->GetDataType() != x2Desc->GetDataType(),
-                OP_LOGE(context->GetNodeName(), "x1 and x2 dtype must be the same"), return GRAPH_FAILED);
+                OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "x2",
+                                                      std::to_string(static_cast<int>(x2Desc->GetDataType())).c_str(),
+                                                      "x1 and x2 dtype must be the same"),
+                return GRAPH_FAILED);
     // 对 x1、x2 做广播得到输出 y 的 shape
     return Ops::Base::InferShape4Broadcast(context, INPUT_COUNT);
 }

@@ -102,7 +102,6 @@ aclnnStatus aclnnCummaxGetWorkspaceSize(const aclTensor* self, int64_t dim, aclT
     CHECK_RET(ret == ACLNN_SUCCESS, ret);
 
     auto uniqueExecutor = CREATE_EXECUTOR();
-    CHECK_RET(uniqueExecutor.get() != nullptr, ACLNN_ERR_INNER_CREATE_EXECUTOR);
 
     if (self->IsEmpty()) {
         *workspaceSize = 0;

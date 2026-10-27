@@ -159,27 +159,40 @@ ge::graphStatus HistogramV2Tiling::Init()
     OP_LOGD(tilingContext, "Tiling initing.");
 
     auto inputShape = tilingContext->GetInputShape(0);
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, inputShape);
+    if (inputShape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "inputShape");
+        return ge::GRAPH_FAILED;
+    }
     auto selfShape = inputShape->GetStorageShape();
     totalLength = selfShape.GetShapeSize();
 
     auto compileInfo = reinterpret_cast<const HistogramV2CompileInfo*>(tilingContext->GetCompileInfo());
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, compileInfo);
+    if (compileInfo == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "compileInfo");
+        return ge::GRAPH_FAILED;
+    }
     coreNum = compileInfo->totalCoreNum;
     OP_LOGD(tilingContext, "coreNum %ld.", coreNum);
     if (coreNum == 0) {
         return ge::GRAPH_FAILED;
     }
     auto inputDesc = tilingContext->GetInputDesc(0);
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, inputDesc);
+    if (inputDesc == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "inputDesc");
+        return ge::GRAPH_FAILED;
+    }
     auto dType = inputDesc->GetDataType();
 
     auto attrs = tilingContext->GetAttrs();
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, attrs);
+    if (attrs == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "attrs");
+        return ge::GRAPH_FAILED;
+    }
     int32_t binsIndex = 0;
     const int64_t* binsPtr = attrs->GetAttrPointer<int64_t>(binsIndex);
     bins = (binsPtr == nullptr) ? DEFAULT_BINS : *binsPtr;
-    OP_CHECK_IF(bins <= 0, OP_LOGE(tilingContext, "bins has to be positive, but got %ld.", bins),
+    OP_CHECK_IF(bins <= 0,
+                OP_LOGE_FOR_INVALID_VALUE(tilingContext->GetNodeName(), "bins", std::to_string(bins).c_str(), ">0"),
                 return ge::GRAPH_FAILED);
     SetTilingKeyMode(dType);
     tilingContext->SetNeedAtomic(true);

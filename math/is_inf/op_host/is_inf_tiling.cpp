@@ -110,7 +110,10 @@ ge::graphStatus IsInfTiling::RunBigKernelTiling()
         currentWorkspace[0] = WORK_SPACE_SIZE;
     }
     auto rawTilingData = tilingContext->GetRawTilingData();
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, rawTilingData);
+    if (rawTilingData == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "rawTilingData");
+        return ge::GRAPH_FAILED;
+    }
     tilingData.SaveToBuffer(rawTilingData->GetData(), rawTilingData->GetCapacity());
     rawTilingData->SetDataSize(tilingData.GetDataSize());
 
@@ -203,7 +206,10 @@ static ge::graphStatus TilingIsInfTiling(gert::TilingContext* context)
         OP_LOGD("IsInfTiling", "Enter new IsInfTiling");
 
         fe::PlatFormInfos* platformInfoPtr = context->GetPlatformInfo();
-        OP_CHECK_NULL_WITH_CONTEXT(context, platformInfoPtr);
+        if (platformInfoPtr == nullptr) {
+            OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "platformInfoPtr");
+            return ge::GRAPH_FAILED;
+        }
         auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfoPtr);
 
         uint32_t coreNum = ascendcPlatform.GetCoreNumAiv();

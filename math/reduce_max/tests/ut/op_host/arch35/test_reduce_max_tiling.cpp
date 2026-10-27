@@ -17,18 +17,11 @@
 using namespace std;
 using namespace ge;
 
-class ReduceMaxDavidTiling : public testing::Test
-{
+class ReduceMaxDavidTiling : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        std::cout << "ReduceMaxDavidTiling SetUp" << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "ReduceMaxDavidTiling SetUp" << std::endl; }
 
-    static void TearDownTestCase()
-    {
-        std::cout << "ReduceMaxDavidTiling TearDown" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "ReduceMaxDavidTiling TearDown" << std::endl; }
 };
 
 template <typename T>
@@ -37,13 +30,13 @@ static void SetConstInput(size_t const_index, ge::DataType dtype, T* const_data,
                           std::vector<std::pair<size_t, std::unique_ptr<uint8_t[]>>>& const_tensors)
 {
     int64_t dataSize = *(axesShape.begin());
-    std::unique_ptr<uint8_t[]> input_tensor_holder =
-        std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor) + sizeof(T) * dataSize]);
+    std::unique_ptr<uint8_t[]> input_tensor_holder = std::unique_ptr<uint8_t[]>(
+        new uint8_t[sizeof(gert::Tensor) + sizeof(T) * dataSize]);
     auto input_tensor = reinterpret_cast<gert::Tensor*>(input_tensor_holder.get());
-    gert::Tensor tensor({axesShape, axesShape},              // shape
-                        {ge::FORMAT_ND, ge::FORMAT_ND, {}},  // format
-                        gert::kFollowing,                    // placement
-                        dtype,                               // dt
+    gert::Tensor tensor({axesShape, axesShape},             // shape
+                        {ge::FORMAT_ND, ge::FORMAT_ND, {}}, // format
+                        gert::kFollowing,                   // placement
+                        dtype,                              // dt
                         nullptr);
     std::memcpy(input_tensor, &tensor, sizeof(gert::Tensor));
     auto tensor_data = reinterpret_cast<T*>(input_tensor + 1);
@@ -56,169 +49,136 @@ static void SetConstInput(size_t const_index, ge::DataType dtype, T* const_data,
 }
 
 TEST_F(ReduceMaxDavidTiling, reduce_max_david_tiling1)
-{   
-
+{
     Ops::Base::ReduceOpCompileInfo compileInfo;
- 	gert::StorageShape inputShape = {{2048, 0, 48}, {2048, 0, 48}};
- 	gert::StorageShape axesShape = {{1}, {1}};
- 	std::vector<int64_t> axesValue = {1};
- 	gert::StorageShape yShape = {{2048, 48}, {2048, 48}};
- 	gert::TilingContextPara::TensorDescription input(inputShape, ge::DT_FLOAT, ge::FORMAT_ND);
- 	gert::TilingContextPara::TensorDescription axes(axesShape, ge::DT_INT32, ge::FORMAT_ND, true, axesValue.data());
- 	gert::TilingContextPara::TensorDescription y(yShape, ge::DT_FLOAT, ge::FORMAT_ND);
- 	gert::TilingContextPara tilingContextPara(
- 	    "ReduceMax",
- 	    {input, axes},
- 	    {y},
- 	    &compileInfo);
- 	uint64_t expectedTilingKey = 1;
- 	std::vector<size_t> expectedWorkspaces = { 16777216 };
- 	ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectedTilingKey, expectedWorkspaces);
+    gert::StorageShape inputShape = {{2048, 0, 48}, {2048, 0, 48}};
+    gert::StorageShape axesShape = {{1}, {1}};
+    std::vector<int64_t> axesValue = {1};
+    gert::StorageShape yShape = {{2048, 48}, {2048, 48}};
+    gert::TilingContextPara::TensorDescription input(inputShape, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::TilingContextPara::TensorDescription axes(axesShape, ge::DT_INT32, ge::FORMAT_ND, true, axesValue.data());
+    gert::TilingContextPara::TensorDescription y(yShape, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::TilingContextPara tilingContextPara("ReduceMax", {input, axes}, {y}, &compileInfo);
+    uint64_t expectedTilingKey = 1;
+    std::vector<size_t> expectedWorkspaces = {16777216};
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectedTilingKey, expectedWorkspaces);
 }
 
 TEST_F(ReduceMaxDavidTiling, reduce_max_david_tiling2)
 {
     // AR case
     Ops::Base::ReduceOpCompileInfo compileInfo;
- 	gert::StorageShape inputShape = {{2048, 257}, {2048, 257}};
- 	gert::StorageShape axesShape = {{1}, {1}};
- 	std::vector<int64_t> axesValue = {1};
- 	gert::StorageShape yShape = {{2048}, {2048}};
- 	gert::TilingContextPara::TensorDescription input(inputShape, ge::DT_FLOAT, ge::FORMAT_ND);
- 	gert::TilingContextPara::TensorDescription axes(axesShape, ge::DT_INT32, ge::FORMAT_ND, true, axesValue.data());
- 	gert::TilingContextPara::TensorDescription y(yShape, ge::DT_FLOAT, ge::FORMAT_ND);
- 	gert::TilingContextPara tilingContextPara(
- 	    "ReduceMax",
- 	    {input, axes},
- 	    {y},
- 	    &compileInfo);
- 	uint64_t expectedTilingKey = 5143;
- 	std::vector<size_t> expectedWorkspaces = { 16777216 };
- 	ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectedTilingKey, expectedWorkspaces);
+    gert::StorageShape inputShape = {{2048, 257}, {2048, 257}};
+    gert::StorageShape axesShape = {{1}, {1}};
+    std::vector<int64_t> axesValue = {1};
+    gert::StorageShape yShape = {{2048}, {2048}};
+    gert::TilingContextPara::TensorDescription input(inputShape, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::TilingContextPara::TensorDescription axes(axesShape, ge::DT_INT32, ge::FORMAT_ND, true, axesValue.data());
+    gert::TilingContextPara::TensorDescription y(yShape, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::TilingContextPara tilingContextPara("ReduceMax", {input, axes}, {y}, &compileInfo);
+    uint64_t expectedTilingKey = 10285;
+    std::vector<size_t> expectedWorkspaces = {16777216};
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectedTilingKey, expectedWorkspaces);
 }
 
 TEST_F(ReduceMaxDavidTiling, reduce_max_david_tiling3)
 {
     // AR case, R < 256
     Ops::Base::ReduceOpCompileInfo compileInfo;
- 	gert::StorageShape inputShape = {{2048, 127}, {2048, 127}};
- 	gert::StorageShape axesShape = {{1}, {1}};
- 	std::vector<int64_t> axesValue = {1};
- 	gert::StorageShape yShape = {{2048}, {2048}};
- 	gert::TilingContextPara::TensorDescription input(inputShape, ge::DT_FLOAT, ge::FORMAT_ND);
- 	gert::TilingContextPara::TensorDescription axes(axesShape, ge::DT_INT32, ge::FORMAT_ND, true, axesValue.data());
- 	gert::TilingContextPara::TensorDescription y(yShape, ge::DT_FLOAT, ge::FORMAT_ND);
- 	gert::TilingContextPara tilingContextPara(
- 	    "ReduceMax",
- 	    {input, axes},
- 	    {y},
- 	    &compileInfo);
- 	uint64_t expectedTilingKey = 5143;
- 	std::vector<size_t> expectedWorkspaces = { 16777216 };
- 	ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectedTilingKey, expectedWorkspaces);
+    gert::StorageShape inputShape = {{2048, 127}, {2048, 127}};
+    gert::StorageShape axesShape = {{1}, {1}};
+    std::vector<int64_t> axesValue = {1};
+    gert::StorageShape yShape = {{2048}, {2048}};
+    gert::TilingContextPara::TensorDescription input(inputShape, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::TilingContextPara::TensorDescription axes(axesShape, ge::DT_INT32, ge::FORMAT_ND, true, axesValue.data());
+    gert::TilingContextPara::TensorDescription y(yShape, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::TilingContextPara tilingContextPara("ReduceMax", {input, axes}, {y}, &compileInfo);
+    uint64_t expectedTilingKey = 10285;
+    std::vector<size_t> expectedWorkspaces = {16777216};
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectedTilingKey, expectedWorkspaces);
 }
 
 TEST_F(ReduceMaxDavidTiling, reduce_max_david_tiling4)
 {
     // RA case
     Ops::Base::ReduceOpCompileInfo compileInfo;
- 	gert::StorageShape inputShape = {{2048, 257}, {2048, 257}};
- 	gert::StorageShape axesShape = {{1}, {1}};
- 	std::vector<int64_t> axesValue = {0};
- 	gert::StorageShape yShape = {{2048}, {2048}};
- 	gert::TilingContextPara::TensorDescription input(inputShape, ge::DT_FLOAT, ge::FORMAT_ND);
- 	gert::TilingContextPara::TensorDescription axes(axesShape, ge::DT_INT32, ge::FORMAT_ND, true, axesValue.data());
- 	gert::TilingContextPara::TensorDescription y(yShape, ge::DT_FLOAT, ge::FORMAT_ND);
- 	gert::TilingContextPara tilingContextPara(
- 	    "ReduceMax",
- 	    {input, axes},
- 	    {y},
- 	    &compileInfo);
- 	uint64_t expectedTilingKey = 11817;
- 	std::vector<size_t> expectedWorkspaces = { 16859136 };
- 	ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectedTilingKey, expectedWorkspaces);
+    gert::StorageShape inputShape = {{2048, 257}, {2048, 257}};
+    gert::StorageShape axesShape = {{1}, {1}};
+    std::vector<int64_t> axesValue = {0};
+    gert::StorageShape yShape = {{2048}, {2048}};
+    gert::TilingContextPara::TensorDescription input(inputShape, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::TilingContextPara::TensorDescription axes(axesShape, ge::DT_INT32, ge::FORMAT_ND, true, axesValue.data());
+    gert::TilingContextPara::TensorDescription y(yShape, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::TilingContextPara tilingContextPara("ReduceMax", {input, axes}, {y}, &compileInfo);
+    uint64_t expectedTilingKey = 23633;
+    std::vector<size_t> expectedWorkspaces = {16859136};
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectedTilingKey, expectedWorkspaces);
 }
 
 TEST_F(ReduceMaxDavidTiling, reduce_max_david_tiling5)
 {
     // RA case, A < 256
     Ops::Base::ReduceOpCompileInfo compileInfo;
- 	gert::StorageShape inputShape = {{2048, 127}, {2048, 127}};
- 	gert::StorageShape axesShape = {{1}, {1}};
- 	std::vector<int64_t> axesValue = {1};
- 	gert::StorageShape yShape = {{2048}, {2048}};
- 	gert::TilingContextPara::TensorDescription input(inputShape, ge::DT_FLOAT, ge::FORMAT_ND);
- 	gert::TilingContextPara::TensorDescription axes(axesShape, ge::DT_INT32, ge::FORMAT_ND, true, axesValue.data());
- 	gert::TilingContextPara::TensorDescription y(yShape, ge::DT_FLOAT, ge::FORMAT_ND);
- 	gert::TilingContextPara tilingContextPara(
- 	    "ReduceMax",
- 	    {input, axes},
- 	    {y},
- 	    &compileInfo);
- 	uint64_t expectedTilingKey = 5143;
- 	std::vector<size_t> expectedWorkspaces = { 16777216 };
- 	ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectedTilingKey, expectedWorkspaces);
+    gert::StorageShape inputShape = {{2048, 127}, {2048, 127}};
+    gert::StorageShape axesShape = {{1}, {1}};
+    std::vector<int64_t> axesValue = {1};
+    gert::StorageShape yShape = {{2048}, {2048}};
+    gert::TilingContextPara::TensorDescription input(inputShape, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::TilingContextPara::TensorDescription axes(axesShape, ge::DT_INT32, ge::FORMAT_ND, true, axesValue.data());
+    gert::TilingContextPara::TensorDescription y(yShape, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::TilingContextPara tilingContextPara("ReduceMax", {input, axes}, {y}, &compileInfo);
+    uint64_t expectedTilingKey = 10285;
+    std::vector<size_t> expectedWorkspaces = {16777216};
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectedTilingKey, expectedWorkspaces);
 }
 
 TEST_F(ReduceMaxDavidTiling, reduce_max_david_tiling6)
 {
     // RA case, A < 256, int64
     Ops::Base::ReduceOpCompileInfo compileInfo;
- 	gert::StorageShape inputShape = {{2048, 127}, {2048, 127}};
- 	gert::StorageShape axesShape = {{1}, {1}};
- 	std::vector<int64_t> axesValue = {0};
- 	gert::StorageShape yShape = {{2048}, {2048}};
- 	gert::TilingContextPara::TensorDescription input(inputShape, ge::DT_INT64, ge::FORMAT_ND);
- 	gert::TilingContextPara::TensorDescription axes(axesShape, ge::DT_INT32, ge::FORMAT_ND, true, axesValue.data());
- 	gert::TilingContextPara::TensorDescription y(yShape, ge::DT_FLOAT, ge::FORMAT_ND);
- 	gert::TilingContextPara tilingContextPara(
- 	    "ReduceMax",
- 	    {input, axes},
- 	    {y},
- 	    &compileInfo);
- 	uint64_t expectedTilingKey = 11817;
- 	std::vector<size_t> expectedWorkspaces = { 16842752 };
- 	ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectedTilingKey, expectedWorkspaces);
+    gert::StorageShape inputShape = {{2048, 127}, {2048, 127}};
+    gert::StorageShape axesShape = {{1}, {1}};
+    std::vector<int64_t> axesValue = {0};
+    gert::StorageShape yShape = {{2048}, {2048}};
+    gert::TilingContextPara::TensorDescription input(inputShape, ge::DT_INT64, ge::FORMAT_ND);
+    gert::TilingContextPara::TensorDescription axes(axesShape, ge::DT_INT32, ge::FORMAT_ND, true, axesValue.data());
+    gert::TilingContextPara::TensorDescription y(yShape, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::TilingContextPara tilingContextPara("ReduceMax", {input, axes}, {y}, &compileInfo);
+    uint64_t expectedTilingKey = 23633;
+    std::vector<size_t> expectedWorkspaces = {16842752};
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectedTilingKey, expectedWorkspaces);
 }
 
 TEST_F(ReduceMaxDavidTiling, reduce_max_david_tiling7)
 {
     // RA case, A < 256, float16
     Ops::Base::ReduceOpCompileInfo compileInfo;
- 	gert::StorageShape inputShape = {{2048, 127}, {2048, 127}};
- 	gert::StorageShape axesShape = {{1}, {1}};
- 	std::vector<int64_t> axesValue = {0};
- 	gert::StorageShape yShape = {{2048}, {2048}};
- 	gert::TilingContextPara::TensorDescription input(inputShape, ge::DT_FLOAT16, ge::FORMAT_ND);
- 	gert::TilingContextPara::TensorDescription axes(axesShape, ge::DT_INT32, ge::FORMAT_ND, true, axesValue.data());
- 	gert::TilingContextPara::TensorDescription y(yShape, ge::DT_FLOAT, ge::FORMAT_ND);
- 	gert::TilingContextPara tilingContextPara(
- 	    "ReduceMax",
- 	    {input, axes},
- 	    {y},
- 	    &compileInfo);
- 	uint64_t expectedTilingKey = 6185;
- 	std::vector<size_t> expectedWorkspaces = { 16793600 };
- 	ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectedTilingKey, expectedWorkspaces);
+    gert::StorageShape inputShape = {{2048, 127}, {2048, 127}};
+    gert::StorageShape axesShape = {{1}, {1}};
+    std::vector<int64_t> axesValue = {0};
+    gert::StorageShape yShape = {{2048}, {2048}};
+    gert::TilingContextPara::TensorDescription input(inputShape, ge::DT_FLOAT16, ge::FORMAT_ND);
+    gert::TilingContextPara::TensorDescription axes(axesShape, ge::DT_INT32, ge::FORMAT_ND, true, axesValue.data());
+    gert::TilingContextPara::TensorDescription y(yShape, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::TilingContextPara tilingContextPara("ReduceMax", {input, axes}, {y}, &compileInfo);
+    uint64_t expectedTilingKey = 12369;
+    std::vector<size_t> expectedWorkspaces = {16793600};
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectedTilingKey, expectedWorkspaces);
 }
 
 TEST_F(ReduceMaxDavidTiling, reduce_max_david_tiling8)
 {
     // RA case, A < 256, int8
     Ops::Base::ReduceOpCompileInfo compileInfo;
- 	gert::StorageShape inputShape = {{2048, 127}, {2048, 127}};
- 	gert::StorageShape axesShape = {{1}, {1}};
- 	std::vector<int64_t> axesValue = {0};
- 	gert::StorageShape yShape = {{2048}, {2048}};
- 	gert::TilingContextPara::TensorDescription input(inputShape, ge::DT_INT8, ge::FORMAT_ND);
- 	gert::TilingContextPara::TensorDescription axes(axesShape, ge::DT_INT32, ge::FORMAT_ND, true, axesValue.data());
- 	gert::TilingContextPara::TensorDescription y(yShape, ge::DT_FLOAT, ge::FORMAT_ND);
- 	gert::TilingContextPara tilingContextPara(
- 	    "ReduceMax",
- 	    {input, axes},
- 	    {y},
- 	    &compileInfo);
- 	uint64_t expectedTilingKey = 6185;
- 	std::vector<size_t> expectedWorkspaces = { 16793600 };
- 	ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectedTilingKey, expectedWorkspaces);
+    gert::StorageShape inputShape = {{2048, 127}, {2048, 127}};
+    gert::StorageShape axesShape = {{1}, {1}};
+    std::vector<int64_t> axesValue = {0};
+    gert::StorageShape yShape = {{2048}, {2048}};
+    gert::TilingContextPara::TensorDescription input(inputShape, ge::DT_INT8, ge::FORMAT_ND);
+    gert::TilingContextPara::TensorDescription axes(axesShape, ge::DT_INT32, ge::FORMAT_ND, true, axesValue.data());
+    gert::TilingContextPara::TensorDescription y(yShape, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::TilingContextPara tilingContextPara("ReduceMax", {input, axes}, {y}, &compileInfo);
+    uint64_t expectedTilingKey = 12369;
+    std::vector<size_t> expectedWorkspaces = {16793600};
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectedTilingKey, expectedWorkspaces);
 }

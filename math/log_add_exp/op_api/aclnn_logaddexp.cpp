@@ -166,7 +166,6 @@ aclnnStatus aclnnLogAddExpGetWorkspaceSize(const aclTensor* self, const aclTenso
     L2_DFX_PHASE_1(aclnnLogAddExp, DFX_IN(self, other), DFX_OUT(out));
     // 固定写法，创建OpExecutor
     auto uniqueExecutor = CREATE_EXECUTOR();
-    CHECK_RET(uniqueExecutor.get() != nullptr, ACLNN_ERR_INNER_CREATE_EXECUTOR);
 
     // 固定写法，参数检查
     auto ret = CheckParams(self, other, out);

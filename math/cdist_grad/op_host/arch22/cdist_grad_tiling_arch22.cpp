@@ -138,7 +138,10 @@ static uint32_t PValueToMode(float pValue)
 static ge::graphStatus GetPValueAttr(gert::TilingContext* context, float& pValue)
 {
     auto attrs = context->GetAttrs();
-    OP_CHECK_NULL_WITH_CONTEXT(context, attrs);
+    if (attrs == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "attrs");
+        return ge::GRAPH_FAILED;
+    }
     pValue = 2.0f;
     if (attrs->GetAttrNum() > 0) {
         const float* pAttr = attrs->GetAttrPointer<float>(0);
@@ -150,7 +153,10 @@ static ge::graphStatus GetPValueAttr(gert::TilingContext* context, float& pValue
 static ge::graphStatus GetInputDataType(gert::TilingContext* context, ge::DataType& inputDType)
 {
     auto inputDesc = context->GetInputDesc(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context, inputDesc);
+    if (inputDesc == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "grad");
+        return ge::GRAPH_FAILED;
+    }
     inputDType = inputDesc->GetDataType();
     return ge::GRAPH_SUCCESS;
 }
@@ -158,11 +164,15 @@ static ge::graphStatus GetInputDataType(gert::TilingContext* context, ge::DataTy
 static ge::graphStatus ParseShapeInfo(gert::TilingContext* context, CdistGradShapeInfo& shape)
 {
     auto gradShape = context->GetInputShape(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context, gradShape);
+    if (gradShape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "grad");
+        return ge::GRAPH_FAILED;
+    }
     auto gradStorageShape = gradShape->GetStorageShape();
     int64_t dimNum = static_cast<int64_t>(gradStorageShape.GetDimNum());
     OP_CHECK_IF(dimNum < 3,
-                OP_LOGE(context->GetNodeName(), "CdistGrad requires at least 3D broadcast input, got: %ld", dimNum),
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "grad", std::to_string(dimNum).c_str(),
+                                                         "CdistGrad requires at least 3D broadcast input"),
                 return ge::GRAPH_FAILED);
 
     shape.batchSize = 1;
@@ -312,7 +322,10 @@ static ge::graphStatus SetWorkspaceSize(gert::TilingContext* context,
                                         const CdistGradTileInfo& tile, const CdistGradCoreInfo& core)
 {
     size_t* workspace = context->GetWorkspaceSizes(1);
-    OP_CHECK_NULL_WITH_CONTEXT(context, workspace);
+    if (workspace == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "workspace");
+        return ge::GRAPH_FAILED;
+    }
     size_t usrSize = (core.qSplit > 1) ? static_cast<size_t>(core.totalSubTasks * tile.mAligned * sizeof(float)) : 0;
     size_t sysWorkspaceSize = ascendcPlatform.GetLibApiWorkSpaceSize();
     workspace[0] = usrSize + sysWorkspaceSize;
@@ -323,7 +336,10 @@ static ge::graphStatus FillTilingData(gert::TilingContext* context, const CdistG
                                       const CdistGradTileInfo& tile, const CdistGradCoreInfo& core, float pValue)
 {
     auto tiling = context->GetTilingData<CdistGradTilingData>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, tiling);
+    if (tiling == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "tiling");
+        return ge::GRAPH_FAILED;
+    }
     OP_CHECK_IF(memset_s(tiling, sizeof(CdistGradTilingData), 0, sizeof(CdistGradTilingData)) != EOK,
                 OP_LOGE(context->GetNodeName(), "memset_s tiling failed"), return ge::GRAPH_FAILED);
 
@@ -353,7 +369,10 @@ static ge::graphStatus FillTilingData(gert::TilingContext* context, const CdistG
 static ge::graphStatus CdistGradTilingFunc(gert::TilingContext* context)
 {
     auto platformInfo = context->GetPlatformInfo();
-    OP_CHECK_NULL_WITH_CONTEXT(context, platformInfo);
+    if (platformInfo == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "platformInfo");
+        return ge::GRAPH_FAILED;
+    }
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
     int64_t coreNum = 0;
     int64_t ubSize = 0;

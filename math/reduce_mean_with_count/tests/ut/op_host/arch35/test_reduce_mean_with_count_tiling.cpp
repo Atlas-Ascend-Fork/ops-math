@@ -17,18 +17,11 @@
 using namespace std;
 using namespace ge;
 
-class ReduceMeanWithCountTiling : public testing::Test
-{
+class ReduceMeanWithCountTiling : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        std::cout << "ReduceMeanWithCountTiling SetUp" << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "ReduceMeanWithCountTiling SetUp" << std::endl; }
 
-    static void TearDownTestCase()
-    {
-        std::cout << "ReduceMeanWithCountTiling TearDown" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "ReduceMeanWithCountTiling TearDown" << std::endl; }
 };
 
 // Test: 4D input, reduce along axes [1, 2], keep_dims=true, float32
@@ -44,15 +37,11 @@ TEST_F(ReduceMeanWithCountTiling, reduce_mean_with_count_tiling_4d_fp32)
     gert::TilingContextPara::TensorDescription countSumDesc(countSumShape, ge::DT_FLOAT, ge::FORMAT_ND);
     gert::TilingContextPara::TensorDescription yDesc(yShape, ge::DT_FLOAT, ge::FORMAT_ND);
     gert::TilingContextPara tilingContextPara(
-        "ReduceMeanWithCount",
-        {xDesc, countDesc, countSumDesc},
-        {yDesc},
-        {
-            gert::TilingContextPara::OpAttr("axes", Ops::Math::AnyValue::CreateFrom<std::vector<int64_t>>({1, 2})),
-            gert::TilingContextPara::OpAttr("keep_dims", Ops::Math::AnyValue::CreateFrom<bool>(true))
-        },
+        "ReduceMeanWithCount", {xDesc, countDesc, countSumDesc}, {yDesc},
+        {gert::TilingContextPara::OpAttr("axes", Ops::Math::AnyValue::CreateFrom<std::vector<int64_t>>({1, 2})),
+         gert::TilingContextPara::OpAttr("keep_dims", Ops::Math::AnyValue::CreateFrom<bool>(true))},
         &compileInfo);
-    uint64_t expectedTilingKey = 5161;
+    uint64_t expectedTilingKey = 10321;
     std::vector<size_t> expectedWorkspaces = {16777216};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectedTilingKey, expectedWorkspaces);
 }
@@ -70,15 +59,11 @@ TEST_F(ReduceMeanWithCountTiling, reduce_mean_with_count_tiling_3d_fp16)
     gert::TilingContextPara::TensorDescription countSumDesc(countSumShape, ge::DT_FLOAT16, ge::FORMAT_ND);
     gert::TilingContextPara::TensorDescription yDesc(yShape, ge::DT_FLOAT16, ge::FORMAT_ND);
     gert::TilingContextPara tilingContextPara(
-        "ReduceMeanWithCount",
-        {xDesc, countDesc, countSumDesc},
-        {yDesc},
-        {
-            gert::TilingContextPara::OpAttr("axes", Ops::Math::AnyValue::CreateFrom<std::vector<int64_t>>({1})),
-            gert::TilingContextPara::OpAttr("keep_dims", Ops::Math::AnyValue::CreateFrom<bool>(false))
-        },
+        "ReduceMeanWithCount", {xDesc, countDesc, countSumDesc}, {yDesc},
+        {gert::TilingContextPara::OpAttr("axes", Ops::Math::AnyValue::CreateFrom<std::vector<int64_t>>({1})),
+         gert::TilingContextPara::OpAttr("keep_dims", Ops::Math::AnyValue::CreateFrom<bool>(false))},
         &compileInfo);
-    uint64_t expectedTilingKey = 5161;
+    uint64_t expectedTilingKey = 10321;
     std::vector<size_t> expectedWorkspaces = {16777216};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectedTilingKey, expectedWorkspaces);
 }

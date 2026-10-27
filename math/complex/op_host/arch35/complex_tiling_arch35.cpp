@@ -35,7 +35,10 @@ bool ComplexTiling::IsCapable() { return true; }
 ge::graphStatus ComplexTiling::DoOpTiling()
 {
     auto outputDesc = context_->GetOutputDesc(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, outputDesc);
+    if (outputDesc == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "output");
+        return ge::GRAPH_FAILED;
+    }
     ge::DataType outputDtype = outputDesc->GetDataType();
 
     ge::graphStatus ret = ge::GRAPH_SUCCESS;
@@ -75,7 +78,10 @@ ge::graphStatus TilingForComplex(gert::TilingContext* context)
     }
 
     auto compileInfo = context->GetCompileInfo<ComplexCompileInfo>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, compileInfo);
+    if (compileInfo == nullptr) {
+        OP_LOGE(context->GetNodeName(), "Get compile info failed.");
+        return ge::GRAPH_FAILED;
+    }
 
     OP_LOGD(context, "Enter ascendc ComplexTiling");
     return Ops::Math::OpTiling::TilingRegistry::GetInstance().DoTilingImpl(context);
@@ -84,9 +90,15 @@ ge::graphStatus TilingForComplex(gert::TilingContext* context)
 ge::graphStatus TilingPrepareForComplex(gert::TilingParseContext* context)
 {
     auto compileInfoPtr = context->GetCompiledInfo<ComplexCompileInfo>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, compileInfoPtr);
+    if (compileInfoPtr == nullptr) {
+        OP_LOGE(context->GetNodeName(), "Get compiled info failed.");
+        return ge::GRAPH_FAILED;
+    }
     fe::PlatFormInfos* platformInfoPtr = context->GetPlatformInfo();
-    OP_CHECK_NULL_WITH_CONTEXT(context, platformInfoPtr);
+    if (platformInfoPtr == nullptr) {
+        OP_LOGE(context->GetNodeName(), "Get platform info failed.");
+        return ge::GRAPH_FAILED;
+    }
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfoPtr);
     compileInfoPtr->coreNum = ascendcPlatform.GetCoreNumAiv();
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, compileInfoPtr->ubSize);

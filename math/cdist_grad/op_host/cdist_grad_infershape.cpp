@@ -29,20 +29,32 @@ static ge::graphStatus InferShape4CdistGrad(gert::InferShapeContext* context)
 {
     OP_LOGD(context->GetNodeName(), "Begin to do InferShape4CdistGrad");
     const gert::Shape* gradShape = context->GetInputShape(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context, gradShape);
+    if (gradShape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "grad");
+        return ge::GRAPH_FAILED;
+    }
     const gert::Shape* x1Shape = context->GetInputShape(1);
-    OP_CHECK_NULL_WITH_CONTEXT(context, x1Shape);
+    if (x1Shape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x1");
+        return ge::GRAPH_FAILED;
+    }
     const gert::Shape* cdistShape = context->GetInputShape(3);
-    OP_CHECK_NULL_WITH_CONTEXT(context, cdistShape);
+    if (cdistShape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "cdist");
+        return ge::GRAPH_FAILED;
+    }
 
     int64_t dimNum = gradShape->GetDimNum();
     OP_CHECK_IF(dimNum < NUMBER_TWO,
-                OP_LOGE(context->GetNodeName(),
-                        "Only supports at least 2D tensors, got: %ld.", dimNum),
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "grad", std::to_string(dimNum).c_str(),
+                                                         "Only supports at least 2D tensors"),
                 return ge::GRAPH_FAILED);
 
     gert::Shape* yShape = context->GetOutputShape(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context, yShape);
+    if (yShape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "y");
+        return ge::GRAPH_FAILED;
+    }
 
     // CdistGrad reduces on axis -2: output has dimNum - 1 dimensions
     // Output dims: grad_shape[0..dimNum-3] + grad_shape[dimNum-1]

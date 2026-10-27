@@ -33,7 +33,10 @@ const int64_t DCACHE_SIZE = 32768;
 ge::graphStatus SinTiling::SetTilingData(const ElewiseBaseTiling& elewiseBaseTiling)
 {
     size_t* currentWorkspace = tilingContext->GetWorkspaceSizes(1);
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, currentWorkspace);
+    if (currentWorkspace == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "workspaceSizes");
+        return ge::GRAPH_FAILED;
+    }
     currentWorkspace[0] = static_cast<size_t>(ASCEND_WORKSPACE);
 
     const uint64_t tilingKey = GET_TPL_TILING_KEY(1, dType);
@@ -62,7 +65,10 @@ ge::graphStatus SinTiling::SetTilingData(const ElewiseBaseTiling& elewiseBaseTil
 ge::graphStatus SinTiling::CalcInputDtype()
 {
     auto inputDesc = tilingContext->GetInputDesc(0);
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, inputDesc);
+    if (inputDesc == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "x");
+        return ge::GRAPH_FAILED;
+    }
     this->inputDtype = inputDesc->GetDataType();
     OP_CHECK_IF(
         this->inputDtype != ge::DT_FLOAT16 && this->inputDtype != ge::DT_BF16 && this->inputDtype != ge::DT_FLOAT,
@@ -75,11 +81,17 @@ ge::graphStatus SinTiling::CalcInputDtype()
 ge::graphStatus SinTiling::CheckShape() const
 {
     auto inputStorageShape = tilingContext->GetInputShape(0);
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, inputStorageShape);
+    if (inputStorageShape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "x");
+        return ge::GRAPH_FAILED;
+    }
     const gert::Shape& inputYShape = Ops::Base::EnsureNotScalar(inputStorageShape->GetStorageShape());
 
     auto outputStorageShape = tilingContext->GetOutputShape(0);
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, outputStorageShape);
+    if (outputStorageShape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "y");
+        return ge::GRAPH_FAILED;
+    }
     const gert::Shape& outputZShape = Ops::Base::EnsureNotScalar(outputStorageShape->GetStorageShape());
 
     OP_CHECK_IF(inputYShape != outputZShape,
@@ -94,7 +106,10 @@ ge::graphStatus SinTiling::CheckShape() const
 ge::graphStatus SinTiling::CalcOutputDtype()
 {
     auto outputDesc = tilingContext->GetOutputDesc(0);
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, outputDesc);
+    if (outputDesc == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "y");
+        return ge::GRAPH_FAILED;
+    }
     this->outputDtype = outputDesc->GetDataType();
     OP_CHECK_IF(this->outputDtype != this->inputDtype,
                 OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(
@@ -148,7 +163,10 @@ static ge::graphStatus Tiling4Sin(gert::TilingContext* tilingContextGen)
 {
     OP_LOGD(tilingContextGen->GetNodeName(), "Tiling4Sin rt2.0 is running.");
     auto compileInfo = tilingContextGen->GetCompileInfo<SinCompileInfo>();
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContextGen, compileInfo);
+    if (compileInfo == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(tilingContextGen->GetNodeName(), "compileInfo");
+        return ge::GRAPH_FAILED;
+    }
 
     SinTiling baseOpTiling(tilingContextGen);
     return baseOpTiling.RunTiling();
@@ -157,9 +175,15 @@ static ge::graphStatus Tiling4Sin(gert::TilingContext* tilingContextGen)
 static ge::graphStatus TilingPrepareForSin(gert::TilingParseContext* context)
 {
     auto compileInfoPtr = context->GetCompiledInfo<SinCompileInfo>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, compileInfoPtr);
+    if (compileInfoPtr == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "compileInfo");
+        return ge::GRAPH_FAILED;
+    }
     fe::PlatFormInfos* platformInfoPtr = context->GetPlatformInfo();
-    OP_CHECK_NULL_WITH_CONTEXT(context, platformInfoPtr);
+    if (platformInfoPtr == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "platformInfo");
+        return ge::GRAPH_FAILED;
+    }
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfoPtr);
     compileInfoPtr->coreNum = ascendcPlatform.GetCoreNumAiv();
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, compileInfoPtr->ubSize);

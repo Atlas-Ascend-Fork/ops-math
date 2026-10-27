@@ -51,12 +51,15 @@ private:
 ge::graphStatus SignbitTiling::CheckDtype()
 {
     auto inputDesc = tilingContext->GetInputDesc(0);
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, inputDesc);
+    if (inputDesc == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "x");
+        return ge::GRAPH_FAILED;
+    }
     this->inputDtype = inputDesc->GetDataType();
     OP_CHECK_IF(std::find(DTYPE_LIST.begin(), DTYPE_LIST.end(), inputDtype) == DTYPE_LIST.end(),
-                OP_LOGE(tilingContext->GetNodeName(),
-                        "input1's dtype must be bf16/fp16/fp32/int8/uint8/int32/int64/uint64/bool/double,but: %s",
-                        ge::TypeUtils::DataTypeToSerialString(inputDtype).c_str()),
+                OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(
+                    tilingContext->GetNodeName(), "x", ge::TypeUtils::DataTypeToSerialString(inputDtype).c_str(),
+                    "input1's dtype must be bf16/fp16/fp32/int8/uint8/int32/int64/uint64/bool/double"),
                 return ge::GRAPH_FAILED);
     return ge::GRAPH_SUCCESS;
 }
@@ -109,14 +112,19 @@ ge::graphStatus SignbitTiling::RunTiling()
         dType = TPL_DOUBLE;
         ret = elewiseBaseTiling.DoTiling<SignbitDoubleCompute<double>::OpDag>(tiling->baseTiling);
     } else {
-        OP_LOGE(tilingContext->GetNodeName(),
-                "input dtype is only supported uint64, int64, int32, float16, bf16, float, uint8, int8, bool, double!");
+        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(tilingContext->GetNodeName(), "x",
+                                              ge::TypeUtils::DataTypeToSerialString(inputDtype).c_str(),
+                                              "input dtype is only supported uint64, int64, int32, float16, bf16, "
+                                              "float, uint8, int8, bool, double");
         return ge::GRAPH_FAILED;
     }
     OP_CHECK_IF(ret == ge::GRAPH_FAILED, OP_LOGE(tilingContext, "elewiseBaseTiling failed"), return ge::GRAPH_FAILED);
 
     size_t* currentWorkspace = tilingContext->GetWorkspaceSizes(1);
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, currentWorkspace);
+    if (currentWorkspace == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "workspaceSizes");
+        return ge::GRAPH_FAILED;
+    }
     currentWorkspace[0] = SYS_WORKSPACE_SIZE;
 
     const uint64_t tilingKey = GET_TPL_TILING_KEY(static_cast<uint64_t>(tiling->baseTiling.scheMode), dType);
@@ -130,7 +138,10 @@ static ge::graphStatus Tiling4Signbit(gert::TilingContext* context)
 {
     OP_LOGD(context->GetNodeName(), "Tiling4Signbit rt2.0 is running.");
     auto compileInfo = reinterpret_cast<const SignbitCompileInfo*>(context->GetCompileInfo());
-    OP_CHECK_NULL_WITH_CONTEXT(context, compileInfo);
+    if (compileInfo == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "compileInfo");
+        return ge::GRAPH_FAILED;
+    }
     SignbitTiling SignbitTiling(context);
     return SignbitTiling.RunTiling();
 }
@@ -138,9 +149,15 @@ static ge::graphStatus Tiling4Signbit(gert::TilingContext* context)
 static ge::graphStatus TilingPrepareForSignbit(gert::TilingParseContext* context)
 {
     auto compileInfoPtr = context->GetCompiledInfo<SignbitCompileInfo>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, compileInfoPtr);
+    if (compileInfoPtr == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "compileInfo");
+        return ge::GRAPH_FAILED;
+    }
     fe::PlatFormInfos* platformInfoPtr = context->GetPlatformInfo();
-    OP_CHECK_NULL_WITH_CONTEXT(context, platformInfoPtr);
+    if (platformInfoPtr == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "platformInfo");
+        return ge::GRAPH_FAILED;
+    }
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfoPtr);
     compileInfoPtr->coreNum = ascendcPlatform.GetCoreNumAiv();
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, compileInfoPtr->ubSize);

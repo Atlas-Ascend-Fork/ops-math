@@ -788,7 +788,6 @@ aclnnStatus aclRfft1DGetWorkspaceSize(const aclTensor* self, int64_t n, int64_t 
     OP_LOGD("Rfft1D: n %ld, norm %ld", n, norm);
 
     auto uniqueExecutor = CREATE_EXECUTOR();
-    CHECK_RET(uniqueExecutor.get() != nullptr, ACLNN_ERR_INNER_CREATE_EXECUTOR);
 
     bool result = CheckPlatform();
     CHECK_RET(result == true, ACLNN_ERR_PARAM_INVALID);

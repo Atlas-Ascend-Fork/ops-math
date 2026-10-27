@@ -29,7 +29,10 @@ namespace optiling {
 ge::graphStatus IsFiniteRegbaseTiling::CalcInputDtype()
 {
     auto inputDesc = tilingContext->GetInputDesc(0);
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, inputDesc);
+    if (inputDesc == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "inputDesc");
+        return ge::GRAPH_FAILED;
+    }
     this->inputDtype = inputDesc->GetDataType();
     OP_CHECK_IF(
         this->inputDtype != ge::DT_BF16 && this->inputDtype != ge::DT_FLOAT16 && this->inputDtype != ge::DT_FLOAT,
@@ -42,7 +45,10 @@ ge::graphStatus IsFiniteRegbaseTiling::CalcInputDtype()
 ge::graphStatus IsFiniteRegbaseTiling::CalcOutputDtype()
 {
     auto outputDesc = tilingContext->GetOutputDesc(0);
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, outputDesc);
+    if (outputDesc == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "outputDesc");
+        return ge::GRAPH_FAILED;
+    }
     this->outputDtype = outputDesc->GetDataType();
     OP_CHECK_IF(this->outputDtype != ge::DT_BOOL,
                 OP_LOGE_FOR_INVALID_DTYPE(tilingContext->GetNodeName(), "y",
@@ -54,11 +60,17 @@ ge::graphStatus IsFiniteRegbaseTiling::CalcOutputDtype()
 ge::graphStatus IsFiniteRegbaseTiling::CheckShape()
 {
     auto inputStorageShape = tilingContext->GetInputShape(0);
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, inputStorageShape);
+    if (inputStorageShape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "inputStorageShape");
+        return ge::GRAPH_FAILED;
+    }
     const gert::Shape& inputXShape = Ops::Base::EnsureNotScalar(inputStorageShape->GetStorageShape());
 
     auto outputStorageShape = tilingContext->GetOutputShape(0);
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, outputStorageShape);
+    if (outputStorageShape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "outputStorageShape");
+        return ge::GRAPH_FAILED;
+    }
     const gert::Shape& outputYShape = Ops::Base::EnsureNotScalar(outputStorageShape->GetStorageShape());
 
     OP_CHECK_IF(inputXShape != outputYShape,
@@ -73,7 +85,10 @@ ge::graphStatus IsFiniteRegbaseTiling::CheckShape()
 ge::graphStatus IsFiniteRegbaseTiling::SetTilingData(const ElewiseBaseTiling& elewiseBaseTiling)
 {
     size_t* currentWorkspace = tilingContext->GetWorkspaceSizes(1);
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, currentWorkspace);
+    if (currentWorkspace == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "currentWorkspace");
+        return ge::GRAPH_FAILED;
+    }
     currentWorkspace[0] = static_cast<uint64_t>(ASCEND_WORKSPACE);
 
     const uint64_t tilingKey = GET_TPL_TILING_KEY(TPL_EXTRA, TPL_SCH_MODE_1, dType);
@@ -121,7 +136,10 @@ ge::graphStatus IsFiniteRegbaseTiling::RunTiling()
 static ge::graphStatus TilingPrepare4IsFiniteArch35(gert::TilingParseContext* context)
 {
     auto compileInfo = context->GetCompiledInfo<IsFiniteCompileInfoArch35>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, compileInfo);
+    if (compileInfo == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "compileInfo");
+        return ge::GRAPH_FAILED;
+    }
     auto platformInfo = context->GetPlatformInfo();
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
     compileInfo->totalCoreNum = ascendcPlatform.GetCoreNumAiv();
@@ -145,7 +163,10 @@ static ge::graphStatus IsFiniteTilingArch35(gert::TilingContext* tilingContext)
                 return ge::GRAPH_FAILED);
     OP_LOGD(tilingContext, "Entering IsFiniteTilingArch35");
     auto compileInfo = reinterpret_cast<const IsFiniteCompileInfoArch35*>(tilingContext->GetCompileInfo());
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, compileInfo);
+    if (compileInfo == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "compileInfo");
+        return ge::GRAPH_FAILED;
+    }
     IsFiniteRegbaseTiling IsFiniteOpTiling(tilingContext);
     return IsFiniteOpTiling.RunTiling();
 }

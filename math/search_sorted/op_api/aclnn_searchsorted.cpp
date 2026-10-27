@@ -151,7 +151,6 @@ aclnnStatus aclnnSearchSortedGetWorkspaceSize(const aclTensor* sortedSequence, c
     L2_DFX_PHASE_1(aclnnSearchSorted, DFX_IN(sortedSequence, self, outInt32, right, sorter), DFX_OUT(out));
 
     auto uniqueExecutor = CREATE_EXECUTOR();
-    CHECK_RET(uniqueExecutor.get() != nullptr, ACLNN_ERR_INNER_CREATE_EXECUTOR);
 
     auto ret = CheckParams(sortedSequence, self, out, outInt32, sorter);
     CHECK_RET(ret == ACLNN_SUCCESS, ret);
@@ -217,7 +216,6 @@ aclnnStatus aclnnSearchSortedsGetWorkspaceSize(const aclTensor* sortedSequence, 
     L2_DFX_PHASE_1(aclnnSearchSorteds, DFX_IN(sortedSequence, self, outInt32, right, sorter), DFX_OUT(out));
 
     auto uniqueExecutor = CREATE_EXECUTOR();
-    CHECK_RET(uniqueExecutor.get() != nullptr, ACLNN_ERR_INNER_CREATE_EXECUTOR);
 
     OP_CHECK_NULL(sortedSequence, return ACLNN_ERR_PARAM_NULLPTR);
     OP_CHECK_NULL(self, return ACLNN_ERR_PARAM_NULLPTR);

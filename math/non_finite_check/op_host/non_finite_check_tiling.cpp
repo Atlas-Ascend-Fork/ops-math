@@ -33,7 +33,7 @@ constexpr uint32_t COEFFICIENT_1 = 128;
 class NonFiniteCheckTiling {
 public:
     explicit NonFiniteCheckTiling(gert::TilingContext* context)
-        : tilingContext(context), nodeName(context->GetNodeName()){};
+        : tilingContext(context), nodeName(context->GetNodeName()) {};
 
     ge::graphStatus Init();
     ge::graphStatus RunBigKernelTiling();
@@ -82,7 +82,10 @@ ge::graphStatus NonFiniteCheckTiling::Init()
     // Get shape, dtype information, and the total number of data.
     for (int32_t i = 0; i < totalTensorCount; i++) {
         auto descPtr = tilingContext->GetDynamicInputDesc(0, i);
-        OP_CHECK_NULL_WITH_CONTEXT(tilingContext, descPtr);
+        if (descPtr == nullptr) {
+            OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "tensor_list");
+            return ge::GRAPH_FAILED;
+        }
         auto tempDtype = descPtr->GetDataType();
         // Determine whether all data types are consistent.
         if (i == 0) {
@@ -105,7 +108,10 @@ ge::graphStatus NonFiniteCheckTiling::Init()
             return ge::GRAPH_FAILED;
         }
         auto shapePtr = tilingContext->GetDynamicInputShape(0, i);
-        OP_CHECK_NULL_WITH_CONTEXT(tilingContext, shapePtr);
+        if (shapePtr == nullptr) {
+            OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "tensor_list");
+            return ge::GRAPH_FAILED;
+        }
         tensorDataCountList[i] = shapePtr->GetStorageShape().GetShapeSize();
         OP_CHECK_IF(tensorDataCountList[i] == 0,
                     OP_LOGE_FOR_INVALID_SHAPESIZE(tilingContext->GetNodeName(),
@@ -167,7 +173,10 @@ ge::graphStatus NonFiniteCheckTiling::CheckParams() const
                 return ge::GRAPH_FAILED);
 
     auto flagDescPtr = tilingContext->GetOutputDesc(0);
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, flagDescPtr);
+    if (flagDescPtr == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "found_flag");
+        return ge::GRAPH_FAILED;
+    }
     OP_CHECK_IF(
         flagDescPtr->GetDataType() != ge::DT_FLOAT,
         OP_LOGE_FOR_INVALID_DTYPE(tilingContext->GetNodeName(), "found_flag",
@@ -187,7 +196,10 @@ ge::graphStatus NonFiniteCheckTiling::FillCompileInfo()
     }
 
     auto platformInfo = tilingContext->GetPlatformInfo();
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, platformInfo);
+    if (platformInfo == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "platformInfo");
+        return ge::GRAPH_FAILED;
+    }
 
     compileInfo.totalCoreNum = int32_t(platformInfo->GetCoreNum());
     platformInfo->GetLocalMemSize(fe::LocalMemType::UB, compileInfo.ubSizePlatForm);
@@ -342,9 +354,15 @@ static ge::graphStatus Tiling4NonFiniteCheck(gert::TilingContext* context)
 static ge::graphStatus TilingPrepare4NonFiniteCheck(gert::TilingParseContext* context)
 {
     auto compileInfo = context->GetCompiledInfo<NonFiniteCheckCompileInfo>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, compileInfo);
+    if (compileInfo == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "compileInfo");
+        return ge::GRAPH_FAILED;
+    }
     auto platformInfo = context->GetPlatformInfo();
-    OP_CHECK_NULL_WITH_CONTEXT(context, platformInfo);
+    if (platformInfo == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "platformInfo");
+        return ge::GRAPH_FAILED;
+    }
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
     compileInfo->totalCoreNum = ascendcPlatform.GetCoreNumAiv();
     OP_CHECK_IF((compileInfo->totalCoreNum <= 0),

@@ -57,7 +57,10 @@ ge::graphStatus RadixTopKTiling::GetPlatformInfo()
 {
     OP_LOGD(opName_, "RadixTopKTiling GetPlatformInfo.");
     auto compileInfo = static_cast<const RadixTopKCompileInfo*>(context_->GetCompileInfo());
-    OP_CHECK_NULL_WITH_CONTEXT(context_, compileInfo);
+    if (compileInfo == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "compileInfo");
+        return ge::GRAPH_FAILED;
+    }
 
     totalCoreNum_ = static_cast<uint64_t>(compileInfo->totalCoreNum);
     ubSize_ = compileInfo->ubSizePlatForm;
@@ -72,7 +75,10 @@ ge::graphStatus RadixTopKTiling::GetShapeAttrsInfo()
     OP_LOGD(opName_, "RadixTopKTiling GetShapeAttrsInfo.");
     // 获取输入shape和dtype
     const gert::StorageShape* xShape = context_->GetInputShape(INPUT_X);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, xShape);
+    if (xShape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "x");
+        return ge::GRAPH_FAILED;
+    }
     uint64_t batch = 1;
     uint64_t dimNum = xShape->GetShape().GetDimNum();
     for (uint64_t i = 0; i < dimNum - 1; i++) {
@@ -82,11 +88,17 @@ ge::graphStatus RadixTopKTiling::GetShapeAttrsInfo()
     tilingData_.sortLen = xShape->GetShape().GetDim(dimNum - 1);
 
     auto tensorK = context_->GetInputTensor(1);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, tensorK);
+    if (tensorK == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "k");
+        return ge::GRAPH_FAILED;
+    }
     const int32_t* constDataPtr = tensorK->GetData<int32_t>();
-    OP_CHECK_IF(constDataPtr == nullptr, OP_LOGE(opName_, "Get const data k failed."), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(constDataPtr == nullptr, OP_LOGE_WITH_INVALID_INPUT(opName_, "k"), return ge::GRAPH_FAILED);
     int32_t kValue = static_cast<int32_t>(*constDataPtr);
-    OP_CHECK_IF(kValue == 0, OP_LOGE(opName_, "Get k equals to zero."), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        kValue == 0,
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(opName_, "k", std::to_string(kValue).c_str(), "k must be greater than 0"),
+        return ge::GRAPH_FAILED);
     tilingData_.kValue = kValue;
 
     auto attrs = context_->GetAttrs();
@@ -97,10 +109,14 @@ ge::graphStatus RadixTopKTiling::GetShapeAttrsInfo()
     // int64 模板输出 int64 索引，防御性校验输出 dtype 匹配（int32 组合不允许超 int32 shape）
     if (isInt64Shape_) {
         auto indicesDesc = context_->GetOutputDesc(1);
-        OP_CHECK_NULL_WITH_CONTEXT(context_, indicesDesc);
+        if (indicesDesc == nullptr) {
+            OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "indices");
+            return ge::GRAPH_FAILED;
+        }
         OP_CHECK_IF((indicesDesc->GetDataType() != ge::DT_INT64),
-                    OP_LOGE(opName_, "RadixTopK sortLen [%lu] exceeds int32, indices output must be int64.",
-                            tilingData_.sortLen),
+                    OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(
+                        opName_, "indices", Ops::Base::ToString(indicesDesc->GetDataType()).c_str(),
+                        "RadixTopK sortLen exceeds int32, indices output must be int64"),
                     return ge::GRAPH_FAILED);
     }
 
@@ -129,7 +145,8 @@ ge::graphStatus RadixTopKTiling::DoOpTiling()
     OP_CHECK_IF((!isCalcSuccess), OP_LOGE(opName_, "RadixTopK Tiling failed."), return ge::GRAPH_FAILED);
     // int64 模板的 coreTopK/边界计数等 int32 通道要求 kValue 不超 int32 上限
     OP_CHECK_IF((isInt64Shape_ && tilingData_.kValue > INT32_SORT_LEN_MAX),
-                OP_LOGE(opName_, "RadixTopK kValue [%lu] exceeds int32 limit for int64 shape.", tilingData_.kValue),
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(opName_, "k", std::to_string(tilingData_.kValue).c_str(),
+                                                      "kValue exceeds int32 limit for int64 shape"),
                 return ge::GRAPH_FAILED);
     // per-core 直方图计数保持 int32：per-core 元素数须 < 2^31（S < 2^31*coreNum，物理内存内恒成立，防御性校验）
     OP_CHECK_IF((isInt64Shape_ && tilingData_.formerTileNum * tilingData_.formerTileLen > INT32_SORT_LEN_MAX),
@@ -196,7 +213,10 @@ ge::graphStatus RadixTopKTiling::PostTiling()
 
     // 设置workspace大小
     auto workspaces = context_->GetWorkspaceSizes(1);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, workspaces);
+    if (workspaces == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "workspaces");
+        return ge::GRAPH_FAILED;
+    }
     workspaces[0] = workspaceSize_;
 
     // 用到SyncAll，需要设置为batch mode模式
@@ -358,9 +378,15 @@ ge::graphStatus TilingPrepareForRadixTopK(gert::TilingParseContext* context)
 {
     OP_LOGD(context, "Tiling Prepare For RadixTopK start.");
     auto compileInfo = context->GetCompiledInfo<RadixTopKCompileInfo>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, compileInfo);
+    if (compileInfo == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "compileInfo");
+        return ge::GRAPH_FAILED;
+    }
     auto platformInfo = context->GetPlatformInfo();
-    OP_CHECK_NULL_WITH_CONTEXT(context, platformInfo);
+    if (platformInfo == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "platformInfo");
+        return ge::GRAPH_FAILED;
+    }
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
     compileInfo->totalCoreNum = ascendcPlatform.GetCoreNumAiv();
     if (compileInfo->totalCoreNum == 0) {

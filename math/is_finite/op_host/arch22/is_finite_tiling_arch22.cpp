@@ -30,7 +30,10 @@ constexpr uint64_t WORK_SPACE_SIZE = 0;
 static ge::graphStatus TilingPrepare4IsFiniteArch22(gert::TilingParseContext* context)
 {
     auto compileInfo = context->GetCompiledInfo<IsFiniteCompileInfoArch22>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, compileInfo);
+    if (compileInfo == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "compileInfo");
+        return ge::GRAPH_FAILED;
+    }
     auto platformInfo = context->GetPlatformInfo();
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
     compileInfo->totalCoreNum = ascendcPlatform.GetCoreNumAiv();
@@ -48,11 +51,15 @@ static ge::graphStatus TilingPrepare4IsFiniteArch22(gert::TilingParseContext* co
 
 static ge::graphStatus IsFiniteTilingArch22(gert::TilingContext* tilingContext)
 {
-    OP_CHECK_IF(tilingContext == nullptr, OP_LOGE("IsFiniteTiling", "tiling context is nullptr"),
+    OP_CHECK_IF(tilingContext == nullptr,
+                OP_LOGE_FOR_INVALID_VALUE("IsFiniteTiling", "tiling_context", "nullptr", "not nullptr"),
                 return ge::GRAPH_FAILED);
     OP_LOGD(tilingContext, "Entering IsFiniteTilingArch22");
     auto compileInfo = reinterpret_cast<const IsFiniteCompileInfoArch22*>(tilingContext->GetCompileInfo());
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, compileInfo);
+    if (compileInfo == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "compileInfo");
+        return ge::GRAPH_FAILED;
+    }
     if (compileInfo->isRegbase) {
         OP_LOGD(tilingContext, "Entering IsFiniteRegbaseTiling");
         IsFiniteRegbaseTiling IsFiniteOpTiling(tilingContext);
@@ -60,9 +67,11 @@ static ge::graphStatus IsFiniteTilingArch22(gert::TilingContext* tilingContext)
     }
 
     auto tempInputDesc = tilingContext->GetInputDesc(0);
-    OP_CHECK_IF(tempInputDesc == nullptr, OP_LOGE(tilingContext, "InputDesc == nullptr"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(tempInputDesc == nullptr, OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "inputDesc"),
+                return ge::GRAPH_FAILED);
     const gert::StorageShape* shape = tilingContext->GetInputShape(0);
-    OP_CHECK_IF(shape == nullptr, OP_LOGE(tilingContext, "InputShape == nullptr"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(shape == nullptr, OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "inputShape"),
+                return ge::GRAPH_FAILED);
 
     IsFiniteNs::IsFiniteTilingData* tilingData = tilingContext->GetTilingData<IsFiniteNs::IsFiniteTilingData>();
     IsFiniteNs::IsFiniteTiling::IsFiniteCommonTiling<gert::Shape>(shape->GetStorageShape(), *tilingData,

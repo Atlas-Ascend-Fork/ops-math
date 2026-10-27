@@ -99,7 +99,10 @@ ge::graphStatus SinkhornTiling::Init()
     OP_LOGD(tilingContext, "Tiling initialization starts.");
 
     auto costShape = tilingContext->GetInputShape(0);
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, costShape);
+    if (costShape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "cost");
+        return ge::GRAPH_FAILED;
+    }
     auto costStorageShape = costShape->GetStorageShape();
     // 防御校验：aclnn 直连通路下 tiling 侧独立把关，避免非法形状进入分块计算（blockLen uint16 截断等风险）
     if (costStorageShape.GetDimNum() != IO_DIM) {
@@ -337,12 +340,18 @@ ge::graphStatus TilingPrepareForSinkhorn(gert::TilingParseContext* context)
 {
     OP_LOGD(context, "TilingPrepareForSinkhorn start.");
     auto platformInfo = context->GetPlatformInfo();
-    OP_CHECK_NULL_WITH_CONTEXT(context, platformInfo);
+    if (platformInfo == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "platformInfo");
+        return ge::GRAPH_FAILED;
+    }
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
 
     // 将aivNum、workSpaveSize、ubSize的变量放到compileInfo中
     auto compileInfo = context->GetCompiledInfo<SinkhornCompileInfo>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, compileInfo);
+    if (compileInfo == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "compileInfo");
+        return ge::GRAPH_FAILED;
+    }
 
     compileInfo->aivNum = ascendcPlatform.GetCoreNumAiv();
     OP_LOGD(context, "compileInfo->aivNum is %lu.", compileInfo->aivNum);

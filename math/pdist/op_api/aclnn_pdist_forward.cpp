@@ -72,7 +72,10 @@ static bool CheckPValid(const aclScalar* pScalar)
 static aclnnStatus CheckParams(const aclTensor* self, const aclScalar* pScalar, const aclTensor* out)
 {
     // 检查参数是否为空指针
-    CHECK_COND(CheckNotNull(self, pScalar, out), ACLNN_ERR_INNER_NULLPTR, "CheckNotNull failed!");
+    if (!CheckNotNull(self, pScalar, out)) {
+        OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "Parameter[%s] must not be null.", "self/pScalar/out");
+        return ACLNN_ERR_INNER_NULLPTR;
+    }
 
     // 检查输入的数据类型是否支持在API支持的数据类型范围之内， 需要根据api定义校验
     CHECK_COND(CheckDtypeValid(self, out), ACLNN_ERR_PARAM_INVALID, "CheckDtypeValid failed!");
@@ -118,7 +121,6 @@ aclnnStatus aclnnPdistForwardGetWorkspaceSize(const aclTensor* self, const aclSc
 
     // 创建OpExecutor
     auto uniqueExecutor = CREATE_EXECUTOR();
-    CHECK_RET(uniqueExecutor.get() != nullptr, ACLNN_ERR_INNER_CREATE_EXECUTOR);
 
     // 固定写法，参数检查
     auto ret = CheckParams(self, pScalar, out);

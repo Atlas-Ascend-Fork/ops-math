@@ -154,7 +154,10 @@ struct ReduceStdWithMeanCtx {
 static ge::graphStatus GetPlatformInfo(gert::TilingContext* context, ReduceStdWithMeanCtx& ctx)
 {
     fe::PlatFormInfos* platformInfoPtr = context->GetPlatformInfo();
-    OP_CHECK_NULL_WITH_CONTEXT(context, platformInfoPtr);
+    if (platformInfoPtr == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "platformInfo");
+        return ge::GRAPH_FAILED;
+    }
 
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfoPtr);
     ctx.coreNum = ascendcPlatform.GetCoreNumAiv();
@@ -176,7 +179,10 @@ static ge::graphStatus GetPlatformInfo(gert::TilingContext* context, ReduceStdWi
 static ge::graphStatus GetShapeAndDtype(gert::TilingContext* context, ReduceStdWithMeanCtx& ctx)
 {
     auto xShapePtr = context->GetInputShape(INPUT_X_IDX);
-    OP_CHECK_NULL_WITH_CONTEXT(context, xShapePtr);
+    if (xShapePtr == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x");
+        return ge::GRAPH_FAILED;
+    }
     const gert::Shape& xS = xShapePtr->GetStorageShape();
     const size_t rank = xS.GetDimNum();
 
@@ -204,7 +210,10 @@ static ge::graphStatus GetShapeAndDtype(gert::TilingContext* context, ReduceStdW
     }
 
     auto xDesc = context->GetInputDesc(INPUT_X_IDX);
-    OP_CHECK_NULL_WITH_CONTEXT(context, xDesc);
+    if (xDesc == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x");
+        return ge::GRAPH_FAILED;
+    }
     ctx.xDtype = xDesc->GetDataType();
     const std::set<ge::DataType> supportedDtypes = {ge::DT_FLOAT16, ge::DT_BF16, ge::DT_FLOAT};
     if (supportedDtypes.count(ctx.xDtype) == 0) {
@@ -216,7 +225,10 @@ static ge::graphStatus GetShapeAndDtype(gert::TilingContext* context, ReduceStdW
 
     // mean dtype 校验：须与 x dtype 一致（kernel 以 x stride 同偏移搬运 mean）
     auto meanDesc = context->GetInputDesc(INPUT_MEAN_IDX);
-    OP_CHECK_NULL_WITH_CONTEXT(context, meanDesc);
+    if (meanDesc == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "mean");
+        return ge::GRAPH_FAILED;
+    }
     const ge::DataType meanDtype = meanDesc->GetDataType();
     if (meanDtype != ctx.xDtype) {
         OP_LOGE_FOR_INVALID_DTYPE(context->GetNodeName(), "mean",
@@ -227,7 +239,10 @@ static ge::graphStatus GetShapeAndDtype(gert::TilingContext* context, ReduceStdW
 
     // mean shape 校验：须与 x shape 完全一致（mean 已由上层广播到 x 形状）
     auto meanShapePtr = context->GetInputShape(INPUT_MEAN_IDX);
-    OP_CHECK_NULL_WITH_CONTEXT(context, meanShapePtr);
+    if (meanShapePtr == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "mean");
+        return ge::GRAPH_FAILED;
+    }
     const gert::Shape& meanS = meanShapePtr->GetStorageShape();
     if (meanS.GetDimNum() != xS.GetDimNum()) {
         OP_LOGE_FOR_INVALID_SHAPEDIM(context->GetNodeName(), "mean", std::to_string(meanS.GetDimNum()).c_str(),
@@ -253,7 +268,10 @@ static ge::graphStatus GetShapeAndDtype(gert::TilingContext* context, ReduceStdW
 static ge::graphStatus ParseDimAttr(gert::TilingContext* context, ReduceStdWithMeanCtx& ctx)
 {
     const gert::RuntimeAttrs* attrs = context->GetAttrs();
-    OP_CHECK_NULL_WITH_CONTEXT(context, attrs);
+    if (attrs == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "attrs");
+        return ge::GRAPH_FAILED;
+    }
     const auto* dimVec = attrs->GetListInt(ATTR_DIM_IDX);
     const int64_t dimNum = (dimVec == nullptr) ? 0 : static_cast<int64_t>(dimVec->GetSize());
     const int64_t xRank = static_cast<int64_t>(ctx.xShape.size());
@@ -269,7 +287,10 @@ static ge::graphStatus ParseDimAttr(gert::TilingContext* context, ReduceStdWithM
     }
 
     const int64_t* data = dimVec->GetData();
-    OP_CHECK_NULL_WITH_CONTEXT(context, data);
+    if (data == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "dim");
+        return ge::GRAPH_FAILED;
+    }
     std::set<int64_t> seen;
     for (int64_t i = 0; i < dimNum; ++i) {
         const int64_t v = data[i];
@@ -867,7 +888,10 @@ static void ComputeGroupSplit(ReduceStdWithMeanCtx& ctx)
 static ge::graphStatus SetWorkspaceSize(gert::TilingContext* context, const ReduceStdWithMeanCtx& ctx)
 {
     size_t* ws = context->GetWorkspaceSizes(1);
-    OP_CHECK_NULL_WITH_CONTEXT(context, ws);
+    if (ws == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "workspaceSizes");
+        return ge::GRAPH_FAILED;
+    }
     size_t usrSize = 0;
     if (ctx.isGroup) {
         int64_t aTotal = 1;
@@ -893,7 +917,10 @@ static ge::graphStatus SetWorkspaceSize(gert::TilingContext* context, const Redu
 static ge::graphStatus FillAndLogTilingData(gert::TilingContext* context, const ReduceStdWithMeanCtx& ctx)
 {
     ReduceStdWithMeanTilingData* td = context->GetTilingData<ReduceStdWithMeanTilingData>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, td);
+    if (td == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "tilingData");
+        return ge::GRAPH_FAILED;
+    }
     OP_CHECK_IF(memset_s(td, sizeof(ReduceStdWithMeanTilingData), 0, sizeof(ReduceStdWithMeanTilingData)) != EOK,
                 OP_LOGE(context, "memset tilingdata error"), return ge::GRAPH_FAILED);
 
@@ -1017,7 +1044,10 @@ static void ComputeEmptyRTiling(ReduceStdWithMeanCtx& ctx)
 static ge::graphStatus FillEmptyTilingData(gert::TilingContext* context, const ReduceStdWithMeanCtx& ctx)
 {
     ReduceStdWithMeanTilingData* td = context->GetTilingData<ReduceStdWithMeanTilingData>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, td);
+    if (td == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "tilingData");
+        return ge::GRAPH_FAILED;
+    }
     OP_CHECK_IF(memset_s(td, sizeof(ReduceStdWithMeanTilingData), 0, sizeof(ReduceStdWithMeanTilingData)) != EOK,
                 OP_LOGE(context, "memset tilingdata error"), return ge::GRAPH_FAILED);
 

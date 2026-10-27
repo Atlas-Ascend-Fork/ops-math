@@ -99,11 +99,17 @@ bool HistogramV2SimdTiling::IsCapable()
 ge::graphStatus HistogramV2SimdTiling::GetShapeAttrsInfo()
 {
     auto inputShape = context_->GetInputShape(INPUT_IDX_X);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, inputShape);
+    if (inputShape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "inputShape");
+        return ge::GRAPH_FAILED;
+    }
     totalLength_ = inputShape->GetStorageShape().GetShapeSize();
 
     auto compileInfo = reinterpret_cast<const HistogramV2CompileInfo*>(context_->GetCompileInfo());
-    OP_CHECK_NULL_WITH_CONTEXT(context_, compileInfo);
+    if (compileInfo == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "compileInfo");
+        return ge::GRAPH_FAILED;
+    }
     coreNum_ = compileInfo->totalCoreNum;
     if (coreNum_ <= 0) {
         auto platformInfo = context_->GetPlatformInfo();
@@ -116,7 +122,10 @@ ge::graphStatus HistogramV2SimdTiling::GetShapeAttrsInfo()
                 return ge::GRAPH_FAILED);
 
     auto attrs = context_->GetAttrs();
-    OP_CHECK_NULL_WITH_CONTEXT(context_, attrs);
+    if (attrs == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "attrs");
+        return ge::GRAPH_FAILED;
+    }
     const int64_t* binsPtr = attrs->GetAttrPointer<int64_t>(BINS_IDX);
     bins_ = (binsPtr == nullptr) ? DEFAULT_BINS : *binsPtr;
     OP_CHECK_IF(
@@ -125,7 +134,10 @@ ge::graphStatus HistogramV2SimdTiling::GetShapeAttrsInfo()
         return ge::GRAPH_FAILED);
 
     auto outputShape = context_->GetOutputShape(OUTPUT_IDX);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, outputShape);
+    if (outputShape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "outputShape");
+        return ge::GRAPH_FAILED;
+    }
     auto outputDataLength = outputShape->GetStorageShape().GetShapeSize();
     if (outputDataLength != bins_) {
         std::string sizeStr = std::to_string(outputDataLength) + " and " + std::to_string(bins_);
@@ -135,12 +147,18 @@ ge::graphStatus HistogramV2SimdTiling::GetShapeAttrsInfo()
     }
 
     auto inputDesc = context_->GetInputDesc(INPUT_IDX_X);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, inputDesc);
+    if (inputDesc == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "inputDesc");
+        return ge::GRAPH_FAILED;
+    }
     auto dType = inputDesc->GetDataType();
 
     for (int64_t i = 1; i < INPUT_NUM; i++) {
         auto inputMinMaxDesc = context_->GetInputDesc(i);
-        OP_CHECK_NULL_WITH_CONTEXT(context_, inputMinMaxDesc);
+        if (inputMinMaxDesc == nullptr) {
+            OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "inputMinMaxDesc");
+            return ge::GRAPH_FAILED;
+        }
         auto minMaxDtype = inputMinMaxDesc->GetDataType();
         if (minMaxDtype != dType) {
             std::string dtypesStr = Ops::Base::ToString(dType) + " and " + Ops::Base::ToString(minMaxDtype);
@@ -151,7 +169,10 @@ ge::graphStatus HistogramV2SimdTiling::GetShapeAttrsInfo()
             return ge::GRAPH_FAILED;
         }
         auto minMaxShape = context_->GetInputShape(i);
-        OP_CHECK_NULL_WITH_CONTEXT(context_, minMaxShape);
+        if (minMaxShape == nullptr) {
+            OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "minMaxShape");
+            return ge::GRAPH_FAILED;
+        }
         auto minMaxLength = minMaxShape->GetStorageShape().GetShapeSize();
         if (minMaxLength != 1) {
             std::string paramName = (i == 1) ? "min" : "max";
@@ -170,7 +191,10 @@ ge::graphStatus HistogramV2SimdTiling::GetShapeAttrsInfo()
     }
 
     auto outputDesc = context_->GetOutputDesc(OUTPUT_IDX);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, outputDesc);
+    if (outputDesc == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "outputDesc");
+        return ge::GRAPH_FAILED;
+    }
     isFp32Output_ = (outputDesc->GetDataType() == ge::DT_FLOAT);
     isDeterministic_ = (context_->GetDeterministic() == 1) ? 1 : 0;
     return ge::GRAPH_SUCCESS;
@@ -218,7 +242,10 @@ ge::graphStatus HistogramV2SimdTiling::SetKernelTiling()
 {
     context_->SetBlockDim(needCoreNum_);
     size_t* currentWorkSpace = context_->GetWorkspaceSizes(1);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, currentWorkSpace);
+    if (currentWorkSpace == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "currentWorkSpace");
+        return ge::GRAPH_FAILED;
+    }
     currentWorkSpace[0] = workspaceBytes_;
 
     tilingData.set_bins(bins_);

@@ -19,21 +19,31 @@
 using namespace Ops::Base;
 using namespace ge;
 namespace ops {
-static ge::graphStatus InferShape4Polar(gert::InferShapeContext *context)
+static ge::graphStatus InferShape4Polar(gert::InferShapeContext* context)
 {
     auto in_shape1 = context->GetInputShape(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context, in_shape1);
+    if (in_shape1 == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "abs");
+        return ge::GRAPH_FAILED;
+    }
     auto in_shape2 = context->GetInputShape(1);
-    OP_CHECK_NULL_WITH_CONTEXT(context, in_shape2);
+    if (in_shape2 == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "angle");
+        return ge::GRAPH_FAILED;
+    }
     auto out_shape = context->GetOutputShape(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context, out_shape);
+    if (out_shape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "y");
+        return ge::GRAPH_FAILED;
+    }
 
     OP_CHECK_IF(!BroadcastShape(in_shape1, in_shape2, out_shape),
-                OP_LOGE(context->GetNodeName(), "shape %s and %s cannot broadcast!",
-                        ToString(*in_shape1).c_str(), ToString(*in_shape2).c_str()),
+                OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(
+                    context->GetNodeName(), "abs/angle",
+                    ("shape " + ToString(*in_shape1) + " and " + ToString(*in_shape2) + " cannot broadcast").c_str()),
                 return ge::GRAPH_FAILED);
 
     return ge::GRAPH_SUCCESS;
 }
 IMPL_OP_INFERSHAPE(Polar).InferShape(InferShape4Polar);
-}  // namespace ops
+} // namespace ops

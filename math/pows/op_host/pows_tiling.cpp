@@ -66,8 +66,8 @@ static void GetTilingDataBigCase(PowsTilingData& tilingData, TilingParam& tiling
     int64_t bufSizeAlign = tilingParam.bufSize / BUFFER_SIZE_ALIGN_LENGTH * BUFFER_SIZE_ALIGN_LENGTH;
     int64_t blockFactor = Ops::Base::CeilDiv(tilingParam.x, tilingParam.coreNum);
     // block factor align upper
-    int64_t blockFactorAlign =
-        (blockFactor + tilingParam.blockSize - 1) / tilingParam.blockSize * tilingParam.blockSize;
+    int64_t blockFactorAlign = (blockFactor + tilingParam.blockSize - 1) / tilingParam.blockSize *
+                               tilingParam.blockSize;
     int64_t realCoreNum = Ops::Base::CeilDiv(tilingParam.x, blockFactorAlign);
 
     tilingData.set_numPerCore(blockFactorAlign);
@@ -130,19 +130,23 @@ static void GetFp32TilingData(PowsTilingData& tilingData, TilingParam& tilingPar
 static ge::graphStatus CheckInputParams(const gert::TilingContext* context)
 {
     auto input = context->GetInputTensor(INPUT_IDX);
-    OP_CHECK_NULL_WITH_CONTEXT(context, input);
+    if (input == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x1");
+        return ge::GRAPH_FAILED;
+    }
 
     auto dtype = context->GetInputDesc(INPUT_IDX)->GetDataType();
     int32_t typeSize = ge::GetSizeByDataType(dtype);
 
-    OP_CHECK_IF(
-        dtype != ge::DT_FLOAT16 && dtype != ge::DT_BF16 && dtype != ge::DT_FLOAT,
-        OP_LOGE_FOR_INVALID_DTYPE(context->GetNodeName(), "x1",
-            ge::TypeUtils::DataTypeToSerialString(dtype).c_str(), "fp16, fp32 or bf16"),
-        return ge::GRAPH_FAILED);
+    OP_CHECK_IF(dtype != ge::DT_FLOAT16 && dtype != ge::DT_BF16 && dtype != ge::DT_FLOAT,
+                OP_LOGE_FOR_INVALID_DTYPE(context->GetNodeName(), "x1",
+                                          ge::TypeUtils::DataTypeToSerialString(dtype).c_str(), "fp16, fp32 or bf16"),
+                return ge::GRAPH_FAILED);
 
-    OP_CHECK_IF(
-        (typeSize <= 0), OP_LOGE(context, "typeSize is invalid %d, please check.", typeSize), return ge::GRAPH_FAILED);
+    OP_CHECK_IF((typeSize <= 0),
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "x1", std::to_string(typeSize).c_str(),
+                                                      "typeSize must be greater than 0"),
+                return ge::GRAPH_FAILED);
 
     return ge::GRAPH_SUCCESS;
 }
@@ -152,21 +156,25 @@ static ge::graphStatus TilingPrepare4Pows(gert::TilingParseContext* context)
     OP_LOGD(context, "TilingPrepare4Pows enter.");
 
     auto compileInfo = context->GetCompiledInfo<PowsCompileInfo>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, compileInfo);
+    if (compileInfo == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "compileInfo");
+        return ge::GRAPH_FAILED;
+    }
     auto platformInfo = context->GetPlatformInfo();
-    OP_CHECK_NULL_WITH_CONTEXT(context, platformInfo);
+    if (platformInfo == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "platformInfo");
+        return ge::GRAPH_FAILED;
+    }
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
     compileInfo->totalCoreNum = ascendcPlatform.GetCoreNumAiv();
-    OP_CHECK_IF(
-        (compileInfo->totalCoreNum <= 0), OP_LOGE(context, "TilingPrepare4Pows fail to get core num."),
-        return ge::GRAPH_FAILED);
+    OP_CHECK_IF((compileInfo->totalCoreNum <= 0), OP_LOGE(context, "TilingPrepare4Pows fail to get core num."),
+                return ge::GRAPH_FAILED);
 
     uint64_t ubSizePlatForm;
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSizePlatForm);
     compileInfo->ubSizePlatForm = static_cast<int64_t>(ubSizePlatForm);
-    OP_CHECK_IF(
-        (compileInfo->ubSizePlatForm <= 0), OP_LOGE(context, "TilingPrepare4Pows fail to get ub size."),
-        return ge::GRAPH_FAILED);
+    OP_CHECK_IF((compileInfo->ubSizePlatForm <= 0), OP_LOGE(context, "TilingPrepare4Pows fail to get ub size."),
+                return ge::GRAPH_FAILED);
     OP_LOGD(context, "TilingPrepare4Pows exit.");
     return ge::GRAPH_SUCCESS;
 }
@@ -185,9 +193,8 @@ static ge::graphStatus GetTillingParam(const gert::TilingContext* context, Tilin
     tilingParam.coreNum = compileInfo->totalCoreNum;
     tilingParam.ubSize = compileInfo->ubSizePlatForm;
 
-    OP_LOGI(
-        context, "tilingParm is x: %ld, coreNum: %ld, ubSize: %ld", tilingParam.x, tilingParam.coreNum,
-        tilingParam.ubSize);
+    OP_LOGI(context, "tilingParm is x: %ld, coreNum: %ld, ubSize: %ld", tilingParam.x, tilingParam.coreNum,
+            tilingParam.ubSize);
     return ge::GRAPH_SUCCESS;
 }
 
@@ -205,37 +212,33 @@ static void GetTillingData(ge::DataType dtype, TilingParam& tilingParam, PowsTil
 static ge::graphStatus Tiling4Pows(gert::TilingContext* context)
 {
     OP_LOGD(context, "Tiling4Pows enter.");
-    OP_CHECK_IF(
-        CheckInputParams(context) != ge::GRAPH_SUCCESS, OP_LOGE(context, "InputParams not valid."),
-        return ge::GRAPH_FAILED);
+    OP_CHECK_IF(CheckInputParams(context) != ge::GRAPH_SUCCESS, OP_LOGE(context, "InputParams not valid."),
+                return ge::GRAPH_FAILED);
 
     TilingParam tilingParam;
-    OP_CHECK_IF(
-        GetTillingParam(context, tilingParam) != ge::GRAPH_SUCCESS, OP_LOGE(context, "Get Tiling Param Failed."),
-        return ge::GRAPH_FAILED);
+    OP_CHECK_IF(GetTillingParam(context, tilingParam) != ge::GRAPH_SUCCESS,
+                OP_LOGE(context, "Get Tiling Param Failed."), return ge::GRAPH_FAILED);
 
     auto dtype = context->GetInputDesc(INPUT_IDX)->GetDataType();
     PowsTilingData tilingData;
 
     GetTillingData(dtype, tilingParam, tilingData);
 
-    OP_CHECK_IF(
-        SetTilingDataForPows(context, tilingData) != ge::GRAPH_SUCCESS,
-        OP_LOGE(context, "PowsSetTilingData set tiling data fail."), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(SetTilingDataForPows(context, tilingData) != ge::GRAPH_SUCCESS,
+                OP_LOGE(context, "PowsSetTilingData set tiling data fail."), return ge::GRAPH_FAILED);
 
     context->SetBlockDim(tilingData.get_realCoreNum());
     context->SetTilingKey(tilingData.get_tilingKey());
     size_t* workspaces = context->GetWorkspaceSizes(1);
     workspaces[0] = WORK_SPACE_SIZE + tilingParam.coreNum * BYTES_ONE_BLOCK;
 
-    OP_LOGI(
-        context,
-        "tilingData is bufSize: %ld, tilingKey: %ld, numPerCore: %ld, realCoreNum: %ld, \
+    OP_LOGI(context, "tilingData is bufSize: %ld, tilingKey: %ld, numPerCore: %ld, realCoreNum: %ld, \
            mainCoreLoopNum: %ld, mainCoreTailLength: %ld, tailCoreloopNum: %ld, tailCoreTailLength: %ld, \
            dataLength: %ld, blockSize: %ld",
-        tilingData.get_bufSize(), tilingData.get_tilingKey(), tilingData.get_numPerCore(), tilingData.get_realCoreNum(),
-        tilingData.get_mainCoreLoopNum(), tilingData.get_mainCoreTailLength(), tilingData.get_tailCoreLoopNum(),
-        tilingData.get_tailCoreTailLength(), tilingData.get_dataLength(), tilingData.get_blockSize());
+            tilingData.get_bufSize(), tilingData.get_tilingKey(), tilingData.get_numPerCore(),
+            tilingData.get_realCoreNum(), tilingData.get_mainCoreLoopNum(), tilingData.get_mainCoreTailLength(),
+            tilingData.get_tailCoreLoopNum(), tilingData.get_tailCoreTailLength(), tilingData.get_dataLength(),
+            tilingData.get_blockSize());
 
     OP_LOGD(context, "Tiling4Pows exit.");
     return ge::GRAPH_SUCCESS;

@@ -27,7 +27,10 @@ ge::graphStatus PolarTiling::GetPlatformInfo()
 {
     OP_LOGD(context_, "PolarTiling GetPlatformInfo.");
     compileInfo_ = static_cast<const PolarCompileInfo*>(context_->GetCompileInfo());
-    OP_CHECK_NULL_WITH_CONTEXT(context_, compileInfo_);
+    if (compileInfo_ == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "compileInfo");
+        return ge::GRAPH_FAILED;
+    }
     return ge::GRAPH_SUCCESS;
 }
 
@@ -35,13 +38,22 @@ ge::graphStatus PolarTiling::CheckDtype()
 {
     OP_LOGD(context_, "PolarTiling CheckDtype.");
     auto input0Desc = context_->GetInputDesc(INPUT_ABS);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, input0Desc);
+    if (input0Desc == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "abs");
+        return ge::GRAPH_FAILED;
+    }
     ge::DataType input0Dtype = input0Desc->GetDataType();
     auto input1Desc = context_->GetInputDesc(INPUT_ANGLE);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, input1Desc);
+    if (input1Desc == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "angle");
+        return ge::GRAPH_FAILED;
+    }
     ge::DataType input1Dtype = input1Desc->GetDataType();
     auto outputDesc = context_->GetOutputDesc(OUTPUT_Y);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, outputDesc);
+    if (outputDesc == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "y");
+        return ge::GRAPH_FAILED;
+    }
     ge::DataType outputDtype = outputDesc->GetDataType();
     if (input0Dtype != ge::DT_FLOAT || input1Dtype != ge::DT_FLOAT || outputDtype != ge::DT_COMPLEX64) {
         std::string dtypesStr = ge::TypeUtils::DataTypeToSerialString(input0Dtype) + ", " +
@@ -59,9 +71,15 @@ ge::graphStatus PolarTiling::CheckBroadcastAndMergeShape()
 {
     OP_LOGD(context_, "PolarTiling CheckBroadcastAndMergeShape.");
     const gert::StorageShape* absStorageShape = context_->GetInputShape(INPUT_ABS);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, absStorageShape);
+    if (absStorageShape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "abs");
+        return ge::GRAPH_FAILED;
+    }
     const gert::StorageShape* angleStorageShape = context_->GetInputShape(INPUT_ANGLE);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, angleStorageShape);
+    if (angleStorageShape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "angle");
+        return ge::GRAPH_FAILED;
+    }
 
     auto absShape = absStorageShape->GetStorageShape();
     auto angleShape = angleStorageShape->GetStorageShape();
@@ -69,9 +87,11 @@ ge::graphStatus PolarTiling::CheckBroadcastAndMergeShape()
     int64_t absDimNum = static_cast<int64_t>(absShape.GetDimNum());
     int64_t angleDimNum = static_cast<int64_t>(angleShape.GetDimNum());
     dimNum_ = std::max(absDimNum, angleDimNum);
-    OP_CHECK_IF(dimNum_ > POLAR_MAX_DIM,
-                OP_LOGE(context_, "dimNum %ld exceeds POLAR_MAX_DIM %ld", dimNum_, POLAR_MAX_DIM),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        dimNum_ > POLAR_MAX_DIM,
+        OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context_->GetNodeName(), "abs/angle", std::to_string(dimNum_).c_str(),
+                                                 "dimNum exceeds POLAR_MAX_DIM"),
+        return ge::GRAPH_FAILED);
 
     for (int64_t i = 0; i < dimNum_; i++) {
         int64_t absOffset = i - (dimNum_ - absDimNum);
@@ -80,9 +100,13 @@ ge::graphStatus PolarTiling::CheckBroadcastAndMergeShape()
         int64_t angleDim = (angleOffset >= 0) ? angleShape.GetDim(angleOffset) : 1;
         absDims_[i] = absDim;
         angleDims_[i] = angleDim;
-        OP_CHECK_IF(absDim != angleDim && absDim != 1 && angleDim != 1,
-                    OP_LOGE(context_, "Shapes not broadcastable at dim %ld: %ld vs %ld", i, absDim, angleDim),
-                    return ge::GRAPH_FAILED);
+        OP_CHECK_IF(
+            absDim != angleDim && absDim != 1 && angleDim != 1,
+            OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(context_->GetNodeName(), "abs/angle",
+                                                     ("Shapes not broadcastable at dim " + std::to_string(i) + ": " +
+                                                      std::to_string(absDim) + " vs " + std::to_string(angleDim))
+                                                         .c_str()),
+            return ge::GRAPH_FAILED);
         mergedShape_[i] = std::max(absDim, angleDim);
     }
 
@@ -162,7 +186,10 @@ ge::graphStatus PolarTiling::PostTiling()
     OP_LOGD(context_, "PolarTiling PostTiling.");
 
     auto workspaces = context_->GetWorkspaceSizes(1);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, workspaces);
+    if (workspaces == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "workspaces");
+        return ge::GRAPH_FAILED;
+    }
     workspaces[0] = 0;
 
     auto res = context_->SetBlockDim(static_cast<uint32_t>(blockDim_));
@@ -195,9 +222,15 @@ static ge::graphStatus TilingPrepare4PolarAscendc(gert::TilingParseContext* cont
     OP_LOGD(context->GetNodeName(), "Enter TilingPrepare4PolarAscendc.");
 
     auto compileInfo = context->GetCompiledInfo<PolarCompileInfo>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, compileInfo);
+    if (compileInfo == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "compileInfo");
+        return ge::GRAPH_FAILED;
+    }
     auto platformInfo = context->GetPlatformInfo();
-    OP_CHECK_NULL_WITH_CONTEXT(context, platformInfo);
+    if (platformInfo == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "platformInfo");
+        return ge::GRAPH_FAILED;
+    }
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
 
     compileInfo->coreNum = ascendcPlatform.GetCoreNumAiv();
@@ -211,7 +244,10 @@ static ge::graphStatus TilingPrepare4PolarAscendc(gert::TilingParseContext* cont
 static ge::graphStatus TilingPrepare4Polar(gert::TilingParseContext* context)
 {
     auto compileInfo = context->GetCompiledInfo<PolarCompileInfo>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, compileInfo);
+    if (compileInfo == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "compileInfo");
+        return ge::GRAPH_FAILED;
+    }
     OP_LOGD("TilingPrepare4Polar", "Ascend C TilingPrepare4Polar success.");
     return TilingPrepare4PolarAscendc(context);
 }

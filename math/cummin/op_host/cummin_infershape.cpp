@@ -28,11 +28,20 @@ static ge::graphStatus InferShapeForCummin(gert::InferShapeContext* context)
 {
     OP_LOGD(context->GetNodeName(), "Begin to do InferShapeForCummin");
     const auto* xShape = context->GetInputShape(INPUT_X_INDEX);
-    OP_CHECK_NULL_WITH_CONTEXT(context, xShape);
+    if (xShape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x");
+        return GRAPH_FAILED;
+    }
     gert::Shape* yShape = context->GetOutputShape(OUTPUT_Y_INDEX);
-    OP_CHECK_NULL_WITH_CONTEXT(context, yShape);
+    if (yShape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "y");
+        return GRAPH_FAILED;
+    }
     gert::Shape* argminShape = context->GetOutputShape(OUTPUT_ARGMIN_INDEX);
-    OP_CHECK_NULL_WITH_CONTEXT(context, argminShape);
+    if (argminShape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "argmin");
+        return GRAPH_FAILED;
+    }
     // y 与 argmin 的 shape 与输入 x 一致
     *yShape = *xShape;
     *argminShape = *xShape;

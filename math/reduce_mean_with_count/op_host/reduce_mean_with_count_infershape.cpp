@@ -27,16 +27,28 @@ namespace ops {
 static ge::graphStatus InferShape4ReduceMeanWithCount(gert::InferShapeContext* context)
 {
     auto inShape = context->GetInputShape(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context, inShape);
+    if (inShape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x");
+        return ge::GRAPH_FAILED;
+    }
     auto outShape = context->GetOutputShape(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context, outShape);
+    if (outShape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "y");
+        return ge::GRAPH_FAILED;
+    }
     auto attrs = context->GetAttrs();
-    OP_CHECK_NULL_WITH_CONTEXT(context, attrs);
+    if (attrs == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "attrs");
+        return ge::GRAPH_FAILED;
+    }
 
     // Read axes from attribute (ListInt), not from input tensor
-    auto axesListPtr = attrs->GetListInt(0);  // attr index 0 = axes
-    const bool* keepDims = attrs->GetAttrPointer<bool>(1);  // attr index 1 = keep_dims
-    OP_CHECK_NULL_WITH_CONTEXT(context, keepDims);
+    auto axesListPtr = attrs->GetListInt(0);               // attr index 0 = axes
+    const bool* keepDims = attrs->GetAttrPointer<bool>(1); // attr index 1 = keep_dims
+    if (keepDims == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "keep_dims");
+        return ge::GRAPH_FAILED;
+    }
 
     // Build axes vector with negative index normalization
     int64_t dimNum = static_cast<int64_t>(inShape->GetDimNum());
@@ -64,4 +76,4 @@ static ge::graphStatus InferShape4ReduceMeanWithCount(gert::InferShapeContext* c
 }
 
 IMPL_OP_INFERSHAPE(ReduceMeanWithCount).InferShape(InferShape4ReduceMeanWithCount);
-}  // namespace ops
+} // namespace ops

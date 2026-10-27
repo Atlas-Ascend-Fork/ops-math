@@ -43,8 +43,7 @@ namespace optiling {
 
 class Rfft1DTiling : public Rfft1DBaseTiling {
 public:
-    explicit Rfft1DTiling(gert::TilingContext* context) : Rfft1DBaseTiling(context)
-    {}
+    explicit Rfft1DTiling(gert::TilingContext* context) : Rfft1DBaseTiling(context) {}
 
 protected:
     ge::graphStatus DoOpTiling() override;
@@ -72,25 +71,13 @@ const gert::Shape& Rfft1DTiling::EnsureNotScalar(const gert::Shape& inShape)
     return inShape;
 }
 
-bool Rfft1DTiling::IsCapable()
-{
-    return true;
-}
+bool Rfft1DTiling::IsCapable() { return true; }
 
-ge::graphStatus Rfft1DTiling::DoLibApiTiling()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus Rfft1DTiling::DoLibApiTiling() { return ge::GRAPH_SUCCESS; }
 
-uint64_t Rfft1DTiling::GetTilingKey() const
-{
-    return 0;
-}
+uint64_t Rfft1DTiling::GetTilingKey() const { return 0; }
 
-ge::graphStatus Rfft1DTiling::GetWorkspaceSize()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus Rfft1DTiling::GetWorkspaceSize() { return ge::GRAPH_SUCCESS; }
 
 static void CalcColleyTukeyFactors(uint32_t factors[], std::vector<uint32_t> availableFactors, const uint32_t len)
 {
@@ -192,8 +179,8 @@ void Rfft1DTiling::CalcDftSizes(const uint32_t factors[], const bool isBluestein
     tiling.set_dftRealOverallSize(dftRealOverallSize);
     tiling.set_dftImagOverallSize(dftImagOverallSize);
     tiling.set_twiddleOverallSize(twiddleOverallSize);
-    tiling.set_fftMatrOverallSize(
-        dftRealOverallSize + dftImagOverallSize + TWIDDLE_MATRICES_AMOUNT * twiddleOverallSize);
+    tiling.set_fftMatrOverallSize(dftRealOverallSize + dftImagOverallSize +
+                                  TWIDDLE_MATRICES_AMOUNT * twiddleOverallSize);
 
     tiling.set_dftRealOffsets(dftRealOffsets);
     tiling.set_dftImagOffsets(dftImagOffsets);
@@ -203,7 +190,10 @@ void Rfft1DTiling::CalcDftSizes(const uint32_t factors[], const bool isBluestein
 ge::graphStatus Rfft1DTiling::DoOpTiling()
 {
     auto inputX = context_->GetInputShape(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, inputX);
+    if (inputX == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "x");
+        return ge::GRAPH_FAILED;
+    }
     auto xShape = EnsureNotScalar(inputX->GetStorageShape());
 
     // Calculate number of batches
@@ -212,7 +202,10 @@ ge::graphStatus Rfft1DTiling::DoOpTiling()
     }
 
     auto runtimeAttrs = context_->GetAttrs();
-    OP_CHECK_NULL_WITH_CONTEXT(context_, runtimeAttrs);
+    if (runtimeAttrs == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "attrs");
+        return ge::GRAPH_FAILED;
+    }
     const uint32_t len = *runtimeAttrs->GetAttrPointer<uint32_t>(0);
     const uint32_t norm = *runtimeAttrs->GetAttrPointer<uint32_t>(1);
 
@@ -245,8 +238,8 @@ ge::graphStatus Rfft1DTiling::DoOpTiling()
         return src != 0 ? src + (blockLen - src % blockLen) % blockLen : blockLen;
     };
 
-    const uint32_t tailSize =
-        COMPLEX_PART * (((len / COMPLEX_PART) + 1) - (factors[2] / COMPLEX_PART) * (len / factors[2]));
+    const uint32_t tailSize = COMPLEX_PART *
+                              (((len / COMPLEX_PART) + 1) - (factors[2] / COMPLEX_PART) * (len / factors[2]));
     const uint32_t tmpLenPerBatch = 3 * roundUpBlock(
                                             COMPLEX_PART * (isBluestein ? lengthPad : len) + factors[2] * tailSize + 1,
                                             BYTES_ALIGN * SIZE_PER_BATCH_MULTIPLIER);
@@ -283,7 +276,10 @@ ge::graphStatus Rfft1DTiling::PostTiling()
     auto userWorkspace = USER_WORKSPACE_SIZE;
     auto sysWorkspace = 16 * 1024 * 1024;
     size_t* currentWorkspace = context_->GetWorkspaceSizes(1);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, currentWorkspace);
+    if (currentWorkspace == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "workspaceSizes");
+        return ge::GRAPH_FAILED;
+    }
     currentWorkspace[0] = userWorkspace + sysWorkspace;
     return ge::GRAPH_SUCCESS;
 }

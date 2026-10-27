@@ -25,11 +25,17 @@ static ge::graphStatus AngleV2InferShapeFunc(gert::InferShapeContext* context)
     OP_LOGD(context, "Begin to do AngleV2InferShapeFunc");
     // get input shapes
     const gert::Shape* xShape = context->GetInputShape(X_IDX);
-    OP_CHECK_NULL_WITH_CONTEXT(context, xShape);
+    if (xShape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x");
+        return ge::GRAPH_FAILED;
+    }
 
     // get output shapes
     gert::Shape* yShape = context->GetOutputShape(Y_IDX);
-    OP_CHECK_NULL_WITH_CONTEXT(context, yShape);
+    if (yShape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "y");
+        return ge::GRAPH_FAILED;
+    }
 
     *yShape = *xShape;
     OP_LOGD(context, "End to do AngleV2InferShapeFunc");

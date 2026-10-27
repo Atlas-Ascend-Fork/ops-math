@@ -17,10 +17,16 @@ static graphStatus InferShape4SearchSorted(gert::InferShapeContext* context)
 {
     OP_LOGI("Begin InferShape4SearchSorted");
     const gert::Shape* values_shape = context->GetInputShape(1);
-    OP_CHECK_NULL_WITH_CONTEXT(context, values_shape);
+    if (values_shape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "values");
+        return ge::GRAPH_FAILED;
+    }
 
     gert::Shape* out_shape = context->GetOutputShape(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context, out_shape);
+    if (out_shape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "y");
+        return ge::GRAPH_FAILED;
+    }
     *out_shape = *values_shape;
 
     return GRAPH_SUCCESS;

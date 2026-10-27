@@ -94,17 +94,17 @@ void CumminTiling::PrintCumminAll()
     OP_LOGD(context_, "==========================================================");
 }
 
-bool CumminTiling::IsCapable()
-{
-    return true;
-}
+bool CumminTiling::IsCapable() { return true; }
 
 // 1、获取平台信息比如CoreNum、UB/L1/L0C资源大小
 ge::graphStatus CumminTiling::GetPlatformInfo()
 {
     OP_LOGD(context_, "CumminTiling GetPlatformInfo.");
     compileInfo_ = static_cast<const CumminCompileInfo*>(context_->GetCompileInfo());
-    OP_CHECK_NULL_WITH_CONTEXT(context_, compileInfo_);
+    if (compileInfo_ == nullptr) {
+        OP_LOGE(context_->GetNodeName(), "Get compile info failed.");
+        return ge::GRAPH_FAILED;
+    }
 
     return ge::GRAPH_SUCCESS;
 }
@@ -115,18 +115,25 @@ ge::graphStatus CumminTiling::GetShapeAttrsInfo()
     OP_LOGD(context_, "CumminTiling GetShapeAttrsInfo.");
     // 获取输入shape和dtype
     const gert::StorageShape* shape = context_->GetInputShape(INPUT_X);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, shape);
+    if (shape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "x");
+        return ge::GRAPH_FAILED;
+    }
     auto xShape = shape->GetStorageShape();
     auto attrs = context_->GetAttrs();
-    OP_CHECK_IF((attrs == nullptr), OP_LOGE(context_, "Get attrs Failed."), return ge::GRAPH_FAILED);
+    if (attrs == nullptr) {
+        OP_LOGE(context_, "Get attrs Failed.");
+        return ge::GRAPH_FAILED;
+    }
 
     int64_t dim = *(attrs->GetAttrPointer<int64_t>(DIM));
     int64_t dimNum = xShape.GetDimNum();
 
-    OP_CHECK_IF(
-        (dim < -dimNum || dim >= dimNum),
-        OP_LOGE(context_, " dim must be in [%ld, %ld], dim: [%ld].", -dimNum, dimNum - 1, dim),
-        return ge::GRAPH_FAILED);
+    if (dim < -dimNum || dim >= dimNum) {
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context_->GetNodeName(), "dim", std::to_string(dim).c_str(),
+                                              "dim must be in [-dimNum, dimNum-1]");
+        return ge::GRAPH_FAILED;
+    }
     if (dimNum == 0) {
         dimNum = 1;
     }
@@ -147,7 +154,12 @@ ge::graphStatus CumminTiling::GetShapeAttrsInfo()
     ge::DataType argminDataType = context_->GetOutputDesc(INPUT_ARGMIN)->GetDataType();
     dSize_ = ge::GetSizeByDataType(xDataType);
     argminDSize_ = ge::GetSizeByDataType(argminDataType);
-    OP_CHECK_IF(dSize_ <= 0, OP_LOGE(context_, "X data size less or equal than 0"), return ge::GRAPH_FAILED);
+    if (dSize_ <= 0) {
+        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context_->GetNodeName(), "x",
+                                              std::to_string(static_cast<int32_t>(xDataType)).c_str(),
+                                              "data size less or equal than 0");
+        return ge::GRAPH_FAILED;
+    }
     perBlockNum_ = Ops::Base::CeilDiv(BLOCK_SIZE, dSize_);
     alignedN_ = Ops::Base::CeilAlign(N, perBlockNum_);
 
@@ -176,8 +188,7 @@ ge::graphStatus CumminTiling::DoUBSliceForR(CumminSplitInfo& info, int64_t lengt
 
 ge::graphStatus CumminTiling::DoUBSliceForN(CumminSplitInfo& info, int64_t length)
 {
-    info.computeN =
-        Ops::Base::FloorAlign(ubSize_ / TWO_ROWS, static_cast<int64_t>(compileInfo_->vRegSize)) / dSize_;
+    info.computeN = Ops::Base::FloorAlign(ubSize_ / TWO_ROWS, static_cast<int64_t>(compileInfo_->vRegSize)) / dSize_;
     info.splitN = Ops::Base::CeilDiv(length, info.computeN);
     info.reservedN = length % info.computeN;
     info.computeLength = info.computeN;
@@ -249,15 +260,9 @@ ge::graphStatus CumminTiling::DoOpTiling()
 }
 
 // 4、计算高阶API的TilingData
-ge::graphStatus CumminTiling::DoLibApiTiling()
-{
-    return ge::GRAPH_SUCCESS;
-}
+ge::graphStatus CumminTiling::DoLibApiTiling() { return ge::GRAPH_SUCCESS; }
 
-uint64_t CumminTiling::GetTilingKey() const
-{
-    return tilingKey_;
-}
+uint64_t CumminTiling::GetTilingKey() const { return tilingKey_; }
 
 ge::graphStatus CumminTiling::GetWorkspaceSize()
 {
@@ -272,19 +277,27 @@ ge::graphStatus CumminTiling::PostTiling()
 
     // 设置workspace大小
     auto workspaces = context_->GetWorkspaceSizes(1);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, workspaces);
+    if (workspaces == nullptr) {
+        OP_LOGE(context_->GetNodeName(), "Get workspace sizes failed.");
+        return ge::GRAPH_FAILED;
+    }
     workspaces[0] = workspaceSize_;
 
     auto res = context_->SetBlockDim(static_cast<uint32_t>(blockDim_));
-    OP_CHECK_IF((res != ge::GRAPH_SUCCESS), OP_LOGE(context_, "SetBlockDim failed."), return ge::GRAPH_FAILED);
+    if (res != ge::GRAPH_SUCCESS) {
+        OP_LOGE(context_, "SetBlockDim failed.");
+        return ge::GRAPH_FAILED;
+    }
 
     res = context_->SetLocalMemorySize(ubSize_);
-    OP_CHECK_IF((res != ge::GRAPH_SUCCESS), OP_LOGE(context_, "SetLocalMemorySize failed."), return ge::GRAPH_FAILED);
+    if (res != ge::GRAPH_SUCCESS) {
+        OP_LOGE(context_, "SetLocalMemorySize failed.");
+        return ge::GRAPH_FAILED;
+    }
 
     PrintCumminAll();
-    errno_t ret = memcpy_s(
-        context_->GetRawTilingData()->GetData(), context_->GetRawTilingData()->GetCapacity(), &tilingData_,
-        sizeof(CumminRegbaseTilingData));
+    errno_t ret = memcpy_s(context_->GetRawTilingData()->GetData(), context_->GetRawTilingData()->GetCapacity(),
+                           &tilingData_, sizeof(CumminRegbaseTilingData));
     if (ret != EOK) {
         OP_LOGE(context_->GetNodeName(), "memcpy_s failed, ret=%d", ret);
         return ge::GRAPH_FAILED;
@@ -311,35 +324,48 @@ static ge::graphStatus TilingPrepare4CumminAscendc(gert::TilingParseContext* con
 
     auto compileInfo = context->GetCompiledInfo<CumminCompileInfo>();
 
-    OP_CHECK_NULL_WITH_CONTEXT(context, compileInfo);
+    if (compileInfo == nullptr) {
+        OP_LOGE(context->GetNodeName(), "Get compile info failed.");
+        return ge::GRAPH_FAILED;
+    }
     auto platformInfo = context->GetPlatformInfo();
-    OP_CHECK_NULL_WITH_CONTEXT(context, platformInfo);
+    if (platformInfo == nullptr) {
+        OP_LOGE(context->GetNodeName(), "Get platform info failed.");
+        return ge::GRAPH_FAILED;
+    }
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
 
     compileInfo->coreNum = ascendcPlatform.GetCoreNumAiv();
-    OP_CHECK_IF(
-        (compileInfo->coreNum <= 0), OP_LOGE(context->GetNodeName(), "core num is negative."), return ge::GRAPH_FAILED);
+    if (compileInfo->coreNum <= 0) {
+        OP_LOGE(context->GetNodeName(), "core num is negative.");
+        return ge::GRAPH_FAILED;
+    }
 
     uint64_t ubSize = 0;
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSize);
     compileInfo->ubSize = static_cast<int64_t>(ubSize);
-    OP_CHECK_IF(
-        (compileInfo->ubSize <= 0), OP_LOGE(context->GetNodeName(), "fail to get ub size."), return ge::GRAPH_FAILED);
+    if (compileInfo->ubSize <= 0) {
+        OP_LOGE(context->GetNodeName(), "fail to get ub size.");
+        return ge::GRAPH_FAILED;
+    }
 
     compileInfo->clSize = Ops::Base::GetCacheLineSize(context);
-    OP_CHECK_IF(
-        (compileInfo->clSize <= 0), OP_LOGE(context->GetNodeName(), "fail to get cache line size."),
-        return ge::GRAPH_FAILED);
+    if (compileInfo->clSize <= 0) {
+        OP_LOGE(context->GetNodeName(), "fail to get cache line size.");
+        return ge::GRAPH_FAILED;
+    }
 
     compileInfo->blockSize = Ops::Base::GetUbBlockSize(context);
-    OP_CHECK_IF(
-        (compileInfo->blockSize <= 0), OP_LOGE(context->GetNodeName(), "fail to get block size."),
-        return ge::GRAPH_FAILED);
+    if (compileInfo->blockSize <= 0) {
+        OP_LOGE(context->GetNodeName(), "fail to get block size.");
+        return ge::GRAPH_FAILED;
+    }
 
     compileInfo->vRegSize = Ops::Base::GetVRegSize(context);
-    OP_CHECK_IF(
-        (compileInfo->vRegSize <= 0), OP_LOGE(context->GetNodeName(), "fail to get vReg size."),
-        return ge::GRAPH_FAILED);
+    if (compileInfo->vRegSize <= 0) {
+        OP_LOGE(context->GetNodeName(), "fail to get vReg size.");
+        return ge::GRAPH_FAILED;
+    }
 
     OP_LOGD(context->GetNodeName(), "Exit TilingPrepare4CumminAscendc.");
     return ge::GRAPH_SUCCESS;
@@ -348,7 +374,10 @@ static ge::graphStatus TilingPrepare4CumminAscendc(gert::TilingParseContext* con
 static ge::graphStatus TilingPrepare4Cummin(gert::TilingParseContext* context)
 {
     auto compile_info = context->GetCompiledInfo<CumminCompileInfo>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, compile_info);
+    if (compile_info == nullptr) {
+        OP_LOGE(context->GetNodeName(), "Get compile info failed.");
+        return ge::GRAPH_FAILED;
+    }
     OP_LOGD("TilingPrepare4Cummin", "Ascend C TilingPrepare4Cummin success.");
     return TilingPrepare4CumminAscendc(context);
 }

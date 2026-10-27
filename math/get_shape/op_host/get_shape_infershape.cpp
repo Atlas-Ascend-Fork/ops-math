@@ -32,7 +32,10 @@ static ge::graphStatus InferShapeForGetShape(gert::InferShapeContext* context)
     int64_t totalDimNum = 0;
     for (size_t i = 0; i < inputNum; ++i) {
         auto xShape = context->GetDynamicInputShape(0, i);
-        OP_CHECK_NULL_WITH_CONTEXT(context, xShape);
+        if (xShape == nullptr) {
+            OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x");
+            return ge::GRAPH_FAILED;
+        }
         if (Ops::Base::IsUnknownRank(*xShape)) {
             OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON(context->GetNodeName(), "x", "unknown rank",
                                                   "x cannot be an unknown rank tensor");
@@ -56,7 +59,10 @@ static ge::graphStatus InferShapeForGetShape(gert::InferShapeContext* context)
     }
 
     auto yShape = context->GetOutputShape(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context, yShape);
+    if (yShape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "y");
+        return ge::GRAPH_FAILED;
+    }
     yShape->SetDimNum(1);
     yShape->SetDim(0, totalDimNum);
 

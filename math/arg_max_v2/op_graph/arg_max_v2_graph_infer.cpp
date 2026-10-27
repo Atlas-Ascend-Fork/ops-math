@@ -20,7 +20,10 @@ static ge::graphStatus InferDataType4ArgMaxV2(gert::InferDataTypeContext* contex
     ge::DataType outputDtype = ge::DT_INT32;
 
     auto attrs = context->GetAttrs();
-    OP_CHECK_NULL_WITH_CONTEXT(context, attrs);
+    if (attrs == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "attrs");
+        return ge::GRAPH_FAILED;
+    }
     auto attr_dtype_ptr = attrs->GetAttrPointer<int64_t>(0);
 
     if (attr_dtype_ptr != nullptr) {

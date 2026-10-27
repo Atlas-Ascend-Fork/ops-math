@@ -47,24 +47,33 @@ ge::graphStatus Rfft1DBaseTiling::GetPlatformInfo()
 ge::graphStatus Rfft1DBaseTiling::GetShapeAttrsInfo()
 {
     auto runtimeAttrs = context_->GetAttrs();
-    OP_CHECK_NULL_WITH_CONTEXT(context_, runtimeAttrs);
+    if (runtimeAttrs == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "attrs");
+        return ge::GRAPH_FAILED;
+    }
     length = *runtimeAttrs->GetAttrPointer<int64_t>(0);
     normal = *runtimeAttrs->GetAttrPointer<int64_t>(1);
 
     auto inputXDesc = context_->GetInputDesc(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, inputXDesc);
+    if (inputXDesc == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "x");
+        return ge::GRAPH_FAILED;
+    }
     dtype = context_->GetInputDesc(0)->GetDataType();
     if (dtype != ge::DataType::DT_FLOAT) {
-        OP_LOGE(context_->GetNodeName(), "Rfft1D support float32");
+        OP_LOGE_FOR_INVALID_DTYPE(context_->GetNodeName(), "x", Ops::Base::ToString(dtype).c_str(), "float32");
         return ge::GRAPH_FAILED;
     }
 
-    if (normal != static_cast<int32_t>(NORM_VALUES::BACKWARD) && normal !=  static_cast<int32_t>(NORM_VALUES::FORWARD) && normal !=  static_cast<int32_t>(NORM_VALUES::ORTHO)) {
-        OP_LOGE(context_->GetNodeName(), "Incorrect norm parameter value");
+    if (normal != static_cast<int32_t>(NORM_VALUES::BACKWARD) && normal != static_cast<int32_t>(NORM_VALUES::FORWARD) &&
+        normal != static_cast<int32_t>(NORM_VALUES::ORTHO)) {
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context_->GetNodeName(), "norm", std::to_string(normal).c_str(),
+                                              "Incorrect norm parameter value");
         return ge::GRAPH_FAILED;
     }
     if (length < 1) {
-        OP_LOGE(context_->GetNodeName(), "n parameter should be > 0");
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context_->GetNodeName(), "length", std::to_string(length).c_str(),
+                                              "n parameter should be > 0");
         return ge::GRAPH_FAILED;
     }
 

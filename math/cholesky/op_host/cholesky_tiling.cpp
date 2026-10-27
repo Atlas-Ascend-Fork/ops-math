@@ -63,7 +63,10 @@ ge::graphStatus CholeskyTiling::Init()
     }
 
     auto attrs = tilingContext->GetAttrs();
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, attrs);
+    if (attrs == nullptr) {
+        OP_LOGE(tilingContext->GetNodeName(), "Get attrs failed.");
+        return ge::GRAPH_FAILED;
+    }
     const bool* ptrUpper = attrs->GetAttrPointer<bool>(UPPER_INDEX);
     if (ptrUpper == nullptr) {
         return ge::GRAPH_FAILED;
@@ -72,13 +75,18 @@ ge::graphStatus CholeskyTiling::Init()
 
     auto inputDesc = tilingContext->GetInputDesc(0);
     auto outputDesc = tilingContext->GetOutputDesc(0);
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, inputDesc);
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, outputDesc);
-    OP_CHECK_IF(
-        inputDesc->GetDataType() != ge::DT_FLOAT,
-        OP_LOGE_WITH_INVALID_INPUT_DTYPE(tilingContext->GetNodeName(), "x",
-                                         ge::TypeUtils::DataTypeToSerialString(inputDesc->GetDataType()), "DT_FLOAT"),
-        return ge::GRAPH_FAILED);
+    if (inputDesc == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "x");
+        return ge::GRAPH_FAILED;
+    }
+    if (outputDesc == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "y");
+        return ge::GRAPH_FAILED;
+    }
+    OP_CHECK_IF(inputDesc->GetDataType() != ge::DT_FLOAT,
+                OP_LOGE_FOR_INVALID_DTYPE(tilingContext->GetNodeName(), "x",
+                                          ge::TypeUtils::DataTypeToSerialString(inputDesc->GetDataType()), "DT_FLOAT"),
+                return ge::GRAPH_FAILED);
     OP_CHECK_IF(outputDesc->GetDataType() != ge::DT_FLOAT,
                 OP_LOGE_FOR_INVALID_DTYPE(tilingContext->GetNodeName(), "y",
                                           ge::TypeUtils::DataTypeToSerialString(outputDesc->GetDataType()), "DT_FLOAT"),
@@ -96,8 +104,14 @@ ge::graphStatus CholeskyTiling::Init()
 
     auto inputShape = tilingContext->GetInputShape(0);
     auto outputShape = tilingContext->GetOutputShape(0);
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, inputShape);
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, outputShape);
+    if (inputShape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "x");
+        return ge::GRAPH_FAILED;
+    }
+    if (outputShape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "y");
+        return ge::GRAPH_FAILED;
+    }
     auto matAShape = inputShape->GetOriginShape();
     const std::string actualShapes = Ops::Base::ToString(matAShape) + ", " +
                                      Ops::Base::ToString(outputShape->GetOriginShape());
@@ -138,7 +152,10 @@ ge::graphStatus CholeskyTiling::Init()
     }
 
     auto compileInfo = reinterpret_cast<const CholeskyCompileInfo*>(tilingContext->GetCompileInfo());
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, compileInfo);
+    if (compileInfo == nullptr) {
+        OP_LOGE(tilingContext->GetNodeName(), "Get compile info failed.");
+        return ge::GRAPH_FAILED;
+    }
     uint32_t coreNumPlatForm = compileInfo->coreNum;
     socSupportsPanel = compileInfo->socSupportsPanel;
     // Panel algorithm (all-core trailing update + SIMT transpose) is implemented for the 950
@@ -152,7 +169,10 @@ ge::graphStatus CholeskyTiling::Init()
     }
 
     size_t* currentWorkSpace = tilingContext->GetWorkspaceSizes(1);
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, currentWorkSpace);
+    if (currentWorkSpace == nullptr) {
+        OP_LOGE(tilingContext->GetNodeName(), "Get workspace sizes failed.");
+        return ge::GRAPH_FAILED;
+    }
     currentWorkSpace[0] = WS_SYS_SIZE;
 
     return ge::GRAPH_SUCCESS;
@@ -218,7 +238,10 @@ static ge::graphStatus CholeskyTilingFunc(gert::TilingContext* context)
 static ge::graphStatus tilingPrepareTiling(gert::TilingParseContext* context)
 {
     auto compileInfo = context->GetCompiledInfo<CholeskyCompileInfo>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, compileInfo);
+    if (compileInfo == nullptr) {
+        OP_LOGE(context->GetNodeName(), "Get compiled info failed.");
+        return ge::GRAPH_FAILED;
+    }
     auto platformInfo = context->GetPlatformInfo();
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
     compileInfo->coreNum = ascendcPlatform.GetCoreNumAiv();

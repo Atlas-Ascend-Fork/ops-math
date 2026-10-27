@@ -12,7 +12,7 @@
  * \file is_inf_infer.cpp
  * \brief
  */
- 
+
 #include "register/op_impl_registry.h"
 #include "log/log.h"
 
@@ -22,15 +22,20 @@ static ge::graphStatus InferShape4IsInf(gert::InferShapeContext* context)
 {
     OP_LOGD(context, "Begin to do IsInfInferShape");
     auto inShape = context->GetInputShape(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context, inShape);
+    if (inShape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "inShape");
+        return ge::GRAPH_FAILED;
+    }
     auto outShape = context->GetOutputShape(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context, outShape);
+    if (outShape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "outShape");
+        return ge::GRAPH_FAILED;
+    }
 
     *outShape = *inShape;
 
     return ge::GRAPH_SUCCESS;
 }
-
 
 IMPL_OP_INFERSHAPE(IsInf).InferShape(InferShape4IsInf);
 } // namespace ops

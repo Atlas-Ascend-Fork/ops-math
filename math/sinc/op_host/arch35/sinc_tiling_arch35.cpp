@@ -36,7 +36,10 @@ ge::graphStatus SincTiling::SetTilingData()
     OP_LOGD(tilingContext->GetNodeName(), "SincTiling SetTilingData enter.");
 
     size_t* currentWorkspace = tilingContext->GetWorkspaceSizes(1);
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, currentWorkspace);
+    if (currentWorkspace == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "workspaceSizes");
+        return ge::GRAPH_FAILED;
+    }
     currentWorkspace[0] = static_cast<size_t>(ASCEND_WORKSPACE);
 
     const uint64_t tilingKey = GET_TPL_TILING_KEY(tiling->baseTiling.scheMode, dType);
@@ -48,7 +51,10 @@ ge::graphStatus SincTiling::SetTilingData()
     auto platformInfo = tilingContext->GetPlatformInfo();
     if (platformInfo == nullptr) {
         auto compileInfoPtr = tilingContext->GetCompileInfo<SincCompileInfo>();
-        OP_CHECK_NULL_WITH_CONTEXT(tilingContext, compileInfoPtr);
+        if (compileInfoPtr == nullptr) {
+            OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "compileInfo");
+            return ge::GRAPH_FAILED;
+        }
         ubSize = compileInfoPtr->ubSize;
     } else {
         auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
@@ -64,7 +70,10 @@ ge::graphStatus SincTiling::CalcInputDtype()
 {
     OP_LOGD(tilingContext->GetNodeName(), "SincTiling CalcInputDtype enter.");
     auto inputDesc = tilingContext->GetInputDesc(0);
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, inputDesc);
+    if (inputDesc == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "x");
+        return ge::GRAPH_FAILED;
+    }
     this->inputDtype = inputDesc->GetDataType();
     OP_CHECK_IF(
         this->inputDtype != ge::DT_FLOAT16 && this->inputDtype != ge::DT_BF16 && this->inputDtype != ge::DT_FLOAT,
@@ -79,11 +88,17 @@ ge::graphStatus SincTiling::CheckShape()
 {
     OP_LOGD(tilingContext->GetNodeName(), "SincTiling CheckShape enter.");
     auto inputStorageShape = tilingContext->GetInputShape(0);
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, inputStorageShape);
+    if (inputStorageShape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "x");
+        return ge::GRAPH_FAILED;
+    }
     const gert::Shape& inputYShape = Ops::Base::EnsureNotScalar(inputStorageShape->GetStorageShape());
 
     auto outputStorageShape = tilingContext->GetOutputShape(0);
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, outputStorageShape);
+    if (outputStorageShape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "y");
+        return ge::GRAPH_FAILED;
+    }
     const gert::Shape& outputZShape = Ops::Base::EnsureNotScalar(outputStorageShape->GetStorageShape());
 
     OP_CHECK_IF(inputYShape != outputZShape,
@@ -97,7 +112,10 @@ ge::graphStatus SincTiling::CalcOutputDtype()
 {
     OP_LOGD(tilingContext->GetNodeName(), "SincTiling CalcOutputDtype enter.");
     auto outputDesc = tilingContext->GetOutputDesc(0);
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, outputDesc);
+    if (outputDesc == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "y");
+        return ge::GRAPH_FAILED;
+    }
     this->outputDtype = outputDesc->GetDataType();
     if (this->outputDtype != this->inputDtype) {
         std::string errorMsg = "The dtype of y must be the same as " + ToString(this->inputDtype) + " of x";
@@ -113,8 +131,10 @@ ge::graphStatus SincTiling::RunTiling()
     OP_LOGD(tilingContext->GetNodeName(), "SincTiling RunTiling enter.");
     ElewiseBaseTiling elewiseBaseTiling(tilingContext);
     tiling = tilingContext->GetTilingData<SincNs::SincTilingData>();
-
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, tiling);
+    if (tiling == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "tilingData");
+        return ge::GRAPH_FAILED;
+    }
     if (CalcInputDtype() == ge::GRAPH_FAILED || CalcOutputDtype() == ge::GRAPH_FAILED ||
         CheckShape() == ge::GRAPH_FAILED) {
         return ge::GRAPH_FAILED;
@@ -151,7 +171,10 @@ static ge::graphStatus Tiling4Sinc(gert::TilingContext* tilingContextGen)
 {
     OP_LOGD(tilingContextGen->GetNodeName(), "Tiling4Sinc rt2.0 is running.");
     auto compileInfo = tilingContextGen->GetCompileInfo<SincCompileInfo>();
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContextGen, compileInfo);
+    if (compileInfo == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(tilingContextGen->GetNodeName(), "compileInfo");
+        return ge::GRAPH_FAILED;
+    }
 
     SincTiling baseOpTiling(tilingContextGen);
     return baseOpTiling.RunTiling();
@@ -160,9 +183,15 @@ static ge::graphStatus Tiling4Sinc(gert::TilingContext* tilingContextGen)
 static ge::graphStatus TilingPrepareForSinc(gert::TilingParseContext* context)
 {
     auto compileInfoPtr = context->GetCompiledInfo<SincCompileInfo>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, compileInfoPtr);
+    if (compileInfoPtr == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "compileInfo");
+        return ge::GRAPH_FAILED;
+    }
     fe::PlatFormInfos* platformInfoPtr = context->GetPlatformInfo();
-    OP_CHECK_NULL_WITH_CONTEXT(context, platformInfoPtr);
+    if (platformInfoPtr == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "platformInfo");
+        return ge::GRAPH_FAILED;
+    }
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfoPtr);
     compileInfoPtr->coreNum = ascendcPlatform.GetCoreNumAiv();
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, compileInfoPtr->ubSize);

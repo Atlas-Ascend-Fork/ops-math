@@ -42,10 +42,9 @@ bool Atan2Tiling::CheckDtype(const ge::DataType& input0Dtype, const ge::DataType
                              const ge::DataType& outputDtype) const
 {
     if (input0Dtype != input1Dtype || input0Dtype != outputDtype) {
-        OP_LOGE(context_->GetNodeName(), "Dtype of input0[%s] should be equal to dtype of input1[%s] and output[%s].",
-                ge::TypeUtils::DataTypeToSerialString(input0Dtype).c_str(),
-                ge::TypeUtils::DataTypeToSerialString(input1Dtype).c_str(),
-                ge::TypeUtils::DataTypeToSerialString(outputDtype).c_str());
+        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context_->GetNodeName(), "input1",
+                                              ge::TypeUtils::DataTypeToSerialString(input1Dtype).c_str(),
+                                              "Dtype of input0 should be equal to dtype of input1 and output");
         return false;
     }
     return true;
@@ -54,13 +53,22 @@ bool Atan2Tiling::CheckDtype(const ge::DataType& input0Dtype, const ge::DataType
 ge::graphStatus Atan2Tiling::DoOpTiling()
 {
     auto input0Desc = context_->GetInputDesc(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, input0Desc);
+    if (input0Desc == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "input0");
+        return ge::GRAPH_FAILED;
+    }
     ge::DataType input0Dtype = input0Desc->GetDataType();
     auto input1Desc = context_->GetInputDesc(1);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, input1Desc);
+    if (input1Desc == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "input1");
+        return ge::GRAPH_FAILED;
+    }
     ge::DataType input1Dtype = input1Desc->GetDataType();
     auto outputDesc = context_->GetOutputDesc(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, outputDesc);
+    if (outputDesc == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "output");
+        return ge::GRAPH_FAILED;
+    }
     ge::DataType outputDtype = outputDesc->GetDataType();
     if (!CheckDtype(input0Dtype, input1Dtype, outputDtype)) {
         return ge::GRAPH_FAILED;
@@ -79,8 +87,8 @@ ge::graphStatus Atan2Tiling::DoOpTiling()
         ret = brcBaseTiling.DoTiling();
         tilingKey = GET_TPL_TILING_KEY(brcBaseTiling.GetSchMode());
     } else {
-        OP_LOGE(context_->GetNodeName(), "Input dtype is only support fp16, bf16, fp32, while got %s!",
-                ge::TypeUtils::DataTypeToSerialString(input0Dtype).c_str());
+        OP_LOGE_FOR_INVALID_DTYPE(context_->GetNodeName(), "input0",
+                                  ge::TypeUtils::DataTypeToSerialString(input0Dtype).c_str(), "fp16, bf16, fp32");
         return ge::GRAPH_FAILED;
     }
 
@@ -106,7 +114,10 @@ ge::graphStatus TilingForAtan2(gert::TilingContext* context)
     }
 
     auto compileInfo = context->GetCompileInfo<BroadcastCompileInfo>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, compileInfo);
+    if (compileInfo == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "compileInfo");
+        return ge::GRAPH_FAILED;
+    }
 
     OP_LOGD(context, "Enter ascendc Atan2Tiling");
     return Ops::Math::OpTiling::TilingRegistry::GetInstance().DoTilingImpl(context);

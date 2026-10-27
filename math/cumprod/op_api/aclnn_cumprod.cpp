@@ -101,7 +101,6 @@ static aclnnStatus doGetWorkspaceSize(aclTensor* input, const aclScalar* inputDi
 {
     // 固定写法，创建OpExecutor
     auto uniqueExecutor = CREATE_EXECUTOR();
-    CHECK_RET(uniqueExecutor.get() != nullptr, ACLNN_ERR_INNER_CREATE_EXECUTOR);
 
     // 参数检查
     auto ret = CheckParams(input, out, inputDim, workspaceSize);

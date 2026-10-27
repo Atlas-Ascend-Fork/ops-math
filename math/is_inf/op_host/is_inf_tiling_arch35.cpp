@@ -28,7 +28,10 @@ const uint64_t TILING_KEY_FP32 = 103UL;
 ge::graphStatus IsInfRegbaseTiling::CalcInputDtype()
 {
     auto inputDesc = tilingContext->GetInputDesc(0);
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, inputDesc);
+    if (inputDesc == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "inputDesc");
+        return ge::GRAPH_FAILED;
+    }
     this->inputDtype = inputDesc->GetDataType();
     OP_CHECK_IF(
         this->inputDtype != ge::DT_FLOAT16 && this->inputDtype != ge::DT_BF16 && this->inputDtype != ge::DT_FLOAT,
@@ -41,7 +44,10 @@ ge::graphStatus IsInfRegbaseTiling::CalcInputDtype()
 ge::graphStatus IsInfRegbaseTiling::CalcOutputDtype()
 {
     auto outputDesc = tilingContext->GetOutputDesc(0);
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, outputDesc);
+    if (outputDesc == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "outputDesc");
+        return ge::GRAPH_FAILED;
+    }
     this->outputDtype = outputDesc->GetDataType();
     OP_CHECK_IF(this->outputDtype != ge::DT_BOOL,
                 OP_LOGE_FOR_INVALID_DTYPE(tilingContext->GetNodeName(), "y",
@@ -53,11 +59,17 @@ ge::graphStatus IsInfRegbaseTiling::CalcOutputDtype()
 ge::graphStatus IsInfRegbaseTiling::CheckShape()
 {
     auto inputStorageShape = tilingContext->GetInputShape(0);
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, inputStorageShape);
+    if (inputStorageShape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "inputStorageShape");
+        return ge::GRAPH_FAILED;
+    }
     const gert::Shape& inputXShape = Ops::Base::EnsureNotScalar(inputStorageShape->GetStorageShape());
 
     auto outputStorageShape = tilingContext->GetOutputShape(0);
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, outputStorageShape);
+    if (outputStorageShape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "outputStorageShape");
+        return ge::GRAPH_FAILED;
+    }
     const gert::Shape& outputYShape = Ops::Base::EnsureNotScalar(outputStorageShape->GetStorageShape());
 
     OP_CHECK_IF(inputXShape.GetDimNum() > 8,
@@ -78,10 +90,16 @@ ge::graphStatus IsInfRegbaseTiling::CheckShape()
 ge::graphStatus IsInfRegbaseTiling::SetTilingData()
 {
     auto rawTilingData = tilingContext->GetRawTilingData();
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, rawTilingData);
+    if (rawTilingData == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "rawTilingData");
+        return ge::GRAPH_FAILED;
+    }
 
     size_t* currentWorkspace = tilingContext->GetWorkspaceSizes(1);
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, currentWorkspace);
+    if (currentWorkspace == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "currentWorkspace");
+        return ge::GRAPH_FAILED;
+    }
     currentWorkspace[0] = static_cast<uint64_t>(ASCEND_WORKSPACE);
 
     if (this->inputDtype == ge::DT_FLOAT16) {

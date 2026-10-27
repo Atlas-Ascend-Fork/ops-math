@@ -89,7 +89,9 @@ static ge::graphStatus DoTilingAscendC(gert::TilingContext* context, const Cdist
     }
 
     OP_CHECK_IF((status == ge::GRAPH_FAILED),
-                OP_LOGE(context->GetNodeName(), "ReduceOp Tiling failed, dtype should be in (float16/bfloat16/float)"),
+                OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(
+                    context->GetNodeName(), "grad", std::to_string(static_cast<int>(opInput.inputDtype)).c_str(),
+                    "ReduceOp Tiling failed, dtype should be in (float16/bfloat16/float)"),
                 return ge::GRAPH_FAILED);
     return status;
 }
@@ -114,20 +116,28 @@ static int32_t ComputeNormMode(float p)
 static ge::graphStatus Tiling4CdistGrad(gert::TilingContext* context)
 {
     auto compileInfo = context->GetCompileInfo<CdistGradCompileInfo>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, compileInfo);
+    if (compileInfo == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "compileInfo");
+        return ge::GRAPH_FAILED;
+    }
 
     ReduceOpInputParam opInput;
     OP_CHECK_IF((ReduceOpTmpl::GetInputParam(context, opInput, 0) == ge::GRAPH_FAILED),
                 OP_LOGE(context->GetNodeName(), "ReduceOp get grad input param failed"), return ge::GRAPH_FAILED);
 
     int64_t dimNum = static_cast<int64_t>(opInput.shape.size());
-    OP_CHECK_IF(dimNum < 2, OP_LOGE(context->GetNodeName(), "CdistGrad requires at least 2D input, got: %ld", dimNum),
+    OP_CHECK_IF(dimNum < 2,
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "grad", std::to_string(dimNum).c_str(),
+                                                         "CdistGrad requires at least 2D input"),
                 return ge::GRAPH_FAILED);
     opInput.axes = {dimNum - 2};
 
     // Get attr p
     auto attrs = context->GetAttrs();
-    OP_CHECK_NULL_WITH_CONTEXT(context, attrs);
+    if (attrs == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "attrs");
+        return ge::GRAPH_FAILED;
+    }
     float p = 2.0f;
     if (attrs->GetAttrNum() > 0) {
         const float* pAttr = attrs->GetAttrPointer<float>(0);
@@ -138,7 +148,10 @@ static ge::graphStatus Tiling4CdistGrad(gert::TilingContext* context)
     int32_t normMode = ComputeNormMode(p);
 
     auto tilingData = context->GetTilingData<CdistGradTilingData>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, tilingData);
+    if (tilingData == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "tilingData");
+        return ge::GRAPH_FAILED;
+    }
 
     tilingData->powCdist = p - 1.0f;
     tilingData->powDiff = p - 2.0f;
@@ -161,9 +174,15 @@ static ge::graphStatus Tiling4CdistGrad(gert::TilingContext* context)
 template <typename ContextT>
 static ge::graphStatus TilingPrepare4ReduceOp(ContextT* context, ReduceOpCompileInfo* compileInfo)
 {
-    OP_CHECK_NULL_WITH_CONTEXT(context, compileInfo);
+    if (compileInfo == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "compileInfo");
+        return ge::GRAPH_FAILED;
+    }
     auto platformInfo = context->GetPlatformInfo();
-    OP_CHECK_NULL_WITH_CONTEXT(context, platformInfo);
+    if (platformInfo == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "platformInfo");
+        return ge::GRAPH_FAILED;
+    }
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
     compileInfo->vectorCoreNum = ascendcPlatform.GetCoreNumAiv();
     OP_CHECK_IF((compileInfo->vectorCoreNum == 0UL),
@@ -209,7 +228,10 @@ inline static T* GetCompileInfoPtr(gert::TilingParseContext* context)
 static ge::graphStatus TilingParse4CdistGrad(gert::TilingParseContext* context)
 {
     auto compileInfo = GetCompileInfoPtr<CdistGradCompileInfo>(context);
-    OP_CHECK_NULL_WITH_CONTEXT(context, compileInfo);
+    if (compileInfo == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "compileInfo");
+        return ge::GRAPH_FAILED;
+    }
     return TilingPrepare4ReduceOp(context, &compileInfo->opInfo);
 }
 

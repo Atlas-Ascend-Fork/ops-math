@@ -13,6 +13,7 @@
  * \brief
  */
 #include "log/log.h"
+#include "graph/utils/type_utils.h"
 #include "register/op_impl_registry.h"
 
 using namespace ge;
@@ -50,14 +51,22 @@ static ge::graphStatus InferShape4LinSpace(gert::InferShapeContext* context)
     OP_LOGD(context->GetNodeName(), "Begin to do InferShape4LinSpace");
 
     auto numTensor = context->GetInputTensor(LINSPACE_IDX_IN_NUM);
-    OP_CHECK_NULL_WITH_CONTEXT(context, numTensor);
+    if (numTensor == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "numTensor");
+        return ge::GRAPH_FAILED;
+    }
     auto outShape = context->GetOutputShape(LINSPACE_IDX_OUT_OUTPUT);
-    OP_CHECK_NULL_WITH_CONTEXT(context, outShape);
+    if (outShape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "outShape");
+        return ge::GRAPH_FAILED;
+    }
     int64_t numValue = 0;
+    auto tensorDataType = numTensor->GetDataType();
     auto res = GetNumValue(numTensor, numValue);
     if (res != ge::GRAPH_SUCCESS) {
         outShape->SetDimNum(0);
-        OP_LOGE(context->GetNodeName(), "the dtype of num only supports int32_t and int64_t, infershape failed!");
+        OP_LOGE_FOR_INVALID_DTYPE(context->GetNodeName(), "num", ge::TypeUtils::DataTypeToSerialString(tensorDataType),
+                                  "int32, int64");
         return ge::GRAPH_FAILED;
     }
     outShape->SetDimNum(1);

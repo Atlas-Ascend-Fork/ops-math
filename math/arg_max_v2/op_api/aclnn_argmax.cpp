@@ -178,7 +178,6 @@ aclnnStatus aclnnArgMaxGetWorkspaceSize(const aclTensor* self, int64_t dim, bool
     L2_DFX_PHASE_1(aclnnArgMax, DFX_IN(self, dim, keepdim), DFX_OUT(out));
 
     auto uniqueExecutor = CREATE_EXECUTOR();
-    CHECK_RET(uniqueExecutor.get() != nullptr, ACLNN_ERR_INNER_CREATE_EXECUTOR);
 
     auto ret = CheckParams(self, out, dim);
     CHECK_RET(ret == ACLNN_SUCCESS, ret);

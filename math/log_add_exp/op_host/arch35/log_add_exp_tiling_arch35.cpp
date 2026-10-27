@@ -50,7 +50,8 @@ ge::graphStatus LogAddExpTiling::GetShapeAttrsInfo()
     }
     // base must be -1 (natural log) or strictly positive
     if (base_ != DEFAULT_BASE && base_ <= 0.0f) {
-        OP_LOGE(context_->GetNodeName(), "base must be -1 (natural log) or > 0, got %f", base_);
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context_->GetNodeName(), "base", std::to_string(base_).c_str(),
+                                              "base must be -1 (natural log) or > 0");
         return ge::GRAPH_FAILED;
     }
     useFullFormula_ = !(base_ == DEFAULT_BASE && scale_ == DEFAULT_SCALE && shift_ == DEFAULT_SHIFT);
@@ -62,13 +63,22 @@ bool LogAddExpTiling::IsCapable() { return true; }
 ge::graphStatus LogAddExpTiling::CheckDtype(ge::DataType& input0Dtype)
 {
     auto input0Desc = context_->GetInputDesc(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, input0Desc);
+    if (input0Desc == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "x1");
+        return ge::GRAPH_FAILED;
+    }
     input0Dtype = input0Desc->GetDataType();
     auto input1Desc = context_->GetInputDesc(1);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, input1Desc);
+    if (input1Desc == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "x2");
+        return ge::GRAPH_FAILED;
+    }
     ge::DataType input1Dtype = input1Desc->GetDataType();
     auto outputDesc = context_->GetOutputDesc(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, outputDesc);
+    if (outputDesc == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "y");
+        return ge::GRAPH_FAILED;
+    }
     ge::DataType outputDtype = outputDesc->GetDataType();
     if (input0Dtype != input1Dtype || input0Dtype != outputDtype) {
         std::string reasonMsg = "The dtypes of x1(" + ge::TypeUtils::DataTypeToSerialString(input0Dtype) + "), x2(" +
@@ -177,12 +187,15 @@ ge::graphStatus TilingForLogAddExp(gert::TilingContext* context)
 {
     OP_LOGD("LogAddExpTiling", "Enter TilingForLogAddExp");
     if (context == nullptr) {
-        OP_LOGE("LogAddExpTiling", "Tiling context is nullptr");
+        OP_LOGE_WITH_INVALID_INPUT("LogAddExpTiling", "tilingContext");
         return ge::GRAPH_FAILED;
     }
 
     auto compileInfo = context->GetCompileInfo<LogAddExpCompileInfo>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, compileInfo);
+    if (compileInfo == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "compileInfo");
+        return ge::GRAPH_FAILED;
+    }
 
     OP_LOGD(context, "Enter ascendc LogAddExpTiling");
     return Ops::Math::OpTiling::TilingRegistry::GetInstance().DoTilingImpl(context);
@@ -191,10 +204,16 @@ ge::graphStatus TilingForLogAddExp(gert::TilingContext* context)
 ge::graphStatus TilingPrepareForLogAddExp(gert::TilingParseContext* context)
 {
     auto compileInfoPtr = context->GetCompiledInfo<LogAddExpCompileInfo>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, compileInfoPtr);
+    if (compileInfoPtr == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "compileInfo");
+        return ge::GRAPH_FAILED;
+    }
 
     fe::PlatFormInfos* platformInfoPtr = context->GetPlatformInfo();
-    OP_CHECK_NULL_WITH_CONTEXT(context, platformInfoPtr);
+    if (platformInfoPtr == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "platformInfo");
+        return ge::GRAPH_FAILED;
+    }
 
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfoPtr);
     compileInfoPtr->coreNum = ascendcPlatform.GetCoreNumAiv();

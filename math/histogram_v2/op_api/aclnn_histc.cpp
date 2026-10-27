@@ -261,7 +261,6 @@ aclnnStatus aclnnHistcGetWorkspaceSize(const aclTensor* self, int64_t bins, cons
 
     // 创建OpExecutor
     auto uniqueExecutor = CREATE_EXECUTOR();
-    CHECK_RET(uniqueExecutor.get() != nullptr, ACLNN_ERR_INNER_CREATE_EXECUTOR);
 
     if (self->IsEmpty()) {
         auto status = EmptyTensor(out, uniqueExecutor.get());

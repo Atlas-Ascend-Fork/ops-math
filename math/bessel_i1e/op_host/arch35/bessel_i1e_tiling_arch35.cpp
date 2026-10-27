@@ -51,7 +51,10 @@ static inline const gert::Shape EnsureNotScalar(const gert::Shape& inShape)
 static ge::graphStatus GetPlatformInfo(const gert::TilingContext* context, uint64_t* ubSize, int64_t* coreNum)
 {
     fe::PlatFormInfos* platformInfoPtr = context->GetPlatformInfo();
-    OP_CHECK_NULL_WITH_CONTEXT(context, platformInfoPtr);
+    if (platformInfoPtr == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "platformInfo");
+        return ge::GRAPH_FAILED;
+    }
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfoPtr);
     *coreNum = ascendcPlatform.GetCoreNumAiv();
     OP_CHECK_IF(*coreNum == 0, OP_LOGE(context, "coreNum is 0"), return ge::GRAPH_FAILED);
@@ -63,7 +66,10 @@ static ge::graphStatus GetPlatformInfo(const gert::TilingContext* context, uint6
 static ge::graphStatus GetShapeAttrsInfo(const gert::TilingContext* context, int64_t* totalIdx, ge::DataType* dataType)
 {
     auto inputX = context->GetInputShape(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context, inputX);
+    if (inputX == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x");
+        return ge::GRAPH_FAILED;
+    }
     auto inputShapeX = EnsureNotScalar(inputX->GetStorageShape());
 
     OP_CHECK_IF(inputShapeX.GetDimNum() > MAX_DIM_NUM,
@@ -73,26 +79,34 @@ static ge::graphStatus GetShapeAttrsInfo(const gert::TilingContext* context, int
                 return ge::GRAPH_FAILED);
 
     auto outY = context->GetOutputShape(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context, outY);
+    if (outY == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "y");
+        return ge::GRAPH_FAILED;
+    }
     auto outShapeY = EnsureNotScalar(outY->GetStorageShape());
 
     OP_CHECK_IF(inputShapeX.GetShapeSize() != outShapeY.GetShapeSize(),
-                OP_LOGE(context, "BesselI1e: input and output shape size mismatch: x=%ld, y=%ld",
-                        inputShapeX.GetShapeSize(), outShapeY.GetShapeSize()),
+                OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(context->GetNodeName(), "y",
+                                                          std::to_string(outShapeY.GetShapeSize()).c_str(),
+                                                          "BesselI1e: input and output shape size mismatch"),
                 return ge::GRAPH_FAILED);
 
     *totalIdx = inputShapeX.GetShapeSize();
     const std::set<ge::DataType> supportedDtype = {ge::DT_FLOAT, ge::DT_FLOAT16, ge::DT_BF16};
     auto inputDesc = context->GetInputDesc(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context, inputDesc);
-    OP_CHECK_IF(inputDesc->GetStorageFormat() != ge::FORMAT_ND,
-                OP_LOGE(context, "BesselI1e only supports ND format, got format %d.",
-                        static_cast<int32_t>(inputDesc->GetStorageFormat())),
-                return ge::GRAPH_FAILED);
+    if (inputDesc == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x");
+        return ge::GRAPH_FAILED;
+    }
+    OP_CHECK_IF(
+        inputDesc->GetStorageFormat() != ge::FORMAT_ND,
+        OP_LOGE_FOR_INVALID_FORMAT(context->GetNodeName(), "x",
+                                   std::to_string(static_cast<int32_t>(inputDesc->GetStorageFormat())).c_str(), "ND"),
+        return ge::GRAPH_FAILED);
     *dataType = inputDesc->GetDataType();
     OP_CHECK_IF(supportedDtype.count(*dataType) == 0,
-                OP_LOGE_WITH_INVALID_INPUT_DTYPE(context->GetNodeName(), "x", Ops::Base::ToString(*dataType).c_str(),
-                                                 "DT_FLOAT, DT_FLOAT16, DT_BFLOAT16"),
+                OP_LOGE_FOR_INVALID_DTYPE(context->GetNodeName(), "x", Ops::Base::ToString(*dataType).c_str(),
+                                          "DT_FLOAT, DT_FLOAT16, DT_BFLOAT16"),
                 return ge::GRAPH_FAILED);
     return ge::GRAPH_SUCCESS;
 }
@@ -100,7 +114,10 @@ static ge::graphStatus GetShapeAttrsInfo(const gert::TilingContext* context, int
 static ge::graphStatus GetWorkspaceSize(gert::TilingContext* context)
 {
     size_t* currentWorkspace = context->GetWorkspaceSizes(WORKSPACE_NUM);
-    OP_CHECK_NULL_WITH_CONTEXT(context, currentWorkspace);
+    if (currentWorkspace == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "workspace");
+        return ge::GRAPH_FAILED;
+    }
     currentWorkspace[0] = WS_SYS_SIZE;
     return ge::GRAPH_SUCCESS;
 }
@@ -122,12 +139,17 @@ static ge::graphStatus BesselI1eTilingFunc(gert::TilingContext* context)
                 return ge::GRAPH_FAILED);
 
     BesselI1eTilingData* tiling = context->GetTilingData<BesselI1eTilingData>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, tiling);
+    if (tiling == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "tiling");
+        return ge::GRAPH_FAILED;
+    }
     OP_CHECK_IF(memset_s(tiling, sizeof(BesselI1eTilingData), 0, sizeof(BesselI1eTilingData)) != EOK,
                 OP_LOGE(context, "set tiling data error"), return ge::GRAPH_FAILED);
 
     OP_CHECK_IF(totalIdx < 0,
-                OP_LOGE(context, "BesselI1e: invalid input shape size %ld (negative dim or size overflow)", totalIdx),
+                OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(
+                    context->GetNodeName(), "x", std::to_string(totalIdx).c_str(),
+                    "BesselI1e: invalid input shape size (negative dim or size overflow)"),
                 return ge::GRAPH_FAILED);
     if (totalIdx == 0) {
         OP_CHECK_IF(context->SetBlockDim(1) != ge::GRAPH_SUCCESS, OP_LOGE(context, "Failed to set block dim"),

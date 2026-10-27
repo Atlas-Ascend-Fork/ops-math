@@ -17,27 +17,40 @@
 
 using namespace ge;
 namespace ops {
-static ge::graphStatus InferShape4KLDiv(gert::InferShapeContext* context) {
-  OP_LOGD(context->GetNodeName(), "Begin to do KLDivInferShape");
-  auto out_shape = context->GetOutputShape(0);
-  OP_CHECK_NULL_WITH_CONTEXT(context, out_shape);
-  auto attrs = context->GetAttrs();
-  OP_CHECK_NULL_WITH_CONTEXT(context, attrs);
+static ge::graphStatus InferShape4KLDiv(gert::InferShapeContext* context)
+{
+    OP_LOGD(context->GetNodeName(), "Begin to do KLDivInferShape");
+    auto out_shape = context->GetOutputShape(0);
+    if (out_shape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "out_shape");
+        return GRAPH_FAILED;
+    }
+    auto attrs = context->GetAttrs();
+    if (attrs == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "attrs");
+        return GRAPH_FAILED;
+    }
 
-  const char *reduction = attrs->GetAttrPointer<char>(0);
-  OP_CHECK_NULL_WITH_CONTEXT(context, reduction);
-  if (strcmp(reduction, "none") == 0) {
-    auto in_shape = context->GetInputShape(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context, in_shape);
-    *out_shape = *in_shape;
-  } else {
-    // if reduction == "batchmean" or reduction == "sum" , output a scalar
-    out_shape->SetDimNum(0);
-  }
+    const char* reduction = attrs->GetAttrPointer<char>(0);
+    if (reduction == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "reduction");
+        return GRAPH_FAILED;
+    }
+    if (strcmp(reduction, "none") == 0) {
+        auto in_shape = context->GetInputShape(0);
+        if (in_shape == nullptr) {
+            OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "in_shape");
+            return GRAPH_FAILED;
+        }
+        *out_shape = *in_shape;
+    } else {
+        // if reduction == "batchmean" or reduction == "sum" , output a scalar
+        out_shape->SetDimNum(0);
+    }
 
-  OP_LOGD(context->GetNodeName(), "End to do KLDivInferShape");
-  return GRAPH_SUCCESS;
+    OP_LOGD(context->GetNodeName(), "End to do KLDivInferShape");
+    return GRAPH_SUCCESS;
 }
 
 IMPL_OP_INFERSHAPE(KLDivV2).InferShape(InferShape4KLDiv);
-}  // namespace ops
+} // namespace ops

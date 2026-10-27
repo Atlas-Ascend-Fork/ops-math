@@ -189,7 +189,6 @@ aclnnStatus aclnnBatchNormStatsGetWorkspaceSize(const aclTensor* input, double e
 
     L2_DFX_PHASE_1(aclnnBatchNormStats, DFX_IN(input, eps), DFX_OUT(mean, invstd));
     auto uniqueExecutor = CREATE_EXECUTOR();
-    CHECK_RET(uniqueExecutor.get() != nullptr, ACLNN_ERR_INNER_CREATE_EXECUTOR);
 
     auto ret = CheckParams(input, mean, invstd);
     CHECK_RET(ret == ACLNN_SUCCESS, ret);

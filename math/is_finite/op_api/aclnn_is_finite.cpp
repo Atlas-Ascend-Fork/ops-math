@@ -42,10 +42,9 @@ static inline bool CheckNotNull(const aclTensor* self, const aclTensor* out)
 static bool CheckDtypeValid(const aclTensor* self, const aclTensor* out)
 {
     auto npuArch = op::GetCurrentPlatformInfo().GetCurNpuArch();
-    bool is910BSocVersion =
-        (npuArch == NpuArch::DAV_2201 || IsRegBase(npuArch));
-    const std::initializer_list<DataType> DTYPE_SUPPORT_LIST =
-        is910BSocVersion ? DTYPE_SUPPORT_LIST_910B : DTYPE_SUPPORT_LIST_910;
+    bool is910BSocVersion = (npuArch == NpuArch::DAV_2201 || IsRegBase(npuArch));
+    const std::initializer_list<DataType> DTYPE_SUPPORT_LIST = is910BSocVersion ? DTYPE_SUPPORT_LIST_910B :
+                                                                                  DTYPE_SUPPORT_LIST_910;
 
     // 检查self的数据类型是否在支持列表内
     OP_CHECK_DTYPE_NOT_SUPPORT(self, DTYPE_SUPPORT_LIST, return false);
@@ -96,14 +95,13 @@ static const aclTensor* GetTrueTensor(const aclTensor* self, aclOpExecutor* exec
 }
 } // namespace
 
-aclnnStatus aclnnIsFiniteGetWorkspaceSize(
-    const aclTensor* self, aclTensor* out, uint64_t* workspaceSize, aclOpExecutor** executor)
+aclnnStatus aclnnIsFiniteGetWorkspaceSize(const aclTensor* self, aclTensor* out, uint64_t* workspaceSize,
+                                          aclOpExecutor** executor)
 {
     L2_DFX_PHASE_1(aclnnIsFinite, DFX_IN(self), DFX_OUT(out));
 
     // 固定写法，创建OpExecutor
     auto uniqueExecutor = CREATE_EXECUTOR();
-    CHECK_RET(uniqueExecutor.get() != nullptr, ACLNN_ERR_INNER_CREATE_EXECUTOR);
 
     // 固定写法，参数检查
     auto ret = CheckParams(self, out);

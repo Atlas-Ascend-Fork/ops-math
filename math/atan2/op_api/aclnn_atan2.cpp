@@ -119,7 +119,6 @@ static aclnnStatus ExecAtan2GetWorkspaceSize(const aclTensor* self, const aclTen
 {
     // 创建OpExecutor
     auto uniqueExecutor = CREATE_EXECUTOR();
-    CHECK_RET(uniqueExecutor.get() != nullptr, ACLNN_ERR_INNER_CREATE_EXECUTOR);
 
     // 参数检查
     auto ret = CheckParams(self, other, out);

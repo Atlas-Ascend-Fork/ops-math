@@ -58,14 +58,26 @@ private:
 ge::graphStatus AmpUpdateScaleTiling::Init()
 {
     auto attrs = TilingContext->GetAttrs();
-    OP_CHECK_NULL_WITH_CONTEXT(TilingContext, attrs);
+    if (attrs == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(TilingContext->GetNodeName(), "attrs");
+        return ge::GRAPH_FAILED;
+    }
 
     auto growthFactorPtr = attrs->GetAttrPointer<float>(GROWTH_FACTOR_ID);
-    OP_CHECK_NULL_WITH_CONTEXT(TilingContext, growthFactorPtr);
+    if (growthFactorPtr == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(TilingContext->GetNodeName(), "growthFactor");
+        return ge::GRAPH_FAILED;
+    }
     auto backoffFactorPtr = attrs->GetAttrPointer<float>(BACKOFF_FACTOR_ID);
-    OP_CHECK_NULL_WITH_CONTEXT(TilingContext, backoffFactorPtr);
+    if (backoffFactorPtr == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(TilingContext->GetNodeName(), "backoffFactor");
+        return ge::GRAPH_FAILED;
+    }
     auto growthIntervalPtr = attrs->GetAttrPointer<int64_t>(GROWTH_INTERVAL);
-    OP_CHECK_NULL_WITH_CONTEXT(TilingContext, growthIntervalPtr);
+    if (growthIntervalPtr == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(TilingContext->GetNodeName(), "growthInterval");
+        return ge::GRAPH_FAILED;
+    }
 
     growthFactor = *growthFactorPtr;
     backoffFactor = *backoffFactorPtr;
@@ -85,7 +97,10 @@ ge::graphStatus AmpUpdateScaleTiling::Init()
     constexpr int64_t kScalarDimNum = 1;
     for (int i = 0; i < kInputNum; i++) {
         auto inputShape = TilingContext->GetInputShape(i);
-        OP_CHECK_NULL_WITH_CONTEXT(TilingContext, inputShape);
+        if (inputShape == nullptr) {
+            OP_LOGE_WITH_INVALID_INPUT(TilingContext->GetNodeName(), kInputNames[i]);
+            return ge::GRAPH_FAILED;
+        }
         auto storageShape = EnsureNotScalar(inputShape->GetStorageShape());
         OP_CHECK_IF(storageShape.GetDimNum() != kScalarDimNum,
                     OP_LOGE_FOR_INVALID_SHAPEDIM(TilingContext->GetNodeName(), kInputNames[i],

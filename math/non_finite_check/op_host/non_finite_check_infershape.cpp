@@ -24,12 +24,14 @@ const int64_t OUTPUT_IDX = 0;
 static ge::graphStatus InferShapeForNonFiniteCheck(gert::InferShapeContext* context)
 {
     auto out_shape = context->GetOutputShape(OUTPUT_IDX);
-    OP_CHECK_NULL_WITH_CONTEXT(context, out_shape);
+    if (out_shape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "output");
+        return ge::GRAPH_FAILED;
+    }
     out_shape->SetDimNum(1);
     out_shape->SetDim(0, 1);
     return ge::GRAPH_SUCCESS;
 }
 
-IMPL_OP_INFERSHAPE(NonFiniteCheck)
-    .InferShape(InferShapeForNonFiniteCheck);
+IMPL_OP_INFERSHAPE(NonFiniteCheck).InferShape(InferShapeForNonFiniteCheck);
 } // namespace ops

@@ -141,13 +141,22 @@ inline static int64_t CalcMaxOutNum(const ge::DataType outDataType, const gert::
 static bool InputTypeIsInvalid(const gert::TilingContext* context)
 {
     auto startDes = context->GetInputDesc(INPUT_IDX_START);
-    OP_CHECK_NULL_WITH_CONTEXT(context, startDes);
+    if (startDes == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "startDes");
+        return ge::GRAPH_FAILED;
+    }
     auto dStart = startDes->GetDataType();
     auto stopDsc = context->GetInputDesc(INPUT_IDX_STOP);
-    OP_CHECK_NULL_WITH_CONTEXT(context, stopDsc);
+    if (stopDsc == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "stopDsc");
+        return ge::GRAPH_FAILED;
+    }
     auto dStop = stopDsc->GetDataType();
     auto numDsc = context->GetInputDesc(INPUT_IDX_NUM);
-    OP_CHECK_NULL_WITH_CONTEXT(context, numDsc);
+    if (numDsc == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "numDsc");
+        return ge::GRAPH_FAILED;
+    }
     auto dNum = numDsc->GetDataType();
 
     bool dStartIsInvalid = (dStart != ge::DT_INT32) && (dStart != ge::DT_FLOAT) && (dStart != ge::DT_FLOAT16) &&
@@ -180,44 +189,68 @@ static ge::graphStatus LinSpaceGetConstValue(gert::TilingContext* context, const
 {
     if (dataType == ge::DT_INT64) {
         const int64_t* const_data_ptr = tensor->GetData<int64_t>();
-        OP_CHECK_NULL_WITH_CONTEXT(context, const_data_ptr);
+        if (const_data_ptr == nullptr) {
+            OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "const_data_ptr");
+            return ge::GRAPH_FAILED;
+        }
         float f32 = static_cast<float>(*const_data_ptr);
         value = static_cast<T>(f32);
         OP_LOGD(context->GetNodeName(), "LinSpace get const value:%ld", *const_data_ptr);
     } else if (dataType == ge::DT_INT32) {
         const int32_t* const_data_ptr = tensor->GetData<int32_t>();
-        OP_CHECK_NULL_WITH_CONTEXT(context, const_data_ptr);
+        if (const_data_ptr == nullptr) {
+            OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "const_data_ptr");
+            return ge::GRAPH_FAILED;
+        }
         value = static_cast<T>(*const_data_ptr);
         OP_LOGD(context->GetNodeName(), "LinSpace get const value:%d", *const_data_ptr);
     } else if (dataType == ge::DT_FLOAT) {
         const float* const_data_ptr = tensor->GetData<float>();
-        OP_CHECK_NULL_WITH_CONTEXT(context, const_data_ptr);
+        if (const_data_ptr == nullptr) {
+            OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "const_data_ptr");
+            return ge::GRAPH_FAILED;
+        }
         value = static_cast<T>(*const_data_ptr);
         OP_LOGD(context->GetNodeName(), "LinSpace get const value:%f", *const_data_ptr);
     } else if (dataType == ge::DT_FLOAT16) {
         const Ops::Base::fp16_t* const_data_ptr = tensor->GetData<Ops::Base::fp16_t>();
-        OP_CHECK_NULL_WITH_CONTEXT(context, const_data_ptr);
+        if (const_data_ptr == nullptr) {
+            OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "const_data_ptr");
+            return ge::GRAPH_FAILED;
+        }
         float f32 = static_cast<float>(*const_data_ptr);
         value = static_cast<T>(f32);
         OP_LOGD(context->GetNodeName(), "LinSpace get const value:%f", static_cast<float>(*const_data_ptr));
     } else if (dataType == ge::DT_INT16) {
         const int16_t* const_data_ptr = tensor->GetData<int16_t>();
-        OP_CHECK_NULL_WITH_CONTEXT(context, const_data_ptr);
+        if (const_data_ptr == nullptr) {
+            OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "const_data_ptr");
+            return ge::GRAPH_FAILED;
+        }
         value = static_cast<T>(*const_data_ptr);
         OP_LOGD(context->GetNodeName(), "LinSpace get const value:%d", *const_data_ptr);
     } else if (dataType == ge::DT_BF16) {
         const int16_t* const_data_ptr = tensor->GetData<int16_t>();
-        OP_CHECK_NULL_WITH_CONTEXT(context, const_data_ptr);
+        if (const_data_ptr == nullptr) {
+            OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "const_data_ptr");
+            return ge::GRAPH_FAILED;
+        }
         int32_t f32hex = (static_cast<int32_t>(*const_data_ptr)) << INT16_BITS_NUM;
         value = static_cast<T>((reinterpret_cast<float&>(f32hex)));
     } else if (dataType == ge::DT_INT8) {
         const int8_t* const_data_ptr = tensor->GetData<int8_t>();
-        OP_CHECK_NULL_WITH_CONTEXT(context, const_data_ptr);
+        if (const_data_ptr == nullptr) {
+            OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "const_data_ptr");
+            return ge::GRAPH_FAILED;
+        }
         value = static_cast<T>(*const_data_ptr);
         OP_LOGD(context->GetNodeName(), "LinSpace get const value:%d", *const_data_ptr);
     } else if (dataType == ge::DT_UINT8) {
         const uint8_t* const_data_ptr = tensor->GetData<uint8_t>();
-        OP_CHECK_NULL_WITH_CONTEXT(context, const_data_ptr);
+        if (const_data_ptr == nullptr) {
+            OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "const_data_ptr");
+            return ge::GRAPH_FAILED;
+        }
         value = static_cast<T>(*const_data_ptr);
         OP_LOGD(context->GetNodeName(), "LinSpace get const value:%d", *const_data_ptr);
     } else {
@@ -231,7 +264,10 @@ static ge::graphStatus GetConstNum(gert::TilingContext* context, const gert::Ten
                                    int64_t input_index)
 {
     auto numDesc = context->GetInputDesc(input_index);
-    OP_CHECK_NULL_WITH_CONTEXT(context, numDesc);
+    if (numDesc == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "numDesc");
+        return ge::GRAPH_FAILED;
+    }
     const ge::DataType dataType = numDesc->GetDataType();
     switch (dataType) {
         case ge::DT_INT32: {
@@ -258,7 +294,10 @@ static ge::graphStatus GetConstStartOrStop(gert::TilingContext* context, const g
                                            int64_t input_index)
 {
     auto inputDesc = context->GetInputDesc(input_index);
-    OP_CHECK_NULL_WITH_CONTEXT(context, inputDesc);
+    if (inputDesc == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "inputDesc");
+        return ge::GRAPH_FAILED;
+    }
     const ge::DataType dataType = inputDesc->GetDataType();
     switch (dataType) {
         case ge::DT_INT32: {
@@ -472,9 +511,15 @@ static ge::graphStatus TilingPrepare4LinSpace(gert::TilingParseContext* context)
     OP_LOGD(context->GetNodeName(), "TilingPrepare4LinSpace enter.");
 
     auto compileInfo = context->GetCompiledInfo<LinSpaceCompileInfo>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, compileInfo);
+    if (compileInfo == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "compileInfo");
+        return ge::GRAPH_FAILED;
+    }
     auto platformInfo = context->GetPlatformInfo();
-    OP_CHECK_NULL_WITH_CONTEXT(context, platformInfo);
+    if (platformInfo == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "platformInfo");
+        return ge::GRAPH_FAILED;
+    }
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
     compileInfo->totalCoreNum = ascendcPlatform.GetCoreNumAiv();
     OP_CHECK_IF((compileInfo->totalCoreNum <= 0),
@@ -495,11 +540,20 @@ ge::graphStatus LinSpaceMemBaseTilingClass::DoOpTiling()
 {
     OP_LOGD(context_->GetNodeName(), "Tiling4LinSpace enter.");
     auto tensor_start = context_->GetInputTensor(INPUT_IDX_START);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, tensor_start);
+    if (tensor_start == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "tensor_start");
+        return ge::GRAPH_FAILED;
+    }
     auto tensor_stop = context_->GetInputTensor(INPUT_IDX_STOP);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, tensor_stop);
+    if (tensor_stop == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "tensor_stop");
+        return ge::GRAPH_FAILED;
+    }
     auto tensor_num = context_->GetInputTensor(INPUT_IDX_NUM);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, tensor_num);
+    if (tensor_num == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "tensor_num");
+        return ge::GRAPH_FAILED;
+    }
     OP_CHECK_IF(InputTypeIsInvalid(context_), OP_LOGE(context_->GetNodeName(), "input dtype is invalid."),
                 return ge::GRAPH_FAILED);
 
@@ -517,12 +571,18 @@ ge::graphStatus LinSpaceMemBaseTilingClass::DoOpTiling()
                 OP_LOGE(context_->GetNodeName(), "set basic info fail."), return ge::GRAPH_FAILED);
 
     auto outputDesc = context_->GetOutputDesc(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, outputDesc);
+    if (outputDesc == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "outputDesc");
+        return ge::GRAPH_FAILED;
+    }
     ge::DataType outputDtype = outputDesc->GetDataType();
 
     int64_t alignNumPerCore = CalcAlignNumPerCore(outputDtype, context_);
     auto compileInfo = reinterpret_cast<const LinSpaceCompileInfo*>(context_->GetCompileInfo());
-    OP_CHECK_NULL_WITH_CONTEXT(context_, compileInfo);
+    if (compileInfo == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "compileInfo");
+        return ge::GRAPH_FAILED;
+    }
     uint32_t coreNum = compileInfo->totalCoreNum;
     int64_t tmpRealCoreNum = tilingData.get_num() < coreNum ? tilingData.get_num() : coreNum;
     int64_t tmpNumPerCore = CeilDiv(tilingData.get_num(), tmpRealCoreNum);

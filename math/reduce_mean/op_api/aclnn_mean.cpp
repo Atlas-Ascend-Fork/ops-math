@@ -243,7 +243,6 @@ aclnnStatus aclnnMeanGetWorkspaceSize(const aclTensor* self, const aclIntArray* 
     L2_DFX_PHASE_1(aclnnMean, DFX_IN(self, dim, keepDim, dtype), DFX_OUT(out));
     // 创建OpExecutor
     auto uniqueExecutor = CREATE_EXECUTOR();
-    CHECK_RET(uniqueExecutor.get() != nullptr, ACLNN_ERR_INNER_CREATE_EXECUTOR);
 
     // 参数检查
     auto ret = CheckParams(self, dim, dtype, out);
@@ -316,7 +315,6 @@ aclnnStatus aclnnMeanV2GetWorkspaceSize(const aclTensor* self, const aclIntArray
     L2_DFX_PHASE_1(aclnnMeanV2, DFX_IN(self, dim, keepDim, noopWithEmptyAxes), DFX_OUT(out));
     // 创建OpExecutor
     auto uniqueExecutor = CREATE_EXECUTOR();
-    CHECK_RET(uniqueExecutor.get() != nullptr, ACLNN_ERR_INNER_CREATE_EXECUTOR);
 
     // 参数检查
     auto ret = CheckParamsONNX(self, dim, out);

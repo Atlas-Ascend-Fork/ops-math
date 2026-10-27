@@ -25,20 +25,37 @@ namespace ops {
 static ge::graphStatus InferShape4ReduceCommon(gert::InferShapeContext* context)
 {
     auto in_shape = context->GetInputShape(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context, in_shape);
+    if (in_shape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x");
+        return ge::GRAPH_FAILED;
+    }
     auto axes_tensor = context->GetInputTensor(1);
-    OP_CHECK_NULL_WITH_CONTEXT(context, axes_tensor);
+    if (axes_tensor == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "axes");
+        return ge::GRAPH_FAILED;
+    }
     auto out_shape = context->GetOutputShape(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context, out_shape);
+    if (out_shape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "y");
+        return ge::GRAPH_FAILED;
+    }
     auto attrs = context->GetAttrs();
-    OP_CHECK_NULL_WITH_CONTEXT(context, attrs);
+    if (attrs == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "attrs");
+        return ge::GRAPH_FAILED;
+    }
 
     const bool* keep_dims = attrs->GetAttrPointer<bool>(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context, keep_dims);
+    if (keep_dims == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "keep_dims");
+        return ge::GRAPH_FAILED;
+    }
 
     auto axes_size = static_cast<int32_t>(axes_tensor->GetShapeSize());
 
-    OP_CHECK_IF(axes_size < 0, OP_LOGE(context->GetNodeName(), "axes num cannot be less than 0!"),
+    OP_CHECK_IF(axes_size < 0,
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "axes", std::to_string(axes_size).c_str(),
+                                                      "axes num cannot be less than 0"),
                 return ge::GRAPH_FAILED);
 
     if (axes_size == 0) {
@@ -49,7 +66,8 @@ static ge::graphStatus InferShape4ReduceCommon(gert::InferShapeContext* context)
 
     auto dtype = axes_tensor->GetDataType();
     OP_CHECK_IF(dtype != ge::DT_INT32 && dtype != ge::DT_INT64,
-                OP_LOGE(context->GetNodeName(), "axes datatype %s must in (int32, int64)", ToString(dtype).c_str()),
+                OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "axes", ToString(dtype).c_str(),
+                                                      "must be in (int32, int64)"),
                 return ge::GRAPH_FAILED);
     if (dtype == ge::DT_INT32) {
         return ReduceDims<int32_t>(in_shape, axes_tensor, axes_size, *keep_dims, out_shape);

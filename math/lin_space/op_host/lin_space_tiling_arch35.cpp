@@ -81,44 +81,68 @@ static ge::graphStatus LinSpaceGetConstValue(gert::TilingContext* context, const
 {
     if (dataType == ge::DT_INT64) {
         const int64_t* const_data_ptr = tensor->GetData<int64_t>();
-        OP_CHECK_NULL_WITH_CONTEXT(context, const_data_ptr);
+        if (const_data_ptr == nullptr) {
+            OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "const_data_ptr");
+            return ge::GRAPH_FAILED;
+        }
         float f32 = static_cast<float>(*const_data_ptr);
         value = static_cast<T>(f32);
         OP_LOGD(context->GetNodeName(), "LinSpace get const value:%ld", *const_data_ptr);
     } else if (dataType == ge::DT_INT32) {
         const int32_t* const_data_ptr = tensor->GetData<int32_t>();
-        OP_CHECK_NULL_WITH_CONTEXT(context, const_data_ptr);
+        if (const_data_ptr == nullptr) {
+            OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "const_data_ptr");
+            return ge::GRAPH_FAILED;
+        }
         value = static_cast<T>(*const_data_ptr);
         OP_LOGD(context->GetNodeName(), "LinSpace get const value:%d", *const_data_ptr);
     } else if (dataType == ge::DT_FLOAT) {
         const float* const_data_ptr = tensor->GetData<float>();
-        OP_CHECK_NULL_WITH_CONTEXT(context, const_data_ptr);
+        if (const_data_ptr == nullptr) {
+            OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "const_data_ptr");
+            return ge::GRAPH_FAILED;
+        }
         value = static_cast<T>(*const_data_ptr);
         OP_LOGD(context->GetNodeName(), "LinSpace get const value:%f", *const_data_ptr);
     } else if (dataType == ge::DT_FLOAT16) {
         const Ops::Base::fp16_t* const_data_ptr = tensor->GetData<Ops::Base::fp16_t>();
-        OP_CHECK_NULL_WITH_CONTEXT(context, const_data_ptr);
+        if (const_data_ptr == nullptr) {
+            OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "const_data_ptr");
+            return ge::GRAPH_FAILED;
+        }
         float f32 = static_cast<float>(*const_data_ptr);
         value = static_cast<T>(f32);
         OP_LOGD(context->GetNodeName(), "LinSpace get const value:%f", static_cast<float>(*const_data_ptr));
     } else if (dataType == ge::DT_INT16) {
         const int16_t* const_data_ptr = tensor->GetData<int16_t>();
-        OP_CHECK_NULL_WITH_CONTEXT(context, const_data_ptr);
+        if (const_data_ptr == nullptr) {
+            OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "const_data_ptr");
+            return ge::GRAPH_FAILED;
+        }
         value = static_cast<T>(*const_data_ptr);
         OP_LOGD(context->GetNodeName(), "LinSpace get const value:%d", *const_data_ptr);
     } else if (dataType == ge::DT_BF16) {
         const int16_t* const_data_ptr = tensor->GetData<int16_t>();
-        OP_CHECK_NULL_WITH_CONTEXT(context, const_data_ptr);
+        if (const_data_ptr == nullptr) {
+            OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "const_data_ptr");
+            return ge::GRAPH_FAILED;
+        }
         int32_t f32hex = (static_cast<int32_t>(*const_data_ptr)) << INT16_BITS_NUM;
         value = static_cast<T>((reinterpret_cast<float&>(f32hex)));
     } else if (dataType == ge::DT_INT8) {
         const int8_t* const_data_ptr = tensor->GetData<int8_t>();
-        OP_CHECK_NULL_WITH_CONTEXT(context, const_data_ptr);
+        if (const_data_ptr == nullptr) {
+            OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "const_data_ptr");
+            return ge::GRAPH_FAILED;
+        }
         value = static_cast<T>(*const_data_ptr);
         OP_LOGD(context->GetNodeName(), "LinSpace get const value:%d", *const_data_ptr);
     } else if (dataType == ge::DT_UINT8) {
         const uint8_t* const_data_ptr = tensor->GetData<uint8_t>();
-        OP_CHECK_NULL_WITH_CONTEXT(context, const_data_ptr);
+        if (const_data_ptr == nullptr) {
+            OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "const_data_ptr");
+            return ge::GRAPH_FAILED;
+        }
         value = static_cast<T>(*const_data_ptr);
         OP_LOGD(context->GetNodeName(), "LinSpace get const value:%d", *const_data_ptr);
     } else {
@@ -132,7 +156,10 @@ static ge::graphStatus GetConstStartOrStop(gert::TilingContext* context, const g
                                            int64_t input_index)
 {
     auto inputDesc = context->GetInputDesc(input_index);
-    OP_CHECK_NULL_WITH_CONTEXT(context, inputDesc);
+    if (inputDesc == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "inputDesc");
+        return ge::GRAPH_FAILED;
+    }
     const ge::DataType dataType = inputDesc->GetDataType();
     switch (dataType) {
         case ge::DT_INT32: {
@@ -305,7 +332,10 @@ ge::graphStatus LinSpaceRegbaseTilingClass::GetPlatformInfo()
         tilingParam_.totalUbSize = static_cast<int64_t>(ubSizePlatForm);
     } else {
         auto compileInfoPtr = reinterpret_cast<const LinSpaceCompileInfo*>(context_->GetCompileInfo());
-        OP_CHECK_NULL_WITH_CONTEXT(context_, compileInfoPtr);
+        if (compileInfoPtr == nullptr) {
+            OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "compileInfoPtr");
+            return ge::GRAPH_FAILED;
+        }
         npuArch_ = compileInfoPtr->npuArch;
         tilingParam_.totalCoreNum = compileInfoPtr->totalCoreNum;
         tilingParam_.totalUbSize = compileInfoPtr->ubSizePlatForm;
@@ -315,8 +345,12 @@ ge::graphStatus LinSpaceRegbaseTilingClass::GetPlatformInfo()
 
 ge::graphStatus LinSpaceRegbaseTilingClass::GetShapeAttrsInfo()
 {
-    OP_CHECK_NULL_WITH_CONTEXT(context_, context_->GetOutputDesc(INDEX_OUTPUT_OUT));
-    outDataType_ = context_->GetOutputDesc(INDEX_OUTPUT_OUT)->GetDataType();
+    auto outputDesc = context_->GetOutputDesc(INDEX_OUTPUT_OUT);
+    if (outputDesc == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "outputDesc");
+        return ge::GRAPH_FAILED;
+    }
+    outDataType_ = outputDesc->GetDataType();
     return ge::GRAPH_SUCCESS;
 }
 
@@ -336,11 +370,20 @@ ge::graphStatus LinSpaceRegbaseTilingClass::DoOpTiling()
     OP_LOGD(context_, "[LinSpace] LinSpaceTilingForAscendC running begin.");
     OP_CHECK_IF(context_ == nullptr, OP_LOGE(context_, "Context should not be nullptr."), return ge::GRAPH_FAILED);
     auto tensorStart = context_->GetInputTensor(INDEX_INPUT_START);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, tensorStart);
+    if (tensorStart == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "tensorStart");
+        return ge::GRAPH_FAILED;
+    }
     auto tensorStop = context_->GetInputTensor(INDEX_INPUT_STOP);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, tensorStop);
+    if (tensorStop == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "tensorStop");
+        return ge::GRAPH_FAILED;
+    }
     auto tensorNum = context_->GetInputTensor(INDEX_INPUT_NUM);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, tensorNum);
+    if (tensorNum == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "tensorNum");
+        return ge::GRAPH_FAILED;
+    }
 
     auto dtypeStart = tensorStart->GetDataType();
     auto dtypeStop = tensorStop->GetDataType();
@@ -353,11 +396,17 @@ ge::graphStatus LinSpaceRegbaseTilingClass::DoOpTiling()
 
     if (dtypeNum == ge::DT_INT32) {
         auto constDataPtr = tensorNum->GetData<int32_t>();
-        OP_CHECK_NULL_WITH_CONTEXT(context_, constDataPtr);
+        if (constDataPtr == nullptr) {
+            OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "constDataPtr");
+            return ge::GRAPH_FAILED;
+        }
         tilingParam_.num = static_cast<int64_t>(*constDataPtr);
     } else {
         auto constDataPtr = tensorNum->GetData<int64_t>();
-        OP_CHECK_NULL_WITH_CONTEXT(context_, constDataPtr);
+        if (constDataPtr == nullptr) {
+            OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "constDataPtr");
+            return ge::GRAPH_FAILED;
+        }
         tilingParam_.num = static_cast<int64_t>(*constDataPtr);
     }
 
@@ -406,11 +455,17 @@ ge::graphStatus LinSpaceRegbaseTilingClass::PostTiling()
 
     // 设置 userWorkspace
     size_t* userWorkspaceSize = context_->GetWorkspaceSizes(WORKSPACE_COUNT);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, userWorkspaceSize);
+    if (userWorkspaceSize == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "userWorkspaceSize");
+        return ge::GRAPH_FAILED;
+    }
     userWorkspaceSize[0] = DEFAULT_WORKSPACE_SIZE;
 
     auto rawTilingDataPtr = context_->GetRawTilingData();
-    OP_CHECK_NULL_WITH_CONTEXT(context_, rawTilingDataPtr);
+    if (rawTilingDataPtr == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "rawTilingDataPtr");
+        return ge::GRAPH_FAILED;
+    }
     if (tilingData_.GetDataSize() > rawTilingDataPtr->GetCapacity()) {
         return ge::GRAPH_FAILED;
     }

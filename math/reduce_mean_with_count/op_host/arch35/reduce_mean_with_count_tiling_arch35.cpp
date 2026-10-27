@@ -44,10 +44,9 @@ static constexpr int32_t SIZE2 = 2;
 static constexpr size_t ATTR_INDEX_AXES = 0;
 static constexpr size_t ATTR_INDEX_KEEP_DIMS = 1;
 
-static ge::graphStatus DoTilingAscendC(
-    gert::TilingContext* context, const ReduceMeanWithCountCompileInfo* compileInfo,
-    ReduceOpInputParam& opInput, ReduceTilingKey& key,
-    ReduceOpTilingData* reduceTiling)
+static ge::graphStatus DoTilingAscendC(gert::TilingContext* context, const ReduceMeanWithCountCompileInfo* compileInfo,
+                                       ReduceOpInputParam& opInput, ReduceTilingKey& key,
+                                       ReduceOpTilingData* reduceTiling)
 {
     ge::graphStatus status = ge::GRAPH_FAILED;
 
@@ -59,28 +58,32 @@ static ge::graphStatus DoTilingAscendC(
             context, opInput, key, &compileInfo->opInfo, reduceTiling);
     }
 
-    OP_CHECK_IF(
-        (status == ge::GRAPH_FAILED),
-        OP_LOGE(context->GetNodeName(),
-                "ReduceOp Tiling failed, dtype should be in (bfloat16/float16/float)"),
-        return ge::GRAPH_FAILED);
+    OP_CHECK_IF((status == ge::GRAPH_FAILED),
+                OP_LOGE_FOR_INVALID_DTYPE(context->GetNodeName(), "x", Ops::Base::ToString(opInput.inputDtype).c_str(),
+                                          "bfloat16, float16 or float"),
+                return ge::GRAPH_FAILED);
     return status;
 }
 
 static ge::graphStatus Tiling4ReduceMeanWithCount(gert::TilingContext* context)
 {
     auto compileInfo = reinterpret_cast<const ReduceMeanWithCountCompileInfo*>(context->GetCompileInfo());
-    OP_CHECK_NULL_WITH_CONTEXT(context, compileInfo);
+    if (compileInfo == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "compileInfo");
+        return ge::GRAPH_FAILED;
+    }
 
     // Get input shape and dtype from input 0 (x), no axes input tensor
     ReduceOpInputParam opInput;
-    OP_CHECK_IF(
-        (ReduceOpTmpl::GetInputParam(context, opInput, 0) == ge::GRAPH_FAILED),
-        OP_LOGE(context->GetNodeName(), "ReduceOp get x input param failed"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF((ReduceOpTmpl::GetInputParam(context, opInput, 0) == ge::GRAPH_FAILED),
+                OP_LOGE(context->GetNodeName(), "ReduceOp get x input param failed"), return ge::GRAPH_FAILED);
 
     // axes is a required attribute (not an input tensor)
     auto attrs = context->GetAttrs();
-    OP_CHECK_NULL_WITH_CONTEXT(context, attrs);
+    if (attrs == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "attrs");
+        return ge::GRAPH_FAILED;
+    }
     auto axesListPtr = attrs->GetListInt(ATTR_INDEX_AXES);
     if (axesListPtr != nullptr && axesListPtr->GetSize() > 0) {
         opInput.axes.resize(axesListPtr->GetSize());
@@ -102,20 +105,20 @@ static ge::graphStatus Tiling4ReduceMeanWithCount(gert::TilingContext* context)
 
     // Get custom tiling data
     auto tilingData = context->GetTilingData<ReduceMeanWithCountTilingData>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, tilingData);
+    if (tilingData == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "tilingData");
+        return ge::GRAPH_FAILED;
+    }
 
     ReduceTilingKey key;
-    OP_CHECK_IF(
-        (DoTilingAscendC(context, compileInfo, opInput, key, &(tilingData->reduceTiling)) == ge::GRAPH_FAILED),
-        OP_LOGE(context->GetNodeName(), "DoTiling Failed for ReduceMeanWithCount"),
-        return ge::GRAPH_FAILED);
+    OP_CHECK_IF((DoTilingAscendC(context, compileInfo, opInput, key, &(tilingData->reduceTiling)) == ge::GRAPH_FAILED),
+                OP_LOGE(context->GetNodeName(), "DoTiling Failed for ReduceMeanWithCount"), return ge::GRAPH_FAILED);
 
     uint64_t tilingKey;
     GEN_REDUCE_TILING_KEY(tilingKey, key);
-    OP_LOGI(
-        context->GetNodeName(),
-        "patternID:%u, loopARCount:%u, loopInnerARCount:%u, isContiguous:%d, Tiling Key is:%lu",
-        key.patternID, key.loopARCount, key.loopInnerARCount, key.isContiguous ? 1 : 0, tilingKey);
+    OP_LOGI(context->GetNodeName(),
+            "patternID:%u, loopARCount:%u, loopInnerARCount:%u, isContiguous:%d, Tiling Key is:%lu", key.patternID,
+            key.loopARCount, key.loopInnerARCount, key.isContiguous ? 1 : 0, tilingKey);
     context->SetTilingKey(tilingKey);
     return ge::GRAPH_SUCCESS;
 }
@@ -124,38 +127,40 @@ static ge::graphStatus Tiling4ReduceMeanWithCount(gert::TilingContext* context)
 template <typename ContextT>
 static ge::graphStatus TilingPrepare4ReduceOp(ContextT* context, ReduceOpCompileInfo* compileInfo)
 {
-    OP_CHECK_NULL_WITH_CONTEXT(context, compileInfo);
+    if (compileInfo == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "compileInfo");
+        return ge::GRAPH_FAILED;
+    }
     auto platformInfo = context->GetPlatformInfo();
-    OP_CHECK_NULL_WITH_CONTEXT(context, platformInfo);
+    if (platformInfo == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "platformInfo");
+        return ge::GRAPH_FAILED;
+    }
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
     compileInfo->vectorCoreNum = ascendcPlatform.GetCoreNumAiv();
-    OP_CHECK_IF(
-        (compileInfo->vectorCoreNum == 0UL),
-        OP_LOGE(context->GetNodeName(), "ReduceOp GetHardwareInfo Failed, vectorCoreNum:%lu",
-                compileInfo->vectorCoreNum),
-        return ge::GRAPH_FAILED);
+    OP_CHECK_IF((compileInfo->vectorCoreNum == 0UL),
+                OP_LOGE(context->GetNodeName(), "ReduceOp GetHardwareInfo Failed, vectorCoreNum:%lu",
+                        compileInfo->vectorCoreNum),
+                return ge::GRAPH_FAILED);
 
     uint64_t ubSize = 0;
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSize);
-    OP_CHECK_IF(
-        ubSize <= CACHE_BUF_SIZE,
-        OP_LOGE(context->GetNodeName(), "ReduceOp GetHardwareInfo Failed, ubSize:%lu, at least:%lu.",
-                ubSize, CACHE_BUF_SIZE),
-        return ge::GRAPH_FAILED);
+    OP_CHECK_IF(ubSize <= CACHE_BUF_SIZE,
+                OP_LOGE(context->GetNodeName(), "ReduceOp GetHardwareInfo Failed, ubSize:%lu, at least:%lu.", ubSize,
+                        CACHE_BUF_SIZE),
+                return ge::GRAPH_FAILED);
     compileInfo->ubSize = ubSize;
 
     compileInfo->cacheLineSize = GetCacheLineSize(context);
-    OP_CHECK_IF(
-        compileInfo->cacheLineSize == 0UL,
-        OP_LOGE(context->GetNodeName(), "ReduceOp GetHardwareInfo Failed, cacheLineSize:%lu.",
-                compileInfo->cacheLineSize),
-        return ge::GRAPH_FAILED);
+    OP_CHECK_IF(compileInfo->cacheLineSize == 0UL,
+                OP_LOGE(context->GetNodeName(), "ReduceOp GetHardwareInfo Failed, cacheLineSize:%lu.",
+                        compileInfo->cacheLineSize),
+                return ge::GRAPH_FAILED);
 
     compileInfo->ubBlockSize = GetUbBlockSize(context);
     OP_CHECK_IF(
         compileInfo->ubBlockSize == 0UL,
-        OP_LOGE(context->GetNodeName(), "ReduceOp GetHardwareInfo Failed, ubBlockSize:%lu.",
-                compileInfo->ubBlockSize),
+        OP_LOGE(context->GetNodeName(), "ReduceOp GetHardwareInfo Failed, ubBlockSize:%lu.", compileInfo->ubBlockSize),
         return ge::GRAPH_FAILED);
 
     compileInfo->vRegSize = GetVRegSize(context);
@@ -176,7 +181,10 @@ inline static T* GetCompileInfoPtr(gert::TilingParseContext* context)
 static ge::graphStatus TilingParse4ReduceMeanWithCount(gert::TilingParseContext* context)
 {
     auto compileInfo = GetCompileInfoPtr<ReduceMeanWithCountCompileInfo>(context);
-    OP_CHECK_NULL_WITH_CONTEXT(context, compileInfo);
+    if (compileInfo == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "compileInfo");
+        return ge::GRAPH_FAILED;
+    }
     return TilingPrepare4ReduceOp(context, &compileInfo->opInfo);
 }
 
@@ -184,4 +192,4 @@ IMPL_OP_OPTILING(ReduceMeanWithCount)
     .Tiling(Tiling4ReduceMeanWithCount)
     .TilingParse<ReduceMeanWithCountCompileInfo>(TilingParse4ReduceMeanWithCount);
 
-}  // namespace optiling
+} // namespace optiling

@@ -230,7 +230,6 @@ aclnnStatus aclnnArgMinGetWorkspaceSize(const aclTensor* self, int64_t dim, bool
     CHECK_RET(ret == ACLNN_SUCCESS, ret);
 
     auto uniqueExecutor = CREATE_EXECUTOR();
-    CHECK_RET(uniqueExecutor.get() != nullptr, ACLNN_ERR_INNER_CREATE_EXECUTOR);
 
     int64_t dimNum = self->GetViewShape().GetDimNum();
     if (self->IsEmpty() || dimNum == 0) {

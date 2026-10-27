@@ -30,9 +30,8 @@ const aclTensor* Tril(const aclTensor* self, int64_t diagonal, aclOpExecutor* ex
     auto out = executor->AllocTensor(self->GetStorageShape(), self->GetDataType(), self->GetStorageFormat());
 
     auto ret = ADD_TO_LAUNCHER_LIST_AICORE(Tril, op::AI_CORE, OP_INPUT(self), OP_ATTR(diagonal), OP_OUTPUT(out));
-    OP_CHECK(
-        ret == ACLNN_SUCCESS, OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "TrilAiCore ADD_TO_LAUNCHER_LIST_AICORE failed."),
-        return nullptr);
+    OP_CHECK(ret == ACLNN_SUCCESS, OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "TrilAiCore ADD_TO_LAUNCHER_LIST_AICORE failed."),
+             return nullptr);
     return out;
 }
 } // namespace l0op

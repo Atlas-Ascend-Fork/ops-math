@@ -237,7 +237,10 @@ ge::graphStatus AngleV2Tiling::Init()
     size_t* currentWorkSpace = tilingContext->GetWorkspaceSizes(1);
     currentWorkSpace[0] = sysWorkspaceSize;
     auto inputShape0 = tilingContext->GetInputShape(0);
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, inputShape0);
+    if (inputShape0 == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "x");
+        return ge::GRAPH_FAILED;
+    }
     auto xShape = inputShape0->GetStorageShape();
     totalLength = xShape.GetShapeSize();
     OP_LOGD(tilingContext, "totalLength %ld.", totalLength);
@@ -250,8 +253,9 @@ ge::graphStatus AngleV2Tiling::Init()
 
     if (xShape.GetDimNum() > 8) {
         if (npuArch == NpuArch::DAV_3510) { // Ascend950
-            OP_LOGE(tilingContext, "AngleV2 only support tensor with dim num <= 8, but input dim num is %zu.",
-                    xShape.GetDimNum());
+            OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(tilingContext->GetNodeName(), "x",
+                                                     std::to_string(xShape.GetDimNum()).c_str(),
+                                                     "AngleV2 only support tensor with dim num <= 8");
             return ge::GRAPH_FAILED;
         } else {
             OP_LOGW(tilingContext, "AngleV2 only support tensor with dim num <= 8, but input dim num is %zu.",
@@ -266,7 +270,10 @@ ge::graphStatus AngleV2Tiling::Init()
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSizePlatForm);
     OP_LOGD(tilingContext, "ub_size_platform is %lu.", ubSizePlatForm);
     auto inputDesc0 = tilingContext->GetInputDesc(0);
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, inputDesc0);
+    if (inputDesc0 == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "x");
+        return ge::GRAPH_FAILED;
+    }
     auto dType = inputDesc0->GetDataType();
     coreNum = GetNeedCoreNum(coreNum, dType);
 
@@ -291,7 +298,10 @@ ge::graphStatus AngleV2Tiling::RunKernelTiling()
     tilingData.set_tileLength(tileLength);
     tilingData.set_dataPerRepeat(dataPerRepeat);
     auto rawTilingData = tilingContext->GetRawTilingData();
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, rawTilingData);
+    if (rawTilingData == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "rawTilingData");
+        return ge::GRAPH_FAILED;
+    }
     tilingData.SaveToBuffer(rawTilingData->GetData(), rawTilingData->GetCapacity());
     rawTilingData->SetDataSize(tilingData.GetDataSize());
     TilingDataPrint();
@@ -326,9 +336,15 @@ static ge::graphStatus TilingPrepareForAngleV2(gert::TilingParseContext* context
 {
     OP_LOGD(context, "TilingPrepareForAngleV2 start.");
     auto compileInfo = context->GetCompiledInfo<AngleV2CompileInfo>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, compileInfo);
+    if (compileInfo == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "compileInfo");
+        return ge::GRAPH_FAILED;
+    }
     auto platformInfo = context->GetPlatformInfo();
-    OP_CHECK_NULL_WITH_CONTEXT(context, platformInfo);
+    if (platformInfo == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "platformInfo");
+        return ge::GRAPH_FAILED;
+    }
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
     compileInfo->totalCoreNum = ascendcPlatform.GetCoreNumAiv();
     uint64_t ubSizePlatForm;
