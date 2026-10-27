@@ -18,8 +18,8 @@ namespace l0op {
 OP_TYPE_REGISTER(DSAGenBitMask);
 OP_TYPE_REGISTER(DSAGenBitMaskTensor);
 
-void DSAGenBitMask(
-    uint64_t count, uint64_t seed, uint64_t offset, const aclScalar* dropout, aclTensor* out, aclOpExecutor* executor)
+void DSAGenBitMask(uint64_t count, uint64_t seed, uint64_t offset, const aclScalar* dropout, aclTensor* out,
+                   aclOpExecutor* executor)
 {
     L0_DFX(DSAGenBitMask, count, seed, offset, dropout);
     ADD_TO_LAUNCHER_LIST_DSA(DSAGenBitMask, OP_INPUT(count, seed, offset, dropout), OP_OUTPUT(out), OP_ATTR(0));
@@ -27,14 +27,15 @@ void DSAGenBitMask(
 
 static const int64_t UINT8_BIT_NUMBER = 8;
 
-const aclTensor* DSAGenBitMask(
-    uint64_t count, uint64_t seed, uint64_t offset, const aclScalar* dropout, aclOpExecutor* executor)
+const aclTensor* DSAGenBitMask(uint64_t count, uint64_t seed, uint64_t offset, const aclScalar* dropout,
+                               aclOpExecutor* executor)
 {
     L0_DFX(DSAGenBitMask, count, seed, offset, dropout);
 
     auto out = executor->AllocTensor(op::Shape{static_cast<int64_t>(count) / UINT8_BIT_NUMBER}, op::DataType::DT_UINT8);
     if (out == nullptr) {
-        OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "alloc out tensor failed.");
+        OP_LOGE_WITHOUT_REPORT(ACLNN_ERR_INNER_NULLPTR,
+                               "DSAGenBitMask AllocTensor returned nullptr; propagate allocator first error");
         return nullptr;
     }
 
@@ -43,22 +44,22 @@ const aclTensor* DSAGenBitMask(
     return out;
 }
 
-void DSAGenBitMaskTensor(
-    uint64_t count, const aclTensor* seed, const aclTensor* offset, const aclScalar* dropout, aclTensor* out,
-    aclOpExecutor* executor)
+void DSAGenBitMaskTensor(uint64_t count, const aclTensor* seed, const aclTensor* offset, const aclScalar* dropout,
+                         aclTensor* out, aclOpExecutor* executor)
 {
     L0_DFX(DSAGenBitMaskTensor, count, seed, offset, dropout);
     ADD_TO_LAUNCHER_LIST_DSA(DSAGenBitMask, OP_INPUT(count, seed, offset, dropout), OP_OUTPUT(out), OP_ATTR(0));
 }
 
-const aclTensor* DSAGenBitMaskTensor(
-    uint64_t count, const aclTensor* seed, const aclTensor* offset, const aclScalar* dropout, aclOpExecutor* executor)
+const aclTensor* DSAGenBitMaskTensor(uint64_t count, const aclTensor* seed, const aclTensor* offset,
+                                     const aclScalar* dropout, aclOpExecutor* executor)
 {
     L0_DFX(DSAGenBitMaskTensor, count, seed, offset, dropout);
 
     auto out = executor->AllocTensor(op::Shape{static_cast<int64_t>(count) / UINT8_BIT_NUMBER}, op::DataType::DT_UINT8);
     if (out == nullptr) {
-        OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "alloc out tensor failed.");
+        OP_LOGE_WITHOUT_REPORT(ACLNN_ERR_INNER_NULLPTR,
+                               "DSAGenBitMaskTensor AllocTensor returned nullptr; propagate allocator first error");
         return nullptr;
     }
 
