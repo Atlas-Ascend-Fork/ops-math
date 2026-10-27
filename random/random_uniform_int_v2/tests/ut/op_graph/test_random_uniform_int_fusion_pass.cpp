@@ -36,10 +36,7 @@ protected:
         PlatformInfoManager::Instance().SetOptionalCompilationInfo(optiCompilationInfo);
     }
 
-    void SetUp() override
-    {
-        SetPlatform950();
-    }
+    void SetUp() override { SetPlatform950(); }
 
     void SetPlatform950()
     {
@@ -49,6 +46,28 @@ protected:
         platformInfo.str_info.short_soc_version = "Ascend950";
         optiCompilationInfo.soc_version = "Ascend950";
         PlatformInfoManager::Instance().platform_info_map_["Ascend950"] = platformInfo;
+        PlatformInfoManager::Instance().SetOptionalCompilationInfo(optiCompilationInfo);
+    }
+
+    void SetPlatform960dt()
+    {
+        PlatformInfo platformInfo;
+        OptionalInfo optiCompilationInfo;
+        platformInfo.soc_info.ai_core_cnt = 64;
+        platformInfo.str_info.short_soc_version = "Ascend960DT";
+        optiCompilationInfo.soc_version = "Ascend960DT";
+        PlatformInfoManager::Instance().platform_info_map_["Ascend960DT"] = platformInfo;
+        PlatformInfoManager::Instance().SetOptionalCompilationInfo(optiCompilationInfo);
+    }
+
+    void SetPlatform960pr()
+    {
+        PlatformInfo platformInfo;
+        OptionalInfo optiCompilationInfo;
+        platformInfo.soc_info.ai_core_cnt = 64;
+        platformInfo.str_info.short_soc_version = "Ascend960PR";
+        optiCompilationInfo.soc_version = "Ascend960PR";
+        PlatformInfoManager::Instance().platform_info_map_["Ascend960PR"] = platformInfo;
         PlatformInfoManager::Instance().SetOptionalCompilationInfo(optiCompilationInfo);
     }
 
@@ -209,6 +228,34 @@ TEST_F(RandomUniformIntFusionPassTest, fusionSuccessLargeShape)
 TEST_F(RandomUniformIntFusionPassTest, fusionSuccessDefaultSeed)
 {
     auto graph = BuildTestGraph("test_default_seed", DT_INT32, {10}, 0, 0);
+
+    CustomPassContext passContext;
+    RandomUniformIntFusionPass pass;
+    Status status = pass.Run(graph, passContext);
+
+    EXPECT_EQ(status, SUCCESS);
+    EXPECT_TRUE(HasNodeType(graph, "RandomUniformIntV2"));
+}
+
+TEST_F(RandomUniformIntFusionPassTest, fusionSuccessOn960dt)
+{
+    SetPlatform960dt();
+
+    auto graph = BuildTestGraph("test_960dt", DT_INT32, {10});
+
+    CustomPassContext passContext;
+    RandomUniformIntFusionPass pass;
+    Status status = pass.Run(graph, passContext);
+
+    EXPECT_EQ(status, SUCCESS);
+    EXPECT_TRUE(HasNodeType(graph, "RandomUniformIntV2"));
+}
+
+TEST_F(RandomUniformIntFusionPassTest, fusionSuccessOn960pr)
+{
+    SetPlatform960pr();
+
+    auto graph = BuildTestGraph("test_960pr", DT_INT64, {3});
 
     CustomPassContext passContext;
     RandomUniformIntFusionPass pass;

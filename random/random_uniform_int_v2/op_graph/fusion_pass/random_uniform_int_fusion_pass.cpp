@@ -40,8 +40,7 @@ namespace ops {
 //   - 生产 .so: 共享库, 运行时符号正常解析。
 //   - UT 可执行文件: 弱符号允许链接期未解析(地址为 NULL), 调用前判空, NULL 时跳过。
 extern "C" {
-__attribute__((weak))
-int32_t aclsysGetVersionNum(char* pkgName, int32_t* versionNum);
+__attribute__((weak)) int32_t aclsysGetVersionNum(char* pkgName, int32_t* versionNum);
 }
 
 static const std::string kPassName = "RandomUniformIntFusionPass";
@@ -116,8 +115,9 @@ bool RandomUniformIntFusionPass::MeetRequirements(const std::unique_ptr<MatchRes
         return false;
     }
     const std::string soc = platformInfo.str_info.short_soc_version;
-    if (soc != "Ascend950") {
-        OP_LOGD(kPassName.c_str(), "Platform %s is not supported, only Ascend950.", soc.c_str());
+    if (soc != "Ascend950" && soc != "Ascend960DT" && soc != "Ascend960PR") {
+        OP_LOGD(kPassName.c_str(), "Platform %s is not supported, only Ascend950, Ascend960DT and Ascend960PR.",
+                soc.c_str());
         return false;
     }
 
@@ -169,7 +169,8 @@ std::unique_ptr<Graph> RandomUniformIntFusionPass::Replacement(const std::unique
 
     auto replaceGraphBuilder = es::EsGraphBuilder("replacement");
 
-    auto rShape = replaceGraphBuilder.CreateInput(0, "shape", inputDtypes[0], inputFormats[0], inputShapes[0].GetDims());
+    auto rShape = replaceGraphBuilder.CreateInput(0, "shape", inputDtypes[0], inputFormats[0],
+                                                  inputShapes[0].GetDims());
     auto rMin = replaceGraphBuilder.CreateInput(1, "min", inputDtypes[1], inputFormats[1], inputShapes[1].GetDims());
     auto rMax = replaceGraphBuilder.CreateInput(2, "max", inputDtypes[2], inputFormats[2], inputShapes[2].GetDims());
 
