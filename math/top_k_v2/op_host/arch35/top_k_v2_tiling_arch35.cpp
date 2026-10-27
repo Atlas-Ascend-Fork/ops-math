@@ -1663,7 +1663,7 @@ ge::graphStatus TopKV2Tiling(gert::TilingContext* context, int32_t maxCoreNum)
     if (sortPolicy != nullptr) {
         OP_LOGD(context->GetNodeName(), "topk sortPolicy=%d.", *sortPolicy);
         OP_CHECK_IF(*sortPolicy != 0 && *sortPolicy != 1,
-                    OP_LOGE_WITH_INVALID_ATTR(context->GetNodeName(), "sort_policy",
+                    OP_LOGE_FOR_INVALID_VALUE(context->GetNodeName(), "sort_policy",
                                               std::to_string(*sortPolicy).c_str(), "range [0, 1]"),
                     return ge::GRAPH_FAILED);
         sortPolicyValue = *sortPolicy;
@@ -1680,7 +1680,7 @@ ge::graphStatus TopKV2Tiling(gert::TilingContext* context, int32_t maxCoreNum)
     int32_t dimValue = *dimValuePtr;
 
     OP_CHECK_IF(dimValue < dimMin || dimValue > dimMax,
-                OP_LOGE_WITH_INVALID_ATTR(
+                OP_LOGE_FOR_INVALID_VALUE(
                     context->GetNodeName(), "dim", std::to_string(dimValue).c_str(),
                     (std::string("range [") + std::to_string(dimMin) + ", " + std::to_string(dimMax) + "]").c_str()),
                 return ge::GRAPH_FAILED);

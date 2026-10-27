@@ -140,7 +140,7 @@ ge::graphStatus SortCheckParams(gert::TilingContext* context, SortKthTileInfo& s
     int32_t sortAxis = static_cast<int32_t>(*sortAxisPtr);
     sortAxis = sortAxis < 0 ? (sortAxis + static_cast<int32_t>(sortTileInfo.rank)) : sortAxis;
     OP_CHECK_IF(sortAxis < 0 || sortAxis >= static_cast<int32_t>(sortTileInfo.rank),
-                OP_LOGE_WITH_INVALID_ATTR(context->GetNodeName(), "axis", std::to_string(sortAxis).c_str(),
+                OP_LOGE_FOR_INVALID_VALUE(context->GetNodeName(), "axis", std::to_string(sortAxis).c_str(),
                                           "range [-dimNum, dimNum - 1)"),
                 return ge::GRAPH_FAILED);
     sortTileInfo.sortAxis = sortAxis;

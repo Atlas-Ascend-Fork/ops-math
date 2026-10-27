@@ -40,7 +40,7 @@ static graphStatus InferShapeForTopKCommon(gert::InferShapeContext* context, int
             sorted_axis += dim_size;
         }
         if (sorted_axis < 0 || sorted_axis >= static_cast<int64_t>(dim_size)) {
-            OP_LOGE_WITH_INVALID_ATTR(
+            OP_LOGE_FOR_INVALID_VALUE(
                 context->GetNodeName(), "dim", std::to_string(*dim).c_str(),
                 ("[-" + std::to_string(dim_size) + ", " + std::to_string(static_cast<int64_t>(dim_size) - 1) + "]")
                     .c_str());
