@@ -104,7 +104,7 @@ aclnnStatus aclnnUnfoldGrad(
       <td>gradOut（aclTensor *）</td>
       <td>输入</td>
       <td>表示梯度更新系数。</td>
-      <td>shape为(..., (sizedim-size)/step+1, size)，要求满足gradOut的第dim维等于(inputSizes[dim]-size)/step+1和gradOut的size等于inputSizes的size+1。</td>
+      <td>shape为(..., (sizedim-size)/step+1, size)，要求满足gradOut的第dim维等于(inputSizes[dim]-size)/step+1、gradOut的末维大小等于size和gradOut的size等于inputSizes的size+1。</td>
       <td>FLOAT、FLOAT16、BFLOAT16</td>
       <td>ND</td>
       <td>1-8</td>
@@ -275,6 +275,7 @@ aclnnStatus aclnnUnfoldGrad(
 
 1. gradOut的shape满足约束：
     - gradOut的第dim维等于(inputSizes[dim]-size)/step+1。
+    - gradOut的末维大小等于size。
     - gradOut的size等于inputSizes的size+1。
 2. dim、size、step的要求：
     - size大于0且size小于等于inputSizes的第dim维。
