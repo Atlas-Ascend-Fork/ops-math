@@ -139,7 +139,7 @@ aclnnStatus aclnnInplaceClampMaxTensor(
       <td>-</td>
     </tr>
     <tr>
-      <td>（aclOpExecutor**）</td>
+      <td>executor（aclOpExecutor**）</td>
       <td>输出</td>
       <td>返回op执行器，包含了算子计算流程。</td>
       <td>-</td>
@@ -298,7 +298,7 @@ aclnnStatus aclnnInplaceClampMaxTensor(
       <td>-</td>
     </tr>
     <tr>
-      <td>（aclOpExecutor**）</td>
+      <td>executor（aclOpExecutor**）</td>
       <td>输出</td>
       <td>返回op执行器，包含了算子计算流程。</td>
       <td>-</td>
