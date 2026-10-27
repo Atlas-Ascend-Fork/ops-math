@@ -23,116 +23,281 @@ using namespace optiling;
 
 class FeedsRepeatTiling : public testing::Test {
 protected:
-    static void SetUpTestCase() {
-        std::cout << "FeedsRepeat Tiling SetUp" << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "FeedsRepeat Tiling SetUp" << std::endl; }
 
-    static void TearDownTestCase() {
-        std::cout << "FeedsRepeat Tiling TearDown" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "FeedsRepeat Tiling TearDown" << std::endl; }
 };
 
-TEST_F(FeedsRepeatTiling, test_tiling_fp16_int32) {
+TEST_F(FeedsRepeatTiling, test_tiling_fp16_int32)
+{
     optiling::FeedsRepeatCompileInfo compileInfo = {48, 196608};
-    
-    gert::TilingContextPara tilingContextPara("FeedsRepeat",
-                                              {{{{4, 5, 6, 7}, {4, 5, 6, 7}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-                                               {{{4,}, {4,}}, ge::DT_INT32, ge::FORMAT_ND}},
-                                              {{{{15, 5, 6, 7}, {15, 5, 6, 7}}, ge::DT_FLOAT16, ge::FORMAT_ND},},
-                                              {gert::TilingContextPara::OpAttr("output_feeds_size", Ops::Math::AnyValue::CreateFrom<int64_t>(15))},
-                                              &compileInfo);
+
+    gert::TilingContextPara tilingContextPara(
+        "FeedsRepeat",
+        {{{{4, 5, 6, 7}, {4, 5, 6, 7}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+         {{{
+               4,
+           },
+           {
+               4,
+           }},
+          ge::DT_INT32,
+          ge::FORMAT_ND}},
+        {
+            {{{15, 5, 6, 7}, {15, 5, 6, 7}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+        },
+        {gert::TilingContextPara::OpAttr("output_feeds_size", Ops::Math::AnyValue::CreateFrom<int64_t>(15))},
+        &compileInfo);
     uint64_t expectTilingKey = 2;
     string expectTilingData = "34359738372 210 224 64 16 0 15 1 0 ";
     std::vector<size_t> expectWorkspaces = {16777216};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
-TEST_F(FeedsRepeatTiling, test_tiling_fp32_int32) {
+TEST_F(FeedsRepeatTiling, test_tiling_fp32_int32)
+{
     optiling::FeedsRepeatCompileInfo compileInfo = {48, 196608};
-    
-    gert::TilingContextPara tilingContextPara("FeedsRepeat",
-                                              {{{{4, 5, 6, 7}, {4, 5, 6, 7}}, ge::DT_FLOAT, ge::FORMAT_ND},
-                                               {{{4,}, {4,}}, ge::DT_INT32, ge::FORMAT_ND}},
-                                              {{{{15, 5, 6, 7}, {15, 5, 6, 7}}, ge::DT_FLOAT, ge::FORMAT_ND},},
-                                              {gert::TilingContextPara::OpAttr("output_feeds_size", Ops::Math::AnyValue::CreateFrom<int64_t>(15))},
-                                              &compileInfo);
+
+    gert::TilingContextPara tilingContextPara(
+        "FeedsRepeat",
+        {{{{4, 5, 6, 7}, {4, 5, 6, 7}}, ge::DT_FLOAT, ge::FORMAT_ND},
+         {{{
+               4,
+           },
+           {
+               4,
+           }},
+          ge::DT_INT32,
+          ge::FORMAT_ND}},
+        {
+            {{{15, 5, 6, 7}, {15, 5, 6, 7}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        {gert::TilingContextPara::OpAttr("output_feeds_size", Ops::Math::AnyValue::CreateFrom<int64_t>(15))},
+        &compileInfo);
     uint64_t expectTilingKey = 1;
     string expectTilingData = "34359738372 210 216 64 16 0 15 1 0 ";
     std::vector<size_t> expectWorkspaces = {16777216};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
-TEST_F(FeedsRepeatTiling, test_tiling_bf16_int32) {
+TEST_F(FeedsRepeatTiling, test_tiling_bf16_int32)
+{
     optiling::FeedsRepeatCompileInfo compileInfo = {48, 196608};
-    
-    gert::TilingContextPara tilingContextPara("FeedsRepeat",
-                                              {{{{4, 50, 60, 7}, {4, 50, 60, 7}}, ge::DT_BF16, ge::FORMAT_ND},
-                                               {{{4,}, {4,}}, ge::DT_INT32, ge::FORMAT_ND}},
-                                              {{{{15, 50, 60, 7}, {15, 50, 60, 7}}, ge::DT_BF16, ge::FORMAT_ND},},
-                                              {gert::TilingContextPara::OpAttr("output_feeds_size", Ops::Math::AnyValue::CreateFrom<int64_t>(15))},
-                                              &compileInfo);
+
+    gert::TilingContextPara tilingContextPara(
+        "FeedsRepeat",
+        {{{{4, 50, 60, 7}, {4, 50, 60, 7}}, ge::DT_BF16, ge::FORMAT_ND},
+         {{{
+               4,
+           },
+           {
+               4,
+           }},
+          ge::DT_INT32,
+          ge::FORMAT_ND}},
+        {
+            {{{15, 50, 60, 7}, {15, 50, 60, 7}}, ge::DT_BF16, ge::FORMAT_ND},
+        },
+        {gert::TilingContextPara::OpAttr("output_feeds_size", Ops::Math::AnyValue::CreateFrom<int64_t>(15))},
+        &compileInfo);
     uint64_t expectTilingKey = 3;
     string expectTilingData = "34359738372 21000 21008 64 16 0 15 1 0 ";
     std::vector<size_t> expectWorkspaces = {16777216};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
-TEST_F(FeedsRepeatTiling, test_tiling_fp32_int64) {
+TEST_F(FeedsRepeatTiling, test_tiling_fp32_int64)
+{
     optiling::FeedsRepeatCompileInfo compileInfo = {48, 196608};
-    
-    gert::TilingContextPara tilingContextPara("FeedsRepeat",
-                                              {{{{48, 5, 6, 7}, {48, 5, 6, 7}}, ge::DT_FLOAT, ge::FORMAT_ND},
-                                               {{{48,}, {48,}}, ge::DT_INT64, ge::FORMAT_ND}},
-                                              {{{{100, 5, 6, 7}, {100, 5, 6, 7}}, ge::DT_FLOAT, ge::FORMAT_ND},},
-                                              {gert::TilingContextPara::OpAttr("output_feeds_size", Ops::Math::AnyValue::CreateFrom<int64_t>(15))},
-                                              &compileInfo);
+
+    gert::TilingContextPara tilingContextPara(
+        "FeedsRepeat",
+        {{{{48, 5, 6, 7}, {48, 5, 6, 7}}, ge::DT_FLOAT, ge::FORMAT_ND},
+         {{{
+               48,
+           },
+           {
+               48,
+           }},
+          ge::DT_INT64,
+          ge::FORMAT_ND}},
+        {
+            {{{100, 5, 6, 7}, {100, 5, 6, 7}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        {gert::TilingContextPara::OpAttr("output_feeds_size", Ops::Math::AnyValue::CreateFrom<int64_t>(15))},
+        &compileInfo);
     uint64_t expectTilingKey = 101;
     string expectTilingData = "206158430256 210 216 64 1 16 15 1 0 ";
     std::vector<size_t> expectWorkspaces = {16777216};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
-TEST_F(FeedsRepeatTiling, test_tiling_fp16_int64) {
+TEST_F(FeedsRepeatTiling, test_tiling_fp16_int64)
+{
     optiling::FeedsRepeatCompileInfo compileInfo = {48, 196608};
-    
-    gert::TilingContextPara tilingContextPara("FeedsRepeat",
-                                              {{{{50, 5, 6, 7}, {50, 5, 6, 7}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-                                               {{{50,}, {50,}}, ge::DT_INT64, ge::FORMAT_ND}},
-                                              {{{{50, 5, 6, 7}, {50, 5, 6, 7}}, ge::DT_FLOAT16, ge::FORMAT_ND},},
-                                              {gert::TilingContextPara::OpAttr("output_feeds_size", Ops::Math::AnyValue::CreateFrom<int64_t>(15))},
-                                              &compileInfo);
+
+    gert::TilingContextPara tilingContextPara(
+        "FeedsRepeat",
+        {{{{50, 5, 6, 7}, {50, 5, 6, 7}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+         {{{
+               50,
+           },
+           {
+               50,
+           }},
+          ge::DT_INT64,
+          ge::FORMAT_ND}},
+        {
+            {{{50, 5, 6, 7}, {50, 5, 6, 7}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+        },
+        {gert::TilingContextPara::OpAttr("output_feeds_size", Ops::Math::AnyValue::CreateFrom<int64_t>(15))},
+        &compileInfo);
     uint64_t expectTilingKey = 102;
     string expectTilingData = "223338299442 210 224 64 1 14 15 1 0 ";
     std::vector<size_t> expectWorkspaces = {16777216};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
-TEST_F(FeedsRepeatTiling, test_tiling_bf16_int64) {
+TEST_F(FeedsRepeatTiling, test_tiling_bf16_int64)
+{
     optiling::FeedsRepeatCompileInfo compileInfo = {48, 196608};
-    
-    gert::TilingContextPara tilingContextPara("FeedsRepeat",
-                                              {{{{100, 5, 6, 7}, {100, 5, 6, 7}}, ge::DT_BF16, ge::FORMAT_ND},
-                                               {{{100,}, {100,}}, ge::DT_INT64, ge::FORMAT_ND}},
-                                              {{{{50, 5, 6, 7}, {50, 5, 6, 7}}, ge::DT_BF16, ge::FORMAT_ND},},
-                                              {gert::TilingContextPara::OpAttr("output_feeds_size", Ops::Math::AnyValue::CreateFrom<int64_t>(15))},
-                                              &compileInfo);
+
+    gert::TilingContextPara tilingContextPara(
+        "FeedsRepeat",
+        {{{{100, 5, 6, 7}, {100, 5, 6, 7}}, ge::DT_BF16, ge::FORMAT_ND},
+         {{{
+               100,
+           },
+           {
+               100,
+           }},
+          ge::DT_INT64,
+          ge::FORMAT_ND}},
+        {
+            {{{50, 5, 6, 7}, {50, 5, 6, 7}}, ge::DT_BF16, ge::FORMAT_ND},
+        },
+        {gert::TilingContextPara::OpAttr("output_feeds_size", Ops::Math::AnyValue::CreateFrom<int64_t>(15))},
+        &compileInfo);
     uint64_t expectTilingKey = 103;
     string expectTilingData = "429496729700 210 224 64 0 0 15 1 36 ";
     std::vector<size_t> expectWorkspaces = {16777216};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
-TEST_F(FeedsRepeatTiling, test_tiling_int32_int64) {
+// feeds 仅支持 fp32/fp16/bf16，int32 feeds 返回失败
+TEST_F(FeedsRepeatTiling, test_tiling_int32_int64)
+{
     optiling::FeedsRepeatCompileInfo compileInfo = {48, 196608};
-    
-    gert::TilingContextPara tilingContextPara("FeedsRepeat",
-                                              {{{{48, 5, 6, 7}, {48, 5, 6, 7}}, ge::DT_INT32, ge::FORMAT_ND},
-                                               {{{48,}, {48,}}, ge::DT_INT64, ge::FORMAT_ND}},
-                                              {{{{100, 5, 6, 7}, {100, 5, 6, 7}}, ge::DT_INT32, ge::FORMAT_ND},},
-                                              {gert::TilingContextPara::OpAttr("output_feeds_size", Ops::Math::AnyValue::CreateFrom<int64_t>(15))},
-                                              &compileInfo);
-    uint64_t expectTilingKey = 100;
-    string expectTilingData = "206158430256 0 0 64 1 16 15 1 0 ";
-    std::vector<size_t> expectWorkspaces = {16777216};
-    ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
+
+    gert::TilingContextPara tilingContextPara(
+        "FeedsRepeat",
+        {{{{48, 5, 6, 7}, {48, 5, 6, 7}}, ge::DT_INT32, ge::FORMAT_ND},
+         {{{
+               48,
+           },
+           {
+               48,
+           }},
+          ge::DT_INT64,
+          ge::FORMAT_ND}},
+        {
+            {{{100, 5, 6, 7}, {100, 5, 6, 7}}, ge::DT_INT32, ge::FORMAT_ND},
+        },
+        {gert::TilingContextPara::OpAttr("output_feeds_size", Ops::Math::AnyValue::CreateFrom<int64_t>(15))},
+        &compileInfo);
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
+}
+
+// ===== 非法 shapes / 容量（EZ0010 / EZ0015） =====
+
+TEST_F(FeedsRepeatTiling, test_tiling_neg_zero_batch)
+{
+    optiling::FeedsRepeatCompileInfo compileInfo = {48, 196608};
+
+    gert::TilingContextPara tilingContextPara(
+        "FeedsRepeat",
+        {{{{0, 5, 6, 7}, {0, 5, 6, 7}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+         {{{
+               0,
+           },
+           {
+               0,
+           }},
+          ge::DT_INT32,
+          ge::FORMAT_ND}},
+        {
+            {{{15, 5, 6, 7}, {15, 5, 6, 7}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+        },
+        {gert::TilingContextPara::OpAttr("output_feeds_size", Ops::Math::AnyValue::CreateFrom<int64_t>(15))},
+        &compileInfo);
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
+}
+
+TEST_F(FeedsRepeatTiling, test_tiling_neg_length_mismatch)
+{
+    optiling::FeedsRepeatCompileInfo compileInfo = {48, 196608};
+
+    gert::TilingContextPara tilingContextPara(
+        "FeedsRepeat",
+        {{{{4, 5, 6, 7}, {4, 5, 6, 7}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+         {{{
+               5,
+           },
+           {
+               5,
+           }},
+          ge::DT_INT32,
+          ge::FORMAT_ND}},
+        {
+            {{{15, 5, 6, 7}, {15, 5, 6, 7}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+        },
+        {gert::TilingContextPara::OpAttr("output_feeds_size", Ops::Math::AnyValue::CreateFrom<int64_t>(15))},
+        &compileInfo);
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
+}
+
+TEST_F(FeedsRepeatTiling, test_tiling_neg_repeat_times_dtype_invalid)
+{
+    optiling::FeedsRepeatCompileInfo compileInfo = {48, 196608};
+
+    gert::TilingContextPara tilingContextPara(
+        "FeedsRepeat",
+        {{{{4, 5, 6, 7}, {4, 5, 6, 7}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+         {{{
+               4,
+           },
+           {
+               4,
+           }},
+          ge::DT_FLOAT,
+          ge::FORMAT_ND}},
+        {
+            {{{15, 5, 6, 7}, {15, 5, 6, 7}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+        },
+        {gert::TilingContextPara::OpAttr("output_feeds_size", Ops::Math::AnyValue::CreateFrom<int64_t>(15))},
+        &compileInfo);
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
+}
+
+TEST_F(FeedsRepeatTiling, test_tiling_neg_repeat_times_too_large)
+{
+    optiling::FeedsRepeatCompileInfo compileInfo = {48, 196608};
+
+    gert::TilingContextPara tilingContextPara(
+        "FeedsRepeat",
+        {{{{16376, 1}, {16376, 1}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+         {{{
+               16376,
+           },
+           {
+               16376,
+           }},
+          ge::DT_INT32,
+          ge::FORMAT_ND}},
+        {
+            {{{16376, 1}, {16376, 1}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+        },
+        {gert::TilingContextPara::OpAttr("output_feeds_size", Ops::Math::AnyValue::CreateFrom<int64_t>(15))},
+        &compileInfo, 64, 262144);
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
 }
