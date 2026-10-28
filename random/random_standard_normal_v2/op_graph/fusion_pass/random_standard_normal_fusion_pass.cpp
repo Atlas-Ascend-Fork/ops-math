@@ -76,7 +76,8 @@ static const int64_t kCaptureIdx = 0L;
 
 namespace {
 // 平台门控改用 NpuArch 判别(参考 concat_to_concatd_fusion_pass):
-// Ascend950 与 Ascend350 上报的 NpuArch 同为 DAV_3510, 按 arch 判断可同时覆盖两档芯片。
+// Ascend950 与 Ascend350 上报的 NpuArch 同为 DAV_3510, 按 arch 判断可同时覆盖两档芯片;
+// Ascend960DT/Ascend960PR (A6) 上报 DAV_9201/DAV_9202, 与 A5 共用 arch35 实现路径。
 bool IsTargetPlatform()
 {
     char npuArchVal[32] = {0};
@@ -85,10 +86,10 @@ bool IsTargetPlatform()
         return false;
     }
     const auto npuArch = static_cast<NpuArch>(std::strtol(npuArchVal, nullptr, 10));
-    static const std::set<NpuArch> supportedArch = {NpuArch::DAV_3510};
+    static const std::set<NpuArch> supportedArch = {NpuArch::DAV_3510, NpuArch::DAV_9201, NpuArch::DAV_9202};
     const bool isSupported = (supportedArch.count(npuArch) > 0);
     if (!isSupported) {
-        OP_LOGI(kPassName.c_str(), "Platform NpuArch %u is not supported(DAV_3510), skip.",
+        OP_LOGI(kPassName.c_str(), "Platform NpuArch %u is not supported(DAV_3510/DAV_9201/DAV_9202), skip.",
                 static_cast<uint32_t>(npuArch));
     }
     return isSupported;
@@ -156,7 +157,7 @@ bool RandomStandardNormalFusionPass::MeetRequirements(const std::unique_ptr<Matc
         return false;
     }
 
-    // 1. Platform check - NpuArch based (DAV_3510 covers both Ascend950 and Ascend350)
+    // 1. Platform check - NpuArch based (DAV_3510: Ascend950/Ascend350; DAV_9201/DAV_9202: Ascend960DT/Ascend960PR)
     if (!IsTargetPlatform()) {
         return false;
     }

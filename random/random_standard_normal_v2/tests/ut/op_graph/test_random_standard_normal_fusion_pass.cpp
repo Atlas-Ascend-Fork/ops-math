@@ -29,6 +29,8 @@ using namespace ops;
 
 namespace {
 const char* const kSupportedArchDav3510 = "3510"; // Ascend950/Ascend350
+const char* const kSupportedArchDav9201 = "9201"; // Ascend960DT
+const char* const kSupportedArchDav9202 = "9202"; // Ascend960PR
 
 // UT stub for rtGetSocSpec: the UT executable does not link the runtime lib, while the pass gates
 // on NpuArch via this API. The stub feeds the arch from the ASCEND_NPU_ARCH env variable (same
@@ -334,6 +336,92 @@ TEST_F(RandomStandardNormalFusionPassTest, fusionDifferentShapeSuccess)
     auto graphBuilder = es::EsGraphBuilder("test");
     auto shape = graphBuilder.CreateInput(0, "shape", DT_INT64, FORMAT_ND, shapeDims);
     auto output = es::RandomStandardNormal(shape, DT_FLOAT, 0, 0);
+
+    TensorDesc shapeDesc;
+    shape.GetProducer()->GetOutputDesc(0, shapeDesc);
+    shapeDesc.SetDataType(DT_INT64);
+    shapeDesc.SetShape(Shape(shapeDims));
+    shapeDesc.SetFormat(FORMAT_ND);
+    shape.GetProducer()->UpdateOutputDesc(0, shapeDesc);
+
+    std::shared_ptr<Graph> graph = graphBuilder.BuildAndReset({output});
+    CustomPassContext passContext;
+    ops::RandomStandardNormalFusionPass pass;
+    Status status = pass.Run(graph, passContext);
+
+    EXPECT_EQ(status, SUCCESS);
+
+    bool foundV2 = false;
+    for (auto node : graph->GetAllNodes()) {
+        AscendString type;
+        node.GetType(type);
+        if (std::string(type.GetString()) == "RandomStandardNormalV2") {
+            foundV2 = true;
+        }
+    }
+    EXPECT_TRUE(foundV2);
+}
+
+// Test 9: Verify successful fusion on Ascend960DT platform
+TEST_F(RandomStandardNormalFusionPassTest, fusion960DTSuccess)
+{
+    fe::PlatformInfo platformInfo;
+    fe::OptionalInfo optiCompilationInfo;
+    platformInfo.soc_info.ai_core_cnt = 64;
+    platformInfo.str_info.short_soc_version = "Ascend960DT";
+    optiCompilationInfo.soc_version = "Ascend960DT";
+    fe::PlatformInfoManager::Instance().platform_info_map_["Ascend960DT"] = platformInfo;
+    fe::PlatformInfoManager::Instance().SetOptionalCompilationInfo(optiCompilationInfo);
+    SetNpuArch(kSupportedArchDav9201);
+
+    std::vector<int64_t> shapeDims{4};
+
+    auto graphBuilder = es::EsGraphBuilder("test");
+    auto shape = graphBuilder.CreateInput(0, "shape", DT_INT64, FORMAT_ND, shapeDims);
+    auto output = es::RandomStandardNormal(shape, DT_FLOAT, 512, 1024);
+
+    TensorDesc shapeDesc;
+    shape.GetProducer()->GetOutputDesc(0, shapeDesc);
+    shapeDesc.SetDataType(DT_INT64);
+    shapeDesc.SetShape(Shape(shapeDims));
+    shapeDesc.SetFormat(FORMAT_ND);
+    shape.GetProducer()->UpdateOutputDesc(0, shapeDesc);
+
+    std::shared_ptr<Graph> graph = graphBuilder.BuildAndReset({output});
+    CustomPassContext passContext;
+    ops::RandomStandardNormalFusionPass pass;
+    Status status = pass.Run(graph, passContext);
+
+    EXPECT_EQ(status, SUCCESS);
+
+    bool foundV2 = false;
+    for (auto node : graph->GetAllNodes()) {
+        AscendString type;
+        node.GetType(type);
+        if (std::string(type.GetString()) == "RandomStandardNormalV2") {
+            foundV2 = true;
+        }
+    }
+    EXPECT_TRUE(foundV2);
+}
+
+// Test 10: Verify successful fusion on Ascend960PR platform
+TEST_F(RandomStandardNormalFusionPassTest, fusion960PRSuccess)
+{
+    fe::PlatformInfo platformInfo;
+    fe::OptionalInfo optiCompilationInfo;
+    platformInfo.soc_info.ai_core_cnt = 64;
+    platformInfo.str_info.short_soc_version = "Ascend960PR";
+    optiCompilationInfo.soc_version = "Ascend960PR";
+    fe::PlatformInfoManager::Instance().platform_info_map_["Ascend960PR"] = platformInfo;
+    fe::PlatformInfoManager::Instance().SetOptionalCompilationInfo(optiCompilationInfo);
+    SetNpuArch(kSupportedArchDav9202);
+
+    std::vector<int64_t> shapeDims{4};
+
+    auto graphBuilder = es::EsGraphBuilder("test");
+    auto shape = graphBuilder.CreateInput(0, "shape", DT_INT64, FORMAT_ND, shapeDims);
+    auto output = es::RandomStandardNormal(shape, DT_FLOAT, 512, 1024);
 
     TensorDesc shapeDesc;
     shape.GetProducer()->GetOutputDesc(0, shapeDesc);
