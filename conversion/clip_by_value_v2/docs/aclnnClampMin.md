@@ -82,7 +82,7 @@ aclnnStatus aclnnClampMin(
       <td>self（aclTensor*）</td>
       <td>输入</td>
       <td>输入Tensor，需要进行限制的张量，即公式中的x<sub>i</sub>。</td>
-      <td>数据类型与max的数据类型需满足数据类型转换规则（参见<a href="../../../docs/zh/context/conversion_relationship.md" target="_blank">互转换关系</a>）。</td>
+      <td>数据类型与clipValueMin的数据类型需满足数据类型转换规则（参见<a href="../../../docs/zh/context/conversion_relationship.md" target="_blank">互转换关系</a>）。</td>
       <td>FLOAT16、FLOAT、DOUBLE、INT8、UINT8、INT16、INT32、INT64、BFLOAT16</td>
       <td>ND</td>
       <td>1-8</td>
