@@ -38,6 +38,12 @@ ge::graphStatus TileInferShapeCommon(gert::InferShapeContext* context, const T* 
     OP_CHECK_IF(multiples_len > MAXDIMNUM,
                 OP_LOGE(context->GetNodeName(), "the tile multiples len is more than MaxDimNum 8"),
                 return ge::GRAPH_FAILED);
+    // unknown rank: input shape is [-2], output shape keeps unknown rank [-2]
+    if (Ops::Base::IsUnknownRank(*in_shape)) {
+        OP_LOGI(context->GetNodeName(), "input shape is unknown rank [-2], output shape keeps unknown rank.");
+        Ops::Base::SetUnknownRank(*out_shape);
+        return GRAPH_SUCCESS;
+    }
     // align shape for input
     gert::Shape in_shape_new;
     if (in_shape_len < multiples_len) {
@@ -67,9 +73,12 @@ ge::graphStatus TileInferShapeCommon(gert::InferShapeContext* context, const T* 
             int32_t multiples_index = multiples_len - in_shape_len + i;
             out_shape->SetDim(i, in_shape_new[i] * (multiples_index >= 0 ? multiples_data[multiples_index] : 1));
         } else {
-            OP_LOGE(context->GetNodeName(), "Runtime infershape illegal input dim:%lu, value is %ld", i,
-                    in_shape_new[i]);
-            return ge::GRAPH_FAILED;
+            // 动态shape场景：输入维度未知（值为-1等），输出对应维度保持未知，不报错
+            out_shape->SetDim(i, in_shape_new[i]);
+            OP_LOGI(context->GetNodeName(),
+                    "Runtime infershape input dim:%lu is unknown (value is %ld), "
+                    "propagate unknown dim to output.",
+                    i, in_shape_new[i]);
         }
     }
     return GRAPH_SUCCESS;

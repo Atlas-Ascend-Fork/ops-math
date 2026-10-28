@@ -14,87 +14,73 @@
 #include "infershape_case_executor.h"
 
 class TileTest : public testing::Test {
-  protected:
-    static void SetUpTestCase() {
-        std::cout << "TileTest SetUp" << std::endl;
-    }
+protected:
+    static void SetUpTestCase() { std::cout << "TileTest SetUp" << std::endl; }
 
-    static void TearDownTestCase() {
-        std::cout << "TileTest TearDown" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "TileTest TearDown" << std::endl; }
 };
 
-TEST_F(TileTest, tile_infershape_test_0) {
+TEST_F(TileTest, tile_infershape_test_0)
+{
     std::vector<int32_t> values = {8, 9};
     gert::InfershapeContextPara infershapeContextPara("Tile",
+                                                      {{{{2, 1}, {2, 1}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                       {{{2}, {2}}, ge::DT_INT32, ge::FORMAT_ND, true, values.data()}},
                                                       {
-                                                        {{{2, 1}, {2, 1}}, ge::DT_FLOAT, ge::FORMAT_ND},
-                                                        {{{2}, {2}}, ge::DT_INT32, ge::FORMAT_ND, true, values.data()}
-                                                      },
-                                                      {
-                                                        {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
-                                                      }
-                                                     );
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      });
     std::vector<std::vector<int64_t>> expectOutputShape = {{16, 9}};
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
 
-TEST_F(TileTest, tile_infershape_test_1) {
+TEST_F(TileTest, tile_infershape_test_1)
+{
     std::vector<int32_t> values = {9};
-    gert::InfershapeContextPara infershapeContextPara("Tile",
-                                                      {
-                                                        {{{1}, {1}}, ge::DT_FLOAT, ge::FORMAT_ND},
-                                                        {{{1}, {1}}, ge::DT_INT32, ge::FORMAT_ND, true, values.data()}
-                                                      },
-                                                      {
-                                                        {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
-                                                      }
-                                                     );
+    gert::InfershapeContextPara infershapeContextPara(
+        "Tile",
+        {{{{1}, {1}}, ge::DT_FLOAT, ge::FORMAT_ND}, {{{1}, {1}}, ge::DT_INT32, ge::FORMAT_ND, true, values.data()}},
+        {
+            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        });
     std::vector<std::vector<int64_t>> expectOutputShape = {{9}};
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
 
-TEST_F(TileTest, tile_infershape_test_2) {
+TEST_F(TileTest, tile_infershape_test_2)
+{
     std::vector<int32_t> values = {9};
-    gert::InfershapeContextPara infershapeContextPara("Tile",
-                                                      {
-                                                        {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
-                                                        {{{1}, {1}}, ge::DT_INT32, ge::FORMAT_ND, true, values.data()}
-                                                      },
-                                                      {
-                                                        {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
-                                                      }
-                                                     );
+    gert::InfershapeContextPara infershapeContextPara(
+        "Tile",
+        {{{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND}, {{{1}, {1}}, ge::DT_INT32, ge::FORMAT_ND, true, values.data()}},
+        {
+            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        });
     std::vector<std::vector<int64_t>> expectOutputShape = {{9}};
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
 
-TEST_F(TileTest, tile_infershape_test_3) {
+TEST_F(TileTest, tile_infershape_test_3)
+{
     std::vector<int32_t> values = {};
-    gert::InfershapeContextPara infershapeContextPara("Tile",
-                                                      {
-                                                        {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
-                                                        {{{0}, {0}}, ge::DT_INT32, ge::FORMAT_ND, true, values.data()}
-                                                      },
-                                                      {
-                                                        {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
-                                                      }
-                                                     );
+    gert::InfershapeContextPara infershapeContextPara(
+        "Tile",
+        {{{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND}, {{{0}, {0}}, ge::DT_INT32, ge::FORMAT_ND, true, values.data()}},
+        {
+            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        });
     std::vector<std::vector<int64_t>> expectOutputShape = {{}};
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
 
-TEST_F(TileTest, tile_infershape_test_4) {
+TEST_F(TileTest, tile_infershape_test_4)
+{
     std::vector<int32_t> values = {0};
-    gert::InfershapeContextPara infershapeContextPara("Tile",
-                                                      {
-                                                        {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
-                                                        {{{1}, {1}}, ge::DT_INT32, ge::FORMAT_ND, true, values.data()}
-                                                      },
-                                                      {
-                                                        {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
-                                                      }
-                                                     );
+    gert::InfershapeContextPara infershapeContextPara(
+        "Tile",
+        {{{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND}, {{{1}, {1}}, ge::DT_INT32, ge::FORMAT_ND, true, values.data()}},
+        {
+            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        });
     std::vector<std::vector<int64_t>> expectOutputShape = {{0}};
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
@@ -158,8 +144,9 @@ TEST_F(TileTest, tile_infershape_int64_fewer_dims)
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
 
-// Test scenario: tile with negative dimension in input shape, expect infershape to fail as negative dims are illegal
-TEST_F(TileTest, tile_infershape_negative_dim)
+// Test scenario: tile with unknown dim (-1) in input shape, expect infershape to succeed and propagate
+// unknown dim to output (dynamic shape case)
+TEST_F(TileTest, tile_infershape_unknown_dim)
 {
     std::vector<int32_t> values = {2, 1};
     gert::InfershapeContextPara infershapeContextPara("Tile",
@@ -168,7 +155,23 @@ TEST_F(TileTest, tile_infershape_negative_dim)
                                                       {
                                                           {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
                                                       });
-    ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED);
+    // output = {-1*2, 3*1} = {-1, 3}, unknown dim stays unknown
+    std::vector<std::vector<int64_t>> expectOutputShape = {{-1, 3}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+// Test scenario: tile with unknown rank ([-2]) input, expect infershape to succeed and output unknown rank [-2]
+TEST_F(TileTest, tile_infershape_unknown_rank)
+{
+    std::vector<int32_t> values = {2, 1};
+    gert::InfershapeContextPara infershapeContextPara(
+        "Tile",
+        {{{{-2}, {-2}}, ge::DT_FLOAT, ge::FORMAT_ND}, {{{2}, {2}}, ge::DT_INT32, ge::FORMAT_ND, true, values.data()}},
+        {
+            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        });
+    std::vector<std::vector<int64_t>> expectOutputShape = {{-2}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
 
 // Test scenario: tile with multiples len exceeding MAXDIMNUM (8), expect infershape to fail
