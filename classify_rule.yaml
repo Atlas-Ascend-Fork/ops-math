@@ -1493,11 +1493,10 @@ conversion@ops-math:
         - ops/ops-math/conversion/diag_flat/README.md
         - ops/ops-math/conversion/diag_flat/op_kernel/
         - ops/ops-math/conversion/diag_flat/op_host/
-        - ops/ops-math/conversion/diag_flat/op_host/op_api/
+        - ops/ops-math/conversion/diag_flat/op_api/
         - ops/ops-math/conversion/diag_flat/op_host/config/ascend910b/
         - ops/ops-math/conversion/diag_flat/op_host/diag_flat_infershape.cpp
         - ops/ops-math/conversion/diag_flat/op_host/diag_flat_def.cpp
-        - ops/ops-math/conversion/diag_flat/op_host/diag_flat_tiling.cpp
         - ops/ops-math/conversion/diag_flat/op_graph/
         - ops/ops-math/conversion/weight_quant_preprocess/docs/
         - ops/ops-math/conversion/weight_quant_preprocess/op_host/

@@ -196,3 +196,80 @@ TEST_F(BatchToSpaceTilingTest, N_NotDivisible_Fail)
     TilingInfo ti;
     EXPECT_FALSE(ExecuteTiling(tilingContextPara, ti));
 }
+
+// -----------------------------------------------------------------------
+// 用例8: crops 非 const 但元素数=4 → tiling 成功（crops 按 0 处理）
+// -----------------------------------------------------------------------
+TEST_F(BatchToSpaceTilingTest, NonConstCrops_ValidElementCount_Success)
+{
+    gert::TilingContextPara tilingContextPara(
+        "BatchToSpace",
+        {{{{8, 28, 28, 128}, {8, 28, 28, 128}}, ge::DT_FLOAT16, ge::FORMAT_NHWC},
+         {{{2, 2}, {2, 2}}, ge::DT_INT64, ge::FORMAT_NHWC}},
+        {{{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_NHWC}},
+        {gert::TilingContextPara::OpAttr("block_size", Ops::Math::AnyValue::CreateFrom<int64_t>(2))}, &compileInfo, 64);
+    TilingInfo ti;
+    ASSERT_TRUE(ExecuteTiling(tilingContextPara, ti));
+    auto* td = reinterpret_cast<const BatchToSpaceTilingData*>(ti.tilingData.get());
+    EXPECT_EQ(td->outShape[0], 2);
+    EXPECT_EQ(td->outShape[1], 56);
+    EXPECT_EQ(td->outShape[2], 56);
+    EXPECT_EQ(td->outShape[3], 128);
+}
+
+// -----------------------------------------------------------------------
+// 用例9: crops 非 const 且元素数≠4 → tiling 失败（shape 校验不依赖 const 数据）
+// -----------------------------------------------------------------------
+TEST_F(BatchToSpaceTilingTest, NonConstCrops_WrongElementCount_Fail)
+{
+    gert::TilingContextPara tilingContextPara(
+        "BatchToSpace",
+        {{{{8, 28, 28, 128}, {8, 28, 28, 128}}, ge::DT_FLOAT16, ge::FORMAT_NHWC},
+         {{{4, 2}, {4, 2}}, ge::DT_INT64, ge::FORMAT_NHWC}},
+        {{{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_NHWC}},
+        {gert::TilingContextPara::OpAttr("block_size", Ops::Math::AnyValue::CreateFrom<int64_t>(2))}, &compileInfo, 64);
+    TilingInfo ti;
+    EXPECT_FALSE(ExecuteTiling(tilingContextPara, ti));
+}
+
+// -----------------------------------------------------------------------
+// 用例10: N_in=0 → 空输出 tiling 成功，totalCount=0
+// -----------------------------------------------------------------------
+TEST_F(BatchToSpaceTilingTest, ZeroBatch_EmptyTiling)
+{
+    int64_t cropsData[4] = {0, 0, 0, 0};
+    gert::TilingContextPara tilingContextPara(
+        "BatchToSpace",
+        {{{{0, 28, 28, 128}, {0, 28, 28, 128}}, ge::DT_FLOAT16, ge::FORMAT_NHWC},
+         {{{2, 2}, {2, 2}}, ge::DT_INT64, ge::FORMAT_NHWC, true, cropsData}},
+        {{{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_NHWC}},
+        {gert::TilingContextPara::OpAttr("block_size", Ops::Math::AnyValue::CreateFrom<int64_t>(2))}, &compileInfo, 64);
+    TilingInfo ti;
+    ASSERT_TRUE(ExecuteTiling(tilingContextPara, ti));
+    auto* td = reinterpret_cast<const BatchToSpaceTilingData*>(ti.tilingData.get());
+    EXPECT_EQ(td->outShape[0], 0);
+    EXPECT_EQ(td->outShape[1], 56);
+    EXPECT_EQ(td->outShape[2], 56);
+    EXPECT_EQ(td->outShape[3], 128);
+    EXPECT_EQ(td->totalCount, 0ull);
+}
+
+// -----------------------------------------------------------------------
+// 用例11: C=0 → 空输出 tiling 成功，totalCount=0
+// -----------------------------------------------------------------------
+TEST_F(BatchToSpaceTilingTest, ZeroC_EmptyTiling)
+{
+    int64_t cropsData[4] = {0, 0, 0, 0};
+    gert::TilingContextPara tilingContextPara(
+        "BatchToSpace",
+        {{{{8, 28, 28, 0}, {8, 28, 28, 0}}, ge::DT_FLOAT16, ge::FORMAT_NHWC},
+         {{{2, 2}, {2, 2}}, ge::DT_INT64, ge::FORMAT_NHWC, true, cropsData}},
+        {{{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_NHWC}},
+        {gert::TilingContextPara::OpAttr("block_size", Ops::Math::AnyValue::CreateFrom<int64_t>(2))}, &compileInfo, 64);
+    TilingInfo ti;
+    ASSERT_TRUE(ExecuteTiling(tilingContextPara, ti));
+    auto* td = reinterpret_cast<const BatchToSpaceTilingData*>(ti.tilingData.get());
+    EXPECT_EQ(td->outShape[0], 2);
+    EXPECT_EQ(td->outShape[3], 0);
+    EXPECT_EQ(td->totalCount, 0ull);
+}

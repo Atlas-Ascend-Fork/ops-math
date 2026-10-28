@@ -31,7 +31,7 @@
 
 #include "kernel_operator.h"
 #include "simt_api/asc_simt.h"
-#include "diag_flat_tiling_data.h"  // kept for backward compat; fields now in DiagV2Arch35TilingData
+#include "diag_flat_tiling_data.h" // kept for backward compat; fields now in DiagV2Arch35TilingData
 
 using namespace AscendC;
 
@@ -45,16 +45,16 @@ constexpr uint32_t DIAG_FLAT_THREAD_NUM = 1024;
 // ================================================================
 
 template <typename T>
-__simt_vf__ __aicore__ LAUNCH_BOUND(DIAG_FLAT_THREAD_NUM) void SimtDiagFlat(
-    __gm__ T* xGm,          // input (1D contiguous)
-    int64_t tileOffset,     // global output element offset of this tile
-    int64_t tileElems,      // number of output elements in this tile
-    int64_t outWidth,       // W = N + |k|
-    uint64_t outWidthMagic, // fast div magic  for outWidth
-    uint64_t outWidthShift, // fast div shift  for outWidth
-    int64_t diagonal,       // k (signed)
-    int64_t numInput,       // N = total input elements
-    __ubuf__ T* yUb)        // UB output buffer (packed) — LAST
+__simt_vf__ __aicore__
+LAUNCH_BOUND(DIAG_FLAT_THREAD_NUM) void SimtDiagFlat(__gm__ T* xGm,      // input (1D contiguous)
+                                                     int64_t tileOffset, // global output element offset of this tile
+                                                     int64_t tileElems,  // number of output elements in this tile
+                                                     int64_t outWidth,   // W = N + |k|
+                                                     uint64_t outWidthMagic, // fast div magic  for outWidth
+                                                     uint64_t outWidthShift, // fast div shift  for outWidth
+                                                     int64_t diagonal,       // k (signed)
+                                                     int64_t numInput,       // N = total input elements
+                                                     __ubuf__ T* yUb)        // UB output buffer (packed) — LAST
 {
     for (int64_t pos = threadIdx.x; pos < tileElems; pos += blockDim.x) {
         int64_t globalPos = tileOffset + pos;
@@ -69,8 +69,14 @@ __simt_vf__ __aicore__ LAUNCH_BOUND(DIAG_FLAT_THREAD_NUM) void SimtDiagFlat(
         bool inRange = (inputIdx >= 0) && (inputIdx < numInput);
         bool doRead = onDiag && inRange;
 
-        // Always read from GM (non-divergent), then branchless select
-        T gmVal = xGm[doRead ? inputIdx : 0];
+        // Always read from GM (non-divergent), then branchless select.
+        // Guard the load with numInput, which is uniform across threads, so an
+        // empty input never dereferences xGm[0] out of bounds; the non-diagonal
+        // fill still writes the required zeros for the |diagonal| x |diagonal| case.
+        T gmVal = static_cast<T>(0);
+        if (numInput > 0) {
+            gmVal = xGm[doRead ? inputIdx : 0];
+        }
         yUb[pos] = doRead ? gmVal : static_cast<T>(0);
     }
 }
@@ -82,8 +88,7 @@ __simt_vf__ __aicore__ LAUNCH_BOUND(DIAG_FLAT_THREAD_NUM) void SimtDiagFlat(
 template <typename T>
 class DiagFlatSimd {
 public:
-    __aicore__ inline void Init(GM_ADDR x, GM_ADDR y,
-                                 const DiagFlatArch35TilingData* tilingData)
+    __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, const DiagFlatArch35TilingData* tilingData)
     {
         td_ = tilingData;
         xGm_.SetGlobalBuffer((__gm__ T*)x);
@@ -95,18 +100,17 @@ public:
 
         // InitBuffer 3rd arg = per-buffer bytes (ref: diag_v2, batch_to_space_nd).
         uint32_t bufBytes = static_cast<uint32_t>(
-            ((td_->tileLength + DIAG_FLAT_THREAD_NUM - 1) / DIAG_FLAT_THREAD_NUM) *
-            DIAG_FLAT_THREAD_NUM * sizeof(T));
+            ((td_->tileLength + DIAG_FLAT_THREAD_NUM - 1) / DIAG_FLAT_THREAD_NUM) * DIAG_FLAT_THREAD_NUM * sizeof(T));
         pipe_.InitBuffer(outQueue_, DIAG_FLAT_BUFFER_NUM, bufBytes);
 
         // Pre-compute fast division magic for outWidth (ref: batch_to_space_nd pattern)
-        GetUintDivMagicAndShift(outWidthMagic_, outWidthShift_,
-                                static_cast<uint64_t>(td_->outWidth));
+        GetUintDivMagicAndShift(outWidthMagic_, outWidthShift_, static_cast<uint64_t>(td_->outWidth));
     }
 
     __aicore__ inline void Process()
     {
-        if (remaining_ <= 0) return;
+        if (remaining_ <= 0)
+            return;
 
         int64_t end = tileOffset_ + remaining_;
         int64_t curTileLen;
@@ -116,29 +120,19 @@ public:
             auto outBuf = outQueue_.AllocTensor<T>();
             auto yUb = reinterpret_cast<__ubuf__ T*>(outBuf.GetPhyAddr());
 
-
             // 2. SIMT: fill UB (diagonal ← input, non-diagonal ← 0)
             // Always use fixed threadNum, same as batch_to_space_nd pattern.
             // Loop condition `pos < tileElems` naturally filters idle threads.
-            asc_vf_call<SimtDiagFlat<T>>(
-                dim3(DIAG_FLAT_THREAD_NUM),
-                (__gm__ T*)xGm_.GetPhyAddr(),
-                curStart,
-                curTileLen,
-                td_->outWidth,
-                outWidthMagic_,
-                outWidthShift_,
-                td_->diagonal,
-                td_->numInput,
-                yUb);
+            asc_vf_call<SimtDiagFlat<T>>(dim3(DIAG_FLAT_THREAD_NUM), (__gm__ T*)xGm_.GetPhyAddr(), curStart, curTileLen,
+                                         td_->outWidth, outWidthMagic_, outWidthShift_, td_->diagonal, td_->numInput,
+                                         yUb);
 
             // 3. EnQue → DeQue (sync)
             outQueue_.EnQue(outBuf);
             LocalTensor<T> readyBuf = outQueue_.DeQue<T>();
 
             // 4. DMA: continuous burst output
-            DataCopyPad(yGm_[curStart], readyBuf,
-                {1, static_cast<uint32_t>(curTileLen * sizeof(T)), 0, 0, 0});
+            DataCopyPad(yGm_[curStart], readyBuf, {1, static_cast<uint32_t>(curTileLen * sizeof(T)), 0, 0, 0});
 
             // 5. Free UB buffer
             outQueue_.FreeTensor(outBuf);

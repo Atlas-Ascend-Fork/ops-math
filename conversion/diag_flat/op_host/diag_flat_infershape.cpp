@@ -14,6 +14,7 @@
  */
 
 #include <cmath>
+#include <limits>
 #include "register/op_impl_registry.h"
 #include "log/log.h"
 #include "util/shape_util.h"
@@ -64,7 +65,18 @@ static ge::graphStatus InfershapeForDiagFlat(gert::InferShapeContext* context)
         // 获取元素element的个数, 2D->1D的场景
         output_y_shape->SetDimNum(input_dim_num);
         auto total_element_num = inputShape->GetShapeSize();
-        auto output_width = total_element_num + std::abs(diagonal);
+        OP_CHECK_IF(diagonal == std::numeric_limits<int64_t>::min(),
+                    OP_LOGE(context->GetNodeName(), "diagonal is INT64_MIN, its absolute value overflows int64."),
+                    return ge::GRAPH_FAILED);
+        // floor(sqrt(INT64_MAX))，保证 outWidth * outWidth 不溢出
+        constexpr int64_t MAX_OUT_WIDTH = 3037000499;
+        int64_t absDiagonal = diagonal >= 0 ? diagonal : -diagonal;
+        OP_CHECK_IF(
+            total_element_num < 0 || absDiagonal > MAX_OUT_WIDTH || total_element_num > MAX_OUT_WIDTH - absDiagonal,
+            OP_LOGE(context->GetNodeName(), "output width %ld + %ld exceeds the supported bound %ld.",
+                    total_element_num, absDiagonal, MAX_OUT_WIDTH),
+            return ge::GRAPH_FAILED);
+        auto output_width = total_element_num + absDiagonal;
         output_y_shape->SetDim(0, output_width);
         output_y_shape->SetDim(1, output_width);
     }

@@ -21,6 +21,8 @@
 - <term>Atlas训练系列产品</term>：支持
 <!-- end id6 -->
 
+- Atlas训练系列产品、Atlas推理系列产品：不支持BFLOAT16。
+
 ## 功能说明
 
 生成对角线张量。如果输入self为一维张量，则返回二维张量，self里元素为对角线值；如果输入self是二维及以上张量，则先进行扁平化（化简为一维张量），再转化为第一种场景处理。
@@ -76,7 +78,7 @@ aclnnStatus aclnnDiagFlat(
       <td>self（aclTensor*）</td>
       <td>输入</td>
       <td>表示填充到对角线的Tensor。</td>
-      <td>-</td>
+      <td>支持空Tensor：numel(self) = 0时，|diagonal| &gt; 0输出 |diagonal| × |diagonal| 的全零方阵，|diagonal| = 0输出 0 × 0。</td>
       <td>FLOAT、FLOAT16、DOUBLE、INT32、INT64、INT16、INT8、UINT8、BOOL、COMPLEX64、BFLOAT16。</td>
       <td>ND</td>
       <td>1-8</td>
@@ -85,21 +87,21 @@ aclnnStatus aclnnDiagFlat(
     <tr>
       <td>diagonal（int64_t）</td>
       <td>输入</td>
-      <td>用来指定对角线。<br>diagonal = 0表示主对角线。<br>diagonal > 0表示主对角线上方的对角线。<br>diagonal < 0表示主对角线下方的对角线。</td>
+      <td>用来指定对角线。<br>diagonal = 0表示主对角线。<br>diagonal &gt; 0表示主对角线上方的对角线。<br>diagonal &lt; 0表示主对角线下方的对角线。</td>
       <td>-</td>
-      <td>INT64</td>
-      <td>ND</td>
+      <td>-</td>
+      <td>-</td>
       <td>-</td>
       <td>-</td>
     </tr>
     <tr>
       <td>out（aclTensor*）</td>
       <td>输出</td>
-      <td>输出Tensor</td>
+      <td>输出为二维方阵，边长 n = numel(self) + |diagonal|。</td>
       <td>-</td>
       <td>与self保持一致</td>
       <td>ND</td>
-      <td>1-8</td>
+      <td>2</td>
       <td>√</td>
     </tr>
     <tr>
@@ -147,12 +149,9 @@ aclnnStatus aclnnDiagFlat(
       <td>传入的self或out是空指针。</td>
     </tr>
     <tr>
-      <td rowspan="2">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="2">161002</td>
-      <td>self和out的数据类型不在支持的范围之内。</td>
-    </tr>
-    <tr>
-      <td>diagonal不在支持的数据类型范围之内。</td>
+      <td>ACLNN_ERR_PARAM_INVALID</td>
+      <td>161002</td>
+      <td>self和out的数据类型不在支持的范围之内，或numel(self) + |diagonal| 会导致int64输出尺寸溢出（含diagonal为INT64_MIN）。</td>
     </tr>
   </tbody>
   </table>

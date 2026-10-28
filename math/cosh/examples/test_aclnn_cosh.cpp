@@ -87,7 +87,7 @@ int CreateAclTensor(const std::vector<T>& hostData, const std::vector<int64_t>& 
     return 0;
 }
 
-int ExecuteCosh(TensorPtr& self, TensorPtr& out, StreamPtr& stream)
+int ExecuteCosh(TensorPtr& self, TensorPtr& out, StreamPtr& stream, DeviceMemPtr& workspaceAddr)
 {
     uint64_t workspaceSize = 0;
     aclOpExecutor* executor;
@@ -95,7 +95,7 @@ int ExecuteCosh(TensorPtr& self, TensorPtr& out, StreamPtr& stream)
     if (ret != ACL_SUCCESS)
         return ret;
 
-    DeviceMemPtr workspaceAddr(nullptr, &aclrtFree);
+    // workspaceAddr 由调用方持有，保证在流同步完成后才释放
     if (workspaceSize > static_cast<uint64_t>(0)) {
         void* rawWorkspaceAddr = nullptr;
         ret = aclrtMalloc(&rawWorkspaceAddr, workspaceSize, ACL_MEM_MALLOC_HUGE_FIRST);
@@ -118,9 +118,9 @@ int PrintAndCheckResults(DeviceMemPtr& outDeviceAddr, const std::vector<int64_t>
     if (ret != ACL_SUCCESS)
         return ret;
 
-    // FP32 社区标准容差（spec.yaml numerical_tolerance.per_dtype）
-    constexpr double kAtolFp32 = 1.22e-4;
-    constexpr double kRtolFp32 = 1.22e-3;
+    // FP32 社区标准容差（spec.yaml numerical_tolerance.per_dtype：rtol=atol=1e-5）
+    constexpr double kAtolFp32 = 1.0e-5;
+    constexpr double kRtolFp32 = 1.0e-5;
     bool ok = true;
     for (int64_t i = 0; i < size; i++) {
         double golden = std::cosh(static_cast<double>(selfHostData[i]));
@@ -179,13 +179,14 @@ int main()
     DeviceMemPtr outDeviceAddr(nullptr, &aclrtFree);
     TensorPtr self(nullptr, &aclDestroyTensor);
     TensorPtr out(nullptr, &aclDestroyTensor);
+    DeviceMemPtr workspaceAddr(nullptr, &aclrtFree);
     std::vector<float> selfHostData;
 
     ret = CreateInputOutputTensors(self, out, selfDeviceAddr, outDeviceAddr, selfHostData);
     CHECK_RET(ret == ACL_SUCCESS, LOG_PRINT("Create tensors failed. ERROR: %d\n", ret); return ret);
 
     // 3. Execute cosh operation
-    ret = ExecuteCosh(self, out, stream);
+    ret = ExecuteCosh(self, out, stream, workspaceAddr);
     CHECK_RET(ret == ACL_SUCCESS, LOG_PRINT("ExecuteCosh failed. ERROR: %d\n", ret); return ret);
 
     // 4. Synchronize stream

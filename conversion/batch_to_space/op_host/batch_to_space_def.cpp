@@ -12,14 +12,14 @@
 #include <array>
 
 namespace ops {
-// x data type (BasicType: 9 types)
+// x data type (BasicType: 10 types)
 static constexpr std::array VALUE_DATA_TYPE_ALL{
-    ge::DT_FLOAT, ge::DT_FLOAT16, ge::DT_INT32, ge::DT_INT8,   ge::DT_UINT8,
-    ge::DT_INT16, ge::DT_UINT16,  ge::DT_INT64, ge::DT_DOUBLE,
+    ge::DT_FLOAT, ge::DT_FLOAT16, ge::DT_BF16,   ge::DT_INT32, ge::DT_INT8,
+    ge::DT_UINT8, ge::DT_INT16,   ge::DT_UINT16, ge::DT_INT64, ge::DT_DOUBLE,
 };
 // crops data type (IndexNumberType: int32, int64)
 static constexpr std::array INDEX_DATA_TYPE_ALL{ge::DT_INT32, ge::DT_INT64};
-// total combos: 9 * 2 = 18
+// total combos: 10 * 2 = 20
 static constexpr size_t DATA_TYPE_COMBINE_COUNT = VALUE_DATA_TYPE_ALL.size() * INDEX_DATA_TYPE_ALL.size();
 
 static constexpr std::array<std::array<ge::DataType, DATA_TYPE_COMBINE_COUNT>, 2> CombineDataTypes()
@@ -39,6 +39,7 @@ static constexpr auto DATA_TYPE_LIST = CombineDataTypes();
 static constexpr auto& X_DATA_TYPE_LIST = std::get<0>(DATA_TYPE_LIST);
 static constexpr auto& CROPS_DATA_TYPE_LIST = std::get<1>(DATA_TYPE_LIST);
 static const auto NHWC_FORMAT_LIST = std::vector<ge::Format>(DATA_TYPE_COMBINE_COUNT, ge::FORMAT_NHWC);
+static const auto ND_FORMAT_LIST = std::vector<ge::Format>(DATA_TYPE_COMBINE_COUNT, ge::FORMAT_ND);
 
 class BatchToSpace : public OpDef {
 public:
@@ -53,8 +54,8 @@ public:
         this->Input("crops")
             .ParamType(REQUIRED)
             .DataType(std::vector<ge::DataType>(CROPS_DATA_TYPE_LIST.begin(), CROPS_DATA_TYPE_LIST.end()))
-            .Format(NHWC_FORMAT_LIST)
-            .UnknownShapeFormat(NHWC_FORMAT_LIST)
+            .Format(ND_FORMAT_LIST)
+            .UnknownShapeFormat(ND_FORMAT_LIST)
             .ValueDepend(OPTIONAL);
 
         this->Output("y")

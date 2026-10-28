@@ -51,7 +51,7 @@
       <td>x</td>
       <td>输入</td>
       <td>表示输入张量，4D NHWC张量 [N*bs*bs, H_in, W_in, C]，支持多种数据类型</td>
-      <td>FLOAT、FLOAT16、INT8、INT16、INT32、UINT8、UINT16、INT64、DOUBLE</td>
+      <td>FLOAT、FLOAT16、BF16、INT8、INT16、INT32、UINT8、UINT16、INT64、DOUBLE</td>
       <td>NHWC</td>
     </tr>
     <tr>
@@ -63,7 +63,7 @@
     </tr>
     <tr>
       <td>block_size</td>
-      <td>属性（必需）</td>
+      <td>属性</td>
       <td>表示空间块的尺寸大小，必须是大于0的整数。N_in必须能被block_size × block_size整除</td>
       <td>INT</td>
       <td>-</td>

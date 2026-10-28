@@ -45,6 +45,7 @@ private:
     void DoTiling(int64_t alignedC, int32_t startAxis, int64_t minUbFactor, int64_t clInnerProduct,
                   int64_t outerProduct);
     ge::graphStatus SetTilingData();
+    ge::graphStatus SetEmptyTilingData();
 
     gert::TilingContext* context_;
     uint32_t ubSize_{0};
@@ -114,8 +115,14 @@ ge::graphStatus BatchToSpaceTiling::GetParams()
     OP_CHECK_IF(blockSize_ <= 0, OP_LOGE(context_, "block_size must be positive"), return ge::GRAPH_FAILED);
 
     // get crops values (default to 0 if const data not available, e.g. TTK const mode)
+    const gert::Tensor* cropsTensor = context_->GetInputTensor(INPUT_IDX_CROPS);
     gert::Shape cropsShape;
-    if (Ops::Base::GetConstIntToShape(context_, INPUT_IDX_CROPS, cropsShape)) {
+    if (cropsTensor != nullptr) {
+        OP_CHECK_IF(static_cast<size_t>(cropsTensor->GetShapeSize()) != CROPS_SIZE,
+                    OP_LOGE(context_, "crops must have %zu elements, got %ld", CROPS_SIZE, cropsTensor->GetShapeSize()),
+                    return ge::GRAPH_FAILED);
+    }
+    if (cropsTensor != nullptr && Ops::Base::GetConstIntToShape(context_, INPUT_IDX_CROPS, cropsShape)) {
         for (size_t i = 0; i < CROPS_SIZE; ++i) {
             crops_[i] = cropsShape[i];
             OP_CHECK_IF(crops_[i] < 0, OP_LOGE(context_, "crops must be non-negative"), return ge::GRAPH_FAILED);
@@ -135,10 +142,10 @@ ge::graphStatus BatchToSpaceTiling::GetParams()
     outShape_[AXIS_W] = inShape_[AXIS_W] * blockSize_ - crops_[2] - crops_[3];
     outShape_[AXIS_C] = inShape_[AXIS_C];
 
-    OP_CHECK_IF(outShape_[AXIS_N] <= 0, OP_LOGE(context_, "N_out must be positive"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(outShape_[AXIS_N] < 0, OP_LOGE(context_, "N_out must not be negative"), return ge::GRAPH_FAILED);
     OP_CHECK_IF(outShape_[AXIS_H] <= 0, OP_LOGE(context_, "H_out must be positive"), return ge::GRAPH_FAILED);
     OP_CHECK_IF(outShape_[AXIS_W] <= 0, OP_LOGE(context_, "W_out must be positive"), return ge::GRAPH_FAILED);
-    OP_CHECK_IF(outShape_[AXIS_C] <= 0, OP_LOGE(context_, "C must be positive"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(outShape_[AXIS_C] < 0, OP_LOGE(context_, "C must not be negative"), return ge::GRAPH_FAILED);
 
     return ge::GRAPH_SUCCESS;
 }
@@ -265,6 +272,34 @@ ge::graphStatus BatchToSpaceTiling::SetTilingData()
     return ge::GRAPH_SUCCESS;
 }
 
+ge::graphStatus BatchToSpaceTiling::SetEmptyTilingData()
+{
+    // 空输出（N_out 或 C 为 0）：kernel 在 Process 入口对 outShape 任一维为 0 直接返回，
+    // 跳过切分搜索以避免零维参与 CacheLine/UB 计算。
+    InitElementSizes();
+    auto tilingData = context_->GetTilingData<BatchToSpaceTilingData>();
+    OP_CHECK_NULL_WITH_CONTEXT(context_, tilingData);
+    for (size_t i = 0; i < AXIS_COUNT; ++i) {
+        tilingData->inShape[i] = inShape_[i];
+        tilingData->outShape[i] = outShape_[i];
+    }
+    tilingData->totalCount = 0;
+    tilingData->perCoreCount = 0;
+    tilingData->ubFactor = 1;
+    tilingData->bufferSize = bufferSize_;
+    tilingData->blockSize = blockSize_;
+    tilingData->cropTop = crops_[0];
+    tilingData->cropBottom = crops_[1];
+    tilingData->cropLeft = crops_[2];
+    tilingData->cropRight = crops_[3];
+
+    OP_LOGI(context_, "BatchToSpace tiling: empty output, outShape=[%ld,%ld,%ld,%ld]", outShape_[AXIS_N],
+            outShape_[AXIS_H], outShape_[AXIS_W], outShape_[AXIS_C]);
+    context_->SetTilingKey(GET_TPL_TILING_KEY(AXIS_N));
+    context_->SetBlockDim(1);
+    return ge::GRAPH_SUCCESS;
+}
+
 ge::graphStatus BatchToSpaceTiling::ComputeAndSetTiling()
 {
     InitElementSizes();
@@ -284,6 +319,9 @@ ge::graphStatus BatchToSpaceTiling::DoTiling()
     OP_CHECK_IF(ret != ge::GRAPH_SUCCESS, OP_LOGE(context_, "GetSocInfo failed"), return ret);
     ret = GetParams();
     OP_CHECK_IF(ret != ge::GRAPH_SUCCESS, OP_LOGE(context_, "GetParams failed"), return ret);
+    if (outShape_[AXIS_N] == 0 || outShape_[AXIS_C] == 0) {
+        return SetEmptyTilingData();
+    }
     ret = ComputeAndSetTiling();
     OP_CHECK_IF(ret != ge::GRAPH_SUCCESS, OP_LOGE(context_, "ComputeAndSetTiling failed"), return ret);
 

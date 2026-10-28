@@ -1,0 +1,4 @@
+testcase_name,api_name,tensor_view_shapes,tensor_dtypes,scalar_dtypes,attributes,output_tensor_indexes,precision_tolerances,absolute_precision,input_data_ranges,scalar_data_ranges,tensor_list_distribution
+aclnnDiagFlat_L2_001_self_dtype_unsupported_uint16,aclnnDiagFlat,"((2,3,),(6,6,),)","('uint16','uint16',)",,"{""diagonal"": 0}","(1,)",,,"((0,1,),)",,
+aclnnDiagFlat_L2_002_self_rank9,aclnnDiagFlat,"((1,1,1,1,1,1,1,1,1,),(1,1,),)","('float32','float32',)",,"{""diagonal"": 0}","(1,)",,,"((0,1,),)",,
+aclnnDiagFlat_L2_003_diagonal_overflow,aclnnDiagFlat,"((2,),(2,2,),)","('float32','float32',)",,"{""diagonal"": 9223372036854775807}","(1,)",,,"((0,1,),)",,

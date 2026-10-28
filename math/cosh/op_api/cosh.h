@@ -14,7 +14,7 @@
 #include "opdev/op_executor.h"
 
 namespace l0op {
-const aclTensor *Cosh(const aclTensor *self, aclOpExecutor *executor);
+const aclTensor* Cosh(const aclTensor* self, aclOpExecutor* executor);
 }
 
 #endif // OP_API_INC_LEVEL0_OP_COSH_H_

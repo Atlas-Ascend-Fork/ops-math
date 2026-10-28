@@ -47,14 +47,6 @@ static void RunDiagFlatTilingDtypeCase(ge::DataType dtype, const string& expectT
                8,
            }},
           dtype,
-          ge::FORMAT_ND},
-         {{{
-               8,
-           },
-           {
-               8,
-           }},
-          dtype,
           ge::FORMAT_ND}},
         {
             {{{8, 8}, {8, 8}}, dtype, ge::FORMAT_ND},

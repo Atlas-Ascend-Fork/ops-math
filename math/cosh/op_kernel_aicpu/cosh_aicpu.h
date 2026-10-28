@@ -15,9 +15,9 @@
 
 namespace aicpu {
 class CoshCpuKernel final : public CpuKernel {
- public:
-  std::uint32_t Compute(CpuKernelContext &ctx) override;
+public:
+    std::uint32_t Compute(CpuKernelContext& ctx) override;
 };
-}  // namespace aicpu
+} // namespace aicpu
 
-#endif  // AICPU_KERNELS_NORMALIZED_COSH_AICPU_H_
+#endif // AICPU_KERNELS_NORMALIZED_COSH_AICPU_H_

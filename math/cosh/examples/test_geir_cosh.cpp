@@ -55,23 +55,35 @@ string GetTime()
 uint32_t GetDataTypeSize(DataType dt)
 {
     switch (dt) {
-        case ge::DT_BOOL:   return 1U;
-        case ge::DT_INT8:   return 1U;
-        case ge::DT_UINT8:  return 1U;
-        case ge::DT_INT16:  return 2U;
-        case ge::DT_UINT16: return 2U;
-        case ge::DT_INT32:  return 4U;
-        case ge::DT_UINT32: return 4U;
-        case ge::DT_INT64:  return 8U;
-        case ge::DT_UINT64: return 8U;
-        case ge::DT_FLOAT:  return 4U;
-        case ge::DT_DOUBLE: return 8U;
-        default: return 0U;
+        case ge::DT_BOOL:
+            return 1U;
+        case ge::DT_INT8:
+            return 1U;
+        case ge::DT_UINT8:
+            return 1U;
+        case ge::DT_INT16:
+            return 2U;
+        case ge::DT_UINT16:
+            return 2U;
+        case ge::DT_INT32:
+            return 4U;
+        case ge::DT_UINT32:
+            return 4U;
+        case ge::DT_INT64:
+            return 8U;
+        case ge::DT_UINT64:
+            return 8U;
+        case ge::DT_FLOAT:
+            return 4U;
+        case ge::DT_DOUBLE:
+            return 8U;
+        default:
+            return 0U;
     }
 }
 
-int32_t GenOnesData(
-    vector<int64_t> shapes, Tensor& input_tensor, TensorDesc& input_tensor_desc, DataType data_type, double value)
+int32_t GenOnesData(vector<int64_t> shapes, Tensor& input_tensor, TensorDesc& input_tensor_desc, DataType data_type,
+                    double value)
 {
     uint32_t type_size = GetDataTypeSize(data_type);
     if (type_size == 0U) {
@@ -82,66 +94,81 @@ int32_t GenOnesData(
 
     input_tensor_desc.SetRealDimCnt(shapes.size());
     size_t size = 1;
-    for (uint32_t i = 0; i < shapes.size(); i++) { size *= shapes[i]; }
+    for (uint32_t i = 0; i < shapes.size(); i++) {
+        size *= shapes[i];
+    }
 
     uint32_t data_len = size * type_size;
     uint8_t* pData = new (std::nothrow) uint8_t[data_len];
-    if (pData == nullptr) { return FAILED; }
+    if (pData == nullptr) {
+        return FAILED;
+    }
 
     switch (data_type) {
         case ge::DT_BOOL: {
             bool* data = reinterpret_cast<bool*>(pData);
-            for (size_t i = 0; i < size; ++i) data[i] = (value != 0);
+            for (size_t i = 0; i < size; ++i)
+                data[i] = (value != 0);
             break;
         }
         case ge::DT_INT8: {
             int8_t* data = reinterpret_cast<int8_t*>(pData);
-            for (size_t i = 0; i < size; ++i) data[i] = static_cast<int8_t>(value);
+            for (size_t i = 0; i < size; ++i)
+                data[i] = static_cast<int8_t>(value);
             break;
         }
         case ge::DT_UINT8: {
             uint8_t* data = pData;
-            for (size_t i = 0; i < size; ++i) data[i] = static_cast<uint8_t>(value);
+            for (size_t i = 0; i < size; ++i)
+                data[i] = static_cast<uint8_t>(value);
             break;
         }
         case ge::DT_INT16: {
             int16_t* data = reinterpret_cast<int16_t*>(pData);
-            for (size_t i = 0; i < size; ++i) data[i] = static_cast<int16_t>(value);
+            for (size_t i = 0; i < size; ++i)
+                data[i] = static_cast<int16_t>(value);
             break;
         }
         case ge::DT_UINT16: {
             uint16_t* data = reinterpret_cast<uint16_t*>(pData);
-            for (size_t i = 0; i < size; ++i) data[i] = static_cast<uint16_t>(value);
+            for (size_t i = 0; i < size; ++i)
+                data[i] = static_cast<uint16_t>(value);
             break;
         }
         case ge::DT_INT32: {
             int32_t* data = reinterpret_cast<int32_t*>(pData);
-            for (size_t i = 0; i < size; ++i) data[i] = static_cast<int32_t>(value);
+            for (size_t i = 0; i < size; ++i)
+                data[i] = static_cast<int32_t>(value);
             break;
         }
         case ge::DT_UINT32: {
             uint32_t* data = reinterpret_cast<uint32_t*>(pData);
-            for (size_t i = 0; i < size; ++i) data[i] = static_cast<uint32_t>(value);
+            for (size_t i = 0; i < size; ++i)
+                data[i] = static_cast<uint32_t>(value);
             break;
         }
         case ge::DT_INT64: {
             int64_t* data = reinterpret_cast<int64_t*>(pData);
-            for (size_t i = 0; i < size; ++i) data[i] = static_cast<int64_t>(value);
+            for (size_t i = 0; i < size; ++i)
+                data[i] = static_cast<int64_t>(value);
             break;
         }
         case ge::DT_UINT64: {
             uint64_t* data = reinterpret_cast<uint64_t*>(pData);
-            for (size_t i = 0; i < size; ++i) data[i] = static_cast<uint64_t>(value);
+            for (size_t i = 0; i < size; ++i)
+                data[i] = static_cast<uint64_t>(value);
             break;
         }
         case ge::DT_FLOAT: {
             float* data = reinterpret_cast<float*>(pData);
-            for (size_t i = 0; i < size; ++i) data[i] = static_cast<float>(value);
+            for (size_t i = 0; i < size; ++i)
+                data[i] = static_cast<float>(value);
             break;
         }
         case ge::DT_DOUBLE: {
             double* data = reinterpret_cast<double*>(pData);
-            for (size_t i = 0; i < size; ++i) data[i] = value;
+            for (size_t i = 0; i < size; ++i)
+                data[i] = value;
             break;
         }
         // FLOAT16/BF16/COMPLEX blocked by type_size==0 check above
@@ -150,7 +177,8 @@ int32_t GenOnesData(
             return FAILED;
     }
 
-    input_tensor = Tensor(input_tensor_desc, pData, data_len);
+    input_tensor = Tensor(input_tensor_desc);
+    (void)input_tensor.SetData(pData, data_len, [](uint8_t* data) { delete[] data; });
     return SUCCESS;
 }
 
@@ -179,7 +207,7 @@ bool InitEnv()
 }
 
 int CreateOppInGraph(DataType inDtype, std::vector<ge::Tensor>& input, std::vector<Operator>& inputs,
-    std::vector<Operator>& outputs, Graph& graph)
+                     std::vector<Operator>& outputs, Graph& graph)
 {
     Status ret = SUCCESS;
     auto cosh1 = op::Cosh("cosh1");
@@ -261,6 +289,7 @@ int main(int argc, char* argv[])
     Status ret = CreateOppInGraph(inDtype, input, inputs, outputs, graph);
     if (ret != SUCCESS) {
         printf("%s - ERROR - [XIR]: Create ir graph failed\n", GetTime().c_str());
+        ge::GEFinalize();
         return FAILED;
     }
 

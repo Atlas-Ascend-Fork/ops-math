@@ -33,6 +33,14 @@ class CoshGraph(torch.nn.Module):
 def _as_numpy(x):
     """Torch/numpy -> numpy，供 CPU golden 统一计算。"""
     if isinstance(x, torch.Tensor):
+        if x.dtype == torch.bfloat16:
+            # numpy 无原生 bf16，torch 也不支持 bf16 张量直接 .numpy()
+            # （TypeError: Got unsupported ScalarType BFloat16）。
+            # 经 fp32 无损中转（bf16->fp32 精确），再落到 ml_dtypes.bfloat16，
+            # 保持 bf16 语义供 _cosh_numpy 统一按 fp32 计算并按原 dtype 回写。
+            import ml_dtypes
+
+            return x.detach().cpu().float().numpy().astype(ml_dtypes.bfloat16)
         return x.detach().cpu().numpy()
     return np.asarray(x)
 
@@ -65,7 +73,11 @@ def aclnn_cosh_golden(self, out, **kwargs):
 
 def torch_cosh_golden(input, **kwargs):
     """E2E torch single/graph golden（返回 torch 张量）。"""
-    return [torch.from_numpy(_cosh_numpy(_as_numpy(input)))]
+    out = _cosh_numpy(_as_numpy(input))
+    if getattr(out.dtype, "name", "") == "bfloat16":
+        # torch.from_numpy 不支持 ml_dtypes.bfloat16，经 fp32 无损中转回 torch.bfloat16。
+        return [torch.from_numpy(out.astype(np.float32)).to(torch.bfloat16)]
+    return [torch.from_numpy(out)]
 
 
 def _get_tf_input(args, kwargs):

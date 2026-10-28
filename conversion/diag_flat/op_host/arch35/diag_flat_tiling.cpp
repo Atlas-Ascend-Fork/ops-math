@@ -28,6 +28,7 @@
 #include "../../op_kernel/arch35/diag_flat_tiling_key.h"
 #include <algorithm>
 #include <cstring>
+#include <limits>
 
 namespace optiling {
 
@@ -109,8 +110,18 @@ ge::graphStatus TilingDiagFlatArch35(gert::TilingContext* context, DiagFlatTilin
     auto dataType = inputDesc->GetDataType();
     int64_t dtypeSize = GetDtypeSize(dataType);
 
-    // 5. Compute output dimensions
-    int64_t outWidth = numInput + (diagonal >= 0 ? diagonal : -diagonal);
+    // 5. Compute output dimensions (guard against int64 overflow of outWidth/outTotal)
+    OP_CHECK_IF(diagonal == std::numeric_limits<int64_t>::min(),
+                OP_LOGE(context, "diagonal is INT64_MIN, its absolute value overflows int64."),
+                return ge::GRAPH_FAILED);
+    // floor(sqrt(INT64_MAX)), keeps outWidth * outWidth within int64
+    constexpr int64_t MAX_OUT_WIDTH = 3037000499;
+    int64_t absDiagonal = diagonal >= 0 ? diagonal : -diagonal;
+    OP_CHECK_IF(absDiagonal > MAX_OUT_WIDTH || numInput < 0 || numInput > MAX_OUT_WIDTH - absDiagonal,
+                OP_LOGE(context, "output width %ld + %ld exceeds the supported bound %ld.", numInput, absDiagonal,
+                        MAX_OUT_WIDTH),
+                return ge::GRAPH_FAILED);
+    int64_t outWidth = numInput + absDiagonal;
     int64_t outTotal = outWidth * outWidth;
 
     // 6. Multi-core split

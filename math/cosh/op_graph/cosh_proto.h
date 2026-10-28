@@ -14,10 +14,22 @@
 #include "graph/operator_reg.h"
 
 namespace ge {
-REG_OP(Cosh)
-    .INPUT(x, TensorType::UnaryDataType())
-    .OUTPUT(y, TensorType::UnaryDataType())
-    .OP_END_FACTORY_REG(Cosh)
-}  // namespace ge
 
-#endif  // COSH_PROTO_H_
+/**
+* @brief Computes hyperbolic cosine of "x" element-wise.
+
+* @par Inputs:
+* x: A ND Tensor of type bfloat16, float16, float32, double, complex64, complex128.
+* the format can be [NCHW,NHWC,ND]. \n
+
+* @par Outputs:
+* y: A ND Tensor. Has the same dtype as "x". \n
+
+* @par Third-party framework compatibility
+* Compatible with the TensorFlow operator Cosh. \n
+
+*/
+REG_OP(Cosh).INPUT(x, TensorType::UnaryDataType()).OUTPUT(y, TensorType::UnaryDataType()).OP_END_FACTORY_REG(Cosh)
+} // namespace ge
+
+#endif // COSH_PROTO_H_

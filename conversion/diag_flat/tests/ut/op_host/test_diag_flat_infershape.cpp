@@ -1,7 +1,7 @@
 /**
- * Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
- * This file is a part of the CANN Open Software.
- * Licensed under CANN Open Software License Agreement Version 2.0 (the "License").
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -14,14 +14,10 @@
 #include "base/registry/op_impl_space_registry_v2.h"
 
 class diagFlatInfer : public testing::Test {
- protected:
-  static void SetUpTestCase() {
-    std::cout << "diagFlatInfer Proto Test SetUp" << std::endl;
-  }
+protected:
+    static void SetUpTestCase() { std::cout << "diagFlatInfer Proto Test SetUp" << std::endl; }
 
-  static void TearDownTestCase() {
-    std::cout << "diagFlatInfer Proto Test TearDown" << std::endl;
-  }
+    static void TearDownTestCase() { std::cout << "diagFlatInfer Proto Test TearDown" << std::endl; }
 };
 
 static std::vector<int64_t> ToVectorForDiagFlat(const gert::Shape& shape)
@@ -36,36 +32,27 @@ static std::vector<int64_t> ToVectorForDiagFlat(const gert::Shape& shape)
 
 static void ExeTestCaseForDiagFlat(
     std::vector<std::vector<int64_t> > expectResults,
-    const std::vector<gert::StorageShape>& inputShapes,  // 存储所有输入StorageShape参数
-    const std::vector<ge::DataType>& dtypes,             // 存储所有DataType参数
-    gert::StorageShape& outStorageShape,
-    ge::graphStatus testCaseResult = ge::GRAPH_SUCCESS,
-    int64_t attr = 0)
+    const std::vector<gert::StorageShape>& inputShapes, // 被测算子输入 x 的 StorageShape（单输入）
+    const std::vector<ge::DataType>& dtypes,            // x 与 y 的 DataType
+    gert::StorageShape& outStorageShape, ge::graphStatus testCaseResult = ge::GRAPH_SUCCESS, int64_t attr = 0)
 {
-    // 从vector中取出对应参数（保持原顺序）
+    // DiagFlat 只有一个输入 x 和一个可选属性 diagonal（默认值 0）
     const auto& selfStorageShape = inputShapes[0];
-    const auto& feedsStorageShape = inputShapes[1];
-    
-    ge::DataType input1Dtype = dtypes[0];
-    ge::DataType input2Dtype = dtypes[1];
-    ge::DataType outputDtype = dtypes[2];
+    ge::DataType inputDtype = dtypes[0];
+    ge::DataType outputDtype = dtypes[1];
 
     /* make infershape context */
-    std::vector<gert::Tensor *> inputTensors = {
-        (gert::Tensor *)&selfStorageShape,
-        (gert::Tensor *)&feedsStorageShape
-    };
-    std::vector<gert::StorageShape *> outputShapes = {&outStorageShape};
+    std::vector<gert::Tensor*> inputTensors = {(gert::Tensor*)&selfStorageShape};
+    std::vector<gert::StorageShape*> outputShapes = {&outStorageShape};
     auto contextHolder = gert::InferShapeContextFaker()
-        .SetOpType("DiagFlat")
-        .NodeIoNum(2, 1)
-        .NodeInputTd(0, input1Dtype, ge::FORMAT_ND, ge::FORMAT_ND)
-        .NodeInputTd(1, input2Dtype, ge::FORMAT_ND, ge::FORMAT_ND)
-        .NodeOutputTd(0, outputDtype, ge::FORMAT_ND, ge::FORMAT_ND)
-        .InputTensors(inputTensors)
-        .OutputShapes(outputShapes)
-        .Attr("output_feeds_size", attr)
-        .Build();
+                             .SetOpType("DiagFlat")
+                             .NodeIoNum(1, 1)
+                             .NodeInputTd(0, inputDtype, ge::FORMAT_ND, ge::FORMAT_ND)
+                             .NodeOutputTd(0, outputDtype, ge::FORMAT_ND, ge::FORMAT_ND)
+                             .InputTensors(inputTensors)
+                             .OutputShapes(outputShapes)
+                             .Attr("diagonal", attr)
+                             .Build();
 
     /* get infershape func */
     auto spaceRegistry = gert::DefaultOpImplSpaceRegistryV2::GetInstance().GetSpaceRegistry();
@@ -85,13 +72,16 @@ TEST_F(diagFlatInfer, diag_flat_infershape_case_tiling_key_101)
 
     // 用vector存储同类型参数（顺序与原参数列表一致）
     std::vector<gert::StorageShape> inputShapes = {
-        {{size1,}, {size1,}},    // self_shape
-        {{size1,}, {size1,}}                  // feeds_shape
+        {{
+             size1,
+         },
+         {
+             size1,
+         }} // x
     };
     std::vector<ge::DataType> dtypes = {
-        ge::DT_FLOAT16,  // input1Dtype
-        ge::DT_FLOAT16,    // input2Dtype
-        ge::DT_FLOAT16   // outputDtype
+        ge::DT_FLOAT16, // x
+        ge::DT_FLOAT16  // y
     };
 
     std::vector<int64_t> expectResult = {size1, size1};

@@ -132,4 +132,4 @@ ACLNN_API aclnnStatus aclnnInplaceCosh(void* workspace, uint64_t workspaceSize, 
 }
 #endif
 
-#endif  // OP_API_INC_COSH_H
+#endif // OP_API_INC_COSH_H

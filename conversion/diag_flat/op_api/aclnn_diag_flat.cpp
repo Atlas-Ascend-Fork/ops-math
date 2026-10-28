@@ -8,6 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+#include <limits>
 #include "aclnn_kernels/cast.h"
 #include "aclnn_kernels/contiguous.h"
 #include "conversion/fill/op_api/fill.h"
@@ -93,16 +94,39 @@ static void CheckFormat(const aclTensor* self)
     }
 }
 
-static aclnnStatus CheckParams(const aclTensor* self, aclTensor* out)
+// 检查输出边长 numel(self) + |diagonal| 及后续 outWidth * outWidth 是否会溢出 int64
+static bool CheckOverflow(const aclTensor* self, int64_t diagonal)
+{
+    // |INT64_MIN| 无法用 int64 正值表示，std::abs 结果未定义
+    if (diagonal == std::numeric_limits<int64_t>::min()) {
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "diagonal is INT64_MIN, its absolute value overflows int64.");
+        return false;
+    }
+    // floor(sqrt(INT64_MAX))，保证 outWidth * outWidth 不溢出
+    constexpr int64_t MAX_OUT_WIDTH = 3037000499;
+    int64_t absDiagonal = diagonal >= 0 ? diagonal : -diagonal;
+    int64_t numel = self->Numel();
+    if (absDiagonal > MAX_OUT_WIDTH || numel < 0 || numel > MAX_OUT_WIDTH - absDiagonal) {
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "output width %ld + %ld exceeds the supported bound %ld.", numel, absDiagonal,
+                MAX_OUT_WIDTH);
+        return false;
+    }
+    return true;
+}
+
+static aclnnStatus CheckParams(const aclTensor* self, aclTensor* out, int64_t diagonal)
 {
     // 1. 检查参数是否为空指针
-    CHECK_RET(CheckNotNull(self, out), ACLNN_ERR_INNER_NULLPTR);
+    CHECK_RET(CheckNotNull(self, out), ACLNN_ERR_PARAM_NULLPTR);
 
     // 2. 检查输入输出的数据类型是否在API支持的数据类型范围之内，需要根据api定义校验
     CHECK_RET(CheckDtypeValid(self, out), ACLNN_ERR_PARAM_INVALID);
 
     // 3. 检查输入的形状是否合理
     CHECK_RET(CheckShape(self, out), ACLNN_ERR_PARAM_INVALID);
+
+    // 4. 检查对角线偏移与元素个数是否会导致 int64 输出尺寸溢出
+    CHECK_RET(CheckOverflow(self, diagonal), ACLNN_ERR_PARAM_INVALID);
 
     // 检查format，若是NZ格式，则添加警告
     CheckFormat(self);
@@ -150,7 +174,7 @@ aclnnStatus aclnnDiagFlatGetWorkspaceSize(const aclTensor* self, int64_t diagona
     CHECK_RET(uniqueExecutor.get() != nullptr, ACLNN_ERR_INNER_CREATE_EXECUTOR);
 
     // 固定写法，参数检查
-    auto ret = CheckParams(self, out);
+    auto ret = CheckParams(self, out, diagonal);
     CHECK_RET(ret == ACLNN_SUCCESS, ret);
 
     if (self->IsEmpty()) {

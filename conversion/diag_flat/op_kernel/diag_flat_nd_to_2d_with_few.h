@@ -85,6 +85,10 @@ template <typename T>
 __aicore__ inline void DiagFlatNDTo2DWithFew<T>::GmSetZeroPad(GM_ADDR output)
 {
     int64_t inputAllNum = (inputNum_ + abs(offset_)) * (inputNum_ + abs(offset_));
+    if (inputAllNum == 0) {
+        // 空输出（numel=0 且 diagonal=0）：无数据需要清零，避免 cleanNum 为 0 导致的整除零
+        return;
+    }
     int64_t cleanNum = (inputAllNum + totalCoreNum_ - 1) / totalCoreNum_;
     cleanNum = (cleanNum + ONCE_HANDLE_NUM - 1) / ONCE_HANDLE_NUM * ONCE_HANDLE_NUM;
     int64_t usedCoreNum = (inputAllNum + cleanNum - 1) / cleanNum;
@@ -124,6 +128,10 @@ template <typename T>
 __aicore__ inline void DiagFlatNDTo2DWithFew<T>::GmSetZero(GM_ADDR output)
 {
     int64_t inputSum = (inputNum_ + abs(offset_)) * (inputNum_ + abs(offset_));
+    if (inputSum == 0) {
+        // 空输出（numel=0 且 diagonal=0）：无数据需要清零，避免 newCleanNum 为 0 导致的整除零
+        return;
+    }
     int64_t minCleanNum = 256 / sizeof(T);
     int64_t newCleanNum = (inputSum + totalCoreNum_ - 1) / totalCoreNum_;
     newCleanNum = (newCleanNum + ONCE_HANDLE_NUM - 1) / ONCE_HANDLE_NUM * ONCE_HANDLE_NUM;
@@ -285,6 +293,11 @@ template <typename T>
 __aicore__ inline void DiagFlatNDTo2DWithFew<T>::Process()
 {
     if (GetBlockIdx() >= usedCoreNum_) {
+        return;
+    }
+    // Empty input: InitGm already zeroed the whole (|diagonal| x |diagonal|) output,
+    // so stop here and avoid CopyIn/CopyOutTail with a negative iter (loopSize - 1).
+    if (inputNum_ == 0) {
         return;
     }
     int64_t loopSize = (inputNum_ + ONCE_HANDLE_NUM - 1) / ONCE_HANDLE_NUM;

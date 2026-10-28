@@ -13,7 +13,7 @@
 
 using namespace ge;
 namespace ops {
-static ge::graphStatus InferDataTypeForCosh(gert::InferDataTypeContext *context)
+static ge::graphStatus InferDataTypeForCosh(gert::InferDataTypeContext* context)
 {
     OP_LOGI("Begin InferDataTypeForCosh");
     const ge::DataType xDataType = context->GetInputDataType(0);
@@ -22,4 +22,4 @@ static ge::graphStatus InferDataTypeForCosh(gert::InferDataTypeContext *context)
 }
 
 IMPL_OP(Cosh).InferDataType(InferDataTypeForCosh);
-}  // namespace ops
+} // namespace ops

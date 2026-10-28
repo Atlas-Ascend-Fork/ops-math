@@ -101,8 +101,8 @@ aclnnStatus aclnnInplaceCosh(
       <td>self（aclTensor*）</td>
       <td>输入</td>
       <td>公式中的输入self。</td>
-      <td>数据类型与out的数据类型需满足数据类型推导规则（参见<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>）。<br>shape需要与out一致。</td>
-      <td>FLOAT、FLOAT16、DOUBLE</td>
+      <td>数据类型与out的数据类型需满足数据类型推导规则（参见<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>）。<br>shape需要与out一致。支持空Tensor（零元素输入，输出为空Tensor）。</td>
+      <td>FLOAT、FLOAT16、DOUBLE、INT8、INT16、INT32、INT64、UINT8、BOOL、COMPLEX64、COMPLEX128</td>
       <td>ND</td>
       <td>不大于8</td>
       <td>√</td>
@@ -111,8 +111,8 @@ aclnnStatus aclnnInplaceCosh(
       <td>out（aclTensor*）</td>
       <td>输出</td>
       <td>公式中的out。</td>
-      <td>与self的数据类型需满足数据类型推导规则（参见<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>）。<br>shape需要与self一致。</td>
-      <td>FLOAT、FLOAT16、DOUBLE</td>
+      <td>与self的数据类型需满足数据类型推导规则（参见<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>）。<br>shape需要与self一致。支持空Tensor（零元素输入，输出为空Tensor）。</td>
+      <td>FLOAT、FLOAT16、DOUBLE、COMPLEX64、COMPLEX128</td>
       <td>ND</td>
       <td>-</td>
       <td>√</td>
@@ -139,10 +139,8 @@ aclnnStatus aclnnInplaceCosh(
     </tr>
   </tbody></table>
 
-  <!-- npu="A3" id7 -->
-  - <term>Atlas A3系列产品</term>：
-    - self数据类型额外支持INT8、INT16、INT32、INT64、UINT8、BOOL、COMPLEX64、COMPLEX128、BFLOAT16。
-    - out数据类型额外支持COMPLEX64、COMPLEX128、BFLOAT16。
+  <!-- npu="950,A3,910b" id7 -->
+  - <term>Ascend 950PR&950DT系列产品</term>、<term>Atlas A3系列产品</term>、<term>Atlas A2系列产品</term>：self、out数据类型额外支持BFLOAT16。
   <!-- end id7 -->
 
 - **返回值：**
@@ -255,8 +253,8 @@ aclnnStatus aclnnInplaceCosh(
       <td>selfRef（aclTensor*）</td>
       <td>输入/输出</td>
       <td>公式中的输入self，同时也对应了公式输出out。</td>
-      <td>-</td>
-      <td>FLOAT、FLOAT16、DOUBLE</td>
+      <td>支持空Tensor（零元素输入，输出为空Tensor）。</td>
+      <td>FLOAT、FLOAT16、DOUBLE、COMPLEX64、COMPLEX128</td>
       <td>ND</td>
       <td>不大于8</td>
       <td>√</td>
@@ -283,8 +281,8 @@ aclnnStatus aclnnInplaceCosh(
     </tr>
   </tbody></table>
 
-  <!-- npu="A3" id8 -->
-  - <term>Atlas A3系列产品</term>：selfRef数据类型额外支持COMPLEX64、COMPLEX128、BFLOAT16。
+  <!-- npu="950,A3,910b" id8 -->
+  - <term>Ascend 950PR&950DT系列产品</term>、<term>Atlas A3系列产品</term>、<term>Atlas A2系列产品</term>：selfRef数据类型额外支持BFLOAT16。
   <!-- end id8 -->
 
 - **返回值：**

@@ -12,43 +12,81 @@
 
 import numpy as np
 
-__golden__ = {
-    "kernel": {
-        "batch_to_space": "batch_to_space_golden"
-    }
+__spec__ = {
+    "batch_to_space": "BatchToSpaceTestSpec",
+    "tf.raw_ops.BatchToSpace": "BatchToSpaceTfE2eTestSpec",
 }
 
 
-def batch_to_space_golden(x, crops, *, block_size, **kwargs):
-    """
-    Golden function for BatchToSpace (inverse of SpaceToBatch).
+class BatchToSpaceTestSpec:
+    """BatchToSpace operator golden spec (kernel flow: numpy in, numpy out).
 
-    x:         4D NHWC [N * bs * bs, H_in, W_in, C]
-    crops:     1D [crop_top, crop_bottom, crop_left, crop_right]
+    x:          4D NHWC [N * bs * bs, H_in, W_in, C]
+    crops:      1D [crop_top, crop_bottom, crop_left, crop_right]
     block_size: int
 
-    Returns output [N, H_out, W_out, C]
+    Returns [output] where output is [N, H_out, W_out, C] numpy array.
     """
-    N_in, H_in, W_in, C = x.shape
-    bs = block_size
-    crop_top = int(crops[0])
-    crop_bottom = int(crops[1])
-    crop_left = int(crops[2])
-    crop_right = int(crops[3])
 
-    N = N_in // (bs * bs)
+    def golden(x, crops, *, block_size, **kwargs):
+        import tensorflow as tf
 
-    # Reshape batch into spatial blocks
-    # [N_in, H_in, W_in, C] -> [bs, bs, N, H_in, W_in, C]
-    out = x.reshape(bs, bs, N, H_in, W_in, C)
-    # -> [N, H_in, bs, W_in, bs, C]
-    out = out.transpose(2, 3, 0, 4, 1, 5)
-    # -> [N, H_in * bs, W_in * bs, C]
-    out = out.reshape(N, H_in * bs, W_in * bs, C)
+        crops = np.asarray(crops, dtype=np.int32).reshape(2, 2)
+        out = tf.raw_ops.BatchToSpace(input=x, crops=crops, block_size=block_size)
+        return [out.numpy()]
 
-    # Crop spatial boundaries
-    H_end = out.shape[1] - crop_bottom
-    W_end = out.shape[2] - crop_right
-    out = out[:, crop_top:H_end, crop_left:W_end, :]
+    third_party = "tf.raw_ops.BatchToSpace"
 
-    return out
+    tolerance = {
+        "float16": {"standard": "binary_equal"},
+        "float32": {"standard": "binary_equal"},
+        "float64": {"standard": "binary_equal"},
+        "int8": {"standard": "binary_equal"},
+        "int16": {"standard": "binary_equal"},
+        "int32": {"standard": "binary_equal"},
+        "int64": {"standard": "binary_equal"},
+        "uint8": {"standard": "binary_equal"},
+        "uint16": {"standard": "binary_equal"},
+    }
+
+
+class BatchToSpaceTfE2eTestSpec:
+    """BatchToSpace operator golden spec (e2e flow: tf.Tensor in, tf.Tensor out).
+
+    CSV api_name: tf.raw_ops.BatchToSpace
+    input:      4D NHWC [N * bs * bs, H_in, W_in, C] tf.Tensor
+    crops:      2D [[crop_top, crop_bottom], [crop_left, crop_right]] int32 tf.Tensor
+                (value usually pinned via CSV attributes, e.g. 'crops': [[0, 0], [0, 0]])
+    block_size: int, required, provided via CSV attributes
+
+    tf.raw_ops params are passed by keyword, so golden receives
+    input/crops/block_size as keyword arguments.
+
+    Returns [output] where output is [N, H_out, W_out, C] tf.Tensor.
+    Golden computation is pinned to CPU via tf.device: after npu_device.open()
+    the NPU is TF's default device, and the reference must not silently run on it.
+    """
+
+    def golden(input, crops, block_size, **kwargs):
+        import tensorflow as tf
+
+        with tf.device("/CPU:0"):
+            crops = tf.cast(tf.reshape(crops, (2, 2)), tf.int32)
+            out = tf.raw_ops.BatchToSpace(
+                input=input, crops=crops, block_size=block_size
+            )
+        return [out]
+
+    third_party = "tf.raw_ops.BatchToSpace"
+
+    tolerance = {
+        "float16": {"standard": "binary_equal"},
+        "float32": {"standard": "binary_equal"},
+        "float64": {"standard": "binary_equal"},
+        "int8": {"standard": "binary_equal"},
+        "int16": {"standard": "binary_equal"},
+        "int32": {"standard": "binary_equal"},
+        "int64": {"standard": "binary_equal"},
+        "uint8": {"standard": "binary_equal"},
+        "uint16": {"standard": "binary_equal"},
+    }

@@ -24,7 +24,7 @@ namespace ge {
 * One input, include:
 * x: A Tensor. Must be one of the
 *     following types:
-*     float16, float32, double, int8, int16,int32, int64, complex32, complex64, complex128.
+*     float16, bfloat16, float32, double, int8, int16, int32, int64, uint8, uint16, uint32, uint64, bool, complex64.
 
 * @par Attributes:
 * @li diagonal: An optional int value. Defaults to 0, this attribute controls which diagonal to consider:
@@ -42,10 +42,8 @@ REG_OP(DiagFlat)
     .INPUT(x, "T")
     .ATTR(diagonal, Int, 0)
     .OUTPUT(y, "T")
-    .DATATYPE(T, TensorType({DT_FLOAT16, DT_BF16, DT_FLOAT, DT_DOUBLE,
-                             DT_INT8, DT_INT16, DT_INT32, DT_INT64,
-                             DT_UINT8, DT_UINT16, DT_UINT32, DT_UINT64,
-                             DT_BOOL, DT_COMPLEX64}))
+    .DATATYPE(T, TensorType({DT_FLOAT16, DT_BF16, DT_FLOAT, DT_DOUBLE, DT_INT8, DT_INT16, DT_INT32, DT_INT64, DT_UINT8,
+                             DT_UINT16, DT_UINT32, DT_UINT64, DT_BOOL, DT_COMPLEX64}))
     .OP_END_FACTORY_REG(DiagFlat)
 
 } // namespace ge

@@ -29,44 +29,43 @@ static const std::initializer_list<op::DataType> AICORE_DTYPE_SUPPORT_LIST_SELF 
 static const std::initializer_list<op::DataType> AICORE_910B_DTYPE_SUPPORT_LIST = {
     op::DataType::DT_FLOAT, op::DataType::DT_FLOAT16, op::DataType::DT_BF16};
 
-static bool IsAiCoreSupport(const aclTensor *self) {
-  if (GetCurrentPlatformInfo().GetSocVersion() == SocVersion::ASCEND910B ||
-      GetCurrentPlatformInfo().GetSocVersion() == SocVersion::ASCEND910_93 ||
-      IsRegBase()) {
-    return CheckType(self->GetDataType(), AICORE_910B_DTYPE_SUPPORT_LIST);
-  }
-  return CheckType(self->GetDataType(), AICORE_DTYPE_SUPPORT_LIST_SELF);
+static bool IsAiCoreSupport(const aclTensor* self)
+{
+    if (GetCurrentPlatformInfo().GetSocVersion() == SocVersion::ASCEND910B ||
+        GetCurrentPlatformInfo().GetSocVersion() == SocVersion::ASCEND910_93 || IsRegBase()) {
+        return CheckType(self->GetDataType(), AICORE_910B_DTYPE_SUPPORT_LIST);
+    }
+    return CheckType(self->GetDataType(), AICORE_DTYPE_SUPPORT_LIST_SELF);
 }
 
-const aclTensor *CoshAiCore(const aclTensor *self,
-                            aclOpExecutor *executor, aclTensor *coshOut) {
-  L0_DFX(CoshAiCore, self);
-  auto ret = ADD_TO_LAUNCHER_LIST_AICORE(Cosh, OP_INPUT(self),OP_OUTPUT(coshOut));
-  OP_CHECK(ret == ACLNN_SUCCESS, OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "CoshAiCore ADD_TO_LAUNCHER_LIST_AICORE failed."), return nullptr);
-  return coshOut;
+const aclTensor* CoshAiCore(const aclTensor* self, aclOpExecutor* executor, aclTensor* coshOut)
+{
+    L0_DFX(CoshAiCore, self);
+    auto ret = ADD_TO_LAUNCHER_LIST_AICORE(Cosh, OP_INPUT(self), OP_OUTPUT(coshOut));
+    OP_CHECK(ret == ACLNN_SUCCESS, OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "CoshAiCore ADD_TO_LAUNCHER_LIST_AICORE failed."),
+             return nullptr);
+    return coshOut;
 }
 
-const aclTensor *CoshAiCpu(const aclTensor *self,
-                           aclOpExecutor *executor, aclTensor *coshOut) {
-  L0_DFX(CoshAiCpu, self);
-  static internal::AicpuTaskSpace space("Cosh");
-  auto ret = ADD_TO_LAUNCHER_LIST_AICPU(Cosh,
-                                        OP_ATTR_NAMES(),
-                                        OP_INPUT(self),
-                                        OP_OUTPUT(coshOut));
-  OP_CHECK(ret ==  ACL_SUCCESS, OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "CoshAiCpu ADD_TO_LAUNCHER_LIST_AICPU failed."), return nullptr);
-  return coshOut;
+const aclTensor* CoshAiCpu(const aclTensor* self, aclOpExecutor* executor, aclTensor* coshOut)
+{
+    L0_DFX(CoshAiCpu, self);
+    static internal::AicpuTaskSpace space("Cosh");
+    auto ret = ADD_TO_LAUNCHER_LIST_AICPU(Cosh, OP_ATTR_NAMES(), OP_INPUT(self), OP_OUTPUT(coshOut));
+    OP_CHECK(ret == ACL_SUCCESS, OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "CoshAiCpu ADD_TO_LAUNCHER_LIST_AICPU failed."),
+             return nullptr);
+    return coshOut;
 }
 
-const aclTensor *Cosh(const aclTensor *self,
-                      aclOpExecutor *executor) {
-  L0_DFX(Cosh, self);
-  auto coshOut = executor->AllocTensor(self->GetStorageShape(), self->GetDataType());
-  CHECK_RET(coshOut != nullptr, nullptr);
-  if (IsAiCoreSupport(self)) {
-    return CoshAiCore(self, executor, coshOut);
-  } else {
-    return CoshAiCpu(self, executor, coshOut);
-  }
+const aclTensor* Cosh(const aclTensor* self, aclOpExecutor* executor)
+{
+    L0_DFX(Cosh, self);
+    auto coshOut = executor->AllocTensor(self->GetStorageShape(), self->GetDataType());
+    CHECK_RET(coshOut != nullptr, nullptr);
+    if (IsAiCoreSupport(self)) {
+        return CoshAiCore(self, executor, coshOut);
+    } else {
+        return CoshAiCpu(self, executor, coshOut);
+    }
 }
-}
+} // namespace l0op

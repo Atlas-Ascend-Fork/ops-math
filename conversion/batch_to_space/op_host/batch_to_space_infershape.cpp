@@ -24,6 +24,7 @@ static constexpr size_t DIM_W = 2;
 static constexpr size_t DIM_C = 3;
 static constexpr int64_t UNKNOWN_DIM = -1;
 static constexpr size_t CROPS_SIZE = 4;
+static constexpr size_t X_RANK = 4;
 
 class BatchToSpaceInferShapeHelper {
 public:
@@ -57,10 +58,19 @@ ge::graphStatus BatchToSpaceInferShapeHelper::Init()
     blockSize_ = *blockSizePtr;
     OP_CHECK_IF(blockSize_ <= 0, OP_LOGE(context_, "block_size must be positive"), return ge::GRAPH_FAILED);
 
+    const gert::Tensor* cropsTensor = context_->GetInputTensor(INPUT_IDX_CROPS);
     gert::Shape cropsShape;
-    if (Ops::Base::GetConstIntToShape<gert::InferShapeContext>(context_, INPUT_IDX_CROPS, cropsShape)) {
+    if (cropsTensor != nullptr) {
+        OP_CHECK_IF(static_cast<size_t>(cropsTensor->GetShapeSize()) != CROPS_SIZE,
+                    OP_LOGE(context_, "crops must have %zu elements, got %ld", CROPS_SIZE, cropsTensor->GetShapeSize()),
+                    return ge::GRAPH_FAILED);
+    }
+    if (cropsTensor != nullptr &&
+        Ops::Base::GetConstIntToShape<gert::InferShapeContext>(context_, INPUT_IDX_CROPS, cropsShape)) {
         for (size_t i = 0; i < CROPS_SIZE; ++i) {
             crops_[i] = cropsShape[i];
+            OP_CHECK_IF(crops_[i] < 0, OP_LOGE(context_, "crops[%zu] must be non-negative, got %ld", i, crops_[i]),
+                        return ge::GRAPH_FAILED);
         }
         hasCropsConst_ = true;
     }
@@ -80,11 +90,18 @@ ge::graphStatus BatchToSpaceInferShapeHelper::Inference()
         return ge::GRAPH_SUCCESS;
     }
 
+    OP_CHECK_IF(xShape_->GetDimNum() != X_RANK,
+                OP_LOGE(context_, "x must be %zuD, got %zu", X_RANK, xShape_->GetDimNum()), return ge::GRAPH_FAILED);
+
     yShape_->SetDimNum(0);
 
     // N = N_in / (block_size * block_size)
     int64_t bs2 = blockSize_ * blockSize_;
     if (xShape_->GetDim(DIM_N) != UNKNOWN_DIM) {
+        OP_CHECK_IF(xShape_->GetDim(DIM_N) % bs2 != 0,
+                    OP_LOGE(context_, "N_in must be divisible by block_size^2, got N_in=%ld, block_size=%ld",
+                            xShape_->GetDim(DIM_N), blockSize_),
+                    return ge::GRAPH_FAILED);
         yShape_->AppendDim(xShape_->GetDim(DIM_N) / bs2);
     } else {
         yShape_->AppendDim(UNKNOWN_DIM);
@@ -93,6 +110,7 @@ ge::graphStatus BatchToSpaceInferShapeHelper::Inference()
     // H_out = H_in * block_size - crop_top - crop_bottom
     if (xShape_->GetDim(DIM_H) != UNKNOWN_DIM && hasCropsConst_) {
         int64_t hOut = xShape_->GetDim(DIM_H) * blockSize_ - crops_[0] - crops_[1];
+        OP_CHECK_IF(hOut <= 0, OP_LOGE(context_, "H_out must be positive, got %ld", hOut), return ge::GRAPH_FAILED);
         yShape_->AppendDim(hOut);
     } else {
         yShape_->AppendDim(UNKNOWN_DIM);
@@ -101,6 +119,7 @@ ge::graphStatus BatchToSpaceInferShapeHelper::Inference()
     // W_out = W_in * block_size - crop_left - crop_right
     if (xShape_->GetDim(DIM_W) != UNKNOWN_DIM && hasCropsConst_) {
         int64_t wOut = xShape_->GetDim(DIM_W) * blockSize_ - crops_[2] - crops_[3];
+        OP_CHECK_IF(wOut <= 0, OP_LOGE(context_, "W_out must be positive, got %ld", wOut), return ge::GRAPH_FAILED);
         yShape_->AppendDim(wOut);
     } else {
         yShape_->AppendDim(UNKNOWN_DIM);

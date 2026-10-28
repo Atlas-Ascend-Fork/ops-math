@@ -25,8 +25,7 @@
 using namespace AscendC;
 
 template <int ARCH35_KEY>
-__aicore__ inline void LaunchKernel(GM_ADDR x, GM_ADDR y,
-                                     const DiagFlatArch35TilingData* td)
+__aicore__ inline void LaunchKernel(GM_ADDR x, GM_ADDR y, const DiagFlatArch35TilingData* td)
 {
     // 8-byte types (complex64/float64/int64/uint64): alias through int64_t
     // because SIMT kernel cannot directly dereference __gm__ Complex<float>* or
@@ -43,8 +42,7 @@ __aicore__ inline void LaunchKernel(GM_ADDR x, GM_ADDR y,
 }
 
 template <int ARCH35_KEY>
-__global__ __aicore__ void diag_flat(
-    GM_ADDR x, GM_ADDR y, GM_ADDR workspace, GM_ADDR tiling)
+__global__ __aicore__ void diag_flat(GM_ADDR x, GM_ADDR y, GM_ADDR workspace, GM_ADDR tiling)
 {
     SetSysWorkspace(workspace);
     KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_AIV_ONLY);

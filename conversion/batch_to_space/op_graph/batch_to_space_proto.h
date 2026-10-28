@@ -23,9 +23,9 @@ namespace ge {
  *
  * @par Inputs:
  * Two inputs, including:
- * @li x: A 4D tensor, Format support ND, Must be one of the following types:
+ * @li x: A 4D NHWC tensor, Must be one of the following types:
  * float16, float32, double, int64, int32, uint8, uint16, uint32, uint64, int8,
- * int16, complex64, complex128, qint8, quint8, qint16, quint16, qint32, bfloat16.
+ * int16, complex64, complex128, complex32, qint8, quint8, qint16, quint16, qint32, bfloat16.
  * @li crops: A 2D Tensor of shape [2, 2] = [[crop_top, crop_bottom], [crop_left, crop_right]].
  *     Values are non-negative integers. Support int32 or int64.
  *

@@ -39,13 +39,13 @@
     <td>self</td>
     <td>输入张量</td>
     <td>表示填充到对角线的向量，最大维度支持8维，支持非连续的Tensor。</td>
-    <td>FLOAT、FLOAT16、DOUBLE、INT32、INT64、INT16、INT8、UINT8、UINT16、UINT32、UINT64、COMPLEX64、BFLOAT16</td>
+    <td>FLOAT、FLOAT16、DOUBLE、INT32、INT64、INT16、INT8、UINT8、BOOL、COMPLEX64、BFLOAT16</td>
     <td>ND</td>
   </tr>
   <tr>
     <td>diagonal</td>
-    <td>输入属性</td>
-    <td>指定对角线位置，diagonal = 0表示主对角线，diagonal &gt; 0表示主对角线上方的对角线，diagonal &lt; 0表示主对角线下方的对角线。</td>
+    <td>可选属性</td>
+    <td>指定对角线位置，默认值为0。diagonal = 0表示主对角线，diagonal &gt; 0表示主对角线上方的对角线，diagonal &lt; 0表示主对角线下方的对角线。</td>
     <td>INT64</td>
     <td>-</td>
   </tr>
@@ -53,7 +53,7 @@
     <td>out</td>
     <td>输出张量</td>
     <td>输出的对角线张量。</td>
-    <td>FLOAT、FLOAT16、DOUBLE、INT32、INT64、INT16、INT8、UINT8、UINT16、UINT32、UINT64、COMPLEX64、BFLOAT16</td>
+    <td>FLOAT、FLOAT16、DOUBLE、INT32、INT64、INT16、INT8、UINT8、BOOL、COMPLEX64、BFLOAT16</td>
     <td>ND</td>
   </tr>
 </tbody>
@@ -64,10 +64,13 @@
 
 ## 约束说明
 
-无。
+- 输入self为一维张量时输出为二维方阵，边长 n = numel(self) + |diagonal|；self为二维及以上张量时先扁平化再按一维处理，输出同样为二维方阵。
+- 空Tensor（numel(self) = 0）受支持：|diagonal| > 0时输出为 |diagonal| × |diagonal| 的全零方阵，|diagonal| = 0时输出为 0 × 0。
+- diagonal 取值需满足 numel(self) + |diagonal| 不超出 int64 输出尺寸上限；diagonal 为 INT64_MIN 时按参数非法拒绝。
 
 ## 调用说明
 
 | 调用方式  | 样例代码                                                    | 说明                                                         |
 | --------- | ----------------------------------------------------------- | ------------------------------------------------------------ |
-| aclnn接口 | [test_aclnn_diag_flat](./examples/test_aclnn_diag_flat.cpp) | 通过[aclnnDiagFlat](docs/aclnnDiagFlat.md)接口方式调用DiagFlat算子。 |
+| aclnn API | [test_aclnn_diag_flat](./examples/test_aclnn_diag_flat.cpp) | 通过[aclnnDiagFlat](docs/aclnnDiagFlat.md)接口方式调用DiagFlat算子。 |
+| GE图模式 | - | 通过[算子IR](./op_graph/diag_flat_proto.h)构图方式调用DiagFlat算子。 |

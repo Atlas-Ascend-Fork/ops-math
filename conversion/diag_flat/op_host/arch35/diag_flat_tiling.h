@@ -34,7 +34,7 @@ struct DiagFlatTilingOutput {
     int64_t outPerCore;
     int64_t tileLength;
     int64_t realCoreNum;
-    uint32_t localMemSize;  // ubSize - SIMT_DCACHE_SIZE, for SetLocalMemorySize
+    uint32_t localMemSize; // ubSize - SIMT_DCACHE_SIZE, for SetLocalMemorySize
 };
 
 // Core 1D→2D tiling computation. Does NOT call context->GetTilingData<>()

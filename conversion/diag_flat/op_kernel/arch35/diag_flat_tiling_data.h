@@ -23,13 +23,13 @@
 #include <cstdint>
 
 struct DiagFlatArch35TilingData {
-    int64_t numInput;         // N = numel(x)
-    int64_t diagonal;         // k (signed)
-    int64_t outWidth;         // W = N + |k|
-    int64_t outTotal;         // W * W
-    int64_t outPerCore;       // ceil(outTotal / realCoreNum), elements per core
-    int64_t tileLength;       // max elements per tile
-    int64_t realCoreNum;      // actual number of cores used
+    int64_t numInput;    // N = numel(x)
+    int64_t diagonal;    // k (signed)
+    int64_t outWidth;    // W = N + |k|
+    int64_t outTotal;    // W * W
+    int64_t outPerCore;  // ceil(outTotal / realCoreNum), elements per core
+    int64_t tileLength;  // max elements per tile
+    int64_t realCoreNum; // actual number of cores used
 };
 
 #endif // __DIAG_FLAT_ARCH35_TILING_DATA_H__

@@ -21,16 +21,17 @@ extern "C" {
  * @brief aclnnDiagFlat的第一段接口，根据具体的计算流程，计算workspace大小。
  * @domain aclnn_math
  * @param [in] self: npu
- * device侧的aclTensor，数据类型支持所有数据类型，支持非连续的Tensor，数据格式支持ND，且数据格式需要与out一致。
+ * device侧的aclTensor，数据类型支持FLOAT、FLOAT16、DOUBLE、INT32、INT64、INT16、INT8、UINT8、BOOL、COMPLEX64、BFLOAT16（Atlas训练系列产品、Atlas推理系列产品不支持BFLOAT16），支持非连续的Tensor，数据格式支持ND，且数据格式需要与out一致。
  * @param [in] diagonal: host侧的基本数据类型,数据类型支持INT64，表示矩阵的偏移量。
- * @param [out] out: npu device侧的aclTensor, 数据类型支持所有数据类型，支持非连续的Tensor, 数据类型支持ND,
- * 表示输出张量。
+ * @param [out] out: npu device侧的aclTensor,
+ * 数据类型支持FLOAT、FLOAT16、DOUBLE、INT32、INT64、INT16、INT8、UINT8、BOOL、COMPLEX64、BFLOAT16（Atlas训练系列产品、Atlas推理系列产品不支持BFLOAT16），支持非连续的Tensor,
+ * 数据格式支持ND, 表示输出张量。
  * @param [out] workspace_size: 返回用户需要在npu device侧申请的workspace大小。
  * @param [out] executor: 返回op执行器，包含了算子计算流程
  * @return aclnnStatus: 返回状态码。
  */
-ACLNN_API aclnnStatus aclnnDiagFlatGetWorkspaceSize(
-    const aclTensor* self, int64_t diagonal, aclTensor* out, uint64_t* workspaceSize, aclOpExecutor** executor);
+ACLNN_API aclnnStatus aclnnDiagFlatGetWorkspaceSize(const aclTensor* self, int64_t diagonal, aclTensor* out,
+                                                    uint64_t* workspaceSize, aclOpExecutor** executor);
 
 /**
  * @brief aclnnDiagFlat的第二段接口，用于执行计算。
@@ -40,8 +41,8 @@ ACLNN_API aclnnStatus aclnnDiagFlatGetWorkspaceSize(
  * @param [in] executor: op执行器，包含了算子计算流程。
  * @return aclnnStatus: 返回状态码。
  */
-ACLNN_API aclnnStatus
-aclnnDiagFlat(void* workspace, uint64_t workspaceSize, aclOpExecutor* executor, aclrtStream stream);
+ACLNN_API aclnnStatus aclnnDiagFlat(void* workspace, uint64_t workspaceSize, aclOpExecutor* executor,
+                                    aclrtStream stream);
 
 #ifdef __cplusplus
 }

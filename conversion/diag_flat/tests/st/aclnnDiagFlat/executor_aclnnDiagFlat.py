@@ -25,9 +25,7 @@ class MethodTorchDiagApi(BaseApi):
         OpsDataset.seed_everything()
         self.change_flag = None
 
-
     def __call__(self, input_data: InputDataset, with_output: bool = False):
-
         input_tensor = input_data.kwargs["self"]
         diagonal = input_data.kwargs["diagonal"]
 
@@ -38,6 +36,6 @@ class MethodTorchDiagApi(BaseApi):
         else:
             device = "cpu"
 
-        output = torch.diag(input_tensor.to(device), diagonal)
+        output = torch.diagflat(input_tensor.reshape(-1).to(device), diagonal)
 
         return output
