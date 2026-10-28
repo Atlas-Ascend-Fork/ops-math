@@ -41,9 +41,9 @@ constexpr int64_t DIM2 = 2;
 constexpr int64_t HALF = 2;
 constexpr int64_t BLOCK_SIZE = 32;
 constexpr int64_t TWO_BLOCK_SIZE = 64;
+constexpr int64_t MIN_RESERVED_SIZE = 2048; // 2k
 constexpr int64_t DIM1_ALIGN_THRESHOLD = 128;
 constexpr int64_t BUFFER_NUM = 2;
-constexpr int64_t MIN_RESERVED_SIZE = 2048; // 2k
 constexpr size_t SYSTEM_WORKSPACE_SIZE = 0;
 constexpr int64_t INDEX_USE_UB = 1024; // 预留1k空间给索引
 constexpr int64_t TENS_DIGITS = 10;
@@ -287,6 +287,16 @@ static ge::graphStatus ConvertFP4DimsToB8(ConcatTilingParam& param)
     return ge::GRAPH_SUCCESS;
 }
 
+static bool IsMultiCoreBoost(const gert::TilingContext* context)
+{
+    auto platformInfo = context->GetPlatformInfo();
+    if (platformInfo == nullptr) {
+        return false;
+    }
+    auto arch = platform_ascendc::PlatformAscendC(platformInfo).GetCurNpuArch();
+    return arch == NpuArch::DAV_9201 || arch == NpuArch::DAV_9202;
+}
+
 inline static ge::graphStatus CalcBaseTilingParam(const gert::TilingContext* context, ConcatTilingParam& param)
 {
     auto compileInfo = reinterpret_cast<const ConcatDCompileInfo*>(context->GetCompileInfo());
@@ -314,8 +324,9 @@ inline static ge::graphStatus CalcBaseTilingParam(const gert::TilingContext* con
         OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "input", std::to_string(param.dtypeSize).c_str(),
                                               "The dtype size of input must be greater than 0."),
         return ge::GRAPH_FAILED);
-    param.leastCopyNumber = MIN_RESERVED_SIZE / param.dtypeSize;
     param.everyBlockNumber = BLOCK_SIZE / param.dtypeSize;
+    param.multiCoreBoost = IsMultiCoreBoost(context);
+    param.leastCopyNumber = MIN_RESERVED_SIZE / param.dtypeSize;
     CalcNoAlignTensorNum(param, param.dtypeSize);
     return ge::GRAPH_SUCCESS;
 }
@@ -756,6 +767,16 @@ inline static ge::graphStatus TilingBlock(gert::TilingContext* context, ConcatTi
                     OP_LOGE(context->GetNodeName(),
                             "param.totalCoreNum must be greater than 0, param.totalCoreNum: %ld", param.totalCoreNum),
                     return ge::GRAPH_FAILED);
+        if (param.multiCoreBoost && param.catDim0 > param.totalCoreNum) {
+            int64_t targetBlockFactor = (param.uoDim0 + param.totalCoreNum - 1) / param.totalCoreNum;
+            int64_t targetBlocks = targetBlockFactor * param.totalCoreNum;
+            int64_t newUbFactorDim0 = (param.catDim0 + targetBlocks - 1) / targetBlocks;
+            if (newUbFactorDim0 >= 1 && newUbFactorDim0 < param.ubFactorDim0) {
+                param.ubFactorDim0 = newUbFactorDim0;
+                param.uoDim0 = (param.catDim0 + param.ubFactorDim0 - 1) / param.ubFactorDim0;
+                param.tailUbFactorDim0 = param.catDim0 - param.ubFactorDim0 * (param.uoDim0 - 1);
+            }
+        }
         param.blockFactor = (param.uoDim0 + param.totalCoreNum - 1) / param.totalCoreNum;
         OP_CHECK_IF(param.blockFactor <= 0,
                     OP_LOGE(context->GetNodeName(), "param.blockFactor must be greater than 0, param.blockFactor: %ld",

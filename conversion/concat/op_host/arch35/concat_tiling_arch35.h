@@ -289,6 +289,7 @@ struct ConcatTilingParam {
 
     int64_t ubSize{0};
     int64_t leastCopyNumber{0};
+    bool multiCoreBoost{false};
     int64_t everyBlockNumber{0};
     int64_t inputShapeSame{0};
     int64_t noAlignTensorNum{0};
