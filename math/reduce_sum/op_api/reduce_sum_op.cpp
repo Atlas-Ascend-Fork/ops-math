@@ -32,16 +32,16 @@ static const std::initializer_list<op::DataType> AICORE310P_DTYPE_SUPPORT_LIST =
 static const std::initializer_list<op::DataType> AICORE910_DTYPE_SUPPORT_LIST = {
     op::DataType::DT_FLOAT, op::DataType::DT_FLOAT16, op::DataType::DT_INT32};
 
-static const std::initializer_list<op::DataType> AICORE610LITE_DTYPE_SUPPORT_LIST = {
-    op::DataType::DT_FLOAT, op::DataType::DT_FLOAT16};
+static const std::initializer_list<op::DataType> AICORE610LITE_DTYPE_SUPPORT_LIST = {op::DataType::DT_FLOAT,
+                                                                                     op::DataType::DT_FLOAT16};
 
 static const std::initializer_list<op::DataType> AICORE910B_DTYPE_SUPPORT_LIST = {
     op::DataType::DT_FLOAT, op::DataType::DT_FLOAT16, op::DataType::DT_INT32, op::DataType::DT_INT64,
     op::DataType::DT_BF16};
 
 static const std::initializer_list<op::DataType> ARCH3510_DTYPE_SUPPORT_LIST = {
-    op::DataType::DT_FLOAT, op::DataType::DT_FLOAT16, op::DataType::DT_INT32, op::DataType::DT_BF16,
-    op::DataType::DT_INT64, op::DataType::DT_BOOL};
+    op::DataType::DT_FLOAT, op::DataType::DT_FLOAT16, op::DataType::DT_INT32,
+    op::DataType::DT_BF16,  op::DataType::DT_INT64,   op::DataType::DT_BOOL};
 
 // 根据芯片类型、dtype判断算子是否支持走aicore
 static bool IsAiCoreSupport(const aclTensor* self)
@@ -52,6 +52,10 @@ static bool IsAiCoreSupport(const aclTensor* self)
         case NpuArch::DAV_2201:
             return CheckType(self->GetDataType(), AICORE910B_DTYPE_SUPPORT_LIST);
         case NpuArch::DAV_3510:
+            return CheckType(self->GetDataType(), ARCH3510_DTYPE_SUPPORT_LIST);
+        case NpuArch::DAV_9201:
+            return CheckType(self->GetDataType(), ARCH3510_DTYPE_SUPPORT_LIST);
+        case NpuArch::DAV_9202:
             return CheckType(self->GetDataType(), ARCH3510_DTYPE_SUPPORT_LIST);
         case NpuArch::DAV_2002:
             return CheckType(self->GetDataType(), AICORE310P_DTYPE_SUPPORT_LIST);
@@ -65,33 +69,31 @@ static bool IsAiCoreSupport(const aclTensor* self)
 }
 
 // AICORE算子kernel
-static const aclTensor* ReduceSumOpAiCore(
-    const aclTensor* x, const aclTensor* axes, bool keepDim, bool noopWithEmptyAxes, const aclTensor* out,
-    aclOpExecutor* executor)
+static const aclTensor* ReduceSumOpAiCore(const aclTensor* x, const aclTensor* axes, bool keepDim,
+                                          bool noopWithEmptyAxes, const aclTensor* out, aclOpExecutor* executor)
 {
     L0_DFX(ReduceSumOpAiCore, x, axes, keepDim, noopWithEmptyAxes, out);
-    auto retAicore =
-        ADD_TO_LAUNCHER_LIST_AICORE(ReduceSum, OP_INPUT(x, axes), OP_OUTPUT(out), OP_ATTR(keepDim, noopWithEmptyAxes));
-    OP_CHECK_ADD_TO_LAUNCHER_LIST_AICORE(
-        retAicore != ACLNN_SUCCESS, return nullptr, "ReduceSumOp ADD_TO_LAUNCHER_LIST_AICORE failed.");
+    auto retAicore = ADD_TO_LAUNCHER_LIST_AICORE(ReduceSum, OP_INPUT(x, axes), OP_OUTPUT(out),
+                                                 OP_ATTR(keepDim, noopWithEmptyAxes));
+    OP_CHECK_ADD_TO_LAUNCHER_LIST_AICORE(retAicore != ACLNN_SUCCESS, return nullptr,
+                                         "ReduceSumOp ADD_TO_LAUNCHER_LIST_AICORE failed.");
     return out;
 }
 
 // AICPU算子kernel
-static const aclTensor* ReduceSumOpAiCpu(
-    const aclTensor* x, const aclTensor* axes, bool keepDim, const aclTensor* out, aclOpExecutor* executor)
+static const aclTensor* ReduceSumOpAiCpu(const aclTensor* x, const aclTensor* axes, bool keepDim, const aclTensor* out,
+                                         aclOpExecutor* executor)
 {
     L0_DFX(ReduceSumOpAiCpu, x, axes, keepDim, out);
     if (x->GetDataType() == op::DataType::DT_INT64) {
         static internal::AicpuTaskSpace space("ReduceSum", ge::DEPEND_IN_SHAPE);
-        auto ret = ADD_TO_LAUNCHER_LIST_AICPU(
-            ReduceSum, OP_ATTR_NAMES({"keep_dims"}), OP_INPUT(x, axes), OP_OUTPUT(out), OP_ATTR(keepDim));
+        auto ret = ADD_TO_LAUNCHER_LIST_AICPU(ReduceSum, OP_ATTR_NAMES({"keep_dims"}), OP_INPUT(x, axes),
+                                              OP_OUTPUT(out), OP_ATTR(keepDim));
         CHECK_RET(ret == ACLNN_SUCCESS, nullptr);
     } else {
         static internal::AicpuTaskSpace space("Sum", ge::DEPEND_IN_SHAPE, true);
-        auto ret = ADD_TO_LAUNCHER_LIST_AICPU(
-            ReduceSum, OP_ATTR_NAMES({"Tidx", "keep_dims"}), OP_INPUT(x, axes), OP_OUTPUT(out),
-            OP_ATTR(axes->GetDataType(), keepDim));
+        auto ret = ADD_TO_LAUNCHER_LIST_AICPU(ReduceSum, OP_ATTR_NAMES({"Tidx", "keep_dims"}), OP_INPUT(x, axes),
+                                              OP_OUTPUT(out), OP_ATTR(axes->GetDataType(), keepDim));
         CHECK_RET(ret == ACLNN_SUCCESS, nullptr);
     }
     return out;
