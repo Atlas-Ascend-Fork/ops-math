@@ -122,14 +122,8 @@ const int32_t output_exp_int32_t_data[] = {
 
 class TEST_SearchSorted_UTest : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        cout << "search_sorted_test SetUp\n" << endl;
-    }
-    static void TearDownTestCase()
-    {
-        cout << "search_sorted_test TearDown\n" << endl;
-    }
+    static void SetUpTestCase() { cout << "search_sorted_test SetUp\n" << endl; }
+    static void TearDownTestCase() { cout << "search_sorted_test TearDown\n" << endl; }
 };
 
 #define ADD_CASE(aicpu_type, base_type, out_type, out_dtype)                        \
@@ -281,9 +275,8 @@ ADD_CASE(int32_t, DT_INT32, int64_t, DT_INT64)
 ADD_CASE(int64_t, DT_INT64, int64_t, DT_INT64)
 
 template <typename T1, typename T2>
-void RunSearchSortedKernel(
-    vector<DataType> data_type, vector<vector<int64_t>>& shapes, const bool right, const T1* input1_data,
-    const T1* input2_data, const T2* output_exp_data)
+void RunSearchSortedKernel(vector<DataType> data_type, vector<vector<int64_t>>& shapes, const bool right,
+                           const T1* input1_data, const T1* input2_data, const T2* output_exp_data)
 {
     uint64_t input1_size = CalTotalElements(shapes, 0);
     T1* input1_tensor_buffer = new T1[input1_size];
@@ -329,8 +322,8 @@ TEST_F(TEST_SearchSorted_UTest, FLOAT_INT64_FALSE_SUCC)
     const int64_t output_exp_data[] = {3, 10, 1, 2, 9,  0, 8, 10, 8, 3, 2, 0, 10, 2, 10, 1,  1, 2,
                                        1, 0,  0, 5, 10, 1, 8, 2,  6, 9, 1, 9, 0,  9, 3,  10, 7, 10};
 
-    RunSearchSortedKernel<float, int64_t>(
-        data_type, shapes, right, input1_float_data, input2_float_data, output_exp_data);
+    RunSearchSortedKernel<float, int64_t>(data_type, shapes, right, input1_float_data, input2_float_data,
+                                          output_exp_data);
 }
 
 TEST_F(TEST_SearchSorted_UTest, DOUBLE_INT32_TRUE_SUCC)
@@ -339,8 +332,8 @@ TEST_F(TEST_SearchSorted_UTest, DOUBLE_INT32_TRUE_SUCC)
     vector<DataType> data_type = {DT_DOUBLE, DT_INT32};
     vector<vector<int64_t>> shapes = {{100}, {200}, {200}};
 
-    RunSearchSortedKernel<double, int32_t>(
-        data_type, shapes, right, input1_double_data, input2_double_data, output_exp_int32_t_data);
+    RunSearchSortedKernel<double, int32_t>(data_type, shapes, right, input1_double_data, input2_double_data,
+                                           output_exp_int32_t_data);
 }
 
 TEST_F(TEST_SearchSorted_UTest, SORTER_DTYPE_ERROR)
@@ -425,7 +418,7 @@ TEST_F(TEST_SearchSorted_UTest, EMPTY_SEQUENCE_TENSOR)
     vector<vector<int64_t>> shapes = {{2, 0}, {2, 3}, {2, 3}};
     int32_t input1_tensor_buffer[] = {};
     int32_t input2_tensor_buffer[2 * 3] = {3, 6, 9, 3, 6, 9};
-    int32_t output_tensor_buffer[2 * 3] = {0, 0, 0, 0, 0, 0};
+    int32_t output_tensor_buffer[2 * 3] = {-1, -1, -1, -1, -1, -1};
     auto node_def = CpuKernelUtils::CpuKernelUtils::CreateNodeDef();
     NodeDefBuilder(node_def.get(), "SearchSorted", "SearchSorted")
         .Input({"sorted_sequence", data_type[0], shapes[0], (void*)input1_tensor_buffer})
@@ -456,4 +449,90 @@ TEST_F(TEST_SearchSorted_UTest, EMPTY_VALUE_TENSOR)
         .Attr("dtype", data_type[1])
         .Attr("right", false);
     RUN_KERNEL(node_def, HOST, KERNEL_STATUS_OK);
+}
+
+namespace {
+template <typename T = int32_t>
+void RunEmptySorterKernel(const vector<int64_t>& sequence_shape, const vector<int64_t>& values_shape,
+                          const vector<int64_t>& output_shape, void* sorter_data, DataType sorter_dtype,
+                          uint32_t expected_status, DataType output_dtype = DT_INT32, bool right = false)
+{
+    int32_t values[6] = {3, 6, 9, 3, 6, 9};
+    T output[6] = {-1, -1, -1, -1, -1, -1};
+    auto node_def = CpuKernelUtils::CreateNodeDef();
+    NodeDefBuilder(node_def.get(), "SearchSorted", "SearchSorted")
+        .Input({"sorted_sequence", DT_INT32, sequence_shape, nullptr})
+        .Input({"values", DT_INT32, values_shape, values})
+        .Input({"sorter", sorter_dtype, sequence_shape, sorter_data})
+        .Output({"out", output_dtype, output_shape, output})
+        .Attr("dtype", output_dtype)
+        .Attr("right", right);
+    RUN_KERNEL(node_def, HOST, expected_status);
+    if (expected_status == KERNEL_STATUS_OK) {
+        vector<vector<int64_t>> shapes = {output_shape};
+        uint64_t output_size = CalTotalElements(shapes, 0);
+        for (size_t i = 0; i < 6; ++i) {
+            EXPECT_EQ(output[i], i < output_size ? 0 : -1) << "output index " << i;
+        }
+    }
+}
+} // namespace
+
+TEST_F(TEST_SearchSorted_UTest, EMPTY_SORTER_TENSOR)
+{
+    const vector<vector<vector<int64_t>>> shapes = {
+        {{0}, {3}, {3}}, {{2, 0}, {2, 3}, {2, 3}}, {{0, 3}, {0, 2}, {0, 2}}, {{2, 0, 3}, {2, 0, 2}, {2, 0, 2}}};
+    // A non-null empty buffer must not be read either: -1 is not a sorter element.
+    int64_t sentinel = -1;
+    const vector<void*> sorter_buffers = {nullptr, &sentinel};
+    for (size_t i = 0; i < shapes.size(); ++i) {
+        SCOPED_TRACE(i);
+        for (void* sorter_data : sorter_buffers) {
+            SCOPED_TRACE(sorter_data);
+            for (bool right : {false, true}) {
+                SCOPED_TRACE(right);
+                RunEmptySorterKernel(shapes[i][0], shapes[i][1], shapes[i][2], sorter_data, DT_INT64, KERNEL_STATUS_OK,
+                                     DT_INT32, right);
+                RunEmptySorterKernel<int64_t>(shapes[i][0], shapes[i][1], shapes[i][2], sorter_data, DT_INT64,
+                                              KERNEL_STATUS_OK, DT_INT64, right);
+            }
+        }
+    }
+}
+
+TEST_F(TEST_SearchSorted_UTest, EMPTY_SORTER_STILL_CHECKS_PARAMETERS)
+{
+    RunEmptySorterKernel({2, 0}, {2, 3}, {2, 3}, nullptr, DT_INT32, KERNEL_STATUS_PARAM_INVALID);
+    RunEmptySorterKernel({2, 0}, {3}, {3}, nullptr, DT_INT64, KERNEL_STATUS_PARAM_INVALID);
+    RunEmptySorterKernel({2, 0}, {2, 3}, {2, 2}, nullptr, DT_INT64, KERNEL_STATUS_PARAM_INVALID);
+}
+
+TEST_F(TEST_SearchSorted_UTest, NONEMPTY_SORTER_VALIDATION)
+{
+    int32_t sequence[5] = {1, 3, 5, 9, 7};
+    int32_t values[3] = {3, 6, 9};
+    int64_t valid_sorter[5] = {0, 1, 2, 4, 3};
+    int64_t negative_sorter[5] = {-1, 1, 2, 4, 3};
+    int64_t oversized_sorter[5] = {0, 1, 2, 5, 3};
+    const vector<int64_t*> sorters = {valid_sorter, negative_sorter, oversized_sorter, nullptr};
+    for (bool right : {false, true}) {
+        SCOPED_TRACE(right);
+        for (size_t i = 0; i < sorters.size(); ++i) {
+            SCOPED_TRACE(i);
+            int32_t output[3] = {};
+            auto node_def = CpuKernelUtils::CreateNodeDef();
+            NodeDefBuilder(node_def.get(), "SearchSorted", "SearchSorted")
+                .Input({"sorted_sequence", DT_INT32, {5}, sequence})
+                .Input({"values", DT_INT32, {3}, values})
+                .Input({"sorter", DT_INT64, {5}, sorters[i]})
+                .Output({"out", DT_INT32, {3}, output})
+                .Attr("dtype", DT_INT32)
+                .Attr("right", right);
+            RUN_KERNEL(node_def, HOST, i == 0 ? KERNEL_STATUS_OK : KERNEL_STATUS_PARAM_INVALID);
+            if (i == 0) {
+                int32_t expected[3] = {right ? 2 : 1, 3, right ? 5 : 4};
+                EXPECT_EQ(0, std::memcmp(output, expected, sizeof(output)));
+            }
+        }
+    }
 }

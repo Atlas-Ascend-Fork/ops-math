@@ -123,15 +123,18 @@ KernelStatus SearchSortedKernel::GetInputAndCheck(const CpuKernelContext& ctx)
             return KERNEL_STATUS_PARAM_INVALID;
         }
 
-        int64_t* sorter = static_cast<int64_t*>(sorter_t_->GetData());
-        int64_t sorter_max = *(std::max_element(sorter, sorter + sorter_t_->NumElements()));
-        int64_t sorter_min = *(std::min_element(sorter, sorter + sorter_t_->NumElements()));
-        int64_t last_dim = sequence_dims.back();
-        if (!(sorter_min >= 0 && sorter_max < last_dim)) {
-            KERNEL_LOG_ERROR("sorter index out of range, sorter_max is [%ld], sorter_min is "
-                             "[%ld], sequence last dim is [%ld]",
-                             sorter_max, sorter_min, last_dim);
-            return KERNEL_STATUS_PARAM_INVALID;
+        if (sorter_t_->NumElements() > 0) {
+            int64_t* sorter = static_cast<int64_t*>(sorter_t_->GetData());
+            KERNEL_CHECK_NULLPTR(sorter, KERNEL_STATUS_PARAM_INVALID, "Get sorter data failed.");
+            int64_t sorter_max = *(std::max_element(sorter, sorter + sorter_t_->NumElements()));
+            int64_t sorter_min = *(std::min_element(sorter, sorter + sorter_t_->NumElements()));
+            int64_t last_dim = sequence_dims.back();
+            if (!(sorter_min >= 0 && sorter_max < last_dim)) {
+                KERNEL_LOG_ERROR("sorter index out of range, sorter_max is [%ld], sorter_min is "
+                                 "[%ld], sequence last dim is [%ld]",
+                                 sorter_max, sorter_min, last_dim);
+                return KERNEL_STATUS_PARAM_INVALID;
+            }
         }
     } else {
         KERNEL_LOG_DEBUG("optional input sorter is nullptr.");
@@ -162,12 +165,15 @@ KernelStatus CalSearchSorted(bool right, const Tensor* sequence_t, const Tensor*
                              const Tensor* output_t, const CpuKernelContext& ctx)
 {
     // Empty tensor
-    if (sequence_t->NumElements() == 0) {
-        KERNEL_LOG_DEBUG("sequence size is zero.");
-        return KERNEL_STATUS_OK;
-    }
     if (values_t->NumElements() == 0) {
         KERNEL_LOG_DEBUG("values size is zero.");
+        return KERNEL_STATUS_OK;
+    }
+    if (sequence_t->NumElements() == 0) {
+        KERNEL_LOG_DEBUG("sequence size is zero.");
+        auto output = PtrToPtr<void, T>(output_t->GetData());
+        KERNEL_CHECK_NULLPTR(output, KERNEL_STATUS_PARAM_INVALID, "Get output data failed.");
+        std::fill_n(output, output_t->NumElements(), static_cast<T>(0));
         return KERNEL_STATUS_OK;
     }
     auto sequence = PtrToPtr<void, S>(sequence_t->GetData());
