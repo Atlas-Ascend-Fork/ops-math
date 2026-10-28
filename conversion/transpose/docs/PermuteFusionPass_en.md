@@ -14,19 +14,19 @@ Permute is replaced with the TransposeD operator. The dimension permutation attr
 The supported platforms are as follows:
 <!-- end id14 -->
 <!-- npu="A3" id7 -->
-Atlas A3 products
+<term>Atlas A3 products</term>
 <!-- end id7 -->
 <!-- npu="910b" id8 -->
-Atlas A2 products
+<term>Atlas A2 products</term>
 <!-- end id8 -->
 <!-- npu="310b" id9 -->
-Atlas 200I/500 A2 inference products
+<term>Atlas 200I/500 A2 inference products</term>
 <!-- end id9 -->
 <!-- npu="310p" id10 -->
-Atlas inference products
+<term>Atlas inference products</term>
 <!-- end id10 -->
 <!-- npu="910" id11 -->
-Atlas training products
+<term>Atlas training products</term>
 <!-- end id11 -->
 
 The graph structures before and after fusion are as follows:
@@ -43,7 +43,7 @@ Supported products are as follows:
 <!-- end id13 -->
 
 <!-- npu="950" id12 -->
-Ascend 950PR&950DT products
+<term>Ascend 950PR&950DT products</term>
 <!-- end id12 -->
 
 The graph structures before and after fusion are as follows:
@@ -63,25 +63,25 @@ The dimension permutation order of the Permute operator is preferentially read f
 ## Applicable Products
 
 <!-- npu="310b" id1 -->
-Atlas 200I/500 A2 inference products
+<term>Atlas 200I/500 A2 inference products</term>
 <!-- end id1 -->
 
 <!-- npu="310p" id2 -->
-Atlas inference products
+<term>Atlas inference products</term>
 <!-- end id2 -->
 
 <!-- npu="910" id3 -->
-Atlas training products
+<term>Atlas training products</term>
 <!-- end id3 -->
 
 <!-- npu="910b" id4 -->
-Atlas A2 products
+<term>Atlas A2 products</term>
 <!-- end id4 -->
 
 <!-- npu="A3" id5 -->
-Atlas A3 products
+<term>Atlas A3 products</term>
 <!-- end id5 -->
 
 <!-- npu="950" id6 -->
-Ascend 950PR&950DT products
+<term>Ascend 950PR&950DT products</term>
 <!-- end id6 -->
