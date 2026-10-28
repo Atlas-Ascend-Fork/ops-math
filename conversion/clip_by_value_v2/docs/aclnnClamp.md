@@ -180,9 +180,12 @@ aclnnStatus aclnnClamp(
       <td>传入的self、out其中一个为空指针，或者max、min全为空指针。</td>
     </tr>
     <tr>
-      <td>ACLNN_ERR_PARAM_INVALID</td>
-      <td>161002</td>
+      <td rowspan="2">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="2">161002</td>
       <td>self、out的数据类型和数据格式不在支持的范围之内。</td>
+    </tr>
+    <tr>
+      <td>self与out的shape不一致。</td>
     </tr>
   </tbody>
   </table>
