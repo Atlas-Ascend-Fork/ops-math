@@ -155,8 +155,8 @@ aclnnStatus aclnnInplaceMaskedFillTensor(
       <td>传入的selfRef、mask、value是空指针。</td>
     </tr>
     <tr>
-      <td rowspan="3">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="3">161002</td>
+      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="4">161002</td>
       <td>selfRef和mask的数据类型和数据格式不在支持的范围之内。</td>
     </tr>
     <tr>
@@ -164,6 +164,9 @@ aclnnStatus aclnnInplaceMaskedFillTensor(
     </tr>
     <tr>
       <td>value的数据类型不能转为selfRef的数据类型。</td>
+    </tr>
+    <tr>
+      <td>value的维度不为0。</td>
     </tr>
   </tbody>
   </table>
