@@ -158,8 +158,8 @@ aclnnStatus aclnnReplicationPad1d(
       <td>传入的self、padding、out是空指针。</td>
     </tr>
     <tr>
-      <td rowspan="6">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="6">161002</td>
+      <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="5">161002</td>
       <td>self、out的数据类型或数据格式不在支持的范围之内。</td>
     </tr>
     <tr>
@@ -170,9 +170,6 @@ aclnnStatus aclnnReplicationPad1d(
     </tr>
     <tr>
       <td>self或out为空tensor，且self最后两个维度的值存在0。</td>
-    </tr>
-    <tr>
-      <td>padding的数值大于等于self最后一维度的值。</td>
     </tr>
     <tr>
       <td>out最后一维的值不等于self最后一维的值加padding的两个值。</td>

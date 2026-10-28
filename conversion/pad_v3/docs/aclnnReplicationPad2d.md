@@ -101,7 +101,7 @@ aclnnStatus aclnnReplicationPad2d(
       <td>padding（aclIntArray*）</td>
       <td>输入</td>
       <td>输入中需要填充的大小。</td>
-      <td><ul><li>数据类型长度为4。数值依次代表左右上下需要填充的值。</li><li>padding前两维度的数值都需小于self最后一维度的数值，后两维度的数值需小于self倒数第二维度的数值。</li></ul></td>
+      <td>长度为4，数值依次代表左右上下需要填充的值。</td>
       <td>INT64</td>
       <td>-</td>
       <td>-</td>
@@ -166,8 +166,8 @@ aclnnStatus aclnnReplicationPad2d(
       <td>传入的self、padding、out是空指针。</td>
     </tr>
     <tr>
-      <td rowspan="6">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="6">161002</td>
+      <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="5">161002</td>
       <td>self、out的数据类型或数据格式不在支持的范围之内。</td>
     </tr>
     <tr>
@@ -178,9 +178,6 @@ aclnnStatus aclnnReplicationPad2d(
     </tr>
     <tr>
       <td>self或out为空tensor，且self最后三个维度的值存在0。</td>
-    </tr>
-    <tr>
-      <td>padding的数值大于等于self对应维度的值。</td>
     </tr>
     <tr>
       <td>out后两维度的值不等于self后两维度的值加对应padding。</td>
