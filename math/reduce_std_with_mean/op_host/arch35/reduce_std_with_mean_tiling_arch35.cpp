@@ -88,6 +88,7 @@ struct ReduceStdWithMeanCtx {
     // 平台
     int64_t coreNum = 0;
     int64_t ubSize = 0;
+    uint64_t libApiWorkSpaceSize = 0; // AscendC::ReduceSum 等 lib API 所需的 GM workspace
     int64_t blockSize = 32;
     int64_t cacheLineSize = 256;
 
@@ -162,6 +163,8 @@ static ge::graphStatus GetPlatformInfo(gert::TilingContext* context, ReduceStdWi
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfoPtr);
     ctx.coreNum = ascendcPlatform.GetCoreNumAiv();
     OP_CHECK_IF(ctx.coreNum == 0, OP_LOGE(context, "coreNum is 0"), return ge::GRAPH_FAILED);
+
+    ctx.libApiWorkSpaceSize = ascendcPlatform.GetLibApiWorkSpaceSize();
 
     uint64_t ub = 0;
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ub);
@@ -692,6 +695,42 @@ static ge::graphStatus ComputeRUbFactor(gert::TilingContext* context, ReduceStdW
     } else {
         ctx.rUbFactorAlign = ctx.rUbFactor;
     }
+
+    // [FR-05] 补位后 UB 用量校验：rUbFactorAlign 可因 CeilAlign 超出预算。
+    //   预算按有效 R 反解（ComputeRiMax），但 kernel 实际按 padded R 分配 UB；
+    //   超出时将 rUbFactor 与 rUbFactorAlign 同步降至 block 对齐的预算上限内。
+    {
+        const int64_t aUnit = ctx.aUbFactorAlign * ctx.innerAProdAlign;
+        const int64_t bytesPerRElem = (DB_FACTOR * N_PRE_REUSE + N_PRE_PARALLEL) * ctx.dtypeSize +
+                                      TMP_BUF_COPIES * FP32_BYTES;
+        const int64_t outBytes = N_OUT * ctx.dtypeSize * aUnit;
+        const int64_t ubAvailable = ctx.ubSize - CACHE_BUF_BYTES - outBytes;
+        if (aUnit > 0 && bytesPerRElem > 0 && ubAvailable > 0) {
+            const int64_t maxPadded = ubAvailable / (aUnit * ctx.innerRProdAlign * bytesPerRElem);
+            const int64_t maxAligned = maxPadded / bsAElem * bsAElem;
+            if (maxAligned > 0) {
+                if (ctx.rUbFactorAlign > maxAligned) {
+                    OP_LOGI(context, "UB budget cap: rUbFactorAlign %ld -> %ld (bsAElem=%ld)", ctx.rUbFactorAlign,
+                            maxAligned, bsAElem);
+                    ctx.rUbFactor = maxAligned;
+                    ctx.rUbFactorAlign = maxAligned;
+                }
+            } else {
+                // [评审修复] 连一个 block 对齐的 R tile 都放不下：tail-R burst 行宽必须 block
+                //   对齐（CeilAlign 后 rUbFactorAlign ≥ bsAElem），无法继续限缩；此时若仍超出
+                //   预算须显式报 tiling 错误，否则 ComputeUbSizes 按补齐尺寸分配超预算 UB，
+                //   设备侧 UB 越界。注：当前平台 aUnit 受 atmp ≤ cacheLine/dtypeSize 约束、
+                //   rIMax ≥ bsAElem 恒成立，该分支为受限 UB 环境（如 UT faker 小 UB）下的
+                //   防御性收口。
+                OP_CHECK_IF(ctx.rUbFactorAlign > maxPadded,
+                            OP_LOGE(context,
+                                    "UB budget cannot hold one block-aligned R tile: rUbFactorAlign=%ld, "
+                                    "maxPadded=%ld, bsAElem=%ld, aUnit=%ld",
+                                    ctx.rUbFactorAlign, maxPadded, bsAElem, aUnit),
+                            return ge::GRAPH_FAILED);
+            }
+        }
+    }
     return ge::GRAPH_SUCCESS;
 }
 
@@ -880,6 +919,27 @@ static void ComputeGroupSplit(ReduceStdWithMeanCtx& ctx)
     ctx.usedCoreNum = static_cast<int32_t>(numBlocks);
     ctx.rGroupCnt = numBlocks / ctx.aLoopCntTotal; // = rGroups，workspace R 维
     ctx.isGroup = true;
+
+    // [FR-06] cacheBuf 容量校验：group 路径每核的归约树须完全在 16KB cacheBuf 内。
+    //   cacheCount = log2(FindNearestPower2(rPerCore)) + 1，
+    //   levelStride = CeilAlign(aUbFactorAlign × innerAProdAlign, 8)，
+    //   总量 cacheCount × levelStride ≤ 4096 fp32。
+    //   超出时回退 normal 模板（normal 有自身的容量守卫）。
+    const int64_t rPerCore = (ctx.rLoopCntTotal + ctx.rGroupCnt - 1) / ctx.rGroupCnt;
+    int64_t bisectionPos = 1;
+    while (bisectionPos * 2 <= rPerCore) {
+        bisectionPos *= 2;
+    }
+    const int64_t cacheCount = (bisectionPos > 1) ? (63 - __builtin_clzll(static_cast<uint64_t>(bisectionPos))) + 1 : 1;
+    const int64_t laneN = ctx.aUbFactorAlign * ctx.innerAProdAlign;
+    const int64_t levelStride = (laneN + 7) / 8 * 8;
+    const int64_t cacheLaneLimit = CACHE_BUF_BYTES / FP32_BYTES;
+    if (cacheCount * levelStride > cacheLaneLimit) {
+        ctx.isGroup = false;
+        ctx.rGroupCnt = 0;
+        ctx.usedCoreNum = (ctx.aSmallCoreLoopCnt > 0) ? static_cast<int32_t>(ctx.coreNum) : ctx.aBigCoreCnt;
+        ctx.usedCoreNum = std::max(ctx.usedCoreNum, 1); // aLoopCntTotal==0 时兜底，与正常路径对齐
+    }
 }
 
 // ───────────────────────────────────────
@@ -893,6 +953,7 @@ static ge::graphStatus SetWorkspaceSize(gert::TilingContext* context, const Redu
         return ge::GRAPH_FAILED;
     }
     size_t usrSize = 0;
+    size_t libApiSize = 0;
     if (ctx.isGroup) {
         int64_t aTotal = 1;
         for (int32_t i = 0; i < ctx.axisNum; ++i) {
@@ -901,12 +962,17 @@ static ge::graphStatus SetWorkspaceSize(gert::TilingContext* context, const Redu
             }
         }
         usrSize = static_cast<size_t>(ctx.rGroupCnt) * static_cast<size_t>(aTotal) * sizeof(float);
+        // [FR-02] group 模板须在 ws[0] 预留 lib API 系统空间（GetLibApiWorkSpaceSize）：
+        //   实测仅含 usrSize 时 runtime 传递的 workspace 指针不可访问（设备侧 trap，VEC_ERROR），
+        //   预留后指针可访问——经验性约定（adv_api RA ReduceSum 本身不读写 GM workspace；
+        //   runtime GetUserWorkspace 语义为 base+RESERVED_WORKSPACE），与仓内 reduce_var /
+        //   reduce_std_v2_update 一致。kernel 侧（kernel.h Phase 2）沿用裸 workspace 指针、
+        //   不做系统空间偏移，亦与上述同仓算子一致。
+        //   normal/empty 模板为纯 Vector kernel，不预留系统 workspace（ws[0]=0）。
+        libApiSize = ctx.libApiWorkSpaceSize;
     }
 
-    // 纯 Vector kernel 不预留 lib api 系统 workspace：本算子仅使用 DataCopyPad / Reg::* / ReduceSum
-    // （ReduceSum 走 UB 栈缓冲，无 GM workspace 参数），16MB 系统空间纯属浪费
-    // （对齐 concat/splitv/triu 去除无用 16MB workspace 的先例，避免比 910B 多 16M 内存）。
-    ws[0] = usrSize;
+    ws[0] = usrSize + libApiSize;
     OP_LOGI(context, "set ws size:%lu, usrSize:%lu", ws[0], usrSize);
     return ge::GRAPH_SUCCESS;
 }

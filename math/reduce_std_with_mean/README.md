@@ -111,7 +111,7 @@ ReduceStdWithMean 为 CANN 内部 L0 算子，被 `aclnnStd`、`aclnnStdMeanCorr
 <tr>
 <td>epsilon</td>
 <td>可选属性</td>
-<td>数值稳定项（仅 invert=true 使用）。默认 0.001。</td>
+<td>数值稳定项（仅 invert=true 使用），须为非负浮点数。默认 0.001。</td>
 <td>Float</td>
 <td>-</td>
 </tr>
@@ -134,12 +134,16 @@ ReduceStdWithMean 为 CANN 内部 L0 算子，被 `aclnnStd`、`aclnnStdMeanCorr
 - dim 取值范围 [-rank(x), rank(x)-1]，空表示全部维度归约，且不能包含重复轴（负数轴归一化后判重）。
 - 输出 y 的 shape 须与 dim + keepdim 推导结果一致。
 - correction 仅支持非负整数；invert=true 时忽略 correction，固定除以 N。
-- 空张量（N=0）输出 NaN；N<=correction（invert=false）输出 +Inf 或 NaN。
+- epsilon 仅支持非负浮点数（默认 0.001），tiling 阶段对 epsilon<0 返回错误。
+- unbiased 为 legacy 字段：correction 属性有值时以 correction 为准，无值时按 unbiased=true→correction=1、unbiased=false→correction=0 折算。
+- 空张量（N=0）输出 NaN；N<=correction（invert=false）输出 +Inf 或 NaN（一般输入为 +Inf，全等输入为 0×Inf=NaN）。
+- 输入含动态标记（-1/-2）时按动态 shape 处理，具体语义由下游框架定义。
 
 ## 调用说明
 
 | 调用方式 | 样例代码 | 说明 |
 |---|---|---|
-| GE图模式 | [test_geir_reduce_std_with_mean.cpp](examples/test_geir_reduce_std_with_mean.cpp) | 通过 GE IR 构图调用，算子 IR 定义见 [op_host/reduce_std_with_mean_def.cpp](op_host/reduce_std_with_mean_def.cpp) |
-| aclnn API | [test_aclnn_batch_norm_stats.cpp](examples/test_aclnn_batch_norm_stats.cpp) | 通过 [aclnnBatchNormStats](docs/aclnnBatchNormStats.md) 接口方式调用ReduceStdWithMean算子。 |
+| GE图模式 | [test_geir_reduce_std_with_mean.cpp](examples/test_geir_reduce_std_with_mean.cpp) | 通过 GE IR 构图调用，算子 IR 原型见 [op_graph/reduce_std_with_mean_proto.h](op_graph/reduce_std_with_mean_proto.h) |
 | aclnn API | [test_aclnn_std_mean_correction.cpp](examples/test_aclnn_std_mean_correction.cpp) | 通过 [aclnnStdMeanCorrection](docs/aclnnStdMeanCorrection.md) 接口方式调用ReduceStdWithMean算子。 |
+| aclnn API | [test_aclnn_batch_norm_stats.cpp](examples/test_aclnn_batch_norm_stats.cpp) | 通过 [aclnnBatchNormStats](docs/aclnnBatchNormStats.md) 接口方式调用ReduceStdWithMean算子。 |
+| aclnn API | [test_aclnn_std.cpp](../reduce_std_v2/examples/test_aclnn_std.cpp) | 通过 [aclnnStd](../reduce_std_v2/docs/aclnnStd.md) 接口方式调用ReduceStdWithMean算子（该接口实现在同仓 `math/reduce_std_v2`）。 |

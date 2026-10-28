@@ -292,7 +292,7 @@ int main(int argc, char* argv[])
         printf("%s - INFO - [XIR]: Start to finalize ir graph session\n", GetTime().c_str());
         ge::GEFinalize();
         delete session;
-        return SUCCESS; // documented limitation, not an example failure
+        return FAILED; // [FR-18] RunGraph 失败不应返回 SUCCESS；GE IR 构造已验证，执行失败如实上报
     }
     printf("%s - INFO - [XIR]: Session run ir compute graph success\n", GetTime().c_str());
 

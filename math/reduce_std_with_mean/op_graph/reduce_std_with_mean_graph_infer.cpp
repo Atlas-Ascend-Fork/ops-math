@@ -23,6 +23,7 @@ using namespace ge;
 namespace ops {
 
 static constexpr size_t INPUT_X_IDX = 0;
+static constexpr size_t INPUT_MEAN_IDX = 1;
 static constexpr size_t OUTPUT_Y_IDX = 0;
 
 // y.dtype = x.dtype
@@ -31,6 +32,13 @@ static ge::graphStatus InferDataType4ReduceStdWithMean(gert::InferDataTypeContex
     OP_LOGD(context->GetNodeName(), "Begin to do InferDataType4ReduceStdWithMean");
 
     const ge::DataType xDt = context->GetInputDataType(INPUT_X_IDX);
+    const ge::DataType meanDt = context->GetInputDataType(INPUT_MEAN_IDX);
+    // [FR-08] x 与 mean 数据类型须一致（README 约束）
+    if (xDt != meanDt) {
+        OP_LOGE(context->GetNodeName(), "x dtype[%s] must be identical to mean dtype[%s].", std::to_string(xDt).c_str(),
+                std::to_string(meanDt).c_str());
+        return GRAPH_FAILED;
+    }
     context->SetOutputDataType(OUTPUT_Y_IDX, xDt);
 
     OP_LOGD(context->GetNodeName(), "End to do InferDataType4ReduceStdWithMean");

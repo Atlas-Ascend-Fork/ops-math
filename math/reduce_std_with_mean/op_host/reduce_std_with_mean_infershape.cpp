@@ -35,6 +35,8 @@ namespace ops {
 
 namespace {
 constexpr size_t INPUT_X_IDX = 0;
+constexpr size_t INPUT_MEAN_IDX = 1;      // [FR-08] mean shape 校验用
+constexpr size_t ATTR_CORRECTION_IDX = 5; // [FR-08] correction 非负校验用
 constexpr size_t OUTPUT_Y_IDX = 0;
 constexpr size_t ATTR_DIM_IDX = 0;
 constexpr size_t ATTR_KEEP_DIM_IDX = 2;
@@ -136,10 +138,22 @@ static ge::graphStatus InferShape4ReduceStdWithMean(gert::InferShapeContext* con
         OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x");
         return ge::GRAPH_FAILED;
     }
+    // [FR-08] mean 的 shape 须与 x 完全一致（README 约束）
+    const gert::Shape* meanShape = context->GetInputShape(INPUT_MEAN_IDX);
+    if (meanShape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "mean");
+        return ge::GRAPH_FAILED;
+    }
     gert::Shape* yShape = context->GetOutputShape(OUTPUT_Y_IDX);
     if (yShape == nullptr) {
         OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "y");
         return ge::GRAPH_FAILED;
+    }
+
+    // [FR-08] mean shape 与 x 一致性校验（unknown rank 时跳过）
+    if (!IsUnknownRank(*xShape) && *meanShape != *xShape) {
+        OP_LOGE(context->GetNodeName(), "mean shape must be identical to x shape.");
+        return GRAPH_FAILED;
     }
 
     // 1) unknown rank 透传
@@ -161,6 +175,29 @@ static ge::graphStatus InferShape4ReduceStdWithMean(gert::InferShapeContext* con
 
     // 2) scalar (0-D) input
     if (xRank == 0) {
+        // [FR-08] rank=0 时 dim 仅允许空（默认全归约）或 [0]/[-1]（唯一合法轴）
+        auto attrs0 = context->GetAttrs();
+        if (attrs0 == nullptr) {
+            OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "attrs");
+            return ge::GRAPH_FAILED;
+        }
+        const auto* dimVec0 = attrs0->GetListInt(ATTR_DIM_IDX);
+        const int64_t dimNum0 = (dimVec0 == nullptr) ? 0 : static_cast<int64_t>(dimVec0->GetSize());
+        if (dimNum0 > 0) {
+            const int64_t* dimData0 = dimVec0->GetData();
+            for (int64_t di = 0; di < dimNum0; ++di) {
+                if (dimData0[di] != 0 && dimData0[di] != -1) {
+                    OP_LOGE(context->GetNodeName(), "dim[%ld] out of range for rank=0 input.", dimData0[di]);
+                    return GRAPH_FAILED;
+                }
+            }
+        }
+        // [FR-08] correction 须为非负整数（README 约束）
+        const auto* corr = attrs0->GetInt(ATTR_CORRECTION_IDX);
+        if (corr != nullptr && *corr < 0) {
+            OP_LOGE(context->GetNodeName(), "correction[%ld] must be non-negative.", *corr);
+            return GRAPH_FAILED;
+        }
         return HandleScalarInput(context, xShape, yShape);
     }
 
@@ -171,6 +208,13 @@ static ge::graphStatus InferShape4ReduceStdWithMean(gert::InferShapeContext* con
         return ge::GRAPH_FAILED;
     }
     const bool keepDim = ReadKeepDim(attrs);
+
+    // [FR-08] correction 须为非负整数（README 约束）
+    const auto* corrAttr = attrs->GetInt(ATTR_CORRECTION_IDX);
+    if (corrAttr != nullptr && *corrAttr < 0) {
+        OP_LOGE(context->GetNodeName(), "correction[%ld] must be non-negative.", *corrAttr);
+        return GRAPH_FAILED;
+    }
 
     std::vector<int64_t> axes;
     std::string badValue;

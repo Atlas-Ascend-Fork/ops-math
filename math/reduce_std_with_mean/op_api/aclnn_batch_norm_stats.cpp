@@ -62,6 +62,7 @@ static aclnnStatus ProcessEmptyTensorWithValue(aclTensor* src, float initValue, 
 {
     auto srcShape = src->GetViewShape();
     auto dst = FillVector(srcShape, src, initValue, executor);
+    CHECK_RET(dst != nullptr, ACLNN_ERR_INNER_NULLPTR);
     auto dstCopyResult = l0op::ViewCopy(dst, src, executor);
     CHECK_RET(dstCopyResult != nullptr, ACLNN_ERR_INNER_NULLPTR);
     return ACLNN_SUCCESS;
@@ -166,6 +167,7 @@ static aclnnStatus aclnnBatchNormStatsImplUnify(const aclTensor* input, const ac
     CHECK_RET(expTensor != nullptr, ACLNN_ERR_INNER_NULLPTR);
     // 调用pow进行计算
     auto powOut = l0op::Pow(addOpOut, expTensor, uniqueExecutor.get());
+    CHECK_RET(powOut != nullptr, ACLNN_ERR_INNER_NULLPTR);
 
     auto viewCopyResult = l0op::ViewCopy(powOut, invstdOut, uniqueExecutor.get());
     CHECK_RET(viewCopyResult != nullptr, ACLNN_ERR_INNER_NULLPTR);

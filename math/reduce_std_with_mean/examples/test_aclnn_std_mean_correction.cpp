@@ -152,6 +152,7 @@ int main()
     aclDestroyTensor(self);
     aclDestroyTensor(stdOut);
     aclDestroyTensor(meanOut);
+    aclDestroyIntArray(dim); // [FR-18] dim 未配对释放
 
     // 7.释放device资源，需要根据具体API的接口定义修改
     aclrtFree(selfDeviceAddr);

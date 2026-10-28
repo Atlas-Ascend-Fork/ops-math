@@ -1151,7 +1151,23 @@ __aicore__ inline void ReduceStdWithMeanKernel<DType, isTailR>::Phase1Process()
         rEnd = rOuter; // 末核兜底
     }
     if (rStart >= rOuter) {
-        return; // rGroupCnt_ > rOuter 时空闲核
+        // [FR-04] 空闲核也须写 0 到本行 workspace，否则 Phase2 的 ReduceSum 会累加未初始化 GM 数据。
+        //   做法：清零 cacheBuf 后照常调用 Phase1OutputToWorkspace（读到的全 0 写出到 workspace）。
+        ClearCacheTreeVf();
+        const int64_t aLoopIdx = aChunkIdx;
+        int64_t aSplitChunkIdx;
+        int64_t chunkGmOff;
+        int64_t chunkOutOff;
+        UnravelALoop(aLoopIdx, aSplitChunkIdx, chunkGmOff, chunkOutOff);
+        const int64_t aSplitOutStr = outStride_[aSplit_];
+        const int64_t aChunkStart = aSplitChunkIdx * aUbFactor_;
+        const int64_t aEndVal = aChunkStart + aUbFactor_;
+        const int64_t aLen = (aEndVal > axisShape_[aSplit_]) ? (axisShape_[aSplit_] - aChunkStart) : aUbFactor_;
+        if (aLen > 0) {
+            chunkOutOff += aChunkStart * aSplitOutStr;
+            Phase1OutputToWorkspace(chunkOutOff, aLen, rChunkIdx, /*rCount=*/1);
+        }
+        return;
     }
 
     const int64_t aLoopIdx = aChunkIdx; // aPerCore=1，直接映射

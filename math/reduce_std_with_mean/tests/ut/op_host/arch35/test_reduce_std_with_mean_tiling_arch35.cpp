@@ -119,6 +119,27 @@ TEST_F(ReduceStdWithMeanTiling, tiling_empty_a)
     ExecuteTestCase(MakeCase({0, 4}, ge::DT_FLOAT, {1}), ge::GRAPH_SUCCESS, kKeyEmpty, std::vector<size_t>{0});
 }
 
+// [评审修复-FR-05] tail-R 轴完整载入且尺寸 < bsAElem 时，CeilAlign 使 rUbFactorAlign ≥ bsAElem，
+// 而 UB 预算按有效 R 反解可能只容得下 maxPadded < bsAElem：无法限缩到一个对齐块以内，须显式
+// 报 tiling 错误。真实平台 UB 下 aUnit 受 atmp ≤ cacheLine/dtypeSize 约束、rIMax ≥ bsAElem 恒
+// 成立；该边界经受限 UB 环境（faker ubSize=20KB，A=1600/R=5 时 aUnit=25、rIMax=6 < 8）触发。
+TEST_F(ReduceStdWithMeanTiling, tiling_ub_budget_one_block_rejected)
+{
+    // aUnit=25, rIMax=6: rUbFactor=5 全载、rUbFactorAlign=8 > maxPadded=6、maxAligned=0
+    gert::TilingContextPara para = MakeCase({1600, 5}, ge::DT_FLOAT, {1});
+    para.ubSize_ = 20480;
+    ExecuteTestCase(para, ge::GRAPH_FAILED);
+}
+
+// 邻近对照：ubSize=24KB 时 rIMax=13 ≥ bsAElem=8，rUbFactorAlign=8 ≤ maxAligned=8，正常放行。
+TEST_F(ReduceStdWithMeanTiling, tiling_ub_budget_one_block_neighbor_pass)
+{
+    TilingInfo tilingInfo;
+    gert::TilingContextPara para = MakeCase({1600, 5}, ge::DT_FLOAT, {1});
+    para.ubSize_ = 24576;
+    ASSERT_TRUE(ExecuteTiling(para, tilingInfo));
+}
+
 TEST_F(ReduceStdWithMeanTiling, tiling_group_large_reduce)
 {
     // A=2（不满核）且 R=131072（fp32 512KB，UB 装不下 → rLoopCnt>1）触发 group 模板（A×R 2D 分核）
