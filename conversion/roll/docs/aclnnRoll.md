@@ -126,7 +126,7 @@ aclnnStatus aclnnRoll(
       <td>BFLOAT16、FLOAT16、FLOAT32、INT8、UINT8、INT32、INT64、UINT32、BOOL、INT16、COMPLEX64</td>
       <td>ND</td>
       <td>0-8</td>
-      <td>-</td>
+      <td>√</td>
     </tr>
     <tr>
       <td>workspaceSize（uint64_t*）</td>

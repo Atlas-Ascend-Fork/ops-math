@@ -25,15 +25,9 @@ using namespace op;
 
 class l2_masked_select_test : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        cout << "masked_select_test SetUp" << endl;
-    }
+    static void SetUpTestCase() { cout << "masked_select_test SetUp" << endl; }
 
-    static void TearDownTestCase()
-    {
-        cout << "masked_select_test TearDown" << endl;
-    }
+    static void TearDownTestCase() { cout << "masked_select_test TearDown" << endl; }
 };
 
 int64_t sizes(const vector<int64_t>& arr)
@@ -193,8 +187,7 @@ TEST_F(l2_masked_select_test, aclnnMaskedSelect_8_8_float_nd_and_8_8_bool_nd_sim
     EXPECT_EQ(aclRet, ACL_SUCCESS);
 }
 
-TEST_F(
-    l2_masked_select_test, ascend950_aclnnMaskedSelect_8_8_float_nd_and_6_8_8_bool_nd_simple_random_case_broadcast)
+TEST_F(l2_masked_select_test, ascend950_aclnnMaskedSelect_8_8_float_nd_and_6_8_8_bool_nd_simple_random_case_broadcast)
 {
     // left input
     const vector<int64_t>& selfShape = {6, 8, 8, 8, 8};
@@ -678,10 +671,10 @@ TEST_F(l2_masked_select_test, aclnnMaskedSelect_5_4_float_nd_and_5_4_bool_nd_not
     aclDataType outDtype = ACL_FLOAT;
     aclFormat outFormat = ACL_FORMAT_ND;
 
-    auto selfTensorDesc =
-        TensorDesc(selfShape, selfDtype, selfFormat, selfViewDim, selfOffset, selfStorageDim).ValueRange(-2, 2);
-    auto maskTensorDesc =
-        TensorDesc(maskShape, maskDtype, maskFormat, maskViewDim, maskOffset, maskStorageDim).Value(boolMask);
+    auto selfTensorDesc = TensorDesc(selfShape, selfDtype, selfFormat, selfViewDim, selfOffset, selfStorageDim)
+                              .ValueRange(-2, 2);
+    auto maskTensorDesc = TensorDesc(maskShape, maskDtype, maskFormat, maskViewDim, maskOffset, maskStorageDim)
+                              .Value(boolMask);
     auto outTensorDesc = TensorDesc(outShape, outDtype, outFormat).Precision(0.0001, 0.0001).ValidCount(shapeSize);
 
     auto ut = OP_API_UT(aclnnMaskedSelect, INPUT(selfTensorDesc, maskTensorDesc), OUTPUT(outTensorDesc));
@@ -945,4 +938,62 @@ TEST_F(l2_masked_select_test, aclnnMaskedSelect_error_input_dtype_with_uint64_ou
     uint64_t workspaceSize = 0;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
     EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
+}
+
+TEST_F(l2_masked_select_test, ascend950_aclnnMaskedSelect_out_not_contiguous)
+{
+    // left input
+    const vector<int64_t>& selfShape = {8};
+    aclDataType selfDtype = ACL_INT32;
+    aclFormat selfFormat = ACL_FORMAT_ND;
+    // right input
+    const vector<int64_t>& maskShape = {8};
+    aclDataType maskDtype = ACL_BOOL;
+    aclFormat maskFormat = ACL_FORMAT_ND;
+    // output: 非连续张量，view {8}, stride {2}, storage {16}
+    const vector<int64_t>& outShape = {8};
+    aclDataType outDtype = ACL_INT32;
+    aclFormat outFormat = ACL_FORMAT_ND;
+
+    auto selfTensorDesc = TensorDesc(selfShape, selfDtype, selfFormat);
+    auto maskTensorDesc = TensorDesc(maskShape, maskDtype, maskFormat)
+                              .Value(vector<bool>{true, true, true, true, false, false, false, false});
+    auto outTensorDesc = TensorDesc(outShape, outDtype, outFormat, {2}, 0, {16}).ValidCount(4);
+
+    // 950及以后(RegBase)芯片校验out必须连续
+    SetPlatformNpuArch(NpuArch::DAV_3510);
+    auto ut = OP_API_UT(aclnnMaskedSelect, INPUT(selfTensorDesc, maskTensorDesc), OUTPUT(outTensorDesc));
+    // SAMPLE: only test GetWorkspaceSize
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
+}
+
+TEST_F(l2_masked_select_test, ascend910B2_aclnnMaskedSelect_out_not_contiguous)
+{
+    // left input
+    const vector<int64_t>& selfShape = {8};
+    aclDataType selfDtype = ACL_INT32;
+    aclFormat selfFormat = ACL_FORMAT_ND;
+    // right input
+    const vector<int64_t>& maskShape = {8};
+    aclDataType maskDtype = ACL_BOOL;
+    aclFormat maskFormat = ACL_FORMAT_ND;
+    // output: 非连续张量，view {8}, stride {2}, storage {16}
+    const vector<int64_t>& outShape = {8};
+    aclDataType outDtype = ACL_INT32;
+    aclFormat outFormat = ACL_FORMAT_ND;
+
+    auto selfTensorDesc = TensorDesc(selfShape, selfDtype, selfFormat);
+    auto maskTensorDesc = TensorDesc(maskShape, maskDtype, maskFormat)
+                              .Value(vector<bool>{true, true, true, true, false, false, false, false});
+    auto outTensorDesc = TensorDesc(outShape, outDtype, outFormat, {2}, 0, {16}).ValidCount(4);
+
+    // 非950芯片不校验out连续性，允许非连续out
+    SetPlatformNpuArch(NpuArch::DAV_2201);
+    auto ut = OP_API_UT(aclnnMaskedSelect, INPUT(selfTensorDesc, maskTensorDesc), OUTPUT(outTensorDesc));
+    // SAMPLE: only test GetWorkspaceSize
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACL_SUCCESS);
 }

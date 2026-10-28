@@ -77,6 +77,16 @@ inline static bool CheckNotNull(const aclTensor* self, const aclTensor* mask, co
     return true;
 }
 
+static inline bool CheckOutContiguous(const aclTensor* out)
+{
+    // 仅在950及以后(RegBase)芯片上校验out连续性，其余芯片兼容非连续out
+    if (!IsRegBase()) {
+        return true;
+    }
+    OP_CHECK(op::IsContiguous(out), OP_LOGE(ACLNN_ERR_PARAM_INVALID, "out must be contiguous"), return false);
+    return true;
+}
+
 static const aclTensor* ResetFormatForRegBase(const aclTensor* x, const aclIntArray* shape)
 {
     if (!IsRegBase()) {
@@ -151,10 +161,13 @@ inline static aclnnStatus CheckParams(const aclTensor* self, const aclTensor* ma
     // 1. 检查参数是否为空指针
     CHECK_RET(CheckNotNull(self, mask, y), ACLNN_ERR_PARAM_NULLPTR);
 
-    // 2. 检查输入的数据类型是否在API支持的数据类型范围之内，需要根据api定义校验
+    // 2. 检查out是否为连续张量（仅950及以后校验）
+    CHECK_RET(CheckOutContiguous(y), ACLNN_ERR_PARAM_INVALID);
+
+    // 3. 检查输入的数据类型是否在API支持的数据类型范围之内，需要根据api定义校验
     CHECK_RET(CheckDtypeValid(self, mask, y), ACLNN_ERR_PARAM_INVALID);
 
-    // 3. 检查输入形状是否满足
+    // 4. 检查输入形状是否满足
     CHECK_RET(CheckShape(self, mask, y), ACLNN_ERR_PARAM_INVALID);
 
     return ACLNN_SUCCESS;
