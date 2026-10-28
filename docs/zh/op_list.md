@@ -1358,6 +1358,16 @@
   </tr>
   <tr>
     <td>math</td>
+    <td><a href="../../math/maximum_grad/README.md">maximum_grad</a></td>
+    <td>√</td>
+    <td>√</td>
+    <td>×</td>
+    <td>√</td>
+    <td>AI Core</td>
+    <td>计算Maximum算子的反向梯度，y1 = grads * (x1 >= x2)，y2 = grads * (x1 < x2)。</td>
+  </tr>
+  <tr>
+    <td>math</td>
     <td><a href="../../math/minimum/README.md">minimum</a></td>
     <td>√</td>
     <td>√</td>
@@ -1365,6 +1375,16 @@
     <td>√</td>
     <td>AI Core</td>
     <td>返回两个输入张量中的最小值组成的新张量。</td>
+  </tr>
+  <tr>
+    <td>math</td>
+    <td><a href="../../math/minimum_grad/README.md">minimum_grad</a></td>
+    <td>√</td>
+    <td>√</td>
+    <td>×</td>
+    <td>√</td>
+    <td>AI Core</td>
+    <td>计算Minimum算子的反向梯度，y1 = grads * (x1 <= x2)，y2 = grads * (x1 > x2)。</td>
   </tr>
   <tr>
     <td>math</td>
