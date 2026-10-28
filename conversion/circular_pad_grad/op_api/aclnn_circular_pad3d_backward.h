@@ -22,7 +22,7 @@ extern "C" {
  *
  * 算子功能：循环填充的反向传播。
  * @param [in] gradOutput: npu device侧的aclTensor, 数据类型支持FLOAT16, FLOAT32, BFLOAT16, 数据格式支持ND，
- * 维度支持三维或四维且与self和gradInput一致，shape需要与circular_pad3d正向传播的output一致。
+ * 维度支持四维或五维且与self和gradInput一致，shape需要与circular_pad3d正向传播的output一致。
  * @param [in] self: npu device侧的aclTensor,
  * 数据类型与gradOutput一致，数据格式支持ND，维度支持四维或五维且与gradOutput和 gradInput一致，shape与gradInput一致。
  * @param [in] padding: npu device侧的aclIntArray数组, 数据类型为INT64，长度为6，数值依次代表左右上下前后需要填充的值。

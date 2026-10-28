@@ -156,6 +156,10 @@ uint32_t GetDataTypeSize(DataType dt)
 }
 
 // 生成float32数据
+// 样例数据缓冲登记/释放（定义见 WriteDataToFile 前）
+std::vector<uint8_t*>& GetSampleBuffers();
+void FreeSampleBuffers();
+
 int32_t GenDataFloat32(vector<int64_t> shapes, Tensor& input_tensor, TensorDesc& input_tensor_desc)
 {
     input_tensor_desc.SetRealDimCnt(shapes.size());
@@ -165,6 +169,7 @@ int32_t GenDataFloat32(vector<int64_t> shapes, Tensor& input_tensor, TensorDesc&
     }
     uint32_t data_len = size * 4;
     float* pData = new (std::nothrow) float[size];
+    GetSampleBuffers().push_back((uint8_t*)pData);
 
     // 生成测试数据：0, 1, 2, 3, ...
     for (size_t i = 0; i < size; ++i) {
@@ -185,6 +190,7 @@ int32_t GenInt32Data(vector<int64_t> shapes, Tensor& input_tensor, TensorDesc& i
     }
     uint32_t data_len = size * 4;
     int32_t* pData = new (std::nothrow) int32_t[size];
+    GetSampleBuffers().push_back((uint8_t*)pData);
 
     // 使用传入的数据
     for (size_t i = 0; i < size && i < dataVec.size(); ++i) {
@@ -202,6 +208,7 @@ int32_t GenScalarData(DataType dtype, Tensor& input_tensor, TensorDesc& input_te
 
     if (dtype == ge::DT_FLOAT) {
         float* pData = new (std::nothrow) float[1];
+        GetSampleBuffers().push_back((uint8_t*)pData);
         pData[0] = value;
         input_tensor = Tensor(input_tensor_desc, (uint8_t*)pData, data_len);
     } else {
@@ -212,6 +219,21 @@ int32_t GenScalarData(DataType dtype, Tensor& input_tensor, TensorDesc& input_te
 }
 
 // 写数据到文件
+// 样例数据缓冲登记：Gen* 辅助函数分配的 new[] 缓冲在此登记，进程退出前统一释放
+static std::vector<uint8_t*>& GetSampleBuffers()
+{
+    static std::vector<uint8_t*> buffers;
+    return buffers;
+}
+
+void FreeSampleBuffers()
+{
+    for (uint8_t* buf : GetSampleBuffers()) {
+        delete[] buf;
+    }
+    GetSampleBuffers().clear();
+}
+
 int32_t WriteDataToFile(string bin_file, uint64_t data_size, uint8_t* inputData)
 {
     FILE* fp = fopen(bin_file.c_str(), "wb");
@@ -264,9 +286,6 @@ int CreateOppInGraph(DataType inDtype, std::vector<ge::Tensor>& input, std::vect
     // 添加输入constant_values（可选输入）
     ADD_SCALAR_INPUT(3, constant_values, inDtype, 0.0f);
 
-    // 添加属性mode
-    ADD_ATTR(mode, "constant");
-
     // 添加输出y
     ADD_OUTPUT(1, y, inDtype, yShape);
 
@@ -303,6 +322,7 @@ int main(int argc, char* argv[])
     ret = CreateOppInGraph(inDtype, input, inputs, outputs, graph);
     if (ret != SUCCESS) {
         printf("%s - ERROR - [XIR]: Create graph failed\n", GetTime().c_str());
+        GEFinalize();
         return FAILED;
     }
 
@@ -327,13 +347,20 @@ int main(int argc, char* argv[])
     std::map<AscendString, AscendString> graph_options = {};
     uint32_t graph_id = 0;
     ret = session->AddGraph(graph_id, graph, graph_options);
-
+    if (ret != SUCCESS) {
+        printf("%s - ERROR - [XIR]: Session add ir compute graph to ir session failed\n", GetTime().c_str());
+        delete session;
+        GEFinalize();
+        return FAILED;
+    }
     printf("%s - INFO - [XIR]: Session add ir compute graph to ir session success\n", GetTime().c_str());
     printf("%s - INFO - [XIR]: dump graph to txt\n", GetTime().c_str());
 
     // dump图结构到文件
     std::string file_path = "./dump";
-    aclgrphDumpGraph(graph, file_path.c_str(), file_path.length());
+    if (aclgrphDumpGraph(graph, file_path.c_str(), file_path.length()) != SUCCESS) {
+        printf("%s - WARNING - [XIR]: Dump graph to txt failed\n", GetTime().c_str());
+    }
 
     // 执行图
     printf("%s - INFO - [XIR]: Start to run ir compute graph\n", GetTime().c_str());
@@ -356,7 +383,12 @@ int main(int argc, char* argv[])
         int64_t input_shape = input[i].GetTensorDesc().GetShape().GetShapeSize();
         std::cout << "this is " << i << "th input, input shape size =" << input_shape << std::endl;
         uint32_t data_size = input_shape * GetDataTypeSize(input[i].GetTensorDesc().GetDataType());
-        WriteDataToFile((const char*)input_file.c_str(), data_size, input_data_i);
+        if (WriteDataToFile((const char*)input_file.c_str(), data_size, input_data_i) != SUCCESS) {
+            printf("%s - ERROR - [XIR]: Write input bin %s failed\n", GetTime().c_str(), input_file.c_str());
+            delete session;
+            GEFinalize();
+            return FAILED;
+        }
 
         // 打印输入数据（仅float类型）
         if (input[i].GetTensorDesc().GetDataType() == ge::DT_FLOAT) {
@@ -377,7 +409,12 @@ int main(int argc, char* argv[])
         int64_t output_shape = output[i].GetTensorDesc().GetShape().GetShapeSize();
         std::cout << "this is " << i << "th output, output shape size =" << output_shape << std::endl;
         uint32_t data_size = output_shape * GetDataTypeSize(output[i].GetTensorDesc().GetDataType());
-        WriteDataToFile((const char*)output_file.c_str(), data_size, output_data_i);
+        if (WriteDataToFile((const char*)output_file.c_str(), data_size, output_data_i) != SUCCESS) {
+            printf("%s - ERROR - [XIR]: Write output bin %s failed\n", GetTime().c_str(), output_file.c_str());
+            delete session;
+            GEFinalize();
+            return FAILED;
+        }
 
         // 打印输出数据（仅float类型）
         if (output[i].GetTensorDesc().GetDataType() == ge::DT_FLOAT) {
@@ -406,12 +443,15 @@ int main(int argc, char* argv[])
 
     // 清理资源
     printf("%s - INFO - [XIR]: Start to finalize ir graph session\n", GetTime().c_str());
+    delete session;
     ret = ge::GEFinalize();
     if (ret != SUCCESS) {
         printf("%s - ERROR - [XIR]: Finalize ir graph session failed\n", GetTime().c_str());
+        FreeSampleBuffers();
         return FAILED;
     }
     printf("%s - INFO - [XIR]: Finalize ir graph session success\n", GetTime().c_str());
 
+    FreeSampleBuffers();
     return SUCCESS;
 }

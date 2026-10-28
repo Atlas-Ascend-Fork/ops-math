@@ -15,7 +15,11 @@ import numpy as np
 
 __golden__ = {"kernel": {"circular_pad_grad": "circular_pad_grad_golden"}}
 
-__spec__ = {"circular_pad_grad": "CircularPadGradTestSpec"}
+__spec__ = {
+    "circular_pad_grad": "CircularPadGradTestSpec",
+    "aclnnCircularPad2dBackward": "AclnnCircularPad2dBackwardSpec",
+    "aclnnCircularPad3dBackward": "AclnnCircularPad3dBackwardSpec",
+}
 
 
 def _numpy_bfloat16():
@@ -157,9 +161,78 @@ def circular_pad_grad_golden(x, paddings, **kwargs):
     return grad
 
 
+def _aclnn_circular_pad_grad_golden(grad_output_np, self_np, padding):
+    """ACLNN 反向参考：以 self 形状构造 circular 正向线性算子，torch autograd 取反向（torch 直通）。
+
+    padding 为扁平序列，[0,1] 作用于 self 最后一维、[2,3] 倒数第二维、[4,5] 倒数第三维，
+    与 F.pad 的 pad 元组顺序（末维在前）一致，可直接透传。
+    """
+    import torch
+
+    pad_flat = np.array(padding).reshape(-1).tolist()
+    pads = tuple(int(v) for v in pad_flat)
+    origin_dtype = grad_output_np.dtype.name
+    grad_output = _numpy_to_torch_tensor(grad_output_np)
+    self_t = torch.zeros(list(self_np.shape), dtype=grad_output.dtype)
+    if origin_dtype == "bfloat16":
+        grad_output = grad_output.to(torch.float32)
+        self_t = self_t.to(torch.float32)
+    self_t.requires_grad_(True)
+    out = torch.nn.functional.pad(self_t, pads, "circular")
+    loss = (grad_output * out).sum()
+    loss.backward()
+    grad_input = self_t.grad
+    if origin_dtype == "bfloat16":
+        grad_input = grad_input.to(torch.bfloat16)
+    return _torch_to_numpy_tensor(grad_input)
+
+
+class CircularPadGradTorchImpl:
+    """third_party torch 实现：F.pad(circular) + autograd 反向（本算子无同名第三方算子）。"""
+
+    def __init__(self, paddings=None, **kwargs):
+        del kwargs
+        self.paddings = paddings
+
+    def __call__(self, x, paddings=None, **kwargs):
+        del kwargs
+        pads = self.paddings if paddings is None else paddings
+        return [circular_pad_grad_golden(x, pads)]
+
+
 class CircularPadGradTestSpec:
     def golden(x, paddings, **kwargs):
         return [circular_pad_grad_golden(x, paddings, **kwargs)]
+
+    third_party = {"torch": CircularPadGradTorchImpl}
+
+    tolerance = {
+        "float32": {"standard": "mix_tolerance"},
+        "float16": {"standard": "mix_tolerance"},
+        "bfloat16": {"standard": "mix_tolerance"},
+    }
+
+
+class AclnnCircularPad2dBackwardSpec:
+    def golden(gradOutput, self, padding, **kwargs):
+        del kwargs
+        return [_aclnn_circular_pad_grad_golden(gradOutput, self, padding)]
+
+    third_party = {"torch": CircularPadGradTorchImpl}
+
+    tolerance = {
+        "float32": {"standard": "mix_tolerance"},
+        "float16": {"standard": "mix_tolerance"},
+        "bfloat16": {"standard": "mix_tolerance"},
+    }
+
+
+class AclnnCircularPad3dBackwardSpec:
+    def golden(gradOutput, self, padding, **kwargs):
+        del kwargs
+        return [_aclnn_circular_pad_grad_golden(gradOutput, self, padding)]
+
+    third_party = {"torch": CircularPadGradTorchImpl}
 
     tolerance = {
         "float32": {"standard": "mix_tolerance"},

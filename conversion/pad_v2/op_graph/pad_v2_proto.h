@@ -35,9 +35,9 @@ namespace ge {
 * paddings[i][1] specifies the number of padding elements to add after x in dimension i.
 * Supported format list: ["ND"].
 *
-* @li constant_values: An optional Tensor, dtype same as "x".
-* Used only in "constant" mode to specify the value to fill in the padded regions.
-* If not provided, default value is 0. \n
+* @li constant_values: A required Tensor whose data is optional, dtype same as "x".
+* Used to specify the value to fill in the padded regions.
+* When the data is not provided, default value is 0. \n
 
 * @par Outputs:
 * y: A Tensor of the same type as "x".

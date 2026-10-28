@@ -86,7 +86,7 @@ aclnnStatus aclnnCircularPad2dBackward(
       <td>输入</td>
       <td>反向时输入的梯度数据。</td>
       <td>shape维度需要与self和gradInput一致，shape需要与circular_pad2d正向传播的output一致。</td>
-      <td>shape需要与circular_pad2d正向传播的output一致。</td>
+      <td>与self一致</td>
       <td>ND</td>
       <td>维度与self保持一致</td>
       <td>√</td>
@@ -242,8 +242,8 @@ aclnnStatus aclnnCircularPad2dBackward(
   - aclnnCircularPad2dBackward默认确定性实现。
 
 - gradOutput的最后一维在不同类型下的大小需满足如下约束：
-float16/bfloat16：(0, 16362)
-float32：(0, 24544)
+float16/bfloat16：(0, 16384)
+float32：(0, 24576)
 
 ## 调用示例
 

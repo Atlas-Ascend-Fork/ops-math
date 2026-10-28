@@ -47,6 +47,15 @@ inline static bool CheckShape(const aclTensor* gradOutput, const aclTensor* self
              OP_LOGE(ACLNN_ERR_PARAM_INVALID, "padding size should be less than the corresponding self dimension."),
              return false);
 
+    // gradOutput 前导维度需与 self 一致（文档：gradOutput shape 与正向 output 一致）
+    // 空 tensor 场景（gradOutput 前导维为 0）由下方"空tensor处理"分支短路，此处跳过校验
+    if (!gradOutput->IsEmpty()) {
+        for (size_t i = 0; i + 3 < static_cast<size_t>(selfDimnum); ++i) {
+            OP_CHECK(gradOutput->GetViewShape().GetDim(i) == self->GetViewShape().GetDim(i),
+                     OP_LOGE(ACLNN_ERR_PARAM_INVALID, "gradOutput leading dim should be same as self."), return false);
+        }
+    }
+
     // check the last 2 dim value of out. 0, 1, 2, 3 are indexes
     OP_CHECK(gradOutput->GetViewShape().GetDim(selfDimnum - 2) ==
                      self->GetViewShape().GetDim(selfDimnum - 2) + (*padding)[2] + (*padding)[3] &&

@@ -18,7 +18,7 @@
 
   ```text
   输入tensor([[0,1,2]])
-  paddings([[2,2]])
+  paddings([[0,0],[2,2]])
   constant_values(0)
 
   输出为([[0,0,0,1,2,0,0]])
@@ -46,7 +46,7 @@
       <td>x</td>
       <td>输入</td>
       <td>待进行填充的原始tensor。</td>
-      <td>FLOAT、FLOAT16、INT32、INT64、INT16、INT8、UINT8、UINT16、UINT32、UINT64、BOOL、DOUBLE、COMPLEX64、COMPLEX128、BFLOAT16、HIFLOAT8、FLOAT8_E5M2、FLOAT8_E4M3FN、FLOAT8_E8M0、FLOAT4_E2M1、FLOAT4_E1M2。</td>
+      <td>FLOAT、FLOAT16、INT32、INT64、INT16、INT8、UINT8、UINT16、UINT32、UINT64、BOOL、DOUBLE、BFLOAT16、HIFLOAT8、FLOAT8_E5M2、FLOAT8_E4M3FN、FLOAT8_E8M0、FLOAT4_E2M1、FLOAT4_E1M2。</td>
       <td>ND</td>
     </tr>
     <tr>
@@ -60,14 +60,14 @@
       <td>constant_values</td>
       <td>输入</td>
       <td>填充常量值，标量tensor。</td>
-      <td>FLOAT、FLOAT16、INT32、INT64、INT16、INT8、UINT8、UINT16、UINT32、UINT64、BOOL、DOUBLE、COMPLEX64、COMPLEX128、BFLOAT16、HIFLOAT8、FLOAT8_E5M2、FLOAT8_E4M3FN、FLOAT8_E8M0、FLOAT4_E2M1、FLOAT4_E1M2。</td>
+      <td>FLOAT、FLOAT16、INT32、INT64、INT16、INT8、UINT8、UINT16、UINT32、UINT64、BOOL、DOUBLE、BFLOAT16、HIFLOAT8、FLOAT8_E5M2、FLOAT8_E4M3FN、FLOAT8_E8M0、FLOAT4_E2M1、FLOAT4_E1M2。</td>
       <td>ND</td>
     </tr>
     <tr>
       <td>y</td>
       <td>输出</td>
       <td>填充后的tensor。</td>
-      <td>FLOAT、FLOAT16、INT32、INT64、INT16、INT8、UINT8、UINT16、UINT32、UINT64、BOOL、DOUBLE、COMPLEX64、COMPLEX128、BFLOAT16、HIFLOAT8、FLOAT8_E5M2、FLOAT8_E4M3FN、FLOAT8_E8M0、FLOAT4_E2M1、FLOAT4_E1M2。</td>
+      <td>FLOAT、FLOAT16、INT32、INT64、INT16、INT8、UINT8、UINT16、UINT32、UINT64、BOOL、DOUBLE、BFLOAT16、HIFLOAT8、FLOAT8_E5M2、FLOAT8_E4M3FN、FLOAT8_E8M0、FLOAT4_E2M1、FLOAT4_E1M2。</td>
       <td>ND</td>
     </tr>
   </tbody></table>
@@ -92,7 +92,11 @@ y.shape[d] = x.shape[d] + paddings[d][0] + paddings[d][1]
    - x、constant_values、y必须使用相同的数据类型
    - paddings必须使用INT32或INT64
 
-3. **填充约束**：
+3. **fp8/fp4 类型约束**：
+   - x为HIFLOAT8、FLOAT8_E5M2、FLOAT8_E4M3FN、FLOAT8_E8M0、FLOAT4_E2M1、FLOAT4_E1M2时，paddings各维必须为非负值
+   - x为FLOAT4_E2M1、FLOAT4_E1M2时，输入尾轴shape必须为偶数，且尾轴paddings必须为偶数
+
+4. **填充约束**：
    - 负填充（slice）时，输出shape = x.shape[d] + left + right >= 0
 
 4. **paddings参数约束**
@@ -107,6 +111,6 @@ y.shape[d] = x.shape[d] + paddings[d][0] + paddings[d][1]
 
 ## 调用说明
 
-| 调用方式　 | 调用样例　　　　　　　　　　　　　　　　　　　　　　　　| 说明　　　　　　　　　　　　　　　　　　　　　　　　　　　　　 |
+| 调用方式　 | 样例代码　　　　　　　　　　　　　　　　　　　　　　　　| 说明　　　　　　　　　　　　　　　　　　　　　　　　　　　　　 |
 | ------------| ---------------------------------------------------------| ----------------------------------------------------------------|
-| aclnn调用 | [test_geir_pad_v2.cpp](./examples/arch35/test_geir_pad_v2.cpp) | 通过 [算子IR](op_graph/pad_v2_proto.h)接口方式调用PadV2算子 |
+| GE图模式 | [test_geir_pad_v2.cpp](./examples/arch35/test_geir_pad_v2.cpp) | 通过 [算子IR](op_graph/pad_v2_proto.h)接口方式调用PadV2算子 |
