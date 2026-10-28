@@ -5,6 +5,7 @@
             "engine":"DNN_VM_AICPU",
             "flagAsync":"False",
             "flagPartial":"False",
+            "formatAgnostic":"True",
             "functionName":"RunCpuKernel",
             "kernelSo":"libmath_aicpu_kernels.so",
             "opKernelLib":"CUSTAICPUKernel",
