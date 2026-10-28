@@ -29,8 +29,8 @@ namespace NsTan {
 
 using namespace AscendC;
 
-// |x| >= 1e7 保持算子既有语义，直接返回 NaN
-static constexpr float LARGE_THRESHOLD = 1e7f;
+// 有限大值输入直接计算：tanf 高精度范围约化覆盖全 fp32 值域，无需大值
+// NaN 保护；仅 Inf/NaN 非有限输入按 IEEE 语义返回 NaN。
 
 // Rule 006: LAUNCH_BOUND 按索引位宽模板化
 // 沿用既有 launch 配置：uint32_t 开 1024，uint64_t 开 512
@@ -49,9 +49,8 @@ __simt_vf__ __aicore__ LAUNCH_BOUND(THREAD_NUM<IDX_T>) inline void OpTanSimtKern
         // 读取输入并转为 float32
         float x = static_cast<float>(input[index]);
 
-        // 特殊值处理：|x| >= 1e7 或 Inf/NaN → NaN
-        float abs_x = fabsf(x);
-        bool is_special = (abs_x >= LARGE_THRESHOLD) || isinf(x) || isnan(x);
+        // 特殊值处理：Inf/NaN → NaN
+        bool is_special = isinf(x) || isnan(x);
         float special_result = ASCRT_INF_F / ASCRT_INF_F; // NaN
 
         // 使用 SIMT 数学库的高精度规约与奇数象限倒数误差补偿，避免接近 pi/2 时误差被放大。

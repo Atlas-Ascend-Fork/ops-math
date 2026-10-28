@@ -66,7 +66,7 @@
 ## 约束说明
 
 - 输入与输出的shape必须一致，数据格式为ND。
-- 在<term>Ascend 950PR&950DT系列产品</term>的AI Core实现中，输入为NaN、Inf或绝对值大于等于$10^7$时，输出为NaN。
+- 在<term>Ascend 950PR&950DT系列产品</term>的AI Core实现中，输入为NaN或Inf时，输出为NaN；有限大值输入（含绝对值大于等于$10^7$）经高精度范围约化输出有限值。
 
 ## 调用说明
 
