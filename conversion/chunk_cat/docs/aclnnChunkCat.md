@@ -23,7 +23,16 @@
 
 ## 功能说明
 
-将tensors中所有tensor先按照维度dim切分为numChunks块，再按照dim后一维进行级联，最后转换为out的数据类型。
+当前仅支持dim为0。将tensors中的每个非空tensor沿首维划分为numChunks个等长块，每块的首维大小为ceil(原首维大小/numChunks)，其中ceil表示向上取整。若首维大小不能被numChunks整除，则在首维末尾补0。将各块展平为一维后，按输入列表顺序拼接各输入中序号相同的块，得到二维输出，最后转换为out的数据类型。
+
+例如，两个输入tensor的shape均为[4, 3, 2]，numChunks为2时，每个输入的每块包含12个元素，拼接后每行包含24个元素，因此输出shape为[2, 24]。
+
+首维大小不需要被numChunks整除。例如，输入列表仅包含一个shape为[5]、数据为[1, 2, 3, 4, 5]的一维tensor，numChunks为2时，每块长度为3。末尾补一个0后分成两块，输出shape为[2, 3]，数据为：
+
+```text
+[[1, 2, 3],
+ [4, 5, 0]]
+```
 
 ## 函数原型
 
@@ -106,7 +115,7 @@ aclnnStatus aclnnChunkCat(
     <tr>
       <td>out（aclTensor*）</td>
       <td>输出</td>
-      <td>输出tensor。</td>
+      <td>输出tensor，shape为功能说明中的二维输出shape。</td>
       <td>数据类型所占字节数需要是输入数据类型所占字节数的非0整数倍。</td>
       <td>FLOAT、FLOAT16、BFLOAT16</td>
       <td>ND</td>
@@ -174,6 +183,9 @@ aclnnStatus aclnnChunkCat(
     </tr>
     <tr>
       <td>numChunks小于等于0。</td>
+    </tr>
+    <tr>
+      <td>out的shape与期望输出shape不一致。</td>
     </tr>
   </tbody>
   </table>
