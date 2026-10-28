@@ -89,13 +89,18 @@ export LD_LIBRARY_PATH=${ASCEND_HOME_PATH}/opp/vendors/custom_math/op_api/lib:${
 
 ### 5.快速验证：运行算子样例
 
-通用的运行命令格式：`bash build.sh --run_example <算子名> <运行模式> <包模式>`。
+通用的运行命令格式：`bash build.sh --run_example <算子名> <运行模式> <包模式> --vendor_name=<自定义算子包名>`。
 
 以AddExample为例，其提供了简单算子样例`add_example/examples/test_aclnn_add_example.cpp`，运行该样例验证算子功能是否正常。
 
 ```bash
 bash build.sh --run_example add_example eager cust --vendor_name=custom --soc=${soc_version}
 ```
+
+- <算子名>:add_example
+- <运行模式>：eager
+- <包模式>:cust
+- --vendor_name(可选)：vendorname表示构建的自定义算子包名，默认名为custom。
 
 > **注意**：运行样例时需确保`--soc`参数与编译算子包时使用的`--soc`取值一致，否则可能报`error 161001`（如`aclnnXxxGetWorkspaceSize failed`）。如遇此错误，请回到[第2节](#2编译addexample算子)核对`--soc`取值后重新编译安装。
 
