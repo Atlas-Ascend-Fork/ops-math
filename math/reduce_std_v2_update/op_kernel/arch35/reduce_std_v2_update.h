@@ -661,9 +661,10 @@ __aicore__ inline void ReduceStdV2UpdateKernel<DType, isTailR>::DoCopyInTile(Glo
 
     const bool useLoopMode = (K >= 3);
     // LoopMode 要求 K≥3，否则用 host for 循环：
-    //   K∈[3,4] 的 Loop 模式（SetLoopModePara/ResetLoopModePara）仅 Ascend 950 支持；
-    //   非 950 平台不支持 LoopMode 硬件特性，须重写 DoCopyInTile 用全 host for 拆所有 K>=3 的轴。
-#if __NPU_ARCH__ == 3510
+    //   K∈[3,4] 的 Loop 模式（SetLoopModePara/ResetLoopModePara）在 Ascend 950（DAV_3510）
+    //   与 Ascend 960DT（DAV_9201）上均支持；
+    //   其余平台不支持 LoopMode 硬件特性，须重写 DoCopyInTile 用全 host for 拆所有 K>=3 的轴。
+#if __NPU_ARCH__ == 3510 || __NPU_ARCH__ == 9201
     if (useLoopMode) {
         SetLoopModePara(loopParams, DataCopyMVType::OUT_TO_UB); // ★ 调用前 set
     }
@@ -692,7 +693,7 @@ __aicore__ inline void ReduceStdV2UpdateKernel<DType, isTailR>::DoCopyInTile(Glo
         ResetLoopModePara(DataCopyMVType::OUT_TO_UB); // ★ 调用后 reset，成对出现
     }
 #else
-#error "非 Ascend950 平台不支持 LoopMode 硬件特性，须重写 DoCopyInTile 用全 host for 拆所有 K>=3 的轴"
+#error "非 Ascend950/960DT 平台不支持 LoopMode 硬件特性，须重写 DoCopyInTile 用全 host for 拆所有 K>=3 的轴"
 #endif
 }
 

@@ -13,7 +13,8 @@
  * @brief ACLNN L0 API implementation for ReduceStdWithMean
  *
  * L0 职责（双路径分发）：
- *   - DAV_3510（Ascend 950）+ FLOAT/FLOAT16/BF16：走本交付 AscendC kernel —— 本地推导归约输出
+ *   - DAV_3510（Ascend 950）/ DAV_9201（Ascend 960DT）+ FLOAT/FLOAT16/BF16：走本交付 AscendC kernel
+ *     —— 本地推导归约输出
  *     shape（与 op_host infershape 语义一致）+ 以 OpDef 6 属性顺序
  *     （dim/unbiased/keepdim/invert/epsilon/correction）下发，unbiased = (correction != 0)；
  *   - 其余平台（910b/A2/A3 等）：回退基线通用路径（INFER_SHAPE + ADD_TO_LAUNCHER_LIST_AICORE），
@@ -28,6 +29,7 @@
 #include "opdev/shape_utils.h"
 #include "opdev/make_op_executor.h"
 #include "opdev/platform.h"
+#include "op_api/aclnn_check.h"
 
 using namespace op;
 
@@ -42,12 +44,11 @@ OP_TYPE_REGISTER(ReduceStdWithMean);
 static const std::initializer_list<op::DataType> AICORE_DTYPE_SUPPORT_LIST = {DataType::DT_FLOAT, DataType::DT_FLOAT16,
                                                                               DataType::DT_BF16};
 
-// 950 AICore 路径可用性判断：平台/dtype 不匹配时静默回退通用路径
-//   （非 950 属正常场景，不算错误）
+// 950/960DT AICore 路径可用性判断：平台/dtype 不匹配时静默回退通用路径
+//   （非 950/960DT 属正常场景，不算错误）
 static bool IsAiCoreSupport(const aclTensor* self)
 {
-    auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
-    if (curArch != NpuArch::DAV_3510) {
+    if (!IsRegBase()) {
         return false;
     }
     return CheckType(self->GetDataType(), AICORE_DTYPE_SUPPORT_LIST);

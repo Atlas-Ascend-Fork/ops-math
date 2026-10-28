@@ -67,6 +67,7 @@ public:
             .ExtendCfgInfo("opFile.value", "reduce_std_v2_update");
         this->AICore().AddConfig("ascend950", aiCoreConfig);
         this->AICore().AddConfig("ascend350", aiCoreConfig);
+        this->AICore().AddConfig("ascend960dt", aiCoreConfig);
     }
 };
 OP_ADD(ReduceStdV2Update);
