@@ -1,0 +1,11 @@
+testcase_name,api_name,tensor_dtypes,tensor_formats,attributes,tensor_view_shapes,output_tensor_indexes,input_data_ranges,precision_tolerances,absolute_precision,is_enabled,remark
+pdist_nan_p0,aclnnPdist,"('float32', 'float32')","('ND', 'ND')",{'p': 0.0},"((16, 8), (120,))","(1,)","((float('nan'), float('nan')),)","((0.001, 0.001),)",1e-08,True,NaN p=0 计数
+pdist_nan_p05,aclnnPdist,"('float32', 'float32')","('ND', 'ND')",{'p': 0.5},"((16, 8), (120,))","(1,)","((float('nan'), float('nan')),)","((0.001, 0.001),)",1e-08,True,NaN general 链
+pdist_tile_n193_3jseg,aclnnPdist,"('float32', 'float32')","('ND', 'ND')",{'p': 1.0},"((193, 32), (18528,))","(1,)","((-1, 1),)","((0.001, 0.001),)",1e-08,True,tile n193_3jseg N=193 M=32
+pdist_tile_multitile,aclnnPdist,"('float32', 'float32')","('ND', 'ND')",{'p': 2.0},"((600, 300), (179700,))","(1,)","((-1, 1),)","((0.001, 0.001),)",1e-08,True,tile multitile N=600 M=300
+pdist_zero_dims_p3,aclnnPdist,"('float32', 'float32')","('ND', 'ND')",{'p': 3.0},"((200, 128), (19900,))","(1,)","((-1, 1, 0),)","((0.001, 0.001),)",1e-08,True,general d=0 钳位
+pdist_nan_pinf,aclnnPdist,"('float32', 'float32')","('ND', 'ND')",{'p': inf},"((16, 8), (120,))","(1,)","((float('nan'), float('nan')),)","((0.001, 0.001),)",1e-08,True,NaN p=inf 覆写
+pdist_p15_general_br,aclnnPdist,"('float32', 'float32')","('ND', 'ND')",{'p': 1.5},"((200, 64), (19900,))","(1,)","((-1, 1),)","((0.001, 0.001),)",1e-08,True,PBranch p=1.5 general
+pdist_fp16_wide,aclnnPdist,"('float16', 'float16')","('ND', 'ND')",{'p': 2.0},"((300, 128), (44850,))","(1,)","((-50, 50),)","((0.001, 0.001),)",1e-08,True,fp16 宽幅
+pdist_tile_large_m,aclnnPdist,"('float32', 'float32')","('ND', 'ND')",{'p': 2.0},"((64, 8192), (2016,))","(1,)","((-1, 1),)","((0.001, 0.001),)",1e-08,True,tile large_m N=64 M=8192
+pdist_tile_m_upper,aclnnPdist,"('float32', 'float32')","('ND', 'ND')",{'p': 2.0},"((2, 65535), (1,))","(1,)","((-1, 1),)","((0.001, 0.001),)",1e-08,True,tile m_upper N=2 M=65535

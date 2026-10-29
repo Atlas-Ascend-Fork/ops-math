@@ -227,8 +227,8 @@
 | [aclnnNormalTensorTensor](../../random/stateless_random_normal_v2/docs/aclnnNormalTensorTensor.md)         | 返回一个随机数，该随机数是从给定的均值(tensor)和标准差(tensor)的独立正态分布中获取。 | 默认确定性实现| 默认确定性实现  |
 | [aclnnNpuFormatCast](../../conversion/npu_format_cast/docs/aclnnNpuFormatCast.md) | 完成ND←→NZ的转换功能。                    | 默认确定性实现| 默认确定性实现  |
 | [aclnnOneHot](../../math/one_hot/docs/aclnnOneHot.md)           | 对长度为n的输入self，经过one_hot的计算后得到一个元素数量为n\*k的输出out。           | 默认确定性实现| 默认确定性实现 |
-| [aclnnPdist](../../math/pdist/docs/aclnnPdist.md)               | 计算输入self中每对行向量的p范数距离。                        | 默认确定性实现| - |
-| [aclnnPdistForward](../../math/pdist/docs/aclnnPdistForward.md) | 计算输入self中每对行向量的p范数距离。                        | 默认确定性实现| - |
+| [aclnnPdist](../../math/pdist/docs/aclnnPdist.md)               | 计算输入self中每对行向量的p范数距离。                        | 默认确定性实现| 默认确定性实现 |
+| [aclnnPdistForward](../../math/pdist/docs/aclnnPdistForward.md) | 计算输入self中每对行向量的p范数距离。                        | 默认确定性实现| 默认确定性实现 |
 | [aclnnPermute](../../conversion/transpose/docs/aclnnPermute.md) | 对tensor的任意维度进行调换。如输入self是shape为[2, 3, 5]的tensor，dims为(2, 0, 1)，则输出是shape为[5, 2, 3]的tensor。 | 默认确定性实现| 默认确定性实现|
 | [aclnnPolar](../../math/polar/docs/aclnnPolar.md) | 对输入input做绝对值和angle对应的极坐标求对应的笛卡尔坐标，得到一个复数张量out。              | 默认确定性实现| 默认确定性实现 |
 | [aclnnPowScalarTensor](../../math/pow/docs/aclnnPowScalarTensor.md) | exponent每个元素作为input对应元素的幂完成计算。              | 默认确定性实现| 默认确定性实现 |

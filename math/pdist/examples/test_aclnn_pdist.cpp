@@ -8,8 +8,17 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+/*!
+ * \file test_aclnn_pdist.cpp
+ * \brief aclnn eager-mode test case for Pdist.
+ */
+
 #include <iostream>
 #include <vector>
+#include <cstdint>
+#include <cmath>
+#include <cstring>
+#include <limits>
 #include "acl/acl.h"
 #include "aclnnop/aclnn_pdist.h"
 
@@ -34,111 +43,241 @@ int64_t GetShapeSize(const std::vector<int64_t>& shape)
     return shapeSize;
 }
 
-int Init(int32_t deviceId, aclrtStream* stream)
-{
-    // 固定写法，资源初始化
-    auto ret = aclInit(nullptr);
-    CHECK_RET(ret == ACL_SUCCESS, LOG_PRINT("aclInit failed. ERROR: %d\n", ret); return ret);
-    ret = aclrtSetDevice(deviceId);
-    CHECK_RET(ret == ACL_SUCCESS, LOG_PRINT("aclrtSetDevice failed. ERROR: %d\n", ret); return ret);
-    ret = aclrtCreateStream(stream);
-    CHECK_RET(ret == ACL_SUCCESS, LOG_PRINT("aclrtCreateStream failed. ERROR: %d\n", ret); return ret);
-    return 0;
-}
-
 template <typename T>
 int CreateAclTensor(const std::vector<T>& hostData, const std::vector<int64_t>& shape, void** deviceAddr,
                     aclDataType dataType, aclTensor** tensor)
 {
     auto size = GetShapeSize(shape) * sizeof(T);
-    // 调用aclrtMalloc申请device侧内存
     auto ret = aclrtMalloc(deviceAddr, size, ACL_MEM_MALLOC_HUGE_FIRST);
     CHECK_RET(ret == ACL_SUCCESS, LOG_PRINT("aclrtMalloc failed. ERROR: %d\n", ret); return ret);
-    // 调用aclrtMemcpy将host侧数据拷贝到device侧内存上
     ret = aclrtMemcpy(*deviceAddr, size, hostData.data(), size, ACL_MEMCPY_HOST_TO_DEVICE);
     CHECK_RET(ret == ACL_SUCCESS, LOG_PRINT("aclrtMemcpy failed. ERROR: %d\n", ret); return ret);
 
-    // 计算连续tensor的strides
     std::vector<int64_t> strides(shape.size(), 1);
     for (int64_t i = shape.size() - 2; i >= 0; i--) {
         strides[i] = shape[i + 1] * strides[i + 1];
     }
 
-    // 调用aclCreateTensor接口创建aclTensor
     *tensor = aclCreateTensor(shape.data(), shape.size(), dataType, strides.data(), 0, aclFormat::ACL_FORMAT_ND,
                               shape.data(), shape.size(), *deviceAddr);
     return 0;
 }
 
-int main()
+int Init(int32_t deviceId, aclrtContext* context, aclrtStream* stream)
 {
-    // 1.（固定写法）device/stream初始化，参考acl API手册
-    // 根据自己的实际device填写deviceId
-    int32_t deviceId = 0;
-    aclrtStream stream;
-    auto ret = Init(deviceId, &stream);
-    CHECK_RET(ret == ACL_SUCCESS, LOG_PRINT("Init acl failed. ERROR: %d\n", ret); return ret);
+    auto ret = aclInit(nullptr);
+    CHECK_RET(ret == ACL_SUCCESS, LOG_PRINT("aclInit failed. ERROR: %d\n", ret); return ret);
+    ret = aclrtSetDevice(deviceId);
+    CHECK_RET(ret == ACL_SUCCESS, LOG_PRINT("aclrtSetDevice failed. ERROR: %d\n", ret); return ret);
+    ret = aclrtCreateContext(context, deviceId);
+    CHECK_RET(ret == ACL_SUCCESS, LOG_PRINT("aclrtCreateContext failed. ERROR: %d\n", ret); return ret);
+    ret = aclrtSetCurrentContext(*context);
+    CHECK_RET(ret == ACL_SUCCESS, LOG_PRINT("aclrtSetCurrentContext failed. ERROR: %d\n", ret); return ret);
+    ret = aclrtCreateStream(stream);
+    CHECK_RET(ret == ACL_SUCCESS, LOG_PRINT("aclrtCreateStream failed. ERROR: %d\n", ret); return ret);
+    return 0;
+}
 
-    // 2.构造输入与输出，需要根据API的接口自定义构造
-    std::vector<int64_t> selfShape = {3, 3};
-    std::vector<int64_t> outShape = {3};
-    void* selfDeviceAddr = nullptr;
-    void* outDeviceAddr = nullptr;
-    aclTensor* self = nullptr;
-    aclTensor* out = nullptr;
-    std::vector<float> selfHostData = {1, 2, 3, 4, 5, 6, 7, 8, 9};
-    std::vector<float> outHostData = {5.1962, 10.3923, 5.1962};
-    float p = 2.0f;
+// Host-side reference for a small fp32 case (upper-triangular, row-major).
+void PdistGolden(const std::vector<float>& x, int64_t n, int64_t m, double p, std::vector<float>& golden)
+{
+    golden.assign(static_cast<size_t>(n * (n - 1) / 2), 0.0f);
+    size_t idx = 0;
+    for (int64_t i = 0; i < n; i++) {
+        for (int64_t j = i + 1; j < n; j++) {
+            double s = 0.0;
+            for (int64_t k = 0; k < m; k++) {
+                double d = std::fabs(static_cast<double>(x[i * m + k]) - static_cast<double>(x[j * m + k]));
+                if (p == 0.0) {
+                    s += (d != 0.0) ? 1.0 : 0.0;
+                } else if (std::isinf(p)) {
+                    s = (k == 0) ? d : std::max(s, d);
+                } else {
+                    s += std::pow(d, p);
+                }
+            }
+            if (p != 0.0 && !std::isinf(p)) {
+                s = std::pow(s, 1.0 / p);
+            }
+            golden[idx++] = static_cast<float>(s);
+        }
+    }
+}
 
-    // 创建self aclTensor
-    ret = CreateAclTensor(selfHostData, selfShape, &selfDeviceAddr, aclDataType::ACL_FLOAT, &self);
+// One fp32 case: build x [N, M], run aclnnPdist with norm p, compare against the host golden.
+int RunCaseFp32(aclrtStream stream, int64_t N, int64_t M, double p)
+{
+    std::vector<int64_t> xShape = {N, M};
+    std::vector<int64_t> yShape = {N * (N - 1) / 2};
+
+    void* xDeviceAddr = nullptr;
+    void* yDeviceAddr = nullptr;
+    aclTensor* x = nullptr;
+    aclTensor* y = nullptr;
+
+    std::vector<float> xHostData(N * M);
+    for (int64_t i = 0; i < N * M; i++) {
+        xHostData[i] = static_cast<float>((i * 37 % 19) - 9) * 0.25f;
+    }
+    std::vector<float> yHostData(yShape[0], 0.0f);
+
+    auto ret = CreateAclTensor(xHostData, xShape, &xDeviceAddr, aclDataType::ACL_FLOAT, &x);
     CHECK_RET(ret == ACL_SUCCESS, return ret);
-    // 创建out aclTensor
-    ret = CreateAclTensor(outHostData, outShape, &outDeviceAddr, aclDataType::ACL_FLOAT, &out);
+    ret = CreateAclTensor(yHostData, yShape, &yDeviceAddr, aclDataType::ACL_FLOAT, &y);
     CHECK_RET(ret == ACL_SUCCESS, return ret);
 
-    // 3.调用CANN算子库API，需要修改为具体的Api名称
     uint64_t workspaceSize = 0;
-    aclOpExecutor* executor;
-    // 调用aclnnPdist第一段接口
-    ret = aclnnPdistGetWorkspaceSize(self, p, out, &workspaceSize, &executor);
+    aclOpExecutor* executor = nullptr;
+    ret = aclnnPdistGetWorkspaceSize(x, p, y, &workspaceSize, &executor);
     CHECK_RET(ret == ACL_SUCCESS, LOG_PRINT("aclnnPdistGetWorkspaceSize failed. ERROR: %d\n", ret); return ret);
-    // 根据第一段接口计算出的workspaceSize申请device内存
+
     void* workspaceAddr = nullptr;
     if (workspaceSize > 0) {
         ret = aclrtMalloc(&workspaceAddr, workspaceSize, ACL_MEM_MALLOC_HUGE_FIRST);
         CHECK_RET(ret == ACL_SUCCESS, LOG_PRINT("allocate workspace failed. ERROR: %d\n", ret); return ret);
     }
-    // 调用aclnnPdist第二段接口
+
     ret = aclnnPdist(workspaceAddr, workspaceSize, executor, stream);
     CHECK_RET(ret == ACL_SUCCESS, LOG_PRINT("aclnnPdist failed. ERROR: %d\n", ret); return ret);
 
-    // 4.（固定写法）同步等待任务执行结束
     ret = aclrtSynchronizeStream(stream);
     CHECK_RET(ret == ACL_SUCCESS, LOG_PRINT("aclrtSynchronizeStream failed. ERROR: %d\n", ret); return ret);
 
-    // 5.获取输出的值，将device侧内存上的结果拷贝至host侧，需要根据具体API的接口定义修改
-    auto size = GetShapeSize(outShape);
-    std::vector<float> resultData(size, 0);
-    ret = aclrtMemcpy(resultData.data(), resultData.size() * sizeof(resultData[0]), outDeviceAddr,
-                      size * sizeof(resultData[0]), ACL_MEMCPY_DEVICE_TO_HOST);
+    std::vector<float> resultData(yShape[0], 0.0f);
+    ret = aclrtMemcpy(resultData.data(), resultData.size() * sizeof(float), yDeviceAddr, yShape[0] * sizeof(float),
+                      ACL_MEMCPY_DEVICE_TO_HOST);
     CHECK_RET(ret == ACL_SUCCESS, LOG_PRINT("copy result from device to host failed. ERROR: %d\n", ret); return ret);
-    for (int64_t i = 0; i < size; i++) {
-        LOG_PRINT("result[%ld] is: %f\n", i, resultData[i]);
+
+    std::vector<float> golden;
+    PdistGolden(xHostData, N, M, p, golden);
+    int64_t mismatch = 0;
+    double maxAbsErr = 0.0;
+    for (size_t i = 0; i < golden.size(); i++) {
+        double err = std::fabs(static_cast<double>(resultData[i]) - static_cast<double>(golden[i]));
+        if (err > 1e-3 + 1e-3 * std::fabs(static_cast<double>(golden[i]))) {
+            mismatch++;
+        }
+        maxAbsErr = std::max(maxAbsErr, err);
     }
+    LOG_PRINT("[fp32 N=%ld M=%ld p=%.4g] total %ld pairs, mismatch %ld, maxAbsErr %.3e -> %s\n", N, M, p,
+              (long)golden.size(), (long)mismatch, maxAbsErr, mismatch == 0 ? "pass" : "FAIL");
 
-    // 6.释放aclTensor和aclScalar，需要根据具体API的接口定义修改
-    aclDestroyTensor(self);
-    aclDestroyTensor(out);
-
-    // 7.释放device资源，需要根据具体API的接口定义修改
-    aclrtFree(selfDeviceAddr);
-    aclrtFree(outDeviceAddr);
+    aclDestroyTensor(x);
+    aclDestroyTensor(y);
+    aclrtFree(xDeviceAddr);
+    aclrtFree(yDeviceAddr);
     if (workspaceSize > 0) {
         aclrtFree(workspaceAddr);
     }
+    return mismatch == 0 ? 0 : 1;
+}
+
+// One fp16 case: output compared against the fp32 golden with the fp16 tolerance.
+int RunCaseFp16(aclrtStream stream, int64_t N, int64_t M, double p)
+{
+    std::vector<int64_t> xShape = {N, M};
+    std::vector<int64_t> yShape = {N * (N - 1) / 2};
+
+    void* xDeviceAddr = nullptr;
+    void* yDeviceAddr = nullptr;
+    aclTensor* x = nullptr;
+    aclTensor* y = nullptr;
+
+    std::vector<float> xHostData(N * M);
+    for (int64_t i = 0; i < N * M; i++) {
+        xHostData[i] = static_cast<float>((i * 37 % 19) - 9) * 0.25f;
+    }
+    std::vector<aclFloat16> xHostHalf(xHostData.size());
+    for (size_t i = 0; i < xHostData.size(); i++) {
+        xHostHalf[i] = aclFloatToFloat16(xHostData[i]);
+    }
+    std::vector<aclFloat16> yHostHalf(yShape[0], aclFloatToFloat16(0.0f));
+
+    auto ret = CreateAclTensor(xHostHalf, xShape, &xDeviceAddr, aclDataType::ACL_FLOAT16, &x);
+    CHECK_RET(ret == ACL_SUCCESS, return ret);
+    ret = CreateAclTensor(yHostHalf, yShape, &yDeviceAddr, aclDataType::ACL_FLOAT16, &y);
+    CHECK_RET(ret == ACL_SUCCESS, return ret);
+
+    uint64_t workspaceSize = 0;
+    aclOpExecutor* executor = nullptr;
+    ret = aclnnPdistGetWorkspaceSize(x, p, y, &workspaceSize, &executor);
+    CHECK_RET(ret == ACL_SUCCESS, LOG_PRINT("aclnnPdistGetWorkspaceSize failed. ERROR: %d\n", ret); return ret);
+
+    void* workspaceAddr = nullptr;
+    if (workspaceSize > 0) {
+        ret = aclrtMalloc(&workspaceAddr, workspaceSize, ACL_MEM_MALLOC_HUGE_FIRST);
+        CHECK_RET(ret == ACL_SUCCESS, LOG_PRINT("allocate workspace failed. ERROR: %d\n", ret); return ret);
+    }
+
+    ret = aclnnPdist(workspaceAddr, workspaceSize, executor, stream);
+    CHECK_RET(ret == ACL_SUCCESS, LOG_PRINT("aclnnPdist failed. ERROR: %d\n", ret); return ret);
+
+    ret = aclrtSynchronizeStream(stream);
+    CHECK_RET(ret == ACL_SUCCESS, LOG_PRINT("aclrtSynchronizeStream failed. ERROR: %d\n", ret); return ret);
+
+    // fp16 payload: copy raw halfs back, then expand to float.
+    std::vector<aclFloat16> halfResult(yShape[0]);
+    ret = aclrtMemcpy(halfResult.data(), halfResult.size() * sizeof(aclFloat16), yDeviceAddr,
+                      yShape[0] * sizeof(aclFloat16), ACL_MEMCPY_DEVICE_TO_HOST);
+    CHECK_RET(ret == ACL_SUCCESS, LOG_PRINT("copy result from device to host failed. ERROR: %d\n", ret); return ret);
+    std::vector<float> resultData(yShape[0], 0.0f);
+    for (int64_t i = 0; i < yShape[0]; i++) {
+        resultData[i] = aclFloat16ToFloat(halfResult[i]);
+    }
+
+    std::vector<float> golden;
+    PdistGolden(xHostData, N, M, p, golden);
+    int64_t mismatch = 0;
+    double maxAbsErr = 0.0;
+    for (size_t i = 0; i < golden.size(); i++) {
+        double err = std::fabs(static_cast<double>(resultData[i]) - static_cast<double>(golden[i]));
+        if (err > 1e-1 + 5e-3 * std::fabs(static_cast<double>(golden[i]))) {
+            mismatch++;
+        }
+        maxAbsErr = std::max(maxAbsErr, err);
+    }
+    LOG_PRINT("[fp16 N=%ld M=%ld p=%.4g] total %ld pairs, mismatch %ld, maxAbsErr %.3e -> %s\n", N, M, p,
+              (long)golden.size(), (long)mismatch, maxAbsErr, mismatch == 0 ? "pass" : "FAIL");
+
+    aclDestroyTensor(x);
+    aclDestroyTensor(y);
+    aclrtFree(xDeviceAddr);
+    aclrtFree(yDeviceAddr);
+    if (workspaceSize > 0) {
+        aclrtFree(workspaceAddr);
+    }
+    return mismatch == 0 ? 0 : 1;
+}
+
+int main()
+{
+    // 1. device/context/stream init
+    int32_t deviceId = 0;
+    aclrtContext context;
+    aclrtStream stream;
+    auto ret = Init(deviceId, &context, &stream);
+    CHECK_RET(ret == ACL_SUCCESS, LOG_PRINT("Init acl failed. ERROR: %d\n", ret); return ret);
+
+    // 2. Case sweep: fp32 across all PBranch classes (p=0/1/2/0.5/inf/general) plus
+    // a large-M multi-block case, and fp16 for the two performance-representative norms.
+    int failures = 0;
+    failures += RunCaseFp32(stream, 64, 16, 2.0) ? 1 : 0;                                     // PBranch 2 (Euclidean)
+    failures += RunCaseFp32(stream, 64, 16, 1.0) ? 1 : 0;                                     // PBranch 3 (Manhattan)
+    failures += RunCaseFp32(stream, 64, 16, 0.0) ? 1 : 0;                                     // PBranch 0 (Hamming)
+    failures += RunCaseFp32(stream, 64, 16, 0.5) ? 1 : 0;                                     // PBranch 4 (fractional)
+    failures += RunCaseFp32(stream, 64, 16, std::numeric_limits<double>::infinity()) ? 1 : 0; // PBranch 1 (Chebyshev)
+    failures += RunCaseFp32(stream, 64, 16, 3.0) ? 1 : 0;                                     // PBranch 5 (general)
+    failures += RunCaseFp32(stream, 130, 300, 2.0) ? 1 : 0; // multi-M-block + pair tail
+    failures += RunCaseFp16(stream, 64, 16, 2.0) ? 1 : 0;   // fp16 widen/narrow chain
+    failures += RunCaseFp16(stream, 64, 16, 1.0) ? 1 : 0;
+
+    LOG_PRINT(failures == 0 ? "ALL CASES PASS\n" : "FAIL: %d cases out of tolerance\n", failures);
+
+    // 3. Cleanup.
     aclrtDestroyStream(stream);
+    aclrtDestroyContext(context);
     aclrtResetDevice(deviceId);
     aclFinalize();
-    return 0;
+
+    return failures == 0 ? 0 : 1;
 }

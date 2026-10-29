@@ -1509,12 +1509,12 @@
   <tr>
     <td>math</td>
     <td><a href="../../math/pdist/README.md">pdist</a></td>
-    <td>×</td>
-    <td>×</td>
-    <td>×</td>
-    <td>×</td>
+    <td>√</td>
+    <td>√</td>
+    <td>√</td>
+    <td>√</td>
     <td>AI Core</td>
-    <td>该算子暂无Ascend C代码实现，欢迎开发者补充贡献，贡献方式参考<a href="../../CONTRIBUTING.md">贡献指南</a>。</td>
+    <td>计算输入张量中每对行向量的p范数距离，输出为上三角行优先排列的一维向量。</td>
   </tr>
   <tr>
     <td>math</td>
