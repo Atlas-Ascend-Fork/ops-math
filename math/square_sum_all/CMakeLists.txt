@@ -8,8 +8,8 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ----------------------------------------------------------------------------
 
-set(SUPPORT_COMPUTE_UNIT "ascend950")
-set(SUPPORT_TILING_DIR "arch35")
+set(SUPPORT_COMPUTE_UNIT "ascend950" "ascend350")
+set(SUPPORT_TILING_DIR "arch35" "arch35")
 
 # 本算子只交付 ascend950（DAV_3510 / arch35），Kernel 入口固定为 arch35/square_sum_all.cpp。
 # 注意：ops-math 的 add_kernel_sources 以算子根目录为基准推导 op_type，必须在此调用，

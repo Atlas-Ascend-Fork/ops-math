@@ -50,7 +50,7 @@ inline ge::graphStatus SetTilingKey4FillDiagonalV2(gert::TilingContext* context,
     }
     auto platformInfo = context->GetPlatformInfo();
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
-    bool isAscend950 = ascendcPlatform.GetSocVersion() == platform_ascendc::SocVersion::ASCEND950;
+    bool isAscend950 = ascendcPlatform.GetCurNpuArch() == NpuArch::DAV_3510;
     if (!isAscend950 && wrap && (end > endThreshold) &&
         (step < stepThreshold)) { // dense: A2A3 only, A5 uses sparse due to L2 cache coherence issue
         tilingKey = 1;
