@@ -2,9 +2,9 @@
 
 ## 使用须知
 
-本指南旨在帮助您快速上手CANN和`ops-math`算子仓的使用。为方便您快速了解算子开发全流程，以**AddExample**算子为实践对象，算子源码位于`ops-math/examples/add_example`，操作流程如下：
+本指南旨在帮助用户快速上手CANN和`ops-math`算子仓。为方便您快速了解算子开发全流程，以**AddExample**算子为实践对象，算子源码位于`ops-math/examples/add_example`，操作流程如下：
 
-1. **[前提条件](../README.md)**：参考项目README完成环境准备和源码下载，此处不再赘述。快速入门场景**推荐CANNLab或Docker部署**，操作简单。
+1. **[前提条件](../README.md#️环境准备)**：参考项目README完成环境准备和源码下载，此处不再赘述。快速入门场景**推荐CANNLab或Docker部署**，操作简单。
 
    > **说明**：CANNLab或Docker环境默认提供最新版本CANN包；如需体验master分支最新能力，可手动搭建环境。
 
@@ -39,7 +39,7 @@
 > 说明：如需切换源码分支版本，请参考如下指导。
 >
 > 1.在源码目录执行`git branch`，查询当前源码版本。
-> 2.在源码目录执行`git checkout ${tag_version}`，切换到目标分支源码，注意满足源码与CANN版本配套关系。若源码已存在，执行`git pull`拉取最新源码。
+> 2.在源码目录执行`git checkout ${tag_version}`，切换到目标分支源码，注意满足源码与CANN版本配套关系。若本地已克隆过该分支源码，执行`git pull`拉取最新源码。
 
 ### 2.编译AddExample算子
 
@@ -91,7 +91,7 @@ export LD_LIBRARY_PATH=${ASCEND_HOME_PATH}/opp/vendors/custom_math/op_api/lib:${
 
 通用的运行命令格式：`bash build.sh --run_example <算子名> <运行模式> <包模式> --vendor_name=<自定义算子包名>`。
 
-以AddExample为例，其提供了简单算子样例`add_example/examples/test_aclnn_add_example.cpp`，运行该样例验证算子功能是否正常。
+以AddExample为例，其提供了简单算子样例`ops-math/examples/add_example/examples/test_aclnn_add_example.cpp`，运行该样例验证算子功能是否正常。
 
 ```bash
 bash build.sh --run_example add_example eager cust --vendor_name=custom --soc=${soc_version}
@@ -114,7 +114,7 @@ add_example first input[0] is: ..., second input[0] is: ..., result[0] is: ...
 
 ## 二、算子开发
 
-本阶段目的是对已成功运行的AddExample算子尝试**修改核函数代码**。
+本阶段目的是对已成功运行的AddExample算子尝试**修改Kernel代码**。
 
 ### 1.修改Kernel实现
 
@@ -161,7 +161,7 @@ __aicore__ inline void AddExample<T>::Compute(int64_t currentNum)
     bash build.sh --run_example add_example eager cust --vendor_name=custom --soc=${soc_version}
     ```
 
-4. **成功标志**：输出结果变成乘法结果，每组结果应等于两个输入之积。输入数据仍沿用样例中的递增序列和固定随机数种子 42，请以实际运行值为准。
+4. **成功标志**：输出结果变成乘法结果，每组结果应等于两个输入之积。输入数据仍沿用样例中的递增序列和固定随机数种子42，请以实际运行值为准。
 
     ```text
     Print the first 10 groups of data:
@@ -173,11 +173,11 @@ __aicore__ inline void AddExample<T>::Compute(int64_t currentNum)
 
 本阶段以AddExample为例，在算子中添加打印并采集算子性能数据，以便后续问题分析定位。
 
-### 1.打印
+### 1.算子打印
 
 算子如果出现执行失败、精度异常等问题，添加打印进行问题分析和定位。
 
-请在`examples/add_example/op_kernel/add_example.h`中进行代码修改。
+请在`ops-math/examples/add_example/op_kernel/add_example.h`中进行代码修改。
 
 - **printf**
 
@@ -203,7 +203,7 @@ __aicore__ inline void AddExample<T>::Compute(int64_t currentNum)
 
 当算子功能验证正确后，可通过`msprof op`命令采集算子级性能数据。
 
-- **生成可执行文件**
+1. **生成可执行文件**
 
     调用AddExample算子的example样例，生成可执行文件（test_aclnn_add_example），该文件位于项目`ops-math/build`目录。
 
@@ -211,7 +211,7 @@ __aicore__ inline void AddExample<T>::Compute(int64_t currentNum)
     bash build.sh --run_example add_example eager cust --vendor_name=custom --soc=${soc_version}
     ```
 
-- **采集性能数据**
+2. **采集性能数据**
 
     进入AddExample算子可执行文件目录`ops-math/build/`，执行如下命令：
 
@@ -231,7 +231,7 @@ __aicore__ inline void AddExample<T>::Compute(int64_t currentNum)
 
 找到并编辑`AddExample`的`ops-math/examples/add_example/examples/test_aclnn_add_example.cpp`，修改输入张量的数值。
 
-**修改输入数据**：保持当前支持的 shape 不变，修改初始化数据，构造更有区分度的输入 tensor。
+**修改输入数据**：保持当前支持的shape不变，修改初始化数据，构造更有区分度的输入tensor。
 
 ```c++
 int main()
@@ -251,7 +251,7 @@ int main()
 }
 ```
 
-> **注意**：当前示例算子未进行 shape、dtype 全泛化，其他输入场景可能不受支持。除非同步扩展 Tiling 和 Kernel 的支持范围，否则请勿修改示例中的 shape。
+> **注意**：当前示例算子未进行shape、dtype全泛化，其他输入场景可能不受支持。除非同步扩展Tiling和Kernel的支持范围，否则请勿修改示例中的shape。
 
 ### 2.重新编译并验证
 
@@ -267,4 +267,4 @@ int main()
 
 ## 结语
 
-体验完上述流程，您已基本完成算子开发过程，如果您想进一步贡献新算子或学习更多高阶开发、调试等技能，请访问本项目README学习[进阶教程](../README.md#学习教程)和[贡献指南](../README.md#相关信息)等。
+体验完上述流程，用户已基本完成算子开发过程，如果您想进一步贡献新算子或学习更多高阶开发、调试等技能，请访问本项目README学习[进阶教程](../README.md#学习教程)和[贡献指南](../README.md#相关信息)等。
