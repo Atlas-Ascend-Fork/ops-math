@@ -758,6 +758,149 @@ __aicore__ inline void RunBitonicFinalizeSelectionRows(LocalTensor<T> values, Lo
 }
 
 /*!
+ * \brief B8/B64 无序 RADIX_SELECT 候选的规范化与完整 bitonic 网络。
+ */
+template <typename T, typename IndexT, bool Largest>
+__simt_vf__ LAUNCH_BOUND(BITONIC_SMALL_TOPK_THREADS) __aicore__
+    void RadixCandidatesFullBitonicKernel(uint32_t rows, uint32_t k, uint32_t valueStride, uint32_t indexStride,
+                                          __ubuf__ T* values, __ubuf__ IndexT* indices)
+{
+    const uint32_t lane = static_cast<uint32_t>(threadIdx.x);
+    for (uint32_t row = static_cast<uint32_t>(threadIdx.y); row < rows; row += static_cast<uint32_t>(blockDim.y)) {
+        const bool valid = lane < k;
+        T value = valid ? values[row * valueStride + lane] : static_cast<T>(0);
+        IndexT index = valid ? indices[row * indexStride + lane] : BitonicSmallInvalidIndex<IndexT>();
+        // Find the actual worst selected value; the API cutoff can differ
+        T firstValue = asc_shfl(value, 0, BITONIC_SMALL_TOPK_SIZE);
+        T threshold = valid ? value : firstValue;
+        for (uint32_t stride = BITONIC_SMALL_TOPK_SIZE / 2U; stride > 0U; stride /= 2U) {
+            T peer = asc_shfl_xor(threshold, static_cast<int32_t>(stride), BITONIC_SMALL_TOPK_SIZE);
+            if (BitonicSmallValueBetter<T>(threshold, peer, Largest)) {
+                threshold = peer;
+            }
+        }
+        uint32_t strictMask = asc_ballot(
+            static_cast<int32_t>(valid && BitonicSmallValueBetter<T>(value, threshold, Largest)));
+        { // Normalize even all-equal candidates: unsorted selection has no order contract.
+            // Restore source order before compacting strict/equal groups.
+            BitonicSmallBitonicNetwork<T, IndexT, false>(value, index, Largest);
+            strictMask = asc_ballot(
+                static_cast<int32_t>(valid && BitonicSmallValueBetter<T>(value, threshold, Largest)));
+            uint32_t equalMask = asc_ballot(
+                static_cast<int32_t>(valid && BitonicSmallValueEquivalent<T>(value, threshold)));
+            uint32_t strictCount = static_cast<uint32_t>(__popc(strictMask));
+            uint32_t sourceLane = 0U;
+            if (valid) {
+                sourceLane = lane < strictCount ? BitonicSmallNthSetBit(strictMask, lane) :
+                                                  BitonicSmallNthSetBit(equalMask, lane - strictCount);
+            }
+            T gathered = asc_shfl(value, static_cast<int32_t>(sourceLane), BITONIC_SMALL_TOPK_SIZE);
+            IndexT gatheredIndex = asc_shfl(index, static_cast<int32_t>(sourceLane), BITONIC_SMALL_TOPK_SIZE);
+            value = valid ? gathered : static_cast<T>(0);
+            index = valid ? gatheredIndex : BitonicSmallInvalidIndex<IndexT>();
+        }
+        BitonicSmallBitonicNetwork<T, IndexT, true>(value, index, Largest);
+        if (valid) {
+            values[row * valueStride + lane] = value;
+            indices[row * indexStride + lane] = index;
+        }
+    }
+}
+
+/*!
+ * \brief 无序 RADIX_SELECT 候选终排入口；仅由能力判断命中的路径调用。
+ * \details 与接收已排序候选的 RunBitonicSmallTopKFinalize 区分。全等候选也显式规范化，
+ *          只写回有效 k 个 value/index，沿用调用方提供的行跨度。
+ */
+template <typename T, typename IndexT, bool Largest>
+__aicore__ inline void RunRadixCandidatesFullBitonic(LocalTensor<T> values, LocalTensor<IndexT> indices, uint32_t k,
+                                                     uint32_t rows, uint32_t valueStride, uint32_t indexStride)
+{
+    if (rows == 0U || k == 0U || k > BITONIC_SMALL_TOPK_SIZE) {
+        return;
+    }
+    if constexpr ((sizeof(T) == 2U || sizeof(T) == sizeof(uint32_t)) && sizeof(IndexT) == sizeof(uint32_t)) {
+        BitonicSmallRegRadixCandidatesFullBitonic<T, Largest>((__ubuf__ T*)values.GetPhyAddr(),
+                                                              (__ubuf__ uint32_t*)indices.GetPhyAddr(), k, rows,
+                                                              valueStride, indexStride);
+    } else {
+        const uint32_t warps = rows < BITONIC_SMALL_TOPK_MAX_ROWS ? rows : BITONIC_SMALL_TOPK_MAX_ROWS;
+        asc_vf_call<RadixCandidatesFullBitonicKernel<T, IndexT, Largest>>(
+            dim3(BITONIC_SMALL_TOPK_SIZE, warps), rows, k, valueStride, indexStride, (__ubuf__ T*)values.GetPhyAddr(),
+            (__ubuf__ IndexT*)indices.GetPhyAddr());
+    }
+}
+/*!
+ * \brief 按最终索引恢复 NaN payload 和符号；原始输入始终保持不变。
+ */
+template <typename T, typename IndexT, bool FromGm>
+__simt_vf__ LAUNCH_BOUND(BITONIC_SMALL_TOPK_THREADS) __aicore__
+    void RestoreRadixFloatValuesKernel(uint32_t rows, uint32_t k, uint32_t valueStride, uint32_t indexStride,
+                                       uint64_t sourceRowStride, uint32_t sourceIndexStride, __ubuf__ T* values,
+                                       __ubuf__ IndexT* indices, __gm__ volatile T* sourceGm, __ubuf__ T* sourceUb)
+{
+    using BitsT = std::conditional_t<sizeof(T) == 2U, uint16_t, uint32_t>;
+    constexpr uint32_t sign = 1U << (sizeof(T) * 8U - 1U);
+    constexpr uint32_t infinity = std::is_same_v<T, half> ? 0x7c00U :
+                                                            (std::is_same_v<T, bfloat16_t> ? 0x7f80U : 0x7f800000U);
+    __ubuf__ BitsT* valueBits = (__ubuf__ BitsT*)values;
+    uint32_t lane = static_cast<uint32_t>(threadIdx.x);
+    for (uint32_t row = static_cast<uint32_t>(threadIdx.y); row < rows; row += static_cast<uint32_t>(blockDim.y)) {
+        if (lane < k) {
+            uint32_t bits = static_cast<uint32_t>(valueBits[row * valueStride + lane]);
+            uint32_t absolute = bits & (sign - 1U);
+            if (absolute > infinity) {
+                uint32_t index = static_cast<uint32_t>(indices[row * indexStride + lane]);
+                if constexpr (FromGm) {
+                    uint64_t offset = static_cast<uint64_t>(row) * sourceRowStride +
+                                      static_cast<uint64_t>(index) * sourceIndexStride;
+                    valueBits[row * valueStride + lane] = ((__gm__ volatile BitsT*)sourceGm)[offset];
+                } else {
+                    uint32_t offset = row * static_cast<uint32_t>(sourceRowStride) + index * sourceIndexStride;
+                    valueBits[row * valueStride + lane] = ((__ubuf__ BitsT*)sourceUb)[offset];
+                }
+            }
+        }
+    }
+}
+
+template <typename T, typename IndexT>
+__aicore__ inline void RestoreRadixFloatValues(LocalTensor<T> values, LocalTensor<IndexT> indices,
+                                               GlobalTensor<T> source, uint32_t k, uint32_t rows, uint32_t valueStride,
+                                               uint32_t indexStride, uint64_t sourceRowStride,
+                                               uint32_t sourceIndexStride)
+{
+    if constexpr (IsBitonicFloatType<T>) {
+        if (rows == 0U || k == 0U || k > BITONIC_SMALL_TOPK_SIZE) {
+            return;
+        }
+        uint32_t warps = rows < BITONIC_SMALL_TOPK_MAX_ROWS ? rows : BITONIC_SMALL_TOPK_MAX_ROWS;
+        asc_vf_call<RestoreRadixFloatValuesKernel<T, IndexT, true>>(
+            dim3(BITONIC_SMALL_TOPK_SIZE, warps), rows, k, valueStride, indexStride, sourceRowStride, sourceIndexStride,
+            (__ubuf__ T*)values.GetPhyAddr(), (__ubuf__ IndexT*)indices.GetPhyAddr(),
+            (__gm__ volatile T*)source.GetPhyAddr(), (__ubuf__ T*)nullptr);
+    }
+}
+
+template <typename T, typename IndexT>
+__aicore__ inline void RestoreRadixFloatValues(LocalTensor<T> values, LocalTensor<IndexT> indices,
+                                               LocalTensor<T> source, uint32_t k, uint32_t rows, uint32_t valueStride,
+                                               uint32_t indexStride, uint64_t sourceRowStride,
+                                               uint32_t sourceIndexStride)
+{
+    if constexpr (IsBitonicFloatType<T>) {
+        if (rows == 0U || k == 0U || k > BITONIC_SMALL_TOPK_SIZE) {
+            return;
+        }
+        uint32_t warps = rows < BITONIC_SMALL_TOPK_MAX_ROWS ? rows : BITONIC_SMALL_TOPK_MAX_ROWS;
+        asc_vf_call<RestoreRadixFloatValuesKernel<T, IndexT, false>>(
+            dim3(BITONIC_SMALL_TOPK_SIZE, warps), rows, k, valueStride, indexStride, sourceRowStride, sourceIndexStride,
+            (__ubuf__ T*)values.GetPhyAddr(), (__ubuf__ IndexT*)indices.GetPhyAddr(), (__gm__ volatile T*)nullptr,
+            (__ubuf__ T*)source.GetPhyAddr());
+    }
+}
+
+/*!
  * \brief 最终收尾主入口：按类型分发到 Reg 或 SIMT 路径。
  */
 template <typename T, typename T_INDEX_TO, bool IS_LARGEST>
@@ -806,40 +949,6 @@ __aicore__ inline void RunBitonicSmallTopKFinalizeWithFlags(LocalTensor<T> value
                                                                    indexStride);
     }
 }
-/*!
- * \brief 非尾轴场景调用AscendC::Topk高阶api的双调排序入口。
- */
-template <typename SortT, bool IsLargest, bool IsBitonicSort>
-__aicore__ inline void RunBitonicSmallTopKFinalizeNonLast(LocalTensor<SortT> values, LocalTensor<uint32_t> indices,
-                                                          LocalTensor<SortT> sortInput, uint32_t axisLen, uint32_t k,
-                                                          uint32_t batchNum, uint32_t axisRowElems,
-                                                          uint32_t valueStride, uint32_t indexStride)
-{
-    if constexpr (IsBitonicSort) {
-        if constexpr (sizeof(SortT) == 1U) {
-            if (axisLen <= BITONIC_SMALL_TOPK_SIZE) {
-                RunBitonicFinalizeSmallSourceRows<SortT, uint32_t, IsLargest>(
-                    sortInput, values, indices, axisLen, k, batchNum, axisRowElems, valueStride, indexStride);
-                return;
-            }
-        }
-        if constexpr (sizeof(SortT) != 1U) {
-            __ubuf__ SortT* valueBase = (__ubuf__ SortT*)values.GetPhyAddr();
-            __ubuf__ uint32_t* indexBase = (__ubuf__ uint32_t*)indices.GetPhyAddr();
-            for (uint32_t rowStart = 0U; rowStart < batchNum; rowStart += BITONIC_SMALL_TOPK_MAX_ROWS) {
-                uint32_t rows = batchNum - rowStart;
-                rows = rows > BITONIC_SMALL_TOPK_MAX_ROWS ? BITONIC_SMALL_TOPK_MAX_ROWS : rows;
-                BitonicSmallRegFinalizeSelectionBatch<SortT, IsLargest>(valueBase + rowStart * valueStride,
-                                                                        indexBase + rowStart * indexStride, k, rows,
-                                                                        valueStride, indexStride);
-            }
-        } else {
-            RunBitonicFinalizeSelectionRows<SortT, uint32_t, IsLargest>(values, indices, k, batchNum, valueStride,
-                                                                        indexStride);
-        }
-    }
-}
-
 /*!
  * \brief 非尾轴场景调用Ascend::Sort高阶api的进行双调排序入口。
  */

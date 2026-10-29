@@ -24,9 +24,43 @@
 #include "tiling/tiling_api.h"
 #include "util/math_util.h"
 #include "top_k_v2_tiling_arch35.h"
+#include "../../op_kernel/arch35/top_k_constant_var_simd.h"
 
 namespace optiling {
 namespace topkV2 {
+// Host performance crossovers shared by Direct fallback and input-select routing.
+inline constexpr int64_t TOPK_INPUT_SELECT_MIN_BATCH_ROWS = 128;
+inline constexpr int64_t TOPK_INPUT_SELECT_MEDIUM_MAX_AXIS = 1024;
+inline constexpr int64_t TOPK_TINY_K_MAX = 2;
+
+// Input-select eligibility thresholds; exclusive axis bounds are marked explicitly.
+inline constexpr int64_t TOPK_INPUT_SELECT_MEDIUM_INTEGER_AXIS_MIN = 480;
+inline constexpr uint64_t TOPK_INPUT_SELECT_BF16_SMALL_K_MIN_ROWS = 1024U;
+inline constexpr int64_t TOPK_INPUT_SELECT_BF16_AXIS_MIN_EXCLUSIVE = 128;
+inline constexpr int64_t TOPK_INPUT_SELECT_BF16_AXIS_MAX = 512;
+inline constexpr int64_t TOPK_INPUT_SELECT_BF16_MEDIUM_K_AXIS_MIN_EXCLUSIVE = 256;
+inline constexpr int64_t TOPK_INPUT_SELECT_BF16_MEDIUM_K_MIN = 5;
+
+inline constexpr int64_t TOPK_DIRECT_MAX_AXIS = 8192;
+inline constexpr uint32_t TOPK_DIRECT_SCHEDULE_MODE = 1;
+inline constexpr int64_t TOPK_DIRECT_PAIR_AXIS = ::topkV2::TOPK_DIRECT_PAIR_AXIS;
+inline constexpr int64_t TOPK_DIRECT_SCALAR_MAX_AXIS = ::topkV2::TOPK_DIRECT_SCALAR_MAX_AXIS;
+inline constexpr int64_t TOPK_DIRECT_KEY_SORT_MIN_AXIS = ::topkV2::TOPK_DIRECT_KEY_SORT_MIN_AXIS;
+inline constexpr int64_t TOPK_DIRECT_KEY_SORT_MAX_AXIS = ::topkV2::TOPK_DIRECT_KEY_SORT_MAX_AXIS;
+inline constexpr int64_t TOPK_DIRECT_WARP_AXIS = ::topkV2::TOPK_DIRECT_WARP_SIZE;
+inline constexpr int64_t TOPK_DIRECT_FLOAT_CONTIGUOUS_MAX_AXIS = 64;
+inline constexpr int64_t TOPK_DIRECT_FLOAT_STRIDED_MAX_AXIS = 128;
+inline constexpr int64_t TOPK_DIRECT_BF16_MAX_AXIS = 512;
+inline constexpr int64_t TOPK_DIRECT_INTEGER_MAX_AXIS = 512;
+inline constexpr int64_t TOPK_DIRECT_B16_MAX_AXIS = 1024;
+
+// Existing performance crossovers: row counts and rows per core have distinct units from axis lengths.
+inline constexpr int64_t TOPK_DIRECT_MIN_BATCH_ROWS = 128;
+inline constexpr int64_t TOPK_DIRECT_MIN_SMALL_AXIS_ROWS = 1024;
+inline constexpr int64_t TOPK_DIRECT_SMALL_AXIS_SORT_MIN_ROWS = 8192;
+inline constexpr int64_t TOPK_DIRECT_FINE_ROWS_PER_CORE = 32;
+inline constexpr int64_t TOPK_DIRECT_COARSE_ROWS_PER_CORE = 128;
+
 namespace topkV2DataInfo {
 const uint32_t CONST_ZERO = 0;
 const uint32_t CONST_TWO = 2;
@@ -50,8 +84,10 @@ const uint32_t SMALL_MAX_DATA_SZIE = 1024;
 const uint32_t MERGE_SORT_TILING_OFFSET = 10000;
 const uint32_t BITONIC_SORT_TILING_OFFSET = 50000;
 const uint32_t BITONIC_SMALL_TOPK_MIN_K = 2;
-const uint32_t BITONIC_SMALL_TOPK_MAX_K = 32;
-const uint64_t BITONIC_SMALL_TOPK_POLICY = 1;
+const uint32_t BITONIC_SMALL_TOPK_MAX_K = ::topkV2::TOPK_SMALL_K_CAPACITY;
+const uint64_t BITONIC_SMALL_TOPK_POLICY = ::topkV2::TOPK_BITONIC_SORT_POLICY;
+// Independent-row mode is the legacy default, distinct from SINGLE_BLOCK_MODE (3).
+const uint32_t LEGACY_ROW_MODE = 0;
 const uint32_t SINGLE_CORE_MODE = 1;
 const uint32_t MULT_CORE_MODE = 2;
 const uint32_t MULT_CORE_OPTIM_MODE = 4;
@@ -64,6 +100,8 @@ const uint32_t NON_LAST_SMALL_AXIS_RADIX_SELECT = 0;
 const uint32_t NON_LAST_SMALL_AXIS_MERGE_SORT = 1;
 const uint32_t SMALL_AXIS_INSERTION_MODE = 9;
 const uint32_t SMALL_AXIS_TWO_STAGE_MODE = 10;
+// GM直接读取写入模式
+const uint32_t SMALL_AXIS_DIRECT_MODE = ::topkV2::TOPK_DIRECT_MODE;
 const uint32_t INT64_BYTE = 8;
 const uint32_t INT32_BYTE = 4;
 // SortAndTopk的阈值，排序轴大于该阈值的场景，走sortAndTopK模板
@@ -300,8 +338,19 @@ void SetMergeSortTmpSize(gert::TilingContext* context, ge::DataType dataType, in
 
 // ==================== Mode Judgment Functions ====================
 
+bool IsSmallSizeMergeSortMode(ge::DataType dataType, int64_t lastAxisNum);
 bool needSortWithIndex(TopKV2TilingDataSimd& topkTilingData, bool isSorted, ge::DataType dataType);
 bool IsBitonicSmallTopkMode(int64_t kValue, int64_t sortPolicy, bool isSort = true);
+
+// ==================== SingleBlock Input Selection Helpers ====================
+
+bool CanUseTopKMediumIntegerInputSelect(ge::DataType dataType, ge::DataType indicesDType, int64_t axisLength,
+                                        uint64_t rows, int64_t kValue, int64_t sortPolicy, bool sorted, bool largest);
+bool CanUseTopKBf16MediumInputSelect(ge::DataType dataType, ge::DataType indicesDType, int64_t axisLength,
+                                     uint64_t rows, int64_t kValue, int64_t sortPolicy, bool sorted, bool largest);
+uint32_t ConfigureSingleBlockInputSelect(gert::TilingContext* context, TopKV2TilingDataSimd& tiling,
+                                         const topkV2DataInfo::TopkComputeNowTileSizeInfo& info, uint32_t rows,
+                                         uint32_t parallel);
 
 // ==================== NonLastSmallAxis Calculation Helpers ====================
 

@@ -23,6 +23,7 @@ import torch
 __spec__ = {
     "top_k_v2": "TopKV2KernelSpec",
     "aclnnTopkV2": "TopKV2AclnnSpec",
+    "aclnnTopk": "TopKV2AclnnSpec",
     "torch.topk": "TopKV2TorchSpec",
 }
 __golden__ = {
@@ -358,7 +359,7 @@ def _cuda_topk_row(row, k, largest, index_dtype):
     return _small_bitonic_sort(values, indices, largest)
 
 
-_CUDA_SMALL_TOPK_PER_ROW_MAX = 4096
+_CUDA_SMALL_TOPK_PER_ROW_MAX = 128
 _CUDA_SMALL_TOPK_CHUNK = 200_000
 
 
@@ -435,21 +436,95 @@ def top_k_v2_input(x, k, *, dim=-1, testcase_name="", **kwargs):
     tensor = _as_tensor(x)
     axis = _normalize_axis(dim, tensor.ndim)
     name = str(testcase_name)
+    if name.endswith("_sparse_threshold"):
+        # Place strictly better values across tiles, the remaining selected values tie.
+        import numpy as np
+
+        signed = tensor.is_floating_point() or tensor.dtype in (
+            torch.int8,
+            torch.int16,
+            torch.int32,
+            torch.int64,
+        )
+        threshold = -7 if signed else 7
+        largest = bool(kwargs.get("largest", True))
+        better = threshold + 6 if largest else threshold - 2
+        data = np.full(tuple(tensor.shape), threshold, dtype=_to_array(tensor).dtype)
+        positions = np.linspace(
+            0, tensor.shape[axis] - 1, min(16, tensor.shape[axis]), dtype=np.int64
+        )
+        np.moveaxis(data, axis, -1)[..., positions] = better
+        return [data, k]
+    if (
+        name.endswith(("_nan_signed", "_nan_sparse_finite"))
+        and tensor.is_floating_point()
+    ):
+        if tensor.dtype == torch.float32:
+            bits, width, raw_dtype = (
+                [0x7FC00000, 0xFFC00001, 0x7FC00001, 0xFFC00000],
+                32,
+                torch.int32,
+            )
+        elif tensor.dtype == torch.float16:
+            bits, width, raw_dtype = [0x7E00, 0xFE01, 0x7E01, 0xFE00], 16, torch.int16
+        else:
+            bits, width, raw_dtype = [0x7FC0, 0xFFC1, 0x7FC1, 0xFFC0], 16, torch.int16
+        signed_bits = [
+            value if value < (1 << (width - 1)) else value - (1 << width)
+            for value in bits
+        ]
+        pattern = torch.tensor(signed_bits, dtype=raw_dtype).view(tensor.dtype)
+        repeats = (tensor.shape[axis] + pattern.numel() - 1) // pattern.numel()
+        axis_values = pattern.repeat(repeats)[: tensor.shape[axis]]
+        if name.endswith("_nan_sparse_finite"):
+            finite_count = min(16, tensor.shape[axis])
+            positions = torch.linspace(0, tensor.shape[axis] - 1, finite_count).to(
+                torch.int64
+            )
+            axis_values[positions] = (
+                torch.arange(finite_count, dtype=torch.float32) - 8
+            ).to(tensor.dtype)
+        shape = [1] * tensor.ndim
+        shape[axis] = tensor.shape[axis]
+        tensor.copy_(axis_values.reshape(shape).expand(tensor.shape))
+        return [_to_array(tensor), k]
     patterns = {
         "duplicate": [7.0, 1.0, 7.0, 3.0, 7.0, 2.0, 8.0, 8.0],
         "all_equal": [3.0],
         "signed_zero": [-0.0, 0.0, 0.0, -0.0],
+        "signed_zero_values": [1.0, 0.0, -0.0, -1.0, 0.0, -0.0, 2.0, -2.0],
         "nan": [float("nan"), 3.0, float("nan"), 1.0, 2.0, 2.0, -1.0, 0.0],
         "infinity": [float("inf"), 3.0, -float("inf"), 0.0, 2.0, -2.0],
     }
     axis_values = None
-    if name.endswith("_unique"):
+    if name.endswith("_integer_full_range") and tensor.dtype in (
+        torch.int64,
+        torch.uint64,
+    ):
+        import numpy as np
+
+        rng = np.random.default_rng(20261009)
+        raw = rng.bit_generator.random_raw(tensor.numel()).reshape(tuple(tensor.shape))
+        if tensor.dtype == torch.int64:
+            raw = raw.view(np.int64)
+        return [raw, k]
+    if name.endswith("_integer_extremes") and not tensor.is_floating_point():
+        limits = torch.iinfo(tensor.dtype)
+        pattern = torch.tensor(
+            [limits.max, limits.min, 0, 1, limits.max - 1, limits.min + 1],
+            dtype=tensor.dtype,
+        )
+        repeats = (tensor.shape[axis] + pattern.numel() - 1) // pattern.numel()
+        axis_values = pattern.repeat(repeats)[: tensor.shape[axis]]
+    elif name.endswith("_unique"):
         axis_values = torch.arange(tensor.shape[axis], dtype=torch.int64).to(
             tensor.dtype
         )
     else:
         for marker, values in patterns.items():
             if name.endswith(f"_{marker}"):
+                if not tensor.is_floating_point():
+                    values = [int(value) for value in values]
                 pattern = torch.tensor(values, dtype=tensor.dtype)
                 repeats = (tensor.shape[axis] + pattern.numel() - 1) // pattern.numel()
                 axis_values = pattern.repeat(repeats)[: tensor.shape[axis]]

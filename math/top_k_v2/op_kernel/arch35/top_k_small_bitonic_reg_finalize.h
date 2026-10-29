@@ -1011,6 +1011,29 @@ __simd_callee__ inline void BitonicSmallRegDetectDuplicateB32TailEmit(
                                                     flagStoreStride);
 }
 
+// 行状态只使用 bit0/bit1。仅整批无重复时用首槽的独立值返回批级结果
+// 有重复时保持所有行 flag 原样，供全等值及重复候选处理继续使用
+constexpr uint32_t BITONIC_SMALL_TOPK_BATCH_FLAG_NO_DUPLICATE = 4U;
+
+__simd_callee__ inline void BitonicSmallRegStoreBatchFlags(__ubuf__ uint32_t* flagStoreBase,
+                                                           Reg::RegTensor<uint32_t>& flagVec)
+{
+    Reg::MaskReg rowMask = Reg::CreateMask<uint32_t, Reg::MaskPattern::VL32>();
+    Reg::MaskReg laneZeroMask = Reg::CreateMask<uint32_t, Reg::MaskPattern::VL1>();
+    Reg::RegTensor<uint32_t> duplicateBit;
+    Reg::RegTensor<uint32_t> duplicateFlags;
+    Reg::RegTensor<uint32_t> anyDuplicate;
+    Reg::RegTensor<uint32_t> cleanBatch;
+    Reg::Duplicate(duplicateBit, BITONIC_SMALL_TOPK_ROW_FLAG_HAS_DUPLICATE);
+    Reg::And(duplicateFlags, flagVec, duplicateBit, rowMask);
+    Reg::Reduce<Reg::ReduceType::MAX>(anyDuplicate, duplicateFlags, rowMask);
+    Reg::MaskReg cleanBatchMask;
+    Reg::Compares<uint32_t, CMPMODE::EQ>(cleanBatchMask, anyDuplicate, 0U, laneZeroMask);
+    Reg::Duplicate(cleanBatch, BITONIC_SMALL_TOPK_BATCH_FLAG_NO_DUPLICATE);
+    Reg::Select<uint32_t>(flagVec, cleanBatch, flagVec, cleanBatchMask);
+    Reg::StoreAlign<uint32_t, Reg::DataCopyMode::DATA_BLOCK_COPY>(flagStoreBase, flagVec, 1U, rowMask);
+}
+
 /*!
  * \brief 无重复值检测批的 16 位类型路径 (Reg/SIMD，sizeof(T) == 2 分支)。
  */
@@ -1057,7 +1080,7 @@ __aicore__ inline void BitonicSmallRegDetectDuplicateBatchB16(__ubuf__ T* valueB
                                                             flagStoreStride);
         }
         if constexpr (ToFlagArray) {
-            Reg::StoreAlign<uint32_t, Reg::DataCopyMode::DATA_BLOCK_COPY>(flagStoreBase, flagVec, 1U, activeMask);
+            BitonicSmallRegStoreBatchFlags(flagStoreBase, flagVec);
         }
     }
 }
@@ -1126,7 +1149,7 @@ __aicore__ inline void BitonicSmallRegDetectDuplicateBatchB64(__ubuf__ T* valueB
                                                             flagStoreStride);
         }
         if constexpr (ToFlagArray) {
-            Reg::StoreAlign<uint32_t, Reg::DataCopyMode::DATA_BLOCK_COPY>(flagStoreBase, flagVec, 1U, activeMask);
+            BitonicSmallRegStoreBatchFlags(flagStoreBase, flagVec);
         }
     }
 }
@@ -1217,8 +1240,7 @@ __aicore__ inline void BitonicSmallRegDetectDuplicateBatchB32(__ubuf__ T* valueB
             activeMask, validMask, lowHalfMask, highHalfMask, prevLane, laneGtZeroMask, oneValue, twoValue, zeroValue,
             zeroIndex, flagStoreBase, flagStoreStride);
         if constexpr (ToFlagArray) {
-            Reg::MaskReg laneLowMask = Reg::CreateMask<uint32_t, Reg::MaskPattern::VL32>();
-            Reg::StoreAlign<uint32_t, Reg::DataCopyMode::DATA_BLOCK_COPY>(flagStoreBase, flagVec, 1U, laneLowMask);
+            BitonicSmallRegStoreBatchFlags(flagStoreBase, flagVec);
         }
     }
 }
@@ -1785,6 +1807,9 @@ __aicore__ inline void BitonicSmallRegFinalizeSelectionFlagBatch(__ubuf__ T* val
     event_t syncEvent = static_cast<event_t>(GetTPipePtr()->FetchEventID(HardEvent::V_S));
     SetFlag<HardEvent::V_S>(syncEvent);
     WaitFlag<HardEvent::V_S>(syncEvent);
+    if (flagBase[0] == BITONIC_SMALL_TOPK_BATCH_FLAG_NO_DUPLICATE) {
+        return;
+    }
     uint8_t duplicateRows[BITONIC_SMALL_TOPK_MAX_ROWS];
     uint8_t allEqRows[BITONIC_SMALL_TOPK_MAX_ROWS];
     uint16_t duplicateList[BITONIC_SMALL_TOPK_MAX_ROWS];
@@ -1820,6 +1845,132 @@ __aicore__ inline void BitonicSmallRegFinalizeSelectionFlagBatch(__ubuf__ T* val
     }
 }
 
+/*!
+ * \brief 在浮点 RADIX_SELECT 前统一 NaN 的比较位模式，不改变 GM 原始输入。
+ * \details SDK 使用原始位模式选择；不同 NaN payload 必须先视作相等。
+ *          原始值在最终索引确定后恢复。整数类型不执行此处理。
+ */
+template <typename T>
+__aicore__ inline void NormalizeRadixFloatInput(LocalTensor<T> source, uint32_t rows, uint32_t count,
+                                                uint32_t rowStride)
+{
+    if constexpr (IsBitonicFloatType<T>) {
+        using BitsT = std::conditional_t<sizeof(T) == 2U, uint16_t, uint32_t>;
+        constexpr uint32_t lanes = Ops::Base::GetVRegSize() / sizeof(T);
+        constexpr BitsT signBit = static_cast<BitsT>(1U << (sizeof(T) * 8U - 1U));
+        // FP16/BF16/FP32 bit patterns for +infinity and a positive quiet NaN:
+        //                  FP16        BF16        FP32
+        // +infinity       0x7c00      0x7f80      0x7f800000
+        // quiet NaN       0x7e00      0x7fc0      0x7fc00000
+        constexpr BitsT infinityBits = std::is_same_v<T, half> ?
+                                           0x7c00U :
+                                           (std::is_same_v<T, bfloat16_t> ? 0x7f80U : 0x7f800000U);
+        constexpr BitsT canonicalQuietNanBits = std::is_same_v<T, half> ?
+                                                    0x7e00U :
+                                                    (std::is_same_v<T, bfloat16_t> ? 0x7fc0U : 0x7fc00000U);
+        if (rows == 0U || count == 0U) {
+            return;
+        }
+        const uint16_t repeats = static_cast<uint16_t>((count + lanes - 1U) / lanes);
+        __ubuf__ BitsT* bits = (__ubuf__ BitsT*)source.GetPhyAddr();
+        for (uint32_t rowBase = 0; rowBase < rows;) {
+            // The vector-scope row counter is uint16_t, so process at most UINT16_MAX rows per batch.
+            const uint32_t batchRows = rows - rowBase < UINT16_MAX ? rows - rowBase : UINT16_MAX;
+            __VEC_SCOPE__
+            {
+                Reg::LocalMemBar<Reg::MemType::VEC_STORE, Reg::MemType::VEC_LOAD>();
+                Reg::RegTensor<BitsT> absoluteMask, nanValue;
+                Reg::Duplicate(absoluteMask, static_cast<BitsT>(signBit - 1U));
+                Reg::Duplicate(nanValue, canonicalQuietNanBits);
+                for (uint16_t row = 0; row < static_cast<uint16_t>(batchRows); ++row) {
+                    uint32_t remaining = count;
+                    for (uint16_t block = 0; block < repeats; ++block) {
+                        Reg::MaskReg active = Reg::UpdateMask<BitsT>(remaining);
+                        Reg::RegTensor<BitsT> value, absolute;
+                        Reg::MaskReg nanMask;
+                        __ubuf__ BitsT* address = bits + (rowBase + row) * rowStride + block * lanes;
+                        Reg::LoadAlign<BitsT, Reg::DataCopyMode::DATA_BLOCK_COPY>(value, address, 1U, active);
+                        Reg::And(absolute, value, absoluteMask, active);
+                        // Removing the sign makes every NaN strictly greater than +infinity.
+                        Reg::Compares<BitsT, CMPMODE::GT>(nanMask, absolute, infinityBits, active);
+                        Reg::Select<BitsT>(value, nanValue, value, nanMask);
+                        Reg::StoreAlign<BitsT, Reg::DataCopyMode::DATA_BLOCK_COPY>(address, value, 1U, active);
+                    }
+                }
+                Reg::LocalMemBar<Reg::MemType::VEC_STORE, Reg::MemType::VEC_LOAD>();
+            }
+            rowBase += batchRows;
+        }
+    }
+}
+
+/*!
+ * \brief 对无序 RADIX_SELECT 候选恢复 group/index 输入顺序，再运行完整 value 网络。
+ * \details 用于 B16/B32 候选和 32 位内部索引，B64 value 由 SIMT 分支处理。
+ */
+__simd_callee__ inline void BitonicSmallRegClassifyRadixCandidates(Reg::RegTensor<uint32_t>& key, Reg::MaskReg& valid,
+                                                                   Reg::MaskReg& active,
+                                                                   Reg::RegTensor<uint32_t>& group)
+{
+    Reg::RegTensor<uint32_t> minimum, threshold, zeroLane;
+    Reg::ReduceMin<uint32_t>(minimum, key, valid);
+    Reg::Duplicate(zeroLane, 0U);
+    Reg::Gather(threshold, minimum, zeroLane);
+    Reg::MaskReg strict;
+    Reg::Compare<uint32_t, CMPMODE::GT>(strict, key, threshold, active);
+    Reg::And(strict, strict, valid, active);
+    BitonicSmallRegClassifyStrictGroup(strict, valid, active, group);
+}
+
+template <typename T, bool Largest>
+__aicore__ inline void BitonicSmallRegRadixCandidatesFullBitonic(__ubuf__ T* valueBase, __ubuf__ uint32_t* indexBase,
+                                                                 uint32_t k, uint32_t rows, uint32_t valueStride,
+                                                                 uint32_t indexStride)
+{
+    for (uint32_t rowBase = 0; rowBase < rows;) {
+        const uint32_t batchRows = rows - rowBase < UINT16_MAX ? rows - rowBase : UINT16_MAX;
+        __VEC_SCOPE__
+        {
+            Reg::LocalMemBar<Reg::MemType::VEC_STORE, Reg::MemType::VEC_LOAD>();
+            Reg::MaskReg active = Reg::CreateMask<uint32_t, Reg::MaskPattern::VL32>();
+            uint32_t count = k;
+            Reg::MaskReg valid = Reg::UpdateMask<uint32_t>(count);
+            Reg::RegTensor<uint32_t> lane, group, invalid;
+            Reg::Arange((Reg::RegTensor<int32_t>&)lane, 0);
+            Reg::Duplicate(group, 0U);
+            Reg::Duplicate(invalid, UINT32_MAX);
+            for (uint16_t row = 0; row < static_cast<uint16_t>(batchRows); ++row) {
+                Reg::RegTensor<uint32_t> bits, key, index;
+                Reg::Duplicate(bits, 0U);
+                if constexpr (sizeof(T) == 2U) {
+                    BitonicSmallRegLoadB16Bits<T>(bits, valueBase + (rowBase + row) * valueStride, k);
+                } else {
+                    Reg::LoadAlign<uint32_t, Reg::DataCopyMode::DATA_BLOCK_COPY>(
+                        bits, (__ubuf__ uint32_t*)(valueBase + (rowBase + row) * valueStride), 1U, valid);
+                }
+                Reg::LoadAlign<uint32_t, Reg::DataCopyMode::DATA_BLOCK_COPY>(
+                    index, indexBase + (rowBase + row) * indexStride, 1U, valid);
+                Reg::Select<uint32_t>(index, index, invalid, valid);
+                BitonicSmallRegBuildKey32<T, Largest>(key, bits, active);
+                BitonicSmallRegClassifyRadixCandidates(key, valid, active, group);
+                BitonicSmallReg32BitonicNetwork<true>(bits, key, index, group, lane, active);
+                BitonicSmallReg32BitonicNetwork<false>(bits, key, index, group, lane, active);
+                if constexpr (sizeof(T) == 2U) {
+                    BitonicSmallRegStoreB16Bits<T>(valueBase + (rowBase + row) * valueStride, bits, k, valid);
+                } else {
+                    Reg::StoreAlign<uint32_t, Reg::DataCopyMode::DATA_BLOCK_COPY>(
+                        (__ubuf__ uint32_t*)(valueBase + (rowBase + row) * valueStride), bits, 1U, valid);
+                }
+                Reg::StoreAlign<uint32_t, Reg::DataCopyMode::DATA_BLOCK_COPY>(indexBase + (rowBase + row) * indexStride,
+                                                                              index, 1U, valid);
+            }
+            if constexpr (IsBitonicFloatType<T>) {
+                Reg::LocalMemBar<Reg::MemType::VEC_STORE, Reg::MemType::VEC_LOAD>();
+            }
+        }
+        rowBase += batchRows;
+    }
+}
 } // namespace topkV2
 
 #endif // TOP_K_SMALL_BITONIC_REG_FINALIZE_H

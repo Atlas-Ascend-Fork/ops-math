@@ -19,6 +19,7 @@
 #include "atvoss/broadcast/broadcast_tiling.h"
 #include "sort_with_index_tiling.h"
 #include "top_k_v2_tiling_base.h"
+#include "../../op_kernel/arch35/top_k_constant_var_simd.h"
 
 #include <algorithm>
 #include <limits>
@@ -307,43 +308,40 @@ uint32_t ComputeSingleCoreTileData(gert::TilingContext* context, TopKV2TilingDat
     return tileData;
 }
 
-void TileModeSmallSize(uint64_t unsortedDimNum, uint32_t maxCoreNum, int64_t lastAxisNum,
-                       TopKV2TilingDataSimd& topkTilingData, topkV2DataInfo::TopkTileInfo& topkTileInfo,
-                       uint32_t nowTileSize)
+void TileModeSmallSize(gert::TilingContext* context, TopKV2TilingDataSimd& topkTilingData,
+                       topkV2DataInfo::TopkTileInfo& topkTileInfo,
+                       const topkV2DataInfo::TopkComputeNowTileSizeInfo& computeInfo, uint32_t nowTileSize)
 {
+    const int64_t lastAxisNum = computeInfo.lastAxisNum;
+    const uint64_t unsortedDimNum = computeInfo.unsortedDimNum;
     OP_CHECK_IF(lastAxisNum <= 0,
                 OP_LOGE_FOR_INVALID_VALUE_WITH_REASON("TopkV2", "lastAxisNum", std::to_string(lastAxisNum).c_str(),
                                                       "The value of lastAxisNum must be greater than 0."),
                 return);
-    // 能进入SingleBlock模板说明：tileData >= lastAxisNum;
-    uint32_t batchNumInUb = nowTileSize / static_cast<uint32_t>(lastAxisNum);
-    uint32_t batchNumSingleLoop = maxCoreNum * batchNumInUb;
-    uint64_t sortLoopTimes = unsortedDimNum / batchNumSingleLoop;
-
-    uint32_t tailBatchNumTotal = unsortedDimNum % batchNumSingleLoop;
-    uint32_t tailBatchNumSingleCore = 0;
-    uint32_t tailBatchNum = 0;
-    uint32_t coreNumNeed = maxCoreNum;
-    if (tailBatchNumTotal != 0) {
-        tailBatchNumSingleCore = tailBatchNumTotal / maxCoreNum;
-        tailBatchNum = tailBatchNumTotal % maxCoreNum;
-        sortLoopTimes += 1;
-    }
-    topkTilingData.set_sortLoopTimes(sortLoopTimes);
+    // Single-block rows need no cross-core cooperation; omit idle cores.
+    const uint32_t coreNumNeed = static_cast<uint32_t>(
+        std::min<uint64_t>(computeInfo.maxCoreNum, std::max<uint64_t>(unsortedDimNum, 1)));
     topkTilingData.set_unsortedDimParallel(coreNumNeed);
     topkTilingData.set_numTileDataSize(lastAxisNum);
     topkTilingData.set_lastDimTileNum(1);
     topkTilingData.set_lastDimNeedCore(1);
+    // IsSingleBlockMode already established nowTileSize >= lastAxisNum.
+    uint32_t batchNumInUb = nowTileSize / static_cast<uint32_t>(lastAxisNum);
+    batchNumInUb = ConfigureSingleBlockInputSelect(context, topkTilingData, computeInfo, batchNumInUb, coreNumNeed);
+    const uint64_t rowsPerLoop = uint64_t(coreNumNeed) * batchNumInUb;
+    const uint64_t tailRows = unsortedDimNum % rowsPerLoop;
+    topkTilingData.set_sortLoopTimes(Ops::Base::CeilDiv(unsortedDimNum, rowsPerLoop));
+    // Keep the common serialization's source of truth in sync with the final
+    // input-select/prefetch batch; it copies these fields into tiling later.
     topkTileInfo.batchNumInUb = batchNumInUb;
-    topkTileInfo.tailLoopBatchNum = tailBatchNumSingleCore;
-    topkTileInfo.tailBatchNum = tailBatchNum;
-
+    topkTileInfo.tailLoopBatchNum = tailRows / coreNumNeed;
+    topkTileInfo.tailBatchNum = tailRows % coreNumNeed;
     topkTileInfo.ubRealLoadDataNum = lastAxisNum;
     topkTileInfo.coreNumNeed = coreNumNeed;
     topkTileInfo.lastDimTileNum = 1;
     topkTileInfo.unsortedDimParallel = coreNumNeed;
     OP_LOGI("TopKV2TilingForAscendC", "Small size mode coreNumNeed=%u sortLoopTimes=%lu lastAxisNum=%ld", coreNumNeed,
-            sortLoopTimes, lastAxisNum);
+            topkTilingData.get_sortLoopTimes(), lastAxisNum);
 }
 
 void TileModeSingleCore(uint64_t unsortedDimNum, uint32_t maxCoreNum, int64_t lastAxisNum,
@@ -464,10 +462,14 @@ void TileTopkMoreCoreMode(uint64_t unsortedDimNum, uint32_t maxCoreNum, int64_t 
  * 1. k * (lastAxisNum / nowTileSize) <= nowTileSize, 假设 lastAxisNum 一共需要N个核处理，每个核计算出Topk的值；
  *    然后将前面每个核的Topk的值集中到一个核（前提是这个核的UB能装的下），再进行一次Topk处理;
  */
-void TileMultiCoreOptimSize(uint64_t unsortedDimNum, uint32_t maxCoreNum, int64_t lastAxisNum,
-                            TopKV2TilingDataSimd& topkTilingData, topkV2DataInfo::TopkTileInfo& topkTileInfo,
-                            uint32_t nowTileSize)
+void TileMultiCoreOptimSize(TopKV2TilingDataSimd& topkTilingData, topkV2DataInfo::TopkTileInfo& topkTileInfo,
+                            const topkV2DataInfo::TopkComputeNowTileSizeInfo& computeInfo, uint32_t nowTileSize)
 {
+    const uint64_t unsortedDimNum = computeInfo.unsortedDimNum;
+    const uint32_t maxCoreNum = computeInfo.maxCoreNum;
+    const int64_t lastAxisNum = computeInfo.lastAxisNum;
+    const ge::DataType dataType = computeInfo.dataType;
+    const int64_t outLastAxisNum = computeInfo.kValue;
     uint32_t sortedDimParallelData = (nowTileSize * maxCoreNum) / 2;
     if (lastAxisNum <= sortedDimParallelData) {
         TileModeMediumSize(unsortedDimNum, maxCoreNum, lastAxisNum, topkTilingData, topkTileInfo, nowTileSize);
@@ -476,6 +478,17 @@ void TileMultiCoreOptimSize(uint64_t unsortedDimNum, uint32_t maxCoreNum, int64_
     }
     // tiling和多核基数排序保持一致, modelType不同
     topkTilingData.set_modeType(topkV2DataInfo::MULT_CORE_OPTIM_MODE);
+    // Complete independent rows together to avoid repeated whole-device barriers.
+    if ((dataType == ge::DT_INT64 || dataType == ge::DT_UINT64) &&
+        outLastAxisNum <= topkV2DataInfo::BITONIC_SMALL_TOPK_MAX_K && unsortedDimNum > 1 &&
+        unsortedDimNum <= static_cast<uint64_t>(maxCoreNum)) {
+        uint32_t coresPerRow = std::min<uint32_t>(topkTilingData.get_lastDimNeedCore(), maxCoreNum / unsortedDimNum);
+        uint32_t rowsParallel = maxCoreNum / coresPerRow;
+        topkTilingData.set_lastDimNeedCore(coresPerRow);
+        topkTilingData.set_unsortedDimParallel(rowsParallel);
+        topkTilingData.set_sortLoopTimes(Ops::Base::CeilDiv(unsortedDimNum, uint64_t(rowsParallel)));
+        topkTileInfo.unsortedDimParallel = rowsParallel;
+    }
 }
 
 /**
@@ -596,13 +609,6 @@ bool IsSingleCoreMode(gert::TilingContext* context, TopKV2TilingDataSimd& topkTi
         return true;
     }
     return false;
-}
-
-bool IsSmallSizeMergeSortMode(ge::DataType dataType, int64_t lastAxisNum)
-{
-    bool isSmallMergeSort = lastAxisNum <= topkV2DataInfo::SMALL_MAX_DATA_SZIE &&
-                            topkV2DataInfo::optDataTypeBitMap.count(dataType) != 0;
-    return isSmallMergeSort;
 }
 
 bool IsNonLastDimTopKMode(int32_t dimValue, size_t inputDimNum)
@@ -1505,7 +1511,6 @@ static bool FinalizeTopKSmallAxisContext(gert::TilingContext* context, TopKV2Til
 {
     context->SetTilingKey(dataTypeKey);
     context->SetBlockDim(plan.blockDim);
-    // SIMT kernel需预留32K（sort路由内部按ubSize-SIMT_UB规划批量，此处LocalMemory同步扣减）
     context->SetLocalMemorySize(computeInfo.ubSizePlatForm);
     context->SetScheduleMode(1);
     size_t* userWorkSpaceSize = context->GetWorkspaceSizes(1);
@@ -1522,9 +1527,134 @@ static bool FinalizeTopKSmallAxisContext(gert::TilingContext* context, TopKV2Til
     return true;
 }
 
+static bool IsTopKDirectFloatType(ge::DataType dataType)
+{
+    return dataType == ge::DT_FLOAT || dataType == ge::DT_FLOAT16 || dataType == ge::DT_BF16;
+}
+
+static bool IsTopKDirectWideIntegerType(ge::DataType dataType)
+{
+    return dataType == ge::DT_INT64 || dataType == ge::DT_UINT64;
+}
+
+// BF16 policy 1 needs exact signed-zero handling even when fewer than 128 rows are available.
+static bool IsTopKDirectExactBf16Axis(const TopKSmallAxisRouteInfo& info,
+                                      const topkV2DataInfo::TopkComputeNowTileSizeInfo& computeInfo, int64_t sortPolicy)
+{
+    constexpr int64_t minAxisExclusive = 64, maxAxis = 128;
+    return computeInfo.dataType == ge::DT_BF16 && info.innerSize == 1 && info.lastAxis > minAxisExclusive &&
+           info.lastAxis <= maxAxis && sortPolicy == topkV2DataInfo::BITONIC_SMALL_TOPK_POLICY && computeInfo.isSort;
+}
+
+// A cached two-chunk FP32 row uses O(k) warp reductions for tiny ranks.
+// Keep this discrete route scoped to sorted policy-1 contiguous small axes.
+static bool IsTopKDirectExactF32SmallRankAxis(const TopKSmallAxisRouteInfo& info,
+                                              const topkV2DataInfo::TopkComputeNowTileSizeInfo& computeInfo,
+                                              int64_t sortPolicy)
+{
+    return computeInfo.dataType == ge::DT_FLOAT && info.innerSize == 1 && info.lastAxis > TOPK_DIRECT_WARP_AXIS &&
+           info.lastAxis <= TOPK_DIRECT_FLOAT_CONTIGUOUS_MAX_AXIS &&
+           computeInfo.kValue >= topkV2DataInfo::BITONIC_SMALL_TOPK_MIN_K &&
+           computeInfo.kValue <= ::topkV2::TOPK_DIRECT_SMALL_RANK_MAX_K &&
+           sortPolicy == topkV2DataInfo::BITONIC_SMALL_TOPK_POLICY && computeInfo.isSort;
+}
+
+static bool IsTopKDirectMediumFloatAxis(const TopKSmallAxisRouteInfo& info,
+                                        const topkV2DataInfo::TopkComputeNowTileSizeInfo& computeInfo,
+                                        bool exactBf16Axis)
+{
+    constexpr int64_t selectionRatioDenominator = 2;
+    const bool supportedLength = exactBf16Axis ||
+                                 (info.lastAxis <= TOPK_DIRECT_FLOAT_STRIDED_MAX_AXIS &&
+                                  (info.innerSize > 1 || info.lastAxis <= TOPK_DIRECT_FLOAT_CONTIGUOUS_MAX_AXIS)) ||
+                                 (computeInfo.dataType == ge::DT_BF16 && info.innerSize == 1 &&
+                                  info.lastAxis > TOPK_DIRECT_FLOAT_STRIDED_MAX_AXIS &&
+                                  info.lastAxis <= TOPK_DIRECT_BF16_MAX_AXIS);
+    if (!supportedLength || (computeInfo.kValue <= TOPK_TINY_K_MAX && !exactBf16Axis)) {
+        return false;
+    }
+    if (info.innerSize == 1 && info.lastAxis <= TOPK_DIRECT_WARP_AXIS &&
+        info.unsortedDim >= TOPK_DIRECT_SMALL_AXIS_SORT_MIN_ROWS) {
+        return false;
+    }
+    return computeInfo.dataType != ge::DT_FLOAT || info.innerSize > 1 ||
+           computeInfo.kValue * selectionRatioDenominator >= info.lastAxis;
+}
+
+static bool IsTopKDirectMediumIntegerAxis(const TopKSmallAxisRouteInfo& info, ge::DataType dataType)
+{
+    return IsTopKDirectWideIntegerType(dataType) ||
+           (info.lastAxis <= TOPK_DIRECT_INTEGER_MAX_AXIS && info.innerSize == 1) ||
+           (info.lastAxis <= TOPK_DIRECT_B16_MAX_AXIS && info.innerSize == 1 &&
+            (dataType == ge::DT_INT16 || dataType == ge::DT_UINT16)) ||
+           (dataType == ge::DT_UINT32 && info.innerSize == 1);
+}
+
+static bool IsTopKDirectAxisSupported(const TopKSmallAxisRouteInfo& info,
+                                      const topkV2DataInfo::TopkComputeNowTileSizeInfo& computeInfo, bool exactBf16Axis)
+{
+    if (info.lastAxis <= TOPK_DIRECT_SCALAR_MAX_AXIS) {
+        return true;
+    }
+    if (info.lastAxis <= TOPK_DIRECT_KEY_SORT_MAX_AXIS) {
+        return IsTopKDirectFloatType(computeInfo.dataType) || IsTopKDirectWideIntegerType(computeInfo.dataType) ||
+               computeInfo.kValue == info.lastAxis;
+    }
+    return IsTopKDirectFloatType(computeInfo.dataType) ? IsTopKDirectMediumFloatAxis(info, computeInfo, exactBf16Axis) :
+                                                         IsTopKDirectMediumIntegerAxis(info, computeInfo.dataType);
+}
+
+static bool HasTopKDirectRows(const TopKSmallAxisRouteInfo& info, bool floatingPoint, bool exactBf16Axis)
+{
+    if (exactBf16Axis || (floatingPoint && info.lastAxis >= TOPK_DIRECT_KEY_SORT_MIN_AXIS &&
+                          info.lastAxis <= TOPK_DIRECT_SCALAR_MAX_AXIS)) {
+        return info.unsortedDim >= 1;
+    }
+    const int64_t minimumRows = info.lastAxis == TOPK_DIRECT_PAIR_AXIS ||
+                                        info.lastAxis > TOPK_DIRECT_KEY_SORT_MAX_AXIS ?
+                                    TOPK_DIRECT_MIN_BATCH_ROWS :
+                                    TOPK_DIRECT_MIN_SMALL_AXIS_ROWS;
+    return info.unsortedDim >= minimumRows;
+}
+
+static uint32_t GetTopKDirectCoreCount(const TopKSmallAxisRouteInfo& info, bool floatingPoint, bool scalarSelect)
+{
+    const int64_t rowsPerCore = scalarSelect || floatingPoint || info.lastAxis > TOPK_DIRECT_SCALAR_MAX_AXIS ?
+                                    TOPK_DIRECT_FINE_ROWS_PER_CORE :
+                                    TOPK_DIRECT_COARSE_ROWS_PER_CORE;
+    return static_cast<uint32_t>(std::min<int64_t>(info.maxCoreNum, Ops::Base::CeilDiv(info.unsortedDim, rowsPerCore)));
+}
+
+static bool FillTopKDirectTiling(gert::TilingContext* context, TopKV2TilingDataSimd& topkTilingData,
+                                 const topkV2DataInfo::TopkComputeNowTileSizeInfo& computeInfo,
+                                 const TopKSmallAxisRouteInfo& info, uint32_t dataTypeKey, bool floatingPoint,
+                                 bool scalarSelect = false)
+{
+    uint32_t cores = GetTopKDirectCoreCount(info, floatingPoint, scalarSelect);
+    topkTilingData.set_modeType(topkV2DataInfo::SMALL_AXIS_DIRECT_MODE);
+    topkTilingData.set_lastAxisNum(info.lastAxis);
+    topkTilingData.set_unsortedDimNum(info.unsortedDim);
+    topkTilingData.set_oneCoreRowNum(info.innerSize);
+    topkTilingData.set_topKRealValue(computeInfo.kValue);
+    topkTilingData.set_isLargest(computeInfo.isLargest);
+    topkTilingData.set_isSort(computeInfo.isSort);
+    topkTilingData.set_platformCoreNum(computeInfo.maxCoreNum);
+    context->SetTilingKey(dataTypeKey);
+    context->SetBlockDim(cores);
+    context->SetLocalMemorySize(scalarSelect ? 0 : computeInfo.ubSizePlatForm);
+    context->SetScheduleMode(TOPK_DIRECT_SCHEDULE_MODE);
+    size_t* workspace = context->GetWorkspaceSizes(1);
+    if (workspace == nullptr) {
+        return false;
+    }
+    workspace[0] = sysWorkSpaceSize;
+    topkTilingData.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
+    context->GetRawTilingData()->SetDataSize(topkTilingData.GetDataSize());
+    return true;
+}
+
 /**
- * @brief 小轴排序路由（复用sort的SmallAxisInsertionBase/SmallAxisTwoStageBase实现）
- * @details 编排层，步骤见各helper
+ * @brief 小轴Direct及排序路由（复用sort的SmallAxisInsertionBase/SmallAxisTwoStageBase实现）
  * @return true 表示已接管并完成Tiling填充；false 表示未命中，需回落原有模式
  */
 static bool TryTopKSmallAxisSort(gert::TilingContext* context, TopKV2TilingDataSimd& topkTilingData,
@@ -1532,28 +1662,80 @@ static bool TryTopKSmallAxisSort(gert::TilingContext* context, TopKV2TilingDataS
                                  const gert::Shape& inputShape, int32_t axis, uint32_t dataTypeKey,
                                  uint64_t originUbSize)
 {
-    // 步骤1：小轴排序仅覆盖小轴；轴长为1或超过小轴阈值时直接回落
     if (computeInfo.lastAxisNum <= 1 || computeInfo.kValue <= 0 || computeInfo.kValue > computeInfo.lastAxisNum ||
-        computeInfo.lastAxisNum > static_cast<int64_t>(SMALL_AXIS_THRESHOLD)) {
+        computeInfo.lastAxisNum > TOPK_DIRECT_MAX_AXIS) {
         return false;
     }
 
-    // 步骤2：初始化排序Tiling基础字段并计算轴维乘积
     TopKSmallAxisRouteInfo info;
     InitTopKSmallAxisTileInfo(info, computeInfo, inputShape, axis, originUbSize);
 
-    // 步骤3：选择小轴排序路由，仅接管INSERTION/TWO_STAGE
+    const bool floatingPoint = IsTopKDirectFloatType(computeInfo.dataType);
+    const bool narrowType = computeInfo.dataType == ge::DT_UINT8 || computeInfo.dataType == ge::DT_INT8 ||
+                            computeInfo.dataType == ge::DT_UINT16 || computeInfo.dataType == ge::DT_INT16 ||
+                            computeInfo.dataType == ge::DT_FLOAT16 || computeInfo.dataType == ge::DT_BF16;
+    if (::topkV2::CanUseTopKScalarSelect(narrowType, info.unsortedDim, info.lastAxis, computeInfo.kValue,
+                                         computeInfo.isSort, topkTilingData.get_sortPolicy(),
+                                         !info.isNonLastAxis && info.innerSize == 1, computeInfo.maxCoreNum)) {
+        return FillTopKDirectTiling(context, topkTilingData, computeInfo, info, dataTypeKey, floatingPoint, true);
+    }
+
+    // Medium signed-integer rows benefit from input selection for sorted smallest TopK.
+    // Keep the new policy separate from the existing B16 rule and kernel capability bounds.
+    if (axis == static_cast<int32_t>(inputShape.GetDimNum()) - 1 && info.innerSize == 1 &&
+        CanUseTopKMediumIntegerInputSelect(computeInfo.dataType, computeInfo.indicesDType, info.lastAxis,
+                                           info.unsortedDim, computeInfo.kValue, topkTilingData.get_sortPolicy(),
+                                           computeInfo.isSort, computeInfo.isLargest)) {
+        return false;
+    }
+
+    if (axis == static_cast<int32_t>(inputShape.GetDimNum()) - 1 && info.innerSize == 1 &&
+        CanUseTopKBf16MediumInputSelect(computeInfo.dataType, computeInfo.indicesDType, info.lastAxis, info.unsortedDim,
+                                        computeInfo.kValue, topkTilingData.get_sortPolicy(), computeInfo.isSort,
+                                        computeInfo.isLargest)) {
+        return false;
+    }
+
+    // Cached SIMT threshold selection rescans medium B16 rows. Reuse the
+    // budgeted SIMD two-pass histogram instead for contiguous integer rows;
+    // floating-point rows retain their existing merge/direct decisions.
+    if (axis == static_cast<int32_t>(inputShape.GetDimNum()) - 1 && info.innerSize == 1 &&
+        (computeInfo.dataType == ge::DT_INT16 || computeInfo.dataType == ge::DT_UINT16) &&
+        info.lastAxis >= ::topkV2::INPUT_SELECT_B16_SINGLE_MIN_AXIS &&
+        info.lastAxis <= TOPK_INPUT_SELECT_MEDIUM_MAX_AXIS && info.unsortedDim >= TOPK_INPUT_SELECT_MIN_BATCH_ROWS &&
+        IsBitonicSmallTopkMode(computeInfo.kValue, topkTilingData.get_sortPolicy(), computeInfo.isSort)) {
+        return false;
+    }
+
+    const bool exactBf16Axis = IsTopKDirectExactBf16Axis(info, computeInfo, topkTilingData.get_sortPolicy());
+    const bool exactF32SmallRankAxis = IsTopKDirectExactF32SmallRankAxis(info, computeInfo,
+                                                                         topkTilingData.get_sortPolicy());
+    if (computeInfo.kValue <= topkV2DataInfo::BITONIC_SMALL_TOPK_MAX_K &&
+        (IsTopKDirectAxisSupported(info, computeInfo, exactBf16Axis) || exactF32SmallRankAxis) &&
+        HasTopKDirectRows(info, floatingPoint, exactBf16Axis)) {
+        return FillTopKDirectTiling(context, topkTilingData, computeInfo, info, dataTypeKey, floatingPoint);
+    }
+
+    // For a strided floating axis and tiny k, retain the dedicated non-last
+    // selector instead of sorting the entire axis through the small-sort path.
+    if (floatingPoint && info.innerSize > 1 && info.lastAxis > TOPK_DIRECT_FLOAT_STRIDED_MAX_AXIS &&
+        computeInfo.kValue <= TOPK_TINY_K_MAX) {
+        return false;
+    }
+
+    if (computeInfo.lastAxisNum > static_cast<int64_t>(SMALL_AXIS_THRESHOLD)) {
+        return false;
+    }
+
     SmallAxisRoutePlan plan;
     bool isTwoStage = false;
     if (!SelectTopKSmallAxisRoute(info, plan, isTwoStage)) {
         return false;
     }
 
-    // 步骤4：填充公共Tiling字段并判定bitonic终排
     bool useBitonicFinalize = false;
     FillTopKSmallAxisCommonTiling(topkTilingData, computeInfo, info, plan, isTwoStage, useBitonicFinalize);
 
-    // 步骤5：填充last/非last布局字段
     if (!FillTopKSmallAxisAxisLayout(topkTilingData, info, plan, isTwoStage)) {
         return false;
     }
@@ -1561,21 +1743,13 @@ static bool TryTopKSmallAxisSort(gert::TilingContext* context, TopKV2TilingDataS
     // keyParams5: bitonic终排标志（policy=1且sorted且k∈[2,32]时置1，kernel侧store前终排）
     topkTilingData.set_keyParams5(useBitonicFinalize ? 1U : 0U);
 
-    // 步骤6：设置Context参数并保存TilingData
     return FinalizeTopKSmallAxisContext(context, topkTilingData, computeInfo, info, plan, dataTypeKey, axis, isTwoStage,
                                         useBitonicFinalize);
 }
 
 /**
- * @brief 非尾轴小轴TopK模式的Tiling主函数（优化版本，不超过50行）
+ * @brief 非尾轴小轴TopK模式的Tiling主函数
  * @details 该函数通过调用多个辅助函数，完成非尾轴小轴TopK场景的Tiling参数计算。
- *          处理流程：
- *          1. 初始化Tile信息并验证参数有效性
- *          2. 确定算法模式（归并排序或基数选择）
- *          3. 设置临时UB大小
- *          4. 搜索最优切分方案
- *          5. 填充TilingData并设置Context参数
- *
  * @param context Tiling上下文
  * @param topkTilingData TopK Tiling数据结构
  * @param computeInfo TopK计算信息
@@ -1590,31 +1764,26 @@ ge::graphStatus TileModeNonLastSmallAxisTopK(gert::TilingContext* context, TopKV
                                              const gert::Shape& inputShape, int32_t axis, uint32_t dataTypeKey,
                                              uint64_t originUbSize)
 {
-    // 步骤1：初始化Tile信息并验证参数有效性
     TopkNonLastSmallAxisTileInfo info;
     if (!InitTopkNonLastSmallAxisInfo(context, inputShape, axis, computeInfo, info)) {
         return ge::GRAPH_FAILED;
     }
 
-    // 步骤2：确定算法模式和排序元素个数
     topkTilingData.set_modeType(topkV2DataInfo::NON_LAST_SMALL_AXIS_MODE);
     bool useMergeSort = UseTopkNonLastMergeSort(computeInfo.dataType, static_cast<uint32_t>(info.lastAxis));
     uint32_t sortCount = Ops::Base::CeilAlign(static_cast<uint32_t>(info.lastAxis),
                                               topkV2DataInfo::MERGE_INTRA_CORE_SORT_ALIGN);
 
-    // 步骤3：设置临时UB大小
     if (SetupTopkNonLastSmallAxisTmpUb(context, topkTilingData, computeInfo, info, useMergeSort, sortCount) !=
         ge::GRAPH_SUCCESS) {
         return ge::GRAPH_FAILED;
     }
 
-    // 步骤4：搜索最优切分方案
     TopkNonLastSmallAxisCandidate best;
     if (SearchBestTopkNonLastSmallAxisPlan(context, info, computeInfo, useMergeSort, best) != ge::GRAPH_SUCCESS) {
         return ge::GRAPH_FAILED;
     }
 
-    // 步骤5：填充TilingData并设置Context参数
     return FillTopkNonLastSmallAxisTilingData(context, topkTilingData, computeInfo, info, best, dataTypeKey, axis,
                                               useMergeSort, sortCount, originUbSize);
 }
@@ -1722,6 +1891,15 @@ ge::graphStatus TopKV2Tiling(gert::TilingContext* context, int32_t maxCoreNum)
     computeNowTileSizeInfo.isInInt32Range = lastAxisNum <= int32Max;
     computeNowTileSizeInfo.lastAxisNum = lastAxisNum;
     computeNowTileSizeInfo.kValue = outLastAxisNum;
+    // Avoid cross-core selection when byte-valued rows provide enough independent work.
+    constexpr uint32_t independentRowCoreDivisor = 4;
+    constexpr int64_t minIndependentAxis = 32768, maxIndependentAxis = 262144;
+    if (dimValue == static_cast<int32_t>(inputDimNum) - 1 && (dataType == ge::DT_INT8 || dataType == ge::DT_UINT8) &&
+        unsortedDimNum >= static_cast<uint64_t>(maxCoreNum / independentRowCoreDivisor) &&
+        unsortedDimNum < static_cast<uint64_t>(maxCoreNum) && lastAxisNum >= minIndependentAxis &&
+        lastAxisNum <= maxIndependentAxis && outLastAxisNum <= topkV2DataInfo::BITONIC_SMALL_TOPK_MAX_K) {
+        maxCoreNum = static_cast<uint32_t>(unsortedDimNum);
+    }
     computeNowTileSizeInfo.maxCoreNum = maxCoreNum;
     computeNowTileSizeInfo.ubSizePlatForm = ubSizePlatForm;
     computeNowTileSizeInfo.dataType = dataType;
@@ -1768,18 +1946,21 @@ ge::graphStatus TopKV2Tiling(gert::TilingContext* context, int32_t maxCoreNum)
         dataTypeKey += topkV2DataInfo::BITONIC_SORT_TILING_OFFSET;
     }
 
-    if (IsSmallSizeMergeSortMode(dataType, lastAxisNum)) {
+    const bool bf16InputSelectSupported = CanUseTopKBf16MediumInputSelect(
+        dataType, indicesDType, lastAxisNum, unsortedDimNum, outLastAxisNum, topkTilingData.get_sortPolicy(), *isSorted,
+        *isLargest);
+    if (IsSmallSizeMergeSortMode(dataType, lastAxisNum) && !bf16InputSelectSupported) {
         TileModeSmallSizeOptim(context, topkTilingData, topkTileInfo, computeNowTileSizeInfo);
         dataTypeKey += topkV2DataInfo::MERGE_SORT_TILING_OFFSET;
     } else if (IsSingleBlockMode(context, topkTilingData, nowTileSize, computeNowTileSizeInfo)) {
-        TileModeSmallSize(unsortedDimNum, maxCoreNum, lastAxisNum, topkTilingData, topkTileInfo, nowTileSize);
+        TileModeSmallSize(context, topkTilingData, topkTileInfo, computeNowTileSizeInfo, nowTileSize);
     } else if (IsFp32MergeSortMode(computeNowTileSizeInfo)) {
         return TileModeFp32MergeSort(context, topkTilingData, computeNowTileSizeInfo);
     } else if (IsSingleCoreMode(context, topkTilingData, nowTileSize, computeNowTileSizeInfo)) {
         TileModeSingleCore(unsortedDimNum, maxCoreNum, lastAxisNum, topkTilingData, topkTileInfo, nowTileSize);
     } else if (IsMultiCoreOptimMode(context, nowTileSize, topkTilingData, computeNowTileSizeInfo)) {
         // topk核间模板优化，修改modeType, tilling不变
-        TileMultiCoreOptimSize(unsortedDimNum, maxCoreNum, lastAxisNum, topkTilingData, topkTileInfo, nowTileSize);
+        TileMultiCoreOptimSize(topkTilingData, topkTileInfo, computeNowTileSizeInfo, nowTileSize);
     } else if (IsTopkRadixMoreCoreMode(context, topkTilingData, computeNowTileSizeInfo, nowTileSize)) {
         TileTopkMoreCoreMode(unsortedDimNum, maxCoreNum, lastAxisNum, topkTilingData, topkTileInfo, nowTileSize);
     } else {

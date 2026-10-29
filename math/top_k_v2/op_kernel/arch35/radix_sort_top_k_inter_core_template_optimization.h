@@ -19,10 +19,124 @@
 #include "top_k_small_size_bitonic_sort.h"
 #include "top_k_util_type_simd.h"
 #include "radix_topk_util.h"
+#include "top_k_small_bitonic_packed_simt.h"
+#include <cstdint>
+#include <type_traits>
 #include <algorithm>
 
 using namespace AscendC;
 using namespace topkV2;
+
+// Small-k UB threshold selection belongs to the inter-core template below.
+namespace topkV2 {
+template <typename T>
+__simt_callee__ inline uint64_t TopKUbIntegerKey(T value)
+{
+    uint64_t key = static_cast<uint64_t>(value);
+    if constexpr (std::is_signed_v<T>) {
+        key ^= uint64_t(1) << 63;
+    }
+    return key;
+}
+
+// The existing multi-core template owns all copying and synchronization.
+// Replace only the per-tile and final small-k selection, retaining exact Bitonic output.
+template <typename T, bool Largest>
+__simt_callee__ inline uint64_t FindTopKUbThreshold(__ubuf__ const T* input, uint32_t n, uint32_t k, uint32_t lane,
+                                                    uint64_t low, uint64_t high)
+{
+    uint32_t kth = Largest ? n - k : k - 1;
+    if (k == n) {
+        low = Largest ? low : high;
+        high = low;
+    }
+    while (low < high) {
+        uint64_t mid = low + (high - low) / 2;
+        uint32_t count = 0;
+        for (uint32_t i = lane; i < n; i += BITONIC_SMALL_TOPK_SIZE) {
+            count += TopKUbIntegerKey(input[i]) <= mid ? 1 : 0;
+        }
+        count = asc_reduce_add(count);
+        if (count > kth) {
+            high = mid;
+        } else {
+            low = mid + 1;
+        }
+    }
+    return low;
+}
+
+template <typename T, bool Largest, bool HasIndices>
+__simt_callee__ inline void FinalizeTopKUbSelection(__ubuf__ const T* input, __ubuf__ const int32_t* inputIndices,
+                                                    __ubuf__ T* output, __ubuf__ int32_t* outputIndices, uint32_t k,
+                                                    uint32_t lane, uint32_t selected)
+{
+    bool valid = lane < k;
+    T value = valid ? input[selected] : T(0);
+    int32_t index = valid ? (HasIndices ? inputIndices[selected] : static_cast<int32_t>(selected)) : -1;
+    if constexpr (HasIndices) {
+        BitonicSmallFinalizeExactSelection<T, int32_t, Largest>(value, index, valid, k);
+    }
+    if (valid) {
+        output[lane] = value;
+        outputIndices[lane] = index;
+    }
+}
+
+template <typename T, bool Largest, bool HasIndices>
+__simt_vf__ __aicore__ LAUNCH_BOUND(BITONIC_SMALL_TOPK_SIZE) void TopKUbThresholdSelect(
+    uint32_t n, uint32_t k, __ubuf__ const T* input, __ubuf__ const int32_t* inputIndices, __ubuf__ T* output,
+    __ubuf__ int32_t* outputIndices, __ubuf__ uint32_t* selectedPath)
+{
+    uint32_t lane = threadIdx.x;
+    uint64_t low = UINT64_MAX;
+    uint64_t high = 0;
+    for (uint32_t i = lane; i < n; i += BITONIC_SMALL_TOPK_SIZE) {
+        uint64_t key = TopKUbIntegerKey(input[i]);
+        low = key < low ? key : low;
+        high = key > high ? key : high;
+    }
+#pragma unroll
+    for (uint32_t shift = BITONIC_SMALL_TOPK_SIZE / 2U; shift > 0; shift /= 2U) {
+        uint64_t peerLow = asc_shfl_xor(low, shift, BITONIC_SMALL_TOPK_SIZE);
+        uint64_t peerHigh = asc_shfl_xor(high, shift, BITONIC_SMALL_TOPK_SIZE);
+        low = peerLow < low ? peerLow : low;
+        high = peerHigh > high ? peerHigh : high;
+    }
+    // Native radix selection is preferable for wide 64-bit ranges. Report the
+    // decision through the existing scratch buffer; the caller retains fallback.
+    bool narrow = high - low <= UINT16_MAX;
+    if (lane == 0) {
+        selectedPath[0] = narrow ? 1U : 0U;
+    }
+    if (!narrow) {
+        return;
+    }
+    // With one distinct value, the two gather passes would select the first k
+    // elements in source order. Copy that prefix directly.
+    if (low == high) {
+        FinalizeTopKUbSelection<T, Largest, HasIndices>(input, inputIndices, output, outputIndices, k, lane, lane);
+        return;
+    }
+    low = FindTopKUbThreshold<T, Largest>(input, n, k, lane, low, high);
+    uint32_t selected = UINT32_MAX;
+    uint32_t gathered = 0;
+    for (uint32_t pass = 0; pass < 2; ++pass) {
+        for (uint32_t base = 0; base < n && gathered < k; base += BITONIC_SMALL_TOPK_SIZE) {
+            uint32_t i = base + lane;
+            uint64_t key = i < n ? TopKUbIntegerKey(input[i]) : 0;
+            bool chosen = i < n && (pass == 0 ? (Largest ? key > low : key < low) : key == low);
+            uint32_t mask = asc_ballot(chosen);
+            uint32_t count = __popc(mask);
+            if (lane >= gathered && lane < gathered + count && lane < k) {
+                selected = base + BitonicSmallNthSetBit(mask, lane - gathered);
+            }
+            gathered += count;
+        }
+    }
+    FinalizeTopKUbSelection<T, Largest, HasIndices>(input, inputIndices, output, outputIndices, k, lane, selected);
+}
+} // namespace topkV2
 
 // 类比当前文件
 template <typename T, bool IS_LARGEST, bool IS_SORT, typename T_INDEX_TO, bool IS_BITONIC_SORT = false>
@@ -46,6 +160,10 @@ private:
     __aicore__ inline void ComputeFinalTopK(LocalTensor<T> topkOutValue, LocalTensor<int32_t> topkOutIndexValue,
                                             LocalTensor<T> xLocal, LocalTensor<int32_t> xIndexLocal,
                                             LocalTensor<uint8_t> shareTmpBuffer);
+    template <bool HAS_INDICES>
+    __aicore__ inline bool TryUbThresholdSelect(LocalTensor<T> input, LocalTensor<int32_t> inputIndices,
+                                                LocalTensor<T> output, LocalTensor<int32_t> outputIndices,
+                                                LocalTensor<uint8_t> shareTmpBuffer, uint32_t n, uint32_t k);
     __aicore__ inline LocalTensor<T_INDEX_TO> ConvertIndexType(LocalTensor<int32_t> topkOutIndexValue);
     __aicore__ inline void CopyDataIn(GlobalTensor<T> inputX, uint64_t tileOffset, uint32_t currTileSize);
     __aicore__ inline void CopyIndexIn(GlobalTensor<int32_t> inputX, uint64_t tileOffset, uint32_t currTileSize);
@@ -213,13 +331,49 @@ RadixSortTopKMultiCoreOptimization<T, IS_LARGEST, IS_SORT, T_INDEX_TO, IS_BITONI
 }
 
 template <typename T, bool IS_LARGEST, bool IS_SORT, typename T_INDEX_TO, bool IS_BITONIC_SORT>
+template <bool HAS_INDICES>
+__aicore__ inline bool
+RadixSortTopKMultiCoreOptimization<T, IS_LARGEST, IS_SORT, T_INDEX_TO, IS_BITONIC_SORT>::TryUbThresholdSelect(
+    LocalTensor<T> input, LocalTensor<int32_t> inputIndices, LocalTensor<T> output, LocalTensor<int32_t> outputIndices,
+    LocalTensor<uint8_t> shareTmpBuffer, uint32_t n, uint32_t k)
+{
+    if constexpr (IS_BITONIC_SORT && sizeof(T) == sizeof(uint64_t) && std::is_integral_v<T>) {
+        if (topkValueInput_ <= BITONIC_SMALL_TOPK_SIZE) {
+            uint32_t selectedCount = HAS_INDICES ? k : TopkGetMin<uint32_t>(n, k);
+            asc_vf_call<TopKUbThresholdSelect<T, IS_LARGEST, HAS_INDICES>>(
+                dim3(BITONIC_SMALL_TOPK_SIZE), n, selectedCount, (__ubuf__ T*)input.GetPhyAddr(),
+                (__ubuf__ int32_t*)inputIndices.GetPhyAddr(), (__ubuf__ T*)output.GetPhyAddr(),
+                (__ubuf__ int32_t*)outputIndices.GetPhyAddr(), (__ubuf__ uint32_t*)shareTmpBuffer.GetPhyAddr());
+            event_t rangeEvent = static_cast<event_t>(GetTPipePtr()->FetchEventID(HardEvent::V_S));
+            SetFlag<HardEvent::V_S>(rangeEvent);
+            WaitFlag<HardEvent::V_S>(rangeEvent);
+            if (shareTmpBuffer.ReinterpretCast<uint32_t>().GetValue(0) != 0) {
+                return true;
+            }
+            event_t reuseEvent = static_cast<event_t>(GetTPipePtr()->FetchEventID(HardEvent::S_V));
+            SetFlag<HardEvent::S_V>(reuseEvent);
+            WaitFlag<HardEvent::S_V>(reuseEvent);
+        }
+    }
+    return false;
+}
+
+template <typename T, bool IS_LARGEST, bool IS_SORT, typename T_INDEX_TO, bool IS_BITONIC_SORT>
 __aicore__ inline void
 RadixSortTopKMultiCoreOptimization<T, IS_LARGEST, IS_SORT, T_INDEX_TO, IS_BITONIC_SORT>::ComputeTileTopK(
     LocalTensor<T> topkOutValue, LocalTensor<int32_t> topkOutIndexValue, LocalTensor<T> xLocal,
     LocalTensor<uint8_t> shareTmpBuffer, int32_t currTileNum)
 {
+    if (TryUbThresholdSelect<false>(xLocal, topkOutIndexValue, topkOutValue, topkOutIndexValue, shareTmpBuffer,
+                                    static_cast<uint32_t>(currTileNum), topkValueInput_)) {
+        return;
+    }
+    // Normalize only the UB copy; workspace candidates retain canonical comparison bits.
+    if constexpr (IS_BITONIC_SORT) {
+        NormalizeRadixFloatInput<T>(xLocal, 1U, static_cast<uint32_t>(currTileNum), static_cast<uint32_t>(currTileNum));
+    }
     // topk
-    static constexpr TopKConfig topkConfig{TopKAlgo::RADIX_SELECT, TopKOrder::UNSET, IS_SORT};
+    static constexpr TopKConfig topkConfig{TopKAlgo::RADIX_SELECT, TopKOrder::UNSET, IS_SORT && !IS_BITONIC_SORT};
     TopKInfo topKInfo;
     topKInfo.outter = 1;
     topKInfo.inner = ROUND_UP_AGLIN(currTileNum);
@@ -253,6 +407,12 @@ __aicore__ inline void RadixSortTopKMultiCoreOptimization<T, IS_LARGEST, IS_SORT
         LocalTensor<int32_t> topkOutIndexValue = topkOutIndexQueue_.AllocTensor<int32_t>();
         LocalTensor<uint8_t> shareTmpBuffer = topKApiTmpTBuf_.Get<uint8_t>();
         ComputeFinalTopK(topkOutValue, topkOutIndexValue, xLocal, xIndexLocal, shareTmpBuffer);
+        if constexpr (IS_BITONIC_SORT) {
+            uint64_t sourceRow = static_cast<uint64_t>(sortLoopRound) * unsortedDimParallel_ + GetBlockIdx();
+            RestoreRadixFloatValues<T, int32_t>(topkOutValue, topkOutIndexValue,
+                                                inputValueGm_[sourceRow * totalDataNum_], topkValueInput_, 1U,
+                                                topkValueInput_, topkValueInput_, totalDataNum_, 1U);
+        }
 
         // convert index from int32_t to int64_t if needed
         LocalTensor<T_INDEX_TO> tempConversionLocal = ConvertIndexType(topkOutIndexValue);
@@ -277,21 +437,26 @@ RadixSortTopKMultiCoreOptimization<T, IS_LARGEST, IS_SORT, T_INDEX_TO, IS_BITONI
     LocalTensor<T> topkOutValue, LocalTensor<int32_t> topkOutIndexValue, LocalTensor<T> xLocal,
     LocalTensor<int32_t> xIndexLocal, LocalTensor<uint8_t> shareTmpBuffer)
 {
+    uint32_t count = topkValueInput_ * (lastDimTileNum_ - 1) +
+                     (tailDataSize_ != 0 && tailDataSize_ < topkValueInput_ ? tailDataSize_ : topkValueInput_);
+    if (TryUbThresholdSelect<true>(xLocal, xIndexLocal, topkOutValue, topkOutIndexValue, shareTmpBuffer, count,
+                                   topkValueInput_)) {
+        return;
+    }
     // Unified processing of temporary results
-    static constexpr TopKConfig topkConfig{TopKAlgo::RADIX_SELECT, TopKOrder::UNSET, IS_SORT};
+    static constexpr TopKConfig topkConfig{TopKAlgo::RADIX_SELECT, TopKOrder::UNSET, IS_SORT && !IS_BITONIC_SORT};
     TopKInfo topKInfo;
     topKInfo.outter = 1;
     topKInfo.inner = ROUND_UP_AGLIN(topkValueInput_ * lastDimTileNum_);
-    topKInfo.n = topkValueInput_ * (lastDimTileNum_ - 1) +
-                 (tailDataSize_ != 0 && tailDataSize_ < topkValueInput_ ? tailDataSize_ : topkValueInput_);
+    topKInfo.n = count;
     LocalTensor<bool> emptyFinishLocal;
     TopkTiling emptyTopkTiling;
     AscendC::TopK<T, true, false, false, TopKMode::TOPK_NORMAL, topkConfig>(
         topkOutValue, topkOutIndexValue, xLocal, xIndexLocal, emptyFinishLocal, shareTmpBuffer,
         static_cast<int32_t>(this->topkValueInput_), emptyTopkTiling, topKInfo, IS_LARGEST);
     if constexpr (IS_BITONIC_SORT) {
-        RunBitonicSmallTopKFinalize<T, int32_t, IS_LARGEST>(topkOutValue, topkOutIndexValue, topkValueInput_, 1U,
-                                                            topkValueInput_, topkValueInput_);
+        RunRadixCandidatesFullBitonic<T, int32_t, IS_LARGEST>(topkOutValue, topkOutIndexValue, topkValueInput_, 1U,
+                                                              topkValueInput_, topkValueInput_);
     }
 }
 

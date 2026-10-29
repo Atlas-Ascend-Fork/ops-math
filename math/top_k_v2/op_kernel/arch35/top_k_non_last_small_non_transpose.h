@@ -249,16 +249,22 @@ __aicore__ inline void TopKNonLastSmallAxisNonTranspose<T, OutIdxT, IsLargest, I
     topKInfo.outter = 1;
     topKInfo.inner = axisRowElems_;
     topKInfo.n = this->axisLen_;
-    static constexpr TopKConfig topkConfig{TopKAlgo::RADIX_SELECT, TopKOrder::UNSET, IsSorted};
+    static constexpr TopKConfig topkConfig{TopKAlgo::RADIX_SELECT, TopKOrder::UNSET, IsSorted && !IS_BITONIC_SORT};
+    if constexpr (IS_BITONIC_SORT) {
+        NormalizeRadixFloatInput<SortT>(this->sortInput_, curInnerChunk, this->axisLen_, axisRowElems_);
+    }
     for (uint32_t inner = 0; inner < curInnerChunk; ++inner) {
         auto topkIndexI32 = topkIndex_[inner * indexRowElems_].template ReinterpretCast<int32_t>();
         AscendC::TopK<SortT, false, false, false, TopKMode::TOPK_NORMAL, topkConfig>(
             topkValue_[inner * valueRowElems_], topkIndexI32, this->sortInput_[inner * axisRowElems_], srcIndexLocal_,
             emptyFinishLocal, this->tmp_, static_cast<int32_t>(kValue_), emptyTopkTiling, topKInfo, IsLargest);
     }
-    RunBitonicSmallTopKFinalizeNonLast<SortT, IsLargest, IS_BITONIC_SORT>(
-        topkValue_, topkIndex_, this->sortInput_, this->axisLen_, kValue_, curInnerChunk, axisRowElems_, valueRowElems_,
-        indexRowElems_);
+    if constexpr (IS_BITONIC_SORT) {
+        RunRadixCandidatesFullBitonic<SortT, uint32_t, IsLargest>(topkValue_, topkIndex_, kValue_, curInnerChunk,
+                                                                  valueRowElems_, indexRowElems_);
+        RestoreRadixFloatValues<SortT, uint32_t>(topkValue_, topkIndex_, this->inputTile_, kValue_, curInnerChunk,
+                                                 valueRowElems_, indexRowElems_, 1U, this->inputRowElems_);
+    }
 }
 
 template <typename T, typename OutIdxT, bool IsLargest, bool IsSorted, bool UseMergeSort, bool IS_BITONIC_SORT>
@@ -266,13 +272,27 @@ __aicore__ inline void TopKNonLastSmallAxisNonTranspose<T, OutIdxT, IsLargest, I
                                                         IS_BITONIC_SORT>::RunMergeSort(uint32_t curInnerChunk)
 {
     static constexpr SortConfig sortConfig{SortType::MERGE_SORT, IsLargest};
+    static constexpr bool batchFinalizeSupported = IS_BITONIC_SORT &&
+                                                   (std::is_same_v<T, half> || std::is_same_v<T, float>);
+    constexpr uint32_t flagBytes = BITONIC_SMALL_TOPK_MAX_ROWS * sizeof(uint32_t);
+    // Reuse Sort scratch only after the final row; preserve the Host UB budget.
+    const bool useBatchFinalize = batchFinalizeSupported && this->tmpUbSize_ >= flagBytes;
     for (uint32_t inner = 0; inner < curInnerChunk; ++inner) {
         LocalTensor<SortT> dst = topkValue_[inner * valueRowElems_];         // 排序后的值输出
         LocalTensor<uint32_t> dstIndex = topkIndex_[inner * indexRowElems_]; // 排序后的索引输出
         LocalTensor<SortT> src = this->sortInput_[inner * axisRowElems_];    // 待排序的输入数据
         AscendC::Sort<SortT, true, sortConfig>(dst, dstIndex, src, this->tmp_, this->sortCount_);
-        RunBitonicSmallMergeSortFinalizeNonLast<SortT, IsLargest, IS_BITONIC_SORT>(dst, dstIndex, kValue_,
-                                                                                   valueRowElems_, indexRowElems_);
+        if (!useBatchFinalize) {
+            RunBitonicSmallMergeSortFinalizeNonLast<SortT, IsLargest, IS_BITONIC_SORT>(dst, dstIndex, kValue_,
+                                                                                       valueRowElems_, indexRowElems_);
+        }
+    }
+    if constexpr (batchFinalizeSupported) {
+        if (useBatchFinalize) {
+            RunBitonicSmallTopKFinalizeWithFlags<SortT, uint32_t, IsLargest>(
+                topkValue_, topkIndex_, (__ubuf__ uint32_t*)this->tmp_.GetPhyAddr(), kValue_, curInnerChunk,
+                valueRowElems_, indexRowElems_);
+        }
     }
 }
 

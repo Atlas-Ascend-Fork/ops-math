@@ -30,6 +30,7 @@
 #include "arch35/top_k_non_last_small_non_transpose.h"
 #include "arch35/top_k_small_axis_insertion.h"
 #include "arch35/top_k_small_axis_two_stage.h"
+#include "arch35/top_k_small_k_simt_gm_select.h"
 
 using namespace AscendC;
 using namespace SortAndTopK;
@@ -297,8 +298,8 @@ __aicore__ inline void RadixSortTopKSingleBlockOpObject(GM_ADDR x, GM_ADDR k, GM
 template <typename T, typename T_INDEX_TO>
 __aicore__ inline void TopKSmallAxisTwoStageOpObject(GM_ADDR x, GM_ADDR values, GM_ADDR indices, GM_ADDR tiling)
 {
-    GET_TILING_DATA(tilingData, tiling);
     KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_MIX_AIV_1_0);
+    GET_TILING_DATA(tilingData, tiling);
     bool isLargest = (tilingData.isLargest > 0) ? true : false;
     TPipe pipe;
     if (isLargest) {
@@ -316,6 +317,11 @@ template <typename T, typename UNSINGED_TYPE, int32_t NUM_PASS, typename T_INDEX
 __aicore__ inline void generateOpObject(GM_ADDR x, GM_ADDR k, GM_ADDR values, GM_ADDR indices, GM_ADDR globalWorkGm,
                                         GM_ADDR tiling)
 {
+    GET_TILING_DATA_PTR_WITH_STRUCT(TopKV2TilingDataSimd, data, tiling);
+    if (data->modeType == SMALL_AXIS_TWO_STAGE_MODE) {
+        TopKSmallAxisTwoStageOpObject<T, T_INDEX_TO>(x, values, indices, tiling);
+        return;
+    }
     GET_TILING_DATA(tilingData, tiling);
     bool isLargest = (tilingData.isLargest > 0) ? true : false;
     bool isSort = (tilingData.isSort > 0) ? true : false;
@@ -326,17 +332,20 @@ __aicore__ inline void generateOpObject(GM_ADDR x, GM_ADDR k, GM_ADDR values, GM
     bool isMultiCoreOptimMode = (tilingData.modeType == MULT_CORE_OPTIM_MODE) ? true : false;
     bool isNonLastSmallAxis = (tilingData.modeType == NON_LAST_SMALL_AXIS_MODE) ? true : false;
     bool isSmallAxisInsertion = (tilingData.modeType == SMALL_AXIS_INSERTION_MODE) ? true : false;
-    bool isSmallAxisTwoStage = (tilingData.modeType == SMALL_AXIS_TWO_STAGE_MODE) ? true : false;
 
-    if (isSmallAxisInsertion) {
-        // 插入排序
-        TopKSmallAxisInsertionOpObject<T, T_INDEX_TO>(x, values, indices, tiling);
+    if (tilingData.modeType == topkV2::TOPK_DIRECT_MODE) {
+        KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_MIX_AIV_1_0);
+        if (isLargest) {
+            topkV2::RunTopKSmallKSimtGmSelect<T, T_INDEX_TO, true>(x, values, indices, tilingData);
+        } else {
+            topkV2::RunTopKSmallKSimtGmSelect<T, T_INDEX_TO, false>(x, values, indices, tilingData);
+        }
         return;
     }
 
-    if (isSmallAxisTwoStage) {
-        // two stage
-        TopKSmallAxisTwoStageOpObject<T, T_INDEX_TO>(x, values, indices, tiling);
+    // 插入排序
+    if (isSmallAxisInsertion) {
+        TopKSmallAxisInsertionOpObject<T, T_INDEX_TO>(x, values, indices, tiling);
         return;
     }
 

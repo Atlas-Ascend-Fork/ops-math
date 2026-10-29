@@ -13,6 +13,7 @@
  * \brief top_k_v2 common tiling helpers implementation
  */
 #include "top_k_v2_tiling_base.h"
+#include "../../op_kernel/arch35/top_k_constant_var_simd.h"
 
 #include <algorithm>
 #include <cmath>
@@ -917,6 +918,13 @@ void SetMergeSortTmpSize(gert::TilingContext* context, ge::DataType dataType, in
 
 // ==================== Mode Judgment Functions ====================
 
+bool IsSmallSizeMergeSortMode(ge::DataType dataType, int64_t lastAxisNum)
+{
+    bool isSmallMergeSort = lastAxisNum <= topkV2DataInfo::SMALL_MAX_DATA_SZIE &&
+                            topkV2DataInfo::optDataTypeBitMap.count(dataType) != 0;
+    return isSmallMergeSort;
+}
+
 bool needSortWithIndex(TopKV2TilingDataSimd& topkTilingData, bool isSorted, ge::DataType dataType)
 {
     if (isSorted && topkTilingData.get_modeType() == topkV2DataInfo::MULT_CORE_MODE) {
@@ -941,6 +949,107 @@ bool IsBitonicSmallTopkMode(int64_t kValue, int64_t sortPolicy, bool isSort)
     return isSort && static_cast<uint64_t>(kValue) >= topkV2DataInfo::BITONIC_SMALL_TOPK_MIN_K &&
            static_cast<uint64_t>(kValue) <= topkV2DataInfo::BITONIC_SMALL_TOPK_MAX_K &&
            static_cast<uint64_t>(sortPolicy) == topkV2DataInfo::BITONIC_SMALL_TOPK_POLICY;
+}
+
+// ==================== SingleBlock Input Selection Helpers ====================
+
+bool CanUseTopKMediumIntegerInputSelect(ge::DataType dataType, ge::DataType indicesDType, int64_t axisLength,
+                                        uint64_t rows, int64_t kValue, int64_t sortPolicy, bool sorted, bool largest)
+{
+    const bool signedInteger = dataType == ge::DT_INT8 || dataType == ge::DT_INT16 || dataType == ge::DT_INT32;
+    return signedInteger && indicesDType == ge::DT_INT32 && !largest && rows >= TOPK_INPUT_SELECT_MIN_BATCH_ROWS &&
+           axisLength >= TOPK_INPUT_SELECT_MEDIUM_INTEGER_AXIS_MIN && axisLength <= TOPK_INPUT_SELECT_MEDIUM_MAX_AXIS &&
+           IsBitonicSmallTopkMode(kValue, sortPolicy, sorted);
+}
+
+bool CanUseTopKBf16MediumInputSelect(ge::DataType dataType, ge::DataType indicesDType, int64_t axisLength,
+                                     uint64_t rows, int64_t kValue, int64_t sortPolicy, bool sorted, bool largest)
+{
+    // Preserve the measured crossovers: amortize setup for small K and prefer Direct on shorter axes.
+    const bool smallKSupported = kValue == topkV2DataInfo::BITONIC_SMALL_TOPK_MIN_K &&
+                                 rows >= TOPK_INPUT_SELECT_BF16_SMALL_K_MIN_ROWS;
+    const bool mediumKSupported = kValue >= TOPK_INPUT_SELECT_BF16_MEDIUM_K_MIN &&
+                                  axisLength > TOPK_INPUT_SELECT_BF16_MEDIUM_K_AXIS_MIN_EXCLUSIVE;
+    return dataType == ge::DT_BF16 && indicesDType == ge::DT_INT32 && !largest &&
+           rows >= TOPK_INPUT_SELECT_MIN_BATCH_ROWS && axisLength > TOPK_INPUT_SELECT_BF16_AXIS_MIN_EXCLUSIVE &&
+           axisLength <= TOPK_INPUT_SELECT_BF16_AXIS_MAX && IsBitonicSmallTopkMode(kValue, sortPolicy, sorted) &&
+           (smallKSupported || mediumKSupported);
+}
+
+static bool IsSingleBlockInputSelectRoutePreferred(const topkV2DataInfo::TopkComputeNowTileSizeInfo& info,
+                                                   uint64_t sortPolicy, uint32_t valueBytes)
+{
+    const bool bf16Supported = CanUseTopKBf16MediumInputSelect(info.dataType, info.indicesDType, info.lastAxisNum,
+                                                               info.unsortedDimNum, info.kValue, sortPolicy,
+                                                               info.isSort, info.isLargest);
+    const bool merge = IsSmallSizeMergeSortMode(info.dataType, info.lastAxisNum) && !bf16Supported;
+    const bool mediumIntegerSupported = CanUseTopKMediumIntegerInputSelect(
+        info.dataType, info.indicesDType, info.lastAxisNum, info.unsortedDimNum, info.kValue, sortPolicy, info.isSort,
+        info.isLargest);
+    const bool mediumB16Supported = info.lastAxisNum >= ::topkV2::INPUT_SELECT_SINGLE_MIN_AXIS ||
+                                    valueBytes != sizeof(uint16_t) ||
+                                    ((info.dataType == ge::DT_INT16 || info.dataType == ge::DT_UINT16) &&
+                                     info.unsortedDimNum >= TOPK_INPUT_SELECT_MIN_BATCH_ROWS);
+    const bool mediumRoute = mediumIntegerSupported || bf16Supported;
+    const bool defaultRoute = mediumB16Supported &&
+                              ::topkV2::IsTopKInputSelectDefaultAxisPreferred(info.lastAxisNum, valueBytes);
+    return !merge && (mediumRoute || defaultRoute);
+}
+
+// Refine only a legacy-admitted single-block row layout. Do not shrink its
+// initial batch to force normal input-select to fit; prefetch has its own budget.
+uint32_t ConfigureSingleBlockInputSelect(gert::TilingContext* context, TopKV2TilingDataSimd& tiling,
+                                         const topkV2DataInfo::TopkComputeNowTileSizeInfo& info, uint32_t rows,
+                                         uint32_t parallel)
+{
+    if (tiling.get_modeType() != topkV2DataInfo::LEGACY_ROW_MODE || tiling.get_lastDimNeedCore() != 1U ||
+        !IsBitonicSmallTopkMode(info.kValue, tiling.get_sortPolicy(), info.isSort)) {
+        return rows;
+    }
+    const uint32_t valueBytes = GetDataTypeSize(info.dataType);
+    const uint32_t indexBytes = GetDataTypeSize(info.indicesDType);
+    if (!IsSingleBlockInputSelectRoutePreferred(info, tiling.get_sortPolicy(), valueBytes)) {
+        return rows;
+    }
+    const uint32_t stride = ::topkV2::TopKInputSelectStride(static_cast<uint32_t>(info.lastAxisNum));
+    uint64_t peakUb = ::topkV2::TopKInputSelectUbBytes(stride, rows, valueBytes, indexBytes);
+    if (rows > 0U && peakUb <= info.ubSizePlatForm) {
+        tiling.set_keyParams5(::topkV2::INPUT_SELECT_TILING_FLAG);
+        // The old TopK scratch budget can leave raw-input selection at very
+        // small batches. Normal selection only grows, up to one histogram group.
+        const uint32_t desiredRows = static_cast<uint32_t>(std::min<uint64_t>(
+            ::topkV2::INPUT_SELECT_GROUP_ROWS, Ops::Base::CeilDiv(info.unsortedDimNum, uint64_t(parallel))));
+        while (rows < desiredRows) {
+            uint64_t nextUb = ::topkV2::TopKInputSelectUbBytes(stride, rows + 1U, valueBytes, indexBytes);
+            if (nextUb > info.ubSizePlatForm) {
+                break;
+            }
+            ++rows;
+            peakUb = nextUb;
+        }
+    }
+    OP_LOGI(context->GetNodeName(), "raw input select: merge=0 rows=%u peakUb=%lu budget=%lu enabled=%u", rows, peakUb,
+            info.ubSizePlatForm, tiling.get_keyParams5() == ::topkV2::INPUT_SELECT_TILING_FLAG);
+    if (tiling.get_keyParams5() != ::topkV2::INPUT_SELECT_TILING_FLAG || valueBytes != sizeof(uint16_t) ||
+        info.kValue <= TOPK_TINY_K_MAX) {
+        return rows;
+    }
+    // Prefetch searches independently from one row, so it may shrink the
+    // normal batch. A failed double-buffer budget retains marker31 and rows.
+    const uint32_t limit = static_cast<uint32_t>(std::min<uint64_t>(
+        ::topkV2::INPUT_SELECT_PREFETCH_MAX_ROWS, Ops::Base::CeilDiv(info.unsortedDimNum, uint64_t(parallel))));
+    uint32_t prefetchRows = 0U;
+    for (uint32_t candidate = 1U; candidate <= limit; ++candidate) {
+        if (::topkV2::TopKInputSelectPrefetchUbBytes(stride, candidate, valueBytes, indexBytes) > info.ubSizePlatForm) {
+            break;
+        }
+        prefetchRows = candidate;
+    }
+    if (prefetchRows > 0U) {
+        rows = prefetchRows;
+        tiling.set_keyParams5(::topkV2::INPUT_SELECT_PREFETCH_TILING_FLAG);
+    }
+    return rows;
 }
 
 // ==================== NonLastSmallAxis Calculation Helpers ====================

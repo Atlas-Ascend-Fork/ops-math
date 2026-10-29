@@ -92,19 +92,20 @@ __aicore__ inline void KernelVbsMergeSort<T, CONVERT_TYPE, IS_DESCEND, IS_BITONI
     AscendC::LocalTensor<CONVERT_TYPE> concatTmpLocal = contCatTmpTbuf_.Get<CONVERT_TYPE>();
     AscendC::LocalTensor<CONVERT_TYPE> sortedLocal = sortedLocalResTbuf_.Get<CONVERT_TYPE>();
     AscendC::LocalTensor<CONVERT_TYPE> sortTmpLocal = sortedTmpLocalTbuf_.Get<CONVERT_TYPE>();
+    // Rows share the same direction transform; issue it once for the complete tile
+    if constexpr (!IS_DESCEND) {
+        flipSignBit(xLocal, 0U, aglinTileSize * nowCoreRealRowNum);
+    }
     for (int32_t round = 0; round < nowCoreRealRowNum; round++) {
         uint32_t offsetOneRow = round * aglinTileSize;
-        if constexpr (!IS_DESCEND) {
-            flipSignBit(xLocal, offsetOneRow, aglinTileSize);
-        }
         AscendC::LocalTensor<CONVERT_TYPE> concatLocal;
         AscendC::Concat(concatLocal, xLocal[offsetOneRow], concatTmpLocal, concatRepeatTimes);
         AscendC::Sort<CONVERT_TYPE, true>(sortedLocal, concatLocal, indexLocal_, sortTmpLocal, sortRepeatTimes);
         AscendC::Extract(sortedValueLocal[offsetOneRow], sortedValueIndexLocal[offsetOneRow], sortedLocal,
                          extractRepeatTimes);
-        if constexpr (!IS_DESCEND) {
-            flipSignBit(sortedValueLocal, offsetOneRow, aglinTileSize);
-        }
+    }
+    if constexpr (!IS_DESCEND) {
+        flipSignBit(sortedValueLocal, 0U, aglinTileSize * nowCoreRealRowNum);
     }
     if constexpr (IS_BITONIC_SORT) {
         RunBitonicSmallTopKFinalizeWithFlags<T, uint32_t, IS_DESCEND>(
@@ -129,19 +130,19 @@ __aicore__ inline void KernelVbsMergeSort<T, CONVERT_TYPE, IS_DESCEND, IS_BITONI
     AscendC::LocalTensor<CONVERT_TYPE> xLocalCast = xLocalCastTbuf_.Get<CONVERT_TYPE>();
     AscendC::LocalTensor<CONVERT_TYPE> sortedValueLocalCast = sortedValueLocalCastTbuf_.Get<CONVERT_TYPE>();
     AscendC::Cast(xLocalCast, xLocal, AscendC::RoundMode::CAST_NONE, aglinTileSize * nowCoreRealRowNum);
+    if constexpr (!IS_DESCEND) {
+        flipSignBit(xLocalCast, 0U, aglinTileSize * nowCoreRealRowNum);
+    }
     for (int32_t round = 0; round < nowCoreRealRowNum; round++) {
         uint32_t offsetOneRow = round * aglinTileSize;
-        if constexpr (!IS_DESCEND) {
-            flipSignBit(xLocalCast, offsetOneRow, aglinTileSize);
-        }
         AscendC::LocalTensor<CONVERT_TYPE> concatLocal;
         AscendC::Concat(concatLocal, xLocalCast[offsetOneRow], concatTmpLocal, concatRepeatTimes);
         AscendC::Sort<CONVERT_TYPE, true>(sortedLocal, concatLocal, indexLocal_, sortTmpLocal, sortRepeatTimes);
         AscendC::Extract(sortedValueLocalCast[offsetOneRow], sortedValueIndexLocal[offsetOneRow], sortedLocal,
                          extractRepeatTimes);
-        if constexpr (!IS_DESCEND) {
-            flipSignBit(sortedValueLocalCast, offsetOneRow, aglinTileSize);
-        }
+    }
+    if constexpr (!IS_DESCEND) {
+        flipSignBit(sortedValueLocalCast, 0U, aglinTileSize * nowCoreRealRowNum);
     }
     AscendC::Cast(sortedValueLocal, sortedValueLocalCast, AscendC::RoundMode::CAST_RINT,
                   aglinTileSize * nowCoreRealRowNum);
