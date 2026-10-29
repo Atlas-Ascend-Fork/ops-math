@@ -12,6 +12,8 @@
  * \file add_lora_infer.cpp
  * \brief
  */
+#include <vector>
+#include "base/err_msg.h"
 #include "register/op_impl_registry.h"
 #include "log/log.h"
 
@@ -27,11 +29,20 @@ static ge::graphStatus InferShape4AddLora(gert::InferShapeContext* context)
 
     // get input shapes
     const gert::Shape* xShape = context->GetInputShape(IDX_0);
-    OP_CHECK_NULL_WITH_CONTEXT(context, xShape);
+    OP_CHECK_IF(
+        xShape == nullptr,
+        OP_LOGE_WITH_INVALID_INPUT((context->GetNodeName() == nullptr ? "AddLora" : context->GetNodeName()), "y"),
+        return ge::GRAPH_FAILED);
 
     // get output shapes
     gert::Shape* yShape = context->GetOutputShape(IDX_0);
-    OP_CHECK_NULL_WITH_CONTEXT(context, yShape);
+    OP_CHECK_IF(yShape == nullptr,
+                REPORT_PREDEFINED_ERR_MSG(
+                    "EZ1014", (std::vector<const char*>{"opName", "reason"}),
+                    (std::vector<const char*>{(context->GetNodeName() == nullptr ? "AddLora" : context->GetNodeName()),
+                                              "Output shape y_out is unavailable; check InferShape context "
+                                              "construction and operator registration."})),
+                return ge::GRAPH_FAILED);
 
     yShape->SetDimNum(DIM_TWO);
     for (size_t i = 0; i < DIM_TWO; i++) {
