@@ -10,6 +10,8 @@
 
 #include "gtest/gtest.h"
 #include "../../../op_api/aclnn_reduce_nansum.h"
+#include "../../../op_api/reduce_nansum.h"
+#include "opdev/make_op_executor.h"
 #include "op_api_ut_common/tensor_desc.h"
 #include "op_api_ut_common/op_api_ut.h"
 
@@ -354,4 +356,32 @@ TEST_F(l2_reduce_nansum_test, ascend910B2_case_test_dimension)
     uint64_t workspaceSize = 0;
     aclnnStatus getWorkspaceResult = ut.TestGetWorkspaceSize(&workspaceSize);
     EXPECT_EQ(getWorkspaceResult, ACLNN_ERR_PARAM_INVALID);
+}
+
+TEST_F(l2_reduce_nansum_test, ascend910B2_case_test_scalar_nan_path)
+{
+    // 浮点标量：不允许原样返回输入
+    for (aclDataType dt : {ACL_FLOAT, ACL_FLOAT16, ACL_BF16}) {
+        auto selfDesc = TensorDesc({}, dt, ACL_FORMAT_ND);
+        auto self = selfDesc.ToAclType();
+        auto dim = IntArrayDesc(vector<int64_t>{0});
+        auto dimArr = dim.ToAclType();
+        auto executor = CREATE_EXECUTOR();
+        ASSERT_NE(executor.get(), nullptr);
+        const aclTensor* result = l0op::ReduceNansum(self.get(), dimArr.get(), false, executor.get());
+        ASSERT_NE(result, nullptr);
+        EXPECT_NE(result, self.get()) << "float scalar must not be returned as-is (NaN passthrough), dtype=" << dt;
+    }
+    // 整型标量无NaN概念，返回原值不变
+    {
+        auto selfDesc = TensorDesc({}, ACL_INT32, ACL_FORMAT_ND);
+        auto self = selfDesc.ToAclType();
+        auto dim = IntArrayDesc(vector<int64_t>{0});
+        auto dimArr = dim.ToAclType();
+        auto executor = CREATE_EXECUTOR();
+        ASSERT_NE(executor.get(), nullptr);
+        const aclTensor* result = l0op::ReduceNansum(self.get(), dimArr.get(), false, executor.get());
+        ASSERT_NE(result, nullptr);
+        EXPECT_EQ(result, self.get());
+    }
 }

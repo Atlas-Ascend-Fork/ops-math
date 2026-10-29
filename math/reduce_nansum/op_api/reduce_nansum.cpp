@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 #include "reduce_nansum.h"
-#include <cstdio>
+#include <limits>
 #include "opdev/aicpu/aicpu_task.h"
 #include "opdev/data_type_utils.h"
 #include "opdev/format_utils.h"
@@ -19,6 +19,8 @@
 #include "opdev/op_log.h"
 #include "opdev/shape_utils.h"
 #include "opdev/platform.h"
+
+#include "math/nan_to_num/op_api/nan_to_num.h"
 
 using namespace op;
 
@@ -47,8 +49,8 @@ static bool IsAiCoreSupport(const aclTensor* self)
 }
 
 // AICORE算子kernel
-static const aclTensor* ReduceNansumOpAiCore(
-    const aclTensor* self, const aclTensor* dim, bool keepDim, const aclTensor* out, aclOpExecutor* executor)
+static const aclTensor* ReduceNansumOpAiCore(const aclTensor* self, const aclTensor* dim, bool keepDim,
+                                             const aclTensor* out, aclOpExecutor* executor)
 {
     L0_DFX(ReduceNansumOpAiCore, self, dim, keepDim, out);
     ADD_TO_LAUNCHER_LIST_AICORE(ReduceNansum, OP_INPUT(self, dim), OP_OUTPUT(out), OP_ATTR(keepDim));
@@ -69,17 +71,17 @@ static const aclTensor* GenerateDimTensor(const aclTensor* self, const aclIntArr
 
 const aclTensor* ReduceNansum(const aclTensor* self, const aclIntArray* dim, bool keepDim, aclOpExecutor* executor)
 {
-    // DEBUG: log direct call path
-    auto selfShape = self->GetViewShape();
-    printf("[DIRECT DEBUG] self: dtype=%d, viewDim=%zu, dims=[",
-           static_cast<int>(self->GetDataType()), selfShape.GetDimNum());
-    for (size_t i = 0; i < selfShape.GetDimNum(); i++) {
-        printf("%ld%s", selfShape.GetDim(i), i + 1 < selfShape.GetDimNum() ? "," : "");
-    }
-    printf("]\n");
-
-    // self如果为标量，不调用算子，直接返回
+    // self如果为标量，不调用算子；浮点类型需先按nansum语义将NaN替换为0，保持与向量路径语义一致
     if (self->GetViewShape().GetDimNum() == 0) {
+        if (IsFloatingType(self->GetDataType())) {
+            auto nanToNumOut = NanToNum(self, 0.0f, std::numeric_limits<float>::infinity(),
+                                        -std::numeric_limits<float>::infinity(), executor);
+            if (nanToNumOut == nullptr) {
+                OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "NanToNum output for scalar self should not be null.");
+                return nullptr;
+            }
+            return nanToNumOut;
+        }
         return self;
     }
     auto out = executor->AllocTensor(self->GetDataType(), op::Format::FORMAT_ND, op::Format::FORMAT_ND);
