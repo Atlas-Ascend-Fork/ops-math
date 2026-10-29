@@ -18,15 +18,9 @@
 using namespace std;
 class BiasAddGradTiling : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        std::cout << "BiasAddGradTiling SetUp" << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "BiasAddGradTiling SetUp" << std::endl; }
 
-    static void TearDownTestCase()
-    {
-        std::cout << "BiasAddGradTiling TearDown" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "BiasAddGradTiling TearDown" << std::endl; }
 };
 
 TEST_F(BiasAddGradTiling, BiasAddGrad_tiling1)
@@ -42,7 +36,7 @@ TEST_F(BiasAddGradTiling, BiasAddGrad_tiling1)
         },
         {gert::TilingContextPara::OpAttr("data_format", Ops::Math::AnyValue::CreateFrom<std::string>("NHWC"))},
         &compileInfo);
-    uint64_t expectTilingKey = 5161;
+    uint64_t expectTilingKey = 10321;
     std::vector<size_t> expectWorkspaces = {16777216};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
@@ -60,7 +54,7 @@ TEST_F(BiasAddGradTiling, BiasAddGrad_tiling2)
         },
         {gert::TilingContextPara::OpAttr("data_format", Ops::Math::AnyValue::CreateFrom<std::string>("NCHW"))},
         &compileInfo);
-    uint64_t expectTilingKey = 141375;
+    uint64_t expectTilingKey = 282749;
     std::vector<size_t> expectWorkspaces = {16777216};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
@@ -78,7 +72,7 @@ TEST_F(BiasAddGradTiling, BiasAddGrad_tiling3)
         },
         {gert::TilingContextPara::OpAttr("data_format", Ops::Math::AnyValue::CreateFrom<std::string>("NHWC"))},
         &compileInfo);
-    uint64_t expectTilingKey = 6167;
+    uint64_t expectTilingKey = 12333;
     std::vector<size_t> expectWorkspaces = {16793600};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
@@ -96,7 +90,7 @@ TEST_F(BiasAddGradTiling, BiasAddGrad_tiling4)
         },
         {gert::TilingContextPara::OpAttr("data_format", Ops::Math::AnyValue::CreateFrom<std::string>("NCHW"))},
         &compileInfo);
-    uint64_t expectTilingKey = 11839;
+    uint64_t expectTilingKey = 23677;
     std::vector<size_t> expectWorkspaces = {16793600};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }

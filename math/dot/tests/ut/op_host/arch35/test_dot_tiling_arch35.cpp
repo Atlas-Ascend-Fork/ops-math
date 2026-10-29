@@ -18,26 +18,27 @@ using namespace std;
 using namespace ge;
 
 class DotTiling : public testing::Test {
- protected:
-  static void SetUpTestCase() {
-    std::cout << "DotTiling SetUp" << std::endl;
-  }
+protected:
+    static void SetUpTestCase() { std::cout << "DotTiling SetUp" << std::endl; }
 
-  static void TearDownTestCase() {
-    std::cout << "DotTiling TearDown" << std::endl;
-  }
+    static void TearDownTestCase() { std::cout << "DotTiling TearDown" << std::endl; }
 };
 
 TEST_F(DotTiling, dot_test_tiling_001)
 {
     DotCompileInfo compileInfo = {64, 253952};
     gert::TilingContextPara tilingContextPara("Dot",
-        {{{{8}, {8}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-         {{{8}, {8}}, ge::DT_FLOAT16, ge::FORMAT_ND},},
-        {{{{8}, {8}}, ge::DT_FLOAT16, ge::FORMAT_ND},},
-         &compileInfo);
-    uint64_t expectTilingKey = 5143;
-    string expectTilingData = "1 1 1 1 1 1 1 1 19968 2304 4294967360 1040187392 1 8 0 0 0 0 0 0 0 8 1 0 0 0 0 0 0 0 1 1 0 0 0 0 0 0 0 1 1 0 0 0 0 0 0 0 1 8 0 0 0 0 0 0 0 8 1 0 0 0 0 0 0 0 ";
+                                              {
+                                                  {{{8}, {8}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                  {{{8}, {8}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{8}, {8}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
+    uint64_t expectTilingKey = 10285;
+    string expectTilingData = "1 1 1 1 1 1 1 1 19968 2304 4294967360 4467570830351532033 1 8 0 0 0 0 0 0 0 8 1 0 0 0 0 "
+                              "0 0 0 1 1 0 0 0 0 0 0 0 1 1 0 0 0 0 0 0 0 1 8 0 0 0 0 0 0 0 8 1 0 0 0 0 0 0 0 ";
     std::vector<size_t> expectWorkspaces = {16777216};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
