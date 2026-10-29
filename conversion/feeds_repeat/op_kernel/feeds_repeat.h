@@ -22,10 +22,9 @@ using namespace AscendC;
 template <typename T1, typename T2>
 class FeedsRepeatND {
 public:
-    __aicore__ inline FeedsRepeatND()
-    {}
-    __aicore__ inline void Init(
-        GM_ADDR feeds, GM_ADDR feeds_repeat_times, GM_ADDR y, const FeedsRepeatTilingData* __restrict tiling_data);
+    __aicore__ inline FeedsRepeatND() {}
+    __aicore__ inline void Init(GM_ADDR feeds, GM_ADDR feeds_repeat_times, GM_ADDR y,
+                                const FeedsRepeatTilingData* __restrict tiling_data);
     __aicore__ inline void Process();
 
 private:
@@ -100,8 +99,8 @@ protected:
 };
 
 template <typename T1, typename T2>
-__aicore__ inline void FeedsRepeatND<T1, T2>::Init(
-    GM_ADDR feeds, GM_ADDR feeds_repeat_times, GM_ADDR y, const FeedsRepeatTilingData* __restrict tiling_data)
+__aicore__ inline void FeedsRepeatND<T1, T2>::Init(GM_ADDR feeds, GM_ADDR feeds_repeat_times, GM_ADDR y,
+                                                   const FeedsRepeatTilingData* __restrict tiling_data)
 {
     elem_row = tiling_data->elem_row;
     elem_per_loop = tiling_data->elem_per_loop;
@@ -140,7 +139,8 @@ __aicore__ inline void FeedsRepeatND<T1, T2>::RepeatTimesCast()
     in_queue.EnQue(feeds_repeat_times_ub);
     feeds_repeat_times_ub = in_queue.DeQue<T2>();
     Cast(feeds_repeat_times_float, feeds_repeat_times_ub, RoundMode::CAST_RINT, length_aligned);
-    in_queue.FreeTensor(feeds_repeat_times_ub);
+    // feeds_repeat_times 中的负值按 0 处理（与参考实现一致），避免累加行偏移回退
+    Maxs(feeds_repeat_times_float, feeds_repeat_times_float, 0.0f, static_cast<int32_t>(length_aligned));
 }
 
 template <typename T1, typename T2>
@@ -156,9 +156,17 @@ __aicore__ inline void FeedsRepeatND<T1, T2>::ClearOutputSpace()
     SetFlag<HardEvent::V_S>(event_v_to_s);
     WaitFlag<HardEvent::V_S>(event_v_to_s);
     end_index += end_sum_int64.GetValue(0);
-    // gm清零
-    int64_t empty_per_core = ((empty_size - end_index) * elem_row) / max_core_num;
-    int64_t empty_left = ((empty_size - end_index) * elem_row) % max_core_num;
+    // int64 极端重复次数经 float32 归约后可能溢出，且 sum(repeats) 允许大于 output_feeds_size：
+    // 将清零起点钳制到 [0, empty_size]，避免负偏移写入或清零范围被放大
+    if (end_index < 0) {
+        end_index = 0;
+    }
+    if (end_index > empty_size) {
+        end_index = empty_size;
+    }
+    int64_t empty_rows = empty_size - end_index;
+    int64_t empty_per_core = (empty_rows * elem_row) / max_core_num;
+    int64_t empty_left = (empty_rows * elem_row) % max_core_num;
     if ((core_index == 0) && ((empty_per_core + empty_left) != 0)) {
         InitOutput<T1>(y_gm[end_index * elem_row], empty_per_core + empty_left, 0);
     }
@@ -179,10 +187,17 @@ __aicore__ inline void FeedsRepeatND<T1, T2>::ComputeStartDest()
         sumParams.inner = start_aligned;
         sumParams.n = start_row;
         Sum(sum_result, feeds_repeat_times_float, sumParams);
-        Cast(sum_result_int64, sum_result, RoundMode::CAST_RINT, align_num);
+        Cast(sum_result_int64, sum_result, RoundMode::CAST_RINT, cast_num);
         SetFlag<HardEvent::V_S>(event_v_to_s);
         WaitFlag<HardEvent::V_S>(event_v_to_s);
         y_start_index += sum_result_int64.GetValue(0);
+        // fp32 归约溢出防御：与 ClearOutputSpace 的 end_index 保持同一钳制口径
+        if (y_start_index < 0) {
+            y_start_index = 0;
+        }
+        if (y_start_index > empty_size) {
+            y_start_index = empty_size;
+        }
     }
 }
 
@@ -191,16 +206,26 @@ __aicore__ inline void FeedsRepeatND<T1, T2>::RepeatSingleRow()
 {
     feeds_repeat_times_float = feeds_repeat_times_float_buf.Get<float>();
     repeat_times = feeds_repeat_times_ub.GetValue(start_row);
+    if (repeat_times < 0) {
+        repeat_times = 0;
+    }
     int64_t repeat_left = repeat_times % block_in_group;
-    int64_t repeat_start =
-        id_in_group * (repeat_times / block_in_group) + (id_in_group < repeat_left ? id_in_group : repeat_left);
+    int64_t repeat_start = id_in_group * (repeat_times / block_in_group) +
+                           (id_in_group < repeat_left ? id_in_group : repeat_left);
     int64_t repeat_end = repeat_start + (repeat_times / block_in_group) + (id_in_group < repeat_left ? 1 : 0);
-    for (int j = 0; j < loop_num; j++) {
+    // 截断：不写入超过 output_feeds_size 的行（sum(repeat) > output_feeds_size 时丢弃超出部分）
+    int64_t row_remain = empty_size - y_start_index;
+    if (row_remain < 0) {
+        row_remain = 0;
+    }
+    repeat_start = repeat_start < row_remain ? repeat_start : row_remain;
+    repeat_end = repeat_end < row_remain ? repeat_end : row_remain;
+    for (int64_t j = 0; j < loop_num; j++) {
         row = in_out_queue.AllocTensor<T1>();
         DataCopyPad(row, feeds_gm[start_index + elem_per_loop * j], copyParams, padParams);
         in_out_queue.EnQue<QuePosition::VECIN, QuePosition::VECOUT, T1>(row);
         row = in_out_queue.DeQue<QuePosition::VECIN, QuePosition::VECOUT, T1>();
-        for (int k = repeat_start; k < repeat_end; k++) {
+        for (int64_t k = repeat_start; k < repeat_end; k++) {
             DataCopyPad(y_gm[(y_start_index + k) * elem_row + elem_per_loop * j], row, copyParams);
         }
         in_out_queue.FreeTensor(row);
@@ -211,7 +236,7 @@ __aicore__ inline void FeedsRepeatND<T1, T2>::RepeatSingleRow()
         DataCopyPad(row, feeds_gm[left_index], copyParams_left, padParams);
         in_out_queue.EnQue<QuePosition::VECIN, QuePosition::VECOUT, T1>(row);
         row = in_out_queue.DeQue<QuePosition::VECIN, QuePosition::VECOUT, T1>();
-        for (int k = repeat_start; k < repeat_end; k++) {
+        for (int64_t k = repeat_start; k < repeat_end; k++) {
             DataCopyPad(y_gm[(y_start_index + k) * elem_row + elem_loop], row, copyParams_left);
         }
         in_out_queue.FreeTensor(row);
@@ -222,15 +247,24 @@ template <typename T1, typename T2>
 __aicore__ inline void FeedsRepeatND<T1, T2>::RepeatMultiRow()
 {
     int64_t loop_start;
-    for (int i = start_row; i < end_row; i++) {
+    for (int64_t i = start_row; i < end_row; i++) {
         loop_start = elem_row * i;
         repeat_times = feeds_repeat_times_ub.GetValue(i);
-        for (int j = 0; j < loop_num; j++) {
+        if (repeat_times < 0) {
+            repeat_times = 0;
+        }
+        // 截断：不写入超过 output_feeds_size 的行（sum(repeat) > output_feeds_size 时丢弃超出部分）
+        int64_t row_remain = empty_size - y_start_index;
+        if (row_remain < 0) {
+            row_remain = 0;
+        }
+        int64_t write_times = repeat_times < row_remain ? repeat_times : row_remain;
+        for (int64_t j = 0; j < loop_num; j++) {
             row = in_out_queue.AllocTensor<T1>();
             DataCopyPad(row, feeds_gm[loop_start + elem_per_loop * j], copyParams, padParams);
             in_out_queue.EnQue<QuePosition::VECIN, QuePosition::VECOUT, T1>(row);
             row = in_out_queue.DeQue<QuePosition::VECIN, QuePosition::VECOUT, T1>();
-            for (int k = 0; k < repeat_times; k++) {
+            for (int64_t k = 0; k < write_times; k++) {
                 DataCopyPad(y_gm[(y_start_index + k) * elem_row + elem_per_loop * j], row, copyParams);
             }
             in_out_queue.FreeTensor(row);
@@ -241,12 +275,21 @@ __aicore__ inline void FeedsRepeatND<T1, T2>::RepeatMultiRow()
             DataCopyPad(row, feeds_gm[loop_start + elem_loop], copyParams_left, padParams);
             in_out_queue.EnQue<QuePosition::VECIN, QuePosition::VECOUT, T1>(row);
             row = in_out_queue.DeQue<QuePosition::VECIN, QuePosition::VECOUT, T1>();
-            for (int k = 0; k < repeat_times; k++) {
+            for (int64_t k = 0; k < write_times; k++) {
                 DataCopyPad(y_gm[(y_start_index + k) * elem_row + elem_loop], row, copyParams_left);
             }
             in_out_queue.FreeTensor(row);
         }
-        y_start_index += repeat_times;
+        // 累加已写入行数；钳制到 empty_size，避免极端重复次数下 int64 溢出或越界
+        int64_t row_remain_after = empty_size - y_start_index;
+        if (row_remain_after < 0) {
+            row_remain_after = 0;
+        }
+        if (repeat_times >= row_remain_after) {
+            y_start_index = empty_size;
+        } else {
+            y_start_index += repeat_times;
+        }
     }
 }
 
@@ -291,6 +334,7 @@ __aicore__ inline void FeedsRepeatND<T1, T2>::Process()
     } else { // 一核多行
         RepeatMultiRow();
     }
+    in_queue.FreeTensor(feeds_repeat_times_ub);
 }
 
 } // namespace FeedsRepeat

@@ -8,6 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+#include <cstdint>
 #include <gtest/gtest.h>
 #include <iostream>
 #include "infershape_context_faker.h"
@@ -131,4 +132,116 @@ TEST_F(FeedsRepeat, FeedsRepeat_infershape_null_attr_repro)
     auto inferShapeFunc = spaceRegistry->GetOpImpl("FeedsRepeat")->infer_shape;
     ASSERT_NE(inferShapeFunc, nullptr);
     EXPECT_EQ(inferShapeFunc(contextHolder.GetContext()), ge::GRAPH_FAILED);
+}
+
+TEST_F(FeedsRepeat, FeedsRepeat_infershape_elem_row_product_overflow)
+{
+    const int64_t hugeDim = INT64_MAX / 2;
+    std::vector<gert::StorageShape> inputShapes = {
+        {{1, 4, hugeDim}, {1, 4, hugeDim}}, // feeds_shape
+        {{1}, {1}}                          // repeat_times_shape
+    };
+    std::vector<ge::DataType> dtypes = {
+        ge::DT_FLOAT16, // input1Dtype
+        ge::DT_INT32,   // input2Dtype
+        ge::DT_FLOAT16  // outputDtype
+    };
+    gert::StorageShape outStorageShape = {};
+    int64_t attr = 15;
+    // 4 * (INT64_MAX/2) 超出 int64 表示范围，逐维累乘守卫应拒绝而非回绕出伪合法值
+    ExeTestCaseForFeedsRepeat({}, inputShapes, dtypes, outStorageShape, ge::GRAPH_FAILED, attr);
+}
+
+TEST_F(FeedsRepeat, FeedsRepeat_infershape_unknown_rank_propagation)
+{
+    // feeds 为 [-2]（未知 Rank）时输出传播为 [-2]；必选属性在场时推导成功
+    std::vector<gert::StorageShape> inputShapes = {
+        {{-2}, {-2}}, // feeds_shape：未知 Rank
+        {{1}, {1}}    // repeat_times_shape
+    };
+    std::vector<ge::DataType> dtypes = {
+        ge::DT_FLOAT16, // input1Dtype
+        ge::DT_INT32,   // input2Dtype
+        ge::DT_FLOAT16  // outputDtype
+    };
+    std::vector<int64_t> expectResult = {-2};
+    gert::StorageShape outStorageShape = {};
+    int64_t attr = 12;
+    ExeTestCaseForFeedsRepeat({expectResult}, inputShapes, dtypes, outStorageShape, ge::GRAPH_SUCCESS, attr);
+}
+
+TEST_F(FeedsRepeat, FeedsRepeat_infershape_unknown_rank_missing_attr)
+{
+    // 必选属性判空先于未知 Rank 早退：[-2] 输入缺少 output_feeds_size 时同样应拒绝
+    gert::StorageShape feedsShape = {{-2}, {-2}};
+    gert::StorageShape repeatShape = {{1}, {1}};
+    gert::StorageShape outShape = {};
+    std::vector<gert::Tensor*> inputTensors = {(gert::Tensor*)&feedsShape, (gert::Tensor*)&repeatShape};
+    std::vector<gert::StorageShape*> outputShapes = {&outShape};
+    auto contextHolder = gert::InferShapeContextFaker()
+                             .SetOpType("FeedsRepeat")
+                             .NodeIoNum(2, 1)
+                             .NodeInputTd(0, ge::DT_FLOAT16, ge::FORMAT_ND, ge::FORMAT_ND)
+                             .NodeInputTd(1, ge::DT_INT32, ge::FORMAT_ND, ge::FORMAT_ND)
+                             .NodeOutputTd(0, ge::DT_FLOAT16, ge::FORMAT_ND, ge::FORMAT_ND)
+                             .InputTensors(inputTensors)
+                             .OutputShapes(outputShapes)
+                             // intentionally NOT calling .Attr("output_feeds_size", ...)
+                             .Build();
+
+    auto spaceRegistry = gert::DefaultOpImplSpaceRegistryV2::GetInstance().GetSpaceRegistry();
+    auto inferShapeFunc = spaceRegistry->GetOpImpl("FeedsRepeat")->infer_shape;
+    ASSERT_NE(inferShapeFunc, nullptr);
+    EXPECT_EQ(inferShapeFunc(contextHolder.GetContext()), ge::GRAPH_FAILED);
+}
+
+TEST_F(FeedsRepeat, FeedsRepeat_infershape_times_dynamic_dims_skip_count_check)
+{
+    // feeds_repeat_times 含偶数个 -1 维时 GetShapeSize() 会得到正乘积（[-1,-1] 得 1），
+    // 不得据此把"未知元素总数"当作已知而误拒合法动态构图；应跳过计数校验由推导成功
+    std::vector<gert::StorageShape> inputShapes = {
+        {{5, 3}, {5, 3}},    // feeds_shape
+        {{-1, -1}, {-1, -1}} // feeds_repeat_times：两个动态维
+    };
+    std::vector<ge::DataType> dtypes = {
+        ge::DT_FLOAT16, // input1Dtype
+        ge::DT_INT64,   // input2Dtype
+        ge::DT_FLOAT16  // outputDtype
+    };
+    std::vector<int64_t> expectResult = {10, 3};
+    gert::StorageShape outStorageShape = {};
+    int64_t attr = 10;
+    ExeTestCaseForFeedsRepeat({expectResult}, inputShapes, dtypes, outStorageShape, ge::GRAPH_SUCCESS, attr);
+}
+
+TEST_F(FeedsRepeat, FeedsRepeat_infershape_negative_output_feeds_size_rejected)
+{
+    // output_feeds_size 为负值时 InferShape 与 tiling 同口径拒绝（两入口一致）
+    std::vector<gert::StorageShape> inputShapes = {
+        {{4, 5, 6, 7}, {4, 5, 6, 7}}, // feeds_shape
+        {{4}, {4}}                    // repeat_times_shape
+    };
+    std::vector<ge::DataType> dtypes = {
+        ge::DT_FLOAT16, // input1Dtype
+        ge::DT_INT32,   // input2Dtype
+        ge::DT_FLOAT16  // outputDtype
+    };
+    gert::StorageShape outStorageShape = {};
+    ExeTestCaseForFeedsRepeat({}, inputShapes, dtypes, outStorageShape, ge::GRAPH_FAILED, -1);
+}
+
+TEST_F(FeedsRepeat, FeedsRepeat_infershape_unknown_rank_negative_attr_rejected)
+{
+    // 未知 Rank 路径同样受取值域约束：[-2] 传播不得跳过负值属性校验
+    std::vector<gert::StorageShape> inputShapes = {
+        {{-2}, {-2}}, // feeds_shape：未知 Rank
+        {{1}, {1}}    // repeat_times_shape
+    };
+    std::vector<ge::DataType> dtypes = {
+        ge::DT_FLOAT16, // input1Dtype
+        ge::DT_INT32,   // input2Dtype
+        ge::DT_FLOAT16  // outputDtype
+    };
+    gert::StorageShape outStorageShape = {};
+    ExeTestCaseForFeedsRepeat({}, inputShapes, dtypes, outStorageShape, ge::GRAPH_FAILED, -1);
 }

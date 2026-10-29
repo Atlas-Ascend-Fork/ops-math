@@ -34,13 +34,15 @@ int32, int64, uint8, uint16, uint32, uint64, bool will be supported later.
 * y: A Tensor, which is the same dtype as feeds. Dim0 is output_feeds_size, other dims are same as feeds.
 
 * @attention Constraints:
-* @li The length of feeds_repeat_times must be same as feeds' dim0 size.
-* @li The byte of feeds_repeat_times cannot reach about 64KB.
+* @li The element count of feeds_repeat_times must be same as feeds' dim0 size (rank不限，按元素总数判定).
+* @li The byte size of feeds_repeat_times is limited by the on-chip UB capacity (compared as twice the byte size
+ plus about 8 KB reserve against UB capacity); see README for current per-product limits (about 92 KB on Atlas
+ A2/A3, about 120 KB on Ascend 950PR&950DT).
 */
 REG_OP(FeedsRepeat)
-    .INPUT(feeds, TensorType::BasicType())
+    .INPUT(feeds, TensorType({DT_FLOAT16, DT_FLOAT, DT_BF16}))
     .INPUT(feeds_repeat_times, TensorType({DT_INT32, DT_INT64}))
-    .OUTPUT(y, TensorType::BasicType())
+    .OUTPUT(y, TensorType({DT_FLOAT16, DT_FLOAT, DT_BF16}))
     .REQUIRED_ATTR(output_feeds_size, Int)
     .OP_END_FACTORY_REG(FeedsRepeat)
 
