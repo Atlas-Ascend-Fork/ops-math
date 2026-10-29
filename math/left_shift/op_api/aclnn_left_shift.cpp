@@ -96,7 +96,7 @@ static aclnnStatus CheckParams(const aclTensor* self, const aclTensor* shiftBits
     return ACLNN_SUCCESS;
 }
 
-static bool CheckPromoteType(const aclTensor* self, const aclTensor* shiftBits, aclTensor* out,
+static bool CheckPromoteType(const aclTensor* self, const aclTensor* shiftBits, const aclTensor* out,
                              op::DataType promoteType)
 {
     // 检查self和shiftBits能否做数据类型推导
@@ -150,7 +150,7 @@ static aclnnStatus CheckParamsScalar(const aclTensor* self, const aclScalar* shi
     return ACLNN_SUCCESS;
 }
 
-static bool CheckPromoteTypeScalar(const aclTensor* self, const aclScalar* shiftBits, aclTensor* out,
+static bool CheckPromoteTypeScalar(const aclTensor* self, const aclScalar* shiftBits, const aclTensor* out,
                                    op::DataType promoteType)
 {
     // 检查self和shiftBits能否做数据类型推导
