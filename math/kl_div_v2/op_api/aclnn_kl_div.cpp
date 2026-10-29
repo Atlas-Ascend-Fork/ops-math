@@ -266,12 +266,19 @@ aclnnStatus aclnnKlDivGetWorkspaceSize(const aclTensor* self, const aclTensor* t
             OP_CHECK_SHAPE_NOT_EQUAL_WITH_EXPECTED_SIZE(out, broadcastShape, return ACLNN_ERR_PARAM_INVALID);
         }
     }
-    op::FVector<int64_t, op::MAX_DIM_NUM> broadcastDims = op::ToShapeVector(broadcastShape);
-    auto broadcastShapeArray = uniqueExecutor.get()->AllocIntArray(broadcastDims.data(), broadcastDims.size());
-    selfBroadcast = l0op::BroadcastTo(selfUnsqueeze, broadcastShapeArray, uniqueExecutor.get());
-    CHECK_RET(selfBroadcast != nullptr, ACLNN_ERR_INNER_NULLPTR);
-    targetBroadcast = l0op::BroadcastTo(targetUnsqueeze, broadcastShapeArray, uniqueExecutor.get());
-    CHECK_RET(targetBroadcast != nullptr, ACLNN_ERR_INNER_NULLPTR);
+    // 广播后的shape与输入一致时无需调用BroadcastTo，直接复用原tensor
+    if (selfUnsqueeze->GetViewShape() != broadcastShape || targetUnsqueeze->GetViewShape() != broadcastShape) {
+        op::FVector<int64_t, op::MAX_DIM_NUM> broadcastDims = op::ToShapeVector(broadcastShape);
+        auto broadcastShapeArray = uniqueExecutor.get()->AllocIntArray(broadcastDims.data(), broadcastDims.size());
+        if (selfUnsqueeze->GetViewShape() != broadcastShape) {
+            selfBroadcast = l0op::BroadcastTo(selfUnsqueeze, broadcastShapeArray, uniqueExecutor.get());
+            CHECK_RET(selfBroadcast != nullptr, ACLNN_ERR_INNER_NULLPTR);
+        }
+        if (targetUnsqueeze->GetViewShape() != broadcastShape) {
+            targetBroadcast = l0op::BroadcastTo(targetUnsqueeze, broadcastShapeArray, uniqueExecutor.get());
+            CHECK_RET(targetBroadcast != nullptr, ACLNN_ERR_INNER_NULLPTR);
+        }
+    }
 
     // 进行计算
     auto klRes = l0op::KlDiv(selfBroadcast, targetBroadcast, GetReductionStr(reduction), logTarget,

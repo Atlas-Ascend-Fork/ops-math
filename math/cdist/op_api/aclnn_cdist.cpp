@@ -36,8 +36,8 @@ extern "C" {
 constexpr size_t MAX_DIM_LEN = 8;
 constexpr size_t MIN_DIM_LEN = 2;
 
-static const std::initializer_list<op::DataType> DTYPE_SUPPORT_LIST = {
-    op::DataType::DT_FLOAT, op::DataType::DT_FLOAT16, op::DataType::DT_BF16};
+static const std::initializer_list<op::DataType> DTYPE_SUPPORT_LIST = {op::DataType::DT_FLOAT, op::DataType::DT_FLOAT16,
+                                                                       op::DataType::DT_BF16};
 
 static const inline std::initializer_list<DataType>& GetSupportDtypeList(SocVersion socVersion)
 {
@@ -86,8 +86,9 @@ static bool CheckShape(const aclTensor* x1, const aclTensor* x2, const aclTensor
     auto x2DimNum = x2->GetViewShape().GetDimNum();
     int64_t x1LastDim = static_cast<int64_t>(x1->GetViewShape().GetDim(x1DimNum - 1));
     int64_t x2LastDim = static_cast<int64_t>(x2->GetViewShape().GetDim(x2DimNum - 1));
-    if(x1LastDim != x2LastDim) {
-        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "The dim num of X1 and X2 must be the same. X1 got: %ld, X2 got: %ld.", x1LastDim, x2LastDim);
+    if (x1LastDim != x2LastDim) {
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "The dim num of X1 and X2 must be the same. X1 got: %ld, X2 got: %ld.",
+                x1LastDim, x2LastDim);
         return false;
     }
     return true;
@@ -96,18 +97,18 @@ static bool CheckShape(const aclTensor* x1, const aclTensor* x2, const aclTensor
 static bool CheckParamsLogic(float& p, const int64_t compute_mode, SocVersion socVersion)
 {
     // p范数为非负数
-    if(p < 0 || std::isnan(p)) {
+    if (p < 0 || std::isnan(p)) {
         OP_LOGE(ACLNN_ERR_PARAM_INVALID, "cdist only supports non-negative p values.");
         return false;
     }
     // 强校验compute_mode
-    if (std::fabs(p - 2.0) < 1e-6 && compute_mode != 2){
+    if (std::fabs(p - 2.0) < 1e-6 && compute_mode != 2) {
         OP_LOGE(ACLNN_ERR_PARAM_INVALID, "compute_mode %lld is not supported, only support 2 when pValue equals 2.0",
                 compute_mode);
         return false;
     }
     // A2A3特殊处理p值
-    if ((socVersion == SocVersion::ASCEND910B || socVersion == SocVersion::ASCEND910_93) && std::isinf(p)){
+    if ((socVersion == SocVersion::ASCEND910B || socVersion == SocVersion::ASCEND910_93) && std::isinf(p)) {
         p = -1.0;
     }
     return true;
@@ -123,9 +124,8 @@ static void CheckFormat(const aclTensor* x1, const aclTensor* x2)
     }
 }
 
-static aclnnStatus CheckParams(
-    const aclTensor* x1, const aclTensor* x2, float& p, const int64_t compute_mode, aclTensor* out,
-    SocVersion socVersion)
+static aclnnStatus CheckParams(const aclTensor* x1, const aclTensor* x2, float& p, const int64_t compute_mode,
+                               aclTensor* out, SocVersion socVersion)
 {
     // 1. 检查参数是否为空指针
     CHECK_COND(CheckNotNull(x1, x2, out), ACLNN_ERR_PARAM_NULLPTR, "CheckNotNull failed!");
@@ -144,11 +144,12 @@ static aclnnStatus CheckParams(
     return ACLNN_SUCCESS;
 }
 
-static bool CheckBatchDimNum(const aclTensor* x) {
+static bool CheckBatchDimNum(const aclTensor* x)
+{
     // 检查batch轴是否为0
     auto xDimNum = x->GetViewShape().GetDimNum();
-    for(int64_t i = 0; i < static_cast<int64_t>(xDimNum - 1); i++) {
-        if(x->GetViewShape().GetDim(i) == 0) {
+    for (int64_t i = 0; i < static_cast<int64_t>(xDimNum - 1); i++) {
+        if (x->GetViewShape().GetDim(i) == 0) {
             return true;
         }
     }
@@ -156,9 +157,8 @@ static bool CheckBatchDimNum(const aclTensor* x) {
 }
 
 // 定义aclnnCdist的第一段接口
-aclnnStatus aclnnCdistGetWorkspaceSize(
-    const aclTensor* x1, const aclTensor* x2, float p, int64_t compute_mode, aclTensor* out, uint64_t* workspaceSize,
-    aclOpExecutor** executor)
+aclnnStatus aclnnCdistGetWorkspaceSize(const aclTensor* x1, const aclTensor* x2, float p, int64_t compute_mode,
+                                       aclTensor* out, uint64_t* workspaceSize, aclOpExecutor** executor)
 {
     OP_CHECK_COMM_INPUT(workspaceSize, executor);
 
@@ -180,13 +180,14 @@ aclnnStatus aclnnCdistGetWorkspaceSize(
     auto x2DimNum = x2->GetViewShape().GetDimNum();
 
     // batch为0的时候，输出空tensor
-    if(CheckBatchDimNum(x1) || CheckBatchDimNum(x2)) {
+    if (CheckBatchDimNum(x1) || CheckBatchDimNum(x2)) {
         *workspaceSize = 0;
         uniqueExecutor.ReleaseTo(executor);
         return ACLNN_SUCCESS;
     }
 
-    bool needCast = x1->GetDataType() == op::DataType::DT_BF16 && (socVersion == SocVersion::ASCEND910B || socVersion == SocVersion::ASCEND910_93);
+    bool needCast = x1->GetDataType() == op::DataType::DT_BF16 &&
+                    (socVersion == SocVersion::ASCEND910B || socVersion == SocVersion::ASCEND910_93);
     // 将输入x1和x2转换成连续的tensor
     auto x1Contiguous = l0op::Contiguous(x1, uniqueExecutor.get());
     CHECK_RET(x1Contiguous != nullptr, ACLNN_ERR_INNER_NULLPTR);
@@ -211,9 +212,9 @@ aclnnStatus aclnnCdistGetWorkspaceSize(
                            ((i < maxRank - minRank) ? 1 : x2Contiguous->GetViewShape().GetDim(i - maxRank + minRank)) :
                            x2Contiguous->GetViewShape().GetDim(i);
         // 判断是否符合广播规则
-        if(dim1 != dim2) {
-            if(dim1 != 1 && dim2 != 1) {
-                OP_LOGE(ACLNN_ERR_PARAM_INVALID, "X1 shape: %s and X2 shape: %s cannot broadcast!", 
+        if (dim1 != dim2) {
+            if (dim1 != 1 && dim2 != 1) {
+                OP_LOGE(ACLNN_ERR_PARAM_INVALID, "X1 shape: %s and X2 shape: %s cannot broadcast!",
                         op::ToString(x1->GetViewShape()).GetString(), op::ToString(x2->GetViewShape()).GetString());
                 return ACLNN_ERR_PARAM_INVALID; // 无法广播
             }
@@ -227,12 +228,12 @@ aclnnStatus aclnnCdistGetWorkspaceSize(
         x2BroadcastShape.AppendDim(x2Contiguous->GetViewShape().GetDim(x2DimNum - i - 1));
     }
 
-    if(x1Contiguous->GetViewShape().GetDim(x1DimNum - 1) == 0) {
+    if (x1Contiguous->GetViewShape().GetDim(x1DimNum - 1) == 0) {
         // 执行L0 Fill算子
         aclScalar* scalar = uniqueExecutor.get()->AllocScalar(0);
         auto valueTensor = uniqueExecutor.get()->ConvertToTensor(scalar, out->GetDataType());
         op::Shape outShape;
-        for(int64_t i = 0; i < static_cast<int64_t>(maxRank - 1); i++) {
+        for (int64_t i = 0; i < static_cast<int64_t>(maxRank - 1); i++) {
             int64_t dim = x1BroadcastShape.GetDim(i);
             outShape.AppendDim(dim);
         }
@@ -243,17 +244,30 @@ aclnnStatus aclnnCdistGetWorkspaceSize(
         auto dimTensor = uniqueExecutor.get()->ConvertToTensor(dimArray, op::DataType::DT_INT64);
         CdistOutRet = l0op::Fill(dimTensor, valueTensor, dimArray, uniqueExecutor.get());
     } else {
-        // 将广播后的形状转换为数组
-        op::FVector<int64_t, op::MAX_DIM_NUM> x1BroadcastDims = op::ToShapeVector(x1BroadcastShape);
-        auto x1BroadcastShapeArray = uniqueExecutor.get()->AllocIntArray(x1BroadcastDims.data(), x1BroadcastDims.size());
-        op::FVector<int64_t, op::MAX_DIM_NUM> x2BroadcastDims = op::ToShapeVector(x2BroadcastShape);
-        auto x2BroadcastShapeArray = uniqueExecutor.get()->AllocIntArray(x2BroadcastDims.data(), x2BroadcastDims.size());
+        // 广播后的shape与输入一致时无需调用BroadcastTo，直接复用原tensor
+        auto x1Broadcast = x1Contiguous;
+        auto x2Broadcast = x2Contiguous;
+        bool needBroadcastX1 = x1Contiguous->GetViewShape() != x1BroadcastShape;
+        bool needBroadcastX2 = x2Contiguous->GetViewShape() != x2BroadcastShape;
+        if (needBroadcastX1 || needBroadcastX2) {
+            // 将广播后的形状转换为数组
+            op::FVector<int64_t, op::MAX_DIM_NUM> x1BroadcastDims = op::ToShapeVector(x1BroadcastShape);
+            auto x1BroadcastShapeArray = uniqueExecutor.get()->AllocIntArray(x1BroadcastDims.data(),
+                                                                             x1BroadcastDims.size());
+            op::FVector<int64_t, op::MAX_DIM_NUM> x2BroadcastDims = op::ToShapeVector(x2BroadcastShape);
+            auto x2BroadcastShapeArray = uniqueExecutor.get()->AllocIntArray(x2BroadcastDims.data(),
+                                                                             x2BroadcastDims.size());
 
-        // 执行广播操作
-        auto x1Broadcast = l0op::BroadcastTo(x1Contiguous, x1BroadcastShapeArray, uniqueExecutor.get());
-        CHECK_RET(x1Broadcast != nullptr, ACLNN_ERR_INNER_NULLPTR);
-        auto x2Broadcast = l0op::BroadcastTo(x2Contiguous, x2BroadcastShapeArray, uniqueExecutor.get());
-        CHECK_RET(x2Broadcast != nullptr, ACLNN_ERR_INNER_NULLPTR);
+            // 执行广播操作
+            if (needBroadcastX1) {
+                x1Broadcast = l0op::BroadcastTo(x1Contiguous, x1BroadcastShapeArray, uniqueExecutor.get());
+                CHECK_RET(x1Broadcast != nullptr, ACLNN_ERR_INNER_NULLPTR);
+            }
+            if (needBroadcastX2) {
+                x2Broadcast = l0op::BroadcastTo(x2Contiguous, x2BroadcastShapeArray, uniqueExecutor.get());
+                CHECK_RET(x2Broadcast != nullptr, ACLNN_ERR_INNER_NULLPTR);
+            }
+        }
 
         if (socVersion == SocVersion::ASCEND910B || socVersion == SocVersion::ASCEND910_93) {
             if (needCast) {
@@ -284,8 +298,8 @@ aclnnStatus aclnnCdistGetWorkspaceSize(
             finalInputShape.SetDim(dimNum - 1, x2UnsqueezedShape[dimNum - 1]);
 
             FVector<int64_t, MAX_DIM_NUM> broadcastDims = ToShapeVector(finalInputShape);
-            aclIntArray* inputBroadcastShapeArray =
-                uniqueExecutor.get()->AllocIntArray(broadcastDims.data(), broadcastDims.size());
+            aclIntArray* inputBroadcastShapeArray = uniqueExecutor.get()->AllocIntArray(broadcastDims.data(),
+                                                                                        broadcastDims.size());
             CHECK_RET(inputBroadcastShapeArray != nullptr, ACLNN_ERR_INNER_NULLPTR);
             x1Broadcast = l0op::BroadcastTo(x1Reshape, inputBroadcastShapeArray, uniqueExecutor.get());
             x2Broadcast = l0op::BroadcastTo(x2Reshape, inputBroadcastShapeArray, uniqueExecutor.get());
