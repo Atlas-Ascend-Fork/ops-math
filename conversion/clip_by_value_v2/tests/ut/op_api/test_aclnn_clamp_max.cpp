@@ -17,16 +17,29 @@
 #include "op_api_ut_common/op_api_ut.h"
 #include "op_api_ut_common/scalar_desc.h"
 #include "op_api_ut_common/tensor_desc.h"
+#include "opdev/platform.h"
 
 using namespace op;
 using namespace std;
 
 class l2_clamp_max_test : public testing::Test {
 protected:
-    static void SetUpTestCase() { std::cout << "clamp_max_test SetUp" << std::endl; }
+    static NpuArch savedArch_;
 
-    static void TearDownTestCase() { std::cout << "clamp_max_test TearDown" << std::endl; }
+    static void SetUpTestCase()
+    {
+        savedArch_ = GetCurrentPlatformInfo().GetCurNpuArch();
+        std::cout << "clamp_max_test SetUp" << std::endl;
+    }
+
+    static void TearDownTestCase()
+    {
+        SetPlatformNpuArch(savedArch_);
+        std::cout << "clamp_max_test TearDown" << std::endl;
+    }
 };
+
+NpuArch l2_clamp_max_test::savedArch_ = NpuArch::DAV_2201;
 
 // 各元素特殊类型覆盖用例
 // 空tensor   self ,out为空时，空进空出
@@ -121,4 +134,97 @@ TEST_F(l2_clamp_max_test, ascend950pr_9589_aclnnClampMax_input_diff)
 
     aclRet = ut_out_nullptr.TestGetWorkspaceSize(&workspaceSize);
     EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_NULLPTR);
+}
+
+// A2：clipValueMax 超出 self/out 整型可表示范围时，第一段应返回 161002，禁止静默环绕
+TEST_F(l2_clamp_max_test, ascend910B2_scalar_overflow_int8)
+{
+    SetPlatformNpuArch(NpuArch::DAV_2201);
+    auto self = TensorDesc({5}, ACL_INT8, ACL_FORMAT_ND);
+    auto out = TensorDesc({5}, ACL_INT8, ACL_FORMAT_ND);
+    auto maxOver = ScalarDesc(static_cast<int32_t>(1000));
+    auto maxUnder = ScalarDesc(static_cast<int32_t>(-200));
+    auto maxValid = ScalarDesc(static_cast<int32_t>(100));
+
+    uint64_t workspaceSize = 0;
+    auto utOver = OP_API_UT(aclnnClampMax, INPUT(self, maxOver), OUTPUT(out));
+    EXPECT_EQ(utOver.TestGetWorkspaceSize(&workspaceSize), ACLNN_ERR_PARAM_INVALID);
+
+    auto utUnder = OP_API_UT(aclnnClampMax, INPUT(self, maxUnder), OUTPUT(out));
+    EXPECT_EQ(utUnder.TestGetWorkspaceSize(&workspaceSize), ACLNN_ERR_PARAM_INVALID);
+
+    auto utValid = OP_API_UT(aclnnClampMax, INPUT(self, maxValid), OUTPUT(out));
+    EXPECT_EQ(utValid.TestGetWorkspaceSize(&workspaceSize), ACL_SUCCESS);
+}
+
+TEST_F(l2_clamp_max_test, ascend910B2_scalar_overflow_uint8_int16)
+{
+    SetPlatformNpuArch(NpuArch::DAV_2201);
+    uint64_t workspaceSize = 0;
+
+    auto selfU8 = TensorDesc({3}, ACL_UINT8, ACL_FORMAT_ND);
+    auto outU8 = TensorDesc({3}, ACL_UINT8, ACL_FORMAT_ND);
+    auto maxU8 = ScalarDesc(static_cast<int32_t>(300));
+    auto utU8 = OP_API_UT(aclnnClampMax, INPUT(selfU8, maxU8), OUTPUT(outU8));
+    EXPECT_EQ(utU8.TestGetWorkspaceSize(&workspaceSize), ACLNN_ERR_PARAM_INVALID);
+
+    auto selfI16 = TensorDesc({5}, ACL_INT16, ACL_FORMAT_ND);
+    auto outI16 = TensorDesc({5}, ACL_INT16, ACL_FORMAT_ND);
+    auto maxI16 = ScalarDesc(static_cast<int32_t>(100000));
+    auto utI16 = OP_API_UT(aclnnClampMax, INPUT(selfI16, maxI16), OUTPUT(outI16));
+    EXPECT_EQ(utI16.TestGetWorkspaceSize(&workspaceSize), ACLNN_ERR_PARAM_INVALID);
+}
+
+// A2 Inplace：越界标量应在第一段拒绝，避免原地写回环绕值（#3850）
+TEST_F(l2_clamp_max_test, ascend910B2_inplace_scalar_overflow_int8)
+{
+    SetPlatformNpuArch(NpuArch::DAV_2201);
+    auto selfRef = TensorDesc({5}, ACL_INT8, ACL_FORMAT_ND);
+    auto maxOver = ScalarDesc(static_cast<int32_t>(1000));
+    auto maxValid = ScalarDesc(static_cast<int32_t>(100));
+
+    uint64_t workspaceSize = 0;
+    auto utOver = OP_API_UT(aclnnInplaceClampMax, INPUT(selfRef, maxOver), OUTPUT());
+    EXPECT_EQ(utOver.TestGetWorkspaceSize(&workspaceSize), ACLNN_ERR_PARAM_INVALID);
+
+    auto utValid = OP_API_UT(aclnnInplaceClampMax, INPUT(selfRef, maxValid), OUTPUT());
+    EXPECT_EQ(utValid.TestGetWorkspaceSize(&workspaceSize), ACL_SUCCESS);
+}
+
+// 浮点标量同样不可静默截断/环绕落入整型计算类型
+TEST_F(l2_clamp_max_test, ascend910B2_float_scalar_overflow_int8)
+{
+    SetPlatformNpuArch(NpuArch::DAV_2201);
+    auto self = TensorDesc({5}, ACL_INT8, ACL_FORMAT_ND);
+    auto out = TensorDesc({5}, ACL_INT8, ACL_FORMAT_ND);
+    auto maxOver = ScalarDesc(1000.0f);
+    auto maxFrac = ScalarDesc(2.7f);
+    auto maxValid = ScalarDesc(100.0f);
+
+    uint64_t workspaceSize = 0;
+    auto utOver = OP_API_UT(aclnnClampMax, INPUT(self, maxOver), OUTPUT(out));
+    EXPECT_EQ(utOver.TestGetWorkspaceSize(&workspaceSize), ACLNN_ERR_PARAM_INVALID);
+
+    auto utFrac = OP_API_UT(aclnnClampMax, INPUT(self, maxFrac), OUTPUT(out));
+    EXPECT_EQ(utFrac.TestGetWorkspaceSize(&workspaceSize), ACLNN_ERR_PARAM_INVALID);
+
+    auto utValid = OP_API_UT(aclnnClampMax, INPUT(self, maxValid), OUTPUT(out));
+    EXPECT_EQ(utValid.TestGetWorkspaceSize(&workspaceSize), ACL_SUCCESS);
+}
+
+// INT64：2^63 无法无损落入 int64，应拒绝；-2^63 为合法下界
+TEST_F(l2_clamp_max_test, ascend910B2_float_scalar_int64_bound)
+{
+    SetPlatformNpuArch(NpuArch::DAV_2201);
+    auto self = TensorDesc({2}, ACL_INT64, ACL_FORMAT_ND);
+    auto out = TensorDesc({2}, ACL_INT64, ACL_FORMAT_ND);
+    auto maxOver = ScalarDesc(0x1p63);      // 2^63
+    auto maxMinBound = ScalarDesc(-0x1p63); // -2^63 == INT64_MIN
+
+    uint64_t workspaceSize = 0;
+    auto utOver = OP_API_UT(aclnnClampMax, INPUT(self, maxOver), OUTPUT(out));
+    EXPECT_EQ(utOver.TestGetWorkspaceSize(&workspaceSize), ACLNN_ERR_PARAM_INVALID);
+
+    auto utMinBound = OP_API_UT(aclnnClampMax, INPUT(self, maxMinBound), OUTPUT(out));
+    EXPECT_EQ(utMinBound.TestGetWorkspaceSize(&workspaceSize), ACL_SUCCESS);
 }
