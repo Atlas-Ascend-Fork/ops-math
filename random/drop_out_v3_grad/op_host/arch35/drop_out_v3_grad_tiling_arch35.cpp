@@ -35,8 +35,8 @@ constexpr int64_t BIT_ALIGN = 128;
 constexpr int64_t ALIGN256 = 256;
 constexpr int64_t UINT8_BIT_NUMBER = 8;
 constexpr int64_t CACHE_LINE = 128;
-constexpr int64_t RESERVED_UB_SIZE = 8192;            // 8K
-constexpr int64_t ASCENDC_TOOLS_WORKSPACE = 16777216; // 16M
+constexpr int64_t RESERVED_UB_SIZE = 8192; // 8K
+constexpr int64_t ASCENDC_TOOLS_WORKSPACE = 0;
 constexpr int64_t UB_MIN_FACTOR = 2048;
 
 static const std::set<ge::DataType> DROP_SUPPORTED_DTYPE = {ge::DT_FLOAT, ge::DT_FLOAT16, ge::DT_BF16};

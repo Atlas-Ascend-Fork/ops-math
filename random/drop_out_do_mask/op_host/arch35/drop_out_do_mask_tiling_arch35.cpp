@@ -36,8 +36,8 @@ constexpr int64_t ALIGN256 = 256;
 constexpr int64_t ALIGN32 = 32;
 constexpr int64_t UINT8_BIT_NUMBER = 8;
 constexpr int64_t CACHE_LINE = 128;
-constexpr int64_t RESERVED_UB_SIZE = 8192;            // 8K
-constexpr int64_t ASCENDC_TOOLS_WORKSPACE = 16777216; // 16M
+constexpr int64_t RESERVED_UB_SIZE = 8192; // 8K
+constexpr int64_t ASCENDC_TOOLS_WORKSPACE = 0;
 constexpr int64_t UB_MIN_FACTOR = 2048;
 constexpr int64_t DV121_UB_MIN_FACTOR = 256;
 

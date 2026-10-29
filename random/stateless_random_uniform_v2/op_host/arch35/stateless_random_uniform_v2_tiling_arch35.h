@@ -42,21 +42,12 @@ struct StatelessRandomUniformV2CompileInfo {
 
 class StatelessRandomUniformV2Tiling : public Ops::Base::TilingBaseClass {
 public:
-    explicit StatelessRandomUniformV2Tiling(gert::TilingContext* context) : Ops::Base::TilingBaseClass(context)
-    {}
+    explicit StatelessRandomUniformV2Tiling(gert::TilingContext* context) : Ops::Base::TilingBaseClass(context) {}
 
-    enum class Algorithm : std::uint8_t
-    {
-        RNG_ALG_PHILOX = 1,
-        RNG_ALG_THREEFRY = 2,
-        RNG_ALG_AUTO_SELECT = 3
-    };
+    enum class Algorithm : std::uint8_t { RNG_ALG_PHILOX = 1, RNG_ALG_THREEFRY = 2, RNG_ALG_AUTO_SELECT = 3 };
 
 protected:
-    bool IsCapable() override
-    {
-        return true;
-    }
+    bool IsCapable() override { return true; }
 
     // 1、获取平台信息比如CoreNum、UB/L1/L0C资源大小
     ge::graphStatus GetPlatformInfo() override;
@@ -77,7 +68,7 @@ private:
     static constexpr uint32_t CORE_ALIGN_SIZE = 512;
     static constexpr uint32_t BLOCK_SIZE_BYTES = 32;
     static constexpr uint32_t MIN_TILING_SIZE = 256;
-    static constexpr uint32_t DEFAULT_WORKSPACE_SIZE = static_cast<uint32_t>(16 * 1024 * 1024);
+    static constexpr uint32_t DEFAULT_WORKSPACE_SIZE = static_cast<uint32_t>(0);
 
     template <typename T1, typename T2>
     inline T1 CeilDiv(const T1 a, const T2 b) const;

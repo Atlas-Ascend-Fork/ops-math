@@ -72,7 +72,7 @@ private:
     static constexpr uint32_t UB_ALIGN_ELEMENTS_ARCH92 = 256;
     static constexpr uint32_t MIN_TILING_SIZE = 256;
     static constexpr uint32_t REGBASE_CCEC_CACHE_SIZE = 8 * 1024;
-    static constexpr uint32_t DEFAULT_WORKSPACE_SIZE = 16 * 1024 * 1024;
+    static constexpr uint32_t DEFAULT_WORKSPACE_SIZE = 0;
 
     template <typename T1, typename T2>
     inline T1 CeilDiv(const T1 a, const T2 b) const;

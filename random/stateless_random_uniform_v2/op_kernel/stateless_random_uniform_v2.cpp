@@ -22,19 +22,12 @@ namespace {
 #define FLOAT16_TILING_KEY 102
 #define BFLOAT16_TILING_KEY 103
 } // namespace
-#if defined(__DAV_VEC__)
+// __DAV_VEC__: 设备侧仅 AIV 通道编译，避免 AIC 通道实例化；__CCE_KT_TEST__: 宿主 op_kernel UT 链接需要入口符号
+#if defined(__DAV_VEC__) || defined(__CCE_KT_TEST__)
 extern "C" __global__ __aicore__ void stateless_random_uniform_v2(GM_ADDR shape, GM_ADDR key, GM_ADDR counter,
                                                                   GM_ADDR alg, GM_ADDR y, GM_ADDR workspace,
                                                                   GM_ADDR tiling)
 {
-    if (workspace == nullptr) {
-        return;
-    }
-    SetSysWorkspace(workspace);
-    GM_ADDR userWS = GetUserWorkspace(workspace);
-    if (userWS == nullptr) {
-        return;
-    }
     GET_TILING_DATA(tilingData, tiling);
     KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_AIV_ONLY)
     TPipe pipe;

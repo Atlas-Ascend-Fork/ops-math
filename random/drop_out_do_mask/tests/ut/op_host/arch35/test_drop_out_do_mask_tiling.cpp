@@ -22,14 +22,8 @@
 
 class DropOutDoMaskTilingTest : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        std::cout << "DropOutDoMaskTilingTest  SetUp" << std::endl;
-    }
-    static void TearDownTestCase()
-    {
-        std::cout << "DropOutDoMaskTilingTest  TearDown" << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "DropOutDoMaskTilingTest  SetUp" << std::endl; }
+    static void TearDownTestCase() { std::cout << "DropOutDoMaskTilingTest  TearDown" << std::endl; }
 };
 
 TEST_F(DropOutDoMaskTilingTest, drop_out_do_mask_tiling_ascendc_01)
@@ -42,6 +36,6 @@ TEST_F(DropOutDoMaskTilingTest, drop_out_do_mask_tiling_ascendc_01)
     gert::TilingContextPara tilingContextPara("DropOutDoMask", {x, mask, keep_prob}, {y}, &compileInfo);
     uint64_t expectTilingKey = 100;
     string expectTilingData = "6 2048 2045 30720 1 2048 1 2045 629145600 ";
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }

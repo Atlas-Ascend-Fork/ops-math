@@ -44,7 +44,7 @@ TEST_F(DropOutV3GradTilingTest, drop_out_v3_grad_tiling_float32_uint8)
     gert::TilingContextPara tilingContextPara("DropOutV3Grad", {grad_y, mask, scale}, {grad_x}, &compileInfo);
 
     uint64_t expectTilingKey = 100;
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
 
@@ -59,7 +59,7 @@ TEST_F(DropOutV3GradTilingTest, drop_out_v3_grad_tiling_float16_uint8)
     gert::TilingContextPara tilingContextPara("DropOutV3Grad", {grad_y, mask, scale}, {grad_x}, &compileInfo);
 
     uint64_t expectTilingKey = 100;
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
 
@@ -74,7 +74,7 @@ TEST_F(DropOutV3GradTilingTest, drop_out_v3_grad_tiling_bf16_uint1)
     gert::TilingContextPara tilingContextPara("DropOutV3Grad", {grad_y, mask, scale}, {grad_x}, &compileInfo);
 
     uint64_t expectTilingKey = 100;
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
 
@@ -89,7 +89,7 @@ TEST_F(DropOutV3GradTilingTest, drop_out_v3_grad_tiling_small_shape)
     gert::TilingContextPara tilingContextPara("DropOutV3Grad", {grad_y, mask, scale}, {grad_x}, &compileInfo);
 
     uint64_t expectTilingKey = 100;
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
 
