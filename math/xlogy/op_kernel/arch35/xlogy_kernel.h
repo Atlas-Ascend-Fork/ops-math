@@ -21,8 +21,8 @@
 // Kernel 侧辅助函数 (int64_t* 版本, 无 std::vector)
 // ============================================================
 
-__aicore__ inline void GetCoreRange(int64_t core_id, int64_t tiles_main, int64_t cores_tail,
-    int64_t& start, int64_t& end)
+__aicore__ inline void GetCoreRange(int64_t core_id, int64_t tiles_main, int64_t cores_tail, int64_t& start,
+                                    int64_t& end)
 {
     if (core_id < cores_tail) {
         start = core_id * (tiles_main + 1);
@@ -33,14 +33,13 @@ __aicore__ inline void GetCoreRange(int64_t core_id, int64_t tiles_main, int64_t
     }
 }
 
-__aicore__ inline int64_t GetUBSplitRange(
-    int64_t a_o_off, int64_t a_o, int64_t a_i, int64_t a_i_tail)
+__aicore__ inline int64_t GetUBSplitRange(int64_t a_o_off, int64_t a_o, int64_t a_i, int64_t a_i_tail)
 {
     return (a_o_off == a_o - 1) ? a_i_tail : a_i;
 }
 
-__aicore__ inline bool FlatToEffectiveCoord(int64_t flat, const int64_t* max_bro_shape,
-    int64_t rank, int64_t split_axis, int64_t a_i, int64_t a_o, int64_t* eff_coord)
+__aicore__ inline bool FlatToEffectiveCoord(int64_t flat, const int64_t* max_bro_shape, int64_t rank,
+                                            int64_t split_axis, int64_t a_i, int64_t a_o, int64_t* eff_coord)
 {
     for (int64_t d = 0; d < rank; d++)
         eff_coord[d] = 0;
@@ -48,14 +47,13 @@ __aicore__ inline bool FlatToEffectiveCoord(int64_t flat, const int64_t* max_bro
     int64_t outer = flat / a_o;
     for (int64_t d = split_axis - 1; d >= 0; d--) {
         eff_coord[d] = outer % max_bro_shape[d];
-            outer /= max_bro_shape[d];
+        outer /= max_bro_shape[d];
     }
     eff_coord[split_axis] = a_o_off * a_i;
     return true;
 }
 
-__aicore__ inline int64_t CalcInputOffset(
-    const int64_t* eff_coord, const int64_t* strides, int64_t rank)
+__aicore__ inline int64_t CalcInputOffset(const int64_t* eff_coord, const int64_t* strides, int64_t rank)
 {
     int64_t offset = 0;
     for (int64_t d = 0; d < rank; d++)
@@ -63,8 +61,7 @@ __aicore__ inline int64_t CalcInputOffset(
     return offset;
 }
 
-__aicore__ inline int64_t CalcOutputOffset(
-    const int64_t* eff_coord, const int64_t* strides, int64_t rank)
+__aicore__ inline int64_t CalcOutputOffset(const int64_t* eff_coord, const int64_t* strides, int64_t rank)
 {
     int64_t offset = 0;
     for (int64_t d = 0; d < rank; d++)
@@ -72,8 +69,8 @@ __aicore__ inline int64_t CalcOutputOffset(
     return offset;
 }
 
-__aicore__ inline int64_t CalcInputTransferCount(
-    const int64_t* normal_shape, int64_t rank, int64_t split_axis, int64_t a_i_seg)
+__aicore__ inline int64_t CalcInputTransferCount(const int64_t* normal_shape, int64_t rank, int64_t split_axis,
+                                                 int64_t a_i_seg)
 {
     int64_t split_elems = (normal_shape[split_axis] == 1) ? 1 : a_i_seg;
     int64_t inner_elems = 1;
@@ -82,8 +79,8 @@ __aicore__ inline int64_t CalcInputTransferCount(
     return split_elems * inner_elems;
 }
 
-__aicore__ inline int64_t CalcOutputTransferCount(
-    const int64_t* normal_shape, int64_t rank, int64_t split_axis, int64_t a_i_seg)
+__aicore__ inline int64_t CalcOutputTransferCount(const int64_t* normal_shape, int64_t rank, int64_t split_axis,
+                                                  int64_t a_i_seg)
 {
     int64_t split_elems = (normal_shape[split_axis] == 1) ? 1 : a_i_seg;
     int64_t inner_elems = 1;
@@ -94,9 +91,8 @@ __aicore__ inline int64_t CalcOutputTransferCount(
 
 // VF 函数声明
 template <typename T>
-__simd_vf__ inline void XlogyVF(
-    __ubuf__ T* dstAddr, __ubuf__ T* srcXAddr, __ubuf__ T* srcYAddr,
-    uint32_t count, uint32_t oneRepeatSize, uint16_t repeatTimes);
+__simd_vf__ inline void XlogyVF(__ubuf__ T* dstAddr, __ubuf__ T* srcXAddr, __ubuf__ T* srcYAddr, uint32_t count,
+                                uint32_t oneRepeatSize, uint16_t repeatTimes);
 
 // ============================================================
 // XlogyKernel
@@ -105,22 +101,21 @@ __simd_vf__ inline void XlogyVF(
 template <typename T, int64_t RANK>
 class XlogyKernel {
     static constexpr int64_t ND = (RANK <= 5) ? RANK : 5;
-    static constexpr bool    NEED_CAST = !std::is_same_v<T, float>;
+    static constexpr bool NEED_CAST = !std::is_same_v<T, float>;
     static constexpr int64_t NUM_BUF = NEED_CAST ? 4 : 3;
     static constexpr uint32_t VL = AscendC::GetVecLen() / sizeof(float);
 
     AscendC::TPipe pipe_;
     const XlogyTilingData<RANK>* td_;
-    AscendC::GlobalTensor<T>  gmIn_[kMaxInputSlots];
-    AscendC::GlobalTensor<T>  gmOut_[kMaxOutputSlots];
+    AscendC::GlobalTensor<T> gmIn_[kMaxInputSlots];
+    AscendC::GlobalTensor<T> gmOut_[kMaxOutputSlots];
     AscendC::TBuf<AscendC::TPosition::VECCALC> buf_[NUM_BUF];
-    AscendC::MultiCopyParams<T, ND> nddmaParams_[kMaxInputSlots];
+    AscendC::MultiCopyParams<T, ND> nddmaParams_[kMaxInputSlots] = {};
     int64_t nddmaOuterIters_[kMaxInputSlots];
     int64_t nddma_dims_;
 
 public:
-    __aicore__ inline void Init(GM_ADDR* inputs, GM_ADDR* outputs,
-                                const XlogyTilingData<RANK>* td)
+    __aicore__ inline void Init(GM_ADDR* inputs, GM_ADDR* outputs, const XlogyTilingData<RANK>* td)
     {
         td_ = td;
         for (int i = 0; i < kMaxInputSlots; i++)
@@ -137,20 +132,20 @@ public:
             int64_t inner = 1;
             int64_t nd = 0;
             for (int64_t d = RANK - 1; d >= k && nd < ND; d--) {
-                nddmaParams_[inp].loopInfo.loopSize[nd]      = (d == k) ? 0 : dstShape[d];
+                nddmaParams_[inp].loopInfo.loopSize[nd] = (d == k) ? 0 : dstShape[d];
                 nddmaParams_[inp].loopInfo.loopSrcStride[nd] = td_->input_strides[inp][d];
                 nddmaParams_[inp].loopInfo.loopDstStride[nd] = inner;
-                nddmaParams_[inp].loopInfo.loopLpSize[nd]     = 0;
-                nddmaParams_[inp].loopInfo.loopRpSize[nd]     = 0;
+                nddmaParams_[inp].loopInfo.loopLpSize[nd] = 0;
+                nddmaParams_[inp].loopInfo.loopRpSize[nd] = 0;
                 inner *= (d == k) ? td_->split.a_i : dstShape[d];
                 nd++;
             }
             for (; nd < ND; nd++) {
-                nddmaParams_[inp].loopInfo.loopSize[nd]      = 1;
+                nddmaParams_[inp].loopInfo.loopSize[nd] = 1;
                 nddmaParams_[inp].loopInfo.loopSrcStride[nd] = 0;
                 nddmaParams_[inp].loopInfo.loopDstStride[nd] = inner;
-                nddmaParams_[inp].loopInfo.loopLpSize[nd]     = 0;
-                nddmaParams_[inp].loopInfo.loopRpSize[nd]     = 0;
+                nddmaParams_[inp].loopInfo.loopLpSize[nd] = 0;
+                nddmaParams_[inp].loopInfo.loopRpSize[nd] = 0;
             }
             nddmaOuterIters_[inp] = 1;
             for (int64_t d = k; d < RANK - nddma_dims_; d++)
@@ -160,14 +155,13 @@ public:
 
     __aicore__ inline void Process()
     {
-        int32_t evMTE2toV    = static_cast<int32_t>(GetTPipePtr()->FetchEventID(AscendC::HardEvent::MTE2_V));
-        int32_t evVtoMTE2    = static_cast<int32_t>(GetTPipePtr()->FetchEventID(AscendC::HardEvent::V_MTE2));
-        int32_t evVtoMTE3    = static_cast<int32_t>(GetTPipePtr()->FetchEventID(AscendC::HardEvent::V_MTE3));
+        int32_t evMTE2toV = static_cast<int32_t>(GetTPipePtr()->FetchEventID(AscendC::HardEvent::MTE2_V));
+        int32_t evVtoMTE2 = static_cast<int32_t>(GetTPipePtr()->FetchEventID(AscendC::HardEvent::V_MTE2));
+        int32_t evVtoMTE3 = static_cast<int32_t>(GetTPipePtr()->FetchEventID(AscendC::HardEvent::V_MTE3));
         int32_t evMTE3toMTE2 = static_cast<int32_t>(GetTPipePtr()->FetchEventID(AscendC::HardEvent::MTE3_MTE2));
 
         int64_t start, end;
-        GetCoreRange(AscendC::GetBlockIdx(), td_->multicore.tiles_main,
-                     td_->multicore.cores_tail, start, end);
+        GetCoreRange(AscendC::GetBlockIdx(), td_->multicore.tiles_main, td_->multicore.cores_tail, start, end);
 
         int64_t inner_count = 1;
         for (int64_t d = td_->split.axis + 1; d < RANK; d++)
@@ -175,25 +169,24 @@ public:
 
         int64_t coord[8] = {};
         for (int64_t flat = start; flat < end; flat++) {
-            int64_t a_i_seg = GetUBSplitRange(flat % td_->split.a_o, td_->split.a_o,
-                                              td_->split.a_i, td_->split.a_i_tail);
+            int64_t a_i_seg = GetUBSplitRange(flat % td_->split.a_o, td_->split.a_o, td_->split.a_i,
+                                              td_->split.a_i_tail);
             int64_t count = a_i_seg * inner_count;
-            FlatToEffectiveCoord(flat, td_->max_bro_shape, RANK,
-                                 td_->split.axis, td_->split.a_i, td_->split.a_o, coord);
+            FlatToEffectiveCoord(flat, td_->max_bro_shape, RANK, td_->split.axis, td_->split.a_i, td_->split.a_o,
+                                 coord);
 
-            if (flat != start) AscendC::WaitFlag<AscendC::HardEvent::MTE3_MTE2>(evMTE3toMTE2);
+            if (flat != start)
+                AscendC::WaitFlag<AscendC::HardEvent::MTE3_MTE2>(evMTE3toMTE2);
 
             constexpr int IN_X1 = 0, IN_X2 = 1;
             constexpr int OUT_Y = 0;
 
             if constexpr (NEED_CAST) {
                 // FP16/BF16 路径: P=4, B0=temp_x1 B1=x1_fp32 B2=x2_fp32 B3=temp_x2
-                ProcessFP16(coord, IN_X1, IN_X2, OUT_Y, a_i_seg, count,
-                            evMTE2toV, evVtoMTE2, evVtoMTE3);
+                ProcessFP16(coord, IN_X1, IN_X2, OUT_Y, a_i_seg, count, evMTE2toV, evVtoMTE2, evVtoMTE3);
             } else {
                 // FP32 路径: P=3, B0=x1 B1=x2 B2=y
-                ProcessFP32(coord, IN_X1, IN_X2, OUT_Y, a_i_seg, count,
-                            evMTE2toV, evVtoMTE2, evVtoMTE3);
+                ProcessFP32(coord, IN_X1, IN_X2, OUT_Y, a_i_seg, count, evMTE2toV, evVtoMTE2, evVtoMTE3);
             }
 
             if (flat != end - 1)
@@ -203,10 +196,8 @@ public:
 
 private:
     // FP32 路径: CopyIn x1→B0, x2→B1 → XlogyVF B2←B0,B1 → CopyOut B2
-    __aicore__ inline void ProcessFP32(
-        const int64_t* coord, int inX1, int inX2, int outY,
-        int64_t a_i_seg, int64_t count,
-        int32_t evMTE2toV, int32_t evVtoMTE2, int32_t evVtoMTE3)
+    __aicore__ inline void ProcessFP32(const int64_t* coord, int inX1, int inX2, int outY, int64_t a_i_seg,
+                                       int64_t count, int32_t evMTE2toV, int32_t evVtoMTE2, int32_t evVtoMTE3)
     {
         constexpr int B_X1 = 0, B_X2 = 1, B_Y = 2;
 
@@ -228,10 +219,8 @@ private:
     }
 
     // FP16 路径: CopyIn→Cast→XlogyVF→Cast→CopyOut
-    __aicore__ inline void ProcessFP16(
-        const int64_t* coord, int inX1, int inX2, int outY,
-        int64_t a_i_seg, int64_t count,
-        int32_t evMTE2toV, int32_t evVtoMTE2, int32_t evVtoMTE3)
+    __aicore__ inline void ProcessFP16(const int64_t* coord, int inX1, int inX2, int outY, int64_t a_i_seg,
+                                       int64_t count, int32_t evMTE2toV, int32_t evVtoMTE2, int32_t evVtoMTE3)
     {
         constexpr int B_TEMP_X1 = 0, B_X1 = 1, B_X2 = 2, B_TEMP_X2 = 3;
 
@@ -266,14 +255,13 @@ private:
     __aicore__ inline void CallXlogyVF(int dstSlot, int srcXSlot, int srcYSlot, int64_t count)
     {
         uint16_t repeatTimes = AscendC::CeilDivision(count, VL);
-        __ubuf__ float* dstAddr  = (__ubuf__ float*)buf_[dstSlot].template Get<float>().GetPhyAddr();
+        __ubuf__ float* dstAddr = (__ubuf__ float*)buf_[dstSlot].template Get<float>().GetPhyAddr();
         __ubuf__ float* srcXAddr = (__ubuf__ float*)buf_[srcXSlot].template Get<float>().GetPhyAddr();
         __ubuf__ float* srcYAddr = (__ubuf__ float*)buf_[srcYSlot].template Get<float>().GetPhyAddr();
         asc_vf_call<XlogyVF<float>>(dstAddr, srcXAddr, srcYAddr, (uint32_t)count, VL, repeatTimes);
     }
 
-    __aicore__ inline void CopyInOne(
-        const int64_t* coord, int inputIdx, int slot, int64_t a_i_seg)
+    __aicore__ inline void CopyInOne(const int64_t* coord, int inputIdx, int slot, int64_t a_i_seg)
     {
         int64_t k = td_->split.axis;
         int64_t off = CalcInputOffset(coord, td_->input_strides[inputIdx], RANK);
@@ -282,12 +270,13 @@ private:
         int64_t k_nd = RANK - 1 - k;
         int64_t inner = 1;
         for (int64_t nd = 0; nd < ND; nd++) {
-            if (nd == k_nd) params.loopInfo.loopSize[nd] = a_i_seg;
+            if (nd == k_nd)
+                params.loopInfo.loopSize[nd] = a_i_seg;
             params.loopInfo.loopDstStride[nd] = inner;
             inner *= params.loopInfo.loopSize[nd];
         }
-        static constexpr AscendC::NdDmaConfig cfg = { false, AscendC::NdDmaConfig::unsetPad,
-                                                       AscendC::NdDmaConfig::unsetPad, false };
+        static constexpr AscendC::NdDmaConfig cfg = {false, AscendC::NdDmaConfig::unsetPad,
+                                                     AscendC::NdDmaConfig::unsetPad, false};
         if constexpr (RANK <= 5) {
             AscendC::DataCopy<T, ND, cfg>(buf_[slot].template Get<T>(), gmIn_[inputIdx][off], params);
         } else {
@@ -305,17 +294,15 @@ private:
         }
     }
 
-    __aicore__ inline void CopyOutOne(
-        const int64_t* coord, int outputIdx, int slot, int64_t a_i_seg)
+    __aicore__ inline void CopyOutOne(const int64_t* coord, int outputIdx, int slot, int64_t a_i_seg)
     {
         int64_t off = CalcOutputOffset(coord, td_->output_strides[outputIdx], RANK);
-        int64_t cnt = CalcOutputTransferCount(td_->output_shapes[outputIdx], RANK,
-                                              td_->split.axis, a_i_seg);
+        int64_t cnt = CalcOutputTransferCount(td_->output_shapes[outputIdx], RANK, td_->split.axis, a_i_seg);
         AscendC::DataCopyExtParams extParams;
         extParams.blockCount = 1;
-        extParams.blockLen   = cnt * sizeof(T);
-        extParams.srcStride  = 0;
-        extParams.dstStride  = 0;
+        extParams.blockLen = cnt * sizeof(T);
+        extParams.srcStride = 0;
+        extParams.dstStride = 0;
         AscendC::DataCopyPad(gmOut_[outputIdx][off], buf_[slot].template Get<T>(), extParams);
     }
 };
@@ -326,9 +313,8 @@ private:
 // ============================================================
 
 template <typename T>
-__simd_vf__ inline void XlogyVF(
-    __ubuf__ T* dstAddr, __ubuf__ T* srcXAddr, __ubuf__ T* srcYAddr,
-    uint32_t count, uint32_t oneRepeatSize, uint16_t repeatTimes)
+__simd_vf__ inline void XlogyVF(__ubuf__ T* dstAddr, __ubuf__ T* srcXAddr, __ubuf__ T* srcYAddr, uint32_t count,
+                                uint32_t oneRepeatSize, uint16_t repeatTimes)
 {
     AscendC::Reg::RegTensor<T> regX, regY, regLogY, regMul, regRes0, regFinal, regZero;
     AscendC::Reg::MaskReg mask, maskEq, maskNaN;
@@ -348,7 +334,7 @@ __simd_vf__ inline void XlogyVF(
         AscendC::Reg::Mul(regMul, regX, regLogY, mask);
 
         // S3: Compare(x, 0, EQ) → mask_eq
-        AscendC::Reg::Sub(regZero, regX, regX, mask);  // regZero = x - x = 0
+        AscendC::Reg::Sub(regZero, regX, regX, mask); // regZero = x - x = 0
         AscendC::Reg::Compare<float, AscendC::CMPMODE::EQ>(maskEq, regX, regZero, mask);
 
         // S4: Select(mask_eq, 0, mul_res) → res0  (maskEq? zero : mul_res)
