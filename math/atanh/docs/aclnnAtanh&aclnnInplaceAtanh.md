@@ -102,7 +102,7 @@ aclnnStatus aclnnInplaceAtanh(
       <td>输入</td>
       <td>输入tensor，进行反双曲正切运算。</td>
       <td>shape需要与out一致。</td>
-      <td>INT8、INT16、INT32、INT64、UINT8、BOOL、FLOAT、FLOAT16、DOUBLE</td>
+      <td>INT8、INT16、INT32、INT64、UINT8、BOOL、FLOAT、FLOAT16、DOUBLE、COMPLEX64、COMPLEX128、BFLOAT16</td>
       <td>ND</td>
       <td>不超过8维</td>
       <td>√</td>
@@ -112,7 +112,7 @@ aclnnStatus aclnnInplaceAtanh(
       <td>输出</td>
       <td>输出tensor，存储计算结果。</td>
       <td>shape需要与input一致。</td>
-      <td>FLOAT、FLOAT16、DOUBLE</td>
+      <td>FLOAT、FLOAT16、DOUBLE、COMPLEX64、COMPLEX128、BFLOAT16</td>
       <td>ND</td>
       <td>-</td>
       <td>√</td>
@@ -138,10 +138,6 @@ aclnnStatus aclnnInplaceAtanh(
       <td>-</td>
     </tr>
   </tbody></table>
-
-  <!-- npu="A3" id7 -->
-  - <term>Atlas A3系列产品</term>：input和out数据类型额外支持COMPLEX64、COMPLEX128、BFLOAT16。
-  <!-- end id7 -->
 
 - **返回值：**
 
@@ -254,7 +250,7 @@ aclnnStatus aclnnInplaceAtanh(
       <td>输入/输出</td>
       <td>输入输出tensor，进行反双曲正切运算，计算结果存储在inputRef中。</td>
       <td>-</td>
-      <td>FLOAT、FLOAT16、DOUBLE</td>
+      <td>FLOAT、FLOAT16、DOUBLE、COMPLEX64、COMPLEX128、BFLOAT16</td>
       <td>ND</td>
       <td>不超过8维</td>
       <td>√</td>
@@ -280,10 +276,6 @@ aclnnStatus aclnnInplaceAtanh(
       <td>-</td>
     </tr>
   </tbody></table>
-
-  <!-- npu="A3" id8 -->
-  - <term>Atlas A3系列产品</term>：inputRef数据类型额外支持COMPLEX64、COMPLEX128、BFLOAT16。
-  <!-- end id8 -->
 
 - **返回值：**
 

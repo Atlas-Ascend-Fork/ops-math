@@ -104,7 +104,7 @@ aclnnStatus aclnnInplaceAtanh(
       <td>input</td>
       <td>Input tensor, used to compute the inverse hyperbolic tangent.</td>
       <td>shape must be consistent with out.</td>
-      <td>INT8, INT16, INT32, INT64, UINT8, BOOL, FLOAT, FLOAT16, DOUBLE</td>
+      <td>INT8, INT16, INT32, INT64, UINT8, BOOL, FLOAT, FLOAT16, DOUBLE, COMPLEX64, COMPLEX128, BFLOAT16</td>
       <td>ND</td>
       <td>Up to 8 dimensions</td>
       <td>√</td>
@@ -114,7 +114,7 @@ aclnnStatus aclnnInplaceAtanh(
       <td>Output</td>
       <td>Output tensor, used to store the computation result.</td>
       <td>The shape must be the same as that of input.</td>
-      <td>FLOAT, FLOAT16, DOUBLE</td>
+      <td>FLOAT, FLOAT16, DOUBLE, COMPLEX64, COMPLEX128, BFLOAT16</td>
       <td>ND</td>
       <td>-</td>
       <td>√</td>
@@ -140,10 +140,6 @@ aclnnStatus aclnnInplaceAtanh(
       <td>-</td>
     </tr>
   </tbody></table>
-
-  <!-- npu="A3" id7 -->
-  - <term>Atlas A3 products</term>: The data types of input and out additionally support COMPLEX64, COMPLEX128, and BFLOAT16.
-  <!-- end id7 -->
 
 - **Return value**
 
@@ -256,7 +252,7 @@ aclnnStatus aclnnInplaceAtanh(
       <td>Input/Output</td>
       <td>Input and output tensor for the inverse hyperbolic tangent computation. The result is stored in inputRef.</td>
       <td>-</td>
-      <td>FLOAT, FLOAT16, DOUBLE</td>
+      <td>FLOAT, FLOAT16, DOUBLE, COMPLEX64, COMPLEX128, BFLOAT16</td>
       <td>ND</td>
       <td>At most 8 dimensions</td>
       <td>√</td>
@@ -282,10 +278,6 @@ aclnnStatus aclnnInplaceAtanh(
       <td>-</td>
     </tr>
   </tbody></table>
-
-  <!-- npu="A3" id8 -->
-  - <term>Atlas A3 products</term>: inputRef additionally supports the COMPLEX64, COMPLEX128, and BFLOAT16 data types.
-  <!-- end id8 -->
 
 - **Return value**
 
