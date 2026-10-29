@@ -12,7 +12,7 @@
 - <term>Atlas A2系列产品</term>：支持
 <!-- end id3 -->
 <!-- npu="310b" id4 -->
-- <term>Atlas 200I/500 A2推理产品</term>：不支持
+- <term>Atlas 200I/500 A2推理产品</term>：支持
 <!-- end id4 -->
 <!-- npu="310p" id5 -->
 - <term>Atlas推理系列产品</term>：支持
