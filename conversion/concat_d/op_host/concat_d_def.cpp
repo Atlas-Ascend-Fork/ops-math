@@ -12,6 +12,8 @@
  * \file concat_d_def.cpp
  * \brief
  */
+#include <vector>
+
 #include "register/op_def_registry.h"
 
 namespace ops {
@@ -86,6 +88,32 @@ public:
         this->AICore().AddConfig("ascend350", aicoreConfig);
         this->AICore().AddConfig("ascend960dt", aicoreConfig);
         this->AICore().AddConfig("ascend960pr", aicoreConfig);
+
+        const std::vector<ge::DataType> kirinDataTypes = {
+            ge::DT_BF16,   ge::DT_FLOAT16, ge::DT_FLOAT,  ge::DT_UINT8, ge::DT_INT8, ge::DT_UINT16, ge::DT_INT16,
+            ge::DT_UINT32, ge::DT_INT32,   ge::DT_UINT64, ge::DT_INT64, ge::DT_BOOL, ge::DT_DOUBLE, ge::DT_COMPLEX64};
+        const std::vector<ge::Format> kirinFormats(kirinDataTypes.size(), ge::FORMAT_ND);
+        OpAICoreConfig config_kirin;
+        config_kirin.DynamicCompileStaticFlag(true)
+            .DynamicFormatFlag(false)
+            .DynamicRankSupportFlag(false)
+            .DynamicShapeSupportFlag(true)
+            .NeedCheckSupportFlag(false)
+            .PrecisionReduceFlag(false)
+            .ExtendCfgInfo("opFile.value", "concat_d_apt")
+            .ExtendCfgInfo("aclnnSupport.value", "support_aclnn");
+        config_kirin.Input("x")
+            .ParamType(DYNAMIC)
+            .DataType(kirinDataTypes)
+            .Format(kirinFormats)
+            .UnknownShapeFormat(kirinFormats);
+        config_kirin.Output("y")
+            .ParamType(REQUIRED)
+            .DataType(kirinDataTypes)
+            .Format(kirinFormats)
+            .UnknownShapeFormat(kirinFormats);
+        this->AICore().AddConfig("kirinx90", config_kirin);
+        this->AICore().AddConfig("kirin9030", config_kirin);
     }
 };
 

@@ -9,7 +9,13 @@
 # ----------------------------------------------------------------------------
 
 # 设置算子定义时支持的芯片类型
-set(SUPPORT_COMPUTE_UNIT "ascend310p" "ascend910_93" "ascend910b" "ascend950" "mc62" "ascend350" "ascend960dt" "ascend960pr")
+set(SUPPORT_COMPUTE_UNIT "ascend310p" "ascend910_93" "ascend910b" "ascend950" "mc62" "ascend350" "ascend960dt" "ascend960pr" "kirinx90" "kirin9030")
 # 设置每种芯片类型对应的tiling文件目录，即采用op_host目录下哪个文件夹下的tiling文件编译
-set(SUPPORT_TILING_DIR "arch22" "arch22" "arch22" "arch35" "arch35" "arch35" "arch35" "arch35")
+set(SUPPORT_TILING_DIR "arch22" "arch22" "arch22" "arch35" "arch35" "arch35" "arch35" "arch35" "arch31" "arch31")
 add_all_modules_sources(OPTYPE mul ACLNNTYPE aclnn_exclude COMPUTE_UNIT ${SUPPORT_COMPUTE_UNIT} TILING_DIR ${SUPPORT_TILING_DIR} DISABLE_IN_OPP TRUE HOSTCPU TRUE)
+
+add_kernel_sources(
+    KERNEL_SRC arch31/mul.cpp
+    COMPUTE_UNITS kirinx90 kirin9030
+    AUTO_SYNC false
+)

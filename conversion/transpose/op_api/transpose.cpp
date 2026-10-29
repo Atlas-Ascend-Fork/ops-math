@@ -33,7 +33,10 @@
 #include "opdev/make_op_executor.h"
 #include "opdev/op_dfx.h"
 #include "opdev/tensor_view_utils.h"
+#include "opdev/platform.h"
 #include "aclnn_kernels/common/op_error_check.h"
+
+using namespace op;
 
 namespace l0op {
 constexpr int32_t DIM0 = 0;
@@ -153,13 +156,28 @@ const aclTensor* TransposeV2AiCore(const aclTensor* x, const aclTensor* y, const
     return y;
 }
 
-static bool IsAiCoreSupport(const aclTensor* self)
+static const std::initializer_list<op::DataType> KIRIN_AICORE_DTYPE_SUPPORT_LIST = {
+    op::DataType::DT_FLOAT, op::DataType::DT_FLOAT16, op::DataType::DT_INT32, op::DataType::DT_INT8,
+    op::DataType::DT_UINT8};
+
+static inline const std::initializer_list<op::DataType>& GetAiCoreDtypeSupportListBySocVersion()
 {
     auto curArch = op::GetCurrentPlatformInfo().GetCurNpuArch();
-    if (curArch == NpuArch::DAV_9201 || curArch == NpuArch::DAV_9202) {
-        return op::CheckType(self->GetDataType(), ARCH92_AICORE_DTYPE_SUPPORT_LIST);
+    switch (curArch) {
+        case NpuArch::DAV_3003:
+        case NpuArch::DAV_3113:
+            return KIRIN_AICORE_DTYPE_SUPPORT_LIST;
+        case NpuArch::DAV_9201:
+        case NpuArch::DAV_9202:
+            return ARCH92_AICORE_DTYPE_SUPPORT_LIST;
+        default:
+            return AICORE_DTYPE_SUPPORT_LIST;
     }
-    return op::CheckType(self->GetDataType(), AICORE_DTYPE_SUPPORT_LIST);
+}
+
+static bool IsAiCoreSupport(const aclTensor* self)
+{
+    return op::CheckType(self->GetDataType(), GetAiCoreDtypeSupportListBySocVersion());
 }
 
 const aclTensor* TransposeAiCore(const aclTensor* x, const aclTensor* y, const aclTensor* perm, aclOpExecutor* executor)

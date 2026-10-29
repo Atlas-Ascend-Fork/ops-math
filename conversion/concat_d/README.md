@@ -10,6 +10,8 @@
 | Atlas 200I/500 A2推理产品                      |    √     |
 | Atlas推理系列产品                              |    √     |
 | Atlas训练系列产品                              |    √     |
+| Kirin X90 处理器系列产品                       |    √     |
+| Kirin 9030 处理器系列产品                       |    √     |
 
 ## 功能说明
 
@@ -65,6 +67,7 @@
 
 - Atlas训练系列产品、Atlas推理系列产品、Atlas 200I/500 A2推理产品：不支持BFLOAT16。
 - Atlas A2系列产品、Atlas A3系列产品：不支持UINT16、UINT32、UINT64、FLOAT4_E1M2、FLOAT4_E2M1。
+- Kirin X90/9030 处理器系列产品：支持FLOAT、FLOAT16、INT32、INT64、INT16、INT8、UINT8、UINT16、UINT32、UINT64数据类型；支持1至32个非空ND输入，输入秩在编译时已知且为1至8，运行时各维必须在tiling前解析为正数。
 
 ## 约束说明
 

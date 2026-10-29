@@ -2,14 +2,16 @@
 
 ## 产品支持情况
 
-| 产品                                           | 是否支持 |
-| :------------------------------------------- | :--: |
-| <term>Ascend 950PR&950DT系列产品</term>       |   √  |
-| <term>Atlas A3系列产品</term> |   √  |
-| <term>Atlas A2系列产品</term> |   √  |
-| <term>Atlas 200I/500 A2推理产品</term>          |   ×  |
-| <term>Atlas推理系列产品</term>                    |   ×  |
-| <term>Atlas训练系列产品</term>                    |   √  |
+| 产品                                    | 是否支持 |
+| :-------------------------------------- | :------: |
+| <term>Ascend 950PR&950DT系列产品</term> |    √    |
+| <term>Atlas A3系列产品</term>           |    √    |
+| <term>Atlas A2系列产品</term>           |    √    |
+| <term>Atlas 200I/500 A2推理产品</term>  |    ×    |
+| <term>Atlas推理系列产品</term>          |    ×    |
+| <term>Atlas训练系列产品</term>          |    √    |
+| <term>Kirin X90处理器系列产品</term>    |    √    |
+| <term>Kirin 9030处理器系列产品</term>   |    √    |
 
 ## 功能说明
 
@@ -64,10 +66,11 @@
 
 - 不支持 STRING 数据类型。算子IR（add\_proto.h）中注册 DT\_STRING 仅为兼容 TensorFlow Add 算子，图模式（GEIR）调用通路虽可通过类型推断，但无对应kernel实现，运行时会失败。
 - COMPLEX32 仅 Ascend 950 内核实现支持，aclnnAdd / aclnnInplaceAdd 接口及图模式通路均不支持，请使用 COMPLEX64 / COMPLEX128。
+- Kirin X90/Kirin 9030系列产品支持INT8，UINT8，INT32，FLOAT16，FLOAT32数据类型
 
 ## 调用说明
 
-| 调用方式    | 调用样例                                              | 说明                                                                           |
-| ------- | ------------------------------------------------- | ---------------------------------------------------------------------------- |
-| aclnn调用 | [test\_aclnn\_add](./examples/test_aclnn_add.cpp) | 通过[aclnnAdd和aclnnInplaceAdd](./docs/aclnnAdd\&aclnnInplaceAdd.md)接口方式调用Add算子 |
-| 图模式调用   | [test\_geir\_add](./examples/test_geir_add.cpp)   | 通过[算子IR](./op_graph/add_proto.h)构图方式调用Add算子                                  |
+| 调用方式   | 调用样例                                       | 说明                                                                                 |
+| ---------- | ---------------------------------------------- | ------------------------------------------------------------------------------------ |
+| aclnn调用  | [test\_aclnn\_add](./examples/test_aclnn_add.cpp) | 通过[aclnnAdd和aclnnInplaceAdd](./docs/aclnnAdd\&aclnnInplaceAdd.md)接口方式调用Add算子 |
+| 图模式调用 | [test\_geir\_add](./examples/test_geir_add.cpp)   | 通过[算子IR](./op_graph/add_proto.h)构图方式调用Add算子                                 |

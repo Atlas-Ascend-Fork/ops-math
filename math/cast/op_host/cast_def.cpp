@@ -16,6 +16,30 @@
 #include "register/op_def_registry.h"
 
 namespace ops {
+
+// kirinx90 supported data types (simplified)
+static const std::vector<ge::DataType> kirinXDataType = {
+    ge::DT_FLOAT16, ge::DT_FLOAT16, ge::DT_FLOAT16, ge::DT_FLOAT, ge::DT_FLOAT, ge::DT_FLOAT, ge::DT_INT32,
+    ge::DT_INT32, ge::DT_INT32, ge::DT_INT8, ge::DT_INT8, ge::DT_INT8, ge::DT_UINT8, ge::DT_UINT8, ge::DT_UINT8,
+    ge::DT_INT32, ge::DT_INT16,
+    // 后补充 dtype（基于 vcvt 支持，如不支持可删除）
+    ge::DT_FLOAT, ge::DT_FLOAT16, ge::DT_FLOAT16, ge::DT_UINT8, ge::DT_UINT16, ge::DT_UINT16, ge::DT_INT16,
+    ge::DT_INT16, ge::DT_INT16, ge::DT_UINT32, ge::DT_UINT32, ge::DT_UINT32, ge::DT_INT32, ge::DT_INT32};
+static const std::vector<ge::DataType> kirinYDataType = {
+    ge::DT_FLOAT, ge::DT_INT32, ge::DT_INT8, ge::DT_FLOAT16, ge::DT_INT32, ge::DT_INT8, ge::DT_FLOAT16, ge::DT_FLOAT,
+    ge::DT_INT8, ge::DT_FLOAT16, ge::DT_FLOAT, ge::DT_INT32, ge::DT_FLOAT16, ge::DT_FLOAT, ge::DT_INT32, ge::DT_INT16,
+    ge::DT_INT8,
+    // 后补充 dtype
+    ge::DT_INT16, ge::DT_UINT8, ge::DT_INT16, ge::DT_UINT16, ge::DT_UINT8, ge::DT_UINT32, ge::DT_UINT8, ge::DT_UINT32,
+    ge::DT_INT32, ge::DT_UINT8, ge::DT_UINT16, ge::DT_INT16, ge::DT_UINT8, ge::DT_UINT16};
+static const std::vector<ge::Format> castFormatKirin = {
+    ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND,
+    ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND,
+    ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND,
+    // 后补充 dtype
+    ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND,
+    ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND};
+
 static const std::vector<ge::DataType> xDataType = {
     ge::DT_BF16,          ge::DT_BF16,          ge::DT_BF16,          ge::DT_BF16,          ge::DT_BF16,
     ge::DT_BF16,          ge::DT_BF16,          ge::DT_BF16,          ge::DT_BF16,          ge::DT_BF16,
@@ -128,6 +152,27 @@ public:
         this->AICore().AddConfig("ascend950", aicoreConfig);
         this->AICore().AddConfig("ascend350", aicoreConfig);
         this->AICore().AddConfig("ascend960dt", aicoreConfig);
+
+        OpAICoreConfig config_kirin;
+        config_kirin.DynamicCompileStaticFlag(true)
+            .DynamicFormatFlag(false)
+            .DynamicRankSupportFlag(true)
+            .DynamicShapeSupportFlag(true)
+            .NeedCheckSupportFlag(false)
+            .PrecisionReduceFlag(true)
+            .ExtendCfgInfo("opFile.value", "cast");
+        config_kirin.Input("x")
+            .ParamType(REQUIRED)
+            .DataType(kirinXDataType)
+            .Format(castFormatKirin)
+            .UnknownShapeFormat(castFormatKirin);
+        config_kirin.Output("y")
+            .ParamType(REQUIRED)
+            .DataType(kirinYDataType)
+            .Format(castFormatKirin)
+            .UnknownShapeFormat(castFormatKirin);
+        this->AICore().AddConfig("kirinx90", config_kirin);
+        this->AICore().AddConfig("kirin9030", config_kirin);
     }
 };
 

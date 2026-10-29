@@ -42,6 +42,9 @@ static const std::initializer_list<DataType> REGBASE_AICORE_DTYPE_SUPPORT_LIST =
 static const std::initializer_list<DataType> ASCEND610LITE_AICORE_DTYPE_SUPPORT_LIST = {
     DataType::DT_FLOAT, DataType::DT_FLOAT16, DataType::DT_INT32, DataType::DT_INT8, DataType::DT_UINT8};
 
+static const std::initializer_list<DataType> KIRIN_AICORE_DTYPE_SUPPORT_LIST = {
+    DataType::DT_FLOAT, DataType::DT_FLOAT16, DataType::DT_INT32, DataType::DT_INT8, DataType::DT_UINT8};
+
 static constexpr int64_t DIM_FOUR = 4;
 
 static inline const std::initializer_list<DataType>& GetAiCoreDtypeSupportListBySocVersion()
@@ -59,6 +62,10 @@ static inline const std::initializer_list<DataType>& GetAiCoreDtypeSupportListBy
         }
         case NpuArch::DAV_3102: {
             return ASCEND610LITE_AICORE_DTYPE_SUPPORT_LIST;
+        }
+        case NpuArch::DAV_3003:
+        case NpuArch::DAV_3113: {
+            return KIRIN_AICORE_DTYPE_SUPPORT_LIST;
         }
         default: {
             return ASCEND910_AICORE_DTYPE_SUPPORT_LIST;
@@ -95,6 +102,12 @@ static bool isBroadcastTemplateNonContiguousSupport(const aclTensor* input)
 }
 
 // 根据芯片类型、dtype判断算子是否支持走AiCore
+static inline bool IsMixDtypeAiCoreSupport()
+{
+    const auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
+    return curArch != NpuArch::DAV_3003 && curArch != NpuArch::DAV_3113;
+}
+
 inline static bool IsAiCoreSupport(const aclTensor* self)
 {
     return CheckType(self->GetDataType(), GetAiCoreDtypeSupportListBySocVersion());
@@ -144,7 +157,10 @@ const aclTensor* Mul(const aclTensor* self, const aclTensor* other, aclOpExecuto
 
     auto mulOut = isMixDataType ? executor->AllocTensor(broadcastShape, DataType::DT_FLOAT) :
                                   executor->AllocTensor(broadcastShape, self->GetDataType());
-    if (isMixDataType || (IsAiCoreSupport(self) && IsAiCoreSupport(other)) || IsDoubleSupport(self, other)) {
+    if ((isMixDataType && IsMixDtypeAiCoreSupport()) ||
+        (!isMixDataType && (IsMixDtypeAiCoreSupport() || self->GetDataType() == other->GetDataType()) &&
+         IsAiCoreSupport(self) && IsAiCoreSupport(other)) ||
+        IsDoubleSupport(self, other)) {
         return MulAiCore(self, other, mulOut, executor);
     }
 
@@ -178,7 +194,10 @@ const aclTensor* MulInplace(const aclTensor* self, const aclTensor* rfRes, aclOp
         return nullptr;
     }
 
-    if (isMixDataType || (IsAiCoreSupport(self) && IsAiCoreSupport(rfRes)) || IsDoubleSupport(self, rfRes)) {
+    if ((isMixDataType && IsMixDtypeAiCoreSupport()) ||
+        (!isMixDataType && (IsMixDtypeAiCoreSupport() || self->GetDataType() == rfRes->GetDataType()) &&
+         IsAiCoreSupport(self) && IsAiCoreSupport(rfRes)) ||
+        IsDoubleSupport(self, rfRes)) {
         return MulAiCore(self, rfRes, rfRes, executor);
     }
 

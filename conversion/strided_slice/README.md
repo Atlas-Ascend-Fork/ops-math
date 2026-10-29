@@ -2,14 +2,16 @@
 
 ## 产品支持情况
 
-|产品             |  是否支持  |
-|:-------------------------|:----------:|
-| <term>Ascend 950PR&950DT系列产品</term>                     |    √     |
-| <term>Atlas A3系列产品</term>     |    √     |
-| <term>Atlas A2系列产品</term>     |    √     |
-| <term>Atlas 200I/500 A2推理产品</term>                     |    √     |
-| <term>Atlas推理系列产品</term>                             |    √     |
-| <term>Atlas训练系列产品</term>                             |    √     |
+| 产品                                    | 是否支持 |
+| :-------------------------------------- | :------: |
+| <term>Ascend 950PR&950DT系列产品</term> |    √    |
+| <term>Atlas A3系列产品</term>           |    √    |
+| <term>Atlas A2系列产品</term>           |    √    |
+| <term>Atlas 200I/500 A2推理产品</term>  |    √    |
+| <term>Atlas推理系列产品</term>          |    √    |
+| <term>Atlas训练系列产品</term>          |    √    |
+| <term>Kirin X90处理器系列产品</term>    |    √    |
+| <term>Kirin 9030处理器系列产品</term>   |    √    |
 
 ## 功能说明
 
@@ -107,11 +109,11 @@
 
 ## 约束说明
 
-无
+Kirin X90/Kirin 9030系列 x/y 仅支持INT8、UINT8、INT16、UINT16、INT32、FLOAT16、FLOAT32数据类型；begin/end/strides 仅支持INT32数据类型
 
 ## 调用说明
 
-| 调用方式 | 调用样例                                                                   | 说明                                                             |
-|--------------|------------------------------------------------------------------------|----------------------------------------------------------------|
-| aclnn调用 | [test_aclnn_strided_slice](./examples/arch35//test_aclnn_strided_slice.cpp) | 通过[aclnnStridedSlice](./docs/aclnnStridedSlice.md)接口方式调用StridedSlice算子。 |
-| 图模式调用 | [test_strided_slice](./examples/test_geir_strided_slice.cpp) | 通过[算子IR](./op_graph/strided_slice_proto.h)构图方式调用StridedSlice算子    |
+| 调用方式   | 调用样例                                                                 | 说明                                                                            |
+| ---------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------- |
+| aclnn调用  | [test_aclnn_strided_slice](./examples/arch35//test_aclnn_strided_slice.cpp) | 通过[aclnnStridedSlice](./docs/aclnnStridedSlice.md)接口方式调用StridedSlice算子。 |
+| 图模式调用 | [test_strided_slice](./examples/test_geir_strided_slice.cpp)                | 通过[算子IR](./op_graph/strided_slice_proto.h)构图方式调用StridedSlice算子         |

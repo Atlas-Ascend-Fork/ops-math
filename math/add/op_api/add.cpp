@@ -36,6 +36,9 @@ static const std::initializer_list<DataType> ASCEND910B_AICORE_DTYPE_SUPPORT_LIS
 static const std::initializer_list<DataType> ASCEND610LITE_AICORE_DTYPE_SUPPORT_LIST = {
     DataType::DT_FLOAT, DataType::DT_FLOAT16, DataType::DT_INT32, DataType::DT_INT8, DataType::DT_UINT8};
 
+static const std::initializer_list<DataType> KIRIN_AICORE_DTYPE_SUPPORT_LIST = {
+    DataType::DT_FLOAT, DataType::DT_FLOAT16, DataType::DT_INT32, DataType::DT_INT8, DataType::DT_UINT8};
+
 static inline const std::initializer_list<DataType>& GetAiCoreDtypeSupportListBySocVersion()
 {
     auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
@@ -52,6 +55,10 @@ static inline const std::initializer_list<DataType>& GetAiCoreDtypeSupportListBy
         }
         case NpuArch::DAV_3102: {
             return ASCEND610LITE_AICORE_DTYPE_SUPPORT_LIST;
+        }
+        case NpuArch::DAV_3003:
+        case NpuArch::DAV_3113: {
+            return KIRIN_AICORE_DTYPE_SUPPORT_LIST;
         }
         default: {
             return ASCEND910_AICORE_DTYPE_SUPPORT_LIST;

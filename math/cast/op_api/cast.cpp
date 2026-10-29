@@ -281,6 +281,40 @@ static const std::initializer_list<op::DataType> AICPU_DTYPE_SUPPORT_LIST = {
     op::DataType::DT_INT64,     op::DataType::DT_UINT32,     op::DataType::DT_UINT64,  op::DataType::DT_DOUBLE,
     op::DataType::DT_COMPLEX64, op::DataType::DT_COMPLEX128, op::DataType::DT_BF16};
 
+static const std::initializer_list<std::pair<op::DataType, op::DataType>> KIRIN_AICORE_DTYPE_SUPPORT_LIST = {
+    {op::DataType::DT_FLOAT16, op::DataType::DT_FLOAT},
+    {op::DataType::DT_FLOAT16, op::DataType::DT_INT32},
+    {op::DataType::DT_FLOAT16, op::DataType::DT_INT8},
+    {op::DataType::DT_FLOAT, op::DataType::DT_FLOAT16},
+    {op::DataType::DT_FLOAT, op::DataType::DT_INT32},
+    {op::DataType::DT_FLOAT, op::DataType::DT_INT8},
+    {op::DataType::DT_INT32, op::DataType::DT_FLOAT16},
+    {op::DataType::DT_INT32, op::DataType::DT_FLOAT},
+    {op::DataType::DT_INT32, op::DataType::DT_INT8},
+    {op::DataType::DT_INT8, op::DataType::DT_FLOAT16},
+    {op::DataType::DT_INT8, op::DataType::DT_FLOAT},
+    {op::DataType::DT_INT8, op::DataType::DT_INT32},
+    {op::DataType::DT_UINT8, op::DataType::DT_FLOAT16},
+    {op::DataType::DT_UINT8, op::DataType::DT_FLOAT},
+    {op::DataType::DT_UINT8, op::DataType::DT_INT32},
+    {op::DataType::DT_INT32, op::DataType::DT_INT16},
+    {op::DataType::DT_INT16, op::DataType::DT_INT8},
+    // 后补充 dtype（基于 vcvt 支持，如不支持可删除）
+    {op::DataType::DT_FLOAT, op::DataType::DT_INT16},
+    {op::DataType::DT_FLOAT16, op::DataType::DT_UINT8},
+    {op::DataType::DT_FLOAT16, op::DataType::DT_INT16},
+    {op::DataType::DT_UINT8, op::DataType::DT_UINT16},
+    {op::DataType::DT_UINT16, op::DataType::DT_UINT8},
+    {op::DataType::DT_UINT16, op::DataType::DT_UINT32},
+    {op::DataType::DT_INT16, op::DataType::DT_UINT8},
+    {op::DataType::DT_INT16, op::DataType::DT_UINT32},
+    {op::DataType::DT_INT16, op::DataType::DT_INT32},
+    {op::DataType::DT_UINT32, op::DataType::DT_UINT8},
+    {op::DataType::DT_UINT32, op::DataType::DT_UINT16},
+    {op::DataType::DT_UINT32, op::DataType::DT_INT16},
+    {op::DataType::DT_INT32, op::DataType::DT_UINT8},
+    {op::DataType::DT_INT32, op::DataType::DT_UINT16}};
+
 // 根据芯片类型、dtype判断算子是否支持走aicore
 static bool IsAiCoreSupport(const aclTensor* self, op::DataType dstDtype)
 {
@@ -306,6 +340,12 @@ static bool IsAiCoreSupport(const aclTensor* self, op::DataType dstDtype)
         return std::find(ASCEND910B_AICORE_DTYPE_SUPPORT_LIST.begin(), ASCEND910B_AICORE_DTYPE_SUPPORT_LIST.end(),
                          std::pair<op::DataType, op::DataType>(self->GetDataType(), dstDtype)) !=
                ASCEND910B_AICORE_DTYPE_SUPPORT_LIST.end();
+    }
+
+    if (curArch == NpuArch::DAV_3003 || curArch == NpuArch::DAV_3113) {
+        return std::find(KIRIN_AICORE_DTYPE_SUPPORT_LIST.begin(), KIRIN_AICORE_DTYPE_SUPPORT_LIST.end(),
+                         std::pair<op::DataType, op::DataType>(self->GetDataType(), dstDtype)) !=
+               KIRIN_AICORE_DTYPE_SUPPORT_LIST.end();
     }
 
     if (IsRegBase(curArch)) {

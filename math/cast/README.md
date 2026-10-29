@@ -10,6 +10,8 @@
 | <term>Atlas 200I/500 A2推理产品</term>                      |    √     |
 | <term>Atlas推理系列产品</term>                             |    √     |
 | <term>Atlas训练系列产品</term>                              |    √     |
+| <term>Kirin X90处理器系列产品</term>                              |    √     |
+| <term>Kirin 9030处理器系列产品	</term>                              |    √     |
 
 ## 功能说明
 

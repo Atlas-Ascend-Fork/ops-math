@@ -12,7 +12,11 @@
  * \file strided_slice.cpp
  * \brief
  */
+#if (defined(__NPU_ARCH__) && (__NPU_ARCH__ == 3003 || __NPU_ARCH__ == 3113))
+#include "arch31/strided_slice_arch31.h"
+#else
 #include "arch35/strided_slice.h"
+#endif
 
 using namespace StridedSlice;
 
@@ -44,22 +48,28 @@ extern "C" __global__ __aicore__ void strided_slice(GM_ADDR x, GM_ADDR begin, GM
                                                     GM_ADDR workspace, GM_ADDR tiling)
 {
     KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_AIV_ONLY);
+#if (defined(__NPU_ARCH__) && (__NPU_ARCH__ != 3003 && __NPU_ARCH__ != 3113))
+    // arch31不能注册REGISTER_TILING_DEFAULT，其余芯片保持不变
     REGISTER_TILING_DEFAULT(StridedSliceTilingData);
+#endif
     if (TILING_KEY_IS(STRIDED_SLICE_KEY_MOVE_ALIGN)) {
         GET_TILING_DATA_WITH_STRUCT(StridedSliceMATilingData, tilingData, tiling);
         StridedSliceMoveAlignProcess(x, begin, end, strides, y, &tilingData);
     } else if (TILING_KEY_IS(STRIDED_SLICE_KEY_MOVE_ALIGN_LAST_DIM)) {
         GET_TILING_DATA_WITH_STRUCT(StridedSliceMALastDimTilingData, tilingData, tiling);
         StridedSliceMoveAlignLastDimProcess(x, begin, end, strides, y, &tilingData);
+#if (defined(__NPU_ARCH__) && (__NPU_ARCH__ != 3003 && __NPU_ARCH__ != 3113))
     } else if (TILING_KEY_IS(STRIDED_SLICE_KEY_NDDMA)) {
         GET_TILING_DATA_WITH_STRUCT(StridedSliceNDDMATilingData, tilingData, tiling);
         StridedSliceNDDMAProcess(x, begin, end, strides, y, &tilingData);
     } else if (TILING_KEY_IS(STRIDED_SLICE_KEY_NDDMA_LAST_DIM)) {
         GET_TILING_DATA_WITH_STRUCT(StridedSliceNDDMATilingData, tilingData, tiling);
         StridedSliceNDDMALastDimProcess(x, begin, end, strides, y, &tilingData);
+#endif
     } else if (TILING_KEY_IS(STRIDED_SLICE_KEY_MOVE_ALIGN_TWO_DIM)) {
         GET_TILING_DATA_WITH_STRUCT(StridedSliceMALast2DimTilingData, tilingData, tiling);
         StridedSliceMoveAlignTwoDimProcess(x, begin, end, strides, y, &tilingData);
+#if (defined(__NPU_ARCH__) && (__NPU_ARCH__ != 3003 && __NPU_ARCH__ != 3113))
     } else if (TILING_KEY_IS(STRIDED_SLICE_KEY_SIMT)) {
         GET_TILING_DATA_WITH_STRUCT(StridedSliceSIMTTilingData, tilingData, tiling);
         StridedSliceSIMTProcess(x, begin, end, strides, y, tiling, &tilingData);
@@ -94,17 +104,20 @@ extern "C" __global__ __aicore__ void strided_slice(GM_ADDR x, GM_ADDR begin, GM
         GET_TILING_DATA_WITH_STRUCT(StridedSliceSIMTTilingData, tilingData, tiling);
         StridedSliceSIMTBigShapePack16BProcess(x, begin, end, strides, y, tiling, &tilingData);
 #endif
+#endif
     } else if (TILING_KEY_IS(STRIDED_SLICE_KEY_MOVE_ALIGN_GATHER)) {
         GET_TILING_DATA_WITH_STRUCT(StridedSliceMAGatherTilingData, tilingData, tiling);
         StridedSliceMoveAlignGatherProcess(x, begin, end, strides, y, &tilingData);
     } else if (TILING_KEY_IS(STRIDED_SLICE_KEY_MOVE_ALIGN_UB2UB)) {
         GET_TILING_DATA_WITH_STRUCT(StridedSliceMAUB2UBTilingData, tilingData, tiling);
         StridedSliceMoveAlignUb2UbProcess(x, begin, end, strides, y, &tilingData);
+#if (defined(__NPU_ARCH__) && (__NPU_ARCH__ != 3003 && __NPU_ARCH__ != 3113))
     } else if (TILING_KEY_IS(STRIDED_SLICE_KEY_NDDMA_GATHER)) {
         GET_TILING_DATA_WITH_STRUCT(StridedSliceNDDMATilingData, tilingData, tiling);
         StridedSliceNDDMAGatherProcess(x, begin, end, strides, y, &tilingData);
     } else if (TILING_KEY_IS(STRIDED_SLICE_KEY_NDDMA_UB2UB)) {
         GET_TILING_DATA_WITH_STRUCT(StridedSliceNDDMATilingData, tilingData, tiling);
         StridedSliceNDDMAUb2UbProcess(x, begin, end, strides, y, &tilingData);
+#endif
     }
 }
