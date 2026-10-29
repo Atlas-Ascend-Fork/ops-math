@@ -1036,6 +1036,44 @@ CastMicro<id, ST, DT, MST, MMT, MDT, ldDist, stDist, castMode1, castMode2, RegCo
     outQueue_.EnQue(yLocal);
 }
 
+// Match PyTorch fp8e8m0fnu_from_fp32_value after the exact BF16 -> FP32 widening.
+// E8M0 has no sign bit. Exponent 255 (NaN and either infinity) stays 255.
+__simd_vf__ inline void CastBf16ToE8m0VF(__ubuf__ uint16_t* srcAddr, __ubuf__ uint8_t* dstAddr, uint32_t count)
+{
+    constexpr uint32_t elementsPerRepeat = VL_BIT_SIZE / B16_BITS;
+    constexpr int16_t mantissaBits = 7;
+    constexpr uint16_t exponentMask = 0x00FF;
+    constexpr uint16_t mantissaMask = 0x007F;
+    constexpr uint16_t halfMantissa = 0x0040;
+    const uint16_t repeatTimes = static_cast<uint16_t>((count + elementsPerRepeat - 1) / elementsPerRepeat);
+    Reg::RegTensor<uint16_t> input, exponent, mantissa, normalRound, subnormalRound, result;
+    Reg::RegTensor<uint16_t> exponentMaskReg, mantissaMaskReg;
+    Reg::MaskReg mask, normalMask, specialMask;
+    Reg::Duplicate(exponentMaskReg, exponentMask);
+    Reg::Duplicate(mantissaMaskReg, mantissaMask);
+    for (uint16_t i = 0; i < repeatTimes; ++i) {
+        mask = Reg::UpdateMask<uint16_t>(count);
+        const uint32_t offset = static_cast<uint32_t>(i) * elementsPerRepeat;
+        Reg::LoadAlign<uint16_t, Reg::LoadDist::DIST_NORM>(input, srcAddr + offset);
+        Reg::ShiftRights(exponent, input, mantissaBits, mask);
+        Reg::And(exponent, exponent, exponentMaskReg, mask);
+        Reg::And(mantissa, input, mantissaMaskReg, mask);
+
+        // For normal BF16 inputs, PyTorch increments when the guard bit is set.
+        // For subnormals its implied LSB is zero, so an exact tie does not increment.
+        Reg::Adds(normalRound, mantissa, halfMantissa, mask);
+        Reg::Adds(subnormalRound, mantissa, static_cast<uint16_t>(halfMantissa - 1), mask);
+        Reg::CompareScalar<uint16_t, CMPMODE::NE>(normalMask, exponent, static_cast<uint16_t>(0), mask);
+        Reg::Select(result, normalRound, subnormalRound, normalMask);
+        Reg::ShiftRights(result, result, mantissaBits, mask);
+        Reg::Add(result, exponent, result, mask);
+        Reg::CompareScalar<uint16_t, CMPMODE::EQ>(specialMask, exponent, exponentMask, mask);
+        Reg::Select(result, exponent, result, specialMask);
+        Reg::StoreAlign<uint8_t, Reg::StoreDist::DIST_PACK_B16>(dstAddr + offset, (Reg::RegTensor<uint8_t>&)result,
+                                                                mask);
+    }
+}
+
 template <int id, typename ST, typename DT, typename MST, typename MMT, typename MDT, LoadDist ldDist, StoreDist stDist,
           RoundMode castMode1, RoundMode castMode2, int32_t RegCopyInStep, int32_t RegCopyOutStep,
           int64_t OneLoopCopyInBitSize, int64_t InputTypeBitSize>
@@ -1045,6 +1083,10 @@ CastMicro<id, ST, DT, MST, MMT, MDT, ldDist, stDist, castMode1, castMode2, RegCo
 {
     auto xLocal = inQueueX_.template DeQue<ST>();
     auto yLocal = outQueue_.template AllocTensor<DT>();
+#if ORIG_DTYPE_X == DT_BF16 && ORIG_DTYPE_Y == DT_FLOAT8_E8M0
+    asc_vf_call<CastBf16ToE8m0VF>((__ubuf__ uint16_t*)xLocal.GetPhyAddr(), (__ubuf__ uint8_t*)yLocal.GetPhyAddr(),
+                                  static_cast<uint32_t>(len));
+#else
     __ubuf__ MST* srcAddr = (__ubuf__ MST*)xLocal.GetPhyAddr();
     __ubuf__ MDT* dstAddr = (__ubuf__ MDT*)yLocal.GetPhyAddr();
     int32_t regCopyInStep = RegCopyInStep;
@@ -1097,6 +1139,7 @@ CastMicro<id, ST, DT, MST, MMT, MDT, ldDist, stDist, castMode1, castMode2, RegCo
                                                                              regCopyOutStep, mask);
         }
     }
+#endif
 
     inQueueX_.FreeTensor(xLocal);
     outQueue_.EnQue(yLocal);
