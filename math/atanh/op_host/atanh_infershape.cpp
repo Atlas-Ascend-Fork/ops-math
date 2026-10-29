@@ -16,22 +16,35 @@
  */
 #include "util/shape_util.h"
 #include "register/op_impl_registry.h"
+#include "graph/operator_factory.h"
 #include "log/log.h"
+#include <vector>
 
 using namespace ge;
+
+namespace {
+const ge::InferShapeFuncRegister kAtanhLegacyInferEmptyFirst("Atanh", ge::InferShapeFunc{});
+}
 
 namespace ops {
 static constexpr int64_t IDX_0 = 0;
 
 static ge::graphStatus InferShapeAtanh(gert::InferShapeContext* context)
 {
+    if (context == nullptr) {
+        const std::vector<const char*> keys = {"opName", "reason"};
+        const std::vector<const char*> values = {"Atanh", "InferShape context is null."};
+        REPORT_PREDEFINED_ERR_MSG("EZ1014", keys, values);
+        OP_LOGE_WITHOUT_REPORT("Atanh", "InferShape context is null.");
+        return ge::GRAPH_FAILED;
+    }
     OP_LOGD(context->GetNodeName(), "Begin to do InferShapeAtanh");
 
     const gert::Shape* xShape = context->GetInputShape(IDX_0);
-    OP_CHECK_NULL_WITH_CONTEXT(context, xShape);
+    OP_CHECK_IF(xShape == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x"), return ge::GRAPH_FAILED);
 
     gert::Shape* yShape = context->GetOutputShape(IDX_0);
-    OP_CHECK_NULL_WITH_CONTEXT(context, yShape);
+    OP_CHECK_IF(yShape == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "y"), return ge::GRAPH_FAILED);
 
     auto xShapeSize = xShape->GetDimNum();
     yShape->SetDimNum(xShapeSize);
@@ -41,7 +54,7 @@ static ge::graphStatus InferShapeAtanh(gert::InferShapeContext* context)
     }
 
     OP_LOGD(context->GetNodeName(), "End to do InferShapeAtanh");
-    OP_LOGI(context->GetNodeName(), "[InferShape] output0 shape=%s", Ops::Base::ToString(*yShape).c_str());
+    OP_LOGI(context->GetNodeName(), "[InferShape] status=0 output0 shape=%s", Ops::Base::ToString(*yShape).c_str());
     return GRAPH_SUCCESS;
 }
 

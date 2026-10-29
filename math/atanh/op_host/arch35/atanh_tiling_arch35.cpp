@@ -15,6 +15,9 @@
  * \brief Atanh operator tiling implementation (SIMT mode)
  */
 
+#include <limits>
+#include <set>
+#include <vector>
 #include "log/log.h"
 #include "util/math_util.h"
 #include "util/platform_util.h"
@@ -29,57 +32,123 @@ constexpr uint32_t WS_SYS_SIZE = 0U;
 
 struct AtanhCompileInfo {};
 
+static ge::graphStatus ReportTilingFailure(const char* opName, const char* reason)
+{
+    const std::vector<const char*> keys = {"opName", "reason"};
+    const std::vector<const char*> values = {opName, reason};
+    REPORT_PREDEFINED_ERR_MSG("EZ1008", keys, values);
+    OP_LOGE_WITHOUT_REPORT(opName, "%s", reason);
+    return ge::GRAPH_FAILED;
+}
+
 static ge::graphStatus GetPlatformInfo(gert::TilingContext* context, int64_t& coreNum)
 {
     fe::PlatFormInfos* platformInfoPtr = context->GetPlatformInfo();
-    OP_CHECK_NULL_WITH_CONTEXT(context, platformInfoPtr);
+    if (platformInfoPtr == nullptr) {
+        return ReportTilingFailure(context->GetNodeName(), "Platform information is null.");
+    }
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfoPtr);
     coreNum = ascendcPlatform.GetCoreNumAiv();
-    OP_CHECK_IF(coreNum == 0, OP_LOGE(context, "coreNum is 0"), return ge::GRAPH_FAILED);
+    if (coreNum == 0) {
+        return ReportTilingFailure(context->GetNodeName(), "The number of AIV cores must be greater than zero.");
+    }
     return ge::GRAPH_SUCCESS;
 }
 
 static ge::graphStatus GetShapeAttrsInfo(gert::TilingContext* context, int64_t& totalNum, ge::DataType& dataType)
 {
     auto inputX = context->GetInputShape(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context, inputX);
-    auto inputShapeX = Ops::Base::EnsureNotScalar(inputX->GetStorageShape());
+    OP_CHECK_IF(inputX == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x"), return ge::GRAPH_FAILED);
+    const auto& inputShapeX = inputX->GetStorageShape();
+    auto outputY = context->GetOutputShape(0);
+    OP_CHECK_IF(outputY == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "y"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        inputShapeX != outputY->GetStorageShape(),
+        OP_LOGE_FOR_INVALID_SHAPE(context->GetNodeName(), "y", Ops::Base::ToString(outputY->GetStorageShape()).c_str(),
+                                  Ops::Base::ToString(inputShapeX).c_str()),
+        return ge::GRAPH_FAILED);
 
-    totalNum = inputShapeX.GetShapeSize();
+    // Validate every dimension before multiplying. Empty tensors still reject unknown dimensions.
+    bool isEmpty = false;
+    for (size_t i = 0; i < inputShapeX.GetDimNum(); ++i) {
+        const int64_t dim = inputShapeX.GetDim(i);
+        OP_CHECK_IF(
+            dim < 0,
+            OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON(context->GetNodeName(), "x", Ops::Base::ToString(inputShapeX).c_str(),
+                                                  "All dimensions must be nonnegative."),
+            return ge::GRAPH_FAILED);
+        isEmpty = isEmpty || dim == 0;
+    }
+    totalNum = isEmpty ? 0 : 1;
+    if (!isEmpty) {
+        for (size_t i = 0; i < inputShapeX.GetDimNum(); ++i) {
+            const int64_t dim = inputShapeX.GetDim(i);
+            OP_CHECK_IF(totalNum > std::numeric_limits<int64_t>::max() / dim,
+                        OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON(context->GetNodeName(), "x",
+                                                              Ops::Base::ToString(inputShapeX).c_str(),
+                                                              "The element count must fit in int64."),
+                        return ge::GRAPH_FAILED);
+            totalNum *= dim;
+        }
+    }
 
     const std::set<ge::DataType> supportedDtype = {ge::DT_FLOAT, ge::DT_FLOAT16, ge::DT_BF16};
     auto inputDesc = context->GetInputDesc(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context, inputDesc);
+    OP_CHECK_IF(inputDesc == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x"), return ge::GRAPH_FAILED);
     dataType = inputDesc->GetDataType();
     if (supportedDtype.count(dataType) == 0) {
-        OP_LOGE(context, "invalid dtype for Atanh");
+        OP_LOGE_FOR_INVALID_DTYPE(context->GetNodeName(), "x", Ops::Base::ToString(dataType).c_str(),
+                                  "FLOAT, FLOAT16 or BF16");
         return ge::GRAPH_FAILED;
     }
+    auto outputDesc = context->GetOutputDesc(0);
+    OP_CHECK_IF(outputDesc == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "y"),
+                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        outputDesc->GetDataType() != dataType,
+        OP_LOGE_FOR_INVALID_DTYPE(context->GetNodeName(), "y", Ops::Base::ToString(outputDesc->GetDataType()).c_str(),
+                                  Ops::Base::ToString(dataType).c_str()),
+        return ge::GRAPH_FAILED);
+    OP_CHECK_IF(inputDesc->GetStorageFormat() != ge::FORMAT_ND,
+                OP_LOGE_FOR_INVALID_FORMAT(context->GetNodeName(), "x",
+                                           Ops::Base::ToString(inputDesc->GetStorageFormat()).c_str(), "ND"),
+                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(outputDesc->GetStorageFormat() != ge::FORMAT_ND,
+                OP_LOGE_FOR_INVALID_FORMAT(context->GetNodeName(), "y",
+                                           Ops::Base::ToString(outputDesc->GetStorageFormat()).c_str(), "ND"),
+                return ge::GRAPH_FAILED);
     return ge::GRAPH_SUCCESS;
 }
 
 static ge::graphStatus AtanhTilingFunc(gert::TilingContext* context)
 {
+    if (context == nullptr) {
+        return ReportTilingFailure("Atanh", "Tiling context is null.");
+    }
     OP_LOGD(context->GetNodeName(), "Begin the tiling process for Arch35 architecture");
     int64_t coreNum = 0;
-    OP_CHECK_IF(GetPlatformInfo(context, coreNum) != ge::GRAPH_SUCCESS, OP_LOGE(context, "GetPlatformInfo error"),
-                return ge::GRAPH_FAILED);
+    if (GetPlatformInfo(context, coreNum) != ge::GRAPH_SUCCESS) {
+        return ge::GRAPH_FAILED;
+    }
 
     int64_t totalNum = 0;
     ge::DataType dataType = ge::DT_FLOAT;
-    OP_CHECK_IF(GetShapeAttrsInfo(context, totalNum, dataType) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context, "GetShapeAttrsInfo error"), return ge::GRAPH_FAILED);
+    if (GetShapeAttrsInfo(context, totalNum, dataType) != ge::GRAPH_SUCCESS) {
+        return ge::GRAPH_FAILED;
+    }
 
     AtanhTilingData* tiling = context->GetTilingData<AtanhTilingData>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, tiling);
-    OP_CHECK_IF(memset_s(tiling, sizeof(AtanhTilingData), 0, sizeof(AtanhTilingData)) != EOK,
-                OP_LOGE(context, "set tiling data error"), return ge::GRAPH_FAILED);
+    if (tiling == nullptr) {
+        return ReportTilingFailure(context->GetNodeName(), "Tiling data is null.");
+    }
+    if (memset_s(tiling, sizeof(AtanhTilingData), 0, sizeof(AtanhTilingData)) != EOK) {
+        return ReportTilingFailure(context->GetNodeName(), "Failed to initialize tiling data.");
+    }
 
     tiling->totalNum = totalNum;
     // blockDim 必须封顶在物理 AIV 核数；SIMT 核内用 grid-stride 覆盖全部元素。
-    // 原实现 SetBlockDim(CeilDiv(totalNum, coreNum)) 会让 blockDim 随元素数线性膨胀，
-    // 大 shape 下远超可用核数，触发 507035 vector core exception。
-    int64_t usedCoreNum = Ops::Base::CeilDiv(totalNum, coreNum);
+    // Divide before rounding up to avoid overflow for large element counts.
+    int64_t usedCoreNum = totalNum / coreNum + (totalNum % coreNum != 0);
     if (usedCoreNum > coreNum) {
         usedCoreNum = coreNum;
     }
@@ -90,7 +159,9 @@ static ge::graphStatus AtanhTilingFunc(gert::TilingContext* context)
     context->SetBlockDim(usedCoreNum);
 
     size_t* currentWorkspace = context->GetWorkspaceSizes(1);
-    OP_CHECK_NULL_WITH_CONTEXT(context, currentWorkspace);
+    if (currentWorkspace == nullptr) {
+        return ReportTilingFailure(context->GetNodeName(), "Workspace sizes are null.");
+    }
     currentWorkspace[0] = WS_SYS_SIZE;
 
     uint64_t tilingKey = 0;
@@ -101,7 +172,8 @@ static ge::graphStatus AtanhTilingFunc(gert::TilingContext* context)
     } else if (dataType == ge::DT_BF16) {
         tilingKey = GET_TPL_TILING_KEY(ATANH_TPL_SCH_MODE_BFLOAT16);
     } else {
-        OP_LOGE(context, "get dtype error");
+        OP_LOGE_FOR_INVALID_DTYPE(context->GetNodeName(), "x", Ops::Base::ToString(dataType).c_str(),
+                                  "FLOAT, FLOAT16 or BF16");
         return ge::GRAPH_FAILED;
     }
     context->SetTilingKey(tilingKey);

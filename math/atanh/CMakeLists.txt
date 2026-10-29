@@ -12,3 +12,11 @@
 set(SUPPORT_COMPUTE_UNIT "ascend950" "ascend350")
 set(SUPPORT_TILING_DIR "arch35" "arch35")
 add_all_modules_sources(OPTYPE atanh ACLNNTYPE aclnn_exclude COMPUTE_UNIT ${SUPPORT_COMPUTE_UNIT} TILING_DIR ${SUPPORT_TILING_DIR} DISABLE_IN_OPP TRUE)
+
+if(UT_TEST_ALL OR OP_HOST_UT)
+    if(TARGET ${OP_TILING_MODULE_NAME}_cases_obj)
+        target_include_directories(${OP_TILING_MODULE_NAME}_cases_obj PRIVATE ${ASCEND_DIR}/pkg_inc)
+        target_link_libraries(${OP_TILING_MODULE_NAME}_cases_obj PUBLIC
+            error_manager -Wl,--push-state,--no-as-needed nnopbase -Wl,--pop-state)
+    endif()
+endif()

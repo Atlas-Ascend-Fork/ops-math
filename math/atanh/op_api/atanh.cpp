@@ -24,45 +24,51 @@ OP_TYPE_REGISTER(Atanh);
 
 static const std::initializer_list<DataType> AICORE_DTYPE_SUPPORT_LIST = {DataType::DT_FLOAT, DataType::DT_FLOAT16};
 
-static const std::initializer_list<DataType> AICORE_910B_DTYPE_SUPPORT_LIST = {DataType::DT_FLOAT,
-                                                                                DataType::DT_FLOAT16,
-                                                                                DataType::DT_BF16};
+static const std::initializer_list<DataType> AICORE_910B_DTYPE_SUPPORT_LIST = {DataType::DT_FLOAT, DataType::DT_FLOAT16,
+                                                                               DataType::DT_BF16};
 
 // 根据芯片类型、dtype判断算子是否支持走aicore
-static inline bool IsAiCoreSupport(DataType inputDtype) {
-  if (GetCurrentPlatformInfo().GetSocVersion() == SocVersion::ASCEND910B ||
-      GetCurrentPlatformInfo().GetSocVersion() == SocVersion::ASCEND910_93 ||
-      IsRegBase()) {
-    return CheckType(inputDtype, AICORE_910B_DTYPE_SUPPORT_LIST);
-  }
-  return CheckType(inputDtype, AICORE_DTYPE_SUPPORT_LIST);
+static inline bool IsAiCoreSupport(DataType inputDtype)
+{
+    if (GetCurrentPlatformInfo().GetSocVersion() == SocVersion::ASCEND910B ||
+        GetCurrentPlatformInfo().GetSocVersion() == SocVersion::ASCEND910_93 || IsRegBase()) {
+        return CheckType(inputDtype, AICORE_910B_DTYPE_SUPPORT_LIST);
+    }
+    return CheckType(inputDtype, AICORE_DTYPE_SUPPORT_LIST);
 }
 
 // AICORE算子kernel
-static inline const aclTensor* AtanhAiCore(const aclTensor* input, aclTensor* output, aclOpExecutor* executor) {
-  L0_DFX(AtanhAiCore, input, output);
-  // 使用框架宏ADD_TO_LAUNCHER_LIST_AICORE，将AiCore Atanh算子加入任务队列
-  auto ret = ADD_TO_LAUNCHER_LIST_AICORE(Atanh, OP_INPUT(input), OP_OUTPUT(output));
-  OP_CHECK(ret == ACLNN_SUCCESS, OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "Atanh ADD_TO_LAUNCHER_LIST_AICORE failed."), return nullptr);
-  return output;
+static inline const aclTensor* AtanhAiCore(const aclTensor* input, aclTensor* output, aclOpExecutor* executor)
+{
+    L0_DFX(AtanhAiCore, input, output);
+    // 使用框架宏ADD_TO_LAUNCHER_LIST_AICORE，将AiCore Atanh算子加入任务队列
+    auto ret = ADD_TO_LAUNCHER_LIST_AICORE(Atanh, OP_INPUT(input), OP_OUTPUT(output));
+    OP_CHECK(ret == ACLNN_SUCCESS, OP_LOGE(ret, "Atanh ADD_TO_LAUNCHER_LIST_AICORE failed, status=%d.", ret),
+             return nullptr);
+    return output;
 }
 
 // AICPU算子kernel
-static inline const aclTensor* AtanhAiCpu(const aclTensor* input, aclTensor* output, aclOpExecutor* executor) {
-  L0_DFX(AtanhAiCpu, input, output);
-  // 使用框架宏ADD_TO_LAUNCHER_LIST_AICPU，将AiCpu Atanh算子加入任务队列
-  static internal::AicpuTaskSpace space("Atanh", ge::DEPEND_IN_SHAPE, true);
-  auto ret = ADD_TO_LAUNCHER_LIST_AICPU(Atanh, OP_ATTR_NAMES(), OP_INPUT(input), OP_OUTPUT(output));
-  OP_CHECK(ret ==  ACLNN_SUCCESS, OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "AtanhAiCpu ADD_TO_LAUNCHER_LIST_AICPU failed."), return nullptr);
-  return output;
+static inline const aclTensor* AtanhAiCpu(const aclTensor* input, aclTensor* output, aclOpExecutor* executor)
+{
+    L0_DFX(AtanhAiCpu, input, output);
+    // 使用框架宏ADD_TO_LAUNCHER_LIST_AICPU，将AiCpu Atanh算子加入任务队列
+    static internal::AicpuTaskSpace space("Atanh", ge::DEPEND_IN_SHAPE, true);
+    auto ret = ADD_TO_LAUNCHER_LIST_AICPU(Atanh, OP_ATTR_NAMES(), OP_INPUT(input), OP_OUTPUT(output));
+    OP_CHECK(ret == ACLNN_SUCCESS, OP_LOGE(ret, "AtanhAiCpu ADD_TO_LAUNCHER_LIST_AICPU failed, status=%d.", ret),
+             return nullptr);
+    return output;
 }
 
-const aclTensor* Atanh(const aclTensor* input, aclOpExecutor* executor) {
-  auto output = executor->AllocTensor(input->GetViewShape(), input->GetDataType());
+const aclTensor* Atanh(const aclTensor* input, aclOpExecutor* executor)
+{
+    auto output = executor->AllocTensor(input->GetViewShape(), input->GetDataType());
+    OP_CHECK(output != nullptr, OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "Failed to allocate Atanh output tensor."),
+             return nullptr);
 
-  if (IsAiCoreSupport(input->GetDataType())) {
-    return AtanhAiCore(input, output, executor);
-  }
-  return AtanhAiCpu(input, output, executor);
+    if (IsAiCoreSupport(input->GetDataType())) {
+        return AtanhAiCore(input, output, executor);
+    }
+    return AtanhAiCpu(input, output, executor);
 }
-}  // namespace l0op
+} // namespace l0op

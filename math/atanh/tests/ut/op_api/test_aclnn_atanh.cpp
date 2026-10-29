@@ -134,3 +134,26 @@ TEST_F(l2_atanh_test, case_atanh_mismatched_shape)
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
     EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
 }
+
+TEST_F(l2_atanh_test, atanh_null_workspace_or_executor)
+{
+    for (const auto& shape : std::vector<std::vector<int64_t>>{{2}, {0}}) {
+        auto input = TensorDesc(shape, ACL_FLOAT, ACL_FORMAT_ND).ToAclType();
+        auto output = TensorDesc(shape, ACL_FLOAT, ACL_FORMAT_ND).ToAclType();
+        uint64_t workspaceSize = 0;
+        aclOpExecutor* executor = nullptr;
+        EXPECT_EQ(aclnnAtanhGetWorkspaceSize(input.get(), output.get(), nullptr, &executor), ACLNN_ERR_PARAM_NULLPTR);
+        EXPECT_EQ(aclnnAtanhGetWorkspaceSize(input.get(), output.get(), &workspaceSize, nullptr),
+                  ACLNN_ERR_PARAM_NULLPTR);
+        EXPECT_EQ(aclnnInplaceAtanhGetWorkspaceSize(input.get(), nullptr, &executor), ACLNN_ERR_PARAM_NULLPTR);
+        EXPECT_EQ(aclnnInplaceAtanhGetWorkspaceSize(input.get(), &workspaceSize, nullptr), ACLNN_ERR_PARAM_NULLPTR);
+    }
+}
+
+TEST_F(l2_atanh_test, atanh_inplace_rejects_integer)
+{
+    auto self = TensorDesc({2}, ACL_INT32, ACL_FORMAT_ND);
+    auto ut = OP_API_UT(aclnnInplaceAtanh, INPUT(self), OUTPUT());
+    uint64_t workspaceSize = 0;
+    EXPECT_EQ(ut.TestGetWorkspaceSize(&workspaceSize), ACLNN_ERR_PARAM_INVALID);
+}

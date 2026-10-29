@@ -118,7 +118,7 @@ static aclnnStatus CheckInplaceParamsAtanh(aclTensor* selfRef)
 static aclnnStatus ExecAtanhGetWorkspaceSize(const aclTensor* input, aclTensor* out, uint64_t* workspaceSize,
                                              aclOpExecutor** executor)
 {
-    CHECK_NOT_NULL(input, out);
+    CHECK_NOT_NULL(input, out, workspaceSize, executor);
     // 创建OpExecutor
     auto uniqueExecutor = CREATE_EXECUTOR();
     CHECK_RET(uniqueExecutor.get() != nullptr, ACLNN_ERR_INNER_CREATE_EXECUTOR);

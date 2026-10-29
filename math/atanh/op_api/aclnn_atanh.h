@@ -22,7 +22,7 @@ extern "C" {
  * @domain aclnn_math
  * 功能描述：对输入Tensor中的每个元素进行反双曲正切操作后输出。
  * 计算公式：
- * out_{i}=ln((1 + input_{i})/(1 - input_{i}))
+ * out_{i}=0.5 * ln((1 + input_{i})/(1 - input_{i}))
  * 参数描述：
  * @param [in]   input
  * 输入Tensor，数据类型支持FLOAT，BFLOAT16, FLOAT16，DOUBLE，COMPLEX64，COMPLEX128。支持非连续Tensor，数据格式支持ND。
@@ -38,7 +38,7 @@ ACLNN_API aclnnStatus aclnnAtanhGetWorkspaceSize(const aclTensor* input, aclTens
  * @brief aclnnAtanh的第二段接口，用于执行计算。
  * 功能描述：对输入Tensor中的每个元素进行反双曲正切操作后输出。
  * 计算公式：
- * out_{i}=ln((1 + input_{i})/(1 - input_{i}))
+ * out_{i}=0.5 * ln((1 + input_{i})/(1 - input_{i}))
  * 实现说明：
  * api计算的基本路径：
 ```mermaid
@@ -62,7 +62,7 @@ ACLNN_API aclnnStatus aclnnAtanh(void* workspace, uint64_t workspaceSize, aclOpE
  * @domain aclnn_math
  * 功能描述：对输入Tensor中的每个元素进行反双曲正切操作后输出。
  * 计算公式：
- * out_{i}=ln((1 + input_{i})/(1 - input_{i}))
+ * out_{i}=0.5 * ln((1 + input_{i})/(1 - input_{i}))
  * 参数描述：
  * @param [in]   input
  * 输入Tensor，数据类型支持INT8，INT16，INT32，INT64，UINT8，BOOL，FLOAT，FLOAT16，DOUBLE，COMPLEX64，COMPLEX128。支持非连续Tensor，数据格式支持ND。
