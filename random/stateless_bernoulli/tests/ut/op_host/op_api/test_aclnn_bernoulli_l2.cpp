@@ -11,7 +11,7 @@
 #include <vector>
 #include "gtest/gtest.h"
 
-#include "../../../../op_host/op_api/aclnn_bernoulli.h"
+#include "../../../../op_api/aclnn_bernoulli.h"
 
 #include "op_api_ut_common/op_api_ut.h"
 #include "op_api_ut_common/scalar_desc.h"
@@ -21,15 +21,9 @@ using namespace std;
 
 class l2_bernoulli_test : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        cout << "bernoulli_test SetUp" << endl;
-    }
+    static void SetUpTestCase() { cout << "bernoulli_test SetUp" << endl; }
 
-    static void TearDownTestCase()
-    {
-        cout << "bernoulli_test TearDown" << endl;
-    }
+    static void TearDownTestCase() { cout << "bernoulli_test TearDown" << endl; }
 };
 
 // Test for precision

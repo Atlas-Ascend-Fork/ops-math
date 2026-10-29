@@ -22,34 +22,40 @@
 namespace ge {
 
 /**
-* @brief Generate bernoulli distribution for tensor input . \n
+* @brief Generate bernoulli distribution for tensor input. \n
 
 * @par Inputs:
-include:
+* include:
 * @li shape: 1-D. The shape of the input tensor. A tensor of type int32, int64.
-* @li prob: 0-D. A tensor of type float16, float32, double, bfloat16.
-* Probability of bernoulli distribution, the value range from 0 to 1.
-* @li seed: If seed is set to be -1, and offset is set to be 0, the random number
-* generator is seeded by a random seed. Otherwise, it is seeded by the given seed.
+* @li prob: A tensor of type float16, float32, double, bfloat16. \n
+* Probability of bernoulli distribution, the value range from 0 to 1. \n
+* The usage of prob is controlled by the attribute probMode. \n
+* @li seed: If seed is set to be -1, and offset is set to be 0, the random number \n
+* generator is seeded by a random seed. Otherwise, it is seeded by the given seed. \n
 * A tensor of type int64.
 * @li offset: To avoid seed collision. A tensor of type int64, must be a multiple of 4.
 
 * @par Attributes:
-* dtype: The data type for the elements of the output tensor.
+* @li dtype: Output data type. Must be one of the following types: int8, uint8, int16, uint16, int32, uint32,
+* int64, uint64, bool, float16, float32, double, bfloat16.
+* Defaults to float32. \n
+* @li probMode: Controls how the prob tensor is interpreted. 1 means scalar mode (use the first
+* value of prob tensor), 0 means tensor mode (broadcast is supported). Defaults to 0. \n
 
 * @par Outputs:
-* y: A tensor. The tensor of type support int8, uint8, int16, uint16, 
-*  int32, uint32, int64, uint64, bool, float16, float, double, bf16. \n
+* y: A tensor. The tensor of type support int8, uint8, int16, uint16,
+* int32, uint32, int64, uint64, bool, float16, float32, double, bfloat16. \n
 */
 REG_OP(StatelessBernoulli)
-    .INPUT(shape, TensorType({ DT_INT32, DT_INT64}))
-    .INPUT(prob, TensorType({ DT_FLOAT16, DT_FLOAT, DT_DOUBLE, DT_BF16}))
-    .INPUT(seed, TensorType({ DT_INT64 }))
-    .INPUT(offset, TensorType({ DT_INT64 }))
-    .OUTPUT(y, TensorType({ DT_INT8, DT_UINT8, DT_INT16, DT_UINT16, DT_INT32, DT_UINT32,
-                            DT_INT64, DT_UINT64, DT_BOOL, DT_FLOAT16, DT_FLOAT, DT_DOUBLE, DT_BF16}))
+    .INPUT(shape, TensorType({DT_INT32, DT_INT64}))
+    .INPUT(prob, TensorType({DT_FLOAT16, DT_FLOAT, DT_DOUBLE, DT_BF16}))
+    .INPUT(seed, TensorType({DT_INT64}))
+    .INPUT(offset, TensorType({DT_INT64}))
+    .OUTPUT(y, TensorType({DT_INT8, DT_UINT8, DT_INT16, DT_UINT16, DT_INT32, DT_UINT32, DT_INT64, DT_UINT64, DT_BOOL,
+                           DT_FLOAT16, DT_FLOAT, DT_DOUBLE, DT_BF16}))
     .ATTR(dtype, Type, DT_FLOAT)
+    .ATTR(probMode, Int, 0)
     .OP_END_FACTORY_REG(StatelessBernoulli)
 
-}   // namespace ge
-#endif  // OPS_BUILT_IN_OP_PROTO_INC_RANDOM_OPS_H_
+} // namespace ge
+#endif // OPS_BUILT_IN_OP_PROTO_INC_RANDOM_OPS_H_

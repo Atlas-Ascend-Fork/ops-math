@@ -448,8 +448,7 @@ aclnnStatus aclnnInplaceBernoulli(
 
 ## 约束说明
 
-- 确定性计算：
-  - aclnnBernoulli&aclnnInplaceBernoulli默认确定性实现。
+- 确定性计算：aclnnBernoulli&aclnnInplaceBernoulli默认确定性实现。
 
 ## 调用示例
 

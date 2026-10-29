@@ -14,22 +14,18 @@
 #include "tikicpulib.h"
 #include "../../../../random_common/op_kernel/arch35/random_unified_tiling_data_arch35.h"
 
-__global__ __aicore__ void stateless_bernoulli(
-    GM_ADDR shape, GM_ADDR prob, GM_ADDR seed, GM_ADDR offset, GM_ADDR y, GM_ADDR workspace, GM_ADDR tiling);
+__global__ __aicore__ void stateless_bernoulli(GM_ADDR shape, GM_ADDR prob, GM_ADDR seed, GM_ADDR offset, GM_ADDR y,
+                                               GM_ADDR workspace, GM_ADDR tiling);
 
 namespace {
 constexpr uint32_t kNumBlocks = 1;
 constexpr uint64_t kTilingKey = 100;
 constexpr int64_t kElementCount = 256;
 
-inline size_t Align32(size_t size)
-{
-    return (size + 31U) / 32U * 32U;
-}
+inline size_t Align32(size_t size) { return (size + 31U) / 32U * 32U; }
 } // namespace
 
-class StatelessBernoulliKernelTest : public testing::Test {
-};
+class StatelessBernoulliKernelTest : public testing::Test {};
 
 TEST_F(StatelessBernoulliKernelTest, smoke_float)
 {
@@ -54,16 +50,27 @@ TEST_F(StatelessBernoulliKernelTest, smoke_float)
     tilingData->outputSize = kElementCount;
     tilingData->seed = 42;
     tilingData->offset = 0;
-    tilingData->extraInt64Param1 = 1;
+    tilingData->extraInt64Param1 = 1; // 标量语义
+    // scalar 路径经 splitBlocks 取执行参数（对齐 tiling CalcExecutionPoliciesForBlocks 公式）
+    tilingData->splitBlockCount = 1;
+    tilingData->splitBlocks[0].numel = kElementCount;
+    tilingData->splitBlocks[0].gmOffset = 0;
+    tilingData->splitBlocks[0].grid = 1;           // ceil(256/256)
+    tilingData->splitBlocks[0].totalThreads = 256; // 256 * min(ceil(256/256), 78*8)
+    tilingData->splitBlocks[0].kernelOffset = 0;
 
     AscendC::SetKernelMode(KernelMode::AIV_MODE);
     ICPU_SET_TILING_KEY(kTilingKey);
     ICPU_RUN_KF(stateless_bernoulli, kNumBlocks, shape, prob, seed, offset, y, workspace, tiling);
 
     auto* yData = reinterpret_cast<float*>(y);
+    int64_t ones = 0;
     for (int64_t i = 0; i < kElementCount; ++i) {
         EXPECT_TRUE(yData[i] == 0.0f || yData[i] == 1.0f);
+        ones += static_cast<int64_t>(yData[i]);
     }
+    // 值级断言：oracle 期望（seed=42, p=0.5, n=256, T=256, 交织映射 + 严格小于）
+    EXPECT_EQ(ones, 130);
 
     AscendC::GmFree(shape);
     AscendC::GmFree(prob);

@@ -75,11 +75,26 @@
       <td>INT8、UINT8、INT16、UINT16、INT32、UINT32、INT64、UINT64、BOOL、FLOAT16、BFLOAT16、FLOAT</td>
       <td>ND</td>
     </tr>
+    <tr>
+      <td>dtype</td>
+      <td>属性</td>
+      <td>输出数据类型。</td>
+      <td>INT（ge::DataType 枚举值，缺省 DT_FLOAT）</td>
+      <td>-</td>
+    </tr>
+    <tr>
+      <td>probMode</td>
+      <td>属性（可选）</td>
+      <td>prob 语义模式：1=标量语义（prob 为单元素张量，取其值作为概率）；0=张量语义（prob 为概率张量，shape 须可广播到输出 shape）。缺省 0。</td>
+      <td>INT</td>
+      <td>-</td>
+    </tr>
   </tbody></table>
 
 ## 约束说明
 
-无
+- probMode=0 时，prob 的 shape 须可广播到输出 shape；输出超过 8 维时不支持。
+- probMode=1 时，prob 须为单元素张量。
 
 ## 调用说明
 

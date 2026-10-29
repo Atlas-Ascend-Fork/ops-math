@@ -14,28 +14,71 @@
  */
 
 #include "arch35/stateless_bernoulli_simt.h"
-#define STATELESS_BERNOULLI_DEFAULT_TILING_KEY 100
 
 using namespace StatelessBernoulli;
 
-__global__ __aicore__ void stateless_bernoulli(
-    GM_ADDR shape, GM_ADDR prob, GM_ADDR seed, GM_ADDR offset, GM_ADDR y, GM_ADDR workspace, GM_ADDR tiling)
+// 场景化 tilingKey: 100=标量(交织), 101=张量非广播(直接索引), 102=张量广播(stride 寻址)。
+// 注: TILING_KEY_IS 的预编译解析(kernel_info_infer)仅识别数字与宏, 仓内随机数族算子
+// (stateless_random_normal_v2 等)均以 #define 承载 tilingKey, 对齐先例
+#define STATELESS_BERNOULLI_SCALAR_KEY 100
+#define STATELESS_BERNOULLI_TENSOR_DENSE_KEY 101
+#define STATELESS_BERNOULLI_TENSOR_BCAST_KEY 102
+
+// 场景化入口的分发型辅助: 与 tilingKey 分支一一对应, 保持每个 tilingKey 的
+// kernel symbol 只编对应路径(kernel 内不做语义分支判断); bool 输出以 int8 承载
+template <typename Tp, typename To>
+__aicore__ inline void RunScalar(GM_ADDR prob, GM_ADDR y, const RandomUnifiedSimtTilingDataStruct* tilingData)
+{
+    StatelessBernoulliKernel<Tp, To> op;
+    op.ProcessScalar(prob, y, tilingData);
+}
+
+template <typename Tp, typename To>
+__aicore__ inline void RunTensorDense(GM_ADDR prob, GM_ADDR y, const RandomUnifiedSimtTilingDataStruct* tilingData)
+{
+    StatelessBernoulliKernel<Tp, To> op;
+    op.ProcessTensorDense(prob, y, tilingData);
+}
+
+template <typename Tp, typename To>
+__aicore__ inline void RunTensorBcast(GM_ADDR prob, GM_ADDR y, const RandomUnifiedSimtTilingDataStruct* tilingData)
+{
+    StatelessBernoulliKernel<Tp, To> op;
+    op.ProcessTensorBcast(prob, y, tilingData);
+}
+
+__global__ __aicore__ void stateless_bernoulli(GM_ADDR shape, GM_ADDR prob, GM_ADDR seed, GM_ADDR offset, GM_ADDR y,
+                                               GM_ADDR workspace, GM_ADDR tiling)
 {
     REGISTER_TILING_DEFAULT(RandomUnifiedSimtTilingDataStruct);
     KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_MIX_AIV_1_0);
     GET_TILING_DATA(tilingData, tiling);
 
-    if (TILING_KEY_IS(STATELESS_BERNOULLI_DEFAULT_TILING_KEY)) {
-        using To = typename AscendC::Conditional<AscendC::IsSameType<DTYPE_Y, bool>::value, int8_t, DTYPE_Y>::type;
+    // prob dtype 三型分发: def 层 probDataType = {FLOAT16, FLOAT, BFLOAT16}
+    using To = typename AscendC::Conditional<AscendC::IsSameType<DTYPE_Y, bool>::value, int8_t, DTYPE_Y>::type;
+    if (TILING_KEY_IS(STATELESS_BERNOULLI_SCALAR_KEY)) {
         if constexpr (AscendC::IsSameType<DTYPE_PROB, float>::value) {
-            StatelessBernoulliKernel<float, To> op;
-            op.Process(prob, y, &tilingData);
+            RunScalar<float, To>(prob, y, &tilingData);
         } else if constexpr (AscendC::IsSameType<DTYPE_PROB, half>::value) {
-            StatelessBernoulliKernel<half, To> op;
-            op.Process(prob, y, &tilingData);
+            RunScalar<half, To>(prob, y, &tilingData);
         } else if constexpr (AscendC::IsSameType<DTYPE_PROB, bfloat16_t>::value) {
-            StatelessBernoulliKernel<bfloat16_t, To> op;
-            op.Process(prob, y, &tilingData);
+            RunScalar<bfloat16_t, To>(prob, y, &tilingData);
+        }
+    } else if (TILING_KEY_IS(STATELESS_BERNOULLI_TENSOR_DENSE_KEY)) {
+        if constexpr (AscendC::IsSameType<DTYPE_PROB, float>::value) {
+            RunTensorDense<float, To>(prob, y, &tilingData);
+        } else if constexpr (AscendC::IsSameType<DTYPE_PROB, half>::value) {
+            RunTensorDense<half, To>(prob, y, &tilingData);
+        } else if constexpr (AscendC::IsSameType<DTYPE_PROB, bfloat16_t>::value) {
+            RunTensorDense<bfloat16_t, To>(prob, y, &tilingData);
+        }
+    } else if (TILING_KEY_IS(STATELESS_BERNOULLI_TENSOR_BCAST_KEY)) {
+        if constexpr (AscendC::IsSameType<DTYPE_PROB, float>::value) {
+            RunTensorBcast<float, To>(prob, y, &tilingData);
+        } else if constexpr (AscendC::IsSameType<DTYPE_PROB, half>::value) {
+            RunTensorBcast<half, To>(prob, y, &tilingData);
+        } else if constexpr (AscendC::IsSameType<DTYPE_PROB, bfloat16_t>::value) {
+            RunTensorBcast<bfloat16_t, To>(prob, y, &tilingData);
         }
     }
 }

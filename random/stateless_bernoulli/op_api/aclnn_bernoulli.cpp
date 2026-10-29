@@ -18,16 +18,18 @@
 #include "aclnn_kernels/contiguous.h"
 #include "random/stateless_bernoulli/op_api/stateless_bernoulli.h"
 #include "random/drop_out_do_mask/op_api/dropout_do_mask.h"
-#include "dsa_gen_bit_mask.h"
+#include "random/dsa_gen_bit_mask/op_host/op_api/dsa_gen_bit_mask.h"
 #include "math/zero_op/op_api/zero_op.h"
 #include "math/ones_like/op_api/ones_like.h"
 #include "conversion/fill/op_api/fill.h"
+#include "conversion/broadcast_to/op_api/broadcast_to.h"
 #include "aclnn/aclnn_base.h"
 #include "aclnn_kernels/common/op_error_check.h"
 #include "op_api/aclnn_check.h"
 #include "opdev/common_types.h"
 #include "opdev/data_type_utils.h"
 #include "opdev/format_utils.h"
+#include "opdev/shape_utils.h"
 #include "opdev/op_dfx.h"
 #include "opdev/op_executor.h"
 #include "opdev/op_log.h"
@@ -42,6 +44,9 @@ extern "C" {
 static const int64_t MAX_SHAPE_LENGTH = 8;
 static const int64_t VEC_BIT_NUMBER = 128;
 static const int64_t UINT8_BIT_NUMBER = 8;
+// probMode: 1=标量语义, 0=张量语义, 由 API 入口决定
+static constexpr int64_t PROB_MODE_TENSOR = 0; // 连续映射 + u <= p
+static constexpr int64_t PROB_MODE_SCALAR = 1; // 交织映射 + u < p
 
 // 根据API定义，需要列出所能支持的所有dtype
 static const std::initializer_list<op::DataType> ASCEND910_DTYPE_SUPPORT_LIST = {
@@ -311,11 +316,16 @@ aclnnStatus aclnnBernoulliTensorGetWorkspaceSize(const aclTensor* self, const ac
     auto uniqueExecutor = CREATE_EXECUTOR();
     CHECK_RET(uniqueExecutor.get() != nullptr, ACLNN_ERR_INNER_CREATE_EXECUTOR);
 
-    if (self->IsEmpty() || prob->IsEmpty()) {
-        // 根据实际支持情况补充
+    if (self->IsEmpty()) {
+        // 对齐竞品 CHECK_EMPTY_AND_RETURN(self)：self 为空时不报错直接返回
         *workspaceSize = 0;
         uniqueExecutor.ReleaseTo(executor);
         return ACLNN_SUCCESS;
+    }
+    if (prob->IsEmpty()) {
+        // 对齐竞品 expand_inplace：self 非空而 prob 为空时不可广播，须报错（原实现静默返回未初始化输出）
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "prob is empty while self is not, which is not broadcastable to self shape.");
+        return ACLNN_ERR_PARAM_INVALID;
     }
 
     auto input_contiguous = l0op::Contiguous(self, uniqueExecutor.get());
@@ -324,6 +334,8 @@ aclnnStatus aclnnBernoulliTensorGetWorkspaceSize(const aclTensor* self, const ac
     auto prob_contiguous = l0op::Contiguous(prob, uniqueExecutor.get());
     CHECK_RET(prob_contiguous != nullptr, ACLNN_ERR_INNER_NULLPTR);
 
+    // prob 广播由 tiling/kernel 按 stride 寻址处理，
+    // 不做物化拷贝, tiling 侧做 shape 级可广播校验
     const aclTensor* prob_calc = nullptr;
     if (IsRegBase()) {
         prob_calc = l0op::Cast(prob_contiguous, op::DataType::DT_FLOAT, uniqueExecutor.get());
@@ -332,7 +344,8 @@ aclnnStatus aclnnBernoulliTensorGetWorkspaceSize(const aclTensor* self, const ac
     }
 
     // 调用StatelessBernoulli算子kernel
-    auto op_out = l0op::StatelessBernoulli(input_contiguous, prob_calc, seed, offset, uniqueExecutor.get());
+    auto op_out = l0op::StatelessBernoulli(input_contiguous, prob_calc, seed, offset,
+                                           /*probMode=*/PROB_MODE_TENSOR, uniqueExecutor.get());
     CHECK_RET(op_out != nullptr, ACLNN_ERR_INNER_NULLPTR);
 
     // 固定写法，将计算结果拷贝到输出out上，out可能是非连续的tensor
@@ -392,11 +405,13 @@ aclnnStatus aclnnBernoulliGetWorkspaceSize(const aclTensor* self, const aclScala
         CHECK_RET(probScalar != nullptr, ACLNN_ERR_INNER_NULLPTR);
         auto probTensor = uniqueExecutor.get()->ConvertToTensor(probScalar, probScalar->GetDataType());
         CHECK_RET(probTensor != nullptr, ACLNN_ERR_INNER_NULLPTR);
-        opOut = l0op::StatelessBernoulli(inputContiguous, probTensor, seed, offset, uniqueExecutor.get());
+        opOut = l0op::StatelessBernoulli(inputContiguous, probTensor, seed, offset,
+                                         /*probMode=*/PROB_MODE_SCALAR, uniqueExecutor.get());
     } else {
         auto probTensor = uniqueExecutor.get()->ConvertToTensor(prob, prob->GetDataType());
         CHECK_RET(probTensor != nullptr, ACLNN_ERR_INNER_NULLPTR);
-        opOut = l0op::StatelessBernoulli(inputContiguous, probTensor, seed, offset, uniqueExecutor.get());
+        opOut = l0op::StatelessBernoulli(inputContiguous, probTensor, seed, offset,
+                                         /*probMode=*/PROB_MODE_SCALAR, uniqueExecutor.get());
     }
     CHECK_RET(opOut != nullptr, ACLNN_ERR_INNER_NULLPTR);
 

@@ -53,7 +53,7 @@ public:
             .UnknownShapeFormat(baseFormatSeq)
             .ValueDepend(OPTIONAL);
         this->Input("offset")
-            .ParamType(OPTIONAL)
+            .ParamType(REQUIRED)
             .DataType(gen.GetSequence("baseDataType"))
             .Format(baseFormatSeq)
             .UnknownShapeFormat(baseFormatSeq)
@@ -64,6 +64,9 @@ public:
             .Format(baseFormatSeq)
             .UnknownShapeFormat(baseFormatSeq);
         this->Attr("dtype").AttrType(OPTIONAL).Int();
+        // probMode: 1=标量语义(交织映射+严格小于), 0=张量语义(连续映射+小于等于)
+        // 不传时默认张量语义
+        this->Attr("probMode").AttrType(OPTIONAL).Int();
 
         OpAICoreConfig aicoreConfig;
         aicoreConfig.DynamicCompileStaticFlag(true)

@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
- /*!
+/*!
  * \file stateless_bernoulli.h
  * \brief
  */
@@ -19,9 +19,10 @@
 #include "opdev/op_executor.h"
 
 namespace l0op {
-const aclTensor *StatelessBernoulli(const aclTensor *input, const aclTensor *prob, int64_t seed, int64_t offset,
-                                    aclOpExecutor *executor);
+// probMode: 1=标量语义, 0=张量语义, 透传为算子属性
+const aclTensor* StatelessBernoulli(const aclTensor* input, const aclTensor* prob, int64_t seed, int64_t offset,
+                                    int64_t probMode, aclOpExecutor* executor);
 
-}
+} // namespace l0op
 
-#endif  // OP_API_INC_LEVEL0_OP_STATELESS_BERNOULLI_OP_H_
+#endif // OP_API_INC_LEVEL0_OP_STATELESS_BERNOULLI_OP_H_

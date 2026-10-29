@@ -82,6 +82,11 @@ public:
     int64_t splitBlockCount = 0;
     SplitBlockInfo splitBlocks[MAX_SPLIT_BLOCKS];
 
+    // prob 广播寻址信息（须放结构体末尾，避免改变已有字段偏移导致 codegen 序列化错位）
+    int32_t probDims = 0;
+    int64_t probSizes[8] = {0};
+    int64_t probStrides[8] = {0};
+
     std::string DumpTilingInfo() const
     {
         std::ostringstream info;
