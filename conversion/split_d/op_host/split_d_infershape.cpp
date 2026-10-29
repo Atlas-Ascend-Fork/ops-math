@@ -122,7 +122,10 @@ static graphStatus InferDataType4SplitD(gert::InferDataTypeContext* context)
 {
     OP_LOGD(context->GetNodeName(), "Begin to do InferDataType4SplitD");
     auto xDtype = context->GetInputDataType(SPLIT_D_IDX_IN_X);
-    context->SetOutputDataType(SPLIT_D_IDX_OUT_Y, xDtype);
+    const auto outputNum = context->GetComputeNodeOutputNum();
+    for (size_t i = 0; i < outputNum; i++) {
+        context->SetOutputDataType(i, xDtype);
+    }
     OP_LOGD(context->GetNodeName(), "End to do InferDataType4SplitD");
     return GRAPH_SUCCESS;
 }
