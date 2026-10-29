@@ -1,0 +1,188 @@
+{
+  "op_type": "ReduceStdWithMeanV2Partial",
+  "op_list": [
+    {
+      "bin_filename": "ReduceStdWithMeanV2Partial_fp32",
+      "inputs": [
+        {
+          "name": "self",
+          "index": 0,
+          "dtype": "float32",
+          "format": "ND",
+          "paramType": "required",
+          "shape": [
+            -2
+          ],
+          "format_match_mode": "FormatAgnostic"
+        }
+      ],
+      "attrs": [
+        {
+          "name": "dim",
+          "dtype": "list_int",
+          "value": []
+        },
+        {
+          "name": "partialK",
+          "dtype": "int",
+          "value": 0
+        },
+        {
+          "name": "keepdim",
+          "dtype": "bool",
+          "value": false
+        },
+        {
+          "name": "invert",
+          "dtype": "bool",
+          "value": false
+        },
+        {
+          "name": "eps",
+          "dtype": "float",
+          "value": 0.0
+        },
+        {
+          "name": "correction",
+          "dtype": "int",
+          "value": 0
+        }
+      ],
+      "outputs": [
+        {
+          "name": "partial",
+          "index": 0,
+          "dtype": "float32",
+          "format": "ND",
+          "paramType": "required",
+          "shape": [
+            -2
+          ],
+          "format_match_mode": "FormatAgnostic"
+        }
+      ]
+    },
+    {
+      "bin_filename": "ReduceStdWithMeanV2Partial_fp16",
+      "inputs": [
+        {
+          "name": "self",
+          "index": 0,
+          "dtype": "float16",
+          "format": "ND",
+          "paramType": "required",
+          "shape": [
+            -2
+          ],
+          "format_match_mode": "FormatAgnostic"
+        }
+      ],
+      "attrs": [
+        {
+          "name": "dim",
+          "dtype": "list_int",
+          "value": []
+        },
+        {
+          "name": "partialK",
+          "dtype": "int",
+          "value": 0
+        },
+        {
+          "name": "keepdim",
+          "dtype": "bool",
+          "value": false
+        },
+        {
+          "name": "invert",
+          "dtype": "bool",
+          "value": false
+        },
+        {
+          "name": "eps",
+          "dtype": "float",
+          "value": 0.0
+        },
+        {
+          "name": "correction",
+          "dtype": "int",
+          "value": 0
+        }
+      ],
+      "outputs": [
+        {
+          "name": "partial",
+          "index": 0,
+          "dtype": "float32",
+          "format": "ND",
+          "paramType": "required",
+          "shape": [
+            -2
+          ],
+          "format_match_mode": "FormatAgnostic"
+        }
+      ]
+    },
+    {
+      "bin_filename": "ReduceStdWithMeanV2Partial_bf16",
+      "inputs": [
+        {
+          "name": "self",
+          "index": 0,
+          "dtype": "bfloat16",
+          "format": "ND",
+          "paramType": "required",
+          "shape": [
+            -2
+          ],
+          "format_match_mode": "FormatAgnostic"
+        }
+      ],
+      "attrs": [
+        {
+          "name": "dim",
+          "dtype": "list_int",
+          "value": []
+        },
+        {
+          "name": "partialK",
+          "dtype": "int",
+          "value": 0
+        },
+        {
+          "name": "keepdim",
+          "dtype": "bool",
+          "value": false
+        },
+        {
+          "name": "invert",
+          "dtype": "bool",
+          "value": false
+        },
+        {
+          "name": "eps",
+          "dtype": "float",
+          "value": 0.0
+        },
+        {
+          "name": "correction",
+          "dtype": "int",
+          "value": 0
+        }
+      ],
+      "outputs": [
+        {
+          "name": "partial",
+          "index": 0,
+          "dtype": "float32",
+          "format": "ND",
+          "paramType": "required",
+          "shape": [
+            -2
+          ],
+          "format_match_mode": "FormatAgnostic"
+        }
+      ]
+    }
+  ]
+}
