@@ -320,7 +320,7 @@ TEST_F(l2_lt_scalar_test, aclnnLtScalar_020_null_pointer)
     // SAMPLE: only test GetWorkspaceSize
     uint64_t workspace_size = 5;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
-    EXPECT_EQ(aclRet, ACLNN_ERR_INNER_NULLPTR);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_NULLPTR);
 }
 
 // aclnnLtScalar_021：lt.Scalar_out异常数据类型测试
@@ -373,7 +373,7 @@ TEST_F(l2_lt_scalar_test, test_lt_scalar_other_is_null)
     // SAMPLE: only test GetWorkspaceSize
     uint64_t workspace_size = 5;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
-    EXPECT_EQ(aclRet, ACLNN_ERR_INNER_NULLPTR);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_NULLPTR);
 }
 
 // 入参out为空指针的场景(结果待定，cpu输出空指针)

@@ -96,7 +96,7 @@ TEST_F(l2_inplace_lt_scalar_test, aclnnInplaceLtScalar_005_null_pointer)
     // SAMPLE: only test GetWorkspaceSize
     uint64_t workspace_size = 5;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
-    EXPECT_EQ(aclRet, ACLNN_ERR_INNER_NULLPTR);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_NULLPTR);
 }
 
 // 其他用例
@@ -112,5 +112,5 @@ TEST_F(l2_inplace_lt_scalar_test, aclnnInplaceLtScalar_006_test_lt_scalar_other_
     // SAMPLE: only test GetWorkspaceSize
     uint64_t workspace_size = 5;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
-    EXPECT_EQ(aclRet, ACLNN_ERR_INNER_NULLPTR);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_NULLPTR);
 }

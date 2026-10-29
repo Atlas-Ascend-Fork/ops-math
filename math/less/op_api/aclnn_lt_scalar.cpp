@@ -375,8 +375,8 @@ aclnnStatus aclnnLtScalarGetWorkspaceSize(const aclTensor* self, const aclScalar
     CHECK_RET(uniqueExecutor.get() != nullptr, ACLNN_ERR_INNER_CREATE_EXECUTOR);
 
     // 将other scalar转换为tensor
-    CHECK_RET(other != nullptr, ACLNN_ERR_INNER_NULLPTR);
-    CHECK_RET(self != nullptr, ACLNN_ERR_INNER_NULLPTR);
+    CHECK_RET(other != nullptr, ACLNN_ERR_PARAM_NULLPTR);
+    CHECK_RET(self != nullptr, ACLNN_ERR_PARAM_NULLPTR);
 
     auto otherPromoteType = other->GetDataType();
     if (IsFloatingType(self->GetDataType())) {

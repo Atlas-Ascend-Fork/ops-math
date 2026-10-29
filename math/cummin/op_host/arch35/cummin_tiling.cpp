@@ -128,7 +128,6 @@ ge::graphStatus CumminTiling::GetShapeAttrsInfo()
 
     int64_t dim = *(attrs->GetAttrPointer<int64_t>(DIM));
     int64_t dimNum = xShape.GetDimNum();
-
     if (dim < -dimNum || dim >= dimNum) {
         OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context_->GetNodeName(), "dim", std::to_string(dim).c_str(),
                                               "dim must be in [-dimNum, dimNum-1]");
@@ -323,7 +322,6 @@ static ge::graphStatus TilingPrepare4CumminAscendc(gert::TilingParseContext* con
     OP_LOGD(context->GetNodeName(), "Enter TilingPrepare4CumminAscendc.");
 
     auto compileInfo = context->GetCompiledInfo<CumminCompileInfo>();
-
     if (compileInfo == nullptr) {
         OP_LOGE(context->GetNodeName(), "Get compile info failed.");
         return ge::GRAPH_FAILED;

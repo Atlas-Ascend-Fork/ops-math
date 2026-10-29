@@ -306,7 +306,6 @@ static ge::graphStatus TilingPrepare4CrossAscendc(gert::TilingParseContext* cont
     OP_LOGD(context->GetNodeName(), "Enter TilingPrepare4CrossAscendc.");
 
     auto compileInfo = context->GetCompiledInfo<CrossCompileInfo>();
-
     if (compileInfo == nullptr) {
         OP_LOGE(context->GetNodeName(), "Get compiled info failed.");
         return ge::GRAPH_FAILED;
