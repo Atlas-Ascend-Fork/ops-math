@@ -104,14 +104,14 @@
 
 - `input`的rank只能为1或2。
 - `size`必须是仅含一个非负常量值的一维ND张量，且数据类型必须与`input`相同。
-- `weights`不可省略。无权重时传入零元素张量；非空时元素数量必须与`input`相同。
+- `weights`不可省略，rank不能超过2。无权重时传入零元素张量；非空时元素数量必须与`input`相同，按展平顺序逐元素对应，不要求与`input`逐维同shape。
 - <term>Ascend 950PR&950DT系列产品</term>：
-  - `weights`支持任意零元素shape，非空时为FLOAT32类型ND张量。
+  - `weights`为FLOAT32类型ND张量，rank不能超过2；元素数量为0时表示不使用权重，非空时元素数量必须与`input`相同。
   - 支持`input`任意维度大小为0或`size[0]`为0。`input`的shape为`[0]`时，输出shape为`[size[0]]`；shape为`[N, 0]`时，输出shape为`[N, size[0]]`；shape为`[0, N]`或`[0, 0]`时，输出shape为`[0, size[0]]`。`size[0]`为0时，输出最后一维大小为0。
   - 输出元素数`rows * size[0]`不能超过INT64索引可表示的FLOAT32元素数量上限，且输出张量所需存储必须能由运行环境分配；一维输入的`rows`取1。
 - <term>Atlas A3训练系列产品/Atlas A3推理系列产品</term>、<term>Atlas A2训练系列产品/Atlas A2推理系列产品</term>：
   - 沿用既有实现的空Tensor处理边界。
-  - `weights`的rank不能超过2。
+  - `weights`的rank不能超过2；元素数量为0时表示不使用权重，非空时元素数量必须与`input`相同，不要求与`input`逐维同shape。
   - `size[0]`、输入维度大小和输入元素数量必须在INT32范围内。
 - 本算子仅支持GE图模式和TensorFlow图解析通路调用，不提供公开的aclnn接口。
 

@@ -21,11 +21,18 @@ __global__ __aicore__ void dense_bincount(GM_ADDR input, GM_ADDR size, GM_ADDR w
     REGISTER_TILING_DEFAULT(DenseBincountTilingData);
     GET_TILING_DATA_WITH_STRUCT(DenseBincountTilingData, tilingData, tiling);
     AscendC::TPipe pipe;
-    constexpr bool IS_1D = schMode >= 4;
-    constexpr bool BINARY_OUTPUT = (schMode & 0x2) != 0;
-    constexpr bool HAS_WEIGHTS = (schMode & 0x1) != 0;
-    NsDenseBincount::DenseBincountRegbase<DTYPE_INPUT, DTYPE_SIZE, IS_1D, BINARY_OUTPUT, HAS_WEIGHTS> op(tilingData,
-                                                                                                         &pipe);
-    op.Init(input, size, weights, output);
+    constexpr bool ORDERED = schMode == SCH_MODE_ND_COUNT_WEIGHT_ORDERED || schMode == SCH_MODE_1D_COUNT_WEIGHT_ORDERED;
+    constexpr bool DETERMINISTIC = schMode == SCH_MODE_ND_COUNT_WEIGHT_DETERMINISTIC ||
+                                   schMode == SCH_MODE_1D_COUNT_WEIGHT_DETERMINISTIC;
+    constexpr uint32_t baseMode = schMode & 0x7U;
+    constexpr bool IS_1D = baseMode >= 4U;
+    constexpr bool BINARY_OUTPUT = (baseMode & 0x2U) != 0U;
+    constexpr bool HAS_WEIGHTS = (baseMode & 0x1U) != 0U;
+    AscendC::SetSysWorkspace(workspace);
+    GM_ADDR userWorkspace = AscendC::GetUserWorkspace(workspace);
+    NsDenseBincount::DenseBincountRegbase<DTYPE_INPUT, DTYPE_SIZE, IS_1D, BINARY_OUTPUT, HAS_WEIGHTS, ORDERED,
+                                          DETERMINISTIC>
+        op(tilingData, &pipe);
+    op.Init(input, size, weights, output, userWorkspace);
     op.Process();
 }

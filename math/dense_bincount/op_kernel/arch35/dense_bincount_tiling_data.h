@@ -20,6 +20,10 @@ struct DenseBincountTilingData {
     int64_t size;
     uint32_t usedCoreNum;
     uint32_t privateHistElems;
+    uint32_t privateHistMode;
+    uint32_t deterministicMode;
+    uint32_t deterministicPartitions;
+    uint32_t deterministicBufferBytes;
 };
 
 #endif // DENSE_BINCOUNT_TILING_DATA_H

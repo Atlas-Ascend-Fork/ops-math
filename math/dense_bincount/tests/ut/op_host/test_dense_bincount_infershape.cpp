@@ -36,7 +36,8 @@ TEST_F(dense_bincount, dense_bincount_infershape_test1)
     gert::InfershapeContextPara infershapeContextPara("DenseBincount",
                                                       {
                                                           {{{-1}, {-1}}, ge::DT_INT32, ge::FORMAT_ND},
-                                                          {{{}, {}}, ge::DT_INT32, ge::FORMAT_ND},
+                                                          {{{1}, {1}}, ge::DT_INT32, ge::FORMAT_ND},
+                                                          {{{0}, {0}}, ge::DT_FLOAT, ge::FORMAT_ND},
                                                       },
                                                       {
                                                           {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
@@ -54,7 +55,8 @@ TEST_F(dense_bincount, dense_bincount_infershape_test2)
         "DenseBincount",
         {
             {{{1, 3}, {1, 3}}, ge::DT_INT32, ge::FORMAT_ND},
-            {{{}, {}}, ge::DT_INT64, ge::FORMAT_ND, true, inputSizeValues.data()},
+            {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, inputSizeValues.data()},
+            {{{0}, {0}}, ge::DT_FLOAT, ge::FORMAT_ND},
         },
         {
             {{{}, {}}, ge::DT_BOOL, ge::FORMAT_ND},
@@ -66,10 +68,11 @@ TEST_F(dense_bincount, dense_bincount_infershape_test2)
 TEST_F(dense_bincount, dense_bincount_unknown_rank)
 {
     int32_t sizeValue = 4;
-    gert::InfershapeContextPara context(
-        "DenseBincount",
-        {{{{-2}, {-2}}, ge::DT_INT32, ge::FORMAT_ND}, {{{1}, {1}}, ge::DT_INT32, ge::FORMAT_ND, true, &sizeValue}},
-        {{{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND}});
+    gert::InfershapeContextPara context("DenseBincount",
+                                        {{{{-2}, {-2}}, ge::DT_INT32, ge::FORMAT_ND},
+                                         {{{1}, {1}}, ge::DT_INT32, ge::FORMAT_ND, true, &sizeValue},
+                                         {{{0}, {0}}, ge::DT_FLOAT, ge::FORMAT_ND}},
+                                        {{{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND}});
     ExecuteTestCase(context, ge::GRAPH_SUCCESS, {{-2}});
 }
 
@@ -79,7 +82,9 @@ TEST_F(dense_bincount, dense_bincount_empty_input)
     gert::StorageShape emptyShape({0}, {0});
     gert::InfershapeContextPara context(
         "DenseBincount",
-        {{emptyShape, ge::DT_INT32, ge::FORMAT_ND}, {{{1}, {1}}, ge::DT_INT32, ge::FORMAT_ND, true, &sizeValue}},
+        {{emptyShape, ge::DT_INT32, ge::FORMAT_ND},
+         {{{1}, {1}}, ge::DT_INT32, ge::FORMAT_ND, true, &sizeValue},
+         {{{0}, {0}}, ge::DT_FLOAT, ge::FORMAT_ND}},
         {{{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND}},
         {gert::InfershapeContextPara::OpAttr("binary_output", Ops::Math::AnyValue::CreateFrom<bool>(true))});
     ExecuteTestCase(context, ge::GRAPH_SUCCESS, {{3}});
@@ -95,10 +100,11 @@ TEST_F(dense_bincount, dense_bincount_empty_input_each_axis)
     };
     for (const auto& [inputShape, outputShape] : cases) {
         gert::StorageShape shape = MakeStorageShape(inputShape);
-        gert::InfershapeContextPara context(
-            "DenseBincount",
-            {{shape, ge::DT_INT32, ge::FORMAT_ND}, {{{1}, {1}}, ge::DT_INT32, ge::FORMAT_ND, true, &sizeValue}},
-            {{{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND}});
+        gert::InfershapeContextPara context("DenseBincount",
+                                            {{shape, ge::DT_INT32, ge::FORMAT_ND},
+                                             {{{1}, {1}}, ge::DT_INT32, ge::FORMAT_ND, true, &sizeValue},
+                                             {{{0}, {0}}, ge::DT_FLOAT, ge::FORMAT_ND}},
+                                            {{{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND}});
         ExecuteTestCase(context, ge::GRAPH_SUCCESS, {outputShape});
     }
 }
@@ -106,10 +112,11 @@ TEST_F(dense_bincount, dense_bincount_empty_input_each_axis)
 TEST_F(dense_bincount, dense_bincount_zero_bins)
 {
     int32_t sizeValue = 0;
-    gert::InfershapeContextPara context(
-        "DenseBincount",
-        {{{{2, 4}, {2, 4}}, ge::DT_INT32, ge::FORMAT_ND}, {{{1}, {1}}, ge::DT_INT32, ge::FORMAT_ND, true, &sizeValue}},
-        {{{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND}});
+    gert::InfershapeContextPara context("DenseBincount",
+                                        {{{{2, 4}, {2, 4}}, ge::DT_INT32, ge::FORMAT_ND},
+                                         {{{1}, {1}}, ge::DT_INT32, ge::FORMAT_ND, true, &sizeValue},
+                                         {{{0}, {0}}, ge::DT_FLOAT, ge::FORMAT_ND}},
+                                        {{{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND}});
     ExecuteTestCase(context, ge::GRAPH_SUCCESS, {{2, 0}});
 }
 
@@ -118,17 +125,48 @@ TEST_F(dense_bincount, dense_bincount_rejects_invalid_rank)
     int32_t sizeValue = 3;
     gert::InfershapeContextPara context("DenseBincount",
                                         {{{{1, 2, 3}, {1, 2, 3}}, ge::DT_INT32, ge::FORMAT_ND},
-                                         {{{1}, {1}}, ge::DT_INT32, ge::FORMAT_ND, true, &sizeValue}},
+                                         {{{1}, {1}}, ge::DT_INT32, ge::FORMAT_ND, true, &sizeValue},
+                                         {{{0}, {0}}, ge::DT_FLOAT, ge::FORMAT_ND}},
                                         {{{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND}});
     ExecuteTestCase(context, ge::GRAPH_FAILED);
+}
+
+TEST_F(dense_bincount, dense_bincount_rejects_invalid_size_shape)
+{
+    int32_t sizeValue = 3;
+    const std::vector<std::vector<int64_t>> invalidShapes = {{}, {1, 1}, {2}};
+    for (const auto& sizeShape : invalidShapes) {
+        gert::InfershapeContextPara context(
+            "DenseBincount",
+            {{{{8}, {8}}, ge::DT_INT32, ge::FORMAT_ND},
+             {{MakeStorageShape(sizeShape)}, ge::DT_INT32, ge::FORMAT_ND, true, &sizeValue},
+             {{{0}, {0}}, ge::DT_FLOAT, ge::FORMAT_ND}},
+            {{{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND}});
+        ExecuteTestCase(context, ge::GRAPH_FAILED);
+    }
+}
+
+TEST_F(dense_bincount, dense_bincount_rejects_invalid_weights_shape)
+{
+    int32_t sizeValue = 3;
+    const std::vector<std::vector<int64_t>> invalidShapes = {{1, 1, 8}, {7}};
+    for (const auto& weightsShape : invalidShapes) {
+        gert::InfershapeContextPara context("DenseBincount",
+                                            {{{{8}, {8}}, ge::DT_INT32, ge::FORMAT_ND},
+                                             {{{1}, {1}}, ge::DT_INT32, ge::FORMAT_ND, true, &sizeValue},
+                                             {{MakeStorageShape(weightsShape)}, ge::DT_FLOAT, ge::FORMAT_ND}},
+                                            {{{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND}});
+        ExecuteTestCase(context, ge::GRAPH_FAILED);
+    }
 }
 
 TEST_F(dense_bincount, dense_bincount_rejects_output_size_overflow)
 {
     int64_t sizeValue = std::numeric_limits<int64_t>::max() / sizeof(float) / 2 + 1;
-    gert::InfershapeContextPara context(
-        "DenseBincount",
-        {{{{2, 1}, {2, 1}}, ge::DT_INT64, ge::FORMAT_ND}, {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, &sizeValue}},
-        {{{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND}});
+    gert::InfershapeContextPara context("DenseBincount",
+                                        {{{{2, 1}, {2, 1}}, ge::DT_INT64, ge::FORMAT_ND},
+                                         {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, &sizeValue},
+                                         {{{0}, {0}}, ge::DT_FLOAT, ge::FORMAT_ND}},
+                                        {{{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND}});
     ExecuteTestCase(context, ge::GRAPH_FAILED);
 }

@@ -9,11 +9,28 @@
  */
 
 #include "register/op_impl_registry.h"
+#include "log/log.h"
 namespace ops {
 static ge::graphStatus InferDataTypeDenseBincount(gert::InferDataTypeContext* context)
 {
-    context->SetOutputDataType(0, ge::DT_FLOAT);
-    return ge::GRAPH_SUCCESS;
+    const ge::DataType inputDtype = context->GetInputDataType(0);
+    const ge::DataType sizeDtype = context->GetInputDataType(1);
+    const ge::DataType weightsDtype = context->GetInputDataType(2);
+    OP_CHECK_IF(
+        inputDtype != ge::DT_INT32 && inputDtype != ge::DT_INT64,
+        OP_LOGE_FOR_INVALID_DTYPE(context->GetNodeName(), "input", Ops::Base::ToString(inputDtype), "int32 or int64"),
+        return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        sizeDtype != inputDtype,
+        OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(context->GetNodeName(), "input, size",
+                                               Ops::Base::ToString(inputDtype) + ", " + Ops::Base::ToString(sizeDtype),
+                                               "input and size must have the same dtype"),
+        return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        weightsDtype != ge::DT_FLOAT,
+        OP_LOGE_FOR_INVALID_DTYPE(context->GetNodeName(), "weights", Ops::Base::ToString(weightsDtype), "float32"),
+        return ge::GRAPH_FAILED);
+    return context->SetOutputDataType(0, ge::DT_FLOAT);
 }
 IMPL_OP(DenseBincount).InferDataType(InferDataTypeDenseBincount);
 } // namespace ops
