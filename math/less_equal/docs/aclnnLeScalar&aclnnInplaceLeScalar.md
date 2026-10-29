@@ -151,14 +151,11 @@ aclnnStatus aclnnInplaceLeScalar(
   </tbody></table>
 
   <!-- npu="910,310p" id7 -->
-  - <term>Atlas推理系列产品</term>、<term>Atlas训练系列产品</term>：self、other不支持BFLOAT16、UINT64。
+  - <term>Atlas推理系列产品</term>、<term>Atlas训练系列产品</term>：self、other不支持BFLOAT16、UINT64。out不支持BFLOAT16、UINT32、UINT64。
   <!-- end id7 -->
   <!-- npu="A3,910b" id8 -->
-  - <term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>：self、other不支持UINT64。
+  - <term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>：self、other不支持UINT64。out不支持UINT32、UINT64。
   <!-- end id8 -->
-  <!-- npu="910,310p" id9 -->
-  - <term>Atlas推理系列产品</term>、<term>Atlas训练系列产品</term>：out不支持BFLOAT16。
-  <!-- end id9 -->
 
 - **返回值：**
 
@@ -312,10 +309,10 @@ aclnnStatus aclnnInplaceLeScalar(
   </tbody></table>
 
   <!-- npu="910,310p" id10 -->
-  - <term>Atlas推理系列产品</term>、<term>Atlas训练系列产品</term>：selfRef、other不支持BFLOAT16、UINT64。
+  - <term>Atlas推理系列产品</term>、<term>Atlas训练系列产品</term>：selfRef、other不支持BFLOAT16、UINT64。selfRef不支持UINT32、UINT64。
   <!-- end id10 -->
   <!-- npu="A3,910b" id11 -->
-  - <term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>：selfRef、other不支持UINT64。
+  - <term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>：selfRef、other不支持UINT64。selfRef不支持UINT32、UINT64。
   <!-- end id11 -->
 
 - **返回值：**

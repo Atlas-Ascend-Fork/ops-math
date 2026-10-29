@@ -104,7 +104,7 @@ aclnnStatus aclnnInplaceFloor(
       <td>DOUBLE、FLOAT32、FLOAT16、INT64、INT32、INT16、INT8、UINT64、UINT32、UINT16、UINT8</td>
       <td>ND</td>
       <td>不超过8维</td>
-      <td>√<br>（UINT64、UINT32、UINT16不支持）</td>
+      <td>√</td>
     </tr>
     <tr>
       <td>out（aclTensor*）</td>
@@ -114,7 +114,7 @@ aclnnStatus aclnnInplaceFloor(
       <td>DOUBLE、FLOAT32、FLOAT16、INT64、INT32、INT16、INT8、UINT64、UINT32、UINT16、UINT8</td>
       <td>ND</td>
       <td>不超过8维</td>
-      <td>√<br>（UINT64、UINT32、UINT16不支持）</td>
+      <td>√</td>
     </tr>
     <tr>
       <td>workspaceSize（uint64_t*）</td>
@@ -259,7 +259,7 @@ aclnnStatus aclnnInplaceFloor(
       <td>DOUBLE、FLOAT32、FLOAT16、INT64、INT32、INT16、INT8、UINT64、UINT32、UINT16、UINT8</td>
       <td>ND</td>
       <td>不超过8维</td>
-      <td>√<br>（UINT64、UINT32、UINT16不支持）</td>
+      <td>√</td>
     </tr>
     <tr>
       <td>workspaceSize（uint64_t*）</td>

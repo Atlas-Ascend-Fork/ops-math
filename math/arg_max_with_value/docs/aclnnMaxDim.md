@@ -179,8 +179,8 @@ aclnnStatus aclnnMaxDim(
       <td>传入的self、out或indices是空指针时。</td>
     </tr>
     <tr>
-      <td rowspan="3">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="3">161002</td>
+      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="4">161002</td>
       <td>self、out或indices的数据类型不在支持的范围之内。</td>
     </tr>
     <tr>
@@ -188,6 +188,9 @@ aclnnStatus aclnnMaxDim(
     </tr>
     <tr>
       <td>dim超出输入self的维度范围。</td>
+    </tr>
+    <tr>
+      <td>self、out或indices的维度大于8。</td>
     </tr>
   </tbody>
   </table>

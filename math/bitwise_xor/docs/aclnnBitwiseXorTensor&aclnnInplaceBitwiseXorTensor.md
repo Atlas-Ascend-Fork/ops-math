@@ -154,8 +154,7 @@ aclnnStatus aclnnInplaceBitwiseXorTensor(
 
   <!-- npu="A3,910b" id7 -->
   - <term>Atlas A3系列产品</term>、<term>Atlas A2系列产品</term>：
-    - self和other的数据类型不支持UINT16、UINT32、UINT64；
-    - out数据类型不支持UINT16、UINT32、UINT64、COMPLEX64、COMPLEX128。
+    - self和other的数据类型不支持UINT16、UINT32、UINT64。
 
   <!-- end id7 -->
   <!-- npu="910,310p" id8 -->

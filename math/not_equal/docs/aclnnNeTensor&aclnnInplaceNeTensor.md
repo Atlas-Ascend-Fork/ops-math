@@ -152,6 +152,11 @@ aclnnStatus aclnnInplaceNeTensor(
     </tr>
   </tbody></table>
 
+  <!-- npu="A3,910b" id7 -->
+  - <term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>：
+    - self（selfRef）、other数据类型不支持UINT64。
+  <!-- end id7 -->
+
 - **返回值**：
 
   aclnnStatus：返回状态码，具体参见[aclnn返回码](../../../docs/zh/context/aclnn_return_code.md)。
