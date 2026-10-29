@@ -114,8 +114,8 @@ aclnnStatus aclnnTopkV2(
     <tr>
       <td>largest（bool）</td>
       <td>输入</td>
-      <td>表示计算维度上的结果排序方式。</td>
-      <td>True表示结果由大到小输出，False表示结果由小到大输出。</td>
+      <td>表示选取最大还是最小的k个值。</td>
+      <td>True表示选取最大的k个值，False表示选取最小的k个值。结果按上述顺序排列仅在sorted为True时保证。</td>
       <td>-</td>
       <td>-</td>
       <td>-</td>
@@ -125,7 +125,7 @@ aclnnStatus aclnnTopkV2(
       <td>sorted（bool）</td>
       <td>输入</td>
       <td>表示输出结果是否排序。</td>
-      <td>True表示输出结果排序，False表示输出结果不排序。注意：当前该参数仅支持取True。</td>
+      <td>True表示接口保证输出结果有序；False表示不要求输出结果有序。当sorted为False时，结果仍可能有序，但接口不保证输出顺序及等值元素的索引稳定性。</td>
       <td>-</td>
       <td>-</td>
       <td>-</td>

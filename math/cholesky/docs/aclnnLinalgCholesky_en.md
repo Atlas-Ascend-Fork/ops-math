@@ -5,7 +5,7 @@
 ## Applicable Products
 
 <!-- npu="950" id1 -->
-- <term>Ascend 950PR&950DT products</term>: Not supported
+- <term>Ascend 950PR&950DT products</term>: Supported
 <!-- end id1 -->
 <!-- npu="A3" id2 -->
 - <term>Atlas A3 products</term>: Supported
@@ -84,7 +84,7 @@ aclnnStatus aclnnLinalgCholesky(
       <td>Input</td>
       <td>The input self in the formula.</td>
       <td>The last two dimensions of shape must be equal, and self must be a symmetric positive-definite matrix.</td>
-      <td>FLOAT, BFLOAT16</td>
+      <td>FLOAT, FLOAT16, BFLOAT16</td>
       <td>ND</td>
       <td>2-8</td>
       <td>√</td>
@@ -104,7 +104,7 @@ aclnnStatus aclnnLinalgCholesky(
       <td>Output</td>
       <td>Output out in the formula.</td>
       <td><ul><li>Same data type as self.</li><li>Same shape as self.</li></ul></td>
-      <td>FLOAT, BFLOAT16</td>
+      <td>FLOAT, FLOAT16, BFLOAT16</td>
       <td>ND</td>
       <td>2-8</td>
       <td>√</td>

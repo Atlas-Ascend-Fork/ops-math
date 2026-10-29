@@ -43,6 +43,8 @@
   - $\mathrm{diff} = x_1 - x_2$ : variable difference
   - $\mathrm{cdist} = \sqrt[p]{\sum (x_1 - x_2)^p}$ : $p$-norm distance
 
+  The closed-form expression above applies only when $cdist > 0$. For each supported $p$ mode, when $cdist = 0$ ($x_1$ and $x_2$ coincide for that pair), the pair's contribution to the gradient of $x_1$ is defined as 0.
+
 ## Function Prototype
 
 Each operator uses a [two-phase API](../../../docs/en/context/two_phase_api.md). You must first call the "aclnnCdistBackwardGetWorkspaceSize" API to obtain the input parameters and calculate the required workspace size according to the procedure, and then call the "aclnnCdistBackward" API to perform the computation.

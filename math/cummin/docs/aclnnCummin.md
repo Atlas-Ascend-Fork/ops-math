@@ -90,7 +90,7 @@ aclnnStatus aclnnCummin(
         <td>self (aclTensor*)</td>
         <td>输入</td>
         <td>输入Tensor。</td>
-        <td>数据类型需要能转换成valuesOut的数据类型。</td>
+        <td>具体数据类型关系见下方产品支持情况。</td>
         <td>FLOAT、DOUBLE、UINT8、INT8、INT16、INT32、INT64、FLOAT16、BFLOAT16、BOOL</td>
         <td>ND</td>
         <td>不超过8维。</td>
@@ -110,7 +110,7 @@ aclnnStatus aclnnCummin(
         <td>valuesOut (aclTensor*)</td>
         <td>输出</td>
         <td>累积最小值输出Tensor。</td>
-        <td>数据类型需要与self一致，shape需要与self一致。</td>
+        <td>具体数据类型关系见下方产品支持情况，shape需要与self一致。</td>
         <td>FLOAT、DOUBLE、UINT8、INT8、INT16、INT32、INT64、FLOAT16、BFLOAT16、BOOL</td>
         <td>ND</td>
         <td>不超过8维。</td>
@@ -151,6 +151,12 @@ aclnnStatus aclnnCummin(
   <!-- npu="910,310p,310b" id7 -->
   - <term>Atlas推理系列产品</term>、<term>Atlas 200I/500 A2推理产品</term>、<term>Atlas训练系列产品</term>：不支持BFLOAT16数据类型。
   <!-- end id7 -->
+  <!-- npu="950" id8 -->
+  - <term>Ascend 950PR&950DT系列产品</term>：self为INT8、UINT8或BOOL时，valuesOut支持与self不同的可转换数据类型；self为其他数据类型时，valuesOut的数据类型需要与self一致。
+  <!-- end id8 -->
+  <!-- npu="A3,910b,310b,310p,910" id9 -->
+  - <term>Atlas A3系列产品</term>、<term>Atlas A2系列产品</term>、<term>Atlas 200I/500 A2推理产品</term>、<term>Atlas推理系列产品</term>、<term>Atlas训练系列产品</term>：self的数据类型需要能转换为valuesOut的数据类型。
+  <!-- end id9 -->
 
 - **返回值：**
 

@@ -41,6 +41,8 @@
   - $\mathrm{diff} = x_1 - x_2$ ：变量差值
   - $\mathrm{cdist} = \sqrt[p]{\sum (x_1 - x_2)^p}$ ： $p$ -范数距离
 
+  上述闭式仅在 $cdist > 0$ 时适用。对于接口支持的各个 $p$ 模式，当 $cdist = 0$（$x_1$ 与 $x_2$ 在该点对上完全重合）时，该点对对 $x_1$ 的梯度贡献按 0 处理。
+
 ## 函数原型
 
 每个算子分为[两段式接口](../../../docs/zh/context/two_phase_api.md)，必须先调用“aclnnCdistBackwardGetWorkspaceSize”接口获取入参并根据流程计算所需workspace大小，再调用“aclnnCdistBackward”接口执行计算。

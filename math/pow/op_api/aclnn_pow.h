@@ -28,7 +28,7 @@ extern "C" {
  * UINT8、BOOL、COMPLEX64、COMPLEX128、BFLOAT16（在Ascend910及之前芯片上不支持该数据类型）。
  * @param [in] out:npu device侧的aclTensor，数据类型支持FLOAT、FLOAT16、BFLOAT16、DOUBLE、INT32、INT64、INT16、INT8、
  * UINT8、COMPLEX64、COMPLEX128、BFLOAT16（在Ascend910及之前芯片上不支持该数据类型），
- * 且数据类型、数据格式和shape与self一致。
+ * 数据格式和shape需与self一致，数据类型需为self与exponent推导后可转换的数据类型。
  * @param [out] workspaceSize: 返回用户需要在npu device侧申请的workspace大小。
  * @param [out] executor: 返回op执行器，包含算子计算流程。
  * @return aclnnStatus: 返回状态码。

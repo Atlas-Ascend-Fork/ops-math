@@ -120,6 +120,10 @@ aclnnStatus aclnnBitwiseNot(
       </tr>
     </tbody></table>
 
+  <!-- npu="950" id7 -->
+  - <term>Ascend 950PR&950DT products</term>: The data types of self and out additionally support UINT16, UINT32, and UINT64.
+  <!-- end id7 -->
+
 - **Return value**
 
   aclnnStatus: return status code. For details, see [aclnn Return Codes](../../../docs/en/context/aclnn_return_code.md).

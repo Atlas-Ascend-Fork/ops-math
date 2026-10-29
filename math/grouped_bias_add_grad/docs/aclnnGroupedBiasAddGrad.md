@@ -28,14 +28,14 @@
   (1)有可选输入groupIdxOptional时：
 
   $$
-  out(G,H) = \begin{cases} \sum_{i=groupIdxOptional(j-1)}^{groupIdxOptional(j)}  gradY(i, H), & 1 \leq j \leq G-1 \\  \sum_{i=0}^{groupIdxOptional(j)}  gradY(i, H), & j = 0 \end{cases}
+  out(G,H) = \begin{cases} \sum_{i=groupIdxOptional(j-1)}^{groupIdxOptional(j)-1}  gradY(i, H), & 1 \leq j \leq G-1 \\  \sum_{i=0}^{groupIdxOptional(0)-1}  gradY(i, H), & j = 0 \end{cases}
   $$
 
-  其中，gradY共2维，H表示gradY最后一维的大小，G表示groupIdxOptional第0维的大小，即groupIdxOptional有G个数，groupIdxOptional(j)表示第j个数的大小，计算后out为2维，shape为(G, H)。<br>
+  其中，gradY共2维，H表示gradY最后一维的大小，G表示groupIdxOptional第0维的大小，即groupIdxOptional有G个数，groupIdxOptional(j)表示第j组的结束位置（不包含），计算后out为2维，shape为(G, H)。<br>
   (2)无可选输入groupIdxOptional时：
 
   $$
-  out(G, H) = \sum_{i=0}^{C} gradY(G, i, H)
+  out(G, H) = \sum_{i=0}^{C-1} gradY(G, i, H)
   $$
 
   其中，gradY共3维，G, C, H依次表示gradY第0-2维的大小，计算后out为2维，shape为(G, H)。

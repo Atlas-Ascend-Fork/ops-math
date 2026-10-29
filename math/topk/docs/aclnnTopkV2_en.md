@@ -112,8 +112,8 @@ aclnnStatus aclnnTopkV2(
     <tr>
       <td>largest (bool)</td>
       <td>Input</td>
-      <td>Specifies how results are sorted along the dimension.</td>
-      <td>True: results are output in descending order. False: results are output in ascending order.</td>
+      <td>Specifies whether to select the largest or smallest k values.</td>
+      <td>True selects the largest k values, while False selects the smallest k values. Ordering in the corresponding direction is guaranteed only when sorted is True.</td>
       <td>-</td>
       <td>-</td>
       <td>-</td>
@@ -123,7 +123,7 @@ aclnnStatus aclnnTopkV2(
       <td>sorted (bool)</td>
       <td>Input</td>
       <td>Specifies whether the output results are sorted.</td>
-      <td>True indicates that the output results are sorted, and False indicates that they are not. Note: Currently, only True is supported for this parameter.</td>
+      <td>True requires ordered output, while False indicates that ordered output is not required. When sorted is False, the results can still be ordered, but the interface does not guarantee the output order or the stability of indices for equal values.</td>
       <td>-</td>
       <td>-</td>
       <td>-</td>

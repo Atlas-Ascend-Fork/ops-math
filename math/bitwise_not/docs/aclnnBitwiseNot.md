@@ -118,6 +118,10 @@ aclnnStatus aclnnBitwiseNot(
       </tr>
     </tbody></table>
 
+  <!-- npu="950" id7 -->
+  - <term>Ascend 950PR&950DT系列产品</term>：self和out的数据类型额外支持UINT16、UINT32、UINT64。
+  <!-- end id7 -->
+
 - **返回值：**
 
   aclnnStatus：返回状态码，具体参见[aclnn返回码](../../../docs/zh/context/aclnn_return_code.md)。

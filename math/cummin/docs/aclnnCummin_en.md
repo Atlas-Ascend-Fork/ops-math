@@ -92,7 +92,7 @@ aclnnStatus aclnnCummin(
         <td>self (aclTensor*)</td>
         <td>Input</td>
         <td>Input tensor.</td>
-        <td>The data type must be convertible to the data type of valuesOut.</td>
+        <td>The dtype relationship is specified in Applicable Products below.</td>
         <td>FLOAT, DOUBLE, UINT8, INT8, INT16, INT32, INT64, FLOAT16, BFLOAT16, BOOL</td>
         <td>ND</td>
         <td>No more than 8 dimensions.</td>
@@ -112,7 +112,7 @@ aclnnStatus aclnnCummin(
         <td>valuesOut (aclTensor*)</td>
         <td>Output</td>
         <td>Output tensor of the cumulative minimum values.</td>
-        <td>The data type and shape must be the same as those of self.</td>
+        <td>The dtype relationship is specified in Applicable Products below. The shape must be the same as that of self.</td>
         <td>FLOAT,DOUBLE,UINT8,INT8,INT16,INT32,INT64,FLOAT16,BFLOAT16,BOOL</td>
         <td>ND</td>
         <td>Up to 8 dimensions.</td>
@@ -153,6 +153,12 @@ aclnnStatus aclnnCummin(
   <!-- npu="910,310p,310b" id7 -->
   - <term>Atlas inference products</term>, <term>Atlas 200I/500 A2 inference products</term>, and <term>Atlas training products</term>: BFLOAT16 is not supported.
   <!-- end id7 -->
+  <!-- npu="950" id8 -->
+  - <term>Ascend 950PR&950DT products</term>: When self is INT8, UINT8, or BOOL, valuesOut may use a different, convertible data type. For all other self data types, valuesOut must have the same data type as self.
+  <!-- end id8 -->
+  <!-- npu="A3,910b,310b,310p,910" id9 -->
+  - <term>Atlas A3 products</term>, <term>Atlas A2 products</term>, <term>Atlas 200I/500 A2 inference products</term>, <term>Atlas inference products</term>, and <term>Atlas training products</term>: The data type of self must be convertible to the data type of valuesOut.
+  <!-- end id9 -->
 
 - **Return value**
 

@@ -3,7 +3,7 @@
 ## 产品支持情况
 
 <!-- npu="950" id1 -->
-- <term>Ascend 950PR&950DT系列产品</term>：不支持
+- <term>Ascend 950PR&950DT系列产品</term>：支持
 <!-- end id1 -->
 <!-- npu="A3" id2 -->
 - <term>Atlas A3系列产品</term>：支持
@@ -82,7 +82,7 @@ aclnnStatus aclnnLinalgCholesky(
       <td>输入</td>
       <td>公式中的输入self。</td>
       <td>shape的最后两维需要相等，self需为对称正定矩阵。</td>
-      <td>FLOAT、BFLOAT16</td>
+      <td>FLOAT、FLOAT16、BFLOAT16</td>
       <td>ND</td>
       <td>2-8</td>
       <td>√</td>
@@ -102,7 +102,7 @@ aclnnStatus aclnnLinalgCholesky(
       <td>输出</td>
       <td>公式中的输出out。</td>
       <td><ul><li>数据类型与self相同。</li><li>shape与self相同。</li></ul></td>
-      <td>FLOAT、BFLOAT16</td>
+      <td>FLOAT、FLOAT16、BFLOAT16</td>
       <td>ND</td>
       <td>2-8</td>
       <td>√</td>

@@ -30,14 +30,14 @@
   (1) When the optional input groupIdxOptional is provided:
 
   $$
-  out(G,H) = \begin{cases} \sum_{i=groupIdxOptional(j-1)}^{groupIdxOptional(j)}  gradY(i, H), & 1 \leq j \leq G-1 \\  \sum_{i=0}^{groupIdxOptional(j)}  gradY(i, H), & j = 0 \end{cases}
+  out(G,H) = \begin{cases} \sum_{i=groupIdxOptional(j-1)}^{groupIdxOptional(j)-1}  gradY(i, H), & 1 \leq j \leq G-1 \\  \sum_{i=0}^{groupIdxOptional(0)-1}  gradY(i, H), & j = 0 \end{cases}
   $$
 
-  Where gradY is a 2D tensor, H indicates the dimension size of the last dimension of gradY, and G indicates the dimension size of dimension 0 of groupIdxOptional, that is, groupIdxOptional has G numbers. groupIdxOptional(j) denotes the size of the j-th number. After computation, out is a 2D tensor with shape (G, H).<br>
+  Where gradY is a 2D tensor, H indicates the dimension size of the last dimension of gradY, and G indicates the dimension size of dimension 0 of groupIdxOptional, that is, groupIdxOptional has G numbers. groupIdxOptional(j) denotes the exclusive end position of group j. After computation, out is a 2D tensor with shape (G, H).<br>
   (2) When the optional input groupIdxOptional is not provided:
 
   $$
-  out(G, H) = \sum_{i=0}^{C} gradY(G, i, H)
+  out(G, H) = \sum_{i=0}^{C-1} gradY(G, i, H)
   $$
 
   Where gradY is a 3D tensor, G, C, and H indicate the dimension sizes of dimensions 0-2 of gradY, respectively. After computation, out is a 2D tensor with shape (G, H).

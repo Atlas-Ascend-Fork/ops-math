@@ -40,7 +40,7 @@ extern "C" {
  * @param [in] self: npu
  * device侧的aclTensor, 数据类型支持INT16,INT32,INT64,INT8,UINT8,BOOL,支持非连续的Tensor,数据格式支持ND。
  * @param [in] out: npu
- * device侧的aclTensor, 数据类型支持INT16,INT32,INT64,INT8,UINT8,BOOL,且数据类型需要是self可转换的数据类型,
+ * device侧的aclTensor, 数据类型支持INT16,INT32,INT64,INT8,UINT8,BOOL,数据类型需要与self一致,
  * shape与self相同, 数据格式支持ND, 且数据格式需要与self一致。
  * @param [out] workspaceSize: 返回用户需要在npu device侧申请的workspace大小。
  * @param [out] executor: 返回op执行器，包含算子计算流程。
