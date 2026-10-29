@@ -43,32 +43,33 @@
   </tr></thead>
 <tbody>
   <tr>
-    <td>self</td>
+    <td>x</td>
     <td>输入</td>
-    <td>公式中的输入self，dtype与out一致，shape任意（0~8维），支持空Tensor，支持非连续Tensor。</td>
+    <td>公式中的输入x，dtype与y一致，shape任意（0~8维），支持空Tensor；非连续Tensor输入由框架自动转换为连续Tensor后执行。</td>
     <td>FLOAT、FLOAT16、BFLOAT16</td>
     <td>ND</td>
   </tr>
   <tr>
-    <td>out</td>
+    <td>y</td>
     <td>输出</td>
-    <td>公式中的输出out，shape与self完全一致；非原地接口专有。</td>
+    <td>公式中的输出y，shape与x完全一致；非连续Tensor输出由框架自动转换为连续Tensor后执行。</td>
     <td>FLOAT、FLOAT16、BFLOAT16</td>
     <td>ND</td>
   </tr>
   <tr>
     <td>selfRef</td>
     <td>输入/输出</td>
-    <td>原地接口专有，既作输入又作输出的张量，计算结果原地写回。</td>
+    <td>aclnn原地接口专有参数（对应算子定义的输入x与输出y），既作输入又作输出的张量，计算结果原地写回；非连续Tensor由框架自动转换为连续Tensor后执行。</td>
     <td>FLOAT、FLOAT16、BFLOAT16</td>
     <td>ND</td>
   </tr>
 </tbody></table>
 
-- 参数`self`与`out`的dtype必须完全一致；shape维度数 ∈ [0, 8]。
-- 仅支持ND数据格式；不支持NCHW / NHWC / 5HD等私有格式。
 
 ## 约束说明
+
+- 实数输入的值域为[1, +∞)，x<1时输出NaN。
+- shape维度数 ∈ [0, 8]，y的shape与x完全一致。
 
 ## 调用说明
 

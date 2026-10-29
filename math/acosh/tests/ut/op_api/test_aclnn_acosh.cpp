@@ -17,20 +17,15 @@
 #include "op_api_ut_common/op_api_ut.h"
 #include "op_api_ut_common/scalar_desc.h"
 #include "op_api_ut_common/tensor_desc.h"
+#include "opdev/platform.h"
 
 using namespace std;
 
 class l2_acosh_test : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        cout << "l2_acosh_test SetUp" << endl;
-    }
+    static void SetUpTestCase() { cout << "l2_acosh_test SetUp" << endl; }
 
-    static void TearDownTestCase()
-    {
-        cout << "l2_acosh_test TearDown" << endl;
-    }
+    static void TearDownTestCase() { cout << "l2_acosh_test TearDown" << endl; }
 };
 
 // input nullptr
@@ -258,4 +253,68 @@ TEST_F(l2_acosh_test, acosh_inplace_int8)
     uint64_t workspaceSize = 0;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
     EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
+}
+
+// 输出侧 BF16 平台门控（PC-06 看护）：支持平台（910B/910_93/RegBase 含 950）self=FLOAT/out=BF16 放行
+TEST_F(l2_acosh_test, acosh_dtype_float_out_bfloat16_supported_platform)
+{
+    // 950 属 RegBase（DAV_3510），与 910B/910_93 同为 out=BF16 支持平台（docs id7）
+    op::SetPlatformSocVersion(op::SocVersion::ASCEND950);
+    auto selfDesc = TensorDesc({2, 3}, ACL_FLOAT, ACL_FORMAT_ND).ValueRange(1, 2);
+    auto outDesc = TensorDesc({2, 3}, ACL_BF16, ACL_FORMAT_ND);
+    auto ut = OP_API_UT(aclnnAcosh, INPUT(selfDesc), OUTPUT(outDesc));
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACLNN_SUCCESS);
+    op::SetPlatformSocVersion(op::SocVersion::ASCEND910B);
+}
+
+// 输出侧 BF16 平台门控（PC-06 看护）：非支持平台（910/310P）self=FLOAT/out=BF16 被拦截返回 161002，
+// 不再穿透校验进入 l0op::Cast(BF16) 执行链（与输入侧 GetDtypeSupportList 门控对称）
+TEST_F(l2_acosh_test, acosh_dtype_float_out_bfloat16_unsupported_platform)
+{
+    op::SetPlatformSocVersion(op::SocVersion::ASCEND910);
+    {
+        auto selfDesc = TensorDesc({2, 3}, ACL_FLOAT, ACL_FORMAT_ND).ValueRange(1, 2);
+        auto outDesc = TensorDesc({2, 3}, ACL_BF16, ACL_FORMAT_ND);
+        auto ut = OP_API_UT(aclnnAcosh, INPUT(selfDesc), OUTPUT(outDesc));
+        uint64_t workspaceSize = 0;
+        aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+        EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
+    }
+    op::SetPlatformSocVersion(op::SocVersion::ASCEND310P);
+    {
+        auto selfDesc = TensorDesc({2, 3}, ACL_FLOAT, ACL_FORMAT_ND).ValueRange(1, 2);
+        auto outDesc = TensorDesc({2, 3}, ACL_BF16, ACL_FORMAT_ND);
+        auto ut = OP_API_UT(aclnnAcosh, INPUT(selfDesc), OUTPUT(outDesc));
+        uint64_t workspaceSize = 0;
+        aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+        EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
+    }
+    op::SetPlatformSocVersion(op::SocVersion::ASCEND910B);
+}
+
+// 整型 self + DOUBLE out（OI-15 看护）：castDtype 升 DT_DOUBLE 走 AICPU 双精度路径，执行器构造成功
+TEST_F(l2_acosh_test, acosh_dtype_int64_out_double)
+{
+    auto selfDesc = TensorDesc({2, 3}, ACL_INT64, ACL_FORMAT_ND).ValueRange(1, 2);
+    auto outDesc = TensorDesc({2, 3}, ACL_DOUBLE, ACL_FORMAT_ND);
+    auto ut = OP_API_UT(aclnnAcosh, INPUT(selfDesc), OUTPUT(outDesc));
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACLNN_SUCCESS);
+}
+
+// 非 RegBase 平台路由（acosh.cpp IsAiCoreSupport else 分支看护）：ASCEND910 上 FLOAT 走
+// AICORE_DTYPE_SUPPORT_LIST 命中 DT_FLOAT，执行器构造成功（l0op::Acosh → AcoshAiCore 链路）
+TEST_F(l2_acosh_test, acosh_dtype_float_platform_910_aicore_route)
+{
+    op::SetPlatformSocVersion(op::SocVersion::ASCEND910);
+    auto selfDesc = TensorDesc({2, 3}, ACL_FLOAT, ACL_FORMAT_ND).ValueRange(1, 2);
+    auto outDesc = TensorDesc({2, 3}, ACL_FLOAT, ACL_FORMAT_ND).Precision(0.001, 0.001);
+    auto ut = OP_API_UT(aclnnAcosh, INPUT(selfDesc), OUTPUT(outDesc));
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACLNN_SUCCESS);
+    op::SetPlatformSocVersion(op::SocVersion::ASCEND910B);
 }

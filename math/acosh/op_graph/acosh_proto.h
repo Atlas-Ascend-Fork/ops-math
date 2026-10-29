@@ -22,8 +22,8 @@ namespace ge {
 
 *
 *@par Inputs:
-* x: An ND or 5HD tensor. Support 1D~8D. Must be one of the following types:
-* float16, float32, float64, complex64, complex128.
+* x: An ND tensor. Support 0D~8D. Must be one of the following types:
+* float16, float32, bfloat16, double, complex64, complex128.
 *
 *@par Outputs:
 * y: A tensor. Has the same dtype as "x".
@@ -33,9 +33,9 @@ namespace ge {
 *
 */
 REG_OP(Acosh)
-    .INPUT(x, TensorType::UnaryDataType())
-    .OUTPUT(y, TensorType::UnaryDataType())
+    .INPUT(x, TensorType({DT_COMPLEX128, DT_COMPLEX64, DT_DOUBLE, DT_FLOAT, DT_FLOAT16, DT_BF16}))
+    .OUTPUT(y, TensorType({DT_COMPLEX128, DT_COMPLEX64, DT_DOUBLE, DT_FLOAT, DT_FLOAT16, DT_BF16}))
     .OP_END_FACTORY_REG(Acosh)
 
-}  // namespace ge
-#endif  // OPS_OP_PROTO_INC_ACOSH_H_
+} // namespace ge
+#endif // OPS_OP_PROTO_INC_ACOSH_H_

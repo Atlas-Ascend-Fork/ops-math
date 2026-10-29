@@ -27,103 +27,109 @@ using namespace aicpu;
 
 class TEST_Acosh_UT : public testing::Test {};
 
-auto CreateAcoshNodeDef(const vector<vector<int64_t>> &shapes, const vector<DataType> &data_types,
-                        const vector<void *> &datas) {
-  auto node_def = CpuKernelUtils::CpuKernelUtils::CreateNodeDef();
-  NodeDefBuilder(node_def.get(), "Acosh", "Acosh")
-      .Input({"x", data_types[0], shapes[0], datas[0]})
-      .Output({"output", data_types[1], shapes[1], datas[1]});
-  return node_def;
+auto CreateAcoshNodeDef(const vector<vector<int64_t>>& shapes, const vector<DataType>& data_types,
+                        const vector<void*>& datas)
+{
+    auto node_def = CpuKernelUtils::CpuKernelUtils::CreateNodeDef();
+    NodeDefBuilder(node_def.get(), "Acosh", "Acosh")
+        .Input({"x", data_types[0], shapes[0], datas[0]})
+        .Output({"output", data_types[1], shapes[1], datas[1]});
+    return node_def;
 }
 
 template <typename T>
-void RunAcoshKernel(vector<DataType> data_types, vector<vector<int64_t>> &shapes,
-                    const T *input_data, const T *output_exp_data) {
-  uint64_t input_size = CalTotalElements(shapes, 0);
-  T *input = new T[input_size];
-  for (uint64_t i = 0; i < input_size; ++i) {
-    input[i] = input_data[i];
-  }
-  uint64_t output_size = CalTotalElements(shapes, 1);
-  T *output = new T[output_size];
-  vector<void *> datas = {(void *)input, (void *)output};
+void RunAcoshKernel(vector<DataType> data_types, vector<vector<int64_t>>& shapes, const T* input_data,
+                    const T* output_exp_data)
+{
+    uint64_t input_size = CalTotalElements(shapes, 0);
+    T* input = new T[input_size];
+    for (uint64_t i = 0; i < input_size; ++i) {
+        input[i] = input_data[i];
+    }
+    uint64_t output_size = CalTotalElements(shapes, 1);
+    T* output = new T[output_size];
+    vector<void*> datas = {(void*)input, (void*)output};
 
-  auto node_def = CreateAcoshNodeDef(shapes, data_types, datas);
-  RUN_KERNEL(node_def, HOST, KERNEL_STATUS_OK);
+    auto node_def = CreateAcoshNodeDef(shapes, data_types, datas);
+    RUN_KERNEL(node_def, HOST, KERNEL_STATUS_OK);
 
-  T *output_exp = new T[output_size];
-  for (uint64_t i = 0; i < output_size; ++i) {
-    output_exp[i] = output_exp_data[i];
-  }
-  bool compare = CompareResult(output, output_exp, output_size);
-  EXPECT_EQ(compare, true);
-  delete[] input;
-  delete[] output;
-  delete[] output_exp;
+    T* output_exp = new T[output_size];
+    for (uint64_t i = 0; i < output_size; ++i) {
+        output_exp[i] = output_exp_data[i];
+    }
+    bool compare = CompareResult(output, output_exp, output_size);
+    EXPECT_EQ(compare, true);
+    delete[] input;
+    delete[] output;
+    delete[] output_exp;
 }
 
-TEST_F(TEST_Acosh_UT, DATA_TYPE_FLOAT_SUCC) {
-  vector<DataType> data_types = {DT_FLOAT, DT_FLOAT};
-  vector<vector<int64_t>> shapes = {{2, 3}, {2, 3}};
-  const float input_data[] = {1.0f, 1.5f, 2.0f, 3.0f, 5.0f, 10.0f};
-  const float output_exp_data[] = {std::acosh(1.0f), std::acosh(1.5f), std::acosh(2.0f),
-                                   std::acosh(3.0f), std::acosh(5.0f), std::acosh(10.0f)};
-  RunAcoshKernel<float>(data_types, shapes, input_data, output_exp_data);
+TEST_F(TEST_Acosh_UT, DATA_TYPE_FLOAT_SUCC)
+{
+    vector<DataType> data_types = {DT_FLOAT, DT_FLOAT};
+    vector<vector<int64_t>> shapes = {{2, 3}, {2, 3}};
+    const float input_data[] = {1.0f, 1.5f, 2.0f, 3.0f, 5.0f, 10.0f};
+    const float output_exp_data[] = {std::acosh(1.0f), std::acosh(1.5f), std::acosh(2.0f),
+                                     std::acosh(3.0f), std::acosh(5.0f), std::acosh(10.0f)};
+    RunAcoshKernel<float>(data_types, shapes, input_data, output_exp_data);
 }
 
-TEST_F(TEST_Acosh_UT, DATA_TYPE_DOUBLE_SUCC) {
-  vector<DataType> data_types = {DT_DOUBLE, DT_DOUBLE};
-  vector<vector<int64_t>> shapes = {{4}, {4}};
-  const double input_data[] = {1.0, 1.5, 2.0, 5.0};
-  const double output_exp_data[] = {std::acosh(1.0), std::acosh(1.5), std::acosh(2.0), std::acosh(5.0)};
-  RunAcoshKernel<double>(data_types, shapes, input_data, output_exp_data);
+TEST_F(TEST_Acosh_UT, DATA_TYPE_DOUBLE_SUCC)
+{
+    vector<DataType> data_types = {DT_DOUBLE, DT_DOUBLE};
+    vector<vector<int64_t>> shapes = {{4}, {4}};
+    const double input_data[] = {1.0, 1.5, 2.0, 5.0};
+    const double output_exp_data[] = {std::acosh(1.0), std::acosh(1.5), std::acosh(2.0), std::acosh(5.0)};
+    RunAcoshKernel<double>(data_types, shapes, input_data, output_exp_data);
 }
 
-TEST_F(TEST_Acosh_UT, DATA_TYPE_FLOAT16_SUCC) {
-  vector<DataType> data_types = {DT_FLOAT16, DT_FLOAT16};
-  vector<vector<int64_t>> shapes = {{3}, {3}};
-  const Eigen::half input_data[] = {static_cast<Eigen::half>(1.0f),
-                                    static_cast<Eigen::half>(1.5f),
-                                    static_cast<Eigen::half>(2.0f)};
-  const Eigen::half output_exp_data[] = {static_cast<Eigen::half>(std::acosh(1.0f)),
-                                         static_cast<Eigen::half>(std::acosh(1.5f)),
-                                         static_cast<Eigen::half>(std::acosh(2.0f))};
-  RunAcoshKernel<Eigen::half>(data_types, shapes, input_data, output_exp_data);
+TEST_F(TEST_Acosh_UT, DATA_TYPE_FLOAT16_SUCC)
+{
+    vector<DataType> data_types = {DT_FLOAT16, DT_FLOAT16};
+    vector<vector<int64_t>> shapes = {{3}, {3}};
+    const Eigen::half input_data[] = {static_cast<Eigen::half>(1.0f), static_cast<Eigen::half>(1.5f),
+                                      static_cast<Eigen::half>(2.0f)};
+    const Eigen::half output_exp_data[] = {static_cast<Eigen::half>(std::acosh(1.0f)),
+                                           static_cast<Eigen::half>(std::acosh(1.5f)),
+                                           static_cast<Eigen::half>(std::acosh(2.0f))};
+    RunAcoshKernel<Eigen::half>(data_types, shapes, input_data, output_exp_data);
 }
 
-TEST_F(TEST_Acosh_UT, DATA_TYPE_COMPLEX64_SUCC) {
-  vector<DataType> data_types = {DT_COMPLEX64, DT_COMPLEX64};
-  vector<vector<int64_t>> shapes = {{2}, {2}};
-  const std::complex<float> input_data[] = {std::complex<float>(1.0f, 2.0f),
-                                            std::complex<float>(-1.0f, 0.5f)};
-  const std::complex<float> output_exp_data[] = {std::acosh(input_data[0]), std::acosh(input_data[1])};
-  RunAcoshKernel<std::complex<float>>(data_types, shapes, input_data, output_exp_data);
+TEST_F(TEST_Acosh_UT, DATA_TYPE_COMPLEX64_SUCC)
+{
+    vector<DataType> data_types = {DT_COMPLEX64, DT_COMPLEX64};
+    vector<vector<int64_t>> shapes = {{2}, {2}};
+    const std::complex<float> input_data[] = {std::complex<float>(1.0f, 2.0f), std::complex<float>(-1.0f, 0.5f)};
+    const std::complex<float> output_exp_data[] = {std::acosh(input_data[0]), std::acosh(input_data[1])};
+    RunAcoshKernel<std::complex<float>>(data_types, shapes, input_data, output_exp_data);
 }
 
-TEST_F(TEST_Acosh_UT, DATA_TYPE_COMPLEX128_SUCC) {
-  vector<DataType> data_types = {DT_COMPLEX128, DT_COMPLEX128};
-  vector<vector<int64_t>> shapes = {{2}, {2}};
-  const std::complex<double> input_data[] = {std::complex<double>(1.0, 2.0),
-                                             std::complex<double>(-1.0, 0.5)};
-  const std::complex<double> output_exp_data[] = {std::acosh(input_data[0]), std::acosh(input_data[1])};
-  RunAcoshKernel<std::complex<double>>(data_types, shapes, input_data, output_exp_data);
+TEST_F(TEST_Acosh_UT, DATA_TYPE_COMPLEX128_SUCC)
+{
+    vector<DataType> data_types = {DT_COMPLEX128, DT_COMPLEX128};
+    vector<vector<int64_t>> shapes = {{2}, {2}};
+    const std::complex<double> input_data[] = {std::complex<double>(1.0, 2.0), std::complex<double>(-1.0, 0.5)};
+    const std::complex<double> output_exp_data[] = {std::acosh(input_data[0]), std::acosh(input_data[1])};
+    RunAcoshKernel<std::complex<double>>(data_types, shapes, input_data, output_exp_data);
 }
 
-TEST_F(TEST_Acosh_UT, INPUT_NULL_EXCEPTION) {
-  vector<DataType> data_types = {DT_FLOAT, DT_FLOAT};
-  vector<vector<int64_t>> shapes = {{2, 3}, {2, 3}};
-  float output[6] = {0};
-  vector<void *> datas = {(void *)nullptr, (void *)output};
-  auto node_def = CreateAcoshNodeDef(shapes, data_types, datas);
-  RUN_KERNEL(node_def, HOST, KERNEL_STATUS_PARAM_INVALID);
+TEST_F(TEST_Acosh_UT, INPUT_NULL_EXCEPTION)
+{
+    vector<DataType> data_types = {DT_FLOAT, DT_FLOAT};
+    vector<vector<int64_t>> shapes = {{2, 3}, {2, 3}};
+    float output[6] = {0};
+    vector<void*> datas = {(void*)nullptr, (void*)output};
+    auto node_def = CreateAcoshNodeDef(shapes, data_types, datas);
+    RUN_KERNEL(node_def, HOST, KERNEL_STATUS_PARAM_INVALID);
 }
 
-TEST_F(TEST_Acosh_UT, DTYPE_EXCEPTION) {
-  vector<DataType> data_types = {DT_INT32, DT_INT32};
-  vector<vector<int64_t>> shapes = {{2, 3}, {2, 3}};
-  int32_t input[6] = {0};
-  int32_t output[6] = {0};
-  vector<void *> datas = {(void *)input, (void *)output};
-  auto node_def = CreateAcoshNodeDef(shapes, data_types, datas);
-  RUN_KERNEL(node_def, HOST, KERNEL_STATUS_PARAM_INVALID);
+TEST_F(TEST_Acosh_UT, DTYPE_EXCEPTION)
+{
+    vector<DataType> data_types = {DT_INT32, DT_INT32};
+    vector<vector<int64_t>> shapes = {{2, 3}, {2, 3}};
+    int32_t input[6] = {0};
+    int32_t output[6] = {0};
+    vector<void*> datas = {(void*)input, (void*)output};
+    auto node_def = CreateAcoshNodeDef(shapes, data_types, datas);
+    RUN_KERNEL(node_def, HOST, KERNEL_STATUS_PARAM_INVALID);
 }

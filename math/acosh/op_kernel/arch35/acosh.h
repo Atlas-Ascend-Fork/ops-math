@@ -30,6 +30,8 @@
 #include "kernel_operator.h"
 #include "kernel_tiling/kernel_tiling.h"
 #include "acosh_tiling_data.h"
+#include <limits>
+#include <type_traits>
 
 namespace NsAcosh {
 using namespace AscendC;
@@ -218,6 +220,19 @@ __aicore__ inline void Acosh<T>::ComputeFp32Pipeline(LocalTensor<float>& xFp32, 
     LocalTensor<float> dataR = dataRBuf.Get<float>();   // data_r 备份
     LocalTensor<float> logTmp = logTmpBuf.Get<float>(); // log(x)+ln(2) 暂存
     uint32_t n = static_cast<uint32_t>(count);
+
+    // -------- Step 0: 域防护：x < 1 显式替换为 NaN（proto.h:21 契约：域外返回 NaN）--------
+    // 大负数 x 在 u = x + √(x²-1) 中灾难消去：Step3-4 的 (x-1)²+2(x-1) 在 |x|>4096 时
+    // -1 项丢失，Step6-7 符号信息消去使 u 塌缩为 0/正值，log(u) 退化为 0/-inf 而非 NaN
+    // （FP32 实测：x=-4096 尚能经 log(负数) 得 NaN，x=-4097/-5000/-1e10/-1e15 返回 +inf/0）。
+    // 入口统一以 NaN 替换域外输入，NaN 沿 13 步流水全传播；FP16/BF16 别名路径
+    // （xFp32==yFp32）下仅重写 xFp32 副本，本步不触碰 yFp32，别名安全。
+    {
+        LocalTensor<uint8_t> domainMask = dataR.ReinterpretCast<uint8_t>();
+        AscendC::Duplicate(dataT, std::numeric_limits<float>::quiet_NaN(), n);
+        AscendC::CompareScalar(domainMask, xFp32, CONST_ONE, AscendC::CMPMODE::LT, n);
+        AscendC::Select(xFp32, domainMask, dataT, xFp32, AscendC::SELMODE::VSEL_TENSOR_TENSOR_MODE, n);
+    }
 
     // -------- Step 13a/13b 提前算：data_s1 = log(x) + ln(2)，存到 logTmp --------
     // 提前算的目的：xFp32 在 step 1 后会被复用（FP32 路径不会，FP16/BF16 别名路径会）

@@ -22,9 +22,9 @@
 #define _ACOSH_TILING_DATA_H_
 
 struct AcoshTilingData {
-    int64_t totalNum = 0;     // 总元素数（self/out 一致）
-    int64_t blockFactor = 0;  // 单核处理元素数（按 32B 对齐）
-    int64_t ubFactor = 0;     // 单次 UB 循环处理元素数（按 UB 容量 / Buffer 数 / 32B 对齐）
+    int64_t totalNum = 0;    // 总元素数（self/out 一致）
+    int64_t blockFactor = 0; // 单核处理元素数（按 32B 对齐）
+    int64_t ubFactor = 0;    // 单次 UB 循环处理元素数（按 UB 容量 / Buffer 数 / 32B 对齐）
 };
 
 #endif // _ACOSH_TILING_DATA_H_

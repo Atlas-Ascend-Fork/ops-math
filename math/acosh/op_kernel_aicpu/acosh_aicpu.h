@@ -15,10 +15,10 @@
 
 namespace aicpu {
 class AcoshCpuKernel final : public CpuKernel {
- public:
-  AcoshCpuKernel() = default;
-  ~AcoshCpuKernel() override = default;
-  std::uint32_t Compute(CpuKernelContext &ctx) override;
+public:
+    AcoshCpuKernel() = default;
+    ~AcoshCpuKernel() override = default;
+    std::uint32_t Compute(CpuKernelContext& ctx) override;
 };
-}  // namespace aicpu
-#endif  // AICPU_KERNELS_NORMALIZED_ACOSH_H_
+} // namespace aicpu
+#endif // AICPU_KERNELS_NORMALIZED_ACOSH_H_

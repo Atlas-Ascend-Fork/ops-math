@@ -13,19 +13,17 @@
 
 namespace ops {
 class Acosh : public OpDef {
- public:
-  explicit Acosh(const char *name) : OpDef(name)
-  {
-    this->Input("x").DataType({ge::DT_FLOAT16, ge::DT_FLOAT, ge::DT_DOUBLE,
-                                ge::DT_COMPLEX64, ge::DT_COMPLEX128});
-    this->Output("y").DataType({ge::DT_FLOAT16, ge::DT_FLOAT, ge::DT_DOUBLE,
-                                 ge::DT_COMPLEX64, ge::DT_COMPLEX128});
+public:
+    explicit Acosh(const char* name) : OpDef(name)
+    {
+        this->Input("x").DataType({ge::DT_FLOAT16, ge::DT_FLOAT, ge::DT_DOUBLE, ge::DT_COMPLEX64, ge::DT_COMPLEX128});
+        this->Output("y").DataType({ge::DT_FLOAT16, ge::DT_FLOAT, ge::DT_DOUBLE, ge::DT_COMPLEX64, ge::DT_COMPLEX128});
 
-    ApplyMathAicpuDefaultCfg(*this);
-    this->AICPU().ExtendCfgInfo(OP_INFO_FORMAT_AGNOSTIC.c_str(), TRUE_FORMAT_AGNOSTIC.c_str());
-    this->AICPU().ExtendCfgInfo(OP_INFO_OPS_FLAG.c_str(), OPEN_OPS_FLAG.c_str());
-  }
+        ApplyMathAicpuDefaultCfg(*this);
+        this->AICPU().ExtendCfgInfo(OP_INFO_FORMAT_AGNOSTIC.c_str(), TRUE_FORMAT_AGNOSTIC.c_str());
+        this->AICPU().ExtendCfgInfo(OP_INFO_OPS_FLAG.c_str(), OPEN_OPS_FLAG.c_str());
+    }
 };
 
 OP_ADD(Acosh);
-}  // namespace ops
+} // namespace ops

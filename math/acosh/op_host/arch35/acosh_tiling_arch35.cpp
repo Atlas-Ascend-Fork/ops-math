@@ -99,8 +99,8 @@ static ge::graphStatus ParseInputAndCheckDtype(gert::TilingContext* context, int
     OP_CHECK_IF(outputStorageShape.GetDimNum() > MAX_DIM_NUM,
                 OP_LOGE(context, "Acosh: output rank must be <= 8, got %zu", outputStorageShape.GetDimNum()),
                 return ge::GRAPH_FAILED);
-    OP_CHECK_IF(inputStorageShape != outputStorageShape,
-                OP_LOGE(context, "Acosh: input and output shapes must be identical"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(inputStorageShape.GetShapeSize() != outputStorageShape.GetShapeSize(),
+                OP_LOGE(context, "Acosh: input and output shape sizes must be equal"), return ge::GRAPH_FAILED);
     OP_CHECK_IF(outputDesc->GetDataType() != *dtype,
                 OP_LOGE(context, "Acosh: output dtype must match input dtype: input=%d, output=%d",
                         static_cast<int>(*dtype), static_cast<int>(outputDesc->GetDataType())),
@@ -160,10 +160,16 @@ static ge::graphStatus AcoshTilingFunc(gert::TilingContext* context)
         return ge::GRAPH_SUCCESS;
     }
 
-    // 6. 多核切分（按 32B 向上对齐，避免相邻核 CopyOut 写覆盖）
+    // 6. 多核切分（按 32B 字节边界向上对齐，避免相邻核 CopyOut 写覆盖）
+    // GetUbBlockSize 返回的是字节数（32B），须按 dtype 尺寸换算为元素当量再对齐：
+    // FP32=8 元素 / FP16,BF16=16 元素；换算先例同 ComputeUbFactor 的 alignElems。
+    // （此前把 32 字节直接当 32 元素对齐，FP32 下等效 128B 过对齐，usedCoreNum 被低估损失并行度）
     int64_t ubBlockSize = GetUbBlockSize(context); // 通常 32 字节
+    int64_t dtypeSize = ge::GetSizeByDataType(dtype);
+    OP_CHECK_IF(dtypeSize <= 0, OP_LOGE(context, "Acosh: invalid dtype size %ld", dtypeSize), return ge::GRAPH_FAILED);
+    int64_t blockAlignElems = std::max(ubBlockSize / dtypeSize, static_cast<int64_t>(1));
     tiling->totalNum = totalNum;
-    tiling->blockFactor = CeilAlign(CeilDiv(totalNum, coreNum), ubBlockSize);
+    tiling->blockFactor = CeilAlign(CeilDiv(totalNum, coreNum), blockAlignElems);
     int64_t usedCoreNum = CeilDiv(totalNum, tiling->blockFactor);
 
     // 7. UB 切分

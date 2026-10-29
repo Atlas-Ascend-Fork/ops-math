@@ -45,11 +45,9 @@ static const std::initializer_list<DataType> OUTPUT_DTYPE_SUPPORT_LIST = {
     DataType::DT_FLOAT,     DataType::DT_FLOAT16,    DataType::DT_DOUBLE,
     DataType::DT_COMPLEX64, DataType::DT_COMPLEX128, DataType::DT_BF16};
 
-static bool IsPrivateFormat(ge::Format format)
-{
-    return format == ge::FORMAT_NC1HWC0 || format == ge::FORMAT_FRACTAL_Z || format == ge::FORMAT_NDC1HWC0 ||
-           format == ge::FORMAT_FRACTAL_Z_3D || format == ge::FORMAT_FRACTAL_NZ || format == ge::FORMAT_NC1HWC0_C04;
-}
+// 非 BF16 平台的输出支持列表：docs id7 约定 out 的 BFLOAT16 仅 950/A3/910b 支持
+static const std::initializer_list<DataType> OUTPUT_DTYPE_SUPPORT_LIST_WITHOUT_BF16 = {
+    DataType::DT_FLOAT, DataType::DT_FLOAT16, DataType::DT_DOUBLE, DataType::DT_COMPLEX64, DataType::DT_COMPLEX128};
 
 static const std::initializer_list<DataType>& GetDtypeSupportList()
 {
@@ -58,6 +56,18 @@ static const std::initializer_list<DataType>& GetDtypeSupportList()
         return ASCEND910B_DTYPE_DTYPE_SUPPORT_LIST;
     } else {
         return ASCEND910_DTYPE_DTYPE_SUPPORT_LIST;
+    }
+}
+
+// 输出侧 BF16 与输入侧 GetDtypeSupportList 同款按 SocVersion 门控：
+// 910/310P 上 self=FLOAT/out=BF16 组合不再穿透校验进入 l0op::Cast(BF16) 执行链，按文档返回 161002
+static const std::initializer_list<DataType>& GetOutputDtypeSupportList()
+{
+    if (GetCurrentPlatformInfo().GetSocVersion() == SocVersion::ASCEND910B ||
+        GetCurrentPlatformInfo().GetSocVersion() == SocVersion::ASCEND910_93 || IsRegBase()) {
+        return OUTPUT_DTYPE_SUPPORT_LIST;
+    } else {
+        return OUTPUT_DTYPE_SUPPORT_LIST_WITHOUT_BF16;
     }
 }
 
@@ -74,7 +84,7 @@ static bool CheckDtypeValid(const aclTensor* self, const aclTensor* out)
     // 检查输入和输出的数据类型是否在算子的支持列表内
     auto supportList = GetDtypeSupportList();
     OP_CHECK_DTYPE_NOT_SUPPORT(self, supportList, return false);
-    OP_CHECK_DTYPE_NOT_SUPPORT(out, OUTPUT_DTYPE_SUPPORT_LIST, return false);
+    OP_CHECK_DTYPE_NOT_SUPPORT(out, GetOutputDtypeSupportList(), return false);
     return true;
 }
 
@@ -93,20 +103,6 @@ static bool CheckPromoteType(const aclTensor* self, const aclTensor* out)
     return true;
 }
 
-static bool CheckFormat(const aclTensor* self, const aclTensor* out)
-{
-    const auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
-    if (!IsRegBase(curArch)) {
-        return true;
-    }
-    OP_CHECK(!::IsPrivateFormat(self->GetStorageFormat()),
-             OP_LOGE(ACLNN_ERR_PARAM_INVALID, "Acosh does not support private input format on RegBase."), return false);
-    OP_CHECK(!::IsPrivateFormat(out->GetStorageFormat()),
-             OP_LOGE(ACLNN_ERR_PARAM_INVALID, "Acosh does not support private output format on RegBase."),
-             return false);
-    return true;
-}
-
 static aclnnStatus CheckParams(const aclTensor* self, const aclTensor* out)
 {
     // 1. 检查参数是否为空指针
@@ -120,8 +116,6 @@ static aclnnStatus CheckParams(const aclTensor* self, const aclTensor* out)
 
     // 4. 检查self是否可以转成out数据类型
     CHECK_RET(CheckPromoteType(self, out), ACLNN_ERR_PARAM_INVALID);
-
-    CHECK_RET(CheckFormat(self, out), ACLNN_ERR_PARAM_INVALID);
 
     return ACLNN_SUCCESS;
 }
@@ -148,10 +142,14 @@ aclnnStatus ExecAcoshGetWorkspaceSize(const aclTensor* self, aclTensor* out, uin
     auto selfContiguous = l0op::Contiguous(self, uniqueExecutor.get());
     CHECK_RET(selfContiguous != nullptr, ACLNN_ERR_INNER_NULLPTR);
 
-    // 调用cast算子将不支持的类型转化为float
+    // 调用cast算子将不支持的类型转化为float；
+    // out=DOUBLE 时整型输入升 DT_DOUBLE 走 AICPU 双精度路径，
+    // 避免「先降精度(fp32)计算再升精度(DOUBLE)」丢失 INT64 |x|>2^24 的低位；
+    // BOOL 例外：值域{0,1}，acosh 结果域{NaN, 0.0}在任何精度下精确，走 FP32 免 AICPU
     auto castDtype = selfContiguous->GetDataType();
     if (!CheckType(castDtype, OUTPUT_DTYPE_SUPPORT_LIST)) {
-        castDtype = DataType::DT_FLOAT;
+        const bool toDouble = (out->GetDataType() == DataType::DT_DOUBLE) && (castDtype != DataType::DT_BOOL);
+        castDtype = toDouble ? DataType::DT_DOUBLE : DataType::DT_FLOAT;
     }
     auto selfCast = l0op::Cast(selfContiguous, castDtype, uniqueExecutor.get());
     CHECK_RET(selfCast != nullptr, ACLNN_ERR_INNER_NULLPTR);
