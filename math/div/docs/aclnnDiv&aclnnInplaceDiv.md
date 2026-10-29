@@ -413,6 +413,8 @@ aclnnStatus aclnnInplaceDiv(
 - 确定性计算：
   - aclnnDiv&aclnnInplaceDiv默认确定性实现。
 
+- Atlas A2系列产品、Atlas A3系列产品：当self、other和out均为整数类型时，接口按实数除法计算，并将结果转换为out的数据类型。FLOAT32仅能保证精确表示绝对值不超过2^24的整数；超出该范围后，部分整数无法精确表示，结果可能存在舍入误差，包括x / 1的结果不等于x。如需整型截断除法语义。
+
 ## 调用示例
 
 示例代码如下，仅供参考，具体编译和执行过程请参考[编译与运行样例](../../../docs/zh/context/compile_and_run_sample.md)。

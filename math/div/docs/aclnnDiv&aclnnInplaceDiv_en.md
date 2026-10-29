@@ -415,6 +415,8 @@ aclnnStatus aclnnInplaceDiv(
 - Deterministic computation:
   - aclnnDiv&aclnnInplaceDiv default to a deterministic implementation.
 
+- For Atlas A2 series products and Atlas A3 series products: when self, other, and out are all of integer types, the API performs real division and converts the result to the data type of out. FLOAT32 can only guarantee exact representation of integers whose absolute values do not exceed 2^24; beyond this range, some integers cannot be represented exactly, and the result may contain rounding errors, including cases where the result of x / 1 is not equal to x. If integer truncating division semantics are required.
+
 ## Example
 
 The following sample code is for reference only. For details about compilation and execution, see [Compile and Run Samples](../../../docs/en/context/compile_and_run_sample.md).
