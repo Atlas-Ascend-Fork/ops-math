@@ -17,6 +17,8 @@
 #include <iostream>
 #include "infershape_context_faker.h"
 #include "infershape_case_executor.h"
+#include "op_infer_datatype_context_builder.h"
+#include "base/registry/op_impl_space_registry_v2.h"
 
 using namespace ge;
 class SplitDInferShapeTest : public testing::Test {
@@ -83,4 +85,56 @@ TEST_F(SplitDInferShapeTest, split_d_infershape_not_divisible)
                                                           {"num_split", Ops::Math::AnyValue::CreateFrom<int64_t>(3)},
                                                       });
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED, {});
+}
+
+// InferDataType: x is bfloat16, all dynamic outputs (num_split=2) must be bfloat16
+TEST_F(SplitDInferShapeTest, split_d_infer_datatype_bf16_multi_output)
+{
+    auto spaceRegistry = gert::DefaultOpImplSpaceRegistryV2::GetInstance().GetSpaceRegistry();
+    ASSERT_NE(spaceRegistry, nullptr);
+    auto opImpl = spaceRegistry->GetOpImpl("SplitD");
+    ASSERT_NE(opImpl, nullptr);
+    ASSERT_NE(opImpl->infer_datatype, nullptr);
+
+    gert::OpInferDataTypeContextBuilder builder;
+    builder.OpType("SplitD").OpName("SplitD");
+    builder.IONum(1, 2);
+    builder.InputTensorDesc(0, ge::DT_BF16, ge::FORMAT_ND, ge::FORMAT_ND);
+    builder.OutputTensorDesc(0, ge::FORMAT_ND, ge::FORMAT_ND);
+    builder.OutputTensorDesc(1, ge::FORMAT_ND, ge::FORMAT_ND);
+    auto contextHolder = builder.Build();
+    auto* context = contextHolder.GetContext();
+    ASSERT_NE(context, nullptr);
+
+    auto ret = opImpl->infer_datatype(context);
+    EXPECT_EQ(ret, ge::GRAPH_SUCCESS);
+    EXPECT_EQ(context->GetOutputDataType(0), ge::DT_BF16);
+    EXPECT_EQ(context->GetOutputDataType(1), ge::DT_BF16);
+}
+
+// InferDataType: x is float32, all dynamic outputs (num_split=3) must be float32
+TEST_F(SplitDInferShapeTest, split_d_infer_datatype_float_multi_output)
+{
+    auto spaceRegistry = gert::DefaultOpImplSpaceRegistryV2::GetInstance().GetSpaceRegistry();
+    ASSERT_NE(spaceRegistry, nullptr);
+    auto opImpl = spaceRegistry->GetOpImpl("SplitD");
+    ASSERT_NE(opImpl, nullptr);
+    ASSERT_NE(opImpl->infer_datatype, nullptr);
+
+    gert::OpInferDataTypeContextBuilder builder;
+    builder.OpType("SplitD").OpName("SplitD");
+    builder.IONum(1, 3);
+    builder.InputTensorDesc(0, ge::DT_FLOAT, ge::FORMAT_ND, ge::FORMAT_ND);
+    builder.OutputTensorDesc(0, ge::FORMAT_ND, ge::FORMAT_ND);
+    builder.OutputTensorDesc(1, ge::FORMAT_ND, ge::FORMAT_ND);
+    builder.OutputTensorDesc(2, ge::FORMAT_ND, ge::FORMAT_ND);
+    auto contextHolder = builder.Build();
+    auto* context = contextHolder.GetContext();
+    ASSERT_NE(context, nullptr);
+
+    auto ret = opImpl->infer_datatype(context);
+    EXPECT_EQ(ret, ge::GRAPH_SUCCESS);
+    EXPECT_EQ(context->GetOutputDataType(0), ge::DT_FLOAT);
+    EXPECT_EQ(context->GetOutputDataType(1), ge::DT_FLOAT);
+    EXPECT_EQ(context->GetOutputDataType(2), ge::DT_FLOAT);
 }
