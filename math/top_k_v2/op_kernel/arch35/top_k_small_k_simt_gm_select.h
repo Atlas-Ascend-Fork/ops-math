@@ -196,6 +196,25 @@ __simt_callee__ inline void TopKSimtGmSortCandidates(TopKSimtGmCandidate<T> (&it
         TopKSimtGmSortCandidates<T, Count, Limit, Largest, AllValid, Stable, Step + 1U>(items);
     }
 }
+// Preserve the exchange circuit while avoiding a recursive template chain for static shapes.
+template <typename T, uint32_t Count, uint32_t Limit, bool Largest, bool AllValid = false, bool Stable = false>
+__simt_callee__ inline void TopKSimtGmSortCandidatesFixedLoop(TopKSimtGmCandidate<T> (&items)[Count])
+{
+    constexpr uint32_t count = TOPK_SCALAR_SELECT_NETWORK<Count, Limit>.count;
+#pragma unroll
+    for (uint32_t step = 0; step < count; ++step) {
+        const auto e = TOPK_SCALAR_SELECT_NETWORK<Count, Limit>.steps[step];
+        auto a = items[e.left], b = items[e.right];
+        auto ai = TopKSimtGmCandidateInfo<T>(a), bi = TopKSimtGmCandidateInfo<T>(b);
+        bool better = Largest ? ai.key > bi.key : ai.key < bi.key;
+        better = better || (Stable && ai.key == bi.key && ai.index < bi.index);
+        bool comp = AllValid ? better : ((better && ai.index != UINT32_MAX) || bi.index == UINT32_MAX);
+        if (comp == e.greater) {
+            items[e.left] = b;
+            items[e.right] = a;
+        }
+    }
+}
 template <typename T, uint32_t COLS, uint32_t RANKS>
 __simt_callee__ inline void LoadTopKSimtGmScalarThresholds(__gm__ const T* input, const TopKSimtGmRowAddress& address,
                                                            uint32_t n, uint32_t ranks, bool rankLargest,
@@ -309,7 +328,11 @@ __simt_vf__ __aicore__ LAUNCH_BOUND((TOPK_SCALAR_ROW_THREADS<Width, N>)) void To
                                                                                             n, k, bitonic, items);
         }
         if (bitonic) {
-            TopKSimtGmSortCandidates<T, candidateCapacity, TOPK_DIRECT_WARP_SIZE, Largest, hasStaticShape>(items);
+            if constexpr (hasStaticShape && K > 2U) {
+                TopKSimtGmSortCandidatesFixedLoop<T, candidateCapacity, TOPK_DIRECT_WARP_SIZE, Largest, true>(items);
+            } else {
+                TopKSimtGmSortCandidates<T, candidateCapacity, TOPK_DIRECT_WARP_SIZE, Largest, hasStaticShape>(items);
+            }
         } else {
             TopKSimtGmSortCandidates<T, candidateCapacity, candidateCapacity, Largest, false, !Full>(items);
         }
