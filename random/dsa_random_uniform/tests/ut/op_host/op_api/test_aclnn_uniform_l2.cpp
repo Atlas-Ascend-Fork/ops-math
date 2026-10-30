@@ -9,6 +9,7 @@
  */
 #include <vector>
 #include <array>
+#include <limits>
 #include "gtest/gtest.h"
 
 #include "../../../../op_host/op_api/aclnn_uniform.h"
@@ -22,15 +23,9 @@ using namespace std;
 
 class l2_uniform_test : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        cout << "l2_uniform_test SetUp" << endl;
-    }
+    static void SetUpTestCase() { cout << "l2_uniform_test SetUp" << endl; }
 
-    static void TearDownTestCase()
-    {
-        cout << "l2_uniform_test TearDown" << endl;
-    }
+    static void TearDownTestCase() { cout << "l2_uniform_test TearDown" << endl; }
 };
 
 TEST_F(l2_uniform_test, aclnnUniform_3_4_float_nd)
@@ -71,6 +66,217 @@ TEST_F(l2_uniform_test, aclnnUniform_5_4_6_float16_nd)
     uint64_t workspace_size = 0;
     aclnnStatus acl_ret = ut.TestGetWorkspaceSize(&workspace_size);
     EXPECT_EQ(acl_ret, ACL_SUCCESS);
+}
+
+// 异常场景：from 为 NaN, NaN 使比较恒为 false 绕过 from > to 校验, 应返回参数错误
+TEST_F(l2_uniform_test, aclnnUniform_5_4_6_from_nan)
+{
+    double from = std::numeric_limits<double>::quiet_NaN();
+    double to = 1;
+    uint64_t seed = 0;
+    uint64_t offset = 0;
+
+    auto self_tensor_desc = TensorDesc({5, 4, 6}, ACL_FLOAT, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnInplaceUniform, INPUT(self_tensor_desc, from, to, seed, offset), OUTPUT());
+
+    uint64_t workspace_size = 0;
+    aclnnStatus acl_ret = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(acl_ret, ACLNN_ERR_PARAM_INVALID);
+}
+
+// 异常场景：to 为 NaN, NaN 使比较恒为 false 绕过 from > to 校验, 应返回参数错误
+TEST_F(l2_uniform_test, aclnnUniform_5_4_6_to_nan)
+{
+    double from = 0;
+    double to = std::numeric_limits<double>::quiet_NaN();
+    uint64_t seed = 0;
+    uint64_t offset = 0;
+
+    auto self_tensor_desc = TensorDesc({5, 4, 6}, ACL_FLOAT, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnInplaceUniform, INPUT(self_tensor_desc, from, to, seed, offset), OUTPUT());
+
+    uint64_t workspace_size = 0;
+    aclnnStatus acl_ret = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(acl_ret, ACLNN_ERR_PARAM_INVALID);
+}
+
+// 异常场景：from 为 -inf, 超出数据类型表示范围, 应返回参数错误
+TEST_F(l2_uniform_test, aclnnUniform_5_4_6_from_neg_inf)
+{
+    double from = -std::numeric_limits<double>::infinity();
+    double to = 1;
+    uint64_t seed = 0;
+    uint64_t offset = 0;
+
+    auto self_tensor_desc = TensorDesc({5, 4, 6}, ACL_FLOAT, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnInplaceUniform, INPUT(self_tensor_desc, from, to, seed, offset), OUTPUT());
+
+    uint64_t workspace_size = 0;
+    aclnnStatus acl_ret = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(acl_ret, ACLNN_ERR_PARAM_INVALID);
+}
+
+// 异常场景：to 为 +inf, 超出数据类型表示范围, 应返回参数错误
+TEST_F(l2_uniform_test, aclnnUniform_5_4_6_to_pos_inf)
+{
+    double from = 0;
+    double to = std::numeric_limits<double>::infinity();
+    uint64_t seed = 0;
+    uint64_t offset = 0;
+
+    auto self_tensor_desc = TensorDesc({5, 4, 6}, ACL_FLOAT, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnInplaceUniform, INPUT(self_tensor_desc, from, to, seed, offset), OUTPUT());
+
+    uint64_t workspace_size = 0;
+    aclnnStatus acl_ret = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(acl_ret, ACLNN_ERR_PARAM_INVALID);
+}
+
+// 异常场景：int8 [0, 1000), 右端点 to-1=999 超出 int8 上界 127, 应返回参数错误
+TEST_F(l2_uniform_test, aclnnUniform_5_4_6_int8_to_out_of_dtype_range)
+{
+    double from = 0;
+    double to = 1000;
+    uint64_t seed = 0;
+    uint64_t offset = 0;
+
+    auto self_tensor_desc = TensorDesc({5, 4, 6}, ACL_INT8, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnInplaceUniform, INPUT(self_tensor_desc, from, to, seed, offset), OUTPUT());
+
+    uint64_t workspace_size = 0;
+    aclnnStatus acl_ret = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(acl_ret, ACLNN_ERR_PARAM_INVALID);
+}
+
+// 异常场景：int8 [-129, 0), from 超出 int8 下界 -128, 应返回参数错误
+TEST_F(l2_uniform_test, aclnnUniform_5_4_6_int8_from_out_of_dtype_range)
+{
+    double from = -129;
+    double to = 0;
+    uint64_t seed = 0;
+    uint64_t offset = 0;
+
+    auto self_tensor_desc = TensorDesc({5, 4, 6}, ACL_INT8, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnInplaceUniform, INPUT(self_tensor_desc, from, to, seed, offset), OUTPUT());
+
+    uint64_t workspace_size = 0;
+    aclnnStatus acl_ret = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(acl_ret, ACLNN_ERR_PARAM_INVALID);
+}
+
+// 异常场景：float16 [-65505, 0), from 超出 float16 表示范围, 应返回参数错误
+TEST_F(l2_uniform_test, aclnnUniform_5_4_6_float16_from_out_of_dtype_range)
+{
+    double from = -65505;
+    double to = 0;
+    uint64_t seed = 0;
+    uint64_t offset = 0;
+
+    auto self_tensor_desc = TensorDesc({5, 4, 6}, ACL_FLOAT16, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnInplaceUniform, INPUT(self_tensor_desc, from, to, seed, offset), OUTPUT());
+
+    uint64_t workspace_size = 0;
+    aclnnStatus acl_ret = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(acl_ret, ACLNN_ERR_PARAM_INVALID);
+}
+
+// 正常场景：int8 满量程 [-128, 128), 右端点按 to-1=127 校验, 不应被 dtype 范围校验误拦,
+// 与 aclnnInplaceRandom 对同一区间的接受口径一致
+TEST_F(l2_uniform_test, aclnnUniform_int8_full_dtype_range)
+{
+    double from = -128;
+    double to = 128;
+    uint64_t seed = 0;
+    uint64_t offset = 0;
+
+    auto self_tensor_desc = TensorDesc({3, 4}, ACL_INT8, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnInplaceUniform, INPUT(self_tensor_desc, from, to, seed, offset), OUTPUT());
+
+    uint64_t workspace_size = 0;
+    aclnnStatus acl_ret = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(acl_ret, ACL_SUCCESS);
+}
+
+// 正常场景：uint8 满量程 [0, 256), 右端点按 to-1=255 校验, 不应被 dtype 范围校验误拦
+TEST_F(l2_uniform_test, aclnnUniform_uint8_full_dtype_range)
+{
+    double from = 0;
+    double to = 256;
+    uint64_t seed = 0;
+    uint64_t offset = 0;
+
+    auto self_tensor_desc = TensorDesc({3, 4}, ACL_UINT8, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnInplaceUniform, INPUT(self_tensor_desc, from, to, seed, offset), OUTPUT());
+
+    uint64_t workspace_size = 0;
+    aclnnStatus acl_ret = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(acl_ret, ACL_SUCCESS);
+}
+
+// 异常场景：Tensor 变体 from 为 NaN, 应返回参数错误
+TEST_F(l2_uniform_test, aclnnUniformTensor_5_4_6_from_nan)
+{
+    double from = std::numeric_limits<double>::quiet_NaN();
+    double to = 1;
+    uint64_t offset = 0;
+
+    auto self_tensor_desc = TensorDesc({5, 4, 6}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto seed_tensor_desc = TensorDesc({1}, ACL_UINT64, ACL_FORMAT_ND);
+    auto offset_tensor_desc = TensorDesc({1}, ACL_UINT64, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnInplaceUniformTensor,
+                        INPUT(self_tensor_desc, from, to, seed_tensor_desc, offset_tensor_desc, offset), OUTPUT());
+
+    uint64_t workspace_size = 0;
+    aclnnStatus acl_ret = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(acl_ret, ACLNN_ERR_PARAM_INVALID);
+}
+
+// 异常场景：Tensor 变体 to 为 +inf, 应返回参数错误
+TEST_F(l2_uniform_test, aclnnUniformTensor_5_4_6_to_pos_inf)
+{
+    double from = 0;
+    double to = std::numeric_limits<double>::infinity();
+    uint64_t offset = 0;
+
+    auto self_tensor_desc = TensorDesc({5, 4, 6}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto seed_tensor_desc = TensorDesc({1}, ACL_UINT64, ACL_FORMAT_ND);
+    auto offset_tensor_desc = TensorDesc({1}, ACL_UINT64, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnInplaceUniformTensor,
+                        INPUT(self_tensor_desc, from, to, seed_tensor_desc, offset_tensor_desc, offset), OUTPUT());
+
+    uint64_t workspace_size = 0;
+    aclnnStatus acl_ret = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(acl_ret, ACLNN_ERR_PARAM_INVALID);
+}
+
+// 异常场景：Tensor 变体 int8 [0, 1000), 右端点 to-1=999 超出 int8 上界 127, 应返回参数错误
+TEST_F(l2_uniform_test, aclnnUniformTensor_5_4_6_int8_to_out_of_dtype_range)
+{
+    double from = 0;
+    double to = 1000;
+    uint64_t offset = 0;
+
+    auto self_tensor_desc = TensorDesc({5, 4, 6}, ACL_INT8, ACL_FORMAT_ND);
+    auto seed_tensor_desc = TensorDesc({1}, ACL_UINT64, ACL_FORMAT_ND);
+    auto offset_tensor_desc = TensorDesc({1}, ACL_UINT64, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnInplaceUniformTensor,
+                        INPUT(self_tensor_desc, from, to, seed_tensor_desc, offset_tensor_desc, offset), OUTPUT());
+
+    uint64_t workspace_size = 0;
+    aclnnStatus acl_ret = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(acl_ret, ACLNN_ERR_PARAM_INVALID);
 }
 
 TEST_F(l2_uniform_test, aclnnUniform_5_4_6_invaild_from_to)
@@ -202,6 +408,23 @@ TEST_F(l2_uniform_test, ascend910B2_aclnnUniform_0to1_3_4_bf16_nd)
     EXPECT_EQ(acl_ret, ACL_SUCCESS);
 }
 
+// 正常场景: int32 负数区间, 端点在 dtype 表示范围内不被校验误拦, 先 Floor 再 Cast 构建成功
+TEST_F(l2_uniform_test, ascend910B2_aclnnUniform_neg2to0_int32_nd)
+{
+    double from = -2;
+    double to = 0;
+    uint64_t seed = 0;
+    uint64_t offset = 0;
+
+    auto self_tensor_desc = TensorDesc({3, 4}, ACL_INT32, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnInplaceUniform, INPUT(self_tensor_desc, from, to, seed, offset), OUTPUT());
+
+    uint64_t workspace_size = 0;
+    aclnnStatus acl_ret = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(acl_ret, ACL_SUCCESS);
+}
+
 TEST_F(l2_uniform_test, ascend910B2_aclnnUniform_0to1_3_4_fp16_nd)
 {
     const vector<int64_t>& self_shape = {3, 4};
@@ -259,7 +482,7 @@ TEST_F(l2_uniform_test, aclnnUniformTensor_3_4_float_nd)
     auto offset_tensor_desc = TensorDesc({1}, ACL_UINT64, ACL_FORMAT_ND);
 
     auto ut = OP_API_UT(aclnnInplaceUniformTensor,
-        INPUT(self_tensor_desc, from, to, seed_tensor_desc, offset_tensor_desc, offset), OUTPUT());
+                        INPUT(self_tensor_desc, from, to, seed_tensor_desc, offset_tensor_desc, offset), OUTPUT());
 
     uint64_t workspace_size = 0;
     aclnnStatus acl_ret = ut.TestGetWorkspaceSize(&workspace_size);
@@ -278,7 +501,7 @@ TEST_F(l2_uniform_test, aclnnUniformTensor_5_4_6_float16_nd)
     auto offset_tensor_desc = TensorDesc({1}, ACL_UINT64, ACL_FORMAT_ND);
 
     auto ut = OP_API_UT(aclnnInplaceUniformTensor,
-        INPUT(self_tensor_desc, from, to, seed_tensor_desc, offset_tensor_desc, offset), OUTPUT());
+                        INPUT(self_tensor_desc, from, to, seed_tensor_desc, offset_tensor_desc, offset), OUTPUT());
 
     uint64_t workspace_size = 0;
     aclnnStatus acl_ret = ut.TestGetWorkspaceSize(&workspace_size);
@@ -297,7 +520,7 @@ TEST_F(l2_uniform_test, aclnnUniformTensor_3_4_bf16_nd)
     auto offset_tensor_desc = TensorDesc({1}, ACL_UINT64, ACL_FORMAT_ND);
 
     auto ut = OP_API_UT(aclnnInplaceUniformTensor,
-        INPUT(self_tensor_desc, from, to, seed_tensor_desc, offset_tensor_desc, offset), OUTPUT());
+                        INPUT(self_tensor_desc, from, to, seed_tensor_desc, offset_tensor_desc, offset), OUTPUT());
 
     uint64_t workspace_size = 0;
     aclnnStatus acl_ret = ut.TestGetWorkspaceSize(&workspace_size);
@@ -316,7 +539,7 @@ TEST_F(l2_uniform_test, aclnnUniformTensor_3_4_double_nd)
     auto offset_tensor_desc = TensorDesc({1}, ACL_UINT64, ACL_FORMAT_ND);
 
     auto ut = OP_API_UT(aclnnInplaceUniformTensor,
-        INPUT(self_tensor_desc, from, to, seed_tensor_desc, offset_tensor_desc, offset), OUTPUT());
+                        INPUT(self_tensor_desc, from, to, seed_tensor_desc, offset_tensor_desc, offset), OUTPUT());
 
     uint64_t workspace_size = 0;
     aclnnStatus acl_ret = ut.TestGetWorkspaceSize(&workspace_size);
@@ -335,7 +558,7 @@ TEST_F(l2_uniform_test, aclnnUniformTensor_5_4_6_invalid_from_to)
     auto offset_tensor_desc = TensorDesc({1}, ACL_UINT64, ACL_FORMAT_ND);
 
     auto ut = OP_API_UT(aclnnInplaceUniformTensor,
-        INPUT(self_tensor_desc, from, to, seed_tensor_desc, offset_tensor_desc, offset), OUTPUT());
+                        INPUT(self_tensor_desc, from, to, seed_tensor_desc, offset_tensor_desc, offset), OUTPUT());
 
     uint64_t workspace_size = 0;
     aclnnStatus acl_ret = ut.TestGetWorkspaceSize(&workspace_size);
@@ -353,7 +576,7 @@ TEST_F(l2_uniform_test, aclnnUniformTensor_5_4_6_input_nullptr)
     auto offset_tensor_desc = TensorDesc({1}, ACL_UINT64, ACL_FORMAT_ND);
 
     auto ut = OP_API_UT(aclnnInplaceUniformTensor,
-        INPUT((aclTensor*)nullptr, from, to, seed_tensor_desc, offset_tensor_desc, offset), OUTPUT());
+                        INPUT((aclTensor*)nullptr, from, to, seed_tensor_desc, offset_tensor_desc, offset), OUTPUT());
 
     uint64_t workspace_size = 0;
     aclnnStatus acl_ret = ut.TestGetWorkspaceSize(&workspace_size);
@@ -372,7 +595,7 @@ TEST_F(l2_uniform_test, aclnnUniformTensor_5_4_6_invalid_dtype)
     auto offset_tensor_desc = TensorDesc({1}, ACL_UINT64, ACL_FORMAT_ND);
 
     auto ut = OP_API_UT(aclnnInplaceUniformTensor,
-        INPUT(self_tensor_desc, from, to, seed_tensor_desc, offset_tensor_desc, offset), OUTPUT());
+                        INPUT(self_tensor_desc, from, to, seed_tensor_desc, offset_tensor_desc, offset), OUTPUT());
 
     uint64_t workspace_size = 0;
     aclnnStatus acl_ret = ut.TestGetWorkspaceSize(&workspace_size);
@@ -391,7 +614,7 @@ TEST_F(l2_uniform_test, aclnnUniformTensor_5_4_6_invalid_shape_9_dims)
     auto offset_tensor_desc = TensorDesc({1}, ACL_UINT64, ACL_FORMAT_ND);
 
     auto ut = OP_API_UT(aclnnInplaceUniformTensor,
-        INPUT(self_tensor_desc, from, to, seed_tensor_desc, offset_tensor_desc, offset), OUTPUT());
+                        INPUT(self_tensor_desc, from, to, seed_tensor_desc, offset_tensor_desc, offset), OUTPUT());
 
     uint64_t workspace_size = 0;
     aclnnStatus acl_ret = ut.TestGetWorkspaceSize(&workspace_size);
@@ -410,7 +633,7 @@ TEST_F(l2_uniform_test, aclnnUniformTensor_3_4_float_with_offset)
     auto offset_tensor_desc = TensorDesc({1}, ACL_UINT64, ACL_FORMAT_ND);
 
     auto ut = OP_API_UT(aclnnInplaceUniformTensor,
-        INPUT(self_tensor_desc, from, to, seed_tensor_desc, offset_tensor_desc, offset), OUTPUT());
+                        INPUT(self_tensor_desc, from, to, seed_tensor_desc, offset_tensor_desc, offset), OUTPUT());
 
     uint64_t workspace_size = 0;
     aclnnStatus acl_ret = ut.TestGetWorkspaceSize(&workspace_size);

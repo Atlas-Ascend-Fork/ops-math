@@ -8,11 +8,14 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 #include "aclnn_uniform.h"
+#include <cmath>
+#include <limits>
 #include "random/stateless_random_uniform_v2/op_api/stateless_random_uniform_v2.h"
 #include "random/stateless_random_uniform_v3/op_api/stateless_random_uniform_v3.h"
 #include "random/stateless_uniform/op_api/stateless_uniform.h"
 #include "dsa_random_uniform.h"
 #include "math/muls/op_api/muls.h"
+#include "math/floor/op_api/floor.h"
 #include "../../../../conversion/pack/op_api/pack.h"
 #include "op_api/op_api_def_math.h"
 #include "../../../random_common/op_api/random_common_utils.h"
@@ -29,6 +32,14 @@ static const std::initializer_list<op::DataType> DTYPE_SUPPORT_LIST = {
 
 static const std::initializer_list<op::DataType> SEED_OFFSET_DTYPE_SUPPORT_LIST = {op::DataType::DT_UINT64,
                                                                                    op::DataType::DT_INT64};
+
+static const std::initializer_list<op::DataType> INT_DTYPE_LIST = {op::DataType::DT_INT32, op::DataType::DT_INT64,
+                                                                   op::DataType::DT_INT16, op::DataType::DT_INT8,
+                                                                   op::DataType::DT_UINT8};
+
+// fp16 可表示的最大值; bf16 可表示的最大值(与 float 指数位相同, 尾数位更少)
+constexpr double FLOAT16_MAX_VALUE = 65504.0;
+constexpr double BF16_MAX_VALUE = 3.3895313892515355e38;
 
 static bool CheckNotNull(const aclTensor* self)
 {
@@ -68,13 +79,80 @@ static bool CheckShape(const aclTensor* self)
     return true;
 }
 
+// 资料约束: from/to 的值需要在 selfRef 的数据类型取值范围内
+static bool CheckValueInDtypeRange(double value, const char* name, op::DataType dtype)
+{
+    double dtypeLow = 0.0;
+    double dtypeHigh = 0.0;
+    switch (dtype) {
+        case op::DataType::DT_INT8:
+            dtypeLow = static_cast<double>(std::numeric_limits<int8_t>::lowest());
+            dtypeHigh = static_cast<double>(std::numeric_limits<int8_t>::max());
+            break;
+        case op::DataType::DT_UINT8:
+            dtypeLow = static_cast<double>(std::numeric_limits<uint8_t>::lowest());
+            dtypeHigh = static_cast<double>(std::numeric_limits<uint8_t>::max());
+            break;
+        case op::DataType::DT_INT16:
+            dtypeLow = static_cast<double>(std::numeric_limits<int16_t>::lowest());
+            dtypeHigh = static_cast<double>(std::numeric_limits<int16_t>::max());
+            break;
+        case op::DataType::DT_INT32:
+            dtypeLow = static_cast<double>(std::numeric_limits<int32_t>::lowest());
+            dtypeHigh = static_cast<double>(std::numeric_limits<int32_t>::max());
+            break;
+        case op::DataType::DT_INT64:
+            dtypeLow = static_cast<double>(std::numeric_limits<int64_t>::lowest());
+            dtypeHigh = static_cast<double>(std::numeric_limits<int64_t>::max());
+            break;
+        case op::DataType::DT_FLOAT16:
+            dtypeLow = -FLOAT16_MAX_VALUE;
+            dtypeHigh = FLOAT16_MAX_VALUE;
+            break;
+        case op::DataType::DT_BF16:
+            dtypeLow = -BF16_MAX_VALUE;
+            dtypeHigh = BF16_MAX_VALUE;
+            break;
+        case op::DataType::DT_FLOAT:
+            dtypeLow = static_cast<double>(std::numeric_limits<float>::lowest());
+            dtypeHigh = static_cast<double>(std::numeric_limits<float>::max());
+            break;
+        default:
+            // DT_DOUBLE 的表示范围不小于 double, 无需校验
+            return true;
+    }
+    if (value < dtypeLow || value > dtypeHigh) {
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "%s %lf is out of dtype range [%lf, %lf].", name, value, dtypeLow, dtypeHigh);
+        return false;
+    }
+    return true;
+}
+
 static aclnnStatus CheckParams(const aclTensor* self, double from, double to)
 {
     CHECK_RET(CheckNotNull(self), ACLNN_ERR_PARAM_NULLPTR);
     CHECK_RET(CheckDtypeValid(self), ACLNN_ERR_PARAM_INVALID);
     CHECK_RET(CheckShape(self), ACLNN_ERR_PARAM_INVALID);
+    // NaN 与 ±inf 均超出数据类型表示范围, 直接拒绝, 避免 NaN 使比较恒为 false 绕过校验
+    if (!std::isfinite(from) || !std::isfinite(to)) {
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "from and to must be finite, from is %lf and to is %lf.", from, to);
+        return ACLNN_ERR_PARAM_INVALID;
+    }
     if (from > to) {
         OP_LOGE(ACLNN_ERR_PARAM_INVALID, "from cannot be greater than to, from is %lf and to is %lf.", from, to);
+        return ACLNN_ERR_PARAM_INVALID;
+    }
+    if (!CheckValueInDtypeRange(from, "from", self->GetDataType())) {
+        return ACLNN_ERR_PARAM_INVALID;
+    }
+    // 整数 dtype 的取值为 [from, to) 内的整数, to 本身取不到, 可达上界为 to-1, 右端点按 to-1
+    // 校验与 aclnnInplaceRandom 口径一致, 避免误拒 int8 [-128,128)/uint8 [0,256) 等满量程区间;
+    // 浮点 dtype 经舍入仍可能产生等于 to 的结果, 保持按 to 本身校验
+    if (CheckType(self->GetDataType(), INT_DTYPE_LIST)) {
+        if (!CheckValueInDtypeRange(to - 1, "to-1", self->GetDataType())) {
+            return ACLNN_ERR_PARAM_INVALID;
+        }
+    } else if (!CheckValueInDtypeRange(to, "to", self->GetDataType())) {
         return ACLNN_ERR_PARAM_INVALID;
     }
     return ACLNN_SUCCESS;
@@ -127,12 +205,20 @@ static aclnnStatus CreateFromToScalars(const aclTensor* selfContiguous, double f
 }
 
 // 后置公共处理：将计算结果转换成输出 self 的数据类型并拷贝到输出 self 上，获取 workspace 大小
-static aclnnStatus PostProcessInplaceUniform(aclTensor* out, const aclTensor* computeOut, aclOpExecutor* executor,
-                                             uint64_t* workspaceSize)
+static aclnnStatus PostProcessInplaceUniform(aclTensor* out, const aclTensor* computeOut, double from,
+                                             aclOpExecutor* executor, uint64_t* workspaceSize)
 {
     CHECK_RET(computeOut != nullptr, ACLNN_ERR_INNER_NULLPTR);
 
-    auto castOut = l0op::Cast(computeOut, out->GetDataType(), executor);
+    // 整数 dtype 且 from < 0 时, Cast 对负数向 0 截断导致离散取值域右移(from 取不到、
+    // 0 桶翻倍): 先 Floor 向下取整再 Cast; 浮点 dtype 与 from >= 0 时截断与向下取整一致, 保持原路径
+    const aclTensor* castSrc = computeOut;
+    if (from < 0.0 && CheckType(out->GetDataType(), INT_DTYPE_LIST)) {
+        castSrc = l0op::Floor(computeOut, executor);
+        CHECK_RET(castSrc != nullptr, ACLNN_ERR_INNER_NULLPTR);
+    }
+
+    auto castOut = l0op::Cast(castSrc, out->GetDataType(), executor);
     CHECK_RET(castOut != nullptr, ACLNN_ERR_INNER_NULLPTR);
 
     auto viewCopyResult = l0op::ViewCopy(castOut, out, executor);
@@ -262,7 +348,7 @@ aclnnStatus aclnnInplaceUniformGetWorkspaceSize(const aclTensor* selfRef, double
     } else {
         computeOut = uniformDavidPath(selfContiguous, seed, offset, from, to, uniqueExecutor.get());
     }
-    ret = PostProcessInplaceUniform(out, computeOut, uniqueExecutor.get(), workspaceSize);
+    ret = PostProcessInplaceUniform(out, computeOut, from, uniqueExecutor.get(), workspaceSize);
     CHECK_RET(ret == ACLNN_SUCCESS, ret);
 
     uniqueExecutor.ReleaseTo(executor);
@@ -311,7 +397,7 @@ aclnnStatus aclnnInplaceUniformTensorGetWorkspaceSize(const aclTensor* selfRef, 
         computeOut = uniformTensorDavidPath(selfContiguous, seedTensor, offsetTensor, offset, from, to,
                                             uniqueExecutor.get());
     }
-    ret = PostProcessInplaceUniform(out, computeOut, uniqueExecutor.get(), workspaceSize);
+    ret = PostProcessInplaceUniform(out, computeOut, from, uniqueExecutor.get(), workspaceSize);
     CHECK_RET(ret == ACLNN_SUCCESS, ret);
 
     uniqueExecutor.ReleaseTo(executor);

@@ -12,8 +12,10 @@
 #include "random/stateless_random/op_api/stateless_random.h"
 #include "random/stateless_random_uniform_v3/op_api/stateless_random_uniform_v3.h"
 #include "dsa_random_uniform.h"
+#include <limits>
 #include "math/round/op_api/round.h"
 #include "math/muls/op_api/muls.h"
+#include "math/floor/op_api/floor.h"
 #include "math/sub/op_api/sub.h"
 #include "conversion/view_copy/op_api/view_copy.h"
 #include "../../../random_common/op_api/random_common_utils.h"
@@ -166,14 +168,61 @@ static bool CheckShape(const aclTensor* selfRef)
     return true;
 }
 
-static bool CheckFromToRange(int64_t from, int64_t to)
+// 资料约束: from/to-1 的值需要在 selfRef 的数据类型取值范围内
+static bool CheckFromToDtypeRange(const aclTensor* selfRef, int64_t from, int64_t to)
+{
+    int64_t dtypeLow = 0;
+    int64_t dtypeHigh = 0;
+    switch (selfRef->GetDataType()) {
+        case op::DataType::DT_BOOL: // bool 的取值范围为 {0, 1}
+            dtypeLow = 0;
+            dtypeHigh = 1;
+            break;
+        case op::DataType::DT_INT8:
+            dtypeLow = static_cast<int64_t>(std::numeric_limits<int8_t>::lowest());
+            dtypeHigh = static_cast<int64_t>(std::numeric_limits<int8_t>::max());
+            break;
+        case op::DataType::DT_UINT8:
+            dtypeLow = static_cast<int64_t>(std::numeric_limits<uint8_t>::lowest());
+            dtypeHigh = static_cast<int64_t>(std::numeric_limits<uint8_t>::max());
+            break;
+        case op::DataType::DT_INT16:
+            dtypeLow = static_cast<int64_t>(std::numeric_limits<int16_t>::lowest());
+            dtypeHigh = static_cast<int64_t>(std::numeric_limits<int16_t>::max());
+            break;
+        case op::DataType::DT_INT32:
+            dtypeLow = static_cast<int64_t>(std::numeric_limits<int32_t>::lowest());
+            dtypeHigh = static_cast<int64_t>(std::numeric_limits<int32_t>::max());
+            break;
+        case op::DataType::DT_INT64:
+            dtypeLow = static_cast<int64_t>(std::numeric_limits<int64_t>::lowest());
+            dtypeHigh = static_cast<int64_t>(std::numeric_limits<int64_t>::max());
+            break;
+        case op::DataType::DT_FLOAT16:
+            dtypeLow = -65504; // fp16 可表示的最大值
+            dtypeHigh = 65504;
+            break;
+        default:
+            // FLOAT/BF16/DOUBLE 可表示全部 int64 取值, COMPLEX 无区间端点范围约束
+            return true;
+    }
+    // from < to 已保证 to-1 不下溢
+    if (from < dtypeLow || from > dtypeHigh || to - 1 < dtypeLow || to - 1 > dtypeHigh) {
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "from %ld and to-1 %ld must be within dtype range [%ld, %ld].", from, to - 1,
+                dtypeLow, dtypeHigh);
+        return false;
+    }
+    return true;
+}
+
+static bool CheckFromToRange(const aclTensor* selfRef, int64_t from, int64_t to)
 {
     if (from >= to) {
         OP_LOGE(ACLNN_ERR_PARAM_INVALID, "from %ld must be less than to %ld.", from, to);
         return false;
     }
 
-    return true;
+    return CheckFromToDtypeRange(selfRef, from, to);
 }
 
 static aclnnStatus CheckParams(const aclTensor* selfRef)
@@ -346,7 +395,7 @@ static aclnnStatus AllocFromToScalars(const aclTensor* selfContiguous, int64_t f
 
 // 后置公共处理：BOOL 舍入 + Cast + ViewCopy + 获取 workspace 大小
 static aclnnStatus PostProcessInplaceRandom(aclTensor* out, const aclTensor* boolCheckTensor,
-                                            const aclTensor* computeOut, aclOpExecutor* executor,
+                                            const aclTensor* computeOut, int64_t from, aclOpExecutor* executor,
                                             uint64_t* workspaceSize)
 {
     CHECK_RET(computeOut != nullptr, ACLNN_ERR_INNER_NULLPTR);
@@ -354,6 +403,14 @@ static aclnnStatus PostProcessInplaceRandom(aclTensor* out, const aclTensor* boo
     if (boolCheckTensor->GetDataType() == op::DataType::DT_BOOL) {
         int64_t decimals = 0;
         computeOut = l0op::RoundDecimals(computeOut, decimals, executor);
+        CHECK_RET(computeOut != nullptr, ACLNN_ERR_INNER_NULLPTR);
+    } else if (from < 0 && CheckType(out->GetDataType(), INT_DTYPE_LIST) &&
+               CheckType(computeOut->GetDataType(), FLOAT_DTYPE_LIST)) {
+        // 整数 dtype 且 from < 0 时, Cast 对负数向 0 截断导致离散取值域右移(from 取不到、
+        // 0 桶翻倍): 先 Floor 向下取整再 Cast; 仅当 computeOut 仍为浮点(DSARandomUniform /
+        // StatelessRandomUniformV2 路径)时才需要插入, StatelessRandom 已直接输出目标整型,
+        // 对整型输入调用 Floor 存在算子不支持的风险; BOOL/UINT8 的 from 已限制为非负, 不进此分支
+        computeOut = l0op::Floor(computeOut, executor);
         CHECK_RET(computeOut != nullptr, ACLNN_ERR_INNER_NULLPTR);
     }
 
@@ -399,7 +456,7 @@ aclnnStatus aclnnInplaceRandomGetWorkspaceSize(const aclTensor* selfRef, int64_t
     auto out = const_cast<aclTensor*>(selfRef);
     auto ret = CheckParams(selfRef);
     CHECK_RET(ret == ACLNN_SUCCESS, ret);
-    CHECK_RET(CheckFromToRange(from, to), ACLNN_ERR_PARAM_INVALID);
+    CHECK_RET(CheckFromToRange(selfRef, from, to), ACLNN_ERR_PARAM_INVALID);
     auto uniqueExecutor = CREATE_EXECUTOR();
     CHECK_RET(uniqueExecutor.get() != nullptr, ACLNN_ERR_INNER_CREATE_EXECUTOR);
 
@@ -428,7 +485,7 @@ aclnnStatus aclnnInplaceRandomGetWorkspaceSize(const aclTensor* selfRef, int64_t
     } else {
         computeOut = randomDavidPath(selfContiguous, seed, offset, from, to, uniqueExecutor.get());
     }
-    ret = PostProcessInplaceRandom(out, selfContiguous, computeOut, uniqueExecutor.get(), workspaceSize);
+    ret = PostProcessInplaceRandom(out, selfContiguous, computeOut, from, uniqueExecutor.get(), workspaceSize);
     CHECK_RET(ret == ACLNN_SUCCESS, ret);
 
     uniqueExecutor.ReleaseTo(executor);
@@ -451,7 +508,7 @@ aclnnStatus aclnnInplaceRandomTensorGetWorkspaceSize(const aclTensor* selfRef, i
     auto out = const_cast<aclTensor*>(selfRef);
     auto ret = CheckParams(selfRef);
     CHECK_RET(ret == ACLNN_SUCCESS, ret);
-    CHECK_RET(CheckFromToRange(from, to), ACLNN_ERR_PARAM_INVALID);
+    CHECK_RET(CheckFromToRange(selfRef, from, to), ACLNN_ERR_PARAM_INVALID);
     auto uniqueExecutor = CREATE_EXECUTOR();
     CHECK_RET(uniqueExecutor.get() != nullptr, ACLNN_ERR_INNER_CREATE_EXECUTOR);
 
@@ -485,7 +542,7 @@ aclnnStatus aclnnInplaceRandomTensorGetWorkspaceSize(const aclTensor* selfRef, i
         computeOut = randomTensorDavidPath(selfContiguous, seedTensor, offsetTensor, offset, from, to,
                                            uniqueExecutor.get());
     }
-    ret = PostProcessInplaceRandom(out, out, computeOut, uniqueExecutor.get(), workspaceSize);
+    ret = PostProcessInplaceRandom(out, out, computeOut, from, uniqueExecutor.get(), workspaceSize);
     CHECK_RET(ret == ACLNN_SUCCESS, ret);
 
     uniqueExecutor.ReleaseTo(executor);
