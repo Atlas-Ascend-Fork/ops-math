@@ -25,7 +25,7 @@ using namespace fe;
 using namespace fusion;
 using namespace ops;
 
-class GlobalavgpoolPassTest : public testing::Test {
+class GlobalavgpoolpassTest : public testing::Test {
 protected:
     static void SetUpTestCase()
     {
@@ -50,14 +50,14 @@ protected:
     }
 };
 
-TEST_F(GlobalavgpoolPassTest, pattern_test)
+TEST_F(GlobalavgpoolpassTest, pattern_test)
 {
-    ops::GlobalavgpoolPass pass;
+    ops::Globalavgpoolpass pass;
     std::vector<PatternUniqPtr> patterns = pass.Patterns();
     EXPECT_GT(patterns.size(), 0);
 }
 
-TEST_F(GlobalavgpoolPassTest, fusion_success_3d)
+TEST_F(GlobalavgpoolpassTest, fusion_success_3d)
 {
     std::vector<int64_t> dims_x{2, 3, 4}; // 3D input
     Shape shape_x(dims_x);
@@ -107,7 +107,7 @@ TEST_F(GlobalavgpoolPassTest, fusion_success_3d)
     outputs.push_back(ge::es::EsTensorHolder(y));
     std::shared_ptr<Graph> graph_ptr = graph_builder.BuildAndReset(outputs);
     CustomPassContext pass_context;
-    ops::GlobalavgpoolPass pass;
+    ops::Globalavgpoolpass pass;
     Status status = pass.Run(graph_ptr, pass_context);
     EXPECT_EQ(status, SUCCESS);
 
@@ -131,13 +131,15 @@ TEST_F(GlobalavgpoolPassTest, fusion_success_3d)
     EXPECT_TRUE(findReduceMean);
 }
 
-TEST_F(GlobalavgpoolPassTest, fusion_success_4d)
+TEST_F(GlobalavgpoolpassTest, fusion_success_4d)
 {
     std::vector<int64_t> dims_x{2, 3, 4, 5}; // 4D input
     Shape shape_x(dims_x);
+    std::vector<int64_t> dims_y{2, 3, 1, 1}; // GAP 输出
+    Shape shape_y(dims_y);
 
     auto graph_builder = es::EsGraphBuilder("globalavgpool_fusion_test");
-    auto x = graph_builder.CreateInput(0, "x", DT_FLOAT16, FORMAT_ND, shape_x.GetDims());
+    auto x = graph_builder.CreateInput(0, "x", DT_FLOAT16, FORMAT_NCHW, shape_x.GetDims());
 
     // 设置输入节点的输出描述（形状和数据类型）在连接边之前
     TensorDesc x_output_desc;
@@ -171,7 +173,18 @@ TEST_F(GlobalavgpoolPassTest, fusion_success_4d)
     globalAvgPool.GetInputDesc(0, pool_input_desc);
     pool_input_desc.SetDataType(DT_FLOAT16);
     pool_input_desc.SetShape(shape_x);
+    pool_input_desc.SetFormat(FORMAT_NCHW);
+    pool_input_desc.SetOriginFormat(FORMAT_NCHW);
     globalAvgPool.UpdateInputDesc(0, pool_input_desc);
+
+    // 设置输出描述(模拟真实流水线 infershape 后的 GAP 输出: (N,C,1,1), NCHW)
+    TensorDesc pool_output_desc;
+    globalAvgPool.GetOutputDesc(0, pool_output_desc);
+    pool_output_desc.SetDataType(DT_FLOAT16);
+    pool_output_desc.SetShape(shape_y);
+    pool_output_desc.SetFormat(FORMAT_NCHW);
+    pool_output_desc.SetOriginFormat(FORMAT_NCHW);
+    globalAvgPool.UpdateOutputDesc(0, pool_output_desc);
 
     // 获取输出张量
     auto y = graph_builder.GetCGraphBuilder()->GetTensorHolderFromNode(globalAvgPool, 0);
@@ -181,7 +194,7 @@ TEST_F(GlobalavgpoolPassTest, fusion_success_4d)
     outputs.push_back(ge::es::EsTensorHolder(y));
     std::shared_ptr<Graph> graph_ptr = graph_builder.BuildAndReset(outputs);
     CustomPassContext pass_context;
-    ops::GlobalavgpoolPass pass;
+    ops::Globalavgpoolpass pass;
     Status status = pass.Run(graph_ptr, pass_context);
     EXPECT_EQ(status, SUCCESS);
 
@@ -199,13 +212,22 @@ TEST_F(GlobalavgpoolPassTest, fusion_success_4d)
             node.GetAttr("noop_with_empty_axes", noop_with_empty_axes);
             EXPECT_TRUE(keep_dims);
             EXPECT_TRUE(noop_with_empty_axes);
+            // 回归断言: 替换节点的输入/输出 desc 需保持原 GAP 的 NCHW
+            // (修复前输入侧退化为 ND, 输出侧在无 InstanceOutputFormat 时退化为 ND)
+            TensorDesc rm_input_desc;
+            EXPECT_EQ(node.GetInputDesc(0, rm_input_desc), GRAPH_SUCCESS);
+            EXPECT_EQ(rm_input_desc.GetFormat(), FORMAT_NCHW) << "ReduceMean input0 format should keep NCHW";
+            TensorDesc rm_output_desc;
+            EXPECT_EQ(node.GetOutputDesc(0, rm_output_desc), GRAPH_SUCCESS);
+            EXPECT_EQ(rm_output_desc.GetFormat(), FORMAT_NCHW) << "ReduceMean output0 format should keep NCHW";
+            EXPECT_EQ(rm_output_desc.GetShape().GetDims(), dims_y) << "ReduceMean output0 shape should keep (N,C,1,1)";
             break;
         }
     }
     EXPECT_TRUE(findReduceMean);
 }
 
-TEST_F(GlobalavgpoolPassTest, fusion_success_5d)
+TEST_F(GlobalavgpoolpassTest, fusion_success_5d)
 {
     std::vector<int64_t> dims_x{2, 3, 4, 5, 6}; // 5D input
     Shape shape_x(dims_x);
@@ -255,7 +277,7 @@ TEST_F(GlobalavgpoolPassTest, fusion_success_5d)
     outputs.push_back(ge::es::EsTensorHolder(y));
     std::shared_ptr<Graph> graph_ptr = graph_builder.BuildAndReset(outputs);
     CustomPassContext pass_context;
-    ops::GlobalavgpoolPass pass;
+    ops::Globalavgpoolpass pass;
     Status status = pass.Run(graph_ptr, pass_context);
     EXPECT_EQ(status, SUCCESS);
 
@@ -279,7 +301,7 @@ TEST_F(GlobalavgpoolPassTest, fusion_success_5d)
     EXPECT_TRUE(findReduceMean);
 }
 
-TEST_F(GlobalavgpoolPassTest, unsupported_dims_fail)
+TEST_F(GlobalavgpoolpassTest, unsupported_dims_fail)
 {
     std::vector<int64_t> dims_x{2, 3}; // 2D input, not supported
     Shape shape_x(dims_x);
@@ -329,12 +351,12 @@ TEST_F(GlobalavgpoolPassTest, unsupported_dims_fail)
     outputs.push_back(ge::es::EsTensorHolder(y));
     std::shared_ptr<Graph> graph_ptr = graph_builder.BuildAndReset(outputs);
     CustomPassContext pass_context;
-    ops::GlobalavgpoolPass pass;
+    ops::Globalavgpoolpass pass;
     Status status = pass.Run(graph_ptr, pass_context);
     EXPECT_EQ(status, GRAPH_NOT_CHANGED);
 }
 
-TEST_F(GlobalavgpoolPassTest, fusion_success_950)
+TEST_F(GlobalavgpoolpassTest, fusion_success_950)
 {
     fe::PlatformInfo platformInfo;
     fe::OptionalInfo optiCompilationInfo;
@@ -392,7 +414,7 @@ TEST_F(GlobalavgpoolPassTest, fusion_success_950)
     outputs.push_back(ge::es::EsTensorHolder(y));
     std::shared_ptr<Graph> graph_ptr = graph_builder.BuildAndReset(outputs);
     CustomPassContext pass_context;
-    ops::GlobalavgpoolPass pass;
+    ops::Globalavgpoolpass pass;
     Status status = pass.Run(graph_ptr, pass_context);
     EXPECT_EQ(status, SUCCESS);
 
@@ -419,18 +441,18 @@ TEST_F(GlobalavgpoolPassTest, fusion_success_950)
 // ==================== Compatibility tests ====================
 
 // Verify that the pass compiles and the version guard is active.
-TEST_F(GlobalavgpoolPassTest, compileTimeVersionGuard) { EXPECT_GE(GE_COMPILER_VERSION_NUM, 90000000); }
+TEST_F(GlobalavgpoolpassTest, compileTimeVersionGuard) { EXPECT_GE(GE_COMPILER_VERSION_NUM, 90000000); }
 
 // Verify that the pass can be instantiated and returns patterns.
-TEST_F(GlobalavgpoolPassTest, passInstantiationTest)
+TEST_F(GlobalavgpoolpassTest, passInstantiationTest)
 {
-    ops::GlobalavgpoolPass pass;
+    ops::Globalavgpoolpass pass;
     auto patterns = pass.Patterns();
     EXPECT_GT(patterns.size(), 0);
 }
 
 // Verify the pass works correctly with the kCompatibleInherited stage mechanism.
-TEST_F(GlobalavgpoolPassTest, compatibleInheritedStageTest)
+TEST_F(GlobalavgpoolpassTest, compatibleInheritedStageTest)
 {
     std::vector<int64_t> dimsX{2, 3, 4};
     Shape shapeX(dimsX);
@@ -470,7 +492,7 @@ TEST_F(GlobalavgpoolPassTest, compatibleInheritedStageTest)
     std::shared_ptr<Graph> graphPtr = graphBuilder.BuildAndReset(outputs);
 
     CustomPassContext passContext;
-    ops::GlobalavgpoolPass pass;
+    ops::Globalavgpoolpass pass;
     Status status = pass.Run(graphPtr, passContext);
     EXPECT_EQ(status, SUCCESS);
 
