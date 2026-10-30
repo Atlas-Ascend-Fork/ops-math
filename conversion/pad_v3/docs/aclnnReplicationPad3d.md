@@ -112,7 +112,7 @@ aclnnStatus aclnnReplicationPad3d(
       <td>padding（aclIntArray*）</td>
       <td>输入</td>
       <td>输入中需要填充的大小。</td>
-      <td>长度为6，数值依次代表左右上下前后需要填充的值。</td>
+      <td>长度为6，数值依次代表左右上下前后需要填充的值。<term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>上，FLOAT16/FLOAT32/BFLOAT16不支持负padding（返回ACLNN_ERR_PARAM_INVALID）。</td>
       <td>INT64</td>
       <td>-</td>
       <td>-</td>
@@ -177,8 +177,8 @@ aclnnStatus aclnnReplicationPad3d(
       <td>传入的self、padding、out是空指针。</td>
     </tr>
     <tr>
-      <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="5">161002</td>
+      <td rowspan="6">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="6">161002</td>
       <td>self、out的数据类型或数据格式不在支持的范围之内。</td>
     </tr>
     <tr>
@@ -192,6 +192,9 @@ aclnnStatus aclnnReplicationPad3d(
     </tr>
     <tr>
       <td>out后三维度的值不等于self后三维度的值加对应padding。</td>
+    </tr>
+    <tr>
+      <td><term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>上，FLOAT16/FLOAT32/BFLOAT16的padding包含负值。</td>
     </tr>
   </tbody>
   </table>

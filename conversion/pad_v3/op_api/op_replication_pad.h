@@ -93,6 +93,48 @@ inline static bool CheckDtypeValid(const aclTensor* self, const aclTensor* out)
     return true;
 }
 
+// A2/A3（910B/910_93）上 FP 走 AICore 时不支持负 padding（裁剪），拦截避免 device 侧 507035；
+// INT32 等走 AICPU、RegBase 等平台不在此拦截。条件与 padv3.cpp IsAiCoreSupport(edge) 对齐。
+inline static bool CheckNegativePadSupportedOnAiCore(const aclTensor* self, const aclIntArray* padding)
+{
+    bool hasNegativePad = false;
+    for (uint64_t i = 0; i < padding->Size(); ++i) {
+        if ((*padding)[i] < 0) {
+            hasNegativePad = true;
+            break;
+        }
+    }
+    if (!hasNegativePad) {
+        return true;
+    }
+
+    if (IsRegBase()) {
+        return true;
+    }
+
+    auto socVersion = GetCurrentPlatformInfo().GetSocVersion();
+    if (socVersion != SocVersion::ASCEND910B && socVersion != SocVersion::ASCEND910_93) {
+        return true;
+    }
+
+    // 与 PadV3 分派一致：维数 > 5 会走 AICPU，负 padding 可由 AICPU 处理
+    constexpr size_t kReplicationPadAiCoreDimBound = 5;
+    if (self->GetViewShape().GetDimNum() > kReplicationPadAiCoreDimBound) {
+        return true;
+    }
+
+    static const std::initializer_list<op::DataType> kAscend910bReplicationAiCoreDtypes = {
+        op::DataType::DT_FLOAT16, op::DataType::DT_FLOAT, op::DataType::DT_BF16};
+    if (!CheckType(self->GetDataType(), kAscend910bReplicationAiCoreDtypes)) {
+        return true;
+    }
+
+    OP_LOGE(ACLNN_ERR_PARAM_INVALID,
+            "Negative padding is not supported for ReplicationPad on Ascend 910B/910_93 AICore when dtype is "
+            "float16/float/bfloat16.");
+    return false;
+}
+
 static const aclTensor* GetPaddingTensor(int64_t dim, const aclIntArray* padding, aclOpExecutor* executor)
 {
     FVector<int64_t, op::MAX_DIM_NUM> paddingsVector;

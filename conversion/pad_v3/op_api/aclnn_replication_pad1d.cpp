@@ -71,6 +71,9 @@ inline static aclnnStatus CheckParams(const aclTensor* self, const aclIntArray* 
     // 4. 检查shape是否满足约束
     CHECK_RET(CheckShape(self, padding, out), ACLNN_ERR_PARAM_INVALID);
 
+    // 5. A2/A3（910B/910_93）AICore 浮点路径不支持负 padding，提前拦截
+    CHECK_RET(CheckNegativePadSupportedOnAiCore(self, padding), ACLNN_ERR_PARAM_INVALID);
+
     return ACLNN_SUCCESS;
 }
 

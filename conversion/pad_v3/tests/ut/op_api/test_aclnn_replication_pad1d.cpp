@@ -13,7 +13,9 @@
 #include "op_api_ut_common/tensor_desc.h"
 #include "op_api_ut_common/array_desc.h"
 #include "op_api_ut_common/op_api_ut.h"
+#include "opdev/platform.h"
 
+using namespace op;
 using namespace std;
 
 class replication_pad1d_test : public testing::Test {
@@ -22,6 +24,9 @@ protected:
 
     static void TearDownTestCase() { std::cout << "replication_pad1d_test TearDown" << std::endl; }
 };
+
+// constant_pad UT may leave NpuArch as DAV_3510 (RegBase); pin 910B only for neg-pad cases
+static void EnsureAscend910bForNegPadUt() { SetPlatformNpuArch(NpuArch::DAV_2201); }
 
 TEST_F(replication_pad1d_test, case_1)
 {
@@ -317,6 +322,50 @@ TEST_F(replication_pad1d_test, case_double)
     auto self_tensor_desc = TensorDesc({1, 3}, ACL_DOUBLE, ACL_FORMAT_ND);
     auto padding_desc = IntArrayDesc(vector<int64_t>{2, 2});
     auto out_desc = TensorDesc({1, 7}, ACL_DOUBLE, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnReplicationPad1d, INPUT(self_tensor_desc, padding_desc), OUTPUT(out_desc));
+
+    uint64_t workspace_size = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(aclRet, ACL_SUCCESS);
+}
+
+// A2/A3 AICore float path rejects negative padding
+TEST_F(replication_pad1d_test, case_negative_pad_float32_reject)
+{
+    EnsureAscend910bForNegPadUt();
+    auto self_tensor_desc = TensorDesc({2, 6}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto padding_desc = IntArrayDesc(vector<int64_t>{-1, -1});
+    auto out_desc = TensorDesc({2, 4}, ACL_FLOAT, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnReplicationPad1d, INPUT(self_tensor_desc, padding_desc), OUTPUT(out_desc));
+
+    uint64_t workspace_size = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
+}
+
+TEST_F(replication_pad1d_test, case_negative_pad_float16_reject)
+{
+    EnsureAscend910bForNegPadUt();
+    auto self_tensor_desc = TensorDesc({2, 6}, ACL_FLOAT16, ACL_FORMAT_ND);
+    auto padding_desc = IntArrayDesc(vector<int64_t>{-2, 1});
+    auto out_desc = TensorDesc({2, 5}, ACL_FLOAT16, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnReplicationPad1d, INPUT(self_tensor_desc, padding_desc), OUTPUT(out_desc));
+
+    uint64_t workspace_size = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
+}
+
+// INT32 goes AICPU on 910B/910_93, negative padding remains allowed
+TEST_F(replication_pad1d_test, case_negative_pad_int32_allow)
+{
+    EnsureAscend910bForNegPadUt();
+    auto self_tensor_desc = TensorDesc({2, 6}, ACL_INT32, ACL_FORMAT_ND);
+    auto padding_desc = IntArrayDesc(vector<int64_t>{-2, 1});
+    auto out_desc = TensorDesc({2, 5}, ACL_INT32, ACL_FORMAT_ND);
 
     auto ut = OP_API_UT(aclnnReplicationPad1d, INPUT(self_tensor_desc, padding_desc), OUTPUT(out_desc));
 

@@ -13,7 +13,9 @@
 #include "op_api_ut_common/tensor_desc.h"
 #include "op_api_ut_common/array_desc.h"
 #include "op_api_ut_common/op_api_ut.h"
+#include "opdev/platform.h"
 
+using namespace op;
 using namespace std;
 
 class replication_pad3d_test : public testing::Test {
@@ -22,6 +24,8 @@ protected:
 
     static void TearDownTestCase() { std::cout << "replication_pad3d_test TearDown" << std::endl; }
 };
+
+static void EnsureAscend910bForNegPadUt() { SetPlatformNpuArch(NpuArch::DAV_2201); }
 
 TEST_F(replication_pad3d_test, case_1)
 {
@@ -277,6 +281,34 @@ TEST_F(replication_pad3d_test, case_int64)
     auto self_tensor_desc = TensorDesc({1, 1, 2, 2, 2}, ACL_INT64, ACL_FORMAT_ND);
     auto padding_desc = IntArrayDesc(vector<int64_t>{1, 1, 1, 1, 1, 1});
     auto out_desc = TensorDesc({1, 1, 4, 4, 4}, ACL_INT64, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnReplicationPad3d, INPUT(self_tensor_desc, padding_desc), OUTPUT(out_desc));
+
+    uint64_t workspace_size = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(aclRet, ACL_SUCCESS);
+}
+
+TEST_F(replication_pad3d_test, case_negative_pad_float32_reject)
+{
+    EnsureAscend910bForNegPadUt();
+    auto self_tensor_desc = TensorDesc({1, 2, 3, 4, 6}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto padding_desc = IntArrayDesc(vector<int64_t>{-1, -1, -1, -1, -1, -1});
+    auto out_desc = TensorDesc({1, 2, 1, 2, 4}, ACL_FLOAT, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnReplicationPad3d, INPUT(self_tensor_desc, padding_desc), OUTPUT(out_desc));
+
+    uint64_t workspace_size = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
+}
+
+TEST_F(replication_pad3d_test, case_negative_pad_int32_allow)
+{
+    EnsureAscend910bForNegPadUt();
+    auto self_tensor_desc = TensorDesc({1, 2, 3, 4, 6}, ACL_INT32, ACL_FORMAT_ND);
+    auto padding_desc = IntArrayDesc(vector<int64_t>{-1, -1, -1, -1, -1, -1});
+    auto out_desc = TensorDesc({1, 2, 1, 2, 4}, ACL_INT32, ACL_FORMAT_ND);
 
     auto ut = OP_API_UT(aclnnReplicationPad3d, INPUT(self_tensor_desc, padding_desc), OUTPUT(out_desc));
 
