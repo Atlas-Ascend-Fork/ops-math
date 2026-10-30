@@ -65,6 +65,15 @@ static bool CheckDtypeValid(const aclTensorList* tensors, const aclTensor* out)
         }
     }
     OP_CHECK_DTYPE_NOT_SUPPORT(out, ADD_N_DTYPE_SUPPORT_LIST, return false);
+    // tensors 内部及 out 的 dtype 需保持一致，不一致时返回 161002（文档约定）
+    for (uint64_t i = 0; i < tensors->Size(); i++) {
+        if ((*tensors)[i]->GetDataType() != out->GetDataType()) {
+            OP_LOGE(ACLNN_ERR_PARAM_INVALID, "tensors[%lu] dtype %s is not the same as out dtype %s.", i,
+                    op::ToString((*tensors)[i]->GetDataType()).GetString(),
+                    op::ToString(out->GetDataType()).GetString());
+            return false;
+        }
+    }
     return true;
 }
 
@@ -90,6 +99,11 @@ static bool CheckShape(const aclTensorList* tensors, const aclTensor* out)
         }
     }
     OP_CHECK_MAX_DIM(out, MAX_SUPPORT_DIMS_NUMS, return false);
+
+    // 空TensorList：无元素可比较，完成 out 维度校验后直接放行
+    if (tensors->Size() == 0) {
+        return true;
+    }
 
     auto shape = (*tensors)[0]->GetViewShape();
     for (uint64_t i = 1; i < tensors->Size(); i++) {
@@ -117,22 +131,20 @@ static aclnnStatus CheckParams(const aclTensorList* tensors, const aclTensor* ou
     // 固定写法，检查参数是否为空指针
     CHECK_RET(CheckNotNull(tensors, out), ACLNN_ERR_PARAM_NULLPTR);
 
-    // 检查数据类型是否一致
-    OP_CHECK_DTYPE_NOT_SAME((*tensors)[0], out, return false);
     if (!CheckArch()) {
         OP_LOGE(ACLNN_ERR_PARAM_INVALID,
                 "ACLNN only support ASCEND910B(A2), ASCEND910_93(A3) and ASCEND950(A5) series");
         return ACLNN_ERR_PARAM_INVALID;
     }
 
-    // 检查输入的数据类型是否为支持的数据类型
+    // 检查输入的数据类型是否为支持的数据类型（空TensorList时仅校验out）
     CHECK_RET(CheckDtypeValid(tensors, out), ACLNN_ERR_PARAM_INVALID);
 
-    // 检查输出的shape
+    // 检查输出的shape（空TensorList时仅校验out维度）
     CHECK_RET(CheckShape(tensors, out), ACLNN_ERR_PARAM_INVALID);
 
-    // 检查数据格式是否为ND
-    if (IsPrivateFormat((*tensors)[0]->GetStorageFormat())) {
+    // 检查数据格式是否为ND（空TensorList时无元素可查，直接放行）
+    if (tensors->Size() > 0 && IsPrivateFormat((*tensors)[0]->GetStorageFormat())) {
         OP_LOGE(ACLNN_ERR_PARAM_INVALID, "Format only supports ND, NCHW, NHWC, HWCN, NDHWC, NCDHW.");
         return ACLNN_ERR_PARAM_INVALID;
     }

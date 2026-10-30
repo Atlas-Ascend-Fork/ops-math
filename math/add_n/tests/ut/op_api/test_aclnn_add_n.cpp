@@ -21,19 +21,14 @@ using namespace std;
 
 class l2_addn_test : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        cout << "l2_addn_test SetUp" << endl;
-    }
-    
-    static void TearDownTestCase()
-    {
-        cout << "l2_addn_test TearDown" << endl;
-    }
+    static void SetUpTestCase() { cout << "l2_addn_test SetUp" << endl; }
+
+    static void TearDownTestCase() { cout << "l2_addn_test TearDown" << endl; }
 };
 
 // 输入x为空指针
-TEST_F(l2_addn_test, l2_addn_test_nullptr_input) {
+TEST_F(l2_addn_test, l2_addn_test_nullptr_input)
+{
     auto out_tensor_desc = TensorDesc({2, 3}, ACL_FLOAT, ACL_FORMAT_ND);
     auto ut = OP_API_UT(aclnnAddN, INPUT(nullptr), OUTPUT(out_tensor_desc));
     uint64_t workspace_size = 0;
@@ -42,7 +37,8 @@ TEST_F(l2_addn_test, l2_addn_test_nullptr_input) {
 }
 
 // 输出out为空指针
-TEST_F(l2_addn_test, l2_addn_test_nullptr_output) {
+TEST_F(l2_addn_test, l2_addn_test_nullptr_output)
+{
     auto tensor_1_desc = TensorDesc({2, 3}, ACL_FLOAT, ACL_FORMAT_ND);
     auto tensor_2_desc = TensorDesc({2, 3}, ACL_FLOAT, ACL_FORMAT_ND);
     auto tensor_list_desc = TensorListDesc({tensor_1_desc, tensor_2_desc});
@@ -55,7 +51,8 @@ TEST_F(l2_addn_test, l2_addn_test_nullptr_output) {
 /* AICORE */
 
 // bfloat16
-TEST_F(l2_addn_test, l2_addn_test_dypte_bf16) {
+TEST_F(l2_addn_test, l2_addn_test_dypte_bf16)
+{
     auto tensor_1_desc = TensorDesc({2, 3}, ACL_BF16, ACL_FORMAT_ND).Value(vector<float>{1, 2, 3, 4, 5, 6});
     auto tensor_2_desc = TensorDesc({2, 3}, ACL_BF16, ACL_FORMAT_ND).Value(vector<float>{1, 2, 3, 4, 5, 6});
     auto out_tensor_desc = TensorDesc({2, 3}, ACL_BF16, ACL_FORMAT_ND);
@@ -67,7 +64,8 @@ TEST_F(l2_addn_test, l2_addn_test_dypte_bf16) {
 }
 
 // float16
-TEST_F(l2_addn_test, l2_addn_test_dypte_fp16) {
+TEST_F(l2_addn_test, l2_addn_test_dypte_fp16)
+{
     auto tensor_1_desc = TensorDesc({2, 3}, ACL_FLOAT16, ACL_FORMAT_ND).Value(vector<float>{1, 2, 3, 4, 5, 6});
     auto tensor_2_desc = TensorDesc({2, 3}, ACL_FLOAT16, ACL_FORMAT_ND).Value(vector<float>{1, 2, 3, 4, 5, 6});
     auto out_tensor_desc = TensorDesc({2, 3}, ACL_FLOAT16, ACL_FORMAT_ND);
@@ -78,9 +76,9 @@ TEST_F(l2_addn_test, l2_addn_test_dypte_fp16) {
     EXPECT_EQ(aclRet, ACLNN_SUCCESS);
 }
 
-
 // float
-TEST_F(l2_addn_test, l2_addn_test_dypte_fp) {
+TEST_F(l2_addn_test, l2_addn_test_dypte_fp)
+{
     auto tensor_1_desc = TensorDesc({2, 3}, ACL_FLOAT, ACL_FORMAT_ND).Value(vector<float>{1, 2, 3, 4, 5, 6});
     auto tensor_2_desc = TensorDesc({2, 3}, ACL_FLOAT, ACL_FORMAT_ND).Value(vector<float>{1, 2, 3, 4, 5, 6});
     auto out_tensor_desc = TensorDesc({2, 3}, ACL_FLOAT, ACL_FORMAT_ND);
@@ -92,7 +90,8 @@ TEST_F(l2_addn_test, l2_addn_test_dypte_fp) {
 }
 
 // int32
-TEST_F(l2_addn_test, l2_addn_test_dypte_int32) {
+TEST_F(l2_addn_test, l2_addn_test_dypte_int32)
+{
     auto tensor_1_desc = TensorDesc({2, 3}, ACL_INT32, ACL_FORMAT_ND).Value(vector<float>{1, 2, 3, 4, 5, 6});
     auto tensor_2_desc = TensorDesc({2, 3}, ACL_INT32, ACL_FORMAT_ND).Value(vector<float>{1, 2, 3, 4, 5, 6});
     auto out_tensor_desc = TensorDesc({2, 3}, ACL_INT32, ACL_FORMAT_ND);
@@ -104,7 +103,8 @@ TEST_F(l2_addn_test, l2_addn_test_dypte_int32) {
 }
 
 // int64
-TEST_F(l2_addn_test, l2_addn_test_dypte_int64) {
+TEST_F(l2_addn_test, l2_addn_test_dypte_int64)
+{
     auto tensor_1_desc = TensorDesc({2, 3}, ACL_INT64, ACL_FORMAT_ND).Value(vector<float>{1, 2, 3, 4, 5, 6});
     auto tensor_2_desc = TensorDesc({2, 3}, ACL_INT64, ACL_FORMAT_ND).Value(vector<float>{1, 2, 3, 4, 5, 6});
     auto out_tensor_desc = TensorDesc({2, 3}, ACL_INT64, ACL_FORMAT_ND);
@@ -116,7 +116,8 @@ TEST_F(l2_addn_test, l2_addn_test_dypte_int64) {
 }
 
 // 数据格式nd
-TEST_F(l2_addn_test, l2_addn_test_format_nd) {
+TEST_F(l2_addn_test, l2_addn_test_format_nd)
+{
     auto tensor_1_desc = TensorDesc({2, 3}, ACL_FLOAT, ACL_FORMAT_ND).Value(vector<float>{1, 2, 3, 4, 5, 6});
     auto tensor_2_desc = TensorDesc({2, 3}, ACL_FLOAT, ACL_FORMAT_ND).Value(vector<float>{1, 2, 3, 4, 5, 6});
     auto out_tensor_desc = TensorDesc({2, 3}, ACL_FLOAT, ACL_FORMAT_ND);
@@ -128,7 +129,8 @@ TEST_F(l2_addn_test, l2_addn_test_format_nd) {
 }
 
 // 空tensor
-TEST_F(l2_addn_test, l2_addn_test_empty_tensor) {
+TEST_F(l2_addn_test, l2_addn_test_empty_tensor)
+{
     auto tensor_1_desc = TensorDesc({2, 0}, ACL_FLOAT, ACL_FORMAT_ND);
     auto tensor_2_desc = TensorDesc({2, 0}, ACL_FLOAT, ACL_FORMAT_ND);
     auto out_tensor_desc = TensorDesc({2, 0}, ACL_FLOAT, ACL_FORMAT_ND);
@@ -140,12 +142,79 @@ TEST_F(l2_addn_test, l2_addn_test_empty_tensor) {
 }
 
 // 10维tensor
-TEST_F(l2_addn_test, l2_addn_test_10dims) {
+TEST_F(l2_addn_test, l2_addn_test_10dims)
+{
     auto tensor_1_desc = TensorDesc({7, 9, 11, 3, 4, 6, 9, 2, 2, 2}, ACL_FLOAT, ACL_FORMAT_ND);
     auto tensor_2_desc = TensorDesc({7, 9, 11, 3, 4, 6, 9, 2, 2, 2}, ACL_FLOAT, ACL_FORMAT_ND);
     auto tensor_list_desc = TensorListDesc({tensor_1_desc, tensor_2_desc});
     auto out_tensor_desc = TensorDesc({7, 9, 11, 3, 4, 6, 9, 2, 2, 2}, ACL_FLOAT, ACL_FORMAT_ND);
     auto ut = OP_API_UT(aclnnAddN, INPUT(tensor_list_desc), OUTPUT(out_tensor_desc));
+    uint64_t workspace_size = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
+}
+
+// 空TensorList：文档约定支持，此时输出为空Tensor，应返回SUCCESS且workspaceSize为0
+TEST_F(l2_addn_test, l2_addn_test_empty_tensor_list)
+{
+    const aclTensor* empty_tensors[] = {nullptr};
+    auto tensor_list = aclCreateTensorList(empty_tensors, 0);
+    ASSERT_NE(tensor_list, nullptr);
+    auto out_tensor_desc = TensorDesc({2, 3}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto ut = OP_API_UT(aclnnAddN, INPUT(tensor_list), OUTPUT(out_tensor_desc));
+    uint64_t workspace_size = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(aclRet, ACLNN_SUCCESS);
+    EXPECT_EQ(workspace_size, 0);
+}
+
+// tensors内部dtype不一致（f32+i32）：应返回161002
+TEST_F(l2_addn_test, l2_addn_test_mixed_dtype_tensors)
+{
+    auto tensor_1_desc = TensorDesc({2, 3}, ACL_FLOAT, ACL_FORMAT_ND).Value(vector<float>{1, 2, 3, 4, 5, 6});
+    auto tensor_2_desc = TensorDesc({2, 3}, ACL_INT32, ACL_FORMAT_ND).Value(vector<float>{1, 2, 3, 4, 5, 6});
+    auto out_tensor_desc = TensorDesc({2, 3}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto tensor_list_desc = TensorListDesc({tensor_1_desc, tensor_2_desc});
+    auto ut = OP_API_UT(aclnnAddN, INPUT(tensor_list_desc), OUTPUT(out_tensor_desc));
+    uint64_t workspace_size = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
+}
+
+// out与输入dtype不一致：应返回161002
+TEST_F(l2_addn_test, l2_addn_test_out_dtype_mismatch)
+{
+    auto tensor_1_desc = TensorDesc({2, 3}, ACL_FLOAT, ACL_FORMAT_ND).Value(vector<float>{1, 2, 3, 4, 5, 6});
+    auto tensor_2_desc = TensorDesc({2, 3}, ACL_FLOAT, ACL_FORMAT_ND).Value(vector<float>{1, 2, 3, 4, 5, 6});
+    auto out_tensor_desc = TensorDesc({2, 3}, ACL_INT32, ACL_FORMAT_ND);
+    auto tensor_list_desc = TensorListDesc({tensor_1_desc, tensor_2_desc});
+    auto ut = OP_API_UT(aclnnAddN, INPUT(tensor_list_desc), OUTPUT(out_tensor_desc));
+    uint64_t workspace_size = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
+}
+
+// 空TensorList + out为不支持dtype（INT8）：仍应校验out并返回161002
+TEST_F(l2_addn_test, l2_addn_test_empty_list_invalid_out_dtype)
+{
+    const aclTensor* empty_tensors[] = {nullptr};
+    auto tensor_list = aclCreateTensorList(empty_tensors, 0);
+    ASSERT_NE(tensor_list, nullptr);
+    auto out_tensor_desc = TensorDesc({2, 3}, ACL_INT8, ACL_FORMAT_ND);
+    auto ut = OP_API_UT(aclnnAddN, INPUT(tensor_list), OUTPUT(out_tensor_desc));
+    uint64_t workspace_size = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
+}
+
+// 空TensorList + out为9维（超出支持维度）：仍应校验out并返回161002
+TEST_F(l2_addn_test, l2_addn_test_empty_list_out_9dims)
+{
+    const aclTensor* empty_tensors[] = {nullptr};
+    auto tensor_list = aclCreateTensorList(empty_tensors, 0);
+    ASSERT_NE(tensor_list, nullptr);
+    auto out_tensor_desc = TensorDesc({2, 3, 4, 5, 6, 7, 8, 9, 10}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto ut = OP_API_UT(aclnnAddN, INPUT(tensor_list), OUTPUT(out_tensor_desc));
     uint64_t workspace_size = 0;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
     EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
