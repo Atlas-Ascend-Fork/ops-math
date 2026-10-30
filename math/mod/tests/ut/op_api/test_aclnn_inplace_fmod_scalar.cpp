@@ -94,3 +94,14 @@ TEST_F(l2_inplace_fmod_scalar_test, aclnnInplaceFmodScalar_20_int64_nd_7)
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
     EXPECT_EQ(aclRet, ACL_SUCCESS);
 }
+
+TEST_F(l2_inplace_fmod_scalar_test, aclnnInplaceFmodScalar_null_scalar)
+{
+    const vector<int64_t>& selfShape = {2, 3};
+    auto selfTensorDesc = TensorDesc(selfShape, ACL_FLOAT, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnInplaceFmodScalar, INPUT(selfTensorDesc, (aclScalar*)nullptr), OUTPUT());
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_NULLPTR);
+}

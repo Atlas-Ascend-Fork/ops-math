@@ -197,7 +197,7 @@ static aclnnStatus GetWorkspaceSizeCommon(const aclTensor* self, const aclScalar
     CHECK_RET(uniqueExecutor.get() != nullptr, ACLNN_ERR_INNER_CREATE_EXECUTOR);
 
     // 将other scalar转换为tensor
-    CHECK_RET(other != nullptr, ACLNN_ERR_INNER_NULLPTR);
+    CHECK_RET(other != nullptr, ACLNN_ERR_PARAM_NULLPTR);
     auto otherTensor = uniqueExecutor.get()->ConvertToTensor(other, other->GetDataType());
     CHECK_RET(otherTensor != nullptr, ACLNN_ERR_INNER_NULLPTR);
 
