@@ -140,6 +140,12 @@ def circular_pad_grad_golden(x, paddings, **kwargs):
     """
     grad_output = x
 
+    import torch
+
+    if isinstance(grad_output, torch.Tensor):
+        grad_output = grad_output.detach().cpu().numpy()
+    if isinstance(paddings, torch.Tensor):
+        paddings = paddings.detach().cpu().numpy()
     paddings_arr = np.array(paddings).astype(np.int64)
     if paddings_arr.ndim == 1:
         paddings_arr = paddings_arr.reshape(-1, 2)
@@ -166,15 +172,21 @@ def _aclnn_circular_pad_grad_golden(grad_output_np, self_np, padding):
 
     padding 为扁平序列，[0,1] 作用于 self 最后一维、[2,3] 倒数第二维、[4,5] 倒数第三维，
     与 F.pad 的 pad 元组顺序（末维在前）一致，可直接透传。
+    aclnn 通路对 torch 原生 dtype 传 torch.Tensor（CPU host 侧），非原生 dtype（bfloat16）
+    传 numpy 视图——两种输入均直接支持。
     """
     import torch
 
     pad_flat = np.array(padding).reshape(-1).tolist()
     pads = tuple(int(v) for v in pad_flat)
-    origin_dtype = grad_output_np.dtype.name
-    grad_output = _numpy_to_torch_tensor(grad_output_np)
+    if isinstance(grad_output_np, torch.Tensor):
+        grad_output = grad_output_np
+        origin_dtype = str(grad_output.dtype)
+    else:
+        origin_dtype = grad_output_np.dtype.name
+        grad_output = _numpy_to_torch_tensor(grad_output_np)
     self_t = torch.zeros(list(self_np.shape), dtype=grad_output.dtype)
-    if origin_dtype == "bfloat16":
+    if "bfloat16" in origin_dtype:
         grad_output = grad_output.to(torch.float32)
         self_t = self_t.to(torch.float32)
     self_t.requires_grad_(True)
@@ -182,9 +194,20 @@ def _aclnn_circular_pad_grad_golden(grad_output_np, self_np, padding):
     loss = (grad_output * out).sum()
     loss.backward()
     grad_input = self_t.grad
-    if origin_dtype == "bfloat16":
+    if "bfloat16" in origin_dtype:
         grad_input = grad_input.to(torch.bfloat16)
     return _torch_to_numpy_tensor(grad_input)
+
+
+def _aclnn_zero_fallback(grad_input):
+    """非法输入（expected_error 用例）降级：golden 数学必然失败，返回与输出
+    容器同 shape/dtype 的零参考，让用例继续进入算子侧校验，由算子拒收产生证据；
+    不先行 GOLDEN_FAILURE 中断流程。"""
+    import torch
+
+    if isinstance(grad_input, torch.Tensor):
+        return torch.zeros(grad_input.shape, dtype=grad_input.dtype)
+    return np.zeros(grad_input.shape, dtype=grad_input.dtype)
 
 
 class CircularPadGradTorchImpl:
@@ -214,9 +237,11 @@ class CircularPadGradTestSpec:
 
 
 class AclnnCircularPad2dBackwardSpec:
-    def golden(gradOutput, self, padding, **kwargs):
-        del kwargs
-        return [_aclnn_circular_pad_grad_golden(gradOutput, self, padding)]
+    def golden(gradOutput, self, padding, gradInput, **kwargs):
+        try:
+            return [_aclnn_circular_pad_grad_golden(gradOutput, self, padding)]
+        except Exception:
+            return [_aclnn_zero_fallback(gradInput)]
 
     third_party = {"torch": CircularPadGradTorchImpl}
 
@@ -228,9 +253,11 @@ class AclnnCircularPad2dBackwardSpec:
 
 
 class AclnnCircularPad3dBackwardSpec:
-    def golden(gradOutput, self, padding, **kwargs):
-        del kwargs
-        return [_aclnn_circular_pad_grad_golden(gradOutput, self, padding)]
+    def golden(gradOutput, self, padding, gradInput, **kwargs):
+        try:
+            return [_aclnn_circular_pad_grad_golden(gradOutput, self, padding)]
+        except Exception:
+            return [_aclnn_zero_fallback(gradInput)]
 
     third_party = {"torch": CircularPadGradTorchImpl}
 
