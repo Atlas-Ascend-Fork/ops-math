@@ -120,10 +120,10 @@ aclnnStatus aclnnIsInScalarTensor(
       <td>out(aclTensor*)</td>
       <td>Output</td>
       <td>Output tensor, that is, out in the formula.</td>
-      <td>Data type is BOOL. The shape is the same as testElements.</td>
+      <td>Data type is BOOL. It is a 0-dimension scalar.</td>
       <td>BOOL</td>
       <td>ND</td>
-      <td>0-8</td>
+      <td>0</td>
       <td>√</td>
     </tr>
     <tr>
@@ -181,10 +181,10 @@ aclnnStatus aclnnIsInScalarTensor(
       <td>The data type of element, testElements, or out is not supported.</td>
     </tr>
     <tr>
-      <td>The number of dimensions of testElements or out exceeds 8.</td>
+      <td>The number of dimensions of testElements exceeds 8.</td>
     </tr>
     <tr>
-      <td>The shapes of testElements and out are inconsistent.</td>
+      <td>The dimension of out is not 0.</td>
     </tr>
   </tbody></table>
 

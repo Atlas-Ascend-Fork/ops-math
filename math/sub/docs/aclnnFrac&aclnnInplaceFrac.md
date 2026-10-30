@@ -251,8 +251,8 @@ aclnnStatus aclnnInplaceFrac(
   <tbody>
     <tr>
       <td>inputRef（aclTensor*）</td>
-      <td>输入</td>
-      <td>待进行frac计算的输入tensor。</td>
+      <td>输入/输出</td>
+      <td>待进行frac计算的输入tensor，计算结果原地写回该tensor。</td>
       <td>-</td>
       <td>FLOAT16、FLOAT、UINT8、INT8、INT16、INT32、INT64、BFLOAT16</td>
       <td>ND</td>

@@ -118,10 +118,10 @@ aclnnStatus aclnnIsInScalarTensor(
       <td>out（aclTensor*）</td>
       <td>输出</td>
       <td>输出张量，公式中的out。</td>
-      <td>数据类型为BOOL。shape与testElements相同。</td>
+      <td>数据类型为BOOL，0维标量。</td>
       <td>BOOL</td>
       <td>ND</td>
-      <td>0-8</td>
+      <td>0</td>
       <td>√</td>
     </tr>
     <tr>
@@ -179,10 +179,10 @@ aclnnStatus aclnnIsInScalarTensor(
       <td>element或testElements或out的数据类型不在支持范围之内。</td>
     </tr>
     <tr>
-      <td>testElements和out的维度超过8维。</td>
+      <td>testElements的维度超过8维。</td>
     </tr>
     <tr>
-      <td>testElements和out的shape不一致。</td>
+      <td>out的维度不是0维。</td>
     </tr>
   </tbody></table>
 

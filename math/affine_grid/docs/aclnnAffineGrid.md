@@ -163,8 +163,8 @@ aclnnStatus aclnnAffineGrid(
       <td>传入的theta、size或out是空指针。</td>
     </tr>
     <tr>
-      <td rowspan="6">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="6">161002</td>
+      <td rowspan="7">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="7">161002</td>
       <td>theta的数据类型不在支持的范围之内。</td>
     </tr>
     <tr>
@@ -181,6 +181,9 @@ aclnnStatus aclnnAffineGrid(
     </tr>
     <tr>
       <td>size的大小是4时，out的shape不是(N, H, W, 2)；size的大小是5时，out的shape不是(N, D, H, W, 3)。</td>
+    </tr>
+    <tr>
+      <td>theta为空tensor（元素数为0）。</td>
     </tr>
   </tbody>
   </table>
@@ -234,6 +237,7 @@ aclnnStatus aclnnAffineGrid(
   - aclnnAffineGrid默认确定性实现。
 
 - size中的N、H、W的取值必须在(0, 100000]的取值范围内。
+- size中的C不参与计算，对取值无约束。
 
 ## 调用示例
 
