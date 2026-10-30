@@ -114,7 +114,7 @@ aclnnStatus aclnnInplaceBitwiseOrScalar(
       <td>other（aclScalar*）</td>
       <td>输入</td>
       <td>输入标量，与self进行按位或运算。</td>
-      <td>数据类型需与self满足<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>。</td>
+      <td>数据类型需与self满足<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">tensor间互推导关系</a>。</td>
       <td>BOOL、INT8、INT16、UINT16、INT32、INT64、UINT8、UINT32、UINT64</td>
       <td>-</td>
       <td>-</td>
@@ -124,7 +124,7 @@ aclnnStatus aclnnInplaceBitwiseOrScalar(
       <td>out（aclTensor*）</td>
       <td>输出</td>
       <td>输出tensor，存储计算结果。</td>
-      <td>shape需要与self一致。</td>
+      <td>shape需要与self一致；当out为BOOL时，self与other需均为BOOL。</td>
       <td>BOOL、INT8、INT16、UINT16、INT32、INT64、UINT8、FLOAT、FLOAT16、DOUBLE、BFLOAT16、UINT32、UINT64、COMPLEX64、COMPLEX128</td>
       <td>ND</td>
       <td>-</td>
@@ -282,7 +282,7 @@ aclnnStatus aclnnInplaceBitwiseOrScalar(
       <td>selfRef（aclTensor*）</td>
       <td>输入/输出</td>
       <td>输入输出tensor，与other进行按位或运算，计算结果存储在selfRef中。</td>
-      <td>-</td>
+      <td>当selfRef为BOOL时，other需为BOOL。</td>
       <td>BOOL、INT8、INT16、UINT16、INT32、INT64、UINT8、UINT32、UINT64</td>
       <td>ND</td>
       <td>不超过8维</td>
@@ -292,7 +292,7 @@ aclnnStatus aclnnInplaceBitwiseOrScalar(
       <td>other（aclScalar*）</td>
       <td>输入</td>
       <td>输入标量，与selfRef进行按位或运算。</td>
-      <td>数据类型需与selfRef满足<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>。</td>
+      <td>数据类型需与selfRef满足<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">tensor间互推导关系</a>。</td>
       <td>BOOL、INT8、INT16、UINT16、INT32、INT64、UINT8、UINT32、UINT64</td>
       <td>-</td>
       <td>-</td>

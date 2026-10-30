@@ -121,8 +121,8 @@
       <td>self (aclTensor*)</td>
       <td>Input</td>
       <td>Input self in the formula.</td>
-      <td>Empty tensors are supported.<br>The data type and the data type of other must conform to the data type derivation rule (see <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">TensorScalar deduction relationship</a>/<a href="../../../docs/en/context/deduction_relationship.md" target="_blank">deduction relationship</a>).</td>
-      <td>INT32, INT64, FLOAT16, FLOAT, DOUBLE, BFLOAT16</td>
+      <td>Empty tensors are supported.<br>The data type and the data type of other must conform to the data type derivation rule (see <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">TensorScalar deduction relationship</a>/<a href="../../../docs/en/context/deduction_relationship.md" target="_blank">deduction relationship</a>).<br>When self is BOOL, other must be an integer or floating-point type (self and other cannot be BOOL at the same time).</td>
+      <td>BOOL, INT32, INT64, FLOAT16, FLOAT, DOUBLE, BFLOAT16</td>
       <td>ND</td>
       <td>0-8</td>
       <td>√</td>
@@ -141,7 +141,7 @@
       <td>out (aclTensor*)</td>
       <td>Output</td>
       <td>Output out in the formula.</td>
-      <td>Supports empty tensors.<br>The data type must be a data type that can be converted after the deduction of self and other.<br>The shape must be the same as that of self.</td>
+      <td>Supports empty tensors.<br>The data type must be a data type that can be converted after the deduction of self and other.<br>When the derived computation type is a floating-point type, integer data types are not supported for out.<br>The shape must be the same as that of self.</td>
       <td>UINT8, INT8, INT16, INT32, INT64, FLOAT16, FLOAT, DOUBLE, COMPLEX64, COMPLEX128, BFLOAT16</td>
       <td>ND</td>
       <td>0-8</td>
@@ -292,7 +292,7 @@
       <td>selfRef (aclTensor*)</td>
       <td>Input/Output</td>
       <td>Input/output tensor.</td>
-      <td>Supports empty tensors.<br>The data type and the data type of other must satisfy the data type derivation rule (see <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">TensorScalar deduction relationship</a>/<a href="../../../docs/en/context/deduction_relationship.md" target="_blank">deduction relationship</a>), and must be convertible after deduction.</td>
+      <td>Supports empty tensors.<br>The data type and the data type of other must satisfy the data type derivation rule (see <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">TensorScalar deduction relationship</a>/<a href="../../../docs/en/context/deduction_relationship.md" target="_blank">deduction relationship</a>), and must be convertible after deduction.<br>When the derived computation type is a floating-point type, integer data types are not supported for selfRef.</td>
       <td>INT32, INT64, FLOAT16, FLOAT, DOUBLE, BFLOAT16</td>
       <td>ND</td>
       <td>0-8</td>

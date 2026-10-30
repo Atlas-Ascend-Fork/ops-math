@@ -116,7 +116,7 @@ aclnnStatus aclnnInplaceBitwiseOrScalar(
       <td>other (aclScalar*)</td>
       <td>Input</td>
       <td>Input scalar that performs a bitwise OR operation with self.</td>
-      <td>The data type must satisfy the <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">deduction relationship</a> with self.</td>
+      <td>The data type must satisfy the <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">tensor-tensor deduction relationship</a> with self.</td>
       <td>BOOL, INT8, INT16, UINT16, INT32, INT64, UINT8, UINT32, UINT64</td>
       <td>-</td>
       <td>-</td>
@@ -126,7 +126,7 @@ aclnnStatus aclnnInplaceBitwiseOrScalar(
       <td>out (aclTensor*)</td>
       <td>Output</td>
       <td>Output tensor that stores the computation result.</td>
-      <td>The shape must be the same as that of self.</td>
+      <td>The shape must be the same as that of self. When out is BOOL, both self and other must be BOOL.</td>
       <td>BOOL, INT8, INT16, UINT16, INT32, INT64, UINT8, FLOAT, FLOAT16, DOUBLE, BFLOAT16, UINT32, UINT64, COMPLEX64, COMPLEX128</td>
       <td>ND</td>
       <td>-</td>
@@ -284,7 +284,7 @@ aclnnStatus aclnnInplaceBitwiseOrScalar(
       <td>selfRef (aclTensor*)</td>
       <td>Input/Output</td>
       <td>Input/output tensor that performs a bitwise OR operation with other. The computation result is stored in selfRef.</td>
-      <td>-</td>
+      <td>When selfRef is BOOL, other must be BOOL.</td>
       <td>BOOL, INT8, INT16, UINT16, INT32, INT64, UINT8, UINT32, UINT64</td>
       <td>ND</td>
       <td>No more than 8 dimensions</td>
@@ -294,7 +294,7 @@ aclnnStatus aclnnInplaceBitwiseOrScalar(
       <td>other (aclScalar*)</td>
       <td>Input</td>
       <td>Input scalar that performs a bitwise OR operation with selfRef.</td>
-      <td>The data type must satisfy the <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">deduction relationship</a> with selfRef.</td>
+      <td>The data type must satisfy the <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">tensor-tensor deduction relationship</a> with selfRef.</td>
       <td>BOOL, INT8, INT16, UINT16, INT32, INT64, UINT8, UINT32, UINT64</td>
       <td>-</td>
       <td>-</td>

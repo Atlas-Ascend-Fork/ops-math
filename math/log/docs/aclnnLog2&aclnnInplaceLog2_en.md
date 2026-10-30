@@ -106,7 +106,7 @@ aclnnStatus aclnnInplaceLog2(
       <td>-</td>
       <td>BOOL, INT64, INT32, INT16, INT8, UINT8, FLOAT, FLOAT16, DOUBLE, COMPLEX64, COMPLEX128, BFLOAT16</td>
       <td>ND</td>
-      <td>1-8</td>
+      <td>0-8</td>
       <td>√</td>
     </tr>
     <tr>
@@ -116,7 +116,7 @@ aclnnStatus aclnnInplaceLog2(
       <td>When self is a complex number, out must be a complex number.</td>
       <td>FLOAT, FLOAT16, DOUBLE, COMPLEX64, COMPLEX128, BFLOAT16</td>
       <td>ND</td>
-      <td>1-8</td>
+      <td>0-8</td>
       <td>-</td>
     </tr>
     <tr>
@@ -257,7 +257,7 @@ aclnnStatus aclnnInplaceLog2(
       <td>-</td>
       <td>FLOAT, FLOAT16, DOUBLE, COMPLEX64, COMPLEX128, BFLOAT16</td>
       <td>ND</td>
-      <td>1-8</td>
+      <td>0-8</td>
       <td>√</td>
     </tr>
     <tr>

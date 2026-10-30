@@ -119,8 +119,8 @@
       <td>self（aclTensor*）</td>
       <td>输入</td>
       <td>公式中的输入self。</td>
-      <td>支持空Tensor。<br>数据类型与other的数据类型需满足数据类型推导规则（参见<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">TensorScalar互推导关系</a>/<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>）。</td>
-      <td>INT32、INT64、FLOAT16、FLOAT、DOUBLE、BFLOAT16</td>
+      <td>支持空Tensor。<br>数据类型与other的数据类型需满足数据类型推导规则（参见<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">TensorScalar互推导关系</a>/<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>）。<br>当self为BOOL时，other需为整数或浮点类型（self与other不能同时为BOOL）。</td>
+      <td>BOOL、INT32、INT64、FLOAT16、FLOAT、DOUBLE、BFLOAT16</td>
       <td>ND</td>
       <td>0-8</td>
       <td>√</td>
@@ -139,7 +139,7 @@
       <td>out（aclTensor*）</td>
       <td>输出</td>
       <td>公式中的输出out。</td>
-      <td>支持空Tensor。<br>数据类型需要是self与other推导之后可转换的数据类型。<br>shape需要与self一致。</td>
+      <td>支持空Tensor。<br>数据类型需要是self与other推导之后可转换的数据类型。<br>当推导出的计算类型为浮点类型时，out不支持整型数据类型。<br>shape需要与self一致。</td>
       <td>UINT8、INT8、INT16、INT32、INT64、FLOAT16、FLOAT、DOUBLE、COMPLEX64、COMPLEX128、BFLOAT16</td>
       <td>ND</td>
       <td>0-8</td>
@@ -290,7 +290,7 @@
       <td>selfRef（aclTensor*）</td>
       <td>输入/输出</td>
       <td>输入输出tensor。</td>
-      <td>支持空Tensor。<br>数据类型与other的数据类型需满足数据类型推导规则（参见<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">TensorScalar互推导关系</a>/<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>），且需要是推导之后可转换的数据类型。</td>
+      <td>支持空Tensor。<br>数据类型与other的数据类型需满足数据类型推导规则（参见<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">TensorScalar互推导关系</a>/<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>），且需要是推导之后可转换的数据类型。<br>当推导出的计算类型为浮点类型时，selfRef不支持整型数据类型。</td>
       <td>INT32、INT64、FLOAT16、FLOAT、DOUBLE、BFLOAT16</td>
       <td>ND</td>
       <td>0-8</td>
