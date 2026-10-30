@@ -160,7 +160,7 @@ elif [ "${ge_st_rt2}X" == "singleX" ];then
     fi
 elif [ "${ge_st_rt2}X" == "A5X" ];then
     if [ "${GIT_TARGET_BRANCH}" = "master" ];then
-        LOG_DO bash scripts/ci/compile_a5_pkg.sh "pr_filelist.txt" "-j8"
+        LOG_DO bash scripts/ci/compile_a5_pkg.sh "pr_filelist.txt" "-j16"
         DP_ASSERT_EQUAL "$?" "0" "Build ${REPOSITORY_NAME}"
         # 目录不存在 或者 目录内无 .run 文件时，生成空占位文件
         compile_package_name=""
