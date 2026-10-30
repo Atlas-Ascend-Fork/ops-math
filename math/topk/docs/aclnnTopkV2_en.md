@@ -8,19 +8,19 @@
 - <term>Ascend 950PR&950DT products</term>: Supported
 <!-- end id1 -->
 <!-- npu="A3" id2 -->
-- <term>Atlas A3 products</term>: Supported
+- <term>Atlas A3 products</term>: Not supported
 <!-- end id2 -->
 <!-- npu="910b" id3 -->
-- <term>Atlas A2 products</term>: Supported
+- <term>Atlas A2 products</term>: Not supported
 <!-- end id3 -->
 <!-- npu="310b" id4 -->
 - <term>Atlas 200I/500 A2 inference products</term>: Not supported
 <!-- end id4 -->
 <!-- npu="310p" id5 -->
-- <term>Atlas inference products</term>: Supported
+- <term>Atlas inference products</term>: Not supported
 <!-- end id5 -->
 <!-- npu="910" id6 -->
-- <term>Atlas training products</term>: Supported
+- <term>Atlas training products</term>: Not supported
 <!-- end id6 -->
 
 ## Function
@@ -47,9 +47,9 @@ aclnnStatus aclnnTopkV2GetWorkspaceSize(
 
 ```Cpp
 aclnnStatus aclnnTopkV2(
-  void*          workspace,
-  uint64_t       workspaceSize,
-  aclOpExecutor* executor,
+  void*             workspace,
+  uint64_t          workspaceSize,
+  aclOpExecutor*    executor,
   const aclrtStream stream)
 ```
 
@@ -180,10 +180,6 @@ aclnnStatus aclnnTopkV2(
       <td>-</td>
     </tr>
   </tbody></table>
-
-  <!-- npu="A3,910b" id7 -->
-  - <term>Atlas A2 products</term> and <term>Atlas A3 products</term>: the data types of self and valuesOut do not support UINT16, UINT32, or UINT64.
-  <!-- end id7 -->
 
 - **Return value**
 
