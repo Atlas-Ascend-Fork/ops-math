@@ -15,6 +15,7 @@
 #include "log/log.h"
 #include "register/op_impl_registry.h"
 #include "op_util.h"
+#include "util/shape_util.h"
 
 using namespace ge;
 using namespace Ops::Base;
@@ -32,28 +33,52 @@ static void GetConstValueToShape(const gert::Tensor* tensor, size_t size, gert::
     }
 }
 
+// 非 const shape：输出 rank 取 x rank 与 shape 长度的较大值
+static ge::graphStatus ExpandInferShapeWithUnknownShape(gert::InferShapeContext* context, const gert::Shape* x_shape,
+                                                        gert::Shape* out_shape)
+{
+    const auto* shape_desc = context->GetInputShape(INPUT_INDEX_SHAPE);
+    OP_CHECK_NULL_WITH_CONTEXT(context, shape_desc);
+    OP_CHECK_IF(shape_desc->GetDimNum() > 1,
+                OP_LOGE(context->GetNodeName(), "the rank of shape should not be more than 1"),
+                return ge::GRAPH_FAILED);
+    if (Ops::Base::IsUnknownRank(*x_shape)) {
+        Ops::Base::SetUnknownRank(*out_shape);
+        return ge::GRAPH_SUCCESS;
+    }
+    int64_t rank = static_cast<int64_t>(x_shape->GetDimNum());
+    if (shape_desc->GetDimNum() == 1 && shape_desc->GetDim(0) > rank) {
+        rank = shape_desc->GetDim(0);
+    }
+    Ops::Base::SetUnknownShape(rank, *out_shape);
+    return ge::GRAPH_SUCCESS;
+}
+
 static ge::graphStatus InferShape4Expand(gert::InferShapeContext* context)
 {
-    OP_LOGD(context->GetNodeName(),"Enter Math InferShape4Expand!");
+    OP_LOGD(context->GetNodeName(), "Enter Math InferShape4Expand!");
     auto x_shape = context->GetInputShape(0);
     OP_CHECK_NULL_WITH_CONTEXT(context, x_shape);
     auto out_shape = context->GetOutputShape(0);
     OP_CHECK_NULL_WITH_CONTEXT(context, out_shape);
     auto shape_tensor = context->GetInputTensor(INPUT_INDEX_SHAPE);
+    if (shape_tensor == nullptr || !IsConstTensor(shape_tensor)) {
+        return ExpandInferShapeWithUnknownShape(context, x_shape, out_shape);
+    }
     auto shape_size = static_cast<size_t>(shape_tensor->GetShapeSize());
-    OP_CHECK_IF(
-        shape_size < x_shape->GetDimNum(),
-        OP_LOGE(context->GetNodeName(), "%s",
-        ConcatString("input1 size ", shape_size, " cannot be less than input0 size ", x_shape->GetDimNum(), ", error!")
-                .c_str()),
-        return ge::GRAPH_FAILED);
+    OP_CHECK_IF(shape_size < x_shape->GetDimNum(),
+                OP_LOGE(context->GetNodeName(), "%s",
+                        ConcatString("input1 size ", shape_size, " cannot be less than input0 size ",
+                                     x_shape->GetDimNum(), ", error!")
+                            .c_str()),
+                return ge::GRAPH_FAILED);
     out_shape->SetDimNum(shape_size);
     OP_LOGD(context->GetNodeName(), "input1 size is %zu", shape_size);
     DataType data_type = shape_tensor->GetDataType();
     OP_CHECK_IF(
         (data_type != DT_INT32) && (data_type != DT_INT64),
         OP_LOGE(context->GetNodeName(), "%s",
-            ConcatString("input1 dtype ", Ops::Base::ToString(data_type), " must be in (int32,int64)!").c_str()),
+                ConcatString("input1 dtype ", Ops::Base::ToString(data_type), " must be in (int32,int64)!").c_str()),
         return ge::GRAPH_FAILED);
     size_t diff = shape_size - x_shape->GetDimNum();
     if (data_type == DT_INT32) {
@@ -62,8 +87,9 @@ static ge::graphStatus InferShape4Expand(gert::InferShapeContext* context)
         GetConstValueToShape<int64_t>(shape_tensor, shape_size, out_shape);
     }
     OP_LOGD(context->GetNodeName(), "%s",
-        ConcatString("input0 shape is ", Ops::Base::ToString(*x_shape).c_str(),
-            ", input1 shape is ", Ops::Base::ToString(*out_shape).c_str()).c_str());
+            ConcatString("input0 shape is ", Ops::Base::ToString(*x_shape).c_str(), ", input1 shape is ",
+                         Ops::Base::ToString(*out_shape).c_str())
+                .c_str());
     for (size_t i = 0; i < shape_size; i++) {
         if (i >= diff) {
             int64_t x_dim = x_shape->GetDim(i - diff);
@@ -79,10 +105,11 @@ static ge::graphStatus InferShape4Expand(gert::InferShapeContext* context)
                 continue;
             }
             // Broadcast check: x must be 1 or equal to target dimension
-            if (x_dim != 1 && x_dim != out_dim) {
+            if (x_dim != 1 && x_dim != -1 && x_dim != out_dim) {
                 OP_LOGE(context->GetNodeName(), "%s",
-                    ConcatString("x dimension ", x_dim, " at axis ", (i - diff),
-                        " cannot be broadcast to ", out_dim, " at axis ", i).c_str());
+                        ConcatString("x dimension ", x_dim, " at axis ", (i - diff), " cannot be broadcast to ",
+                                     out_dim, " at axis ", i)
+                            .c_str());
                 return ge::GRAPH_FAILED;
             }
         } else {
@@ -94,8 +121,8 @@ static ge::graphStatus InferShape4Expand(gert::InferShapeContext* context)
         }
     }
     OP_LOGD(context->GetNodeName(), "%s",
-        ConcatString("input0 and input1 infer output, output shape is ",
-            Ops::Base::ToString(*out_shape).c_str()).c_str());
+            ConcatString("input0 and input1 infer output, output shape is ", Ops::Base::ToString(*out_shape).c_str())
+                .c_str());
     return GRAPH_SUCCESS;
 }
 

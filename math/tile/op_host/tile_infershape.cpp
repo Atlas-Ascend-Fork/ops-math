@@ -35,15 +35,14 @@ ge::graphStatus TileInferShapeCommon(gert::InferShapeContext* context, const T* 
     auto out_shape = context->GetOutputShape(TILE_OUT_IDX);
     OP_CHECK_NULL_WITH_CONTEXT(context, out_shape);
     auto in_shape_len = in_shape->GetDimNum();
+    if (Ops::Base::IsUnknownRank(*in_shape)) {
+        OP_LOGI(context->GetNodeName(), "input shape is unknown rank [-2], output rank = multiples len.");
+        Ops::Base::SetUnknownShape(static_cast<int64_t>(multiples_len), *out_shape);
+        return GRAPH_SUCCESS;
+    }
     OP_CHECK_IF(multiples_len > MAXDIMNUM,
                 OP_LOGE(context->GetNodeName(), "the tile multiples len is more than MaxDimNum 8"),
                 return ge::GRAPH_FAILED);
-    // unknown rank: input shape is [-2], output shape keeps unknown rank [-2]
-    if (Ops::Base::IsUnknownRank(*in_shape)) {
-        OP_LOGI(context->GetNodeName(), "input shape is unknown rank [-2], output shape keeps unknown rank.");
-        Ops::Base::SetUnknownRank(*out_shape);
-        return GRAPH_SUCCESS;
-    }
     // align shape for input
     gert::Shape in_shape_new;
     if (in_shape_len < multiples_len) {
@@ -84,14 +83,42 @@ ge::graphStatus TileInferShapeCommon(gert::InferShapeContext* context, const T* 
     return GRAPH_SUCCESS;
 }
 
+// 非 const multiples：输出 rank 取 multiples shape 长度，未知时取 x rank
+static ge::graphStatus TileInferShapeWithUnknownMultiples(gert::InferShapeContext* context, const gert::Shape* x_shape,
+                                                          gert::Shape* out_shape)
+{
+    const auto* multiples_shape = context->GetInputShape(INPUT_INDEX_MULTIPLES);
+    OP_CHECK_NULL_WITH_CONTEXT(context, multiples_shape);
+    OP_CHECK_IF(multiples_shape->GetDimNum() > 1,
+                OP_LOGE(context->GetNodeName(), "the rank of multiples should not be more than 1"),
+                return ge::GRAPH_FAILED);
+    int64_t rank = -1;
+    if (multiples_shape->GetDimNum() == 0) {
+        rank = 1;
+    } else if (multiples_shape->GetDim(0) > 0) {
+        rank = multiples_shape->GetDim(0);
+    }
+    if (rank < 0) {
+        if (Ops::Base::IsUnknownRank(*x_shape)) {
+            Ops::Base::SetUnknownRank(*out_shape);
+            return ge::GRAPH_SUCCESS;
+        }
+        rank = static_cast<int64_t>(x_shape->GetDimNum());
+    }
+    Ops::Base::SetUnknownShape(rank, *out_shape);
+    return ge::GRAPH_SUCCESS;
+}
+
 static ge::graphStatus InferShape4Tile(gert::InferShapeContext* context)
 {
     auto x_shape = context->GetInputShape(0);
     OP_CHECK_NULL_WITH_CONTEXT(context, x_shape);
     auto multiples_tensor = context->GetInputTensor(INPUT_INDEX_MULTIPLES);
-    OP_CHECK_NULL_WITH_CONTEXT(context, multiples_tensor);
     auto out_shape = context->GetOutputShape(0);
     OP_CHECK_NULL_WITH_CONTEXT(context, out_shape);
+    if (multiples_tensor == nullptr || !IsConstTensor(multiples_tensor)) {
+        return TileInferShapeWithUnknownMultiples(context, x_shape, out_shape);
+    }
     auto multiples_size = static_cast<size_t>(multiples_tensor->GetShapeSize());
     OP_LOGD(context->GetNodeName(), "multiples_size is %zu", multiples_size);
     DataType data_type = multiples_tensor->GetDataType();

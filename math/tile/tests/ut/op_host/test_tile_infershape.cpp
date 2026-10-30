@@ -160,7 +160,7 @@ TEST_F(TileTest, tile_infershape_unknown_dim)
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
 
-// Test scenario: tile with unknown rank ([-2]) input, expect infershape to succeed and output unknown rank [-2]
+// Test scenario: tile with unknown rank ([-2]) input, expect infershape to succeed and output [-1 x multiples_len]
 TEST_F(TileTest, tile_infershape_unknown_rank)
 {
     std::vector<int32_t> values = {2, 1};
@@ -170,6 +170,46 @@ TEST_F(TileTest, tile_infershape_unknown_rank)
         {
             {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
         });
+    // output rank = multiples len = 2, all dims unknown
+    std::vector<std::vector<int64_t>> expectOutputShape = {{-1, -1}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+// Test scenario: tile with non-const multiples (desc [N] known), expect fallback output [-1 x N]
+TEST_F(TileTest, tile_infershape_non_const_multiples)
+{
+    gert::InfershapeContextPara infershapeContextPara(
+        "Tile", {{{{2, 3}, {2, 3}}, ge::DT_FLOAT, ge::FORMAT_ND}, {{{2}, {2}}, ge::DT_INT32, ge::FORMAT_ND}},
+        {
+            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        });
+    // output = [-1, -1]
+    std::vector<std::vector<int64_t>> expectOutputShape = {{-1, -1}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+// Test scenario: tile with non-const multiples of unknown length (desc [-1]), expect fallback output [-1 x x_rank]
+TEST_F(TileTest, tile_infershape_non_const_multiples_unknown_len)
+{
+    gert::InfershapeContextPara infershapeContextPara(
+        "Tile", {{{{2, 3}, {2, 3}}, ge::DT_FLOAT, ge::FORMAT_ND}, {{{-1}, {-1}}, ge::DT_INT32, ge::FORMAT_ND}},
+        {
+            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        });
+    // output rank falls back to x rank
+    std::vector<std::vector<int64_t>> expectOutputShape = {{-1, -1}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+// Test scenario: tile with non-const multiples and unknown rank x, expect passthrough of unknown rank
+TEST_F(TileTest, tile_infershape_non_const_unknown_rank)
+{
+    gert::InfershapeContextPara infershapeContextPara(
+        "Tile", {{{{-2}, {-2}}, ge::DT_FLOAT, ge::FORMAT_ND}, {{{-1}, {-1}}, ge::DT_INT32, ge::FORMAT_ND}},
+        {
+            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        });
+    // output keeps unknown rank
     std::vector<std::vector<int64_t>> expectOutputShape = {{-2}};
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }

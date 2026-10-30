@@ -168,3 +168,72 @@ TEST_F(BroadcastToInferShapeTest, broadcast_to_infershape_mismatch_001)
     gert::InfershapeContextPara infershapeContextPara("BroadcastTo", {x, shapeParams}, {y});
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED, {});
 }
+
+// Test scenario: x contains unknown dim (-1), expect broadcast to concrete target succeeds
+TEST_F(BroadcastToInferShapeTest, broadcast_to_infershape_dynamic_dim_001)
+{
+    gert::StorageShape xShape = {{-1, 3}, {-1, 3}};
+    gert::StorageShape shapeParamShape = {{2}, {2}};
+    int64_t shapes[2] = {8, 3};
+    gert::InfershapeContextPara::TensorDescription x(xShape, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::InfershapeContextPara::TensorDescription shapeParams(shapeParamShape, ge::DT_INT64, ge::FORMAT_ND, true,
+                                                               &shapes);
+    gert::InfershapeContextPara::TensorDescription y(xShape, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::InfershapeContextPara infershapeContextPara("BroadcastTo", {x, shapeParams}, {y});
+    std::vector<std::vector<int64_t>> expectOutputShape = {{8, 3}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+// Test scenario: non-const shape with known desc [2], expect fallback output [-1 x 2]
+TEST_F(BroadcastToInferShapeTest, broadcast_to_infershape_non_const_001)
+{
+    gert::StorageShape xShape = {{2, 3}, {2, 3}};
+    gert::StorageShape shapeParamShape = {{2}, {2}};
+    gert::InfershapeContextPara::TensorDescription x(xShape, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::InfershapeContextPara::TensorDescription shapeParams(shapeParamShape, ge::DT_INT64, ge::FORMAT_ND);
+    gert::InfershapeContextPara::TensorDescription y(xShape, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::InfershapeContextPara infershapeContextPara("BroadcastTo", {x, shapeParams}, {y});
+    std::vector<std::vector<int64_t>> expectOutputShape = {{-1, -1}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+// Test scenario: non-const shape with desc [4] larger than x rank, expect output rank = max
+TEST_F(BroadcastToInferShapeTest, broadcast_to_infershape_non_const_larger_001)
+{
+    gert::StorageShape xShape = {{2, 3}, {2, 3}};
+    gert::StorageShape shapeParamShape = {{4}, {4}};
+    gert::InfershapeContextPara::TensorDescription x(xShape, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::InfershapeContextPara::TensorDescription shapeParams(shapeParamShape, ge::DT_INT64, ge::FORMAT_ND);
+    gert::InfershapeContextPara::TensorDescription y(xShape, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::InfershapeContextPara infershapeContextPara("BroadcastTo", {x, shapeParams}, {y});
+    std::vector<std::vector<int64_t>> expectOutputShape = {{-1, -1, -1, -1}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+// Test scenario: non-const shape with unknown length desc and unknown rank x, expect passthrough
+TEST_F(BroadcastToInferShapeTest, broadcast_to_infershape_non_const_unknown_rank_001)
+{
+    gert::StorageShape xShape = {{-2}, {-2}};
+    gert::StorageShape shapeParamShape = {{-1}, {-1}};
+    gert::InfershapeContextPara::TensorDescription x(xShape, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::InfershapeContextPara::TensorDescription shapeParams(shapeParamShape, ge::DT_INT64, ge::FORMAT_ND);
+    gert::InfershapeContextPara::TensorDescription y(xShape, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::InfershapeContextPara infershapeContextPara("BroadcastTo", {x, shapeParams}, {y});
+    std::vector<std::vector<int64_t>> expectOutputShape = {{-2}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+// Test scenario: const shape with unknown rank x, expect target shape verbatim
+TEST_F(BroadcastToInferShapeTest, broadcast_to_infershape_const_unknown_rank_001)
+{
+    gert::StorageShape xShape = {{-2}, {-2}};
+    gert::StorageShape shapeParamShape = {{2}, {2}};
+    int64_t shapes[2] = {5, 6};
+    gert::InfershapeContextPara::TensorDescription x(xShape, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::InfershapeContextPara::TensorDescription shapeParams(shapeParamShape, ge::DT_INT64, ge::FORMAT_ND, true,
+                                                               &shapes);
+    gert::InfershapeContextPara::TensorDescription y(xShape, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::InfershapeContextPara infershapeContextPara("BroadcastTo", {x, shapeParams}, {y});
+    std::vector<std::vector<int64_t>> expectOutputShape = {{5, 6}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}

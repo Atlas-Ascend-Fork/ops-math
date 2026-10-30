@@ -15,6 +15,7 @@
 #include "log/log.h"
 #include "register/op_impl_registry.h"
 #include "op_util.h"
+#include "util/shape_util.h"
 using namespace ge;
 namespace ops {
 constexpr size_t INPUT_INDEX_SHAPE = 1;
@@ -85,7 +86,8 @@ static ge::graphStatus ResolveBroadcastDim(const gert::InferShapeContext* contex
     if (i < diff) {
         return ge::GRAPH_SUCCESS;
     }
-    OP_CHECK_IF((out_shape->GetDim(i) != x_shape->GetDim(i - diff)) && (1 != x_shape->GetDim(i - diff)),
+    const int64_t x_dim = x_shape->GetDim(i - diff);
+    OP_CHECK_IF((x_dim != -1) && (out_shape->GetDim(i) != x_dim) && (1 != x_dim),
                 OP_LOGE(context->GetNodeName(), "%s",
                         ConcatString(Ops::Base::ToString(*x_shape).c_str(), " can not broadcast to ",
                                      Ops::Base::ToString(*out_shape).c_str())
@@ -99,6 +101,15 @@ static ge::graphStatus BroadcastToInferShapeWithShapeTensor(const gert::InferSha
                                                             const gert::Tensor* shape_tensor, gert::Shape* out_shape)
 {
     auto shape_size = static_cast<size_t>(shape_tensor->GetShapeSize());
+    DataType data_type = shape_tensor->GetDataType();
+    ge::graphStatus status = ValidateShapeDtype(context, data_type);
+    if (status != ge::GRAPH_SUCCESS) {
+        return status;
+    }
+    if (Ops::Base::IsUnknownRank(*x_shape)) {
+        DispatchGetConstValue(shape_tensor, shape_size, data_type, out_shape);
+        return ge::GRAPH_SUCCESS;
+    }
     OP_CHECK_IF(shape_size < x_shape->GetDimNum(),
                 OP_LOGE(context->GetNodeName(), "%s",
                         ConcatString("shape size ", shape_size, " cannot be less than x size ", x_shape->GetDimNum(),
@@ -107,11 +118,6 @@ static ge::graphStatus BroadcastToInferShapeWithShapeTensor(const gert::InferSha
                 return ge::GRAPH_FAILED);
     out_shape->SetDimNum(shape_size);
     OP_LOGD(context->GetNodeName(), "shape_size is %zu", shape_size);
-    DataType data_type = shape_tensor->GetDataType();
-    ge::graphStatus status = ValidateShapeDtype(context, data_type);
-    if (status != ge::GRAPH_SUCCESS) {
-        return status;
-    }
     size_t diff = shape_size - x_shape->GetDimNum();
     DispatchGetConstValue(shape_tensor, shape_size, data_type, out_shape);
     for (size_t i = 0; i < shape_size; i++) {
@@ -123,6 +129,27 @@ static ge::graphStatus BroadcastToInferShapeWithShapeTensor(const gert::InferSha
     return GRAPH_SUCCESS;
 }
 
+// 非 const shape：输出 rank 取 x rank 与 shape 长度的较大值
+static ge::graphStatus BroadcastToInferShapeWithUnknownShape(gert::InferShapeContext* context,
+                                                             const gert::Shape* x_shape, gert::Shape* out_shape)
+{
+    const auto* shape_desc = context->GetInputShape(INPUT_INDEX_SHAPE);
+    OP_CHECK_NULL_WITH_CONTEXT(context, shape_desc);
+    OP_CHECK_IF(shape_desc->GetDimNum() > 1,
+                OP_LOGE(context->GetNodeName(), "the rank of shape should not be more than 1"),
+                return ge::GRAPH_FAILED);
+    if (Ops::Base::IsUnknownRank(*x_shape)) {
+        Ops::Base::SetUnknownRank(*out_shape);
+        return ge::GRAPH_SUCCESS;
+    }
+    int64_t rank = static_cast<int64_t>(x_shape->GetDimNum());
+    if (shape_desc->GetDimNum() == 1 && shape_desc->GetDim(0) > rank) {
+        rank = shape_desc->GetDim(0);
+    }
+    Ops::Base::SetUnknownShape(rank, *out_shape);
+    return ge::GRAPH_SUCCESS;
+}
+
 static ge::graphStatus InferShape4BroadcastTo(gert::InferShapeContext* context)
 {
     auto x_shape = context->GetInputShape(0);
@@ -131,12 +158,15 @@ static ge::graphStatus InferShape4BroadcastTo(gert::InferShapeContext* context)
     OP_CHECK_NULL_WITH_CONTEXT(context, out_shape);
 
     auto shape_tensor = context->GetInputTensor(INPUT_INDEX_SHAPE);
-    if (shape_tensor == nullptr) {
+    if (shape_tensor == nullptr || !IsConstTensor(shape_tensor)) {
         auto attrs = context->GetAttrs();
-        OP_CHECK_NULL_WITH_CONTEXT(context, attrs);
-        const gert::ContinuousVector* shape_attr = attrs->GetAttrPointer<gert::ContinuousVector>(0);
-        OP_CHECK_NULL_WITH_CONTEXT(context, shape_attr);
-        return BroadcastToInferShapeWithShapeValues(context, x_shape, shape_attr, out_shape);
+        const gert::ContinuousVector* shape_attr = (attrs != nullptr) ?
+                                                       attrs->GetAttrPointer<gert::ContinuousVector>(0) :
+                                                       nullptr;
+        if (shape_attr != nullptr && shape_attr->GetSize() > 0) {
+            return BroadcastToInferShapeWithShapeValues(context, x_shape, shape_attr, out_shape);
+        }
+        return BroadcastToInferShapeWithUnknownShape(context, x_shape, out_shape);
     }
     return BroadcastToInferShapeWithShapeTensor(context, x_shape, shape_tensor, out_shape);
 }
