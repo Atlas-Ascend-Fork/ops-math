@@ -75,7 +75,8 @@ void CoalesceSparseTiling::TilingKeyCalcu(ge::DataType uniqueIndicesDtype, ge::D
     OP_LOGD(TilingContext, "SetTilingKey.");
     auto platformInfo = TilingContext->GetPlatformInfo();
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
-    bool isAscend950 = ascendcPlatform.GetCurNpuArch() == NpuArch::DAV_3510;
+    auto npuArch = ascendcPlatform.GetCurNpuArch();
+    bool isAscend950 = (npuArch == NpuArch::DAV_3510 || npuArch == NpuArch::DAV_9201);
     if (uniqueIndicesDtype == ge::DT_INT64) {
         tiling_key = INT64_ID * KEY_MODE1;
     } else {
@@ -126,7 +127,8 @@ ge::graphStatus CoalesceSparseTiling::TilingDataCalcu(ge::DataType uniqueIndices
     if (taskTail == 0) {
         taskTail = taskNum;
     }
-    bool isAscend950 = ascendcPlatform.GetCurNpuArch() == NpuArch::DAV_3510;
+    auto npuArch = ascendcPlatform.GetCurNpuArch();
+    bool isAscend950 = (npuArch == NpuArch::DAV_3510 || npuArch == NpuArch::DAV_9201);
     if (isAscend950) {
         taskNum = (n + coreNum - 1) / coreNum;
         usedCoreNum = (n + taskNum - 1) / taskNum;
