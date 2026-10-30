@@ -115,7 +115,9 @@ __aicore__ inline void LogAddExp<T_IN, T_COMPUTE>::Init(GM_ADDR x, GM_ADDR y, GM
     // Buffer size must be 32-byte aligned for DataCopy/DataCopyPad
     constexpr int64_t ALIGN_BYTES = 32;
     constexpr int64_t ALIGN_ELEMS_IN = ALIGN_BYTES / sizeof(T_IN);
-    constexpr int64_t ALIGN_ELEMS_COMPUTE = ALIGN_BYTES / sizeof(T_COMPUTE);
+    // The promoted path compares fp32 inputs in 256-byte repeats.
+    constexpr int64_t ALIGN_BYTES_COMPUTE = std::is_same_v<T_IN, T_COMPUTE> ? ALIGN_BYTES : 256;
+    constexpr int64_t ALIGN_ELEMS_COMPUTE = ALIGN_BYTES_COMPUTE / sizeof(T_COMPUTE);
     int64_t alignedUbIn = ((ubLength_ + ALIGN_ELEMS_IN - 1) / ALIGN_ELEMS_IN) * ALIGN_ELEMS_IN;
     int64_t alignedUbCompute = ((ubLength_ + ALIGN_ELEMS_COMPUTE - 1) / ALIGN_ELEMS_COMPUTE) * ALIGN_ELEMS_COMPUTE;
 
@@ -320,10 +322,30 @@ __aicore__ inline void LogAddExp<T_IN, T_COMPUTE>::Compute(int64_t currentNum)
         // fp16/bf16 path: cast to fp32, compute, cast back
         AscendC::LocalTensor<T_COMPUTE> tmp3 = tmpBuf3.Get<T_COMPUTE>();
 
+        constexpr int64_t COMPARE_ALIGN_ELEMS = 256 / sizeof(T_COMPUTE);
+        int64_t compareNum = ((currentNum + COMPARE_ALIGN_ELEMS - 1) / COMPARE_ALIGN_ELEMS) * COMPARE_ALIGN_ELEMS;
+        if (compareNum > currentNum) {
+            // Compare reads a complete final repeat, including the padding.
+            int64_t tailOffset = compareNum - COMPARE_ALIGN_ELEMS;
+            AscendC::Duplicate(tmp1[tailOffset], static_cast<T_COMPUTE>(0.0f), COMPARE_ALIGN_ELEMS);
+            AscendC::Duplicate(tmp3[tailOffset], static_cast<T_COMPUTE>(0.0f), COMPARE_ALIGN_ELEMS);
+            if constexpr (std::is_same_v<T_IN, bfloat16_t>) {
+                AscendC::Duplicate(tmp2[tailOffset], static_cast<T_COMPUTE>(0.0f), COMPARE_ALIGN_ELEMS);
+            }
+        }
+
         AscendC::Cast(tmp1, xLocal, AscendC::RoundMode::CAST_NONE, currentNum);
         AscendC::Cast(tmp3, yLocal, AscendC::RoundMode::CAST_NONE, currentNum);
         AscendC::Max(tmp2, tmp1, tmp3, currentNum);
+        // Reuse the output buffer as a bitmap until the final cast. Equal
+        // infinities need a zero difference; NaN inputs must remain NaN.
+        AscendC::LocalTensor<uint8_t> unequalMask = outLocal.template ReinterpretCast<uint8_t>();
+        AscendC::Compare(unequalMask, tmp1, tmp3, AscendC::CMPMODE::EQ, compareNum);
+        AscendC::Not(unequalMask.template ReinterpretCast<uint16_t>(), unequalMask.template ReinterpretCast<uint16_t>(),
+                     (compareNum + 15) / 16);
         AscendC::Sub(tmp1, tmp1, tmp3, currentNum);
+        AscendC::Select(tmp1, unequalMask, tmp1, static_cast<T_COMPUTE>(0.0f),
+                        AscendC::SELMODE::VSEL_TENSOR_SCALAR_MODE, currentNum);
         AscendC::Abs(tmp1, tmp1, currentNum);
         AscendC::Muls(tmp1, tmp1, static_cast<T_COMPUTE>(-1.0f), currentNum);
         AscendC::Exp(tmp1, tmp1, currentNum);
@@ -331,6 +353,33 @@ __aicore__ inline void LogAddExp<T_IN, T_COMPUTE>::Compute(int64_t currentNum)
         AscendC::Ln(tmp1, tmp1, currentNum);
         AscendC::Add(tmp2, tmp2, tmp1, currentNum);
         AscendC::Cast(outLocal, tmp2, AscendC::RoundMode::CAST_ROUND, currentNum);
+        if constexpr (std::is_same_v<T_IN, bfloat16_t>) {
+            // Keep nonfinite results independent of narrowing conversion behavior.
+            // Select moves the BF16 encodings through half views without converting them.
+            AscendC::LocalTensor<uint8_t> specialMask = tmp1.template ReinterpretCast<uint8_t>();
+            AscendC::LocalTensor<uint16_t> specialBits = tmp3.template ReinterpretCast<uint16_t>();
+            AscendC::LocalTensor<half> specialValues = tmp3.template ReinterpretCast<half>();
+            AscendC::LocalTensor<half> outBits = outLocal.template ReinterpretCast<half>();
+            int64_t maskBytes = (((compareNum + 7) / 8 + 31) / 32) * 32;
+            AscendC::Duplicate(tmp1.template ReinterpretCast<uint16_t>(), static_cast<uint16_t>(0), maskBytes / 2);
+
+            constexpr T_COMPUTE POS_INF = __builtin_huge_valf();
+            constexpr T_COMPUTE NEG_INF = -__builtin_huge_valf();
+            AscendC::CompareScalar(specialMask, tmp2, POS_INF, AscendC::CMPMODE::EQ, compareNum);
+            AscendC::Duplicate(specialBits, static_cast<uint16_t>(0x7F80), currentNum);
+            AscendC::Select(outBits, specialMask, specialValues, outBits, AscendC::SELMODE::VSEL_TENSOR_TENSOR_MODE,
+                            currentNum);
+            AscendC::CompareScalar(specialMask, tmp2, NEG_INF, AscendC::CMPMODE::EQ, compareNum);
+            AscendC::Duplicate(specialBits, static_cast<uint16_t>(0xFF80), currentNum);
+            AscendC::Select(outBits, specialMask, specialValues, outBits, AscendC::SELMODE::VSEL_TENSOR_TENSOR_MODE,
+                            currentNum);
+            AscendC::Compare(specialMask, tmp2, tmp2, AscendC::CMPMODE::EQ, compareNum);
+            AscendC::Not(specialMask.template ReinterpretCast<uint16_t>(),
+                         specialMask.template ReinterpretCast<uint16_t>(), (compareNum + 15) / 16);
+            AscendC::Duplicate(specialBits, static_cast<uint16_t>(0x7FC0), currentNum);
+            AscendC::Select(outBits, specialMask, specialValues, outBits, AscendC::SELMODE::VSEL_TENSOR_TENSOR_MODE,
+                            currentNum);
+        }
     }
 
     outputQueue.EnQue<T_IN>(outLocal);
