@@ -12,13 +12,12 @@
 
 /*!
  * \file atan_grad_infershape.cpp
- * \brief AtanGrad shape inference: output shape = input y shape
+ * \brief AtanGrad shape inference: y/dy shape 必须一致（不支持广播），输出 shape = y shape
  */
 
 #include <string>
 
 #include "util/shape_util.h"
-#include "infershape_elewise_util.h"
 #include "register/op_impl_registry.h"
 #include "exe_graph/runtime/infer_shape_context.h"
 #include "op_common/log/log.h"
@@ -29,14 +28,37 @@ namespace ops {
 
 static ge::graphStatus InferShape4AtanGrad(gert::InferShapeContext* context)
 {
-    const ge::graphStatus status = Ops::Base::InferShape4Elewise(context);
-    if (status != ge::GRAPH_SUCCESS) {
-        return status;
-    }
-    const gert::Shape* zShape = context->GetOutputShape(0);
+    const gert::Shape* yShape = context->GetInputShape(0);
+    OP_CHECK_NULL_WITH_CONTEXT(context, yShape);
+    const gert::Shape* dyShape = context->GetInputShape(1);
+    OP_CHECK_NULL_WITH_CONTEXT(context, dyShape);
+    gert::Shape* zShape = context->GetOutputShape(0);
     OP_CHECK_NULL_WITH_CONTEXT(context, zShape);
-    const std::string zShapeText = Ops::Base::ToString(*zShape);
-    OP_LOGI(context->GetNodeName(), "[InferShape] AtanGrad output0 shape=%s", zShapeText.c_str());
+
+    // Unknown rank (-2)：动态 shape 场景无法逐维校验，透传 unknown rank
+    if (Ops::Base::IsUnknownRank(*yShape) || Ops::Base::IsUnknownRank(*dyShape)) {
+        Ops::Base::SetUnknownRank(*zShape);
+        return ge::GRAPH_SUCCESS;
+    }
+
+    // README 约束：y、dy、z 三者 shape 必须完全相同，不支持广播。
+    // shape 不一致在图推理阶段直接拦截，不下沉到 tiling/framework 层；
+    // 未知维度(-1)留待 tiling 阶段以具体 shape 复核。
+    bool shapeMismatch = (yShape->GetDimNum() != dyShape->GetDimNum());
+    for (size_t i = 0; !shapeMismatch && i < yShape->GetDimNum(); i++) {
+        const int64_t yDim = yShape->GetDim(i);
+        const int64_t dyDim = dyShape->GetDim(i);
+        shapeMismatch = (yDim >= 0) && (dyDim >= 0) && (yDim != dyDim);
+    }
+    OP_CHECK_IF(shapeMismatch,
+                OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(
+                    context->GetNodeName(), "y and dy",
+                    (Ops::Base::ToString(*yShape) + " and " + Ops::Base::ToString(*dyShape)).c_str(),
+                    "The shapes of input y and dy must be identical"),
+                return ge::GRAPH_FAILED);
+
+    *zShape = *yShape;
+    OP_LOGI(context->GetNodeName(), "[InferShape] AtanGrad output0 shape=%s", Ops::Base::ToString(*zShape).c_str());
     return ge::GRAPH_SUCCESS;
 }
 

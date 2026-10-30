@@ -20,8 +20,7 @@
 
 using namespace std;
 
-extern "C" __global__ __aicore__ void atan_grad(
-    GM_ADDR y, GM_ADDR dy, GM_ADDR z, GM_ADDR workspace, GM_ADDR tiling);
+extern "C" __global__ __aicore__ void atan_grad(GM_ADDR y, GM_ADDR dy, GM_ADDR z, GM_ADDR workspace, GM_ADDR tiling);
 
 class AtanGradKernelTest : public testing::Test {
 protected:
@@ -74,6 +73,34 @@ TEST_F(AtanGradKernelTest, test_fp32_large)
     tilingData->totalNum = numElements;
     tilingData->blockFactor = numElements;
     tilingData->ubFactor = 1024;
+
+    AscendC::SetKernelMode(KernelMode::AIV_MODE);
+    ICPU_RUN_KF(atan_grad, blockDim, y, dy, z, workspace, tiling);
+
+    AscendC::GmFree(y);
+    AscendC::GmFree(dy);
+    AscendC::GmFree(z);
+    AscendC::GmFree(workspace);
+    AscendC::GmFree(tiling);
+}
+
+// README 约束：支持空 Tensor。tiling 空 Tensor 分支产出 totalNum=0/blockFactor=0/ubFactor=1，
+// kernel 侧 blockLength_ <= 0 提前返回，不应出现除零或越界。
+TEST_F(AtanGradKernelTest, test_fp32_empty_tensor)
+{
+    size_t tilingSize = sizeof(AtanGradTilingData);
+    uint32_t blockDim = 1;
+
+    uint8_t* y = (uint8_t*)AscendC::GmAlloc(32);
+    uint8_t* dy = (uint8_t*)AscendC::GmAlloc(32);
+    uint8_t* z = (uint8_t*)AscendC::GmAlloc(32);
+    uint8_t* workspace = (uint8_t*)AscendC::GmAlloc(1024 * 1024);
+    uint8_t* tiling = (uint8_t*)AscendC::GmAlloc(tilingSize);
+
+    AtanGradTilingData* tilingData = reinterpret_cast<AtanGradTilingData*>(tiling);
+    tilingData->totalNum = 0;
+    tilingData->blockFactor = 0;
+    tilingData->ubFactor = 1;
 
     AscendC::SetKernelMode(KernelMode::AIV_MODE);
     ICPU_RUN_KF(atan_grad, blockDim, y, dy, z, workspace, tiling);

@@ -42,6 +42,22 @@ using Ops::Base::GetUbBlockSize;
 // 双缓冲触发阈值：元素数量超过此值时启用双缓冲
 constexpr int64_t MIN_SPLIT_THRESHOLD = 1024;
 
+static const gert::Shape g_vec_1_shape = {1};
+
+static inline const gert::Shape EnsureNotScalar(const gert::Shape& in_shape)
+{
+    if (in_shape.GetDimNum() == 0) {
+        return g_vec_1_shape;
+    }
+    return in_shape;
+}
+
+static bool IsPrivateFormat(ge::Format format)
+{
+    return format == ge::FORMAT_NC1HWC0 || format == ge::FORMAT_FRACTAL_Z || format == ge::FORMAT_NDC1HWC0 ||
+           format == ge::FORMAT_FRACTAL_Z_3D || format == ge::FORMAT_FRACTAL_NZ || format == ge::FORMAT_NC1HWC0_C04;
+}
+
 static ge::graphStatus QueryPlatform(gert::TilingContext* context, uint64_t& ubSize, int64_t& coreNum)
 {
     auto* platformInfoPtr = context->GetPlatformInfo();
@@ -60,18 +76,85 @@ static ge::graphStatus GetShapeAttrsInfo(gert::TilingContext* context, int64_t& 
     // 输入索引与 op_def / proto.h 一致：0=y (forward input), 1=dy (gradient)
     auto inputY = context->GetInputShape(0);
     OP_CHECK_NULL_WITH_CONTEXT(context, inputY);
-    const auto& storageShape = inputY->GetStorageShape();
-    // Scalar (0-D) tensors are treated as 1-element vectors for tiling purposes.
-    totalNum = (storageShape.GetDimNum() == 0) ? 1 : storageShape.GetShapeSize();
+    auto yShape = EnsureNotScalar(inputY->GetStorageShape());
+
+    auto inputDy = context->GetInputShape(1);
+    OP_CHECK_NULL_WITH_CONTEXT(context, inputDy);
+    auto dyShape = EnsureNotScalar(inputDy->GetStorageShape());
+
+    auto outZ = context->GetOutputShape(0);
+    OP_CHECK_NULL_WITH_CONTEXT(context, outZ);
+    auto zShape = EnsureNotScalar(outZ->GetStorageShape());
+
+    // shape 校验：y.shape == dy.shape == z.shape（逐维度完全一致，不支持广播）
+    const int64_t yDimNum = static_cast<int64_t>(yShape.GetDimNum());
+    bool shapeConsistent = (static_cast<int64_t>(dyShape.GetDimNum()) == yDimNum) &&
+                           (static_cast<int64_t>(zShape.GetDimNum()) == yDimNum);
+    for (int64_t i = 0; shapeConsistent && i < yDimNum; i++) {
+        shapeConsistent = (yShape.GetDim(static_cast<size_t>(i)) == dyShape.GetDim(static_cast<size_t>(i))) &&
+                          (yShape.GetDim(static_cast<size_t>(i)) == zShape.GetDim(static_cast<size_t>(i)));
+    }
+    OP_CHECK_IF(!shapeConsistent,
+                OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON("AtanGrad", "y, dy, z",
+                                                       std::to_string(yShape.GetShapeSize()) + ", " +
+                                                           std::to_string(dyShape.GetShapeSize()) + ", " +
+                                                           std::to_string(zShape.GetShapeSize()),
+                                                       "input/output shapes must be identical"),
+                return ge::GRAPH_FAILED);
+
+    totalNum = yShape.GetShapeSize();
+
+    const auto* yDesc = context->GetInputDesc(0);
+    OP_CHECK_NULL_WITH_CONTEXT(context, yDesc);
+    const auto* dyDesc = context->GetInputDesc(1);
+    OP_CHECK_NULL_WITH_CONTEXT(context, dyDesc);
+    const auto* zDesc = context->GetOutputDesc(0);
+    OP_CHECK_NULL_WITH_CONTEXT(context, zDesc);
+
+    // 格式校验：仅支持线性布局，私有格式（NC1HWC0/FRACTAL_Z 等）显式拒绝，
+    // 不依赖 AutoContiguous 静默转换（origin/storage 均校验）
+    const ge::Format yOriginFormat = yDesc->GetOriginFormat();
+    const ge::Format yStorageFormat = yDesc->GetStorageFormat();
+    OP_CHECK_IF(IsPrivateFormat(yOriginFormat) || IsPrivateFormat(yStorageFormat),
+                OP_LOGE_FOR_INVALID_FORMAT_WITH_REASON(
+                    "AtanGrad", "y", ge::GetFormatName(IsPrivateFormat(yOriginFormat) ? yOriginFormat : yStorageFormat),
+                    "private formats are not supported, only ND format is supported"),
+                return ge::GRAPH_FAILED);
+    const ge::Format dyOriginFormat = dyDesc->GetOriginFormat();
+    const ge::Format dyStorageFormat = dyDesc->GetStorageFormat();
+    OP_CHECK_IF(
+        IsPrivateFormat(dyOriginFormat) || IsPrivateFormat(dyStorageFormat),
+        OP_LOGE_FOR_INVALID_FORMAT_WITH_REASON(
+            "AtanGrad", "dy", ge::GetFormatName(IsPrivateFormat(dyOriginFormat) ? dyOriginFormat : dyStorageFormat),
+            "private formats are not supported, only ND format is supported"),
+        return ge::GRAPH_FAILED);
+    const ge::Format zOriginFormat = zDesc->GetOriginFormat();
+    const ge::Format zStorageFormat = zDesc->GetStorageFormat();
+    OP_CHECK_IF(IsPrivateFormat(zOriginFormat) || IsPrivateFormat(zStorageFormat),
+                OP_LOGE_FOR_INVALID_FORMAT_WITH_REASON(
+                    "AtanGrad", "z", ge::GetFormatName(IsPrivateFormat(zOriginFormat) ? zOriginFormat : zStorageFormat),
+                    "private formats are not supported, only ND format is supported"),
+                return ge::GRAPH_FAILED);
+
+    // dtype 校验：y、dy、z 三者必须完全一致（kernel 以 DTYPE_Y 单类型读写，
+    // 混合 dtype 会按错误 typeSize 读写 dy/z 缓冲）
+    const ge::DataType yDtype = yDesc->GetDataType();
+    const ge::DataType dyDtype = dyDesc->GetDataType();
+    const ge::DataType zDtype = zDesc->GetDataType();
+    OP_CHECK_IF(yDtype != dyDtype || yDtype != zDtype,
+                OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON("AtanGrad", "y, dy, z",
+                                                       std::to_string(static_cast<int>(yDtype)) + ", " +
+                                                           std::to_string(static_cast<int>(dyDtype)) + ", " +
+                                                           std::to_string(static_cast<int>(zDtype)),
+                                                       "input/output dtypes must be identical"),
+                return ge::GRAPH_FAILED);
+    dataType = yDtype;
 
     const std::set<ge::DataType> supportedDtype = {ge::DT_FLOAT16, ge::DT_FLOAT, ge::DT_BF16};
-    auto inputDesc = context->GetInputDesc(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context, inputDesc);
-    dataType = inputDesc->GetDataType();
-    if (supportedDtype.count(dataType) == 0) {
-        OP_LOGE(context, "AtanGrad: unsupported dtype %d", static_cast<int>(dataType));
-        return ge::GRAPH_FAILED;
-    }
+    OP_CHECK_IF(supportedDtype.count(dataType) == 0,
+                OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON("AtanGrad", "y", std::to_string(static_cast<int>(dataType)),
+                                                      "unsupported dtype"),
+                return ge::GRAPH_FAILED);
     return ge::GRAPH_SUCCESS;
 }
 
@@ -98,10 +181,6 @@ static ge::graphStatus AtanGradTilingFunc(gert::TilingContext* context)
     OP_CHECK_IF(GetShapeAttrsInfo(context, totalNum, dataType) != ge::GRAPH_SUCCESS,
                 OP_LOGE(context, "GetShapeAttrsInfo error"), return ge::GRAPH_FAILED);
 
-    if (totalNum == 0) {
-        context->SetBlockDim(0);
-        return ge::GRAPH_FAILED;
-    }
     // 3. 设置 workspace
     OP_CHECK_IF(SetWorkspace(context) != ge::GRAPH_SUCCESS, OP_LOGE(context, "SetWorkspace error"),
                 return ge::GRAPH_FAILED);
@@ -112,6 +191,18 @@ static ge::graphStatus AtanGradTilingFunc(gert::TilingContext* context)
     OP_CHECK_IF(memset_s(tiling, sizeof(AtanGradTilingData), 0, sizeof(AtanGradTilingData)) != EOK,
                 OP_LOGE(context, "memset tiling data error"), return ge::GRAPH_FAILED);
 
+    // 5. 空 Tensor：README 约束"支持空Tensor（元素个数为0）"，放行不拦截。
+    // blockDim 必须 >= 1（blockDim=0 会被运行时判为 INVALID_TILING），
+    // kernel Process() 在 blockLength_ <= 0 时提前返回，1 个空转核即可；
+    // ubFactor=1 避免零长 InitBuffer。
+    if (totalNum == 0) {
+        context->SetBlockDim(1);
+        tiling->ubFactor = 1;
+        uint64_t useDoubleBufferEmpty = 0;
+        ASCENDC_TPL_SEL_PARAM(context, useDoubleBufferEmpty);
+        return ge::GRAPH_SUCCESS;
+    }
+
     // DMA 最小对齐粒度（32B / sizeof(T)）
     int64_t ubBlockSize = Ops::Base::GetUbBlockSize(context);
 
@@ -119,10 +210,10 @@ static ge::graphStatus AtanGradTilingFunc(gert::TilingContext* context)
     tiling->blockFactor = CeilAlign(CeilDiv(totalNum, coreNum), ubBlockSize);
     int64_t usedCoreNum = CeilDiv(totalNum, tiling->blockFactor);
 
-    // 5. 双缓冲决策
+    // 6. 双缓冲决策
     uint64_t useDoubleBuffer = (totalNum > MIN_SPLIT_THRESHOLD) ? 1U : 0U;
 
-    // 6. UB 切分
+    // 7. UB 切分
     int64_t typeSize;
     int64_t bufferNum;
     if (dataType == ge::DT_FLOAT) {
@@ -142,7 +233,7 @@ static ge::graphStatus AtanGradTilingFunc(gert::TilingContext* context)
 
     context->SetBlockDim(usedCoreNum);
 
-    // 7. 选择模板（BUFFER_MODE only; dtype is driven by def file）
+    // 8. 选择模板（BUFFER_MODE only; dtype is driven by def file）
     ASCENDC_TPL_SEL_PARAM(context, useDoubleBuffer);
 
     OP_LOGI(context->GetNodeName(), "[TilingData] totalNum=%ld, blockFactor=%ld, ubFactor=%ld", tiling->totalNum,

@@ -104,6 +104,11 @@ __aicore__ inline void AtanGrad<T, BUFFER_MODE>::Init(GM_ADDR y, GM_ADDR dy, GM_
     blockLength_ = (remainderLength > tilingData->blockFactor) ? tilingData->blockFactor : remainderLength;
     ubLength_ = tilingData->ubFactor;
 
+    // Empty tensors have no GM range or UB work to initialize.
+    if (blockLength_ <= 0) {
+        return;
+    }
+
     inputGMY.SetGlobalBuffer((__gm__ T*)y + tilingData->blockFactor * blockIdx, blockLength_);
     inputGMDy.SetGlobalBuffer((__gm__ T*)dy + tilingData->blockFactor * blockIdx, blockLength_);
     outputGMZ.SetGlobalBuffer((__gm__ T*)z + tilingData->blockFactor * blockIdx, blockLength_);
@@ -225,6 +230,9 @@ __aicore__ inline void AtanGrad<T, BUFFER_MODE>::ComputeUpcast(int64_t currentNu
 template <typename T, int BUFFER_MODE>
 __aicore__ inline void AtanGrad<T, BUFFER_MODE>::Process()
 {
+    if (blockLength_ <= 0) {
+        return; // empty tensor: tiling data is all-zero, ubLength_ == 0 would divide by zero below
+    }
     int64_t loopCount = (blockLength_ + ubLength_ - 1) / ubLength_;
     for (int64_t i = 0; i < loopCount; i++) {
         int64_t currentNum = (i == (loopCount - 1)) ? (blockLength_ - ubLength_ * i) : ubLength_;
