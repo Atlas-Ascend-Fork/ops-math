@@ -14,9 +14,7 @@
  *
  * 输出 shape = broadcast(a, b, c)，遵循 PyTorch addcmul / numpy 广播规则
  *
- * 入图（GE Graph）场景：
- *   GE 在图编译阶段会调 InferShape 推算输出 shape；aclnn 单算子调用走 aclnn 层的
- *   BroadcastInferShape，二者结果须保持一致以避免 cOut shape 校验失败。
+ * GE 在图编译阶段调用 InferShape 推算输出 shape。
  */
 
 #include "util/shape_util.h"

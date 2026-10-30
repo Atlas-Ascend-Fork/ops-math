@@ -424,40 +424,14 @@ template <typename T, int64_t RANK>
 __aicore__ inline void AddMatMatElementsKernel<T, RANK>::CopyInBrc(const int64_t* coord, int64_t inputIdx, int64_t slot,
                                                                    int64_t aISeg)
 {
-    int64_t k = TiledAxis();
     int64_t off = CalcInputOffset(coord, td_->input_strides[inputIdx], RANK);
-    const int64_t* dstShape = td_->max_bro_shape;
-    const int64_t* strides = td_->input_strides[inputIdx];
-
-    auto params = nddmaParams_[inputIdx];
-    int64_t kNd = RANK - 1 - k;
-    int64_t inner = 1;
-    for (int64_t nd = 0; nd < ND; nd++) {
-        if (nd == kNd)
-            params.loopInfo.loopSize[nd] = aISeg;
-        params.loopInfo.loopDstStride[nd] = inner;
-        inner *= params.loopInfo.loopSize[nd];
-    }
-
-    static constexpr AscendC::NdDmaConfig cfg = {false, AscendC::NdDmaConfig::unsetPad, AscendC::NdDmaConfig::unsetPad,
-                                                 false};
-    if constexpr (RANK <= 5) {
-        AscendC::DataCopy<T, ND, cfg>(buf_[slot].template Get<T>(), gmIn_[inputIdx][off], params);
-    } else {
-        int64_t outerIters = 1;
-        for (int64_t d = k; d < RANK - nddmaDims_; d++)
-            outerIters *= (d == k) ? aISeg : dstShape[d];
-        AscendC::LocalTensor<T> buf = buf_[slot].template Get<T>();
-        for (int64_t oi = 0; oi < outerIters; oi++) {
-            int64_t elemAdj = 0, tmp = oi;
-            for (int64_t d = RANK - nddmaDims_ - 1; d >= k; d--) {
-                int64_t sz = (d == k) ? aISeg : dstShape[d];
-                elemAdj += (tmp % sz) * strides[d];
-                tmp /= sz;
-            }
-            AscendC::DataCopy<T, ND, cfg>(buf[oi * inner], gmIn_[inputIdx][off + elemAdj], params);
-        }
-    }
+    int64_t count = aISeg * ComputeInnerCount();
+    AscendC::DataCopyExtParams params;
+    params.blockCount = 1;
+    params.blockLen = static_cast<uint32_t>(count * sizeof(T));
+    params.srcStride = 0;
+    params.dstStride = 0;
+    AscendC::DataCopyPad(buf_[slot].template Get<T>(), gmIn_[inputIdx][off], params, {});
 }
 
 // Compute — VF chains (shared by the broadcast and non-broadcast paths).

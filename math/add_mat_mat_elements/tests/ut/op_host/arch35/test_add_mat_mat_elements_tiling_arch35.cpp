@@ -102,3 +102,79 @@ TEST_F(AddMatMatElementsTilingTest, add_mat_mat_elements_tiling_fp32_large)
     TilingInfo tilingInfo;
     EXPECT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
 }
+
+TEST_F(AddMatMatElementsTilingTest, add_mat_mat_elements_tiling_rank_zero_a_b)
+{
+    gert::StorageShape shapeC = {{4, 8}, {4, 8}};
+    gert::StorageShape rankZeroShape = {{}, {}};
+    gert::StorageShape scalarShape = {{1}, {1}};
+
+    AddMatMatElementsCompileInfo compileInfo;
+    gert::TilingContextPara tilingContextPara("AddMatMatElements",
+                                              {{shapeC, ge::DT_FLOAT, ge::FORMAT_ND},
+                                               {rankZeroShape, ge::DT_FLOAT, ge::FORMAT_ND},
+                                               {rankZeroShape, ge::DT_FLOAT, ge::FORMAT_ND},
+                                               {scalarShape, ge::DT_FLOAT, ge::FORMAT_ND},
+                                               {scalarShape, ge::DT_FLOAT, ge::FORMAT_ND}},
+                                              {{shapeC, ge::DT_FLOAT, ge::FORMAT_ND}}, {}, &compileInfo);
+
+    TilingInfo tilingInfo;
+    EXPECT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
+}
+
+TEST_F(AddMatMatElementsTilingTest, add_mat_mat_elements_tiling_rejects_rank_zero_c)
+{
+    gert::StorageShape shape = {{4, 8}, {4, 8}};
+    gert::StorageShape rankZeroShape = {{}, {}};
+    gert::StorageShape scalarShape = {{1}, {1}};
+
+    AddMatMatElementsCompileInfo compileInfo;
+    gert::TilingContextPara tilingContextPara("AddMatMatElements",
+                                              {{rankZeroShape, ge::DT_FLOAT, ge::FORMAT_ND},
+                                               {shape, ge::DT_FLOAT, ge::FORMAT_ND},
+                                               {shape, ge::DT_FLOAT, ge::FORMAT_ND},
+                                               {scalarShape, ge::DT_FLOAT, ge::FORMAT_ND},
+                                               {scalarShape, ge::DT_FLOAT, ge::FORMAT_ND}},
+                                              {{shape, ge::DT_FLOAT, ge::FORMAT_ND}}, {}, &compileInfo);
+
+    TilingInfo tilingInfo;
+    EXPECT_FALSE(ExecuteTiling(tilingContextPara, tilingInfo));
+}
+
+TEST_F(AddMatMatElementsTilingTest, add_mat_mat_elements_tiling_rejects_rank_zero_beta)
+{
+    gert::StorageShape shape = {{4, 8}, {4, 8}};
+    gert::StorageShape rankZeroShape = {{}, {}};
+    gert::StorageShape scalarShape = {{1}, {1}};
+
+    AddMatMatElementsCompileInfo compileInfo;
+    gert::TilingContextPara tilingContextPara("AddMatMatElements",
+                                              {{shape, ge::DT_FLOAT, ge::FORMAT_ND},
+                                               {shape, ge::DT_FLOAT, ge::FORMAT_ND},
+                                               {shape, ge::DT_FLOAT, ge::FORMAT_ND},
+                                               {rankZeroShape, ge::DT_FLOAT, ge::FORMAT_ND},
+                                               {scalarShape, ge::DT_FLOAT, ge::FORMAT_ND}},
+                                              {{shape, ge::DT_FLOAT, ge::FORMAT_ND}}, {}, &compileInfo);
+
+    TilingInfo tilingInfo;
+    EXPECT_FALSE(ExecuteTiling(tilingContextPara, tilingInfo));
+}
+
+TEST_F(AddMatMatElementsTilingTest, add_mat_mat_elements_tiling_rejects_rank_zero_alpha)
+{
+    gert::StorageShape shape = {{4, 8}, {4, 8}};
+    gert::StorageShape rankZeroShape = {{}, {}};
+    gert::StorageShape scalarShape = {{1}, {1}};
+
+    AddMatMatElementsCompileInfo compileInfo;
+    gert::TilingContextPara tilingContextPara("AddMatMatElements",
+                                              {{shape, ge::DT_FLOAT, ge::FORMAT_ND},
+                                               {shape, ge::DT_FLOAT, ge::FORMAT_ND},
+                                               {shape, ge::DT_FLOAT, ge::FORMAT_ND},
+                                               {scalarShape, ge::DT_FLOAT, ge::FORMAT_ND},
+                                               {rankZeroShape, ge::DT_FLOAT, ge::FORMAT_ND}},
+                                              {{shape, ge::DT_FLOAT, ge::FORMAT_ND}}, {}, &compileInfo);
+
+    TilingInfo tilingInfo;
+    EXPECT_FALSE(ExecuteTiling(tilingContextPara, tilingInfo));
+}

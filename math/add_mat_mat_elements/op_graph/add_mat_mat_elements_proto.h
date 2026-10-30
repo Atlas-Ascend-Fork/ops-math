@@ -36,8 +36,6 @@ namespace ge {
 *@par Outputs:
 * @li c: A mutable Tensor. Has the same dtype as "c". \n
 
-*@par Third-party framework compatibility
-* Compatible with the TensorFlow operator AddMatMatElements.
 */
 REG_OP(AddMatMatElements)
     .INPUT(c, TensorType({DT_FLOAT, DT_FLOAT16}))

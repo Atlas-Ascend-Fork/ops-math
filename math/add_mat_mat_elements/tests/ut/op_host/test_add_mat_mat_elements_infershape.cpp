@@ -16,102 +16,155 @@
 // 输入顺序与 op_def / proto.h 一致：c, a, b, beta, alpha
 // beta/alpha 为 1-element 标量 tensor，不参与 shape 推导
 class AddMatMatElementsInfershapeTest : public testing::Test {
- protected:
-  static void SetUpTestCase() {
-    std::cout << "AddMatMatElementsInfershapeTest SetUp" << std::endl;
-  }
+protected:
+    static void SetUpTestCase() { std::cout << "AddMatMatElementsInfershapeTest SetUp" << std::endl; }
 
-  static void TearDownTestCase() {
-    std::cout << "AddMatMatElementsInfershapeTest TearDown" << std::endl;
-  }
+    static void TearDownTestCase() { std::cout << "AddMatMatElementsInfershapeTest TearDown" << std::endl; }
 };
 
-TEST_F(AddMatMatElementsInfershapeTest, add_mat_mat_elements_infershape_same_shape) {
-  gert::StorageShape shape = {{4, 8}, {4, 8}};
-  gert::StorageShape scalarShape = {{1}, {1}};
+TEST_F(AddMatMatElementsInfershapeTest, add_mat_mat_elements_infershape_same_shape)
+{
+    gert::StorageShape shape = {{4, 8}, {4, 8}};
+    gert::StorageShape scalarShape = {{1}, {1}};
 
-  gert::InfershapeContextPara infershapeContextPara(
-      "AddMatMatElements",
-      {{shape, ge::DT_FLOAT, ge::FORMAT_ND},        // c
-       {shape, ge::DT_FLOAT, ge::FORMAT_ND},        // a
-       {shape, ge::DT_FLOAT, ge::FORMAT_ND},        // b
-       {scalarShape, ge::DT_FLOAT, ge::FORMAT_ND},  // beta
-       {scalarShape, ge::DT_FLOAT, ge::FORMAT_ND}}, // alpha
-      {{shape, ge::DT_FLOAT, ge::FORMAT_ND}});
+    gert::InfershapeContextPara infershapeContextPara("AddMatMatElements",
+                                                      {{shape, ge::DT_FLOAT, ge::FORMAT_ND},        // c
+                                                       {shape, ge::DT_FLOAT, ge::FORMAT_ND},        // a
+                                                       {shape, ge::DT_FLOAT, ge::FORMAT_ND},        // b
+                                                       {scalarShape, ge::DT_FLOAT, ge::FORMAT_ND},  // beta
+                                                       {scalarShape, ge::DT_FLOAT, ge::FORMAT_ND}}, // alpha
+                                                      {{shape, ge::DT_FLOAT, ge::FORMAT_ND}});
 
-  std::vector<std::vector<int64_t>> expectOutputShape = {{4, 8}};
-  ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+    std::vector<std::vector<int64_t>> expectOutputShape = {{4, 8}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
 
-TEST_F(AddMatMatElementsInfershapeTest, add_mat_mat_elements_infershape_broadcast_a) {
-  gert::StorageShape shapeA = {{1, 8}, {1, 8}};
-  gert::StorageShape shapeBC = {{4, 8}, {4, 8}};
-  gert::StorageShape scalarShape = {{1}, {1}};
+TEST_F(AddMatMatElementsInfershapeTest, add_mat_mat_elements_infershape_broadcast_a)
+{
+    gert::StorageShape shapeA = {{1, 8}, {1, 8}};
+    gert::StorageShape shapeBC = {{4, 8}, {4, 8}};
+    gert::StorageShape scalarShape = {{1}, {1}};
 
-  gert::InfershapeContextPara infershapeContextPara(
-      "AddMatMatElements",
-      {{shapeBC, ge::DT_FLOAT, ge::FORMAT_ND},      // c
-       {shapeA, ge::DT_FLOAT, ge::FORMAT_ND},       // a
-       {shapeBC, ge::DT_FLOAT, ge::FORMAT_ND},      // b
-       {scalarShape, ge::DT_FLOAT, ge::FORMAT_ND},  // beta
-       {scalarShape, ge::DT_FLOAT, ge::FORMAT_ND}}, // alpha
-      {{shapeBC, ge::DT_FLOAT, ge::FORMAT_ND}});
+    gert::InfershapeContextPara infershapeContextPara("AddMatMatElements",
+                                                      {{shapeBC, ge::DT_FLOAT, ge::FORMAT_ND},      // c
+                                                       {shapeA, ge::DT_FLOAT, ge::FORMAT_ND},       // a
+                                                       {shapeBC, ge::DT_FLOAT, ge::FORMAT_ND},      // b
+                                                       {scalarShape, ge::DT_FLOAT, ge::FORMAT_ND},  // beta
+                                                       {scalarShape, ge::DT_FLOAT, ge::FORMAT_ND}}, // alpha
+                                                      {{shapeBC, ge::DT_FLOAT, ge::FORMAT_ND}});
 
-  std::vector<std::vector<int64_t>> expectOutputShape = {{4, 8}};
-  ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+    std::vector<std::vector<int64_t>> expectOutputShape = {{4, 8}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
 
-TEST_F(AddMatMatElementsInfershapeTest, add_mat_mat_elements_infershape_broadcast_b) {
-  gert::StorageShape shapeA = {{4, 1}, {4, 1}};
-  gert::StorageShape shapeB = {{1, 8}, {1, 8}};
-  gert::StorageShape shapeC = {{4, 8}, {4, 8}};
-  gert::StorageShape scalarShape = {{1}, {1}};
+TEST_F(AddMatMatElementsInfershapeTest, add_mat_mat_elements_infershape_broadcast_b)
+{
+    gert::StorageShape shapeA = {{4, 1}, {4, 1}};
+    gert::StorageShape shapeB = {{1, 8}, {1, 8}};
+    gert::StorageShape shapeC = {{4, 8}, {4, 8}};
+    gert::StorageShape scalarShape = {{1}, {1}};
 
-  gert::InfershapeContextPara infershapeContextPara(
-      "AddMatMatElements",
-      {{shapeC, ge::DT_FLOAT, ge::FORMAT_ND},       // c
-       {shapeA, ge::DT_FLOAT, ge::FORMAT_ND},       // a
-       {shapeB, ge::DT_FLOAT, ge::FORMAT_ND},       // b
-       {scalarShape, ge::DT_FLOAT, ge::FORMAT_ND},  // beta
-       {scalarShape, ge::DT_FLOAT, ge::FORMAT_ND}}, // alpha
-      {{shapeC, ge::DT_FLOAT, ge::FORMAT_ND}});
+    gert::InfershapeContextPara infershapeContextPara("AddMatMatElements",
+                                                      {{shapeC, ge::DT_FLOAT, ge::FORMAT_ND},       // c
+                                                       {shapeA, ge::DT_FLOAT, ge::FORMAT_ND},       // a
+                                                       {shapeB, ge::DT_FLOAT, ge::FORMAT_ND},       // b
+                                                       {scalarShape, ge::DT_FLOAT, ge::FORMAT_ND},  // beta
+                                                       {scalarShape, ge::DT_FLOAT, ge::FORMAT_ND}}, // alpha
+                                                      {{shapeC, ge::DT_FLOAT, ge::FORMAT_ND}});
 
-  std::vector<std::vector<int64_t>> expectOutputShape = {{4, 8}};
-  ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+    std::vector<std::vector<int64_t>> expectOutputShape = {{4, 8}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
 
-TEST_F(AddMatMatElementsInfershapeTest, add_mat_mat_elements_infershape_3d) {
-  gert::StorageShape shape = {{2, 3, 4}, {2, 3, 4}};
-  gert::StorageShape scalarShape = {{1}, {1}};
+TEST_F(AddMatMatElementsInfershapeTest, add_mat_mat_elements_infershape_3d)
+{
+    gert::StorageShape shape = {{2, 3, 4}, {2, 3, 4}};
+    gert::StorageShape scalarShape = {{1}, {1}};
 
-  gert::InfershapeContextPara infershapeContextPara(
-      "AddMatMatElements",
-      {{shape, ge::DT_FLOAT16, ge::FORMAT_ND},        // c
-       {shape, ge::DT_FLOAT16, ge::FORMAT_ND},        // a
-       {shape, ge::DT_FLOAT16, ge::FORMAT_ND},        // b
-       {scalarShape, ge::DT_FLOAT16, ge::FORMAT_ND},  // beta
-       {scalarShape, ge::DT_FLOAT16, ge::FORMAT_ND}}, // alpha
-      {{shape, ge::DT_FLOAT16, ge::FORMAT_ND}});
+    gert::InfershapeContextPara infershapeContextPara("AddMatMatElements",
+                                                      {{shape, ge::DT_FLOAT16, ge::FORMAT_ND},        // c
+                                                       {shape, ge::DT_FLOAT16, ge::FORMAT_ND},        // a
+                                                       {shape, ge::DT_FLOAT16, ge::FORMAT_ND},        // b
+                                                       {scalarShape, ge::DT_FLOAT16, ge::FORMAT_ND},  // beta
+                                                       {scalarShape, ge::DT_FLOAT16, ge::FORMAT_ND}}, // alpha
+                                                      {{shape, ge::DT_FLOAT16, ge::FORMAT_ND}});
 
-  std::vector<std::vector<int64_t>> expectOutputShape = {{2, 3, 4}};
-  ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+    std::vector<std::vector<int64_t>> expectOutputShape = {{2, 3, 4}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
 
-TEST_F(AddMatMatElementsInfershapeTest, add_mat_mat_elements_infershape_broadcast_diff_rank) {
-  // a: [8], b: [4, 8], c: [4, 8] -> [4, 8]
-  gert::StorageShape shapeA = {{8}, {8}};
-  gert::StorageShape shapeBC = {{4, 8}, {4, 8}};
-  gert::StorageShape scalarShape = {{1}, {1}};
+TEST_F(AddMatMatElementsInfershapeTest, add_mat_mat_elements_infershape_broadcast_diff_rank)
+{
+    // a: [8], b: [4, 8], c: [4, 8] -> [4, 8]
+    gert::StorageShape shapeA = {{8}, {8}};
+    gert::StorageShape shapeBC = {{4, 8}, {4, 8}};
+    gert::StorageShape scalarShape = {{1}, {1}};
 
-  gert::InfershapeContextPara infershapeContextPara(
-      "AddMatMatElements",
-      {{shapeBC, ge::DT_FLOAT, ge::FORMAT_ND},      // c
-       {shapeA, ge::DT_FLOAT, ge::FORMAT_ND},       // a
-       {shapeBC, ge::DT_FLOAT, ge::FORMAT_ND},      // b
-       {scalarShape, ge::DT_FLOAT, ge::FORMAT_ND},  // beta
-       {scalarShape, ge::DT_FLOAT, ge::FORMAT_ND}}, // alpha
-      {{shapeBC, ge::DT_FLOAT, ge::FORMAT_ND}});
+    gert::InfershapeContextPara infershapeContextPara("AddMatMatElements",
+                                                      {{shapeBC, ge::DT_FLOAT, ge::FORMAT_ND},      // c
+                                                       {shapeA, ge::DT_FLOAT, ge::FORMAT_ND},       // a
+                                                       {shapeBC, ge::DT_FLOAT, ge::FORMAT_ND},      // b
+                                                       {scalarShape, ge::DT_FLOAT, ge::FORMAT_ND},  // beta
+                                                       {scalarShape, ge::DT_FLOAT, ge::FORMAT_ND}}, // alpha
+                                                      {{shapeBC, ge::DT_FLOAT, ge::FORMAT_ND}});
 
-  std::vector<std::vector<int64_t>> expectOutputShape = {{4, 8}};
-  ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+    std::vector<std::vector<int64_t>> expectOutputShape = {{4, 8}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+TEST_F(AddMatMatElementsInfershapeTest, add_mat_mat_elements_infershape_rank_zero_a_b)
+{
+    gert::StorageShape shapeC = {{4, 8}, {4, 8}};
+    gert::StorageShape rankZeroShape = {{}, {}};
+    gert::StorageShape scalarShape = {{1}, {1}};
+
+    gert::InfershapeContextPara infershapeContextPara("AddMatMatElements",
+                                                      {{shapeC, ge::DT_FLOAT, ge::FORMAT_ND},        // c
+                                                       {rankZeroShape, ge::DT_FLOAT, ge::FORMAT_ND}, // a
+                                                       {rankZeroShape, ge::DT_FLOAT, ge::FORMAT_ND}, // b
+                                                       {scalarShape, ge::DT_FLOAT, ge::FORMAT_ND},   // beta
+                                                       {scalarShape, ge::DT_FLOAT, ge::FORMAT_ND}},  // alpha
+                                                      {{shapeC, ge::DT_FLOAT, ge::FORMAT_ND}});
+
+    std::vector<std::vector<int64_t>> expectOutputShape = {{4, 8}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+TEST_F(AddMatMatElementsInfershapeTest, add_mat_mat_elements_infershape_overwrites_declared_output_shape)
+{
+    gert::StorageShape shapeC = {{92, 562042}, {92, 562042}};
+    gert::StorageShape shapeA = {{562042}, {562042}};
+    gert::StorageShape scalarShape = {{1}, {1}};
+    gert::StorageShape wrongOutputShape = {{999, 999}, {999, 999}};
+
+    gert::InfershapeContextPara infershapeContextPara("AddMatMatElements",
+                                                      {{shapeC, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                       {shapeA, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                       {shapeA, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                       {scalarShape, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                       {scalarShape, ge::DT_FLOAT16, ge::FORMAT_ND}},
+                                                      {{wrongOutputShape, ge::DT_FLOAT16, ge::FORMAT_ND}});
+
+    std::vector<std::vector<int64_t>> expectOutputShape = {{92, 562042}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+TEST_F(AddMatMatElementsInfershapeTest, add_mat_mat_elements_infershape_overwrites_declared_output_rank)
+{
+    gert::StorageShape shapeC = {{2, 1, 4, 3, 88505}, {2, 1, 4, 3, 88505}};
+    gert::StorageShape shapeA = {{1, 4, 1, 88505}, {1, 4, 1, 88505}};
+    gert::StorageShape shapeB = {{3, 88505}, {3, 88505}};
+    gert::StorageShape scalarShape = {{1}, {1}};
+    gert::StorageShape wrongOutputShape = {{2, 1, 4}, {2, 1, 4}};
+
+    gert::InfershapeContextPara infershapeContextPara("AddMatMatElements",
+                                                      {{shapeC, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                       {shapeA, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                       {shapeB, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                       {scalarShape, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                       {scalarShape, ge::DT_FLOAT16, ge::FORMAT_ND}},
+                                                      {{wrongOutputShape, ge::DT_FLOAT16, ge::FORMAT_ND}});
+
+    std::vector<std::vector<int64_t>> expectOutputShape = {{2, 1, 4, 3, 88505}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
