@@ -183,6 +183,7 @@ int32_t GenOnesData(vector<int64_t> shapes, Tensor& input_tensor, TensorDesc& in
         *(pData + i) = value;
     }
     input_tensor = Tensor(input_tensor_desc, reinterpret_cast<uint8_t*>(pData), data_len);
+    delete[] pData; // Tensor 构造时深拷贝数据，及时释放临时缓冲避免泄漏
     return SUCCESS;
 }
 
@@ -300,7 +301,7 @@ int main(int argc, char* argv[])
     // 设置全局选项
     std::map<AscendString, AscendString> global_options = {
         {"ge.exec.deviceId", "0"}, // 应通过 `npu-smi info` 查询状态为 OK 的 device id
-        {"ge.graphRunMode", "0"},
+        {"ge.graphRunMode", "1"},
         {"ge.exec.precision_mode", "must_keep_origin_dtype"}};
     // 初始化图引擎
     Status ret = ge::GEInitialize(global_options);

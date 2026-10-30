@@ -90,13 +90,16 @@ __simt_vf__ __aicore__ __launch_bounds__(THREAD_NUM) inline void OpBallQuerySimt
         float cz = CoordToFloat(center[2]);
 
         // 4. 遍历 batch b 内全部 N 个点，距离判定 + 索引收集
-        //    xyz 布局 (B,3,N)：x=xyzBaseB[k], y=xyzBaseB[N+k], z=xyzBaseB[2*N+k]
+        //    xyz 布局 (B,3,N)：x=xyzBaseB[k], y=xyzRowY[k], z=xyzRowZ[k]
+        //    y/z 行基址以 int64 计算偏移：N 可达 INT32_MAX，2*N+k 按 int32 求值会回绕为负下标
+        __gm__ T* xyzRowY = xyzBaseB + static_cast<int64_t>(N);
+        __gm__ T* xyzRowZ = xyzBaseB + 2 * static_cast<int64_t>(N);
         int32_t cnt = 0;
         int32_t firstResult = 0;
         for (int32_t k = 0; k < N; ++k) {
             float dx = cx - CoordToFloat(xyzBaseB[k]);
-            float dy = cy - CoordToFloat(xyzBaseB[N + k]);
-            float dz = cz - CoordToFloat(xyzBaseB[2 * N + k]);
+            float dy = cy - CoordToFloat(xyzRowY[k]);
+            float dz = cz - CoordToFloat(xyzRowZ[k]);
             float d2 = dx * dx + dy * dy + dz * dz;
             // 距离判定：d2==0 || (minRadius2 <= d2 < maxRadius2)
             if (d2 == 0.0f || (d2 >= minRadius2 && d2 < maxRadius2)) {

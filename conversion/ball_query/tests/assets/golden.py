@@ -36,7 +36,9 @@ class BallQueryKernelSpec:
         （sum/cumsum/argmax/nonzero/where/arange/scatter_）拼接出与 canndev TBE
         语义完全一致的实现，禁止裸 numpy 计算。
 
-        完全对齐 canndev TBE 实现：
+        对齐 canndev TBE 实现的布局与判定语义（距离统一在 float32 中计算，与本算子
+        kernel 的 CoordToFloat f32 提升路径一致；canndev/mmcv 的 fp16 路径在 fp16 内
+        计算距离，大坐标/下溢等边界场景判定可能不同）：
         - xyz 布局 (B, 3, N)：坐标在中间维
         - new_xyz 布局 (M, B, 3)
         - idx 输出 (M, B, sample_num)
@@ -59,8 +61,9 @@ class BallQueryKernelSpec:
         """
         # min_radius 在 def.cpp 未声明为属性，从 kwargs 取（默认 0.0，对齐 canndev 环形内边界）
         min_radius = kwargs.get("min_radius", 0.0)
-        # 输入归一化为 torch tensor，统一 float32 计算距离（对齐 canndev TBE 距离计算精度，
-        # 避免 float16 溢出）
+        # 输入归一化为 torch tensor，统一 float32 计算距离（与本算子 kernel 的
+        # CoordToFloat f32 提升路径一致，避免 float16 溢出；canndev TBE fp16 路径
+        # 在 fp16 内计算距离，边界场景判定可能不同）
         xyz_t = torch.as_tensor(xyz, dtype=torch.float32)  # (B, 3, N)
         ctr_t = torch.as_tensor(new_xyz, dtype=torch.float32)  # (M, B, 3)
 
@@ -76,9 +79,12 @@ class BallQueryKernelSpec:
         # 输出初始化为 0（对齐 canndev：未命中时 first_num=0，填充 0）
         idx = torch.zeros((M, B, sample_num), dtype=torch.int32)
 
-        # 半径平方化（对齐 canndev：__init__ 中 self.min_radius = min_radius * min_radius）
-        min_radius2 = float(min_radius) * float(min_radius)
-        max_radius2 = float(max_radius) * float(max_radius)
+        # 半径平方化：与本算子 kernel 及 mmcv CUDA kernel 一致的 float32 平方
+        # （tiling 侧 float 乘法、mmcv kernel 内 float 乘法），避免 double 平方
+        # 引入 1-2 ulp 阈值偏差（如 f32(0.1f)^2=0.010000000707805157，
+        # 而 f32(0.1^2)=0.009999999776482582，边界 d2 判定相反）
+        min_radius2 = torch.tensor(min_radius, dtype=torch.float32).square().item()
+        max_radius2 = torch.tensor(max_radius, dtype=torch.float32).square().item()
 
         # 输出位置网格（用于向量化首点填充掩码）
         pos_grid = torch.arange(sample_num, dtype=torch.int32)  # (sample_num,)
@@ -182,10 +188,9 @@ class BallQueryKernelSpec:
             M, B, _ = new_xyz_f.shape
             _, _, N = xyz_f.shape
 
-            # 空 tensor 边界处理（对齐 SE §1.4 / MDE §9.1：shape 含 0 维时循环不执行，
-            # idx 保持初始值 0）。mmcv kernel 对空点集自然返回 zeros（for 循环不执行,
-            # idx 保持 new_zeros 预初始化的 0），此处统一短路标记，__call__ 直接返回,
-            # 避免不必要的 mmcv dispatch。
+            # 空 tensor 边界处理（shape 含 0 维时循环不执行，idx 保持初始值 0）。
+            # mmcv kernel 对空点集自然返回 zeros（for 循环不执行, idx 保持 new_zeros
+            # 预初始化的 0），此处统一短路标记，__call__ 直接返回，避免不必要的 mmcv dispatch。
             self.min_radius = min_radius
             self.max_radius = max_radius
             self.sample_num = sample_num

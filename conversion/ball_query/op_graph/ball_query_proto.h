@@ -43,9 +43,9 @@ namespace ge {
  *     point indices. Type int32.
  *
  *@par Attributes:
- * @li min_radius: Float, inner radius of the query ball, must be >= 0.
- * @li max_radius: Float, outer radius of the query ball, must be > 0.
- * @li sample_num: Int, max number of sampled points per ball, must be >= 1.
+ * @li min_radius: Float, inner radius of the query ball, must be finite and >= 0.
+ * @li max_radius: Float, outer radius of the query ball, must be finite, > 0 and greater than min_radius.
+ * @li sample_num: Int, max number of sampled points per ball, must be in range [1, INT32_MAX].
  */
 REG_OP(BallQuery)
     .INPUT(xyz, TensorType({DT_FLOAT16, DT_FLOAT}))

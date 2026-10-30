@@ -23,7 +23,7 @@ $$
 d2 = (c_x - x_k)^2 + (c_y - y_k)^2 + (c_z - z_k)^2
 $$
 
-距离判定条件：$d2 == 0$ 或 $min\_radius^2 \leq d2 < max\_radius^2$。命中点按k顺序写入idx，首个命中点索引记为first_num，命中数不足sample_num时剩余位置用first_num填充。
+距离判定条件：$d2 == 0$ 或 $min\_radius^2 \leq d2 < max\_radius^2$。命中点按k顺序写入idx，首个命中点索引记为first_num，命中数不足sample_num时剩余位置用first_num填充；若某查询球命中数为0，则该球对应的全部sample_num个输出位置均填充0，该结果与命中第0个点在输出上无法区分。
 
 ## 参数说明
 
@@ -95,6 +95,8 @@ $$
 - xyz的第0维B、第2维N，以及center_xyz的第0维M(npoint)取值均不得超过INT32_MAX(2147483647)。
 - xyz与center_xyz的dtype必须相同，且为FLOAT或FLOAT16。
 - 输出idx的dtype固定为INT32，shape为(M,B,sample_num)。
+- 支持零长度维（空张量）输入：当xyz的第2维N=0时，每个查询球均无候选点、命中数为0，idx输出全部为0；当center_xyz的第0维M=0时，输出shape为(0,B,sample_num)；当B=0时，输出shape为(M,0,sample_num)。以上空输入场景均正常执行并返回。
+- 支持动态shape：构建图时输入维度可标记为-1（表示该维取值运行时确定），支持未知秩输入（shape标记为-2）；坐标维为3、B一致性、维度不超过INT32_MAX等校验延后至运行时tiling阶段以真实shape执行；秩未知时输出shape推导为(-1,-1,sample_num)。
 - min_radius必须为有限值（非NaN、非Inf）且大于等于0。
 - max_radius必须为有限值（非NaN、非Inf）且大于0，并必须大于min_radius。
 - sample_num必须大于等于1且不超过INT32_MAX(2147483647)。
