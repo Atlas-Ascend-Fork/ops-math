@@ -147,7 +147,7 @@
       <td>value（aclScalar*）</td>
       <td>输入</td>
       <td>填充部分的填充值</td>
-      <td>-</td>
+      <td>填充前按 self 类型转换，转换可能有损。</td>
       <td>FLOAT、FLOAT16、INT32、INT64、INT16、INT8、UINT8、UINT16、UINT32、UINT64、BOOL、DOUBLE、COMPLEX64、COMPLEX128、BFLOAT16、HIFLOAT8、FLOAT8_E5M2、FLOAT8_E4M3FN、FLOAT8_E8M0、FLOAT6_E3M2、FLOAT6_E2M3、FLOAT4_E2M1、FLOAT4_E1M2。</td>
       <td>-</td>
       <td>-</td>
@@ -222,15 +222,12 @@
         <td>算子执行失败或变量初始化失败。</td>
       </tr>
       <tr>
-        <td rowspan="10">ACLNN_ERR_PARAM_INVALID</td>
-        <td rowspan="10">161002</td>
+        <td rowspan="9">ACLNN_ERR_PARAM_INVALID</td>
+        <td rowspan="9">161002</td>
         <td>self、value或out的数据类型不在支持的范围之内。</td>
       </tr>
       <tr>
         <td>self与out的数据类型不一致。</td>
-      </tr>
-      <tr>
-        <td>self与value的数据类型不满足数据类型推导规则。</td>
       </tr>
       <tr>
         <td>self的shape和pad的输入推导出的shape与out的shape不一致。</td>
