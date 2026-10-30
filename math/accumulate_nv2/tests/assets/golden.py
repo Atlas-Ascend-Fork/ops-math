@@ -178,39 +178,56 @@ def aclnn_sum_golden(tensors, out=None, **kwargs):
 
 
 class ThirdPartyTF:
-    """TensorFlow XPU competitor: runs on GPU at the original input dtype.
+    """TensorFlow XPU competitor: AccumulateNV2 on the XPU server.
 
-    TTK dispatches third_party calls to the GPU server. tf.raw_ops.AccumulateNV2
-    is the true competitor GPU kernel (fp16-domain sequential accumulation).
+    ``tf.raw_ops.AccumulateNV2`` is a kernel-less stub op in every TF build
+    (OPS_WITHOUT_KERNEL_ALLOWLIST): eager raw calls always fail with
+    "<no registered kernels>". In graph mode TF rewrites the stub via
+    AccumulateNV2RemovePass (accumulate_n_optimizer.cc, PRE_PLACEMENT) into
+    a TemporaryVariable + AssignAdd chain — sequential accumulation at the
+    original input dtype, TF's official execution semantics for this op.
+    The tf.function wrapper below routes the competitor call through that
+    graph path on the XPU server.
 
-    TF competitor requires same-shape inputs (no broadcast). This class serves
-    all three TestSpecs (kernel/aclnn/TF E2E); the aclnnSum route may pass
-    broadcastable different-shaped inputs (the aclnn interface layer supports
-    broadcast), so inputs are broadcast-aligned here before reaching the
-    competitor kernel — the comparison target is "the correct sum result",
-    not "the competitor's rejection behavior". Same-shape inputs pass through
-    unchanged.
+    Same-shape inputs (kernel/GEIR/TF E2E routes) pass through untouched
+    and stay on the dispatch device. The aclnnSum route may pass
+    broadcastable different-shaped inputs (the aclnn interface layer
+    supports broadcast), so inputs are broadcast-aligned on device before
+    reaching the competitor op — the comparison target is "the correct sum
+    result", not "the competitor's rejection behavior". numpy fallback
+    covers the shape pairs TF's broadcast_to rejects (host compute).
     """
 
     def __init__(self):
         import tensorflow as tf
 
         self._tf = tf
-        self._accumulate = tf.raw_ops.AccumulateNV2
+
+        @tf.function
+        def _accumulate_nv2(values, shape):
+            return tf.raw_ops.AccumulateNV2(inputs=values, shape=shape)
+
+        self._accumulate = _accumulate_nv2
 
     def __call__(self, inputs=None, x=None, tensors=None, **kwargs):
         del kwargs
         values = inputs if inputs is not None else x
         if values is None:
             values = tensors
-        # Broadcast-align different-shaped inputs (aclnnSum route) to the
-        # common shape before calling the competitor kernel. numpy handles
-        # the full rank<=8 domain (TF CPU broadcast_to rejects rank>=7).
-        arrays = [np.asarray(v) for v in _as_tensor_list(values)]
-        target_shape = np.broadcast_shapes(*[a.shape for a in arrays])
-        arrays = [np.broadcast_to(a, target_shape) for a in arrays]
-        values = [_to_tensorflow_tensor(a, self._tf) for a in arrays]
-        return [self._accumulate(inputs=list(values), shape=list(target_shape))]
+        values = _as_tensor_list(values)
+        # Shape-only inspection: no host round-trip, tensors stay on the
+        # dispatch device (both TF tensors and numpy arrays expose .shape).
+        shapes = [tuple(v.shape) for v in values]
+        target_shape = tuple(np.broadcast_shapes(*shapes))
+        if len(set(shapes)) > 1:
+            # aclnnSum route only: broadcast-align on device; numpy covers
+            # the high-rank pairs TF's broadcast_to rejects (host compute).
+            try:
+                values = [self._tf.broadcast_to(v, target_shape) for v in values]
+            except (ValueError, self._tf.errors.InvalidArgumentError):
+                arrays = [np.broadcast_to(np.asarray(v), target_shape) for v in values]
+                values = [_to_tensorflow_tensor(a, self._tf) for a in arrays]
+        return [self._accumulate(list(values), list(target_shape))]
 
 
 _L1_FLOAT_TOLERANCE = {
