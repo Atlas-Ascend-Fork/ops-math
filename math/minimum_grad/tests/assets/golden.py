@@ -12,8 +12,7 @@
 """MinimumGrad 测试规范(numpy golden, kernel/geir 与 e2e 双 spec, 按查找名路由)。
 
 golden 全 numpy 实现(独立 oracle, 不依赖 TF):
-  - kernel/geir: mask + where 原生 dtype 直拼(透传逐位精确, IEEE 无 FTZ,
-    次正规与 NPU 对齐) -> binary_equal; geir worker 无需 tensorflow
+  - kernel/geir: mask + where 原生 dtype 直拼; geir worker 无需 tensorflow
   - e2e: golden 已归 P1(CSV golden_api 指向 API 模块的 *_grad_np numpy
     组合函数), 升精度由框架 --golden-mode Promote 完成, 本插件不含 e2e golden
 
@@ -24,7 +23,7 @@ e2e 通路(api_name "tensorflow.minimum_grad_e2e.minimum_grad" -> MinimumGradE2e
   golden: 各输入自身 shape(原生 tape 的 Sum+Reshape 契约);
   浮点 cross_check(三比值), int32 整型精确走 binary_equal。
 
-third_party: GPU 侧 TF tape 反向(浮点)/手拼小算子(int32), 采集 device_us。
+third_party: GPU 侧纯反向, 采集 device_us。
 """
 
 import numpy as np
@@ -73,37 +72,46 @@ def _bcast_axes(in_shape, out_shape):
 
 
 class MinimumGradTfImpl:
-    """GPU 侧三方实现: 浮点走 GradientTape 反向; int32 与 NPU/golden 同口径的
-    手拼小算子负载(GPU 原生 int32 kernel, 整型精确)。"""
+    """GPU 侧三方实现: 浮点走 tf.function 包裹的 tape 反向; int32 无梯度定义, 手拼分支(LessEqual+
+    SelectV2×2+Sum, 与 golden 同口径)。"""
 
     def __init__(self, grad_x=True, grad_y=True, **kwargs):
         self.grad_x = grad_x
         self.grad_y = grad_y
 
+    def _hand_built(self, tf, grads, x1, x2):
+        mask = tf.raw_ops.LessEqual(x=x1, y=x2)
+        zeros = tf.raw_ops.ZerosLike(x=grads)
+        y1 = tf.raw_ops.SelectV2(condition=mask, t=grads, e=zeros)
+        y2 = tf.raw_ops.SelectV2(condition=mask, t=zeros, e=grads)
+
+        def _red(t, in_shape):
+            axes = _bcast_axes(list(in_shape), list(t.shape.as_list()))
+            if not axes:
+                return t
+            summed = tf.raw_ops.Sum(input=t, axis=axes, keep_dims=False)
+            return tf.reshape(summed, in_shape)
+
+        return [
+            _red(y1, list(x1.shape.as_list())) if self.grad_x else None,
+            _red(y2, list(x2.shape.as_list())) if self.grad_y else None,
+        ]
+
     def __call__(self, grads, x1, x2, **kwargs):
         tf = _tf()
         if not all(t.dtype.is_floating for t in (grads, x1, x2)):
-            mask = tf.raw_ops.LessEqual(x=x1, y=x2)
-            zeros = tf.raw_ops.ZerosLike(x=grads)
-            y1 = tf.raw_ops.SelectV2(condition=mask, t=grads, e=zeros)
-            y2 = tf.raw_ops.SelectV2(condition=mask, t=zeros, e=grads)
+            return self._hand_built(tf, grads, x1, x2)
 
-            def _red(t, in_shape):
-                axes = _bcast_axes(list(in_shape), list(t.shape.as_list()))
-                if not axes:
-                    return t
-                summed = tf.raw_ops.Sum(input=t, axis=axes, keep_dims=False)
-                return tf.reshape(summed, in_shape)
+        @tf.function
+        def _tape_backward(grads, x1, x2):
+            with tf.GradientTape() as tape:
+                tape.watch([x1, x2])
+                out = tf.minimum(x1, x2) * grads
+            dx, dy = tape.gradient(out, [x1, x2])
+            return dx, dy
 
-            return [
-                _red(y1, list(x1.shape.as_list())) if self.grad_x else None,
-                _red(y2, list(x2.shape.as_list())) if self.grad_y else None,
-            ]
-        with tf.GradientTape() as tape:
-            tape.watch([x1, x2])
-            y = tf.math.minimum(x1, x2) * grads
-        gs = tape.gradient(y, [x1, x2])
-        return [gs[0] if self.grad_x else None, gs[1] if self.grad_y else None]
+        dx, dy = _tape_backward(grads, x1, x2)
+        return [dx if self.grad_x else None, dy if self.grad_y else None]
 
 
 _BINARY = {

@@ -60,25 +60,38 @@ def _maximum_grad_int(grads, x1, x2):
         )
 
 
+_TAPE_FN = None
+
+
 def maximum_grad(grads, x1, x2):
     """y1 = grad wrt x1, y2 = grad wrt x2 (各自输入 shape, 含广播归约)。
 
-    外层 name_scope 按调用唯一化: npu_device 动态图的 GE 会话模型缓存按
-    算子节点名复用(graph_id 与 shape/dtype 无关), 复用进程批跑时不同用例
-    的同名节点会命中彼此已编译模型导致常量串台; 唯一前缀迫使 graph_id
-    错开(对齐 TTK graph_runner._unique_node_name 的修复机理, 覆盖 eager
-    路径)。融合规则的 gradient_tape scope 检查按名字分段匹配, 前缀不影响。
+    浮点走 tf.function 包裹的 tape 反向且只返回梯度: NPU 执行纯反向链(融合后 te_maximumgrad+te_reducesum),
+    与 GPU 侧标杆(golden.py 同款形态)口径对称。tf.function 按
+    (shape,dtype) 签名缓存 concrete function: 同签名共享编译图(输入为
+    placeholder, 无常量串台), 跨签名 trace 时以 _TRACE_SEQ 唯一化
+    name_scope 错开 graph_id。融合规则的 gradient_tape scope 检查按
+    名字分段匹配, 前缀不影响。int32 无梯度定义, 保留手拼路径。
     """
-    with tf.name_scope(f"maximum_grad_e2e_{next(_TRACE_SEQ)}"):
-        if grads.dtype in (tf.int32, tf.int64):
+    if grads.dtype in (tf.int32, tf.int64):
+        with tf.name_scope(f"maximum_grad_e2e_{next(_TRACE_SEQ)}"):
             return _maximum_grad_int(grads, x1, x2)
-        with tf.GradientTape() as tape:
-            tape.watch([x1, x2])
-            y = tf.maximum(x1, x2) * grads
-        gs = tape.gradient(y, [x1, x2])
-        if any(g is None for g in gs):
-            raise RuntimeError("tape.gradient returned None")
-        return gs[0], gs[1]
+    global _TAPE_FN
+    if _TAPE_FN is None:
+
+        @tf.function
+        def _tape_backward(grads, x1, x2):
+            with tf.name_scope(f"maximum_grad_e2e_{next(_TRACE_SEQ)}"):
+                with tf.GradientTape() as tape:
+                    tape.watch([x1, x2])
+                    out = tf.maximum(x1, x2) * grads
+                gs = tape.gradient(out, [x1, x2])
+                if any(g is None for g in gs):
+                    raise RuntimeError("tape.gradient returned None")
+                return gs[0], gs[1]
+
+        _TAPE_FN = _tape_backward
+    return _TAPE_FN(grads, x1, x2)
 
 
 def maximum_grad_np(grads, x1, x2):

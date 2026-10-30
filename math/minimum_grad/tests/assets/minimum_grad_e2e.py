@@ -55,35 +55,34 @@ def _minimum_grad_int(grads, x1, x2):
         )
 
 
-def minimum_grad(grads, x1, x2):
-    """y1 = grad wrt x1, y2 = grad wrt x2 (各自输入 shape, 含广播归约)。
+_TAPE_FN = None
 
-    外层 name_scope 按调用唯一化: npu_device 动态图的 GE 会话模型缓存按
-    算子节点名复用(graph_id 与 shape/dtype 无关), 复用进程批跑时不同用例
-    的同名节点会命中彼此已编译模型导致常量串台; 唯一前缀迫使 graph_id
-    错开(对齐 TTK graph_runner._unique_node_name 的修复机理, 覆盖 eager
-    路径)。融合规则的 gradient_tape scope 检查按名字分段匹配, 前缀不影响。
-    """
-    with tf.name_scope(f"minimum_grad_e2e_{next(_TRACE_SEQ)}"):
-        if grads.dtype in (tf.int32, tf.int64):
+
+def minimum_grad(grads, x1, x2):
+    """y1 = grad wrt x1, y2 = grad wrt x2 (各自输入 shape, 含广播归约)。"""
+    if grads.dtype in (tf.int32, tf.int64):
+        with tf.name_scope(f"minimum_grad_e2e_{next(_TRACE_SEQ)}"):
             return _minimum_grad_int(grads, x1, x2)
-        with tf.GradientTape() as tape:
-            tape.watch([x1, x2])
-            y = tf.minimum(x1, x2) * grads
-        gs = tape.gradient(y, [x1, x2])
-        if any(g is None for g in gs):
-            raise RuntimeError("tape.gradient returned None")
-        return gs[0], gs[1]
+    global _TAPE_FN
+    if _TAPE_FN is None:
+
+        @tf.function
+        def _tape_backward(grads, x1, x2):
+            with tf.name_scope(f"minimum_grad_e2e_{next(_TRACE_SEQ)}"):
+                with tf.GradientTape() as tape:
+                    tape.watch([x1, x2])
+                    out = tf.minimum(x1, x2) * grads
+                gs = tape.gradient(out, [x1, x2])
+                if any(g is None for g in gs):
+                    raise RuntimeError("tape.gradient returned None")
+                return gs[0], gs[1]
+
+        _TAPE_FN = _tape_backward
+    return _TAPE_FN(grads, x1, x2)
 
 
 def minimum_grad_np(grads, x1, x2):
-    """numpy 小算子拼接 golden(独立 oracle, P1 golden_api 指向此函数)。
-
-    输入可能是框架张量(P1 经 cpu_backend 转换)或 numpy 数组 —— np.asarray
-    归一化。框架 --golden-mode Promote 已把浮点输入升精度(f16->f32/f32->f64),
-    本函数只做纯计算: mask + where + 广播轴 Sum(f64 累加, 正确舍入)+Reshape。
-    整型不升精度, Sum 保持原 dtype 模运算(与算子语义一致)。
-    """
+    """numpy 小算子拼接 golden(独立 oracle, P1 golden_api 指向此函数)。"""
     import numpy as np
 
     g, a, b = np.asarray(grads), np.asarray(x1), np.asarray(x2)
