@@ -180,9 +180,20 @@ def tensorflow_inv_golden(x, name=None, **kwargs):
     TF EagerTensor 先桥接到 numpy 再入 torch（EagerTensor 无 .to() 等 torch 接口），
     桥接仅做数据搬运，参考计算仍由 torch 承担；结果经 _numpy_from_torch 还原为
     numpy（torch bfloat16 .numpy() 不支持，需经位视图桥接回）。
+    bfloat16 在无 ml_dtypes 的环境下 np.asarray 会抛 ValueError（TF __array__ 转换
+    失败），此时经 tf.cast(x, tf.float32) 桥接，参考计算仍在 float32 域完成。
     """
-    orig_dtype = np.asarray(x).dtype if not isinstance(x, torch.Tensor) else None
-    t = x if isinstance(x, torch.Tensor) else _torch_from_numpy(np.asarray(x))
+    if isinstance(x, torch.Tensor):
+        return [_inv_reference_torch(x)]
+    try:
+        arr = np.asarray(x)
+        orig_dtype = arr.dtype
+    except (ValueError, TypeError):
+        import tensorflow as tf
+
+        arr = np.asarray(tf.cast(x, tf.float32))
+        orig_dtype = None
+    t = _torch_from_numpy(arr)
     result = _inv_reference_torch(t)
     if orig_dtype is not None:
         return [_numpy_from_torch(result, orig_dtype)]
