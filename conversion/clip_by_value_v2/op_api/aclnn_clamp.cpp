@@ -10,7 +10,6 @@
 
 #include "aclnn_clamp.h"
 #include <climits>
-#include <cmath>
 #include <limits>
 #include "opdev/common_types.h"
 #include "opdev/data_type_utils.h"
@@ -255,10 +254,11 @@ static bool GetIntegralTypeRange(const op::DataType dataType, int64_t& minValue,
     }
 }
 
-// 整型计算类型下，标量值必须可无损落入目标 dtype，避免 ConvertToTensor 按位截断导致静默环绕。
+// 仅校验整型标量转换为整型计算类型时的环绕溢出。
+// 允许降精度 cast：浮点标量不参与此范围校验，保留原有类型转换行为（包括小数截断和精度损失）。
 static bool CheckIntegralScalarInRange(const aclScalar* scalar, const op::DataType dataType, const char* argName)
 {
-    if (scalar == nullptr || !IsIntegralType(dataType, true)) {
+    if (scalar == nullptr || !IsIntegralType(dataType, true) || !IsIntegralType(scalar->GetDataType(), true)) {
         return true;
     }
 
@@ -268,29 +268,12 @@ static bool CheckIntegralScalarInRange(const aclScalar* scalar, const op::DataTy
         return true;
     }
 
-    if (IsIntegralType(scalar->GetDataType(), true)) {
-        int64_t value = scalar->ToInt64();
-        if (value < minValue || value > maxValue) {
-            OP_LOGE(ACLNN_ERR_PARAM_INVALID, "%s value %ld cannot be converted to type %s without overflow.", argName,
-                    value, op::ToString(dataType).GetString());
-            return false;
-        }
-        return true;
+    int64_t value = scalar->ToInt64();
+    if (value < minValue || value > maxValue) {
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "%s value %ld cannot be converted to type %s without overflow.", argName,
+                value, op::ToString(dataType).GetString());
+        return false;
     }
-
-    if (IsFloatingType(scalar->GetDataType())) {
-        double value = scalar->ToDouble();
-        bool inRange = (dataType == DataType::DT_INT64) ?
-                           (value >= static_cast<double>(minValue) && value < 0x1p63) :
-                           (value >= static_cast<double>(minValue) && value <= static_cast<double>(maxValue));
-        if (!inRange || value != std::trunc(value)) {
-            OP_LOGE(ACLNN_ERR_PARAM_INVALID, "%s value %lf cannot be converted to type %s without overflow.", argName,
-                    value, op::ToString(dataType).GetString());
-            return false;
-        }
-        return true;
-    }
-
     return true;
 }
 
