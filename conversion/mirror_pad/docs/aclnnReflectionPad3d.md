@@ -113,7 +113,7 @@ aclnnStatus aclnnReflectionPad3d(
       <td>padding（aclIntArray*）</td>
       <td>输入</td>
       <td>输入中需要填充的大小。</td>
-      <td>长度为6，数值依次代表左右上下前后需要填充的值。padding前两个数值需小于self最后一维度的数值，中间两个数值需小于self倒数第二维度的数值，后两个数值需小于self倒数第三维度的数值。</td>
+      <td>长度为6，数值依次代表左右上下前后需要填充的值；须为非负。padding前两个数值需小于self最后一维度的数值，中间两个数值需小于self倒数第二维度的数值，后两个数值需小于self倒数第三维度的数值。</td>
       <td>INT64</td>
       <td>ND</td>
       <td>-</td>
