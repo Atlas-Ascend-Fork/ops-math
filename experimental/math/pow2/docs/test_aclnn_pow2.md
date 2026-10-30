@@ -86,7 +86,7 @@ aclnnStatus aclnnPow2(
       <td>out</td>
       <td>输出</td>
       <td>元素级计算结果张量，输出数据类型与输入类型一致或通过 Cast 转换，公式中的out。</td>
-      <td>shape与self相同。</td>
+      <td>shape为x1与x2按广播规则推导的共同形状。例如，x1的shape为[2,1]、x2的shape为[1,3]时，out的shape为[2,3]。</td>
       <td>FLOAT16、FLOAT32、BFLOAT16、INT8、UINT8、INT16、INT32</td>
       <td>ND</td>
       <td>0-8</td>
@@ -343,5 +343,11 @@ int testFp32(){
     aclrtDestroyStream(stream);
     aclrtResetDevice(deviceId);
     aclFinalize();
+    return 0;
+}
+
+int main()
+{
+    return testFp32();
 }
 ```
