@@ -38,9 +38,8 @@
 #include "array_ops.h"
 #include "ge_ir_build.h"
 
-#include "experiment_ops.h"
 #include "nn_other.h"
-#include "../op_graph/pad_v2_proto.h"
+#include "../../op_graph/pad_v2_proto.h"
 
 #define FAILED -1
 #define SUCCESS 0
@@ -157,7 +156,7 @@ uint32_t GetDataTypeSize(DataType dt)
 
 // 生成float32数据
 // 样例数据缓冲登记/释放（定义见 WriteDataToFile 前）
-std::vector<uint8_t*>& GetSampleBuffers();
+static std::vector<uint8_t*>& GetSampleBuffers();
 void FreeSampleBuffers();
 
 int32_t GenDataFloat32(vector<int64_t> shapes, Tensor& input_tensor, TensorDesc& input_tensor_desc)
