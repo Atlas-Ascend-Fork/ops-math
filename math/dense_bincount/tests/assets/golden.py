@@ -187,7 +187,7 @@ def _to_numpy(value):
 
 
 def _tensorflow_golden(input_tensor, size_tensor, weights_tensor, binary_output=False):
-    """TensorFlow composition matching the A5 negative-index compatibility rule."""
+    """TensorFlow composition matching the A2/A3 DenseBincount contract."""
     import tensorflow as tf
 
     input_tensor = tf.convert_to_tensor(_to_numpy(input_tensor))
@@ -224,27 +224,6 @@ def _tensorflow_golden(input_tensor, size_tensor, weights_tensor, binary_output=
     return [tf.reshape(output, output_shape).numpy()]
 
 
-class _DenseBincountTfCompose:
-    """TensorFlow competitor used by the TF E2E cross-check provider."""
-
-    def __init__(self, binary_output=False, **kwargs):
-        del kwargs
-        self.binary_output = _bool_attr(binary_output)
-
-    def __call__(self, input, size, weights, **kwargs):
-        del kwargs
-        import tensorflow as tf
-
-        return [
-            tf.raw_ops.DenseBincount(
-                input=tf.convert_to_tensor(_to_numpy(input)),
-                size=tf.reshape(tf.convert_to_tensor(_to_numpy(size)), []),
-                weights=tf.convert_to_tensor(_to_numpy(weights), dtype=tf.float32),
-                binary_output=self.binary_output,
-            )
-        ]
-
-
 class DenseBincountKernelSpec:
     def golden(*inputs, **kwargs):
         input_tensor, size_tensor, weights_tensor = inputs
@@ -260,16 +239,19 @@ class DenseBincountKernelSpec:
 
 
 class DenseBincountTfSpec:
-    """TensorFlow E2E spec for ``tf.raw_ops.DenseBincount``."""
+    """TensorFlow E2E spec reusing the kernel/GEIR semantic reference."""
 
     @staticmethod
     def golden(input, size, weights, binary_output=False, **kwargs):
-        del kwargs
-        return _DenseBincountTfCompose(binary_output=binary_output)(
-            input, size, weights
+        return DenseBincountKernelSpec.golden(
+            input,
+            size,
+            weights,
+            binary_output=binary_output,
+            **kwargs,
         )
 
-    third_party: ClassVar[dict] = {"tf": _DenseBincountTfCompose}
+    third_party: ClassVar[dict] = {"torch": _DenseBincountCompose}
     tolerance: ClassVar[dict] = _E2E_TOLERANCE
 
 

@@ -9,7 +9,50 @@
  */
 
 #include "register/op_impl_registry.h"
+#include "dense_bincount_proto.h"
 #include "log/log.h"
+
+namespace ge {
+namespace {
+constexpr size_t INPUT_INDEX = 0;
+constexpr size_t SIZE_INDEX = 1;
+constexpr size_t WEIGHTS_INDEX = 2;
+constexpr size_t MAX_INPUT_RANK = 2;
+
+bool IsUnknownRank(const ge::Shape& shape) { return shape.GetDims() == ge::UNKNOWN_RANK; }
+
+bool IsRankAtMost(const ge::Shape& shape, size_t maxRank)
+{
+    return IsUnknownRank(shape) || shape.GetDimNum() <= maxRank;
+}
+} // namespace
+
+IMPLEMT_VERIFIER(DenseBincount, VerifyDenseBincount)
+{
+    const auto inputShape = op.GetInputDesc(INPUT_INDEX).GetShape();
+    if (!IsRankAtMost(inputShape, MAX_INPUT_RANK)) {
+        OP_LOGE("DenseBincount", "input rank must be at most 2.");
+        return GRAPH_FAILED;
+    }
+
+    const auto sizeShape = op.GetInputDesc(SIZE_INDEX).GetShape();
+    if (!IsUnknownRank(sizeShape) && sizeShape.GetDimNum() > 1U) {
+        OP_LOGE("DenseBincount", "size must be a scalar or 1D tensor.");
+        return GRAPH_FAILED;
+    }
+
+    const auto weightsShape = op.GetInputDesc(WEIGHTS_INDEX).GetShape();
+    if (!IsRankAtMost(weightsShape, MAX_INPUT_RANK)) {
+        OP_LOGE("DenseBincount", "weights rank must be at most 2.");
+        return GRAPH_FAILED;
+    }
+
+    return GRAPH_SUCCESS;
+}
+
+VERIFY_FUNC_REG(DenseBincount, VerifyDenseBincount);
+} // namespace ge
+
 namespace ops {
 static ge::graphStatus InferDataTypeDenseBincount(gert::InferDataTypeContext* context)
 {

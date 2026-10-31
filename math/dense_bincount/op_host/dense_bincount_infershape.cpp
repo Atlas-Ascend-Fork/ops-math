@@ -19,10 +19,11 @@ constexpr int64_t MAX_OUTPUT_ELEMENTS = std::numeric_limits<int64_t>::max() / si
 static ge::graphStatus CheckDenseBincountShapes(const gert::InferShapeContext* context, const gert::Shape& input,
                                                 const gert::Shape& sizeShape, const gert::Shape& weights)
 {
-    if (!Ops::Base::IsUnknownRank(sizeShape) &&
-        (sizeShape.GetDimNum() != 1 || (sizeShape.GetDim(0) != -1 && sizeShape.GetDim(0) != 1))) {
+    const bool validSizeShape = sizeShape.IsScalar() ||
+                                (sizeShape.GetDimNum() == 1 && (sizeShape.GetDim(0) == -1 || sizeShape.GetDim(0) == 1));
+    if (!Ops::Base::IsUnknownRank(sizeShape) && !validSizeShape) {
         OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON(context->GetNodeName(), "size", Ops::Base::ToString(sizeShape),
-                                              "size must be 1D with shape [1]");
+                                              "size must be a scalar or 1D tensor with shape [1]");
         return ge::GRAPH_FAILED;
     }
     if (!Ops::Base::IsUnknownRank(weights) && weights.GetDimNum() > 2) {

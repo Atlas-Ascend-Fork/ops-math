@@ -17,7 +17,7 @@
 
 - **计算公式**：
 
-  设bin数量为`M = size[0]`。对于一维输入，输出形状为`[M]`；对于二维输入，输出形状为`[N, M]`，其中`N = input.shape[0]`。对有效的行号`r`和bin下标`m`，非二值输出为：
+  设`size`中的唯一元素值为bin数量`M`。对于一维输入，输出形状为`[M]`；对于二维输入，输出形状为`[N, M]`，其中`N = input.shape[0]`。对有效的行号`r`和bin下标`m`，非二值输出为：
 
   $$
   output[r,m] = \sum_{i \in row(r)} \mathbf{1}(input_i=m) \times
@@ -69,7 +69,7 @@
     <td>size</td>
     <td>输入</td>
     <td>是</td>
-    <td>包含一个非负常量值的一维张量，<code>size[0]</code>表示bin数量。数据类型必须与<code>input</code>一致。</td>
+    <td>包含一个非负常量值的标量或一维单元素张量，该元素值表示bin数量。数据类型必须与<code>input</code>一致。</td>
     <td>INT32、INT64</td>
     <td>ND</td>
   </tr>
@@ -93,7 +93,7 @@
     <td>output</td>
     <td>输出</td>
     <td>是</td>
-    <td>统计结果。一维输入对应形状<code>[size[0]]</code>，二维输入对应形状<code>[input.shape[0], size[0]]</code>。</td>
+    <td>统计结果。一维输入对应形状<code>[M]</code>，二维输入对应形状<code>[input.shape[0], M]</code>，其中<code>M</code>为<code>size</code>中的唯一元素值。</td>
     <td>FLOAT32</td>
     <td>ND</td>
   </tr>
@@ -103,16 +103,16 @@
 ## 约束说明
 
 - `input`的rank只能为1或2。
-- `size`必须是仅含一个非负常量值的一维ND张量，且数据类型必须与`input`相同。
+- `size`必须是标量或仅含一个非负常量值的一维ND张量，且数据类型必须与`input`相同。
 - `weights`不可省略，rank不能超过2。无权重时传入零元素张量；非空时元素数量必须与`input`相同，按展平顺序逐元素对应，不要求与`input`逐维同shape。
 - <term>Ascend 950PR&950DT系列产品</term>：
   - `weights`为FLOAT32类型ND张量，rank不能超过2；元素数量为0时表示不使用权重，非空时元素数量必须与`input`相同。
-  - 支持`input`任意维度大小为0或`size[0]`为0。`input`的shape为`[0]`时，输出shape为`[size[0]]`；shape为`[N, 0]`时，输出shape为`[N, size[0]]`；shape为`[0, N]`或`[0, 0]`时，输出shape为`[0, size[0]]`。`size[0]`为0时，输出最后一维大小为0。
-  - 输出元素数`rows * size[0]`不能超过INT64索引可表示的FLOAT32元素数量上限，且输出张量所需存储必须能由运行环境分配；一维输入的`rows`取1。
+  - 支持`input`任意维度大小为0或`M`为0。`input`的shape为`[0]`时，输出shape为`[M]`；shape为`[N, 0]`时，输出shape为`[N, M]`；shape为`[0, N]`或`[0, 0]`时，输出shape为`[0, M]`。`M`为0时，输出最后一维大小为0。
+  - 输出元素数`rows * M`不能超过INT64索引可表示的FLOAT32元素数量上限，且输出张量所需存储必须能由运行环境分配；一维输入的`rows`取1。
 - <term>Atlas A3训练系列产品/Atlas A3推理系列产品</term>、<term>Atlas A2训练系列产品/Atlas A2推理系列产品</term>：
   - 沿用既有实现的空Tensor处理边界。
   - `weights`的rank不能超过2；元素数量为0时表示不使用权重，非空时元素数量必须与`input`相同，不要求与`input`逐维同shape。
-  - `size[0]`、输入维度大小和输入元素数量必须在INT32范围内。
+  - `M`、输入维度大小和输入元素数量必须在INT32范围内。
 - 本算子仅支持GE图模式和TensorFlow图解析通路调用，不提供公开的aclnn接口。
 
 ## 调用说明

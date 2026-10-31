@@ -168,6 +168,15 @@ TEST(DenseBincountTiling, optional_binary_output_defaults_to_false)
     EXPECT_EQ(omittedResult.key, explicitResult.key);
 }
 
+TEST(DenseBincountTiling, scalar_size_shape_is_supported)
+{
+    DenseBincountTilingCase scalarSize;
+    scalarSize.sizeShape = {};
+    const auto result = RunTiling(scalarSize);
+    ASSERT_EQ(result.status, ge::GRAPH_SUCCESS);
+    EXPECT_EQ(result.key, ND_ORDERED_TILING_KEY);
+}
+
 TEST(DenseBincountTiling, ordered_key_is_limited_to_bounded_weighted_accumulation)
 {
     DenseBincountTilingCase normal;
@@ -402,6 +411,12 @@ TEST(DenseBincountTiling, rejects_invalid_contracts_and_platform_limits)
 
     DenseBincountTilingCase invalidSizeShape;
     invalidSizeShape.sizeShape = {1, 1};
+    EXPECT_EQ(RunTiling(invalidSizeShape).status, ge::GRAPH_FAILED);
+
+    invalidSizeShape.sizeShape = {2};
+    EXPECT_EQ(RunTiling(invalidSizeShape).status, ge::GRAPH_FAILED);
+
+    invalidSizeShape.sizeShape = {0};
     EXPECT_EQ(RunTiling(invalidSizeShape).status, ge::GRAPH_FAILED);
 
     DenseBincountTilingCase invalidWeightsDtype;

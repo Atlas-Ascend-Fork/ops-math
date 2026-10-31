@@ -9,6 +9,7 @@
  */
 
 #include "register/op_impl_registry.h"
+#include "op_common/op_host/tiling_base_util.h"
 #include "platform/platform_ascendc.h"
 #include "util/const_util.h"
 #include <algorithm>
@@ -165,11 +166,12 @@ static bool ValidateDenseBincountInputs(gert::TilingContext* context)
     OP_CHECK_NULL_WITH_CONTEXT(context, weightsDesc);
     OP_CHECK_NULL_WITH_CONTEXT(context, outputDesc);
     const auto rank = inputShape->GetStorageShape().GetDimNum();
+    const auto& sizeStorageShape = Ops::Base::EnsureNotScalar(sizeShape->GetStorageShape());
     const auto weightsRank = weightsShape->GetStorageShape().GetDimNum();
     const bool validDtype = inputDesc->GetDataType() == ge::DT_INT32 || inputDesc->GetDataType() == ge::DT_INT64;
     const bool validWeights = weightsDesc->GetDataType() == ge::DT_FLOAT;
-    if (rank < 1 || rank > 2 || sizeShape->GetStorageShape().GetDimNum() != 1 ||
-        sizeShape->GetStorageShape().GetShapeSize() != 1 || weightsRank > 2 || !validDtype ||
+    const bool validSizeShape = sizeStorageShape.GetDimNum() == 1 && sizeStorageShape.GetDim(0) == 1;
+    if (rank < 1 || rank > 2 || !validSizeShape || weightsRank > 2 || !validDtype ||
         sizeDesc->GetDataType() != inputDesc->GetDataType() || !validWeights ||
         outputDesc->GetDataType() != ge::DT_FLOAT) {
         OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "DenseBincount", "invalid",
