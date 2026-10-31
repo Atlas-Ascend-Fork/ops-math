@@ -206,6 +206,13 @@ std::tuple<aclTensor*, aclTensor*> TopkAiCpu(const aclTensor* self, const aclTen
 std::tuple<aclTensor*, aclTensor*> TopkCommon(const aclTensor* self, int64_t k, int64_t dim, bool largest, bool sorted,
                                               op::DataType indicesDType, int64_t sortPolicy, aclOpExecutor* executor)
 {
+    // A2/A3 use the legacy path that accesses the last axis by dimNum - 1.
+    // Rank-0 inputs are currently not executable on that path. Keep A5/RegBase behavior unchanged.
+    const auto curNpuArch = GetCurrentPlatformInfo().GetCurNpuArch();
+    if (curNpuArch == NpuArch::DAV_2201 && self->GetViewShape().GetDimNum() == 0) {
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "TopK rank-0 input is not supported on A2/A3.");
+        return std::tuple<aclTensor*, aclTensor*>(nullptr, nullptr);
+    }
     op::Shape outShape = self->GetStorageShape();
     outShape.SetDim(dim, k);
 
