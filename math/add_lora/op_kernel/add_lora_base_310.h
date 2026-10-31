@@ -22,13 +22,11 @@
 namespace AddLora310 {
 using namespace AscendC;
 
-class AddLoraKernelBase310
-{
+class AddLoraKernelBase310 {
 public:
     __aicore__ inline AddLoraKernelBase310(){};
-    __aicore__ inline void Init(
-        GM_ADDR y, GM_ADDR x, GM_ADDR weightA, GM_ADDR weightB, GM_ADDR indices, GM_ADDR y_out, GM_ADDR workSpace,
-        const AddLoraTilingData& tilingData, TPipe* pipe);
+    __aicore__ inline void Init(GM_ADDR y, GM_ADDR x, GM_ADDR weightA, GM_ADDR weightB, GM_ADDR indices, GM_ADDR y_out,
+                                GM_ADDR workSpace, const AddLoraTilingData& tilingData, TPipe* pipe);
     __aicore__ inline void Process();
 
 protected:
@@ -69,8 +67,10 @@ protected:
     int32_t coreId;
     int32_t coreNum;
     float scale;
-    uint32_t batchAccumulationByCurLora[MAX_WEIGHT_SIZE] = {0};
-    uint32_t batchNumOfLora[MAX_WEIGHT_SIZE] = {0};
+    // Include the prefix sum at wBatch, where batches with negative indices begin.
+    uint32_t batchAccumulationByCurLora[MAX_WEIGHT_SIZE + 1] = {0};
+    // The extra entry is the bucket used for negative (disabled) indices.
+    uint32_t batchNumOfLora[MAX_WEIGHT_SIZE + 1] = {0};
 
     // TQue
     AscendC::TPipe* pipe_;
@@ -105,29 +105,26 @@ protected:
     LocalTensor<int32_t> allZeroTensor;
 
     __aicore__ inline void InitTilingData(const AddLoraTilingData& tilingData);
-    __aicore__ inline void InitGlobalTensor(
-        GM_ADDR y, GM_ADDR x, GM_ADDR wa_t_all, GM_ADDR wb_t_all, GM_ADDR indices, GM_ADDR output);
+    __aicore__ inline void InitGlobalTensor(GM_ADDR y, GM_ADDR x, GM_ADDR wa_t_all, GM_ADDR wb_t_all, GM_ADDR indices,
+                                            GM_ADDR output);
     __aicore__ inline void InitWorkSpace(GM_ADDR workSpace);
     __aicore__ inline void InitBuffers();
     __aicore__ inline void xDataRearrange();
-    __aicore__ inline void CopyInL1A(
-        GlobalTensor<half> srcGm, uint32_t mToProcess, uint32_t kToProcess, uint32_t srcDvalue);
-    __aicore__ inline void CopyInL1BNd(
-        GlobalTensor<half> srcWeightGm, uint32_t kToProcess, uint32_t nToProcess, uint32_t srcN, uint32_t srcDvalue);
+    __aicore__ inline void CopyInL1A(GlobalTensor<half> srcGm, uint32_t mToProcess, uint32_t kToProcess,
+                                     uint32_t srcDvalue);
+    __aicore__ inline void CopyInL1BNd(GlobalTensor<half> srcWeightGm, uint32_t kToProcess, uint32_t nToProcess,
+                                       uint32_t srcN, uint32_t srcDvalue);
     __aicore__ inline void SplitA(uint32_t mToProcess, uint32_t kToProcess);
     __aicore__ inline void SplitB(uint32_t kToProcess, uint32_t nToProcess);
-    __aicore__ inline void doMatmul(
-        LocalTensor<float> l0cLocal, LocalTensor<half> l0aLocal, LocalTensor<half> l0bLocal, uint32_t kIdx_,
-        uint32_t mToProcess, uint32_t kToProcess, uint32_t nToProcess);
+    __aicore__ inline void doMatmul(LocalTensor<float> l0cLocal, LocalTensor<half> l0aLocal, LocalTensor<half> l0bLocal,
+                                    uint32_t kIdx_, uint32_t mToProcess, uint32_t kToProcess, uint32_t nToProcess);
     __aicore__ inline uint32_t RoundUp16(uint32_t len);
     __aicore__ inline uint32_t CeilCubeBlock(uint32_t len);
 };
 
-class AddLoraKernel310 : public AddLoraKernelBase310
-{
+class AddLoraKernel310 : public AddLoraKernelBase310 {
 public:
-    __aicore__ inline AddLoraKernel310()
-    {}
+    __aicore__ inline AddLoraKernel310() {}
     __aicore__ inline void Process();
 
 protected:
@@ -137,15 +134,13 @@ protected:
     __aicore__ inline void UpdateByWeightB();
     __aicore__ inline void CopyL0cToUb(LocalTensor<half> ubTensor, uint32_t mToProcess, uint32_t nToProcess);
     __aicore__ inline void CopyMm1ResOut(uint32_t mToProcess, uint32_t mOffset, uint32_t l0cPingPongFlag);
-    __aicore__ inline void CopyFinalResOutAdd(
-        uint32_t batchToProcess, uint32_t H2ToProcess, uint32_t batchOffset, uint32_t H2Offset, uint32_t pingPongFlag);
+    __aicore__ inline void CopyFinalResOutAdd(uint32_t batchToProcess, uint32_t H2ToProcess, uint32_t batchOffset,
+                                              uint32_t H2Offset, uint32_t pingPongFlag);
 };
 
-class AddLoraSparse310 : public AddLoraKernelBase310
-{
+class AddLoraSparse310 : public AddLoraKernelBase310 {
 public:
-    __aicore__ inline AddLoraSparse310()
-    {}
+    __aicore__ inline AddLoraSparse310() {}
     __aicore__ inline void Process();
 
 protected:
@@ -162,12 +157,11 @@ protected:
     __aicore__ inline void UpdateByWeightB();
     __aicore__ inline void CopyL0cToUb(LocalTensor<half> ubTensor, uint32_t nToProcess);
     __aicore__ inline void CopyMm1ResOut();
-    __aicore__ inline void CopyFinalResOutAdd(
-        uint32_t batchToProcess, uint32_t H2ToProcess, uint32_t batchOffset, uint32_t H2Offset, uint32_t pingPongFlag);
+    __aicore__ inline void CopyFinalResOutAdd(uint32_t batchToProcess, uint32_t H2ToProcess, uint32_t batchOffset,
+                                              uint32_t H2Offset, uint32_t pingPongFlag);
 };
 
-class BgmvKernel310 : public AddLoraKernelBase310
-{
+class BgmvKernel310 : public AddLoraKernelBase310 {
 public:
     __aicore__ inline BgmvKernel310(){};
     __aicore__ inline void Process();
@@ -177,13 +171,13 @@ protected:
     __aicore__ inline void ComputeIndicesInfo();
     __aicore__ inline void UpdateByWeightB();
     __aicore__ inline void CopyL0cToUb(LocalTensor<half> ubTensor, uint32_t mToProcess, uint32_t nToProcess);
-    __aicore__ inline void CopyFinalResOutAdd(
-        uint32_t batchToProcess, uint32_t H2ToProcess, uint32_t batchOffset, uint32_t H2Offset, uint32_t pingPongFlag);
+    __aicore__ inline void CopyFinalResOutAdd(uint32_t batchToProcess, uint32_t H2ToProcess, uint32_t batchOffset,
+                                              uint32_t H2Offset, uint32_t pingPongFlag);
 };
 
-__aicore__ inline void AddLoraKernelBase310::Init(
-    GM_ADDR y, GM_ADDR x, GM_ADDR weightA, GM_ADDR weightB, GM_ADDR indices, GM_ADDR y_out, GM_ADDR workSpace,
-    const AddLoraTilingData& tilingData, TPipe* pipe)
+__aicore__ inline void AddLoraKernelBase310::Init(GM_ADDR y, GM_ADDR x, GM_ADDR weightA, GM_ADDR weightB,
+                                                  GM_ADDR indices, GM_ADDR y_out, GM_ADDR workSpace,
+                                                  const AddLoraTilingData& tilingData, TPipe* pipe)
 {
     pipe_ = pipe;
     coreId = GetBlockIdx();
@@ -226,8 +220,8 @@ __aicore__ inline void AddLoraKernelBase310::InitTilingData(const AddLoraTilingD
     }
 }
 
-__aicore__ inline void AddLoraKernelBase310::InitGlobalTensor(
-    GM_ADDR y, GM_ADDR x, GM_ADDR wa_t_all, GM_ADDR wb_t_all, GM_ADDR indices, GM_ADDR output)
+__aicore__ inline void AddLoraKernelBase310::InitGlobalTensor(GM_ADDR y, GM_ADDR x, GM_ADDR wa_t_all, GM_ADDR wb_t_all,
+                                                              GM_ADDR indices, GM_ADDR output)
 {
     yGm_.SetGlobalBuffer((__gm__ half*)y, batchSize * y_column);
     xGm_.SetGlobalBuffer((__gm__ half*)x, batchSize * H1);
@@ -304,8 +298,8 @@ __aicore__ inline void AddLoraKernelBase310::xDataRearrange()
     }
 }
 
-__aicore__ inline void AddLoraKernelBase310::CopyInL1A(
-    GlobalTensor<half> srcGm, uint32_t mToProcess, uint32_t kToProcess, uint32_t srcDvalue)
+__aicore__ inline void AddLoraKernelBase310::CopyInL1A(GlobalTensor<half> srcGm, uint32_t mToProcess,
+                                                       uint32_t kToProcess, uint32_t srcDvalue)
 {
     AscendC::LocalTensor<half> a1Local = inQueueA1.AllocTensor<half>();
 
@@ -328,8 +322,8 @@ __aicore__ inline void AddLoraKernelBase310::CopyInL1A(
     inQueueA1.EnQue(a1Local);
 }
 
-__aicore__ inline void AddLoraKernelBase310::CopyInL1BNd(
-    GlobalTensor<half> srcWeightGm, uint32_t kToProcess, uint32_t nToProcess, uint32_t srcN, uint32_t srcDvalue)
+__aicore__ inline void AddLoraKernelBase310::CopyInL1BNd(GlobalTensor<half> srcWeightGm, uint32_t kToProcess,
+                                                         uint32_t nToProcess, uint32_t srcN, uint32_t srcDvalue)
 {
     AscendC::LocalTensor<half> b1Local = inQueueB1.AllocTensor<half>();
 
@@ -394,9 +388,9 @@ __aicore__ inline void AddLoraKernelBase310::SplitB(uint32_t kToProcess, uint32_
     inQueueB1.FreeTensor(b1Local);
 }
 
-__aicore__ inline void AddLoraKernelBase310::doMatmul(
-    LocalTensor<float> l0cLocal, LocalTensor<half> l0aLocal, LocalTensor<half> l0bLocal, uint32_t kIdx_,
-    uint32_t mToProcess, uint32_t kToProcess, uint32_t nToProcess)
+__aicore__ inline void AddLoraKernelBase310::doMatmul(LocalTensor<float> l0cLocal, LocalTensor<half> l0aLocal,
+                                                      LocalTensor<half> l0bLocal, uint32_t kIdx_, uint32_t mToProcess,
+                                                      uint32_t kToProcess, uint32_t nToProcess)
 {
     AscendC::MmadParams mmadParams;
     mmadParams.m = mToProcess;
