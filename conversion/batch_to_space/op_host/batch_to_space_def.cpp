@@ -38,7 +38,6 @@ static constexpr std::array<std::array<ge::DataType, DATA_TYPE_COMBINE_COUNT>, 2
 static constexpr auto DATA_TYPE_LIST = CombineDataTypes();
 static constexpr auto& X_DATA_TYPE_LIST = std::get<0>(DATA_TYPE_LIST);
 static constexpr auto& CROPS_DATA_TYPE_LIST = std::get<1>(DATA_TYPE_LIST);
-static const auto NHWC_FORMAT_LIST = std::vector<ge::Format>(DATA_TYPE_COMBINE_COUNT, ge::FORMAT_NHWC);
 static const auto ND_FORMAT_LIST = std::vector<ge::Format>(DATA_TYPE_COMBINE_COUNT, ge::FORMAT_ND);
 
 class BatchToSpace : public OpDef {
@@ -48,8 +47,8 @@ public:
         this->Input("x")
             .ParamType(REQUIRED)
             .DataType(std::vector<ge::DataType>(X_DATA_TYPE_LIST.begin(), X_DATA_TYPE_LIST.end()))
-            .Format(NHWC_FORMAT_LIST)
-            .UnknownShapeFormat(NHWC_FORMAT_LIST);
+            .Format(ND_FORMAT_LIST)
+            .UnknownShapeFormat(ND_FORMAT_LIST);
 
         this->Input("crops")
             .ParamType(REQUIRED)
@@ -61,8 +60,8 @@ public:
         this->Output("y")
             .ParamType(REQUIRED)
             .DataType(std::vector<ge::DataType>(X_DATA_TYPE_LIST.begin(), X_DATA_TYPE_LIST.end()))
-            .Format(NHWC_FORMAT_LIST)
-            .UnknownShapeFormat(NHWC_FORMAT_LIST);
+            .Format(ND_FORMAT_LIST)
+            .UnknownShapeFormat(ND_FORMAT_LIST);
 
         this->Attr("block_size").AttrType(REQUIRED).Int();
 

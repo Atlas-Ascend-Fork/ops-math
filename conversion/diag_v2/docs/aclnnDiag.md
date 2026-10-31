@@ -77,7 +77,7 @@ aclnnStatus aclnnDiag(
       <td>self（aclTensor*）</td>
       <td>输入</td>
       <td>表示填充到对角线的Tensor。</td>
-      <td>self最大维度不能超过2。</td>
+      <td><ul><li>self最大维度不能超过2。</li><li>空Tensor支持度：支持。self为空Tensor时，diagonal为0则输出为空Tensor；|diagonal|&gt;0时输出为(|diagonal|, |diagonal|)的全零矩阵。</li></ul></td>
       <td>FLOAT、FLOAT16、DOUBLE、INT32、INT64、INT16、INT8、UINT8、BOOL、COMPLEX64、BFLOAT16。</td>
       <td>ND</td>
       <td>1、2</td>
@@ -89,9 +89,9 @@ aclnnStatus aclnnDiag(
       <td>对应逻辑表达中的对角线输入。</td>
       <td>-</td>
       <td>INT64</td>
-      <td>ND</td>
       <td>-</td>
-      <td>√</td>
+      <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
       <td>out（aclTensor*）</td>
@@ -125,6 +125,14 @@ aclnnStatus aclnnDiag(
     </tr>
   </tbody></table>
 
+- 数据类型差异：
+<!-- npu="910" id7 -->
+  - Atlas训练系列产品：不支持BFLOAT16。
+<!-- end id7 -->
+<!-- npu="310p" id8 -->
+  - Atlas推理系列产品：不支持BFLOAT16。
+<!-- end id8 -->
+
 - **返回值：**
 
   aclnnStatus：返回状态码，具体参见[aclnn返回码](../../../docs/zh/context/aclnn_return_code.md)。
@@ -153,7 +161,7 @@ aclnnStatus aclnnDiag(
       <td>self和out的数据类型不在支持的范围之内。</td>
     </tr>
     <tr>
-      <td>diagonal不在支持的数据类型范围之内。</td>
+      <td>self的维度不在支持范围（1、2维）之内。</td>
     </tr>
     <tr>
       <td>out的shape与实际输出shape不匹配。</td>

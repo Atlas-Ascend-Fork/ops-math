@@ -119,8 +119,11 @@ static ge::graphStatus GetShapeAttrsInfo(gert::TilingContext* context, int64_t* 
     OP_CHECK_IF(outputStorageShape.GetDimNum() > MAX_DIM_NUM,
                 OP_LOGE(context, "Cosh: output rank must be <= 8, got %zu", outputStorageShape.GetDimNum()),
                 return ge::GRAPH_FAILED);
-    OP_CHECK_IF(inputStorageShape != outputStorageShape,
-                OP_LOGE(context, "Cosh: input and output shapes must be identical"), return ge::GRAPH_FAILED);
+    auto outputShapeY = EnsureNotScalar(outputStorageShape);
+    // rank-0 标量输入在 GE 侧会被归一化为 {1} 而输出描述符保持 rank-0：
+    // 两侧统一经 EnsureNotScalar 折算后再比较，避免 () 与 (1,) 的存储形态差异误判为形状不一致。
+    OP_CHECK_IF(inputShapeX != outputShapeY, OP_LOGE(context, "Cosh: input and output shapes must be identical"),
+                return ge::GRAPH_FAILED);
     OP_CHECK_IF(outputDesc->GetDataType() != *dataType,
                 OP_LOGE(context, "Cosh: output dtype must match input dtype: input=%d, output=%d",
                         static_cast<int>(*dataType), static_cast<int>(outputDesc->GetDataType())),

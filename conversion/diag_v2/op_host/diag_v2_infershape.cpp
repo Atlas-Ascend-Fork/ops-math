@@ -13,6 +13,7 @@
  * \brief
  */
 #include <cmath>
+#include <limits>
 #include <string>
 #include "register/op_impl_registry.h"
 #include "log/log.h"
@@ -58,6 +59,14 @@ static ge::graphStatus Infershape4DiagV2(gert::InferShapeContext* context)
                 return ge::GRAPH_FAILED);
     int64_t diagonal = *pkAxisAttrIdx;
 
+    // 端点保护：diagonal 取 INT64_MIN 时 std::abs(diagonal) 与 -diagonal 均有符号溢出（UB），
+    // 会推导出非法负维；该值也远超公开合法域 -(m-1) <= diagonal <= (n-1)，直接拒绝。
+    OP_CHECK_IF(
+        diagonal == std::numeric_limits<int64_t>::min(),
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "diagonal", std::to_string(diagonal).c_str(),
+                                              "diagonal is out of the representable range"),
+        return ge::GRAPH_FAILED);
+
     // 获取输出值shape
     gert::Shape* output_y_shape = context->GetOutputShape(DiagV2_OUT_Y_IDX);
     OP_CHECK_NULL_WITH_CONTEXT(context, output_y_shape);
@@ -74,6 +83,11 @@ static ge::graphStatus Infershape4DiagV2(gert::InferShapeContext* context)
             output_y_shape->SetDimNum(1);
             output_y_shape->SetDim(0, NEG_ONE);
         }
+    } else if (x_dim_num == 0) {
+        // 公开契约声明输入 rank ∈ [1, 2]，rank=0 标量不得静默按 1D→2D 推导出方阵
+        OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "x", std::to_string(x_dim_num).c_str(),
+                                                 "rank must be 1 or 2");
+        return ge::GRAPH_FAILED;
     } else if (x_dim_num < DIM_TWO) { // 1D->2D
         output_y_shape->SetDimNum(0);
         // 获取元素element的个数

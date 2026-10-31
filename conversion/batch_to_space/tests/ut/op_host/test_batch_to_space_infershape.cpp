@@ -62,6 +62,9 @@ TEST_F(BatchToSpaceInfershapeTest, batch_to_space_nonconst_crops_valid_shape)
 
 TEST_F(BatchToSpaceInfershapeTest, batch_to_space_nonconst_crops_wrong_element_count)
 {
+    // 非 const crops 不在推理阶段校验元素数（对齐 batch_to_space_nd）：
+    // 动态图下非 const crops 的形状是未知描述符（-1/-2），GetShapeSize() 是无意义值，
+    // 据此拒绝会阻断合法动态图；错误元素数交由运行时 tiling 以真实形状拒绝。
     gert::InfershapeContextPara infershapeContextPara(
         "BatchToSpace",
         {
@@ -75,7 +78,50 @@ TEST_F(BatchToSpaceInfershapeTest, batch_to_space_nonconst_crops_wrong_element_c
             gert::InfershapeContextPara::OpAttr("block_size", Ops::Math::AnyValue::CreateFrom<int64_t>(2)),
         });
 
-    ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED);
+    std::vector<std::vector<int64_t>> expectOutputShape = {{2, -1, -1, 128}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+TEST_F(BatchToSpaceInfershapeTest, batch_to_space_nonconst_crops_unknown_rank_desc)
+{
+    // 动态图未知秩描述符（-2，TTK geir dynamic 模式实测形态）：不得被
+    // "crops must have 4 elements, got -2" 误拒；输出 H/W 未知，C 原样透传。
+    gert::InfershapeContextPara infershapeContextPara(
+        "BatchToSpace",
+        {
+            {{{8, 28, 28, 128}, {8, 28, 28, 128}}, ge::DT_FLOAT16, ge::FORMAT_NHWC},
+            {{{-2}, {-2}}, ge::DT_INT64, ge::FORMAT_ND},
+        },
+        {
+            {{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_NHWC},
+        },
+        {
+            gert::InfershapeContextPara::OpAttr("block_size", Ops::Math::AnyValue::CreateFrom<int64_t>(2)),
+        });
+
+    std::vector<std::vector<int64_t>> expectOutputShape = {{2, -1, -1, 128}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+TEST_F(BatchToSpaceInfershapeTest, batch_to_space_nonconst_crops_unknown_dims_desc)
+{
+    // 动态图已知秩、未知维描述符（-1,-1，TTK geir dynamic 模式实测形态，
+    // GetShapeSize() 值为 1）：同上不得误拒。
+    gert::InfershapeContextPara infershapeContextPara(
+        "BatchToSpace",
+        {
+            {{{8, 28, 28, 128}, {8, 28, 28, 128}}, ge::DT_FLOAT16, ge::FORMAT_NHWC},
+            {{{-1, -1}, {-1, -1}}, ge::DT_INT64, ge::FORMAT_ND},
+        },
+        {
+            {{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_NHWC},
+        },
+        {
+            gert::InfershapeContextPara::OpAttr("block_size", Ops::Math::AnyValue::CreateFrom<int64_t>(2)),
+        });
+
+    std::vector<std::vector<int64_t>> expectOutputShape = {{2, -1, -1, 128}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
 
 TEST_F(BatchToSpaceInfershapeTest, batch_to_space_const_crops_wrong_element_count)

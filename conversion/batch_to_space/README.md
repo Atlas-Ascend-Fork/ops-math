@@ -51,8 +51,8 @@
       <td>x</td>
       <td>输入</td>
       <td>表示输入张量，4D NHWC张量 [N*bs*bs, H_in, W_in, C]，支持多种数据类型</td>
-      <td>FLOAT、FLOAT16、BF16、INT8、INT16、INT32、UINT8、UINT16、INT64、DOUBLE</td>
-      <td>NHWC</td>
+      <td>FLOAT、FLOAT16、BFLOAT16、INT8、INT16、INT32、UINT8、UINT16、INT64、DOUBLE</td>
+      <td>ND</td>
     </tr>
     <tr>
       <td>crops</td>
@@ -73,18 +73,18 @@
       <td>输出</td>
       <td>表示输出张量，与输入x具有相同的数据类型。输出形状为 [N_out, H_out, W_out, C]</td>
       <td>与x一致</td>
-      <td>NHWC</td>
+      <td>ND</td>
     </tr>
   </tbody>
 </table>
 
 ## 约束说明
 
-- 输入张量x必须为4D NHWC格式。
+- 输入张量x必须为4D张量（逻辑布局 NHWC，存储格式 ND），形状为 [N * bs * bs, H_in, W_in, C]。
 - block_size必须大于0。
 - 输入batch维度N_in必须能被block_size × block_size整除。
 - crops形状为 [2, 2]，每个元素 >= 0。
-- 裁剪后空间维度必须大于0：H_in × block_size - crop_top - crop_bottom > 0，W_in × block_size - crop_left - crop_right > 0。
+- 裁剪后空间维度不能为负：H_in × block_size - crop_top - crop_bottom >= 0，W_in × block_size - crop_left - crop_right >= 0（等于 0 表示该空间维度输出为空张量）。
 
 ## 调用说明
 

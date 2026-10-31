@@ -29,8 +29,7 @@ __aicore__ inline constexpr bool IsDataCopyPadSupport()
 #endif
 }
 
-enum DiagV2TilingKey
-{
+enum DiagV2TilingKey {
     ASSIST_SIZE_1 = 2101,
     ASSIST_SIZE_2 = 2102,
     ASSIST_SIZE_4 = 2103,
@@ -44,8 +43,7 @@ enum DiagV2TilingKey
 };
 
 template <typename T>
-class DiagV2Base
-{
+class DiagV2Base {
 public:
     __aicore__ inline DiagV2Base(){};
 
@@ -64,15 +62,14 @@ protected:
         tensor_new = tensor_old.template ReinterpretCast<T1>();
     };
     __aicore__ inline void ParseTilingData(const DiagV2TilingData* tilingData, DiagV2TilingData& m_tilingData);
-    __aicore__ inline void CopyIn(
-        LocalTensor<T>& xLocal, const GlobalTensor<T>& xGm, const DiagV2TilingData& m_tilingData, const int64_t& index,
-        const int64_t& dataCount);
-    __aicore__ inline void CopyInNotAlign(
-        LocalTensor<T>& xLocal, const GlobalTensor<T>& xGm, const DiagV2TilingData& m_tilingData, const int64_t& index,
-        const int64_t& dataCount);
-    __aicore__ inline void CopyInWithPad(
-        LocalTensor<T>& xLocal, const GlobalTensor<T>& xGm, const DiagV2TilingData& m_tilingData, const int64_t& index,
-        const int64_t& dataCount);
+    __aicore__ inline void CopyIn(LocalTensor<T>& xLocal, const GlobalTensor<T>& xGm,
+                                  const DiagV2TilingData& m_tilingData, const int64_t& index, const int64_t& dataCount);
+    __aicore__ inline void CopyInNotAlign(LocalTensor<T>& xLocal, const GlobalTensor<T>& xGm,
+                                          const DiagV2TilingData& m_tilingData, const int64_t& index,
+                                          const int64_t& dataCount);
+    __aicore__ inline void CopyInWithPad(LocalTensor<T>& xLocal, const GlobalTensor<T>& xGm,
+                                         const DiagV2TilingData& m_tilingData, const int64_t& index,
+                                         const int64_t& dataCount);
 
 private:
     constexpr static int32_t blockSize = 32;
@@ -81,8 +78,8 @@ private:
 };
 
 template <typename T>
-__aicore__ inline void DiagV2Base<T>::ParseTilingData(
-    const DiagV2TilingData* tilingData, DiagV2TilingData& m_tilingData)
+__aicore__ inline void DiagV2Base<T>::ParseTilingData(const DiagV2TilingData* tilingData,
+                                                      DiagV2TilingData& m_tilingData)
 {
     m_tilingData.xWidth = tilingData->xWidth;
     m_tilingData.xHeight = tilingData->xHeight;
@@ -96,48 +93,47 @@ __aicore__ inline void DiagV2Base<T>::ParseTilingData(
 }
 
 template <typename T>
-__aicore__ inline void DiagV2Base<T>::CopyInWithPad(
-    LocalTensor<T>& xLocal, const GlobalTensor<T>& xGm, const DiagV2TilingData& m_tilingData, const int64_t& index,
-    const int64_t& dataCount)
+__aicore__ inline void DiagV2Base<T>::CopyInWithPad(LocalTensor<T>& xLocal, const GlobalTensor<T>& xGm,
+                                                    const DiagV2TilingData& m_tilingData, const int64_t& index,
+                                                    const int64_t& dataCount)
 {
-    int64_t blockOffset =
-        (GetBlockIdx() * m_tilingData.numPerCore + index * m_tilingData.matrixRowLength) * (m_tilingData.xWidth + 1) +
-        m_tilingData.gmOffset;
+    int64_t blockOffset = (GetBlockIdx() * m_tilingData.numPerCore + index * m_tilingData.matrixRowLength) *
+                              (m_tilingData.xWidth + 1) +
+                          m_tilingData.gmOffset;
 
     for (int64_t idx = 0; idx < dataCount; idx++) {
         DataCopyExtParams copyParams = {1, 0, 0, 0, 0};
         copyParams.blockLen = dataCount * sizeof(T);
         DataCopyPadExtParams<T> padParams = {false, 0, 0, 0};
-        DataCopyPad(
-            xLocal[idx * m_tilingData.matrixRowLength], xGm[blockOffset + idx * m_tilingData.xWidth], copyParams,
-            padParams);
+        DataCopyPad(xLocal[idx * m_tilingData.matrixRowLength], xGm[blockOffset + idx * m_tilingData.xWidth],
+                    copyParams, padParams);
     }
 }
 
 template <typename T>
-__aicore__ inline void DiagV2Base<T>::CopyInNotAlign(
-    LocalTensor<T>& xLocal, const GlobalTensor<T>& xGm, const DiagV2TilingData& m_tilingData, const int64_t& index,
-    const int64_t& dataCount)
+__aicore__ inline void DiagV2Base<T>::CopyInNotAlign(LocalTensor<T>& xLocal, const GlobalTensor<T>& xGm,
+                                                     const DiagV2TilingData& m_tilingData, const int64_t& index,
+                                                     const int64_t& dataCount)
 {
     int64_t loopTailAlign = this->CeilDiv(dataCount, perBlockNum) * perBlockNum;
-    int64_t blockOffset =
-        (GetBlockIdx() * m_tilingData.numPerCore + index * m_tilingData.matrixRowLength - (loopTailAlign - dataCount)) *
-            (m_tilingData.xWidth + 1) +
-        m_tilingData.gmOffset;
+    int64_t blockOffset = (GetBlockIdx() * m_tilingData.numPerCore + index * m_tilingData.matrixRowLength -
+                           (loopTailAlign - dataCount)) *
+                              (m_tilingData.xWidth + 1) +
+                          m_tilingData.gmOffset;
     for (int64_t idx = 0; idx < loopTailAlign; idx++) {
-        DataCopy(
-            xLocal[idx * m_tilingData.matrixRowLength], xGm[blockOffset + idx * m_tilingData.xWidth], loopTailAlign);
+        DataCopy(xLocal[idx * m_tilingData.matrixRowLength], xGm[blockOffset + idx * m_tilingData.xWidth],
+                 loopTailAlign);
     }
 }
 
 template <typename T>
-__aicore__ inline void DiagV2Base<T>::CopyIn(
-    LocalTensor<T>& xLocal, const GlobalTensor<T>& xGm, const DiagV2TilingData& m_tilingData, const int64_t& index,
-    const int64_t& dataCount)
+__aicore__ inline void DiagV2Base<T>::CopyIn(LocalTensor<T>& xLocal, const GlobalTensor<T>& xGm,
+                                             const DiagV2TilingData& m_tilingData, const int64_t& index,
+                                             const int64_t& dataCount)
 {
-    int64_t blockOffset =
-        (GetBlockIdx() * m_tilingData.numPerCore + index * m_tilingData.matrixRowLength) * (m_tilingData.xWidth + 1) +
-        m_tilingData.gmOffset;
+    int64_t blockOffset = (GetBlockIdx() * m_tilingData.numPerCore + index * m_tilingData.matrixRowLength) *
+                              (m_tilingData.xWidth + 1) +
+                          m_tilingData.gmOffset;
     int64_t loopTailAlign = this->CeilDiv(dataCount, perBlockNum) * perBlockNum;
     if ((m_tilingData.xWidth - loopTailAlign) % perBlockNum == 0 &&
         (m_tilingData.xWidth - loopTailAlign) / perBlockNum <= maxBlockStride) {
@@ -151,9 +147,8 @@ __aicore__ inline void DiagV2Base<T>::CopyIn(
         DataCopy(xLocal, xGm[blockOffset], intriParams);
     } else {
         for (int64_t idx = 0; idx < dataCount; idx++) {
-            DataCopy(
-                xLocal[idx * m_tilingData.matrixRowLength], xGm[blockOffset + idx * m_tilingData.xWidth],
-                loopTailAlign);
+            DataCopy(xLocal[idx * m_tilingData.matrixRowLength], xGm[blockOffset + idx * m_tilingData.xWidth],
+                     loopTailAlign);
         }
     }
 }

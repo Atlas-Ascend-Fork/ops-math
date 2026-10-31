@@ -20,6 +20,15 @@ static ge::graphStatus InferShape4Cosh(gert::InferShapeContext* context)
 {
     ge::graphStatus ret = Ops::Base::InferShape4Elewise(context);
     if (ret == ge::GRAPH_SUCCESS) {
+        // rank-0 标量输入：GE 侧输入存储已归一化为 {1}，而 AscendC 编译侧
+        // DFX/oom 代码生成以 reduce(shape) 计算参数字节数，无法处理空 shape（rank-0 输出
+        // 会导致 reduce 空序列异常）。故输出统一归一化为 {1}，与输入存储形态及
+        // 平台既有标量表示约定保持一致（元素数不变，均为 1）。
+        auto outShape = context->GetOutputShape(0);
+        if (outShape != nullptr && outShape->GetDimNum() == 0) {
+            outShape->SetDimNum(1);
+            outShape->SetDim(0, 1);
+        }
         OP_LOGI(context->GetNodeName(), "[InferShape] output shape=%s",
                 Ops::Base::ToString(*context->GetOutputShape(0)).c_str());
     }

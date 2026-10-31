@@ -81,7 +81,10 @@ static bool CheckDtypeValid(const aclTensor* self, const aclTensor* out)
 
 static bool CheckShape(const aclTensor* self)
 {
+    // 公开契约维度为 1、2（aclnnDiag.md「维度(shape)」列）：上限 2 与下限 1 均需校验，
+    // 原实现仅校验上限，0 维标量会静默路由到 DiagFlat 并产出 (1+|k|)^2 矩阵。
     OP_CHECK_MAX_DIM(self, DIM_TWO, return false);
+    OP_CHECK_MIN_DIM(self, 1, return false);
     return true;
 }
 

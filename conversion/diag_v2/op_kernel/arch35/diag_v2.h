@@ -38,13 +38,12 @@ constexpr int32_t DIAG_V2_BUFFER_NUM = 2;
 // ================================================================
 
 template <typename T>
-__simt_vf__ __aicore__ void SimtDiagV2(
-    __gm__ T* xGm,          // input matrix in GM
-    __ubuf__ T* yUb,        // output buffer in UB
-    int64_t curTileStart,   // start index (global output index)
-    int64_t curTileLen,     // number of elements in this tile
-    int64_t xWidth,         // input matrix width N
-    int64_t diagonal)       // diagonal offset k
+__simt_vf__ __aicore__ void SimtDiagV2(__gm__ T* xGm,        // input matrix in GM
+                                       __ubuf__ T* yUb,      // output buffer in UB
+                                       int64_t curTileStart, // start index (global output index)
+                                       int64_t curTileLen,   // number of elements in this tile
+                                       int64_t xWidth,       // input matrix width N
+                                       int64_t diagonal)     // diagonal offset k
 {
     for (int64_t idx = threadIdx.x; idx < curTileLen; idx += blockDim.x) {
         int64_t globalIdx = curTileStart + idx;
@@ -70,23 +69,22 @@ __simt_vf__ __aicore__ void SimtDiagV2(
 template <typename T>
 class DiagV2Simd {
 public:
-    __aicore__ inline void Init(GM_ADDR x, GM_ADDR y,
-                                 const DiagV2Arch35TilingData* tilingData)
+    __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, const DiagV2Arch35TilingData* tilingData)
     {
         td_ = tilingData;
         xGm_.SetGlobalBuffer((__gm__ T*)x);
         yGm_.SetGlobalBuffer((__gm__ T*)y);
-        pipe_.InitBuffer(outQueue_, DIAG_V2_BUFFER_NUM,
-                         static_cast<uint32_t>(td_->tileLength * sizeof(T)));
+        pipe_.InitBuffer(outQueue_, DIAG_V2_BUFFER_NUM, static_cast<uint32_t>(td_->tileLength * sizeof(T)));
 
         uint64_t blockIdx = GetBlockIdx();
         startIdx_ = blockIdx * td_->numPerCore;
-        endIdx_   = min(startIdx_ + td_->numPerCore, td_->numOut);
+        endIdx_ = min(startIdx_ + td_->numPerCore, td_->numOut);
     }
 
     __aicore__ inline void Process()
     {
-        if (startIdx_ >= endIdx_) return;
+        if (startIdx_ >= endIdx_)
+            return;
 
         int64_t curTileStart = startIdx_;
 
@@ -98,14 +96,8 @@ public:
             __ubuf__ T* yUb = reinterpret_cast<__ubuf__ T*>(outBuf.GetPhyAddr());
 
             // 2. Launch SIMT kernel: gather diagonal elements GM → UB
-            asc_vf_call<SimtDiagV2<T>>(
-                dim3(static_cast<uint32_t>(curTileLen)),
-                (__gm__ T*)xGm_.GetPhyAddr(),
-                yUb,
-                curTileStart,
-                curTileLen,
-                td_->xWidth,
-                td_->diagonal);
+            asc_vf_call<SimtDiagV2<T>>(dim3(static_cast<uint32_t>(curTileLen)), (__gm__ T*)xGm_.GetPhyAddr(), yUb,
+                                       curTileStart, curTileLen, td_->xWidth, td_->diagonal);
 
             // 3. EnQue: mark buffer ready for consumer
             outQueue_.EnQue(outBuf);
@@ -116,9 +108,9 @@ public:
             // 5. DMA: Copy UB → GM output
             DataCopyParams copyParams;
             copyParams.blockCount = 1;
-            copyParams.blockLen   = static_cast<uint16_t>(curTileLen * sizeof(T));
-            copyParams.srcStride  = 0;
-            copyParams.dstStride  = 0;
+            copyParams.blockLen = static_cast<uint16_t>(curTileLen * sizeof(T));
+            copyParams.srcStride = 0;
+            copyParams.dstStride = 0;
             DataCopyPad(yGm_[curTileStart], readyBuf, copyParams);
 
             // 6. Free UB buffer

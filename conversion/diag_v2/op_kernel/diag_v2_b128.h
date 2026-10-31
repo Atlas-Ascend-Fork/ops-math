@@ -21,8 +21,7 @@ namespace DiagV2 {
 using namespace AscendC;
 
 template <typename T>
-class DiagV2B128 : public DiagV2Base<T>
-{
+class DiagV2B128 : public DiagV2Base<T> {
 public:
     __aicore__ inline DiagV2B128(){};
     __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, GM_ADDR workspace, const DiagV2TilingData* tilingData);
@@ -108,8 +107,8 @@ __aicore__ inline void DiagV2B128<T>::Process()
 }
 
 template <typename T>
-__aicore__ inline void DiagV2B128<T>::ProcessLastBlock(
-    const LocalTensor<int16_t>& ubAssist, int64_t loopNum, int64_t loopTail)
+__aicore__ inline void DiagV2B128<T>::ProcessLastBlock(const LocalTensor<int16_t>& ubAssist, int64_t loopNum,
+                                                       int64_t loopTail)
 {
     int64_t loopTailAlign = this->CeilDiv(loopTail, perBlockNum) * perBlockNum;
     for (int64_t idx = 0; idx < loopNum; idx++) {
@@ -139,8 +138,8 @@ __aicore__ inline void DiagV2B128<T>::ProcessLastBlock(
 }
 
 template <typename T>
-__aicore__ inline void DiagV2B128<T>::ProcessPerBlock(
-    const LocalTensor<int16_t>& ubAssist, int64_t loopNum, int64_t loopTail)
+__aicore__ inline void DiagV2B128<T>::ProcessPerBlock(const LocalTensor<int16_t>& ubAssist, int64_t loopNum,
+                                                      int64_t loopTail)
 {
     for (int64_t idx = 0; idx < loopNum; idx++) {
         gmOutOffset = (blockIdx * m_tilingData.numPerCore + idx * m_tilingData.matrixRowLength) * 2;
@@ -162,11 +161,10 @@ __aicore__ inline void DiagV2B128<T>::CopyIn(int64_t index, int64_t dataCount)
     LocalTensor<T> xLocal = inQueueX.AllocTensor<T>();
     int64_t loopTailAlign = this->CeilDiv(dataCount, perBlockNum) * perBlockNum;
     for (int64_t idx = 0; idx < dataCount; idx++) {
-        DataCopy(
-            xLocal[idx * m_tilingData.matrixRowLength * 2],
-            xGm[blockOffset + index * m_tilingData.matrixRowLength * (m_tilingData.xWidth + 1) +
-                idx * m_tilingData.xWidth],
-            loopTailAlign * 2);
+        DataCopy(xLocal[idx * m_tilingData.matrixRowLength * 2],
+                 xGm[blockOffset + index * m_tilingData.matrixRowLength * (m_tilingData.xWidth + 1) +
+                     idx * m_tilingData.xWidth],
+                 loopTailAlign * 2);
     }
     inQueueX.EnQue(xLocal);
 }
@@ -177,12 +175,11 @@ __aicore__ inline void DiagV2B128<T>::CopyInNotAlign(int64_t index, int64_t data
     LocalTensor<T> xLocal = inQueueX.AllocTensor<T>();
     int64_t loopTailAlign = this->CeilDiv(dataCount, perBlockNum) * perBlockNum;
     for (int64_t idx = 0; idx < dataCount; idx++) {
-        DataCopy(
-            xLocal[idx * m_tilingData.matrixRowLength * 2],
-            xGm[blockOffset +
-                (index * m_tilingData.matrixRowLength - (loopTailAlign - dataCount)) * (m_tilingData.xWidth + 1) +
-                idx * m_tilingData.xWidth],
-            dataCount * 2);
+        DataCopy(xLocal[idx * m_tilingData.matrixRowLength * 2],
+                 xGm[blockOffset +
+                     (index * m_tilingData.matrixRowLength - (loopTailAlign - dataCount)) * (m_tilingData.xWidth + 1) +
+                     idx * m_tilingData.xWidth],
+                 dataCount * 2);
     }
     inQueueX.EnQue(xLocal);
 }
@@ -197,13 +194,11 @@ __aicore__ inline void DiagV2B128<T>::CopyInWithPad(int64_t index, int64_t dataC
     copyParams.blockLen = dataCount * 2 * sizeof(T);
     DataCopyPadExtParams<int32_t> padParams = {false, 0, 0, 0};
     for (int64_t idx = 0; idx < dataCount; idx++) {
-        DataCopyPad(
-            xLocalInt32[idx * m_tilingData.matrixRowLength * 4],
-            xGm32
-                [(blockOffset + index * m_tilingData.matrixRowLength * (m_tilingData.xWidth + 1) +
-                  idx * m_tilingData.xWidth) *
-                 2],
-            copyParams, padParams);
+        DataCopyPad(xLocalInt32[idx * m_tilingData.matrixRowLength * 4],
+                    xGm32[(blockOffset + index * m_tilingData.matrixRowLength * (m_tilingData.xWidth + 1) +
+                           idx * m_tilingData.xWidth) *
+                          2],
+                    copyParams, padParams);
     }
     inQueueX.EnQue(xLocal);
 }

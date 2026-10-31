@@ -32,7 +32,15 @@ class BatchToSpaceTestSpec:
         import tensorflow as tf
 
         crops = np.asarray(crops, dtype=np.int32).reshape(2, 2)
-        out = tf.raw_ops.BatchToSpace(input=x, crops=crops, block_size=block_size)
+        # tf.raw_ops.BatchToSpace 要求 block_size >= 2，而算子公开契约声明 block_size >= 1
+        # （spec.yaml/README/proto 一致）；bs=1 的合法域改走等价的 BatchToSpaceND
+        # （bs=1 时即纯裁剪），仍为 TF 三方参考。
+        if block_size >= 2:
+            out = tf.raw_ops.BatchToSpace(input=x, crops=crops, block_size=block_size)
+        else:
+            out = tf.raw_ops.BatchToSpaceND(
+                input=x, block_shape=[block_size, block_size], crops=crops
+            )
         return [out.numpy()]
 
     third_party = "tf.raw_ops.BatchToSpace"
@@ -72,9 +80,15 @@ class BatchToSpaceTfE2eTestSpec:
 
         with tf.device("/CPU:0"):
             crops = tf.cast(tf.reshape(crops, (2, 2)), tf.int32)
-            out = tf.raw_ops.BatchToSpace(
-                input=input, crops=crops, block_size=block_size
-            )
+            # 同 BatchToSpaceTestSpec：bs=1 的合法域走等价 BatchToSpaceND（TF v1 接口要求 bs>=2）
+            if block_size >= 2:
+                out = tf.raw_ops.BatchToSpace(
+                    input=input, crops=crops, block_size=block_size
+                )
+            else:
+                out = tf.raw_ops.BatchToSpaceND(
+                    input=input, block_shape=[block_size, block_size], crops=crops
+                )
         return [out]
 
     third_party = "tf.raw_ops.BatchToSpace"

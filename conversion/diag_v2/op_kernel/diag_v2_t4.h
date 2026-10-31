@@ -21,8 +21,7 @@ namespace DiagV2 {
 using namespace AscendC;
 
 template <typename T>
-class DiagV2T4 : public DiagV2Base<T>
-{
+class DiagV2T4 : public DiagV2Base<T> {
 public:
     __aicore__ inline DiagV2T4(){};
     __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, GM_ADDR workspace, const DiagV2TilingData* tilingData);
@@ -68,8 +67,8 @@ __aicore__ inline void DiagV2T4<T>::Init(GM_ADDR x, GM_ADDR y, GM_ADDR workspace
     pipe.InitBuffer(
         inQueueX, bufferNum,
         this->CeilDiv((m_tilingData.numPerCore * m_tilingData.xWidth) * sizeof(T), perBlockNum) * perBlockNum);
-    pipe.InitBuffer(
-        outQueueY, bufferNum, this->CeilDiv((m_tilingData.numPerCore) * sizeof(T), perBlockNum) * perBlockNum);
+    pipe.InitBuffer(outQueueY, bufferNum,
+                    this->CeilDiv((m_tilingData.numPerCore) * sizeof(T), perBlockNum) * perBlockNum);
 }
 
 template <typename T>
@@ -117,8 +116,8 @@ __aicore__ inline void DiagV2T4<T>::Compute(const int64_t& dataCount)
 }
 
 template <typename T>
-__aicore__ inline void DiagV2T4<T>::GetAndSetValue(
-    LocalTensor<T>& xLocal, LocalTensor<T>& yLocal, const int64_t& dataCount)
+__aicore__ inline void DiagV2T4<T>::GetAndSetValue(LocalTensor<T>& xLocal, LocalTensor<T>& yLocal,
+                                                   const int64_t& dataCount)
 {
     switch (sizeof(T)) {
         case SIZE_1: {

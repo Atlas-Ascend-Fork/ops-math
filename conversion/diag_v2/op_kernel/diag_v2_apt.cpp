@@ -29,8 +29,7 @@
 using namespace AscendC;
 
 template <int IS_1D_INPUT>
-__aicore__ inline void LaunchKernel(GM_ADDR x, GM_ADDR y,
-                                     const DiagV2Arch35TilingData* td)
+__aicore__ inline void LaunchKernel(GM_ADDR x, GM_ADDR y, const DiagV2Arch35TilingData* td)
 {
     if constexpr (IS_1D_INPUT == 0) {
         // 2D→1D: diagonal extraction
@@ -54,12 +53,12 @@ __aicore__ inline void LaunchKernel(GM_ADDR x, GM_ADDR y,
     } else {
         // 1D→2D: construct diagonal matrix, delegate to diag_flat kernel
         DiagFlatArch35TilingData flatTd;
-        flatTd.numInput    = td->numInput;
-        flatTd.diagonal    = td->diagonal;
-        flatTd.outWidth    = td->outWidth;
-        flatTd.outTotal    = td->outTotal;
-        flatTd.outPerCore  = td->outPerCore;
-        flatTd.tileLength  = td->tileLength;
+        flatTd.numInput = td->numInput;
+        flatTd.diagonal = td->diagonal;
+        flatTd.outWidth = td->outWidth;
+        flatTd.outTotal = td->outTotal;
+        flatTd.outPerCore = td->outPerCore;
+        flatTd.tileLength = td->tileLength;
         flatTd.realCoreNum = td->realCoreNum;
 
         // 8-byte types (complex64/double/int64/uint64): alias through int64_t
@@ -81,8 +80,7 @@ __aicore__ inline void LaunchKernel(GM_ADDR x, GM_ADDR y,
 }
 
 template <int IS_1D_INPUT>
-__global__ __aicore__ void diag_v2(
-    GM_ADDR x, GM_ADDR y, GM_ADDR workspace, GM_ADDR tiling)
+__global__ __aicore__ void diag_v2(GM_ADDR x, GM_ADDR y, GM_ADDR workspace, GM_ADDR tiling)
 {
     SetSysWorkspace(workspace);
     KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_AIV_ONLY);

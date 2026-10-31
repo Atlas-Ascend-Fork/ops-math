@@ -31,7 +31,7 @@ class CoshGraph(torch.nn.Module):
 
 
 def _as_numpy(x):
-    """Torch/numpy -> numpy，供 CPU golden 统一计算。"""
+    """Torch/TF/numpy -> numpy，供 CPU golden 统一计算。"""
     if isinstance(x, torch.Tensor):
         if x.dtype == torch.bfloat16:
             # numpy 无原生 bf16，torch 也不支持 bf16 张量直接 .numpy()
@@ -42,6 +42,11 @@ def _as_numpy(x):
 
             return x.detach().cpu().float().numpy().astype(ml_dtypes.bfloat16)
         return x.detach().cpu().numpy()
+    if hasattr(x, "numpy") and not isinstance(x, np.ndarray):
+        # TF 2.6.5：0 维 bfloat16 tf.Tensor 的 np.asarray 走 __array__ 协议会失败
+        # （ValueError: object __array__ method not producing an array），x.numpy()
+        # 可正确返回 ml_dtypes.bfloat16 数组；非 0 维及其他 dtype 不受影响。
+        x = x.numpy()
     return np.asarray(x)
 
 

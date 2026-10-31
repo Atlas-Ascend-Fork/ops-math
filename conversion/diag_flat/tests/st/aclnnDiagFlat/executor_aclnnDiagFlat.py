@@ -36,6 +36,6 @@ class MethodTorchDiagApi(BaseApi):
         else:
             device = "cpu"
 
-        output = torch.diagflat(input_tensor.reshape(-1).to(device), diagonal)
+        output = torch.diag(input_tensor.to(device), diagonal)
 
         return output

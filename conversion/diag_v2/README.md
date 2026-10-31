@@ -10,12 +10,16 @@
 | <term>Atlas 200I/500 A2推理产品</term>             |    ×     |
 | <term>Atlas推理系列产品</term>                       |    √     |
 | <term>Atlas训练系列产品</term>                       |    √     |
-|Kirin X90处理器系列产品|√|
-|Kirin 9030处理器系列产品|√|
+| <term>Kirin X90处理器系列产品</term> |    √     |
+| <term>Kirin 9030处理器系列产品</term> |    √     |
 
 ## 功能说明
 
-- 算子功能：根据输入的二维张量，提取由diagonal指定的对角线元素。
+- 算子功能：双向对角线算子（与numpy.diag语义一致）。
+
+  如果输入是向量（一维向量），则返回二维矩阵张量，将输入元素填充到第diagonal条对角线上，其余位置为0；
+
+  如果输入是二维张量，则输出一维向量，取值为diagonal指定的输入矩阵的对角线元素。
 
   如果diagonal = 0，选择主对角线；
 
@@ -56,7 +60,7 @@
       <td>-</td>
     </tr>
     <tr>
-      <td>out</td>
+      <td>y</td>
       <td>输出</td>
       <td>输出张量。</td>
       <td>INT8、UINT8、INT16、UINT16、INT32、UINT32、INT64、UINT64、FLOAT、FLOAT16、BFLOAT16、DOUBLE、BOOL、COMPLEX64</td>
@@ -69,12 +73,12 @@
 
 ## 约束说明
 
-- 输入必须为二维张量，输出的数据类型和输入一样。
-- diagonal的取值应符合-(m-1) <= diagonal <= (n-1)，其中(m,n)为输入的shape。
+- 输入为一维或二维张量（rank 1/2），输出的数据类型和输入一样。
+- 在输入为2维时，diagonal的取值应符合-(m-1) <= diagonal <= (n-1)，其中(m,n)为输入的shape。
 
 ## 调用说明
 
-| 调用方式 | 调用样例                                                                   | 说明                                                           |
+| 调用方式 | 样例代码 | 说明 |
 |--------------|------------------------------------------------------------------------|--------------------------------------------------------------|
-| aclnn调用 | [test_aclnn_diag](./examples/test_aclnn_diag.cpp) | 通过[aclnnDiag](./docs/aclnnDiag.md)接口方式调用DiagV2算子。 |
-| 图模式调用 | [test_geir_diag_v2](./examples/test_geir_diag_v2.cpp)   | 通过[算子IR](./op_graph/diag_v2_proto.h)构图方式调用DiagV2算子。 |
+| aclnn API | [test_aclnn_diag](./examples/test_aclnn_diag.cpp) | 通过[aclnnDiag](./docs/aclnnDiag.md)接口方式调用DiagV2算子。 |
+| GE图模式 | [test_geir_diag_v2](./examples/test_geir_diag_v2.cpp) | 通过[算子IR](./op_graph/diag_v2_proto.h)构图方式调用DiagV2算子。 |

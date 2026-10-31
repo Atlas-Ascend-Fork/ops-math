@@ -22,14 +22,15 @@ namespace ge {
 
 * @par Inputs:
 * One input, include:
-* x: A mutable Tensor must be 2D tensor. Type must be one of the
+* x: A mutable Tensor with rank 1 or 2 (a 1D input constructs a 2D square matrix
+*     on the given diagonal; a 2D input returns the diagonal vector). Type must be one of the
 *     following types:
 *     DT_FLOAT, DT_INT32, DT_INT64, DT_FLOAT16, DT_BF16, DT_INT16, DT_UINT16, DT_UINT32, DT_UINT64,
       DT_INT8, DT_UINT8, DT_DOUBLE, DT_BOOL,
       DT_COMPLEX32, DT_COMPLEX128, DT_COMPLEX64 . \n
 
 * @par Attributes:
-* diagonal: A optional int32. Specifies the position of output tensors'value. Defaults to "0" . \n
+* diagonal: A optional int64. Specifies the position of output tensors'value. Defaults to "0" . \n
 
 * @par Outputs:
 * y: A mutable Tensor. Has the same type as "x" . \n
@@ -39,16 +40,13 @@ namespace ge {
 * Compatible with the TensorFlow operator Diag.
 */
 REG_OP(DiagV2)
-    .INPUT(x, TensorType({DT_INT8, DT_UINT8, DT_INT16, DT_UINT16, DT_INT32, DT_UINT32, DT_INT64, DT_UINT64,
-                          DT_FLOAT, DT_FLOAT16, DT_BF16, DT_DOUBLE, DT_BOOL,
-                          DT_COMPLEX32, DT_COMPLEX128, DT_COMPLEX64}))
+    .INPUT(x, TensorType({DT_INT8, DT_UINT8, DT_INT16, DT_UINT16, DT_INT32, DT_UINT32, DT_INT64, DT_UINT64, DT_FLOAT,
+                          DT_FLOAT16, DT_BF16, DT_DOUBLE, DT_BOOL, DT_COMPLEX32, DT_COMPLEX128, DT_COMPLEX64}))
     .ATTR(diagonal, Int, 0)
-    .OUTPUT(y, TensorType({DT_INT8, DT_UINT8, DT_INT16, DT_UINT16, DT_INT32, DT_UINT32, DT_INT64, DT_UINT64,
-                           DT_FLOAT, DT_FLOAT16, DT_BF16, DT_DOUBLE, DT_BOOL,
-                           DT_COMPLEX32, DT_COMPLEX128, DT_COMPLEX64}))
+    .OUTPUT(y, TensorType({DT_INT8, DT_UINT8, DT_INT16, DT_UINT16, DT_INT32, DT_UINT32, DT_INT64, DT_UINT64, DT_FLOAT,
+                           DT_FLOAT16, DT_BF16, DT_DOUBLE, DT_BOOL, DT_COMPLEX32, DT_COMPLEX128, DT_COMPLEX64}))
     .OP_END_FACTORY_REG(DiagV2)
 
-}  // namespace ge
+} // namespace ge
 
-
-#endif  // OP_PROTO_DIAG_V2_H_
+#endif // OP_PROTO_DIAG_V2_H_

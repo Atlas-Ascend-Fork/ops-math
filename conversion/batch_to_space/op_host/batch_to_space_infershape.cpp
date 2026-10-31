@@ -10,6 +10,7 @@
 
 #include "register/op_impl_registry.h"
 #include "log/log.h"
+#include "op_api/op_util.h"
 #include "op_host/util/const_util.h"
 #include "op_host/util/shape_util.h"
 
@@ -60,13 +61,17 @@ ge::graphStatus BatchToSpaceInferShapeHelper::Init()
 
     const gert::Tensor* cropsTensor = context_->GetInputTensor(INPUT_IDX_CROPS);
     gert::Shape cropsShape;
-    if (cropsTensor != nullptr) {
+    // 对齐 batch_to_space_nd：仅在 crops 为 const（数据可用）时消费其形状并读取取值。
+    // 动态图下非 const crops 的形状是未知描述符（-1/-2），GetShapeSize() 会得到无意义值
+    // （如 (-2,)→-2、(-1,-1)→1），据此拒绝会阻断 DynamicShapeSupportFlag 声明的动态图执行；
+    // 非 const crops 的形状与取值校验由运行时 tiling 以真实形状执行（tiling 侧已有同款检查）。
+    const bool isConstCrops = IsConstTensor(cropsTensor);
+    if (isConstCrops) {
         OP_CHECK_IF(static_cast<size_t>(cropsTensor->GetShapeSize()) != CROPS_SIZE,
                     OP_LOGE(context_, "crops must have %zu elements, got %ld", CROPS_SIZE, cropsTensor->GetShapeSize()),
                     return ge::GRAPH_FAILED);
     }
-    if (cropsTensor != nullptr &&
-        Ops::Base::GetConstIntToShape<gert::InferShapeContext>(context_, INPUT_IDX_CROPS, cropsShape)) {
+    if (isConstCrops && Ops::Base::GetConstIntToShape<gert::InferShapeContext>(context_, INPUT_IDX_CROPS, cropsShape)) {
         for (size_t i = 0; i < CROPS_SIZE; ++i) {
             crops_[i] = cropsShape[i];
             OP_CHECK_IF(crops_[i] < 0, OP_LOGE(context_, "crops[%zu] must be non-negative, got %ld", i, crops_[i]),

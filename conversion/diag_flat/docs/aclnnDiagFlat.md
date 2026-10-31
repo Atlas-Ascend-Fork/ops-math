@@ -21,8 +21,6 @@
 - <term>Atlas训练系列产品</term>：支持
 <!-- end id6 -->
 
-- Atlas训练系列产品、Atlas推理系列产品：不支持BFLOAT16。
-
 ## 功能说明
 
 生成对角线张量。如果输入self为一维张量，则返回二维张量，self里元素为对角线值；如果输入self是二维及以上张量，则先进行扁平化（化简为一维张量），再转化为第一种场景处理。
@@ -203,6 +201,13 @@ aclnnStatus aclnnDiagFlat(
 
 - 确定性计算：
   - aclnnDiagFlat默认确定性实现。
+- 数据类型约束：
+<!-- npu="910" id7 -->
+  - Atlas训练系列产品：不支持BFLOAT16。
+<!-- end id7 -->
+<!-- npu="310p" id8 -->
+  - Atlas推理系列产品：不支持BFLOAT16。
+<!-- end id8 -->
 
 注意：当前接口aclnnDiagFlat暂不具备反向功能。
 

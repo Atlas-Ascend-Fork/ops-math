@@ -48,4 +48,4 @@ ACLNN_API aclnnStatus aclnnDiag(void* workspace, uint64_t workspaceSize, aclOpEx
 }
 #endif
 
-#endif  // OP_API_INC_DIAG_H_
+#endif // OP_API_INC_DIAG_H_

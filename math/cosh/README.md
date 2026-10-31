@@ -67,4 +67,3 @@ $$
 |--------------|--------------|--------------------------------------------------------------|
 | aclnn API | [test_aclnn_cosh](examples/test_aclnn_cosh.cpp) | 通过[aclnnCosh](./docs/aclnnCosh&aclnnInplaceCosh.md)接口方式调用Cosh算子。 |
 | GE图模式 | [test_geir_cosh](examples/test_geir_cosh.cpp) | 通过[算子IR](op_graph/cosh_proto.h)构图方式调用Cosh算子。             |
-| PyTorch API | - | 通过torch_npu的torch.cosh调用Cosh算子。                             |

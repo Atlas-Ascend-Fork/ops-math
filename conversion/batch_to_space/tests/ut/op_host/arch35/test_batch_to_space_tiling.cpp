@@ -251,11 +251,14 @@ TEST_F(BatchToSpaceTilingTest, ZeroBatch_EmptyTiling)
     EXPECT_EQ(td->outShape[1], 56);
     EXPECT_EQ(td->outShape[2], 56);
     EXPECT_EQ(td->outShape[3], 128);
-    EXPECT_EQ(td->totalCount, 0ull);
+    // e16effb7f 起：空输出 totalCount 置 1 而非 0（对齐 batch_to_space_nd「防止输出为空，
+    // 至少要 1」），避免全 0 退化 tiling 在动态/二进制下发时 tiling 数据拷贝异常；
+    // kernel Process 入口对 outShape 任一维为 0 直接短路，不发生任何搬运。
+    EXPECT_EQ(td->totalCount, 1ull);
 }
 
 // -----------------------------------------------------------------------
-// 用例11: C=0 → 空输出 tiling 成功，totalCount=0
+// 用例11: C=0 → 空输出 tiling 成功，totalCount=1（同用例10 策略）
 // -----------------------------------------------------------------------
 TEST_F(BatchToSpaceTilingTest, ZeroC_EmptyTiling)
 {
@@ -271,5 +274,6 @@ TEST_F(BatchToSpaceTilingTest, ZeroC_EmptyTiling)
     auto* td = reinterpret_cast<const BatchToSpaceTilingData*>(ti.tilingData.get());
     EXPECT_EQ(td->outShape[0], 2);
     EXPECT_EQ(td->outShape[3], 0);
-    EXPECT_EQ(td->totalCount, 0ull);
+    // 同用例10：空输出 totalCount=1（防全 0 退化 tiling），kernel 零维短路。
+    EXPECT_EQ(td->totalCount, 1ull);
 }

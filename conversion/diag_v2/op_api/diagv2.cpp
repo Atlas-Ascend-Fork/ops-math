@@ -28,8 +28,8 @@ const aclTensor* DiagV2(const aclTensor* self, int64_t diagonal, aclOpExecutor* 
         return nullptr;
     }
     auto retAicore = ADD_TO_LAUNCHER_LIST_AICORE(DiagV2, OP_INPUT(self), OP_OUTPUT(out), OP_ATTR(diagonal));
-    OP_CHECK_ADD_TO_LAUNCHER_LIST_AICORE(
-        retAicore != ACLNN_SUCCESS, return nullptr, "DiagV2 add to aicore launch list failed.");
+    OP_CHECK_ADD_TO_LAUNCHER_LIST_AICORE(retAicore != ACLNN_SUCCESS, return nullptr,
+                                         "DiagV2 add to aicore launch list failed.");
     return out;
 }
 } // namespace l0op

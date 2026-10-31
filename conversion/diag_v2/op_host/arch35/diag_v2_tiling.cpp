@@ -29,6 +29,7 @@
 #include "../../op_kernel/arch35/diag_v2_tiling_key.h"
 #include <algorithm>
 #include <cstring>
+#include <limits>
 
 namespace optiling {
 
@@ -150,6 +151,22 @@ static ge::graphStatus Tiling2Dto1D(gert::TilingContext* context, int64_t hwCore
     const int64_t* diagonalPtr = attrs->GetAttrPointer<int64_t>(ATTR_DIAGONAL_IDX);
     int64_t diagonal = (diagonalPtr != nullptr) ? *diagonalPtr : 0;
 
+    // diagonal 取值域校验（与 arch22 入口一致，依据公开契约 -(m-1) <= diagonal <= (n-1)）：
+    // 原实现越界时仅把 numOut 置 0 静默产出空输出，不拒绝非法值；
+    // 此处显式拒绝 C++ 下溢端点 INT64_MIN（-diagonal 有符号溢出）及超出边界的取值。
+    OP_CHECK_IF(
+        diagonal == std::numeric_limits<int64_t>::min(),
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "diagonal", std::to_string(diagonal).c_str(),
+                                              "diagonal is out of the representable range"),
+        return ge::GRAPH_FAILED);
+    OP_CHECK_IF((diagonal >= 0 && diagonal > xWidth) || (diagonal < 0 && -diagonal > xHeight),
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                    context->GetNodeName(), "diagonal", std::to_string(diagonal).c_str(),
+                    ("diagonal must be within [-x_height, x_width], x_width=" + std::to_string(xWidth) +
+                     ", x_height=" + std::to_string(xHeight))
+                        .c_str()),
+                return ge::GRAPH_FAILED);
+
     int64_t numOut = 0;
     int64_t gmOffset = 0;
 
@@ -217,7 +234,14 @@ static ge::graphStatus DiagV2TilingFunc(gert::TilingContext* context)
     auto inputShape = inputX->GetStorageShape();
     int64_t rank = inputShape.GetDimNum();
 
-    // Route: rank<=1 → delegate to diag_flat, rank>=2 → 2D→1D
+    // rank 校验（对齐 arch22 与公开契约 rank∈[1,2]）：rank>=3 原实现会静默按 2D→1D
+    // 读取 GetDim(0)/GetDim(1) 产出错误结果，此处显式拒绝。
+    OP_CHECK_IF(rank > 2,
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "x", std::to_string(rank).c_str(),
+                                                         "rank must be 1 or 2"),
+                return ge::GRAPH_FAILED);
+
+    // Route: rank<=1 → delegate to diag_flat, rank==2 → 2D→1D
     if (rank <= 1) {
         return ProcessDiagFlat(context);
     }

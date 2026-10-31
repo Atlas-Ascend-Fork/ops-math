@@ -143,8 +143,9 @@ ge::graphStatus BatchToSpaceTiling::GetParams()
     outShape_[AXIS_C] = inShape_[AXIS_C];
 
     OP_CHECK_IF(outShape_[AXIS_N] < 0, OP_LOGE(context_, "N_out must not be negative"), return ge::GRAPH_FAILED);
-    OP_CHECK_IF(outShape_[AXIS_H] <= 0, OP_LOGE(context_, "H_out must be positive"), return ge::GRAPH_FAILED);
-    OP_CHECK_IF(outShape_[AXIS_W] <= 0, OP_LOGE(context_, "W_out must be positive"), return ge::GRAPH_FAILED);
+    // H_out/W_out 允许为 0：crops 恰好裁剪至空是合法语义（仅负值非法）。
+    OP_CHECK_IF(outShape_[AXIS_H] < 0, OP_LOGE(context_, "H_out must not be negative"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(outShape_[AXIS_W] < 0, OP_LOGE(context_, "W_out must not be negative"), return ge::GRAPH_FAILED);
     OP_CHECK_IF(outShape_[AXIS_C] < 0, OP_LOGE(context_, "C must not be negative"), return ge::GRAPH_FAILED);
 
     return ge::GRAPH_SUCCESS;
@@ -191,8 +192,10 @@ void BatchToSpaceTiling::DoTiling(int64_t alignedC, int32_t startAxis, int64_t m
 {
     uint8_t bestAxis = AXIS_N;
     uint32_t bestFactor = 1;
-    uint64_t bestTotalCount = 1;
-    uint64_t bestRealCore = 1;
+    // bestRealCore 初始化为 0 而非 1：保证首个可行候选必然被记录。
+    // 否则当全部候选 realCoreNum == 1（小 shape）时无候选被记录，回退初值
+    // totalCount=1 会漏拷后续数据块（如 N=2 只拷第 1 帧）。
+    uint64_t bestRealCore = 0;
 
     int64_t cumInnerProduct = clInnerProduct;
     for (int32_t ax = startAxis; ax >= 0; --ax) {
@@ -212,7 +215,6 @@ void BatchToSpaceTiling::DoTiling(int64_t alignedC, int32_t startAxis, int64_t m
                 realCoreNum > bestRealCore) {
                 bestAxis = static_cast<uint8_t>(ax);
                 bestFactor = static_cast<uint32_t>(factor);
-                bestTotalCount = totalCount;
                 if (realCoreNum > bestRealCore) {
                     bestRealCore = realCoreNum;
                 }
@@ -225,9 +227,20 @@ void BatchToSpaceTiling::DoTiling(int64_t alignedC, int32_t startAxis, int64_t m
         }
     }
 
+    // totalCount 依据最终选定的 (bestAxis, bestFactor) 对齐重算：
+    // 与搜索记录值公式一致；当搜索未记录任何候选（回退初值 N 轴/factor=1）时，
+    // totalCount 必须为 CeilDiv(N, 1) 而非 1，否则 kernel 只处理第一个数据块。
+    {
+        int64_t outer = 1;
+        for (int32_t ax = 0; ax < static_cast<int32_t>(bestAxis); ++ax) {
+            outer *= outShape_[ax];
+        }
+        int64_t dim = (bestAxis == AXIS_C) ? alignedC : outShape_[bestAxis];
+        totalCount_ = static_cast<uint64_t>(outer * Ops::Base::CeilDiv(dim, static_cast<int64_t>(bestFactor)));
+    }
+
     ubAxis_ = bestAxis;
     ubFactor_ = bestFactor;
-    totalCount_ = bestTotalCount;
 }
 
 ge::graphStatus BatchToSpaceTiling::SetTilingData()
@@ -283,8 +296,12 @@ ge::graphStatus BatchToSpaceTiling::SetEmptyTilingData()
         tilingData->inShape[i] = inShape_[i];
         tilingData->outShape[i] = outShape_[i];
     }
-    tilingData->totalCount = 0;
-    tilingData->perCoreCount = 0;
+    // 对齐 batch_to_space_nd SIMT 空输出策略（"防止输出为空，至少要1"）：
+    // 空输出时仍给出发散的块数 1（而非 0），避免全 0 的退化 tiling 在
+    // 动态/二进制下发时导致 tiling 数据拷贝异常（kernel 读取 tiling 触发核异常）。
+    // kernel 侧由 Process 入口的 outShape 零维检查直接短路，不会发生任何搬运。
+    tilingData->totalCount = 1;
+    tilingData->perCoreCount = 1;
     tilingData->ubFactor = 1;
     tilingData->bufferSize = bufferSize_;
     tilingData->blockSize = blockSize_;
@@ -319,15 +336,20 @@ ge::graphStatus BatchToSpaceTiling::DoTiling()
     OP_CHECK_IF(ret != ge::GRAPH_SUCCESS, OP_LOGE(context_, "GetSocInfo failed"), return ret);
     ret = GetParams();
     OP_CHECK_IF(ret != ge::GRAPH_SUCCESS, OP_LOGE(context_, "GetParams failed"), return ret);
-    if (outShape_[AXIS_N] == 0 || outShape_[AXIS_C] == 0) {
+
+    // workspace：空/非空路径统一在分发前设置（对齐 batch_to_space_nd 的执行顺序）。
+    // 空输出路径若提前 return 跳过此处，workspace 大小将保持未初始化值，
+    // 动态/二进制下发时参数编组异常，kernel 读取 tiling 会触发 VECTOR_CORE_EXCEPTION。
+    size_t* workSpaceSize = context_->GetWorkspaceSizes(1);
+    OP_CHECK_NULL_WITH_CONTEXT(context_, workSpaceSize);
+    workSpaceSize[0] = 0;
+
+    // 任一输出维为 0 均走空输出路径（kernel Process 入口对 4 维统一短路）
+    if (outShape_[AXIS_N] == 0 || outShape_[AXIS_H] == 0 || outShape_[AXIS_W] == 0 || outShape_[AXIS_C] == 0) {
         return SetEmptyTilingData();
     }
     ret = ComputeAndSetTiling();
     OP_CHECK_IF(ret != ge::GRAPH_SUCCESS, OP_LOGE(context_, "ComputeAndSetTiling failed"), return ret);
-
-    size_t* workSpaceSize = context_->GetWorkspaceSizes(1);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, workSpaceSize);
-    workSpaceSize[0] = 0;
     return ge::GRAPH_SUCCESS;
 }
 
