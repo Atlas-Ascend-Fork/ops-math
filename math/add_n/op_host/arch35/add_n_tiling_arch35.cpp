@@ -14,6 +14,7 @@
  */
 #include "add_n_tiling_arch35.h"
 #include "log/log.h"
+#include <algorithm>
 #include <iostream>
 
 namespace optiling {
@@ -25,6 +26,7 @@ constexpr int64_t DOUBLE_BUFFER = 2;
 constexpr uint64_t TILINGKEY = 100ULL;
 constexpr uint64_t TILINGKEY_FULLLOAD = 101ULL;
 constexpr size_t KINPUT = 0U;
+constexpr int64_t ADDN_UNIFIED_FULLLOAD_UB_SIZE = 184LL * 1024LL;
 
 class AddNTiling {
 public:
@@ -81,7 +83,8 @@ ge::graphStatus AddNTiling::SetTilingKey()
         sum2 = sum1 * sum2;
     }
     sum2 = (sum2 * dtypeSize_ + ALINE_SIZE - 1) / ALINE_SIZE * ALINE_SIZE / dtypeSize_;
-    if ((sizeN_ + 1) * sum2 * dtypeSize_ < ubSize_) {
+    int64_t fullLoadUbSize = std::min(ubSize_, ADDN_UNIFIED_FULLLOAD_UB_SIZE);
+    if ((sizeN_ + 1) * sum2 * dtypeSize_ < fullLoadUbSize) {
         tilingContext->SetTilingKey(TILINGKEY_FULLLOAD);
         tilingContext->SetBlockDim(tiling.get_blockNum());
         return ge::GRAPH_SUCCESS;
