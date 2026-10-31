@@ -1891,17 +1891,17 @@
     <td><a href="../../math/select/README.md">select</a></td>
     <td>√</td>
     <td>√</td>
-    <td>√</td>
+    <td>×</td>
     <td>√</td>
     <td>AI Core</td>
     <td>根据条件选取self或other中元素并返回（支持广播）。</td>
   </tr>
   <tr>
     <td>math</td>
-    <td><a href="../../math/select_v2">select_v2</a></td>
+    <td><a href="../../math/select_v2/README.md">select_v2</a></td>
     <td>√</td>
     <td>√</td>
-    <td>×</td>
+    <td>√</td>
     <td>√</td>
     <td>AI Core/AI CPU</td>
     <td>根据条件选取self或other中元素并返回（支持广播）。</td>
