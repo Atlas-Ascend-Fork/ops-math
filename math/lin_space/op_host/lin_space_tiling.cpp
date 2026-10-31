@@ -193,8 +193,10 @@ static ge::graphStatus LinSpaceGetConstValue(gert::TilingContext* context, const
             OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "const_data_ptr");
             return ge::GRAPH_FAILED;
         }
-        float f32 = static_cast<float>(*const_data_ptr);
-        value = static_cast<T>(f32);
+        // 直接读取 int64_t 数值，经 double 无损保留（16777219 < 2^53，double 精确表示），
+        // 避免经 float 转换丢失精度（如 num=16777219 被转成 16777220），
+        // 保证 tiling 计数与 InferShape 输出维度一致（见 issue #3347）
+        value = static_cast<T>(static_cast<double>(*const_data_ptr));
         OP_LOGD(context->GetNodeName(), "LinSpace get const value:%ld", *const_data_ptr);
     } else if (dataType == ge::DT_INT32) {
         const int32_t* const_data_ptr = tensor->GetData<int32_t>();

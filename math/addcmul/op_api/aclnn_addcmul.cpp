@@ -205,7 +205,8 @@ static inline bool IsEqualToOne(const aclScalar* value)
     if (IsComplexType(value->GetDataType())) {
         return false;
     }
-    return !(value->ToFloat() > 1 || value->ToFloat() < 1);
+    float valueFloat = value->ToFloat();
+    return !std::isnan(valueFloat) && !(valueFloat > 1 || valueFloat < 1);
 }
 
 static bool IsSupportAxpyV2(const DataType promoteType)

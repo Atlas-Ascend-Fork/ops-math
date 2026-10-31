@@ -228,6 +228,17 @@ aclnnStatus aclnnCdistGetWorkspaceSize(const aclTensor* x1, const aclTensor* x2,
         x2BroadcastShape.AppendDim(x2Contiguous->GetViewShape().GetDim(x2DimNum - i - 1));
     }
 
+    op::Shape expectedOutShape;
+    for (int64_t i = 0; i < static_cast<int64_t>(maxRank - 1); i++) {
+        expectedOutShape.AppendDim(x1BroadcastShape.GetDim(i));
+    }
+    expectedOutShape.AppendDim(x2BroadcastShape.GetDim(maxRank - 2));
+    if (out->GetViewShape() != expectedOutShape) {
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "Expected shape of out should be %s, but got %s.",
+                op::ToString(expectedOutShape).GetString(), op::ToString(out->GetViewShape()).GetString());
+        return ACLNN_ERR_PARAM_INVALID;
+    }
+
     if (x1Contiguous->GetViewShape().GetDim(x1DimNum - 1) == 0) {
         // 执行L0 Fill算子
         aclScalar* scalar = uniqueExecutor.get()->AllocScalar(0);

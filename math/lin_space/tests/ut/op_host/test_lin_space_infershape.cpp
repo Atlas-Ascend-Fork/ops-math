@@ -14,14 +14,10 @@
 #include "base/registry/op_impl_space_registry_v2.h"
 
 class linspace : public testing::Test {
- protected:
-  static void SetUpTestCase() {
-    std::cout << "linspace Proto Test SetUp" << std::endl;
-  }
+protected:
+    static void SetUpTestCase() { std::cout << "linspace Proto Test SetUp" << std::endl; }
 
-  static void TearDownTestCase() {
-    std::cout << "linspace Proto Test TearDown" << std::endl;
-  }
+    static void TearDownTestCase() { std::cout << "linspace Proto Test TearDown" << std::endl; }
 };
 
 static std::vector<int64_t> ToVector(const gert::Shape& shape)
@@ -35,62 +31,58 @@ static std::vector<int64_t> ToVector(const gert::Shape& shape)
 }
 
 template <typename T>
-gert::Tensor * ConstructInputConstTensor(std::unique_ptr<uint8_t[]>& input_tensor_holder,
-                                          const T &const_value, ge::DataType const_dtype) {
-  auto input_tensor = reinterpret_cast<gert::Tensor *>(input_tensor_holder.get());
-  gert::Tensor tensor({{1}, {1}},                                 // shape
-                      {ge::FORMAT_ND, ge::FORMAT_ND, {}},        // format
-                      gert::kFollowing,                          // placement
-                      const_dtype,                               //dt
-                      nullptr);
-  std::memcpy(input_tensor, &tensor, sizeof(gert::Tensor));
-  auto tensor_data = reinterpret_cast<T *>(input_tensor + 1);
-  *tensor_data = const_value;
-  std::cout<<" const_value:" << *tensor_data<< std::endl;
-  input_tensor->SetData(gert::TensorData(tensor_data, nullptr));
-  return input_tensor;
+gert::Tensor* ConstructInputConstTensor(std::unique_ptr<uint8_t[]>& input_tensor_holder, const T& const_value,
+                                        ge::DataType const_dtype)
+{
+    auto input_tensor = reinterpret_cast<gert::Tensor*>(input_tensor_holder.get());
+    gert::Tensor tensor({{1}, {1}},                         // shape
+                        {ge::FORMAT_ND, ge::FORMAT_ND, {}}, // format
+                        gert::kFollowing,                   // placement
+                        const_dtype,                        // dt
+                        nullptr);
+    std::memcpy(input_tensor, &tensor, sizeof(gert::Tensor));
+    auto tensor_data = reinterpret_cast<T*>(input_tensor + 1);
+    *tensor_data = const_value;
+    std::cout << " const_value:" << *tensor_data << std::endl;
+    input_tensor->SetData(gert::TensorData(tensor_data, nullptr));
+    return input_tensor;
 }
 
-static void ExeTestCase(
-    std::vector<std::vector<int64_t> > expectResults,
-    const std::vector<gert::StorageShape>& inputShapes,  // 存储所有输入StorageShape参数
-    const std::vector<ge::DataType>& dtypes,             // 存储所有DataType参数
-    const std::vector<int32_t> inputValues,
-    gert::StorageShape& outStorageShape,
-    ge::graphStatus testCaseResult = ge::GRAPH_SUCCESS)
+static void ExeTestCase(std::vector<std::vector<int64_t> > expectResults,
+                        const std::vector<gert::StorageShape>& inputShapes, // 存储所有输入StorageShape参数
+                        const std::vector<ge::DataType>& dtypes,            // 存储所有DataType参数
+                        const std::vector<int64_t>& inputValues, // start/stop 为 int32、num 为 int64，统一用 int64 存放
+                        gert::StorageShape& outStorageShape, ge::graphStatus testCaseResult = ge::GRAPH_SUCCESS)
 {
     // 从vector中取出对应参数（保持原顺序）
     const auto& startStorageShape = inputShapes[0];
     const auto& stopStorageShape = inputShapes[1];
     const auto& numStorageShape = inputShapes[2];
-    
+
     ge::DataType input1Dtype = dtypes[0];
     ge::DataType outputDtype = dtypes[1];
 
     auto start_input_tensor = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor) + sizeof(int32_t)]);
-    auto start_tensor = ConstructInputConstTensor(start_input_tensor, inputValues[0], ge::DT_INT32);
+    auto start_tensor = ConstructInputConstTensor(start_input_tensor, static_cast<int32_t>(inputValues[0]),
+                                                  ge::DT_INT32);
     auto stop_input_tensor = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor) + sizeof(int32_t)]);
-    auto stop_tensor = ConstructInputConstTensor(stop_input_tensor, inputValues[1], ge::DT_INT32);
-    auto num_input_tensor = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor) + sizeof(int32_t)]);
-    auto num_tensor = ConstructInputConstTensor(num_input_tensor, inputValues[2], ge::DT_INT32);
+    auto stop_tensor = ConstructInputConstTensor(stop_input_tensor, static_cast<int32_t>(inputValues[1]), ge::DT_INT32);
+    auto num_input_tensor = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor) + sizeof(int64_t)]);
+    auto num_tensor = ConstructInputConstTensor(num_input_tensor, inputValues[2], ge::DT_INT64);
 
     /* make infershape context */
-    std::vector<gert::Tensor *> inputTensors = {
-        start_tensor,
-        stop_tensor,
-        num_tensor
-    };
-    std::vector<gert::StorageShape *> outputShapes = {&outStorageShape};
+    std::vector<gert::Tensor*> inputTensors = {start_tensor, stop_tensor, num_tensor};
+    std::vector<gert::StorageShape*> outputShapes = {&outStorageShape};
     auto contextHolder = gert::InferShapeContextFaker()
-        .SetOpType("LinSpace")
-        .NodeIoNum(3, 1)
-        .NodeInputTd(0, input1Dtype, ge::FORMAT_ND, ge::FORMAT_ND)
-        .NodeInputTd(1, input1Dtype, ge::FORMAT_ND, ge::FORMAT_ND)
-        .NodeInputTd(2, input1Dtype, ge::FORMAT_ND, ge::FORMAT_ND)
-        .NodeOutputTd(0, outputDtype, ge::FORMAT_ND, ge::FORMAT_ND)
-        .InputTensors(inputTensors)
-        .OutputShapes(outputShapes)
-        .Build();
+                             .SetOpType("LinSpace")
+                             .NodeIoNum(3, 1)
+                             .NodeInputTd(0, input1Dtype, ge::FORMAT_ND, ge::FORMAT_ND)
+                             .NodeInputTd(1, input1Dtype, ge::FORMAT_ND, ge::FORMAT_ND)
+                             .NodeInputTd(2, input1Dtype, ge::FORMAT_ND, ge::FORMAT_ND)
+                             .NodeOutputTd(0, outputDtype, ge::FORMAT_ND, ge::FORMAT_ND)
+                             .InputTensors(inputTensors)
+                             .OutputShapes(outputShapes)
+                             .Build();
 
     /* get infershape func */
     auto spaceRegistry = gert::DefaultOpImplSpaceRegistryV2::GetInstance().GetSpaceRegistry();
@@ -108,15 +100,15 @@ TEST_F(linspace, Linspace_infershape_case_0)
 {
     // 用vector存储同类型参数（顺序与原参数列表一致）
     std::vector<gert::StorageShape> inputShapes = {
-        {{1}, {1}},                  // start_shape
-        {{1}, {1}},                  // stop_shape
-        {{1}, {1}}                           // num_shape
+        {{1}, {1}}, // start_shape
+        {{1}, {1}}, // stop_shape
+        {{1}, {1}}  // num_shape
     };
     std::vector<ge::DataType> dtypes = {
-        ge::DT_INT32,  // input1Dtype
-        ge::DT_INT32   // outputDtype
+        ge::DT_INT32, // input1Dtype
+        ge::DT_INT32  // outputDtype
     };
-    std::vector<int32_t> inputValues = {1, 10, 10};
+    std::vector<int64_t> inputValues = {1, 10, 10};
     std::vector<int64_t> expectResult = {10};
     gert::StorageShape outStorageShape = {};
 
@@ -124,3 +116,41 @@ TEST_F(linspace, Linspace_infershape_case_0)
     ExeTestCase({expectResult}, inputShapes, dtypes, inputValues, outStorageShape, ge::GRAPH_SUCCESS);
 }
 
+TEST_F(linspace, Linspace_infershape_int64_num_case)
+{
+    // num 为 DT_INT64（如 16777219）时，输出维度应与 num 完全一致，不允许精度丢失
+    std::vector<gert::StorageShape> inputShapes = {
+        {{1}, {1}}, // start_shape
+        {{1}, {1}}, // stop_shape
+        {{1}, {1}}  // num_shape
+    };
+    std::vector<ge::DataType> dtypes = {
+        ge::DT_INT32, // input1Dtype
+        ge::DT_INT32  // outputDtype
+    };
+    std::vector<int64_t> inputValues = {0, 1, 17};
+    std::vector<int64_t> expectResult = {17};
+    gert::StorageShape outStorageShape = {};
+
+    ExeTestCase({expectResult}, inputShapes, dtypes, inputValues, outStorageShape, ge::GRAPH_SUCCESS);
+}
+
+TEST_F(linspace, Linspace_infershape_int64_big_num_case)
+{
+    // num=16777219（INT64）场景：InferShape 输出维度必须保留 16777219，
+    // 与 legacy tiling 修复后的计数保持一致（见 issue #3347）
+    std::vector<gert::StorageShape> inputShapes = {
+        {{1}, {1}}, // start_shape
+        {{1}, {1}}, // stop_shape
+        {{1}, {1}}  // num_shape
+    };
+    std::vector<ge::DataType> dtypes = {
+        ge::DT_INT32, // input1Dtype
+        ge::DT_INT32  // outputDtype
+    };
+    std::vector<int64_t> inputValues = {0, 1, 16777219};
+    std::vector<int64_t> expectResult = {16777219};
+    gert::StorageShape outStorageShape = {};
+
+    ExeTestCase({expectResult}, inputShapes, dtypes, inputValues, outStorageShape, ge::GRAPH_SUCCESS);
+}

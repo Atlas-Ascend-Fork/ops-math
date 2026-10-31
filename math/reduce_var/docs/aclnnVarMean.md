@@ -92,7 +92,7 @@ aclnnStatus aclnnVarMean(
       <td>shape支持0到8维。</td>
       <td>FLOAT、FLOAT16、BFLOAT16</td>
       <td>ND</td>
-      <td>1-8</td>
+      <td>0-8</td>
       <td>√</td>
     </tr>
     <tr>
@@ -126,9 +126,9 @@ aclnnStatus aclnnVarMean(
       <td>-</td>
     </tr>
     <tr>
-      <td>meanOut（aclTensor*）</td>
+      <td>varOut（aclTensor*）</td>
       <td>输出</td>
-      <td>均值的计算结果。</td>
+      <td>公式中的输出<code>varOut</code>，方差的计算结果。</td>
       <td>shape支持0到8维。</td>
       <td>FLOAT、FLOAT16、BFLOAT16</td>
       <td>ND</td>
@@ -136,9 +136,9 @@ aclnnStatus aclnnVarMean(
       <td>√</td>
     </tr>
     <tr>
-      <td>varOut（aclTensor*）</td>
+      <td>meanOut（aclTensor*）</td>
       <td>输出</td>
-      <td>公式中的输出<code>varOut</code>，方差的计算结果。</td>
+      <td>均值的计算结果。</td>
       <td>shape支持0到8维。</td>
       <td>FLOAT、FLOAT16、BFLOAT16</td>
       <td>ND</td>

@@ -441,7 +441,7 @@ TEST_F(l2_cdist_test, case_26_bf16)
     EXPECT_EQ(aclRet, ACLNN_SUCCESS);
 }
 
-// 正常场景：x1最后一维为0
+// 异常场景：out形状与推导不匹配（x1最后一维为0）
 TEST_F(l2_cdist_test, case_27_x1_lastdim_zero)
 {
     auto x1Desc = TensorDesc({2, 0}, ACL_FLOAT, ACL_FORMAT_ND);
@@ -454,10 +454,10 @@ TEST_F(l2_cdist_test, case_27_x1_lastdim_zero)
 
     uint64_t workspace_size = 0;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
-    EXPECT_EQ(aclRet, ACLNN_ERR_INNER_NULLPTR);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
 }
 
-// 正常场景：广播测试
+// 异常场景：out形状与推导不匹配（广播）
 TEST_F(l2_cdist_test, case_28_broadcast)
 {
     auto x1Desc = TensorDesc({1, 2, 3}, ACL_FLOAT, ACL_FORMAT_ND);
@@ -470,10 +470,10 @@ TEST_F(l2_cdist_test, case_28_broadcast)
 
     uint64_t workspace_size = 0;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
-    EXPECT_EQ(aclRet, ACLNN_ERR_INNER_NULLPTR);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
 }
 
-// 正常场景：多维广播测试
+// 异常场景：out形状与推导不匹配（多维广播）
 TEST_F(l2_cdist_test, case_29_multidim_broadcast)
 {
     auto x1Desc = TensorDesc({2, 1, 1, 4}, ACL_FLOAT, ACL_FORMAT_ND);
@@ -486,7 +486,7 @@ TEST_F(l2_cdist_test, case_29_multidim_broadcast)
 
     uint64_t workspace_size = 0;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
-    EXPECT_EQ(aclRet, ACLNN_ERR_INNER_NULLPTR);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
 }
 
 // 异常场景：x2 batch维度为0

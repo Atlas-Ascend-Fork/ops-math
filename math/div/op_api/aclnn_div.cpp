@@ -1080,7 +1080,7 @@ static inline aclnnStatus CheckInplace(const aclTensor* selfRef, const aclTensor
                 op::ToString(selfRef->GetViewShape()).GetString(), op::ToString(other->GetViewShape()).GetString()),
         return ACLNN_ERR_PARAM_INVALID);
     OP_CHECK(selfRef->GetViewShape() == broadcastShape,
-             OP_LOGE(ACLNN_ERR_PARAM_NULLPTR, "Expected shape of selfRef should be %s, but got %s.",
+             OP_LOGE(ACLNN_ERR_PARAM_INVALID, "Expected shape of selfRef should be %s, but got %s.",
                      op::ToString(broadcastShape).GetString(), op::ToString(selfRef->GetViewShape()).GetString()),
              return ACLNN_ERR_PARAM_INVALID);
     return ACLNN_SUCCESS;

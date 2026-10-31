@@ -22,8 +22,7 @@ namespace IsInfNS {
 using namespace AscendC;
 
 template <typename T, auto MASK, auto INF_MASK>
-class IsInf
-{
+class IsInf {
 public:
     __aicore__ inline IsInf(){};
 
@@ -72,8 +71,8 @@ private:
 };
 
 template <typename T, auto MASK, auto INF_MASK>
-__aicore__ inline void IsInf<T, MASK, INF_MASK>::Init(
-    GM_ADDR x, GM_ADDR y, GM_ADDR workspace, const IsInfTilingData* tilingData)
+__aicore__ inline void IsInf<T, MASK, INF_MASK>::Init(GM_ADDR x, GM_ADDR y, GM_ADDR workspace,
+                                                      const IsInfTilingData* tilingData)
 {
     inputGM.SetGlobalBuffer((__gm__ int16_t*)x);
     outputGM.SetGlobalBuffer((__gm__ uint8_t*)y);
@@ -106,8 +105,8 @@ __aicore__ inline void IsInf<T, MASK, INF_MASK>::ParseTilingData(const IsInfTili
             perCoreDataCount += DATA_BLOCK;
             blockOffset = perCoreDataCount * blockIdx;
         } else {
-            blockOffset =
-                ((perCoreDataCount + DATA_BLOCK) * tailCoreNum) + (perCoreDataCount * (blockIdx - tailCoreNum));
+            blockOffset = ((perCoreDataCount + DATA_BLOCK) * tailCoreNum) +
+                          (perCoreDataCount * (blockIdx - tailCoreNum));
         }
     }
 
@@ -123,7 +122,19 @@ template <typename T, auto MASK, auto INF_MASK>
 __aicore__ inline void IsInf<T, MASK, INF_MASK>::CopyInX(const int64_t offset, const int32_t dataLength)
 {
     LocalTensor<int16_t> dataLocal = inputQueue.AllocTensor<int16_t>();
-    DataCopy(dataLocal, inputGM[offset], dataLength);
+    uint32_t blockElems = DATA_BLOCK / sizeof(int16_t);
+    uint32_t alignedLen = static_cast<uint32_t>(dataLength) / blockElems * blockElems;
+    if (alignedLen > 0) {
+        DataCopy(dataLocal, inputGM[offset], alignedLen);
+    }
+    uint32_t remainLen = static_cast<uint32_t>(dataLength) - alignedLen;
+    if (remainLen > 0) {
+        DataCopyExtParams copyParams;
+        copyParams.blockCount = 1;
+        copyParams.blockLen = remainLen * sizeof(int16_t);
+        DataCopyPadExtParams<int16_t> padParams = {false, 0, 0, 0};
+        DataCopyPad(dataLocal[alignedLen], inputGM[offset + alignedLen], copyParams, padParams);
+    }
 
     inputQueue.EnQue(dataLocal);
 }
@@ -132,8 +143,17 @@ template <typename T, auto MASK, auto INF_MASK>
 __aicore__ inline void IsInf<T, MASK, INF_MASK>::CopyOut(const int32_t offset, const int32_t dataLength)
 {
     LocalTensor<uint8_t> outLocal = outputQueue.DeQue<uint8_t>();
-
-    DataCopy(outputGM[offset], outLocal, dataLength);
+    uint32_t alignedLen = static_cast<uint32_t>(dataLength) / DATA_BLOCK * DATA_BLOCK;
+    if (alignedLen > 0) {
+        DataCopy(outputGM[offset], outLocal, alignedLen);
+    }
+    uint32_t remainLen = static_cast<uint32_t>(dataLength) - alignedLen;
+    if (remainLen > 0) {
+        DataCopyExtParams copyParams;
+        copyParams.blockCount = 1;
+        copyParams.blockLen = remainLen;
+        DataCopyPad(outputGM[offset + alignedLen], outLocal[alignedLen], copyParams);
+    }
     outputQueue.FreeTensor(outLocal);
 }
 
@@ -203,11 +223,10 @@ __aicore__ inline void IsInf<T, MASK, INF_MASK>::ComputePerCore()
     if (tailDataCount > 0) {
         uint32_t dataBlock = DATA_BLOCK / sizeof(int16_t);
         uint32_t dataCount = CeilAlign(tailDataCount, dataBlock);
-        actualOutCount = dataCount / selectInterval;
-        actualOutCount = CeilAlign(actualOutCount, DATA_BLOCK);
-        CopyInX(actualInOffset, dataCount);
+        uint32_t realOutCount = tailDataCount / selectInterval;
+        CopyInX(actualInOffset, tailDataCount);
         CompareInf(dataCount);
-        CopyOut(actualOutOffset, actualOutCount);
+        CopyOut(actualOutOffset, realOutCount);
     }
 }
 

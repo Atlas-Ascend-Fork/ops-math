@@ -94,7 +94,7 @@ aclnnStatus aclnnVarMean(
       <td>The shape supports 0 to 8 dimensions.</td>
       <td>FLOAT, FLOAT16, BFLOAT16</td>
       <td>ND</td>
-      <td>1-8</td>
+      <td>0-8</td>
       <td>√</td>
     </tr>
     <tr>
@@ -128,20 +128,20 @@ aclnnStatus aclnnVarMean(
       <td>-</td>
     </tr>
     <tr>
-      <td>meanOut (aclTensor*)</td>
+      <td>varOut (aclTensor*)</td>
       <td>Output</td>
-      <td>Calculation result of the mean.</td>
-      <td>Supports 0 to 8 dimensions.</td>
+      <td>Output <code>varOut</code> in the formula. The computation result of the variance.</td>
+      <td>The shape supports 0 to 8 dimensions.</td>
       <td>FLOAT, FLOAT16, BFLOAT16</td>
       <td>ND</td>
       <td>0-8</td>
       <td>√</td>
     </tr>
     <tr>
-      <td>varOut (aclTensor*)</td>
+      <td>meanOut (aclTensor*)</td>
       <td>Output</td>
-      <td>Output <code>varOut</code> in the formula. The computation result of the variance.</td>
-      <td>The shape supports 0 to 8 dimensions.</td>
+      <td>Calculation result of the mean.</td>
+      <td>Supports 0 to 8 dimensions.</td>
       <td>FLOAT, FLOAT16, BFLOAT16</td>
       <td>ND</td>
       <td>0-8</td>
