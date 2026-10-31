@@ -91,12 +91,31 @@ TEST_F(AtanhTilingTest, EmptyShapeDoesNotOverflow)
     ExecuteTestCase(MakeContext({MAX_ELEMENTS, 2, 0}, {MAX_ELEMENTS, 2, 0}), ge::GRAPH_SUCCESS, 0, "0 ", {0});
 }
 
-TEST_F(AtanhTilingTest, RejectsInvalidDtypesAndFormats)
+TEST_F(AtanhTilingTest, RejectsInvalidDtypes)
 {
     ExpectTilingFailure(MakeContext({4}, {4}, ge::DT_INT32, ge::DT_INT32), "EZ0019");
     ExpectTilingFailure(MakeContext({4}, {4}, ge::DT_FLOAT, ge::DT_FLOAT16), "EZ0019");
-    ExpectTilingFailure(MakeContext({4}, {4}, ge::DT_FLOAT, ge::DT_FLOAT, ge::FORMAT_NCHW), "EZ0017");
-    ExpectTilingFailure(MakeContext({4}, {4}, ge::DT_FLOAT, ge::DT_FLOAT, ge::FORMAT_ND, ge::FORMAT_NCHW), "EZ0017");
+}
+
+TEST_F(AtanhTilingTest, SupportsPublicFormats)
+{
+    const std::vector<gert::Shape> shapes = {{2, 3, 4}, {2, 3, 4, 5}, {2, 3, 4, 5, 6}};
+    const std::vector<ge::Format> formats = {ge::FORMAT_NCL, ge::FORMAT_NCHW, ge::FORMAT_NCDHW};
+    const std::vector<int64_t> counts = {24, 120, 720};
+    for (size_t i = 0; i < formats.size(); ++i) {
+        for (const auto inputFormat : {ge::FORMAT_ND, formats[i]}) {
+            for (const auto outputFormat : {ge::FORMAT_ND, formats[i]}) {
+                SCOPED_TRACE(::testing::Message() << "input=" << inputFormat << " output=" << outputFormat);
+                TilingInfo info;
+                ASSERT_TRUE(ExecuteTiling(
+                    MakeContext(shapes[i], shapes[i], ge::DT_FLOAT, ge::DT_FLOAT, inputFormat, outputFormat), info));
+                ASSERT_EQ(info.tilingDataSize, sizeof(AtanhTilingData));
+                AtanhTilingData data;
+                std::memcpy(&data, info.tilingData.get(), sizeof(data));
+                EXPECT_EQ(data.totalNum, counts[i]);
+            }
+        }
+    }
 }
 
 TEST_F(AtanhTilingTest, NullContextReportsStageErrorOnce)

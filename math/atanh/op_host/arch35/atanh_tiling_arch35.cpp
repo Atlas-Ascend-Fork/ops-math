@@ -109,14 +109,6 @@ static ge::graphStatus GetShapeAttrsInfo(gert::TilingContext* context, int64_t& 
         OP_LOGE_FOR_INVALID_DTYPE(context->GetNodeName(), "y", Ops::Base::ToString(outputDesc->GetDataType()).c_str(),
                                   Ops::Base::ToString(dataType).c_str()),
         return ge::GRAPH_FAILED);
-    OP_CHECK_IF(inputDesc->GetStorageFormat() != ge::FORMAT_ND,
-                OP_LOGE_FOR_INVALID_FORMAT(context->GetNodeName(), "x",
-                                           Ops::Base::ToString(inputDesc->GetStorageFormat()).c_str(), "ND"),
-                return ge::GRAPH_FAILED);
-    OP_CHECK_IF(outputDesc->GetStorageFormat() != ge::FORMAT_ND,
-                OP_LOGE_FOR_INVALID_FORMAT(context->GetNodeName(), "y",
-                                           Ops::Base::ToString(outputDesc->GetStorageFormat()).c_str(), "ND"),
-                return ge::GRAPH_FAILED);
     return ge::GRAPH_SUCCESS;
 }
 
