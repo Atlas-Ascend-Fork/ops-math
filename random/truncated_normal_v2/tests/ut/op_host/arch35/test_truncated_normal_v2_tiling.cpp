@@ -14,6 +14,11 @@
 #include "tiling_case_executor.h"
 #include "../../../../op_host/arch35/truncated_normal_v2_tiling_arch35.h"
 
+// expectTilingData 为 RandomUnifiedSimtTilingDataStruct 按 int64 逐词内存序列化（共 68 词）：
+// [0..9] 公共头部，[10] splitBlockCount，[11..50] splitBlocks[8]，
+// [51] probDims(int32+padding) [52..59] probSizes[8] [60..67] probStrides[8]（仅 stateless_bernoulli 填充，本算子全 0）
+#define PROB_ADDR_TAIL "0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 "
+
 using namespace std;
 using namespace ge;
 
@@ -47,7 +52,7 @@ TEST_F(TruncatedNormalV2Tiling, truncated_normal_v2_tiling_910D_float_001)
         &compileInfo);
     uint64_t expectTilingKey = 100;
     string expectTilingData = "64 16384 10 5 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 "
-                              "0 0 0 0 0 0 0 0 0 0 ";
+                              "0 0 0 0 0 0 0 0 0 0 " PROB_ADDR_TAIL;
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }

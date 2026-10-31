@@ -19,17 +19,16 @@
 #include "tiling_case_executor.h"
 #include "../../../../op_host/arch35/stateless_random_tiling_arch35.h"
 
+// expectTilingData 为 RandomUnifiedSimtTilingDataStruct 按 int64 逐词内存序列化（共 68 词）：
+// [0..9] 公共头部，[10] splitBlockCount，[11..50] splitBlocks[8]，
+// [51] probDims(int32+padding) [52..59] probSizes[8] [60..67] probStrides[8]（仅 stateless_bernoulli 填充，本算子全 0）
+#define PROB_ADDR_TAIL "0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 "
+
 class StatelessRandomTiling : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        std::cout << "StatelessRandomTiling SetUp" << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "StatelessRandomTiling SetUp" << std::endl; }
 
-    static void TearDownTestCase()
-    {
-        std::cout << "StatelessRandomTiling TearDown" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "StatelessRandomTiling TearDown" << std::endl; }
 };
 
 TEST_F(StatelessRandomTiling, stateless_random_test_0)
@@ -54,7 +53,8 @@ TEST_F(StatelessRandomTiling, stateless_random_test_0)
         {{"dtype", Ops::Math::AnyValue::CreateFrom<int64_t>(static_cast<int64_t>(ge::DT_INT32))}}, &compileInfo);
 
     uint64_t expectTilingKey = 100;
-    string expectTilingData = "1 256 0 0 229376 4 0 0 100 0 1 256 0 1 256 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ";
+    string expectTilingData = "1 256 0 0 229376 4 0 0 100 0 1 256 0 1 256 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 "
+                              "0 0 0 0 0 0 0 0 0 0 0 0 0 0 " PROB_ADDR_TAIL;
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
@@ -81,7 +81,8 @@ TEST_F(StatelessRandomTiling, stateless_random_test_1)
         {{"dtype", Ops::Math::AnyValue::CreateFrom<int64_t>(static_cast<int64_t>(ge::DT_FLOAT))}}, &compileInfo);
 
     uint64_t expectTilingKey = 100;
-    string expectTilingData = "1 256 0 0 229376 4 0 10 40 0 1 256 0 1 256 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ";
+    string expectTilingData = "1 256 0 0 229376 4 0 10 40 0 1 256 0 1 256 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 "
+                              "0 0 0 0 0 0 0 0 0 0 0 0 0 0 " PROB_ADDR_TAIL;
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }

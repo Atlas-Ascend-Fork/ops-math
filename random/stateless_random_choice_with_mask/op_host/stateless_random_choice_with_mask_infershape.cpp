@@ -117,5 +117,6 @@ IMPL_OP_INFERSHAPE(StatelessRandomChoiceWithMask)
     .InputsDataDependency({1})
     .InferShape(InferShapeForStatelessRandomChoiceWithMask)
     .InferShapeRange(InferShapeRangeForStatelessRandomChoiceWithMask)
-    .InferDataType(InferDataTypeForStatelessRandomChoiceWithMask);
+    .InferDataType(InferDataTypeForStatelessRandomChoiceWithMask)
+    .OutputShapeDependOnCompute({OUT_IDX_Y, OUT_IDX_MASK});
 } // namespace ops

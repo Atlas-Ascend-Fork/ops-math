@@ -28,6 +28,9 @@
  *   [16..20] splitBlocks[1]      -- 全 0（未使用）
  *   ...
  *   [46..50] splitBlocks[7]      -- 全 0（未使用）
+ *   [51] probDims                -- prob 广播维度（仅 bernoulli 使用，本算子全 0）
+ *   [52..59] probSizes[8]        -- prob 广播 shape（全 0）
+ *   [60..67] probStrides[8]      -- prob 广播 stride（全 0）
  *
  * 平台参数（UT 默认值）：
  *   coreNum  = 64
@@ -95,18 +98,15 @@ using namespace std;
 // splitBlocks[1..7] 全零后缀（7 个空 SplitBlockInfo × 5 个 int64 = 35 个零）
 #define SPLIT_BLOCKS_TAIL "0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 "
 
-class StatelessUniformTilingTest : public testing::Test
-{
-protected:
-    static void SetUpTestCase()
-    {
-        std::cout << "StatelessUniformTilingTest SetUp" << std::endl;
-    }
+// prob 广播寻址尾部（RandomUnifiedSimtTilingDataStruct 末尾新增字段，仅 stateless_bernoulli 填充，
+// 本算子不使用，全 0）：[51] probDims(int32+padding) [52..59] probSizes[8] [60..67] probStrides[8]
+#define PROB_ADDR_TAIL "0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 "
 
-    static void TearDownTestCase()
-    {
-        std::cout << "StatelessUniformTilingTest TearDown" << std::endl;
-    }
+class StatelessUniformTilingTest : public testing::Test {
+protected:
+    static void SetUpTestCase() { std::cout << "StatelessUniformTilingTest SetUp" << std::endl; }
+
+    static void TearDownTestCase() { std::cout << "StatelessUniformTilingTest TearDown" << std::endl; }
 };
 
 // ===== dtype 覆盖 =====
@@ -125,23 +125,25 @@ TEST_F(StatelessUniformTilingTest, stateless_uniform_test_0)
 
     gert::TilingContextPara tilingContextPara(
         "StatelessUniform",
-    {
-        {{{2},{2}}, ge::DT_INT64, ge::FORMAT_ND, true, shapeValue.data()},
-        {{{1},{1}}, ge::DT_INT64, ge::FORMAT_ND, true, &seedVal},
-        {{{1},{1}}, ge::DT_INT64, ge::FORMAT_ND, true, &offsetVal},
-        {{{1},{1}}, ge::DT_DOUBLE, ge::FORMAT_ND, true, &fromVal},
-        {{{1},{1}}, ge::DT_DOUBLE, ge::FORMAT_ND, true, &toVal},
-    },
-    {
-        {{{32,512},{32,512}}, ge::DT_FLOAT, ge::FORMAT_ND},
-    },
-    {
-        gert::TilingContextPara::OpAttr("dtype", Ops::Math::AnyValue::CreateFrom<int64_t>(0)),
-    },
-    &compileInfo);
+        {
+            {{{2}, {2}}, ge::DT_INT64, ge::FORMAT_ND, true, shapeValue.data()},
+            {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, &seedVal},
+            {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, &offsetVal},
+            {{{1}, {1}}, ge::DT_DOUBLE, ge::FORMAT_ND, true, &fromVal},
+            {{{1}, {1}}, ge::DT_DOUBLE, ge::FORMAT_ND, true, &toVal},
+        },
+        {
+            {{{32, 512}, {32, 512}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        {
+            gert::TilingContextPara::OpAttr("dtype", Ops::Math::AnyValue::CreateFrom<int64_t>(0)),
+        },
+        &compileInfo);
     uint64_t expectTilingKey = 100;
-    // [0..6] 64 16384 0 0 229376 0 0  [7..8] from|range  [9] fromFp32|toFp32  [10] splitBlockCount  [11..15] splitBlocks[0]
-    string expectTilingData = "64 16384 0 0 229376 0 0 0 0 4575657221408423936 1 16384 0 64 16384 0 " SPLIT_BLOCKS_TAIL;
+    // [0..6] 64 16384 0 0 229376 0 0  [7..8] from|range  [9] fromFp32|toFp32  [10] splitBlockCount  [11..15]
+    // splitBlocks[0]
+    string expectTilingData = "64 16384 0 0 229376 0 0 0 0 4575657221408423936 1 16384 0 64 16384 0 " SPLIT_BLOCKS_TAIL
+        PROB_ADDR_TAIL;
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
@@ -160,22 +162,23 @@ TEST_F(StatelessUniformTilingTest, stateless_uniform_test_1)
 
     gert::TilingContextPara tilingContextPara(
         "StatelessUniform",
-    {
-        {{{2},{2}}, ge::DT_INT64, ge::FORMAT_ND, true, shapeValue.data()},
-        {{{1},{1}}, ge::DT_INT64, ge::FORMAT_ND, true, &seedVal},
-        {{{1},{1}}, ge::DT_INT64, ge::FORMAT_ND, true, &offsetVal},
-        {{{1},{1}}, ge::DT_DOUBLE, ge::FORMAT_ND, true, &fromVal},
-        {{{1},{1}}, ge::DT_DOUBLE, ge::FORMAT_ND, true, &toVal},
-    },
-    {
-        {{{64,256},{64,256}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-    },
-    {
-        gert::TilingContextPara::OpAttr("dtype", Ops::Math::AnyValue::CreateFrom<int64_t>(2)),
-    },
-    &compileInfo);
+        {
+            {{{2}, {2}}, ge::DT_INT64, ge::FORMAT_ND, true, shapeValue.data()},
+            {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, &seedVal},
+            {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, &offsetVal},
+            {{{1}, {1}}, ge::DT_DOUBLE, ge::FORMAT_ND, true, &fromVal},
+            {{{1}, {1}}, ge::DT_DOUBLE, ge::FORMAT_ND, true, &toVal},
+        },
+        {
+            {{{64, 256}, {64, 256}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+        },
+        {
+            gert::TilingContextPara::OpAttr("dtype", Ops::Math::AnyValue::CreateFrom<int64_t>(2)),
+        },
+        &compileInfo);
     uint64_t expectTilingKey = 100;
-    string expectTilingData = "64 16384 0 0 229376 0 0 0 0 4575657221408423936 1 16384 0 64 16384 0 " SPLIT_BLOCKS_TAIL;
+    string expectTilingData = "64 16384 0 0 229376 0 0 0 0 4575657221408423936 1 16384 0 64 16384 0 " SPLIT_BLOCKS_TAIL
+        PROB_ADDR_TAIL;
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
@@ -194,22 +197,23 @@ TEST_F(StatelessUniformTilingTest, stateless_uniform_test_2)
 
     gert::TilingContextPara tilingContextPara(
         "StatelessUniform",
-    {
-        {{{2},{2}}, ge::DT_INT64, ge::FORMAT_ND, true, shapeValue.data()},
-        {{{1},{1}}, ge::DT_INT64, ge::FORMAT_ND, true, &seedVal},
-        {{{1},{1}}, ge::DT_INT64, ge::FORMAT_ND, true, &offsetVal},
-        {{{1},{1}}, ge::DT_DOUBLE, ge::FORMAT_ND, true, &fromVal},
-        {{{1},{1}}, ge::DT_DOUBLE, ge::FORMAT_ND, true, &toVal},
-    },
-    {
-        {{{32,512},{32,512}}, ge::DT_BF16, ge::FORMAT_ND},
-    },
-    {
-        gert::TilingContextPara::OpAttr("dtype", Ops::Math::AnyValue::CreateFrom<int64_t>(3)),
-    },
-    &compileInfo);
+        {
+            {{{2}, {2}}, ge::DT_INT64, ge::FORMAT_ND, true, shapeValue.data()},
+            {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, &seedVal},
+            {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, &offsetVal},
+            {{{1}, {1}}, ge::DT_DOUBLE, ge::FORMAT_ND, true, &fromVal},
+            {{{1}, {1}}, ge::DT_DOUBLE, ge::FORMAT_ND, true, &toVal},
+        },
+        {
+            {{{32, 512}, {32, 512}}, ge::DT_BF16, ge::FORMAT_ND},
+        },
+        {
+            gert::TilingContextPara::OpAttr("dtype", Ops::Math::AnyValue::CreateFrom<int64_t>(3)),
+        },
+        &compileInfo);
     uint64_t expectTilingKey = 100;
-    string expectTilingData = "64 16384 0 0 229376 0 0 0 0 4575657221408423936 1 16384 0 64 16384 0 " SPLIT_BLOCKS_TAIL;
+    string expectTilingData = "64 16384 0 0 229376 0 0 0 0 4575657221408423936 1 16384 0 64 16384 0 " SPLIT_BLOCKS_TAIL
+        PROB_ADDR_TAIL;
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
@@ -230,22 +234,23 @@ TEST_F(StatelessUniformTilingTest, stateless_uniform_test_3)
 
     gert::TilingContextPara tilingContextPara(
         "StatelessUniform",
-    {
-        {{{1},{1}}, ge::DT_INT64, ge::FORMAT_ND, true, shapeValue.data()},
-        {{{1},{1}}, ge::DT_INT64, ge::FORMAT_ND, true, &seedVal},
-        {{{1},{1}}, ge::DT_INT64, ge::FORMAT_ND, true, &offsetVal},
-        {{{1},{1}}, ge::DT_DOUBLE, ge::FORMAT_ND, true, &fromVal},
-        {{{1},{1}}, ge::DT_DOUBLE, ge::FORMAT_ND, true, &toVal},
-    },
-    {
-        {{{16384},{16384}}, ge::DT_FLOAT, ge::FORMAT_ND},
-    },
-    {
-        gert::TilingContextPara::OpAttr("dtype", Ops::Math::AnyValue::CreateFrom<int64_t>(0)),
-    },
-    &compileInfo);
+        {
+            {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, shapeValue.data()},
+            {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, &seedVal},
+            {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, &offsetVal},
+            {{{1}, {1}}, ge::DT_DOUBLE, ge::FORMAT_ND, true, &fromVal},
+            {{{1}, {1}}, ge::DT_DOUBLE, ge::FORMAT_ND, true, &toVal},
+        },
+        {
+            {{{16384}, {16384}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        {
+            gert::TilingContextPara::OpAttr("dtype", Ops::Math::AnyValue::CreateFrom<int64_t>(0)),
+        },
+        &compileInfo);
     uint64_t expectTilingKey = 100;
-    string expectTilingData = "64 16384 0 0 229376 0 0 0 0 4575657221408423936 1 16384 0 64 16384 0 " SPLIT_BLOCKS_TAIL;
+    string expectTilingData = "64 16384 0 0 229376 0 0 0 0 4575657221408423936 1 16384 0 64 16384 0 " SPLIT_BLOCKS_TAIL
+        PROB_ADDR_TAIL;
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
@@ -264,22 +269,23 @@ TEST_F(StatelessUniformTilingTest, stateless_uniform_test_4)
 
     gert::TilingContextPara tilingContextPara(
         "StatelessUniform",
-    {
-        {{{3},{3}}, ge::DT_INT64, ge::FORMAT_ND, true, shapeValue.data()},
-        {{{1},{1}}, ge::DT_INT64, ge::FORMAT_ND, true, &seedVal},
-        {{{1},{1}}, ge::DT_INT64, ge::FORMAT_ND, true, &offsetVal},
-        {{{1},{1}}, ge::DT_DOUBLE, ge::FORMAT_ND, true, &fromVal},
-        {{{1},{1}}, ge::DT_DOUBLE, ge::FORMAT_ND, true, &toVal},
-    },
-    {
-        {{{4,64,64},{4,64,64}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-    },
-    {
-        gert::TilingContextPara::OpAttr("dtype", Ops::Math::AnyValue::CreateFrom<int64_t>(2)),
-    },
-    &compileInfo);
+        {
+            {{{3}, {3}}, ge::DT_INT64, ge::FORMAT_ND, true, shapeValue.data()},
+            {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, &seedVal},
+            {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, &offsetVal},
+            {{{1}, {1}}, ge::DT_DOUBLE, ge::FORMAT_ND, true, &fromVal},
+            {{{1}, {1}}, ge::DT_DOUBLE, ge::FORMAT_ND, true, &toVal},
+        },
+        {
+            {{{4, 64, 64}, {4, 64, 64}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+        },
+        {
+            gert::TilingContextPara::OpAttr("dtype", Ops::Math::AnyValue::CreateFrom<int64_t>(2)),
+        },
+        &compileInfo);
     uint64_t expectTilingKey = 100;
-    string expectTilingData = "64 16384 0 0 229376 0 0 0 0 4575657221408423936 1 16384 0 64 16384 0 " SPLIT_BLOCKS_TAIL;
+    string expectTilingData = "64 16384 0 0 229376 0 0 0 0 4575657221408423936 1 16384 0 64 16384 0 " SPLIT_BLOCKS_TAIL
+        PROB_ADDR_TAIL;
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
@@ -298,22 +304,23 @@ TEST_F(StatelessUniformTilingTest, stateless_uniform_test_5)
 
     gert::TilingContextPara tilingContextPara(
         "StatelessUniform",
-    {
-        {{{4},{4}}, ge::DT_INT64, ge::FORMAT_ND, true, shapeValue.data()},
-        {{{1},{1}}, ge::DT_INT64, ge::FORMAT_ND, true, &seedVal},
-        {{{1},{1}}, ge::DT_INT64, ge::FORMAT_ND, true, &offsetVal},
-        {{{1},{1}}, ge::DT_DOUBLE, ge::FORMAT_ND, true, &fromVal},
-        {{{1},{1}}, ge::DT_DOUBLE, ge::FORMAT_ND, true, &toVal},
-    },
-    {
-        {{{2,8,32,32},{2,8,32,32}}, ge::DT_BF16, ge::FORMAT_ND},
-    },
-    {
-        gert::TilingContextPara::OpAttr("dtype", Ops::Math::AnyValue::CreateFrom<int64_t>(3)),
-    },
-    &compileInfo);
+        {
+            {{{4}, {4}}, ge::DT_INT64, ge::FORMAT_ND, true, shapeValue.data()},
+            {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, &seedVal},
+            {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, &offsetVal},
+            {{{1}, {1}}, ge::DT_DOUBLE, ge::FORMAT_ND, true, &fromVal},
+            {{{1}, {1}}, ge::DT_DOUBLE, ge::FORMAT_ND, true, &toVal},
+        },
+        {
+            {{{2, 8, 32, 32}, {2, 8, 32, 32}}, ge::DT_BF16, ge::FORMAT_ND},
+        },
+        {
+            gert::TilingContextPara::OpAttr("dtype", Ops::Math::AnyValue::CreateFrom<int64_t>(3)),
+        },
+        &compileInfo);
     uint64_t expectTilingKey = 100;
-    string expectTilingData = "64 16384 0 0 229376 0 0 0 0 4575657221408423936 1 16384 0 64 16384 0 " SPLIT_BLOCKS_TAIL;
+    string expectTilingData = "64 16384 0 0 229376 0 0 0 0 4575657221408423936 1 16384 0 64 16384 0 " SPLIT_BLOCKS_TAIL
+        PROB_ADDR_TAIL;
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
@@ -334,22 +341,23 @@ TEST_F(StatelessUniformTilingTest, stateless_uniform_test_6)
 
     gert::TilingContextPara tilingContextPara(
         "StatelessUniform",
-    {
-        {{{1},{1}}, ge::DT_INT64, ge::FORMAT_ND, true, shapeValue.data()},
-        {{{1},{1}}, ge::DT_INT64, ge::FORMAT_ND, true, &seedVal},
-        {{{1},{1}}, ge::DT_INT64, ge::FORMAT_ND, true, &offsetVal},
-        {{{1},{1}}, ge::DT_DOUBLE, ge::FORMAT_ND, true, &fromVal},
-        {{{1},{1}}, ge::DT_DOUBLE, ge::FORMAT_ND, true, &toVal},
-    },
-    {
-        {{{16},{16}}, ge::DT_FLOAT, ge::FORMAT_ND},
-    },
-    {
-        gert::TilingContextPara::OpAttr("dtype", Ops::Math::AnyValue::CreateFrom<int64_t>(0)),
-    },
-    &compileInfo);
+        {
+            {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, shapeValue.data()},
+            {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, &seedVal},
+            {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, &offsetVal},
+            {{{1}, {1}}, ge::DT_DOUBLE, ge::FORMAT_ND, true, &fromVal},
+            {{{1}, {1}}, ge::DT_DOUBLE, ge::FORMAT_ND, true, &toVal},
+        },
+        {
+            {{{16}, {16}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        {
+            gert::TilingContextPara::OpAttr("dtype", Ops::Math::AnyValue::CreateFrom<int64_t>(0)),
+        },
+        &compileInfo);
     uint64_t expectTilingKey = 100;
-    string expectTilingData = "1 16 0 0 229376 0 0 0 0 4575657221408423936 1 16 0 1 256 0 " SPLIT_BLOCKS_TAIL;
+    string expectTilingData = "1 16 0 0 229376 0 0 0 0 4575657221408423936 1 16 0 1 256 0 " SPLIT_BLOCKS_TAIL
+        PROB_ADDR_TAIL;
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
@@ -368,22 +376,23 @@ TEST_F(StatelessUniformTilingTest, stateless_uniform_test_7)
 
     gert::TilingContextPara tilingContextPara(
         "StatelessUniform",
-    {
-        {{{2},{2}}, ge::DT_INT64, ge::FORMAT_ND, true, shapeValue.data()},
-        {{{1},{1}}, ge::DT_INT64, ge::FORMAT_ND, true, &seedVal},
-        {{{1},{1}}, ge::DT_INT64, ge::FORMAT_ND, true, &offsetVal},
-        {{{1},{1}}, ge::DT_DOUBLE, ge::FORMAT_ND, true, &fromVal},
-        {{{1},{1}}, ge::DT_DOUBLE, ge::FORMAT_ND, true, &toVal},
-    },
-    {
-        {{{64,512},{64,512}}, ge::DT_FLOAT, ge::FORMAT_ND},
-    },
-    {
-        gert::TilingContextPara::OpAttr("dtype", Ops::Math::AnyValue::CreateFrom<int64_t>(0)),
-    },
-    &compileInfo);
+        {
+            {{{2}, {2}}, ge::DT_INT64, ge::FORMAT_ND, true, shapeValue.data()},
+            {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, &seedVal},
+            {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, &offsetVal},
+            {{{1}, {1}}, ge::DT_DOUBLE, ge::FORMAT_ND, true, &fromVal},
+            {{{1}, {1}}, ge::DT_DOUBLE, ge::FORMAT_ND, true, &toVal},
+        },
+        {
+            {{{64, 512}, {64, 512}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        {
+            gert::TilingContextPara::OpAttr("dtype", Ops::Math::AnyValue::CreateFrom<int64_t>(0)),
+        },
+        &compileInfo);
     uint64_t expectTilingKey = 100;
-    string expectTilingData = "64 32768 0 0 229376 0 0 0 0 4575657221408423936 1 32768 0 128 32768 0 " SPLIT_BLOCKS_TAIL;
+    string expectTilingData = "64 32768 0 0 229376 0 0 0 0 4575657221408423936 1 32768 0 128 32768 0 " SPLIT_BLOCKS_TAIL
+        PROB_ADDR_TAIL;
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
@@ -402,22 +411,23 @@ TEST_F(StatelessUniformTilingTest, stateless_uniform_test_8)
 
     gert::TilingContextPara tilingContextPara(
         "StatelessUniform",
-    {
-        {{{2},{2}}, ge::DT_INT64, ge::FORMAT_ND, true, shapeValue.data()},
-        {{{1},{1}}, ge::DT_INT64, ge::FORMAT_ND, true, &seedVal},
-        {{{1},{1}}, ge::DT_INT64, ge::FORMAT_ND, true, &offsetVal},
-        {{{1},{1}}, ge::DT_DOUBLE, ge::FORMAT_ND, true, &fromVal},
-        {{{1},{1}}, ge::DT_DOUBLE, ge::FORMAT_ND, true, &toVal},
-    },
-    {
-        {{{100,200},{100,200}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-    },
-    {
-        gert::TilingContextPara::OpAttr("dtype", Ops::Math::AnyValue::CreateFrom<int64_t>(2)),
-    },
-    &compileInfo);
+        {
+            {{{2}, {2}}, ge::DT_INT64, ge::FORMAT_ND, true, shapeValue.data()},
+            {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, &seedVal},
+            {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, &offsetVal},
+            {{{1}, {1}}, ge::DT_DOUBLE, ge::FORMAT_ND, true, &fromVal},
+            {{{1}, {1}}, ge::DT_DOUBLE, ge::FORMAT_ND, true, &toVal},
+        },
+        {
+            {{{100, 200}, {100, 200}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+        },
+        {
+            gert::TilingContextPara::OpAttr("dtype", Ops::Math::AnyValue::CreateFrom<int64_t>(2)),
+        },
+        &compileInfo);
     uint64_t expectTilingKey = 100;
-    string expectTilingData = "40 20000 0 0 229376 0 0 0 0 4575657221408423936 1 20000 0 79 20224 0 " SPLIT_BLOCKS_TAIL;
+    string expectTilingData = "40 20000 0 0 229376 0 0 0 0 4575657221408423936 1 20000 0 79 20224 0 " SPLIT_BLOCKS_TAIL
+        PROB_ADDR_TAIL;
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
@@ -436,20 +446,20 @@ TEST_F(StatelessUniformTilingTest, stateless_uniform_test_invalid_dtype)
 
     gert::TilingContextPara tilingContextPara(
         "StatelessUniform",
-    {
-        {{{2},{2}}, ge::DT_INT64, ge::FORMAT_ND, true, shapeValue.data()},
-        {{{1},{1}}, ge::DT_INT64, ge::FORMAT_ND, true, &seedVal},
-        {{{1},{1}}, ge::DT_INT64, ge::FORMAT_ND, true, &offsetVal},
-        {{{1},{1}}, ge::DT_DOUBLE, ge::FORMAT_ND, true, &fromVal},
-        {{{1},{1}}, ge::DT_DOUBLE, ge::FORMAT_ND, true, &toVal},
-    },
-    {
-        {{{32,512},{32,512}}, ge::DT_INT32, ge::FORMAT_ND},
-    },
-    {
-        gert::TilingContextPara::OpAttr("dtype", Ops::Math::AnyValue::CreateFrom<int64_t>(0)),
-    },
-    &compileInfo);
+        {
+            {{{2}, {2}}, ge::DT_INT64, ge::FORMAT_ND, true, shapeValue.data()},
+            {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, &seedVal},
+            {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, &offsetVal},
+            {{{1}, {1}}, ge::DT_DOUBLE, ge::FORMAT_ND, true, &fromVal},
+            {{{1}, {1}}, ge::DT_DOUBLE, ge::FORMAT_ND, true, &toVal},
+        },
+        {
+            {{{32, 512}, {32, 512}}, ge::DT_INT32, ge::FORMAT_ND},
+        },
+        {
+            gert::TilingContextPara::OpAttr("dtype", Ops::Math::AnyValue::CreateFrom<int64_t>(0)),
+        },
+        &compileInfo);
     ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
 }
 
@@ -465,20 +475,20 @@ TEST_F(StatelessUniformTilingTest, stateless_uniform_test_invalid_float64)
 
     gert::TilingContextPara tilingContextPara(
         "StatelessUniform",
-    {
-        {{{2},{2}}, ge::DT_INT64, ge::FORMAT_ND, true, shapeValue.data()},
-        {{{1},{1}}, ge::DT_INT64, ge::FORMAT_ND, true, &seedVal},
-        {{{1},{1}}, ge::DT_INT64, ge::FORMAT_ND, true, &offsetVal},
-        {{{1},{1}}, ge::DT_DOUBLE, ge::FORMAT_ND, true, &fromVal},
-        {{{1},{1}}, ge::DT_DOUBLE, ge::FORMAT_ND, true, &toVal},
-    },
-    {
-        {{{32,512},{32,512}}, ge::DT_DOUBLE, ge::FORMAT_ND},
-    },
-    {
-        gert::TilingContextPara::OpAttr("dtype", Ops::Math::AnyValue::CreateFrom<int64_t>(0)),
-    },
-    &compileInfo);
+        {
+            {{{2}, {2}}, ge::DT_INT64, ge::FORMAT_ND, true, shapeValue.data()},
+            {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, &seedVal},
+            {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, &offsetVal},
+            {{{1}, {1}}, ge::DT_DOUBLE, ge::FORMAT_ND, true, &fromVal},
+            {{{1}, {1}}, ge::DT_DOUBLE, ge::FORMAT_ND, true, &toVal},
+        },
+        {
+            {{{32, 512}, {32, 512}}, ge::DT_DOUBLE, ge::FORMAT_ND},
+        },
+        {
+            gert::TilingContextPara::OpAttr("dtype", Ops::Math::AnyValue::CreateFrom<int64_t>(0)),
+        },
+        &compileInfo);
     ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
 }
 
@@ -495,19 +505,19 @@ TEST_F(StatelessUniformTilingTest, stateless_uniform_test_invalid_shape_dtype)
 
     gert::TilingContextPara tilingContextPara(
         "StatelessUniform",
-    {
-        {{{2},{2}}, ge::DT_INT32, ge::FORMAT_ND, true, shapeValue.data()},
-        {{{1},{1}}, ge::DT_INT64, ge::FORMAT_ND, true, &seedVal},
-        {{{1},{1}}, ge::DT_INT64, ge::FORMAT_ND, true, &offsetVal},
-        {{{1},{1}}, ge::DT_DOUBLE, ge::FORMAT_ND, true, &fromVal},
-        {{{1},{1}}, ge::DT_DOUBLE, ge::FORMAT_ND, true, &toVal},
-    },
-    {
-        {{{32,512},{32,512}}, ge::DT_FLOAT, ge::FORMAT_ND},
-    },
-    {
-        gert::TilingContextPara::OpAttr("dtype", Ops::Math::AnyValue::CreateFrom<int64_t>(0)),
-    },
-    &compileInfo);
+        {
+            {{{2}, {2}}, ge::DT_INT32, ge::FORMAT_ND, true, shapeValue.data()},
+            {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, &seedVal},
+            {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, &offsetVal},
+            {{{1}, {1}}, ge::DT_DOUBLE, ge::FORMAT_ND, true, &fromVal},
+            {{{1}, {1}}, ge::DT_DOUBLE, ge::FORMAT_ND, true, &toVal},
+        },
+        {
+            {{{32, 512}, {32, 512}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        {
+            gert::TilingContextPara::OpAttr("dtype", Ops::Math::AnyValue::CreateFrom<int64_t>(0)),
+        },
+        &compileInfo);
     ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
 }

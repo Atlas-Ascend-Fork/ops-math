@@ -19,54 +19,55 @@ from atk.tasks.api_execute.base_api import BaseApi
 from atk.tasks.api_execute.aclnn_base_api import AclnnBaseApi
 from atk.tasks.dataset.base_dataset import OpsDataset
 
+
 @register("ascend_aclnn_bernoulli_tensor")
 class MethodAclnnBernoulliTensorApi(BaseApi):
-
-    def __call__(self, task_result: TaskResult):
+    def __init__(self, task_result: TaskResult):
         super(MethodAclnnBernoulliTensorApi, self).__init__(task_result)
         OpsDataset.seed_everything()
         self.change_flag = None
-        
+
     def __call__(self, input_data: InputDataset, with_output: bool = False):
         # 获取yaml中所需参数
-        self.tensor_ = input_data.kwargs['self']
+        self.tensor_ = input_data.kwargs["self"]
         self.dtype_ = self.tensor_.dtype
-        self.prob_ = input_data.kwargs['prob']
+        self.prob_ = input_data.kwargs["prob"]
         self.input = self.prob_
-        
+
         self.input = self.input.to(self.dtype_)
-        
+
         if self.device == "cpu":
             if self.dtype_ in [torch.float16, torch.bfloat16]:
                 self.input = self.input.to(torch.float32)
         output = torch.bernoulli(self.input)
-        if self.device == 'npu' and self.dtype_ in [torch.float16, torch.bfloat16]:
+        if self.device == "npu" and self.dtype_ in [torch.float16, torch.bfloat16]:
             output = output.to(torch.float32)
-            
+
         return output
+
 
 @register("aclnn_bernoulli_tensor")
 class BernoulliTensorAclnnApi(AclnnBaseApi):
     def __call__(self):
         super().__call__()
-    
+
     def init_by_input_data(self, input_data: InputDataset):
         input_args = []
         output_packages = []
-        
+
         for i, arg in enumerate(input_data.args):
             data = self.backend.convert_input_data(arg, index=i)
             input_args.extend(data)
-        
+
         for name, kwarg in input_data.kwargs.items():
             data = self.backend.convert_input_data(kwarg, name=name)
             input_args.extend(data)
-        
-        dtype = input_data.kwargs['self'].dtype
+
+        dtype = input_data.kwargs["self"].dtype
         for index, output_data in enumerate(self.task_result.output_info_list):
             output_data.dtype = str(dtype)
             output = self.backend.convert_output_data(output_data, index)
             output_packages.extend(output)
         input_args.extend(output_packages)
-        
+
         return input_args, output_packages
