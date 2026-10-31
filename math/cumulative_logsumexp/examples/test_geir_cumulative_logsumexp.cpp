@@ -26,7 +26,7 @@
 #include "tensor.h"
 #include "types.h"
 
-#include "cumulative_logsumexp_proto.h"
+#include "../op_graph/cumulative_logsumexp_proto.h"
 
 #define FAILED -1
 #define SUCCESS 0
