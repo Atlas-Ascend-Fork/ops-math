@@ -16,6 +16,7 @@
 #include "op_api_ut_common/op_api_ut.h"
 #include "op_api_ut_common/scalar_desc.h"
 #include "op_api_ut_common/tensor_desc.h"
+#include "opdev/platform.h"
 
 using namespace std;
 
@@ -445,3 +446,49 @@ TEST_F(l2_pow_scalar_tensor_test, Ascend950PR_89_aclnnPowScalarTensor_scalar_flo
   EXPECT_EQ(aclRet, ACL_SUCCESS);
 }
  */
+
+TEST_F(l2_pow_scalar_tensor_test, aclnnPowScalarTensor_out_dtype_not_in_support_list)
+{
+    auto expTensorDesc = TensorDesc({4, 8}, ACL_FLOAT, ACL_FORMAT_ND).ValueRange(0, 2);
+    auto selfScalarDesc = ScalarDesc(2);
+    // INT4不在out支持列表中，校验报错
+    {
+        auto outTensorDesc = TensorDesc({4, 8}, ACL_INT4, ACL_FORMAT_ND);
+        auto ut = OP_API_UT(aclnnPowScalarTensor, INPUT(selfScalarDesc, expTensorDesc), OUTPUT(outTensorDesc));
+        uint64_t workspaceSize = 0;
+        EXPECT_EQ(ut.TestGetWorkspaceSize(&workspaceSize), ACLNN_ERR_PARAM_INVALID);
+    }
+    // BOOL不在out支持列表中，校验报错
+    {
+        auto outTensorDesc = TensorDesc({4, 8}, ACL_BOOL, ACL_FORMAT_ND);
+        auto ut = OP_API_UT(aclnnPowScalarTensor, INPUT(selfScalarDesc, expTensorDesc), OUTPUT(outTensorDesc));
+        uint64_t workspaceSize = 0;
+        EXPECT_EQ(ut.TestGetWorkspaceSize(&workspaceSize), ACLNN_ERR_PARAM_INVALID);
+    }
+    // 列表内dtype（UINT16）但推导类型不可转换，仍返回161002
+    {
+        auto outTensorDesc = TensorDesc({4, 8}, ACL_UINT16, ACL_FORMAT_ND);
+        auto ut = OP_API_UT(aclnnPowScalarTensor, INPUT(selfScalarDesc, expTensorDesc), OUTPUT(outTensorDesc));
+        uint64_t workspaceSize = 0;
+        EXPECT_EQ(ut.TestGetWorkspaceSize(&workspaceSize), ACLNN_ERR_PARAM_INVALID);
+    }
+    // 合法out dtype
+    {
+        auto outTensorDesc = TensorDesc({4, 8}, ACL_FLOAT, ACL_FORMAT_ND).Precision(0.0001, 0.0001);
+        auto ut = OP_API_UT(aclnnPowScalarTensor, INPUT(selfScalarDesc, expTensorDesc), OUTPUT(outTensorDesc));
+        uint64_t workspaceSize = 0;
+        EXPECT_EQ(ut.TestGetWorkspaceSize(&workspaceSize), ACL_SUCCESS);
+    }
+}
+
+TEST_F(l2_pow_scalar_tensor_test, Ascend950_out_dtype_check_not_applied)
+{
+    op::SetPlatformSocVersion(op::SocVersion::ASCEND950);
+    auto expTensorDesc = TensorDesc({4, 8}, ACL_FLOAT, ACL_FORMAT_ND).ValueRange(0, 2);
+    auto selfScalarDesc = ScalarDesc(2);
+    auto outTensorDesc = TensorDesc({4, 8}, ACL_INT4, ACL_FORMAT_ND);
+    auto ut = OP_API_UT(aclnnPowScalarTensor, INPUT(selfScalarDesc, expTensorDesc), OUTPUT(outTensorDesc));
+    uint64_t workspaceSize = 0;
+    EXPECT_NE(ut.TestGetWorkspaceSize(&workspaceSize), ACLNN_ERR_PARAM_INVALID);
+    op::SetPlatformSocVersion(op::SocVersion::ASCEND910B);
+}

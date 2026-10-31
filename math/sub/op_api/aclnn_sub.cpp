@@ -247,6 +247,9 @@ static aclnnStatus CheckParams(const aclTensor* self, const aclTensor* other, co
     const std::initializer_list<op::DataType> dtypeSupportList = GetDtypeSupportListBySocVersion();
     OP_CHECK_DTYPE_NOT_SUPPORT(self, dtypeSupportList, return ACLNN_ERR_PARAM_INVALID);
     OP_CHECK_DTYPE_NOT_SUPPORT(other, dtypeSupportList, return ACLNN_ERR_PARAM_INVALID);
+    if (GetCurrentPlatformInfo().GetCurNpuArch() == NpuArch::DAV_2201) {
+        OP_CHECK_DTYPE_NOT_SUPPORT(out, dtypeSupportList, return ACLNN_ERR_PARAM_INVALID);
+    }
 
     // 3. 检查self和other能否做数据类型推导以及推导的数据类型能否转换为输出数据类型
     op::DataType promoteType = op::PromoteType(self->GetDataType(), other->GetDataType());
@@ -432,6 +435,9 @@ static aclnnStatus CheckParamsScalar(const aclTensor* self, const aclScalar* oth
     // 2. 检查输入的数据类型是否在API支持的数据类型范围之内，需要根据api定义校验
     const std::initializer_list<op::DataType> dtypeSupportList = GetDtypeSupportListBySocVersion();
     OP_CHECK_DTYPE_NOT_SUPPORT(self, dtypeSupportList, return ACLNN_ERR_PARAM_INVALID);
+    if (GetCurrentPlatformInfo().GetCurNpuArch() == NpuArch::DAV_2201) {
+        OP_CHECK_DTYPE_NOT_SUPPORT(out, dtypeSupportList, return ACLNN_ERR_PARAM_INVALID);
+    }
 
     // 3. 检查self和other能否做数据类型推导以及推导的数据类型能否转换为输出数据类型
     auto promoteType = PromoteTypeScalar(self, other, alpha, out);

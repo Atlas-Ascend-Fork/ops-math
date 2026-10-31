@@ -252,7 +252,7 @@ TEST_F(l2_pow_tensor_scalar_test, aclnnPowTensorScalar_1_1_16_129_in64_hwcn_1_1_
 
 TEST_F(l2_pow_tensor_scalar_test, Ascend950_aclnnPowTensorScalar_square_complex64)
 {
-    op::SetPlatformNpuArch(NpuArch::DAV_3510);
+    op::SetPlatformSocVersion(op::SocVersion::ASCEND950);
 
     const vector<int64_t>& selfShape = {1, 1, 16, 129};
     aclDataType selfDtype = ACL_COMPLEX64;
@@ -269,7 +269,7 @@ TEST_F(l2_pow_tensor_scalar_test, Ascend950_aclnnPowTensorScalar_square_complex6
     auto ut = OP_API_UT(aclnnPowTensorScalar, INPUT(selfTensorDesc, expScalarDesc), OUTPUT(outTensorDesc));
     uint64_t workspaceSize = 0;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
-    op::SetPlatformNpuArch(NpuArch::DAV_2201);
+    op::SetPlatformSocVersion(op::SocVersion::ASCEND910B);
     EXPECT_EQ(aclRet, ACL_SUCCESS);
 }
 
@@ -294,6 +294,18 @@ TEST_F(l2_pow_tensor_scalar_test, Ascend950_aclnnPowTensorScalar_square_complex1
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
     op::SetPlatformNpuArch(NpuArch::DAV_2201);
     EXPECT_EQ(aclRet, ACL_SUCCESS);
+}
+
+TEST_F(l2_pow_tensor_scalar_test, Ascend950_out_dtype_check_not_applied)
+{
+    op::SetPlatformNpuArch(NpuArch::DAV_3510);
+    auto selfTensorDesc = TensorDesc({4, 8}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto expScalarDesc = ScalarDesc(2);
+    auto outTensorDesc = TensorDesc({4, 8}, ACL_INT4, ACL_FORMAT_ND);
+    auto ut = OP_API_UT(aclnnPowTensorScalar, INPUT(selfTensorDesc, expScalarDesc), OUTPUT(outTensorDesc));
+    uint64_t workspaceSize = 0;
+    EXPECT_NE(ut.TestGetWorkspaceSize(&workspaceSize), ACLNN_ERR_PARAM_INVALID);
+    op::SetPlatformNpuArch(NpuArch::DAV_2201);
 }
 /*
 TEST_F(l2_pow_tensor_scalar_test, aclnnPowTensorScalar_1_1_16_129_complex64_hwcn_1_1_16_129_complex64_hwcn) {

@@ -49,6 +49,13 @@ static const std::initializer_list<op::DataType> DTYPE_SUPPORT_LIST = {
     op::DataType::DT_INT8,  op::DataType::DT_UINT8,     op::DataType::DT_DOUBLE,     op::DataType::DT_BOOL,
     op::DataType::DT_INT16, op::DataType::DT_COMPLEX64, op::DataType::DT_COMPLEX128, op::DataType::DT_BF16};
 
+// out的数据类型支持列表（比输入列表多UINT16/UINT32/UINT64，与API资料一致）
+static const std::initializer_list<op::DataType> OUT_DTYPE_SUPPORT_LIST = {
+    op::DataType::DT_FLOAT,     op::DataType::DT_INT32,      op::DataType::DT_INT64,  op::DataType::DT_FLOAT16,
+    op::DataType::DT_INT8,      op::DataType::DT_UINT8,      op::DataType::DT_DOUBLE, op::DataType::DT_INT16,
+    op::DataType::DT_COMPLEX64, op::DataType::DT_COMPLEX128, op::DataType::DT_BF16,   op::DataType::DT_UINT16,
+    op::DataType::DT_UINT32,    op::DataType::DT_UINT64};
+
 static const std::initializer_list<op::DataType> SQUARE_NEED_CAST_DTYPE_LIST = {
     op::DataType::DT_INT8, op::DataType::DT_UINT8, op::DataType::DT_BOOL, op::DataType::DT_INT16};
 
@@ -182,6 +189,11 @@ static bool CheckDtypeValid(const op::DataType selfDtype, const op::DataType exp
     if (promoteType == DataType::DT_UNDEFINED) {
         OP_LOGE(ACLNN_ERR_PARAM_INVALID, "self dtype %s and exponent dtype %s can not promote dtype.",
                 op::ToString(selfDtype).GetString(), op::ToString(expDtype).GetString());
+        return false;
+    }
+    if (GetCurrentPlatformInfo().GetCurNpuArch() == NpuArch::DAV_2201 && !CheckType(outDtype, OUT_DTYPE_SUPPORT_LIST)) {
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "out dtype %s should be in out dtype support list %s.",
+                op::ToString(outDtype).GetString(), op::ToString(OUT_DTYPE_SUPPORT_LIST).GetString());
         return false;
     }
     OP_CHECK_RESULT_DTYPE_CAST_FAILED(promoteType, outDtype, return false);

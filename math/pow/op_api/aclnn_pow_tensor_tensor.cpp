@@ -54,6 +54,13 @@ static const std::initializer_list<op::DataType> DTYPE_SUPPORT_LIST = {
     op::DataType::DT_INT8,      op::DataType::DT_UINT8,      op::DataType::DT_DOUBLE, op::DataType::DT_BOOL,
     op::DataType::DT_COMPLEX64, op::DataType::DT_COMPLEX128, op::DataType::DT_INT16,  op::DataType::DT_BF16};
 
+// out的数据类型支持列表（比输入列表多UINT16/UINT32/UINT64，与API资料一致）
+static const std::initializer_list<op::DataType> OUT_DTYPE_SUPPORT_LIST = {
+    op::DataType::DT_FLOAT,     op::DataType::DT_INT32,      op::DataType::DT_INT64,  op::DataType::DT_FLOAT16,
+    op::DataType::DT_INT8,      op::DataType::DT_UINT8,      op::DataType::DT_DOUBLE, op::DataType::DT_INT16,
+    op::DataType::DT_COMPLEX64, op::DataType::DT_COMPLEX128, op::DataType::DT_BF16,   op::DataType::DT_UINT16,
+    op::DataType::DT_UINT32,    op::DataType::DT_UINT64};
+
 static bool CheckNotNull(const aclTensor* self, const aclTensor* exponent, const aclTensor* out)
 {
     OP_CHECK_NULL(self, return false);
@@ -132,6 +139,12 @@ static aclnnStatus CheckParams(const aclTensor* self, const aclTensor* exponent,
 
     // 2. 检查输入的数据类型是否在API支持的数据类型范围之内，需要根据api定义校验
     CHECK_RET(CheckDtypeValid(self, exponent), ACLNN_ERR_PARAM_INVALID);
+    if (GetCurrentPlatformInfo().GetCurNpuArch() == NpuArch::DAV_2201 &&
+        !CheckType(out->GetDataType(), OUT_DTYPE_SUPPORT_LIST)) {
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "out dtype %s should be in out dtype support list %s.",
+                op::ToString(out->GetDataType()).GetString(), op::ToString(OUT_DTYPE_SUPPORT_LIST).GetString());
+        return ACLNN_ERR_PARAM_INVALID;
+    }
 
     // 3. 检查self和exponent能否做数据类型推导以及推导的数据类型能否转换为输出数据类型
     CHECK_RET(CheckPromoteType(self, exponent, out), ACLNN_ERR_PARAM_INVALID);

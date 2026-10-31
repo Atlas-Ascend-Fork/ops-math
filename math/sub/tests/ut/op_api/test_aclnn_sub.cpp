@@ -15,6 +15,7 @@
 #include "op_api_ut_common/tensor_desc.h"
 #include "op_api_ut_common/scalar_desc.h"
 #include "op_api_ut_common/op_api_ut.h"
+#include "opdev/platform.h"
 
 class l2_sub_test : public testing::Test {
 protected:
@@ -528,4 +529,70 @@ TEST_F(l2_sub_test, Ascend950PR_89_case_005)
 
     // SAMPLE: precision simulate
     // ut.TestPrecision();
+}
+
+TEST_F(l2_sub_test, abnormal_out_dtype_not_in_support_list)
+{
+    // INT4不在out支持列表中，校验报错
+    {
+        auto selfDesc = TensorDesc({10, 5}, ACL_FLOAT, ACL_FORMAT_ND);
+        auto otherDesc = ScalarDesc(1.0f);
+        auto scalarDesc = ScalarDesc(1.0f);
+        auto outDesc = TensorDesc({10, 5}, ACL_INT4, ACL_FORMAT_ND);
+        auto ut = OP_API_UT(aclnnSubs, INPUT(selfDesc, otherDesc, scalarDesc), OUTPUT(outDesc));
+        uint64_t workspaceSize = 0;
+        EXPECT_EQ(ut.TestGetWorkspaceSize(&workspaceSize), ACLNN_ERR_PARAM_INVALID);
+    }
+    // 合法out dtype不受影响
+    {
+        auto selfDesc = TensorDesc({10, 5}, ACL_FLOAT, ACL_FORMAT_ND);
+        auto otherDesc = ScalarDesc(1.0f);
+        auto scalarDesc = ScalarDesc(1.0f);
+        auto outDesc = TensorDesc({10, 5}, ACL_FLOAT, ACL_FORMAT_ND);
+        auto ut = OP_API_UT(aclnnSubs, INPUT(selfDesc, otherDesc, scalarDesc), OUTPUT(outDesc));
+        uint64_t workspaceSize = 0;
+        EXPECT_EQ(ut.TestGetWorkspaceSize(&workspaceSize), ACL_SUCCESS);
+    }
+    // inplace场景out与self同dtype，不受新增校验影响
+    {
+        auto selfDesc = TensorDesc({10, 5}, ACL_FLOAT, ACL_FORMAT_ND);
+        auto otherDesc = ScalarDesc(1.0f);
+        auto scalarDesc = ScalarDesc(1.0f);
+        auto ut = OP_API_UT(aclnnInplaceSubs, INPUT(selfDesc, otherDesc, scalarDesc), OUTPUT());
+        uint64_t workspaceSize = 0;
+        EXPECT_EQ(ut.TestGetWorkspaceSize(&workspaceSize), ACL_SUCCESS);
+    }
+    // tensor-tensor入口aclnnSub：INT4不在out支持列表中，校验报错
+    {
+        auto selfDesc = TensorDesc({10, 5}, ACL_FLOAT, ACL_FORMAT_ND);
+        auto otherDesc = TensorDesc({10, 5}, ACL_FLOAT, ACL_FORMAT_ND);
+        auto scalarDesc = ScalarDesc(1.0f);
+        auto outDesc = TensorDesc({10, 5}, ACL_INT4, ACL_FORMAT_ND);
+        auto ut = OP_API_UT(aclnnSub, INPUT(selfDesc, otherDesc, scalarDesc), OUTPUT(outDesc));
+        uint64_t workspaceSize = 0;
+        EXPECT_EQ(ut.TestGetWorkspaceSize(&workspaceSize), ACLNN_ERR_PARAM_INVALID);
+    }
+    // tensor-tensor入口aclnnSub：合法out dtype不受影响
+    {
+        auto selfDesc = TensorDesc({10, 5}, ACL_FLOAT, ACL_FORMAT_ND);
+        auto otherDesc = TensorDesc({10, 5}, ACL_FLOAT, ACL_FORMAT_ND);
+        auto scalarDesc = ScalarDesc(1.0f);
+        auto outDesc = TensorDesc({10, 5}, ACL_FLOAT, ACL_FORMAT_ND);
+        auto ut = OP_API_UT(aclnnSub, INPUT(selfDesc, otherDesc, scalarDesc), OUTPUT(outDesc));
+        uint64_t workspaceSize = 0;
+        EXPECT_EQ(ut.TestGetWorkspaceSize(&workspaceSize), ACL_SUCCESS);
+    }
+}
+
+TEST_F(l2_sub_test, Ascend950_out_dtype_check_not_applied)
+{
+    op::SetPlatformSocVersion(op::SocVersion::ASCEND950);
+    auto selfDesc = TensorDesc({10, 5}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto otherDesc = ScalarDesc(1.0f);
+    auto scalarDesc = ScalarDesc(1.0f);
+    auto outDesc = TensorDesc({10, 5}, ACL_INT4, ACL_FORMAT_ND);
+    auto ut = OP_API_UT(aclnnSubs, INPUT(selfDesc, otherDesc, scalarDesc), OUTPUT(outDesc));
+    uint64_t workspaceSize = 0;
+    EXPECT_NE(ut.TestGetWorkspaceSize(&workspaceSize), ACLNN_ERR_PARAM_INVALID);
+    op::SetPlatformSocVersion(op::SocVersion::ASCEND910B);
 }

@@ -16,6 +16,7 @@
 #include "op_api_ut_common/op_api_ut.h"
 #include "op_api_ut_common/scalar_desc.h"
 #include "op_api_ut_common/tensor_desc.h"
+#include "opdev/platform.h"
 
 using namespace std;
 
@@ -629,4 +630,16 @@ TEST_F(l2_pow_tensor_tensor_test, aclnnPowTensorTensor_2_7_bool_nd_2_7_bool_nd)
     uint64_t workspaceSize = 0;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
     EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
+}
+
+TEST_F(l2_pow_tensor_tensor_test, Ascend950_out_dtype_check_not_applied)
+{
+    op::SetPlatformSocVersion(op::SocVersion::ASCEND950);
+    auto selfTensorDesc = TensorDesc({4, 8}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto otherTensorDesc = TensorDesc({4, 8}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto outTensorDesc = TensorDesc({4, 8}, ACL_INT4, ACL_FORMAT_ND);
+    auto ut = OP_API_UT(aclnnPowTensorTensor, INPUT(selfTensorDesc, otherTensorDesc), OUTPUT(outTensorDesc));
+    uint64_t workspaceSize = 0;
+    EXPECT_NE(ut.TestGetWorkspaceSize(&workspaceSize), ACLNN_ERR_PARAM_INVALID);
+    op::SetPlatformSocVersion(op::SocVersion::ASCEND910B);
 }
