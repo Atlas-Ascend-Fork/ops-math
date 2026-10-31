@@ -646,10 +646,23 @@ def top_k_v2_compare(
     k_value = _k_value(k_raw)
     values = _as_tensor(npu_values)
     expected = _as_tensor(golden_values)
+    indices = _as_tensor(npu_indices).to(torch.int64)
+    expected_indices = _as_tensor(golden_indices).to(torch.int64)
     axis = _normalize_axis(attrs.get("dim", -1), x.ndim)
     sorted_output = bool(attrs.get("sorted", True))
 
-    if sorted_output:
+    # Element counts must match on both sides before any broadcast-based
+    # comparison: broadcasting an empty [0] against a non-empty golden (a real
+    # k > 0 failure delivered as an empty output) silently counts zero errors.
+    # Shapes are NOT required to match - GEIR parses empty outputs (k = 0) as
+    # 1-D, so only the counts are compared and only empty-on-both-sides passes.
+    value_size_bad = values.numel() != expected.numel()
+    index_size_bad = indices.numel() != expected_indices.numel()
+
+    if sorted_output or values.numel() == 0 or expected.numel() == 0:
+        # Empty outputs arrive 1-D from the GEIR output parser, so the
+        # sort-by-axis below would go out of range; element-wise equality on an
+        # empty tensor is the correct (trivially passing) check.
         value_equal = _equal_values(values, expected)
     else:
         value_equal = _equal_values(
@@ -657,10 +670,11 @@ def top_k_v2_compare(
             torch.sort(expected, dim=axis).values,
         )
     value_bad = int(torch.count_nonzero(~value_equal).item())
-    value_total = values.numel()
+    if value_size_bad:
+        value_bad = max(values.numel(), expected.numel())
+    value_total = max(values.numel(), expected.numel())
 
-    indices = _as_tensor(npu_indices).to(torch.int64)
-    if indices.numel() == 0:
+    if indices.numel() == 0 or expected_indices.numel() == 0:
         invalid = gather_bad = duplicate_count = 0
     else:
         valid = (indices >= 0) & (indices < x.shape[axis])
@@ -680,14 +694,16 @@ def top_k_v2_compare(
             else 0
         )
 
-    if sorted_output and 0 < k_value <= 32 and _exact_indices(compare_context):
-        expected_indices = _as_tensor(golden_indices).to(torch.int64)
+    if index_size_bad:
+        golden_index_bad = 0
+        index_bad = max(indices.numel(), expected_indices.numel())
+    elif sorted_output and 0 < k_value <= 32 and _exact_indices(compare_context):
         golden_index_bad = int(torch.count_nonzero(indices != expected_indices).item())
         index_bad = golden_index_bad
     else:
         golden_index_bad = 0
         index_bad = invalid + gather_bad + duplicate_count
-    index_total = indices.numel()
+    index_total = max(indices.numel(), expected_indices.numel())
     value_precision = (
         100.0 if value_total == 0 else 100.0 * (value_total - value_bad) / value_total
     )
@@ -702,7 +718,11 @@ def top_k_v2_compare(
             "precision": value_precision,
             "error_info": None
             if value_bad == 0
-            else f"{value_bad}/{value_total} value mismatches",
+            else (
+                f"output size mismatch: actual {values.numel()} vs golden {expected.numel()} elements"
+                if value_size_bad
+                else f"{value_bad}/{value_total} value mismatches"
+            ),
         },
         {
             "pass": index_bad == 0,
@@ -710,9 +730,13 @@ def top_k_v2_compare(
             "error_info": None
             if index_bad == 0
             else (
-                f"golden_index_mismatches={golden_index_bad}, "
-                f"invalid_indices={invalid}, duplicate_indices={duplicate_count}, "
-                f"gathered_value_mismatches={gather_bad}"
+                f"indices size mismatch: actual {indices.numel()} vs golden {expected_indices.numel()} elements"
+                if index_size_bad
+                else (
+                    f"golden_index_mismatches={golden_index_bad}, "
+                    f"invalid_indices={invalid}, duplicate_indices={duplicate_count}, "
+                    f"gathered_value_mismatches={gather_bad}"
+                )
             ),
         },
     ]

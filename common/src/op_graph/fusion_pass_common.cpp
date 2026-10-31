@@ -41,6 +41,7 @@ STUB_REG_PASS("BernoulliFusionPass", fe::BUILT_IN_GRAPH_PASS, 0);
 STUB_REG_PASS("HardMaxPass", fe::BUILT_IN_GRAPH_PASS, 0x01);
 // MulAddN：math 侧 Stage=kCompatibleInherited，且在 OPP 白名单 3510(ascend950) 内，登记后生效
 STUB_REG_PASS("MulAddNPass", fe::BUILT_IN_GRAPH_PASS, 0);
+STUB_REG_PASS("TopKFusionPass", fe::BUILT_IN_GRAPH_PASS, 0x04);
 
 #endif // GE_COMPILER_VERSION_NUM >= GE_COMPILER_VERSION_900
 #endif // OP_GRAPH_MATH_ASCEND950
