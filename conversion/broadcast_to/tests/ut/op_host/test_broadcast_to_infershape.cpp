@@ -237,3 +237,63 @@ TEST_F(BroadcastToInferShapeTest, broadcast_to_infershape_const_unknown_rank_001
     std::vector<std::vector<int64_t>> expectOutputShape = {{5, 6}};
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
+
+// Test scenario: target shape tensor with a negative dim less than -1 logs a warning but keeps legacy behavior
+TEST_F(BroadcastToInferShapeTest, broadcast_to_infershape_negative_dim_int64_001)
+{
+    gert::StorageShape xShape = {{1}, {1}};
+    gert::StorageShape shapeParamShape = {{1}, {1}};
+    int64_t shapes[1] = {-2};
+    gert::InfershapeContextPara::TensorDescription x(xShape, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::InfershapeContextPara::TensorDescription shapeParams(shapeParamShape, ge::DT_INT64, ge::FORMAT_ND, true,
+                                                               &shapes);
+    gert::InfershapeContextPara::TensorDescription y(xShape, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::InfershapeContextPara infershapeContextPara("BroadcastTo", {x, shapeParams}, {y});
+    std::vector<std::vector<int64_t>> expectOutputShape = {{-2}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+// Test scenario: int32 target shape with a negative dim less than -1 logs a warning but keeps legacy behavior
+TEST_F(BroadcastToInferShapeTest, broadcast_to_infershape_negative_dim_int32_001)
+{
+    gert::StorageShape xShape = {{1}, {1}};
+    gert::StorageShape shapeParamShape = {{1}, {1}};
+    int32_t shapes[1] = {-2};
+    gert::InfershapeContextPara::TensorDescription x(xShape, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::InfershapeContextPara::TensorDescription shapeParams(shapeParamShape, ge::DT_INT32, ge::FORMAT_ND, true,
+                                                               &shapes);
+    gert::InfershapeContextPara::TensorDescription y(xShape, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::InfershapeContextPara infershapeContextPara("BroadcastTo", {x, shapeParams}, {y});
+    std::vector<std::vector<int64_t>> expectOutputShape = {{-2}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+// Test scenario: attribute target shape with a negative dim less than -1 logs a warning but keeps legacy behavior
+TEST_F(BroadcastToInferShapeTest, broadcast_to_infershape_negative_dim_attrs_001)
+{
+    gert::StorageShape xShape = {{1}, {1}};
+    gert::StorageShape yShape = {{1}, {1}};
+    std::vector<int64_t> shapeValues = {-2};
+    gert::InfershapeContextPara::TensorDescription x(xShape, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::InfershapeContextPara::TensorDescription y(yShape, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::InfershapeContextPara::OpAttr shapeAttr("_shape_values",
+                                                  Ops::Math::AnyValue::CreateFrom<std::vector<int64_t>>(shapeValues));
+    gert::InfershapeContextPara infershapeContextPara("BroadcastTo", {x}, {y}, {shapeAttr});
+    std::vector<std::vector<int64_t>> expectOutputShape = {{-2}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+// Test scenario: zero dim remains a valid target shape value
+TEST_F(BroadcastToInferShapeTest, broadcast_to_infershape_zero_dim_001)
+{
+    gert::StorageShape xShape = {{1, 3}, {1, 3}};
+    gert::StorageShape shapeParamShape = {{2}, {2}};
+    int64_t shapes[2] = {0, 3};
+    gert::InfershapeContextPara::TensorDescription x(xShape, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::InfershapeContextPara::TensorDescription shapeParams(shapeParamShape, ge::DT_INT64, ge::FORMAT_ND, true,
+                                                               &shapes);
+    gert::InfershapeContextPara::TensorDescription y(xShape, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::InfershapeContextPara infershapeContextPara("BroadcastTo", {x, shapeParams}, {y});
+    std::vector<std::vector<int64_t>> expectOutputShape = {{0, 3}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}

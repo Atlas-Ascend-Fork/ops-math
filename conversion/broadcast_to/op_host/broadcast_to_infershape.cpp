@@ -30,6 +30,16 @@ static void GetConstValueToShape(const gert::Tensor* tensor, size_t size, gert::
     }
 }
 
+static void WarnShapeValues(const gert::InferShapeContext* context, const gert::Shape* shape)
+{
+    for (size_t i = 0; i < shape->GetDimNum(); ++i) {
+        if (shape->GetDim(i) < -1) {
+            OP_LOGW(context->GetNodeName(), "target shape dim %ld at index %zu is less than -1; continue infershape.",
+                    shape->GetDim(i), i);
+        }
+    }
+}
+
 static ge::graphStatus BroadcastToInferShapeWithShapeValues(const gert::InferShapeContext* context,
                                                             const gert::Shape* x_shape,
                                                             const gert::ContinuousVector* shape_attr,
@@ -46,6 +56,7 @@ static ge::graphStatus BroadcastToInferShapeWithShapeValues(const gert::InferSha
     for (size_t i = 0; i < dim_num; ++i) {
         out_shape->SetDim(i, shape_value[i]);
     }
+    WarnShapeValues(context, out_shape);
 
     OP_LOGD(context->GetNodeName(), "output y = %s", Ops::Base::ToString(*out_shape).c_str());
     OP_LOGD(context->GetNodeName(), "End to do BroadcastToInfershape.");
@@ -108,6 +119,7 @@ static ge::graphStatus BroadcastToInferShapeWithShapeTensor(const gert::InferSha
     }
     if (Ops::Base::IsUnknownRank(*x_shape)) {
         DispatchGetConstValue(shape_tensor, shape_size, data_type, out_shape);
+        WarnShapeValues(context, out_shape);
         return ge::GRAPH_SUCCESS;
     }
     OP_CHECK_IF(shape_size < x_shape->GetDimNum(),
@@ -120,6 +132,7 @@ static ge::graphStatus BroadcastToInferShapeWithShapeTensor(const gert::InferSha
     OP_LOGD(context->GetNodeName(), "shape_size is %zu", shape_size);
     size_t diff = shape_size - x_shape->GetDimNum();
     DispatchGetConstValue(shape_tensor, shape_size, data_type, out_shape);
+    WarnShapeValues(context, out_shape);
     for (size_t i = 0; i < shape_size; i++) {
         status = ResolveBroadcastDim(context, x_shape, out_shape, i, diff);
         if (status != ge::GRAPH_SUCCESS) {
