@@ -3,7 +3,7 @@
 ## 产品支持情况
 
 <!-- npu="950" id1 -->
-- <term>Ascend 950PR&950DT系列产品</term>：不支持
+- <term>Ascend 950PR&950DT系列产品</term>：支持
 <!-- end id1 -->
 <!-- npu="A3" id2 -->
 - <term>Atlas A3系列产品</term>：支持
@@ -23,7 +23,11 @@
 
 ## 功能说明
 
-StridedSliceAssign是一种张量切片赋值操作，它可以将张量inputValue的内容，赋值给目标张量varRef中的指定位置。
+StridedSliceAssignV2是一种张量切片赋值操作，它可以将张量inputValue的内容，赋值给目标张量varRef中由begin、end、strides指定的切片位置，切片以外的区域保持varRef原值不变。本算子为in-place语义，输出与输入varRef同名，shape与输入varRef相同。
+
+<!-- npu="950" id7 -->
+- <term>Ascend 950PR&950DT系列产品</term>：支持负stride反向切片。
+<!-- end id7 -->
 
 ## 函数原型
 
@@ -88,11 +92,11 @@ aclnnStatus aclnnStridedSliceAssignV2(
     <tr>
       <td>inputValue（aclTensor*）</td>
       <td>输入</td>
-      <td>输入axis。</td>
-      <td>shape需要与varRef计算得出的切片shape保持一致。</td>
+      <td>替换切片内容的tensor。</td>
+      <td>shape与rank需要与varRef计算得出的切片shape保持一致。</td>
       <td>FLOAT16、FLOAT、BFLOAT16、INT32、INT64、DOUBLE、INT8</td>
       <td>ND</td>
-      <td>-</td>
+      <td>1-8</td>
       <td>√</td>
     </tr>
     <tr>
@@ -119,7 +123,7 @@ aclnnStatus aclnnStridedSliceAssignV2(
       <td>strides（aclIntArray*）</td>
       <td>输入</td>
       <td>切片步长。</td>
-      <td>strides必须为正数，varRef最后一维对应的strides取值必须为1。</td>
+      <td>strides取值可以为正数或负数。</td>
       <td>INT64</td>
       <td>ND</td>
       <td>-</td>
@@ -157,6 +161,10 @@ aclnnStatus aclnnStridedSliceAssignV2(
     </tr>
   </tbody></table>
 
+<!-- npu="910b,A3" id8 -->
+- <term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>：strides不支持负数，varRef最后一维对应的strides取值必须为1。
+<!-- end id8 -->
+
 - **返回值：**
 
   aclnnStatus：返回状态码，具体参见[aclnn返回码](../../../docs/zh/context/aclnn_return_code.md)。
@@ -177,7 +185,7 @@ aclnnStatus aclnnStridedSliceAssignV2(
     <tr>
       <td>ACLNN_ERR_PARAM_NULLPTR</td>
       <td>161001</td>
-      <td>传入的self、out或dim是空指针。</td>
+      <td>传入的varRef、inputValue、begin、end或strides是空指针。</td>
     </tr>
     <tr>
       <td>ACLNN_ERR_PARAM_INVALID</td>
@@ -231,9 +239,11 @@ aclnnStatus aclnnStridedSliceAssignV2(
 
 ## 约束说明
 
-- 确定性计算：
-  - aclnnStridedSliceAssignV2默认确定性实现。
-inputValue的shape第i维的计算公式为：$inputValueShape[i] = \lceil\frac{end[i] - begin[i]}{strides[i]} \rceil$，其中$\lceil x\rceil$ 表示对 $x$向上取整。$end$ 和 $begin$ 为经过特殊值调整后的取值，调整方式为：当 $end[i] < 0$ 时，$end[i]=varShape[i] + end[i]$，若仍有$end[i] < 0$，则 $end[i] = 0$，当 $end[i] > varShape[i]$ 时，$end[i] = varShape[i]$。$begin$ 同理。
+- 确定性计算：aclnnStridedSliceAssignV2默认确定性实现。
+- inputValue的shape第i维的计算公式为：$inputValueShape[i] = \max(0, \lceil\frac{end[i] - begin[i]}{strides[i]} \rceil)$，其中$\lceil x\rceil$ 表示对 $x$向上取整。$end$ 和 $begin$ 为经过负索引归一化与边界截断后的取值：当 $x < 0$ 时 $x = x + varShape[i]$。正stride时 $begin[i]$ 与 $end[i]$ 均截断到 $[0, varShape[i]]$ 区间。
+<!-- npu="950" id9 -->
+- <term>Ascend 950PR&950DT系列产品</term>：负stride时，$begin[i]$ 截断到 $[0, varShape[i]-1]$、$end[i]$ 截断到 $[-1, varShape[i]]$ 区间。
+<!-- end id9 -->
 
 ## 调用示例
 
@@ -312,7 +322,6 @@ int main() {
   // 2.构造输入与输出，需要根据API的接口自定义构造
   std::vector<int64_t> varRefShape = {4, 3};
   std::vector<int64_t> inputValueShape = {2, 2};
-  std::vector<int64_t> sliceShape = {2};
 
   void* varRefDeviceAddr = nullptr;
   void* inputValueDeviceAddr = nullptr;

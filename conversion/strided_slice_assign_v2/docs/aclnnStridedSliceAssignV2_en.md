@@ -5,7 +5,7 @@
 ## Applicable Products
 
 <!-- npu="950" id1 -->
-- <term>Ascend 950PR&950DT products</term>: Not supported
+- <term>Ascend 950PR&950DT products</term>: Supported
 <!-- end id1 -->
 <!-- npu="A3" id2 -->
 - <term>Atlas A3 products</term>: Supported
@@ -25,7 +25,11 @@
 
 ## Function
 
-StridedSliceAssign is a tensor slice assignment operation that assigns the content of the tensor inputValue to the specified positions in the target tensor varRef.
+StridedSliceAssignV2 is a tensor slice assignment operation that assigns the content of the tensor inputValue to the slice positions of the target tensor varRef specified by begin, end, and strides. The area outside the slice keeps the original values of varRef unchanged. This operator has in-place semantics: the output shares the same name as the input varRef and has the same shape as the input varRef.
+
+<!-- npu="950" id7 -->
+- <term>Ascend 950PR&950DT products</term>: Supports negative-stride reverse slicing.
+<!-- end id7 -->
 
 ## Function Prototype
 
@@ -90,11 +94,11 @@ aclnnStatus aclnnStridedSliceAssignV2(
     <tr>
       <td class="tg-0pky">inputValue (aclTensor*)</td>
       <td class="tg-0pky">Input</td>
-      <td class="tg-0pky">Input axis.</td>
-      <td class="tg-0pky">The shape must be consistent with the slice shape calculated from varRef.</td>
+      <td class="tg-0pky">Tensor that replaces the slice content.</td>
+      <td class="tg-0pky">The shape and rank must be consistent with the slice shape calculated from varRef.</td>
       <td class="tg-0pky">FLOAT16, FLOAT, BFLOAT16, INT32, INT64, DOUBLE, INT8</td>
       <td class="tg-0pky">ND</td>
-      <td class="tg-0pky">-</td>
+      <td class="tg-0pky">1-8</td>
       <td class="tg-0pky">√</td>
     </tr>
     <tr>
@@ -121,7 +125,7 @@ aclnnStatus aclnnStridedSliceAssignV2(
       <td class="tg-0lax">strides(aclIntArray*)</td>
       <td class="tg-0lax">Input</td>
       <td class="tg-0lax">Slice strides.</td>
-      <td class="tg-0lax">strides must be positive, and the stride corresponding to the last dimension of varRef must be 1.</td>
+      <td class="tg-0lax">strides can be positive or negative.</td>
       <td class="tg-0lax">INT64</td>
       <td class="tg-0lax">ND</td>
       <td class="tg-0lax">-</td>
@@ -159,6 +163,10 @@ aclnnStatus aclnnStridedSliceAssignV2(
     </tr>
   </tbody></table>
 
+<!-- npu="910b,A3" id8 -->
+- <term>Atlas A2 products</term>, <term>Atlas A3 products</term>: strides do not support negative values, and the stride corresponding to the last dimension of varRef must be 1.
+<!-- end id8 -->
+
 - **Return value**
 
   aclnnStatus: return status code. For details, see [aclnn Return Codes](../../../docs/en/context/aclnn_return_code.md).
@@ -179,7 +187,7 @@ aclnnStatus aclnnStridedSliceAssignV2(
     <tr>
       <td class="tg-0pky">ACLNN_ERR_PARAM_NULLPTR</td>
       <td class="tg-0pky">161001</td>
-      <td class="tg-0pky">The input self, out, or dim is a null pointer.</td>
+      <td class="tg-0pky">The varRef, inputValue, begin, end, or strides is a null pointer.</td>
     </tr>
     <tr>
       <td class="tg-0pky">ACLNN_ERR_PARAM_INVALID</td>
@@ -233,9 +241,11 @@ aclnnStatus aclnnStridedSliceAssignV2(
 
 ## Constraints
 
-- Deterministic computation:
-  - aclnnStridedSliceAssignV2 defaults to a deterministic implementation.
-The calculation formula for the i-th dimension of the shape of inputValue is: $inputValueShape[i] = \lceil\frac{end[i] - begin[i]}{strides[i]} \rceil$, where $\lceil x\rceil$ denotes rounding $x$ up. $end$ and $begin$ are values adjusted for special cases. The adjustment rules are as follows: when $end[i] < 0$, $end[i]=varShape[i] + end[i]$; if $end[i] < 0$ still holds, $end[i] = 0$; when $end[i] > varShape[i]$, $end[i] = varShape[i]$. The same applies to $begin$.
+- Deterministic computation: aclnnStridedSliceAssignV2 defaults to a deterministic implementation.
+- The calculation formula for the i-th dimension of the shape of inputValue is: $inputValueShape[i] = \max(0, \lceil\frac{end[i] - begin[i]}{strides[i]} \rceil)$, where $\lceil x\rceil$ denotes rounding $x$ up. $end$ and $begin$ are the values after negative-index normalization and boundary clamping: when $x < 0$, $x = x + varShape[i]$. For positive strides, both $begin[i]$ and $end[i]$ are clamped to the range $[0, varShape[i]]$.
+<!-- npu="950" id9 -->
+- <term>Ascend 950PR&950DT products</term>: For negative strides, $begin[i]$ is clamped to $[0, varShape[i]-1]$ and $end[i]$ is clamped to $[-1, varShape[i]]$.
+<!-- end id9 -->
 
 ## Example
 
@@ -314,7 +324,6 @@ int main() {
   // 2. Construct the input and output. Customize the construction based on the API.
   std::vector<int64_t> varRefShape = {4, 3};
   std::vector<int64_t> inputValueShape = {2, 2};
-  std::vector<int64_t> sliceShape = {2};
 
   void* varRefDeviceAddr = nullptr;
   void* inputValueDeviceAddr = nullptr;

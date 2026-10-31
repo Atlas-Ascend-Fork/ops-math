@@ -17,7 +17,7 @@
 #include <fstream>
 #include <vector>
 #include <gtest/gtest.h>
-#include "../../../op_host/strided_slice_assign_v2_tiling.h"
+#include "../../../../op_host/arch22/strided_slice_assign_v2_tiling.h"
 #include "tiling_context_faker.h"
 #include "tiling_case_executor.h"
 
