@@ -23,19 +23,12 @@ using namespace std;
 
 class l2_repeat_test : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        std::cout << "repeat_test SetUp" << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "repeat_test SetUp" << std::endl; }
 
-    static void TearDownTestCase()
-    {
-        std::cout << "repeat_test TearDown" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "repeat_test TearDown" << std::endl; }
 
-    void test_run(
-        vector<int64_t> selfDims, aclDataType selfDtype, aclFormat selfFormat, vector<int64_t> selfRange,
-        vector<int64_t> repeatsDims, vector<int64_t> outDims, aclDataType outDtype, aclFormat outFormat)
+    void test_run(vector<int64_t> selfDims, aclDataType selfDtype, aclFormat selfFormat, vector<int64_t> selfRange,
+                  vector<int64_t> repeatsDims, vector<int64_t> outDims, aclDataType outDtype, aclFormat outFormat)
     {
         auto self = TensorDesc(selfDims, selfDtype, selfFormat).ValueRange(selfRange[0], selfRange[1]);
         auto repeats = IntArrayDesc(repeatsDims);
@@ -48,9 +41,9 @@ protected:
         // ut.TestPrecision();
     }
 
-    void test_run_invalid(
-        vector<int64_t> selfDims, aclDataType selfDtype, aclFormat selfFormat, vector<int64_t> selfRange,
-        vector<int64_t> repeatsDims, vector<int64_t> outDims, aclDataType outDtype, aclFormat outFormat)
+    void test_run_invalid(vector<int64_t> selfDims, aclDataType selfDtype, aclFormat selfFormat,
+                          vector<int64_t> selfRange, vector<int64_t> repeatsDims, vector<int64_t> outDims,
+                          aclDataType outDtype, aclFormat outFormat)
     {
         auto self = TensorDesc(selfDims, selfDtype, selfFormat).ValueRange(selfRange[0], selfRange[1]);
         auto repeats = IntArrayDesc(repeatsDims);
@@ -179,18 +172,64 @@ TEST_F(l2_repeat_test, l2_repeat_test_dim_8)
 {
     // 0维
     test_run({}, ACL_FLOAT16, ACL_FORMAT_ND, {-10, 10}, {2, 3}, {2, 3}, ACL_FLOAT16, ACL_FORMAT_ND);
-    // 8维
-    test_run(
-        {1, 2, 1, 2, 1, 1, 2, 1}, ACL_FLOAT16, ACL_FORMAT_ND, {-10, 10}, {2, 2, 2, 2, 2, 2, 2, 2},
-        {2, 4, 2, 4, 2, 2, 4, 2}, ACL_FLOAT16, ACL_FORMAT_ND);
+    // A2/A3的8个非1 repeat维度超过限制
+    test_run_invalid({1, 2, 1, 2, 1, 1, 2, 1}, ACL_FLOAT16, ACL_FORMAT_ND, {-10, 10}, {2, 2, 2, 2, 2, 2, 2, 2},
+                     {2, 4, 2, 4, 2, 2, 4, 2}, ACL_FLOAT16, ACL_FORMAT_ND);
     // repeats szie > 8
-    test_run_invalid(
-        {1, 2, 1, 2, 1, 1, 2, 1}, ACL_FLOAT16, ACL_FORMAT_ND, {-10, 10}, {2, 2, 2, 2, 2, 2, 2, 2, 2},
-        {2, 2, 4, 2, 4, 2, 2, 4, 2}, ACL_FLOAT16, ACL_FORMAT_ND);
+    test_run_invalid({1, 2, 1, 2, 1, 1, 2, 1}, ACL_FLOAT16, ACL_FORMAT_ND, {-10, 10}, {2, 2, 2, 2, 2, 2, 2, 2, 2},
+                     {2, 2, 4, 2, 4, 2, 2, 4, 2}, ACL_FLOAT16, ACL_FORMAT_ND);
     // self dim > 8
-    test_run_invalid(
-        {1, 2, 1, 2, 1, 1, 2, 1, 1}, ACL_FLOAT16, ACL_FORMAT_ND, {-10, 10}, {2, 2, 2, 2, 2, 2, 2, 2, 2},
-        {2, 4, 2, 4, 2, 2, 4, 2, 2}, ACL_FLOAT16, ACL_FORMAT_ND);
+    test_run_invalid({1, 2, 1, 2, 1, 1, 2, 1, 1}, ACL_FLOAT16, ACL_FORMAT_ND, {-10, 10}, {2, 2, 2, 2, 2, 2, 2, 2, 2},
+                     {2, 4, 2, 4, 2, 2, 4, 2, 2}, ACL_FLOAT16, ACL_FORMAT_ND);
+}
+
+TEST_F(l2_repeat_test, l2_repeat_test_a2a3_non_one_dim_limit)
+{
+    auto originalSocVersion = GetCurrentPlatformInfo().GetSocVersion();
+    for (auto socVersion : {SocVersion::ASCEND910B, SocVersion::ASCEND910_93}) {
+        SetPlatformSocVersion(socVersion);
+
+        // 首轴参与repeat时，最多4个非1维度
+        test_run_invalid({2, 2, 2, 2, 2}, ACL_FLOAT16, ACL_FORMAT_ND, {-10, 10}, {2, 3, 4, 5, 6}, {4, 6, 8, 10, 12},
+                         ACL_FLOAT16, ACL_FORMAT_ND);
+        test_run({2, 2, 2, 2, 2}, ACL_FLOAT16, ACL_FORMAT_ND, {-10, 10}, {2, 3, 1, 5, 6}, {4, 6, 2, 10, 12},
+                 ACL_FLOAT16, ACL_FORMAT_ND);
+
+        // 首轴不参与repeat时，最多3个非1维度
+        test_run_invalid({2, 2, 2, 2, 2}, ACL_FLOAT16, ACL_FORMAT_ND, {-10, 10}, {1, 3, 4, 5, 6}, {2, 6, 8, 10, 12},
+                         ACL_FLOAT16, ACL_FORMAT_ND);
+        test_run({2, 2, 2, 2, 2}, ACL_FLOAT16, ACL_FORMAT_ND, {-10, 10}, {1, 3, 1, 5, 6}, {2, 6, 2, 10, 12},
+                 ACL_FLOAT16, ACL_FORMAT_ND);
+    }
+    SetPlatformSocVersion(originalSocVersion);
+}
+
+TEST_F(l2_repeat_test, l2_repeat_test_a5_skips_non_one_dim_limit)
+{
+    auto originalSocVersion = GetCurrentPlatformInfo().GetSocVersion();
+    SetPlatformSocVersion(SocVersion::ASCEND950);
+
+    test_run({2, 2, 2, 2, 2}, ACL_FLOAT16, ACL_FORMAT_ND, {-10, 10}, {2, 3, 4, 5, 6}, {4, 6, 8, 10, 12}, ACL_FLOAT16,
+             ACL_FORMAT_ND);
+    test_run({2, 2, 2, 2, 2}, ACL_FLOAT16, ACL_FORMAT_ND, {-10, 10}, {1, 3, 4, 5, 6}, {2, 6, 8, 10, 12}, ACL_FLOAT16,
+             ACL_FORMAT_ND);
+
+    SetPlatformSocVersion(originalSocVersion);
+}
+
+TEST_F(l2_repeat_test, l2_repeat_test_a2a3_non_one_limit_skips_empty_or_zero)
+{
+    auto originalSocVersion = GetCurrentPlatformInfo().GetSocVersion();
+    SetPlatformSocVersion(SocVersion::ASCEND910B);
+
+    // 空tensor不进入Tile kernel
+    test_run({0, 2, 2, 2, 2}, ACL_FLOAT16, ACL_FORMAT_ND, {-10, 10}, {2, 3, 4, 5, 6}, {0, 6, 8, 10, 12}, ACL_FLOAT16,
+             ACL_FORMAT_ND);
+    // repeats含0时也不进入Tile kernel
+    test_run({2, 2, 2, 2, 2}, ACL_FLOAT16, ACL_FORMAT_ND, {-10, 10}, {2, 3, 4, 5, 6, 0}, {2, 6, 8, 10, 12, 0},
+             ACL_FLOAT16, ACL_FORMAT_ND);
+
+    SetPlatformSocVersion(originalSocVersion);
 }
 
 ////////////////////////////////////////////////

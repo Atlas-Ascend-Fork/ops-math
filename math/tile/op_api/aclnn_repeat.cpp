@@ -132,6 +132,30 @@ static inline aclnnStatus CheckRepeatsZero(const aclIntArray* repeats)
     return false;
 }
 
+// A2/A3内部broadcast kernel对非1 repeat维度的数量有限制，A5无此限制
+static inline bool CheckA2A3RepeatNonOneDimCount(const aclIntArray* repeats)
+{
+    auto socVersion = GetCurrentPlatformInfo().GetSocVersion();
+    if (socVersion != SocVersion::ASCEND910B && socVersion != SocVersion::ASCEND910_93) {
+        return true;
+    }
+
+    int64_t nonOneCount = 0;
+    for (size_t i = 0; i < repeats->Size(); ++i) {
+        if ((*repeats)[i] != 1) {
+            ++nonOneCount;
+        }
+    }
+    const int64_t maxNonOneCount = (*repeats)[0] == 1 ? 3 : 4;
+    if (nonOneCount > maxNonOneCount) {
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID,
+                "repeats contains %ld non-one values, first repeat is %ld, A2/A3 support at most %ld.", nonOneCount,
+                (*repeats)[0], maxNonOneCount);
+        return false;
+    }
+    return true;
+}
+
 // 校验repeat算子计算后生成的tensor与out的shape一致
 static inline bool CheckRepeatOutShape(const aclTensor* repeatRes, const aclTensor* out)
 {
@@ -215,6 +239,7 @@ aclnnStatus aclnnRepeatGetWorkspaceSize(const aclTensor* self, const aclIntArray
         uniqueExecutor.ReleaseTo(executor);
         return ACLNN_SUCCESS;
     }
+    CHECK_RET(CheckA2A3RepeatNonOneDimCount(repeats), ACLNN_ERR_PARAM_INVALID);
 
     auto selfContiguous = InitializeTensor(self, uniqueExecutor.get());
     CHECK_RET(selfContiguous != nullptr, ACLNN_ERR_INNER_NULLPTR);
