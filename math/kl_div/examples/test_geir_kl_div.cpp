@@ -12,6 +12,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <iostream>
 #include <fstream>
 #include <string.h>
@@ -317,16 +318,25 @@ void PrintReport(const std::vector<CaseResult>& results)
     printf("Summary: %d/%d passed\n", pass_cnt, total);
 }
 
+std::string GetDeviceId()
+{
+    const char* env = std::getenv("ASCEND_DEVICE_ID");
+    if (env != nullptr && strlen(env) > 0) {
+        return std::string(env);
+    }
+    printf("%s - WARN - [XIR]: ASCEND_DEVICE_ID not set, fallback to 0\n", GetTime().c_str());
+    return "0";
+}
+
 int main(int argc, char* argv[])
 {
+    std::string device_id = GetDeviceId();
+
     printf("%s - INFO - [XIR]: Start to initialize ge using ge global options\n", GetTime().c_str());
     // 设置全局选项
-    std::map<AscendString, AscendString> global_options = {
-        // device id 通过`npu-smi info`命令查询：取环境中状态为`OK`的 device id（当前环境 NPU 1~7 为 OK，取 1），
-        // 如无`OK`状态，则使用`Alarm`状态的 device id。随意填写 device id 会导致运行失败。
-        {"ge.exec.deviceId", "1"},
-        {"ge.graphRunMode", "0"},
-        {"ge.exec.precision_mode", "must_keep_origin_dtype"}};
+    std::map<AscendString, AscendString> global_options = {{"ge.exec.deviceId", device_id.c_str()},
+                                                           {"ge.graphRunMode", "0"},
+                                                           {"ge.exec.precision_mode", "must_keep_origin_dtype"}};
     // 初始化图引擎
     Status ret = ge::GEInitialize(global_options);
     if (ret != SUCCESS) {
