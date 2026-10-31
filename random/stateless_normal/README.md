@@ -21,6 +21,8 @@
   y = BoxMuller(Philox(seed, offset)) \times stdev + mean
   $$
 
+  其中mean、stdev为标量或张量。当为张量时，仅第0项参与计算，所有输出元素共用这组均值和标准差，其余元素不参与计算。
+
 ## 参数说明
 
 <table style="table-layout: fixed; width: 980px"><colgroup>
@@ -63,14 +65,14 @@
     <tr>
       <td>mean</td>
       <td>输入</td>
-      <td>正态分布的均值，支持标量或与输出同形状的张量。</td>
+      <td>正态分布的均值，支持标量或张量。当为张量时，仅第0项参与计算，所有输出元素共用该均值。</td>
       <td>FLOAT、FLOAT16、BF16</td>
       <td>ND</td>
     </tr>
     <tr>
       <td>stdev</td>
       <td>输入</td>
-      <td>正态分布的标准差，支持标量或与输出同形状的张量。</td>
+      <td>正态分布的标准差，支持标量或张量。当为张量时，仅第0项参与计算，所有输出元素共用该标准差。</td>
       <td>FLOAT、FLOAT16、BF16</td>
       <td>ND</td>
     </tr>
@@ -87,7 +89,7 @@
 
 - offset必须为4的倍数。
 - mean和stdev的数据类型与输出y锁步一致。
-- mean和stdev为tensor时，shape必须与输出y的shape一致（不支持广播）。
+- mean和stdev为tensor时，仅第0项参与计算，所有输出元素共用这组均值和标准差，其余元素不参与计算。
 - 仅支持SIMT编程模型（Ascend 950系列）。
 
 ## 调用说明
