@@ -156,7 +156,9 @@ __aicore__ inline void SegsumND<T, MODE>::Compute(int64_t batchIdx, int64_t colI
         int64_t blockNumData = CeilA2B(calCount, blockSize) * blockSize;
 
         int64_t inOffset = batchIdx * tailDimSize + rowIdx;
-        CopyInBatch(inOffset, 1, calCount * sizeof(T));
+        // 搬运长度必须与 inOffset 同源取行向钳位值，否则末条带会越过本行末尾读 GM；
+        // calCount 仍作为列条纹宽度供 processY/CopyOutBatch 使用，不可替换
+        CopyInBatch(inOffset, 1, loopCount * sizeof(T));
         LocalTensor<T> xTensor = inQueue.DeQue<T>();
         for (int64_t dataIdx = rowIdx; dataIdx < rowIdx + loopCount; dataIdx++) {
             int64_t currentProcessedNum = getProcessedNum(rowIdx, colIdx, dataIdx, 0);
