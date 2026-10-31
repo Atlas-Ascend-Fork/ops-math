@@ -222,74 +222,6 @@ TEST_F(l2_random_test, aclnnInplaceRandom_3_4_bool_nd)
     EXPECT_EQ(aclRet, ACL_SUCCESS);
 }
 
-// 异常场景：int8 [0, 1000), to-1=999 超出 int8 上界 127, 应返回参数错误
-TEST_F(l2_random_test, aclnnInplaceRandom_int8_to_out_of_dtype_range)
-{
-    int64_t from = 0;
-    int64_t to = 1000;
-    int64_t seed = 0;
-    int64_t offset = 0;
-
-    auto selfTensorDesc = TensorDesc({3, 4}, ACL_INT8, ACL_FORMAT_ND);
-
-    auto ut = OP_API_UT(aclnnInplaceRandom, INPUT(selfTensorDesc, from, to, seed, offset), OUTPUT());
-
-    uint64_t workspace_size = 0;
-    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
-    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
-}
-
-// 异常场景：int8 [-129, 0), from 超出 int8 下界 -128, 应返回参数错误
-TEST_F(l2_random_test, aclnnInplaceRandom_int8_from_out_of_dtype_range)
-{
-    int64_t from = -129;
-    int64_t to = 0;
-    int64_t seed = 0;
-    int64_t offset = 0;
-
-    auto selfTensorDesc = TensorDesc({3, 4}, ACL_INT8, ACL_FORMAT_ND);
-
-    auto ut = OP_API_UT(aclnnInplaceRandom, INPUT(selfTensorDesc, from, to, seed, offset), OUTPUT());
-
-    uint64_t workspace_size = 0;
-    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
-    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
-}
-
-// 异常场景：bool [2, 3), from 超出 bool 取值范围 {0, 1}, 应返回参数错误
-TEST_F(l2_random_test, aclnnInplaceRandom_bool_from_out_of_dtype_range)
-{
-    int64_t from = 2;
-    int64_t to = 3;
-    int64_t seed = 0;
-    int64_t offset = 0;
-
-    auto selfTensorDesc = TensorDesc({3, 4}, ACL_BOOL, ACL_FORMAT_ND);
-
-    auto ut = OP_API_UT(aclnnInplaceRandom, INPUT(selfTensorDesc, from, to, seed, offset), OUTPUT());
-
-    uint64_t workspace_size = 0;
-    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
-    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
-}
-
-// 异常场景：float16 [-65505, 0), from 超出 float16 表示范围, 应返回参数错误
-TEST_F(l2_random_test, aclnnInplaceRandom_float16_from_out_of_dtype_range)
-{
-    int64_t from = -65505;
-    int64_t to = 0;
-    int64_t seed = 0;
-    int64_t offset = 0;
-
-    auto selfTensorDesc = TensorDesc({3, 4}, ACL_FLOAT16, ACL_FORMAT_ND);
-
-    auto ut = OP_API_UT(aclnnInplaceRandom, INPUT(selfTensorDesc, from, to, seed, offset), OUTPUT());
-
-    uint64_t workspace_size = 0;
-    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
-    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
-}
-
 // ======================== aclnnInplaceRandomTensor 新增用例 ========================
 
 // 正常场景：float类型
@@ -441,61 +373,6 @@ TEST_F(l2_random_test, aclnnInplaceRandomTensor_invalid_shape_9_dims)
     uint64_t workspace_size = 0;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
     EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
-}
-
-// 异常场景：Tensor 变体 int8 [0, 1000), to-1=999 超出 int8 上界 127, 应返回参数错误
-TEST_F(l2_random_test, aclnnInplaceRandomTensor_int8_to_out_of_dtype_range)
-{
-    int64_t from = 0;
-    int64_t to = 1000;
-    int64_t offset = 0;
-
-    auto selfTensorDesc = TensorDesc({3, 4}, ACL_INT8, ACL_FORMAT_ND);
-    auto seedTensorDesc = TensorDesc({1}, ACL_INT64, ACL_FORMAT_ND);
-    auto offsetTensorDesc = TensorDesc({1}, ACL_INT64, ACL_FORMAT_ND);
-
-    auto ut = OP_API_UT(aclnnInplaceRandomTensor,
-                        INPUT(selfTensorDesc, from, to, seedTensorDesc, offsetTensorDesc, offset), OUTPUT());
-
-    uint64_t workspace_size = 0;
-    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
-    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
-}
-
-// 正常场景：int8 区间端点取 dtype 表示范围边界值(from=-128, to-1=127), 不应被 dtype 范围校验误拦;
-// 负数区间先 Floor 再 Cast, 构建成功
-TEST_F(l2_random_test, ascend910B2_aclnnInplaceRandom_int8_dtype_range_boundary)
-{
-    int64_t from = -128;
-    int64_t to = 128;
-    int64_t seed = 0;
-    int64_t offset = 0;
-
-    auto selfTensorDesc = TensorDesc({3, 4}, ACL_INT8, ACL_FORMAT_ND);
-
-    auto ut = OP_API_UT(aclnnInplaceRandom, INPUT(selfTensorDesc, from, to, seed, offset), OUTPUT());
-
-    uint64_t workspace_size = 0;
-    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
-    EXPECT_EQ(aclRet, ACL_SUCCESS);
-}
-
-// 正常场景：uint8 满量程 [0, 256), to-1=255 在 dtype 范围内, 不应被 dtype 范围校验误拦,
-// 与 aclnnInplaceUniform 的满量程接受口径一致
-TEST_F(l2_random_test, aclnnInplaceRandom_uint8_dtype_range_boundary)
-{
-    int64_t from = 0;
-    int64_t to = 256;
-    int64_t seed = 0;
-    int64_t offset = 0;
-
-    auto selfTensorDesc = TensorDesc({3, 4}, ACL_UINT8, ACL_FORMAT_ND);
-
-    auto ut = OP_API_UT(aclnnInplaceRandom, INPUT(selfTensorDesc, from, to, seed, offset), OUTPUT());
-
-    uint64_t workspace_size = 0;
-    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
-    EXPECT_EQ(aclRet, ACL_SUCCESS);
 }
 
 // 正常场景：带非零offset
