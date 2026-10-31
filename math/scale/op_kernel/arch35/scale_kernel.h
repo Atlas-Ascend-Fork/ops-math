@@ -125,6 +125,7 @@ public:
         const int64_t* dstShape = td_->max_bro_shape;
         int64_t k = td_->split.axis;
         for (int inp = 0; inp < kMaxInputSlots; inp++) {
+            nddmaParams_[inp].constantValue = static_cast<T>(0);
             // 1) run 划分：runTop[d] 记录 d 所在 run 的最外维；从最内维向外贪心合并
             int64_t runTop[RANK];
             int64_t d = RANK - 1;
