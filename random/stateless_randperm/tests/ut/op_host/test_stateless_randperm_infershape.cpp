@@ -1,5 +1,5 @@
 /**
-* Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -21,35 +21,99 @@
 using namespace std;
 
 class stateless_randperm : public testing::Test {
- protected:
-  static void SetUpTestCase() {
-    std::cout << "StatelessRandperm SetUp" << std::endl;
-  }
+protected:
+    static void SetUpTestCase() { std::cout << "StatelessRandperm SetUp" << std::endl; }
 
-  static void TearDownTestCase() {
-    std::cout << "StatelessRandperm TearDown" << std::endl;
-  }
+    static void TearDownTestCase() { std::cout << "StatelessRandperm TearDown" << std::endl; }
 };
-
- 	 
 
 TEST_F(stateless_randperm, stateless_randperm_infershape_test1)
 {
     vector<int64_t> shape_value = {7};
     vector<int64_t> seed_value = {0};
     vector<int64_t> offset_value = {0};
-    gert::InfershapeContextPara infershapeContextPara("StatelessRandperm",
-                                                      {
-                                                        {{{1},{1}}, ge::DT_INT64, ge::FORMAT_ND, true, shape_value.data()},
-                                                        {{{1},{1}}, ge::DT_INT64, ge::FORMAT_ND, true, seed_value.data()},
-                                                        {{{1},{1}}, ge::DT_INT64, ge::FORMAT_ND, true, offset_value.data()},
-                                                      },
-                                                      {
-                                                        {{{7}, {7}}, ge::DT_INT64, ge::FORMAT_ND},
-                                                      },
-                                                      {
-                                                      {"dtype", Ops::Math::AnyValue::CreateFrom<int64_t>(0)},
-                                                      });
+    gert::InfershapeContextPara infershapeContextPara(
+        "StatelessRandperm",
+        {
+            {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, shape_value.data()},
+            {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, seed_value.data()},
+            {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, offset_value.data()},
+        },
+        {
+            {{{7}, {7}}, ge::DT_INT64, ge::FORMAT_ND},
+        },
+        {
+            {"dtype", Ops::Math::AnyValue::CreateFrom<int64_t>(0)},
+        });
     std::vector<std::vector<int64_t>> expectOutputShape = {{7}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+// n 输入 desc 含 -1（unknownshape），期望输出 1-D 未知 (-1,)，由运行时决定
+TEST_F(stateless_randperm, stateless_randperm_infershape_test2_desc_unknown_dim)
+{
+    vector<int64_t> shape_value = {7};
+    vector<int64_t> seed_value = {0};
+    vector<int64_t> offset_value = {0};
+    gert::InfershapeContextPara infershapeContextPara(
+        "StatelessRandperm",
+        {
+            {{{-1}, {-1}}, ge::DT_INT64, ge::FORMAT_ND, true, shape_value.data()},
+            {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, seed_value.data()},
+            {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, offset_value.data()},
+        },
+        {
+            {{{}, {}}, ge::DT_INT64, ge::FORMAT_ND},
+        },
+        {
+            {"dtype", Ops::Math::AnyValue::CreateFrom<int64_t>(0)},
+        });
+    std::vector<std::vector<int64_t>> expectOutputShape = {{-1}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+// n 输入 desc 为 -2（unknownrank），期望输出 1-D 未知 (-1,)，由运行时决定
+TEST_F(stateless_randperm, stateless_randperm_infershape_test3_desc_unknown_rank)
+{
+    vector<int64_t> shape_value = {7};
+    vector<int64_t> seed_value = {0};
+    vector<int64_t> offset_value = {0};
+    gert::InfershapeContextPara infershapeContextPara(
+        "StatelessRandperm",
+        {
+            {{{-2}, {-2}}, ge::DT_INT64, ge::FORMAT_ND, true, shape_value.data()},
+            {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, seed_value.data()},
+            {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, offset_value.data()},
+        },
+        {
+            {{{}, {}}, ge::DT_INT64, ge::FORMAT_ND},
+        },
+        {
+            {"dtype", Ops::Math::AnyValue::CreateFrom<int64_t>(0)},
+        });
+    std::vector<std::vector<int64_t>> expectOutputShape = {{-1}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+// n 输入 desc 为多个 -1（GetShapeSize 乘积为正 1 的陷阱场景），期望输出 1-D 未知 (-1,)
+TEST_F(stateless_randperm, stateless_randperm_infershape_test4_desc_multi_unknown_dim)
+{
+    vector<int64_t> shape_value = {7};
+    vector<int64_t> seed_value = {0};
+    vector<int64_t> offset_value = {0};
+    gert::InfershapeContextPara infershapeContextPara(
+        "StatelessRandperm",
+        {
+            {{{-1, -1}, {-1, -1}}, ge::DT_INT64, ge::FORMAT_ND, true, shape_value.data()},
+            {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, seed_value.data()},
+            {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, offset_value.data()},
+        },
+        {
+            {{{}, {}}, ge::DT_INT64, ge::FORMAT_ND},
+        },
+        {
+            {"dtype", Ops::Math::AnyValue::CreateFrom<int64_t>(0)},
+        });
+    std::vector<std::vector<int64_t>> expectOutputShape = {{-1}};
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
