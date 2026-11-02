@@ -10,64 +10,52 @@
 
 /*!
  * \file topk_fusion_pass.cpp
- * \brief TopK fusion pass, rebuilt from the legacy fe::TopKFusionPass (canndev).
- *        Full-platform migration covering every chip family the legacy pass serves
- *        (within the ops-math build/deploy matrix).
+ * \brief TopK fusion pass, rebuilt from the legacy fe::TopKFusionPass (canndev),
+ *        covering every chip family the legacy pass serves within the ops-math
+ *        build/deploy matrix. Split by the op library that registers the targets:
  *
- *        Two platform families, split by the operator information library that
- *        actually registers the target ops (measured in the shipped op_info):
+ *        1. regbase (DAV_3510/5102: Ascend950/350, MC62/630): TopKV2 + the
+ *           two-input Transpose.
+ *             TopK/TopKV2 --> TopKV2 (k kept as an input);
+ *             dim != -1  --> Transpose --> TopKV2(dim=-1) --> Transpose.
  *
- *        1. regbase (NpuArch DAV_3510 / DAV_5102: Ascend950/350, MC62/630):
- *           the new AscendC system registers TopKV2 (x + k inputs, int32/int64 k,
- *           indices_dtype attr) and the two-input Transpose (x + perm const input).
- *             TopK/TopKV2 --> TopKV2 (k kept as an input, dim = -1);
- *             dim != -1  --> Transpose --> TopKV2 --> Transpose.
- *           On DAV_5102 the legacy BigGuard gates apply (11-dtype whitelist,
- *           sorted=false, int64 const k, indices_dtype=DT_INT64); DAV_3510 keeps
- *           the conservative 3-dtype narrowing.
- *
- *        2. legacy tbe platforms (NpuArch DAV_2201/3002/2002/3004/3102:
- *           Ascend910/910B/910_93, Ascend310B/310P, Ascend031, Ascend610Lite):
- *           the old tbe op_info registers TopKD (x + assist_seq inputs, k/sorted/
- *           dim/largest attrs), TopKV2 (x + k inputs, no indices_dtype attr) and
- *           the attribute-based TransposeD (perm attr).
- *             const k  --> TopKD (k becomes an attr + assist_seq input);
- *             dynamic k --> TopKV2 (k kept as an input; int64 k desc converted to
- *                           int32, aligned with the legacy pass);
+ *        2. legacy tbe (DAV_2201/3002/2002/3004/3102: Ascend910/910B/910_93,
+ *           310B/310P, 031, 610Lite): TopKD/TopKV2 + the attribute-based
+ *           TransposeD.
+ *             const k   --> TopKD (k becomes an attr + assist_seq input);
+ *             dynamic k --> TopKV2 (k kept as an input; an int64 k desc is
+ *                           re-declared int32, legacy parity);
  *             dim != -1 --> TransposeD --> fused op --> TransposeD.
- *           The x dtype whitelist follows the per-soc op_info reality (see
- *           MeetRequirements step 3); socs without any TopK-family entry (e.g.
- *           Ascend035, dav_3505) and unidentifiable socs stay silent. Ascend031
- *           has no TopKV2 entry, so its dynamic-k path does not fuse.
- *           The assist_seq is 2048 fp16 values [0..2047]; on Ascend310B/031 with
- *           a const k and an unknown-shape x the tik flavour is used instead
- *           (4096 + 4096 fp16: values and their fp16 rounding gaps, RNE).
+ *           The x dtype gate follows the per-soc op_info reality (see
+ *           MeetRequirements); socs without any TopK-family entry (e.g.
+ *           Ascend035) stay silent; Ascend031 has no TopKV2 entry (no
+ *           dynamic-k fusion). The assist_seq flavour follows the legacy tik
+ *           gate (see GenAssistSeqData).
  *
- *        All descs of the replacement graph are set manually (the legacy pass does
- *        the same, no full-graph infershape): running a full-graph InferShape on
- *        the replacement graph would invoke the registered TopKV2 infershape
- *        (InferShapeForTopKV2D, InputsDataDependency({1})), which needs the const
- *        value of k - unavailable on the replacement graph's Data inputs - and
- *        reports "k is nullptr" on a real runtime that has the op impl loaded.
+ *        All replacement descs are set manually, no full-graph infershape:
+ *        the registered TopKV2 infershape needs the const value of k, which
+ *        is unavailable on the replacement graph's Data inputs ("k is
+ *        nullptr" on a real runtime with the op impl loaded).
  *
- *        Not carried over from the legacy pass (outside the ops-math build/deploy
- *        matrix, soc_arch_variables.cmake): the Ascend310-only SegmentSort/
- *        MultiMerge multi-core branch and the Ascend310 dynamic-k TopKV2D target
- *        (ascend310 is not a build target of this repo; those paths keep being
- *        served by the legacy canndev package). The legacy defensive int64-x
- *        desc conversion in the TopKV2 branch is dead code (int64 x only passes
- *        the BigGuard dtype gate) and is not carried over either.
+ *        Not carried over (outside the build/deploy matrix): the Ascend310-only
+ *        SegmentSort/MultiMerge branch and the 310 dynamic-k TopKV2D target;
+ *        the legacy defensive int64-x desc conversion (dead code: int64 x only
+ *        passes the BigGuard dtype gate).
  *
- * Compatibility processing (D1 scenario, aligned with DropOutV3/Permute/Random*
- * passes): the pass inherits the legacy built-in TopKFusionPass slot and runs
- * at the kCompatibleInherited stage (born in GE 9.0.0), so that on supported
- * devices it adaptively takes over the legacy canndev pass. Version safety strategy:
- * compile-time macro guard + runtime version check + overall silence:
- *   - compile-time: pass built with pre-9.0.0 toolkit falls back to the old
- *     kBeforeInferShape stage so the kCompatibleInherited enum is not referenced
- *   - runtime: ge_compiler < 9.0.0 registers on the old stage and idles (no
- *     patterns, no fusion); ge_compiler in [9.0.0, 9.1.0) keeps the stage but
- *     skips pattern building (ES pattern framework readiness)
+ *        The legacy "TopKV2 -> TopK" rename (an AICPU fallback on every
+ *        rejection exit - "will using Aicpu") is carried over as the AICPU
+ *        TopK degradation and the dynamic int64 k desc fixup (see
+ *        ShouldDegradeToAicpuTopK / BuildAicpuTopKReplacement); the
+ *        degradation covers both the aicore-dtype-rejected and the
+ *        sorted=false TopKV2 sources on the non-regbase archs (canndev
+ *        parity on every rejection exit).
+ *
+ * Compatibility (D1, aligned with DropOutV3/Permute/Random*): inherits the
+ * legacy built-in TopKFusionPass slot at the kCompatibleInherited stage
+ * (GE 9.0.0+) to take over the canndev pass on supported devices; built with
+ * or running against an older toolkit it falls back to the old stage and
+ * stays silent (macro guard + runtime version check, see
+ * GetTopKFusionPassStage).
  */
 
 #include <algorithm>
@@ -249,6 +237,38 @@ bool IsLegacyXDtypeAllowed(NpuArch npuArch, const std::string& shortSocVersion, 
     }
     (void)npuArch;
     return false;
+}
+
+// x dtype whitelist of the AICPU TopK kernel (aicpu_kernel.ini [TopK],
+// platform-independent; no soc registers an aicore [TopK], so "TopK" itself
+// dispatches to AICPU), covering what the aicore TopK-family whitelists
+// reject (int64/double x, ...).
+const std::set<DataType>& GetAicpuTopKXDtypeWhitelist()
+{
+    static const std::set<DataType> kAicpuTopKDtype = {DT_FLOAT, DT_FLOAT16, DT_DOUBLE, DT_UINT8,  DT_INT8, DT_UINT16,
+                                                       DT_INT16, DT_INT32,   DT_UINT32, DT_UINT64, DT_INT64};
+    return kAicpuTopKDtype;
+}
+
+// AICPU TopK degradation decision (canndev parity, legacy L517-531): the
+// legacy pass rewrites a dtype-rejected TopKV2 to "TopK" in place so op
+// selection dispatches it to AICPU ("will using Aicpu"); GNode has no
+// SetType, so the equivalent here is a same-structure TopK replacement (see
+// BuildAicpuTopKReplacement). TopK sources are excluded (rejected ones
+// already dispatch to AICPU, same as the legacy net effect); dtypes neither
+// engine serves (e.g. bool) and platform-unknown socs stay silent.
+bool ShouldDegradeToAicpuTopK(const AscendString& nodeType, DataType xDtype, bool isRegbase, NpuArch npuArch,
+                              const std::string& shortSocVersion, bool isKConst)
+{
+    if (nodeType != "TopKV2") {
+        return false;
+    }
+    const bool aicoreAllows = isRegbase ? (GetRegbaseXDtypeWhitelist().count(xDtype) > 0) :
+                                          IsLegacyXDtypeAllowed(npuArch, shortSocVersion, xDtype, isKConst);
+    if (aicoreAllows) {
+        return false;
+    }
+    return GetAicpuTopKXDtypeWhitelist().count(xDtype) > 0;
 }
 
 // True when the node's indices output is int64 but the indices_dtype attr is not DT_INT64 yet.
@@ -626,6 +646,106 @@ bool BuildTopKDNode(es::EsGraphBuilder& builder, const es::EsTensorHolder& x, co
     return true;
 }
 
+// Build the AICPU TopK degradation replacement (canndev parity, legacy L495-538):
+// when a TopKV2 source node is rejected by the aicore dtype gate, the legacy pass
+// rewrites the node type in place to "TopK" (SetType keeps every desc/attr) and
+// returns SUCCESS, so op selection dispatches the node to the AICPU TopK kernel
+// ("will using Aicpu"). The new framework cannot rewrite the type in place
+// (GNode has no SetType), so the equivalent is a same-structure replacement: the
+// rejected TopKV2 node is removed and a TopK-typed node takes over the boundary.
+// Desc fixups mirroring the legacy in-place L500-509 rewrite (applied to the
+// rebuilt node):
+// - an int64 k input desc is re-declared int32 (the AICPU kernel reads k as
+//   int32, i.e. the low 32 bits of the int64 buffer - value-identical for
+//   every realistic k; the legacy rewrite produces exactly the same producer
+//   int64 / consumer int32 desc mismatch and it dispatches fine);
+// - an int64 indices output desc is re-declared int32.
+// The dim/sorted/largest attrs are carried as-is: the AICPU kernel natively
+// serves any dim (head/n/tail decomposition) and sorted=false - unlike the
+// aicore TopK-family kernels the fusion would have built, so no transposes and
+// no sorted gate are involved on this path.
+GraphUniqPtr BuildAicpuTopKReplacement(const std::unique_ptr<MatchResult>& matchResult, const GNode& topkNode)
+{
+    std::vector<SubgraphInput> subgraphInputs;
+    matchResult->ToSubgraphBoundary()->GetAllInputs(subgraphInputs);
+    std::vector<Shape> inputShapes;
+    std::vector<DataType> inputDtypes;
+    std::vector<Format> inputFormats;
+    GetInputsInfo(subgraphInputs, inputShapes, inputDtypes, inputFormats);
+    if (inputShapes.size() < 2) {
+        OP_LOGE(kPassName.c_str(), "Subgraph inputs size %zu is less than 2.", inputShapes.size());
+        return nullptr;
+    }
+
+    bool sorted = true;
+    bool largest = true;
+    int64_t dim = kDefaultDim;
+    (void)topkNode.GetAttr("sorted", sorted);
+    (void)topkNode.GetAttr("largest", largest);
+    (void)topkNode.GetAttr("dim", dim);
+
+    auto replaceGraphBuilder = es::EsGraphBuilder("replacement");
+    auto rX = replaceGraphBuilder.CreateInput(kInputXIdx, "x", inputDtypes[0], inputFormats[0],
+                                              inputShapes[0].GetDims());
+    auto rK = replaceGraphBuilder.CreateInput(kInputKIdx, "k", inputDtypes[1], inputFormats[1],
+                                              inputShapes[1].GetDims());
+    auto output = es::TopK(rX, rK, sorted, largest, dim);
+
+    GNode topkGNode = *output.values.GetProducer();
+    // x input desc: the source node's own desc when it is set; an ATC-converted
+    // graph may leave it in the default-constructed state (DT_FLOAT + empty
+    // shape), which must NOT leak onto the degraded node - fall back to the
+    // RESOLVED boundary desc (GetInputsInfo applies the same unset-desc
+    // producer fallback the k gate in MeetRequirements relies on), so the
+    // degraded TopK always dispatches with the producer's real dtype.
+    TensorDesc xDesc;
+    if (topkNode.GetInputDesc(kInputXIdx, xDesc) != SUCCESS || LooksUnsetDesc(xDesc)) {
+        xDesc = TensorDesc(Shape(inputShapes[0]), inputFormats[0], inputDtypes[0]);
+    }
+    if (topkGNode.UpdateInputDesc(kInputXIdx, xDesc) != GRAPH_SUCCESS) {
+        OP_LOGE(kPassName.c_str(), "Failed to update the degraded TopK x input desc.");
+        return nullptr;
+    }
+    // k input desc: the same resolved-desc construction (an unset source k desc
+    // resolves to the producer's dtype), int64 re-declared int32 (legacy
+    // L500-509 parity - judged on the resolved dtype, so the unset case still
+    // takes the conversion instead of leaking DT_FLOAT into op selection).
+    TensorDesc kDesc;
+    if (topkNode.GetInputDesc(kInputKIdx, kDesc) != SUCCESS || LooksUnsetDesc(kDesc)) {
+        kDesc = TensorDesc(Shape(inputShapes[1]), inputFormats[1], inputDtypes[1]);
+    }
+    if (kDesc.GetDataType() == DT_INT64) {
+        kDesc.SetDataType(DT_INT32);
+    }
+    if (topkGNode.UpdateInputDesc(kInputKIdx, kDesc) != GRAPH_SUCCESS) {
+        OP_LOGE(kPassName.c_str(), "Failed to update the degraded TopK k input desc.");
+        return nullptr;
+    }
+    // Output descs: values carried as-is; indices int64 re-declared int32
+    // (fallback: the values desc with an int32 dtype, the AICPU TopK indices
+    // registration is int32-only).
+    TensorDesc valuesDesc;
+    if (topkNode.GetOutputDesc(kOutputValuesIdx, valuesDesc) != SUCCESS) {
+        OP_LOGE(kPassName.c_str(), "Failed to get the source values desc for the AICPU TopK degradation.");
+        return nullptr;
+    }
+    TensorDesc indicesDesc = valuesDesc;
+    TensorDesc srcIndicesDesc;
+    if (topkNode.GetOutputDesc(kOutputIndicesIdx, srcIndicesDesc) == SUCCESS) {
+        indicesDesc = srcIndicesDesc;
+    }
+    if (indicesDesc.GetDataType() == DT_INT64) {
+        indicesDesc.SetDataType(DT_INT32);
+    }
+    if (topkGNode.UpdateOutputDesc(kOutputValuesIdx, valuesDesc) != GRAPH_SUCCESS ||
+        topkGNode.UpdateOutputDesc(kOutputIndicesIdx, indicesDesc) != GRAPH_SUCCESS) {
+        OP_LOGE(kPassName.c_str(), "Failed to update the degraded TopK output descs.");
+        return nullptr;
+    }
+    OP_LOGI(kPassName.c_str(), "TopKFusionPass degraded the rejected TopKV2 to an AICPU-dispatchable TopK.");
+    return replaceGraphBuilder.BuildAndReset({output.values, output.indices});
+}
+
 // Generate the perm list that swaps dimAim with the last dim: [0,1,..,n-1] with
 // perm[dimAim] and perm[n-1] exchanged, same as the legacy PermVecGen().
 std::vector<int64_t> GenSwapLastDimPerm(int64_t dimSize, int64_t dimAim)
@@ -828,11 +948,26 @@ bool TopKFusionPass::MeetRequirements(const std::unique_ptr<MatchResult>& matchR
 
     if (isRegbase) {
         if (GetRegbaseXDtypeWhitelist().count(xDtype) == 0) {
+            // AICPU TopK degradation (canndev parity: "will using Aicpu"): a
+            // TopKV2 source whose x dtype the aicore whitelist rejects is
+            // rebuilt as an AICPU-dispatchable TopK instead of staying an
+            // unselectable TopKV2 (TopKV2 has no same-name AICPU entry).
+            if (ShouldDegradeToAicpuTopK(nodeType, xDtype, isRegbase, npuArch, shortSocVersion, isKConst)) {
+                OP_LOGD(kPassName.c_str(), "The dtype of input x is not suitable for aicore, degrade to AICPU TopK.");
+                return true;
+            }
             OP_LOGD(kPassName.c_str(), "The dtype of input x is not suitable for aicore, skip.");
             return false;
         }
     } else {
         if (!IsLegacyXDtypeAllowed(npuArch, shortSocVersion, xDtype, isKConst)) {
+            if (ShouldDegradeToAicpuTopK(nodeType, xDtype, isRegbase, npuArch, shortSocVersion, isKConst)) {
+                OP_LOGD(kPassName.c_str(),
+                        "The dtype of input x is not supported by the target op on %s, "
+                        "degrade to AICPU TopK.",
+                        shortSocVersion.c_str());
+                return true;
+            }
             OP_LOGD(kPassName.c_str(), "The dtype of input x is not supported by the target op on %s, skip.",
                     shortSocVersion.c_str());
             return false;
@@ -841,10 +976,18 @@ bool TopKFusionPass::MeetRequirements(const std::unique_ptr<MatchResult>& matchR
 
     // 4. The value of sorted cannot be false on aicore (legacy behaviour), except on
     //    the regbase archs where the legacy BigGuard branch (= IsRegBase, 3510 AND
-    //    5102 alike) allows it (the TopKV2 kernel gates it itself).
+    //    5102 alike) allows it (the TopKV2 kernel gates it itself). A sorted=false
+    //    TopKV2 source on the non-regbase archs takes the AICPU TopK degradation
+    //    (canndev parity: the legacy rename leaves a TopK-typed node dispatched to
+    //    AICPU on this rejection exit as well); only TopKV2 sources degrade - a
+    //    TopK source already dispatches to AICPU (and re-degrading it would loop).
     bool sorted = true;
     (void)topkNode.GetAttr("sorted", sorted);
     if (!sorted && !isRegbase) {
+        if (nodeType == "TopKV2") {
+            OP_LOGD(kPassName.c_str(), "The value of sorted must be true on aicore, degrade to AICPU TopK.");
+            return true;
+        }
         OP_LOGD(kPassName.c_str(), "The value of sorted must be true on aicore, skip.");
         return false;
     }
@@ -854,11 +997,11 @@ bool TopKFusionPass::MeetRequirements(const std::unique_ptr<MatchResult>& matchR
     //    (dynamic-k path). DAV_3510 keeps the shipped int32-only narrowing for const
     //    k; DAV_5102 additionally allows int64 (kept as-is, legacy BigGuard
     //    behaviour). On Ascend031 the dynamic-k path does not fuse (no TopKV2 entry
-    //    in its op_info). A dynamic int64 k is additionally rejected on the legacy
-    //    platforms: the legacy pass faked the op_info match by rewriting the in-place
-    //    k desc to int32, which cannot be carried over to the replacement-graph
-    //    framework (the source k producer keeps its int64 desc), so fusing would risk
-    //    an op selection failure - staying silent falls back to the AICPU TopK.
+    //    in its op_info). A dynamic int64 k on the legacy archs is carried over
+    //    with the legacy desc-rewrite semantics applied to the rebuilt TopKV2
+    //    (see the gate below) instead of being silently rejected - TopKV2 has
+    //    no same-name AICPU entry, so staying silent would leave an unselectable
+    //    node, while the legacy pass fakes the desc in place and fuses.
     //    ATC-converted graphs may leave the node's k input desc unset (a
     //    default-constructed desc reads DT_FLOAT with an empty shape): resolve
     //    it from the k producer's output desc before gating; if no usable desc
@@ -889,8 +1032,16 @@ bool TopKFusionPass::MeetRequirements(const std::unique_ptr<MatchResult>& matchR
                 return false;
             }
         } else if (isLegacy && kDesc.GetDataType() == DT_INT64) {
-            OP_LOGD(kPassName.c_str(), "Dynamic int64 k is not carry-overable on legacy platforms, skip.");
-            return false;
+            // Dynamic int64 k on the legacy archs is carried over (canndev
+            // parity, legacy L500-509): the legacy pass rewrites the in-place
+            // k/indices descs int64->int32 and fuses to TopKV2; the replacement
+            // framework cannot rewrite the source node, so the equivalent is
+            // done on the REBUILT TopKV2 (its k input desc is re-declared
+            // int32; the source k producer keeps its int64 output desc, and
+            // the aicore TopKV2 kernel reads the low 32 bits of the int64
+            // buffer - value-identical for every realistic k, exactly the
+            // graph state the legacy in-place rewrite leaves behind).
+            OP_LOGD(kPassName.c_str(), "Dynamic int64 k on a legacy arch: fuse with an int32 re-declared k desc.");
         }
     } else {
         OP_LOGD(kPassName.c_str(), "No usable k input desc (neither the node desc nor the producer desc), skip.");
@@ -979,6 +1130,11 @@ bool TopKFusionPass::MeetRequirements(const std::unique_ptr<MatchResult>& matchR
     //       so the pass's own output re-matches here and must terminate;
     //     - dynamic k + non-last dim: the legacy pass still inserts the transposes
     //       (the TopKV2 kernel only serves the last-dim path), so it is processed;
+    //     - dynamic int64 k on the legacy archs + last dim: the legacy net effect
+    //       is the in-place k/indices desc rewrite (int64 -> int32) with the
+    //       TopKV2 type kept - not a no-op, so it must be rebuilt once to carry
+    //       the desc fixup; after the rebuild the k desc reads int32, this
+    //       guard's exception no longer holds and the next match skips;
     //     - const k on regbase + last dim: already in the target form (TopKV2 with
     //       dim = -1), skip; a pending indices_dtype fix (int64 indices output
     //       without the DT_INT64 attr) is still processed and the rebuilt node
@@ -988,7 +1144,8 @@ bool TopKFusionPass::MeetRequirements(const std::unique_ptr<MatchResult>& matchR
     //       re-matched by the patterns, so no guard is needed there.
     if (nodeType == "TopKV2") {
         if (!isKConst) {
-            if (dimAim == dimSize - 1 && !(isRegbase && IndicesDtypeNeedsFix(topkNode))) {
+            const bool isLegacyInt64K = isLegacy && hasKDesc && kDesc.GetDataType() == DT_INT64;
+            if (dimAim == dimSize - 1 && !isLegacyInt64K && !(isRegbase && IndicesDtypeNeedsFix(topkNode))) {
                 OP_LOGD(kPassName.c_str(), "TopKV2 with dynamic k on the last dim keeps as is, skip.");
                 return false;
             }
@@ -1067,6 +1224,25 @@ GraphUniqPtr TopKFusionPass::Replacement(const std::unique_ptr<MatchResult>& mat
         return nullptr;
     }
     const std::string shortSocVersion = platformInfo.str_info.short_soc_version;
+
+    // 3a. AICPU TopK degradation branches (canndev parity): a TopKV2 source is
+    //     rebuilt as a same-structure TopK node - the equivalent of the legacy
+    //     in-place "TopKV2 -> TopK" rename done on every rejection exit - when
+    //     either rejection holds:
+    //     - the x dtype is rejected by the aicore whitelist of its platform
+    //       (and AICPU TopK accepts it), decided with the same helper as
+    //       MeetRequirements;
+    //     - sorted=false on the non-regbase archs (the legacy rename leaves a
+    //       TopK-typed node dispatched to AICPU on this exit as well).
+    //     The AICPU kernel serves any dim / sorted / largest itself, so no
+    //     transpose handling is involved.
+    AscendString degradeNodeType;
+    if (topkNode.GetType(degradeNodeType) == GRAPH_SUCCESS && degradeNodeType == "TopKV2" &&
+        (ShouldDegradeToAicpuTopK(degradeNodeType, xDesc.GetDataType(), isRegbase, npuArch, shortSocVersion,
+                                  isKConst) ||
+         (!sorted && !isRegbase))) {
+        return BuildAicpuTopKReplacement(matchResult, topkNode);
+    }
 
     // 4. Normalize dim and decide whether transposes are needed. The dim attr of the
     //    fused node keeps the source value on the last-dim path and is forced to -1
@@ -1214,6 +1390,35 @@ GraphUniqPtr TopKFusionPass::Replacement(const std::unique_ptr<MatchResult>& mat
                              fusedIndices)) {
             OP_LOGE(kPassName.c_str(), "Failed to build TopKV2 node.");
             return nullptr;
+        }
+        // Dynamic int64 k desc fixup (canndev parity, legacy L500-509): the legacy
+        // pass rewrites the k input desc int64 -> int32 in place on the legacy
+        // archs before fusing (the aicore TopKV2 registers k as int32-only); the
+        // rebuilt TopKV2 re-declares its k input desc as int32 the same way. The
+        // source k producer keeps its int64 output desc - the identical graph
+        // state the legacy in-place rewrite produces - and the kernel reads the
+        // low 32 bits of the int64 buffer (value-identical for realistic k).
+        // The int64 JUDGMENT uses the resolved boundary dtype (inputDtypes[1],
+        // with the unset-desc producer fallback applied by GetInputsInfo) - the
+        // same resolution the k gate and the 6b guard judge by - so an
+        // ATC-converted graph with an unset k desc takes the fixup in the FIRST
+        // rebuild instead of forcing an extra one; the fixed desc is built from
+        // the source desc when it is set, otherwise from the resolved
+        // shape/format with the int32 dtype.
+        if (isLegacy && !isKConst && inputDtypes.size() > static_cast<size_t>(kInputKIdx) &&
+            inputDtypes[static_cast<size_t>(kInputKIdx)] == DT_INT64) {
+            TensorDesc fixedKDesc;
+            if (topkNode.GetInputDesc(kInputKIdx, fixedKDesc) == SUCCESS && !LooksUnsetDesc(fixedKDesc)) {
+                fixedKDesc.SetDataType(DT_INT32);
+            } else {
+                fixedKDesc = TensorDesc(Shape(inputShapes[static_cast<size_t>(kInputKIdx)]),
+                                        inputFormats[static_cast<size_t>(kInputKIdx)], DT_INT32);
+            }
+            GNode topkV2GNode = *fusedValues.GetProducer();
+            if (topkV2GNode.UpdateInputDesc(kInputKIdx, fixedKDesc) != GRAPH_SUCCESS) {
+                OP_LOGE(kPassName.c_str(), "Failed to re-declare the TopKV2 k input desc as int32.");
+                return nullptr;
+            }
         }
     }
     // Manually set the fused op's output descs (same as the legacy

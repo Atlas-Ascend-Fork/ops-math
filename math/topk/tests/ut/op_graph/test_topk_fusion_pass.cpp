@@ -1684,12 +1684,13 @@ TEST_F(TopKFusionPassTest, legacyConstKInt64FusedToTopKD)
     EXPECT_EQ(CountDtype(indicesDtypes, DT_INT32), 1);
 }
 
-// Test 29: Ascend910B dynamic int64 k stays silent: the legacy pass faked the
-// op_info match by rewriting the in-place k desc to int32, which cannot be carried
-// over to the replacement-graph framework (the source k producer keeps its int64
-// desc), so fusing would risk an op selection failure - the AICPU TopK fallback
-// is the safe equivalent.
-TEST_F(TopKFusionPassTest, legacyDynamicKInt64NotFused)
+// Test 29: Ascend910B dynamic int64 k fuses to TopKV2 with the k input desc
+// re-declared int32 (canndev parity, legacy L500-509): the legacy pass rewrote
+// the in-place k/indices descs int64 -> int32 before fusing; the replacement
+// framework cannot rewrite the source, so the rebuilt TopKV2 carries the
+// int32 re-declaration and the source k producer keeps its int64 desc - the
+// identical graph state the legacy rewrite leaves behind.
+TEST_F(TopKFusionPassTest, legacyDynamicKInt64FusedToInt32KDesc)
 {
     SetPlatformInfo("Ascend910B1");
     std::vector<int64_t> dimsX{16, 128};
@@ -1716,9 +1717,528 @@ TEST_F(TopKFusionPassTest, legacyDynamicKInt64NotFused)
     Status status = RunPass(graph);
     EXPECT_TRUE(status == SUCCESS || status == GRAPH_NOT_CHANGED);
 
-    EXPECT_EQ(CountNodeType(graph, "TopK"), 1); // stays silent, AICPU fallback
+    EXPECT_EQ(CountNodeType(graph, "TopKV2"), 1); // fuses with the desc fixup
+    EXPECT_EQ(CountNodeType(graph, "TopK"), 0);
+    EXPECT_EQ(CountNodeType(graph, "TopKD"), 0);
+
+    // The rebuilt TopKV2 declares its k input desc as int32 (the legacy
+    // in-place rewrite parity); the k producer keeps its int64 output desc.
+    for (auto node : graph->GetAllNodes()) {
+        AscendString nodeType;
+        node.GetType(nodeType);
+        if (nodeType != "TopKV2") {
+            continue;
+        }
+        TensorDesc fusedKDesc;
+        ASSERT_EQ(node.GetInputDesc(kInputKIdx, fusedKDesc), SUCCESS);
+        EXPECT_EQ(fusedKDesc.GetDataType(), DT_INT32);
+        auto kSrcInfo = node.GetInDataNodesAndPortIndexs(kInputKIdx);
+        ASSERT_NE(kSrcInfo.first, nullptr);
+        TensorDesc kSrcDesc;
+        ASSERT_EQ(kSrcInfo.first->GetOutputDesc(kSrcInfo.second, kSrcDesc), SUCCESS);
+        EXPECT_EQ(kSrcDesc.GetDataType(), DT_INT64); // producer desc untouched
+    }
+}
+
+// Test 29b: the idempotency of the dynamic int64 k desc fixup (the anti-loop
+// contract): running the pass again on the rebuilt TopKV2 (whose k desc now
+// reads int32) must be a no-op - the 6b guard skips on the last dim.
+TEST_F(TopKFusionPassTest, legacyDynamicKInt64DescFixupIdempotent)
+{
+    SetPlatformInfo("Ascend910B1");
+    std::vector<int64_t> dimsX{16, 128};
+    Shape shapeX(dimsX);
+
+    auto graphBuilder = es::EsGraphBuilder("test_910b_int64_k_idempotent");
+    auto x = graphBuilder.CreateInput(kInputXIdx, "x", DT_FLOAT16, FORMAT_ND, dimsX);
+    auto k = graphBuilder.CreateInput(kInputKIdx, "k", DT_INT64, FORMAT_ND, std::vector<int64_t>{1});
+    auto output = BuildTopKNodeWithDynamicK(graphBuilder, x, k);
+
+    TensorDesc xDesc;
+    x.GetProducer()->GetOutputDesc(0, xDesc);
+    xDesc.SetDataType(DT_FLOAT16);
+    xDesc.SetShape(shapeX);
+    x.GetProducer()->UpdateOutputDesc(0, xDesc);
+    TensorDesc kDesc;
+    k.GetProducer()->GetOutputDesc(0, kDesc);
+    kDesc.SetDataType(DT_INT64);
+    kDesc.SetShape(Shape(std::vector<int64_t>{1}));
+    k.GetProducer()->UpdateOutputDesc(0, kDesc);
+    UpdateTopKNodeDesc(output, xDesc, kDesc, 10);
+
+    std::shared_ptr<Graph> graph = graphBuilder.BuildAndReset({output.values, output.indices});
+    Status status = RunPass(graph);
+    EXPECT_TRUE(status == SUCCESS || status == GRAPH_NOT_CHANGED);
+    ASSERT_EQ(CountNodeType(graph, "TopKV2"), 1);
+
+    // Second run: no further change (the k desc already reads int32).
+    Status status2 = RunPass(graph);
+    EXPECT_TRUE(status2 == SUCCESS || status2 == GRAPH_NOT_CHANGED);
+    EXPECT_EQ(CountNodeType(graph, "TopKV2"), 1);
+    EXPECT_EQ(CountNodeType(graph, "TopK"), 0);
+    EXPECT_EQ(CountNodeType(graph, "TopKD"), 0);
+    EXPECT_EQ(CountNodeType(graph, "TransposeD"), 0);
+    // Desc stability (review fix): the second run must not touch the k desc.
+    for (auto node : graph->GetAllNodes()) {
+        AscendString nodeType;
+        node.GetType(nodeType);
+        if (nodeType != "TopKV2") {
+            continue;
+        }
+        TensorDesc kDescAfter;
+        ASSERT_EQ(node.GetInputDesc(kInputKIdx, kDescAfter), SUCCESS);
+        EXPECT_EQ(kDescAfter.GetDataType(), DT_INT32);
+        TensorDesc indicesDescAfter;
+        ASSERT_EQ(node.GetOutputDesc(kOutputIndicesIdx, indicesDescAfter), SUCCESS);
+        EXPECT_EQ(indicesDescAfter.GetDataType(), DT_INT32);
+    }
+}
+
+// Test 29b2: (review fix, P3-1 regression) a TopK source whose k input desc is
+// left in the default-constructed state (DT_FLOAT + empty shape, the
+// ATC-converted-graph form) with an int64 k producer must take the desc fixup
+// in the FIRST rebuild: the int64 judgment uses the RESOLVED boundary dtype
+// (producer fallback), the same resolution the k gate and the 6b guard judge
+// by. Before the fix the judgment read the unset source desc, missed the
+// fixup and forced an extra rebuild round (or left an int64 k desc behind).
+TEST_F(TopKFusionPassTest, legacyDynamicKInt64UnsetKDescFixedInFirstRebuild)
+{
+    SetPlatformInfo("Ascend910B1");
+    std::vector<int64_t> dimsX{16, 128};
+
+    auto graphBuilder = es::EsGraphBuilder("test_910b_unset_k_first_rebuild");
+    auto x = graphBuilder.CreateInput(kInputXIdx, "x", DT_FLOAT16, FORMAT_ND, dimsX);
+    auto k = graphBuilder.CreateInput(kInputKIdx, "k", DT_INT64, FORMAT_ND, std::vector<int64_t>{1});
+    auto output = BuildTopKNodeWithDynamicK(graphBuilder, x, k); // TopK source, last dim
+
+    TensorDesc xDesc;
+    x.GetProducer()->GetOutputDesc(0, xDesc);
+    xDesc.SetDataType(DT_FLOAT16);
+    xDesc.SetShape(Shape(dimsX));
+    x.GetProducer()->UpdateOutputDesc(0, xDesc);
+    TensorDesc kDesc;
+    k.GetProducer()->GetOutputDesc(0, kDesc);
+    kDesc.SetDataType(DT_INT64);
+    kDesc.SetShape(Shape(std::vector<int64_t>{1}));
+    k.GetProducer()->UpdateOutputDesc(0, kDesc);
+    // The source node's k input desc stays in the default-constructed state
+    // (DT_FLOAT + empty shape): only the producer carries the real dtype.
+    TensorDesc kDescUndefined;
+    UpdateTopKNodeDesc(output, xDesc, kDescUndefined, 10);
+
+    std::shared_ptr<Graph> graph = graphBuilder.BuildAndReset({output.values, output.indices});
+    Status status = RunPass(graph);
+    EXPECT_TRUE(status == SUCCESS || status == GRAPH_NOT_CHANGED);
+
+    EXPECT_EQ(CountNodeType(graph, "TopKV2"), 1);
+    EXPECT_EQ(CountNodeType(graph, "TopK"), 0);
+    // The first rebuild already carries the int32 k desc (one rebuild only).
+    for (auto node : graph->GetAllNodes()) {
+        AscendString nodeType;
+        node.GetType(nodeType);
+        if (nodeType != "TopKV2") {
+            continue;
+        }
+        TensorDesc fusedKDesc;
+        ASSERT_EQ(node.GetInputDesc(kInputKIdx, fusedKDesc), SUCCESS);
+        EXPECT_EQ(fusedKDesc.GetDataType(), DT_INT32);
+    }
+}
+
+// Test 29c: (regression) the AICPU TopK degradation - the canndev parity for
+// the legacy "TopKV2 -> TopK" rename: on Ascend910_93 a TopKV2 source whose x
+// dtype the aicore whitelist rejects (int64) is degraded to a same-structure
+// TopK node that op selection dispatches to the AICPU kernel, instead of
+// staying an unselectable TopKV2 (TopKV2 has no same-name AICPU entry). The
+// legacy pass did this via the in-place SetType on every rejection exit
+// ("will using Aicpu"); the rebuilt pass uses the replacement-graph
+// equivalent. The int64 k / int64 indices descs are re-declared int32 on the
+// degraded node (legacy L500-509 desc rewrite parity).
+TEST_F(TopKFusionPassTest, topkv2UnsupportedDtypeDegradesToAicpuTopK)
+{
+    SetPlatformInfo("Ascend910_93");
+    std::vector<int64_t> dimsX{16, 128};
+    Shape shapeX(dimsX);
+
+    auto graphBuilder = es::EsGraphBuilder("test_910_93_topkv2_int64_x_degrade");
+    auto x = graphBuilder.CreateInput(kInputXIdx, "x", DT_INT64, FORMAT_ND, dimsX);
+    auto k = graphBuilder.CreateInput(kInputKIdx, "k", DT_INT64, FORMAT_ND, std::vector<int64_t>{1});
+    auto output = BuildTopKV2SourceNode(graphBuilder, x, k, -1); // TopKV2 source, dim = -1
+
+    TensorDesc xDesc;
+    x.GetProducer()->GetOutputDesc(0, xDesc);
+    xDesc.SetDataType(DT_INT64);
+    xDesc.SetShape(shapeX);
+    x.GetProducer()->UpdateOutputDesc(0, xDesc);
+    TensorDesc kDesc;
+    k.GetProducer()->GetOutputDesc(0, kDesc);
+    kDesc.SetDataType(DT_INT64);
+    kDesc.SetShape(Shape(std::vector<int64_t>{1}));
+    k.GetProducer()->UpdateOutputDesc(0, kDesc);
+    GNode sourceNode = *output.values.GetProducer();
+    sourceNode.UpdateInputDesc(kInputXIdx, xDesc);
+    sourceNode.UpdateInputDesc(kInputKIdx, kDesc);
+    TensorDesc valuesDesc = xDesc;
+    valuesDesc.SetShape(Shape(std::vector<int64_t>({16, 5})));
+    valuesDesc.SetOriginShape(Shape(std::vector<int64_t>({16, 5})));
+    sourceNode.UpdateOutputDesc(kOutputValuesIdx, valuesDesc);
+    TensorDesc indicesDesc = valuesDesc;
+    indicesDesc.SetDataType(DT_INT64); // int64 indices: re-declared int32 on the degraded node
+    sourceNode.UpdateOutputDesc(kOutputIndicesIdx, indicesDesc);
+
+    std::shared_ptr<Graph> graph = graphBuilder.BuildAndReset({output.values, output.indices});
+    Status status = RunPass(graph);
+    EXPECT_TRUE(status == SUCCESS || status == GRAPH_NOT_CHANGED);
+
+    // Degraded to the AICPU-dispatchable TopK.
+    EXPECT_EQ(CountNodeType(graph, "TopK"), 1);
     EXPECT_EQ(CountNodeType(graph, "TopKV2"), 0);
     EXPECT_EQ(CountNodeType(graph, "TopKD"), 0);
+    EXPECT_EQ(CountNodeType(graph, "TransposeD"), 0); // AICPU TopK serves any dim itself
+
+    for (auto node : graph->GetAllNodes()) {
+        AscendString nodeType;
+        node.GetType(nodeType);
+        if (nodeType != "TopK") {
+            continue;
+        }
+        // x input desc carried over (int64, the AICPU TopK whitelist entry).
+        TensorDesc fusedXDesc;
+        ASSERT_EQ(node.GetInputDesc(kInputXIdx, fusedXDesc), SUCCESS);
+        EXPECT_EQ(fusedXDesc.GetDataType(), DT_INT64);
+        // k input desc: int64 re-declared int32 (legacy desc rewrite parity),
+        // producer desc untouched.
+        TensorDesc fusedKDesc;
+        ASSERT_EQ(node.GetInputDesc(kInputKIdx, fusedKDesc), SUCCESS);
+        EXPECT_EQ(fusedKDesc.GetDataType(), DT_INT32);
+        auto kSrcInfo = node.GetInDataNodesAndPortIndexs(kInputKIdx);
+        ASSERT_NE(kSrcInfo.first, nullptr);
+        TensorDesc kSrcDesc;
+        ASSERT_EQ(kSrcInfo.first->GetOutputDesc(kSrcInfo.second, kSrcDesc), SUCCESS);
+        EXPECT_EQ(kSrcDesc.GetDataType(), DT_INT64);
+        // values output desc carried as-is; indices output desc int32.
+        TensorDesc fusedValuesDesc;
+        ASSERT_EQ(node.GetOutputDesc(kOutputValuesIdx, fusedValuesDesc), SUCCESS);
+        EXPECT_EQ(fusedValuesDesc.GetDataType(), DT_INT64);
+        EXPECT_EQ(fusedValuesDesc.GetShape().GetDims(), std::vector<int64_t>({16, 5}));
+        TensorDesc fusedIndicesDesc;
+        ASSERT_EQ(node.GetOutputDesc(kOutputIndicesIdx, fusedIndicesDesc), SUCCESS);
+        EXPECT_EQ(fusedIndicesDesc.GetDataType(), DT_INT32);
+    }
+}
+
+// Test 29d: (regression) the degradation is idempotent - the degraded TopK
+// node re-matches pattern 1 but nodeType != TopKV2, so the pass skips it and
+// the graph is stable (the AICPU path is the terminal state).
+TEST_F(TopKFusionPassTest, topkv2DegradeIdempotent)
+{
+    SetPlatformInfo("Ascend910_93");
+    std::vector<int64_t> dimsX{16, 128};
+    Shape shapeX(dimsX);
+
+    auto graphBuilder = es::EsGraphBuilder("test_910_93_degrade_idempotent");
+    auto x = graphBuilder.CreateInput(kInputXIdx, "x", DT_INT64, FORMAT_ND, dimsX);
+    auto k = graphBuilder.CreateInput(kInputKIdx, "k", DT_INT32, FORMAT_ND, std::vector<int64_t>{1});
+    auto output = BuildTopKV2SourceNode(graphBuilder, x, k, -1);
+
+    TensorDesc xDesc;
+    x.GetProducer()->GetOutputDesc(0, xDesc);
+    xDesc.SetDataType(DT_INT64);
+    xDesc.SetShape(shapeX);
+    x.GetProducer()->UpdateOutputDesc(0, xDesc);
+    TensorDesc kDesc;
+    k.GetProducer()->GetOutputDesc(0, kDesc);
+    kDesc.SetDataType(DT_INT32);
+    kDesc.SetShape(Shape(std::vector<int64_t>{1}));
+    k.GetProducer()->UpdateOutputDesc(0, kDesc);
+    GNode sourceNode = *output.values.GetProducer();
+    sourceNode.UpdateInputDesc(kInputXIdx, xDesc);
+    sourceNode.UpdateInputDesc(kInputKIdx, kDesc);
+    TensorDesc valuesDesc = xDesc;
+    valuesDesc.SetShape(Shape(std::vector<int64_t>({16, 5})));
+    valuesDesc.SetOriginShape(Shape(std::vector<int64_t>({16, 5})));
+    sourceNode.UpdateOutputDesc(kOutputValuesIdx, valuesDesc);
+    TensorDesc indicesDesc = valuesDesc;
+    indicesDesc.SetDataType(DT_INT32);
+    sourceNode.UpdateOutputDesc(kOutputIndicesIdx, indicesDesc);
+
+    std::shared_ptr<Graph> graph = graphBuilder.BuildAndReset({output.values, output.indices});
+    Status status = RunPass(graph);
+    EXPECT_TRUE(status == SUCCESS || status == GRAPH_NOT_CHANGED);
+    ASSERT_EQ(CountNodeType(graph, "TopK"), 1);
+
+    // Second run: the degraded TopK (int64 x) no longer degrades - a stable no-op.
+    Status status2 = RunPass(graph);
+    EXPECT_TRUE(status2 == SUCCESS || status2 == GRAPH_NOT_CHANGED);
+    EXPECT_EQ(CountNodeType(graph, "TopK"), 1);
+    EXPECT_EQ(CountNodeType(graph, "TopKV2"), 0);
+    // Desc stability (review fix): the second run must not touch the descs.
+    for (auto node : graph->GetAllNodes()) {
+        AscendString nodeType;
+        node.GetType(nodeType);
+        if (nodeType != "TopK") {
+            continue;
+        }
+        TensorDesc xDescAfter;
+        ASSERT_EQ(node.GetInputDesc(kInputXIdx, xDescAfter), SUCCESS);
+        EXPECT_EQ(xDescAfter.GetDataType(), DT_INT64);
+        TensorDesc kDescAfter;
+        ASSERT_EQ(node.GetInputDesc(kInputKIdx, kDescAfter), SUCCESS);
+        EXPECT_EQ(kDescAfter.GetDataType(), DT_INT32);
+    }
+}
+
+// Test 29c2: (review fix, P2 regression) the degradation of a TopKV2 source
+// whose k input desc is left in the default-constructed state (DT_FLOAT +
+// empty shape, the ATC-converted-graph form) with an int64 k producer: the
+// degraded TopK must resolve the k desc from the producer (int64) and
+// re-declare it int32. Before the fix the unset DT_FLOAT leaked onto the
+// degraded node and op selection failed with "The data type DT_FLOAT of the
+// input k is not supported" - a pass-manufactured unschedulable node.
+TEST_F(TopKFusionPassTest, topkv2DegradeUnsetKDescResolvedFromProducer)
+{
+    SetPlatformInfo("Ascend910_93");
+    std::vector<int64_t> dimsX{16, 128};
+    Shape shapeX(dimsX);
+
+    auto graphBuilder = es::EsGraphBuilder("test_910_93_degrade_unset_k");
+    auto x = graphBuilder.CreateInput(kInputXIdx, "x", DT_INT64, FORMAT_ND, dimsX);
+    auto k = graphBuilder.CreateInput(kInputKIdx, "k", DT_INT64, FORMAT_ND, std::vector<int64_t>{1});
+    auto output = BuildTopKV2SourceNode(graphBuilder, x, k, -1);
+
+    // Producer descs: x int64 (rejected by the aicore whitelist), k int64.
+    TensorDesc xDesc;
+    x.GetProducer()->GetOutputDesc(0, xDesc);
+    xDesc.SetDataType(DT_INT64);
+    xDesc.SetShape(shapeX);
+    x.GetProducer()->UpdateOutputDesc(0, xDesc);
+    TensorDesc kDesc;
+    k.GetProducer()->GetOutputDesc(0, kDesc);
+    kDesc.SetDataType(DT_INT64);
+    kDesc.SetShape(Shape(std::vector<int64_t>{1}));
+    k.GetProducer()->UpdateOutputDesc(0, kDesc);
+
+    // Source node descs: x set, k deliberately left in the default-constructed
+    // state - only the producer carries the real dtype.
+    GNode sourceNode = *output.values.GetProducer();
+    sourceNode.UpdateInputDesc(kInputXIdx, xDesc);
+    TensorDesc kDescUndefined;
+    sourceNode.UpdateInputDesc(kInputKIdx, kDescUndefined);
+    TensorDesc valuesDesc = xDesc;
+    valuesDesc.SetShape(Shape(std::vector<int64_t>({16, 5})));
+    valuesDesc.SetOriginShape(Shape(std::vector<int64_t>({16, 5})));
+    sourceNode.UpdateOutputDesc(kOutputValuesIdx, valuesDesc);
+    TensorDesc indicesDesc = valuesDesc;
+    indicesDesc.SetDataType(DT_INT32);
+    sourceNode.UpdateOutputDesc(kOutputIndicesIdx, indicesDesc);
+
+    std::shared_ptr<Graph> graph = graphBuilder.BuildAndReset({output.values, output.indices});
+    Status status = RunPass(graph);
+    EXPECT_TRUE(status == SUCCESS || status == GRAPH_NOT_CHANGED);
+
+    EXPECT_EQ(CountNodeType(graph, "TopK"), 1); // degraded
+    EXPECT_EQ(CountNodeType(graph, "TopKV2"), 0);
+    for (auto node : graph->GetAllNodes()) {
+        AscendString nodeType;
+        node.GetType(nodeType);
+        if (nodeType != "TopK") {
+            continue;
+        }
+        TensorDesc fusedXDesc;
+        ASSERT_EQ(node.GetInputDesc(kInputXIdx, fusedXDesc), SUCCESS);
+        EXPECT_EQ(fusedXDesc.GetDataType(), DT_INT64);
+        // The unset source k desc resolves to the producer's int64 and the
+        // re-declared int32 lands on the degraded node - NOT a leaked DT_FLOAT.
+        TensorDesc fusedKDesc;
+        ASSERT_EQ(node.GetInputDesc(kInputKIdx, fusedKDesc), SUCCESS);
+        EXPECT_EQ(fusedKDesc.GetDataType(), DT_INT32);
+    }
+}
+
+// Test 29e: (regression) the degradation on the regbase family - a double x on
+// Ascend950 is outside the 11-dtype aicore whitelist but inside the AICPU TopK
+// whitelist, so the TopKV2 source degrades to the AICPU TopK there as well.
+TEST_F(TopKFusionPassTest, regbaseTopkv2UnsupportedDtypeDegradesToAicpuTopK)
+{
+    SetPlatformInfo("Ascend950");
+    std::vector<int64_t> dimsX{8, 64};
+    Shape shapeX(dimsX);
+
+    auto graphBuilder = es::EsGraphBuilder("test_950_topkv2_double_x_degrade");
+    auto x = graphBuilder.CreateInput(kInputXIdx, "x", DT_DOUBLE, FORMAT_ND, dimsX);
+    auto k = graphBuilder.CreateInput(kInputKIdx, "k", DT_INT32, FORMAT_ND, std::vector<int64_t>{1});
+    auto output = BuildTopKV2SourceNode(graphBuilder, x, k, -1);
+
+    TensorDesc xDesc;
+    x.GetProducer()->GetOutputDesc(0, xDesc);
+    xDesc.SetDataType(DT_DOUBLE);
+    xDesc.SetShape(shapeX);
+    x.GetProducer()->UpdateOutputDesc(0, xDesc);
+    TensorDesc kDesc;
+    k.GetProducer()->GetOutputDesc(0, kDesc);
+    kDesc.SetDataType(DT_INT32);
+    kDesc.SetShape(Shape(std::vector<int64_t>{1}));
+    k.GetProducer()->UpdateOutputDesc(0, kDesc);
+    GNode sourceNode = *output.values.GetProducer();
+    sourceNode.UpdateInputDesc(kInputXIdx, xDesc);
+    sourceNode.UpdateInputDesc(kInputKIdx, kDesc);
+    TensorDesc valuesDesc = xDesc;
+    valuesDesc.SetShape(Shape(std::vector<int64_t>({8, 5})));
+    valuesDesc.SetOriginShape(Shape(std::vector<int64_t>({8, 5})));
+    sourceNode.UpdateOutputDesc(kOutputValuesIdx, valuesDesc);
+    TensorDesc indicesDesc = valuesDesc;
+    indicesDesc.SetDataType(DT_INT32);
+    sourceNode.UpdateOutputDesc(kOutputIndicesIdx, indicesDesc);
+
+    std::shared_ptr<Graph> graph = graphBuilder.BuildAndReset({output.values, output.indices});
+    Status status = RunPass(graph);
+    EXPECT_TRUE(status == SUCCESS || status == GRAPH_NOT_CHANGED);
+
+    EXPECT_EQ(CountNodeType(graph, "TopK"), 1); // degraded to the AICPU TopK
+    EXPECT_EQ(CountNodeType(graph, "TopKV2"), 0);
+    EXPECT_EQ(CountNodeType(graph, "Transpose"), 0);
+}
+
+// Test 29f: (regression) the degradation carries the non-last dim through -
+// the AICPU TopK kernel natively serves any dim, so no transposes are built
+// and the dim attr keeps the source value (the legacy SetType kept it too).
+TEST_F(TopKFusionPassTest, topkv2DegradeKeepsNonLastDim)
+{
+    SetPlatformInfo("Ascend910_93");
+    std::vector<int64_t> dimsX{4, 64, 32};
+    Shape shapeX(dimsX);
+
+    auto graphBuilder = es::EsGraphBuilder("test_910_93_degrade_dim_not_last");
+    auto x = graphBuilder.CreateInput(kInputXIdx, "x", DT_INT64, FORMAT_ND, dimsX);
+    auto k = graphBuilder.CreateInput(kInputKIdx, "k", DT_INT32, FORMAT_ND, std::vector<int64_t>{1});
+    auto output = BuildTopKV2SourceNode(graphBuilder, x, k, 1); // dim = 1 (non-last)
+
+    TensorDesc xDesc;
+    x.GetProducer()->GetOutputDesc(0, xDesc);
+    xDesc.SetDataType(DT_INT64);
+    xDesc.SetShape(shapeX);
+    x.GetProducer()->UpdateOutputDesc(0, xDesc);
+    TensorDesc kDesc;
+    k.GetProducer()->GetOutputDesc(0, kDesc);
+    kDesc.SetDataType(DT_INT32);
+    kDesc.SetShape(Shape(std::vector<int64_t>{1}));
+    k.GetProducer()->UpdateOutputDesc(0, kDesc);
+    GNode sourceNode = *output.values.GetProducer();
+    sourceNode.UpdateInputDesc(kInputXIdx, xDesc);
+    sourceNode.UpdateInputDesc(kInputKIdx, kDesc);
+    TensorDesc valuesDesc = xDesc;
+    valuesDesc.SetShape(Shape(std::vector<int64_t>({4, 5, 32}))); // dim 1 replaced by k
+    valuesDesc.SetOriginShape(Shape(std::vector<int64_t>({4, 5, 32})));
+    sourceNode.UpdateOutputDesc(kOutputValuesIdx, valuesDesc);
+    TensorDesc indicesDesc = valuesDesc;
+    indicesDesc.SetDataType(DT_INT32);
+    sourceNode.UpdateOutputDesc(kOutputIndicesIdx, indicesDesc);
+
+    std::shared_ptr<Graph> graph = graphBuilder.BuildAndReset({output.values, output.indices});
+    Status status = RunPass(graph);
+    EXPECT_TRUE(status == SUCCESS || status == GRAPH_NOT_CHANGED);
+
+    EXPECT_EQ(CountNodeType(graph, "TopK"), 1);
+    EXPECT_EQ(CountNodeType(graph, "TopKV2"), 0);
+    // No transposes: the AICPU kernel serves dim = 1 itself.
+    EXPECT_EQ(CountNodeType(graph, "TransposeD"), 0);
+    // The dim attr is carried as-is (the AICPU kernel normalizes it itself).
+    auto dimAttrs = CollectNodeTypeAttr(graph, "TopK", "dim");
+    ASSERT_EQ(dimAttrs.size(), 1U);
+    EXPECT_EQ(dimAttrs[0], 1);
+}
+
+// Test 29g: (deliberate divergence, documented) a TopKV2 source with
+// sorted=false stays as is on the legacy archs: the aicore TopKV2 binary set
+// covers sorted=false, so leaving the node untouched runs it on aicore, while
+// the legacy pass degraded it to the slower AICPU path via the rename.
+TEST_F(TopKFusionPassTest, topkv2SortedFalseDegradesToAicpuTopK)
+{
+    SetPlatformInfo("Ascend910_93");
+    std::vector<int64_t> dimsX{16, 64};
+    Shape shapeX(dimsX);
+
+    auto graphBuilder = es::EsGraphBuilder("test_910_93_topkv2_sorted_false");
+    auto x = graphBuilder.CreateInput(kInputXIdx, "x", DT_FLOAT16, FORMAT_ND, dimsX);
+    auto k = graphBuilder.CreateInput(kInputKIdx, "k", DT_INT32, FORMAT_ND, std::vector<int64_t>{1});
+    TopkOutHolder output;
+    {
+        auto* graph = graphBuilder.GetCGraphBuilder()->GetGraph();
+        std::vector<es::CompliantNodeBuilder::IrAttrDef> attrs = {
+            {"sorted", es::CompliantNodeBuilder::kEsAttrRequired, "Bool", es::CreateFrom(false)},
+            {"dim", es::CompliantNodeBuilder::kEsAttrRequired, "Int", es::CreateFrom(static_cast<int64_t>(-1))},
+            {"largest", es::CompliantNodeBuilder::kEsAttrRequired, "Bool", es::CreateFrom(true)},
+        };
+        auto topkV2Node = es::CompliantNodeBuilder(graph)
+                              .OpType("TopKV2")
+                              .Name("topk_v2_sorted_false_source")
+                              .IrDefInputs({
+                                  {"x", es::CompliantNodeBuilder::kEsIrInputRequired, ""},
+                                  {"k", es::CompliantNodeBuilder::kEsIrInputRequired, ""},
+                              })
+                              .IrDefOutputs({
+                                  {"values", es::CompliantNodeBuilder::kEsIrOutputRequired, ""},
+                                  {"indices", es::CompliantNodeBuilder::kEsIrOutputRequired, ""},
+                              })
+                              .IrDefAttrs(attrs)
+                              .Build();
+        ASSERT_EQ(
+            es::AddEdgeAndUpdatePeerDesc(*graph, *x.GetProducer(), x.GetProducerOutIndex(), topkV2Node, kInputXIdx),
+            GRAPH_SUCCESS);
+        ASSERT_EQ(
+            es::AddEdgeAndUpdatePeerDesc(*graph, *k.GetProducer(), k.GetProducerOutIndex(), topkV2Node, kInputKIdx),
+            GRAPH_SUCCESS);
+        output = {es::EsTensorHolder(graphBuilder.GetCGraphBuilder()->GetTensorHolderFromNode(topkV2Node, 0)),
+                  es::EsTensorHolder(graphBuilder.GetCGraphBuilder()->GetTensorHolderFromNode(topkV2Node, 1))};
+    }
+
+    TensorDesc xDesc;
+    x.GetProducer()->GetOutputDesc(0, xDesc);
+    xDesc.SetDataType(DT_FLOAT16);
+    xDesc.SetShape(shapeX);
+    x.GetProducer()->UpdateOutputDesc(0, xDesc);
+    TensorDesc kDesc;
+    k.GetProducer()->GetOutputDesc(0, kDesc);
+    kDesc.SetDataType(DT_INT32);
+    kDesc.SetShape(Shape(std::vector<int64_t>{1}));
+    k.GetProducer()->UpdateOutputDesc(0, kDesc);
+    GNode sourceNode = *output.values.GetProducer();
+    sourceNode.UpdateInputDesc(kInputXIdx, xDesc);
+    sourceNode.UpdateInputDesc(kInputKIdx, kDesc);
+    TensorDesc valuesDesc = xDesc;
+    valuesDesc.SetShape(Shape(std::vector<int64_t>({16, 5})));
+    valuesDesc.SetOriginShape(Shape(std::vector<int64_t>({16, 5})));
+    sourceNode.UpdateOutputDesc(kOutputValuesIdx, valuesDesc);
+    TensorDesc indicesDesc = valuesDesc;
+    indicesDesc.SetDataType(DT_INT32);
+    sourceNode.UpdateOutputDesc(kOutputIndicesIdx, indicesDesc);
+
+    std::shared_ptr<Graph> graph = graphBuilder.BuildAndReset({output.values, output.indices});
+    Status status = RunPass(graph);
+    EXPECT_TRUE(status == SUCCESS || status == GRAPH_NOT_CHANGED);
+
+    // Canndev parity: the sorted=false rejection exit degrades the TopKV2
+    // source to the AICPU-dispatchable TopK (the legacy rename's net effect).
+    EXPECT_EQ(CountNodeType(graph, "TopK"), 1);
+    EXPECT_EQ(CountNodeType(graph, "TopKV2"), 0);
+    EXPECT_EQ(CountNodeType(graph, "TopKD"), 0);
+    // The sorted=false attr is carried on the degraded node (the AICPU kernel
+    // natively supports it), so the degradation does not alter the semantics.
+    for (auto node : graph->GetAllNodes()) {
+        AscendString nodeType;
+        node.GetType(nodeType);
+        if (nodeType != "TopK") {
+            continue;
+        }
+        TensorDesc sortedAttrDesc;
+        EXPECT_EQ(node.GetInputDesc(kInputXIdx, sortedAttrDesc), SUCCESS);
+        EXPECT_EQ(sortedAttrDesc.GetDataType(), DT_FLOAT16);
+        // Second run: the degraded TopK stays as is (anti-loop convergence).
+        Status status2 = RunPass(graph);
+        EXPECT_TRUE(status2 == SUCCESS || status2 == GRAPH_NOT_CHANGED);
+        EXPECT_EQ(CountNodeType(graph, "TopK"), 1);
+        EXPECT_EQ(CountNodeType(graph, "TopKV2"), 0);
+    }
 }
 
 // Test 30: Ascend310B const k with an unknown-shape x uses the tik assist_seq
