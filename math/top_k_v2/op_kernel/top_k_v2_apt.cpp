@@ -17,6 +17,7 @@
 #define TOP_K_V2_APT_H
 
 #include <type_traits>
+#include <utility>
 
 #include "arch35/radix_sort_top_k.h"
 #include "arch35/radix_topk_constant.h"
@@ -333,14 +334,17 @@ __aicore__ inline void generateOpObject(GM_ADDR x, GM_ADDR k, GM_ADDR values, GM
     bool isNonLastSmallAxis = (tilingData.modeType == NON_LAST_SMALL_AXIS_MODE) ? true : false;
     bool isSmallAxisInsertion = (tilingData.modeType == SMALL_AXIS_INSERTION_MODE) ? true : false;
 
-    if (tilingData.modeType == topkV2::TOPK_DIRECT_MODE) {
-        KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_MIX_AIV_1_0);
-        if (isLargest) {
-            topkV2::RunTopKSmallKSimtGmSelect<T, T_INDEX_TO, true>(x, values, indices, tilingData);
-        } else {
-            topkV2::RunTopKSmallKSimtGmSelect<T, T_INDEX_TO, false>(x, values, indices, tilingData);
+    // Host selects the direct GM path before adding the Bitonic tiling-key offset.
+    if constexpr (!IS_BITONIC_SORT) {
+        if (tilingData.modeType == topkV2::TOPK_DIRECT_MODE) {
+            KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_MIX_AIV_1_0);
+            if (isLargest) {
+                topkV2::RunTopKSmallKSimtGmSelect<T, T_INDEX_TO, true>(x, values, indices, tilingData);
+            } else {
+                topkV2::RunTopKSmallKSimtGmSelect<T, T_INDEX_TO, false>(x, values, indices, tilingData);
+            }
+            return;
         }
-        return;
     }
 
     // 插入排序
@@ -469,6 +473,33 @@ __aicore__ inline void generateMergeTopKIntraCoreObject(GM_ADDR x, GM_ADDR value
     }
 }
 
+template <typename T, typename I, uint32_t N>
+__aicore__ inline bool TryGenerateTopKScalarN(GM_ADDR x, GM_ADDR values, GM_ADDR indices,
+                                              const TopKV2TilingDataSimd& data)
+{
+    if (data.lastAxisNum != N) {
+        return false;
+    }
+    uint32_t rows = static_cast<uint32_t>(data.unsortedDimNum);
+    uint32_t count = static_cast<uint32_t>(data.topKRealValue);
+    if (data.isLargest) {
+        topkV2::DispatchTopKSimtGmScalarK<T, I, true, N>(x, values, indices, rows, count,
+                                                         std::make_index_sequence<N - 1U>{});
+    } else {
+        topkV2::DispatchTopKSimtGmScalarK<T, I, false, N>(x, values, indices, rows, count,
+                                                          std::make_index_sequence<N - 1U>{});
+    }
+    return true;
+}
+
+template <typename T, typename I, uint32_t FirstN, std::size_t... Ns>
+__aicore__ inline void GenerateTopKScalarGroup(GM_ADDR x, GM_ADDR values, GM_ADDR indices, GM_ADDR tiling,
+                                               std::index_sequence<Ns...>)
+{
+    GET_TILING_DATA(data, tiling);
+    static_cast<void>((TryGenerateTopKScalarN<T, I, FirstN + Ns>(x, values, indices, data) || ...));
+}
+
 extern "C" __global__ __aicore__ void top_k_v2(GM_ADDR x, GM_ADDR k, GM_ADDR values, GM_ADDR indices, GM_ADDR workspace,
                                                GM_ADDR tiling)
 {
@@ -480,6 +511,28 @@ extern "C" __global__ __aicore__ void top_k_v2(GM_ADDR x, GM_ADDR k, GM_ADDR val
     if (globalWorkGm == nullptr) {
         return;
     }
+
+#if ORIG_DTYPE_X == DT_INT8 || ORIG_DTYPE_X == DT_UINT8 || ORIG_DTYPE_X == DT_INT16 || ORIG_DTYPE_X == DT_UINT16 || \
+    ORIG_DTYPE_X == DT_FLOAT16 || ORIG_DTYPE_X == DT_BF16
+    TILING_KEY_IS(TOPK_GM_SCALAR_N3_10_KEY);
+    KERNEL_TASK_TYPE(TOPK_GM_SCALAR_N3_10_KEY, KERNEL_TYPE_MIX_AIV_1_0);
+    TILING_KEY_IS(TOPK_GM_SCALAR_N11_18_KEY);
+    KERNEL_TASK_TYPE(TOPK_GM_SCALAR_N11_18_KEY, KERNEL_TYPE_MIX_AIV_1_0);
+    TILING_KEY_IS(TOPK_GM_SCALAR_N19_26_KEY);
+    KERNEL_TASK_TYPE(TOPK_GM_SCALAR_N19_26_KEY, KERNEL_TYPE_MIX_AIV_1_0);
+    TILING_KEY_IS(TOPK_GM_SCALAR_N27_32_KEY);
+    KERNEL_TASK_TYPE(TOPK_GM_SCALAR_N27_32_KEY, KERNEL_TYPE_MIX_AIV_1_0);
+#if TILING_KEY_VAR >= TOPK_GM_SCALAR_N3_10_KEY && TILING_KEY_VAR <= TOPK_GM_SCALAR_N27_32_KEY
+    constexpr uint32_t firstN = topkV2::TOPK_SCALAR_MIN_N +
+                                (TILING_KEY_VAR - TOPK_GM_SCALAR_KEY_BASE) * topkV2::TOPK_GM_SCALAR_N_PER_KEY;
+    constexpr uint32_t remainingN = topkV2::TOPK_SCALAR_MAX_N - firstN + 1U;
+    constexpr uint32_t countN = remainingN < topkV2::TOPK_GM_SCALAR_N_PER_KEY ? remainingN :
+                                                                                topkV2::TOPK_GM_SCALAR_N_PER_KEY;
+    GenerateTopKScalarGroup<DTYPE_X, DTYPE_INDICES, firstN>(x, values, indices, tiling,
+                                                            std::make_index_sequence<countN>{});
+    return;
+#endif
+#endif
 
 #if ORIG_DTYPE_X == DT_INT64
     TILING_KEY_IS(TOPK_COMMON_TILING_KEY_INT64);

@@ -15,9 +15,18 @@
 #define TOP_K_CONSTANT_VAR_SIMD_H
 #include <cstdint>
 #include <utility>
+// Separate scalar N ranges into independent CANN compilation units.
+// KERNEL_TASK_TYPE token-pastes its key, so each registration requires an integer literal.
+#define TOPK_GM_SCALAR_KEY_BASE 1000000U
+#define TOPK_GM_SCALAR_N3_10_KEY 1000000
+#define TOPK_GM_SCALAR_N11_18_KEY 1000001
+#define TOPK_GM_SCALAR_N19_26_KEY 1000002
+#define TOPK_GM_SCALAR_N27_32_KEY 1000003
+
 namespace topkV2 {
 // Host/Kernel contracts; algorithm-specific performance thresholds stay with their routes.
 constexpr uint32_t TOPK_SMALL_K_CAPACITY = 32U;
+constexpr uint32_t TOPK_GM_SCALAR_N_PER_KEY = 8U;
 constexpr uint32_t TOPK_BITONIC_SORT_POLICY = 1U;
 constexpr uint32_t TOPK_DIRECT_MODE = 11U;
 constexpr uint32_t TOPK_DIRECT_SMALL_RANK_MAX_K = 8U;

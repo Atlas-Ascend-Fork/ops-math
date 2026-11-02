@@ -12,6 +12,7 @@
 #include <climits>
 #include <cstdint>
 #include <type_traits>
+#include <utility>
 #include "top_k_small_bitonic_packed_simt.h"
 #include "top_k_constant_var_simd.h"
 namespace topkV2 {
@@ -178,41 +179,48 @@ __simt_callee__ inline TopKSimtGmCandidate<T> TopKSimtGmMakeCandidate(TopKSimtGm
     }
 }
 // Exchange plans preserve CUDA's tie order; source indices remain payload.
-template <typename T, uint32_t Count, uint32_t Limit, bool Largest, bool AllValid = false, bool Stable = false,
-          uint32_t Step = 0U>
-__simt_callee__ inline void TopKSimtGmSortCandidates(TopKSimtGmCandidate<T> (&items)[Count])
+template <typename T, uint32_t Count, uint32_t Limit, bool Largest, bool AllValid, bool Stable, std::size_t Step>
+__simt_callee__ inline void TopKSimtGmExchangeCandidates(TopKSimtGmCandidate<T> (&items)[Count])
 {
-    if constexpr (Step < TOPK_SCALAR_SELECT_NETWORK<Count, Limit>.count) {
-        constexpr auto e = TOPK_SCALAR_SELECT_NETWORK<Count, Limit>.steps[Step];
-        auto a = items[e.left], b = items[e.right];
-        auto ai = TopKSimtGmCandidateInfo<T>(a), bi = TopKSimtGmCandidateInfo<T>(b);
-        bool better = Largest ? ai.key > bi.key : ai.key < bi.key;
-        better = better || (Stable && ai.key == bi.key && ai.index < bi.index);
-        bool comp = AllValid ? better : ((better && ai.index != UINT32_MAX) || bi.index == UINT32_MAX);
-        if (comp == e.greater) {
-            items[e.left] = b;
-            items[e.right] = a;
-        }
-        TopKSimtGmSortCandidates<T, Count, Limit, Largest, AllValid, Stable, Step + 1U>(items);
+    constexpr auto e = TOPK_SCALAR_SELECT_NETWORK<Count, Limit>.steps[Step];
+    auto a = items[e.left], b = items[e.right];
+    auto ai = TopKSimtGmCandidateInfo<T>(a), bi = TopKSimtGmCandidateInfo<T>(b);
+    bool better = Largest ? ai.key > bi.key : ai.key < bi.key;
+    better = better || (Stable && ai.key == bi.key && ai.index < bi.index);
+    bool comp = AllValid ? better : ((better && ai.index != UINT32_MAX) || bi.index == UINT32_MAX);
+    if (comp == e.greater) {
+        items[e.left] = b;
+        items[e.right] = a;
     }
 }
-// Preserve the exchange circuit while avoiding a recursive template chain for static shapes.
-template <typename T, uint32_t Count, uint32_t Limit, bool Largest, bool AllValid = false, bool Stable = false>
-__simt_callee__ inline void TopKSimtGmSortCandidatesFixedLoop(TopKSimtGmCandidate<T> (&items)[Count])
+template <typename T, uint32_t Count, uint32_t Limit, bool Largest, bool AllValid, bool Stable, std::size_t... Steps>
+__simt_callee__ inline void TopKSimtGmSortCandidateSteps(TopKSimtGmCandidate<T> (&items)[Count],
+                                                         std::index_sequence<Steps...>)
 {
-    constexpr uint32_t count = TOPK_SCALAR_SELECT_NETWORK<Count, Limit>.count;
+    // Comma folds retain exchange order and compile-time array indices without recursive instantiation.
+    (TopKSimtGmExchangeCandidates<T, Count, Limit, Largest, AllValid, Stable, Steps>(items), ...);
+}
+template <typename T, uint32_t Count, uint32_t Limit, bool Largest, bool AllValid = false, bool Stable = false>
+__simt_callee__ inline void TopKSimtGmSortCandidates(TopKSimtGmCandidate<T> (&items)[Count])
+{
+    if constexpr (AllValid) {
+        // Keep exact static shapes while avoiding one template instantiation per exchange.
 #pragma unroll
-    for (uint32_t step = 0; step < count; ++step) {
-        const auto e = TOPK_SCALAR_SELECT_NETWORK<Count, Limit>.steps[step];
-        auto a = items[e.left], b = items[e.right];
-        auto ai = TopKSimtGmCandidateInfo<T>(a), bi = TopKSimtGmCandidateInfo<T>(b);
-        bool better = Largest ? ai.key > bi.key : ai.key < bi.key;
-        better = better || (Stable && ai.key == bi.key && ai.index < bi.index);
-        bool comp = AllValid ? better : ((better && ai.index != UINT32_MAX) || bi.index == UINT32_MAX);
-        if (comp == e.greater) {
-            items[e.left] = b;
-            items[e.right] = a;
+        for (uint32_t step = 0U; step < TOPK_SCALAR_SELECT_NETWORK<Count, Limit>.count; ++step) {
+            const auto e = TOPK_SCALAR_SELECT_NETWORK<Count, Limit>.steps[step];
+            auto a = items[e.left], b = items[e.right];
+            auto ai = TopKSimtGmCandidateInfo<T>(a), bi = TopKSimtGmCandidateInfo<T>(b);
+            bool better = Largest ? ai.key > bi.key : ai.key < bi.key;
+            better = better || (Stable && ai.key == bi.key && ai.index < bi.index);
+            bool comp = AllValid ? better : ((better && ai.index != UINT32_MAX) || bi.index == UINT32_MAX);
+            if (comp == e.greater) {
+                items[e.left] = b;
+                items[e.right] = a;
+            }
         }
+    } else {
+        TopKSimtGmSortCandidateSteps<T, Count, Limit, Largest, AllValid, Stable>(
+            items, std::make_index_sequence<TOPK_SCALAR_SELECT_NETWORK<Count, Limit>.count>{});
     }
 }
 template <typename T, uint32_t COLS, uint32_t RANKS>
@@ -327,12 +335,10 @@ __simt_vf__ __aicore__ LAUNCH_BOUND((TOPK_SCALAR_ROW_THREADS<Width, N>)) void To
             CollectTopKSimtGmScalarCandidates<T, Largest, inputCapacity, candidateCapacity>(keys, threshold[ranks - 1U],
                                                                                             n, k, bitonic, items);
         }
-        if (bitonic) {
-            if constexpr (hasStaticShape && K > 2U) {
-                TopKSimtGmSortCandidatesFixedLoop<T, candidateCapacity, TOPK_DIRECT_WARP_SIZE, Largest, true>(items);
-            } else {
-                TopKSimtGmSortCandidates<T, candidateCapacity, TOPK_DIRECT_WARP_SIZE, Largest, hasStaticShape>(items);
-            }
+        if constexpr (hasStaticShape) {
+            TopKSimtGmSortCandidates<T, candidateCapacity, TOPK_DIRECT_WARP_SIZE, Largest, true>(items);
+        } else if (bitonic) {
+            TopKSimtGmSortCandidates<T, candidateCapacity, TOPK_DIRECT_WARP_SIZE, Largest>(items);
         } else {
             TopKSimtGmSortCandidates<T, candidateCapacity, candidateCapacity, Largest, false, !Full>(items);
         }
@@ -349,46 +355,23 @@ __aicore__ inline void RunTopKSimtGmScalarSelect(GM_ADDR x, GM_ADDR values, GM_A
     CallTopKSimtGm<TopKSimtGmScalarRows<T, I, Largest, N, true, false, N, K, CountT>, T, I, CountT>(
         call, dim3(TOPK_SCALAR_THREADS), N, K, true);
 }
-template <typename T, typename I, bool Largest, uint32_t N, uint32_t Low = 1U, uint32_t High = N - 1U>
-__aicore__ inline void DispatchTopKSimtGmScalarK(GM_ADDR x, GM_ADDR values, GM_ADDR indices, uint32_t rows, uint32_t k)
+template <typename T, typename I, bool Largest, uint32_t N, uint32_t K>
+__aicore__ inline bool TryLaunchTopKSimtGmScalarShape(GM_ADDR x, GM_ADDR values, GM_ADDR indices, uint32_t rows,
+                                                      uint32_t k)
 {
-    if constexpr (Low == High) {
-        if constexpr (IsTopKScalarSelectShape(N, Low)) {
-            RunTopKSimtGmScalarSelect<T, N, Low, Largest, I>(x, values, indices, rows);
-        }
-    } else if (k <= (Low + High) / 2U) {
-        DispatchTopKSimtGmScalarK<T, I, Largest, N, Low, (Low + High) / 2U>(x, values, indices, rows, k);
-    } else {
-        DispatchTopKSimtGmScalarK<T, I, Largest, N, (Low + High) / 2U + 1U, High>(x, values, indices, rows, k);
-    }
-}
-template <typename T, typename I, bool Largest, uint32_t Low = TOPK_SCALAR_MIN_N, uint32_t High = TOPK_SCALAR_MAX_N>
-__aicore__ inline void DispatchTopKSimtGmScalarSelect(GM_ADDR x, GM_ADDR values, GM_ADDR indices, uint32_t rows,
-                                                      uint32_t n, uint32_t k)
-{
-    if constexpr (Low == High) {
-        DispatchTopKSimtGmScalarK<T, I, Largest, Low>(x, values, indices, rows, k);
-    } else if (n <= (Low + High) / 2U) {
-        DispatchTopKSimtGmScalarSelect<T, I, Largest, Low, (Low + High) / 2U>(x, values, indices, rows, n, k);
-    } else {
-        DispatchTopKSimtGmScalarSelect<T, I, Largest, (Low + High) / 2U + 1U, High>(x, values, indices, rows, n, k);
-    }
-}
-template <typename T, typename I, bool Largest>
-__aicore__ inline bool TryRunTopKSimtGmScalarSelect(GM_ADDR x, GM_ADDR values, GM_ADDR indices,
-                                                    const TopKV2TilingDataSimd& tiling)
-{
-    if constexpr (sizeof(T) <= sizeof(uint16_t)) {
-        if (CanUseTopKScalarSelect(true, tiling.unsortedDimNum, tiling.lastAxisNum, tiling.topKRealValue,
-                                   tiling.isSort != 0, tiling.sortPolicy, tiling.oneCoreRowNum == 1U,
-                                   tiling.platformCoreNum)) {
-            DispatchTopKSimtGmScalarSelect<T, I, Largest>(
-                x, values, indices, static_cast<uint32_t>(tiling.unsortedDimNum),
-                static_cast<uint32_t>(tiling.lastAxisNum), static_cast<uint32_t>(tiling.topKRealValue));
+    if constexpr (IsTopKScalarSelectShape(N, K)) {
+        if (k == K) {
+            RunTopKSimtGmScalarSelect<T, N, K, Largest, I>(x, values, indices, rows);
             return true;
         }
     }
     return false;
+}
+template <typename T, typename I, bool Largest, uint32_t N, std::size_t... Ks>
+__aicore__ inline bool DispatchTopKSimtGmScalarK(GM_ADDR x, GM_ADDR values, GM_ADDR indices, uint32_t rows, uint32_t k,
+                                                 std::index_sequence<Ks...>)
+{
+    return (TryLaunchTopKSimtGmScalarShape<T, I, Largest, N, Ks + 1U>(x, values, indices, rows, k) || ...);
 }
 template <typename T, uint32_t Width, uint32_t Extra, bool Largest>
 __simt_callee__ inline void TopKSimtGmNarrowBitonicFinalize(__gm__ T* input, uint32_t& index, uint64_t inner)
@@ -705,23 +688,35 @@ __aicore__ inline void LaunchTopKSimtGmWidth(const TopKSimtGmLaunch& call)
             call.bitonic);
     }
 }
-template <typename T, typename I, bool Largest, TopKSimtGmWidthKernel Kernel, uint32_t MaxWidth,
-          uint32_t Width = TOPK_DIRECT_KEY_SORT_MIN_AXIS>
-__aicore__ inline void DispatchTopKSimtGmWidth(const TopKSimtGmLaunch& call)
+template <typename T, typename I, bool Largest, TopKSimtGmWidthKernel Kernel, uint32_t MaxWidth, uint32_t Width>
+__aicore__ inline bool TryLaunchTopKSimtGmWidth(const TopKSimtGmLaunch& call)
 {
-    static_assert(Width >= TOPK_DIRECT_PAIR_AXIS && Width <= MaxWidth && MaxWidth <= TOPK_DIRECT_WARP_SIZE &&
-                  (Width & (Width - 1U)) == 0U && (MaxWidth & (MaxWidth - 1U)) == 0U);
-    if constexpr (Width < MaxWidth) {
-        if (call.n > Width) {
-            DispatchTopKSimtGmWidth<T, I, Largest, Kernel, MaxWidth, Width * 2U>(call);
-            return;
-        }
+    if (call.n > Width && Width < MaxWidth) {
+        return false;
     }
-    if (call.inner == 1U && (Kernel != TopKSimtGmWidthKernel::PACKED_FULL || !std::is_same_v<T, half>)) {
+    if constexpr (Kernel == TopKSimtGmWidthKernel::PACKED_FULL && std::is_same_v<T, half>) {
+        LaunchTopKSimtGmWidth<T, I, Largest, Kernel, Width, false>(call);
+    } else if (call.inner == 1U) {
         LaunchTopKSimtGmWidth<T, I, Largest, Kernel, Width, true>(call);
     } else {
         LaunchTopKSimtGmWidth<T, I, Largest, Kernel, Width, false>(call);
     }
+    return true;
+}
+template <typename T, typename I, bool Largest, TopKSimtGmWidthKernel Kernel, uint32_t MaxWidth, uint32_t MinWidth,
+          std::size_t... Widths>
+__aicore__ inline void LaunchTopKSimtGmWidths(const TopKSimtGmLaunch& call, std::index_sequence<Widths...>)
+{
+    static_cast<void>((TryLaunchTopKSimtGmWidth<T, I, Largest, Kernel, MaxWidth, MinWidth << Widths>(call) || ...));
+}
+template <typename T, typename I, bool Largest, TopKSimtGmWidthKernel Kernel, uint32_t MaxWidth,
+          uint32_t MinWidth = TOPK_DIRECT_KEY_SORT_MIN_AXIS>
+__aicore__ inline void DispatchTopKSimtGmWidth(const TopKSimtGmLaunch& call)
+{
+    static_assert(MinWidth >= TOPK_DIRECT_PAIR_AXIS && MinWidth <= MaxWidth && MaxWidth <= TOPK_DIRECT_WARP_SIZE &&
+                  (MinWidth & (MinWidth - 1U)) == 0U && (MaxWidth & (MaxWidth - 1U)) == 0U);
+    constexpr uint32_t widthCount = BitonicSmallConstLog2(MaxWidth) - BitonicSmallConstLog2(MinWidth) + 1U;
+    LaunchTopKSimtGmWidths<T, I, Largest, Kernel, MaxWidth, MinWidth>(call, std::make_index_sequence<widthCount>{});
 }
 
 // Each lane reserves Chunks key slots (32*Chunks columns per row). Tiers 9/17
@@ -729,16 +724,20 @@ __aicore__ inline void DispatchTopKSimtGmWidth(const TopKSimtGmLaunch& call)
 // Contiguous/small-rank dispatch also depends on these tiers; merging them
 // requires dtype-specific checks around 256/288 and 512/544 columns.
 inline constexpr uint32_t TOPK_DIRECT_THRESHOLD_CHUNKS[] = {1U, 2U, 4U, 8U, 9U, 16U, 17U, 24U, 32U};
-template <typename T, typename I, bool Largest, uint32_t Bucket = 0U>
-__aicore__ inline void DispatchTopKThresholdSimtGm(const TopKSimtGmLaunch& call)
+template <typename T, typename I, bool Largest, std::size_t Bucket>
+__aicore__ inline bool TryLaunchTopKThresholdSimtGm(const TopKSimtGmLaunch& call)
 {
-    constexpr uint32_t CHUNKS = TOPK_DIRECT_THRESHOLD_CHUNKS[Bucket],
-                       BUCKETS = sizeof(TOPK_DIRECT_THRESHOLD_CHUNKS) / sizeof(TOPK_DIRECT_THRESHOLD_CHUNKS[0]);
-    if (call.n <= CHUNKS * TOPK_DIRECT_WARP_SIZE) {
-        LaunchTopKThresholdSimtGm<T, I, Largest, CHUNKS>(call);
-    } else if constexpr (Bucket + 1U < BUCKETS) {
-        DispatchTopKThresholdSimtGm<T, I, Largest, Bucket + 1U>(call);
-    } else {
+    constexpr uint32_t chunks = TOPK_DIRECT_THRESHOLD_CHUNKS[Bucket];
+    if (call.n > chunks * TOPK_DIRECT_WARP_SIZE) {
+        return false;
+    }
+    LaunchTopKThresholdSimtGm<T, I, Largest, chunks>(call);
+    return true;
+}
+template <typename T, typename I, bool Largest, std::size_t... Buckets>
+__aicore__ inline void DispatchTopKThresholdSimtGm(const TopKSimtGmLaunch& call, std::index_sequence<Buckets...>)
+{
+    if (!(TryLaunchTopKThresholdSimtGm<T, I, Largest, Buckets>(call) || ...)) {
         LaunchTopKThresholdSimtGm<T, I, Largest, 0>(call);
     }
 }
@@ -746,9 +745,6 @@ template <typename T, typename I, bool Largest>
 __aicore__ inline void RunTopKSmallKSimtGmSelect(GM_ADDR x, GM_ADDR values, GM_ADDR indices,
                                                  const TopKV2TilingDataSimd& tiling)
 {
-    if (TryRunTopKSimtGmScalarSelect<T, I, Largest>(x, values, indices, tiling)) {
-        return;
-    }
     auto range = PartitionTopKSimtGmRows(tiling.unsortedDimNum);
     TopKSimtGmLaunch call = {x,
                              values,
@@ -783,7 +779,9 @@ __aicore__ inline void RunTopKSmallKSimtGmSelect(GM_ADDR x, GM_ADDR values, GM_A
         DispatchTopKSimtGmWidth<T, I, Largest, TopKSimtGmWidthKernel::SCALAR, TOPK_DIRECT_SCALAR_MAX_AXIS,
                                 TOPK_DIRECT_PAIR_AXIS>(call);
     } else {
-        DispatchTopKThresholdSimtGm<T, I, Largest>(call);
+        DispatchTopKThresholdSimtGm<T, I, Largest>(
+            call,
+            std::make_index_sequence<sizeof(TOPK_DIRECT_THRESHOLD_CHUNKS) / sizeof(TOPK_DIRECT_THRESHOLD_CHUNKS[0])>{});
     }
 }
 } // namespace topkV2

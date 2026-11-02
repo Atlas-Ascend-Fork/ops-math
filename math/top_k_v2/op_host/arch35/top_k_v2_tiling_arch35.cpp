@@ -1677,7 +1677,10 @@ static bool TryTopKSmallAxisSort(gert::TilingContext* context, TopKV2TilingDataS
     if (::topkV2::CanUseTopKScalarSelect(narrowType, info.unsortedDim, info.lastAxis, computeInfo.kValue,
                                          computeInfo.isSort, topkTilingData.get_sortPolicy(),
                                          !info.isNonLastAxis && info.innerSize == 1, computeInfo.maxCoreNum)) {
-        return FillTopKDirectTiling(context, topkTilingData, computeInfo, info, dataTypeKey, floatingPoint, true);
+        const uint32_t scalarKey = TOPK_GM_SCALAR_KEY_BASE +
+                                   (static_cast<uint32_t>(info.lastAxis) - ::topkV2::TOPK_SCALAR_MIN_N) /
+                                       ::topkV2::TOPK_GM_SCALAR_N_PER_KEY;
+        return FillTopKDirectTiling(context, topkTilingData, computeInfo, info, scalarKey, floatingPoint, true);
     }
 
     // Medium signed-integer rows benefit from input selection for sorted smallest TopK.
