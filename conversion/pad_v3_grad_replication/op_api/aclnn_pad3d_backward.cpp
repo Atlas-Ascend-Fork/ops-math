@@ -104,6 +104,40 @@ inline static bool CheckFormat(const aclTensor* gradOutput, const aclTensor* sel
     return true;
 }
 
+// A2/A3 上 FLOAT/FLOAT16/BF16 走 PadV3GradReplication(arch22)，padding 存 uint32，
+// 负值会变成超大数并在 device 侧失败，故仅对该组合拦截。其余 dtype/平台不在此拦截。
+inline static bool IsReplicationPad3dGradArch22Platform()
+{
+    auto socVersion = GetCurrentPlatformInfo().GetSocVersion();
+    return socVersion == SocVersion::ASCEND910B || socVersion == SocVersion::ASCEND910_93;
+}
+
+inline static bool IsReplicationPad3dGradArch22AiCoreDtype(const aclTensor* gradOutput)
+{
+    static const std::initializer_list<op::DataType> arch22AiCoreDtypeList = {
+        op::DataType::DT_FLOAT, op::DataType::DT_FLOAT16, op::DataType::DT_BF16};
+    return CheckType(gradOutput->GetDataType(), arch22AiCoreDtypeList);
+}
+
+inline static bool CheckReplicationNonNegativePaddingOnArch22(const aclTensor* gradOutput, const aclIntArray* padding,
+                                                              const string& mode)
+{
+    if (mode != REPLICATION_PAD_MODE || !IsReplicationPad3dGradArch22Platform() ||
+        !IsReplicationPad3dGradArch22AiCoreDtype(gradOutput)) {
+        return true;
+    }
+    for (size_t i = 0; i < padding->Size(); ++i) {
+        if ((*padding)[i] < 0) {
+            OP_LOGE(ACLNN_ERR_PARAM_INVALID,
+                    "negative padding is not supported for FLOAT/FLOAT16/BF16 on Ascend910B/Ascend910_93, "
+                    "got %ld at index %zu.",
+                    (*padding)[i], i);
+            return false;
+        }
+    }
+    return true;
+}
+
 inline static bool CheckShape(const aclTensor* gradOutput, const aclTensor* self, const aclIntArray* padding,
                               const string& mode, const aclTensor* gradInput)
 {
@@ -124,6 +158,11 @@ inline static bool CheckShape(const aclTensor* gradOutput, const aclTensor* self
     OP_CHECK(padding->Size() == 6,
              OP_LOGE(ACLNN_ERR_PARAM_INVALID, "padding length should be 6, but got %zu.", padding->Size()),
              return false);
+
+    // A2/A3 + AiCore dtype：拒绝负 padding，避免 arch22 设备侧运行时错误
+    if (!CheckReplicationNonNegativePaddingOnArch22(gradOutput, padding, mode)) {
+        return false;
+    }
 
     // reflection时padding的每一维度的数值要小于对应self的dim
     if (mode == "reflect") {

@@ -138,6 +138,9 @@ aclnnStatus aclnnReplicationPad3dBackward(
   <!-- npu="910" id7 -->
   - <term>Atlas训练系列产品</term>：数据类型不支持BFLOAT16。
   <!-- end id7 -->
+  <!-- npu="A3,910b" id8 -->
+  - <term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>：数据类型为FLOAT16、FLOAT32、BFLOAT16时，padding各元素须大于等于0。
+  <!-- end id8 -->
 
 - **返回值**
 
@@ -162,8 +165,8 @@ aclnnStatus aclnnReplicationPad3dBackward(
       <td>Tensor为空指针。</td>
     </tr>
     <tr>
-      <td rowspan="6">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="6">161002</td>
+      <td rowspan="7">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="7">161002</td>
       <td>gradOutput、self、padding和gradInput的数据类型或数据格式不在支持的范围之内。</td>
     </tr>
     <tr>
@@ -180,6 +183,9 @@ aclnnStatus aclnnReplicationPad3dBackward(
     </tr>
     <tr>
       <td>gradOutput shape需要与replication_pad3d正向传播的output一致。</td>
+    </tr>
+    <tr>
+      <td>Atlas A2系列产品、Atlas A3系列产品上，数据类型为FLOAT16、FLOAT32、BFLOAT16且padding含负值。</td>
     </tr>
   </tbody>
   </table>

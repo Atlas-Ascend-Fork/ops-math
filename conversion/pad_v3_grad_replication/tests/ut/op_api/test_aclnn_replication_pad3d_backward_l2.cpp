@@ -13,6 +13,7 @@
 #include "op_api_ut_common/tensor_desc.h"
 #include "op_api_ut_common/array_desc.h"
 #include "op_api_ut_common/op_api_ut.h"
+#include "opdev/platform.h"
 
 using namespace std;
 
@@ -280,6 +281,47 @@ TEST_F(replication_pad3d_backward_test, case_empty_grad_output_nonzero_grad_inpu
     auto input_tensor_desc = TensorDesc({2, 1, 4, 4, 4}, ACL_FLOAT, ACL_FORMAT_ND);
     auto padding_desc = IntArrayDesc(vector<int64_t>{1, 1, 1, 1, 1, 1});
     auto grad_input_desc = TensorDesc({2, 1, 4, 4, 4}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto ut = OP_API_UT(aclnnReplicationPad3dBackward, INPUT(grad_output_tensor_desc, input_tensor_desc, padding_desc),
+                        OUTPUT(grad_input_desc));
+    uint64_t workspace_size = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(aclRet, ACLNN_SUCCESS);
+}
+
+// A2/A3 AiCore dtypes: negative padding rejected in GetWorkspaceSize (161002).
+TEST_F(replication_pad3d_backward_test, case_negative_padding_arch22_aicore_dtype)
+{
+    auto socVersion = op::GetCurrentPlatformInfo().GetSocVersion();
+    if (socVersion != op::SocVersion::ASCEND910B && socVersion != op::SocVersion::ASCEND910_93) {
+        GTEST_SKIP() << "negative padding intercept applies only to Ascend910B/Ascend910_93 AiCore dtypes";
+    }
+
+    // self [1,1,4,5,6], padding [-1,1,0,2,1,0] -> gradOutput [1,1,5,7,6] (issue #3965)
+    auto grad_output_tensor_desc = TensorDesc({1, 1, 5, 7, 6}, ACL_FLOAT, ACL_FORMAT_ND).ValueRange(1, 1);
+    auto input_tensor_desc = TensorDesc({1, 1, 4, 5, 6}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto padding_desc = IntArrayDesc(vector<int64_t>{-1, 1, 0, 2, 1, 0});
+    auto grad_input_desc = TensorDesc({1, 1, 4, 5, 6}, ACL_FLOAT, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnReplicationPad3dBackward, INPUT(grad_output_tensor_desc, input_tensor_desc, padding_desc),
+                        OUTPUT(grad_input_desc));
+    uint64_t workspace_size = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
+}
+
+// A2/A3 DOUBLE goes AICPU; negative padding should not be rejected at L2.
+TEST_F(replication_pad3d_backward_test, case_negative_padding_arch22_double_not_intercepted)
+{
+    auto socVersion = op::GetCurrentPlatformInfo().GetSocVersion();
+    if (socVersion != op::SocVersion::ASCEND910B && socVersion != op::SocVersion::ASCEND910_93) {
+        GTEST_SKIP() << "AICPU negative padding path check is for Ascend910B/Ascend910_93";
+    }
+
+    auto grad_output_tensor_desc = TensorDesc({1, 1, 5, 7, 6}, ACL_DOUBLE, ACL_FORMAT_ND).ValueRange(1, 1);
+    auto input_tensor_desc = TensorDesc({1, 1, 4, 5, 6}, ACL_DOUBLE, ACL_FORMAT_ND);
+    auto padding_desc = IntArrayDesc(vector<int64_t>{-1, 1, 0, 2, 1, 0});
+    auto grad_input_desc = TensorDesc({1, 1, 4, 5, 6}, ACL_DOUBLE, ACL_FORMAT_ND);
+
     auto ut = OP_API_UT(aclnnReplicationPad3dBackward, INPUT(grad_output_tensor_desc, input_tensor_desc, padding_desc),
                         OUTPUT(grad_input_desc));
     uint64_t workspace_size = 0;
