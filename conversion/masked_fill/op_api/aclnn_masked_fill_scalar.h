@@ -43,8 +43,8 @@ extern "C" {
  *  B2-->D
  * ```
  *
- * @param [in] selfRef: npu device侧的aclTensor，数据类型支持BOOL、UINT8、INT8、INT16、INT32、INT64、FLOAT、
- *                      FLOAT16、BFLOAT16、DOUBLE、COMPLEX64、COMPLEX128。
+ * @param [in] selfRef: npu device侧的aclTensor，数据类型支持BOOL、INT8、INT16、INT32、INT64、FLOAT、
+ *                      FLOAT16、BFLOAT16。
  *                      支持非连续的Tensor，数据格式支持ND。
  * @param [in] mask: npu device侧的aclTensor，数据类型支持BOOL。且shape与selfRef满足broadcast关系。数据格式支持ND。
  * @param [in] value: host侧的aclScalar，数据类型需要可转换成selfRef的数据类型。
@@ -93,4 +93,4 @@ ACLNN_API aclnnStatus aclnnInplaceMaskedFillScalar(void* workspace, uint64_t wor
 }
 #endif
 
-#endif  // OP_API_INC_MASKEF_FILL_SCALAR_H_
+#endif // OP_API_INC_MASKEF_FILL_SCALAR_H_

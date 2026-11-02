@@ -43,8 +43,8 @@ extern "C" {
  *  B2-->D
  * ```
  *
- * @param [in] selfRef: npu device侧的aclTensor，数据类型支持BOOL、UINT8、INT8、INT16、INT32、INT64、FLOAT、
- *                      FLOAT16、BFLOAT16、DOUBLE、COMPLEX64、COMPLEX128。
+ * @param [in] selfRef: npu device侧的aclTensor，数据类型支持BOOL、INT8、INT16、INT32、INT64、FLOAT、
+ *                      FLOAT16、BFLOAT16。
  *                      支持非连续的Tensor，数据格式支持ND。
  * @param [in] mask: npu device侧的aclTensor，数据类型支持BOOL。且shape与selfRef满足broadcast关系。数据格式支持ND。
  * @param [in] value: npu device侧的aclTensor。且shape与selfRef满足broadcast关系。数据格式支持ND。
@@ -52,9 +52,9 @@ extern "C" {
  * @param [out] executor: 返回op执行器，包含算子计算流程。
  * @return aclnnStatus: 返回状态码。
  */
-ACLNN_API aclnnStatus aclnnInplaceMaskedFillTensorGetWorkspaceSize(
-    aclTensor* selfRef, const aclTensor* mask, const aclTensor* value, uint64_t* workspaceSize,
-    aclOpExecutor** executor);
+ACLNN_API aclnnStatus aclnnInplaceMaskedFillTensorGetWorkspaceSize(aclTensor* selfRef, const aclTensor* mask,
+                                                                   const aclTensor* value, uint64_t* workspaceSize,
+                                                                   aclOpExecutor** executor);
 /**
  * @brief aclnnInplaceMaskedFillTensor的第二段接口，用于执行计算。
  *
@@ -87,8 +87,8 @@ ACLNN_API aclnnStatus aclnnInplaceMaskedFillTensorGetWorkspaceSize(
  * @param [in] executor: op执行器，包含了算子计算流程。
  * @return aclnnStatus: 返回状态码。
  */
-ACLNN_API aclnnStatus
-aclnnInplaceMaskedFillTensor(void* workspace, uint64_t workspaceSize, aclOpExecutor* executor, aclrtStream stream);
+ACLNN_API aclnnStatus aclnnInplaceMaskedFillTensor(void* workspace, uint64_t workspaceSize, aclOpExecutor* executor,
+                                                   aclrtStream stream);
 
 #ifdef __cplusplus
 }
