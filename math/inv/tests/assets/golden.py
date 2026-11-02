@@ -28,9 +28,7 @@ bfloat16 的 numpy 形态（ml_dtypes）经 uint16 位视图桥接（仅重解�
   OriginOpType("Inv")，经插件映射执行交付算子；tf.math.reciprocal 为 Reciprocal
   原生路径，仅作三方标杆）。Torch E2E 不注册：torch.reciprocal 在 NPU 侧分发到
   内置 aclnnReciprocal 而非交付算子（无 per-operator torch 扩展），注册会误导路由。
-- 精度判据按 README 约束说明的两方混合容差：FLOAT rtol/atol = 1e-4，FLOAT16 = 1e-3，
-  BFLOAT16 = 4e-3，INT32 精确匹配（binary_equal）。cross_check 为三方判据，仅在配置
-  GPU 三方比对时适用，不在默认两方比较中声明。
+- 精度判据用 cross_check L1（三方：NPU 输出 + CPU golden + XPU 第三方参考）。
 """
 
 import numpy as np
@@ -163,9 +161,9 @@ class InvTestSpec:
 
     third_party = {"tf": ThirdPartyImpl, "torch": TorchImpl}
     tolerance = {
-        "float16": {"standard": "mix_tolerance", "rtol": 1e-3, "atol": 1e-3},
-        "bfloat16": {"standard": "mix_tolerance", "rtol": 4e-3, "atol": 4e-3},
-        "float32": {"standard": "mix_tolerance", "rtol": 1e-4, "atol": 1e-4},
+        "float16": {"standard": "cross_check", "level": "L1"},
+        "bfloat16": {"standard": "cross_check", "level": "L1"},
+        "float32": {"standard": "cross_check", "level": "L1"},
         "int32": {"standard": "binary_equal"},
     }
 
@@ -210,8 +208,8 @@ class InvTensorFlowTestSpec:
     golden = staticmethod(tensorflow_inv_golden)
     third_party = {"tf": "tf.math.reciprocal"}
     tolerance = {
-        "float16": {"standard": "mix_tolerance", "rtol": 1e-3, "atol": 1e-3},
-        "bfloat16": {"standard": "mix_tolerance", "rtol": 4e-3, "atol": 4e-3},
-        "float32": {"standard": "mix_tolerance", "rtol": 1e-4, "atol": 1e-4},
+        "float16": {"standard": "cross_check", "level": "L1"},
+        "bfloat16": {"standard": "cross_check", "level": "L1"},
+        "float32": {"standard": "cross_check", "level": "L1"},
         "int32": {"standard": "binary_equal"},
     }
