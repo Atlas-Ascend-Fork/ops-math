@@ -119,6 +119,17 @@ static inline bool CheckNonZeroShape(const aclIntArray* tensorShape)
     return true;
 }
 
+static inline bool CheckDataTypeValidV2(aclDataType dataType)
+{
+    if (dataType == aclDataType::ACL_FLOAT16 || dataType == aclDataType::ACL_BF16 ||
+        dataType == aclDataType::ACL_INT8) {
+        return true;
+    }
+    OP_LOGE(ACLNN_ERR_PARAM_INVALID, "dataType only supports FLOAT16/BFLOAT16/INT8, but got %d.",
+            static_cast<int32_t>(dataType));
+    return false;
+}
+
 static aclnnStatus CheckSocValid()
 {
     auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
@@ -187,6 +198,7 @@ aclnnStatus aclnnCalculateMatmulWeightSizeV2(const aclIntArray* tensorShape, acl
                 "expected a value of type number for argument weightTensorSize but instead found type null.");
         return ACLNN_ERR_PARAM_NULLPTR;
     }
+    CHECK_RET(CheckDataTypeValidV2(dataType), ACLNN_ERR_PARAM_INVALID);
     CHECK_RET(CheckShapeDimV2(tensorShape), ACLNN_ERR_PARAM_INVALID);
     CHECK_RET(CheckNonZeroShape(tensorShape), ACLNN_ERR_PARAM_INVALID);
     *weightTensorSize = CalculateMatmulWeightSize(tensorShape, dataType);

@@ -23,14 +23,8 @@ using namespace std;
 
 class l2_trans_matmul_weight_test : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        cout << "l2_trans_matmul_weight_test SetUp" << endl;
-    }
-    static void TearDownTestCase()
-    {
-        cout << "l2_trans_matmul_weight_test TearDown" << endl;
-    }
+    static void SetUpTestCase() { cout << "l2_trans_matmul_weight_test SetUp" << endl; }
+    static void TearDownTestCase() { cout << "l2_trans_matmul_weight_test TearDown" << endl; }
 };
 
 TEST_F(l2_trans_matmul_weight_test, ascend910B2_test_normal_dim2_input)
@@ -195,4 +189,42 @@ TEST_F(l2_trans_matmul_weight_test, ascend310P_test_invalid_shape_dim)
     tensorShape = aclCreateIntArray(tensorShapeVec.data(), tensorShapeVec.size());
     aclnnStatus aclRet = aclnnCalculateMatmulWeightSizeV2(tensorShape, dataType, &weightSize);
     EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
+}
+
+TEST_F(l2_trans_matmul_weight_test, ascend910B2_test_v2_valid_dtype)
+{
+    SetPlatformNpuArch(NpuArch::DAV_2201);
+    vector<int64_t> tensorShapeVec = {16, 16};
+    aclIntArray* tensorShape = aclCreateIntArray(tensorShapeVec.data(), tensorShapeVec.size());
+
+    uint64_t weightSize = 0;
+    EXPECT_EQ(aclnnCalculateMatmulWeightSizeV2(tensorShape, aclDataType::ACL_FLOAT16, &weightSize), ACLNN_SUCCESS);
+    EXPECT_EQ(weightSize, 256U);
+
+    weightSize = 0;
+    EXPECT_EQ(aclnnCalculateMatmulWeightSizeV2(tensorShape, aclDataType::ACL_BF16, &weightSize), ACLNN_SUCCESS);
+    EXPECT_EQ(weightSize, 256U);
+
+    weightSize = 0;
+    EXPECT_EQ(aclnnCalculateMatmulWeightSizeV2(tensorShape, aclDataType::ACL_INT8, &weightSize), ACLNN_SUCCESS);
+    EXPECT_EQ(weightSize, 512U);
+
+    aclDestroyIntArray(tensorShape);
+}
+
+TEST_F(l2_trans_matmul_weight_test, ascend910B2_test_v2_invalid_dtype)
+{
+    SetPlatformNpuArch(NpuArch::DAV_2201);
+    vector<int64_t> tensorShapeVec = {16, 16};
+    aclIntArray* tensorShape = aclCreateIntArray(tensorShapeVec.data(), tensorShapeVec.size());
+    uint64_t weightSize = 0;
+
+    EXPECT_EQ(aclnnCalculateMatmulWeightSizeV2(tensorShape, aclDataType::ACL_FLOAT, &weightSize),
+              ACLNN_ERR_PARAM_INVALID);
+    EXPECT_EQ(aclnnCalculateMatmulWeightSizeV2(tensorShape, aclDataType::ACL_INT32, &weightSize),
+              ACLNN_ERR_PARAM_INVALID);
+    EXPECT_EQ(aclnnCalculateMatmulWeightSizeV2(tensorShape, aclDataType::ACL_BOOL, &weightSize),
+              ACLNN_ERR_PARAM_INVALID);
+
+    aclDestroyIntArray(tensorShape);
 }
