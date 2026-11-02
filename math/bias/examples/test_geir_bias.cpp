@@ -68,8 +68,7 @@ int main()
 {
     std::map<ge::AscendString, ge::AscendString> globalOptions = {
         {ge::AscendString("ge.exec.deviceId"), ge::AscendString("0")},
-        {ge::AscendString("ge.graphRunMode"), ge::AscendString("1")},
-        {ge::AscendString("ge.socVersion"), ge::AscendString("Ascend950DT_9592")}};
+        {ge::AscendString("ge.graphRunMode"), ge::AscendString("1")}};
     if (ge::GEInitialize(globalOptions) != SUCCESS) {
         std::cout << "GEInitialize failed" << std::endl;
         return FAILED;
