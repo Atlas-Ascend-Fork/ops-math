@@ -1,0 +1,9 @@
+testcase_name,api_name,tensor_view_shapes,tensor_dtypes,tensor_formats,output_tensor_indexes,attributes,golden_api,input_data_ranges,precision_tolerances,absolute_precision,is_enabled,remark,soc_series,priority
+cm_tf_e2e_f32_w,tf.math.confusion_matrix,"((64,), (64,), (), (64,))","('int32', 'int32', 'int32', 'float32')","('ND', 'ND', 'ND', 'ND')",,"{'num_classes': 16, 'dtype': 'float32'}",,"((0,15), (0,15), (16,16), (0,1))",,1e-06,True,,,0
+cm_tf_e2e_f32_nw,tf.math.confusion_matrix,"((64,), (64,))","('int32', 'int32')","('ND', 'ND')",,"{'num_classes': 16, 'dtype': 'float32'}",,"((0,15), (0,15))",,1e-06,True,,,0
+cm_tf_e2e_i32_w,tf.math.confusion_matrix,"((64,), (64,), (), (64,))","('int32', 'int32', 'int32', 'int32')","('ND', 'ND', 'ND', 'ND')",,"{'num_classes': 16, 'dtype': 'int32'}",,"((0,15), (0,15), (16,16), (0,3))",,0,True,,,0
+cm_tf_e2e_f16_w,tf.math.confusion_matrix,"((64,), (64,), (), (64,))","('int32', 'int32', 'int32', 'float16')","('ND', 'ND', 'ND', 'ND')",,"{'num_classes': 16, 'dtype': 'float16'}",,"((0,15), (0,15), (16,16), (0,1))",,1.0,True,,,0
+cm_tf_e2e_i8_w,tf.math.confusion_matrix,"((64,), (64,), (), (64,))","('int32', 'int32', 'int32', 'int8')","('ND', 'ND', 'ND', 'ND')",,"{'num_classes': 16, 'dtype': 'int8'}",,"((0,15), (0,15), (16,16), (0,3))",,0,True,,,0
+cm_tf_e2e_u8_nw,tf.math.confusion_matrix,"((64,), (64,))","('int32', 'int32')","('ND', 'ND')",,"{'num_classes': 16, 'dtype': 'uint8'}",,"((0,15), (0,15))",,0,True,,,0
+cm_tf_e2e_nc1,tf.math.confusion_matrix,"((32,), (32,))","('int32', 'int32')","('ND', 'ND')",,"{'num_classes': 1, 'dtype': 'float32'}",,"((0,0), (0,0))",,1e-06,True,,,0
+cm_tf_e2e_nc_default,tf.math.confusion_matrix,"((64,), (64,))","('int32', 'int32')","('ND', 'ND')",,"{'dtype': 'int32'}",,"((0,15), (0,15))",,0,True,,,0

@@ -12,12 +12,13 @@
 """ConfusionMatrix 多通路 golden（TestSpec 范式）。
 
 通路支持表（本算子交付面）：
-| 通路   | 支持 | 依据 |
-|--------|------|------|
-| kernel | ✅   | op_kernel/arch35 有实现 |
-| geir   | ✅   | op_graph/confusion_matrix_proto.h 有 REG_OP(ConfusionMatrix) |
-| aclnn  | ❌   | Ascend910B/910C built-in 无 aclnn 接口，本算子对齐该支持面不交付 |
-| e2e    | ❌   | torch_npu 无绑定（无 aclnn 接口 → 无可调用入口） |
+| 通路       | 支持 | 依据 |
+|------------|------|------|
+| kernel     | ✅   | op_kernel/arch35 有实现 |
+| geir       | ✅   | op_graph/confusion_matrix_proto.h 有 REG_OP(ConfusionMatrix) |
+| aclnn      | ❌   | Ascend910B/910C built-in 无 aclnn 接口，本算子对齐该支持面不交付 |
+| e2e (tf)   | ✅   | tf.math.confusion_matrix 经 npu_device（Ascend TF adapter）入 GE 图执行 |
+| e2e (torch)| ❌   | torch_npu 无绑定（无 aclnn 接口 → 无可调用入口） |
 
 int8/uint8 输出：整型计数语义、差 1 就是错 → binary_equal（非量化场景，输入含整型，
 不适用 quant 的浮点输入前提）。int8/uint8 以 int32 中转累加、末端窄回：纯加法下
@@ -26,6 +27,8 @@ int8/uint8 输出：整型计数语义、差 1 就是错 → binary_equal（非�
 
 __spec__ = {
     "confusion_matrix": "ConfusionMatrixKernelSpec",
+    # e2e(tf) 通路：tf 仅为驱动接口，精度标杆仍为算子语义（同 kernel/geir 共用 torch 真值）
+    "tf.math.confusion_matrix": "ConfusionMatrixTfE2eSpec",
 }
 
 import numpy as np
@@ -186,6 +189,118 @@ class ConfusionMatrixKernelSpec:
     tolerance = _TOL
 
 
+class ConfusionMatrixTfE2eSpec:
+    """E2E (tf) 通路：api_name ``tf.math.confusion_matrix`` —— 驱动接口，非标杆。
+
+    路由：TF adapter（npu_device）→ GE 图执行。tf.math.confusion_matrix 为 Python
+    组合 API，图分解为 Cast/Pack/Transpose/SparseTensorDenseAdd 原语逐算子执行
+    （实测：CANN 9.2.0 GE 的 support_fusion_pass.json 白名单不含
+    ConfusionMatrixFusionPass，950 上不触发融合，本算子不参与该通路执行）；
+    故本通路验证的是 **tf 前端 API 语义在 NPU 上的正确性**。命中本算子的通路为
+    GE 图模式（geir，proto + plugin 映射）。输入 torch.Tensor，返回 torch.Tensor。
+
+    精度标杆对标**算子语义**，而非 tf 接口：期望输出始终是 ConfusionMatrix
+    算子的语义结果，真值与 kernel/geir 共用同一套 torch 标杆 ``_compute``。
+
+    实参解析（TTK 依 API 签名顺序组装，标量属性 const-fold 为位置实参，可选位
+    补 None）：labels(0)、predictions(1)、num_classes(2)、weights(3)、dtype(4)，
+    kwargs 同名参数兜底。每个位置按类型校验，形态不符时报错而非静默错位：
+    - num_classes 缺省时按 tf 语义由数据推导（max(labels, predictions) + 1）；
+    - dtype 缺省时用 tf 接口默认 ``int32``（签名 dtype=dtypes.int32）；
+    - dtype 归一优先取 ``.name``（tf.DType），未命中算子五类 dtype 白名单时
+      报错而非静默回落 float32。
+    """
+
+    _TF_DEFAULT_DTYPE = "int32"
+
+    @staticmethod
+    def golden(*inputs, **kwargs):
+        def _to_tensor(a, slot):
+            """torch/np/tf 张量统一转 torch；非数值形态响亮报错不静默吞掉。"""
+            if a is None:
+                return None
+            if isinstance(a, torch.Tensor):
+                return a
+            try:
+                arr = np.asarray(a)  # ndarray / tf.Tensor(Eager) 等均可 numpy 中转
+            except Exception as exc:
+                raise ValueError(
+                    f"{slot} slot cannot convert to tensor: {a!r}"
+                ) from exc
+            if arr.dtype.kind not in "fiub":
+                raise ValueError(
+                    f"{slot} slot got non-numeric dtype {arr.dtype} (positional drift?)"
+                )
+            return torch.as_tensor(arr)
+
+        def _scalar_int(v):
+            if isinstance(v, str):
+                return int(v.strip())
+            if isinstance(v, torch.Tensor):
+                if v.numel() != 1:
+                    raise ValueError(
+                        f"num_classes must be scalar, got shape {tuple(v.shape)}"
+                    )
+                v = v.item()
+            else:
+                arr = np.asarray(v)  # np.generic / ndarray / tf.Tensor 标量均可中转
+                if arr.size != 1:
+                    raise ValueError(
+                        f"num_classes must be scalar, got shape {arr.shape}"
+                    )
+                v = arr.reshape(-1)[0].item()
+            return int(v)
+
+        labels = _to_tensor(inputs[0], "labels") if len(inputs) > 0 else None
+        predictions = _to_tensor(inputs[1], "predictions") if len(inputs) > 1 else None
+        if labels is None or predictions is None:
+            raise ValueError(
+                "tf.math.confusion_matrix requires labels/predictions tensors"
+            )
+
+        # num_classes：kwargs 优先；第 3 位为 const-fold 标量/标量张量；
+        # 缺省时按 tf 语义由数据推导（maximum(reduce_max(l), reduce_max(p)) + 1）
+        nc = kwargs.get("num_classes")
+        if nc is None and len(inputs) > 2 and inputs[2] is not None:
+            nc = inputs[2]
+        if nc is None:
+            nc = max(int(labels.max().item()), int(predictions.max().item())) + 1
+        else:
+            nc = _scalar_int(nc)
+
+        # weights：第 4 位张量（可选）
+        weights = _to_tensor(inputs[3], "weights") if len(inputs) > 3 else None
+
+        # dtype：签名第 5 位优先（const-fold 为原始字符串/类 dtype 对象），kwargs 兜底；
+        # 归一优先 .name（tf.DType）；缺省用 tf 接口默认 int32；白名单外报错不静默回落
+        dt = (
+            inputs[4]
+            if len(inputs) > 4 and inputs[4] is not None
+            else kwargs.get("dtype")
+        )
+        if dt is None:
+            dtype_str = ConfusionMatrixTfE2eSpec._TF_DEFAULT_DTYPE
+        else:
+            name = getattr(dt, "name", None)
+            dtype_str = name if isinstance(name, str) else str(_normalize(dt))
+            if dtype_str not in _DTYPE_MAP:
+                raise ValueError(
+                    f"unsupported dtype {dtype_str!r} for confusion_matrix tf e2e "
+                    f"(expected one of {sorted(_DTYPE_MAP)})"
+                )
+
+        kwargs = dict(kwargs)
+        kwargs["num_classes"] = nc
+        kwargs["dtype"] = dtype_str
+        outs = _compute(labels, predictions, weights, **kwargs)
+        return outs  # torch 入/出（e2e 契约，参照 left_shift 的 LeftShiftTfSpec）
+
+    third_party = {"torch": _Compose}
+    tolerance = _TOL
+
+
 # 【不存在】aclnn 通路：Ascend910B/910C built-in 无 aclnn 源码 → 对齐该支持面，本算子不交付 aclnn。
-# 【不存在】e2e 通路：torch_npu 无本算子绑定。无 aclnn 源码 → 无编译产物 → torch_npu 无可
+# 【不存在】e2e(torch) 通路：torch_npu 无本算子绑定。无 aclnn 源码 → 无编译产物 → torch_npu 无可
 # 调用入口；验证环境 torch_npu dispatcher 全表 grep "confusion" 无命中。
+# e2e(tf) 通路存在：tf.math.confusion_matrix 为组合 API，经 npu_device adapter 入 GE 图执行
+# （见 ConfusionMatrixTfE2eSpec），非 torch_npu 绑定形式。
