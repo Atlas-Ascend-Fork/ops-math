@@ -14,9 +14,9 @@
 #include <cstdint>
 
 // === 算子特定常量 ===
-constexpr int64_t kMaxInputSlots  = 3;   // x, scale, bias（可选）
-constexpr int64_t kMaxOutputSlots = 1;   // y
-constexpr int64_t kPhysNodes      = 4;   // 物理存活节点 P（DESIGN.md §3.4 P trace 结论）
+constexpr int64_t kMaxInputSlots = 3;  // x, scale, bias（可选）
+constexpr int64_t kMaxOutputSlots = 1; // y
+constexpr int64_t kPhysNodes = 4;      // 物理存活节点 P（DESIGN.md §3.4 P trace 结论）
 
 struct SplitResult {
     int64_t axis;
@@ -32,19 +32,19 @@ struct MultiCoreResult {
     int64_t cores_tail;
 };
 
-template<int64_t kRank>
+template <int64_t kRank>
 struct ScaleTilingData {
-    SplitResult     split;
+    SplitResult split;
     MultiCoreResult multicore;
-    int64_t         rank;            // 实际 rank (1~8)，Kernel 运行期读取
-    int64_t         per_buf_bytes;   // UB/P 向下对齐 32B，Kernel 用此初始化 TBuf
-    int64_t         per_buf_elems;   // per_buf_bytes / 4（统一按 FP32 计算）
-    int64_t         max_bro_shape[kRank];
-    int64_t         num_inputs;
-    int64_t         num_outputs;
-    int64_t         has_bias;        // 1=有 bias, 0=无 bias
-    int64_t         input_shapes [kMaxInputSlots][kRank];
-    int64_t         input_strides[kMaxInputSlots][kRank];
-    int64_t         output_shapes[kMaxOutputSlots][kRank];
-    int64_t         output_strides[kMaxOutputSlots][kRank];
+    int64_t rank;          // 实际 rank (1~8)，Kernel 运行期读取
+    int64_t per_buf_bytes; // UB/P 向下对齐 32B，Kernel 用此初始化 TBuf
+    int64_t per_buf_elems; // per_buf_bytes / 4（统一按 FP32 计算）
+    int64_t max_bro_shape[kRank];
+    int64_t num_inputs;
+    int64_t num_outputs;
+    int64_t has_bias; // 1=有 bias, 0=无 bias
+    int64_t input_shapes[kMaxInputSlots][kRank];
+    int64_t input_strides[kMaxInputSlots][kRank];
+    int64_t output_shapes[kMaxOutputSlots][kRank];
+    int64_t output_strides[kMaxOutputSlots][kRank];
 };

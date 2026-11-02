@@ -16,6 +16,6 @@
 namespace l0op {
 const aclTensor* Scale(const aclTensor* x, const aclTensor* scale, const aclTensor* bias, const int64_t axis,
                        const int64_t numAxes, const bool scaleFromBlob, aclOpExecutor* executor);
-}  // namespace l0op
+} // namespace l0op
 
-#endif  // OP_API_INC_LEVEL0_SCALE_H_
+#endif // OP_API_INC_LEVEL0_SCALE_H_

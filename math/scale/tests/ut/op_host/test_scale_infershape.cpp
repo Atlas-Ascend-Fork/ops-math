@@ -14,28 +14,23 @@
 #include "infershape_case_executor.h"
 
 class ScaleInferShapeTest : public testing::Test {
- protected:
-  static void SetUpTestCase() {
-    std::cout << "ScaleInferShapeTest SetUp" << std::endl;
-  }
+protected:
+    static void SetUpTestCase() { std::cout << "ScaleInferShapeTest SetUp" << std::endl; }
 
-  static void TearDownTestCase() {
-    std::cout << "ScaleInferShapeTest TearDown" << std::endl;
-  }
+    static void TearDownTestCase() { std::cout << "ScaleInferShapeTest TearDown" << std::endl; }
 };
 
 TEST_F(ScaleInferShapeTest, infershape_float_2d)
 {
-    gert::InfershapeContextPara infershapeContextPara(
-        "Scale",
-        {
-            {{{3, 5}, {3, 5}}, ge::DT_FLOAT, ge::FORMAT_ND},
-            {{{5}, {5}}, ge::DT_FLOAT, ge::FORMAT_ND},
-            {{{5}, {5}}, ge::DT_FLOAT, ge::FORMAT_ND},
-        },
-        {
-            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
-        });
+    gert::InfershapeContextPara infershapeContextPara("Scale",
+                                                      {
+                                                          {{{3, 5}, {3, 5}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                          {{{5}, {5}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                          {{{5}, {5}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      });
     std::vector<std::vector<int64_t>> expectOutputShape = {
         {3, 5},
     };
@@ -44,15 +39,14 @@ TEST_F(ScaleInferShapeTest, infershape_float_2d)
 
 TEST_F(ScaleInferShapeTest, infershape_float16_3d)
 {
-    gert::InfershapeContextPara infershapeContextPara(
-        "Scale",
-        {
-            {{{2, 3, 4}, {2, 3, 4}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-            {{{4}, {4}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-        },
-        {
-            {{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-        });
+    gert::InfershapeContextPara infershapeContextPara("Scale",
+                                                      {
+                                                          {{{2, 3, 4}, {2, 3, 4}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                          {{{4}, {4}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                      });
     std::vector<std::vector<int64_t>> expectOutputShape = {
         {2, 3, 4},
     };
@@ -61,16 +55,15 @@ TEST_F(ScaleInferShapeTest, infershape_float16_3d)
 
 TEST_F(ScaleInferShapeTest, infershape_bf16_4d)
 {
-    gert::InfershapeContextPara infershapeContextPara(
-        "Scale",
-        {
-            {{{2, 3, 4, 5}, {2, 3, 4, 5}}, ge::DT_BF16, ge::FORMAT_ND},
-            {{{4, 5}, {4, 5}}, ge::DT_BF16, ge::FORMAT_ND},
-            {{{4, 5}, {4, 5}}, ge::DT_BF16, ge::FORMAT_ND},
-        },
-        {
-            {{{}, {}}, ge::DT_BF16, ge::FORMAT_ND},
-        });
+    gert::InfershapeContextPara infershapeContextPara("Scale",
+                                                      {
+                                                          {{{2, 3, 4, 5}, {2, 3, 4, 5}}, ge::DT_BF16, ge::FORMAT_ND},
+                                                          {{{4, 5}, {4, 5}}, ge::DT_BF16, ge::FORMAT_ND},
+                                                          {{{4, 5}, {4, 5}}, ge::DT_BF16, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_BF16, ge::FORMAT_ND},
+                                                      });
     std::vector<std::vector<int64_t>> expectOutputShape = {
         {2, 3, 4, 5},
     };
@@ -79,15 +72,14 @@ TEST_F(ScaleInferShapeTest, infershape_bf16_4d)
 
 TEST_F(ScaleInferShapeTest, infershape_1d)
 {
-    gert::InfershapeContextPara infershapeContextPara(
-        "Scale",
-        {
-            {{{128}, {128}}, ge::DT_FLOAT, ge::FORMAT_ND},
-            {{{128}, {128}}, ge::DT_FLOAT, ge::FORMAT_ND},
-        },
-        {
-            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
-        });
+    gert::InfershapeContextPara infershapeContextPara("Scale",
+                                                      {
+                                                          {{{128}, {128}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                          {{{128}, {128}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      });
     std::vector<std::vector<int64_t>> expectOutputShape = {
         {128},
     };
@@ -96,16 +88,15 @@ TEST_F(ScaleInferShapeTest, infershape_1d)
 
 TEST_F(ScaleInferShapeTest, infershape_scalar_scale)
 {
-    gert::InfershapeContextPara infershapeContextPara(
-        "Scale",
-        {
-            {{{3, 5}, {3, 5}}, ge::DT_FLOAT, ge::FORMAT_ND},
-            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
-            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
-        },
-        {
-            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
-        });
+    gert::InfershapeContextPara infershapeContextPara("Scale",
+                                                      {
+                                                          {{{3, 5}, {3, 5}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      });
     std::vector<std::vector<int64_t>> expectOutputShape = {
         {3, 5},
     };

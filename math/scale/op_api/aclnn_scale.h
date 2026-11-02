@@ -27,7 +27,7 @@ extern "C" {
  * @param [in] scale: npu device侧的aclTensor, 数据类型支持float, bf16, float16
  * @param [in] bias: npu device侧的aclTensor，数据类型支持float, bf16, float16
  * @param [in] axis:  host侧的int64_t类型参数
- * @param [in] numAxes:  host侧的aclScalar，数据类型int64_t
+ * @param [in] numAxes:  host侧的int64_t类型参数
  * @param [in] scaleFromBlob:  host侧的bool类型参数
  * @param [in] y: Scale计算的出参。npu device侧的aclTensor,
  * 数据类型支持float16, bfloat16, float32, 数据格式支持ND,
@@ -37,8 +37,8 @@ extern "C" {
  * @return aclnnStatus: 返回状态码。
  */
 ACLNN_API aclnnStatus aclnnScaleGetWorkspaceSize(const aclTensor* x, const aclTensor* scale, const aclTensor* bias,
-                                                 int64_t axis, int64_t numAxes, bool scaleFromBlob,
-                                                 aclTensor* y, uint64_t* workspaceSize, aclOpExecutor** executor);
+                                                 int64_t axis, int64_t numAxes, bool scaleFromBlob, aclTensor* y,
+                                                 uint64_t* workspaceSize, aclOpExecutor** executor);
 
 /**
  * @brief aclnnScale的第二段接口，用于执行计算。
@@ -54,4 +54,4 @@ ACLNN_API aclnnStatus aclnnScale(void* workspace, uint64_t workspaceSize, aclOpE
 }
 #endif
 
-#endif  // OP_API_INC_LEVEL2_SCALE_H_
+#endif // OP_API_INC_LEVEL2_SCALE_H_
