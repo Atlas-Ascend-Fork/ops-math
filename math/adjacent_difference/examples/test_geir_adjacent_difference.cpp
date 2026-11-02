@@ -34,8 +34,6 @@
 #include "array_ops.h"
 #include "ge_ir_build.h"
 
-#include "experiment_ops.h"
-#include "nn_other.h"
 #include "../op_graph/adjacent_difference_proto.h"
 
 #define FAILED -1
@@ -49,33 +47,33 @@ using std::vector;
 /**
  * @brief Macro to add input tensor to the graph
  */
-#define ADD_INPUT(inputIndex, inputName, inputDtype, inputShape)                                             \
-    do {                                                                                                      \
-        std::string name##inputIndex = "placeholder" + std::to_string(inputIndex);                            \
-        auto placeholder##inputIndex = op::Data(name##inputIndex.c_str()).set_attr_index(0);                  \
-        TensorDesc placeholder##inputIndex##_desc = TensorDesc(ge::Shape(inputShape), FORMAT_ND, inputDtype); \
-        placeholder##inputIndex##_desc.SetPlacement(ge::kPlacementHost);                                      \
-        placeholder##inputIndex##_desc.SetFormat(FORMAT_ND);                                                  \
-        Tensor tensor_placeholder##inputIndex;                                                                \
+#define ADD_INPUT(inputIndex, inputName, inputDtype, inputShape)                                               \
+    do {                                                                                                       \
+        std::string name##inputIndex = "placeholder" + std::to_string(inputIndex);                             \
+        auto placeholder##inputIndex = op::Data(name##inputIndex.c_str()).set_attr_index(0);                   \
+        TensorDesc placeholder##inputIndex##_desc = TensorDesc(ge::Shape(inputShape), FORMAT_ND, inputDtype);  \
+        placeholder##inputIndex##_desc.SetPlacement(ge::kPlacementHost);                                       \
+        placeholder##inputIndex##_desc.SetFormat(FORMAT_ND);                                                   \
+        Tensor tensor_placeholder##inputIndex;                                                                 \
         ret = GenInputDataFloat32(inputShape, tensor_placeholder##inputIndex, placeholder##inputIndex##_desc); \
-        if (ret != SUCCESS) {                                                                                 \
-            printf("%s - ERROR - [XIR]: Generate input data failed\n", GetTime().c_str());                    \
-            return FAILED;                                                                                    \
-        }                                                                                                     \
-        placeholder##inputIndex.update_input_desc_x(placeholder##inputIndex##_desc);                          \
-        graph.AddOp(placeholder##inputIndex);                                                                 \
-        input.push_back(tensor_placeholder##inputIndex);                                                      \
-        adjDiff1.set_input_##inputName(placeholder##inputIndex);                                              \
-        inputs.push_back(placeholder##inputIndex);                                                            \
+        if (ret != SUCCESS) {                                                                                  \
+            printf("%s - ERROR - [XIR]: Generate input data failed\n", GetTime().c_str());                     \
+            return FAILED;                                                                                     \
+        }                                                                                                      \
+        placeholder##inputIndex.update_input_desc_x(placeholder##inputIndex##_desc);                           \
+        graph.AddOp(placeholder##inputIndex);                                                                  \
+        input.push_back(tensor_placeholder##inputIndex);                                                       \
+        adjDiff1.set_input_##inputName(placeholder##inputIndex);                                               \
+        inputs.push_back(placeholder##inputIndex);                                                             \
     } while (0)
 
 /**
  * @brief Macro to set output tensor descriptor
  */
-#define ADD_OUTPUT(outputIndex, outputName, outputDtype, outputShape)                                        \
-    do {                                                                                                      \
+#define ADD_OUTPUT(outputIndex, outputName, outputDtype, outputShape)                                           \
+    do {                                                                                                        \
         TensorDesc outputName##outputIndex##_desc = TensorDesc(ge::Shape(outputShape), FORMAT_ND, outputDtype); \
-        adjDiff1.update_output_desc_##outputName(outputName##outputIndex##_desc);                             \
+        adjDiff1.update_output_desc_##outputName(outputName##outputIndex##_desc);                               \
     } while (0)
 
 #define LOG_PRINT(message, ...)         \
@@ -158,9 +156,8 @@ int32_t WriteDataToFile(string bin_file, uint64_t data_size, uint8_t* inputData)
 /**
  * @brief Create the AdjacentDifference operator in the graph
  */
-int CreateOppInGraph(
-    DataType inDtype, std::vector<ge::Tensor>& input, std::vector<Operator>& inputs, std::vector<Operator>& outputs,
-    Graph& graph)
+int CreateOppInGraph(DataType inDtype, std::vector<ge::Tensor>& input, std::vector<Operator>& inputs,
+                     std::vector<Operator>& outputs, Graph& graph)
 {
     Status ret = SUCCESS;
 
