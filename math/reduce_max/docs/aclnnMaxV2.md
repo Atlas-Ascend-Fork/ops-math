@@ -185,8 +185,8 @@ aclnnStatus aclnnMaxV2(
       <td>传入的self、out和dims是空指针时。</td>
     </tr>
     <tr>
-      <td rowspan="3">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="3">161002</td>
+      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="4">161002</td>
       <td>self或out的数据类型不在支持的范围内。</td>
     </tr>
     <tr>
@@ -194,6 +194,9 @@ aclnnStatus aclnnMaxV2(
     </tr>
     <tr>
       <td>dims数组中元素重复。</td>
+    </tr>
+    <tr>
+      <td>out的shape与按dims、keepDims、noopWithEmptyDims推导的结果不一致。</td>
     </tr>
   </tbody>
   </table>

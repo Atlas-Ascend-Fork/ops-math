@@ -184,12 +184,9 @@ aclnnStatus aclnnMeanV2(
       <td>传入的self、out和dim是空指针时。</td>
     </tr>
     <tr>
-      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="4">161002</td>
+      <td rowspan="3">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="3">161002</td>
       <td>self、out数据类型不在支持的范围内时。</td>
-    </tr>
-    <tr>
-      <td>self、out的数据格式不在支持的范围内时。</td>
     </tr>
     <tr>
       <td>dim数组中的维度超出输入Tensor的维度范围。</td>
@@ -199,6 +196,8 @@ aclnnStatus aclnnMeanV2(
     </tr>
   </tbody>
   </table>
+
+- 说明：当前实现不校验aclFormat，按ND语义解释数据。调用方应使用ND格式；非ND物理布局不受支持。
 
 ## aclnnMeanV2
 

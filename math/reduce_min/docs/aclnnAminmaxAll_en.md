@@ -91,7 +91,7 @@ aclrtStream    stream)
         <td>Data type is the same as self.</td>
         <td>FLOAT, BFLOAT16, FLOAT16, DOUBLE, INT8, INT16, INT32, INT64, UINT8, BOOL</td>
         <td>ND</td>
-        <td>-</td>
+        <td>Same shape as the reduction result (0-D) or one element</td>
         <td>√</td>
       </tr>
       <tr>
@@ -101,7 +101,7 @@ aclrtStream    stream)
         <td>Data type is the same as self.</td>
         <td>FLOAT, BFLOAT16, FLOAT16, DOUBLE, INT8, INT16, INT32, INT64, UINT8, BOOL</td>
         <td>ND</td>
-        <td>-</td>
+        <td>Same shape as the reduction result (0-D) or one element</td>
         <td>√</td>
       </tr>
       <tr>
@@ -155,8 +155,8 @@ aclrtStream    stream)
         <td>self, minOut, or maxOut is a null pointer.</td>
       </tr>
       <tr>
-        <td rowspan="3">ACLNN_ERR_PARAM_INVALID</td>
-        <td rowspan="3">161002</td>
+        <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
+        <td rowspan="4">161002</td>
         <td>The data type of self is not in the supported range.</td>
       </tr>
       <tr>
@@ -164,6 +164,9 @@ aclrtStream    stream)
       </tr>
       <tr>
         <td>The shape of self, minOut, or maxOut has more than 8 dimensions.</td>
+      </tr>
+      <tr>
+        <td>The number of elements in minOut or maxOut does not match the reduction result.</td>
       </tr>
     </tbody>
     </table>

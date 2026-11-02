@@ -185,12 +185,9 @@ aclnnStatus aclnnMeanV2(
       <td>self, out, or dim is a null pointer.</td>
     </tr>
     <tr>
-      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="4">161002</td>
+      <td rowspan="3">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="3">161002</td>
       <td>The data type of self or out is not in the supported range.</td>
-    </tr>
-    <tr>
-      <td>The data format of self or out is not in the supported range.</td>
     </tr>
     <tr>
       <td>A dimension in the dim array exceeds the dimension range of the input tensor.</td>
@@ -200,6 +197,8 @@ aclnnStatus aclnnMeanV2(
     </tr>
   </tbody>
   </table>
+
+- Note: The current implementation does not validate aclFormat and interprets data as ND. Callers must use the ND format; non-ND physical layouts are not supported.
 
 ## aclnnMeanV2
 

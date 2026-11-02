@@ -89,7 +89,7 @@ aclrtStream    stream)
         <td>数据类型与self一致。</td>
         <td>FLOAT、BFLOAT16、FLOAT16、DOUBLE、INT8、INT16、INT32、INT64、UINT8、BOOL</td>
         <td>ND</td>
-        <td>-</td>
+        <td>与归约结果同形（0维）或元素数为1</td>
         <td>√</td>
       </tr>
       <tr>
@@ -99,7 +99,7 @@ aclrtStream    stream)
         <td>数据类型与self一致。</td>
         <td>FLOAT、BFLOAT16、FLOAT16、DOUBLE、INT8、INT16、INT32、INT64、UINT8、BOOL</td>
         <td>ND</td>
-        <td>-</td>
+        <td>与归约结果同形（0维）或元素数为1</td>
         <td>√</td>
       </tr>
       <tr>
@@ -153,8 +153,8 @@ aclrtStream    stream)
         <td>传入的self、minOut或maxOut是空指针。</td>
       </tr>
       <tr>
-        <td rowspan="3">ACLNN_ERR_PARAM_INVALID</td>
-        <td rowspan="3">161002</td>
+        <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
+        <td rowspan="4">161002</td>
         <td>self的数据类型不在支持的范围内时。</td>
       </tr>
       <tr>
@@ -162,6 +162,9 @@ aclrtStream    stream)
       </tr>
       <tr>
         <td>self、minOut或maxOut的shape超过8维。</td>
+      </tr>
+      <tr>
+        <td>minOut或maxOut的元素数与归约结果不一致。</td>
       </tr>
     </tbody>
     </table>
