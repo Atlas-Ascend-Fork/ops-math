@@ -34,7 +34,8 @@
     X(MM_A16INT8_PERCHANNEL, 12)    \
     X(MM_A16INT8_PERGROUP, 13)      \
     X(MM_A16FP8HIF8_PERCHANNEL, 14) \
-    X(MM_A8F4_TCG, 15)
+    X(MM_A8F4_TCG, 15)              \
+    X(MM_MX_A8HIF4, 16)
 
 enum class QuantDataFlow : uint32_t {
 #define X(name, value) name = value,

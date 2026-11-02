@@ -50,6 +50,7 @@ static constexpr size_t SINGLE = 1;
 static constexpr size_t DOUBLE = 2;
 static constexpr int64_t KGROUP_SIZE_MX = 32;
 static constexpr int64_t KGROUP_SIZE_HIF4 = 64;
+static constexpr int64_t KGROUP_SIZE_UNDEFINED = -1;
 static constexpr int64_t KGROUP_SIZE_INT4 = 0;
 static constexpr int64_t KGROUP_SIZE_128 = 128;
 static constexpr int64_t KGROUP_SIZE_256 = 256;
@@ -82,6 +83,21 @@ static bool IsMMMxA8W4DataFlow(QuantContext& ctx)
         ctx.xDtype == op::DataType::DT_FLOAT8_E4M3FN && ctx.xScaleDtype == op::DataType::DT_FLOAT8_E8M0 &&
         weightViewShape.GetDimNum() == DIMS_2) {
         ctx.dataFlow = QuantDataFlow::MM_MX_A8W4;
+        return true;
+    }
+    return false;
+}
+
+static bool IsMMMxA8HIF4DataFlow(QuantContext& ctx)
+{
+    auto weightDtype = ctx.weight->GetDataType();
+    auto scaleDtype = ctx.weightScale->GetDataType();
+    auto weightViewShape = ctx.weight->GetViewShape();
+
+    if (weightDtype == Ops::Math::DT_HIFLOAT4 && scaleDtype == Ops::Math::DT_HIFLOAT4_SCALE &&
+        ctx.xDtype == op::DataType::DT_FLOAT8_E4M3FN && ctx.xScaleDtype == op::DataType::DT_FLOAT8_E8M0 &&
+        weightViewShape.GetDimNum() == DIMS_2) {
+        ctx.dataFlow = QuantDataFlow::MM_MX_A8HIF4;
         return true;
     }
     return false;
@@ -2371,6 +2387,16 @@ const std::unordered_map<NpuArch, std::vector<DataFlowEntry>> NPU_DATA_FLOW_REGI
             CheckOutWeightScaleViewShapeSame, CheckOutWeightScaleStorageShapeSame, CheckOutBiasOptionalSameAsInput},
        .processes = {ProcessWeightTransNd2Nz<IDX_0>, // 对 weight 进行 Nd2Nz 转换，参数表示 k 在 viewShape 中的下标
                      ProcessWeightScaleDirectCopy, ProcessBiasDirectCopy}},
+      {.judge = IsMMMxA8HIF4DataFlow,
+       .checks = {CheckWeightNotEmpty, CheckWeightFormatND, CheckWeightTrans, CheckWeightScaleNotEmpty,
+                  CheckWeightScaleFormatND,
+                  CheckWeightScaleMx<DIMS_3, SINGLE>, // HiF4 scale shape: [ceildiv(K, 64), N, 1]
+                  CheckWeightScaleTrans<IDX_0>, CheckWeightOffsetOptionalNull, CheckGroupSize<KGROUP_SIZE_UNDEFINED>,
+                  CheckOutWeightSameBase, CheckOutWeightDtypeSame, CheckOutWeightNzStorageDim,
+                  CheckOutWeightTransNz<NZ_C0_64, op::Format::FORMAT_FRACTAL_NZ>, CheckOutWeightScaleNotNullEmpty,
+                  CheckOutWeightScaleFormatND, CheckOutWeightScaleDtypeSame, CheckOutWeightScaleViewShapeSame,
+                  CheckOutWeightScaleStorageShapeSame, CheckOutBiasOptionalSameAsInput},
+       .processes = {ProcessWeightTransNd2Nz<IDX_0>, ProcessWeightScaleDirectCopy, ProcessBiasDirectCopy}},
       {.judge = IsMMMxA16HIF4DataFlow,
        .checks =
            {
