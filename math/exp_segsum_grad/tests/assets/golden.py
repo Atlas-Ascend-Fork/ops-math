@@ -37,9 +37,9 @@ _KERNEL_TOLERANCE = {
 }
 
 _ACLNN_TOLERANCE = {
-    "float32": {"standard": "stat_rel_err"},
-    "float16": {"standard": "stat_rel_err"},
-    "bfloat16": {"standard": "stat_rel_err"},
+    "float32": {"standard": "mix_tolerance"},
+    "float16": {"standard": "mix_tolerance"},
+    "bfloat16": {"standard": "mix_tolerance"},
 }
 
 
@@ -187,7 +187,10 @@ class ExpSegsumGradKernelSpec:
 class ExpSegsumGradAclnnSpec:
     """aclnnExpSegsumBackward spec. The golden entry receives torch tensors."""
 
-    def golden(gradOutput, gradSelf, **kwargs):
+    def golden(gradOutput, gradSelf, gradInput, **kwargs):
+        # batch=0 或 N=0 时输出为空 tensor, 按 infershape 结果直接返回全零占位
+        if gradOutput.numel() == 0 or gradOutput.size(-1) == 0:
+            return [torch.zeros(gradOutput.shape[:-1], dtype=gradOutput.dtype)]
         return _compute(gradOutput, gradSelf)
 
     third_party = {"torch": _ExpSegsumGradCompose}
