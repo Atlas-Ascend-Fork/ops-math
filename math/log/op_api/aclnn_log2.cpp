@@ -67,8 +67,11 @@ static const std::initializer_list<op::DataType> ASCEND910B_OUTPUT_DTYPE_SUPPORT
 static bool CheckDtypeValid(const aclTensor* self, const aclTensor* out)
 {
     // 获取芯片类型,判断是1971还是1980
+    // regbase 芯片（ascend950/ascend350/ascend960dt 等）同样支持 910B 的 dtype 列表（含 BF16），
+    // 其 SocVersion 不在 [ASCEND910B, ASCEND910E] 区间内，需按 NpuArch 判断（对齐 asin 等算子写法）
     bool is910bSocVersion = (GetCurrentPlatformInfo().GetSocVersion() >= SocVersion::ASCEND910B &&
-                             GetCurrentPlatformInfo().GetSocVersion() <= SocVersion::ASCEND910E);
+                             GetCurrentPlatformInfo().GetSocVersion() <= SocVersion::ASCEND910E) ||
+                            IsRegBase();
     const std::initializer_list<op::DataType> CURRENT_DTYPE_SUPPORT_LIST = is910bSocVersion ? DTYPE_SUPPORT_LIST_910B :
                                                                                               DTYPE_SUPPORT_LIST_910;
     const std::initializer_list<op::DataType> OUTPUT_DTYPE_SUPPORT_LIST = is910bSocVersion ?
