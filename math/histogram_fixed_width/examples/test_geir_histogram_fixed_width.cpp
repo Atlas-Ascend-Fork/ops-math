@@ -78,6 +78,27 @@ using std::vector;
     add1.update_input_desc_##intputName(placeholder##intputIndex##_desc);                                           \
     inputs.push_back(placeholder##intputIndex);
 
+#define ADD_RANGE_CONST_INPUT(inputIndex, inputName, inputDtype, inputShape)                                      \
+    vector<int64_t> placeholder##inputIndex##_shape = inputShape;                                                 \
+    auto placeholder##inputIndex = op::Const("placeholder" + inputIndex);                                         \
+    TensorDesc placeholder##inputIndex##_desc = TensorDesc(ge::Shape(placeholder##inputIndex##_shape), FORMAT_ND, \
+                                                           inputDtype);                                           \
+    placeholder##inputIndex##_desc.SetPlacement(ge::kPlacementHost);                                              \
+    placeholder##inputIndex##_desc.SetFormat(FORMAT_ND);                                                          \
+    Tensor tensor_placeholder##inputIndex;                                                                        \
+    ret = GenRangeData(placeholder##inputIndex##_shape, tensor_placeholder##inputIndex,                           \
+                       placeholder##inputIndex##_desc, inputDtype);                                               \
+    if (ret != SUCCESS) {                                                                                         \
+        printf("%s - ERROR - [XIR]: Generate input data failed\n", GetTime().c_str());                            \
+        return FAILED;                                                                                            \
+    }                                                                                                             \
+    placeholder##inputIndex.SetAttr("value", tensor_placeholder##inputIndex);                                     \
+    placeholder##inputIndex.update_output_desc_y(placeholder##inputIndex##_desc);                                 \
+    graph.AddOp(placeholder##inputIndex);                                                                         \
+    add1.set_input_##inputName(placeholder##inputIndex);                                                          \
+    add1.update_input_desc_##inputName(placeholder##inputIndex##_desc);                                           \
+    inputs.push_back(placeholder##inputIndex);
+
 #define LOG_PRINT(message, ...)         \
     do {                                \
         printf(message, ##__VA_ARGS__); \
@@ -152,6 +173,48 @@ int32_t GenOnesData(vector<int64_t> shapes, Tensor& input_tensor, TensorDesc& in
     return SUCCESS;
 }
 
+int32_t GenRangeData(vector<int64_t> shapes, Tensor& input_tensor, TensorDesc& input_tensor_desc, DataType data_type)
+{
+    input_tensor_desc.SetRealDimCnt(shapes.size());
+    size_t size = 1;
+    for (uint32_t i = 0; i < shapes.size(); ++i) {
+        size *= shapes[i];
+    }
+    uint32_t data_len = size * GetDataTypeSize(data_type);
+    uint8_t* pData = new (std::nothrow) uint8_t[data_len]();
+    switch (data_type) {
+        case ge::DT_FLOAT: {
+            float* rangeData = reinterpret_cast<float*>(pData);
+            rangeData[0] = 0.0f;
+            rangeData[1] = 10.0f;
+            break;
+        }
+        case ge::DT_FLOAT16: {
+            uint16_t* rangeData = reinterpret_cast<uint16_t*>(pData);
+            rangeData[0] = 0x0000;
+            rangeData[1] = 0x4900;
+            break;
+        }
+        case ge::DT_INT32: {
+            int32_t* rangeData = reinterpret_cast<int32_t*>(pData);
+            rangeData[0] = 0;
+            rangeData[1] = 100;
+            break;
+        }
+        case ge::DT_INT64: {
+            int64_t* rangeData = reinterpret_cast<int64_t*>(pData);
+            rangeData[0] = 0;
+            rangeData[1] = 100;
+            break;
+        }
+        default:
+            delete[] pData;
+            return FAILED;
+    }
+    input_tensor = Tensor(input_tensor_desc, pData, data_len);
+    return SUCCESS;
+}
+
 int32_t WriteDataToFile(string bin_file, uint64_t data_size, uint8_t* inputData)
 {
     FILE* fp;
@@ -166,11 +229,11 @@ int CreateOppInGraph(DataType inDtype, std::vector<ge::Tensor>& input, std::vect
 {
     Status ret = SUCCESS;
     auto add1 = op::HistogramFixedWidth("add1");
-    std::vector<int64_t> xShape = {9, 9, 10, 10, 9, 8, 8, 0};
+    std::vector<int64_t> xShape = {9, 9, 10, 10, 9, 8, 8, 8};
     std::vector<int64_t> rangeShape = {2};
     std::vector<int64_t> nbinsShape = {1};
     ADD_INPUT(1, x, inDtype, xShape);
-    ADD_CONST_INPUT(2, range, inDtype, rangeShape);
+    ADD_RANGE_CONST_INPUT(2, range, inDtype, rangeShape);
     ADD_CONST_INPUT(3, nbins, DT_INT32, nbinsShape);
 
     outputs.push_back(add1);
