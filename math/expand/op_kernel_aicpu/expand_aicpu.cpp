@@ -182,19 +182,19 @@ uint32_t ValidateCopyBuffers(const aicpu::CpuKernelContext& ctx, const ExpandPla
 }
 
 template <typename T>
-bool ShouldUseBiggerMemCpy(uint64_t copy_bytes)
+bool ShouldUseBulkCopy(uint64_t copy_bytes)
 {
     return copy_bytes > static_cast<uint64_t>(SECUREC_MEM_MAX_LEN);
 }
 
 template <>
-bool ShouldUseBiggerMemCpy<Eigen::half>(uint64_t copy_bytes)
+bool ShouldUseBulkCopy<Eigen::half>(uint64_t copy_bytes)
 {
     return copy_bytes >= kHalfBulkCopyThreshold;
 }
 
 template <>
-bool ShouldUseBiggerMemCpy<Eigen::bfloat16>(uint64_t copy_bytes)
+bool ShouldUseBulkCopy<Eigen::bfloat16>(uint64_t copy_bytes)
 {
     return copy_bytes >= kHalfBulkCopyThreshold;
 }
@@ -234,7 +234,7 @@ uint32_t CopyExpandedData(const aicpu::CpuKernelContext& ctx, ExpandPlan<IndexT>
     }
     uint64_t copy_bytes = 0U;
     KERNEL_HANDLE_ERROR(ValidateCopyBuffers<T>(ctx, plan, copy_bytes), "Expand buffer validation failed.");
-    if (ShouldUseBiggerMemCpy<T>(copy_bytes)) {
+    if (ShouldUseBulkCopy<T>(copy_bytes)) {
         return CopyExpandedBlocks<true, T, IndexT>(ctx, plan, copy_bytes);
     }
     return CopyExpandedBlocks<false, T, IndexT>(ctx, plan, copy_bytes);
