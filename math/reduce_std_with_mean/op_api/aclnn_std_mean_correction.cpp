@@ -353,7 +353,7 @@ aclnnStatus aclnnStdMeanCorrectionGetWorkspaceSize(const aclTensor* self, const 
     }
     // 固定写法，将计算结果拷贝到输出meanOut上，meanOut可能是非连续的tensor
     auto viewCopyMeanResult = l0op::ViewCopy(meanOpOut, meanOut, uniqueExecutor.get());
-    CHECK_RET(viewCopyMeanResult != nullptr, ACLNN_ERR_INNER_NULLPTR);
+    CHECK_RET(viewCopyMeanResult != nullptr, ACLNN_ERR_PARAM_INVALID);
 
     auto expandOpOut = GetExpandMean(self, meanOpOut, dimArray, keepdim, uniqueExecutor.get());
     CHECK_RET(expandOpOut != nullptr, ACLNN_ERR_INNER_NULLPTR);

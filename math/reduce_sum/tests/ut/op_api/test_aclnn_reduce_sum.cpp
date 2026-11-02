@@ -238,6 +238,34 @@ TEST_F(l2_reduce_sum_test, l2_reduce_sum_test_self_bool_dtype_int64)
     //  ut.TestPrecision();
 }
 
+TEST_F(l2_reduce_sum_test, l2_reduce_sum_test_self_bool_dtype_int64_negative_dims)
+{
+    auto selfDesc = TensorDesc({4097, 4097}, ACL_BOOL, ACL_FORMAT_ND);
+    auto outDesc = TensorDesc({1}, ACL_INT64, ACL_FORMAT_ND);
+    auto dim = IntArrayDesc(vector<int64_t>{-2, -1});
+    bool keep_dim = false;
+
+    auto ut = OP_API_UT(aclnnReduceSum, INPUT(selfDesc, dim, keep_dim, ACL_INT64), OUTPUT(outDesc));
+
+    uint64_t workspaceSize = 0;
+    aclnnStatus getWorkspaceResult = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(getWorkspaceResult, ACLNN_SUCCESS);
+}
+
+TEST_F(l2_reduce_sum_test, l2_reduce_sum_test_self_bool_dtype_int64_mixed_dims)
+{
+    auto selfDesc = TensorDesc({2, 4}, ACL_BOOL, ACL_FORMAT_ND);
+    auto outDesc = TensorDesc({1, 1}, ACL_INT64, ACL_FORMAT_ND);
+    auto dim = IntArrayDesc(vector<int64_t>{0, -1});
+    bool keep_dim = true;
+
+    auto ut = OP_API_UT(aclnnReduceSum, INPUT(selfDesc, dim, keep_dim, ACL_INT64), OUTPUT(outDesc));
+
+    uint64_t workspaceSize = 0;
+    aclnnStatus getWorkspaceResult = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(getWorkspaceResult, ACLNN_SUCCESS);
+}
+
 TEST_F(l2_reduce_sum_test, l2_reduce_sum_test_tensor_empty)
 {
     auto selfDesc = TensorDesc({2, 0, 4}, ACL_FLOAT, ACL_FORMAT_ND);

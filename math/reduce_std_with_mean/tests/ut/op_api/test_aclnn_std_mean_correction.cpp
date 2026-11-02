@@ -284,7 +284,6 @@ TEST_F(l2_std_mean_correction_test, std_mean_correction_dim_empty)
     uint64_t workspaceSize = 0;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
     EXPECT_EQ(aclRet, ACLNN_SUCCESS);
-    // ut.TestPrecision();
 }
 
 TEST_F(l2_std_mean_correction_test, std_mean_correction_dim_nullptr)
@@ -300,7 +299,53 @@ TEST_F(l2_std_mean_correction_test, std_mean_correction_dim_nullptr)
     uint64_t workspaceSize = 0;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
     EXPECT_EQ(aclRet, ACLNN_SUCCESS);
-    // ut.TestPrecision();
+}
+
+TEST_F(l2_std_mean_correction_test, std_mean_correction_dim_empty_keepdim_false_valid)
+{
+    auto selfDesc = TensorDesc({2, 3}, ACL_FLOAT, ACL_FORMAT_ND).Value(vector<float>{1, 2, 3, 4, 5, 6});
+    auto dim = IntArrayDesc(vector<int64_t>{});
+    int64_t correction = 1;
+    bool keepdim = false;
+    auto stdOutDesc = TensorDesc({}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto meanOutDesc = TensorDesc({}, ACL_FLOAT, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnStdMeanCorrection, INPUT(selfDesc, dim, correction, keepdim),
+                        OUTPUT(stdOutDesc, meanOutDesc));
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACLNN_SUCCESS);
+}
+
+TEST_F(l2_std_mean_correction_test, std_mean_correction_dim_empty_output_shape_mismatch)
+{
+    auto selfDesc = TensorDesc({2, 3, 4}, ACL_FLOAT, ACL_FORMAT_ND).ValueRange(1, 24);
+    auto dim = IntArrayDesc(vector<int64_t>{});
+    int64_t correction = 1;
+    bool keepdim = false;
+    auto stdOutDesc = TensorDesc({2, 3, 4}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto meanOutDesc = TensorDesc({2, 3, 4}, ACL_FLOAT, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnStdMeanCorrection, INPUT(selfDesc, dim, correction, keepdim),
+                        OUTPUT(stdOutDesc, meanOutDesc));
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
+}
+
+TEST_F(l2_std_mean_correction_test, std_mean_correction_dim_nullptr_output_shape_mismatch)
+{
+    auto selfDesc = TensorDesc({2, 3, 4}, ACL_FLOAT, ACL_FORMAT_ND).ValueRange(1, 24);
+    int64_t correction = 1;
+    bool keepdim = true;
+    auto stdOutDesc = TensorDesc({2, 3, 4}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto meanOutDesc = TensorDesc({2, 3, 4}, ACL_FLOAT, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnStdMeanCorrection, INPUT(selfDesc, (aclIntArray*)nullptr, correction, keepdim),
+                        OUTPUT(stdOutDesc, meanOutDesc));
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
 }
 
 TEST_F(l2_std_mean_correction_test, std_mean_correction_keepdim_false)

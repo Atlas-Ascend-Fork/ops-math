@@ -263,7 +263,8 @@ aclnnStatus aclnnReduceSumGetWorkspaceSize(const aclTensor* self, const aclIntAr
         static const size_t maxDim = 16777216; // 2^24
         size_t reduceDims = 1;
         for (int i = 0; i < static_cast<int>(dims->Size()); i++) {
-            reduceDims *= shape[(*dims)[i]];
+            uint64_t axis = GetPosDim((*dims)[i], static_cast<int64_t>(shape.GetDimNum()));
+            reduceDims *= shape[axis];
         }
         promoteType = (reduceDims < maxDim) ? op::DataType::DT_FLOAT : op::DataType::DT_INT64;
     }
