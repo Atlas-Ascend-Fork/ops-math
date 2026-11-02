@@ -41,6 +41,11 @@
 
   `aclnnNpuFormatCastCalculateSizeAndFormat`根据输入张量srcTensor、数据类型`additionalDtype`和目标张量的数据格式dstFormat计算出转换后目标张量dstTensor的shape和实际数据格式，用于构造dstTensor，然后调用`aclnnNpuFormatCast`把srcTensor转换为实际数据格式的目标张量dstTensor。
 
+- **ND→FRACTAL_NZ 存储排布**：记 view shape 最后两维为 `[..., M, N]`（前导维不变）。`C0` 由 `additionalDtype` 决定（见下文 C0 表；`-1` 表示使用源类型）；内层两轴为固定的 `16`（M 方向）与 `C0`（N 方向），不能写成两个 `C0`。表外类型或 `actualFormat` 带 `C0_xx` 后缀时，以 `aclnnNpuFormatCastCalculateSizeAndFormat` 返回的 storage shape 末维为准。
+  - storage shape：`[..., ceil(N/C0), ceil(M/16), 16, C0]`
+  - 有效元素：`NZ[..., n1, m1, m0, n0] = ND[..., 16*m1+m0, C0*n1+n0]`（仅当 `16*m1+m0 < M` 且 `C0*n1+n0 < N`）。未对齐产生的补齐区不纳入正确性判定。
+  - 示例（FP16，`C0=16`）：`4×4`/`16×16` → `[1,1,16,16]`，`17×17` → `[2,2,16,16]`。FLOAT8_E8M0 MX scale 场景不适用本通式。
+
 ## 函数原型
 
 必须先调用`aclnnNpuFormatCastCalculateSizeAndFormat`计算出dstTensor的shape和实际数据格式，再调用[两段式接口](../../../docs/zh/context/two_phase_api.md)。两段式接口先调用`aclnnNpuFormatCastGetWorkspaceSize`接口获取计算所需workspace大小以及包含了算子计算流程的执行器，再调用`aclnnNpuFormatCast`接口执行计算。
