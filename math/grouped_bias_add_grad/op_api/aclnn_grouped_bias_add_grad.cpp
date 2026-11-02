@@ -9,6 +9,7 @@
  */
 
 #include "grouped_bias_add_grad.h"
+#include "conversion/fill/op_api/fill.h"
 #include "aclnn_kernels/contiguous.h"
 #include "aclnn_kernels/common/op_error_check.h"
 #include "opdev/common_types.h"
@@ -151,6 +152,26 @@ static aclnnStatus CheckParams(const aclTensor* gradY, const aclTensor* groupIdx
     return ACLNN_SUCCESS;
 }
 
+static aclnnStatus FillOutputWithZero(aclTensor* out, aclOpExecutor* executor)
+{
+    auto zero = executor->AllocScalar(0);
+    CHECK_RET(zero != nullptr, ACLNN_ERR_INNER_NULLPTR);
+    auto valueTensor = executor->ConvertToTensor(zero, out->GetDataType());
+    CHECK_RET(valueTensor != nullptr, ACLNN_ERR_INNER_NULLPTR);
+
+    auto outputDims = op::ToShapeVector(out->GetViewShape());
+    auto shapeArray = executor->AllocIntArray(outputDims.data(), outputDims.size());
+    CHECK_RET(shapeArray != nullptr, ACLNN_ERR_INNER_NULLPTR);
+    auto dimsTensor = executor->ConvertToTensor(shapeArray, op::DataType::DT_INT64);
+    CHECK_RET(dimsTensor != nullptr, ACLNN_ERR_INNER_NULLPTR);
+
+    auto zeroTensor = l0op::Fill(dimsTensor, valueTensor, shapeArray, executor);
+    CHECK_RET(zeroTensor != nullptr, ACLNN_ERR_INNER_NULLPTR);
+    auto viewCopyResult = l0op::ViewCopy(zeroTensor, out, executor);
+    CHECK_RET(viewCopyResult != nullptr, ACLNN_ERR_INNER_NULLPTR);
+    return ACLNN_SUCCESS;
+}
+
 aclnnStatus ExecGroupedBiasAddGradGetWorkspaceSize(const aclTensor* gradY, const aclTensor* groupIdxOptional,
                                                    int64_t groupIdxType, aclTensor* out, uint64_t* workspaceSize,
                                                    aclOpExecutor** executor)
@@ -165,6 +186,10 @@ aclnnStatus ExecGroupedBiasAddGradGetWorkspaceSize(const aclTensor* gradY, const
 
     // 空Tensor处理
     if (gradY->IsEmpty()) {
+        if (!out->IsEmpty()) {
+            ret = FillOutputWithZero(out, uniqueExecutor.get());
+            CHECK_RET(ret == ACLNN_SUCCESS, ret);
+        }
         *workspaceSize = uniqueExecutor->GetWorkspaceSize();
         uniqueExecutor.ReleaseTo(executor);
         return ACLNN_SUCCESS;
