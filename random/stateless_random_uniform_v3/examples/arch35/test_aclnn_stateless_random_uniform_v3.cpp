@@ -39,6 +39,10 @@ int main()
         return -1;
     }
 
+    // 裸 l0op 执行器直调不走 aclnn 两段式接口，需自行初始化 L2 线程上下文（填充 AIC/AIV 核数），
+    // 否则 TilingParse 拿到的平台信息 vector_core_cnt 为 0，会导致 tiling compile info parse failed。
+    InitL2Phase1Context("StatelessRandomUniformV3", nullptr);
+
     auto executor = CREATE_EXECUTOR();
     if (executor.get() == nullptr) {
         std::cerr << "CREATE_EXECUTOR failed" << std::endl;
