@@ -16,10 +16,13 @@
  *        Grid-Stride over values; two-step core allocation.
  */
 
+#include <cstdint>
+#include <limits>
 #include "log/log.h"
 #include "register/op_impl_registry.h"
 #include "platform/platform_ascendc.h"
 #include "util/math_util.h"
+#include "util/const_util.h"
 #include "op_host/math_tiling_templates_registry.h"
 #include "../../op_kernel/arch35/sparse_bincount_tiling_data.h"
 #include "../../op_kernel/arch35/sparse_bincount_tiling_key.h"
@@ -43,11 +46,18 @@ constexpr int64_t RANK_1D = 1;
 constexpr int64_t DIM_N = 0;
 constexpr int64_t DIM_R = 1;
 
-// Scene mode bit encoding (isDeterministic: bit3, is1D: bit2, binaryOutput: bit1, hasWeights: bit0)
+// Scene mode bit encoding (isPrecise: bit4, isDeterministic: bit3, is1D: bit2, binaryOutput: bit1, hasWeights: bit0)
+constexpr int32_t SCH_MODE_PRECISE_SHIFT = 4;
 constexpr int32_t SCH_MODE_DETERMINISTIC_SHIFT = 3;
 constexpr int32_t SCH_MODE_IS1D_SHIFT = 2;
 constexpr int32_t SCH_MODE_BINARY_SHIFT = 1;
 constexpr int32_t SCH_MODE_WEIGHTS_SHIFT = 0;
+
+// Precise workspace-compensated path policy
+constexpr int64_t PRECISE_MAX_BINS = 64;
+constexpr int64_t PRECISE_PARTITIONS_PER_CORE = 16;
+constexpr int64_t PRECISE_PARTIAL_BYTES = 16;
+constexpr int64_t DETERMINISTIC_PARTIAL_BYTES = 64;
 
 // Defaults
 constexpr int64_t DEFAULT_COL_NUM = 1;
@@ -251,6 +261,18 @@ static ge::graphStatus SparseBincountTilingFunc(gert::TilingContext* context)
     tiling->indicesColNum = indicesColNum;
     tiling->denseShapeNum = denseShapeNum;
 
+    int32_t isDeterministic = (context->GetDeterministic() == 1) ? 1 : 0;
+    int32_t isPrecise = 0;
+    int64_t preciseOutputSize = 0;
+    auto outputShape = context->GetOutputShape(0);
+    if (outputShape != nullptr && numValues > 0 && needCoreNum > 0) {
+        int64_t outElems = outputShape->GetOriginShape().GetShapeSize();
+        if (outElems > 0 && outElems <= PRECISE_MAX_BINS) {
+            preciseOutputSize = outElems;
+            isPrecise = 1;
+        }
+    }
+
     // 7. Set block dim
     context->SetBlockDim(static_cast<uint32_t>(needCoreNum));
 
@@ -260,7 +282,18 @@ static ge::graphStatus SparseBincountTilingFunc(gert::TilingContext* context)
     // 9. Set workspace
     size_t* ws = context->GetWorkspaceSizes(1);
     OP_CHECK_NULL_WITH_CONTEXT(context, ws);
-    ws[0] = 0;
+    if (isPrecise) {
+        int64_t slotBytes = isDeterministic ? DETERMINISTIC_PARTIAL_BYTES : PRECISE_PARTIAL_BYTES;
+        uint64_t entries = static_cast<uint64_t>(needCoreNum) * static_cast<uint64_t>(preciseOutputSize) *
+                           static_cast<uint64_t>(PRECISE_PARTITIONS_PER_CORE);
+        uint64_t bytes = entries * static_cast<uint64_t>(slotBytes);
+        OP_CHECK_IF(entries == 0 || entries > (UINT64_MAX / static_cast<uint64_t>(slotBytes)) ||
+                        bytes > std::numeric_limits<size_t>::max(),
+                    OP_LOGE(context, "precise workspace size overflow"), return ge::GRAPH_FAILED);
+        ws[0] = static_cast<size_t>(bytes);
+    } else {
+        ws[0] = 0;
+    }
 
     // 10. Set local memory size
     OP_CHECK_IF((ubSize <= DCACHE_SIZE + STATIC_UB_ESTIMATE),
@@ -270,13 +303,11 @@ static ge::graphStatus SparseBincountTilingFunc(gert::TilingContext* context)
 
     // 11. Set tiling key (scene mode encoding:
     //     isDeterministic:bit3, is1D:bit2, binaryOutput:bit1, hasWeights:bit0)
-    // 确定性计算开启时派发固定顺序累加路径（对齐同仓 bincount/histogram_v2），
-    // 避免带权重浮点原子加因跨核/跨线程累加顺序不定导致输出无法按位复现
+
     int32_t is1D = (denseShapeNum == RANK_1D) ? 1 : 0;
-    int32_t isDeterministic = (context->GetDeterministic() == 1) ? 1 : 0;
-    uint32_t schMode = static_cast<uint32_t>(isDeterministic << SCH_MODE_DETERMINISTIC_SHIFT |
-                                             is1D << SCH_MODE_IS1D_SHIFT | binaryOutput << SCH_MODE_BINARY_SHIFT |
-                                             hasWeights << SCH_MODE_WEIGHTS_SHIFT);
+    uint32_t schMode = static_cast<uint32_t>(
+        isPrecise << SCH_MODE_PRECISE_SHIFT | isDeterministic << SCH_MODE_DETERMINISTIC_SHIFT |
+        is1D << SCH_MODE_IS1D_SHIFT | binaryOutput << SCH_MODE_BINARY_SHIFT | hasWeights << SCH_MODE_WEIGHTS_SHIFT);
     uint64_t tilingKey = GET_TPL_TILING_KEY(schMode);
     context->SetTilingKey(tilingKey);
 

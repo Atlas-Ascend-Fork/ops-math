@@ -22,7 +22,6 @@ using namespace ge;
 constexpr int64_t K_DEFAULT_CORE_NUM = 64;
 constexpr uint64_t K_DEFAULT_UB_SIZE = 262144;
 constexpr uint32_t K_DEFAULT_TILING_DATA_SIZE = 4096;
-constexpr size_t K_EXPECT_WORKSPACE = 0;
 
 class SparseBincountTiling : public testing::Test {
 protected:
@@ -60,9 +59,9 @@ TEST_F(SparseBincountTiling, sparse_bincount_1d_with_weights)
                                               K_DEFAULT_CORE_NUM,          // number of cores
                                               K_DEFAULT_UB_SIZE,           // ub size
                                               K_DEFAULT_TILING_DATA_SIZE); // max tiling data size
-    uint64_t expectTilingKey = 5; // schMode = is1D(1)*4 + binary(0)*2 + weights(1) = 5
+    uint64_t expectTilingKey = 21;
     string expectTilingData = "4 1 1 ";
-    std::vector<size_t> expectWorkspaces = {K_EXPECT_WORKSPACE};
+    std::vector<size_t> expectWorkspaces = {2048};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
@@ -90,9 +89,9 @@ TEST_F(SparseBincountTiling, sparse_bincount_nd_with_weights)
                                               },
                                               &compileInfo, K_DEFAULT_CORE_NUM, K_DEFAULT_UB_SIZE,
                                               K_DEFAULT_TILING_DATA_SIZE);
-    uint64_t expectTilingKey = 1; // schMode = is1D(0)*4 + binary(0)*2 + weights(1) = 1
+    uint64_t expectTilingKey = 17;
     string expectTilingData = "4 2 2 ";
-    std::vector<size_t> expectWorkspaces = {K_EXPECT_WORKSPACE};
+    std::vector<size_t> expectWorkspaces = {8192};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
@@ -120,9 +119,9 @@ TEST_F(SparseBincountTiling, sparse_bincount_1d_no_weights)
                                               },
                                               &compileInfo, K_DEFAULT_CORE_NUM, K_DEFAULT_UB_SIZE,
                                               K_DEFAULT_TILING_DATA_SIZE);
-    uint64_t expectTilingKey = 4; // schMode = is1D(1)*4 + binary(0)*2 + weights(0) = 4
+    uint64_t expectTilingKey = 20;
     string expectTilingData = "4 1 1 ";
-    std::vector<size_t> expectWorkspaces = {K_EXPECT_WORKSPACE};
+    std::vector<size_t> expectWorkspaces = {2048};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 

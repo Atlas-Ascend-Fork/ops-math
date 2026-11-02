@@ -13,12 +13,14 @@
 /*!
  * \file sparse_bincount.cpp
  * \brief Kernel entry for sparse_bincount operator.
- *        Scene mode dispatched via TilingKey (isDeterministic x is1D x binaryOutput x hasWeights = 16 variants).
- *        dtype dispatched via DTYPE_VALUES / DTYPE_SIZE macros.
+ *        Scene mode dispatched via TilingKey (isPrecise x isDeterministic x is1D x binaryOutput x hasWeights = 32
+ * variants). dtype dispatched via DTYPE_VALUES / DTYPE_SIZE macros.
  *
- * TilingKey encoding: schMode = isDeterministic * 8 + is1D * 4 + binaryOutput * 2 + hasWeights
- *   0-7: non-deterministic modes (atomic-add scatter)
- *   8-15: deterministic modes (fixed-order gather accumulation, bitwise reproducible)
+ * TilingKey encoding: schMode = isPrecise * 16 + isDeterministic * 8 + is1D * 4 + binaryOutput * 2 + hasWeights
+ *    0-7:  non-precise, non-deterministic modes (atomic-add scatter)
+ *   8-15:  non-precise, deterministic modes (fixed-order gather accumulation, bitwise reproducible)
+ *  16-23:  precise, non-deterministic modes
+ *  24-31:  precise, deterministic modes (fixed-order + precise accumulation)
  */
 
 #include "arch35/sparse_bincount_simt.h"
@@ -31,11 +33,12 @@ __global__ __aicore__ void sparse_bincount(GM_ADDR indices, GM_ADDR values, GM_A
     GET_TILING_DATA_WITH_STRUCT(SparseBincountTilingData, tilingData, tiling);
 
     // Decode scene mode from tiling key
-    constexpr bool IS_DETERMINISTIC = (schMode >= 8);
+    constexpr bool IS_PRECISE = ((schMode & 0x10) != 0);
+    constexpr bool IS_DETERMINISTIC = ((schMode & 0x8) != 0);
     constexpr bool IS_1D = ((schMode & 0x4) != 0);
     constexpr bool BINARY_OUTPUT = ((schMode & 0x2) != 0);
     constexpr bool HAS_WEIGHTS = ((schMode & 0x1) != 0);
 
-    NsSparseBincount::Process<DTYPE_VALUES, DTYPE_SIZE, IS_1D, BINARY_OUTPUT, HAS_WEIGHTS, IS_DETERMINISTIC>(
-        indices, values, dense_shape, size, weights, output, &tilingData);
+    NsSparseBincount::Process<DTYPE_VALUES, DTYPE_SIZE, IS_PRECISE, IS_1D, BINARY_OUTPUT, HAS_WEIGHTS,
+                              IS_DETERMINISTIC>(indices, values, dense_shape, size, weights, output, &tilingData);
 }
