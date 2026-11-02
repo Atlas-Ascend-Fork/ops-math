@@ -8,6 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 #include <array>
+#include <limits>
 #include <vector>
 #include "gtest/gtest.h"
 
@@ -84,4 +85,34 @@ TEST_F(l2_diag_test, case_input_empty_1d_nonzero_diagonal)
     auto utWrong = OP_API_UT(aclnnDiag, INPUT(input_tensor_desc, diagonal), OUTPUT(wrong_out_desc));
     aclnnStatus aclRetWrong = utWrong.TestGetWorkspaceSize(&workspace_size);
     EXPECT_EQ(aclRetWrong, ACLNN_ERR_PARAM_INVALID);
+}
+
+TEST_F(l2_diag_test, case_diagonal_int64_min_2d)
+{
+    auto input_tensor_desc = TensorDesc({3, 4}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto out_tensor_desc = TensorDesc({0}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto ut = OP_API_UT(aclnnDiag, INPUT(input_tensor_desc, std::numeric_limits<int64_t>::min()),
+                        OUTPUT(out_tensor_desc));
+    uint64_t workspace_size = 0;
+    EXPECT_EQ(ut.TestGetWorkspaceSize(&workspace_size), ACLNN_ERR_PARAM_INVALID);
+}
+
+TEST_F(l2_diag_test, case_diagonal_int64_min_1d)
+{
+    auto input_tensor_desc = TensorDesc({5}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto out_tensor_desc = TensorDesc({0, 0}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto ut = OP_API_UT(aclnnDiag, INPUT(input_tensor_desc, std::numeric_limits<int64_t>::min()),
+                        OUTPUT(out_tensor_desc));
+    uint64_t workspace_size = 0;
+    EXPECT_EQ(ut.TestGetWorkspaceSize(&workspace_size), ACLNN_ERR_PARAM_INVALID);
+}
+
+TEST_F(l2_diag_test, case_diagonal_int64_max_1d)
+{
+    auto input_tensor_desc = TensorDesc({5}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto out_tensor_desc = TensorDesc({0, 0}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto ut = OP_API_UT(aclnnDiag, INPUT(input_tensor_desc, std::numeric_limits<int64_t>::max()),
+                        OUTPUT(out_tensor_desc));
+    uint64_t workspace_size = 0;
+    EXPECT_EQ(ut.TestGetWorkspaceSize(&workspace_size), ACLNN_ERR_PARAM_INVALID);
 }

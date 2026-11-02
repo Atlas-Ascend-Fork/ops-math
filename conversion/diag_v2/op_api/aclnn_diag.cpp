@@ -15,6 +15,7 @@
 
 #include "aclnn_diag.h"
 #include <algorithm>
+#include <limits>
 #include "aclnn_kernels/cast.h"
 #include "aclnn_kernels/contiguous.h"
 #include "diagv2.h"
@@ -88,6 +89,30 @@ static bool CheckShape(const aclTensor* self)
     return true;
 }
 
+// 检查输出边长 numel(self) + |diagonal| 及后续 outWidth * outWidth 是否会溢出 int64
+static bool CheckOverflow(const aclTensor* self, int64_t diagonal)
+{
+    // |INT64_MIN| 无法用 int64 正值表示，std::abs 结果未定义
+    if (diagonal == std::numeric_limits<int64_t>::min()) {
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "diagonal is INT64_MIN, its absolute value overflows int64.");
+        return false;
+    }
+    // 2D 只提取对角线，无方阵边长问题；仅 1D→2D 需约束 outWidth
+    if (self->GetViewShape().GetDimNum() >= DIM_TWO) {
+        return true;
+    }
+    // floor(sqrt(INT64_MAX))，保证 outWidth * outWidth 不溢出
+    constexpr int64_t MAX_OUT_WIDTH = 3037000499;
+    int64_t absDiagonal = diagonal >= 0 ? diagonal : -diagonal;
+    int64_t numel = self->Numel();
+    if (absDiagonal > MAX_OUT_WIDTH || numel < 0 || numel > MAX_OUT_WIDTH - absDiagonal) {
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "output width %ld + %ld exceeds the supported bound %ld.", numel, absDiagonal,
+                MAX_OUT_WIDTH);
+        return false;
+    }
+    return true;
+}
+
 static bool CheckDiagonal(const aclTensor* self, int64_t diagonal)
 {
     auto input_shape = self->GetViewShape();
@@ -96,6 +121,7 @@ static bool CheckDiagonal(const aclTensor* self, int64_t diagonal)
         if (diagonal > 0 && input_shape.GetDim(1) == diagonal) {
             return true;
         }
+        // 已排除 INT64_MIN，-diagonal 安全
         if (diagonal < 0 && input_shape.GetDim(0) == -diagonal) {
             return true;
         }
@@ -107,8 +133,9 @@ static op::Shape InferDiagOutShape(const aclTensor* self, int64_t diagonal)
 {
     const op::Shape& inputShape = self->GetViewShape();
     op::Shape outShape;
+    int64_t absDiagonal = diagonal >= 0 ? diagonal : -diagonal;
     if (inputShape.GetDimNum() < DIM_TWO) {
-        int64_t side = inputShape.GetShapeSize() + std::abs(diagonal);
+        int64_t side = inputShape.GetShapeSize() + absDiagonal;
         outShape.SetDimNum(DIM_TWO);
         outShape.SetDim(0, side);
         outShape.SetDim(1, side);
@@ -120,7 +147,7 @@ static op::Shape InferDiagOutShape(const aclTensor* self, int64_t diagonal)
     int64_t len = 0;
     if (diagonal >= 0 && diagonal < cols) {
         len = std::min(rows, cols - diagonal);
-    } else if (diagonal < 0 && -diagonal < rows) {
+    } else if (diagonal < 0 && diagonal > -rows) {
         len = std::min(rows + diagonal, cols);
     }
     outShape.SetDimNum(1);
@@ -189,6 +216,8 @@ aclnnStatus aclnnDiagGetWorkspaceSize(const aclTensor* self, int64_t diagonal, a
     auto ret = CheckParams(self, out);
     CHECK_RET(ret == ACLNN_SUCCESS, ret);
 
+    CHECK_RET(CheckOverflow(self, diagonal), ACLNN_ERR_PARAM_INVALID);
+
     CheckFormat(self);
 
     op::Shape expectShape = InferDiagOutShape(self, diagonal);
@@ -199,7 +228,8 @@ aclnnStatus aclnnDiagGetWorkspaceSize(const aclTensor* self, int64_t diagonal, a
         return ACLNN_SUCCESS;
     }
 
-    if (self->IsEmpty() && std::abs(diagonal) > 0) {
+    int64_t absDiagonal = diagonal >= 0 ? diagonal : -diagonal;
+    if (self->IsEmpty() && absDiagonal > 0) {
         OP_CHECK_SHAPE_NOT_EQUAL_WITH_EXPECTED_SIZE(out, expectShape, return ACLNN_ERR_PARAM_INVALID);
         ret = FillScalar(out, 0, uniqueExecutor.get());
         if (ret == ACLNN_SUCCESS) {
