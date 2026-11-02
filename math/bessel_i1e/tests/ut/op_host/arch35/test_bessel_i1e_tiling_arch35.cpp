@@ -24,6 +24,7 @@
  */
 
 #include <gtest/gtest.h>
+#include <algorithm>
 #include <iostream>
 #include "tiling_context_faker.h"
 #include "tiling_case_executor.h"
@@ -361,6 +362,61 @@ TEST_F(BesselI1eTilingTest, tiling_input_output_size_mismatch)
     TilingInfo tilingInfo;
     EXPECT_FALSE(ExecuteTiling(tilingContextPara, tilingInfo))
         << "Tiling should fail when input and output element counts differ";
+}
+
+TEST_F(BesselI1eTilingTest, tiling_negative_runtime_dimensions)
+{
+    for (const auto& shape : {
+             gert::StorageShape({-3}, {-3}),
+             gert::StorageShape({-2, -3}, {-2, -3}),
+             gert::StorageShape({0, -3}, {0, -3}),
+             gert::StorageShape({-3, 0}, {-3, 0}),
+             gert::StorageShape({-1, -1}, {-1, -1}),
+             gert::StorageShape({0, -1}, {0, -1}),
+         }) {
+        BesselI1eCompileInfo compileInfo;
+        gert::TilingContextPara tilingContextPara(OP_NAME, {{shape, ge::DT_FLOAT, ge::FORMAT_ND}},
+                                                  {{shape, ge::DT_FLOAT, ge::FORMAT_ND}}, &compileInfo, 64, 262144,
+                                                  4096);
+        TilingInfo tilingInfo;
+        EXPECT_FALSE(ExecuteTiling(tilingContextPara, tilingInfo))
+            << "Negative runtime dimensions must be rejected even when their product is zero or positive";
+    }
+}
+
+TEST_F(BesselI1eTilingTest, tiling_core_and_ub_boundaries)
+{
+    // Ascend950PR_9579: 56 AIV cores, 253952-byte UB and 32-byte blocks.
+    for (auto dtype : {ge::DT_FLOAT, ge::DT_FLOAT16, ge::DT_BF16}) {
+        const int64_t ubElements = (dtype == ge::DT_FLOAT) ? 5120 : 4720;
+        for (int64_t total :
+             {int64_t{9}, int64_t{447}, int64_t{448}, int64_t{449}, 56 * ubElements - 1, 56 * ubElements,
+              56 * ubElements + 1, 112 * ubElements - 1, 112 * ubElements, 112 * ubElements + 1}) {
+            SCOPED_TRACE(::testing::Message() << "dtype=" << dtype << ", total=" << total);
+            BesselI1eCompileInfo compileInfo;
+            gert::TilingContextPara para(OP_NAME, {{{{total}, {total}}, dtype, ge::FORMAT_ND}},
+                                         {{{{total}, {total}}, dtype, ge::FORMAT_ND}}, &compileInfo, 56, 253952, 4096);
+            TilingInfo info;
+            ASSERT_TRUE(ExecuteTiling(para, info));
+            ASSERT_GE(info.tilingDataSize, sizeof(BesselI1eTilingData));
+            auto* data = reinterpret_cast<const BesselI1eTilingData*>(info.tilingData.get());
+            EXPECT_EQ(data->totalNum, total);
+            EXPECT_EQ(data->ubFactor, ubElements);
+            ASSERT_GT(info.blockNum, uint64_t{0});
+            ASSERT_LE(info.blockNum, uint64_t{56});
+            ASSERT_GT(data->blockFactor, 0);
+            EXPECT_EQ(data->blockFactor % 8, 0);
+            int64_t covered = 0;
+            for (uint64_t core = 0; core < info.blockNum; ++core) {
+                EXPECT_EQ(static_cast<int64_t>(core) * data->blockFactor, covered);
+                const int64_t remaining = total - covered;
+                const int64_t count = std::min(remaining, data->blockFactor);
+                ASSERT_GT(count, 0);
+                covered += count;
+            }
+            EXPECT_EQ(covered, total) << "Core ranges must cover the output without gaps or overlap";
+        }
+    }
 }
 
 } // namespace BesselI1eUT

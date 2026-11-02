@@ -85,12 +85,19 @@ static ge::graphStatus GetShapeAttrsInfo(const gert::TilingContext* context, int
     }
     auto outShapeY = EnsureNotScalar(outY->GetStorageShape());
 
-    OP_CHECK_IF(inputShapeX.GetShapeSize() != outShapeY.GetShapeSize(),
-                OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(context->GetNodeName(), "y",
-                                                          std::to_string(outShapeY.GetShapeSize()).c_str(),
-                                                          "BesselI1e: input and output shape size mismatch"),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        inputShapeX != outShapeY,
+        OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON(context->GetNodeName(), "y", Ops::Base::ToString(outShapeY).c_str(),
+                                              "BesselI1e: output shape must match input shape"),
+        return ge::GRAPH_FAILED);
 
+    for (size_t i = 0; i < inputShapeX.GetDimNum(); ++i) {
+        OP_CHECK_IF(
+            inputShapeX.GetDim(i) < 0,
+            OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON(context->GetNodeName(), "x", Ops::Base::ToString(inputShapeX).c_str(),
+                                                  "BesselI1e: runtime shape dimensions must be non-negative"),
+            return ge::GRAPH_FAILED);
+    }
     *totalIdx = inputShapeX.GetShapeSize();
     const std::set<ge::DataType> supportedDtype = {ge::DT_FLOAT, ge::DT_FLOAT16, ge::DT_BF16};
     auto inputDesc = context->GetInputDesc(0);
@@ -103,11 +110,26 @@ static ge::graphStatus GetShapeAttrsInfo(const gert::TilingContext* context, int
         OP_LOGE_FOR_INVALID_FORMAT(context->GetNodeName(), "x",
                                    std::to_string(static_cast<int32_t>(inputDesc->GetStorageFormat())).c_str(), "ND"),
         return ge::GRAPH_FAILED);
+    auto outputDesc = context->GetOutputDesc(0);
+    if (outputDesc == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "y");
+        return ge::GRAPH_FAILED;
+    }
+    OP_CHECK_IF(
+        outputDesc->GetStorageFormat() != ge::FORMAT_ND,
+        OP_LOGE_FOR_INVALID_FORMAT(context->GetNodeName(), "y",
+                                   std::to_string(static_cast<int32_t>(outputDesc->GetStorageFormat())).c_str(), "ND"),
+        return ge::GRAPH_FAILED);
     *dataType = inputDesc->GetDataType();
     OP_CHECK_IF(supportedDtype.count(*dataType) == 0,
                 OP_LOGE_FOR_INVALID_DTYPE(context->GetNodeName(), "x", Ops::Base::ToString(*dataType).c_str(),
                                           "DT_FLOAT, DT_FLOAT16, DT_BFLOAT16"),
                 return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        outputDesc->GetDataType() != *dataType,
+        OP_LOGE_FOR_INVALID_DTYPE(context->GetNodeName(), "y", Ops::Base::ToString(outputDesc->GetDataType()).c_str(),
+                                  Ops::Base::ToString(*dataType).c_str()),
+        return ge::GRAPH_FAILED);
     return ge::GRAPH_SUCCESS;
 }
 

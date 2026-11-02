@@ -158,13 +158,13 @@ bool Verify(const ge::Tensor& output, const std::vector<int64_t>& expectedShape,
 {
     const ge::TensorDesc& desc = output.GetTensorDesc();
     const std::vector<int64_t> actualShape = desc.GetShape().GetDims();
-    if (desc.GetDataType() != ge::DT_FLOAT || !ShapeEquals(actualShape, expectedShape) ||
-        ElementCount(actualShape) != input.size()) {
+    if (desc.GetDataType() != ge::DT_FLOAT || desc.GetFormat() != ge::FORMAT_ND ||
+        !ShapeEquals(actualShape, expectedShape) || ElementCount(actualShape) != input.size()) {
         std::cerr << "Output descriptor mismatch for " << ShapeString(expectedShape) << std::endl;
         return false;
     }
     const auto* actual = reinterpret_cast<const float*>(output.GetData());
-    if (actual == nullptr) {
+    if (actual == nullptr && !input.empty()) {
         std::cerr << "Output data is null" << std::endl;
         return false;
     }
@@ -230,8 +230,10 @@ int main()
         return FAILED;
     }
     // -1: unknown dims (rank known); -2: unknown rank (dims resolved at runtime).
-    const bool unknownDim = RunScenario("unknown_dim_minus_1", 0, {-1, -1}, {{4, 2}, {1, 8}, {3, 5}});
-    const bool unknownRank = RunScenario("unknown_rank_minus_2", 1, {-2}, {{}, {8}, {4, 2}, {2, 3, 4}});
+    const bool unknownDim = RunScenario("unknown_dim_minus_1", 0, {-1, -1}, {{4, 2}, {0, 3}, {3, 0}, {1, 8}, {3, 5}});
+    const bool unknownRank = RunScenario(
+        "unknown_rank_minus_2", 1, {-2},
+        {{}, {8}, {0, 3}, {3, 0}, {4, 2}, {2, 3, 4}, {1, 1, 1, 1, 1, 1, 2, 3}, {8}, {}});
     const bool finalized = (ge::GEFinalize() == ge::SUCCESS);
     if (!unknownDim || !unknownRank || !finalized) {
         return FAILED;
