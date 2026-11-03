@@ -25,4 +25,4 @@ static ge::graphStatus InferShape4Asin(gert::InferShapeContext* context)
 
 IMPL_OP_INFERSHAPE(Asin).InferShape(InferShape4Asin);
 
-}  // namespace ops
+} // namespace ops

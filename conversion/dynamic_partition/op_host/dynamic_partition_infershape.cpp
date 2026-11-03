@@ -16,6 +16,7 @@
 
 #include "register/op_impl_registry.h"
 #include "log/log.h"
+#include "op_host/util/shape_util.h"
 
 using namespace ge;
 namespace ops {
@@ -123,5 +124,52 @@ static graphStatus InferShapeRange4DynamicPartition(gert::InferShapeRangeContext
     return GRAPH_SUCCESS;
 }
 
-IMPL_OP_INFERSHAPE(DynamicPartition).InferShapeRange(InferShapeRange4DynamicPartition);
+static graphStatus InferShape4DynamicPartition(gert::InferShapeContext* context)
+{
+    OP_LOGD(context->GetNodeName(), "InferShape4DynamicPartition start");
+
+    const gert::Shape* xShape = context->GetInputShape(0);
+    OP_CHECK_NULL_WITH_CONTEXT(context, xShape);
+    const gert::Shape* partShape = context->GetInputShape(1);
+    OP_CHECK_NULL_WITH_CONTEXT(context, partShape);
+
+    int64_t numParts = 1;
+    OP_CHECK_IF(GetNumPartitions<gert::InferShapeContext>(context, numParts) != GRAPH_SUCCESS,
+                OP_LOGE(context->GetNodeName(), "Failed to get attr num_partitions!"), return GRAPH_FAILED);
+
+    if (Ops::Base::IsUnknownRank(*xShape) || Ops::Base::IsUnknownRank(*partShape)) {
+        OP_LOGD(context->GetNodeName(), "input x or partitions is unknown rank, set all output unknown rank.");
+        for (int64_t oIdx = 0; oIdx < numParts; ++oIdx) {
+            auto yShape = context->GetOutputShape(oIdx);
+            OP_CHECK_NULL_WITH_CONTEXT(context, yShape);
+            Ops::Base::SetUnknownRank(*yShape);
+        }
+        return GRAPH_SUCCESS;
+    }
+
+    auto xDimNum = xShape->GetDimNum();
+    auto pDimNum = partShape->GetDimNum();
+    OP_CHECK_IF(pDimNum > xDimNum,
+                OP_LOGE(context->GetNodeName(), "The partitions dim num %zu is larger than x's %zu!", pDimNum, xDimNum),
+                return GRAPH_FAILED);
+
+    auto yDimNum = xDimNum - pDimNum + 1;
+    for (int64_t oIdx = 0; oIdx < numParts; ++oIdx) {
+        auto yShape = context->GetOutputShape(oIdx);
+        OP_CHECK_NULL_WITH_CONTEXT(context, yShape);
+        yShape->SetDimNum(yDimNum);
+        yShape->SetDim(0, -1L);
+        for (size_t j = 1; j < yDimNum; ++j) {
+            yShape->SetDim(j, xShape->GetDim(pDimNum - 1 + j));
+        }
+    }
+
+    OP_LOGD(context->GetNodeName(), "InferShape4DynamicPartition end");
+    return GRAPH_SUCCESS;
+}
+
+IMPL_OP_INFERSHAPE(DynamicPartition)
+    .InferShape(InferShape4DynamicPartition)
+    .InferShapeRange(InferShapeRange4DynamicPartition)
+    .OutputShapeDependOnCompute({0});
 } // namespace ops

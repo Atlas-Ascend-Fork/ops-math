@@ -14,4 +14,4 @@
 using namespace ge;
 namespace ops {
 IMPL_OP_INFERSHAPE(Adds).InferShape(Ops::Base::InferShape4Elewise);
-}
+} // namespace ops

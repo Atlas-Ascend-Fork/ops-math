@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -14,8 +14,11 @@
 using namespace ge;
 namespace ops {
 
-ge::graphStatus CopyShapeInput2OutputWithAssign(gert::InferShapeContext* context) {
-    auto in_shape = context->GetInputShape(1);
+ge::graphStatus CopyShapeInput2OutputWithAssign(gert::InferShapeContext* context)
+{
+    // 输出 ref 的 shape/dtype 与输入 ref（index 0）一致；不能取 value（index 1）：
+    // value 为标量（numel=1）时 kernel 用 value[0] 填满 ref，输出仍是 ref 的 shape。
+    auto in_shape = context->GetInputShape(0);
     OP_CHECK_NULL_WITH_CONTEXT(context, in_shape);
     auto out_shape = context->GetOutputShape(0);
     OP_CHECK_NULL_WITH_CONTEXT(context, out_shape);
@@ -24,4 +27,4 @@ ge::graphStatus CopyShapeInput2OutputWithAssign(gert::InferShapeContext* context
 }
 
 IMPL_OP_INFERSHAPE(Assign).InferShape(CopyShapeInput2OutputWithAssign);
-}
+} // namespace ops

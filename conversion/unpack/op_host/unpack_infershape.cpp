@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -33,6 +33,16 @@ static graphStatus InferShapeForUnpack(gert::InferShapeContext* context)
     }
 
     const gert::Shape* input_x_shape = context->GetInputShape(0);
+    OP_CHECK_NULL_WITH_CONTEXT(context, input_x_shape);
+    if (IsUnknownRank(*input_x_shape)) {
+        // 未知秩(-2)兼容: 与 rt1.0 UnpackInferShape 对齐, 各输出保持未知秩 {-2}
+        for (size_t i0 = 0; static_cast<int64_t>(i0) < *num; i0++) {
+            gert::Shape* output_y_i0_shape = context->GetOutputShape(i0);
+            OP_CHECK_NULL_WITH_CONTEXT(context, output_y_i0_shape);
+            SetUnknownRank(*output_y_i0_shape);
+        }
+        return GRAPH_SUCCESS;
+    }
     size_t input_x_dim_num = input_x_shape->GetDimNum();
     int64_t real_axis = (*axis >= 0) ? *axis : *axis + input_x_dim_num;
     if (real_axis < 0 || real_axis >= static_cast<int64_t>(input_x_dim_num)) {

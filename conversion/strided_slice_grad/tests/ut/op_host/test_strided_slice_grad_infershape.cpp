@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -79,7 +79,8 @@ TEST_F(StridedSliceGradInfershape, strided_slice_grad_dynamic_shape_test)
             {"shrink_axis_mask", Ops::Math::AnyValue::CreateFrom<int64_t>(0)},
         },
         {5}, {1});
-    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS);
+    std::vector<std::vector<int64_t>> expectOutputShape = {{-1, -1}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
 
 TEST_F(StridedSliceGradInfershape, strided_slice_grad_unknown_rank_test)
@@ -133,10 +134,11 @@ TEST_F(StridedSliceGradInfershape, strided_slice_grad_special_branch_test)
             {"shrink_axis_mask", Ops::Math::AnyValue::CreateFrom<int64_t>(0)},
         },
         {5}, {1});
-    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS);
+    std::vector<std::vector<int64_t>> expectOutputShape = {{-1, 96}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
 
-TEST_F(StridedSliceGradInfershape, strided_slice_grad_error_empty_shape_test)
+TEST_F(StridedSliceGradInfershape, strided_slice_grad_empty_shape_scalar_test)
 {
     gert::InfershapeContextPara infershapeContextPara(
         "StridedSliceGrad",
@@ -158,7 +160,8 @@ TEST_F(StridedSliceGradInfershape, strided_slice_grad_error_empty_shape_test)
             {"shrink_axis_mask", Ops::Math::AnyValue::CreateFrom<int64_t>(0)},
         },
         {5}, {1});
-    ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED);
+    std::vector<std::vector<int64_t>> expectOutputShape = {{}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
 
 TEST_F(StridedSliceGradInfershape, strided_slice_grad_error_rank_test)

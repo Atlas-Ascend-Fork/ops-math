@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -130,11 +130,12 @@ static ge::graphStatus InferShape4StridedSliceGrad(gert::InferShapeContext* cont
                 return ge::GRAPH_FAILED);
     const int64_t in_shape_shape_value = in_shape_shape->IsScalar() ? 1 : in_shape_shape->GetDim(0);
 
-    OP_CHECK_IF(in_shape_shape_value == 0,
-                OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(context->GetNodeName(), "shape",
-                                                          std::to_string(in_shape_shape_value).c_str(),
-                                                          "shape cannot be an empty tensor"),
-                return ge::GRAPH_FAILED);
+    // 兼容 rt1.0 动态分支语义：shape 值为空(前向为 rank-0 标量)时，输出同样为 rank-0 标量。
+    // rt1.0 dim_vector[0]==0 → 不插入任何维 → 输出 {}；此处对齐，避免 C1 日落 rt1.0 后标量前向回归。
+    if (in_shape_shape_value == 0) {
+        output_shape->SetDimNum(0);
+        return ge::GRAPH_SUCCESS;
+    }
 
     // shape is unknown, out_shape is -2
     if (in_shape_shape_value < 0) {
