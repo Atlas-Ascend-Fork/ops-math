@@ -26,6 +26,9 @@ protected:
     static void SetUpTestCase() { cout << "logical_or_test SetUp" << endl; }
 
     static void TearDownTestCase() { cout << "logical_or_test TearDown" << endl; }
+
+    // 恢复默认平台(ASCEND910B/DAV_2201)，避免 testcase005 设置的 DAV_3510 泄漏到后续用例
+    void TearDown() override { op::SetPlatformNpuArch(NpuArch::DAV_2201); }
 };
 
 TEST_F(l2_logical_or_test, aclnnLogicalOr_223_32_17_17_float16_nchw_223_1_1_17_float16_nchw_testcase002)
@@ -198,7 +201,7 @@ TEST_F(l2_logical_or_test, aclnnLogicalOr_1_5_1_16_129_int16_ndhwc_32_5_32_16_1_
     // SAMPLE: only test GetWorkspaceSize
     uint64_t workspaceSize = 0;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
-    // EXPECT_EQ(aclRet, ACL_SUCCESS);
+    EXPECT_EQ(aclRet, ACL_SUCCESS);
 
     // SAMPLE: precision simulate
     // ut.TestPrecision();
@@ -256,7 +259,7 @@ TEST_F(l2_logical_or_test, aclnnLogicalOr_64_31_31_16_uint8_nhwc_64_31_1_1_uint8
     // SAMPLE: only test GetWorkspaceSize
     uint64_t workspaceSize = 0;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
-    // EXPECT_EQ(aclRet, ACL_SUCCESS);
+    EXPECT_EQ(aclRet, ACL_SUCCESS);
 
     // SAMPLE: precision simulate
     // ut.TestPrecision();
@@ -314,7 +317,7 @@ TEST_F(l2_logical_or_test, aclnnLogicalOr_64_31_31_16_uint8_nhwc_64_31_1_1_uint8
     // SAMPLE: only test GetWorkspaceSize
     uint64_t workspaceSize = 0;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
-    // EXPECT_EQ(aclRet, ACL_SUCCESS);
+    EXPECT_EQ(aclRet, ACL_SUCCESS);
 
     // SAMPLE: precision simulate
     // ut.TestPrecision();
@@ -372,7 +375,7 @@ TEST_F(l2_logical_or_test, aclnnLogicalOr_1_5_1_16_129_int16_ndhwc_32_5_32_16_1_
     // SAMPLE: only test GetWorkspaceSize
     uint64_t workspaceSize = 0;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
-    // EXPECT_EQ(aclRet, ACL_SUCCESS);
+    EXPECT_EQ(aclRet, ACL_SUCCESS);
 
     // SAMPLE: precision simulate
     // ut.TestPrecision();
