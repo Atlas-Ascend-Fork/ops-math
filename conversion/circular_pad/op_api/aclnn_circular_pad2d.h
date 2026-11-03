@@ -26,7 +26,7 @@ extern "C" {
  * @param [in] self: npu device侧的aclTensor, 数据类型支持BFLOAT16,FLOAT16, FLOAT32,INT8,
  * INT32,数据格式支持ND，维度支持三维或四维。
  * @param [in] padding: npu device侧的aclIntArray数组, 数据类型为INT64，长度为4，数值依次代表左右上下需要填充的值。
- * 前两个数值需小于self最后一维度的数值，后两个数值需小于self倒数第二维度的数值。
+ * 前两个数值需不超过self最后一维度的数值，后两个数值需不超过self倒数第二维度的数值。
  * @param [in] out: npu device侧的aclTensor,
  * 数据类型、数据格式、维度与self一致，倒数第二维度的数值等于self倒数第二维度的
  * 数值加padding后两个值，最后一维度的数值等于self最后一维度的数值加padding前两个值。

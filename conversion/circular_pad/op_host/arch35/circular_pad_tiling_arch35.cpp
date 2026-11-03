@@ -236,8 +236,8 @@ static ge::graphStatus ReadPaddings(gert::TilingContext* context, int64_t& left,
 // 填充 TilingData
 static void FillTilingData(CircularPadTilingData* tiling, int64_t inputH, int64_t inputW, int64_t inputL,
                            int64_t outputH, int64_t outputW, int64_t outputL, int64_t left, int64_t right, int64_t top,
-                           int64_t bottom, int64_t front, int64_t back, int64_t totalOutputElements,
-                           int64_t needCoreNum, int64_t availUbBytes)
+                           int64_t bottom, int64_t front, int64_t back, int64_t totalInputElements,
+                           int64_t totalOutputElements, int64_t needCoreNum, int64_t availUbBytes)
 {
     tiling->inputH = inputH;
     tiling->inputW = inputW;
@@ -251,6 +251,7 @@ static void FillTilingData(CircularPadTilingData* tiling, int64_t inputH, int64_
     tiling->bottom = bottom;
     tiling->front = front;
     tiling->back = back;
+    tiling->totalInputElements = totalInputElements;
     tiling->totalOutputElements = totalOutputElements;
     tiling->needCoreNum = needCoreNum;
     tiling->ubSize = availUbBytes;
@@ -262,16 +263,17 @@ static void DumpTilingData(gert::TilingContext* context, const CircularPadTiling
             "CircularPadTilingData: inputH=%ld, inputW=%ld, inputL=%ld, "
             "outputH=%ld, outputW=%ld, outputL=%ld, "
             "left=%ld, right=%ld, top=%ld, bottom=%ld, front=%ld, back=%ld, "
-            "totalOutputElements=%ld, needCoreNum=%ld, ubSize=%ld",
+            "totalInputElements=%ld, totalOutputElements=%ld, needCoreNum=%ld, ubSize=%ld",
             tiling->inputH, tiling->inputW, tiling->inputL, tiling->outputH, tiling->outputW, tiling->outputL,
             tiling->left, tiling->right, tiling->top, tiling->bottom, tiling->front, tiling->back,
-            tiling->totalOutputElements, tiling->needCoreNum, tiling->ubSize);
+            tiling->totalInputElements, tiling->totalOutputElements, tiling->needCoreNum, tiling->ubSize);
 }
 
 struct CircularPadParams {
     int64_t left, right, top, bottom, front, back;
     int64_t inputH, inputW, inputL;
     int64_t outputH, outputW, outputL;
+    int64_t totalInputElements;
     int64_t totalOutputElements;
     bool is3D;
 };
@@ -373,7 +375,8 @@ static ge::graphStatus ReadAndCheckParams(gert::TilingContext* context, [[maybe_
             return ge::GRAPH_FAILED);
     }
     // 注: 输出最后一维无上限约束（SIMT kernel 逐元素 GM 访问，行宽不受 UB 限制；
-    // 索引类型由 totalOutputElements 自动选择 uint32_t/uint64_t 路径）
+    // 索引位宽按输入/输出总元素数共同选择 uint32_t/uint64_t 路径）
+    p.totalInputElements = xShape.GetShapeSize();
     p.totalOutputElements = yShape.GetShapeSize();
     return ge::GRAPH_SUCCESS;
 }
@@ -413,7 +416,7 @@ static ge::graphStatus CircularPadTilingFunc(gert::TilingContext* context)
     OP_CHECK_IF(memset_s(tiling, sizeof(CircularPadTilingData), 0, sizeof(CircularPadTilingData)) != EOK,
                 OP_LOGE(context, "memset_s failed"), return ge::GRAPH_FAILED);
     FillTilingData(tiling, p.inputH, p.inputW, p.inputL, p.outputH, p.outputW, p.outputL, p.left, p.right, p.top,
-                   p.bottom, p.front, p.back, p.totalOutputElements, needCoreNum, availUbBytes);
+                   p.bottom, p.front, p.back, p.totalInputElements, p.totalOutputElements, needCoreNum, availUbBytes);
     DumpTilingData(context, tiling);
 
     OP_CHECK_IF(GetWorkspaceSize(context) != ge::GRAPH_SUCCESS, OP_LOGE(context, "GetWorkspaceSize failed"),

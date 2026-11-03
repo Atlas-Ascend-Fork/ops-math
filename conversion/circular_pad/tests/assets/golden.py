@@ -37,7 +37,28 @@ def _to_pad_tuple(paddings):
 
 
 def _torch_compute(x_torch, pad):
-    return F.pad(x_torch, pad, mode="circular")
+    pad = tuple(int(p) for p in pad)
+    if all(p >= 0 for p in pad):
+        return F.pad(x_torch, pad, mode="circular")
+
+    # 负 padding 裁剪语义：F.pad 的 circular 模式禁止负 padding，此处先按负值裁剪两端，
+    # 再对非负值做 circular 填充（与算子 CheckPadPair 语义一致：负值裁剪、正值绕回）。
+    ndim = x_torch.dim()
+    n_pairs = len(pad) // 2
+    slices = [slice(None)] * ndim
+    for i in range(n_pairs):
+        pad_l, pad_r = pad[2 * i], pad[2 * i + 1]
+        axis = ndim - 1 - i
+        size = x_torch.shape[axis]
+        start = -pad_l if pad_l < 0 else 0
+        end = size + pad_r if pad_r < 0 else size
+        slices[axis] = slice(start, end)
+    x_cropped = x_torch[tuple(slices)]
+
+    pos_pad = [(p if p > 0 else 0) for p in pad]
+    if any(p > 0 for p in pos_pad):
+        return F.pad(x_cropped, tuple(pos_pad), mode="circular")
+    return x_cropped
 
 
 class CircularPadKernelSpec:
@@ -69,9 +90,9 @@ class CircularPadKernelSpec:
 
     third_party = {"torch": ThirdPartyImpl}
     tolerance = {
-        "float32": {"standard": "cross_check", "level": "L1"},
-        "float16": {"standard": "cross_check", "level": "L1"},
-        "bfloat16": {"standard": "cross_check", "level": "L1"},
+        "float32": {"standard": "binary_equal"},
+        "float16": {"standard": "binary_equal"},
+        "bfloat16": {"standard": "binary_equal"},
         "int32": {"standard": "binary_equal"},
         "int8": {"standard": "binary_equal"},
     }
@@ -84,9 +105,9 @@ class AclnnCircularPad2dSpec:
 
     third_party = {"torch": CircularPadKernelSpec.ThirdPartyImpl}
     tolerance = {
-        "float32": {"standard": "cross_check", "level": "L1"},
-        "float16": {"standard": "cross_check", "level": "L1"},
-        "bfloat16": {"standard": "cross_check", "level": "L1"},
+        "float32": {"standard": "binary_equal"},
+        "float16": {"standard": "binary_equal"},
+        "bfloat16": {"standard": "binary_equal"},
         "int32": {"standard": "binary_equal"},
         "int8": {"standard": "binary_equal"},
     }
@@ -99,9 +120,9 @@ class AclnnCircularPad3dSpec:
 
     third_party = {"torch": CircularPadKernelSpec.ThirdPartyImpl}
     tolerance = {
-        "float32": {"standard": "cross_check", "level": "L1"},
-        "float16": {"standard": "cross_check", "level": "L1"},
-        "bfloat16": {"standard": "cross_check", "level": "L1"},
+        "float32": {"standard": "binary_equal"},
+        "float16": {"standard": "binary_equal"},
+        "bfloat16": {"standard": "binary_equal"},
         "int32": {"standard": "binary_equal"},
         "int8": {"standard": "binary_equal"},
     }

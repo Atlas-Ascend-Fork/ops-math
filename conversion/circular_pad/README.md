@@ -15,14 +15,12 @@
 
 ## 功能说明
 
-- 算子功能：使用循环填充方式对输入张量进行填充操作。
+- 算子功能：使用循环填充方式对输入张量进行填充操作。本算子为单一GEIR算子，通过paddings长度区分2d/3d模式。
 - CircularPad2d：对输入张量的最后两维进行循环填充。
 - CircularPad3d：对输入张量的最后三维进行循环填充。
 
 ## 参数说明
 
-### CircularPad2d
-
 <table style="table-layout: fixed; width: 974px"><colgroup>
 <col style="width: 139px">
 <col style="width: 146px">
@@ -33,72 +31,30 @@
 <thead>
   <tr>
     <th>参数名</th>
-    <th>输入/输出/属性</th>
+    <th>输入/输出</th>
     <th>描述</th>
     <th>数据类型</th>
     <th>数据格式</th>
   </tr></thead>
 <tbody>
   <tr>
-    <td>self</td>
-    <td>输入张量</td>
-    <td>待填充的原输入数据，shape支持3-4维。</td>
+    <td>x</td>
+    <td>输入</td>
+    <td>待填充的原输入数据。shape支持3-5维：2d模式填充最后2维，3d模式填充最后3维。</td>
     <td>FLOAT16、BFLOAT16、FLOAT32、INT8、INT32</td>
     <td>ND</td>
   </tr>
   <tr>
-    <td>padding</td>
-    <td>输入数组</td>
-    <td>填充维度，长度为4，数值依次代表左右上下需要填充的值。</td>
+    <td>paddings</td>
+    <td>输入</td>
+    <td>填充配置。长度为4时数值依次代表左右上下需要填充的值（2d模式）；长度为6时数值依次代表左右上下前后需要填充的值（3d模式）。</td>
     <td>INT64</td>
-    <td>-</td>
-  </tr>
-  <tr>
-    <td>out</td>
-    <td>输出张量</td>
-    <td>填充后的输出结果，shape支持3-4维。</td>
-    <td>FLOAT16、BFLOAT16、FLOAT32、INT8、INT32</td>
-    <td>ND</td>
-  </tr>
-</tbody>
-</table>
-
-### CircularPad3d
-
-<table style="table-layout: fixed; width: 974px"><colgroup>
-<col style="width: 139px">
-<col style="width: 146px">
-<col style="width: 342px">
-<col style="width: 251px">
-<col style="width: 96px">
-</colgroup>
-<thead>
-  <tr>
-    <th>参数名</th>
-    <th>输入/输出/属性</th>
-    <th>描述</th>
-    <th>数据类型</th>
-    <th>数据格式</th>
-  </tr></thead>
-<tbody>
-  <tr>
-    <td>self</td>
-    <td>输入张量</td>
-    <td>待填充的原输入数据，shape支持4-5维。</td>
-    <td>FLOAT16、BFLOAT16、FLOAT32、INT8、INT32</td>
     <td>ND</td>
   </tr>
   <tr>
-    <td>padding</td>
-    <td>输入数组</td>
-    <td>填充维度，长度为6，数值依次代表左右上下前后需要填充的值。</td>
-    <td>INT64</td>
-    <td>-</td>
-  </tr>
-  <tr>
-    <td>out</td>
-    <td>输出张量</td>
-    <td>填充后的输出结果，shape支持4-5维。</td>
+    <td>y</td>
+    <td>输出</td>
+    <td>填充后的输出结果，维度数与x一致。</td>
     <td>FLOAT16、BFLOAT16、FLOAT32、INT8、INT32</td>
     <td>ND</td>
   </tr>
@@ -110,16 +66,16 @@
 ## 约束说明
 
 - Ascend 950（Arch35）的 CircularPad 正 padding 可等于校验所用的对应尺寸（图模式为负 padding 裁剪后的有效尺寸，ACLNN 接口为输入维度）；超过该尺寸不支持多圈绕回。其他产品以对应版本文档约束为准。
-- out的最后一维在不同类型下的大小需满足如下约束：
+- y的最后一维在不同类型下的大小需满足如下约束（仅适用于 Atlas A2/A3、Kirin 系列产品；Ascend 950/960/350（Arch35）无此上限约束）：
   - int8：(0, 98304)
   - float16/bfloat16：(0, 49152)
   - int32/float32：(0, 24576)
 - 输入和输出的数据类型必须一致。
-- 支持非连续的Tensor。
+- 2d 模式（paddings 长度 4）要求 x 维度数为 3 或 4；3d 模式（paddings 长度 6）要求 x 维度数为 4 或 5。即 paddings 长度必须等于 2 × 被填充维数（2d 填充末 2 维，3d 填充末 3 维）。
 
 ## 调用说明
 
 | 调用方式  | 样例代码                                                     | 说明                                                         |
 | --------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| aclnn接口 | [test_aclnn_circular_pad](./examples/test_aclnn_circular_pad.cpp) | 通过[aclnnCircularPad2d](docs/aclnnCircularPad2d.md), [aclnnCircularPad3d](docs/aclnnCircularPad3d.md)接口方式调用CircularPad2d算子。 |
+| aclnn接口 | [test_aclnn_circular_pad](./examples/test_aclnn_circular_pad.cpp) | 通过[aclnnCircularPad2d](docs/aclnnCircularPad2d.md)、[aclnnCircularPad3d](docs/aclnnCircularPad3d.md)接口调用CircularPad算子。 |
 | 图模式调用 | [test_geir_circular_pad](./examples/test_geir_circular_pad.cpp) | 通过[算子IR](./op_graph/circular_pad_proto.h)构图方式调用CircularPad算子。 |

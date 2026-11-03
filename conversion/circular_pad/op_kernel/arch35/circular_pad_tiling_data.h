@@ -14,25 +14,26 @@
  * \file circular_pad_tiling_data.h
  * \brief Tiling data struct for circular_pad operator
  *
- * TilingData 定义: 15 个 int64_t 字段
+ * TilingData 定义: 16 个 int64_t 字段
  */
 
 #ifndef CIRCULAR_PAD_TILING_DATA_H_
 #define CIRCULAR_PAD_TILING_DATA_H_
 
 struct CircularPadTilingData {
-    int64_t inputH = 0;              // 输入 H 维度大小
-    int64_t inputW = 0;              // 输入 W 维度大小
-    int64_t inputL = 0;              // 输入 D 维度大小（2D 模式为 0）
-    int64_t outputH = 0;             // 输出 H 维度大小
-    int64_t outputW = 0;             // 输出 W 维度大小
-    int64_t outputL = 0;             // 输出 D 维度大小（2D 模式为 0）
-    int64_t left = 0;                // 左填充值
-    int64_t right = 0;               // 右填充值
-    int64_t top = 0;                 // 上填充值
-    int64_t bottom = 0;              // 下填充值
-    int64_t front = 0;               // 前填充值（2D 模式为 0）
-    int64_t back = 0;                // 后填充值（2D 模式为 0）
+    int64_t inputH = 0;             // 输入 H 维度大小
+    int64_t inputW = 0;             // 输入 W 维度大小
+    int64_t inputL = 0;             // 输入 D 维度大小（2D 模式为 0）
+    int64_t outputH = 0;            // 输出 H 维度大小
+    int64_t outputW = 0;            // 输出 W 维度大小
+    int64_t outputL = 0;            // 输出 D 维度大小（2D 模式为 0）
+    int64_t left = 0;               // 左填充值
+    int64_t right = 0;              // 右填充值
+    int64_t top = 0;                // 上填充值
+    int64_t bottom = 0;             // 下填充值
+    int64_t front = 0;              // 前填充值（2D 模式为 0）
+    int64_t back = 0;               // 后填充值（2D 模式为 0）
+    int64_t totalInputElements = 0; // 输入总元素数（SIMT 源索引位宽选择，负 padding 裁剪时可能大于输出）
     int64_t totalOutputElements = 0; // 输出总元素数（Grid-Stride 循环上界）
     int64_t needCoreNum = 0;         // 实际需要的核数
     int64_t ubSize = 0; // TPipe 可用 UB 字节数（host 按平台实测下发，已扣 DCache/静态占用）

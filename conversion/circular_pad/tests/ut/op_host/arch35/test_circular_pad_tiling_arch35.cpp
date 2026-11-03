@@ -49,7 +49,7 @@ TEST_F(CircularPadTiling, circular_pad_2d_fp32)
         262144,                   // the ubsize obtained in the tiling phase
         4096);                    // specifies the maximum size of the tiling data in the tiling phase
     uint64_t expectTilingKey = 4; // VF 旁路(小输出): schMode=2D | IsSimt=1
-    string expectTilingData = "4 8 0 6 10 0 1 1 1 1 0 0 120 1 229376 ";
+    string expectTilingData = "4 8 0 6 10 0 1 1 1 1 0 0 64 120 1 229376 ";
     TilingInfo tilingInfo;
     EXPECT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
     EXPECT_EQ(tilingInfo.tilingKey, expectTilingKey);
@@ -81,7 +81,7 @@ TEST_F(CircularPadTiling, circular_pad_2d_fp16)
                                               },
                                               &compileInfo, 64, 262144, 4096);
     uint64_t expectTilingKey = 4; // VF 旁路(小输出): schMode=2D | IsSimt=1
-    string expectTilingData = "8 16 0 11 21 0 2 3 1 2 0 0 231 1 229376 ";
+    string expectTilingData = "8 16 0 11 21 0 2 3 1 2 0 0 128 231 1 229376 ";
     TilingInfo tilingInfo;
     EXPECT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
     EXPECT_EQ(tilingInfo.tilingKey, expectTilingKey);
@@ -113,7 +113,7 @@ TEST_F(CircularPadTiling, circular_pad_3d_fp32)
                                               },
                                               &compileInfo, 64, 262144, 4096);
     uint64_t expectTilingKey = 5; // VF 旁路(小输出): schMode=3D | IsSimt=1
-    string expectTilingData = "8 16 4 10 18 6 1 1 1 1 1 1 1080 2 229376 ";
+    string expectTilingData = "8 16 4 10 18 6 1 1 1 1 1 1 512 1080 2 229376 ";
     TilingInfo tilingInfo;
     EXPECT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
     EXPECT_EQ(tilingInfo.tilingKey, expectTilingKey);
@@ -145,7 +145,7 @@ TEST_F(CircularPadTiling, circular_pad_2d_int8)
                                               },
                                               &compileInfo, 64, 262144, 4096);
     uint64_t expectTilingKey = 4; // VF 旁路(小输出): schMode=2D | IsSimt=1
-    string expectTilingData = "4 8 0 6 8 0 0 0 1 1 0 0 96 1 229376 ";
+    string expectTilingData = "4 8 0 6 8 0 0 0 1 1 0 0 64 96 1 229376 ";
     TilingInfo tilingInfo;
     EXPECT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
     EXPECT_EQ(tilingInfo.tilingKey, expectTilingKey);
@@ -177,7 +177,7 @@ TEST_F(CircularPadTiling, circular_pad_3d_bf16_neg_pad)
                                               },
                                               &compileInfo, 64, 262144, 4096);
     uint64_t expectTilingKey = 5; // VF 旁路(小输出): schMode=3D | IsSimt=1
-    string expectTilingData = "4 8 3 6 8 3 -1 1 1 1 0 0 144 1 229376 ";
+    string expectTilingData = "4 8 3 6 8 3 -1 1 1 1 0 0 96 144 1 229376 ";
     TilingInfo tilingInfo;
     EXPECT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
     EXPECT_EQ(tilingInfo.tilingKey, expectTilingKey);
@@ -209,7 +209,7 @@ TEST_F(CircularPadTiling, circular_pad_2d_int32)
                                               },
                                               &compileInfo, 64, 262144, 4096);
     uint64_t expectTilingKey = 4; // VF 旁路(小输出): schMode=2D | IsSimt=1
-    string expectTilingData = "4 16 0 6 20 0 2 2 1 1 0 0 120 1 229376 ";
+    string expectTilingData = "4 16 0 6 20 0 2 2 1 1 0 0 64 120 1 229376 ";
     TilingInfo tilingInfo;
     EXPECT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
     EXPECT_EQ(tilingInfo.tilingKey, expectTilingKey);
@@ -242,7 +242,7 @@ TEST_F(CircularPadTiling, circular_pad_2d_fp32_mte)
                                               },
                                               &compileInfo, 64, 262144, 4096);
     uint64_t expectTilingKey = 0; // MTE 主路径: schMode=2D | IsSimt=0
-    string expectTilingData = "128 256 0 130 258 0 1 1 1 1 0 0 67080 64 229376 ";
+    string expectTilingData = "128 256 0 130 258 0 1 1 1 1 0 0 65536 67080 64 229376 ";
     TilingInfo tilingInfo;
     EXPECT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
     EXPECT_EQ(tilingInfo.tilingKey, expectTilingKey);
@@ -275,7 +275,7 @@ TEST_F(CircularPadTiling, circular_pad_3d_fp16_mte)
                                               },
                                               &compileInfo, 64, 262144, 4096);
     uint64_t expectTilingKey = 1; // MTE 主路径: schMode=3D | IsSimt=0
-    string expectTilingData = "128 256 4 130 258 6 1 1 1 1 1 1 201240 64 229376 ";
+    string expectTilingData = "128 256 4 130 258 6 1 1 1 1 1 1 131072 201240 64 229376 ";
     TilingInfo tilingInfo;
     EXPECT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
     EXPECT_EQ(tilingInfo.tilingKey, expectTilingKey);
@@ -308,7 +308,7 @@ TEST_F(CircularPadTiling, circular_pad_2d_fp16_large_output_narrow_row)
                                               },
                                               &compileInfo, 64, 262144, 4096);
     uint64_t expectTilingKey = 4; // VF 旁路(窄行): schMode=2D | IsSimt=1
-    string expectTilingData = "8 8 0 12 8 0 0 0 2 2 0 0 98304 64 229376 ";
+    string expectTilingData = "8 8 0 12 8 0 0 0 2 2 0 0 65536 98304 64 229376 ";
     TilingInfo tilingInfo;
     EXPECT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
     EXPECT_EQ(tilingInfo.tilingKey, expectTilingKey);

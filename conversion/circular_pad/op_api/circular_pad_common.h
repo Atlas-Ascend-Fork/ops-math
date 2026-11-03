@@ -100,12 +100,31 @@ static bool CheckShape(const aclTensor* self, const aclIntArray* padding, const 
             expectShape.SetDim(i, self->GetViewShape().GetDim(i));
         }
     }
-    // 通用循环处理所有padding维度的shape计算（安全求和：防溢出及每侧负向越界）
+    // 通用循环处理所有padding维度的shape计算（安全求和：防溢出及每侧负向越界 + 裁空 + 多圈绕回）
     for (size_t k = 0; k < paddingDim; k++) {
         int64_t expectDim;
+        int64_t dim = self->GetViewShape().GetDim(selfDimnum - 1 - k);
+        int64_t padFront = (*padding)[k * 2];
+        int64_t padBack = (*padding)[k * 2 + 1];
+        // 负 padding 后有效尺寸必须 > 0（裁剪不能裁空）
+        int64_t inSize = dim + (padFront < 0 ? padFront : 0) + (padBack < 0 ? padBack : 0);
         OP_CHECK(
-            SafePadSum(self->GetViewShape().GetDim(selfDimnum - 1 - k), (*padding)[k * 2], (*padding)[k * 2 + 1],
-                       expectDim),
+            inSize > 0,
+            OP_LOGE(ACLNN_ERR_PARAM_INVALID,
+                    "The effective size after negative padding must be greater than 0, input %lld, padding %lld, %lld.",
+                    static_cast<long long>(dim), static_cast<long long>(padFront), static_cast<long long>(padBack)),
+            return false);
+        // 正 padding 不超过裁剪后有效尺寸（多圈绕回拒绝）
+        OP_CHECK(
+            !(padFront > 0 && padFront > inSize) && !(padBack > 0 && padBack > inSize),
+            OP_LOGE(ACLNN_ERR_PARAM_INVALID,
+                    "The positive padding must not exceed the effective input size %lld (input %lld, padding %lld, "
+                    "%lld).",
+                    static_cast<long long>(inSize), static_cast<long long>(dim), static_cast<long long>(padFront),
+                    static_cast<long long>(padBack)),
+            return false);
+        OP_CHECK(
+            SafePadSum(dim, padFront, padBack, expectDim),
             OP_LOGE(ACLNN_ERR_PARAM_INVALID,
                     "The input size plus padding resulted in a negative or overflow output size, which is invalid."),
             return false);

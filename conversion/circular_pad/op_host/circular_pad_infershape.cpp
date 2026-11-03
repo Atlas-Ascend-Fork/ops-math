@@ -19,6 +19,8 @@
  * paddings 不可读时，受影响维度置 -1（unknown shape）。
  */
 
+#include <limits>
+
 #include "register/op_impl_registry.h"
 #include "log/log.h"
 #include "util/shape_util.h"
@@ -30,6 +32,28 @@ static constexpr size_t INPUT_IDX_X = 0;
 static constexpr size_t INPUT_IDX_PADDINGS = 1;
 static constexpr size_t OUTPUT_IDX_Y = 0;
 static constexpr int64_t UNKNOWN_DIM = -1;
+
+// 安全计算 dimSize + padFront + padBack 并校验有效性：求和会溢出 int64、或任一侧负 padding
+// 裁剪使对应维度为负时返回 false（避免有符号溢出 UB 及负输出维度）。与 aclnn 入口
+// op_api/circular_pad_common.h 的 SafePadSum 语义对齐，保证图模式与 aclnn 通路推导一致。
+static bool SafePadSum(int64_t dimSize, int64_t padFront, int64_t padBack, int64_t& result)
+{
+    const int64_t kInt64Max = std::numeric_limits<int64_t>::max();
+    const int64_t kInt64Min = std::numeric_limits<int64_t>::min();
+    if ((padFront > 0 && padBack > 0 && padFront > kInt64Max - padBack) ||
+        (padFront < 0 && padBack < 0 && padFront < kInt64Min - padBack)) {
+        return false;
+    }
+    int64_t padSum = padFront + padBack;
+    if (padSum > 0 && dimSize > kInt64Max - padSum) {
+        return false;
+    }
+    result = dimSize + padSum;
+    if ((padFront < 0 && dimSize + padFront < 0) || (padBack < 0 && dimSize + padBack < 0) || result < 0) {
+        return false;
+    }
+    return true;
+}
 
 static ge::graphStatus InferShape4CircularPad(gert::InferShapeContext* context)
 {
@@ -75,15 +99,24 @@ static ge::graphStatus InferShape4CircularPad(gert::InferShapeContext* context)
             yShape->SetDim(i, xShape->GetDim(i));
         }
 
-        // 填充维度：output = input + pad_before + pad_after
+        // 填充维度：output = input + pad_before + pad_after（含 int64 溢出与负裁剪守卫，对齐 aclnn SafePadSum）
         for (size_t k = 0; k < paddingDim; k++) {
             size_t dimIdx = xDimNum - 1 - k;
             int64_t xDim = xShape->GetDim(dimIdx);
-            if (xDim != UNKNOWN_DIM) {
-                yShape->SetDim(dimIdx, xDim + padValues[k * 2] + padValues[k * 2 + 1]);
-            } else {
+            if (xDim == UNKNOWN_DIM) {
                 yShape->SetDim(dimIdx, UNKNOWN_DIM);
+                continue;
             }
+            int64_t outDim = 0;
+            OP_CHECK_IF(!SafePadSum(xDim, padValues[k * 2], padValues[k * 2 + 1], outDim),
+                        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                            context->GetNodeName(), std::to_string(dimIdx).c_str(),
+                            (std::to_string(xDim) + " + " + std::to_string(padValues[k * 2]) + " + " +
+                             std::to_string(padValues[k * 2 + 1]))
+                                .c_str(),
+                            "padded dimension overflows int64 or negative padding exceeds the dimension size"),
+                        return ge::GRAPH_FAILED);
+            yShape->SetDim(dimIdx, outDim);
         }
     } else {
         // 4. paddings 不可读 → 受影响维度置 -1（unknown shape）

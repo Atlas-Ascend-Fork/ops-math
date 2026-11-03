@@ -550,7 +550,10 @@ __aicore__ inline void ProcessSimt(GM_ADDR x, GM_ADDR y, GM_ADDR workspace, cons
     LocalTensor<uint64_t> params = ubAlloc.Alloc<uint64_t>(PARAMS_UB_ELEMS);
     const uint64_t yAlign = reinterpret_cast<uint64_t>(y) & (VEC_ALIGN_BYTES - 1);
     const uint64_t xAlign = reinterpret_cast<uint64_t>(x) & (VEC_ALIGN_BYTES - 1);
-    if (tilingData->totalOutputElements <= UINT32_INDEX_THRESHOLD) {
+    // 源索引 srcRowStart 按输入张量寻址，上界为 totalInputElements（负 padding 裁剪时输入可大于输出），
+    // 位宽须同时满足输入与输出，避免 uint32 窄化回绕。
+    if (tilingData->totalOutputElements <= UINT32_INDEX_THRESHOLD &&
+        tilingData->totalInputElements <= UINT32_INDEX_THRESHOLD) {
         ProcessDirect<T, IS_3D, uint32_t>(xGm, yGm, tilingData, d, xAlign, yAlign, params);
     } else {
         ProcessDirect<T, IS_3D, uint64_t>(xGm, yGm, tilingData, d, xAlign, yAlign, params);

@@ -100,7 +100,7 @@ aclnnStatus aclnnCircularPad2d(
       <td>padding（aclIntArray*）</td>
       <td>输入</td>
       <td>长度为4，数值依次代表左右上下需要填充的值。</td>
-      <td><ul><li>长度为4，数值依次代表左右上下需要填充的值。</li><li>padding前两个数值对应self最后一维，后两个对应倒数第二维。</li><li>Ascend 950（Arch35）上，每侧正padding不超过对应维度大小（允许等于）。其他产品以对应版本约束为准。</li></ul></td>
+      <td><ul><li>长度为4，数值依次代表左右上下需要填充的值。</li><li>padding前两个数值对应self最后一维，后两个对应倒数第二维。</li></ul></td>
       <td>INT64</td>
       <td>-</td>
       <td>1</td>
@@ -230,10 +230,18 @@ aclnnStatus aclnnCircularPad2d(
 - 确定性计算：
   - aclnnCircularPad2d默认确定性实现。
 
-- out的最后一维在不同类型下的大小需满足如下约束：
-int8：(0, 98176)
-float16/bfloat16：(0, 49088)
-int32/float32：(0, 24544)
+<!-- npu="950" id7 -->
+- <term>Ascend 950PR&950DT系列产品</term>：padding可为负：负值表示裁剪，从对应维度边界移除|padding|个元素，裁剪后该维度大小必须大于0；每侧正padding不超过对应维度大小（允许等于）。
+<!-- end id7 -->
+<!-- npu="A3,910b" id8 -->
+- <term>Atlas A3系列产品</term>、<term>Atlas A2系列产品</term>：padding可为负：负值表示裁剪，裁剪后该维度大小必须大于0；每侧正padding不超过对应维度大小（允许等于）。
+<!-- end id8 -->
+<!-- npu="A3,910b" id9 -->
+- <term>Atlas A3系列产品</term>、<term>Atlas A2系列产品</term>：out的最后一维在不同类型下的大小需满足如下上限约束：int8为(0, 98304)、float16/bfloat16为(0, 49152)、int32/float32为(0, 24576)。
+<!-- end id9 -->
+<!-- npu="950" id10 -->
+- <term>Ascend 950PR&950DT系列产品</term>：out的最后一维无此上限约束。
+<!-- end id10 -->
 
 ## 调用示例
 
@@ -326,7 +334,7 @@ int main() {
     CHECK_RET(ret == ACL_SUCCESS, return ret);
     // 创建padding aclIntArray
     padding = aclCreateIntArray(paddingData.data(), 4);
-    CHECK_RET(padding != nullptr, return ret);
+    CHECK_RET(padding != nullptr, LOG_PRINT("aclCreateIntArray failed.\n"); return ACL_ERROR_INTERNAL_ERROR;);
     // 创建out aclTensor
     ret = CreateAclTensor(outHostData, outShape, &outDeviceAddr, aclDataType::ACL_FLOAT, &out);
     CHECK_RET(ret == ACL_SUCCESS, return ret);
