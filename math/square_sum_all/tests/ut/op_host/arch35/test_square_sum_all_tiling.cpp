@@ -32,7 +32,8 @@ constexpr int64_t TILE_ELEMENTS = 4096;
 constexpr int64_t WORKSPACE_BYTES_PER_CORE = 64;
 constexpr int64_t GPU_ALIGNED_MIN_ELEMENTS = 8192;
 constexpr int64_t GPU_ALIGNED_MAX_ELEMENTS_FOR_VECTOR_CHUNKS = 14495293440;
-constexpr uint64_t GPU_ALIGNED_MIN_UB_BYTES = 137728;
+// Reserve + packed partials + final results + 32 input/sum/residual/output slots.
+constexpr uint64_t GPU_ALIGNED_MIN_UB_BYTES = 32768 + 4096 + 512 + 32 * (2048 + 2048 + 64);
 constexpr size_t GPU_ALIGNED_MIN_WORKSPACE_BYTES = 4096;
 constexpr size_t GPU_ALIGNED_MAX_WORKSPACE_BYTES = 110592;
 constexpr uint64_t LEGACY_TILING_KEY = 0;

@@ -17,117 +17,12 @@
 #define SQUARE_SUM_ALL_GPU_ALIGNED_ARCH35_H_
 
 #include "kernel_operator.h"
+#include "square_sum_all_compensated.h"
 #include "square_sum_all_tiling_data.h"
 
 namespace SquareSumAllGpuAligned {
 using namespace AscendC;
-constexpr uint32_t REDUCTION_LANE_COUNT = 64;
-
-// Retain the rounding residual of each addition in the final partial merge.
-// Partial sums are nonnegative. Clear the residual for Inf/NaN so that Inf-Inf
-// in TwoSum cannot turn a valid overflowing square sum into NaN.
-__simd_callee__ inline void AddCompensated(Reg::RegTensor<float>& sum, Reg::RegTensor<float>& correction,
-                                           Reg::RegTensor<float>& value, Reg::MaskReg mask)
-{
-    Reg::RegTensor<float> rounded;
-    Reg::RegTensor<float> recovered;
-    Reg::RegTensor<float> error;
-    Reg::RegTensor<float> temp;
-    Reg::RegTensor<float> zero;
-    Reg::MaskReg finiteMask;
-    Reg::Add(rounded, sum, value, mask);
-    Reg::Sub(recovered, rounded, sum, mask);
-    Reg::Sub(error, value, recovered, mask);
-    Reg::Sub(temp, rounded, recovered, mask);
-    Reg::Sub(temp, sum, temp, mask);
-    Reg::Add(error, error, temp, mask);
-    Reg::Add(correction, correction, error, mask);
-    Reg::Duplicate(zero, 0.0f, mask);
-    Reg::CompareScalar<float, CMPMODE::LE>(finiteMask, rounded, 3.4028234663852886e38f, mask);
-    Reg::Select(correction, correction, zero, finiteMask);
-    Reg::Copy(sum, rounded, mask);
-}
-
-__simd_callee__ inline void ReduceCompensated64(Reg::RegTensor<float>& dst, Reg::RegTensor<float>& sum,
-                                                Reg::RegTensor<float>& correction)
-{
-    Reg::RegTensor<uint32_t> baseIndex;
-    Reg::RegTensor<uint32_t> gatherIndex;
-    Reg::RegTensor<uint32_t> validIndexMask;
-    Reg::RegTensor<float> gathered;
-    Reg::RegTensor<float> gatheredCorrection;
-    Reg::MaskReg indexMask = Reg::CreateMask<uint32_t, Reg::MaskPattern::ALL>();
-    Reg::Arange((Reg::RegTensor<int32_t>&)baseIndex, static_cast<int32_t>(0));
-    Reg::Duplicate(validIndexMask, REDUCTION_LANE_COUNT - 1, indexMask);
-    for (uint16_t offset = REDUCTION_LANE_COUNT / 2; offset > 0; offset >>= 1) {
-        Reg::Adds(gatherIndex, baseIndex, static_cast<uint32_t>(offset), indexMask);
-        Reg::And(gatherIndex, gatherIndex, validIndexMask, indexMask);
-        Reg::Gather(gathered, sum, gatherIndex);
-        Reg::Gather(gatheredCorrection, correction, gatherIndex);
-        uint32_t activeElements = offset;
-        Reg::MaskReg reduceMask = Reg::UpdateMask<float>(activeElements);
-        Reg::Add(correction, correction, gatheredCorrection, reduceMask);
-        AddCompensated(sum, correction, gathered, reduceMask);
-    }
-    Reg::MaskReg oneMask = Reg::CreateMask<float, Reg::MaskPattern::VL1>();
-    Reg::Add(dst, sum, correction, oneMask);
-}
-
-// Reproduce the empirically best-matching 64-lane high-half reduction order explicitly:
-// (0+32, 1+33, ...), then +16, +8, +4, +2 and +1.
-__simd_callee__ inline void ReduceHighHalf64(Reg::RegTensor<float>& dst, Reg::RegTensor<float>& src)
-{
-    Reg::RegTensor<uint32_t> baseIndex;
-    Reg::RegTensor<uint32_t> gatherIndex;
-    Reg::RegTensor<uint32_t> validIndexMask;
-    Reg::RegTensor<float> gathered;
-    Reg::MaskReg indexMask = Reg::CreateMask<uint32_t, Reg::MaskPattern::ALL>();
-    Reg::MaskReg reduceMask;
-    uint32_t activeElements = 32;
-    Reg::Arange((Reg::RegTensor<int32_t>&)baseIndex, static_cast<int32_t>(0));
-    Reg::Duplicate(validIndexMask, REDUCTION_LANE_COUNT - 1, indexMask);
-
-    Reg::Adds(gatherIndex, baseIndex, static_cast<uint32_t>(32), indexMask);
-    Reg::And(gatherIndex, gatherIndex, validIndexMask, indexMask);
-    Reg::Gather(gathered, src, gatherIndex);
-    reduceMask = Reg::UpdateMask<float>(activeElements);
-    Reg::Add(src, src, gathered, reduceMask);
-
-    Reg::Adds(gatherIndex, baseIndex, static_cast<uint32_t>(16), indexMask);
-    Reg::And(gatherIndex, gatherIndex, validIndexMask, indexMask);
-    Reg::Gather(gathered, src, gatherIndex);
-    activeElements = 16;
-    reduceMask = Reg::UpdateMask<float>(activeElements);
-    Reg::Add(src, src, gathered, reduceMask);
-
-    Reg::Adds(gatherIndex, baseIndex, static_cast<uint32_t>(8), indexMask);
-    Reg::And(gatherIndex, gatherIndex, validIndexMask, indexMask);
-    Reg::Gather(gathered, src, gatherIndex);
-    activeElements = 8;
-    reduceMask = Reg::UpdateMask<float>(activeElements);
-    Reg::Add(src, src, gathered, reduceMask);
-
-    Reg::Adds(gatherIndex, baseIndex, static_cast<uint32_t>(4), indexMask);
-    Reg::And(gatherIndex, gatherIndex, validIndexMask, indexMask);
-    Reg::Gather(gathered, src, gatherIndex);
-    activeElements = 4;
-    reduceMask = Reg::UpdateMask<float>(activeElements);
-    Reg::Add(src, src, gathered, reduceMask);
-
-    Reg::Adds(gatherIndex, baseIndex, static_cast<uint32_t>(2), indexMask);
-    Reg::And(gatherIndex, gatherIndex, validIndexMask, indexMask);
-    Reg::Gather(gathered, src, gatherIndex);
-    activeElements = 2;
-    reduceMask = Reg::UpdateMask<float>(activeElements);
-    Reg::Add(src, src, gathered, reduceMask);
-
-    Reg::Adds(gatherIndex, baseIndex, static_cast<uint32_t>(1), indexMask);
-    Reg::And(gatherIndex, gatherIndex, validIndexMask, indexMask);
-    Reg::Gather(gathered, src, gatherIndex);
-    activeElements = 1;
-    reduceMask = Reg::UpdateMask<float>(activeElements);
-    Reg::Add(dst, src, gathered, reduceMask);
-}
+using namespace SquareSumAllAccuracy;
 
 class SquareSumAllGpuAlignedKernel {
 public:
@@ -265,45 +160,31 @@ private:
         const int64_t accumulatorRegionElements = accumulatorRegionElements_;
         __VEC_SCOPE__
         {
-            Reg::RegTensor<float> xReg;
-            Reg::RegTensor<float> x1Low;
-            Reg::RegTensor<float> x1High;
-            Reg::RegTensor<float> x2Low;
-            Reg::RegTensor<float> x2High;
+            Reg::RegTensor<float> input;
+            Reg::RegTensor<float> sum;
+            Reg::RegTensor<float> correction;
             Reg::MaskReg allMask = Reg::CreateMask<float, Reg::MaskPattern::ALL>();
             for (uint16_t batchSlot = 0; batchSlot < vectorBatchCount; ++batchSlot) {
-                const int64_t inputOffset = static_cast<int64_t>(batchSlot) * CUDA_BLOCK_ELEMENTS;
-                const int64_t accumulatorOffset = static_cast<int64_t>(batchSlot) * VECTOR_ELEMENTS;
-                if (firstChunk) {
-                    Reg::Duplicate(x1Low, 0.0f, allMask);
-                    Reg::Duplicate(x1High, 0.0f, allMask);
-                    Reg::Duplicate(x2Low, 0.0f, allMask);
-                    Reg::Duplicate(x2High, 0.0f, allMask);
-                } else {
-                    Reg::LoadAlign<float, Reg::LoadDist::DIST_NORM>(x1Low, accumulatorAddress + accumulatorOffset);
-                    Reg::LoadAlign<float, Reg::LoadDist::DIST_NORM>(
-                        x1High, accumulatorAddress + accumulatorRegionElements + accumulatorOffset);
-                    Reg::LoadAlign<float, Reg::LoadDist::DIST_NORM>(
-                        x2Low, accumulatorAddress + 2 * accumulatorRegionElements + accumulatorOffset);
-                    Reg::LoadAlign<float, Reg::LoadDist::DIST_NORM>(
-                        x2High, accumulatorAddress + 3 * accumulatorRegionElements + accumulatorOffset);
+                for (uint16_t stream = 0; stream < 4; ++stream) {
+                    const int64_t inputOffset = static_cast<int64_t>(batchSlot) * CUDA_BLOCK_ELEMENTS +
+                                                (stream % 2) * VECTOR_ELEMENTS;
+                    const int64_t sumOffset = stream * accumulatorRegionElements + batchSlot * VECTOR_ELEMENTS;
+                    const int64_t correctionOffset = sumOffset + 4 * accumulatorRegionElements;
+                    if (firstChunk) {
+                        Reg::Duplicate(sum, 0.0f, allMask);
+                        Reg::Duplicate(correction, 0.0f, allMask);
+                    } else {
+                        Reg::LoadAlign<float, Reg::LoadDist::DIST_NORM>(sum, accumulatorAddress + sumOffset);
+                        Reg::LoadAlign<float, Reg::LoadDist::DIST_NORM>(correction,
+                                                                        accumulatorAddress + correctionOffset);
+                    }
+                    __ubuf__ float* inputAddress = stream < 2 ? x1Address : x2Address;
+                    Reg::LoadAlign<float, Reg::LoadDist::DIST_NORM>(input, inputAddress + inputOffset);
+                    AccumulateSquare(sum, correction, input, allMask);
+                    Reg::StoreAlign<float, Reg::StoreDist::DIST_NORM>(accumulatorAddress + sumOffset, sum, allMask);
+                    Reg::StoreAlign<float, Reg::StoreDist::DIST_NORM>(accumulatorAddress + correctionOffset, correction,
+                                                                      allMask);
                 }
-                Reg::LoadAlign<float, Reg::LoadDist::DIST_NORM>(xReg, x1Address + inputOffset);
-                Reg::MulAddDst(x1Low, xReg, xReg, allMask);
-                Reg::LoadAlign<float, Reg::LoadDist::DIST_NORM>(xReg, x1Address + inputOffset + VECTOR_ELEMENTS);
-                Reg::MulAddDst(x1High, xReg, xReg, allMask);
-                Reg::LoadAlign<float, Reg::LoadDist::DIST_NORM>(xReg, x2Address + inputOffset);
-                Reg::MulAddDst(x2Low, xReg, xReg, allMask);
-                Reg::LoadAlign<float, Reg::LoadDist::DIST_NORM>(xReg, x2Address + inputOffset + VECTOR_ELEMENTS);
-                Reg::MulAddDst(x2High, xReg, xReg, allMask);
-                Reg::StoreAlign<float, Reg::StoreDist::DIST_NORM>(accumulatorAddress + accumulatorOffset, x1Low,
-                                                                  allMask);
-                Reg::StoreAlign<float, Reg::StoreDist::DIST_NORM>(
-                    accumulatorAddress + accumulatorRegionElements + accumulatorOffset, x1High, allMask);
-                Reg::StoreAlign<float, Reg::StoreDist::DIST_NORM>(
-                    accumulatorAddress + 2 * accumulatorRegionElements + accumulatorOffset, x2Low, allMask);
-                Reg::StoreAlign<float, Reg::StoreDist::DIST_NORM>(
-                    accumulatorAddress + 3 * accumulatorRegionElements + accumulatorOffset, x2High, allMask);
             }
         }
     }
@@ -318,32 +199,34 @@ private:
         const int64_t resultRegionElements = resultRegionElements_;
         __VEC_SCOPE__
         {
-            Reg::RegTensor<float> x1Low;
-            Reg::RegTensor<float> x1High;
-            Reg::RegTensor<float> x2Low;
-            Reg::RegTensor<float> x2High;
-            Reg::RegTensor<float> reduced1;
-            Reg::RegTensor<float> reduced2;
+            Reg::RegTensor<float> low;
+            Reg::RegTensor<float> high;
+            Reg::RegTensor<float> lowCorrection;
+            Reg::RegTensor<float> highCorrection;
             Reg::MaskReg allMask = Reg::CreateMask<float, Reg::MaskPattern::ALL>();
             Reg::MaskReg oneMask = Reg::CreateMask<float, Reg::MaskPattern::VL1>();
             for (uint16_t batchSlot = 0; batchSlot < vectorBatchCount; ++batchSlot) {
-                const int64_t accumulatorOffset = static_cast<int64_t>(batchSlot) * VECTOR_ELEMENTS;
-                const int64_t resultOffset = static_cast<int64_t>(batchSlot) * FLOATS_PER_BLOCK;
-                Reg::LoadAlign<float, Reg::LoadDist::DIST_NORM>(x1Low, accumulatorAddress + accumulatorOffset);
-                Reg::LoadAlign<float, Reg::LoadDist::DIST_NORM>(
-                    x1High, accumulatorAddress + accumulatorRegionElements + accumulatorOffset);
-                Reg::LoadAlign<float, Reg::LoadDist::DIST_NORM>(
-                    x2Low, accumulatorAddress + 2 * accumulatorRegionElements + accumulatorOffset);
-                Reg::LoadAlign<float, Reg::LoadDist::DIST_NORM>(
-                    x2High, accumulatorAddress + 3 * accumulatorRegionElements + accumulatorOffset);
-                Reg::Add(x1Low, x1Low, x1High, allMask);
-                Reg::Add(x2Low, x2Low, x2High, allMask);
-                ReduceHighHalf64(reduced1, x1Low);
-                Reg::StoreAlign<float, Reg::StoreDist::DIST_FIRST_ELEMENT_B32>(resultAddress + resultOffset, reduced1,
-                                                                               oneMask);
-                ReduceHighHalf64(reduced2, x2Low);
-                Reg::StoreAlign<float, Reg::StoreDist::DIST_FIRST_ELEMENT_B32>(
-                    resultAddress + resultRegionElements + resultOffset, reduced2, oneMask);
+                for (uint16_t input = 0; input < 2; ++input) {
+                    const int64_t accumulatorOffset = input * 2 * accumulatorRegionElements +
+                                                      batchSlot * VECTOR_ELEMENTS;
+                    const int64_t correctionOffset = accumulatorOffset + 4 * accumulatorRegionElements;
+                    const int64_t resultOffset = input * resultRegionElements + batchSlot * FLOATS_PER_BLOCK;
+                    Reg::LoadAlign<float, Reg::LoadDist::DIST_NORM>(low, accumulatorAddress + accumulatorOffset);
+                    Reg::LoadAlign<float, Reg::LoadDist::DIST_NORM>(
+                        high, accumulatorAddress + accumulatorOffset + accumulatorRegionElements);
+                    Reg::LoadAlign<float, Reg::LoadDist::DIST_NORM>(lowCorrection,
+                                                                    accumulatorAddress + correctionOffset);
+                    Reg::LoadAlign<float, Reg::LoadDist::DIST_NORM>(
+                        highCorrection, accumulatorAddress + correctionOffset + accumulatorRegionElements);
+                    Reg::Add(lowCorrection, lowCorrection, highCorrection, allMask);
+                    AddCompensated(low, lowCorrection, high, allMask);
+                    ReduceCompensatedPair64(low, lowCorrection);
+                    // Two floats fit in the existing 32-byte partial slot.
+                    Reg::StoreAlign<float, Reg::StoreDist::DIST_FIRST_ELEMENT_B32>(resultAddress + resultOffset, low,
+                                                                                   oneMask);
+                    Reg::StoreAlign<float, Reg::StoreDist::DIST_FIRST_ELEMENT_B32>(resultAddress + resultOffset + 1,
+                                                                                   lowCorrection, oneMask);
+                }
             }
         }
     }
@@ -351,8 +234,8 @@ private:
     __aicore__ inline void WritePartialBatch(int64_t batchBegin, int64_t batchCount,
                                              LocalTensor<float> batchResultLocal)
     {
-        DataCopyExtParams copyParams{static_cast<uint16_t>(batchCount), sizeof(float), 0, BLOCK_BYTES - sizeof(float),
-                                     0};
+        DataCopyExtParams copyParams{static_cast<uint16_t>(batchCount), 2 * sizeof(float), 0,
+                                     BLOCK_BYTES - 2 * sizeof(float), 0};
         const int64_t workspaceOffset = batchBegin * FLOATS_PER_BLOCK;
         DataCopyPad(partial1Gm_[workspaceOffset], batchResultLocal, copyParams);
         DataCopyPad(partial2Gm_[workspaceOffset], batchResultLocal[resultRegionElements_], copyParams);
@@ -367,9 +250,9 @@ private:
         event_t eventId = static_cast<event_t>(pipe_->FetchEventID(HardEvent::V_MTE2));
         SetFlag<HardEvent::V_MTE2>(eventId);
         WaitFlag<HardEvent::V_MTE2>(eventId);
-        DataCopyExtParams copyParams{static_cast<uint16_t>(partialCount_), sizeof(float), BLOCK_BYTES - sizeof(float),
-                                     0, 0};
-        DataCopyPadExtParams<float> padParams{true, 0, FLOATS_PER_BLOCK - 1, 0.0f};
+        DataCopyExtParams copyParams{static_cast<uint16_t>(partialCount_), 2 * sizeof(float),
+                                     BLOCK_BYTES - 2 * sizeof(float), 0, 0};
+        DataCopyPadExtParams<float> padParams{true, 0, FLOATS_PER_BLOCK - 2, 0.0f};
         DataCopyPad(partialLocal, partialGm, copyParams, padParams);
         partialQueue_.EnQue(partialLocal);
         partialLocal = partialQueue_.DeQue<float>();
@@ -392,6 +275,7 @@ private:
             Reg::RegTensor<float> highCorrection;
             Reg::RegTensor<float> reduced;
             Reg::RegTensor<int32_t> gatherIndex;
+            Reg::RegTensor<int32_t> correctionIndex;
             Reg::MaskReg allMask = Reg::CreateMask<float, Reg::MaskPattern::ALL>();
             Reg::MaskReg indexMask = Reg::CreateMask<int32_t, Reg::MaskPattern::ALL>();
             Reg::MaskReg oneMask = Reg::CreateMask<float, Reg::MaskPattern::VL1>();
@@ -401,13 +285,19 @@ private:
             Reg::Duplicate(highCorrection, 0.0f, allMask);
             Reg::Arange(gatherIndex, static_cast<int32_t>(0));
             Reg::Muls(gatherIndex, gatherIndex, static_cast<int32_t>(FLOATS_PER_BLOCK), indexMask);
+            Reg::Adds(correctionIndex, gatherIndex, static_cast<int32_t>(1), indexMask);
             for (uint16_t group = 0; group < groupCount; ++group) {
                 const int64_t offset = static_cast<int64_t>(group) * CUDA_BLOCK_ELEMENTS * FLOATS_PER_BLOCK;
                 Reg::Gather(current, partialAddress + offset, (Reg::RegTensor<uint32_t>&)gatherIndex, allMask);
                 AddCompensated(low, lowCorrection, current, allMask);
+                Reg::Gather(current, partialAddress + offset, (Reg::RegTensor<uint32_t>&)correctionIndex, allMask);
+                Reg::Add(lowCorrection, lowCorrection, current, allMask);
                 Reg::Gather(current, partialAddress + offset + VECTOR_ELEMENTS * FLOATS_PER_BLOCK,
                             (Reg::RegTensor<uint32_t>&)gatherIndex, allMask);
                 AddCompensated(high, highCorrection, current, allMask);
+                Reg::Gather(current, partialAddress + offset + VECTOR_ELEMENTS * FLOATS_PER_BLOCK,
+                            (Reg::RegTensor<uint32_t>&)correctionIndex, allMask);
+                Reg::Add(highCorrection, highCorrection, current, allMask);
             }
             Reg::Add(lowCorrection, lowCorrection, highCorrection, allMask);
             AddCompensated(low, lowCorrection, high, allMask);
@@ -431,7 +321,7 @@ private:
     static constexpr int64_t FLOATS_PER_BLOCK = BLOCK_BYTES / sizeof(float);
     static constexpr int64_t VECTOR_ELEMENTS = AscendC::VECTOR_REG_WIDTH / sizeof(float);
     static constexpr int64_t INPUT_QUEUE_DEPTH = 2;
-    static constexpr int64_t ACCUMULATOR_REGION_COUNT = 4;
+    static constexpr int64_t ACCUMULATOR_REGION_COUNT = 8;
     static constexpr int64_t RESULT_LOCAL_BYTES = 2 * VECTOR_ELEMENTS * sizeof(float);
     static constexpr int64_t BATCH_RESULT_BYTES_PER_PARTIAL = 2 * FLOATS_PER_BLOCK *
                                                               static_cast<int64_t>(sizeof(float));

@@ -17,10 +17,12 @@
 #define SQUARE_SUM_ALL_ARCH35_H_
 
 #include "kernel_operator.h"
+#include "square_sum_all_compensated.h"
 #include "square_sum_all_tiling_data.h"
 
 namespace SquareSumAllOps {
 using namespace AscendC;
+using namespace SquareSumAllAccuracy;
 
 class SquareSumAllKernel {
 public:
@@ -109,7 +111,9 @@ private:
             WaitFlag<HardEvent::V_MTE2>(eventId);
         }
         DataCopyExtParams copyParams{1, static_cast<uint32_t>(elementCount * sizeof(float)), 0, 0, 0};
-        DataCopyPadExtParams<float> padParams{false, 0, 0, 0.0f};
+        const uint8_t rightPadding = static_cast<uint8_t>((FLOATS_PER_BLOCK - elementCount % FLOATS_PER_BLOCK) %
+                                                          FLOATS_PER_BLOCK);
+        DataCopyPadExtParams<float> padParams{true, 0, rightPadding, 0.0f};
         DataCopyPad(x1Local, x1Gm_[gmOffset], copyParams, padParams);
         DataCopyPad(x2Local, x2Gm_[gmOffset], copyParams, padParams);
         x1Queue_.EnQue(x1Local);
@@ -122,71 +126,43 @@ private:
         __ubuf__ float* x1Address = (__ubuf__ float*)x1Local.GetPhyAddr();
         __ubuf__ float* x2Address = (__ubuf__ float*)x2Local.GetPhyAddr();
         __ubuf__ float* resultAddress = (__ubuf__ float*)resultLocal.GetPhyAddr();
-        const uint16_t fullVectorLoops = static_cast<uint16_t>(elementCount / VECTOR_ELEMENTS);
-        uint32_t tailElements = elementCount % VECTOR_ELEMENTS;
-
+        const uint16_t vectorLoops = static_cast<uint16_t>((elementCount + VECTOR_ELEMENTS - 1) / VECTOR_ELEMENTS);
         __VEC_SCOPE__
         {
-            Reg::RegTensor<float> x1Reg;
-            Reg::RegTensor<float> x2Reg;
-            Reg::RegTensor<float> squareReg;
-            Reg::RegTensor<float> accumulator1;
-            Reg::RegTensor<float> accumulator2;
-            Reg::RegTensor<float> reduced1;
-            Reg::RegTensor<float> reduced2;
-            Reg::RegTensor<float> tailReduced1;
-            Reg::RegTensor<float> tailReduced2;
+            Reg::RegTensor<float> input;
+            Reg::RegTensor<float> sum;
+            Reg::RegTensor<float> correction;
             Reg::RegTensor<float> previous;
-            Reg::MaskReg tailMask;
             Reg::MaskReg allMask = Reg::CreateMask<float, Reg::MaskPattern::ALL>();
             Reg::MaskReg oneMask = Reg::CreateMask<float, Reg::MaskPattern::VL1>();
-            Reg::Duplicate(accumulator1, 0.0f, allMask);
-            Reg::Duplicate(accumulator2, 0.0f, allMask);
-            Reg::Duplicate(tailReduced1, 0.0f, allMask);
-            Reg::Duplicate(tailReduced2, 0.0f, allMask);
-
-            for (uint16_t i = 0; i < fullVectorLoops; ++i) {
-                Reg::LoadAlign<float, Reg::LoadDist::DIST_NORM>(x1Reg, x1Address + i * VECTOR_ELEMENTS);
-                Reg::Mul(squareReg, x1Reg, x1Reg, allMask);
-                Reg::Add(accumulator1, accumulator1, squareReg, allMask);
-
-                Reg::LoadAlign<float, Reg::LoadDist::DIST_NORM>(x2Reg, x2Address + i * VECTOR_ELEMENTS);
-                Reg::Mul(squareReg, x2Reg, x2Reg, allMask);
-                Reg::Add(accumulator2, accumulator2, squareReg, allMask);
+            for (uint16_t region = 0; region < 2; ++region) {
+                const uint32_t resultOffset = region == 0 ? Y1_LOCAL_OFFSET : Y2_LOCAL_OFFSET;
+                __ubuf__ float* inputAddress = region == 0 ? x1Address : x2Address;
+                Reg::Duplicate(sum, 0.0f, allMask);
+                Reg::Duplicate(correction, 0.0f, allMask);
+                for (uint16_t i = 0; i < vectorLoops; ++i) {
+                    // CopyIn zeroes the tail. Full-mask FMA preserves earlier lanes.
+                    Reg::LoadAlign<float, Reg::LoadDist::DIST_NORM>(input, inputAddress + i * VECTOR_ELEMENTS);
+                    AccumulateSquare(sum, correction, input, allMask);
+                }
+                ReduceCompensatedPair64(sum, correction);
+                if (!isFirstTile) {
+                    Reg::LoadAlign<float, Reg::LoadDist::DIST_BRC_B32>(previous, resultAddress + resultOffset);
+                    AddCompensated(sum, correction, previous, oneMask);
+                    Reg::LoadAlign<float, Reg::LoadDist::DIST_BRC_B32>(previous, resultAddress + resultOffset + 1);
+                    Reg::Add(correction, correction, previous, oneMask);
+                }
+                Reg::StoreAlign<float, Reg::StoreDist::DIST_FIRST_ELEMENT_B32>(resultAddress + resultOffset, sum,
+                                                                               oneMask);
+                Reg::StoreAlign<float, Reg::StoreDist::DIST_FIRST_ELEMENT_B32>(resultAddress + resultOffset + 1,
+                                                                               correction, oneMask);
             }
-
-            if (tailElements > 0) {
-                tailMask = Reg::UpdateMask<float>(tailElements);
-                const uint32_t tailOffset = static_cast<uint32_t>(fullVectorLoops) * VECTOR_ELEMENTS;
-                Reg::LoadAlign<float, Reg::LoadDist::DIST_NORM>(x1Reg, x1Address + tailOffset);
-                Reg::Mul(squareReg, x1Reg, x1Reg, tailMask);
-                Reg::Reduce<Reg::ReduceType::SUM, float>(tailReduced1, squareReg, tailMask);
-
-                Reg::LoadAlign<float, Reg::LoadDist::DIST_NORM>(x2Reg, x2Address + tailOffset);
-                Reg::Mul(squareReg, x2Reg, x2Reg, tailMask);
-                Reg::Reduce<Reg::ReduceType::SUM, float>(tailReduced2, squareReg, tailMask);
-            }
-
-            Reg::Reduce<Reg::ReduceType::SUM, float>(reduced1, accumulator1, allMask);
-            Reg::Reduce<Reg::ReduceType::SUM, float>(reduced2, accumulator2, allMask);
-            Reg::Add(reduced1, reduced1, tailReduced1, oneMask);
-            Reg::Add(reduced2, reduced2, tailReduced2, oneMask);
-            if (!isFirstTile) {
-                Reg::LoadAlign<float, Reg::LoadDist::DIST_BRC_B32>(previous, resultAddress + Y1_LOCAL_OFFSET);
-                Reg::Add(reduced1, reduced1, previous, oneMask);
-                Reg::LoadAlign<float, Reg::LoadDist::DIST_BRC_B32>(previous, resultAddress + Y2_LOCAL_OFFSET);
-                Reg::Add(reduced2, reduced2, previous, oneMask);
-            }
-            Reg::StoreAlign<float, Reg::StoreDist::DIST_FIRST_ELEMENT_B32>(resultAddress + Y1_LOCAL_OFFSET, reduced1,
-                                                                           oneMask);
-            Reg::StoreAlign<float, Reg::StoreDist::DIST_FIRST_ELEMENT_B32>(resultAddress + Y2_LOCAL_OFFSET, reduced2,
-                                                                           oneMask);
         }
     }
 
     __aicore__ inline void WriteCorePartials(LocalTensor<float> resultLocal)
     {
-        DataCopyExtParams copyParams{1, sizeof(float), 0, 0, 0};
+        DataCopyExtParams copyParams{1, 2 * sizeof(float), 0, 0, 0};
         const int64_t workspaceOffset = blockIdx_ * FLOATS_PER_BLOCK;
         DataCopyPad(partial1Gm_[workspaceOffset], resultLocal[Y1_LOCAL_OFFSET], copyParams);
         DataCopyPad(partial2Gm_[workspaceOffset], resultLocal[Y2_LOCAL_OFFSET], copyParams);
@@ -196,9 +172,9 @@ private:
                                           uint32_t finalOffset)
     {
         LocalTensor<float> partialLocal = partialQueue_.AllocTensor<float>();
-        DataCopyExtParams copyParams{static_cast<uint16_t>(usedCoreNum_), sizeof(float), BLOCK_BYTES - sizeof(float), 0,
-                                     0};
-        DataCopyPadExtParams<float> padParams{true, 0, FLOATS_PER_BLOCK - 1, 0.0f};
+        DataCopyExtParams copyParams{static_cast<uint16_t>(usedCoreNum_), 2 * sizeof(float),
+                                     BLOCK_BYTES - 2 * sizeof(float), 0, 0};
+        DataCopyPadExtParams<float> padParams{true, 0, FLOATS_PER_BLOCK - 2, 0.0f};
         DataCopyPad(partialLocal, partialGm, copyParams, padParams);
         partialQueue_.EnQue(partialLocal);
         partialLocal = partialQueue_.DeQue<float>();
@@ -218,15 +194,17 @@ private:
         __VEC_SCOPE__
         {
             Reg::RegTensor<float> total;
+            Reg::RegTensor<float> correction;
             Reg::RegTensor<float> current;
             Reg::RegTensor<float> tailCurrent;
             Reg::RegTensor<float> reduced;
             Reg::MaskReg allMask = Reg::CreateMask<float, Reg::MaskPattern::ALL>();
             Reg::MaskReg oneMask = Reg::CreateMask<float, Reg::MaskPattern::VL1>();
             Reg::Duplicate(total, 0.0f, allMask);
+            Reg::Duplicate(correction, 0.0f, allMask);
             for (uint16_t i = 0; i < fullVectorLoops; ++i) {
                 Reg::LoadAlign<float, Reg::LoadDist::DIST_NORM>(current, partialAddress + i * VECTOR_ELEMENTS);
-                Reg::Add(total, total, current, allMask);
+                AddCompensated(total, correction, current, allMask);
             }
             if (tailElements != 0) {
                 Reg::MaskReg tailMask = Reg::UpdateMask<float>(tailElements);
@@ -234,9 +212,9 @@ private:
                 Reg::LoadAlign<float, Reg::LoadDist::DIST_NORM>(current,
                                                                 partialAddress + fullVectorLoops * VECTOR_ELEMENTS);
                 Reg::Add(tailCurrent, tailCurrent, current, tailMask);
-                Reg::Add(total, total, tailCurrent, allMask);
+                AddCompensated(total, correction, tailCurrent, allMask);
             }
-            Reg::Reduce<Reg::ReduceType::SUM, float>(reduced, total, allMask);
+            ReduceCompensated64(reduced, total, correction);
             Reg::StoreAlign<float, Reg::StoreDist::DIST_FIRST_ELEMENT_B32>(finalAddress + finalOffset, reduced,
                                                                            oneMask);
         }
