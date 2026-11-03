@@ -21,13 +21,60 @@
 #include "atvoss/util/placeholder.h"
 #ifdef __CCE_AICORE__
 #include "op_kernel/platform_util.h"
+namespace SignbitFloatOp {
+using namespace AscendC;
+
+const int16_t STATE_BIT_SHF_VALUE = 31;
+
+template <typename T>
+__simd_vf__ inline void SignbitFloatVF(__ubuf__ uint8_t* dstAddr, __ubuf__ T* src1Addr, uint32_t count,
+                                       uint16_t loopNum, uint32_t vlSize)
+{
+    AscendC::Reg::RegTensor<T, Reg::RegTraitNumOne> vregInput1;
+    AscendC::Reg::RegTensor<uint32_t, Reg::RegTraitNumOne> vregOutput;
+    AscendC::Reg::MaskReg mask;
+    for (uint16_t loopIdx = 0; loopIdx < loopNum; loopIdx++) {
+        mask = AscendC::Reg::UpdateMask<T, Reg::RegTraitNumOne>(count);
+        AscendC::Reg::AddrReg addrReg = AscendC::Reg::CreateAddrReg<T>(loopIdx, vlSize);
+        // OpCopyIn
+        AscendC::Reg::LoadAlign(vregInput1, src1Addr, addrReg);
+
+        AscendC::Reg::ShiftRights<uint32_t, int16_t>(vregOutput, (Reg::RegTensor<uint32_t>&)vregInput1,
+                                                     STATE_BIT_SHF_VALUE, mask);
+        // OpCopyOut
+        AscendC::Reg::StoreAlign<uint8_t, Reg::StoreDist::DIST_PACK4_B32>(dstAddr, (Reg::RegTensor<uint8_t>&)vregOutput,
+                                                                          addrReg, mask);
+    }
+}
+
+template <typename T>
+__simd_vf__ inline void SignbitDoubleVF(__ubuf__ uint8_t* dstAddr, __ubuf__ T* src1Addr, uint32_t count,
+                                        uint16_t loopNum, uint32_t vl)
+{
+    AscendC::Reg::RegTensor<T, Reg::RegTraitNumTwo> vregInput1;
+    AscendC::Reg::MaskReg mask;
+    Reg::RegTensor<uint32_t, Reg::RegTraitNumOne> tmpReg;
+    for (uint16_t loopIdx = 0; loopIdx < loopNum; loopIdx++) {
+        mask = AscendC::Reg::UpdateMask<T, Reg::RegTraitNumTwo>(count);
+        const uint32_t offset = loopIdx * vl;
+        // OpCopyIn
+        AscendC::Reg::LoadAlign(vregInput1, src1Addr + offset);
+
+        AscendC::Reg::ShiftRights<uint32_t, int16_t>(tmpReg, (Reg::RegTensor<uint32_t>&)vregInput1.reg[1],
+                                                     STATE_BIT_SHF_VALUE, mask);
+
+        // OpCopyOut
+        AscendC::Reg::StoreAlign<uint8_t, Reg::StoreDist::DIST_PACK4_B32>(dstAddr + offset,
+                                                                          (Reg::RegTensor<uint8_t>&)tmpReg, mask);
+    }
+}
+} // namespace SignbitFloatOp
 #endif
 
 using namespace Ops::Base;
 
 namespace SignbitFloatOp {
 constexpr int CAST_NONE_MODE = 0;
-const int16_t STATE_BIT_SHF_VALUE = 31;
 
 template <class T>
 struct FloatComputeCustom : public Vec::ElemwiseUnaryOP<uint8_t, T> {
@@ -42,23 +89,7 @@ struct FloatComputeCustom : public Vec::ElemwiseUnaryOP<uint8_t, T> {
         __ubuf__ T* src1Addr = (__ubuf__ T*)src1.GetPhyAddr();
         __ubuf__ uint8_t* dstAddr = (__ubuf__ uint8_t*)dst.GetPhyAddr();
 
-        AscendC::Reg::RegTensor<T, Reg::RegTraitNumOne> vregInput1;
-        AscendC::Reg::RegTensor<uint32_t, Reg::RegTraitNumOne> vregOutput;
-        AscendC::Reg::MaskReg mask;
-        __VEC_SCOPE__
-        {
-            for (uint16_t loopIdx = 0; loopIdx < loopNum; loopIdx++) {
-                mask = AscendC::Reg::UpdateMask<T, Reg::RegTraitNumOne>(count);
-                // OpCopyIn
-                AscendC::Reg::LoadAlign(vregInput1, (__ubuf__ T*)(src1Addr + loopIdx * vlSize));
-
-                AscendC::Reg::ShiftRights<uint32_t, int16_t>(vregOutput, (Reg::RegTensor<uint32_t>&)vregInput1,
-                                                             STATE_BIT_SHF_VALUE, mask);
-                // OpCopyOut
-                AscendC::Reg::StoreAlign<uint8_t, Reg::StoreDist::DIST_PACK4_B32>(
-                    dstAddr + loopIdx * vlSize, (Reg::RegTensor<uint8_t>&)vregOutput, mask);
-            }
-        }
+        asc_vf_call<SignbitFloatVF<T>>(dstAddr, src1Addr, count, loopNum, vlSize);
 #endif
     }
 };
@@ -74,24 +105,7 @@ struct DoubleComputeCustom : public Vec::ElemwiseUnaryOP<uint8_t, T> {
         __ubuf__ T* src1Addr = (__ubuf__ T*)src1.GetPhyAddr();
         __ubuf__ uint8_t* dstAddr = (__ubuf__ uint8_t*)dst.GetPhyAddr();
 
-        AscendC::Reg::RegTensor<T, Reg::RegTraitNumTwo> vregInput1;
-        AscendC::Reg::MaskReg mask;
-        Reg::RegTensor<uint32_t, Reg::RegTraitNumOne> tmpReg;
-        __VEC_SCOPE__
-        {
-            for (uint16_t loopIdx = 0; loopIdx < loopNum; loopIdx++) {
-                mask = AscendC::Reg::UpdateMask<T, Reg::RegTraitNumTwo>(count);
-                // OpCopyIn
-                AscendC::Reg::LoadAlign(vregInput1, (__ubuf__ T*)(src1Addr + loopIdx * vl));
-
-                AscendC::Reg::ShiftRights<uint32_t, int16_t>(tmpReg, (Reg::RegTensor<uint32_t>&)vregInput1.reg[1],
-                                                             STATE_BIT_SHF_VALUE, mask);
-
-                // OpCopyOut
-                AscendC::Reg::StoreAlign<uint8_t, Reg::StoreDist::DIST_PACK4_B32>(
-                    dstAddr + loopIdx * vl, (Reg::RegTensor<uint8_t>&)tmpReg, mask);
-            }
-        }
+        asc_vf_call<SignbitDoubleVF<T>>(dstAddr, src1Addr, count, loopNum, vl);
 #endif
     }
 };

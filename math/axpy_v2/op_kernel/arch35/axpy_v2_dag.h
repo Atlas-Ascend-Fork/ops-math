@@ -30,6 +30,36 @@ constexpr AscendC::Reg::CastTrait castTraitRint = {AscendC::Reg::RegLayout::ZERO
                                                    AscendC::Reg::MaskMergeMode::ZEROING, AscendC::RoundMode::CAST_RINT};
 #endif
 
+#ifdef __CCE_AICORE__
+template <typename T>
+__simd_vf__ inline void AxpyV2Fp16Bf16VF(__ubuf__ T* dstAddr, __ubuf__ T* x1Addr, __ubuf__ T* x2Addr,
+                                         __ubuf__ T* alphaAddr, uint32_t count, uint16_t loopNum, uint32_t vlSize)
+{
+    AscendC::Reg::RegTensor<T> x1Reg;
+    AscendC::Reg::RegTensor<T> x2Reg;
+    AscendC::Reg::RegTensor<T> alphaReg;
+    AscendC::Reg::RegTensor<T> resReg;
+    AscendC::Reg::RegTensor<float> x1F;
+    AscendC::Reg::RegTensor<float> x2F;
+    AscendC::Reg::RegTensor<float> alphaF;
+    AscendC::Reg::MaskReg mask;
+    uint32_t remain = count;
+    for (uint16_t loopIdx = 0; loopIdx < loopNum; loopIdx++) {
+        mask = AscendC::Reg::UpdateMask<float>(remain);
+        AscendC::Reg::AddrReg addrReg = AscendC::Reg::CreateAddrReg<float>(loopIdx, vlSize);
+        AscendC::Reg::LoadAlign<T, AscendC::Reg::LoadDist::DIST_UNPACK_B16>(x1Reg, x1Addr, addrReg);
+        AscendC::Reg::LoadAlign<T, AscendC::Reg::LoadDist::DIST_UNPACK_B16>(x2Reg, x2Addr, addrReg);
+        AscendC::Reg::LoadAlign<T, AscendC::Reg::LoadDist::DIST_UNPACK_B16>(alphaReg, alphaAddr, addrReg);
+        AscendC::Reg::Cast<float, T, castTraitUp>(x1F, x1Reg, mask);
+        AscendC::Reg::Cast<float, T, castTraitUp>(x2F, x2Reg, mask);
+        AscendC::Reg::Cast<float, T, castTraitUp>(alphaF, alphaReg, mask);
+        AscendC::Reg::MulDstAdd(x2F, alphaF, x1F, mask);
+        AscendC::Reg::Cast<T, float, castTraitRint>(resReg, x2F, mask);
+        AscendC::Reg::StoreAlign<T, AscendC::Reg::StoreDist::DIST_PACK_B32>(dstAddr, resReg, addrReg, mask);
+    }
+}
+#endif
+
 template <typename T>
 struct AxpyV2Fp16Bf16Fused : public Vec::ElemwiseTernaryOP<T, T, T, T> {
     __aicore__ inline AxpyV2Fp16Bf16Fused(LocalTensor<T>& dst, LocalTensor<T>& x1, LocalTensor<T>& x2,
@@ -42,31 +72,7 @@ struct AxpyV2Fp16Bf16Fused : public Vec::ElemwiseTernaryOP<T, T, T, T> {
         __ubuf__ T* x2Addr = (__ubuf__ T*)x2.GetPhyAddr();
         __ubuf__ T* alphaAddr = (__ubuf__ T*)alpha.GetPhyAddr();
         const uint16_t loopNum = (count + vlSize - 1) / vlSize;
-        uint32_t remain = count;
-        __VEC_SCOPE__
-        {
-            AscendC::Reg::RegTensor<T> x1Reg;
-            AscendC::Reg::RegTensor<T> x2Reg;
-            AscendC::Reg::RegTensor<T> alphaReg;
-            AscendC::Reg::RegTensor<T> resReg;
-            AscendC::Reg::RegTensor<float> x1F;
-            AscendC::Reg::RegTensor<float> x2F;
-            AscendC::Reg::RegTensor<float> alphaF;
-            AscendC::Reg::MaskReg mask;
-            for (uint16_t loopIdx = 0; loopIdx < loopNum; loopIdx++) {
-                const uint32_t offset = loopIdx * vlSize;
-                mask = AscendC::Reg::UpdateMask<float>(remain);
-                AscendC::Reg::LoadAlign<T, AscendC::Reg::LoadDist::DIST_UNPACK_B16>(x1Reg, x1Addr + offset);
-                AscendC::Reg::LoadAlign<T, AscendC::Reg::LoadDist::DIST_UNPACK_B16>(x2Reg, x2Addr + offset);
-                AscendC::Reg::LoadAlign<T, AscendC::Reg::LoadDist::DIST_UNPACK_B16>(alphaReg, alphaAddr + offset);
-                AscendC::Reg::Cast<float, T, castTraitUp>(x1F, x1Reg, mask);
-                AscendC::Reg::Cast<float, T, castTraitUp>(x2F, x2Reg, mask);
-                AscendC::Reg::Cast<float, T, castTraitUp>(alphaF, alphaReg, mask);
-                AscendC::Reg::MulDstAdd(x2F, alphaF, x1F, mask);
-                AscendC::Reg::Cast<T, float, castTraitRint>(resReg, x2F, mask);
-                AscendC::Reg::StoreAlign<T, AscendC::Reg::StoreDist::DIST_PACK_B32>(dstAddr + offset, resReg, mask);
-            }
-        }
+        asc_vf_call<AxpyV2Fp16Bf16VF<T>>(dstAddr, x1Addr, x2Addr, alphaAddr, count, loopNum, vlSize);
 #endif
     }
 };
@@ -109,6 +115,56 @@ struct AxpyV2ComputeInt32Int64 {
     using OpDag = DAGSch<Outputs, void, MemCfg>;
 };
 
+#ifdef __CCE_AICORE__
+template <typename T1, typename T2>
+__simd_vf__ inline void AxpyV2Uint8Int8VF(__ubuf__ T1* dstAddr, __ubuf__ T1* x1Addr, __ubuf__ T1* x2Addr,
+                                          __ubuf__ T1* alphaAddr, uint32_t count, uint16_t pairLoopNum,
+                                          uint16_t tailLoopNum, uint32_t vlSize)
+{
+    AscendC::Reg::RegTensor<T1> x1B8A, x1B8B;
+    AscendC::Reg::RegTensor<T1> x2B8A, x2B8B;
+    AscendC::Reg::RegTensor<T1> alphaB8A, alphaB8B;
+    AscendC::Reg::RegTensor<T2> mulResA, mulResB;
+    AscendC::Reg::MaskReg maskA, maskB;
+    uint32_t remain = count;
+    // 双组寄存器交替：b 组 Load 与 a 组 Compute 重叠调度
+    for (uint16_t loopIdx = 0; loopIdx < pairLoopNum; loopIdx += 2) {
+        maskA = AscendC::Reg::UpdateMask<T2>(remain);
+        maskB = AscendC::Reg::UpdateMask<T2>(remain);
+        const uint32_t offsetA = loopIdx * vlSize;
+        const uint32_t offsetB = (loopIdx + 1) * vlSize;
+        AscendC::Reg::LoadAlign<T1, AscendC::Reg::LoadDist::DIST_UNPACK_B8>(x1B8A, x1Addr + offsetA);
+        AscendC::Reg::LoadAlign<T1, AscendC::Reg::LoadDist::DIST_UNPACK_B8>(x2B8A, x2Addr + offsetA);
+        AscendC::Reg::LoadAlign<T1, AscendC::Reg::LoadDist::DIST_UNPACK_B8>(alphaB8A, alphaAddr + offsetA);
+        AscendC::Reg::LoadAlign<T1, AscendC::Reg::LoadDist::DIST_UNPACK_B8>(x1B8B, x1Addr + offsetB);
+        AscendC::Reg::LoadAlign<T1, AscendC::Reg::LoadDist::DIST_UNPACK_B8>(x2B8B, x2Addr + offsetB);
+        AscendC::Reg::LoadAlign<T1, AscendC::Reg::LoadDist::DIST_UNPACK_B8>(alphaB8B, alphaAddr + offsetB);
+        AscendC::Reg::Mul<T2>(mulResA, (AscendC::Reg::RegTensor<T2>&)x2B8A, (AscendC::Reg::RegTensor<T2>&)alphaB8A,
+                              maskA);
+        AscendC::Reg::Add<T2>(mulResA, mulResA, (AscendC::Reg::RegTensor<T2>&)x1B8A, maskA);
+        AscendC::Reg::StoreAlign<T1, AscendC::Reg::StoreDist::DIST_PACK_B16>(
+            dstAddr + offsetA, (AscendC::Reg::RegTensor<T1>&)mulResA, maskA);
+        AscendC::Reg::Mul<T2>(mulResB, (AscendC::Reg::RegTensor<T2>&)x2B8B, (AscendC::Reg::RegTensor<T2>&)alphaB8B,
+                              maskB);
+        AscendC::Reg::Add<T2>(mulResB, mulResB, (AscendC::Reg::RegTensor<T2>&)x1B8B, maskB);
+        AscendC::Reg::StoreAlign<T1, AscendC::Reg::StoreDist::DIST_PACK_B16>(
+            dstAddr + offsetB, (AscendC::Reg::RegTensor<T1>&)mulResB, maskB);
+    }
+    for (uint16_t tailIdx = 0; tailIdx < tailLoopNum; tailIdx++) {
+        maskA = AscendC::Reg::UpdateMask<T2>(remain);
+        const uint32_t offset = (pairLoopNum + tailIdx) * vlSize;
+        AscendC::Reg::LoadAlign<T1, AscendC::Reg::LoadDist::DIST_UNPACK_B8>(x1B8A, x1Addr + offset);
+        AscendC::Reg::LoadAlign<T1, AscendC::Reg::LoadDist::DIST_UNPACK_B8>(x2B8A, x2Addr + offset);
+        AscendC::Reg::LoadAlign<T1, AscendC::Reg::LoadDist::DIST_UNPACK_B8>(alphaB8A, alphaAddr + offset);
+        AscendC::Reg::Mul<T2>(mulResA, (AscendC::Reg::RegTensor<T2>&)x2B8A, (AscendC::Reg::RegTensor<T2>&)alphaB8A,
+                              maskA);
+        AscendC::Reg::Add<T2>(mulResA, mulResA, (AscendC::Reg::RegTensor<T2>&)x1B8A, maskA);
+        AscendC::Reg::StoreAlign<T1, AscendC::Reg::StoreDist::DIST_PACK_B16>(
+            dstAddr + offset, (AscendC::Reg::RegTensor<T1>&)mulResA, maskA);
+    }
+}
+#endif
+
 template <typename T1, typename T2>
 struct AxpyV2Uint8Int8Fused : public Vec::ElemwiseTernaryOP<T1, T1, T1, T1> {
     __aicore__ inline AxpyV2Uint8Int8Fused(LocalTensor<T1>& dst, LocalTensor<T1>& x1, LocalTensor<T1>& x2,
@@ -121,52 +177,10 @@ struct AxpyV2Uint8Int8Fused : public Vec::ElemwiseTernaryOP<T1, T1, T1, T1> {
         __ubuf__ T1* x2Addr = (__ubuf__ T1*)x2.GetPhyAddr();
         __ubuf__ T1* alphaAddr = (__ubuf__ T1*)alpha.GetPhyAddr();
         const uint16_t loopNum = (count + vlSize - 1) / vlSize;
-        uint32_t remain = count;
-        __VEC_SCOPE__
-        {
-            AscendC::Reg::RegTensor<T1> x1B8A, x1B8B;
-            AscendC::Reg::RegTensor<T1> x2B8A, x2B8B;
-            AscendC::Reg::RegTensor<T1> alphaB8A, alphaB8B;
-            AscendC::Reg::RegTensor<T2> mulResA, mulResB;
-            AscendC::Reg::MaskReg maskA, maskB;
-            uint16_t loopIdx = 0;
-            // 双组寄存器交替：b 组 Load 与 a 组 Compute 重叠调度
-            const uint16_t pairLoopNum = loopNum / 2 * 2;
-            for (loopIdx = 0; loopIdx < pairLoopNum; loopIdx += 2) {
-                const uint32_t offsetA = loopIdx * vlSize;
-                maskA = AscendC::Reg::UpdateMask<T2>(remain);
-                AscendC::Reg::LoadAlign<T1, AscendC::Reg::LoadDist::DIST_UNPACK_B8>(x1B8A, x1Addr + offsetA);
-                AscendC::Reg::LoadAlign<T1, AscendC::Reg::LoadDist::DIST_UNPACK_B8>(x2B8A, x2Addr + offsetA);
-                AscendC::Reg::LoadAlign<T1, AscendC::Reg::LoadDist::DIST_UNPACK_B8>(alphaB8A, alphaAddr + offsetA);
-                const uint32_t offsetB = (loopIdx + 1) * vlSize;
-                maskB = AscendC::Reg::UpdateMask<T2>(remain);
-                AscendC::Reg::LoadAlign<T1, AscendC::Reg::LoadDist::DIST_UNPACK_B8>(x1B8B, x1Addr + offsetB);
-                AscendC::Reg::LoadAlign<T1, AscendC::Reg::LoadDist::DIST_UNPACK_B8>(x2B8B, x2Addr + offsetB);
-                AscendC::Reg::LoadAlign<T1, AscendC::Reg::LoadDist::DIST_UNPACK_B8>(alphaB8B, alphaAddr + offsetB);
-                AscendC::Reg::Mul<T2>(mulResA, (AscendC::Reg::RegTensor<T2>&)x2B8A,
-                                      (AscendC::Reg::RegTensor<T2>&)alphaB8A, maskA);
-                AscendC::Reg::Add<T2>(mulResA, mulResA, (AscendC::Reg::RegTensor<T2>&)x1B8A, maskA);
-                AscendC::Reg::StoreAlign<T1, AscendC::Reg::StoreDist::DIST_PACK_B16>(
-                    dstAddr + offsetA, (AscendC::Reg::RegTensor<T1>&)mulResA, maskA);
-                AscendC::Reg::Mul<T2>(mulResB, (AscendC::Reg::RegTensor<T2>&)x2B8B,
-                                      (AscendC::Reg::RegTensor<T2>&)alphaB8B, maskB);
-                AscendC::Reg::Add<T2>(mulResB, mulResB, (AscendC::Reg::RegTensor<T2>&)x1B8B, maskB);
-                AscendC::Reg::StoreAlign<T1, AscendC::Reg::StoreDist::DIST_PACK_B16>(
-                    dstAddr + offsetB, (AscendC::Reg::RegTensor<T1>&)mulResB, maskB);
-            }
-            if (loopIdx < loopNum) {
-                const uint32_t offset = loopIdx * vlSize;
-                maskA = AscendC::Reg::UpdateMask<T2>(remain);
-                AscendC::Reg::LoadAlign<T1, AscendC::Reg::LoadDist::DIST_UNPACK_B8>(x1B8A, x1Addr + offset);
-                AscendC::Reg::LoadAlign<T1, AscendC::Reg::LoadDist::DIST_UNPACK_B8>(x2B8A, x2Addr + offset);
-                AscendC::Reg::LoadAlign<T1, AscendC::Reg::LoadDist::DIST_UNPACK_B8>(alphaB8A, alphaAddr + offset);
-                AscendC::Reg::Mul<T2>(mulResA, (AscendC::Reg::RegTensor<T2>&)x2B8A,
-                                      (AscendC::Reg::RegTensor<T2>&)alphaB8A, maskA);
-                AscendC::Reg::Add<T2>(mulResA, mulResA, (AscendC::Reg::RegTensor<T2>&)x1B8A, maskA);
-                AscendC::Reg::StoreAlign<T1, AscendC::Reg::StoreDist::DIST_PACK_B16>(
-                    dstAddr + offset, (AscendC::Reg::RegTensor<T1>&)mulResA, maskA);
-            }
-        }
+        const uint16_t pairLoopNum = loopNum / 2 * 2;
+        const uint16_t tailLoopNum = loopNum - pairLoopNum;
+        asc_vf_call<AxpyV2Uint8Int8VF<T1, T2>>(dstAddr, x1Addr, x2Addr, alphaAddr, count, pairLoopNum, tailLoopNum,
+                                               vlSize);
 #endif
     }
 };
@@ -183,6 +197,49 @@ struct AxpyV2ComputeUint8Int8 {
     using OpDag = DAGSch<Outputs, void, MemCfg>;
 };
 
+#ifdef __CCE_AICORE__
+template <typename T>
+__simd_vf__ inline void AxpyV2BoolVF(__ubuf__ T* dstAddr, __ubuf__ T* x1Addr, __ubuf__ T* x2Addr, __ubuf__ T* alphaAddr,
+                                     uint32_t count, uint16_t pairLoopNum, uint16_t tailLoopNum, uint32_t vlSize)
+{
+    AscendC::Reg::RegTensor<T> x1B8A, x1B8B;
+    AscendC::Reg::RegTensor<T> x2B8A, x2B8B;
+    AscendC::Reg::RegTensor<T> alphaB8A, alphaB8B;
+    AscendC::Reg::RegTensor<T> resA, resB;
+    AscendC::Reg::MaskReg maskA, maskB;
+    uint32_t remain = count;
+    // 双组寄存器交替：b 组 Load 与 a 组 Compute 重叠调度
+    for (uint16_t loopIdx = 0; loopIdx < pairLoopNum; loopIdx += 2) {
+        maskA = AscendC::Reg::UpdateMask<T>(remain);
+        maskB = AscendC::Reg::UpdateMask<T>(remain);
+        const uint32_t offsetA = loopIdx * vlSize;
+        const uint32_t offsetB = (loopIdx + 1) * vlSize;
+        AscendC::Reg::LoadAlign<T, AscendC::Reg::LoadDist::DIST_NORM>(x1B8A, x1Addr + offsetA);
+        AscendC::Reg::LoadAlign<T, AscendC::Reg::LoadDist::DIST_NORM>(x2B8A, x2Addr + offsetA);
+        AscendC::Reg::LoadAlign<T, AscendC::Reg::LoadDist::DIST_NORM>(alphaB8A, alphaAddr + offsetA);
+        AscendC::Reg::LoadAlign<T, AscendC::Reg::LoadDist::DIST_NORM>(x1B8B, x1Addr + offsetB);
+        AscendC::Reg::LoadAlign<T, AscendC::Reg::LoadDist::DIST_NORM>(x2B8B, x2Addr + offsetB);
+        AscendC::Reg::LoadAlign<T, AscendC::Reg::LoadDist::DIST_NORM>(alphaB8B, alphaAddr + offsetB);
+        AscendC::Reg::And<T>(resA, x2B8A, alphaB8A, maskA);
+        AscendC::Reg::Or<T>(resA, resA, x1B8A, maskA);
+        AscendC::Reg::StoreAlign<T, AscendC::Reg::StoreDist::DIST_NORM_B8>(dstAddr + offsetA, resA, maskA);
+        AscendC::Reg::And<T>(resB, x2B8B, alphaB8B, maskB);
+        AscendC::Reg::Or<T>(resB, resB, x1B8B, maskB);
+        AscendC::Reg::StoreAlign<T, AscendC::Reg::StoreDist::DIST_NORM_B8>(dstAddr + offsetB, resB, maskB);
+    }
+    for (uint16_t tailIdx = 0; tailIdx < tailLoopNum; tailIdx++) {
+        maskA = AscendC::Reg::UpdateMask<T>(remain);
+        const uint32_t offset = (pairLoopNum + tailIdx) * vlSize;
+        AscendC::Reg::LoadAlign<T, AscendC::Reg::LoadDist::DIST_NORM>(x1B8A, x1Addr + offset);
+        AscendC::Reg::LoadAlign<T, AscendC::Reg::LoadDist::DIST_NORM>(x2B8A, x2Addr + offset);
+        AscendC::Reg::LoadAlign<T, AscendC::Reg::LoadDist::DIST_NORM>(alphaB8A, alphaAddr + offset);
+        AscendC::Reg::And<T>(resA, x2B8A, alphaB8A, maskA);
+        AscendC::Reg::Or<T>(resA, resA, x1B8A, maskA);
+        AscendC::Reg::StoreAlign<T, AscendC::Reg::StoreDist::DIST_NORM_B8>(dstAddr + offset, resA, maskA);
+    }
+}
+#endif
+
 template <typename T>
 struct AxpyV2BoolFused : public Vec::ElemwiseTernaryOP<T, T, T, T> {
     __aicore__ inline AxpyV2BoolFused(LocalTensor<T>& dst, LocalTensor<T>& x1, LocalTensor<T>& x2,
@@ -195,46 +252,9 @@ struct AxpyV2BoolFused : public Vec::ElemwiseTernaryOP<T, T, T, T> {
         __ubuf__ T* x2Addr = (__ubuf__ T*)x2.GetPhyAddr();
         __ubuf__ T* alphaAddr = (__ubuf__ T*)alpha.GetPhyAddr();
         const uint16_t loopNum = (count + vlSize - 1) / vlSize;
-        uint32_t remain = count;
-        __VEC_SCOPE__
-        {
-            AscendC::Reg::RegTensor<T> x1B8A, x1B8B;
-            AscendC::Reg::RegTensor<T> x2B8A, x2B8B;
-            AscendC::Reg::RegTensor<T> alphaB8A, alphaB8B;
-            AscendC::Reg::RegTensor<T> resA, resB;
-            AscendC::Reg::MaskReg maskA, maskB;
-            uint16_t loopIdx = 0;
-            // 双组寄存器交替：b 组 Load 与 a 组 Compute 重叠调度
-            const uint16_t pairLoopNum = loopNum / 2 * 2;
-            for (loopIdx = 0; loopIdx < pairLoopNum; loopIdx += 2) {
-                const uint32_t offsetA = loopIdx * vlSize;
-                maskA = AscendC::Reg::UpdateMask<T>(remain);
-                AscendC::Reg::LoadAlign<T, AscendC::Reg::LoadDist::DIST_NORM>(x1B8A, x1Addr + offsetA);
-                AscendC::Reg::LoadAlign<T, AscendC::Reg::LoadDist::DIST_NORM>(x2B8A, x2Addr + offsetA);
-                AscendC::Reg::LoadAlign<T, AscendC::Reg::LoadDist::DIST_NORM>(alphaB8A, alphaAddr + offsetA);
-                const uint32_t offsetB = (loopIdx + 1) * vlSize;
-                maskB = AscendC::Reg::UpdateMask<T>(remain);
-                AscendC::Reg::LoadAlign<T, AscendC::Reg::LoadDist::DIST_NORM>(x1B8B, x1Addr + offsetB);
-                AscendC::Reg::LoadAlign<T, AscendC::Reg::LoadDist::DIST_NORM>(x2B8B, x2Addr + offsetB);
-                AscendC::Reg::LoadAlign<T, AscendC::Reg::LoadDist::DIST_NORM>(alphaB8B, alphaAddr + offsetB);
-                AscendC::Reg::And<T>(resA, x2B8A, alphaB8A, maskA);
-                AscendC::Reg::Or<T>(resA, resA, x1B8A, maskA);
-                AscendC::Reg::StoreAlign<T, AscendC::Reg::StoreDist::DIST_NORM_B8>(dstAddr + offsetA, resA, maskA);
-                AscendC::Reg::And<T>(resB, x2B8B, alphaB8B, maskB);
-                AscendC::Reg::Or<T>(resB, resB, x1B8B, maskB);
-                AscendC::Reg::StoreAlign<T, AscendC::Reg::StoreDist::DIST_NORM_B8>(dstAddr + offsetB, resB, maskB);
-            }
-            if (loopIdx < loopNum) {
-                const uint32_t offset = loopIdx * vlSize;
-                maskA = AscendC::Reg::UpdateMask<T>(remain);
-                AscendC::Reg::LoadAlign<T, AscendC::Reg::LoadDist::DIST_NORM>(x1B8A, x1Addr + offset);
-                AscendC::Reg::LoadAlign<T, AscendC::Reg::LoadDist::DIST_NORM>(x2B8A, x2Addr + offset);
-                AscendC::Reg::LoadAlign<T, AscendC::Reg::LoadDist::DIST_NORM>(alphaB8A, alphaAddr + offset);
-                AscendC::Reg::And<T>(resA, x2B8A, alphaB8A, maskA);
-                AscendC::Reg::Or<T>(resA, resA, x1B8A, maskA);
-                AscendC::Reg::StoreAlign<T, AscendC::Reg::StoreDist::DIST_NORM_B8>(dstAddr + offset, resA, maskA);
-            }
-        }
+        const uint16_t pairLoopNum = loopNum / 2 * 2;
+        const uint16_t tailLoopNum = loopNum - pairLoopNum;
+        asc_vf_call<AxpyV2BoolVF<T>>(dstAddr, x1Addr, x2Addr, alphaAddr, count, pairLoopNum, tailLoopNum, vlSize);
 #endif
     }
 };

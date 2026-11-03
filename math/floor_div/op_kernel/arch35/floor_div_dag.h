@@ -22,6 +22,91 @@
 
 #ifdef __CCE_AICORE__
 #include "simt_api/asc_simt.h"
+namespace FloorDivOp {
+using namespace AscendC;
+
+constexpr int16_t DIV_B16_SIGN = -32768;
+
+template <typename R, typename T>
+__simd_vf__ inline void FloorDivCastOverFlowVF(__ubuf__ R* dstAddr, __ubuf__ T* srcAddr, uint32_t count)
+{
+    constexpr static Reg::CastTrait castTrait3 = {Reg::RegLayout::ZERO, Reg::SatMode::NO_SAT,
+                                                  Reg::MaskMergeMode::ZEROING, RoundMode::CAST_RINT};
+    Reg::RegTensor<T> vreg0;
+    Reg::RegTensor<R> vreg1;
+    Reg::MaskReg preg0;
+    // sizeof(T) must > sizeof(R)
+    uint32_t size = count;
+    uint16_t vfLoopNum = (size + (VECTOR_REG_WIDTH / sizeof(T)) - 1) / (VECTOR_REG_WIDTH / sizeof(T));
+
+    for (uint16_t i = 0; i < vfLoopNum; i++) {
+        preg0 = Reg::UpdateMask<T>(size);
+        Reg::AddrReg addrReg = Reg::CreateAddrReg<T>(i, VECTOR_REG_WIDTH / sizeof(T));
+        Reg::LoadAlign<T, Reg::LoadDist::DIST_NORM>(vreg0, srcAddr, addrReg);
+        Reg::Cast<R, T, castTrait3>(vreg1, vreg0, preg0);
+        Reg::StoreAlign<R, Reg::StoreDist::DIST_PACK_B16>(dstAddr, vreg1, addrReg, preg0);
+    }
+}
+
+template <typename T1, typename T2>
+__simd_vf__ inline void FloorDivIntS8PostComputeVF(__ubuf__ T1* dstAddr, __ubuf__ T2* input1Addr,
+                                                   __ubuf__ T2* input2Addr, __ubuf__ T2* divAddr, uint32_t count,
+                                                   uint16_t loopTimes, uint32_t VL_T)
+{
+    constexpr static Reg::CastTrait castTraitT2ToHalf = {Reg::RegLayout::ZERO, Reg::SatMode::NO_SAT,
+                                                         Reg::MaskMergeMode::ZEROING, RoundMode::CAST_ROUND};
+    constexpr static Reg::CastTrait castTraitHalfToInt8 = {Reg::RegLayout::ZERO, Reg::SatMode::NO_SAT,
+                                                           Reg::MaskMergeMode::ZEROING, RoundMode::CAST_RINT};
+
+    Reg::RegTensor<T2> zeroValue;
+    Reg::RegTensor<T2> oneValue;
+    Reg::RegTensor<T2> signValue;
+    Reg::RegTensor<T2> input1Value;
+    Reg::RegTensor<T2> input2Value;
+    Reg::RegTensor<T2> divValue;
+    Reg::RegTensor<T2> mulValue;
+    Reg::RegTensor<T2> subValue;
+    Reg::RegTensor<T2> resValue;
+    Reg::RegTensor<T2> subValue1;
+    Reg::RegTensor<half> halfValue;
+    Reg::RegTensor<T1> int8Value;
+    Reg::RegTensor<T2> input1SignValue;
+    Reg::RegTensor<T2> input2SignValue;
+
+    Reg::MaskReg preg;
+    Reg::MaskReg negValue;
+    Reg::MaskReg signNegValue;
+    Reg::MaskReg resMaskValue;
+    uint32_t sregMask = count;
+
+    Reg::Duplicate(zeroValue, T2(0));
+    Reg::Duplicate(oneValue, T2(1));
+    Reg::Duplicate(signValue, T2(DIV_B16_SIGN));
+
+    for (uint16_t j = 0; j < loopTimes; j++) {
+        preg = Reg::UpdateMask<T2>(sregMask);
+        Reg::AddrReg addrReg = Reg::CreateAddrReg<T2>(j, VL_T);
+        Reg::LoadAlign<T2, Reg::LoadDist::DIST_NORM>(input2Value, input2Addr, addrReg);
+        Reg::LoadAlign<T2, Reg::LoadDist::DIST_NORM>(divValue, divAddr, addrReg);
+        Reg::Mul(mulValue, input2Value, divValue, preg);
+        Reg::LoadAlign<T2, Reg::LoadDist::DIST_NORM>(input1Value, input1Addr, addrReg);
+        Reg::Sub(subValue, input1Value, mulValue, preg);
+        Reg::Compare<T2, CMPMODE::NE>(negValue, subValue, zeroValue, preg);
+
+        Reg::And(input1SignValue, input1Value, signValue, preg);
+        Reg::And(input2SignValue, input2Value, signValue, preg);
+        Reg::Compare<T2, CMPMODE::NE>(signNegValue, input1SignValue, input2SignValue, preg);
+
+        Reg::And(resMaskValue, signNegValue, negValue, preg);
+        Reg::Sub(subValue1, divValue, oneValue, preg);
+        Reg::Select(resValue, subValue1, divValue, resMaskValue);
+
+        Reg::Cast<half, T2, castTraitT2ToHalf>(halfValue, resValue, preg);
+        Reg::Cast<T1, half, castTraitHalfToInt8>(int8Value, halfValue, preg);
+        Reg::StoreAlign<T1, Reg::StoreDist::DIST_PACK_B16>(dstAddr, int8Value, addrReg, preg);
+    }
+}
+} // namespace FloorDivOp
 #endif
 
 using namespace Ops::Base;
@@ -34,7 +119,6 @@ constexpr int DIV_CAST_MODE_FLOOR = 2;
 constexpr int DIV_CMP_NE_MODE = 5;
 constexpr int DIV_SEL_TENSOR_TENSOR_MODE = 2;
 constexpr int8_t SAT_POS = 60;
-constexpr int16_t DIV_B16_SIGN = -32768;
 
 template <class R, class T, int roundMode>
 struct CastOverFlow : public Vec::ElemwiseUnaryOP<R, T> {
@@ -42,26 +126,9 @@ struct CastOverFlow : public Vec::ElemwiseUnaryOP<R, T> {
     {
 #ifdef __CCE_AICORE__
         SetCtrlSpr<SAT_POS, SAT_POS>(0);
-        constexpr static Reg::CastTrait castTrait3 = {Reg::RegLayout::ZERO, Reg::SatMode::NO_SAT,
-                                                      Reg::MaskMergeMode::ZEROING, RoundMode::CAST_RINT};
-        __VEC_SCOPE__
-        {
-            Reg::RegTensor<T> vreg0;
-            Reg::RegTensor<R> vreg1;
-            Reg::MaskReg preg0;
-            // sizeof(T) must > sizeof(R)
-            uint32_t size = count;
-            uint16_t vfLoopNum = (size + (VECTOR_REG_WIDTH / sizeof(T)) - 1) / (VECTOR_REG_WIDTH / sizeof(T));
-            __ubuf__ T* bufferIn0Addr = (__ubuf__ T*)src.GetPhyAddr();
-            __ubuf__ R* bufferOut0Addr = (__ubuf__ R*)dst.GetPhyAddr();
-            for (uint16_t i = 0; i < vfLoopNum; i++) {
-                preg0 = Reg::UpdateMask<T>(size);
-                Reg::LoadAlign<T, Reg::LoadDist::DIST_NORM>(vreg0, bufferIn0Addr + i * (VECTOR_REG_WIDTH / sizeof(T)));
-                Reg::Cast<R, T, castTrait3>(vreg1, vreg0, preg0);
-                Reg::StoreAlign<R, Reg::StoreDist::DIST_PACK_B16>(bufferOut0Addr + i * (VECTOR_REG_WIDTH / sizeof(T)),
-                                                                  vreg1, preg0);
-            }
-        }
+        __ubuf__ T* srcAddr = (__ubuf__ T*)src.GetPhyAddr();
+        __ubuf__ R* dstAddr = (__ubuf__ R*)dst.GetPhyAddr();
+        asc_vf_call<FloorDivCastOverFlowVF<R, T>>(dstAddr, srcAddr, count);
         SetCtrlSpr<SAT_POS, SAT_POS>(1);
 #endif
     }
@@ -141,60 +208,8 @@ struct FloorDivIntS8PostCompute : public Vec::ElemwiseTernaryOP<T1, T2, T2, T2> 
         __ubuf__ T1* dstAddr = (__ubuf__ T1*)dst.GetPhyAddr();
         uint16_t loopTimes = (count + VL_T - 1) / VL_T;
 
-        constexpr static Reg::CastTrait castTraitT2ToHalf = {Reg::RegLayout::ZERO, Reg::SatMode::NO_SAT,
-                                                             Reg::MaskMergeMode::ZEROING, RoundMode::CAST_ROUND};
-        constexpr static Reg::CastTrait castTraitHalfToInt8 = {Reg::RegLayout::ZERO, Reg::SatMode::NO_SAT,
-                                                               Reg::MaskMergeMode::ZEROING, RoundMode::CAST_RINT};
-
-        __VEC_SCOPE__
-        {
-            Reg::RegTensor<T2> zeroValue;
-            Reg::RegTensor<T2> oneValue;
-            Reg::RegTensor<T2> signValue;
-            Reg::RegTensor<T2> input1Value;
-            Reg::RegTensor<T2> input2Value;
-            Reg::RegTensor<T2> divValue;
-            Reg::RegTensor<T2> mulValue;
-            Reg::RegTensor<T2> subValue;
-            Reg::RegTensor<T2> resValue;
-            Reg::RegTensor<T2> subValue1;
-            Reg::RegTensor<half> halfValue;
-            Reg::RegTensor<T1> int8Value;
-            Reg::RegTensor<T2> input1SignValue;
-            Reg::RegTensor<T2> input2SignValue;
-
-            Reg::MaskReg preg;
-            Reg::MaskReg negValue;
-            Reg::MaskReg signNegValue;
-            Reg::MaskReg resMaskValue;
-            uint32_t sregMask = count;
-
-            Reg::Duplicate(zeroValue, T2(0));
-            Reg::Duplicate(oneValue, T2(1));
-            Reg::Duplicate(signValue, T2(DIV_B16_SIGN));
-
-            for (uint16_t j = 0; j < loopTimes; j++) {
-                preg = Reg::UpdateMask<T2>(sregMask);
-                Reg::LoadAlign<T2, Reg::LoadDist::DIST_NORM>(input2Value, input2Addr + VL_T * j);
-                Reg::LoadAlign<T2, Reg::LoadDist::DIST_NORM>(divValue, divAddr + VL_T * j);
-                Reg::Mul(mulValue, input2Value, divValue, preg);
-                Reg::LoadAlign<T2, Reg::LoadDist::DIST_NORM>(input1Value, input1Addr + VL_T * j);
-                Reg::Sub(subValue, input1Value, mulValue, preg);
-                Reg::Compare<T2, CMPMODE::NE>(negValue, subValue, zeroValue, preg);
-
-                Reg::And(input1SignValue, input1Value, signValue, preg);
-                Reg::And(input2SignValue, input2Value, signValue, preg);
-                Reg::Compare<T2, CMPMODE::NE>(signNegValue, input1SignValue, input2SignValue, preg);
-
-                Reg::And(resMaskValue, signNegValue, negValue, preg);
-                Reg::Sub(subValue1, divValue, oneValue, preg);
-                Reg::Select(resValue, subValue1, divValue, resMaskValue);
-
-                Reg::Cast<half, T2, castTraitT2ToHalf>(halfValue, resValue, preg);
-                Reg::Cast<T1, half, castTraitHalfToInt8>(int8Value, halfValue, preg);
-                Reg::StoreAlign<T1, Reg::StoreDist::DIST_PACK_B16>(dstAddr + VL_T * j, int8Value, preg);
-            }
-        }
+        asc_vf_call<FloorDivIntS8PostComputeVF<T1, T2>>(dstAddr, input1Addr, input2Addr, divAddr, count, loopTimes,
+                                                        VL_T);
         SetCtrlSpr<SAT_POS, SAT_POS>(1);
 #endif
     }

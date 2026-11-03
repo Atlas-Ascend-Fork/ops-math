@@ -23,6 +23,152 @@
 #ifdef __CCE_AICORE__
 #include "op_kernel/platform_util.h"
 #include "simt_api/asc_simt.h"
+namespace FloorModOp {
+using namespace AscendC;
+
+constexpr uint32_t FMOD_B32_SIGN = 0X80000000;
+
+constexpr static Reg::CastTrait castTrait1 = {Reg::RegLayout::ZERO, Reg::SatMode::NO_SAT, Reg::MaskMergeMode::ZEROING,
+                                              RoundMode::CAST_RINT};
+
+template <typename T>
+__simd_vf__ inline void FmodPostComputeVF(__ubuf__ T* dstAddr, __ubuf__ T* fmodResAddr, __ubuf__ T* inputX2Addr,
+                                          uint32_t count, uint16_t loopTimes, uint32_t VL_T)
+{
+    Reg::RegTensor<T> zeroValue;
+    Reg::RegTensor<T> fmodResValue;
+    Reg::RegTensor<T> inputX2Value;
+    Reg::RegTensor<T> addValue;
+    Reg::RegTensor<T> resValue;
+
+    Reg::RegTensor<uint32_t> signValue;
+    Reg::RegTensor<uint32_t> fmodSignValue;
+    Reg::RegTensor<uint32_t> inputX2signValue;
+
+    Reg::MaskReg preg;
+    Reg::MaskReg negValue;
+    Reg::MaskReg signNegValue;
+    Reg::MaskReg resMaskValue;
+    uint32_t sregMask = count;
+
+    Reg::Duplicate(zeroValue, T(0));
+    Reg::Duplicate(signValue, FMOD_B32_SIGN);
+
+    for (uint16_t j = 0; j < loopTimes; j++) {
+        preg = Reg::UpdateMask<T>(sregMask);
+        Reg::AddrReg addrReg = Reg::CreateAddrReg<T>(j, VL_T);
+        Reg::LoadAlign<T, Reg::LoadDist::DIST_NORM>(fmodResValue, fmodResAddr, addrReg);
+        Reg::Compare<T, CMPMODE::NE>(negValue, fmodResValue, zeroValue, preg);
+
+        Reg::And(fmodSignValue, (Reg::RegTensor<uint32_t>&)fmodResValue, signValue, preg);
+        Reg::LoadAlign<T, Reg::LoadDist::DIST_NORM>(inputX2Value, inputX2Addr, addrReg);
+        Reg::Add(addValue, fmodResValue, inputX2Value, preg);
+        Reg::And(inputX2signValue, (Reg::RegTensor<uint32_t>&)inputX2Value, signValue, preg);
+        Reg::Compare<uint32_t, CMPMODE::NE>(signNegValue, fmodSignValue, inputX2signValue, preg);
+
+        Reg::And(resMaskValue, signNegValue, negValue, preg);
+        Reg::Select(resValue, addValue, fmodResValue, resMaskValue);
+        Reg::StoreAlign<T, Reg::StoreDist::DIST_NORM>(dstAddr, resValue, addrReg, preg);
+    }
+}
+
+template <typename T1, typename T2>
+__simd_vf__ inline void FmodCastFloatPostComputeVF(__ubuf__ T1* dstAddr, __ubuf__ T2* fmodResAddr,
+                                                   __ubuf__ T2* inputX2Addr, uint32_t count, uint16_t loopTimes,
+                                                   uint32_t VL_T)
+{
+    Reg::RegTensor<T2> zeroValue;
+    Reg::RegTensor<T2> fmodResValue;
+    Reg::RegTensor<T2> inputX2Value;
+    Reg::RegTensor<T2> addValue;
+    Reg::RegTensor<T2> resValue;
+    Reg::RegTensor<T1> resCastValue;
+
+    Reg::RegTensor<uint32_t> signValue;
+    Reg::RegTensor<uint32_t> fmodSignValue;
+    Reg::RegTensor<uint32_t> inputX2signValue;
+
+    Reg::MaskReg preg;
+    Reg::MaskReg negValue;
+    Reg::MaskReg signNegValue;
+    Reg::MaskReg resMaskValue;
+    uint32_t sregMask = count;
+
+    Reg::Duplicate(zeroValue, T2(0));
+    Reg::Duplicate(signValue, FMOD_B32_SIGN);
+
+    for (uint16_t j = 0; j < loopTimes; j++) {
+        preg = Reg::UpdateMask<T2>(sregMask);
+        Reg::AddrReg addrReg = Reg::CreateAddrReg<T2>(j, VL_T);
+        Reg::LoadAlign<T2, Reg::LoadDist::DIST_NORM>(fmodResValue, fmodResAddr, addrReg);
+        Reg::Compare<T2, CMPMODE::NE>(negValue, fmodResValue, zeroValue, preg);
+
+        Reg::And(fmodSignValue, (Reg::RegTensor<uint32_t>&)fmodResValue, signValue, preg);
+        Reg::LoadAlign<T2, Reg::LoadDist::DIST_NORM>(inputX2Value, inputX2Addr, addrReg);
+        Reg::Add(addValue, fmodResValue, inputX2Value, preg);
+        Reg::And(inputX2signValue, (Reg::RegTensor<uint32_t>&)inputX2Value, signValue, preg);
+        Reg::Compare<uint32_t, CMPMODE::NE>(signNegValue, fmodSignValue, inputX2signValue, preg);
+
+        Reg::And(resMaskValue, signNegValue, negValue, preg);
+        Reg::Select(resValue, addValue, fmodResValue, resMaskValue);
+        Reg::Cast<T1, float, castTrait1>(resCastValue, resValue, preg);
+        Reg::StoreAlign<T1, Reg::StoreDist::DIST_PACK_B32>(dstAddr, resCastValue, addrReg, preg);
+    }
+}
+
+template <typename T>
+__simd_vf__ inline void FmodIntPostComputeVF(__ubuf__ T* dstAddr, __ubuf__ T* input1Addr, __ubuf__ T* input2Addr,
+                                             __ubuf__ T* divAddr, uint32_t count, uint16_t loopTimes, uint32_t VL_T)
+{
+    Reg::RegTensor<T> zeroValue;
+    Reg::RegTensor<T> defaultValue;
+    Reg::RegTensor<T> signValue;
+    Reg::RegTensor<T> input1Value;
+    Reg::RegTensor<T> input2Value;
+    Reg::RegTensor<T> divValue;
+    Reg::RegTensor<T> mulValue;
+    Reg::RegTensor<T> subValue;
+    Reg::RegTensor<T> modValue;
+    Reg::RegTensor<T> modSignValue;
+    Reg::RegTensor<T> addValue;
+    Reg::RegTensor<T> input2SignValue;
+    Reg::RegTensor<T> resValue;
+
+    Reg::MaskReg preg;
+    Reg::MaskReg cmpValue;
+    Reg::MaskReg negValue;
+    Reg::MaskReg signNegValue;
+    Reg::MaskReg resMaskValue;
+    uint32_t sregMask = count;
+
+    Reg::Duplicate(zeroValue, T(0));
+    Reg::Duplicate(defaultValue, T(-1));
+    Reg::Duplicate(signValue, FMOD_B32_SIGN);
+
+    for (uint16_t j = 0; j < loopTimes; j++) {
+        // handel -1
+        preg = Reg::UpdateMask<T>(sregMask);
+        Reg::AddrReg addrReg = Reg::CreateAddrReg<T>(j, VL_T);
+        Reg::LoadAlign<T, Reg::LoadDist::DIST_NORM>(input2Value, input2Addr, addrReg);
+        Reg::LoadAlign<T, Reg::LoadDist::DIST_NORM>(divValue, divAddr, addrReg);
+        Reg::Mul(mulValue, input2Value, divValue, preg);
+        Reg::LoadAlign<T, Reg::LoadDist::DIST_NORM>(input1Value, input1Addr, addrReg);
+        Reg::Sub(subValue, input1Value, mulValue, preg);
+        Reg::Compare<T, CMPMODE::NE>(cmpValue, input2Value, zeroValue, preg);
+        Reg::Select(modValue, subValue, defaultValue, cmpValue);
+
+        // post handel
+        Reg::Add(addValue, modValue, input2Value, preg);
+        Reg::Compare<T, CMPMODE::NE>(negValue, modValue, zeroValue, preg);
+        Reg::And(input2SignValue, input2Value, signValue, preg);
+        Reg::And(modSignValue, modValue, signValue, preg);
+        Reg::Compare<T, CMPMODE::NE>(signNegValue, modSignValue, input2SignValue, preg);
+        Reg::And(resMaskValue, signNegValue, negValue, preg);
+        Reg::Select(resValue, addValue, modValue, resMaskValue);
+        Reg::StoreAlign<T, Reg::StoreDist::DIST_NORM>(dstAddr, resValue, addrReg, preg);
+    }
+}
+} // namespace FloorModOp
 #endif
 
 using namespace Ops::Base;
@@ -35,16 +181,9 @@ constexpr int CAST_NONE_MODE = 0;
 constexpr int FMOD_CMP_NE_MODE = 5;
 constexpr int FMOD_SEL_TENSOR_TENSOR_MODE = 2;
 
-constexpr uint32_t FMOD_B32_SIGN = 0X80000000;
 constexpr uint64_t FMOD_B64_SIGN = 0x8000000000000000;
 
 constexpr uint64_t FMOD_B64_MAX = 0Xffffffffffffffff;
-
-#ifdef __CCE_AICORE__
-constexpr static Reg::CastTrait castTrait1 = {Reg::RegLayout::ZERO, Reg::SatMode::NO_SAT, Reg::MaskMergeMode::ZEROING,
-                                              RoundMode::CAST_RINT};
-
-#endif
 
 template <class T>
 struct FmodPostCompute : public Vec::ElemwiseBinaryOP<T, T, T> {
@@ -59,43 +198,7 @@ struct FmodPostCompute : public Vec::ElemwiseBinaryOP<T, T, T> {
         __ubuf__ T* dstAddr = (__ubuf__ T*)dst.GetPhyAddr();
         uint16_t loopTimes = CeilDiv(count, VL_T);
 
-        __VEC_SCOPE__
-        {
-            Reg::RegTensor<T> zeroValue;
-            Reg::RegTensor<T> fmodResValue;
-            Reg::RegTensor<T> inputX2Value;
-            Reg::RegTensor<T> addValue;
-            Reg::RegTensor<T> resValue;
-
-            Reg::RegTensor<uint32_t> signValue;
-            Reg::RegTensor<uint32_t> fmodSignValue;
-            Reg::RegTensor<uint32_t> inputX2signValue;
-
-            Reg::MaskReg preg;
-            Reg::MaskReg negValue;
-            Reg::MaskReg signNegValue;
-            Reg::MaskReg resMaskValue;
-            uint32_t sregMask = count;
-
-            Reg::Duplicate(zeroValue, T(0));
-            Reg::Duplicate(signValue, FMOD_B32_SIGN);
-
-            for (uint16_t j = 0; j < loopTimes; j++) {
-                preg = Reg::UpdateMask<T>(sregMask);
-                Reg::LoadAlign<T, Reg::LoadDist::DIST_NORM>(fmodResValue, fmodResAddr + VL_T * j);
-                Reg::Compare<T, CMPMODE::NE>(negValue, fmodResValue, zeroValue, preg);
-
-                Reg::And(fmodSignValue, (Reg::RegTensor<uint32_t>&)fmodResValue, signValue, preg);
-                Reg::LoadAlign<T, Reg::LoadDist::DIST_NORM>(inputX2Value, inputX2Addr + VL_T * j);
-                Reg::Add(addValue, fmodResValue, inputX2Value, preg);
-                Reg::And(inputX2signValue, (Reg::RegTensor<uint32_t>&)inputX2Value, signValue, preg);
-                Reg::Compare<uint32_t, CMPMODE::NE>(signNegValue, fmodSignValue, inputX2signValue, preg);
-
-                Reg::And(resMaskValue, signNegValue, negValue, preg);
-                Reg::Select(resValue, addValue, fmodResValue, resMaskValue);
-                Reg::StoreAlign<T, Reg::StoreDist::DIST_NORM>(dstAddr + VL_T * j, resValue, preg);
-            }
-        }
+        asc_vf_call<FmodPostComputeVF<T>>(dstAddr, fmodResAddr, inputX2Addr, count, loopTimes, VL_T);
 #endif
     }
 };
@@ -113,45 +216,7 @@ struct FmodCastFloatPostCompute : public Vec::ElemwiseBinaryOP<T1, T2, T2> {
         __ubuf__ T1* dstAddr = (__ubuf__ T1*)dst.GetPhyAddr();
         uint16_t loopTimes = CeilDiv(count, VL_T);
 
-        __VEC_SCOPE__
-        {
-            Reg::RegTensor<T2> zeroValue;
-            Reg::RegTensor<T2> fmodResValue;
-            Reg::RegTensor<T2> inputX2Value;
-            Reg::RegTensor<T2> addValue;
-            Reg::RegTensor<T2> resValue;
-            Reg::RegTensor<T1> resCastValue;
-
-            Reg::RegTensor<uint32_t> signValue;
-            Reg::RegTensor<uint32_t> fmodSignValue;
-            Reg::RegTensor<uint32_t> inputX2signValue;
-
-            Reg::MaskReg preg;
-            Reg::MaskReg negValue;
-            Reg::MaskReg signNegValue;
-            Reg::MaskReg resMaskValue;
-            uint32_t sregMask = count;
-
-            Reg::Duplicate(zeroValue, T2(0));
-            Reg::Duplicate(signValue, FMOD_B32_SIGN);
-
-            for (uint16_t j = 0; j < loopTimes; j++) {
-                preg = Reg::UpdateMask<T2>(sregMask);
-                Reg::LoadAlign<T2, Reg::LoadDist::DIST_NORM>(fmodResValue, fmodResAddr + VL_T * j);
-                Reg::Compare<T2, CMPMODE::NE>(negValue, fmodResValue, zeroValue, preg);
-
-                Reg::And(fmodSignValue, (Reg::RegTensor<uint32_t>&)fmodResValue, signValue, preg);
-                Reg::LoadAlign<T2, Reg::LoadDist::DIST_NORM>(inputX2Value, inputX2Addr + VL_T * j);
-                Reg::Add(addValue, fmodResValue, inputX2Value, preg);
-                Reg::And(inputX2signValue, (Reg::RegTensor<uint32_t>&)inputX2Value, signValue, preg);
-                Reg::Compare<uint32_t, CMPMODE::NE>(signNegValue, fmodSignValue, inputX2signValue, preg);
-
-                Reg::And(resMaskValue, signNegValue, negValue, preg);
-                Reg::Select(resValue, addValue, fmodResValue, resMaskValue);
-                Reg::Cast<T1, float, castTrait1>(resCastValue, resValue, preg);
-                Reg::StoreAlign<T1, Reg::StoreDist::DIST_PACK_B32>(dstAddr + VL_T * j, resCastValue, preg);
-            }
-        }
+        asc_vf_call<FmodCastFloatPostComputeVF<T1, T2>>(dstAddr, fmodResAddr, inputX2Addr, count, loopTimes, VL_T);
 #endif
     }
 };
@@ -170,55 +235,7 @@ struct FmodIntPostCompute : public Vec::ElemwiseTernaryOP<T, T, T, T> {
         __ubuf__ T* dstAddr = (__ubuf__ T*)dst.GetPhyAddr();
         uint16_t loopTimes = CeilDiv(count, VL_T);
 
-        __VEC_SCOPE__
-        {
-            Reg::RegTensor<T> zeroValue;
-            Reg::RegTensor<T> defaultValue;
-            Reg::RegTensor<T> signValue;
-            Reg::RegTensor<T> input1Value;
-            Reg::RegTensor<T> input2Value;
-            Reg::RegTensor<T> divValue;
-            Reg::RegTensor<T> mulValue;
-            Reg::RegTensor<T> subValue;
-            Reg::RegTensor<T> modValue;
-            Reg::RegTensor<T> modSignValue;
-            Reg::RegTensor<T> addValue;
-            Reg::RegTensor<T> input2SignValue;
-            Reg::RegTensor<T> resValue;
-
-            Reg::MaskReg preg;
-            Reg::MaskReg cmpValue;
-            Reg::MaskReg negValue;
-            Reg::MaskReg signNegValue;
-            Reg::MaskReg resMaskValue;
-            uint32_t sregMask = count;
-
-            Reg::Duplicate(zeroValue, T(0));
-            Reg::Duplicate(defaultValue, T(-1));
-            Reg::Duplicate(signValue, FMOD_B32_SIGN);
-
-            for (uint16_t j = 0; j < loopTimes; j++) {
-                // handel -1
-                preg = Reg::UpdateMask<T>(sregMask);
-                Reg::LoadAlign<T, Reg::LoadDist::DIST_NORM>(input2Value, input2Addr + VL_T * j);
-                Reg::LoadAlign<T, Reg::LoadDist::DIST_NORM>(divValue, divAddr + VL_T * j);
-                Reg::Mul(mulValue, input2Value, divValue, preg);
-                Reg::LoadAlign<T, Reg::LoadDist::DIST_NORM>(input1Value, input1Addr + VL_T * j);
-                Reg::Sub(subValue, input1Value, mulValue, preg);
-                Reg::Compare<T, CMPMODE::NE>(cmpValue, input2Value, zeroValue, preg);
-                Reg::Select(modValue, subValue, defaultValue, cmpValue);
-
-                // post handel
-                Reg::Add(addValue, modValue, input2Value, preg);
-                Reg::Compare<T, CMPMODE::NE>(negValue, modValue, zeroValue, preg);
-                Reg::And(input2SignValue, input2Value, signValue, preg);
-                Reg::And(modSignValue, modValue, signValue, preg);
-                Reg::Compare<T, CMPMODE::NE>(signNegValue, modSignValue, input2SignValue, preg);
-                Reg::And(resMaskValue, signNegValue, negValue, preg);
-                Reg::Select(resValue, addValue, modValue, resMaskValue);
-                Reg::StoreAlign<T, Reg::StoreDist::DIST_NORM>(dstAddr + VL_T * j, resValue, preg);
-            }
-        }
+        asc_vf_call<FmodIntPostComputeVF<T>>(dstAddr, input1Addr, input2Addr, divAddr, count, loopTimes, VL_T);
 #endif
     }
 };

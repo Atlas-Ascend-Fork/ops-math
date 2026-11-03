@@ -17,6 +17,7 @@
 
 #include "kernel_operator.h"
 #include "atvoss/util/broadcast_utils.h"
+#include "vf/tanh_grad_vf.h"
 
 namespace TanhGrad {
 using AscendC::GlobalTensor;
@@ -106,47 +107,11 @@ private:
         bufferIn0_ = queIn0_.DeQue<half>();
         bufferIn1_ = queIn1_.DeQue<half>();
         bufferOut0_ = queOut0_.AllocTensor<half>();
-        __VEC_SCOPE__
-        {
-            RegTensor<half> vreg0;
-            RegTensor<float> vreg1;
-            RegTensor<float> vreg2;
-            RegTensor<float> vreg3;
-            RegTensor<float> vreg4;
-            RegTensor<half> vreg5;
-            RegTensor<float> vreg6;
-            RegTensor<float> vreg7;
-            RegTensor<half> vreg8;
-            MaskReg preg0;
-            uint32_t size = ubSplitSize * tilingDataPtr_->outputStrides[tilingDataPtr_->ubSplitAxis];
-            uint16_t vfLoopNum = (ubSplitSize * tilingDataPtr_->outputStrides[tilingDataPtr_->ubSplitAxis] +
-                                  (AscendC::VECTOR_REG_WIDTH / 4) - 1) /
-                                 (AscendC::VECTOR_REG_WIDTH / 4);
-            __ubuf__ half* bufferIn0Addr = (__ubuf__ half*)bufferIn0_.GetPhyAddr();
-            __ubuf__ half* bufferIn1Addr = (__ubuf__ half*)bufferIn1_.GetPhyAddr();
-            __ubuf__ half* bufferOut0Addr = (__ubuf__ half*)bufferOut0_.GetPhyAddr();
-            for (uint16_t i = 0; i < vfLoopNum; i++) {
-                preg0 = AscendC::Reg::UpdateMask<float>(size);
-                AscendC::Reg::LoadAlign<half, AscendC::Reg::LoadDist::DIST_UNPACK_B16>(
-                    vreg0, bufferIn0Addr + i * (AscendC::VECTOR_REG_WIDTH / 4));
-                AscendC::Reg::Cast<float, half, castTrait0>(vreg1, vreg0, preg0);
-                AscendC::Reg::Duplicate<float, float>(vreg4, 1.0);
-#if defined(__NPU_ARCH__) && (__NPU_ARCH__ == 9201 || __NPU_ARCH__ == 9202)
-                AscendC::Reg::FusedMulSubDst<float, AscendC::Reg::MaskMergeMode::ZEROING>(vreg4, vreg1, vreg1, preg0);
-#else
-                AscendC::Reg::Muls<float, float, AscendC::Reg::MaskMergeMode::ZEROING>(vreg2, vreg1,
-                                                                                       static_cast<float>(-1), preg0);
-                AscendC::Reg::MulAddDst<float, AscendC::Reg::MaskMergeMode::ZEROING>(vreg4, vreg2, vreg1, preg0);
-#endif
-                AscendC::Reg::LoadAlign<half, AscendC::Reg::LoadDist::DIST_UNPACK_B16>(
-                    vreg5, bufferIn1Addr + i * (AscendC::VECTOR_REG_WIDTH / 4));
-                AscendC::Reg::Cast<float, half, castTrait0>(vreg6, vreg5, preg0);
-                AscendC::Reg::Mul<float, AscendC::Reg::MaskMergeMode::ZEROING>(vreg7, vreg4, vreg6, preg0);
-                AscendC::Reg::Cast<half, float, castTrait1>(vreg8, vreg7, preg0);
-                AscendC::Reg::StoreAlign<half, AscendC::Reg::StoreDist::DIST_PACK_B32>(
-                    bufferOut0Addr + i * (AscendC::VECTOR_REG_WIDTH / 4), vreg8, preg0);
-            }
-        }
+        int64_t dataLength = ubSplitSize * tilingDataPtr_->outputStrides[tilingDataPtr_->ubSplitAxis];
+        __ubuf__ half* bufferIn0Addr = (__ubuf__ half*)bufferIn0_.GetPhyAddr();
+        __ubuf__ half* bufferIn1Addr = (__ubuf__ half*)bufferIn1_.GetPhyAddr();
+        __ubuf__ half* bufferOut0Addr = (__ubuf__ half*)bufferOut0_.GetPhyAddr();
+        asc_vf_call<TanhGradF16VF>(bufferIn0Addr, bufferIn1Addr, bufferOut0Addr, dataLength);
         queIn0_.FreeTensor(bufferIn0_);
         queIn1_.FreeTensor(bufferIn1_);
         queOut0_.EnQue<half>(bufferOut0_);
@@ -178,12 +143,6 @@ private:
     LocalTensor<half> bufferIn0_;
     LocalTensor<half> bufferIn1_;
     LocalTensor<half> bufferOut0_;
-    constexpr static AscendC::Reg::CastTrait castTrait0 = {
-        AscendC::Reg::RegLayout::ZERO, AscendC::Reg::SatMode::UNKNOWN, AscendC::Reg::MaskMergeMode::ZEROING,
-        AscendC::RoundMode::UNKNOWN};
-    constexpr static AscendC::Reg::CastTrait castTrait1 = {AscendC::Reg::RegLayout::ZERO, AscendC::Reg::SatMode::NO_SAT,
-                                                           AscendC::Reg::MaskMergeMode::ZEROING,
-                                                           AscendC::RoundMode::CAST_RINT};
 };
 
 } // namespace TanhGrad
