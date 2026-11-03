@@ -13,26 +13,22 @@
  * \brief
  */
 
+#include <cerrno>
 #include <iostream>
-#include <fstream>
 #include <string.h>
 #include <stdint.h>
 #include <vector>
 #include <string>
 #include <map>
-#include "assert.h"
 
 #include "graph.h"
 #include "types.h"
 #include "tensor.h"
-#include "ge_error_codes.h"
+#include "graph/error_codes.h"
 #include "ge_api_types.h"
 #include "ge_api.h"
-#include "array_ops.h"
+#include "ops_proto_math.h"
 #include "ge_ir_build.h"
-
-#include "nn_other.h"
-#include "../op_graph/add_v2_proto.h"
 
 #define FAILED -1
 #define SUCCESS 0
@@ -42,27 +38,28 @@ using std::map;
 using std::string;
 using std::vector;
 
-#define ADD_INPUT(intputIndex, intputName, intputDtype, inputShape)                                            \
-    do {                                                                                                       \
-        vector<int64_t> placeholder##intputIndex##_shape = inputShape;                                         \
-        auto placeholder##intputIndex = op::Data("placeholder" + intputIndex).set_attr_index(intputIndex - 1); \
-        TensorDesc placeholder##intputIndex##_desc = TensorDesc(ge::Shape(placeholder##intputIndex##_shape),   \
-                                                                FORMAT_ND, intputDtype);                       \
-        placeholder##intputIndex##_desc.SetPlacement(ge::kPlacementHost);                                      \
-        placeholder##intputIndex##_desc.SetFormat(FORMAT_ND);                                                  \
-        Tensor tensor_placeholder##intputIndex;                                                                \
-        ret = GenOnesDataFloat32(placeholder##intputIndex##_shape, tensor_placeholder##intputIndex,            \
-                                 placeholder##intputIndex##_desc, 2);                                          \
-        if (ret != SUCCESS) {                                                                                  \
-            printf("%s - ERROR - [XIR]: Generate input data failed\n", GetTime().c_str());                     \
-            return FAILED;                                                                                     \
-        }                                                                                                      \
-        placeholder##intputIndex.update_input_desc_x(placeholder##intputIndex##_desc);                         \
-        placeholder##intputIndex.update_output_desc_y(placeholder##intputIndex##_desc);                        \
-        input.push_back(tensor_placeholder##intputIndex);                                                      \
-        graph.AddOp(placeholder##intputIndex);                                                                 \
-        add1.set_input_##intputName(placeholder##intputIndex);                                                 \
-        inputs.push_back(placeholder##intputIndex);                                                            \
+#define ADD_INPUT(intputIndex, intputName, intputDtype, inputShape)                                          \
+    do {                                                                                                     \
+        vector<int64_t> placeholder##intputIndex##_shape = inputShape;                                       \
+        auto placeholder##intputIndex = op::Data(("placeholder" + std::to_string(intputIndex)).c_str())      \
+                                            .set_attr_index(intputIndex - 1);                                \
+        TensorDesc placeholder##intputIndex##_desc = TensorDesc(ge::Shape(placeholder##intputIndex##_shape), \
+                                                                FORMAT_ND, intputDtype);                     \
+        placeholder##intputIndex##_desc.SetPlacement(ge::kPlacementHost);                                    \
+        placeholder##intputIndex##_desc.SetFormat(FORMAT_ND);                                                \
+        Tensor tensor_placeholder##intputIndex;                                                              \
+        ret = GenOnesDataFloat32(placeholder##intputIndex##_shape, tensor_placeholder##intputIndex,          \
+                                 placeholder##intputIndex##_desc, 2);                                        \
+        if (ret != SUCCESS) {                                                                                \
+            printf("%s - ERROR - [XIR]: Generate input data failed\n", GetTime().c_str());                   \
+            return FAILED;                                                                                   \
+        }                                                                                                    \
+        placeholder##intputIndex.update_input_desc_x(placeholder##intputIndex##_desc);                       \
+        placeholder##intputIndex.update_output_desc_y(placeholder##intputIndex##_desc);                      \
+        input.push_back(tensor_placeholder##intputIndex);                                                    \
+        graph.AddOp(placeholder##intputIndex);                                                               \
+        add1.set_input_##intputName(placeholder##intputIndex);                                               \
+        inputs.push_back(placeholder##intputIndex);                                                          \
     } while (0)
 
 #define LOG_PRINT(message, ...)         \
@@ -111,7 +108,8 @@ uint32_t GetDataTypeSize(DataType dt)
     return dilation;
 }
 
-int32_t GenOnesDataFloat32(vector<int64_t> shapes, Tensor& input_tensor, TensorDesc& input_tensor_desc, float value)
+int32_t GenOnesDataFloat32(const vector<int64_t>& shapes, Tensor& input_tensor, TensorDesc& input_tensor_desc,
+                           float value)
 {
     input_tensor_desc.SetRealDimCnt(shapes.size());
     size_t size = 1;
@@ -134,14 +132,22 @@ int32_t GenOnesDataFloat32(vector<int64_t> shapes, Tensor& input_tensor, TensorD
     return SUCCESS;
 }
 
-int32_t WriteDataToFile(string bin_file, uint64_t data_size, uint8_t* inputData)
+int32_t WriteDataToFile(const string& bin_file, uint64_t data_size, const uint8_t* inputData)
 {
     FILE* fp = fopen(bin_file.c_str(), "wb");
     if (fp == nullptr) {
+        printf("fopen failed: path=%s, errno=%d\n", bin_file.c_str(), errno);
         return FAILED;
     }
     const size_t written = fwrite(inputData, sizeof(uint8_t), data_size, fp);
+    if (written != data_size) {
+        printf("fwrite failed: path=%s, required=%llu, written=%zu, errno=%d\n", bin_file.c_str(),
+               static_cast<unsigned long long>(data_size), written, errno);
+    }
     const int closeStatus = fclose(fp);
+    if (closeStatus != 0) {
+        printf("fclose failed: path=%s, errno=%d\n", bin_file.c_str(), errno);
+    }
     return written == data_size && closeStatus == 0 ? SUCCESS : FAILED;
 }
 
@@ -197,11 +203,14 @@ bool CheckOutput(const std::vector<ge::Tensor>& output)
     if (output.size() != 1 || output[0].GetTensorDesc().GetDataType() != DT_FLOAT ||
         output[0].GetTensorDesc().GetShape().GetDims() != std::vector<int64_t>({4, 2}) ||
         output[0].GetSize() != 8 * sizeof(float) || output[0].GetData() == nullptr) {
+        printf("Invalid output metadata: expected one FLOAT tensor of shape [4,2] and %zu bytes; count=%zu\n",
+               8 * sizeof(float), output.size());
         return false;
     }
     const float* values = reinterpret_cast<const float*>(output[0].GetData());
     for (size_t i = 0; i < 8; ++i) {
         if (values[i] != 4.0f) {
+            printf("Output mismatch: index=%zu, actual=%f, expected=4\n", i, values[i]);
             return false;
         }
     }
@@ -218,7 +227,7 @@ int main(int argc, char* argv[])
     std::map<AscendString, AscendString> global_options = {{"ge.exec.deviceId", "0"}, {"ge.graphRunMode", "1"}};
     Status ret = ge::GEInitialize(global_options);
     if (ret != SUCCESS) {
-        printf("%s - INFO - [XIR]: Initialize ge using ge global options failed\n", GetTime().c_str());
+        printf("%s - ERROR - [XIR]: GEInitialize failed, rc=%u\n", GetTime().c_str(), ret);
         return FAILED;
     }
     printf("%s - INFO - [XIR]: Initialize ge using ge global options success\n", GetTime().c_str());
@@ -265,7 +274,7 @@ int main(int argc, char* argv[])
     uint32_t graph_id = 0;
     ret = session->AddGraph(graph_id, graph, graph_options);
     if (ret != SUCCESS) {
-        printf("%s - ERROR - [XIR]: AddGraph failed\n", GetTime().c_str());
+        printf("%s - ERROR - [XIR]: AddGraph failed, rc=%u\n", GetTime().c_str(), ret);
         delete session;
         GEFinalize();
         return FAILED;
@@ -279,7 +288,7 @@ int main(int argc, char* argv[])
     std::vector<ge::Tensor> output;
     ret = session->RunGraph(graph_id, input, output);
     if (ret != SUCCESS) {
-        printf("%s - INFO - [XIR]: Run graph failed\n", GetTime().c_str());
+        printf("%s - ERROR - [XIR]: RunGraph failed, rc=%u\n", GetTime().c_str(), ret);
         delete session;
         GEFinalize();
         return FAILED;
@@ -296,15 +305,15 @@ int main(int argc, char* argv[])
     delete session;
 
     ge::AscendString error_msg = ge::GEGetErrorMsgV2();
-    std::string error_str(error_msg.GetString());
+    std::string error_str(error_msg.GetString() == nullptr ? "" : error_msg.GetString());
     std::cout << "Error message: " << error_str << std::endl;
     ge::AscendString warning_msg = ge::GEGetWarningMsgV2();
-    std::string warning_str(warning_msg.GetString());
+    std::string warning_str(warning_msg.GetString() == nullptr ? "" : warning_msg.GetString());
     std::cout << "Warning message: " << warning_str << std::endl;
     printf("%s - INFO - [XIR]: Start to finalize ir graph session\n", GetTime().c_str());
     ret = ge::GEFinalize();
     if (ret != SUCCESS) {
-        printf("%s - INFO - [XIR]: Finalize ir graph session failed\n", GetTime().c_str());
+        printf("%s - ERROR - [XIR]: GEFinalize failed, rc=%u\n", GetTime().c_str(), ret);
         return FAILED;
     }
     printf("%s - INFO - [XIR]: Finalize ir graph session success\n", GetTime().c_str());

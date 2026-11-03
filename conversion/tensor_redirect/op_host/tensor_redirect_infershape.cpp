@@ -14,10 +14,24 @@
  */
 #include "infershape_elewise_util.h"
 #include "register/op_impl_registry.h"
+#include "log/log.h"
+#include <string>
 
 using namespace ge;
 namespace ops {
 // output_x 与 x 同 shape（same-as-input）
 // InferDataType 仅图场景使用，交付在 op_graph/tensor_redirect_graph_infer.cpp
-IMPL_OP_INFERSHAPE(TensorRedirect).InferShape(Ops::Base::InferShape4Elewise);
+static ge::graphStatus InferShapeTensorRedirect(gert::InferShapeContext* context)
+{
+    const auto* shape = context->GetInputShape(0);
+    OP_CHECK_NULL_WITH_CONTEXT(context, shape);
+    OP_CHECK_IF(
+        shape->GetDimNum() > 8,
+        OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(
+            context->GetNodeName(), "x", std::to_string(shape->GetDimNum()).c_str(), "rank must be within [0, 8]"),
+        return GRAPH_FAILED);
+    return Ops::Base::InferShape4Elewise(context);
+}
+
+IMPL_OP_INFERSHAPE(TensorRedirect).InferShape(InferShapeTensorRedirect);
 } // namespace ops

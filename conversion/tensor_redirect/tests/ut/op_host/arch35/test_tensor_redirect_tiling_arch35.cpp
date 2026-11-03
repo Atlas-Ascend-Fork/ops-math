@@ -36,7 +36,7 @@ using namespace ge;
 namespace {
 
 // ---- 平台常量 ----
-constexpr int64_t PLAT_CORE_NUM = 64;         // vector_core_cnt 实测值
+constexpr int64_t PLAT_CORE_NUM = 64;         // 注入的测试平台，非当前设备核数
 constexpr int64_t PLAT_UB_SIZE = 253952;      // GetCoreMemSize(UB)：已扣 8KB 预留的**可用**值
 constexpr int64_t N_BUFFER = 2;               // double buffer
 constexpr uint64_t EXPECT_TILING_KEY = 0;     // TPL_SCH_MODE_0（唯一调度模式）
@@ -252,6 +252,42 @@ TEST_F(TensorRedirectTilingTest, tiling_check_storage_rank_min_0d_success)
     TilingInfo info;
     ASSERT_TRUE(SafeExecuteTiling(MakePara(shape, ge::DT_FLOAT16), info));
     CheckCommonInvariants(info, 1, 2);
+}
+
+// Scalar inputs and outputs can reach tiling as either [] or [1].
+TEST_F(TensorRedirectTilingTest, tiling_mixed_scalar_storage_success)
+{
+    const std::vector<gert::StorageShape> scalarShapes = {{{}, {}}, {{1}, {1}}};
+    for (const auto& x : scalarShapes) {
+        for (const auto& y : scalarShapes) {
+            SCOPED_TRACE("storage ranks: " + std::to_string(x.GetStorageShape().GetDimNum()) + ", " +
+                         std::to_string(y.GetStorageShape().GetDimNum()));
+            gert::TilingContextPara para("TensorRedirect", {{x, ge::DT_FLOAT16, ge::FORMAT_ND}},
+                                         {{y, ge::DT_FLOAT16, ge::FORMAT_ND}}, &g_compileInfo,
+                                         static_cast<uint64_t>(PLAT_CORE_NUM), static_cast<uint64_t>(PLAT_UB_SIZE));
+            TilingInfo info;
+            const bool success = SafeExecuteTiling(para, info);
+            EXPECT_TRUE(success);
+            if (success) {
+                CheckCommonInvariants(info, 1, 2);
+            }
+        }
+    }
+}
+
+TEST_F(TensorRedirectTilingTest, tiling_scalar_and_higher_rank_singleton_mismatch_failed)
+{
+    gert::StorageShape scalar = {{}, {}};
+    gert::StorageShape matrix = {{1, 1}, {1, 1}};
+    for (const bool inputIsScalar : {false, true}) {
+        const auto& x = inputIsScalar ? scalar : matrix;
+        const auto& y = inputIsScalar ? matrix : scalar;
+        gert::TilingContextPara para("TensorRedirect", {{x, ge::DT_FLOAT16, ge::FORMAT_ND}},
+                                     {{y, ge::DT_FLOAT16, ge::FORMAT_ND}}, &g_compileInfo,
+                                     static_cast<uint64_t>(PLAT_CORE_NUM), static_cast<uint64_t>(PLAT_UB_SIZE));
+        TilingInfo info;
+        EXPECT_FALSE(SafeExecuteTiling(para, info));
+    }
 }
 
 // rank > 8：9 维 → shape_mismatch
@@ -978,4 +1014,15 @@ TEST_F(TensorRedirectTilingTest, tiling_empty_tensor_8d_blockdim_must_not_be_zer
     ASSERT_TRUE(SafeExecuteTiling(MakePara(shape, ge::DT_FLOAT16), info));
     EXPECT_GE(info.blockNum, 1U) << "★ SetBlockDim(0) 反回归锚点";
     EXPECT_EQ(info.blockNum, 1U);
+}
+
+TEST_F(TensorRedirectTilingTest, rejects_all_excluded_dtype_families)
+{
+    const ge::DataType types[] = {ge::DT_BOOL,        ge::DT_DOUBLE,      ge::DT_COMPLEX32,   ge::DT_COMPLEX64,
+                                  ge::DT_INT4,        ge::DT_UINT1,       ge::DT_HIFLOAT8,    ge::DT_FLOAT8_E4M3FN,
+                                  ge::DT_FLOAT8_E5M2, ge::DT_FLOAT8_E8M0, ge::DT_FLOAT4_E2M1, ge::DT_FLOAT4_E1M2};
+    for (auto dtype : types) {
+        TilingInfo info;
+        EXPECT_FALSE(SafeExecuteTiling(MakePara({{32}, {32}}, dtype), info)) << static_cast<int>(dtype);
+    }
 }

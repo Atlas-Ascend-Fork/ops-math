@@ -15,6 +15,7 @@
 #include "register/op_impl_registry.h"
 #include "infershape_broadcast_util.h"
 #include "log/log.h"
+#include <string>
 
 using namespace ge;
 
@@ -22,6 +23,16 @@ namespace ops {
 static ge::graphStatus InferShapeAddV2(gert::InferShapeContext* context)
 {
     OP_LOGD(context->GetNodeName(), "Begin to do InferShapeAddV2");
+
+    for (size_t index = 0; index < 2; ++index) {
+        const auto* shape = context->GetInputShape(index);
+        OP_CHECK_NULL_WITH_CONTEXT(context, shape);
+        OP_CHECK_IF(shape->GetDimNum() > 8,
+                    OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "x1/x2",
+                                                             std::to_string(shape->GetDimNum()).c_str(),
+                                                             "rank must be within [0, 8]"),
+                    return GRAPH_FAILED);
+    }
 
     return Ops::Base::InferShape4Broadcast(context);
 }

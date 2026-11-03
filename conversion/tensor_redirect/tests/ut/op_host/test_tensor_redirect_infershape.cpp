@@ -136,3 +136,11 @@ TEST_F(TensorRedirectInfershapeTest, infershape_unknown_rank_minus2)
     std::vector<std::vector<int64_t>> expectOutputShape = {{-2}};
     ExecuteTestCase(para, ge::GRAPH_SUCCESS, expectOutputShape);
 }
+
+TEST_F(TensorRedirectInfershapeTest, infershape_rejects_rank_nine)
+{
+    gert::StorageShape shape = {{2, 1, 1, 1, 1, 1, 1, 1, 1}, {2, 1, 1, 1, 1, 1, 1, 1, 1}};
+    gert::InfershapeContextPara para("TensorRedirect", {{shape, ge::DT_FLOAT, ge::FORMAT_ND}},
+                                     {{{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND}});
+    ExecuteTestCase(para, ge::GRAPH_FAILED, {});
+}

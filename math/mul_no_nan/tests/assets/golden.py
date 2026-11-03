@@ -37,7 +37,7 @@ def mul_no_nan_golden(x1, x2, **kwargs):
     """
     Kernel golden for mul_no_nan.
     All the parameters follow @mul_no_nan_def.cpp without outputs.
-    All the input Tensors are numpy.ndarray.
+    Inputs are array-like tensors.
     kwargs may contain: short_soc_version, input_ori_shapes, output_ori_shapes,
         input_formats, output_formats, input_ori_formats, output_ori_formats,
         input_dtypes, output_dtypes.
@@ -48,6 +48,10 @@ def mul_no_nan_golden(x1, x2, **kwargs):
     by x1 == inf (inf * 0) or by x1 == NaN. Conversely, where x2 != 0 the
     product is returned as is, so x1 == 0 with x2 == inf still yields NaN and
     NOT 0. This is the core differentiator vs plain Mul.
+
+    TensorFlow's CPU MulNoNan lacks INT32 and some valid six-dimensional
+    broadcasts. Use a Torch composition to cover the full CANN input domain
+    and retain fp64 intermediate precision for the mathematical reference.
     """
     import torch
 
@@ -61,11 +65,26 @@ def mul_no_nan_golden(x1, x2, **kwargs):
     output = torch.where(y == 0, torch.zeros_like(product), product).numpy()
     if kwargs.get("golden_mode") == "Promote":
         return output
-    return output.astype(output_dtype)
+    # Use the framework cast for rounding; NumPy only carries the final bytes.
+    if output_dtype.name == "bfloat16":
+        return (
+            torch.from_numpy(output)
+            .to(torch.bfloat16)
+            .view(torch.int16)
+            .numpy()
+            .view(output_dtype)
+        )
+    target_dtype = {
+        "float16": torch.float16,
+        "float32": torch.float32,
+        "float64": torch.float64,
+        "int32": torch.int32,
+    }[output_dtype.name]
+    return torch.from_numpy(output).to(target_dtype).numpy()
 
 
 class _MulNoNanCompose:
-    """Third-party reference executed on the remote GPU server."""
+    """Torch GPU composition, including INT32 which the TensorFlow API lacks."""
 
     def __call__(self, x1, x2, **kwargs):
         del kwargs
@@ -100,9 +119,13 @@ class _MulNoNanE2ECompose:
 class MulNoNanTensorFlowSpec:
     """TensorFlow E2E spec registered by the CSV ``api_name``."""
 
-    # Omit a custom golden: TTK's native CPU TF fallback applies Promote to
-    # raw inputs.  Its custom E2E plugin path bypasses that promotion.
+    @staticmethod
+    def golden(x, y, **kwargs):
+        # Native CPU TF rejects some valid six-dimensional broadcasts. TTK
+        # does not promote custom E2E inputs, so keep the reference in fp64.
+        return [mul_no_nan_golden(x, y, golden_mode="Promote")]
+
     third_party = {"torch": _MulNoNanE2ECompose}
-    # tf.raw_ops.MulNoNan itself supports floating/complex tensors, not int32.
-    # This CANN operator exposes only the three floating types from that overlap.
+    # This TensorFlow TestSpec covers only float16/float32/bfloat16.
+    # CANN's kernel/GEIR paths also support int32, which the TF API rejects.
     tolerance = _TENSORFLOW_TOLERANCE

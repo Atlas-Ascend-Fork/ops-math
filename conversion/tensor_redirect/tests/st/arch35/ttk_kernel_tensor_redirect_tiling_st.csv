@@ -1,0 +1,4 @@
+testcase_name,op_name,input_shapes,input_dtypes,input_formats,output_shapes,output_dtypes,output_formats,input_data_ranges,attributes,remark
+tensor_redirect_st_uint8_copy,tensor_redirect,"((257,),)","('uint8',)","('ND',)","((257,),)","('uint8',)","('ND',)","((0, 255),)",{},one-byte copy with non-block-aligned tail
+tensor_redirect_st_uint64_values,tensor_redirect,"((65,),)","('uint64',)","('ND',)","((65,),)","('uint64',)","('ND',)","((9007199254740992, 9007199254741092),)",{},64-bit payload preserved without floating conversion
+tensor_redirect_st_partition_tail_fp32,tensor_redirect,"((28673,),)","('float32',)","('ND',)","((28673,),)","('float32',)","('ND',)","((-3, 3),)",{},small buffer partition boundary plus one element

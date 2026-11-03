@@ -65,16 +65,13 @@
     </tr>
   </tbody></table>
 
-### 产品差异说明
-
-- <term>Ascend 950PR&950DT系列产品</term>：x1、x2的维度数均不超过8。
-- <term>Ascend 950PR&950DT系列产品</term>：GE图模式支持满足广播关系的空Tensor，输出保持广播后的shape，元素数为0。
-
 ## 约束说明
 
 - x1、x2、y必须为同一种数据类型，不支持混合数据类型。
 - 仅判x2一侧，`x2 = -0`同样进入零臂（IEEE-754 `-0 == 0`）；`x2 != 0`时所有IEEE行为按普通乘法保留（NaN / Inf正常传播）。
-- 支持任意NumPy广播形态（含标量、单维broadcast、跨rank broadcast），支持动态shape与动态rank。
+- x1、x2的维度数均不超过8。在该范围内支持NumPy广播（含标量、单维broadcast、跨rank broadcast），支持动态shape与动态rank；运行时确定的维度数也须满足上述上限。
+- <term>Ascend 950PR&950DT系列产品</term>：
+  - GE图模式支持满足广播关系的空Tensor，输出保持广播后的shape，元素数为0。
 
 ## 实现方案
 
@@ -125,4 +122,4 @@ In0/In1 -- CopyInBrc -- Cast(->fp32) --+
 
 | 调用方式   | 样例代码                                                     | 说明                                                         |
 | ---------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| GE图模式 | [test_geir_mul_no_nan](examples/arch35/test_geir_mul_no_nan.cpp) | 通过[算子IR](op_graph/mul_no_nan_proto.h)构图方式调用MulNoNan算子。 |
+| GE图模式 | [test_geir_mul_no_nan](examples/arch35/test_geir_mul_no_nan.cpp) | 通过[算子IR](op_graph/mul_no_nan_proto.h)构图方式调用MulNoNan算子，样例可通过`--device-id=N`选择设备。 |

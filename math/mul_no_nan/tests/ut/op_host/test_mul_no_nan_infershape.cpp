@@ -13,6 +13,7 @@
 #include "infershape_context_faker.h"
 #include "infershape_case_executor.h"
 #include "base/registry/op_impl_space_registry_v2.h"
+#include "base/context_builder/op_infer_shape_context_builder.h"
 
 using namespace ge;
 
@@ -22,6 +23,38 @@ protected:
 
     static void TearDownTestCase() { std::cout << "MulNoNanInfershape TearDown" << std::endl; }
 };
+
+TEST_F(MulNoNanInfershape, rejects_either_rank9_input_even_with_unknown_other_rank)
+{
+    const auto registry = gert::DefaultOpImplSpaceRegistryV2::GetInstance().GetSpaceRegistry();
+    ASSERT_NE(registry, nullptr);
+    const auto* impl = registry->GetOpImpl("MulNoNan");
+    ASSERT_NE(impl, nullptr);
+    ASSERT_NE(impl->infer_shape, nullptr);
+    for (size_t rank9Input = 0; rank9Input < 2; ++rank9Input) {
+        SCOPED_TRACE(rank9Input);
+        for (bool unknownOther : {false, true}) {
+            gert::StorageShape shapes[2];
+            for (size_t i = 0; i < 2; ++i) {
+                const size_t rank = i == rank9Input ? 9 : 1;
+                for (size_t dim = 0; dim < rank; ++dim) {
+                    const int64_t size = i != rank9Input && unknownOther ? -2 : 1;
+                    shapes[i].MutableOriginShape().AppendDim(size);
+                    shapes[i].MutableStorageShape().AppendDim(size);
+                }
+            }
+            gert::Tensor x1(shapes[0], {ge::FORMAT_ND, ge::FORMAT_ND, {}}, ge::DT_FLOAT);
+            gert::Tensor x2(shapes[1], {ge::FORMAT_ND, ge::FORMAT_ND, {}}, ge::DT_FLOAT);
+            gert::OpInferShapeContextBuilder builder;
+            builder.OpType("MulNoNan").OpName("mul_no_nan_rank9").IONum(2, 1);
+            builder.InputTensors({&x1, &x2});
+            builder.OutputTensorDesc(0, ge::DT_FLOAT, ge::FORMAT_ND, ge::FORMAT_ND);
+            auto holder = builder.Build();
+            ASSERT_NE(holder.GetContext(), nullptr);
+            EXPECT_EQ(impl->infer_shape(holder.GetContext()), ge::GRAPH_FAILED);
+        }
+    }
+}
 
 // Case 1: two inputs share the same shape, fp16.
 TEST_F(MulNoNanInfershape, same_shape_fp16)

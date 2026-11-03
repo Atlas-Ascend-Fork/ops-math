@@ -23,7 +23,7 @@ $$
 y_i=x_{1,i}+x_{2,i}
 $$
 
-其中 $i$ 遍历广播结果的全部元素，$x_{1,i}$ 和 $x_{2,i}$ 表示广播后对应位置的元素。
+其中$i$遍历广播结果的全部元素，$x_{1,i}$和$x_{2,i}$表示广播后对应位置的元素。
 
 - 广播示例：
 
@@ -75,47 +75,23 @@ x1 shape (3, 1), x2 shape (1, 4) -> y shape (3, 4)
     </tr>
   </tbody></table>
 
-### 产品差异说明
-
-<table><thead>
-  <tr>
-    <th>产品</th>
-    <th>数据类型</th>
-    <th>静态shape能力</th>
-    <th>动态shape能力</th>
-    <th>shape/rank及空Tensor限制</th>
-  </tr></thead>
-<tbody>
-  <tr>
-    <td><term>Ascend 950PR&950DT系列产品</term></td>
-    <td>BFLOAT16、FLOAT16、FLOAT、INT32、INT16、UINT8、INT8、INT64、COMPLEX64</td>
-    <td>输入ND→输出ND</td>
-    <td>输入ND→输出ND；支持固定rank动态shape和dynamic rank</td>
-    <td>rank取值范围为[0, 8]，rank为0时表示标量；支持空Tensor，输出y的shape仍必须是两路输入的广播结果</td>
-  </tr>
-  <tr>
-    <td><term>Atlas A3系列产品</term><br>
-      <term>Atlas A2系列产品</term></td>
-    <td>BFLOAT16、FLOAT16、FLOAT、INT32、INT64</td>
-    <td>输入ND→输出ND</td>
-    <td>输入ND→输出ND；支持固定rank动态shape，不支持dynamic rank</td>
-    <td>rank取值范围为[0, 8]，rank为0时表示标量；空Tensor仅支持两路输入shape相同，或其中一路输入为单元素张量的广播场景</td>
-  </tr>
-  <tr>
-    <td><term>Atlas 200I/500 A2推理产品</term><br>
-      <term>Atlas推理系列产品</term><br>
-      <term>Atlas训练系列产品</term></td>
-    <td>FLOAT16、FLOAT、INT32、INT64</td>
-    <td>输入ND→输出ND</td>
-    <td>输入ND→输出ND；支持固定rank动态shape，不支持dynamic rank</td>
-    <td>rank取值范围为[0, 8]，rank为0时表示标量；空Tensor仅支持两路输入shape相同，或其中一路输入为单元素张量的广播场景</td>
-  </tr>
-</tbody></table>
-
 ## 约束说明
 
 - 输入、输出的数据类型以参数说明为准，不支持DOUBLE、COMPLEX128。
-- 各产品的rank、动态shape和空Tensor限制见产品差异说明。
+- 静态shape和动态shape均支持输入ND→输出ND；动态shape支持固定rank。
+- rank取值范围为[0,8]，rank为0时表示标量。
+- <term>Ascend 950PR&950DT系列产品</term>：
+  - 支持参数说明中列出的全部数据类型。
+  - 支持动态rank。
+  - 支持空Tensor，输出y的shape仍必须是两路输入的广播结果。
+- <term>Atlas A3系列产品</term>、<term>Atlas A2系列产品</term>：
+  - 支持BFLOAT16、FLOAT16、FLOAT、INT32、INT64。
+  - 不支持动态rank。
+  - 空Tensor仅支持两路输入shape相同，或其中一路输入为单元素张量的广播场景。
+- <term>Atlas 200I/500 A2推理产品</term>、<term>Atlas推理系列产品</term>、<term>Atlas训练系列产品</term>：
+  - 支持FLOAT16、FLOAT、INT32、INT64。
+  - 不支持动态rank。
+  - 空Tensor仅支持两路输入shape相同，或其中一路输入为单元素张量的广播场景。
 
 ## 调用说明
 
@@ -123,4 +99,4 @@ x1 shape (3, 1), x2 shape (1, 4) -> y shape (3, 4)
 | :--- | :--- | :--- |
 | GE图模式 | [test_geir_add_v2](./examples/test_geir_add_v2.cpp) | 通过[算子IR](./op_graph/add_v2_proto.h)构图方式调用AddV2算子。 |
 
-本算子不提供同名aclnn接口，仅支持上表的GE图模式调用。
+本算子不提供同名ACLNN接口，仅支持上表的GE图模式调用。

@@ -13,6 +13,7 @@
 // Each test case builds a one-op graph, runs it on device, and checks the
 // output against a pre-computed expected value. The example exits with
 // status 0 only if every case passes.
+// Usage: test_geir_mul_no_nan [case_name|--list] [--device-id=N]
 //
 // Semantics: y = (x2 == 0) ? 0 : x1 * x2 (element-wise, broadcast).
 // Cases below specifically exercise the special-value contract that
@@ -381,11 +382,6 @@ static int RunOneCase(const CaseSpec& spec)
 
 int main(int argc, char* argv[])
 {
-    if (argc > 2) {
-        printf("Usage: %s [case_tag|--list]\n", argv[0]);
-        return FAILED;
-    }
-
     const double kInf = std::numeric_limits<double>::infinity();
     const double kNeg0 = -0.0;
     const double kNaN = std::numeric_limits<double>::quiet_NaN();
@@ -443,27 +439,48 @@ int main(int argc, char* argv[])
         {"fp32_empty_bc", ge::DT_FLOAT, 2.0, 3.0, {0, 4}, {1, 4}, {0, 4}, exact(6.0, 1e-5)},
     };
 
-    if (argc == 2 && string(argv[1]) == "--list") {
+    string selectedCase;
+    string deviceId = "0";
+    bool listOnly = false;
+    for (int i = 1; i < argc; ++i) {
+        const string arg = argv[i];
+        if (arg == "--list") {
+            listOnly = true;
+        } else if (arg.rfind("--device-id=", 0) == 0) {
+            deviceId = arg.substr(string("--device-id=").size());
+            if (deviceId.empty() || deviceId.find_first_not_of("0123456789") != string::npos) {
+                std::cerr << "Invalid device ID: " << deviceId << std::endl;
+                return FAILED;
+            }
+        } else if (selectedCase.empty() && arg.rfind("--", 0) != 0) {
+            selectedCase = arg;
+        } else {
+            std::cerr << "Usage: " << argv[0] << " [case_name|--list] [--device-id=N]" << std::endl;
+            return FAILED;
+        }
+    }
+    if (listOnly) {
         for (const auto& c : cases) {
             std::cout << c.tag << std::endl;
         }
         return SUCCESS;
     }
-    if (argc == 2) {
+    if (!selectedCase.empty()) {
         vector<CaseSpec> selected;
         for (const auto& c : cases) {
-            if (c.tag == argv[1]) {
+            if (c.tag == selectedCase) {
                 selected.push_back(c);
             }
         }
         if (selected.empty()) {
-            printf("Unknown case: %s\n", argv[1]);
+            printf("Unknown case: %s\n", selectedCase.c_str());
             return FAILED;
         }
         cases = std::move(selected);
     }
 
-    std::map<AscendString, AscendString> globalOpts = {{"ge.exec.deviceId", "0"}, {"ge.graphRunMode", "1"}};
+    std::map<AscendString, AscendString> globalOpts = {{"ge.exec.deviceId", deviceId.c_str()},
+                                                       {"ge.graphRunMode", "1"}};
     if (ge::GEInitialize(globalOpts) != SUCCESS) {
         printf("GEInitialize failed\n");
         return FAILED;

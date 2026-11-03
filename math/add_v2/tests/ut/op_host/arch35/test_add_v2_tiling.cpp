@@ -327,6 +327,42 @@ TEST_F(AddV2Tiling, add_v2_tiling_storage_rank0_success)
     EXPECT_TRUE(ExecuteTiling(MakeAddV2TilingPara(scalar, scalar, scalar), info));
 }
 
+// The compile chain can normalize scalar inputs to [1] while keeping y rank 0.
+// Cover every combination of scalar and single-element storage representations.
+TEST_F(AddV2Tiling, add_v2_tiling_mixed_scalar_storage_success)
+{
+    const std::vector<gert::StorageShape> scalarShapes = {{{}, {}}, {{1}, {1}}};
+    for (const auto& x1 : scalarShapes) {
+        for (const auto& x2 : scalarShapes) {
+            for (const auto& y : scalarShapes) {
+                SCOPED_TRACE("storage ranks: " + std::to_string(x1.GetStorageShape().GetDimNum()) + ", " +
+                             std::to_string(x2.GetStorageShape().GetDimNum()) + ", " +
+                             std::to_string(y.GetStorageShape().GetDimNum()));
+                TilingInfo info;
+                EXPECT_TRUE(ExecuteTiling(MakeAddV2TilingPara(x1, x2, y), info));
+            }
+        }
+    }
+}
+
+TEST_F(AddV2Tiling, add_v2_tiling_scalar_output_for_multiple_elements_failed)
+{
+    gert::StorageShape tensor = {{2}, {2}};
+    gert::StorageShape scalar = {{}, {}};
+    TilingInfo info;
+    EXPECT_FALSE(ExecuteTiling(MakeAddV2TilingPara(tensor, tensor, scalar), info));
+}
+
+// A single element does not make a higher-rank tensor a scalar.
+TEST_F(AddV2Tiling, add_v2_tiling_scalar_output_for_higher_rank_singleton_failed)
+{
+    gert::StorageShape matrix = {{1, 1}, {1, 1}};
+    gert::StorageShape vector = {{1}, {1}};
+    gert::StorageShape scalar = {{}, {}};
+    TilingInfo info;
+    EXPECT_FALSE(ExecuteTiling(MakeAddV2TilingPara(matrix, vector, scalar), info));
+}
+
 // rank-0 storage shape 与普通张量参与广播时，也应作为单元素标量处理。
 TEST_F(AddV2Tiling, add_v2_tiling_storage_rank0_broadcast_success)
 {

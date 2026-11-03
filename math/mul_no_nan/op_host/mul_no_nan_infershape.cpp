@@ -20,7 +20,20 @@ using namespace ge;
 namespace ops {
 static ge::graphStatus InferShape4MulNoNan(gert::InferShapeContext* context)
 {
+    if (context == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     OP_LOGD(context->GetNodeName(), "Begin to do InferShape4MulNoNan in ops-math");
+    constexpr size_t MAX_INPUT_RANK = 8;
+    for (size_t i = 0; i < 2; ++i) {
+        const auto* shape = context->GetInputShape(i);
+        OP_CHECK_NULL_WITH_CONTEXT(context, shape);
+        OP_CHECK_IF(
+            shape->GetDimNum() > MAX_INPUT_RANK,
+            OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), i == 0 ? "x1" : "x2",
+                                                     std::to_string(shape->GetDimNum()), "rank must not exceed 8"),
+            return ge::GRAPH_FAILED);
+    }
     return Ops::Base::InferShape4Broadcast(context);
 }
 

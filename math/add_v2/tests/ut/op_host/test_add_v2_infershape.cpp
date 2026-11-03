@@ -216,3 +216,12 @@ TEST_F(AddV2Infershape, add_v2_infer_shape_complex64)
     };
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
+
+TEST_F(AddV2Infershape, add_v2_infer_shape_rejects_rank_nine)
+{
+    gert::StorageShape shape = {{2, 1, 1, 1, 1, 1, 1, 1, 1}, {2, 1, 1, 1, 1, 1, 1, 1, 1}};
+    gert::InfershapeContextPara para("AddV2",
+                                     {{shape, ge::DT_FLOAT, ge::FORMAT_ND}, {shape, ge::DT_FLOAT, ge::FORMAT_ND}},
+                                     {{{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND}});
+    ExecuteTestCase(para, ge::GRAPH_FAILED, {});
+}

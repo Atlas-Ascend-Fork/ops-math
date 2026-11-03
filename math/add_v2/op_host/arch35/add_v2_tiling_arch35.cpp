@@ -216,9 +216,11 @@ ge::graphStatus AddV2TilingArch35::CheckShape() const
     auto outputY = tilingContext_->GetOutputShape(0);
     OP_CHECK_NULL_WITH_CONTEXT(tilingContext_, outputY);
 
-    const gert::Shape& x1Shape = inputX1->GetStorageShape();
-    const gert::Shape& x2Shape = inputX2->GetStorageShape();
-    const gert::Shape& yShape = outputY->GetStorageShape();
+    // Match BroadcastBaseTiling when the compile chain represents scalar
+    // inputs as [1] but leaves the scalar output rank 0 (or vice versa).
+    const gert::Shape& x1Shape = Ops::Base::EnsureNotScalar(inputX1->GetStorageShape());
+    const gert::Shape& x2Shape = Ops::Base::EnsureNotScalar(inputX2->GetStorageShape());
+    const gert::Shape& yShape = Ops::Base::EnsureNotScalar(outputY->GetStorageShape());
     if (CheckConcreteShape(tilingContext_, "x1", x1Shape) != ge::GRAPH_SUCCESS ||
         CheckConcreteShape(tilingContext_, "x2", x2Shape) != ge::GRAPH_SUCCESS ||
         CheckConcreteShape(tilingContext_, "y", yShape) != ge::GRAPH_SUCCESS ||
@@ -263,19 +265,18 @@ ge::graphStatus AddV2TilingArch35::RunTiling()
                 OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON("AddV2", "tiling context", "must not be nullptr"),
                 return ge::GRAPH_FAILED);
     OP_LOGD(tilingContext_->GetNodeName(), "Enter AddV2TilingArch35::RunTiling.");
-    OP_CHECK_IF(
-        CalcDtype() != ge::GRAPH_SUCCESS,
-        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(tilingContext_->GetNodeName(), "x1", "unknown", "calc dtype failed"),
-        return ge::GRAPH_FAILED);
-    OP_CHECK_IF(CheckShape() != ge::GRAPH_SUCCESS,
-                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(tilingContext_->GetNodeName(), "input shape", "invalid",
-                                                      "input shape check failed"),
-                return ge::GRAPH_FAILED);
-
-    OP_CHECK_IF(CheckDtype() != ge::GRAPH_SUCCESS,
-                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(tilingContext_->GetNodeName(), "input dtype", "invalid",
-                                                      "input dtype check failed"),
-                return ge::GRAPH_FAILED);
+    auto status = CalcDtype();
+    OP_CHECK_IF(status != ge::GRAPH_SUCCESS,
+                OP_LOGE_WITHOUT_REPORT(tilingContext_->GetNodeName(), "CalcDtype failed, rc=%u", status),
+                return status);
+    status = CheckShape();
+    OP_CHECK_IF(status != ge::GRAPH_SUCCESS,
+                OP_LOGE_WITHOUT_REPORT(tilingContext_->GetNodeName(), "CheckShape failed, rc=%u", status),
+                return status);
+    status = CheckDtype();
+    OP_CHECK_IF(status != ge::GRAPH_SUCCESS,
+                OP_LOGE_WITHOUT_REPORT(tilingContext_->GetNodeName(), "CheckDtype failed, rc=%u", status),
+                return status);
 
     // Shape and dtype validation must happen before this early return. Otherwise
     // a forged empty y could bypass invalid broadcast/rank/dim/dtype checks.

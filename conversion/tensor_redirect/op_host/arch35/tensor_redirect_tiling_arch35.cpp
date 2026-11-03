@@ -23,6 +23,7 @@
 
 #include "register/op_def_registry.h"
 #include "op_common/log/log.h"
+#include "op_common/op_host/tiling_base_util.h"
 #include "op_common/op_host/util/math_util.h"
 #include "op_common/op_host/util/platform_util.h"
 #include "../../op_kernel/arch35/tensor_redirect_tiling_data.h"
@@ -109,11 +110,11 @@ static ge::graphStatus CheckTensorRedirectShape(const gert::TilingContext* conte
 {
     auto xShapePtr = context->GetInputShape(INDEX_INPUT_X);
     OP_CHECK_NULL_WITH_CONTEXT(context, xShapePtr);
-    const gert::Shape& xShape = xShapePtr->GetStorageShape();
+    const gert::Shape& xShape = Ops::Base::EnsureNotScalar(xShapePtr->GetStorageShape());
 
     auto yShapePtr = context->GetOutputShape(INDEX_OUTPUT_X);
     OP_CHECK_NULL_WITH_CONTEXT(context, yShapePtr);
-    const gert::Shape& yShape = yShapePtr->GetStorageShape();
+    const gert::Shape& yShape = Ops::Base::EnsureNotScalar(yShapePtr->GetStorageShape());
 
     if (CheckRank(context, "x", "storage", xShape) != ge::GRAPH_SUCCESS ||
         CheckRank(context, "output_x", "storage", yShape) != ge::GRAPH_SUCCESS) {
@@ -130,7 +131,7 @@ static ge::graphStatus CheckTensorRedirectShape(const gert::TilingContext* conte
             return ge::GRAPH_FAILED);
     }
 
-    // CheckShape: output_x.shape == x.shape（逐维严格相等）
+    // Match scalar storage representations [] and [1] before comparing dims.
     OP_CHECK_IF(xShape != yShape,
                 OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(
                     "TensorRedirect", "x and output_x",
@@ -317,14 +318,14 @@ static ge::graphStatus Tiling4TensorRedirect(gert::TilingContext* context)
                 return ge::GRAPH_FAILED);
     OP_LOGD(context, "Enter Tiling4TensorRedirect.");
 
-    OP_CHECK_IF(CheckTensorRedirectDtype(context) != ge::GRAPH_SUCCESS,
-                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "input/output dtype", "invalid",
-                                                      "dtype validation failed"),
-                return ge::GRAPH_FAILED);
-    OP_CHECK_IF(CheckTensorRedirectShape(context) != ge::GRAPH_SUCCESS,
-                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "input/output shape", "invalid",
-                                                      "shape validation failed"),
-                return ge::GRAPH_FAILED);
+    auto status = CheckTensorRedirectDtype(context);
+    OP_CHECK_IF(status != ge::GRAPH_SUCCESS,
+                OP_LOGE_WITHOUT_REPORT(context->GetNodeName(), "CheckTensorRedirectDtype failed, rc=%u", status),
+                return status);
+    status = CheckTensorRedirectShape(context);
+    OP_CHECK_IF(status != ge::GRAPH_SUCCESS,
+                OP_LOGE_WITHOUT_REPORT(context->GetNodeName(), "CheckTensorRedirectShape failed, rc=%u", status),
+                return status);
 
     auto xShapePtr = context->GetInputShape(INDEX_INPUT_X);
     OP_CHECK_NULL_WITH_CONTEXT(context, xShapePtr);

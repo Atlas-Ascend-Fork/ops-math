@@ -74,9 +74,11 @@ __aicore__ inline bool TensorRedirectKernel<T>::Init(GM_ADDR x, GM_ADDR outputX,
 
     // host 保证分区起点小于 numel 且 numel * sizeof(T) <= INT64_MAX，以下乘法及 GM 字节偏移均可表示。
     blockOffset_ = blockIdx_ * blockFactor_ * ubFactor_;
-    int64_t coreElementCount = blockFactor_ * ubFactor_;
+    int64_t coreElementCount;
     if (blockIdx_ == usedCoreNum_ - 1) {
         coreElementCount = (tailBlockFactor_ - 1) * ubFactor_ + tailBlockTailUbFactor_;
+    } else {
+        coreElementCount = blockFactor_ * ubFactor_;
     }
     xGm_.SetGlobalBuffer((__gm__ T*)(x) + blockOffset_, static_cast<uint64_t>(coreElementCount));
     yGm_.SetGlobalBuffer((__gm__ T*)(outputX) + blockOffset_, static_cast<uint64_t>(coreElementCount));

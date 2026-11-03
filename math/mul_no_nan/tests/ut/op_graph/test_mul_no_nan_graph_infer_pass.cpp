@@ -98,3 +98,18 @@ TEST(MulNoNanGraphInfer, RejectsMismatchedInputsWithoutLegacyVerifier)
     ASSERT_NE(holder.GetContext(), nullptr);
     EXPECT_EQ(ops::InferDataType4MulNoNan(holder.GetContext()), ge::GRAPH_FAILED);
 }
+
+TEST(MulNoNanGraphInfer, RejectsUnsupportedMatchingInputDtypes)
+{
+    for (auto dtype : {ge::DT_BOOL, ge::DT_DOUBLE, ge::DT_COMPLEX128}) {
+        SCOPED_TRACE(static_cast<int>(dtype));
+        gert::OpInferDataTypeContextBuilder builder;
+        builder.OpType("MulNoNan").OpName("mul_no_nan_invalid_dtype").IONum(2, 1);
+        builder.InputTensorDesc(0, dtype, ge::FORMAT_ND, ge::FORMAT_ND);
+        builder.InputTensorDesc(1, dtype, ge::FORMAT_ND, ge::FORMAT_ND);
+        builder.OutputTensorDesc(0, ge::FORMAT_ND, ge::FORMAT_ND);
+        auto holder = builder.Build();
+        ASSERT_NE(holder.GetContext(), nullptr);
+        EXPECT_EQ(ops::InferDataType4MulNoNan(holder.GetContext()), ge::GRAPH_FAILED);
+    }
+}

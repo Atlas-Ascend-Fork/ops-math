@@ -21,7 +21,7 @@ $$
 (\mathrm{output\_x})_i=x_i
 $$
 
-其中 $i$ 遍历 $x$ 的全部元素。
+其中$i$遍历$x$的全部元素。
 
 ## 参数说明
 
@@ -57,40 +57,18 @@ $$
     </tr>
   </tbody></table>
 
-### 产品差异说明
-
-<table><thead>
-  <tr>
-    <th>产品</th>
-    <th>数据类型</th>
-    <th>静态shape能力</th>
-    <th>动态shape能力</th>
-    <th>shape/rank及空Tensor限制</th>
-  </tr></thead>
-<tbody>
-  <tr>
-    <td><term>Ascend 950PR&950DT系列产品</term></td>
-    <td>FLOAT、FLOAT16、BFLOAT16、INT8、UINT8、INT16、UINT16、INT32、UINT32、INT64、UINT64</td>
-    <td>输入ND→输出ND</td>
-    <td>输入ND→输出ND；支持固定rank动态shape和dynamic rank</td>
-    <td>rank取值范围为[0, 8]，rank为0时表示标量；支持空Tensor</td>
-  </tr>
-  <tr>
-    <td><term>Atlas A3系列产品</term><br>
-      <term>Atlas A2系列产品</term><br>
-      <term>Atlas 200I/500 A2推理产品</term><br>
-      <term>Atlas推理系列产品</term><br>
-      <term>Atlas训练系列产品</term></td>
-    <td>FLOAT、FLOAT16、INT8、UINT8、INT16、UINT16、INT32、UINT32、INT64、UINT64</td>
-    <td>输入ND→输出ND</td>
-    <td>不支持动态shape</td>
-    <td>rank取值范围为[1, 8]；不支持空Tensor</td>
-  </tr>
-</tbody></table>
-
 ## 约束说明
 
-无
+- 不提供原地调用接口。
+- <term>Ascend 950PR&950DT系列产品</term>：
+  - 支持参数说明中列出的全部数据类型。
+  - 静态shape和动态shape均支持输入ND→输出ND；动态shape支持固定rank和动态rank。
+  - rank取值范围为[0,8]，rank为0时表示标量；支持空Tensor。
+  - 图推形中的`-1`表示未知维度，`{-2}`表示未知rank；实际执行时，输入Tensor的各维度必须为具体的非负整数。
+- <term>Atlas A3系列产品</term>、<term>Atlas A2系列产品</term>、<term>Atlas 200I/500 A2推理产品</term>、<term>Atlas推理系列产品</term>、<term>Atlas训练系列产品</term>：
+  - 不支持BFLOAT16，其余数据类型与参数说明一致。
+  - 静态shape支持输入ND→输出ND；不支持动态shape。
+  - rank取值范围为[1,8]；不支持空Tensor。
 
 ## 调用说明
 
@@ -98,4 +76,4 @@ $$
 | :--- | :--- | :--- |
 | GE图模式 | [test_geir_tensor_redirect](./examples/test_geir_tensor_redirect.cpp) | 通过[算子IR](./op_graph/tensor_redirect_proto.h)构图方式调用TensorRedirect算子。 |
 
-本算子不提供同名aclnn接口，仅支持上表的GE图模式调用。
+本算子不提供同名ACLNN接口，仅支持上表的GE图模式调用。
