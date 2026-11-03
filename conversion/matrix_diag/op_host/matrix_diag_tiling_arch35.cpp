@@ -31,8 +31,9 @@ static constexpr int64_t VL_LEN = 256;
 static constexpr int64_t USED_MIN_UB_SIZE = 8 * 1024; // 8KB
 static constexpr int64_t BASE_512 = 512;
 static constexpr int64_t BASE_4 = 4;
-static constexpr uint64_t SYS_WORKSPACE_SIZE = 0;
+static constexpr uint64_t SYS_WORKSPACE_SIZE = static_cast<uint64_t>(0);
 static constexpr int64_t B8_MAX_SIZE = 65536;
+static constexpr int64_t U16_INDEX_LIMIT = 65536;
 
 std::string MatrixDiagTiling::PrintTilingData()
 {
@@ -171,6 +172,12 @@ void MatrixDiagTiling::CalcScatterLowTilingData()
     int64_t ubEleNum = (xDtypeSize_ == 1) ? B8_MAX_SIZE / (nSize + 1) :
                                             (((ubSize_ - VL_LEN) / BASE_2) / (nSize + 1)) / xDtypeSize_;
     tilingDataScatter_.batchUbFactor = ubEleNum / nSize;
+    if (xDtypeSize_ <= BASE_2 && tilingDataScatter_.batchUbFactor > U16_INDEX_LIMIT / (nSize * nSize)) {
+        tilingDataScatter_.batchUbFactor = U16_INDEX_LIMIT / (nSize * nSize);
+        OP_LOGD(context_->GetNodeName(),
+                "ScatterLow batchUbFactor clamped to %ld to keep uint16 scatter index in range.",
+                tilingDataScatter_.batchUbFactor);
+    }
     tilingDataScatter_.batchUbCount = Ops::Base::CeilDiv(batchSize, tilingDataScatter_.batchUbFactor);
     if (tilingDataScatter_.batchUbCount < coreNum) {
         tilingDataScatter_.batchUbFactor = Ops::Base::CeilDiv(batchSize, coreNum);
@@ -197,6 +204,11 @@ void MatrixDiagTiling::CalcScatterLargeTilingData()
     int64_t batchSize = fusedShape_[0];
     int64_t nSize = fusedShape_[1];
     int64_t ubEleNum = VL_LEN / xDtypeSize_;
+    if (xDtypeSize_ <= BASE_2 && ubEleNum * ubEleNum > U16_INDEX_LIMIT) {
+        ubEleNum = static_cast<int64_t>(std::sqrt(U16_INDEX_LIMIT));
+        OP_LOGD(context_->GetNodeName(), "ScatterLarge nUbFactor clamped to %ld to keep uint16 scatter index in range.",
+                ubEleNum);
+    }
     tilingDataLarge_.batchSize = batchSize;
     tilingDataLarge_.nSize = nSize;
     tilingDataLarge_.nUbFactor = ubEleNum;
@@ -222,6 +234,12 @@ void MatrixDiagTiling::CalcScatterHighTilingData()
     int64_t ubEleNum = (xDtypeSize_ == 1) ? std::sqrt(B8_MAX_SIZE) :
                                             (std::sqrt(1 + BASE_4 * halfUbEleNum) - 1) / BASE_2;
     tilingDataScatter_.batchUbFactor = ubEleNum / nSize;
+    if (xDtypeSize_ <= BASE_2 && tilingDataScatter_.batchUbFactor > U16_INDEX_LIMIT / (nSize * nSize)) {
+        tilingDataScatter_.batchUbFactor = U16_INDEX_LIMIT / (nSize * nSize);
+        OP_LOGD(context_->GetNodeName(),
+                "ScatterHigh batchUbFactor clamped to %ld to keep uint16 scatter index in range.",
+                tilingDataScatter_.batchUbFactor);
+    }
     tilingDataScatter_.batchUbCount = Ops::Base::CeilDiv(batchSize, tilingDataScatter_.batchUbFactor);
     tilingDataScatter_.batchUbTailFactor = batchSize -
                                            (tilingDataScatter_.batchUbCount - 1) * tilingDataScatter_.batchUbFactor;
