@@ -95,7 +95,7 @@ aclnnStatus aclnnStdMeanCorrection(
       <td>-</td>
       <td>FLOAT、BFLOAT16、FLOAT16</td>
       <td>ND</td>
-      <td>-</td>
+      <td>0-8</td>
       <td>√</td>
     </tr>
     <tr>
@@ -112,7 +112,7 @@ aclnnStatus aclnnStdMeanCorrection(
       <td>correction（int64_t）</td>
       <td>输入</td>
       <td>公式中的δN值，修正值。</td>
-      <td>-</td>
+      <td>取值为非负整数（0=总体标准差、1=样本标准差，Bessel校正因子）。<br>N≤correction时的输出行为见约束说明。</td>
       <td>-</td>
       <td>-</td>
       <td>-</td>
@@ -135,7 +135,7 @@ aclnnStatus aclnnStdMeanCorrection(
       <td>-</td>
       <td>FLOAT、BFLOAT16、FLOAT16</td>
       <td>ND</td>
-      <td>-</td>
+      <td>0-8</td>
       <td>√</td>
     </tr>
     <tr>
@@ -145,7 +145,7 @@ aclnnStatus aclnnStdMeanCorrection(
       <td>-</td>
       <td>FLOAT、BFLOAT16、FLOAT16</td>
       <td>ND</td>
-      <td>-</td>
+      <td>0-8</td>
       <td>√</td>
     </tr>
     <tr>
@@ -194,8 +194,8 @@ aclnnStatus aclnnStdMeanCorrection(
       <td>传入的self、stdOut、meanOut是空指针时。</td>
     </tr>
     <tr>
-      <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="5">161002</td>
+      <td rowspan="6">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="6">161002</td>
       <td>self、stdOut、meanOut数据类型不在支持的范围之内。</td>
     </tr>
     <tr>
@@ -210,8 +210,13 @@ aclnnStatus aclnnStdMeanCorrection(
     <tr>
       <td>meanOut的shape出现如下情况会出错：<br>keepdim为true时，meanOut.shape != self.shape(指定维度dim设置为1的形状)；<br>keepdim为false时，meanOut.shape != self.shape(去除指定维度dim后的形状)。</td>
     </tr>
+    <tr>
+      <td>self、stdOut、meanOut的数据维度超过8维。</td>
+    </tr>
   </tbody>
   </table>
+
+  当self、stdOut、meanOut的数据类型不受支持（如DT_BOOL）时，接口报错并返回161002（ACLNN_ERR_PARAM_INVALID）；错误日志中可能包含内部错误码信息，内部错误码经包装后不直接对外暴露、随CANN版本与运行环境而异，不构成对外契约，以接口返回值为准。
 
 ## aclnnStdMeanCorrection
 
@@ -260,6 +265,7 @@ aclnnStatus aclnnStdMeanCorrection(
 
 - 确定性计算：
   - aclnnStdMeanCorrection默认确定性实现。
+- 当N≤correction（即公式分母max(0, N-correction)为0，包含correction>N与correction=N两种场景）时，接口不报错并返回成功，stdOut输出+Inf或NaN（一般输入为+Inf，全等输入为0×Inf=NaN），meanOut正常输出。
 
 ## 调用示例
 
