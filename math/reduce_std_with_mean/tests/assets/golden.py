@@ -325,3 +325,36 @@ class AclnnStdMeanCorrectionTestSpec:
         "float16": {"standard": "cross_check", "level": "L1"},
         "bfloat16": {"standard": "cross_check", "level": "L1"},
     }
+
+    class ThirdPartyImpl:
+        """三方标杆实现：torch 原生 dtype 直算（不做升精度），用于 cross_check 对照。
+
+        参数绑定：attrs（dim/correction/keepdim）→ __init__；输入张量与输出槽
+        → __call__ 按名绑定（TTK XPU 服务端按名绑定，self 须为真实形参，实例槽
+        改用 _impl；stdOut/meanOut 为输出槽，三方侧无输出张量，忽略）。
+        cross_check 声明而无三方输出时 TTK 判 GOLDEN_FAILURE，故须注册。
+        """
+
+        def __init__(
+            self,
+            *,
+            dim=None,
+            correction=1,
+            keepdim=False,
+            **kwargs,
+        ):
+            self.dim = dim
+            self.correction = correction
+            self.keepdim = keepdim
+
+        def __call__(_impl, self, stdOut=None, meanOut=None, **kwargs):
+            del stdOut, meanOut
+            d = _normalize_dims(_impl.dim, self.dim())
+            if len(d) == 0:
+                d = list(range(self.dim()))
+            std, mean = torch.std_mean(
+                self, dim=d, correction=_impl.correction, keepdim=_impl.keepdim
+            )
+            return [std, mean]
+
+    third_party = {"torch": ThirdPartyImpl}
