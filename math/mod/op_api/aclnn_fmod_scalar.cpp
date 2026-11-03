@@ -135,7 +135,13 @@ static DataType PromoteTypeScalar(const op::DataType selfDtype, const op::DataTy
         return promoteType;
     }
 
-    return op::PromoteType(selfDtype, otherDtype);
+    auto promoteType = op::PromoteType(selfDtype, otherDtype);
+    if (promoteType != op::DataType::DT_UNDEFINED && !CheckType(promoteType, GetDtypeSupportList()) &&
+        ((selfDtype == op::DataType::DT_INT8 && otherDtype == op::DataType::DT_UINT8) ||
+         (selfDtype == op::DataType::DT_UINT8 && otherDtype == op::DataType::DT_INT8))) {
+        return selfDtype;
+    }
+    return promoteType;
 }
 
 static bool CheckPromoteType(const aclTensor* self, const aclTensor* other)

@@ -105,3 +105,39 @@ TEST_F(l2_inplace_fmod_scalar_test, aclnnInplaceFmodScalar_null_scalar)
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
     EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_NULLPTR);
 }
+
+TEST_F(l2_inplace_fmod_scalar_test, aclnnInplaceFmodScalar_int8_uint8_scalar_nd_3)
+{
+    // input tensor
+    const vector<int64_t>& selfShape = {20};
+    aclDataType selfDtype = ACL_INT8;
+    aclFormat selfFormat = ACL_FORMAT_ND;
+    // scalar
+    uint8_t scalarValue = 3;
+
+    auto selfTensorDesc = TensorDesc(selfShape, selfDtype, selfFormat).ValueRange(0, 100);
+    auto scalarDesc = ScalarDesc(scalarValue);
+
+    auto ut = OP_API_UT(aclnnInplaceFmodScalar, INPUT(selfTensorDesc, scalarDesc), OUTPUT());
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACL_SUCCESS);
+}
+
+TEST_F(l2_inplace_fmod_scalar_test, aclnnInplaceFmodScalar_uint8_int8_scalar_nd_3)
+{
+    // input tensor
+    const vector<int64_t>& selfShape = {20};
+    aclDataType selfDtype = ACL_UINT8;
+    aclFormat selfFormat = ACL_FORMAT_ND;
+    // scalar
+    int8_t scalarValue = 3;
+
+    auto selfTensorDesc = TensorDesc(selfShape, selfDtype, selfFormat).ValueRange(0, 100);
+    auto scalarDesc = ScalarDesc(scalarValue);
+
+    auto ut = OP_API_UT(aclnnInplaceFmodScalar, INPUT(selfTensorDesc, scalarDesc), OUTPUT());
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACL_SUCCESS);
+}
