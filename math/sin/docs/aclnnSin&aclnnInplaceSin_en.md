@@ -100,7 +100,7 @@ aclnnStatus aclnnInplaceSin(
       <td>self (aclTensor*)</td>
       <td>Input</td>
       <td>Input tensor.</td>
-      <td>The shape must be the same as that of out, and the data type must satisfy the data type <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">deduction relationship</a> with that of out. If the input data type is INT8, INT16, INT32, INT64, UINT8, or BOOL, the input is converted to the float data type for computation, and the computation result is converted to the data type of out.</td>
+      <td>The shape must be the same as that of out, and the data type must satisfy the data type <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">deduction relationship</a> with that of out. If the input data type is INT8, INT16, INT32, INT64, UINT8, or BOOL, the input is converted to FLOAT (float32) for computation. For other supported data types, Sin is called with the data type of self. The computation result is converted to the data type of out.</td>
       <td>INT8, INT16, INT32, INT64, UINT8, BOOL, FLOAT, FLOAT16, DOUBLE, COMPLEX64, COMPLEX128, BFLOAT16</td>
       <td>ND</td>
       <td>No greater than 8</td>
@@ -370,7 +370,7 @@ aclnnStatus aclnnInplaceSin(
 - Deterministic computation: aclnnSin&aclnnInplaceSin defaults to a deterministic implementation.
 
 <!-- npu="A3,910b" id9 -->
-- <term>Atlas A2 products</term>, <term>Atlas A3 products</term>: When the input data range of FLOAT, FLOAT16, and BFLOAT16 data types is within [-10^7, 10^7], the precision requirements are met. If the value range is exceeded, precision cannot be guaranteed. Use the CPU for computation.
+- <term>Atlas A2 products</term>, <term>Atlas A3 products</term>: For finite inputs representable in each data type, the precision requirements are met within [-10^7, 10^7] for FLOAT and BFLOAT16, and within [-65504, 65504] for FLOAT16. Outside the corresponding range, precision cannot be guaranteed. Use the CPU for computation.
 <!-- end id9 -->
 <!-- npu="310p" id10 -->
 - <term>Atlas inference products</term>: When the input data range of FLOAT and FLOAT16 data types is within [-65504, 65504], the precision requirements are met. If the value range is exceeded, precision cannot be guaranteed. Use the CPU for computation.

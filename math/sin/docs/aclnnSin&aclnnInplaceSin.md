@@ -98,7 +98,7 @@ aclnnStatus aclnnInplaceSin(
       <td>self（aclTensor*）</td>
       <td>输入</td>
       <td>输入tensor。</td>
-      <td>shape需要与out一致，和out的数据类型满足数据类型<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>。当输入的数据类型为INT8、INT16、INT32、INT64、UINT8、BOOL时，会转换为float数据类型做计算，计算结果转换成out的数据类型。</td>
+      <td>shape需要与out一致，和out的数据类型满足数据类型<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>。当输入的数据类型为INT8、INT16、INT32、INT64、UINT8、BOOL时，会转换为FLOAT（float32）数据类型做计算；其余支持的数据类型保持self的数据类型调用Sin。计算结果转换成out的数据类型。</td>
       <td>INT8、INT16、INT32、INT64、UINT8、BOOL、FLOAT、FLOAT16、DOUBLE、COMPLEX64、COMPLEX128、BFLOAT16</td>
       <td>ND</td>
       <td>不大于8</td>
@@ -368,7 +368,7 @@ aclnnStatus aclnnInplaceSin(
 - 确定性计算：aclnnSin&aclnnInplaceSin默认确定性实现。
 
 <!-- npu="A3,910b" id9 -->
-- <term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>：FLOAT、FLOAT16、BFLOAT16数据类型的输入数据范围为[-10^7, 10^7]时满足精度要求，超过数值范围无法保证，请使用CPU进行计算。
+- <term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>：对于各数据类型实际可表示的有限输入，FLOAT、BFLOAT16数据类型的输入数据范围为[-10^7, 10^7]，FLOAT16数据类型的输入数据范围为[-65504, 65504]时满足精度要求。超过对应数值范围无法保证精度，请使用CPU进行计算。
 <!-- end id9 -->
 <!-- npu="310p" id10 -->
 - <term>Atlas推理系列产品</term>：FLOAT、FLOAT16数据类型的输入数据范围为[-65504, 65504]时满足精度要求，超过数值范围无法保证，请使用CPU进行计算。
