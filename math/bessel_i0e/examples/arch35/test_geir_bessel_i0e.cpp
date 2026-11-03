@@ -29,7 +29,7 @@
 #include "ge_ir_build.h"
 
 #include "nn_other.h"
-#include "../op_graph/bessel_i0e_proto.h"
+#include "../../op_graph/bessel_i0e_proto.h"
 
 #define FAILED -1
 #define SUCCESS 0
