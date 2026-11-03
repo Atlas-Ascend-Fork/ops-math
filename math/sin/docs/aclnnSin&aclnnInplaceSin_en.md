@@ -256,7 +256,7 @@ aclnnStatus aclnnInplaceSin(
       <td>Input/Output</td>
       <td>-</td>
       <td>-</td>
-      <td>FLOAT, BFLOAT16, FLOAT16</td>
+      <td>FLOAT, BFLOAT16, FLOAT16, DOUBLE, COMPLEX64, COMPLEX128</td>
       <td>ND</td>
       <td>Not greater than 8</td>
       <td>√</td>
@@ -314,7 +314,7 @@ aclnnStatus aclnnInplaceSin(
     <tr>
       <td rowspan="2">ACLNN_ERR_PARAM_INVALID</td>
       <td rowspan="2">161002</td>
-      <td>The data type and data format of selfRef are not within the supported range.</td>
+      <td>The data type of selfRef is not within the supported range.</td>
     </tr>
     <tr>
       <td>The dimension of selfRef is greater than 8.</td>

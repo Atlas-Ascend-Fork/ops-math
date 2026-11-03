@@ -254,7 +254,7 @@ aclnnStatus aclnnInplaceSin(
       <td>输入/输出</td>
       <td>-</td>
       <td>-</td>
-      <td>FLOAT、BFLOAT16、FLOAT16</td>
+      <td>FLOAT、BFLOAT16、FLOAT16、DOUBLE、COMPLEX64、COMPLEX128</td>
       <td>ND</td>
       <td>不大于8</td>
       <td>√</td>
@@ -312,7 +312,7 @@ aclnnStatus aclnnInplaceSin(
     <tr>
       <td rowspan="2">ACLNN_ERR_PARAM_INVALID</td>
       <td rowspan="2">161002</td>
-      <td>selfRef数据类型和数据格式不在支持的范围之内。</td>
+      <td>selfRef的数据类型不在支持的范围之内。</td>
     </tr>
     <tr>
       <td>selfRef的维度大于8。</td>
