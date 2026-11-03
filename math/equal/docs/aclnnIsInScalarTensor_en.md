@@ -81,7 +81,7 @@ aclnnStatus aclnnIsInScalarTensor(
       <td>Input</td>
       <td>Input scalar, element in the formula.</td>
       <td>-</td>
-      <td>FLOAT, FLOAT16, DOUBLE, BFLOAT16, INT8, INT16, INT32, INT64, UINT8, UINT16, BOOL, COMPLEX64, COMPLEX128</td>
+      <td>FLOAT, FLOAT16, DOUBLE, BFLOAT16, INT8, INT16, INT32, INT64, UINT8</td>
       <td>-</td>
       <td>-</td>
       <td>-</td>
@@ -91,7 +91,7 @@ aclnnStatus aclnnIsInScalarTensor(
       <td>Input</td>
       <td>Input tensor, testElements in the formula.</td>
       <td>The data type must conform to the <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">data type deduction rules</a> with the data type of element.</td>
-      <td>FLOAT, FLOAT16, DOUBLE, BFLOAT16, INT8, INT16, INT32, INT64, UINT8, UINT16, BOOL, COMPLEX64, COMPLEX128</td>
+      <td>FLOAT, FLOAT16, DOUBLE, BFLOAT16, INT8, INT16, INT32, INT64, UINT8</td>
       <td>ND</td>
       <td>0-8</td>
       <td>√</td>
@@ -149,7 +149,7 @@ aclnnStatus aclnnIsInScalarTensor(
   </tbody></table>
 
   <!-- npu="910,310p" id7 -->
-  - <term>Atlas training products</term> and <term>Atlas inference products</term>: BFLOAT16, COMPLEX64, and COMPLEX128 are not supported.
+  - <term>Atlas training products</term> and <term>Atlas inference products</term>: BFLOAT16 is not supported.
   <!-- end id7 -->
 
 - **Return value**
