@@ -135,6 +135,14 @@ private:
 template <typename T>
 __aicore__ inline void FresnelSin<T>::Init(GM_ADDR x, GM_ADDR y, const FresnelSinTilingData* td)
 {
+    // Null-pointer guard (last-resort defense): the host tiling is the primary
+    // gate that rejects unsupported sizes (totalIdx > UINT32_MAX), so a null GM
+    // base address here only signals a framework allocation failure. Skip every
+    // GM access to avoid the illegal read. The silent no-op (output tensor left
+    // unwritten) is a deliberate trade-off over dereferencing the null base.
+    if (x == nullptr || y == nullptr) {
+        return;
+    }
     int64_t rem = td->totalNum - td->blockFactor * AscendC::GetBlockIdx();
     blkLen_ = (rem > td->blockFactor) ? td->blockFactor : rem;
     ubLen_ = td->ubFactor;

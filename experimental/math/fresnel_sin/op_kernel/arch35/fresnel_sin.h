@@ -97,9 +97,8 @@ private:
     __aicore__ inline void Compute(int64_t curLen);
     __aicore__ inline void CopyOut(int64_t progress, int64_t curLen);
 
-    __aicore__ inline void HornerEval(
-        const LocalTensor<float>& dst, const LocalTensor<float>& src, const float* coeffs, int32_t numCoeffs,
-        int64_t n);
+    __aicore__ inline void HornerEval(const LocalTensor<float>& dst, const LocalTensor<float>& src, const float* coeffs,
+                                      int32_t numCoeffs, int64_t n);
 
 private:
     TPipe pipe_;
@@ -129,9 +128,17 @@ private:
 // Init
 // ============================================================================
 template <typename T, uint32_t TILING_KEY>
-__aicore__ inline void KernelFresnelSin<T, TILING_KEY>::Init(
-    GM_ADDR x, GM_ADDR y, GM_ADDR /*workspace*/, GM_ADDR tiling)
+__aicore__ inline void KernelFresnelSin<T, TILING_KEY>::Init(GM_ADDR x, GM_ADDR y, GM_ADDR /*workspace*/,
+                                                             GM_ADDR tiling)
 {
+    // Null-pointer guard (last-resort defense): the host tiling is the primary
+    // gate that rejects unsupported sizes (totalIdx > UINT32_MAX), so a null GM
+    // base address here only signals a framework allocation failure. Skip every
+    // GM access to avoid the illegal read. The silent no-op (output tensor left
+    // unwritten) is a deliberate trade-off over dereferencing the null base.
+    if (x == nullptr || y == nullptr) {
+        return;
+    }
     REGISTER_TILING_DEFAULT(FresnelSinTilingData);
     GET_TILING_DATA_WITH_STRUCT(FresnelSinTilingData, td, tiling);
 
@@ -176,6 +183,11 @@ __aicore__ inline void KernelFresnelSin<T, TILING_KEY>::Init(
 template <typename T, uint32_t TILING_KEY>
 __aicore__ inline void KernelFresnelSin<T, TILING_KEY>::Process()
 {
+    // Guard against zero-length work (null GM guard in Init, or an empty
+    // tensor): computing loopCount with tileLength_ == 0 would be UB.
+    if (blockLength_ <= 0 || tileLength_ <= 0) {
+        return;
+    }
     int64_t loopCount = (blockLength_ + tileLength_ - 1) / tileLength_;
     for (int64_t i = 0; i < loopCount; i++) {
         int64_t curLen = (i == loopCount - 1) ? (blockLength_ - tileLength_ * i) : tileLength_;
@@ -224,8 +236,9 @@ __aicore__ inline void KernelFresnelSin<T, TILING_KEY>::CopyOut(int64_t progress
 // HornerEval
 // ============================================================================
 template <typename T, uint32_t TILING_KEY>
-__aicore__ inline void KernelFresnelSin<T, TILING_KEY>::HornerEval(
-    const LocalTensor<float>& dst, const LocalTensor<float>& src, const float* coeffs, int32_t numCoeffs, int64_t n)
+__aicore__ inline void KernelFresnelSin<T, TILING_KEY>::HornerEval(const LocalTensor<float>& dst,
+                                                                   const LocalTensor<float>& src, const float* coeffs,
+                                                                   int32_t numCoeffs, int64_t n)
 {
     Duplicate(dst, coeffs[0], n);
     for (int32_t i = 1; i < numCoeffs; i++) {

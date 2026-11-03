@@ -370,4 +370,35 @@ TEST_F(FresnelSinTilingTest, invalid_dim_num_exceeds_max)
     EXPECT_FALSE(ok);
 }
 
+// =============================================================================
+// Huge shape beyond UINT32_MAX (issue #18): (1, 4294967296, 1, 1, 1) fp32 has
+// totalIdx = 2^32 elements. The host tiling must reject it instead of silently
+// handing an oversized/unsupported size to the kernel.
+// =============================================================================
+TEST_F(FresnelSinTilingTest, reject_totalIdx_exceeds_uint32max)
+{
+    FresnelSinTestParam p = {"over_uint32max",
+                             {1, 4294967296, 1, 1, 1},
+                             ge::DT_FLOAT,
+                             ge::FORMAT_ND,
+                             {1, 4294967296, 1, 1, 1},
+                             ge::DT_FLOAT,
+                             ge::FORMAT_ND,
+                             ge::GRAPH_FAILED,
+                             0,
+                             {},
+                             64,
+                             262144,
+                             4096};
+    gert::StorageShape xShape = {p.xShape, p.xShape};
+    gert::StorageShape yShape = {p.yShape, p.yShape};
+    std::vector<gert::TilingContextPara::TensorDescription> inputDesc({{xShape, p.xDtype, p.xFormat}});
+    std::vector<gert::TilingContextPara::TensorDescription> outputDesc({{yShape, p.yDtype, p.yFormat}});
+    gert::TilingContextPara tilingPara(OP_NAME, inputDesc, outputDesc, &compileInfo, p.maxAIVNum, p.ubSize,
+                                       p.tilingDataMaxSize);
+    TilingInfo info;
+    bool ok = ExecuteTiling(tilingPara, info);
+    EXPECT_FALSE(ok);
+}
+
 } // namespace FresnelSinUT

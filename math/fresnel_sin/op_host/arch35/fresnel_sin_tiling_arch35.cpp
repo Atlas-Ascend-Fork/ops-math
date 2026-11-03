@@ -76,6 +76,13 @@ static ge::graphStatus GetShapeAttrsInfo(gert::TilingContext* context, int64_t* 
 
     *totalIdx = inputShapeX.GetShapeSize();
 
+    // Element counts beyond uint32 range would silently truncate the uint32
+    // per-core split lengths below; reject them explicitly.
+    OP_CHECK_IF(*totalIdx > static_cast<int64_t>(UINT32_MAX),
+                OP_LOGE(context, "FresnelSin: total element count %lld exceeds UINT32_MAX, not supported",
+                        static_cast<long long>(*totalIdx)),
+                return ge::GRAPH_FAILED);
+
     OP_CHECK_IF(inputShapeX.GetDimNum() > MAX_DIM_NUM,
                 OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "x",
                                                          std::to_string(inputShapeX.GetDimNum()).c_str(),

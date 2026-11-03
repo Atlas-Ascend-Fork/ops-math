@@ -63,9 +63,8 @@ static ge::graphStatus GetShapeAttrsInfo(gert::TilingContext* context, int64_t& 
     OP_CHECK_NULL_WITH_CONTEXT(context, outY);
     auto outShapeY = EnsureNotScalar(outY->GetStorageShape());
 
-    OP_CHECK_IF(
-        inputShapeX.GetShapeSize() != outShapeY.GetShapeSize(),
-        OP_LOGE(context, "FresnelSin: input and output shape size mismatch"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(inputShapeX.GetShapeSize() != outShapeY.GetShapeSize(),
+                OP_LOGE(context, "FresnelSin: input and output shape size mismatch"), return ge::GRAPH_FAILED);
 
     totalIdx = inputShapeX.GetShapeSize();
 
@@ -73,9 +72,8 @@ static ge::graphStatus GetShapeAttrsInfo(gert::TilingContext* context, int64_t& 
     auto inputDesc = context->GetInputDesc(0);
     OP_CHECK_NULL_WITH_CONTEXT(context, inputDesc);
     dataType = inputDesc->GetDataType();
-    OP_CHECK_IF(
-        supportedDtype.count(dataType) == 0,
-        OP_LOGE(context, "FresnelSin: invalid dtype %d", static_cast<int>(dataType)), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(supportedDtype.count(dataType) == 0,
+                OP_LOGE(context, "FresnelSin: invalid dtype %d", static_cast<int>(dataType)), return ge::GRAPH_FAILED);
     return ge::GRAPH_SUCCESS;
 }
 
@@ -95,25 +93,21 @@ static ge::graphStatus FresnelSinTilingFunc(gert::TilingContext* context)
 {
     uint64_t ubSize = 0;
     int64_t coreNum = 0;
-    OP_CHECK_IF(
-        GetPlatformInfo(context, ubSize, coreNum) != ge::GRAPH_SUCCESS, OP_LOGE(context, "GetPlatformInfo error"),
-        return ge::GRAPH_FAILED);
+    OP_CHECK_IF(GetPlatformInfo(context, ubSize, coreNum) != ge::GRAPH_SUCCESS,
+                OP_LOGE(context, "GetPlatformInfo error"), return ge::GRAPH_FAILED);
 
     int64_t totalIdx = 0;
     ge::DataType dataType = ge::DT_FLOAT;
-    OP_CHECK_IF(
-        GetShapeAttrsInfo(context, totalIdx, dataType) != ge::GRAPH_SUCCESS,
-        OP_LOGE(context, "GetShapeAttrsInfo error"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(GetShapeAttrsInfo(context, totalIdx, dataType) != ge::GRAPH_SUCCESS,
+                OP_LOGE(context, "GetShapeAttrsInfo error"), return ge::GRAPH_FAILED);
 
-    OP_CHECK_IF(
-        GetWorkspaceSize(context) != ge::GRAPH_SUCCESS, OP_LOGE(context, "GetWorkspaceSize error"),
-        return ge::GRAPH_FAILED);
+    OP_CHECK_IF(GetWorkspaceSize(context) != ge::GRAPH_SUCCESS, OP_LOGE(context, "GetWorkspaceSize error"),
+                return ge::GRAPH_FAILED);
 
     FresnelSinTilingData* tiling = context->GetTilingData<FresnelSinTilingData>();
     OP_CHECK_NULL_WITH_CONTEXT(context, tiling);
-    OP_CHECK_IF(
-        memset_s(tiling, sizeof(FresnelSinTilingData), 0, sizeof(FresnelSinTilingData)) != EOK,
-        OP_LOGE(context, "set tiling data error"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(memset_s(tiling, sizeof(FresnelSinTilingData), 0, sizeof(FresnelSinTilingData)) != EOK,
+                OP_LOGE(context, "set tiling data error"), return ge::GRAPH_FAILED);
 
     // Multi-core split: dynamic GetBlockDim, 32B aligned baseLength
     int64_t ubBlockSize = Ops::Base::GetUbBlockSize(context);
@@ -138,6 +132,13 @@ static ge::graphStatus FresnelSinTilingFunc(gert::TilingContext* context)
     int64_t tailLen = totalIdx - baseLen * (usedCoreNum - 1);
     if (tailLen < 0)
         tailLen = 0;
+
+    // baseLength/tailLength are the fields actually narrowed to uint32 below;
+    // reject any per-core split length that the cast would silently truncate.
+    OP_CHECK_IF(baseLen > static_cast<int64_t>(UINT32_MAX) || tailLen > static_cast<int64_t>(UINT32_MAX),
+                OP_LOGE(context, "FresnelSin: per-core split length (base %lld, tail %lld) exceeds UINT32_MAX",
+                        static_cast<long long>(baseLen), static_cast<long long>(tailLen)),
+                return ge::GRAPH_FAILED);
 
     tiling->totalLength = static_cast<uint64_t>(totalIdx);
     tiling->blockNum = static_cast<uint32_t>(usedCoreNum);
