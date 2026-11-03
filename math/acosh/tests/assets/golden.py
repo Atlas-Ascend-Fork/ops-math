@@ -13,7 +13,8 @@
 
 Registered names (CSV op_name / api_name dialects):
   - "acosh" / "Acosh" : Kernel / GEIR path ("Acosh" = GE op type CamelCase)
-  - "aclnnAcosh"      : ACLNN path
+  - "aclnnAcosh" / "aclnnInplaceAcosh" : ACLNN path (all aclnn APIs
+    declared in op_api/aclnn_acosh.h GetWorkspaceSize entries)
   - "torch.acosh"     : Torch E2E path
   - "tf.math.acosh"   : TensorFlow E2E path
 
@@ -36,6 +37,7 @@ __spec__ = {
     "acosh": "AcoshKernelTestSpec",
     "Acosh": "AcoshKernelTestSpec",  # GE类型名双注册(REG_OP(Acosh))
     "aclnnAcosh": "AclnnAcoshTestSpec",
+    "aclnnInplaceAcosh": "AclnnAcoshTestSpec",
     "torch.acosh": "TorchAcoshTestSpec",
     "tf.math.acosh": "AcoshTensorFlowTestSpec",
 }
@@ -66,8 +68,12 @@ class _TensorFlowAcosh:
         return [tf.math.acosh(_get_tf_input(args, kwargs))]
 
 
-def aclnn_acosh_golden(selfT, out, **kwargs):
-    """CPU golden following aclnnAcoshGetWorkspaceSize(self, out, ...).
+def aclnn_acosh_golden(selfT, out=None, **kwargs):
+    """CPU golden for aclnnAcosh(self, out) and aclnnInplaceAcosh(selfRef).
+
+    out defaults to selfT for the inplace form (self and out are the same
+    tensor); mirrors ExecAcoshGetWorkspaceSize(self, out) for both. CPU golden
+    following aclnnAcoshGetWorkspaceSize(self, out, ...).
 
     Mirrors the aclnn cast chain (op_api/aclnn_acosh.cpp:170-183) --
     dtypes already in the output family (FLOAT/FLOAT16/DOUBLE/BF16/COMPLEX64/
@@ -89,6 +95,8 @@ def aclnn_acosh_golden(selfT, out, **kwargs):
     """
     import torch  # lazy import: TTK 进程内 aclrt 可能已初始化
 
+    if out is None:
+        out = selfT  # inplace: self and out are the same tensor
     output_family = (
         torch.float16,
         torch.float32,
