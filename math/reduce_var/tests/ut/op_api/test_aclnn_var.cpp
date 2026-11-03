@@ -661,3 +661,64 @@ TEST_F(l2_var_test, var_single_dim_tensor)
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
     EXPECT_EQ(aclRet, ACL_SUCCESS);
 }
+
+// unbiased=true且归约元素数为1，dim为nullptr时应返回NAN
+TEST_F(l2_var_test, var_unbiased_n1_red_dim_nullptr)
+{
+    auto selfDesc = TensorDesc({1}, ACL_FLOAT, ACL_FORMAT_ND).ValueRange(-2, 2);
+    bool unbiased = true;
+    bool keepdim = true;
+    auto outDesc = TensorDesc({1}, ACL_FLOAT, ACL_FORMAT_ND).Precision(0.0001, 0.0001);
+
+    auto ut = OP_API_UT(aclnnVar, INPUT(selfDesc, nullptr, unbiased, keepdim), OUTPUT(outDesc));
+
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACL_SUCCESS);
+}
+
+// unbiased=true且归约元素数为1，显式指定dim时应返回NAN
+TEST_F(l2_var_test, var_unbiased_n1_red_explicit_dim)
+{
+    auto selfDesc = TensorDesc({1, 3}, ACL_FLOAT, ACL_FORMAT_ND).ValueRange(-2, 2);
+    auto dimDesc = IntArrayDesc(vector<int64_t>{0});
+    bool unbiased = true;
+    bool keepdim = true;
+    auto outDesc = TensorDesc({1, 3}, ACL_FLOAT, ACL_FORMAT_ND).Precision(0.0001, 0.0001);
+
+    auto ut = OP_API_UT(aclnnVar, INPUT(selfDesc, dimDesc, unbiased, keepdim), OUTPUT(outDesc));
+
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACL_SUCCESS);
+}
+
+// unbiased=false且归约元素数为1应保持原有成功行为
+TEST_F(l2_var_test, var_unbiased_false_n1_guard)
+{
+    auto selfDesc = TensorDesc({1}, ACL_FLOAT, ACL_FORMAT_ND).ValueRange(-2, 2);
+    bool unbiased = false;
+    bool keepdim = true;
+    auto outDesc = TensorDesc({1}, ACL_FLOAT, ACL_FORMAT_ND).Precision(0.0001, 0.0001);
+
+    auto ut = OP_API_UT(aclnnVar, INPUT(selfDesc, nullptr, unbiased, keepdim), OUTPUT(outDesc));
+
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACL_SUCCESS);
+}
+
+// unbiased=true且归约元素数为2应保持原有成功行为
+TEST_F(l2_var_test, var_unbiased_true_n2_guard)
+{
+    auto selfDesc = TensorDesc({2}, ACL_FLOAT, ACL_FORMAT_ND).ValueRange(-2, 2);
+    bool unbiased = true;
+    bool keepdim = true;
+    auto outDesc = TensorDesc({1}, ACL_FLOAT, ACL_FORMAT_ND).Precision(0.0001, 0.0001);
+
+    auto ut = OP_API_UT(aclnnVar, INPUT(selfDesc, nullptr, unbiased, keepdim), OUTPUT(outDesc));
+
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACL_SUCCESS);
+}

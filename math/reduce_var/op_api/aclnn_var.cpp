@@ -190,6 +190,16 @@ aclnnStatus aclnnVarGetWorkspaceSize(const aclTensor* self, const aclIntArray* d
     }
     CHECK_RET(dimArray != nullptr, ACLNN_ERR_INNER_NULLPTR);
 
+    // unbiased=true 且归约轴元素数为 1 时，分母 N-1=0、分子 0，结果为 NaN。
+    int64_t shapeProd = CalcShapeProd(self, dimArray);
+    if (unbiased && shapeProd <= 1) {
+        ret = CheckFillScalarShapeStdAndVar(out, NAN, uniqueExecutor.get());
+        CHECK_RET(ret == ACLNN_SUCCESS, ret);
+        *workspaceSize = uniqueExecutor->GetWorkspaceSize();
+        uniqueExecutor.ReleaseTo(executor);
+        return ret;
+    }
+
     // 将输入self转换成连续的tensor
     auto selfContiguous = l0op::Contiguous(self, uniqueExecutor.get());
     CHECK_RET(selfContiguous != nullptr, ACLNN_ERR_INNER_NULLPTR);
