@@ -38,7 +38,7 @@ static const std::initializer_list<op::DataType> DTYPE_SUPPORT_LIST = {
     op::DataType::DT_INT8,    op::DataType::DT_INT32,  op::DataType::DT_INT64,      op::DataType::DT_UINT8,
     op::DataType::DT_FLOAT16, op::DataType::DT_FLOAT,  op::DataType::DT_BOOL,       op::DataType::DT_DOUBLE,
     op::DataType::DT_INT16,   op::DataType::DT_UINT16, op::DataType::DT_COMPLEX128, op::DataType::DT_COMPLEX64,
-    op::DataType::DT_BF16};
+    op::DataType::DT_BF16,    op::DataType::DT_UINT32, op::DataType::DT_UINT64};
 
 static const std::initializer_list<op::DataType> DTYPE_SUPPORT_950_LIST = {
     op::DataType::DT_INT8,     op::DataType::DT_INT32,       op::DataType::DT_INT64,
@@ -88,6 +88,17 @@ static aclnnStatus CheckParams(const aclTensor* self)
     return ACLNN_SUCCESS;
 }
 
+static void ViewDataType(const aclTensor* input, const op::DataType dtype)
+{
+    if (input == nullptr) {
+        OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "view failed: input tensor is null.");
+        return;
+    }
+    auto tmpTensor = const_cast<aclTensor*>(input);
+    tmpTensor->SetDataType(dtype);
+    input = tmpTensor;
+}
+
 aclnnStatus aclnnInplaceZeroGetWorkspaceSize(aclTensor* selfRef, uint64_t* workspaceSize, aclOpExecutor** executor)
 {
     L2_DFX_PHASE_1(aclnnInplaceZero, DFX_IN(selfRef), DFX_OUT(selfRef));
@@ -96,7 +107,7 @@ aclnnStatus aclnnInplaceZeroGetWorkspaceSize(aclTensor* selfRef, uint64_t* works
     auto uniqueExecutor = CREATE_EXECUTOR();
     CHECK_RET(uniqueExecutor.get() != nullptr, ACLNN_ERR_INNER_CREATE_EXECUTOR);
 
-    // 固定写法，参数检查
+    // 固定写法，参数检查（包含空指针与dtype校验）
     auto ret = CheckParams(selfRef);
     CHECK_RET(ret == ACLNN_SUCCESS, ret);
 
@@ -107,8 +118,18 @@ aclnnStatus aclnnInplaceZeroGetWorkspaceSize(aclTensor* selfRef, uint64_t* works
         return ACLNN_SUCCESS;
     }
 
+    // uint32/uint64 复用 int32/int64 的 ZerosLike 实现，通过视图修改类型，不改变入参 selfRef 本身
+    const aclTensor* self = selfRef;
+    auto selfDtype = self->GetDataType();
+    if (selfDtype == op::DataType::DT_UINT64 || selfDtype == op::DataType::DT_UINT32) {
+        self = uniqueExecutor->CreateView(selfRef, selfRef->GetViewShape(), selfRef->GetStorageShape(),
+                                          selfRef->GetViewStrides(), selfRef->GetViewOffset());
+        CHECK_RET(self != nullptr, ACLNN_ERR_INNER_NULLPTR);
+        ViewDataType(self, selfDtype == op::DataType::DT_UINT64 ? op::DataType::DT_INT64 : op::DataType::DT_INT32);
+    }
+
     // 固定写法，将输入self转换成连续的tensor
-    auto selfContiguous = l0op::Contiguous(selfRef, uniqueExecutor.get());
+    auto selfContiguous = l0op::Contiguous(self, uniqueExecutor.get());
     CHECK_RET(selfContiguous != nullptr, ACLNN_ERR_INNER_NULLPTR);
 
     // 调用ZerosLike算子kernel
@@ -116,7 +137,9 @@ aclnnStatus aclnnInplaceZeroGetWorkspaceSize(aclTensor* selfRef, uint64_t* works
     CHECK_RET(zeroOut != nullptr, ACLNN_ERR_INNER_NULLPTR);
 
     // 固定写法，将计算结果拷贝到输出out上，out可能是非连续的tensor
-    auto viewcopyResult = l0op::ViewCopy(zeroOut, selfRef, uniqueExecutor.get());
+    // 注意：self和selfRef指向同一个内存地址，self用int32/int64解析，selfRef用uint32/uint64解析
+    // 但计算结果zeroOut是int32/int64类型，需要通过ViewCopy拷贝到同为int32/int64的的self上
+    auto viewcopyResult = l0op::ViewCopy(zeroOut, self, uniqueExecutor.get());
     CHECK_RET(viewcopyResult != nullptr, ACLNN_ERR_INNER_NULLPTR);
 
     // 固定写法，获取计算过程中需要使用的workspace大小

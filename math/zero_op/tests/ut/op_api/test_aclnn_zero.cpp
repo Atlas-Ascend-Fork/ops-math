@@ -15,21 +15,15 @@
 
 class l2ZeroTest : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        std::cout << "l2ZeroTest SetUp" << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "l2ZeroTest SetUp" << std::endl; }
 
-    static void TearDownTestCase()
-    {
-        std::cout << "l2ZeroTest TearDown" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "l2ZeroTest TearDown" << std::endl; }
 };
 
 // self的数据类型不在支持范围内
 TEST_F(l2ZeroTest, l2_zero_test_unsupported_type)
 {
-    auto selfDesc = TensorDesc({2, 3}, ACL_UINT32, ACL_FORMAT_ND);
+    auto selfDesc = TensorDesc({2, 3}, ACL_COMPLEX32, ACL_FORMAT_ND);
 
     auto ut = OP_API_UT(aclnnInplaceZero, INPUT(selfDesc), OUTPUT());
 
@@ -87,6 +81,30 @@ TEST_F(l2ZeroTest, l2_zero_test_int64)
     aclnnStatus getWorkspaceResult = ut.TestGetWorkspaceSize(&workspaceSize);
     EXPECT_EQ(getWorkspaceResult, ACLNN_SUCCESS);
     // ut.TestPrecision();
+}
+
+// 正常路径, uint32
+TEST_F(l2ZeroTest, l2_zero_test_uint32)
+{
+    auto selfDesc = TensorDesc({2, 4}, ACL_UINT32, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnInplaceZero, INPUT(selfDesc), OUTPUT());
+
+    uint64_t workspaceSize = 0;
+    aclnnStatus getWorkspaceResult = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(getWorkspaceResult, ACLNN_SUCCESS);
+}
+
+// 正常路径, uint64
+TEST_F(l2ZeroTest, l2_zero_test_uint64)
+{
+    auto selfDesc = TensorDesc({2, 4}, ACL_UINT64, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnInplaceZero, INPUT(selfDesc), OUTPUT());
+
+    uint64_t workspaceSize = 0;
+    aclnnStatus getWorkspaceResult = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(getWorkspaceResult, ACLNN_SUCCESS);
 }
 
 // 正常路径, aicore, uint8

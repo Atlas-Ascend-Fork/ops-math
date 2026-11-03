@@ -126,7 +126,7 @@ aclnnStatus aclnnInplaceZero(
 - <term>Atlas inference products</term>, <term>Atlas training products</term>: Supports the following data types: INT8, INT32, INT64, UINT8, FLOAT16, FLOAT32, BOOL, DOUBLE, INT16, UINT16, COMPLEX128, COMPLEX64.
 <!-- end id7 -->
 <!-- npu="A3,910b" id8 -->
-- <term>Atlas A2 products</term>, <term>Atlas A3 products</term>: Supports the following data types: INT8, INT32, INT64, UINT8, FLOAT16, FLOAT32, BOOL, DOUBLE, INT16, UINT16, COMPLEX128, COMPLEX64, BFLOAT16.
+- <term>Atlas A2 products</term>, <term>Atlas A3 products</term>: Supports the following data types: INT8, INT32, INT64, UINT8, FLOAT16, FLOAT32, BOOL, DOUBLE, INT16, UINT16, COMPLEX128, COMPLEX64, BFLOAT16, UINT32, UINT64.
 <!-- end id8 -->
 <!-- npu="950" id9 -->
 - <term>Ascend 950PR&950DT products</term>: Supports the following data types: INT8, INT32, INT64, UINT8, FLOAT16, FLOAT32, BOOL, DOUBLE, INT16, UINT16, COMPLEX128, COMPLEX64, BFLOAT16, FLOAT8_E5M2, FLOAT8_E4M3FN, HIFLOAT8, FLOAT4_E1M2, FLOAT4_E2M1.
