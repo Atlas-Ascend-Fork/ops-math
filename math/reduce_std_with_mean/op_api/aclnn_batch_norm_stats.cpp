@@ -158,7 +158,7 @@ static aclnnStatus aclnnBatchNormStatsImplUnify(const aclTensor* input, const ac
     CHECK_RET(epsScalar != nullptr, ACLNN_ERR_INNER_NULLPTR);
     auto epsTensor = uniqueExecutor.get()->ConvertToTensor(epsScalar, op::DataType::DT_FLOAT);
     CHECK_RET(epsTensor != nullptr, ACLNN_ERR_INNER_NULLPTR);
-    auto addOpOut = l0op::Add(varOpOut, epsTensor, uniqueExecutor.get());
+    auto addOpOut = l0op::AddInplace(epsTensor, varOpOut, uniqueExecutor.get());
     CHECK_RET(addOpOut != nullptr, ACLNN_ERR_INNER_NULLPTR);
 
     auto expScalar = uniqueExecutor.get()->AllocScalar(NEGTIVE_SQRT_EXP);
