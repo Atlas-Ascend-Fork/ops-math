@@ -16,4 +16,9 @@ export ASCEND_SLOG_PRINT_TO_STDOUT=1
 
 CURR_PATH=$(cd $(dirname $0); pwd)
 echo "python3 ${CURR_PATH}/gen_tiling_head_file.py $@"
-python3 ${CURR_PATH}/gen_tiling_head_file.py $@
+if [ -n "${OPS_MATH_UT_ASAN_LIB:-}" ]; then
+    export LD_PRELOAD="${OPS_MATH_UT_ASAN_LIB}${LD_PRELOAD:+:${LD_PRELOAD}}"
+    # The Python/TBE generator retains process-lifetime allocations.
+    export ASAN_OPTIONS="${ASAN_OPTIONS:+${ASAN_OPTIONS}:}detect_leaks=0"
+fi
+python3 ${CURR_PATH}/gen_tiling_head_file.py "$@"

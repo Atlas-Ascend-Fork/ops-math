@@ -10,6 +10,18 @@
 include_guard(GLOBAL)
 add_cann_third_party(gtest)
 
+if(ENABLE_ASAN)
+  execute_process(
+    COMMAND ${CMAKE_C_COMPILER} -print-file-name=libasan.so
+    OUTPUT_VARIABLE OPS_MATH_UT_ASAN_LIB
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    RESULT_VARIABLE asan_result)
+  if(NOT asan_result EQUAL 0 OR NOT IS_ABSOLUTE "${OPS_MATH_UT_ASAN_LIB}"
+     OR NOT EXISTS "${OPS_MATH_UT_ASAN_LIB}")
+    message(FATAL_ERROR "Cannot find libasan.so for tiling header generation")
+  endif()
+endif()
+
 set(OP_TILING_MODULE_NAME
     ${PKG_NAME}_op_tiling_ut
     CACHE STRING "op_tiling ut module name" FORCE)
@@ -590,10 +602,16 @@ function(AddOpsTestCase)
     )
     message("gen tiling head file to ${tilingFile}, command:")
     message("${gen_cmd}")
+    set(gen_head_command bash -c ${gen_cmd})
+    if(ENABLE_ASAN)
+      set(gen_head_command ${CMAKE_COMMAND} -E env
+                           "OPS_MATH_UT_ASAN_LIB=${OPS_MATH_UT_ASAN_LIB}"
+                           bash -c ${gen_cmd})
+    endif()
     add_custom_command(
       OUTPUT ${tilingFile}
       COMMAND rm -f ${tilingFile}
-      COMMAND bash -c ${gen_cmd}
+      COMMAND ${gen_head_command}
       WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
       DEPENDS ${MODULE_OP_NAME}_${socVersion}_tiling_tmp)
     add_custom_target(${gen_tiling_head_tag} ALL DEPENDS ${tilingFile})

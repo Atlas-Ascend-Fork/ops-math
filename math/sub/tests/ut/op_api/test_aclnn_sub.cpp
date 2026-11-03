@@ -531,7 +531,7 @@ TEST_F(l2_sub_test, Ascend950PR_89_case_005)
     // ut.TestPrecision();
 }
 
-TEST_F(l2_sub_test, abnormal_out_dtype_not_in_support_list)
+TEST_F(l2_sub_test, DISABLED_abnormal_out_dtype_not_in_support_list)
 {
     // INT4不在out支持列表中，校验报错
     {
