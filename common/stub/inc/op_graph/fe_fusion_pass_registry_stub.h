@@ -19,6 +19,7 @@
 #include <cstdint>
 #include <map>
 #include <string>
+#include "log/log.h"
 
 namespace fe {
 
@@ -81,27 +82,46 @@ namespace fe {
 
 constexpr int32_t kStubGeCompilerVersion900 = 90000000;
 
+// 避免无 ACL 宿主里静默不登记无法排查
+inline void StubWarnInertOnce(const int32_t version)
+{
+    if (aclsysGetVersionNum == nullptr) {
+        OP_LOGW("FusionPassStub", "aclsysGetVersionNum is not resolved, stub registration skipped.");
+        return;
+    }
+    OP_LOGW("FusionPassStub", "ge_compiler version [%d] is lower than 9.0.0, stub registration skipped.", version);
+}
+
 inline bool StubIsGeCompilerVersionSatisfied()
 {
     int32_t version = 0;
     if (aclsysGetVersionNum != nullptr) {
         aclsysGetVersionNum(const_cast<char*>("ge_compiler"), &version);
     }
-    return version >= kStubGeCompilerVersion900;
+    if (version >= kStubGeCompilerVersion900) {
+        return true;
+    }
+    // 惰化时告警一次，登记行为不变
+    static const bool stubInertWarned __attribute__((unused)) = (StubWarnInertOnce(version), true);
+    return false;
 }
 
 } // namespace fe
 
-// 版本满足才构造 registrar（不满足则 nullptr，不登记）；工厂写死 nullptr，创建由 REG_FUSION_PASS 负责
+// 版本满足才构造 registrar（不满足则不登记）；用静态存储对象而不是 new，避免只分配不释放造成泄漏
+// 工厂写死 nullptr，创建由 REG_FUSION_PASS 负责
 #define STUB_REG_PASS(pass_name, pass_type, attr) STUB_REG_PASS_UNIQ_HELPER(__COUNTER__, pass_name, pass_type, attr)
 
 #define STUB_REG_PASS_UNIQ_HELPER(ctr, pass_name, pass_type, attr) STUB_REG_PASS_UNIQ(ctr, pass_name, pass_type, attr)
 
-#define STUB_REG_PASS_UNIQ(ctr, pass_name, pass_type, attr)                                                           \
-    static ::fe::FusionPassRegistrar* stub_reg_##ctr                                                                  \
-        __attribute__((unused)) = ::fe::StubIsGeCompilerVersionSatisfied() ?                                          \
-                                      new ::fe::FusionPassRegistrar(                                                  \
-                                          pass_type, pass_name, []() -> ::fe::GraphPass* { return nullptr; }, attr) : \
-                                      nullptr
+#define STUB_REG_PASS_UNIQ(ctr, pass_name, pass_type, attr)                            \
+    static void StubRegPass##ctr() __attribute__((unused));                            \
+    static void StubRegPass##ctr()                                                     \
+    {                                                                                  \
+        static ::fe::FusionPassRegistrar registrar(                                    \
+            pass_type, pass_name, []() -> ::fe::GraphPass* { return nullptr; }, attr); \
+    }                                                                                  \
+    static const bool stub_reg_##ctr                                                   \
+        __attribute__((unused)) = ::fe::StubIsGeCompilerVersionSatisfied() ? (StubRegPass##ctr(), true) : false
 
 #endif // FE_FUSION_PASS_REGISTRY_STUB_H_

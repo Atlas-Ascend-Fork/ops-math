@@ -25,7 +25,7 @@
 
 // 登记 canndev 旧融合 pass 名字，名字/类型/attr 照抄 canndev 的 REG_PASS/REGISTER_PASS
 // attr：FORBIDDEN_CLOSE=0x01、SINGLE_SCENE_OPEN=0x04；3 参 REGISTER_PASS 默认 0
-// Castlike/Histogram 不登记：Stage 是 kAfterInferShape，不在 kCompatibleInherited 表，会报 "pattern fusion is nullptr"
+// 只支持 kCompatibleInherited 阶段
 // DropOutV3Split 已登记但当前不生效：不在 OPP 白名单 3510(ascend950) 内，待 OPP 补名单
 STUB_REG_PASS("ReduceMeanWithCastFusionPass", fe::BUILT_IN_PREPARE_GRAPH_PASS, 0x05);
 STUB_REG_PASS("PermuteFusionPass", fe::BUILT_IN_GRAPH_PASS, 0x05);
@@ -42,6 +42,7 @@ STUB_REG_PASS("HardMaxPass", fe::BUILT_IN_GRAPH_PASS, 0x01);
 // MulAddN：math 侧 Stage=kCompatibleInherited，且在 OPP 白名单 3510(ascend950) 内，登记后生效
 STUB_REG_PASS("MulAddNPass", fe::BUILT_IN_GRAPH_PASS, 0);
 STUB_REG_PASS("TopKFusionPass", fe::BUILT_IN_GRAPH_PASS, 0x04);
+STUB_REG_PASS("Globalavgpoolpass", fe::BUILT_IN_GRAPH_PASS, 0x01);
 
 #endif // GE_COMPILER_VERSION_NUM >= GE_COMPILER_VERSION_900
 #endif // OP_GRAPH_MATH_ASCEND950
