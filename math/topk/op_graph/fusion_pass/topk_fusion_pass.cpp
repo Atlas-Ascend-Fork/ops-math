@@ -271,6 +271,48 @@ bool ShouldDegradeToAicpuTopK(const AscendString& nodeType, DataType xDtype, boo
     return GetAicpuTopKXDtypeWhitelist().count(xDtype) > 0;
 }
 
+// The static TopKD backend support gate (the tbe check_supported equivalent,
+// see the 6a gate in MeetRequirements): the sort axis must be longer than 1
+// (an unknown dim consults the shape range upper bound) and an input size
+// over 32768 with a const k in (0, 8) is rejected on the non-910B socs.
+// Shared by MeetRequirements (the gate) and Replacement (the rejection
+// recompute of the TopK int64-k rebuild) so the two sides stay consistent.
+bool IsTopKDBackendRejected(const TensorDesc& xDesc, const std::vector<int64_t>& xDims, int64_t dimAim, int64_t dimSize,
+                            int64_t kValue, const std::string& shortSocVersion)
+{
+    const int64_t axisDim = (dimAim >= 0 && dimAim < dimSize) ? xDims[static_cast<size_t>(dimAim)] : -1;
+    if (axisDim == 1) {
+        return true;
+    }
+    if (axisDim < 0) {
+        // Range check only for a valid dimAim (an unknown axis); an
+        // out-of-range one (the Replacement rejection recompute skips the
+        // dim-range gate) is undecidable - indexing with it would read out
+        // of bounds.
+        if (dimAim < 0 || dimAim >= dimSize) {
+            return false;
+        }
+        std::vector<std::pair<int64_t, int64_t>> xRange;
+        (void)xDesc.GetShapeRange(xRange);
+        const bool rangeKnown = (xRange.size() == static_cast<size_t>(dimSize) &&
+                                 xRange[static_cast<size_t>(dimAim)].second >= 0);
+        if (rangeKnown && xRange[static_cast<size_t>(dimAim)].second == 1) {
+            return true;
+        }
+    }
+    int64_t inputSize = 1;
+    bool inputSizeKnown = true;
+    for (const int64_t dim : xDims) {
+        if (dim < 0) {
+            inputSizeKnown = false;
+            break;
+        }
+        inputSize *= dim;
+    }
+    const bool isSoc910B = shortSocVersion.rfind("Ascend910B", 0) == 0;
+    return inputSizeKnown && inputSize > kMaxTopKDInputSize && kValue > 0 && kValue < kMinTopKDKThreshold && !isSoc910B;
+}
+
 // True when the node's indices output is int64 but the indices_dtype attr is not DT_INT64 yet.
 // The legacy BigGuard branch sets this attr on DAV_5102; the rebuilt TopKV2 carries it so that
 // re-matching the pass's own output is idempotent (no infinite replacement loop).
@@ -393,6 +435,35 @@ bool LooksUnsetDesc(const TensorDesc& tensorDesc)
         return true;
     }
     return tensorDesc.GetDataType() == DT_FLOAT && tensorDesc.GetShape().GetDims().empty();
+}
+
+// Rejection-exit TopK rebuild for an int64 k desc (canndev parity, legacy
+// L498-509: the k desc is rewritten int64 -> int32 in place before any gate,
+// so a rejected TopK stays AICPU-selectable; the equivalent here is
+// re-creating it - skipping reproduces the field-report "DT_INT64 of
+// input[1, k] is unsupported" on Ascend310B). Legacy archs and TopK sources
+// only (a TopKV2 source takes the degradation above; regbase converts
+// nothing in canndev). Covers the dtype/sorted/TopKD-backend exits (the k
+// gate lets an int64 k through; the dim-range exit fails in both
+// implementations). The k desc is resolved with the unset-desc -> producer
+// fallback; the rebuilt TopK re-matches with an int32 k desc (idempotent).
+bool ShouldRebuildTopKForInt64K(const AscendString& nodeType, bool isLegacy, const GNode& topkNode)
+{
+    if (nodeType != "TopK" || !isLegacy) {
+        return false;
+    }
+    TensorDesc kDesc;
+    if (topkNode.GetInputDesc(kInputKIdx, kDesc) != SUCCESS || LooksUnsetDesc(kDesc)) {
+        auto kSrcInfo = topkNode.GetInDataNodesAndPortIndexs(kInputKIdx);
+        if (kSrcInfo.first == nullptr) {
+            return false;
+        }
+        GNode kSrcNode = *kSrcInfo.first;
+        if (kSrcNode.GetOutputDesc(kSrcInfo.second, kDesc) != SUCCESS) {
+            return false;
+        }
+    }
+    return kDesc.GetDataType() == DT_INT64;
 }
 
 // Resolve the TensorDesc of a subgraph input's first matched input.
@@ -646,7 +717,10 @@ bool BuildTopKDNode(es::EsGraphBuilder& builder, const es::EsTensorHolder& x, co
     return true;
 }
 
-// Build the AICPU TopK degradation replacement (canndev parity, legacy L495-538):
+// Build the AICPU TopK replacement (canndev parity, legacy L495-538): serves
+// BOTH rejection paths - the TopKV2 degradation (an x dtype / sorted=false
+// rejection) and the TopK int64-k rebuild (any of those rejections on a TopK
+// source with an int64 k desc, the legacy L498-509 rewrite parity).
 // when a TopKV2 source node is rejected by the aicore dtype gate, the legacy pass
 // rewrites the node type in place to "TopK" (SetType keeps every desc/attr) and
 // returns SUCCESS, so op selection dispatches the node to the AICPU TopK kernel
@@ -721,9 +795,13 @@ GraphUniqPtr BuildAicpuTopKReplacement(const std::unique_ptr<MatchResult>& match
         OP_LOGE(kPassName.c_str(), "Failed to update the degraded TopK k input desc.");
         return nullptr;
     }
-    // Output descs: values carried as-is; indices int64 re-declared int32
-    // (fallback: the values desc with an int32 dtype, the AICPU TopK indices
-    // registration is int32-only).
+    // Output descs: values carried as-is; indices unconditionally re-declared
+    // int32 - the AICPU TopK registration is int32-only for indices, and the
+    // fallback (a missing/unset source indices desc) inherits the values desc
+    // whose dtype follows the rejected x (double/uint*), so an int64-only
+    // conversion would leak an unselectable dtype onto the degraded node
+    // (review opinion 2; canndev has no equivalent: its in-place rename keeps
+    // the original desc and never manufactures one).
     TensorDesc valuesDesc;
     if (topkNode.GetOutputDesc(kOutputValuesIdx, valuesDesc) != SUCCESS) {
         OP_LOGE(kPassName.c_str(), "Failed to get the source values desc for the AICPU TopK degradation.");
@@ -731,18 +809,16 @@ GraphUniqPtr BuildAicpuTopKReplacement(const std::unique_ptr<MatchResult>& match
     }
     TensorDesc indicesDesc = valuesDesc;
     TensorDesc srcIndicesDesc;
-    if (topkNode.GetOutputDesc(kOutputIndicesIdx, srcIndicesDesc) == SUCCESS) {
+    if (topkNode.GetOutputDesc(kOutputIndicesIdx, srcIndicesDesc) == SUCCESS && !LooksUnsetDesc(srcIndicesDesc)) {
         indicesDesc = srcIndicesDesc;
     }
-    if (indicesDesc.GetDataType() == DT_INT64) {
-        indicesDesc.SetDataType(DT_INT32);
-    }
+    indicesDesc.SetDataType(DT_INT32);
     if (topkGNode.UpdateOutputDesc(kOutputValuesIdx, valuesDesc) != GRAPH_SUCCESS ||
         topkGNode.UpdateOutputDesc(kOutputIndicesIdx, indicesDesc) != GRAPH_SUCCESS) {
         OP_LOGE(kPassName.c_str(), "Failed to update the degraded TopK output descs.");
         return nullptr;
     }
-    OP_LOGI(kPassName.c_str(), "TopKFusionPass degraded the rejected TopKV2 to an AICPU-dispatchable TopK.");
+    OP_LOGI(kPassName.c_str(), "TopKFusionPass rebuilt the rejected TopK-family node as an AICPU-dispatchable TopK.");
     return replaceGraphBuilder.BuildAndReset({output.values, output.indices});
 }
 
@@ -968,24 +1044,33 @@ bool TopKFusionPass::MeetRequirements(const std::unique_ptr<MatchResult>& matchR
                         shortSocVersion.c_str());
                 return true;
             }
+            // Rejection-exit TopK rebuild for an int64 k desc (see
+            // ShouldRebuildTopKForInt64K).
+            if (ShouldRebuildTopKForInt64K(nodeType, isLegacy, topkNode)) {
+                OP_LOGD(kPassName.c_str(), "Rejected TopK with an int64 k desc, rebuild with an int32 k desc.");
+                return true;
+            }
             OP_LOGD(kPassName.c_str(), "The dtype of input x is not supported by the target op on %s, skip.",
                     shortSocVersion.c_str());
             return false;
         }
     }
 
-    // 4. The value of sorted cannot be false on aicore (legacy behaviour), except on
-    //    the regbase archs where the legacy BigGuard branch (= IsRegBase, 3510 AND
-    //    5102 alike) allows it (the TopKV2 kernel gates it itself). A sorted=false
-    //    TopKV2 source on the non-regbase archs takes the AICPU TopK degradation
-    //    (canndev parity: the legacy rename leaves a TopK-typed node dispatched to
-    //    AICPU on this rejection exit as well); only TopKV2 sources degrade - a
-    //    TopK source already dispatches to AICPU (and re-degrading it would loop).
+    // 4. sorted cannot be false on aicore (legacy behaviour), except on the
+    //    regbase archs (the legacy BigGuard branch allows it; the TopKV2
+    //    kernel gates it itself). A sorted=false TopKV2 source on the
+    //    non-regbase archs takes the AICPU TopK degradation; a TopK source
+    //    with an int64 k desc takes the rejection-exit rebuild instead
+    //    (re-degrading a plain TopK source would loop).
     bool sorted = true;
     (void)topkNode.GetAttr("sorted", sorted);
     if (!sorted && !isRegbase) {
         if (nodeType == "TopKV2") {
             OP_LOGD(kPassName.c_str(), "The value of sorted must be true on aicore, degrade to AICPU TopK.");
+            return true;
+        }
+        if (ShouldRebuildTopKForInt64K(nodeType, isLegacy, topkNode)) {
+            OP_LOGD(kPassName.c_str(), "sorted=false TopK with an int64 k desc, rebuild with an int32 k desc.");
             return true;
         }
         OP_LOGD(kPassName.c_str(), "The value of sorted must be true on aicore, skip.");
@@ -1088,39 +1173,16 @@ bool TopKFusionPass::MeetRequirements(const std::unique_ptr<MatchResult>& matchR
     //       socs (the backend's performance trade-off; Ascend910B is exempt).
     //     The Ascend310-only k/dim-size caps are not carried over: 310 is outside
     //     the build/deploy matrix of this repo.
-    if (isLegacy && isKConst) {
-        const int64_t axisDim = (dimAim >= 0 && dimAim < dimSize) ? xDims[static_cast<size_t>(dimAim)] : -1;
-        if (axisDim == 1) {
-            OP_LOGD(kPassName.c_str(), "The data of sort axis is 1, the TopKD backend rejects it, skip.");
-            return false;
+    if (isLegacy && isKConst && IsTopKDBackendRejected(xDesc, xDims, dimAim, dimSize, kValue, shortSocVersion)) {
+        OP_LOGD(kPassName.c_str(), "The TopKD backend rejects the fusion (sort axis / input size), skip.");
+        // Rejection-exit TopK rebuild for an int64 k desc (see
+        // ShouldRebuildTopKForInt64K): the legacy rewrite has already
+        // converted it before this CheckOpSupported rejection.
+        if (ShouldRebuildTopKForInt64K(nodeType, isLegacy, topkNode)) {
+            OP_LOGD(kPassName.c_str(), "TopKD backend rejected TopK with an int64 k desc, rebuild as TopK.");
+            return true;
         }
-        if (axisDim < 0) {
-            std::vector<std::pair<int64_t, int64_t>> xRange;
-            (void)xDesc.GetShapeRange(xRange);
-            const bool rangeKnown = (xRange.size() == static_cast<size_t>(dimSize) &&
-                                     xRange[static_cast<size_t>(dimAim)].second >= 0);
-            if (rangeKnown && xRange[static_cast<size_t>(dimAim)].second == 1) {
-                OP_LOGD(kPassName.c_str(), "The range of sort axis is 1, the TopKD backend rejects it, skip.");
-                return false;
-            }
-        }
-        int64_t inputSize = 1;
-        bool inputSizeKnown = true;
-        for (const int64_t dim : xDims) {
-            if (dim < 0) {
-                inputSizeKnown = false;
-                break;
-            }
-            inputSize *= dim;
-        }
-        const bool isSoc910B = shortSocVersion.rfind("Ascend910B", 0) == 0;
-        if (inputSizeKnown && inputSize > kMaxTopKDInputSize && kValue > 0 && kValue < kMinTopKDKThreshold &&
-            !isSoc910B) {
-            OP_LOGD(kPassName.c_str(),
-                    "Input size %ld (> %ld) with a const k in (0, %ld) is rejected by the TopKD backend, skip.",
-                    inputSize, kMaxTopKDInputSize, kMinTopKDKThreshold);
-            return false;
-        }
+        return false;
     }
 
     // 6b. Anti-loop / idempotency guard for TopKV2 sources (the replacement target
@@ -1242,6 +1304,37 @@ GraphUniqPtr TopKFusionPass::Replacement(const std::unique_ptr<MatchResult>& mat
                                   isKConst) ||
          (!sorted && !isRegbase))) {
         return BuildAicpuTopKReplacement(matchResult, topkNode);
+    }
+    // 3a2. Rejection-exit TopK rebuild (see ShouldRebuildTopKForInt64K): the
+    //      MeetRequirements dtype/sorted/TopKD-backend exits return true for a
+    //      TopK source with an int64 k desc, so the same conditions are
+    //      recomputed here and the TopK is re-created with an int32 k desc
+    //      (the graph state the legacy rewrite leaves behind). A source whose
+    //      gates all passed falls through to the normal fusion path (TopKD k
+    //      attr / TopKV2 k desc fixup).
+    if (ShouldRebuildTopKForInt64K(degradeNodeType, isLegacy, topkNode)) {
+        const DataType xDtypeForReject = xDesc.GetDataType();
+        const bool dtypeRejected = isRegbase ?
+                                       (GetRegbaseXDtypeWhitelist().count(xDtypeForReject) == 0) :
+                                       !IsLegacyXDtypeAllowed(npuArch, shortSocVersion, xDtypeForReject, isKConst);
+        const bool sortedRejected = !sorted && !isRegbase;
+        bool backendRejected = false;
+        if (isLegacy && isKConst) {
+            int64_t dimAimForReject = kDefaultDim;
+            (void)topkNode.GetAttr("dim", dimAimForReject);
+            const std::vector<int64_t> xDimsForReject = xDesc.GetShape().GetDims();
+            const int64_t dimSizeForReject = static_cast<int64_t>(xDimsForReject.size());
+            if (dimAimForReject < 0) {
+                dimAimForReject += dimSizeForReject;
+            }
+            backendRejected = IsTopKDBackendRejected(xDesc, xDimsForReject, dimAimForReject, dimSizeForReject, kValue,
+                                                     shortSocVersion);
+        }
+        if (dtypeRejected || sortedRejected || backendRejected) {
+            return BuildAicpuTopKReplacement(matchResult, topkNode);
+        }
+        // All gates passed: the normal fusion path below handles the int64 k
+        // (TopKD k attr / TopKV2 k desc fixup).
     }
 
     // 4. Normalize dim and decide whether transposes are needed. The dim attr of the
