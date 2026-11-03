@@ -77,6 +77,33 @@ uint32_t GetDataTypeSize(DataType dt)
     }
 }
 
+// Convert a float value to an IEEE 754 half precision bit pattern, so that data filled into a
+// DT_FLOAT16 tensor is genuine float16 data. Only simple finite test values are expected:
+// denormals are flushed to zero and overflow saturates to infinity.
+uint16_t FloatToHalfBits(float value)
+{
+    uint32_t bits = 0U;
+    (void)memcpy(&bits, &value, sizeof(bits));
+    const uint16_t sign = static_cast<uint16_t>((bits >> 16U) & 0x8000U);
+    int32_t exponent = static_cast<int32_t>((bits >> 23U) & 0xFFU) - 127 + 15;
+    uint32_t mantissa = bits & 0x7FFFFFU;
+    if (exponent <= 0) {
+        return sign; // zero or too small, flush to zero
+    }
+    if (exponent >= 0x1F) {
+        return static_cast<uint16_t>(sign | 0x7C00U); // overflow, infinity
+    }
+    mantissa += 0x00000FFFU + ((mantissa >> 13U) & 1U); // round the 13 truncated bits to nearest even
+    if (mantissa >= 0x800000U) {                        // mantissa carries into the exponent
+        mantissa = 0U;
+        exponent += 1;
+        if (exponent >= 0x1F) {
+            return static_cast<uint16_t>(sign | 0x7C00U);
+        }
+    }
+    return static_cast<uint16_t>(sign | (static_cast<uint32_t>(exponent) << 10U) | (mantissa >> 13U));
+}
+
 int32_t GenData(vector<int64_t> shapes, Tensor& tensor, TensorDesc& desc, DataType dtype, double value)
 {
     desc.SetRealDimCnt(shapes.size());
@@ -119,10 +146,10 @@ int32_t GenData(vector<int64_t> shapes, Tensor& tensor, TensorDesc& desc, DataTy
             break;
         }
         case ge::DT_FLOAT16: {
-            // Fill as uint16_t bit pattern for float16 (simple sequential values)
+            // Fill with genuine float16 values, same value + i rule as the other branches
             uint16_t* p = reinterpret_cast<uint16_t*>(buf);
             for (size_t i = 0; i < size; ++i) {
-                p[i] = static_cast<uint16_t>(i + 1);
+                p[i] = FloatToHalfBits(static_cast<float>(value + i));
             }
             break;
         }
@@ -277,7 +304,9 @@ int main(int argc, char* argv[])
     vector<Operator> inputs{};
     vector<Operator> outputs{};
 
-    DataType inDtype = DT_FLOAT;
+    // TopKV2D AICPU runtime dispatch only accepts float16 x/values (see canndev aicpu_kernel.ini
+    // [TopKV2D] input0/output0), so the example must construct x and values as DT_FLOAT16
+    DataType inDtype = DT_FLOAT16;
 
     ret = CreateOppInGraph(inDtype, input, inputs, outputs, graph);
     if (ret != SUCCESS) {
