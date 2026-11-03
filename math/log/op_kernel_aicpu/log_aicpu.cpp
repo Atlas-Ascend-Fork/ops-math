@@ -57,7 +57,8 @@ template <typename T, typename std::enable_if<std::is_same<T, std::complex<float
                                               T>::type* = nullptr>
 inline void Log2Compute(T* input, T* output, int64_t start, int64_t end)
 {
-    T log_2 = T(std::log(kLog2Base));
+    using ValueType = typename T::value_type;
+    T log_2 = T(std::log(static_cast<ValueType>(kLog2Base)));
     for (int64_t index = start; index < end; index++) {
         output[index] = std::log(input[index]) / log_2;
     }

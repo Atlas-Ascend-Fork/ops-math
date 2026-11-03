@@ -7,6 +7,7 @@
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
+#include <complex>
 #include "gtest/gtest.h"
 #ifndef private
 #define private public
@@ -24,14 +25,8 @@ using namespace aicpu;
 
 class TEST_LOG_UT : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        cout << "log_test SetUp\n" << endl;
-    }
-    static void TearDownTestCase()
-    {
-        cout << "log_test TearDown\n" << endl;
-    }
+    static void SetUpTestCase() { cout << "log_test SetUp\n" << endl; }
+    static void TearDownTestCase() { cout << "log_test TearDown\n" << endl; }
 };
 
 #define CREATE_NODEDEF(shapes, data_types, datas, base, shift, scale) \
@@ -44,10 +39,9 @@ protected:
         .Attr("scale", scale)
 
 template <typename Tin, typename Tout>
-void RunTestLog(
-    char* dtype, vector<DataType> data_types, vector<vector<int64_t>>& shapes,
-    const Tin* input_data, // 本地输入数据
-    const Tout* output_exp_data)
+void RunTestLog(char* dtype, vector<DataType> data_types, vector<vector<int64_t>>& shapes,
+                const Tin* input_data, // 本地输入数据
+                const Tout* output_exp_data)
 { // 本地期望输出
     uint64_t data_size = CalTotalElements(shapes, 0);
     Tin* input = new Tin[data_size];
@@ -99,12 +93,50 @@ TEST_F(TEST_LOG_UT, DT_FLOAT_SUCCESS)
     RunTestLog<float, float>(const_cast<char*>("float32"), data_types, shapes, kLogInputFloat, kLogOutputFloat);
 }
 
+TEST_F(TEST_LOG_UT, DT_COMPLEX128_LOG2_PRECISION)
+{
+    complex<double> input_data[] = {{2.0, 0.0}, {10.0, 0.0}, {1.0e8, 0.0}, {0.5, 0.0},
+                                    {3.0, 4.0}, {-1.0, 0.0}, {-1.0, -0.0}};
+    complex<double> output_data[7];
+    vector<DataType> data_types = {DT_COMPLEX128, DT_COMPLEX128};
+    vector<vector<int64_t>> shapes{{7}, {7}};
+    vector<void*> datas = {input_data, output_data};
+
+    CREATE_NODEDEF(shapes, data_types, datas, 2.0, 0.0, 1.0);
+    RUN_KERNEL(node_def, HOST, KERNEL_STATUS_OK);
+    for (size_t i = 0; i < 7; ++i) {
+        const auto expected = std::log(input_data[i]) / std::log(2.0);
+        EXPECT_NEAR(output_data[i].real(), expected.real(), 1.0e-14);
+        EXPECT_NEAR(output_data[i].imag(), expected.imag(), 1.0e-14);
+    }
+    EXPECT_DOUBLE_EQ(output_data[0].real(), 1.0);
+    EXPECT_GT(output_data[5].imag(), 0.0);
+    EXPECT_LT(output_data[6].imag(), 0.0);
+}
+
+TEST_F(TEST_LOG_UT, DT_COMPLEX64_LOG2_PRECISION)
+{
+    complex<float> input_data[] = {{2.0F, 0.0F}, {3.0F, 4.0F}, {-1.0F, -0.0F}};
+    complex<float> output_data[3];
+    vector<DataType> data_types = {DT_COMPLEX64, DT_COMPLEX64};
+    vector<vector<int64_t>> shapes{{3}, {3}};
+    vector<void*> datas = {input_data, output_data};
+
+    CREATE_NODEDEF(shapes, data_types, datas, 2.0, 0.0, 1.0);
+    RUN_KERNEL(node_def, HOST, KERNEL_STATUS_OK);
+    for (size_t i = 0; i < 3; ++i) {
+        const auto expected = std::log(complex<double>(input_data[i])) / std::log(2.0);
+        EXPECT_NEAR(output_data[i].real(), expected.real(), 1.0e-6);
+        EXPECT_NEAR(output_data[i].imag(), expected.imag(), 1.0e-6);
+    }
+}
+
 TEST_F(TEST_LOG_UT, DT_BOOL_SUCCESS)
 {
     bool input_data[4] = {true, false, true, false};
     float output_data[4];
-    float expect_output[4] = {
-        0.0, -std::numeric_limits<float>::infinity(), 0.0, -std::numeric_limits<float>::infinity()};
+    float expect_output[4] = {0.0, -std::numeric_limits<float>::infinity(), 0.0,
+                              -std::numeric_limits<float>::infinity()};
     vector<DataType> data_types = {DT_BOOL, DT_FLOAT};
     vector<vector<int64_t>> shapes{{4}, {4}};
     vector<void*> datas = {(void*)input_data, (void*)output_data};
@@ -119,8 +151,8 @@ TEST_F(TEST_LOG_UT, DT_FLOAT16_SUCCESS)
 {
     Eigen::half input_data[4] = {(Eigen::half)1.0, (Eigen::half)100, (Eigen::half)3.0, (Eigen::half)0.0};
     Eigen::half output_data[4];
-    Eigen::half expect_output[4] = {
-        (Eigen::half)0.0, (Eigen::half)4.605, (Eigen::half)1.099, -std::numeric_limits<Eigen::half>::infinity()};
+    Eigen::half expect_output[4] = {(Eigen::half)0.0, (Eigen::half)4.605, (Eigen::half)1.099,
+                                    -std::numeric_limits<Eigen::half>::infinity()};
     vector<DataType> data_types = {DT_FLOAT16, DT_FLOAT16};
     vector<vector<int64_t>> shapes{{4}, {4}};
     vector<void*> datas = {(void*)input_data, (void*)output_data};
@@ -133,12 +165,11 @@ TEST_F(TEST_LOG_UT, DT_FLOAT16_SUCCESS)
 
 TEST_F(TEST_LOG_UT, DT_BFLOAT16_SUCCESS)
 {
-    Eigen::bfloat16 input_data[4] = {
-        (Eigen::bfloat16)1.0, (Eigen::bfloat16)100, (Eigen::bfloat16)3.0, (Eigen::bfloat16)0.0};
+    Eigen::bfloat16 input_data[4] = {(Eigen::bfloat16)1.0, (Eigen::bfloat16)100, (Eigen::bfloat16)3.0,
+                                     (Eigen::bfloat16)0.0};
     Eigen::bfloat16 output_data[4];
-    Eigen::bfloat16 expect_output[4] = {
-        (Eigen::bfloat16)0.0, (Eigen::bfloat16)4.605, (Eigen::bfloat16)1.099,
-        -std::numeric_limits<Eigen::bfloat16>::infinity()};
+    Eigen::bfloat16 expect_output[4] = {(Eigen::bfloat16)0.0, (Eigen::bfloat16)4.605, (Eigen::bfloat16)1.099,
+                                        -std::numeric_limits<Eigen::bfloat16>::infinity()};
     vector<DataType> data_types = {DT_BFLOAT16, DT_BFLOAT16};
     vector<vector<int64_t>> shapes{{4}, {4}};
     vector<void*> datas = {(void*)input_data, (void*)output_data};
@@ -201,8 +232,8 @@ TEST_F(TEST_LOG_UT, DT_LOG2_SUCCESSED_02)
 {
     Eigen::half input_data[4] = {(Eigen::half)32938.0, (Eigen::half)23808.0, (Eigen::half)5760.0, (Eigen::half)5495.0};
     Eigen::half output_data[4];
-    Eigen::half expect_output[4] = {
-        (Eigen::half)15.0078125, (Eigen::half)14.5390625, (Eigen::half)12.4921875, (Eigen::half)12.421875};
+    Eigen::half expect_output[4] = {(Eigen::half)15.0078125, (Eigen::half)14.5390625, (Eigen::half)12.4921875,
+                                    (Eigen::half)12.421875};
     vector<DataType> data_types = {DT_FLOAT16, DT_FLOAT16};
     vector<vector<int64_t>> shapes{{4}, {4}};
     vector<void*> datas = {(void*)input_data, (void*)output_data};
@@ -219,12 +250,11 @@ TEST_F(TEST_LOG_UT, DT_LOG2_SUCCESSED_03)
     std::complex<float> input_data[5] = {
         {10.5, 7.8}, {10.5, -7.8}, {-10.5, 7.8}, {-10.5, -7.8}, {6765867.706626937772464990616, 0}};
     std::complex<float> output_data[5];
-    std::complex<float> expect_output[5] = {
-        {3.70930554826, 0.92175805568},
-        {3.70930554826, -0.92175805568},
-        {3.70930554826, 3.6106021404266},
-        {3.70930554826, -3.6106021404266},
-        {22.68984353763857697572, 0}};
+    std::complex<float> expect_output[5] = {{3.70930554826, 0.92175805568},
+                                            {3.70930554826, -0.92175805568},
+                                            {3.70930554826, 3.6106021404266},
+                                            {3.70930554826, -3.6106021404266},
+                                            {22.68984353763857697572, 0}};
     vector<DataType> data_types = {DT_COMPLEX64, DT_COMPLEX64};
     vector<vector<int64_t>> shapes{{5}, {5}};
     vector<void*> datas = {(void*)input_data, (void*)output_data};
@@ -270,11 +300,11 @@ TEST_F(TEST_LOG_UT, DT_LOG10_SUCCESSED_01)
 
 TEST_F(TEST_LOG_UT, DT_LOG10_SUCCESSED_02)
 {
-    Eigen::half input_data[4] = {
-        (Eigen::half)32938.0, (Eigen::half)23806.0, (Eigen::half)57605.0, (Eigen::half)57605.0};
+    Eigen::half input_data[4] = {(Eigen::half)32938.0, (Eigen::half)23806.0, (Eigen::half)57605.0,
+                                 (Eigen::half)57605.0};
     Eigen::half output_data[4];
-    Eigen::half expect_output[4] = {
-        (Eigen::half)4.515625, (Eigen::half)4.37500, (Eigen::half)4.761718750, (Eigen::half)4.761718750};
+    Eigen::half expect_output[4] = {(Eigen::half)4.515625, (Eigen::half)4.37500, (Eigen::half)4.761718750,
+                                    (Eigen::half)4.761718750};
     vector<DataType> data_types = {DT_FLOAT16, DT_FLOAT16};
     vector<vector<int64_t>> shapes{{4}, {4}};
     vector<void*> datas = {(void*)input_data, (void*)output_data};
@@ -290,11 +320,10 @@ TEST_F(TEST_LOG_UT, DT_LOG10_SUCCESSED_03)
 {
     std::complex<float> input_data[4] = {{10.5, 7.8}, {10.5, -7.8}, {-10.5, 7.8}, {-10.5, -7.8}};
     std::complex<float> output_data[4];
-    std::complex<float> expect_output[4] = {
-        {1.1166121959686, 0.2774768173},
-        {1.1166121959686, -0.2774768173},
-        {1.1166121959686, 1.0868995189},
-        {1.1166121959686, -1.0868995189}};
+    std::complex<float> expect_output[4] = {{1.1166121959686, 0.2774768173},
+                                            {1.1166121959686, -0.2774768173},
+                                            {1.1166121959686, 1.0868995189},
+                                            {1.1166121959686, -1.0868995189}};
     vector<DataType> data_types = {DT_COMPLEX64, DT_COMPLEX64};
     vector<vector<int64_t>> shapes{{4}, {4}};
     vector<void*> datas = {(void*)input_data, (void*)output_data};
@@ -324,8 +353,8 @@ TEST_F(TEST_LOG_UT, DT_LOG10_SUCCESSED_04)
 
 TEST_F(TEST_LOG_UT, DT_BASE_01)
 {
-    float input_data[5] = {
-        1.0, 8.0, std::numeric_limits<float>::infinity(), -std::numeric_limits<Eigen::half>::infinity(), std::nanf("")};
+    float input_data[5] = {1.0, 8.0, std::numeric_limits<float>::infinity(),
+                           -std::numeric_limits<Eigen::half>::infinity(), std::nanf("")};
     float output_data[5];
     float expect_output[5] = {0.0, 3.0, std::numeric_limits<float>::infinity(), std::nanf(""), std::nanf("")};
     vector<DataType> data_types = {DT_FLOAT, DT_FLOAT};
@@ -342,8 +371,8 @@ TEST_F(TEST_LOG_UT, DT_BASE_02)
 {
     Eigen::half input_data[4] = {(Eigen::half)1.0, (Eigen::half)100, (Eigen::half)3.0, (Eigen::half)0.0};
     Eigen::half output_data[4];
-    Eigen::half expect_output[4] = {
-        (Eigen::half)0.0, (Eigen::half)4.605, (Eigen::half)1.099, -std::numeric_limits<Eigen::half>::infinity()};
+    Eigen::half expect_output[4] = {(Eigen::half)0.0, (Eigen::half)4.605, (Eigen::half)1.099,
+                                    -std::numeric_limits<Eigen::half>::infinity()};
     vector<DataType> data_types = {DT_FLOAT16, DT_FLOAT16};
     vector<vector<int64_t>> shapes{{4}, {4}};
     vector<void*> datas = {(void*)input_data, (void*)output_data};
@@ -362,11 +391,11 @@ TEST_F(TEST_LOG_UT, DT_BASE_02)
 
 TEST_F(TEST_LOG_UT, DT_SHIFT_01)
 {
-    float input_data[5] = {
-        1.0, 2.0, std::numeric_limits<float>::infinity(), -std::numeric_limits<Eigen::half>::infinity(), std::nanf("")};
+    float input_data[5] = {1.0, 2.0, std::numeric_limits<float>::infinity(),
+                           -std::numeric_limits<Eigen::half>::infinity(), std::nanf("")};
     float output_data[5];
-    float expect_output[5] = {
-        0.69314718, 1.09861231, std::numeric_limits<float>::infinity(), std::nanf(""), std::nanf("")};
+    float expect_output[5] = {0.69314718, 1.09861231, std::numeric_limits<float>::infinity(), std::nanf(""),
+                              std::nanf("")};
     vector<DataType> data_types = {DT_FLOAT, DT_FLOAT};
     vector<vector<int64_t>> shapes{{5}, {5}};
     vector<void*> datas = {(void*)input_data, (void*)output_data};
@@ -381,8 +410,8 @@ TEST_F(TEST_LOG_UT, DT_SHIFT_02)
 {
     Eigen::half input_data[4] = {(Eigen::half)1.0, (Eigen::half)100, (Eigen::half)3.0, (Eigen::half)0.0};
     Eigen::half output_data[4];
-    Eigen::half expect_output[4] = {
-        (Eigen::half)0.0, (Eigen::half)4.605, (Eigen::half)1.099, -std::numeric_limits<Eigen::half>::infinity()};
+    Eigen::half expect_output[4] = {(Eigen::half)0.0, (Eigen::half)4.605, (Eigen::half)1.099,
+                                    -std::numeric_limits<Eigen::half>::infinity()};
     vector<DataType> data_types = {DT_FLOAT16, DT_FLOAT16};
     vector<vector<int64_t>> shapes{{4}, {4}};
     vector<void*> datas = {(void*)input_data, (void*)output_data};
@@ -417,8 +446,8 @@ TEST_F(TEST_LOG_UT, DT_SHIFT_03)
 
 TEST_F(TEST_LOG_UT, DT_SCALE_01)
 {
-    float input_data[5] = {
-        0.5, 1.5, std::numeric_limits<float>::infinity(), -std::numeric_limits<Eigen::half>::infinity(), std::nanf("")};
+    float input_data[5] = {0.5, 1.5, std::numeric_limits<float>::infinity(),
+                           -std::numeric_limits<Eigen::half>::infinity(), std::nanf("")};
     float output_data[5];
     float expect_output[5] = {0.0, 1.09861231, std::numeric_limits<float>::infinity(), std::nanf(""), std::nanf("")};
     vector<DataType> data_types = {DT_FLOAT, DT_FLOAT};
@@ -435,8 +464,8 @@ TEST_F(TEST_LOG_UT, DT_SCALE_02)
 {
     Eigen::half input_data[4] = {(Eigen::half)1.0, (Eigen::half)100, (Eigen::half)3.0, (Eigen::half)0.0};
     Eigen::half output_data[4];
-    Eigen::half expect_output[4] = {
-        (Eigen::half)0.0, (Eigen::half)4.605, (Eigen::half)1.099, -std::numeric_limits<Eigen::half>::infinity()};
+    Eigen::half expect_output[4] = {(Eigen::half)0.0, (Eigen::half)4.605, (Eigen::half)1.099,
+                                    -std::numeric_limits<Eigen::half>::infinity()};
     vector<DataType> data_types = {DT_FLOAT16, DT_FLOAT16};
     vector<vector<int64_t>> shapes{{4}, {4}};
     vector<void*> datas = {(void*)input_data, (void*)output_data};
@@ -455,11 +484,11 @@ TEST_F(TEST_LOG_UT, DT_SCALE_02)
 
 TEST_F(TEST_LOG_UT, NOT_DEFAULT)
 {
-    float input_data[5] = {
-        1.0, 2.0, std::numeric_limits<float>::infinity(), -std::numeric_limits<Eigen::half>::infinity(), std::nanf("")};
+    float input_data[5] = {1.0, 2.0, std::numeric_limits<float>::infinity(),
+                           -std::numeric_limits<Eigen::half>::infinity(), std::nanf("")};
     float output_data[5];
-    float expect_output[5] = {
-        0.82708752, 1.06862164, std::numeric_limits<float>::infinity(), std::nanf(""), std::nanf("")};
+    float expect_output[5] = {0.82708752, 1.06862164, std::numeric_limits<float>::infinity(), std::nanf(""),
+                              std::nanf("")};
     vector<DataType> data_types = {DT_FLOAT, DT_FLOAT};
     vector<vector<int64_t>> shapes{{5}, {5}};
     vector<void*> datas = {(void*)input_data, (void*)output_data};
