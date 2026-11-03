@@ -15,18 +15,13 @@
 #include "op_api_ut_common/tensor_desc.h"
 #include "op_api_ut_common/scalar_desc.h"
 #include "op_api_ut_common/op_api_ut.h"
+#include "opdev/platform.h"
 
 class l2_var_mean_test : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        std::cout << "l2_var_mean_test SetUp" << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "l2_var_mean_test SetUp" << std::endl; }
 
-    static void TearDownTestCase()
-    {
-        std::cout << "l2_var_mean_test TearDown" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "l2_var_mean_test TearDown" << std::endl; }
 };
 
 // 正常场景_float32_dim为0_keepdim为true
@@ -565,7 +560,29 @@ TEST_F(l2_var_mean_test, var_mean_dtype_bfloat16)
 
     uint64_t workspaceSize = 0;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
-    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
+    EXPECT_EQ(aclRet, ACL_SUCCESS);
+}
+
+TEST_F(l2_var_mean_test, var_mean_bfloat16_platform_support)
+{
+    const auto originalSoc = op::GetCurrentPlatformInfo().GetSocVersion();
+    for (const auto soc : {op::SocVersion::ASCEND910B, op::SocVersion::ASCEND910_93, op::SocVersion::ASCEND950,
+                           op::SocVersion::ASCEND910}) {
+        op::SetPlatformSocVersion(soc);
+        for (bool keepdim : {false, true}) {
+            auto selfDesc = TensorDesc({2, 4}, ACL_BF16, ACL_FORMAT_ND);
+            auto dimDesc = IntArrayDesc(vector<int64_t>{1});
+            const vector<int64_t> outShape = keepdim ? vector<int64_t>{2, 1} : vector<int64_t>{2};
+            auto varOutDesc = TensorDesc(outShape, ACL_BF16, ACL_FORMAT_ND);
+            auto meanOutDesc = TensorDesc(outShape, ACL_BF16, ACL_FORMAT_ND);
+            auto ut = OP_API_UT(aclnnVarMean, INPUT(selfDesc, dimDesc, int64_t{1}, keepdim),
+                                OUTPUT(varOutDesc, meanOutDesc));
+            uint64_t workspaceSize = 0;
+            const auto expected = soc == op::SocVersion::ASCEND910 ? ACLNN_ERR_PARAM_INVALID : ACLNN_SUCCESS;
+            EXPECT_EQ(ut.TestGetWorkspaceSize(&workspaceSize), expected);
+        }
+    }
+    op::SetPlatformSocVersion(originalSoc);
 }
 
 // dim为负数边界值-1

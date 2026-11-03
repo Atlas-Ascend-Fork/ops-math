@@ -47,11 +47,7 @@ static const std::initializer_list<op::DataType> ARCH3510_DTYPE_SUPPORT_LIST = {
 
 static const std::initializer_list<DataType>& GetDtypeSupportList()
 {
-    if (IsRegBase()) {
-        return ARCH3510_DTYPE_SUPPORT_LIST;
-    } else {
-        return DTYPE_SUPPORT_LIST;
-    }
+    return GetDtypeSupportListV2(ARCH3510_DTYPE_SUPPORT_LIST, DTYPE_SUPPORT_LIST);
 }
 
 static bool CheckDtypeValid(const aclTensor* self, const aclTensor* meanOut, const aclTensor* varOut)
