@@ -30,7 +30,7 @@
 #include "array_ops.h"
 #include "ge_ir_build.h"
 
-#include "conversion/clip_by_norm_no_div_sum/op_graph/clip_by_norm_no_div_sum_proto.h"
+#include "../op_graph/clip_by_norm_no_div_sum_proto.h"
 
 #define FAILED -1
 #define SUCCESS 0
@@ -64,8 +64,8 @@ uint32_t GetDataTypeSize(DataType dt)
     return 4;
 }
 
-int32_t GenFloatData(
-    vector<int64_t> shapes, Tensor& input_tensor, TensorDesc& input_tensor_desc, const vector<float>& values)
+int32_t GenFloatData(vector<int64_t> shapes, Tensor& input_tensor, TensorDesc& input_tensor_desc,
+                     const vector<float>& values)
 {
     input_tensor_desc.SetRealDimCnt(shapes.size());
     size_t size = 1;
@@ -75,7 +75,7 @@ int32_t GenFloatData(
     float* pData = new (std::nothrow) float[size];
     for (size_t i = 0; i < size; ++i)
         pData[i] = values[i % values.size()];
-    input_tensor = Tensor(input_tensor_desc, static_cast<uint8_t*>(pData), data_len);
+    input_tensor = Tensor(input_tensor_desc, reinterpret_cast<uint8_t*>(pData), data_len);
     return SUCCESS;
 }
 
@@ -87,9 +87,8 @@ int32_t WriteDataToFile(string bin_file, uint64_t data_size, uint8_t* inputData)
     return SUCCESS;
 }
 
-int CreateOppInGraph(
-    DataType inDtype, std::vector<ge::Tensor>& input, std::vector<Operator>& inputs, std::vector<Operator>& outputs,
-    Graph& graph)
+int CreateOppInGraph(DataType inDtype, std::vector<ge::Tensor>& input, std::vector<Operator>& inputs,
+                     std::vector<Operator>& outputs, Graph& graph)
 {
     Status ret = SUCCESS;
     auto clipOp = op::ClipByNormNoDivSum("clip_by_norm_no_div_sum1");
@@ -249,7 +248,7 @@ int main(int argc, char* argv[])
         uint32_t data_size = shape_size * GetDataTypeSize(output[i].GetTensorDesc().GetDataType());
         WriteDataToFile(output_file, data_size, data);
 
-        float* floatData = static_cast<float*>(data);
+        float* floatData = reinterpret_cast<float*>(data);
         printf("Output tensor[%d] (%ld elements):\n", i, shape_size);
         for (int64_t j = 0; j < shape_size; j++) {
             printf("  [%ld] NPU=%.6f\n", j, floatData[j]);
@@ -270,7 +269,7 @@ int main(int argc, char* argv[])
 
     printf("\n========== Golden Reference ==========\n");
     int allMatch = 1;
-    float* npuData = static_cast<float*>(output[0].GetData());
+    float* npuData = reinterpret_cast<float*>(output[0].GetData());
     for (int64_t i = 0; i < elemCount; i++) {
         float temp1 = (xVals[i] > gtVals[i]) ? xVals[i] : selVals[i];
         float temp2 = std::sqrt(temp1);
@@ -280,9 +279,8 @@ int main(int argc, char* argv[])
         int match = (std::fabs(npuVal - golden) < 1e-4f);
         if (!match)
             allMatch = 0;
-        printf(
-            "  [%ld] x=%.2f gt=%.2f sel=%.2f max=%.2f -> NPU=%.6f golden=%.6f %s\n", i, xVals[i], gtVals[i], selVals[i],
-            maxVals[i], npuVal, golden, match ? "OK" : "MISMATCH");
+        printf("  [%ld] x=%.2f gt=%.2f sel=%.2f max=%.2f -> NPU=%.6f golden=%.6f %s\n", i, xVals[i], gtVals[i],
+               selVals[i], maxVals[i], npuVal, golden, match ? "OK" : "MISMATCH");
     }
     printf("======================================\n");
     printf("Result: %s\n", allMatch ? "ALL PASS" : "FAIL");
