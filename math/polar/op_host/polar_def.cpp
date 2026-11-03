@@ -18,7 +18,7 @@
 namespace ops {
 class Polar : public OpDef {
 public:
-    explicit Polar(const char *name) : OpDef(name)
+    explicit Polar(const char* name) : OpDef(name)
     {
         this->Input("abs")
             .ParamType(REQUIRED)
@@ -45,8 +45,10 @@ public:
             .PrecisionReduceFlag(true)
             .ExtendCfgInfo("opFile.value", "polar_apt");
         this->AICore().AddConfig("ascend950", aicoreConfig);
+        this->AICore().AddConfig("ascend960dt", aicoreConfig);
+        this->AICore().AddConfig("ascend960pr", aicoreConfig);
     }
 };
 
 OP_ADD(Polar);
-}  // namespace ops
+} // namespace ops
