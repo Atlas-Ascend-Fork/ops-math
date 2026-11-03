@@ -460,9 +460,18 @@ ge::graphStatus ResolveSchedule(gert::TilingContext* context, const ProblemSize&
         }
     }
 
-    // Binary output is already order independent. Counting and weighting need
-    // fixed ownership/reduction when determinism is requested by GE.
-    if (context->GetDeterministic() == 1 && !schedule.binaryOutput) {
+    // Long weighted rows also need the accurate reduction when determinism is
+    // disabled: FP32 atomic rounding accumulates past the mixed-tolerance limit.
+    // Only select bounded implementations by default; the deterministic final
+    // fallback rescans each row per bin and is reserved for explicit requests.
+    const bool deterministicCovered = NsRaggedBinCount::UseDeterministicDirect(problem.numValues, problem.numRows) ||
+                                      NsRaggedBinCount::UseDeterministicPartials(problem.outputElements,
+                                                                                 schedule.coreNum) ||
+                                      NsRaggedBinCount::UseDeterministicHistogram(problem.outputElements);
+    const bool accurateWeights = problem.hasWeights &&
+                                 problem.numValues > NsRaggedBinCount::DEFAULT_ACCURATE_WEIGHTED_MIN_VALUES &&
+                                 deterministicCovered;
+    if ((context->GetDeterministic() == 1 || accurateWeights) && !schedule.binaryOutput) {
         schedule.mappingMode = MAPPING_MODE_DETERMINISTIC;
     }
     const bool usePreciseValue = schedule.mappingMode == MAPPING_MODE_VALUE && problem.hasWeights &&

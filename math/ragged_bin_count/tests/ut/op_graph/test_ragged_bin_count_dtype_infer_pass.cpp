@@ -11,9 +11,11 @@
 #include <vector>
 
 #include "base/context_builder/op_infer_datatype_context_builder.h"
+#include "graph/operator_factory.h"
 #include "gtest/gtest.h"
 
 #include "../../../op_graph/ragged_bin_count_graph_infer_internal.h"
+#include "../../../op_graph/ragged_bin_count_proto.h"
 
 namespace {
 struct DtypeCase {
@@ -23,6 +25,53 @@ struct DtypeCase {
     ge::DataType weights;
     ge::graphStatus expected;
 };
+
+void CheckRegisteredSplitVerifier(const std::vector<int64_t>& splitShape, ge::DataType valueType, bool binaryOutput,
+                                  ge::graphStatus expected)
+{
+    SCOPED_TRACE(::testing::Message() << "splits=" << ::testing::PrintToString(splitShape)
+                                      << ", value dtype=" << valueType << ", binary=" << binaryOutput);
+    auto op = ge::OperatorFactory::CreateOperator("ragged_bin_count_verifier", "RaggedBinCount");
+    ASSERT_FALSE(op.IsEmpty());
+    const std::vector<std::vector<int64_t>> inputShapes = {splitShape, {2613}, {1}, {3, 871}};
+    const ge::DataType inputTypes[] = {ge::DT_INT64, valueType, valueType, ge::DT_FLOAT};
+    const char* const inputNames[] = {"splits", "values", "size", "weights"};
+    for (size_t index = 0; index < inputShapes.size(); ++index) {
+        ge::TensorDesc desc(ge::Shape(inputShapes[index]), ge::FORMAT_ND, inputTypes[index]);
+        desc.SetOriginShape(ge::Shape(inputShapes[index]));
+        desc.SetOriginFormat(ge::FORMAT_ND);
+        ASSERT_EQ(op.UpdateInputDesc(inputNames[index], desc), ge::GRAPH_SUCCESS);
+    }
+    ge::TensorDesc output(ge::Shape({-1, -1}), ge::FORMAT_ND, ge::DT_FLOAT);
+    output.SetOriginShape(ge::Shape({-1, -1}));
+    output.SetOriginFormat(ge::FORMAT_ND);
+    ASSERT_EQ(op.UpdateOutputDesc("output", output), ge::GRAPH_SUCCESS);
+    op.SetAttr("binary_output", binaryOutput);
+
+    // Let unknown dimensions reach the registered callback instead of GE's static common verifier.
+    EXPECT_EQ(op.VerifyAllAttr(/* disable_common_verifier = */ true), expected);
+    EXPECT_EQ(op.VerifyAllAttr(/* disable_common_verifier = */ true), expected);
+    if (splitShape[0] >= 0) {
+        EXPECT_EQ(op.VerifyAllAttr(), expected);
+    }
+    for (size_t index = 0; index < inputShapes.size(); ++index) {
+        const auto desc = op.GetInputDescByName(inputNames[index]);
+        EXPECT_EQ(desc.GetShape().GetDims(), inputShapes[index]);
+        EXPECT_EQ(desc.GetOriginShape().GetDims(), inputShapes[index]);
+        EXPECT_EQ(desc.GetDataType(), inputTypes[index]);
+        EXPECT_EQ(desc.GetFormat(), ge::FORMAT_ND);
+        EXPECT_EQ(desc.GetOriginFormat(), ge::FORMAT_ND);
+    }
+    const auto actualOutput = op.GetOutputDescByName("output");
+    EXPECT_EQ(actualOutput.GetShape().GetDims(), std::vector<int64_t>({-1, -1}));
+    EXPECT_EQ(actualOutput.GetOriginShape().GetDims(), std::vector<int64_t>({-1, -1}));
+    EXPECT_EQ(actualOutput.GetDataType(), ge::DT_FLOAT);
+    EXPECT_EQ(actualOutput.GetFormat(), ge::FORMAT_ND);
+    EXPECT_EQ(actualOutput.GetOriginFormat(), ge::FORMAT_ND);
+    bool actualBinaryOutput = !binaryOutput;
+    ASSERT_EQ(op.GetAttr("binary_output", actualBinaryOutput), ge::GRAPH_SUCCESS);
+    EXPECT_EQ(actualBinaryOutput, binaryOutput);
+}
 } // namespace
 
 TEST(RaggedBinCountGraphInferTest, test_infer_datatype_accepts_only_two_native_combinations)
@@ -52,6 +101,27 @@ TEST(RaggedBinCountGraphInferTest, test_infer_datatype_accepts_only_two_native_c
         EXPECT_EQ(ops::ragged_bin_count_graph_infer_internal::InferDataType(context), dtypeCase.expected);
         if (dtypeCase.expected == ge::GRAPH_SUCCESS) {
             EXPECT_EQ(context->GetOutputDataType(0), ge::DT_FLOAT);
+        }
+    }
+}
+
+TEST(RaggedBinCountGraphInferTest, test_registered_verifier_rejects_zero_and_one_split)
+{
+    for (const auto valueType : {ge::DT_INT32, ge::DT_INT64}) {
+        for (const bool binaryOutput : {false, true}) {
+            CheckRegisteredSplitVerifier({0}, valueType, binaryOutput, ge::GRAPH_FAILED);
+            CheckRegisteredSplitVerifier({1}, valueType, binaryOutput, ge::GRAPH_FAILED);
+        }
+    }
+}
+
+TEST(RaggedBinCountGraphInferTest, test_registered_verifier_preserves_valid_and_unknown_shapes)
+{
+    for (const auto valueType : {ge::DT_INT32, ge::DT_INT64}) {
+        for (const bool binaryOutput : {false, true}) {
+            for (const auto length : {2, 4, -1, -2}) {
+                CheckRegisteredSplitVerifier({length}, valueType, binaryOutput, ge::GRAPH_SUCCESS);
+            }
         }
     }
 }

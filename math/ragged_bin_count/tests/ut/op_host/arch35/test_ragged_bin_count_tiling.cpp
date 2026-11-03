@@ -49,12 +49,9 @@ std::string CoreAndPrivateHistogram(uint32_t usedCoreNum, uint32_t privateHistEl
     return std::to_string(packed) + ' ';
 }
 
-size_t PreciseValueWorkspace(uint32_t usedCoreNum, uint32_t outputElements)
+size_t DeterministicPartialWorkspace(uint32_t usedCoreNum, uint32_t outputElements, uint32_t partitions)
 {
-    return EXPECTED_SYSTEM_WORKSPACE + EXPECTED_USER_WORKSPACE +
-           static_cast<size_t>(usedCoreNum) * outputElements *
-               static_cast<size_t>(NsRaggedBinCount::PRECISE_VALUE_PARTITIONS_PER_CORE) *
-               static_cast<size_t>(NsRaggedBinCount::PRECISE_VALUE_PARTIAL_BYTES);
+    return EXPECTED_TOTAL_WORKSPACE + static_cast<size_t>(usedCoreNum) * outputElements * partitions * 64U;
 }
 
 struct RaggedBinCountCompileInfo {};
@@ -90,11 +87,15 @@ void ExecuteNativeDtypeKeyCase(ge::DataType valueDtype, uint32_t key)
         },
         attrs, &compileInfo, DEFAULT_CORE_NUM, DEFAULT_UB_SIZE, DEFAULT_TILING_DATA_SIZE);
     std::ostringstream expectedTilingData;
-    // Every shape here is small enough that the host privatises, so privateHistElems == outputElements.
+    // The long weighted VALUE input uses accurate partials; the other combinations retain private histograms.
+    const bool accurateWeights = key == 5U;
+    const uint32_t privateHistElems = accurateWeights ? 0U : static_cast<uint32_t>(outputElements);
     expectedTilingData << numRows << ' ' << numSplits << ' ' << numValues << ' ' << numBins << ' ' << outputElements
-                       << ' ' << CoreAndPrivateHistogram(expectedCoreNum, static_cast<uint32_t>(outputElements));
+                       << ' ' << CoreAndPrivateHistogram(expectedCoreNum, privateHistElems);
     SCOPED_TRACE("native dtype=" + std::to_string(static_cast<int32_t>(valueDtype)) + ", key=" + std::to_string(key));
-    ExecuteTestCase(context, ge::GRAPH_SUCCESS, key, expectedTilingData.str(), {EXPECTED_TOTAL_WORKSPACE});
+    const uint64_t expectedKey = accurateWeights ? 9U : key;
+    const size_t workspace = accurateWeights ? EXPECTED_TOTAL_WORKSPACE + 4096U : EXPECTED_TOTAL_WORKSPACE;
+    ExecuteTestCase(context, ge::GRAPH_SUCCESS, expectedKey, expectedTilingData.str(), {workspace});
 }
 } // namespace
 
@@ -165,7 +166,9 @@ TEST_F(RaggedBinCountTilingTest, test_launch_and_precise_workspace_use_scheduled
     const auto* valueTilingData = reinterpret_cast<const RaggedBinCountTilingData*>(valueTilingInfo.tilingData.get());
     EXPECT_EQ(valueTilingData->usedCoreNum, 4U);
     ASSERT_EQ(valueTilingInfo.workspaceSizes.size(), 1U);
-    EXPECT_EQ(valueTilingInfo.workspaceSizes[0], PreciseValueWorkspace(4U, 1U));
+    EXPECT_EQ(valueTilingInfo.tilingKey, 9);
+    EXPECT_EQ(valueTilingData->privateHistElems, 0U);
+    EXPECT_EQ(valueTilingInfo.workspaceSizes[0], DeterministicPartialWorkspace(4U, 1U, 4U));
 }
 
 TEST_F(RaggedBinCountTilingTest, test_binary_output_without_weights)
@@ -339,7 +342,7 @@ TEST_F(RaggedBinCountTilingTest, test_row_binary_with_weights_selects_key_three)
                     {EXPECTED_TOTAL_WORKSPACE});
 }
 
-TEST_F(RaggedBinCountTilingTest, test_value_mapping_with_weights_selects_key_five)
+TEST_F(RaggedBinCountTilingTest, test_long_value_mapping_with_weights_selects_accurate_key)
 {
     RaggedBinCountCompileInfo compileInfo;
     int64_t sizeData[1] = {8};
@@ -354,8 +357,8 @@ TEST_F(RaggedBinCountTilingTest, test_value_mapping_with_weights_selects_key_fiv
                                         {{{1, 8}, {1, 8}}, ge::DT_FLOAT, ge::FORMAT_ND},
                                     },
                                     {}, &compileInfo, DEFAULT_CORE_NUM, DEFAULT_UB_SIZE, DEFAULT_TILING_DATA_SIZE);
-    ExecuteTestCase(context, ge::GRAPH_SUCCESS, 5U, "1 2 4096 8 8 " + CoreAndPrivateHistogram(4U, 8U),
-                    {EXPECTED_TOTAL_WORKSPACE});
+    ExecuteTestCase(context, ge::GRAPH_SUCCESS, 9U, "1 2 4096 8 8 " + CoreAndPrivateHistogram(4U, 0U),
+                    {DeterministicPartialWorkspace(4U, 8U, 4U)});
 }
 
 TEST_F(RaggedBinCountTilingTest, test_precise_value_policy_and_workspace_boundaries)
@@ -380,8 +383,8 @@ TEST_F(RaggedBinCountTilingTest, test_precise_value_policy_and_workspace_boundar
                                            },
                                            {}, &compileInfo, DEFAULT_CORE_NUM, DEFAULT_UB_SIZE,
                                            DEFAULT_TILING_DATA_SIZE);
-    ExecuteTestCase(preciseContext, ge::GRAPH_SUCCESS, 5U, "1 2 131072 2 2 " + CoreAndPrivateHistogram(64U, 0U),
-                    {PreciseValueWorkspace(64U, 2U)});
+    ExecuteTestCase(preciseContext, ge::GRAPH_SUCCESS, 9U, "1 2 131072 2 2 " + CoreAndPrivateHistogram(64U, 0U),
+                    {DeterministicPartialWorkspace(64U, 2U, 8U)});
 
     int32_t singleBinSizeData[1] = {1};
     gert::TilingContextPara singleBinPreciseContext(
@@ -396,8 +399,9 @@ TEST_F(RaggedBinCountTilingTest, test_precise_value_policy_and_workspace_boundar
             {{{1, 1}, {1, 1}}, ge::DT_FLOAT, ge::FORMAT_ND},
         },
         {}, &compileInfo, DEFAULT_CORE_NUM, DEFAULT_UB_SIZE, DEFAULT_TILING_DATA_SIZE);
-    ExecuteTestCase(singleBinPreciseContext, ge::GRAPH_SUCCESS, 5U,
-                    "1 2 262144 1 1 " + CoreAndPrivateHistogram(64U, 0U), {PreciseValueWorkspace(64U, 1U)});
+    ExecuteTestCase(singleBinPreciseContext, ge::GRAPH_SUCCESS, 9U,
+                    "1 2 262144 1 1 " + CoreAndPrivateHistogram(64U, 0U),
+                    {DeterministicPartialWorkspace(64U, 1U, 16U)});
 
     gert::TilingContextPara singleBinFallbackContext(
         "RaggedBinCount",
@@ -411,8 +415,9 @@ TEST_F(RaggedBinCountTilingTest, test_precise_value_policy_and_workspace_boundar
             {{{1, 1}, {1, 1}}, ge::DT_FLOAT, ge::FORMAT_ND},
         },
         {}, &compileInfo, DEFAULT_CORE_NUM, DEFAULT_UB_SIZE, DEFAULT_TILING_DATA_SIZE);
-    ExecuteTestCase(singleBinFallbackContext, ge::GRAPH_SUCCESS, 5U,
-                    "1 2 262145 1 1 " + CoreAndPrivateHistogram(64U, 1U), {EXPECTED_TOTAL_WORKSPACE});
+    ExecuteTestCase(singleBinFallbackContext, ge::GRAPH_SUCCESS, 9U,
+                    "1 2 262145 1 1 " + CoreAndPrivateHistogram(64U, 0U),
+                    {DeterministicPartialWorkspace(64U, 1U, 17U)});
 
     gert::TilingContextPara fallbackContext("RaggedBinCount",
                                             {
@@ -426,8 +431,8 @@ TEST_F(RaggedBinCountTilingTest, test_precise_value_policy_and_workspace_boundar
                                             },
                                             {}, &compileInfo, DEFAULT_CORE_NUM, DEFAULT_UB_SIZE,
                                             DEFAULT_TILING_DATA_SIZE);
-    ExecuteTestCase(fallbackContext, ge::GRAPH_SUCCESS, 5U, "1 2 131073 2 2 " + CoreAndPrivateHistogram(64U, 2U),
-                    {EXPECTED_TOTAL_WORKSPACE});
+    ExecuteTestCase(fallbackContext, ge::GRAPH_SUCCESS, 9U, "1 2 131073 2 2 " + CoreAndPrivateHistogram(64U, 0U),
+                    {DeterministicPartialWorkspace(64U, 2U, 9U)});
 }
 
 TEST_F(RaggedBinCountTilingTest, test_value_binary_without_weights_selects_key_six)
@@ -855,7 +860,7 @@ TEST_F(RaggedBinCountTilingTest, test_index_width_boundary_model_checks_all_thre
     EXPECT_FALSE(UseUint32IndexModel(1U, 1U, UINT32_INDEX_LIMIT + 1U));
 }
 
-TEST_F(RaggedBinCountTilingTest, test_all_eight_keys_accept_both_native_dtypes)
+TEST_F(RaggedBinCountTilingTest, test_native_dtype_and_attribute_combinations)
 {
     for (uint32_t key = 0U; key < 8U; ++key) {
         ExecuteNativeDtypeKeyCase<int32_t>(ge::DT_INT32, key);
@@ -1055,6 +1060,109 @@ TEST_F(RaggedBinCountTilingTest, test_dynamic_ub_size_must_fit_host_api_range)
     ExecuteTestCase(context, ge::GRAPH_FAILED);
 }
 
+TEST_F(RaggedBinCountTilingTest, test_default_weighted_accuracy_boundary_and_workspace)
+{
+    struct Scenario {
+        int64_t rows;
+        int64_t values;
+        int64_t bins;
+        bool weighted;
+        bool binary;
+        uint64_t key;
+        uint32_t cores;
+        uint64_t extraWorkspace;
+        uint32_t privateHistElems;
+    };
+    const Scenario scenarios[] = {
+        {1, 256, 8, true, false, 1, 1, 0, 8},
+        {1, 257, 8, true, false, 9, 1, 1024, 0},
+        {1, 257, 8, false, false, 0, 1, 0, 8},
+        {1, 257, 8, true, true, 3, 1, 0, 8},
+        {1, 257, 8, false, true, 2, 1, 0, 8},
+        {64, 262144, 1, true, false, 9, 64, 4194304, 0},
+        {64, 262144, 1, false, false, 0, 64, 0, 64},
+        {64, 262144, 1, true, true, 3, 64, 0, 64},
+        // Original L1_259: validate the 705 MiB workspace without allocating tensor data.
+        {753, 94786870, 7672, true, false, 9, 64, 739458048, 0},
+    };
+    for (const auto valueDtype : {ge::DT_INT32, ge::DT_INT64}) {
+        for (const auto& scenario : scenarios) {
+            SCOPED_TRACE("values=" + std::to_string(scenario.values) + ", rows=" + std::to_string(scenario.rows) +
+                         ", key=" + std::to_string(scenario.key));
+            RaggedBinCountCompileInfo compileInfo;
+            int32_t size32 = static_cast<int32_t>(scenario.bins);
+            int64_t size64 = scenario.bins;
+            void* sizeData = valueDtype == ge::DT_INT32 ? static_cast<void*>(&size32) : static_cast<void*>(&size64);
+            const int64_t weights = scenario.weighted ? scenario.values : 0;
+            const int64_t outputs = scenario.rows * scenario.bins;
+            gert::TilingContextPara context(
+                "RaggedBinCount",
+                {
+                    {{{scenario.rows + 1}, {scenario.rows + 1}}, ge::DT_INT64, ge::FORMAT_ND},
+                    {{{scenario.values}, {scenario.values}}, valueDtype, ge::FORMAT_ND},
+                    {{{1}, {1}}, valueDtype, ge::FORMAT_ND, true, sizeData},
+                    {{{weights}, {weights}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                },
+                {
+                    {{{scenario.rows, scenario.bins}, {scenario.rows, scenario.bins}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                },
+                {{"binary_output", Ops::Math::AnyValue::CreateFrom<bool>(scenario.binary)}}, &compileInfo,
+                DEFAULT_CORE_NUM, DEFAULT_UB_SIZE, DEFAULT_TILING_DATA_SIZE);
+            std::ostringstream expected;
+            expected << scenario.rows << ' ' << scenario.rows + 1 << ' ' << scenario.values << ' ' << scenario.bins
+                     << ' ' << outputs << ' ' << CoreAndPrivateHistogram(scenario.cores, scenario.privateHistElems);
+            ExecuteTestCase(context, ge::GRAPH_SUCCESS, scenario.key, expected.str(),
+                            {EXPECTED_TOTAL_WORKSPACE + scenario.extraWorkspace});
+        }
+    }
+}
+
+TEST_F(RaggedBinCountTilingTest, test_default_accuracy_keeps_scatter_outside_bounded_coverage)
+{
+    struct Scenario {
+        int64_t rows;
+        int64_t values;
+        int64_t bins;
+        bool covered;
+        uint64_t scatterKey;
+        uint64_t extraWorkspace;
+    };
+    // Coverage is an independent expectation, not recomputed with the production policy helpers.
+    const Scenario scenarios[] = {
+        {1, 65536, 8388608, true, 5, 1073741824},
+        {1, 65536, 8388609, false, 5, 0},
+        {1000, 1000000, 10000, false, 1, 0},
+    };
+    for (const auto valueDtype : {ge::DT_INT32, ge::DT_INT64}) {
+        for (const auto& scenario : scenarios) {
+            SCOPED_TRACE("rows=" + std::to_string(scenario.rows) + ", bins=" + std::to_string(scenario.bins) +
+                         ", covered=" + std::to_string(scenario.covered));
+            RaggedBinCountCompileInfo compileInfo;
+            int32_t size32 = static_cast<int32_t>(scenario.bins);
+            int64_t size64 = scenario.bins;
+            void* sizeData = valueDtype == ge::DT_INT32 ? static_cast<void*>(&size32) : static_cast<void*>(&size64);
+            gert::TilingContextPara context(
+                "RaggedBinCount",
+                {
+                    {{{scenario.rows + 1}, {scenario.rows + 1}}, ge::DT_INT64, ge::FORMAT_ND},
+                    {{{scenario.values}, {scenario.values}}, valueDtype, ge::FORMAT_ND},
+                    {{{1}, {1}}, valueDtype, ge::FORMAT_ND, true, sizeData},
+                    {{{scenario.values}, {scenario.values}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                },
+                {
+                    {{{scenario.rows, scenario.bins}, {scenario.rows, scenario.bins}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                },
+                {{"binary_output", Ops::Math::AnyValue::CreateFrom<bool>(false)}}, &compileInfo, DEFAULT_CORE_NUM,
+                DEFAULT_UB_SIZE, DEFAULT_TILING_DATA_SIZE);
+            std::ostringstream expected;
+            expected << scenario.rows << ' ' << scenario.rows + 1 << ' ' << scenario.values << ' ' << scenario.bins
+                     << ' ' << scenario.rows * scenario.bins << ' ' << CoreAndPrivateHistogram(64U, 0U);
+            ExecuteTestCase(context, ge::GRAPH_SUCCESS, scenario.covered ? 9U : scenario.scatterKey, expected.str(),
+                            {EXPECTED_TOTAL_WORKSPACE + scenario.extraWorkspace});
+        }
+    }
+}
+
 // Exercise the real GE deterministic flag, key selection and bounded workspace
 // together; the shared ExecuteTiling helper does not expose this context input.
 TEST_F(RaggedBinCountTilingTest, test_deterministic_dispatch_and_workspace_boundary)
@@ -1066,6 +1174,7 @@ TEST_F(RaggedBinCountTilingTest, test_deterministic_dispatch_and_workspace_bound
         uint64_t countExtraWorkspace;
         uint64_t weightExtraWorkspace;
         uint64_t defaultKey;
+        uint64_t defaultWeightedKey = 9U;
         uint64_t ubBytes = 262144;
         bool deterministicFailure = false;
     };
@@ -1079,11 +1188,13 @@ TEST_F(RaggedBinCountTilingTest, test_deterministic_dispatch_and_workspace_bound
         {65536, 8192, 64, 1048576, 1048576, 4},
         {65536, 8193, 64, 1048704, 1048704, 4},
         {65536, 524288, 64, 67108864, 67108864, 4},
-        {65536, 524289, 64, 0, 0, 4},
-        {64, 8, 1, 0, 0, 0},
+        {65536, 524289, 64, 67108992, 67108992, 4},
+        {65536, 8388608, 64, 1073741824, 1073741824, 4},
+        {65536, 8388609, 64, 0, 0, 4, 5},
+        {64, 8, 1, 0, 0, 0, 1},
         {40306591, 1, 64, 2523136, 4194304, 4},
-        {65536, 8193, 64, 0, 0, 4, 163839, true},
-        {65536, 8193, 64, 1048704, 1048704, 4, 163840, false},
+        {65536, 8193, 64, 0, 0, 4, 9, 163839, true},
+        {65536, 8193, 64, 1048704, 1048704, 4, 9, 163840, false},
     };
     for (const bool weighted : {false, true}) {
         for (const auto& scenario : scenarios) {
@@ -1134,21 +1245,26 @@ TEST_F(RaggedBinCountTilingTest, test_deterministic_dispatch_and_workspace_bound
                 auto functions = registry->GetOpImpl("RaggedBinCount");
                 ASSERT_NE(functions, nullptr);
                 const auto status = functions->tiling(context);
-                if (deterministic && scenario.deterministicFailure) {
+                const uint64_t expectedKey = deterministic ?
+                                                 (weighted ? 9U : 8U) :
+                                                 (weighted ? scenario.defaultWeightedKey : scenario.defaultKey);
+                const bool accurate = expectedKey == 8U || expectedKey == 9U;
+                if (accurate && scenario.deterministicFailure) {
                     EXPECT_EQ(status, ge::GRAPH_FAILED);
                     continue;
                 }
                 ASSERT_EQ(status, ge::GRAPH_SUCCESS);
-                EXPECT_EQ(context->GetTilingKey(), (deterministic ? 8U : scenario.defaultKey) + (weighted ? 1U : 0U));
+                EXPECT_EQ(context->GetTilingKey(), expectedKey);
                 const auto* result = context->GetTilingData<RaggedBinCountTilingData>();
                 ASSERT_NE(result, nullptr);
                 EXPECT_EQ(result->usedCoreNum, scenario.cores);
-                if (deterministic) {
+                if (accurate) {
                     EXPECT_EQ(result->privateHistElems, 0U);
-                    EXPECT_EQ(context->GetWorkspaceSizes(1)[0],
-                              EXPECTED_TOTAL_WORKSPACE +
-                                  (weighted ? scenario.weightExtraWorkspace : scenario.countExtraWorkspace));
                 }
+                const uint64_t extraWorkspace = accurate ? (weighted ? scenario.weightExtraWorkspace :
+                                                                       scenario.countExtraWorkspace) :
+                                                           0U;
+                EXPECT_EQ(context->GetWorkspaceSizes(1)[0], EXPECTED_TOTAL_WORKSPACE + extraWorkspace);
             }
         }
     }

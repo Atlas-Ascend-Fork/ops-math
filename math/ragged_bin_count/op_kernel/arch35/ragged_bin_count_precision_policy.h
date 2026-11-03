@@ -32,13 +32,16 @@ constexpr uint64_t USER_WORKSPACE_HEADER_BYTES = 32U;
 // output size, independently of the small-input precision optimization above.
 constexpr uint64_t DETERMINISTIC_WORKSPACE_LIMIT = 16U * 1024U * 1024U;
 constexpr uint64_t DETERMINISTIC_PARTIAL_BYTES = 64U;
-constexpr uint64_t DETERMINISTIC_HISTOGRAM_LIMIT = 64U * 1024U * 1024U;
+constexpr uint64_t DETERMINISTIC_HISTOGRAM_LIMIT = 1024U * 1024U * 1024U;
 constexpr uint64_t DETERMINISTIC_HISTOGRAM_SLOT_BYTES = 128U;
 constexpr uint32_t DETERMINISTIC_ZERO_BUFFER_BYTES = 32U * 1024U;
 constexpr int64_t DETERMINISTIC_WEIGHT_VALUES_PER_PARTITION = 256;
 constexpr int64_t DETERMINISTIC_COUNT_VALUES_PER_PARTITION = 1024;
 constexpr int64_t DETERMINISTIC_SMALL_WEIGHTED_OUTPUTS = 256;
 constexpr int64_t DETERMINISTIC_DIRECT_ROW_VALUES = 256;
+// Default-mode accuracy dispatch uses the total input count, independently of
+// the per-row direct-reduction budget above.
+constexpr int64_t DEFAULT_ACCURATE_WEIGHTED_MIN_VALUES = 256;
 
 #ifdef __CCE_AICORE__
 __aicore__ inline int64_t DeterministicPartitionsPerCore(int64_t outputElements)
