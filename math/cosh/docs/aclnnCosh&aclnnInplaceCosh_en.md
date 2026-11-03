@@ -103,8 +103,8 @@ aclnnStatus aclnnInplaceCosh(
       <td>self(aclTensor*)</td>
       <td>Input</td>
       <td>Input self in the formula.</td>
-      <td>The data type must satisfy the data type deduction rules together with the data type of out (see <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">deduction relationship</a>).<br>The shape must be the same as that of out.</td>
-      <td>FLOAT, FLOAT16, DOUBLE</td>
+      <td>The data type must satisfy the data type deduction rules together with the data type of out (see <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">deduction relationship</a>).<br>The shape must be the same as that of out. Supports empty tensors (zero-element input; the output is an empty tensor).</td>
+      <td>FLOAT, FLOAT16, DOUBLE, INT8, INT16, INT32, INT64, UINT8, BOOL, COMPLEX64, COMPLEX128</td>
       <td>ND</td>
       <td>Not greater than 8</td>
       <td>√</td>
@@ -113,8 +113,8 @@ aclnnStatus aclnnInplaceCosh(
       <td>out (aclTensor*)</td>
       <td>Output</td>
       <td>out in the formula.</td>
-      <td>The data type must conform to the data type deduction rules with self (see <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">deduction relationship</a>).<br>The shape must be the same as that of self.</td>
-      <td>FLOAT, FLOAT16, DOUBLE</td>
+      <td>The data type must conform to the data type deduction rules with self (see <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">deduction relationship</a>).<br>The shape must be the same as that of self. Supports empty tensors (zero-element input; the output is an empty tensor).</td>
+      <td>FLOAT, FLOAT16, DOUBLE, COMPLEX64, COMPLEX128</td>
       <td>ND</td>
       <td>-</td>
       <td>√</td>
@@ -141,10 +141,8 @@ aclnnStatus aclnnInplaceCosh(
     </tr>
   </tbody></table>
 
-  <!-- npu="A3" id7 -->
-  - <term>Atlas A3 products</term>:
-    - The self data type additionally supports INT8, INT16, INT32, INT64, UINT8, BOOL, COMPLEX64, COMPLEX128, BFLOAT16.
-    - The out data type additionally supports COMPLEX64, COMPLEX128, and BFLOAT16.
+  <!-- npu="950,A3,910b" id7 -->
+  - <term>Ascend 950PR&950DT products</term>, <term>Atlas A3 products</term>, and <term>Atlas A2 products</term>: The self and out data types additionally support BFLOAT16.
   <!-- end id7 -->
 
 - **Return value**
@@ -257,8 +255,8 @@ aclnnStatus aclnnInplaceCosh(
       <td>selfRef (aclTensor*)</td>
       <td>Input/Output</td>
       <td>The input self in the formula, which also corresponds to the formula output out.</td>
-      <td>-</td>
-      <td>FLOAT, FLOAT16, DOUBLE</td>
+      <td>Supports empty tensors (zero-element input; the output is an empty tensor).</td>
+      <td>FLOAT, FLOAT16, DOUBLE, COMPLEX64, COMPLEX128</td>
       <td>ND</td>
       <td>No greater than 8</td>
       <td>√</td>
@@ -285,8 +283,8 @@ aclnnStatus aclnnInplaceCosh(
     </tr>
   </tbody></table>
 
-  <!-- npu="A3" id8 -->
-  - <term>Atlas A3 products</term>: selfRef additionally supports the COMPLEX64, COMPLEX128, and BFLOAT16 data types.
+  <!-- npu="950,A3,910b" id8 -->
+  - <term>Ascend 950PR&950DT products</term>, <term>Atlas A3 products</term>, and <term>Atlas A2 products</term>: The selfRef data type additionally supports BFLOAT16.
   <!-- end id8 -->
 
 - **Return value**
@@ -370,6 +368,8 @@ aclnnStatus aclnnInplaceCosh(
 
 - Deterministic computation:
   - aclnnCosh and aclnnInplaceCosh default to a deterministic implementation.
+- Execution path: FLOAT, FLOAT16, and BFLOAT16 inputs are computed on AI Core; DOUBLE, COMPLEX64, and COMPLEX128 inputs are computed on AI CPU; INT8, INT16, INT32, INT64, UINT8, and BOOL inputs are first converted to FLOAT for computation, and the computation results are then converted to the data type of out.
+- Overflow behavior: When the input and output data types are the same, if the computation result of cosh(self) exceeds the maximum representable range of the data type, the output is inf, instead of being saturated to the maximum value of the data type. For example, the output is inf when the absolute value of the input exceeds approximately 89.4 for FLOAT, approximately 11.8 for FLOAT16, approximately 89.4 for BFLOAT16, or approximately 710.5 for DOUBLE.
 
 ## Example
 

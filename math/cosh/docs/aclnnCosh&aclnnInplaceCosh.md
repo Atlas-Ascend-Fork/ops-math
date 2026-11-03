@@ -366,6 +366,8 @@ aclnnStatus aclnnInplaceCosh(
 
 - 确定性计算：
   - aclnnCosh&aclnnInplaceCosh默认确定性实现。
+- 执行路径：FLOAT、FLOAT16、BFLOAT16输入经AI Core计算；DOUBLE、COMPLEX64、COMPLEX128输入经AI CPU计算；INT8、INT16、INT32、INT64、UINT8、BOOL输入先转换为FLOAT参与计算，计算结果再转换为out的数据类型。
+- 溢出行为：输入与输出数据类型相同时，若cosh(self)的计算结果超出该数据类型的最大可表示范围，输出为inf，而非饱和截断为该数据类型的最大值。例如：FLOAT输入绝对值大于约89.4、FLOAT16输入绝对值大于约11.8、BFLOAT16输入绝对值大于约89.4、DOUBLE输入绝对值大于约710.5时，输出为inf。
 
 ## 调用示例
 
