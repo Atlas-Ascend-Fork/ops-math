@@ -36,12 +36,6 @@ _KERNEL_TOLERANCE = {
     "bfloat16": {"standard": "cross_check", "level": "L1"},
 }
 
-_ACLNN_TOLERANCE = {
-    "float32": {"standard": "mix_tolerance"},
-    "float16": {"standard": "mix_tolerance"},
-    "bfloat16": {"standard": "mix_tolerance"},
-}
-
 
 def _to_f32_array(arr):
     if hasattr(arr, "astype"):
@@ -194,7 +188,8 @@ class ExpSegsumGradAclnnSpec:
         return _compute(gradOutput, gradSelf)
 
     third_party = {"torch": _ExpSegsumGradCompose}
-    tolerance = _ACLNN_TOLERANCE
+    # 判据与 kernel spec 对齐（cross_check 三方比对，L1）
+    tolerance = _KERNEL_TOLERANCE
 
 
 # 【不存在】e2e 通路: 未发现 torch_npu eager/aten 绑定到 aclnnExpSegsumBackward.
