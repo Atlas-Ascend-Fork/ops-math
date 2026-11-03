@@ -190,3 +190,48 @@ TEST_F(TransposeInferShapeTest, transpose_infershape_perm_value_duplicated_after
     gert::InfershapeContextPara infershapeContextPara("Transpose", {x, perm}, {out});
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED, {});
 }
+
+// Test scenario: non-const perm with known desc [3], expect fallback output [-1 x 3]
+TEST_F(TransposeInferShapeTest, transpose_infershape_non_const_perm)
+{
+    gert::InfershapeContextPara::TensorDescription x({{2, 3, 4}, {2, 3, 4}}, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::InfershapeContextPara::TensorDescription perm({{3}, {3}}, ge::DT_INT64, ge::FORMAT_ND);
+    gert::InfershapeContextPara::TensorDescription out({{1}, {1}}, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::InfershapeContextPara infershapeContextPara("Transpose", {x, perm}, {out});
+    std::vector<std::vector<int64_t>> expectOutputShape = {{-1, -1, -1}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+// Test scenario: non-const perm with unknown length desc [-1], expect fallback output [-1 x x_rank]
+TEST_F(TransposeInferShapeTest, transpose_infershape_non_const_perm_unknown_len)
+{
+    gert::InfershapeContextPara::TensorDescription x({{2, 3, 4}, {2, 3, 4}}, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::InfershapeContextPara::TensorDescription perm({{-1}, {-1}}, ge::DT_INT64, ge::FORMAT_ND);
+    gert::InfershapeContextPara::TensorDescription out({{1}, {1}}, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::InfershapeContextPara infershapeContextPara("Transpose", {x, perm}, {out});
+    std::vector<std::vector<int64_t>> expectOutputShape = {{-1, -1, -1}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+// Test scenario: non-const perm with unknown rank x, expect passthrough
+TEST_F(TransposeInferShapeTest, transpose_infershape_non_const_unknown_rank)
+{
+    gert::InfershapeContextPara::TensorDescription x({{-2}, {-2}}, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::InfershapeContextPara::TensorDescription perm({{-1}, {-1}}, ge::DT_INT64, ge::FORMAT_ND);
+    gert::InfershapeContextPara::TensorDescription out({{1}, {1}}, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::InfershapeContextPara infershapeContextPara("Transpose", {x, perm}, {out});
+    std::vector<std::vector<int64_t>> expectOutputShape = {{-2}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+// Test scenario: const perm with unknown rank x, expect output [-1 x permSize]
+TEST_F(TransposeInferShapeTest, transpose_infershape_const_unknown_rank)
+{
+    int64_t perm_value[4] = {0, 2, 1, 3};
+    gert::InfershapeContextPara::TensorDescription x({{-2}, {-2}}, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::InfershapeContextPara::TensorDescription perm({{4}, {4}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
+    gert::InfershapeContextPara::TensorDescription out({{1}, {1}}, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::InfershapeContextPara infershapeContextPara("Transpose", {x, perm}, {out});
+    std::vector<std::vector<int64_t>> expectOutputShape = {{-1, -1, -1, -1}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}

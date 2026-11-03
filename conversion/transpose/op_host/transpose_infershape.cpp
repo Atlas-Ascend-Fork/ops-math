@@ -31,6 +31,7 @@
 #include "log/log.h"
 #include "register/op_impl_registry.h"
 #include "op_api/op_util.h"
+#include "util/shape_util.h"
 
 using namespace ge;
 namespace ops {
@@ -105,6 +106,26 @@ static bool TransposeInferCommon(const gert::InferShapeContext* context, const g
  * 根据 perm 的数据类型（INT32 或 INT64）分发到 TransposeInferCommon<T>。
  * 同时校验 perm 大小必须等于输入维度数。
  */
+// 非 const perm：输出 rank 取 perm desc 长度，未知时取 x rank
+static ge::graphStatus TransposeInferShapeWithUnknownPerm(gert::InferShapeContext* context, const gert::Shape* x_shape,
+                                                          gert::Shape* y_shape)
+{
+    const auto* perm_desc = context->GetInputShape(TRANSPOSE_IDX_IN_PERM);
+    OP_CHECK_NULL_WITH_CONTEXT(context, perm_desc);
+    OP_CHECK_IF(perm_desc->GetDimNum() > 1,
+                OP_LOGE(context->GetNodeName(), "the rank of perm should not be more than 1"), return ge::GRAPH_FAILED);
+    if (Ops::Base::IsUnknownRank(*x_shape)) {
+        Ops::Base::SetUnknownRank(*y_shape);
+        return ge::GRAPH_SUCCESS;
+    }
+    int64_t rank = static_cast<int64_t>(x_shape->GetDimNum());
+    if (perm_desc->GetDimNum() == 1 && perm_desc->GetDim(0) > 0) {
+        rank = perm_desc->GetDim(0);
+    }
+    Ops::Base::SetUnknownShape(rank, *y_shape);
+    return ge::GRAPH_SUCCESS;
+}
+
 static ge::graphStatus TransposeInferShape(gert::InferShapeContext* context)
 {
     OP_LOGD(context->GetNodeName(), "Begin to do TransposeInferShape");
@@ -113,11 +134,19 @@ static ge::graphStatus TransposeInferShape(gert::InferShapeContext* context)
     gert::Shape* yShape = context->GetOutputShape(TRANSPOSE_IDX_OUT_Y);
     OP_CHECK_NULL_WITH_CONTEXT(context, yShape);
     const gert::Tensor* permTensor = context->GetInputTensor(TRANSPOSE_IDX_IN_PERM);
-    OP_CHECK_NULL_WITH_CONTEXT(context, permTensor);
+    if (permTensor == nullptr || !IsConstTensor(permTensor)) {
+        return TransposeInferShapeWithUnknownPerm(context, xShape, yShape);
+    }
 
     // 校验 perm 大小必须等于输入维度数
     int64_t permSize = permTensor->GetShapeSize();
     size_t inputDimSize = xShape->GetDimNum();
+
+    if (Ops::Base::IsUnknownRank(*xShape)) {
+        Ops::Base::SetUnknownShape(permSize, *yShape);
+        return ge::GRAPH_SUCCESS;
+    }
+
     OP_CHECK_IF(permSize != static_cast<int64_t>(inputDimSize),
                 OP_LOGE_FOR_INVALID_SHAPESIZE(context->GetNodeName(), "perm", ConcatString(permSize).c_str(),
                                               ConcatString(inputDimSize).c_str()),
