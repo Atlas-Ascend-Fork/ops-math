@@ -111,7 +111,7 @@ static bool CheckShape(const aclTensor* self, int64_t dim, int64_t start, int64_
     }
 
     if ((-dimNum > dim) || ((dimNum - 1) < dim)) {
-        OP_LOGE(ACLNN_ERR_PARAM_NULLPTR,
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID,
                 "Expected aclnnSlice dim value %ld to be in range [%ld, %ld] but check failed.", dim, -dimNum,
                 dimNum - 1);
         return false;

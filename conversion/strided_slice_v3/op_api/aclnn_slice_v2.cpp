@@ -107,12 +107,12 @@ static bool CheckArray(const aclIntArray* starts, const aclIntArray* ends, const
                        const aclIntArray* steps)
 {
     if (starts->Size() != axes->Size()) {
-        OP_LOGE(ACLNN_ERR_PARAM_NULLPTR, "Expected aclnnSliceV2 starts.size() %lu to be equal to axes.size() %lu.",
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "Expected aclnnSliceV2 starts.size() %lu to be equal to axes.size() %lu.",
                 starts->Size(), axes->Size());
         return false;
     }
     if (ends->Size() != axes->Size()) {
-        OP_LOGE(ACLNN_ERR_PARAM_NULLPTR, "Expected aclnnSliceV2 ends.size() %lu to be equal to axes.size() %lu.",
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "Expected aclnnSliceV2 ends.size() %lu to be equal to axes.size() %lu.",
                 ends->Size(), axes->Size());
         return false;
     }

@@ -88,7 +88,7 @@ static bool CheckShape(const aclTensor* self, uint64_t splitSections, int64_t di
     // 校验输入self与dim间关系
     int64_t selfDim = static_cast<int64_t>(self->GetViewShape().GetDimNum());
     if ((dim >= 0 && dim >= selfDim) || (dim < 0 && dim < -selfDim)) {
-        OP_LOGE(ACLNN_ERR_PARAM_NULLPTR,
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID,
                 "Expected aclnnSplitTensor dim value [%ld] to be in range [%ld, %ld) but check failed.", dim, -selfDim,
                 selfDim);
         return false;
@@ -97,13 +97,13 @@ static bool CheckShape(const aclTensor* self, uint64_t splitSections, int64_t di
     int64_t splitShape = self->GetViewShape().GetDim(dimIndex);
     if (splitShape != 0 && splitSections == 0) {
         OP_LOGE(
-            ACLNN_ERR_PARAM_NULLPTR,
+            ACLNN_ERR_PARAM_INVALID,
             "Expected aclnnSplitTensor splitSections to not be zero while split dim size is not zero but got [%lu].",
             splitSections);
         return false;
     }
     if (splitShape == 0 && splitSections != 0) {
-        OP_LOGE(ACLNN_ERR_PARAM_NULLPTR,
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID,
                 "Expected aclnnSplitTensor splitSections to be zero while split dim size is zero but got [%lu].",
                 splitSections);
         return false;
