@@ -64,9 +64,8 @@ uint32_t GetDataTypeSize(DataType dt)
     return 1;
 }
 
-int32_t GenFloatData(
-    vector<int64_t> shapes, Tensor& input_tensor, TensorDesc& input_tensor_desc, DataType data_type,
-    const vector<float>& values)
+int32_t GenFloatData(vector<int64_t> shapes, Tensor& input_tensor, TensorDesc& input_tensor_desc, DataType data_type,
+                     const vector<float>& values)
 {
     input_tensor_desc.SetRealDimCnt(shapes.size());
     size_t size = 1;
@@ -88,9 +87,8 @@ int32_t WriteDataToFile(string bin_file, uint64_t data_size, uint8_t* inputData)
     return SUCCESS;
 }
 
-int CreateOppInGraph(
-    DataType inDtype, std::vector<ge::Tensor>& input, std::vector<Operator>& inputs, std::vector<Operator>& outputs,
-    Graph& graph)
+int CreateOppInGraph(DataType inDtype, std::vector<ge::Tensor>& input, std::vector<Operator>& inputs,
+                     std::vector<Operator>& outputs, Graph& graph)
 {
     Status ret = SUCCESS;
     auto xlogyOp = op::Xlogy("xlogy1");
@@ -183,6 +181,15 @@ int main(int argc, char* argv[])
     std::map<AscendString, AscendString> graph_options = {};
     uint32_t graph_id = 0;
     ret = session->AddGraph(graph_id, graph, graph_options);
+    if (ret != SUCCESS) {
+        printf("%s - [XIR]: AddGraph failed\n", GetTime().c_str());
+        ge::AscendString error_msg = ge::GEGetErrorMsgV2();
+        std::string error_str(error_msg.GetString());
+        std::cout << "GE Error: " << error_str << std::endl;
+        delete session;
+        GEFinalize();
+        return FAILED;
+    }
     printf("%s - [XIR]: AddGraph success\n", GetTime().c_str());
 
     std::string file_path = "./dump_xlogy";
@@ -241,9 +248,8 @@ int main(int argc, char* argv[])
         int match = (fabs(npuVal - golden) < 1e-5f);
         if (!match)
             allMatch = 0;
-        printf(
-            "  [%d] x1=%.1f x2=%.1f -> NPU=%.6f golden=%.6f %s\n", i, x1Vals[i], x2Vals[i], npuVal, golden,
-            match ? "OK" : "MISMATCH");
+        printf("  [%d] x1=%.1f x2=%.1f -> NPU=%.6f golden=%.6f %s\n", i, x1Vals[i], x2Vals[i], npuVal, golden,
+               match ? "OK" : "MISMATCH");
     }
     printf("======================================\n");
     printf("Result: %s\n", allMatch ? "ALL PASS" : "FAIL");
@@ -253,6 +259,7 @@ int main(int argc, char* argv[])
     std::cout << "GE Error: " << error_str << std::endl;
 
     printf("%s - [XIR]: Finalizing GE\n", GetTime().c_str());
+    delete session;
     ret = ge::GEFinalize();
     if (ret != SUCCESS) {
         printf("%s - [XIR]: GEFinalize failed\n", GetTime().c_str());

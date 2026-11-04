@@ -28,9 +28,9 @@
 - Operator function: Computes the result of self * log(other).
 - Formula:
 
-  $$
-  out_i = self_i * log(other_i)
-  $$
+$$out_i = \begin{cases} 0 & \text{if } self_i = 0 \\ self_i \cdot \ln(other_i) & \text{otherwise} \end{cases}$$
+
+When other is NaN, the output propagates NaN.
 
 ## Function Prototype
 
@@ -39,35 +39,122 @@
   - aclnnInplaceXLogYTensor: Stores the computation result directly in the memory of the input tensor without creating a new output tensor object.
 
 - Each operator uses a [two-phase API](../../../docs/en/context/two_phase_api.md). Call "aclnnXLogYTensorGetWorkspaceSize" or "aclnnInplaceXLogYTensorGetWorkspaceSize" first to obtain the input parameter and calculate the required workspace size based on the computation process. Then call "aclnnXLogYTensor" or "aclnnInplaceXLogYTensor" to perform the computation.
-  - `aclnnStatus aclnnXLogYTensorGetWorkspaceSize(const aclTensor *self, const aclTensor *other, aclTensor *out, uint64_t *workspaceSize, aclOpExecutor **executor)`
-  - `aclnnStatus aclnnXLogYTensor(void *workspace, uint64_t workspaceSize, aclOpExecutor *executor, aclrtStream stream)`
-  - `aclnnStatus aclnnInplaceXLogYTensorGetWorkspaceSize(aclTensor *selfRef, const aclTensor *other, uint64_t *workspaceSize, aclOpExecutor **executor)`
-  - `aclnnStatus aclnnInplaceXLogYTensor(void *workspace, uint64_t workspaceSize, aclOpExecutor *executor, aclrtStream stream)`
+
+```cpp
+aclnnStatus aclnnXLogYTensorGetWorkspaceSize(
+  const aclTensor* self,
+  const aclTensor* other,
+  aclTensor*       out,
+  uint64_t*        workspaceSize,
+  aclOpExecutor**  executor)
+```
+
+```cpp
+aclnnStatus aclnnXLogYTensor(
+  void*          workspace,
+  uint64_t       workspaceSize,
+  aclOpExecutor* executor,
+  aclrtStream    stream)
+```
+
+```cpp
+aclnnStatus aclnnInplaceXLogYTensorGetWorkspaceSize(
+  aclTensor*       selfRef,
+  const aclTensor* other,
+  uint64_t*        workspaceSize,
+  aclOpExecutor**  executor)
+```
+
+```cpp
+aclnnStatus aclnnInplaceXLogYTensor(
+  void*          workspace,
+  uint64_t       workspaceSize,
+  aclOpExecutor* executor,
+  aclrtStream    stream)
+```
 
 ## aclnnXLogYTensorGetWorkspaceSize
 
 - **Parameters**
 
-  - self(aclTensor*, computation input): Input `self` in the formula, an aclTensor on the device. The data type of self and other must satisfy the data type derivation rule (see [Deduction Relationship](../../../docs/en/context/deduction_relationship.md)), and the shape of self must comply with the [Broadcast Relationship](../../../docs/en/context/broadcast_relationship.md) with other. [Non-contiguous Tensor](../../../docs/en/context/non_contiguous_tensor.md) is supported, and the [Data Format](../../../docs/en/context/data_format.md) supports ND.
+  <table style="table-layout: fixed; width: 1550px"><colgroup>
+  <col style="width: 220px">
+  <col style="width: 120px">
+  <col style="width: 350px">
+  <col style="width: 300px">
+  <col style="width: 200px">
+  <col style="width: 100px">
+  <col style="width: 120px">
+  <col style="width: 140px">
+  </colgroup>
+  <thead>
+    <tr>
+      <th>Parameter</th>
+      <th>Input/Output</th>
+      <th>Description</th>
+      <th>Instruction</th>
+      <th>Data Type</th>
+      <th>Data Format</th>
+      <th>Shape</th>
+      <th>Non-contiguous Tensor</th>
+    </tr></thead>
+  <tbody>
+    <tr>
+      <td>self (aclTensor*)</td>
+      <td>Input</td>
+      <td>Input self in the formula.</td>
+      <td><ul><li>The data type of self and other must satisfy the data type derivation rule (see <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">deduction relationship</a>).</li><li>The shape must comply with the <a href="../../../docs/en/context/broadcast_relationship.md" target="_blank">broadcast relationship</a> with other.</li><li>Empty tensors are supported.</li></ul></td>
+      <td>FLOAT, FLOAT16, INT32, INT64, INT16, INT8, UINT8, BOOL, BFLOAT16</td>
+      <td>ND</td>
+      <td>0-8</td>
+      <td>√</td>
+    </tr>
+    <tr>
+      <td>other (aclTensor*)</td>
+      <td>Input</td>
+      <td>Input other in the formula.</td>
+      <td><ul><li>The data type of other and self must satisfy the data type derivation rule (see <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">deduction relationship</a>).</li><li>The shape must comply with the <a href="../../../docs/en/context/broadcast_relationship.md" target="_blank">broadcast relationship</a> with self.</li><li>Empty tensors are supported.</li></ul></td>
+      <td>FLOAT, FLOAT16, INT32, INT64, INT16, INT8, UINT8, BOOL, BFLOAT16</td>
+      <td>ND</td>
+      <td>0-8</td>
+      <td>√</td>
+    </tr>
+    <tr>
+      <td>out (aclTensor*)</td>
+      <td>Output</td>
+      <td>out in the formula.</td>
+      <td><ul><li>The shape must be the broadcast shape of self and other.</li></ul></td>
+      <td>FLOAT, FLOAT16, INT32, INT64, INT16, INT8, UINT8, BOOL, BFLOAT16</td>
+      <td>ND</td>
+      <td>0-8</td>
+      <td>√</td>
+    </tr>
+    <tr>
+      <td>workspaceSize (uint64_t*)</td>
+      <td>Output</td>
+      <td>Returns the size of the workspace to be allocated on the device.</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+    </tr>
+    <tr>
+      <td>executor (aclOpExecutor**)</td>
+      <td>Output</td>
+      <td>Returns the op executor, which contains the operator computation flow.</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+    </tr>
+  </tbody>
+  </table>
 
-    <!-- npu="A3" id7 -->
-    - <term>Atlas A3 products</term>: Supported data types include FLOAT, FLOAT16, INT32, INT64, INT16, INT8, UINT8, BOOL, and BFLOAT16.
-    <!-- end id7 -->
-
-  - other(aclTensor*, computation input): Input `other` in the formula, an aclTensor on the device. The data type of other and self must satisfy the data type derivation rule (see [Deduction Relationship](../../../docs/en/context/deduction_relationship.md)), and the shape of other must comply with the [Broadcast Relationship](../../../docs/en/context/broadcast_relationship.md) with self. [Non-contiguous Tensor](../../../docs/en/context/non_contiguous_tensor.md) is supported, and the [Data Format](../../../docs/en/context/data_format.md) supports ND.
-
-    <!-- npu="A3" id8 -->
-    - <term>Atlas A3 products</term>: Supported data types include FLOAT, FLOAT16, INT32, INT64, INT16, INT8, UINT8, BOOL, and BFLOAT16.
-    <!-- end id8 -->
-
-  - out(aclTensor \*, computation output): `out` in the formula, an aclTensor on the device. The shape must be the broadcast shape of self and other. [Non-contiguous Tensor](../../../docs/en/context/non_contiguous_tensor.md) is supported, and the [Data Format](../../../docs/en/context/data_format.md) supports ND.
-
-    <!-- npu="A3" id9 -->
-    - <term>Atlas A3 products</term>: Supported data types include FLOAT, FLOAT16, INT32, INT64, INT16, INT8, UINT8, BOOL, and BFLOAT16.
-    <!-- end id9 -->
-
-  - workspaceSize (uint64_t*, output parameter): Returns the workspace size to be allocated on the Device side.
-  - executor(aclOpExecutor \*\*, output parameter): Returns the op executor, which contains the operator computation process.
+  <!-- npu="910,310p" id7 -->
+  - <term>Atlas training products</term> and <term>Atlas inference products</term>: BFLOAT16 data type is not supported.
+  <!-- end id7 -->
 
 - **Return value**
 
@@ -108,12 +195,42 @@
 
 ## aclnnXLogYTensor
 
-- **Parameters**
+- **Parameters:**
 
-  - workspace(void \*, input parameter): The workspace memory address requested on the Device.
-  - workspaceSize(uint64_t, input parameter): The size of the workspace requested on the Device, obtained by the first-phase API aclnnXLogYTensorGetWorkspaceSize.
-  - executor(aclOpExecutor \*, input parameter): The op executor, including the operator computation flow.
-  - stream (aclrtStream, input parameter): Stream on which the task is executed.
+  <table style="table-layout: fixed; width: 1149px"><colgroup>
+  <col style="width: 167px">
+  <col style="width: 134px">
+  <col style="width: 848px">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Parameter</th>
+        <th>Input/Output</th>
+        <th>Description</th>
+      </tr></thead>
+    <tbody>
+      <tr>
+        <td>workspace</td>
+        <td>Input</td>
+        <td>Workspace memory address allocated on the Device.</td>
+      </tr>
+      <tr>
+        <td>workspaceSize</td>
+        <td>Input</td>
+        <td>The size of the workspace allocated on the Device, obtained by the first-phase API aclnnXLogYTensorGetWorkspaceSize.</td>
+      </tr>
+      <tr>
+        <td>executor</td>
+        <td>Input</td>
+        <td>The op executor, which contains the operator computation flow.</td>
+      </tr>
+      <tr>
+        <td>stream</td>
+        <td>Input</td>
+        <td>Stream on which the task is executed.</td>
+      </tr>
+    </tbody>
+    </table>
 
 - **Return value**
 
@@ -123,20 +240,74 @@
 
 - **Parameters**
 
-  - selfRef(aclTensor \*, computation input/output): Input `self/out` in the formula. Device-side aclTensor. The data type is a data type to which selfRef and other can be converted after deduction, and must satisfy the data type derivation rule with the data type of other (see [deduction relationship](../../../docs/en/context/deduction_relationship.md)). The shape must satisfy the [broadcast relationship](../../../docs/en/context/broadcast_relationship.md) with other. [Non-contiguous tensors](../../../docs/en/context/non_contiguous_tensor.md) are supported, and [data format](../../../docs/en/context/data_format.md) supports ND.
+  <table style="table-layout: fixed; width: 1550px"><colgroup>
+  <col style="width: 220px">
+  <col style="width: 120px">
+  <col style="width: 350px">
+  <col style="width: 300px">
+  <col style="width: 200px">
+  <col style="width: 100px">
+  <col style="width: 120px">
+  <col style="width: 140px">
+  </colgroup>
+  <thead>
+    <tr>
+      <th>Parameter</th>
+      <th>Input/Output</th>
+      <th>Description</th>
+      <th>Instruction</th>
+      <th>Data Type</th>
+      <th>Data Format</th>
+      <th>Shape</th>
+      <th>Non-contiguous Tensor</th>
+    </tr></thead>
+  <tbody>
+    <tr>
+      <td>selfRef (aclTensor*)</td>
+      <td>Input/Output</td>
+      <td>Input self/out in the formula.</td>
+      <td><ul><li>The data type is a data type to which selfRef and other can be converted after deduction, and must satisfy the data type derivation rule with the data type of other (see <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">deduction relationship</a>).</li><li>The shape must satisfy the <a href="../../../docs/en/context/broadcast_relationship.md" target="_blank">broadcast relationship</a> with other.</li></ul></td>
+      <td>FLOAT, FLOAT16, INT32, INT64, INT16, INT8, UINT8, BOOL, BFLOAT16</td>
+      <td>ND</td>
+      <td>0-8</td>
+      <td>√</td>
+    </tr>
+    <tr>
+      <td>other (aclTensor*)</td>
+      <td>Input</td>
+      <td>Input other in the formula.</td>
+      <td><ul><li>The data type must satisfy the data type derivation rule with the data type of selfRef (see <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">deduction relationship</a>).</li><li>The shape must satisfy the <a href="../../../docs/en/context/broadcast_relationship.md" target="_blank">broadcast relationship</a> with selfRef.</li></ul></td>
+      <td>FLOAT, FLOAT16, INT32, INT64, INT16, INT8, UINT8, BOOL, BFLOAT16</td>
+      <td>ND</td>
+      <td>0-8</td>
+      <td>√</td>
+    </tr>
+    <tr>
+      <td>workspaceSize (uint64_t*)</td>
+      <td>Output</td>
+      <td>Returns the size of the workspace to be allocated on the device.</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+    </tr>
+    <tr>
+      <td>executor (aclOpExecutor**)</td>
+      <td>Output</td>
+      <td>Returns the op executor, which contains the operator computation flow.</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+    </tr>
+  </tbody>
+  </table>
 
-    <!-- npu="A3" id10 -->
-    - <term>Atlas A3 products</term>: Supported data types include FLOAT, FLOAT16, INT32, INT64, INT16, INT8, UINT8, BOOL, and BFLOAT16.
-    <!-- end id10 -->
-
-  - other(aclTensor*, computation input): Input `other` in the formula. Device-side aclTensor. The data type must satisfy the data type derivation rule with the data type of selfRef (see [deduction relationship](../../../docs/en/context/deduction_relationship.md)). The shape must satisfy the [broadcast relationship](../../../docs/en/context/broadcast_relationship.md) with selfRef. [Non-contiguous tensors](../../../docs/en/context/non_contiguous_tensor.md) are supported, and [data format](../../../docs/en/context/data_format.md) supports ND.
-
-    <!-- npu="A3" id11 -->
-    - <term>Atlas A3 products</term>: Supported data types include FLOAT, FLOAT16, INT32, INT64, INT16, INT8, UINT8, BOOL, and BFLOAT16.
-    <!-- end id11 -->
-
-  - workspaceSize (uint64_t*, output parameter): Returns the workspace size to be allocated on the Device side.
-  - executor(aclOpExecutor \*\*, output parameter): Returns the op executor, which contains the operator computation process.
+  <!-- npu="910,310p" id8 -->
+  - <term>Atlas training products</term> and <term>Atlas inference products</term>: BFLOAT16 data type is not supported.
+  <!-- end id8 -->
 
 - **Return value**
 

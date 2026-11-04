@@ -69,6 +69,9 @@ $$out_i = \begin{cases} 0 & \text{if } x1_i = 0 \\ x1_i \cdot \ln(x2_i) & \text{
 
 ## 调用说明
 
-| 调用方式 | 调用样例 | 说明 |
+| 调用方式 | 样例代码 | 说明 |
 |--------------|------|------|
-| 图模式调用 | [test_geir_xlogy](./examples/test_geir_xlogy.cpp) | 通过[算子IR](./op_graph/xlogy_proto.h)构图方式调用Xlogy算子。 |
+| aclnn API | [test_aclnn_x_log_y_tensor](./examples/test_aclnn_x_log_y_tensor.cpp) | 通过[aclnnXLogYTensor](./docs/aclnnXLogYTensor&aclnnInplaceXLogYTensor.md)与[aclnnInplaceXLogYTensor](./docs/aclnnXLogYTensor&aclnnInplaceXLogYTensor.md)接口调用Xlogy算子。 |
+| aclnn API | [test_aclnn_x_log_y_scalar_self](./examples/test_aclnn_x_log_y_scalar_self.cpp) | 通过[aclnnXLogYScalarSelf](./docs/aclnnXLogYScalarSelf.md)接口调用Xlogy算子。 |
+| aclnn API | [test_aclnn_x_log_y_scalar_other](./examples/test_aclnn_x_log_y_scalar.cpp) | 通过[aclnnXLogYScalarOther](./docs/aclnnXLogYScalarOther&aclnnInplaceXLogYScalarOther.md)与[aclnnInplaceXLogYScalarOther](./docs/aclnnXLogYScalarOther&aclnnInplaceXLogYScalarOther.md)接口调用Xlogy算子。 |
+| GE图模式 | [test_geir_xlogy](./examples/test_geir_xlogy.cpp) | 通过[算子IR](./op_graph/xlogy_proto.h)构图方式调用Xlogy算子。 |

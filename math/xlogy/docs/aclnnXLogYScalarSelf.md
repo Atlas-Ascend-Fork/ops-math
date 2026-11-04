@@ -27,41 +27,113 @@
 
 - 计算公式：
 
-  $$
-  out_i = self_i * log(other_i)
-  $$
+$$out_i = \begin{cases} 0 & \text{if } self_i = 0 \\ self_i \cdot \ln(other_i) & \text{otherwise} \end{cases}$$
+
+当other为NaN时，输出传播NaN。
 
 ## 函数原型
 
 每个算子分为[两段式接口](../../../docs/zh/context/two_phase_api.md)，必须先调用“aclnnXLogYScalarSelfGetWorkspaceSize”接口获取入参并根据计算流程计算所需workspace大小，再调用“aclnnXLogYScalarSelf”接口执行计算。
 
-- `aclnnStatus aclnnXLogYScalarSelfGetWorkspaceSize(const aclScalar *self, const aclTensor *other, aclTensor *out, uint64_t *workspaceSize, aclOpExecutor **executor)`
-- `aclnnStatus aclnnXLogYScalarSelf(void *workspace, uint64_t workspaceSize, aclOpExecutor *executor, aclrtStream stream)`
+```cpp
+aclnnStatus aclnnXLogYScalarSelfGetWorkspaceSize(
+  const aclScalar* self,
+  const aclTensor* other,
+  aclTensor*       out,
+  uint64_t*        workspaceSize,
+  aclOpExecutor**  executor)
+```
+
+```cpp
+aclnnStatus aclnnXLogYScalarSelf(
+  void*          workspace,
+  uint64_t       workspaceSize,
+  aclOpExecutor* executor,
+  aclrtStream    stream)
+```
 
 ## aclnnXLogYScalarSelfGetWorkspaceSize
 
 - **参数说明**
 
-  - self（aclScalar*，计算输入）：公式中的输入`self`，Host侧的aclScalar，数据类型与other的数据类型需满足数据类型推导规则（参见[互推导关系](../../../docs/zh/context/deduction_relationship.md)）。支持[非连续的Tensor](../../../docs/zh/context/non_contiguous_tensor.md)，[数据格式](../../../docs/zh/context/data_format.md)支持ND。
+  <table style="table-layout: fixed; width: 1550px"><colgroup>
+  <col style="width: 220px">
+  <col style="width: 120px">
+  <col style="width: 350px">
+  <col style="width: 300px">
+  <col style="width: 200px">
+  <col style="width: 100px">
+  <col style="width: 120px">
+  <col style="width: 140px">
+  </colgroup>
+  <thead>
+    <tr>
+      <th>参数名</th>
+      <th>输入/输出</th>
+      <th>描述</th>
+      <th>使用说明</th>
+      <th>数据类型</th>
+      <th>数据格式</th>
+      <th>维度(shape)</th>
+      <th>非连续Tensor</th>
+    </tr></thead>
+  <tbody>
+    <tr>
+      <td>self（aclScalar*）</td>
+      <td>输入</td>
+      <td>公式中的输入self。</td>
+      <td><ul><li>数据类型与other的数据类型需满足数据类型推导规则（参见<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>）。</li></ul></td>
+      <td>FLOAT、FLOAT16、DOUBLE、INT32、INT64、INT16、INT8、UINT8、BOOL、BFLOAT16</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+    </tr>
+    <tr>
+      <td>other（aclTensor*）</td>
+      <td>输入</td>
+      <td>公式中的输入other。</td>
+      <td><ul><li>数据类型与self的数据类型需满足数据类型推导规则（参见<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>）。</li><li>支持空Tensor。</li></ul></td>
+      <td>FLOAT、FLOAT16、INT32、INT64、INT16、INT8、UINT8、BOOL、BFLOAT16</td>
+      <td>ND</td>
+      <td>0-8</td>
+      <td>√</td>
+    </tr>
+    <tr>
+      <td>out（aclTensor*）</td>
+      <td>输出</td>
+      <td>公式中的out。</td>
+      <td><ul><li>shape与other相同。</li></ul></td>
+      <td>FLOAT、FLOAT16、BFLOAT16</td>
+      <td>ND</td>
+      <td>0-8</td>
+      <td>√</td>
+    </tr>
+    <tr>
+      <td>workspaceSize（uint64_t*）</td>
+      <td>输出</td>
+      <td>返回需要在Device侧申请的workspace大小。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+    </tr>
+    <tr>
+      <td>executor（aclOpExecutor**）</td>
+      <td>输出</td>
+      <td>返回op执行器，包含了算子计算流程。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+    </tr>
+  </tbody>
+  </table>
 
-    <!-- npu="A3" id7 -->
-    - <term>Atlas A3系列产品</term>：数据类型支持FLOAT、FLOAT16、DOUBLE、INT32、INT64、INT16、INT8、UINT8、BOOL、BFLOAT16。
-    <!-- end id7 -->
-
-  - other（aclTensor*，计算输入）：公式中的输入`other`，Device侧的aclTensor，数据类型与self的数据类型需满足数据类型推导规则（参见[互推导关系](../../../docs/zh/context/deduction_relationship.md)）。支持[非连续的Tensor](../../../docs/zh/context/non_contiguous_tensor.md)，[数据格式](../../../docs/zh/context/data_format.md)支持ND。
-
-    <!-- npu="A3" id8 -->
-    - <term>Atlas A3系列产品</term>：数据类型支持FLOAT、FLOAT16、INT32、INT64、INT16、INT8、UINT8、BOOL、BFLOAT16。
-    <!-- end id8 -->
-
-  - out（aclTensor \*，计算输出）：公式中的`out`，Device侧的aclTensor，out与other的shape一致。支持[非连续的Tensor](../../../docs/zh/context/non_contiguous_tensor.md)，[数据格式](../../../docs/zh/context/data_format.md)支持ND。
-
-    <!-- npu="A3" id9 -->
-    - <term>Atlas A3系列产品</term>：数据类型支持FLOAT、FLOAT16、BFLOAT16。
-    <!-- end id9 -->
-
-  - workspaceSize（uint64_t \*，出参）：返回需要在Device侧申请的workspace大小。
-  - executor（aclOpExecutor \*\*，出参）：返回op执行器，包含了算子计算流程。
+  <!-- npu="910,310p" id7 -->
+  - <term>Atlas训练系列产品</term>、<term>Atlas推理系列产品</term>：数据类型不支持BFLOAT16。
+  <!-- end id7 -->
 
 - **返回值：**
 
@@ -233,7 +305,7 @@ int main() {
   std::vector<float> outHostData(8, 0);
   // 创建self aclTensor
   self = aclCreateScalar(&selfValue, aclDataType::ACL_FLOAT);
-  CHECK_RET(self != nullptr, return false);
+  CHECK_RET(self != nullptr, LOG_PRINT("aclCreateScalar failed.\n"); return ACL_ERROR_FAILURE);
   // 创建other aclTensor
   ret = CreateAclTensor(otherHostData, otherShape, &otherDeviceAddr, aclDataType::ACL_FLOAT, &other);
   CHECK_RET(ret == ACL_SUCCESS, return ret);

@@ -26,9 +26,9 @@
 - 算子功能：计算self * log(other)的结果。
 - 计算公式：
 
-  $$
-  out_i = self_i * log(other_i)
-  $$
+$$out_i = \begin{cases} 0 & \text{if } self_i = 0 \\ self_i \cdot \ln(other_i) & \text{otherwise} \end{cases}$$
+
+当other为NaN时，输出传播NaN。
 
 ## 函数原型
 
@@ -37,35 +37,122 @@
   - aclnnInplaceXLogYTensor：无需新建输出张量对象，直接在输入张量的内存中存储计算结果。
 
 - 每个算子分为[两段式接口](../../../docs/zh/context/two_phase_api.md)，必须先调用“aclnnXLogYTensorGetWorkspaceSize”或者“aclnnInplaceXLogYTensorGetWorkspaceSize”接口获取入参并根据计算流程计算所需workspace大小，再调用“aclnnXLogYTensor”或者“aclnnInplaceXLogYTensor”接口执行计算。
-  - `aclnnStatus aclnnXLogYTensorGetWorkspaceSize(const aclTensor *self, const aclTensor *other, aclTensor *out, uint64_t *workspaceSize, aclOpExecutor **executor)`
-  - `aclnnStatus aclnnXLogYTensor(void *workspace, uint64_t workspaceSize, aclOpExecutor *executor, aclrtStream stream)`
-  - `aclnnStatus aclnnInplaceXLogYTensorGetWorkspaceSize(aclTensor *selfRef, const aclTensor *other, uint64_t *workspaceSize, aclOpExecutor **executor)`
-  - `aclnnStatus aclnnInplaceXLogYTensor(void *workspace, uint64_t workspaceSize, aclOpExecutor *executor, aclrtStream stream)`
+
+```cpp
+aclnnStatus aclnnXLogYTensorGetWorkspaceSize(
+  const aclTensor* self,
+  const aclTensor* other,
+  aclTensor*       out,
+  uint64_t*        workspaceSize,
+  aclOpExecutor**  executor)
+```
+
+```cpp
+aclnnStatus aclnnXLogYTensor(
+  void*          workspace,
+  uint64_t       workspaceSize,
+  aclOpExecutor* executor,
+  aclrtStream    stream)
+```
+
+```cpp
+aclnnStatus aclnnInplaceXLogYTensorGetWorkspaceSize(
+  aclTensor*       selfRef,
+  const aclTensor* other,
+  uint64_t*        workspaceSize,
+  aclOpExecutor**  executor)
+```
+
+```cpp
+aclnnStatus aclnnInplaceXLogYTensor(
+  void*          workspace,
+  uint64_t       workspaceSize,
+  aclOpExecutor* executor,
+  aclrtStream    stream)
+```
 
 ## aclnnXLogYTensorGetWorkspaceSize
 
 - **参数说明**
 
-  - self(aclTensor*，计算输入)：公式中的输入`self`，Device侧的aclTensor，数据类型与other的数据类型需满足数据类型推导规则（参见[互推导关系](../../../docs/zh/context/deduction_relationship.md)），shape需要与other满足[broadcast关系](../../../docs/zh/context/broadcast_relationship.md)。支持[非连续的Tensor](../../../docs/zh/context/non_contiguous_tensor.md)，[数据格式](../../../docs/zh/context/data_format.md)支持ND。
+  <table style="table-layout: fixed; width: 1550px"><colgroup>
+  <col style="width: 220px">
+  <col style="width: 120px">
+  <col style="width: 350px">
+  <col style="width: 300px">
+  <col style="width: 200px">
+  <col style="width: 100px">
+  <col style="width: 120px">
+  <col style="width: 140px">
+  </colgroup>
+  <thead>
+    <tr>
+      <th>参数名</th>
+      <th>输入/输出</th>
+      <th>描述</th>
+      <th>使用说明</th>
+      <th>数据类型</th>
+      <th>数据格式</th>
+      <th>维度(shape)</th>
+      <th>非连续Tensor</th>
+    </tr></thead>
+  <tbody>
+    <tr>
+      <td>self（aclTensor*）</td>
+      <td>输入</td>
+      <td>公式中的输入self。</td>
+      <td><ul><li>数据类型与other的数据类型需满足数据类型推导规则（参见<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>）。</li><li>shape需要与other满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>。</li><li>支持空Tensor。</li></ul></td>
+      <td>FLOAT、FLOAT16、INT32、INT64、INT16、INT8、UINT8、BOOL、BFLOAT16</td>
+      <td>ND</td>
+      <td>0-8</td>
+      <td>√</td>
+    </tr>
+    <tr>
+      <td>other（aclTensor*）</td>
+      <td>输入</td>
+      <td>公式中的输入other。</td>
+      <td><ul><li>数据类型与self的数据类型需满足数据类型推导规则（参见<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>）。</li><li>shape需要与self满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>。</li><li>支持空Tensor。</li></ul></td>
+      <td>FLOAT、FLOAT16、INT32、INT64、INT16、INT8、UINT8、BOOL、BFLOAT16</td>
+      <td>ND</td>
+      <td>0-8</td>
+      <td>√</td>
+    </tr>
+    <tr>
+      <td>out（aclTensor*）</td>
+      <td>输出</td>
+      <td>公式中的out。</td>
+      <td><ul><li>shape需要是self与other broadcast之后的shape。</li></ul></td>
+      <td>FLOAT、FLOAT16、INT32、INT64、INT16、INT8、UINT8、BOOL、BFLOAT16</td>
+      <td>ND</td>
+      <td>0-8</td>
+      <td>√</td>
+    </tr>
+    <tr>
+      <td>workspaceSize（uint64_t*）</td>
+      <td>输出</td>
+      <td>返回需要在Device侧申请的workspace大小。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+    </tr>
+    <tr>
+      <td>executor（aclOpExecutor**）</td>
+      <td>输出</td>
+      <td>返回op执行器，包含了算子计算流程。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+    </tr>
+  </tbody>
+  </table>
 
-    <!-- npu="A3" id7 -->
-    - <term>Atlas A3系列产品</term>：数据类型支持FLOAT、FLOAT16、INT32、INT64、INT16、INT8、UINT8、BOOL、BFLOAT16。
-    <!-- end id7 -->
-
-  - other(aclTensor*，计算输入)：公式中的输入`other`，Device侧的aclTensor，数据类型与self的数据类型需满足数据类型推导规则（参见[互推导关系](../../../docs/zh/context/deduction_relationship.md)），shape需要与self满足[broadcast关系](../../../docs/zh/context/broadcast_relationship.md)。支持[非连续的Tensor](../../../docs/zh/context/non_contiguous_tensor.md)，[数据格式](../../../docs/zh/context/data_format.md)支持ND。
-
-    <!-- npu="A3" id8 -->
-    - <term>Atlas A3系列产品</term>：数据类型支持FLOAT、FLOAT16、INT32、INT64、INT16、INT8、UINT8、BOOL、BFLOAT16。
-    <!-- end id8 -->
-
-  - out(aclTensor \*，计算输出)：公式中的`out`，Device侧的aclTensor，shape需要是self与other broadcast之后的shape。支持[非连续的Tensor](../../../docs/zh/context/non_contiguous_tensor.md)，[数据格式](../../../docs/zh/context/data_format.md)支持ND。
-
-    <!-- npu="A3" id9 -->
-    - <term>Atlas A3系列产品</term>：数据类型支持FLOAT、FLOAT16、INT32、INT64、INT16、INT8、UINT8、BOOL、BFLOAT16。
-    <!-- end id9 -->
-
-  - workspaceSize(uint64_t \*，出参)：返回需要在Device侧申请的workspace大小。
-  - executor(aclOpExecutor \*\*，出参)：返回op执行器，包含了算子计算流程。
+  <!-- npu="910,310p" id7 -->
+  - <term>Atlas训练系列产品</term>、<term>Atlas推理系列产品</term>：数据类型不支持BFLOAT16。
+  <!-- end id7 -->
 
 - **返回值：**
 
@@ -106,12 +193,42 @@
 
 ## aclnnXLogYTensor
 
-- **参数说明**
+- **参数说明：**
 
-  - workspace(void \*，入参)：在Device侧申请的workspace内存地址。
-  - workspaceSize(uint64_t，入参)：在Device侧申请的workspace大小，由第一段接口aclnnXLogYTensorGetWorkspaceSize获取。
-  - executor(aclOpExecutor \*，入参)：op执行器，包含了算子计算流程。
-  - stream(aclrtStream，入参)：指定执行任务的Stream。
+  <table style="table-layout: fixed; width: 1149px"><colgroup>
+  <col style="width: 167px">
+  <col style="width: 134px">
+  <col style="width: 848px">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>参数名</th>
+        <th>输入/输出</th>
+        <th>描述</th>
+      </tr></thead>
+    <tbody>
+      <tr>
+        <td>workspace</td>
+        <td>输入</td>
+        <td>在Device侧申请的workspace内存地址。</td>
+      </tr>
+      <tr>
+        <td>workspaceSize</td>
+        <td>输入</td>
+        <td>在Device侧申请的workspace大小，由第一段接口aclnnXLogYTensorGetWorkspaceSize获取。</td>
+      </tr>
+      <tr>
+        <td>executor</td>
+        <td>输入</td>
+        <td>op执行器，包含了算子计算流程。</td>
+      </tr>
+      <tr>
+        <td>stream</td>
+        <td>输入</td>
+        <td>指定执行任务的Stream。</td>
+      </tr>
+    </tbody>
+    </table>
 
 - **返回值：**
 
@@ -121,20 +238,74 @@
 
 - **参数说明**
 
-  - selfRef(aclTensor \*，计算输入/输出)：公式中的输入`self/out`，Device侧的aclTensor，数据类型为selfRef与other推导之后可转换的数据类型，且数据类型与other的数据类型需满足数据类型推导规则（参见[互推导关系](../../../docs/zh/context/deduction_relationship.md)），shape需要与other满足[broadcast关系](../../../docs/zh/context/broadcast_relationship.md)。支持[非连续的Tensor](../../../docs/zh/context/non_contiguous_tensor.md)，[数据格式](../../../docs/zh/context/data_format.md)支持ND。
+  <table style="table-layout: fixed; width: 1550px"><colgroup>
+  <col style="width: 220px">
+  <col style="width: 120px">
+  <col style="width: 350px">
+  <col style="width: 300px">
+  <col style="width: 200px">
+  <col style="width: 100px">
+  <col style="width: 120px">
+  <col style="width: 140px">
+  </colgroup>
+  <thead>
+    <tr>
+      <th>参数名</th>
+      <th>输入/输出</th>
+      <th>描述</th>
+      <th>使用说明</th>
+      <th>数据类型</th>
+      <th>数据格式</th>
+      <th>维度(shape)</th>
+      <th>非连续Tensor</th>
+    </tr></thead>
+  <tbody>
+    <tr>
+      <td>selfRef（aclTensor*）</td>
+      <td>输入/输出</td>
+      <td>公式中的输入self/out。</td>
+      <td><ul><li>数据类型为selfRef与other推导之后可转换的数据类型，且数据类型与other需满足数据类型推导规则（参见<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>）。</li><li>shape需要与other满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>。</li></ul></td>
+      <td>FLOAT、FLOAT16、INT32、INT64、INT16、INT8、UINT8、BOOL、BFLOAT16</td>
+      <td>ND</td>
+      <td>0-8</td>
+      <td>√</td>
+    </tr>
+    <tr>
+      <td>other（aclTensor*）</td>
+      <td>输入</td>
+      <td>公式中的输入other。</td>
+      <td><ul><li>数据类型与selfRef的数据类型需满足数据类型推导规则（参见<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>）。</li><li>shape需要与selfRef满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>。</li></ul></td>
+      <td>FLOAT、FLOAT16、INT32、INT64、INT16、INT8、UINT8、BOOL、BFLOAT16</td>
+      <td>ND</td>
+      <td>0-8</td>
+      <td>√</td>
+    </tr>
+    <tr>
+      <td>workspaceSize（uint64_t*）</td>
+      <td>输出</td>
+      <td>返回需要在Device侧申请的workspace大小。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+    </tr>
+    <tr>
+      <td>executor（aclOpExecutor**）</td>
+      <td>输出</td>
+      <td>返回op执行器，包含了算子计算流程。</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+    </tr>
+  </tbody>
+  </table>
 
-    <!-- npu="A3" id10 -->
-    - <term>Atlas A3系列产品</term>：数据类型支持FLOAT、FLOAT16、INT32、INT64、INT16、INT8、UINT8、BOOL、BFLOAT16。
-    <!-- end id10 -->
-
-  - other(aclTensor*，计算输入)：公式中的输入`other`，Device侧的aclTensor，数据类型与selfRef的数据类型需满足数据类型推导规则（参见[互推导关系](../../../docs/zh/context/deduction_relationship.md)），shape需要与selfRef满足[broadcast关系](../../../docs/zh/context/broadcast_relationship.md)。支持[非连续的Tensor](../../../docs/zh/context/non_contiguous_tensor.md)，[数据格式](../../../docs/zh/context/data_format.md)支持ND。
-
-    <!-- npu="A3" id11 -->
-    - <term>Atlas A3系列产品</term>：数据类型支持FLOAT、FLOAT16、INT32、INT64、INT16、INT8、UINT8、BOOL、BFLOAT16。
-    <!-- end id11 -->
-
-  - workspaceSize(uint64_t \*，出参)：返回需要在Device侧申请的workspace大小。
-  - executor(aclOpExecutor \*\*，出参)：返回op执行器，包含了算子计算流程。
+  <!-- npu="910,310p" id8 -->
+  - <term>Atlas训练系列产品</term>、<term>Atlas推理系列产品</term>：数据类型不支持BFLOAT16。
+  <!-- end id8 -->
 
 - **返回值：**
 

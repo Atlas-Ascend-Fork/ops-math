@@ -29,41 +29,113 @@
 
 - Formula:
 
-  $$
-  out_i = self_i * log(other_i)
-  $$
+$$out_i = \begin{cases} 0 & \text{if } self_i = 0 \\ self_i \cdot \ln(other_i) & \text{otherwise} \end{cases}$$
+
+When other is NaN, the output propagates NaN.
 
 ## Function Prototype
 
 Each operator uses a [two-phase API](../../../docs/en/context/two_phase_api.md). Call the "aclnnXLogYScalarSelfGetWorkspaceSize" API first to obtain the input parameters and calculate the required workspace size based on the computation flow, and then call the "aclnnXLogYScalarSelf" API to execute the computation.
 
-- `aclnnStatus aclnnXLogYScalarSelfGetWorkspaceSize(const aclScalar *self, const aclTensor *other, aclTensor *out, uint64_t *workspaceSize, aclOpExecutor **executor)`
-- `aclnnStatus aclnnXLogYScalarSelf(void *workspace, uint64_t workspaceSize, aclOpExecutor *executor, aclrtStream stream)`
+```cpp
+aclnnStatus aclnnXLogYScalarSelfGetWorkspaceSize(
+  const aclScalar* self,
+  const aclTensor* other,
+  aclTensor*       out,
+  uint64_t*        workspaceSize,
+  aclOpExecutor**  executor)
+```
+
+```cpp
+aclnnStatus aclnnXLogYScalarSelf(
+  void*          workspace,
+  uint64_t       workspaceSize,
+  aclOpExecutor* executor,
+  aclrtStream    stream)
+```
 
 ## aclnnXLogYScalarSelfGetWorkspaceSize
 
 - **Parameters**
 
-  - self (aclScalar*, calculation input): Input `self` in the formula, which is an aclScalar on the Host. The data type of self and that of other must satisfy the data type deduction rules (see [deduction relationship](../../../docs/en/context/deduction_relationship.md)). [Non-contiguous tensors](../../../docs/en/context/non_contiguous_tensor.md) are supported, and the [data format](../../../docs/en/context/data_format.md) supports ND.
+  <table style="table-layout: fixed; width: 1550px"><colgroup>
+  <col style="width: 220px">
+  <col style="width: 120px">
+  <col style="width: 350px">
+  <col style="width: 300px">
+  <col style="width: 200px">
+  <col style="width: 100px">
+  <col style="width: 120px">
+  <col style="width: 140px">
+  </colgroup>
+  <thead>
+    <tr>
+      <th>Parameter</th>
+      <th>Input/Output</th>
+      <th>Description</th>
+      <th>Instruction</th>
+      <th>Data Type</th>
+      <th>Data Format</th>
+      <th>Shape</th>
+      <th>Non-contiguous Tensor</th>
+    </tr></thead>
+  <tbody>
+    <tr>
+      <td>self (aclScalar*)</td>
+      <td>Input</td>
+      <td>Input self in the formula.</td>
+      <td><ul><li>The data type of self and that of other must satisfy the data type derivation rule (see <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">deduction relationship</a>).</li></ul></td>
+      <td>FLOAT, FLOAT16, DOUBLE, INT32, INT64, INT16, INT8, UINT8, BOOL, BFLOAT16</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+    </tr>
+    <tr>
+      <td>other (aclTensor*)</td>
+      <td>Input</td>
+      <td>Input other in the formula.</td>
+      <td><ul><li>The data type must satisfy the data type derivation rule with the data type of self (see <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">deduction relationship</a>).</li><li>Empty tensors are supported.</li></ul></td>
+      <td>FLOAT, FLOAT16, INT32, INT64, INT16, INT8, UINT8, BOOL, BFLOAT16</td>
+      <td>ND</td>
+      <td>0-8</td>
+      <td>√</td>
+    </tr>
+    <tr>
+      <td>out (aclTensor*)</td>
+      <td>Output</td>
+      <td>out in the formula.</td>
+      <td><ul><li>The shape is the same as that of other.</li></ul></td>
+      <td>FLOAT, FLOAT16, BFLOAT16</td>
+      <td>ND</td>
+      <td>0-8</td>
+      <td>√</td>
+    </tr>
+    <tr>
+      <td>workspaceSize (uint64_t*)</td>
+      <td>Output</td>
+      <td>Returns the size of the workspace to be allocated on the device.</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+    </tr>
+    <tr>
+      <td>executor (aclOpExecutor**)</td>
+      <td>Output</td>
+      <td>Returns the op executor, which contains the operator computation flow.</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+    </tr>
+  </tbody>
+  </table>
 
-    <!-- npu="A3" id7 -->
-    - <term>Atlas A3 products</term>: Data types supported include FLOAT, FLOAT16, DOUBLE, INT32, INT64, INT16, INT8, UINT8, BOOL, and BFLOAT16.
-    <!-- end id7 -->
-
-  - other (aclTensor*, calculation input): Input `other` in the formula, which is an aclTensor on the Device. The data type of other and that of self must satisfy the data type deduction rules (see [deduction relationship](../../../docs/en/context/deduction_relationship.md)). [Non-contiguous tensors](../../../docs/en/context/non_contiguous_tensor.md) are supported, and the [data format](../../../docs/en/context/data_format.md) supports ND.
-
-    <!-- npu="A3" id8 -->
-    - <term>Atlas A3 products</term>: Data types supported include FLOAT, FLOAT16, DOUBLE, INT32, INT64, INT16, INT8, UINT8, BOOL, and BFLOAT16.
-    <!-- end id8 -->
-
-  - out (aclTensor \*, calculation output): `out` in the formula, which is an aclTensor on the Device and has the same shape as other. [Non-contiguous tensors](../../../docs/en/context/non_contiguous_tensor.md) are supported, and the [data format](../../../docs/en/context/data_format.md) supports ND.
-
-    <!-- npu="A3" id9 -->
-    - <term>Atlas A3 products</term>: Data types supported include FLOAT, FLOAT16, and BFLOAT16.
-    <!-- end id9 -->
-
-  - workspaceSize (uint64_t \*, output): Returns the size of the workspace to be requested on the Device.
-  - executor (aclOpExecutor \*\*, output): Returns the op executor that contains the operator computation process.
+  <!-- npu="910,310p" id7 -->
+  - <term>Atlas training products</term> and <term>Atlas inference products</term>: BFLOAT16 data type is not supported.
+  <!-- end id7 -->
 
 - **Return value**
 
@@ -235,7 +307,7 @@ int main() {
   std::vector<float> outHostData(8, 0);
   // Create the self aclTensor.
   self = aclCreateScalar(&selfValue, aclDataType::ACL_FLOAT);
-  CHECK_RET(self != nullptr, return false);
+  CHECK_RET(self != nullptr, LOG_PRINT("aclCreateScalar failed.\n"); return ACL_ERROR_FAILURE);
   // Create the other aclTensor.
   ret = CreateAclTensor(otherHostData, otherShape, &otherDeviceAddr, aclDataType::ACL_FLOAT, &other);
   CHECK_RET(ret == ACL_SUCCESS, return ret);
