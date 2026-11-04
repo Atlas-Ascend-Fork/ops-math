@@ -16,6 +16,7 @@
 #include "register/op_impl_registry.h"
 #include "log/log.h"
 #include "op_host/util/const_util.h"
+#include "util/shape_util.h"
 
 using namespace ge;
 
@@ -49,15 +50,19 @@ static ge::graphStatus InferShape4OneHot(gert::InferShapeContext* context)
     int64_t axis = *axis_ptr;
     OP_CHECK_IF(axis < -1, OP_LOGE(context->GetNodeName(), "attr axis(%ld) must be >= -1", axis), return GRAPH_FAILED);
 
+    if (Ops::Base::IsUnknownRank(*x_shape_ptr)) {
+        OP_LOGD(context->GetNodeName(), "x shape is unknown rank, set output y shape to unknown rank.");
+        Ops::Base::SetUnknownRank(*y_shape_ptr);
+        return ge::GRAPH_SUCCESS;
+    }
+
     int64_t dimnum = static_cast<int64_t>(x_shape_ptr->GetDimNum());
-    OP_CHECK_IF(
-        axis > dimnum, OP_LOGE(context->GetNodeName(), "attr axis(%ld) must be < %ld", axis, dimnum),
-        return GRAPH_FAILED);
+    OP_CHECK_IF(axis > dimnum, OP_LOGE(context->GetNodeName(), "attr axis(%ld) must be <= %ld", axis, dimnum),
+                return GRAPH_FAILED);
 
     int64_t depth_value = -1;
-    OP_CHECK_IF(
-        !Ops::Base::GetConstInt(context, INDEX_INPUT_DEPTH, depth_value),
-        OP_LOGE(context->GetNodeName(), "Get depth const tensor failed"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(!Ops::Base::GetConstInt(context, INDEX_INPUT_DEPTH, depth_value),
+                OP_LOGE(context->GetNodeName(), "Get depth const tensor failed"), return ge::GRAPH_FAILED);
 
     // update output shape
     y_shape_ptr->SetDimNum(dimnum + 1);

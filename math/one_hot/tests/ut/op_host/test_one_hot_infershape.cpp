@@ -21,15 +21,9 @@
 
 class OneHotInfershape : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        std::cout << "OneHotInfershape SetUp" << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "OneHotInfershape SetUp" << std::endl; }
 
-    static void TearDownTestCase()
-    {
-        std::cout << "OneHotInfershape TearDown" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "OneHotInfershape TearDown" << std::endl; }
 };
 
 // Helper function to create OpAttr
@@ -148,24 +142,86 @@ TEST_F(OneHotInfershape, test_infershape_axis_3)
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
 
+// Test unknown rank (-2) input with a positive axis: axis bound must not be checked
+TEST_F(OneHotInfershape, test_infershape_unknown_rank_axis_4)
+{
+    int32_t depth_val = 5;
+    gert::InfershapeContextPara infershapeContextPara("OneHot",
+                                                      {
+                                                          {{{-2}, {-2}}, ge::DT_INT32, ge::FORMAT_ND},
+                                                          {{{1}, {1}}, ge::DT_INT32, ge::FORMAT_ND, true, &depth_val},
+                                                          {{{1}, {1}}, ge::DT_FLOAT, ge::FORMAT_ND, true, nullptr},
+                                                          {{{1}, {1}}, ge::DT_FLOAT, ge::FORMAT_ND, true, nullptr},
+                                                      },
+                                                      {
+                                                          {{{-2}, {-2}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          MakeAxisAttr(4),
+                                                      });
+    std::vector<std::vector<int64_t>> expectOutputShape = {{-2}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+// Test unknown rank (-2) input with default axis, output stays unknown rank
+TEST_F(OneHotInfershape, test_infershape_unknown_rank_axis_default)
+{
+    int32_t depth_val = 5;
+    gert::InfershapeContextPara infershapeContextPara("OneHot",
+                                                      {
+                                                          {{{-2}, {-2}}, ge::DT_INT32, ge::FORMAT_ND},
+                                                          {{{1}, {1}}, ge::DT_INT32, ge::FORMAT_ND, true, &depth_val},
+                                                          {{{1}, {1}}, ge::DT_FLOAT, ge::FORMAT_ND, true, nullptr},
+                                                          {{{1}, {1}}, ge::DT_FLOAT, ge::FORMAT_ND, true, nullptr},
+                                                      },
+                                                      {
+                                                          {{{-2}, {-2}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          MakeAxisAttr(-1),
+                                                      });
+    std::vector<std::vector<int64_t>> expectOutputShape = {{-2}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+// Test unknown rank (-2) input with illegal axis below -1: still rejected
+TEST_F(OneHotInfershape, test_infershape_unknown_rank_axis_out_of_range)
+{
+    int32_t depth_val = 5;
+    gert::InfershapeContextPara infershapeContextPara("OneHot",
+                                                      {
+                                                          {{{-2}, {-2}}, ge::DT_INT32, ge::FORMAT_ND},
+                                                          {{{1}, {1}}, ge::DT_INT32, ge::FORMAT_ND, true, &depth_val},
+                                                          {{{1}, {1}}, ge::DT_FLOAT, ge::FORMAT_ND, true, nullptr},
+                                                          {{{1}, {1}}, ge::DT_FLOAT, ge::FORMAT_ND, true, nullptr},
+                                                      },
+                                                      {
+                                                          {{{-2}, {-2}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          MakeAxisAttr(-2),
+                                                      });
+    std::vector<std::vector<int64_t>> expectOutputShape = {};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED, expectOutputShape);
+}
+
 // Test 1D input with axis=-1
 TEST_F(OneHotInfershape, test_infershape_1d_input)
 {
     int32_t depth_val = 5;
-    gert::InfershapeContextPara infershapeContextPara(
-        "OneHot",
-        {
-            {{{10}, {10}}, ge::DT_INT32, ge::FORMAT_ND, true, nullptr},
-            {{{1}, {1}}, ge::DT_INT32, ge::FORMAT_ND, true, &depth_val},
-            {{{1}, {1}}, ge::DT_FLOAT, ge::FORMAT_ND, true, nullptr},
-            {{{1}, {1}}, ge::DT_FLOAT, ge::FORMAT_ND, true, nullptr},
-        },
-        {
-            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
-        },
-        {
-            MakeAxisAttr(-1),
-        });
+    gert::InfershapeContextPara infershapeContextPara("OneHot",
+                                                      {
+                                                          {{{10}, {10}}, ge::DT_INT32, ge::FORMAT_ND, true, nullptr},
+                                                          {{{1}, {1}}, ge::DT_INT32, ge::FORMAT_ND, true, &depth_val},
+                                                          {{{1}, {1}}, ge::DT_FLOAT, ge::FORMAT_ND, true, nullptr},
+                                                          {{{1}, {1}}, ge::DT_FLOAT, ge::FORMAT_ND, true, nullptr},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          MakeAxisAttr(-1),
+                                                      });
     std::vector<std::vector<int64_t>> expectOutputShape = {{10, 5}};
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
