@@ -18,8 +18,11 @@
 - 三方结果 ``b`` 使用 TensorFlow XPU 原始 dtype 计算，不做 cast。
 - L1 比较 NPU 相对 CPU 的误差与 TensorFlow XPU 相对 CPU 的误差之比。
 - 容差按 dtype 分级声明于 TestSpec ``tolerance``（浮点 cross_check L1、整数 binary_equal L2）。
-- Kernel/GEIR 直连为同 shape 契约（算子本体不支持 broadcast，不做对齐）；aclnnSum 路由
-  由 op_api 的 BroadcastTo 完成对齐（shape 可不同），golden 与三方参考同步该行为。
+- Kernel/GEIR 直连与 TF E2E 为同 shape 契约（算子本体不支持 broadcast，不做对齐，
+  异 shape 输入由竞品自身的拒绝语义暴露）；aclnnSum 路由由 op_api 的 BroadcastTo
+  完成对齐（shape 可不同），golden 与三方参考同步该行为。三方分两个实现：
+  ``ThirdPartyTF``（同 shape 直传，kernel/GEIR/TF E2E）与 ``ThirdPartyTFBroadcast``
+  （numpy 对齐并回传原设备，覆盖 rank≤8 全域，aclnnSum 专用）。
 """
 
 import numpy as np
@@ -189,13 +192,11 @@ class ThirdPartyTF:
     The tf.function wrapper below routes the competitor call through that
     graph path on the XPU server.
 
-    Same-shape inputs (kernel/GEIR/TF E2E routes) pass through untouched
-    and stay on the dispatch device. The aclnnSum route may pass
-    broadcastable different-shaped inputs (the aclnn interface layer
-    supports broadcast), so inputs are broadcast-aligned on device before
-    reaching the competitor op — the comparison target is "the correct sum
-    result", not "the competitor's rejection behavior". numpy fallback
-    covers the shape pairs TF's broadcast_to rejects (host compute).
+    Same-shape contract: inputs pass through untouched and stay on the
+    dispatch device — no broadcast alignment is performed, so mixed-shape
+    inputs surface the competitor's own rejection semantics. Serves the
+    kernel/GEIR/TF E2E TestSpecs (the operator itself requires same-shape
+    inputs on these routes).
     """
 
     def __init__(self):
@@ -215,17 +216,45 @@ class ThirdPartyTF:
         if values is None:
             values = tensors
         values = _as_tensor_list(values)
+        # Same-shape inputs: the first input's shape is the common shape.
+        # Mixed shapes reach the competitor unaligned and are rejected by
+        # the op itself (no broadcast logic on this route).
+        return [self._accumulate(list(values), list(values[0].shape))]
+
+
+class ThirdPartyTFBroadcast(ThirdPartyTF):
+    """aclnnSum-route competitor: broadcast-aligns inputs before the call.
+
+    The aclnn interface layer supports broadcast (op_api BroadcastTo), so
+    this route may pass broadcastable different-shaped inputs — the
+    comparison target is "the correct sum result", not "the competitor's
+    rejection behavior". numpy performs the alignment, covering the
+    operator's full rank<=8 domain: TF's broadcast_to raises
+    UnimplementedError for rank>=7 multi-axis expansion, an OpError
+    subclass that escapes (ValueError, InvalidArgumentError) handlers.
+    Aligned tensors are re-uploaded to the original dispatch device so
+    the competitor computation stays on the XPU.
+    """
+
+    def __call__(self, inputs=None, x=None, tensors=None, **kwargs):
+        del kwargs
+        values = inputs if inputs is not None else x
+        if values is None:
+            values = tensors
+        values = _as_tensor_list(values)
         # Shape-only inspection: no host round-trip, tensors stay on the
         # dispatch device (both TF tensors and numpy arrays expose .shape).
         shapes = [tuple(v.shape) for v in values]
         target_shape = tuple(np.broadcast_shapes(*shapes))
         if len(set(shapes)) > 1:
-            # aclnnSum route only: broadcast-align on device; numpy covers
-            # the high-rank pairs TF's broadcast_to rejects (host compute).
-            try:
-                values = [self._tf.broadcast_to(v, target_shape) for v in values]
-            except (ValueError, self._tf.errors.InvalidArgumentError):
-                arrays = [np.broadcast_to(np.asarray(v), target_shape) for v in values]
+            # numpy alignment; re-upload to the original device so the
+            # competitor still computes on the XPU.
+            device = values[0].device if self._tf.is_tensor(values[0]) else None
+            arrays = [np.broadcast_to(np.asarray(v), target_shape) for v in values]
+            if device is not None:
+                with self._tf.device(device):
+                    values = [self._tf.convert_to_tensor(a) for a in arrays]
+            else:
                 values = [_to_tensorflow_tensor(a, self._tf) for a in arrays]
         return [self._accumulate(list(values), list(target_shape))]
 
@@ -255,7 +284,7 @@ class AccumulateNv2KernelTestSpec:
 
 class AclnnSumTestSpec:
     golden = staticmethod(aclnn_sum_golden)
-    third_party = {"tf": ThirdPartyTF}
+    third_party = {"tf": ThirdPartyTFBroadcast}
     tolerance = _ACCUMULATE_NV2_TOLERANCE
 
 
