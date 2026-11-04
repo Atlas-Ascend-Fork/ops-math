@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 /*!
- * \file sinkhorn.cpp
+ * \file sinkhorn_def.cpp
  * \brief
  */
 #include "register/op_def_registry.h"

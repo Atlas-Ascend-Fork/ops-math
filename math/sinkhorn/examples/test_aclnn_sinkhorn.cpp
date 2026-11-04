@@ -1,13 +1,14 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
- * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
- * Please refer to the License for details. You may not use this file except in compliance with the License.
- * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
- * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
- * See LICENSE in the root of the software repository for the full text of the License.
- */
+ * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
 
+#include <cmath>
 #include <iostream>
 #include <vector>
 #include "acl/acl.h"
@@ -102,7 +103,7 @@ int main()
 
     // 创建tol aclScalar
     tol = aclCreateScalar(&tolValue, aclDataType::ACL_FLOAT);
-    CHECK_RET(tol != nullptr, return ret);
+    CHECK_RET(tol != nullptr, LOG_PRINT("aclCreateScalar failed.\n"); return -1);
 
     // 3. 调用CANN算子库API，需要修改为具体的Api名称
     uint64_t workspaceSize = 0;
@@ -132,7 +133,14 @@ int main()
     CHECK_RET(ret == ACL_SUCCESS, LOG_PRINT("copy result from device to host failed. ERROR: %d\n", ret); return ret);
     for (int64_t i = 0; i < size; i++) {
         LOG_PRINT("p result[%ld] is: %e\n", i, pData[i]);
+        CHECK_RET(std::isfinite(pData[i]) && pData[i] >= 0.0f, LOG_PRINT("invalid p result[%ld]: %e\n", i, pData[i]);
+                  return -1);
     }
+    float totalMass = 0.0f;
+    for (float value : pData) {
+        totalMass += value;
+    }
+    CHECK_RET(std::abs(totalMass - 1.0f) <= 1.0e-4f, LOG_PRINT("unexpected total mass: %e\n", totalMass); return -1);
 
     // 6. 释放aclTensor和aclScalar，需要根据具体API的接口定义修改
     aclDestroyTensor(cost);

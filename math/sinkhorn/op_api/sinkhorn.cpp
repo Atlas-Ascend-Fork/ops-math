@@ -32,7 +32,9 @@ const aclTensor* Sinkhorn(const aclTensor* cost, const aclScalar* tol, aclTensor
         fTol = tol->ToFloat();
     }
 
-    ADD_TO_LAUNCHER_LIST_AICORE(Sinkhorn, OP_INPUT(cost), OP_OUTPUT(p), OP_ATTR(fTol));
+    auto ret = ADD_TO_LAUNCHER_LIST_AICORE(Sinkhorn, OP_INPUT(cost), OP_OUTPUT(p), OP_ATTR(fTol));
+    OP_CHECK(ret == ACLNN_SUCCESS,
+             OP_LOGE_WITHOUT_REPORT(ACLNN_ERR_INNER_NULLPTR, "Sinkhorn launcher registration failed."), return nullptr);
     return p;
 }
 

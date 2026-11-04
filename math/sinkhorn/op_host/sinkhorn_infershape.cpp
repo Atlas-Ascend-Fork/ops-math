@@ -15,8 +15,12 @@
  * \brief Sinkhorn InferShape registration.
  */
 
+#include <string>
+
 #include "exe_graph/runtime/infer_shape_context.h"
+#include "log/log.h"
 #include "register/op_impl_registry.h"
+#include "util/shape_util.h"
 
 namespace ops {
 using namespace ge;
@@ -33,6 +37,26 @@ ge::graphStatus InferShapeForSinkhorn(gert::InferShapeContext* context)
     const gert::Shape* costShape = context->GetInputShape(kCostIndex);
     gert::Shape* pShape = context->GetOutputShape(kOutputPIndex);
     if (costShape == nullptr || pShape == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
+
+    if (Ops::Base::IsUnknownRank(*costShape)) {
+        Ops::Base::SetUnknownRank(*pShape);
+        return ge::GRAPH_SUCCESS;
+    }
+
+    // 具体与动态shape均必须为二维；-1为合法未知维，0为空Tensor。
+    if (costShape->GetDimNum() != 2) {
+        OP_LOGE_FOR_INVALID_SHAPEDIM(context->GetNodeName(), "cost", std::to_string(costShape->GetDimNum()) + "D",
+                                     "2D");
+        return ge::GRAPH_FAILED;
+    }
+    const int64_t rowDim = costShape->GetDim(0);
+    const int64_t colDim = costShape->GetDim(1);
+    if (rowDim < -1 || colDim < -1) {
+        const std::string costDims = "(" + std::to_string(rowDim) + ", " + std::to_string(colDim) + ")";
+        OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "cost", costDims.c_str(),
+                                                 "cost dims must be non-negative or -1");
         return ge::GRAPH_FAILED;
     }
 

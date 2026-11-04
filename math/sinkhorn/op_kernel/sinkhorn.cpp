@@ -13,8 +13,6 @@
  */
 #include "sinkhorn.h"
 
-using namespace AscendC;
-
 // 输入 cost dtype 的 TilingKey 语义编码（与 Host 侧 tilingKey = dataType 保持一致）。
 // opc 工具会按源码中的这些语义常量生成独立 kernel 实例（每个 key 编译一份二进制，
 // 编译期注入 -DTILING_KEY_VAR=<key>），kernel 侧仅以命名常量参与分支判断，
@@ -23,8 +21,11 @@ using namespace AscendC;
 #define SINKHORN_FLOAT16_TILING_KEY 1
 #define SINKHORN_BFLOAT16_TILING_KEY 27
 
+using namespace AscendC;
+
 template <typename IT>
-__aicore__ inline void LaunchSinkhorn(GM_ADDR cost, GM_ADDR p, GM_ADDR usrWorkspace, SinkhornTilingData* tilingData)
+__aicore__ inline void LaunchSinkhorn(GM_ADDR cost, GM_ADDR p, GM_ADDR usrWorkspace,
+                                      const SinkhornTilingData* tilingData)
 {
     AscendC::KernelSinkhorn<float, IT> op;
     op.Init(cost, p, usrWorkspace, tilingData);
@@ -40,10 +41,16 @@ extern "C" __global__ __aicore__ void sinkhorn(GM_ADDR cost, GM_ADDR p, GM_ADDR 
     GM_ADDR usrWorkspace = GetUserWorkspace(workspace); // 获取用户workspace指针。
 
     if (TILING_KEY_VAR == (SINKHORN_FLOAT_TILING_KEY)) {
+        // ge::DT_FLOAT
         LaunchSinkhorn<float>(cost, p, usrWorkspace, &tiling_data);
     } else if (TILING_KEY_VAR == (SINKHORN_FLOAT16_TILING_KEY)) {
-        LaunchSinkhorn<half>(cost, p, usrWorkspace, &tiling_data);
+        // ge::DT_FLOAT16：arch22 为半精度内部计算 <half, half>，
+        // 与 arch35 的 <float, half> FP32 内部计算不同，故单独分支。
+        AscendC::KernelSinkhorn<half, half> op;
+        op.Init(cost, p, usrWorkspace, &tiling_data);
+        op.Process();
     } else if (TILING_KEY_VAR == (SINKHORN_BFLOAT16_TILING_KEY)) {
+        // ge::DT_BFLOAT16
         LaunchSinkhorn<bfloat16_t>(cost, p, usrWorkspace, &tiling_data);
     }
 }

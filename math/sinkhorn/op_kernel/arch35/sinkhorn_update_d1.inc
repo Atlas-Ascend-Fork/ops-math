@@ -1,15 +1,15 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
- * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
- * Please refer to the License for details. You may not use this file except in compliance with the License.
- * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
- * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
- * See LICENSE in the root of the software repository for the full text of the License.
- */
+ * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
 
-#ifndef SINKHORN_KERNEL_UPDATE_D1_INC_
-#define SINKHORN_KERNEL_UPDATE_D1_INC_
+#ifndef SINKHORN_KERNEL_ARCH35_UPDATE_D1_INC_
+#define SINKHORN_KERNEL_ARCH35_UPDATE_D1_INC_
 
     template<typename T, typename IT>
     __aicore__ inline void KernelSinkhorn<T, IT>::UpdateD1()
@@ -43,14 +43,7 @@
 
                 Div(d1InLocal, d1OutLocal3, d1OutLocal2, totalCol);
                 PipeBarrier<PIPE_V>();
-                Mul(d1OutLocal3, d1OutLocal2, d1InLocal, totalCol);
-                PipeBarrier<PIPE_V>();
-                Muls(d1OutLocal3, d1OutLocal3, static_cast<T>(-1.0f), totalCol);
-                PipeBarrier<PIPE_V>();
-                Adds(d1OutLocal3, d1OutLocal3, static_cast<T>(2.0f), totalCol);
-                PipeBarrier<PIPE_V>();
-                Mul(d1InLocal, d1InLocal, d1OutLocal3, totalCol);
-                PipeBarrier<PIPE_V>();
+                // 保留 1/Inf=0；Newton 精化会经 Inf*0 将结果污染为 NaN。
                 Muls(d1InLocal, d1InLocal, static_cast<T>(1.0f / totalCol), totalCol);
                 d1InQueue.EnQue(d1InLocal);
                 d1OutQueue2.FreeTensor(d1OutLocal2);
@@ -76,23 +69,12 @@
                 SetFlag<HardEvent::MTE2_MTE3>(eventIdMte2Mte3);
                 WaitFlag<HardEvent::MTE2_MTE3>(eventIdMte2Mte3);
                 DataCopyPad(d1GlobalInWS, d1InLocal, copyParams);
+                PipeBarrier<PIPE_MTE3>();
                 DataCacheClean(d1GlobalInWS);
-            }
-
-            // 清空新值
-            {
-                LocalTensor<T> d1OutLocal3 = d1OutQueue3.AllocTensor<T>();
-                Duplicate(d1OutLocal3, static_cast<T>(0.0f), totalCol);
-                event_t eventId_V_MTE3 = static_cast<event_t>(GetTPipePtr()->FetchEventID(HardEvent::V_MTE3));
-                SetFlag<HardEvent::V_MTE3>(eventId_V_MTE3);
-                WaitFlag<HardEvent::V_MTE3>(eventId_V_MTE3);
-                DataCopyPad(d1GlobalInWSNew, d1OutLocal3, copyParams);
-                d1OutQueue3.FreeTensor(d1OutLocal3);
             }
 
             // 收敛判断：mean(|old_d1 - new_d1|)
             {
-                DataCacheClean(d1GlobalInWSNew);
                 LocalTensor<T> d1OldLocalIn = d1OldInQueue.DeQue<T>();
                 LocalTensor<T> d1OutLocal3 = d1OutQueue3.AllocTensor<T>();
                 LocalTensor<T> d1OutLocal = d1OutQueue.AllocTensor<T>();
@@ -126,9 +108,7 @@
 
         SyncAll();
         DataCacheClean(d1GlobalInWS);
-        DataCacheClean(d1GlobalInWSNew);
         DUMP_LT_0_2(d1GlobalInWS, totalCol, " d1[gl ]: ");
-        DUMP_LT_0_2(d1GlobalInWSNew, totalCol, " d1[gln]: ");
     }
 
     // 特殊处理 T = float, IT = bfloat16_t
@@ -186,4 +166,4 @@
         costOutQueue.FreeTensor(tmpLocal);
     }
 
-#endif // SINKHORN_KERNEL_UPDATE_D1_INC_
+#endif // SINKHORN_KERNEL_ARCH35_UPDATE_D1_INC_

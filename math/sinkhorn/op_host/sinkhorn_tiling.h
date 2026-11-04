@@ -1,12 +1,12 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
- * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
- * Please refer to the License for details. You may not use this file except in compliance with the License.
- * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
- * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
- * See LICENSE in the root of the software repository for the full text of the License.
- */
+ * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
 /*!
  * \file sinkhorn.h
  * \brief
@@ -46,9 +46,10 @@ END_TILING_DATA_DEF;
 
 REGISTER_TILING_DATA_CLASS(Sinkhorn, SinkhornTilingData)
 struct SinkhornCompileInfo {
-    uint64_t aivNum = 40;                         // AIV核数
-    uint64_t sysWorkspaceSize = 16 * 1024 * 1024; // 系统WorkSpace大小
-    uint64_t ubSize = 196608;                     // UB大小
+    // 仅用于平台信息不可用时的防御性初始化；正式 tiling 使用 PlatformAscendC 实测值覆盖。
+    uint64_t aivNum = 0;
+    uint64_t sysWorkspaceSize = 0;
+    uint64_t ubSize = 0;
 };
 } // namespace optiling
 

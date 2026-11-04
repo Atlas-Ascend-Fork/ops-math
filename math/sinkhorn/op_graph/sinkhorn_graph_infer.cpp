@@ -24,6 +24,7 @@ using namespace ge;
 namespace {
 constexpr size_t kCostIndex = 0;
 constexpr size_t kOutputPIndex = 0;
+} // namespace
 
 ge::graphStatus InferDataTypeForSinkhorn(gert::InferDataTypeContext* context)
 {
@@ -32,8 +33,6 @@ ge::graphStatus InferDataTypeForSinkhorn(gert::InferDataTypeContext* context)
     }
     return context->SetOutputDataType(kOutputPIndex, context->GetInputDataType(kCostIndex));
 }
-} // namespace
-
 IMPL_OP(Sinkhorn).InferDataType(InferDataTypeForSinkhorn);
 
 } // namespace ops

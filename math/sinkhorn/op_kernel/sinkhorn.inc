@@ -1,12 +1,12 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
- * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
- * Please refer to the License for details. You may not use this file except in compliance with the License.
- * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
- * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
- * See LICENSE in the root of the software repository for the full text of the License.
- */
+ * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
 /*!
  * \file sinkhorn.inc
  * \brief
@@ -47,6 +47,11 @@ namespace AscendC {
 
         this->tol = tilingData->tol;
 
+        // 空 Tensor 早退（批准前移项）：totalRow/totalCol 为 0 时后续 %numBlocks、UB 预留均无意义
+        if (totalRow == 0 || totalCol == 0) {
+            return;
+        }
+
         if (blockIdx < formerNum) {
             // former
             costGlobal.SetGlobalBuffer((__gm__ IT*)cost + blockIdx * formerLength, formerLength);
@@ -84,27 +89,15 @@ namespace AscendC {
         }
         newBegin += totalRow * sizeof(T);
 
-        uint64_t d1GroupCount = (totalRow + CPU_SUM_GROUP_SIZE - 1) / CPU_SUM_GROUP_SIZE;
-        d1BlockInWS.SetGlobalBuffer((__gm__ T*)newBegin, d1GroupCount * totalCol);
-        newBegin += d1GroupCount * totalCol * sizeof(T);
+        // blockDim个
+        d1BlockInWS.SetGlobalBuffer((__gm__ T*)newBegin + blockIdx * totalCol, totalCol);
+        newBegin += numBlocks * totalCol * sizeof(T);
 
         d1GlobalInWS.SetGlobalBuffer((__gm__ T*)newBegin, totalCol);
         newBegin += totalCol * sizeof(T);
 
         d1GlobalInWSNew.SetGlobalBuffer((__gm__ T*)newBegin, totalCol);
         newBegin += totalCol * sizeof(T);
-
-        uint64_t blockOffset;
-        uint64_t blockLength;
-        if (isFormer) {
-            blockOffset = blockIdx * formerRow * totalCol;
-            blockLength = formerRow * totalCol;
-        } else {
-            blockOffset = (formerNum * formerRow + (blockIdx - formerNum) * tailRow) * totalCol;
-            blockLength = tailRow * totalCol;
-        }
-        pFloatAllGlobal.SetGlobalBuffer((__gm__ T*)newBegin, totalRow * totalCol);
-        pFloatGlobal.SetGlobalBuffer((__gm__ T*)newBegin + blockOffset, blockLength);
         OP_LOGD_0_3("workspace: %d", newBegin - workspace);
     }
 
@@ -114,59 +107,44 @@ namespace AscendC {
         pipe.InitBuffer(costInQueue, COST_BUFFER_NUM, tileRow * totalColAligned * sizeof(T));
         pipe.InitBuffer(costOutQueue, COST_BUFFER_NUM, tileRow * totalColAligned * sizeof(T));
 
-        // ComputeD1CpuPartials 按 CPU_SUM_GROUP_SIZE 个元素一组回载 d0InQueue，MTE2 写 UB 按 32B 块粒度，
-        // buffer 需容纳该回载的对齐写入量，大 shape 下 tileRow 较小，取 max 保证不越界
-        uint32_t d0BufferSize = (tileRow > CPU_SUM_GROUP_SIZE) ? static_cast<uint32_t>(tileRow) : CPU_SUM_GROUP_SIZE;
-        pipe.InitBuffer(d0InQueue, 1, d0BufferSize * sizeof(T));
-        pipe.InitBuffer(d0OutQueue, 1, tileRow * sizeof(T));
-        pipe.InitBuffer(d0OutQueue2, 1, tileRow * sizeof(T));
-        pipe.InitBuffer(d0OutQueue3, 1, tileRow * sizeof(T));
+        // d0 队列按 32B 对齐（批准前移项），与 arch22 tiling 的 CalculateUbBytesArch22 逐字对应
+        uint32_t d0BufferBytes = (tileRow * sizeof(T) + 31) / 32 * 32;
+        pipe.InitBuffer(d0InQueue, 1, d0BufferBytes);
+        pipe.InitBuffer(d0OutQueue, 1, d0BufferBytes);
+        pipe.InitBuffer(d0OutQueue2, 1, d0BufferBytes);
+        pipe.InitBuffer(d0OutQueue3, 1, d0BufferBytes);
 
         pipe.InitBuffer(d1InQueue, 1, totalColAligned * sizeof(T));
         pipe.InitBuffer(d1OldInQueue, 1, totalColAligned * sizeof(T));
         pipe.InitBuffer(d1OutQueue, 1, totalColAligned * sizeof(T));
         pipe.InitBuffer(d1OutQueue2, 1, totalColAligned * sizeof(T));
         pipe.InitBuffer(d1OutQueue3, 1, totalColAligned * sizeof(T));
-        pipe.InitBuffer(cpuSumScratch, CPU_SUM_SCRATCH_SIZE * sizeof(T));
 
         // 32B对齐
-        uint16_t BLOCK_SIZE = 32;
+        uint16_t blockSize = 32;
         uint16_t blockLen = totalCol * sizeof(T);
-        rowLengthAligned = (((blockLen + BLOCK_SIZE - 1) / BLOCK_SIZE) * BLOCK_SIZE) / sizeof(T);
-    }
+        rowLengthAligned = (((blockLen + blockSize - 1) / blockSize) * blockSize) / sizeof(T);
 
-    template<typename T, typename IT>
-    __aicore__ inline void KernelSinkhorn<T, IT>::FillConstantResult(float value)
-    {
-        for (int t = 0; t < tileNum; t++) {
-            uint32_t tileIdx = t * tileLength;
-            uint32_t row = (t == tileNum - 1) ? lastTileRow : tileRow;
-            LocalTensor<T> resultLocal = costInQueue.AllocTensor<T>();
-            for (int r = 0; r < row; r++) {
-                Duplicate(resultLocal[r * rowLengthAligned], static_cast<T>(value), totalCol);
-            }
-            event_t eventIdVMte3 = static_cast<event_t>(GetTPipePtr()->FetchEventID(HardEvent::V_MTE3));
-            SetFlag<HardEvent::V_MTE3>(eventIdVMte3);
-            WaitFlag<HardEvent::V_MTE3>(eventIdVMte3);
-            SaveP<IT>(row, pGlobal[tileIdx], resultLocal);
-            costInQueue.FreeTensor(resultLocal);
-        }
-        event_t eventIdMte3S = static_cast<event_t>(GetTPipePtr()->FetchEventID(HardEvent::MTE3_S));
-        SetFlag<HardEvent::MTE3_S>(eventIdMte3S);
-        WaitFlag<HardEvent::MTE3_S>(eventIdMte3S);
+        // 不变式 I1（simulator 断言）：host tiling 的 totalColAligned 必须与 kernel 的 rowLengthAligned
+        // 逐字相等。所有逐行访问（costSrcLocal[r * rowLengthAligned]、bf16 逐行 Cast）与 UB 容量
+        // （tileRow * totalColAligned * sizeof(T)）都建立在该等式上；一旦 host/kernel 的 sizeof(T)
+        // 配对被破坏（例如 FP16 直调血统改动），这里会立刻在 simulator 下失败而不是静默越界。
+        SINKHORN_SIM_ASSERT(static_cast<uint64_t>(rowLengthAligned) == totalColAligned,
+                            "I1 violated: kernel rowLengthAligned != host totalColAligned");
+        SINKHORN_SIM_ASSERT(tileRow > 0 && totalCol > 0, "I1 precondition: tileRow/totalCol must be positive");
     }
 
     template<typename T, typename IT>
     __aicore__ inline void KernelSinkhorn<T, IT>::Process()
     {
-        if (totalCol == 1) {
-            FillConstantResult(1.0f / totalRow);
+        // 空 Tensor 早退（批准前移项）
+        if (totalRow == 0 || totalCol == 0) {
             return;
         }
-
         ExpCost();
         InitD();
 
+        // MAX_SINKHORN_ITER 硬上限（批准前移项）：与 IEEE 收敛谓词配套防挂死
         while (GetLoopFlag() != 0 && loopCount < MAX_SINKHORN_ITER) {
             loopCount++;
             UpdateD0();
@@ -242,6 +220,8 @@ namespace AscendC {
             InitD0GlobalInWS(); // costInQueue
             InitD1GlobalInWS(); // d1InQueue
             InitD1GlobalInWSNew(); // d1OutQueue
+            // 三个 Init 的 MTE3 写全部落地后再发布 loopFlag（批准前移项）
+            PipeBarrier<PIPE_MTE3>();
 
             SetLoopFlag(1);
             DataCacheCleanAndInvalid<uint64_t, CacheLine::ENTIRE_DATA_CACHE, DcciDst::CACHELINE_OUT>(headerInWS);
@@ -269,12 +249,11 @@ namespace AscendC {
     }
 
     template<typename T, typename IT>
-    __aicore__ inline void KernelSinkhorn<T, IT>::ComputeResultCore(
-        uint32_t row, LocalTensor<T> d0Local, LocalTensor<T> d1Local)
+    __aicore__ inline void KernelSinkhorn<T, IT>::ComputeResultCore(int t, uint32_t row, LocalTensor<T> d1Local)
     {
-        LocalTensor<T> costSrcLocal = costInQueue.DeQue<T>();
         {
             LocalTensor<T> costDstLocal = costOutQueue.AllocTensor<T>();
+            LocalTensor<T> costSrcLocal = costInQueue.DeQue<T>();
 
             // 逐行计算
             for (int r = 0; r < row; r++) {
@@ -287,7 +266,7 @@ namespace AscendC {
         }
         {
             LocalTensor<T> costDstLocal = costOutQueue.DeQue<T>();
-            LocalTensor<T> resultLocal = costInQueue.AllocTensor<T>();
+            LocalTensor<T> costSrcLocal = costInQueue.AllocTensor<T>();
 
             // 逐行计算
             event_t eventId = static_cast<event_t>(GetTPipePtr()->FetchEventID(HardEvent::V_S));
@@ -296,13 +275,13 @@ namespace AscendC {
                 uint32_t rowIdx = r * rowLengthAligned;
                 DUMP_LT_2(costDstLocal[rowIdx], totalCol, "cost[*d1]: ");
                 WaitFlag<HardEvent::V_S>(eventId);
-                T d0 = d0Local.GetValue(r);
-                Muls(resultLocal[rowIdx], costDstLocal[rowIdx], d0, totalCol);
+                T d0 = d0BlockInWS.GetValue(r + t * tileRow);
+                Muls(costSrcLocal[rowIdx], costDstLocal[rowIdx], d0, totalCol);
                 SetFlag<HardEvent::V_S>(eventId);
-                DUMP_LT_2(resultLocal[rowIdx], totalCol, "cost[*d0]: ");
+                DUMP_LT_2(costSrcLocal[rowIdx], totalCol, "cost[*d0]: ");
             }
             WaitFlag<HardEvent::V_S>(eventId);
-            costInQueue.EnQue(resultLocal);
+            costInQueue.EnQue(costSrcLocal);
             costOutQueue.FreeTensor(costDstLocal);
         }
     }
@@ -328,27 +307,17 @@ namespace AscendC {
 
         for (int t = 0; t < tileNum; t++) {
             uint32_t tileIdx = t * this->tileLength;
-            uint32_t length = this->tileLength;
             uint32_t row = tileRow;
             if (t == this->tileNum - 1) {
-                length = this->lastTileLength;
                 row = lastTileRow;
             }
 
             // 搬入cost
             WaitFlag<HardEvent::MTE3_MTE2>(eventId_MTE3_MTE2);
-            CopyInFromP<T>(row, pFloatGlobal[tileIdx]);
-
-            LocalTensor<T> d0Local = d0InQueue.AllocTensor<T>();
-            DataCopyExtParams d0CopyParams{1, static_cast<uint32_t>(row * sizeof(T)), 0, 0, 0};
-            DataCopyPadExtParams<T> d0PadParams{false, 0, 0, 0};
-            DataCopyPad(d0Local, d0BlockInWS[t * tileRow], d0CopyParams, d0PadParams);
-            d0InQueue.EnQue(d0Local);
+            CopyInFromP<IT>(row, pGlobal[tileIdx]);
 
             // 计算
-            d0Local = d0InQueue.DeQue<T>();
-            ComputeResultCore(row, d0Local, d1Local);
-            d0InQueue.FreeTensor(d0Local);
+            ComputeResultCore(t, row, d1Local);
 
             // 搬出cost // d1 * cost * d0 融合后，数据在src中
             {
@@ -366,17 +335,19 @@ namespace AscendC {
     template<typename T, typename IT>
     __aicore__ inline void KernelSinkhorn<T, IT>::DataCacheClean(GlobalTensor<T> global)
     {
-        GM_ADDR p = (GM_ADDR)(global.GetPhyAddr());
-        uint32_t dataSize = (GM_ADDR)(global[1].GetPhyAddr()) - p;
-        uint32_t stride = 64 / dataSize;
-        uint32_t repeatTimes = (global.GetSize() + stride - 1) / stride;
-
-        // 非64B对齐，则多一行
-        if (uint64_t(p - 0) % 64) {
-            repeatTimes++;
+        // 字节级 cache line 遍历（批准前移项）：baseline 的 stride 法在 GetSize()<2 或非 64B 对齐时
+        // 会生成逻辑区间外地址；此实现保证 byteOffset < totalBytes ⇒ index < GetSize()，不跳行、不越界。
+        constexpr uint32_t cacheLineBytes = 64;
+        if (global.GetSize() == 0) {
+            return;
         }
-        for (int i = 0; i < repeatTimes; i++) {
-            DataCacheCleanAndInvalid<T, CacheLine::SINGLE_CACHE_LINE, DcciDst::CACHELINE_OUT>(global[i * stride]);
+        GM_ADDR p = (GM_ADDR)(global.GetPhyAddr());
+        uint32_t firstSpan = cacheLineBytes - (uint64_t)(p) % cacheLineBytes;
+        uint64_t totalBytes = global.GetSize() * sizeof(T);
+        DataCacheCleanAndInvalid<T, CacheLine::SINGLE_CACHE_LINE, DcciDst::CACHELINE_OUT>(global[0]);
+        for (uint64_t byteOffset = firstSpan; byteOffset < totalBytes; byteOffset += cacheLineBytes) {
+            DataCacheCleanAndInvalid<T, CacheLine::SINGLE_CACHE_LINE, DcciDst::CACHELINE_OUT>(
+                global[byteOffset / sizeof(T)]);
         }
     }
 } // namespace AscendC

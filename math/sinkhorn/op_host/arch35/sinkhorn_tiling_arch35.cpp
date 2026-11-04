@@ -1,12 +1,12 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
- * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
- * Please refer to the License for details. You may not use this file except in compliance with the License.
- * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
- * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
- * See LICENSE in the root of the software repository for the full text of the License.
- */
+ * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
 /*!
  * \file sinkhorn.cc
  * \brief
@@ -15,40 +15,73 @@
 #include "register/op_def_registry.h"
 #include "platform/platform_info.h"
 #include "platform/platform_ascendc.h"
-#include "sinkhorn_tiling.h"
+#include "math/sinkhorn/op_host/sinkhorn_tiling.h"
+#include <limits>
 #include <log/log.h>
 #include <tiling/platform/platform_ascendc.h>
 #include <platform/platform_infos_def.h>
 
 namespace {
 constexpr static float UB_USAGE = 0.85f;
-constexpr static uint32_t BLOCK_SIZE = 256;
 constexpr static uint32_t ROW_BLOCK_SIZE = 32;
 constexpr static uint32_t MAX_TILE_ROW = 127 * 32; // 数据复制时，blockCount最大为4095，向下对齐到 127 * 32
 constexpr static uint32_t WORKSPACE_HEADER_SIZE = 64; // 64B对齐
+constexpr static uint32_t CACHE_LINE_SIZE = 64;
 constexpr static uint32_t CPU_SUM_GROUP_SIZE = 16;
 constexpr static uint32_t NARROW_COL_THRESHOLD = 16;
 constexpr static uint32_t NARROW_COL_ROWS_PER_CORE = 512;
 constexpr static uint32_t IO_DIM = 2;
-constexpr static uint64_t MAX_COST_ROW = 10000;
-constexpr static uint64_t MAX_COST_COL = 4096;
+constexpr static uint64_t MAX_COST_COL = 4168;
 constexpr static uint32_t BATCH_MODE_SCHEDULE = 1; // SetScheduleMode 调度模式：全核 batch 启动，配合 kernel 侧 SyncAll
 constexpr static uint32_t WORKSPACE_BLOCK_NUM = 1; // GetWorkspaceSizes 申请的 workspace 块数
+constexpr static uint64_t ARCH35_LOAD_PADDING_ELEMENTS = 64;
+constexpr static uint64_t D0_QUEUE_COUNT = 4;
+constexpr static uint64_t D1_QUEUE_COUNT = 5;
+constexpr static uint64_t CPU_SUM_SCRATCH_ELEMENTS = 256;
+
+uint64_t AlignUp(uint64_t value, uint64_t alignment) { return (value + alignment - 1) / alignment * alignment; }
+
+bool CheckedMul(uint64_t lhs, uint64_t rhs, uint64_t& result)
+{
+    if (lhs != 0 && rhs > std::numeric_limits<uint64_t>::max() / lhs) {
+        return false;
+    }
+    result = lhs * rhs;
+    return true;
+}
+
+bool CheckedAdd(uint64_t lhs, uint64_t rhs, uint64_t& result)
+{
+    if (rhs > std::numeric_limits<uint64_t>::max() - lhs) {
+        return false;
+    }
+    result = lhs + rhs;
+    return true;
+}
+
+uint64_t CalculateUbBytes(uint64_t tileRows, uint64_t colAligned)
+{
+    const uint64_t costBytes = (2 * tileRows * colAligned + ARCH35_LOAD_PADDING_ELEMENTS) * sizeof(float);
+    const uint64_t d0Elements = (tileRows > CPU_SUM_GROUP_SIZE) ? tileRows : CPU_SUM_GROUP_SIZE;
+    const uint64_t d0Bytes = D0_QUEUE_COUNT * AlignUp(d0Elements * sizeof(float), ROW_BLOCK_SIZE);
+    const uint64_t d1Bytes = D1_QUEUE_COUNT * colAligned * sizeof(float);
+    return costBytes + d0Bytes + d1Bytes + CPU_SUM_SCRATCH_ELEMENTS * sizeof(float);
+}
 } // namespace
 
 namespace optiling {
-ge::graphStatus TilingPrepareForSinkhorn(gert::TilingParseContext* context);
-ge::graphStatus TilingForSinkhorn(gert::TilingContext* context);
+ge::graphStatus TilingPrepareForSinkhornArch35(gert::TilingParseContext* context);
+ge::graphStatus TilingForSinkhornArch35(gert::TilingContext* context);
 
-class SinkhornTiling {
+class SinkhornTilingArch35 {
 public:
-    explicit SinkhornTiling(gert::TilingContext* context) : tilingContext(context) {};
+    explicit SinkhornTilingArch35(gert::TilingContext* context) : tilingContext(context) {};
     ge::graphStatus Init();
     ge::graphStatus RunKernelTiling();
     void TilingDataPrint();
 
 private:
-    inline ge::graphStatus InitWS();
+    ge::graphStatus InitWS();
     inline ge::graphStatus InitTiling();
 
     SinkhornTilingData tiling;
@@ -94,7 +127,7 @@ private:
     uint64_t sizeOfDataType = 1;
 };
 
-ge::graphStatus SinkhornTiling::Init()
+ge::graphStatus SinkhornTilingArch35::Init()
 {
     OP_LOGD(tilingContext, "Tiling initialization starts.");
 
@@ -110,21 +143,26 @@ ge::graphStatus SinkhornTiling::Init()
                                      std::to_string(costStorageShape.GetDimNum()) + "D", "2D");
         return ge::GRAPH_FAILED;
     }
-    totalRow = costStorageShape.GetDim(0);
-    totalCol = costStorageShape.GetDim(1);
-    if (totalRow == 0 || totalCol == 0) {
-        OP_LOGE_FOR_INVALID_SHAPESIZE(tilingContext->GetNodeName(), "cost",
-                                      std::to_string(totalRow) + "x" + std::to_string(totalCol), "non-empty 2D");
+    int64_t rowDim = costStorageShape.GetDim(0);
+    int64_t colDim = costStorageShape.GetDim(1);
+    if (rowDim < 0 || colDim < 0) {
+        const std::string costDims = "(" + std::to_string(rowDim) + ", " + std::to_string(colDim) + ")";
+        OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(tilingContext->GetNodeName(), "cost", costDims.c_str(),
+                                                 "cost dims must be non-negative");
         return ge::GRAPH_FAILED;
     }
-    if (totalRow > MAX_COST_ROW) {
-        OP_LOGE_FOR_INVALID_SHAPEDIM(tilingContext->GetNodeName(), "cost", "row=" + std::to_string(totalRow),
-                                     "<= 10000");
-        return ge::GRAPH_FAILED;
-    }
+    totalRow = static_cast<uint64_t>(rowDim);
+    totalCol = static_cast<uint64_t>(colDim);
     if (totalCol > MAX_COST_COL) {
         OP_LOGE_FOR_INVALID_SHAPEDIM(tilingContext->GetNodeName(), "cost", "col=" + std::to_string(totalCol),
-                                     "<= 4096");
+                                     "<= 4168");
+        return ge::GRAPH_FAILED;
+    }
+    uint64_t totalElements = 0;
+    if (!CheckedMul(totalRow, totalCol, totalElements) || totalElements > std::numeric_limits<uint32_t>::max()) {
+        const std::string costShapeText = std::to_string(totalRow) + "x" + std::to_string(totalCol);
+        OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(tilingContext->GetNodeName(), "cost", costShapeText.c_str(),
+                                                  "cost element count must be <= UINT32_MAX");
         return ge::GRAPH_FAILED;
     }
 
@@ -135,12 +173,24 @@ ge::graphStatus SinkhornTiling::Init()
             tol = *tolPtr;
         }
     }
-
     auto compileInfo = reinterpret_cast<const SinkhornCompileInfo*>(tilingContext->GetCompileInfo());
+    if (compileInfo == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "compileInfo");
+        return ge::GRAPH_FAILED;
+    }
     uint64_t aivNum = compileInfo->aivNum; // Vector核数量
     uint64_t ubSize = compileInfo->ubSize; // ubSize大小
+    if (aivNum == 0) {
+        OP_LOGE_WITHOUT_REPORT(tilingContext, "AIV core count must be greater than zero.");
+        return ge::GRAPH_FAILED;
+    }
 
-    uint64_t dataType = tilingContext->GetInputDesc(0)->GetDataType();
+    auto inputDesc = tilingContext->GetInputDesc(0);
+    if (inputDesc == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "inputDesc");
+        return ge::GRAPH_FAILED;
+    }
+    uint64_t dataType = inputDesc->GetDataType();
     switch (dataType) {
         case ge::DT_FLOAT:
         case ge::DT_FLOAT16:
@@ -148,20 +198,50 @@ ge::graphStatus SinkhornTiling::Init()
             sizeOfDataType = sizeof(float);
             break;
         default:
+            OP_LOGE_WITH_INVALID_INPUT_DTYPE(tilingContext->GetNodeName(), "cost", std::to_string(dataType).c_str(),
+                                             "FLOAT/FLOAT16/BF16");
             return ge::GRAPH_FAILED;
     }
+    tilingKey = dataType;
+    if (totalRow == 0 || totalCol == 0) {
+        // 空 Tensor：无数据可算，单核下发，kernel 侧直接返回
+        numBlocks = 1;
+        tileRow = 1;
+        if (InitWS() != ge::GRAPH_SUCCESS) {
+            return ge::GRAPH_FAILED;
+        }
+        OP_LOGD(tilingContext, "cost is empty (%lu, %lu), skip compute.", static_cast<unsigned long>(totalRow),
+                static_cast<unsigned long>(totalCol));
+        return ge::GRAPH_SUCCESS;
+    }
 
-    // 一个block存放的元素
-    uint32_t rowAlignNum = ROW_BLOCK_SIZE / sizeOfDataType; // 32B对齐 32/<4|2> = 8|16
+    // Kernel 内部数据恒为 FP32，因此按 8 个元素对齐到 32B。
+    uint32_t rowAlignNum = ROW_BLOCK_SIZE / sizeOfDataType;
     totalColAligned = ((totalCol + rowAlignNum - 1) / rowAlignNum) * rowAlignNum;
 
-    uint32_t usableUbSize = static_cast<uint32_t>(ubSize * UB_USAGE);
+    uint64_t usableUbSize = static_cast<uint64_t>(ubSize * UB_USAGE);
+    const uint64_t fixedBytes = ARCH35_LOAD_PADDING_ELEMENTS * sizeof(float) +
+                                D0_QUEUE_COUNT * AlignUp(CPU_SUM_GROUP_SIZE * sizeof(float), ROW_BLOCK_SIZE) +
+                                D1_QUEUE_COUNT * totalColAligned * sizeof(float) +
+                                CPU_SUM_SCRATCH_ELEMENTS * sizeof(float);
+    if (usableUbSize <= fixedBytes) {
+        OP_LOGE_WITHOUT_REPORT(tilingContext, "UB size %lu is too small for col %lu.",
+                               static_cast<unsigned long>(usableUbSize), static_cast<unsigned long>(totalCol));
+        return ge::GRAPH_FAILED;
+    }
 
-    // UB可以容纳的行                costIn         costOut       4 * d0
-    tileRow = usableUbSize / ((totalColAligned + totalColAligned + 4) * sizeOfDataType);
-
-    // 去除4*d1空间（保护：tileRow 不小于 1，避免无符号回绕与后续除零）
-    tileRow = (tileRow > 4) ? (tileRow - 4) : 1;
+    tileRow = (usableUbSize - fixedBytes) / (2 * totalColAligned * sizeof(float) + D0_QUEUE_COUNT * sizeof(float));
+    while (tileRow > 0 && CalculateUbBytes(tileRow, totalColAligned) > usableUbSize) {
+        --tileRow;
+    }
+    while (CalculateUbBytes(tileRow + 1, totalColAligned) <= usableUbSize) {
+        ++tileRow;
+    }
+    if (tileRow == 0 || CalculateUbBytes(tileRow, totalColAligned) > usableUbSize) {
+        OP_LOGE_WITHOUT_REPORT(tilingContext, "UB size %lu cannot hold one tile row for col %lu.",
+                               static_cast<unsigned long>(usableUbSize), static_cast<unsigned long>(totalCol));
+        return ge::GRAPH_FAILED;
+    }
 
     // 保护处理， 数据复制时，blockCount最大为4095，向下对齐到 127 * 32
     if (tileRow > MAX_TILE_ROW) {
@@ -180,16 +260,16 @@ ge::graphStatus SinkhornTiling::Init()
         numBlocks = (narrowBlocks > aivNum) ? aivNum : narrowBlocks;
     }
 
-    tilingKey = dataType;
-
     InitTiling();
-    InitWS();
+    if (InitWS() != ge::GRAPH_SUCCESS) {
+        return ge::GRAPH_FAILED;
+    }
 
     OP_LOGD(tilingContext, "Tiling initialization finished.");
     return ge::GRAPH_SUCCESS;
 }
 
-inline ge::graphStatus SinkhornTiling::InitTiling()
+inline ge::graphStatus SinkhornTilingArch35::InitTiling()
 {
     // 切分流程
     formerNum = totalRow % numBlocks;
@@ -220,31 +300,45 @@ inline ge::graphStatus SinkhornTiling::InitTiling()
     return ge::GRAPH_SUCCESS;
 }
 
-inline ge::graphStatus SinkhornTiling::InitWS()
+ge::graphStatus SinkhornTilingArch35::InitWS()
 {
-    // 头(64B)
-    userWorkspaceSize = WORKSPACE_HEADER_SIZE;
-    // d0
-    userWorkspaceSize += totalRow * sizeof(float);
-
-    // PyTorch CPU sum每16行形成一个一级部分和。
-    userWorkspaceSize += ((totalRow + CPU_SUM_GROUP_SIZE - 1) / CPU_SUM_GROUP_SIZE) * totalCol * sizeof(float);
-
-    // d1/d1 new global
-    userWorkspaceSize += (totalCol + totalCol) * sizeof(float);
-
-    // exp(cost) 始终使用FP32，避免低精度量化进入迭代。
-    userWorkspaceSize += totalRow * totalCol * sizeof(float);
+    uint64_t workspaceBytes = WORKSPACE_HEADER_SIZE;
+    uint64_t bytes = 0;
+    uint64_t elements = 0;
+    const uint64_t sumGroupCount = totalRow / CPU_SUM_GROUP_SIZE + (totalRow % CPU_SUM_GROUP_SIZE != 0);
+    if (!CheckedMul(totalRow, sizeof(float), bytes) || !CheckedAdd(workspaceBytes, bytes, workspaceBytes) ||
+        !CheckedMul(sumGroupCount, totalCol, elements) || !CheckedMul(elements, sizeof(float), bytes) ||
+        !CheckedAdd(workspaceBytes, bytes, workspaceBytes) || !CheckedMul(totalCol, sizeof(float), bytes) ||
+        !CheckedAdd(workspaceBytes, bytes, workspaceBytes) || !CheckedMul(totalRow, totalCol, elements) ||
+        !CheckedMul(elements, sizeof(float), bytes) || !CheckedAdd(workspaceBytes, bytes, workspaceBytes)) {
+        OP_LOGE_WITHOUT_REPORT(tilingContext, "workspace size calculation overflows for cost shape (%lu, %lu).",
+                               static_cast<unsigned long>(totalRow), static_cast<unsigned long>(totalCol));
+        return ge::GRAPH_FAILED;
+    }
+    if (totalRow > 0 && totalCol > 0) {
+        if (workspaceBytes > std::numeric_limits<uint64_t>::max() - (CACHE_LINE_SIZE - 1)) {
+            OP_LOGE_WITHOUT_REPORT(tilingContext, "workspace alignment overflows for cost shape (%lu, %lu).",
+                                   static_cast<unsigned long>(totalRow), static_cast<unsigned long>(totalCol));
+            return ge::GRAPH_FAILED;
+        }
+        workspaceBytes = AlignUp(workspaceBytes, CACHE_LINE_SIZE);
+    }
+    if (workspaceBytes > std::numeric_limits<size_t>::max()) {
+        OP_LOGE_WITHOUT_REPORT(tilingContext, "workspace size does not fit size_t for cost shape (%lu, %lu).",
+                               static_cast<unsigned long>(totalRow), static_cast<unsigned long>(totalCol));
+        return ge::GRAPH_FAILED;
+    }
+    userWorkspaceSize = static_cast<size_t>(workspaceBytes);
     return ge::GRAPH_SUCCESS;
 }
 
-ge::graphStatus SinkhornTiling::RunKernelTiling()
+ge::graphStatus SinkhornTilingArch35::RunKernelTiling()
 {
     OP_LOGD(tilingContext, "Tiling calculation starts.");
 
     // 内核侧使用 SyncAll 全核同步，需设置 BATCH_MODE_SCHEDULE 调度模式，避免多流场景卡死
     if (tilingContext->SetScheduleMode(BATCH_MODE_SCHEDULE) != ge::GRAPH_SUCCESS) {
-        OP_LOGE(tilingContext, "SetScheduleMode failed.");
+        OP_LOGE_WITHOUT_REPORT(tilingContext, "SetScheduleMode failed.");
         return ge::GRAPH_FAILED;
     }
 
@@ -278,15 +372,32 @@ ge::graphStatus SinkhornTiling::RunKernelTiling()
 
     tiling.set_tol(tol);
 
-    tiling.SaveToBuffer(tilingContext->GetRawTilingData()->GetData(), tilingContext->GetRawTilingData()->GetCapacity());
-    tilingContext->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
+    auto rawTilingData = tilingContext->GetRawTilingData();
+    if (rawTilingData == nullptr || rawTilingData->GetData() == nullptr ||
+        rawTilingData->GetCapacity() < tiling.GetDataSize()) {
+        OP_LOGE_WITHOUT_REPORT(tilingContext, "Raw tiling data buffer is null or smaller than %zu bytes.",
+                               tiling.GetDataSize());
+        return ge::GRAPH_FAILED;
+    }
+    tiling.SaveToBuffer(rawTilingData->GetData(), rawTilingData->GetCapacity());
+    rawTilingData->SetDataSize(tiling.GetDataSize());
 
     size_t* currentWorkspace = tilingContext->GetWorkspaceSizes(
         WORKSPACE_BLOCK_NUM); // 通过框架获取workspace的指针，GetWorkspaces入参所需workspace的块数。当前限制使用一块。
+    if (currentWorkspace == nullptr) {
+        OP_LOGE_WITHOUT_REPORT(tilingContext, "GetWorkspaceSizes returned nullptr.");
+        return ge::GRAPH_FAILED;
+    }
     auto compileInfo = reinterpret_cast<const SinkhornCompileInfo*>(tilingContext->GetCompileInfo());
-    currentWorkspace[0] = userWorkspaceSize +
-                          compileInfo
-                              ->sysWorkspaceSize; // 设置总的workspace的数值大小，总的workspace空间框架来申请并管理。
+    if (compileInfo == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "compileInfo");
+        return ge::GRAPH_FAILED;
+    }
+    if (compileInfo->sysWorkspaceSize > std::numeric_limits<size_t>::max() - userWorkspaceSize) {
+        OP_LOGE_WITHOUT_REPORT(tilingContext, "system and user workspace size addition overflows size_t.");
+        return ge::GRAPH_FAILED;
+    }
+    currentWorkspace[0] = userWorkspaceSize + compileInfo->sysWorkspaceSize;
 
     OP_LOGD(tilingContext, "userWorkspaceSize: %lu.", userWorkspaceSize);
     TilingDataPrint();
@@ -294,7 +405,7 @@ ge::graphStatus SinkhornTiling::RunKernelTiling()
     return ge::GRAPH_SUCCESS;
 }
 
-void SinkhornTiling::TilingDataPrint()
+void SinkhornTilingArch35::TilingDataPrint()
 {
     OP_LOGD(tilingContext, "            tilingKey: %lu", tilingContext->GetTilingKey());
     OP_LOGD(tilingContext, "             numBlocks: %u", tilingContext->GetBlockDim());
@@ -327,16 +438,16 @@ void SinkhornTiling::TilingDataPrint()
     OP_LOGD(tilingContext, "    userWorkspaceSize: %lu", userWorkspaceSize);
 }
 
-ge::graphStatus TilingForSinkhorn(gert::TilingContext* context)
+ge::graphStatus TilingForSinkhornArch35(gert::TilingContext* context)
 {
-    SinkhornTiling tilingObject(context);
+    SinkhornTilingArch35 tilingObject(context);
     if (tilingObject.Init() != ge::GRAPH_SUCCESS) {
         return ge::GRAPH_FAILED;
     }
     return tilingObject.RunKernelTiling();
 }
 
-ge::graphStatus TilingPrepareForSinkhorn(gert::TilingParseContext* context)
+ge::graphStatus TilingPrepareForSinkhornArch35(gert::TilingParseContext* context)
 {
     OP_LOGD(context, "TilingPrepareForSinkhorn start.");
     auto platformInfo = context->GetPlatformInfo();
@@ -366,5 +477,7 @@ ge::graphStatus TilingPrepareForSinkhorn(gert::TilingParseContext* context)
     return ge::GRAPH_SUCCESS;
 }
 
-IMPL_OP_OPTILING(Sinkhorn).Tiling(TilingForSinkhorn).TilingParse<SinkhornCompileInfo>(TilingPrepareForSinkhorn);
+IMPL_OP_OPTILING(Sinkhorn)
+    .Tiling(TilingForSinkhornArch35)
+    .TilingParse<SinkhornCompileInfo>(TilingPrepareForSinkhornArch35);
 } // namespace optiling
