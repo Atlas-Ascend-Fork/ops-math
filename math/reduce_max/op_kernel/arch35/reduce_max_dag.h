@@ -22,8 +22,7 @@
 #include "atvoss/util/placeholder.h"
 #include "atvoss/reduce/reduce_operator.h"
 
-namespace ReduceMax
-{
+namespace ReduceMax {
 using namespace Ops::Base;
 
 template <typename T>
@@ -36,17 +35,6 @@ struct ReduceMaxDag {
     using OpDag = DAGSch<Outputs, void, MemCfg>;
 };
 
-template <typename T, typename PromteT>
-struct ReduceMaxBf16Dag {
-    using OpCopyIn0 = Bind<Vec::CopyIn<T>, Placeholder::In0<T>>;
-    using Cast0 = Bind<Vec::Cast<PromteT, T, 0>, OpCopyIn0>;
-    using ReduceOp0 = Bind<Vec::ReduceMaxOp<PromteT>, Cast0>;
-    using Cast1 = Bind<Vec::Cast<T, PromteT, 1>, ReduceOp0>;
-    using OpCopyOut = Bind<Vec::CopyOut<T>, Placeholder::Out0<T>, Cast1>;
-    using Outputs = Elems<OpCopyOut>;
-    using MemCfg = MemOptCfg<MemLevel::LEVEL_2>;
-    using OpDag = DAGSch<Outputs, void, MemCfg>;
-};
-}  // namespace ReduceMax
+} // namespace ReduceMax
 
 #endif

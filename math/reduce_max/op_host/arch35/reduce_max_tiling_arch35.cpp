@@ -31,9 +31,7 @@ static constexpr int32_t SIZE2 = 2;
 static ge::graphStatus DoTiling(gert::TilingContext* context, ReduceOpInputParam& opInput, ReduceTilingKey& key)
 {
     ge::graphStatus status = ge::GRAPH_FAILED;
-    if (opInput.inputDtype == ge::DT_BF16) {
-        status = Tiling4ReduceOp<ReduceMax::ReduceMaxBf16Dag<half, float>::OpDag>(context, opInput, key);
-    } else if (ge::GetSizeByDataType(opInput.inputDtype) == SIZE8) {
+    if (ge::GetSizeByDataType(opInput.inputDtype) == SIZE8) {
         status = Tiling4ReduceOp<ReduceMax::ReduceMaxDag<int64_t>::OpDag>(context, opInput, key);
     } else if (ge::GetSizeByDataType(opInput.inputDtype) == SIZE4) {
         status = Tiling4ReduceOp<ReduceMax::ReduceMaxDag<float>::OpDag>(context, opInput, key);
