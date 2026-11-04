@@ -11,6 +11,38 @@
 
 set -euo pipefail
 
+# ============================================================
+# SoC 配置
+# ============================================================
+# socVersion -> npuArch（均小写），本文件内置一份配置，
+# 与 gen_ci_cmd.py、gen_ops_soc.py 中的 SOC_TO_ARCH 数据保持一致
+declare -A SOC_TO_ARCH=(
+    ["ascend031"]="dav_3004"
+    ["ascend035"]="dav_3505"
+    ["ascend310b"]="dav_3002"
+    ["ascend310p"]="dav_2002"
+    ["ascend910_93"]="dav_2201"
+    ["ascend950"]="dav_3510"
+    ["ascend350"]="dav_3510"
+    ["ascend910b"]="dav_2201"
+    ["ascend910"]="dav_1001"
+    ["kirinx90"]="dav_3003"
+    ["kirin9030"]="dav_3113"
+    ["mc62"]="dav_5102"
+    ["ascend5162a"]="dav_5162"
+    ["ascend960dt"]="dav_9201"
+    ["ascend960pr"]="dav_9202"
+    ["ascend630"]="dav_5102"
+    ["ascend610lite"]="dav_3102"
+)
+
+# 查询 socVersion 对应的 npuArch（小写），未匹配返回空串，
+# 调用方回退为只按 socVersion 字面值匹配。
+soc_to_npu_arch() {
+    local soc="${1,,}"
+    echo "${SOC_TO_ARCH[${soc}]:-}"
+}
+
 SCRIPT_DIR=$(cd "$(dirname "$0")/../.." && pwd)
 PROJECT_ROOT="${SCRIPT_DIR}"
 PR_FILELIST="${PROJECT_ROOT}/.local_check_filelist.txt"
@@ -106,12 +138,26 @@ op_supports_soc() {
     if [[ "$is_experimental" == "true" ]]; then
         prefixes=("experimental/math" "experimental/conversion" "experimental/random")
     fi
+    local arch
+    arch=$(soc_to_npu_arch "${soc}")
+    local arch_upper=""
+    if [[ -n "${arch}" ]]; then
+        arch_upper="${arch^^}"
+    fi
     for prefix in "${prefixes[@]}"; do
         local def_dir="${PROJECT_ROOT}/${prefix}/${op}/op_host"
         [[ -d "${def_dir}" ]] || continue
         for def_file in "${def_dir}"/*_def.cpp; do
             [[ -f "${def_file}" ]] || continue
             grep -q "AddConfig(\"${soc}\"" "${def_file}" && return 0
+            if [[ -n "${arch_upper}" ]]; then
+                local content=""
+                local arch_pattern="AddConfigByArch[^;]*${arch_upper}"
+                content=$(<"${def_file}")
+                if [[ "${content}" =~ ${arch_pattern} ]]; then
+                    return 0
+                fi
+            fi
         done
     done
     return 1
@@ -181,7 +227,7 @@ LLT/Cannsim Mode Options (single task, default runs all):
 
 Build Parameters:
   --soc=<soc_version>       Target SoC
-                            Supported: ascend910b ascend910_93 ascend950 ascend310p 
+                            Supported: ascend910b ascend910_93 ascend950 ascend310p
                                        ascend910 ascend310b
   -j <num>                  Parallel jobs (default: 16)
   --cann_3rd_lib_path=<path> CANN third party lib path
@@ -326,7 +372,7 @@ parse_args() {
                 ;;
         esac
     done
-    
+
     }
 
 detect_changed_ops() {
@@ -342,20 +388,20 @@ detect_changed_ops() {
         print_ok "Loaded $(wc -l < "${PR_FILELIST}") files"
     else
         local base_ref="master"
-        
+
         {
             git -C "${PROJECT_ROOT}" diff --name-only "${base_ref}...HEAD" 2>/dev/null || true
             git -C "${PROJECT_ROOT}" diff --name-only "HEAD~1...HEAD" 2>/dev/null || true
             git -C "${PROJECT_ROOT}" diff --cached --name-only 2>/dev/null || true
             git -C "${PROJECT_ROOT}" diff --name-only HEAD 2>/dev/null || true
         } | grep -v '^$' | sort -u > "${PR_FILELIST}"
-        
+
         if [[ ! -s "${PR_FILELIST}" ]]; then
             print_warn "No changed files detected (committed, staged, or working)"
             print_info "Use -f/--file-list to manually specify which files to verify"
             return 1
         fi
-        
+
         print_ok "Detected $(wc -l < "${PR_FILELIST}") changed files (committed + staged + working)"
     fi
 
@@ -508,7 +554,7 @@ do_compile_flow() {
     [[ "${SINGLE_MODE}" == "true" ]] && any_mode=true
     [[ "${A5_MODE}" == "true" ]] && any_mode=true
     [[ "${NORMAL_MODE}" == "true" ]] && any_mode=true
-    
+
     if [[ "${any_mode}" == "false" ]]; then
         NORMAL_MODE=true
         EXPERIMENTAL_MODE=true
@@ -532,7 +578,7 @@ do_compile_flow() {
         local cmd_array=(bash build.sh --pkg --soc="${SOC}" -j"${JOBS}")
         [[ -n "${CANN_3RD_LIB_PATH}" ]] && cmd_array+=(--cann_3rd_lib_path="${CANN_3RD_LIB_PATH}")
         print_info "Command: ${cmd_array[*]}"
-        
+
         if "${cmd_array[@]}" 2>&1 | tee "${PROJECT_ROOT}/logs/build_normal.txt"; then
             print_ok "Normal compilation passed"
             record_sub_task "Normal compilation" "PASS" "artifacts/normal/" "logs/build_normal.txt" ""
@@ -564,7 +610,7 @@ do_compile_flow() {
         local cmd_array=(bash build.sh --pkg --jit --soc="${SOC}" -j"${JOBS}")
         [[ -n "${CANN_3RD_LIB_PATH}" ]] && cmd_array+=(--cann_3rd_lib_path="${CANN_3RD_LIB_PATH}")
         print_info "Command: ${cmd_array[*]}"
-        
+
         if "${cmd_array[@]}" 2>&1 | tee "${PROJECT_ROOT}/logs/build_jit.txt"; then
             print_ok "JIT compilation passed"
             local jit_src_pattern="cann-${chip_short}-ops-math_*_linux-*.run"
@@ -615,7 +661,7 @@ do_compile_flow() {
         print_step "2.4" "Single package build"
         local cmd_array=(bash scripts/ci/check_pkg.sh "${PR_FILELIST}" --soc="${SOC}")
         print_info "Command: ${cmd_array[*]}"
-        
+
         if "${cmd_array[@]}" 2>&1 | tee "${PROJECT_ROOT}/logs/build_single.txt"; then
             print_ok "Single package build passed"
             record_sub_task "Single package build" "PASS" "artifacts/single/" "logs/build_single.txt" ""
@@ -632,7 +678,7 @@ do_compile_flow() {
     if [[ "${A5_MODE}" == "true" ]]; then
         print_step "2.5" "A5 compilation"
         local cmd_array=(bash scripts/ci/compile_a5_pkg.sh "${PR_FILELIST}")
-        
+
         if "${cmd_array[@]}" 2>&1 | tee "${PROJECT_ROOT}/logs/build_a5.txt"; then
             print_ok "A5 compilation passed"
             record_sub_task "A5 compilation" "PASS" "artifacts/a5/" "logs/build_a5.txt" ""
@@ -662,9 +708,9 @@ do_compile_flow() {
 # ============================================================
 do_presmoke_a900() {
     local task_ret=0
-    
+
     print_step "3.1" "PreSmoke_A900 Upper: single.tar.gz + check_example.sh"
-    
+
     local single_tgz="${PROJECT_ROOT}/artifacts/single/single.tar.gz"
     if [[ ! -f "${single_tgz}" ]]; then
         print_warn "single.tar.gz not found in artifacts/single/"
@@ -677,7 +723,7 @@ do_presmoke_a900() {
             record_sub_task "PreSmoke_A900 Upper" "FAIL" "artifacts/single/single.tar.gz" "logs/presmoke_a900_upper.txt" "tar -zxf ${single_tgz}"
             if [[ ${task_ret} -ne 1 ]]; then task_ret=1; fi
         fi
-        
+
         local installed_vendors=()
         for single_run in "${PROJECT_ROOT}"/single/cann-ops-math-*_linux-*.run; do
             if [[ -f "${single_run}" ]]; then
@@ -685,7 +731,7 @@ do_presmoke_a900() {
                 installed_vendors+=("${op_name}_math")
             fi
         done
-        
+
         local filtered_ops=$(filter_ops_by_soc "${OPS}" "${SOC}" "false")
         if [[ -n "${OPS}" && -z "${filtered_ops}" ]]; then
             print_warn "Specified operators do not support ${SOC}, skipping PreSmoke_A900 Upper"
@@ -700,10 +746,10 @@ do_presmoke_a900() {
             make_filtered_pr_file "${PR_FILELIST}" "${filtered_ops}" "${filtered_pr}"
             local cmd_array=(bash scripts/ci/check_example.sh "${filtered_pr}" --soc="${SOC}")
             print_info "Command: ${cmd_array[*]}"
-            
+
             "${cmd_array[@]}" 2>&1 | tee "${PROJECT_ROOT}/logs/presmoke_a900_upper.txt"
             local ret=$?
-            
+
             if [[ ${ret} -eq 0 ]]; then
                 print_ok "PreSmoke_A900 Upper passed"
                 record_sub_task "PreSmoke_A900 Upper" "PASS" "artifacts/single/single.tar.gz" "logs/presmoke_a900_upper.txt" ""
@@ -724,9 +770,9 @@ do_presmoke_a900() {
             fi
         done
     fi
-    
+
     print_step "3.2" "PreSmoke_A900 Lower: experimental package + --run_example"
-    
+
     local exp_pkgs=("${PROJECT_ROOT}"/artifacts/experimental/cann-ops-math-experimental_linux-*.run)
     if [[ ${#exp_pkgs[@]} -eq 0 ]] || [[ ! -f "${exp_pkgs[0]}" ]]; then
         print_warn "experimental package not found in artifacts/experimental/"
@@ -735,12 +781,12 @@ do_presmoke_a900() {
     else
         local exp_pkg="${exp_pkgs[0]}"
         print_info "Found experimental package: $(basename ${exp_pkg})"
-        
+
         print_info "Installing experimental package with --quiet..."
         chmod +x "${exp_pkg}"
         "${exp_pkg}" --quiet --force 2>&1 | tee "${PROJECT_ROOT}/logs/presmoke_a900_lower_install.txt"
         local install_ret=$?
-        
+
         if [[ ${install_ret} -ne 0 ]]; then
             print_fail "Failed to install experimental package"
             record_sub_task "PreSmoke_A900 Lower" "FAIL" "artifacts/experimental/" "logs/presmoke_a900_lower_install.txt" "${exp_pkg} --quiet"
@@ -788,7 +834,7 @@ do_presmoke_a900() {
             fi
         fi
     fi
-    
+
     return ${task_ret}
 }
 
@@ -803,7 +849,7 @@ do_presmoke_st() {
         chmod +x "${monitor_pkg}"
         "${monitor_pkg}" --full --install-path="${ASCEND_HOME_PATH}" 2>&1 | tee "${PROJECT_ROOT}/logs/presmoke_st_install.txt"
         local install_ret=$?
-        
+
         if [[ ${install_ret} -eq 0 ]]; then
             print_ok "Package installed"
         else
@@ -813,7 +859,7 @@ do_presmoke_st() {
     else
         print_warn "Package not found in artifacts/normal/: cann-${chip_short}-ops-math_*_linux-*.run"
     fi
-    
+
     if [[ -z "${OPS}" ]]; then
         print_warn "No operators detected"
         if [[ -n "${monitor_pkg:-}" ]] && [[ -f "${monitor_pkg}" ]]; then
@@ -822,18 +868,18 @@ do_presmoke_st() {
         fi
         return 2
     fi
-    
+
     local cmd_array=(bash scripts/ci/ops_st_test.sh --soc_version="${SOC}" --ops="${OPS}" --pr_filelist="${PR_FILELIST}")
     print_info "Command: ${cmd_array[*]}"
-    
+
     "${cmd_array[@]}" 2>&1 | tee "${PROJECT_ROOT}/logs/presmoke_st.txt"
     local ret=$?
-    
+
     if [[ -n "${monitor_pkg:-}" ]] && [[ -f "${monitor_pkg}" ]]; then
         print_info "Uninstalling normal package to restore environment..."
         "${monitor_pkg}" --uninstall --install-path="${ASCEND_HOME_PATH}" 2>&1 | tee "${PROJECT_ROOT}/logs/presmoke_st_uninstall.txt" || print_warn "Normal package uninstall failed"
     fi
-    
+
     if [[ ${ret} -eq 0 ]]; then
         print_ok "PreSmoke_St passed"
         record_sub_task "PreSmoke_St" "PASS" "" "logs/presmoke_st.txt" ""
@@ -847,19 +893,19 @@ do_presmoke_st() {
 
 do_llt_flow() {
     print_header "Step 3: LLT Flow"
-    
+
     if [[ "${SKIP_LLT}" == "true" ]]; then
         print_warn "LLT flow skipped (--skip-llt)"
         return 2
     fi
-    
+
     local any_llt_mode=false
     [[ "${LLT_A900_MODE}" == "true" ]] && any_llt_mode=true
     [[ "${LLT_ST_MODE}" == "true" ]] && any_llt_mode=true
     [[ "${LLT_EXP_UT_MODE}" == "true" ]] && any_llt_mode=true
     [[ "${LLT_KERNEL_UT_MODE}" == "true" ]] && any_llt_mode=true
     [[ "${LLT_STD_UT_MODE}" == "true" ]] && any_llt_mode=true
-    
+
     if [[ "${any_llt_mode}" == "false" ]]; then
         LLT_A900_MODE=true
         LLT_ST_MODE=true
@@ -868,9 +914,9 @@ do_llt_flow() {
         LLT_STD_UT_MODE=true
         print_info "Auto mode: all LLT tasks enabled (default)"
     fi
-    
+
     local llt_ret=0
-    
+
     # --- PreSmoke_A900 ---
     if [[ "${LLT_A900_MODE}" == "true" ]]; then
         do_presmoke_a900
@@ -880,7 +926,7 @@ do_llt_flow() {
         print_warn "PreSmoke_A900 skipped (use --llt-a900 to enable)"
         record_sub_task "PreSmoke_A900" "SKIP" "" "" ""
     fi
-    
+
     # --- PreSmoke_St ---
     if [[ "${LLT_ST_MODE}" == "true" ]]; then
         do_presmoke_st
@@ -890,7 +936,7 @@ do_llt_flow() {
         print_warn "PreSmoke_St skipped (use --llt-st to enable)"
         record_sub_task "PreSmoke_St" "SKIP" "" "" ""
     fi
-    
+
     # --- Experimental UT ---
     if [[ "${LLT_EXP_UT_MODE}" == "true" ]]; then
         print_step "3.4" "Experimental UT"
@@ -921,16 +967,16 @@ do_llt_flow() {
         print_warn "Experimental UT skipped (use --llt-exp-ut to enable)"
         record_sub_task "Experimental UT" "SKIP" "" "" ""
     fi
-    
+
     # --- Kernel UT ---
     if [[ "${LLT_KERNEL_UT_MODE}" == "true" ]]; then
         print_step "3.5" "Kernel UT"
         local cmd_array=(bash scripts/ci/check_kernel_ut.sh "${PR_FILELIST}")
         print_info "Command: ${cmd_array[*]}"
-        
+
         "${cmd_array[@]}" 2>&1 | tee "${PROJECT_ROOT}/logs/ut_kernel.txt"
         local ret=$?
-        
+
         if [[ ${ret} -eq 0 ]]; then
             print_ok "Kernel UT passed"
             record_sub_task "Kernel UT" "PASS" "" "logs/ut_kernel.txt" ""
@@ -943,7 +989,7 @@ do_llt_flow() {
         print_warn "Kernel UT skipped (use --llt-kernel-ut to enable)"
         record_sub_task "Kernel UT" "SKIP" "" "" ""
     fi
-    
+
     # --- Standard UT ---
     if [[ "${LLT_STD_UT_MODE}" == "true" ]]; then
         print_step "3.6" "Standard UT"
@@ -974,13 +1020,13 @@ do_llt_flow() {
         print_warn "Standard UT skipped (use --llt-std-ut to enable)"
         record_sub_task "Standard UT" "SKIP" "" "" ""
     fi
-    
+
     if [[ ${llt_ret} -eq 0 ]]; then
         print_ok "LLT Flow completed (all tasks passed)"
     else
         print_fail "LLT Flow completed with failures"
     fi
-    
+
     return ${llt_ret}
 }
 
@@ -1004,7 +1050,7 @@ do_cannsim_check() {
 
     local ops_arr=(${OPS//,/ })
     local cannsim_ops=()
-    print_info "cannsim requires ascend950 support; operators without AddConfig(\"ascend950\") will be skipped"
+    print_info "cannsim requires ascend950 support; operators without AddConfig(\"ascend950\") or AddConfigByArch(DAV_3510) will be skipped"
     for op in "${ops_arr[@]}"; do
         if op_supports_soc "$op" "ascend950" "false" || \
            op_supports_soc "$op" "ascend950" "true"; then
@@ -1021,7 +1067,7 @@ do_cannsim_check() {
         print_step "4" "Running cannsim: ${op}"
         local cmd_array=(bash scripts/ci/run_cannsim_example.sh "${op}" -j "${JOBS}")
         print_info "Command: ${cmd_array[*]}"
-        
+
         if "${cmd_array[@]}" 2>&1 | tee "${PROJECT_ROOT}/logs/cannsim_${op}.txt"; then
             print_ok "Cannsim passed: ${op}"
         else
@@ -1143,13 +1189,13 @@ print_summary() {
 # ============================================================
 main() {
     parse_args "$@"
-    
+
     # 设置 CI 脚本依赖的环境变量
     export REPOSITORY_NAME="ops-math"
     export WORKSPACE="${PROJECT_ROOT}"
     export CANN_3RD_LIB_PATH="${CANN_3RD_LIB_PATH}"
     export ASCEND_3RD_LIB_PATH="${ASCEND_3RD_LIB_PATH}"
-    
+
     # 全局单任务互斥检测
     local compile_task=false
     local llt_task=false
@@ -1185,12 +1231,12 @@ main() {
         SKIP_LLT=true
         print_info "Single-task mode: cannsim only, compile and LLT auto-skipped"
     fi
-    
+
     cd "${PROJECT_ROOT}"
     mkdir -p "${PROJECT_ROOT}/logs"
-    
+
     local TOTAL_START=$(date +%s)
-    
+
     print_header "ops-math Local Check"
     echo -e "  Project:   ${PROJECT_ROOT}"
     echo -e "  SoC:       ${SOC:-auto-detect}"
@@ -1200,17 +1246,17 @@ main() {
     echo -e "  Mode:      JIT=${JIT_MODE} Exp=${EXPERIMENTAL_MODE} Single=${SINGLE_MODE} A5=${A5_MODE} Normal=${NORMAL_MODE}"
     echo -e "  LLT:       A900=${LLT_A900_MODE} St=${LLT_ST_MODE} ExpUT=${LLT_EXP_UT_MODE} KernelUT=${LLT_KERNEL_UT_MODE} StdUT=${LLT_STD_UT_MODE} Cannsim=${CANNSIM_MODE}"
     echo -e "  Logs:      ${PROJECT_ROOT}/logs/"
-    
+
     check_environment || exit 1
     detect_changed_ops || { print_fail "Failed to detect changed files"; exit 1; }
-    
+
     # 主流程
     run_check "Compile Flow"   do_compile_flow
     run_check "LLT Flow"       do_llt_flow
-    
+
     # 仿真测试
     run_check "Cannsim Tests"  do_cannsim_check
-    
+
     print_summary "${TOTAL_START}"
 }
 

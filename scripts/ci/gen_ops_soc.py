@@ -9,9 +9,35 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # ----------------------------------------------------------------------------
+import logging
 import os
 import re
-import logging
+
+# socVersion -> npuArch（均小写），与 gen_ci_cmd.py、local_check.sh 中的配置保持一致
+SOC_TO_ARCH = {
+    "ascend031": "dav_3004",
+    "ascend035": "dav_3505",
+    "ascend310b": "dav_3002",
+    "ascend310p": "dav_2002",
+    "ascend910_93": "dav_2201",
+    "ascend950": "dav_3510",
+    "ascend350": "dav_3510",
+    "ascend910b": "dav_2201",
+    "ascend910": "dav_1001",
+    "kirinx90": "dav_3003",
+    "kirin9030": "dav_3113",
+    "mc62": "dav_5102",
+    "ascend5162a": "dav_5162",
+    "ascend960dt": "dav_9201",
+    "ascend960pr": "dav_9202",
+    "ascend630": "dav_5102",
+    "ascend610lite": "dav_3102",
+}
+
+# npuArch（大写）-> socVersion 列表，由 SOC_TO_ARCH 反向推导，保持 socVersion 顺序
+ARCH_TO_SOC_NAMES = {}
+for _soc, _arch in SOC_TO_ARCH.items():
+    ARCH_TO_SOC_NAMES.setdefault(_arch.upper(), []).append(_soc)
 
 
 def should_skip_directory(dir_name):
@@ -19,8 +45,15 @@ def should_skip_directory(dir_name):
     判断是否应该跳过该目录
     """
     skip_dirs = {
-        'build', 'cmake', 'common', 'docs', 'examples',
-        'experimental', 'scripts', 'tests', 'third_party'
+        "build",
+        "cmake",
+        "common",
+        "docs",
+        "examples",
+        "experimental",
+        "scripts",
+        "tests",
+        "third_party",
     }
     return dir_name in skip_dirs
 
@@ -29,31 +62,19 @@ def parse_foreach_config(config_str):
     """
     解析 FOREACH_OPDEF 中的配置字符串
     """
-    config_mapping = {
-        'A2': 'ascend910b',
-        '910_93': 'ascend910_93',
-        'A5': 'ascend950',
-        '910B': 'ascend910b',
-        '910B_93': 'ascend910_93',
-        '910B_95': 'ascend950',
-        '950': 'ascend950',
-        '910': 'ascend910',
-        '910_55': 'ascend910_55',
-    }
-
     found_configs = []
     config_str_upper = config_str.upper()
 
     priority_checks = [
-        ('A2', 'ascend910b'),
-        ('910_93', 'ascend910_93'),
-        ('A5', 'ascend950'),
-        ('910_55', 'ascend910_55'),
-        ('910B', 'ascend910b'),
-        ('910B_93', 'ascend910_93'),
-        ('910B_95', 'ascend950'),
-        ('950', 'ascend950'),
-        ('910', 'ascend910'),
+        ("A2", "ascend910b"),
+        ("910_93", "ascend910_93"),
+        ("A5", "ascend950"),
+        ("910_55", "ascend910_55"),
+        ("910B", "ascend910b"),
+        ("910B_93", "ascend910_93"),
+        ("910B_95", "ascend950"),
+        ("950", "ascend950"),
+        ("910", "ascend910"),
     ]
 
     for key, value in priority_checks:
@@ -70,7 +91,7 @@ def extract_static_map_configs(content):
     configs = []
 
     map_patterns = [
-        r'static\s+const\s+std::map<std::string[^>]*>\s+\w+\s*=\s*\{([^}]+)\}',
+        r"static\s+const\s+std::map<std::string[^>]*>\s+\w+\s*=\s*\{([^}]+)\}",
         r'\{"([a-zA-Z0-9_]+)"[^}]*\}',
     ]
 
@@ -113,13 +134,13 @@ def extract_foreach_opdef_configs(content):
     """
     configs = []
 
-    pattern1 = r'FOREACH_OPDEF\(([^,]+),'
+    pattern1 = r"FOREACH_OPDEF\(([^,]+),"
     matches1 = re.findall(pattern1, content)
     for match in matches1:
         config_str = match.strip()
         configs.extend(parse_foreach_config(config_str))
 
-    pattern2 = r'FOREACH_OPDEF_END_([^(]+)\('
+    pattern2 = r"FOREACH_OPDEF_END_([^(]+)\("
     matches2 = re.findall(pattern2, content)
     for match in matches2:
         config_str = match.strip()
@@ -149,19 +170,37 @@ def extract_traditional_aicore_configs(content):
     return configs
 
 
+def extract_add_config_by_arch_configs(content):
+    """
+    提取 ArchConfigHelper::AddConfigByArch 中 NpuArch 对应的 SoC 名称
+    """
+    configs = []
+    for match in re.finditer(r"AddConfigByArch", content):
+        call_content = content[match.end() :].split(";", 1)[0]
+        for arch in re.findall(r"\b(DAV_[0-9A-Za-z_]+)\b", call_content):
+            for soc in ARCH_TO_SOC_NAMES.get(arch, []):
+                if soc not in configs:
+                    configs.append(soc)
+    return configs
+
+
 def extract_ai_core_configs(file_path):
     """
     从 _def.cpp 文件中提取 AICore 配置名称
     """
     configs = []
     try:
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, "r", encoding="utf-8") as f:
             content = f.read()
 
         # 方法1：匹配传统的 AICore 配置
         traditional_configs = extract_traditional_aicore_configs(content)
         if traditional_configs:
             configs.extend(traditional_configs)
+
+        arch_configs = extract_add_config_by_arch_configs(content)
+        if arch_configs:
+            configs.extend(arch_configs)
 
         # 方法2：匹配 FOREACH_OPDEF 相关格式
         foreach_configs = extract_foreach_opdef_configs(content)
@@ -194,15 +233,13 @@ def split_list_by_num_groups(lst, num_groups):
     last = 0.0
     for _ in range(num_groups):
         val = int(round(last + avg))
-        out.append(lst[int(last):val])
+        out.append(lst[int(last) : val])
         last = val
     return out
 
+
 # 耗时较长的单独分组
-GROUPING_CONFIGS = {
-    "default": {},
-    "ascend950": {}
-}
+GROUPING_CONFIGS = {"default": {}, "ascend950": {}}
 
 
 def grouped(repository_path, soc, group_size):
@@ -219,9 +256,9 @@ def grouped(repository_path, soc, group_size):
         dirs[:] = [d for d in dirs if not should_skip_directory(d)]
 
         for file in files:
-            if file.endswith('_def.cpp'):
+            if file.endswith("_def.cpp"):
                 full_path = os.path.join(root, file)
-                op_name = file.replace('_def.cpp', '')
+                op_name = file.replace("_def.cpp", "")
 
                 # 提取 AICore 配置
                 ai_core_configs = extract_ai_core_configs(full_path)
@@ -238,7 +275,7 @@ def grouped(repository_path, soc, group_size):
                             break
                     if not matched:
                         remain.append(op_name)
-    
+
     filtered_result = []
     len_size = len(result)
     for i in range(len_size):
@@ -248,7 +285,10 @@ def grouped(repository_path, soc, group_size):
             filtered_result.append(result[i])
 
     remain = sorted(remain)
-    remain = split_list_by_num_groups(remain, group_size - len_size + zero_tensor_num if group_size > 8 else group_size)
+    remain = split_list_by_num_groups(
+        remain,
+        group_size - len_size + zero_tensor_num if group_size > 8 else group_size,
+    )
     result.extend(remain)
     return result
 

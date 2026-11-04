@@ -55,6 +55,33 @@ import sys
 # ============================================================
 # 配置常量
 # ============================================================
+# socVersion -> npuArch（均小写），与 cmake/soc_arch_variables.cmake 保持一致
+SOC_TO_ARCH = {
+    "ascend031": "dav_3004",
+    "ascend035": "dav_3505",
+    "ascend310b": "dav_3002",
+    "ascend310p": "dav_2002",
+    "ascend910_93": "dav_2201",
+    "ascend950": "dav_3510",
+    "ascend350": "dav_3510",
+    "ascend910b": "dav_2201",
+    "ascend910": "dav_1001",
+    "kirinx90": "dav_3003",
+    "kirin9030": "dav_3113",
+    "mc62": "dav_5102",
+    "ascend5162a": "dav_5162",
+    "ascend960dt": "dav_9201",
+    "ascend960pr": "dav_9202",
+    "ascend630": "dav_5102",
+    "ascend610lite": "dav_3102",
+}
+
+
+def soc_to_arch(soc):
+    """按 socVersion 查询 npuArch（小写），未匹配返回空串"""
+    return SOC_TO_ARCH.get(soc.lower(), "")
+
+
 DEFAULT_SOC = "ascend910b"
 DEFAULT_EXP_OP = "acos"
 DEFAULT_NORMAL_OP = "is_finite"
@@ -81,8 +108,10 @@ DEFAULT_FILTER_SOC = "ascend910b"
 def check_op_supports_soc(op_name, soc, is_experimental=False):
     """检查算子是否支持指定的SOC
 
-    检查方法：查找算子的 op_host/*def.cpp 文件，
-    检查是否包含 AddConfig("{soc}") 字符串
+    检查方法：查找算子的 op_host/*def.cpp 文件，以下任一形式即视为支持：
+    - AddConfig("{soc}")：按 socVersion 直接注册
+    - AddConfigByArch(..., Ops::Base::DAV_xxx ...)：按 npuArch 注册，
+      通过本文件 SOC_TO_ARCH 的 socVersion -> npuArch 映射换算
 
     Args:
         op_name: 算子名称
@@ -100,6 +129,13 @@ def check_op_supports_soc(op_name, soc, is_experimental=False):
             "experimental/random/",
         ]
 
+    arch = soc_to_arch(soc)
+    arch_pattern = None
+    if arch:
+        arch_pattern = re.compile(
+            r"AddConfigByArch\s*\([^;]*\b%s\b" % re.escape(arch.upper()), re.IGNORECASE
+        )
+
     for prefix in prefixes:
         op_host_dir = os.path.join(prefix, op_name, "op_host")
         if not os.path.isdir(op_host_dir):
@@ -112,6 +148,8 @@ def check_op_supports_soc(op_name, soc, is_experimental=False):
                     with open(def_file, "r", encoding="utf-8") as f:
                         content = f.read()
                         if f'AddConfig("{soc}"' in content:
+                            return True
+                        if arch_pattern and arch_pattern.search(content):
                             return True
                 except (IOError, OSError):
                     # 文件读取失败，继续检查下一个文件

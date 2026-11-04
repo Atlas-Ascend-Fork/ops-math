@@ -843,16 +843,19 @@ macro(add_all_modules_sources)
     target_sources(${OPHOST_NAME}_infer_obj PRIVATE ${OPINFER_SRCS})
   endif()
 
-  # 添加tiling文件：NPU_ARCH 与 TILING_DIR 按位置一一配对；兼容旧 COMPUTE_UNIT 参数，
-  # 逐项转换为 npuArch（字符串拼接保留空元素位置，避免 list(APPEND) 丢弃空元素导致错位），
-  # 当前构建芯片同样转换为 npuArch 后统一按 arch 匹配
+  # 添加tiling文件：NPU_ARCH 与 TILING_DIR 按位置一一配对；兼容旧 COMPUTE_UNIT 参数。
+  # 允许 npuArch 与 socVersion 混合书写：优先按当前构建芯片的 npuArch 匹配，
+  # 未命中（声明列表里全是 socVersion）时回退到按 socVersion 字面值匹配。
   # 同一芯片型号允许出现多次，此时会收集所有配对的 tiling 目录（一个芯片型号可配置多个目录）
   if(MODULE_NPU_ARCH)
-    get_npu_arch_by_soc_version("${ASCEND_COMPUTE_UNIT}" _cur_key)
     set(_cur_keys "${MODULE_NPU_ARCH}")
   else()
-    set(_cur_key "${ASCEND_COMPUTE_UNIT}")
     set(_cur_keys "${MODULE_COMPUTE_UNIT}")
+  endif()
+  get_npu_arch_by_soc_version("${ASCEND_COMPUTE_UNIT}" _cur_key)
+  list(FIND _cur_keys "${_cur_key}" _cur_key_index)
+  if(_cur_key_index EQUAL -1)
+    set(_cur_key "${ASCEND_COMPUTE_UNIT}")
   endif()
 
   find_values_by_key("${_cur_keys}" "${MODULE_TILING_DIR}" "${_cur_key}" TILING_SOC_DIR)
