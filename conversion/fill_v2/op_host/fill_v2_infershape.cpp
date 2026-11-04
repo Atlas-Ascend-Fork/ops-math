@@ -40,10 +40,17 @@ static ge::graphStatus InferShape4FillV2(gert::InferShapeContext* context)
     auto out_shape = context->GetOutputShape(0);
     OP_CHECK_NULL_WITH_CONTEXT(context, out_shape);
 
+    auto dimsShape = context->GetInputShape(INPUT_INDEX_DIMS);
+    // dims为空list（shape=[0]）时输出是0维标量，与dims是否为常量无关
+    if (dimsShape != nullptr && dimsShape->GetDimNum() == 1 && dimsShape->GetDim(0) == 0) {
+        out_shape->SetDimNum(0);
+        OP_LOGI(context->GetNodeName(), "InferShape4FillV2: dims is empty, output is a 0-D scalar");
+        return GRAPH_SUCCESS;
+    }
+
     const gert::Tensor* constTensor = context->GetInputTensor(INPUT_INDEX_DIMS);
-    if (constTensor == nullptr || constTensor->GetData<int64_t>() == nullptr || constTensor->GetShapeSize() <= 0) {
+    if (constTensor == nullptr || constTensor->GetData<int64_t>() == nullptr || constTensor->GetShapeSize() < 0) {
         // dims不是常量，无法获取具体值
-        auto dimsShape = context->GetInputShape(INPUT_INDEX_DIMS);
         if (dimsShape == nullptr) {
             out_shape->SetDimNum(0);
             out_shape->AppendDim(-2);

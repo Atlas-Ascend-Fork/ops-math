@@ -69,6 +69,38 @@ TEST_F(FillV2Infershape, fill_v2_infershape_scalar_dims_test)
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
 
+TEST_F(FillV2Infershape, fill_v2_infershape_empty_dims_test)
+{
+    gert::StorageShape dimsShape = {{0}, {0}};
+    gert::StorageShape yShape = {{}, {}};
+
+    std::vector<int32_t> dims_values;
+    gert::InfershapeContextPara::TensorDescription dims(dimsShape, ge::DT_INT32, ge::FORMAT_ND, true,
+                                                        dims_values.data());
+    gert::InfershapeContextPara::TensorDescription y(yShape, ge::DT_FLOAT, ge::FORMAT_ND);
+
+    gert::InfershapeContextPara infershapeContextPara(
+        "FillV2", {dims}, {y},
+        {gert::InfershapeContextPara::OpAttr("value", Ops::Math::AnyValue::CreateFrom<float>(1.5))});
+    std::vector<std::vector<int64_t>> expectOutputShape = {{}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+TEST_F(FillV2Infershape, fill_v2_infershape_empty_dims_non_const_test)
+{
+    gert::StorageShape dimsShape = {{0}, {0}};
+    gert::StorageShape yShape = {{}, {}};
+
+    gert::InfershapeContextPara::TensorDescription dims(dimsShape, ge::DT_INT32, ge::FORMAT_ND);
+    gert::InfershapeContextPara::TensorDescription y(yShape, ge::DT_FLOAT, ge::FORMAT_ND);
+
+    gert::InfershapeContextPara infershapeContextPara(
+        "FillV2", {dims}, {y},
+        {gert::InfershapeContextPara::OpAttr("value", Ops::Math::AnyValue::CreateFrom<float>(1.5))});
+    std::vector<std::vector<int64_t>> expectOutputShape = {{}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
 TEST_F(FillV2Infershape, fill_v2_infershape_null_dims_test)
 {
     gert::StorageShape dimsShape = {{1}, {1}};
