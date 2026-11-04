@@ -75,7 +75,7 @@ private:
         if ((tilingDataPtr_->input0Strides[tilingDataPtr_->ubSplitAxis] != 0) ||
             (ubLoopIdx <= 1 ||
              (AscendC::GetBlockIdx() * tilingDataPtr_->blockFormer + ubLoopIdx) % tilingDataPtr_->ubOuter <= 1)) {
-            if (tilingDataPtr_->shapeLen <= Ops::Base::NDDMA_MAX_DIMS) {
+            if (tilingDataPtr_->shapeLen - tilingDataPtr_->ubSplitAxis <= Ops::Base::NDDMA_MAX_DIMS) {
                 Ops::Base::BroadcastNddmaWithoutLoop(inputGmX_, bufferInX_, tilingDataPtr_->outputDims,
                                                      tilingDataPtr_->outputStrides, tilingDataPtr_->input0Strides,
                                                      axesIndices, tilingDataPtr_->ubSplitAxis, tilingDataPtr_->shapeLen,
@@ -97,7 +97,7 @@ private:
         if ((tilingDataPtr_->input1Strides[tilingDataPtr_->ubSplitAxis] != 0) ||
             (ubLoopIdx <= 1 ||
              (AscendC::GetBlockIdx() * tilingDataPtr_->blockFormer + ubLoopIdx) % tilingDataPtr_->ubOuter <= 1)) {
-            if (tilingDataPtr_->shapeLen <= Ops::Base::NDDMA_MAX_DIMS) {
+            if (tilingDataPtr_->shapeLen - tilingDataPtr_->ubSplitAxis <= Ops::Base::NDDMA_MAX_DIMS) {
                 Ops::Base::BroadcastNddmaWithoutLoop(inputGmBias_, bufferInBias_, tilingDataPtr_->outputDims,
                                                      tilingDataPtr_->outputStrides, tilingDataPtr_->input1Strides,
                                                      axesIndices, tilingDataPtr_->ubSplitAxis, tilingDataPtr_->shapeLen,
