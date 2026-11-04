@@ -78,7 +78,7 @@ aclnnStatus aclnnIsPosInf(
       <td>Input</td>
       <td>Input tensor, self in the formula.</td>
       <td>-</td>
-      <td>FLOAT, FLOAT16, DOUBLE, BFLOAT16</td>
+      <td>FLOAT, FLOAT16, BFLOAT16, INT32, INT64, INT16, INT8, UINT8, BOOL</td>
       <td>ND</td>
       <td>0-8</td>
       <td>√</td>
