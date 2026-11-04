@@ -34,6 +34,8 @@ __spec__ = {
     "reduce_std_with_mean": "ReduceStdWithMeanTestSpec",
     # [FR-15] 显式注册 aclnn 通路（aclnnStdMeanCorrection 经 L0 调用本算子）
     "aclnnStdMeanCorrection": "AclnnStdMeanCorrectionTestSpec",
+    # aclnnBatchNormStats 经 L0 调用本算子（ReduceVar 求 var，再 Add eps + Pow）
+    "aclnnBatchNormStats": "AclnnBatchNormStatsTestSpec",
 }
 
 
@@ -356,5 +358,69 @@ class AclnnStdMeanCorrectionTestSpec:
                 self, dim=d, correction=_impl.correction, keepdim=_impl.keepdim
             )
             return [std, mean]
+
+    third_party = {"torch": ThirdPartyImpl}
+
+
+class AclnnBatchNormStatsTestSpec:
+    """aclnnBatchNormStats aclnn 通路参考实现。
+
+    签名按 aclnnBatchNormStatsGetWorkspaceSize：
+      (input, eps, mean, invstd) → (mean, invstd)
+    其中：
+      mean   = mean(input)  沿除 channel(dim=1) 外的所有轴
+      invstd = 1 / sqrt(var(input) + eps)，var 为总体方差（correction=0）
+    """
+
+    def golden(input, eps, mean=None, invstd=None, **kwargs):
+        """aclnn golden（入参为 torch.Tensor，mean/invstd 为输出槽，golden 忽略）。
+
+        混合精度策略（与 [FR-16] 一致，对框架 Promote 幂等）：
+        - 输入 fp16/bf16 → 升 fp32 计算（本算子内部亦按 fp32 计算）；
+        - 输入 fp32/fp64 → 保持原精度：cross_check 下框架已按 DTYPE_PROMOTE_MAP
+          升一档喂入（fp32→fp64），golden 不二次干预；close 等模式下进入的
+          即原始 dtype；
+        - 输出不做回写转换：close 模式下即接口输出 dtype fp32；cross_check 下
+          保持 promote 后的计算精度（fp64），比对层统一 promote。
+        """
+        if input.dtype in (torch.float16, torch.bfloat16):
+            input = input.to(torch.float32)
+        dims = [d for d in range(input.dim()) if d != 1]
+
+        var, mean_out = torch.var_mean(input, dim=dims, correction=0)
+        invstd_out = 1.0 / torch.sqrt(var + float(eps))
+        return [mean_out, invstd_out]
+
+    tolerance = {
+        "float32": {"standard": "cross_check", "level": "L1"},
+        "float16": {"standard": "cross_check", "level": "L1"},
+        "bfloat16": {"standard": "cross_check", "level": "L1"},
+    }
+
+    class ThirdPartyImpl:
+        """三方标杆实现：与 NPU 实现同构的混合精度路径，用于 cross_check 对照。
+
+        本算子输出契约固定 fp32、内部按 fp32 计算，故标杆亦将输入升 fp32 计算、
+        输出 fp32（而非输入原生 dtype）——否则标杆会携带被测实现不会有的输出
+        舍入误差，使比值判据被人为放松。fp32 输入时与原生 dtype 重合。
+        注意：比值判据要求标杆与 golden 的计算实现不同（XPU/GPU server 天然
+        满足；若三方端与 golden 同为 CPU torch，b≡g 会使判据退化）。
+
+        参数绑定：attrs（eps）→ __init__；输入张量与输出槽 → __call__ 按名绑定
+        （TTK XPU 服务端按名绑定，input 须为真实形参，实例槽改用 _impl；
+        mean/invstd 为输出槽，三方侧无输出张量，忽略）。
+        cross_check 声明而无三方输出时 TTK 判 GOLDEN_FAILURE，故须注册。
+        """
+
+        def __init__(self, *, eps=None, **kwargs):
+            self.eps = eps
+
+        def __call__(_impl, input, mean=None, invstd=None, **kwargs):
+            del mean, invstd
+            x_t = input.to(torch.float32)
+            dims = [d for d in range(x_t.dim()) if d != 1]
+            var, mean_out = torch.var_mean(x_t, dim=dims, correction=0)
+            invstd_out = 1.0 / torch.sqrt(var + float(_impl.eps))
+            return [mean_out, invstd_out]
 
     third_party = {"torch": ThirdPartyImpl}
