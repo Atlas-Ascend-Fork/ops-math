@@ -226,7 +226,7 @@ aclnnStatus aclnnInplaceCumprod(
     <tr>
       <td>ACLNN_ERR_PARAM_NULLPTR</td>
       <td>161001</td>
-      <td>The input and dim are null pointers.</td>
+      <td>The input, dim, or out is a null pointer.</td>
     </tr>
     <tr>
       <td rowspan="3">ACLNN_ERR_PARAM_INVALID</td>

@@ -37,10 +37,12 @@ static constexpr int DIM_NUM_0 = 0;
 static constexpr int DIM_NUM_1 = 1;
 static constexpr size_t SFDA_DIM0_SIZE = 3;
 
-static inline bool CheckNotNull(const aclTensor* input, const aclScalar* inputDim, const uint64_t* workspaceSize)
+static inline bool CheckNotNull(const aclTensor* input, const aclScalar* inputDim, const aclTensor* out,
+                                const uint64_t* workspaceSize)
 {
     OP_CHECK_NULL(input, return false);
     OP_CHECK_NULL(inputDim, return false);
+    OP_CHECK_NULL(out, return false);
     if (workspaceSize == nullptr) {
         return false;
     }
@@ -75,7 +77,7 @@ static aclnnStatus CheckParams(const aclTensor* input, const aclTensor* out, con
                                uint64_t* workspaceSize)
 {
     // 1. 检查参数是否为空指针
-    CHECK_RET(CheckNotNull(input, inputDim, workspaceSize), ACLNN_ERR_PARAM_NULLPTR);
+    CHECK_RET(CheckNotNull(input, inputDim, out, workspaceSize), ACLNN_ERR_PARAM_NULLPTR);
     // 2. 检查参数的数据类型是否符合预期
     CHECK_RET(CheckDtypeValid(input, out, inputDim), ACLNN_ERR_PARAM_INVALID);
     // 3. 检查输入tensor的shape

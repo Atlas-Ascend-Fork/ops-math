@@ -44,3 +44,17 @@ TEST_F(l2_cumprod_test, l2_cumprod_abnormal_self_nullptr)
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
     EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_NULLPTR);
 }
+
+TEST_F(l2_cumprod_test, l2_cumprod_abnormal_out_nullptr)
+{
+    auto inputDesc = TensorDesc({2, 2}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto dimDesc = ScalarDesc(static_cast<int32_t>(1));
+    uint64_t workspaceSize = 0;
+
+    auto undefinedDtypeUt = OP_API_UT(aclnnCumprod, INPUT(inputDesc, dimDesc, ACL_DT_UNDEFINED),
+                                      OUTPUT((aclTensor*)nullptr));
+    EXPECT_EQ(undefinedDtypeUt.TestGetWorkspaceSize(&workspaceSize), ACLNN_ERR_PARAM_NULLPTR);
+
+    auto explicitDtypeUt = OP_API_UT(aclnnCumprod, INPUT(inputDesc, dimDesc, ACL_FLOAT), OUTPUT((aclTensor*)nullptr));
+    EXPECT_EQ(explicitDtypeUt.TestGetWorkspaceSize(&workspaceSize), ACLNN_ERR_PARAM_NULLPTR);
+}

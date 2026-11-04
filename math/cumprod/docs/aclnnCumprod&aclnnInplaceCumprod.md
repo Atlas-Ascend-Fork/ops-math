@@ -224,7 +224,7 @@ aclnnStatus aclnnInplaceCumprod(
     <tr>
       <td>ACLNN_ERR_PARAM_NULLPTR</td>
       <td>161001</td>
-      <td>传入的input、dim是空指针。</td>
+      <td>传入的input、dim、out是空指针。</td>
     </tr>
     <tr>
       <td rowspan="3">ACLNN_ERR_PARAM_INVALID</td>
