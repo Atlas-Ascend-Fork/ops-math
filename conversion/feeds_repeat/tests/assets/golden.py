@@ -64,7 +64,9 @@ def _compute(feeds, feeds_repeat_times, output_feeds_size):
     n = feeds_t.shape[0]
     elem_row_shape = feeds_t.shape[1:]
 
-    y_t = torch.zeros(output_feeds_size, *elem_row_shape, dtype=feeds_t.dtype)
+    y_t = torch.zeros(
+        output_feeds_size, *elem_row_shape, dtype=feeds_t.dtype, device=feeds_t.device
+    )
 
     y_start = 0
     for i in range(n):
@@ -108,7 +110,9 @@ class _TorchFeedsRepeat:
         if sum(repeat_list) == 0:
             repeated = feeds.new_empty((0,) + tuple(feeds.shape[1:]))
         else:
-            repeats = torch.tensor(repeat_list, dtype=torch.int64)
+            # repeats 须跟随 feeds 设备：xpu/cuda 端点执行时 CPU repeats 会导致
+            # repeat_interleave 内部 index_select 设备不匹配（Server 500 / Golden: Error）
+            repeats = torch.tensor(repeat_list, dtype=torch.int64, device=feeds.device)
             repeated = torch.repeat_interleave(feeds, repeats, dim=0)
 
         elem_row_shape = feeds.shape[1:]
