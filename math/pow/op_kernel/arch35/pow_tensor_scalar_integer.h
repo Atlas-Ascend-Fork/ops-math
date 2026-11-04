@@ -15,8 +15,6 @@
 #ifndef ASCENDC_POW_POWS_INTEGER_H_
 #define ASCENDC_POW_POWS_INTEGER_H_
 
-#include "vf/pow_tensor_scalar_vf.h"
-
 namespace Pow {
 using namespace AscendC;
 template <typename T1, typename T2>
@@ -196,9 +194,79 @@ private:
     {
         // 设置控制寄存器的第60位为0，开启非饱和模式
         SetCtrlSpr<SAT_POS, SAT_POS>(0);
-        __ubuf__ T1* srcAddr = (__ubuf__ T1*)srcTensor.GetPhyAddr();
-        __ubuf__ T1* dstAddr = (__ubuf__ T1*)dstTensor.GetPhyAddr();
-        asc_vf_call<PowScalarIntSquareVF<T1>>(dstAddr, srcAddr, dataLength);
+        __VEC_SCOPE__
+        {
+            if constexpr (IsSameType<T1, int32_t>::value || IsSameType<T1, int16_t>::value) {
+                Reg::RegTensor<T1> vreg0;
+                Reg::RegTensor<T1> vreg1;
+                Reg::MaskReg preg0;
+                uint32_t size = dataLength;
+                uint16_t vfLoopNum = (dataLength + (VECTOR_REG_WIDTH / sizeof(T1)) - 1) /
+                                     (VECTOR_REG_WIDTH / sizeof(T1));
+                __ubuf__ T1* bufferIn0Addr = (__ubuf__ T1*)srcTensor.GetPhyAddr();
+                __ubuf__ T1* bufferOut0Addr = (__ubuf__ T1*)dstTensor.GetPhyAddr();
+                for (uint16_t i = 0; i < vfLoopNum; i++) {
+                    preg0 = Reg::UpdateMask<T1>(size);
+                    Reg::LoadAlign<T1, Reg::LoadDist::DIST_NORM>(vreg0,
+                                                                 bufferIn0Addr + i * (VECTOR_REG_WIDTH / sizeof(T1)));
+                    Reg::Mul<T1, Reg::MaskMergeMode::ZEROING>(vreg1, vreg0, vreg0, preg0);
+                    Reg::StoreAlign<T1, Reg::StoreDist::DIST_NORM_B32>(
+                        bufferOut0Addr + i * (VECTOR_REG_WIDTH / sizeof(T1)), vreg1, preg0);
+                }
+            } else if constexpr (IsSameType<T1, uint8_t>::value) {
+                Reg::RegTensor<T1> vreg0;
+                Reg::RegTensor<uint16_t> scalar0;
+                Reg::RegTensor<uint16_t> vreg1;
+                Reg::RegTensor<uint16_t> vreg2;
+                Reg::RegTensor<uint16_t> vreg3;
+                Reg::RegTensor<T1> vreg4;
+                Reg::MaskReg preg0;
+                uint32_t size = dataLength;
+                uint16_t vfLoopNum = (dataLength + (VECTOR_REG_WIDTH / sizeof(uint16_t)) - 1) /
+                                     (VECTOR_REG_WIDTH / sizeof(uint16_t));
+                __ubuf__ T1* bufferIn0Addr = (__ubuf__ T1*)srcTensor.GetPhyAddr();
+                __ubuf__ T1* bufferOut0Addr = (__ubuf__ T1*)dstTensor.GetPhyAddr();
+                Reg::Duplicate(scalar0, uint16_t(255));
+                for (uint16_t i = 0; i < vfLoopNum; i++) {
+                    preg0 = Reg::UpdateMask<uint16_t>(size);
+                    Reg::LoadAlign<T1, Reg::LoadDist::DIST_UNPACK_B8>(
+                        vreg0, bufferIn0Addr + i * (VECTOR_REG_WIDTH / sizeof(uint16_t)));
+                    Reg::Cast<uint16_t, T1, castTrait0>(vreg1, vreg0, preg0);
+                    Reg::Mul<uint16_t, Reg::MaskMergeMode::ZEROING>(vreg2, vreg1, vreg1, preg0);
+                    Reg::And<uint16_t, Reg::MaskMergeMode::ZEROING>(vreg3, vreg2, scalar0, preg0);
+                    Reg::Cast<T1, uint16_t, castTrait1>(vreg4, vreg3, preg0);
+                    Reg::StoreAlign<T1, Reg::StoreDist::DIST_PACK_B16>(
+                        bufferOut0Addr + i * (VECTOR_REG_WIDTH / sizeof(uint16_t)), vreg4, preg0);
+                }
+            } else {
+                Reg::RegTensor<T1> vreg0;
+                Reg::RegTensor<int16_t> scalar0;
+                Reg::RegTensor<int16_t> vreg1;
+                Reg::RegTensor<int16_t> vreg2;
+                Reg::RegTensor<int16_t> vreg3;
+                Reg::RegTensor<half> vreg4;
+                Reg::RegTensor<T1> vreg5;
+                Reg::MaskReg preg0;
+                uint32_t size = dataLength;
+                uint16_t vfLoopNum = (dataLength + (VECTOR_REG_WIDTH / sizeof(int16_t)) - 1) /
+                                     (VECTOR_REG_WIDTH / sizeof(int16_t));
+                __ubuf__ T1* bufferIn0Addr = (__ubuf__ T1*)srcTensor.GetPhyAddr();
+                __ubuf__ T1* bufferOut0Addr = (__ubuf__ T1*)dstTensor.GetPhyAddr();
+                Reg::Duplicate(scalar0, int16_t(255));
+                for (uint16_t i = 0; i < vfLoopNum; i++) {
+                    preg0 = Reg::UpdateMask<int16_t>(size);
+                    Reg::LoadAlign<T1, Reg::LoadDist::DIST_UNPACK_B8>(
+                        vreg0, bufferIn0Addr + i * (VECTOR_REG_WIDTH / sizeof(int16_t)));
+                    Reg::Cast<int16_t, T1, castTrait0>(vreg1, vreg0, preg0);
+                    Reg::Mul<int16_t, Reg::MaskMergeMode::ZEROING>(vreg2, vreg1, vreg1, preg0);
+                    Reg::And<int16_t, Reg::MaskMergeMode::ZEROING>(vreg3, vreg2, scalar0, preg0);
+                    Reg::Cast<half, int16_t, castTrait2>(vreg4, vreg3, preg0);
+                    Reg::Cast<T1, half, castTrait3>(vreg5, vreg4, preg0);
+                    Reg::StoreAlign<T1, Reg::StoreDist::DIST_PACK_B16>(
+                        bufferOut0Addr + i * (VECTOR_REG_WIDTH / sizeof(int16_t)), vreg5, preg0);
+                }
+            }
+        }
         // 设置控制寄存器的第60位为1，回退到饱和模式
         SetCtrlSpr<SAT_POS, SAT_POS>(1);
     }
@@ -207,9 +275,85 @@ private:
     {
         // 设置控制寄存器的第60位为0，开启非饱和模式
         SetCtrlSpr<SAT_POS, SAT_POS>(0);
-        __ubuf__ T1* srcAddr = (__ubuf__ T1*)srcTensor.GetPhyAddr();
-        __ubuf__ T1* dstAddr = (__ubuf__ T1*)dstTensor.GetPhyAddr();
-        asc_vf_call<PowScalarIntCubeVF<T1>>(dstAddr, srcAddr, dataLength);
+        __VEC_SCOPE__
+        {
+            if constexpr (IsSameType<T1, int32_t>::value || IsSameType<T1, int16_t>::value) {
+                Reg::RegTensor<T1> vreg0;
+                Reg::RegTensor<T1> vreg1;
+                Reg::RegTensor<T1> vreg2;
+                Reg::MaskReg preg0;
+                uint32_t size = dataLength;
+                uint16_t vfLoopNum = (dataLength + (VECTOR_REG_WIDTH / sizeof(T1)) - 1) /
+                                     (VECTOR_REG_WIDTH / sizeof(T1));
+                __ubuf__ T1* bufferIn0Addr = (__ubuf__ T1*)srcTensor.GetPhyAddr();
+                __ubuf__ T1* bufferOut0Addr = (__ubuf__ T1*)dstTensor.GetPhyAddr();
+                for (uint16_t i = 0; i < vfLoopNum; i++) {
+                    preg0 = Reg::UpdateMask<T1>(size);
+                    Reg::LoadAlign<T1, Reg::LoadDist::DIST_NORM>(vreg0,
+                                                                 bufferIn0Addr + i * (VECTOR_REG_WIDTH / sizeof(T1)));
+                    Reg::Mul<T1, Reg::MaskMergeMode::ZEROING>(vreg1, vreg0, vreg0, preg0);
+                    Reg::Mul<T1, Reg::MaskMergeMode::ZEROING>(vreg2, vreg1, vreg0, preg0);
+                    Reg::StoreAlign<T1, Reg::StoreDist::DIST_NORM_B32>(
+                        bufferOut0Addr + i * (VECTOR_REG_WIDTH / sizeof(T1)), vreg2, preg0);
+                }
+            } else if constexpr (IsSameType<T1, uint8_t>::value) {
+                Reg::RegTensor<T1> vreg0;
+                Reg::RegTensor<uint16_t> scalar0;
+                Reg::RegTensor<uint16_t> vreg1;
+                Reg::RegTensor<uint16_t> vreg2;
+                Reg::RegTensor<uint16_t> vreg3;
+                Reg::RegTensor<uint16_t> vreg4;
+                Reg::RegTensor<T1> vreg5;
+                Reg::MaskReg preg0;
+                uint32_t size = dataLength;
+                uint16_t vfLoopNum = (dataLength + (VECTOR_REG_WIDTH / sizeof(uint16_t)) - 1) /
+                                     (VECTOR_REG_WIDTH / sizeof(uint16_t));
+                __ubuf__ T1* bufferIn0Addr = (__ubuf__ T1*)srcTensor.GetPhyAddr();
+                __ubuf__ T1* bufferOut0Addr = (__ubuf__ T1*)dstTensor.GetPhyAddr();
+                Reg::Duplicate(scalar0, uint16_t(255));
+                for (uint16_t i = 0; i < vfLoopNum; i++) {
+                    preg0 = Reg::UpdateMask<uint16_t>(size);
+                    Reg::LoadAlign<T1, Reg::LoadDist::DIST_UNPACK_B8>(
+                        vreg0, bufferIn0Addr + i * (VECTOR_REG_WIDTH / sizeof(uint16_t)));
+                    Reg::Cast<uint16_t, T1, castTrait0>(vreg1, vreg0, preg0);
+                    Reg::Mul<uint16_t, Reg::MaskMergeMode::ZEROING>(vreg2, vreg1, vreg1, preg0);
+                    Reg::Mul<uint16_t, Reg::MaskMergeMode::ZEROING>(vreg3, vreg2, vreg1, preg0);
+                    Reg::And<uint16_t, Reg::MaskMergeMode::ZEROING>(vreg4, vreg3, scalar0, preg0);
+                    Reg::Cast<T1, uint16_t, castTrait1>(vreg5, vreg4, preg0);
+                    Reg::StoreAlign<T1, Reg::StoreDist::DIST_PACK_B16>(
+                        bufferOut0Addr + i * (VECTOR_REG_WIDTH / sizeof(uint16_t)), vreg5, preg0);
+                }
+            } else {
+                Reg::RegTensor<T1> vreg0;
+                Reg::RegTensor<int16_t> scalar0;
+                Reg::RegTensor<int16_t> vreg1;
+                Reg::RegTensor<int16_t> vreg2;
+                Reg::RegTensor<int16_t> vreg3;
+                Reg::RegTensor<int16_t> vreg4;
+                Reg::RegTensor<half> vreg5;
+                Reg::RegTensor<T1> vreg6;
+                Reg::MaskReg preg0;
+                uint32_t size = dataLength;
+                uint16_t vfLoopNum = (dataLength + (VECTOR_REG_WIDTH / sizeof(int16_t)) - 1) /
+                                     (VECTOR_REG_WIDTH / sizeof(int16_t));
+                __ubuf__ T1* bufferIn0Addr = (__ubuf__ T1*)srcTensor.GetPhyAddr();
+                __ubuf__ T1* bufferOut0Addr = (__ubuf__ T1*)dstTensor.GetPhyAddr();
+                Reg::Duplicate(scalar0, int16_t(255));
+                for (uint16_t i = 0; i < vfLoopNum; i++) {
+                    preg0 = Reg::UpdateMask<int16_t>(size);
+                    Reg::LoadAlign<T1, Reg::LoadDist::DIST_UNPACK_B8>(
+                        vreg0, bufferIn0Addr + i * (VECTOR_REG_WIDTH / sizeof(int16_t)));
+                    Reg::Cast<int16_t, T1, castTrait0>(vreg1, vreg0, preg0);
+                    Reg::Mul<int16_t, Reg::MaskMergeMode::ZEROING>(vreg2, vreg1, vreg1, preg0);
+                    Reg::Mul<int16_t, Reg::MaskMergeMode::ZEROING>(vreg3, vreg2, vreg1, preg0);
+                    Reg::And<int16_t, Reg::MaskMergeMode::ZEROING>(vreg4, vreg3, scalar0, preg0);
+                    Reg::Cast<half, int16_t, castTrait2>(vreg5, vreg4, preg0);
+                    Reg::Cast<T1, half, castTrait3>(vreg6, vreg5, preg0);
+                    Reg::StoreAlign<T1, Reg::StoreDist::DIST_PACK_B16>(
+                        bufferOut0Addr + i * (VECTOR_REG_WIDTH / sizeof(int16_t)), vreg6, preg0);
+                }
+            }
+        }
         // 设置控制寄存器的第60位为1，回退到饱和模式
         SetCtrlSpr<SAT_POS, SAT_POS>(1);
     }
@@ -237,6 +381,14 @@ private:
     int64_t expValue;
 
     // cast info
+    constexpr static Reg::CastTrait castTrait0 = {Reg::RegLayout::ZERO, Reg::SatMode::UNKNOWN,
+                                                  Reg::MaskMergeMode::ZEROING, RoundMode::UNKNOWN};
+    constexpr static Reg::CastTrait castTrait1 = {Reg::RegLayout::ZERO, Reg::SatMode::NO_SAT,
+                                                  Reg::MaskMergeMode::ZEROING, RoundMode::UNKNOWN};
+    constexpr static Reg::CastTrait castTrait2 = {Reg::RegLayout::UNKNOWN, Reg::SatMode::UNKNOWN,
+                                                  Reg::MaskMergeMode::ZEROING, RoundMode::CAST_RINT};
+    constexpr static Reg::CastTrait castTrait3 = {Reg::RegLayout::ZERO, Reg::SatMode::NO_SAT,
+                                                  Reg::MaskMergeMode::ZEROING, RoundMode::CAST_RINT};
     constexpr static PowerConfig powsConfig_ = {PowerAlgo::INTRINSIC};
 
     constexpr static int64_t EXP_SQUARED = 2;

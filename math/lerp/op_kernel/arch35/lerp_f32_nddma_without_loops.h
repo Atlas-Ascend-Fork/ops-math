@@ -17,7 +17,6 @@
 
 #include "kernel_operator.h"
 #include "atvoss/util/broadcast_utils.h"
-#include "vf/lerp_vf.h"
 
 namespace Lerp {
 using AscendC::GlobalTensor;
@@ -126,12 +125,46 @@ private:
         bufferIn1_ = queIn1_.DeQue<float>();
         bufferIn2_ = queIn2_.DeQue<float>();
         bufferOut0_ = queOut0_.AllocTensor<float>();
-        int64_t dataLength = ubSplitSize * tilingDataPtr_->outputStrides[tilingDataPtr_->ubSplitAxis];
-        __ubuf__ float* bufferIn0Addr = (__ubuf__ float*)bufferIn0_.GetPhyAddr();
-        __ubuf__ float* bufferIn1Addr = (__ubuf__ float*)bufferIn1_.GetPhyAddr();
-        __ubuf__ float* bufferIn2Addr = (__ubuf__ float*)bufferIn2_.GetPhyAddr();
-        __ubuf__ float* bufferOut0Addr = (__ubuf__ float*)bufferOut0_.GetPhyAddr();
-        asc_vf_call<LerpF32VF>(bufferIn0Addr, bufferIn1Addr, bufferIn2Addr, bufferOut0Addr, dataLength);
+        __VEC_SCOPE__
+        {
+            RegTensor<float> vreg0;
+            RegTensor<float> vreg1;
+            RegTensor<float> vreg2;
+            RegTensor<float> vreg3;
+            RegTensor<float> vreg4;
+            RegTensor<float> vreg5;
+            RegTensor<float> vreg6;
+            MaskReg preg0;
+            uint32_t size = ubSplitSize * tilingDataPtr_->outputStrides[tilingDataPtr_->ubSplitAxis];
+            MaskReg preg26;
+            preg0 = AscendC::Reg::CreateMask<float>();
+            AscendC::Reg::Duplicate<float, AscendC::Reg::MaskMergeMode::ZEROING, float>(vreg4, static_cast<float>(1.0),
+                                                                                        preg0);
+            uint16_t vfLoopNum = (ubSplitSize * tilingDataPtr_->outputStrides[tilingDataPtr_->ubSplitAxis] +
+                                  (AscendC::VECTOR_REG_WIDTH / 4) - 1) /
+                                 (AscendC::VECTOR_REG_WIDTH / 4);
+            __ubuf__ float* bufferIn0Addr = (__ubuf__ float*)bufferIn0_.GetPhyAddr();
+            __ubuf__ float* bufferIn1Addr = (__ubuf__ float*)bufferIn1_.GetPhyAddr();
+            __ubuf__ float* bufferIn2Addr = (__ubuf__ float*)bufferIn2_.GetPhyAddr();
+            __ubuf__ float* bufferOut0Addr = (__ubuf__ float*)bufferOut0_.GetPhyAddr();
+            for (uint16_t i = 0; i < vfLoopNum; i++) {
+                preg0 = AscendC::Reg::UpdateMask<float>(size);
+                AscendC::Reg::LoadAlign<float, AscendC::Reg::LoadDist::DIST_NORM>(
+                    vreg0, bufferIn0Addr + i * (AscendC::VECTOR_REG_WIDTH / 4));
+                AscendC::Reg::Compares<float, AscendC::CMPMODE::LT>(preg26, vreg0, static_cast<float>(0.5), preg0);
+                AscendC::Reg::LoadAlign<float, AscendC::Reg::LoadDist::DIST_NORM>(
+                    vreg1, bufferIn1Addr + i * (AscendC::VECTOR_REG_WIDTH / 4));
+                AscendC::Reg::LoadAlign<float, AscendC::Reg::LoadDist::DIST_NORM>(
+                    vreg2, bufferIn2Addr + i * (AscendC::VECTOR_REG_WIDTH / 4));
+                AscendC::Reg::Sub<float, AscendC::Reg::MaskMergeMode::ZEROING>(vreg3, vreg1, vreg2, preg0);
+                AscendC::Reg::MulAddDst<float, AscendC::Reg::MaskMergeMode::ZEROING>(vreg2, vreg0, vreg3, preg0);
+                AscendC::Reg::Sub<float, AscendC::Reg::MaskMergeMode::ZEROING>(vreg5, vreg0, vreg4, preg0);
+                AscendC::Reg::MulAddDst<float, AscendC::Reg::MaskMergeMode::ZEROING>(vreg1, vreg5, vreg3, preg0);
+                AscendC::Reg::Select<float>(vreg6, vreg2, vreg1, preg26);
+                AscendC::Reg::StoreAlign<float, AscendC::Reg::StoreDist::DIST_NORM_B32>(
+                    bufferOut0Addr + i * (AscendC::VECTOR_REG_WIDTH / 4), vreg6, preg0);
+            }
+        }
         queIn0_.FreeTensor(bufferIn0_);
         queIn1_.FreeTensor(bufferIn1_);
         queIn2_.FreeTensor(bufferIn2_);

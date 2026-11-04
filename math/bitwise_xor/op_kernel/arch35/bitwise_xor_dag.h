@@ -22,31 +22,6 @@
 #include "op_kernel/math_util.h"
 #ifdef __CCE_AICORE__
 #include "op_kernel/platform_util.h"
-namespace BitwiseXorOp {
-using namespace AscendC;
-
-template <typename T>
-__simd_vf__ inline void BitwiseXorVF(__ubuf__ T* dstAddr, __ubuf__ T* inputX1Addr, __ubuf__ T* inputX2Addr,
-                                     uint32_t count, uint16_t loopTimes, uint32_t VL_T)
-{
-    Reg::RegTensor<T> src1Value;
-    Reg::RegTensor<T> src2Value;
-    Reg::RegTensor<T> resValue;
-    Reg::MaskReg preg;
-    uint32_t sregMask = count;
-
-    for (uint16_t j = 0; j < loopTimes; j++) {
-        preg = Reg::UpdateMask<T>(sregMask);
-        Reg::AddrReg addrReg = Reg::CreateAddrReg<T>(j, VL_T);
-        Reg::LoadAlign<T, Reg::LoadDist::DIST_NORM>(src1Value, inputX1Addr, addrReg);
-        Reg::LoadAlign<T, Reg::LoadDist::DIST_NORM>(src2Value, inputX2Addr, addrReg);
-
-        Reg::Xor(resValue, src1Value, src2Value, preg);
-
-        Reg::StoreAlign<T, Reg::StoreDist::DIST_NORM>(dstAddr, resValue, addrReg, preg);
-    }
-}
-} // namespace BitwiseXorOp
 #endif
 
 using namespace Ops::Base;
@@ -65,7 +40,24 @@ struct XorCompute : public Vec::ElemwiseBinaryOP<T, T, T> {
         __ubuf__ T* dstAddr = (__ubuf__ T*)dst.GetPhyAddr();
         uint16_t loopTimes = CeilDiv(count, VL_T);
 
-        asc_vf_call<BitwiseXorOp::BitwiseXorVF<T>>(dstAddr, inputX1Addr, inputX2Addr, count, loopTimes, VL_T);
+        __VEC_SCOPE__
+        {
+            Reg::RegTensor<T> src1Value;
+            Reg::RegTensor<T> src2Value;
+            Reg::RegTensor<T> resValue;
+            Reg::MaskReg preg;
+            uint32_t sregMask = count;
+
+            for (uint16_t j = 0; j < loopTimes; j++) {
+                preg = Reg::UpdateMask<T>(sregMask);
+                Reg::LoadAlign<T, Reg::LoadDist::DIST_NORM>(src1Value, inputX1Addr + VL_T * j);
+                Reg::LoadAlign<T, Reg::LoadDist::DIST_NORM>(src2Value, inputX2Addr + VL_T * j);
+
+                Reg::Xor(resValue, src1Value, src2Value, preg);
+
+                Reg::StoreAlign<T, Reg::StoreDist::DIST_NORM>(dstAddr + VL_T * j, resValue, preg);
+            }
+        }
 #endif
     }
 };

@@ -21,51 +21,6 @@
 #include "atvoss/util/placeholder.h"
 #ifdef __CCE_AICORE__
 #include "op_kernel/platform_util.h"
-namespace LogicalOrOp {
-using namespace AscendC;
-
-// T = half/bfloat16_t/float (浮点输入类型)
-// IntT = uint16_t/uint16_t/uint32_t (对应位宽的整形，用于位OR)
-template <typename T, typename IntT>
-__simd_vf__ inline void LogicalOrFloatVF(__ubuf__ uint8_t* dstAddr, __ubuf__ T* src1Addr, __ubuf__ T* src2Addr,
-                                         uint32_t sregMask, uint16_t loopTimes, uint32_t VL_T)
-{
-    Reg::RegTensor<T> src1Value;
-    Reg::RegTensor<T> src2Value;
-    Reg::RegTensor<T> orRes;
-    Reg::RegTensor<uint8_t> dstReg;
-    Reg::RegTensor<uint8_t> oneReg;
-    Reg::RegTensor<uint8_t> zeroReg;
-    Reg::MaskReg preg;
-    Reg::MaskReg cmpMask;
-
-    for (uint16_t j = 0; j < loopTimes; j++) {
-        preg = Reg::UpdateMask<T>(sregMask);
-        Reg::AddrReg addrReg = Reg::CreateAddrReg<T>(j, VL_T);
-        // 以浮点类型 T 加载输入
-        Reg::LoadAlign<T, Reg::LoadDist::DIST_NORM>(src1Value, src1Addr, addrReg);
-        Reg::LoadAlign<T, Reg::LoadDist::DIST_NORM>(src2Value, src2Addr, addrReg);
-
-        // 位OR操作：当作对应位宽的整形处理
-        Reg::Or((Reg::RegTensor<IntT>&)orRes, (Reg::RegTensor<IntT>&)src1Value, (Reg::RegTensor<IntT>&)src2Value, preg);
-
-        // Compare: OR结果 != 0 (NE模式)
-        Reg::Compares<T, CMPMODE::NE>(cmpMask, orRes, static_cast<T>(0), preg);
-
-        // Select: 根据cmpMask选择1或0 (uint8_t)
-        Reg::Duplicate(oneReg, static_cast<uint8_t>(1));
-        Reg::Duplicate(zeroReg, static_cast<uint8_t>(0));
-        Reg::Select<uint8_t>(dstReg, oneReg, zeroReg, cmpMask);
-
-        // 存储uint8 BOOL结果
-        if constexpr (sizeof(T) == sizeof(half)) {
-            Reg::StoreAlign<uint8_t, Reg::StoreDist::DIST_PACK_B16>(dstAddr, dstReg, addrReg, preg);
-        } else {
-            Reg::StoreAlign<uint8_t, Reg::StoreDist::DIST_PACK4_B32>(dstAddr, dstReg, addrReg, preg);
-        }
-    }
-}
-} // namespace LogicalOrOp
 #endif
 
 using namespace Ops::Base;
@@ -95,22 +50,58 @@ struct LogicalOrFloatCustom : public Vec::ElemwiseBinaryOP<uint8_t, T, T> {
         uint16_t loopTimes = (count + VL_T - 1) / VL_T;
         uint32_t sregMask = count;
 
-        asc_vf_call<LogicalOrFloatVF<T, IntT>>(dstAddr, src1Addr, src2Addr, sregMask, loopTimes, VL_T);
+        __VEC_SCOPE__
+        {
+            Reg::RegTensor<T> src1Value;
+            Reg::RegTensor<T> src2Value;
+            Reg::RegTensor<T> orRes;
+            Reg::RegTensor<uint8_t> dstReg;
+            Reg::RegTensor<uint8_t> oneReg;
+            Reg::RegTensor<uint8_t> zeroReg;
+            Reg::MaskReg preg;
+            Reg::MaskReg cmpMask;
+
+            for (uint16_t j = 0; j < loopTimes; j++) {
+                preg = Reg::UpdateMask<T>(sregMask);
+                // 以浮点类型 T 加载输入
+                Reg::LoadAlign<T, Reg::LoadDist::DIST_NORM>(src1Value, src1Addr + VL_T * j);
+                Reg::LoadAlign<T, Reg::LoadDist::DIST_NORM>(src2Value, src2Addr + VL_T * j);
+
+                // 位OR操作：当作对应位宽的整形处理
+                Reg::Or((Reg::RegTensor<IntT>&)orRes, (Reg::RegTensor<IntT>&)src1Value,
+                        (Reg::RegTensor<IntT>&)src2Value, preg);
+
+                // Compare: OR结果 != 0 (NE模式)
+                Reg::Compares<T, CMPMODE::NE>(cmpMask, orRes, static_cast<T>(0), preg);
+
+                // Select: 根据cmpMask选择1或0 (uint8_t)
+                Reg::Duplicate(oneReg, static_cast<uint8_t>(1));
+                Reg::Duplicate(zeroReg, static_cast<uint8_t>(0));
+                Reg::Select<uint8_t>(dstReg, oneReg, zeroReg, cmpMask);
+
+                // 存储uint8 BOOL结果
+                if constexpr (sizeof(T) == sizeof(half)) {
+                    Reg::StoreAlign<uint8_t, Reg::StoreDist::DIST_PACK_B16>(dstAddr + VL_T * j, dstReg, preg);
+                } else {
+                    Reg::StoreAlign<uint8_t, Reg::StoreDist::DIST_PACK4_B32>(dstAddr + VL_T * j, dstReg, preg);
+                }
+            }
+        }
 #endif
     }
 };
 
-// 通过Compute构造计算图 - BOOL类型专用，直接Or后输出
 template <typename T>
 struct LogicalOrCompute {
+    // 通过Compute构造计算图 - BOOL类型专用，直接Or后输出
     using InputX1 = Bind<Vec::CopyInBrc<T>, Placeholder::In0<T>>;
     using InputX2 = Bind<Vec::CopyInBrc<T>, Placeholder::In1<T>>;
 
     using LogicalOrRes = Bind<Vec::Or<T>, InputX1, InputX2>;
 
-    // 指定输出节点
     using OpCopyOut = Bind<Vec::CopyOut<T>, Placeholder::Out0<T>, LogicalOrRes>;
 
+    // 指定输出节点
     using Outputs = Elems<OpCopyOut>;
     using MemCfg = MemOptCfg<MemLevel::LEVEL_2>;
     using OpDag = DAGSch<Outputs, void, MemCfg>;

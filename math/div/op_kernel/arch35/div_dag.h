@@ -19,32 +19,6 @@
 #include "atvoss/util/dag.h"
 #include "atvoss/util/vec.h"
 #include "atvoss/util/placeholder.h"
-#ifdef __CCE_AICORE__
-namespace DivOp {
-using namespace AscendC;
-
-template <typename R, typename T>
-__simd_vf__ inline void DivCastOverFlowVF(__ubuf__ R* dstAddr, __ubuf__ T* srcAddr, uint32_t count)
-{
-    constexpr static Reg::CastTrait castTrait3 = {Reg::RegLayout::ZERO, Reg::SatMode::NO_SAT,
-                                                  Reg::MaskMergeMode::ZEROING, RoundMode::CAST_RINT};
-    Reg::RegTensor<T> vreg0;
-    Reg::RegTensor<R> vreg1;
-    Reg::MaskReg preg0;
-    // sizeof(T) must > sizeof(R)
-    uint32_t size = count;
-    uint16_t vfLoopNum = (size + (VECTOR_REG_WIDTH / sizeof(T)) - 1) / (VECTOR_REG_WIDTH / sizeof(T));
-
-    for (uint16_t i = 0; i < vfLoopNum; i++) {
-        preg0 = Reg::UpdateMask<T>(size);
-        Reg::AddrReg addrReg = Reg::CreateAddrReg<T>(i, VECTOR_REG_WIDTH / sizeof(T));
-        Reg::LoadAlign<T, Reg::LoadDist::DIST_NORM>(vreg0, srcAddr, addrReg);
-        Reg::Cast<R, T, castTrait3>(vreg1, vreg0, preg0);
-        Reg::StoreAlign<R, Reg::StoreDist::DIST_PACK_B16>(dstAddr, vreg1, addrReg, preg0);
-    }
-}
-} // namespace DivOp
-#endif
 
 namespace DivOp {
 using namespace Ops::Base;
@@ -62,9 +36,26 @@ struct CastOverFlow : public Vec::ElemwiseUnaryOP<R, T> {
     {
 #ifdef __CCE_AICORE__
         SetCtrlSpr<SAT_POS, SAT_POS>(0);
-        __ubuf__ T* srcAddr = (__ubuf__ T*)src.GetPhyAddr();
-        __ubuf__ R* dstAddr = (__ubuf__ R*)dst.GetPhyAddr();
-        asc_vf_call<DivCastOverFlowVF<R, T>>(dstAddr, srcAddr, count);
+        constexpr static Reg::CastTrait castTrait3 = {Reg::RegLayout::ZERO, Reg::SatMode::NO_SAT,
+                                                      Reg::MaskMergeMode::ZEROING, RoundMode::CAST_RINT};
+        __VEC_SCOPE__
+        {
+            Reg::RegTensor<T> vreg0;
+            Reg::RegTensor<R> vreg1;
+            Reg::MaskReg preg0;
+            // sizeof(T) must > sizeof(R)
+            uint32_t size = count;
+            uint16_t vfLoopNum = (size + (VECTOR_REG_WIDTH / sizeof(T)) - 1) / (VECTOR_REG_WIDTH / sizeof(T));
+            __ubuf__ T* bufferIn0Addr = (__ubuf__ T*)src.GetPhyAddr();
+            __ubuf__ R* bufferOut0Addr = (__ubuf__ R*)dst.GetPhyAddr();
+            for (uint16_t i = 0; i < vfLoopNum; i++) {
+                preg0 = Reg::UpdateMask<T>(size);
+                Reg::LoadAlign<T, Reg::LoadDist::DIST_NORM>(vreg0, bufferIn0Addr + i * (VECTOR_REG_WIDTH / sizeof(T)));
+                Reg::Cast<R, T, castTrait3>(vreg1, vreg0, preg0);
+                Reg::StoreAlign<R, Reg::StoreDist::DIST_PACK_B16>(bufferOut0Addr + i * (VECTOR_REG_WIDTH / sizeof(T)),
+                                                                  vreg1, preg0);
+            }
+        }
         SetCtrlSpr<SAT_POS, SAT_POS>(1);
 #endif
     }

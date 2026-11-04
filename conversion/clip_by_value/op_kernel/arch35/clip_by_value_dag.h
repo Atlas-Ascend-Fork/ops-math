@@ -20,57 +20,6 @@
 #include "atvoss/util/placeholder.h"
 #include "atvoss/util/vec.h"
 #include <type_traits>
-#ifdef __CCE_AICORE__
-namespace ClipByValueOp {
-using namespace AscendC;
-
-template <typename T>
-__simd_vf__ inline void ClipByValueInt64VF(__ubuf__ T* dstAddr, __ubuf__ T* xAddr, __ubuf__ T* minAddr,
-                                           __ubuf__ T* maxAddr, uint32_t count, uint16_t loopNum, uint32_t vl)
-{
-    Reg::RegTensor<int64_t, Reg::RegTraitNumTwo> xReg;
-    Reg::RegTensor<int64_t, Reg::RegTraitNumTwo> minReg;
-    Reg::RegTensor<int64_t, Reg::RegTraitNumTwo> maxReg;
-    Reg::RegTensor<int64_t, Reg::RegTraitNumTwo> resReg;
-    Reg::MaskReg mask;
-    uint32_t remain = count;
-
-    for (uint16_t idx = 0; idx < loopNum; idx++) {
-        mask = Reg::UpdateMask<int64_t, Reg::RegTraitNumTwo>(remain);
-        const uint32_t offset = idx * vl;
-        Reg::LoadAlign<int64_t, Reg::LoadDist::DIST_NORM>(xReg, xAddr + offset);
-        Reg::LoadAlign<int64_t, Reg::LoadDist::DIST_NORM>(maxReg, maxAddr + offset);
-        Reg::Min<int64_t, Reg::MaskMergeMode::ZEROING>(resReg, xReg, maxReg, mask);
-        Reg::LoadAlign<int64_t, Reg::LoadDist::DIST_NORM>(minReg, minAddr + offset);
-        Reg::Max<int64_t, Reg::MaskMergeMode::ZEROING>(resReg, resReg, minReg, mask);
-        Reg::StoreAlign<int64_t, Reg::StoreDist::DIST_NORM>(dstAddr + offset, resReg, mask);
-    }
-}
-
-template <typename T>
-__simd_vf__ inline void ClipByValueVF(__ubuf__ T* dstAddr, __ubuf__ T* xAddr, __ubuf__ T* minAddr, __ubuf__ T* maxAddr,
-                                      uint32_t count, uint16_t loopNum, uint32_t vl)
-{
-    Reg::RegTensor<T> xReg;
-    Reg::RegTensor<T> minReg;
-    Reg::RegTensor<T> maxReg;
-    Reg::RegTensor<T> resReg;
-    Reg::MaskReg mask;
-    uint32_t remain = count;
-
-    for (uint16_t idx = 0; idx < loopNum; idx++) {
-        mask = Reg::UpdateMask<T>(remain);
-        Reg::AddrReg addrReg = Reg::CreateAddrReg<T>(idx, vl);
-        Reg::LoadAlign<T, Reg::LoadDist::DIST_NORM>(xReg, xAddr, addrReg);
-        Reg::LoadAlign<T, Reg::LoadDist::DIST_NORM>(maxReg, maxAddr, addrReg);
-        Reg::Min<T, Reg::MaskMergeMode::ZEROING>(resReg, xReg, maxReg, mask);
-        Reg::LoadAlign<T, Reg::LoadDist::DIST_NORM>(minReg, minAddr, addrReg);
-        Reg::Max<T, Reg::MaskMergeMode::ZEROING>(resReg, resReg, minReg, mask);
-        Reg::StoreAlign<T, Reg::StoreDist::DIST_NORM>(dstAddr, resReg, addrReg, mask);
-    }
-}
-} // namespace ClipByValueOp
-#endif
 
 using namespace Ops::Base;
 using namespace AscendC;
@@ -91,12 +40,50 @@ struct ClipByValueFused : public Vec::ElemwiseTernaryOP<T, T, T, T> {
             constexpr uint32_t vl = AscendC::VECTOR_REG_WIDTH_2XVL / sizeof(int64_t);
             const uint16_t loopNum = (count + vl - 1) / vl;
 
-            asc_vf_call<ClipByValueInt64VF<T>>(dstAddr, xAddr, minAddr, maxAddr, count, loopNum, vl);
+            __VEC_SCOPE__
+            {
+                Reg::RegTensor<int64_t, Reg::RegTraitNumTwo> xReg;
+                Reg::RegTensor<int64_t, Reg::RegTraitNumTwo> minReg;
+                Reg::RegTensor<int64_t, Reg::RegTraitNumTwo> maxReg;
+                Reg::RegTensor<int64_t, Reg::RegTraitNumTwo> resReg;
+                Reg::MaskReg mask;
+                uint32_t remain = count;
+
+                for (uint16_t idx = 0; idx < loopNum; idx++) {
+                    const uint32_t offset = idx * vl;
+                    mask = Reg::UpdateMask<int64_t, Reg::RegTraitNumTwo>(remain);
+                    Reg::LoadAlign<int64_t, Reg::LoadDist::DIST_NORM>(xReg, xAddr + offset);
+                    Reg::LoadAlign<int64_t, Reg::LoadDist::DIST_NORM>(maxReg, maxAddr + offset);
+                    Reg::Min<int64_t, Reg::MaskMergeMode::ZEROING>(resReg, xReg, maxReg, mask);
+                    Reg::LoadAlign<int64_t, Reg::LoadDist::DIST_NORM>(minReg, minAddr + offset);
+                    Reg::Max<int64_t, Reg::MaskMergeMode::ZEROING>(resReg, resReg, minReg, mask);
+                    Reg::StoreAlign<int64_t, Reg::StoreDist::DIST_NORM>(dstAddr + offset, resReg, mask);
+                }
+            }
         } else {
             constexpr uint32_t vl = AscendC::VECTOR_REG_WIDTH / sizeof(T);
             const uint16_t loopNum = (count + vl - 1) / vl;
 
-            asc_vf_call<ClipByValueVF<T>>(dstAddr, xAddr, minAddr, maxAddr, count, loopNum, vl);
+            __VEC_SCOPE__
+            {
+                Reg::RegTensor<T> xReg;
+                Reg::RegTensor<T> minReg;
+                Reg::RegTensor<T> maxReg;
+                Reg::RegTensor<T> resReg;
+                Reg::MaskReg mask;
+                uint32_t remain = count;
+
+                for (uint16_t idx = 0; idx < loopNum; idx++) {
+                    const uint32_t offset = idx * vl;
+                    mask = Reg::UpdateMask<T>(remain);
+                    Reg::LoadAlign<T, Reg::LoadDist::DIST_NORM>(xReg, xAddr + offset);
+                    Reg::LoadAlign<T, Reg::LoadDist::DIST_NORM>(maxReg, maxAddr + offset);
+                    Reg::Min<T, Reg::MaskMergeMode::ZEROING>(resReg, xReg, maxReg, mask);
+                    Reg::LoadAlign<T, Reg::LoadDist::DIST_NORM>(minReg, minAddr + offset);
+                    Reg::Max<T, Reg::MaskMergeMode::ZEROING>(resReg, resReg, minReg, mask);
+                    Reg::StoreAlign<T, Reg::StoreDist::DIST_NORM>(dstAddr + offset, resReg, mask);
+                }
+            }
         }
 #endif
     }
