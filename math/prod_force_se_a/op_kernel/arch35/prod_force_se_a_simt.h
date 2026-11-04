@@ -64,7 +64,7 @@ static constexpr uint32_t DESCRPT_PER_NEIGHBOR = 4; // SeA 每邻居 4 个描述
 template <typename T, typename UINT_T>
 __simt_vf__ __aicore__ __launch_bounds__(THREAD_NUM) inline void OpProdForceSeASimt(
     UINT_T nframes, UINT_T nloc, UINT_T nall, UINT_T nnei, __gm__ T* force, __gm__ T* net_deriv, __gm__ T* in_deriv,
-    __gm__ int32_t* nlist)
+    __gm__ int32_t* nlist, __gm__ T* comp)
 {
     UINT_T ndescrpt = nnei * DESCRPT_PER_NEIGHBOR;
     UINT_T frameForceSize = nall * COORD_DIM;
@@ -73,9 +73,10 @@ __simt_vf__ __aicore__ __launch_bounds__(THREAD_NUM) inline void OpProdForceSeAS
          frame += static_cast<UINT_T>(blockDim.x * gridDim.x)) {
         UINT_T frameForceBase = frame * frameForceSize;
 
-        // Step 1: 清零本帧所有 force
+        // Step 1: 清零本帧 force 与补偿项
         for (UINT_T i = 0; i < frameForceSize; i++) {
             force[frameForceBase + i] = static_cast<T>(0);
+            comp[frameForceBase + i] = static_cast<T>(0);
         }
 
         // Step 2: 中心力 + 邻居力（帧内串行）
@@ -84,16 +85,38 @@ __simt_vf__ __aicore__ __launch_bounds__(THREAD_NUM) inline void OpProdForceSeAS
             UINT_T inBase = netBase * COORD_DIM;
             UINT_T atomForceBase = frameForceBase + atom * COORD_DIM;
 
-            // 中心力：for a: for d: force[atom*3+d] -= val
+            // 中心力：先在寄存器内对 ndescrpt 个描述符做 Neumaier 累加，再与 GM 中
+            // 中心/邻居共享的和数合并一次，避免最内层循环逐元素读写补偿缓冲区。
+            T centerSum[COORD_DIM] = {static_cast<T>(0), static_cast<T>(0), static_cast<T>(0)};
+            T centerComp[COORD_DIM] = {static_cast<T>(0), static_cast<T>(0), static_cast<T>(0)};
             for (UINT_T a = 0; a < ndescrpt; a++) {
                 for (UINT_T d = 0; d < COORD_DIM; d++) {
                     volatile T prod = net_deriv[netBase + a] * in_deriv[inBase + a * COORD_DIM + d];
-                    volatile T oldVal = force[atomForceBase + d];
-                    force[atomForceBase + d] = oldVal - prod;
+                    volatile T negProd = static_cast<T>(0) - prod;
+                    T oldSum = centerSum[d];
+                    T newSum = oldSum + negProd;
+                    T absOld = (oldSum < static_cast<T>(0)) ? -oldSum : oldSum;
+                    T absProd = (negProd < static_cast<T>(0)) ? -negProd : negProd;
+                    T delta = (absOld >= absProd) ? ((oldSum - newSum) + negProd) : ((negProd - newSum) + oldSum);
+                    centerSum[d] = newSum;
+                    centerComp[d] = centerComp[d] + delta;
                 }
             }
+            for (UINT_T d = 0; d < COORD_DIM; d++) {
+                volatile T oldVal = force[atomForceBase + d];
+                volatile T oldComp = comp[atomForceBase + d];
+                volatile T addVal = centerSum[d];
+                volatile T newVal = oldVal + addVal;
+                T absOld = (oldVal < static_cast<T>(0)) ? -oldVal : oldVal;
+                T absAdd = (addVal < static_cast<T>(0)) ? -addVal : addVal;
+                T delta = (absOld >= absAdd) ? ((oldVal - newVal) + addVal) : ((addVal - newVal) + oldVal);
+                force[atomForceBase + d] = newVal;
+                comp[atomForceBase + d] = oldComp + centerComp[d] + delta;
+            }
 
-            // 邻居力：for nei: for aa: for d: force[j_idx*3+d] += val
+            // 邻居力：每个邻居的 4 个描述符写入同一个 (jIdx, d)，先在寄存器内累加，
+            // 再对 GM 中的 force/comp 做一次 Neumaier 合并，减少散射项的 GM 读改写。
+            // 邻居贡献项数可达 1e5 量级，直接 fp32 累加会因舍入（大和数 + 小增量）显著偏离参考。
             for (UINT_T nei = 0; nei < nnei; nei++) {
                 int32_t jIdx = nlist[frame * nloc * nnei + atom * nnei + nei];
                 if (jIdx < 0 || static_cast<UINT_T>(jIdx) >= nall) {
@@ -101,15 +124,40 @@ __simt_vf__ __aicore__ __launch_bounds__(THREAD_NUM) inline void OpProdForceSeAS
                 }
                 UINT_T neiForceBase = frameForceBase + static_cast<UINT_T>(jIdx) * COORD_DIM;
                 UINT_T aaStart = nei * DESCRPT_PER_NEIGHBOR;
+                T neiSum[COORD_DIM] = {static_cast<T>(0), static_cast<T>(0), static_cast<T>(0)};
+                T neiComp[COORD_DIM] = {static_cast<T>(0), static_cast<T>(0), static_cast<T>(0)};
                 for (UINT_T idw = 0; idw < DESCRPT_PER_NEIGHBOR; idw++) {
                     UINT_T a = aaStart + idw;
                     for (UINT_T d = 0; d < COORD_DIM; d++) {
                         volatile T prod = net_deriv[netBase + a] * in_deriv[inBase + a * COORD_DIM + d];
-                        volatile T oldVal = force[neiForceBase + d];
-                        force[neiForceBase + d] = oldVal + prod;
+                        T oldSum = neiSum[d];
+                        T newSum = oldSum + prod;
+                        T absOld = (oldSum < static_cast<T>(0)) ? -oldSum : oldSum;
+                        T absProd = (prod < static_cast<T>(0)) ? -prod : prod;
+                        T delta = (absOld >= absProd) ? ((oldSum - newSum) + prod) : ((prod - newSum) + oldSum);
+                        neiSum[d] = newSum;
+                        neiComp[d] = neiComp[d] + delta;
                     }
                 }
+                for (UINT_T d = 0; d < COORD_DIM; d++) {
+                    volatile T oldVal = force[neiForceBase + d];
+                    volatile T oldComp = comp[neiForceBase + d];
+                    volatile T addVal = neiSum[d];
+                    volatile T newVal = oldVal + addVal;
+                    T absOld = (oldVal < static_cast<T>(0)) ? -oldVal : oldVal;
+                    T absAdd = (addVal < static_cast<T>(0)) ? -addVal : addVal;
+                    T delta = (absOld >= absAdd) ? ((oldVal - newVal) + addVal) : ((addVal - newVal) + oldVal);
+                    force[neiForceBase + d] = newVal;
+                    comp[neiForceBase + d] = oldComp + neiComp[d] + delta;
+                }
             }
+        }
+
+        // Step 3: 把补偿项并回结果（仍为 fp32 输出，数学定义不变）
+        for (UINT_T i = 0; i < frameForceSize; i++) {
+            volatile T sum = force[frameForceBase + i];
+            volatile T c = comp[frameForceBase + i];
+            force[frameForceBase + i] = sum + c;
         }
     }
 }
@@ -128,18 +176,26 @@ __simt_vf__ __aicore__ __launch_bounds__(THREAD_NUM) inline void OpProdForceSeAS
 /* Generated By CANNBot */
 template <typename T>
 __aicore__ inline void Process(GM_ADDR net_deriv, GM_ADDR in_deriv, GM_ADDR nlist, GM_ADDR natoms, GM_ADDR atom_force,
-                               const ProdForceSeATilingData* tilingData)
+                               GM_ADDR workspace, const ProdForceSeATilingData* tilingData)
 {
     __gm__ T* forceGm = (__gm__ T*)atom_force;
     __gm__ T* netDerivGm = (__gm__ T*)net_deriv;
     __gm__ T* inDerivGm = (__gm__ T*)in_deriv;
     __gm__ int32_t* nlistGm = (__gm__ int32_t*)nlist;
-    __gm__ int32_t* natomsGm = (__gm__ int32_t*)natoms;
+    (void)natoms;
     int32_t nframes = tilingData->nframes;
     int32_t nloc = tilingData->nloc;
     int32_t nnei = tilingData->nnei;
     int32_t ndescrpt = tilingData->ndescrpt;
-    int32_t nall = natomsGm[1];
+    // nall 由 tiling 侧与输出 shape/natoms[1] 交叉校验后写入，kernel 不再回退读取
+    // natoms[1]，避免回退值超出按 tiling nall 分配的补偿 workspace 与输出张量容量。
+    int32_t nall = tilingData->nall;
+    __gm__ T* compGm = nullptr;
+    {
+        SetSysWorkspace(workspace);
+        GM_ADDR userWs = GetUserWorkspace(workspace);
+        compGm = (__gm__ T*)(userWs + tilingData->compOffset);
+    }
     int64_t maxNetOffset = static_cast<int64_t>(nframes) * nloc * ndescrpt;
     int64_t maxInOffset = maxNetOffset * COORD_DIM;
     int64_t maxForceOffset = static_cast<int64_t>(nframes) * nall * COORD_DIM;
@@ -150,11 +206,11 @@ __aicore__ inline void Process(GM_ADDR net_deriv, GM_ADDR in_deriv, GM_ADDR nlis
     if (maxOffset <= static_cast<int64_t>(INT32_MAX)) {
         asc_vf_call<OpProdForceSeASimt<T, uint32_t>>(
             dim3(THREAD_NUM), static_cast<uint32_t>(nframes), static_cast<uint32_t>(nloc), static_cast<uint32_t>(nall),
-            static_cast<uint32_t>(nnei), forceGm, netDerivGm, inDerivGm, nlistGm);
+            static_cast<uint32_t>(nnei), forceGm, netDerivGm, inDerivGm, nlistGm, compGm);
     } else {
         asc_vf_call<OpProdForceSeASimt<T, uint64_t>>(
             dim3(THREAD_NUM), static_cast<uint64_t>(nframes), static_cast<uint64_t>(nloc), static_cast<uint64_t>(nall),
-            static_cast<uint64_t>(nnei), forceGm, netDerivGm, inDerivGm, nlistGm);
+            static_cast<uint64_t>(nnei), forceGm, netDerivGm, inDerivGm, nlistGm, compGm);
     }
 }
 

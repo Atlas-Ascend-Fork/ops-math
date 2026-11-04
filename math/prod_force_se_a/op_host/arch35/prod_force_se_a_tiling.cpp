@@ -49,9 +49,10 @@ constexpr size_t DIM_2D = 2;
 // 算法常量
 constexpr int32_t DESCRPT_PER_NEIGHBOR = 4;    // SeA 变体：每邻居 4 个描述符
 constexpr int32_t IN_DERIV_DIM_MULTIPLIER = 3; // in_deriv 每描述符 3 个方向分量
-constexpr int32_t ATTR_INDEX_N_A_SEL = 0;
+constexpr int64_t ATTR_INDEX_N_A_SEL = 0;
 constexpr int32_t ATTR_INDEX_N_R_SEL = 1;
 constexpr int32_t MIN_NATOMS_SIZE = 3;
+constexpr int64_t COORD_DIM_TILING = 3; // x,y,z
 
 struct ProdForceSeACompileInfo {};
 
@@ -94,6 +95,11 @@ static ge::graphStatus ValidateInputDimensions(gert::TilingContext* context)
     auto natomsShape = context->GetInputShape(IDX_NATOMS)->GetStorageShape();
     if (natomsShape.GetDimNum() != DIM_1D) {
         OP_LOGE_FOR_INVALID_SHAPEDIM(opName, "natoms", std::to_string(natomsShape.GetDimNum()).c_str(), "1D");
+        return ge::GRAPH_FAILED;
+    }
+    // R7: natoms 元素数 >= 3（kernel 读取 natoms[1] 作为输出边界参考，元素数不足会越界读）
+    if (natomsShape.GetShapeSize() < static_cast<int64_t>(MIN_NATOMS_SIZE)) {
+        OP_LOGE_FOR_INVALID_SHAPESIZE(opName, "natoms", std::to_string(natomsShape.GetShapeSize()).c_str(), ">= 3");
         return ge::GRAPH_FAILED;
     }
     return ge::GRAPH_SUCCESS;
@@ -189,8 +195,21 @@ static ge::graphStatus ValidateAttrs(gert::TilingContext* context, int32_t& nnei
                                                "n_a_sel and n_r_sel should be >= 0 and n_a_sel + n_r_sel > 0");
         return ge::GRAPH_FAILED;
     }
-    nnei = static_cast<int32_t>(nASel + nRSel);
-    ndescrpt = nnei * DESCRPT_PER_NEIGHBOR;
+    // 收窄前校验上界：nnei 与 ndescrpt 后续以 int32 参与索引/形状运算，溢出会导致越界或除零。
+    int64_t nnei64 = nASel + nRSel;
+    if (nnei64 > static_cast<int64_t>(INT32_MAX)) {
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(opName, "nnei", std::to_string(nnei64).c_str(),
+                                              "n_a_sel + n_r_sel should not exceed INT32_MAX");
+        return ge::GRAPH_FAILED;
+    }
+    int64_t ndescrpt64 = nnei64 * DESCRPT_PER_NEIGHBOR;
+    if (ndescrpt64 > static_cast<int64_t>(INT32_MAX)) {
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(opName, "ndescrpt", std::to_string(ndescrpt64).c_str(),
+                                              "nnei * 4 should not exceed INT32_MAX");
+        return ge::GRAPH_FAILED;
+    }
+    nnei = static_cast<int32_t>(nnei64);
+    ndescrpt = static_cast<int32_t>(ndescrpt64);
     return ge::GRAPH_SUCCESS;
 }
 
@@ -199,14 +218,23 @@ static ge::graphStatus DeriveNframesNloc(gert::TilingContext* context, int32_t n
 {
     const char* opName = context->GetNodeName();
     auto netDerivShape = context->GetInputShape(IDX_NET_DERIV)->GetStorageShape();
-    nframes = static_cast<int32_t>(netDerivShape.GetDim(0));
+    int64_t nframes64 = netDerivShape.GetDim(0);
     int64_t netDerivDim1 = netDerivShape.GetDim(1);
     if (netDerivDim1 % ndescrpt != 0) {
         OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(opName, "net_deriv", std::to_string(netDerivDim1).c_str(),
                                                  ("not divisible by ndescrpt = " + std::to_string(ndescrpt)).c_str());
         return ge::GRAPH_FAILED;
     }
-    nloc = static_cast<int32_t>(netDerivDim1 / ndescrpt);
+    int64_t nloc64 = netDerivDim1 / ndescrpt;
+    // 收窄前校验上界：截断后的 nframes/nloc 会与 kernel 的地址与循环边界不一致。
+    if (nframes64 > static_cast<int64_t>(INT32_MAX) || nloc64 > static_cast<int64_t>(INT32_MAX)) {
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(opName, "nframes/nloc",
+                                              (std::to_string(nframes64) + " and " + std::to_string(nloc64)).c_str(),
+                                              "nframes and nloc derived from net_deriv should not exceed INT32_MAX");
+        return ge::GRAPH_FAILED;
+    }
+    nframes = static_cast<int32_t>(nframes64);
+    nloc = static_cast<int32_t>(nloc64);
     if (nframes <= 0) {
         OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(opName, "nframes", std::to_string(nframes).c_str(),
                                               "nframes should be greater than 0");
@@ -215,6 +243,40 @@ static ge::graphStatus DeriveNframesNloc(gert::TilingContext* context, int32_t n
     if (nloc < 0) {
         OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(opName, "nloc", std::to_string(nloc).c_str(),
                                               "nloc should be greater than or equal to 0");
+        return ge::GRAPH_FAILED;
+    }
+    return ge::GRAPH_SUCCESS;
+}
+
+// R7 值依赖校验：natoms[0] 必须等于由 net_deriv.shape[1]/ndescrpt 推导的 nloc，
+// natoms[1](nall) 必须 >= 该 nloc。kernel 用 nloc 做循环上界、用 tiling nall 做输出边界，
+// 两者不一致会写出输出张量之外。值不可用（动态 shape/未预取）时跳过，由输出 shape 提供 nall。
+static ge::graphStatus ValidateNatomsValues(gert::TilingContext* context, int32_t nloc, int64_t& nallOut)
+{
+    const char* opName = context->GetNodeName();
+    nallOut = -1;
+    const gert::Tensor* natomsTensor = context->GetInputTensor(IDX_NATOMS);
+    if (natomsTensor == nullptr) {
+        return ge::GRAPH_SUCCESS;
+    }
+    const int32_t* natomsData = natomsTensor->GetData<int32_t>();
+    if (natomsData == nullptr) {
+        // 值未预取/动态 shape：跳过值校验，由输出 shape 提供 nall
+        return ge::GRAPH_SUCCESS;
+    }
+    int64_t nlocFromNatoms = static_cast<int64_t>(natomsData[0]);
+    int64_t nall = static_cast<int64_t>(natomsData[1]);
+    nallOut = nall;
+    if (nlocFromNatoms != static_cast<int64_t>(nloc)) {
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+            opName, "natoms[0]", std::to_string(nlocFromNatoms).c_str(),
+            ("should equal nloc derived from net_deriv = " + std::to_string(nloc)).c_str());
+        return ge::GRAPH_FAILED;
+    }
+    if (nall < static_cast<int64_t>(nloc)) {
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+            opName, "natoms[1]", std::to_string(nall).c_str(),
+            ("should be greater than or equal to nloc = " + std::to_string(nloc)).c_str());
         return ge::GRAPH_FAILED;
     }
     return ge::GRAPH_SUCCESS;
@@ -245,18 +307,29 @@ static int32_t ComputeNeedCoreNum(int32_t nframes, int32_t nloc, int32_t nnei, i
     return needCoreNum;
 }
 
-static ge::graphStatus GetWorkspaceSize(gert::TilingContext* context)
+static ge::graphStatus GetWorkspaceSize(gert::TilingContext* context, int32_t nframes, int32_t nall,
+                                        int64_t& compOffset)
 {
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
     uint64_t sysWorkspaceSize = ascendcPlatform.GetLibApiWorkSpaceSize();
     size_t* currentWorkspace = context->GetWorkspaceSizes(1);
     OP_CHECK_NULL_WITH_CONTEXT(context, currentWorkspace);
-    currentWorkspace[0] = static_cast<size_t>(sysWorkspaceSize);
+    // 补偿求和缓冲区：每帧 nall*3 个 fp32 元素（保持 fp32 存储，不改对外 dtype）
+    // 用户区由 kernel 侧 GetUserWorkspace 取得，故偏移为 0；总大小须含系统保留区。
+    const int64_t base = static_cast<int64_t>(sysWorkspaceSize);
+    compOffset = 0;
+    int64_t compBytes = 0;
+    if (nframes > 0 && nall > 0) {
+        compBytes = static_cast<int64_t>(nframes) * static_cast<int64_t>(nall) * COORD_DIM_TILING *
+                    static_cast<int64_t>(sizeof(float));
+    }
+    currentWorkspace[0] = static_cast<size_t>(base + compBytes);
     return ge::GRAPH_SUCCESS;
 }
 
 static ge::graphStatus SetTilingDataAndConfig(gert::TilingContext* context, int32_t nframes, int32_t nloc, int32_t nnei,
-                                              int32_t ndescrpt, int64_t aivCoreNum, uint64_t ubCapacity)
+                                              int32_t ndescrpt, int32_t nall, int64_t compOffset, int64_t aivCoreNum,
+                                              uint64_t ubCapacity)
 {
     const char* opName = context->GetNodeName();
     ProdForceSeATilingData* tiling = context->GetTilingData<ProdForceSeATilingData>();
@@ -273,6 +346,8 @@ static ge::graphStatus SetTilingDataAndConfig(gert::TilingContext* context, int3
     tiling->nnei = nnei;
     tiling->ndescrpt = ndescrpt;
     tiling->needCoreNum = needCoreNum;
+    tiling->nall = nall;
+    tiling->compOffset = compOffset;
 
     context->SetBlockDim(needCoreNum);
     OP_CHECK_IF((ubCapacity <= DCACHE_SIZE + STATIC_UB_ESTIMATE),
@@ -317,15 +392,47 @@ static ge::graphStatus ProdForceSeATilingFunc(gert::TilingContext* context)
         return ge::GRAPH_FAILED;
     }
 
+    int64_t nallFromNatoms = -1;
+    if (ValidateNatomsValues(context, nloc, nallFromNatoms) != ge::GRAPH_SUCCESS) {
+        return ge::GRAPH_FAILED;
+    }
+
     if (ValidateShapeConsistency(context, nframes, nloc, nnei, ndescrpt) != ge::GRAPH_SUCCESS) {
         return ge::GRAPH_FAILED;
     }
 
-    if (SetTilingDataAndConfig(context, nframes, nloc, nnei, ndescrpt, aivCoreNum, ubCapacity) != ge::GRAPH_SUCCESS) {
+    // nall 取值优先级：输出 shape 第 1 维（infer shape 已按值依赖设为 natoms[1]）→ natoms 值。
+    // 两者均可用时必须一致，避免仅以输出 shape 为界而静默丢弃 natoms[1] 覆盖的邻居力。
+    // nall==0 且 nloc==0 是合法的空张量用例（输出为 (nframes,0,3)）；只有未知或与 nloc 不一致才拒绝。
+    const gert::StorageShape* outStorageShape = context->GetOutputShape(0);
+    int64_t nallFromShape = (outStorageShape == nullptr) ? -1 : outStorageShape->GetStorageShape().GetDim(1);
+    if (nallFromShape >= 0 && nallFromNatoms >= 0 && nallFromShape != nallFromNatoms) {
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+            context->GetNodeName(), "nall", std::to_string(nallFromShape).c_str(),
+            ("output shape dim1 should equal natoms[1] = " + std::to_string(nallFromNatoms)).c_str());
+        return ge::GRAPH_FAILED;
+    }
+    int64_t nall = (nallFromShape >= 0) ? nallFromShape : nallFromNatoms;
+    if (nall < 0) {
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "nall", std::to_string(nall).c_str(),
+                                              "nall must be known (output shape dim1 or natoms[1]) and not negative");
+        return ge::GRAPH_FAILED;
+    }
+    int64_t nallLimit = static_cast<int64_t>(INT32_MAX);
+    if (nall > nallLimit || nall < static_cast<int64_t>(nloc)) {
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+            context->GetNodeName(), "nall", std::to_string(nall).c_str(),
+            ("nall should satisfy nloc <= nall <= INT32_MAX (nloc = " + std::to_string(nloc) + ")").c_str());
         return ge::GRAPH_FAILED;
     }
 
-    if (GetWorkspaceSize(context) != ge::GRAPH_SUCCESS) {
+    int64_t compOffset = 0;
+    if (GetWorkspaceSize(context, nframes, static_cast<int32_t>(nall), compOffset) != ge::GRAPH_SUCCESS) {
+        return ge::GRAPH_FAILED;
+    }
+
+    if (SetTilingDataAndConfig(context, nframes, nloc, nnei, ndescrpt, static_cast<int32_t>(nall), compOffset,
+                               aivCoreNum, ubCapacity) != ge::GRAPH_SUCCESS) {
         return ge::GRAPH_FAILED;
     }
 
@@ -339,5 +446,6 @@ static ge::graphStatus TilingParseForProdForceSeA([[maybe_unused]] gert::TilingP
 
 IMPL_OP_OPTILING(ProdForceSeA)
     .Tiling(ProdForceSeATilingFunc)
-    .TilingParse<ProdForceSeACompileInfo>(TilingParseForProdForceSeA);
+    .TilingParse<ProdForceSeACompileInfo>(TilingParseForProdForceSeA)
+    .TilingInputsDataDependency({IDX_NATOMS});
 } // namespace optiling

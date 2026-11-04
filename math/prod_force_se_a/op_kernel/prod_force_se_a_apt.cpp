@@ -31,5 +31,5 @@ __global__ __aicore__ void prod_force_se_a(GM_ADDR net_deriv, GM_ADDR in_deriv, 
     GET_TILING_DATA_WITH_STRUCT(ProdForceSeATilingData, tilingData, tiling);
 
     // DTYPE_NET_DERIV 宏由框架根据 def.cpp 的 DataType 配置自动实例化为 float
-    NsProdForceSeA::Process<DTYPE_NET_DERIV>(net_deriv, in_deriv, nlist, natoms, atom_force, &tilingData);
+    NsProdForceSeA::Process<DTYPE_NET_DERIV>(net_deriv, in_deriv, nlist, natoms, atom_force, workspace, &tilingData);
 }

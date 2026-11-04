@@ -110,6 +110,28 @@ TEST_F(AdaCastTilingTest, test_tiling_failed_pixel_zero)
     ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
 }
 
+// 边界: dim0 接近 INT64_MAX（rank1）→ 多核切分使用 CeilDiv(dim0,2048)，
+// 不再计算 (dim0 + 2047)，避免 int64 有符号溢出；应正常返回 TilingKey=0、workspace{0}
+TEST_F(AdaCastTilingTest, test_tiling_huge_dim0_no_overflow)
+{
+    optiling::AdaCastCompileInfo compileInfo;
+    constexpr int64_t kHuge = 9223372036854775801LL; // INT64_MAX - 6
+    gert::TilingContextPara tilingContextPara("AdaCast",
+                                              {
+                                                  {{{kHuge}, {kHuge}}, ge::DT_UINT16, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{kHuge}, {kHuge}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {"pixel", Ops::Math::AnyValue::CreateFrom<int64_t>(65535)},
+                                              },
+                                              &compileInfo);
+    uint64_t expectTilingKey = 0;
+    std::vector<size_t> expectWorkspaces = {0};
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
+}
+
 // 异常: pixel=-1 → 报错
 TEST_F(AdaCastTilingTest, test_tiling_failed_pixel_negative)
 {

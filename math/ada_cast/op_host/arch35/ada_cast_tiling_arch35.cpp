@@ -146,7 +146,9 @@ static ge::graphStatus AdaCastTilingFunc(gert::TilingContext* context)
     // 6、多核切分
     // 等价 ceil(dim0 * MIN_DTYPE_BITS / MIN_TILING_BITS)，先除后乘避免 int64 乘法溢出（Host 红线 #3）
     constexpr int64_t MIN_ELEMS_PER_CORE = MIN_TILING_BITS / MIN_DTYPE_BITS; // = 2048
-    int64_t coreNum = (dim0 + MIN_ELEMS_PER_CORE - 1) / MIN_ELEMS_PER_CORE;
+    // 用 CeilDiv(x,y)=x/y+((x%y != 0)?1:0) 形式（不先算 x+y-1），避免 dim0 接近 INT64_MAX 时
+    // (dim0 + MIN_ELEMS_PER_CORE - 1) 的 int64 有符号溢出；语义与 ceil(dim0/2048) 等价。
+    int64_t coreNum = CeilDiv(dim0, MIN_ELEMS_PER_CORE);
     coreNum = std::min(coreNum, availableCoreNum);
     OP_CHECK_IF(coreNum <= 0, OP_LOGE(context, "coreNum <= 0"), return ge::GRAPH_FAILED);
 

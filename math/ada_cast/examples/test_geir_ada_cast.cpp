@@ -13,17 +13,20 @@
 // ============================================================================
 // AdaCast GE-IR 构图调用骨架
 //
-// **注意：geir 暂未集成（仅 aclnn 通路）**
-//   - 本算子当前只完成 aclnn 单算子模式适配，未注册 GE 图模式的运行时入口。
-//   - 本文件仅作为 GE 构图调用的标准骨架代码，**默认不参与 CMake 构建**
-//     （examples/CMakeLists.txt 中以 option 控制，默认 OFF）。
+// **注意：本算子已注册 GE 图模式（GEIR 通路可用）；ACLNN 通路未提供。**
+//   - OpDef（op_host/ada_cast_def.cpp）与 InferShape/InferDataType（op_host、op_graph）
+//     已注册，GE 图模式可直接构图并执行。
+//   - ACLNN 通路按 CMakeLists 的 `ACLNNTYPE aclnn_exclude` 明确排除，不产出 aclnn 接口。
+//   - 本文件仅作为 GE 构图调用的标准骨架代码；本仓 CMake **未定义** `ENABLE_GEIR_EXAMPLE`
+//     宏，默认**不参与本仓构建**（下方调用代码整体被注释，可执行分支仅打印提示文本）。
 //   - 真正的 GE 入图调用需要：
-//       1. 注册算子 OpDef 和 InferShape；
+//       1. OpDef/InferShape 注册（见上，已具备）；
 //       2. 在客户端工程中链接 libgraph / libge_runner；
 //       3. 通过 `ge::Session` 完成图构建、加载、执行。
 //
-// 编译开关:
-//   cmake .. -DENABLE_GEIR_EXAMPLE=ON   # 显式开启 GE-IR 示例（需要 libgraph）
+// 编译开关（本仓不定义，仅供参考）:
+//   在客户端工程自行定义 -DENABLE_GEIR_EXAMPLE 并链接 libgraph / libge_runner；
+//   本仓 CMake 未定义该宏，按本仓构建不会编译下方示例代码。
 // ============================================================================
 
 #include <cstdint>
@@ -47,7 +50,7 @@
 int main()
 {
     std::cout << "===== AdaCast GE-IR 构图调用骨架 =====" << std::endl;
-    std::cout << "[INFO] GE-IR 通路当前未集成（geir 暂未集成）；本示例仅展示构图骨架。" << std::endl;
+    std::cout << "[INFO] GE-IR(Ops) 通路已注册可用；本示例仅展示构图骨架。ACLNN 通路未提供。" << std::endl;
 
     // ------------------------------------------------------------------------
     // 步骤 1. 初始化 GE Session
@@ -114,7 +117,7 @@ int main()
 int main()
 {
     std::cout << "===== AdaCast GE-IR 构图调用骨架 =====" << std::endl;
-    std::cout << "[INFO] geir 暂未集成（仅 aclnn 通路）。" << std::endl;
+    std::cout << "[INFO] GEIR(Ops) 通路已注册可用；ACLNN 通路未提供。本例仅展示构图骨架。" << std::endl;
     std::cout << "[INFO] 如需查看 GE 构图骨架代码，请用 -DENABLE_GEIR_EXAMPLE=ON 编译，" << std::endl;
     std::cout << "       并确保已安装 libgraph 与 op_proto 依赖。" << std::endl;
     return 0;

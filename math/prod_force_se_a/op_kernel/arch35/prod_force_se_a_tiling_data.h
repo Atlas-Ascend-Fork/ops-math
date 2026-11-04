@@ -26,8 +26,9 @@ struct ProdForceSeATilingData {
     int32_t nnei = 0;        // 邻居数 = n_a_sel + n_r_sel（从属性获取）
     int32_t ndescrpt = 0;    // 描述符数 = 4 * nnei
     int32_t needCoreNum = 0; // 需要启动的核数
+    int32_t nall = 0;        // 总原子数，来自输出 shape 第 1 维（= natoms[1]，值依赖契约）
+    int64_t compOffset = 0;  // 邻居力补偿求和缓冲区在 workspace 中的字节偏移
     // ⚠️ 不包含 threadNum 等线程数参数（编译期常量）
-    // ⚠️ 不包含 nall（kernel 侧从 natoms GM 读取）
 };
 
 #endif // PROD_FORCE_SE_A_TILING_DATA_H_

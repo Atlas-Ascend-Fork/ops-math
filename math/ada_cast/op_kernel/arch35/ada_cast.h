@@ -18,7 +18,7 @@
  *   计算链 uint16 → int16 (ReinterpretCast) → fp32 (Cast<float, int16_t> CAST_NONE)
  *         → unsigned 修正：fp += (fp<0 ? 65536 : 0)，使用 Compare + Select
  *         → fp32 ×= pixelQuotient (Muls)
- *         → fp16 (Cast<half, float> CAST_ROUND)
+ *         → fp16 (Cast<half, float> CAST_RINT, round-to-nearest-even)
  *
  * UB 布局：
  *   inputQueueX (uint16=int16) 2B/elem
@@ -186,8 +186,11 @@ __aicore__ inline void AdaCast<BUFFER_MODE>::Compute(int64_t currentNum)
     AscendC::Maxs<float>(fpLocal, fpLocal, -FP16_MAX_VALUE, dataCount);
     AscendC::PipeBarrier<PIPE_V>();
 
-    // Step 4b: fp32 → half（CAST_ROUND，spec 要求 round-half-away-from-zero）
-    AscendC::Cast<half, float>(yLocal, fpLocal, AscendC::RoundMode::CAST_ROUND, dataCount);
+    // Step 4b: fp32 → half（CAST_RINT = round-to-nearest-even）
+    //   README「四舍五入（round-to-nearest-even）」与 tests/assets/golden.py（torch 默认 fp32→fp16
+    //   即 ties-to-even）一致；此前使用 CAST_ROUND(ties away from zero) 会在精确 tie 点与
+    //   Golden 相差 1 ULP（如实测: pixel=1,x∈{2049,4098,32784,34832}），故对齐为 RNE。
+    AscendC::Cast<half, float>(yLocal, fpLocal, AscendC::RoundMode::CAST_RINT, dataCount);
 
     inputQueueX.FreeTensor(xLocal);
     outputQueueY.template EnQue<half>(yLocal);

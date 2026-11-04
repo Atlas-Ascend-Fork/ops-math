@@ -237,6 +237,14 @@ static ge::graphStatus ValidateAttrs(gert::TilingContext* context)
                                                       "sample_num must be > 0"),
                 return ge::GRAPH_FAILED);
 
+    // TilingData.sampleNum 为 int32 字段，超过 INT32_MAX 会在 CalRunningInfo 中截断为负值，
+    // 进而出现 0%0 的整数除零（SIGFPE），此处显式拒绝。
+    OP_CHECK_IF(sampleNum > INT32_MAX,
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "sample_num",
+                                                      ("sample_num=" + std::to_string(sampleNum)).c_str(),
+                                                      "sample_num must be <= INT32_MAX"),
+                return ge::GRAPH_FAILED);
+
     const float* maxRadiusPtr = attrs->GetAttrPointer<float>(MAX_RADIUS_IDX);
     if (maxRadiusPtr == nullptr) {
         OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "max_radius");
@@ -348,6 +356,16 @@ void StackBallQueryTiling::CalRunningInfo(gert::TilingContext* context, const ui
     this->totalLengthCenterXyz = static_cast<int32_t>(totalLengthCenterXyzInt64);
     this->totalLengthXyz = static_cast<int32_t>(totalLengthXyzInt64);
     this->totalIdxLength = this->totalLengthCenterXyz * this->sampleNum;
+
+    // 空 center_xyz（M=0）时输出为空，属于合法输入。此处短路为单核空 tiling，
+    // 避免 coreNum=0 产生 BlockDim=0，也避免下方 0%0 的整数除零。
+    if (this->totalLengthCenterXyz == 0) {
+        this->coreNum = 1;
+        this->centerXyzPerCore = 0;
+        this->tailCenterXyzPerCore = 0;
+        this->totalIdxLength = 0;
+        return;
+    }
 
     if (static_cast<uint64_t>(this->totalLengthCenterXyz) <= actCoreNum) {
         this->coreNum = totalLengthCenterXyz;

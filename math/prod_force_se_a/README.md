@@ -103,6 +103,7 @@ $$
 ## 约束说明
 
 - 仅支持float32数据类型。
+- IR 原型 [op_graph/prod_force_se_a_proto.h](./op_graph/prod_force_se_a_proto.h) 的 REG_OP 声明的 dtype 全集为 FLOAT16、FLOAT、FLOAT64（图侧原型注册范围，宽于交付实现）；当前算子实现与 OpDef 仅交付 FLOAT，上述 FLOAT16、FLOAT64 无对应 Kernel，图模式以这两种 dtype 构图后无可用实现、会被拒绝。
 - net_deriv与in_deriv的dtype必须一致。
 - nlist 中元素值为-1表示虚拟邻居，跳过不处理。
 - n_a_sel>=0且n_r_sel>=0，且n_a_sel+n_r_sel>0。

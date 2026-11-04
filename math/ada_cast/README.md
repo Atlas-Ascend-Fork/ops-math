@@ -20,7 +20,7 @@ $$
 out_{i} = \mathrm{Cast\_FP16}^{sat+round}\bigl(\mathrm{Cast\_FP32}(self_{i}) \times (1 / pixel)\bigr)
 $$
 
-其中末步采用饱和（clip 到 fp16 值域 [-65504, 65504]）+ 四舍五入（round-to-nearest-even）方式转换到 float16。
+其中末步先做饱和（clip 到 fp16 值域 [-65504, 65504]），再按 round-to-nearest-even（就近取偶）方式舍入转换到 float16。
 
 ## 参数说明
 
@@ -48,18 +48,18 @@ $$
       <td>ND</td>
     </tr>
     <tr>
-      <td>pixel</td>
-      <td>可选属性</td>
-      <td><ul><li>白电平归一化基数，缩放系数为 1/pixel。</li><li>默认值为 65535。</li><li>取值必须为正整数（pixel &gt; 0），非正数时算子编译报错。</li></ul></td>
-      <td>INT64</td>
-      <td>-</td>
-    </tr>
-    <tr>
       <td>y</td>
       <td>输出</td>
       <td>归一化后的 float16 张量，公式中的out_i，shape 与 x 完全一致。</td>
       <td>FLOAT16</td>
       <td>ND</td>
+    </tr>
+    <tr>
+      <td>pixel</td>
+      <td>可选属性</td>
+      <td><ul><li>白电平归一化基数，缩放系数为 1/pixel。</li><li>默认值为 65535。</li><li>取值必须为正整数（pixel &gt; 0），非正数时算子编译报错。</li></ul></td>
+      <td>INT64</td>
+      <td>-</td>
     </tr>
   </tbody></table>
 
@@ -74,6 +74,8 @@ $$
 
 ## 调用说明
 
-| 调用方式 | 调用样例                                                                   | 说明                                                           |
+| 调用方式 | 样例代码                                                                   | 说明                                                           |
 |--------------|------------------------------------------------------------------------|--------------------------------------------------------------|
-| 图模式调用 | [test_geir_ada_cast](./examples/test_geir_ada_cast.cpp) | 通过 GE-IR 构图方式调用 AdaCast 算子。 |
+| GE图模式 | [test_geir_ada_cast.cpp](./examples/test_geir_ada_cast.cpp) | 通过 GE-IR（`ge::Session` / `RunGraph`）构图方式调用 AdaCast 算子；算子 IR 原型见 [ada_cast_proto.h](./op_graph/ada_cast_proto.h)。样例默认不参与构建（`ENABLE_GEIR_EXAMPLE` 未在仓库 CMake 中定义），需按样例注释在客户端工程中显式编译，并链接 libgraph / libge_runner。 |
+
+> 注：本算子仅提供 GE 图模式接口；`CMakeLists.txt` 中 `ACLNNTYPE aclnn_exclude` 且无 `op_api/`，未提供 ACLNN 与 PyTorch/TensorFlow 接口。

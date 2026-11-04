@@ -21,8 +21,6 @@ using namespace AscendC;
 
 constexpr int32_t BUFFER_NUM = 2;
 constexpr int32_t ALIGN_32 = 32;
-constexpr int32_t ALIGN_NUM = 8;
-constexpr int32_t ALIGN_16 = 16;
 constexpr int32_t XYZ_NUM = 3;
 constexpr int32_t XYZ_GM_OFFSET = 2;
 
@@ -42,7 +40,14 @@ public:
         this->coreNum = tilingData.coreNum;
         this->centerXyzPerCore = tilingData.centerXyzPerCore;
         this->tailCenterXyzPerCore = tilingData.tailCenterXyzPerCore;
-        this->maxRadius = tilingData.maxRadius * tilingData.maxRadius;
+        float radiusSq = tilingData.maxRadius * tilingData.maxRadius;
+        if constexpr (sizeof(INPUT_T) == sizeof(half)) {
+            // fp16 的半径平方必须与 Golden 一致：先按 float 计算平方，再舍入到 half。
+            // 直接使用未舍入的 float 阈值，会使“距离==半径”的边界点与参考产生 1 ULP 偏差。
+            this->maxRadius = static_cast<float>(static_cast<half>(radiusSq));
+        } else {
+            this->maxRadius = radiusSq;
+        }
         this->sampleNum = tilingData.sampleNum;
         this->typeXyzBlockSize = ALIGN_32 / (sizeof(INPUT_T));
         this->typeIntBlockSize = ALIGN_32 / sizeof(COUNT_T);
@@ -50,9 +55,15 @@ public:
         this->xyzEachSegmentLength = this->xyzEachSegmentLength / BUFFER_NUM;
         this->idxEachSegmentLength = this->idxEachSegmentLength / BUFFER_NUM;
 
-        int centerXyzEachCoreLength = Ceil(this->totalLengthCenterXyz, coreNum);
+        // 本核实际处理的中心点数量：尾核为 tailCenterXyzPerCore，其余为 centerXyzPerCore。
+        // 原实现按 Ceil(total, coreNum) 声明 GM 长度，会高估尾核长度，配合 32B 对齐搬运造成越界读。
+        int32_t currentCoreCenterXyz = this->centerXyzPerCore;
+        if (this->tailCenterXyzPerCore != 0 && GetBlockIdx() == this->coreNum - 1) {
+            currentCoreCenterXyz = this->tailCenterXyzPerCore;
+        }
+        this->centerXyzCoreCount = static_cast<uint32_t>(currentCoreCenterXyz);
         centerXyzGm.SetGlobalBuffer((__gm__ INPUT_T*)center_xyz + 3 * this->centerXyzPerCore * GetBlockIdx(),
-                                    3 * centerXyzEachCoreLength);
+                                    3 * this->centerXyzCoreCount);
         xyzGm.SetGlobalBuffer((__gm__ INPUT_T*)xyz, 3 * this->totalLengthXyz);
         idxGm.SetGlobalBuffer((__gm__ int32_t*)idx, this->totalIdxLength);
         centerXyzBatchCntGm.SetGlobalBuffer((__gm__ COUNT_T*)center_xyz_batch_cnt, this->batchSize);
@@ -65,26 +76,10 @@ public:
 
         pipe->InitBuffer(resultBuf, this->idxEachSegmentLength * sizeof(int32_t));
         this->resultOut = resultBuf.Get<int32_t>();
-        pipe->InitBuffer(resultAlignBuf, ALIGN_32);
-        this->resultOutAlign = resultAlignBuf.Get<int32_t>();
         pipe->InitBuffer(calcBufCenterX, this->xyzEachSegmentLength * sizeof(INPUT_T));
         pipe->InitBuffer(calcBufCenterY, this->xyzEachSegmentLength * sizeof(INPUT_T));
         pipe->InitBuffer(calcBufCenterZ, this->xyzEachSegmentLength * sizeof(INPUT_T));
 
-        pipe->InitBuffer(ubDstLt, ALIGN_16 * sizeof(uint16_t));
-        this->ubDstLtLocal = ubDstLt.Get<uint16_t>();
-        pipe->InitBuffer(ubMaxRadius, this->xyzEachSegmentLength * sizeof(INPUT_T));
-        this->ubMaxRadiusLocal = ubMaxRadius.Get<INPUT_T>();
-        Duplicate<INPUT_T>(ubMaxRadiusLocal, this->maxRadius, this->xyzEachSegmentLength);
-        pipe->InitBuffer(ubResultLt, this->selMaxElements * sizeof(float));
-        this->ubResultLtLocal = ubResultLt.Get<float>();
-
-        pipe->InitBuffer(ubOneFloat32, this->selMaxElements * sizeof(float));
-        this->ubOneFloat32Local = ubOneFloat32.Get<float>();
-        Duplicate<float>(ubOneFloat32Local, 1.0, this->selMaxElements);
-        pipe->InitBuffer(ubZeroFloat32, this->selMaxElements * sizeof(float));
-        this->ubZeroFloat32Local = ubZeroFloat32.Get<float>();
-        Duplicate<float>(ubZeroFloat32Local, 0.0, this->selMaxElements);
         pipe->InitBuffer(calcBufDistanceResult, this->xyzEachSegmentLength * sizeof(INPUT_T));
         pipe->InitBuffer(calcBufCenterDistanceX, this->xyzEachSegmentLength * sizeof(INPUT_T));
         pipe->InitBuffer(calcBufCenterDistanceY, this->xyzEachSegmentLength * sizeof(INPUT_T));
@@ -98,6 +93,10 @@ public:
 
     __aicore__ inline void Process()
     {
+        // 空 center_xyz（M=0）时输出张量长度为 0，无任何计算与搬运，直接返回。
+        if (this->totalIdxLength == 0) {
+            return;
+        }
         this->CopyInBatchCnt();
         int currentCoreCenterXyz = this->centerXyzPerCore;
         if (this->tailCenterXyzPerCore != 0 && GetBlockIdx() == this->coreNum - 1) {
@@ -154,47 +153,61 @@ private:
         return calCount + alignVal;
     }
 
-    __aicore__ inline int Ceil(int a, int b)
-    {
-        if (b == 0) {
-            return a;
-        }
-        return (a + b - 1) / b;
-    }
-
     template <typename Type>
     __aicore__ inline void DataCopyGm2UbAlign32(const LocalTensor<Type>& dstLocal, const GlobalTensor<Type>& srcGlobal,
-                                                const uint32_t calCount, const uint32_t blockSize)
+                                                const uint32_t calCount, const uint32_t blockSize,
+                                                const uint32_t remaining)
     {
+        if (g_coreType == AIC) {
+            return;
+        }
         uint32_t tail = calCount % blockSize;
-        if (tail != 0) {
-            uint32_t alignVal = blockSize - tail;
-            if (g_coreType == AIC) {
-                return;
-            }
+        uint32_t alignVal = (tail == 0) ? 0 : (blockSize - tail);
+#if defined(__CCE_AICORE__) && (__CCE_AICORE__ == 100)
+        // Ascend910A(dav_c100) 没有 DataCopyPad 的 GM->UB 重载：
+        // 整块部分仍用 DataCopy；张量剩余长度不足一个 32B 对齐块时，尾段逐元素搬运，
+        // 既避免对齐放大越界读，也不依赖 DataCopyPad。
+        if (calCount + alignVal <= remaining) {
+            DataCopy(dstLocal, srcGlobal, calCount + alignVal);
+            return;
+        }
+        uint32_t fullCount = calCount - tail;
+        if (fullCount > 0) {
+            DataCopy(dstLocal, srcGlobal, fullCount);
+            PipeBarrier<PIPE_ALL>();
+        }
+        for (uint32_t i = fullCount; i < calCount; ++i) {
+            dstLocal.SetValue(i, srcGlobal.GetValue(i));
+        }
+#else
+        if (calCount + alignVal <= remaining) {
             DataCopy(dstLocal, srcGlobal, calCount + alignVal);
         } else {
-            if (g_coreType == AIC) {
-                return;
-            }
-            DataCopy(dstLocal, srcGlobal, calCount);
+            // 张量剩余长度不足一个 32B 对齐块时，按真实长度搬运，避免对齐放大造成越界读。
+            DataCopyExtParams copyParams{1, static_cast<uint32_t>(calCount * sizeof(Type)), 0, 0, 0};
+            DataCopyPadExtParams<Type> padParams{false, 0, 0, static_cast<Type>(0)};
+            DataCopyPad(dstLocal, srcGlobal, copyParams, padParams);
         }
+#endif
     }
 
     __aicore__ inline void CopyInBatchCnt()
     {
         this->centerXyzBatchLocal = centerXyzBatchValue.Get<COUNT_T>();
-        DataCopyGm2UbAlign32(this->centerXyzBatchLocal, centerXyzBatchCntGm, this->batchSize, typeIntBlockSize);
+        DataCopyGm2UbAlign32(this->centerXyzBatchLocal, centerXyzBatchCntGm, this->batchSize, typeIntBlockSize,
+                             this->batchSize);
 
         this->xyzBatchLocal = xyzBatchValue.Get<COUNT_T>();
-        DataCopyGm2UbAlign32(this->xyzBatchLocal, xyzBatchCntGm, this->batchSize, typeIntBlockSize);
+        DataCopyGm2UbAlign32(this->xyzBatchLocal, xyzBatchCntGm, this->batchSize, typeIntBlockSize, this->batchSize);
     }
 
     __aicore__ inline void CopyInCenterXyz(int32_t segmentLoopIndex, int lenCenterXyzSegment)
     {
         int64_t offset = segmentLoopIndex * this->centerXyzEachSegmentLength * 3;
         this->centerXyzLocal = inQueueCenterXyz.AllocTensor<INPUT_T>();
-        DataCopyGm2UbAlign32(centerXyzLocal, centerXyzGm[offset], XYZ_NUM * lenCenterXyzSegment, typeXyzBlockSize);
+        uint32_t remaining = static_cast<uint32_t>(XYZ_NUM * this->centerXyzCoreCount - offset);
+        DataCopyGm2UbAlign32(centerXyzLocal, centerXyzGm[offset], XYZ_NUM * lenCenterXyzSegment, typeXyzBlockSize,
+                             remaining);
         inQueueCenterXyz.EnQue(centerXyzLocal);
     }
 
@@ -204,15 +217,15 @@ private:
         yLocal = inQueueY.AllocTensor<INPUT_T>();
         zLocal = inQueueZ.AllocTensor<INPUT_T>();
 
-        DataCopyGm2UbAlign32(xLocal, xyzGm[offsetXyzStart + xyzSegmentLoopIndex * this->xyzEachSegmentLength],
-                             xyzSegmentLen, typeXyzBlockSize);
-        DataCopyGm2UbAlign32(yLocal,
-                             xyzGm[totalLengthXyz + offsetXyzStart + xyzSegmentLoopIndex * this->xyzEachSegmentLength],
-                             xyzSegmentLen, typeXyzBlockSize);
-        DataCopyGm2UbAlign32(
-            zLocal,
-            xyzGm[XYZ_GM_OFFSET * totalLengthXyz + offsetXyzStart + xyzSegmentLoopIndex * this->xyzEachSegmentLength],
-            xyzSegmentLen, typeXyzBlockSize);
+        uint32_t xyzOffsetInBatch = static_cast<uint32_t>(offsetXyzStart +
+                                                          xyzSegmentLoopIndex * this->xyzEachSegmentLength);
+        uint32_t remaining = static_cast<uint32_t>(this->totalLengthXyz) - xyzOffsetInBatch;
+
+        DataCopyGm2UbAlign32(xLocal, xyzGm[xyzOffsetInBatch], xyzSegmentLen, typeXyzBlockSize, remaining);
+        DataCopyGm2UbAlign32(yLocal, xyzGm[totalLengthXyz + xyzOffsetInBatch], xyzSegmentLen, typeXyzBlockSize,
+                             remaining);
+        DataCopyGm2UbAlign32(zLocal, xyzGm[XYZ_GM_OFFSET * totalLengthXyz + xyzOffsetInBatch], xyzSegmentLen,
+                             typeXyzBlockSize, remaining);
         inQueueX.EnQue(xLocal);
         inQueueY.EnQue(yLocal);
         inQueueZ.EnQue(zLocal);
@@ -238,37 +251,20 @@ private:
                 }
                 DataCopy(idxGm[gmOffset], resultOut, lenToSend);
             } else {
-                if (lenToSend >= ALIGN_NUM) {
-                    if (lenToSend - sendTail > 0) {
-                        if (g_coreType == AIC) {
-                            return;
-                        }
-                        DataCopy(idxGm[gmOffset], resultOut, lenToSend - sendTail);
-                    }
-                    PipeBarrier<PIPE_ALL>();
-                    ;
-                    for (int k = 0; k < ALIGN_NUM; k++) {
-                        this->resultOutAlign.SetValue(k, this->resultOut.GetValue(lenToSend - ALIGN_NUM + k));
-                    }
-                    if (g_coreType == AIC) {
-                        return;
-                    }
-                    DataCopy(idxGm[gmOffset + lenToSend - ALIGN_NUM], resultOutAlign, ALIGN_NUM);
-                } else {
-                    if (g_coreType == AIC) {
-                        return;
-                    }
-                    DataCopy(this->resultOutAlign, idxGm[gmOffset + lenToSend - ALIGN_NUM], ALIGN_NUM);
-                    PipeBarrier<PIPE_ALL>();
-                    ;
-                    for (int k = 0; k < lenToSend; k++) {
-                        this->resultOutAlign.SetValue(ALIGN_NUM - lenToSend + k, this->resultOut.GetValue(k));
-                    }
-                    if (g_coreType == AIC) {
-                        return;
-                    }
-                    DataCopy(idxGm[gmOffset + lenToSend - ALIGN_NUM], this->resultOutAlign, ALIGN_NUM);
+                if (g_coreType == AIC) {
+                    return;
                 }
+                // 非 32B 对齐尾段：按真实长度搬运。原实现为凑齐 32B 块而在 idx 起始处
+                // 产生负偏移读写（越界），此处不再使用对齐块读写。
+#if defined(__CCE_AICORE__) && (__CCE_AICORE__ == 100)
+                // Ascend910A(dav_c100) 没有 DataCopyPad 的 UB->GM 重载：逐元素写回。
+                for (int k = 0; k < lenToSend; ++k) {
+                    idxGm.SetValue(gmOffset + k, resultOut.GetValue(k));
+                }
+#else
+                DataCopyExtParams copyParams{1, static_cast<uint32_t>(lenToSend * sizeof(int32_t)), 0, 0, 0};
+                DataCopyPad(idxGm[gmOffset], resultOut, copyParams);
+#endif
             }
             PipeBarrier<PIPE_ALL>();
             ;
@@ -282,36 +278,6 @@ private:
         SendResultToGm(false);
     }
 
-    __aicore__ inline void ComputeBallQueryFp16(int currentNStart, int currentSegmentLen)
-    {
-        int selLoopNum = Ceil(currentSegmentLen, this->selMaxElements);
-        for (int selIdx = 0; selIdx < selLoopNum; selIdx++) {
-            if (this->resultNum >= this->sampleNum) {
-                break;
-            }
-            Compare(ubDstLtLocal, this->distanceEachSegment[selIdx * this->selMaxElements],
-                    this->ubMaxRadiusLocal[selIdx * this->selMaxElements], CMPMODE::LT, this->xyzEachSegmentLength);
-
-            Select(ubResultLtLocal, ubDstLtLocal, ubOneFloat32Local, ubZeroFloat32Local,
-                   SELMODE::VSEL_TENSOR_TENSOR_MODE, this->selMaxElements);
-
-            for (int internalSelIdx = 0; internalSelIdx < this->selMaxElements; ++internalSelIdx) {
-                auto currentCalNum = internalSelIdx + selIdx * this->selMaxElements;
-                if (currentCalNum < currentSegmentLen && this->resultNum < this->sampleNum) {
-                    int currentN = currentNStart + currentCalNum;
-                    auto eachResult = ubResultLtLocal.GetValue(internalSelIdx);
-                    if (eachResult == float(1.0)) {
-                        if (this->resultNum == 0) {
-                            this->firstResult = currentN;
-                        }
-                        this->resultNum += 1;
-                        SetResultAndTrySend(currentN);
-                    }
-                }
-            }
-        }
-    }
-
     __aicore__ inline void ComputeBallQueryFp32(int currentNStart, int currentSegmentLen)
     {
         for (int i = 0; i < currentSegmentLen; i++) {
@@ -321,7 +287,7 @@ private:
             auto currentDistance = this->distanceEachSegment.GetValue(i);
             if (float(currentDistance) < this->maxRadius) {
                 if (this->resultNum == 0) {
-                    this->firstResult = i;
+                    this->firstResult = currentNStart + i;
                 }
                 this->resultNum += 1;
 
@@ -409,6 +375,8 @@ private:
         }
 
         if (resultNum == 0) {
+            // 无任何候选点：按参考语义整行保持 -1，剩余槽位不得填 0。
+            this->firstResult = -1;
             this->resultNum += 1;
             this->SetResultAndTrySend(-1);
         }
@@ -450,13 +418,9 @@ private:
     LocalTensor<COUNT_T> centerXyzBatchLocal;
     LocalTensor<COUNT_T> xyzBatchLocal;
     LocalTensor<int32_t> resultOut;
-    LocalTensor<int32_t> resultOutAlign;
-    LocalTensor<uint16_t> ubDstLtLocal;
     LocalTensor<INPUT_T> distanceEachSegment;
     LocalTensor<INPUT_T> centerXyzLocal;
     LocalTensor<INPUT_T> xLocal, yLocal, zLocal;
-    LocalTensor<INPUT_T> ubMaxRadiusLocal;
-    LocalTensor<float> ubOneFloat32Local, ubZeroFloat32Local, ubResultLtLocal;
 
     GlobalTensor<INPUT_T> centerXyzGm, xyzGm;
     GlobalTensor<int32_t> idxGm;
@@ -464,8 +428,7 @@ private:
 
     TBuf<TPosition::VECCALC> calcBufCenterX, calcBufCenterY, calcBufCenterZ, calcBufDistanceResult;
     TBuf<TPosition::VECCALC> calcBufCenterDistanceX, calcBufCenterDistanceY, calcBufCenterDistanceZ;
-    TBuf<TPosition::VECCALC> ubDstLt, ubMaxRadius, ubResultLt, ubOneFloat32, ubZeroFloat32;
-    TBuf<TPosition::VECCALC> resultBuf, resultAlignBuf;
+    TBuf<TPosition::VECCALC> resultBuf;
     TBuf<TPosition::VECCALC> xyzBatchValue, centerXyzBatchValue;
 
     INPUT_T centerX, centerY, centerZ;
@@ -484,6 +447,7 @@ private:
     int32_t centerXyzPerCore;
     int32_t tailCenterXyzPerCore;
 
+    uint32_t centerXyzCoreCount{0};
     int centerXyzEachSegmentLength = 2048;
     int xyzEachSegmentLength = 2048;
     int idxEachSegmentLength = 2048;
@@ -493,7 +457,6 @@ private:
 
     int typeXyzBlockSize = 8;
     int typeIntBlockSize = 8;
-    int selMaxElements = 64;
 };
 
 #endif // _SRC_STACK_BALL_QUERY_H_

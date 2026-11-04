@@ -120,15 +120,15 @@ static ge::graphStatus ValidateAttrs(gert::InferShapeContext* context, const cha
 {
     const gert::RuntimeAttrs* attrs = context->GetAttrs();
     OP_CHECK_NULL_WITH_CONTEXT(context, attrs);
-    int32_t nASel = *(attrs->GetAttrPointer<int32_t>(ATTR_INDEX_N_A_SEL));
-    int32_t nRSel = *(attrs->GetAttrPointer<int32_t>(ATTR_INDEX_N_R_SEL));
+    int64_t nASel = *(attrs->GetAttrPointer<int64_t>(ATTR_INDEX_N_A_SEL));
+    int64_t nRSel = *(attrs->GetAttrPointer<int64_t>(ATTR_INDEX_N_R_SEL));
     if (nASel < 0 || nRSel < 0) {
         std::string valMsg = std::to_string(nASel) + " and " + std::to_string(nRSel);
         OP_LOGE_FOR_INVALID_VALUES_WITH_REASON(opName, "n_a_sel and n_r_sel", valMsg.c_str(),
                                                "n_a_sel and n_r_sel should be greater than or equal to 0");
         return GRAPH_FAILED;
     }
-    int32_t nnei = nASel + nRSel;
+    int64_t nnei = nASel + nRSel;
     if (nnei == 0) {
         OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(opName, "nnei", std::to_string(nnei).c_str(),
                                               "nnei should be greater than 0");
