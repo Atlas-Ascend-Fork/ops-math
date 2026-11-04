@@ -158,14 +158,14 @@ int CreateOppInGraph(DataType inDtype, std::vector<ge::Tensor>& input, std::vect
 {
     Status ret = SUCCESS;
     auto dynamicStitch1 = op::DynamicStitch("dynamicStitch1")
-                              .create_dynamic_input_indices(2, false)
-                              .create_dynamic_input_x(2, false)
+                              .create_dynamic_input_indices(2)
+                              .create_dynamic_input_x(2)
                               .set_attr_N(2);
 
     std::vector<int64_t> indices0_shape = {1};
     std::vector<int64_t> indices1_shape = {1};
-    std::vector<int64_t> x0_shape = {4, 2};
-    std::vector<int64_t> x1_shape = {4, 2};
+    std::vector<int64_t> x0_shape = {1, 2};
+    std::vector<int64_t> x1_shape = {1, 2};
 
     auto placeholder_indices0 = op::Data("placeholder_indices0").set_attr_index(0);
     TensorDesc placeholder_indices0_desc = TensorDesc(ge::Shape(indices0_shape), FORMAT_ND, DT_INT32);
