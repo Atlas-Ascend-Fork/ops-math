@@ -61,7 +61,7 @@ bash build.sh --pkg --soc=${soc_version} --ops=add_example -j16
 
 - Atlas A2系列产品：取值为ascend910b
 - Atlas A3系列产品：取值为ascend910_93
-- 950系列产品：取值为ascend950
+- Ascend 950PR&950DT系列产品：取值为ascend950
 
 若提示如下信息，说明编译成功。
 

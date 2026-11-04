@@ -1,7 +1,7 @@
 # SortWithIndex
 
-> 本算子为 `experimental/math/sort_with_index`（<term>Atlas A2系列产品</term>，即 Ascend 910B 原生 AscendC 实现）。
-> L0 语义真值源：`math/sort_with_index/`（仅适配 Ascend 950PR/DT，arch35 kernel）；本 experimental 实现新增 910B 原生支持。
+> 本算子为 `experimental/math/sort_with_index`（Atlas A2系列产品，即Ascend 910B原生Ascend C实现）。
+> L0 语义真值源：`math/sort_with_index/`（仅适配Ascend 950PR&950DT系列产品，arch35 kernel）；本experimental实现新增910B原生支持。
 
 ## 产品支持情况
 
@@ -14,7 +14,7 @@
 | <term>Atlas推理系列产品</term> | × |
 | <term>Atlas训练系列产品</term> | × |
 
-> 说明：本 experimental 工程仅声明 `AddConfig("ascend910b", ...)`（见 `op_host/sort_with_index_def.cpp`），首版仅适配 <term>Atlas A2系列产品</term>（Ascend 910B）。Ascend 950 上的 SortWithIndex 由真值源 `math/sort_with_index`（arch35 kernel）提供，不在本工程范围内。
+> 说明：本experimental工程仅声明`AddConfig("ascend910b", ...)`（见`op_host/sort_with_index_def.cpp`），首版仅适配Atlas A2系列产品（Ascend 910B）。Ascend 950上的SortWithIndex由真值源`math/sort_with_index`（arch35 kernel）提供，不在本工程范围内。
 
 ## 功能说明
 
@@ -115,7 +115,7 @@
 
 ## 约束说明
 
-本算子在 <term>Atlas A2系列产品</term>（Ascend 910B）上实现，存在以下特有约束：
+本算子在Atlas A2系列产品（Ascend 910B）上实现，存在以下特有约束：
 
 - **dtype 组合（4 组，按位置对齐）**：910B 首版仅支持 4 组 `(value, index)` 组合，`index` 与 `sorted_index` 均为 **INT32**：
 

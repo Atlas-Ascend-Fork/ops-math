@@ -57,7 +57,7 @@ $$
     </tr>
   </tbody></table>
 
-- Kirin X90/Kirin 9030处理器系列产品：不支持COMPLEX。
+- Kirin X90处理器系列产品、Kirin 9030处理器系列产品：不支持COMPLEX。
 
 ## 约束说明
 

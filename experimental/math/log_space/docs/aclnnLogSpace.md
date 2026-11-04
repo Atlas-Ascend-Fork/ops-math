@@ -8,8 +8,6 @@
 | <term>Atlas A3系列产品</term> | √ |
 | <term>Atlas A2系列产品</term> | √ |
 
-> 整型输出（INT8/INT16/INT32/UINT8）仅 <term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term> 支持；<term>Ascend 950PR&950DT系列产品</term> 维持原有的 FLOAT/FLOAT16/BFLOAT16 输出。
-
 ## 功能说明
 
 - 接口功能：创建一个大小为 $steps$ 的一维张量，其值在 $base^{start}$ 到 $base^{end}$ 之间按对数尺度均匀间隔（含端点），以 $base$ 为底。相比原接口**新增 INT8/INT16/INT32/UINT8 输出**（整型按向零取整）。
@@ -46,11 +44,11 @@ aclnnStatus aclnnLogSpace(
 
   | 参数名 | 输入/输出 | 描述 | 使用说明 | 数据类型 | 数据格式 | 维度(shape) | 非连续Tensor |
   | -- | -- | -- | -- | -- | -- | -- | -- |
-  | start (aclScalar*) | 输入 | LogSpace 的起始指数 | 整型标量按数值读为 float | FLOAT、FLOAT16、BFLOAT16、DOUBLE、INT8、INT16、INT32、UINT8 | ND | - | √ |
-  | end (aclScalar*) | 输入 | LogSpace 的结束指数 | 整型标量按数值读为 float | FLOAT、FLOAT16、BFLOAT16、DOUBLE、INT8、INT16、INT32、UINT8 | ND | - | √ |
+  | start (aclScalar*) | 输入 | LogSpace 的起始指数 | 整型标量按数值读为float | FLOAT、FLOAT16、BFLOAT16、DOUBLE、INT8、INT16、INT32、UINT8 | ND | - | √ |
+  | end (aclScalar*) | 输入 | LogSpace 的结束指数 | 整型标量按数值读为float | FLOAT、FLOAT16、BFLOAT16、DOUBLE、INT8、INT16、INT32、UINT8 | ND | - | √ |
   | steps (int64_t) | 输入 | 序列中的元素数量 | 取值 0 ≤ steps ≤ UINT32_MAX | int64_t | - | - | - |
   | base (double) | 输入 | 对数空间的底数 | 取值 base > 0 | double | - | - | - |
-  | result (aclTensor*) | 输出 | 输出的对数间隔序列张量 | 整型按向零取整，溢出饱和；INT8/INT16/INT32/UINT8 仅 <term>Atlas A2/A3</term> 支持 | FLOAT、FLOAT16、BFLOAT16、INT8、INT16、INT32、UINT8 | ND | 1（一维，长度=steps） | √ |
+  | result (aclTensor*) | 输出 | 输出的对数间隔序列张量 | 整型按向零取整，溢出饱和；INT8、INT16、INT32、UINT8 | FLOAT、FLOAT16、BFLOAT16、INT8、INT16、INT32、UINT8 | ND | 1（一维，长度=steps） | √ |
   | workspaceSize (uint64_t*) | 输出 | 返回需要在 Device 侧申请的 workspace 大小 | - | - | - | - | - |
   | executor (aclOpExecutor**) | 输出 | 返回 op 执行器，包含算子计算流程 | - | - | - | - | - |
 
@@ -59,7 +57,7 @@ aclnnStatus aclnnLogSpace(
   | 返回码 | 错误码 | 描述 |
   | -- | -- | -- |
   | ACLNN_ERR_PARAM_NULLPTR | 161001 | 传入的 start、end 或 result 是空指针。 |
-  | ACLNN_ERR_PARAM_INVALID | 161002 | start/end/result 数据类型不在支持范围（含 result 的 dtype 在当前芯片上不支持，如 <term>Ascend 950PR&950DT系列产品</term> 传入整型）；或 steps < 0 / steps > UINT32_MAX；或 base ≤ 0；或 result 非一维 / result.shape[0] ≠ steps。 |
+  | ACLNN_ERR_PARAM_INVALID | 161002 | start/end/result 数据类型不在支持范围（含result的dtype在当前芯片上不支持，如Ascend 950PR&950DT系列产品传入整型）；或 steps < 0 / steps > UINT32_MAX；或 base ≤ 0；或 result 非一维 / result.shape[0] ≠ steps。 |
 
 ## aclnnLogSpace
 
@@ -77,6 +75,8 @@ aclnnStatus aclnnLogSpace(
 ## 约束说明
 
 - **确定性计算：** aclnnLogSpace 默认确定性实现。
+- <term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>：result支持整型输出（INT8/INT16/INT32/UINT8）
+- <term>Ascend 950PR&950DT系列产品</term>：result维持原有的FLOAT/FLOAT16/BFLOAT16输出。
 - **整型输出：** 按 `base^x` 向零取整（CAST_TRUNC，对齐 torch `.to(int)`）；溢出按饱和处理，应保证 `base^x` 落在输出 dtype 范围内。UINT8 要求 `base^x ≥ 0`（base>0 时恒成立）。INT8/UINT8 因 c220 无 `float→1字节` 直接 Cast，内部经 half 中转（对 ≤255 整数精确）。
 - **输出形状：** result 为一维张量，长度 = steps。
 

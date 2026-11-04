@@ -13,7 +13,7 @@
 
 ## 功能说明
 
-- 算子功能：本算子是`aclnnMultinomialGetWorkspaceSize`和`aclnnMultinomialTensorGetWorkspaceSize`接口构建计算流程时使用的内部服务算子，用于Ascend 950场景下的有放回多项分布采样路径。算子根据输入的累积分布和随机种子，从每个多项分布中抽取`num_samples`个样本，并将样本的类别索引存储到输出张量中。
+- 算子功能：本算子是`aclnnMultinomialGetWorkspaceSize`和`aclnnMultinomialTensorGetWorkspaceSize`接口构建计算流程时使用的内部服务算子，用于Ascend 950PR&950DT系列产品的有放回多项分布采样路径。算子根据输入的累积分布和随机种子，从每个多项分布中抽取`num_samples`个样本，并将样本的类别索引存储到输出张量中。
 - 计算公式：
 
   对于第$d$个分布的第$j$次抽样，生成随机数：

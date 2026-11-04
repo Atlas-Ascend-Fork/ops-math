@@ -79,10 +79,10 @@
 
 ## 约束说明
 
-- Ascend 950 实现采用 SIMD/SIMT 协同解码。
-- Ascend 950 的 mantissa、fixed、var 和 out 数据类型须与编码时的原始张量一致。
-- Ascend 950 的 fixed 至少包含 512 字节公共头；输入码流及 reshuff 属性须与编码端保持一致。
-- Ascend 950 的测试命令和覆盖限制见[验证说明](../hans_encode/tests/README.md)。
+- Ascend 950实现采用SIMD/SIMT协同解码。
+- Ascend 950的mantissa、fixed、var和out数据类型须与编码时的原始张量一致。
+- Ascend 950的fixed至少包含512字节公共头；输入码流及reshuff属性须与编码端保持一致。
+- Ascend 950的测试命令和覆盖限制见[验证说明](../hans_encode/tests/README.md)。
 
 ## 调用说明
 

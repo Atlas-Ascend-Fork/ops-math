@@ -1,21 +1,19 @@
 # Bernoulli
 
-`experimental/random/bernoulli` 提供 Atlas A2/A3 上 `aclnnBernoulli` 和
-`aclnnInplaceBernoulli` 标量概率路径的低内存 Ascend C 实现。Tensor 概率
-接口以及非 DAV_2201 平台继续使用既有兼容路径。
+`experimental/random/bernoulli`提供Atlas A2/A3上`aclnnBernoulli`和`aclnnInplaceBernoulli`标量概率路径的低内存Ascend C 实现。Tensor概率接口以及非 DAV_2201 平台继续使用既有兼容路径。
 
 ## 贡献说明
 
 | 贡献者 | 贡献方 | 贡献算子 | 贡献时间 | 贡献内容 |
 | --- | --- | --- | --- | --- |
-| m0_69357246 | 个人开发者 | Bernoulli | 2026/07 | A2/A3 标量概率路径的内存与性能优化 |
+| m0_69357246 | 个人开发者 | Bernoulli | 2026/07 | A2/A3标量概率路径的内存与性能优化 |
 
 ## 产品支持
 
 | 产品 | 构建参数 | 架构 | 支持状态 |
 | --- | --- | --- | :---: |
-| Atlas A2 训练/推理系列产品 | `ascend910b` | DAV_2201 | 支持 |
-| Atlas A3 训练/推理系列产品 | `ascend910_93` | DAV_2201 | 支持 |
+| Atlas A2系列产品 | `ascend910b` | DAV_2201 | 支持 |
+| Atlas A3系列产品 | `ascend910_93` | DAV_2201 | 支持 |
 
 两个产品使用同一份 Ascend C Kernel 和 `arch22` tiling。核数与 UB 大小由
 `PlatformAscendC` 在运行时获取，不依赖固定型号参数。
@@ -174,7 +172,7 @@ offset。执行方式和判定说明见 [`tests/st/README.md`](tests/st/README.m
 | 接口签名、参数、约束、错误码 | `docs/` 下两份 ACLNN 接口文档 |
 | 标量、in-place、Tensor 概率及异常分支 | 27 个 Op API UT |
 | 浮点 dtype、shape、概率与 offset 组合 | 200 个 ACLNN ATK ST |
-| A2/A3 构建与打包 | `ascend910b`、`ascend910_93` 两套配置 |
+| A2/A3构建与打包 | `ascend910b`、`ascend910_93` 两套配置 |
 
 竞赛任务书给出的 50 个专项用例用于最终内存、精度与性能验收，不替代本目录
 随代码提交的 UT/ST。

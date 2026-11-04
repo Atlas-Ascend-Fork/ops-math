@@ -2,7 +2,7 @@
 
 ## 产品支持情况
 
-> 本实验态（`experimental/math/`）实现仅适配 <term>Atlas A2系列产品</term>（ascend910b，DAV_2201）。内建算子 `math/fused_mul_add_n` 另行覆盖 Ascend 950 / Atlas A3 等产品，不在本实验态范围内。
+> 本实验态（`experimental/math/`）实现仅适配<term>Atlas A2系列产品</term>（ascend910b，DAV_2201）。内建算子`math/fused_mul_add_n`另行覆盖Ascend 950、Atlas A3等产品，不在本实验态范围内。
 
 | 产品                                                         | 是否支持 |
 | :----------------------------------------------------------- | :------: |

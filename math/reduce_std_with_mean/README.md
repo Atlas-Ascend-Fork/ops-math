@@ -11,7 +11,10 @@
 | <term>Atlas推理系列产品</term> | √ |
 | <term>Atlas训练系列产品</term> | √ |
 
-> Ascend 950PR/950DT 由本自定义算子包提供 kernel 实现（arch35）；其余产品由 CANN 内置算子库支持。Ascend 950PR/950DT、Atlas A3、Atlas A2 支持 float16 / float32 / bfloat16；其余产品支持 float16 / float32。
+> **说明**:
+>
+> - Ascend 950PR&950DT系列产品由本自定义算子包提供kernel实现（arch35）；其余产品由CANN内置算子库支持。
+> - Ascend 950PR&950DT系列产品、Atlas A3、Atlas A2支持float16/float32/bfloat16；其余产品支持float16/float32。
 
 ## 功能说明
 
@@ -34,7 +37,7 @@ $$
 ReduceStdWithMean 为 CANN 内部 L0 算子，被 `aclnnStd`、`aclnnStdMeanCorrection`、`aclnnBatchNormStats` 三个上层 aclnn 接口组合调用，不直接暴露独立 aclnn 接口。
 
 | 上层接口 | 功能 | correction | invert | eps |
-|:---|:---|:---|:---|:---|
+| :--- | :--- | :--- | :--- | :--- |
 | aclnnStd | 独立标准差 | 用户传入 | false | — |
 | aclnnStdMeanCorrection | 同时输出 (std, mean) | 用户传入 | false | 0.001（固定） |
 | aclnnBatchNormStats | 输出 (mean, invstd) | 0（固定） | true | 用户传入 |
@@ -139,7 +142,7 @@ ReduceStdWithMean 为 CANN 内部 L0 算子，被 `aclnnStd`、`aclnnStdMeanCorr
 ## 调用说明
 
 | 调用方式 | 样例代码 | 说明 |
-|---|---|---|
+| --- | --- | --- |
 | GE图模式 | [test_geir_reduce_std_with_mean.cpp](examples/test_geir_reduce_std_with_mean.cpp) | 通过 GE IR 构图调用，算子 IR 定义见 [op_host/reduce_std_with_mean_def.cpp](op_host/reduce_std_with_mean_def.cpp) |
 | aclnn API | [test_aclnn_batch_norm_stats.cpp](examples/test_aclnn_batch_norm_stats.cpp) | 通过 [aclnnBatchNormStats](docs/aclnnBatchNormStats.md) 接口方式调用ReduceStdWithMean算子。 |
 | aclnn API | [test_aclnn_std_mean_correction.cpp](examples/test_aclnn_std_mean_correction.cpp) | 通过 [aclnnStdMeanCorrection](docs/aclnnStdMeanCorrection.md) 接口方式调用ReduceStdWithMean算子。 |

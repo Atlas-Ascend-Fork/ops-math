@@ -62,8 +62,8 @@
 
 ## 约束说明
 
-- 不支持 STRING 数据类型。算子IR（add\_proto.h）中注册 DT\_STRING 仅为兼容 TensorFlow Add 算子，图模式（GEIR）调用通路虽可通过类型推断，但无对应kernel实现，运行时会失败。
-- COMPLEX32 仅 Ascend 950 内核实现支持，aclnnAdd / aclnnInplaceAdd 接口及图模式通路均不支持，请使用 COMPLEX64 / COMPLEX128。
+- 算子IR（add\_proto.h）中注册DT\_STRING仅为兼容TensorFlow Add算子，图模式（GEIR）调用通路虽可通过类型推断，但无对应kernel实现，运行时会失败。
+- COMPLEX32仅Ascend 950PR&950DT系列产品支持，aclnnAdd/aclnnInplaceAdd接口及图模式通路均不支持，请使用COMPLEX64/COMPLEX128。
 
 ## 调用说明
 

@@ -13,7 +13,7 @@
 
 ## 功能说明
 
-- 算子功能：基于 Philox4x32-10 PRNG 生成服从参数为 `lambd` 的指数分布随机数，将输入张量 `self` 原地填充为服从 `Exp(lambd)` 分布的随机数。本算子是 `aclnnMultinomialTensor` 接口在 Ascend 950 场景下无放回采样路径使用的内部服务算子（生成指数分布随机扰动，供后续 `div + argmax/topk` 完成无放回多项采样）。
+- 算子功能：基于Philox4x32-10 PRNG生成服从参数为`lambd`的指数分布随机数，将输入张量`self`原地填充为服从`Exp(lambd)`分布的随机数。本算子是`aclnnMultinomialTensor`接口在Ascend 950PR&950DT系列产品下无放回采样路径使用的内部服务算子（生成指数分布随机扰动，供后续`div + argmax/topk`完成无放回多项采样）。
 - 计算公式：
 
   $$
@@ -72,10 +72,10 @@
 
 ## 约束说明
 
-1. `self` 仅支持 FLOAT16/BFLOAT16/FLOAT，ND 格式，维度数 ≤8；非连续输入通过 AutoContiguous 转为连续。
-2. `lambd` 必须 > 0。
-3. `offset` 必须为 4 的倍数。
-4. 仅支持 Ascend 950；不支持入图（op_graph）、不支持 L2 接口、不支持非连续 Tensor。
+1. `self`仅支持FLOAT16/BFLOAT16/FLOAT，ND格式，维度数小于等于8；非连续输入通过AutoContiguous转为连续。
+2. `lambd`必须大于0。
+3. `offset`必须为4的倍数。
+4. 不支持入图（op_graph）、不支持L2接口、不支持非连续Tensor。
 
 ## 调用说明
 

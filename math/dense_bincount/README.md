@@ -5,8 +5,8 @@
 | 产品 | 是否支持 |
 | --- | :---: |
 | <term>Ascend 950PR&950DT系列产品</term> | √ |
-| <term>Atlas A3训练系列产品/Atlas A3推理系列产品</term> | √ |
-| <term>Atlas A2训练系列产品/Atlas A2推理系列产品</term> | √ |
+| <term>Atlas A3系列产品</term> | √ |
+| <term>Atlas A2系列产品</term> | √ |
 | <term>Atlas 200I/500 A2推理产品</term> | × |
 | <term>Atlas推理系列产品</term> | × |
 | <term>Atlas训练系列产品</term> | √ |
@@ -109,7 +109,7 @@
   - `weights`支持任意零元素shape，非空时为FLOAT32类型ND张量。
   - 支持`input`任意维度大小为0或`size[0]`为0。`input`的shape为`[0]`时，输出shape为`[size[0]]`；shape为`[N, 0]`时，输出shape为`[N, size[0]]`；shape为`[0, N]`或`[0, 0]`时，输出shape为`[0, size[0]]`。`size[0]`为0时，输出最后一维大小为0。
   - 输出元素数`rows * size[0]`不能超过INT64索引可表示的FLOAT32元素数量上限，且输出张量所需存储必须能由运行环境分配；一维输入的`rows`取1。
-- <term>Atlas A3训练系列产品/Atlas A3推理系列产品</term>、<term>Atlas A2训练系列产品/Atlas A2推理系列产品</term>：
+- <term>Atlas A3系列产品</term>、<term>Atlas A2系列产品</term>：
   - 沿用既有实现的空Tensor处理边界。
   - `weights`的rank不能超过2。
   - `size[0]`、输入维度大小和输入元素数量必须在INT32范围内。

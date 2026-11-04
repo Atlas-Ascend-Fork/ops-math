@@ -2,15 +2,9 @@
 
 ## 概述
 
-本目录提供面向 Atlas A2/A3 训练系列产品的 `aclnnBernoulli` 和
-`aclnnInplaceBernoulli` 低内存实现。算子保留 `DSAGenBitMask` 的
-`seed/offset` 随机序列生成逻辑，由 Ascend C `BernoulliMask` Kernel 将压缩
-bit mask 直接展开为目标数据类型的 `0` 或 `1`。
+本目录提供面向Atlas A2/A3训练系列产品的`aclnnBernoulli`和`aclnnInplaceBernoulli`低内存实现。算子保留`DSAGenBitMask`的`seed/offset`随机序列生成逻辑，由Ascend C `BernoulliMask` Kernel将压缩bit mask直接展开为目标数据类型的`0`或`1`。
 
-原实现中的全尺寸 `Fill`、`DropoutDoMask` 和部分 `Cast` 中间张量不再参与一般
-概率路径。连续输出在满足存储条件时复用输出空间保存压缩 mask；小张量或非连续
-输出使用独立 mask/连续结果缓冲区，以保持边界与视图语义。`prob=0` 和 `prob=1`
-分别沿用 `ZerosLike` 和 `OnesLike` 快速路径。
+原实现中的全尺寸`Fill`、`DropoutDoMask`和部分`Cast`中间张量不再参与一般概率路径。连续输出在满足存储条件时复用输出空间保存压缩mask；小张量或非连续输出使用独立mask/连续结果缓冲区，以保持边界与视图语义。`prob=0`和`prob=1`分别沿用`ZerosLike`和`OnesLike`快速路径。
 
 ## 产品支持
 
@@ -179,4 +173,4 @@ BF16 golden 依赖 `ml-dtypes==0.5.4`。如果设置了
 - 连续、转置/切片 view、非零 storage offset 和 in-place；
 - `prob=0/1`、一般概率、合法/非法 offset；
 - seed/offset 可复现性和大样本统计分布；
-- A2/A3 Kernel 通用路径与 mask/output 存储复用路径。
+- Kernel 通用路径与 mask/output 存储复用路径。

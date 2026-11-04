@@ -50,4 +50,4 @@ $[N,C \times kernelH \times kernelW, outH \times outW]$。
 
 | 贡献者 | 贡献方 | 贡献算子 | 贡献时间 | 贡献内容 |
 | --- | --- | --- | --- | --- |
-| gcw_jgWZA4ay | 个人开发者 | Im2col | 2026/07/30 | Im2col 算子适配开源仓，新增 Atlas A2/A3 AscendC 实现及 BOOL 支持。 |
+| gcw_jgWZA4ay | 个人开发者 | Im2col | 2026/07/30 | Im2col 算子适配开源仓，新增Ascend C实现及BOOL支持（Atlas A3系列产品、Atlas A2系列产品）。 |

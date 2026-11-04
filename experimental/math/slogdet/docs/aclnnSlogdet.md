@@ -1,10 +1,10 @@
 # aclnnSlogdet
 
-> 本文档对应 `experimental/math/slogdet` 的原生 AscendC 实现（registry-invoke 方式），接口与 `math/slogdet` 真值源保持一致。
+> 本文档对应`experimental/math/slogdet`的原生Ascend C实现（registry-invoke 方式），接口与`math/slogdet`真值源保持一致。
 
 ## 产品支持情况
 
-> 本次原生 AscendC 实现目标芯片为 Atlas A2/A3 训练/推理系列产品（Ascend 910B / 910C，其中 910C/A3 对应构建参数 `ascend910_93`），其余产品沿用 `math/slogdet` 的 aclnn 转发实现，不在本次交付范围内。
+> 本次原生Ascend C实现目标芯片为Atlas A2/A3系列产品（Ascend 910B/910C，910C/A3对应构建参数`ascend910_93`），其余产品沿用`math/slogdet`的aclnn转发实现，不在本次交付范围内。
 
 | 产品 | 是否支持 |
 | :----------------------------------------- | :------:|
@@ -131,7 +131,7 @@ aclnnStatus aclnnSlogdet(
     </tr>
   </tbody></table>
 
-  > 说明：本次原生 AscendC 实现首版仅支持 FLOAT。`math/slogdet` 转发实现额外支持 DOUBLE、COMPLEX64、COMPLEX128（self 为 COMPLEX 时 signOut/logOut 须为 COMPLEX），不在本实现范围内。
+  > 说明：本次原生Ascend C实现首版仅支持FLOAT。`math/slogdet`转发实现额外支持DOUBLE、COMPLEX64、COMPLEX128（self为COMPLEX时signOut/logOut须为COMPLEX），不在本实现范围内。
 
 - **返回值**
 
@@ -196,7 +196,7 @@ aclnnStatus aclnnSlogdet(
 ## 约束说明
 
 - 确定性说明：`aclnnSlogdet` 默认确定性实现。
-- 数据类型限制：本次原生 AscendC 实现仅支持 FLOAT；self、signOut、logOut 数据类型需一致。
+- 数据类型限制：本次原生Ascend C实现仅支持FLOAT；self、signOut、logOut数据类型需一致。
 - 输入数据中不支持存在溢出值 `Inf` / `NaN`。
 - 输入 `self` 维度必须大于等于 2，且最后两维必须相等（方阵）。
 - **方阵维度 n 上界（首版 `1 ≤ n ≤ 4095`）**：BLOCKED（large-n）路径列 gather 用 `DataCopyPad` 的 `blockCount`（uint16，≤4095）；`n > 4095` 时该参数会静默越界，故 host 对 `n > 4095` 返回错误（不静默错误）。功能验证至 `n=512`，后续可分段 gather 放宽。

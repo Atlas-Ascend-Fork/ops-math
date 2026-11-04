@@ -67,11 +67,14 @@
   </tr>
 </tbody></table>
 
-- Kirin X90/Kirin 9030处理器系列产品：不支持BFLOAT16。
+- Kirin X90处理器系列产品、Kirin 9030处理器系列产品：不支持BFLOAT16。
 
 ## 约束说明
 
-在算子实现过程中，feeds_repeat_times需搬入ub并做精度转换和累加，故feeds_repeat_times取值在Atlas A2/A3系列产品不能超过48 kb, 在Ascend 950PR&950DT系列产品系列产品不能超过64 kb。
+在算子实现过程中，feeds_repeat_times需搬入ub并做精度转换和累加，故feeds_repeat_times取值要求如下：
+
+- Atlas A3系列产品、Atlas A2系列产品：不能超过48kb。
+- Ascend 950PR&950DT系列产品系列产品：不能超过64kb。
 
 ## 调用说明
 

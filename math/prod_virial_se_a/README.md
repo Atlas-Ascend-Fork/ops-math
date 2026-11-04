@@ -123,8 +123,7 @@ $$
 - n_a_sel和n_r_sel必须大于等于0，且n_a_sel + n_r_sel必须大于0，同时满足`nloc * (n_a_sel + n_r_sel) * 4 == net_deriv.shape[1]`。
 - nlist中的邻居索引若为负值或大于等于nall，则该邻居被跳过（不参与累加）。
 - 输入仅支持2维（ND格式）。
-- 算子原型声明支持FLOAT、FLOAT16、DOUBLE三种数据类型，但本算子在Ascend 950上仅支持FLOAT和FLOAT16，不支持DOUBLE（Ascend 950硬件AI Core计算单元不提供float64计算指令）。
-- 该算子仅在Ascend 950系列产品上支持。
+- 算子原型声明支持FLOAT、FLOAT16、DOUBLE三种数据类型，但本算子在Ascend 950PR&950DT系列产品仅支持FLOAT和FLOAT16，不支持DOUBLE。
 
 ## 调用说明
 

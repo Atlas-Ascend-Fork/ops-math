@@ -3,9 +3,10 @@
 ## 产品支持情况
 
 | 产品型号 | 支持的 CANN 版本 |
-|---------|----------------|
-| Ascend 910B (A2/A3) | CANN 9.1.0 及以上 |
-| Ascend 950PR / Ascend 950DT | CANN 9.0.0 及以上 |
+| --------- | ---------------- |
+| Atlas A3系列产品 | CANN 9.1.0 及以上 |
+| Atlas A2系列产品 | CANN 9.1.0 及以上 |
+| Ascend 950PR&950DT系列产品 | CANN 9.0.0 及以上 |
 
 ## 功能说明
 
@@ -22,7 +23,7 @@ $$z_i = \begin{cases} 0 & \text{if } y_i = 0 \\ x_i \times y_i & \text{otherwise
 ### 输入
 
 | 参数名 | 数据类型 | 数据格式 | shape | 说明 |
-|-------|---------|---------|-------|------|
+| ------- | --------- | --------- | ------- | ------ |
 | x | FLOAT16, FLOAT, BFLOAT16 | ND | 0-8 维，任意 shape | 被乘数张量，支持空 Tensor，支持 broadcast |
 | y | FLOAT16, FLOAT, BFLOAT16 | ND | 0-8 维，任意 shape | 乘数张量，支持空 Tensor，支持 broadcast。y=0 时输出强制为 0 |
 
