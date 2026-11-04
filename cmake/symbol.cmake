@@ -105,6 +105,7 @@ function(gen_es_math_lib_ready)
   # 生成的 ops_proto_math.h 会引用 op_const_def_math.h，需补充其所在目录
   target_include_directories(proto_${PKG_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/common/inc/op_host)
 
+  if(NOT ENABLE_OP_KERNEL)
   # 生成 es_math
   add_es_library_and_whl(
     ES_LINKABLE_AND_ALL_TARGET es_${PKG_NAME}
@@ -129,6 +130,7 @@ function(gen_es_math_lib_ready)
     DESTINATION ${WHL_INSTALL_DIR}/es_packages/whl
     OPTIONAL
     )
+  endif()
 endfunction()
 
 function(gen_es_math_lib_ready_cust)
@@ -150,6 +152,7 @@ function(gen_es_math_lib_ready_cust)
   # 生成的 ops_proto_math.h 会引用 op_const_def_math.h，需补充其所在目录
   target_include_directories(proto_${PKG_NAME}_cust PRIVATE ${PROJECT_SOURCE_DIR}/common/inc/op_host)
 
+  if(NOT ENABLE_OP_KERNEL)
   # 生成 es_math
   add_es_library(
     ES_LINKABLE_AND_ALL_TARGET es_${PKG_NAME}
@@ -166,6 +169,7 @@ function(gen_es_math_lib_ready_cust)
     DESTINATION ${ES_LIB_INSTALL_DIR}
     OPTIONAL
     )
+  endif()
 endfunction()
 
 # graph_plugin shared
@@ -174,13 +178,15 @@ function(gen_opgraph_symbol)
  	unset(GRAPH_SOURCE)
  	get_target_property(GRAPH_SOURCE ${GRAPH_PLUGIN_NAME}_obj SOURCES)
  	if(GRAPH_SOURCE)
- 	  add_dependencies(${GRAPH_PLUGIN_NAME}_obj
-      build_es_math
-      )
-    target_link_libraries(${GRAPH_PLUGIN_NAME}_obj
-      PRIVATE
-      es_math
-      )
+    if(NOT ENABLE_OP_KERNEL)
+  	  add_dependencies(${GRAPH_PLUGIN_NAME}_obj
+        build_es_math
+        )
+      target_link_libraries(${GRAPH_PLUGIN_NAME}_obj
+        PRIVATE
+        es_math
+        )
+    endif()
     add_library(
       ${OPGRAPH_NAME} SHARED
       $<$<TARGET_EXISTS:${GRAPH_PLUGIN_NAME}_obj>:$<TARGET_OBJECTS:${GRAPH_PLUGIN_NAME}_obj>>
@@ -195,13 +201,18 @@ function(gen_opgraph_symbol)
  	    ${ASCEND_GRAPH_CONF_DST}/ops_proto_math.cpp
  	    )
 
+    # 单独构建 opkernel 时不生成 es_math，此处条件展开其链接项，保持其余链接序不变
+    set(OPGRAPH_ES_MATH_LINK "")
+    if(NOT ENABLE_OP_KERNEL)
+      set(OPGRAPH_ES_MATH_LINK es_math)
+    endif()
     target_link_libraries(
       ${OPGRAPH_NAME}
       PRIVATE $<BUILD_INTERFACE:intf_pub_cxx17>
               c_sec
               -Wl,--no-as-needed
               register
-              es_math
+              ${OPGRAPH_ES_MATH_LINK}
               -Wl,--as-needed
               -Wl,--whole-archive
               rt2_registry_static
@@ -309,14 +320,16 @@ function(gen_cust_proto_symbol)
     get_target_property(GRAPH_SOURCE ${GRAPH_PLUGIN_NAME}_obj SOURCES)
     if(GRAPH_SOURCE)
       gen_es_math_lib_ready_cust()
-      add_dependencies(${GRAPH_PLUGIN_NAME}_obj
-        build_es_math
-      )
-      target_link_libraries(${GRAPH_PLUGIN_NAME}_obj
-        PRIVATE
-        es_math
-      )
-      set(NEED_LINK_ES ON)
+      if(NOT ENABLE_OP_KERNEL)
+        add_dependencies(${GRAPH_PLUGIN_NAME}_obj
+          build_es_math
+        )
+        target_link_libraries(${GRAPH_PLUGIN_NAME}_obj
+          PRIVATE
+          es_math
+        )
+        set(NEED_LINK_ES ON)
+      endif()
     endif()
   endif()
 
@@ -328,7 +341,9 @@ function(gen_cust_proto_symbol)
     endif()
   endif()
 
-  if(NEED_MERGE_PROTO AND NOT NEED_LINK_ES)
+  if(NEED_MERGE_PROTO AND NOT NEED_LINK_ES AND NOT TARGET merge_ops_proto_${PKG_NAME}_cust)
+    # gen_es_math_lib_ready_cust() 已注册同名 merge 目标时（如 opkernel 单独构建下
+    # NEED_LINK_ES 保持 OFF），须防止 merge_graph_headers 重复注册同名 custom target/OUTPUT 规则
     merge_graph_headers(TARGET merge_ops_proto_${PKG_NAME}_cust OUT_DIR ${ASCEND_GRAPH_CONF_DST})
   endif()
 

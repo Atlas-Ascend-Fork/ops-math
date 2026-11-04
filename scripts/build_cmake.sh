@@ -58,6 +58,7 @@ assemble_cmake_args() {
     [[ "${PACKAGE_TYPE}" == "all" ]] && cmake_pkg_type="run"
     CMAKE_ARGS="$CMAKE_ARGS -DENABLE_PACKAGE=TRUE -DPACKAGE_TYPE=${cmake_pkg_type}"
   fi
+  CMAKE_ARGS="$CMAKE_ARGS -DENABLE_OP_KERNEL=${ENABLE_OP_KERNEL}"
   if [[ "$ENABLE_EXPERIMENTAL" == "TRUE" ]]; then
     CMAKE_ARGS="$CMAKE_ARGS -DENABLE_EXPERIMENTAL=TRUE"
   fi

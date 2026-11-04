@@ -644,6 +644,7 @@ checkopts() {
   TF_PLUGIN=FALSE
   OP_KERNEL=FALSE
   OP_KERNEL_AICPU=FALSE
+  ENABLE_OP_KERNEL=FALSE
   ENABLE_CREATE_LIB=FALSE
   ENABLE_RUN_EXAMPLE=FALSE
   NO_FORCE=FALSE
@@ -852,6 +853,13 @@ checkopts() {
 
   if [[ "$ENABLE_JIT" == "TRUE" ]]; then
     ENABLE_BINARY=FALSE
+  fi
+
+  if [[ "$OP_KERNEL" == "TRUE" && "$ENABLE_PACKAGE" != "TRUE" && "$ENABLE_TEST" != "TRUE" ]]; then
+    # --opkernel 单独构建二进制 kernel，不依赖 GenerateEsPackage / add_es_library_and_whl
+    ENABLE_OP_KERNEL=TRUE
+  else
+    ENABLE_OP_KERNEL=FALSE
   fi
 
   check_param
