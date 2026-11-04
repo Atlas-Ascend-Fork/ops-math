@@ -63,14 +63,10 @@ int BuildGraph(Graph& graph, const std::vector<int64_t>& x1_shape, bool is_dynam
 
     auto identity = op::Identity("identity");
     identity.set_input_x(data1);
-    TensorDesc odesc(Shape(x1_shape), FORMAT_ND, kX1Dtype);
-    if (is_dynamic) {
-        std::vector<std::pair<int64_t, int64_t>> range;
-        for (auto d : x1_shape) {
-            range.emplace_back(d < 0 ? 1 : d, d < 0 ? 10 : d);
-        }
-        odesc.SetShapeRange(range);
-    }
+    // Deliberately preset a wrong output desc: the compile-time InferShape2 pass must
+    // overwrite this seed with the inferred result, so a retained seed proves the
+    // inference never ran instead of merely echoing the preset value.
+    TensorDesc odesc(Shape(std::vector<int64_t>{999}), FORMAT_ND, DT_FLOAT);
     identity.update_output_desc_y(odesc);
 
     graph.AddOp(data1);

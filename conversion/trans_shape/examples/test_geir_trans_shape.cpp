@@ -21,12 +21,6 @@
 #include "ge_ir_build.h"
 #include "ops_proto_math.h"
 
-namespace ge {
-// Data is a graph-engine built-in node and is not defined in ops-math,
-// so it is registered locally for graph construction.
-REG_OP(Data).INPUT(x, TensorType::ALL()).OUTPUT(y, TensorType::ALL()).ATTR(index, Int, 0).OP_END_FACTORY_REG(Data)
-} // namespace ge
-
 using namespace ge;
 
 namespace {

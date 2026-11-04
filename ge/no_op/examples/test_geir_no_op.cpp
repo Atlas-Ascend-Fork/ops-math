@@ -21,19 +21,6 @@
 #include "ge_ir_build.h"
 #include "ops_proto_math.h"
 
-namespace ge {
-REG_OP(Data)
-    .INPUT(x, TensorType::ALL())
-    .OUTPUT(y, TensorType::ALL())
-    .ATTR(index, Int, 0)
-    .OP_END_FACTORY_REG(Data)
-
-        REG_OP(Identity)
-    .INPUT(x, TensorType::ALL())
-    .OUTPUT(y, TensorType::ALL())
-    .OP_END_FACTORY_REG(Identity)
-}
-
 using namespace ge;
 
 namespace {

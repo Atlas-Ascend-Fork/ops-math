@@ -23,21 +23,6 @@
 #include "ops_proto_math.h"
 #include "exe_graph/runtime/shape.h"
 
-namespace ge {
-// Data and Const are graph-engine built-in nodes and are not defined in ops-math,
-// so they are registered locally for graph construction.
-REG_OP(Data)
-    .INPUT(x, TensorType::ALL())
-    .OUTPUT(y, TensorType::ALL())
-    .ATTR(index, Int, 0)
-    .OP_END_FACTORY_REG(Data)
-
-        REG_OP(Const)
-    .OUTPUT(y, TensorType::ALL())
-    .ATTR(value, Tensor, Tensor())
-    .OP_END_FACTORY_REG(Const)
-} // namespace ge
-
 using namespace ge;
 
 namespace {
