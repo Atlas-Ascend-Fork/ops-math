@@ -104,7 +104,7 @@ aclnnStatus aclnnGer(
       <td>out (aclTensor*)</td>
       <td>Output</td>
       <td>Output out in the formula, the result of the outer product computation.</td>
-      <td>The data type is a data type that can be <a href="../../../docs/en/context/conversion_relationship.md" target="_blank">converted</a> from the <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">deduction</a> result of self and vec2. The shape is {self.shape[0], vec2.shape[0]}.</td>
+      <td><ul><li>The data type is a data type that can be <a href="../../../docs/en/context/conversion_relationship.md" target="_blank">converted</a> from the <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">deduction</a> result of self and vec2. The API first performs the computation using the deduced data type and then converts the result to the data type specified by out.</li><li>The shape is {self.shape[0], vec2.shape[0]}.</li></ul></td>
       <td>FLOAT, FLOAT16, DOUBLE, BFLOAT16, INT8, INT16, INT32, INT64, UINT8, BOOL, COMPLEX64, COMPLEX128</td>
       <td>ND</td>
       <td>2</td>
@@ -134,7 +134,7 @@ aclnnStatus aclnnGer(
   </table>
 
   <!-- npu="A3,910b,910" id7 -->
-  - <term>Atlas A3 products</term>, <term>Atlas A2 products</term>, <term>Atlas training products</term>: BFLOAT16 is not supported.
+  - <term>Atlas A3 products</term>, <term>Atlas A2 products</term>, <term>Atlas training products</term>: self and vec2 do not support BFLOAT16. This restriction does not apply to out.
   <!-- end id7 -->
 
 - **Return value**

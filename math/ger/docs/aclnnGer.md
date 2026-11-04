@@ -102,7 +102,7 @@ aclnnStatus aclnnGer(
       <td>out（aclTensor*）</td>
       <td>输出</td>
       <td>公式中的输出out，外积计算的结果。</td>
-      <td>数据类型是self与vec2<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">推导</a>之后<a href="../../../docs/zh/context/conversion_relationship.md" target="_blank">可转换</a>的数据类型。shape为{self.shape[0], vec2.shape[0]}。</td>
+      <td><ul><li>数据类型是self与vec2<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">推导</a>之后<a href="../../../docs/zh/context/conversion_relationship.md" target="_blank">可转换</a>的数据类型。先按推导的数据类型完成计算，再将计算结果转换为out指定的数据类型。</li><li>shape为{self.shape[0], vec2.shape[0]}。</li></ul></td>
       <td>FLOAT、FLOAT16、DOUBLE、BFLOAT16、INT8、INT16、INT32、INT64、UINT8、BOOL、COMPLEX64、COMPLEX128</td>
       <td>ND</td>
       <td>2</td>
@@ -132,7 +132,7 @@ aclnnStatus aclnnGer(
   </table>
 
   <!-- npu="A3,910b,910" id7 -->
-  - <term>Atlas A3系列产品</term>、<term>Atlas A2系列产品</term>、<term>Atlas训练系列产品</term>：不支持BFLOAT16。
+  - <term>Atlas A3系列产品</term>、<term>Atlas A2系列产品</term>、<term>Atlas训练系列产品</term>：self、vec2不支持BFLOAT16，该限制不适用于out。
   <!-- end id7 -->
 
 - **返回值：**
