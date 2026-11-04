@@ -15,42 +15,30 @@
 
 #include <cstdint>
 #include <string>
+#include <algorithm>
+#include <cstdlib>
 
 #include "log/log.h"
 #include "register/op_impl_registry.h"
 #include "exe_graph/runtime/tiling_context.h"
 #include "exe_graph/runtime/tiling_parse_context.h"
 #include "platform/platform_ascendc.h"
+#include "util/math_util.h"
 
 #include "strided_slice_assign_v2_tiling_arch35.h"
 
 namespace optiling {
 namespace {
 
-// ---------------------------------------------------------------------------
-// 小工具：整数运算
-// ---------------------------------------------------------------------------
+// 正向向上取整，任一操作数非正时返回 0（用于切片形状 span/|stride| 的「空切片→0」语义）；
 inline int64_t CeilDivPos(int64_t a, int64_t b) { return (a <= 0 || b <= 0) ? 0 : (a + b - 1) / b; }
-inline int64_t AlignUpI64(int64_t v, int64_t align) { return (align <= 0) ? v : (v + align - 1) / align * align; }
-inline int64_t AlignDownI64(int64_t v, int64_t align) { return (align <= 0) ? v : v / align * align; }
-inline int64_t MinI64(int64_t a, int64_t b) { return (a < b) ? a : b; }
-inline int64_t MaxI64(int64_t a, int64_t b) { return (a > b) ? a : b; }
-inline int64_t AbsI64(int64_t v) { return (v < 0) ? -v : v; }
 
-// floor / ceil 除法（带符号语义，用于窗口内 coord 取值范围的闭式反解）
+// 带符号向下取整（floor），用于窗口内 coord 取值范围的闭式反解；
 inline int64_t FloorDivI64(int64_t a, int64_t b)
 {
     int64_t q = a / b;
     if ((a % b != 0) && ((a < 0) != (b < 0))) {
         --q;
-    }
-    return q;
-}
-inline int64_t CeilDivI64(int64_t a, int64_t b)
-{
-    int64_t q = a / b;
-    if ((a % b != 0) && ((a < 0) == (b < 0))) {
-        ++q;
     }
     return q;
 }
@@ -213,14 +201,14 @@ void SsaScanWindow(SsaCacheLineScan& st, int64_t dim, int64_t partial)
     int64_t c0 = 0;
     int64_t c1 = 0;
     if (t > 0) {
-        c0 = CeilDivI64(lo, t);
+        c0 = Ops::Base::CeilDiv(lo, t);
         c1 = FloorDivI64(hi, t);
     } else {
-        c0 = CeilDivI64(hi, t);
+        c0 = Ops::Base::CeilDiv(hi, t);
         c1 = FloorDivI64(lo, t);
     }
-    c0 = MaxI64(c0, 0);
-    c1 = MinI64(c1, st.shape[dim] - 1);
+    c0 = std::max<int64_t>(c0, 0);
+    c1 = std::min<int64_t>(c1, st.shape[dim] - 1);
     for (int64_t c = c0; c <= c1; ++c) {
         SsaScanWindow(st, dim + 1, partial + c * t);
         if (st.count > SSA_SPARSITY_THRESHOLD) {
@@ -236,14 +224,14 @@ int64_t CalcValidNumInCacheLineImpl(const SsaReducedShape& red, int64_t elemSize
     }
     const int64_t cacheLineElems = SSA_SPARSE_WINDOW_BYTES / elemSize;
     const int64_t innerShape = red.sliceShape[red.dimNum - 1];
-    const int64_t innerStep = AbsI64(red.axisStep[red.dimNum - 1]);
+    const int64_t innerStep = std::abs(red.axisStep[red.dimNum - 1]);
     if (innerStep == 1) {
         // 最内约简轴连续 → 非稀疏
-        return MinI64(innerShape, cacheLineElems);
+        return std::min<int64_t>(innerShape, cacheLineElems);
     }
     if (innerShape >= cacheLineElems) {
         // 窗口不跨内层行，闭式
-        const int64_t checkNum = MinI64((innerShape - 1) * innerStep + 1, cacheLineElems);
+        const int64_t checkNum = std::min<int64_t>((innerShape - 1) * innerStep + 1, cacheLineElems);
         return CeilDivPos(checkNum, innerStep);
     }
     // 窗口跨内层行：有界枚举。步长取绝对值：窗口按首元素正向 [0, W) 建模，
@@ -251,7 +239,7 @@ int64_t CalcValidNumInCacheLineImpl(const SsaReducedShape& red, int64_t elemSize
     // 仅在方向非混合时求值（各维同号），取绝对值后间距结构与全正方向完全一致
     int64_t absStep[SSA_MAX_DIM_NUM] = {};
     for (int32_t d = 0; d < red.dimNum; ++d) {
-        absStep[d] = AbsI64(red.axisStep[d]);
+        absStep[d] = std::abs(red.axisStep[d]);
     }
     SsaCacheLineScan st;
     st.n = red.dimNum;
@@ -262,11 +250,11 @@ int64_t CalcValidNumInCacheLineImpl(const SsaReducedShape& red, int64_t elemSize
     st.remMax[red.dimNum] = 0;
     for (int64_t d = red.dimNum - 1; d >= 0; --d) {
         const int64_t span = (red.sliceShape[d] - 1) * absStep[d];
-        st.remMin[d] = st.remMin[d + 1] + MinI64(span, 0);
-        st.remMax[d] = st.remMax[d + 1] + MaxI64(span, 0);
+        st.remMin[d] = st.remMin[d + 1] + std::min<int64_t>(span, 0);
+        st.remMax[d] = st.remMax[d + 1] + std::max<int64_t>(span, 0);
     }
     SsaScanWindow(st, 0, 0);
-    return MinI64(st.count, red.sliceElemNum);
+    return std::min<int64_t>(st.count, red.sliceElemNum);
 }
 
 int64_t CalcValidNumInCacheLine(gert::TilingContext* context, const SsaReducedShape& red, int64_t elemSize)
@@ -278,7 +266,7 @@ int64_t CalcValidNumInCacheLine(gert::TilingContext* context, const SsaReducedSh
     OP_LOGI(context, "elemSize = %ld", elemSize);
     OP_LOGI(context, "cacheLineElems = %ld", cacheLineElems);
     OP_LOGI(context, "innerShape = %ld", (red.dimNum > 0) ? red.sliceShape[red.dimNum - 1] : 0);
-    OP_LOGI(context, "innerStep = %ld", (red.dimNum > 0) ? AbsI64(red.axisStep[red.dimNum - 1]) : 0);
+    OP_LOGI(context, "innerStep = %ld", (red.dimNum > 0) ? std::abs(red.axisStep[red.dimNum - 1]) : 0);
     OP_LOGI(context, "sliceElemNum = %ld", red.sliceElemNum);
     OP_LOGI(context, "validNum = %ld", validNum);
     OP_LOGI(context, "sparsityThreshold = %d", SSA_SPARSITY_THRESHOLD);
@@ -289,7 +277,7 @@ int64_t CalcValidNumInCacheLine(gert::TilingContext* context, const SsaReducedSh
 /** 连续段长度（约简形状单轴读取）：|T'[n'-1]| != 1 时恒为 1，避免把跨步元素误判为连续段 */
 int64_t CalcContigRun(const SsaReducedShape& red)
 {
-    const int64_t innerStep = AbsI64(red.axisStep[red.dimNum - 1]);
+    const int64_t innerStep = std::abs(red.axisStep[red.dimNum - 1]);
     return (innerStep == 1) ? red.sliceShape[red.dimNum - 1] : 1;
 }
 
@@ -301,7 +289,7 @@ bool SsaContigSegsAligned32B(const SsaReducedShape& red, int64_t elemSize)
         return false;
     }
     for (int32_t d = 0; d + 1 < red.dimNum; ++d) {
-        if ((AbsI64(red.axisStep[d]) * elemSize) % SSA_ALIGN_32_BYTES != 0) {
+        if ((std::abs(red.axisStep[d]) * elemSize) % SSA_ALIGN_32_BYTES != 0) {
             return false;
         }
     }
@@ -441,15 +429,16 @@ ge::graphStatus FillEmptyTiling(gert::TilingContext* context)
 ge::graphStatus FillHybridTiling(gert::TilingContext* context, const SsaReducedShape& red, int64_t coreNum,
                                  int64_t ubUsable, int64_t elemSize)
 {
-    const int64_t coreLimit = MaxI64(coreNum, 1);
-    const int64_t blockDim = MinI64(MaxI64(CeilDivPos(red.sliceElemNum, SSA_MIN_ELEM_PER_CORE), 1), coreLimit);
+    const int64_t coreLimit = std::max<int64_t>(coreNum, 1);
+    const int64_t blockDim = std::min<int64_t>(
+        std::max<int64_t>(CeilDivPos(red.sliceElemNum, SSA_MIN_ELEM_PER_CORE), 1), coreLimit);
     const int64_t elemPerCore = CeilDivPos(red.sliceElemNum, blockDim);
     const int64_t lastCoreElemNum = red.sliceElemNum - (blockDim - 1) * elemPerCore;
 
     // ubFactor：UB 预算扣 paramBuf 后按双缓冲均分，向 16 元素粒度（跨 dtype 保守上界）向下取整
-    int64_t ubFactor = AlignDownI64((ubUsable - SSA_PARAM_BUF_BYTES) / (SSA_BUFFER_NUM * elemSize),
-                                    SSA_ALIGN_UNIT_ELEMS_STEP);
-    ubFactor = MaxI64(ubFactor, SSA_ALIGN_UNIT_ELEMS_STEP);
+    int64_t ubFactor = Ops::Base::FloorAlign((ubUsable - SSA_PARAM_BUF_BYTES) / (SSA_BUFFER_NUM * elemSize),
+                                             SSA_ALIGN_UNIT_ELEMS_STEP);
+    ubFactor = std::max<int64_t>(ubFactor, SSA_ALIGN_UNIT_ELEMS_STEP);
 
     auto* tiling = context->GetTilingData<StridedSliceAssignV2HybridTilingData>();
     OP_CHECK_NULL_WITH_CONTEXT(context, tiling);
@@ -482,25 +471,27 @@ ge::graphStatus FillContigTiling(gert::TilingContext* context, const SsaReducedS
                                                       "The value of segNum must be greater than 0."),
                 return ge::GRAPH_FAILED);
 
-    const int64_t alignGran = MaxI64(SSA_ALIGN_32_BYTES / elemSize, 1);
+    const int64_t alignGran = std::max<int64_t>(SSA_ALIGN_32_BYTES / elemSize, 1);
     const int64_t perElemBytes = (red.directionId == SSA_DIR_ALL_NEGATIVE) ? (SSA_NEG_SLOT_NUM * elemSize) :
                                                                              (SSA_BUFFER_NUM * elemSize);
-    int64_t ubFactor = AlignDownI64(ubUsable / perElemBytes, alignGran);
-    ubFactor = MaxI64(ubFactor, alignGran);
+    int64_t ubFactor = Ops::Base::FloorAlign(ubUsable / perElemBytes, alignGran);
+    ubFactor = std::max<int64_t>(ubFactor, alignGran);
 
-    const int64_t coreLimit = MaxI64(coreNum, 1);
+    const int64_t coreLimit = std::max<int64_t>(coreNum, 1);
     const int64_t wantChunks = (segNum < coreLimit) ? CeilDivPos(coreLimit, segNum) : 1;
     const int64_t ubChunks = CeilDivPos(contigRun, ubFactor);
-    int64_t chunksPerSeg = MaxI64(MaxI64(1, wantChunks), ubChunks);
+    int64_t chunksPerSeg = std::max<int64_t>(std::max<int64_t>(1, wantChunks), ubChunks);
 
-    chunksPerSeg = MinI64(chunksPerSeg, MaxI64(1, contigRun / cacheLineElems));
-    chunksPerSeg = MaxI64(chunksPerSeg, 1);
+    chunksPerSeg = std::min<int64_t>(chunksPerSeg, std::max<int64_t>(1, contigRun / cacheLineElems));
+    chunksPerSeg = std::max<int64_t>(chunksPerSeg, 1);
     const int64_t chunkLen = contigRun / chunksPerSeg;
     const int64_t chunkRem = contigRun % chunksPerSeg;
 
     const int64_t totalChunks = segNum * chunksPerSeg;
     const int64_t chunksPerCore = (totalChunks > coreLimit) ? CeilDivPos(totalChunks, coreLimit) : 1;
-    const int64_t blockDim = (totalChunks == 0) ? 1 : MaxI64(CeilDivPos(totalChunks, MaxI64(chunksPerCore, 1)), 1);
+    const int64_t blockDim = (totalChunks == 0) ?
+                                 1 :
+                                 std::max<int64_t>(CeilDivPos(totalChunks, std::max<int64_t>(chunksPerCore, 1)), 1);
     const int64_t lastCoreChunks = totalChunks - (blockDim - 1) * chunksPerCore;
 
     auto* tiling = context->GetTilingData<StridedSliceAssignV2ContigTilingData>();
@@ -565,7 +556,7 @@ struct SsaScatterSolver {
     int64_t PitchUb(int64_t cols) const
     {
         const int64_t span = (cols - 1) * sL + 1;
-        return AlignUpI64(span * elemSize, SSA_ALIGN_32_BYTES) / elemSize;
+        return Ops::Base::CeilAlign(span * elemSize, SSA_ALIGN_32_BYTES) / elemSize;
     }
 
     int64_t RowsOf(int64_t a, int64_t f) const
@@ -593,10 +584,10 @@ struct SsaScatterSolver {
         const int64_t f1 = numer / denom;
         const int64_t f2 = (aSpan > 0) ? (maxIdxValue / aSpan) : f1; // Scatter 索引位宽
         // 表在 IdxT 域内计算：a = n'-1 时 tileElemNum = f，须 <= maxTblElems 才能精确表示归纳量 i
-        int64_t fub = AlignDownI64(MinI64(MinI64(f1, f2), maxTblElems), gran);
-        fub = MaxI64(fub, gran);
-        const int64_t m = MaxI64(CeilDivPos(shape[n - 1], fub), 1);
-        return MinI64(shape[n - 1], AlignUpI64(CeilDivPos(shape[n - 1], m), gran));
+        int64_t fub = Ops::Base::FloorAlign(std::min<int64_t>(std::min<int64_t>(f1, f2), maxTblElems), gran);
+        fub = std::max<int64_t>(fub, gran);
+        const int64_t m = std::max<int64_t>(CeilDivPos(shape[n - 1], fub), 1);
+        return std::min<int64_t>(shape[n - 1], Ops::Base::CeilAlign(CeilDivPos(shape[n - 1], m), gran));
     }
 
     /** UB 内单行实占跨度（元素）= (cols − 1)·sL + 1，cols = S[n'-1] */
@@ -618,7 +609,7 @@ struct SsaScatterSolver {
         if (shape[n - 3] >= SSA_MAX_DMA_LOOP_SIZE) {
             return false;
         }
-        return AbsI64(step[n - 2]) >= UbSpanOf();
+        return std::abs(step[n - 2]) >= UbSpanOf();
     }
 
     /** Step 2 · a < n-1：cols = S[n-1] 与 f 无关 → pitchUb 固定 → cost 对 f 线性，一次除法即得 */
@@ -641,21 +632,21 @@ struct SsaScatterSolver {
         const int64_t pitch = PitchUb(shape[n - 1]);
         // 每个 f 贡献的行数：inner 恒含因子 S[n-1]，故 a < n-1 时 rowsPerF >= 1；
         // rows = f·rowsPerF 即本任务的行维总数（= blockCount · loop1 · loop2）
-        const int64_t rowsPerF = MaxI64(inner / shape[n - 1], 1);
+        const int64_t rowsPerF = std::max<int64_t>(inner / shape[n - 1], 1);
         const int64_t perF = inner * c1 + SSA_BUFFER_NUM_VAR * rowsPerF * pitch * elemSize;
         if (perF <= 0) {
             return 0;
         }
-        int64_t f = MinI64(ubBudget / perF, shape[a]);
+        int64_t f = std::min<int64_t>(ubBudget / perF, shape[a]);
         // 索引幅值上限：表内偏移以**元素**计（Reg::Scatter 按元素寻址），行基址 = ρ(r)·pitchUb，
         //    最大行基址 ≈ rows·pitchUb（元素）。maxIdxValue 是索引通道的**字节**宽度上限，
         //    故先右移 log2(sizeof(T)) 折到元素域，再除以行距 pitchUb（元素）得行数上限。
         //    等价于 maxIdxValue / (pitchUb·sizeof(T))：⌊⌊M/E⌋/P⌋ ≡ ⌊M/(E·P)⌋，两者恒等。
-        const int64_t maxIdxRows = MaxI64((maxIdxValue / elemSize) / pitch, 1);
-        f = MinI64(f, maxIdxRows / rowsPerF); // rows = f·rowsPerF <= maxIdxRows
+        const int64_t maxIdxRows = std::max<int64_t>((maxIdxValue / elemSize) / pitch, 1);
+        f = std::min<int64_t>(f, maxIdxRows / rowsPerF); // rows = f·rowsPerF <= maxIdxRows
         // ③ 表长上限：tileElemNum = f·inner <= maxTblElems
-        f = MinI64(f, maxTblElems / inner);
-        return MaxI64(f, 0);
+        f = std::min<int64_t>(f, maxTblElems / inner);
+        return std::max<int64_t>(f, 0);
     }
 
     /** Step 1 —— 选切分轴 a（自最内维向外贪心；UB 容得下整条最内维时才允许外扩） */
@@ -663,15 +654,15 @@ struct SsaScatterSolver {
     {
         if (Cost(n - 1, shape[n - 1]) > ubBudget) {
             a = n - 1;
-            f = MaxI64(SplitF(), 1);
+            f = std::max<int64_t>(SplitF(), 1);
             return;
         }
         // 基线：只切最内维（cols = f = S[n-1]，单任务单行）；f 同时受表长上限约束
         a = n - 1;
-        f = MinI64(shape[n - 1], maxTblElems);
+        f = std::min<int64_t>(shape[n - 1], maxTblElems);
         // 逐轴外扩（至多到 n-4，一次搬运覆盖最后 4 维）；可行性由 MaxF 内 DmaLevelsFit 判定，
         // 不满足则返回 0，本循环止步。
-        for (int64_t d = n - 2; d >= MaxI64(0, n - 4); --d) {
+        for (int64_t d = n - 2; d >= std::max<int64_t>(0, n - 4); --d) {
             const int64_t fd = MaxF(d);
             if (fd < 1) {
                 break;
@@ -679,7 +670,7 @@ struct SsaScatterSolver {
             a = d;
             f = fd;
         }
-        f = MaxI64(f, 1);
+        f = std::max<int64_t>(f, 1);
     }
 
     /** Step 3 —— 核间铺核 */
@@ -689,9 +680,9 @@ struct SsaScatterSolver {
         for (int64_t d = 0; d < a; ++d) {
             outer *= shape[d];
         }
-        total = outer * MaxI64(CeilDivPos(shape[a], f), 1);
-        perCore = (total > coreNum) ? MaxI64(CeilDivPos(total, coreNum), 1) : 1;
-        usedCore = MaxI64(CeilDivPos(total, perCore), 1);
+        total = outer * std::max<int64_t>(CeilDivPos(shape[a], f), 1);
+        perCore = (total > coreNum) ? std::max<int64_t>(CeilDivPos(total, coreNum), 1) : 1;
+        usedCore = std::max<int64_t>(CeilDivPos(total, perCore), 1);
     }
 
     /** Step 4 —— 负载均衡（切分轴内移，任务过小即停） */
@@ -722,14 +713,14 @@ ge::graphStatus FillScatterTiling(gert::TilingContext* context, const SsaReduced
     solver.shape = red.sliceShape;
     solver.step = red.axisStep;
     solver.elemSize = elemSize;
-    solver.sL = AbsI64(red.axisStep[red.dimNum - 1]);
+    solver.sL = std::abs(red.axisStep[red.dimNum - 1]);
     solver.idxDtypeSize = (elemSize <= 2) ? 2 : 4;
     solver.c1 = solver.idxDtypeSize + SSA_SCATTER_BUFFER_NUM * elemSize;
     solver.aSpan = solver.sL * elemSize;
-    solver.gran = MaxI64(SSA_ALIGN_32_BYTES / elemSize, 1);
+    solver.gran = std::max<int64_t>(SSA_ALIGN_32_BYTES / elemSize, 1);
     solver.ubBudget = ubUsable - SSA_PARAM_BUF_BYTES - SSA_SCATTER_BUFFER_NUM * SSA_VF_OVERREAD_BYTES -
                       SSA_VF_OVERREAD_BYTES - SSA_ALIGN_32_BYTES;
-    solver.coreNum = MaxI64(coreNum, 1);
+    solver.coreNum = std::max<int64_t>(coreNum, 1);
     solver.maxIdxValue = (solver.idxDtypeSize >= 4) ? SSA_INT32_MAX : 0xFFFF;
     solver.maxTblElems = (solver.idxDtypeSize >= 4) ? SSA_INT32_MAX : 0xFFFF;
 
@@ -771,7 +762,7 @@ ge::graphStatus FillScatterTiling(gert::TilingContext* context, const SsaReduced
         tiling->blkStartVar[j] = 0;
     }
     for (int64_t d = a; d <= static_cast<int64_t>(red.dimNum) - 2; ++d) {
-        tiling->rowStepVar[d] = AbsI64(red.axisStep[d]); // d ∈ [a, n-2]
+        tiling->rowStepVar[d] = std::abs(red.axisStep[d]); // d ∈ [a, n-2]
     }
     for (int64_t d = a; d <= static_cast<int64_t>(red.dimNum) - 1; ++d) {
         // 升地址序起点：负 stride 维取最低地址端
@@ -891,12 +882,12 @@ ge::graphStatus NormalizeIndices(gert::TilingContext* context, int64_t dimNum, c
         if (begin[i] < 0) {
             begin[i] += varDim[i];
         }
-        begin[i] = MinI64(MaxI64(begin[i], 0), negative ? (varDim[i] - 1) : varDim[i]);
+        begin[i] = std::min<int64_t>(std::max<int64_t>(begin[i], 0), negative ? (varDim[i] - 1) : varDim[i]);
         if (end[i] < 0) {
             end[i] += varDim[i];
         }
         // 负 stride 的 end 下界保留 -1，即「反向走到最低地址端」仍取满
-        end[i] = MinI64(MaxI64(end[i], negative ? -1 : 0), varDim[i]);
+        end[i] = std::min<int64_t>(std::max<int64_t>(end[i], negative ? -1 : 0), varDim[i]);
     }
     return ge::GRAPH_SUCCESS;
 }
@@ -977,11 +968,9 @@ ge::graphStatus Tiling4StridedSliceAssignV2Arch35(gert::TilingContext* context)
 {
     OP_LOGD(context->GetNodeName(), "Tiling4StridedSliceAssignV2Arch35 running.");
 
-    // compileInfo 在预编译等路径下可能为 nullptr，不能硬失败；运行时优先经 PlatformInfo 查询，compileInfo 仅作兜底。
-    auto compileInfo = reinterpret_cast<const StridedSliceAssignV2CompileInfo*>(context->GetCompileInfo());
+    // 核数 / UB 均在 Tiling 侧经 PlatformInfo 实时查询，不依赖 TilingParse 预填充的 compileInfo。
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
-    const int64_t coreNum = (compileInfo == nullptr) ? static_cast<int64_t>(ascendcPlatform.GetCoreNumAiv()) :
-                                                       static_cast<int64_t>(compileInfo->totalCoreNum);
+    const int64_t coreNum = static_cast<int64_t>(ascendcPlatform.GetCoreNumAiv());
     OP_CHECK_IF(
         coreNum <= 0,
         OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "core_num", std::to_string(coreNum).c_str(),
@@ -989,9 +978,7 @@ ge::graphStatus Tiling4StridedSliceAssignV2Arch35(gert::TilingContext* context)
         return ge::GRAPH_FAILED);
     uint64_t ubSizePlatform = 0;
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSizePlatform);
-    const int64_t ubUsable = (compileInfo == nullptr) ?
-                                 static_cast<int64_t>(ubSizePlatform) :
-                                 ((compileInfo->ubUsable > 0) ? compileInfo->ubUsable : compileInfo->ubSize);
+    const int64_t ubUsable = static_cast<int64_t>(ubSizePlatform);
     OP_CHECK_IF(
         ubUsable <= 0,
         OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "ub_size", std::to_string(ubUsable).c_str(),
@@ -1050,7 +1037,7 @@ ge::graphStatus Tiling4StridedSliceAssignV2Arch35(gert::TilingContext* context)
     int64_t slice[SSA_MAX_DIM_NUM] = {};
     for (int64_t i = 0; i < dimNum; ++i) {
         const int64_t span = (strides[i] > 0) ? (end[i] - begin[i]) : (begin[i] - end[i]);
-        slice[i] = CeilDivPos(span, AbsI64(strides[i]));
+        slice[i] = CeilDivPos(span, std::abs(strides[i]));
     }
 
     // ---- ：切片区域为空 ⇒ 同样退化为 空模板 ----
@@ -1121,31 +1108,8 @@ ge::graphStatus Tiling4StridedSliceAssignV2Arch35(gert::TilingContext* context)
     return ge::GRAPH_SUCCESS;
 }
 
-ge::graphStatus TilingPrepare4StridedSliceAssignV2Arch35(gert::TilingParseContext* context)
+ge::graphStatus TilingPrepare4StridedSliceAssignV2Arch35([[maybe_unused]] gert::TilingParseContext* context)
 {
-    OP_LOGD(context->GetNodeName(), "TilingPrepare4StridedSliceAssignV2Arch35 running.");
-    auto compileInfo = context->GetCompiledInfo<StridedSliceAssignV2CompileInfo>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, compileInfo);
-    auto platformInfo = context->GetPlatformInfo();
-    OP_CHECK_NULL_WITH_CONTEXT(context, platformInfo);
-    auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
-
-    compileInfo->totalCoreNum = static_cast<int32_t>(ascendcPlatform.GetCoreNumAiv());
-    OP_CHECK_IF(compileInfo->totalCoreNum <= 0,
-                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "core_num",
-                                                      std::to_string(compileInfo->totalCoreNum).c_str(),
-                                                      "The value of core_num must be greater than 0."),
-                return ge::GRAPH_FAILED);
-
-    uint64_t ubSizePlatForm = 0;
-    ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSizePlatForm);
-    compileInfo->ubSize = static_cast<int64_t>(ubSizePlatForm);
-    compileInfo->ubUsable = compileInfo->ubSize;
-    OP_CHECK_IF(compileInfo->ubSize <= 0,
-                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "ub_size",
-                                                      std::to_string(compileInfo->ubSize).c_str(),
-                                                      "The value of ub_size must be greater than 0."),
-                return ge::GRAPH_FAILED);
     return ge::GRAPH_SUCCESS;
 }
 

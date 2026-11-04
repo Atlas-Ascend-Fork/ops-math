@@ -50,22 +50,19 @@ constexpr int64_t SSA_T2_MIN_CHUNK_BYTES = 256;     // T2 chunksPerSeg 下限粒
 constexpr int64_t SSA_MIN_ELEM_PER_CORE = 1024;     // 核间切分每核最小元素数
 constexpr int64_t SSA_ALIGN_32_BYTES = 32;          // 32B 对齐字节数（元素粒度 = 32/elemSize）
 constexpr int64_t SSA_ALIGN_UNIT_ELEMS_STEP = 16; // T1 ubFactor 对齐粒度：16 元素整数倍（跨 dtype 保守上界）
-constexpr int64_t SSA_PARAM_BUF_BYTES = 512;       // 常驻参数区字节数
-constexpr int64_t SSA_BUFFER_NUM = 2;              // inputQueue 双缓冲槽位数（T1/T2）
-constexpr int64_t SSA_NEG_SLOT_NUM = 4;            // 全负方向 UB 槽位总数（input 2 + reverse 2，T2 Key 21）
-constexpr int64_t SSA_BUFFER_NUM_VAR = 4;          // varQue 槽位数（T3 Scatter）
-constexpr int64_t SSA_SCATTER_BUFFER_NUM = 4;      // Scatter inputQueue 槽位数（T3）
-constexpr int64_t SSA_MIN_PER_TASK_BYTES = 128;    // T3 均衡：单任务最小字节数（1 cacheline）
-constexpr float SSA_MIN_USED_CORES_RATIO = 0.75F;  // T3 均衡：核数利用率下限
-constexpr int64_t SSA_MAX_DMA_BLOCK_COUNT = 4095;  // k>=2 接口 blockCount 上限
-constexpr int64_t SSA_MAX_DMA_LOOP_SIZE = 1 << 21; // Loop 模式单级循环次数上限（size < 2^21）
-constexpr int32_t SSA_SIMT_THREAD_NUM = 1024;      // T1 SIMT 线程数
-constexpr int64_t SSA_SIMT_DCACHE_BYTES = 32 * 1024;    // T1 SIMT DCache 预留（UB 尾部，须 ≥32KB）
-constexpr int64_t SSA_VF_OVERREAD_BYTES = 256;          // Reg 寄存器整宽：UB 缓冲尾部越读预留
-constexpr int64_t SSA_INT32_MAX = 0x7FFFFFFF;           // int32 上界
-constexpr int64_t SSA_INT64_MAX = 0x7FFFFFFFFFFFFFFFLL; // int64 上界
 
-// TilingParse 填充，全模板共用
+constexpr int64_t SSA_NEG_SLOT_NUM = 4;              // 全负方向 UB 槽位总数（input 2 + reverse 2）
+constexpr int64_t SSA_BUFFER_NUM_VAR = 4;            // varQue 槽位数（T3 Scatter）
+constexpr int64_t SSA_SCATTER_BUFFER_NUM = 4;        // Scatter inputQueue 槽位数（T3）
+constexpr int64_t SSA_MIN_PER_TASK_BYTES = 128;      // T3 均衡：单任务最小字节数（1 cacheline）
+constexpr float SSA_MIN_USED_CORES_RATIO = 0.75F;    // T3 均衡：核数利用率下限
+constexpr int64_t SSA_MAX_DMA_BLOCK_COUNT = 4095;    // k>=2 接口 blockCount 上限
+constexpr int64_t SSA_MAX_DMA_LOOP_SIZE = 1 << 21;   // Loop 模式单级循环次数上限（size < 2^21）
+constexpr int64_t SSA_SIMT_DCACHE_BYTES = 32 * 1024; // T1 SIMT DCache 预留（UB 尾部，须 ≥32KB）
+constexpr int64_t SSA_VF_OVERREAD_BYTES = 256;       // Reg 寄存器整宽：UB 缓冲尾部越读预留
+constexpr int64_t SSA_INT32_MAX = 0x7FFFFFFF;        // int32 上界
+
+// TilingParse 模板占位（不做预填充，核数 / UB 均在 Tiling 侧经 PlatformInfo 实时查询）
 struct StridedSliceAssignV2CompileInfo {
     int32_t totalCoreNum = 0;
     int64_t ubSize = 0;

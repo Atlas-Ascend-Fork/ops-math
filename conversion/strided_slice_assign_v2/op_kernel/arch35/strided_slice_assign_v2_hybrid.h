@@ -27,10 +27,6 @@ namespace StridedSliceAssignV2HybridNs {
 
 using namespace AscendC;
 
-constexpr int32_t SSA_SIMT_THREAD_NUM = 1024; // VF 线程数（__launch_bounds__ 寄存器预算）
-constexpr int32_t SSA_BUFFER_NUM = 2;         // inputQueue 双缓冲槽位数
-constexpr int32_t SSA_PARAM_BUF_BYTES = 512;  // paramBuf 常驻参数区字节预算（与 Host 侧一致）
-
 // UB 参数区布局（int64 槽）：varBase | sliceShape | axisStep | magic | shift
 constexpr uint32_t SSA_UB_VAR_BASE_OFF = 0;
 constexpr uint32_t SSA_UB_SLICE_SHAPE_OFF = 1;

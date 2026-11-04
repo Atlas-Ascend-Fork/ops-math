@@ -9,7 +9,21 @@
 # ----------------------------------------------------------------------------
 
 if(UT_TEST_ALL OR OP_HOST_UT)
-    add_modules_ut_sources(UT_NAME ${OP_TILING_MODULE_NAME} MODE PRIVATE DIR ${CMAKE_CURRENT_SOURCE_DIR})
+    # tiling 目录单一来源：按 ASCEND_COMPUTE_UNIT 查算子 CMakeLists 的
+    # SUPPORT_COMPUTE_UNIT / SUPPORT_TILING_DIR 映射表（父目录作用域可见），
+    # 避免 arch35 平台清单在算子构建与 UT 两处漂移
+    list(FIND SUPPORT_COMPUTE_UNIT "${ASCEND_COMPUTE_UNIT}" _SSA_CU_IDX)
+    if(_SSA_CU_IDX GREATER_EQUAL 0)
+        list(GET SUPPORT_TILING_DIR ${_SSA_CU_IDX} SSA_UT_TILING_DIR)
+    else()
+        # 未在映射表中的 compute unit（UT 默认基线平台）回退 arch22
+        set(SSA_UT_TILING_DIR arch22)
+    endif()
+    add_modules_ut_sources(
+        UT_NAME ${OP_TILING_MODULE_NAME}
+        MODE PRIVATE
+        DIR ${CMAKE_CURRENT_SOURCE_DIR}
+        TILING_DIR ${SSA_UT_TILING_DIR})
     add_modules_ut_sources(UT_NAME ${OP_INFERSHAPE_MODULE_NAME} MODE PRIVATE DIR ${CMAKE_CURRENT_SOURCE_DIR})
 endif()
 

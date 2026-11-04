@@ -9,8 +9,8 @@
 # ----------------------------------------------------------------------------
 
 # ---- 支持的芯片类型 ----
-set(SUPPORT_COMPUTE_UNIT "ascend910b" "ascend910_93" "ascend950" "ascend960dt" "kirinx90" "kirin9030")
-set(SUPPORT_TILING_DIR   "arch22"     "arch22"      "arch35"    "arch35"    "arch22"   "arch22")
+set(SUPPORT_COMPUTE_UNIT "ascend910b" "ascend910_93" "ascend950" "ascend350" "ascend960dt" "kirinx90" "kirin9030")
+set(SUPPORT_TILING_DIR   "arch22"     "arch22"      "arch35"    "arch35"    "arch35"    "arch22"   "arch22")
 
 add_all_modules_sources(OPTYPE strided_slice_assign_v2 ACLNNTYPE aclnn
                         COMPUTE_UNIT ${SUPPORT_COMPUTE_UNIT}
@@ -19,4 +19,4 @@ add_all_modules_sources(OPTYPE strided_slice_assign_v2 ACLNNTYPE aclnn
 add_kernel_sources(KERNEL_SRC strided_slice_assign_v2.cpp
                    COMPUTE_UNITS ascend910b ascend910_93 kirinx90 kirin9030)
 add_kernel_sources(KERNEL_SRC strided_slice_assign_v2_apt.cpp
-                   COMPUTE_UNITS ascend950 ascend960dt)
+                   COMPUTE_UNITS ascend950 ascend350 ascend960dt)

@@ -43,15 +43,6 @@ constexpr uint64_t SSA_UT_CORE_NUM = 64;    // A5 AIV 核数
 constexpr uint64_t SSA_UT_UB_SIZE = 253952; // A5 UB 248KB
 constexpr size_t SSA_UT_WORKSPACE = 0;      // 无 GM 中间结果，workspace 分配 0
 
-optiling::StridedSliceAssignV2CompileInfo MakeCompileInfo()
-{
-    optiling::StridedSliceAssignV2CompileInfo info;
-    info.totalCoreNum = static_cast<int32_t>(SSA_UT_CORE_NUM);
-    info.ubSize = static_cast<int64_t>(SSA_UT_UB_SIZE);
-    info.ubUsable = static_cast<int64_t>(SSA_UT_UB_SIZE);
-    return info;
-}
-
 gert::StorageShape ShapeOf(const std::vector<int64_t>& dims)
 {
     gert::StorageShape storageShape;
@@ -82,10 +73,8 @@ public:
           dtype_(dtype),
           constInputs_(constInputs)
     {
-        compileInfo_ = MakeCompileInfo();
-        // ubUsable 可注入非标准 UB 预算（T1 ubFactor 取整 / 下限用例）；tiling 侧优先读该字段
-        compileInfo_.ubUsable = ubUsable;
-        compileInfo_.ubSize = ubUsable;
+        // 核数 / UB 经 para 注入 fake PlatformInfo（tiling 侧一律经 PlatformAscendC 实时查询，
+        // 不读 compileInfo）；ubUsable 可注入非标准 UB 预算（T1 ubFactor 取整 / 下限用例）
         std::vector<gert::TilingContextPara::TensorDescription> inputs = {
             {ShapeOf(varShape_), dtype_, ge::FORMAT_ND},
             {ShapeOf(valueShape_), dtype_, ge::FORMAT_ND},
@@ -114,7 +103,8 @@ private:
     std::vector<int64_t> axes_;
     ge::DataType dtype_;
     bool constInputs_;
-    optiling::StridedSliceAssignV2CompileInfo compileInfo_;
+    // Tiling 侧已不读 compileInfo，仅满足 UT 框架非空指针要求
+    optiling::StridedSliceAssignV2CompileInfo compileInfo_ = {};
     std::unique_ptr<gert::TilingContextPara> para_;
 };
 

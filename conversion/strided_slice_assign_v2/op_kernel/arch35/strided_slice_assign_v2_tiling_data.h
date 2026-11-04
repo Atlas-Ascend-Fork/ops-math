@@ -20,6 +20,11 @@
 
 constexpr int32_t SSA_MAX_DIM_NUM = 8;
 
+// ---- Host / Kernel 共享常量（两侧统一从此处取用，避免双份定义漂移） ----
+constexpr int32_t SSA_SIMT_THREAD_NUM = 1024; // T1 VF 线程数（__launch_bounds__ 寄存器预算）
+constexpr int32_t SSA_BUFFER_NUM = 2;         // T1/T2 inputQueue 双缓冲槽位数
+constexpr int32_t SSA_PARAM_BUF_BYTES = 512; // T1 paramBuf 常驻参数区字节预算（Host 扣减 UB / Kernel 布局共用）
+
 // ---- TilingKey 10 / 11 / 12：T1 StridedSliceAssignV2Hybrid ----
 struct StridedSliceAssignV2HybridTilingData {
     int64_t dimNum = 0;                       // 约简维数 n'（1-8）

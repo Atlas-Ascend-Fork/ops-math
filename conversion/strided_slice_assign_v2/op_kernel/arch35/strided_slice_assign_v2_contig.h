@@ -11,7 +11,8 @@
 /*!
  * \file strided_slice_assign_v2_contig.h
  * \brief T2 模板：约简后切片按连续段直通 DMA。全正：TQueBind<VECIN,VECOUT> 绑定双缓冲逐 chunk 直通；
- *        全负：VECIN/VECOUT 两级 TQue 双缓冲 + 寄存器索引反转（2/4B Reg::Gather，1/8B Reg::Scatter），
+ *        全负：VECIN/VECOUT 两级 TQue 双缓冲 + 寄存器索引反转（统一 Reg::Gather：
+ *        2/4/8B 直采，1B 按 16bit lane 采集后 DIST_PACK_B16 打包写回，配方参考 as_strided_gather.h），
  *        全程无手动 SetFlag/WaitFlag。
  */
 
@@ -19,6 +20,7 @@
 #define STRIDED_SLICE_ASSIGN_V2_CONTIG_H_
 
 #include <cstdint>
+#include <type_traits>
 
 #include "kernel_operator.h"
 #include "strided_slice_assign_v2_tiling_data.h"
@@ -146,103 +148,44 @@ private:
         inputQueue_.FreeTensor(xLocal);
     }
 
-    // 反转：2/4B 走 Reg::Gather 收集方向，1/8B 走 Reg::Scatter 散射方向（负载方向无 1 字节 gather）
+    // 反转：寄存器内生成反向元素索引 idx = curLen-1-e，统一 Reg::Gather 收集后写回（索引不落 UB）。
+    // 1B 无 gather 语义，按 16bit lane 采集后 StoreAlign<DIST_PACK_B16> 打包写回
     __aicore__ inline void GatherReverse(const LocalTensor<T>& revLocal, const LocalTensor<T>& xLocal, int64_t curLen)
     {
-        if constexpr (sizeof(T) == 2 || sizeof(T) == 4) {
-            GatherReverseReg(revLocal, xLocal, curLen);
-        } else {
-            ReverseScatterReg(revLocal, xLocal, curLen);
-        }
-    }
+        using RangeType = std::conditional_t<sizeof(T) <= sizeof(int16_t), int16_t, int32_t>;
+        using IdxType = std::conditional_t<sizeof(T) <= sizeof(int16_t), uint16_t, uint32_t>;
+        using CastType = std::conditional_t<sizeof(T) == 1, int16_t, T>;
 
-    // 寄存器内生成反向元素索引 idx = curLen-1-e，Reg::Gather 收集后 StoreAlign 写回（索引不落 UB）
-    __aicore__ inline void GatherReverseReg(const LocalTensor<T>& revLocal, const LocalTensor<T>& xLocal,
-                                            int64_t curLen)
-    {
         const uint32_t cnt = static_cast<uint32_t>(curLen);
-        const uint32_t blkElems = VF_OFF_BYTES / static_cast<uint32_t>(sizeof(T));
-        const uint32_t reps = (cnt + blkElems - 1) / blkElems;
-        __ubuf__ T* srcPtr = reinterpret_cast<__ubuf__ T*>(xLocal.GetPhyAddr());
-        __ubuf__ T* dstPtr = reinterpret_cast<__ubuf__ T*>(revLocal.GetPhyAddr());
-        uint32_t rest = cnt; // 逐块 mask 计数：UpdateMask 引用自动递减
+        const uint32_t blkElems = VF_OFF_BYTES / static_cast<uint32_t>(sizeof(CastType));
+        const uint16_t reps = static_cast<uint16_t>((cnt + blkElems - 1) / blkElems);
 
-        __VEC_SCOPE__
-        {
-            if constexpr (sizeof(T) == 2) {
-                AscendC::Reg::RegTensor<int16_t> idxReg;
-                AscendC::Reg::RegTensor<T> dataReg;
-                uint32_t idxCnt = cnt; // 全量 mask 供索引计算
-                AscendC::Reg::MaskReg idxMask = AscendC::Reg::UpdateMask<uint16_t>(idxCnt);
-                for (uint16_t rep = 0; rep < reps; ++rep) {
-                    AscendC::Reg::Arange(idxReg, static_cast<int16_t>(rep * blkElems));
-                    AscendC::Reg::Muls(idxReg, idxReg, static_cast<int16_t>(-1), idxMask);
-                    AscendC::Reg::Adds(idxReg, idxReg, static_cast<int16_t>(curLen - 1), idxMask);
-                    AscendC::Reg::MaskReg mask = AscendC::Reg::UpdateMask<uint16_t>(rest);
-                    AscendC::Reg::Gather(dataReg, srcPtr, (AscendC::Reg::RegTensor<uint16_t>&)idxReg, mask);
-                    AscendC::Reg::StoreAlign(dstPtr + rep * blkElems, dataReg, mask);
-                }
-            } else {
-                AscendC::Reg::RegTensor<int32_t> idxReg;
-                AscendC::Reg::RegTensor<T> dataReg;
-                uint32_t idxCnt = cnt; // 全量 mask 供索引计算
-                AscendC::Reg::MaskReg idxMask = AscendC::Reg::UpdateMask<uint32_t>(idxCnt);
-                for (uint16_t rep = 0; rep < reps; ++rep) {
-                    AscendC::Reg::Arange(idxReg, static_cast<int32_t>(rep * blkElems));
-                    AscendC::Reg::Muls(idxReg, idxReg, -1, idxMask);
-                    AscendC::Reg::Adds(idxReg, idxReg, static_cast<int32_t>(curLen - 1), idxMask);
-                    AscendC::Reg::MaskReg mask = AscendC::Reg::UpdateMask<uint32_t>(rest);
-                    AscendC::Reg::Gather(dataReg, srcPtr, (AscendC::Reg::RegTensor<uint32_t>&)idxReg, mask);
-                    AscendC::Reg::StoreAlign(dstPtr + rep * blkElems, dataReg, mask);
-                }
-            }
-        }
-    }
-
-    // 散射方向反转（1/8B）：顺序 LoadAlign（1B 用 DIST_UNPACK_B8 解包）+ Reg::Scatter 按反向索引写，
-    // 索引不落 UB；1B 索引为 16bit 环溢算术，依赖 curLen<=65535（由 4·es 分摊保证）
-    __aicore__ inline void ReverseScatterReg(const LocalTensor<T>& revLocal, const LocalTensor<T>& xLocal,
-                                             int64_t curLen)
-    {
-        const uint32_t cnt = static_cast<uint32_t>(curLen);
-        const uint32_t blkElems = (sizeof(T) == 1) ? (VF_OFF_BYTES / static_cast<uint32_t>(sizeof(uint16_t))) :
-                                                     (VF_OFF_BYTES / static_cast<uint32_t>(sizeof(T)));
-        const uint32_t reps = (cnt + blkElems - 1) / blkElems;
         __ubuf__ T* srcPtr = reinterpret_cast<__ubuf__ T*>(xLocal.GetPhyAddr());
         __ubuf__ T* dstPtr = reinterpret_cast<__ubuf__ T*>(revLocal.GetPhyAddr());
 
+        uint32_t rest = cnt;
+
         __VEC_SCOPE__
         {
-            if constexpr (sizeof(T) == 1) {
-                uint32_t rest = cnt; // 逐块 mask 计数：UpdateMask 引用自动递减
-                AscendC::Reg::RegTensor<int16_t> idxReg;
-                AscendC::Reg::RegTensor<T> dataReg;
-                uint32_t idxCnt = cnt; // 全量 mask 供索引计算
-                AscendC::Reg::MaskReg idxMask = AscendC::Reg::UpdateMask<uint16_t>(idxCnt);
-                for (uint16_t rep = 0; rep < reps; ++rep) {
-                    AscendC::Reg::Arange(idxReg, static_cast<int16_t>(rep * blkElems));
-                    AscendC::Reg::Muls(idxReg, idxReg, static_cast<int16_t>(-1), idxMask);
-                    AscendC::Reg::Adds(idxReg, idxReg, static_cast<int16_t>(curLen - 1), idxMask);
-                    AscendC::Reg::MaskReg mask = AscendC::Reg::UpdateMask<uint16_t>(rest);
-                    AscendC::Reg::LoadAlign<T, AscendC::Reg::LoadDist::DIST_UNPACK_B8>(dataReg,
-                                                                                       srcPtr + rep * blkElems);
-                    AscendC::Reg::Scatter(dstPtr, dataReg, (AscendC::Reg::RegTensor<uint16_t>&)idxReg, mask);
-                }
-            } else { // sizeof(T) == 8
-                AscendC::Reg::RegTensor<int32_t> idxReg;
-                AscendC::Reg::RegTensor<T> dataReg;
-                uint32_t idxCnt = cnt; // 全量 mask 供索引计算
-                AscendC::Reg::MaskReg idxMask = AscendC::Reg::UpdateMask<uint32_t>(idxCnt);
-                for (uint16_t rep = 0; rep < reps; ++rep) {
-                    AscendC::Reg::Arange(idxReg, static_cast<int32_t>(rep * blkElems));
-                    AscendC::Reg::Muls(idxReg, idxReg, -1, idxMask);
-                    AscendC::Reg::Adds(idxReg, idxReg, static_cast<int32_t>(curLen - 1), idxMask);
-                    // 8B 数据每块仅 32 lane：mask 必须用与数据等宽的 b64 类型（scatter.h 配方 MaskT=T），
-                    // b32 mask 会被 B64Impl 按 64-lane 语义错位解释，仅约半数元素被散射写
-                    uint32_t blockCnt = (rep == reps - 1) ? (cnt - rep * blkElems) : blkElems;
-                    AscendC::Reg::MaskReg mask = AscendC::Reg::UpdateMask<T>(blockCnt);
-                    AscendC::Reg::LoadAlign(dataReg, srcPtr + rep * blkElems);
-                    AscendC::Reg::Scatter(dstPtr, dataReg, (AscendC::Reg::RegTensor<uint32_t>&)idxReg, mask);
+            AscendC::Reg::RegTensor<RangeType> idxReg;
+            AscendC::Reg::RegTensor<CastType> dataReg;
+            uint32_t idxCnt = cnt; // 全量 mask 供索引计算
+            AscendC::Reg::MaskReg idxMask = AscendC::Reg::UpdateMask<RangeType>(idxCnt);
+
+            for (uint16_t rep = 0; rep < reps; ++rep) {
+                AscendC::Reg::Arange(idxReg, static_cast<RangeType>(rep * blkElems));
+                AscendC::Reg::Muls(idxReg, idxReg, static_cast<RangeType>(-1), idxMask);
+                AscendC::Reg::Adds(idxReg, idxReg, static_cast<RangeType>(curLen - 1), idxMask);
+                AscendC::Reg::MaskReg mask = AscendC::Reg::UpdateMask<CastType>(rest);
+                if constexpr (sizeof(T) == 1) {
+                    AscendC::Reg::Gather((AscendC::Reg::RegTensor<CastType>&)dataReg, srcPtr,
+                                         (AscendC::Reg::RegTensor<IdxType>&)idxReg, mask);
+                    __ubuf__ CastType* dstCastPtr = reinterpret_cast<__ubuf__ CastType*>(dstPtr + rep * blkElems);
+                    AscendC::Reg::StoreAlign<CastType, AscendC::Reg::StoreDist::DIST_PACK_B16>(dstCastPtr, dataReg,
+                                                                                               mask);
+                } else {
+                    AscendC::Reg::Gather(dataReg, srcPtr, (AscendC::Reg::RegTensor<IdxType>&)idxReg, mask);
+                    AscendC::Reg::StoreAlign(dstPtr + rep * blkElems, dataReg, mask);
                 }
             }
         }
