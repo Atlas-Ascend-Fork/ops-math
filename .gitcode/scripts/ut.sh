@@ -102,7 +102,11 @@ main(){
         exit 0
       fi
     else
-        LOG_DO sh build.sh -u -f "pr_filelist.txt" -j16 --cann_3rd_lib_path="/home/jenkins/opensource"
+        if [ "${GIT_TARGET_BRANCH}" = "master" ];then
+            LOG_DO sh build.sh -u --asan -f "pr_filelist.txt" -j16 --cann_3rd_lib_path="/home/jenkins/opensource"
+        else
+            LOG_DO sh build.sh -u -f "pr_filelist.txt" -j16 --cann_3rd_lib_path="/home/jenkins/opensource"
+        fi
         DP_ASSERT_EQUAL "$?" "0" "Run UT TESTCASE"
     fi
 }
