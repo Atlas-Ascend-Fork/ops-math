@@ -219,6 +219,8 @@ aclnnStatus aclnnPrecisionCompare(
 
   aclnnStatus: 返回状态码，具体参见[aclnn返回码](../../../docs/zh/context/aclnn_return_code.md)。
 
+  当golden与realdata的数据不一致时，out写入503，表示精度比对异常；流同步接口aclrtSynchronizeStream返回507018（ACL_ERROR_RT_AICPU_EXCEPTION）。
+
 ## 约束说明
 
 - 确定性计算：
