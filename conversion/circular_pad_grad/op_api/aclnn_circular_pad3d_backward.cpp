@@ -76,7 +76,7 @@ static aclnnStatus CommonPad3dBackward(const aclTensor* gradOutput, const aclTen
     CHECK_RET(uniqueExecutor.get() != nullptr, ACLNN_ERR_INNER_CREATE_EXECUTOR);
 
     // 固定写法，参数检查
-    auto ret = CheckParams(gradOutput, self, padding, gradInput, CheckShape, ACLNN_ERR_INNER_NULLPTR);
+    auto ret = CheckParams(gradOutput, self, padding, gradInput, CheckShape, ACLNN_ERR_PARAM_NULLPTR);
     CHECK_RET(ret == ACLNN_SUCCESS, ret);
 
     // 空tensor处理

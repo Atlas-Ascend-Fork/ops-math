@@ -71,19 +71,19 @@ TEST_F(circular_pad3d_backward_test, case_3)
     // SAMPLE: only test GetWorkspaceSize
     uint64_t workspace_size = 0;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
-    EXPECT_EQ(aclRet, ACLNN_ERR_INNER_NULLPTR);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_NULLPTR);
 
     auto ut_2 = OP_API_UT(aclnnCircularPad3dBackward, INPUT(grad_output_tensor_desc, nullptr, padding_desc),
                           OUTPUT(grad_input_desc));
     workspace_size = 0;
     aclRet = ut_2.TestGetWorkspaceSize(&workspace_size);
-    EXPECT_EQ(aclRet, ACLNN_ERR_INNER_NULLPTR);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_NULLPTR);
 
     auto ut_3 = OP_API_UT(aclnnCircularPad3dBackward, INPUT(grad_output_tensor_desc, input_tensor_desc, nullptr),
                           OUTPUT(grad_input_desc));
     workspace_size = 0;
     aclRet = ut_3.TestGetWorkspaceSize(&workspace_size);
-    EXPECT_EQ(aclRet, ACLNN_ERR_INNER_NULLPTR);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_NULLPTR);
 }
 
 // CheckNotNull gradInput
@@ -100,7 +100,7 @@ TEST_F(circular_pad3d_backward_test, case_4)
     // SAMPLE: only test GetWorkspaceSize
     uint64_t workspace_size = 0;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
-    EXPECT_EQ(aclRet, ACLNN_ERR_INNER_NULLPTR);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_NULLPTR);
 }
 
 // CheckShape diffrent shape of input and gradInput
