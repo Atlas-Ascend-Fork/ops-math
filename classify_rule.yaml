@@ -1130,6 +1130,7 @@ VC5@ops-math:
       - ops/ops-math/conversion/batch_to_space_nd/op_graph/
       - ops/ops-math/conversion/batch_to_space_nd/op_host/arch35/
       - ops/ops-math/conversion/batch_to_space_nd/op_host/batch_to_space_nd_def.cpp
+      - ops/ops-math/conversion/transpose/op_host/arch31/
 VC6@ops-math:
   src:
     release:
