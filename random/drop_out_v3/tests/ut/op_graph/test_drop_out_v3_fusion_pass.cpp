@@ -29,6 +29,8 @@ using namespace fusion;
 namespace {
 const std::string kPassName = "DropOutV3FusionPass";
 const char* const kSupportedArchDav3510 = "3510"; // Ascend950/Ascend350
+const char* const kSupportedArchDav9201 = "9201"; // Ascend960dt
+const char* const kSupportedArchDav9202 = "9202"; // Ascend960pr
 
 // UT stub for rtGetSocSpec: the UT executable does not link the runtime lib, while the pass gates
 // on NpuArch via this API. The stub feeds the arch from the ASCEND_NPU_ARCH env variable (same
@@ -88,6 +90,30 @@ protected:
         PlatformInfoManager::Instance().platform_info_map_["Ascend950"] = platformInfo;
         PlatformInfoManager::Instance().SetOptionalCompilationInfo(optiCompilationInfo);
         SetNpuArch(kSupportedArchDav3510);
+    }
+
+    void SetPlatform960dt()
+    {
+        PlatformInfo platformInfo;
+        OptionalInfo optiCompilationInfo;
+        platformInfo.soc_info.ai_core_cnt = 64;
+        platformInfo.str_info.short_soc_version = "Ascend960dt";
+        optiCompilationInfo.soc_version = "Ascend960dt";
+        PlatformInfoManager::Instance().platform_info_map_["Ascend960dt"] = platformInfo;
+        PlatformInfoManager::Instance().SetOptionalCompilationInfo(optiCompilationInfo);
+        SetNpuArch(kSupportedArchDav9201);
+    }
+
+    void SetPlatform960pr()
+    {
+        PlatformInfo platformInfo;
+        OptionalInfo optiCompilationInfo;
+        platformInfo.soc_info.ai_core_cnt = 64;
+        platformInfo.str_info.short_soc_version = "Ascend960pr";
+        optiCompilationInfo.soc_version = "Ascend960pr";
+        PlatformInfoManager::Instance().platform_info_map_["Ascend960pr"] = platformInfo;
+        PlatformInfoManager::Instance().SetOptionalCompilationInfo(optiCompilationInfo);
+        SetNpuArch(kSupportedArchDav9202);
     }
 
     void SetupTestEnvironment()
@@ -506,6 +532,70 @@ TEST_F(DropOutV3FusionPassTest, fusion_success_large_shape)
     auto graph_builder = es::EsGraphBuilder("test");
     auto x = graph_builder.CreateInput(0, "x", DT_FLOAT, FORMAT_ND, shape_x.GetDims());
     auto shape = graph_builder.CreateInput(1, "shape", DT_INT64, FORMAT_ND, std::vector<int64_t>{4});
+    auto prob = graph_builder.CreateInput(2, "prob", DT_FLOAT, FORMAT_ND, std::vector<int64_t>{1});
+    auto seed = graph_builder.CreateInput(3, "seed", DT_INT64, FORMAT_ND, std::vector<int64_t>{1});
+    auto offset = graph_builder.CreateInput(4, "offset", DT_INT64, FORMAT_ND, std::vector<int64_t>{1});
+
+    auto output = es::DropOutV3(x, shape, prob, seed, offset);
+
+    TensorDesc x_desc;
+    x.GetProducer()->GetOutputDesc(0, x_desc);
+    x_desc.SetDataType(DT_FLOAT);
+    x_desc.SetShape(shape_x);
+    x.GetProducer()->UpdateOutputDesc(0, x_desc);
+
+    std::shared_ptr<Graph> graph = graph_builder.BuildAndReset({output.y});
+
+    CustomPassContext pass_context;
+    DropOutV3FusionPass pass;
+    Status status = pass.Run(graph, pass_context);
+
+    EXPECT_TRUE(status == SUCCESS || status == GRAPH_NOT_CHANGED);
+}
+
+// Test: Fusion on Ascend960dt (NpuArch DAV_9201)
+TEST_F(DropOutV3FusionPassTest, fusion_success_on_960dt)
+{
+    SetPlatform960dt();
+
+    std::vector<int64_t> dims_x{16, 18};
+    Shape shape_x(dims_x);
+
+    auto graph_builder = es::EsGraphBuilder("test");
+    auto x = graph_builder.CreateInput(0, "x", DT_FLOAT, FORMAT_ND, shape_x.GetDims());
+    auto shape = graph_builder.CreateInput(1, "shape", DT_INT64, FORMAT_ND, std::vector<int64_t>{2});
+    auto prob = graph_builder.CreateInput(2, "prob", DT_FLOAT, FORMAT_ND, std::vector<int64_t>{1});
+    auto seed = graph_builder.CreateInput(3, "seed", DT_INT64, FORMAT_ND, std::vector<int64_t>{1});
+    auto offset = graph_builder.CreateInput(4, "offset", DT_INT64, FORMAT_ND, std::vector<int64_t>{1});
+
+    auto output = es::DropOutV3(x, shape, prob, seed, offset);
+
+    TensorDesc x_desc;
+    x.GetProducer()->GetOutputDesc(0, x_desc);
+    x_desc.SetDataType(DT_FLOAT);
+    x_desc.SetShape(shape_x);
+    x.GetProducer()->UpdateOutputDesc(0, x_desc);
+
+    std::shared_ptr<Graph> graph = graph_builder.BuildAndReset({output.y});
+
+    CustomPassContext pass_context;
+    DropOutV3FusionPass pass;
+    Status status = pass.Run(graph, pass_context);
+
+    EXPECT_TRUE(status == SUCCESS || status == GRAPH_NOT_CHANGED);
+}
+
+// Test: Fusion on Ascend960pr (NpuArch DAV_9202)
+TEST_F(DropOutV3FusionPassTest, fusion_success_on_960pr)
+{
+    SetPlatform960pr();
+
+    std::vector<int64_t> dims_x{16, 18};
+    Shape shape_x(dims_x);
+
+    auto graph_builder = es::EsGraphBuilder("test");
+    auto x = graph_builder.CreateInput(0, "x", DT_FLOAT, FORMAT_ND, shape_x.GetDims());
+    auto shape = graph_builder.CreateInput(1, "shape", DT_INT64, FORMAT_ND, std::vector<int64_t>{2});
     auto prob = graph_builder.CreateInput(2, "prob", DT_FLOAT, FORMAT_ND, std::vector<int64_t>{1});
     auto seed = graph_builder.CreateInput(3, "seed", DT_INT64, FORMAT_ND, std::vector<int64_t>{1});
     auto offset = graph_builder.CreateInput(4, "offset", DT_INT64, FORMAT_ND, std::vector<int64_t>{1});
