@@ -60,9 +60,12 @@ static ge::graphStatus InferShape4CircularPad(gert::InferShapeContext* context)
     OP_LOGD(context->GetNodeName(), "Begin to do InferShape4CircularPad");
 
     const gert::Shape* xShape = context->GetInputShape(INPUT_IDX_X);
-    OP_CHECK_NULL_WITH_CONTEXT(context, xShape);
+    OP_CHECK_IF(xShape == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x"), return ge::GRAPH_FAILED);
     gert::Shape* yShape = context->GetOutputShape(OUTPUT_IDX_Y);
-    OP_CHECK_NULL_WITH_CONTEXT(context, yShape);
+    if (yShape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "y");
+        return ge::GRAPH_FAILED;
+    }
 
     // 1. unknown rank → 输出也置 unknown rank，直接返回
     if (Ops::Base::IsUnknownRank(*xShape)) {

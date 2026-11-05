@@ -13,11 +13,24 @@
  * \brief
  */
 
+#include <string>
+#include <vector>
+
 #include "circular_pad_grad_tiling.h"
 #include "log/log.h"
 #include "register/op_def_registry.h"
 #include "op_host/math_tiling_templates_registry.h"
 namespace optiling {
+static void ReportTilingFailure(const char* opName, const char* reason)
+{
+    const std::string opNameStr(opName);
+    const std::string reasonStr(reason);
+    const std::string msg = "Failed to execute operator " + opNameStr + ". Reason: " + reasonStr + ".";
+    const std::vector<const char*> msgKey = {"opName", "reason"};
+    const std::vector<const char*> msgValue = {opNameStr.c_str(), reasonStr.c_str()};
+    OP_LOGE_WITHOUT_REPORT(opNameStr.c_str(), "%s", msg.c_str());
+    REPORT_PREDEFINED_ERR_MSG("EZ1008", msgKey, msgValue);
+}
 constexpr int32_t ALIGN = 32;
 constexpr int32_t WTYPE_SIZE = 4;
 constexpr int64_t BUFFER_NUM = 2;
@@ -31,20 +44,22 @@ constexpr int64_t TYPE_MODE3 = 3;
 // CircularPadGradTiling
 ge::graphStatus CircularPadGradTiling::CheckLeftAndRight()
 {
-    std::stringstream ss;
+    std::string shapeMsg = "left: " + std::to_string(left) + ", right: " + std::to_string(right) +
+                           ", x's W: " + std::to_string(inputW);
     if (left > 0 && right > 0 && (left + right > inputW * DIM_2 / DIM_3)) {
-        ss << "left + right should not be greater than inputW * 2 / 3, " << "when left/right is greater than 0.";
-        OP_LOGE(context_->GetNodeName(), "%s", ss.str().c_str());
+        OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(
+            context_->GetNodeName(), "left, right and x's W", shapeMsg.c_str(),
+            "left + right should not be greater than inputW * 2 / 3 when left and right are greater than 0.");
         return ge::GRAPH_FAILED;
     } else if (left > 0 && right <= 0 && (left > inputW / DIM_2)) {
-        ss << "left should not be greater than inputW / 2, "
-           << "when left is greater than 0 and right is not greater than 0.";
-        OP_LOGE(context_->GetNodeName(), "%s", ss.str().c_str());
+        OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(
+            context_->GetNodeName(), "left, right and x's W", shapeMsg.c_str(),
+            "left should not be greater than inputW / 2 when left is greater than 0 and right is not greater than 0.");
         return ge::GRAPH_FAILED;
     } else if (left <= 0 && right > 0 && (right > inputW / DIM_2)) {
-        ss << "right should not be greater than inputW / 2, "
-           << "when right is greater than 0 and left is not greater than 0.";
-        OP_LOGE(context_->GetNodeName(), "%s", ss.str().c_str());
+        OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(
+            context_->GetNodeName(), "left, right and x's W", shapeMsg.c_str(),
+            "right should not be greater than inputW / 2 when right is greater than 0 and left is not greater than 0.");
         return ge::GRAPH_FAILED;
     }
     return ge::GRAPH_SUCCESS;
@@ -52,20 +67,22 @@ ge::graphStatus CircularPadGradTiling::CheckLeftAndRight()
 
 ge::graphStatus CircularPadGradTiling::CheckTopAndBottom()
 {
-    std::stringstream ss;
+    std::string shapeMsg = "top: " + std::to_string(top) + ", bottom: " + std::to_string(bottom) +
+                           ", x's H: " + std::to_string(inputH);
     if (top > 0 && bottom > 0 && (top + bottom > inputH * DIM_2 / DIM_3)) {
-        ss << "top + bottom should not be greater than inputH * 2 / 3, " << "when top/bottom is greater than 0.";
-        OP_LOGE(context_->GetNodeName(), "%s", ss.str().c_str());
+        OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(
+            context_->GetNodeName(), "top, bottom and x's H", shapeMsg.c_str(),
+            "top + bottom should not be greater than inputH * 2 / 3 when top and bottom are greater than 0.");
         return ge::GRAPH_FAILED;
     } else if (top > 0 && bottom <= 0 && (top > inputH / DIM_2)) {
-        ss << "top should not be greater than inputH / 2, "
-           << "when top is greater than 0 and bottom is not greater than 0.";
-        OP_LOGE(context_->GetNodeName(), "%s", ss.str().c_str());
+        OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(
+            context_->GetNodeName(), "top, bottom and x's H", shapeMsg.c_str(),
+            "top should not be greater than inputH / 2 when top is greater than 0 and bottom is not greater than 0.");
         return ge::GRAPH_FAILED;
     } else if (top <= 0 && bottom > 0 && (bottom > inputH / DIM_2)) {
-        ss << "bottom should not be greater than inputH / 2, "
-           << "when bottom is greater than 0 and top is not greater than 0.";
-        OP_LOGE(context_->GetNodeName(), "%s", ss.str().c_str());
+        OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(context_->GetNodeName(), "top, bottom and x's H", shapeMsg.c_str(),
+                                               "bottom should not be greater than inputH / 2 when bottom is greater "
+                                               "than 0 and top is not greater than 0.");
         return ge::GRAPH_FAILED;
     }
     return ge::GRAPH_SUCCESS;
@@ -73,20 +90,22 @@ ge::graphStatus CircularPadGradTiling::CheckTopAndBottom()
 
 ge::graphStatus CircularPadGradTiling::CheckFrontAndBack()
 {
-    std::stringstream ss;
+    std::string shapeMsg = "front: " + std::to_string(front) + ", back: " + std::to_string(back) +
+                           ", x's D: " + std::to_string(inputL);
     if (front > 0 && back > 0 && (front + back > inputL * DIM_2 / DIM_3)) {
-        ss << "front + back should not be greater than inputL / 2, " << "when front/back is greater than 0.";
-        OP_LOGE(context_->GetNodeName(), "%s", ss.str().c_str());
+        OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(
+            context_->GetNodeName(), "front, back and x's D", shapeMsg.c_str(),
+            "front + back should not be greater than inputL * 2 / 3 when front and back are greater than 0.");
         return ge::GRAPH_FAILED;
     } else if (front > 0 && back <= 0 && (front > inputL / DIM_2)) {
-        ss << "front should not be greater than inputL / 2, "
-           << "when front is greater than 0 and back is not greater than 0.";
-        OP_LOGE(context_->GetNodeName(), "%s", ss.str().c_str());
+        OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(
+            context_->GetNodeName(), "front, back and x's D", shapeMsg.c_str(),
+            "front should not be greater than inputL / 2 when front is greater than 0 and back is not greater than 0.");
         return ge::GRAPH_FAILED;
     } else if (front <= 0 && back > 0 && (back > inputL / DIM_2)) {
-        ss << "back should not be greater than inputL / 2, "
-           << "when back is greater than 0 and front is not greater than 0.";
-        OP_LOGE(context_->GetNodeName(), "%s", ss.str().c_str());
+        OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(
+            context_->GetNodeName(), "front, back and x's D", shapeMsg.c_str(),
+            "back should not be greater than inputL / 2 when back is greater than 0 and front is not greater than 0.");
         return ge::GRAPH_FAILED;
     }
     return ge::GRAPH_SUCCESS;
@@ -95,11 +114,18 @@ ge::graphStatus CircularPadGradTiling::CheckFrontAndBack()
 ge::graphStatus CircularPadGradTiling::CheckInput()
 {
     if (inputW >= usedUBSize / tSize) {
-        OP_LOGE(context_->GetNodeName(), "The last DIM of x is invalid.");
+        std::string valueMsg = "inputW=" + std::to_string(inputW) + ", usable=" + std::to_string(usedUBSize / tSize);
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context_->GetNodeName(), "x", valueMsg.c_str(),
+                                              "the last dim of x exceeds the usable UB capacity.");
         return ge::GRAPH_FAILED;
     }
     if ((outputH != inputH - top - bottom || outputW != inputW - left - right || outputL != inputL - front - back)) {
-        OP_LOGE(context_->GetNodeName(), "output's shape error.");
+        std::string shapeMsg = "y: [" + std::to_string(outputH) + ", " + std::to_string(outputW) + ", " +
+                               std::to_string(outputL) + "], expected: [" + std::to_string(inputH - top - bottom) +
+                               ", " + std::to_string(inputW - left - right) + ", " +
+                               std::to_string(inputL - front - back) + "]";
+        OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(context_->GetNodeName(), "y, x and paddings", shapeMsg.c_str(),
+                                               "the shape of y must equal the shape of x minus the paddings.");
         return ge::GRAPH_FAILED;
     }
     auto ret = CheckLeftAndRight();
@@ -131,7 +157,8 @@ ge::graphStatus CircularPadGradTiling::CheckDtype()
         dataType = TYPE_MODE3;
         tSize = sizeof(uint16_t);
     } else {
-        OP_LOGE(context_->GetNodeName(), "Unsupported type.");
+        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context_->GetNodeName(), "x", Ops::Base::ToString(xDataType).c_str(),
+                                              "the dtype of x must be float32, float16 or bfloat16.");
         return ge::GRAPH_FAILED;
     }
     return ge::GRAPH_SUCCESS;
@@ -203,21 +230,31 @@ static ge::graphStatus TilingPrepare4CircularPadGrad(gert::TilingParseContext* c
 {
     OP_LOGD(context->GetNodeName(), "TilingPrepare4CircularPadGrad enter.");
     auto compileInfo = context->GetCompiledInfo<Tiling4CircularPadCommonCompileInfo>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, compileInfo);
+    OP_CHECK_IF(compileInfo == nullptr,
+                ReportTilingFailure(context->GetNodeName(),
+                                    "TilingPrepare4CircularPadGrad failed because compile info is null"),
+                return ge::GRAPH_FAILED);
     auto platformInfo = context->GetPlatformInfo();
-    OP_CHECK_NULL_WITH_CONTEXT(context, platformInfo);
+    OP_CHECK_IF(platformInfo == nullptr,
+                ReportTilingFailure(context->GetNodeName(),
+                                    "TilingPrepare4CircularPadGrad failed because platform info is null"),
+                return ge::GRAPH_FAILED);
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
     compileInfo->coreNum = ascendcPlatform.GetCoreNumAiv();
-    OP_CHECK_IF((compileInfo->coreNum <= 0),
-                OP_LOGE(context->GetNodeName(), "Get core num failed, core num: %u",
-                        static_cast<uint32_t>(compileInfo->coreNum)),
-                return ge::GRAPH_FAILED);
+    if (compileInfo->coreNum <= 0) {
+        std::string reason = "TilingPrepare4CircularPadGrad failed to get AIV core number, actual=" +
+                             std::to_string(compileInfo->coreNum);
+        ReportTilingFailure(context->GetNodeName(), reason.c_str());
+        return ge::GRAPH_FAILED;
+    }
 
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, compileInfo->ubSize);
-    OP_CHECK_IF(
-        (compileInfo->ubSize <= 0),
-        OP_LOGE(context->GetNodeName(), "Get ub size failed, ub size: %u", static_cast<uint32_t>(compileInfo->ubSize)),
-        return ge::GRAPH_FAILED);
+    if (compileInfo->ubSize <= 0) {
+        std::string reason = "TilingPrepare4CircularPadGrad failed to get UB size, actual=" +
+                             std::to_string(compileInfo->ubSize);
+        ReportTilingFailure(context->GetNodeName(), reason.c_str());
+        return ge::GRAPH_FAILED;
+    }
 
     compileInfo->sysWorkspaceSize = ascendcPlatform.GetLibApiWorkSpaceSize();
     OP_LOGD(context->GetNodeName(), "TilingPrepare4CircularPadGrad exit.");

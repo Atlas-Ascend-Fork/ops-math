@@ -12,6 +12,9 @@
  * \file pad_v3_grad_replication_tiling.cpp
  * \brief
  */
+#include <string>
+#include <vector>
+
 #include "pad_v3_grad_replication_tiling.h"
 #include "log/log.h"
 #include "register/op_def_registry.h"
@@ -19,6 +22,16 @@
 #include "platform/platform_info.h"
 
 namespace optiling {
+static void ReportTilingFailure(const char* opName, const char* reason)
+{
+    const std::string opNameStr(opName);
+    const std::string reasonStr(reason);
+    const std::string msg = "Failed to execute operator " + opNameStr + ". Reason: " + reasonStr + ".";
+    const std::vector<const char*> msgKey = {"opName", "reason"};
+    const std::vector<const char*> msgValue = {opNameStr.c_str(), reasonStr.c_str()};
+    OP_LOGE_WITHOUT_REPORT(opNameStr.c_str(), "%s", msg.c_str());
+    REPORT_PREDEFINED_ERR_MSG("EZ1008", msgKey, msgValue);
+}
 static uint32_t GetDataLength32BAligned(uint32_t dataLength, uint32_t dtypeByteSize)
 {
     uint32_t eleNumPer32Block = BYTE_32BLOCK / dtypeByteSize;
@@ -111,11 +124,13 @@ ge::graphStatus PadV3GradReplicationTilingHandler<T>::Init()
     auto paddingTensor = context->GetInputTensor(PADDING_INPUT_INDEX);
     paddingValue = paddingTensor->GetData<T>();
     if (dtype != ge::DT_FLOAT && dtype != ge::DT_FLOAT16 && dtype != ge::DT_BF16) {
-        OP_LOGE(context->GetNodeName(), "Only support datatype of float32, float16 or bfloat16.");
+        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "x", Ops::Base::ToString(dtype).c_str(),
+                                              "the dtype of x must be float32, float16 or bfloat16.");
         return ge::GRAPH_FAILED;
     }
     if (inputDim != DIM_5D && inputDim != DIM_4D) {
-        OP_LOGE(context->GetNodeName(), "Only support input of 4 or 5 dimensions.");
+        OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "x", std::to_string(inputDim).c_str(),
+                                                 "the dim of x must be 4 or 5.");
         return ge::GRAPH_FAILED;
     }
     return ge::GRAPH_SUCCESS;
@@ -456,10 +471,14 @@ static ge::graphStatus PadV3GradReplicationTiling(gert::TilingContext* context)
 {
     const PadV3GradReplicationCompileInfo* compileInfo = reinterpret_cast<const PadV3GradReplicationCompileInfo*>(
         context->GetCompileInfo());
-    OP_CHECK_NULL_WITH_CONTEXT(context, compileInfo);
+    OP_CHECK_IF(
+        compileInfo == nullptr,
+        ReportTilingFailure(context->GetNodeName(), "PadV3GradReplicationTiling failed because compile info is null"),
+        return ge::GRAPH_FAILED);
     OP_LOGI(context->GetNodeName(), "Calculating tiling for PadV3GradReplication.");
     const gert::Tensor* paddings_tensor = context->GetInputTensor(PADDING_INPUT_INDEX);
-    OP_CHECK_NULL_WITH_CONTEXT(context, paddings_tensor);
+    OP_CHECK_IF(paddings_tensor == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "paddings"),
+                return ge::GRAPH_FAILED);
     ge::DataType paddings_dtype = paddings_tensor->GetDataType();
     if (paddings_dtype == ge::DT_INT32) {
         PadV3GradReplicationTilingHandler<int32_t> handler(context, compileInfo);
@@ -468,7 +487,9 @@ static ge::graphStatus PadV3GradReplicationTiling(gert::TilingContext* context)
         PadV3GradReplicationTilingHandler<int64_t> handler(context, compileInfo);
         return handler.HandleKernelTiling();
     } else {
-        OP_LOGE(context->GetNodeName(), "Only support padding value in INT64 or INT32.");
+        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "paddings",
+                                              Ops::Base::ToString(paddings_dtype).c_str(),
+                                              "the dtype of paddings must be int64 or int32.");
         return ge::GRAPH_FAILED;
     }
 }
@@ -476,19 +497,32 @@ static ge::graphStatus PadV3GradReplicationTiling(gert::TilingContext* context)
 static ge::graphStatus PadV3GradReplicationTilingParse(gert::TilingParseContext* context)
 {
     auto compileInfo = context->GetCompiledInfo<PadV3GradReplicationCompileInfo>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, compileInfo);
+    OP_CHECK_IF(compileInfo == nullptr,
+                ReportTilingFailure(context->GetNodeName(),
+                                    "PadV3GradReplicationTilingParse failed because compile info is null"),
+                return ge::GRAPH_FAILED);
     // 填充AscendC的compile info
     auto platformInfo = context->GetPlatformInfo();
-    OP_CHECK_NULL_WITH_CONTEXT(context, platformInfo);
+    OP_CHECK_IF(platformInfo == nullptr,
+                ReportTilingFailure(context->GetNodeName(),
+                                    "PadV3GradReplicationTilingParse failed because platform info is null"),
+                return ge::GRAPH_FAILED);
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
     compileInfo->vectorCoreNum = ascendcPlatform.GetCoreNumAiv();
-    OP_CHECK_IF((compileInfo->vectorCoreNum <= 0), OP_LOGE(context->GetNodeName(), "No vector core available."),
-                return ge::GRAPH_FAILED);
+    if (compileInfo->vectorCoreNum <= 0) {
+        std::string reason = "TilingParse failed to get AIV core number, actual=" +
+                             std::to_string(compileInfo->vectorCoreNum);
+        ReportTilingFailure(context->GetNodeName(), reason.c_str());
+        return ge::GRAPH_FAILED;
+    }
     uint64_t ubByteSize;
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubByteSize);
     compileInfo->ubByteSize = ubByteSize;
-    OP_CHECK_IF((compileInfo->ubByteSize <= 0), OP_LOGE(context->GetNodeName(), "Failed to get ub size."),
-                return ge::GRAPH_FAILED);
+    if (compileInfo->ubByteSize <= 0) {
+        std::string reason = "TilingParse failed to get UB size, actual=" + std::to_string(compileInfo->ubByteSize);
+        ReportTilingFailure(context->GetNodeName(), reason.c_str());
+        return ge::GRAPH_FAILED;
+    }
     compileInfo->sysWorkspaceByteSize = ascendcPlatform.GetLibApiWorkSpaceSize();
     return ge::GRAPH_SUCCESS;
 }

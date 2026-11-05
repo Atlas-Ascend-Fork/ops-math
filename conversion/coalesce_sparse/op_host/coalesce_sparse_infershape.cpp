@@ -22,21 +22,31 @@ static ge::graphStatus InferShape4CoalesceSparse(gert::InferShapeContext* contex
     const gert::Shape* uniqueShape = context->GetInputShape(1);
     const gert::Shape* indicesShape = context->GetInputShape(2);
     const gert::Shape* valueShape = context->GetInputShape(3);
-    OP_CHECK_NULL_WITH_CONTEXT(context, uniqueLenShape);
-    OP_CHECK_NULL_WITH_CONTEXT(context, uniqueShape);
-    OP_CHECK_NULL_WITH_CONTEXT(context, indicesShape);
-    OP_CHECK_NULL_WITH_CONTEXT(context, valueShape);
+    OP_CHECK_IF(uniqueLenShape == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "unique_len"),
+                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(uniqueShape == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "unique_indices"),
+                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(indicesShape == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "indices"),
+                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(valueShape == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "values"),
+                return ge::GRAPH_FAILED);
 
     gert::Shape* newIndicesShape = context->GetOutputShape(0);
     gert::Shape* newValueShape = context->GetOutputShape(1);
 
     uint64_t len = uniqueLenShape->GetDim(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context, newIndicesShape);
+    if (newIndicesShape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "new_indices");
+        return ge::GRAPH_FAILED;
+    }
     newIndicesShape->AppendDim(len);
     newIndicesShape->AppendDim(indicesShape->GetDim(1));
 
     uint64_t valueShapeSize = valueShape->GetDimNum();
-    OP_CHECK_NULL_WITH_CONTEXT(context, newValueShape);
+    if (newValueShape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "new_values");
+        return ge::GRAPH_FAILED;
+    }
     newValueShape->AppendDim(len);
     for (uint64_t i = 1; i < valueShapeSize; i++) {
         newValueShape->AppendDim(valueShape->GetDim(i));

@@ -25,9 +25,12 @@ static constexpr int64_t UNKNOWN_DIM = -1;
 static ge::graphStatus InferShape4CircularPadGrad(gert::InferShapeContext* context)
 {
     const gert::Shape* xShape = context->GetInputShape(INPUT_IDX_X);
-    OP_CHECK_NULL_WITH_CONTEXT(context, xShape);
+    OP_CHECK_IF(xShape == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x"), return ge::GRAPH_FAILED);
     gert::Shape* yShape = context->GetOutputShape(OUTPUT_IDX_Y);
-    OP_CHECK_NULL_WITH_CONTEXT(context, yShape);
+    if (yShape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "y");
+        return ge::GRAPH_FAILED;
+    }
 
     if (Ops::Base::IsUnknownRank(*xShape)) {
         Ops::Base::SetUnknownRank(*yShape);
@@ -46,16 +49,28 @@ static ge::graphStatus InferShape4CircularPadGrad(gert::InferShapeContext* conte
     }
 
     OP_CHECK_IF(paddings.GetDimNum() != xShape->GetDimNum() * PADDING_PAIR_SIZE,
-                OP_LOGE(context->GetNodeName(), "The paddings element count must be twice the x rank."),
+                OP_LOGE_FOR_INVALID_SHAPESIZES_WITH_REASON(
+                    context->GetNodeName(), "paddings and x",
+                    (std::to_string(paddings.GetDimNum()) + ", " + std::to_string(xShape->GetDimNum())).c_str(),
+                    "the element count of paddings must be twice the rank of x"),
                 return ge::GRAPH_FAILED);
     *yShape = *xShape;
     for (size_t i = 0; i < xShape->GetDimNum(); ++i) {
         const int64_t xDim = xShape->GetDim(i);
         if (xDim != UNKNOWN_DIM) {
-            const int64_t yDim = xDim - paddings.GetDim(PADDING_PAIR_SIZE * i) -
-                                 paddings.GetDim(PADDING_PAIR_SIZE * i + 1);
-            OP_CHECK_IF(yDim < 0, OP_LOGE(context->GetNodeName(), "The output dimension must not be negative."),
-                        return ge::GRAPH_FAILED);
+            const int64_t padFront = paddings.GetDim(PADDING_PAIR_SIZE * i);
+            const int64_t padBack = paddings.GetDim(PADDING_PAIR_SIZE * i + 1);
+            const int64_t yDim = xDim - padFront - padBack;
+            OP_CHECK_IF(
+                yDim < 0,
+                OP_LOGE_FOR_INVALID_VALUES_WITH_REASON(
+                    context->GetNodeName(), "x, paddings", std::to_string(yDim).c_str(),
+                    (std::string("x[") + std::to_string(i) + "] - paddings[" + std::to_string(PADDING_PAIR_SIZE * i) +
+                     "] - paddings[" + std::to_string(PADDING_PAIR_SIZE * i + 1) + "] = " + std::to_string(xDim) +
+                     " - (" + std::to_string(padFront) + ") - (" + std::to_string(padBack) +
+                     ") = " + std::to_string(yDim) + ", but output shape cannot contain negative values")
+                        .c_str()),
+                return ge::GRAPH_FAILED);
             yShape->SetDim(i, yDim);
         }
     }

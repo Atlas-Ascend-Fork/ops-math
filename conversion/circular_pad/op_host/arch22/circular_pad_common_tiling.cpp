@@ -14,7 +14,10 @@
  */
 
 #include "circular_pad_common_tiling.h"
+#include "log/log.h"
 #include <sstream>
+#include <string>
+#include <vector>
 constexpr int32_t ALIGN = 32;
 constexpr int32_t DATA_TYPE = 10;
 constexpr int32_t TYPE_2D = 200;
@@ -29,12 +32,23 @@ constexpr int64_t DIM_6 = 6;
 constexpr int64_t MAX_LOG_LEN = 64;
 
 namespace optiling {
+static void ReportTilingFailure(const char* opName, const char* reason)
+{
+    const std::string opNameStr(opName);
+    const std::string reasonStr(reason);
+    const std::string msg = "Failed to execute operator " + opNameStr + ". Reason: " + reasonStr + ".";
+    const std::vector<const char*> msgKey = {"opName", "reason"};
+    const std::vector<const char*> msgValue = {opNameStr.c_str(), reasonStr.c_str()};
+    OP_LOGE_WITHOUT_REPORT(opNameStr.c_str(), "%s", msg.c_str());
+    REPORT_PREDEFINED_ERR_MSG("EZ1008", msgKey, msgValue);
+}
 // CircularPadCommonTiling
 ge::graphStatus CircularPadCommonTiling::GetShapeAttrsInfo()
 {
     // get paddings
     auto paddings = context_->GetInputTensor(DIM_1);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, paddings);
+    OP_CHECK_IF(paddings == nullptr, OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "paddings"),
+                return ge::GRAPH_FAILED);
     auto paddingsNum = paddings->GetShapeSize();
     OP_CHECK_IF(paddingsNum < DIM_4,
                 OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(
@@ -54,7 +68,7 @@ ge::graphStatus CircularPadCommonTiling::GetShapeAttrsInfo()
 
     // get x shape
     auto x_shape = context_->GetInputShape(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, x_shape);
+    OP_CHECK_IF(x_shape == nullptr, OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "x"), return ge::GRAPH_FAILED);
     auto xDimNum = x_shape->GetStorageShape().GetDimNum();
     OP_CHECK_IF(xDimNum < DIM_2,
                 OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context_->GetNodeName(), "x", std::to_string(xDimNum).c_str(),
@@ -73,7 +87,10 @@ ge::graphStatus CircularPadCommonTiling::GetShapeAttrsInfo()
 
     // get y shape
     auto y_shape = context_->GetOutputShape(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, y_shape);
+    if (y_shape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "y");
+        return ge::GRAPH_FAILED;
+    }
     auto yDimNum = y_shape->GetStorageShape().GetDimNum();
     OP_CHECK_IF(yDimNum < DIM_2,
                 OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context_->GetNodeName(), "y", std::to_string(yDimNum).c_str(),
@@ -93,7 +110,9 @@ ge::graphStatus CircularPadCommonTiling::GetPlatformInfo()
     auto platformInfoPtr = context_->GetPlatformInfo();
     if (platformInfoPtr == nullptr) {
         auto compileInfoPtr = reinterpret_cast<const Tiling4CircularPadCommonCompileInfo*>(context_->GetCompileInfo());
-        OP_CHECK_NULL_WITH_CONTEXT(context_, compileInfoPtr);
+        OP_CHECK_IF(compileInfoPtr == nullptr,
+                    ReportTilingFailure(context_->GetNodeName(), "GetPlatformInfo failed because compile info is null"),
+                    return ge::GRAPH_FAILED);
         ubSize = compileInfoPtr->ubSize;
         coreNum = compileInfoPtr->coreNum;
         sysWorkspaceSize = compileInfoPtr->sysWorkspaceSize;

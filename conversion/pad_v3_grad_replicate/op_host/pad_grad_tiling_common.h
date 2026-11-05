@@ -129,14 +129,16 @@ static ge::graphStatus GetInputInfo(gert::TilingContext* tilingContext, InputPar
 {
     OP_LOGI(tilingContext->GetNodeName(), "start to get input dims");
     const gert::StorageShape* xShape = tilingContext->GetInputShape(X_INPUT_INDEX);
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, xShape);
+    OP_CHECK_IF(xShape == nullptr, OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "x"),
+                return ge::GRAPH_FAILED);
     OP_CHECK_IF(xShape->GetStorageShape().GetDimNum() != CHECK_DIM_NUM,
                 OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(tilingContext->GetNodeName(), "x",
                                                          std::to_string(xShape->GetStorageShape().GetDimNum()).c_str(),
                                                          "the rank of x must be 4."),
                 return ge::GRAPH_FAILED);
     const gert::StorageShape* paddingShape = tilingContext->GetInputShape(PAD_INPUT_INDEX);
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, paddingShape);
+    OP_CHECK_IF(paddingShape == nullptr, OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "paddings"),
+                return ge::GRAPH_FAILED);
     std::string paddingDimMsg = "paddings' dim0: " + std::to_string(paddingShape->GetStorageShape().GetDim(0)) +
                                 ", x's rank: " + std::to_string(xShape->GetStorageShape().GetDimNum());
     OP_CHECK_IF(
@@ -146,7 +148,8 @@ static ge::graphStatus GetInputInfo(gert::TilingContext* tilingContext, InputPar
                                                "the dim0 of paddings must be 2 times of the rank of x."),
         return ge::GRAPH_FAILED);
     const gert::Tensor* paddingsTensor = tilingContext->GetInputTensor(PAD_INPUT_INDEX);
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, paddingsTensor);
+    OP_CHECK_IF(paddingsTensor == nullptr, OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "paddings"),
+                return ge::GRAPH_FAILED);
 
     const T* paddingsValue = paddingsTensor->GetData<T>();
 
@@ -181,8 +184,10 @@ static ge::graphStatus GetInputInfo(gert::TilingContext* tilingContext, InputPar
     params.alignOutWidth = CeilAlignStatus(params.outWidth, ALIGN_16);
 
     const gert::RuntimeAttrs* attrs = tilingContext->GetAttrs();
-    OP_CHECK_IF(attrs == nullptr, OP_LOGE(tilingContext->GetNodeName(), "Failed to get runtime attrs."),
-                return ge::GRAPH_FAILED);
+    if (attrs == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "attrs");
+        return ge::GRAPH_FAILED;
+    }
     const std::string mode = std::string(attrs->GetAttrPointer<char>(MODE_INDEX));
     if (allowConstantMode) {
         OP_CHECK_IF(mode != "reflect" && mode != "edge" && mode != "constant",

@@ -13,10 +13,24 @@
  * \brief
  */
 
+#include <string>
+#include <vector>
+
 #include "pad_v3_grad_replicate_tiling.h"
 #include "pad_grad_tiling_common.h"
 
 namespace optiling {
+
+static void ReportTilingFailure(const char* opName, const char* reason)
+{
+    const std::string opNameStr(opName);
+    const std::string reasonStr(reason);
+    const std::string msg = "Failed to execute operator " + opNameStr + ". Reason: " + reasonStr + ".";
+    const std::vector<const char*> msgKey = {"opName", "reason"};
+    const std::vector<const char*> msgValue = {opNameStr.c_str(), reasonStr.c_str()};
+    OP_LOGE_WITHOUT_REPORT(opNameStr.c_str(), "%s", msg.c_str());
+    REPORT_PREDEFINED_ERR_MSG("EZ1008", msgKey, msgValue);
+}
 
 // ======================== File-Specific Constants ========================
 constexpr uint32_t FLOAT_H_W_ONE_TILING_KEY = 11111;
@@ -210,17 +224,27 @@ static ge::graphStatus Tiling4PadV3GradReplicate(gert::TilingContext* tilingCont
 {
     OP_LOGI(tilingContext->GetNodeName(), "PadV3GradReplicate tiling starts running");
     auto compileInfo = reinterpret_cast<const Tiling4PadV3GradReplicateCompileInfo*>(tilingContext->GetCompileInfo());
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, compileInfo);
+    OP_CHECK_IF(compileInfo == nullptr,
+                ReportTilingFailure(tilingContext->GetNodeName(),
+                                    "PadV3GradReplicateTiling failed because compile info is null"),
+                return ge::GRAPH_FAILED);
     uint64_t ubSizePlatForm = compileInfo->ubSizePlatForm;
     uint32_t ubSize = static_cast<uint32_t>(ubSizePlatForm);
     uint32_t availableUb = ubSize - RESERVED_UB;
     uint32_t coreNum = compileInfo->coreNum;
     OP_LOGI(tilingContext->GetNodeName(), "ubSizePlatForm:%lu, coreNum:%u", ubSizePlatForm, coreNum);
     uint32_t sysWorkspaceSize = compileInfo->sysWorkspaceSize;
-    OP_CHECK_IF(coreNum <= 0, OP_LOGE(tilingContext->GetNodeName(), "Failed to get core num."),
-                return ge::GRAPH_FAILED);
-    OP_CHECK_IF(ubSizePlatForm <= 0, OP_LOGE(tilingContext->GetNodeName(), "Failed to get ub size."),
-                return ge::GRAPH_FAILED);
+    if (coreNum <= 0) {
+        std::string reason = "PadV3GradReplicateTiling failed to get AIV core number, actual=" +
+                             std::to_string(coreNum);
+        ReportTilingFailure(tilingContext->GetNodeName(), reason.c_str());
+        return ge::GRAPH_FAILED;
+    }
+    if (ubSizePlatForm <= 0) {
+        std::string reason = "PadV3GradReplicateTiling failed to get UB size, actual=" + std::to_string(ubSizePlatForm);
+        ReportTilingFailure(tilingContext->GetNodeName(), reason.c_str());
+        return ge::GRAPH_FAILED;
+    }
 
     ge::DataType inputDatatype = tilingContext->GetInputDesc(0)->GetDataType();
     OP_CHECK_IF(inputDatatype != ge::DT_FLOAT && inputDatatype != ge::DT_FLOAT16 && inputDatatype != ge::DT_BF16,
@@ -256,7 +280,12 @@ static ge::graphStatus Tiling4PadV3GradReplicate(gert::TilingContext* tilingCont
     }
 
     OP_CHECK_IF(tilingData.get_ubFactorElement() <= 0,
-                OP_LOGE(tilingContext->GetNodeName(), "ub space is not enough, please check input."),
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                    tilingContext->GetNodeName(), "x",
+                    ("[" + std::to_string(params.batch) + ", " + std::to_string(params.channel) + ", " +
+                     std::to_string(params.height) + ", " + std::to_string(params.width) + "]")
+                        .c_str(),
+                    "the input shape exceeds the usable UB capacity."),
                 return ge::GRAPH_FAILED);
     uint64_t workspacePerCore = tilingData.get_workspacePerCore();
     uint32_t tilingKey = tilingData.get_tilingKey();
@@ -278,18 +307,32 @@ static ge::graphStatus TilingPrepare4PadV3GradReplicate(gert::TilingParseContext
 {
     OP_LOGI(context->GetNodeName(), "TilingPrepare4PadV3GradReplicate start.");
     auto compileInfo = context->GetCompiledInfo<Tiling4PadV3GradReplicateCompileInfo>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, compileInfo);
+    OP_CHECK_IF(compileInfo == nullptr,
+                ReportTilingFailure(context->GetNodeName(),
+                                    "PadV3GradReplicateTilingParse failed because compile info is null"),
+                return ge::GRAPH_FAILED);
     auto platformInfo = context->GetPlatformInfo();
-    OP_CHECK_NULL_WITH_CONTEXT(context, platformInfo);
+    OP_CHECK_IF(platformInfo == nullptr,
+                ReportTilingFailure(context->GetNodeName(),
+                                    "PadV3GradReplicateTilingParse failed because platform info is null"),
+                return ge::GRAPH_FAILED);
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
     compileInfo->coreNum = ascendcPlatform.GetCoreNumAiv();
-    OP_CHECK_IF((compileInfo->coreNum <= 0), OP_LOGE(context->GetNodeName(), "Failed to get core num."),
-                return ge::GRAPH_FAILED);
+    if (compileInfo->coreNum <= 0) {
+        std::string reason = "PadV3GradReplicateTilingParse failed to get AIV core number, actual=" +
+                             std::to_string(compileInfo->coreNum);
+        ReportTilingFailure(context->GetNodeName(), reason.c_str());
+        return ge::GRAPH_FAILED;
+    }
     uint64_t ubSizePlatForm;
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSizePlatForm);
     compileInfo->ubSizePlatForm = ubSizePlatForm;
-    OP_CHECK_IF(ubSizePlatForm <= 0, OP_LOGE(context->GetNodeName(), "Failed to get ub size."),
-                return ge::GRAPH_FAILED);
+    if (ubSizePlatForm <= 0) {
+        std::string reason = "PadV3GradReplicateTilingParse failed to get UB size, actual=" +
+                             std::to_string(ubSizePlatForm);
+        ReportTilingFailure(context->GetNodeName(), reason.c_str());
+        return ge::GRAPH_FAILED;
+    }
     compileInfo->sysWorkspaceSize = ascendcPlatform.GetLibApiWorkSpaceSize();
     OP_LOGI(context->GetNodeName(), "TilingPrepare4PadV3GradReplicate end.");
     return ge::GRAPH_SUCCESS;

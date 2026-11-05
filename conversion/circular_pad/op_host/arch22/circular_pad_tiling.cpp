@@ -13,11 +13,24 @@
  * \brief
  */
 
+#include <string>
+#include <vector>
+
 #include "circular_pad_tiling.h"
 #include "log/log.h"
 #include "register/op_def_registry.h"
 #include "op_host/math_tiling_templates_registry.h"
 namespace optiling {
+static void ReportTilingFailure(const char* opName, const char* reason)
+{
+    const std::string opNameStr(opName);
+    const std::string reasonStr(reason);
+    const std::string msg = "Failed to execute operator " + opNameStr + ". Reason: " + reasonStr + ".";
+    const std::vector<const char*> msgKey = {"opName", "reason"};
+    const std::vector<const char*> msgValue = {opNameStr.c_str(), reasonStr.c_str()};
+    OP_LOGE_WITHOUT_REPORT(opNameStr.c_str(), "%s", msg.c_str());
+    REPORT_PREDEFINED_ERR_MSG("EZ1008", msgKey, msgValue);
+}
 constexpr int32_t ALIGN = 32;
 constexpr int64_t BUFFER_NUM = 2;
 constexpr int64_t DIM_1 = 1;
@@ -118,7 +131,10 @@ ge::graphStatus CircularPadTiling::CheckFrontAndBack()
 ge::graphStatus CircularPadTiling::CheckInput()
 {
     if ((inputW >= (int64_t)ubSize / BUFFER_NUM / tSize)) {
-        OP_LOGE(context_->GetNodeName(), "The last DIM of x is invalid.");
+        std::string valueMsg = "inputW=" + std::to_string(inputW) +
+                               ", usable=" + std::to_string(ubSize / BUFFER_NUM / tSize);
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context_->GetNodeName(), "x", valueMsg.c_str(),
+                                              "the last dim of x exceeds the usable UB capacity.");
         return ge::GRAPH_FAILED;
     }
     if ((outputH != inputH + top + bottom || outputW != inputW + left + right || outputL != inputL + front + back)) {
@@ -238,21 +254,31 @@ static ge::graphStatus TilingPrepare4CircularPad(gert::TilingParseContext* conte
 {
     OP_LOGD(context->GetNodeName(), "TilingPrepare4CircularPad enter.");
     auto compileInfo = context->GetCompiledInfo<Tiling4CircularPadCommonCompileInfo>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, compileInfo);
+    OP_CHECK_IF(
+        compileInfo == nullptr,
+        ReportTilingFailure(context->GetNodeName(), "TilingPrepare4CircularPad failed because compile info is null"),
+        return ge::GRAPH_FAILED);
     auto platformInfo = context->GetPlatformInfo();
-    OP_CHECK_NULL_WITH_CONTEXT(context, platformInfo);
+    OP_CHECK_IF(
+        platformInfo == nullptr,
+        ReportTilingFailure(context->GetNodeName(), "TilingPrepare4CircularPad failed because platform info is null"),
+        return ge::GRAPH_FAILED);
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
     compileInfo->coreNum = ascendcPlatform.GetCoreNumAiv();
-    OP_CHECK_IF((compileInfo->coreNum <= 0),
-                OP_LOGE(context->GetNodeName(), "Get core num failed, core num: %u",
-                        static_cast<uint32_t>(compileInfo->coreNum)),
-                return ge::GRAPH_FAILED);
+    if (compileInfo->coreNum <= 0) {
+        std::string reason = "TilingPrepare4CircularPad failed to get AIV core number, actual=" +
+                             std::to_string(compileInfo->coreNum);
+        ReportTilingFailure(context->GetNodeName(), reason.c_str());
+        return ge::GRAPH_FAILED;
+    }
 
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, compileInfo->ubSize);
-    OP_CHECK_IF(
-        (compileInfo->ubSize <= 0),
-        OP_LOGE(context->GetNodeName(), "Get ub size failed, ub size: %u", static_cast<uint32_t>(compileInfo->ubSize)),
-        return ge::GRAPH_FAILED);
+    if (compileInfo->ubSize <= 0) {
+        std::string reason = "TilingPrepare4CircularPad failed to get UB size, actual=" +
+                             std::to_string(compileInfo->ubSize);
+        ReportTilingFailure(context->GetNodeName(), reason.c_str());
+        return ge::GRAPH_FAILED;
+    }
 
     compileInfo->sysWorkspaceSize = ascendcPlatform.GetLibApiWorkSpaceSize();
     OP_LOGD(context->GetNodeName(), "TilingPrepare4CircularPad exit.");

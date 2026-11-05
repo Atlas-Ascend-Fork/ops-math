@@ -13,6 +13,9 @@
  * \brief
  */
 
+#include <string>
+#include <vector>
+
 #include "reflection_pad3d_grad_tiling.h"
 #include "log/log.h"
 #include "platform/platform_info.h"
@@ -21,6 +24,17 @@
 #include "util/math_util.h"
 
 namespace optiling {
+
+static void ReportTilingFailure(const char* opName, const char* reason)
+{
+    const std::string opNameStr(opName);
+    const std::string reasonStr(reason);
+    const std::string msg = "Failed to execute operator " + opNameStr + ". Reason: " + reasonStr + ".";
+    const std::vector<const char*> msgKey = {"opName", "reason"};
+    const std::vector<const char*> msgValue = {opNameStr.c_str(), reasonStr.c_str()};
+    OP_LOGE_WITHOUT_REPORT(opNameStr.c_str(), "%s", msg.c_str());
+    REPORT_PREDEFINED_ERR_MSG("EZ1008", msgKey, msgValue);
+}
 constexpr size_t MODE_INDEX = 0;
 constexpr bool PADDINGS_CONTIGUOUS_INDEX = 1;
 constexpr uint32_t BYTE_BLOCK = 32;
@@ -252,7 +266,8 @@ template <typename T>
 static ge::graphStatus GetInputInfo(gert::TilingContext* tilingContext, InputParamsInfo& params)
 {
     const gert::StorageShape* xShape = tilingContext->GetInputShape(X_INPUT_INDEX);
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, xShape);
+    OP_CHECK_IF(xShape == nullptr, OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "x"),
+                return ge::GRAPH_FAILED);
     OP_CHECK_IF(xShape->GetStorageShape().GetDimNum() != CHECK_DIM_NUM,
                 OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(tilingContext->GetNodeName(), "x",
                                                          std::to_string(xShape->GetStorageShape().GetDimNum()).c_str(),
@@ -265,7 +280,8 @@ static ge::graphStatus GetInputInfo(gert::TilingContext* tilingContext, InputPar
     params.width = xShape->GetStorageShape().GetDim(DIM_INDEX4);
 
     const gert::StorageShape* paddingShape = tilingContext->GetInputShape(PAD_INPUT_INDEX);
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, paddingShape);
+    OP_CHECK_IF(paddingShape == nullptr, OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "paddings"),
+                return ge::GRAPH_FAILED);
     std::string paddingDimMsg = "paddings' dim0: " + std::to_string(paddingShape->GetStorageShape().GetDim(0)) +
                                 ", x's rank: " + std::to_string(xShape->GetStorageShape().GetDimNum());
     OP_CHECK_IF(
@@ -275,7 +291,8 @@ static ge::graphStatus GetInputInfo(gert::TilingContext* tilingContext, InputPar
                                                "the dim0 of paddings must be 2 times of the rank of x."),
         return ge::GRAPH_FAILED);
     const gert::Tensor* paddings_tensor = tilingContext->GetInputTensor(PAD_INPUT_INDEX);
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, paddings_tensor);
+    OP_CHECK_IF(paddings_tensor == nullptr, OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "paddings"),
+                return ge::GRAPH_FAILED);
     const T* paddingsValue = paddings_tensor->GetData<T>();
     params.dPad1 = static_cast<int32_t>(paddingsValue[PADDING_NUM_INDEX4]);
     params.dPad2 = static_cast<int32_t>(paddingsValue[PADDING_NUM_INDEX5]);
@@ -358,7 +375,13 @@ static ge::graphStatus Tiling4PadV3GradV2(gert::TilingContext* tilingContext)
                                                                             true);
     }
     OP_CHECK_IF(tilingData.get_ubFactorElement() <= 0,
-                OP_LOGE(tilingContext->GetNodeName(), "ub space is not enough, please check input."),
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                    tilingContext->GetNodeName(), "x",
+                    ("[" + std::to_string(params.batch) + ", " + std::to_string(params.channel) + ", " +
+                     std::to_string(params.depth) + ", " + std::to_string(params.height) + ", " +
+                     std::to_string(params.width) + "]")
+                        .c_str(),
+                    "the input shape exceeds the usable UB capacity."),
                 return ge::GRAPH_FAILED);
     FillTilingKey(&tilingData, inputDatatype);
     tilingContext->SetTilingKey(tilingData.get_tilingKey());
@@ -383,19 +406,33 @@ static ge::graphStatus Tiling4PadV3GradV2(gert::TilingContext* tilingContext)
 static ge::graphStatus TilingPrepare4PadV3GradV2(gert::TilingParseContext* context)
 {
     auto compileInfo = context->GetCompiledInfo<Tiling4PadV3GradV2CompileInfo>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, compileInfo);
+    OP_CHECK_IF(
+        compileInfo == nullptr,
+        ReportTilingFailure(context->GetNodeName(), "TilingPrepare4PadV3GradV2 failed because compile info is null"),
+        return ge::GRAPH_FAILED);
     auto platformInfo = context->GetPlatformInfo();
-    OP_CHECK_NULL_WITH_CONTEXT(context, platformInfo);
+    OP_CHECK_IF(
+        platformInfo == nullptr,
+        ReportTilingFailure(context->GetNodeName(), "TilingPrepare4PadV3GradV2 failed because platform info is null"),
+        return ge::GRAPH_FAILED);
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
     compileInfo->coreNum = ascendcPlatform.GetCoreNumAiv();
-    OP_CHECK_IF((compileInfo->coreNum <= 0), OP_LOGE(context->GetNodeName(), "Failed to get core num."),
-                return ge::GRAPH_FAILED);
+    if (compileInfo->coreNum <= 0) {
+        std::string reason = "TilingPrepare4PadV3GradV2 failed to get AIV core number, actual=" +
+                             std::to_string(compileInfo->coreNum);
+        ReportTilingFailure(context->GetNodeName(), reason.c_str());
+        return ge::GRAPH_FAILED;
+    }
 
     uint64_t ubSizePlatForm;
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSizePlatForm);
     compileInfo->ubSizePlatForm = ubSizePlatForm;
-    OP_CHECK_IF(compileInfo->ubSizePlatForm <= 0, OP_LOGE(context->GetNodeName(), "Failed to get ub size."),
-                return ge::GRAPH_FAILED);
+    if (compileInfo->ubSizePlatForm <= 0) {
+        std::string reason = "TilingPrepare4PadV3GradV2 failed to get UB size, actual=" +
+                             std::to_string(compileInfo->ubSizePlatForm);
+        ReportTilingFailure(context->GetNodeName(), reason.c_str());
+        return ge::GRAPH_FAILED;
+    }
     compileInfo->sysWorkspaceSize = ascendcPlatform.GetLibApiWorkSpaceSize();
 
     return ge::GRAPH_SUCCESS;
