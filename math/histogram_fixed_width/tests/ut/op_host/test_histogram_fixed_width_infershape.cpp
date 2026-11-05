@@ -96,3 +96,43 @@ TEST_F(HistogramFixedWidthTest, infershape_fail_invalid_dtype)
         });
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED);
 }
+
+TEST_F(HistogramFixedWidthTest, infershape_success_range_unknown_rank)
+{
+    int32_t nbinsValue = 50;
+    gert::InfershapeContextPara infershapeContextPara(
+        "HistogramFixedWidth",
+        {
+            {{{16, 16}, {16, 16}}, ge::DT_FLOAT, ge::FORMAT_ND},
+            {{{-2}, {-2}}, ge::DT_FLOAT, ge::FORMAT_ND},
+            {{{}, {}}, ge::DT_INT32, ge::FORMAT_ND, true, &nbinsValue},
+        },
+        {
+            {{{}, {}}, ge::DT_INT32, ge::FORMAT_ND},
+        },
+        {
+            {"dtype", Ops::Math::AnyValue::CreateFrom<int64_t>(static_cast<int64_t>(ge::DT_INT32))},
+        });
+    std::vector<std::vector<int64_t>> expectOutputShape = {{50}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+TEST_F(HistogramFixedWidthTest, infershape_success_range_unknown_dim)
+{
+    int32_t nbinsValue = 50;
+    gert::InfershapeContextPara infershapeContextPara(
+        "HistogramFixedWidth",
+        {
+            {{{16, 16}, {16, 16}}, ge::DT_FLOAT, ge::FORMAT_ND},
+            {{{-1}, {-1}}, ge::DT_FLOAT, ge::FORMAT_ND},
+            {{{}, {}}, ge::DT_INT32, ge::FORMAT_ND, true, &nbinsValue},
+        },
+        {
+            {{{}, {}}, ge::DT_INT32, ge::FORMAT_ND},
+        },
+        {
+            {"dtype", Ops::Math::AnyValue::CreateFrom<int64_t>(static_cast<int64_t>(ge::DT_INT32))},
+        });
+    std::vector<std::vector<int64_t>> expectOutputShape = {{50}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}

@@ -21,7 +21,6 @@ static constexpr size_t INPUT_NBINS = 2;
 static constexpr size_t ATTR_DTYPE = 0;
 static constexpr size_t OUTPUT_IDX = 0;
 static constexpr int64_t STC_RANGE_SHAPE_SIZE = 2;
-static constexpr int64_t DYN_RANGE_SHAPE_SIZE = -1;
 static constexpr int64_t OUTPUT_DTYPE = static_cast<int64_t>(ge::DT_INT32);
 
 static ge::graphStatus InferShapeForHistogramFixedWidth(gert::InferShapeContext* context)
@@ -31,9 +30,9 @@ static ge::graphStatus InferShapeForHistogramFixedWidth(gert::InferShapeContext*
     const gert::Shape* rangeShape = context->GetInputShape(INPUT_RANGE);
     OP_CHECK_NULL_WITH_CONTEXT(context, rangeShape);
     int64_t rangeShapeSize = rangeShape->GetShapeSize();
-    if (rangeShapeSize != STC_RANGE_SHAPE_SIZE && rangeShapeSize != DYN_RANGE_SHAPE_SIZE) {
-        std::string errorMsg = "The shape size of range should be equal to " + std::to_string(STC_RANGE_SHAPE_SIZE) +
-                               " or " + std::to_string(DYN_RANGE_SHAPE_SIZE);
+    if (!Ops::Base::IsUnknownRank(*rangeShape) && !Ops::Base::IsUnknownShape(*rangeShape) &&
+        rangeShapeSize != STC_RANGE_SHAPE_SIZE) {
+        std::string errorMsg = "The shape size of range should be equal to " + std::to_string(STC_RANGE_SHAPE_SIZE);
         OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(context->GetNodeName(), "range",
                                                   std::to_string(rangeShapeSize).c_str(), errorMsg.c_str());
         return ge::GRAPH_FAILED;
