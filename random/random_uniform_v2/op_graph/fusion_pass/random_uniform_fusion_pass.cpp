@@ -79,7 +79,7 @@ bool IsTargetPlatform()
         return false;
     }
     const auto npuArch = static_cast<NpuArch>(std::strtol(npuArchVal, nullptr, 10));
-    static const std::set<NpuArch> supportedArch = {NpuArch::DAV_3510};
+    static const std::set<NpuArch> supportedArch = {NpuArch::DAV_3510, NpuArch::DAV_9201, NpuArch::DAV_9202};
     const bool isSupported = (supportedArch.count(npuArch) > 0);
     if (!isSupported) {
         OP_LOGI(kPassName.c_str(), "Platform NpuArch %u is not supported(DAV_3510), skip.",
