@@ -74,37 +74,65 @@ static graphStatus ConcatExecuteFuncD(OpExecutePrepareContext* hostApiCtx)
     return GRAPH_SUCCESS;
 }
 
-static graphStatus ConcatExecuteFunc(OpExecutePrepareContext* hostApiCtx)
+// 注意: 输入必须按 IR anchor 索引取(GetDynamicInputTensor), 不能按扁平索引(GetInputTensor),
+// 因为 Concat 与 ConcatV2 的动态输入 x 与轴输入(concat_dim/axis)的 IR 位置不同:
+// Concat IR: INPUT(concat_dim) 在 anchor 0, DYNAMIC_INPUT(x) 在 anchor 1;
+// ConcatV2 IR: DYNAMIC_INPUT(x) 在 anchor 0, INPUT(axis) 在 anchor 1.
+constexpr size_t kConcatDimAnchorForConcat = 0;
+constexpr size_t kXAnchorForConcat = 1;
+constexpr size_t kXAnchorForConcatV2 = 0;
+constexpr size_t kAxisAnchorForConcatV2 = 1;
+
+static graphStatus ConcatExecuteFuncImpl(OpExecutePrepareContext* hostApiCtx, size_t concatDimAnchorIdx,
+                                         size_t xAnchorIdx)
 {
     OP_CHECK_IF(hostApiCtx == nullptr, OP_LOGE("aclnnfallback", "hostApiCtx is nullptr"), return GRAPH_FAILED);
 
     auto inputNum = hostApiCtx->GetComputeNodeInputNum();
     OP_CHECK_IF(inputNum <= 1, OP_LOGE("aclnnfallback", "inputNum <=1"), return GRAPH_FAILED);
 
+    auto dimGeT = hostApiCtx->GetDynamicInputTensor(concatDimAnchorIdx, 0);
+    OP_CHECK_IF(dimGeT == nullptr, OP_LOGE("aclnnfallback", "dimGeT is nullptr"), return GRAPH_FAILED);
+    int64_t concatDim = 0;
+    if (dimGeT->GetDataType() == ge::DT_INT32) {
+        const int32_t* dimPtr = dimGeT->GetData<int32_t>();
+        OP_CHECK_IF(dimPtr == nullptr, OP_LOGE("aclnnfallback", "dimPtr is nullptr"), return GRAPH_FAILED);
+        concatDim = static_cast<int64_t>(*dimPtr);
+    } else {
+        const int64_t* dimPtr = dimGeT->GetData<int64_t>();
+        OP_CHECK_IF(dimPtr == nullptr, OP_LOGE("aclnnfallback", "dimPtr is nullptr"), return GRAPH_FAILED);
+        concatDim = *dimPtr;
+    }
+
     std::vector<const gert::Tensor*> geTenserList;
     for (size_t i = 0; i < inputNum - 1; i++) {
-        auto geT = hostApiCtx->GetInputTensor(i);
+        auto geT = hostApiCtx->GetDynamicInputTensor(xAnchorIdx, i);
+        OP_CHECK_IF(geT == nullptr, OP_LOGE("aclnnfallback", "geT is nullptr"), return GRAPH_FAILED);
         geTenserList.push_back(geT);
     }
     auto outGe = hostApiCtx->GetOutputTensor(kConcatOut);
     OP_CHECK_IF(outGe == nullptr, OP_LOGE("aclnnfallback", "outGe is nullptr"), return GRAPH_FAILED);
 
-    auto geT = hostApiCtx->GetInputTensor(inputNum - 1);
-    OP_CHECK_IF(geT == nullptr, OP_LOGE("aclnnfallback", "geT is nullptr"), return GRAPH_FAILED);
+    OP_LOGI("aclnnfallback", "concatDim: %ld", concatDim);
 
-    const int64_t* concatDim = geT->GetData<int64_t>();
-    OP_CHECK_IF(concatDim == nullptr, OP_LOGE("aclnnfallback", "concatDim is nullptr"), return GRAPH_FAILED);
-
-    OP_LOGI("aclnnfallback", "concatDim: %ld", *concatDim);
-
-    auto apiRet = CANN_OPS_OPB_ASYN_EXEC_ACLNN(hostApiCtx, aclnnCat, geTenserList, *concatDim, outGe);
+    auto apiRet = CANN_OPS_OPB_ASYN_EXEC_ACLNN(hostApiCtx, aclnnCat, geTenserList, concatDim, outGe);
     OP_CHECK_IF(apiRet != GRAPH_SUCCESS, OP_LOGE("aclnnfallback", "apiRet failed:%u", apiRet), return GRAPH_FAILED);
 
     return GRAPH_SUCCESS;
 }
 
-IMPL_OP(Concat).Op2StageExecuteFuncs(ConcatExecuteFunc, ExecuteOpLaunch).HostInputs({1});
-IMPL_OP(ConcatV2).Op2StageExecuteFuncs(ConcatExecuteFunc, ExecuteOpLaunch).HostInputs({1});
+static graphStatus ConcatExecuteFunc(OpExecutePrepareContext* hostApiCtx)
+{
+    return ConcatExecuteFuncImpl(hostApiCtx, kConcatDimAnchorForConcat, kXAnchorForConcat);
+}
+
+static graphStatus ConcatV2ExecuteFunc(OpExecutePrepareContext* hostApiCtx)
+{
+    return ConcatExecuteFuncImpl(hostApiCtx, kAxisAnchorForConcatV2, kXAnchorForConcatV2);
+}
+
+IMPL_OP(Concat).Op2StageExecuteFuncs(ConcatExecuteFunc, ExecuteOpLaunch).HostInputs({kConcatDimAnchorForConcat});
+IMPL_OP(ConcatV2).Op2StageExecuteFuncs(ConcatV2ExecuteFunc, ExecuteOpLaunch).HostInputs({kAxisAnchorForConcatV2});
 
 IMPL_OP(ConcatD).Op2StageExecuteFuncs(ConcatExecuteFuncD, ExecuteOpLaunch);
 IMPL_OP(ConcatV2D).Op2StageExecuteFuncs(ConcatExecuteFuncD, ExecuteOpLaunch);

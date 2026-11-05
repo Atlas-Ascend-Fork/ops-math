@@ -42,24 +42,25 @@ using std::map;
 using std::string;
 using std::vector;
 
-#define ADD_INPUT(inputIndex, inputName, inputDtype, inputShape)                                                    \
-    do {                                                                                                            \
-        std::string name##inputIndex = "placeholder" + std::to_string(inputIndex);                                  \
-        auto placeholder##inputIndex = op::Data(name##inputIndex.c_str()).set_attr_index(0);                        \
-        TensorDesc placeholder##inputIndex##_desc = TensorDesc(ge::Shape(inputShape), ge::FORMAT_ND, inputDtype);   \
-        placeholder##inputIndex##_desc.SetPlacement(ge::kPlacementHost);                                            \
-        placeholder##inputIndex##_desc.SetFormat(ge::FORMAT_ND);                                                    \
-        Tensor tensor_placeholder##inputIndex;                                                                      \
-        ret = GenOnesData(inputShape, tensor_placeholder##inputIndex, placeholder##inputIndex##_desc, inputDtype, 1.0); \
-        if (ret != SUCCESS) {                                                                                       \
-            printf("%s - ERROR - [XIR]: Generate input data failed\n", GetTime().c_str());                          \
-            return FAILED;                                                                                          \
-        }                                                                                                           \
-        placeholder##inputIndex.update_input_desc_x(placeholder##inputIndex##_desc);                                \
-        graph.AddOp(placeholder##inputIndex);                                                                       \
-        input.push_back(tensor_placeholder##inputIndex);                                                            \
-        split_d1.set_input_##inputName(placeholder##inputIndex);                                                    \
-        inputs.push_back(placeholder##inputIndex);                                                                  \
+#define ADD_INPUT(inputIndex, inputName, inputDtype, inputShape)                                                  \
+    do {                                                                                                          \
+        std::string name##inputIndex = "placeholder" + std::to_string(inputIndex);                                \
+        auto placeholder##inputIndex = op::Data(name##inputIndex.c_str()).set_attr_index(0);                      \
+        TensorDesc placeholder##inputIndex##_desc = TensorDesc(ge::Shape(inputShape), ge::FORMAT_ND, inputDtype); \
+        placeholder##inputIndex##_desc.SetPlacement(ge::kPlacementHost);                                          \
+        placeholder##inputIndex##_desc.SetFormat(ge::FORMAT_ND);                                                  \
+        Tensor tensor_placeholder##inputIndex;                                                                    \
+        ret = GenOnesData(inputShape, tensor_placeholder##inputIndex, placeholder##inputIndex##_desc, inputDtype, \
+                          1.0);                                                                                   \
+        if (ret != SUCCESS) {                                                                                     \
+            printf("%s - ERROR - [XIR]: Generate input data failed\n", GetTime().c_str());                        \
+            return FAILED;                                                                                        \
+        }                                                                                                         \
+        placeholder##inputIndex.update_input_desc_x(placeholder##inputIndex##_desc);                              \
+        graph.AddOp(placeholder##inputIndex);                                                                     \
+        input.push_back(tensor_placeholder##inputIndex);                                                          \
+        split_d1.set_input_##inputName(placeholder##inputIndex);                                                  \
+        inputs.push_back(placeholder##inputIndex);                                                                \
     } while (0)
 
 #define ADD_OUTPUT(outputIndex, outputName, outputDtype, outputShape)                                               \
@@ -82,23 +83,35 @@ string GetTime()
 uint32_t GetDataTypeSize(DataType dt)
 {
     switch (dt) {
-        case ge::DT_BOOL:   return 1U;
-        case ge::DT_INT8:   return 1U;
-        case ge::DT_UINT8:  return 1U;
-        case ge::DT_INT16:  return 2U;
-        case ge::DT_UINT16: return 2U;
-        case ge::DT_INT32:  return 4U;
-        case ge::DT_UINT32: return 4U;
-        case ge::DT_INT64:  return 8U;
-        case ge::DT_UINT64: return 8U;
-        case ge::DT_FLOAT:  return 4U;
-        case ge::DT_DOUBLE: return 8U;
-        default: return 0U;
+        case ge::DT_BOOL:
+            return 1U;
+        case ge::DT_INT8:
+            return 1U;
+        case ge::DT_UINT8:
+            return 1U;
+        case ge::DT_INT16:
+            return 2U;
+        case ge::DT_UINT16:
+            return 2U;
+        case ge::DT_INT32:
+            return 4U;
+        case ge::DT_UINT32:
+            return 4U;
+        case ge::DT_INT64:
+            return 8U;
+        case ge::DT_UINT64:
+            return 8U;
+        case ge::DT_FLOAT:
+            return 4U;
+        case ge::DT_DOUBLE:
+            return 8U;
+        default:
+            return 0U;
     }
 }
 
-int32_t GenOnesData(
-    vector<int64_t> shapes, Tensor& input_tensor, TensorDesc& input_tensor_desc, DataType data_type, double value)
+int32_t GenOnesData(vector<int64_t> shapes, Tensor& input_tensor, TensorDesc& input_tensor_desc, DataType data_type,
+                    double value)
 {
     uint32_t type_size = GetDataTypeSize(data_type);
     if (type_size == 0U) {
@@ -109,66 +122,81 @@ int32_t GenOnesData(
 
     input_tensor_desc.SetRealDimCnt(shapes.size());
     size_t size = 1;
-    for (uint32_t i = 0; i < shapes.size(); i++) { size *= shapes[i]; }
+    for (uint32_t i = 0; i < shapes.size(); i++) {
+        size *= shapes[i];
+    }
 
     uint32_t data_len = size * type_size;
     uint8_t* pData = new (std::nothrow) uint8_t[data_len];
-    if (pData == nullptr) { return FAILED; }
+    if (pData == nullptr) {
+        return FAILED;
+    }
 
     switch (data_type) {
         case ge::DT_BOOL: {
             bool* data = reinterpret_cast<bool*>(pData);
-            for (size_t i = 0; i < size; ++i) data[i] = (value != 0);
+            for (size_t i = 0; i < size; ++i)
+                data[i] = (value != 0);
             break;
         }
         case ge::DT_INT8: {
             int8_t* data = reinterpret_cast<int8_t*>(pData);
-            for (size_t i = 0; i < size; ++i) data[i] = static_cast<int8_t>(value);
+            for (size_t i = 0; i < size; ++i)
+                data[i] = static_cast<int8_t>(value);
             break;
         }
         case ge::DT_UINT8: {
             uint8_t* data = pData;
-            for (size_t i = 0; i < size; ++i) data[i] = static_cast<uint8_t>(value);
+            for (size_t i = 0; i < size; ++i)
+                data[i] = static_cast<uint8_t>(value);
             break;
         }
         case ge::DT_INT16: {
             int16_t* data = reinterpret_cast<int16_t*>(pData);
-            for (size_t i = 0; i < size; ++i) data[i] = static_cast<int16_t>(value);
+            for (size_t i = 0; i < size; ++i)
+                data[i] = static_cast<int16_t>(value);
             break;
         }
         case ge::DT_UINT16: {
             uint16_t* data = reinterpret_cast<uint16_t*>(pData);
-            for (size_t i = 0; i < size; ++i) data[i] = static_cast<uint16_t>(value);
+            for (size_t i = 0; i < size; ++i)
+                data[i] = static_cast<uint16_t>(value);
             break;
         }
         case ge::DT_INT32: {
             int32_t* data = reinterpret_cast<int32_t*>(pData);
-            for (size_t i = 0; i < size; ++i) data[i] = static_cast<int32_t>(value);
+            for (size_t i = 0; i < size; ++i)
+                data[i] = static_cast<int32_t>(value);
             break;
         }
         case ge::DT_UINT32: {
             uint32_t* data = reinterpret_cast<uint32_t*>(pData);
-            for (size_t i = 0; i < size; ++i) data[i] = static_cast<uint32_t>(value);
+            for (size_t i = 0; i < size; ++i)
+                data[i] = static_cast<uint32_t>(value);
             break;
         }
         case ge::DT_INT64: {
             int64_t* data = reinterpret_cast<int64_t*>(pData);
-            for (size_t i = 0; i < size; ++i) data[i] = static_cast<int64_t>(value);
+            for (size_t i = 0; i < size; ++i)
+                data[i] = static_cast<int64_t>(value);
             break;
         }
         case ge::DT_UINT64: {
             uint64_t* data = reinterpret_cast<uint64_t*>(pData);
-            for (size_t i = 0; i < size; ++i) data[i] = static_cast<uint64_t>(value);
+            for (size_t i = 0; i < size; ++i)
+                data[i] = static_cast<uint64_t>(value);
             break;
         }
         case ge::DT_FLOAT: {
             float* data = reinterpret_cast<float*>(pData);
-            for (size_t i = 0; i < size; ++i) data[i] = static_cast<float>(value);
+            for (size_t i = 0; i < size; ++i)
+                data[i] = static_cast<float>(value);
             break;
         }
         case ge::DT_DOUBLE: {
             double* data = reinterpret_cast<double*>(pData);
-            for (size_t i = 0; i < size; ++i) data[i] = value;
+            for (size_t i = 0; i < size; ++i)
+                data[i] = value;
             break;
         }
         // FLOAT16/BF16/COMPLEX blocked by type_size==0 check above
@@ -206,7 +234,7 @@ bool InitEnv()
 }
 
 int CreateOppInGraph(DataType inDtype, std::vector<ge::Tensor>& input, std::vector<Operator>& inputs,
-    std::vector<Operator>& outputs, Graph& graph)
+                     std::vector<Operator>& outputs, Graph& graph)
 {
     Status ret = SUCCESS;
     const int64_t num_split = 2;
@@ -263,7 +291,7 @@ int main(int argc, char* argv[])
         return FAILED;
     }
 
-    DataType inDtype = DT_BOOL;
+    DataType inDtype = DT_FLOAT;
 
     const char* graph_name = "tc_ge_irrun_test";
     Graph graph(graph_name);
@@ -291,9 +319,7 @@ int main(int argc, char* argv[])
     printf("%s - INFO - [XIR]: Create ir session using build options success\n", GetTime().c_str());
 
     printf("%s - INFO - [XIR]: Start to add compute graph to ir session\n", GetTime().c_str());
-    std::map<AscendString, AscendString> graph_options = {
-        {"ge.exec.exclude_engines", "AiCore"}
-    };
+    std::map<AscendString, AscendString> graph_options = {{"ge.exec.exclude_engines", "AiCore"}};
     uint32_t graph_id = 0;
     ret = session->AddGraph(graph_id, graph, graph_options);
     if (ret != SUCCESS) {

@@ -226,7 +226,7 @@ int main(int argc, char* argv[])
 
     LOG_PRINT("argv[1] = %s\n", argv[1]);
 
-    DataType inDtype = DT_FLOAT;
+    DataType inDtype = DT_INT32;
 
     LOG_PRINT("inDtype: %d\n", static_cast<int>(inDtype));
 

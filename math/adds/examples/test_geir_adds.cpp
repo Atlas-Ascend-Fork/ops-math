@@ -176,6 +176,7 @@ int CreateOppInGraph(DataType inDtype, std::vector<ge::Tensor>& input, std::vect
     auto adds1 = op::Adds("adds1");
     std::vector<int64_t> xShape = {32, 4, 4, 4};
     ADD_INPUT(1, x, inDtype, xShape);
+    adds1.set_attr_value(1.0f);
 
     ADD_OUTPUT(1, y, inDtype, xShape);
 
@@ -204,7 +205,7 @@ int main(int argc, char* argv[])
     LOG_PRINT("argv[1] = %s\n", argv[1]);
     char* endptr;
 
-    DataType inDtype = DT_FLOAT;
+    DataType inDtype = DT_INT32;
 
     LOG_PRINT("inDtype: %d\n", static_cast<int>(inDtype));
 

@@ -46,7 +46,7 @@ using std::vector;
 #define ADD_DYNAMIC_INPUT(inputIndex, inputDtype, inputShape, dataName)                                     \
     do {                                                                                                    \
         vector<int64_t> shape##dataName = inputShape;                                                       \
-        auto placeholder##dataName = op::Data("placeholder" #dataName).set_attr_index(0);                   \
+        auto placeholder##dataName = op::Data("placeholder" #dataName).set_attr_index(inputIndex + 1);      \
         TensorDesc desc##dataName(ge::Shape(shape##dataName), FORMAT_ND, inputDtype);                       \
         desc##dataName.SetFormat(FORMAT_ND);                                                                \
         placeholder##dataName.update_input_desc_x(desc##dataName);                                          \
@@ -67,7 +67,7 @@ using std::vector;
 #define ADD_INT_INPUT(intputIndex, intputName, intputDtype, inputShape, value)                               \
     do {                                                                                                     \
         vector<int64_t> placeholder##intputIndex##_shape = inputShape;                                       \
-        auto placeholder##intputIndex = op::Data("placeholder" + intputIndex).set_attr_index(0);             \
+        auto placeholder##intputIndex = op::Data("placeholder" + intputIndex).set_attr_index(intputIndex);   \
         TensorDesc placeholder##intputIndex##_desc = TensorDesc(ge::Shape(placeholder##intputIndex##_shape), \
                                                                 FORMAT_ND, intputDtype);                     \
         placeholder##intputIndex##_desc.SetPlacement(ge::kPlacementHost);                                    \
@@ -190,12 +190,12 @@ int CreateOppInGraph(DataType inDtype, std::vector<ge::Tensor>& input, std::vect
                      std::vector<Operator>& outputs, Graph& graph)
 {
     Status ret = SUCCESS;
-    auto concat1 = op::Concat("concat1").create_dynamic_input_x(2, false);
+    auto concat1 = op::Concat("concat1").create_dynamic_input_x(2);
     std::vector<int64_t> xShape = {32, 4, 4, 4};
-    ADD_DYNAMIC_INPUT(1, inDtype, xShape, X);
-    ADD_DYNAMIC_INPUT(2, inDtype, xShape, X);
-
     ADD_INT_INPUT(0, concat_dim, DT_INT32, {1}, 1);
+    ADD_DYNAMIC_INPUT(0, inDtype, xShape, X1);
+    ADD_DYNAMIC_INPUT(1, inDtype, xShape, X2);
+
     ADD_INPUT_ATTR(N, 2);
 
     vector<int64_t> yShape = {32, 8, 4, 4};
@@ -226,7 +226,7 @@ int main(int argc, char* argv[])
 
     LOG_PRINT("argv[1] = %s\n", argv[1]);
 
-    DataType inDtype = DT_BOOL;
+    DataType inDtype = DT_INT32;
 
     LOG_PRINT("inDtype: %d\n", static_cast<int>(inDtype));
 
