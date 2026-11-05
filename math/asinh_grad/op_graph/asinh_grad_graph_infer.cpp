@@ -1,4 +1,4 @@
-/* Copyright (c) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+/**
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
@@ -15,13 +15,14 @@
 
 using namespace ge;
 namespace ops {
-static ge::graphStatus InferDataTypeForAsinhGrad(gert::InferDataTypeContext* context) {
-  OP_LOGI("Begin InferDataTypeForAsinhGrad");
-  const ge::DataType yDataType = context->GetInputDataType(0);
-  context->SetOutputDataType(0, yDataType);
-  return ge::GRAPH_SUCCESS;
+static ge::graphStatus InferDataTypeForAsinhGrad(gert::InferDataTypeContext* context)
+{
+    OP_LOGD(context->GetNodeName(), "Begin dtype inference");
+    const ge::DataType yDataType = context->GetInputDataType(0);
+    context->SetOutputDataType(0, yDataType);
+    return ge::GRAPH_SUCCESS;
 }
 
 IMPL_OP(AsinhGrad).InferDataType(InferDataTypeForAsinhGrad);
-}
+} // namespace ops
 // namespace ops

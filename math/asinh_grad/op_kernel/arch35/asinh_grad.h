@@ -14,8 +14,10 @@
  * \file asinh_grad.h
  * \brief AsinhGrad kernel class definition (arch35)
  *
- * Computes: z = 2 * dy * exp(-abs(y)) / (1 + exp(-2 * abs(y)))
- * Equivalent to: z = dy / cosh(y)
+ * Computes: z = dy / cosh(y), preserving the A2 FP32 cosh overflow boundary.
+ * FP16/BF16 follow the A2 cosh_compute_v1 half-exponent order, with a small
+ * fused Taylor branch. FP32 extends A2's Taylor/double-angle approach with
+ * rounding compensation for cosh and the final division.
  *
  * Template parameters:
  *   - T: data type (float / half / bfloat16_t)
@@ -27,6 +29,7 @@
 #define ASINH_GRAD_H
 
 #include "kernel_operator.h"
+#include <limits>
 #include "kernel_tiling/kernel_tiling.h"
 #include "asinh_grad_tiling_data.h"
 #include "asinh_grad_tiling_key.h"
@@ -35,12 +38,319 @@ namespace NsAsinhGrad {
 
 using namespace AscendC;
 
+constexpr Reg::ExpSpecificMode REG_EXP_CONFIG = {Reg::MaskMergeMode::ZEROING, ExpAlgo::PRECISION_1ULP_FTZ_FALSE};
+constexpr Reg::DivSpecificMode REG_DIV_CONFIG = {Reg::MaskMergeMode::ZEROING, true};
+constexpr Reg::DivSpecificMode REG_FP32_DIV_CONFIG = {Reg::MaskMergeMode::ZEROING, true,
+                                                      DivAlgo::PRECISION_0ULP_FTZ_FALSE};
+constexpr Reg::CastTrait REG_CAST_UP = {Reg::RegLayout::ZERO, Reg::SatMode::UNKNOWN, Reg::MaskMergeMode::ZEROING,
+                                        RoundMode::UNKNOWN};
+constexpr Reg::CastTrait REG_CAST_DOWN = {Reg::RegLayout::ZERO, Reg::SatMode::NO_SAT, Reg::MaskMergeMode::ZEROING,
+                                          RoundMode::CAST_RINT};
+
+// The coefficient dominates p*s for |t| <= 1, so FastTwoSum is exact.
+__simd_callee__ inline void CoshHornerStep(Reg::RegTensor<float>& p, Reg::RegTensor<float>& low,
+                                           Reg::RegTensor<float>& s, Reg::RegTensor<float>& sLow, float coefficient,
+                                           float coefficientLow, Reg::MaskReg& mask)
+{
+    Reg::RegTensor<float> product, error, sum, sumError, c;
+    Reg::Mul(product, p, s, mask);
+    Reg::Muls(error, product, -1.0f, mask);
+    Reg::MulAddDst(error, p, s, mask);
+    Reg::Duplicate(c, coefficient);
+    Reg::Add(sum, product, c, mask);
+    Reg::Sub(sumError, c, sum, mask);
+    Reg::Add(sumError, sumError, product, mask);
+    Reg::Add(error, error, sumError, mask);
+    Reg::Mul(low, low, s, mask);
+    Reg::MulAddDst(low, p, sLow, mask);
+    Reg::Add(low, low, error, mask);
+    Reg::Adds(low, low, coefficientLow, mask);
+    p = sum;
+}
+
+template <bool PRESERVE>
+__simd_callee__ inline void CoshDoubleAngle(Reg::RegTensor<float>& high, Reg::RegTensor<float>& low, Reg::MaskReg& mask)
+{
+    Reg::RegTensor<float> square, error, twice, sum, sumError, correction, nextHigh, nextLow;
+    Reg::Mul(square, high, high, mask);
+    Reg::Muls(error, square, -1.0f, mask);
+    Reg::MulAddDst(error, high, high, mask);
+    Reg::Muls(twice, square, 2.0f, mask);
+    Reg::Adds(sum, twice, -1.0f, mask);
+    Reg::Sub(sumError, twice, sum, mask);
+    Reg::Adds(sumError, sumError, -1.0f, mask);
+    Reg::Muls(correction, high, 4.0f, mask);
+    Reg::Mul(correction, correction, low, mask);
+    Reg::Muls(error, error, 2.0f, mask);
+    Reg::Add(correction, correction, error, mask);
+    Reg::Add(correction, correction, sumError, mask);
+    Reg::Add(nextHigh, sum, correction, mask);
+    Reg::Sub(nextLow, sum, nextHigh, mask);
+    Reg::Add(nextLow, nextLow, correction, mask);
+    if constexpr (PRESERVE) {
+        Reg::Select(high, nextHigh, high, mask);
+        Reg::Select(low, nextLow, low, mask);
+    } else {
+        high = nextHigh;
+        low = nextLow;
+    }
+}
+
+// Used only for the final two large-input doublings: high >= cosh(4).
+// The FMA residual error is small relative to the reconstructed denominator.
+__simd_callee__ inline void CoshDoubleAngleLarge(Reg::RegTensor<float>& high, Reg::RegTensor<float>& low,
+                                                 Reg::MaskReg& mask)
+{
+    Reg::RegTensor<float> twice, sum, error, correction, nextHigh, nextLow;
+    Reg::Muls(twice, high, 2.0f, mask);
+    Reg::Duplicate(sum, -1.0f);
+    Reg::MulAddDst(sum, twice, high, mask);
+    Reg::Muls(error, sum, -1.0f, mask);
+    Reg::MulAddDst(error, twice, high, mask);
+    Reg::Adds(error, error, -1.0f, mask);
+    Reg::Muls(correction, high, 4.0f, mask);
+    Reg::MulAddDst(error, correction, low, mask);
+    Reg::Add(nextHigh, sum, error, mask);
+    Reg::Sub(nextLow, sum, nextHigh, mask);
+    Reg::Add(nextLow, nextLow, error, mask);
+    Reg::Select(high, nextHigh, high, mask);
+    Reg::Select(low, nextLow, low, mask);
+}
+
+template <bool SMALL_RANGE>
+__simd_callee__ inline void CompensatedCosh(Reg::RegTensor<float>& a, Reg::RegTensor<float>& high,
+                                            Reg::RegTensor<float>& low, Reg::MaskReg& finiteMask)
+{
+    Reg::RegTensor<float> t, scaled, s, sLow, coefficient, normalized;
+    Reg::MaskReg largeMask;
+    Reg::CompareScalar<float, CMPMODE::GT>(largeMask, a, 16.0f, finiteMask);
+    Reg::Muls(t, a, 0.0625f, finiteMask);
+    Reg::Muls(scaled, a, 0.0078125f, finiteMask);
+    Reg::Select(t, scaled, t, largeMask);
+    Reg::Mul(s, t, t, finiteMask);
+    Reg::Muls(sLow, s, -1.0f, finiteMask);
+    Reg::MulAddDst(sLow, t, t, finiteMask);
+    Reg::Duplicate(high, 4.77947733e-14f);        // 1/16!
+    Reg::Duplicate(coefficient, 1.14707456e-11f); // 1/14!
+    Reg::MulAddDst(coefficient, high, s, finiteMask);
+    Reg::Duplicate(high, 2.08767570e-9f); // 1/12!
+    Reg::MulAddDst(high, coefficient, s, finiteMask);
+    Reg::Duplicate(coefficient, 2.75573192e-7f); // 1/10!
+    Reg::MulAddDst(coefficient, high, s, finiteMask);
+    Reg::Duplicate(high, 2.48015873e-5f); // 1/8!
+    Reg::MulAddDst(high, coefficient, s, finiteMask);
+    Reg::Duplicate(coefficient, 1.0f / 720.0f);
+    Reg::MulAddDst(coefficient, high, s, finiteMask);
+    high = coefficient;
+    Reg::Duplicate(low, -3.36310944e-11f); // FP32 rounding residual of 1/6!
+    CoshHornerStep(high, low, s, sLow, 1.0f / 24.0f, -1.24176347e-9f, finiteMask);
+    CoshHornerStep(high, low, s, sLow, 0.5f, 0.0f, finiteMask);
+    CoshHornerStep(high, low, s, sLow, 1.0f, 0.0f, finiteMask);
+    Reg::Add(normalized, high, low, finiteMask);
+    Reg::Sub(high, high, normalized, finiteMask);
+    Reg::Add(low, high, low, finiteMask);
+    high = normalized;
+    for (uint16_t j = 0; j < 4; ++j) {
+        CoshDoubleAngle<false>(high, low, finiteMask);
+    }
+    if constexpr (!SMALL_RANGE) {
+        CoshDoubleAngle<true>(high, low, largeMask);
+        CoshDoubleAngleLarge(high, low, largeMask);
+        CoshDoubleAngleLarge(high, low, largeMask);
+    }
+}
+
+// Classify on the vector unit; scalar dispatch selects branch-free compute VFs.
+__simd_vf__ inline void ClassifyFp32VF(__ubuf__ float* yAddr, __ubuf__ float* dyAddr, __ubuf__ float* zAddr,
+                                       uint32_t classifyRemaining)
+{
+    constexpr uint32_t VL = VECTOR_REG_WIDTH / sizeof(float);
+    uint16_t loopCount = (classifyRemaining + VL - 1) / VL;
+    Reg::RegTensor<float> values, maximum, maximumFinite, minimumDy, blockMaximum, blockMinimum, infinity, range,
+        candidate;
+    Reg::RegTensor<uint32_t> signMask;
+    Reg::MaskReg classifyMask, finiteMask;
+    Reg::MaskReg first = Reg::CreateMask<float, Reg::MaskPattern::VL1>();
+    Reg::Duplicate(maximum, 0.0f);
+    Reg::Duplicate(maximumFinite, 0.0f);
+    Reg::Duplicate(minimumDy, std::numeric_limits<float>::infinity());
+    Reg::Duplicate(infinity, std::numeric_limits<float>::infinity());
+    Reg::Duplicate(signMask, 0x7fffffffU);
+    for (uint16_t i = 0; i < loopCount; ++i) {
+        classifyMask = Reg::UpdateMask<float>(classifyRemaining);
+        Reg::LoadAlign(values, yAddr + i * VL);
+        Reg::Abs(values, values, classifyMask);
+        Reg::CompareScalar<float, CMPMODE::LE>(finiteMask, values, std::numeric_limits<float>::max(), classifyMask);
+        // Nonfinite y cannot enter the identity shortcut. Its original
+        // value is retained below so NaN still propagates.
+        Reg::Select(values, values, infinity, finiteMask);
+        Reg::Reduce<Reg::ReduceType::MAX>(blockMaximum, values, classifyMask);
+        Reg::Max(maximum, maximum, blockMaximum, first);
+        Reg::CompareScalar<float, CMPMODE::LE>(finiteMask, values, 89.415985107421875f, classifyMask);
+        Reg::Reduce<Reg::ReduceType::MAX>(blockMaximum, values, finiteMask);
+        Reg::Max(maximumFinite, maximumFinite, blockMaximum, first);
+        Reg::LoadAlign(values, dyAddr + i * VL);
+        Reg::And((Reg::RegTensor<uint32_t>&)values, (Reg::RegTensor<uint32_t>&)values, signMask, classifyMask);
+        // Test zero as integer bits so a subnormal cannot be mistaken
+        // for zero by floating-point comparison or reduction.
+        Reg::CompareScalar<uint32_t, CMPMODE::NE>(finiteMask, (Reg::RegTensor<uint32_t>&)values, 0U, classifyMask);
+        Reg::Select(values, values, infinity, finiteMask);
+        Reg::CompareScalar<float, CMPMODE::LE>(finiteMask, values, std::numeric_limits<float>::max(), classifyMask);
+        Reg::Select(values, values, infinity, finiteMask);
+        Reg::Reduce<Reg::ReduceType::MIN>(blockMinimum, values, classifyMask);
+        Reg::Min(minimumDy, minimumDy, blockMinimum, first);
+    }
+    Reg::Duplicate(range, 2.0f);
+    Reg::CompareScalar<float, CMPMODE::LE>(finiteMask, maximumFinite, 0.000244140625f, first);
+    Reg::Duplicate(candidate, 3.0f);
+    Reg::Select(range, candidate, range, finiteMask);
+    Reg::CompareScalar<float, CMPMODE::LE>(finiteMask, maximum, 16.0f, first);
+    Reg::Duplicate(candidate, 1.0f);
+    Reg::Select(range, candidate, range, finiteMask);
+    Reg::CompareScalar<float, CMPMODE::LE>(finiteMask, maximum, 0.000244140625f, first);
+    Reg::Duplicate(candidate, 0.0f);
+    Reg::Select(range, candidate, range, finiteMask);
+    // Ignore zero/nonfinite dy: their division semantics do not depend
+    // on FTZ. Nonzero |dy| >= 4 gives a normal finite-cosh quotient;
+    // |dy| >= 1e-30 is also sufficient when |y| <= 16.
+    Reg::Adds(candidate, range, 4.0f, first);
+    Reg::CompareScalar<float, CMPMODE::GE>(finiteMask, minimumDy, 4.0f, first);
+    Reg::Select(range, candidate, range, finiteMask);
+    Reg::CompareScalar<float, CMPMODE::LE>(classifyMask, maximum, 16.0f, first);
+    Reg::CompareScalar<float, CMPMODE::GE>(finiteMask, minimumDy, 1e-30f, classifyMask);
+    Reg::Select(range, candidate, range, finiteMask);
+    Reg::StoreAlign(zAddr, range, first);
+}
+
+template <bool OVERFLOW>
+__simd_vf__ inline void ShortcutFp32VF(__ubuf__ float* yAddr, __ubuf__ float* dyAddr, __ubuf__ float* zAddr,
+                                       uint32_t remaining)
+{
+    constexpr uint32_t VL = VECTOR_REG_WIDTH / sizeof(float);
+    uint16_t loopCount = (remaining + VL - 1) / VL;
+    Reg::RegTensor<float> values, denominator, quotient;
+    Reg::MaskReg copyMask, identityMask;
+    for (uint16_t i = 0; i < loopCount; ++i) {
+        copyMask = Reg::UpdateMask<float>(remaining);
+        Reg::LoadAlign(values, dyAddr + i * VL);
+        if constexpr (OVERFLOW) {
+            Reg::LoadAlign(denominator, yAddr + i * VL);
+            Reg::Abs(denominator, denominator, copyMask);
+            Reg::CompareScalar<float, CMPMODE::LE>(identityMask, denominator, 0.000244140625f, copyMask);
+            Reg::Adds(denominator, denominator, std::numeric_limits<float>::infinity(), copyMask);
+            Reg::Div<float, &REG_DIV_CONFIG>(quotient, values, denominator, copyMask);
+            Reg::Select(quotient, values, quotient, identityMask);
+            Reg::StoreAlign(zAddr + i * VL, quotient, copyMask);
+        } else {
+            Reg::StoreAlign(zAddr + i * VL, values, copyMask);
+        }
+    }
+}
+
+template <typename T, bool SMALL_RANGE, bool NORMAL_QUOTIENTS>
+__simd_vf__ inline void ComputeVF(__ubuf__ T* yAddr, __ubuf__ T* dyAddr, __ubuf__ T* zAddr, uint32_t remaining)
+{
+    constexpr bool NEED_CAST = !std::is_same_v<T, float>;
+    constexpr uint32_t VL = VECTOR_REG_WIDTH / sizeof(float);
+    uint16_t loopCount = (remaining + VL - 1) / VL;
+    Reg::RegTensor<T> yInput, dyInput, zOutput;
+    Reg::RegTensor<float> yReg, dyReg, e1, e2, coshReg, result, one;
+    Reg::MaskReg mask, smallMask, belowOne;
+    Reg::Duplicate(one, 1.0f);
+    for (uint16_t i = 0; i < loopCount; ++i) {
+        mask = Reg::UpdateMask<float>(remaining);
+        if constexpr (NEED_CAST) {
+            Reg::LoadAlign<T, Reg::LoadDist::DIST_UNPACK_B16>(yInput, yAddr + i * VL);
+            Reg::LoadAlign<T, Reg::LoadDist::DIST_UNPACK_B16>(dyInput, dyAddr + i * VL);
+            Reg::Cast<float, T, REG_CAST_UP>(yReg, yInput, mask);
+            Reg::Cast<float, T, REG_CAST_UP>(dyReg, dyInput, mask);
+        } else {
+            Reg::LoadAlign(yReg, yAddr + i * VL);
+            Reg::LoadAlign(dyReg, dyAddr + i * VL);
+        }
+        Reg::Abs(yReg, yReg, mask);
+        if constexpr (!NEED_CAST) {
+            Reg::RegTensor<float> coshLow, zero, absDy, negativeQuotient, residual, correction;
+            Reg::MaskReg finiteMask, correctionMask;
+            Reg::CompareScalar<float, CMPMODE::LE>(finiteMask, yReg, 89.415985107421875f, mask);
+            CompensatedCosh<SMALL_RANGE>(yReg, e1, coshLow, finiteMask);
+            Reg::Duplicate(zero, 0.0f);
+            Reg::CompareScalar<float, CMPMODE::LE>(smallMask, yReg, 0.000244140625f, finiteMask);
+            Reg::Select(e1, one, e1, smallMask);
+            Reg::Select(coshLow, zero, coshLow, smallMask);
+            Reg::Adds(coshReg, yReg, std::numeric_limits<float>::infinity(), mask);
+            Reg::Select(coshReg, e1, coshReg, finiteMask);
+            if constexpr (NORMAL_QUOTIENTS) {
+                Reg::Div<float, &REG_DIV_CONFIG>(result, dyReg, coshReg, mask);
+            } else {
+                Reg::Div<float, &REG_FP32_DIV_CONFIG>(result, dyReg, coshReg, mask);
+            }
+            Reg::Abs(absDy, dyReg, mask);
+            Reg::CompareScalar<float, CMPMODE::LE>(correctionMask, absDy, std::numeric_limits<float>::max(),
+                                                   finiteMask);
+            Reg::CompareScalar<float, CMPMODE::GT>(correctionMask, absDy, 0.0f, correctionMask);
+            Reg::CompareScalar<float, CMPMODE::GT>(correctionMask, yReg, 0.000244140625f, correctionMask);
+            Reg::Abs(absDy, result, mask);
+            Reg::CompareScalar<float, CMPMODE::GE>(correctionMask, absDy, std::numeric_limits<float>::min(),
+                                                   correctionMask);
+            Reg::Muls(negativeQuotient, result, -1.0f, correctionMask);
+            residual = dyReg;
+            Reg::MulAddDst(residual, negativeQuotient, coshReg, correctionMask);
+            Reg::MulAddDst(residual, negativeQuotient, coshLow, correctionMask);
+            Reg::Div<float, &REG_DIV_CONFIG>(correction, residual, coshReg, correctionMask);
+            Reg::Add(correction, result, correction, correctionMask);
+            Reg::Select(result, correction, result, correctionMask);
+        } else {
+            Reg::Muls(e1, yReg, 0.5f, mask);
+            Reg::Muls(e2, yReg, -1.5f, mask);
+            Reg::Exp<float, &REG_EXP_CONFIG>(e1, e1, mask);
+            Reg::Exp<float, &REG_EXP_CONFIG>(e2, e2, mask);
+            Reg::Add(coshReg, e1, e2, mask);
+            Reg::Muls(coshReg, coshReg, 0.5f, mask);
+            Reg::Mul(coshReg, coshReg, e1, mask);
+            // For |y| <= 2, the omitted eighteenth-order term is below
+            // 4.2e-11. Fused Horner steps avoid separate multiply/add rounding.
+            Reg::CompareScalar<float, CMPMODE::LE>(smallMask, yReg, 2.0f, mask);
+            Reg::Mul(e1, yReg, yReg, smallMask);
+            Reg::Duplicate(e2, 4.77947733e-14f);     // 1/16!
+            Reg::Duplicate(result, 1.14707456e-11f); // 1/14!
+            Reg::MulAddDst(result, e2, e1, smallMask);
+            Reg::Duplicate(e2, 2.08767570e-9f); // 1/12!
+            Reg::MulAddDst(e2, result, e1, smallMask);
+            Reg::Duplicate(result, 2.75573192e-7f); // 1/10!
+            Reg::MulAddDst(result, e2, e1, smallMask);
+            Reg::Duplicate(e2, 2.48015873e-5f); // 1/8!
+            Reg::MulAddDst(e2, result, e1, smallMask);
+            Reg::Duplicate(result, 1.0f / 720.0f);
+            Reg::MulAddDst(result, e2, e1, smallMask);
+            Reg::Duplicate(e2, 1.0f / 24.0f);
+            Reg::MulAddDst(e2, result, e1, smallMask);
+            Reg::Duplicate(result, 0.5f);
+            Reg::MulAddDst(result, e2, e1, smallMask);
+            Reg::Duplicate(e2, 1.0f);
+            Reg::MulAddDst(e2, result, e1, smallMask);
+            Reg::Select(coshReg, e2, coshReg, smallMask);
+            // cosh rounds to 1 for |y| <= 2^-12. Both comparisons
+            // are false for NaN, preserving its propagation.
+            Reg::CompareScalar<float, CMPMODE::LE>(smallMask, yReg, 0.000244140625f, mask);
+            Reg::Select(coshReg, one, coshReg, smallMask);
+            Reg::CompareScalar<float, CMPMODE::LT>(belowOne, coshReg, 1.0f, mask);
+            Reg::Select(coshReg, one, coshReg, belowOne);
+            Reg::Div<float, &REG_DIV_CONFIG>(result, dyReg, coshReg, mask);
+        }
+        if constexpr (NEED_CAST) {
+            Reg::Cast<T, float, REG_CAST_DOWN>(zOutput, result, mask);
+            Reg::StoreAlign<T, Reg::StoreDist::DIST_PACK_B32>(zAddr + i * VL, zOutput, mask);
+        } else {
+            Reg::StoreAlign(zAddr + i * VL, result, mask);
+        }
+    }
+}
+
 template <typename T, int BUFFER_MODE>
 class AsinhGrad {
     static constexpr int32_t BUFFER_NUM = BUFFER_MODE ? 2 : 1;
     static constexpr bool NEED_CAST = !std::is_same_v<T, float>;
-    constexpr static ExpConfig EXP_CONFIG = {ExpAlgo::PRECISION_1ULP_FTZ_FALSE};
-    constexpr static DivConfig DIV_CONFIG = {DivAlgo::PRECISION_0ULP_FTZ_FALSE};
 
 public:
     __aicore__ inline AsinhGrad() {}
@@ -59,13 +369,6 @@ private:
     TQue<QuePosition::VECIN, BUFFER_NUM> inQueDy;
     TQue<QuePosition::VECOUT, BUFFER_NUM> outQueZ;
 
-    // FP16/BF16 path: FP32 intermediate buffers for cast-up computation (VECCALC)
-    TBuf<QuePosition::VECCALC> tmpYFp32_;
-    TBuf<QuePosition::VECCALC> tmpDyFp32_;
-    TBuf<QuePosition::VECCALC> tmpExpY_;
-    TBuf<QuePosition::VECCALC> tmpExp2Y_;
-    TBuf<QuePosition::VECCALC> tmpZFp32_;
-
     GlobalTensor<T> gmY_;
     GlobalTensor<T> gmDy_;
     GlobalTensor<T> gmZ_;
@@ -80,6 +383,9 @@ __aicore__ inline void AsinhGrad<T, BUFFER_MODE>::Init(GM_ADDR y, GM_ADDR dy, GM
     int64_t remainder = tilingData->totalNum - tilingData->blockFactor * GetBlockIdx();
     blockLength_ = (remainder > tilingData->blockFactor) ? tilingData->blockFactor : remainder;
     ubLength_ = tilingData->ubFactor;
+    if (blockLength_ <= 0) {
+        return;
+    }
 
     int64_t off = tilingData->blockFactor * GetBlockIdx();
     gmY_.SetGlobalBuffer((__gm__ T*)y + off, blockLength_);
@@ -89,19 +395,6 @@ __aicore__ inline void AsinhGrad<T, BUFFER_MODE>::Init(GM_ADDR y, GM_ADDR dy, GM
     pipe.InitBuffer(inQueY, BUFFER_NUM, ubLength_ * sizeof(T));
     pipe.InitBuffer(inQueDy, BUFFER_NUM, ubLength_ * sizeof(T));
     pipe.InitBuffer(outQueZ, BUFFER_NUM, ubLength_ * sizeof(T));
-
-    if constexpr (NEED_CAST) {
-        // FP16/BF16 path: need 5 FP32 intermediate buffers for cast-up computation
-        pipe.InitBuffer(tmpYFp32_, ubLength_ * sizeof(float));
-        pipe.InitBuffer(tmpDyFp32_, ubLength_ * sizeof(float));
-        pipe.InitBuffer(tmpExpY_, ubLength_ * sizeof(float));
-        pipe.InitBuffer(tmpExp2Y_, ubLength_ * sizeof(float));
-        pipe.InitBuffer(tmpZFp32_, ubLength_ * sizeof(float));
-    } else {
-        // FP32 path: only 2 temporary buffers (decay, denominator); zL from outQueZ is reused
-        pipe.InitBuffer(tmpExpY_, ubLength_ * sizeof(float));
-        pipe.InitBuffer(tmpExp2Y_, ubLength_ * sizeof(float));
-    }
 }
 
 template <typename T, int BUFFER_MODE>
@@ -110,14 +403,15 @@ __aicore__ inline void AsinhGrad<T, BUFFER_MODE>::CopyIn(int64_t progress, int64
     LocalTensor<T> yL = inQueY.template AllocTensor<T>();
     LocalTensor<T> dyL = inQueDy.template AllocTensor<T>();
 
-    DataCopyParams cp;
+    DataCopyExtParams cp;
     cp.blockCount = 1;
-    cp.blockLen = currentNum * sizeof(T);
+    cp.blockLen = static_cast<uint32_t>(currentNum * sizeof(T));
     cp.srcStride = 0;
     cp.dstStride = 0;
 
-    DataCopyPad(yL, gmY_[progress * ubLength_], cp, {false, 0, 0, 0});
-    DataCopyPad(dyL, gmDy_[progress * ubLength_], cp, {false, 0, 0, 0});
+    DataCopyPadExtParams<T> padParams{false, 0, 0, 0};
+    DataCopyPad(yL, gmY_[progress * ubLength_], cp, padParams);
+    DataCopyPad(dyL, gmDy_[progress * ubLength_], cp, padParams);
 
     inQueY.EnQue(yL);
     inQueDy.EnQue(dyL);
@@ -130,43 +424,54 @@ __aicore__ inline void AsinhGrad<T, BUFFER_MODE>::Compute(int64_t currentNum)
     LocalTensor<T> dyL = inQueDy.template DeQue<T>();
     LocalTensor<T> zL = outQueZ.template AllocTensor<T>();
 
+    uint32_t remaining = static_cast<uint32_t>(currentNum);
+    __ubuf__ T* yAddr = (__ubuf__ T*)yL.GetPhyAddr();
+    __ubuf__ T* dyAddr = (__ubuf__ T*)dyL.GetPhyAddr();
+    __ubuf__ T* zAddr = (__ubuf__ T*)zL.GetPhyAddr();
+
+    bool smallRange = false;
+    bool normalQuotients = false;
+    if constexpr (!NEED_CAST) {
+        asc_vf_call<ClassifyFp32VF>(yAddr, dyAddr, zAddr, remaining);
+        TEventID readEvent = pipe.FetchEventID(HardEvent::V_S);
+        SetFlag<HardEvent::V_S>(readEvent);
+        WaitFlag<HardEvent::V_S>(readEvent);
+        float range = zL.GetValue(0);
+        normalQuotients = range >= 4.0f;
+        if (normalQuotients) {
+            range -= 4.0f;
+        }
+        smallRange = range == 1.0f;
+        TEventID writeEvent = pipe.FetchEventID(HardEvent::S_V);
+        SetFlag<HardEvent::S_V>(writeEvent);
+        WaitFlag<HardEvent::S_V>(writeEvent);
+        if (range == 0.0f || range == 3.0f) {
+            // Whole tiles in the exact-one or overflow region need no Taylor
+            // reconstruction. The identity copy preserves every gradient bit.
+            if (range == 3.0f) {
+                asc_vf_call<ShortcutFp32VF<true>>(yAddr, dyAddr, zAddr, remaining);
+            } else {
+                asc_vf_call<ShortcutFp32VF<false>>(yAddr, dyAddr, zAddr, remaining);
+            }
+            outQueZ.template EnQue<T>(zL);
+            inQueY.FreeTensor(yL);
+            inQueDy.FreeTensor(dyL);
+            return;
+        }
+    }
+
     if constexpr (NEED_CAST) {
-        // FP16/BF16 path: cast up to FP32, compute, cast back
-        LocalTensor<float> yFp32 = tmpYFp32_.Get<float>();
-        LocalTensor<float> dyFp32 = tmpDyFp32_.Get<float>();
-        LocalTensor<float> decay = tmpExpY_.Get<float>();
-        LocalTensor<float> denominator = tmpExp2Y_.Get<float>();
-        LocalTensor<float> zFp32 = tmpZFp32_.Get<float>();
-
-        // Step 1: Cast input dtype -> FP32
-        Cast(yFp32, yL, RoundMode::CAST_NONE, currentNum);
-        Cast(dyFp32, dyL, RoundMode::CAST_NONE, currentNum);
-
-        // Step 2: z = 2 * dy * t / (1 + t^2), t = exp(-abs(y)), in FP32 domain
-        Abs(decay, yFp32, currentNum);
-        Muls(decay, decay, -1.0f, currentNum);
-        Exp<float, EXP_CONFIG>(decay, decay, currentNum);
-        Mul(denominator, decay, decay, currentNum);
-        Adds(denominator, denominator, 1.0f, currentNum);
-        Muls(zFp32, dyFp32, 2.0f, currentNum);
-        Mul(zFp32, zFp32, decay, currentNum);
-        Div<float, DIV_CONFIG>(zFp32, zFp32, denominator, currentNum);
-
-        // Step 3: Cast FP32 -> target dtype (CAST_RINT = banker's rounding)
-        Cast(zL, zFp32, RoundMode::CAST_RINT, currentNum);
+        asc_vf_call<ComputeVF<T, false, false>>(yAddr, dyAddr, zAddr, remaining);
+    } else if (smallRange) {
+        if (normalQuotients) {
+            asc_vf_call<ComputeVF<T, true, true>>(yAddr, dyAddr, zAddr, remaining);
+        } else {
+            asc_vf_call<ComputeVF<T, true, false>>(yAddr, dyAddr, zAddr, remaining);
+        }
+    } else if (normalQuotients) {
+        asc_vf_call<ComputeVF<T, false, true>>(yAddr, dyAddr, zAddr, remaining);
     } else {
-        // FP32 main path: compute directly without cast
-        LocalTensor<float> decay = tmpExpY_.Get<float>();
-        LocalTensor<float> denominator = tmpExp2Y_.Get<float>();
-
-        Abs(decay, yL, currentNum);
-        Muls(decay, decay, -1.0f, currentNum);
-        Exp<float, EXP_CONFIG>(decay, decay, currentNum);
-        Mul(denominator, decay, decay, currentNum);
-        Adds(denominator, denominator, 1.0f, currentNum);
-        Muls(zL, dyL, 2.0f, currentNum);
-        Mul(zL, zL, decay, currentNum);
-        Div<float, DIV_CONFIG>(zL, zL, denominator, currentNum);
+        asc_vf_call<ComputeVF<T, false, false>>(yAddr, dyAddr, zAddr, remaining);
     }
 
     outQueZ.template EnQue<T>(zL);
@@ -179,9 +484,9 @@ __aicore__ inline void AsinhGrad<T, BUFFER_MODE>::CopyOut(int64_t progress, int6
 {
     LocalTensor<T> zL = outQueZ.template DeQue<T>();
 
-    DataCopyParams cp;
+    DataCopyExtParams cp;
     cp.blockCount = 1;
-    cp.blockLen = currentNum * sizeof(T);
+    cp.blockLen = static_cast<uint32_t>(currentNum * sizeof(T));
     cp.srcStride = 0;
     cp.dstStride = 0;
 
@@ -192,6 +497,9 @@ __aicore__ inline void AsinhGrad<T, BUFFER_MODE>::CopyOut(int64_t progress, int6
 template <typename T, int BUFFER_MODE>
 __aicore__ inline void AsinhGrad<T, BUFFER_MODE>::Process()
 {
+    if (blockLength_ <= 0) {
+        return;
+    }
     int64_t loopCount = (blockLength_ + ubLength_ - 1) / ubLength_;
     for (int64_t i = 0; i < loopCount; i++) {
         int64_t curN = (i == loopCount - 1) ? (blockLength_ - ubLength_ * i) : ubLength_;

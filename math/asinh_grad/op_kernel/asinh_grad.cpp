@@ -15,15 +15,14 @@
  * \brief AsinhGrad kernel entry point (arch35 / Ascend950)
  *
  * Template parameters (matching asinh_grad_tiling_key.h):
- *   - D_T_Y: data type of y/dy
+ * Input dtype is supplied by the build as DTYPE_Y.
  *   - BUFFER_MODE: 0=single buffer, 1=double buffer
  */
 
 #include "arch35/asinh_grad.h"
 
 #ifdef __CCE_KT_TEST__
-extern "C" __global__ __aicore__ void asinh_grad(GM_ADDR y, GM_ADDR dy, GM_ADDR z,
-                                                 GM_ADDR workspace, GM_ADDR tiling)
+extern "C" __global__ __aicore__ void asinh_grad(GM_ADDR y, GM_ADDR dy, GM_ADDR z, GM_ADDR workspace, GM_ADDR tiling)
 {
     GET_TILING_DATA_WITH_STRUCT(AsinhGradTilingData, tilingData, tiling);
     NsAsinhGrad::AsinhGrad<DTYPE_Y, 0> op;
@@ -31,13 +30,12 @@ extern "C" __global__ __aicore__ void asinh_grad(GM_ADDR y, GM_ADDR dy, GM_ADDR 
     op.Process();
 }
 #else
-template <typename D_T_Y, int BUFFER_MODE>
-__global__ __aicore__ void asinh_grad(GM_ADDR y, GM_ADDR dy, GM_ADDR z,
-                                      GM_ADDR workspace, GM_ADDR tiling)
+template <uint32_t BUFFER_MODE>
+__global__ __aicore__ void asinh_grad(GM_ADDR y, GM_ADDR dy, GM_ADDR z, GM_ADDR workspace, GM_ADDR tiling)
 {
     REGISTER_TILING_DEFAULT(AsinhGradTilingData);
     GET_TILING_DATA_WITH_STRUCT(AsinhGradTilingData, tilingData, tiling);
-    NsAsinhGrad::AsinhGrad<D_T_Y, BUFFER_MODE> op;
+    NsAsinhGrad::AsinhGrad<DTYPE_Y, BUFFER_MODE> op;
     op.Init(y, dy, z, &tilingData);
     op.Process();
 }

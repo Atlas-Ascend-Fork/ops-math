@@ -22,8 +22,7 @@
 
 #include "graph/operator_reg.h"
 
-namespace ge
-{
+namespace ge {
 /**
 *@brief Computes gradients for Asinh operation. Computes: z = dy / cosh(y) = 2 * dy * exp(y) / (exp(2y) + 1).
 
@@ -36,7 +35,8 @@ namespace ge
 * z: A tensor. Has the same dtype and shape as "y". The gradient with respect to asinh's input x.
 *
 *@par Third-party framework compatibility
-*Compatible with the TensorFlow operator AsinhGrad.
+*Equivalent to the real-valued TensorFlow Asinh gradient formula, dy / cosh(y).
+*TensorFlow automatic differentiation may express this formula as a composite graph.
 *
 */
 REG_OP(AsinhGrad)

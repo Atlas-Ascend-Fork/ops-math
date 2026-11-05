@@ -14,11 +14,8 @@
  * \file asinh_grad_tiling_key.h
  * \brief AsinhGrad Tiling template parameter declaration
  *
- * Template parameters:
- *   - D_T_Y: DataType of input y/dy (C_DT_FLOAT, C_DT_FLOAT16, C_DT_BF16)
- *   - BUFFER_MODE: 0=single buffer, 1=double buffer
- *
- * Iteration 3: full coverage FP32 + FP16 + BF16 (K0~K5)
+ * BUFFER_MODE: 0=single buffer, 1=double buffer.
+ * The build supplies DTYPE_Y independently for each input dtype.
  */
 
 #ifndef __ASINH_GRAD_TILING_KEY_H__
@@ -27,25 +24,10 @@
 #ifndef __CCE_KT_TEST__
 #include "ascendc/host_api/tiling/template_argument.h"
 
-ASCENDC_TPL_ARGS_DECL(AsinhGrad,
-    ASCENDC_TPL_DATATYPE_DECL(D_T_Y, C_DT_FLOAT, C_DT_FLOAT16, C_DT_BF16, ASCENDC_TPL_INPUT(0)),
-    ASCENDC_TPL_UINT_DECL(BUFFER_MODE, 8, ASCENDC_TPL_UI_LIST, 0, 1)
-);
+ASCENDC_TPL_ARGS_DECL(AsinhGrad, ASCENDC_TPL_UINT_DECL(BUFFER_MODE, 1, ASCENDC_TPL_UI_LIST, 0, 1));
 
-ASCENDC_TPL_SEL(
-    ASCENDC_TPL_ARGS_SEL(
-        ASCENDC_TPL_DATATYPE_SEL(D_T_Y, C_DT_FLOAT),
-        ASCENDC_TPL_UINT_SEL(BUFFER_MODE, ASCENDC_TPL_UI_LIST, 0, 1)
-    ),
-    ASCENDC_TPL_ARGS_SEL(
-        ASCENDC_TPL_DATATYPE_SEL(D_T_Y, C_DT_FLOAT16),
-        ASCENDC_TPL_UINT_SEL(BUFFER_MODE, ASCENDC_TPL_UI_LIST, 0, 1)
-    ),
-    ASCENDC_TPL_ARGS_SEL(
-        ASCENDC_TPL_DATATYPE_SEL(D_T_Y, C_DT_BF16),
-        ASCENDC_TPL_UINT_SEL(BUFFER_MODE, ASCENDC_TPL_UI_LIST, 0, 1)
-    ),
-);
+ASCENDC_TPL_SEL(ASCENDC_TPL_ARGS_SEL(ASCENDC_TPL_UINT_SEL(BUFFER_MODE, ASCENDC_TPL_UI_LIST, 0, 1)));
+
 #endif
 
 #endif

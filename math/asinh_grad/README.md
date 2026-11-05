@@ -17,7 +17,7 @@
 - 计算公式：
 
   $$
-  dx = \frac{dy}{\cosh(y)}
+  z = \frac{dy}{\cosh(y)}
   $$
 
 ## 参数说明
@@ -41,7 +41,7 @@
   <tr>
     <td>y</td>
     <td>输入</td>
-    <td>前向计算输入张量，对应公式中y，为asinh函数自变量。</td>
+    <td>前向asinh的输出张量，对应公式中y=asinh(x)。</td>
     <td>FLOAT16、FLOAT、BFLOAT16</td>
     <td>ND</td>
   </tr>
@@ -53,9 +53,9 @@
     <td>ND</td>
   </tr>
   <tr>
-    <td>dx</td>
+    <td>z</td>
     <td>输出</td>
-    <td>输出的输入梯度张量，对应公式中dx。数据类型须与y完全一致。</td>
+    <td>输出的输入梯度张量，对应公式中z。数据类型须与y完全一致。</td>
     <td>FLOAT16、FLOAT、BFLOAT16</td>
     <td>ND</td>
   </tr>
@@ -63,10 +63,14 @@
 
 ## 约束说明
 
-无
+- y、dy、z 的数据类型和 shape 必须一致，不支持广播。
+- 支持 rank 0～8；rank 0 表示标量。允许空 Tensor。
+- 非连续输入由图框架按 OpDef 的 AutoContiguous 配置转换后执行。
+- 本目录提供 GEIR 图模式实现，不交付 ACLNN 接口。
+- TensorFlow Asinh 的标准自动微分可能产生 Cosh/Div 组合图。保留的同名自定义节点映射不表示标准 TensorFlow 会生成 AsinhGrad 节点。
 
 ## 调用说明
 
 | 调用方式   | 样例代码           | 说明                                         |
 | ---------------- | --------------------------- | --------------------------------------------------- |
-| 图模式  | [test_geir_asinh_grad.cpp](examples/test_geir_asinh_grad.cpp) | 通过图模式调用AsinhGrad算子。 |
+| 图模式  | [test_geir_asinh_grad.cpp](examples/test_geir_asinh_grad.cpp) | 通过图模式调用 [AsinhGrad IR](op_graph/asinh_grad_proto.h)；示例支持 `fp32`、`fp16`、`bf16` 参数。 |

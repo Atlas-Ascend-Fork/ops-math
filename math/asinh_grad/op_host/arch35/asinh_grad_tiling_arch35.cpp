@@ -16,21 +16,11 @@
  *
  * Tiling strategy:
  *   - Multi-core: blockFactor = CeilAlign(CeilDiv(totalNum, coreNum), 32B)
- *   - UB: ubFactor = FloorAlign(FloorDiv(ubSize / bytesPerElem), 32B)
+ *   - UB: ubFactor = FloorAlign(FloorDiv(ubSize, bytesPerElem), 64 elements)
  *   - Double buffer threshold: totalNum > 1024
  *
- * FP32 path:
- *   - 3 queue tensors (y, dy, z) x BUFFER_NUM + 2 temp (expY, exp2Y)
- *   - Double buffer: bytesPerElem = (3*2 + 2) * sizeof(float) = 32 bytes
- *   - Single buffer: bytesPerElem = (3*1 + 2) * sizeof(float) = 20 bytes
- *
- * FP16 path (upgrade to FP32):
- *   - 3 queue tensors (y, dy, z) x BUFFER_NUM (sizeof(half)) + 5 FP32 temp (yFp32, dyFp32, expY, exp2Y, zFp32)
- *   - Double buffer: (3*2*2 + 5*4) = 32 bytes/elem
- *   - Single buffer: (3*1*2 + 5*4) = 26 bytes/elem
- *   - Conservative: use 9*sizeof(float) for double, 5*sizeof(float) for single (safe for both paths)
- *
- * Iteration 3: supports FP32 + FP16 + BF16 (full coverage)
+ * UB holds only the y/dy/z queues; FP32 intermediates stay in vector registers.
+ * ubFactor is aligned to 64 elements for full-register loads, including tails.
  */
 
 #include "register/op_def_registry.h"
@@ -87,11 +77,14 @@ static ge::graphStatus GetShapeAttrsInfo(gert::TilingContext* context, int64_t& 
     OP_CHECK_NULL_WITH_CONTEXT(context, outZ);
     auto outShapeZ = EnsureNotScalar(outZ->GetStorageShape());
 
-    OP_CHECK_IF(inputShapeY.GetShapeSize() != inputShapeDy.GetShapeSize() ||
-                    inputShapeY.GetShapeSize() != outShapeZ.GetShapeSize(),
-                OP_LOGE(context, "AsinhGrad: shape mismatch: y=%ld, dy=%ld, z=%ld", inputShapeY.GetShapeSize(),
-                        inputShapeDy.GetShapeSize(), outShapeZ.GetShapeSize()),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(inputY->GetStorageShape().GetDimNum() > 8 || inputDy->GetStorageShape().GetDimNum() > 8 ||
+                    outZ->GetStorageShape().GetDimNum() > 8,
+                OP_LOGE(context, "AsinhGrad: rank must not exceed 8"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        inputY->GetStorageShape() != inputDy->GetStorageShape() || inputY->GetStorageShape() != outZ->GetStorageShape(),
+        OP_LOGE(context, "AsinhGrad: shape mismatch: y=%ld, dy=%ld, z=%ld", inputShapeY.GetShapeSize(),
+                inputShapeDy.GetShapeSize(), outShapeZ.GetShapeSize()),
+        return ge::GRAPH_FAILED);
 
     totalIdx = inputShapeY.GetShapeSize();
 
@@ -150,6 +143,7 @@ static ge::graphStatus AsinhGradTilingFunc(gert::TilingContext* context)
 
     if (totalIdx == 0) {
         context->SetBlockDim(1);
+        ASCENDC_TPL_SEL_PARAM(context, 0U);
         return ge::GRAPH_SUCCESS;
     }
 
@@ -158,32 +152,17 @@ static ge::graphStatus AsinhGradTilingFunc(gert::TilingContext* context)
     tiling->blockFactor = CeilAlign(CeilDiv(totalIdx, coreNum), ubBlockSize);
     int64_t usedCoreNum = CeilDiv(totalIdx, tiling->blockFactor);
 
-    // UB factor calculation:
-    // Conservative estimation using sizeof(float) as base unit to cover both FP32 and FP16 paths:
-    //   FP32 double buffer: (3*2 + 2) * 4 = 32 bytes/elem -> divisor 8, use 9 with safety margin
-    //   FP16 double buffer: (3*2*2 + 5*4) = 32 bytes/elem -> divisor 8, use 9 with safety margin
-    //   FP32 single buffer: (3*1 + 2) * 4 = 20 bytes/elem -> divisor 5
-    //   FP16 single buffer: (3*1*2 + 5*4) = 26 bytes/elem -> divisor ~7, use 5*4=20 safe for FP32
-    // Use conservative divisor: 9 (double) / 7 (single) in sizeof(float) units for FP16 safety
     uint64_t useDoubleBuffer = (totalIdx > MIN_SPLIT_THRESHOLD) ? 1 : 0;
-    int64_t bufferNum;
-    if (dataType == ge::DT_FLOAT) {
-        // FP32: 3 queues * BUFFER_NUM + 2 temp
-        bufferNum = useDoubleBuffer ? 8 : 5;
-    } else {
-        // FP16/BF16: 3 queues (half/bf16) * BUFFER_NUM + 5 FP32 temp
-        // Double: (3*2*sizeof(half) + 5*sizeof(float)) / sizeof(float) = (12+20)/4 = 8
-        // Single: (3*1*sizeof(half) + 5*sizeof(float)) / sizeof(float) = (6+20)/4 = 6.5 -> 7
-        bufferNum = useDoubleBuffer ? 8 : 7;
-    }
-    tiling->ubFactor = FloorAlign(
-        FloorDiv(static_cast<int64_t>(ubSize) / static_cast<int64_t>(sizeof(float)), bufferNum), ubBlockSize);
+    int64_t bufferNum = useDoubleBuffer ? 2 : 1;
+    int64_t dtypeBytes = dataType == ge::DT_FLOAT ? sizeof(float) : sizeof(uint16_t);
+    int64_t bytesPerElem = 3 * bufferNum * dtypeBytes;
+    constexpr int64_t VECTOR_ALIGN_ELEMS = 64;
+    tiling->ubFactor = FloorAlign(FloorDiv(static_cast<int64_t>(ubSize), bytesPerElem), VECTOR_ALIGN_ELEMS);
 
     context->SetBlockDim(usedCoreNum);
 
     // 5. Set TilingKey
-    uint32_t dTypeY = static_cast<uint32_t>(dataType);
-    ASCENDC_TPL_SEL_PARAM(context, dTypeY, useDoubleBuffer);
+    ASCENDC_TPL_SEL_PARAM(context, useDoubleBuffer);
     OP_LOGI(context->GetNodeName(), "[TilingData] totalNum=%ld, blockFactor=%ld, ubFactor=%ld", tiling->totalNum,
             tiling->blockFactor, tiling->ubFactor);
     return ge::GRAPH_SUCCESS;
