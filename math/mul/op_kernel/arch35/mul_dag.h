@@ -21,7 +21,9 @@
 #include "atvoss/util/placeholder.h"
 
 #ifdef __CCE_AICORE__
+#ifdef __CCE_AICORE_SUPPORT_SIMT__
 #include "simt_api/asc_simt.h"
+#endif
 #endif
 
 namespace MulDag {
@@ -99,6 +101,7 @@ struct AndFF : public Vec::ElemwiseUnaryOP<T, T> {
 };
 
 #ifdef __CCE_AICORE__
+#ifdef __CCE_AICORE_SUPPORT_SIMT__
 template <typename T>
 __simt_vf__ __aicore__ LAUNCH_BOUND(1024) inline void MulDouble_vf(__ubuf__ T* dst, __ubuf__ T* src1, __ubuf__ T* src2,
                                                                    int count)
@@ -355,16 +358,19 @@ __simt_vf__ __aicore__ LAUNCH_BOUND(1024) inline void MulDouble_vf(__ubuf__ T* d
     }
 }
 #endif
+#endif
 
 template <class T>
 struct MulDouble : public Vec::ElemwiseBinaryOP<T, T, T> {
     __aicore__ inline MulDouble(LocalTensor<T>& dst, LocalTensor<T>& src1, LocalTensor<T>& src2, int count)
     {
 #ifdef __CCE_AICORE__
+#ifdef __CCE_AICORE_SUPPORT_SIMT__
         __ubuf__ T* dst_1 = (__ubuf__ T*)dst.GetPhyAddr();
         __ubuf__ T* src1_1 = (__ubuf__ T*)src1.GetPhyAddr();
         __ubuf__ T* src2_1 = (__ubuf__ T*)src2.GetPhyAddr();
         asc_vf_call<MulDouble_vf<T>>(dim3(1024), dst_1, src1_1, src2_1, count);
+#endif
 #endif
     }
 };

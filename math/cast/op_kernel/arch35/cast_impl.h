@@ -126,7 +126,7 @@ constexpr int64_t UB_BLOCK_ALIGN_MINUS_ONE = 31;
 constexpr int16_t B4_MASK = 0x000F;
 constexpr int16_t SHIFT_FOUR_BITS = 4;
 
-constexpr int64_t VL_BIT_SIZE = 2048;
+constexpr int64_t VL_BIT_SIZE = static_cast<int64_t>(AscendC::VECTOR_REG_WIDTH) * B8_BITS;
 constexpr int64_t B4_BITS = 4;
 constexpr int64_t B12_BITS = 12;
 constexpr int64_t B13_BITS = 13;

@@ -39,11 +39,13 @@ __global__ __aicore__ void mul(GM_ADDR x1, GM_ADDR x2, GM_ADDR y, GM_ADDR worksp
         using OpDag = MulDag::MulBoolOp::OpDag;
         BroadcastSch<schMode, OpDag> sch(tiling);
         sch.Process(x1, x2, y);
+#ifdef __CCE_AICORE_SUPPORT_SIMT__
     } else if constexpr (std::is_same<DTYPE_X1, double>::value) {
         // double
         using OpDag = MulDag::MulDoubleOp<DTYPE_X1>::OpDag;
         BroadcastSch<schMode, OpDag> sch(tiling);
         sch.Process(x1, x2, y);
+#endif
     } else if constexpr (std::is_same<DTYPE_X1, complex32>::value) {
         // complex32
         using OpDag = MulDag::MulComplex32Op<complex32, complex64>::OpDag;
