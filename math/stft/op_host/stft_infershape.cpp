@@ -15,6 +15,8 @@
 #include "register/op_impl_registry.h"
 #include "log/log.h"
 
+#include <string>
+
 using namespace ge;
 namespace ops {
 
@@ -41,9 +43,10 @@ static ge::graphStatus InferShape4STFT(gert::InferShapeContext* context)
     OP_CHECK_NULL_WITH_CONTEXT(context, x_desc);
 
     auto x_shape = context->GetInputShape(STFT_IDX_IN_NUM);
+    OP_CHECK_NULL_WITH_CONTEXT(context, x_shape);
     int64_t dims = x_shape->GetDimNum();
     if (dims != DIM_NUM_ONE && dims != DIM_NUM_TWO) {
-        OP_LOGE(context->GetNodeName(), "The input 'x' expected a 1D or 2D tensor.");
+        OP_LOGE_FOR_INVALID_SHAPEDIM(context->GetNodeName(), "x", std::to_string(dims) + "D", "1D or 2D");
         return ge::GRAPH_FAILED;
     }
     int64_t len = (dims == 1) ? x_shape->GetDim(0) : x_shape->GetDim(1);
@@ -65,35 +68,65 @@ static ge::graphStatus InferShape4STFT(gert::InferShapeContext* context)
     }
 
     const int64_t* n_fft_attr = attrs->GetAttrPointer<int64_t>(N_FFT_IDX);
-    OP_CHECK_NULL_WITH_CONTEXT(context, n_fft_attr);
-    int n_fft = *n_fft_attr;
+    if (n_fft_attr == nullptr) {
+        OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(context->GetNodeName(), "n_fft", "Required attribute is missing");
+        return GRAPH_FAILED;
+    }
+    int64_t n_fft = *n_fft_attr;
+    if (n_fft <= 0) {
+        OP_LOGE_FOR_INVALID_VALUE(context->GetNodeName(), "n_fft", std::to_string(n_fft), "greater than 0");
+        return GRAPH_FAILED;
+    }
+    if (len != ge::UNKNOWN_DIM && len < n_fft) {
+        OP_LOGE_FOR_INVALID_VALUE(context->GetNodeName(), "n_fft", std::to_string(n_fft),
+                                  "less than or equal to input length " + std::to_string(len));
+        return GRAPH_FAILED;
+    }
 
     const int64_t* hop_length_attr = attrs->GetAttrPointer<int64_t>(HOP_LENGTH_IDX);
-    int hop_length = (n_fft >> 2);
+    int64_t hop_length = (n_fft >> 2);
     if (hop_length_attr != nullptr && *hop_length_attr != 0) {
         hop_length = *hop_length_attr;
     }
+    if (hop_length <= 0) {
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "hop_length", std::to_string(hop_length),
+                                              "Resolved hop_length must be greater than 0. The default is n_fft / 4, "
+                                              "with n_fft = " +
+                                                  std::to_string(n_fft));
+        return GRAPH_FAILED;
+    }
 
     const int64_t* win_length_attr = attrs->GetAttrPointer<int64_t>(WIN_LENGTH_IDX);
-    int win_length = n_fft;
+    int64_t win_length = n_fft;
     if (win_length_attr != nullptr && *win_length_attr != 0) {
         win_length = *win_length_attr;
+    }
+    if (win_length <= 0 || win_length > n_fft) {
+        OP_LOGE_FOR_INVALID_VALUE(context->GetNodeName(), "win_length", std::to_string(win_length),
+                                  "in range (0, " + std::to_string(n_fft) + "] after applying the default value");
+        return GRAPH_FAILED;
     }
 
     auto window = context->GetInputDesc(STFT_IDX_IN_THREE);
     if (window != nullptr) {
         auto win_shape = context->GetInputShape(STFT_IDX_IN_THREE);
+        OP_CHECK_NULL_WITH_CONTEXT(context, win_shape);
         int64_t win_dim = win_shape->GetDimNum();
-        int64_t window_length = win_shape->GetDim(0);
-        if (win_dim != 1 || window_length != win_length) {
-            OP_LOGE(context->GetNodeName(), "Expected a 1D window tensor of size equal to win_length.");
+        if (win_dim != 1) {
+            OP_LOGE_FOR_INVALID_SHAPEDIM(context->GetNodeName(), "window", std::to_string(win_dim) + "D", "1D");
+            return GRAPH_FAILED;
+        }
+        if (win_shape->GetDim(0) != win_length) {
+            OP_LOGE_FOR_INVALID_SHAPE(context->GetNodeName(), "window", Ops::Base::ToString(*win_shape),
+                                      "[" + std::to_string(win_length) + "]");
             return GRAPH_FAILED;
         }
     }
 
-    int64_t n_frames = 1 + (len - n_fft) / hop_length;
+    int64_t n_frames = (len == ge::UNKNOWN_DIM) ? ge::UNKNOWN_DIM : 1 + (len - n_fft) / hop_length;
     auto out_shape = context->GetOutputShape(STFT_IDX_OUT_NUM);
-    int32_t n_dim = (!one_sided) ? n_fft : (n_fft / 2 + 1);
+    OP_CHECK_NULL_WITH_CONTEXT(context, out_shape);
+    int64_t n_dim = (!one_sided) ? n_fft : (n_fft / 2 + 1);
     if (batch == 1 && dims == 1 && complex) {
         out_shape->SetDimNum(SUPPORTED_DIM_TWO);
         out_shape->SetDim(0, n_dim);
@@ -122,7 +155,8 @@ static graphStatus InferDataType4STFT(gert::InferDataTypeContext* context)
 {
     auto x_type = context->GetInputDataType(STFT_IDX_IN_NUM);
     if (!(x_type == DT_COMPLEX64 || x_type == DT_COMPLEX128 || x_type == DT_DOUBLE || x_type == DT_FLOAT)) {
-        OP_LOGE(context->GetNodeName(), "The input 'x' should have dtype float, double, complex64 or complex128.");
+        OP_LOGE_FOR_INVALID_DTYPE(context->GetNodeName(), "x", Ops::Base::ToString(x_type),
+                                  "float, double, complex64 or complex128");
         return ge::GRAPH_FAILED;
     }
 
@@ -139,7 +173,8 @@ static graphStatus InferDataType4STFT(gert::InferDataTypeContext* context)
         auto window_type = context->GetInputDataType(STFT_IDX_IN_THREE);
         if (!(window_type == DT_COMPLEX64 || window_type == DT_COMPLEX128 || window_type == DT_DOUBLE ||
               window_type == DT_FLOAT)) {
-            OP_LOGE(context->GetNodeName(), "Window should have dtype float, double, complex64 or complex128.");
+            OP_LOGE_FOR_INVALID_DTYPE(context->GetNodeName(), "window", Ops::Base::ToString(window_type),
+                                      "float, double, complex64 or complex128");
             return GRAPH_FAILED;
         }
 

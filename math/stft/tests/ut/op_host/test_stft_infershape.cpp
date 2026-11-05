@@ -14,20 +14,15 @@
  */
 #include <gtest/gtest.h>
 #include <iostream>
+#include <limits>
 #include "infershape_context_faker.h"
 #include "base/registry/op_impl_space_registry_v2.h"
 
 class STFT : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        std::cout << "STFT SetUp" << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "STFT SetUp" << std::endl; }
 
-    static void TearDownTestCase()
-    {
-        std::cout << "STFT TearDown" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "STFT TearDown" << std::endl; }
 };
 
 static std::vector<int64_t> ToVector(const gert::Shape& shape)
@@ -41,42 +36,32 @@ static std::vector<int64_t> ToVector(const gert::Shape& shape)
     return shapeVec;
 }
 
-
-static void ExeTestCase(std::vector<std::vector<int64_t> > expectResults,
-                        const gert::StorageShape& xShape,
-                        const gert::StorageShape& windowShape,
-                        gert::StorageShape& outputShape,
-                        ge::DataType inputDtype,
-                        ge::DataType windowDtype,
-                        ge::DataType outputDtype,
-                        int64_t hopLength,
-                        int64_t winLength,
-                        bool normalized,
-                        bool onesided,
-                        bool returnComplex,
-                        int64_t nFft,
+static void ExeTestCase(std::vector<std::vector<int64_t>> expectResults, const gert::StorageShape& xShape,
+                        const gert::StorageShape& windowShape, gert::StorageShape& outputShape, ge::DataType inputDtype,
+                        ge::DataType windowDtype, ge::DataType outputDtype, int64_t hopLength, int64_t winLength,
+                        bool normalized, bool onesided, bool returnComplex, int64_t nFft,
                         ge::graphStatus testCaseResult = ge::GRAPH_SUCCESS)
 {
     /* make infershape context */
-    std::vector<gert::Tensor*> inputTensors = {
-        (gert::Tensor*)&xShape, (gert::Tensor*)&xShape, (gert::Tensor*)&windowShape};
-    std::vector<gert::StorageShape *> outputShapes = {&outputShape};
+    std::vector<gert::Tensor*> inputTensors = {(gert::Tensor*)&xShape, (gert::Tensor*)&xShape,
+                                               (gert::Tensor*)&windowShape};
+    std::vector<gert::StorageShape*> outputShapes = {&outputShape};
     auto contextHolder = gert::InferShapeContextFaker()
-        .SetOpType("STFT")
-        .NodeIoNum(3, 1)
-        .NodeInputTd(0, inputDtype, ge::FORMAT_ND, ge::FORMAT_ND)
-        .NodeInputTd(1, inputDtype, ge::FORMAT_ND, ge::FORMAT_ND)
-        .NodeInputTd(2, windowDtype, ge::FORMAT_ND, ge::FORMAT_ND)
-        .NodeOutputTd(0, outputDtype, ge::FORMAT_ND, ge::FORMAT_ND)
-        .InputTensors(inputTensors)
-        .OutputShapes(outputShapes)
-        .Attr("hop_length", hopLength)
-        .Attr("win_length", winLength)
-        .Attr("normalized", normalized)
-        .Attr("onesided", onesided)
-        .Attr("return_complex", returnComplex)
-        .Attr("n_fft", nFft)
-        .Build();
+                             .SetOpType("STFT")
+                             .NodeIoNum(3, 1)
+                             .NodeInputTd(0, inputDtype, ge::FORMAT_ND, ge::FORMAT_ND)
+                             .NodeInputTd(1, inputDtype, ge::FORMAT_ND, ge::FORMAT_ND)
+                             .NodeInputTd(2, windowDtype, ge::FORMAT_ND, ge::FORMAT_ND)
+                             .NodeOutputTd(0, outputDtype, ge::FORMAT_ND, ge::FORMAT_ND)
+                             .InputTensors(inputTensors)
+                             .OutputShapes(outputShapes)
+                             .Attr("hop_length", hopLength)
+                             .Attr("win_length", winLength)
+                             .Attr("normalized", normalized)
+                             .Attr("onesided", onesided)
+                             .Attr("return_complex", returnComplex)
+                             .Attr("n_fft", nFft)
+                             .Build();
 
     /* get infershape func */
     auto spaceRegistry = gert::DefaultOpImplSpaceRegistryV2::GetInstance().GetSpaceRegistry();
@@ -90,38 +75,30 @@ static void ExeTestCase(std::vector<std::vector<int64_t> > expectResults,
     }
 }
 
-static void ExeTestCaseNoNFft(const gert::StorageShape& xShape,
-                        const gert::StorageShape& windowShape,
-                        gert::StorageShape& outputShape,
-                        ge::DataType inputDtype,
-                        ge::DataType windowDtype,
-                        ge::DataType outputDtype,
-                        int64_t hopLength,
-                        int64_t winLength,
-                        bool normalized,
-                        bool onesided,
-                        bool returnComplex,
-                        ge::graphStatus testCaseResult = ge::GRAPH_SUCCESS)
+static void ExeTestCaseNoNFft(const gert::StorageShape& xShape, const gert::StorageShape& windowShape,
+                              gert::StorageShape& outputShape, ge::DataType inputDtype, ge::DataType windowDtype,
+                              ge::DataType outputDtype, int64_t hopLength, int64_t winLength, bool normalized,
+                              bool onesided, bool returnComplex, ge::graphStatus testCaseResult = ge::GRAPH_SUCCESS)
 {
     /* make infershape context */
-    std::vector<gert::Tensor*> inputTensors = {
-        (gert::Tensor*)&xShape, (gert::Tensor*)&xShape, (gert::Tensor*)&windowShape};
-    std::vector<gert::StorageShape *> outputShapes = {&outputShape};
+    std::vector<gert::Tensor*> inputTensors = {(gert::Tensor*)&xShape, (gert::Tensor*)&xShape,
+                                               (gert::Tensor*)&windowShape};
+    std::vector<gert::StorageShape*> outputShapes = {&outputShape};
     auto contextHolder = gert::InferShapeContextFaker()
-        .SetOpType("STFT")
-        .NodeIoNum(3, 1)
-        .NodeInputTd(0, inputDtype, ge::FORMAT_ND, ge::FORMAT_ND)
-        .NodeInputTd(1, inputDtype, ge::FORMAT_ND, ge::FORMAT_ND)
-        .NodeInputTd(2, windowDtype, ge::FORMAT_ND, ge::FORMAT_ND)
-        .NodeOutputTd(0, outputDtype, ge::FORMAT_ND, ge::FORMAT_ND)
-        .InputTensors(inputTensors)
-        .OutputShapes(outputShapes)
-        .Attr("hop_length", hopLength)
-        .Attr("win_length", winLength)
-        .Attr("normalized", normalized)
-        .Attr("onesided", onesided)
-        .Attr("return_complex", returnComplex)
-        .Build();
+                             .SetOpType("STFT")
+                             .NodeIoNum(3, 1)
+                             .NodeInputTd(0, inputDtype, ge::FORMAT_ND, ge::FORMAT_ND)
+                             .NodeInputTd(1, inputDtype, ge::FORMAT_ND, ge::FORMAT_ND)
+                             .NodeInputTd(2, windowDtype, ge::FORMAT_ND, ge::FORMAT_ND)
+                             .NodeOutputTd(0, outputDtype, ge::FORMAT_ND, ge::FORMAT_ND)
+                             .InputTensors(inputTensors)
+                             .OutputShapes(outputShapes)
+                             .Attr("hop_length", hopLength)
+                             .Attr("win_length", winLength)
+                             .Attr("normalized", normalized)
+                             .Attr("onesided", onesided)
+                             .Attr("return_complex", returnComplex)
+                             .Build();
 
     /* get infershape func */
     auto spaceRegistry = gert::DefaultOpImplSpaceRegistryV2::GetInstance().GetSpaceRegistry();
@@ -147,9 +124,8 @@ TEST_F(STFT, STFT_FP32_IN_1D_NO_WIN_ONESIDED_RETURN_REAL)
     ge::DataType windowDtype = ge::DT_FLOAT;
     ge::DataType outputDtype = ge::DT_FLOAT;
     std::vector<int64_t> expectResult = {2, 3, 2};
-    ExeTestCase({expectResult}, 
-        xShape, windowShape, outputShape, inputDtype, windowDtype, outputDtype, hopLength, winLength, normalized,
-        onesided, returnComplex, nFft, ge::GRAPH_SUCCESS);
+    ExeTestCase({expectResult}, xShape, windowShape, outputShape, inputDtype, windowDtype, outputDtype, hopLength,
+                winLength, normalized, onesided, returnComplex, nFft, ge::GRAPH_SUCCESS);
 }
 
 TEST_F(STFT, STFT_CFP128_IN_1D_NO_WIN_TWOSIDED_RETURN_COMPLEX)
@@ -167,9 +143,8 @@ TEST_F(STFT, STFT_CFP128_IN_1D_NO_WIN_TWOSIDED_RETURN_COMPLEX)
     ge::DataType windowDtype = ge::DT_FLOAT;
     ge::DataType outputDtype = ge::DT_COMPLEX64;
     std::vector<int64_t> expectResult = {3, 3};
-    ExeTestCase({expectResult}, 
-        xShape, windowShape, outputShape, inputDtype, windowDtype, outputDtype, hopLength, winLength, normalized,
-        onesided, returnComplex, nFft, ge::GRAPH_SUCCESS);
+    ExeTestCase({expectResult}, xShape, windowShape, outputShape, inputDtype, windowDtype, outputDtype, hopLength,
+                winLength, normalized, onesided, returnComplex, nFft, ge::GRAPH_SUCCESS);
 }
 
 TEST_F(STFT, STFT_FP64_IN_2D_NO_WIN_ONESIDED_RETURN_REAL)
@@ -187,9 +162,8 @@ TEST_F(STFT, STFT_FP64_IN_2D_NO_WIN_ONESIDED_RETURN_REAL)
     ge::DataType windowDtype = ge::DT_FLOAT;
     ge::DataType outputDtype = ge::DT_FLOAT;
     std::vector<int64_t> expectResult = {1, 2, 3, 2};
-    ExeTestCase({expectResult},
-        xShape, windowShape, outputShape, inputDtype, windowDtype, outputDtype, hopLength, winLength, normalized,
-        onesided, returnComplex, nFft, ge::GRAPH_SUCCESS);
+    ExeTestCase({expectResult}, xShape, windowShape, outputShape, inputDtype, windowDtype, outputDtype, hopLength,
+                winLength, normalized, onesided, returnComplex, nFft, ge::GRAPH_SUCCESS);
 }
 
 TEST_F(STFT, STFT_CFP64_IN_2D_NO_WIN_TWOSIDED_RETURN_COMPLEX)
@@ -207,9 +181,8 @@ TEST_F(STFT, STFT_CFP64_IN_2D_NO_WIN_TWOSIDED_RETURN_COMPLEX)
     ge::DataType windowDtype = ge::DT_FLOAT;
     ge::DataType outputDtype = ge::DT_COMPLEX64;
     std::vector<int64_t> expectResult = {1, 3, 3};
-    ExeTestCase({expectResult},
-        xShape, windowShape, outputShape, inputDtype, windowDtype, outputDtype, hopLength, winLength, normalized,
-        onesided, returnComplex, nFft, ge::GRAPH_SUCCESS);
+    ExeTestCase({expectResult}, xShape, windowShape, outputShape, inputDtype, windowDtype, outputDtype, hopLength,
+                winLength, normalized, onesided, returnComplex, nFft, ge::GRAPH_SUCCESS);
 }
 
 TEST_F(STFT, STFT_FP64_IN_CFP128_WIN_RETURN_COMPLEX)
@@ -227,9 +200,8 @@ TEST_F(STFT, STFT_FP64_IN_CFP128_WIN_RETURN_COMPLEX)
     ge::DataType windowDtype = ge::DT_FLOAT;
     ge::DataType outputDtype = ge::DT_COMPLEX64;
     std::vector<int64_t> expectResult = {3, 3};
-    ExeTestCase({expectResult},
-        xShape, windowShape, outputShape, inputDtype, windowDtype, outputDtype, hopLength, winLength, normalized,
-        onesided, returnComplex, nFft, ge::GRAPH_SUCCESS);
+    ExeTestCase({expectResult}, xShape, windowShape, outputShape, inputDtype, windowDtype, outputDtype, hopLength,
+                winLength, normalized, onesided, returnComplex, nFft, ge::GRAPH_SUCCESS);
 }
 
 TEST_F(STFT, STFT_FP64_IN_CFP128_WIN_RETURN_REAL)
@@ -247,9 +219,8 @@ TEST_F(STFT, STFT_FP64_IN_CFP128_WIN_RETURN_REAL)
     ge::DataType windowDtype = ge::DT_FLOAT;
     ge::DataType outputDtype = ge::DT_FLOAT;
     std::vector<int64_t> expectResult = {3, 3, 2};
-    ExeTestCase({expectResult},
-        xShape, windowShape, outputShape, inputDtype, windowDtype, outputDtype, hopLength, winLength, normalized,
-        onesided, returnComplex, nFft, ge::GRAPH_SUCCESS);
+    ExeTestCase({expectResult}, xShape, windowShape, outputShape, inputDtype, windowDtype, outputDtype, hopLength,
+                winLength, normalized, onesided, returnComplex, nFft, ge::GRAPH_SUCCESS);
 }
 
 // exception instance
@@ -266,9 +237,8 @@ TEST_F(STFT, STFT_NO_N_FFT)
     ge::DataType inputDtype = ge::DT_FLOAT;
     ge::DataType windowDtype = ge::DT_FLOAT;
     ge::DataType outputDtype = ge::DT_FLOAT;
-    ExeTestCaseNoNFft(
-        xShape, windowShape, outputShape, inputDtype, windowDtype, outputDtype, hopLength, winLength, normalized,
-        onesided, returnComplex, ge::GRAPH_FAILED);
+    ExeTestCaseNoNFft(xShape, windowShape, outputShape, inputDtype, windowDtype, outputDtype, hopLength, winLength,
+                      normalized, onesided, returnComplex, ge::GRAPH_FAILED);
 }
 
 TEST_F(STFT, STFT_INPUT_NOT_1D_2D)
@@ -285,9 +255,8 @@ TEST_F(STFT, STFT_INPUT_NOT_1D_2D)
     ge::DataType inputDtype = ge::DT_FLOAT;
     ge::DataType windowDtype = ge::DT_FLOAT;
     ge::DataType outputDtype = ge::DT_FLOAT;
-    ExeTestCase({},
-        xShape, windowShape, outputShape, inputDtype, windowDtype, outputDtype, hopLength, winLength, normalized,
-        onesided, returnComplex, nFft, ge::GRAPH_FAILED);
+    ExeTestCase({}, xShape, windowShape, outputShape, inputDtype, windowDtype, outputDtype, hopLength, winLength,
+                normalized, onesided, returnComplex, nFft, ge::GRAPH_FAILED);
 }
 
 TEST_F(STFT, STFT_WINDOWS_NOT_1D)
@@ -304,9 +273,8 @@ TEST_F(STFT, STFT_WINDOWS_NOT_1D)
     ge::DataType inputDtype = ge::DT_FLOAT;
     ge::DataType windowDtype = ge::DT_FLOAT;
     ge::DataType outputDtype = ge::DT_FLOAT;
-    ExeTestCase({},
-        xShape, windowShape, outputShape, inputDtype, windowDtype, outputDtype, hopLength, winLength, normalized,
-        onesided, returnComplex, nFft, ge::GRAPH_FAILED);
+    ExeTestCase({}, xShape, windowShape, outputShape, inputDtype, windowDtype, outputDtype, hopLength, winLength,
+                normalized, onesided, returnComplex, nFft, ge::GRAPH_FAILED);
 }
 
 TEST_F(STFT, STFT_WINDOWS_LEN_NOT_MATCH)
@@ -323,10 +291,70 @@ TEST_F(STFT, STFT_WINDOWS_LEN_NOT_MATCH)
     ge::DataType inputDtype = ge::DT_FLOAT;
     ge::DataType windowDtype = ge::DT_FLOAT;
     ge::DataType outputDtype = ge::DT_FLOAT;
-    ExeTestCase({},
-        xShape, windowShape, outputShape, inputDtype, windowDtype, outputDtype, hopLength, winLength, normalized,
-        onesided, returnComplex, nFft, ge::GRAPH_FAILED);
+    ExeTestCase({}, xShape, windowShape, outputShape, inputDtype, windowDtype, outputDtype, hopLength, winLength,
+                normalized, onesided, returnComplex, nFft, ge::GRAPH_FAILED);
 }
+
+struct STFTInferShapeAttrCase {
+    const char* name;
+    int64_t inputLength;
+    int64_t nFft;
+    int64_t hopLength;
+    int64_t winLength;
+    int64_t windowLength;
+    bool onesided;
+    std::vector<int64_t> expectedShape;
+};
+
+class STFTInferShapeAttrs : public testing::TestWithParam<STFTInferShapeAttrCase> {};
+
+TEST_P(STFTInferShapeAttrs, ValidatesAttributes)
+{
+    const auto& testCase = GetParam();
+    gert::StorageShape xShape = {{testCase.inputLength}, {}};
+    gert::StorageShape windowShape = {{testCase.windowLength}, {}};
+    gert::StorageShape outputShape = {{}, {}};
+    const bool valid = !testCase.expectedShape.empty();
+    std::vector<std::vector<int64_t>> expectedResults;
+    if (valid) {
+        expectedResults.push_back(testCase.expectedShape);
+    }
+    ExeTestCase(expectedResults, xShape, windowShape, outputShape, ge::DT_FLOAT, ge::DT_FLOAT, ge::DT_COMPLEX64,
+                testCase.hopLength, testCase.winLength, false, testCase.onesided, true, testCase.nFft,
+                valid ? ge::GRAPH_SUCCESS : ge::GRAPH_FAILED);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    STFT, STFTInferShapeAttrs,
+    testing::Values(
+        STFTInferShapeAttrCase{"ZeroNFft", 10, 0, 1, 1, 1, true, {}},
+        STFTInferShapeAttrCase{"NegativeNFft", 10, -4, 1, 1, 1, true, {}},
+        STFTInferShapeAttrCase{"MinimumNFft", 10, std::numeric_limits<int64_t>::min(), 1, 1, 1, true, {}},
+        STFTInferShapeAttrCase{"NFftExceedsInput", 10, 11, 16, 4, 4, true, {}},
+        STFTInferShapeAttrCase{"DefaultHopZeroNFftOne", 10, 1, 0, 0, 1, true, {}},
+        STFTInferShapeAttrCase{"DefaultHopZeroNFftTwo", 10, 2, 0, 0, 2, true, {}},
+        STFTInferShapeAttrCase{"DefaultHopZeroNFftThree", 10, 3, 0, 0, 3, true, {}},
+        STFTInferShapeAttrCase{"NegativeHop", 10, 4, -1, 4, 4, true, {}},
+        STFTInferShapeAttrCase{"MinimumHop", 10, 4, std::numeric_limits<int64_t>::min(), 4, 4, true, {}},
+        STFTInferShapeAttrCase{"NegativeWin", 10, 4, 1, -1, -1, true, {}},
+        STFTInferShapeAttrCase{"WinExceedsNFft", 10, 4, 1, 5, 5, true, {}},
+        STFTInferShapeAttrCase{"TruncatedNFft", 10, 4294967300LL, 1, 4, 4, true, {}},
+        STFTInferShapeAttrCase{"TruncatedNegativeNFft", 10, -4294967292LL, 1, 4, 4, true, {}},
+        STFTInferShapeAttrCase{"TruncatedNegativeHop", 10, 4, -4294967295LL, 4, 4, true, {}},
+        STFTInferShapeAttrCase{"TruncatedNegativeWin", 10, 4, 1, -4294967292LL, 4, true, {}},
+        STFTInferShapeAttrCase{"DefaultLengths", 10, 4, 0, 0, 4, true, {3, 7}},
+        STFTInferShapeAttrCase{"NFftOneWithExplicitHop", 10, 1, 1, 0, 1, true, {1, 10}},
+        STFTInferShapeAttrCase{"NFftTwoWithExplicitHop", 10, 2, 1, 0, 2, true, {2, 9}},
+        STFTInferShapeAttrCase{"NFftThreeWithExplicitHop", 10, 3, 1, 0, 3, true, {2, 8}},
+        STFTInferShapeAttrCase{"InputEqualsNFft", 4, 4, 1, 4, 4, true, {3, 1}},
+        STFTInferShapeAttrCase{"HopExceedsInput", 10, 4, 16, 2, 2, true, {3, 1}},
+        STFTInferShapeAttrCase{"LargeHop", 10, 4, 4294967297LL, 4, 4, true, {3, 1}},
+        STFTInferShapeAttrCase{
+            "LargeNFftAndWin", 4294967304LL, 4294967300LL, 1, 4294967300LL, 4294967300LL, true, {2147483651LL, 5}},
+        STFTInferShapeAttrCase{
+            "LargeTwoSidedNFft", 4294967304LL, 4294967300LL, 1, 4294967300LL, 4294967300LL, false, {4294967300LL, 5}},
+        STFTInferShapeAttrCase{"UnknownInputLength", -1, 4, 1, 4, 4, true, {3, -1}}),
+    [](const testing::TestParamInfo<STFTInferShapeAttrCase>& info) { return info.param.name; });
 
 // TEST_F(STFT, STFT_INPUT_WRONG_TYPE)
 // {
