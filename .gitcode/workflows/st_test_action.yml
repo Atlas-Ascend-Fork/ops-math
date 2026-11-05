@@ -1,0 +1,110 @@
+name: A5_smoke
+
+on:
+  workflow_call:
+    inputs:
+      task_name:
+        required: true
+        type: string
+
+jobs:
+  A5_smoke:
+    name: PreSmoke_A5
+    steps:
+      -
+        name: Checkout
+        identifier: process_checkout
+        uses: checkout
+        with:
+          ref: ${{ atomgit.event.pull_request.merge_commit_sha }}
+          allow-unsafe-pr-checkout: true
+      -
+        name: download
+        uses: obs-download
+        with:
+          endpoint: "https://obs.cn-north-4.myhuaweicloud.com"
+          bucket: "ascend-ci"
+          access-key: ${{ secrets.AK }}
+          secret-key: ${{ secrets.SK }}
+          key: |
+            ${{ env.obs_path }}/pr_filelist.txt
+            ${{ env.obs_path }}/pr_filelist_mod.txt
+            ${{ env.obs_path }}/update_file_detail.txt
+            ${{ env.obs_path }}/compile.sh
+          path: ${{ steps.process_checkout.outputs.path }}
+      -
+        name: download_compiled_package
+        uses: obs-download
+        with:
+          endpoint: "https://obs.cn-north-4.myhuaweicloud.com"
+          bucket: "ascend-ci"
+          access-key: ${{ secrets.AK }}
+          secret-key: ${{ secrets.SK }}
+          key: |
+            ${{ env.obs_path }}/${{ env.run_package_name }}
+          path: ${{ steps.process_checkout.outputs.path }}
+      -
+        name: check_950_package_content
+        identifier: check_950_pkg
+        run: |
+          pkg="${{ steps.process_checkout.outputs.path }}/${{ env.run_package_name }}"
+          if [[ -f "${pkg}" && $(stat -c%s "${pkg}") -gt 0 ]]; then
+            echo "need_st=yes" >> "$ATOMGIT_OUTPUT"
+          else
+            echo "need_st=no" >> "$ATOMGIT_OUTPUT"
+            echo "Skip st_950: compiled package not found or empty: ${pkg}"
+          fi
+      -
+        name: install_run_package
+        if: ${{ steps.check_950_pkg.outputs.need_st == 'yes' }}
+        run: |
+          cd ${{ steps.process_checkout.outputs.path }}
+          echo "Installing compiled package: ${{ env.run_package_name }}"
+          chmod +x "${{ env.run_package_name }}"
+          source /usr/local/Ascend/cann/bin/setenv.bash 2>/dev/null || true
+          if bash "${{ env.run_package_name }}" --help 2>&1 | grep -q -- '--full'; then
+            full_arg="--full"
+          else
+            full_arg=""
+          fi
+          echo 'y' | bash "${{ env.run_package_name }}" $full_arg --quiet
+      -
+        name: run_st_test
+        identifier: st_test
+        if: ${{ steps.check_950_pkg.outputs.need_st == 'yes' }}
+        timeout-minutes: 60
+        env:
+          CI_ONLINE_MODE: "1"
+        run: |
+          export WORKSPACE=${{ steps.process_checkout.outputs.path }}
+          cd ${{ steps.process_checkout.outputs.path }}
+          source /usr/local/Ascend/cann/bin/setenv.bash 2>/dev/null || true
+          source /opt/conda/bin/activate python312
+          bash scripts/ci/ops_st_test.sh --pr_filelist=./pr_filelist.txt
+      -
+        name: package_st_results
+        if: ${{ always() && steps.check_950_pkg.outputs.need_st == 'yes' }}
+        run: |
+          cd ${{ steps.process_checkout.outputs.path }}
+          rm -f st_950_log.tar.gz
+          if [[ -d st ]]; then
+            tar -zcf st_950_log.tar.gz st
+          else
+            echo "WARN: st result dir not found, skip packaging"
+          fi
+      -
+        name: upload_results
+        if: ${{ always() && steps.check_950_pkg.outputs.need_st == 'yes' }}
+        uses: obs-upload
+        with:
+          endpoint: "https://obs.cn-north-4.myhuaweicloud.com"
+          bucket: "ascend-ci"
+          access-key: ${{secrets.AK}}
+          secret-key: ${{secrets.SK}}
+          artifact-path: |
+            ${{ steps.process_checkout.outputs.path }}/st_950_log.tar.gz
+          object-prefix: ${{ env.obs_path }}/st_results/cann
+    if: "${{ default() }}"
+    runs-on: ['self-hosted', 'npu=1','smoke=501']
+    container:
+      image: swr.cn-north-4.myhuaweicloud.com/pre_smoke/ubuntu24.04_x86:pre_mindspore_A5_conda_v1.1002
