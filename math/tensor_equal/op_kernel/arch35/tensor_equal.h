@@ -151,7 +151,7 @@ __aicore__ inline void TensorEqualKernel<T>::Compute(int64_t dataLen)
             AscendC::Reg::Add(tmpU16Reg, tmpU16Reg, tmpU16RegAdd, allMaskReg);
             AscendC::Reg::UnPack<uint32_t, uint16_t, AscendC::Reg::HighLowPart::LOWEST>(tmpU32Reg, tmpU16Reg);
             AscendC::Reg::StoreAlign(resultAddr, tmpU32Reg, allMaskReg);
-        } else if constexpr (std::is_same<InputType, half>::value) {
+        } else if constexpr (sizeof(InputType) == 2) {
             AscendC::Reg::Duplicate(tmpU16Reg, 1);
             AscendC::Reg::Reduce<MicroAPI::ReduceType::MAX>(tmpU16Reg, tmpU16Reg, bakMaskReg);
             AscendC::Reg::UnPack<uint32_t, uint16_t, AscendC::Reg::HighLowPart::LOWEST>(tmpU32Reg, tmpU16Reg);
