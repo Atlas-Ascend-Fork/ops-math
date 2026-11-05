@@ -128,7 +128,7 @@ aclnnStatus aclnnTriangularSolve(
       <td>unitriangular（bool）</td>
       <td>输入</td>
       <td>控制公式中的A是否按单位三角矩阵处理的计算属性。</td>
-      <td><ul><li>默认为false。</li><li>当unitriangular为true时，A的主对角线元素视为1，而不是从A引用。</li><li>当unitriangular为true时，输入self和A、输出xOut和mOut的数据类型只支持FLOAT。</li></ul></td>
+      <td><ul><li>默认为false。</li><li>当unitriangular为true时，在方程求解过程中A的主对角线元素视为1，而不是从A引用。</li><li>当unitriangular为true时，输入self和A、输出xOut和mOut的数据类型只支持FLOAT。</li></ul></td>
       <td>BOOL</td>
       <td>-</td>
       <td>-</td>
@@ -147,8 +147,8 @@ aclnnStatus aclnnTriangularSolve(
     <tr>
       <td>mOut（aclTensor*）</td>
       <td>输出</td>
-      <td>broadcast后A的上三角（下三角）拷贝。</td>
-      <td><ul><li>数据类型与self一致。</li><li>A和self满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast</a>关系之后的维度，最后一根轴dim=A[-1]。</li></ul></td>
+      <td>broadcast后A的完整拷贝。</td>
+      <td><ul><li>数据类型与self一致。</li><li>A和self满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast</a>关系之后的维度，最后一根轴dim=A[-1]。</li><li>非三角区域保留A中的原始值。</li><li>当unitriangular为true时，主对角线保留A中的原始值，不会置为1。</li></ul></td>
       <td>FLOAT、DOUBLE、COMPLEX64、COMPLEX128</td>
       <td>ND</td>
       <td>-</td>

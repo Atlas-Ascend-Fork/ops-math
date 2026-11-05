@@ -130,7 +130,7 @@ aclnnStatus aclnnTriangularSolve(
       <td>unitriangular (bool)</td>
       <td>Input</td>
       <td>Computation attribute that controls whether A in the formula is treated as a unit triangular matrix.</td>
-      <td><ul><li>Default is false.</li><li>When unitriangular is true, the elements on the main diagonal of A are treated as 1, instead of being referenced from A.</li><li>When unitriangular is true, only the FLOAT data type is supported for inputs self and A and outputs xOut and mOut.</li></ul></td>
+      <td><ul><li>Default is false.</li><li>When unitriangular is true, the elements on the main diagonal of A are treated as 1 during equation solving, instead of being referenced from A.</li><li>When unitriangular is true, only the FLOAT data type is supported for inputs self and A and outputs xOut and mOut.</li></ul></td>
       <td>BOOL</td>
       <td>-</td>
       <td>-</td>
@@ -149,8 +149,8 @@ aclnnStatus aclnnTriangularSolve(
     <tr>
       <td>mOut (aclTensor*)</td>
       <td>Output</td>
-      <td>Copy of the upper (lower) triangle of A after broadcast.</td>
-      <td><ul><li>The data type is consistent with self.</li><li>Dimensions of A and self after satisfying the <a href="../../../docs/en/context/broadcast_relationship.md" target="_blank">broadcast</a> relationship. The last axis is dim=A[-1].</li></ul></td>
+      <td>A complete copy of A after broadcast.</td>
+      <td><ul><li>The data type is consistent with self.</li><li>Dimensions of A and self after satisfying the <a href="../../../docs/en/context/broadcast_relationship.md" target="_blank">broadcast</a> relationship. The last axis is dim=A[-1].</li><li>Elements outside the selected triangle retain their original values from A.</li><li>When unitriangular is true, the main diagonal retains its original values from A and is not set to 1.</li></ul></td>
       <td>FLOAT, DOUBLE, COMPLEX64, COMPLEX128</td>
       <td>ND</td>
       <td>-</td>

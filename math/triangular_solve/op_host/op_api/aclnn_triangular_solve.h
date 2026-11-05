@@ -28,10 +28,13 @@ extern "C" {
  * 支持非连续的Tensor，数据格式支持ND，且shape(*,m,n)需要与self(*,m,n)除最后两维外满足broadcast关系。
  * @param [in] upper: 计算属性，默认为true，A为上三角方阵，当upper为false时，A为下三角方阵
  * @param [in] transpose: 计算属性，默认为false，当transpose为true时，计算ATX=B,AT为A的转置
- * @param [in] unitriangular: 计算属性，默认为false，当unitriangular为true时，A的对角线元素视为1，而不是从A引用
+ * @param [in] unitriangular:
+ * 计算属性，默认为false，当unitriangular为true时，在方程求解过程中A的对角线元素视为1，而不是从A引用
  * @param [out] xOut: 公式中的X，数据类型支持FLOAT、DOUBLE、COMPLEX64，COMPLEX128，数据维度至少为2，且不大于8，
  * 支持非连续的Tensor，数据格式支持ND，且shape需要与broadcast后的A,b满足AX=b约束
- * @param [out] mOut: broadcast后A的上三角（下三角）拷贝，数据类型支持FLOAT、DOUBLE、COMPLEX64，COMPLEX128，
+ * @param [out] mOut:
+ * broadcast后A的完整拷贝，非三角区域保留A中的原始值。当unitriangular为true时，主对角线保留A中的原始值，不会置为1。
+ * 数据类型支持FLOAT、DOUBLE、COMPLEX64，COMPLEX128，
  * 数据维度至少为2，且不大于8，支持非连续的Tensor，数据格式支持ND，且shape需要与broadcast后的A一致
  * @param [out] workspaceSize: 返回用户需要在npu device侧申请的workspace大小。
  * @param [out] executor: 返回op执行器，包含算子计算流程。
@@ -59,4 +62,4 @@ ACLNN_API aclnnStatus aclnnTriangularSolve(void* workspace, uint64_t workspaceSi
 }
 #endif
 
-#endif  // OP_API_INC_TRIANGULAR_SOLVE_H_
+#endif // OP_API_INC_TRIANGULAR_SOLVE_H_
