@@ -62,7 +62,7 @@ git clone -b 9.0.0 https://gitcode.com/cann/ops-math.git
 - [所属SIG](https://gitcode.com/cann/community/tree/master/CANN/sigs/ops-basic)
 - [committer列表](https://gitcode.com/cann/community/blob/master/CANN/sigs/ops-basic/README.md#committer%E5%88%97%E8%A1%A8)
 
------
+---
 PS：本项目功能和文档正在持续更新和完善中，欢迎您关注最新版本。
 
 - **问题反馈**：通过GitCode[【Issues】](https://gitcode.com/cann/ops-math/issues)提交问题。

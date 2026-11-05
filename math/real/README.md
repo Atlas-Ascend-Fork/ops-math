@@ -20,7 +20,6 @@
   output_i = \mathrm{Re}(input_i)
   $$
 
-  其中：
   - 当 $input_i = a_i + b_i \cdot j$ 为复数时，$output_i = a_i$；
   - 当 $input_i$ 为实数时，$output_i = input_i$（透传）。
 

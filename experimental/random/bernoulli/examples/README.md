@@ -25,6 +25,6 @@ bash build.sh --experimental --run_example bernoulli eager cust \
   --vendor_name=experimental --soc=ascend910b
 ```
 
-仅编译、不执行时增加 `--noexec`。Atlas A3 将 `--soc` 改为
+仅编译、不执行时增加 `--noexec`。Atlas A3系列产品将 `--soc` 改为
 `ascend910_93`。运行前确保设备可用，且 `ASCEND_CUSTOM_OPP_PATH` 和
 `LD_LIBRARY_PATH` 指向刚安装的 experimental 包。

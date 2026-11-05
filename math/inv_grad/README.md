@@ -21,6 +21,7 @@
   $$
 
   其中：
+
   - $x_i$ 为前向Inv算子的输出（即 $1 / \mathrm{original\_x}_i$）；
   - $grad_i$ 为上游传入的梯度；
   - $y_i$ 为对原始输入 $\mathrm{original\_x}_i$ 的梯度。

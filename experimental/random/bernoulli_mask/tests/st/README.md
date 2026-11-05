@@ -19,7 +19,7 @@
 元素数线性增长；1/2/4/8 字节阈值用例则成对断言 alias workspace 严格
 小于 fallback。这个判据能区分旧 packed-mask workspace，同时允许 A2/A3
 保留不同大小的 runtime 同步区。日志中的 `[METRIC]` 行会保留每个专项
-case 的原始 workspace 字节数；本次 A2 实测 alias 为 1024、fallback
+case 的原始 workspace 字节数；本次Atlas A2系列产品实测 alias 为 1024、fallback
 为 1536。
 
 先从当前 checkout 构建并安装 `bernoulli_mask` 包，然后执行：

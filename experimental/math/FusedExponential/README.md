@@ -4,14 +4,14 @@
 
 | 产品 | 是否支持 |
 | --- | --- |
-| Atlas A2 训练系列产品 / Atlas A2 推理系列产品 | 支持 |
-| Atlas A3 训练系列产品 / Atlas A3 推理系列产品 | 支持 |
+| Atlas A2系列产品 | 支持 |
+| Atlas A3系列产品 | 支持 |
 
 构建配置分别为 `ascend910b` / `ascend910_93`。
 
 ## 功能说明
 
-将已经生成的均匀分布样本转换为指数分布样本，融合 neg、add、边界填充、log 和 mul。此算子不生成随机数，不修改随机数生成器状态。
+将已经生成的均匀分布样本转换为指数分布样本，融合neg、add、边界填充、log和mul。此算子不生成随机数，不修改随机数生成器状态。
 
 ```text
 epsilon = finfo(u.dtype).eps / 2
@@ -101,4 +101,4 @@ DEVICE=0 python experimental/math/FusedExponential/tests/st/test_fused_exponenti
 
 | 贡献者 | 贡献方 | 贡献算子 | 贡献时间 | 贡献内容 |
 | --- | --- | --- | --- | --- |
-| katiyaaa | 个人开发者 | FusedExponential | 2026/10 | 新增 Atlas A2/A3 实现、ACLNN 接口及测试 |
+| katiyaaa | 个人开发者 | FusedExponential | 2026/10 | 新增Atlas A2系列产品/Atlas A3系列产品实现、ACLNN接口及测试 |

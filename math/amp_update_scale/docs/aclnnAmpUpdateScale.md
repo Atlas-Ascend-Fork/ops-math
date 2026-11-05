@@ -43,6 +43,7 @@
   $$
 
   说明：
+
   - 当found_inf不为0时，scale乘以backoff_factor回退，growth_tracker重置为0
   - 当found_inf为0且growth_tracker + 1等于growth_interval时，scale乘以growth_factor增长
   - 如果增长后的new_scale溢出（inf/nan），则保持当前scale不变，growth_tracker重置为0

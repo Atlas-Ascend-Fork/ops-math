@@ -61,17 +61,21 @@
 </tbody>
 </table>
 
-- Kirin X90/Kirin 9030处理器系列产品：不支持BFLOAT16。
+- Kirin X90处理器系列产品、Kirin 9030处理器系列产品：不支持BFLOAT16。
 
 ## 约束说明
 
-- Ascend 950（Arch35）的 CircularPad 正 padding 可等于校验所用的对应尺寸（图模式为负 padding 裁剪后的有效尺寸，ACLNN 接口为输入维度）；超过该尺寸不支持多圈绕回。其他产品以对应版本文档约束为准。
-- y的最后一维在不同类型下的大小需满足如下约束（仅适用于 Atlas A2/A3、Kirin 系列产品；Ascend 950/960/350（Arch35）无此上限约束）：
+- Ascend 950PR&950DT系列产品：CircularPad正padding可等于校验所用的对应尺寸（图模式为负padding裁剪后的有效尺寸，ACLNN接口为输入维度）；超过该尺寸不支持多圈绕回。
+- Atlas A3系列产品、Atlas A2系列产品：y的最后一维在不同类型下的大小需满足如下约束。
+  - int8：(0, 98304)
+  - float16/bfloat16：(0, 49152)
+  - int32/float32：(0, 24576)
+- Kirin X90处理器系列产品、Kirin 9030处理器系列产品：y的最后一维在不同类型下的大小需满足如下约束。
   - int8：(0, 98304)
   - float16/bfloat16：(0, 49152)
   - int32/float32：(0, 24576)
 - 输入和输出的数据类型必须一致。
-- 2d 模式（paddings 长度 4）要求 x 维度数为 3 或 4；3d 模式（paddings 长度 6）要求 x 维度数为 4 或 5。即 paddings 长度必须等于 2 × 被填充维数（2d 填充末 2 维，3d 填充末 3 维）。
+- 2d模式（paddings长度4）要求x维度数为3或4；3d模式（paddings长度6）要求x维度数为4或5。即paddings长度必须等于2×被填充维数（2d填充末2维，3d填充末3维）。
 
 ## 调用说明
 

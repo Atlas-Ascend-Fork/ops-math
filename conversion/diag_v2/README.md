@@ -69,7 +69,7 @@
   </tbody></table>
 
 - Atlas训练系列产品、Atlas推理系列产品：不支持BFLOAT16。
-- Kirin X90/Kirin 9030处理器系列产品：不支持BFLOAT16、COMPLEX。
+- Kirin X90处理器系列产品、Kirin 9030处理器系列产品：不支持BFLOAT16、COMPLEX。
 
 ## 约束说明
 

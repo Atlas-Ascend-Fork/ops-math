@@ -4,12 +4,12 @@
 
 | 产品                                                         | 是否支持 |
 | :----------------------------------------------------------- | :------: |
-| <term>Ascend 950PR/Ascend 950DT</term>                          |    ×     |
-| <term>Atlas A3 训练系列产品/Atlas A3 推理系列产品</term>         |    ×     |
-| <term>Atlas A2 训练系列产品/Atlas A2 推理系列产品</term>         |    √     |
-| <term>Atlas 200I/500 A2 推理产品</term>                         |    ×     |
-| <term>Atlas 推理系列产品</term>                                |    ×     |
-| <term>Atlas 训练系列产品</term>                                |    ×     |
+| <term>Ascend 950PR&950DT系列产品</term>                          |    ×     |
+| <term>Atlas A3系列产品</term>         |    ×     |
+| <term>Atlas A2系列产品</term>         |    √     |
+| <term>Atlas 200I/500 A2推理产品</term>                         |    ×     |
+| <term>Atlas推理系列产品</term>                                |    ×     |
+| <term>Atlas训练系列产品</term>                                |    ×     |
 
 ## 功能说明
 
@@ -139,7 +139,7 @@
 - FLOAT16 / BFLOAT16 中间计算全部升精度到 FLOAT32 执行（Cast → Subs → Mul → ReduceSum），规避半精度中间累加精度损失。
 - kernel 状态（count/mean/m2）为 fp32 标量，count 用 int64 精确计数，Chan 合并避免 E[x²]-E[x]² 相消。
 - 仅支持 ND 格式。
-- 仅支持 Atlas A2 训练系列产品/Atlas A2 推理系列产品（Ascend910B，DAV_2201），仅在 910B 上完成编译与精度/性能验证。
+- 仅支持 Atlas A2系列产品（Ascend910B，DAV_2201），仅在 910B 上完成编译与精度/性能验证。
 - RegBase（Ascend 950）路径在设计上保留原 `ReduceStdV2` / `ReduceVar`+`Add`+`Pow` 实现（依赖 `reduce_std_v2` 编译期符号，不改其代码），**尚未在 950 上验证**。
 
 ## 调用说明

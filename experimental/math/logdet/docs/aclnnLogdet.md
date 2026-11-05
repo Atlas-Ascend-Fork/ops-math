@@ -35,6 +35,7 @@
   $$
 
   其中：
+
   - 当 $\det(\text{self}) > 0$ 时，$\text{out} = \log(\det(\text{self}))$。
   - 当 $\det(\text{self}) = 0$ 时，$\text{out} = -\infty$。
   - 当 $\det(\text{self}) < 0$ 时，$\text{out} = \text{NaN}$。

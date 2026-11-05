@@ -87,7 +87,7 @@ fp16 输入：片上中间累加一律使用 FP32，出口窄化回 FP16。
   - y的shape必须为(N*(N-1)/2,)。
   - fp16输入的中间累加使用FP32，出口窄化回FP16。
   - 平台差异：
-    - p=+inf 且输入含 NaN 时：Ascend 950PR/950DT 上忽略 NaN 维度（输出非 NaN 维度的最大绝对差，全 NaN 行对输出 0），对齐 GPU/CUDA 语义；其余平台会将 NaN 传播至输出。
+    - p=+inf且输入含NaN时：Ascend 950PR&950DT系列产品忽略NaN维度（输出非NaN维度的最大绝对差，全NaN行对输出 0），对齐GPU/CUDA语义；其余平台会将NaN传播至输出。
 
   <table style="undefined;table-layout: fixed; width: 909px"><colgroup>
     <col style="width: 125px">

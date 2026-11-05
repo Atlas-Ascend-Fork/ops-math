@@ -21,6 +21,7 @@
   $$
 
   其中：
+
   - y：正向Asin算子的输入tensor，值域 [-1, 1]
   - dy：上游传播的梯度（grad_output）
   - z：计算得到的输入梯度（grad_input）
@@ -77,6 +78,6 @@
 
 ## 调用说明
 
-| 调用方式   | 样例代码           | 说明                                         |
+| 调用方式 | 样例代码 | 说明 |
 | ---------------- | --------------------------- | --------------------------------------------------- |
 | GE图模式 | [test_geir_asin_grad.cpp](examples/test_geir_asin_grad.cpp) | 通过GE图模式调用AsinGrad算子，算子IR定义见[asin_grad_proto.h](op_graph/asin_grad_proto.h)。 |

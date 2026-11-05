@@ -10,7 +10,6 @@
 | <term>Atlas 200I/500 A2推理产品</term> | × |
 | <term>Atlas推理系列产品</term> | × |
 | <term>Atlas训练系列产品</term> | × |
-| <term>Kirin xxx</term> | × |
 
 ## 功能说明
 
@@ -61,7 +60,7 @@
   <tr>
     <td>self</td>
     <td>输入</td>
-    <td>公式中的输入概率张量 <i>p</i>，期望元素取值范围 <i>p</i> ∈ (0, 1)，越界或非法值按特殊值规则处理。支持 0-8 维，支持空 Tensor。</td>
+    <td>公式中的输入概率张量<i>p</i>，期望元素取值范围<i>p</i> ∈ (0, 1)，越界或非法值按特殊值规则处理。支持 0-8 维，支持空 Tensor。</td>
     <td>FLOAT、FLOAT16、BFLOAT16</td>
     <td>ND</td>
   </tr>

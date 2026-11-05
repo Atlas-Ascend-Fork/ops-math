@@ -38,7 +38,6 @@ $[N,C \times kernelH \times kernelW, outH \times outW]$。
 - `kernelSize`、`dilation`、`stride` 的元素必须大于 0，`padding` 的元素必须大于等于 0。
 - 计算得到的 `outH` 和 `outW` 必须大于 0，`out` 的 shape 和数据类型必须与推导结果一致。
 - 支持非连续输入和输出，aclnn 层负责连续化和结果回写。
-- 本目录实现注册在 Atlas A2、Atlas A3 产品，不复用仓库中 `conversion/im2col` 的 Ascend 950 实现。
 
 ## 调用说明
 
@@ -50,4 +49,4 @@ $[N,C \times kernelH \times kernelW, outH \times outW]$。
 
 | 贡献者 | 贡献方 | 贡献算子 | 贡献时间 | 贡献内容 |
 | --- | --- | --- | --- | --- |
-| gcw_jgWZA4ay | 个人开发者 | Im2col | 2026/07/30 | Im2col 算子适配开源仓，新增 Atlas A2/A3 AscendC 实现及 BOOL 支持。 |
+| gcw_jgWZA4ay | 个人开发者 | Im2col | 2026/07/30 | Im2col算子适配开源仓，新增Atlas A2系列产品/Atlas A3系列产品的Ascend C实现并支持BOOL。 |

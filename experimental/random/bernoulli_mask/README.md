@@ -179,4 +179,4 @@ BF16 golden 依赖 `ml-dtypes==0.5.4`。如果设置了
 - 连续、转置/切片 view、非零 storage offset 和 in-place；
 - `prob=0/1`、一般概率、合法/非法 offset；
 - seed/offset 可复现性和大样本统计分布；
-- A2/A3 Kernel 通用路径与 mask/output 存储复用路径。
+- Kernel 通用路径与 mask/output 存储复用路径。

@@ -3,7 +3,7 @@
 ## 产品支持情况
 
 | 产品 | 是否支持 |
-| :----------------------------------------- | :----:|
+| :----------------------------------------- | :----: |
 | <term>Ascend 950PR&950DT系列产品</term> | √ |
 | <term>Atlas A3系列产品</term> | √ |
 | <term>Atlas A2系列产品</term> | √ |
@@ -31,7 +31,6 @@
   \end{cases}
   $$
 
-  其中：
   - $\text{current\_scale}$：当前的loss scale值
   - $\text{found\_inf}$：是否检测到Inf/NaN的标志（0表示正常，非0表示发现Inf/NaN）
   - $\text{growth\_tracker}$：连续未出现Inf/NaN的步数计数器

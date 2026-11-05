@@ -19,17 +19,17 @@
 
 ## 功能说明
 
-- 算子功能：返回 self 除以 other 的余数。
+- 算子功能：返回self除以other的余数。
 
 - 计算公式：
 
-  对于入参 self 和比较标量 other，Fmod 可以用如下数学公式表示：
+  对于入参self和比较标量other，Fmod可以用如下数学公式表示：
 
   $$
   out_{i} = self_{i} - (other \times trunc(self_{i}/other))
   $$
 
-- 精度说明：针对 self/other 商值较大（大 \|self/other\|）的场景，AICore 计算路径引入了数值稳定性增强算法，相比朴素截断取余（trunc-mod）实现降低了大商场景下的精度损失风险；该增强与 INT16/混合数据类型能力一并限定于 Atlas A2/A3（其余产品的既有算法与精度行为不变）。
+- 精度说明：针对self/other商值较大（大\|self/other\|）的场景，AI Core计算路径引入了数值稳定性增强算法，相比朴素截断取余（trunc-mod）实现降低了大商场景下的精度损失风险；该增强与INT16混合数据类型能力一并限定于Atlas A3系列产品/Atlas A2系列产品（其余产品的既有算法与精度行为不变）。
 
 ## 参数说明
 
@@ -72,17 +72,18 @@
     </tr>
   </tbody></table>
 
-\* INT16 同数据类型计算，以及 self/other 分别为 INT16 与 BFLOAT16/FLOAT16/FLOAT32 的混合数据类型计算，仅 Atlas A2系列产品、Atlas A3系列产品支持；其余产品不适用（BFLOAT16/FLOAT16/FLOAT32/INT32 的既有支持不受影响）。
-
 ## 约束说明
 
-1. aclnn 层支持 DOUBLE、BFLOAT16、FLOAT16、FLOAT32、INT32、INT64、INT8、UINT8、INT16 类型推导；AICore kernel 覆盖 BFLOAT16、FLOAT16、FLOAT32、INT32，其余类型走 AICPU fallback。其中 **INT16 同数据类型计算、以及 INT16 与 BFLOAT16/FLOAT16/FLOAT32 的混合数据类型计算为 Atlas A2/Atlas A3 专属增强**（由 AICore 支持）；其余产品上该增强不适用，已有的 BFLOAT16/FLOAT16/FLOAT32/INT32 同数据类型计算及 DOUBLE/INT64/INT8/UINT8 的 AICPU 回退行为保持不变。
-2. self和out的shape必须一致。
-3. 数据维度不支持8维以上。
+- aclnn层支持DOUBLE、BFLOAT16、FLOAT16、FLOAT32、INT32、INT64、INT8、UINT8、INT16类型推导；AI Core kernel覆盖BFLOAT16、FLOAT16、FLOAT32、INT32，其余类型走AI CPU fallback。
+  - Atlas A2系列产品、Atlas A3系列产品：支持**INT16同数据类型计算、以及INT16与BFLOAT16/FLOAT16/FLOAT32的混合数据类型计算**，属于专属增强（由AI Core支持）；
+  - BFLOAT16/FLOAT16/FLOAT32/INT32同数据类型计算及DOUBLE/INT64/INT8/UINT8的AI CPU回退行为保持不变。
+
+- self和out的shape必须一致。
+- 数据维度不支持8维以上。
 
 ## 调用说明
 
-| 调用方式 | 样例代码  | 说明  |
-|--------------|------------------------------------------------------------------------|--------------------------------------------------------------|
+| 调用方式 | 样例代码 | 说明 |
+| -------------- | ------------------------------------------------------------------------ | -------------------------------------------------------------- |
 | aclnn接口 | [test_aclnn_fmod_scalar](examples/test_aclnn_fmod_scalar.cpp) | 通过[aclnnFmodScalar](docs/aclnnFmodScalar&aclnnInplaceFmodScalar.md)接口方式调用Mod算子。 |
 | aclnn接口 | [test_aclnn_fmod_tensor](examples/test_aclnn_fmod_tensor.cpp) | 通过[aclnnFmodTensor](docs/aclnnFmodTensor&aclnnInplaceFmodTensor.md)接口方式调用Mod算子。 |

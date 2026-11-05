@@ -106,7 +106,7 @@ $$
 - 本算子为纯数据搬运算子，结果位级精确，无精度损失。
 - Atlas A2/A3及Kirin系列产品：strides必须为正数（不支持负stride），且最内维（最后一维）对应的strides必须为1。
 - Ascend 950系列产品：strides可以为负数，支持负stride反向切片，各轴strides可正可负混合使用；该系列产品不要求最内维strides必须为1。
-- Kirin X90/Kirin 9030处理器系列产品：不支持BFLOAT16。
+- Kirin X90处理器系列产品、Kirin 9030处理器系列产品：不支持BFLOAT16。
 
 ## 调用说明
 

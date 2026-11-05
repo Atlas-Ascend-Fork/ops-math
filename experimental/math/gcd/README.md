@@ -19,7 +19,7 @@
 
 | 产品/架构 | 编译 SoC | host tiling | kernel | 支持 dtype |
 |---|---|---|---|---|
-| Atlas A2/A3 | `ascend910b`, `ascend910_93` | `op_host/gcd_tiling.cpp` | `op_kernel/gcd.cpp`, `op_kernel/gcd.h` | `float32`, `float16`, `bfloat16`, `int8`, `uint8`, `int16`, `int32`, `int64` with promote/cast |
+| Atlas A3系列产品/Atlas A2系列产品 | `ascend910b`, `ascend910_93` | `op_host/gcd_tiling.cpp` | `op_kernel/gcd.cpp`, `op_kernel/gcd.h` | `float32`, `float16`, `bfloat16`, `int8`, `uint8`, `int16`, `int32`, `int64` with promote/cast |
 
 源码结构参考 `experimental/math/bitwise_and` 的扁平布局：host tiling 只有 `op_host/gcd_tiling.cpp`，kernel 只有 `op_kernel/gcd.cpp` 和 `op_kernel/gcd.h`，不再按架构建子目录或在 kernel 入口内分支。ACLNN wrapper 先按 `PromoteType(self, other)` 将普通 mixed 输入转换为内部 same-dtype Gcd，再按需要 cast 到 `out` dtype；仅三组在 `op_host/gcd_def.cpp` 注册的小 mixed 签名可走融合 kernel。L2 在 launch 前校验 promote 后的输入为受支持 same dtype，L0 再次校验最终签名已注册，未匹配的签名不会进入 kernel。L0/API 使用单一 AiCore dtype 支持集合，不根据运行 NPU arch 切换 dtype 合同。
 

@@ -1,6 +1,6 @@
 # Bernoulli
 
-`experimental/random/bernoulli` 提供 Atlas A2/A3 上 `aclnnBernoulli` 和
+`experimental/random/bernoulli` 提供Atlas A2系列产品/Atlas A3系列产品上 `aclnnBernoulli` 和
 `aclnnInplaceBernoulli` 标量概率路径的低内存 Ascend C 实现。Tensor 概率
 接口以及非 DAV_2201 平台继续使用既有兼容路径。
 
@@ -8,7 +8,7 @@
 
 | 贡献者 | 贡献方 | 贡献算子 | 贡献时间 | 贡献内容 |
 | --- | --- | --- | --- | --- |
-| m0_69357246 | 个人开发者 | Bernoulli | 2026/07 | A2/A3 标量概率路径的内存与性能优化 |
+| m0_69357246 | 个人开发者 | Bernoulli | 2026/07 | 对Atlas A2系列产品/Atlas A3系列产品的标量概率路径的内存与性能优化 |
 
 ## 产品支持
 
@@ -174,7 +174,7 @@ offset。执行方式和判定说明见 [`tests/st/README.md`](tests/st/README.m
 | 接口签名、参数、约束、错误码 | `docs/` 下两份 ACLNN 接口文档 |
 | 标量、in-place、Tensor 概率及异常分支 | 27 个 Op API UT |
 | 浮点 dtype、shape、概率与 offset 组合 | 200 个 ACLNN ATK ST |
-| A2/A3 构建与打包 | `ascend910b`、`ascend910_93` 两套配置 |
+| 构建与打包 | `ascend910b`、`ascend910_93` 两套配置 |
 
 竞赛任务书给出的 50 个专项用例用于最终内存、精度与性能验收，不替代本目录
 随代码提交的 UT/ST。

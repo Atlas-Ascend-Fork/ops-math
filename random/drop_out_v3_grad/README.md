@@ -70,14 +70,14 @@
 
 ## 约束说明
 
-1. scale不做范围校验，任意值均按gradY$\times$mask$\times$scale直接计算；正常业务下scale来自前向1/(1-p)，即为0或大于等于1。
-2. mask的数据类型为UINT8，其shape必须满足条件：
+- scale不做范围校验，任意值均按gradY$\times$mask$\times$scale直接计算；正常业务下scale来自前向1/(1-p)，即为0或大于等于1。
+- mask的数据类型为UINT8，其shape必须满足条件：
 
    $$
    \text{mask\_shape} = \frac{\text{align}(\text{num}(grad\_y), 128)}{8}
    $$
 
-3. 数据维度支持0-8维。
+- 数据维度支持0-8维。
 
 ## 调用说明
 

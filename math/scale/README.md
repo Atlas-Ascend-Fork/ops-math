@@ -28,7 +28,6 @@
   y_i = x_i \cdot scale_i + bias_i
   $$
 
-  其中：
   - $x_i$为输入Tensor；
   - $scale_i$为缩放因子Tensor，支持与x的broadcast；
   - $bias_i$为可选的偏置Tensor，shape与scale保持一致；

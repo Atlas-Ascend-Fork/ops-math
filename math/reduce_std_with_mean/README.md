@@ -11,7 +11,9 @@
 | <term>Atlas推理系列产品</term> | √ |
 | <term>Atlas训练系列产品</term> | √ |
 
-> Ascend 950PR/950DT 由本自定义算子包提供 kernel 实现（arch35）；其余产品由 CANN 内置算子库支持。Ascend 950PR/950DT、Atlas A3、Atlas A2 支持 float16 / float32 / bfloat16；其余产品支持 float16 / float32。
+> **说明**:
+>
+> Ascend 950PR&950DT系列产品：由本自定义算子包提供kernel实现（arch35）；其余产品由CANN内置算子库支持。
 
 ## 功能说明
 
@@ -34,7 +36,7 @@ $$
 ReduceStdWithMean 为 CANN 内部 L0 算子，被 `aclnnStd`、`aclnnStdMeanCorrection`、`aclnnBatchNormStats` 三个上层 aclnn 接口组合调用，不直接暴露独立 aclnn 接口。
 
 | 上层接口 | 功能 | correction | invert | eps |
-|:---|:---|:---|:---|:---|
+| :--- | :--- | :--- | :--- | :--- |
 | aclnnStd | 独立标准差 | 用户传入 | false | — |
 | aclnnStdMeanCorrection | 同时输出 (std, mean) | 用户传入 | false | 0.001（固定） |
 | aclnnBatchNormStats | 输出 (mean, invstd) | 0（固定） | true | 用户传入 |
@@ -69,56 +71,56 @@ ReduceStdWithMean 为 CANN 内部 L0 算子，被 `aclnnStd`、`aclnnStdMeanCorr
 <tr>
 <td>mean</td>
 <td>输入</td>
-<td>外部预计算均值（已广播到 x 形状），dtype 与 x 一致。</td>
-<td>与 x 一致</td>
+<td>外部预计算均值（已广播到x形状），dtype与x一致。</td>
+<td>与x一致</td>
 <td>ND</td>
 </tr>
 <tr>
 <td>y</td>
 <td>输出</td>
-<td>输出张量，dtype 与 x 一致；shape 由 dim + keepdim 推导。</td>
-<td>与 x 一致</td>
+<td>输出张量，dtype与x一致；shape 由dim+keepdim推导。</td>
+<td>与x一致</td>
 <td>ND</td>
 </tr>
 <tr>
 <td>dim</td>
 <td>可选属性</td>
-<td>归约维度，范围 [-rank(x), rank(x)-1]，空表示全部维度。默认 {}。</td>
+<td>归约维度，范围[-rank(x), rank(x)-1]，空表示全部维度。默认{}。</td>
 <td>ListInt</td>
 <td>-</td>
 </tr>
 <tr>
 <td>unbiased</td>
 <td>可选属性</td>
-<td>Bessel 校正（legacy 字段）。默认 true。</td>
+<td>Bessel 校正（legacy字段）。默认true。</td>
 <td>Bool</td>
 <td>-</td>
 </tr>
 <tr>
 <td>keepdim</td>
 <td>可选属性</td>
-<td>是否保留归约维为 size 1。默认 false。</td>
+<td>是否保留归约维为size 1。默认false。</td>
 <td>Bool</td>
 <td>-</td>
 </tr>
 <tr>
 <td>invert</td>
 <td>可选属性</td>
-<td>true 返回 1/sqrt(var+eps)，false 返回 sqrt(var)。默认 false。</td>
+<td>true 返回1/sqrt(var+eps)，false返回sqrt(var)。默认false。</td>
 <td>Bool</td>
 <td>-</td>
 </tr>
 <tr>
 <td>epsilon</td>
 <td>可选属性</td>
-<td>数值稳定项（仅 invert=true 使用），须为非负浮点数。默认 0.001。</td>
+<td>数值稳定项（仅invert=true使用），须为非负浮点数。默认0.001。</td>
 <td>Float</td>
 <td>-</td>
 </tr>
 <tr>
 <td>correction</td>
 <td>可选属性</td>
-<td>校正因子：0=总体，1=样本。默认 1。</td>
+<td>校正因子：0=总体，1=样本。默认1。</td>
 <td>Int</td>
 <td>-</td>
 </tr>
@@ -127,22 +129,22 @@ ReduceStdWithMean 为 CANN 内部 L0 算子，被 `aclnnStd`、`aclnnStdMeanCorr
 
 ## 约束说明
 
-- x 与 mean 数据类型须一致，仅支持 float16 / float32 / bfloat16；输出 dtype 与 x 一致。
-- x 的 shape 维度不超过 8 维。
-- 支持 rank=0 标量输入（x/mean 为 0-D）：dim 为空全归约，输出为标量（keepdim=true 时输出 1-D size 1）。
-- mean 的 shape 须与 x 完全一致（mean 须已广播到 x 形状）。
-- dim 取值范围 [-rank(x), rank(x)-1]，空表示全部维度归约，且不能包含重复轴（负数轴归一化后判重）。
-- 输出 y 的 shape 须与 dim + keepdim 推导结果一致。
-- correction 仅支持非负整数；invert=true 时忽略 correction，固定除以 N。
-- epsilon 仅支持非负浮点数（默认 0.001），tiling 阶段对 epsilon<0 返回错误。
-- unbiased 为 legacy 字段：correction 属性有值时以 correction 为准，无值时按 unbiased=true→correction=1、unbiased=false→correction=0 折算。
-- 空张量（N=0）输出 NaN；N<=correction（invert=false）输出 +Inf 或 NaN（一般输入为 +Inf，全等输入为 0×Inf=NaN）。
-- 输入含动态标记（-1/-2）时按动态 shape 处理，具体语义由下游框架定义。
+- Atlas 200I/500 A2推理产品、Atlas推理系列产品、Atlas训练系列产品：不支持BFLOAT16数据类型。
+- x的shape维度不超过 8 维。
+- 支持rank=0标量输入（x/mean为0-D）：dim为空全归约，输出为标量（keepdim=true 时输出1-D size 1）。
+- mean的shape须与x完全一致（mean须已广播到x形状）。
+- dim取值范围 [-rank(x), rank(x)-1]，空表示全部维度归约，且不能包含重复轴（负数轴归一化后判重）。
+- 输出y的shape须与`dim+keepdim`推导结果一致。
+- correction仅支持非负整数；invert=true时忽略correction，固定除以N。
+- epsilon仅支持非负浮点数（默认0.001），tiling阶段对`epsilon<0`返回错误。
+- unbiased为legacy字段：correction属性有值时以correction为准，无值时按`unbiased=true→correction=1`、`unbiased=false→correction=0`折算。
+- 空张量（N=0）输出NaN；N<=correction（invert=false）输出+Inf或NaN（一般输入为+Inf，全等输入为0×Inf=NaN）。
+- 输入含动态标记（-1/-2）时按动态shape处理，具体语义由下游框架定义。
 
 ## 调用说明
 
 | 调用方式 | 样例代码 | 说明 |
-|---|---|---|
+| --- | --- | --- |
 | GE图模式 | [test_geir_reduce_std_with_mean.cpp](examples/test_geir_reduce_std_with_mean.cpp) | 通过 GE IR 构图调用，算子 IR 原型见 [op_graph/reduce_std_with_mean_proto.h](op_graph/reduce_std_with_mean_proto.h) |
 | aclnn API | [test_aclnn_std_mean_correction.cpp](examples/test_aclnn_std_mean_correction.cpp) | 通过 [aclnnStdMeanCorrection](docs/aclnnStdMeanCorrection.md) 接口方式调用ReduceStdWithMean算子。 |
 | aclnn API | [test_aclnn_batch_norm_stats.cpp](examples/test_aclnn_batch_norm_stats.cpp) | 通过 [aclnnBatchNormStats](docs/aclnnBatchNormStats.md) 接口方式调用ReduceStdWithMean算子。 |

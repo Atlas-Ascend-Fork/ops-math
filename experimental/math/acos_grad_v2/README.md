@@ -20,6 +20,7 @@ AcosGrad算子的A2（Atlas A2系列产品，Ascend910B/DAV_2201）适配版本�
   $$
 
   其中：
+
   - $y_i$ 为前向 Acos 算子的输入张量；
   - $dy_i$ 为上游传入的梯度；
   - $z_i$ 为对原始输入张量的梯度，等于上游梯度乘以 $-1/\sqrt{1 - y_i^2}$。
@@ -58,13 +59,13 @@ shape = [1024, 1024]，10 轮平均）。
 - 三种数据类型平均加速比约 **3.3x**。
 - 加速主要来自融合：将反向链的多次基础算子访存与启动开销合并为单次，减少 HBM 来回搬运。
 
-## A2 适配要点
+## Atlas A2系列产品适配要点
 
 - 算子定义 `op_host/acos_grad_v2_def.cpp` 仅注册 `ascend910b`（AICore 配置）。
 - `CMakeLists.txt` 中 `COMPUTE_UNIT=ascend910b`、`TILING_DIR=arch22`，并通过
   `add_kernel_sources` 显式注册 `arch22/acos_grad_v2.cpp` 入口。
 - Kernel 使用标准 Ascend C 高阶向量 API（Cast/Mul/Muls/Adds/Sqrt/Div 等），
-  FP16/BF16 先 Cast 到 FP32 计算再 Cast 回原类型，FP32 直接计算；这些 API 在 A2 上原生支持。
+  FP16/BF16 先 Cast 到 FP32 计算再 Cast 回原类型，FP32 直接计算；这些API在Atlas A2系列产品上原生支持。
 
 ## 调用说明
 
