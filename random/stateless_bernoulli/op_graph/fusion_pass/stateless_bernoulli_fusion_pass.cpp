@@ -86,7 +86,10 @@ void UpdateNodeOutputDesc(es::EsTensorHolder& tensor, DataType dtype, const Shap
     tensor.GetProducer()->UpdateOutputDesc(0, desc);
 }
 
-bool CheckPlatform(const std::string& soc) { return (soc == "Ascend910_93" || soc == "Ascend950"); }
+bool CheckPlatform(const std::string& soc)
+{
+    return (soc == "Ascend910_93" || soc == "Ascend950" || soc == "Ascend960DT" || soc == "Ascend960PR");
+}
 
 bool CheckDtype(DataType dtype, const std::vector<DataType>& validTypes)
 {

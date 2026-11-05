@@ -3,9 +3,9 @@
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
- * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, EITHER EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE. See
- * LICENSE in the root of the software repository for the full text of the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
  */
 
 #include <iostream>
@@ -60,6 +60,56 @@ protected:
         optiCompilationInfo.soc_version = "Ascend950";
         PlatformInfoManager::Instance().platform_info_map_["Ascend950"] = platformInfo;
         PlatformInfoManager::Instance().SetOptionalCompilationInfo(optiCompilationInfo);
+    }
+
+    void CheckFusionOnPlatform(const std::string& soc, DataType dtype)
+    {
+        PlatformInfo platformInfo;
+        OptionalInfo optiCompilationInfo;
+        platformInfo.soc_info.ai_core_cnt = 64;
+        platformInfo.str_info.short_soc_version = soc;
+        optiCompilationInfo.soc_version = soc;
+        PlatformInfoManager::Instance().platform_info_map_[soc] = platformInfo;
+        PlatformInfoManager::Instance().SetOptionalCompilationInfo(optiCompilationInfo);
+
+        const std::vector<int64_t> dimsX{-1, 3, 5, 4};
+        const std::vector<int64_t> dimsSeed{2};
+        auto graphBuilder = es::EsGraphBuilder("test");
+        auto x = graphBuilder.CreateInput(0, "x", dtype, FORMAT_NCHW, dimsX);
+        auto seed = graphBuilder.CreateInput(1, "seed", DT_INT64, FORMAT_ND, dimsSeed);
+        auto offset = graphBuilder.CreateInput(2, "offset", DT_INT64, FORMAT_ND, dimsSeed);
+        auto output = es::StatelessBernoulliV2(x, seed, offset, dtype);
+
+        TensorDesc xDesc(Shape(dimsX), FORMAT_NCHW, dtype);
+        TensorDesc seedDesc(Shape(dimsSeed), FORMAT_ND, DT_INT64);
+        x.GetProducer()->UpdateOutputDesc(0, xDesc);
+        seed.GetProducer()->UpdateOutputDesc(0, seedDesc);
+        offset.GetProducer()->UpdateOutputDesc(0, seedDesc);
+        output.GetProducer()->UpdateInputDesc(0, xDesc);
+        output.GetProducer()->UpdateInputDesc(1, seedDesc);
+        output.GetProducer()->UpdateInputDesc(2, seedDesc);
+        output.GetProducer()->UpdateOutputDesc(0, xDesc);
+
+        std::shared_ptr<Graph> graph = graphBuilder.BuildAndReset({output});
+        ASSERT_NE(graph, nullptr);
+        CustomPassContext passContext;
+        BernoulliFusionPass pass;
+        Status status = pass.Run(graph, passContext);
+        EXPECT_TRUE(status == SUCCESS || status == GRAPH_NOT_CHANGED);
+
+        size_t fusedNodeCount = 0;
+        size_t originalNodeCount = 0;
+        for (auto node : graph->GetAllNodes()) {
+            AscendString type;
+            node.GetType(type);
+            if (type == "StatelessBernoulli") {
+                ++fusedNodeCount;
+            } else if (type == "StatelessBernoulliV2") {
+                ++originalNodeCount;
+            }
+        }
+        EXPECT_EQ(fusedNodeCount, 1U);
+        EXPECT_EQ(originalNodeCount, 0U);
     }
 
     void SetPlatform91093()
@@ -122,11 +172,9 @@ TEST_F(BernoulliFusionPassTest, unsupportedPlatformFail)
     offsetDesc.SetFormat(FORMAT_ND);
     offset.GetProducer()->UpdateOutputDesc(0, offsetDesc);
 
-
     output.GetProducer()->UpdateInputDesc(0, xDesc);
     output.GetProducer()->UpdateInputDesc(1, seedDesc);
     output.GetProducer()->UpdateInputDesc(2, offsetDesc);
-
 
     std::shared_ptr<Graph> graph = graphBuilder.BuildAndReset({output});
 
@@ -136,6 +184,14 @@ TEST_F(BernoulliFusionPassTest, unsupportedPlatformFail)
 
     EXPECT_EQ(status, GRAPH_NOT_CHANGED);
 }
+
+TEST_F(BernoulliFusionPassTest, fusionSuccessFp16On960DT) { CheckFusionOnPlatform("Ascend960DT", DT_FLOAT16); }
+
+TEST_F(BernoulliFusionPassTest, fusionSuccessFp32On960DT) { CheckFusionOnPlatform("Ascend960DT", DT_FLOAT); }
+
+TEST_F(BernoulliFusionPassTest, fusionSuccessFp16On960PR) { CheckFusionOnPlatform("Ascend960PR", DT_FLOAT16); }
+
+TEST_F(BernoulliFusionPassTest, fusionSuccessFp32On960PR) { CheckFusionOnPlatform("Ascend960PR", DT_FLOAT); }
 
 TEST_F(BernoulliFusionPassTest, fusionSuccessFp16On950)
 {
@@ -237,11 +293,9 @@ TEST_F(BernoulliFusionPassTest, fusionSuccessFp16On91093)
     offsetDesc.SetFormat(FORMAT_ND);
     offset.GetProducer()->UpdateOutputDesc(0, offsetDesc);
 
-
     output.GetProducer()->UpdateInputDesc(0, xDesc);
     output.GetProducer()->UpdateInputDesc(1, seedDesc);
     output.GetProducer()->UpdateInputDesc(2, offsetDesc);
-
 
     std::shared_ptr<Graph> graph = graphBuilder.BuildAndReset({output});
 
@@ -298,11 +352,9 @@ TEST_F(BernoulliFusionPassTest, fusionSuccessFp32)
     offsetDesc.SetFormat(FORMAT_ND);
     offset.GetProducer()->UpdateOutputDesc(0, offsetDesc);
 
-
     output.GetProducer()->UpdateInputDesc(0, xDesc);
     output.GetProducer()->UpdateInputDesc(1, seedDesc);
     output.GetProducer()->UpdateInputDesc(2, offsetDesc);
-
 
     std::shared_ptr<Graph> graph = graphBuilder.BuildAndReset({output});
 
@@ -359,11 +411,9 @@ TEST_F(BernoulliFusionPassTest, fusionSuccessInt64Dtype)
     offsetDesc.SetFormat(FORMAT_ND);
     offset.GetProducer()->UpdateOutputDesc(0, offsetDesc);
 
-
     output.GetProducer()->UpdateInputDesc(0, xDesc);
     output.GetProducer()->UpdateInputDesc(1, seedDesc);
     output.GetProducer()->UpdateInputDesc(2, offsetDesc);
-
 
     std::shared_ptr<Graph> graph = graphBuilder.BuildAndReset({output});
 
@@ -420,11 +470,9 @@ TEST_F(BernoulliFusionPassTest, fusionFailUnknownRank)
     offsetDesc.SetFormat(FORMAT_ND);
     offset.GetProducer()->UpdateOutputDesc(0, offsetDesc);
 
-
     output.GetProducer()->UpdateInputDesc(0, xDesc);
     output.GetProducer()->UpdateInputDesc(1, seedDesc);
     output.GetProducer()->UpdateInputDesc(2, offsetDesc);
-
 
     std::shared_ptr<Graph> graph = graphBuilder.BuildAndReset({output});
 
@@ -470,11 +518,9 @@ TEST_F(BernoulliFusionPassTest, fusionSuccessLargeShape)
     offsetDesc.SetFormat(FORMAT_ND);
     offset.GetProducer()->UpdateOutputDesc(0, offsetDesc);
 
-
     output.GetProducer()->UpdateInputDesc(0, xDesc);
     output.GetProducer()->UpdateInputDesc(1, seedDesc);
     output.GetProducer()->UpdateInputDesc(2, offsetDesc);
-
 
     std::shared_ptr<Graph> graph = graphBuilder.BuildAndReset({output});
 
@@ -531,11 +577,9 @@ TEST_F(BernoulliFusionPassTest, fusionSuccessHighDim)
     offsetDesc.SetFormat(FORMAT_ND);
     offset.GetProducer()->UpdateOutputDesc(0, offsetDesc);
 
-
     output.GetProducer()->UpdateInputDesc(0, xDesc);
     output.GetProducer()->UpdateInputDesc(1, seedDesc);
     output.GetProducer()->UpdateInputDesc(2, offsetDesc);
-
 
     std::shared_ptr<Graph> graph = graphBuilder.BuildAndReset({output});
 
