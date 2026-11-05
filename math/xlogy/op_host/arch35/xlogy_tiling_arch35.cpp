@@ -33,6 +33,7 @@ namespace xlogy {
 // === 算子特定常量 — 新算子必须修改 ===
 constexpr int64_t kPhysNodesFp32 = 3; // 物理存活节点 P (FP32 路径, 无 Cast)
 constexpr int64_t kPhysNodesFp16 = 4; // 物理存活节点 P (FP16/BF16 路径, 有 Cast)
+constexpr int64_t kMaxRank = 8;       // 模板支持的最大 rank（RANK_8D 模板）
 constexpr int64_t kBufDtypeSize = 4;  // per_buf_elems 永远除 sizeof(float32) (cast.md §Tile)
 
 // 5.1 PadAndSqueeze
@@ -229,6 +230,17 @@ ge::graphStatus XlogyTiling::GetShapeInfo()
 
     auto inputDesc = ctx_->GetInputDesc(0);
     OP_CHECK_NULL_WITH_CONTEXT(ctx_, inputDesc);
+    auto otherDesc = ctx_->GetInputDesc(1);
+    OP_CHECK_NULL_WITH_CONTEXT(ctx_, otherDesc);
+    if (inputDesc->GetDataType() != otherDesc->GetDataType()) {
+        OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(
+            ctx_->GetNodeName(), "x1 and x2",
+            (ge::TypeUtils::DataTypeToAscendString(inputDesc->GetDataType()).GetString() + std::string(" and ") +
+             ge::TypeUtils::DataTypeToAscendString(otherDesc->GetDataType()).GetString())
+                .c_str(),
+            "x1 and x2 must have the same dtype");
+        return ge::GRAPH_FAILED;
+    }
     ge::DataType dtype = inputDesc->GetDataType();
     if (dtype == ge::DT_FLOAT) {
         dtype_size_ = 4;
@@ -243,6 +255,11 @@ ge::graphStatus XlogyTiling::GetShapeInfo()
 
     PadAndSqueeze(raw_input_shapes_, raw_output_shapes_, max_bro_shape_, normal_input_shapes_, normal_output_shapes_);
     rank_ = (int64_t)max_bro_shape_.size();
+    if (rank_ > kMaxRank) {
+        OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(ctx_->GetNodeName(), "x1/x2", std::to_string(rank_).c_str(),
+                                                 "input rank must be within [0, 8]");
+        return ge::GRAPH_FAILED;
+    }
 
     OP_LOGI(ctx_->GetNodeName(), "Xlogy GetShapeInfo done rank %ld phys_nodes %ld ub %lu core %lu", rank_, phys_nodes_,
             compileInfo->ubSize, compileInfo->coreNum);
