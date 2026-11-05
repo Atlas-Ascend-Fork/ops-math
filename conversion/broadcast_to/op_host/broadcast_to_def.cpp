@@ -105,6 +105,7 @@ public:
         this->AICore().AddConfig("ascend950", aicoreConfig);
         this->AICore().AddConfig("ascend350", aicoreConfig);
         this->AICore().AddConfig("ascend960dt", aicoreConfig);
+        this->AICore().AddConfig("ascend5162", aicoreConfig);
 
         OpAICoreConfig CONFIG_ARCH92;
         CONFIG_ARCH92.Input("x")

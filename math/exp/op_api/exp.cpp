@@ -29,8 +29,8 @@ OP_TYPE_REGISTER(Exp);
 
 static const std::initializer_list<DataType> AICORE910_DTYPE_SUPPORT_LIST = {DataType::DT_FLOAT, DataType::DT_FLOAT16};
 
-static const std::initializer_list<DataType> AICORE910B_DTYPE_SUPPORT_LIST = {
-    DataType::DT_FLOAT, DataType::DT_FLOAT16, op::DataType::DT_BF16};
+static const std::initializer_list<DataType> AICORE910B_DTYPE_SUPPORT_LIST = {DataType::DT_FLOAT, DataType::DT_FLOAT16,
+                                                                              op::DataType::DT_BF16};
 
 // 根据芯片类型、dtype判断算子是否支持走aicore
 static inline bool IsAiCoreSupport(const aclTensor* self)
@@ -54,9 +54,8 @@ static inline const aclTensor* ExpAiCore(const aclTensor* self, aclTensor* out, 
     const float scale = 1.0f;
     const float shift = 0.0f;
     auto retAicore = ADD_TO_LAUNCHER_LIST_AICORE(Exp, OP_INPUT(self), OP_OUTPUT(out), OP_ATTR(base, scale, shift));
-    OP_CHECK(
-        retAicore == ACLNN_SUCCESS, OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "Exp ADD_TO_LAUNCHER_LIST_AICORE failed."),
-        return nullptr);
+    OP_CHECK(retAicore == ACLNN_SUCCESS, OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "Exp ADD_TO_LAUNCHER_LIST_AICORE failed."),
+             return nullptr);
     return out;
 }
 
@@ -69,15 +68,14 @@ static inline const aclTensor* ExpAiCpu(const aclTensor* self, aclTensor* out, a
     // Exp是算子的OpType，self是算子的输入，out是算子的输出
     aclnnStatus ret = ACL_ERROR_INVALID_PARAM;
     if (self->GetDataType() != ge::DataType::DT_COMPLEX64) {
-      static internal::AicpuTaskSpace space("Exp", ge::DEPEND_IN_SHAPE, true);
-      ret = ADD_TO_LAUNCHER_LIST_AICPU(Exp, OP_ATTR_NAMES(), OP_INPUT(self), OP_OUTPUT(out)); 
+        static internal::AicpuTaskSpace space("Exp", ge::DEPEND_IN_SHAPE, true);
+        ret = ADD_TO_LAUNCHER_LIST_AICPU(Exp, OP_ATTR_NAMES(), OP_INPUT(self), OP_OUTPUT(out));
     } else {
-      static internal::AicpuTaskSpace space("Exp", ge::DEPEND_IN_SHAPE, false);
-      ret = ADD_TO_LAUNCHER_LIST_AICPU(Exp, OP_ATTR_NAMES(), OP_INPUT(self), OP_OUTPUT(out));
+        static internal::AicpuTaskSpace space("Exp", ge::DEPEND_IN_SHAPE, false);
+        ret = ADD_TO_LAUNCHER_LIST_AICPU(Exp, OP_ATTR_NAMES(), OP_INPUT(self), OP_OUTPUT(out));
     }
-    OP_CHECK(
-        ret == ACL_SUCCESS, OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "ExpAiCpu ADD_TO_LAUNCHER_LIST_AICPU failed."),
-        return nullptr);
+    OP_CHECK(ret == ACL_SUCCESS, OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "ExpAiCpu ADD_TO_LAUNCHER_LIST_AICPU failed."),
+             return nullptr);
     return out;
 }
 

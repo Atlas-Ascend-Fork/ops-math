@@ -36,8 +36,7 @@ static const std::initializer_list<op::DataType> AICORE_DTYPE_SUPPORT_LIST_AFTER
 static inline bool IsAiCoreSupport(DataType inputDtype)
 {
     auto socVersion = GetCurrentPlatformInfo().GetSocVersion();
-    if (socVersion == SocVersion::ASCEND910B || socVersion == SocVersion::ASCEND910_93 ||
-        IsRegBase()) {
+    if (socVersion == SocVersion::ASCEND910B || socVersion == SocVersion::ASCEND910_93 || IsRegBase()) {
         return CheckType(inputDtype, AICORE_DTYPE_SUPPORT_LIST_AFTER_910B);
     }
     return CheckType(inputDtype, AICORE_DTYPE_SUPPORT_LIST);
@@ -50,8 +49,8 @@ static const aclTensor* NegAiCore(const aclTensor* self, aclTensor* negOut, aclO
     // 使用框架宏ADD_TO_LAUNCHER_LIST_AICORE，将AiCore Neg算子加入任务队列
     // Neg是算子的OpType，self是算子的输入，negOut是算子的输出
     auto retAicore = ADD_TO_LAUNCHER_LIST_AICORE(Neg, OP_INPUT(self), OP_OUTPUT(negOut));
-    OP_CHECK_ADD_TO_LAUNCHER_LIST_AICORE(
-        retAicore != ACLNN_SUCCESS, return nullptr, "Neg ADD_TO_LAUNCHER_LIST_AICORE failed.");
+    OP_CHECK_ADD_TO_LAUNCHER_LIST_AICORE(retAicore != ACLNN_SUCCESS, return nullptr,
+                                         "Neg ADD_TO_LAUNCHER_LIST_AICORE failed.");
     return negOut;
 }
 

@@ -72,22 +72,22 @@ static inline bool IsAiCoreSupport(const aclTensor* self)
     return CheckType(self->GetDataType(), AICORE_DTYPE_SUPPORT_LIST);
 }
 
-static inline const aclTensor* TileAiCore(
-    const aclTensor* self, const aclTensor* repeats, aclTensor* out, aclOpExecutor* executor)
+static inline const aclTensor* TileAiCore(const aclTensor* self, const aclTensor* repeats, aclTensor* out,
+                                          aclOpExecutor* executor)
 {
     L0_DFX(TileAiCore, self, repeats, out);
     ADD_TO_LAUNCHER_LIST_AICORE(Tile, OP_INPUT(self, repeats), OP_OUTPUT(out));
     return out;
 }
 
-static inline const aclTensor* TileAiCpu(
-    const aclTensor* self, const aclTensor* repeats, aclTensor* out, aclOpExecutor* executor)
+static inline const aclTensor* TileAiCpu(const aclTensor* self, const aclTensor* repeats, aclTensor* out,
+                                         aclOpExecutor* executor)
 {
     L0_DFX(TileAiCpu, self, repeats, out);
     static internal::AicpuTaskSpace space("Tile", ge::DEPEND_IN_SHAPE, true);
     op::DataType dtype = repeats->GetDataType();
-    auto ret = ADD_TO_LAUNCHER_LIST_AICPU(
-        Tile, OP_ATTR_NAMES({"Tmultiples"}), OP_INPUT(self, repeats), OP_OUTPUT(out), OP_ATTR(dtype));
+    auto ret = ADD_TO_LAUNCHER_LIST_AICPU(Tile, OP_ATTR_NAMES({"Tmultiples"}), OP_INPUT(self, repeats), OP_OUTPUT(out),
+                                          OP_ATTR(dtype));
     CHECK_RET(ret == ACLNN_SUCCESS, nullptr);
     return out;
 }
