@@ -148,6 +148,13 @@ aclnnStatus aclnnReduceNansum(
     </tr>
   </tbody></table>
 
+  <!-- npu="950" id7 -->
+  - <term>Ascend 950PR&950DT products</term>: The data types of self, dtype, and out support only FLOAT16, FLOAT32, and BFLOAT16.
+  <!-- end id7 -->
+  <!-- npu="910b,A3" id8 -->
+  - <term>Atlas A2 products</term> and <term>Atlas A3 products</term>: The data types of self, dtype, and out support FLOAT16, FLOAT32, INT8, INT16, INT32, INT64, UINT8, BOOL, and BFLOAT16.
+  <!-- end id8 -->
+
 - **Return value**
 
   aclnnStatus: return status code. For details, see [aclnn Return Codes](../../../docs/en/context/aclnn_return_code.md).
