@@ -74,6 +74,8 @@
 - x1、x2、x3、y必须为同一种数据类型，不支持混合数据类型。
 - x1、x2、x3的维度数（rank）均不能超过8，超过时在tiling阶段校验失败。
 - 支持任意NumPy广播形态（含标量、单维broadcast、跨rank broadcast），支持动态shape与动态rank。
+- <term>Ascend 950PR&950DT系列产品</term>：
+  - 支持空Tensor（0元素）输入：输出保持广播后的shape，元素数为0；Host侧tiling短路返回，Kernel不做数据搬运与计算。
 
 ## 实现方案
 
@@ -82,10 +84,10 @@
 | 计算图原型 | `op_graph/fused_mul_add_proto.h` | `REG_OP(FusedMulAdd)`，三输入一输出 |
 | 算子定义 | `op_host/fused_mul_add_def.cpp` | `OpDef::AddConfig("ascend950", ...)` |
 | InferShape | `op_host/fused_mul_add_infershape.cpp` | 复用`Ops::Base::InferShape4Broadcast(ctx, 3)` |
-| Tiling | `op_host/arch35/fused_mul_add_tiling_arch35.{h,cpp}` | 按dtype分支调用`Ops::Base::BroadcastBaseTiling<OpDag>` |
+| Tiling | `op_host/arch35/fused_mul_add_tiling_arch35.{h,cpp}` | 按dtype分支调用`Ops::Base::BroadcastBaseTiling<OpDag>`；输出元素数为0时走`schMode=999`空分支，不调用`BroadcastBaseTiling` |
 | DAG | `op_kernel/arch35/fused_mul_add_dag.h` | fp32/fp16通路在fp32中间精度下用`Vec::Mul + Vec::Add`；int32通路用`Vec::Mul + Vec::Add` |
-| Struct | `op_kernel/arch35/fused_mul_add_struct.h` | `BRC_TEMP_SCH_MODE_KEY_DECL/SEL` |
-| Kernel入口 | `op_kernel/fused_mul_add_apt.cpp` | `KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_AIV_ONLY)` + `BroadcastSch<schMode, OpDag>` |
+| Struct | `op_kernel/arch35/fused_mul_add_struct.h` | `BRC_TEMP_SCH_MODE_KEY_DECL/SEL`，含空Tensor自定义分支（`schMode=999`） |
+| Kernel入口 | `op_kernel/fused_mul_add_apt.cpp` | `KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_AIV_ONLY)` + `BroadcastSch<schMode, OpDag>`；`schMode=999`时单核空转返回 |
 
 ### fp16 / fp32通路
 

@@ -284,3 +284,38 @@ TEST_F(FusedMulAddTilingTest, x3_dim_num_over_8_failed)
         &compileInfo);
     ExecuteTestCaseForEle(para, ge::GRAPH_FAILED, false, 0, false, "", {});
 }
+
+// Case 16: empty tensor (original repro, 8D) -> custom empty branch (schMode=999, key=14).
+TEST_F(FusedMulAddTilingTest, empty_tensor_repro_fp32)
+{
+    optiling::FusedMulAddCompileInfo compileInfo = {64, 245760};
+    gert::TilingContextPara para(
+        "FusedMulAdd",
+        {
+            {{{40, 2, 2, 0, 2613, 86, 2, 2}, {40, 2, 2, 0, 2613, 86, 2, 2}}, ge::DT_FLOAT, ge::FORMAT_ND},
+            {{{2, 0, 2613, 86, 2, 2}, {2, 0, 2613, 86, 2, 2}}, ge::DT_FLOAT, ge::FORMAT_ND},
+            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        {
+            {{{40, 2, 2, 0, 2613, 86, 2, 2}, {40, 2, 2, 0, 2613, 86, 2, 2}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        &compileInfo);
+    ExecuteTestCaseForEle(para, ge::GRAPH_SUCCESS, true, 14, false, "", {16777216});
+}
+
+// Case 17: empty tensor via broadcast (x1 empty, x2/x3 broadcast up) -> empty branch.
+TEST_F(FusedMulAddTilingTest, empty_tensor_broadcast_fp16)
+{
+    optiling::FusedMulAddCompileInfo compileInfo = {64, 245760};
+    gert::TilingContextPara para("FusedMulAdd",
+                                 {
+                                     {{{0, 4}, {0, 4}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                     {{{1, 4}, {1, 4}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                     {{{1}, {1}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                 },
+                                 {
+                                     {{{0, 4}, {0, 4}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                 },
+                                 &compileInfo);
+    ExecuteTestCaseForEle(para, ge::GRAPH_SUCCESS, true, 14, false, "", {16777216});
+}

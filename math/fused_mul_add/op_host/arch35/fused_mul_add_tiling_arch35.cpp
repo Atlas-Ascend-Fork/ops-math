@@ -69,6 +69,29 @@ bool FusedMulAddTiling::CheckShape() const
     return true;
 }
 
+// 空 Tensor 早返回。ATVOSS 的 BroadcastBaseTiling 在合轴（DimensionCollapse）
+// 过程中会显式拒绝 0 元素（broadcast_tiling.cpp: "must be a positive number"），
+// 不能落到 DoTiling，因此这里自己出一份 tiling：blockDim = 1，schMode 选自定义 999 分支。
+ge::graphStatus FusedMulAddTiling::HandleEmptyTensor()
+{
+    OP_LOGD(context_->GetNodeName(), "FusedMulAdd: empty tensor, skip kernel computation.");
+    auto* tilingData = context_->GetTilingData<FusedMulAddEmptyTilingData>();
+    OP_CHECK_NULL_WITH_CONTEXT(context_, tilingData);
+    tilingData->numel = 0;
+
+    // workspace：内核 wrapper 在进入计算分支前无条件执行 SetSysWorkspaceForce(workspace)
+    auto platformInfo = context_->GetPlatformInfo();
+    OP_CHECK_NULL_WITH_CONTEXT(context_, platformInfo);
+    auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
+    size_t* workspaces = context_->GetWorkspaceSizes(1);
+    OP_CHECK_NULL_WITH_CONTEXT(context_, workspaces);
+    workspaces[0] = static_cast<size_t>(ascendcPlatform.GetLibApiWorkSpaceSize());
+
+    context_->SetBlockDim(1);
+    tilingKey = GET_TPL_TILING_KEY(FUSED_MUL_ADD_TPL_SCH_MODE_EMPTY);
+    return ge::GRAPH_SUCCESS;
+}
+
 ge::graphStatus FusedMulAddTiling::DoOpTiling()
 {
     if (!CheckShape()) {
@@ -89,6 +112,12 @@ ge::graphStatus FusedMulAddTiling::DoOpTiling()
     ge::DataType outputDtype = outputDesc->GetDataType();
     if (!CheckDtype(x1Dtype, x2Dtype, x3Dtype, outputDtype)) {
         return ge::GRAPH_FAILED;
+    }
+
+    auto outputShape = context_->GetOutputShape(0);
+    OP_CHECK_NULL_WITH_CONTEXT(context_, outputShape);
+    if (outputShape->GetStorageShape().GetShapeSize() == 0) {
+        return HandleEmptyTensor();
     }
 
     ge::graphStatus ret = ge::GRAPH_SUCCESS;

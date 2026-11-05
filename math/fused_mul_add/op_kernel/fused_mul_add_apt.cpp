@@ -21,12 +21,18 @@
 using namespace AscendC;
 
 template <uint64_t schMode>
-__global__ __aicore__ void fused_mul_add(
-    GM_ADDR x1, GM_ADDR x2, GM_ADDR x3, GM_ADDR y, GM_ADDR workspace, GM_ADDR tiling)
+__global__ __aicore__ void fused_mul_add(GM_ADDR x1, GM_ADDR x2, GM_ADDR x3, GM_ADDR y, GM_ADDR workspace,
+                                         GM_ADDR tiling)
 {
     KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_AIV_ONLY);
 
-    if constexpr (std::is_same<DTYPE_X1, int32_t>::value) {
+    // 空 Tensor：元素个数为 0，无数据搬运/写回。Tiling 侧已把 blockDim 设为 1，
+    // 这里单核空转返回。GET_TILING_DATA_WITH_STRUCT 不能省：opc 靠它反推本模板
+    // 实例的 tiling 结构体大小（同 minimum_grad/add_v2 的空 Tensor 分支）。
+    if constexpr (schMode == FUSED_MUL_ADD_TPL_SCH_MODE_EMPTY) {
+        GET_TILING_DATA_WITH_STRUCT(FusedMulAddEmptyTilingData, emptyTilingData, tiling);
+        return;
+    } else if constexpr (std::is_same<DTYPE_X1, int32_t>::value) {
         using OpDag = FusedMulAddOp::FusedMulAddInt32Op<int32_t>::OpDag;
         Ops::Base::BroadcastSch<schMode, OpDag> sch(tiling);
         sch.Process(x1, x2, x3, y);

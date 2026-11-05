@@ -41,6 +41,7 @@ private:
     bool CheckDtype(const ge::DataType& x1Dtype, const ge::DataType& x2Dtype, const ge::DataType& x3Dtype,
                     const ge::DataType& outputDtype) const;
     bool CheckShape() const;
+    ge::graphStatus HandleEmptyTensor();
 };
 
 struct FusedMulAddCompileInfo {
