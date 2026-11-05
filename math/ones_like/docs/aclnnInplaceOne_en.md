@@ -77,7 +77,7 @@ aclnnStatus aclnnInplaceOne(
       <td>Output</td>
       <td>Output tensor, corresponding to out in the formula.</td>
       <td>-</td>
-      <td>FLOAT, FLOAT16, DOUBLE, INT8, INT16, INT32, INT64, UINT8, UINT16, BOOL, BFLOAT16</td>
+      <td>FLOAT, FLOAT16, DOUBLE, INT8, INT16, INT32, UINT32, INT64, UINT64, UINT8, UINT16, BOOL, BFLOAT16</td>
       <td>ND</td>
       <td>0-8</td>
       <td>√</td>
@@ -107,6 +107,8 @@ aclnnStatus aclnnInplaceOne(
   <!-- npu="910,310p" id7 -->
   <term>Atlas training products</term> and <term>Atlas inference products</term>: The BFLOAT16 data type is not supported.
   <!-- end id7 -->
+
+  UINT32 and UINT64 are supported only on <term>Atlas A2 series products</term> and <term>Atlas A3 series products</term>.
 
 - **Return value**
 

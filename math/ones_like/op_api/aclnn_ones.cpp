@@ -36,10 +36,15 @@ static const std::initializer_list<op::DataType> ASCEND910_DTYPE_SUPPORT_LIST = 
     op::DataType::DT_INT16, op::DataType::DT_INT32,   op::DataType::DT_INT64,
     op::DataType::DT_UINT8, op::DataType::DT_BOOL,    op::DataType::DT_DOUBLE};
 
-static const std::initializer_list<op::DataType> ASCEND910B_DTYPE_SUPPORT_LIST = {
+static const std::initializer_list<op::DataType> REGBASE_DTYPE_SUPPORT_LIST = {
     op::DataType::DT_FLOAT,  op::DataType::DT_FLOAT16, op::DataType::DT_INT8,  op::DataType::DT_INT16,
     op::DataType::DT_INT32,  op::DataType::DT_INT64,   op::DataType::DT_UINT8, op::DataType::DT_BOOL,
     op::DataType::DT_DOUBLE, op::DataType::DT_BF16};
+
+static const std::initializer_list<op::DataType> ASCEND910B_DTYPE_SUPPORT_LIST = {
+    op::DataType::DT_FLOAT,  op::DataType::DT_FLOAT16, op::DataType::DT_INT8,   op::DataType::DT_INT16,
+    op::DataType::DT_INT32,  op::DataType::DT_INT64,   op::DataType::DT_UINT8,  op::DataType::DT_UINT32,
+    op::DataType::DT_UINT64, op::DataType::DT_BOOL,    op::DataType::DT_DOUBLE, op::DataType::DT_BF16};
 
 static bool CheckNotNull(const aclTensor* self)
 {
@@ -50,11 +55,12 @@ static bool CheckNotNull(const aclTensor* self)
 static bool CheckDtypeValid(const aclTensor* self)
 {
     // 检查self的数据类型是否在支持列表内
-    bool isAscend910BSocVersion = (GetCurrentPlatformInfo().GetSocVersion() == SocVersion::ASCEND910B ||
-                                   GetCurrentPlatformInfo().GetSocVersion() == SocVersion::ASCEND910_93 || IsRegBase());
-    const std::initializer_list<op::DataType> CURRENT_DTYPE_SUPPORT_LIST = isAscend910BSocVersion ?
-                                                                               ASCEND910B_DTYPE_SUPPORT_LIST :
-                                                                               ASCEND910_DTYPE_SUPPORT_LIST;
+    const auto socVersion = GetCurrentPlatformInfo().GetSocVersion();
+    const bool isA2A3 = socVersion == SocVersion::ASCEND910B || socVersion == SocVersion::ASCEND910_93;
+    const std::initializer_list<op::DataType> CURRENT_DTYPE_SUPPORT_LIST = isA2A3 ? ASCEND910B_DTYPE_SUPPORT_LIST :
+                                                                                    (IsRegBase() ?
+                                                                                         REGBASE_DTYPE_SUPPORT_LIST :
+                                                                                         ASCEND910_DTYPE_SUPPORT_LIST);
 
     OP_CHECK_DTYPE_NOT_SUPPORT(self, CURRENT_DTYPE_SUPPORT_LIST, return false);
     return true;
@@ -80,6 +86,21 @@ static aclnnStatus CheckParams(const aclTensor* self)
     return ACLNN_SUCCESS;
 }
 
+static const aclTensor* CreateSupportedDtypeView(const aclTensor* self, aclOpExecutor* executor)
+{
+    const auto dtype = self->GetDataType();
+    if (dtype != op::DataType::DT_UINT32 && dtype != op::DataType::DT_UINT64) {
+        return self;
+    }
+
+    const auto supportedDtype = dtype == op::DataType::DT_UINT32 ? op::DataType::DT_INT32 : op::DataType::DT_INT64;
+    auto supportedView = executor->CreateView(self, self->GetViewShape(), self->GetStorageShape(),
+                                              self->GetViewStrides(), self->GetViewOffset());
+    CHECK_RET(supportedView != nullptr, nullptr);
+    supportedView->SetDataType(supportedDtype);
+    return supportedView;
+}
+
 aclnnStatus aclnnInplaceOneGetWorkspaceSize(const aclTensor* selfRef, uint64_t* workspaceSize, aclOpExecutor** executor)
 {
     L2_DFX_PHASE_1(aclnnInplaceOne, DFX_IN(selfRef), DFX_OUT(selfRef));
@@ -99,8 +120,11 @@ aclnnStatus aclnnInplaceOneGetWorkspaceSize(const aclTensor* selfRef, uint64_t* 
         return ACLNN_SUCCESS;
     }
 
+    auto supportedSelfRef = CreateSupportedDtypeView(selfRef, uniqueExecutor.get());
+    CHECK_RET(supportedSelfRef != nullptr, ACLNN_ERR_PARAM_NULLPTR);
+
     // 将输入self转换成连续的tensor
-    auto selfContiguous = l0op::Contiguous(selfRef, uniqueExecutor.get());
+    auto selfContiguous = l0op::Contiguous(supportedSelfRef, uniqueExecutor.get());
     CHECK_RET(selfContiguous != nullptr, ACLNN_ERR_INNER_NULLPTR);
 
     // 调用OnesLike算子kernel
@@ -108,7 +132,9 @@ aclnnStatus aclnnInplaceOneGetWorkspaceSize(const aclTensor* selfRef, uint64_t* 
     CHECK_RET(onesOut != nullptr, ACLNN_ERR_INNER_NULLPTR);
 
     // 将计算结果拷贝到输出out上，out可能是非连续的tensor
-    auto viewCopyResult = l0op::ViewCopy(onesOut, selfRef, uniqueExecutor.get());
+    // 注意：supportedSelfRef和selfRef指向同一个内存地址，supportedSelfRef用int32/int64解析，selfRef用uint32/uint64解析
+    // 但计算结果zeroOut是int32/int64类型，需要通过ViewCopy拷贝到同为int32/int64的的supportedSelfRef上
+    auto viewCopyResult = l0op::ViewCopy(onesOut, supportedSelfRef, uniqueExecutor.get());
     CHECK_RET(viewCopyResult != nullptr, ACLNN_ERR_INNER_NULLPTR);
 
     // 获取计算过程中需要使用的workspace大小

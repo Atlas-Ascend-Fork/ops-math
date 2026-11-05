@@ -75,7 +75,7 @@ aclnnStatus aclnnInplaceOne(
       <td>输出</td>
       <td>输出张量，公式中的out。</td>
       <td>-</td>
-      <td>FLOAT、FLOAT16、DOUBLE、INT8、INT16、INT32、INT64、UINT8、UINT16、BOOL、BFLOAT16</td>
+      <td>FLOAT、FLOAT16、DOUBLE、INT8、INT16、INT32、UINT32、INT64、UINT64、UINT8、UINT16、BOOL、BFLOAT16</td>
       <td>ND</td>
       <td>0-8</td>
       <td>√</td>
@@ -105,6 +105,8 @@ aclnnStatus aclnnInplaceOne(
   <!-- npu="910,310p" id7 -->
   <term>Atlas训练系列产品</term>、<term>Atlas推理系列产品</term>：不支持BFLOAT16。
   <!-- end id7 -->
+
+  UINT32、UINT64仅支持<term>Atlas A2系列产品</term>和<term>Atlas A3系列产品</term>。
 
 - **返回值：**
 

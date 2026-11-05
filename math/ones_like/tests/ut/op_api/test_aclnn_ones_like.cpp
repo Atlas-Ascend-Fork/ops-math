@@ -19,21 +19,24 @@ using namespace std;
 
 class l2_ones_test : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        std::cout << "l2_ones_test SetUp" << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "l2_ones_test SetUp" << std::endl; }
 
-    static void TearDownTestCase()
-    {
-        std::cout << "l2_ones_test TearDown" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "l2_ones_test TearDown" << std::endl; }
 
     void TearDown() override
     {
+        op::SetPlatformSocVersion(op::SocVersion::ASCEND910B);
         op::SetPlatformNpuArch(NpuArch::DAV_2201);
     }
 };
+
+// self为空指针
+TEST_F(l2_ones_test, l2_ones_test_self_nullptr)
+{
+    auto ut = OP_API_UT(aclnnInplaceOne, INPUT((aclTensor*)nullptr), OUTPUT());
+    uint64_t workspaceSize = 0;
+    EXPECT_EQ(ut.TestGetWorkspaceSize(&workspaceSize), ACLNN_ERR_PARAM_NULLPTR);
+}
 
 // self为空tensor
 TEST_F(l2_ones_test, l2_ones_test_self_empty)
@@ -139,6 +142,86 @@ TEST_F(l2_ones_test, l2_ones_test_dtype_int32)
     aclnnStatus getWorkspaceResult = ut.TestGetWorkspaceSize(&workspaceSize);
     EXPECT_EQ(getWorkspaceResult, ACLNN_SUCCESS);
     // ut.TestPrecision();
+}
+
+// A2 supports uint32 through the same-width signed dtype view.
+TEST_F(l2_ones_test, ascend910b_l2_ones_test_dtype_uint32)
+{
+    op::SetPlatformSocVersion(op::SocVersion::ASCEND910B);
+    auto selfDesc = TensorDesc({2, 3}, ACL_UINT32, ACL_FORMAT_ND);
+    auto ut = OP_API_UT(aclnnInplaceOne, INPUT(selfDesc), OUTPUT());
+    uint64_t workspaceSize = 0;
+    EXPECT_EQ(ut.TestGetWorkspaceSize(&workspaceSize), ACLNN_SUCCESS);
+}
+
+// A2 supports uint64 through the same-width signed dtype view.
+TEST_F(l2_ones_test, ascend910b_l2_ones_test_dtype_uint64)
+{
+    op::SetPlatformSocVersion(op::SocVersion::ASCEND910B);
+    auto selfDesc = TensorDesc({2, 3}, ACL_UINT64, ACL_FORMAT_ND);
+    auto ut = OP_API_UT(aclnnInplaceOne, INPUT(selfDesc), OUTPUT());
+    uint64_t workspaceSize = 0;
+    EXPECT_EQ(ut.TestGetWorkspaceSize(&workspaceSize), ACLNN_SUCCESS);
+}
+
+// The dtype view must preserve uint32 strides and a nonzero offset.
+TEST_F(l2_ones_test, ascend910b_l2_ones_test_uint32_non_contiguous)
+{
+    op::SetPlatformSocVersion(op::SocVersion::ASCEND910B);
+    auto selfDesc = TensorDesc({2, 2}, ACL_UINT32, ACL_FORMAT_ND, {4, 1}, 5, {4, 4});
+    auto ut = OP_API_UT(aclnnInplaceOne, INPUT(selfDesc), OUTPUT());
+    uint64_t workspaceSize = 0;
+    EXPECT_EQ(ut.TestGetWorkspaceSize(&workspaceSize), ACLNN_SUCCESS);
+}
+
+// The dtype view must preserve uint64 strides and a nonzero offset.
+TEST_F(l2_ones_test, ascend910b_l2_ones_test_uint64_non_contiguous)
+{
+    op::SetPlatformSocVersion(op::SocVersion::ASCEND910B);
+    auto selfDesc = TensorDesc({2, 2}, ACL_UINT64, ACL_FORMAT_ND, {4, 1}, 5, {4, 4});
+    auto ut = OP_API_UT(aclnnInplaceOne, INPUT(selfDesc), OUTPUT());
+    uint64_t workspaceSize = 0;
+    EXPECT_EQ(ut.TestGetWorkspaceSize(&workspaceSize), ACLNN_SUCCESS);
+}
+
+// A3 uses the same uint32 dtype-view path.
+TEST_F(l2_ones_test, ascend910_93_l2_ones_test_dtype_uint32)
+{
+    op::SetPlatformSocVersion(op::SocVersion::ASCEND910_93);
+    auto selfDesc = TensorDesc({2, 3}, ACL_UINT32, ACL_FORMAT_ND);
+    auto ut = OP_API_UT(aclnnInplaceOne, INPUT(selfDesc), OUTPUT());
+    uint64_t workspaceSize = 0;
+    EXPECT_EQ(ut.TestGetWorkspaceSize(&workspaceSize), ACLNN_SUCCESS);
+}
+
+// A3 uses the same uint64 dtype-view path.
+TEST_F(l2_ones_test, ascend910_93_l2_ones_test_dtype_uint64)
+{
+    op::SetPlatformSocVersion(op::SocVersion::ASCEND910_93);
+    auto selfDesc = TensorDesc({2, 3}, ACL_UINT64, ACL_FORMAT_ND);
+    auto ut = OP_API_UT(aclnnInplaceOne, INPUT(selfDesc), OUTPUT());
+    uint64_t workspaceSize = 0;
+    EXPECT_EQ(ut.TestGetWorkspaceSize(&workspaceSize), ACLNN_SUCCESS);
+}
+
+// The new dtype-view path must not expand uint32 support on older products.
+TEST_F(l2_ones_test, ascend910_l2_ones_test_dtype_uint32_rejected)
+{
+    op::SetPlatformSocVersion(op::SocVersion::ASCEND910);
+    auto selfDesc = TensorDesc({2, 3}, ACL_UINT32, ACL_FORMAT_ND);
+    auto ut = OP_API_UT(aclnnInplaceOne, INPUT(selfDesc), OUTPUT());
+    uint64_t workspaceSize = 0;
+    EXPECT_EQ(ut.TestGetWorkspaceSize(&workspaceSize), ACLNN_ERR_PARAM_INVALID);
+}
+
+// The new dtype-view path must not expand uint64 support on older products.
+TEST_F(l2_ones_test, ascend910_l2_ones_test_dtype_uint64_rejected)
+{
+    op::SetPlatformSocVersion(op::SocVersion::ASCEND910);
+    auto selfDesc = TensorDesc({2, 3}, ACL_UINT64, ACL_FORMAT_ND);
+    auto ut = OP_API_UT(aclnnInplaceOne, INPUT(selfDesc), OUTPUT());
+    uint64_t workspaceSize = 0;
+    EXPECT_EQ(ut.TestGetWorkspaceSize(&workspaceSize), ACLNN_ERR_PARAM_INVALID);
 }
 
 // 正常路径，uint8，aicore
