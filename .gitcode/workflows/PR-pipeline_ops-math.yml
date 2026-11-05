@@ -74,7 +74,7 @@ stages:
         with:
           task_name: 'Compile_Ascend_X86_mobile_station_ubuntu24'
           package_name: 'cann-ops-math-kirinx90_linux-x86_64_ubuntu24.run'
-          ge_st_rt2: 'kirin90'
+          ge_st_rt2: 'kirinx90'
           image_version: ${{ jobs.JOB_image.outputs.Compile_Ascend_X86_mobile_station_ubuntu24 }}
           arch: 'x64'
       JOB_Compile_Ascend_X86_experimental_ubuntu24:
