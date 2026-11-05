@@ -82,7 +82,7 @@ class AddMatMatElementsKernel {
     T alphaVal_;
     T betaVal_;
     AscendC::TBuf<AscendC::TPosition::VECCALC> buf_[kPhysNodes];
-    AscendC::MultiCopyParams<T, ND> nddmaParams_[kMaxInputSlots];
+    AscendC::MultiCopyParams<T, ND> nddmaParams_[kMaxInputSlots] = {};
     int64_t nddmaDims_;
     // Broadcast compact-source cache state (see ProcessUnifiedBroadcastTile):
     // cached{A,B}Seg_ records the aISeg a cached source in B3 was built with
@@ -385,7 +385,7 @@ __aicore__ inline void AddMatMatElementsKernel<T, RANK>::ProcessUnifiedBroadcast
     AscendC::WaitFlag<AscendC::HardEvent::MTE2_V>(evMte2V);
 
     if (expandA) {
-        AscendC::BroadcastTiling tiling;
+        AscendC::BroadcastTiling tiling = {};
         AscendC::GetBroadcastTilingInfo<T>(static_cast<uint32_t>(RANK), dstShape, aSrcShape, true, tiling);
         AscendC::Broadcast<T>(buf_[B0].template Get<T>(), buf_[B3].template Get<T>(), dstShape, aSrcShape, &tiling);
         AscendC::PipeBarrier<PIPE_V>();
@@ -407,7 +407,7 @@ __aicore__ inline void AddMatMatElementsKernel<T, RANK>::ProcessUnifiedBroadcast
         AscendC::SetFlag<AscendC::HardEvent::MTE2_V>(evMte2V);
         AscendC::WaitFlag<AscendC::HardEvent::MTE2_V>(evMte2V);
 
-        AscendC::BroadcastTiling tiling;
+        AscendC::BroadcastTiling tiling = {};
         AscendC::GetBroadcastTilingInfo<T>(static_cast<uint32_t>(RANK), dstShape, bSrcShape, true, tiling);
         AscendC::Broadcast<T>(buf_[B1].template Get<T>(), buf_[B3].template Get<T>(), dstShape, bSrcShape, &tiling);
         AscendC::PipeBarrier<PIPE_V>();
@@ -457,8 +457,8 @@ __aicore__ inline void AddMatMatElementsKernel<T, RANK>::Compute(int64_t count)
     asc_vf_call<MulAlphaVF<T>>((__ubuf__ T*)buf_[B0].template Get<T>().GetPhyAddr(),
                                (__ubuf__ T*)buf_[B0].template Get<T>().GetPhyAddr(),
                                (__ubuf__ T*)buf_[B1].template Get<T>().GetPhyAddr(), alphaVal_, cnt, VL_T, rep);
-    // B0 = beta * B2 + B0
-    asc_vf_call<BetaAddVF<T>>((__ubuf__ T*)buf_[B0].template Get<T>().GetPhyAddr(),
+    // B2 = beta * B2 + B0
+    asc_vf_call<BetaAddVF<T>>((__ubuf__ T*)buf_[B2].template Get<T>().GetPhyAddr(),
                               (__ubuf__ T*)buf_[B2].template Get<T>().GetPhyAddr(),
                               (__ubuf__ T*)buf_[B0].template Get<T>().GetPhyAddr(), betaVal_, cnt, VL_T, rep);
 }
@@ -466,13 +466,14 @@ __aicore__ inline void AddMatMatElementsKernel<T, RANK>::Compute(int64_t count)
 template <typename T, int64_t RANK>
 __aicore__ inline void AddMatMatElementsKernel<T, RANK>::CopyOut(const int64_t* coord, int64_t count)
 {
+    constexpr int B2 = 2;
     int64_t off = CalcInputOffset(coord, td_->output_strides[0], RANK);
     AscendC::DataCopyExtParams p;
     p.blockCount = 1;
     p.blockLen = count * sizeof(T);
     p.srcStride = 0;
     p.dstStride = 0;
-    AscendC::DataCopyPad(gmOut_[0][off], buf_[0].template Get<T>(), p);
+    AscendC::DataCopyPad(gmOut_[0][off], buf_[B2].template Get<T>(), p);
 }
 
 template <typename T, int64_t RANK>
