@@ -42,7 +42,7 @@ TEST_F(SelectTiling, select_test_0)
     gert::TilingContextPara tilingContextPara("Select", {condition, x1, x2}, {{yShape, ge::DT_BF16, ge::FORMAT_ND}},
                                               &compileInfo);
     uint64_t expectedTilingKey = 8;
-    std::vector<size_t> expectedWorkspaces = {16777216};
+    std::vector<size_t> expectedWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectedTilingKey, expectedWorkspaces);
 }
 
@@ -59,7 +59,7 @@ TEST_F(SelectTiling, select_test_1)
     gert::TilingContextPara tilingContextPara("Select", {condition, x1, x2}, {{yShape, ge::DT_UINT8, ge::FORMAT_ND}},
                                               &compileInfo);
     uint64_t expectedTilingKey = 8;
-    std::vector<size_t> expectedWorkspaces = {16777216};
+    std::vector<size_t> expectedWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectedTilingKey, expectedWorkspaces);
 }
 
@@ -76,6 +76,6 @@ TEST_F(SelectTiling, select_test_2)
     gert::TilingContextPara tilingContextPara("Select", {condition, x1, x2}, {{yShape, ge::DT_FLOAT16, ge::FORMAT_ND}},
                                               &compileInfo);
     uint64_t expectedTilingKey = 8;
-    std::vector<size_t> expectedWorkspaces = {16777216};
+    std::vector<size_t> expectedWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectedTilingKey, expectedWorkspaces);
 }

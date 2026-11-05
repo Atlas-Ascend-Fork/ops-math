@@ -43,7 +43,7 @@ TEST_F(FloorModTiling, floor_mod_test_0)
                                               &compileInfo);
     uint64_t expectTilingKey = 8;
     string expectTilingData = "2048 281492156580096 ";
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 

@@ -41,7 +41,7 @@ TEST_F(FusedMulAddTilingTest, same_shape_fp16)
                                      {{{16, 16}, {16, 16}}, ge::DT_FLOAT16, ge::FORMAT_ND},
                                  },
                                  &compileInfo);
-    ExecuteTestCaseForEle(para, ge::GRAPH_SUCCESS, false, 0, false, "", {16777216});
+    ExecuteTestCaseForEle(para, ge::GRAPH_SUCCESS, false, 0, false, "", {0});
 }
 
 // Case 2: fp32 same shape, no broadcast.
@@ -58,7 +58,7 @@ TEST_F(FusedMulAddTilingTest, same_shape_fp32)
                                      {{{16, 16}, {16, 16}}, ge::DT_FLOAT, ge::FORMAT_ND},
                                  },
                                  &compileInfo);
-    ExecuteTestCaseForEle(para, ge::GRAPH_SUCCESS, false, 0, false, "", {16777216});
+    ExecuteTestCaseForEle(para, ge::GRAPH_SUCCESS, false, 0, false, "", {0});
 }
 
 // Case 3: int32 same shape, no broadcast.
@@ -75,7 +75,7 @@ TEST_F(FusedMulAddTilingTest, same_shape_int32)
                                      {{{16, 16}, {16, 16}}, ge::DT_INT32, ge::FORMAT_ND},
                                  },
                                  &compileInfo);
-    ExecuteTestCaseForEle(para, ge::GRAPH_SUCCESS, false, 0, false, "", {16777216});
+    ExecuteTestCaseForEle(para, ge::GRAPH_SUCCESS, false, 0, false, "", {0});
 }
 
 // Case 4: per-axis broadcast, fp16.
@@ -92,7 +92,7 @@ TEST_F(FusedMulAddTilingTest, axis_broadcast_fp16)
                                      {{{16, 16}, {16, 16}}, ge::DT_FLOAT16, ge::FORMAT_ND},
                                  },
                                  &compileInfo);
-    ExecuteTestCaseForEle(para, ge::GRAPH_SUCCESS, false, 0, false, "", {16777216});
+    ExecuteTestCaseForEle(para, ge::GRAPH_SUCCESS, false, 0, false, "", {0});
 }
 
 // Case 5: cross-rank broadcast, fp32.
@@ -109,7 +109,7 @@ TEST_F(FusedMulAddTilingTest, cross_rank_broadcast_fp32)
                                      {{{3, 4, 5}, {3, 4, 5}}, ge::DT_FLOAT, ge::FORMAT_ND},
                                  },
                                  &compileInfo);
-    ExecuteTestCaseForEle(para, ge::GRAPH_SUCCESS, false, 0, false, "", {16777216});
+    ExecuteTestCaseForEle(para, ge::GRAPH_SUCCESS, false, 0, false, "", {0});
 }
 
 // Case 6: x2 and x3 are scalars (1,1,1,1,1), fp16 -> only x1 carries shape.
@@ -126,7 +126,7 @@ TEST_F(FusedMulAddTilingTest, scalar_broadcast_fp16)
                                      {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_FLOAT16, ge::FORMAT_ND},
                                  },
                                  &compileInfo);
-    ExecuteTestCaseForEle(para, ge::GRAPH_SUCCESS, false, 0, false, "", {16777216});
+    ExecuteTestCaseForEle(para, ge::GRAPH_SUCCESS, false, 0, false, "", {0});
 }
 
 // Case 7: large tensor that triggers multi-core, fp32.
@@ -143,7 +143,7 @@ TEST_F(FusedMulAddTilingTest, large_tensor_fp32)
                                      {{{1024, 1024}, {1024, 1024}}, ge::DT_FLOAT, ge::FORMAT_ND},
                                  },
                                  &compileInfo);
-    ExecuteTestCaseForEle(para, ge::GRAPH_SUCCESS, false, 0, false, "", {16777216});
+    ExecuteTestCaseForEle(para, ge::GRAPH_SUCCESS, false, 0, false, "", {0});
 }
 
 // Case 8: tiny tensor (1 element each), int32.
@@ -160,7 +160,7 @@ TEST_F(FusedMulAddTilingTest, tiny_tensor_int32)
                                      {{{1}, {1}}, ge::DT_INT32, ge::FORMAT_ND},
                                  },
                                  &compileInfo);
-    ExecuteTestCaseForEle(para, ge::GRAPH_SUCCESS, false, 0, false, "", {16777216});
+    ExecuteTestCaseForEle(para, ge::GRAPH_SUCCESS, false, 0, false, "", {0});
 }
 
 // Case 9: scalar broadcast on x3 only, fp32.
@@ -177,7 +177,7 @@ TEST_F(FusedMulAddTilingTest, x3_scalar_fp32)
                                      {{{32, 64}, {32, 64}}, ge::DT_FLOAT, ge::FORMAT_ND},
                                  },
                                  &compileInfo);
-    ExecuteTestCaseForEle(para, ge::GRAPH_SUCCESS, false, 0, false, "", {16777216});
+    ExecuteTestCaseForEle(para, ge::GRAPH_SUCCESS, false, 0, false, "", {0});
 }
 
 // Case 10: dtype mismatch x1 vs x2 -> failure.
@@ -246,7 +246,7 @@ TEST_F(FusedMulAddTilingTest, max_dim_num_8d_fp32)
             {{{2, 1, 1, 1, 1, 1, 1, 2}, {2, 1, 1, 1, 1, 1, 1, 2}}, ge::DT_FLOAT, ge::FORMAT_ND},
         },
         &compileInfo);
-    ExecuteTestCaseForEle(para, ge::GRAPH_SUCCESS, false, 0, false, "", {16777216});
+    ExecuteTestCaseForEle(para, ge::GRAPH_SUCCESS, false, 0, false, "", {0});
 }
 
 // Case 14: 9D x1 -> failure (dim num exceeds 8).

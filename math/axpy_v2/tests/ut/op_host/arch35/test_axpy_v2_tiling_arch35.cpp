@@ -43,7 +43,7 @@ TEST_F(AxpyV2Tiling, axpy_v2_test_float16)
                                               &compileInfo);
     uint64_t expectTilingKey = 8;
     string expectTilingData = "2048 1407392063422720 ";
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
@@ -62,7 +62,7 @@ TEST_F(AxpyV2Tiling, axpy_v2_test_float32)
                                               &compileInfo);
     uint64_t expectTilingKey = 8;
     string expectTilingData = "2048 1407409243291776 ";
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
@@ -81,7 +81,7 @@ TEST_F(AxpyV2Tiling, axpy_v2_test_int32)
                                               &compileInfo);
     uint64_t expectTilingKey = 8;
     string expectTilingData = "2048 1407409243291776 ";
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
@@ -100,7 +100,7 @@ TEST_F(AxpyV2Tiling, axpy_v2_test_int64)
                                               &compileInfo);
     uint64_t expectTilingKey = 8;
     string expectTilingData = "2048 1407443603030080 ";
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
@@ -119,7 +119,7 @@ TEST_F(AxpyV2Tiling, axpy_v2_test_int8)
                                               &compileInfo);
     uint64_t expectTilingKey = 8;
     string expectTilingData = "2048 1407383473488384 ";
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
@@ -138,7 +138,7 @@ TEST_F(AxpyV2Tiling, axpy_v2_test_uint8)
                                               &compileInfo);
     uint64_t expectTilingKey = 8;
     string expectTilingData = "2048 1407383473488384 ";
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
@@ -157,7 +157,7 @@ TEST_F(AxpyV2Tiling, axpy_v2_test_bool)
                                               &compileInfo);
     uint64_t expectTilingKey = 8;
     string expectTilingData = "2048 1407383473488384 ";
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 

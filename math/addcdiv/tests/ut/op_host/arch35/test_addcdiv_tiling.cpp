@@ -41,7 +41,7 @@ TEST_F(AddcdivTiling, addcdiv_test_0)
                                               &compileInfo);
     uint64_t expectTilingKey = 7;
     string expectTilingData = "11 549755814016 16 1 1 0 0 ";
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
@@ -61,7 +61,7 @@ TEST_F(AddcdivTiling, addcdiv_test_1)
                                               &compileInfo);
     uint64_t expectTilingKey = 7;
     string expectTilingData = "11 549755814048 13 1 1 0 0 ";
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
@@ -81,7 +81,7 @@ TEST_F(AddcdivTiling, addcdiv_test_2)
                                               &compileInfo);
     uint64_t expectTilingKey = 7;
     string expectTilingData = "11 549755814016 16 1 1 0 0 ";
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
@@ -101,7 +101,7 @@ TEST_F(AddcdivTiling, addcdiv_test_3)
                                               &compileInfo);
     uint64_t expectTilingKey = 7;
     string expectTilingData = "11 549755814016 16 1 1 0 0 ";
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 

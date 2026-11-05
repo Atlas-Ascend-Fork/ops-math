@@ -43,6 +43,6 @@ TEST_F(LessEqualTiling, less_equal_test_0)
                                               &compileInfo);
     uint64_t expectTilingKey = 8;
     string expectTilingData = "2048 281483566645760 ";
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }

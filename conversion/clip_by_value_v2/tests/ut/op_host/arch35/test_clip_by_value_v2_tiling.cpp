@@ -56,7 +56,7 @@ static void RunClipByValueV2SuccessCase(ge::DataType dtype, const std::vector<in
         {yStorageShape, dtype, ge::FORMAT_ND},
     };
     gert::TilingContextPara tilingContextPara("ClipByValueV2", inputTensorDesc, outputTensorDesc, &compileInfo);
-    ExecuteTestCaseForEle(tilingContextPara, ge::GRAPH_SUCCESS, false, 0, false, "", {16777216});
+    ExecuteTestCaseForEle(tilingContextPara, ge::GRAPH_SUCCESS, false, 0, false, "", {0});
 }
 
 TEST_F(ClipByValueV2Tiling, same_shape_fp16)

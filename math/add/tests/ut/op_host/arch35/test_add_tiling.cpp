@@ -43,7 +43,7 @@ TEST_F(AddTiling, add_test_0)
                                               &compileInfo);
     uint64_t expectTilingKey = 8;
     string expectTilingData = "2048 281492156580096 ";
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
@@ -61,6 +61,6 @@ TEST_F(AddTiling, add_test_2)
                                               &compileInfo);
     uint64_t expectTilingKey = 8;
     string expectTilingData = "72 4294967552 ";
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }

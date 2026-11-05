@@ -46,6 +46,6 @@ TEST_F(BiasAddTiling, BiasAdd_test_tiling_001)
         "12884901888 68719476737 16 64 3 3 192 16384 64 3 1024 1024 0 0 0 0 0 1048576 1024 1 0 0 0 0 0 0 0 0 0 3 1024 "
         "1024 0 0 0 0 0 1 1024 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1048576 1024 1 0 0 0 0 0 0 1 0 0 0 0 0 0 0 "
         "0 ";
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }

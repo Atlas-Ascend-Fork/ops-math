@@ -41,7 +41,7 @@ TEST_F(SquaredDifferenceTiling, squared_difference_test_0)
                                               },
                                               &compileInfo);
     uint64_t expectTilingKey = 8;
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
 
@@ -59,7 +59,7 @@ TEST_F(SquaredDifferenceTiling, squared_difference_test_1)
         },
         &compileInfo);
     uint64_t expectTilingKey = 0;
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
 
@@ -77,7 +77,7 @@ TEST_F(SquaredDifferenceTiling, squared_difference_test_2)
         },
         &compileInfo);
     uint64_t expectTilingKey = 8;
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
 
@@ -95,7 +95,7 @@ TEST_F(SquaredDifferenceTiling, squared_difference_test_3)
         },
         &compileInfo);
     uint64_t expectTilingKey = 0;
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
 
@@ -112,7 +112,7 @@ TEST_F(SquaredDifferenceTiling, squared_difference_test_4)
                                               },
                                               &compileInfo);
     uint64_t expectTilingKey = 0;
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
 
@@ -130,7 +130,7 @@ TEST_F(SquaredDifferenceTiling, squared_difference_test_5)
         },
         &compileInfo);
     uint64_t expectTilingKey = 0;
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
 
@@ -147,7 +147,7 @@ TEST_F(SquaredDifferenceTiling, squared_difference_test_6)
                                               },
                                               &compileInfo);
     uint64_t expectTilingKey = 8;
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
 
@@ -165,7 +165,7 @@ TEST_F(SquaredDifferenceTiling, squared_difference_test_7)
         },
         &compileInfo);
     uint64_t expectTilingKey = 1;
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
 
@@ -182,7 +182,7 @@ TEST_F(SquaredDifferenceTiling, squared_difference_test_8)
                                               },
                                               &compileInfo);
     uint64_t expectTilingKey = 8;
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
 
