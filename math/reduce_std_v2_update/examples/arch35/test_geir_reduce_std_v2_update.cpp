@@ -54,8 +54,9 @@
 #include "ge_api_types.h"
 #include "ge_api.h"
 #include "array_ops.h"
-#include "reduce_ops.h"
 #include "ge_ir_build.h"
+
+#include "../../op_graph/reduce_std_v2_update_proto.h"
 
 #define FAILED -1
 #define SUCCESS 0
