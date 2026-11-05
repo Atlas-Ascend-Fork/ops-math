@@ -116,9 +116,9 @@ class CoshKernelTestSpec:
     golden = staticmethod(cosh_golden)
     third_party = {"torch": "torch.cosh", "tf": _TensorFlowCosh}
     tolerance = {
-        "float16": {"standard": "cross_check", "level": "L2"},
-        "float32": {"standard": "cross_check", "level": "L2"},
-        "bfloat16": {"standard": "cross_check", "level": "L2"},
+        "float16": {"standard": "cross_check", "level": "L0"},
+        "float32": {"standard": "cross_check", "level": "L0"},
+        "bfloat16": {"standard": "cross_check", "level": "L0"},
     }
 
 
@@ -128,9 +128,9 @@ class AclnnCoshTestSpec:
     golden = staticmethod(aclnn_cosh_golden)
     third_party = {"torch": "torch.cosh", "tf": _TensorFlowCosh}
     tolerance = {
-        "float16": {"standard": "cross_check", "level": "L2"},
-        "float32": {"standard": "cross_check", "level": "L2"},
-        "bfloat16": {"standard": "cross_check", "level": "L2"},
+        "float16": {"standard": "cross_check", "level": "L0"},
+        "float32": {"standard": "cross_check", "level": "L0"},
+        "bfloat16": {"standard": "cross_check", "level": "L0"},
     }
 
 
@@ -140,9 +140,9 @@ class AclnnInplaceCoshTestSpec:
     golden = staticmethod(cosh_golden)
     third_party = {"torch": "torch.cosh", "tf": _TensorFlowCosh}
     tolerance = {
-        "float16": {"standard": "cross_check", "level": "L2"},
-        "float32": {"standard": "cross_check", "level": "L2"},
-        "bfloat16": {"standard": "cross_check", "level": "L2"},
+        "float16": {"standard": "cross_check", "level": "L0"},
+        "float32": {"standard": "cross_check", "level": "L0"},
+        "bfloat16": {"standard": "cross_check", "level": "L0"},
     }
 
 
@@ -153,9 +153,9 @@ class TorchCoshTestSpec:
     third_party = {"torch": "torch.cosh", "tf": _TensorFlowCosh}
     torch_graph = CoshGraph
     tolerance = {
-        "float16": {"standard": "cross_check", "level": "L2"},
-        "float32": {"standard": "cross_check", "level": "L2"},
-        "bfloat16": {"standard": "cross_check", "level": "L2"},
+        "float16": {"standard": "cross_check", "level": "L0"},
+        "float32": {"standard": "cross_check", "level": "L0"},
+        "bfloat16": {"standard": "cross_check", "level": "L0"},
     }
 
 
@@ -170,7 +170,7 @@ class CoshTensorFlowTestSpec:
     golden = staticmethod(tensorflow_cosh_golden)
     third_party = {"tf": "tf.math.cosh"}
     tolerance = {
-        "float16": {"standard": "cross_check", "level": "L1"},
-        "float32": {"standard": "cross_check", "level": "L1"},
-        "bfloat16": {"standard": "cross_check", "level": "L1"},
+        "float16": {"standard": "cross_check", "level": "L0"},
+        "float32": {"standard": "cross_check", "level": "L0"},
+        "bfloat16": {"standard": "cross_check", "level": "L0"},
     }

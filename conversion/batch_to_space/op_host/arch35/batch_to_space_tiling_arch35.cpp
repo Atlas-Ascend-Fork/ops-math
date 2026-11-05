@@ -122,7 +122,12 @@ ge::graphStatus BatchToSpaceTiling::GetParams()
                     OP_LOGE(context_, "crops must have %zu elements, got %ld", CROPS_SIZE, cropsTensor->GetShapeSize()),
                     return ge::GRAPH_FAILED);
     }
-    if (cropsTensor != nullptr && Ops::Base::GetConstIntToShape(context_, INPUT_IDX_CROPS, cropsShape)) {
+    // kernel 模式下 crops 是运行期输入（非 const）时 GetData 为空，共享 helper
+    // GetConstIntToShape 会打 ERROR（"const tensor GetData is nullptr"），GE 编译会把
+    // tiling 的错误日志判为算子编译失败。此处仅在 const 数据可取时读取，否则按 0
+    // 处理（与既有 fallback 一致，与 infershape 的 IsConstTensor 门控同口径）。
+    const bool cropsHasData = cropsTensor != nullptr && cropsTensor->GetData<int64_t>() != nullptr;
+    if (cropsHasData && Ops::Base::GetConstIntToShape(context_, INPUT_IDX_CROPS, cropsShape)) {
         for (size_t i = 0; i < CROPS_SIZE; ++i) {
             crops_[i] = cropsShape[i];
             OP_CHECK_IF(crops_[i] < 0, OP_LOGE(context_, "crops must be non-negative"), return ge::GRAPH_FAILED);
