@@ -30,7 +30,7 @@
 - Formula:
 
   $$
-  out_{i}=ln((1 + input_{i})/(1 - input_{i}))
+  out_{i}=0.5*ln((1 + input_{i})/(1 - input_{i}))
   $$
 
 ## Function Prototype

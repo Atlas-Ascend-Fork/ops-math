@@ -131,7 +131,7 @@ aclnnStatus aclnnScale(
       <td>Empty tensors are supported.</td>
       <td>FLOAT, FLOAT16, BFLOAT16</td>
       <td>ND</td>
-      <td>0-8</td>
+      <td>1-8</td>
       <td>√</td>
     </tr>
     <tr>
@@ -191,7 +191,7 @@ aclnnStatus aclnnScale(
       <td>Supports empty tensors. The data type must be the same as that of x, and the shape dimensions must be the same as those of x.</td>
       <td>FLOAT, FLOAT16, BFLOAT16</td>
       <td>ND</td>
-      <td>0-8</td>
+      <td>1-8</td>
       <td>√</td>
     </tr>
     <tr>

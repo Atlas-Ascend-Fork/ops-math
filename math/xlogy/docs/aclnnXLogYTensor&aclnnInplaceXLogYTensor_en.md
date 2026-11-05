@@ -180,8 +180,8 @@ aclnnStatus aclnnInplaceXLogYTensor(
       <td>self, other, or out is a null pointer.</td>
     </tr>
     <tr>
-      <td rowspan="3">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="3">161002</td>
+      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="4">161002</td>
       <td>The data type of self or other is not within the supported range.</td>
     </tr>
     <tr>
@@ -189,6 +189,9 @@ aclnnStatus aclnnInplaceXLogYTensor(
     </tr>
     <tr>
       <td>The shapes of self and other cannot be broadcast, or the broadcast result is different from the shape of out.</td>
+    </tr>
+    <tr>
+      <td>The dimension of self or other exceeds 8.</td>
     </tr>
   </tbody>
   </table>
@@ -333,8 +336,8 @@ aclnnStatus aclnnInplaceXLogYTensor(
       <td>The passed selfRef or other is a null pointer.</td>
     </tr>
     <tr>
-      <td rowspan="3">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="3">161002</td>
+      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="4">161002</td>
       <td>The data types of selfRef and other are not supported.</td>
     </tr>
     <tr>
@@ -342,6 +345,9 @@ aclnnStatus aclnnInplaceXLogYTensor(
     </tr>
     <tr>
       <td>The shapes of selfRef and other cannot be broadcast.</td>
+    </tr>
+    <tr>
+      <td>The dimension of selfRef or other exceeds 8.</td>
     </tr>
   </tbody>
   </table>

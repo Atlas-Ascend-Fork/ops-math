@@ -105,7 +105,7 @@ aclnnStatus aclnnXLogYScalarSelf(
       <td>Output</td>
       <td>out in the formula.</td>
       <td><ul><li>The shape is the same as that of other.</li></ul></td>
-      <td>FLOAT, FLOAT16, BFLOAT16</td>
+      <td>FLOAT, FLOAT16, DOUBLE, BFLOAT16</td>
       <td>ND</td>
       <td>0-8</td>
       <td>√</td>
@@ -161,8 +161,8 @@ aclnnStatus aclnnXLogYScalarSelf(
       <td>The passed-in self, other, or out is a null pointer.</td>
     </tr>
     <tr>
-      <td rowspan="3">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="3">161002</td>
+      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="4">161002</td>
       <td>The data types of self and other are not within the supported range.</td>
     </tr>
     <tr>
@@ -170,6 +170,9 @@ aclnnStatus aclnnXLogYScalarSelf(
     </tr>
     <tr>
       <td>other and out have different shapes.</td>
+    </tr>
+    <tr>
+      <td>The dimension of other exceeds 8.</td>
     </tr>
   </tbody>
   </table>

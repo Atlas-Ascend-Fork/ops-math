@@ -128,7 +128,7 @@ aclnnStatus aclnnScale(
       <td>支持空Tensor。</td>
       <td>FLOAT、FLOAT16、BFLOAT16</td>
       <td>ND</td>
-      <td>0-8</td>
+      <td>1-8</td>
       <td>√</td>
     </tr>
     <tr>
@@ -188,7 +188,7 @@ aclnnStatus aclnnScale(
       <td>支持空Tensor。数据类型需要与x的数据类型相同，shape维度和x保持一致。</td>
       <td>FLOAT、FLOAT16、BFLOAT16</td>
       <td>ND</td>
-      <td>0-8</td>
+      <td>1-8</td>
       <td>√</td>
     </tr>
     <tr>

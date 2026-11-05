@@ -112,7 +112,7 @@ aclnnStatus aclnnInplaceXLogYScalarOther(
       <td>输入</td>
       <td>公式中的输入other。</td>
       <td><ul><li>数据类型与self的数据类型需满足数据类型推导规则（参见<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>）。</li></ul></td>
-      <td>FLOAT、FLOAT16、INT32、INT64、INT16、INT8、UINT8、BOOL、BFLOAT16</td>
+      <td>FLOAT、FLOAT16、INT32、INT64、INT16、INT8、UINT8、BOOL、DOUBLE、BFLOAT16</td>
       <td>-</td>
       <td>-</td>
       <td>-</td>
@@ -122,7 +122,7 @@ aclnnStatus aclnnInplaceXLogYScalarOther(
       <td>输出</td>
       <td>公式中的out。</td>
       <td><ul><li>shape与self相同。</li></ul></td>
-      <td>FLOAT、FLOAT16、BFLOAT16</td>
+      <td>FLOAT、FLOAT16、DOUBLE、BFLOAT16</td>
       <td>ND</td>
       <td>0-8</td>
       <td>√</td>
@@ -178,8 +178,8 @@ aclnnStatus aclnnInplaceXLogYScalarOther(
       <td>传入的self、other或out是空指针。</td>
     </tr>
     <tr>
-      <td rowspan="3">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="3">161002</td>
+      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="4">161002</td>
       <td>self和other的数据类型不在支持的范围之内。</td>
     </tr>
     <tr>
@@ -187,6 +187,9 @@ aclnnStatus aclnnInplaceXLogYScalarOther(
     </tr>
     <tr>
       <td>self与out的shape不同。</td>
+    </tr>
+    <tr>
+      <td>self的维度超过8。</td>
     </tr>
   </tbody>
   </table>
@@ -275,7 +278,7 @@ aclnnStatus aclnnInplaceXLogYScalarOther(
       <td>输入</td>
       <td>公式中的输入other。</td>
       <td><ul><li>数据类型与selfRef的数据类型需满足数据类型推导规则（参见<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>）。</li></ul></td>
-      <td>FLOAT、FLOAT16、INT32、INT64、INT16、INT8、UINT8、BOOL、BFLOAT16</td>
+      <td>FLOAT、FLOAT16、INT32、INT64、INT16、INT8、UINT8、BOOL、DOUBLE、BFLOAT16</td>
       <td>-</td>
       <td>-</td>
       <td>-</td>
@@ -331,12 +334,15 @@ aclnnStatus aclnnInplaceXLogYScalarOther(
       <td>传入的selfRef或other是空指针。</td>
     </tr>
     <tr>
-      <td rowspan="2">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="2">161002</td>
+      <td rowspan="3">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="3">161002</td>
       <td>selfRef和other的数据类型不在支持的范围之内。</td>
     </tr>
     <tr>
       <td>selfRef和other推导出的数据类型无法转换为指定输出selfRef的类型。</td>
+    </tr>
+    <tr>
+      <td>selfRef的维度超过8。</td>
     </tr>
   </tbody>
   </table>

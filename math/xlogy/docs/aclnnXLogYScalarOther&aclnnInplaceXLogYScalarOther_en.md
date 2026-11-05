@@ -114,7 +114,7 @@ aclnnStatus aclnnInplaceXLogYScalarOther(
       <td>Input</td>
       <td>Input other in the formula.</td>
       <td><ul><li>The data type of other and that of self must satisfy the data type derivation rule (see <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">deduction relationship</a>).</li></ul></td>
-      <td>FLOAT, FLOAT16, INT32, INT64, INT16, INT8, UINT8, BOOL, BFLOAT16</td>
+      <td>FLOAT, FLOAT16, INT32, INT64, INT16, INT8, UINT8, BOOL, DOUBLE, BFLOAT16</td>
       <td>-</td>
       <td>-</td>
       <td>-</td>
@@ -124,7 +124,7 @@ aclnnStatus aclnnInplaceXLogYScalarOther(
       <td>Output</td>
       <td>out in the formula.</td>
       <td><ul><li>The shape is the same as that of self.</li></ul></td>
-      <td>FLOAT, FLOAT16, BFLOAT16</td>
+      <td>FLOAT, FLOAT16, DOUBLE, BFLOAT16</td>
       <td>ND</td>
       <td>0-8</td>
       <td>√</td>
@@ -180,8 +180,8 @@ aclnnStatus aclnnInplaceXLogYScalarOther(
       <td>The passed-in self, other, or out is a null pointer.</td>
     </tr>
     <tr>
-      <td rowspan="3">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="3">161002</td>
+      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="4">161002</td>
       <td>The data types of self and other are out of the supported range.</td>
     </tr>
     <tr>
@@ -189,6 +189,9 @@ aclnnStatus aclnnInplaceXLogYScalarOther(
     </tr>
     <tr>
       <td>The shapes of self and out are different.</td>
+    </tr>
+    <tr>
+      <td>The dimension of self exceeds 8.</td>
     </tr>
   </tbody>
   </table>
@@ -277,7 +280,7 @@ aclnnStatus aclnnInplaceXLogYScalarOther(
       <td>Input</td>
       <td>Input other in the formula.</td>
       <td><ul><li>The data type must satisfy the data type derivation rule with the data type of selfRef (see <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">deduction relationship</a>).</li></ul></td>
-      <td>FLOAT, FLOAT16, INT32, INT64, INT16, INT8, UINT8, BOOL, BFLOAT16</td>
+      <td>FLOAT, FLOAT16, INT32, INT64, INT16, INT8, UINT8, BOOL, DOUBLE, BFLOAT16</td>
       <td>-</td>
       <td>-</td>
       <td>-</td>
@@ -333,12 +336,15 @@ aclnnStatus aclnnInplaceXLogYScalarOther(
       <td>The input selfRef or other is a null pointer.</td>
     </tr>
     <tr>
-      <td rowspan="2">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="2">161002</td>
+      <td rowspan="3">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="3">161002</td>
       <td>The data types of selfRef and other are not within the supported range.</td>
     </tr>
     <tr>
       <td>The data type derived from selfRef and other cannot be converted to the type of the specified output selfRef.</td>
+    </tr>
+    <tr>
+      <td>The dimension of selfRef exceeds 8.</td>
     </tr>
   </tbody>
   </table>

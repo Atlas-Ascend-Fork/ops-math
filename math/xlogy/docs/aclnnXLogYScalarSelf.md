@@ -103,7 +103,7 @@ aclnnStatus aclnnXLogYScalarSelf(
       <td>输出</td>
       <td>公式中的out。</td>
       <td><ul><li>shape与other相同。</li></ul></td>
-      <td>FLOAT、FLOAT16、BFLOAT16</td>
+      <td>FLOAT、FLOAT16、DOUBLE、BFLOAT16</td>
       <td>ND</td>
       <td>0-8</td>
       <td>√</td>
@@ -159,8 +159,8 @@ aclnnStatus aclnnXLogYScalarSelf(
       <td>传入的self、other或out是空指针。</td>
     </tr>
     <tr>
-      <td rowspan="3">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="3">161002</td>
+      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="4">161002</td>
       <td>self和other的数据类型不在支持的范围之内。</td>
     </tr>
     <tr>
@@ -168,6 +168,9 @@ aclnnStatus aclnnXLogYScalarSelf(
     </tr>
     <tr>
       <td>other与out的shape不同。</td>
+    </tr>
+    <tr>
+      <td>other的维度超过8。</td>
     </tr>
   </tbody>
   </table>

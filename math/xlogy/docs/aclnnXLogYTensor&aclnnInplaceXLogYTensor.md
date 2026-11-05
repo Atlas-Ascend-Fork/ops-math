@@ -178,8 +178,8 @@ aclnnStatus aclnnInplaceXLogYTensor(
       <td>传入的self、other或out是空指针。</td>
     </tr>
     <tr>
-      <td rowspan="3">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="3">161002</td>
+      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="4">161002</td>
       <td>self和other的数据类型不在支持的范围之内。</td>
     </tr>
     <tr>
@@ -187,6 +187,9 @@ aclnnStatus aclnnInplaceXLogYTensor(
     </tr>
     <tr>
       <td>self和other的shape无法做broadcast或broadcast的结果与out的shape不同。</td>
+    </tr>
+    <tr>
+      <td>self或other的维度超过8。</td>
     </tr>
   </tbody>
   </table>
@@ -331,8 +334,8 @@ aclnnStatus aclnnInplaceXLogYTensor(
       <td>传入的selfRef或other是空指针。</td>
     </tr>
     <tr>
-      <td rowspan="3">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="3">161002</td>
+      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="4">161002</td>
       <td>selfRef和other的数据类型不在支持的范围之内。</td>
     </tr>
     <tr>
@@ -340,6 +343,9 @@ aclnnStatus aclnnInplaceXLogYTensor(
     </tr>
     <tr>
       <td>selfRef和other的shape无法做broadcast。</td>
+    </tr>
+    <tr>
+      <td>selfRef或other的维度超过8。</td>
     </tr>
   </tbody>
   </table>
