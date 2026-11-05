@@ -665,6 +665,11 @@ inline bool CheckViewCopyParams(const aclTensor* x, const aclTensor* y)
 
 const aclTensor* ViewCopy(const aclTensor* x, const aclTensor* y, aclOpExecutor* executor)
 {
+    return ViewCopy(x, y, executor, false);
+}
+
+const aclTensor* ViewCopy(const aclTensor* x, const aclTensor* y, aclOpExecutor* executor, bool inplaceFlag)
+{
     L0_DFX(ViewCopy, x, y);
     OP_LOGD("ViewCopy data addr: %p", y->GetData());
     if (!CheckViewCopyParams(x, y)) {
@@ -677,8 +682,10 @@ const aclTensor* ViewCopy(const aclTensor* x, const aclTensor* y, aclOpExecutor*
         if (!x->IsFromWorkspace()) {
             // x and y point to the same tensor.
             if (x->GetData() == y->GetData()) {
-                executor->AbandonCache(true);
-                OP_LOGD("The input and output point to the same address.");
+                OP_LOGD("The input and output point to the same address, inplace flag: %d.", inplaceFlag);
+                if (!inplaceFlag) {
+                    executor->AbandonCache(true);
+                }
                 return y;
             }
             auto yView = (x->GetStorageShape() == y->GetStorageShape()) ? y :

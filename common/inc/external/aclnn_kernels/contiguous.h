@@ -68,6 +68,16 @@ const aclTensor* Contiguous(const aclTensor* x, aclOpExecutor* executor);
 const aclTensor* ViewCopy(const aclTensor* x, const aclTensor* y, aclOpExecutor* executor);
 
 /**
+ * @brief 将连续tensor拷贝到非连续的tensor上
+ * @param x
+ * @param y
+ * @param executor
+ * @param inplaceFlag
+ * @return aclTensor 转换后的tensor
+ */
+const aclTensor* ViewCopy(const aclTensor* x, const aclTensor* y, aclOpExecutor* executor, bool inplaceFlag);
+
+/**
  * @brief 对Tensor创建一个View，要求Tensor满足PickView的条件
  * @param x 输入Tensor，可以是一整块的非连续Tensor
  * @param executor
@@ -78,9 +88,8 @@ const aclTensor* PickViewAsContiguous(const aclTensor* x, aclOpExecutor* executo
 const aclTensor* ReViewToOut(const aclTensor* x, const aclTensor* y, aclOpExecutor* executor);
 
 // ============内部接口=============
-bool CanOptimizeContiguous(
-    const op::Shape& viewShape, const op::Strides& strides, int64_t offset, int64_t storageSize,
-    ContiguousParam& param);
+bool CanOptimizeContiguous(const op::Shape& viewShape, const op::Strides& strides, int64_t offset, int64_t storageSize,
+                           ContiguousParam& param);
 
 bool CanOptimizeView(const op::Shape& viewShape, const op::Strides& strides, int64_t offset, ContiguousParam& param);
 // ============内部接口=============
