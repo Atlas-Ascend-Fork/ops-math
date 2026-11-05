@@ -44,7 +44,7 @@ extern "C" __global__ __aicore__ void strided_slice_v3(GM_ADDR x, GM_ADDR begin,
                                                        GM_ADDR strides, GM_ADDR y, GM_ADDR workspace, GM_ADDR tiling)
 {
     KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_AIV_ONLY);
-    REGISTER_TILING_DEFAULT(StridedSliceTilingData);
+    REGISTER_NONE_TILING;
     if (TILING_KEY_IS(STRIDED_SLICE_KEY_MOVE_ALIGN)) {
         GET_TILING_DATA_WITH_STRUCT(StridedSliceMATilingData, tilingData, tiling);
         StridedSliceMoveAlignProcess(x, begin, end, strides, y, &tilingData);

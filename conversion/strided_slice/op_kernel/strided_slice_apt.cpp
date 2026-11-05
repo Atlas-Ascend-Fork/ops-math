@@ -49,8 +49,8 @@ extern "C" __global__ __aicore__ void strided_slice(GM_ADDR x, GM_ADDR begin, GM
 {
     KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_AIV_ONLY);
 #if (defined(__NPU_ARCH__) && (__NPU_ARCH__ != 3003 && __NPU_ARCH__ != 3113))
-    // arch31不能注册REGISTER_TILING_DEFAULT，其余芯片保持不变
-    REGISTER_TILING_DEFAULT(StridedSliceTilingData);
+    // arch31不能注册，其余芯片保持不变
+    REGISTER_NONE_TILING;
 #endif
     if (TILING_KEY_IS(STRIDED_SLICE_KEY_MOVE_ALIGN)) {
         GET_TILING_DATA_WITH_STRUCT(StridedSliceMATilingData, tilingData, tiling);
