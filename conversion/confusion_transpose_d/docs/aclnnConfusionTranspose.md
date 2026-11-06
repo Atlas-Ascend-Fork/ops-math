@@ -137,7 +137,7 @@ aclnnStatus aclnnConfusionTranspose(
       <td>与输入x保持一致</td>
       <td>与输入x保持一致</td>
       <td>-</td>
-      <td>-</td>
+      <td>√</td>
     </tr>
     <tr>
       <td>workspaceSize(uint64_t*)</td>

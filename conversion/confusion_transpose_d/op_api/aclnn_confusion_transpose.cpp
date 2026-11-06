@@ -18,6 +18,7 @@
 #include "opdev/data_type_utils.h"
 #include "opdev/format_utils.h"
 #include "opdev/make_op_executor.h"
+#include "opdev/tensor_view_utils.h"
 
 using namespace op;
 #ifdef __cplusplus
@@ -38,8 +39,8 @@ static bool CheckDtypeValid(const aclTensor* x, const aclTensor* out)
     return true;
 }
 
-static aclnnStatus CheckParams(
-    const aclTensor* x, const aclIntArray* perm, const aclIntArray* shape, const aclTensor* out)
+static aclnnStatus CheckParams(const aclTensor* x, const aclIntArray* perm, const aclIntArray* shape,
+                               const aclTensor* out)
 {
     // 1. 检查参数是否为空指针
     CHECK_COND((x != nullptr), ACLNN_ERR_PARAM_NULLPTR, "CheckNotNull x failed!");
@@ -54,9 +55,9 @@ static aclnnStatus CheckParams(
 }
 }; // namespace
 
-aclnnStatus aclnnConfusionTransposeGetWorkspaceSize(
-    const aclTensor* x, const aclIntArray* perm, const aclIntArray* shape, bool transpose_first, aclTensor* out,
-    uint64_t* workspaceSize, aclOpExecutor** executor)
+aclnnStatus aclnnConfusionTransposeGetWorkspaceSize(const aclTensor* x, const aclIntArray* perm,
+                                                    const aclIntArray* shape, bool transpose_first, aclTensor* out,
+                                                    uint64_t* workspaceSize, aclOpExecutor** executor)
 {
     L2_DFX_PHASE_1(aclnnConfusionTranspose, DFX_IN(x, perm, shape, transpose_first), DFX_OUT(out));
     // 固定写法，创建OpExecutor
@@ -79,7 +80,15 @@ aclnnStatus aclnnConfusionTransposeGetWorkspaceSize(
         x = l0op::Contiguous(x, uniqueExecutor.get());
     }
 
-    const aclTensor* result = l0op::ConfusionTransposeD(x, perm, shape, transpose_first, out, uniqueExecutor.get());
+    // out非连续时使用连续的临时Tensor接收计算结果
+    auto outTensor = out;
+    if (!op::IsContiguous(out)) {
+        outTensor = uniqueExecutor->AllocTensor(out->GetViewShape(), out->GetDataType(), out->GetViewFormat());
+        CHECK_RET(outTensor != nullptr, ACLNN_ERR_INNER_NULLPTR);
+    }
+
+    const aclTensor* result = l0op::ConfusionTransposeD(x, perm, shape, transpose_first, outTensor,
+                                                        uniqueExecutor.get());
     CHECK_RET(result != nullptr, ACLNN_ERR_INNER_NULLPTR);
     auto outResult = l0op::ViewCopy(result, out, uniqueExecutor.get());
     CHECK_RET(outResult != nullptr, ACLNN_ERR_INNER_NULLPTR);
@@ -90,8 +99,8 @@ aclnnStatus aclnnConfusionTransposeGetWorkspaceSize(
     return ACLNN_SUCCESS;
 }
 
-aclnnStatus aclnnConfusionTranspose(
-    void* workspace, uint64_t workspaceSize, aclOpExecutor* executor, aclrtStream stream)
+aclnnStatus aclnnConfusionTranspose(void* workspace, uint64_t workspaceSize, aclOpExecutor* executor,
+                                    aclrtStream stream)
 {
     L2_DFX_PHASE_2(aclnnConfusionTranspose);
     // 固定写法，调用框架能力，完成计算

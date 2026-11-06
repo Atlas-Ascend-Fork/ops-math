@@ -119,7 +119,7 @@ aclnnStatus aclnnArange(
       <td>FLOAT16, FLOAT, DOUBLE, INT32, INT64, BFLOAT16</td>
       <td>ND</td>
       <td>-</td>
-      <td>-</td>
+      <td>√</td>
     </tr>
     <tr>
       <td>workspaceSize</td>

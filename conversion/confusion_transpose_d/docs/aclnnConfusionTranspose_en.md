@@ -139,7 +139,7 @@ aclnnStatus aclnnConfusionTranspose(
       <td class="tg-0lax">Same as input x</td>
       <td class="tg-0lax">Same as input x</td>
       <td class="tg-0lax">-</td>
-      <td class="tg-0lax">-</td>
+      <td class="tg-0lax">√</td>
     </tr>
     <tr>
       <td class="tg-0pky">workspaceSize(uint64_t*)</td>
