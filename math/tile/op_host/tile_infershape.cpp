@@ -12,6 +12,8 @@
  * \file tile_infershape.cpp
  * \brief
  */
+#include <limits>
+
 #include "register/op_impl_registry.h"
 #include "op_api/op_util.h"
 #include "log/log.h"
@@ -34,6 +36,8 @@ ge::graphStatus TileInferShapeCommon(gert::InferShapeContext* context, const T* 
     OP_CHECK_NULL_WITH_CONTEXT(context, in_shape);
     auto out_shape = context->GetOutputShape(TILE_OUT_IDX);
     OP_CHECK_NULL_WITH_CONTEXT(context, out_shape);
+    OP_CHECK_IF(multiples_data == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "multiples"),
+                return ge::GRAPH_FAILED);
     auto in_shape_len = in_shape->GetDimNum();
     if (Ops::Base::IsUnknownRank(*in_shape)) {
         OP_LOGI(context->GetNodeName(), "input shape is unknown rank [-2], output rank = multiples len.");
@@ -69,8 +73,27 @@ ge::graphStatus TileInferShapeCommon(gert::InferShapeContext* context, const T* 
     out_shape->SetDimNum(in_shape_len);
     for (uint64_t i = 0; i < in_shape_len; i++) {
         if (in_shape_new[i] >= 0) {
-            int32_t multiples_index = multiples_len - in_shape_len + i;
-            out_shape->SetDim(i, in_shape_new[i] * (multiples_index >= 0 ? multiples_data[multiples_index] : 1));
+            int32_t multiples_index = static_cast<int32_t>(multiples_len - in_shape_len + i);
+            int64_t multiple = 1;
+            if (multiples_index >= 0) {
+                multiple = static_cast<int64_t>(multiples_data[multiples_index]);
+            }
+            if (multiple < 0) {
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                    context->GetNodeName(), "multiples",
+                    ("multiples[" + std::to_string(multiples_index) + "]=" + std::to_string(multiple)).c_str(),
+                    "the value of multiples must be greater than zero");
+                return ge::GRAPH_FAILED;
+            }
+            OP_CHECK_IF((multiple != 0) && (in_shape_new[i] > std::numeric_limits<int64_t>::max() / multiple),
+                        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                            context->GetNodeName(), "output.shape",
+                            ("dim[" + std::to_string(i) + "]=" + std::to_string(in_shape_new[i]) + "x" +
+                             std::to_string(multiple))
+                                .c_str(),
+                            "the output dim exceeds the int64 max value"),
+                        return ge::GRAPH_FAILED);
+            out_shape->SetDim(i, in_shape_new[i] * multiple);
         } else {
             // 动态shape场景：输入维度未知（值为-1等），输出对应维度保持未知，不报错
             out_shape->SetDim(i, in_shape_new[i]);
@@ -129,9 +152,15 @@ static ge::graphStatus InferShape4Tile(gert::InferShapeContext* context)
 
     if (data_type == DT_INT32) {
         const int32_t* multiples_data = multiples_tensor->GetData<int32_t>();
+        if (multiples_data == nullptr) {
+            return TileInferShapeWithUnknownMultiples(context, x_shape, out_shape);
+        }
         return TileInferShapeCommon<int32_t>(context, multiples_data, multiples_size);
     }
     const int64_t* multiples_data = multiples_tensor->GetData<int64_t>();
+    if (multiples_data == nullptr) {
+        return TileInferShapeWithUnknownMultiples(context, x_shape, out_shape);
+    }
     return TileInferShapeCommon<int64_t>(context, multiples_data, multiples_size);
 }
 
