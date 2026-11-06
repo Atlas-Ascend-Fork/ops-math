@@ -28,18 +28,32 @@ weights at each index.
 
 *@par Inputs:
 *The input size must be a non-negative int32 scalar Tensor. Inputs include:
-*@li array:1D Tensor for each value in the range [0, size).
-*@li size:non-negative int32 scalar Tensor.
+*@li array:1D Tensor for each value in the range [0, size). Every element of
+array must satisfy 0 <= value < size. This is a caller obligation: the
+operator does not currently clamp or reject out-of-range elements, and
+passing them leads to out-of-bounds accumulation.
+*@li size:non-negative int32 scalar Tensor. Its constant value must be
+resolvable at graph compile time, otherwise tiling fails.
 *@li weights: is an int32, int64, float32, or double Tensor with the same
 shape as arr, or a length-0 Tensor, in which case it acts as all weights
-equal to 1. \n
+equal to 1. The dtype of weights must be identical to the dtype of bins. \n
 
 *@par Outputs:
 *bins:1D Tensor with length equal to size. The counts or summed weights for
-each value in the range [0, size). \n
+each value in the range [0, size). The length of bins must be exactly equal
+to the value of size. \n
+
+*@attention The declared weights/bins dtype domain below is wider than the
+dtype domain currently registered in the operator information library and
+accepted by tiling. Unifying the dtype domain across layers is pending a
+separate decision; refer to README.md for the dtype range that is executable
+today.
 
 *@par Third-party framework compatibility
-*Compatible with tensorflow Bincount operator.
+*Compatible with tensorflow Bincount operator. A TensorFlow graph parser
+plugin is provided in framework/bincount_tf_plugin.cpp to map TensorFlow
+Bincount nodes onto this operator IR. No end-to-end TensorFlow or PyTorch
+binding is delivered for this operator.
 */
 
 REG_OP(Bincount)

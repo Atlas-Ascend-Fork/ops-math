@@ -25,7 +25,7 @@
 
 - 接口功能:
 
-  计算非负整数数组中每个数的频率。minlength为输出tensor的最小size；当weights为空指针时，self中的self[i]每出现一次，则其频率加1，当weights不为空时，self[i]每出现一次，其频率加weights[i]，最后存放到out的self[i]+1位置上；因此out大小为(self的最大值+1)与minlength中的最大值。
+  计算非负整数数组中每个数的频率。minlength为输出tensor的最小size；当weights为空指针时，self中的self[i]每出现一次，则其频率加1，当weights不为空时，self[i]每出现一次，其频率加weights[i]，最后存放到out的self[i]位置上；因此out大小为(self的最大值+1)与minlength中的最大值。
 
 - 计算公式：
 
@@ -113,7 +113,7 @@ aclnnStatus aclnnBincount(
       <td>minlength（int64_t）</td>
       <td>输入</td>
       <td>指定输出tensor最小长度。</td>
-      <td>如果计算出来的self的最大值小于minlength，则out的长度为minlength，否则为self的最大值加1。</td>
+      <td>如果计算出来的self的最大值小于minlength，则out的长度为minlength，否则为self的最大值加1。取值范围为[0, 2147483647]。</td>
       <td>int64_t</td>
       <td>-</td>
       <td>-</td>
@@ -123,7 +123,7 @@ aclnnStatus aclnnBincount(
       <td>out（aclTensor*）</td>
       <td>输出</td>
       <td>输出tensor。</td>
-      <td>out的长度为self的最大值加1和minlength二者取最大。</td>
+      <td>out的长度为self的最大值加1和minlength二者取最大，且不得超过2147483647。</td>
       <td>INT32、INT64、FLOAT、DOUBLE</td>
       <td>1维ND</td>
       <td>-</td>
@@ -175,12 +175,21 @@ aclnnStatus aclnnBincount(
       <td>传入的self或out是空指针。</td>
     </tr>
     <tr>
-      <td rowspan="2">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="2">161002</td>
+      <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="5">161002</td>
       <td>self、out、weights的数据类型和数据格式不在支持的范围之内。</td>
     </tr>
     <tr>
+      <td>self不是1维。</td>
+    </tr>
+    <tr>
       <td>当weights不为空时，self、weights shape不一致。</td>
+    </tr>
+    <tr>
+      <td>当weights不为空时，self、weights数据格式不一致。</td>
+    </tr>
+    <tr>
+      <td>输出长度（max(self的最大值+1, minlength)）超过2147483647。</td>
     </tr>
   </tbody>
   </table>
@@ -230,6 +239,12 @@ aclnnStatus aclnnBincount(
 
 ## 约束说明
 
+- 输出长度：out的长度由调用方分配，须等于max(self的最大值+1, minlength)，且不得超过2147483647。
+- 取值范围：self的每个元素取值必须落在[0, out的长度)区间内，该约束由调用方保证。
+- 空Tensor：
+  - self为空Tensor且minlength大于0时，out的各元素置0，接口返回ACLNN_SUCCESS。
+  - self为空Tensor且minlength小于或等于0时，不执行计算，workspaceSize置0，接口返回ACLNN_SUCCESS。
+- 动态shape：本接口要求self、weights、out均为具体shape，不接受-1、-2形式的动态维。
 - 确定性计算：
 
   <!-- npu="A3,910b,910,310p" id7 -->
