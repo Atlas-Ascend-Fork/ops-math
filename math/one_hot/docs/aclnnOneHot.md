@@ -140,7 +140,7 @@ aclnnStatus aclnnOneHot(
       <td>out（aclTensor*）</td>
       <td>输出</td>
       <td>表示one-hot张量，公式中的输出out。</td>
-      <td>输出维度比self维度多1维，输出的shape与在self的shape在axis轴插入numClasses后的shape一致。</td>
+      <td>输出维度比self维度多1维，输出的shape与self的shape在axis轴插入numClasses后的shape一致。</td>
       <td>FLOAT16、FLOAT、INT8、UINT8、INT32、INT64</td>
       <td>ND</td>
       <td>1-8</td>

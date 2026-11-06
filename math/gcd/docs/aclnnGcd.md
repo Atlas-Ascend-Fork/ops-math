@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-对给定的self和other计算element-wise维度的最大公约数，其中self和other都需要为整数。
+对给定的self和other计算element-wise的最大公约数，其中self和other都需要为整数。
 
 ## 函数原型
 

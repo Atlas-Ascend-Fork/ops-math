@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-- 接口功能：创建一个大小为$\text{steps}$的一维张量，其值在$\text{base}^\text{start}$到$\text{base}^\text{end}$上对数尺度上均匀间隔，包含端点，以$\text{base}$为底。
+- 接口功能：创建一个大小为$\text{steps}$的一维张量，其值在$\text{base}^\text{start}$到$\text{base}^\text{end}$上以对数尺度均匀间隔，包含端点，以$\text{base}$为底。
 
 - 计算公式：
 

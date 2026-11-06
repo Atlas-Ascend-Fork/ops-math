@@ -32,7 +32,7 @@
   \left | self_{i}-other_{i}\right | \le  atol + rtol\times \left | other_{i} \right |
   $$
 
-  当self和other都是有限值时，以上公式成立。当self和other都是非有限时，且仅当它们是相等时，结果为True。当equal_nan为True，NaNs被认为是close的；当equal_nan为False，NaNs被认为是不close。
+  当self和other都是有限值时，以上公式成立。当self和other都是非有限时，且仅当它们相等时，结果为True。当equal_nan为True，NaNs被认为是close的；当equal_nan为False，NaNs被认为是不close。
 
 ## 函数原型
 

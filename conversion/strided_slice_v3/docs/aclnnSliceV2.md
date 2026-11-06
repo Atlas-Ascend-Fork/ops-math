@@ -215,7 +215,7 @@ aclnnStatus aclnnSliceV2(
       <td>self的shape维度大于8。</td>
     </tr>
     <tr>
-      <td>axes中有值的取值越界，不在[-self.dim(), self.dim() - 1]，或表示的轴有重复。</td>
+      <td>axes的取值越界，不在[-self.dim(), self.dim() - 1]，或表示的轴有重复。</td>
     </tr>
     <tr>
       <td>steps中有值小于等于0。</td>

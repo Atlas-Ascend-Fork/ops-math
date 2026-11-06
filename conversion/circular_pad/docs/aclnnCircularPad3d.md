@@ -110,7 +110,7 @@ aclnnStatus aclnnCircularPad3d(
       <td>padding（aclIntArray*）</td>
       <td>输入</td>
       <td>输入中需要填充的维度。</td>
-      <td><ul><li>数据格式长度为6，数值依次代表左右上下前后需要填充的值。</li><li>padding前两个数值对应self最后一维，中间两个对应倒数第二维，后两个对应倒数第三维。</li></ul></td>
+      <td><ul><li>长度为6，数值依次代表左右上下前后需要填充的值。</li><li>padding前两个数值对应self最后一维，中间两个对应倒数第二维，后两个对应倒数第三维。</li></ul></td>
       <td>INT64</td>
       <td>ND</td>
       <td>-</td>

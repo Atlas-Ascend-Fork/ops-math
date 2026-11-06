@@ -56,7 +56,7 @@
   - aclnnRemainderTensorTensor：需新建一个输出张量对象存储计算结果。
   - aclnnInplaceRemainderTensorTensor：无需新建输出张量对象，直接在输入张量的内存中存储计算结果。
 
-- 每个算子分为[两段式接口](../../../docs/zh/context/two_phase_api.md)，必须先调用“aclnnRemainderTensorTensorGetWorkspaceSize”或者”aclnnInplaceRemainderTensorTensorGetWorkspaceSize“接口获取计算所需workspace大小以及包含了算子计算流程的执行器，再调用“aclnnRemainderTensorTensor”或者”aclnnInplaceRemainderTensorTensor“接口执行计算。
+- 每个算子分为[两段式接口](../../../docs/zh/context/two_phase_api.md)，必须先调用“aclnnRemainderTensorTensorGetWorkspaceSize”或者“aclnnInplaceRemainderTensorTensorGetWorkspaceSize”接口获取计算所需workspace大小以及包含了算子计算流程的执行器，再调用“aclnnRemainderTensorTensor”或者“aclnnInplaceRemainderTensorTensor”接口执行计算。
 
   - `aclnnStatus aclnnRemainderTensorTensorGetWorkspaceSize(const aclTensor *self, const aclTensor *other, aclTensor *out, uint64_t *workspaceSize, aclOpExecutor **executor)`
   - `aclnnStatus aclnnRemainderTensorTensor(void *workspace, uint64_t workspaceSize, aclOpExecutor *executor, aclrtStream stream)`

@@ -194,7 +194,7 @@ aclnnStatus aclnnRoll(
       <td>x的数据格式不在支持的范围内。</td>
     </tr>
     <tr>
-      <td>当dims非空时，shifts和dims的size不保持一致。</td>
+      <td>当dims非空时，shifts和dims的size不一致。</td>
     </tr>
     <tr>
       <td>当dims为空时，shifts数组长度不等于1。</td>

@@ -32,7 +32,7 @@
      out\_mul = gradOutput * gradSelf
      $$
   2. 生成（N4,N4）类型为bool的三角矩阵A，上三角为True，下三角为False，对角线为True。
-  3. 用0填充输入$out\_mul$里面与矩阵A中值为True的位置相对应的元素。
+  3. 用0填充$out\_mul$里面与矩阵A中值为True的位置相对应的元素。
 
      $$
      out\_mul_i=

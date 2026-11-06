@@ -275,7 +275,7 @@ aclnnStatus aclnnInplacePowTensorTensor(
   <tbody>
     <tr>
       <td>self（aclTensor*）</td>
-      <td>输入|输出</td>
+      <td>输入/输出</td>
       <td>公式中的x和out，pow运算的底数，计算结果写回此tensor。</td>
       <td>数据类型是self与exponent推导之后可转换的数据类型，shape需要与exponent满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>。</td>
       <td>FLOAT、FLOAT16、DOUBLE、INT32、INT64、INT8、UINT8、COMPLEX64、COMPLEX128、INT16、BFLOAT16</td>

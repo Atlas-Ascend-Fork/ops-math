@@ -285,8 +285,8 @@ repeat功能内部broadcast的kernel有最大8维度的限制，暂不支持扩�
   限制1.当需要对第一根轴进行repeat时，最大支持同时对4个维度进行repeat操作（即repeats的参数非1数据个数不超过4）。
 
   ```text
-   x.repeat(2, 3, 4, 5, 6)  # 不支持，校验报错，第一根轴为repeat为2，同时5个非1repeat参数
-   x.repeat(2, 3, 1, 5, 6)  # 支持，第一根轴为repeat为2，同时4个非1repeat参数
+   x.repeat(2, 3, 4, 5, 6)  # 不支持，校验报错，第一根轴repeat为2，同时5个非1repeat参数
+   x.repeat(2, 3, 1, 5, 6)  # 支持，第一根轴repeat为2，同时4个非1repeat参数
   ```
 
   限制2.当不需要对第一根轴进行repeat时，最大支持同时对3个维度进行repeat操作（即repeats的参数非1数据个数不超过3）。

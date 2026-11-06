@@ -95,7 +95,7 @@ aclnnStatus aclnnTransConvolutionWeight(
   <tr>
   <td>weightOut（aclTensor*）</td>
   <td>输出</td>
-  <td>表示返回输入weight转换为私有格式后的tensor。</td>
+  <td>表示输入weight转换为私有格式后的tensor。</td>
   <td>支持空Tensor输出；当weightOut为空Tensor时，weightIn也必须为空Tensor。</td>
   <td>FLOAT16</td>
   <td>NCHW</td>
@@ -202,7 +202,7 @@ aclnnStatus aclnnTransConvolutionWeight(
 - 确定性计算：aclnnTransConvolutionWeight默认确定性实现。
 - 仅支持正向Conv2D场景。
 - 不支持转置卷积。
-- 不支持cache缓存能力。
+- 不支持缓存能力。
 - 支持空Tensor：当weightIn与weightOut均为空Tensor时，不执行实际转换，workspaceSize返回0。
 
 ## 调用示例

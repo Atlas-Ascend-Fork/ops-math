@@ -158,7 +158,7 @@ aclnnStatus aclnnNpuFormatCast(
             <td>actualFormat（int*）</td>
             <td>输出</td>
             <td>用于输出dstTensor实际数据格式的指针。</td>
-            <td>括号中对应其对应的枚举值。</td>
+            <td>括号中内容为其对应的枚举值。</td>
             <td>None</td>
             <td>ACL_FORMAT_ND（2）、ACL_FORMAT_NZ（29）、ACL_FORMAT_NCL（47）、ACL_FORMAT_NCHW<sup>1</sup>（0）、ACL_FORMAT_NHWC<sup>1</sup>（1）、ACL_FORMAT_HWCN<sup>1</sup>（16）、ACL_FORMAT_NCDHW<sup>1</sup>（30）、ACL_FORMAT_NDHWC<sup>1</sup>（27）、ACL_FORMAT_DHWCN<sup>1</sup>（31）、ACL_FORMAT_NDC1HWC0<sup>1</sup>（32）、ACL_FORMAT_FRACTAL_Z_3D<sup>1</sup>（33）、ACL_FORMAT_NC1HWC0<sup>1</sup>（3）、ACL_FORMAT_FRACTAL_Z<sup>1</sup>（4）。</td>
             <td>None</td>
@@ -251,7 +251,7 @@ aclnnStatus aclnnNpuFormatCast(
             <td>srcTensor（aclTensor*）</td>
             <td>输入</td>
             <td>输入张量，输入的数据只支持连续的Tensor。</td>
-            <td>括号中对应其对应的枚举值。</td>
+            <td>括号中内容为其对应的枚举值。</td>
             <td>INT8（2）、UINT8（4）、INT32（3）、UINT32（8）、FLOAT（0）、FLOAT16（1）、BFLOAT16（27）、FLOAT8_E4M3FN<sup>2</sup>（36）、FLOAT4_E2M1<sup>2</sup>（40）、FLOAT4_E1M2<sup>2</sup>（41）、HIFLOAT8<sup>2</sup>（34）、FLOAT8_E8M0<sup>2</sup>（37）</td>
             <td>ND、NZ、NCDHW、NDC1HWC0、FRACTAL_Z_3D、NCL<sup>2</sup>、NCHW<sup>1</sup></td>
             <td>2-6</td>
@@ -261,7 +261,7 @@ aclnnStatus aclnnNpuFormatCast(
             <td>dstTensor（aclTensor*）</td>
             <td>输入</td>
             <td>转换后的目标张量，只支持连续的Tensor。</td>
-            <td>括号中对应其对应的枚举值。</td>
+            <td>括号中内容为其对应的枚举值。</td>
             <td>INT8（2）、UINT8（4）、INT32（3）、UINT32（8）、FLOAT（0）、FLOAT16（1）、BFLOAT16（27）、FLOAT8_E4M3FN<sup>2</sup>（36）、FLOAT4_E2M1<sup>2</sup>（40）、HIFLOAT8<sup>2</sup>（34）、FLOAT8_E8M0<sup>2</sup>（37）</td>
             <td>ACL_FORMAT_ND（2）、ACL_FORMAT_NZ（29）、ACL_FORMAT_NCL（47）、ACL_FORMAT_NCHW<sup>1</sup>（0）、ACL_FORMAT_NHWC<sup>1</sup>（1）、ACL_FORMAT_HWCN<sup>1</sup>（16）、ACL_FORMAT_NCDHW<sup>1</sup>（30）、ACL_FORMAT_NDHWC<sup>1</sup>（27）、ACL_FORMAT_DHWCN<sup>1</sup>（31）、ACL_FORMAT_NDC1HWC0<sup>1</sup>（32）、ACL_FORMAT_FRACTAL_Z_3D<sup>1</sup>（33）、ACL_FORMAT_NC1HWC0<sup>1</sup>（3）、ACL_FORMAT_FRACTAL_Z<sup>1</sup>（4）。</td>
             <td>4-8</td>

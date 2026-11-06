@@ -86,7 +86,7 @@ aclnnStatus aclnnSignBitsUnpack(
     <tr>
       <td>size（int64_t）</td>
       <td>输入</td>
-      <td>表示维度处理，reshape时输出张量的第一个维度。</td>
+      <td>表示reshape时输出张量的第一个维度。</td>
       <td>-</td>
       <td>-</td>
       <td>-</td>
@@ -96,7 +96,7 @@ aclnnStatus aclnnSignBitsUnpack(
     <tr>
       <td>dtype（aclDataType）</td>
       <td>输入</td>
-      <td>表示量化输出Tensor的数据类型。</td>
+      <td>表示输出Tensor的数据类型。</td>
       <td>仅支持ACL_FLOAT16、ACL_FLOAT；不支持ACL_INT64、ACL_INT8等其他取值。</td>
       <td>-</td>
       <td>-</td>

@@ -219,7 +219,7 @@ aclnnStatus aclnnInplaceBernoulli(
       <td>prob不满足0≤prob≤1。</td>
     </tr>
     <tr>
-      <td>self或out的维度大于8维。</td>
+      <td>self或out的维度大于8。</td>
     </tr>
     <tr>
       <td>self和out的shape不一致。</td>

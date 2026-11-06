@@ -111,7 +111,7 @@ aclnnStatus aclnnPowScalarTensor(
       <tr>
         <td>out（const aclTensor*）</td>
         <td>输出</td>
-        <td>pow运算中的指数输出，公式中的out</td>
+        <td>pow运算中的输出，公式中的out</td>
         <td>数据类型需要是self的数据类型与exponent的数据类型推导之后可转换的数据类型（参见<a href ="../../../docs/zh/context/conversion_relationship.md">互转换关系</a>）。</td>
         <td>FLOAT、FLOAT16、DOUBLE、INT16、INT32、INT64、INT8、UINT8、COMPLEX64、COMPLEX128、BFLOAT16、UINT16、UINT32、UINT64</td>
         <td>ND</td>

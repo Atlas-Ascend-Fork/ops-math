@@ -183,7 +183,7 @@ aclnnStatus aclStft(
     <tr>
       <td>returnComplex</td>
       <td>输入</td>
-      <td>表示确认返回值是complex Tensor或者是实、虚部分开的Tensor。</td>
+      <td>表示返回值是complex Tensor或者是实、虚部分开的Tensor。</td>
       <td>-</td>
       <td>BOOL</td>
       <td>-</td>
@@ -246,7 +246,7 @@ aclnnStatus aclStft(
       <td>self、windowOptional的数据类型不一致。</td>
     </tr>
     <tr>
-      <td>self、windowOptional、out的数据类型不在平台的支持范围之内。</td>
+      <td>self、windowOptional、out的数据类型不在支持的范围之内。</td>
     </tr>
     <tr>
       <td>nFft、hopLength、winLength输入无效值。</td></tr>

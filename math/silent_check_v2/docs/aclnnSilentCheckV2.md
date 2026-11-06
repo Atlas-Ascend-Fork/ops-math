@@ -24,7 +24,7 @@
 ## 功能说明
 
 - 算子功能：
-  新增aclnnSilentCheckV2接口，该版本与[aclnnSilentCheck](../../silent_check/docs/aclnnSilentCheck.md)接口的计算逻辑做了改变，根据stepRef参数判断val与新增马尔可夫不等式阈值进行对比校验。
+  新增aclnnSilentCheckV2接口，该版本与[aclnnSilentCheck](../../silent_check/docs/aclnnSilentCheck.md)接口的计算逻辑做了改变，根据stepRef参数将val与新增马尔可夫不等式阈值进行对比校验。
 - 计算公式：
 
   - 如果stepRef==0:
@@ -280,7 +280,7 @@ aclnnStatus aclnnSilentCheckV2(
   </tbody>
   </table>
 
-## aclnnSilentCheck
+## aclnnSilentCheckV2
 
 - **参数说明**：
 

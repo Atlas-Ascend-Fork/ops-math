@@ -103,7 +103,7 @@ aclnnStatus aclnnConfusionTranspose(
       <td>perm（aclIntArray*）</td>
       <td>输入</td>
       <td>转置后每根轴对应的转置前轴索引，对应公式中的perm。</td>
-      <td>1、该输入中元素必须唯一，并在[0,perm的维度数量-1]范围内。<br>2、当transpose_first为True时，perm的长度必须与x的shape的长度相同，即len(perm)=len(x_shape)。 <br>3、当transpose_first为False时，perm长度必须与属性输入shape的长度相同，即len(perm)=len(shape)。</td>
+      <td>1、该输入中元素必须唯一，并在[0,perm的维度数量-1]范围内。<br>2、当transpose_first为True时，perm的长度必须与x的shape的长度相同，即len(perm)=len(x_shape)。 <br>3、当transpose_first为False时，perm长度必须与输入shape的长度相同，即len(perm)=len(shape)。</td>
       <td>INT64</td>
       <td>-</td>
       <td>-</td>

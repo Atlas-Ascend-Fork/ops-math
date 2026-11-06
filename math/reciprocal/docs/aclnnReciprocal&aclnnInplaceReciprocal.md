@@ -41,9 +41,9 @@ $$
   - aclnnReciprocal：需新建一个输出张量对象存储计算结果。
   - aclnnInplaceReciprocal：无需新建输出张量对象，直接在输入张量的内存中存储计算结果。
 
-- 每个算子分为[两段式接口](../../../docs/zh/context/two_phase_api.md)，必须先调用”aclnnReciprocalGetWorkspaceSize”或者”aclnnInplaceReciprocalGetWorkspaceSize”接口获取计算所需workspace大小以及包含了算子计算流程的执行器，再调用”aclnnReciprocal”或者”aclnnInplaceReciprocal”接口执行计算。
+- 每个算子分为[两段式接口](../../../docs/zh/context/two_phase_api.md)，必须先调用“aclnnReciprocalGetWorkspaceSize”或者“aclnnInplaceReciprocalGetWorkspaceSize”接口获取计算所需workspace大小以及包含了算子计算流程的执行器，再调用”aclnnReciprocal”或者”aclnnInplaceReciprocal”接口执行计算。
 
-```Cpp
+```cpp
 aclnnStatus aclnnReciprocalGetWorkspaceSize(
   const aclTensor* self,
   aclTensor*       out,

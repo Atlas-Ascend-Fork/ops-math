@@ -236,7 +236,7 @@ aclnnStatus aclnnAffineGrid(
 - 确定性计算：
   - aclnnAffineGrid默认确定性实现。
 
-- size中的N、H、W的取值必须在(0, 100000]的取值范围内。
+- size中的N、H、W的取值必须在(0, 100000]范围内。
 - size中的C不参与计算，对取值无约束。
 
 ## 调用示例

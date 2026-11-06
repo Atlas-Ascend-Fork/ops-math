@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-在输入张量中根据每个对象分布的概率，抽取numsamples个样本，并将这些样本的索引存储在输出张量中。
+在输入张量中根据每个多项分布的概率，抽取numsamples个样本，并将这些样本的索引存储在输出张量中。
 
 ## 函数原型
 
@@ -79,7 +79,7 @@ aclnnStatus aclnnMultinomialTensor(
     <tr>
       <td>self（aclTensor*）</td>
       <td>输入</td>
-      <td>输入tensor，表示每个对象分布的概率。</td>
+      <td>输入tensor，表示每个多项分布的概率。</td>
       <td>self的取值范围需要大于等于0。</td>
       <td>BFLOAT16、FLOAT16、FLOAT、DOUBLE</td>
       <td>ND</td>

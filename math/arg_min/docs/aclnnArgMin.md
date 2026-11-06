@@ -175,7 +175,7 @@ aclnnStatus aclnnArgMin(
       <td>推导出的数据类型无法转换为指定输出out的类型。</td>
     </tr>
     <tr>
-      <td>dim超出tensor数组维度。</td>
+      <td>dim超出tensor的维度范围。</td>
     </tr>
     <tr>
       <td>传入的out的shape不满足infershape。</td>

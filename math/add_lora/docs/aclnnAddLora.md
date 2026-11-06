@@ -43,7 +43,7 @@
      $$
      Z2 = Z1 \cdot weightB[i, layerIdx, :, :] \times scale
      $$
-  4. 最终把`Z2`输出累加到y上：
+  4. 最终把`Z2`累加到y上：
 
      $$
      \text{out} = y[:, yOffset: yOffset+ySliceSize] + Z2
@@ -136,7 +136,7 @@ aclnnStatus aclnnAddLora(
      <tr>
       <td>indices（aclTensor*）</td>
       <td>输入</td>
-      <td>标识输入x的分组索引，公式中的输入indices。</td>
+      <td>表示输入x的分组索引，公式中的输入indices。</td>
       <td><ul><li>shape维度1维：[B]。</li><li>第一维需要和x以及y的第一维保持一致，都用`B`表示。</li><li>不支持空Tensor。</li></ul></td>
       <td>INT32</td>
       <td>ND</td>

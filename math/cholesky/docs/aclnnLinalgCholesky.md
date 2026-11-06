@@ -174,7 +174,7 @@ aclnnStatus aclnnLinalgCholesky(
       <td>self的维度小于2。</td>
     </tr>
     <tr>
-      <td>self的最后两维维度不相等。</td>
+      <td>self的最后两维不相等。</td>
     </tr>
     <tr>
       <td>self最后一维的大小超过8192。</td>

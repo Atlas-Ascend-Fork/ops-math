@@ -36,7 +36,7 @@ $$out_i = \begin{cases} 0 & \text{if } self_i = 0 \\ self_i \cdot \ln(other_i) &
   - aclnnXLogYScalarOther：需新建一个输出张量对象存储计算结果。
   - aclnnInplaceXLogYScalarOther：无需新建输出张量对象，直接在输入张量的内存中存储计算结果。
 
-- 每个算子分为[两段式接口](../../../docs/zh/context/two_phase_api.md)，必须先调用“aclnnXLogYScalarOtherGetWorkspaceSize”或者“aclnnInplaceXLogYScalarOtherGetWorkspaceSize”接口获取入参并根据计算流程计算所需workspace大小，再调用“aclnnXLogYScalarOther”或者“aclnnInplaceXLogYScalarOther“接口执行计算。
+- 每个算子分为[两段式接口](../../../docs/zh/context/two_phase_api.md)，必须先调用“aclnnXLogYScalarOtherGetWorkspaceSize”或者“aclnnInplaceXLogYScalarOtherGetWorkspaceSize”接口获取入参并根据计算流程计算所需workspace大小，再调用“aclnnXLogYScalarOther”或者“aclnnInplaceXLogYScalarOther”接口执行计算。
 
 ```cpp
 aclnnStatus aclnnXLogYScalarOtherGetWorkspaceSize(
