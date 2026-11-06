@@ -42,7 +42,6 @@ constexpr int64_t MAX_UINT32_NUM = 4294967295;
 constexpr int64_t UB_RESERVE_SIZE = 8192;
 constexpr int64_t INIT_INDEX_SIZE = 512; // 因为只考虑搬入连续的倒数2个维度
 constexpr int64_t BLOCK_SIZE = 32;
-constexpr int64_t VL_SIZE = 256;
 constexpr int64_t MIN_MOVE_ALIGN_LEN = 128;
 constexpr int64_t NUMBER_THREE = 3;
 constexpr int64_t NUMBER_FOUR = 4;
@@ -211,6 +210,7 @@ protected:
     gert::TilingContext* tilingContext_ = nullptr;
     int32_t dimNum_ = 0;
     int64_t ubElementNum_ = 0;
+    int64_t VL_SIZE = Ops::Base::GetVRegSize(tilingContext_);
     int32_t maxSplitDim_ = MAX_SIMT_UB_SPLIT_AXIS_NUM;
 
     // static ge::graphStatus ConstructSliceParam中构造SliceParametersRuntime2

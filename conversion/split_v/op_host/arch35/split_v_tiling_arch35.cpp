@@ -17,6 +17,7 @@
 #include "atvoss/broadcast/broadcast_tiling.h"
 #include "util/math_util.h"
 #include "op_host/tiling_base_util.h"
+#include "op_host/tiling_util.h"
 #include "log/log.h"
 
 using namespace gert;
@@ -898,6 +899,9 @@ void SplitVTiling::CalSplitSizeDiff(int32_t maxCoreNum, int64_t& maxSizeSplit, i
 // 6) 等长模式下，simd的性能更好
 bool SplitVTiling::IsDoSplitVSIMT(int32_t maxCoreNum)
 {
+    if (!Ops::Math::OpTiling::IsSimtSupported(context_)) {
+        return false;
+    }
     if (isSameLenMode_) {
         return false;
     }

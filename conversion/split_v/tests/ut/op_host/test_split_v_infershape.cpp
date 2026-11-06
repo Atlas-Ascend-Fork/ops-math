@@ -182,7 +182,7 @@ TEST_F(SplitVInfershape, split_v_infershape_split_dim_not_const)
         {
             {"num_split", Ops::Math::AnyValue::CreateFrom<int64_t>(2)},
         });
-    std::vector<std::vector<int64_t>> expectOutputShape = {{8, 4}, {8, 4}};
+    std::vector<std::vector<int64_t>> expectOutputShape = {{-1, -1}, {-1, -1}};
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
 

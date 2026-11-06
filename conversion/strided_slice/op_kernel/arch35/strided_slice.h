@@ -22,8 +22,10 @@
 #include "strided_slice_move_align_last_dim.h"
 #include "strided_slice_nddma.h"
 #include "strided_slice_nddma_last_dim.h"
+#ifdef __CCE_AICORE_SUPPORT_SIMT__
 #include "strided_slice_simt.h"
 #include "strided_slice_simt_big_shape.h"
+#endif
 #include "strided_slice_move_align_gather.h"
 #include "strided_slice_move_align_negative_strides_ub2ub.h"
 #include "strided_slice_nddma_negative_strides_gather.h"
@@ -160,6 +162,7 @@ extern "C" __aicore__ inline void StridedSliceMoveAlignTwoDimProcess(GM_ADDR x, 
     }
 }
 
+#ifdef __CCE_AICORE_SUPPORT_SIMT__
 extern "C" __aicore__ inline void StridedSliceSIMTProcess(GM_ADDR x, GM_ADDR begin, GM_ADDR end, GM_ADDR strides,
                                                           GM_ADDR y, GM_ADDR tiling,
                                                           const StridedSliceSIMTTilingData* tilingData)
@@ -208,6 +211,7 @@ extern "C" __aicore__ inline void StridedSliceSIMTBigShapeProcess(GM_ADDR x, GM_
         op.Process(tiling);
     }
 }
+#endif
 
 // 960DT 专用：末轴按 packFactor 合并为 2B/4B/8B/16B 宽元素后复用同一套 SIMT kernel
 #if defined(__DAV_920R1__)

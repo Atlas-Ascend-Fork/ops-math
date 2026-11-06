@@ -60,9 +60,11 @@ extern "C" __global__ __aicore__ void strided_slice_v2(GM_ADDR x, GM_ADDR begin,
     } else if (TILING_KEY_IS(STRIDED_SLICE_KEY_MOVE_ALIGN_TWO_DIM)) {
         GET_TILING_DATA_WITH_STRUCT(StridedSliceMALast2DimTilingData, tilingData, tiling);
         StridedSliceMoveAlignTwoDimProcess(x, begin, end, strides, y, &tilingData);
+#ifdef __CCE_AICORE_SUPPORT_SIMT__
     } else if (TILING_KEY_IS(STRIDED_SLICE_KEY_SIMT)) {
         GET_TILING_DATA_WITH_STRUCT(StridedSliceSIMTTilingData, tilingData, tiling);
         StridedSliceSIMTProcess(x, begin, end, strides, y, tiling, &tilingData);
+#endif
 #if defined(__DAV_920R1__)
     } else if (TILING_KEY_IS(STRIDED_SLICE_KEY_SIMT_PACK_2B)) {
         GET_TILING_DATA_WITH_STRUCT(StridedSliceSIMTTilingData, tilingData, tiling);
@@ -77,9 +79,11 @@ extern "C" __global__ __aicore__ void strided_slice_v2(GM_ADDR x, GM_ADDR begin,
         GET_TILING_DATA_WITH_STRUCT(StridedSliceSIMTTilingData, tilingData, tiling);
         StridedSliceSIMTPack16BProcess(x, begin, end, strides, y, tiling, &tilingData);
 #endif
+#ifdef __CCE_AICORE_SUPPORT_SIMT__
     } else if (TILING_KEY_IS(STRIDED_SLICE_KEY_SIMT_BIG_SHAPE)) {
         GET_TILING_DATA_WITH_STRUCT(StridedSliceSIMTTilingData, tilingData, tiling);
         StridedSliceSIMTBigShapeProcess(x, begin, end, strides, y, tiling, &tilingData);
+#endif
 #if defined(__DAV_920R1__)
     } else if (TILING_KEY_IS(STRIDED_SLICE_KEY_SIMT_BIG_SHAPE_PACK_2B)) {
         GET_TILING_DATA_WITH_STRUCT(StridedSliceSIMTTilingData, tilingData, tiling);

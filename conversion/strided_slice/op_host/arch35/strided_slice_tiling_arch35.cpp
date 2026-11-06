@@ -14,6 +14,7 @@
  */
 #include "strided_slice_tiling_arch35.h"
 #include "common/inc/op_host/op_const_def_math.h"
+#include "op_host/tiling_util.h"
 
 namespace optiling {
 static const std::string OP_NAME = "StridedSlice";
@@ -357,12 +358,21 @@ void StrideSliceTiling::CalcUbSplitInfoNeg()
 ge::graphStatus StrideSliceTiling::RunStrideSliceTiling()
 {
     OP_LOGD(tilingContext_->GetNodeName(), "Start running Tiling4StrideSlice.");
+    const bool simtSupported = Ops::Math::OpTiling::IsSimtSupported(tilingContext_);
     // WARNING: 优先判断 isEmptyTensor_，else分支内不需要除0保护
     if (isEmptyTensor_) {
         OP_LOGI(tilingContext_->GetNodeName(), "Input or Output tensor is empty, set SIMT mode.");
         SetSIMTTilingMode();
     } else if (isStrideNeg_) {
         CalMaxSplitDimNeg();
+        if (!simtSupported && maxSplitDim_ == MAX_SIMT_UB_SPLIT_AXIS_NUM) {
+            // 平台不支持SIMT(200-214)时，负stride兜底走NDDMA gather(302/303)。
+            maxSplitDim_ = MAX_NDDMA_UB_SPLIT_AXIS_NUM_NEG;
+            isNddma_ = true;
+            // 最内轴负步长无法用 UB2UB 抽取（见 arch31 同场景保底注释），必须置 useGather_，
+            // 使 SetNddmaTilingModeNeg 下发 NDDMA_GATHER(302) 而非 NDDMA_UB2UB(303)。
+            useGather_ = true;
+        }
         if (maxSplitDim_ != MAX_SIMT_UB_SPLIT_AXIS_NUM) {
             CalcBlockSplitInfo();
             CalcUbSplitInfoNeg();
@@ -370,6 +380,10 @@ ge::graphStatus StrideSliceTiling::RunStrideSliceTiling()
         SetTilingModeNeg();
     } else {
         CalMaxSplitDim();
+        if (!simtSupported && maxSplitDim_ == MAX_SIMT_UB_SPLIT_AXIS_NUM) {
+            // 平台不支持SIMT(200-214)时，正stride兜底走NDDMA(102/103)
+            maxSplitDim_ = MAX_NDDMA_UB_SPLIT_AXIS_NUM;
+        }
         if (maxSplitDim_ == MAX_TWO_DIM_UB_SPLIT_AXIS_NUM) {
             SetTwoDimTilingInfo();
         } else if (totalOutputSize_ <= LAST_DIM_MIN_DATA_SIZE && dimNum_ <= maxSplitDim_) {

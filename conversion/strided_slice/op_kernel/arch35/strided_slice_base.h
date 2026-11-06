@@ -20,7 +20,9 @@
 #include "kernel_operator.h"
 #include "op_kernel/math_util.h"
 #include "op_kernel/platform_util.h"
+#ifdef __CCE_AICORE_SUPPORT_SIMT__
 #include "simt_api/asc_simt.h"
+#endif
 
 namespace StridedSlice {
 using namespace AscendC;

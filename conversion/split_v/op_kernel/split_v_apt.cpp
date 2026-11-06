@@ -15,6 +15,7 @@
 #include "arch35/split_v_ub_split_same_len.h"
 #include "arch35/split_v_ub_split_same_len_small_g.h"
 #include "arch35/split_v_ub_split_same_len_deinterleave.h"
+#ifdef __CCE_AICORE_SUPPORT_SIMT__
 #include "arch35/split_v_simt.h"
 #include "arch35/split_v_simt_same_len.h"
 #include "arch35/split_v_simt_split_in_tensor.h"
@@ -22,6 +23,7 @@
 // #include "arch35/split_v_simt_chunk_ub.h"
 #include "arch35/split_v_simt_chunk_pre.h"
 #include "arch35/split_v_simt_same_len_split_in_tensor.h"
+#endif
 #include "kernel_operator.h"
 
 #define TILING_KEY_PURE_MOVE_SAME_LEN 100
@@ -205,7 +207,9 @@ extern "C" __global__ __aicore__ void split_v(GM_ADDR x, GM_ADDR sizeSplits, GM_
             op.Init(x, y, &tilingData);
             op.Process();
         }
-    } else if (TILING_KEY_IS(TILING_KEY_SIMT)) {
+    }
+#ifdef __CCE_AICORE_SUPPORT_SIMT__
+    else if (TILING_KEY_IS(TILING_KEY_SIMT)) {
         GET_TILING_DATA_WITH_STRUCT(SplitVSIMTTilingData, tilingData, tiling);
         if constexpr (sizeof(DTYPE_X) == sizeof(int8_t)) {
             SplitV::SplitVSIMT<uint8_t, DTYPE_SIZE_SPLITS> op;
@@ -316,4 +320,5 @@ extern "C" __global__ __aicore__ void split_v(GM_ADDR x, GM_ADDR sizeSplits, GM_
             op.Process();
         }
     }
+#endif
 }
