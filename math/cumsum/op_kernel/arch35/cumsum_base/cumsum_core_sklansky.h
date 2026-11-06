@@ -478,7 +478,7 @@ __aicore__ inline void CumsumCoreSklansky<T, PromtT>::DoAddTailN(DataCopyExtPara
         AscendC::Reg::RegTensor<uint32_t> addFactorIndexRegTensor;
         AscendC::Reg::RegTensor<PromtT> addFactorRegTensor;
         AscendC::Reg::RegTensor<PromtT> addDataRegTensor;
-        for (uint16_t i = 0; i < addFactorCircleLoop - 1; i++) {
+        for (uint16_t i = 0; i < static_cast<uint16_t>(addFactorCircleLoop - 1); i++) {
             for (uint16_t j = 0; j < addFactorCircleCount_; j++) {
                 // 搬入addFactor
                 AscendC::Reg::AddrReg addrReg = AscendC::Reg::CreateAddrReg<uint32_t>(j, vlElementCount);
