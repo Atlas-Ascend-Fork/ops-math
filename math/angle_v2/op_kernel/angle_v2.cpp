@@ -60,7 +60,8 @@ extern "C" __global__ __aicore__ void angle_v2(GM_ADDR x, GM_ADDR y, GM_ADDR wor
     } else if (TILING_KEY_IS(KEY_DTYPE_INT64)) {
         RUN_ANGLE_OP(AngleV2N::AngleV2Int<int64_t, float>);
     }
-#if (__NPU_ARCH__ == 3510)
+// regbase 架构（950/350：3510；960DT：9201）支持 bf16 原生比较
+#if ((__NPU_ARCH__ == 3510) || (__NPU_ARCH__ == 9201))
     else if (TILING_KEY_IS(KEY_DTYPE_BF16)) {
         RUN_ANGLE_OP(AngleV2N::AngleV2<bfloat16_t>);
     }

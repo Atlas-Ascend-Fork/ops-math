@@ -94,6 +94,7 @@ public:
             .DynamicRankSupportFlag(true)
             .DynamicShapeSupportFlag(true);
         this->AICore().AddConfig("ascend950", aicore_a5_config);
+        this->AICore().AddConfig("ascend960dt", aicore_a5_config);
 
         OpAICoreConfig config_kirin = GetKirinCoreConfig();
         this->AICore().AddConfig("kirinx90", config_kirin);
