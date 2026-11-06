@@ -11,6 +11,7 @@
  */
 
 #include <gtest/gtest.h>
+#include "experiment/metadef/common/util/error_manager/error_manager.h"
 #include "tiling_context_faker.h"
 #include "tiling_case_executor.h"
 #include "../../../../op_kernel/arch35/fresnel_sin_tiling_data.h"
@@ -57,6 +58,24 @@ static bool RunTiling(const FresnelSinTestParam& param, TilingInfo& info)
     gert::TilingContextPara tilingPara(OP_NAME, inputDesc, outputDesc, &compileInfo, param.maxAIVNum, param.ubSize,
                                        param.tilingDataMaxSize);
     return ExecuteTiling(tilingPara, info);
+}
+
+// Helper: run tiling, expect GRAPH_FAILED, and assert the framework error reports
+// carry the given error id as the one and only formal report (ErrorManager raw
+// messages; GetRawErrorMessages is destructive, so drain leftovers first — same
+// form as math/atanh UT). The tiling entry wraps GetShapeAttrsInfo failures with
+// a log-only OP_LOGE_WITHOUT_REPORT, so the specific first report must not be
+// followed by a generic EZ9999 wrapper report.
+static void ExpectTilingFailureWithReport(const FresnelSinTestParam& param, const char* expectErrorId)
+{
+    auto& errors = ErrorManager::GetInstance();
+    ASSERT_EQ(errors.Init(), 0);
+    (void)errors.GetRawErrorMessages();
+    TilingInfo info;
+    EXPECT_FALSE(RunTiling(param, info));
+    const auto reports = errors.GetRawErrorMessages();
+    ASSERT_EQ(reports.size(), 1U);
+    EXPECT_EQ(reports[0].error_id, expectErrorId);
 }
 
 // =============================================================================
@@ -399,6 +418,132 @@ TEST_F(FresnelSinTilingTest, reject_totalIdx_exceeds_uint32max)
     TilingInfo info;
     bool ok = ExecuteTiling(tilingPara, info);
     EXPECT_FALSE(ok);
+}
+
+// =============================================================================
+// Negative element totals (FR-P1-003): dims(2, -4) gives totalIdx = -8, dims(-1)
+// gives totalIdx = -1, and (4294967296, 4294967296) overflows GetShapeSize into
+// its INT64_MIN sentinel. All three paths must be rejected (GRAPH_FAILED with
+// report EZ0015) instead of wrapping the uint32 per-core split below.
+// =============================================================================
+TEST_F(FresnelSinTilingTest, reject_totalIdx_negative_dim)
+{
+    FresnelSinTestParam p = {
+        "neg_dim", {2, -4}, ge::DT_FLOAT, ge::FORMAT_ND, {2, -4}, ge::DT_FLOAT, ge::FORMAT_ND, ge::GRAPH_FAILED,
+        0,         {},      64,           262144,        4096};
+    ExpectTilingFailureWithReport(p, "EZ0015");
+}
+
+TEST_F(FresnelSinTilingTest, reject_totalIdx_negative_unknown_dim)
+{
+    FresnelSinTestParam p = {"neg_unknown_dim",
+                             {-1},
+                             ge::DT_FLOAT,
+                             ge::FORMAT_ND,
+                             {-1},
+                             ge::DT_FLOAT,
+                             ge::FORMAT_ND,
+                             ge::GRAPH_FAILED,
+                             0,
+                             {},
+                             64,
+                             262144,
+                             4096};
+    ExpectTilingFailureWithReport(p, "EZ0015");
+}
+
+TEST_F(FresnelSinTilingTest, reject_totalIdx_size_overflow_sentinel)
+{
+    // 2^32 * 2^32 overflows int64: GetShapeSize returns kInvalidDimValue (INT64_MIN)
+    FresnelSinTestParam p = {"size_overflow_sentinel",
+                             {4294967296, 4294967296},
+                             ge::DT_FLOAT,
+                             ge::FORMAT_ND,
+                             {4294967296, 4294967296},
+                             ge::DT_FLOAT,
+                             ge::FORMAT_ND,
+                             ge::GRAPH_FAILED,
+                             0,
+                             {},
+                             64,
+                             262144,
+                             4096};
+    ExpectTilingFailureWithReport(p, "EZ0015");
+}
+
+// =============================================================================
+// Negative dims with non-negative product (PR #7077 review C01): dims(-1,-1)
+// multiply to totalIdx = 1 (positive) and dims(-1,0) multiply to totalIdx = 0,
+// so neither is caught by the negative-total check below — and {-1,0} would
+// even take the empty-tensor success short-circuit. Both must be rejected
+// per-axis with report EZ0015 before the total-based checks.
+// =============================================================================
+TEST_F(FresnelSinTilingTest, reject_negative_dims_positive_product)
+{
+    FresnelSinTestParam p = {"neg_dims_pos_product",
+                             {-1, -1},
+                             ge::DT_FLOAT,
+                             ge::FORMAT_ND,
+                             {-1, -1},
+                             ge::DT_FLOAT,
+                             ge::FORMAT_ND,
+                             ge::GRAPH_FAILED,
+                             0,
+                             {},
+                             64,
+                             262144,
+                             4096};
+    ExpectTilingFailureWithReport(p, "EZ0015");
+}
+
+TEST_F(FresnelSinTilingTest, reject_negative_dims_zero_product)
+{
+    FresnelSinTestParam p = {"neg_dims_zero_product",
+                             {-1, 0},
+                             ge::DT_FLOAT,
+                             ge::FORMAT_ND,
+                             {-1, 0},
+                             ge::DT_FLOAT,
+                             ge::FORMAT_ND,
+                             ge::GRAPH_FAILED,
+                             0,
+                             {},
+                             64,
+                             262144,
+                             4096};
+    ExpectTilingFailureWithReport(p, "EZ0015");
+}
+
+// =============================================================================
+// Invalid dtype error report (FR-P1-002): the rejection must carry the real
+// dtype serial string (DT_INT32) in the framework error report, not a generic
+// "unsupported" placeholder. The EZ0019 first report must also be the only
+// formal report — no generic EZ9999 wrapper report may follow it.
+// =============================================================================
+TEST_F(FresnelSinTilingTest, invalid_dtype_report_carries_real_dtype_int32)
+{
+    FresnelSinTestParam p = {"invalid_int32_report",
+                             {128},
+                             ge::DT_INT32,
+                             ge::FORMAT_ND,
+                             {128},
+                             ge::DT_INT32,
+                             ge::FORMAT_ND,
+                             ge::GRAPH_FAILED,
+                             0,
+                             {},
+                             64,
+                             262144,
+                             4096};
+    auto& errors = ErrorManager::GetInstance();
+    ASSERT_EQ(errors.Init(), 0);
+    (void)errors.GetRawErrorMessages();
+    TilingInfo info;
+    EXPECT_FALSE(RunTiling(p, info));
+    const auto reports = errors.GetRawErrorMessages();
+    ASSERT_EQ(reports.size(), 1U);
+    EXPECT_EQ(reports[0].error_id, "EZ0019");
+    EXPECT_NE(reports[0].error_message.find("DT_INT32"), std::string::npos);
 }
 
 } // namespace FresnelSinUT

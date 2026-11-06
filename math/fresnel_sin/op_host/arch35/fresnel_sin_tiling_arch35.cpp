@@ -31,7 +31,7 @@ constexpr size_t WORKSPACE_NUM = 1;
 //   qIn:    1 buffer of ubLen * sizeof(T)
 //   qOut:   1 buffer of ubLen * sizeof(T)
 //   calcQ:  8 buffers of ubLen * sizeof(float)   (FP32 working space)
-//   maskQ:  3 buffers of ubLen * sizeof(uint8_t)  (byte masks for Compare/Select)
+//   mask:   3 TBuf workspaces of ubLen * sizeof(uint8_t)  (byte masks for Compare/Select)
 // Total bytes per element = 2 * dtypeSize + 8 * 4 + 3
 constexpr int64_t CALC_BUFFER_COUNT = 8;
 constexpr int64_t MASK_BUFFER_COUNT = 3;
@@ -76,6 +76,27 @@ static ge::graphStatus GetShapeAttrsInfo(gert::TilingContext* context, int64_t* 
 
     *totalIdx = inputShapeX.GetShapeSize();
 
+    // Negative dims (unknown -1/-2, or any negative value) can still yield a
+    // non-negative product ({-1,-1} -> 1, {-1,0} -> 0, the latter taking the
+    // empty-tensor success short-circuit) and slip past the total-based checks
+    // below; reject them per-axis before the total is used.
+    for (size_t i = 0; i < inputShapeX.GetDimNum(); ++i) {
+        OP_CHECK_IF(
+            inputShapeX.GetDim(i) < 0,
+            OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(context->GetNodeName(), "x", std::to_string(*totalIdx).c_str(),
+                                                      "invalid input shape size (negative dim)"),
+            return ge::GRAPH_FAILED);
+    }
+
+    // With all dims non-negative, a negative total can only be the INT64_MIN
+    // overflow sentinel returned by GetShapeSize; it would wrap the uint32
+    // per-core split below, so keep this check as the overflow backstop.
+    OP_CHECK_IF(
+        *totalIdx < 0,
+        OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(context->GetNodeName(), "x", std::to_string(*totalIdx).c_str(),
+                                                  "invalid input shape size (negative dim or size overflow)"),
+        return ge::GRAPH_FAILED);
+
     // Element counts beyond uint32 range would silently truncate the uint32
     // per-core split lengths below; reject them explicitly.
     OP_CHECK_IF(*totalIdx > static_cast<int64_t>(UINT32_MAX),
@@ -96,7 +117,8 @@ static ge::graphStatus GetShapeAttrsInfo(gert::TilingContext* context, int64_t* 
     const std::set<ge::DataType> supportedDtype = {ge::DT_FLOAT, ge::DT_FLOAT16, ge::DT_BF16};
     OP_CHECK_IF(
         supportedDtype.count(*dataType) == 0,
-        OP_LOGE_WITH_INVALID_INPUT_DTYPE(context->GetNodeName(), "x", "unsupported", "DT_FLOAT, DT_FLOAT16, DT_BF16"),
+        OP_LOGE_FOR_INVALID_DTYPE(context->GetNodeName(), "x", ge::TypeUtils::DataTypeToSerialString(*dataType).c_str(),
+                                  "DT_FLOAT, DT_FLOAT16, DT_BF16"),
         return ge::GRAPH_FAILED);
 
     auto inputFormat = inputDesc->GetFormat().GetStorageFormat();
@@ -125,8 +147,11 @@ static ge::graphStatus FresnelSinTilingFunc(gert::TilingContext* context)
 
     int64_t totalIdx;
     ge::DataType dataType;
+    // GetShapeAttrsInfo already reports a specific error code (EZ0015/EZ0016/
+    // EZ0019/EZ0018) on its failure paths; log without reporting again so the
+    // first root-cause report is not diluted by a generic EZ9999 wrapper.
     OP_CHECK_IF(GetShapeAttrsInfo(context, &totalIdx, &dataType) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context, "GetShapeAttrsInfo error"), return ge::GRAPH_FAILED);
+                OP_LOGE_WITHOUT_REPORT(context, "GetShapeAttrsInfo error"), return ge::GRAPH_FAILED);
 
     OP_CHECK_IF(GetWorkspaceSize(context) != ge::GRAPH_SUCCESS, OP_LOGE(context, "GetWorkspaceSize error"),
                 return ge::GRAPH_FAILED);

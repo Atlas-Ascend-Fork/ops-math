@@ -71,7 +71,6 @@ static constexpr float ASYM_THRESH = 36974.0f;
 static constexpr float SMALL_SQ = 2.5625f;
 
 static constexpr int64_t CALC_BUF_COUNT = 8;
-static constexpr int64_t MASK_BUF_COUNT = 3;
 static constexpr int64_t CMP_ALIGN_FP32 = 64;
 static constexpr int64_t CMP_ALIGN_FP16 = 128;
 
@@ -117,15 +116,19 @@ private:
                                              AscendC::LocalTensor<float>& b2, AscendC::LocalTensor<float>& b3,
                                              AscendC::LocalTensor<float>& b4, AscendC::LocalTensor<float>& b5,
                                              AscendC::LocalTensor<float>& b6, AscendC::LocalTensor<float>& b7,
-                                             AscendC::LocalTensor<uint8_t>& mask,
-                                             AscendC::LocalTensor<uint8_t>& maskPInf,
-                                             AscendC::LocalTensor<uint8_t>& maskInf, uint32_t cN);
+                                             uint32_t cN);
 
     TPipe pipe;
     TQue<QuePosition::VECIN, 1> qIn;
     TQue<QuePosition::VECOUT, 1> qOut;
     TQue<QuePosition::VECCALC, 1> calcQ[CALC_BUF_COUNT];
-    TQue<QuePosition::VECCALC, 1> maskQ;
+    // Mask tensors are produced and consumed inside a single compute tile and
+    // never pass through EnQue/DeQue, so they are TBuf workspaces: every TQue
+    // buffer on the same TPosition occupies one hardware sync eventID, and the
+    // 8 calc queues already use the full eventID supply.
+    TBuf<QuePosition::VECCALC> maskBuf;
+    TBuf<QuePosition::VECCALC> maskPInfBuf;
+    TBuf<QuePosition::VECCALC> maskInfBuf;
     GlobalTensor<T> xGM;
     GlobalTensor<T> yGM;
     int64_t blkLen_ = 0;
@@ -154,7 +157,11 @@ __aicore__ inline void FresnelSin<T>::Init(GM_ADDR x, GM_ADDR y, const FresnelSi
     pipe.InitBuffer(qOut, 1, ubLen_ * sizeof(T));
     for (int i = 0; i < CALC_BUF_COUNT; i++)
         pipe.InitBuffer(calcQ[i], 1, ubLen_ * sizeof(float));
-    pipe.InitBuffer(maskQ, MASK_BUF_COUNT, ubLen_ * sizeof(uint8_t));
+    // One TBuf per mask segment: TPipe carves a distinct region for each, so
+    // mask / maskPInf / maskInf never overlap.
+    pipe.InitBuffer(maskBuf, ubLen_ * sizeof(uint8_t));
+    pipe.InitBuffer(maskPInfBuf, ubLen_ * sizeof(uint8_t));
+    pipe.InitBuffer(maskInfBuf, ubLen_ * sizeof(uint8_t));
 }
 
 template <typename T>
@@ -350,8 +357,7 @@ __aicore__ inline void FresnelSin<T>::FinalizeAndOutput(
     AscendC::LocalTensor<T>& xL, AscendC::LocalTensor<T>& yL, AscendC::LocalTensor<float>& b0,
     AscendC::LocalTensor<float>& b1, AscendC::LocalTensor<float>& b2, AscendC::LocalTensor<float>& b3,
     AscendC::LocalTensor<float>& b4, AscendC::LocalTensor<float>& b5, AscendC::LocalTensor<float>& b6,
-    AscendC::LocalTensor<float>& b7, AscendC::LocalTensor<uint8_t>& mask, AscendC::LocalTensor<uint8_t>& maskPInf,
-    AscendC::LocalTensor<uint8_t>& maskInf, uint32_t cN)
+    AscendC::LocalTensor<float>& b7, uint32_t cN)
 {
     if constexpr (std::is_same_v<T, float>) {
         DataCopy(yL, b3, cN);
@@ -367,9 +373,6 @@ __aicore__ inline void FresnelSin<T>::FinalizeAndOutput(
     calcQ[5].FreeTensor(b5);
     calcQ[6].FreeTensor(b6);
     calcQ[7].FreeTensor(b7);
-    maskQ.FreeTensor(mask);
-    maskQ.FreeTensor(maskPInf);
-    maskQ.FreeTensor(maskInf);
 
     qIn.FreeTensor(xL);
     qOut.EnQue(yL);
@@ -389,7 +392,7 @@ __aicore__ inline void FresnelSin<T>::DoCompute(int64_t n, int64_t computeN)
     auto b5 = calcQ[5].AllocTensor<float>();
     auto b6 = calcQ[6].AllocTensor<float>();
     auto b7 = calcQ[7].AllocTensor<float>();
-    auto mask = maskQ.AllocTensor<uint8_t>();
+    auto mask = maskBuf.Get<uint8_t>();
 
     uint32_t cN = static_cast<uint32_t>(computeN);
 
@@ -402,8 +405,8 @@ __aicore__ inline void FresnelSin<T>::DoCompute(int64_t n, int64_t computeN)
     Abs(b1, b0, cN);
     Mul(b2, b1, b1, cN);
 
-    auto maskPInf = maskQ.AllocTensor<uint8_t>();
-    auto maskInf = maskQ.AllocTensor<uint8_t>();
+    auto maskPInf = maskPInfBuf.Get<uint8_t>();
+    auto maskInf = maskInfBuf.Get<uint8_t>();
     // Explicit truncation per DESIGN §1.3: |x| >= ASYM_THRESH (incl. ±Inf) -> sign(x)*0.5
     CompareScalar<uint8_t>(maskInf, b1, ASYM_THRESH, CMPMODE::GE, cN);
     CompareScalar<uint8_t>(maskPInf, b0, ZERO_VAL, CMPMODE::GT, cN);
@@ -412,7 +415,7 @@ __aicore__ inline void FresnelSin<T>::DoCompute(int64_t n, int64_t computeN)
     ComputePolynomialBranch(b1, b3, b4, b5, b6, b7, mask, cN);
     HandleSpecialValues(b0, b3, b4, b5, mask, maskPInf, maskInf, cN);
 
-    FinalizeAndOutput(xL, yL, b0, b1, b2, b3, b4, b5, b6, b7, mask, maskPInf, maskInf, cN);
+    FinalizeAndOutput(xL, yL, b0, b1, b2, b3, b4, b5, b6, b7, cN);
 }
 
 } // namespace NsFresnelSin

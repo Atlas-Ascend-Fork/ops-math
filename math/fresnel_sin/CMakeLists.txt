@@ -13,3 +13,13 @@
 set(SUPPORT_COMPUTE_UNIT "ascend950" "ascend350")
 set(SUPPORT_TILING_DIR "arch35" "arch35")
 add_all_modules_sources(OPTYPE fresnel_sin ACLNNTYPE aclnn_exclude COMPUTE_UNIT ${SUPPORT_COMPUTE_UNIT} TILING_DIR ${SUPPORT_TILING_DIR})
+
+# Link error_manager into the tiling UT cases object so the ErrorManager-based
+# error-report assertions in tests/ut/op_host/arch35 can resolve at link time
+# (same form as math/atanh).
+if(UT_TEST_ALL OR OP_HOST_UT)
+    if(TARGET ${OP_TILING_MODULE_NAME}_cases_obj)
+        target_link_libraries(${OP_TILING_MODULE_NAME}_cases_obj PUBLIC
+            error_manager -Wl,--push-state,--no-as-needed nnopbase -Wl,--pop-state)
+    endif()
+endif()
