@@ -40,7 +40,7 @@ static ge::graphStatus Tiling4ReduceStdV2(gert::TilingContext* context)
 
 static ge::graphStatus TilingPrepare4ReduceStdV2(gert::TilingParseContext* context)
 {
-    OP_CHECK_IF((context == nullptr), OP_LOGE(context->GetNodeName(), "context is nil"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF((context == nullptr), OP_LOGE("ReduceStdV2", "context is null"), return ge::GRAPH_FAILED);
     return ge::GRAPH_SUCCESS;
 }
 

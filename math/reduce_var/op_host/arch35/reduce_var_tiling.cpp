@@ -71,6 +71,7 @@ void ReduceVarTiling::MakeWrapDim(const std::vector<int64_t>& shape, std::vector
         }
     }
     std::sort(axes.begin(), axes.end());
+    axes.erase(std::unique(axes.begin(), axes.end()), axes.end());
 }
 
 void ReduceVarTiling::AssembleUnit(Ops::Base::ReduceTilingUnit& unit, int32_t idx, uint64_t inner, uint64_t outer,
@@ -138,6 +139,10 @@ ge::graphStatus ReduceVarTiling::ReduceVarGetInputParams(Ops::Base::ReduceOpInpu
             }
         }
     }
+    OP_LOGD(context_->GetNodeName(), "before MakeWrapDim, shape is:%s, axes:%s",
+            Ops::Base::ReduceOpTmpl::VectorToString(inputParam.shape).c_str(),
+            Ops::Base::ReduceOpTmpl::VectorToString(inputParam.axes).c_str());
+    MakeWrapDim(inputParam.shape, inputParam.axes);
 
     return ge::GRAPH_SUCCESS;
 }
@@ -938,10 +943,6 @@ ge::graphStatus ReduceVarTiling::ParamCheck(Ops::Base::ReduceOpInputParam& opInp
                                                       Ops::Base::ToString(opInput.inputDtype).c_str(),
                                                       "The dtype size of x must be greater than 0"),
                 return ge::GRAPH_FAILED);
-    OP_LOGD(context_->GetNodeName(), "origin shape is:%s, axes:%s",
-            Ops::Base::ReduceOpTmpl::VectorToString(opInput.shape).c_str(),
-            Ops::Base::ReduceOpTmpl::VectorToString(opInput.axes).c_str());
-    MakeWrapDim(opInput.shape, opInput.axes);
     OP_CHECK_IF((AxesCheck(opInput.shape, opInput.axes) == ge::GRAPH_FAILED),
                 OP_LOGE(context_->GetNodeName(), "illegal axes"), return ge::GRAPH_FAILED);
     return ge::GRAPH_SUCCESS;
@@ -1071,7 +1072,7 @@ static ge::graphStatus Tiling4ReduceVar(gert::TilingContext* context)
 
 static ge::graphStatus TilingPrepare4ReduceVar(gert::TilingParseContext* context)
 {
-    OP_CHECK_IF((context == nullptr), OP_LOGE(context->GetNodeName(), "context is nil"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF((context == nullptr), OP_LOGE("ReduceVar", "context is null"), return ge::GRAPH_FAILED);
     return ge::GRAPH_SUCCESS;
 }
 
