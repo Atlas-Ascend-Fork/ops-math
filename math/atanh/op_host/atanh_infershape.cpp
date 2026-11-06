@@ -16,15 +16,10 @@
  */
 #include "util/shape_util.h"
 #include "register/op_impl_registry.h"
-#include "graph/operator_factory.h"
 #include "log/log.h"
 #include <vector>
 
 using namespace ge;
-
-namespace {
-const ge::InferShapeFuncRegister kAtanhLegacyInferEmptyFirst("Atanh", ge::InferShapeFunc{});
-}
 
 namespace ops {
 static constexpr int64_t IDX_0 = 0;
