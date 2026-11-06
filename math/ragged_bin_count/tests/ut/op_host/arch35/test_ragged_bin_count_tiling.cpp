@@ -31,6 +31,7 @@ constexpr uint64_t DEFAULT_TILING_DATA_SIZE = 4096U;
 constexpr size_t EXPECTED_SYSTEM_WORKSPACE = 16U * 1024U * 1024U;
 constexpr size_t EXPECTED_USER_WORKSPACE = NsRaggedBinCount::USER_WORKSPACE_HEADER_BYTES;
 constexpr size_t EXPECTED_TOTAL_WORKSPACE = EXPECTED_SYSTEM_WORKSPACE + EXPECTED_USER_WORKSPACE;
+constexpr size_t EXPECTED_DETERMINISTIC_PARTIAL_BYTES = 64U;
 constexpr uint64_t UINT32_MAX_VALUE = static_cast<uint64_t>(std::numeric_limits<uint32_t>::max());
 constexpr uint64_t THREAD_NUM_U32 = 1024U;
 constexpr uint64_t MAX_SUPPORTED_CORES = 128U;
@@ -51,7 +52,8 @@ std::string CoreAndPrivateHistogram(uint32_t usedCoreNum, uint32_t privateHistEl
 
 size_t DeterministicPartialWorkspace(uint32_t usedCoreNum, uint32_t outputElements, uint32_t partitions)
 {
-    return EXPECTED_TOTAL_WORKSPACE + static_cast<size_t>(usedCoreNum) * outputElements * partitions * 64U;
+    return EXPECTED_TOTAL_WORKSPACE +
+           static_cast<size_t>(usedCoreNum) * outputElements * partitions * EXPECTED_DETERMINISTIC_PARTIAL_BYTES;
 }
 
 struct RaggedBinCountCompileInfo {};
@@ -576,18 +578,22 @@ TEST_F(RaggedBinCountTilingTest, test_size_must_have_exact_shape_one)
                                           {}, &compileInfo);
     ExecuteTestCase(scalarContext, ge::GRAPH_FAILED);
 
-    gert::TilingContextPara lengthTwoContext("RaggedBinCount",
-                                             {
-                                                 {{{3}, {3}}, ge::DT_INT64, ge::FORMAT_ND},
-                                                 {{{6}, {6}}, ge::DT_INT32, ge::FORMAT_ND},
-                                                 {{{2}, {2}}, ge::DT_INT32, ge::FORMAT_ND, true, sizeData},
-                                                 {{{0}, {0}}, ge::DT_FLOAT, ge::FORMAT_ND},
-                                             },
-                                             {
-                                                 {{{2, 4}, {2, 4}}, ge::DT_FLOAT, ge::FORMAT_ND},
-                                             },
-                                             {}, &compileInfo);
-    ExecuteTestCase(lengthTwoContext, ge::GRAPH_FAILED);
+    for (const int64_t sizeLength : {int64_t{2}, int64_t{1} << 31, int64_t{1} << 32}) {
+        SCOPED_TRACE("invalid size length=" + std::to_string(sizeLength));
+        gert::TilingContextPara lengthContext(
+            "RaggedBinCount",
+            {
+                {{{3}, {3}}, ge::DT_INT64, ge::FORMAT_ND},
+                {{{6}, {6}}, ge::DT_INT32, ge::FORMAT_ND},
+                {{{sizeLength}, {sizeLength}}, ge::DT_INT32, ge::FORMAT_ND, true, sizeData},
+                {{{0}, {0}}, ge::DT_FLOAT, ge::FORMAT_ND},
+            },
+            {
+                {{{2, 4}, {2, 4}}, ge::DT_FLOAT, ge::FORMAT_ND},
+            },
+            {}, &compileInfo);
+        ExecuteTestCase(lengthContext, ge::GRAPH_FAILED);
+    }
 }
 
 // The GE verifier admits ranks 0 through 2.  Within that range, weights is validated by element

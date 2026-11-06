@@ -33,6 +33,8 @@ Frozen contract points mirrored from ``README.md``:
     bitwise ``+0.0`` and no weight is ever read.
 """
 
+import math
+
 import numpy as np
 import torch
 
@@ -380,25 +382,13 @@ def _runtime_invalid(splits_flat, values_flat):
 
 
 def _sum_with_residuals(values):
-    """Sum finite promoted weights using nonoverlapping Torch partials.
+    """Sum finite promoted weights without materializing scalar Torch tensors.
 
-    FastTwoSum retains each rounded addition's residual. This prevents a
-    subsequent cancellation from discarding small terms, without changing the
-    input/output dtype or depending on the testcase name.
+    math.fsum retains addition residuals while consuming the NumPy view as an
+    iterable. The result keeps the incoming Torch dtype and device.
     """
-    partials = []
-    for value in values.unbind():
-        residuals = []
-        for partial in partials:
-            if bool(torch.abs(value) < torch.abs(partial)):
-                value, partial = partial, value
-            high = value + partial
-            low = partial - (high - value)
-            if bool(low != 0):
-                residuals.append(low)
-            value = high
-        partials = residuals + [value]
-    return torch.stack(partials).sum()
+    total = math.fsum(values.detach().cpu().numpy())
+    return values.new_tensor(total)
 
 
 def _weighted_bincount(indices, weights, bins):
@@ -411,7 +401,14 @@ def _weighted_bincount(indices, weights, bins):
         return result
     # Only promoted, finite, mixed-sign bins need cancellation recovery.
     # Nonfinite bins retain the native Torch Inf/NaN behavior.
-    for index in torch.unique(indices):
+    # Dense bin counts avoid sorting a large index vector just to find occupied bins.
+    if bins <= indices.numel():
+        occupied = torch.nonzero(
+            torch.bincount(indices, minlength=bins), as_tuple=True
+        )[0]
+    else:
+        occupied = torch.unique(indices)
+    for index in occupied:
         terms = weights[indices == index]
         if (
             bool(torch.isfinite(terms).all())
