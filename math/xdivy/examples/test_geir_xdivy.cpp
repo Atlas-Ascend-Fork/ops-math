@@ -51,25 +51,37 @@ string GetTime()
 
 uint32_t GetDataTypeSize(DataType dt)
 {
-    if (dt == ge::DT_FLOAT) return 4;
-    if (dt == ge::DT_FLOAT16 || dt == ge::DT_BF16) return 2;
-    if (dt == ge::DT_INT32 || dt == ge::DT_UINT32) return 4;
-    if (dt == ge::DT_INT64 || dt == ge::DT_UINT64) return 8;
-    if (dt == ge::DT_INT8 || dt == ge::DT_UINT8) return 1;
+    if (dt == ge::DT_FLOAT)
+        return 4;
+    if (dt == ge::DT_FLOAT16 || dt == ge::DT_BF16)
+        return 2;
+    if (dt == ge::DT_INT32 || dt == ge::DT_UINT32)
+        return 4;
+    if (dt == ge::DT_INT64 || dt == ge::DT_UINT64)
+        return 8;
+    if (dt == ge::DT_INT8 || dt == ge::DT_UINT8)
+        return 1;
     return 1;
 }
 
-int32_t GenFloatData(
-    vector<int64_t> shapes, Tensor& input_tensor, TensorDesc& input_tensor_desc,
-    DataType data_type, const vector<float>& values)
+int32_t GenFloatData(vector<int64_t> shapes, Tensor& input_tensor, TensorDesc& input_tensor_desc, DataType data_type,
+                     const vector<float>& values)
 {
     input_tensor_desc.SetRealDimCnt(shapes.size());
     size_t size = 1;
-    for (uint32_t i = 0; i < shapes.size(); i++) size *= shapes[i];
+    for (uint32_t i = 0; i < shapes.size(); i++)
+        size *= shapes[i];
     uint32_t data_len = size * sizeof(float);
     float* pData = new (std::nothrow) float[size];
-    for (size_t i = 0; i < size; ++i) pData[i] = values[i % values.size()];
+    if (pData == nullptr) {
+        printf("%s - ERROR: Alloc input data failed\n", GetTime().c_str());
+        return FAILED;
+    }
+    for (size_t i = 0; i < size; ++i)
+        pData[i] = values[i % values.size()];
+    // Tensor 的 const 指针构造重载只复制数据、不移交所有权，释放责任仍在调用方
     input_tensor = Tensor(input_tensor_desc, reinterpret_cast<uint8_t*>(pData), data_len);
+    delete[] pData;
     return SUCCESS;
 }
 
@@ -81,9 +93,8 @@ int32_t WriteDataToFile(string bin_file, uint64_t data_size, uint8_t* inputData)
     return SUCCESS;
 }
 
-int CreateOppInGraph(
-    DataType inDtype, std::vector<ge::Tensor>& input, std::vector<Operator>& inputs,
-    std::vector<Operator>& outputs, Graph& graph)
+int CreateOppInGraph(DataType inDtype, std::vector<ge::Tensor>& input, std::vector<Operator>& inputs,
+                     std::vector<Operator>& outputs, Graph& graph)
 {
     Status ret = SUCCESS;
     auto xdivyOp = op::Xdivy("xdivy1");
@@ -143,8 +154,7 @@ int main(int argc, char* argv[])
     std::vector<ge::Tensor> input;
 
     printf("%s - [XIR]: Initializing GE\n", GetTime().c_str());
-    std::map<AscendString, AscendString> global_options = {
-        {"ge.exec.deviceId", "0"}, {"ge.graphRunMode", "1"}};
+    std::map<AscendString, AscendString> global_options = {{"ge.exec.deviceId", "0"}, {"ge.graphRunMode", "1"}};
     Status ret = ge::GEInitialize(global_options);
     if (ret != SUCCESS) {
         printf("%s - [XIR]: GEInitialize failed\n", GetTime().c_str());
@@ -177,6 +187,12 @@ int main(int argc, char* argv[])
     std::map<AscendString, AscendString> graph_options = {};
     uint32_t graph_id = 0;
     ret = session->AddGraph(graph_id, graph, graph_options);
+    if (ret != SUCCESS) {
+        printf("%s - [XIR]: AddGraph failed\n", GetTime().c_str());
+        delete session;
+        GEFinalize();
+        return FAILED;
+    }
     printf("%s - [XIR]: AddGraph success\n", GetTime().c_str());
 
     std::string file_path = "./dump_xdivy";
@@ -232,9 +248,10 @@ int main(int argc, char* argv[])
         float golden = (x1Vals[i] == 0.0f) ? 0.0f : x1Vals[i] / x2Vals[i];
         float npuVal = reinterpret_cast<float*>(output[0].GetData())[i];
         int match = (fabs(npuVal - golden) < 1e-5f);
-        if (!match) allMatch = 0;
-        printf("  [%d] x1=%.1f x2=%.1f -> NPU=%.6f golden=%.6f %s\n",
-               i, x1Vals[i], x2Vals[i], npuVal, golden, match ? "OK" : "MISMATCH");
+        if (!match)
+            allMatch = 0;
+        printf("  [%d] x1=%.1f x2=%.1f -> NPU=%.6f golden=%.6f %s\n", i, x1Vals[i], x2Vals[i], npuVal, golden,
+               match ? "OK" : "MISMATCH");
     }
     printf("========================================\n");
     printf("Result: %s\n", allMatch ? "ALL PASS" : "FAIL");
@@ -244,6 +261,8 @@ int main(int argc, char* argv[])
     std::cout << "GE Error: " << error_str << std::endl;
 
     printf("%s - [XIR]: Finalizing GE\n", GetTime().c_str());
+    // 成功路径与失败路径一致：显式析构 Session 对象（GEFinalize 只释放 GE 全局资源）
+    delete session;
     ret = ge::GEFinalize();
     if (ret != SUCCESS) {
         printf("%s - [XIR]: GEFinalize failed\n", GetTime().c_str());

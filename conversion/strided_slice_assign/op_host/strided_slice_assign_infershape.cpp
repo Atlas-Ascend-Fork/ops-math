@@ -134,15 +134,19 @@ static ge::graphStatus ValidateMasksAndValueRank(gert::InferShapeContext* contex
                                                       std::to_string(ellipsisMask).c_str(),
                                                       "at most one ellipsis bit is allowed"),
                 return ge::GRAPH_FAILED);
-    // 掩码位统计逻辑与 tiling 侧 CountSpecDims 等价（infershape 为独立编译单元，保留本地副本）
+    // 掩码位统计逻辑与 tiling 侧 CountSpecDims 等价（infershape 为独立编译单元，保留本地副本）；
+    // ellipsis 位优先：同位 new_axis/shrink 与 tiling 展开侧（ExpandSliceSpec/CheckValueDimsForSpec）
+    // 一致地不计入统计，避免 finalRank 失真
     int64_t numReal = 0;
     int64_t newAxisBits = 0;
     int64_t shrinkBits = 0;
     int64_t shrinkMask = (*newAxisMaskPtr ^ *shrinkMaskPtr) & (*shrinkMaskPtr);
     for (int64_t i = 0; i < specLen; i++) {
-        bool isEllipsis = ((ellipsisMask >> i) & 1) != 0;
+        if ((ellipsisMask >> i) & 1) {
+            continue;
+        }
         bool isNewAxis = ((*newAxisMaskPtr >> i) & 1) != 0;
-        numReal += (!isEllipsis && !isNewAxis) ? 1 : 0;
+        numReal += isNewAxis ? 0 : 1;
         newAxisBits += isNewAxis ? 1 : 0;
         shrinkBits += ((shrinkMask >> i) & 1);
     }

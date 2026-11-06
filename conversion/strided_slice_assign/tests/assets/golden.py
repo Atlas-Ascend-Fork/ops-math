@@ -18,6 +18,11 @@ Kernel/GEIR 的 golden 收到 numpy.ndarray，转 tf tensor 后调 tf.raw_ops.St
 third_party 的 tf vendor 收到 tf.Tensor（框架按 vendor 自动转换），直接调同一 ref 接口。
 StridedSliceAssign 为 TF ref 算子（eager/tf.function 不支持），golden 与三方标杆统一用
 独立 tf.Graph + compat.v1.Session + use_resource=False 旧式 ref Variable 承载 in-place 语义。
+
+TF 的 StridedSliceAssign 内核不实现 ellipsis_mask/new_axis_mask（抛 Unimplemented），而本算子
+公开声明并实现了这两种掩码；golden/third_party 参考实现在调用 TF 前先按 SE 5.2 语义将稀疏
+spec 本地展开为稠密 begin/end/strides + 稠密 shrink 位（见 _dense_spec），仅以 TF 已实现的
+子域调用竞品，从而覆盖算子完整公开域（含全收缩 rank-0 标量场景）。
 """
 
 __spec__ = {"strided_slice_assign": "StridedSliceAssignKernelSpec"}
@@ -25,10 +30,96 @@ __spec__ = {"strided_slice_assign": "StridedSliceAssignKernelSpec"}
 import numpy as np
 
 
+def _dense_spec(
+    var_shape,
+    begin,
+    end,
+    strides,
+    begin_mask,
+    end_mask,
+    ellipsis_mask,
+    new_axis_mask,
+    shrink_axis_mask,
+):
+    """按 SE 5.2 将稀疏切片 spec 本地展开为稠密 spec。
+
+    与算子 tiling 侧 ExpandSliceSpec/CheckValueDimsForSpec 及用例生成 hooks._expand_spec
+    完全一致的语义：ellipsis 位展开为完整维度切片；未覆盖尾维按全区间 [0, dim)；new_axis 位
+    仅向切片 final shape 插入长度 1 的维（不消耗 var 维度、扁平布局不变，不传入 TF）；
+    shrink 位收缩该维（end=begin+1、stride=1、下标负索引归一化后须落在 [0, dim) 内、
+    该位不读取 begin/end mask）；begin/end mask 在对应稠密位置生效。
+    new_axis 与 shrink 同位冲突时 shrink 失效。
+
+    Returns:
+        (dense_begin, dense_end, dense_strides, dense_shrink_mask, value_shape)：
+        前四者为 var 各维上的稠密 spec（已归一化，TF 对其再归一化为幂等操作）；
+        value_shape 为 TF 赋值语义期望的稠密切片 shape（shrink 维移除、new_axis 维
+        不插入——new_axis 维长度恒 1，input_value 按扁平布局 reshape 即语义等价）。
+    """
+    rank = len(var_shape)
+    m = len(begin)
+    shrink_axis_mask = (new_axis_mask ^ shrink_axis_mask) & shrink_axis_mask
+    num_real = sum(
+        1
+        for i in range(m)
+        if not (ellipsis_mask >> i & 1) and not (new_axis_mask >> i & 1)
+    )
+    if num_real > rank:
+        raise ValueError(f"spec 消耗的维度数 {num_real} 超过 var 维度数 {rank}")
+
+    dense_begin = [0] * rank
+    dense_end = [int(d) for d in var_shape]
+    dense_strides = [1] * rank
+    dense_shrink = 0
+    value_shape = []
+    expand = rank - num_real
+    cursor = 0
+    for i in range(m):
+        if ellipsis_mask >> i & 1:
+            for _ in range(expand):
+                value_shape.append(int(var_shape[cursor]))  # ellipsis 展开为完整维度
+                cursor += 1
+        elif new_axis_mask >> i & 1:
+            pass  # 新维不消耗 var 维度、不进入稠密切片 shape（扁平布局不变）
+        else:
+            d = int(var_shape[cursor])
+            s = int(strides[i])
+            if s <= 0:
+                raise ValueError(f"strides[{i}] = {s} 必须为正")
+            if shrink_axis_mask >> i & 1:
+                b = int(begin[i])
+                if b < 0:
+                    b += d
+                if b < 0 or b >= d:
+                    raise ValueError(f"shrink 轴下标 {b} 越界 [0, {d})")
+                dense_begin[cursor], dense_end[cursor], dense_strides[cursor] = (
+                    b,
+                    b + 1,
+                    1,
+                )
+                dense_shrink |= 1 << cursor  # shrink 维从切片 shape 移除
+            else:
+                b = 0 if (begin_mask >> i & 1) else int(begin[i])
+                e = d if (end_mask >> i & 1) else int(end[i])
+                start, stop, step = slice(b, e, s).indices(d)
+                dense_begin[cursor], dense_end[cursor], dense_strides[cursor] = (
+                    start,
+                    stop,
+                    step,
+                )
+                value_shape.append(len(range(start, stop, step)))
+            cursor += 1
+    while cursor < rank:
+        value_shape.append(int(var_shape[cursor]))  # 尾部未覆盖维取完整区间
+        cursor += 1
+    return dense_begin, dense_end, dense_strides, dense_shrink, tuple(value_shape)
+
+
 class StridedSliceAssignKernelSpec:
     """Kernel / GEIR 流程 — golden 收到 numpy.ndarray，third_party 收到 tf.Tensor"""
 
     def golden(
+        self,
         var,
         begin,
         end,
@@ -43,15 +134,17 @@ class StridedSliceAssignKernelSpec:
         **kwargs,
     ):
         """
-        计算方式: 直接调用 TF 的 tf.raw_ops.StridedSliceAssign
-                 （TF 兼容 mask 语义；Ascend 正步长/最内维 stride=1/无广播约束
-                   由算子侧校验保证，测试用例全部落在 TF 与 Ascend 语义交集内）
+        计算方式: 稀疏 spec 本地展开（_dense_spec）后调用 TF 的 tf.raw_ops.StridedSliceAssign
+                 （TF 内核不实现 ellipsis/new_axis 掩码，本地展开后仅用其已实现子域；
+                   Ascend 正步长/最内维 stride=1/无广播约束由算子侧校验保证，
+                   测试用例全部落在 TF 与 Ascend 语义交集内）
 
         参数:
             var:          numpy.ndarray，目标张量（ref/in-place 语义）
             begin/end/strides: 1 维 int64 数组（稀疏切片 spec，const 输入）
-            input_value:  numpy.ndarray，待写入数据（shape 必须等于切片 final shape）
-            *_mask:       int 位掩码属性，与 TF raw op 参数一一对应，直接透传
+            input_value:  numpy.ndarray，待写入数据（shape 必须等于切片 final shape；
+                          rank-0 标量可为 storage 形态 [1]，golden 统一 reshape 还原语义形状）
+            *_mask:       int 位掩码属性，本地展开后映射为稠密 spec
             **kwargs:     {input,output}_{dtypes,ori_shapes,formats,ori_formats} 等框架元信息
         返回:
             [切片赋值后的 var]（列表，与输入 var 同 shape 同 dtype）
@@ -85,6 +178,22 @@ class StridedSliceAssignKernelSpec:
         end_l = np.asarray(end, dtype=np.int64).flatten()
         strides_l = np.asarray(strides, dtype=np.int64).flatten()
 
+        # ---- 稀疏 spec 本地展开为稠密 spec（ellipsis/new_axis 不透传 TF）----
+        dense_begin, dense_end, dense_strides, dense_shrink, value_shape = _dense_spec(
+            var_in.shape,
+            begin_l,
+            end_l,
+            strides_l,
+            int(begin_mask),
+            int(end_mask),
+            int(ellipsis_mask),
+            int(new_axis_mask),
+            int(shrink_axis_mask),
+        )
+        # input_value 统一重排为切片 final shape：覆盖 new_axis 形态（插入维为 1，扁平布局不变）、
+        # rank-0 标量被物化为 [1] 的 storage 形态，并消除 ascontiguousarray 对 0 维数组的 (1,) 提升
+        val_in = val_in.reshape(value_shape)
+
         # ---- 独立 Graph + compat.v1.Session 执行 ref 算子（eager/tf.function 不支持）----
         graph = tf.Graph()
         with graph.as_default():
@@ -92,15 +201,15 @@ class StridedSliceAssignKernelSpec:
             tf_value = tf.convert_to_tensor(val_in, dtype=tf_var.dtype.base_dtype)
             out = tf.raw_ops.StridedSliceAssign(
                 ref=tf_var,
-                begin=begin_l,
-                end=end_l,
-                strides=strides_l,
+                begin=np.asarray(dense_begin, dtype=np.int64),
+                end=np.asarray(dense_end, dtype=np.int64),
+                strides=np.asarray(dense_strides, dtype=np.int64),
                 value=tf_value,
-                begin_mask=int(begin_mask),
-                end_mask=int(end_mask),
-                ellipsis_mask=int(ellipsis_mask),
-                new_axis_mask=int(new_axis_mask),
-                shrink_axis_mask=int(shrink_axis_mask),
+                begin_mask=0,
+                end_mask=0,
+                ellipsis_mask=0,
+                new_axis_mask=0,
+                shrink_axis_mask=dense_shrink,
             )
             with tf.compat.v1.Session() as sess:
                 sess.run(tf_var.initializer)
@@ -122,7 +231,8 @@ class StridedSliceAssignKernelSpec:
         （第一输入必须是旧式 ref Variable，且 eager 不支持），故用类形式承载。
 
         职责分离（__call__ 计入性能比对时间）：
-        - __init__：mask 属性 int 化、bf16 位级判定与 tf.bitcast 预处理、
+        - __init__：mask 属性本地稠密化（TF 不实现 ellipsis/new_axis，见 _dense_spec）、
+          bf16 位级判定与 tf.bitcast 预处理、input_value 重排为切片 final shape、
           独立 Graph/ref Variable/算子图构建、Session 创建与变量初始化（全部前置）
         - __call__：仅 sess.run(out) 纯计算
         """
@@ -144,18 +254,28 @@ class StridedSliceAssignKernelSpec:
         ):
             import tensorflow as tf
 
-            self.masks = {
-                "begin_mask": int(begin_mask),
-                "end_mask": int(end_mask),
-                "ellipsis_mask": int(ellipsis_mask),
-                "new_axis_mask": int(new_axis_mask),
-                "shrink_axis_mask": int(shrink_axis_mask),
-            }
             # bf16 位级承载：uint16 到达时按 bf16 解释（与 golden 的 uint16 view 逻辑一致）
             self.bf16_bit_carry = var.dtype == tf.uint16
             # eager tensor 不能被图内 Variable 直接捕获，先取 numpy 值，图内重建常量
             var_np = var.numpy()
             value_np = input_value.numpy()
+            begin_l = np.asarray(begin.numpy(), dtype=np.int64).flatten()
+            end_l = np.asarray(end.numpy(), dtype=np.int64).flatten()
+            strides_l = np.asarray(strides.numpy(), dtype=np.int64).flatten()
+            # 稀疏 spec 本地展开（与 golden 主通路同一 _dense_spec，语义一致）
+            dense_begin, dense_end, dense_strides, dense_shrink, value_shape = (
+                _dense_spec(
+                    var_np.shape,
+                    begin_l,
+                    end_l,
+                    strides_l,
+                    int(begin_mask),
+                    int(end_mask),
+                    int(ellipsis_mask),
+                    int(new_axis_mask),
+                    int(shrink_axis_mask),
+                )
+            )
             self.graph = tf.Graph()
             with self.graph.as_default():
                 var_c = tf.constant(var_np)
@@ -168,21 +288,22 @@ class StridedSliceAssignKernelSpec:
                         if self.bf16_bit_carry and value_c.dtype == tf.uint16
                         else tf.cast(value_c, var_c.dtype)
                     )
+                value_c = tf.reshape(value_c, value_shape)
                 self.tf_var = tf.compat.v1.Variable(var_c, use_resource=False)
-                begin_t = tf.reshape(
-                    tf.cast(tf.constant(begin.numpy()), tf.int64), [-1]
-                )
-                end_t = tf.reshape(tf.cast(tf.constant(end.numpy()), tf.int64), [-1])
-                strides_t = tf.reshape(
-                    tf.cast(tf.constant(strides.numpy()), tf.int64), [-1]
-                )
+                begin_t = tf.constant(np.asarray(dense_begin, dtype=np.int64))
+                end_t = tf.constant(np.asarray(dense_end, dtype=np.int64))
+                strides_t = tf.constant(np.asarray(dense_strides, dtype=np.int64))
                 self.out = tf.raw_ops.StridedSliceAssign(
                     ref=self.tf_var,
                     begin=begin_t,
                     end=end_t,
                     strides=strides_t,
                     value=value_c,
-                    **self.masks,
+                    begin_mask=0,
+                    end_mask=0,
+                    ellipsis_mask=0,
+                    new_axis_mask=0,
+                    shrink_axis_mask=dense_shrink,
                 )
                 self.sess = tf.compat.v1.Session()
                 self.sess.run(self.tf_var.initializer)

@@ -15,19 +15,19 @@
 
 ## 功能说明
 
-- 算子功能：StridedSliceAssign是一种张量切片赋值操作，将输入张量inputValue的内容赋值给目标张量var中由begin、end、strides指定的切片位置，切片以外的区域保持var原值不变。输出var与输入var同名，为in-place语义，输出shape与输入var的shape相同。
+- 算子功能：StridedSliceAssign是一种张量切片赋值操作，将输入张量input_value的内容赋值给目标张量var中由begin、end、strides指定的切片位置，切片以外的区域保持var原值不变。输出var与输入var同名，为in-place语义，输出shape与输入var的shape相同。
 
 - 计算公式：
 
 $$
-out[b_0:e_0:s_0, b_1:e_1:s_1, \dots] = inputValue
+var[b_0:e_0:s_0, b_1:e_1:s_1, \dots] = \text{input\_value}
 $$
 
-切片第i维的长度为：$sliceLen[i] = \max(0, \lceil\frac{end[i] - begin[i]}{strides[i]}\rceil)$，其中$\lceil x \rceil$表示对$x$向上取整。$begin$和$end$为经过负索引归一化与边界截断后的取值：当$x < 0$时$x = x + dim$，之后截断到$[0, dim]$区间。
+切片第i维的长度为：$sliceLen[i] = \max(0, \lceil\frac{end[i] - begin[i]}{strides[i]}\rceil)$，其中$\lceil x \rceil$表示对$x$向上取整。$begin$和$end$为经过负索引归一化与边界截断后的取值：当$x < 0$时$x = x + dim$，之后截断到$[0, dim]$区间（shrink轴例外，见shrink_axis_mask说明）。
 
 ## 参数说明
 
-<table style="undefined;table-layout: fixed; width: 1162px"><colgroup>
+<table style="table-layout: fixed; width: 1162px"><colgroup>
 <col style="width: 139px">
 <col style="width: 148px">
 <col style="width: 532px">
@@ -116,7 +116,7 @@ $$
   <tr>
     <td>shrink_axis_mask</td>
     <td>属性</td>
-    <td>int类型，第i位为1时强制end[i]=begin[i]+1且stride为1，收缩该维。默认值为0。</td>
+    <td>int类型，第i位为1时收缩该维（该维从切片shape中移除，切片长度为1）。要求该维strides[i]=1（非1报错）；end[i]被忽略、取begin[i]+1；begin[i]仅做负索引归一化（x<0时x=x+dim）、不截断到[0, dim]，越界报错；该位上begin_mask/end_mask不生效。与new_axis_mask同位置置位时shrink失效。默认值为0。</td>
     <td>-</td>
     <td>-</td>
   </tr>
@@ -125,7 +125,8 @@ $$
 ## 约束说明
 
 - begin、end、strides为值依赖输入，必须能在host侧获取具体数值。
-- 输入var支持1D~8D，begin、end、strides的长度必须等于var的维数。
+- 输入var支持1D~8D，各维长度必须大于0（不支持空var）。
+- begin、end、strides为1维等长tensor（长度m < 32），扣除ellipsis_mask与new_axis_mask置位后的spec项数不得超过var的维数n；不足n时，未指定的尾维按全区间[0, dim)切片。
 - strides[i]必须大于0，且最内维的stride必须为1。
 - input_value的dtype必须与var一致，shape必须严格等于切片计算后的final shape，不支持广播。
 - 输出var与输入var为in-place语义，输出shape等于输入var的shape。
@@ -143,7 +144,7 @@ $$
   <tr>
     <td>图模式调用</td>
     <td><a href="./examples/test_geir_strided_slice_assign.cpp">test_geir_strided_slice_assign</a></td>
-    <td>参见<a href="../../docs/zh/invocation/quick_op_invocation.md">算子调用</a>完成算子编译和验证。</td>
+    <td>参见<a href="../../docs/zh/invocation/quick_op_invocation.md">算子调用</a>完成算子编译和验证，算子IR定义参见<a href="./op_graph/strided_slice_assign_proto.h">strided_slice_assign_proto.h</a>。</td>
   </tr>
 </tbody>
 </table>

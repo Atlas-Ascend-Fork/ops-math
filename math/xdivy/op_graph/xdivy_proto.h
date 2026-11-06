@@ -21,23 +21,20 @@
 namespace ge {
 
 /**
-*@brief Returns x1 / x2, with x1==0 → 0.
-*@par Inputs:
-*Two inputs, including:
-* @li x1: A ND Tensor. Must be one of the following types: float16, float32, bf16, float64, complex64, complex128.
-* @li x2: A ND Tensor. Must be one of the following types: float16, float32, bf16, float64, complex64, complex128. \n
-*@par Outputs:
-*y: A ND Tensor. Must be one of the following types: float16, float32, bf16, float64, complex64, complex128.
-*@par Third-party framework compatibility
-*Compatible with the PyTorch operator xdivy.
-*/
+ *@brief Returns x1 / x2, with x1==0 → 0.
+ *@par Inputs:
+ *Two inputs, including:
+ * @li x1: A ND Tensor. Must be one of the following types: float16, float32, bf16, float64, complex64, complex128.
+ * @li x2: A ND Tensor. Must be one of the following types: float16, float32, bf16, float64, complex64, complex128. \n
+ *@par Outputs:
+ *y: A ND Tensor. Must be one of the following types: float16, float32, bf16, float64, complex64, complex128.
+ *@par Third-party framework compatibility
+ *Compatible with TensorFlow operator Xdivy.
+ */
 REG_OP(Xdivy)
-    .INPUT(x1, TensorType({DT_BF16, DT_FLOAT16, DT_FLOAT, DT_DOUBLE, DT_COMPLEX64,
-                           DT_COMPLEX128}))
-    .INPUT(x2, TensorType({DT_BF16, DT_FLOAT16, DT_FLOAT, DT_DOUBLE, DT_COMPLEX64,
-                           DT_COMPLEX128}))
-    .OUTPUT(y, TensorType({DT_BF16, DT_FLOAT16, DT_FLOAT, DT_DOUBLE, DT_COMPLEX64,
-                           DT_COMPLEX128}))
+    .INPUT(x1, TensorType({DT_BF16, DT_FLOAT16, DT_FLOAT, DT_DOUBLE, DT_COMPLEX64, DT_COMPLEX128}))
+    .INPUT(x2, TensorType({DT_BF16, DT_FLOAT16, DT_FLOAT, DT_DOUBLE, DT_COMPLEX64, DT_COMPLEX128}))
+    .OUTPUT(y, TensorType({DT_BF16, DT_FLOAT16, DT_FLOAT, DT_DOUBLE, DT_COMPLEX64, DT_COMPLEX128}))
     .OP_END_FACTORY_REG(Xdivy)
 
 } // namespace ge

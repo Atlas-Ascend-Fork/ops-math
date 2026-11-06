@@ -93,6 +93,6 @@ $$
 
 ## 调用说明
 
-| 调用方式   | 调用样例                                                                            | 说明                                                                                    |
+| 调用方式   | 样例代码                                                                            | 说明                                                                                    |
 | :--------- | :---------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------- |
-| 图模式调用 | [test_geir_square_sum_all](./examples/arch35/test_geir_square_sum_all.cpp)          | 通过[算子IR](./op_graph/square_sum_all_proto.h)构图方式调用SquareSumAll算子。            |
+| GE图模式 | [test_geir_square_sum_all](./examples/arch35/test_geir_square_sum_all.cpp)          | 通过[算子IR](./op_graph/square_sum_all_proto.h)构图方式调用SquareSumAll算子。            |

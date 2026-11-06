@@ -329,3 +329,73 @@ TEST_F(StridedSliceAssignTiling, strided_slice_assign_tiling_int16_4)
     std::vector<size_t> expectWorkspaces = {16777216};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
+
+// CODE.04 回归：ellipsis 位与 new_axis 位同位置位时，展开侧按 ellipsis 优先忽略同位 new_axis，
+// finalRank = n（不因同位 new_axis 多计 1）；旧统计侧会把 rank-2 的合法 input_value 误拒
+TEST_F(StridedSliceAssignTiling, strided_slice_assign_tiling_ellipsis_new_axis_same_bit)
+{
+    struct StridedSliceAssignCompileInfo {
+    } compileInfo;
+    vector<int64_t> beginValue = {9, 2};
+    vector<int64_t> endValue = {9, 6};
+    vector<int64_t> stridesValue = {1, 1};
+    gert::TilingContextPara tilingContextPara(
+        "StridedSliceAssign",
+        {
+            {{{4, 8}, {4, 8}}, ge::DT_FLOAT, ge::FORMAT_ND},                      // var
+            {{{2}, {2}}, ge::DT_INT64, ge::FORMAT_ND, true, beginValue.data()},   // begin (const)
+            {{{2}, {2}}, ge::DT_INT64, ge::FORMAT_ND, true, endValue.data()},     // end (const)
+            {{{2}, {2}}, ge::DT_INT64, ge::FORMAT_ND, true, stridesValue.data()}, // strides (const)
+            {{{4, 4}, {4, 4}}, ge::DT_FLOAT, ge::FORMAT_ND}, // input_value（rank 2，dim0=ellipsis 展开 4，dim1=切片 4）
+        },
+        {
+            {{{4, 8}, {4, 8}}, ge::DT_FLOAT, ge::FORMAT_ND}, // output var
+        },
+        {
+            gert::TilingContextPara::OpAttr("begin_mask", Ops::Math::AnyValue::CreateFrom<int64_t>(0)),
+            gert::TilingContextPara::OpAttr("end_mask", Ops::Math::AnyValue::CreateFrom<int64_t>(0)),
+            gert::TilingContextPara::OpAttr("ellipsis_mask", Ops::Math::AnyValue::CreateFrom<int64_t>(1)),
+            gert::TilingContextPara::OpAttr("new_axis_mask", Ops::Math::AnyValue::CreateFrom<int64_t>(1)),
+            gert::TilingContextPara::OpAttr("shrink_axis_mask", Ops::Math::AnyValue::CreateFrom<int64_t>(0)),
+        },
+        &compileInfo);
+    uint64_t expectTilingKey = 0;
+    string expectTilingData = "2 4 4 1 0 2 0 0 0 0 0 0 1 1 0 0 0 0 0 0 4 4 0 0 0 0 0 0 8 1 0 0 0 0 0 0 ";
+    std::vector<size_t> expectWorkspaces = {16777216};
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
+}
+
+// CODE.04 回归：ellipsis 位与 shrink 位同位置位时，展开侧按 ellipsis 优先忽略同位 shrink，
+// finalRank = n（不因同位 shrink 少计 1）；旧统计侧会把 rank-2 的合法 input_value 误拒
+TEST_F(StridedSliceAssignTiling, strided_slice_assign_tiling_ellipsis_shrink_same_bit)
+{
+    struct StridedSliceAssignCompileInfo {
+    } compileInfo;
+    vector<int64_t> beginValue = {9, 2};
+    vector<int64_t> endValue = {9, 6};
+    vector<int64_t> stridesValue = {1, 1};
+    gert::TilingContextPara tilingContextPara(
+        "StridedSliceAssign",
+        {
+            {{{4, 8}, {4, 8}}, ge::DT_FLOAT, ge::FORMAT_ND},                      // var
+            {{{2}, {2}}, ge::DT_INT64, ge::FORMAT_ND, true, beginValue.data()},   // begin (const)
+            {{{2}, {2}}, ge::DT_INT64, ge::FORMAT_ND, true, endValue.data()},     // end (const)
+            {{{2}, {2}}, ge::DT_INT64, ge::FORMAT_ND, true, stridesValue.data()}, // strides (const)
+            {{{4, 4}, {4, 4}}, ge::DT_FLOAT, ge::FORMAT_ND}, // input_value（rank 2，dim0=ellipsis 展开 4，dim1=切片 4）
+        },
+        {
+            {{{4, 8}, {4, 8}}, ge::DT_FLOAT, ge::FORMAT_ND}, // output var
+        },
+        {
+            gert::TilingContextPara::OpAttr("begin_mask", Ops::Math::AnyValue::CreateFrom<int64_t>(0)),
+            gert::TilingContextPara::OpAttr("end_mask", Ops::Math::AnyValue::CreateFrom<int64_t>(0)),
+            gert::TilingContextPara::OpAttr("ellipsis_mask", Ops::Math::AnyValue::CreateFrom<int64_t>(1)),
+            gert::TilingContextPara::OpAttr("new_axis_mask", Ops::Math::AnyValue::CreateFrom<int64_t>(0)),
+            gert::TilingContextPara::OpAttr("shrink_axis_mask", Ops::Math::AnyValue::CreateFrom<int64_t>(1)),
+        },
+        &compileInfo);
+    uint64_t expectTilingKey = 0;
+    string expectTilingData = "2 4 4 1 0 2 0 0 0 0 0 0 1 1 0 0 0 0 0 0 4 4 0 0 0 0 0 0 8 1 0 0 0 0 0 0 ";
+    std::vector<size_t> expectWorkspaces = {16777216};
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
+}

@@ -149,6 +149,7 @@ int32_t GenOnesDataFloat32(vector<int64_t> shapes, Tensor& input_tensor, TensorD
         *(pData + i) = value;
     }
     input_tensor = Tensor(input_tensor_desc, (uint8_t*)pData, data_len);
+    delete[] pData; // Tensor 构造深拷贝数据，源缓冲即取即释
     return SUCCESS;
 }
 
@@ -174,6 +175,7 @@ int32_t GenOnesData(vector<int64_t> shapes, Tensor& input_tensor, TensorDesc& in
                 pData[i] = value;
             }
             input_tensor = Tensor(input_tensor_desc, reinterpret_cast<uint8_t*>(pData), size * sizeof(int64_t));
+            delete[] pData; // Tensor 构造深拷贝数据，源缓冲即取即释
             return SUCCESS;
         }
         case DT_INT32: {
@@ -186,6 +188,7 @@ int32_t GenOnesData(vector<int64_t> shapes, Tensor& input_tensor, TensorDesc& in
                 pData[i] = value;
             }
             input_tensor = Tensor(input_tensor_desc, reinterpret_cast<uint8_t*>(pData), size * sizeof(int32_t));
+            delete[] pData; // Tensor 构造深拷贝数据，源缓冲即取即释
             return SUCCESS;
         }
         case DT_INT16: {
@@ -198,6 +201,7 @@ int32_t GenOnesData(vector<int64_t> shapes, Tensor& input_tensor, TensorDesc& in
                 pData[i] = static_cast<int16_t>(value);
             }
             input_tensor = Tensor(input_tensor_desc, reinterpret_cast<uint8_t*>(pData), size * sizeof(int16_t));
+            delete[] pData; // Tensor 构造深拷贝数据，源缓冲即取即释
             return SUCCESS;
         }
         case DT_FLOAT: {
@@ -210,6 +214,7 @@ int32_t GenOnesData(vector<int64_t> shapes, Tensor& input_tensor, TensorDesc& in
                 pData[i] = static_cast<float>(value);
             }
             input_tensor = Tensor(input_tensor_desc, reinterpret_cast<uint8_t*>(pData), size * sizeof(float));
+            delete[] pData; // Tensor 构造深拷贝数据，源缓冲即取即释
             return SUCCESS;
         }
         case DT_FLOAT16:
@@ -231,6 +236,7 @@ int32_t GenOnesData(vector<int64_t> shapes, Tensor& input_tensor, TensorDesc& in
                 pData[i] = kTwoBits;
             }
             input_tensor = Tensor(input_tensor_desc, reinterpret_cast<uint8_t*>(pData), size * sizeof(uint16_t));
+            delete[] pData; // Tensor 构造深拷贝数据，源缓冲即取即释
             return SUCCESS;
         }
         default:
@@ -257,6 +263,7 @@ int32_t GenInt64ConstData(vector<int64_t> shapes, Tensor& input_tensor, TensorDe
         *(pData + i) = value;
     }
     input_tensor = Tensor(input_tensor_desc, reinterpret_cast<uint8_t*>(pData), size * sizeof(int64_t));
+    delete[] pData; // Tensor 构造深拷贝数据，源缓冲即取即释
     return SUCCESS;
 }
 

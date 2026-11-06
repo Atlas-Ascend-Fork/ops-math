@@ -19,25 +19,18 @@
 
 namespace xdivy {
 
-bool PadAndSqueeze(
-    const std::vector<std::vector<int64_t>>& input_shapes,
-    const std::vector<std::vector<int64_t>>& output_shapes,
-    std::vector<int64_t>&                    maximum_bro_shape,
-    std::vector<std::vector<int64_t>>&       normal_input_shapes,
-    std::vector<std::vector<int64_t>>&       normal_output_shapes);
+bool PadAndSqueeze(const std::vector<std::vector<int64_t>>& input_shapes,
+                   const std::vector<std::vector<int64_t>>& output_shapes, std::vector<int64_t>& maximum_bro_shape,
+                   std::vector<std::vector<int64_t>>& normal_input_shapes,
+                   std::vector<std::vector<int64_t>>& normal_output_shapes);
 
-bool FindSplitAxis(
-    const std::vector<int64_t>& max_bro_shape,
-    int64_t dtype_size, int64_t ub_per_core, int64_t phys_nodes,
-    SplitResult& out);
+bool FindSplitAxis(const std::vector<int64_t>& max_bro_shape, int64_t dtype_size, int64_t ub_per_core,
+                   int64_t phys_nodes, SplitResult& out);
 
-bool MultiCoreSplit(
-    const std::vector<int64_t>& max_bro_shape,
-    const SplitResult& ub_split, int64_t max_cores,
-    MultiCoreResult& out);
+bool MultiCoreSplit(const std::vector<int64_t>& max_bro_shape, const SplitResult& ub_split, int64_t max_cores,
+                    MultiCoreResult& out);
 
-inline void GetCoreRange(int64_t core_id, int64_t tiles_main, int64_t cores_tail,
-    int64_t& start, int64_t& end)
+inline void GetCoreRange(int64_t core_id, int64_t tiles_main, int64_t cores_tail, int64_t& start, int64_t& end)
 {
     if (core_id < cores_tail) {
         start = core_id * (tiles_main + 1);
@@ -72,17 +65,21 @@ public:
 
 private:
     ge::graphStatus GetShapeInfo();
-    template<int64_t R> ge::graphStatus DoTilingAndSet();
+    ge::graphStatus CheckDtype() const;
+    ge::graphStatus HandleEmptyTensor() const;
+    template <int64_t R>
+    ge::graphStatus DoTilingAndSet();
 
     gert::TilingContext* ctx_;
     std::vector<std::vector<int64_t>> raw_input_shapes_;
     std::vector<std::vector<int64_t>> raw_output_shapes_;
-    std::vector<int64_t>              max_bro_shape_;
+    std::vector<int64_t> max_bro_shape_;
     std::vector<std::vector<int64_t>> normal_input_shapes_;
     std::vector<std::vector<int64_t>> normal_output_shapes_;
     int64_t dtype_size_ = 0;
-    int64_t phys_nodes_ = 3;   // P: 3 for FP32, 4 for FP16/BF16
+    int64_t phys_nodes_ = 3; // P: 3 for FP32, 4 for FP16/BF16
     int64_t rank_ = 0;
+    bool output_empty_ = false;
 };
 
 } // namespace optiling

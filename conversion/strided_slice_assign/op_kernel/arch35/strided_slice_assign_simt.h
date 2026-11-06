@@ -97,7 +97,10 @@ __aicore__ inline void CopySliceParamToUb(__ubuf__ int64_t* paramUb, const Strid
     }
 }
 
-// 计算 kernel 实际触及的最大 var 写偏移（用于 R003 32/64 位路径选择）
+// 计算 kernel 实际触及的最大 var 写偏移（用于 R003 32/64 位路径选择）。
+// 溢出保护由 Host tiling 侧保证：ValidateVarShape 已校验 var 总元素数不超 int64，
+// 非空切片下各维 (begin + (sliceLen-1)*strides) < dim，故本累加和 maxInOff =
+// totalRows*lastDimLen-1 均被总元素数上界约束，不会以溢出值参与 use32Bit 判定与窄化。
 __aicore__ inline int64_t ComputeMaxVarOffset(const StridedSliceAssignTilingData* tilingData)
 {
     const int64_t dimNum = tilingData->dimNum;

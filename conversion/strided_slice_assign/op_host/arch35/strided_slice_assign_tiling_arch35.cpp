@@ -20,6 +20,7 @@
  * sliceLen/varStride are written into TilingData for the SIMT kernel.
  */
 
+#include <limits>
 #include <string>
 
 #include "log/log.h"
@@ -100,6 +101,8 @@ static ge::graphStatus ValidateDtype(gert::TilingContext* context)
 
 // 遍历 spec 统计稠密维信息：numReal=消耗 var 维度的 spec 项数（非 ellipsis/new_axis），
 // 并统计 new_axis/shrink 置位数（供 finalRank 计算）。tiling 内 3 处共用，infershape 有等价副本。
+// 口径与 ExpandSliceSpec/CheckValueDimsForSpec 一致：ellipsis 位优先，同位的 new_axis/shrink
+// 在展开侧被跳过（不消费 var 维、不产生 input_value 维），统计侧同样不计入，避免 finalRank 失真。
 static void CountSpecDims(const SliceAttrs& attrs, int64_t specLen, int64_t& numReal, int64_t& newAxisBits,
                           int64_t& shrinkBits)
 {
@@ -107,15 +110,30 @@ static void CountSpecDims(const SliceAttrs& attrs, int64_t specLen, int64_t& num
     newAxisBits = 0;
     shrinkBits = 0;
     for (int64_t i = 0; i < specLen; i++) {
-        bool isEllipsis = ((attrs.ellipsisMask >> i) & 1) != 0;
+        if ((attrs.ellipsisMask >> i) & 1) {
+            continue;
+        }
         bool isNewAxis = ((attrs.newAxisMask >> i) & 1) != 0;
-        numReal += (!isEllipsis && !isNewAxis) ? 1 : 0;
+        numReal += isNewAxis ? 0 : 1;
         newAxisBits += isNewAxis ? 1 : 0;
         shrinkBits += ((attrs.shrinkAxisMask >> i) & 1);
     }
 }
 
-// var shape 校验：dimNum ∈ [1, 8]，各维 > 0（不支持空 var）
+// 溢出安全乘法（非负数域：dim/sliceLen/stride 均已校验为正或 0）：
+// 乘积超出 int64 表示范围时返回 false，由调用方报错拒绝，
+// 防止 TilingData 规模乘积与 Kernel 偏移上界以溢出值参与后续计算
+static bool SafeMulInt64(int64_t a, int64_t b, int64_t& out)
+{
+    if (a != 0 && b > std::numeric_limits<int64_t>::max() / a) {
+        return false;
+    }
+    out = a * b;
+    return true;
+}
+
+// var shape 校验：dimNum ∈ [1, 8]，各维 > 0（不支持空 var），
+// 且总元素数不超过 int64（该上界同时约束 varStride/totalRows/最大偏移等全部规模运算）
 static ge::graphStatus ValidateVarShape(gert::TilingContext* context, size_t& dimNum)
 {
     auto varShape = context->GetInputShape(kVarIdx);
@@ -126,11 +144,17 @@ static ge::graphStatus ValidateVarShape(gert::TilingContext* context, size_t& di
                 OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "var", std::to_string(dimNum).c_str(),
                                                          "var dimNum must be in [1, 8]"),
                 return ge::GRAPH_FAILED);
+    int64_t totalElems = 1;
     for (size_t d = 0; d < dimNum; d++) {
         OP_CHECK_IF(varStorage.GetDim(d) <= 0,
                     OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "var",
                                                              std::to_string(varStorage.GetDim(d)).c_str(),
                                                              "var each dim must be > 0 (empty var not supported)"),
+                    return ge::GRAPH_FAILED);
+        OP_CHECK_IF(!SafeMulInt64(totalElems, varStorage.GetDim(d), totalElems),
+                    OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "var",
+                                                             std::to_string(varStorage.GetDim(d)).c_str(),
+                                                             "var total elements overflow int64"),
                     return ge::GRAPH_FAILED);
     }
     return ge::GRAPH_SUCCESS;
@@ -466,11 +490,15 @@ static ge::graphStatus FillTilingData(gert::TilingContext* context, const SliceA
                 OP_LOGE(context, "input_value shape != slice final shape (no broadcast)"), return ge::GRAPH_FAILED);
     tiling->varStride[dimNum - 1] = 1;
     for (int64_t d = dimNum - 2; d >= 0; d--) {
-        tiling->varStride[d] = tiling->varStride[d + 1] * varDims[d + 1];
+        OP_CHECK_IF(!SafeMulInt64(tiling->varStride[d + 1], varDims[d + 1], tiling->varStride[d]),
+                    OP_LOGE(context, "varStride product overflow at dim %ld (var shape too large)", d),
+                    return ge::GRAPH_FAILED);
     }
     int64_t totalRows = 1;
     for (int64_t d = 0; d < dimNum - 1; d++) {
-        totalRows *= tiling->sliceLen[d];
+        OP_CHECK_IF(!SafeMulInt64(totalRows, tiling->sliceLen[d], totalRows),
+                    OP_LOGE(context, "totalRows product overflow at dim %ld (slice too large)", d),
+                    return ge::GRAPH_FAILED);
     }
     tiling->dimNum = dimNum;
     tiling->totalRows = totalRows; // n==1 时为 1

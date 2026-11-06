@@ -112,3 +112,61 @@ TEST_F(StridedSliceAssignInfershape, strided_slice_assign_infershape_test3_unkno
     };
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
+
+// CODE.04 回归：ellipsis 与 new_axis 同位置位，finalRank = n（同位 new_axis 不计入），
+// rank-2 input_value 合法；旧统计侧误算 finalRank=3 会拒绝合法输入
+TEST_F(StridedSliceAssignInfershape, strided_slice_assign_infershape_test4_ellipsis_new_axis_same_bit)
+{
+    gert::InfershapeContextPara infershapeContextPara(
+        "StridedSliceAssign",
+        {
+            {{{4, 8}, {4, 8}}, ge::DT_FLOAT, ge::FORMAT_ND}, // var
+            {{{2}, {2}}, ge::DT_INT64, ge::FORMAT_ND},       // begin
+            {{{2}, {2}}, ge::DT_INT64, ge::FORMAT_ND},       // end
+            {{{2}, {2}}, ge::DT_INT64, ge::FORMAT_ND},       // strides
+            {{{4, 4}, {4, 4}}, ge::DT_FLOAT, ge::FORMAT_ND}, // input_value（finalRank=2）
+        },
+        {
+            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND}, // output var
+        },
+        {
+            {"begin_mask", Ops::Math::AnyValue::CreateFrom<int64_t>(0)},
+            {"end_mask", Ops::Math::AnyValue::CreateFrom<int64_t>(0)},
+            {"ellipsis_mask", Ops::Math::AnyValue::CreateFrom<int64_t>(1)},
+            {"new_axis_mask", Ops::Math::AnyValue::CreateFrom<int64_t>(1)},
+            {"shrink_axis_mask", Ops::Math::AnyValue::CreateFrom<int64_t>(0)},
+        });
+    std::vector<std::vector<int64_t>> expectOutputShape = {
+        {4, 8},
+    };
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+// CODE.04 回归：ellipsis 与 shrink 同位置位，finalRank = n（同位 shrink 不计入），
+// rank-2 input_value 合法；旧统计侧误算 finalRank=1 会拒绝合法输入
+TEST_F(StridedSliceAssignInfershape, strided_slice_assign_infershape_test5_ellipsis_shrink_same_bit)
+{
+    gert::InfershapeContextPara infershapeContextPara(
+        "StridedSliceAssign",
+        {
+            {{{4, 8}, {4, 8}}, ge::DT_FLOAT, ge::FORMAT_ND}, // var
+            {{{2}, {2}}, ge::DT_INT64, ge::FORMAT_ND},       // begin
+            {{{2}, {2}}, ge::DT_INT64, ge::FORMAT_ND},       // end
+            {{{2}, {2}}, ge::DT_INT64, ge::FORMAT_ND},       // strides
+            {{{4, 4}, {4, 4}}, ge::DT_FLOAT, ge::FORMAT_ND}, // input_value（finalRank=2）
+        },
+        {
+            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND}, // output var
+        },
+        {
+            {"begin_mask", Ops::Math::AnyValue::CreateFrom<int64_t>(0)},
+            {"end_mask", Ops::Math::AnyValue::CreateFrom<int64_t>(0)},
+            {"ellipsis_mask", Ops::Math::AnyValue::CreateFrom<int64_t>(1)},
+            {"new_axis_mask", Ops::Math::AnyValue::CreateFrom<int64_t>(0)},
+            {"shrink_axis_mask", Ops::Math::AnyValue::CreateFrom<int64_t>(1)},
+        });
+    std::vector<std::vector<int64_t>> expectOutputShape = {
+        {4, 8},
+    };
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}

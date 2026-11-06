@@ -8,27 +8,33 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 /*!
- * \file xdivy_apt.cpp
+ * \file xdivy.cpp
  * \brief Xdivy Kernel 入口
  */
 #include "kernel_operator.h"
 #include "arch35/xdivy_kernel.h"
 #include "arch35/xdivy_tiling_struct.h"
+#include "arch35/xdivy_struct.h"
 
 using TilingData4 = XdivyTilingData<4>;
 using TilingData8 = XdivyTilingData<8>;
 
-template<int RANK>
-__global__ __aicore__ void xdivy(
-    GM_ADDR x1, GM_ADDR x2,
-    GM_ADDR y,
-    GM_ADDR workspace, GM_ADDR tiling)
+template <int RANK, uint64_t userDef>
+__global__ __aicore__ void xdivy(GM_ADDR x1, GM_ADDR x2, GM_ADDR y, GM_ADDR workspace, GM_ADDR tiling)
 {
-    GM_ADDR ins[2]  = {x1, x2};
+    GM_ADDR ins[2] = {x1, x2};
     GM_ADDR outs[1] = {y};
     REGISTER_NONE_TILING;
     KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_AIV_ONLY);
-    if constexpr (RANK == 4) {
+    if constexpr (userDef == XDIVY_USER_DEF_EMPTY) {
+        // 空 Tensor：y 的元素个数为 0，没有任何数据需要搬运或写回，直接返回。
+        // Tiling 侧已把 blockDim 设为 1，这里只是把这一个核空转掉。
+        // 这一次 GET_TILING_DATA_WITH_STRUCT 不能省：opc 靠它反推本模板实例的
+        // tiling 结构体大小，分支里不引用任何结构体会导致 tiling_struct_size
+        // 未定义而编译失败（写法与 math/add_v2 的空分支一致）。
+        GET_TILING_DATA_WITH_STRUCT(XdivyEmptyTilingData, emptyTilingData, tiling);
+        return;
+    } else if constexpr (RANK == 4) {
         GET_TILING_DATA_WITH_STRUCT(TilingData4, td, tiling);
         XdivyKernel<DTYPE_X1, 4> kernel;
         kernel.Init(ins, outs, &td);

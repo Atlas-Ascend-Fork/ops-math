@@ -15,8 +15,8 @@
 #include <cstdint>
 
 // === 算子特定常量 — 新算子必须修改 ===
-constexpr int64_t kMaxInputSlots  = 2;   // 本算子输入数 (x1, x2)
-constexpr int64_t kMaxOutputSlots = 1;   // 本算子输出数 (y)
+constexpr int64_t kMaxInputSlots = 2;  // 本算子输入数 (x1, x2)
+constexpr int64_t kMaxOutputSlots = 1; // 本算子输出数 (y)
 
 struct SplitResult {
     int64_t axis;
@@ -32,17 +32,24 @@ struct MultiCoreResult {
     int64_t cores_tail;
 };
 
-template<int64_t kRank>
+template <int64_t kRank>
 struct XdivyTilingData {
-    SplitResult     split;
+    SplitResult split;
     MultiCoreResult multicore;
-    int64_t         rank;
-    int64_t         per_buf_bytes;
-    int64_t         max_bro_shape[kRank];
-    int64_t         num_inputs;
-    int64_t         num_outputs;
-    int64_t         input_shapes [kMaxInputSlots][kRank];
-    int64_t         input_strides[kMaxInputSlots][kRank];
-    int64_t         output_shapes[kMaxOutputSlots][kRank];
-    int64_t         output_strides[kMaxOutputSlots][kRank];
+    int64_t rank;
+    int64_t per_buf_bytes;
+    int64_t max_bro_shape[kRank];
+    int64_t num_inputs;
+    int64_t num_outputs;
+    int64_t input_shapes[kMaxInputSlots][kRank];
+    int64_t input_strides[kMaxInputSlots][kRank];
+    int64_t output_shapes[kMaxOutputSlots][kRank];
+    int64_t output_strides[kMaxOutputSlots][kRank];
+};
+
+// 空 Tensor 分支的 tiling data。内容用不上（无元素可搬），但必须存在：
+// opc 依赖 kernel 里的 GET_TILING_DATA_WITH_STRUCT 反推每个模板实例的 tiling
+// 结构体大小，空分支若完全不引用任何结构体会导致 tiling_struct_size 未定义。
+struct XdivyEmptyTilingData {
+    int64_t numel; // 恒为 0，仅作占位与调试
 };

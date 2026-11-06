@@ -42,7 +42,7 @@ public:
             .DynamicShapeSupportFlag(true)
             .NeedCheckSupportFlag(false)
             .PrecisionReduceFlag(true)
-            .ExtendCfgInfo("opFile.value", "xdivy_apt");
+            .ExtendCfgInfo("opFile.value", "xdivy");
         this->AICore().AddConfig("ascend950", aicoreConfig);
         this->AICore().AddConfig("ascend350", aicoreConfig);
     }
