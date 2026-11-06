@@ -17,6 +17,7 @@
 #include "platform/platform_infos_def.h"
 #include "platform/platform_info.h"
 #include "ge/es_graph_builder.h"
+#include "ge/compliant_node_builder.h"
 #include "es_math_ops.h"
 #include "log/log.h"
 #include "../../../op_graph/fusion_pass/truncated_normal_fusion_pass.h"
@@ -30,6 +31,8 @@ using namespace ops;
 namespace {
 const std::string kPassName = "TruncatedNormalFusionPass";
 const char* const kSupportedArchDav3510 = "3510"; // Ascend950/Ascend350
+const char* const kSupportedArchDav9201 = "9201"; // Ascend960DT
+const char* const kSupportedArchDav9202 = "9202"; // Ascend960PR
 
 // UT stub for rtGetSocSpec: the UT executable does not link the runtime lib, while the pass gates
 // on NpuArch via this API. The stub feeds the arch from the ASCEND_NPU_ARCH env variable (same
@@ -48,6 +51,23 @@ __attribute__((weak)) rtError_t rtGetSocSpec(const char* label, const char* key,
     }
     (void)std::snprintf(val, maxLen, "%s", arch);
     return RT_ERROR_NONE;
+}
+
+// UT stub for aclsysGetVersionNum: pass 侧以弱符号声明并按 GE 编译器版本门控, 部分 UT 环境(如 beta
+// 工具链)该符号不可解析或查不到 ge_compiler 版本, 会导致融合逻辑整体被跳过(patternTest 亦失败)。
+// UT 验证的是融合逻辑本身而非版本门控, 固定返回满足门槛的版本号(与 rtGetSocSpec stub 同范式,
+// 弱定义可与其他 UT 文件共存)。
+extern "C" {
+__attribute__((weak)) int32_t aclsysGetVersionNum(char* pkgName, int32_t* versionNum);
+}
+
+__attribute__((weak)) int32_t aclsysGetVersionNum(char* pkgName, int32_t* versionNum)
+{
+    if (versionNum == nullptr) {
+        return -1;
+    }
+    *versionNum = 90100000; // GE_COMPILER_VERSION_910
+    return 0;
 }
 
 static void SetNpuArch(const char* arch) { (void)setenv("ASCEND_NPU_ARCH", arch, 1); }
@@ -90,6 +110,30 @@ protected:
         PlatformInfoManager::Instance().SetOptionalCompilationInfo(optiCompilationInfo);
         SetNpuArch("2201");
     }
+
+    void SetPlatform960dt()
+    {
+        PlatformInfo platformInfo;
+        OptionalInfo optiCompilationInfo;
+        platformInfo.soc_info.ai_core_cnt = 64;
+        platformInfo.str_info.short_soc_version = "Ascend960DT";
+        optiCompilationInfo.soc_version = "Ascend960DT";
+        PlatformInfoManager::Instance().platform_info_map_["Ascend960DT"] = platformInfo;
+        PlatformInfoManager::Instance().SetOptionalCompilationInfo(optiCompilationInfo);
+        SetNpuArch(kSupportedArchDav9201);
+    }
+
+    void SetPlatform960pr()
+    {
+        PlatformInfo platformInfo;
+        OptionalInfo optiCompilationInfo;
+        platformInfo.soc_info.ai_core_cnt = 64;
+        platformInfo.str_info.short_soc_version = "Ascend960PR";
+        optiCompilationInfo.soc_version = "Ascend960PR";
+        PlatformInfoManager::Instance().platform_info_map_["Ascend960PR"] = platformInfo;
+        PlatformInfoManager::Instance().SetOptionalCompilationInfo(optiCompilationInfo);
+        SetNpuArch(kSupportedArchDav9202);
+    }
 };
 
 static std::shared_ptr<Graph> BuildTestGraph(const std::string& graphName, DataType dtype,
@@ -129,6 +173,52 @@ static std::shared_ptr<Graph> BuildTestGraph(const std::string& graphName, DataT
     auto graph = graphBuilder.BuildAndReset({v2Output.y});
 
     return graph;
+}
+
+// 构建真实 TruncatedNormal(V1) 图（es 接口无 V1 构建器，参照 pass 的 Patterns 用 CompliantNodeBuilder），
+// 用于验证平台门控通过后 V1->V2 融合真正发生。
+static std::shared_ptr<Graph> BuildV1TestGraph(const std::string& graphName, DataType dtype,
+                                               const std::vector<int64_t>& shapeDims, int64_t seed = 1024,
+                                               int64_t seed2 = 2048)
+{
+    auto graphBuilder = es::EsGraphBuilder(graphName.c_str());
+    auto shape = graphBuilder.CreateInput(0, "shape", DT_INT64, FORMAT_ND, shapeDims);
+
+    auto graphPtr = graphBuilder.GetCGraphBuilder()->GetGraph();
+    auto srcBuilder = es::CompliantNodeBuilder(graphPtr);
+    srcBuilder.OpType("TruncatedNormal")
+        .Name("test_truncated_normal")
+        .IrDefInputs({{"shape", es::CompliantNodeBuilder::kEsIrInputRequired, ""}})
+        .IrDefOutputs({{"y", es::CompliantNodeBuilder::kEsIrOutputRequired, ""}})
+        .IrDefAttrs({{"seed", es::CompliantNodeBuilder::kEsAttrOptional, "Int", es::CreateFrom(seed)},
+                     {"seed2", es::CompliantNodeBuilder::kEsAttrOptional, "Int", es::CreateFrom(seed2)},
+                     {"dtype", es::CompliantNodeBuilder::kEsAttrOptional, "Type", es::CreateFrom(dtype)}});
+    GNode srcNode = srcBuilder.Build();
+
+    auto dataNode = shape.GetProducer();
+    if (dataNode != nullptr) {
+        es::AddEdgeAndUpdatePeerDesc(*graphPtr, *dataNode, 0, srcNode, 0);
+    }
+
+    es::EsGraphBuilder::SetOutput(shape, 0);
+    auto graph = graphBuilder.BuildAndReset();
+
+    std::vector<std::pair<GNode, int32_t>> outputs = {{srcNode, 0}};
+    graph->SetOutputs(outputs);
+
+    return graph;
+}
+
+static bool HasNodeType(const std::shared_ptr<Graph>& graph, const std::string& targetType)
+{
+    for (auto node : graph->GetAllNodes()) {
+        AscendString nodeType;
+        node.GetType(nodeType);
+        if (std::string(nodeType.GetString()) == targetType) {
+            return true;
+        }
+    }
+    return false;
 }
 
 TEST_F(TruncatedNormalFusionPassTest, patternTest)
@@ -248,4 +338,58 @@ TEST_F(TruncatedNormalFusionPassTest, fusionSuccessLargeShape)
         }
     }
     EXPECT_TRUE(isFound);
+}
+
+TEST_F(TruncatedNormalFusionPassTest, fusionSuccessV1On950)
+{
+    auto graph = BuildV1TestGraph("test_v1_950", DT_FLOAT, {10});
+
+    CustomPassContext passContext;
+    TruncatedNormalFusionPass pass;
+    Status status = pass.Run(graph, passContext);
+
+    EXPECT_EQ(status, SUCCESS);
+    EXPECT_TRUE(HasNodeType(graph, "TruncatedNormalV2"));
+}
+
+TEST_F(TruncatedNormalFusionPassTest, fusionSuccessOn960dt)
+{
+    SetPlatform960dt();
+
+    auto graph = BuildV1TestGraph("test_960dt", DT_FLOAT, {10});
+
+    CustomPassContext passContext;
+    TruncatedNormalFusionPass pass;
+    Status status = pass.Run(graph, passContext);
+
+    EXPECT_EQ(status, SUCCESS);
+    EXPECT_TRUE(HasNodeType(graph, "TruncatedNormalV2"));
+}
+
+TEST_F(TruncatedNormalFusionPassTest, fusionSuccessOn960pr)
+{
+    SetPlatform960pr();
+
+    auto graph = BuildV1TestGraph("test_960pr", DT_FLOAT16, {3});
+
+    CustomPassContext passContext;
+    TruncatedNormalFusionPass pass;
+    Status status = pass.Run(graph, passContext);
+
+    EXPECT_EQ(status, SUCCESS);
+    EXPECT_TRUE(HasNodeType(graph, "TruncatedNormalV2"));
+}
+
+TEST_F(TruncatedNormalFusionPassTest, v1FusionSkipOnUnsupportedPlatform)
+{
+    SetUnsupportedPlatform();
+
+    auto graph = BuildV1TestGraph("test_v1_unsupported", DT_FLOAT, {10});
+
+    CustomPassContext passContext;
+    TruncatedNormalFusionPass pass;
+    Status status = pass.Run(graph, passContext);
+
+    EXPECT_EQ(status, GRAPH_NOT_CHANGED);
+    EXPECT_FALSE(HasNodeType(graph, "TruncatedNormalV2"));
 }
