@@ -54,14 +54,14 @@
       <td>x</td>
       <td>输入</td>
       <td>待进行oneslike计算的入参，公式中的selfRef。</td>
-      <td>FLOAT、FLOAT16、BFLOAT16、INT8、INT32、UINT8、BOOL</td>
+      <td>FLOAT、FLOAT16、BFLOAT16、INT8、INT32、UINT8、BOOL、INT64</td>
       <td>ND</td>
     </tr>
     <tr>
       <td>y</td>
       <td>输出</td>
       <td>进行oneslike计算的出参，将selfRef张量填充为全1。</td>
-      <td>FLOAT、FLOAT16、BFLOAT16、INT8、INT32、UINT8、BOOL</td>
+      <td>FLOAT、FLOAT16、BFLOAT16、INT8、INT32、UINT8、BOOL、INT64</td>
       <td>ND</td>
     </tr>
   </tbody></table>

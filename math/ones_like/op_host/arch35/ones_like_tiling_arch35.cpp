@@ -42,9 +42,11 @@ ge::graphStatus OnesLikeTiling::SetTilingData()
         dType = ONES_LIKE_TPL_INT32;
     } else if (this->outputDtype == ge::DT_UINT8) {
         dType = ONES_LIKE_TPL_UINT8;
+    } else if (this->outputDtype == ge::DT_INT64) {
+        dType = ONES_LIKE_TPL_INT64;
     } else {
         OP_LOGE_FOR_INVALID_DTYPE(tilingContext->GetNodeName(), "y(output)", Ops::Base::ToString(this->outputDtype),
-                                  "Float16, BFloat16, Float, Int32, Bool, Int8 and Uint8");
+                                  "Float16, BFloat16, Float, Int32, Bool, Int8, Uint8 and Int64");
         return ge::GRAPH_FAILED;
     }
     schMode = tiling->baseTiling.scheMode;
@@ -65,14 +67,14 @@ ge::graphStatus OnesLikeTiling::CalcInputDtype()
     auto inputDesc = tilingContext->GetInputDesc(0);
     OP_CHECK_NULL_WITH_CONTEXT(tilingContext, inputDesc);
     this->inputDtype = inputDesc->GetDataType();
-    static const std::vector<ge::DataType> inputDtypes = {ge::DT_FLOAT16, ge::DT_BF16,  ge::DT_INT8, ge::DT_FLOAT,
-                                                          ge::DT_BOOL,    ge::DT_INT32, ge::DT_UINT8};
+    static const std::vector<ge::DataType> inputDtypes = {ge::DT_FLOAT16, ge::DT_BF16,  ge::DT_INT8,  ge::DT_FLOAT,
+                                                          ge::DT_BOOL,    ge::DT_INT32, ge::DT_UINT8, ge::DT_INT64};
     auto inputTypeCheck = std::find(inputDtypes.begin(), inputDtypes.end(), this->inputDtype);
 
     OP_CHECK_IF(
         (inputTypeCheck == inputDtypes.end()),
         OP_LOGE_FOR_INVALID_DTYPE(tilingContext->GetNodeName(), "x(input)", Ops::Base::ToString(this->inputDtype),
-                                  "Float16, BFloat16, Int8, Float, Bool, Int32 and Uint8"),
+                                  "Float16, BFloat16, Int8, Float, Bool, Int32, Uint8 and Int64"),
         return ge::GRAPH_FAILED);
     return ge::GRAPH_SUCCESS;
 }
@@ -143,9 +145,11 @@ ge::graphStatus OnesLikeTiling::RunTiling()
         baseTilingResult = elewiseBaseTiling.DoTiling<OnesLikeDAG<int32_t>::OpDag>(tiling->baseTiling);
     } else if (this->outputDtype == ge::DT_UINT8) {
         baseTilingResult = elewiseBaseTiling.DoTiling<OnesLikeDAG<uint8_t>::OpDag>(tiling->baseTiling);
+    } else if (this->outputDtype == ge::DT_INT64) {
+        baseTilingResult = elewiseBaseTiling.DoTiling<OnesLikeDAG<int64_t>::OpDag>(tiling->baseTiling);
     } else {
         OP_LOGE_FOR_INVALID_DTYPE(tilingContext->GetNodeName(), "y(output)", Ops::Base::ToString(this->outputDtype),
-                                  "Float16, BFloat16, Int8, Float, Bool, Int32 and Uint8");
+                                  "Float16, BFloat16, Int8, Float, Bool, Int32, Uint8 and Int64");
         return ge::GRAPH_FAILED;
     }
     OP_CHECK_IF(baseTilingResult == ge::GRAPH_FAILED, OP_LOGE(tilingContext, "elewiseBaseTiling failed"),

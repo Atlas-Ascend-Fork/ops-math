@@ -130,5 +130,7 @@ TEST_F(OnesLikeTilingTest, test_tiling_int64_001)
                                                   {{{1, 64, 2, 32}, {1, 64, 2, 32}}, ge::DT_INT64, ge::FORMAT_ND},
                                               },
                                               &compileInfo);
-    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
+    uint64_t expectTilingKey = 17;
+    std::vector<size_t> expectWorkspaces = {0};
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }

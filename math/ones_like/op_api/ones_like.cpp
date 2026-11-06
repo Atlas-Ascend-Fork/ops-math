@@ -34,12 +34,19 @@ static const std::initializer_list<op::DataType> ASCEND910B_AICORE_DTYPE_SUPPORT
     op::DataType::DT_FLOAT, op::DataType::DT_FLOAT16, op::DataType::DT_INT8, op::DataType::DT_INT32,
     op::DataType::DT_UINT8, op::DataType::DT_BF16,    op::DataType::DT_BOOL};
 
+// RegBase(Ascend 950等)上AICore额外支持int64；910B/910_93侧无int64 AICore kernel/tiling，保持AICPU回退
+static const std::initializer_list<op::DataType> REGBASE_AICORE_DTYPE_SUPPORT_LIST = {
+    op::DataType::DT_FLOAT, op::DataType::DT_FLOAT16, op::DataType::DT_INT8, op::DataType::DT_INT32,
+    op::DataType::DT_UINT8, op::DataType::DT_BF16,    op::DataType::DT_BOOL, op::DataType::DT_INT64};
+
 // 根据芯片类型、dtype判断算子是否支持走aicore
 static bool IsAiCoreSupport(const aclTensor* self)
 {
     auto socVersion = GetCurrentPlatformInfo().GetSocVersion();
-    if (socVersion == SocVersion::ASCEND910B || socVersion == SocVersion::ASCEND910_93 ||
-        IsRegBase()) {
+    if (IsRegBase()) {
+        return CheckType(self->GetDataType(), REGBASE_AICORE_DTYPE_SUPPORT_LIST);
+    }
+    if (socVersion == SocVersion::ASCEND910B || socVersion == SocVersion::ASCEND910_93) {
         return CheckType(self->GetDataType(), ASCEND910B_AICORE_DTYPE_SUPPORT_LIST);
     }
     return CheckType(self->GetDataType(), ASCEND910_AICORE_DTYPE_SUPPORT_LIST);
@@ -50,8 +57,8 @@ static const aclTensor* OnesLikeAiCore(const aclTensor* self, const aclTensor* o
 {
     L0_DFX(OnesLikeAiCore, self, out);
     auto retAicore = ADD_TO_LAUNCHER_LIST_AICORE(OnesLike, OP_INPUT(self), OP_OUTPUT(out));
-    OP_CHECK_ADD_TO_LAUNCHER_LIST_AICORE(
-        retAicore != ACLNN_SUCCESS, return nullptr, "OnesLike ADD_TO_LAUNCHER_LIST_AICORE failed.");
+    OP_CHECK_ADD_TO_LAUNCHER_LIST_AICORE(retAicore != ACLNN_SUCCESS, return nullptr,
+                                         "OnesLike ADD_TO_LAUNCHER_LIST_AICORE failed.");
     return out;
 }
 
@@ -61,8 +68,8 @@ static const aclTensor* OnesLikeAiCPU(const aclTensor* self, const aclTensor* ou
     L0_DFX(OnesLikeAiCPU, self, out);
     if (IsComplexType(self->GetDataType()) || (self->GetDataType() == ge::DataType::DT_BF16)) {
         static internal::AicpuTaskSpace space("OnesLike", ge::DEPEND_IN_SHAPE, true);
-        auto ret = ADD_TO_LAUNCHER_LIST_AICPU(
-            OnesLike, OP_ATTR_NAMES({"T"}), OP_INPUT(self), OP_OUTPUT(out), OP_ATTR(self->GetDataType()));
+        auto ret = ADD_TO_LAUNCHER_LIST_AICPU(OnesLike, OP_ATTR_NAMES({"T"}), OP_INPUT(self), OP_OUTPUT(out),
+                                              OP_ATTR(self->GetDataType()));
         CHECK_RET(ret == ACLNN_SUCCESS, nullptr);
         return out;
     }

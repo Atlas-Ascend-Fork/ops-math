@@ -299,9 +299,38 @@ TEST_F(l2_ones_test, l2_ones_test_dtype_int16)
     EXPECT_EQ(getWorkspaceResult, ACLNN_SUCCESS);
 }
 
-// 正常路径，int64，aicpu
-TEST_F(l2_ones_test, l2_ones_test_dtype_int64)
+// 正常路径，int64，910B/910_93无int64 AICore kernel/tiling，保持AICPU回退
+TEST_F(l2_ones_test, ascend910b_l2_ones_test_dtype_int64)
 {
+    op::SetPlatformSocVersion(op::SocVersion::ASCEND910B);
+    op::SetPlatformNpuArch(NpuArch::DAV_2201);
+    auto selfDesc = TensorDesc({2, 3}, ACL_INT64, ACL_FORMAT_ND);
+    auto ut = OP_API_UT(aclnnInplaceOne, INPUT(selfDesc), OUTPUT());
+    uint64_t workspaceSize = 0;
+    aclnnStatus getWorkspaceResult = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(getWorkspaceResult, ACLNN_SUCCESS);
+}
+
+// === Ascend 950 RegBase dtype gate ===
+// int64 AICore仅RegBase(Ascend 950等)支持，用例显式切ASCEND950并在结束还原ASCEND910B
+TEST_F(l2_ones_test, ascend950_l2_ones_test_dtype_int64)
+{
+    op::SetPlatformSocVersion(op::SocVersion::ASCEND950);
+    op::SetPlatformNpuArch(NpuArch::DAV_3510);
+    auto selfDesc = TensorDesc({2, 3}, ACL_INT64, ACL_FORMAT_ND);
+    auto ut = OP_API_UT(aclnnInplaceOne, INPUT(selfDesc), OUTPUT());
+    uint64_t workspaceSize = 0;
+    aclnnStatus getWorkspaceResult = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(getWorkspaceResult, ACLNN_SUCCESS);
+    op::SetPlatformSocVersion(op::SocVersion::ASCEND910B);
+    op::SetPlatformNpuArch(NpuArch::DAV_2201);
+}
+
+// 910_93侧int64同样保持AICPU回退
+TEST_F(l2_ones_test, ascend910_93_l2_ones_test_dtype_int64)
+{
+    op::SetPlatformSocVersion(op::SocVersion::ASCEND910_93);
+    op::SetPlatformNpuArch(NpuArch::DAV_2201);
     auto selfDesc = TensorDesc({2, 3}, ACL_INT64, ACL_FORMAT_ND);
     auto ut = OP_API_UT(aclnnInplaceOne, INPUT(selfDesc), OUTPUT());
     uint64_t workspaceSize = 0;
