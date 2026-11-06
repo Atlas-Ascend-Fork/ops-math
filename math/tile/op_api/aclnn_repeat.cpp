@@ -132,6 +132,34 @@ static inline aclnnStatus CheckRepeatsZero(const aclIntArray* repeats)
     return false;
 }
 
+// 按Tile语义静态推导输出shape，覆盖不会进入Tile路径的空Tensor和repeats含0场景
+static inline bool CheckRepeatOutShapeByInfer(const aclTensor* self, const aclIntArray* repeats, const aclTensor* out)
+{
+    auto selfShape = self->GetViewShape();
+    int64_t repeatsSize = static_cast<int64_t>(repeats->Size());
+    if (repeatsSize == 0) {
+        if (selfShape != out->GetViewShape()) {
+            OP_LOGE(ACLNN_ERR_PARAM_INVALID, "expected out shape %s, but got %s.", op::ToString(selfShape).GetString(),
+                    op::ToString(out->GetViewShape()).GetString());
+            return false;
+        }
+        return true;
+    }
+
+    int64_t leadingDimNum = repeatsSize - static_cast<int64_t>(selfShape.GetDimNum());
+    op::Shape expectShape;
+    for (int64_t i = 0; i < repeatsSize; ++i) {
+        int64_t selfDim = i < leadingDimNum ? 1 : selfShape.GetDim(i - leadingDimNum);
+        expectShape.AppendDim(selfDim * (*repeats)[i]);
+    }
+    if (expectShape != out->GetViewShape()) {
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "expected out shape %s, but got %s.", op::ToString(expectShape).GetString(),
+                op::ToString(out->GetViewShape()).GetString());
+        return false;
+    }
+    return true;
+}
+
 // A2/A3内部broadcast kernel对非1 repeat维度的数量有限制，A5无此限制
 static inline bool CheckA2A3RepeatNonOneDimCount(const aclIntArray* repeats)
 {
@@ -208,6 +236,8 @@ static aclnnStatus CheckParams(const aclTensor* self, const aclIntArray* repeats
     CHECK_RET(CheckRepeatsValue(repeats), ACLNN_ERR_PARAM_INVALID);
 
     CHECK_RET(CheckTensorDimSize(self, repeats), ACLNN_ERR_PARAM_INVALID);
+
+    CHECK_RET(CheckRepeatOutShapeByInfer(self, repeats, out), ACLNN_ERR_PARAM_INVALID);
 
     return ACLNN_SUCCESS;
 }

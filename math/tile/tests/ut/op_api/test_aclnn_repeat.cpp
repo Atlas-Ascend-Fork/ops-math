@@ -28,7 +28,8 @@ protected:
     static void TearDownTestCase() { std::cout << "repeat_test TearDown" << std::endl; }
 
     void test_run(vector<int64_t> selfDims, aclDataType selfDtype, aclFormat selfFormat, vector<int64_t> selfRange,
-                  vector<int64_t> repeatsDims, vector<int64_t> outDims, aclDataType outDtype, aclFormat outFormat)
+                  vector<int64_t> repeatsDims, vector<int64_t> outDims, aclDataType outDtype, aclFormat outFormat,
+                  bool expectZeroWorkspace = false)
     {
         auto self = TensorDesc(selfDims, selfDtype, selfFormat).ValueRange(selfRange[0], selfRange[1]);
         auto repeats = IntArrayDesc(repeatsDims);
@@ -38,6 +39,9 @@ protected:
         uint64_t workspaceSize = 0;
         aclnnStatus getWorkspaceResult = ut.TestGetWorkspaceSize(&workspaceSize);
         EXPECT_EQ(getWorkspaceResult, ACL_SUCCESS);
+        if (expectZeroWorkspace) {
+            EXPECT_EQ(workspaceSize, 0);
+        }
         // ut.TestPrecision();
     }
 
@@ -240,4 +244,20 @@ TEST_F(l2_repeat_test, l2_repeat_test_repeats_zero_size)
 {
     // self及repeats均为scalar
     test_run({}, ACL_FLOAT16, ACL_FORMAT_ND, {-10, 10}, {}, {}, ACL_FLOAT16, ACL_FORMAT_ND);
+}
+
+TEST_F(l2_repeat_test, l2_repeat_empty_zero_out_shape)
+{
+    // repeats含0，out形状与推导结果{0,8}不一致
+    test_run_invalid({3, 2}, ACL_FLOAT, ACL_FORMAT_ND, {-10, 10}, {0, 4}, {4, 4}, ACL_FLOAT, ACL_FORMAT_ND);
+    // self为空Tensor，out形状与推导结果{0,8}不一致
+    test_run_invalid({0, 2}, ACL_FLOAT, ACL_FORMAT_ND, {-10, 10}, {2, 4}, {9, 9}, ACL_FLOAT, ACL_FORMAT_ND);
+    // out为空Tensor，形状与推导结果{6,8}不一致
+    test_run_invalid({3, 2}, ACL_FLOAT, ACL_FORMAT_ND, {-10, 10}, {2, 4}, {0, 8}, ACL_FLOAT, ACL_FORMAT_ND);
+    // 合法空结果保持零workspace成功
+    test_run({3, 2}, ACL_FLOAT, ACL_FORMAT_ND, {-10, 10}, {0, 4}, {0, 8}, ACL_FLOAT, ACL_FORMAT_ND, true);
+    test_run({0, 2}, ACL_FLOAT, ACL_FORMAT_ND, {-10, 10}, {2, 4}, {0, 8}, ACL_FLOAT, ACL_FORMAT_ND, true);
+    // repeats为空时，out必须保持self的shape
+    test_run_invalid({}, ACL_FLOAT, ACL_FORMAT_ND, {-10, 10}, {}, {1}, ACL_FLOAT, ACL_FORMAT_ND);
+    test_run({}, ACL_FLOAT, ACL_FORMAT_ND, {-10, 10}, {}, {}, ACL_FLOAT, ACL_FORMAT_ND);
 }
