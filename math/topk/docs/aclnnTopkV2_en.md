@@ -133,7 +133,7 @@ aclnnStatus aclnnTopkV2(
       <td>sortPolicy (int64_t)</td>
       <td>Input</td>
       <td>Represents the sorting strategy for TopK candidate results.</td>
-      <td>0 indicates using the original sorting behavior. 1 indicates enabling the Bitonic Small TopK path when sorted=True and k is small (2≤k≤32), arranging indices of equal values in original order to align with GPU behavior.</td>
+      <td>0 indicates using the original sorting behavior. 1 indicates enabling the Bitonic Small TopK path when sorted=True and k is small (2≤k≤32), arranging indices of equal values in original order.</td>
       <td>-</td>
       <td>-</td>
       <td>-</td>

@@ -152,7 +152,11 @@ bool GetRuntimeNpuArch(NpuArch& npuArch)
 
 // regbase archs (the legacy IsRegBase() set): the new AscendC op_info registers
 // TopKV2 (x + k) and the two-input Transpose (x + perm const) there.
-bool IsRegbaseArch(NpuArch npuArch) { return npuArch == NpuArch::DAV_3510 || npuArch == NpuArch::DAV_5102; }
+bool IsRegbaseArch(NpuArch npuArch)
+{
+    return npuArch == NpuArch::DAV_3510 || npuArch == NpuArch::DAV_5102 || npuArch == NpuArch::DAV_9201 ||
+           npuArch == NpuArch::DAV_9202;
+}
 
 // legacy tbe archs: the old op_info registers TopKD / TopKV2 / TransposeD there.
 bool IsLegacyArch(NpuArch npuArch)

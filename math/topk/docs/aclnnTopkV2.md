@@ -135,7 +135,7 @@ aclnnStatus aclnnTopkV2(
       <td>sortPolicy（int64_t）</td>
       <td>输入</td>
       <td>表示TopK候选结果的排序策略。</td>
-      <td>0表示使用原有排序行为，1表示在sorted=True且小k值（2≤k≤32）场景下启用Bitonic Small TopK路径，对相等值的索引按原始顺序排列，对齐GPU行为。</td>
+      <td>0表示使用原有排序行为，1表示在sorted=True且小k值（2≤k≤32）场景下启用Bitonic Small TopK路径，对相等值的索引按原始顺序排列。</td>
       <td>-</td>
       <td>-</td>
       <td>-</td>
