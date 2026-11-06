@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 /*!
- * \file sinkhorn_update.inc
+ * \file sinkhorn_update_arch35.inc
  * \brief
  */
 #ifndef SINKHORN_KERNEL_ARCH35_UPDATE_INC_

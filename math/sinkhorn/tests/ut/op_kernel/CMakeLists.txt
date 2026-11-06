@@ -30,21 +30,19 @@ if (UT_TEST_ALL OR OP_KERNEL_UT)
     # param4：该算子依赖的所有tiling源码文件
     if (ASCEND_COMPUTE_UNIT STREQUAL "ascend950")
         # cmake/ut.cmake:524-527 用 "op_kernel/**/<KERNEL_SRC>.cpp" 定位入口，而 CMake file(GLOB)
-        # 的 "**" 只匹配恰好一层目录：产品路由值 "arch35/sinkhorn" 在 UT 侧恒不命中，根入口
-        # "op_kernel/sinkhorn.cpp" 也恒不命中。故在 UT 目录作用域内插入 basename 条目，使 glob
-        # 唯一命中 op_kernel/arch35/sinkhorn.cpp。list(INSERT) 只创建遮蔽 cache 的局部变量，
-        # 不回写 CACHE INTERNAL，产品构建（cmake/opbuild.cmake:200）仍取 kernelSrc=arch35/sinkhorn。
-        # 硬约束：op_kernel/ 的一级子目录中只允许存在 arch35/sinkhorn.cpp 这一个入口，
-        #         arch22 实现文件必须留在 op_kernel/ 根且不得命名为 sinkhorn.cpp。
-        list(INSERT KERNEL_SRC_LIST 0 "Sinkhorn ascend950 sinkhorn")
+        # 的 "**" 只匹配恰好一层目录：产品路由值 "arch35/sinkhorn_arch35" 在 UT 侧恒不命中。
+        # 故在 UT 目录作用域内插入 basename 条目，使 glob 唯一命中
+        # op_kernel/arch35/sinkhorn_arch35.cpp（arch35 后缀保证全算子目录内 basename 唯一）。
+        # list(INSERT) 只创建遮蔽 cache 的局部变量，不回写 CACHE INTERNAL，
+        # 产品构建（cmake/opbuild.cmake:200）仍取 kernelSrc=arch35/sinkhorn_arch35。
+        list(INSERT KERNEL_SRC_LIST 0 "Sinkhorn ascend950 sinkhorn_arch35")
         file(GLOB sinkhorn_ut_kernel_entries
-             "${PROJECT_SOURCE_DIR}/*/sinkhorn/op_kernel/*/sinkhorn.cpp")
+             "${PROJECT_SOURCE_DIR}/*/sinkhorn/op_kernel/*/sinkhorn_arch35.cpp")
         list(LENGTH sinkhorn_ut_kernel_entries sinkhorn_ut_kernel_entry_num)
-        if(NOT sinkhorn_ut_kernel_entry_num EQUAL 1 OR
-           NOT sinkhorn_ut_kernel_entries MATCHES "/op_kernel/arch35/sinkhorn\\.cpp$")
+        if(NOT sinkhorn_ut_kernel_entry_num EQUAL 1)
             message(FATAL_ERROR
                 "sinkhorn ascend950 UT kernel entry must resolve to exactly "
-                "op_kernel/arch35/sinkhorn.cpp, got [${sinkhorn_ut_kernel_entries}]")
+                "op_kernel/arch35/sinkhorn_arch35.cpp, got [${sinkhorn_ut_kernel_entries}]")
         endif()
         AddOpTestCase(sinkhorn "ascend950" "-DDTYPE_X=float" "${sinkhorn_tiling_files}")
     elseif(ASCEND_COMPUTE_UNIT STREQUAL "ascend910_93")

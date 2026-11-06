@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 /*!
- * \file sinkhorn.h
+ * \file sinkhorn_arch35.h
  * \brief
  */
 #ifndef SINKHORN_KERNEL_ARCH35_H_
@@ -269,7 +269,7 @@ private:
 
 } // namespace AscendC
 
-#include "sinkhorn.inc"
-#include "sinkhorn_exp.inc"
-#include "sinkhorn_update.inc"
+#include "sinkhorn_arch35.inc"
+#include "sinkhorn_exp_arch35.inc"
+#include "sinkhorn_update_arch35.inc"
 #endif // SINKHORN_KERNEL_ARCH35_H_

@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 /*!
- * \file sinkhorn.cpp
+ * \file sinkhorn_arch35.cpp
  * \brief
  */
 #include "sinkhorn_arch35.h"

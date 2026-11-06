@@ -21,6 +21,6 @@ add_all_modules_sources(
 )
 
 add_kernel_sources(
-    KERNEL_SRC arch35/sinkhorn.cpp
+    KERNEL_SRC arch35/sinkhorn_arch35.cpp
     COMPUTE_UNITS ascend950
 )
