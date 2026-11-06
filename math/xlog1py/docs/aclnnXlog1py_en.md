@@ -114,7 +114,7 @@ aclnnStatus aclnnXlog1py(
       <td>The shape must be the broadcast shape of x and y.</td>
       <td>The data type must be the same as that of x.</td>
       <td>ND</td>
-      <td>1-8</td>
+      <td>0-8</td>
       <td>√</td>
     </tr>
     <tr>

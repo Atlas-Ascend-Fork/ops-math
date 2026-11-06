@@ -26,6 +26,7 @@ namespace xlog1py {
 constexpr int64_t kPhysNodesFp32 = 3;
 constexpr int64_t kPhysNodesFp16 = 4;
 constexpr int64_t kBufDtypeSize = 4;
+constexpr int64_t kMaxTilingRank = 8;
 
 bool PadAndSqueeze(const std::vector<std::vector<int64_t>>& input_shapes,
                    const std::vector<std::vector<int64_t>>& output_shapes, std::vector<int64_t>& maximum_bro_shape,
@@ -190,6 +191,13 @@ ge::graphStatus Xlog1pyTiling::GetShapeInfo()
         OP_CHECK_NULL_WITH_CONTEXT(ctx_, shape);
         std::vector<int64_t> dims;
         gert::Shape s = shape->GetStorageShape();
+        if (s.GetDimNum() > kMaxTilingRank) {
+            std::string paramName = "input[" + std::to_string(i) + "]";
+            std::string reason = "The rank must not exceed " + std::to_string(kMaxTilingRank) + ".";
+            OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(ctx_->GetNodeName(), paramName.c_str(),
+                                                     std::to_string(s.GetDimNum()).c_str(), reason.c_str());
+            return GRAPH_FAILED;
+        }
         for (size_t d = 0; d < s.GetDimNum(); ++d)
             dims.push_back(s.GetDim(d));
         raw_input_shapes_.push_back(dims);
@@ -199,27 +207,99 @@ ge::graphStatus Xlog1pyTiling::GetShapeInfo()
         OP_CHECK_NULL_WITH_CONTEXT(ctx_, shape);
         std::vector<int64_t> dims;
         gert::Shape s = shape->GetStorageShape();
+        if (s.GetDimNum() > kMaxTilingRank) {
+            std::string paramName = "output[" + std::to_string(i) + "]";
+            std::string reason = "The rank must not exceed " + std::to_string(kMaxTilingRank) + ".";
+            OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(ctx_->GetNodeName(), paramName.c_str(),
+                                                     std::to_string(s.GetDimNum()).c_str(), reason.c_str());
+            return GRAPH_FAILED;
+        }
         for (size_t d = 0; d < s.GetDimNum(); ++d)
             dims.push_back(s.GetDim(d));
         raw_output_shapes_.push_back(dims);
     }
 
-    auto inputDesc = ctx_->GetInputDesc(0);
-    OP_CHECK_NULL_WITH_CONTEXT(ctx_, inputDesc);
-    ge::DataType dtype = inputDesc->GetDataType();
+    ge::DataType dtype = ge::DT_UNDEFINED;
+    for (size_t i = 0; i < ctx_->GetComputeNodeInfo()->GetInputsNum(); ++i) {
+        auto inputDesc = ctx_->GetInputDesc(i);
+        OP_CHECK_NULL_WITH_CONTEXT(ctx_, inputDesc);
+        const ge::DataType curDtype = inputDesc->GetDataType();
+        if (curDtype != ge::DT_FLOAT && curDtype != ge::DT_FLOAT16 && curDtype != ge::DT_BF16) {
+            std::string paramName = "input[" + std::to_string(i) + "]";
+            OP_LOGE_FOR_INVALID_DTYPE(ctx_->GetNodeName(), paramName.c_str(),
+                                      ge::TypeUtils::DataTypeToSerialString(curDtype).c_str(), "fp16, bf16, fp32");
+            return GRAPH_FAILED;
+        }
+        if (dtype == ge::DT_UNDEFINED) {
+            dtype = curDtype;
+        } else if (curDtype != dtype) {
+            std::string paramNames = "input[0] and input[" + std::to_string(i) + "]";
+            std::string dtypes = ge::TypeUtils::DataTypeToSerialString(dtype) + " and " +
+                                 ge::TypeUtils::DataTypeToSerialString(curDtype);
+            OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(ctx_->GetNodeName(), paramNames.c_str(), dtypes.c_str(),
+                                                   "The dtypes of all inputs must be the same");
+            return GRAPH_FAILED;
+        }
+    }
+    for (size_t i = 0; i < ctx_->GetComputeNodeInfo()->GetOutputsNum(); ++i) {
+        auto outputDesc = ctx_->GetOutputDesc(i);
+        OP_CHECK_NULL_WITH_CONTEXT(ctx_, outputDesc);
+        const ge::DataType outDtype = outputDesc->GetDataType();
+        if (outDtype != dtype) {
+            std::string paramNames = "input and output[" + std::to_string(i) + "]";
+            std::string dtypes = ge::TypeUtils::DataTypeToSerialString(dtype) + " and " +
+                                 ge::TypeUtils::DataTypeToSerialString(outDtype);
+            OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(ctx_->GetNodeName(), paramNames.c_str(), dtypes.c_str(),
+                                                   "The dtype of output must be the same as input");
+            return GRAPH_FAILED;
+        }
+    }
     if (dtype == ge::DT_FLOAT) {
         dtype_size_ = 4;
         phys_nodes_ = kPhysNodesFp32;
-    } else if (dtype == ge::DT_FLOAT16 || dtype == ge::DT_BF16) {
+    } else {
         dtype_size_ = 2;
         phys_nodes_ = kPhysNodesFp16;
-    } else {
-        OP_LOGE(ctx_->GetNodeName(), "Xlog1py unsupported dtype");
-        return GRAPH_FAILED;
+    }
+
+    // 广播兼容校验：任意两输入每个维度必须相等或其中一个为 1，
+    // 否则 PadAndSqueeze 会静默取 max，导致广播不兼容输入被错误执行。
+    {
+        int64_t num_in = (int64_t)raw_input_shapes_.size();
+        int64_t max_in_rank = 0;
+        for (const auto& s : raw_input_shapes_)
+            max_in_rank = std::max(max_in_rank, (int64_t)s.size());
+        auto dimAt = [&](const std::vector<int64_t>& s, int64_t d) -> int64_t {
+            int64_t pad = max_in_rank - (int64_t)s.size();
+            return (d < pad) ? 1 : s[d - pad];
+        };
+        for (int64_t i = 0; i < num_in; ++i) {
+            for (int64_t j = i + 1; j < num_in; ++j) {
+                for (int64_t d = 0; d < max_in_rank; ++d) {
+                    int64_t a = dimAt(raw_input_shapes_[i], d);
+                    int64_t b = dimAt(raw_input_shapes_[j], d);
+                    if (a != b && a != 1 && b != 1) {
+                        std::string paramNames = "input[" + std::to_string(i) + "] and input[" + std::to_string(j) +
+                                                 "]";
+                        std::string shapes = "dim " + std::to_string(d) + ": " + std::to_string(a) + " and " +
+                                             std::to_string(b);
+                        OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(ctx_->GetNodeName(), paramNames.c_str(), shapes.c_str(),
+                                                               "The shapes must be broadcast-compatible at each dim");
+                        return GRAPH_FAILED;
+                    }
+                }
+            }
+        }
     }
 
     PadAndSqueeze(raw_input_shapes_, raw_output_shapes_, max_bro_shape_, normal_input_shapes_, normal_output_shapes_);
     rank_ = (int64_t)max_bro_shape_.size();
+    if (rank_ > kMaxTilingRank) {
+        std::string reason = "The rank must not exceed " + std::to_string(kMaxTilingRank) + ".";
+        OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(ctx_->GetNodeName(), "output", std::to_string(rank_).c_str(),
+                                                 reason.c_str());
+        return GRAPH_FAILED;
+    }
 
     OP_LOGI(ctx_->GetNodeName(), "Xlog1py GetShapeInfo done rank %ld phys_nodes %ld ub %lu core %lu", rank_,
             phys_nodes_, compileInfo->ubSize, compileInfo->coreNum);

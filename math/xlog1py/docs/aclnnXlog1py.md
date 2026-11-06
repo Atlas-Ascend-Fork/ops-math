@@ -112,7 +112,7 @@ aclnnStatus aclnnXlog1py(
       <td>shape需为x与y broadcast后的shape。</td>
       <td>数据类型与x保持一致。</td>
       <td>ND</td>
-      <td>1-8</td>
+      <td>0-8</td>
       <td>√</td>
     </tr>
     <tr>
