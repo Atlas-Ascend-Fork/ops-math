@@ -86,6 +86,19 @@ static ge::graphStatus GetShapeAttrsInfo(gert::TilingContext* context, int64_t* 
                                                          "The dim num of x must be less than or equal to 8"),
                 return ge::GRAPH_FAILED);
 
+    for (size_t i = 0; i < inputShapeX.GetDimNum(); ++i) {
+        OP_CHECK_IF(inputShapeX.GetDim(i) < 0,
+                    OP_LOGE(context->GetNodeName(), "The %zu-th dim of x must be non-negative, got %ld", i,
+                            inputShapeX.GetDim(i)),
+                    return ge::GRAPH_FAILED);
+    }
+
+    // GetShapeSize 在维乘积溢出时返回 INT64_MIN 哨兵值，须在进入分块计算前拒绝
+    OP_CHECK_IF(*totalIdx < 0,
+                OP_LOGE(context->GetNodeName(), "The total element num of x is invalid (dim product overflow), got %ld",
+                        *totalIdx),
+                return ge::GRAPH_FAILED);
+
     auto inputDesc = context->GetInputDesc(0);
     OP_CHECK_NULL_WITH_CONTEXT(context, inputDesc);
 
@@ -155,7 +168,8 @@ static ge::graphStatus BesselI0eTilingFunc(gert::TilingContext* context)
     int64_t usedCoreNum = CeilDiv(totalIdx, tiling->blockFactor);
 
     // UB 切分：按可用 UB 大小和 buffer 数量均分
-    // FP32 路径需要 6 个 buffer（1 VECIN + 5 VECCALC + 1 VECOUT 简化为 6 份）
+    // FP32 路径实际分配 7 个 buffer（1 VECIN + 5 VECCALC + 1 VECOUT），除数取 11 留安全余量
+    // （见 BUFFER_NUM_FP32 定义）
     // 公式：ubFactor = FloorAlign(FloorDiv(ubSize / TYPE_SIZE, BUFFER_NUM), ubBlockSize)
     tiling->ubFactor = FloorAlign(FloorDiv(static_cast<int64_t>(ubSize) / TYPE_SIZE_FP32, BUFFER_NUM_FP32),
                                   ubBlockSize);

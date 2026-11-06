@@ -250,6 +250,42 @@ TEST_F(BesselI0eTilingTest, tiling_unsupported_dtype)
     EXPECT_FALSE(success) << "Tiling should fail for unsupported dtype DT_DOUBLE";
 }
 
+TEST_F(BesselI0eTilingTest, tiling_negative_dim_rejected)
+{
+    BesselI0eCompileInfo compileInfo;
+    gert::TilingContextPara tilingContextPara(OP_NAME,
+                                              {
+                                                  {{{2, -1}, {2, -1}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{2, -1}, {2, -1}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo, 64, 262144, 4096);
+
+    TilingInfo tilingInfo;
+    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
+    EXPECT_FALSE(success) << "Tiling should fail for negative dim";
+}
+
+TEST_F(BesselI0eTilingTest, tiling_dim_product_overflow_rejected)
+{
+    BesselI0eCompileInfo compileInfo;
+    constexpr int64_t hugeDim = 1099511627776LL; // 2^40，两维乘积 2^80 溢出 int64
+    gert::TilingContextPara tilingContextPara(
+        OP_NAME,
+        {
+            {{{hugeDim, hugeDim}, {hugeDim, hugeDim}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        {
+            {{{hugeDim, hugeDim}, {hugeDim, hugeDim}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        &compileInfo, 64, 262144, 4096);
+
+    TilingInfo tilingInfo;
+    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
+    EXPECT_FALSE(success) << "Tiling should fail for dim product overflow (GetShapeSize sentinel)";
+}
+
 TEST_F(BesselI0eTilingTest, tiling_fp32_tilingkey_verify)
 {
     BesselI0eCompileInfo compileInfo;

@@ -66,9 +66,9 @@ $$y = e^{-|x|} \cdot I_0(x)$$
 
 ## 调用说明
 
-| 调用方式 | 调用样例                                                                   | 说明                                                           |
+| 调用方式 | 样例代码 | 说明 |
 |--------------|------------------------------------------------------------------------|--------------------------------------------------------------|
-| 图模式调用 | [test_geir_bessel_i0e](./examples/test_geir_bessel_i0e.cpp) | 通过图模式调用BesselI0e算子。 |
+| GE图模式 | [test_geir_bessel_i0e](./examples/test_geir_bessel_i0e.cpp) | 通过GE图模式调用BesselI0e算子，算子IR定义参见[bessel_i0e_proto.h](./op_graph/bessel_i0e_proto.h)。 |
 
 ## 第三方框架兼容性
 
