@@ -26,6 +26,7 @@
 #include "opdev/shape_utils.h"
 #include "opdev/tensor_view_utils.h"
 #include "opdev/platform.h"
+#include "op_api/aclnn_check.h"
 
 using namespace op;
 #ifdef __cplusplus
@@ -58,6 +59,23 @@ static const std::initializer_list<op::DataType> AXPY_DTYPE_SUPPORT_LIST = {
 static const std::initializer_list<op::DataType> ADD_V3_DTYPE_SUPPORT_LIST = {
     op::DataType::DT_FLOAT, op::DataType::DT_INT32, op::DataType::DT_FLOAT16, op::DataType::DT_BF16,
     op::DataType::DT_INT8};
+
+static inline bool IsEqualToOne(const op::DataType calcType, const aclScalar* alpha)
+{
+    if (!IsRegBase()) {
+        return !(alpha->ToFloat() > 1 || alpha->ToFloat() < 1);
+    }
+    if (IsComplexType(alpha->GetDataType()) || IsComplexType(calcType)) {
+        return false;
+    }
+
+    if (calcType == DataType::DT_DOUBLE) {
+        double alphaVal = alpha->ToDouble();
+        return !std::isnan(alphaVal) && !(alphaVal > 1 || alphaVal < 1);
+    }
+    float alphaVal = alpha->ToFloat();
+    return !std::isnan(alphaVal) && !(alphaVal > 1 || alphaVal < 1);
+}
 
 static bool CheckPromoteType(const op::DataType selfDtype, const op::DataType otherDtype, const aclScalar* alpha,
                              const op::DataType outDtype, op::DataType promoteType)
@@ -184,7 +202,7 @@ aclnnStatus aclnnAddV3GetWorkspaceSize(const aclScalar* self, const aclTensor* o
 
     // 进行Add计算
     const aclTensor* addOpOut = nullptr;
-    if (!(alpha->ToFloat() > 1 || alpha->ToFloat() < 1)) {
+    if (IsEqualToOne(promoteType, alpha)) {
         // alpha为1时不需要Mul
         addOpOut = l0op::Add(selfTensor, otherCasted, uniqueExecutor.get());
     } else if (IsSupportAxpy(promoteType)) {

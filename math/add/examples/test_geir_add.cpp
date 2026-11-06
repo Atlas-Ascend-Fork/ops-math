@@ -217,8 +217,6 @@ int main(int argc, char* argv[])
     std::vector<Operator> inputs{};
     std::vector<Operator> outputs{};
 
-    std::cout << argv[1] << std::endl;
-
     DataType inDtype = DT_FLOAT;
 
     std::cout << inDtype << std::endl;
@@ -282,5 +280,6 @@ int main(int argc, char* argv[])
         return FAILED;
     }
     printf("%s - INFO - [XIR]: Finalize ir graph session success\n", GetTime().c_str());
+    delete session;
     return SUCCESS;
 }

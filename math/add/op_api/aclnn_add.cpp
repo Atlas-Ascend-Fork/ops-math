@@ -341,7 +341,7 @@ aclnnStatus aclnnAddGetWorkspaceSize(const aclTensor* self, const aclTensor* oth
     const aclTensor* addOpOut = nullptr;
     // 判断输入是否符合kernel支持的混合输入类型
     bool isMixDataType = isAddMixDtypeSupport(self, other);
-    if (isMixDataType && !(alpha->ToFloat() > 1 || alpha->ToFloat() < 1)) {
+    if (isMixDataType && IsEqualToOne(op::DataType::DT_FLOAT, alpha)) {
         // 无需调用Cast，直接调用L0带混合数据类型的kernel
         if (isSupportNonContiguous) {
             addOpOut = l0op::Add(selfWithStride, otherWithStride, uniqueExecutor.get());
