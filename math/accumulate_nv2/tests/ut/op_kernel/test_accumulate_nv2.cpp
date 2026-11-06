@@ -12,6 +12,8 @@
 #include <iostream>
 #include <cstdint>
 #include <cstring>
+#include <cmath>
+#include <limits>
 #include "gtest/gtest.h"
 #include "tikicpulib.h"
 
@@ -262,9 +264,10 @@ TEST_F(AccumulateNV2KernelTest, test_float32_2inputs_double_buffer)
     AscendC::GmFree(tiling);
 }
 
-// float32 uses TensorFlow-compatible sequential summation: 1e8 + 1 rounds back
-// to 1e8 (ulp(1e8) = 8), the -1e8 term then cancels the partial sum to 0 and
-// only the trailing 3 survives.
+// float32 uses the scaled-domain compensated (TwoSum) summation: 1e8 + 1
+// rounds back to 1e8 (ulp(1e8) = 8), but the lost 1 is captured by the
+// correction term; the -1e8 term cancels the main sum to 0 and the final
+// result is the exact sum 1e8 + 1 - 1e8 + 3 = 4.
 TEST_F(AccumulateNV2KernelTest, test_float32_sequential_cancellation)
 {
     constexpr int32_t INPUT_NUM = 4;
@@ -297,7 +300,113 @@ TEST_F(AccumulateNV2KernelTest, test_float32_sequential_cancellation)
 
     auto* result = reinterpret_cast<float*>(y);
     for (int64_t j = 0; j < TOTAL_NUM; ++j) {
-        EXPECT_FLOAT_EQ(result[j], 3.0f);
+        EXPECT_FLOAT_EQ(result[j], 4.0f);
+    }
+
+    builder.Free();
+    AscendC::GmFree(y);
+    AscendC::GmFree(workspace);
+    AscendC::GmFree(tiling);
+}
+
+// float32 extended-real Inf/NaN semantics: a single-sided Inf pins the output
+// regardless of finite magnitudes, +Inf together with -Inf is NaN, and a NaN
+// input dominates (sticky) even when Inf inputs appear later.
+TEST_F(AccumulateNV2KernelTest, test_float32_extended_real_inf_nan)
+{
+    constexpr int32_t INPUT_NUM = 4;
+    constexpr int64_t TOTAL_NUM = 32;
+    const float inf = std::numeric_limits<float>::infinity();
+    const float qnan = std::numeric_limits<float>::quiet_NaN();
+    const float finiteMax = 3.4028235e38f;
+
+    // clang-format off
+    const float values[INPUT_NUM] = {finiteMax, -finiteMax, inf, 3.0f}; // finite overflow to +Inf, then +Inf input
+    // clang-format on
+    TensorListBuilder builder;
+    for (int32_t i = 0; i < INPUT_NUM; ++i) {
+        float* tensor = (float*)AscendC::GmAlloc(TOTAL_NUM * sizeof(float));
+        for (int64_t j = 0; j < TOTAL_NUM; ++j) {
+            tensor[j] = values[i];
+        }
+        builder.tensors.push_back((uint8_t*)tensor);
+    }
+    uint8_t* x = builder.Build(INPUT_NUM);
+    uint8_t* y = (uint8_t*)AscendC::GmAlloc(TOTAL_NUM * sizeof(float));
+    memset(y, 0, TOTAL_NUM * sizeof(float));
+    uint8_t* workspace = (uint8_t*)AscendC::GmAlloc(1024);
+    uint8_t* tiling = (uint8_t*)AscendC::GmAlloc(sizeof(AccumulateNV2TilingData));
+    auto* td = reinterpret_cast<AccumulateNV2TilingData*>(tiling);
+    memset(td, 0, sizeof(AccumulateNV2TilingData));
+    td->totalNum = TOTAL_NUM;
+    td->blockFactor = TOTAL_NUM;
+    td->ubFactor = TOTAL_NUM;
+    td->inputNum = INPUT_NUM;
+
+    ICPU_SET_TILING_KEY(0UL);
+    AscendC::SetKernelMode(KernelMode::AIV_MODE);
+    ICPU_RUN_KF(kernel_accumulate_nv2_float_single, 1, x, y, workspace, tiling);
+    auto* result = reinterpret_cast<float*>(y);
+    for (int64_t j = 0; j < TOTAL_NUM; ++j) {
+        EXPECT_TRUE(std::isinf(result[j]) && result[j] > 0); // single-sided +Inf wins over finite overflow
+    }
+    AscendC::GmFree(y);
+    AscendC::GmFree(workspace);
+    AscendC::GmFree(tiling);
+
+    // +Inf and -Inf coexisting -> NaN
+    const float mixed[INPUT_NUM] = {inf, 1.0f, -inf, 2.0f};
+    for (int32_t i = 0; i < INPUT_NUM; ++i) {
+        auto* tensor = reinterpret_cast<float*>(builder.tensors[i]);
+        for (int64_t j = 0; j < TOTAL_NUM; ++j) {
+            tensor[j] = mixed[i];
+        }
+    }
+    y = (uint8_t*)AscendC::GmAlloc(TOTAL_NUM * sizeof(float));
+    memset(y, 0, TOTAL_NUM * sizeof(float));
+    workspace = (uint8_t*)AscendC::GmAlloc(1024);
+    tiling = (uint8_t*)AscendC::GmAlloc(sizeof(AccumulateNV2TilingData));
+    td = reinterpret_cast<AccumulateNV2TilingData*>(tiling);
+    memset(td, 0, sizeof(AccumulateNV2TilingData));
+    td->totalNum = TOTAL_NUM;
+    td->blockFactor = TOTAL_NUM;
+    td->ubFactor = TOTAL_NUM;
+    td->inputNum = INPUT_NUM;
+    ICPU_SET_TILING_KEY(0UL);
+    AscendC::SetKernelMode(KernelMode::AIV_MODE);
+    ICPU_RUN_KF(kernel_accumulate_nv2_float_single, 1, x, y, workspace, tiling);
+    result = reinterpret_cast<float*>(y);
+    for (int64_t j = 0; j < TOTAL_NUM; ++j) {
+        EXPECT_TRUE(std::isnan(result[j])); // +Inf with -Inf is NaN
+    }
+    AscendC::GmFree(y);
+    AscendC::GmFree(workspace);
+    AscendC::GmFree(tiling);
+
+    // NaN is sticky: it dominates even when +Inf arrives afterwards
+    const float nanFirst[INPUT_NUM] = {qnan, 1.0f, inf, -2.0f};
+    for (int32_t i = 0; i < INPUT_NUM; ++i) {
+        auto* tensor = reinterpret_cast<float*>(builder.tensors[i]);
+        for (int64_t j = 0; j < TOTAL_NUM; ++j) {
+            tensor[j] = nanFirst[i];
+        }
+    }
+    y = (uint8_t*)AscendC::GmAlloc(TOTAL_NUM * sizeof(float));
+    memset(y, 0, TOTAL_NUM * sizeof(float));
+    workspace = (uint8_t*)AscendC::GmAlloc(1024);
+    tiling = (uint8_t*)AscendC::GmAlloc(sizeof(AccumulateNV2TilingData));
+    td = reinterpret_cast<AccumulateNV2TilingData*>(tiling);
+    memset(td, 0, sizeof(AccumulateNV2TilingData));
+    td->totalNum = TOTAL_NUM;
+    td->blockFactor = TOTAL_NUM;
+    td->ubFactor = TOTAL_NUM;
+    td->inputNum = INPUT_NUM;
+    ICPU_SET_TILING_KEY(0UL);
+    AscendC::SetKernelMode(KernelMode::AIV_MODE);
+    ICPU_RUN_KF(kernel_accumulate_nv2_float_single, 1, x, y, workspace, tiling);
+    result = reinterpret_cast<float*>(y);
+    for (int64_t j = 0; j < TOTAL_NUM; ++j) {
+        EXPECT_TRUE(std::isnan(result[j])); // NaN dominates from the first input
     }
 
     builder.Free();

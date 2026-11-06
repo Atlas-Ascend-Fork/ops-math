@@ -30,14 +30,51 @@ constexpr int64_t ACCUMULATE_NV2_UB_BLOCK_BYTES = 32;
 constexpr int32_t ACCUMULATE_NV2_SIMT_PTR_OFFSET = 0;
 constexpr int32_t ACCUMULATE_NV2_SIMT_META_ELEMS = ACCUMULATE_NV2_MAX_INPUT_NUM;
 constexpr int32_t ACCUMULATE_NV2_SIMT_META_BYTES = ACCUMULATE_NV2_SIMT_META_ELEMS * sizeof(uint64_t);
+// The x2^-8 scaled-domain TwoSum below only guarantees overflow-free partial
+// sums while ACCUMULATE_NV2_MAX_INPUT_NUM stays <= 256 (worst partial sum
+// inputNum x fp32-max x 2^-8). Raising the cap without re-tuning the scale
+// factor silently reintroduces intermediate Inf, so freeze the invariant here.
+static_assert(ACCUMULATE_NV2_MAX_INPUT_NUM <= 256, "scaled-domain overflow bound exceeded; retune scaleDown");
 
-// fp32 path only: TensorFlow-compatible sequential summation (AddNOp,
-// aggregate_ops.cc). Matches the TF competitor's exact rounding pattern for
-// cross_check:
-//   N <= 9:  out = in0 + in1 + ... + inN  (left-to-right)
-//   N > 9:   remainder-first chunking — first r inputs sequentially,
-//            then groups of 8 summed left-to-right and accumulated with +=
-//            (r = num%8; r==0 → 8, r==1 → 9, else r)
+// fp32 path only: extended-real Inf/NaN handling plus scaled-domain
+// compensated (TwoSum) accumulation, final result rounded once.
+// Inf/NaN inputs are classified per element via integer bit tests (no fp64
+// arithmetic: aicore forbids double ops and the Vector unit has no fp64 Add)
+// and decide the output by extended-real rules: NaN dominates, +Inf together
+// with -Inf is NaN, and a single-sided Inf pins the output regardless of
+// finite magnitudes. Classified values are substituted with 0.0f, so the
+// compensation path below only ever sees finite operands — the original
+// issue-2 failure fed Inf directly into TwoSum (Inf - Inf polluted the
+// correction); that path cannot be reached here.
+// Finite accumulation runs in a x2^-8 scaled domain: the worst partial sum
+// (inputNum x fp32-max x 2^-8) stays inside the fp32 range for inputNum <=
+// 256, so no intermediate over/underflow can break TwoSum's exact
+// decomposition (nextSum, roundOff capture the sum's high/low bits). The
+// output is (sum + corr) x 2^8: one rounding of the compensated value, and
+// the exact exponent shift back — matching the fp64 golden folded to the
+// output dtype on the boundary cases that pure fp32 order-dependent
+// summation turns into (-Inf) + (+Inf) = NaN. Scale factors are exact
+// powers of two; the N <= 256 bound is a hard safety limit of this scheme
+// (frozen by static_assert above). Subnormal side effect: finite inputs
+// with |x| < 2^-118 shift into the subnormal range after x2^-8 and lose
+// their low mantissa bits — at most inputNum x 2^-126 absolute error,
+// far below every precision gate that consumes the output.
+// infState: 0 = none, 1 = +Inf seen, 2 = -Inf seen, 3 = NaN seen (sticky).
+#define ACCUMULATE_NV2_CLASSIFY_SPECIAL(value, infState)                        \
+    do {                                                                        \
+        uint32_t nv2Bits = __float_as_uint(value);                              \
+        if ((nv2Bits & 0x7F800000u) == 0x7F800000u) {                           \
+            if ((nv2Bits & 0x007FFFFFu) != 0u) {                                \
+                infState = 3; /* NaN, sticky */                                 \
+            } else if ((nv2Bits & 0x80000000u) != 0u) {                         \
+                infState = (infState == 0 || infState == 2) ? 2 : 3; /* -Inf */ \
+            } else {                                                            \
+                infState = (infState == 0 || infState == 1) ? 1 : 3; /* +Inf */ \
+            }                                                                   \
+            (value) = 0.0f; /* keep the pipeline finite; infState decides */    \
+        }                                                                       \
+    } while (0)
+
 __simt_vf__ __aicore__ LAUNCH_BOUND(ACCUMULATE_NV2_SIMT_THREAD_NUM) inline void AccumulateNV2SimtKernel(
     __ubuf__ uint64_t* tensorPtr, __gm__ float* output, int32_t inputNum, int64_t blockOffset, int64_t blockLength)
 {
@@ -45,39 +82,38 @@ __simt_vf__ __aicore__ LAUNCH_BOUND(ACCUMULATE_NV2_SIMT_THREAD_NUM) inline void 
     for (uint64_t localIndex = static_cast<uint64_t>(Simt::GetThreadIdx());
          localIndex < static_cast<uint64_t>(blockLength); localIndex += threadNum) {
         int64_t outputIndex = blockOffset + static_cast<int64_t>(localIndex);
+        uint32_t infState = 0;
+        constexpr float scaleDown = 0.00390625f; // 2^-8, exact
+        constexpr float scaleUp = 256.0f;        // 2^8, exact
         float sum;
+        float corr;
         {
             __gm__ float* input = reinterpret_cast<__gm__ float*>(tensorPtr[0]);
-            sum = input[outputIndex];
+            float value = input[outputIndex];
+            ACCUMULATE_NV2_CLASSIFY_SPECIAL(value, infState);
+            sum = value * scaleDown;
+            corr = 0.0f;
         }
-        if (inputNum <= 9) {
-            for (int32_t i = 1; i < inputNum; ++i) {
-                __gm__ float* input = reinterpret_cast<__gm__ float*>(tensorPtr[i]);
-                sum += input[outputIndex];
-            }
+        for (int32_t i = 1; i < inputNum; ++i) {
+            __gm__ float* input = reinterpret_cast<__gm__ float*>(tensorPtr[i]);
+            float value = input[outputIndex];
+            ACCUMULATE_NV2_CLASSIFY_SPECIAL(value, infState);
+            float v = value * scaleDown;
+            float nextSum = sum + v;
+            float valueInSum = nextSum - sum;
+            float roundOff = (sum - (nextSum - valueInSum)) + (v - valueInSum);
+            corr += roundOff;
+            sum = nextSum;
+        }
+        if (infState == 0) {
+            output[outputIndex] = (sum + corr) * scaleUp;
         } else {
-            constexpr int32_t CHUNK = 8;
-            int32_t rem = inputNum % CHUNK;
-            int32_t first = (rem == 0) ? CHUNK : (rem == 1) ? CHUNK + 1 : rem;
-            for (int32_t i = 1; i < first; ++i) {
-                __gm__ float* input = reinterpret_cast<__gm__ float*>(tensorPtr[i]);
-                sum += input[outputIndex];
-            }
-            for (int32_t c = first; c < inputNum; c += CHUNK) {
-                float chunkSum;
-                {
-                    __gm__ float* input = reinterpret_cast<__gm__ float*>(tensorPtr[c]);
-                    chunkSum = input[outputIndex];
-                }
-                int32_t end = (c + CHUNK < inputNum) ? c + CHUNK : inputNum;
-                for (int32_t i = c + 1; i < end; ++i) {
-                    __gm__ float* input = reinterpret_cast<__gm__ float*>(tensorPtr[i]);
-                    chunkSum += input[outputIndex];
-                }
-                sum += chunkSum;
-            }
+            constexpr uint32_t plusInfBits = 0x7F800000u;
+            constexpr uint32_t minusInfBits = 0xFF800000u;
+            constexpr uint32_t nanBits = 0x7FC00000u;
+            uint32_t outBits = (infState == 3) ? nanBits : ((infState == 1) ? plusInfBits : minusInfBits);
+            output[outputIndex] = __uint_as_float(outBits);
         }
-        output[outputIndex] = sum;
     }
 }
 
