@@ -33,7 +33,7 @@ TEST_F(circular_pad2d_test, case_1)
     // SAMPLE: only test GetWorkspaceSize
     uint64_t workspace_size = 0;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
-    // EXPECT_EQ(aclRet, ACL_SUCCESS);
+    EXPECT_EQ(aclRet, ACL_SUCCESS);
 }
 
 // CheckNotNull self padding
@@ -150,7 +150,7 @@ TEST_F(circular_pad2d_test, case_8)
         // SAMPLE: only test GetWorkspaceSize
         uint64_t workspaceSize = 0;
         aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
-        // EXPECT_EQ(aclRet, ACL_SUCCESS);
+        EXPECT_EQ(aclRet, ACL_SUCCESS);
     }
 }
 
