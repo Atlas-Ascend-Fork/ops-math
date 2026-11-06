@@ -123,8 +123,8 @@ aclnnStatus aclnnInplaceXLogYTensor(
       <td>out (aclTensor*)</td>
       <td>Output</td>
       <td>out in the formula.</td>
-      <td><ul><li>The shape must be the broadcast shape of self and other.</li></ul></td>
-      <td>FLOAT, FLOAT16, INT32, INT64, INT16, INT8, UINT8, BOOL, BFLOAT16</td>
+      <td><ul><li>The shape must be the broadcast shape of self and other.</li><li>Types other than FLOAT, FLOAT16, and BFLOAT16 are written after the computation result is cast, and the fractional part is truncated when converted to integer types. Select the output data type as needed.</li></ul></td>
+      <td>FLOAT, FLOAT16, DOUBLE, INT32, INT64, INT16, INT8, UINT8, UINT16, UINT32, UINT64, BOOL, BFLOAT16, COMPLEX64, COMPLEX128</td>
       <td>ND</td>
       <td>0-8</td>
       <td>√</td>

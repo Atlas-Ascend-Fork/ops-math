@@ -121,8 +121,8 @@ aclnnStatus aclnnInplaceXLogYTensor(
       <td>out（aclTensor*）</td>
       <td>输出</td>
       <td>公式中的out。</td>
-      <td><ul><li>shape需要是self与other broadcast之后的shape。</li></ul></td>
-      <td>FLOAT、FLOAT16、INT32、INT64、INT16、INT8、UINT8、BOOL、BFLOAT16</td>
+      <td><ul><li>shape需要是self与other broadcast之后的shape。</li><li>FLOAT、FLOAT16、BFLOAT16之外的类型为计算结果经数据类型转换后写入，其中转换为整型时小数部分被截断，请按需选择输出数据类型。</li></ul></td>
+      <td>FLOAT、FLOAT16、DOUBLE、INT32、INT64、INT16、INT8、UINT8、UINT16、UINT32、UINT64、BOOL、BFLOAT16、COMPLEX64、COMPLEX128</td>
       <td>ND</td>
       <td>0-8</td>
       <td>√</td>
