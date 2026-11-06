@@ -69,8 +69,8 @@ uint32_t GetDataTypeSize(DataType dt)
     return 1;
 }
 
-int32_t GenInt16Data(
-    vector<int64_t> shapes, Tensor& input_tensor, TensorDesc& input_tensor_desc, const int16_t* values, size_t nval)
+int32_t GenInt16Data(vector<int64_t> shapes, Tensor& input_tensor, TensorDesc& input_tensor_desc, const int16_t* values,
+                     size_t nval)
 {
     input_tensor_desc.SetRealDimCnt(shapes.size());
     size_t size = 1;
@@ -79,6 +79,9 @@ int32_t GenInt16Data(
     }
     uint32_t data_len = size * sizeof(int16_t);
     int16_t* pData = new (std::nothrow) int16_t[size];
+    if (pData == nullptr) {
+        return FAILED;
+    }
     for (size_t i = 0; i < size; ++i) {
         pData[i] = values[i % nval];
     }
@@ -92,9 +95,8 @@ static inline uint8_t CpuPopcount16(uint16_t v)
     return static_cast<uint8_t>(__builtin_popcount(static_cast<uint32_t>(v)));
 }
 
-int32_t CreateOppInGraph(
-    std::vector<ge::Tensor>& input, std::vector<Operator>& inputs, std::vector<Operator>& outputs,
-    Graph& graph)
+int32_t CreateOppInGraph(std::vector<ge::Tensor>& input, std::vector<Operator>& inputs, std::vector<Operator>& outputs,
+                         Graph& graph)
 {
     Status ret = SUCCESS;
     auto popcount1 = op::PopulationCount("popcount1");
@@ -103,22 +105,22 @@ int32_t CreateOppInGraph(
 
     // 覆盖正数 / 负数 / 边界值的 16 个 INT16 测试点
     int16_t testValues[16] = {
-        0,                     // 0x0000 -> 0
-        1,                     // 0x0001 -> 1
-        2,                     // 0x0002 -> 1
-        3,                     // 0x0003 -> 2
-        7,                     // 0x0007 -> 3
-        15,                    // 0x000F -> 4
-        255,                   // 0x00FF -> 8
-        256,                   // 0x0100 -> 1
-        21845,                 // 0x5555 -> 8
-        (int16_t)0xAAAA,       // 0xAAAA -> 8
-        (int16_t)0x7FFF,       // 0x7FFF -> 15
-        (int16_t)0x8000,       // 0x8000 -> 1
-        -1,                    // 0xFFFF -> 16
-        -2,                    // 0xFFFE -> 15
-        16,                    // 0x0010 -> 1
-        4660,                  // 0x1234 -> 5
+        0,               // 0x0000 -> 0
+        1,               // 0x0001 -> 1
+        2,               // 0x0002 -> 1
+        3,               // 0x0003 -> 2
+        7,               // 0x0007 -> 3
+        15,              // 0x000F -> 4
+        255,             // 0x00FF -> 8
+        256,             // 0x0100 -> 1
+        21845,           // 0x5555 -> 8
+        (int16_t)0xAAAA, // 0xAAAA -> 8
+        (int16_t)0x7FFF, // 0x7FFF -> 15
+        (int16_t)0x8000, // 0x8000 -> 1
+        -1,              // 0xFFFF -> 16
+        -2,              // 0xFFFE -> 15
+        16,              // 0x0010 -> 1
+        4660,            // 0x1234 -> 5
     };
 
     auto placeholder1 = op::Data("placeholder1").set_attr_index(0);
@@ -163,6 +165,7 @@ int main(int argc, char* argv[])
     ret = CreateOppInGraph(input, inputs, outputs, graph);
     if (ret != SUCCESS) {
         printf("%s - ERROR - [XIR]: Create graph failed\n", GetTime().c_str());
+        GEFinalize();
         return FAILED;
     }
 
@@ -175,6 +178,7 @@ int main(int argc, char* argv[])
     ge::Session* session = new Session(build_options);
     if (session == nullptr) {
         printf("%s - ERROR - [XIR]: Create session failed\n", GetTime().c_str());
+        GEFinalize();
         return FAILED;
     }
     printf("%s - INFO - [XIR]: Create session success\n", GetTime().c_str());
@@ -182,6 +186,12 @@ int main(int argc, char* argv[])
     std::map<AscendString, AscendString> graph_options = {};
     uint32_t graph_id = 0;
     ret = session->AddGraph(graph_id, graph, graph_options);
+    if (ret != SUCCESS) {
+        printf("%s - ERROR - [XIR]: Add graph failed\n", GetTime().c_str());
+        delete session;
+        GEFinalize();
+        return FAILED;
+    }
     printf("%s - INFO - [XIR]: Add graph success\n", GetTime().c_str());
 
     printf("%s - INFO - [XIR]: Start to run graph\n", GetTime().c_str());
@@ -210,9 +220,10 @@ int main(int argc, char* argv[])
         const uint8_t* odata = output[i].GetData();
         for (int64_t j = 0; j < output_shape && j < 16; j++) {
             bool pass = (odata[j] == expected[j]);
-            if (!pass) allPass = false;
-            LOG_PRINT("  result[%ld] = %u, expected = %u  %s\n", j,
-                      (unsigned)odata[j], (unsigned)expected[j], pass ? "PASS" : "FAIL");
+            if (!pass)
+                allPass = false;
+            LOG_PRINT("  result[%ld] = %u, expected = %u  %s\n", j, (unsigned)odata[j], (unsigned)expected[j],
+                      pass ? "PASS" : "FAIL");
         }
     }
 
