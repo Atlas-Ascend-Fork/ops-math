@@ -10,6 +10,7 @@
 
 #include "aclnn_arange.h"
 #include "arange.h"
+#include <cmath>
 #include "aclnn_kernels/cast.h"
 #include "aclnn_kernels/contiguous.h"
 #include "aclnn/aclnn_base.h"
@@ -160,6 +161,36 @@ static bool CheckNotNull(const aclScalar* start, const aclScalar* end, const acl
     return true;
 }
 
+static inline int64_t CeilDivInt64(int64_t x, int64_t y)
+{
+    if (y != 0 && x != 0) {
+        const int64_t quotient = x / y;
+        return (x % y != 0 && ((x ^ y) >= 0)) ? (quotient + 1) : quotient;
+    }
+    return x;
+}
+
+// 与torch.arange的compute_arange_size一致：int64输出按整数语义推导，其余输出按double语义推导
+static inline int64_t CalculateOutputSize(const aclScalar* start, const aclScalar* end, const aclScalar* step,
+                                          DataType outType)
+{
+    if (outType == DataType::DT_INT64) {
+        return CeilDivInt64(end->ToInt64() - start->ToInt64(), step->ToInt64());
+    }
+    return static_cast<int64_t>(std::ceil((end->ToDouble() - start->ToDouble()) / step->ToDouble()));
+}
+
+static void CheckOutSize(const aclScalar* start, const aclScalar* end, const aclScalar* step, const aclTensor* out)
+{
+    const int64_t outSize = out->GetViewShape().GetShapeSize();
+    const int64_t expectSize = CalculateOutputSize(start, end, step, out->GetDataType());
+    if (outSize > expectSize) {
+        OP_LOGW("out element size %ld is greater than the length %ld derived from (start, end, step); only the first "
+                "%ld elements are written, remaining elements are kept unchanged.",
+                outSize, expectSize, expectSize);
+    }
+}
+
 static aclnnStatus CheckParams(const aclScalar* start, const aclScalar* end, const aclScalar* step,
                                const aclTensor* out)
 {
@@ -169,6 +200,8 @@ static aclnnStatus CheckParams(const aclScalar* start, const aclScalar* end, con
     CHECK_RET(CheckDtypeValid(start, end, step, out), ACLNN_ERR_PARAM_INVALID);
     // 3. 检查输入的数据的值是否合理
     CHECK_RET(CheckStepCorrect(start, end, step, out) == ACLNN_SUCCESS, ACLNN_ERR_PARAM_INVALID);
+    // 4. out元素个数大于推导长度时告警（不超过推导长度时维持原有行为）
+    CheckOutSize(start, end, step, out);
     return ACLNN_SUCCESS;
 }
 
