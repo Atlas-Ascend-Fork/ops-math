@@ -22,6 +22,12 @@ static constexpr size_t OUTPUT_IDX_Y = 0;
 static constexpr size_t PADS_DIM2 = 2;
 static constexpr int64_t MAX_RANK = 8;
 
+namespace {
+// Checked arithmetic helpers: return false on overflow.
+inline bool SafeAddI64(int64_t a, int64_t b, int64_t& r) { return !__builtin_add_overflow(a, b, &r); }
+inline bool SafeMulI64(int64_t a, int64_t b, int64_t& r) { return !__builtin_mul_overflow(a, b, &r); }
+} // namespace
+
 class SpaceToBatchNDInferShapeHelper {
 public:
     explicit SpaceToBatchNDInferShapeHelper(gert::InferShapeContext* context) : context_(context) {}
@@ -70,6 +76,15 @@ ge::graphStatus SpaceToBatchNDInferShapeHelper::Init()
         return ge::GRAPH_FAILED;
     }
 
+    OP_CHECK_IF(padsVec_.GetDimNum() < N_ * PADS_DIM2,
+                OP_LOGE(context_, "paddings element count=%zu is less than %zu", padsVec_.GetDimNum(), N_ * PADS_DIM2),
+                return ge::GRAPH_FAILED);
+    for (size_t i = 0; i < N_ * PADS_DIM2; ++i) {
+        OP_CHECK_IF(padsVec_.GetDim(i) < 0,
+                    OP_LOGE(context_, "paddings[%zu]=%ld must be non-negative", i, padsVec_.GetDim(i)),
+                    return ge::GRAPH_FAILED);
+    }
+
     return ge::GRAPH_SUCCESS;
 }
 
@@ -83,21 +98,49 @@ ge::graphStatus SpaceToBatchNDInferShapeHelper::CheckAndInfer()
     for (size_t i = 0; i < N_; i++) {
         int64_t bs = blockVec_.GetDim(i);
         OP_CHECK_IF(bs <= 0, OP_LOGE(context_, "block_shape[%zu]=%ld must be > 0", i, bs), return ge::GRAPH_FAILED);
-        batchMul *= bs;
+        int64_t nextBatchMul = 0;
+        OP_CHECK_IF(
+            !SafeMulI64(batchMul, bs, nextBatchMul),
+            OP_LOGE(context_, "batch multiplier overflow: batchMul=%ld * block_shape[%zu]=%ld", batchMul, i, bs),
+            return ge::GRAPH_FAILED);
+        batchMul = nextBatchMul;
     }
 
     yShape_->SetDimNum(0);
 
     int64_t firstDim = xShape_->GetDim(0);
-    firstDim = firstDim == -1 ? -1 : firstDim * batchMul;
-    yShape_->AppendDim(firstDim);
+    if (firstDim == -1) {
+        yShape_->AppendDim(-1);
+    } else {
+        int64_t outFirstDim = 0;
+        OP_CHECK_IF(!SafeMulI64(firstDim, batchMul, outFirstDim),
+                    OP_LOGE(context_, "first dim overflow: x dim[0]=%ld * batchMul=%ld", firstDim, batchMul),
+                    return ge::GRAPH_FAILED);
+        yShape_->AppendDim(outFirstDim);
+    }
 
     for (size_t i = 0; i < N_; i++) {
-        int64_t dim = xShape_->GetDim(i + 1) == -1 ?
-                          -1 :
-                          ((xShape_->GetDim(i + 1) + padsVec_.GetDim(i * 2) + padsVec_.GetDim(i * 2 + 1)) /
-                           blockVec_.GetDim(i));
-        yShape_->AppendDim(dim);
+        int64_t xDim = xShape_->GetDim(i + 1);
+        if (xDim == -1) {
+            yShape_->AppendDim(-1);
+            continue;
+        }
+        int64_t bs = blockVec_.GetDim(i);
+        int64_t dimWithTop = 0;
+        int64_t paddedDim = 0;
+        OP_CHECK_IF(!SafeAddI64(xDim, padsVec_.GetDim(i * 2), dimWithTop),
+                    OP_LOGE(context_, "spatial dim[%zu]=%ld + paddings[%zu]=%ld overflow", i, xDim, i * 2,
+                            padsVec_.GetDim(i * 2)),
+                    return ge::GRAPH_FAILED);
+        OP_CHECK_IF(!SafeAddI64(dimWithTop, padsVec_.GetDim(i * 2 + 1), paddedDim),
+                    OP_LOGE(context_, "spatial dim[%zu] + paddings[%zu]=%ld overflow", i, i * 2 + 1,
+                            padsVec_.GetDim(i * 2 + 1)),
+                    return ge::GRAPH_FAILED);
+        OP_CHECK_IF(paddedDim % bs != 0,
+                    OP_LOGE(context_, "padded spatial dim[%zu]=%ld must be divisible by block_shape[%zu]=%ld", i,
+                            paddedDim, i, bs),
+                    return ge::GRAPH_FAILED);
+        yShape_->AppendDim(paddedDim / bs);
     }
     for (size_t i = N_ + 1; i < static_cast<size_t>(rank); i++) {
         yShape_->AppendDim(xShape_->GetDim(i));
@@ -126,14 +169,7 @@ static ge::graphStatus Infershape4SpaceToBatchND(gert::InferShapeContext* contex
     return helper.Inference();
 }
 
-static ge::graphStatus InferDataType4SpaceToBatchND(gert::InferDataTypeContext* context)
-{
-    context->SetOutputDataType(OUTPUT_IDX_Y, context->GetInputDataType(INPUT_IDX_X));
-    return ge::GRAPH_SUCCESS;
-}
-
 IMPL_OP_INFERSHAPE(SpaceToBatchND)
     .InferShape(Infershape4SpaceToBatchND)
-    .InferDataType(InferDataType4SpaceToBatchND)
     .InputsDataDependency({INPUT_IDX_BS, INPUT_IDX_PADS});
 } // namespace ops

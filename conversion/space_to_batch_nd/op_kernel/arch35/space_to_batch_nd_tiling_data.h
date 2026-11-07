@@ -13,10 +13,12 @@
 
 #include <cstdint>
 
-constexpr int32_t MAX_RANK = 9;
+constexpr int32_t MAX_INPUT_RANK = 8;
 constexpr int32_t MAX_SPATIAL = 7;
+constexpr int32_t MAX_RANK = MAX_SPATIAL + 2;
 
 struct SpaceToBatchNDTilingData {
+    // Internal flattened rank = numSpatialDims + 2, not the rank of the input/output tensors.
     int64_t rank;
     int64_t inShape[MAX_RANK];
     int64_t outShape[MAX_RANK];

@@ -2,7 +2,7 @@
   "op_type": "SpaceToBatchND",
   "op_list": [
     {
-      "bin_filename": "SpaceToBatchND_1B_int32",
+      "bin_filename": "SpaceToBatchND_1B_int32_int32",
       "inputs": [
         {
           "name": "x",
@@ -48,7 +48,99 @@
       "attrs": []
     },
     {
-      "bin_filename": "SpaceToBatchND_1B_int64",
+      "bin_filename": "SpaceToBatchND_1B_int32_int64",
+      "inputs": [
+        {
+          "name": "x",
+          "index": 0,
+          "dtype": "int8",
+          "format": "ND",
+          "paramType": "required",
+          "shape": [-2],
+          "format_match_mode": "FormatAgnostic",
+          "dtype_match_mode": "DtypeByte"
+        },
+        {
+          "name": "block_shape",
+          "index": 1,
+          "dtype": "int32",
+          "format": "ND",
+          "paramType": "required",
+          "shape": [-2],
+          "format_match_mode": "FormatAgnostic"
+        },
+        {
+          "name": "paddings",
+          "index": 2,
+          "dtype": "int64",
+          "format": "ND",
+          "paramType": "required",
+          "shape": [-2],
+          "format_match_mode": "FormatAgnostic"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "y",
+          "index": 0,
+          "dtype": "int8",
+          "format": "ND",
+          "paramType": "required",
+          "shape": [-2],
+          "format_match_mode": "FormatAgnostic",
+          "dtype_match_mode": "DtypeByte"
+        }
+      ],
+      "attrs": []
+    },
+    {
+      "bin_filename": "SpaceToBatchND_1B_int64_int32",
+      "inputs": [
+        {
+          "name": "x",
+          "index": 0,
+          "dtype": "int8",
+          "format": "ND",
+          "paramType": "required",
+          "shape": [-2],
+          "format_match_mode": "FormatAgnostic",
+          "dtype_match_mode": "DtypeByte"
+        },
+        {
+          "name": "block_shape",
+          "index": 1,
+          "dtype": "int64",
+          "format": "ND",
+          "paramType": "required",
+          "shape": [-2],
+          "format_match_mode": "FormatAgnostic"
+        },
+        {
+          "name": "paddings",
+          "index": 2,
+          "dtype": "int32",
+          "format": "ND",
+          "paramType": "required",
+          "shape": [-2],
+          "format_match_mode": "FormatAgnostic"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "y",
+          "index": 0,
+          "dtype": "int8",
+          "format": "ND",
+          "paramType": "required",
+          "shape": [-2],
+          "format_match_mode": "FormatAgnostic",
+          "dtype_match_mode": "DtypeByte"
+        }
+      ],
+      "attrs": []
+    },
+    {
+      "bin_filename": "SpaceToBatchND_1B_int64_int64",
       "inputs": [
         {
           "name": "x",
@@ -94,7 +186,7 @@
       "attrs": []
     },
     {
-      "bin_filename": "SpaceToBatchND_2B_int32",
+      "bin_filename": "SpaceToBatchND_2B_int32_int32",
       "inputs": [
         {
           "name": "x",
@@ -140,7 +232,99 @@
       "attrs": []
     },
     {
-      "bin_filename": "SpaceToBatchND_2B_int64",
+      "bin_filename": "SpaceToBatchND_2B_int32_int64",
+      "inputs": [
+        {
+          "name": "x",
+          "index": 0,
+          "dtype": "float16",
+          "format": "ND",
+          "paramType": "required",
+          "shape": [-2],
+          "format_match_mode": "FormatAgnostic",
+          "dtype_match_mode": "DtypeByte"
+        },
+        {
+          "name": "block_shape",
+          "index": 1,
+          "dtype": "int32",
+          "format": "ND",
+          "paramType": "required",
+          "shape": [-2],
+          "format_match_mode": "FormatAgnostic"
+        },
+        {
+          "name": "paddings",
+          "index": 2,
+          "dtype": "int64",
+          "format": "ND",
+          "paramType": "required",
+          "shape": [-2],
+          "format_match_mode": "FormatAgnostic"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "y",
+          "index": 0,
+          "dtype": "float16",
+          "format": "ND",
+          "paramType": "required",
+          "shape": [-2],
+          "format_match_mode": "FormatAgnostic",
+          "dtype_match_mode": "DtypeByte"
+        }
+      ],
+      "attrs": []
+    },
+    {
+      "bin_filename": "SpaceToBatchND_2B_int64_int32",
+      "inputs": [
+        {
+          "name": "x",
+          "index": 0,
+          "dtype": "float16",
+          "format": "ND",
+          "paramType": "required",
+          "shape": [-2],
+          "format_match_mode": "FormatAgnostic",
+          "dtype_match_mode": "DtypeByte"
+        },
+        {
+          "name": "block_shape",
+          "index": 1,
+          "dtype": "int64",
+          "format": "ND",
+          "paramType": "required",
+          "shape": [-2],
+          "format_match_mode": "FormatAgnostic"
+        },
+        {
+          "name": "paddings",
+          "index": 2,
+          "dtype": "int32",
+          "format": "ND",
+          "paramType": "required",
+          "shape": [-2],
+          "format_match_mode": "FormatAgnostic"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "y",
+          "index": 0,
+          "dtype": "float16",
+          "format": "ND",
+          "paramType": "required",
+          "shape": [-2],
+          "format_match_mode": "FormatAgnostic",
+          "dtype_match_mode": "DtypeByte"
+        }
+      ],
+      "attrs": []
+    },
+    {
+      "bin_filename": "SpaceToBatchND_2B_int64_int64",
       "inputs": [
         {
           "name": "x",
@@ -186,7 +370,7 @@
       "attrs": []
     },
     {
-      "bin_filename": "SpaceToBatchND_4B_int32",
+      "bin_filename": "SpaceToBatchND_4B_int32_int32",
       "inputs": [
         {
           "name": "x",
@@ -232,7 +416,99 @@
       "attrs": []
     },
     {
-      "bin_filename": "SpaceToBatchND_4B_int64",
+      "bin_filename": "SpaceToBatchND_4B_int32_int64",
+      "inputs": [
+        {
+          "name": "x",
+          "index": 0,
+          "dtype": "float32",
+          "format": "ND",
+          "paramType": "required",
+          "shape": [-2],
+          "format_match_mode": "FormatAgnostic",
+          "dtype_match_mode": "DtypeByte"
+        },
+        {
+          "name": "block_shape",
+          "index": 1,
+          "dtype": "int32",
+          "format": "ND",
+          "paramType": "required",
+          "shape": [-2],
+          "format_match_mode": "FormatAgnostic"
+        },
+        {
+          "name": "paddings",
+          "index": 2,
+          "dtype": "int64",
+          "format": "ND",
+          "paramType": "required",
+          "shape": [-2],
+          "format_match_mode": "FormatAgnostic"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "y",
+          "index": 0,
+          "dtype": "float32",
+          "format": "ND",
+          "paramType": "required",
+          "shape": [-2],
+          "format_match_mode": "FormatAgnostic",
+          "dtype_match_mode": "DtypeByte"
+        }
+      ],
+      "attrs": []
+    },
+    {
+      "bin_filename": "SpaceToBatchND_4B_int64_int32",
+      "inputs": [
+        {
+          "name": "x",
+          "index": 0,
+          "dtype": "float32",
+          "format": "ND",
+          "paramType": "required",
+          "shape": [-2],
+          "format_match_mode": "FormatAgnostic",
+          "dtype_match_mode": "DtypeByte"
+        },
+        {
+          "name": "block_shape",
+          "index": 1,
+          "dtype": "int64",
+          "format": "ND",
+          "paramType": "required",
+          "shape": [-2],
+          "format_match_mode": "FormatAgnostic"
+        },
+        {
+          "name": "paddings",
+          "index": 2,
+          "dtype": "int32",
+          "format": "ND",
+          "paramType": "required",
+          "shape": [-2],
+          "format_match_mode": "FormatAgnostic"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "y",
+          "index": 0,
+          "dtype": "float32",
+          "format": "ND",
+          "paramType": "required",
+          "shape": [-2],
+          "format_match_mode": "FormatAgnostic",
+          "dtype_match_mode": "DtypeByte"
+        }
+      ],
+      "attrs": []
+    },
+    {
+      "bin_filename": "SpaceToBatchND_4B_int64_int64",
       "inputs": [
         {
           "name": "x",
@@ -278,7 +554,7 @@
       "attrs": []
     },
     {
-      "bin_filename": "SpaceToBatchND_8B_int32",
+      "bin_filename": "SpaceToBatchND_8B_int32_int32",
       "inputs": [
         {
           "name": "x",
@@ -324,7 +600,99 @@
       "attrs": []
     },
     {
-      "bin_filename": "SpaceToBatchND_8B_int64",
+      "bin_filename": "SpaceToBatchND_8B_int32_int64",
+      "inputs": [
+        {
+          "name": "x",
+          "index": 0,
+          "dtype": "int64",
+          "format": "ND",
+          "paramType": "required",
+          "shape": [-2],
+          "format_match_mode": "FormatAgnostic",
+          "dtype_match_mode": "DtypeByte"
+        },
+        {
+          "name": "block_shape",
+          "index": 1,
+          "dtype": "int32",
+          "format": "ND",
+          "paramType": "required",
+          "shape": [-2],
+          "format_match_mode": "FormatAgnostic"
+        },
+        {
+          "name": "paddings",
+          "index": 2,
+          "dtype": "int64",
+          "format": "ND",
+          "paramType": "required",
+          "shape": [-2],
+          "format_match_mode": "FormatAgnostic"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "y",
+          "index": 0,
+          "dtype": "int64",
+          "format": "ND",
+          "paramType": "required",
+          "shape": [-2],
+          "format_match_mode": "FormatAgnostic",
+          "dtype_match_mode": "DtypeByte"
+        }
+      ],
+      "attrs": []
+    },
+    {
+      "bin_filename": "SpaceToBatchND_8B_int64_int32",
+      "inputs": [
+        {
+          "name": "x",
+          "index": 0,
+          "dtype": "int64",
+          "format": "ND",
+          "paramType": "required",
+          "shape": [-2],
+          "format_match_mode": "FormatAgnostic",
+          "dtype_match_mode": "DtypeByte"
+        },
+        {
+          "name": "block_shape",
+          "index": 1,
+          "dtype": "int64",
+          "format": "ND",
+          "paramType": "required",
+          "shape": [-2],
+          "format_match_mode": "FormatAgnostic"
+        },
+        {
+          "name": "paddings",
+          "index": 2,
+          "dtype": "int32",
+          "format": "ND",
+          "paramType": "required",
+          "shape": [-2],
+          "format_match_mode": "FormatAgnostic"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "y",
+          "index": 0,
+          "dtype": "int64",
+          "format": "ND",
+          "paramType": "required",
+          "shape": [-2],
+          "format_match_mode": "FormatAgnostic",
+          "dtype_match_mode": "DtypeByte"
+        }
+      ],
+      "attrs": []
+    },
+    {
+      "bin_filename": "SpaceToBatchND_8B_int64_int64",
       "inputs": [
         {
           "name": "x",

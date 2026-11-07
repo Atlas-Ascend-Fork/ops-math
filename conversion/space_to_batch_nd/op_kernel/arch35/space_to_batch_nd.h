@@ -62,6 +62,9 @@ public:
 
     __aicore__ inline void Process()
     {
+        if (td_->totalCount == 0) {
+            return;
+        }
         uint64_t blockIdx = GetBlockIdx();
         uint64_t startBlock = blockIdx * td_->perCoreCount;
         if (startBlock >= td_->totalCount) {
@@ -230,6 +233,17 @@ private:
         return true;
     }
 
+    __aicore__ inline bool CheckFixedAxesValid(int64_t ubAxis)
+    {
+        for (int64_t i = 1; i < ubAxis; ++i) {
+            int64_t inPos = layout_.axes[i].start * bs_[i - 1] + blockIndices_[i - 1] - padTop_[i - 1];
+            if (inPos < 0 || inPos >= spatial_[i - 1]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     __aicore__ inline void CalcValidRange(int64_t axis, int64_t tileStart, int64_t tileCount, int64_t& validStart,
                                           int64_t& validCount)
     {
@@ -285,7 +299,7 @@ private:
     }
 
     __aicore__ inline void CopyIn(uint64_t bufOff, int64_t inOff, uint32_t blockLen, uint16_t blockCount,
-                                  uint32_t srcStride, uint32_t dstStride)
+                                  int64_t srcStride, int64_t dstStride)
     {
         DataCopyExtParams cp{blockCount, blockLen, srcStride, dstStride, 0};
         DataCopyPadExtParams<T> pp{false, 0, 0, 0};
@@ -370,7 +384,7 @@ private:
 
         if (validCount > 0) {
             layout_.axes[ubAxis].start = validStart;
-            uint32_t srcGap = static_cast<uint32_t>((bs_[N_ - 1] * layout_.axes[N_].inStride - innerSize_) * sizeof(T));
+            int64_t srcGap = (bs_[N_ - 1] * layout_.axes[N_].inStride - innerSize_) * sizeof(T);
             CopyIn(bufOff + (validStart - tileStart) * cAligned_, CalcInOffset(), blockLen, validCount, srcGap,
                    cAlignedGap);
         }
@@ -384,7 +398,7 @@ private:
             return;
         }
 
-        if (!CheckOuterValid(ubAxis)) {
+        if (!CheckOuterValid(ubAxis) || !CheckFixedAxesValid(ubAxis)) {
             return;
         }
 
@@ -404,13 +418,13 @@ private:
 
         uint32_t cAlignedGap = static_cast<uint32_t>((cAligned_ - innerSize_) * sizeof(T) / UB_BLOCK_BYTES);
         uint32_t blockLen = static_cast<uint32_t>(innerSize_ * sizeof(T));
-        uint32_t srcGap = static_cast<uint32_t>((bs_[N_ - 1] * layout_.axes[N_].inStride - innerSize_) * sizeof(T));
+        int64_t srcGap = (bs_[N_ - 1] * layout_.axes[N_].inStride - innerSize_) * sizeof(T);
         int64_t bsTa = bs_[ubAxis - 1];
 
         LoopModeParams loopParams;
         loopParams.loop1Size = validTileCount;
-        loopParams.loop1SrcStride = static_cast<uint32_t>(bsTa * layout_.axes[ubAxis].inStride * sizeof(T));
-        loopParams.loop1DstStride = static_cast<uint32_t>(bcFullSize * cAlignedBytes_);
+        loopParams.loop1SrcStride = bsTa * layout_.axes[ubAxis].inStride * sizeof(T);
+        loopParams.loop1DstStride = bcFullSize * cAlignedBytes_;
         loopParams.loop2Size = 1;
         loopParams.loop2SrcStride = 0;
         loopParams.loop2DstStride = 0;
@@ -428,7 +442,7 @@ private:
             return;
         }
 
-        if (!CheckOuterValid(ubAxis, ubAxis + 1)) {
+        if (!CheckOuterValid(ubAxis, ubAxis + 1) || !CheckFixedAxesValid(ubAxis)) {
             return;
         }
 
@@ -448,23 +462,34 @@ private:
 
         uint32_t cAlignedGap = static_cast<uint32_t>((cAligned_ - innerSize_) * sizeof(T) / UB_BLOCK_BYTES);
         uint32_t blockLen = static_cast<uint32_t>(innerSize_ * sizeof(T));
-        uint32_t srcGap = static_cast<uint32_t>((bs_[N_ - 1] * layout_.axes[N_].inStride - innerSize_) * sizeof(T));
+        int64_t srcGap = (bs_[N_ - 1] * layout_.axes[N_].inStride - innerSize_) * sizeof(T);
         int64_t bsTa = bs_[ubAxis - 1];
-        int64_t loop1Size = (ubAxis + 1 < N_) ? td_->outShape[ubAxis + 1] : 1;
+        int64_t loop1FullSize = (ubAxis + 1 < N_) ? td_->outShape[ubAxis + 1] : 1;
+        int64_t loop1Start = 0;
+        int64_t loop1Size = loop1FullSize;
+        if (ubAxis + 1 < N_) {
+            int64_t validStart1 = 0;
+            int64_t validCount1 = 0;
+            CalcValidRange(ubAxis + 1, 0, loop1FullSize, validStart1, validCount1);
+            if (validCount1 <= 0) {
+                return;
+            }
+            loop1Start = validStart1;
+            loop1Size = validCount1;
+            layout_.axes[ubAxis + 1].start = validStart1;
+        }
 
         LoopModeParams loopParams;
         loopParams.loop1Size = loop1Size;
-        loopParams.loop1SrcStride = (ubAxis + 1 < N_) ?
-                                        static_cast<uint32_t>(bs_[ubAxis] * layout_.axes[ubAxis + 1].inStride *
-                                                              sizeof(T)) :
-                                        0;
-        loopParams.loop1DstStride = static_cast<uint32_t>(bcFullSize * cAlignedBytes_);
+        loopParams.loop1SrcStride = (ubAxis + 1 < N_) ? bs_[ubAxis] * layout_.axes[ubAxis + 1].inStride * sizeof(T) : 0;
+        loopParams.loop1DstStride = bcFullSize * cAlignedBytes_;
         loopParams.loop2Size = validTileCount;
-        loopParams.loop2SrcStride = static_cast<uint32_t>(bsTa * layout_.axes[ubAxis].inStride * sizeof(T));
-        loopParams.loop2DstStride = static_cast<uint32_t>(loop1Size * bcFullSize * cAlignedBytes_);
+        loopParams.loop2SrcStride = bsTa * layout_.axes[ubAxis].inStride * sizeof(T);
+        loopParams.loop2DstStride = loop1FullSize * bcFullSize * cAlignedBytes_;
 
         SetLoopModePara(loopParams, DataCopyMVType::OUT_TO_UB);
-        CopyIn(bufOff + (validStart - tileStart) * loop1Size * bcFullSize * cAligned_ + bcStart * cAligned_,
+        CopyIn(bufOff + (validStart - tileStart) * loop1FullSize * bcFullSize * cAligned_ +
+                   loop1Start * bcFullSize * cAligned_ + bcStart * cAligned_,
                CalcInOffset(), blockLen, static_cast<uint16_t>(bcCount), srcGap, cAlignedGap);
         ResetLoopModePara(DataCopyMVType::OUT_TO_UB);
     }
@@ -490,9 +515,7 @@ private:
                 layout_.axes[i].start = tmp % dim;
                 tmp /= dim;
             }
-            if (td_->ubAxis == key4UbAxis - 1) {
-                layout_.axes[td_->ubAxis].start += tileStart;
-            }
+            layout_.axes[td_->ubAxis].start += tileStart;
             CopyInKey4(baseOff, 0, td_->outShape[key4UbAxis], key4UbAxis);
             baseOff += key4Size;
         }

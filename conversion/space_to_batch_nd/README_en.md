@@ -97,6 +97,7 @@ English | [简体中文](./README.md)
 5. Each element in block_shape must be greater than 0.
 6. Each element in paddings must be a non-negative integer.
 7. For each spatial dimension i (i = 1, 2, ..., M), the size of the padded dimension must be divisible by block_shape[i-1], that is, (x.shape[i] + paddings[i-1][0] + paddings[i-1][1]) % block_shape[i-1] == 0.
+8. The operator supports empty tensors (any dimension is 0). If the number of output elements is 0, the operator returns directly without performing the move. If a spatial dimension of the input is 0 but the output is not empty after padding, the output is all zeros.
 
 ## Invocation Description
 

@@ -100,3 +100,134 @@ TEST_F(SpaceToBatchNDInfershapeTest, block_shape_zero_should_fail)
 
     ExecuteTestCase(para, ge::GRAPH_FAILED);
 }
+
+TEST_F(SpaceToBatchNDInfershapeTest, negative_paddings_should_fail)
+{
+    std::vector<int32_t> blockShapeValues = {1};
+    std::vector<int32_t> paddingsValues = {-2, 0};
+
+    gert::InfershapeContextPara para("SpaceToBatchND",
+                                     {
+                                         {{{2, 1}, {2, 1}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                         {{{1}, {1}}, ge::DT_INT32, ge::FORMAT_ND, true, blockShapeValues.data()},
+                                         {{{1, 2}, {1, 2}}, ge::DT_INT32, ge::FORMAT_ND, true, paddingsValues.data()},
+                                     },
+                                     {
+                                         {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                     });
+
+    ExecuteTestCase(para, ge::GRAPH_FAILED);
+}
+
+TEST_F(SpaceToBatchNDInfershapeTest, negative_paddings_large_should_fail)
+{
+    std::vector<int32_t> blockShapeValues = {1};
+    std::vector<int32_t> paddingsValues = {-6, 0};
+
+    gert::InfershapeContextPara para("SpaceToBatchND",
+                                     {
+                                         {{{2, 4}, {2, 4}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                         {{{1}, {1}}, ge::DT_INT32, ge::FORMAT_ND, true, blockShapeValues.data()},
+                                         {{{1, 2}, {1, 2}}, ge::DT_INT32, ge::FORMAT_ND, true, paddingsValues.data()},
+                                     },
+                                     {
+                                         {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                     });
+
+    ExecuteTestCase(para, ge::GRAPH_FAILED);
+}
+
+TEST_F(SpaceToBatchNDInfershapeTest, non_divisible_spatial_dim_should_fail)
+{
+    std::vector<int32_t> blockShapeValues = {2};
+    std::vector<int32_t> paddingsValues = {0, 0};
+
+    gert::InfershapeContextPara para("SpaceToBatchND",
+                                     {
+                                         {{{1, 5, 4}, {1, 5, 4}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                         {{{1}, {1}}, ge::DT_INT32, ge::FORMAT_ND, true, blockShapeValues.data()},
+                                         {{{1, 2}, {1, 2}}, ge::DT_INT32, ge::FORMAT_ND, true, paddingsValues.data()},
+                                     },
+                                     {
+                                         {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                     });
+
+    ExecuteTestCase(para, ge::GRAPH_FAILED);
+}
+
+TEST_F(SpaceToBatchNDInfershapeTest, non_divisible_with_padding_should_fail)
+{
+    std::vector<int32_t> blockShapeValues = {2};
+    std::vector<int32_t> paddingsValues = {1, 0};
+
+    gert::InfershapeContextPara para("SpaceToBatchND",
+                                     {
+                                         {{{2, 6, 3}, {2, 6, 3}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                         {{{1}, {1}}, ge::DT_INT32, ge::FORMAT_ND, true, blockShapeValues.data()},
+                                         {{{1, 2}, {1, 2}}, ge::DT_INT32, ge::FORMAT_ND, true, paddingsValues.data()},
+                                     },
+                                     {
+                                         {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                     });
+
+    ExecuteTestCase(para, ge::GRAPH_FAILED);
+}
+
+TEST_F(SpaceToBatchNDInfershapeTest, batch_mul_overflow_should_fail)
+{
+    // block_shape = [2^62, 4], batchMul = 2^62 * 4 overflows int64
+    std::vector<int64_t> blockShapeValues = {4611686018427387904LL, 4LL};
+    std::vector<int64_t> paddingsValues = {0LL, 0LL, 0LL, 0LL};
+
+    gert::InfershapeContextPara para("SpaceToBatchND",
+                                     {
+                                         {{{1, 4, 4}, {1, 4, 4}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                         {{{2}, {2}}, ge::DT_INT64, ge::FORMAT_ND, true, blockShapeValues.data()},
+                                         {{{2, 2}, {2, 2}}, ge::DT_INT64, ge::FORMAT_ND, true, paddingsValues.data()},
+                                     },
+                                     {
+                                         {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                     });
+
+    ExecuteTestCase(para, ge::GRAPH_FAILED);
+}
+
+TEST_F(SpaceToBatchNDInfershapeTest, first_dim_overflow_should_fail)
+{
+    // x dim0 = 2^62, block_shape = [4], firstDim * batchMul overflows int64
+    std::vector<int64_t> blockShapeValues = {4LL};
+    std::vector<int64_t> paddingsValues = {0LL, 0LL};
+
+    gert::InfershapeContextPara para(
+        "SpaceToBatchND",
+        {
+            {{{4611686018427387904LL, 1}, {4611686018427387904LL, 1}}, ge::DT_FLOAT, ge::FORMAT_ND},
+            {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, blockShapeValues.data()},
+            {{{1, 2}, {1, 2}}, ge::DT_INT64, ge::FORMAT_ND, true, paddingsValues.data()},
+        },
+        {
+            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        });
+
+    ExecuteTestCase(para, ge::GRAPH_FAILED);
+}
+
+TEST_F(SpaceToBatchNDInfershapeTest, padded_dim_overflow_should_fail)
+{
+    // spatial dim = INT64_MAX - 1, paddings = [1, 1], paddedDim overflows int64
+    std::vector<int64_t> blockShapeValues = {1LL};
+    std::vector<int64_t> paddingsValues = {1LL, 1LL};
+
+    gert::InfershapeContextPara para(
+        "SpaceToBatchND",
+        {
+            {{{1, 9223372036854775806LL, 4}, {1, 9223372036854775806LL, 4}}, ge::DT_FLOAT, ge::FORMAT_ND},
+            {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, blockShapeValues.data()},
+            {{{1, 2}, {1, 2}}, ge::DT_INT64, ge::FORMAT_ND, true, paddingsValues.data()},
+        },
+        {
+            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        });
+
+    ExecuteTestCase(para, ge::GRAPH_FAILED);
+}

@@ -78,7 +78,7 @@ public:
             .DynamicRankSupportFlag(true)
             .DynamicShapeSupportFlag(true)
             .NeedCheckSupportFlag(false)
-            .ExtendCfgInfo("opFile.value", "space_to_batch_nd_apt");
+            .ExtendCfgInfo("opFile.value", "space_to_batch_nd");
 
         this->AICore().AddConfig("ascend950", aicore_config);
         this->AICore().AddConfig("ascend350", aicore_config);

@@ -95,6 +95,7 @@
 5. block_shape中的每个元素必须大于0。
 6. paddings中的每个元素必须是非负整数。
 7. 对于每个空间维度i（i = 1, 2, ..., M），padding后的维度大小必须能被block_shape[i-1]整除，即：(x.shape[i] + paddings[i-1][0] + paddings[i-1][1]) % block_shape[i-1] == 0。
+8. 支持空Tensor（任一维度为0）；当输出元素个数为0时直接返回、不执行搬移；当输入某空间维为0但 padding 后输出非空时，输出全部为0。
 
 ## 调用说明
 
