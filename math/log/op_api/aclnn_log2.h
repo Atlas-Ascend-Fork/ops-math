@@ -78,7 +78,7 @@ ACLNN_API aclnnStatus aclnnLog2(void* workspace, uint64_t workspaceSize, aclOpEx
  *     I --> J[(selfRef)]
  * ```
  *
- * @param [in] selfRef(aclTensor*): 数据类型支持FLOAT、FLOAT16、BFLOAT16（910B支持），
+ * @param [in] selfRef(aclTensor*): 数据类型支持FLOAT、FLOAT16、DOUBLE、COMPLEX64、COMPLEX128、BFLOAT16（910B支持），
  * 支持[非连续的Tensor](https://)，数据格式支持ND，selfRef也是输出结果。
  * @param [out] workspaceSize: 返回用户需要在npu device侧申请的workspace大小。
  * @param [out] executor: 返回op执行器，包含算子计算流程。
@@ -103,4 +103,4 @@ ACLNN_API aclnnStatus aclnnInplaceLog2(void* workspace, uint64_t workspaceSize, 
 }
 #endif
 
-#endif  // OP_API_INC_LOG2_H_
+#endif // OP_API_INC_LOG2_H_

@@ -41,7 +41,7 @@ extern "C" {
  * @brief aclnnExp的第一段接口，根据具体的计算流程，计算workspace大小。
  * @domain aclnn_math
  * @param [in] self: npu
- * device侧的aclTensor，数据类型支持FLOAT、FLOAT16、BFLOAT16、DOUBLE、COMPLEX64、COMPLEX128、BOOL，
+ * device侧的aclTensor，数据类型支持FLOAT、FLOAT16、BFLOAT16、DOUBLE、COMPLEX64、COMPLEX128、BOOL、INT64，
  * 支持非连续的Tensor，数据格式支持ND，数据维度不支持8维以上。
  * @param [in] out: npu
  * device侧的aclTensor，数据类型需要是self可转换的数据类型，shape需要与self一致，支持非连续的Tensor，数据
@@ -50,8 +50,8 @@ extern "C" {
  * @param [out] executor: 返回op执行器，包含了算子计算流程。
  * @return aclnnStatus: 返回状态码。
  */
-ACLNN_API aclnnStatus
-aclnnExpGetWorkspaceSize(const aclTensor* self, aclTensor* out, uint64_t* workspaceSize, aclOpExecutor** executor);
+ACLNN_API aclnnStatus aclnnExpGetWorkspaceSize(const aclTensor* self, aclTensor* out, uint64_t* workspaceSize,
+                                               aclOpExecutor** executor);
 
 /**
  * @brief aclnnExp的第二段接口，用于执行计算。
@@ -73,8 +73,8 @@ ACLNN_API aclnnStatus aclnnExp(void* workspace, uint64_t workspaceSize, aclOpExe
  * @param [out] executor: 返回op执行器，包含了算子计算流程。
  * @return aclnnStatus: 返回状态码。
  */
-ACLNN_API aclnnStatus
-aclnnInplaceExpGetWorkspaceSize(aclTensor* selfRef, uint64_t* workspaceSize, aclOpExecutor** executor);
+ACLNN_API aclnnStatus aclnnInplaceExpGetWorkspaceSize(aclTensor* selfRef, uint64_t* workspaceSize,
+                                                      aclOpExecutor** executor);
 
 /**
  * @brief aclnnInplaceExp的第二段接口，用于执行计算。
@@ -84,8 +84,8 @@ aclnnInplaceExpGetWorkspaceSize(aclTensor* selfRef, uint64_t* workspaceSize, acl
  * @param [in] stream: acl stream流。
  * @return aclnnStatus: 返回状态码。
  */
-ACLNN_API aclnnStatus
-aclnnInplaceExp(void* workspace, uint64_t workspaceSize, aclOpExecutor* executor, aclrtStream stream);
+ACLNN_API aclnnStatus aclnnInplaceExp(void* workspace, uint64_t workspaceSize, aclOpExecutor* executor,
+                                      aclrtStream stream);
 
 #ifdef __cplusplus
 }

@@ -305,6 +305,14 @@
       <td>561101</td>
       <td>内部错误，执行器创建失败。</td>
     </tr>
+    <tr>
+      <td rowspan="2">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="2">161002</td>
+      <td>selfRef的数据类型或数据格式不在支持的范围之内。</td>
+    </tr>
+    <tr>
+      <td>selfRef的维数大于8。</td>
+    </tr>
   </tbody>
   </table>
 

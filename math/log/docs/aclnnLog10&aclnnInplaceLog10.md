@@ -115,7 +115,7 @@ aclnnStatus aclnnInplaceLog10(
       <td>输出</td>
       <td>公式中的out。</td>
       <td>当self为支持的整型或布尔类型时，out必须为FLOAT类型，其余支持类型out应该和self保持dtype一致。数据shape与self一致。</td>
-      <td>FLOAT、FLOAT16、BFLOAT16、COMPLEX64、COMPLEX128</td>
+      <td>FLOAT、FLOAT16、BFLOAT16、DOUBLE、COMPLEX64、COMPLEX128</td>
       <td>ND</td>
       <td>0-8</td>
       <td>√</td>
@@ -166,12 +166,15 @@ aclnnStatus aclnnInplaceLog10(
       <td>传入的self或out是空指针。</td>
     </tr>
     <tr>
-      <td rowspan="3">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="3">161002</td>
+      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="4">161002</td>
       <td>self和out的数据类型和数据格式不在支持的范围之内。</td>
     </tr>
     <tr>
       <td>计算结果的数据类型无法转换为指定输出out的类型。</td>
+    </tr>
+    <tr>
+      <td>self和out的shape不一致。</td>
     </tr>
     <tr>
       <td>self和out的维度大于8。</td>
