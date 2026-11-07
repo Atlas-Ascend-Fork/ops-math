@@ -167,13 +167,12 @@ TEST_F(SplitVInfershape, split_v_infershape_unknown_rank)
 TEST_F(SplitVInfershape, split_v_infershape_split_dim_not_const)
 {
     vector<int64_t> sizeSplitValue = {4, 4};
-    vector<int64_t> splitDimValue = {-1};
     gert::InfershapeContextPara infershapeContextPara(
         "SplitV",
         {
             {{{8, 8}, {8, 8}}, ge::DT_INT64, ge::FORMAT_ND},
             {{{2}, {2}}, ge::DT_INT64, ge::FORMAT_ND, true, sizeSplitValue.data()},
-            {{{-1}, {-1}}, ge::DT_INT64, ge::FORMAT_ND, true, splitDimValue.data()},
+            {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND},
         },
         {
             {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
