@@ -146,12 +146,15 @@ static inline float GetCastedFloat(const op::DataType tensorDtype, const aclScal
 
 static inline bool IsFloatEqual(float a, float b) { return std::abs(a - b) <= std::numeric_limits<float>::epsilon(); }
 
-static inline bool IsScalarOne(const aclScalar* alpha)
+static inline bool IsScalarOne(const aclScalar* alpha, const op::DataType calcType)
 {
     if (IsIntegralType(alpha->GetDataType())) {
-        return alpha->ToInt32() == 1;
+        return IsIntegralType(calcType) && calcType != DataType::DT_INT64 && calcType != DataType::DT_UINT64 ?
+                   alpha->ToInt32() == 1 :
+                   alpha->ToInt64() == 1;
     } else if (IsFloatingType(alpha->GetDataType())) {
-        return alpha->ToFloat() == 1.0;
+        return calcType == DataType::DT_DOUBLE || calcType == DataType::DT_COMPLEX128 ? alpha->ToDouble() == 1.0 :
+                                                                                        alpha->ToFloat() == 1.0f;
     }
     return false;
 }
@@ -159,7 +162,7 @@ static inline bool IsScalarOne(const aclScalar* alpha)
 static inline bool IsEqualToOne(const op::DataType calcType, const aclScalar* alpha)
 {
     if (!IsRegBase()) {
-        return IsScalarOne(alpha);
+        return IsScalarOne(alpha, calcType);
     }
     if (IsComplexType(alpha->GetDataType()) || IsComplexType(calcType)) {
         return false;

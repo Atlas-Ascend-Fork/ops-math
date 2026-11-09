@@ -9,12 +9,15 @@
  */
 
 #include <array>
+#include <cmath>
+#include <memory>
 #include <vector>
 #include "gtest/gtest.h"
 #include "../../../op_api/aclnn_rsub.h"
 #include "op_api_ut_common/tensor_desc.h"
 #include "op_api_ut_common/scalar_desc.h"
 #include "op_api_ut_common/op_api_ut.h"
+#include "../../../op_api/aclnn_rsub.cpp"
 
 class l2_rsub_test : public testing::Test {
 protected:
@@ -459,4 +462,26 @@ TEST_F(l2_rsub_test, Ascend950PR_89_case_003)
 
     // SAMPLE: precision simulate
     // ut.TestPrecision();
+}
+
+TEST_F(l2_rsub_test, case_int64_alpha_truncation)
+{
+    for (int64_t value : {4294967297LL, -4294967295LL, 8589934593LL, 12884901889LL, 1099511627777LL}) {
+        SCOPED_TRACE(value);
+        std::unique_ptr<aclScalar, decltype(&aclDestroyScalar)> alpha(aclCreateScalar(&value, ACL_INT64),
+                                                                      aclDestroyScalar);
+        ASSERT_NE(alpha.get(), nullptr);
+        EXPECT_FALSE(IsScalarOne(alpha.get(), op::DataType::DT_INT64));
+    }
+}
+
+TEST_F(l2_rsub_test, case_double_alpha_rounding)
+{
+    for (double value : {1.0 + std::ldexp(1.0, -40), 1.0 - std::ldexp(1.0, -40)}) {
+        SCOPED_TRACE(value);
+        std::unique_ptr<aclScalar, decltype(&aclDestroyScalar)> alpha(aclCreateScalar(&value, ACL_DOUBLE),
+                                                                      aclDestroyScalar);
+        ASSERT_NE(alpha.get(), nullptr);
+        EXPECT_FALSE(IsScalarOne(alpha.get(), op::DataType::DT_DOUBLE));
+    }
 }
