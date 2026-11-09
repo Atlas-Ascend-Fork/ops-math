@@ -8,6 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+#include <cmath>
+#include <cstdio>
 #include <iostream>
 #include <memory>
 #include <type_traits>
@@ -122,7 +124,7 @@ int main()
 
     // 3. 调用CANN算子库API
     uint64_t workspaceSize = 0;
-    aclOpExecutor* executor;
+    aclOpExecutor* executor = nullptr;
     // 调用aclnnTrace第一段接口
     ret = aclnnTraceGetWorkspaceSize(self.get(), out.get(), &workspaceSize, &executor);
     CHECK_RET(ret == ACL_SUCCESS, LOG_PRINT("aclnntraceGetWorkspaceSize failed. ERROR: %d\n", ret); return ret);
@@ -146,6 +148,10 @@ int main()
     ret = aclrtMemcpy(resultData.data(), resultData.size() * sizeof(resultData[0]), outDeviceAddr.get(),
                       size * sizeof(float), ACL_MEMCPY_DEVICE_TO_HOST);
     CHECK_RET(ret == ACL_SUCCESS, LOG_PRINT("copy result from device to host failed. ERROR: %d\n", ret); return ret);
+    const float expected = 3.0F; // self[0,0] + self[1,1]
+    CHECK_RET(std::isfinite(resultData[0]) && std::fabs(resultData[0] - expected) <= 1.0e-6F,
+              LOG_PRINT("Trace mismatch: actual=%f, expected=%f\n", resultData[0], expected);
+              return 1);
     for (int64_t i = 0; i < size; i++) {
         LOG_PRINT("result[%ld] is: %f\n", i, resultData[i]);
     }

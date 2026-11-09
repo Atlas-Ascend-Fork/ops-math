@@ -30,8 +30,14 @@ OP_TYPE_REGISTER(Trace);
 
 static bool IsAiCoreSupport(const aclTensor* self)
 {
+    const auto& platform = GetCurrentPlatformInfo();
+    if (platform.GetSocVersion() == SocVersion::ASCEND950) {
+        return CheckType(self->GetDataType(), {op::DataType::DT_FLOAT, op::DataType::DT_FLOAT16, op::DataType::DT_BF16,
+                                               op::DataType::DT_COMPLEX64});
+    }
+
     // 获取芯片类型,判断是1971还是1980
-    auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
+    auto curArch = platform.GetCurNpuArch();
     if (curArch == NpuArch::DAV_2201) {
         return CheckType(self->GetDataType(),
                          {op::DataType::DT_FLOAT, op::DataType::DT_FLOAT16, op::DataType::DT_BF16});

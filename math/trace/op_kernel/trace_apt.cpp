@@ -18,11 +18,19 @@
  */
 
 #include "arch35/trace_simt.h"
+#include "arch35/trace_compensated_sum.h"
 
 template <uint32_t schMode>
 __global__ __aicore__ void trace(GM_ADDR x, GM_ADDR y, GM_ADDR workspace, GM_ADDR tiling)
 {
     REGISTER_TILING_DEFAULT(TraceTilingData);
     GET_TILING_DATA_WITH_STRUCT(TraceTilingData, tilingData, tiling);
-    NsTrace::Process<DTYPE_X>(x, y, &tilingData);
+    // FP32 components share compensated accumulation and exact fallback on arch35.
+    if constexpr (std::is_same_v<DTYPE_X, float>) {
+        NsTraceCompensated::Process<false>(x, y, &tilingData);
+    } else if constexpr (ORIG_DTYPE_X == DT_COMPLEX64) {
+        NsTraceCompensated::Process<true>(x, y, &tilingData);
+    } else {
+        NsTrace::Process<DTYPE_X>(x, y, &tilingData);
+    }
 }

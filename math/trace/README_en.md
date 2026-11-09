@@ -21,7 +21,7 @@ English | [简体中文](./README.md)
 - Computation formula:
 
   $$
-  out=sum(diag(self))
+  y = sum(diag(x))
   $$
 
 ## Parameter Description
@@ -36,41 +36,40 @@ English | [简体中文](./README.md)
   <thead>
     <tr>
       <th>Parameter Name</th>
-      <th>Input/Output</th>
+      <th>Input/Output/Attribute</th>
       <th>Description</th>
       <th>Data Type</th>
       <th>Data Format</th>
     </tr></thead>
   <tbody>
     <tr>
-      <td>self</td>
+      <td>x</td>
       <td>Input</td>
-      <td>Input tensor, which is the input self in the formula.</td>
-      <td>BFLOAT16, FLOAT16, FLOAT32, COMPLEX64, INT32, INT64, INT16, INT8, UINT8, BOOL</td>
+      <td>Two-dimensional input tensor whose diagonal elements are summed, corresponding to x in the formula.</td>
+      <td>COMPLEX64, FLOAT, FLOAT16, BFLOAT16, INT8, INT16, INT32, INT64, UINT8, UINT16, UINT32, UINT64, BOOL</td>
       <td>ND</td>
     </tr>
     <tr>
-      <td>out</td>
+      <td>y</td>
       <td>Output</td>
-      <td>Output tensor, which is the output out in the formula.</td>
-      <td>BFLOAT16, FLOAT16, FLOAT32, COMPLEX64, INT64</td>
+      <td>Sum of the diagonal elements, corresponding to y in the formula. A UINT64 input produces a UINT64 output. COMPLEX64, FLOAT, FLOAT16, and BFLOAT16 inputs preserve their data type. All other inputs produce an INT64 output.</td>
+      <td>COMPLEX64, FLOAT, FLOAT16, BFLOAT16, INT64, UINT64</td>
       <td>ND</td>
     </tr>
   </tbody>
   </table>
 
+- <term>Atlas training products</term> and <term>Atlas inference products</term>: The data types of x and y do not support BFLOAT16.
+
 ## Constraint Description
 
-1. `self` must be a 2D Tensor.
-2. In graph mode, the output is a 0D scalar.
-3. During an ACLNN invocation, `out` must be a 0D Tensor.
-4. For a non-square matrix with the shape $(M, N)$, the accumulated diagonal has a length of $\min(M, N)$.
-5. A non-2D input, or a non-0D output during an ACLNN invocation, returns a parameter error.
-6. An empty 2D Tensor is supported, and the result is the 0D scalar 0.
+- x must be a two-dimensional Tensor, and y is a zero-dimensional scalar.
+- For a non-square matrix with shape $(M, N)$, the accumulated diagonal has a length of $\min(M, N)$.
+- Empty Tensors with shape $(0, N)$, $(M, 0)$, or $(0, 0)$ are supported and produce 0.
 
 ## Invocation Description
 
 | Invocation Method   | Sample Code | Description  |
 | ------------ | ------------ | ------------ |
-| aclnn invocation  | [test_aclnn_trace](./examples/arch35/test_aclnn_trace.cpp) | Invokes the Trace operator through the [aclnnTrace](./docs/aclnnTrace_en.md) API.   |
-| Graph-mode invocation | [test_geir_trace](./examples/test_geir_trace.cpp) | Invokes the Trace operator by building a graph through the [operator IR](./op_graph/trace_proto.h) |
+| aclnn API  | [test_aclnn_trace](./examples/arch35/test_aclnn_trace.cpp) | Invokes the Trace operator through the [aclnnTrace](./docs/aclnnTrace_en.md) API.   |
+| GE graph mode | [test_geir_trace](./examples/test_geir_trace.cpp) | Invokes the Trace operator by building a graph through the [operator IR](./op_graph/trace_proto.h). |

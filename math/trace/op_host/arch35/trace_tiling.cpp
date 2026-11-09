@@ -13,8 +13,10 @@
  * \brief Tiling implementation for trace operator
  *
  * Single-core strategy: needCoreNum = 1
- * Computes diagSize = min(M, N) and diagStride = stride0 + stride1
+ * Computes diagSize = min(M, N) and diagStride = N + 1 (0 for empty input)
  */
+
+#include <limits>
 
 #include "log/log.h"
 #include "platform/platform_ascendc.h"
@@ -102,9 +104,13 @@ static ge::graphStatus TraceTilingFunc(gert::TilingContext* context)
 
     // 5. Compute tiling parameters
     int64_t diagSize = (M < N) ? M : N;
-    int64_t stride0 = N; // Row stride for contiguous tensor
-    int64_t stride1 = 1; // Column stride for contiguous tensor
-    int64_t diagStride = stride0 + stride1;
+    // Empty input never accesses the diagonal, so its stride need not be computed.
+    int64_t diagStride = 0;
+    if (diagSize != 0) {
+        OP_CHECK_IF(N == std::numeric_limits<int64_t>::max(),
+                    OP_LOGE(context, "N + 1 overflows int64 for non-empty input"), return ge::GRAPH_FAILED);
+        diagStride = N + 1; // Diagonal stride for a contiguous tensor
+    }
 
     // 6. Set tiling data
     TraceTilingData* tiling = context->GetTilingData<TraceTilingData>();

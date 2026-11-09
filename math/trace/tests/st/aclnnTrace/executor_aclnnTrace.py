@@ -25,7 +25,9 @@ class AclnnTraceApi(BaseApi):
             if input_dtype == torch.bool:
                 output = torch.trace(input_data.args[0].to(torch.int64))
             elif input_dtype in [torch.float16, torch.bfloat16]:
-                output = torch.trace(input_data.args[0].to(torch.int64)).to(input_dtype)
+                output = torch.trace(input_data.args[0].to(torch.float32)).to(
+                    input_dtype
+                )
             else:
                 output = torch.trace(input_data.args[0])
         else:

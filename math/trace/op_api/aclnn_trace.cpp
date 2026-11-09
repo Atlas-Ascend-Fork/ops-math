@@ -81,6 +81,18 @@ static bool CheckDtypeValid(const aclTensor* self, const aclTensor* out)
     return true;
 }
 
+static bool CheckNonNegativeShape(const op::Shape& shape, const char* name)
+{
+    for (size_t i = 0; i < shape.GetDimNum(); ++i) {
+        if (shape.GetDim(i) < 0) {
+            OP_LOGE(ACLNN_ERR_PARAM_INVALID, "%s has a negative dimension at index %zu: %ld.", name, i,
+                    shape.GetDim(i));
+            return false;
+        }
+    }
+    return true;
+}
+
 static bool CheckParamValid(const aclTensor* self, const aclTensor* out)
 {
     // 检查参数dim是否合法
@@ -96,7 +108,10 @@ static bool CheckParamValid(const aclTensor* self, const aclTensor* out)
                 op::ToString(out->GetViewShape()).GetString());
         return false;
     }
-    return true;
+    // ACLNN receives executable shapes; dynamic placeholders are not valid here.
+    return CheckNonNegativeShape(self->GetViewShape(), "self view shape") &&
+           CheckNonNegativeShape(self->GetStorageShape(), "self storage shape") &&
+           CheckNonNegativeShape(out->GetStorageShape(), "out storage shape");
 }
 
 static aclnnStatus CheckParams(const aclTensor* self, const aclTensor* out)
@@ -139,7 +154,8 @@ aclnnStatus aclnnTraceGetWorkspaceSize(const aclTensor* self, aclTensor* out, ui
         CHECK_RET(selfContiguous != nullptr, ACLNN_ERR_INNER_NULLPTR);
 
         auto inputdtype = selfContiguous->GetDataType();
-        bool isNeedCast = (inputdtype == DataType::DT_FLOAT16 || inputdtype == DataType::DT_BF16);
+        bool isLowPrecision = (inputdtype == DataType::DT_FLOAT16 || inputdtype == DataType::DT_BF16);
+        bool isNeedCast = isLowPrecision && GetCurrentPlatformInfo().GetSocVersion() != SocVersion::ASCEND950;
         auto selfCast = isNeedCast ? l0op::Cast(selfContiguous, DataType::DT_FLOAT, uniqueExecutor.get()) :
                                      selfContiguous;
         CHECK_RET(selfCast != nullptr, ACLNN_ERR_INNER_NULLPTR);

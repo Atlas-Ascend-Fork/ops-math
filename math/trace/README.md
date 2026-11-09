@@ -19,7 +19,7 @@
 - 计算公式：
 
   $$
-  out=sum(diag(self))
+  y = sum(diag(x))
   $$
 
 ## 参数说明
@@ -34,41 +34,40 @@
   <thead>
     <tr>
       <th>参数名</th>
-      <th>输入/输出</th>
+      <th>输入/输出/属性</th>
       <th>描述</th>
       <th>数据类型</th>
       <th>数据格式</th>
     </tr></thead>
   <tbody>
     <tr>
-      <td>self</td>
+      <td>x</td>
       <td>输入</td>
-      <td>表示输入张量，公式中的输入self。</td>
-      <td>BFLOAT16、FLOAT16、FLOAT32、COMPLEX64、INT32、INT64、INT16、INT8、UINT8、BOOL</td>
+      <td>表示待计算对角线元素之和的二维张量，即公式中的x。</td>
+      <td>COMPLEX64、FLOAT、FLOAT16、BFLOAT16、INT8、INT16、INT32、INT64、UINT8、UINT16、UINT32、UINT64、BOOL</td>
       <td>ND</td>
     </tr>
     <tr>
-      <td>out</td>
+      <td>y</td>
       <td>输出</td>
-      <td>表示输出张量，公式中的输出out。</td>
-      <td>BFLOAT16、FLOAT16、FLOAT32、COMPLEX64、INT64</td>
+      <td>表示对角线元素之和，即公式中的y。UINT64输入对应UINT64输出，COMPLEX64、FLOAT、FLOAT16、BFLOAT16输入对应同类型输出，其余输入对应INT64输出。</td>
+      <td>COMPLEX64、FLOAT、FLOAT16、BFLOAT16、INT64、UINT64</td>
       <td>ND</td>
     </tr>
   </tbody>
   </table>
 
+- <term>Atlas训练系列产品</term>、<term>Atlas推理系列产品</term>：参数x和y的数据类型不支持BFLOAT16。
+
 ## 约束说明
 
-1. `self` 必须为2D Tensor。
-2. 图模式输出为0D标量。
-3. ACLNN调用时，`out` 必须为0D Tensor。
-4. 对于形状为 $(M, N)$ 的非方阵，累加的对角线长度为 $\min(M, N)$。
-5. 非2D输入或ACLNN调用时非0D输出会返回参数错误。
-6. 支持空2D Tensor，结果为0D标量0。
+- x必须为二维Tensor，y为零维标量。
+- 对于形状为$(M, N)$的非方阵，参与累加的对角线长度为$\min(M, N)$。
+- 支持形状为$(0, N)$、$(M, 0)$或$(0, 0)$的空Tensor，输出为0。
 
 ## 调用说明
 
 | 调用方式   | 样例代码 | 说明  |
 | ------------ | ------------ | ------------ |
-| aclnn调用  | [test_aclnn_trace](./examples/arch35/test_aclnn_trace.cpp) | 通过[aclnnTrace](./docs/aclnnTrace.md)接口方式调用Trace算子。   |
-| 图模式调用 | [test_geir_trace](./examples/test_geir_trace.cpp) | 通过[算子IR](./op_graph/trace_proto.h)构图方式调用Trace算子 |
+| aclnn API  | [test_aclnn_trace](./examples/arch35/test_aclnn_trace.cpp) | 通过[aclnnTrace](./docs/aclnnTrace.md)接口调用Trace算子。   |
+| GE图模式 | [test_geir_trace](./examples/test_geir_trace.cpp) | 通过[算子IR](./op_graph/trace_proto.h)构图调用Trace算子。 |
