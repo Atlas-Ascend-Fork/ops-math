@@ -36,19 +36,14 @@ struct AbscomplexCustom : public Vec::ElemwiseUnaryOP<T, U> {
         constexpr uint32_t MIN_NORMAL_FLOAT = 0x00800000u;
         constexpr float SCALE_UP = 16777216.0f;
         constexpr float SCALE_DOWN = 5.9604644775390625e-8f;
-        constexpr int16_t SHR_NUM_FOR_FP32 = 23;
         constexpr uint32_t EXP_BIAS = 0x3F800000u; // 1.0的浮点表示(指数127，尾数0)
-
-        using calcTypeInt = typename std::conditional<AscendC::Std::IsSame<T, half>::value, uint16_t, uint32_t>::type;
 
         // 寄存器定义
         Reg::RegTensor<T> vSrcReg0;
         Reg::RegTensor<T> vSrcReg1;
         Reg::RegTensor<float, Reg::RegTraitNumOne> vA;
         Reg::RegTensor<float, Reg::RegTraitNumOne> vB;
-        Reg::RegTensor<uint32_t, Reg::RegTraitNumOne> vA0;
         Reg::RegTensor<float, Reg::RegTraitNumOne> vA1;
-        Reg::RegTensor<float, Reg::RegTraitNumOne> vB1;
         Reg::RegTensor<float, Reg::RegTraitNumOne> vAS;
         Reg::RegTensor<float, Reg::RegTraitNumOne> vBS;
         Reg::RegTensor<float, Reg::RegTraitNumOne> vA1Sq;
@@ -73,7 +68,6 @@ struct AbscomplexCustom : public Vec::ElemwiseUnaryOP<T, U> {
         Reg::MaskReg preg3;
         Reg::MaskReg preg4;
         constexpr uint32_t vflen = AscendC::VECTOR_REG_WIDTH / sizeof(float);
-        constexpr uint32_t ub = AscendC::VECTOR_REG_WIDTH / AscendC::ONE_BLOCK_SIZE;
 
         static constexpr uint32_t repeatStride = static_cast<uint32_t>(VECTOR_REG_WIDTH / sizeof(U));
         uint16_t repeatTime = static_cast<uint16_t>(CeilDivision(count, repeatStride));
@@ -129,31 +123,19 @@ struct AbscomplexCustom : public Vec::ElemwiseUnaryOP<T, U> {
                     Reg::Mul(vBS, vB, vSCALE_UP, preg);
                     Reg::Select(vA, vAS, vA, preg3);
                     Reg::Select(vB, vBS, vB, preg3);
-                    // 提取A的指数因子（对vAForExp操作）
-                    Reg::ShiftRights(vA0, (AscendC::Reg::RegTensor<uint32_t>&)vA, SHR_NUM_FOR_FP32, preg);
-                    Reg::ShiftLefts(vA0, vA0, SHR_NUM_FOR_FP32, preg);
-                    Reg::Sub((AscendC::Reg::RegTensor<uint32_t>&)vA1, (AscendC::Reg::RegTensor<uint32_t>&)vA, vA0,
-                             preg);
-                    Reg::Sub((AscendC::Reg::RegTensor<uint32_t>&)vB1, (AscendC::Reg::RegTensor<uint32_t>&)vB, vA0,
-                             preg);
-
-                    Reg::Add((AscendC::Reg::RegTensor<uint32_t>&)vA1, (AscendC::Reg::RegTensor<uint32_t>&)vA1, vExpBias,
-                             preg);
-                    Reg::Add((AscendC::Reg::RegTensor<uint32_t>&)vB1, (AscendC::Reg::RegTensor<uint32_t>&)vB1, vExpBias,
-                             preg);
-
+                    Reg::Div(vA1, vB, vA, preg);
                     // 计算归化值
                     Reg::Mul(vA1Sq, vA1, vA1, preg);
-                    Reg::Mul(vB1Sq, vB1, vB1, preg);
-                    Reg::Add(vSumSq, vA1Sq, vB1Sq, preg);
+                    Reg::Add(vSumSq, vA1Sq, (AscendC::Reg::RegTensor<float>&)vExpBias, preg);
                     Reg::Sqrt(vS, vSumSq, preg);
 
-                    Reg::Mul(vResult, vS, (AscendC::Reg::RegTensor<float>&)vA0, preg);
-                    Reg::Mul(vResultS, vResult, vSCALE_DOWN, preg);
-                    Reg::Select(vResult, vResultS, vResult, preg3);
+                    Reg::Mul(vResult, vA, vS, preg);
 
                     // 0的处理
                     Reg::Select(vResult, vA, vResult, preg4);
+
+                    Reg::Mul(vResultS, vResult, vSCALE_DOWN, preg);
+                    Reg::Select(vResult, vResultS, vResult, preg3);
 
                     Reg::StoreAlign(dstAddr + i * vflen, vResult, preg);
                 }
