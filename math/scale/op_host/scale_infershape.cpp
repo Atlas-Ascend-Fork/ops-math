@@ -13,7 +13,10 @@
  * Scale 算子形状推导实现
  * y.shape = x.shape（输出形状与输入 x 一致）
  */
+#include <algorithm>
+#include <cstdint>
 #include <string>
+#include <vector>
 
 #include "util/shape_util.h"
 #include "infershape_elewise_util.h"
@@ -23,10 +26,124 @@
 
 using namespace ge;
 
+namespace {
+namespace scale_shape {
+using Dims = std::vector<int64_t>;
+constexpr size_t MAX_GEIR_RANK = 8;
+
+inline bool UnknownRank(const Dims& shape) { return shape == Dims{-2}; }
+
+inline bool ValidShape(const Dims& shape)
+{
+    return UnknownRank(shape) || (shape.size() <= MAX_GEIR_RANK &&
+                                  std::all_of(shape.begin(), shape.end(), [](int64_t dim) { return dim >= -1; }));
+}
+
+inline bool ValidScaleWindow(const Dims& x, const Dims& s, int64_t axis, int64_t axes, bool blob)
+{
+    if (!ValidShape(x) || !ValidShape(s) || axes < -1)
+        return false;
+    if (!UnknownRank(x)) {
+        const int64_t rank = static_cast<int64_t>(x.size());
+        if (rank == 0 || axis < -rank || axis >= rank)
+            return false;
+        axis = axis < 0 ? axis + rank : axis;
+        if (blob && axes > rank - axis)
+            return false;
+    }
+    if (UnknownRank(s))
+        return true;
+    // Runtime accepts rank-0 scalars and normalized [1] descriptors; the public GEIR verifier checks rank 0.
+    if (blob && axes == 0)
+        return s.empty() || (s.size() == 1 && (s[0] == 1 || s[0] == -1));
+    if (blob && axes > 0 && static_cast<int64_t>(s.size()) != axes)
+        return false;
+    if (UnknownRank(x))
+        return true;
+    if (!blob && (s.empty() || s == Dims{1}))
+        return true;
+    const int64_t rank = static_cast<int64_t>(x.size());
+    const int64_t span = blob ? (axes == -1 ? rank - axis : axes) : static_cast<int64_t>(s.size());
+    if (span < 0 || span > rank - axis || static_cast<int64_t>(s.size()) != span)
+        return false;
+    int64_t checkedSpan = span;
+    if (!blob && rank == 4) {
+        while (checkedSpan > 0 && s[checkedSpan - 1] == 1 && x[axis + checkedSpan - 1] >= 0 &&
+               x[axis + checkedSpan - 1] != 1)
+            --checkedSpan;
+    }
+    for (int64_t i = 0; i < checkedSpan; ++i) {
+        if (x[axis + i] >= 0 && s[i] >= 0 && x[axis + i] != s[i])
+            return false;
+    }
+    return true;
+}
+// Legacy GE expands 4D scale/bias descriptors into x coordinates before RT2 inference.
+// Keep public input validation in ValidScaleWindow; only runtime consumers use this form.
+inline bool ValidScaleRuntimeWindow(const Dims& x, const Dims& s, int64_t axis, int64_t axes, bool blob)
+{
+    if (ValidScaleWindow(x, s, axis, axes, blob))
+        return true;
+    if (x.size() != 4 || s.size() != 4 || !ValidShape(x) || !ValidShape(s) || axes < -1 || axis < -4 || axis >= 4)
+        return false;
+    axis = axis < 0 ? axis + 4 : axis;
+    if (blob) {
+        const int64_t span = axes == -1 ? 4 - axis : axes;
+        if (span > 4 - axis)
+            return false;
+        for (int64_t i = 0; i < 4; ++i) {
+            if (i < axis || i >= axis + span) {
+                if (s[i] != 1)
+                    return false;
+            } else if (x[i] >= 0 && s[i] >= 0 && x[i] != s[i]) {
+                return false;
+            }
+        }
+        return true;
+    }
+    for (int64_t i = 0; i < axis; ++i)
+        if (s[i] != 1)
+            return false;
+    // A3 RT2 accepts aligned singleton broadcasting after the graph verifier.
+    for (int64_t i = axis; i < 4; ++i)
+        if (s[i] != 1 && x[i] >= 0 && s[i] >= 0 && x[i] != s[i])
+            return false;
+    return true;
+}
+} // namespace scale_shape
+} // namespace
+
 namespace ops {
 
 static ge::graphStatus InferShape4Scale(gert::InferShapeContext* context)
 {
+    const auto* x = context->GetInputShape(0);
+    const auto* scaleShape = context->GetInputShape(1);
+    OP_CHECK_NULL_WITH_CONTEXT(context, x);
+    OP_CHECK_NULL_WITH_CONTEXT(context, scaleShape);
+    auto dims = [](const gert::Shape& shape) {
+        scale_shape::Dims result;
+        for (size_t i = 0; i < shape.GetDimNum(); ++i)
+            result.push_back(shape.GetDim(i));
+        return result;
+    };
+    const auto* attrs = context->GetAttrs();
+    const auto* axis = attrs ? attrs->GetInt(0) : nullptr;
+    const auto* axes = attrs ? attrs->GetInt(1) : nullptr;
+    const auto* blob = attrs ? attrs->GetBool(2) : nullptr;
+    const auto xd = dims(*x), sd = dims(*scaleShape);
+    if (!scale_shape::ValidScaleRuntimeWindow(xd, sd, axis ? *axis : 1, axes ? *axes : 1, blob ? *blob : true)) {
+        OP_LOGE(context->GetNodeName(), "Invalid Scale shape window or attributes");
+        return ge::GRAPH_FAILED;
+    }
+    // Validate before empty-output graph elimination; Tiling may never run for zero elements.
+    if (scale_shape::UnknownRank(xd) || scale_shape::UnknownRank(sd)) {
+        auto* y = context->GetOutputShape(0);
+        OP_CHECK_NULL_WITH_CONTEXT(context, y);
+        y->SetDimNum(1);
+        y->SetDim(0, -2);
+        return ge::GRAPH_SUCCESS;
+    }
     const ge::graphStatus inferRet = Ops::Base::InferShape4Elewise(context);
     if (inferRet != ge::GRAPH_SUCCESS) {
         return inferRet;

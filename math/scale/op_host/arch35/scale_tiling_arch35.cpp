@@ -23,8 +23,96 @@
 #include "scale_tiling_arch35.h"
 
 #include <algorithm>
+#include <limits>
 #include <sstream>
 #include <vector>
+
+namespace {
+namespace scale_shape {
+using Dims = std::vector<int64_t>;
+constexpr size_t MAX_GEIR_RANK = 8;
+
+inline bool UnknownRank(const Dims& shape) { return shape == Dims{-2}; }
+
+inline bool ValidShape(const Dims& shape)
+{
+    return UnknownRank(shape) || (shape.size() <= MAX_GEIR_RANK &&
+                                  std::all_of(shape.begin(), shape.end(), [](int64_t dim) { return dim >= -1; }));
+}
+
+inline bool ValidScaleWindow(const Dims& x, const Dims& s, int64_t axis, int64_t axes, bool blob)
+{
+    if (!ValidShape(x) || !ValidShape(s) || axes < -1)
+        return false;
+    if (!UnknownRank(x)) {
+        const int64_t rank = static_cast<int64_t>(x.size());
+        if (rank == 0 || axis < -rank || axis >= rank)
+            return false;
+        axis = axis < 0 ? axis + rank : axis;
+        if (blob && axes > rank - axis)
+            return false;
+    }
+    if (UnknownRank(s))
+        return true;
+    // Runtime accepts rank-0 scalars and normalized [1] descriptors; the public GEIR verifier checks rank 0.
+    if (blob && axes == 0)
+        return s.empty() || (s.size() == 1 && (s[0] == 1 || s[0] == -1));
+    if (blob && axes > 0 && static_cast<int64_t>(s.size()) != axes)
+        return false;
+    if (UnknownRank(x))
+        return true;
+    if (!blob && (s.empty() || s == Dims{1}))
+        return true;
+    const int64_t rank = static_cast<int64_t>(x.size());
+    const int64_t span = blob ? (axes == -1 ? rank - axis : axes) : static_cast<int64_t>(s.size());
+    if (span < 0 || span > rank - axis || static_cast<int64_t>(s.size()) != span)
+        return false;
+    int64_t checkedSpan = span;
+    if (!blob && rank == 4) {
+        while (checkedSpan > 0 && s[checkedSpan - 1] == 1 && x[axis + checkedSpan - 1] >= 0 &&
+               x[axis + checkedSpan - 1] != 1)
+            --checkedSpan;
+    }
+    for (int64_t i = 0; i < checkedSpan; ++i) {
+        if (x[axis + i] >= 0 && s[i] >= 0 && x[axis + i] != s[i])
+            return false;
+    }
+    return true;
+}
+// Legacy GE expands 4D scale/bias descriptors into x coordinates before RT2 inference.
+// Keep public input validation in ValidScaleWindow; only runtime consumers use this form.
+inline bool ValidScaleRuntimeWindow(const Dims& x, const Dims& s, int64_t axis, int64_t axes, bool blob)
+{
+    if (ValidScaleWindow(x, s, axis, axes, blob))
+        return true;
+    if (x.size() != 4 || s.size() != 4 || !ValidShape(x) || !ValidShape(s) || axes < -1 || axis < -4 || axis >= 4)
+        return false;
+    axis = axis < 0 ? axis + 4 : axis;
+    if (blob) {
+        const int64_t span = axes == -1 ? 4 - axis : axes;
+        if (span > 4 - axis)
+            return false;
+        for (int64_t i = 0; i < 4; ++i) {
+            if (i < axis || i >= axis + span) {
+                if (s[i] != 1)
+                    return false;
+            } else if (x[i] >= 0 && s[i] >= 0 && x[i] != s[i]) {
+                return false;
+            }
+        }
+        return true;
+    }
+    for (int64_t i = 0; i < axis; ++i)
+        if (s[i] != 1)
+            return false;
+    // A3 RT2 accepts aligned singleton broadcasting after the graph verifier.
+    for (int64_t i = axis; i < 4; ++i)
+        if (s[i] != 1 && x[i] >= 0 && s[i] >= 0 && x[i] != s[i])
+            return false;
+    return true;
+}
+} // namespace scale_shape
+} // namespace
 
 namespace optiling {
 
@@ -35,6 +123,16 @@ using Ops::Base::CeilDiv;
 // ============================================================
 
 namespace scale {
+
+static bool CheckedMultiply(int64_t a, int64_t b, int64_t& result)
+{
+    if (a < 0 || b < 0 || (b != 0 && a > std::numeric_limits<int64_t>::max() / b)) {
+        OP_LOGE("ScaleTiling", "Invalid or overflowing shape product: %ld * %ld", a, b);
+        return false;
+    }
+    result = a * b;
+    return true;
+}
 
 // 5.0 CheckBroadcastShape — 补 1 后逐维校验 broadcast 兼容性：同维非 1 大小必须一致
 // 单组（入参或出参）在第 d 维校验，非 1 大小须与共享 ref 一致；ref 跨入参/出参累积
@@ -153,14 +251,22 @@ bool FindSplitAxis(const std::vector<int64_t>& max_bro_shape, int64_t /*dtype_si
     }
     int64_t per_buf_bytes = (ub_per_core / phys_nodes) & ~31LL; // 32B 对齐
     int64_t per_buf_elems = per_buf_bytes / 4;                  // 统一按 FP32 计算
+    // Validate the complete domain before deriving tile counts and offsets.
+    int64_t total = 1;
+    for (auto dim : max_bro_shape) {
+        if (!CheckedMultiply(total, dim, total))
+            return false;
+    }
+    if (total == 0 || per_buf_elems <= 0)
+        return false;
     int64_t rank = (int64_t)max_bro_shape.size();
     int64_t inner = 1;
     for (int64_t k = rank - 1; k >= 0; k--) {
-        if (max_bro_shape[k] * inner > per_buf_elems) {
+        if (max_bro_shape[k] > per_buf_elems / inner) {
             out.a_i = per_buf_elems / inner;
             if (out.a_i < 1)
                 out.a_i = 1; // 除 0 保护：单元素超 buffer 时至少切 1，避免后续 /a_i %a_i 除 0
-            out.a_o = (max_bro_shape[k] + out.a_i - 1) / out.a_i;
+            out.a_o = max_bro_shape[k] / out.a_i + (max_bro_shape[k] % out.a_i != 0);
             int64_t rem = max_bro_shape[k] % out.a_i;
             out.a_i_tail = (rem == 0) ? out.a_i : rem;
             out.axis = k;
@@ -182,10 +288,16 @@ bool FindSplitAxis(const std::vector<int64_t>& max_bro_shape, int64_t /*dtype_si
 bool MultiCoreSplit(const std::vector<int64_t>& max_bro_shape, const SplitResult& ub_split, int64_t max_cores,
                     MultiCoreResult& out)
 {
+    if (max_cores <= 0) {
+        return false;
+    }
     int64_t k = ub_split.axis, outer_prod = 1;
-    for (int64_t j = 0; j < k; j++)
-        outer_prod *= max_bro_shape[j];
-    out.total_tiles = outer_prod * ub_split.a_o;
+    for (int64_t j = 0; j < k; j++) {
+        if (!CheckedMultiply(outer_prod, max_bro_shape[j], outer_prod))
+            return false;
+    }
+    if (!CheckedMultiply(outer_prod, ub_split.a_o, out.total_tiles))
+        return false;
     out.num_cores = (out.total_tiles < max_cores) ? out.total_tiles : max_cores;
     out.tiles_main = out.total_tiles / out.num_cores;
     out.cores_tail = out.total_tiles % out.num_cores;
@@ -203,8 +315,10 @@ bool PrecomputeInputStrides(const std::vector<int64_t>& s, std::vector<int64_t>&
             continue;
         }
         int64_t prod = 1;
-        for (int64_t j = d + 1; j < rank; j++)
-            prod *= s[j];
+        for (int64_t j = d + 1; j < rank; j++) {
+            if (!CheckedMultiply(prod, s[j], prod))
+                return false;
+        }
         strides[d] = prod;
     }
     return true;
@@ -220,8 +334,10 @@ bool PrecomputeOutputStrides(const std::vector<int64_t>& s, std::vector<int64_t>
             continue;
         }
         int64_t prod = 1;
-        for (int64_t j = d + 1; j < rank; j++)
-            prod *= s[j];
+        for (int64_t j = d + 1; j < rank; j++) {
+            if (!CheckedMultiply(prod, s[j], prod))
+                return false;
+        }
         strides[d] = prod;
     }
     return true;
@@ -258,13 +374,15 @@ public:
         if (ret != ge::GRAPH_SUCCESS)
             return ret;
 
-        // 空 Tensor 防御：输出 shape 任一维为 0 则跳过 Tiling
-        int64_t total_out = 1;
-        for (auto d : raw_output_shapes_[0])
-            total_out *= d;
-        if (total_out == 0) {
-            ctx_->SetBlockDim(1);
-            return ge::GRAPH_SUCCESS;
+        // Empty outputs still require a valid template key and a zero-work execution plan.
+        const auto& output_shape = raw_output_shapes_[0];
+        if (std::find(output_shape.begin(), output_shape.end(), 0) != output_shape.end()) {
+            if (rank_ <= 4) {
+                ctx_->SetTilingKey(GET_TPL_TILING_KEY(SCALE_RANK_4));
+                return SetEmptyTiling<4>();
+            }
+            ctx_->SetTilingKey(GET_TPL_TILING_KEY(SCALE_RANK_8));
+            return SetEmptyTiling<8>();
         }
 
         int64_t mapped = (rank_ <= 4) ? 4 : 8;
@@ -279,6 +397,22 @@ public:
     }
 
 private:
+    template <int64_t R>
+    ge::graphStatus SetEmptyTiling()
+    {
+        auto* tiling = ctx_->GetTilingData<ScaleTilingData<R>>();
+        OP_CHECK_NULL_WITH_CONTEXT(ctx_, tiling);
+        *tiling = ScaleTilingData<R>{};
+        tiling->rank = rank_;
+        tiling->split.a_o = 1;
+        tiling->multicore.num_cores = 1;
+        tiling->num_inputs = static_cast<int64_t>(raw_input_shapes_.size());
+        tiling->num_outputs = 1;
+        tiling->has_bias = has_bias_;
+        ctx_->SetBlockDim(1);
+        return ge::GRAPH_SUCCESS;
+    }
+
     // 读取平台信息：核数 + UB 大小
     ge::graphStatus ReadPlatform()
     {
@@ -287,6 +421,10 @@ private:
         auto ap = platform_ascendc::PlatformAscendC(platformInfo);
         coreNum_ = ap.GetCoreNumAiv();
         ap.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSize_);
+        if (coreNum_ == 0 || ubSize_ == 0) {
+            OP_LOGE(ctx_->GetNodeName(), "Invalid platform resources: cores=%lu UB=%lu", coreNum_, ubSize_);
+            return ge::GRAPH_FAILED;
+        }
         return ge::GRAPH_SUCCESS;
     }
 
@@ -308,8 +446,8 @@ private:
         OP_CHECK_NULL_WITH_CONTEXT(ctx_, scShape);
         readInto(scShape, raw_input_shapes_);
         auto biasShape = ctx_->GetOptionalInputShape(2);
-        has_bias_ = (biasShape != nullptr) ? 1 : 0;
-        if (biasShape != nullptr)
+        has_bias_ = (biasShape != nullptr && biasShape->GetStorageShape().GetShapeSize() != 0) ? 1 : 0;
+        if (has_bias_)
             readInto(biasShape, raw_input_shapes_);
         for (size_t i = 0; i < ctx_->GetComputeNodeInfo()->GetOutputsNum(); ++i) {
             auto shape = ctx_->GetOutputShape(i);
@@ -332,7 +470,47 @@ private:
             OP_LOGE(ctx_->GetNodeName(), "Unsupported dtype");
             return ge::GRAPH_FAILED;
         }
+        const auto* scaleDesc = ctx_->GetInputDesc(1);
+        const auto* outputDesc = ctx_->GetOutputDesc(0);
+        OP_CHECK_NULL_WITH_CONTEXT(ctx_, scaleDesc);
+        OP_CHECK_NULL_WITH_CONTEXT(ctx_, outputDesc);
+        if (outputDesc->GetDataType() != dtype) {
+            OP_LOGE(ctx_->GetNodeName(), "Scale y dtype must match x");
+            return ge::GRAPH_FAILED;
+        }
+        // GE normalizes supported graph inputs to x dtype before the single-type kernel.
+        auto isSupported = [](ge::DataType dt) {
+            return dt == ge::DT_FLOAT16 || dt == ge::DT_BF16 || dt == ge::DT_FLOAT;
+        };
+        if (!isSupported(scaleDesc->GetDataType()) || scaleDesc->GetDataType() != dtype) {
+            OP_LOGE(ctx_->GetNodeName(), "Unsupported dtype");
+            return ge::GRAPH_FAILED;
+        }
+        if (has_bias_) {
+            const auto* biasDesc = ctx_->GetOptionalInputDesc(2);
+            OP_CHECK_NULL_WITH_CONTEXT(ctx_, biasDesc);
+            if (!isSupported(biasDesc->GetDataType()) || biasDesc->GetDataType() != dtype) {
+                OP_LOGE(ctx_->GetNodeName(), "Unsupported dtype");
+                return ge::GRAPH_FAILED;
+            }
+        }
         return ge::GRAPH_SUCCESS;
+    }
+
+    bool ValidateShapes() const
+    {
+        const auto& x = raw_input_shapes_[0];
+        const auto& scaleShape = raw_input_shapes_[1];
+        if (raw_output_shapes_.size() != 1 || raw_output_shapes_[0] != x)
+            return false;
+        for (const auto& shape : raw_input_shapes_) {
+            if (shape.size() > scale_shape::MAX_GEIR_RANK ||
+                std::any_of(shape.begin(), shape.end(), [](int64_t d) { return d < 0; }))
+                return false;
+        }
+        if (has_bias_ && raw_input_shapes_[2] != scaleShape)
+            return false;
+        return scale_shape::ValidScaleRuntimeWindow(x, scaleShape, axis_, num_axes_, scale_from_blob_);
     }
 
     // 读取 Scale 特有属性：axis, num_axes, scale_from_blob
@@ -399,6 +577,14 @@ private:
         if (ReadDtypeSize() != ge::GRAPH_SUCCESS)
             return ge::GRAPH_FAILED;
         ReadAttrs();
+        if (!ValidateShapes()) {
+            OP_LOGE(ctx_->GetNodeName(), "Invalid Scale rank, shape window or attributes");
+            return ge::GRAPH_FAILED;
+        }
+        if (std::find(raw_output_shapes_[0].begin(), raw_output_shapes_[0].end(), 0) != raw_output_shapes_[0].end()) {
+            rank_ = 1;
+            return ge::GRAPH_SUCCESS;
+        }
         PrePadScaleBias();
 
         if (!scale::PadAndSqueeze(raw_input_shapes_, raw_output_shapes_, max_bro_shape_, normal_input_shapes_,
@@ -408,7 +594,7 @@ private:
         }
         rank_ = (int64_t)max_bro_shape_.size();
 
-        // rank>8 拦截：TilingData 数组上限为 kRank=8，超限会越界写，与 aclnn OP_CHECK_MAX_DIM(8) 一致
+        // Protect the fixed-size TilingData slots.
         if (rank_ > 8) {
             OP_LOGE(ctx_->GetNodeName(), "rank(%ld) exceeds max supported dim 8", rank_);
             return ge::GRAPH_FAILED;
@@ -453,18 +639,23 @@ private:
         int64_t ub_per_core = (int64_t)ubSize_;
         int64_t per_buf_bytes = (ub_per_core / kPhysNodes) & ~31LL;
 
-        scale::FindSplitAxis(max_bro_shape_, dtype_size_, ub_per_core, kPhysNodes, tiling->split);
-        scale::MultiCoreSplit(max_bro_shape_, tiling->split, (int64_t)coreNum_, tiling->multicore);
+        if (!scale::FindSplitAxis(max_bro_shape_, dtype_size_, ub_per_core, kPhysNodes, tiling->split) ||
+            !scale::MultiCoreSplit(max_bro_shape_, tiling->split, (int64_t)coreNum_, tiling->multicore))
+            return ge::GRAPH_FAILED;
         tiling->per_buf_bytes = per_buf_bytes;
         tiling->per_buf_elems = per_buf_bytes / 4; // 统一按 FP32
 
         int64_t num_in = (int64_t)normal_input_shapes_.size();
         int64_t num_out = (int64_t)normal_output_shapes_.size();
         std::vector<std::vector<int64_t>> in_strides(num_in), out_strides(num_out);
-        for (int64_t i = 0; i < num_in; i++)
-            scale::PrecomputeInputStrides(normal_input_shapes_[i], in_strides[i]);
-        for (int64_t i = 0; i < num_out; i++)
-            scale::PrecomputeOutputStrides(normal_output_shapes_[i], out_strides[i]);
+        for (int64_t i = 0; i < num_in; i++) {
+            if (!scale::PrecomputeInputStrides(normal_input_shapes_[i], in_strides[i]))
+                return ge::GRAPH_FAILED;
+        }
+        for (int64_t i = 0; i < num_out; i++) {
+            if (!scale::PrecomputeOutputStrides(normal_output_shapes_[i], out_strides[i]))
+                return ge::GRAPH_FAILED;
+        }
 
         tiling->rank = rank_;
         tiling->has_bias = has_bias_;
@@ -530,6 +721,7 @@ static ge::graphStatus TilingFuncScale(gert::TilingContext* context)
     if (ret != ge::GRAPH_SUCCESS)
         return ret;
     size_t* workspaces = context->GetWorkspaceSizes(1);
+    OP_CHECK_NULL_WITH_CONTEXT(context, workspaces);
     workspaces[0] = 0; // Scale 无 workspace 需求
     return ge::GRAPH_SUCCESS;
 }

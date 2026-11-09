@@ -10,5 +10,5 @@ if (UT_TEST_ALL OR OP_KERNEL_UT)
     set(scale_tiling_files
         ${CMAKE_CURRENT_SOURCE_DIR}/../../../op_host/arch35/scale_tiling_arch35.cpp
         )
-    AddOpTestCase(scale "ascend950" "" "${scale_tiling_files}")
+    AddOpTestCase(scale "ascend950" "-DDTYPE_X=float" "${scale_tiling_files}")
 endif()

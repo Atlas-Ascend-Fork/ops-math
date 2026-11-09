@@ -58,6 +58,7 @@ inline __aicore__ void InitTilingData(const __gm__ uint8_t* p, T* td)
 
 void scale_float_rank4_no_bias(GM_ADDR x, GM_ADDR scale_in, GM_ADDR bias, GM_ADDR y, GM_ADDR workspace, GM_ADDR tiling)
 {
+    REGISTER_TILING_DEFAULT(ScaleTilingData<4>);
     GET_TILING_DATA_WITH_STRUCT(ScaleTilingData<4>, td, tiling);
     GM_ADDR ins[3] = {x, scale_in, bias};
     GM_ADDR outs[1] = {y};
@@ -69,6 +70,7 @@ void scale_float_rank4_no_bias(GM_ADDR x, GM_ADDR scale_in, GM_ADDR bias, GM_ADD
 void scale_float_rank4_with_bias(GM_ADDR x, GM_ADDR scale_in, GM_ADDR bias, GM_ADDR y, GM_ADDR workspace,
                                  GM_ADDR tiling)
 {
+    REGISTER_TILING_DEFAULT(ScaleTilingData<4>);
     GET_TILING_DATA_WITH_STRUCT(ScaleTilingData<4>, td, tiling);
     GM_ADDR ins[3] = {x, scale_in, bias};
     GM_ADDR outs[1] = {y};
@@ -80,6 +82,7 @@ void scale_float_rank4_with_bias(GM_ADDR x, GM_ADDR scale_in, GM_ADDR bias, GM_A
 void scale_float_rank8_coalesced(GM_ADDR x, GM_ADDR scale_in, GM_ADDR bias, GM_ADDR y, GM_ADDR workspace,
                                  GM_ADDR tiling)
 {
+    REGISTER_TILING_DEFAULT(ScaleTilingData<8>);
     GET_TILING_DATA_WITH_STRUCT(ScaleTilingData<8>, td, tiling);
     GM_ADDR ins[3] = {x, scale_in, bias};
     GM_ADDR outs[1] = {y};

@@ -52,7 +52,7 @@ public:
             .DynamicShapeSupportFlag(true)
             .NeedCheckSupportFlag(false)
             .PrecisionReduceFlag(true)
-            .ExtendCfgInfo("opFile.value", "scale_apt");
+            .ExtendCfgInfo("opFile.value", "scale");
         this->AICore().AddConfig("ascend950", aiCoreConfig);
         this->AICore().AddConfig("ascend350", aiCoreConfig);
     }

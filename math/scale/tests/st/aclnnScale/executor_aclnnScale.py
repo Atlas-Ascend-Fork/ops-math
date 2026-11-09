@@ -11,15 +11,14 @@
 # ----------------------------------------------------------------------------
 import torch
 from atk.configs.dataset_config import InputDataset
-from atk.configs.results_config import TaskResult
 from atk.tasks.api_execute import register
 from atk.tasks.api_execute.base_api import BaseApi
 from atk.tasks.api_execute.aclnn_base_api import AclnnBaseApi
 from atk.tasks.backends.lib_interface.acl_wrapper import TensorPtr
 
-@register("function_aclnn_scale")
-class AclnnScale(BaseApi):
 
+@register("function_aclnn_scale")
+class ScaleReferenceApi(BaseApi):
     def __call__(self, input_data: InputDataset, with_output: bool = False):
         x_tensor = input_data.kwargs["x"]
         scale_tensor = input_data.kwargs["scale"]
@@ -30,7 +29,6 @@ class AclnnScale(BaseApi):
 
         shape_x = list(x_tensor.shape)
         shape_scale = list(scale_tensor.shape)
-        shape_bias = list(bias_tensor.shape)
         length_x = len(shape_x)
         if axis < 0:
             axis_ = length_x + axis
@@ -62,18 +60,18 @@ class AclnnScale(BaseApi):
             tmp = torch.mul(x_tensor.to(torch.float32), scale_expand.to(torch.float32))
             res = torch.add(tmp, bias_expand.to(torch.float32)).to(x_tensor.dtype)
         else:
-            res = torch.mul(x_tensor.to(torch.float32), scale_expand.to(torch.float32)).to(x_tensor.dtype)
+            res = torch.mul(
+                x_tensor.to(torch.float32), scale_expand.to(torch.float32)
+            ).to(x_tensor.dtype)
         return res
+
 
 @register("aclnn_scale")
 class AclnnScale(AclnnBaseApi):
-
     def init_by_input_data(self, input_data: InputDataset):
-        import ctypes
         input_args, output_packages = super().init_by_input_data(input_data)
-        if sum(input_args[2].shape) == 0:
-            input_args[2] = ctypes.c_void_p(0)
-            from atk.tasks.backends.lib_interface.acl_wrapper import TensorPtr
+        # Only an omitted bias is null; scalar and zero-element tensors stay tensors.
+        if input_data.kwargs["bias"] is None:
             input_args[2] = TensorPtr()
 
         return input_args, output_packages
