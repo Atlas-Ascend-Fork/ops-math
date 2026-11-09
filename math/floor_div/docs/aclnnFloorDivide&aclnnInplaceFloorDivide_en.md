@@ -272,7 +272,7 @@ aclnnStatus aclnnInplaceFloorDivide(
       <td>selfRef (aclTensor*)</td>
       <td>Input/Output</td>
       <td>-</td>
-      <td>The data type needs to satisfy the data type inference rule with other (see <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">deduction relationship</a>), and the shape needs to satisfy the <a href="../../../docs/en/context/broadcast_relationship.md" target="_blank">broadcast relationship</a> with other.</td>
+      <td>The data type needs to satisfy the data type inference rule with other (see <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">deduction relationship</a>), and the shape needs to satisfy the <a href="../../../docs/en/context/broadcast_relationship.md" target="_blank">broadcast relationship</a> with other. The shape of selfRef must equal the shape obtained by broadcasting selfRef and other.</td>
       <td>FLOAT, FLOAT16, DOUBLE, INT32, INT64, INT16, INT8, UINT8, BOOL</td>
       <td>ND</td>
       <td>No more than 8 dimensions</td>
@@ -346,7 +346,7 @@ aclnnStatus aclnnInplaceFloorDivide(
       <td>selfRef and other do not satisfy the data type inference rule.</td>
     </tr>
     <tr>
-      <td>The shapes of selfRef and other cannot be broadcast.</td>
+      <td>The shapes of selfRef and other cannot be broadcast, or the broadcast shape differs from the shape of selfRef.</td>
     </tr>
     <tr>
       <td>The dimensions of selfRef and other are greater than 8.</td>
