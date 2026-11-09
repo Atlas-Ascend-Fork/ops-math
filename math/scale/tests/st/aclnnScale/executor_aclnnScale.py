@@ -11,14 +11,15 @@
 # ----------------------------------------------------------------------------
 import torch
 from atk.configs.dataset_config import InputDataset
+from atk.configs.results_config import TaskResult  # noqa: F401
 from atk.tasks.api_execute import register
 from atk.tasks.api_execute.base_api import BaseApi
 from atk.tasks.api_execute.aclnn_base_api import AclnnBaseApi
-from atk.tasks.backends.lib_interface.acl_wrapper import TensorPtr
+from atk.tasks.backends.lib_interface.acl_wrapper import TensorPtr  # noqa: F401
 
 
 @register("function_aclnn_scale")
-class ScaleReferenceApi(BaseApi):
+class AclnnScale(BaseApi):
     def __call__(self, input_data: InputDataset, with_output: bool = False):
         x_tensor = input_data.kwargs["x"]
         scale_tensor = input_data.kwargs["scale"]
@@ -29,6 +30,7 @@ class ScaleReferenceApi(BaseApi):
 
         shape_x = list(x_tensor.shape)
         shape_scale = list(scale_tensor.shape)
+        shape_bias = list(bias_tensor.shape)  # noqa: F841
         length_x = len(shape_x)
         if axis < 0:
             axis_ = length_x + axis
@@ -67,11 +69,15 @@ class ScaleReferenceApi(BaseApi):
 
 
 @register("aclnn_scale")
-class AclnnScale(AclnnBaseApi):
+class AclnnScale(AclnnBaseApi):  # noqa: F811
     def init_by_input_data(self, input_data: InputDataset):
+        import ctypes
+
         input_args, output_packages = super().init_by_input_data(input_data)
-        # Only an omitted bias is null; scalar and zero-element tensors stay tensors.
-        if input_data.kwargs["bias"] is None:
+        if sum(input_args[2].shape) == 0:
+            input_args[2] = ctypes.c_void_p(0)
+            from atk.tasks.backends.lib_interface.acl_wrapper import TensorPtr
+
             input_args[2] = TensorPtr()
 
         return input_args, output_packages

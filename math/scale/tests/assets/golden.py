@@ -9,119 +9,63 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # ----------------------------------------------------------------------------
-"""Scale TestSpec: kernel/GEIR and ACLNN, using PyTorch mul/add composition.
+"""
+aclnnScale golden: y = x * scale [+ bias]
 
-CPU golden computes in the supplied dtype; TTK owns reference promotion.
-The GPU reference widens FP16/BF16 to FP32 and narrows the final output,
-matching the kernel's computation dtype. Neither path uses NumPy arithmetic.
-Shape/attribute validation belongs to the operator. The reference only places
-scale/bias on the requested axes; it does not duplicate device admission checks.
+scale/bias broadcast against x at [axis : axis+span], rest dims size 1.
+scaleFromBlob=True : span = numAxes (numAxes==-1 -> to last axis; 0 -> scale shape [1])
+scaleFromBlob=False: span = rank(scale) (numAxes ignored).
 """
 
 import torch
 
-__spec__ = {"scale": "ScaleKernelSpec", "aclnnScale": "ScaleAclnnSpec"}
 
-_L0 = {
-    dtype: {"standard": "cross_check", "level": "L0"}
-    for dtype in ("float16", "bfloat16", "float32")
-}
+__golden__ = {"aclnn": {"aclnnScale": "scale_golden"}}
 
 
-def _tensor(value):
-    """Convert the kernel's NumPy input without changing values or dtype."""
-    if value is None or isinstance(value, torch.Tensor):
-        return value
-    if value.dtype.name == "bfloat16":
-        return torch.from_numpy(value.view("int16")).view(torch.bfloat16)
-    return torch.from_numpy(value)
+def _align(x_shape, axis, span, tensor):
+    rank = len(x_shape)
+    if axis < 0:
+        axis += rank
+    bshape = [1] * rank
+    flat = tensor.reshape(-1)
+    bshape[axis : axis + span] = list(x_shape[axis : axis + span])
+    if torch.Size(bshape).numel() != flat.numel():
+        bshape = [1] * rank
+    return flat.reshape(bshape)
 
 
-def _broadcast_shape(x, scale, axis, num_axes, scale_from_blob):
-    """Place coefficients on x's axes without imposing device input limits."""
-    rank = x.ndim
-    axis = axis + rank if axis < 0 else axis
-    shape = [1] * rank
-    if scale.numel() == 1 and (not scale_from_blob or num_axes == 0):
-        return shape
-    # Full-rank descriptors are already aligned, including descriptors expanded
-    # by GE before the runtime Tiling callback.
-    if scale.ndim == rank:
-        return list(scale.shape)
-    shape[axis : axis + scale.ndim] = scale.shape
-    return shape
+def scale_golden(x, scale, bias, axis, numAxes, scaleFromBlob, y=None, **kwargs):
+    """
+    Aclnn golden for aclnnScale.
+    Parameters follow @aclnnScaleGetWorkspaceSize without workspaceSize & executor.
+    All the input Tensors are torch.Tensor.
 
-
-def _scale_compute(x, scale, bias, axis, num_axes, scale_from_blob):
-    """Broadcast, then multiply and optionally add, in the supplied dtype."""
-    shape = _broadcast_shape(x, scale, axis, num_axes, scale_from_blob)
-    result = torch.mul(x, scale.reshape(shape))
-    if bias is not None and bias.numel() != 0:
-        result = torch.add(result, bias.reshape(shape))
-    return result
-
-
-def _golden(x, scale, bias, axis, num_axes, scale_from_blob):
-    x_ref, scale_ref, bias_ref = _tensor(x), _tensor(scale), _tensor(bias)
-    result = _scale_compute(
-        x_ref,
-        scale_ref,
-        bias_ref,
-        axis,
-        num_axes,
-        scale_from_blob,
-    )
-    if isinstance(x, torch.Tensor):
-        return [result]
-    result = result.detach().cpu()
-    if result.dtype == torch.bfloat16:
-        return [result.view(torch.int16).numpy().view(x.dtype)]
-    return [result.numpy()]
-
-
-def scale_golden(
-    x, scale, bias=None, axis=1, num_axes=1, scale_from_blob=True, **kwargs
-):
-    return _golden(x, scale, bias, axis, num_axes, scale_from_blob)
-
-
-def aclnn_scale_golden(
-    x, scale, bias=None, axis=1, numAxes=1, scaleFromBlob=True, out=None, **kwargs
-):
-    # The output placeholder must not narrow the promoted CPU reference.
-    return _golden(x, scale, bias, axis, numAxes, scaleFromBlob)
-
-
-def _third_party(x, scale, bias, axis, num_axes, scale_from_blob):
+    kwargs may contain: tensor_dtypes, tensor_formats, scalar_dtypes,
+                        use_torch, short_soc_version, testcase_name.
+    """
+    del y, kwargs
     output_dtype = x.dtype
-    if output_dtype in (torch.float16, torch.bfloat16):
-        x, scale = x.float(), scale.float()
-        bias = bias.float() if bias is not None else None
-    result = _scale_compute(x, scale, bias, axis, num_axes, scale_from_blob)
-    return [result.to(output_dtype)]
+    x = x.to(torch.float32)
+    scale = scale.to(torch.float32)
+    bias = bias.to(torch.float32) if bias is not None else None
+    if bias is not None and bias.numel() == 0:
+        bias = None  # 空 bias 张量(shape含0)视为无 bias
 
+    axis = int(axis)
+    num_axes = int(numAxes)
+    from_blob = bool(scaleFromBlob)
 
-class _TorchScaleCompose:
-    def __call__(
-        self, x, scale, bias=None, axis=1, num_axes=1, scale_from_blob=True, **kwargs
-    ):
-        return _third_party(x, scale, bias, axis, num_axes, scale_from_blob)
+    rank = x.dim()
+    a = axis + rank if axis < 0 else axis
+    if from_blob:
+        span = (rank - a) if num_axes == -1 else num_axes
+    else:
+        span = scale.dim()
+    span = max(0, min(span, rank - a))
 
-
-class _AclnnScaleCompose:
-    def __call__(
-        self, x, scale, bias=None, axis=1, numAxes=1, scaleFromBlob=True, **kwargs
-    ):
-        return _third_party(x, scale, bias, axis, numAxes, scaleFromBlob)
-
-
-class ScaleKernelSpec:
-    golden = staticmethod(scale_golden)
-    third_party = {"torch": _TorchScaleCompose}
-    tolerance = _L0
-
-
-class ScaleAclnnSpec:
-    golden = staticmethod(aclnn_scale_golden)
-    third_party = {"torch": _AclnnScaleCompose}
-    tolerance = _L0
+    s = _align(x.shape, a, span, scale)
+    result = torch.mul(x, s)
+    if bias is not None:
+        result = torch.add(result, _align(x.shape, a, span, bias))
+    return result.to(output_dtype)
