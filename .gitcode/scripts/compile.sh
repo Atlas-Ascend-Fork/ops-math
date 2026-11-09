@@ -48,6 +48,26 @@ function DP_ASSERT_EQUAL() {
 }
 
 export REPOSITORY_NAME="ops-math"
+
+# Source-presence checks need neither CANN nor the package build environment.
+if [[ "${task_name}" == "Check_Example" ]]; then
+    cd "${WORKSPACE}/" || exit 1
+    check_example_log=$(python3 scripts/ci/check_examples_ut.py "pr_filelist.txt" 2>&1) && check_example_ret=0 || check_example_ret=$?
+    echo "${check_example_log}"
+    if [ -f "build/check_examples_ut.csv" ] && [ "$(wc -l < "build/check_examples_ut.csv")" -gt 1 ]; then
+        mkdir -p build_out
+        cp -f "build/check_examples_ut.csv" "build_out/check_examples_ut.csv"
+        echo "check_example_csv=1" >> "${ATOMGIT_OUTPUT}"
+    fi
+    if [ "${check_example_ret}" -ne 0 ]; then
+        missing_ops=$(echo "${check_example_log}" | sed -n 's/^check_example_failed=//p' | paste -sd, -)
+        echo "check_example_failed=${missing_ops}" >> "${ATOMGIT_OUTPUT}"
+    fi
+    DP_ASSERT_EQUAL "${check_example_ret}" 0 "check example ${task_name}"
+    echo "exec cmd: [python3 scripts/ci/check_examples_ut.py pr_filelist.txt]"
+    exit 0
+fi
+
 rm -rf /home/jenkins/opensource/json
 echo $(grep -E "^VERSION_ID=" /etc/os-release | cut -d'"' -f2)
 export PATH=/opt/buildtools/python-3.10.2/bin:$PATH

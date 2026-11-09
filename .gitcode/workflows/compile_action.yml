@@ -15,8 +15,13 @@ on:
         type: string
         default: 'x64'
       package_name:
-        required: true
+        required: false
         type: string
+        default: ''
+      size:
+        required: false
+        type: string
+        default: 'xlarge'
       ge_st_rt2:
         required: false
         type: string
@@ -69,7 +74,27 @@ jobs:
             BuildAccelerate bash compile.sh
           AC_SERVER_IP: ${{ vars.AC_SERVER_IP }}
       -
+        name: check_example_report
+        if: ${{ always() && steps.compile.outputs.check_example_failed != '' }}
+        env:
+          CHECK_EXAMPLE_FAILED: ${{ steps.compile.outputs.check_example_failed }}
+        run: |
+          echo "::error::[Check_Example] the following ops involved in this PR are missing examples or UT (see details): ${CHECK_EXAMPLE_FAILED}"
+          exit 1
+      -
+        name: upload_check_example_csv
+        if: ${{ always() && inputs.task_name == 'Check_Example' && steps.compile.outputs.check_example_csv == '1' }}
+        uses: obs-upload
+        with:
+          endpoint: "https://obs.cn-north-4.myhuaweicloud.com"
+          bucket: "ascend-ci"
+          access-key: ${{ secrets.AK }}
+          secret-key: ${{ secrets.SK }}
+          artifact-path: "${{ steps.process_checkout.outputs.path }}/build_out/check_examples_ut.csv"
+          object-prefix: ${{ env.obs_path }}/
+      -
         name: rename_package
+        if: ${{ inputs.package_name != '' }}
         run: |
           mkdir -p "${{ steps.process_checkout.outputs.path }}/build_out"
           cd "${{ steps.process_checkout.outputs.path }}/build_out"
@@ -88,7 +113,7 @@ jobs:
       -
         name: api-check
         identifier: api-check
-        if: ${{ env.TARGET_BRANCH == 'master' }}
+        if: ${{ env.TARGET_BRANCH == 'master' && inputs.task_name != 'Check_Example' }}
         uses: cann/.gitcode/actions/api-check@master
         with:
           org_name: ${{ env.org_name }}
@@ -101,10 +126,11 @@ jobs:
       -
         name: verify_package
         uses: cann/.gitcode/actions/verify-package@master
-        if: ${{ inputs.task_name != 'Compile_Ascend_single_ubuntu24' && inputs.task_name != 'Compile_Ascend_single' }}
+        if: ${{ inputs.task_name != 'Check_Example' && inputs.task_name != 'Compile_Ascend_single_ubuntu24' && inputs.task_name != 'Compile_Ascend_single' }}
         with:
           workspace: ${{ steps.process_checkout.outputs.path }}
       - name: upload
+        if: ${{ inputs.task_name != 'Check_Example' }}
         uses: obs-upload
         with:
           endpoint: "https://obs.cn-north-4.myhuaweicloud.com"
@@ -118,6 +144,6 @@ jobs:
     runs-on:
       - self-hosted
       - arch=${{ inputs.arch }}
-      - spec=xlarge
+      - spec=${{ inputs.size }}
     container:
       image: swr.cn-north-4.myhuaweicloud.com/ci_cann/${{ inputs.image_version }}
