@@ -239,7 +239,14 @@ aclnnStatus aclnnCumsum(
 
 ## Constraints
 
-- Deterministic computation: aclnnCumsum defaults to a deterministic implementation.
+- Deterministic computation:
+
+  <!-- npu="910b" id9 -->
+  - <term>Atlas A2 products</term>: defaults to a non-deterministic implementation. Deterministic computation can be enabled via aclrtSetSysParamOpt(ACL_OPT_DETERMINISTIC, 1).
+  <!-- end id9 -->
+  <!-- npu="950" id8 -->
+  - <term>Ascend 950PR&950DT products</term>: defaults to an implementation without batch consistency. Batch consistency can be enabled via aclrtSetSysParamOpt(ACL_OPT_DETERMINISTIC, 3). After enabling, when the accumulation axis is the last dimension and the input is contiguous, the output is independent of the batch size and row position (bitwise consistent), supporting float32/float16/bfloat16; batch consistency is not supported when the accumulation axis is not the last dimension or the input is non-contiguous, and the default path behavior is kept. Enabling batch consistency may degrade performance.
+  <!-- end id8 -->
 
 - If the input and output data types are inconsistent, aclnnCumsum calls Cast before computation to convert the input data type to the output data type. In this case, follow the Cast operator constraints. For details, see [aclnnCast](../../../math/cast/docs/aclnnCast_en.md).
 

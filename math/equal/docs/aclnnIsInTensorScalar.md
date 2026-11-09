@@ -174,12 +174,21 @@ aclnnStatus aclnnIsInTensorScalar(
       <td>传入的element、testElement或out是空指针。</td>
     </tr>
     <tr>
-      <td rowspan="2">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="2">161002</td>
+      <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="5">161002</td>
       <td>element的数据类型不在支持范围之内。</td>
     </tr>
     <tr>
       <td>element的维度超过8维。</td>
+    </tr>
+    <tr>
+      <td>out的数据类型不是BOOL。</td>
+    </tr>
+    <tr>
+      <td>out的shape与element不一致。</td>
+    </tr>
+    <tr>
+      <td>testElement的数据类型不在支持范围之内。</td>
     </tr>
   </tbody></table>
 

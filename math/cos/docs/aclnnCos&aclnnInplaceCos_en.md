@@ -370,7 +370,7 @@ aclnnStatus aclnnInplaceCos(
   - aclnnCos&aclnnInplaceCos defaults to a deterministic implementation.
 
 <!-- npu="A3,910b,910" id9 -->
-- <term>Atlas training products</term>, <term>Atlas A2 products</term>, <term>Atlas A3 products</term>: When the input data range of FLOAT, FLOAT16, and BFLOAT16 data types is within [-10^7, 10^7], the precision requirements are met. If the value range is exceeded, precision cannot be guaranteed. Use the CPU for computation.
+- <term>Atlas training products</term>, <term>Atlas A2 products</term>, <term>Atlas A3 products</term>: When the input data range of FLOAT and BFLOAT16 data types is within [-10^7, 10^7], the precision requirements are met. If the value range is exceeded, precision cannot be guaranteed. Use the CPU for computation. When the input data range of FLOAT16 data type is within [-65504, 65504], the precision requirements are met. If the value range is exceeded, precision cannot be guaranteed. Use the CPU for computation.
 <!-- end id9 -->
 <!-- npu="310p,310b" id10 -->
 - <term>Atlas inference products</term>, <term>Atlas 200I/500 A2 inference products</term>: When the input data range of FLOAT and FLOAT16 data types is within [-65504, 65504], the precision requirements are met. If the value range is exceeded, precision cannot be guaranteed. Use the CPU for computation.

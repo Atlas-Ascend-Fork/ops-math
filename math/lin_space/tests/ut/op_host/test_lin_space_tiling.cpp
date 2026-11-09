@@ -9,8 +9,10 @@
  */
 
 #include <iostream>
+#include <cstring>
 #include <gtest/gtest.h>
 #include "../../../op_host/lin_space_tiling.h"
+#include "../../../op_host/lin_space_tiling_arch35.h"
 #include "tiling_context_faker.h"
 #include "tiling_case_executor.h"
 
@@ -46,8 +48,6 @@ TEST_F(LinSpaceTiling, lin_space_tiling_001)
 
 TEST_F(LinSpaceTiling, lin_space_tiling_int64_big_num)
 {
-    // num=16777219（INT64）场景：legacy tiling 直接读取 int64_t 数值，
-    // 计数必须保留 16777219，不得经 float 转换丢失精度（见 issue #3347）
     int32_t start = 0;
     int32_t stop = 1;
     int64_t num = 16777219;
@@ -60,23 +60,29 @@ TEST_F(LinSpaceTiling, lin_space_tiling_int64_big_num)
                                                   {{{16777219}, {16777219}}, ge::DT_INT32, ge::FORMAT_ND},
                                               },
                                               &compileInfo);
-    // tiling 计数保留 16777219：numPerCore 向上取整对齐后仍与 InferShape 输出维度一致
     TilingInfo tinfo;
     ASSERT_TRUE(ExecuteTiling(tilingContextPara, tinfo));
-    // tiling data 字段布局由 LinSpaceTilingData 定义（3 个 float 后接 int64 字段，4 字节对齐填充），
-    // num 位于第 3 个 int64（索引 2），必须与输入 16777219 完全一致
-    ASSERT_EQ(tinfo.tilingDataSize, static_cast<size_t>(128));
-    const int64_t* p = reinterpret_cast<const int64_t*>(tinfo.tilingData.get());
-    EXPECT_EQ(p[2], static_cast<int64_t>(16777219));
-    EXPECT_EQ(tinfo.tilingKey, static_cast<int64_t>(602));
-    EXPECT_EQ(tinfo.blockNum, static_cast<size_t>(48));
-    std::vector<int64_t> expectWorkspaces = {32};
-    EXPECT_EQ(tinfo.workspaceSizes, expectWorkspaces);
+    int64_t tilingNum = 0;
+    // ascend950 regbase tiling 序列化 168 字节，ascend910b legacy tiling 序列化 128 字节，
+    // sizeof(生成类) 含基类开销不可作判据，按序列化大小区分平台路径
+    if (tinfo.tilingDataSize == 168) {
+        EXPECT_EQ(tinfo.tilingKey, static_cast<int64_t>(optiling::DOUBLE_CAST_TILING_KEY));
+        EXPECT_EQ(tinfo.blockNum, static_cast<size_t>(48));
+        std::vector<int64_t> expectWorkspaces = {0};
+        EXPECT_EQ(tinfo.workspaceSizes, expectWorkspaces);
+    } else {
+        EXPECT_EQ(tinfo.tilingDataSize, 128);
+        EXPECT_EQ(tinfo.tilingKey, static_cast<int64_t>(602));
+        EXPECT_EQ(tinfo.blockNum, static_cast<size_t>(48));
+        std::vector<int64_t> expectWorkspaces = {32};
+        EXPECT_EQ(tinfo.workspaceSizes, expectWorkspaces);
+    }
+    memcpy(&tilingNum, tinfo.tilingData.get() + 16, sizeof(int64_t));
+    EXPECT_EQ(tilingNum, static_cast<int64_t>(16777219));
 }
 
 TEST_F(LinSpaceTiling, lin_space_tiling_int64_num)
 {
-    // num=17（INT64）小计数对照：tiling 计数必须保留 17，输出维度与 InferShape 一致
     int32_t start = 0;
     int32_t stop = 1;
     int64_t num = 17;
@@ -91,11 +97,19 @@ TEST_F(LinSpaceTiling, lin_space_tiling_int64_num)
                                               &compileInfo);
     TilingInfo tinfo;
     ASSERT_TRUE(ExecuteTiling(tilingContextPara, tinfo));
-    ASSERT_EQ(tinfo.tilingDataSize, static_cast<size_t>(128));
-    const int64_t* p = reinterpret_cast<const int64_t*>(tinfo.tilingData.get());
-    EXPECT_EQ(p[2], static_cast<int64_t>(17));
-    EXPECT_EQ(tinfo.tilingKey, static_cast<int64_t>(601));
-    EXPECT_EQ(tinfo.blockNum, static_cast<size_t>(3));
-    std::vector<int64_t> expectWorkspaces = {32};
-    EXPECT_EQ(tinfo.workspaceSizes, expectWorkspaces);
+    int64_t tilingNum = 0;
+    if (tinfo.tilingDataSize == 168) {
+        EXPECT_EQ(tinfo.tilingKey, static_cast<int64_t>(optiling::DOUBLE_CAST_TILING_KEY));
+        EXPECT_EQ(tinfo.blockNum, static_cast<size_t>(1));
+        std::vector<int64_t> expectWorkspaces = {0};
+        EXPECT_EQ(tinfo.workspaceSizes, expectWorkspaces);
+    } else {
+        EXPECT_EQ(tinfo.tilingDataSize, 128);
+        EXPECT_EQ(tinfo.tilingKey, static_cast<int64_t>(601));
+        EXPECT_EQ(tinfo.blockNum, static_cast<size_t>(3));
+        std::vector<int64_t> expectWorkspaces = {32};
+        EXPECT_EQ(tinfo.workspaceSizes, expectWorkspaces);
+    }
+    memcpy(&tilingNum, tinfo.tilingData.get() + 16, sizeof(int64_t));
+    EXPECT_EQ(tilingNum, static_cast<int64_t>(17));
 }

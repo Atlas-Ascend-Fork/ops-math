@@ -368,7 +368,7 @@ aclnnStatus aclnnInplaceCos(
   - aclnnCos&aclnnInplaceCos默认确定性实现。
 
 <!-- npu="A3,910b,910" id9 -->
-- <term>Atlas训练系列产品</term>、<term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>：FLOAT、FLOAT16、BFLOAT16数据类型的输入数据范围为[-10^7,10^7]时满足精度要求，超过数值范围无法保证，请使用CPU进行计算。
+- <term>Atlas训练系列产品</term>、<term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>：FLOAT、BFLOAT16数据类型的输入数据范围为[-10^7,10^7]时满足精度要求，超过数值范围无法保证，请使用CPU进行计算。FLOAT16数据类型的输入数据范围为[-65504,65504]时满足精度要求，超过数值范围无法保证，请使用CPU进行计算。
 <!-- end id9 -->
 <!-- npu="310p,310b" id10 -->
 - <term>Atlas推理系列产品</term>、<term>Atlas 200I/500 A2推理产品</term>：FLOAT、FLOAT16数据类型的输入数据范围为[-65504,65504]时满足精度要求，超过数值范围无法保证，请使用CPU进行计算。
