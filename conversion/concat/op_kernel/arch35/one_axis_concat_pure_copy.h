@@ -196,6 +196,9 @@ __aicore__ inline void OneAxisConcatPureCopy<TILINGDATA>::ProcessSingleTensor(in
     srcGlobal_.SetGlobalBuffer(GetTensorAddr(tensorIdx, globalSrcOffset * tilingData_.dtypeSize));
     int64_t colFactor = min(totalCols, static_cast<int64_t>(tilingData_.bufferSize));
     int64_t rowFactor = tilingData_.bufferSize / colFactor;
+    if (rowFactor > UINT16_MAX) {
+        rowFactor = UINT16_MAX; // blockCount 为 uint16
+    }
     int64_t colLoopSize = (totalCols + colFactor - 1) / colFactor;
     int64_t rowLoopSize = (totalRows + rowFactor - 1) / rowFactor;
     int64_t tailColFactor = totalCols - (colLoopSize - 1) * colFactor;

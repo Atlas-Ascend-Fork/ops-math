@@ -1288,6 +1288,9 @@ static bool IsEnableUsedSimt(ConcatTilingParam& param)
     for (auto dim1Ptr = param.tensorListDim1.begin(); dim1Ptr != param.tensorListDim1.end(); ++dim1Ptr) {
         maxDim1 = std::max(maxDim1, *dim1Ptr);
         minDim1 = std::min(minDim1, *dim1Ptr);
+        if (minDim1 == 0) {
+            return false;
+        }
         if (maxDim1 / minDim1 >= DIGIT_TWO && maxDim1 * param.catDim0 * param.dtypeSize > SIMT_COMPARE_THRESHOLD) {
             return false;
         }
