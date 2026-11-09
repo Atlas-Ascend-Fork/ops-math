@@ -42,6 +42,7 @@ public:
             .PrecisionReduceFlag(true)
             .ExtendCfgInfo("opFile.value", "sinh_apt");
         this->AICore().AddConfig("ascend950", aicoreConfig950);
+        this->AICore().AddConfig("ascend350", aicoreConfig950);
     }
 };
 OP_ADD(Sinh);

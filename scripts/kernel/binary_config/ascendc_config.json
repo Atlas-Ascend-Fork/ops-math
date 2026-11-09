@@ -69,7 +69,7 @@
     {"name":"Sin", "compute_units": ["ascend950", "ascend960dt", "mc62", "ascend350"], "auto_sync" : false, "impl_mode" : "", "compile_options": {"ascend950": ["-mllvm -cce-aicore-dcci-before-kernel-end=false"], "ascend960dt": ["-mllvm -cce-aicore-dcci-before-kernel-end=false"], "mc62": ["--cce-no-dcache-flush"], "ascend350": ["-mllvm -cce-aicore-dcci-before-kernel-end=false"]}},
     {"name":"Sinc", "compute_units": ["ascend950", "ascend350"], "auto_sync" : false, "impl_mode" : "", "compile_options": {"ascend950": ["-mllvm -cce-aicore-dcci-before-kernel-end=false"], "ascend350": ["-mllvm -cce-aicore-dcci-before-kernel-end=false"]}},
     {"name":"Cos", "compute_units": ["ascend950", "mc62", "ascend350", "ascend960dt"], "auto_sync" : false, "impl_mode": "", "compile_options": {"ascend950": ["-mllvm -cce-aicore-dcci-before-kernel-end=false"], "ascend960dt": ["-mllvm -cce-aicore-dcci-before-kernel-end=false"], "mc62": ["--cce-no-dcache-flush"], "ascend350": ["-mllvm -cce-aicore-dcci-before-kernel-end=false"]}},
-    {"name":"Acos", "compute_units": ["ascend950", "mc62"], "auto_sync" : false, "impl_mode": "", "compile_options": {"ascend950": ["-mllvm -cce-aicore-dcci-before-kernel-end=false"], "mc62": ["--cce-no-dcache-flush"]}},
+    {"name":"Acos", "compute_units": ["ascend950", "mc62", "ascend350"], "auto_sync" : false, "impl_mode": "", "compile_options": {"ascend950": ["-mllvm -cce-aicore-dcci-before-kernel-end=false"], "mc62": ["--cce-no-dcache-flush"], "ascend350": ["-mllvm -cce-aicore-dcci-before-kernel-end=false"]}},
     {"name":"Swish", "compute_units": ["ascend950", "mc62"], "auto_sync": true, "compile_options": {"mc62": ["--cce-no-dcache-flush"]}, "impl_mode" : ""},
     {"name":"ApplyGradientDescent", "compute_units": ["ascend950"], "auto_sync" : false, "compile_options": {"ascend950":["--cce-simd-vf-fusion=true", "--cce-simd-at-voss=true"]}, "impl_mode": ""},
     {"name":"MultiHeadAttentionScoreGrad", "compute_units": ["ascend910b"], "auto_sync" : false},
@@ -639,7 +639,7 @@
     {"name":"SubV2", "compute_units": ["ascend910b"], "auto_sync" : true, "impl_mode" : "high_performance"},
     {"name":"Onehot", "compute_units": ["ascend910b"], "auto_sync" : true, "impl_mode" : "high_performance"},
     {"name":"Erf", "compute_units": ["ascend910b", "ascend950", "mc62", "ascend350", "ascend960dt"], "auto_sync" : false, "compile_options": {"ascend950":["--cce-simd-vf-fusion=true", "-mllvm -cce-aicore-dcci-before-kernel-end=false"], "ascend960dt":["--cce-simd-vf-fusion=true", "-mllvm -cce-aicore-dcci-before-kernel-end=false"], "mc62": ["--cce-no-dcache-flush"], "ascend350": ["--cce-simd-vf-fusion=true", "-mllvm -cce-aicore-dcci-before-kernel-end=false"]}, "impl_mode" : ""},
-    {"name":"Sinh", "compute_units": ["ascend910b", "ascend950"], "auto_sync" : false},
+    {"name":"Sinh", "compute_units": ["ascend910b", "ascend950", "ascend350"], "auto_sync" : false},
     {"name":"MaximumV2", "compute_units": ["ascend910b"], "auto_sync" : true, "impl_mode" : "high_performance"},
     {"name":"ReflectionPad1dV2", "compute_units": ["ascend910b"], "auto_sync":true, "impl_mode" : "high_performance"},
     {"name":"AxpyV3", "compute_units": ["ascend910b"], "auto_sync" : true, "impl_mode" : "high_performance"},
@@ -667,7 +667,7 @@
     {"name":"StatelessUniform", "compute_units": ["ascend950", "ascend350", "ascend960dt", "ascend960pr"], "auto_sync" : false, "impl_mode": "", "compile_options": {"ascend950": ["-mllvm -cce-aicore-dcci-before-kernel-end=false"], "ascend350": ["-mllvm -cce-aicore-dcci-before-kernel-end=false"], "ascend960dt": ["-mllvm -cce-aicore-dcci-before-kernel-end=false"], "ascend960pr": ["-mllvm -cce-aicore-dcci-before-kernel-end=false"]}},
     {"name":"RadixTopK", "compute_units": ["ascend910b", "ascend910_93"], "auto_sync" : false},
     {"name":"Rint", "compute_units": ["ascend950", "ascend350", "ascend960dt"], "auto_sync" : false},
-    {"name":"Tan", "compute_units": ["mc62"], "compile_options": {"mc62": ["--cce-no-dcache-flush"]}},
+    {"name":"Tan", "compute_units": ["mc62", "ascend350"], "compile_options": {"mc62": ["--cce-no-dcache-flush"]}},
     {"name":"ProdVirialSeA", "compute_units": ["ascend950"], "auto_sync": false, "impl_mode": ""},
     {"name":"ProdForceSeA", "compute_units": ["ascend950", "ascend350"], "impl_mode": ""}
 ]
