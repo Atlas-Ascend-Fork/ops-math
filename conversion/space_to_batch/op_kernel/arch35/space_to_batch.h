@@ -61,21 +61,21 @@ public:
 
     __aicore__ inline void Process()
     {
-        if (tilingData_->totalCount == 0) {
+        if (tilingData_->totalCount == 0 || tilingData_->perCoreCount == 0) {
             return;
         }
 
-        uint32_t startIdx = blockIdx_ * tilingData_->perCoreCount;
+        uint64_t startIdx = static_cast<uint64_t>(blockIdx_) * tilingData_->perCoreCount;
         if (startIdx >= tilingData_->totalCount) {
             return;
         }
 
-        uint32_t endIdx = (blockIdx_ + 1) * tilingData_->perCoreCount;
+        uint64_t endIdx = (static_cast<uint64_t>(blockIdx_) + 1) * tilingData_->perCoreCount;
         endIdx = endIdx < tilingData_->totalCount ? endIdx : tilingData_->totalCount;
 
         LocalTensor<T> ubLocal = ubBuffer_.Get<T>();
-        for (uint32_t idx = startIdx; idx < endIdx; ++idx) {
-            uint32_t bufIdx = (idx - startIdx) & (BUFFER_NUM - 1);
+        for (uint64_t idx = startIdx; idx < endIdx; ++idx) {
+            uint64_t bufIdx = (idx - startIdx) & (BUFFER_NUM - 1);
             uint64_t ubOff = bufIdx * (tilingData_->bufferSize / sizeof(T));
 
             if (BlockHasPadding(idx)) {
@@ -110,7 +110,7 @@ private:
     //  Coordinate mapping
     // ========================================================================
 
-    __aicore__ inline void ComputeOutIndex(uint32_t blockIdx, uint64_t* outIndex) const
+    __aicore__ inline void ComputeOutIndex(uint64_t blockIdx, uint64_t* outIndex) const
     {
         uint64_t linearIdx = blockIdx;
         for (int32_t axis = UbAxis; axis >= 0; --axis) {
@@ -151,7 +151,7 @@ private:
     //  BlockHasPadding — skip Duplicate when block has no padding edges
     // ========================================================================
 
-    __aicore__ inline bool BlockHasPadding(uint32_t blockIdx) const
+    __aicore__ inline bool BlockHasPadding(uint64_t blockIdx) const
     {
         uint64_t outIdx[STB_AXIS_COUNT] = {};
         ComputeOutIndex(blockIdx, outIdx);
@@ -199,7 +199,7 @@ private:
     //  DoCopyIn / DoCopyOut
     // ========================================================================
 
-    __aicore__ inline void DoCopyIn(LocalTensor<T>& ubLocal, uint64_t ubOff, uint32_t blockIdx)
+    __aicore__ inline void DoCopyIn(LocalTensor<T>& ubLocal, uint64_t ubOff, uint64_t blockIdx)
     {
         uint64_t outIdx[STB_AXIS_COUNT] = {};
         ComputeOutIndex(blockIdx, outIdx);
@@ -219,7 +219,7 @@ private:
         }
     }
 
-    __aicore__ inline void DoCopyOut(LocalTensor<T>& ubLocal, uint64_t ubOff, uint32_t blockIdx)
+    __aicore__ inline void DoCopyOut(LocalTensor<T>& ubLocal, uint64_t ubOff, uint64_t blockIdx)
     {
         uint64_t outIdx[STB_AXIS_COUNT] = {};
         ComputeOutIndex(blockIdx, outIdx);
@@ -376,7 +376,7 @@ private:
 
         LoopModeParams loopParams;
         loopParams.loop1Size = static_cast<uint32_t>(validWCount);
-        loopParams.loop1SrcStride = static_cast<uint32_t>(blockSize * channels * sizeof(T));
+        loopParams.loop1SrcStride = static_cast<uint64_t>(blockSize) * static_cast<uint64_t>(channels) * sizeof(T);
         loopParams.loop1DstStride = channelAlignedBytes_;
         loopParams.loop2Size = 1;
 

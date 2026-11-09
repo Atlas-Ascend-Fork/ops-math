@@ -34,7 +34,7 @@ TEST_F(SpaceToBatchTilingTest, NoPadding_Typical)
     gert::TilingContextPara para("SpaceToBatch",
                                  {
                                      {{{1, 6, 6, 256}, {1, 6, 6, 256}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
-                                     {{{4}, {4}}, ge::DT_INT32, ge::FORMAT_ND, true, pads.data()},
+                                     {{{2, 2}, {2, 2}}, ge::DT_INT32, ge::FORMAT_ND, true, pads.data()},
                                  },
                                  {
                                      {{{4, 3, 3, 256}, {4, 3, 3, 256}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
@@ -72,7 +72,7 @@ TEST_F(SpaceToBatchTilingTest, NoPadding_LargeC)
     gert::TilingContextPara para("SpaceToBatch",
                                  {
                                      {{{1, 4, 4, 9000}, {1, 4, 4, 9000}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
-                                     {{{4}, {4}}, ge::DT_INT32, ge::FORMAT_ND, true, pads.data()},
+                                     {{{2, 2}, {2, 2}}, ge::DT_INT32, ge::FORMAT_ND, true, pads.data()},
                                  },
                                  {
                                      {{{4, 2, 2, 9000}, {4, 2, 2, 9000}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
@@ -101,7 +101,7 @@ TEST_F(SpaceToBatchTilingTest, NoPadding_LargeH)
     gert::TilingContextPara para("SpaceToBatch",
                                  {
                                      {{{1, 400, 4, 256}, {1, 400, 4, 256}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
-                                     {{{4}, {4}}, ge::DT_INT32, ge::FORMAT_ND, true, pads.data()},
+                                     {{{2, 2}, {2, 2}}, ge::DT_INT32, ge::FORMAT_ND, true, pads.data()},
                                  },
                                  {
                                      {{{4, 200, 2, 256}, {4, 200, 2, 256}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
@@ -128,7 +128,7 @@ TEST_F(SpaceToBatchTilingTest, NoPadding_SmallTensor)
     gert::TilingContextPara para("SpaceToBatch",
                                  {
                                      {{{1, 4, 4, 32}, {1, 4, 4, 32}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
-                                     {{{4}, {4}}, ge::DT_INT32, ge::FORMAT_ND, true, pads.data()},
+                                     {{{2, 2}, {2, 2}}, ge::DT_INT32, ge::FORMAT_ND, true, pads.data()},
                                  },
                                  {
                                      {{{4, 2, 2, 32}, {4, 2, 2, 32}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
@@ -157,7 +157,7 @@ TEST_F(SpaceToBatchTilingTest, WithTopLeftPadding)
     gert::TilingContextPara para("SpaceToBatch",
                                  {
                                      {{{1, 5, 5, 256}, {1, 5, 5, 256}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
-                                     {{{4}, {4}}, ge::DT_INT32, ge::FORMAT_ND, true, pads.data()},
+                                     {{{2, 2}, {2, 2}}, ge::DT_INT32, ge::FORMAT_ND, true, pads.data()},
                                  },
                                  {
                                      {{{4, 3, 3, 256}, {4, 3, 3, 256}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
@@ -189,7 +189,7 @@ TEST_F(SpaceToBatchTilingTest, WithAllPadding)
     gert::TilingContextPara para("SpaceToBatch",
                                  {
                                      {{{1, 6, 6, 128}, {1, 6, 6, 128}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
-                                     {{{4}, {4}}, ge::DT_INT32, ge::FORMAT_ND, true, pads.data()},
+                                     {{{2, 2}, {2, 2}}, ge::DT_INT32, ge::FORMAT_ND, true, pads.data()},
                                  },
                                  {
                                      {{{4, 4, 4, 128}, {4, 4, 4, 128}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
@@ -220,7 +220,7 @@ TEST_F(SpaceToBatchTilingTest, LargeBlockSize)
     gert::TilingContextPara para("SpaceToBatch",
                                  {
                                      {{{1, 12, 12, 256}, {1, 12, 12, 256}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
-                                     {{{4}, {4}}, ge::DT_INT32, ge::FORMAT_ND, true, pads.data()},
+                                     {{{2, 2}, {2, 2}}, ge::DT_INT32, ge::FORMAT_ND, true, pads.data()},
                                  },
                                  {
                                      {{{16, 3, 3, 256}, {16, 3, 3, 256}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
@@ -247,7 +247,7 @@ TEST_F(SpaceToBatchTilingTest, MultiBatch)
     gert::TilingContextPara para("SpaceToBatch",
                                  {
                                      {{{3, 6, 6, 128}, {3, 6, 6, 128}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
-                                     {{{4}, {4}}, ge::DT_INT32, ge::FORMAT_ND, true, pads.data()},
+                                     {{{2, 2}, {2, 2}}, ge::DT_INT32, ge::FORMAT_ND, true, pads.data()},
                                  },
                                  {
                                      {{{12, 3, 3, 128}, {12, 3, 3, 128}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
@@ -271,7 +271,7 @@ TEST_F(SpaceToBatchTilingTest, TilingKeyIsSet)
     gert::TilingContextPara para("SpaceToBatch",
                                  {
                                      {{{1, 6, 6, 256}, {1, 6, 6, 256}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
-                                     {{{4}, {4}}, ge::DT_INT32, ge::FORMAT_ND, true, pads.data()},
+                                     {{{2, 2}, {2, 2}}, ge::DT_INT32, ge::FORMAT_ND, true, pads.data()},
                                  },
                                  {
                                      {{{4, 3, 3, 256}, {4, 3, 3, 256}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
@@ -294,7 +294,7 @@ TEST_F(SpaceToBatchTilingTest, UbAxisC_LargeChannel)
     gert::TilingContextPara para("SpaceToBatch",
                                  {
                                      {{{1, 2, 2, 16384}, {1, 2, 2, 16384}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
-                                     {{{4}, {4}}, ge::DT_INT32, ge::FORMAT_ND, true, pads.data()},
+                                     {{{2, 2}, {2, 2}}, ge::DT_INT32, ge::FORMAT_ND, true, pads.data()},
                                  },
                                  {
                                      {{{4, 1, 1, 16384}, {4, 1, 1, 16384}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
@@ -317,7 +317,7 @@ TEST_F(SpaceToBatchTilingTest, Int64Paddings)
     gert::TilingContextPara para("SpaceToBatch",
                                  {
                                      {{{1, 6, 6, 128}, {1, 6, 6, 128}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
-                                     {{{4}, {4}}, ge::DT_INT64, ge::FORMAT_ND, true, pads.data()},
+                                     {{{2, 2}, {2, 2}}, ge::DT_INT64, ge::FORMAT_ND, true, pads.data()},
                                  },
                                  {
                                      {{{4, 3, 3, 128}, {4, 3, 3, 128}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
@@ -343,7 +343,7 @@ TEST_F(SpaceToBatchTilingTest, BlockSize3)
     gert::TilingContextPara para("SpaceToBatch",
                                  {
                                      {{{1, 9, 9, 64}, {1, 9, 9, 64}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
-                                     {{{4}, {4}}, ge::DT_INT32, ge::FORMAT_ND, true, pads.data()},
+                                     {{{2, 2}, {2, 2}}, ge::DT_INT32, ge::FORMAT_ND, true, pads.data()},
                                  },
                                  {
                                      {{{9, 3, 3, 64}, {9, 3, 3, 64}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
@@ -369,7 +369,7 @@ TEST_F(SpaceToBatchTilingTest, BlockSize3WithPadding)
     gert::TilingContextPara para("SpaceToBatch",
                                  {
                                      {{{1, 7, 7, 64}, {1, 7, 7, 64}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
-                                     {{{4}, {4}}, ge::DT_INT32, ge::FORMAT_ND, true, pads.data()},
+                                     {{{2, 2}, {2, 2}}, ge::DT_INT32, ge::FORMAT_ND, true, pads.data()},
                                  },
                                  {
                                      {{{9, 3, 3, 64}, {9, 3, 3, 64}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
@@ -397,7 +397,381 @@ TEST_F(SpaceToBatchTilingTest, InvalidPaddingShouldFail)
     gert::TilingContextPara para("SpaceToBatch",
                                  {
                                      {{{1, 4, 6, 256}, {1, 4, 6, 256}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
+                                     {{{2, 2}, {2, 2}}, ge::DT_INT32, ge::FORMAT_ND, true, pads.data()},
+                                 },
+                                 {
+                                     {{{0, 0, 0, 0}, {0, 0, 0, 0}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
+                                 },
+                                 {gert::TilingContextPara::OpAttr("block_size", bsAny)}, &compileInfo);
+
+    TilingInfo info;
+    EXPECT_FALSE(ExecuteTiling(para, info));
+}
+
+// ---------- Zero N dim should succeed ----------
+
+TEST_F(SpaceToBatchTilingTest, ZeroNDimSupported)
+{
+    // x = {0, 4, 4, 8}, bs=2, pad=0 → out = {0, 2, 2, 8}
+    std::vector<int32_t> pads = {0, 0, 0, 0};
+    auto bsAny = Ops::Math::AnyValue::CreateFrom<int64_t>(2);
+    gert::TilingContextPara para("SpaceToBatch",
+                                 {
+                                     {{{0, 4, 4, 8}, {0, 4, 4, 8}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
+                                     {{{2, 2}, {2, 2}}, ge::DT_INT32, ge::FORMAT_ND, true, pads.data()},
+                                 },
+                                 {
+                                     {{{0, 2, 2, 8}, {0, 2, 2, 8}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
+                                 },
+                                 {gert::TilingContextPara::OpAttr("block_size", bsAny)}, &compileInfo);
+
+    TilingInfo info;
+    ASSERT_TRUE(ExecuteTiling(para, info));
+    auto* td = reinterpret_cast<SpaceToBatchTilingData*>(info.tilingData.get());
+    EXPECT_EQ(td->outShape[0], 0);
+    EXPECT_EQ(td->totalCount, 0);
+    EXPECT_EQ(td->perCoreCount, 0);
+}
+
+// ---------- Zero H dim should succeed ----------
+
+TEST_F(SpaceToBatchTilingTest, ZeroHDimSupported)
+{
+    // x = {1, 0, 4, 8}, bs=2, pad=0 → out = {4, 0, 2, 8}
+    std::vector<int32_t> pads = {0, 0, 0, 0};
+    auto bsAny = Ops::Math::AnyValue::CreateFrom<int64_t>(2);
+    gert::TilingContextPara para("SpaceToBatch",
+                                 {
+                                     {{{1, 0, 4, 8}, {1, 0, 4, 8}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
+                                     {{{2, 2}, {2, 2}}, ge::DT_INT32, ge::FORMAT_ND, true, pads.data()},
+                                 },
+                                 {
+                                     {{{4, 0, 2, 8}, {4, 0, 2, 8}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
+                                 },
+                                 {gert::TilingContextPara::OpAttr("block_size", bsAny)}, &compileInfo);
+
+    TilingInfo info;
+    ASSERT_TRUE(ExecuteTiling(para, info));
+    auto* td = reinterpret_cast<SpaceToBatchTilingData*>(info.tilingData.get());
+    EXPECT_EQ(td->outShape[1], 0);
+    EXPECT_EQ(td->totalCount, 0);
+    EXPECT_EQ(td->perCoreCount, 0);
+}
+
+// ---------- Zero C dim should succeed ----------
+
+TEST_F(SpaceToBatchTilingTest, ZeroCDimSupported)
+{
+    // x = {1, 4, 4, 0}, bs=2, pad=0 → out = {4, 2, 2, 0}
+    std::vector<int32_t> pads = {0, 0, 0, 0};
+    auto bsAny = Ops::Math::AnyValue::CreateFrom<int64_t>(2);
+    gert::TilingContextPara para("SpaceToBatch",
+                                 {
+                                     {{{1, 4, 4, 0}, {1, 4, 4, 0}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
+                                     {{{2, 2}, {2, 2}}, ge::DT_INT32, ge::FORMAT_ND, true, pads.data()},
+                                 },
+                                 {
+                                     {{{4, 2, 2, 0}, {4, 2, 2, 0}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
+                                 },
+                                 {gert::TilingContextPara::OpAttr("block_size", bsAny)}, &compileInfo);
+
+    TilingInfo info;
+    ASSERT_TRUE(ExecuteTiling(para, info));
+    auto* td = reinterpret_cast<SpaceToBatchTilingData*>(info.tilingData.get());
+    EXPECT_EQ(td->outShape[3], 0);
+    EXPECT_EQ(td->totalCount, 0);
+    EXPECT_EQ(td->perCoreCount, 0);
+}
+
+// ---------- Zero H dim but non-empty output should succeed ----------
+
+TEST_F(SpaceToBatchTilingTest, ZeroHDimNonEmptyOutputSupported)
+{
+    // x = {1, 3, 0, 2}, bs=2, pad=[[4,1],[1,1]] → out = {4, 4, 1, 2}
+    std::vector<int32_t> pads = {4, 1, 1, 1};
+    auto bsAny = Ops::Math::AnyValue::CreateFrom<int64_t>(2);
+    gert::TilingContextPara para("SpaceToBatch",
+                                 {
+                                     {{{1, 3, 0, 2}, {1, 3, 0, 2}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
+                                     {{{2, 2}, {2, 2}}, ge::DT_INT32, ge::FORMAT_ND, true, pads.data()},
+                                 },
+                                 {
+                                     {{{4, 4, 1, 2}, {4, 4, 1, 2}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
+                                 },
+                                 {gert::TilingContextPara::OpAttr("block_size", bsAny)}, &compileInfo);
+
+    TilingInfo info;
+    ASSERT_TRUE(ExecuteTiling(para, info));
+    auto* td = reinterpret_cast<SpaceToBatchTilingData*>(info.tilingData.get());
+    EXPECT_EQ(td->outShape[0], 4);
+    EXPECT_EQ(td->outShape[1], 4);
+    EXPECT_EQ(td->outShape[2], 1);
+    EXPECT_EQ(td->outShape[3], 2);
+    EXPECT_GE(td->totalCount, 1);
+}
+
+// ---------- dtype coverage: int8 (1 byte) ----------
+
+TEST_F(SpaceToBatchTilingTest, DtypeInt8_1Byte)
+{
+    // in [1, 6, 6, 256], bs=2, pad=0, DT_INT8 → out [4, 3, 3, 256]
+    std::vector<int32_t> pads = {0, 0, 0, 0};
+    auto bsAny = Ops::Math::AnyValue::CreateFrom<int64_t>(2);
+    gert::TilingContextPara para("SpaceToBatch",
+                                 {
+                                     {{{1, 6, 6, 256}, {1, 6, 6, 256}}, ge::DT_INT8, ge::FORMAT_NHWC},
+                                     {{{2, 2}, {2, 2}}, ge::DT_INT32, ge::FORMAT_ND, true, pads.data()},
+                                 },
+                                 {
+                                     {{{4, 3, 3, 256}, {4, 3, 3, 256}}, ge::DT_INT8, ge::FORMAT_NHWC},
+                                 },
+                                 {gert::TilingContextPara::OpAttr("block_size", bsAny)}, &compileInfo);
+
+    TilingInfo info;
+    ASSERT_TRUE(ExecuteTiling(para, info));
+    auto* td = reinterpret_cast<SpaceToBatchTilingData*>(info.tilingData.get());
+    EXPECT_EQ(td->blockSize, 2);
+    EXPECT_EQ(td->outShape[0], 4);
+    EXPECT_EQ(td->outShape[1], 3);
+    EXPECT_EQ(td->outShape[2], 3);
+    EXPECT_EQ(td->outShape[3], 256);
+}
+
+// ---------- dtype coverage: float16 (2 bytes) ----------
+
+TEST_F(SpaceToBatchTilingTest, DtypeFloat16_2Byte)
+{
+    // in [1, 6, 6, 128], bs=2, pad=0, DT_FLOAT16 → out [4, 3, 3, 128]
+    std::vector<int32_t> pads = {0, 0, 0, 0};
+    auto bsAny = Ops::Math::AnyValue::CreateFrom<int64_t>(2);
+    gert::TilingContextPara para("SpaceToBatch",
+                                 {
+                                     {{{1, 6, 6, 128}, {1, 6, 6, 128}}, ge::DT_FLOAT16, ge::FORMAT_NHWC},
+                                     {{{2, 2}, {2, 2}}, ge::DT_INT32, ge::FORMAT_ND, true, pads.data()},
+                                 },
+                                 {
+                                     {{{4, 3, 3, 128}, {4, 3, 3, 128}}, ge::DT_FLOAT16, ge::FORMAT_NHWC},
+                                 },
+                                 {gert::TilingContextPara::OpAttr("block_size", bsAny)}, &compileInfo);
+
+    TilingInfo info;
+    ASSERT_TRUE(ExecuteTiling(para, info));
+    auto* td = reinterpret_cast<SpaceToBatchTilingData*>(info.tilingData.get());
+    EXPECT_EQ(td->blockSize, 2);
+    EXPECT_EQ(td->outShape[0], 4);
+    EXPECT_EQ(td->outShape[1], 3);
+    EXPECT_EQ(td->outShape[2], 3);
+    EXPECT_EQ(td->outShape[3], 128);
+}
+
+// ---------- dtype coverage: int64 (8 bytes) ----------
+
+TEST_F(SpaceToBatchTilingTest, DtypeInt64_8Byte)
+{
+    // in [1, 6, 6, 64], bs=2, pad=0, DT_INT64 → out [4, 3, 3, 64]
+    std::vector<int32_t> pads = {0, 0, 0, 0};
+    auto bsAny = Ops::Math::AnyValue::CreateFrom<int64_t>(2);
+    gert::TilingContextPara para("SpaceToBatch",
+                                 {
+                                     {{{1, 6, 6, 64}, {1, 6, 6, 64}}, ge::DT_INT64, ge::FORMAT_NHWC},
+                                     {{{2, 2}, {2, 2}}, ge::DT_INT32, ge::FORMAT_ND, true, pads.data()},
+                                 },
+                                 {
+                                     {{{4, 3, 3, 64}, {4, 3, 3, 64}}, ge::DT_INT64, ge::FORMAT_NHWC},
+                                 },
+                                 {gert::TilingContextPara::OpAttr("block_size", bsAny)}, &compileInfo);
+
+    TilingInfo info;
+    ASSERT_TRUE(ExecuteTiling(para, info));
+    auto* td = reinterpret_cast<SpaceToBatchTilingData*>(info.tilingData.get());
+    EXPECT_EQ(td->blockSize, 2);
+    EXPECT_EQ(td->outShape[0], 4);
+    EXPECT_EQ(td->outShape[1], 3);
+    EXPECT_EQ(td->outShape[2], 3);
+    EXPECT_EQ(td->outShape[3], 64);
+}
+
+// ---------- paddings declared as [2,2] keep flatten order ----------
+
+TEST_F(SpaceToBatchTilingTest, Paddings2x2ShapeAndOrder)
+{
+    // in [1, 6, 6, 8], bs=2, paddings=[[1,1],[0,2]] → H_padded=8, W_padded=8 → out [4, 4, 4, 8]
+    std::vector<int32_t> pads = {1, 1, 0, 2};
+    auto bsAny = Ops::Math::AnyValue::CreateFrom<int64_t>(2);
+    gert::TilingContextPara para("SpaceToBatch",
+                                 {
+                                     {{{1, 6, 6, 8}, {1, 6, 6, 8}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
+                                     {{{2, 2}, {2, 2}}, ge::DT_INT32, ge::FORMAT_ND, true, pads.data()},
+                                 },
+                                 {
+                                     {{{4, 4, 4, 8}, {4, 4, 4, 8}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
+                                 },
+                                 {gert::TilingContextPara::OpAttr("block_size", bsAny)}, &compileInfo);
+
+    TilingInfo info;
+    ASSERT_TRUE(ExecuteTiling(para, info));
+    auto* td = reinterpret_cast<SpaceToBatchTilingData*>(info.tilingData.get());
+    EXPECT_EQ(td->blockSize, 2);
+    EXPECT_EQ(td->paddings[0][0], 1);
+    EXPECT_EQ(td->paddings[0][1], 1);
+    EXPECT_EQ(td->paddings[1][0], 0);
+    EXPECT_EQ(td->paddings[1][1], 2);
+    EXPECT_EQ(td->outShape[0], 4);
+    EXPECT_EQ(td->outShape[1], 4);
+    EXPECT_EQ(td->outShape[2], 4);
+    EXPECT_EQ(td->outShape[3], 8);
+}
+
+// ---------- paddings declared as 1-D 4 elements should be supported ----------
+
+TEST_F(SpaceToBatchTilingTest, PaddingsFlat4Supported)
+{
+    // paddings declared as {4}, flat order [pad_top, pad_bottom, pad_left, pad_right]
+    // in [1, 6, 6, 8], bs=2, pads={1,1,0,2} → H_padded=8, W_padded=8 → out [4, 4, 4, 8]
+    std::vector<int32_t> pads = {1, 1, 0, 2};
+    auto bsAny = Ops::Math::AnyValue::CreateFrom<int64_t>(2);
+    gert::TilingContextPara para("SpaceToBatch",
+                                 {
+                                     {{{1, 6, 6, 8}, {1, 6, 6, 8}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
                                      {{{4}, {4}}, ge::DT_INT32, ge::FORMAT_ND, true, pads.data()},
+                                 },
+                                 {
+                                     {{{4, 4, 4, 8}, {4, 4, 4, 8}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
+                                 },
+                                 {gert::TilingContextPara::OpAttr("block_size", bsAny)}, &compileInfo);
+
+    TilingInfo info;
+    ASSERT_TRUE(ExecuteTiling(para, info));
+    auto* td = reinterpret_cast<SpaceToBatchTilingData*>(info.tilingData.get());
+    EXPECT_EQ(td->blockSize, 2);
+    EXPECT_EQ(td->paddings[0][0], 1); // pad_top
+    EXPECT_EQ(td->paddings[0][1], 1); // pad_bottom
+    EXPECT_EQ(td->paddings[1][0], 0); // pad_left
+    EXPECT_EQ(td->paddings[1][1], 2); // pad_right
+    EXPECT_EQ(td->outShape[0], 4);
+    EXPECT_EQ(td->outShape[1], 4);
+    EXPECT_EQ(td->outShape[2], 4);
+    EXPECT_EQ(td->outShape[3], 8);
+}
+
+TEST_F(SpaceToBatchTilingTest, Paddings1x4Supported)
+{
+    // paddings declared as {1,4}, flat 4 elements
+    // in [1, 6, 6, 8], bs=2, pad=0 → out [4, 3, 3, 8]
+    std::vector<int32_t> pads = {0, 0, 0, 0};
+    auto bsAny = Ops::Math::AnyValue::CreateFrom<int64_t>(2);
+    gert::TilingContextPara para("SpaceToBatch",
+                                 {
+                                     {{{1, 6, 6, 8}, {1, 6, 6, 8}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
+                                     {{{1, 4}, {1, 4}}, ge::DT_INT32, ge::FORMAT_ND, true, pads.data()},
+                                 },
+                                 {
+                                     {{{4, 3, 3, 8}, {4, 3, 3, 8}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
+                                 },
+                                 {gert::TilingContextPara::OpAttr("block_size", bsAny)}, &compileInfo);
+
+    TilingInfo info;
+    ASSERT_TRUE(ExecuteTiling(para, info));
+    auto* td = reinterpret_cast<SpaceToBatchTilingData*>(info.tilingData.get());
+    EXPECT_EQ(td->blockSize, 2);
+    EXPECT_EQ(td->outShape[0], 4);
+    EXPECT_EQ(td->outShape[1], 3);
+    EXPECT_EQ(td->outShape[2], 3);
+    EXPECT_EQ(td->outShape[3], 8);
+}
+
+// ---------- rank 3 input should fail ----------
+
+TEST_F(SpaceToBatchTilingTest, Rank3ShouldFail)
+{
+    // x = {6, 6, 8} is 3D, must be 4D → should fail
+    std::vector<int32_t> pads = {0, 0, 0, 0};
+    auto bsAny = Ops::Math::AnyValue::CreateFrom<int64_t>(2);
+    gert::TilingContextPara para("SpaceToBatch",
+                                 {
+                                     {{{6, 6, 8}, {6, 6, 8}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
+                                     {{{2, 2}, {2, 2}}, ge::DT_INT32, ge::FORMAT_ND, true, pads.data()},
+                                 },
+                                 {
+                                     {{{0, 0, 0, 0}, {0, 0, 0, 0}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
+                                 },
+                                 {gert::TilingContextPara::OpAttr("block_size", bsAny)}, &compileInfo);
+
+    TilingInfo info;
+    EXPECT_FALSE(ExecuteTiling(para, info));
+}
+
+// ---------- block_size=0 should fail ----------
+
+TEST_F(SpaceToBatchTilingTest, BlockSizeZeroShouldFail)
+{
+    std::vector<int32_t> pads = {0, 0, 0, 0};
+    auto bsAny = Ops::Math::AnyValue::CreateFrom<int64_t>(0);
+    gert::TilingContextPara para("SpaceToBatch",
+                                 {
+                                     {{{1, 6, 6, 8}, {1, 6, 6, 8}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
+                                     {{{2, 2}, {2, 2}}, ge::DT_INT32, ge::FORMAT_ND, true, pads.data()},
+                                 },
+                                 {
+                                     {{{0, 0, 0, 0}, {0, 0, 0, 0}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
+                                 },
+                                 {gert::TilingContextPara::OpAttr("block_size", bsAny)}, &compileInfo);
+
+    TilingInfo info;
+    EXPECT_FALSE(ExecuteTiling(para, info));
+}
+
+// ---------- negative padding should fail ----------
+
+TEST_F(SpaceToBatchTilingTest, NegativePaddingShouldFail)
+{
+    std::vector<int32_t> pads = {-1, 0, 0, 0};
+    auto bsAny = Ops::Math::AnyValue::CreateFrom<int64_t>(2);
+    gert::TilingContextPara para("SpaceToBatch",
+                                 {
+                                     {{{1, 6, 6, 8}, {1, 6, 6, 8}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
+                                     {{{2, 2}, {2, 2}}, ge::DT_INT32, ge::FORMAT_ND, true, pads.data()},
+                                 },
+                                 {
+                                     {{{0, 0, 0, 0}, {0, 0, 0, 0}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
+                                 },
+                                 {gert::TilingContextPara::OpAttr("block_size", bsAny)}, &compileInfo);
+
+    TilingInfo info;
+    EXPECT_FALSE(ExecuteTiling(para, info));
+}
+
+// ---------- non-const paddings should fail ----------
+
+TEST_F(SpaceToBatchTilingTest, NonConstPaddingsShouldFail)
+{
+    // paddings without const value: GetConstIntToShape cannot read data → should fail
+    auto bsAny = Ops::Math::AnyValue::CreateFrom<int64_t>(2);
+    gert::TilingContextPara para("SpaceToBatch",
+                                 {
+                                     {{{1, 6, 6, 8}, {1, 6, 6, 8}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
+                                     {{{2, 2}, {2, 2}}, ge::DT_INT32, ge::FORMAT_ND},
+                                 },
+                                 {
+                                     {{{0, 0, 0, 0}, {0, 0, 0, 0}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
+                                 },
+                                 {gert::TilingContextPara::OpAttr("block_size", bsAny)}, &compileInfo);
+
+    TilingInfo info;
+    EXPECT_FALSE(ExecuteTiling(para, info));
+}
+
+// ---------- W padded not divisible by block_size should fail ----------
+
+TEST_F(SpaceToBatchTilingTest, WidthNotDivisibleShouldFail)
+{
+    // in [1, 4, 6, 256], bs=2, pad=[0,0,1,0] → W_padded=7, not divisible by 2 → should fail
+    std::vector<int32_t> pads = {0, 0, 1, 0};
+    auto bsAny = Ops::Math::AnyValue::CreateFrom<int64_t>(2);
+    gert::TilingContextPara para("SpaceToBatch",
+                                 {
+                                     {{{1, 4, 6, 256}, {1, 4, 6, 256}}, ge::DT_FLOAT, ge::FORMAT_NHWC},
+                                     {{{2, 2}, {2, 2}}, ge::DT_INT32, ge::FORMAT_ND, true, pads.data()},
                                  },
                                  {
                                      {{{0, 0, 0, 0}, {0, 0, 0, 0}}, ge::DT_FLOAT, ge::FORMAT_NHWC},

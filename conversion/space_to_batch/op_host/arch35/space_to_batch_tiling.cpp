@@ -9,6 +9,7 @@
  */
 
 #include <sstream>
+#include <graph/utils/type_utils.h>
 #include "register/op_impl_registry.h"
 #include "conversion/space_to_batch/op_kernel/arch35/space_to_batch_tiling_data.h"
 #include "conversion/space_to_batch/op_kernel/arch35/space_to_batch_tiling_key.h"
@@ -19,8 +20,15 @@
 
 namespace optiling {
 
+namespace {
+// Checked arithmetic helpers: return false on overflow.
+inline bool SafeAddI64(int64_t a, int64_t b, int64_t& r) { return !__builtin_add_overflow(a, b, &r); }
+inline bool SafeMulI64(int64_t a, int64_t b, int64_t& r) { return !__builtin_mul_overflow(a, b, &r); }
+} // namespace
+
 static constexpr size_t INPUT_IDX_X = 0;
 static constexpr size_t INPUT_IDX_PADDINGS = 1;
+static constexpr size_t OUTPUT_IDX_Y = 0;
 static constexpr int64_t ATTR_IDX_BLOCK_SIZE = 0;
 static constexpr size_t PADDINGS_ROWS = 2;
 static constexpr size_t PADDINGS_COLS = 2;
@@ -86,8 +94,43 @@ ge::graphStatus SpaceToBatchTiling::ParamCheck()
     // x
     auto inputDesc = context_->GetInputDesc(INPUT_IDX_X);
     OP_CHECK_NULL_WITH_CONTEXT(context_, inputDesc);
-    dSize_ = ge::GetSizeByDataType(inputDesc->GetDataType());
+    auto xDtype = inputDesc->GetDataType();
+    OP_CHECK_IF(xDtype != ge::DT_INT8 && xDtype != ge::DT_UINT8 && xDtype != ge::DT_INT16 && xDtype != ge::DT_UINT16 &&
+                    xDtype != ge::DT_INT32 && xDtype != ge::DT_INT64 && xDtype != ge::DT_FLOAT16 &&
+                    xDtype != ge::DT_FLOAT && xDtype != ge::DT_DOUBLE && xDtype != ge::DT_BF16,
+                OP_LOGE(context_,
+                        "x only supports int8/uint8/int16/uint16/int32/int64/float16/float/double/bfloat16, but got %s",
+                        ge::TypeUtils::DataTypeToSerialString(xDtype).c_str()),
+                return ge::GRAPH_FAILED);
+    dSize_ = ge::GetSizeByDataType(xDtype);
     OP_CHECK_IF(dSize_ <= 0, OP_LOGE(context_, "data size should be positive"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(inputDesc->GetOriginFormat() != ge::FORMAT_NHWC,
+                OP_LOGE(context_, "x only supports format NHWC, but got %d",
+                        static_cast<int32_t>(inputDesc->GetOriginFormat())),
+                return ge::GRAPH_FAILED);
+
+    auto paddingsDesc = context_->GetInputDesc(INPUT_IDX_PADDINGS);
+    OP_CHECK_NULL_WITH_CONTEXT(context_, paddingsDesc);
+    OP_CHECK_IF(paddingsDesc->GetDataType() != ge::DT_INT32 && paddingsDesc->GetDataType() != ge::DT_INT64,
+                OP_LOGE(context_, "paddings only supports int32/int64, but got %s",
+                        ge::TypeUtils::DataTypeToSerialString(paddingsDesc->GetDataType()).c_str()),
+                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(paddingsDesc->GetOriginFormat() != ge::FORMAT_ND,
+                OP_LOGE(context_, "paddings only supports format ND, but got %d",
+                        static_cast<int32_t>(paddingsDesc->GetOriginFormat())),
+                return ge::GRAPH_FAILED);
+
+    auto yDesc = context_->GetOutputDesc(OUTPUT_IDX_Y);
+    OP_CHECK_NULL_WITH_CONTEXT(context_, yDesc);
+    OP_CHECK_IF(yDesc->GetDataType() != xDtype,
+                OP_LOGE(context_, "y dtype must be same as x dtype, but got x %s, y %s",
+                        ge::TypeUtils::DataTypeToSerialString(xDtype).c_str(),
+                        ge::TypeUtils::DataTypeToSerialString(yDesc->GetDataType()).c_str()),
+                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        yDesc->GetOriginFormat() != ge::FORMAT_NHWC,
+        OP_LOGE(context_, "y only supports format NHWC, but got %d", static_cast<int32_t>(yDesc->GetOriginFormat())),
+        return ge::GRAPH_FAILED);
 
     auto xShape = context_->GetInputShape(INPUT_IDX_X);
     OP_CHECK_NULL_WITH_CONTEXT(context_, xShape);
@@ -96,6 +139,8 @@ ge::graphStatus SpaceToBatchTiling::ParamCheck()
                 OP_LOGE(context_, "x must be 4D, got %zu", xStorageShape.GetDimNum()), return ge::GRAPH_FAILED);
     for (size_t i = 0; i < STB_AXIS_COUNT; ++i) {
         inShape_[i] = xStorageShape.GetDim(i);
+        OP_CHECK_IF(inShape_[i] < 0, OP_LOGE(context_, "x dim[%zu] must be non-negative, got %ld", i, inShape_[i]),
+                    return ge::GRAPH_FAILED);
     }
 
     // block_size attribute
@@ -133,8 +178,16 @@ ge::graphStatus SpaceToBatchTiling::ComputeOutShape()
     int64_t padLeft = paddings_[1][0];
     int64_t padRight = paddings_[1][1];
 
-    int64_t hPadded = inShape_[STB_AXIS_H] + padTop + padBottom;
-    int64_t wPadded = inShape_[STB_AXIS_W] + padLeft + padRight;
+    int64_t hPadded = 0;
+    OP_CHECK_IF(!SafeAddI64(inShape_[STB_AXIS_H], padTop, hPadded) || !SafeAddI64(hPadded, padBottom, hPadded),
+                OP_LOGE(context_, "H_padded overflow: H_in=%ld pad_top=%ld pad_bottom=%ld", inShape_[STB_AXIS_H],
+                        padTop, padBottom),
+                return ge::GRAPH_FAILED);
+    int64_t wPadded = 0;
+    OP_CHECK_IF(!SafeAddI64(inShape_[STB_AXIS_W], padLeft, wPadded) || !SafeAddI64(wPadded, padRight, wPadded),
+                OP_LOGE(context_, "W_padded overflow: W_in=%ld pad_left=%ld pad_right=%ld", inShape_[STB_AXIS_W],
+                        padLeft, padRight),
+                return ge::GRAPH_FAILED);
 
     OP_CHECK_IF(hPadded % blockSize_ != 0,
                 OP_LOGE(context_, "H_padded (%ld) not divisible by block_size (%ld)", hPadded, blockSize_),
@@ -143,7 +196,12 @@ ge::graphStatus SpaceToBatchTiling::ComputeOutShape()
                 OP_LOGE(context_, "W_padded (%ld) not divisible by block_size (%ld)", wPadded, blockSize_),
                 return ge::GRAPH_FAILED);
 
-    outShape_[STB_AXIS_N] = inShape_[STB_AXIS_N] * blockSize_ * blockSize_;
+    int64_t outN = 0;
+    OP_CHECK_IF(!SafeMulI64(inShape_[STB_AXIS_N], blockSize_, outN) || !SafeMulI64(outN, blockSize_, outN),
+                OP_LOGE(context_, "output N overflow: N=%ld * block_size=%ld * block_size=%ld", inShape_[STB_AXIS_N],
+                        blockSize_, blockSize_),
+                return ge::GRAPH_FAILED);
+    outShape_[STB_AXIS_N] = outN;
     outShape_[STB_AXIS_H] = hPadded / blockSize_;
     outShape_[STB_AXIS_W] = wPadded / blockSize_;
     outShape_[STB_AXIS_C] = inShape_[STB_AXIS_C];
@@ -180,6 +238,15 @@ ge::graphStatus SpaceToBatchTiling::DoOpTiling()
     bufferSize_ = std::min(bufferSize_, MAX_BUFFER_SIZE);
     uint32_t maxUBElements = bufferSize_ / static_cast<uint32_t>(dSize_);
 
+    for (size_t i = 0; i < STB_AXIS_COUNT; ++i) {
+        if (outShape_[i] == 0) {
+            ubAxis_ = STB_AXIS_N;
+            ubFactor_ = 1;
+            totalCount_ = 0;
+            return ge::GRAPH_SUCCESS;
+        }
+    }
+
     // Align tail axis to ubBlock
     int64_t alignedC = Ops::Base::CeilAlign(outShape_[STB_AXIS_C], static_cast<int64_t>(ubBlockElements_));
 
@@ -188,11 +255,19 @@ ge::graphStatus SpaceToBatchTiling::DoOpTiling()
     int64_t clInnerProduct = 1;
     for (int32_t ax = STB_AXIS_C; ax >= 0; --ax) {
         int64_t dimSize = (ax == STB_AXIS_C) ? alignedC : outShape_[ax];
-        if (dimSize * clInnerProduct >= static_cast<int64_t>(cacheLineElements_)) {
+        int64_t clProduct = 0;
+        if (!SafeMulI64(dimSize, clInnerProduct, clProduct)) {
             startAxis = ax;
             break;
         }
-        clInnerProduct *= dimSize;
+        if (clProduct >= static_cast<int64_t>(cacheLineElements_)) {
+            startAxis = ax;
+            break;
+        }
+        OP_CHECK_IF(!SafeMulI64(clInnerProduct, dimSize, clInnerProduct),
+                    OP_LOGE(context_, "clInnerProduct overflow at axis %d: clInnerProduct=%ld dimSize=%ld", ax,
+                            clInnerProduct, dimSize),
+                    return ge::GRAPH_FAILED);
     }
 
     int64_t step = (startAxis == STB_AXIS_C) ? static_cast<int64_t>(ubBlockElements_) : 1;
@@ -202,7 +277,10 @@ ge::graphStatus SpaceToBatchTiling::DoOpTiling()
     // outerProduct = product of outShape[0 .. startAxis-1]
     int64_t outerProduct = 1;
     for (int32_t i = 0; i < startAxis; ++i) {
-        outerProduct *= outShape_[i];
+        OP_CHECK_IF(!SafeMulI64(outerProduct, outShape_[i], outerProduct),
+                    OP_LOGE(context_, "outerProduct overflow at axis %d: outerProduct=%ld dimSize=%ld", i, outerProduct,
+                            outShape_[i]),
+                    return ge::GRAPH_FAILED);
     }
 
     // Step 2: traverse from startAxis outward
@@ -219,13 +297,24 @@ ge::graphStatus SpaceToBatchTiling::DoOpTiling()
         int64_t factorStart = (ax == startAxis) ? minUbFactor : factorStep;
 
         for (int64_t factor = factorStart; factor <= dimSize; factor += factorStep) {
-            int64_t blockSize = factor * cumInnerProduct;
+            int64_t blockSize = 0;
+            OP_CHECK_IF(!SafeMulI64(factor, cumInnerProduct, blockSize),
+                        OP_LOGE(context_, "blockSize overflow: ax=%d, factor=%ld, cumInnerProduct=%ld", ax, factor,
+                                cumInnerProduct),
+                        return ge::GRAPH_FAILED);
             if (blockSize > static_cast<int64_t>(maxUBElements)) {
                 break;
             }
 
-            uint64_t totalCount = static_cast<uint64_t>(outerProduct * Ops::Base::CeilDiv(dimSize, factor));
+            int64_t totalCountI64 = 0;
+            OP_CHECK_IF(!SafeMulI64(outerProduct, Ops::Base::CeilDiv(dimSize, factor), totalCountI64),
+                        OP_LOGE(context_, "totalCount overflow: ax=%d, outerProduct=%ld, dimSize=%ld, factor=%ld", ax,
+                                outerProduct, dimSize, factor),
+                        return ge::GRAPH_FAILED);
+            uint64_t totalCount = static_cast<uint64_t>(totalCountI64);
             uint64_t perCoreCount = Ops::Base::CeilDiv(totalCount, static_cast<uint64_t>(coreNum_));
+            OP_CHECK_IF(perCoreCount == 0U, OP_LOGE(context_, "perCoreCount is 0, totalCount=%lu", totalCount),
+                        return ge::GRAPH_FAILED);
             uint32_t realCoreNum = static_cast<uint32_t>(Ops::Base::CeilDiv(totalCount, perCoreCount));
 
             double coreRatio = static_cast<double>(realCoreNum) / static_cast<double>(coreNum_);
@@ -242,7 +331,10 @@ ge::graphStatus SpaceToBatchTiling::DoOpTiling()
 
         if (ax > 0) {
             outerProduct /= outShape_[ax - 1];
-            cumInnerProduct *= dimSize;
+            OP_CHECK_IF(!SafeMulI64(cumInnerProduct, dimSize, cumInnerProduct),
+                        OP_LOGE(context_, "cumInnerProduct overflow at axis %d: cumInnerProduct=%ld dimSize=%ld", ax,
+                                cumInnerProduct, dimSize),
+                        return ge::GRAPH_FAILED);
         }
     }
 
@@ -292,9 +384,16 @@ ge::graphStatus SpaceToBatchTiling::DoTiling()
     tilingData->ubAxis = ubAxis_;
     tilingData->ubFactor = ubFactor_;
 
-    uint64_t perCoreCount = Ops::Base::CeilDiv(totalCount_, static_cast<uint64_t>(coreNum_));
+    uint64_t perCoreCount = 0;
+    if (totalCount_ == 0) {
+        realCoreNum_ = 1;
+    } else {
+        perCoreCount = Ops::Base::CeilDiv(totalCount_, static_cast<uint64_t>(coreNum_));
+        OP_CHECK_IF(perCoreCount == 0U, OP_LOGE(context_, "perCoreCount is 0, totalCount=%lu", totalCount_),
+                    return ge::GRAPH_FAILED);
+        realCoreNum_ = static_cast<uint32_t>(Ops::Base::CeilDiv(totalCount_, perCoreCount));
+    }
     tilingData->perCoreCount = perCoreCount;
-    realCoreNum_ = static_cast<uint32_t>(Ops::Base::CeilDiv(totalCount_, perCoreCount));
 
     const uint64_t tilingKey = GET_TPL_TILING_KEY(ubAxis_);
     OP_LOGI(context_, "tilingKey=%lu, ubAxis=%u, ubFactor=%u, totalCount=%lu, perCoreCount=%lu, bufferSize=%u",

@@ -19,9 +19,10 @@ namespace ge {
  * This is the inverse of BatchToSpaceND.
  *
  * @par Inputs:
- * @li x: A 4D NHWC tensor [N, H_in, W_in, C], types: float16, float32, double, int64, int32,
+ * @li x: A 4D NHWC tensor [N, H_in, W_in, C], types: bfloat16, float16, float32, double, int64, int32,
  * int8, uint8, int16, uint16.
  * @li paddings: A 2D int tensor with shape [2, 2] = [[pad_top, pad_bottom], [pad_left, pad_right]].
+ *   A flat 4-element tensor is also supported, with order [pad_top, pad_bottom, pad_left, pad_right].
  *
  * @par Attributes:
  * @li block_size: A required int. The spatial block size.

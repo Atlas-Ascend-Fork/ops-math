@@ -22,6 +22,12 @@ static constexpr int64_t UNKNOWN_DIM = -1;
 static constexpr size_t PADDINGS_ROWS = 2;
 static constexpr size_t PADDINGS_COLS = 2;
 
+namespace {
+// Checked arithmetic helpers: return false on overflow.
+inline bool SafeAddI64(int64_t a, int64_t b, int64_t& r) { return !__builtin_add_overflow(a, b, &r); }
+inline bool SafeMulI64(int64_t a, int64_t b, int64_t& r) { return !__builtin_mul_overflow(a, b, &r); }
+} // namespace
+
 class SpaceToBatchInferShapeHelper {
 public:
     explicit SpaceToBatchInferShapeHelper(gert::InferShapeContext* context) : context_(context) {}
@@ -49,6 +55,27 @@ ge::graphStatus SpaceToBatchInferShapeHelper::Init()
     yShape_ = context_->GetOutputShape(OUTPUT_IDX_Y);
     OP_CHECK_NULL_WITH_CONTEXT(context_, yShape_);
 
+    const gert::CompileTimeTensorDesc* xDesc = context_->GetInputDesc(INPUT_IDX_X);
+    OP_CHECK_NULL_WITH_CONTEXT(context_, xDesc);
+    OP_CHECK_IF(
+        xDesc->GetOriginFormat() != ge::FORMAT_NHWC,
+        OP_LOGE(context_, "x only supports format NHWC, but got %d", static_cast<int32_t>(xDesc->GetOriginFormat())),
+        return ge::GRAPH_FAILED);
+
+    const gert::CompileTimeTensorDesc* paddingsDesc = context_->GetInputDesc(INPUT_IDX_PADDINGS);
+    OP_CHECK_NULL_WITH_CONTEXT(context_, paddingsDesc);
+    OP_CHECK_IF(paddingsDesc->GetOriginFormat() != ge::FORMAT_ND,
+                OP_LOGE(context_, "paddings only supports format ND, but got %d",
+                        static_cast<int32_t>(paddingsDesc->GetOriginFormat())),
+                return ge::GRAPH_FAILED);
+
+    const gert::CompileTimeTensorDesc* yDesc = context_->GetOutputDesc(OUTPUT_IDX_Y);
+    OP_CHECK_NULL_WITH_CONTEXT(context_, yDesc);
+    OP_CHECK_IF(
+        yDesc->GetOriginFormat() != ge::FORMAT_NHWC,
+        OP_LOGE(context_, "y only supports format NHWC, but got %d", static_cast<int32_t>(yDesc->GetOriginFormat())),
+        return ge::GRAPH_FAILED);
+
     blockSize_ = GetBlockSize();
     OP_CHECK_IF(blockSize_ <= 0, OP_LOGE(context_, "block_size must be positive, but got %ld", blockSize_),
                 return ge::GRAPH_FAILED);
@@ -59,6 +86,10 @@ ge::graphStatus SpaceToBatchInferShapeHelper::Init()
     isConstPaddings_ = Ops::Base::GetConstIntToShape<gert::InferShapeContext>(context_, INPUT_IDX_PADDINGS,
                                                                               paddingsVec_);
     if (isConstPaddings_) {
+        OP_CHECK_IF(paddingsVec_.GetDimNum() != PADDINGS_ROWS * PADDINGS_COLS,
+                    OP_LOGE(context_, "paddings must have %zu elements, got %zu", PADDINGS_ROWS * PADDINGS_COLS,
+                            paddingsVec_.GetDimNum()),
+                    return ge::GRAPH_FAILED);
         for (size_t i = 0; i < PADDINGS_ROWS * PADDINGS_COLS; ++i) {
             OP_CHECK_IF(paddingsVec_.GetDim(i) < 0,
                         OP_LOGE(context_, "paddings[%zu] must be non-negative, got %ld", i, paddingsVec_.GetDim(i)),
@@ -98,7 +129,12 @@ ge::graphStatus SpaceToBatchInferShapeHelper::Inference()
 
     int64_t batch = xShape_->GetDim(0);
     if (batch != UNKNOWN_DIM) {
-        batch = batch * blockSize_ * blockSize_;
+        int64_t batchMul = 0;
+        OP_CHECK_IF(!SafeMulI64(batch, blockSize_, batchMul) || !SafeMulI64(batchMul, blockSize_, batchMul),
+                    OP_LOGE(context_, "output N overflow: x dim[0]=%ld * block_size=%ld * block_size=%ld", batch,
+                            blockSize_, blockSize_),
+                    return ge::GRAPH_FAILED);
+        batch = batchMul;
     }
     yShape_->AppendDim(batch);
 
@@ -107,7 +143,15 @@ ge::graphStatus SpaceToBatchInferShapeHelper::Inference()
         int64_t padBottom = paddingsVec_.GetDim(1);
         int64_t hIn = xShape_->GetDim(1);
         if (hIn != UNKNOWN_DIM) {
-            yShape_->AppendDim((hIn + padTop + padBottom) / blockSize_);
+            int64_t hPadded = 0;
+            OP_CHECK_IF(
+                !SafeAddI64(hIn, padTop, hPadded) || !SafeAddI64(hPadded, padBottom, hPadded),
+                OP_LOGE(context_, "H_padded overflow: H_in=%ld pad_top=%ld pad_bottom=%ld", hIn, padTop, padBottom),
+                return ge::GRAPH_FAILED);
+            OP_CHECK_IF(hPadded % blockSize_ != 0,
+                        OP_LOGE(context_, "H_padded (%ld) not divisible by block_size (%ld)", hPadded, blockSize_),
+                        return ge::GRAPH_FAILED);
+            yShape_->AppendDim(hPadded / blockSize_);
         } else {
             yShape_->AppendDim(UNKNOWN_DIM);
         }
@@ -120,7 +164,15 @@ ge::graphStatus SpaceToBatchInferShapeHelper::Inference()
         int64_t padRight = paddingsVec_.GetDim(3);
         int64_t wIn = xShape_->GetDim(2);
         if (wIn != UNKNOWN_DIM) {
-            yShape_->AppendDim((wIn + padLeft + padRight) / blockSize_);
+            int64_t wPadded = 0;
+            OP_CHECK_IF(
+                !SafeAddI64(wIn, padLeft, wPadded) || !SafeAddI64(wPadded, padRight, wPadded),
+                OP_LOGE(context_, "W_padded overflow: W_in=%ld pad_left=%ld pad_right=%ld", wIn, padLeft, padRight),
+                return ge::GRAPH_FAILED);
+            OP_CHECK_IF(wPadded % blockSize_ != 0,
+                        OP_LOGE(context_, "W_padded (%ld) not divisible by block_size (%ld)", wPadded, blockSize_),
+                        return ge::GRAPH_FAILED);
+            yShape_->AppendDim(wPadded / blockSize_);
         } else {
             yShape_->AppendDim(UNKNOWN_DIM);
         }
