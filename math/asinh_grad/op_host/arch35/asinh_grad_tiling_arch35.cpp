@@ -15,7 +15,7 @@
  * \brief AsinhGrad arch35 tiling implementation
  *
  * Tiling strategy:
- *   - Multi-core: blockFactor = CeilAlign(CeilDiv(totalNum, coreNum), 32B)
+ *   - Multi-core: blockFactor = CeilAlign(CeilDiv(totalNum, coreNum), 32 elements)
  *   - UB: ubFactor = FloorAlign(FloorDiv(ubSize, bytesPerElem), 64 elements)
  *   - Double buffer threshold: totalNum > 1024
  *
@@ -80,11 +80,10 @@ static ge::graphStatus GetShapeAttrsInfo(gert::TilingContext* context, int64_t& 
     OP_CHECK_IF(inputY->GetStorageShape().GetDimNum() > 8 || inputDy->GetStorageShape().GetDimNum() > 8 ||
                     outZ->GetStorageShape().GetDimNum() > 8,
                 OP_LOGE(context, "AsinhGrad: rank must not exceed 8"), return ge::GRAPH_FAILED);
-    OP_CHECK_IF(
-        inputY->GetStorageShape() != inputDy->GetStorageShape() || inputY->GetStorageShape() != outZ->GetStorageShape(),
-        OP_LOGE(context, "AsinhGrad: shape mismatch: y=%ld, dy=%ld, z=%ld", inputShapeY.GetShapeSize(),
-                inputShapeDy.GetShapeSize(), outShapeZ.GetShapeSize()),
-        return ge::GRAPH_FAILED);
+    OP_CHECK_IF(inputShapeY != inputShapeDy || inputShapeY != outShapeZ,
+                OP_LOGE(context, "AsinhGrad: shape mismatch: y=%ld, dy=%ld, z=%ld", inputShapeY.GetShapeSize(),
+                        inputShapeDy.GetShapeSize(), outShapeZ.GetShapeSize()),
+                return ge::GRAPH_FAILED);
 
     totalIdx = inputShapeY.GetShapeSize();
 

@@ -15,7 +15,7 @@
 
 /*!
  * \file asinh_grad_proto.h
- * \brief
+ * \brief AsinhGrad GEIR prototype and parameter constraints.
  */
 #ifndef ASINH_GRAD_PROTO_H_
 #define ASINH_GRAD_PROTO_H_
@@ -24,21 +24,27 @@
 
 namespace ge {
 /**
-*@brief Computes gradients for Asinh operation. Computes: z = dy / cosh(y) = 2 * dy * exp(y) / (exp(2y) + 1).
-
-*
-*@par Inputs:
-* @li y: A tensor. Must be one of the following types: bfloat16, float16, float32. The asinh forward output.
-* @li dy: A tensor of the same dtype and shape as "y". The upstream gradient. Broadcasting is not supported.
-*
-*@par Outputs:
-* z: A tensor. Has the same dtype and shape as "y". The gradient with respect to asinh's input x.
-*
-*@par Third-party framework compatibility
-*Equivalent to the real-valued TensorFlow Asinh gradient formula, dy / cosh(y).
-*TensorFlow automatic differentiation may express this formula as a composite graph.
-*
-*/
+ * @brief Computes the Asinh gradient z = dy / cosh(y).
+ *
+ * @par Inputs:
+ * @li y: Required ND tensor of type float16, float32 or bfloat16.
+ * The unscaled forward output y = asinh(x).
+ * @li dy: Required ND tensor with the same dtype as y. Shapes are compared
+ * after treating a rank-0 scalar as [1], for A2 compatibility. Other nonempty
+ * shapes must match; general broadcasting is not supported.
+ *
+ * @par Outputs:
+ * z: Tensor with the same dtype and original logical shape as y.
+ * The gradient with respect to the forward input x.
+ *
+ * @par Constraints:
+ * Normal computation supports ranks 0 through 8. Empty tensors follow GE/A2
+ * compatibility behavior, without additional empty-input rejection.
+ *
+ * @par Third-party framework compatibility:
+ * Equivalent in real arithmetic to the TensorFlow Asinh gradient dy / cosh(y).
+ * TensorFlow automatic differentiation may express it as a composite graph.
+ */
 REG_OP(AsinhGrad)
     .INPUT(y, TensorType({DT_FLOAT16, DT_FLOAT, DT_BF16}))
     .INPUT(dy, TensorType({DT_FLOAT16, DT_FLOAT, DT_BF16}))

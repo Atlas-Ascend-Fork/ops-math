@@ -33,13 +33,6 @@ TEST(AsinhGradTilingTest, RejectsDifferentShapesWithEqualElementCount)
     ExecuteTestCase(MakeContext(y, y, dy), ge::GRAPH_FAILED);
 }
 
-TEST(AsinhGradTilingTest, RejectsScalarVectorMismatch)
-{
-    gert::StorageShape scalar = {{}, {}};
-    gert::StorageShape vector = {{1}, {1}};
-    ExecuteTestCase(MakeContext(scalar, vector, scalar), ge::GRAPH_FAILED);
-}
-
 TEST(AsinhGradTilingTest, RejectsRankNine)
 {
     gert::StorageShape shape = {{1, 1, 1, 1, 1, 1, 1, 1, 1}, {1, 1, 1, 1, 1, 1, 1, 1, 1}};
