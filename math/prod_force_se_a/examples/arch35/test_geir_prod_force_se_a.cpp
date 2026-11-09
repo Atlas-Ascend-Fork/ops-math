@@ -179,7 +179,22 @@ int CreateOppInGraph(DataType inDtype, std::vector<ge::Tensor>& input, std::vect
 
     // natoms: [3] int32, natoms[0]=nloc=3, natoms[1]=nall=5
     std::vector<int64_t> natomsShape = {3};
-    ADD_CONST_INPUT(4, natoms, ge::DT_INT32, natomsShape);
+    // natoms 由数据决定：natoms[0]=nloc(3)、natoms[1]=nall(5)，不能与其它输入
+    // 一样统一填 2，否则 tiling 的 ValidateNatomsValues 会拒绝（nloc=3）。
+    {
+        auto placeholder4 = op::Const("placeholder4");
+        TensorDesc natomsDesc(ge::Shape(natomsShape), FORMAT_ND, ge::DT_INT32);
+        natomsDesc.SetPlacement(ge::kPlacementHost);
+        natomsDesc.SetFormat(FORMAT_ND);
+        int32_t natomsVals[3] = {3, 5, 3};
+        Tensor natomsTensor(natomsDesc, reinterpret_cast<uint8_t*>(natomsVals), sizeof(natomsVals));
+        placeholder4.SetAttr("value", natomsTensor);
+        placeholder4.update_output_desc_y(natomsDesc);
+        graph.AddOp(placeholder4);
+        add1.set_input_natoms(placeholder4);
+        add1.update_input_desc_natoms(natomsDesc);
+        inputs.push_back(placeholder4);
+    }
 
     // atom_force: [1, 5, 3] float32
     std::vector<int64_t> forceShape = {1, 5, 3};
