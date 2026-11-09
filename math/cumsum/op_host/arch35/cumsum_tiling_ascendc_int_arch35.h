@@ -1,5 +1,5 @@
 /**
-* Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -47,6 +47,7 @@ END_TILING_DATA_DEF;
 REGISTER_TILING_DATA_CLASS(Cumsum_11000, Cum4IntTilingData);
 REGISTER_TILING_DATA_CLASS(Cumsum_11001, Cum4IntTilingData);
 REGISTER_TILING_DATA_CLASS(Cumsum_11002, Cum4IntTilingData);
+REGISTER_TILING_DATA_CLASS(Cumsum_11003, Cum4IntTilingData);
 
 ge::graphStatus TilingCumsum4Int(gert::TilingContext* context);
 
@@ -56,6 +57,7 @@ constexpr int64_t CORE_GATE = 4;
 constexpr int64_t CUM_NO_SPLIT = 11000;
 constexpr int64_t CUM_AR_SPLIT = 11001;
 constexpr int64_t CUM_WITH_GROUP = 11002;
+constexpr int64_t CUM_EMPTY = 11003;
 constexpr int64_t MAX_TENSOR_SIZE = 0xff00; // to avoid index overflow when B8
 
 class Cumsum4IntTiling {
@@ -98,24 +100,24 @@ private:
     int64_t maxTensorSize = 0;
     int64_t rsvUB = 2048;
 
-    int64_t tilingKey_;
-    int64_t isExclusive_;
-    int64_t isReverse_;
-    int64_t isRBlockAxis_;
-    int64_t tensorSize_;
-    int64_t usedCoreCnt_;
-    int64_t blockOffset_;
-    int64_t ntcLALen_;
-    int64_t tcLALen_;
-    int64_t laLpUnit_;
-    int64_t laOffset_;
-    int64_t ntcRLen_;
-    int64_t tcRLen_;
-    int64_t rLpUnit_;
-    int64_t rOffset_;
-    int64_t ntcRALen_;
-    int64_t tcRALen_;
-    int64_t raLpUnit_;
+    int64_t tilingKey_{0};
+    int64_t isExclusive_{0};
+    int64_t isReverse_{0};
+    int64_t isRBlockAxis_{0};
+    int64_t tensorSize_{0};
+    int64_t usedCoreCnt_{0};
+    int64_t blockOffset_{0};
+    int64_t ntcLALen_{0};
+    int64_t tcLALen_{0};
+    int64_t laLpUnit_{0};
+    int64_t laOffset_{0};
+    int64_t ntcRLen_{0};
+    int64_t tcRLen_{0};
+    int64_t rLpUnit_{0};
+    int64_t rOffset_{0};
+    int64_t ntcRALen_{0};
+    int64_t tcRALen_{0};
+    int64_t raLpUnit_{0};
 };
 } // namespace cumsum
 

@@ -328,6 +328,13 @@ ge::graphStatus Cumsum4IntTiling::CalcTilingData()
                 OP_LOGE(context_->GetNodeName(), "Cumsum4IntTiling failed to get input shape info."),
                 return ge::GRAPH_FAILED);
 
+    if (leftAxisLen == 0 || midAxisLen == 0 || rightAxisLen == 0) {
+        tilingKey_ = CUM_EMPTY;
+        usedCoreCnt_ = 1;
+        OP_LOGI(context_->GetNodeName(), "Cumsum integer empty tensor, skip kernel computation.");
+        return ge::GRAPH_SUCCESS;
+    }
+
     GetAxisLpUnit();
     GetMCTilingInfo();
     CalcTilingKey();

@@ -42,6 +42,7 @@ using namespace Cum;
 #define CUM_NO_SPLIT 11000
 #define CUM_AR_SPLIT 11001
 #define CUM_WITH_GROUP 11002
+#define CUM_EMPTY 11003
 
 static __aicore__ inline void cumsumSimd(GM_ADDR x, GM_ADDR axis, GM_ADDR y, GM_ADDR workspace, GM_ADDR tiling)
 {
@@ -182,7 +183,11 @@ static __aicore__ inline void cumsumSimdInt(GM_ADDR x, GM_ADDR axis, GM_ADDR y, 
     TPipe pipe;
     KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_AIV_ONLY);
 
-    if (TILING_KEY_IS(CUM_NO_SPLIT)) {
+    if (TILING_KEY_IS(CUM_EMPTY)) {
+        // 空 Tensor 无数据搬运或计算。保留 tiling struct 读取，供 opc 推导该 key 的 tiling 数据大小。
+        GET_TILING_DATA_WITH_STRUCT(Cum4IntTilingData, emptyTilingData, tiling);
+        return;
+    } else if (TILING_KEY_IS(CUM_NO_SPLIT)) {
         GET_TILING_DATA_WITH_STRUCT(Cum4IntTilingData, tilingDataInt, tiling);
         if constexpr (std::is_same<DTYPE_X, int32_t>::value || std::is_same<DTYPE_X, int64_t>::value ||
                       std::is_same<DTYPE_X, int8_t>::value || std::is_same<DTYPE_X, uint8_t>::value ||

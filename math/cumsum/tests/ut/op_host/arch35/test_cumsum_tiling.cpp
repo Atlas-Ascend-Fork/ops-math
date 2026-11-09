@@ -77,3 +77,37 @@ TEST_F(CumsumTiling, Cumsum_test_tiling_uint8_workspace)
         &compileInfo);
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, 11001, std::vector<size_t>{0});
 }
+
+TEST_F(CumsumTiling, Cumsum_test_tiling_integer_empty_tensor)
+{
+    optiling::CumsumCompileInfo compileInfo = {56, 253952, 0, 0, 1, 1, 0, 32, 256, 256};
+    const std::vector<int32_t> axes = {0, 3, 5};
+    const std::vector<ge::DataType> dtypes = {ge::DT_INT32, ge::DT_INT64, ge::DT_UINT8};
+
+    for (ge::DataType dtype : dtypes) {
+        for (int32_t axis : axes) {
+            SCOPED_TRACE("dtype=" + std::to_string(static_cast<int32_t>(dtype)) + ", axis=" + std::to_string(axis));
+            gert::TilingContextPara tilingContextPara(
+                "Cumsum",
+                {
+                    {{{1, 2, 3, 0, 4, 5}, {1, 2, 3, 0, 4, 5}}, dtype, ge::FORMAT_ND},
+                    {{{1}, {1}}, ge::DT_INT32, ge::FORMAT_ND, true, &axis},
+                },
+                {
+                    {{{1, 2, 3, 0, 4, 5}, {1, 2, 3, 0, 4, 5}}, dtype, ge::FORMAT_ND},
+                },
+                {
+                    gert::TilingContextPara::OpAttr("exclusive", Ops::Math::AnyValue::CreateFrom<bool>(false)),
+                    gert::TilingContextPara::OpAttr("reverse", Ops::Math::AnyValue::CreateFrom<bool>(false)),
+                },
+                &compileInfo);
+
+            TilingInfo tilingInfo;
+            ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
+            EXPECT_EQ(tilingInfo.tilingKey, 11003);
+            EXPECT_EQ(tilingInfo.blockNum, 1);
+            ASSERT_EQ(tilingInfo.workspaceSizes.size(), 1U);
+            EXPECT_EQ(tilingInfo.workspaceSizes[0], 0U);
+        }
+    }
+}
