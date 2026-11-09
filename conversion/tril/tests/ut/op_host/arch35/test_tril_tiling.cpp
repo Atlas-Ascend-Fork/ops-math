@@ -40,7 +40,7 @@ TEST_F(TrilTest, Tril_tiling_ascendc_bfloat16_dim3)
                                               &compileInfo);
     uint64_t expectTilingKey = 42;
     string expectTilingData = "59392 64 64 1 1 1 0 1 1 1 0 64 0 ";
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
@@ -57,7 +57,7 @@ TEST_F(TrilTest, Tril_tiling_ascendc_float16_dim2)
                                               &compileInfo);
     uint64_t expectTilingKey = 22;
     string expectTilingData = "29696 757 2048 0 64 1 45 7 2048 ";
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
@@ -74,7 +74,7 @@ TEST_F(TrilTest, Tril_tiling_ascendc_float_dim2)
                                               &compileInfo);
     uint64_t expectTilingKey = 24;
     string expectTilingData = "29696 467 47 0 4 1 0 154 48 ";
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
@@ -91,7 +91,7 @@ TEST_F(TrilTest, Tril_tiling_ascendc_double_dim4)
                                               &compileInfo);
     uint64_t expectTilingKey = 44;
     string expectTilingData = "59392 5 19 1 63 1 0 20 63 11 0 5 0 ";
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
@@ -108,7 +108,7 @@ TEST_F(TrilTest, Tril_tiling_ascendc_uint8_dim5)
                                               &compileInfo);
     uint64_t expectTilingKey = 41;
     string expectTilingData = "59392 83 11 1 5 1 0 1 5 1 0 11 72 ";
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
@@ -126,7 +126,7 @@ TEST_F(TrilTest, Tril_tiling_ascendc_int8_dim6)
         &compileInfo);
     uint64_t expectTilingKey = 41;
     string expectTilingData = "59392 192 100 1 24 1 0 1 24 1 0 100 92 ";
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
@@ -144,7 +144,7 @@ TEST_F(TrilTest, Tril_tiling_ascendc_uint16_dim7)
         &compileInfo);
     uint64_t expectTilingKey = 42;
     string expectTilingData = "59392 35 72 1 64 19 10 10 1226 9 0 35 0 ";
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
@@ -162,7 +162,7 @@ TEST_F(TrilTest, Tril_tiling_ascendc_int16_dim8)
         &compileInfo);
     uint64_t expectTilingKey = 32;
     string expectTilingData = "59392 11 42 1 0 2 42 2 1 0 0 0 ";
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
@@ -180,7 +180,7 @@ TEST_F(TrilTest, Tril_tiling_ascendc_uint32_dim4)
         &compileInfo);
     uint64_t expectTilingKey = 24;
     string expectTilingData = "29696 2048 128 0 36 1 0 58 128 ";
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
@@ -197,7 +197,7 @@ TEST_F(TrilTest, Tril_tiling_ascendc_int32_dim4)
                                               &compileInfo);
     uint64_t expectTilingKey = 44;
     string expectTilingData = "59392 32 128 1 12 1 0 1 12 1 0 32 0 ";
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
@@ -215,7 +215,7 @@ TEST_F(TrilTest, Tril_tiling_ascendc_uint64_dim4)
         &compileInfo);
     uint64_t expectTilingKey = 24;
     string expectTilingData = "29696 257 257 0 64 120 0 23 320 ";
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
@@ -232,7 +232,7 @@ TEST_F(TrilTest, Tril_tiling_ascendc_int64_dim3)
                                               &compileInfo);
     uint64_t expectTilingKey = 28;
     string expectTilingData = "29696 77 768 0 64 2 16 77 32 ";
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
@@ -249,7 +249,7 @@ TEST_F(TrilTest, Tril_tiling_ascendc_int64_small_col_dim3)
                                               &compileInfo);
     uint64_t expectTilingKey = 28;
     string expectTilingData = "29696 7777 2 0 54 1 0 928 4 ";
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
@@ -266,7 +266,7 @@ TEST_F(TrilTest, Tril_tiling_ascendc_bool_dim3)
                                               &compileInfo);
     uint64_t expectTilingKey = 41;
     string expectTilingData = "59392 7 1408 1 40 1 0 1 40 1 0 7 0 ";
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
@@ -283,7 +283,7 @@ TEST_F(TrilTest, Tril_tiling_ascendc_complex32_dim3)
                                               &compileInfo);
     uint64_t expectTilingKey = 24;
     string expectTilingData = "29696 640 4096 0 64 120 0 1 4096 ";
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
@@ -300,7 +300,7 @@ TEST_F(TrilTest, Tril_tiling_ascendc_complex64_dim3)
                                               &compileInfo);
     uint64_t expectTilingKey = 18;
     string expectTilingData = "118784 14 128 2 ";
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
@@ -317,6 +317,6 @@ TEST_F(TrilTest, Tril_tiling_ascendc_float16_dim_not_support)
                                               &compileInfo);
     uint64_t expectTilingKey = 42;
     string expectTilingData = "";
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED, expectTilingKey, expectTilingData, expectWorkspaces);
 }
