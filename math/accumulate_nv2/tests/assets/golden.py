@@ -12,9 +12,12 @@
 数学公式: y = Σ x_i
 
 精度策略:
-- CPU Golden 使用 TensorFlow ``tf.math.accumulate_n`` 计算，作为 cross_check 的高精度真值 ``g``。
-- fp16 输入统一升精度到 fp32 累加后单次 cast 回：kernel 直连路径在 Vector 管线内
-  实现（Cast→Add(fp32)→Cast），aclnnSum 路径与 op_api 的 promoteFp16 路径一致。
+- CPU Golden 真调用 ``tf.raw_ops.AccumulateNV2``（图模式——eager 下该 op 无 kernel，
+  唯一执行路径），与三方竞品同 op 同路由；图运行时链顺序逐轮波动的特性见
+  ``_raw_accumulate_nv2`` docstring，按统计意义解读判定。
+- fp16 输入统一升精度到 fp32 累加后单次 cast 回（promote 域内同样真调用
+  raw_ops）：kernel 直连路径在 Vector 管线内实现（Cast→Add(fp32)→Cast），
+  aclnnSum 路径与 op_api 的 promoteFp16 路径一致。
 - 三方结果 ``b`` 使用 TensorFlow XPU 原始 dtype 计算，不做 cast。
 - L1 比较 NPU 相对 CPU 的误差与 TensorFlow XPU 相对 CPU 的误差之比。
 - 容差按 dtype 分级声明于 TestSpec ``tolerance``（浮点 cross_check L1、整数 binary_equal L2）。
@@ -34,8 +37,8 @@ __golden__ = {
 
 __spec__ = {
     "accumulate_nv2": "AccumulateNv2KernelTestSpec",
+    "AccumulateNV2": "AccumulateNv2KernelTestSpec",
     "aclnnSum": "AclnnSumTestSpec",
-    "tf.math.accumulate_n": "TensorFlowAccumulateNv2TestSpec",
     "tf.raw_ops.AccumulateNV2": "TensorFlowAccumulateNv2TestSpec",
 }
 
@@ -45,45 +48,6 @@ def _as_tensor_list(value):
     if not tensors:
         raise ValueError("AccumulateNV2 requires at least one input tensor")
     return tensors
-
-
-def _tensorflow_cpu_reference(values, promote_fp16=False, broadcast=False):
-    """CPU reference using the TensorFlow competitor operator.
-
-    Route semantics:
-    - kernel/GEIR direct route (``broadcast=False``): same-shape contract —
-      the operator does not support broadcast and rejects mismatched shapes,
-      so the reference must not silently align them. fp16 uses the promote
-      reference (see ``_fp16_promote_reference``).
-    - aclnnSum route (``broadcast=True``): mirrors the op_api wrapper —
-      BroadcastTo alignment of broadcastable inputs, then fp16 promoted to
-      fp32, accumulated, and cast back once (aclnn_sum.cpp promoteFp16
-      path). float32 and integer inputs are always computed at their
-      original dtype (the TF competitor's native behavior).
-    """
-    import tensorflow as tf
-
-    arrays = [np.asarray(v) for v in _as_tensor_list(values)]
-    if broadcast:
-        # aclnnSum route only: mirror the wrapper's BroadcastTo alignment.
-        # numpy performs the shape unification and expansion: TF CPU's
-        # broadcast_to rejects rank>=7 shape pairs ("not supported yet"),
-        # while np.broadcast_shapes/np.broadcast_to cover the operator's full
-        # rank<=8 domain; the expansion is pure shape replication with no
-        # arithmetic, so numpy and TF are semantically identical here.
-        target_shape = np.broadcast_shapes(*[a.shape for a in arrays])
-        arrays = [np.broadcast_to(a, target_shape) for a in arrays]
-    tensors = [_to_tensorflow_tensor(a, tf) for a in arrays]
-
-    input_dtype = tensors[0].dtype
-    if input_dtype == tf.float16 and promote_fp16:
-        # fp32 accumulation with a single cast back (target_shape is inferred
-        # from the tensors: inputs are either broadcast-aligned above or
-        # already share one shape).
-        promoted = [tf.cast(t, tf.float32) for t in tensors]
-        result = tf.math.accumulate_n(promoted, tensor_dtype=tf.float32)
-        return tf.cast(result, tf.float16)
-    return tf.math.accumulate_n(tensors, tensor_dtype=input_dtype)
 
 
 def _is_fp16_inputs(values, input_dtypes):
@@ -109,19 +73,21 @@ def _is_fp16_inputs(values, input_dtypes):
 
 
 def _fp16_promote_reference(values):
-    """fp16 promote reference: fp32 accumulation with a single cast back.
+    """fp16 promote reference: fp32-domain raw_ops accumulation, one cast back.
 
-    Deterministic promote semantics for both invocation forms: raw fp16
-    inputs (cast up, accumulate, cast back once) and TTK's Promote-elevated
+    Promote semantics for both invocation forms: raw fp16 inputs (cast up,
+    accumulate in the fp32 domain, cast back once) and TTK's Promote-elevated
     fp32 inputs (fp16→fp32 is exact, so accumulate directly and cast back
     once) — both model the kernel's fp32 intermediate accumulation in the
     Vector pipeline (Cast→Add(fp32)→Cast) and the aclnnSum promoteFp16 path.
+    The fp32-domain accumulation itself calls ``tf.raw_ops.AccumulateNV2``
+    (the operator's own semantics, same op as the GPU third-party).
     """
     import tensorflow as tf
 
     tensors = [_to_tensorflow_tensor(v, tf) for v in _as_tensor_list(values)]
     promoted = [t if t.dtype == tf.float32 else tf.cast(t, tf.float32) for t in tensors]
-    result = tf.math.accumulate_n(promoted, tensor_dtype=tf.float32)
+    result = _raw_accumulate_nv2(promoted)
     return tf.cast(result, tf.float16)
 
 
@@ -140,6 +106,41 @@ def _to_kernel_array(value):
     return value.numpy()
 
 
+_RAW_GRAPH_FN = None
+
+
+def _raw_accumulate_nv2(values):
+    """TF reference calling the operator's own AccumulateNV2.
+
+    ``tf.raw_ops.AccumulateNV2`` is a kernel-less stub in eager mode (fails
+    with "<no registered kernels>"); it only executes in graph mode, where TF
+    rewrites it via AccumulateNV2RemovePass (PRE_PLACEMENT) into a
+    TemporaryVariable + AssignAdd chain — sequential accumulation at the
+    input dtype. The reference therefore wraps the raw op in ``tf.function``.
+
+    Known behavior (measured): the graph runtime is not bit-reproducible —
+    repeated executions inside one process and executions across processes
+    both reorder the chain (pinning inter/intra-op threads to 1 only fixes
+    the within-process case), so small-value boundary cases may fluctuate
+    run to run. This is the cost of calling the real operator; it is
+    accepted deliberately to keep the golden source-symmetric with the GPU
+    third-party (``ThirdPartyTF``), which runs the same op.
+    """
+    global _RAW_GRAPH_FN
+    import tensorflow as tf
+
+    if _RAW_GRAPH_FN is None:
+
+        @tf.function
+        def _graph_fn(vs, shape):
+            return tf.raw_ops.AccumulateNV2(inputs=vs, shape=shape)
+
+        _RAW_GRAPH_FN = _graph_fn
+    tensors = [_to_tensorflow_tensor(v, tf) for v in _as_tensor_list(values)]
+    shape = [int(d) for d in tensors[0].shape]
+    return _RAW_GRAPH_FN(list(tensors), shape)
+
+
 def accumulate_nv2_golden(x, **kwargs):
     """GEIR/Kernel CPU Golden.
 
@@ -147,37 +148,47 @@ def accumulate_nv2_golden(x, **kwargs):
     ``_fp16_promote_reference``), matching the kernel's fp32 intermediate
     accumulation. The fp16-origin test uses the original ``input_dtypes``
     kwarg (TTK elevates fp16 inputs to fp32 under cross_check's golden
-    Promote). Other dtypes: TF competitor reference at the original dtype.
+    Promote). Other dtypes: ``tf.raw_ops.AccumulateNV2`` graph-mode reference
+    (the operator's own semantics, same route as the GPU third-party).
     """
     tensors = _as_tensor_list(x)
     if _is_fp16_inputs(tensors, kwargs.get("input_dtypes")):
         return [_to_kernel_array(_fp16_promote_reference(tensors))]
-    return [_to_kernel_array(_tensorflow_cpu_reference(tensors, promote_fp16=False))]
+    return [_to_kernel_array(_raw_accumulate_nv2(tensors))]
 
 
 def tensorflow_accumulate_nv2_golden(inputs, shape=None, tensor_dtype=None, **kwargs):
-    """TF E2E CPU Golden for tf.math.accumulate_n / tf.raw_ops.AccumulateNV2.
+    """TF E2E CPU Golden for tf.raw_ops.AccumulateNV2.
 
-    TF competitor requires all inputs to have the same shape (no broadcast);
-    fp16 uses the promote reference, consistent with the operator's fp32
-    intermediate accumulation contract.
+    Same-shape contract (the operator rejects mismatched shapes); fp16 uses
+    the promote reference, consistent with the operator's fp32 intermediate
+    accumulation contract; other dtypes call ``tf.raw_ops.AccumulateNV2``
+    directly at the original dtype.
     """
     del shape, tensor_dtype, kwargs
-    return [
-        _to_kernel_array(
-            _tensorflow_cpu_reference(inputs, promote_fp16=True, broadcast=False)
-        )
-    ]
+    arrays = _as_tensor_list(inputs)
+    if _is_fp16_inputs(arrays, None):
+        return [_to_kernel_array(_fp16_promote_reference(arrays))]
+    return [_to_kernel_array(_raw_accumulate_nv2(arrays))]
 
 
 def aclnn_sum_golden(tensors, out=None, **kwargs):
-    """ACLNN CPU Golden: mirrors aclnnSum's BroadcastTo + fp16→fp32 promote."""
+    """ACLNN CPU Golden: mirrors aclnnSum's BroadcastTo + fp16→fp32 promote.
+
+    numpy performs the BroadcastTo alignment (TF CPU's broadcast_to rejects
+    rank>=7 shape pairs; np.broadcast_shapes/np.broadcast_to cover the full
+    rank<=8 domain — pure shape replication, semantically identical). The
+    aligned accumulation calls ``tf.raw_ops.AccumulateNV2`` (fp16 via the
+    fp32 promote domain with one cast back, matching aclnn_sum.cpp
+    promoteFp16; other dtypes at the original dtype).
+    """
     del out, kwargs
-    return [
-        _to_kernel_array(
-            _tensorflow_cpu_reference(tensors, promote_fp16=True, broadcast=True)
-        )
-    ]
+    arrays = [np.asarray(v) for v in _as_tensor_list(tensors)]
+    target_shape = np.broadcast_shapes(*[a.shape for a in arrays])
+    arrays = [np.broadcast_to(a, target_shape) for a in arrays]
+    if arrays[0].dtype == np.float16:
+        return [_to_kernel_array(_fp16_promote_reference(arrays))]
+    return [_to_kernel_array(_raw_accumulate_nv2(arrays))]
 
 
 class ThirdPartyTF:
