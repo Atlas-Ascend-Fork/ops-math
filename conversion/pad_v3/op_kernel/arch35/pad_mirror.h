@@ -27,7 +27,20 @@ __aicore__ inline void LaunchKernelPadMirrorSimt(GM_ADDR x, GM_ADDR paddings, GM
 {
     TPipe pipe;
     GET_TILING_DATA_WITH_STRUCT(PadACTilingData, tilingData, tiling);
-    if constexpr (sizeof(T) == sizeof(int32_t)) {
+    uint8_t improveDtypeSize = tilingData.improveDtypeSize;
+    if (improveDtypeSize == sizeof(int64_t)) {
+        PadV3::PadReflectSimt<int64_t, KEY> op;
+        op.Init(x, paddings, y, &tilingData);
+        op.Process(tiling);
+    } else if (improveDtypeSize == sizeof(int32_t)) {
+        PadV3::PadReflectSimt<int32_t, KEY> op;
+        op.Init(x, paddings, y, &tilingData);
+        op.Process(tiling);
+    } else if (improveDtypeSize == sizeof(int16_t)) {
+        PadV3::PadReflectSimt<int16_t, KEY> op;
+        op.Init(x, paddings, y, &tilingData);
+        op.Process(tiling);
+    } else if constexpr (sizeof(T) == sizeof(int32_t)) {
         PadV3::PadReflectSimt<int32_t, KEY> op;
         op.Init(x, paddings, y, &tilingData);
         op.Process(tiling);
@@ -51,7 +64,20 @@ __aicore__ inline void LaunchKernelPadMirrorSimtHuge(GM_ADDR x, GM_ADDR paddings
 {
     TPipe pipe;
     GET_TILING_DATA_WITH_STRUCT(PadACTilingData, tilingData, tiling);
-    if constexpr (sizeof(T) == sizeof(int32_t)) {
+    uint8_t improveDtypeSize = tilingData.improveDtypeSize;
+    if (improveDtypeSize == sizeof(int64_t)) {
+        PadV3::PadReflectSimtHuge<int64_t, KEY> op;
+        op.Init(x, paddings, y, &tilingData);
+        op.Process(tiling);
+    } else if (improveDtypeSize == sizeof(int32_t)) {
+        PadV3::PadReflectSimtHuge<int32_t, KEY> op;
+        op.Init(x, paddings, y, &tilingData);
+        op.Process(tiling);
+    } else if (improveDtypeSize == sizeof(int16_t)) {
+        PadV3::PadReflectSimtHuge<int16_t, KEY> op;
+        op.Init(x, paddings, y, &tilingData);
+        op.Process(tiling);
+    } else if constexpr (sizeof(T) == sizeof(int32_t)) {
         PadV3::PadReflectSimtHuge<int32_t, KEY> op;
         op.Init(x, paddings, y, &tilingData);
         op.Process(tiling);

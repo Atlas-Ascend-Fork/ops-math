@@ -214,7 +214,11 @@ private:
             loopParams.loop1SrcStride = tilingData_->inStride[dimNum - CONST3] * sizeof(T);
             loopParams.loop1DstStride = tilingData_->inShape[dimNum - CONST2] * padParam.padWI * sizeof(T);
             SetLoopModePara(loopParams, DataCopyMVType::OUT_TO_UB);
+#if defined(__DAV_920R1__)
+            DataCopyPad(src, input_[inAddr], copyInParams, padParams, true);
+#else
             DataCopyPad(src, input_[inAddr], copyInParams, padParams);
+#endif
             ResetLoopModePara(DataCopyMVType::OUT_TO_UB);
         } else if constexpr (UB_AXES == CONST4) {
             LoopModeParams loopParams;
@@ -226,10 +230,18 @@ private:
             loopParams.loop2DstStride = tilingData_->inShape[dimNum - CONST3] * tilingData_->inShape[dimNum - CONST2] *
                                         padParam.padWI * sizeof(T);
             SetLoopModePara(loopParams, DataCopyMVType::OUT_TO_UB);
+#if defined(__DAV_920R1__)
+            DataCopyPad(src, input_[inAddr], copyInParams, padParams, true);
+#else
             DataCopyPad(src, input_[inAddr], copyInParams, padParams);
+#endif
             ResetLoopModePara(DataCopyMVType::OUT_TO_UB);
         } else {
+#if defined(__DAV_920R1__)
+            DataCopyPad(src, input_[inAddr], copyInParams, padParams, true);
+#else
             DataCopyPad(src, input_[inAddr], copyInParams, padParams);
+#endif
         }
     }
 

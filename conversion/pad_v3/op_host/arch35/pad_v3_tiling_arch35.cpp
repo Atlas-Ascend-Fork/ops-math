@@ -64,8 +64,9 @@ static constexpr uint64_t SIMT_BRANCH_SIZE = 4 * 1024;
 static constexpr uint64_t UB_MAX_DATA_SIZE_PER_BUFFER = 64 * 1024;
 static constexpr uint8_t MAX_DIM_NUM = 8;
 
-static constexpr int64_t MIN_PER_UB_SIZE = 4096;    // Bytes
-static constexpr double MIN_USED_CORES_RATIO = 0.8; // 80%
+static constexpr int64_t MIN_PER_UB_SIZE = 4096;        // Bytes
+static constexpr double MIN_USED_CORES_RATIO = 0.8;     // 80%
+static constexpr double CORE_BALANCE_SEARCH_RATE = 0.7; // 补充搜索门控:原始用核率低于70%才启用
 static constexpr uint8_t PAD_DIM_INDEX_SECOND = 2;
 static constexpr uint8_t PAD_DIM_INDEX_THIRD = 3;
 static constexpr uint8_t PAD_DIM_INDEX_FOURTH = 4;
@@ -370,6 +371,7 @@ bool PadACTiling::SearchFactorForDim(uint8_t iDim, int64_t outCount, const PadV3
     bool found = false;
     int64_t iDimFactor = (iDim == oldTilingInfo.ubSplitAxis) ? oldTilingInfo.ubSplitFactor :
                                                                GetTileShape(iDim, cutOutput);
+    uint64_t dimStride = cutOutput ? tilingData_->outStride[iDim] : tilingData_->inStride[iDim];
     for (int64_t factor = iDimFactor; factor > 0;) {
         loops++;
         if (loops > maxLoop) {
@@ -388,13 +390,37 @@ bool PadACTiling::SearchFactorForDim(uint8_t iDim, int64_t outCount, const PadV3
                                                static_cast<uint64_t>(iDimOuter)); // 切分更均匀
 
         if (oldTilingInfo.ubPerCoreCnt != tmpPerCount) {
+            // tiles略超核数整数倍时(如72 tile/64核),取整会使用核率腰斩(36核)。
+            // 原始用核率较差(<70%)时允许每核tile数增多以提升用核数,但约束:
+            // 每核数据量不增 + 用核数提升 + 切片不小于4KB; 用核率达80%即停,避免tile切过碎
+            double originRate = static_cast<double>(oldTilingInfo.usedCoreNum) / static_cast<double>(coreNum_);
+            int64_t originWorkPerCore = static_cast<int64_t>(oldTilingInfo.ubPerCoreCnt) * oldTilingInfo.ubSplitFactor;
+            int64_t newWorkPerCore = tmpPerCount * tmpFactor;
+            if (originRate < CORE_BALANCE_SEARCH_RATE && newWorkPerCore <= originWorkPerCore &&
+                tmpCoreNum > static_cast<int64_t>(newTilingInfo.usedCoreNum) &&
+                tmpFactor * dimStride * dtypeBytes_ >= static_cast<int64_t>(MIN_PER_UB_SIZE)) {
+                newTilingInfo.ubSplitAxis = iDim;
+                newTilingInfo.ubSplitFactor = tmpFactor;
+                newTilingInfo.ubTotalCnt = tmpTotalCount;
+                newTilingInfo.ubPerCoreCnt = tmpPerCount;
+                newTilingInfo.usedCoreNum = tmpCoreNum;
+                OP_LOGI(context_,
+                        "core balance search: iDim:%u factor:%ld tmpFactor:%ld tmpPerCount:%ld "
+                        "tmpCoreNum:%ld workPerCore:%ld originWorkPerCore:%ld",
+                        iDim, factor, tmpFactor, tmpPerCount, tmpCoreNum, newWorkPerCore, originWorkPerCore);
+                if (static_cast<double>(tmpCoreNum) / static_cast<double>(coreNum_) >= MIN_USED_CORES_RATIO) {
+                    found = true;
+                    break;
+                }
+                factor = tmpFactor - 1;
+                continue;
+            }
             OP_LOGD(context_, "iDim:%u factor:%ld tmpPerCount:%ld not equal ubPerCoreCnt:%ld", iDim, factor,
                     tmpPerCount, oldTilingInfo.ubPerCoreCnt);
             found = true;
             break;
         }
 
-        uint64_t dimStride = cutOutput ? tilingData_->outStride[iDim] : tilingData_->inStride[iDim];
         if (factor * dimStride * dtypeBytes_ < MIN_PER_UB_SIZE ||
             tmpFactor * dimStride * dtypeBytes_ < MIN_PER_UB_SIZE) {
             OP_LOGD(context_, "iDim:%u factor:%ld tmpFactor:%ld in ubSize is too small", iDim, factor, tmpFactor);
@@ -761,6 +787,10 @@ void PadACTiling::DoTilingWithConstant()
 
 void PadACTiling::DoTilingWithSIMTReflect()
 {
+    // 尾轴无pad时行内容原样复制,可按宽类型重解释提升SIMT带宽; fp8/fp4 packed语义不适用
+    if (!IsFp8Fp4Dtype()) {
+        XDtypeImproveSimt();
+    }
     tilingKey_ = REFLECT_SIMT_BRANCH;
     if (padMode_ == ModeNum::SYMMETRIC) {
         tilingKey_ = SYMMETRIC_SIMT_BRANCH;

@@ -175,7 +175,11 @@ private:
             else
                 WaitFlag<HardEvent::MTE3_MTE2>(EVENT_ID0);
         }
+#if defined(__DAV_920R1__)
+        DataCopyPad(src[inStart], input_[inAddr], copyInParams, padParams, true);
+#else
         DataCopyPad(src[inStart], input_[inAddr], copyInParams, padParams);
+#endif
 
         outIdxAndTimes outIdxCnt[CONST5];
         uint8_t realBase = CONST5 - mDim;

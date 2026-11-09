@@ -190,6 +190,18 @@ private:
         outQueFw_.EnQue(outLocalFw);
         CopyOutFw(ubAxisInCopyNum, inIndex, totalOutIdx);
 
+        // 该tile不在ubAxis左/右镜像输出区时, Bw gather的结果不会被任何DataCopyPad拷出,
+        // 整段跳过(原实现对这类tile仍做全量反向gather后丢弃); 判定复用CalcUbAxisPadBwNum, 与原拷出行为一致
+        uint32_t inLeftPadNum = 0;
+        uint32_t inLeftPadStart = 0;
+        uint32_t inRightPadNum = 0;
+        uint32_t inRightPadStart = 0;
+        CalcUbAxisPadBwNum(ubAxisInCopyNum, inIndex, inLeftPadNum, inLeftPadStart, inRightPadNum, inRightPadStart);
+        if (inLeftPadNum == 0 && inRightPadNum == 0) {
+            inQue_.FreeTensor(inLocal);
+            return;
+        }
+
         LocalTensor<T> outLocalBw = outQueBw_.AllocTensor<T>();
         if constexpr (UB_AXES == CONST2) {
             if (tdPtrMir_->inShape[dimNum_ - CONST2] != tdPtrMir_->outShape[dimNum_ - CONST2]) {
@@ -208,7 +220,7 @@ private:
         outQueBw_.EnQue(outLocalBw);
         inQue_.FreeTensor(inLocal);
 
-        CopyOutBw(ubAxisInCopyNum, inIndex, totalOutIdx);
+        CopyOutBw(ubAxisInCopyNum, inIndex, totalOutIdx, inLeftPadNum, inLeftPadStart, inRightPadNum, inRightPadStart);
     }
 
     __aicore__ inline bool IsInLeftPad(int64_t inIdx, int32_t inAxis)
@@ -504,17 +516,11 @@ private:
         }
     }
 
-    __aicore__ inline void CopyOutBw(uint16_t ubAxisInCopyNum, const uint64_t* inIndex, OutIndicesSet* totalOutIdx)
+    __aicore__ inline void CopyOutBw(uint16_t ubAxisInCopyNum, const uint64_t* inIndex, OutIndicesSet* totalOutIdx,
+                                     uint32_t inLeftPadNum, uint32_t inLeftPadStart, uint32_t inRightPadNum,
+                                     uint32_t inRightPadStart)
     {
         LocalTensor<T> outLocalBw = outQueBw_.DeQue<T>();
-
-        // 计算当前ub切分轴上，该次搬运的inputGm是否在左、右pad上，以及左右pad的起始位置
-        uint32_t inLeftPadNum = 0;
-        uint32_t inLeftPadStart = 0;
-        uint32_t inRightPadNum = 0;
-        uint32_t inRightPadStart = 0;
-
-        CalcUbAxisPadBwNum(ubAxisInCopyNum, inIndex, inLeftPadNum, inLeftPadStart, inRightPadNum, inRightPadStart);
 
         if (inLeftPadNum != 0) {
             CopyOutLeftPadBw(ubAxisInCopyNum, inIndex, outLocalBw, inLeftPadNum, inLeftPadStart, totalOutIdx);
@@ -764,9 +770,6 @@ private:
         Reg::RegTensor<T> regDataT;
         Reg::RegTensor<RangeType> regIdxBk;
         Reg::RegTensor<RangeType> regNewIdx;
-        Reg::RegTensor<RangeType> zeroIdxReg;
-        Reg::Duplicate(zeroIdxReg, (RangeType)0);
-        Reg::MaskReg zeroMask;
         Reg::UnalignRegForStore uReg;
         uint32_t validMask = maskValue;
         uint32_t validLastMask = lastPadMaskValue;
