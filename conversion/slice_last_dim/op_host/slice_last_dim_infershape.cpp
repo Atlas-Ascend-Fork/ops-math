@@ -11,12 +11,14 @@
 #include "register/op_impl_registry.h"
 #include "log/log.h"
 #include "util/shape_util.h"
+#include "util/math_util.h"
 
 using namespace ge;
 namespace ops {
 static constexpr size_t INPUT_IDX_X = 0;
 static constexpr size_t OUTPUT_IDX_Y = 0;
 static constexpr int64_t UNKNOWN_DIM = -1;
+static constexpr int64_t MAX_RANK = 8;
 
 static ge::graphStatus Infershape4SliceLastDim(gert::InferShapeContext* context)
 {
@@ -46,8 +48,24 @@ static ge::graphStatus Infershape4SliceLastDim(gert::InferShapeContext* context)
     if (stridePtr != nullptr) {
         stride = *stridePtr;
     }
+    OP_CHECK_IF(stride < 1,
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "stride", std::to_string(stride).c_str(),
+                                                      "The value of stride must be >= 1."),
+                return ge::GRAPH_FAILED);
+
+    // Unknown rank ([-2]) is passed through: the output keeps an unknown-rank descriptor and the
+    // real shape is derived at runtime from the actual input. Dynamic shapes whose rank is known
+    // (dims marked as -1) are still supported below.
+    if (Ops::Base::IsUnknownRank(*xShape)) {
+        Ops::Base::SetUnknownRank(*yShape);
+        return ge::GRAPH_SUCCESS;
+    }
 
     int64_t rank = static_cast<int64_t>(xShape->GetDimNum());
+    OP_CHECK_IF(rank < 1 || rank > MAX_RANK,
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "x", std::to_string(rank).c_str(),
+                                                         "The shape dim of x must be in [1, 8]."),
+                return ge::GRAPH_FAILED);
     yShape->SetDimNum(0);
 
     for (int64_t i = 0; i < rank - 1; ++i) {
@@ -60,19 +78,32 @@ static ge::graphStatus Infershape4SliceLastDim(gert::InferShapeContext* context)
     } else {
         int64_t s = *startPtr;
         int64_t e = *endPtr;
-        if (s < 0) {
+        // Negative indices count from the end of the last dim (s += lastDim / e += lastDim).
+        // Compare before adding so that the addition never overflows: the addition only runs
+        // while the result stays within [0, lastDim].
+        if (s < 0 && s >= -lastDim) {
             s += lastDim;
         }
-        if (e < 0) {
+        if (e < 0 && e >= -lastDim) {
             e += lastDim;
         }
+        // Clamp both start and end to [0, lastDim] so that (e - s) stays within [-lastDim, lastDim]
+        // and the length computation below is overflow-free.
         if (s < 0) {
             s = 0;
+        }
+        if (s > lastDim) {
+            s = lastDim;
+        }
+        if (e < 0) {
+            e = 0;
         }
         if (e > lastDim) {
             e = lastDim;
         }
-        int64_t length = (e > s) ? (e - s + stride - 1) / stride : 0;
+        // CeilDiv (same as the tiling entry) divides first and adjusts the sign afterwards, which
+        // keeps the computation free of signed overflow for extreme start/end/stride values.
+        int64_t length = (e > s) ? Ops::Base::CeilDiv(e - s, stride) : 0;
         yShape->AppendDim(length);
     }
 
@@ -80,11 +111,5 @@ static ge::graphStatus Infershape4SliceLastDim(gert::InferShapeContext* context)
     return ge::GRAPH_SUCCESS;
 }
 
-static ge::graphStatus InferDataType4SliceLastDim(gert::InferDataTypeContext* context)
-{
-    context->SetOutputDataType(OUTPUT_IDX_Y, context->GetInputDataType(INPUT_IDX_X));
-    return ge::GRAPH_SUCCESS;
-}
-
-IMPL_OP_INFERSHAPE(SliceLastDim).InferShape(Infershape4SliceLastDim).InferDataType(InferDataType4SliceLastDim);
+IMPL_OP_INFERSHAPE(SliceLastDim).InferShape(Infershape4SliceLastDim);
 } // namespace ops

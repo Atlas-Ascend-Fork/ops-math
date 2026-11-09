@@ -49,8 +49,8 @@ private:
 };
 
 template <typename T, uint8_t CopyMode, uint8_t UbAxis>
-__aicore__ inline void SliceLastDim<T, CopyMode, UbAxis>::Init(
-    GM_ADDR x, GM_ADDR y, const SliceLastDimTilingData* tilingData)
+__aicore__ inline void SliceLastDim<T, CopyMode, UbAxis>::Init(GM_ADDR x, GM_ADDR y,
+                                                               const SliceLastDimTilingData* tilingData)
 {
     td_ = tilingData;
     xGm_.SetGlobalBuffer((__gm__ T*)x);
@@ -100,8 +100,9 @@ __aicore__ inline void SliceLastDim<T, CopyMode, UbAxis>::DoCopyIn(int64_t bufOf
             DataCopyExtParams copyParams;
             copyParams.blockLen = static_cast<uint32_t>(blockLen);
             copyParams.blockCount = static_cast<uint16_t>(rowCount);
-            copyParams.srcStride =
-                static_cast<uint32_t>((td_->lastDimIn - td_->lastDimOut) * static_cast<int64_t>(sizeof(T)));
+            // GM rows can sit more than 4 GiB apart on large tensors; the srcStride field is 64-bit
+            // on this arch, so hand the full int64 gap over instead of truncating to uint32.
+            copyParams.srcStride = (td_->lastDimIn - td_->lastDimOut) * static_cast<int64_t>(sizeof(T));
             copyParams.dstStride = static_cast<uint32_t>((alignedW_ - blockLen) / UB_BLOCK_BYTES);
             DataCopyPad(ubLocal[bufOff], xGm_[inOff], copyParams, padParams);
         } else {

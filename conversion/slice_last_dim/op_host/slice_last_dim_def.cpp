@@ -39,7 +39,7 @@ public:
             .DynamicRankSupportFlag(true)
             .DynamicShapeSupportFlag(true)
             .NeedCheckSupportFlag(false)
-            .ExtendCfgInfo("opFile.value", "slice_last_dim_apt");
+            .ExtendCfgInfo("opFile.value", "slice_last_dim");
         this->AICore().AddConfig("ascend950", aicoreConfig);
         this->AICore().AddConfig("ascend350", aicoreConfig);
     }

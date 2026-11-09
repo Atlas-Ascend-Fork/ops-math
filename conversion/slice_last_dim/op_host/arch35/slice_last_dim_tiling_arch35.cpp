@@ -22,6 +22,9 @@ static constexpr size_t MAX_RANK = 8;
 static constexpr uint32_t MAX_BUFFER_SIZE = 64 * 1024;
 static constexpr uint32_t BUFFER_NUM = 2;
 static constexpr double MIN_CORE_UTIL_RATIO = 0.8;
+// NdDma loopSrcStride is documented as uint64 in [0, 2^40); the kernel hands stride over to
+// loopSrcStride[0] unchanged, so reject anything at or beyond the bound at the tiling entry.
+static constexpr int64_t MAX_STRIDE = static_cast<int64_t>(1) << 40;
 
 class SliceLastDimTiling {
 public:
@@ -107,6 +110,17 @@ ge::graphStatus SliceLastDimTiling::GetParams()
     auto inputValueDesc = context_->GetInputDesc(INPUT_IDX_X);
     OP_CHECK_NULL_WITH_CONTEXT(context_, inputValueDesc);
     auto inputDataType = inputValueDesc->GetDataType();
+    // Whitelist matches the op definition (def baseDataType). The previous size-only check let
+    // non-whitelist dtypes with a positive byte size (e.g. bool, complex128) reach the kernel.
+    OP_CHECK_IF(
+        inputDataType != ge::DT_INT8 && inputDataType != ge::DT_INT16 && inputDataType != ge::DT_INT32 &&
+            inputDataType != ge::DT_INT64 && inputDataType != ge::DT_FLOAT16 && inputDataType != ge::DT_FLOAT &&
+            inputDataType != ge::DT_BF16,
+        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(
+            context_->GetNodeName(), "x", Ops::Base::ToString(inputDataType).c_str(),
+            "The dtype of x must be within the range [DT_INT8, DT_INT16, DT_INT32, DT_INT64, DT_FLOAT16, DT_FLOAT, "
+            "DT_BF16]."),
+        return ge::GRAPH_FAILED);
     dSize_ = ge::GetSizeByDataType(inputDataType);
     OP_CHECK_IF(dSize_ <= 0,
                 OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context_->GetNodeName(), "dSize", std::to_string(dSize_).c_str(),
@@ -149,14 +163,24 @@ ge::graphStatus SliceLastDimTiling::GetParams()
         return ge::GRAPH_FAILED);
 
     lastDimIn_ = inShape_[rank_ - 1];
-    if (start_ < 0) {
+    // Negative indices count from the end of the last dim (start_ += lastDimIn_ / end_ += lastDimIn_).
+    // Compare before adding so that the normalization never overflows, and clamp both start_ and
+    // end_ to [0, lastDimIn_] afterwards. This keeps (end_ - start_) within [-lastDimIn_, lastDimIn_]
+    // so the CeilDiv below is free of signed overflow, mirroring the Infershape entry exactly.
+    if (start_ < 0 && start_ >= -lastDimIn_) {
         start_ += lastDimIn_;
     }
-    if (end_ < 0) {
+    if (end_ < 0 && end_ >= -lastDimIn_) {
         end_ += lastDimIn_;
     }
     if (start_ < 0) {
         start_ = 0;
+    }
+    if (start_ > lastDimIn_) {
+        start_ = lastDimIn_;
+    }
+    if (end_ < 0) {
+        end_ = 0;
     }
     if (end_ > lastDimIn_) {
         end_ = lastDimIn_;
@@ -171,6 +195,15 @@ ge::graphStatus SliceLastDimTiling::GetParams()
     for (int64_t i = 0; i < rank_ - 1; ++i) {
         outerSize_ *= inShape_[i];
     }
+
+    // The stride upper bound guards the strided NdDma copy only (loopSrcStride doc range [0, 2^40)):
+    // a degenerate output (outerSize_ == 0 || lastDimOut_ == 0) never reaches the DMA, so an
+    // oversized stride is inert there and must not reject otherwise-valid empty-output calls.
+    OP_CHECK_IF(
+        stride_ >= MAX_STRIDE && outerSize_ > 0 && lastDimOut_ > 0,
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context_->GetNodeName(), "stride", std::to_string(stride_).c_str(),
+                                              "The value of stride must be < 2^40 (NdDma loopSrcStride limit)."),
+        return ge::GRAPH_FAILED);
 
     copyMode_ = (stride_ == 1) ? 0 : 1;
 
@@ -264,7 +297,9 @@ void SliceLastDimTiling::DoTilingSearch(int64_t alignedLast, int32_t startAxis, 
 ge::graphStatus SliceLastDimTiling::SetTilingData()
 {
     perCoreCount_ = Ops::Base::CeilDiv(totalCount_, static_cast<uint64_t>(coreNum_));
-    uint64_t realCoreNum = Ops::Base::CeilDiv(totalCount_, perCoreCount_);
+    // Degenerate output keeps a single launch block: with totalCount_ == 0 the kernel
+    // early-returns before consuming perCoreCount, while CeilDiv(0, 0) would report 0 blocks.
+    uint64_t realCoreNum = (totalCount_ == 0U) ? 1U : Ops::Base::CeilDiv(totalCount_, perCoreCount_);
 
     OP_LOGI(context_,
             "SliceLastDim tiling: copyMode=%u ubAxis=%u ubFactor=%u totalCount=%lu perCoreCount=%lu realCoreNum=%lu",
@@ -297,6 +332,20 @@ ge::graphStatus SliceLastDimTiling::SetTilingData()
 ge::graphStatus SliceLastDimTiling::ComputeAndSetTiling()
 {
     InitElementSizes();
+
+    // Degenerate-output shortcut: outerSize_ == 0 (a non-last dim is zero) or lastDimOut_ == 0
+    // (an empty slice, e.g. end <= start) leaves nothing to move, and the kernel already
+    // early-returns on exactly these two fields. The search below assumes both output axes are
+    // positive: outerSize_ == 0 turns the trailing `outerProduct /= outShape[ax - 1]` into a
+    // 0/0 division (SIGFPE), and lastDimOut_ == 0 keeps the ax=0 factor loop exit condition
+    // unreachable (an O(outerSize) spin). Skip the search and emit a minimal valid tiling:
+    // one block with zero total count, real outer/last-dim fields and a valid bufferSize.
+    if (outerSize_ == 0 || lastDimOut_ == 0) {
+        ubAxis_ = SLICE_LAST_DIM_UB_AXIS_0;
+        ubFactor_ = 1;
+        totalCount_ = 0;
+        return SetTilingData();
+    }
 
     int64_t alignedLast = Ops::Base::CeilAlign(lastDimOut_, static_cast<int64_t>(ubBlockElements_));
     int32_t startAxis;
