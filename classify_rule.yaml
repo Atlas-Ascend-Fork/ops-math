@@ -440,7 +440,13 @@ HPTG2@ops-math:
   src:
     release:
       style:
-        - ops/ops-math/common/
+        - ops/ops-math/common/external
+        - ops/ops-math/common/inc/op_api/op_resource_math.h
+        - ops/ops-math/common/inc/op_graph/op_math_proto_extend.h
+        - ops/ops-math/common/inc/op_host
+        - ops/ops-math/common/inc/torch_extension
+        - ops/ops-math/common/src/op_graph/fusion_pass_common.cpp
+        - ops/ops-math/common/stub/inc/op_graph/fe_fusion_pass_registry_stub.h
         - ops/ops-math/scripts/
         - ops/ops-math/cmake/
         - ops/ops-math/classify_rule.yaml
