@@ -9,6 +9,7 @@
  */
 
 #include <iostream>
+#include <cstdlib>
 #include <fstream>
 #include <string.h>
 #include <stdint.h>
@@ -117,30 +118,16 @@ uint32_t GetDataTypeSize(DataType dt)
         dilation = eightByte;
     } else if (dt == ge::DT_UINT64) {
         dilation = eightByte;
+    } else if (dt == ge::DT_DOUBLE) {
+        dilation = eightByte;
     } else if (dt == ge::DT_INT8) {
+        dilation = oneByte;
+    } else if (dt == ge::DT_UINT8) {
+        dilation = oneByte;
+    } else if (dt == ge::DT_BOOL) {
         dilation = oneByte;
     }
     return dilation;
-}
-
-int32_t GenOnesDataFloat32(vector<int64_t> shapes, Tensor& input_tensor, TensorDesc& input_tensor_desc, float value)
-{
-    input_tensor_desc.SetRealDimCnt(shapes.size());
-    size_t size = 1;
-    for (uint32_t i = 0; i < shapes.size(); i++) {
-        size *= shapes[i];
-    }
-    uint32_t byteSizeFloat32 = 4;
-    uint32_t data_len = size * byteSizeFloat32;
-    float* pData = new (std::nothrow) float[size];
-    if (pData == nullptr) {
-        return FAILED;
-    }
-    for (size_t i = 0; i < size; ++i) {
-        *(pData + i) = value;
-    }
-    input_tensor = Tensor(input_tensor_desc, (uint8_t*)pData, data_len);
-    return SUCCESS;
 }
 
 int32_t GenOnesData(vector<int64_t> shapes, Tensor& input_tensor, TensorDesc& input_tensor_desc, DataType data_type,
@@ -151,15 +138,44 @@ int32_t GenOnesData(vector<int64_t> shapes, Tensor& input_tensor, TensorDesc& in
     for (uint32_t i = 0; i < shapes.size(); i++) {
         size *= shapes[i];
     }
-    uint32_t data_len = size * GetDataTypeSize(data_type);
-    int32_t* pData = new (std::nothrow) int32_t[data_len];
+    size_t data_len = size * static_cast<size_t>(GetDataTypeSize(data_type));
+    uint8_t* pData = new (std::nothrow) uint8_t[data_len]();
     if (pData == nullptr) {
         return FAILED;
     }
+    // Fill according to the declared dtype so the buffer is not misinterpreted by the graph.
     for (size_t i = 0; i < size; ++i) {
-        *(pData + i) = value;
+        switch (data_type) {
+            case ge::DT_FLOAT:
+                reinterpret_cast<float*>(pData)[i] = static_cast<float>(value);
+                break;
+            case ge::DT_FLOAT16:
+                reinterpret_cast<uint16_t*>(pData)[i] = 0x4000U;
+                break;
+            case ge::DT_BF16:
+                reinterpret_cast<uint16_t*>(pData)[i] = 0x4000U;
+                break;
+            case ge::DT_DOUBLE:
+                reinterpret_cast<double*>(pData)[i] = static_cast<double>(value);
+                break;
+            case ge::DT_INT32:
+                reinterpret_cast<int32_t*>(pData)[i] = static_cast<int32_t>(value);
+                break;
+            case ge::DT_INT8:
+                reinterpret_cast<int8_t*>(pData)[i] = static_cast<int8_t>(value);
+                break;
+            case ge::DT_UINT8:
+                reinterpret_cast<uint8_t*>(pData)[i] = static_cast<uint8_t>(value);
+                break;
+            default:
+                printf("%s - ERROR - [XIR]: unsupported dtype %d for input generation\n", GetTime().c_str(),
+                       static_cast<int32_t>(data_type));
+                delete[] pData;
+                return FAILED;
+        }
     }
     input_tensor = Tensor(input_tensor_desc, reinterpret_cast<uint8_t*>(pData), data_len);
+    delete[] pData;
     return SUCCESS;
 }
 
@@ -170,7 +186,12 @@ int32_t WriteDataToFile(string bin_file, uint64_t data_size, uint8_t* inputData)
         printf("Failed to open file %s for writing\n", bin_file.c_str());
         return FAILED;
     }
-    fwrite(inputData, sizeof(uint8_t), data_size, fp);
+    size_t written = fwrite(inputData, sizeof(uint8_t), data_size, fp);
+    if (written != data_size) {
+        printf("Failed to write file %s: %zu of %zu bytes\n", bin_file.c_str(), written, data_size);
+        fclose(fp);
+        return FAILED;
+    }
     fclose(fp);
     return SUCCESS;
 }
@@ -199,8 +220,10 @@ int main(int argc, char* argv[])
     std::vector<ge::Tensor> input;
 
     printf("%s - INFO - [XIR]: Start to initialize ge using ge global options\n", GetTime().c_str());
+    const char* deviceEnv = std::getenv("DEVICE_ID");
+    std::string deviceId = (deviceEnv != nullptr && deviceEnv[0] != '\0') ? deviceEnv : "0";
     std::map<AscendString, AscendString> global_options = {
-        {"ge.exec.deviceId", "0"}, {"ge.graphRunMode", "1"}, {"ge.exec.fusionMode", "NO_FUSION"}};
+        {"ge.exec.deviceId", deviceId.c_str()}, {"ge.graphRunMode", "1"}, {"ge.exec.fusionMode", "NO_FUSION"}};
     Status ret = ge::GEInitialize(global_options);
     if (ret != SUCCESS) {
         printf("%s - INFO - [XIR]: Initialize ge using ge global options failed\n", GetTime().c_str());
@@ -279,7 +302,12 @@ int main(int argc, char* argv[])
         int64_t input_shape = input[i].GetTensorDesc().GetShape().GetShapeSize();
         std::cout << "this is " << i << "th input, input shape size =" << input_shape << std::endl;
         uint32_t data_size = input_shape * GetDataTypeSize(input[i].GetTensorDesc().GetDataType());
-        WriteDataToFile((const char*)input_file.c_str(), data_size, input_data_i);
+        if (WriteDataToFile((const char*)input_file.c_str(), data_size, input_data_i) != SUCCESS) {
+            printf("%s - ERROR - [XIR]: write input file %s failed\n", GetTime().c_str(), input_file.c_str());
+            delete session;
+            GEFinalize();
+            return FAILED;
+        }
     }
 
     int output_num = output.size();
@@ -290,7 +318,12 @@ int main(int argc, char* argv[])
         int64_t output_shape = output[i].GetTensorDesc().GetShape().GetShapeSize();
         std::cout << "this is " << i << "th output, output shape size =" << output_shape << std::endl;
         uint32_t data_size = output_shape * GetDataTypeSize(output[i].GetTensorDesc().GetDataType());
-        WriteDataToFile((const char*)output_file.c_str(), data_size, output_data_i);
+        if (WriteDataToFile((const char*)output_file.c_str(), data_size, output_data_i) != SUCCESS) {
+            printf("%s - ERROR - [XIR]: write output file %s failed\n", GetTime().c_str(), output_file.c_str());
+            delete session;
+            GEFinalize();
+            return FAILED;
+        }
     }
 
     ge::AscendString error_msg = ge::GEGetErrorMsgV2();
@@ -299,8 +332,10 @@ int main(int argc, char* argv[])
     ge::AscendString warning_msg = ge::GEGetWarningMsgV2();
     std::string warning_str(warning_msg.GetString());
     std::cout << "Warning message: " << warning_str << std::endl;
-    printf("%s - INFO - [XIR]: Precision is ok\n", GetTime().c_str());
+    printf("%s - INFO - [XIR]: Graph execution finished (this sample does not compare precision)\n", GetTime().c_str());
     printf("%s - INFO - [XIR]: Start to finalize ir graph session\n", GetTime().c_str());
+    delete session;
+    session = nullptr;
     ret = ge::GEFinalize();
     if (ret != SUCCESS) {
         printf("%s - INFO - [XIR]: Finalize ir graph session failed\n", GetTime().c_str());

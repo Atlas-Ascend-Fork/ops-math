@@ -23,6 +23,8 @@ using namespace ge;
 
 namespace ops {
 static constexpr int64_t IDX_0 = 0;
+static constexpr size_t MATRIX_DIAG_PART_MIN_RANK = 2;
+static constexpr size_t MATRIX_DIAG_PART_MAX_RANK = 8;
 
 static ge::graphStatus InferShapeMatrixDiagPart(gert::InferShapeContext* context)
 {
@@ -41,9 +43,14 @@ static ge::graphStatus InferShapeMatrixDiagPart(gert::InferShapeContext* context
     }
 
     auto xShapeSize = xShape->GetDimNum();
-    if (xShapeSize < 2) {
+    if (xShapeSize < MATRIX_DIAG_PART_MIN_RANK) {
         OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(context->GetNodeName(), "x", std::to_string(xShapeSize).c_str(),
-                                                  "input rank must be >= 2");
+                                                  "input rank must be >= " + std::to_string(MATRIX_DIAG_PART_MIN_RANK));
+        return ge::GRAPH_FAILED;
+    }
+    if (xShapeSize > MATRIX_DIAG_PART_MAX_RANK) {
+        OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(context->GetNodeName(), "x", std::to_string(xShapeSize).c_str(),
+                                                  "input rank must be <= " + std::to_string(MATRIX_DIAG_PART_MAX_RANK));
         return ge::GRAPH_FAILED;
     }
 

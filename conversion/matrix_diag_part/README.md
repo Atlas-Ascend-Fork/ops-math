@@ -58,9 +58,10 @@
 - 仅支持连续输入，不支持非连续输入。
 - 支持空tensor（M=0或N=0时，输出为空tensor）。
 - 该算子为MatrixDiagPart V1版本，仅提取主对角线（k=0）。
+- 支持动态形状：输出形状为x.shape[:-2]+[min(M, N)]；输入存在未知维或未知秩时，输出对应维/秩保持未知。
 
 ## 调用说明
 
 | 调用方式 | 样例代码 | 说明 |
 | ---- | ---- | ---- |
-| 图模式 | [test_geir_matrix_diag_part](examples/test_geir_matrix_diag_part.cpp) | 通过[算子IR](op_graph/matrix_diag_part_proto.h)构图方式调用MatrixDiagPart算子，参见[算子调用](../../docs/zh/invocation/quick_op_invocation.md)完成编译和验证。 |
+| GE图模式 | [test_geir_matrix_diag_part](examples/test_geir_matrix_diag_part.cpp) | 通过[算子IR](op_graph/matrix_diag_part_proto.h)构图方式调用MatrixDiagPart算子，参见[算子调用](../../docs/zh/invocation/quick_op_invocation.md)完成编译和验证。 |

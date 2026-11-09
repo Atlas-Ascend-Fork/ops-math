@@ -176,3 +176,30 @@ TEST_F(MatrixDiagPartInfershape, matrix_diag_part_infershape_unknown_rank)
     };
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
+
+TEST_F(MatrixDiagPartInfershape, matrix_diag_part_infershape_rank_gt_8)
+{
+    // README: rank must be within [2, 8]; rank=9 must be rejected by InferShape.
+    gert::InfershapeContextPara infershapeContextPara(
+        "MatrixDiagPart",
+        {
+            {{{1, 2, 3, 4, 5, 6, 7, 8, 4}, {1, 2, 3, 4, 5, 6, 7, 8, 4}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        {
+            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        });
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED);
+}
+
+TEST_F(MatrixDiagPartInfershape, matrix_diag_part_infershape_rank_0)
+{
+    // Scalar (rank 0) must be rejected by InferShape (README: rank must be within [2, 8]).
+    gert::InfershapeContextPara infershapeContextPara("MatrixDiagPart",
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      });
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED);
+}

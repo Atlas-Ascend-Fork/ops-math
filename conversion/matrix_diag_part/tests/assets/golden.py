@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# ----------------------------------------------------------------------------
 # Copyright (c) 2026 Huawei Technologies Co., Ltd.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
 # CANN Open Software License Agreement Version 2.0 (the "License").
@@ -12,36 +11,56 @@
 
 import tensorflow as tf
 
-__golden__ = {"kernel": {"matrix_diag_part": "matrix_diag_part_golden"}}
+__spec__ = {
+    "matrix_diag_part": "MatrixDiagPartKernelSpec",
+    # TensorFlow E2E resolves plugin specs by api_name (tf./tensorflow. prefix).
+    "tf.raw_ops.MatrixDiagPart": "MatrixDiagPartTFE2ESpec",
+    "tensorflow.raw_ops.MatrixDiagPart": "MatrixDiagPartTFE2ESpec",
+}
 
 
-def matrix_diag_part_golden(x, **kwargs):
+class MatrixDiagPartKernelSpec:
+    """Kernel flow: numpy in, [numpy_out] out."""
+
+    def golden(x, **kwargs):
+        out = tf.raw_ops.MatrixDiagPart(input=x)
+        return [out.numpy()]
+
+    class ThirdPartyImpl:
+        def __call__(self, x, **kwargs):
+            print("Entering golden")
+            out = tf.raw_ops.MatrixDiagPart(input=x)
+            return out.numpy()
+
+    third_party = {"tf": ThirdPartyImpl}
+
+    tolerance = {
+        "float32": {"standard": "binary_equal"},
+        "float16": {"standard": "binary_equal"},
+        "int32": {"standard": "binary_equal"},
+        "int8": {"standard": "binary_equal"},
+        "uint8": {"standard": "binary_equal"},
+    }
+
+
+class MatrixDiagPartTFE2ESpec:
+    """TensorFlow E2E flow: tf.Tensor in, [tf.Tensor] out.
+
+    A pure gather has no arithmetic tolerance, so the reference is compared with the
+    exact ``binary_equal`` standard.
     """
-    Golden function for matrix_diag_part.
-    All the parameters (names and order) follow SE doc prototype definition without outputs.
-    All the input Tensors are numpy.ndarray.
 
-    Uses TensorFlow competitor implementation (tf.raw_ops.MatrixDiagPart V1).
-    MatrixDiagPart V1 extracts the main diagonal (k=0) of the last two dimensions.
-    For input [..., M, N], output is [..., min(M, N)] where output[..., i] = input[..., i, i].
+    def golden(input, **kwargs):
+        # TTK invokes the E2E reference by the TF API parameter name (input=...).
+        out = tf.raw_ops.MatrixDiagPart(input=input)
+        return [out]
 
-    Args:
-        **kwargs: {input,output}_{dtypes,ori_shapes,formats,ori_formats},
-                  full_soc_version, short_soc_version, testcase_name
+    third_party = {"tf": MatrixDiagPartKernelSpec.ThirdPartyImpl}
 
-    Returns:
-        Output tensor: diagonal of shape x.shape[:-2] + [min(M, N)], same dtype as input
-    """
-    # Record original dtype (pure indexing, no type conversion)
-    orig_dtype = x.dtype
-
-    # Use TensorFlow competitor implementation (tf.raw_ops.MatrixDiagPart V1)
-    # @constraint: SE doc §6 - Golden must use TF competitor implementation
-    tf_x = tf.constant(x)
-    tf_result = tf.raw_ops.MatrixDiagPart(input=tf_x)
-    result = tf_result.numpy()
-
-    # Ensure output dtype matches input dtype (bit-level exact, no precision loss)
-    result = result.astype(orig_dtype, copy=False)
-
-    return result
+    tolerance = {
+        "float32": {"standard": "binary_equal"},
+        "float16": {"standard": "binary_equal"},
+        "int32": {"standard": "binary_equal"},
+        "int8": {"standard": "binary_equal"},
+        "uint8": {"standard": "binary_equal"},
+    }

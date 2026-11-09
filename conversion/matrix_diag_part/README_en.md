@@ -60,9 +60,10 @@ English | [简体中文](./README.md)
 - Only contiguous inputs are supported. Non-contiguous inputs are not supported.
 - Empty tensors are supported (when M=0 or N=0, the output is an empty tensor).
 - This operator is the MatrixDiagPart V1 version and extracts only the main diagonal (k=0).
+- Dynamic shapes are supported: the output shape is x.shape[:-2] + [min(M, N)]; if the input contains unknown dimensions or unknown rank, the corresponding output dimensions/rank remain unknown.
 
 ## Invocation Description
 
 | Invocation Method | Sample Code | Description |
 | ---- | ---- | ---- |
-| Graph mode | [test_geir_matrix_diag_part](examples/test_geir_matrix_diag_part.cpp) | Invokes the MatrixDiagPart operator by building a graph through the [operator IR](op_graph/matrix_diag_part_proto.h). For compilation and verification, refer to [Operator Invocation](../../docs/zh/invocation/quick_op_invocation.md). |
+| GE Graph Mode | [test_geir_matrix_diag_part](examples/test_geir_matrix_diag_part.cpp) | Invokes the MatrixDiagPart operator by building a graph through the [operator IR](op_graph/matrix_diag_part_proto.h). For compilation and verification, see [Compile and Run Samples](../../docs/en/context/compile_and_run_sample.md). |
