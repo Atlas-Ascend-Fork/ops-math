@@ -45,14 +45,14 @@
     <tr>
       <td>x</td>
       <td>输入</td>
-      <td>公式中的输入张量x。</td>
+      <td>公式中的输入张量x。非连续Tensor输入由框架自动转换为连续Tensor后执行。</td>
       <td>FLOAT16、FLOAT、BFLOAT16、INT32、DOUBLE、COMPLEX64、COMPLEX128</td>
       <td>ND</td>
     </tr>
     <tr>
       <td>y</td>
       <td>输出</td>
-      <td>公式中的输出张量y，shape与x相同。</td>
+      <td>公式中的输出张量y，shape与x相同。非连续Tensor输出由框架自动转换为连续Tensor后执行。</td>
       <td>FLOAT16、FLOAT、BFLOAT16、INT32、DOUBLE、COMPLEX64、COMPLEX128</td>
       <td>ND</td>
     </tr>

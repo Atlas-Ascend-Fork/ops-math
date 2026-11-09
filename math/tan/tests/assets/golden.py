@@ -12,11 +12,33 @@
 """Tan 算子独立 golden：raw、ACLNN、Torch、TensorFlow 通路。
 
 口径说明:
-- int32 输入按 fp32 计算链求值（aclnn 层 Cast→FP32→tan），输出按出参 dtype 回写；
-- numpy↔torch 转换自包含（bf16 走 int16 位视图链），不依赖测试框架；
+- _compute 为纯计算函数：直调 torch.tan，零精度管理、零值域后处理——
+  整型输入（int8/int16/int32/int64/uint8/bool）经 torch 提升语义在 f32
+  域求值（与显式升 f32 计算链位级一致），f16/bf16 在 src dtype 域计算
+  （内部升 f32 求值 + RNE 回写 src），complex 域内直算（std/thrust）；
+- 值域后处理按通路分层：输出 dtype 与输入同型的通路（kernel/GEIR，及
+  无 out 容器的 aclnn/inplace 调用）将整型的 f32 提升计算结果向零截断
+  回原整型（toward zero，镜像设备侧 static_cast 回写链）；带 out 容器
+  的 aclnn 通路由 out dtype 决定转换（out 与 self 同为 int32 时
+  .to(int32) 即向零截断、与 kernel 回写链位级一致；整型 self 配浮点
+  out 的参考值不被整型截断破坏）；torch 通路为行为镜像——无 out 容器
+  时纯直调（整型提升出 f32，与被测 torch.tan 同 API 同链），带 out
+  容器时直用 torch.tan 原生 out 语义；
+- f16/bf16 输入配异 dtype 浮点/复数 out：golden 为纯直调——torch.tan 在
+  src dtype 域计算（内部升 f32 求值 + RNE 回写 src）后按 out dtype 扩
+  位；设备 aclnn 实现链与 PyTorch/GPU 完全同款（升 f32 计算 + RNE 回写
+  src + cast out），third_party 原生 out 语义（torch.tan(x, out=o)）同
+  经 src 级舍入；mixed 两方比对下框架将 golden 输入提升至 f32（真值口
+  径），与实现口径（src 级 RNE，同 GPU）在大 |tan| 值处存在 src ulp
+  级固有差——属框架真值口径与实现口径的固有张力而非数值缺陷，紧容差
+  组合（如复数 isclose 1e-4）可显差，用例值域宜避让或按三方比值制
+  （cross_check）判读；
+- numpy↔torch 转换自包含（bf16 走 int16 位视图链，输出回投输入携带的
+  bfloat16 dtype 对象），不依赖测试框架；入口另收框架张量（TF EagerTensor
+  等鸭子类型 .numpy()）第三态，惰性转换后与 numpy 态同构；
 - 容差覆盖 AI Core 契约 dtype（fp16/bf16/fp32 三方比对 + int32 精确相等）；
-  f64/complex64 出参由 TTK 默认判据处理（浮点族 mix_tolerance 回落档、
-  complex isclose rtol=1e-4）。
+  f64 显式 isclose（判据默认参数 rtol=1e-4/atol=1e-8/ptol=1e-4）；
+  complex64/complex128 出参由 TTK 默认判据处理（complex isclose rtol=1e-4）。
 """
 
 __spec__ = {
@@ -30,13 +52,14 @@ __spec__ = {
 
 # 容差表覆盖 AI Core 契约 dtype（tan_def.cpp 声明 fp16/fp32/bf16/int32）：
 # fp16/bf16/fp32 走 cross_check 三方比对（TTK resolve SMALL_VALUE 表仅支持此
-# 三档），int32 精确整数语义 → binary_equal。f64/complex64 出参不特判，由 TTK
-# dtype 轴默认判据处理：浮点族表外 dtype 回落 mix_tolerance fp32 档，complex
-# 强制 isclose（rtol 1e-4）。
+# 三档），int32 精确整数语义 → binary_equal。f64 显式 isclose（判据默认参数
+# rtol=1e-4/atol=1e-8/ptol=1e-4）；complex64/complex128 出参不特判，由 TTK
+# dtype 轴默认判据处理：complex 强制 isclose（rtol 1e-4）。
 _L2 = {
     "float16": {"standard": "cross_check", "level": "L2"},
     "bfloat16": {"standard": "cross_check", "level": "L2"},
     "float32": {"standard": "cross_check", "level": "L2"},
+    "float64": {"standard": "isclose"},
     "int32": {"standard": "binary_equal"},
 }
 
@@ -44,6 +67,7 @@ _L1 = {
     "float16": {"standard": "cross_check", "level": "L1"},
     "bfloat16": {"standard": "cross_check", "level": "L1"},
     "float32": {"standard": "cross_check", "level": "L1"},
+    "float64": {"standard": "isclose"},
     "int32": {"standard": "binary_equal"},
 }
 
@@ -71,12 +95,12 @@ def _numpy_to_torch_tensor(np_array):
     return torch.from_numpy(np_array)
 
 
-def _torch_to_numpy_tensor(torch_tensor):
+def _torch_to_numpy_tensor(torch_tensor, np_dtype=None):
     """torch → numpy 转换（自包含，不依赖测试框架），与 _numpy_to_torch_tensor 对偶。
 
     conj 张量先 resolve 再转；bf16 经 int16 位视图回 numpy 侧 bfloat16 表示
-    （ml_dtypes 优先、缺失回落 tensorflow，均惰性导入）；fp8/fp4/complex32
-    非本算子形态，显式不支持；其余直接 .numpy()。
+    （目标 dtype 取自输入数组携带的 bfloat16 dtype 对象，本文件不引入第三方
+    dtype 库）；fp8/fp4/complex32 非本算子形态，显式不支持；其余直接 .numpy()。
     """
     import torch
 
@@ -88,19 +112,12 @@ def _torch_to_numpy_tensor(torch_tensor):
         torch_tensor = torch_tensor.resolve_conj()
     dtype_str = str(torch_tensor.dtype)
     if torch_tensor.dtype == torch.bfloat16:
-        try:
-            from ml_dtypes import bfloat16 as np_bfloat16
-        except ModuleNotFoundError:
-            try:
-                from tensorflow import bfloat16 as tf_bfloat16
-
-                np_bfloat16 = tf_bfloat16.as_numpy_dtype
-            except ModuleNotFoundError:
-                raise RuntimeError(
-                    "ml-dtypes or tensorflow is needed to support bfloat16 dtype!!! "
-                    "Please install with `pip3 install ml-dtypes` or `pip3 install tensorflow`"
-                ) from None
-        return torch_tensor.view(torch.int16).numpy().view(dtype=np_bfloat16)
+        if np_dtype is None or "bfloat16" not in np_dtype.name:
+            raise RuntimeError(
+                "bfloat16 output must be paired with the bfloat16 dtype object "
+                "carried by the input array; pass the original input dtype."
+            )
+        return torch_tensor.view(torch.int16).numpy().view(dtype=np_dtype)
     if (
         "complex32" in dtype_str
         or "float8" in dtype_str
@@ -114,150 +131,165 @@ def _torch_to_numpy_tensor(torch_tensor):
 
 
 def _compute(x):
+    """纯计算：直调 torch.tan——整型经 torch 提升语义自动 f32；f16/bf16 域内；
+    complex 域内（std/thrust）。输入/输出 numpy↔torch 双态适配，零精度管理
+    （值域后处理由各通路承载）。"""
     import numpy as np
     import torch
 
     is_torch = isinstance(x, torch.Tensor)
     if not is_torch and not isinstance(x, np.ndarray):
         x = np.asarray(x.numpy())
+    np_dtype = None if is_torch else x.dtype
     tensor = x if is_torch else _numpy_to_torch_tensor(x)
-    if not (tensor.dtype.is_floating_point or tensor.dtype.is_complex):
-        # 整型输入按 fp32 计算链口径显式提升（spec extreme_inputs
-        # "INT32 → Cast→FP32→tan"；与 torch.tan 整型隐式提升 bit-exact）。
-        tensor = tensor.to(torch.float32)
     result = torch.tan(tensor)
-    return result if is_torch else _torch_to_numpy_tensor(result.detach().cpu())
-
-
-def tan_golden(x, **kwargs):
-    del kwargs
-    return [_compute(x)]
-
-
-def aclnn_tan_golden(self, out=None, **kwargs):
-    del kwargs
-    result = _compute(self)
-    if out is not None:
-        result = result.reshape(out.shape).to(out.dtype)
-    return [result]
-
-
-def aclnn_inplace_tan_golden(inputRef, **kwargs):
-    """CPU golden following aclnnInplaceTanGetWorkspaceSize(inputRef, ...)."""
-    del kwargs
-    return [_compute(inputRef)]
-
-
-def torch_tan_golden(input, out=None, **kwargs):
-    del kwargs
-    result = _compute(input)
-    if out is not None:
-        result = result.reshape(out.shape).to(out.dtype)
-    return [result]
-
-
-def _get_torch_input(args, kwargs):
-    """从位置参数中取第一个 torch.Tensor, 否则按别名取, 均无则报错"""
-    import torch
-
-    x = next((arg for arg in args if isinstance(arg, torch.Tensor)), None)
-    if x is not None:
-        return x
-    for name in ("x", "self", "input", "input_x"):
-        x = kwargs.get(name)
-        if x is not None:
-            return x
-    raise ValueError(
-        "Missing tensor input; expected positional Tensor or one of: x, self, input, input_x"
+    return (
+        result if is_torch else _torch_to_numpy_tensor(result.detach().cpu(), np_dtype)
     )
 
 
-class _TorchTan:
-    """torch 三方标杆。
+def _trunc_to_src(result, x):
+    """整型（含 bool）输入的值域后处理：tan 的 f32 提升计算结果向零截断回
+    原整型（numpy astype / torch to 均为向零截断，镜像设备侧 static_cast
+    回写链）；浮点/复数输入直出（域内计算，无后处理）。输入三态适配：
+    torch.Tensor / numpy ndarray / 框架张量（TF EagerTensor 等）——框架
+    张量经鸭子类型 .numpy() 惰性转换后与 numpy 态同构（值位级一致）。"""
+    import numpy as np
+    import torch
 
-    __call__ 兼容实例调用与类绑定调用两种形态（TTK 远端按类绑定调用
-    third_party 时张量会落入 instance 槽），instance 槽为 Tensor 时采纳为输入。
-    """
+    if isinstance(x, torch.Tensor):
+        if x.dtype.is_floating_point or x.dtype.is_complex:
+            return result
+        return result.to(x.dtype)
+    if not isinstance(x, np.ndarray) and hasattr(x, "numpy"):
+        # 框架张量第三态（TF EagerTensor 等鸭子类型）：判型与回写 dtype
+        # 统一经 numpy 惰性转换——与 _compute 的入参转换壳同款，零顶层
+        # 框架 import。
+        x = np.asarray(x.numpy())
+    if np.issubdtype(x.dtype, np.floating) or np.issubdtype(
+        x.dtype, np.complexfloating
+    ):
+        return result
+    return result.astype(x.dtype)
 
-    def __call__(instance=None, *args, **kwargs):
+
+def tan_golden(x, **kwargs):
+    # kernel/GEIR 通路：输出与输入同型——整型的 f32 提升计算结果向零截断回原整型。
+    return [_trunc_to_src(_compute(x), x)]
+
+
+def aclnn_tan_golden(self, out=None, **kwargs):
+    if out is None:
+        # 无 out 容器：同型契约（整型截断回 self dtype），与 kernel/GEIR 通路一致。
+        return tan_golden(self)
+    # out 容器：纯计算结果按 out dtype 转换（out 与 self 同为 int32 时 .to(int32)
+    # 即向零截断、与 kernel 回写链位级一致；整型 self 配浮点 out 不被整型截断破坏）。
+    return [_compute(self).reshape(out.shape).to(out.dtype)]
+
+
+def aclnn_inplace_tan_golden(selfRef, **kwargs):
+    """CPU golden following aclnnInplaceTanGetWorkspaceSize(selfRef, ...)."""
+    # 就地语义：结果写回输入张量（dtype 不变）——整型截断回 selfRef dtype。
+    return [_trunc_to_src(_compute(selfRef), selfRef)]
+
+
+def torch_tan_golden(input, out=None, **kwargs):
+    import torch
+
+    if out is None:
+        # 行为镜像：纯直调零后处理（整型经 torch 提升语义出 f32，与被测 torch.tan 同链）。
+        return [_compute(input)]
+    # 原生 out 语义：计算与 out 写入由 torch.tan 原生承载（与被测同 API 同链）。
+    return [torch.tan(input, out=out)]
+
+
+class TanKernelTorchRef:
+    """kernel/GEIR 路 torch 三方参考: 原生域转调原生 API;int32 按算子契约拼接截断链。"""
+
+    def __call__(self, x):
         import torch
 
-        if isinstance(instance, torch.Tensor):
-            args = (instance, *args)
-        x = _get_torch_input(args, kwargs)
-        return [torch.tan(x)]
+        if torch.is_tensor(x) and x.dtype == torch.int32:
+            # int32 入出同型契约: 原生 tan 为提升语义出 f32, 拼接截断链矫正
+            # (.to(int32) 向零截断, 与 kernel static_cast 回写链一致)
+            return torch.tan(x.to(torch.float32)).to(torch.int32)
+        return torch.tan(x)
 
 
-class _TensorFlowTan:
-    """TensorFlow 三方标杆（类绑定兼容同 _TorchTan）。"""
+class TanKernelTfRef:
+    """kernel/GEIR 路 tf 三方参考: 同上分派。"""
 
-    def __call__(instance=None, *args, **kwargs):
+    def __call__(self, x):
         import tensorflow as tf
 
-        if instance is not None and tf.is_tensor(instance):
-            args = (instance, *args)
-        x = next((arg for arg in args if tf.is_tensor(arg)), None)
-        if x is None:
-            for name in ("x", "self", "input", "input_x"):
-                x = kwargs.get(name)
-                if x is not None:
-                    break
-        if x is None:
-            raise ValueError(
-                "Missing tensor input; expected positional Tensor or one of: x, self, input, input_x"
-            )
-        return [tf.math.tan(x)]
-
-
-class _LazyTanGraph:
-    """torch_graph 惰性描述符。
-
-    首次类属性访问时才 import torch 并创建 _TanGraph(torch.nn.Module)。
-    """
-
-    def __get__(self, obj, objtype=None):
-        import torch
-
-        class _TanGraph(torch.nn.Module):
-            def forward(self, input, **kwargs):
-                del kwargs
-                return torch.tan(input)
-
-        setattr(objtype, "torch_graph", _TanGraph)
-        return _TanGraph
+        if x.dtype == tf.int32:
+            # tf.cast f32->int32 向零截断, 与 kernel static_cast 回写链一致
+            return tf.cast(tf.math.tan(tf.cast(x, tf.float32)), tf.int32)
+        return tf.math.tan(x)
 
 
 class TanKernelSpec:
     golden = staticmethod(tan_golden)
-    third_party = {
-        "torch": _TorchTan,
-        "tf": _TensorFlowTan,
-    }
+    # kernel/GEIR 路 third_party 挂双框架参考: 原生 dtype 域直接转调原生
+    # API(torch.tan / tf.math.tan);int32 域原生 API 为提升语义出 f32, 与
+    # 本通路 int32 入出同型契约错配, 由拼接类按契约截断矫正(f32 计算链 +
+    # 向零截断回 int32, 与 kernel static_cast 回写一致)。类形态经远端
+    # spec 协议同步执行(spec 类参考与原生 API 字符串同为可达形态)。
+    third_party = {"torch": TanKernelTorchRef, "tf": TanKernelTfRef}
     tolerance = _L2
+
+
+class TanAclnnTorchRef:
+    """aclnn 路 torch 三方参考: 原生 out 语义——计算后按 out 数据类型转换(与 aclnn 输出 Cast 链同构);整型输入经提升计算后写入 out。"""
+
+    # 形参名对位 aclnnTan(self, out, ...) 的 C 接口参数序——装配层按名绑定;
+    # staticmethod 使 __call__ 保持未绑定的普通函数形态, self 作为真实 API
+    # 形参名参与具名对位(实例调用不再占用首参位), out 缺省时退化为直调。
+    @staticmethod
+    def __call__(self, out=None):
+        import torch
+
+        if out is not None:
+            return torch.tan(self, out=out)
+        return torch.tan(self)
+
+
+class TanAclnnInplaceTorchRef:
+    """aclnnInplaceTan 路 torch 三方参考: 就地语义(结果写回输入张量)。"""
+
+    def __call__(self, selfRef):
+        import torch
+
+        return torch.tan(selfRef, out=selfRef)
 
 
 class TanAclnnSpec:
     golden = staticmethod(aclnn_tan_golden)
-    third_party = {"torch": _TorchTan}
+    # aclnn 路 third_party 挂类参考: 原生 out 参数语义与 aclnn 输出 Cast 链
+    # 同构(计算后按 out 数据类型转换, 整型 self 经提升计算写入 out), 文档域
+    # self 全 dtype × out 六 dtype 由原生 out 容器承载; 类形态经远端 spec
+    # 协议执行, 形参按 C 接口参数名对位装配。
+    third_party = {"torch": TanAclnnTorchRef}
     tolerance = _L2
 
 
 class TanAclnnInplaceSpec:
     """aclnnInplaceTan 通路 spec（显式注册，消除 TTK torch.tan 回退）。
 
-    golden 遵循 aclnnInplaceTanGetWorkspaceSize(inputRef) 签名；in-place 与
+    golden 遵循 aclnnInplaceTanGetWorkspaceSize(selfRef) 签名；in-place 与
     非 in-place 共用同一 Compute 数值链（op_api/aclnn_tan.cpp），tolerance 同 _L2。
     """
 
     golden = staticmethod(aclnn_inplace_tan_golden)
-    third_party = {"torch": _TorchTan}
+    # 就地语义类参考: 结果写回输入张量(dtype 不变), 与 aclnnInplaceTan 的
+    # 写回契约对齐; 形参名对位 aclnnInplaceTan(selfRef, ...) 的 C 接口参数序。
+    third_party = {"torch": TanAclnnInplaceTorchRef}
     tolerance = _L2
 
 
 class TanTorchSpec:
     golden = staticmethod(torch_tan_golden)
     third_party = {"torch": "torch.tan"}
-    torch_graph = _LazyTanGraph()
     tolerance = _L2
 
 

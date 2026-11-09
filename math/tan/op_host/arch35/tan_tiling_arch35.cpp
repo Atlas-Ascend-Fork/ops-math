@@ -25,6 +25,8 @@
 
 namespace optiling {
 
+using Ops::Base::CeilDiv;
+
 constexpr uint32_t WS_SYS_SIZE = 0U;
 constexpr int32_t THREAD_NUM = 512;
 constexpr int32_t MIN_ELEMENTS_PER_THREAD = 4;
@@ -55,19 +57,25 @@ static ge::graphStatus TanTilingFunc(gert::TilingContext* context)
     const gert::Shape shape = inputShape->GetShape();
     int64_t totalElements = 1;
     for (size_t i = 0; i < shape.GetDimNum(); i++) {
-        totalElements *= shape.GetDim(i);
+        int64_t dim = shape.GetDim(i);
+        // 累乘上界保护：溢出回绕会让 totalElements 变为负值，破坏核切分与 kernel 分派
+        OP_CHECK_IF(dim > 0 && totalElements > INT64_MAX / dim,
+                    OP_LOGE(context, "Total elements of input shape overflow int64"), return ge::GRAPH_FAILED);
+        totalElements *= dim;
     }
 
     auto inputDesc = context->GetInputDesc(0);
     OP_CHECK_NULL_WITH_CONTEXT(context, inputDesc);
     auto dataType = inputDesc->GetDataType();
 
-    // 3. 计算核切分
+    // 3. 计算核切分：钳制先行（int64 全链完成后再收敛 int32），totalElements 达 2^31
+    // 量级时先窄化会回绕 INT32_MIN 绕过钳制，使 SetBlockDim 收到负 blockDim
     int64_t perCoreElements = THREAD_NUM * MIN_ELEMENTS_PER_THREAD;
-    int32_t needCoreNum = static_cast<int32_t>((totalElements + perCoreElements - 1) / perCoreElements);
-    if (needCoreNum > static_cast<int32_t>(coreNum)) {
-        needCoreNum = static_cast<int32_t>(coreNum);
+    int64_t needCoreNumClamped = CeilDiv(totalElements, perCoreElements);
+    if (needCoreNumClamped > coreNum) {
+        needCoreNumClamped = coreNum;
     }
+    int32_t needCoreNum = static_cast<int32_t>(needCoreNumClamped);
 
     // 4. 设置 tiling 数据
     TanTilingData* tiling = context->GetTilingData<TanTilingData>();
@@ -93,7 +101,11 @@ static ge::graphStatus TanTilingFunc(gert::TilingContext* context)
     tiling->dataType = dataTypeId;
 
     // 6. 设置 blockDim 和 tiling key
-    context->SetBlockDim(needCoreNum);
+    // 空 Tensor 守卫：totalElements==0 时核切分为 0，SetBlockDim(0) 会被框架以 INVALID_TILING
+    // 拒绝（空 shape 图执行失败）。对齐同算子 aclnn 路空 tensor 早返回与同仓 arch35 空输入
+    // tiling 惯例置 blockDim=1；kernel 侧 Process 循环守卫 index<totalElements=0 天然 no-op。
+    int32_t blockDim = (totalElements == 0) ? 1 : needCoreNum;
+    context->SetBlockDim(blockDim);
     context->SetLocalMemorySize(128 * 1024); // 128KB
 
     uint64_t tilingKey = 0;

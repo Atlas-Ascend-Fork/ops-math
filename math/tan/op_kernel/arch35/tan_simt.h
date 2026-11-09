@@ -41,25 +41,25 @@ template <typename T, typename IDX_T>
 __simt_vf__ __aicore__ LAUNCH_BOUND(THREAD_NUM<IDX_T>) inline void OpTanSimtKernel(IDX_T totalElements, __gm__ T* input,
                                                                                    __gm__ T* output)
 {
+    // C 风格线程/块索引 API（SIMT-1-1~1-4）：GetThreadNum→blockDim.x、GetThreadIdx→threadIdx.x、
+    // GetBlockIdx→blockIdx.x、GetBlockNum→gridDim.x
+    const IDX_T stride = static_cast<IDX_T>(blockDim.x) * static_cast<IDX_T>(gridDim.x);
     for (IDX_T index =
-             static_cast<IDX_T>(AscendC::Simt::GetBlockIdx()) * static_cast<IDX_T>(AscendC::Simt::GetThreadNum()) +
-             static_cast<IDX_T>(AscendC::Simt::GetThreadIdx());
-         index < totalElements; index += static_cast<IDX_T>(AscendC::Simt::GetThreadNum()) *
-                                         static_cast<IDX_T>(AscendC::Simt::GetBlockNum())) {
+             static_cast<IDX_T>(blockIdx.x) * static_cast<IDX_T>(blockDim.x) + static_cast<IDX_T>(threadIdx.x);
+         index < totalElements;) {
         // 读取输入并转为 float32
         float x = static_cast<float>(input[index]);
 
-        // 特殊值处理：Inf/NaN → NaN
-        bool is_special = isinf(x) || isnan(x);
-        float special_result = ASCRT_INF_F / ASCRT_INF_F; // NaN
+        // SIMT 数学库高精度规约与奇数象限倒数误差补偿；Inf/NaN 输入由 tanf 按 IEEE 语义返回 NaN
+        output[index] = static_cast<T>(tanf(x));
 
-        // 使用 SIMT 数学库的高精度规约与奇数象限倒数误差补偿，避免接近 pi/2 时误差被放大。
-        float result = tanf(x);
-
-        // Rule 001: 最终结果选择（特殊值 vs 正常计算）
-        float final_result = is_special ? special_result : result;
-
-        output[index] = static_cast<T>(final_result);
+        // 索引自增前上界保护：totalElements ∈ (INT32_MAX-stride, INT32_MAX] 窗口内末次迭代
+        // index+stride 有符号回绕为负会使守卫恒真，导致负下标越界读写
+        if (totalElements - index > stride) {
+            index += stride;
+        } else {
+            break;
+        }
     }
 }
 
@@ -70,12 +70,12 @@ __aicore__ inline void Process(GM_ADDR input, GM_ADDR output, const TanTilingDat
     __gm__ T* input_gm = (__gm__ T*)input;
     __gm__ T* output_gm = (__gm__ T*)output;
 
+    // C 风格 VF 启动 API（SIMT-1-5）：Simt::VF_CALL/Dim3→asc_vf_call/dim3
     if (totalElements <= static_cast<int64_t>(INT32_MAX)) {
-        AscendC::Simt::VF_CALL<OpTanSimtKernel<T, int32_t>>(AscendC::Simt::Dim3(THREAD_NUM<int32_t>),
-                                                            static_cast<int32_t>(totalElements), input_gm, output_gm);
+        asc_vf_call<OpTanSimtKernel<T, int32_t>>(dim3(THREAD_NUM<int32_t>), static_cast<int32_t>(totalElements),
+                                                 input_gm, output_gm);
     } else {
-        AscendC::Simt::VF_CALL<OpTanSimtKernel<T, int64_t>>(AscendC::Simt::Dim3(THREAD_NUM<int64_t>), totalElements,
-                                                            input_gm, output_gm);
+        asc_vf_call<OpTanSimtKernel<T, int64_t>>(dim3(THREAD_NUM<int64_t>), totalElements, input_gm, output_gm);
     }
 }
 

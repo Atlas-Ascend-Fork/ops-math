@@ -53,7 +53,7 @@ aclnnTan and aclnnInplaceTan implement the same function. The differences in usa
 
 Each operator uses a [two-phase API](../../../docs/en/context/two_phase_api.md). First call "aclnnTanGetWorkspaceSize" or "aclnnInplaceTanGetWorkspaceSize" to obtain the workspace size required for the computation and the executor containing the operator computation process. Then call "aclnnTan" or "aclnnInplaceTan" to perform the computation.
 
-```Cpp
+```cpp
 aclnnStatus aclnnTanGetWorkspaceSize(
   const aclTensor* self,
   aclTensor*       out,
@@ -61,7 +61,7 @@ aclnnStatus aclnnTanGetWorkspaceSize(
   aclOpExecutor**  executor)
 ```
 
-```Cpp
+```cpp
 aclnnStatus aclnnTan(
   void*          workspace,
   uint64_t       workspaceSize,
@@ -69,14 +69,14 @@ aclnnStatus aclnnTan(
   const aclrtStream    stream)
 ```
 
-```Cpp
+```cpp
 aclnnStatus aclnnInplaceTanGetWorkspaceSize(
   const aclTensor* selfRef,
   uint64_t*        workspaceSize,
   aclOpExecutor**  executor)
 ```
 
-```Cpp
+```cpp
 aclnnStatus aclnnInplaceTan(
   void*          workspace,
   uint64_t       workspaceSize,
@@ -114,17 +114,17 @@ aclnnStatus aclnnInplaceTan(
       <td>self (aclTensor*)</td>
       <td>Input</td>
       <td>Input self in the formula.</td>
-      <td>The shape must be the same as that of out, and the data types of self and out must satisfy the <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">deduction relationship</a>.</td>
+      <td>The shape must be the same as that of out. For the data type combination support relationship, see the conversion path table in the Constraints section.</td>
       <td>FLOAT, FLOAT16, DOUBLE, INT8, INT16, INT32, INT64, UINT8, BOOL, COMPLEX64, COMPLEX128, BFLOAT16</td>
       <td>ND</td>
-      <td>No greater than 8</td>
+      <td>-</td>
       <td>√</td>
     </tr>
     <tr>
       <td>out (aclTensor*)</td>
       <td>Output</td>
       <td>Output out in the formula.</td>
-      <td>The shape must be the same as that of self, and the data type must satisfy the <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">deduction relationship</a> with that of self.</td>
+      <td>The shape must be the same as that of self. For the data type combination support relationship, see the conversion path table in the Constraints section.</td>
       <td>FLOAT, FLOAT16, DOUBLE, COMPLEX64, COMPLEX128, BFLOAT16</td>
       <td>ND</td>
       <td>-</td>
@@ -153,7 +153,7 @@ aclnnStatus aclnnInplaceTan(
   </tbody></table>
 
   <!-- npu="910,310p" id7 -->
-  - <term>Atlas training products</term> and <term>Atlas inference products</term>: BFLOAT16, COMPLEX32, and COMPLEX64 are not supported.
+  - <term>Atlas training products</term> and <term>Atlas inference products</term>: BFLOAT16 is not supported.
   <!-- end id7 -->
 
 - **Return value**
@@ -180,15 +180,12 @@ aclnnStatus aclnnInplaceTan(
       <td>When self or out is a null pointer.</td>
     </tr>
     <tr>
-      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="4">161002</td>
+      <td rowspan="3">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="3">161002</td>
       <td>The data type of self is out of the supported range.</td>
     </tr>
     <tr>
       <td>self cannot be converted to the data type of out, or the data types of self and out do not satisfy the <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">deduction relationship</a>.</td>
-    </tr>
-    <tr>
-      <td>The dimensions of self and out are greater than 8.</td>
     </tr>
     <tr>
       <td>The shapes of self and out are inconsistent.</td>
@@ -272,7 +269,7 @@ aclnnStatus aclnnInplaceTan(
       <td>-</td>
       <td>FLOAT, FLOAT16, DOUBLE, COMPLEX64, COMPLEX128, BFLOAT16</td>
       <td>ND</td>
-      <td>Not greater than 8</td>
+      <td>-</td>
       <td>√</td>
     </tr>
     <tr>
@@ -298,7 +295,7 @@ aclnnStatus aclnnInplaceTan(
   </tbody></table>
 
   <!-- npu="910,310p" id8 -->
-  - <term>Atlas training products</term> and <term>Atlas inference products</term>: BFLOAT16, COMPLEX32, and COMPLEX64 are not supported.
+  - <term>Atlas training products</term> and <term>Atlas inference products</term>: BFLOAT16 is not supported.
   <!-- end id8 -->
 
 - **Return value**
@@ -378,6 +375,16 @@ aclnnStatus aclnnInplaceTan(
 ## Constraints
 
 - Deterministic computation: aclnnTan&aclnnInplaceTan default to a deterministic implementation.
+
+- The input and output data type combinations must satisfy the following conversion paths (integer inputs are computed in FLOAT32 internally):
+
+  | `self` data type | `out` data type |
+  | ------------ | ------------ |
+  | FLOAT16, FLOAT, DOUBLE, BFLOAT16 | FLOAT16, FLOAT, DOUBLE, BFLOAT16, COMPLEX64, COMPLEX128 |
+  | INT8, INT16, INT32, INT64, UINT8, BOOL | FLOAT16, FLOAT, DOUBLE, BFLOAT16, COMPLEX64, COMPLEX128 |
+  | COMPLEX64, COMPLEX128 | COMPLEX64, COMPLEX128 |
+
+- The data type of selfRef of aclnnInplaceTan must be FLOAT16, FLOAT, DOUBLE, COMPLEX64, COMPLEX128, or BFLOAT16 (integer inputs do not support in-place write-back).
 
 <!-- npu="A3" id9 -->
 - <term>Atlas A3 products</term>: When the input data of FLOAT, BFLOAT16, FLOAT16, INT32, or INT64 type falls within the range of [-65504, 65504], the precision requirement is met. If the value exceeds this range, precision cannot be guaranteed, and CPU computation is recommended. If the computation volume is too large, the operator execution may time out (aicore error, with errorStr: timeout or trap error). This occurs when the last two axes are combined into an axis with a size less than 16, while the preceding axes are combined into an extremely large axis.

@@ -21,20 +21,17 @@ using namespace std;
 
 class l2_tan_test : public testing::Test {
 protected:
-    static void SetUpTestCase() {
-      std::cout << "Tan Test Setup" << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "Tan Test Setup" << std::endl; }
 
-    static void TearDownTestCase() {
-      std::cout << "Tan Test TearDown" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "Tan Test TearDown" << std::endl; }
 };
 
 TEST_F(l2_tan_test, case_fp32)
 {
     auto tensor_desc = TensorDesc({1, 16, 1, 1}, ACL_FLOAT, ACL_FORMAT_ND)
-        .ValueRange(-2, 2)
-        .Value(vector<float>{0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6});
+                           .ValueRange(-2, 2)
+                           .Value(vector<float>{0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4,
+                                                1.5, 1.6});
     auto out_tensor_desc = TensorDesc(tensor_desc).Precision(0.0001, 0.0001);
 
     auto ut = OP_API_UT(aclnnTan, INPUT(tensor_desc), OUTPUT(out_tensor_desc));

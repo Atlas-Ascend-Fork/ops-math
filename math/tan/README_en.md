@@ -47,14 +47,14 @@ English | [简体中文](./README.md)
     <tr>
       <td>x</td>
       <td>Input</td>
-      <td>The input tensor x in the formula.</td>
+      <td>The input tensor x in the formula. Non-contiguous tensor inputs are automatically converted to contiguous tensors by the framework before execution.</td>
       <td>FLOAT16, FLOAT, BFLOAT16, INT32, DOUBLE, COMPLEX64, COMPLEX128</td>
       <td>ND</td>
     </tr>
     <tr>
       <td>y</td>
       <td>Output</td>
-      <td>The output tensor y in the formula, with the same shape as x.</td>
+      <td>The output tensor y in the formula, with the same shape as x. Non-contiguous tensor outputs are automatically converted to contiguous tensors by the framework before execution.</td>
       <td>FLOAT16, FLOAT, BFLOAT16, INT32, DOUBLE, COMPLEX64, COMPLEX128</td>
       <td>ND</td>
     </tr>

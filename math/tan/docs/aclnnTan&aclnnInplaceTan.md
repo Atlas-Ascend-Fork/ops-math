@@ -51,7 +51,7 @@ aclnnTan和aclnnInplaceTan实现相同的功能，使用区别如下，请根据
 
 每个算子分为[两段式接口](../../../docs/zh/context/two_phase_api.md)，必须先调用"aclnnTanGetWorkspaceSize"或者"aclnnInplaceTanGetWorkspaceSize"接口获取计算所需workspace大小以及包含了算子计算流程的执行器，再调用"aclnnTan"或者"aclnnInplaceTan"接口执行计算。
 
-```Cpp
+```cpp
 aclnnStatus aclnnTanGetWorkspaceSize(
   const aclTensor* self,
   aclTensor*       out,
@@ -59,7 +59,7 @@ aclnnStatus aclnnTanGetWorkspaceSize(
   aclOpExecutor**  executor)
 ```
 
-```Cpp
+```cpp
 aclnnStatus aclnnTan(
   void*          workspace,
   uint64_t       workspaceSize,
@@ -67,14 +67,14 @@ aclnnStatus aclnnTan(
   const aclrtStream    stream)
 ```
 
-```Cpp
+```cpp
 aclnnStatus aclnnInplaceTanGetWorkspaceSize(
   const aclTensor* selfRef,
   uint64_t*        workspaceSize,
   aclOpExecutor**  executor)
 ```
 
-```Cpp
+```cpp
 aclnnStatus aclnnInplaceTan(
   void*          workspace,
   uint64_t       workspaceSize,
@@ -112,17 +112,17 @@ aclnnStatus aclnnInplaceTan(
       <td>self（aclTensor*）</td>
       <td>输入</td>
       <td>公式中的输入self。</td>
-      <td>shape需要与out一致，和out的数据类型满足<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>。</td>
+      <td>shape需要与out一致，数据类型组合支持关系参见约束说明的转换路径表。</td>
       <td>FLOAT、FLOAT16、DOUBLE、INT8、INT16、INT32、INT64、UINT8、BOOL、COMPLEX64、COMPLEX128、BFLOAT16</td>
       <td>ND</td>
-      <td>不大于8</td>
+      <td>-</td>
       <td>√</td>
     </tr>
     <tr>
       <td>out（aclTensor*）</td>
       <td>输出</td>
       <td>公式中的out。</td>
-      <td>shape需要与self一致，和self的数据类型满足<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>。</td>
+      <td>shape需要与self一致，数据类型组合支持关系参见约束说明的转换路径表。</td>
       <td>FLOAT、FLOAT16、DOUBLE、COMPLEX64、COMPLEX128、BFLOAT16</td>
       <td>ND</td>
       <td>-</td>
@@ -151,7 +151,7 @@ aclnnStatus aclnnInplaceTan(
   </tbody></table>
 
   <!-- npu="910,310p" id7 -->
-  - <term>Atlas训练系列产品</term>、<term>Atlas推理系列产品</term>：不支持BFLOAT16、COMPLEX32、COMPLEX64。
+  - <term>Atlas训练系列产品</term>、<term>Atlas推理系列产品</term>：不支持BFLOAT16。
   <!-- end id7 -->
 
 - **返回值：**
@@ -178,15 +178,12 @@ aclnnStatus aclnnInplaceTan(
       <td>传入的self或out是空指针时。</td>
     </tr>
     <tr>
-      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="4">161002</td>
+      <td rowspan="3">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="3">161002</td>
       <td>self的数据类型不在支持的范围之内。</td>
     </tr>
     <tr>
       <td>self不能转为out的数据类型，或self和out的数据类型不满足<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>。</td>
-    </tr>
-    <tr>
-      <td>self和out的维度大于8。</td>
     </tr>
     <tr>
       <td>self和out的shape不一致。</td>
@@ -270,7 +267,7 @@ aclnnStatus aclnnInplaceTan(
       <td>-</td>
       <td>FLOAT、FLOAT16、DOUBLE、COMPLEX64、COMPLEX128、BFLOAT16</td>
       <td>ND</td>
-      <td>不大于8</td>
+      <td>-</td>
       <td>√</td>
     </tr>
     <tr>
@@ -296,7 +293,7 @@ aclnnStatus aclnnInplaceTan(
   </tbody></table>
 
   <!-- npu="910,310p" id8 -->
-  - <term>Atlas训练系列产品</term>、<term>Atlas推理系列产品</term>：不支持BFLOAT16、COMPLEX32、COMPLEX64。
+  - <term>Atlas训练系列产品</term>、<term>Atlas推理系列产品</term>：不支持BFLOAT16。
   <!-- end id8 -->
 
 - **返回值：**
@@ -376,6 +373,16 @@ aclnnStatus aclnnInplaceTan(
 ## 约束说明
 
 - 确定性计算：aclnnTan&aclnnInplaceTan默认确定性实现。
+
+- 输入输出数据类型组合需满足以下转换路径（整型输入在内部以FLOAT32完成计算）：
+
+  | `self`数据类型 | `out`数据类型 |
+  | ------------ | ------------ |
+  | FLOAT16、FLOAT、DOUBLE、BFLOAT16 | FLOAT16、FLOAT、DOUBLE、BFLOAT16、COMPLEX64、COMPLEX128 |
+  | INT8、INT16、INT32、INT64、UINT8、BOOL | FLOAT16、FLOAT、DOUBLE、BFLOAT16、COMPLEX64、COMPLEX128 |
+  | COMPLEX64、COMPLEX128 | COMPLEX64、COMPLEX128 |
+
+- aclnnInplaceTan的selfRef数据类型需为FLOAT16、FLOAT、DOUBLE、COMPLEX64、COMPLEX128、BFLOAT16（整型输入不支持原地写回）。
 
 <!-- npu="A3" id9 -->
 - <term>Atlas A3系列产品</term>：FLOAT、BFLOAT16、FLOAT16、INT32、INT64数据类型的输入数据范围为[-65504,65504]时满足精度要求，超过数值范围无法保证，请使用CPU进行计算。如果计算量过大可能会导致算子执行超时（aicore error类型报错，errorStr为：timeout or trap error），场景为最后2轴合轴小于16，前面的轴合轴超大。

@@ -16,7 +16,6 @@
 #include "opdev/common_types.h"
 #include "opdev/shape_utils.h"
 #include "opdev/data_type_utils.h"
-#include "opdev/format_utils.h"
 #include "opdev/op_dfx.h"
 #include "opdev/op_executor.h"
 #include "opdev/op_log.h"
@@ -82,8 +81,6 @@ static bool CheckNotNull(const aclTensor* self, const aclTensor* out)
 
 static bool CheckShape(const aclTensor* self, const aclTensor* out)
 {
-    OP_CHECK_MAX_DIM(self, MAX_SUPPORT_DIMS_NUMS, return false);
-    OP_CHECK_MAX_DIM(out, MAX_SUPPORT_DIMS_NUMS, return false);
     OP_CHECK_SHAPE_NOT_EQUAL(self, out, return false);
     return true;
 }
@@ -110,20 +107,6 @@ static aclnnStatus Compute(const aclTensor* self, aclTensor* out, aclOpExecutor*
     return ACLNN_SUCCESS;
 }
 
-static bool CheckFormat(const aclTensor* self, const aclTensor* out)
-{
-    const auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
-    if (!IsRegBase(curArch)) {
-        return true;
-    }
-    if (op::IsPrivateFormat(self->GetStorageFormat()) || op::IsPrivateFormat(out->GetStorageFormat())) {
-        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "Private format is not supported, self [%s], out [%s].",
-                op::ToString(self->GetStorageFormat()).GetString(), op::ToString(out->GetStorageFormat()).GetString());
-        return false;
-    }
-    return true;
-}
-
 static aclnnStatus CheckParams(const aclTensor* self, const aclTensor* out)
 {
     // 1. 检查参数是否为空指针
@@ -137,12 +120,6 @@ static aclnnStatus CheckParams(const aclTensor* self, const aclTensor* out)
 
     // 4. 检查是否可以转成out数据类型
     CHECK_RET(CheckDtypeCanCast(self, out), ACLNN_ERR_PARAM_INVALID);
-    // 5. 检查私有格式
-    if (self->GetStorageFormat() != Format::FORMAT_ND) {
-        OP_LOGW("Only support ND format for tan operator.");
-    }
-
-    CHECK_RET(CheckFormat(self, out), ACLNN_ERR_PARAM_INVALID);
 
     return ACLNN_SUCCESS;
 }
@@ -181,17 +158,8 @@ static aclnnStatus CheckParamsInplace(const aclTensor* self, const aclTensor* ou
     // 2. 检查数据类型是否合法
     CHECK_RET(CheckDtypeValid(self), ACLNN_ERR_PARAM_INVALID);
 
-    // 3. 检查shape是否支持
-    OP_CHECK_MAX_DIM(self, MAX_SUPPORT_DIMS_NUMS, return ACLNN_ERR_PARAM_INVALID);
-
-    // 4. 检查是否可以转成out数据类型
+    // 3. 检查是否可以转成out数据类型
     CHECK_RET(CheckDtypeCanCast(self, out), ACLNN_ERR_PARAM_INVALID);
-    // 5. 检查私有格式
-    if (self->GetStorageFormat() != Format::FORMAT_ND) {
-        OP_LOGW("Only support ND format for inplace tan operator.");
-    }
-
-    CHECK_RET(CheckFormat(self, out), ACLNN_ERR_PARAM_INVALID);
     return ACLNN_SUCCESS;
 }
 
