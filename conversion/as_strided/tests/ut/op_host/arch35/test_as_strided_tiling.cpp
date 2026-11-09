@@ -368,3 +368,72 @@ TEST_F(AsStridedTiling, as_strided_tiling_test_output_numel_over_uint32_nddma)
     std::vector<size_t> expectWorkspaces = {16777216};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
+
+// size/stride逐维累加回绕绕过越界校验(旧实现8*(2^62-1)+9回绕为1 < 2), 应拒绝;
+// 各维stride*size=2*(2^62-1)不超int64, 避免触发MergeAxisRule3乘法有符号溢出(-ftrapv)
+TEST_F(AsStridedTiling, as_strided_tiling_test_span_accum_wraparound_rejected)
+{
+    optiling::AsStridedCompileInfo compileInfo = {64, 262144};
+    std::vector<int64_t> sizeValues = {2, 2, 2, 2, 2, 2, 2, 2};
+    std::vector<int64_t> strideValues = {4611686018427387903LL, 4611686018427387903LL, 4611686018427387903LL,
+                                         4611686018427387903LL, 4611686018427387903LL, 4611686018427387903LL,
+                                         4611686018427387903LL, 4611686018427387903LL};
+    std::vector<int64_t> offsetValues = {9};
+    gert::TilingContextPara tilingContextPara("AsStrided",
+                                              {{{{2}, {2}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                               {{{8}, {8}}, ge::DT_INT64, ge::FORMAT_ND, true, sizeValues.data()},
+                                               {{{8}, {8}}, ge::DT_INT64, ge::FORMAT_ND, true, strideValues.data()},
+                                               {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, offsetValues.data()}},
+                                              {
+                                                  {
+                                                      {{{256}, {256}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                  },
+                                              },
+                                              &compileInfo);
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
+}
+
+// 4维累加和4*(2^62-1)=2^64-4未回绕, storage_offset求和回绕(旧实现(5+2^64-4)回绕为1 < 2), 应拒绝
+TEST_F(AsStridedTiling, as_strided_tiling_test_offset_sum_wraparound_rejected)
+{
+    optiling::AsStridedCompileInfo compileInfo = {64, 262144};
+    std::vector<int64_t> sizeValues = {2, 2, 2, 2};
+    std::vector<int64_t> strideValues = {4611686018427387903LL, 4611686018427387903LL, 4611686018427387903LL,
+                                         4611686018427387903LL};
+    std::vector<int64_t> offsetValues = {5};
+    gert::TilingContextPara tilingContextPara("AsStrided",
+                                              {{{{2}, {2}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                               {{{4}, {4}}, ge::DT_INT64, ge::FORMAT_ND, true, sizeValues.data()},
+                                               {{{4}, {4}}, ge::DT_INT64, ge::FORMAT_ND, true, strideValues.data()},
+                                               {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, offsetValues.data()}},
+                                              {
+                                                  {
+                                                      {{{16}, {16}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                  },
+                                              },
+                                              &compileInfo);
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
+}
+
+// input元素数连乘溢出(12884901888*2147483648 = 3*2^63超出uint64, 旧实现回绕为2^63成为错误基数), 应拒绝;
+// stride取2^62-1使stride*size=2^63-2不超int64, 避免触发MergeAxisRule3乘法有符号溢出(-ftrapv)
+TEST_F(AsStridedTiling, as_strided_tiling_test_input_numel_mul_overflow_rejected)
+{
+    optiling::AsStridedCompileInfo compileInfo = {64, 262144};
+    std::vector<int64_t> sizeValues = {2};
+    std::vector<int64_t> strideValues = {4611686018427387903LL};
+    std::vector<int64_t> offsetValues = {0};
+    gert::TilingContextPara tilingContextPara(
+        "AsStrided",
+        {{{{12884901888LL, 2147483648LL}, {12884901888LL, 2147483648LL}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+         {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, sizeValues.data()},
+         {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, strideValues.data()},
+         {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, offsetValues.data()}},
+        {
+            {
+                {{{2}, {2}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+            },
+        },
+        &compileInfo);
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
+}

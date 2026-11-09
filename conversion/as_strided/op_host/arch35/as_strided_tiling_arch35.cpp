@@ -17,6 +17,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
+#include <limits>
 #include <set>
 #include "util/const_util.h"
 #include "register/op_def_registry.h"
@@ -1420,6 +1421,24 @@ ge::graphStatus AsStridedTilingClass::NDDMAForAsStrided(AsStridedTilingParam& ti
     return ge::GRAPH_SUCCESS;
 }
 
+static bool CheckedMul(uint64_t lhs, uint64_t rhs, uint64_t& result)
+{
+    if (lhs != 0 && rhs > std::numeric_limits<uint64_t>::max() / lhs) {
+        return false;
+    }
+    result = lhs * rhs;
+    return true;
+}
+
+static bool CheckedAdd(uint64_t lhs, uint64_t rhs, uint64_t& result)
+{
+    if (rhs > std::numeric_limits<uint64_t>::max() - lhs) {
+        return false;
+    }
+    result = lhs + rhs;
+    return true;
+}
+
 bool CheckInputInfo(gert::TilingContext* context, gert::Shape outSize, gert::Shape outStride, const gert::Shape& xShape,
                     AsStridedTilingParam& tilingParam)
 {
@@ -1438,7 +1457,17 @@ bool CheckInputInfo(gert::TilingContext* context, gert::Shape outSize, gert::Sha
                         "The value of output_stride must be greater than or equal to 0."),
                     return false);
 
-        requiredStorageSize += (outSize[i] - 1) * outStride[i];
+        if (outSize[i] <= 1) {
+            continue;
+        }
+        uint64_t term = 0;
+        OP_CHECK_IF(!CheckedMul(static_cast<uint64_t>(outSize[i] - 1), static_cast<uint64_t>(outStride[i]), term) ||
+                        !CheckedAdd(requiredStorageSize, term, requiredStorageSize),
+                    OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                        context->GetNodeName(), "output_size, output_stride",
+                        (std::to_string(outSize.GetDim(i)) + ", " + std::to_string(outStride.GetDim(i))).c_str(),
+                        "The storage size spanned by output_size and output_stride is too large."),
+                    return false);
     }
     for (uint32_t i = 0; i < xShape.GetDimNum(); i++) {
         OP_CHECK_IF(xShape[i] < 0,
@@ -1446,10 +1475,17 @@ bool CheckInputInfo(gert::TilingContext* context, gert::Shape outSize, gert::Sha
                         context->GetNodeName(), "input_size", std::to_string(xShape.GetDim(i)).c_str(),
                         "The value of input_size must be greater than or equal to 0."),
                     return false);
-        originalTensorStorageSize *= xShape.GetDim(i);
+        OP_CHECK_IF(
+            !CheckedMul(originalTensorStorageSize, static_cast<uint64_t>(xShape.GetDim(i)), originalTensorStorageSize),
+            OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "input_size",
+                                                  std::to_string(xShape.GetDim(i)).c_str(),
+                                                  "The storage size of input is too large."),
+            return false);
     }
 
-    OP_CHECK_IF((tilingParam.storageOffset + requiredStorageSize) >= originalTensorStorageSize,
+    uint64_t maxAccessIndex = 0;
+    OP_CHECK_IF(!CheckedAdd(static_cast<uint64_t>(tilingParam.storageOffset), requiredStorageSize, maxAccessIndex) ||
+                    maxAccessIndex >= originalTensorStorageSize,
                 OP_LOGE(context, "The output element is out of input range!"), return false);
 
     tilingParam.inputSize = originalTensorStorageSize;
