@@ -123,7 +123,12 @@ static ge::graphStatus Tiling4CdistGrad(gert::TilingContext* context)
 
     ReduceOpInputParam opInput;
     OP_CHECK_IF((ReduceOpTmpl::GetInputParam(context, opInput, 0) == ge::GRAPH_FAILED),
-                OP_LOGE(context->GetNodeName(), "ReduceOp get grad input param failed"), return ge::GRAPH_FAILED);
+                REPORT_PREDEFINED_ERR_MSG(
+                    "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                    (std::vector<const char*>{context->GetNodeName(),
+                                              "ReduceOp GetInputParam failed for grad; check input shape and dtype "
+                                              "metadata."})),
+                return ge::GRAPH_FAILED);
 
     int64_t dimNum = static_cast<int64_t>(opInput.shape.size());
     OP_CHECK_IF(dimNum < 2,
@@ -161,7 +166,12 @@ static ge::graphStatus Tiling4CdistGrad(gert::TilingContext* context)
     ReduceTilingKey key;
     OP_CHECK_IF((DoTilingAscendC(context, compileInfo, opInput, key, &(tilingData->reduceTiling), normMode) ==
                  ge::GRAPH_FAILED),
-                OP_LOGE(context->GetNodeName(), "DoTiling Failed for CdistGrad"), return ge::GRAPH_FAILED);
+                REPORT_PREDEFINED_ERR_MSG(
+                    "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                    (std::vector<const char*>{context->GetNodeName(),
+                                              "DoTilingAscendC failed for CdistGrad; check ReduceOp tiling "
+                                              "parameters and tiling key selection."})),
+                return ge::GRAPH_FAILED);
 
     uint64_t tilingKey;
     GEN_REDUCE_TILING_KEY(tilingKey, key, static_cast<uint32_t>(normMode));
@@ -186,34 +196,52 @@ static ge::graphStatus TilingPrepare4ReduceOp(ContextT* context, ReduceOpCompile
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
     compileInfo->vectorCoreNum = ascendcPlatform.GetCoreNumAiv();
     OP_CHECK_IF((compileInfo->vectorCoreNum == 0UL),
-                OP_LOGE(context->GetNodeName(), "ReduceOp GetHardwareInfo Failed, vectorCoreNum:%lu",
-                        compileInfo->vectorCoreNum),
+                REPORT_PREDEFINED_ERR_MSG(
+                    "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                    (std::vector<const char*>{context->GetNodeName(),
+                                              (std::string("GetHardwareInfo failed: vectorCoreNum=0; check platform "
+                                                           "resource metadata.")
+                                                   .c_str())})),
                 return ge::GRAPH_FAILED);
 
     uint64_t ubSize = 0;
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSize);
     OP_CHECK_IF(ubSize <= CACHE_BUF_SIZE,
-                OP_LOGE(context->GetNodeName(), "ReduceOp GetHardwareInfo Failed, ubSize:%lu, at least:%lu.", ubSize,
-                        CACHE_BUF_SIZE),
+                REPORT_PREDEFINED_ERR_MSG(
+                    "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                    (std::vector<const char*>{
+                        context->GetNodeName(),
+                        (std::string("GetHardwareInfo failed: ubSize=") + std::to_string(ubSize) + ", at least " +
+                         std::to_string(CACHE_BUF_SIZE) + "; check platform resource metadata.")
+                            .c_str()})),
                 return ge::GRAPH_FAILED);
     compileInfo->ubSize = ubSize;
 
     compileInfo->cacheLineSize = GetCacheLineSize(context);
     OP_CHECK_IF(compileInfo->cacheLineSize == 0UL,
-                OP_LOGE(context->GetNodeName(), "ReduceOp GetHardwareInfo Failed, cacheLineSize:%lu.",
-                        compileInfo->cacheLineSize),
+                REPORT_PREDEFINED_ERR_MSG(
+                    "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                    (std::vector<const char*>{context->GetNodeName(),
+                                              "GetHardwareInfo failed: cacheLineSize=0; check platform resource "
+                                              "metadata."})),
                 return ge::GRAPH_FAILED);
 
     compileInfo->ubBlockSize = GetUbBlockSize(context);
     OP_CHECK_IF(
         compileInfo->ubBlockSize == 0UL,
-        OP_LOGE(context->GetNodeName(), "ReduceOp GetHardwareInfo Failed, ubBlockSize:%lu.", compileInfo->ubBlockSize),
+        REPORT_PREDEFINED_ERR_MSG(
+            "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+            (std::vector<const char*>{context->GetNodeName(), "GetHardwareInfo failed: ubBlockSize=0; check platform "
+                                                              "resource metadata."})),
         return ge::GRAPH_FAILED);
 
     compileInfo->vRegSize = GetVRegSize(context);
     OP_CHECK_IF(
         compileInfo->vRegSize == 0UL,
-        OP_LOGE(context->GetNodeName(), "ReduceOp GetHardwareInfo Failed, vRegSize:%lu.", compileInfo->vRegSize),
+        REPORT_PREDEFINED_ERR_MSG(
+            "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+            (std::vector<const char*>{context->GetNodeName(), "GetHardwareInfo failed: vRegSize=0; check platform "
+                                                              "resource metadata."})),
         return ge::GRAPH_FAILED);
 
     return ge::GRAPH_SUCCESS;

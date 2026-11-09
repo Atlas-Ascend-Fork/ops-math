@@ -100,15 +100,23 @@ ge::graphStatus IsFiniteRegbaseTiling::SetTilingData()
 ge::graphStatus IsFiniteRegbaseTiling::RunTiling()
 {
     ElewiseBaseTiling elewiseBaseTiling(tilingContext);
-    OP_CHECK_IF(CalcInputDtype() == ge::GRAPH_FAILED, OP_LOGE(tilingContext, "Get input dtype failed"),
+    OP_CHECK_IF(CalcInputDtype() == ge::GRAPH_FAILED,
+                OP_LOGE_WITHOUT_REPORT(tilingContext, "Get input dtype failed; propagate the lower-layer first error"),
                 return ge::GRAPH_FAILED);
-    OP_CHECK_IF(CalcOutputDtype() == ge::GRAPH_FAILED, OP_LOGE(tilingContext, "Get output dtype failed"),
+    OP_CHECK_IF(CalcOutputDtype() == ge::GRAPH_FAILED,
+                OP_LOGE_WITHOUT_REPORT(tilingContext, "Get output dtype failed; propagate the lower-layer first error"),
                 return ge::GRAPH_FAILED);
-    OP_CHECK_IF(CheckShape() == ge::GRAPH_FAILED, OP_LOGE(tilingContext, "Check shape failed"),
+    OP_CHECK_IF(CheckShape() == ge::GRAPH_FAILED,
+                OP_LOGE_WITHOUT_REPORT(tilingContext, "Check shape failed; propagate the lower-layer first error"),
                 return ge::GRAPH_FAILED);
 
     tiling_ = tilingContext->GetTilingData<EleBaseTilingDataV2>();
-    OP_CHECK_IF((tiling_ == nullptr), OP_LOGE(tilingContext, "Get EleBaseTilingDataV2 from context failed"),
+    OP_CHECK_IF((tiling_ == nullptr),
+                REPORT_PREDEFINED_ERR_MSG(
+                    "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                    (std::vector<const char*>{tilingContext->GetNodeName(),
+                                              "Tiling data buffer EleBaseTilingDataV2 is unavailable; check tiling "
+                                              "data registration and workspace capacity."})),
                 return ge::GRAPH_FAILED);
 
     ge::graphStatus baseTilingResult = ge::GRAPH_FAILED;
@@ -126,7 +134,12 @@ ge::graphStatus IsFiniteRegbaseTiling::RunTiling()
                                   ge::TypeUtils::DataTypeToSerialString(this->inputDtype), "FLOAT, FLOAT16, BF16");
         return ge::GRAPH_FAILED;
     }
-    OP_CHECK_IF(baseTilingResult == ge::GRAPH_FAILED, OP_LOGE(tilingContext, "ElewiseBaseTiling failed"),
+    OP_CHECK_IF(baseTilingResult == ge::GRAPH_FAILED,
+                REPORT_PREDEFINED_ERR_MSG(
+                    "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                    (std::vector<const char*>{tilingContext->GetNodeName(),
+                                              "ElewiseBaseTiling failed; check elewise tiling parameters and UB "
+                                              "capacity."})),
                 return ge::GRAPH_FAILED);
 
     return SetTilingData();

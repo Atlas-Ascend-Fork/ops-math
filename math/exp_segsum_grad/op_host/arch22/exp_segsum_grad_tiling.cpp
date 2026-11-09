@@ -71,7 +71,8 @@ private:
 ge::graphStatus ExpSegsumGradTiling::ParseInputAttrs()
 {
     auto srcGradOutShape = tilingContext->GetInputShape(0);
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, srcGradOutShape);
+    OP_CHECK_IF(srcGradOutShape == nullptr, OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "grad_output"),
+                return ge::GRAPH_FAILED);
     int32_t gradOutDim = srcGradOutShape->GetStorageShape().GetDimNum();
     auto gradOutShape = srcGradOutShape->GetOriginShape();
     for (int8_t i = 0; i < gradOutDim - TAILNUM; i++) {
@@ -79,7 +80,8 @@ ge::graphStatus ExpSegsumGradTiling::ParseInputAttrs()
     }
     tailDimLength = gradOutShape.GetDim(gradOutDim - 1);
     auto temp = tilingContext->GetInputDesc(0);
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, temp);
+    OP_CHECK_IF(temp == nullptr, OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "grad_output"),
+                return ge::GRAPH_FAILED);
     dataType = temp->GetDataType();
     blockSize = BLOCK / dataTypeSize;
     return ge::GRAPH_SUCCESS;
@@ -88,12 +90,19 @@ ge::graphStatus ExpSegsumGradTiling::ParseInputAttrs()
 ge::graphStatus ExpSegsumGradTiling::RunBigKernelTiling()
 {
     OP_CHECK_IF(ParseInputAttrs() != ge::GRAPH_SUCCESS,
-                OP_LOGE(tilingContext->GetNodeName(), "ExpSegsumGrad ParseInputAttrs failed"), return ge::GRAPH_FAILED);
+                OP_LOGE_WITHOUT_REPORT(tilingContext->GetNodeName(), "ExpSegsumGrad ParseInputAttrs failed"),
+                return ge::GRAPH_FAILED);
     size_t* workspaces = tilingContext->GetWorkspaceSizes(1);
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, workspaces);
+    OP_CHECK_IF(workspaces == nullptr, OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "workspace"),
+                return ge::GRAPH_FAILED);
     workspaces[0] = WORK_SPACE_SIZE;
     auto compileInfo = reinterpret_cast<const ExpSegsumGradCompileInfo*>(tilingContext->GetCompileInfo());
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, compileInfo);
+    OP_CHECK_IF(compileInfo == nullptr,
+                REPORT_PREDEFINED_ERR_MSG("EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                                          (std::vector<const char*>{tilingContext->GetNodeName(),
+                                                                    "compileInfo is unavailable; check TilingParse "
+                                                                    "registration."})),
+                return ge::GRAPH_FAILED);
     uint32_t coreNumPlatform = compileInfo->coreNum;
     uint64_t ubSizePlatform = compileInfo->ubSize;
     if (batches == 0 || tailDimLength == 0) {
@@ -193,7 +202,11 @@ ge::graphStatus ExpSegsumGradTiling::FillTilingData()
     tilingContext->SetTilingKey(tilingKey);
     if (tilingKey == COMMON_TILING_KEY) {
         OP_CHECK_IF(tilingContext->SetScheduleMode(SCHEDULE_MODE) != ge::GRAPH_SUCCESS,
-                    OP_LOGE(tilingContext->GetNodeName(), "ExpSegsumGrad SetScheduleMode failed"),
+                    REPORT_PREDEFINED_ERR_MSG(
+                        "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                        (std::vector<const char*>{tilingContext->GetNodeName(),
+                                                  "SetScheduleMode failed; check the tiling schedule mode and "
+                                                  "framework support."})),
                     return ge::GRAPH_FAILED);
     }
 
@@ -212,7 +225,12 @@ static ge::graphStatus Tiling4ExpSegsumGrad(gert::TilingContext* context)
 static ge::graphStatus TilingPrepare4ExpSegsumGrad(gert::TilingParseContext* context)
 {
     auto compileInfo = context->GetCompiledInfo<ExpSegsumGradCompileInfo>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, compileInfo);
+    OP_CHECK_IF(compileInfo == nullptr,
+                REPORT_PREDEFINED_ERR_MSG(
+                    "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                    (std::vector<const char*>{context->GetNodeName(), "compileInfo is unavailable; check TilingParse "
+                                                                      "registration."})),
+                return ge::GRAPH_FAILED);
     auto platformInfo = context->GetPlatformInfo();
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
     uint64_t ubSize;
@@ -220,14 +238,23 @@ static ge::graphStatus TilingPrepare4ExpSegsumGrad(gert::TilingParseContext* con
     compileInfo->coreNum = ascendcPlatform.GetCoreNumAiv();
     compileInfo->ubSize = ubSize;
 
-    OP_CHECK_IF(compileInfo->coreNum <= 0,
-                OP_LOGE(context->GetNodeName(), "ExpSegsumGrad GetHardwareInfo Failed, vectorCoreNum: %u",
-                        compileInfo->coreNum),
-                return ge::GRAPH_FAILED);
     OP_CHECK_IF(
-        compileInfo->ubSize <= 0,
-        OP_LOGE(context->GetNodeName(), "ExpSegsumGrad GetHardwareInfo Failed, ubSize: %lu", compileInfo->ubSize),
+        compileInfo->coreNum <= 0,
+        REPORT_PREDEFINED_ERR_MSG(
+            "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+            (std::vector<const char*>{context->GetNodeName(),
+                                      (std::string("Failed to get vectorCoreNum; actual=") +
+                                       std::to_string(compileInfo->coreNum) + "; check platform resource metadata.")
+                                          .c_str()})),
         return ge::GRAPH_FAILED);
+    OP_CHECK_IF(compileInfo->ubSize <= 0,
+                REPORT_PREDEFINED_ERR_MSG(
+                    "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                    (std::vector<const char*>{context->GetNodeName(), (std::string("Failed to get ubSize; actual=") +
+                                                                       std::to_string(compileInfo->ubSize) +
+                                                                       "; check platform resource metadata.")
+                                                                          .c_str()})),
+                return ge::GRAPH_FAILED);
     return ge::GRAPH_SUCCESS;
 }
 

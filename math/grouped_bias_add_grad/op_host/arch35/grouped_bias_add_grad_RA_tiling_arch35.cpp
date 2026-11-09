@@ -37,9 +37,8 @@ int64_t GroupedBiasAddGradTilingArch35::AlignDown(int64_t value, int64_t alignme
 ge::graphStatus GroupedBiasAddGradTilingArch35::GetPlatformInfo()
 {
     // 在初始化实现，打印
-    OP_LOGD(
-        context_, "Platform info: coreNum=%u, ubSize=%lu, cacheLineSize=%ld, blockSize=%ld", coreNum_, ubSize_,
-        cacheLineSize_, blockSize_);
+    OP_LOGD(context_, "Platform info: coreNum=%u, ubSize=%lu, cacheLineSize=%ld, blockSize=%ld", coreNum_, ubSize_,
+            cacheLineSize_, blockSize_);
     return ge::GRAPH_SUCCESS;
 }
 
@@ -47,7 +46,8 @@ ge::graphStatus GroupedBiasAddGradTilingArch35::GetInputOutputInfo()
 {
     // Get grad_y input info
     auto gradYInputDesc = context_->GetInputDesc(GRAD_Y_INPUT_IDX);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, gradYInputDesc);
+    OP_CHECK_IF(gradYInputDesc == nullptr, OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "grad_y"),
+                return ge::GRAPH_FAILED);
     gradYDtype_ = gradYInputDesc->GetDataType();
     if (gradYDtype_ != ge::DT_FLOAT && gradYDtype_ != ge::DT_FLOAT16 && gradYDtype_ != ge::DT_BF16) {
         std::string dtypeMsg = ge::TypeUtils::DataTypeToSerialString(gradYDtype_);
@@ -57,7 +57,8 @@ ge::graphStatus GroupedBiasAddGradTilingArch35::GetInputOutputInfo()
     }
 
     auto gradYInputShapePtr = context_->GetInputShape(GRAD_Y_INPUT_IDX);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, gradYInputShapePtr);
+    OP_CHECK_IF(gradYInputShapePtr == nullptr, OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "grad_y"),
+                return ge::GRAPH_FAILED);
     auto gradYInputShape = gradYInputShapePtr->GetStorageShape();
     gradYDimNum_ = gradYInputShape.GetDimNum();
 
@@ -77,19 +78,20 @@ ge::graphStatus GroupedBiasAddGradTilingArch35::GetInputOutputInfo()
     if (dimG_ > INPUT_MAX_GROUP) {
         std::string valueMsg = std::to_string(dimG_);
         std::string reasonMsg = "group size should be less than or equal to " + std::to_string(INPUT_MAX_GROUP);
-        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
-            context_->GetNodeName(), "group size", valueMsg.c_str(), reasonMsg.c_str());
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context_->GetNodeName(), "group size", valueMsg.c_str(),
+                                              reasonMsg.c_str());
         return ge::GRAPH_FAILED;
     }
 
     auto groupIdxInputDesc = context_->GetInputDesc(GROUP_IDX_INPUT_IDX);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, groupIdxInputDesc);
+    OP_CHECK_IF(groupIdxInputDesc == nullptr, OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "group_idx"),
+                return ge::GRAPH_FAILED);
     groupIdxDtype_ = groupIdxInputDesc->GetDataType();
     if (groupIdxDtype_ != ge::DT_INT32 && groupIdxDtype_ != ge::DT_INT64) {
         std::string dtypeMsg = ge::TypeUtils::DataTypeToSerialString(groupIdxDtype_);
         std::string reasonMsg = "the dtype of input group_idx should be INT32 or INT64";
-        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(
-            context_->GetNodeName(), "group_idx", dtypeMsg.c_str(), reasonMsg.c_str());
+        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context_->GetNodeName(), "group_idx", dtypeMsg.c_str(),
+                                              reasonMsg.c_str());
         return ge::GRAPH_FAILED;
     }
 
@@ -100,10 +102,21 @@ ge::graphStatus GroupedBiasAddGradTilingArch35::GetInputOutputInfo()
 ge::graphStatus GroupedBiasAddGradTilingArch35::GetAttrInfo()
 {
     auto* attrs = context_->GetAttrs();
-    OP_CHECK_NULL_WITH_CONTEXT(context_, attrs);
+    OP_CHECK_IF(attrs == nullptr,
+                REPORT_PREDEFINED_ERR_MSG("EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                                          (std::vector<const char*>{context_->GetNodeName(),
+                                                                    "GetAttrs returned null; check the TilingContext "
+                                                                    "attribute container."})),
+                return ge::GRAPH_FAILED);
 
     auto* attrGroupIdxType = attrs->GetAttrPointer<int64_t>(ATTR_GROUP_IDX_TYPE_IDX);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, attrGroupIdxType);
+    OP_CHECK_IF(attrGroupIdxType == nullptr,
+                REPORT_PREDEFINED_ERR_MSG(
+                    "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                    (std::vector<const char*>{context_->GetNodeName(),
+                                              "Registered attribute group_idx_type is unavailable; check context "
+                                              "construction and default-attribute materialization."})),
+                return ge::GRAPH_FAILED);
 
     groupIdxType_ = static_cast<int32_t>(*attrGroupIdxType);
     if (groupIdxType_ != 0 && groupIdxType_ != 1) {
@@ -121,7 +134,13 @@ ge::graphStatus GroupedBiasAddGradTilingArch35::CheckInputOutput()
 {
     // Check output shape
     auto gradBiasOutputShapePtr = context_->GetOutputShape(GRAD_BIAS_OUTPUT_IDX);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, gradBiasOutputShapePtr);
+    OP_CHECK_IF(gradBiasOutputShapePtr == nullptr,
+                REPORT_PREDEFINED_ERR_MSG(
+                    "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                    (std::vector<const char*>{context_->GetNodeName(),
+                                              "Output shape grad_bias is unavailable; check InferShape registration "
+                                              "and output shape materialization."})),
+                return ge::GRAPH_FAILED);
     auto gradBiasOutputShape = gradBiasOutputShapePtr->GetStorageShape();
     if (gradBiasOutputShape.GetDimNum() != RA_DIM_NUM) {
         std::string dimMsg = std::to_string(gradBiasOutputShape.GetDimNum());
@@ -186,9 +205,9 @@ ge::graphStatus GroupedBiasAddGradTilingArch35::DetermineMode()
     return ge::GRAPH_SUCCESS;
 }
 
-void GroupedBiasAddGradTilingArch35::OptimizeCoreSplit(
-    int64_t totalBlocks, int64_t coreNum, int64_t& blockFactor, int64_t& blockTailFactor, int64_t& normalCoreNum,
-    int64_t& tailStartIndex) const
+void GroupedBiasAddGradTilingArch35::OptimizeCoreSplit(int64_t totalBlocks, int64_t coreNum, int64_t& blockFactor,
+                                                       int64_t& blockTailFactor, int64_t& normalCoreNum,
+                                                       int64_t& tailStartIndex) const
 {
     // 优先选择尾核相等的分核方案
     // 例如：优先选择 3322 而非 3331
@@ -215,11 +234,10 @@ void GroupedBiasAddGradTilingArch35::OptimizeCoreSplit(
         tailStartIndex = remainder;
     }
 
-    OP_LOGD(
-        context_,
-        "OptimizeCoreSplit: totalBlocks=%ld, coreNum=%ld, blockFactor=%ld, "
-        "blockTailFactor=%ld, normalCoreNum=%ld, tailStartIndex=%ld",
-        totalBlocks, coreNum, blockFactor, blockTailFactor, normalCoreNum, tailStartIndex);
+    OP_LOGD(context_,
+            "OptimizeCoreSplit: totalBlocks=%ld, coreNum=%ld, blockFactor=%ld, "
+            "blockTailFactor=%ld, normalCoreNum=%ld, tailStartIndex=%ld",
+            totalBlocks, coreNum, blockFactor, blockTailFactor, normalCoreNum, tailStartIndex);
 }
 
 ge::graphStatus GroupedBiasAddGradTilingArch35::DoCutHTiling()
@@ -338,12 +356,11 @@ ge::graphStatus GroupedBiasAddGradTilingArch35::DoOpTiling()
             usedCoreNum_ = 1;
             return ge::GRAPH_SUCCESS;
         }
-        default:
-        {
+        default: {
             std::string modeMsg = std::to_string(static_cast<uint32_t>(tilingMode_));
             std::string reasonMsg = "Unknown tiling mode, valid modes are CUT_H_MODE, CUT_G_MODE or EMPTY_TENSOR";
-            OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context_->GetNodeName(), "tilingMode",
-                modeMsg.c_str(), reasonMsg.c_str());
+            OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context_->GetNodeName(), "tilingMode", modeMsg.c_str(),
+                                                  reasonMsg.c_str());
             return ge::GRAPH_FAILED;
         }
     }
@@ -352,7 +369,8 @@ ge::graphStatus GroupedBiasAddGradTilingArch35::DoOpTiling()
 ge::graphStatus GroupedBiasAddGradTilingArch35::GetWorkspaceSize()
 {
     auto workSpaces = context_->GetWorkspaceSizes(1);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, workSpaces);
+    OP_CHECK_IF(workSpaces == nullptr, OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "workspace"),
+                return ge::GRAPH_FAILED);
 
     workspaceSize_ = EMPTY_WORKSPACE_SIZE;
     workSpaces[0] = workspaceSize_;
@@ -367,7 +385,13 @@ ge::graphStatus GroupedBiasAddGradTilingArch35::PostTiling()
     // 根据不同模式保存不同的tiling数据
     if (tilingMode_ == GroupedBiasAddGradTilingModeArch35::CUT_H_MODE) {
         auto* tilingData = context_->GetTilingData<GroupedBiasAddGradCutHTilingData>();
-        OP_CHECK_NULL_WITH_CONTEXT(context_, tilingData);
+        OP_CHECK_IF(tilingData == nullptr,
+                    REPORT_PREDEFINED_ERR_MSG(
+                        "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                        (std::vector<const char*>{context_->GetNodeName(),
+                                                  "Tiling data buffer is unavailable; check tiling data registration "
+                                                  "and workspace capacity."})),
+                    return ge::GRAPH_FAILED);
         tilingData->blockFactor = cutHTilingData_.blockFactor;
         tilingData->blockTailFactor = cutHTilingData_.blockTailFactor;
         tilingData->groupIdxDim = cutHTilingData_.groupIdxDim;
@@ -382,7 +406,13 @@ ge::graphStatus GroupedBiasAddGradTilingArch35::PostTiling()
         tilingData->useTempBuf = cutHTilingData_.useTempBuf;
     } else if (tilingMode_ == GroupedBiasAddGradTilingModeArch35::CUT_G_MODE) {
         auto* tilingData = context_->GetTilingData<GroupedBiasAddGradCutGTilingData>();
-        OP_CHECK_NULL_WITH_CONTEXT(context_, tilingData);
+        OP_CHECK_IF(tilingData == nullptr,
+                    REPORT_PREDEFINED_ERR_MSG(
+                        "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                        (std::vector<const char*>{context_->GetNodeName(),
+                                                  "Tiling data buffer is unavailable; check tiling data registration "
+                                                  "and workspace capacity."})),
+                    return ge::GRAPH_FAILED);
         tilingData->cutGDim = cutGTilingData_.cutGDim;
         tilingData->cutHDim = cutGTilingData_.cutHDim;
         tilingData->blockFactor = cutGTilingData_.blockFactor;
@@ -399,6 +429,13 @@ ge::graphStatus GroupedBiasAddGradTilingArch35::PostTiling()
         tilingData->useTempBuf = cutGTilingData_.useTempBuf;
     } else if (tilingMode_ == GroupedBiasAddGradTilingModeArch35::EMPTY_TENSOR) {
         auto* tilingData = context_->GetTilingData<GroupedBiasAddGradEmptyTensorTilingData>();
+        OP_CHECK_IF(tilingData == nullptr,
+                    REPORT_PREDEFINED_ERR_MSG(
+                        "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                        (std::vector<const char*>{context_->GetNodeName(),
+                                                  "Tiling data buffer is unavailable; check tiling data registration "
+                                                  "and workspace capacity."})),
+                    return ge::GRAPH_FAILED);
         tilingData->blockDim = 1;
     }
     // REDUCE_SUM_3D mode: placeholder, no tiling data to save yet

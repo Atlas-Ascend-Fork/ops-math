@@ -9,6 +9,7 @@
  */
 
 #include "cdist_grad.h"
+#include "base/err_msg.h"
 #include "opdev/aicpu/aicpu_task.h"
 #include "opdev/data_type_utils.h"
 #include "opdev/format_utils.h"
@@ -54,7 +55,10 @@ static inline const aclTensor* CdistGradAiCore(const aclTensor* grad, const aclT
     // 使用框架宏ADD_TO_LAUNCHER_LIST_AICORE，将AiCore CdistGrad算子加入任务队列
     auto ret = ADD_TO_LAUNCHER_LIST_AICORE(CdistGrad, OP_INPUT(grad, x1, x2, cdist), OP_OUTPUT(out), OP_ATTR(p));
     OP_CHECK(ret == ACL_SUCCESS,
-             OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "CdistGradAiCore ADD_TO_LAUNCHER_LIST_AICORE failed."), return nullptr);
+             OP_LOGE_WITHOUT_REPORT(ACLNN_ERR_INNER_NULLPTR,
+                                    "CdistGradAiCore ADD_TO_LAUNCHER_LIST_AICORE failed; propagate the executor "
+                                    "launch failure."),
+             return nullptr);
     return out;
 }
 
@@ -84,7 +88,12 @@ const aclTensor* CdistGrad(const aclTensor* grad, const aclTensor* x1, const acl
         outputShape.AppendDim(grad->GetViewShape().GetDim(dimnum - 1));
         yOut = executor->AllocTensor(outputShape, grad->GetDataType());
         if (yOut == nullptr) {
-            OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "alloc out tensor failed.");
+            OP_LOGE_WITHOUT_REPORT(ACLNN_ERR_INNER_NULLPTR,
+                                   "alloc out tensor failed; propagate the executor allocation failure.");
+            REPORT_PREDEFINED_ERR_MSG(
+                "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                (std::vector<const char*>{"CdistGrad",
+                                          "output tensor allocation failed; check device memory and executor state."}));
             return nullptr;
         }
     }

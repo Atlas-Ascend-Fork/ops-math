@@ -117,11 +117,21 @@ static ge::graphStatus GetPlatformLimits(gert::TilingContext* context,
                                          int64_t& ubSize)
 {
     coreNum = static_cast<int64_t>(ascendcPlatform.GetCoreNumAiv());
-    OP_CHECK_IF(coreNum == 0, OP_LOGE(context->GetNodeName(), "coreNum is 0"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(coreNum == 0,
+                REPORT_PREDEFINED_ERR_MSG(
+                    "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                    (std::vector<const char*>{context->GetNodeName(),
+                                              "Failed to get coreNum; actual=0; check platform resource metadata."})),
+                return ge::GRAPH_FAILED);
     uint64_t ubSizeU64 = 0;
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSizeU64);
     ubSize = static_cast<int64_t>(ubSizeU64);
-    OP_CHECK_IF(ubSize == 0, OP_LOGE(context->GetNodeName(), "ubSize is 0"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(ubSize == 0,
+                REPORT_PREDEFINED_ERR_MSG(
+                    "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                    (std::vector<const char*>{context->GetNodeName(),
+                                              "Failed to get ubSize; actual=0; check platform resource metadata."})),
+                return ge::GRAPH_FAILED);
     return ge::GRAPH_SUCCESS;
 }
 
@@ -341,7 +351,11 @@ static ge::graphStatus FillTilingData(gert::TilingContext* context, const CdistG
         return ge::GRAPH_FAILED;
     }
     OP_CHECK_IF(memset_s(tiling, sizeof(CdistGradTilingData), 0, sizeof(CdistGradTilingData)) != EOK,
-                OP_LOGE(context->GetNodeName(), "memset_s tiling failed"), return ge::GRAPH_FAILED);
+                REPORT_PREDEFINED_ERR_MSG(
+                    "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                    (std::vector<const char*>{context->GetNodeName(),
+                                              "memset_s tiling failed; check tiling data buffer validity and size."})),
+                return ge::GRAPH_FAILED);
 
     tiling->batchSize = shape.batchSize;
     tiling->pSize = shape.pSize;

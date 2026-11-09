@@ -20,21 +20,25 @@ See LICENSE in the root of the software repository for the full text of the Lice
 
 namespace optiling {
 using namespace Ops::Base;
-static ge::graphStatus TilingGetCompileInfo(
-    gert::TilingContext* context, GroupedBiasAddGradCompileInfoArch35* compileInfo)
+static ge::graphStatus TilingGetCompileInfo(gert::TilingContext* context,
+                                            GroupedBiasAddGradCompileInfoArch35* compileInfo)
 {
     OP_LOGD(context, "Enter TilingGetCompileInfo.");
 
     auto platformInfo = context->GetPlatformInfo();
-    OP_CHECK_NULL_WITH_CONTEXT(context, platformInfo);
+    OP_CHECK_IF(platformInfo == nullptr,
+                REPORT_PREDEFINED_ERR_MSG(
+                    "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                    (std::vector<const char*>{context->GetNodeName(), "platformInfo is unavailable; check platform "
+                                                                      "metadata configuration."})),
+                return ge::GRAPH_FAILED);
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
 
     compileInfo->coreNum = ascendcPlatform.GetCoreNumAiv();
     if (compileInfo->coreNum <= 0) {
         std::string valueMsg = std::to_string(compileInfo->coreNum);
         std::string reasonMsg = "Failed to get core number";
-        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "coreNum",
-            valueMsg.c_str(), reasonMsg.c_str());
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "coreNum", valueMsg.c_str(), reasonMsg.c_str());
         return ge::GRAPH_FAILED;
     }
 
@@ -44,8 +48,7 @@ static ge::graphStatus TilingGetCompileInfo(
     if (compileInfo->ubSize <= 0L) {
         std::string valueMsg = std::to_string(compileInfo->ubSize);
         std::string reasonMsg = "Failed to get UB size";
-        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "ubSize",
-            valueMsg.c_str(), reasonMsg.c_str());
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "ubSize", valueMsg.c_str(), reasonMsg.c_str());
         return ge::GRAPH_FAILED;
     }
 
@@ -53,8 +56,7 @@ static ge::graphStatus TilingGetCompileInfo(
     if (compileInfo->clSize <= 0U) {
         std::string valueMsg = std::to_string(compileInfo->clSize);
         std::string reasonMsg = "Failed to get cache line size";
-        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "clSize",
-            valueMsg.c_str(), reasonMsg.c_str());
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "clSize", valueMsg.c_str(), reasonMsg.c_str());
         return ge::GRAPH_FAILED;
     }
 
@@ -62,8 +64,7 @@ static ge::graphStatus TilingGetCompileInfo(
     if (compileInfo->blockSize <= 0) {
         std::string valueMsg = std::to_string(compileInfo->blockSize);
         std::string reasonMsg = "Failed to get block size";
-        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "blockSize",
-            valueMsg.c_str(), reasonMsg.c_str());
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "blockSize", valueMsg.c_str(), reasonMsg.c_str());
         return ge::GRAPH_FAILED;
     }
 
@@ -71,8 +72,7 @@ static ge::graphStatus TilingGetCompileInfo(
     if (compileInfo->vRegSize <= 0U) {
         std::string valueMsg = std::to_string(compileInfo->vRegSize);
         std::string reasonMsg = "Failed to get vReg size";
-        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "vRegSize",
-            valueMsg.c_str(), reasonMsg.c_str());
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "vRegSize", valueMsg.c_str(), reasonMsg.c_str());
         return ge::GRAPH_FAILED;
     }
 
@@ -97,18 +97,27 @@ ge::graphStatus TilingPrepare4GroupedBiasAddGradArch35(gert::TilingParseContext*
 {
     OP_LOGI(context->GetNodeName(), "Start tiling prepare for GroupedBiasAddGrad Arch35.");
     auto compileInfo = context->GetCompiledInfo<GroupedBiasAddGradCompileInfoArch35>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, compileInfo);
+    OP_CHECK_IF(compileInfo == nullptr,
+                REPORT_PREDEFINED_ERR_MSG(
+                    "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                    (std::vector<const char*>{context->GetNodeName(), "compileInfo is unavailable; check TilingParse "
+                                                                      "registration."})),
+                return ge::GRAPH_FAILED);
 
     auto platformInfo = context->GetPlatformInfo();
-    OP_CHECK_NULL_WITH_CONTEXT(context, platformInfo);
+    OP_CHECK_IF(platformInfo == nullptr,
+                REPORT_PREDEFINED_ERR_MSG(
+                    "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                    (std::vector<const char*>{context->GetNodeName(), "platformInfo is unavailable; check platform "
+                                                                      "metadata configuration."})),
+                return ge::GRAPH_FAILED);
 
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
     compileInfo->coreNum = ascendcPlatform.GetCoreNumAiv();
     if (compileInfo->coreNum == 0) {
         std::string valueMsg = "0";
         std::string reasonMsg = "Failed to get core number";
-        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "coreNum",
-            valueMsg.c_str(), reasonMsg.c_str());
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "coreNum", valueMsg.c_str(), reasonMsg.c_str());
         return ge::GRAPH_FAILED;
     }
 
@@ -117,8 +126,7 @@ ge::graphStatus TilingPrepare4GroupedBiasAddGradArch35(gert::TilingParseContext*
     if (ubSize == 0) {
         std::string valueMsg = "0";
         std::string reasonMsg = "Failed to get UB size";
-        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "ubSize",
-            valueMsg.c_str(), reasonMsg.c_str());
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "ubSize", valueMsg.c_str(), reasonMsg.c_str());
         return ge::GRAPH_FAILED;
     }
     compileInfo->ubSize = ubSize;

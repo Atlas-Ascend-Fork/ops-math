@@ -32,7 +32,10 @@ const aclTensor* IsFiniteAiCore(const aclTensor* self, aclTensor* out, aclOpExec
 
     auto ret = ADD_TO_LAUNCHER_LIST_AICORE(IsFinite, OP_INPUT(self), OP_OUTPUT(out));
     OP_CHECK(ret == ACLNN_SUCCESS,
-             OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "IsFiniteAiCore ADD_TO_LAUNCHER_LIST_AICORE failed."), return nullptr);
+             OP_LOGE_WITHOUT_REPORT(ACLNN_ERR_INNER_NULLPTR,
+                                    "IsFiniteAiCore ADD_TO_LAUNCHER_LIST_AICORE failed; propagate the executor "
+                                    "launch failure."),
+             return nullptr);
     return out;
 }
 
@@ -43,7 +46,10 @@ const aclTensor* IsFiniteAiCpu(const aclTensor* self, aclTensor* out, aclOpExecu
     static internal::AicpuTaskSpace space("IsFinite", ge::DEPEND_IN_SHAPE, true);
     auto ret = ADD_TO_LAUNCHER_LIST_AICPU(IsFinite, OP_ATTR_NAMES({"T"}), OP_INPUT(self), OP_OUTPUT(out),
                                           OP_ATTR(self->GetDataType()));
-    OP_CHECK(ret == ACLNN_SUCCESS, OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "IsFiniteAiCpu ADD_TO_LAUNCHER_LIST_AICPU failed."),
+    OP_CHECK(ret == ACLNN_SUCCESS,
+             OP_LOGE_WITHOUT_REPORT(ACLNN_ERR_INNER_NULLPTR,
+                                    "IsFiniteAiCpu ADD_TO_LAUNCHER_LIST_AICPU failed; propagate the executor launch "
+                                    "failure."),
              return nullptr);
     return out;
 }

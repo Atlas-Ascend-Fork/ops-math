@@ -164,9 +164,8 @@ aclnnStatus aclnnExpSegsumBackwardGetWorkspaceSize(const aclTensor* gradOutput, 
     OP_CHECK_COMM_INPUT(workspaceSize, executor);
 
     L2_DFX_PHASE_1(aclnnExpSegsumBackward, DFX_IN(gradOutput, gradSelf), DFX_OUT(gradInput));
-
+    // 固定写法，创建OpExecutor
     auto uniqueExecutor = CREATE_EXECUTOR();
-    CHECK_RET(uniqueExecutor.get() != nullptr, ACLNN_ERR_INNER_CREATE_EXECUTOR);
 
     auto ret = CheckParams(gradOutput, gradSelf, gradInput);
     CHECK_RET(ret == ACLNN_SUCCESS, ret);

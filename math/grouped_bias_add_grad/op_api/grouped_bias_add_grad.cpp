@@ -9,6 +9,7 @@
  */
 
 #include "grouped_bias_add_grad.h"
+#include "base/err_msg.h"
 #include "opdev/make_op_executor.h"
 #include "opdev/aicpu/aicpu_task.h"
 #include "opdev/op_def.h"
@@ -26,8 +27,8 @@ static constexpr int64_t GRAD_Y_SHAPE_NO_GROUP_IDX = 3;
 
 OP_TYPE_REGISTER(GroupedBiasAddGrad);
 
-const aclTensor* GroupedBiasAddGrad(
-    const aclTensor* gradY, const aclTensor* groupIdxOptional, int64_t groupIdxType, aclOpExecutor* executor)
+const aclTensor* GroupedBiasAddGrad(const aclTensor* gradY, const aclTensor* groupIdxOptional, int64_t groupIdxType,
+                                    aclOpExecutor* executor)
 {
     L0_DFX(GroupedBiasAddGrad, gradY, groupIdxOptional, groupIdxType);
 
@@ -43,12 +44,17 @@ const aclTensor* GroupedBiasAddGrad(
     // 根据输入shape申请输出tensor
     auto gradBias = executor->AllocTensor(outShape, gradY->GetDataType(), op::Format::FORMAT_ND);
     if (gradBias == nullptr) {
-        OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "alloc gradBias tensor failed.");
+        OP_LOGE_WITHOUT_REPORT(ACLNN_ERR_INNER_NULLPTR,
+                               "alloc gradBias tensor failed; propagate the executor allocation failure.");
+        REPORT_PREDEFINED_ERR_MSG(
+            "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+            (std::vector<const char*>{"GroupedBiasAddGrad",
+                                      "output tensor allocation failed; check device memory and executor state."}));
         return nullptr;
     }
 
-    ADD_TO_LAUNCHER_LIST_AICORE(
-        GroupedBiasAddGrad, OP_INPUT(gradY, groupIdxOptional), OP_OUTPUT(gradBias), OP_ATTR(groupIdxType));
+    ADD_TO_LAUNCHER_LIST_AICORE(GroupedBiasAddGrad, OP_INPUT(gradY, groupIdxOptional), OP_OUTPUT(gradBias),
+                                OP_ATTR(groupIdxType));
 
     return gradBias;
 }

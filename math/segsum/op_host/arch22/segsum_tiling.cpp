@@ -182,7 +182,12 @@ static ge::graphStatus Tiling4Segsum(gert::TilingContext* context)
 static ge::graphStatus TilingPrepare4Segsum(gert::TilingParseContext* context)
 {
     auto compileInfo = context->GetCompiledInfo<SegsumCompileInfo>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, compileInfo);
+    OP_CHECK_IF(compileInfo == nullptr,
+                REPORT_PREDEFINED_ERR_MSG(
+                    "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                    (std::vector<const char*>{context->GetNodeName(), "compileInfo is unavailable; check TilingParse "
+                                                                      "registration."})),
+                return ge::GRAPH_FAILED);
     auto platformInfo = context->GetPlatformInfo();
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
     uint64_t ubSize;
@@ -192,10 +197,20 @@ static ge::graphStatus TilingPrepare4Segsum(gert::TilingParseContext* context)
 
     OP_CHECK_IF(
         compileInfo->coreNum <= 0,
-        OP_LOGE(context->GetNodeName(), "Segsum GetHardwareInfo Failed, vectorCoreNum: %u", compileInfo->coreNum),
+        REPORT_PREDEFINED_ERR_MSG(
+            "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+            (std::vector<const char*>{context->GetNodeName(),
+                                      (std::string("Failed to get vectorCoreNum; actual=") +
+                                       std::to_string(compileInfo->coreNum) + "; check platform resource metadata.")
+                                          .c_str()})),
         return ge::GRAPH_FAILED);
     OP_CHECK_IF(compileInfo->ubSize <= 0,
-                OP_LOGE(context->GetNodeName(), "Segsum GetHardwareInfo Failed, ubSize: %lu", compileInfo->ubSize),
+                REPORT_PREDEFINED_ERR_MSG(
+                    "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                    (std::vector<const char*>{context->GetNodeName(), (std::string("Failed to get ubSize; actual=") +
+                                                                       std::to_string(compileInfo->ubSize) +
+                                                                       "; check platform resource metadata.")
+                                                                          .c_str()})),
                 return ge::GRAPH_FAILED);
     return ge::GRAPH_SUCCESS;
 }

@@ -30,16 +30,31 @@ ge::graphStatus GroupedBiasAddGradTiling::GetPlatformInfo()
 {
     OP_LOGD(nodeName_, "[GroupedBiasAddGrad] GetPlatformInfo start running.");
     auto compileInfo = reinterpret_cast<const GroupedBiasAddGradCompileInfo*>(context_->GetCompileInfo());
-    OP_CHECK_NULL_WITH_CONTEXT(context_, compileInfo);
+    OP_CHECK_IF(compileInfo == nullptr,
+                REPORT_PREDEFINED_ERR_MSG("EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                                          (std::vector<const char*>{nodeName_, "compileInfo is unavailable; check "
+                                                                               "TilingParse registration and platform "
+                                                                               "metadata."})),
+                return ge::GRAPH_FAILED);
 
     baseInfoOp_.vectorCoreNum = compileInfo->coreNum;
     OP_CHECK_IF((baseInfoOp_.vectorCoreNum <= 0),
-                OP_LOGE(nodeName_, "GroupedBiasAddGradTiling get num of vector core is less than or equal to 0."),
+                REPORT_PREDEFINED_ERR_MSG(
+                    "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                    (std::vector<const char*>{
+                        nodeName_, (std::string("vector core number must be greater than zero; actual=") +
+                                    std::to_string(baseInfoOp_.vectorCoreNum) + "; check platform resource metadata.")
+                                       .c_str()})),
                 return ge::GRAPH_FAILED);
 
     baseInfoOp_.ubSize = compileInfo->ubSize;
     OP_CHECK_IF((baseInfoOp_.ubSize <= 0),
-                OP_LOGE(nodeName_, "GroupedBiasAddGradTiling get ub size is less than or equal to 0."),
+                REPORT_PREDEFINED_ERR_MSG(
+                    "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                    (std::vector<const char*>{
+                        nodeName_, (std::string("UB size must be greater than zero; actual=") +
+                                    std::to_string(baseInfoOp_.ubSize) + "; check platform resource metadata.")
+                                       .c_str()})),
                 return ge::GRAPH_FAILED);
 
     baseInfoOp_.ubSize -= RESERVED_UB_SIZE;
@@ -54,15 +69,17 @@ ge::graphStatus GroupedBiasAddGradTiling::GetInputInfo()
     // grad_bias 处理包含shape校验
     OP_LOGD(nodeName_, "[GroupedBiasAddGrad] GetInputInfo start running.");
     auto gradYInputDesc = context_->GetInputDesc(GRAD_Y_INPUT_INDEX);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, gradYInputDesc);
+    OP_CHECK_IF(gradYInputDesc == nullptr, OP_LOGE_WITH_INVALID_INPUT(nodeName_, "grad_y"), return ge::GRAPH_FAILED);
     baseInfoOp_.gradYInputDtype = gradYInputDesc->GetDataType();
     OP_CHECK_IF((baseInfoOp_.gradYInputDtype != ge::DT_FLOAT && baseInfoOp_.gradYInputDtype != ge::DT_FLOAT16 &&
                  baseInfoOp_.gradYInputDtype != ge::DT_BF16),
-                OP_LOGE(nodeName_, "the dtype of input grad_y should be one of FP32/FP16/BF16."),
+                OP_LOGE_FOR_INVALID_DTYPE(nodeName_, "grad_y", Ops::Base::ToString(baseInfoOp_.gradYInputDtype).c_str(),
+                                          "FLOAT32, FLOAT16, BF16"),
                 return ge::GRAPH_FAILED);
 
     auto gradYInputShapePtr = context_->GetInputShape(GRAD_Y_INPUT_INDEX);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, gradYInputShapePtr);
+    OP_CHECK_IF(gradYInputShapePtr == nullptr, OP_LOGE_WITH_INVALID_INPUT(nodeName_, "grad_y"),
+                return ge::GRAPH_FAILED);
     auto gradYInputShape = gradYInputShapePtr->GetStorageShape();
     baseInfoOp_.gradYDimNum = gradYInputShape.GetDimNum();
 
@@ -70,33 +87,42 @@ ge::graphStatus GroupedBiasAddGradTiling::GetInputInfo()
     auto groupIdxInputShapePtr = context_->GetOptionalInputShape(GROUP_IDX_INPUT_INDEX);
     if (groupIdxInputShapePtr == nullptr) {
         OP_CHECK_IF((baseInfoOp_.gradYDimNum != THREE_NUM),
-                    OP_LOGE(nodeName_, "the input grad_y should be 3D tensor when group_idx is null."),
+                    OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(nodeName_, "grad_y",
+                                                             std::to_string(baseInfoOp_.gradYDimNum).c_str(),
+                                                             "grad_y must be 3D when group_idx is null."),
                     return ge::GRAPH_FAILED);
         baseInfoOp_.dimG = gradYInputShape.GetDim(0);
         baseInfoOp_.dimC = gradYInputShape.GetDim(1);
         baseInfoOp_.dimH = gradYInputShape.GetDim(TWO_NUM);
     } else {
+        auto groupIdxDimNum = groupIdxInputShapePtr->GetStorageShape().GetDimNum();
         OP_CHECK_IF(
-            (baseInfoOp_.gradYDimNum != TWO_NUM || groupIdxInputShapePtr->GetStorageShape().GetDimNum() != 1),
-            OP_LOGE(
-                nodeName_,
-                "the input grad_y should be 2D tensor when group_idx is not null. and group_idx must be 1D tensor."),
+            (baseInfoOp_.gradYDimNum != TWO_NUM || groupIdxDimNum != 1),
+            OP_LOGE_FOR_INVALID_SHAPEDIMS_WITH_REASON(
+                nodeName_, "grad_y,group_idx",
+                ("grad_y:" + std::to_string(baseInfoOp_.gradYDimNum) + ",group_idx:" + std::to_string(groupIdxDimNum))
+                    .c_str(),
+                "grad_y must be 2D and group_idx must be 1D when group_idx is not null."),
             return ge::GRAPH_FAILED);
         baseInfoOp_.existGroupIdx = 1;
         baseInfoOp_.dimGB = gradYInputShape.GetDim(0);
         baseInfoOp_.dimG = groupIdxInputShapePtr->GetStorageShape().GetShapeSize();
         baseInfoOp_.dimH = gradYInputShape.GetDim(1);
         auto groupIdxInputDesc = context_->GetInputDesc(GROUP_IDX_INPUT_INDEX);
-        OP_CHECK_NULL_WITH_CONTEXT(context_, groupIdxInputDesc);
-        baseInfoOp_.groupIdxInputDtype = groupIdxInputDesc->GetDataType();
-        OP_CHECK_IF((baseInfoOp_.groupIdxInputDtype != ge::DT_INT32 && baseInfoOp_.groupIdxInputDtype != ge::DT_INT64),
-                    OP_LOGE(nodeName_, "the dtype of input group_idx should be INT32 or INT64."),
+        OP_CHECK_IF(groupIdxInputDesc == nullptr, OP_LOGE_WITH_INVALID_INPUT(nodeName_, "group_idx"),
                     return ge::GRAPH_FAILED);
+        baseInfoOp_.groupIdxInputDtype = groupIdxInputDesc->GetDataType();
+        OP_CHECK_IF(
+            (baseInfoOp_.groupIdxInputDtype != ge::DT_INT32 && baseInfoOp_.groupIdxInputDtype != ge::DT_INT64),
+            OP_LOGE_FOR_INVALID_DTYPE(nodeName_, "group_idx",
+                                      Ops::Base::ToString(baseInfoOp_.groupIdxInputDtype).c_str(), "INT32, INT64"),
+            return ge::GRAPH_FAILED);
     }
 
     if (baseInfoOp_.existGroupIdx == 1 && baseInfoOp_.dimG > INPUT_MAX_GROUP) {
-        OP_LOGE(nodeName_, "input group_idx shape not support more than %ld, but got %ld.", INPUT_MAX_GROUP,
-                baseInfoOp_.dimG);
+        OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(
+            nodeName_, "group_idx", std::to_string(baseInfoOp_.dimG).c_str(),
+            ("group_idx shape size must be less than or equal to " + std::to_string(INPUT_MAX_GROUP) + ".").c_str());
         return ge::GRAPH_FAILED;
     }
 
@@ -107,16 +133,26 @@ ge::graphStatus GroupedBiasAddGradTiling::GetAttrInfo()
 {
     OP_LOGD(nodeName_, "[GroupedBiasAddGrad] GetAttrInfo start running.");
     auto* attrs = context_->GetAttrs();
-    OP_CHECK_NULL_WITH_CONTEXT(context_, attrs);
+    OP_CHECK_IF(attrs == nullptr,
+                REPORT_PREDEFINED_ERR_MSG("EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                                          (std::vector<const char*>{nodeName_, "GetAttrs returned null; check the "
+                                                                               "TilingContext attribute container."})),
+                return ge::GRAPH_FAILED);
 
     auto* attrGroupIdxType = attrs->GetAttrPointer<int64_t>(ATTR_GROUP_IDX_TYPE_INDEX);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, attrGroupIdxType);
+    OP_CHECK_IF(attrGroupIdxType == nullptr,
+                REPORT_PREDEFINED_ERR_MSG(
+                    "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                    (std::vector<const char*>{nodeName_, "Registered attribute group_idx_type is unavailable; check "
+                                                         "context construction and default-attribute "
+                                                         "materialization."})),
+                return ge::GRAPH_FAILED);
 
     baseInfoOp_.groupIdxType = static_cast<int32_t>(*attrGroupIdxType);
-    OP_CHECK_IF(
-        (baseInfoOp_.groupIdxType != 0 && baseInfoOp_.groupIdxType != 1),
-        OP_LOGE(nodeName_, "the value of group_idx_type should be 0 or 1, but got %d", baseInfoOp_.groupIdxType),
-        return ge::GRAPH_FAILED);
+    OP_CHECK_IF((baseInfoOp_.groupIdxType != 0 && baseInfoOp_.groupIdxType != 1),
+                OP_LOGE_FOR_INVALID_VALUE(nodeName_, "group_idx_type", std::to_string(baseInfoOp_.groupIdxType).c_str(),
+                                          "0 or 1"),
+                return ge::GRAPH_FAILED);
 
     return ge::GRAPH_SUCCESS;
 }
@@ -125,16 +161,24 @@ ge::graphStatus GroupedBiasAddGradTiling::CheckOutput()
 {
     // grad_bias
     auto gradBiasOutputShapePtr = context_->GetOutputShape(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, gradBiasOutputShapePtr);
+    OP_CHECK_IF(gradBiasOutputShapePtr == nullptr,
+                REPORT_PREDEFINED_ERR_MSG(
+                    "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                    (std::vector<const char*>{nodeName_, "Output shape grad_bias is unavailable; check InferShape "
+                                                         "registration and output shape materialization."})),
+                return ge::GRAPH_FAILED);
     auto gradBiasOutputShape = gradBiasOutputShapePtr->GetStorageShape();
     OP_CHECK_IF((gradBiasOutputShape.GetDimNum() != TWO_NUM),
-                OP_LOGE(nodeName_, "the dim of grad_bias should be 2, but got %zu.", gradBiasOutputShape.GetDimNum()),
+                OP_LOGE_FOR_INVALID_SHAPEDIM(nodeName_, "grad_bias",
+                                             std::to_string(gradBiasOutputShape.GetDimNum()).c_str(), "2"),
                 return ge::GRAPH_FAILED);
     auto gradBiasdim0 = gradBiasOutputShape.GetDim(0);
     auto gradBiasdim1 = gradBiasOutputShape.GetDim(1);
     OP_CHECK_IF(((gradBiasdim0 != baseInfoOp_.dimG) || (gradBiasdim1 != baseInfoOp_.dimH)),
-                OP_LOGE(nodeName_, "the shape of grad_bias should be [%ld, %ld], but got [%ld, %ld].", baseInfoOp_.dimG,
-                        baseInfoOp_.dimH, gradBiasdim0, gradBiasdim1),
+                OP_LOGE_FOR_INVALID_SHAPE(
+                    nodeName_, "grad_bias",
+                    ("[" + std::to_string(gradBiasdim0) + ", " + std::to_string(gradBiasdim1) + "]").c_str(),
+                    ("[" + std::to_string(baseInfoOp_.dimG) + ", " + std::to_string(baseInfoOp_.dimH) + "]").c_str()),
                 return ge::GRAPH_FAILED);
     return ge::GRAPH_SUCCESS;
 }
@@ -213,7 +257,7 @@ void GroupedBiasAddGradTiling::SaveToTilingData()
 ge::graphStatus GroupedBiasAddGradTiling::PostTiling()
 {
     size_t* workspaces = context_->GetWorkspaceSizes(1);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, workspaces);
+    OP_CHECK_IF(workspaces == nullptr, OP_LOGE_WITH_INVALID_INPUT(nodeName_, "workspace"), return ge::GRAPH_FAILED);
     size_t workspaceSize = WORKSPACE_BASE_CAL;
     workspaces[0] = workspaceSize;
     workspaces[0] += splitCoreOp_.wsUnitNum * H_BASE_SIZE * splitCoreOp_.usedCoreNum;
@@ -330,7 +374,11 @@ ge::graphStatus GroupedBiasAddGradTiling::RunGroupedBiasAddGradTiling()
 
 ge::graphStatus TilingForGroupedBiasAddGrad(gert::TilingContext* context)
 {
-    OP_CHECK_IF(context == nullptr, OP_LOGE("GroupedBiasAddGrad", "context should not be nullptr."),
+    OP_CHECK_IF(context == nullptr,
+                REPORT_PREDEFINED_ERR_MSG(
+                    "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                    (std::vector<const char*>{"GroupedBiasAddGrad", "TilingContext is null; check the tiling "
+                                                                    "framework context construction."})),
                 return ge::GRAPH_FAILED);
 
     GroupedBiasAddGradTiling tiling(context);
@@ -339,21 +387,47 @@ ge::graphStatus TilingForGroupedBiasAddGrad(gert::TilingContext* context)
 
 ge::graphStatus TilingPrepareForGroupedBiasAddGrad(gert::TilingParseContext* context)
 {
-    OP_CHECK_IF(context == nullptr, OP_LOGE("GroupedBiasAddGrad", "context should not be nullptr."),
+    OP_CHECK_IF(context == nullptr,
+                REPORT_PREDEFINED_ERR_MSG(
+                    "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                    (std::vector<const char*>{"GroupedBiasAddGrad", "TilingParseContext is null; check the tiling "
+                                                                    "framework context construction."})),
                 return ge::GRAPH_FAILED);
     auto nodeName = context->GetNodeName();
     OP_LOGD(nodeName, "TilingPrepareForGroupedBiasAddGrad start.");
 
     auto compileInfo = context->GetCompiledInfo<GroupedBiasAddGradCompileInfo>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, compileInfo);
+    OP_CHECK_IF(compileInfo == nullptr,
+                REPORT_PREDEFINED_ERR_MSG("EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                                          (std::vector<const char*>{nodeName, "compileInfo is unavailable; check "
+                                                                              "TilingParse registration."})),
+                return ge::GRAPH_FAILED);
     auto platformInfo = context->GetPlatformInfo();
-    OP_CHECK_NULL_WITH_CONTEXT(context, platformInfo);
+    OP_CHECK_IF(platformInfo == nullptr,
+                REPORT_PREDEFINED_ERR_MSG("EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                                          (std::vector<const char*>{nodeName, "platformInfo is unavailable; check "
+                                                                              "platform metadata configuration."})),
+                return ge::GRAPH_FAILED);
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
     compileInfo->coreNum = ascendcPlatform.GetCoreNumAiv();
-    OP_CHECK_IF((compileInfo->coreNum <= 0), OP_LOGE(nodeName, "Failed to get core number."), return ge::GRAPH_FAILED);
+    OP_CHECK_IF((compileInfo->coreNum <= 0),
+                REPORT_PREDEFINED_ERR_MSG(
+                    "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                    (std::vector<const char*>{
+                        nodeName, (std::string("Failed to get core number; actual=") +
+                                   std::to_string(compileInfo->coreNum) + "; check platform resource metadata.")
+                                      .c_str()})),
+                return ge::GRAPH_FAILED);
 
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, compileInfo->ubSize);
-    OP_CHECK_IF((compileInfo->ubSize <= 0), OP_LOGE(nodeName, "Failed to get ub size."), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        (compileInfo->ubSize <= 0),
+        REPORT_PREDEFINED_ERR_MSG("EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                                  (std::vector<const char*>{nodeName, (std::string("Failed to get ub size; actual=") +
+                                                                       std::to_string(compileInfo->ubSize) +
+                                                                       "; check platform resource metadata.")
+                                                                          .c_str()})),
+        return ge::GRAPH_FAILED);
 
     OP_LOGD(nodeName, "TilingPrepareForGroupedBiasAddGrad end.");
     return ge::GRAPH_SUCCESS;

@@ -51,7 +51,8 @@ uint8_t ExpSegsumGradTilingArch35::GetDataTypeSize() const
 ge::graphStatus ExpSegsumGradTilingArch35::ParseInputAttrs()
 {
     auto srcGradOutShape = tilingContext->GetInputShape(0);
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, srcGradOutShape);
+    OP_CHECK_IF(srcGradOutShape == nullptr, OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "grad_output"),
+                return ge::GRAPH_FAILED);
     int32_t gradOutDim = srcGradOutShape->GetStorageShape().GetDimNum();
     auto gradOutShape = srcGradOutShape->GetOriginShape();
     for (int8_t i = 0; i < gradOutDim - TAILNUM; i++) {
@@ -59,7 +60,8 @@ ge::graphStatus ExpSegsumGradTilingArch35::ParseInputAttrs()
     }
     tailDimLength = gradOutShape.GetDim(gradOutDim - 1);
     auto temp = tilingContext->GetInputDesc(0);
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, temp);
+    OP_CHECK_IF(temp == nullptr, OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "grad_output"),
+                return ge::GRAPH_FAILED);
     dataType = temp->GetDataType();
     return ge::GRAPH_SUCCESS;
 }
@@ -137,12 +139,21 @@ ge::graphStatus ExpSegsumGradTilingArch35::RunTiling()
                 return ge::GRAPH_FAILED);
 
     fe::PlatFormInfos* platformInfoPtr = tilingContext->GetPlatformInfo();
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, platformInfoPtr);
+    OP_CHECK_IF(platformInfoPtr == nullptr,
+                REPORT_PREDEFINED_ERR_MSG("EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                                          (std::vector<const char*>{tilingContext->GetNodeName(),
+                                                                    "platformInfo is unavailable; check platform "
+                                                                    "metadata configuration."})),
+                return ge::GRAPH_FAILED);
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfoPtr);
     uint32_t coreNumPlatform = ascendcPlatform.GetCoreNumAiv();
     OP_CHECK_IF((static_cast<int32_t>(coreNumPlatform) <= 0),
-                OP_LOGE_WITHOUT_REPORT(tilingContext->GetNodeName(), "ExpSegsumGrad arch35 get coreNum failed: %u",
-                                       coreNumPlatform),
+                REPORT_PREDEFINED_ERR_MSG(
+                    "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                    (std::vector<const char*>{tilingContext->GetNodeName(),
+                                              (std::string("Failed to get coreNum; actual=") +
+                                               std::to_string(coreNumPlatform) + "; check platform resource metadata.")
+                                                  .c_str()})),
                 return ge::GRAPH_FAILED);
     // POD batchStart/batchEnd arrays are sized EXP_SEGSUM_GRAD_MAX_CORE_ARCH35; clamp defensively.
     if (coreNumPlatform > EXP_SEGSUM_GRAD_MAX_CORE_ARCH35) {
@@ -151,8 +162,12 @@ ge::graphStatus ExpSegsumGradTilingArch35::RunTiling()
     uint64_t ubSizePlatform = 0;
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSizePlatform);
     OP_CHECK_IF((static_cast<int64_t>(ubSizePlatform) <= 0),
-                OP_LOGE_WITHOUT_REPORT(tilingContext->GetNodeName(), "ExpSegsumGrad arch35 get ubSize failed: %lu",
-                                       ubSizePlatform),
+                REPORT_PREDEFINED_ERR_MSG(
+                    "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                    (std::vector<const char*>{tilingContext->GetNodeName(),
+                                              (std::string("Failed to get ubSize; actual=") +
+                                               std::to_string(ubSizePlatform) + "; check platform resource metadata.")
+                                                  .c_str()})),
                 return ge::GRAPH_FAILED);
 
     if (batches == 0 || tailDimLength == 0) {
@@ -166,7 +181,13 @@ ge::graphStatus ExpSegsumGradTilingArch35::RunTiling()
     }
 
     auto tiling = tilingContext->GetTilingData<ExpSegsumGradTilingDataArch35>();
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, tiling);
+    OP_CHECK_IF(tiling == nullptr,
+                REPORT_PREDEFINED_ERR_MSG(
+                    "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                    (std::vector<const char*>{tilingContext->GetNodeName(),
+                                              "Tiling data buffer is unavailable; check tiling data registration and "
+                                              "workspace capacity."})),
+                return ge::GRAPH_FAILED);
     *tiling = ExpSegsumGradTilingDataArch35{};
     FillTilingData(tiling);
 
@@ -180,7 +201,8 @@ ge::graphStatus ExpSegsumGradTilingArch35::RunTiling()
 
     size_t sysWsSize = ascendcPlatform.GetLibApiWorkSpaceSize();
     size_t* workspaces = tilingContext->GetWorkspaceSizes(1);
-    OP_CHECK_NULL_WITH_CONTEXT(tilingContext, workspaces);
+    OP_CHECK_IF(workspaces == nullptr, OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "workspace"),
+                return ge::GRAPH_FAILED);
     workspaces[0] = WORK_SPACE_SIZE + sysWsSize;
 
     return ge::GRAPH_SUCCESS;

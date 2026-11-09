@@ -134,9 +134,8 @@ aclnnStatus aclnnExpSegsumGetWorkspaceSize(const aclTensor* self, aclTensor* out
     OP_CHECK_COMM_INPUT(workspaceSize, executor);
 
     L2_DFX_PHASE_1(aclnnExpSegsum, DFX_IN(self), DFX_OUT(out));
-
+    // 固定写法，创建OpExecutor
     auto uniqueExecutor = CREATE_EXECUTOR();
-    CHECK_RET(uniqueExecutor.get() != nullptr, ACLNN_ERR_INNER_CREATE_EXECUTOR);
 
     // 入参校验必须先于空张量早退: 顺序颠倒会让空张量绕过全部校验(out 为空指针 / dtype 不一致 /
     // rank 越界 / format 非 ND 一律返回 SUCCESS), 且 self 为空指针时 self->IsEmpty() 先解引用直接崩溃,

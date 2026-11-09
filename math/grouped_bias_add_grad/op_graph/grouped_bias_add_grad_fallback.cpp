@@ -22,27 +22,47 @@ static const size_t GROUP_IDX_INDEX = 1;
 static graphStatus GroupedBiasAddGradHostExecFunc(OpExecuteContext* host_api_ctx)
 {
     OP_LOGD("aclnnFallback", "GroupedBiasAddGrad fallback begin");
-    OP_CHECK_IF(host_api_ctx == nullptr, OP_LOGE("aclnnfallback", "host_api_ctx is null"), return GRAPH_FAILED);
+    OP_CHECK_IF(host_api_ctx == nullptr,
+                REPORT_PREDEFINED_ERR_MSG(
+                    "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                    (std::vector<const char*>{"GroupedBiasAddGrad",
+                                              "graph host execution context is null; check the fallback execution "
+                                              "context construction."})),
+                return GRAPH_FAILED);
 
     auto grad_y = host_api_ctx->GetInputTensor(GRAD_Y_INDEX);
-    OP_CHECK_IF(grad_y == nullptr, OP_LOGE("aclnnfallback", "grad_y is null"), return GRAPH_FAILED);
+    OP_CHECK_IF(grad_y == nullptr, OP_LOGE_WITH_INVALID_INPUT("GroupedBiasAddGrad", "grad_y"), return GRAPH_FAILED);
 
     auto group_idx = host_api_ctx->GetOptionalInputTensor(GROUP_IDX_INDEX);
 
     auto output = host_api_ctx->GetOutputTensor(0);
-    OP_CHECK_IF(output == nullptr, OP_LOGE("aclnnfallback", "output is null"), return GRAPH_FAILED);
+    OP_CHECK_IF(output == nullptr, OP_LOGE_WITH_INVALID_INPUT("GroupedBiasAddGrad", "output"), return GRAPH_FAILED);
 
     const auto attrs = host_api_ctx->GetAttrs();
-    OP_CHECK_IF(attrs == nullptr, OP_LOGE("aclnnfallback", "attrs is null"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(attrs == nullptr,
+                REPORT_PREDEFINED_ERR_MSG(
+                    "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                    (std::vector<const char*>{"GroupedBiasAddGrad", "GetAttrs returned null in graph fallback; check "
+                                                                    "attribute materialization."})),
+                return ge::GRAPH_FAILED);
 
     const int64_t* groupIdxType = attrs->GetAttrPointer<int64_t>(0);
 
-    OP_CHECK_IF(groupIdxType == nullptr, OP_LOGE("aclnnfallback", "groupIdxType is null"), return GRAPH_FAILED);
+    OP_CHECK_IF(groupIdxType == nullptr,
+                REPORT_PREDEFINED_ERR_MSG(
+                    "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                    (std::vector<const char*>{"GroupedBiasAddGrad",
+                                              "Registered attribute group_idx_type is unavailable; check attribute "
+                                              "materialization."})),
+                return GRAPH_FAILED);
 
     auto api_ret = CANN_OPS_OPB_SYN_EXEC_ACLNN(host_api_ctx, aclnnGroupedBiasAddGradV2, grad_y, group_idx,
                                                *groupIdxType, output);
 
-    OP_CHECK_IF(api_ret != GRAPH_SUCCESS, OP_LOGE("aclnnfallback", "api_ret failed:%u", api_ret), return GRAPH_FAILED);
+    OP_CHECK_IF(api_ret != GRAPH_SUCCESS,
+                OP_LOGE_WITHOUT_REPORT("aclnnfallback",
+                                       "api_ret failed:%u; propagate the lower-layer aclnn first error", api_ret),
+                return GRAPH_FAILED);
 
     OP_LOGD("aclnnFallback", "GroupedBiasAddGrad fallback end");
     return GRAPH_SUCCESS;

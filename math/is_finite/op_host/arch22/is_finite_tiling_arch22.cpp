@@ -41,10 +41,16 @@ static ge::graphStatus TilingPrepare4IsFiniteArch22(gert::TilingParseContext* co
     uint64_t ubSizePlatForm;
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSizePlatForm);
     compileInfo->ubSize = static_cast<int64_t>(ubSizePlatForm);
-    OP_CHECK_IF((compileInfo->totalCoreNum <= 0 || compileInfo->ubSize <= 0),
-                OP_LOGE(context, "IsFinite GetHardwareInfo Failed, totalCoreNum:%d, ubSize:%ld.",
-                        compileInfo->totalCoreNum, compileInfo->ubSize),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        (compileInfo->totalCoreNum <= 0 || compileInfo->ubSize <= 0),
+        REPORT_PREDEFINED_ERR_MSG(
+            "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+            (std::vector<const char*>{
+                context->GetNodeName(),
+                (std::string("GetHardwareInfo failed: totalCoreNum=") + std::to_string(compileInfo->totalCoreNum) +
+                 ", ubSize=" + std::to_string(compileInfo->ubSize) + "; check platform resource metadata.")
+                    .c_str()})),
+        return ge::GRAPH_FAILED);
     OP_LOGD(context, "Get totalCoreNum:%d, ubSize:%ld", compileInfo->totalCoreNum, compileInfo->ubSize);
     return ge::GRAPH_SUCCESS;
 }

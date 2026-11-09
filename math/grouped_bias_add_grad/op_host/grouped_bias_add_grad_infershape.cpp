@@ -36,7 +36,8 @@ static ge::graphStatus GroupedBiasAddGradInferShape(gert::InferShapeContext* con
     OP_LOGD(context->GetNodeName(), "Begin to do GroupedBiasAddGradInferShape.");
 
     const gert::Shape* gradYShape = context->GetInputShape(INDEX_GRAD_Y);
-    OP_CHECK_NULL_WITH_CONTEXT(context, gradYShape);
+    OP_CHECK_IF(gradYShape == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "grad_y"),
+                return ge::GRAPH_FAILED);
 
     auto gradYDimNum = gradYShape->GetDimNum();
     auto groupNum = gradYShape->GetDim(0);
@@ -52,30 +53,29 @@ static ge::graphStatus GroupedBiasAddGradInferShape(gert::InferShapeContext* con
 
     const gert::Shape* groupIdxShape = context->GetOptionalInputShape(INDEX_GROUP_IDX);
     if (groupIdxShape == nullptr) {
-        OP_CHECK_IF(
-            gradYDimNum != GRAD_Y_SHAPE_NO_GROUP_IDX,
-            OP_LOGE(
-                context->GetNodeName(), "%s the grad_y of input should be 3D tensor when group_idx is null.",
-                context->GetNodeName()),
-            return ge::GRAPH_FAILED);
+        OP_CHECK_IF(gradYDimNum != GRAD_Y_SHAPE_NO_GROUP_IDX,
+                    OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "grad_y",
+                                                             std::to_string(gradYDimNum).c_str(),
+                                                             "grad_y must be 3D when group_idx is null."),
+                    return ge::GRAPH_FAILED);
         hNum = gradYShape->GetDim(GRAD_Y_SHAPE_NO_GROUP_IDX - 1);
     } else {
+        auto groupIdxDimNum = groupIdxShape->GetDimNum();
         OP_CHECK_IF(
-            gradYDimNum != GRAD_Y_SHAPE_WITH_GROUP_IDX || groupIdxShape->GetDimNum() != GROUP_INDEX_SHAPE,
-            OP_LOGE(
-                context->GetNodeName(),
-                "%s the grad_y of input should be 2D tensor when group_idx is not null. and group_idx must be 1D "
-                "tensor.",
-                context->GetNodeName()),
+            gradYDimNum != GRAD_Y_SHAPE_WITH_GROUP_IDX || groupIdxDimNum != GROUP_INDEX_SHAPE,
+            OP_LOGE_FOR_INVALID_SHAPEDIMS_WITH_REASON(
+                context->GetNodeName(), "grad_y,group_idx",
+                ("grad_y:" + std::to_string(gradYDimNum) + ",group_idx:" + std::to_string(groupIdxDimNum)).c_str(),
+                "grad_y must be 2D and group_idx must be 1D when group_idx is not null."),
             return ge::GRAPH_FAILED);
 
         auto groupIdxShapeSize = groupIdxShape->GetDim(0);
 
         OP_CHECK_IF(
             groupIdxShapeSize != -1 && groupIdxShapeSize > MAX_GROUP_NUM,
-            OP_LOGE(
-                context->GetNodeName(), "%s the shape size of group_idx can not be larger than 2048, but got %ld.",
-                context->GetNodeName(), groupIdxShapeSize),
+            OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(
+                context->GetNodeName(), "group_idx", std::to_string(groupIdxShapeSize).c_str(),
+                ("group_idx shape size must be less than or equal to " + std::to_string(MAX_GROUP_NUM) + ".").c_str()),
             return ge::GRAPH_FAILED);
 
         hNum = gradYShape->GetDim(GRAD_Y_SHAPE_WITH_GROUP_IDX - 1);

@@ -101,11 +101,17 @@ ge::graphStatus IsFiniteRegbaseTiling::SetTilingData(const ElewiseBaseTiling& el
 ge::graphStatus IsFiniteRegbaseTiling::RunTiling()
 {
     ElewiseBaseTiling elewiseBaseTiling(tilingContext);
-    OP_CHECK_IF(CalcInputDtype() == ge::GRAPH_FAILED, OP_LOGE(tilingContext->GetNodeName(), "Get input dtype failed"),
+    OP_CHECK_IF(CalcInputDtype() == ge::GRAPH_FAILED,
+                OP_LOGE_WITHOUT_REPORT(tilingContext->GetNodeName(),
+                                       "Get input dtype failed; propagate the lower-layer first error"),
                 return ge::GRAPH_FAILED);
-    OP_CHECK_IF(CalcOutputDtype() == ge::GRAPH_FAILED, OP_LOGE(tilingContext->GetNodeName(), "Get output dtype failed"),
+    OP_CHECK_IF(CalcOutputDtype() == ge::GRAPH_FAILED,
+                OP_LOGE_WITHOUT_REPORT(tilingContext->GetNodeName(),
+                                       "Get output dtype failed; propagate the lower-layer first error"),
                 return ge::GRAPH_FAILED);
-    OP_CHECK_IF(CheckShape() == ge::GRAPH_FAILED, OP_LOGE(tilingContext->GetNodeName(), "Check shape failed"),
+    OP_CHECK_IF(CheckShape() == ge::GRAPH_FAILED,
+                OP_LOGE_WITHOUT_REPORT(tilingContext->GetNodeName(),
+                                       "Check shape failed; propagate the lower-layer first error"),
                 return ge::GRAPH_FAILED);
 
     auto tiling = tilingContext->GetTilingData<EleBaseTilingData16B>();
@@ -126,8 +132,11 @@ ge::graphStatus IsFiniteRegbaseTiling::RunTiling()
         return ge::GRAPH_FAILED;
     }
     OP_CHECK_IF(baseTilingResult == ge::GRAPH_FAILED,
-                OP_LOGE(tilingContext->GetNodeName(), "ElewiseBaseTiling failed, input dtype: %s.",
-                        ge::TypeUtils::DataTypeToSerialString(this->inputDtype).c_str()),
+                REPORT_PREDEFINED_ERR_MSG(
+                    "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                    (std::vector<const char*>{tilingContext->GetNodeName(),
+                                              "ElewiseBaseTiling failed; check elewise tiling parameters and UB "
+                                              "capacity."})),
                 return ge::GRAPH_FAILED);
 
     return SetTilingData(elewiseBaseTiling);

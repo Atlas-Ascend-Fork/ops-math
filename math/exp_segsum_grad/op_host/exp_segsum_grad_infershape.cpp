@@ -30,9 +30,16 @@ namespace ops {
 static ge::graphStatus InferShape4ExpSegsumGrad(gert::InferShapeContext* context)
 {
     auto gradOutputShape = context->GetInputShape(GRAD_OUTPUT_IDX);
-    OP_CHECK_NULL_WITH_CONTEXT(context, gradOutputShape);
+    OP_CHECK_IF(gradOutputShape == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "grad_output"),
+                return ge::GRAPH_FAILED);
     auto gradInputShape = context->GetOutputShape(GRAD_INPUT_IDX);
-    OP_CHECK_NULL_WITH_CONTEXT(context, gradInputShape);
+    OP_CHECK_IF(gradInputShape == nullptr,
+                REPORT_PREDEFINED_ERR_MSG(
+                    "EZ1014", (std::vector<const char*>{"opName", "reason"}),
+                    (std::vector<const char*>{context->GetNodeName(),
+                                              "Output shape grad_input is unavailable; check InferShape context "
+                                              "construction and operator registration."})),
+                return ge::GRAPH_FAILED);
 
     const int64_t dimNum = static_cast<int64_t>(gradOutputShape->GetDimNum());
     if (dimNum == 1 && gradOutputShape->GetDim(0) == UNKNOWN_RANK_DIM_VALUE) {

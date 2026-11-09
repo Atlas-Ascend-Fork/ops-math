@@ -182,7 +182,6 @@ aclnnStatus ExecGroupedBiasAddGradGetWorkspaceSize(const aclTensor* gradY, const
 
     // 固定写法，创建OpExecutor
     auto uniqueExecutor = CREATE_EXECUTOR();
-    CHECK_RET(uniqueExecutor.get() != nullptr, ACLNN_ERR_INNER_CREATE_EXECUTOR);
 
     // 空Tensor处理
     if (gradY->IsEmpty()) {
