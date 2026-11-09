@@ -27,8 +27,11 @@ $$y_i = \mathrm{ndtri}(x_i) = \Phi^{-1}(x_i) = \sqrt{2} \cdot \mathrm{erf}^{-1}(
 | :---: | :---: |
 | `0` | `-inf` |
 | `1` | `+inf` |
-| $x_i < 0$ or $x_i > 1$ | `NaN` |
+| Positive and negative FP32/BF16 subnormal values | `-inf`; the inputs are treated as zero during computation |
+| $x_i < 0$ (excluding the subnormal values above) or $x_i > 1$ | `NaN` |
 | `NaN` / `+inf` / `-inf` | `NaN` |
+
+FP16 inputs are first promoted to FP32. FP16 subnormal values become normal FP32 values and are processed by the original numerical algorithm.
 
 ## Parameter Description
 
@@ -58,7 +61,7 @@ $$y_i = \mathrm{ndtri}(x_i) = \Phi^{-1}(x_i) = \sqrt{2} \cdot \mathrm{erf}^{-1}(
     <tr>
       <td>y</td>
       <td>Output</td>
-      <td>Computation result of the inverse standard normal CDF, which is y_i in the formula.</td>
+      <td>Computation result of the inverse standard normal CDF, which is y_i in the formula. The output has the same shape and data type as the input. A scalar input produces a scalar output, and an empty tensor produces an empty tensor of the same shape.</td>
       <td>FLOAT, FLOAT16, BFLOAT16</td>
       <td>ND</td>
     </tr>
@@ -66,10 +69,11 @@ $$y_i = \mathrm{ndtri}(x_i) = \Phi^{-1}(x_i) = \sqrt{2} \cdot \mathrm{erf}^{-1}(
 
 ## Constraint Description
 
-None
+- The input x has at most 8 dimensions.
+- At runtime, each dimension of input x must be a non-negative integer, and the total number of elements must not exceed the maximum value of INT64.
 
 ## Invocation Description
 
-| Invocation Method | Invocation Sample                                       | Description                                                              |
+| Invocation Method | Sample Code                                       | Description                                                              |
 |--------------|--------------------------------------------|-----------------------------------------------------------------|
-| Graph-mode invocation | [test_geir_ndtri](./examples/test_geir_ndtri.cpp) | Invokes the Ndtri operator by building a graph through the [operator IR](./op_graph/ndtri_proto.h). |
+| GE graph mode | [test_geir_ndtri](./examples/test_geir_ndtri.cpp) | Invokes the Ndtri operator by building a graph through the [operator IR](./op_graph/ndtri_proto.h). |

@@ -86,7 +86,14 @@ static ge::graphStatus GetTotalNum(gert::TilingContext* context, int64_t& totalN
     OP_CHECK_IF(selfShape.GetDimNum() > 8,
                 OP_LOGE(context, "Ndtri: input dimensions %zu exceeds platform limit 8", selfShape.GetDimNum()),
                 return ge::GRAPH_FAILED);
+    for (size_t i = 0; i < selfShape.GetDimNum(); ++i) {
+        OP_CHECK_IF(selfShape.GetDim(i) < 0,
+                    OP_LOGE(context, "Ndtri: runtime input dimension %zu must be non-negative, got %ld", i,
+                            selfShape.GetDim(i)),
+                    return ge::GRAPH_FAILED);
+    }
     totalNum = selfShape.GetShapeSize();
+    OP_CHECK_IF(totalNum < 0, OP_LOGE(context, "Ndtri: input element count overflows int64"), return ge::GRAPH_FAILED);
     return ge::GRAPH_SUCCESS;
 }
 

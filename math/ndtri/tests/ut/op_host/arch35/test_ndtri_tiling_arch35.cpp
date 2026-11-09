@@ -36,6 +36,7 @@
 
 #include <cstdint>
 #include <iostream>
+#include <limits>
 #include <gtest/gtest.h>
 #include "../../../../op_kernel/arch35/ndtri_tiling_data.h"
 #include "tiling_context_faker.h"
@@ -286,4 +287,38 @@ TEST_F(NdtriTilingTest, test_tiling_empty_tensor_3d_010)
     string expectTilingData = "0 0 0 ";
     std::vector<size_t> expectWorkspaces = {16777216};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
+}
+
+class NdtriInvalidRuntimeShape : public testing::TestWithParam<std::vector<int64_t>> {};
+
+TEST_P(NdtriInvalidRuntimeShape, RejectBeforeTilingArithmetic)
+{
+    optiling::NdtriCompileInfoStub compileInfo;
+    gert::Shape shape;
+    for (const auto dim : GetParam()) {
+        shape.AppendDim(dim);
+    }
+    gert::StorageShape storageShape;
+    storageShape.MutableOriginShape() = shape;
+    storageShape.MutableStorageShape() = shape;
+    const std::vector<gert::TilingContextPara::TensorDescription> inputs = {
+        {storageShape, ge::DT_FLOAT, ge::FORMAT_ND}};
+    gert::TilingContextPara context("Ndtri", inputs, inputs, &compileInfo);
+    ExecuteTestCase(context, ge::GRAPH_FAILED, 0, "", {});
+}
+
+INSTANTIATE_TEST_SUITE_P(RuntimeShapeValidation, NdtriInvalidRuntimeShape,
+                         testing::Values(std::vector<int64_t>{4, -1}, std::vector<int64_t>{-1, -1},
+                                         std::vector<int64_t>{0, -1},
+                                         std::vector<int64_t>{std::numeric_limits<int64_t>::max(), 2},
+                                         std::vector<int64_t>{std::numeric_limits<int64_t>::max() / 2, 3},
+                                         std::vector<int64_t>(9, 1)));
+
+TEST_F(NdtriTilingTest, AcceptEightDimensions)
+{
+    optiling::NdtriCompileInfoStub compileInfo;
+    const gert::StorageShape shape{{1, 1, 1, 1, 1, 1, 1, 1}, {1, 1, 1, 1, 1, 1, 1, 1}};
+    const std::vector<gert::TilingContextPara::TensorDescription> inputs = {{shape, ge::DT_FLOAT, ge::FORMAT_ND}};
+    gert::TilingContextPara context("Ndtri", inputs, inputs, &compileInfo);
+    ExecuteTestCase(context, ge::GRAPH_SUCCESS, 0, "1 1 2560 ", {16777216});
 }

@@ -74,9 +74,7 @@ class Ndtri {
 public:
     __aicore__ inline Ndtri() = default;
 
-    __aicore__ inline void Init(
-        GM_ADDR self, GM_ADDR out,
-        const NdtriTilingData* tilingData);
+    __aicore__ inline void Init(GM_ADDR self, GM_ADDR out, const NdtriTilingData* tilingData);
 
     __aicore__ inline void Process();
 
@@ -85,26 +83,21 @@ private:
     __aicore__ inline void Compute(int64_t currentNum);
     __aicore__ inline void CopyOut(int64_t progress, int64_t currentNum);
 
+    __aicore__ inline void FlushSubnormalInputs(const LocalTensor<float>& p, int32_t len);
+
     // 构造三个 mask：tail / neg / special
-    __aicore__ inline void BuildMasks(
-        const LocalTensor<float>& p,
-        const LocalTensor<uint8_t>& maskTail,
-        const LocalTensor<uint8_t>& maskNeg,
-        const LocalTensor<uint8_t>& maskSpecial,
-        const LocalTensor<float>& scratch,
-        int32_t len);
+    __aicore__ inline void BuildMasks(const LocalTensor<float>& p, const LocalTensor<uint8_t>& maskTail,
+                                      const LocalTensor<uint8_t>& maskNeg, const LocalTensor<uint8_t>& maskSpecial,
+                                      const LocalTensor<float>& scratch, int32_t len);
 
     // 构造 y_special：p==0 -> -inf, p==1 -> +inf, otherwise -> NaN
-    __aicore__ inline void BuildSpecialY(
-        const LocalTensor<float>& ySpecial,
-        const LocalTensor<float>& p,
-        const LocalTensor<float>& scratch,
-        int32_t len);
+    __aicore__ inline void BuildSpecialY(const LocalTensor<float>& ySpecial, const LocalTensor<float>& p,
+                                         const LocalTensor<float>& scratch, int32_t len);
 
 private:
     TPipe pipe;
 
-    TQue<QuePosition::VECIN,  BUFFER_NUM> inQueSelf;
+    TQue<QuePosition::VECIN, BUFFER_NUM> inQueSelf;
     TQue<QuePosition::VECOUT, BUFFER_NUM> outQueY;
 
     // fp32 域：p / y（所有 dtype 统一使用，FP32 路径通过 Cast(CAST_NONE) 等价搬运）
@@ -121,14 +114,14 @@ private:
     TBuf<TPosition::VECCALC> tmpBuf6;
     TBuf<TPosition::VECCALC> tmpBuf7;
     TBuf<TPosition::VECCALC> tmpBuf8;
-    TBuf<TPosition::VECCALC> tmpBuf9;   // CalTail tmp4（避免与 q 别名）
-    TBuf<TPosition::VECCALC> tmpBuf10;  // CalTail tmp5（避免与 x 别名）
+    TBuf<TPosition::VECCALC> tmpBuf9;  // CalTail tmp4（避免与 q 别名）
+    TBuf<TPosition::VECCALC> tmpBuf10; // CalTail tmp5（避免与 x 别名）
 
     // mask buffer（uint8）
     TBuf<TPosition::VECCALC> maskBuf0;
     TBuf<TPosition::VECCALC> maskBuf1;
     TBuf<TPosition::VECCALC> maskBuf2;
-    TBuf<TPosition::VECCALC> maskBuf3;  // scratch mask for cal_p12 / BuildSpecialY
+    TBuf<TPosition::VECCALC> maskBuf3; // scratch mask for cal_p12 / BuildSpecialY
 
     GlobalTensor<T> selfGm;
     GlobalTensor<T> outGm;
@@ -141,14 +134,11 @@ private:
 // Init
 // ---------------------------------------------------------------
 template <typename T, int K_ALIGN>
-__aicore__ inline void Ndtri<T, K_ALIGN>::Init(
-    GM_ADDR self, GM_ADDR out,
-    const NdtriTilingData* tilingData)
+__aicore__ inline void Ndtri<T, K_ALIGN>::Init(GM_ADDR self, GM_ADDR out, const NdtriTilingData* tilingData)
 {
     int64_t blockIdx = AscendC::GetBlockIdx();
     int64_t remainderLength = tilingData->totalNum - tilingData->blockFactor * blockIdx;
-    blockLength_ = (remainderLength > tilingData->blockFactor) ?
-                   tilingData->blockFactor : remainderLength;
+    blockLength_ = (remainderLength > tilingData->blockFactor) ? tilingData->blockFactor : remainderLength;
     if (blockLength_ < 0) {
         blockLength_ = 0;
     }
@@ -163,7 +153,7 @@ __aicore__ inline void Ndtri<T, K_ALIGN>::Init(
 
     // InQue / OutQue（DB）
     pipe.InitBuffer(inQueSelf, BUFFER_NUM, ubLength_ * sizeof(T));
-    pipe.InitBuffer(outQueY,   BUFFER_NUM, ubLength_ * sizeof(T));
+    pipe.InitBuffer(outQueY, BUFFER_NUM, ubLength_ * sizeof(T));
 
     // fp32 域 p / y buffer（独立分配，保证 fp16/bf16 Cast 链路有足够空间）
     pipe.InitBuffer(pBuf, ubLength_ * sizeof(float));
@@ -203,8 +193,7 @@ __aicore__ inline void Ndtri<T, K_ALIGN>::Process()
     }
     int64_t loopCount = (blockLength_ + ubLength_ - 1) / ubLength_;
     for (int64_t i = 0; i < loopCount; ++i) {
-        int64_t currentNum = (i == loopCount - 1) ?
-                             (blockLength_ - ubLength_ * i) : ubLength_;
+        int64_t currentNum = (i == loopCount - 1) ? (blockLength_ - ubLength_ * i) : ubLength_;
         CopyIn(i, currentNum);
         Compute(currentNum);
         CopyOut(i, currentNum);
@@ -219,12 +208,44 @@ template <typename T, int K_ALIGN>
 __aicore__ inline void Ndtri<T, K_ALIGN>::CopyIn(int64_t progress, int64_t currentNum)
 {
     LocalTensor<T> inLocal = inQueSelf.template AllocTensor<T>();
-    DataCopyExtParams copyParams{
-        1, static_cast<uint32_t>(currentNum * sizeof(T)), 0, 0, 0};
+    DataCopyExtParams copyParams{1, static_cast<uint32_t>(currentNum * sizeof(T)), 0, 0, 0};
     DataCopyPadExtParams<T> padParams{false, 0, 0, 0};
     int64_t gmOffset = progress * ubLength_;
     DataCopyPad(inLocal, selfGm[gmOffset], copyParams, padParams);
     inQueSelf.EnQue(inLocal);
+}
+
+// ---------------------------------------------------------------
+// Treat FP32/BF16 subnormal inputs as signed zero before special-value handling.
+// Inspect bits so the classification does not depend on floating-point FTZ.
+// len is a multiple of CMP_ALIGN_ELEM and fits the allocated p buffer.
+// ---------------------------------------------------------------
+template <typename T, int K_ALIGN>
+__aicore__ inline void Ndtri<T, K_ALIGN>::FlushSubnormalInputs(const LocalTensor<float>& p, int32_t len)
+{
+    namespace Reg = AscendC::Reg;
+    constexpr uint32_t FLOAT_ABS_MASK = 0x7FFFFFFFU;
+    constexpr uint32_t FLOAT_SIGN_MASK = 0x80000000U;
+    constexpr uint32_t FLOAT_MIN_NORMAL_BITS = 0x00800000U;
+    constexpr uint32_t VECTOR_LENGTH = AscendC::VECTOR_REG_WIDTH / sizeof(uint32_t);
+    auto* address = reinterpret_cast<__ubuf__ uint32_t*>(p.GetPhyAddr());
+    const uint16_t loops = static_cast<uint16_t>(len / VECTOR_LENGTH);
+    __VEC_SCOPE__
+    {
+        Reg::RegTensor<uint32_t> bits, absBits, absMask, signMask, signedZero;
+        Reg::MaskReg active = Reg::CreateMask<uint32_t, Reg::MaskPattern::ALL>();
+        Reg::MaskReg flush;
+        Reg::Duplicate(absMask, FLOAT_ABS_MASK);
+        Reg::Duplicate(signMask, FLOAT_SIGN_MASK);
+        for (uint16_t i = 0; i < loops; ++i) {
+            Reg::LoadAlign(bits, address + i * VECTOR_LENGTH);
+            Reg::And(absBits, bits, absMask, active);
+            Reg::Compares<uint32_t, CMPMODE::LT>(flush, absBits, FLOAT_MIN_NORMAL_BITS, active);
+            Reg::And(signedZero, bits, signMask, active);
+            Reg::Select(bits, signedZero, bits, flush);
+            Reg::StoreAlign(address + i * VECTOR_LENGTH, bits, active);
+        }
+    }
 }
 
 // ---------------------------------------------------------------
@@ -242,19 +263,15 @@ __aicore__ inline void Ndtri<T, K_ALIGN>::CopyIn(int64_t progress, int64_t curre
 //   由 Compute 层的 lenAligned 保证。
 // ---------------------------------------------------------------
 template <typename T, int K_ALIGN>
-__aicore__ inline void Ndtri<T, K_ALIGN>::BuildMasks(
-    const LocalTensor<float>& p,
-    const LocalTensor<uint8_t>& maskTail,
-    const LocalTensor<uint8_t>& maskNeg,
-    const LocalTensor<uint8_t>& maskSpecial,
-    const LocalTensor<float>& scratch,
-    int32_t len)
+__aicore__ inline void Ndtri<T, K_ALIGN>::BuildMasks(const LocalTensor<float>& p, const LocalTensor<uint8_t>& maskTail,
+                                                     const LocalTensor<uint8_t>& maskNeg,
+                                                     const LocalTensor<uint8_t>& maskSpecial,
+                                                     const LocalTensor<float>& scratch, int32_t len)
 {
     // maskTail = (|p - 0.5| >= 0.5 - VAL_SUB)
     Adds(scratch, p, -0.5f, len);
     Abs(scratch, scratch, len);
-    CompareScalar(maskTail, scratch,
-                  0.5f - NDTRI_VAL_SUB, CMPMODE::GE, len);
+    CompareScalar(maskTail, scratch, 0.5f - NDTRI_VAL_SUB, CMPMODE::GE, len);
 
     // maskSpecial：由 3 个条件组合：
     //   c1 = (p <= 0)
@@ -276,9 +293,14 @@ __aicore__ inline void Ndtri<T, K_ALIGN>::BuildMasks(
     constexpr uint32_t POS_INF_BITS_U = 0x7F800000U;
     float negInf, posInf;
     {
-        union { uint32_t u; float f; } cvt;
-        cvt.u = NEG_INF_BITS_U; negInf = cvt.f;
-        cvt.u = POS_INF_BITS_U; posInf = cvt.f;
+        union {
+            uint32_t u;
+            float f;
+        } cvt;
+        cvt.u = NEG_INF_BITS_U;
+        negInf = cvt.f;
+        cvt.u = POS_INF_BITS_U;
+        posInf = cvt.f;
     }
 
     // maskSpecial = (p <= 0)
@@ -306,11 +328,8 @@ __aicore__ inline void Ndtri<T, K_ALIGN>::BuildMasks(
 //   - 其他（包括 NaN / p < 0 / p > 1）  →  NaN
 // ---------------------------------------------------------------
 template <typename T, int K_ALIGN>
-__aicore__ inline void Ndtri<T, K_ALIGN>::BuildSpecialY(
-    const LocalTensor<float>& ySpecial,
-    const LocalTensor<float>& p,
-    const LocalTensor<float>& scratch,
-    int32_t len)
+__aicore__ inline void Ndtri<T, K_ALIGN>::BuildSpecialY(const LocalTensor<float>& ySpecial, const LocalTensor<float>& p,
+                                                        const LocalTensor<float>& scratch, int32_t len)
 {
     constexpr uint32_t NAN_BITS = 0x7FC00000U;
     constexpr uint32_t POS_INF_BITS = 0x7F800000U;
@@ -318,10 +337,16 @@ __aicore__ inline void Ndtri<T, K_ALIGN>::BuildSpecialY(
 
     float nanVal, posInf, negInf;
     {
-        union { uint32_t u; float f; } cvt;
-        cvt.u = NAN_BITS; nanVal = cvt.f;
-        cvt.u = POS_INF_BITS; posInf = cvt.f;
-        cvt.u = NEG_INF_BITS; negInf = cvt.f;
+        union {
+            uint32_t u;
+            float f;
+        } cvt;
+        cvt.u = NAN_BITS;
+        nanVal = cvt.f;
+        cvt.u = POS_INF_BITS;
+        posInf = cvt.f;
+        cvt.u = NEG_INF_BITS;
+        negInf = cvt.f;
     }
 
     // ISSUE-001：调用者传入的 len 由 Compute 层已对齐到 256B（64 元素）。
@@ -335,14 +360,12 @@ __aicore__ inline void Ndtri<T, K_ALIGN>::BuildSpecialY(
     // p == 0 -> -inf
     CompareScalar(maskEq, p, 0.0f, CMPMODE::EQ, len);
     Duplicate(scratch, negInf, len);
-    Select(ySpecial, maskEq, scratch, ySpecial,
-           SELMODE::VSEL_TENSOR_TENSOR_MODE, len);
+    Select(ySpecial, maskEq, scratch, ySpecial, SELMODE::VSEL_TENSOR_TENSOR_MODE, len);
 
     // p == 1 -> +inf
     CompareScalar(maskEq, p, 1.0f, CMPMODE::EQ, len);
     Duplicate(scratch, posInf, len);
-    Select(ySpecial, maskEq, scratch, ySpecial,
-           SELMODE::VSEL_TENSOR_TENSOR_MODE, len);
+    Select(ySpecial, maskEq, scratch, ySpecial, SELMODE::VSEL_TENSOR_TENSOR_MODE, len);
 }
 
 // ---------------------------------------------------------------
@@ -351,7 +374,7 @@ __aicore__ inline void Ndtri<T, K_ALIGN>::BuildSpecialY(
 template <typename T, int K_ALIGN>
 __aicore__ inline void Ndtri<T, K_ALIGN>::Compute(int64_t currentNum)
 {
-    LocalTensor<T> inLocal  = inQueSelf.template DeQue<T>();
+    LocalTensor<T> inLocal = inQueSelf.template DeQue<T>();
     LocalTensor<T> outLocal = outQueY.template AllocTensor<T>();
     int32_t len = static_cast<int32_t>(currentNum);
     // ISSUE-001：Compare/CompareScalar API 对 count 所占空间要求 256B 对齐
@@ -393,18 +416,18 @@ __aicore__ inline void Ndtri<T, K_ALIGN>::Compute(int64_t currentNum)
     }
 
     // Buffer 别名
-    LocalTensor<float> tmpPm    = tmpBuf0.Get<float>();
-    LocalTensor<float> tmpZ     = tmpBuf1.Get<float>();
-    LocalTensor<float> tmpP     = tmpBuf2.Get<float>();
-    LocalTensor<float> tmpQ     = tmpBuf3.Get<float>();
-    LocalTensor<float> scratch  = tmpBuf4.Get<float>();
-    LocalTensor<float> pSafe    = tmpBuf5.Get<float>();
-    LocalTensor<float> yCenter  = tmpBuf6.Get<float>();
-    LocalTensor<float> yTail    = tmpBuf7.Get<float>();
+    LocalTensor<float> tmpPm = tmpBuf0.Get<float>();
+    LocalTensor<float> tmpZ = tmpBuf1.Get<float>();
+    LocalTensor<float> tmpP = tmpBuf2.Get<float>();
+    LocalTensor<float> tmpQ = tmpBuf3.Get<float>();
+    LocalTensor<float> scratch = tmpBuf4.Get<float>();
+    LocalTensor<float> pSafe = tmpBuf5.Get<float>();
+    LocalTensor<float> yCenter = tmpBuf6.Get<float>();
+    LocalTensor<float> yTail = tmpBuf7.Get<float>();
     LocalTensor<float> ySpecial = tmpBuf8.Get<float>();
 
-    LocalTensor<uint8_t> maskTail    = maskBuf0.Get<uint8_t>();
-    LocalTensor<uint8_t> maskNeg     = maskBuf1.Get<uint8_t>();
+    LocalTensor<uint8_t> maskTail = maskBuf0.Get<uint8_t>();
+    LocalTensor<uint8_t> maskNeg = maskBuf1.Get<uint8_t>();
     LocalTensor<uint8_t> maskSpecial = maskBuf2.Get<uint8_t>();
 
     // ISSUE-001：后续所有 Vector 计算统一使用 lenAligned 长度运行。
@@ -414,6 +437,15 @@ __aicore__ inline void Ndtri<T, K_ALIGN>::Compute(int64_t currentNum)
     //   3) 所有 UB buffer 均已分配 ubLength_ * sizeof(float)，且 ubLength_
     //      已由 Host Tiling FloorAlign(_, 256) 保证 ≥ lenAligned
     //   4) CopyOut 仍按 len 字节写回 GM，padding 位置的输出被自然丢弃
+
+    // FP16 values become normal FP32 values after Cast, so they need no DAZ.
+    // Preserve the original normal-input algorithm and handle FP32/BF16
+    // subnormals through the existing zero -> -Inf special-value branch.
+    if constexpr (!AscendC::IsSameType<T, half>::value) {
+        PipeBarrier<PIPE_V>();
+        FlushSubnormalInputs(p, lenAligned);
+        PipeBarrier<PIPE_V>();
+    }
 
     // Step 1: 构造 mask_tail / mask_neg / mask_special
     BuildMasks(p, maskTail, maskNeg, maskSpecial, scratch, lenAligned);
@@ -435,29 +467,26 @@ __aicore__ inline void Ndtri<T, K_ALIGN>::Compute(int64_t currentNum)
     //     tmp4     = tmpBuf9
     //     tmp5     = tmpBuf10
     CalTail(yTail, pSafe, maskNeg,
-            /*tmpQ   */tmpPm,
-            /*tmpX   */tmpZ,
-            /*tmpX0  */tmpP,
-            /*tmpCorr*/tmpQ,
-            /*tmp1   */scratch,
-            /*tmp2   */ySpecial,
-            /*tmp3   */yCenter,
-            /*tmp4   */tmpBuf9.Get<float>(),
-            /*tmp5   */tmpBuf10.Get<float>(),
-            /*maskX  */maskBuf3.Get<uint8_t>(),
-            lenAligned);
+            /*tmpQ   */ tmpPm,
+            /*tmpX   */ tmpZ,
+            /*tmpX0  */ tmpP,
+            /*tmpCorr*/ tmpQ,
+            /*tmp1   */ scratch,
+            /*tmp2   */ ySpecial,
+            /*tmp3   */ yCenter,
+            /*tmp4   */ tmpBuf9.Get<float>(),
+            /*tmp5   */ tmpBuf10.Get<float>(),
+            /*maskX  */ maskBuf3.Get<uint8_t>(), lenAligned);
 
     // Step 4: 计算 yCenter（覆盖 yCenter 暂借值）
     CalP0(yCenter, pSafe, tmpPm, tmpZ, tmpP, tmpQ, scratch, lenAligned);
 
     // Step 5: y = select(maskTail, yTail, yCenter)
-    Select(y, maskTail, yTail, yCenter,
-           SELMODE::VSEL_TENSOR_TENSOR_MODE, lenAligned);
+    Select(y, maskTail, yTail, yCenter, SELMODE::VSEL_TENSOR_TENSOR_MODE, lenAligned);
 
     // Step 6: y = select(maskSpecial, ySpecial, y)
     BuildSpecialY(ySpecial, p, scratch, lenAligned);
-    Select(y, maskSpecial, ySpecial, y,
-           SELMODE::VSEL_TENSOR_TENSOR_MODE, lenAligned);
+    Select(y, maskSpecial, ySpecial, y, SELMODE::VSEL_TENSOR_TENSOR_MODE, lenAligned);
 
     // Step 7: 输出 Cast → T
     //   - FP32: Adds(outLocal_fp32, y, 0.0f) 等价 Copy（只处理前 len 位置，
@@ -483,8 +512,7 @@ template <typename T, int K_ALIGN>
 __aicore__ inline void Ndtri<T, K_ALIGN>::CopyOut(int64_t progress, int64_t currentNum)
 {
     LocalTensor<T> outLocal = outQueY.template DeQue<T>();
-    DataCopyExtParams copyParams{
-        1, static_cast<uint32_t>(currentNum * sizeof(T)), 0, 0, 0};
+    DataCopyExtParams copyParams{1, static_cast<uint32_t>(currentNum * sizeof(T)), 0, 0, 0};
     int64_t gmOffset = progress * ubLength_;
     DataCopyPad(outGm[gmOffset], outLocal, copyParams);
     outQueY.FreeTensor(outLocal);

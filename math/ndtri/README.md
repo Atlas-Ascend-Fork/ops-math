@@ -25,8 +25,11 @@ $$y_i = \mathrm{ndtri}(x_i) = \Phi^{-1}(x_i) = \sqrt{2} \cdot \mathrm{erf}^{-1}(
 | :---: | :---: |
 | `0` | `-inf` |
 | `1` | `+inf` |
-| $x_i < 0$ 或 $x_i > 1$ | `NaN` |
+| FP32、BF16正、负次正规数 | `-inf`，计算时将输入视为零 |
+| $x_i < 0$（上述次正规数除外）或 $x_i > 1$ | `NaN` |
 | `NaN` / `+inf` / `-inf` | `NaN` |
+
+FP16输入先升精度为FP32，其次正规数在FP32中为正规数，按原数值算法计算。
 
 ## 参数说明
 
@@ -56,7 +59,7 @@ $$y_i = \mathrm{ndtri}(x_i) = \Phi^{-1}(x_i) = \sqrt{2} \cdot \mathrm{erf}^{-1}(
     <tr>
       <td>y</td>
       <td>输出</td>
-      <td>逆标准正态CDF的计算结果，公式中的y_i。</td>
+      <td>逆标准正态CDF的计算结果，公式中的y_i。输出shape、dtype与输入一致；标量输出仍为标量；空Tensor返回同形状的空Tensor。</td>
       <td>FLOAT、FLOAT16、BFLOAT16</td>
       <td>ND</td>
     </tr>
@@ -64,10 +67,11 @@ $$y_i = \mathrm{ndtri}(x_i) = \Phi^{-1}(x_i) = \sqrt{2} \cdot \mathrm{erf}^{-1}(
 
 ## 约束说明
 
-无
+- 输入x的维度不超过8维。
+- 运行时输入x的各维度大小必须为非负整数，元素总数不得超过INT64类型的最大值。
 
 ## 调用说明
 
-| 调用方式 | 调用样例                                       | 说明                                                              |
+| 调用方式 | 样例代码                                       | 说明                                                              |
 |--------------|--------------------------------------------|-----------------------------------------------------------------|
-| 图模式调用 | [test_geir_ndtri](./examples/test_geir_ndtri.cpp) | 通过[算子IR](./op_graph/ndtri_proto.h)构图方式调用Ndtri算子。 |
+| GE图模式 | [test_geir_ndtri](./examples/test_geir_ndtri.cpp) | 通过[算子IR](./op_graph/ndtri_proto.h)构图方式调用Ndtri算子。 |
