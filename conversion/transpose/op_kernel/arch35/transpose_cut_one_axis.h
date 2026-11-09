@@ -101,6 +101,7 @@ private:
     // expand output init
     int64_t expandedOutputCutIndex_; ///< 输出切分轴在5维扩展后的索引
     int64_t expandedInputCutIndex_;  ///< 输入切分轴在5维扩展后的索引（由 expandedPerm 映射得到）
+    bool isWholeCut_ = true;         ///< UB 内 dst shape 与完整输出 shape 是否完全一致（整切）
 
     // address offset
     int64_t srcLoopSize_[NDDMA_MAX_DIM_NUM] = {0, 0, 0, 0, 0};   ///< 源各维度的循环次数
@@ -145,6 +146,13 @@ template <typename T>
 __aicore__ inline void TransposeCutOneAxis<T>::ParseTilingData()
 {
     expandedOutputCutIndex_ = tiling_->outCutIndex + NDDMA_MAX_DIM_NUM - tiling_->permSize;
+    // 整切检测：UB 内 dst shape 与完整输出 shape 完全一致，说明该块没有被实际切分。
+    for (int64_t i = 0; i < NDDMA_MAX_DIM_NUM; i++) {
+        if (tiling_->expandedOutputShape[i] != tiling_->inUbMainDstShape[i]) {
+            isWholeCut_ = false;
+            break;
+        }
+    }
 }
 
 /**
@@ -342,6 +350,17 @@ __aicore__ inline void TransposeCutOneAxis<T>::CopyOut(int64_t loopIdx, int64_t 
     int64_t endIndex = 0;
     int64_t dstStride = 1;
     for (int64_t i = NDDMA_MAX_DIM_NUM - 1; i >= 0; i--) {
+        // 整切兜底: shapes 全等时, 在最后一维提前break
+        // 正常切分场景由下方shape不匹配的break先触发, 此处条件不满足
+        if (isWholeCut_ && expandedOutputCutIndex_ > 0 && i == expandedOutputCutIndex_ - 1) {
+            endIndex = NDDMA_MAX_DIM_NUM - 1 - i - 1;
+            break;
+        }
+        // isWholeCut_ 且 expandedOutputCutIndex_ == 0 时, 不会触发上方break, 继续循环
+        // 所有维度已累成入 blockLen, endIndex 应当为 NDDMA_MAX_DIM_NUM - 1
+        if (isWholeCut_ && expandedOutputCutIndex_ == 0) {
+            endIndex = NDDMA_MAX_DIM_NUM - 1;
+        }
         copyOutParams.blockLen *= loopSize[NDDMA_MAX_DIM_NUM - 1 - i];
         if (tiling_->expandedOutputShape[i] != tiling_->inUbMainDstShape[i]) {
             endIndex = NDDMA_MAX_DIM_NUM - 1 - i;

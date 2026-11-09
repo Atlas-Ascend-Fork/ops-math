@@ -48,6 +48,7 @@
 #include "transpose_tiling_with_021vconv_arch35.h"
 #include "transpose_tiling_b4_dual_cut_arch35.h"
 #include "common/inc/op_host/math_log.h"
+#include "op_host/tiling_util.h"
 
 namespace optiling {
 static constexpr int32_t VCONV_DIM_NUM = 2;
@@ -999,8 +1000,18 @@ void TransposeNddmaTiling::EntryTilingTemplate()
             return;
         }
     }
-    // 兜底逻辑 simt
-    tilingKey_ = static_cast<int64_t>(SplitMode::SMALL_SHAPE);
+    if (Ops::Math::OpTiling::IsSimtSupported(tilingContext_)) {
+        // 兜底逻辑 simt
+        tilingKey_ = static_cast<int64_t>(SplitMode::SMALL_SHAPE);
+        return;
+    }
+    // 不支持simt兜底逻辑: 小shape使用NDDMA分支(CUT_ONCE/CUT_TWICE)
+    if (shapeInfo_.dim <= NDDMA_MAX_DIM_NUM) {
+        // NDDMA场景：尾轴不转置以及尾轴转置且dst[-1]>32（DoSplitUBInput优化）
+        tilingKey_ = static_cast<int64_t>(SplitMode::NDDMA_BASE);
+    } else {
+        tilingKey_ = static_cast<int64_t>(SplitMode::BIG_DIM);
+    }
 }
 
 /**

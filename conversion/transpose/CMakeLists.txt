@@ -11,8 +11,8 @@
 add_all_modules_sources(
     OPTYPE transpose
     ACLNNTYPE aclnn_exclude
-    COMPUTE_UNIT ascend310p ascend910_93 ascend910b ascend950 mc62 ascend350 ascend960dt ascend960pr kirinx90 kirin9030
-    TILING_DIR arch22 arch22 arch22 arch35 arch35 arch35 arch35 arch35 arch31 arch31
+    COMPUTE_UNIT ascend310p ascend910_93 ascend910b ascend950 mc62 ascend350 ascend960dt ascend960pr kirinx90 kirin9030 ascend5162
+    TILING_DIR arch22 arch22 arch22 arch35 arch35 arch35 arch35 arch35 arch31 arch31 arch35
     DISABLE_IN_OPP TRUE
 )
 

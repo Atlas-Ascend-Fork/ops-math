@@ -16,7 +16,9 @@
 #include "../transpose/arch35/transpose_tensor_move.h"
 #include "../transpose/arch35/transpose_cut_one_axis.h"
 #include "../transpose/arch35/transpose_cut_two_axis.h"
+#ifdef __CCE_AICORE_SUPPORT_SIMT__
 #include "../transpose/arch35/transpose_small_shape.h"
+#endif
 #include "../transpose/arch35/transpose_big_dim.h"
 #include "../transpose/arch35/transpose_n_last.h"
 
@@ -38,10 +40,12 @@ __global__ __aicore__ void depth_to_space(GM_ADDR x, GM_ADDR y, GM_ADDR workspac
         Transpose::TransposeTensorMove<DTYPE_X> op;
         op.Init(x, y, &tilingData.transposeOpTiling, &pipe);
         op.Process();
+#ifdef __CCE_AICORE_SUPPORT_SIMT__
     } else if (TILING_KEY_IS(SMALL_SHAPE)) {
         Transpose::TransposeSmallShape<DTYPE_X> op;
         op.Init(x, y, &tilingData.transposeOpTiling);
         op.Process();
+#endif
     } else if (TILING_KEY_IS(CUT_ONCE)) {
         Transpose::TransposeCutOneAxis<DTYPE_X> op;
         op.Init(x, y, &tilingData.transposeOpTiling, &pipe);

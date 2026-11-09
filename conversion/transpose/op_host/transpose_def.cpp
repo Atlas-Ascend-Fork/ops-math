@@ -96,6 +96,7 @@ public:
 
         this->AICore().AddConfig("ascend950", aicoreConfig);
         this->AICore().AddConfig("ascend350", aicoreConfig);
+        this->AICore().AddConfig("ascend5162", aicoreConfig);
 
         auto config92 = buildConfig(VALUE_DTS_ARCH92, PERM_DTS_ARCH92, DATA_FORMATS_ARCH92);
         this->AICore().AddConfig("ascend960dt", config92);

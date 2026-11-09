@@ -45,12 +45,16 @@
 #include "arch35/transpose_cut_one_axis.h"
 #include "arch35/transpose_cut_two_axis.h"
 #include "arch35/transpose_n_last.h"
+#ifdef __CCE_AICORE_SUPPORT_SIMT__
 #include "arch35/transpose_small_shape.h"
+#endif
 #include "arch35/transpose_tensor_move.h"
 #include "arch35/transpose_with_gather.h"
 #include "arch35/transpose_transdata_5hd.h"
 #include "arch35/transpose_transdata_5hd_021.h"
+#ifdef __CCE_AICORE_SUPPORT_SIMT__
 #include "arch35/transpose_b4.h"
+#endif
 
 /* TilingKey 常量定义，与 Host 侧 SplitMode 枚举值一一对应 */
 #define TENSOR_MOVE 10000      // 融合后仅1维，等价于纯数据搬运
@@ -113,6 +117,7 @@ extern "C" __aicore__ inline void TransposeTensorMoveProcess(GM_ADDR x, GM_ADDR 
  * @param y         输出张量 GM 地址
  * @param tilingData Tiling 数据指针
  */
+#ifdef __CCE_AICORE_SUPPORT_SIMT__
 extern "C" __aicore__ inline void TransposeSmallShapeProcess(GM_ADDR x, GM_ADDR y,
                                                              const TransposeOpTilingData* tilingData)
 {
@@ -139,6 +144,7 @@ extern "C" __aicore__ inline void TransposeSmallShapeProcess(GM_ADDR x, GM_ADDR 
         op.Process();
     }
 }
+#endif
 
 /**
  * @brief CUT_ONCE(10002) 策略的 Process 函数
@@ -377,6 +383,7 @@ extern "C" __aicore__ inline void Transpose021VconvProcess(GM_ADDR x, GM_ADDR y,
     }
 }
 
+#ifdef __CCE_AICORE_SUPPORT_SIMT__
 extern "C" __aicore__ inline void TransposeHIF4DualCutProcess(GM_ADDR x, GM_ADDR y,
                                                               const HIF4DualCutTilingData* tilingData, TPipe* pipe)
 {
@@ -384,6 +391,7 @@ extern "C" __aicore__ inline void TransposeHIF4DualCutProcess(GM_ADDR x, GM_ADDR
     op.Init(x, y, tilingData, pipe);
     op.Process();
 }
+#endif
 
 /**
  * @brief Transpose 算子 Kernel 主入口函数
@@ -413,10 +421,14 @@ extern "C" __global__ __aicore__ void transpose(GM_ADDR x, GM_ADDR perm, GM_ADDR
     if (TILING_KEY_IS(TENSOR_MOVE)) {               // 10000: 纯数据搬运
         GET_TILING_DATA_WITH_STRUCT(TransposeTilingData, tilingData, tiling);
         TransposeTensorMoveProcess(x, y, &tilingData.transposeOpTiling, &pipe);
-    } else if (TILING_KEY_IS(SMALL_SHAPE)) { // 10001: SIMT 小shape直读直写
+    }
+#ifdef __CCE_AICORE_SUPPORT_SIMT__
+    else if (TILING_KEY_IS(SMALL_SHAPE)) { // 10001: SIMT 小shape直读直写
         GET_TILING_DATA_WITH_STRUCT(TransposeTilingData, tilingData, tiling);
         TransposeSmallShapeProcess(x, y, &tilingData.transposeOpTiling);
-    } else if (TILING_KEY_IS(CUT_ONCE)) { // 10002: NDDMA单轴切分
+    }
+#endif
+    else if (TILING_KEY_IS(CUT_ONCE)) { // 10002: NDDMA单轴切分
         GET_TILING_DATA_WITH_STRUCT(TransposeTilingData, tilingData, tiling);
         TransposeCutOneAxisProcess(x, y, &tilingData.transposeOpTiling, &pipe);
     } else if (TILING_KEY_IS(CUT_TWICE)) { // 10003: NDDMA双轴切分
@@ -437,8 +449,11 @@ extern "C" __global__ __aicore__ void transpose(GM_ADDR x, GM_ADDR perm, GM_ADDR
     } else if (TILING_KEY_IS(VCONV_021_TRANSPOSE)) { // 10008: TransDataTo5HD 3D 021转置
         GET_TILING_DATA_WITH_STRUCT(Transpose021VCONVTilingData, tilingData, tiling);
         Transpose021VconvProcess(x, y, &tilingData, &pipe);
-    } else if (TILING_KEY_IS(B4_DUAL_CUT)) {
+    }
+#ifdef __CCE_AICORE_SUPPORT_SIMT__
+    else if (TILING_KEY_IS(B4_DUAL_CUT)) {
         GET_TILING_DATA_WITH_STRUCT(HIF4DualCutTilingData, tilingData, tiling);
         TransposeHIF4DualCutProcess(x, y, &tilingData, &pipe);
     }
+#endif
 }
