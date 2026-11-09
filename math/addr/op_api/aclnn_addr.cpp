@@ -226,19 +226,12 @@ static const aclTensor* addrStubAdd(const aclTensor* left, const aclTensor* righ
     return addOut;
 }
 
-static aclnnStatus addrOutHandle(const aclTensor* outCalcuResult, aclTensor* out, aclOpExecutor* executor,
-                                 DataType hightDtype)
+static aclnnStatus addrOutHandle(const aclTensor* outCalcuResult, aclTensor* out, aclOpExecutor* executor)
 {
     OP_CHECK_SHAPE_NOT_EQUAL_WITH_EXPECTED_SIZE(out, outCalcuResult->GetViewShape(), return ACLNN_ERR_PARAM_INVALID);
     // 输出类型转换成out dtype类型
-    auto temp = outCalcuResult;
-    if (hightDtype == DataType::DT_BOOL) {
-        temp = l0op::Cast(temp, DataType::DT_INT8, executor);
-        CHECK_RET(temp != nullptr, ACLNN_ERR_INNER_NULLPTR);
-        temp = l0op::Cast(temp, DataType::DT_BOOL, executor);
-        CHECK_RET(temp != nullptr, ACLNN_ERR_INNER_NULLPTR);
-    }
-    auto addrOutCast = l0op::Cast(temp, out->GetDataType(), executor);
+    // BOOL 输出的 0/1 归一化已由 Kernel 在 AndFF 之后用 Mins 完成，此处无需再做 Cast roundtrip
+    auto addrOutCast = l0op::Cast(outCalcuResult, out->GetDataType(), executor);
     CHECK_RET(addrOutCast != nullptr, ACLNN_ERR_INNER_NULLPTR);
 
     // 计算结果拷贝，支持非连续
@@ -284,7 +277,7 @@ static aclnnStatus addrStub(const aclTensor* selfCast, const aclTensor* vec1Cast
     }
 
     if (expandMode == IgnoreInput) {
-        return addrOutHandle(outerVec, out, executor, DataType::DT_MAX);
+        return addrOutHandle(outerVec, out, executor);
     }
 
     auto selfScaling = selfCast;
@@ -296,7 +289,7 @@ static aclnnStatus addrStub(const aclTensor* selfCast, const aclTensor* vec1Cast
 
     auto addrOut = addrStubAdd(selfScaling, outerVec, hightDtype, executor);
     CHECK_RET(addrOut != nullptr, ACLNN_ERR_INNER_NULLPTR);
-    return addrOutHandle(addrOut, out, executor, DataType::DT_MAX);
+    return addrOutHandle(addrOut, out, executor);
 }
 
 static aclnnStatus addrProc(const aclTensor* self, const aclTensor* vec1, const aclTensor* vec2, const aclScalar* beta,
@@ -339,7 +332,7 @@ static aclnnStatus addrProc(const aclTensor* self, const aclTensor* vec1, const 
     if (IsSupportAddr(hightDtype)) {
         auto addrOut = l0op::Addr(selfCast, vec1Cast, vec2Cast, betaTensor, alphaTensor, hightDtype, executor);
         CHECK_RET(addrOut != nullptr, ACLNN_ERR_INNER_NULLPTR);
-        return addrOutHandle(addrOut, out, executor, hightDtype);
+        return addrOutHandle(addrOut, out, executor);
     } else {
         return addrStub(selfCast, vec1Cast, vec2Cast, beta, alpha, out, executor, hightDtype);
     }

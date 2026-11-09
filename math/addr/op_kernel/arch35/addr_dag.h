@@ -16,6 +16,8 @@
 #ifndef ADDR_DAG_H
 #define ADDR_DAG_H
 
+#include <type_traits>
+
 #include "atvoss/util/dag.h"
 #include "atvoss/util/vec.h"
 #include "atvoss/util/placeholder.h"
@@ -35,6 +37,12 @@ struct AndFF : public Vec::ElemwiseUnaryOP<T, T> {
 #ifdef __CCE_AICORE__
         Duplicate(dst, static_cast<T>(FF), count);
         And(dst, src, dst, count);
+        // BOOL 与 INT8 共用本 DAG：AndFF 只保证结果落在 [0, 255]，而 BOOL 要求非零归一化为 1。
+        // 在 AndFF 之后原地 Mins(x, 1)，等价于原先 Host 侧 bool->int8->bool 的 roundtrip。
+        // 注意：不能用 And 0x01，2 & 0x01 == 0 会把“两路为真”误判为 false。
+        if constexpr (std::is_same<DTYPE_X1, bool>::value) {
+            Mins(dst, dst, static_cast<T>(1), static_cast<int32_t>(count));
+        }
 #endif
     }
 };
