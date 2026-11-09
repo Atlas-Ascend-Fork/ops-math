@@ -61,6 +61,7 @@ _DATA_TYPE_INT_TO_STR = {
     34: "hifloat8",
     35: "float8_e5m2",
     36: "float8_e4m3fn",
+    37: "float8_e8m0",
     40: "float4_e2m1",
     41: "float4_e1m2",
 }
@@ -83,6 +84,8 @@ _KERNEL_TOLERANCE = {
     "float32": {"standard": "cross_check", "level": "L1"},
     "float64": {"standard": "cross_check", "level": "L1"},
     "bfloat16": {"standard": "cross_check", "level": "L1"},
+    # E8M0 无尾数、按位精确，且 NaN 编码无法用浮点比较校验，故用 binary_equal。
+    "float8_e8m0": {"standard": "binary_equal"},
     "int8": {"standard": "binary_equal"},
     "int16": {"standard": "binary_equal"},
     "int32": {"standard": "binary_equal"},
@@ -114,6 +117,10 @@ def _resolve_custom_numpy_dtype(dtype_str):
         from ml_dtypes import float8_e4m3fn
 
         return float8_e4m3fn
+    elif dtype_str == "float8_e8m0":
+        from en_dtypes import float8_e8m0
+
+        return float8_e8m0
     elif dtype_str == "hifloat8":
         from en_dtypes import hifloat8
 
@@ -139,6 +146,23 @@ def _output_dtype(kwargs, index, default):
     return str(dtype)
 
 
+def _bf16_to_e8m0(x, e8m0_dtype):
+    """BF16 -> E8M0，与 kernel/PyTorch fp8e8m0fnu_from_fp32_value 按位一致。
+
+    ml_dtypes/en_dtypes 的 astype 会把 0 和负数编码成 NaN，与设备不符，故直接
+    在 BF16 原始位上复现该语义：E8M0 无符号位（丢弃符号）、无 inf；指数字段
+    255（inf/NaN 输入或幅值溢出）编码为 NaN(255)。
+    """
+    bits = np.ascontiguousarray(x).view(np.uint16).astype(np.uint32)
+    exponent = (bits >> 7) & 0xFF
+    mantissa = bits & 0x7F
+    # 规格化数按 guard 位四舍五入(逢 0.5 进位)；非规格化数隐含最低位为 0，
+    # 恰为 0.5 时不进位。
+    rounded = np.where(exponent != 0, mantissa + 0x40, mantissa + 0x3F)
+    code = np.where(exponent == 0xFF, 0xFF, exponent + (rounded >> 7))
+    return code.astype(np.uint8).view(e8m0_dtype)
+
+
 def cast_golden(x, dst_type: int, **kwargs):
     """
     Kernel golden for cast.
@@ -152,6 +176,14 @@ def cast_golden(x, dst_type: int, **kwargs):
     if (x.dtype.name == "bfloat16" and dst_type_str == "hifloat8") or (
         x.dtype.name == "hifloat8" and dst_type_str == "bfloat16"
     ):
+        np_dtype = _resolve_custom_numpy_dtype(dst_type_str)
+        return x.astype(np.float32).astype(np_dtype)
+    elif dst_type_str == "float8_e8m0":
+        # cast_def.cpp 仅注册 BF16 -> FLOAT8_E8M0。
+        return _bf16_to_e8m0(x, _resolve_custom_numpy_dtype(dst_type_str))
+    elif x.dtype.name in ("float8_e8m0", "float8_e8m0fnu"):
+        # cast_def.cpp 仅注册 FLOAT8_E8M0 -> BF16；E8M0 经 float32 无损解码
+        # (码值 c -> 2**(c-127)，c==255 -> NaN)。
         np_dtype = _resolve_custom_numpy_dtype(dst_type_str)
         return x.astype(np.float32).astype(np_dtype)
     elif dst_type_str in _SPECIAL_DTYPES:
