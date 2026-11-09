@@ -79,9 +79,9 @@ aclnnStatus aclnnInplaceMaskedFillTensor(
       <td>Input/Output</td>
       <td>Input and output tensor</td>
       <td>Tensor to be filled. Its shape must equal the broadcast shape of selfRef and mask.</td>
-      <td>BOOL, INT8, INT32, INT64, FLOAT, FLOAT16, BFLOAT16</td>
+      <td>BOOL, INT8, INT16, INT32, INT64, FLOAT, FLOAT16, BFLOAT16</td>
       <td>ND</td>
-      <td>-</td>
+      <td>0-8</td>
       <td>√</td>
     </tr>
     <tr>
@@ -91,7 +91,7 @@ aclnnStatus aclnnInplaceMaskedFillTensor(
       <td>shape and selfRef satisfy the <a href="../../../docs/en/context/broadcast_relationship.md" target="_blank">broadcast relationship</a>.</td>
       <td>BOOL</td>
       <td>ND</td>
-      <td>-</td>
+      <td>0-8</td>
       <td>√</td>
     </tr>
     <tr>
@@ -99,7 +99,7 @@ aclnnStatus aclnnInplaceMaskedFillTensor(
       <td>Input</td>
       <td>Tensor used for filling.</td>
       <td>The data type must be deducible to the data type of selfRef (see <a href="../../../docs/en/context/conversion_relationship.md" target="_blank">conversion relationship</a>). Only 0-D tensors are supported.</td>
-      <td>BOOL, INT8, INT32, INT64, FLOAT, FLOAT16, BFLOAT16</td>
+      <td>BOOL, INT8, INT16, INT32, INT64, FLOAT, FLOAT16, BFLOAT16</td>
       <td>ND</td>
       <td>0</td>
       <td>√</td>
@@ -130,6 +130,10 @@ aclnnStatus aclnnInplaceMaskedFillTensor(
   - <term>Atlas training products</term>: The data type does not support BFLOAT16.
   <!-- end id7 -->
 
+  <!-- npu="A3,910b,910" id8 -->
+  - <term>Atlas A3 products</term>, <term>Atlas A2 products</term>, <term>Atlas training products</term>: The INT16 data type is not supported for selfRef.
+  <!-- end id8 -->
+
 - **Return Value**
 
   aclnnStatus: return status code. For details, see [aclnn Return Codes](../../../docs/en/context/aclnn_return_code.md).
@@ -153,15 +157,21 @@ aclnnStatus aclnnInplaceMaskedFillTensor(
       <td>The input selfRef, mask, or value is a null pointer.</td>
     </tr>
     <tr>
-      <td rowspan="3">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="3">161002</td>
+      <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="5">161002</td>
       <td>The data type and data format of selfRef and mask are not within the supported range.</td>
+    </tr>
+    <tr>
+      <td>The dimension of selfRef or mask exceeds 8.</td>
     </tr>
     <tr>
       <td>The shapes of selfRef and mask cannot be broadcast, or the shape of selfRef is not equal to the shape after broadcasting the two.</td>
     </tr>
     <tr>
       <td>The data type of value cannot be converted to the data type of selfRef.</td>
+    </tr>
+    <tr>
+      <td>The dimension of value is not 0.</td>
     </tr>
   </tbody>
   </table>

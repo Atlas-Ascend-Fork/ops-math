@@ -87,7 +87,7 @@ aclnnStatus aclnnInplaceMaskedFillScalar(
       <td>被填充的张量。shape需等于selfRef与mask进行broadcast后的shape。</td>
       <td>BOOL、INT8、INT16、INT32、INT64、FLOAT、FLOAT16、BFLOAT16</td>
       <td>ND</td>
-      <td>-</td>
+      <td>0-8</td>
       <td>√</td>
     </tr>
     <tr>
@@ -97,7 +97,7 @@ aclnnStatus aclnnInplaceMaskedFillScalar(
       <td>shape与selfRef满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast</a>关系</td>
       <td>BOOL</td>
       <td>ND</td>
-      <td>-</td>
+      <td>0-8</td>
       <td></td>
     </tr>
     <tr>
@@ -163,9 +163,12 @@ aclnnStatus aclnnInplaceMaskedFillScalar(
       <td>传入的selfRef、mask、value是空指针。</td>
     </tr>
     <tr>
-      <td rowspan="3">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="3">161002</td>
+      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="4">161002</td>
       <td>selfRef和mask的数据类型和数据格式不在支持的范围之内。</td>
+    </tr>
+    <tr>
+      <td>selfRef或mask的维度超过8维。</td>
     </tr>
     <tr>
       <td>selfRef和mask的shape无法做broadcast，或selfRef的shape不等于二者broadcast后的shape。</td>
