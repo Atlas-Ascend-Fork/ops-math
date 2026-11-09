@@ -165,8 +165,8 @@ static aclnnStatus aclnnBatchNormStatsImplUnify(const aclTensor* input, const ac
     CHECK_RET(expScalar != nullptr, ACLNN_ERR_INNER_NULLPTR);
     auto expTensor = uniqueExecutor.get()->ConvertToTensor(expScalar, op::DataType::DT_FLOAT);
     CHECK_RET(expTensor != nullptr, ACLNN_ERR_INNER_NULLPTR);
-    // 调用pow进行计算
-    auto powOut = l0op::Pow(addOpOut, expTensor, uniqueExecutor.get());
+    // 调用pow进行计算，结果写回addOpOut，末尾ViewCopy可将整条计算链绑定到invstdOut
+    auto powOut = l0op::InplaceBasePow(addOpOut, expTensor, uniqueExecutor.get());
     CHECK_RET(powOut != nullptr, ACLNN_ERR_INNER_NULLPTR);
 
     auto viewCopyResult = l0op::ViewCopy(powOut, invstdOut, uniqueExecutor.get());

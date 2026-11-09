@@ -102,4 +102,31 @@ const aclTensor* InplacePow(const aclTensor* self, const aclTensor* exponent, ac
         return PowAiCpu(self, exponent, powOut, executor);
     }
 }
+
+// pow结果写回self（底数）输入，供输出需要与self共用存储的场景使用
+const aclTensor* InplaceBasePow(const aclTensor* self, const aclTensor* exponent, aclOpExecutor* executor)
+{
+    op::Shape broadcastShape;
+    if (!BroadcastInferShape(self->GetViewShape(), exponent->GetViewShape(), broadcastShape)) {
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "Broadcast %s and %s failed.", op::ToString(self->GetViewShape()).GetString(),
+                op::ToString(exponent->GetViewShape()).GetString());
+        return nullptr;
+    }
+
+    // 校验广播后的shape和self一致，避免越界写入self
+    if (broadcastShape != self->GetViewShape()) {
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID,
+                "self and exponent broadcastShape [%s] not equal to self shape [%s], do not support inplace from the "
+                "'self' tensor!",
+                op::ToString(broadcastShape).GetString(), op::ToString(self->GetViewShape()).GetString());
+        return nullptr;
+    }
+
+    auto powOut = const_cast<aclTensor*>(self);
+    if (IsAiCoreSupport(self)) {
+        return PowAiCore(self, exponent, powOut, executor);
+    } else {
+        return PowAiCpu(self, exponent, powOut, executor);
+    }
+}
 } // namespace l0op
