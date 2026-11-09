@@ -44,6 +44,7 @@ static const int64_t DIM_W_2D = 3;
 static const int64_t AXIS_2D = 2;
 static const int64_t AXIS = 3;
 static const int64_t SECOND_DIM = 2;
+static const int64_t MAX_SIZE = 100000;
 
 // 根据API定义，需要列出所能支持的所有dtype，算子只支持AICPU
 static const std::initializer_list<op::DataType> ASCEND910_DTYPE_SUPPORT_LIST = {op::DataType::DT_FLOAT,
@@ -72,6 +73,27 @@ static inline bool CheckDtypeValid(const aclTensor* theta, const aclTensor* out)
     OP_CHECK_DTYPE_NOT_SUPPORT(theta, dtypeSupportList, return false);
     // 检查out的数据类型是否与self一致
     OP_CHECK_DTYPE_NOT_MATCH(out, theta->GetDataType(), return false);
+    return true;
+}
+
+static bool CheckSize(const aclIntArray* size)
+{
+    if (size->Size() != 4 && size->Size() != 5) {
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "AffineGridGenerator needs 4d or 5d size(input).");
+        return false;
+    }
+    const auto n = (*size)[DIM_N];
+    const auto h = (*size)[size->Size() - 2];
+    const auto w = (*size)[size->Size() - 1];
+    if (n <= 0 || n > MAX_SIZE || h <= 0 || h > MAX_SIZE || w <= 0 || w > MAX_SIZE) {
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "Expected N, H and W in (0, %ld], but got [%ld, %ld, %ld].", MAX_SIZE, n, h,
+                w);
+        return false;
+    }
+    if (size->Size() == 5 && (*size)[DIM_D] <= 0) {
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "Expected D to be positive, but got %ld.", (*size)[DIM_D]);
+        return false;
+    }
     return true;
 }
 
@@ -139,6 +161,8 @@ static inline aclnnStatus CheckParams(const aclTensor* theta, const aclIntArray*
 
     // 2. 检查输入的数据类型是否在API支持的数据类型范围之内，需要根据api定义校验
     CHECK_RET(CheckDtypeValid(theta, out), ACLNN_ERR_PARAM_INVALID);
+
+    CHECK_RET(CheckSize(size), ACLNN_ERR_PARAM_INVALID);
 
     // 3. 检查tensor的维度
     CHECK_RET(CheckShape(theta, size, out), ACLNN_ERR_PARAM_INVALID);

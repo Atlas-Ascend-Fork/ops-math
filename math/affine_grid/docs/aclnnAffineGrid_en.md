@@ -165,8 +165,8 @@ aclnnStatus aclnnAffineGrid(
       <td>theta, size, or out is a null pointer.</td>
     </tr>
     <tr>
-      <td rowspan="6">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="6">161002</td>
+      <td rowspan="7">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="7">161002</td>
       <td>The data type of theta is not supported.</td>
     </tr>
     <tr>
@@ -183,6 +183,9 @@ aclnnStatus aclnnAffineGrid(
     </tr>
     <tr>
       <td>When the length of size is 4, the shape of out is not (N, H, W, 2); when the length of size is 5, the shape of out is not (N, D, H, W, 3).</td>
+    </tr>
+    <tr>
+      <td>N, H, or W in size is outside (0, 100000], or D is not positive when the length of size is 5.</td>
     </tr>
   </tbody>
   </table>
@@ -236,6 +239,8 @@ aclnnStatus aclnnAffineGrid(
   - aclnnAffineGrid defaults to a deterministic implementation.
 
 - The values of N, H, and W in size must be in the range (0, 100000].
+- D must be positive when the length of size is 5.
+- C in size does not participate in the computation and has no value constraints.
 
 ## Example
 
