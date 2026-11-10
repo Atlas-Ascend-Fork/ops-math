@@ -17,4 +17,4 @@
 
 namespace ops {
 IMPL_OP_INFERSHAPE(ArgMaxV2).InferShape(InferShapeForArgOps).InputsDataDependency({INPUT_IDX_AXIS});
-}  // namespace ops
+} // namespace ops

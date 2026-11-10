@@ -12,18 +12,15 @@
  * \file bias_add_grad_infershape.cpp
  * \brief
  */
-#include <algorithm>
+#include <cstring>
 #include "log/log.h"
 #include "register/op_impl_registry.h"
-#include <algorithm>
+#include "util/shape_util.h"
 
 using namespace ge;
 namespace ops {
-const size_t DIM_SIZE2 = 2;
-static const std::vector<std::pair<std::string, Format>> kFormatMap = {
-    {"NCHW", FORMAT_NCHW},
-    {"NHWC", FORMAT_NHWC},
-};
+static constexpr size_t DIM_SIZE2 = 2;
+static constexpr size_t DIM_SIZE8 = 8;
 
 static ge::graphStatus InferShape4BiasAddGrad(gert::InferShapeContext* context)
 {
@@ -31,27 +28,39 @@ static ge::graphStatus InferShape4BiasAddGrad(gert::InferShapeContext* context)
     OP_CHECK_NULL_WITH_CONTEXT(context, in_shape);
     auto out_shape = context->GetOutputShape(0);
     OP_CHECK_NULL_WITH_CONTEXT(context, out_shape);
+
+    out_shape->SetDimNum(1);
+
+    if (Ops::Base::IsUnknownRank(*in_shape)) {
+        out_shape->SetDim(0, -1);
+        OP_LOGI(context->GetNodeName(), "[InferShape] output shape=%s.", Ops::Base::ToString(*out_shape).c_str());
+        return GRAPH_SUCCESS;
+    }
+
     auto attrs = context->GetAttrs();
     OP_CHECK_NULL_WITH_CONTEXT(context, attrs);
-
     const char* data_format = attrs->GetAttrPointer<char>(0);
     OP_CHECK_NULL_WITH_CONTEXT(context, data_format);
 
     size_t dim_num = in_shape->GetDimNum();
-    auto it = std::find_if(
-        kFormatMap.begin(), kFormatMap.end(),
-        [&data_format](const std::pair<std::string, Format>& item) -> bool { return item.first == data_format; });
-    OP_CHECK_IF(it == kFormatMap.end(),
-                OP_LOGE(context->GetNodeName(), "data_format %s must be in (NCHW, NHWC).", data_format),
-                return GRAPH_FAILED);
-    if (dim_num < DIM_SIZE2) {
-        OP_LOGE(context->GetNodeName(),
-                "The bias add grad op dimension(%lu) must be greater than or equal to 2 when format is NCHW!", dim_num);
+    if (strcmp(data_format, "NHWC") == 0) {
+        OP_CHECK_IF((dim_num < DIM_SIZE2) || (dim_num > DIM_SIZE8),
+                    OP_LOGE(context->GetNodeName(),
+                            "The bias add grad op dimension(%zu) is not supported when format is NHWC!", dim_num),
+                    return GRAPH_FAILED);
+        out_shape->SetDim(0, in_shape->GetDim(dim_num - 1));
+    } else if (strcmp(data_format, "NCHW") == 0) {
+        OP_CHECK_IF(dim_num < DIM_SIZE2,
+                    OP_LOGE(context->GetNodeName(),
+                            "The bias add grad op dimension(%zu) is not supported when format is NCHW!", dim_num),
+                    return GRAPH_FAILED);
+        out_shape->SetDim(0, in_shape->GetDim(1));
+    } else {
+        OP_LOGE(context->GetNodeName(), "data_format %s must be in (NCHW, NHWC).", data_format);
         return GRAPH_FAILED;
     }
-    out_shape->SetDimNum(0);
-    out_shape->AppendDim(in_shape->GetDim((it->second == FORMAT_NHWC) ? (dim_num - 1) : 1));
 
+    OP_LOGI(context->GetNodeName(), "[InferShape] output shape=%s.", Ops::Base::ToString(*out_shape).c_str());
     return GRAPH_SUCCESS;
 }
 

@@ -28,6 +28,7 @@ const int64_t OUT_IDX_VALUE = 1;
 ge::graphStatus InferShapeForArgOps(gert::InferShapeContext* context);
 
 ge::graphStatus InferShapeForArgOpsWithValue(gert::InferShapeContext* context);
-}  // namespace ops
+
+} // namespace ops
 
 #endif // ARG_COMMON_BASE_INFERSHAPE_H_

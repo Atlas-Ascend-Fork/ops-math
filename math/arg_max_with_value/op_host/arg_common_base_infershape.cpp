@@ -20,76 +20,117 @@
 using namespace ge;
 namespace ops {
 
+static void SetAllUnknownDim(int64_t rank, gert::Shape* shape)
+{
+    shape->SetDimNum(static_cast<size_t>(rank));
+    for (int64_t i = 0; i < rank; ++i) {
+        shape->SetDim(i, -1);
+    }
+}
+
 static ge::graphStatus ArgMaxInfer(const gert::InferShapeContext* context, const gert::Shape* x_shape,
-                                   gert::Shape* out_shape) {
-  OP_LOGD(context->GetNodeName(), "infershape impl is begin");
-  int64_t x_dim = x_shape->GetDimNum();
-  if (x_dim <= 1) {
-    out_shape->SetDimNum(0);
-    OP_LOGD(context->GetNodeName(), "infershape success, out is scalar");
-    return GRAPH_SUCCESS;
-  }
-  auto dtype = context->GetInputTensor(INPUT_IDX_AXIS)->GetDataType();
-  if (dtype == ge::DT_INT32) {
-    auto* data = context->GetInputTensor(INPUT_IDX_AXIS)->GetData<int32_t>();
-    return Ops::Base::ReduceDimsWithoutKeepDims<int32_t>(x_shape, data, 1, out_shape);
-  }
-  auto* data = context->GetInputTensor(INPUT_IDX_AXIS)->GetData<int64_t>();
-  return Ops::Base::ReduceDimsWithoutKeepDims<int64_t>(x_shape, data, 1, out_shape);
+                                   gert::Shape* out_shape)
+{
+    OP_LOGD(context->GetNodeName(), "infershape impl is begin");
+    if (Ops::Base::IsUnknownRank(*x_shape)) {
+        Ops::Base::SetUnknownRank(*out_shape);
+        OP_LOGD(context->GetNodeName(), "input x is unknown rank, set output unknown rank");
+        OP_LOGI(context->GetNodeName(), "[InferShape] output shape=%s.", Ops::Base::ToString(*out_shape).c_str());
+        return GRAPH_SUCCESS;
+    }
+    int64_t x_dim = x_shape->GetDimNum();
+    if (x_dim <= 1) {
+        out_shape->SetDimNum(0);
+        OP_LOGD(context->GetNodeName(), "infershape success, out is scalar");
+        OP_LOGI(context->GetNodeName(), "[InferShape] output shape=%s.", Ops::Base::ToString(*out_shape).c_str());
+        return GRAPH_SUCCESS;
+    }
+    auto axis_tensor = context->GetInputTensor(INPUT_IDX_AXIS);
+    auto dtype = axis_tensor->GetDataType();
+    if (dtype == ge::DT_INT32) {
+        auto* data = axis_tensor->GetData<int32_t>();
+        if (data == nullptr) {
+            SetAllUnknownDim(x_dim - 1, out_shape);
+            OP_LOGD(context->GetNodeName(), "axis is not const, set output all unknown");
+            OP_LOGI(context->GetNodeName(), "[InferShape] output shape=%s.", Ops::Base::ToString(*out_shape).c_str());
+            return GRAPH_SUCCESS;
+        }
+        OP_LOGI(context->GetNodeName(), "[InferShape] output shape=%s.", Ops::Base::ToString(*out_shape).c_str());
+        return Ops::Base::ReduceDimsWithoutKeepDims<int32_t>(x_shape, data, 1, out_shape);
+    }
+    auto* data = axis_tensor->GetData<int64_t>();
+    if (data == nullptr) {
+        SetAllUnknownDim(x_dim - 1, out_shape);
+        OP_LOGD(context->GetNodeName(), "axis is not const, set output all unknown");
+        OP_LOGI(context->GetNodeName(), "[InferShape] output shape=%s.", Ops::Base::ToString(*out_shape).c_str());
+        return GRAPH_SUCCESS;
+    }
+    OP_LOGI(context->GetNodeName(), "[InferShape] output shape=%s.", Ops::Base::ToString(*out_shape).c_str());
+    return Ops::Base::ReduceDimsWithoutKeepDims<int64_t>(x_shape, data, 1, out_shape);
 }
 
 static ge::graphStatus ArgMaxWithValueInfer(const gert::InferShapeContext* context, const gert::Shape* x_shape,
-                                            gert::Shape* indice_shape, gert::Shape* value_shape) {
-  OP_LOGD(context->GetNodeName(), "ArgMaxWithValueInfer infershape impl is begin");
-  if (x_shape->IsScalar()) {
-    *indice_shape = *x_shape;
-    *value_shape = *x_shape;
-    return GRAPH_SUCCESS;
-  }
-  auto attrs = context->GetAttrs();
-  OP_CHECK_NULL_WITH_CONTEXT(context, attrs);
-  const auto* attr_dimension = attrs->GetAttrPointer<int64_t>(0);
-  OP_CHECK_NULL_WITH_CONTEXT(context, attr_dimension);
-  const auto* attr_keep_dims = attrs->GetAttrPointer<bool>(1);
-  OP_CHECK_NULL_WITH_CONTEXT(context, attr_keep_dims);
-  bool keep_dims = *attr_keep_dims;
-
-  if (keep_dims) {
-    *value_shape = *x_shape;
-    OP_CHECK_IF(Ops::Base::ReduceDimsWithKeepDims<int64_t>(x_shape, attr_dimension, 1, value_shape) != GRAPH_SUCCESS,
-                OP_LOGE(context->GetNodeName(), "infershape failed"), return ge::GRAPH_FAILED);
-  } else {
-    value_shape->SetDimNum(0);
-    OP_CHECK_IF(Ops::Base::ReduceDimsWithoutKeepDims<int64_t>(x_shape, attr_dimension, 1, value_shape) != GRAPH_SUCCESS,
-                OP_LOGE(context->GetNodeName(), "infershape failed"), return ge::GRAPH_FAILED);
+                                            gert::Shape* indice_shape, gert::Shape* value_shape)
+{
+    OP_LOGD(context->GetNodeName(), "ArgMaxWithValueInfer infershape impl is begin");
+    if (Ops::Base::IsUnknownRank(*x_shape) || x_shape->IsScalar()) {
+        *indice_shape = *x_shape;
+        *value_shape = *x_shape;
+        OP_LOGI(context->GetNodeName(), "[InferShape] indice shape=%s, value shape=%s.",
+                Ops::Base::ToString(*indice_shape).c_str(), Ops::Base::ToString(*value_shape).c_str());
+        return GRAPH_SUCCESS;
     }
-  *indice_shape = *value_shape;
-  OP_LOGD(context->GetNodeName(), "infershape success");
-  return GRAPH_SUCCESS;
+    auto attrs = context->GetAttrs();
+    OP_CHECK_NULL_WITH_CONTEXT(context, attrs);
+    const auto* attr_dimension = attrs->GetAttrPointer<int64_t>(0);
+    OP_CHECK_NULL_WITH_CONTEXT(context, attr_dimension);
+    const auto* attr_keep_dims = attrs->GetAttrPointer<bool>(1);
+    OP_CHECK_NULL_WITH_CONTEXT(context, attr_keep_dims);
+    bool keep_dims = *attr_keep_dims;
+
+    if (keep_dims) {
+        *value_shape = *x_shape;
+        OP_CHECK_IF(
+            Ops::Base::ReduceDimsWithKeepDims<int64_t>(x_shape, attr_dimension, 1, value_shape) != GRAPH_SUCCESS,
+            OP_LOGE(context->GetNodeName(), "infershape failed"), return ge::GRAPH_FAILED);
+    } else {
+        value_shape->SetDimNum(0);
+        OP_CHECK_IF(
+            Ops::Base::ReduceDimsWithoutKeepDims<int64_t>(x_shape, attr_dimension, 1, value_shape) != GRAPH_SUCCESS,
+            OP_LOGE(context->GetNodeName(), "infershape failed"), return ge::GRAPH_FAILED);
+    }
+    *indice_shape = *value_shape;
+    OP_LOGD(context->GetNodeName(), "infershape success");
+    OP_LOGI(context->GetNodeName(), "[InferShape] indice shape=%s, value shape=%s.",
+            Ops::Base::ToString(*indice_shape).c_str(), Ops::Base::ToString(*value_shape).c_str());
+    return GRAPH_SUCCESS;
 }
 
-ge::graphStatus InferShapeForArgOps(gert::InferShapeContext* context) {
-  OP_LOGD(context->GetNodeName(), "InferShapeForArgOps infershape is begin");
-  auto x_shape = context->GetInputShape(INPUT_IDX_X);
-  OP_CHECK_NULL_WITH_CONTEXT(context, x_shape);
-  auto dimension_tensor = context->GetInputTensor(INPUT_IDX_AXIS);
-  OP_CHECK_NULL_WITH_CONTEXT(context, dimension_tensor);
-  auto dimension_shape = context->GetInputShape(INPUT_IDX_AXIS);
-  OP_CHECK_NULL_WITH_CONTEXT(context, dimension_shape);
-  auto out_shape = context->GetOutputShape(INPUT_IDX_X);
-  OP_CHECK_NULL_WITH_CONTEXT(context, out_shape);
-  out_shape->SetDimNum(0);
-  return ArgMaxInfer(context, x_shape, out_shape);
+ge::graphStatus InferShapeForArgOps(gert::InferShapeContext* context)
+{
+    OP_LOGD(context->GetNodeName(), "InferShapeForArgOps infershape is begin");
+    auto x_shape = context->GetInputShape(INPUT_IDX_X);
+    OP_CHECK_NULL_WITH_CONTEXT(context, x_shape);
+    auto dimension_tensor = context->GetInputTensor(INPUT_IDX_AXIS);
+    OP_CHECK_NULL_WITH_CONTEXT(context, dimension_tensor);
+    auto dimension_shape = context->GetInputShape(INPUT_IDX_AXIS);
+    OP_CHECK_NULL_WITH_CONTEXT(context, dimension_shape);
+    auto out_shape = context->GetOutputShape(INPUT_IDX_X);
+    OP_CHECK_NULL_WITH_CONTEXT(context, out_shape);
+    out_shape->SetDimNum(0);
+    return ArgMaxInfer(context, x_shape, out_shape);
 }
 
-ge::graphStatus InferShapeForArgOpsWithValue(gert::InferShapeContext* context) {
-  OP_LOGD(context->GetNodeName(), "infershape is begin");
-  auto x_shape = context->GetInputShape(INPUT_IDX_X);
-  OP_CHECK_NULL_WITH_CONTEXT(context, x_shape);
-  auto indice_shape = context->GetOutputShape(OUT_IDX_INDICE);
-  OP_CHECK_NULL_WITH_CONTEXT(context, indice_shape);
-  auto value_shape = context->GetOutputShape(OUT_IDX_VALUE);
-  OP_CHECK_NULL_WITH_CONTEXT(context, value_shape);
-  return ArgMaxWithValueInfer(context, x_shape, indice_shape, value_shape);
+ge::graphStatus InferShapeForArgOpsWithValue(gert::InferShapeContext* context)
+{
+    OP_LOGD(context->GetNodeName(), "infershape is begin");
+    auto x_shape = context->GetInputShape(INPUT_IDX_X);
+    OP_CHECK_NULL_WITH_CONTEXT(context, x_shape);
+    auto indice_shape = context->GetOutputShape(OUT_IDX_INDICE);
+    OP_CHECK_NULL_WITH_CONTEXT(context, indice_shape);
+    auto value_shape = context->GetOutputShape(OUT_IDX_VALUE);
+    OP_CHECK_NULL_WITH_CONTEXT(context, value_shape);
+    return ArgMaxWithValueInfer(context, x_shape, indice_shape, value_shape);
 }
-}  // namespace ops
+
+} // namespace ops

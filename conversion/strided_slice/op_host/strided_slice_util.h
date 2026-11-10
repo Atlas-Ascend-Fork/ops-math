@@ -31,7 +31,13 @@
 #ifndef OPS_BUILT_IN_OP_PROTO_RUNTIME_STRIDED_SLICE_H_
 #define OPS_BUILT_IN_OP_PROTO_RUNTIME_STRIDED_SLICE_H_
 
+#include <algorithm>
+#include <array>
+#include <cstdint>
+#include <cstdlib>
 #include <string>
+#include <utility>
+#include <vector>
 #include "log/log.h"
 
 namespace ops {
@@ -55,6 +61,9 @@ struct StridedSliceParams {
     bool real_begin_valid = true;
     bool real_end_valid = true;
     QuickVector dy_shape;
+    // NSDMI：带默认初始化器的成员在聚合初始化缺省时不再触发 -Werror=missing-field-initializers，
+    // 既有调用侧（如 strided_slice{,_v2}_tiling_arch35.cpp 的 15 项初始化列表）无需逐一补项
+    std::vector<std::pair<int64_t, int64_t>> ranges{};
 
     std::string to_string() const
     {
@@ -81,6 +90,7 @@ struct ProcessingData {
     QuickVector processing_begin;
     QuickVector processing_end;
     QuickVector processing_strides;
+    std::vector<std::pair<int64_t, int64_t>> processing_ranges;
 };
 
 struct InputParamUnit {
@@ -136,6 +146,108 @@ static inline uint64_t bit1value(int i)
 }
 
 static bool FwdOutOfBound(int64_t fwd, int64_t lower, int64_t upper) { return (fwd < lower) || (fwd >= upper); }
+
+static std::pair<int64_t, int64_t> CalcRange(const gert::Shape& shape, const QuickVector& begin, const QuickVector& end,
+                                             const QuickVector& strides, const StridedSliceParams& params,
+                                             const std::array<uint64_t, 2>& masks_i, int i)
+{
+    const auto& ranges = params.ranges;
+    size_t index = static_cast<size_t>(i);
+    if (index >= shape.GetDimNum() || index >= ranges.size()) {
+        return {0, -1};
+    }
+
+    if (shape.GetDim(index) >= 0) {
+        return {shape.GetDim(index), shape.GetDim(index)};
+    }
+
+    auto begin_i = begin.GetDim(index);
+    auto end_i = end.GetDim(index);
+    auto stride_i = strides.GetDim(index);
+    const auto& range_i = ranges[index];
+    auto get_output_interval = [&begin_i, &end_i, &stride_i, masks_i](int64_t interval) -> int64_t {
+        const std::array<int64_t, 2> valid_range = {{stride_i > 0 ? 0 : -1, stride_i > 0 ? interval : interval - 1}};
+        auto canonical = [stride_i, interval, masks_i, valid_range](int64_t x, int c) -> int64_t {
+            if (masks_i[c]) {
+                return stride_i > 0 ? valid_range[c] :
+                                      valid_range[static_cast<uint64_t>(c + 1) & static_cast<uint64_t>(1)];
+            } else {
+                int64_t x_fwd = x < 0 ? interval + x : x; // make negative indices positive
+                return x_fwd < valid_range[0] ? valid_range[0] : std::min(x_fwd, valid_range[1]);
+            }
+        };
+
+        auto left = canonical(begin_i, 0);
+        auto right = canonical(end_i, 1);
+        auto output_interval = right - left;
+        if ((output_interval < 0) != (stride_i < 0)) {
+            return 0;
+        }
+
+        return output_interval / stride_i + (output_interval % stride_i != 0 ? 1 : 0);
+    };
+
+    int64_t range_left = get_output_interval(range_i.first);
+
+    bool unknown_begin_i = !params.begin_valid && masks_i[0] == 0;
+    if (unknown_begin_i) {
+        range_left = 0;
+        begin_i = 0;
+    }
+
+    bool unknown_end_i = !params.end_valid && masks_i[1] == 0;
+    if (unknown_end_i) {
+        range_left = 0;
+        end_i = range_i.second;
+    }
+
+    if (!params.stride_valid) {
+        range_left = 0;
+        stride_i = 1;
+    }
+
+    int64_t range_right = -1;
+    if (range_i.second != -1) {
+        range_right = get_output_interval(range_i.second);
+    } else {
+        if (masks_i[0] != 0) {
+            begin_i = 0;
+        }
+
+        if (masks_i[1] != 0) {
+            end_i = -1;
+        }
+
+        if ((begin_i < 0) == (end_i < 0)) {
+            range_right = get_output_interval(std::max(std::abs(end_i), std::abs(begin_i)));
+        } else if (stride_i > 0) {
+            if (begin_i < 0) {
+                // stride_i > 0, range_i.second == -1, begin_i < 0, end_i >= 0
+                range_left = 0;
+                if (begin_i + range_i.first >= end_i) {
+                    range_right = 0;
+                } else {
+                    range_right = get_output_interval(std::min(std::abs(end_i), std::abs(begin_i)));
+                }
+            } else {
+                // stride_i > 0, range_i.second == -1, begin_i >= 0, end_i < 0
+                range_right = -1;
+            }
+        } else if (stride_i < 0) {
+            if (begin_i >= 0) {
+                // stride_i < 0, range_i.second == -1, begin_i >= 0, end_i < 0
+                range_right = range_left;
+                range_left = 1;
+            } else {
+                // stride_i < 0, range_i.second == -1, begin_i < 0, end_i >= 0
+                range_right = -1;
+            }
+        }
+    }
+
+    return {static_cast<int64_t>(std::min(static_cast<uint64_t>(range_left), static_cast<uint64_t>(range_right))),
+            static_cast<int64_t>(std::max(static_cast<uint64_t>(range_left), static_cast<uint64_t>(range_right)))};
+}
 
 static void BuildSparseSpec(StridedSliceParams& params, StridedSliceSparseSpec& sparse_spec)
 {
@@ -227,7 +339,8 @@ static bool BuildDenseSpec(const StridedSliceSparseSpec& sparse, StridedSliceDen
 }
 
 static void BuildProcessingShape(StridedSliceDenseSpec& dense_spec, InputParamUnit& input_param_unit,
-                                 const bool begin_and_end_masked, gert::Shape& processing_shape)
+                                 const bool begin_and_end_masked, ProcessingData& processing_data,
+                                 const StridedSliceParams& params, const std::array<uint64_t, 2>& masks_i, int i)
 {
     int64_t interval_length;
     bool known_interval = false;
@@ -262,9 +375,14 @@ static void BuildProcessingShape(StridedSliceDenseSpec& dense_spec, InputParamUn
             size_i = interval_length / input_param_unit.stride +
                      (interval_length % input_param_unit.stride != 0 ? 1 : 0);
         }
-        processing_shape.AppendDim(size_i);
+        processing_data.processing_shape.AppendDim(size_i);
+        processing_data.processing_ranges.push_back({size_i, size_i});
     } else {
-        processing_shape.AppendDim(-1);
+        processing_data.processing_shape.AppendDim(-1);
+        auto unknown_range = CalcRange(processing_data.processing_shape, processing_data.processing_begin,
+                                       processing_data.processing_end, processing_data.processing_strides, params,
+                                       masks_i, i);
+        processing_data.processing_ranges.push_back(unknown_range);
     }
 }
 
@@ -294,6 +412,14 @@ static bool BuildProcessingData(StridedSliceDenseSpec& dense_spec, StridedSliceP
             processing_data.processing_begin.AppendDim(begin_i);
             processing_data.processing_end.AppendDim(shrink_i ? (begin_i + 1) : end_i);
             processing_data.processing_strides.AppendDim(shrink_i ? 1 : stride_i);
+            if (shrink_i) {
+                processing_data.processing_ranges.push_back({1, 1});
+            } else {
+                auto unknown_range = CalcRange(processing_data.processing_shape, processing_data.processing_begin,
+                                               processing_data.processing_end, processing_data.processing_strides,
+                                               params, masks, i);
+                processing_data.processing_ranges.push_back(unknown_range);
+            }
             continue;
         }
 
@@ -375,18 +501,20 @@ static bool BuildProcessingData(StridedSliceDenseSpec& dense_spec, StridedSliceP
 
         // Compute the processing shape (the intermediate Eigen will produce)
         InputParamUnit input_param_unit = {begin_i, end_i, stride_i, dim_i, shrink_i};
-        BuildProcessingShape(dense_spec, input_param_unit, begin_and_end_masked, processing_data.processing_shape);
+        BuildProcessingShape(dense_spec, input_param_unit, begin_and_end_masked, processing_data, params, masks, i);
     }
     return true;
 }
 
 static void BuildFinalShape(ProcessingData& processing_data, StridedSliceDenseSpec& dense_spec,
-                            StridedSliceParams& params, gert::Shape* out_shape)
+                            StridedSliceParams& params, gert::Shape* out_shape,
+                            std::vector<std::pair<int64_t, int64_t>>* output_ranges)
 {
     params.begin.SetDimNum(0);
     params.end.SetDimNum(0);
     params.strides.SetDimNum(0);
     out_shape->SetDimNum(0);
+    output_ranges->clear();
     gert::Shape final_shape_input;
     int shrink_gather_index = 0;
     for (size_t i = 0; i < dense_spec.final_shape_gather_indices.GetDimNum(); i++) {
@@ -394,6 +522,8 @@ static void BuildFinalShape(ProcessingData& processing_data, StridedSliceDenseSp
         if (gather_index >= 0) {
             const auto dim_gather_i = processing_data.processing_shape[gather_index];
             out_shape->AppendDim(dim_gather_i);
+            output_ranges->push_back(dim_gather_i != -1 ? std::pair<int64_t, int64_t>(dim_gather_i, dim_gather_i) :
+                                                          processing_data.processing_ranges[gather_index]);
             final_shape_input.AppendDim(params.input_shape.GetDim(gather_index));
             params.begin.AppendDim(processing_data.processing_begin[gather_index]);
             params.end.AppendDim(processing_data.processing_end[gather_index]);
@@ -401,6 +531,7 @@ static void BuildFinalShape(ProcessingData& processing_data, StridedSliceDenseSp
             shrink_gather_index = gather_index + 1;
         } else if (gather_index == kStridedSliceNewAxis) {
             out_shape->AppendDim(1);
+            output_ranges->push_back({1, 1});
             // input is scalar
             if (params.input_shape.IsScalar()) {
                 final_shape_input.AppendDim(1);
@@ -420,7 +551,8 @@ static void BuildFinalShape(ProcessingData& processing_data, StridedSliceDenseSp
     params.input_shape = final_shape_input;
 }
 
-inline bool InferShape(StridedSliceParams& params, gert::Shape* out_shape)
+inline bool InferShapeAndRange(StridedSliceParams& params, gert::Shape* out_shape,
+                               std::vector<std::pair<int64_t, int64_t>>& output_ranges)
 {
     OP_LOGD(OP_NAME, "input params:%s.", params.to_string().c_str());
     // Use bit compares to ensure ellipsis_mask is 0 or a power of 2
@@ -449,14 +581,6 @@ inline bool InferShape(StridedSliceParams& params, gert::Shape* out_shape)
     BuildSparseSpec(params, sparse_spec);
 
     // Step 2: Make a sparse spec into a full index spec
-    //
-    // The sparse spec does not correspond to the number of dimensions
-    // Make a dense spec that corresponds to the number of dimensions
-    //
-    // For example suppose foo[...,3:] on foo.shape=(2,2,3) then
-    // we need to produce the missing begin_mask for the first two
-    // dimensions i.e. from begin_mask_spec=0, end_mask_spec=2
-    // we achieve begin_mask=6, end_mask=7
     gert::Shape final_shape_gather_indices;
     StridedSliceDenseSpec dense_spec = {static_cast<int64_t>(params.input_shape.GetDimNum()),
                                         0,
@@ -495,16 +619,18 @@ inline bool InferShape(StridedSliceParams& params, gert::Shape* out_shape)
             Ops::Base::ToString(processing_data.processing_strides).c_str());
 
     // Step 4: Compute the final shape
-    //
-    // new_axis will increase dimension by 1 (with a one-size dimension)
-    // slices like foo[3,...] will reduce dimension by 1.
-    // This cannot be done earlier, because it depends on Step 3.
-    BuildFinalShape(processing_data, dense_spec, params, out_shape);
+    BuildFinalShape(processing_data, dense_spec, params, out_shape, &output_ranges);
 
-    OP_LOGI(OP_NAME, "after infershape params:%s, output_shape:%s.", params.to_string().c_str(),
-            Ops::Base::ToString(*out_shape).c_str());
+    OP_LOGD(OP_NAME, "output_shape:%s, output_ranges_size:%zu.", Ops::Base::ToString(*out_shape).c_str(),
+            output_ranges.size());
 
     return true;
+}
+
+inline bool InferShape(StridedSliceParams& params, gert::Shape* out_shape)
+{
+    std::vector<std::pair<int64_t, int64_t>> output_ranges;
+    return InferShapeAndRange(params, out_shape, output_ranges);
 }
 } // namespace ops
 #endif // OPS_BUILT_IN_OP_PROTO_RUNTIME_STRIDED_SLICE_H_

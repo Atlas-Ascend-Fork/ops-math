@@ -12,6 +12,8 @@
  * \file slice_infershape.cpp
  * \brief
  */
+#include <algorithm>
+
 #include "register/op_impl_registry.h"
 #include "log/log.h"
 #include "util/const_util.h"
@@ -56,16 +58,13 @@ struct SliceConstParams {
 static int64_t SliceInferRankFn(gert::InferShapeContext* context, const gert::Shape* x_shape,
                                 const SliceConstParams& slice_infer_info)
 {
-    int64_t offset_num = slice_infer_info.is_offset_const ? slice_infer_info.offset.GetDimNum() :
-                                                            slice_infer_info.offset_num;
-    int64_t size_num = slice_infer_info.is_size_const ? slice_infer_info.size.GetDimNum() : slice_infer_info.size_num;
-    int64_t x_shape_rank = Ops::Base::IsUnknownRank(*x_shape) ? -1 : x_shape->GetDimNum();
-
-    int64_t output_rank = std::max(offset_num, size_num);
-    output_rank = std::max(output_rank, x_shape_rank);
     (void)context;
-
-    return output_rank;
+    if (!Ops::Base::IsUnknownRank(*x_shape)) {
+        return x_shape->GetDimNum();
+    }
+    int64_t offset_num = slice_infer_info.is_offset_const ? slice_infer_info.offset.GetDimNum() : 0;
+    int64_t size_num = slice_infer_info.is_size_const ? slice_infer_info.size.GetDimNum() : 0;
+    return std::max(offset_num, size_num);
 }
 
 static bool CheckSliceInfo(const gert::Shape* x_shape, const SliceConstParams& slice_infer_info)
@@ -128,6 +127,7 @@ static graphStatus SliceInferShapeFnWithConstSize(gert::InferShapeContext* conte
         }
     }
     OP_LOGD(context->GetNodeName(), "output y = %s", Ops::Base::ToString(*out_shape).c_str());
+    OP_LOGI(context->GetNodeName(), "[InferShape] output shape=%s.", Ops::Base::ToString(*out_shape).c_str());
     OP_LOGD(context->GetNodeName(), "End to do SliceInferShapeFn with const size");
 
     return ge::GRAPH_SUCCESS;
@@ -143,6 +143,13 @@ static graphStatus SliceInferShapeFn(gert::InferShapeContext* context, const ger
     OP_CHECK_IF(!CheckSliceInfo(x_shape, slice_infer_info),
                 OP_LOGE_WITHOUT_REPORT(context->GetNodeName(), "check input info failed; propagate the first error."),
                 return ge::GRAPH_FAILED);
+    if (!slice_infer_info.is_offset_const && !slice_infer_info.is_size_const && Ops::Base::IsUnknownRank(*x_shape)) {
+        OP_LOGD(context->GetNodeName(),
+                "offsets and size are not const and x is unknown rank, set output unknown rank.");
+        Ops::Base::SetUnknownRank(*out_shape);
+        OP_LOGI(context->GetNodeName(), "[InferShape] output shape=%s.", Ops::Base::ToString(*out_shape).c_str());
+        return ge::GRAPH_SUCCESS;
+    }
     if (slice_infer_info.is_size_const) {
         return SliceInferShapeFnWithConstSize(context, x_shape, slice_infer_info, out_shape);
     }
@@ -155,11 +162,13 @@ static graphStatus SliceInferShapeFn(gert::InferShapeContext* context, const ger
     if (output_rank <= 0) {
         OP_LOGD(context->GetNodeName(), "set the output shape = -2.");
         Ops::Base::SetUnknownRank(*out_shape);
+        OP_LOGI(context->GetNodeName(), "[InferShape] output shape=%s.", Ops::Base::ToString(*out_shape).c_str());
         return ge::GRAPH_SUCCESS;
     }
 
     OP_LOGD(context->GetNodeName(), "set the output shape all -1.");
     Ops::Base::SetUnknownShape(output_rank, *out_shape);
+    OP_LOGI(context->GetNodeName(), "[InferShape] output shape=%s.", Ops::Base::ToString(*out_shape).c_str());
     return ge::GRAPH_SUCCESS;
 }
 

@@ -13,7 +13,9 @@
  * \brief
  */
 #include "util/const_util.h"
+#include "util/shape_util.h"
 #include "register/op_impl_registry.h"
+#include "exe_graph/runtime/infer_shape_range_context.h"
 #include "log/log.h"
 
 using namespace ge;
@@ -31,16 +33,21 @@ static ge::graphStatus Infershape4Diag(gert::InferShapeContext* context)
     gert::Shape* output_y_shape = context->GetOutputShape(DIAG_OUT_Y_IDX);
     OP_CHECK_NULL_WITH_CONTEXT(context, output_y_shape);
 
-    size_t x_dim_num = input_x_shape->GetDimNum();
+    if (Ops::Base::IsUnknownRank(*input_x_shape)) {
+        Ops::Base::SetUnknownRank(*output_y_shape);
+    } else {
+        size_t x_dim_num = input_x_shape->GetDimNum();
 
-    output_y_shape->SetDimNum(0);
-    for (size_t i = 0; i < INT_DATA_2; i++) {
-        for (size_t j = 0; j < x_dim_num; j++) {
-            output_y_shape->AppendDim(input_x_shape->GetDim(j));
+        output_y_shape->SetDimNum(0);
+        for (size_t i = 0; i < INT_DATA_2; i++) {
+            for (size_t j = 0; j < x_dim_num; j++) {
+                output_y_shape->AppendDim(input_x_shape->GetDim(j));
+            }
         }
     }
 
     OP_LOGD(context->GetNodeName(), "output_y_shape = %s.", Ops::Base::ToString(*output_y_shape).c_str());
+    OP_LOGI(context->GetNodeName(), "[InferShape] output shape=%s.", Ops::Base::ToString(*output_y_shape).c_str());
     OP_LOGD(context->GetNodeName(), "End to do DiagInfershape.");
 
     return ge::GRAPH_SUCCESS;

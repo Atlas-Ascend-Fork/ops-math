@@ -114,7 +114,7 @@ TEST_F(StridedSliceV3Infershape, strided_slice_infershape_test4)
         {
             {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
         });
-    std::vector<std::vector<int64_t>> expectOutputShape = {{-1, -1}};
+    std::vector<std::vector<int64_t>> expectOutputShape = {{1, 10}};
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
 
@@ -181,7 +181,7 @@ TEST_F(StridedSliceV3Infershape, strided_slice_infershape_test7)
         {
             {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
         });
-    std::vector<std::vector<int64_t>> expectOutputShape = {{-1, -1}};
+    std::vector<std::vector<int64_t>> expectOutputShape = {{1, 10}};
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
 
@@ -348,7 +348,7 @@ TEST_F(StridedSliceV3Infershape, strided_slice_v3_dynamic_shape)
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
 
-// 非 const axes → SetAllUnknownDim
+// 非 const axes → axes_valid 为 false，不进行 axes 展开，按稀疏切片推导
 TEST_F(StridedSliceV3Infershape, strided_slice_v3_non_const_axes)
 {
     vector<int64_t> beginValue = {0};
@@ -367,7 +367,7 @@ TEST_F(StridedSliceV3Infershape, strided_slice_v3_non_const_axes)
         {
             {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
         });
-    std::vector<std::vector<int64_t>> expectOutputShape = {{-1, -1}};
+    std::vector<std::vector<int64_t>> expectOutputShape = {{1, 4}};
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
 
