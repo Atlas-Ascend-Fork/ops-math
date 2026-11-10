@@ -42,6 +42,22 @@ TEST_F(l2_linalg_qr_test, case_normal)
     // // SAMPLE: precision simulate
 }
 
+TEST_F(l2_linalg_qr_test, case_fp32_tiny_input)
+{
+    std::vector<float> input(16);
+    for (size_t i = 0; i < input.size(); ++i) {
+        const auto value = static_cast<int64_t>((i * 7 + 3) % 11) - 5;
+        input[i] = 1e-20f * static_cast<float>(value);
+    }
+    auto selfDesc = TensorDesc({4, 4}, ACL_FLOAT, ACL_FORMAT_ND).Value(input);
+    auto qDesc = TensorDesc({4, 4}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto rDesc = TensorDesc({4, 4}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto ut = OP_API_UT(aclnnLinalgQr, INPUT(selfDesc, 0), OUTPUT(qDesc, rDesc));
+
+    uint64_t workspaceSize = 0;
+    EXPECT_EQ(ut.TestGetWorkspaceSize(&workspaceSize), ACLNN_SUCCESS);
+}
+
 // 空tensor 场景一：最后一个维度为0 mode为complete
 TEST_F(l2_linalg_qr_test, case_empty_n_false)
 {

@@ -14,10 +14,17 @@
  */
 
 #include "aclnn_linalg_qr.h"
+#include <vector>
 #include "qr.h"
 #include "aclnn_kernels/common/op_error_check.h"
 #include "aclnn_kernels/cast.h"
 #include "aclnn_kernels/contiguous.h"
+#include "conversion/tensor_move/op_api/tensor_move.h"
+#include "math/abs/op_api/abs.h"
+#include "math/div/op_api/div.h"
+#include "math/maximum/op_api/maximum.h"
+#include "math/mul/op_api/mul.h"
+#include "math/reduce_max/op_api/reduce_max.h"
 #include "opdev/op_dfx.h"
 
 using namespace op;
@@ -33,6 +40,8 @@ static const std::initializer_list<op::DataType> DTYPE_SUPPORT_LIST = {
 static const int64_t REDUCE_REDUCED = 0;
 static const int64_t REDUCE_COMPLETE = 1;
 static const int64_t REDUCE_R = 2;
+static constexpr float FLOAT_MIN_NORMAL = 1.1754943508222875e-38f;
+static constexpr float FLOAT_ONE = 1.0f;
 
 static inline bool CheckNotNull(const aclTensor* self, const aclTensor* Q, const aclTensor* R)
 {
@@ -112,6 +121,42 @@ static aclnnStatus CheckParams(const aclTensor* self, int64_t mode, const aclTen
     return ACLNN_SUCCESS;
 }
 
+static std::tuple<const aclTensor*, const aclTensor*> NormalizeFloatInput(const aclTensor* self,
+                                                                          aclOpExecutor* executor)
+{
+    auto absSelf = l0op::Abs(self, executor);
+    CHECK_RET(absSelf != nullptr, std::make_tuple(nullptr, nullptr));
+
+    const auto dimNum = self->GetViewShape().GetDimNum();
+    std::vector<int64_t> dims = {static_cast<int64_t>(dimNum) - 2, static_cast<int64_t>(dimNum) - 1};
+    auto dimArray = executor->AllocIntArray(dims.data(), dims.size());
+    CHECK_RET(dimArray != nullptr, std::make_tuple(nullptr, nullptr));
+    auto maxAbs = l0op::ReduceMax(absSelf, dimArray, true, true, executor);
+    CHECK_RET(maxAbs != nullptr, std::make_tuple(nullptr, nullptr));
+
+    auto minNormalScalar = executor->AllocScalar(FLOAT_MIN_NORMAL);
+    CHECK_RET(minNormalScalar != nullptr, std::make_tuple(nullptr, nullptr));
+    auto minNormal = executor->ConvertToTensor(minNormalScalar, op::DataType::DT_FLOAT);
+    CHECK_RET(minNormal != nullptr, std::make_tuple(nullptr, nullptr));
+    auto safeMaxAbs = l0op::Maximum(maxAbs, minNormal, executor);
+    CHECK_RET(safeMaxAbs != nullptr, std::make_tuple(nullptr, nullptr));
+
+    auto oneScalar = executor->AllocScalar(FLOAT_ONE);
+    CHECK_RET(oneScalar != nullptr, std::make_tuple(nullptr, nullptr));
+    auto one = executor->ConvertToTensor(oneScalar, op::DataType::DT_FLOAT);
+    CHECK_RET(one != nullptr, std::make_tuple(nullptr, nullptr));
+    auto reciprocalMaxAbs = l0op::Div(one, safeMaxAbs, executor);
+    CHECK_RET(reciprocalMaxAbs != nullptr, std::make_tuple(nullptr, nullptr));
+    auto scale = l0op::Maximum(reciprocalMaxAbs, one, executor);
+    CHECK_RET(scale != nullptr, std::make_tuple(nullptr, nullptr));
+    // Reuse the Abs buffer after reduction, preserving signs without modifying the caller's input.
+    auto signedSelf = l0op::TensorMove(self, absSelf, executor);
+    CHECK_RET(signedSelf != nullptr, std::make_tuple(nullptr, nullptr));
+    auto normalized = l0op::MulInplace(scale, signedSelf, executor);
+    CHECK_RET(normalized != nullptr, std::make_tuple(nullptr, nullptr));
+    return std::make_tuple(normalized, scale);
+}
+
 aclnnStatus aclnnLinalgQrGetWorkspaceSize(const aclTensor* self, int64_t mode, aclTensor* Q, aclTensor* R,
                                           uint64_t* workspaceSize, aclOpExecutor** executor)
 {
@@ -141,14 +186,25 @@ aclnnStatus aclnnLinalgQrGetWorkspaceSize(const aclTensor* self, int64_t mode, a
         selfContiguous = l0op::Cast(selfContiguous, op::DataType::DT_FLOAT, uniqueExecutor.get());
         CHECK_RET(selfContiguous != nullptr, ACLNN_ERR_INNER_NULLPTR);
     }
+    const aclTensor* qrInput = selfContiguous;
+    const aclTensor* scale = nullptr;
+    if (self->GetDataType() == op::DataType::DT_FLOAT && !self->IsEmpty()) {
+        std::tie(qrInput, scale) = NormalizeFloatInput(selfContiguous, uniqueExecutor.get());
+        CHECK_RET(qrInput != nullptr && scale != nullptr, ACLNN_ERR_INNER_NULLPTR);
+    }
+
     // 调用QR算子Kernel
     auto some = (mode == REDUCE_COMPLETE) ? false : true;
-    auto outArray = l0op::Qr(selfContiguous, some, uniqueExecutor.get());
+    auto outArray = l0op::Qr(qrInput, some, uniqueExecutor.get());
 
     // 获取对应的Q，R
-    auto resultQ = std::get<0>(outArray);
-    auto resultR = std::get<1>(outArray);
+    const aclTensor* resultQ = std::get<0>(outArray);
+    const aclTensor* resultR = std::get<1>(outArray);
     CHECK_RET(resultQ != nullptr && resultR != nullptr, ACLNN_ERR_INNER_NULLPTR);
+    if (scale != nullptr) {
+        resultR = l0op::Div(resultR, scale, uniqueExecutor.get());
+        CHECK_RET(resultR != nullptr, ACLNN_ERR_INNER_NULLPTR);
+    }
 
     // 固定写法，将计算结果转换成输出out的数据类型
     auto castOutQ = l0op::Cast(resultQ, Q->GetDataType(), uniqueExecutor.get());
