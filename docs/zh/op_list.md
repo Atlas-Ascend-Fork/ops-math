@@ -2422,7 +2422,7 @@
     <td>×</td>
     <td>√</td>
     <td>×</td>
-    <td>×</td>
+    <td>√</td>
     <td>Host CPU</td>
     <td>将输入tensor按照比特位重新解释为目标数据类型，不改变底层数据的存储内容，仅改变dataType和shape。</td>
   </tr>

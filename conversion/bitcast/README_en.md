@@ -42,4 +42,6 @@ English | [简体中文](./README.md)
 
 ## Invocation Description
 
-None
+| Invocation Method | Invocation Sample | Description |
+| :--- | :--- | :--- |
+| Graph-mode invocation | [test_geir_bitcast](./examples/test_geir_bitcast.cpp) | Invokes the Bitcast operator by building a graph through the [operator IR](op_graph/bitcast_proto.h). |
