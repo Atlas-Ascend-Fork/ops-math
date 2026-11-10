@@ -98,6 +98,12 @@ static aclnnStatus CheckParams(const aclTensor* self, const aclTensor* condition
     // 2. 检查输入的数据类型是否在API支持的数据类型范围之内，需要根据api定义校验
     CHECK_RET(CheckDtypeValid(self, other, condition, out), ACLNN_ERR_PARAM_INVALID);
 
+    auto promoteType = op::PromoteType(self->GetDataType(), other->GetDataType());
+    if (promoteType == DataType::DT_UNDEFINED) {
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "Self and other data types cannot be promoted.");
+        return ACLNN_ERR_PARAM_INVALID;
+    }
+
     // 3. 检查输入shape
     CHECK_RET(CheckShape(self, other, condition, out), ACLNN_ERR_PARAM_INVALID);
 
@@ -159,8 +165,10 @@ aclnnStatus aclnnSWhereGetWorkspaceSize(const aclTensor* condition, const aclTen
         auto resView = uniqueExecutor.get()->CreateView(opRes, opRes->GetViewShape(), opRes->GetViewOffset());
         CHECK_RET(resView != nullptr, ACLNN_ERR_INNER_NULLPTR);
         resView->SetDataType(DataType::DT_BOOL);
+        auto selCast = l0op::Cast(resView, out->GetDataType(), uniqueExecutor.get());
+        CHECK_RET(selCast != nullptr, ACLNN_ERR_INNER_NULLPTR);
         // 固定写法，将计算结果拷贝到输出out上，out可能是非连续的tensor
-        selRes = l0op::ViewCopy(resView, out, uniqueExecutor.get());
+        selRes = l0op::ViewCopy(selCast, out, uniqueExecutor.get());
     } else {
         auto selfCast = l0op::Cast(selfContiguous, promoteType, uniqueExecutor.get());
         CHECK_RET(selfCast != nullptr, ACLNN_ERR_INNER_NULLPTR);

@@ -22,6 +22,49 @@ protected:
     static void TearDownTestCase() { cout << "l2_s_where_test TearDown" << endl; }
 };
 
+TEST_F(l2_s_where_test, unsupported_type_promotion_returns_param_invalid)
+{
+    const aclDataType pairs[][2] = {{ACL_UINT16, ACL_FLOAT}, {ACL_FLOAT, ACL_UINT16}, {ACL_BF16, ACL_UINT64},
+                                    {ACL_UINT64, ACL_BF16},  {ACL_UINT32, ACL_BF16},  {ACL_BF16, ACL_UINT32}};
+    for (const auto& pair : pairs) {
+        for (const auto& shape : {vector<int64_t>{2, 2}, vector<int64_t>{0}}) {
+            auto conditionDesc = TensorDesc(shape, ACL_BOOL, ACL_FORMAT_ND);
+            auto selfDesc = TensorDesc(shape, pair[0], ACL_FORMAT_ND);
+            auto otherDesc = TensorDesc(shape, pair[1], ACL_FORMAT_ND);
+            auto outDesc = TensorDesc(shape, ACL_FLOAT, ACL_FORMAT_ND);
+            auto ut = OP_API_UT(aclnnSWhere, INPUT(conditionDesc, selfDesc, otherDesc), OUTPUT(outDesc));
+            uint64_t workspaceSize = 0;
+            EXPECT_EQ(ut.TestGetWorkspaceSize(&workspaceSize), ACLNN_ERR_PARAM_INVALID);
+        }
+    }
+}
+
+TEST_F(l2_s_where_test, bool_inputs_cast_to_output_dtype)
+{
+    for (aclDataType outType : {ACL_BOOL, ACL_INT8, ACL_FLOAT, ACL_INT32}) {
+        auto conditionDesc = TensorDesc({4, 1}, ACL_BOOL, ACL_FORMAT_ND);
+        auto selfDesc = TensorDesc({4, 1}, ACL_BOOL, ACL_FORMAT_ND);
+        auto otherDesc = TensorDesc({4, 1}, ACL_BOOL, ACL_FORMAT_ND);
+        auto outDesc = TensorDesc({4, 1}, outType, ACL_FORMAT_ND);
+        auto ut = OP_API_UT(aclnnSWhere, INPUT(conditionDesc, selfDesc, otherDesc), OUTPUT(outDesc));
+        uint64_t workspaceSize = 0;
+        EXPECT_EQ(ut.TestGetWorkspaceSize(&workspaceSize), ACLNN_SUCCESS);
+    }
+}
+
+TEST_F(l2_s_where_test, bool_inputs_broadcast_to_noncontiguous_output)
+{
+    for (aclDataType outType : {ACL_BOOL, ACL_INT8, ACL_FLOAT, ACL_INT32}) {
+        auto conditionDesc = TensorDesc({2, 3}, ACL_BOOL, ACL_FORMAT_ND);
+        auto selfDesc = TensorDesc({2, 1}, ACL_BOOL, ACL_FORMAT_ND);
+        auto otherDesc = TensorDesc({1, 3}, ACL_BOOL, ACL_FORMAT_ND);
+        auto outDesc = TensorDesc({2, 3}, outType, ACL_FORMAT_ND, {1, 2}, 0, {3, 2});
+        auto ut = OP_API_UT(aclnnSWhere, INPUT(conditionDesc, selfDesc, otherDesc), OUTPUT(outDesc));
+        uint64_t workspaceSize = 0;
+        EXPECT_EQ(ut.TestGetWorkspaceSize(&workspaceSize), ACLNN_SUCCESS);
+    }
+}
+
 // condition为空指针
 TEST_F(l2_s_where_test, l2_s_where_test_nullptr_condition)
 {
