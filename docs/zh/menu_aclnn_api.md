@@ -122,6 +122,7 @@
 - [aclnnHansEncode](../../math/hans_encode/docs/aclnnHansEncode.md)
 - [aclnnHardtanh&aclnnInplaceHardtanh](../../conversion/clip_by_value_v2/docs/aclnnHardtanh&aclnnInplaceHardtanh.md)
 - [aclnnHistc](../../math/histogram_v2/docs/aclnnHistc.md)
+- [aclnnHypot](../../math/hypot/docs/aclnnHypot.md)
 - [aclnnIm2col](../../conversion/im2col/docs/aclnnIm2col.md)
 - [aclnnInplaceBitwiseAndScalar](../../math/bitwise_and/docs/aclnnInplaceBitwiseAndScalar.md)
 - [aclnnInplaceBitwiseAndTensor](../../math/bitwise_and/docs/aclnnInplaceBitwiseAndTensor.md)

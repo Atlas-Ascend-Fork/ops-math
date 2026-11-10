@@ -669,5 +669,6 @@
     {"name":"Rint", "compute_units": ["ascend950", "ascend350", "ascend960dt"], "auto_sync" : false},
     {"name":"Tan", "compute_units": ["mc62", "ascend350"], "compile_options": {"mc62": ["--cce-no-dcache-flush"]}},
     {"name":"ProdVirialSeA", "compute_units": ["ascend950"], "auto_sync": false, "impl_mode": ""},
-    {"name":"ProdForceSeA", "compute_units": ["ascend950", "ascend350"], "impl_mode": ""}
+    {"name":"ProdForceSeA", "compute_units": ["ascend950", "ascend350"], "impl_mode": ""},
+    {"name":"Hypot", "compute_units": ["ascend910b", "ascend910_93"], "auto_sync": true}
 ]

@@ -1058,6 +1058,16 @@
   </tr>
   <tr>
     <td>math</td>
+    <td><a href="../../math/hypot/README.md">hypot</a></td>
+    <td>√</td>
+    <td>√</td>
+    <td>√</td>
+    <td>√</td>
+    <td>AI Core</td>
+    <td>逐元素计算两个输入张量对应元素构成的直角三角形斜边长度。</td>
+  </tr>
+  <tr>
+    <td>math</td>
     <td><a href="../../math/inplace_top_k_distance/README.md">inplace_top_k_distance</a></td>
     <td>√</td>
     <td>√</td>
