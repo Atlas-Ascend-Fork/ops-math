@@ -158,6 +158,7 @@ public:
             .NeedCheckSupportFlag(false)
             .ExtendCfgInfo("opFile.value", "slice_apt");
         this->AICore().AddConfig("ascend960dt", config91096);
+        this->AICore().AddConfig("ascend960pr", config91096);
     }
 };
 

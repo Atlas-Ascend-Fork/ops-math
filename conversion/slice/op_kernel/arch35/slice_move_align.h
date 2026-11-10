@@ -203,7 +203,7 @@ __aicore__ inline void SliceMoveAlign<T, U, V>::ProcessPerBlock(const DataCopyEx
             // 3、注意：loop模式如果打开了，需要手动关闭，否则默认就全部都是开的
             LocalTensor<T> inputLocal = vecQue_.AllocTensor<T>();
             SetLoopModePara(loopMode_, DataCopyMVType::OUT_TO_UB);
-#if defined(__DAV_920R1__)
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
             DataCopyPad<T, PaddingMode::Compact>(inputLocal, inputGM_[inputGmAddr + loops * this->ubInLoopSteps_],
                                                  copyInParam_, padParams_, true);
 #else
@@ -222,7 +222,7 @@ __aicore__ inline void SliceMoveAlign<T, U, V>::ProcessPerBlock(const DataCopyEx
         if (this->ubTailFactor_ > 0) {
             LocalTensor<T> inputLocal = vecQue_.AllocTensor<T>();
             SetLoopModePara(loopModeTail_, DataCopyMVType::OUT_TO_UB);
-#if defined(__DAV_920R1__)
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
             DataCopyPad<T, PaddingMode::Compact>(inputLocal,
                                                  inputGM_[inputGmAddr + ubSplitLoopsNum * this->ubInLoopSteps_],
                                                  copyInParamTail_, padParams_, true);

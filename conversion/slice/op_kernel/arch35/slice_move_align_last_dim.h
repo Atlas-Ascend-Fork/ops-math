@@ -103,7 +103,7 @@ __aicore__ inline void SliceMoveAlignLastDim<T, U, V>::ProcessPerBlockInLastDim(
     copyParamsMain_.blockLen = this->ubFactor_ * sizeof(T);
     for (int64_t idx = 0; idx < loopCnt; idx++) {
         LocalTensor<T> inputLocal = vecQue_.AllocTensor<T>();
-#if defined(__DAV_920R1__)
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
         DataCopyPad(inputLocal, inputGM_[inputGmAddr + idx * this->ubFactor_], copyParamsMain_, padParams_, true);
 #else
         DataCopyPad(inputLocal, inputGM_[inputGmAddr + idx * this->ubFactor_], copyParamsMain_, padParams_);
@@ -119,7 +119,7 @@ __aicore__ inline void SliceMoveAlignLastDim<T, U, V>::ProcessPerBlockInLastDim(
     if (this->ubTailFactor_ != 0) {
         LocalTensor<T> inputLocal = vecQue_.AllocTensor<T>();
         copyParamsTail_.blockLen = this->ubTailFactor_ * sizeof(T);
-#if defined(__DAV_920R1__)
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
         DataCopyPad(inputLocal, inputGM_[inputGmAddr + loopCnt * this->ubFactor_], copyParamsTail_, padParams_, true);
 #else
         DataCopyPad(inputLocal, inputGM_[inputGmAddr + loopCnt * this->ubFactor_], copyParamsTail_, padParams_);
@@ -153,7 +153,7 @@ __aicore__ inline void SliceMoveAlignLastDim<T, U, V>::ProcessPerBlockNLastDim()
         outputGmAddr = this->GetOutputGmAddr(curCoreRowsOffset + idx);
         for (int64_t ubCnt = 0; ubCnt < ubSplitOutNum; ubCnt++) {
             LocalTensor<T> inputLocal = vecQue_.AllocTensor<T>();
-#if defined(__DAV_920R1__)
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
             DataCopyPad(inputLocal, inputGM_[inputGmAddr + ubCnt * this->ubFactor_], copyParamsMain_, padParams_, true);
 #else
             DataCopyPad(inputLocal, inputGM_[inputGmAddr + ubCnt * this->ubFactor_], copyParamsMain_, padParams_);
@@ -168,7 +168,7 @@ __aicore__ inline void SliceMoveAlignLastDim<T, U, V>::ProcessPerBlockNLastDim()
 
         if (this->ubTailFactor_ != 0) {
             LocalTensor<T> inputLocal = vecQue_.AllocTensor<T>();
-#if defined(__DAV_920R1__)
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
             DataCopyPad(inputLocal, inputGM_[inputGmAddr + ubSplitOutNum * this->ubFactor_], copyParamsTail_,
                         padParams_, true);
 #else

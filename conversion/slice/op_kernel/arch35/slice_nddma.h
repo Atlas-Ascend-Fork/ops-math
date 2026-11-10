@@ -174,7 +174,7 @@ __aicore__ inline void SliceNDDMA<T, U, V>::ProcessPerBlock()
 
         for (int64_t loops = 0; loops < ubSplitLoopsNum_; loops++) {
             LocalTensor<T> inputLocal = vecQue_.AllocTensor<T>();
-#if defined(__DAV_920R1__)
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
             DataCopy<T, NDDMA_MAX_DIMS, nddmaConfig_>(inputLocal, inputGM_[inputGmAddr + loops * this->ubInLoopSteps_],
                                                       paramsMain, true);
 #else
@@ -188,7 +188,7 @@ __aicore__ inline void SliceNDDMA<T, U, V>::ProcessPerBlock()
         }
         if (this->ubTailFactor_ > 0) {
             LocalTensor<T> inputLocal = vecQue_.AllocTensor<T>();
-#if defined(__DAV_920R1__)
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
             DataCopy<T, NDDMA_MAX_DIMS, nddmaConfig_>(
                 inputLocal, inputGM_[inputGmAddr + ubSplitLoopsNum_ * this->ubInLoopSteps_], paramsTail, true);
 #else

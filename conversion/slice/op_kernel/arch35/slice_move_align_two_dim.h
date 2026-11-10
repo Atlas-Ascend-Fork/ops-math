@@ -94,7 +94,7 @@ __aicore__ inline void SliceMoveAlignTwoDim<T, U, V>::Process()
 
     for (int64_t loops = 0; loops < ubSplitLoopsNum; loops++) {
         LocalTensor<T> inputLocal = vecQue_.AllocTensor<T>();
-#if defined(__DAV_920R1__)
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
         DataCopyPad<T, PaddingMode::Compact>(inputLocal, inputGM_[inputGmAddr + loops * tilingData_->ubInLoopSteps],
                                              copyInParam, padParams, true);
 #else
@@ -115,7 +115,7 @@ __aicore__ inline void SliceMoveAlignTwoDim<T, U, V>::Process()
     if (ubTailFactor_ > 0) {
         copyInParam.blockCount = ubTailFactor_;
         LocalTensor<T> inputLocal = vecQue_.AllocTensor<T>();
-#if defined(__DAV_920R1__)
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
         DataCopyPad<T, PaddingMode::Compact>(inputLocal,
                                              inputGM_[inputGmAddr + ubSplitLoopsNum * tilingData_->ubInLoopSteps],
                                              copyInParam, padParams, true);

@@ -96,7 +96,7 @@ __aicore__ inline void SliceTwoDimSmallShape<T, U, V>::Process()
     DataCopyPadExtParams<T> padParams{false, 0, 0, 0};
 
     LocalTensor<T> inputLocal = vecQue_.AllocTensor<T>();
-#if defined(__DAV_920R1__)
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
     DataCopyPad(inputLocal, inputGM_[dataOffset * tilingData_->lastOneInputDim + lastDimBegin_], copyInParam, padParams,
                 true);
 #else

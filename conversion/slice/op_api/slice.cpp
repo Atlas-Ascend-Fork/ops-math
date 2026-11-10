@@ -199,7 +199,7 @@ static bool IsAiCoreSupport(const aclTensor* self)
     auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
     if (curArch == NpuArch::DAV_3510) {
         return CheckType(self->GetDataType(), AICORE_DTYPE_SUPPORT_LIST_ASCEND910D);
-    } else if (curArch == NpuArch::DAV_9201) {
+    } else if (curArch == NpuArch::DAV_9201 || curArch == NpuArch::DAV_9202) {
         return CheckType(self->GetDataType(), AICORE_DTYPE_SUPPORT_LIST_ASCEND960dt);
     }
     return CheckType(self->GetDataType(), AICORE_DTYPE_SUPPORT_LIST_ASCEND910);

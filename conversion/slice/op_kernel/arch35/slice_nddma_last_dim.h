@@ -123,7 +123,7 @@ __aicore__ inline void SliceNDDMALastDim<T, U, V>::ProcessPerBlockInLastDim()
     copyOutParamsMain_.blockLen = this->ubFactor_ * sizeof(T);
     for (int64_t loops = 0; loops < loopCnt; loops++) {
         LocalTensor<T> inputLocal = vecQue_.AllocTensor<T>();
-#if defined(__DAV_920R1__)
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
         DataCopy<T, NDDMA_LAST_DIMS, nddmaConfig_>(inputLocal, inputGM_[inputGmAddr + loops * this->ubInLoopSteps_],
                                                    paramsMain, true);
 #else
@@ -139,7 +139,7 @@ __aicore__ inline void SliceNDDMALastDim<T, U, V>::ProcessPerBlockInLastDim()
     if (this->ubTailFactor_ > 0) {
         LocalTensor<T> inputLocal = vecQue_.AllocTensor<T>();
         copyOutParamsTail_.blockLen = this->ubTailFactor_ * sizeof(T);
-#if defined(__DAV_920R1__)
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
         DataCopy<T, NDDMA_LAST_DIMS, nddmaConfig_>(inputLocal, inputGM_[inputGmAddr + loopCnt * this->ubInLoopSteps_],
                                                    paramsTail, true);
 #else
@@ -180,7 +180,7 @@ __aicore__ inline void SliceNDDMALastDim<T, U, V>::ProcessPerBlock()
         outputGmAddr = this->GetOutputGmAddr(curCoreRowsOffset + idx);
         for (int64_t ubCnt = 0; ubCnt < ubSplitOutNum; ubCnt++) {
             LocalTensor<T> inputLocal = vecQue_.AllocTensor<T>();
-#if defined(__DAV_920R1__)
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
             DataCopy<T, NDDMA_LAST_DIMS, nddmaConfig_>(inputLocal, inputGM_[inputGmAddr + ubCnt * outLoopSteps],
                                                        paramsMain, true);
 #else
@@ -195,7 +195,7 @@ __aicore__ inline void SliceNDDMALastDim<T, U, V>::ProcessPerBlock()
 
         if (this->ubTailFactor_ > 0) {
             LocalTensor<T> inputLocal = vecQue_.AllocTensor<T>();
-#if defined(__DAV_920R1__)
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
             DataCopy<T, NDDMA_LAST_DIMS, nddmaConfig_>(inputLocal, inputGM_[inputGmAddr + ubSplitOutNum * outLoopSteps],
                                                        paramsTail, true);
 #else
