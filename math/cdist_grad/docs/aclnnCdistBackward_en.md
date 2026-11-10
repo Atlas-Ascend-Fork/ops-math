@@ -201,8 +201,8 @@ aclnnStatus aclnnCdistBackward(
         <td>grad, x1, x2, or cdist is a null pointer.</td>
       </tr>
       <tr>
-        <td rowspan="6">ACLNN_ERR_PARAM_INVALID</td>
-        <td rowspan="6">161002</td>
+        <td rowspan="2">ACLNN_ERR_PARAM_INVALID</td>
+        <td rowspan="2">161002</td>
         <td>The data type of grad, x1, x2, or cdist is not within the supported range.</td>
       </tr>
       <tr>

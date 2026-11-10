@@ -178,8 +178,8 @@ aclnnStatus aclnnCircularPad3dBackward(
       <td>gradOutput的shape需要与circular_pad3d正向传播的output一致。</td>
     </tr>
     <tr>
-      <td rowspan="6">ACLNN_ERR_INNER_NULLPTR</td>
-      <td rowspan="6">561103</td>
+      <td rowspan="1">ACLNN_ERR_INNER_NULLPTR</td>
+      <td rowspan="1">561103</td>
       <td>算子执行失败或变量初始化失败。</td>
     </tr>
   </tbody>

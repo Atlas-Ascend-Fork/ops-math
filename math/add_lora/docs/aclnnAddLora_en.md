@@ -261,8 +261,8 @@ aclnnStatus aclnnAddLora(
       <td>The data type of the input parameter (x, y, weightB, indices) or output parameter is not within the supported range.</td>
     </tr>
     <tr>
-      <td rowspan="3">ACLNN_ERR_INNER_TILING_ERROR</td>
-      <td rowspan="3">561002</td>
+      <td rowspan="2">ACLNN_ERR_INNER_TILING_ERROR</td>
+      <td rowspan="2">561002</td>
       <td>The shape information of the input tensors does not match. (For details, see Parameters.)</td>
     </tr>
     <tr>

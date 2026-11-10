@@ -171,8 +171,8 @@ aclnnStatus aclnnNormalTensorTensor(
       <td>传入的mean、std或者out为空指针。</td>
     </tr>
     <tr>
-      <td rowspan="7">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="7">161002</td>
+      <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="5">161002</td>
       <td>传入的mean、std和out的数据类型不在支持的范围之内。</td>
     </tr>
     <tr>

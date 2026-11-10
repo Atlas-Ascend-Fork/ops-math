@@ -143,8 +143,8 @@ aclnnStatus aclnnLogicalAnd(
       <td>传入的tensor是空指针。</td>
     </tr>
     <tr>
-      <td rowspan="8">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="8">161002</td>
+      <td rowspan="3">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="3">161002</td>
       <td>self和other的数据类型和数据格式不在支持的范围内。</td>
     </tr>
     <tr>

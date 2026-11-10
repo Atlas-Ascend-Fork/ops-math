@@ -259,8 +259,8 @@ aclnnStatus aclnnAddLora(
       <td>输入参数（x, y, weightB, indices）或输出参数的数据类型不在支持的范围之内。</td>
     </tr>
     <tr>
-      <td rowspan="3">ACLNN_ERR_INNER_TILING_ERROR</td>
-      <td rowspan="3">561002</td>
+      <td rowspan="2">ACLNN_ERR_INNER_TILING_ERROR</td>
+      <td rowspan="2">561002</td>
       <td>多个输入tensor之间的shape信息不匹配（详见参数说明）。</td>
     </tr>
     <tr>

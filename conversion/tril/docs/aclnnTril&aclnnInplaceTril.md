@@ -188,8 +188,8 @@ aclnnStatus aclnnInplaceTril(
         <td>传入的self或out是空指针。</td>
       </tr>
       <tr>
-        <td rowspan="7">ACLNN_ERR_PARAM_INVALID</td>
-        <td rowspan="7">161002</td>
+        <td rowspan="6">ACLNN_ERR_PARAM_INVALID</td>
+        <td rowspan="6">161002</td>
         <td>self和out的数据类型不在支持的范围之内。</td>
       </tr>
       <tr>
@@ -349,8 +349,8 @@ aclnnStatus aclnnInplaceTril(
         <td>传入的selfRef是空指针。</td>
       </tr>
       <tr>
-        <td rowspan="7">ACLNN_ERR_PARAM_INVALID</td>
-        <td rowspan="7">161002</td>
+        <td rowspan="2">ACLNN_ERR_PARAM_INVALID</td>
+        <td rowspan="2">161002</td>
         <td>selfRef的数据类型不在支持的范围之内。</td>
       </tr>
       <tr>

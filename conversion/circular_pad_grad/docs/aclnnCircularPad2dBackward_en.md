@@ -188,8 +188,8 @@ aclnnStatus aclnnCircularPad2dBackward(
       <td>The shape of gradOutput must be the same as the output of circular_pad2d forward propagation.</td>
     </tr>
     <tr>
-      <td rowspan="6">ACLNN_ERR_INNER_NULLPTR</td>
-      <td rowspan="6">561103</td>
+      <td rowspan="1">ACLNN_ERR_INNER_NULLPTR</td>
+      <td rowspan="1">561103</td>
       <td>Operator execution failed or variable initialization failed.</td>
     </tr>
   </tbody>

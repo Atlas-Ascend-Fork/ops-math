@@ -190,8 +190,8 @@ aclnnStatus aclnnInplaceTril(
         <td>self or out is a null pointer.</td>
       </tr>
       <tr>
-        <td rowspan="7">ACLNN_ERR_PARAM_INVALID</td>
-        <td rowspan="7">161002</td>
+        <td rowspan="6">ACLNN_ERR_PARAM_INVALID</td>
+        <td rowspan="6">161002</td>
         <td>The data types of self and out are not within the supported range.</td>
       </tr>
       <tr>
@@ -351,8 +351,8 @@ aclnnStatus aclnnInplaceTril(
         <td>The input selfRef is a null pointer.</td>
       </tr>
       <tr>
-        <td rowspan="7">ACLNN_ERR_PARAM_INVALID</td>
-        <td rowspan="7">161002</td>
+        <td rowspan="2">ACLNN_ERR_PARAM_INVALID</td>
+        <td rowspan="2">161002</td>
         <td>The data type of selfRef is not supported.</td>
       </tr>
       <tr>

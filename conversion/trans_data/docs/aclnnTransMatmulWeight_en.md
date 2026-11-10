@@ -135,8 +135,8 @@ aclnnStatus aclnnTransMatmulWeight(
       <td>The input is a null pointer.</td>
     </tr>
     <tr>
-      <td rowspan="7">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="7">161002</td>
+      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="4">161002</td>
       <td>The dimensions of the input tensor shape do not meet requirements.</td>
     </tr>
     <tr>

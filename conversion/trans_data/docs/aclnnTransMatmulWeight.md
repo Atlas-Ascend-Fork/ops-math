@@ -135,8 +135,8 @@ aclnnStatus aclnnTransMatmulWeight(
       <td>输入是空指针。</td>
     </tr>
     <tr>
-      <td rowspan="7">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="7">161002</td>
+      <td rowspan="3">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="3">161002</td>
       <td>输入Tensor shape的维度不满足要求。</td>
     </tr>
     <tr>

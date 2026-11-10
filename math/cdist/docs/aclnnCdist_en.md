@@ -176,8 +176,8 @@ aclnnStatus aclnnCdist(
         <td>The input x1, x2, or out is a null pointer.</td>
       </tr>
       <tr>
-        <td rowspan="6">ACLNN_ERR_PARAM_INVALID</td>
-        <td rowspan="6">161002</td>
+        <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
+        <td rowspan="5">161002</td>
         <td>The data type of x1, x2, or out is not within the supported range.</td>
       </tr>
       <tr>

@@ -41,6 +41,10 @@ $$
   - workspaceSize(uint64_t\*, 出参)：返回需要在Device侧申请的workspace大小。
   - executor(aclOpExecutor\*\*, 出参)：返回op执行器，包含了算子计算流程。
 
+- **维度约束：**
+
+  self、end、out中任一为非连续Tensor时，self和end的维度均必须不大于8。上述Tensor全部连续时，第一段接口不执行此8维上限检查（self超过8维时仅输出告警），仍需满足数据类型、broadcast和输出shape约束。weight为标量，不参与Tensor维度检查。
+
 - **返回值**：
 
   aclnnStatus：返回状态码，具体参见[aclnn返回码](../../../../docs/zh/context/aclnn_return_code.md)。
@@ -65,8 +69,8 @@ $$
       <td>传入的self、end、weight和out是空指针。</td>
     </tr>
     <tr>
-      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="4">161002</td>
+      <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="5">161002</td>
       <td>self、end和out的数据类型不在支持的范围之内。</td>
     </tr>
     <tr>
@@ -77,6 +81,9 @@ $$
     </tr>
     <tr>
       <td>self和end做broadcast后的shape与out的shape不一致。</td>
+    </tr>
+    <tr>
+      <td>self、end、out中存在非连续Tensor，且self或end的维度大于8。</td>
     </tr>
   </tbody>
   </table>
@@ -135,6 +142,10 @@ $$
   - workspaceSize(uint64_t\*, 出参)：返回需要在Device侧申请的workspace大小。
   - executor(aclOpExecutor\*\*, 出参)：返回op执行器，包含了算子计算流程。
 
+- **维度约束：**
+
+  selfRef、end中任一为非连续Tensor时，selfRef和end的维度均必须不大于8。上述Tensor全部连续时，第一段接口不执行此8维上限检查（selfRef超过8维时仅输出告警），仍需满足数据类型、broadcast和输出shape约束。weight为标量，不参与Tensor维度检查。
+
 - **返回值**：
 
   aclnnStatus：返回状态码，具体参见[aclnn返回码](../../../../docs/zh/context/aclnn_return_code.md)。
@@ -159,8 +170,8 @@ $$
       <td>传入的selfRef、end和weight是空指针。</td>
     </tr>
     <tr>
-      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="4">161002</td>
+      <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="5">161002</td>
       <td>selfRef和end的数据类型不在支持的范围之内。</td>
     </tr>
     <tr>
@@ -171,6 +182,9 @@ $$
     </tr>
     <tr>
       <td>selfRef和end做broadcast后的shape与selfRef的shape不一致。</td>
+    </tr>
+    <tr>
+      <td>selfRef、end中存在非连续Tensor，且selfRef或end的维度大于8。</td>
     </tr>
   </tbody>
   </table>

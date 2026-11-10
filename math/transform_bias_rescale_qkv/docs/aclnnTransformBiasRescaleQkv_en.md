@@ -214,8 +214,8 @@ aclnnStatus aclnnTransformBiasRescaleQkv(
       <td>The input or output is a null pointer.</td>
     </tr>
     <tr>
-      <td rowspan="8">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="8">161002</td>
+      <td rowspan="1">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="1">161002</td>
       <td><ul><li>The data type or data format of qkv or qkvBias is not supported.</li><li>The data types of qkv and qkvBias are different.</li><li>The shapes of qkv and qkvBias do not meet the requirements described in Parameters.</li></ul></td>
     </tr>
   </tbody></table>

@@ -108,7 +108,7 @@ aclnnStatus aclnnInplaceLerps(
       <td>The data type is the same as that of end. The shape must satisfy the <a href="../../../docs/en/context/broadcast_relationship.md" target="_blank">broadcast relationship</a> with end.</td>
       <td>FLOAT, FLOAT16, BFLOAT16</td>
       <td>ND</td>
-      <td>0-8</td>
+      <td>See dimension constraints below</td>
       <td>√</td>
     </tr>
     <tr>
@@ -118,7 +118,7 @@ aclnnStatus aclnnInplaceLerps(
       <td>The data type must be the same as that of self. The shape must satisfy the <a href="../../../docs/en/context/broadcast_relationship.md" target="_blank">broadcast relationship</a> with self.</td>
       <td>FLOAT, FLOAT16, BFLOAT16</td>
       <td>ND</td>
-      <td>0-8</td>
+      <td>See dimension constraints below</td>
       <td>√</td>
     </tr>
     <tr>
@@ -138,7 +138,7 @@ aclnnStatus aclnnInplaceLerps(
       <td>The shape must be the same as the shape after broadcasting self and end.</td>
       <td>FLOAT, FLOAT16, BFLOAT16, DOUBLE</td>
       <td>ND</td>
-      <td>0-8</td>
+      <td>See dimension constraints below</td>
       <td>√</td>
     </tr>
     <tr>
@@ -167,6 +167,10 @@ aclnnStatus aclnnInplaceLerps(
   - <term>Atlas inference products</term>, <term>Atlas training products</term>: self, end, and out do not support BFLOAT16.
   <!-- end id7 -->
 
+- **Dimension constraints:**
+
+  If any of self, end, and out is non-contiguous, both self and end must have at most 8 dimensions. When all these tensors are contiguous, the first-phase API skips this 8-dimension check (self with more than 8 dimensions only produces a warning). The data type, broadcast, and output shape constraints still apply. weight is a scalar and is not subject to tensor dimension checks.
+
 - **Return value**
 
   aclnnStatus: return status code. For details, see [aclnn Return Codes](../../../docs/en/context/aclnn_return_code.md).
@@ -191,8 +195,8 @@ aclnnStatus aclnnInplaceLerps(
       <td>The self, end, weight, or out is a null pointer.</td>
     </tr>
     <tr>
-      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="4">161002</td>
+      <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="5">161002</td>
       <td>The data type of self, end, or out is not within the supported range.</td>
     </tr>
     <tr>
@@ -203,6 +207,9 @@ aclnnStatus aclnnInplaceLerps(
     </tr>
     <tr>
       <td>The shape of self and end after broadcast is inconsistent with the shape of out.</td>
+    </tr>
+    <tr>
+      <td>At least one of self, end, and out is non-contiguous, and self or end has more than 8 dimensions.</td>
     </tr>
   </tbody>
   </table>
@@ -283,7 +290,7 @@ aclnnStatus aclnnInplaceLerps(
       <td>The data type is the same as end. The shape must satisfy the <a href="../../../docs/en/context/broadcast_relationship.md" target="_blank">broadcast relationship</a> with end, and the shape after broadcasting must be the same as selfRef.</td>
       <td>FLOAT, FLOAT16, BFLOAT16</td>
       <td>ND</td>
-      <td>0-8</td>
+      <td>See dimension constraints below</td>
       <td>√</td>
     </tr>
     <tr>
@@ -293,7 +300,7 @@ aclnnStatus aclnnInplaceLerps(
       <td>The data type is the same as that of selfRef. The shape must satisfy the <a href="../../../docs/en/context/broadcast_relationship.md" target="_blank">broadcast relationship</a> with selfRef.</td>
       <td>FLOAT, FLOAT16, BFLOAT16</td>
       <td>ND</td>
-      <td>0-8</td>
+      <td>See dimension constraints below</td>
       <td>√</td>
     </tr>
     <tr>
@@ -332,6 +339,10 @@ aclnnStatus aclnnInplaceLerps(
   - <term>Atlas inference products</term>, <term>Atlas training products</term>: selfRef and end do not support BFLOAT16.
   <!-- end id8 -->
 
+- **Dimension constraints:**
+
+  If any of selfRef and end is non-contiguous, both selfRef and end must have at most 8 dimensions. When all these tensors are contiguous, the first-phase API skips this 8-dimension check (selfRef with more than 8 dimensions only produces a warning). The data type, broadcast, and output shape constraints still apply. weight is a scalar and is not subject to tensor dimension checks.
+
 - **Return value**
 
   aclnnStatus: return status code. For details, see [aclnn Return Codes](../../../docs/en/context/aclnn_return_code.md).
@@ -356,8 +367,8 @@ aclnnStatus aclnnInplaceLerps(
       <td>The selfRef, end, or weight is a null pointer.</td>
     </tr>
     <tr>
-      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="4">161002</td>
+      <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="5">161002</td>
       <td>The data types of selfRef and end are not within the supported range.</td>
     </tr>
     <tr>
@@ -368,6 +379,9 @@ aclnnStatus aclnnInplaceLerps(
     </tr>
     <tr>
       <td>The shape of selfRef and end after broadcast is inconsistent with the shape of selfRef.</td>
+    </tr>
+    <tr>
+      <td>At least one of selfRef and end is non-contiguous, and selfRef or end has more than 8 dimensions.</td>
     </tr>
   </tbody>
   </table>

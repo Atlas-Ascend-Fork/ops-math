@@ -173,8 +173,8 @@ aclnnStatus aclnnNormalTensorTensor(
       <td>mean, std, or out is a null pointer.</td>
     </tr>
     <tr>
-      <td rowspan="7">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="7">161002</td>
+      <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="5">161002</td>
       <td>The data types of mean, std, and out are not supported.</td>
     </tr>
     <tr>

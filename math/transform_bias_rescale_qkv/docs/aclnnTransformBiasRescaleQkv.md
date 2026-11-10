@@ -212,8 +212,8 @@ aclnnStatus aclnnTransformBiasRescaleQkv(
       <td>传入的输入和输出是空指针。</td>
     </tr>
     <tr>
-      <td rowspan="8">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="8">161002</td>
+      <td rowspan="1">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="1">161002</td>
       <td><ul><li>qkv和qkvBias的数据类型和数据格式不在支持的范围之内。</li><li>qkv和qkvBias的数据类型不一致。</li><li>qkv和qkvBias的shape不满足参数说明的要求。</li></ul></td>
     </tr>
   </tbody></table>

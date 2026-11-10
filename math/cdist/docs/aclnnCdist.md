@@ -174,8 +174,8 @@ aclnnStatus aclnnCdist(
         <td>传入的x1、x2或out是空指针。</td>
       </tr>
       <tr>
-        <td rowspan="6">ACLNN_ERR_PARAM_INVALID</td>
-        <td rowspan="6">161002</td>
+        <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
+        <td rowspan="5">161002</td>
         <td>x1或x2或out的数据类型不在支持的范围之内。</td>
       </tr>
       <tr>

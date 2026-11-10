@@ -106,7 +106,7 @@ aclnnStatus aclnnInplaceLerps(
       <td>数据类型与end一致。shape需要与end满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>。</td>
       <td>FLOAT、FLOAT16、BFLOAT16</td>
       <td>ND</td>
-      <td>0-8</td>
+      <td>见下方维度约束</td>
       <td>√</td>
     </tr>
     <tr>
@@ -116,7 +116,7 @@ aclnnStatus aclnnInplaceLerps(
       <td>数据类型与self一致。shape需要与self满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>。</td>
       <td>FLOAT、FLOAT16、BFLOAT16</td>
       <td>ND</td>
-      <td>0-8</td>
+      <td>见下方维度约束</td>
       <td>√</td>
     </tr>
     <tr>
@@ -136,7 +136,7 @@ aclnnStatus aclnnInplaceLerps(
       <td>shape需要与self和end broadcast后的shape一致。</td>
       <td>FLOAT、FLOAT16、BFLOAT16、DOUBLE</td>
       <td>ND</td>
-      <td>0-8</td>
+      <td>见下方维度约束</td>
       <td>√</td>
     </tr>
     <tr>
@@ -165,6 +165,10 @@ aclnnStatus aclnnInplaceLerps(
   - <term>Atlas推理系列产品</term>、<term>Atlas训练系列产品</term>：self、end、out不支持BFLOAT16。
   <!-- end id7 -->
 
+- **维度约束：**
+
+  self、end、out中任一为非连续Tensor时，self和end的维度均必须不大于8。上述Tensor全部连续时，第一段接口不执行此8维上限检查（self超过8维时仅输出告警），仍需满足数据类型、broadcast和输出shape约束。weight为标量，不参与Tensor维度检查。
+
 - **返回值：**
 
   aclnnStatus：返回状态码，具体参见[aclnn返回码](../../../docs/zh/context/aclnn_return_code.md)。
@@ -189,8 +193,8 @@ aclnnStatus aclnnInplaceLerps(
       <td>传入的self、end、weight或out是空指针。</td>
     </tr>
     <tr>
-      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="4">161002</td>
+      <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="5">161002</td>
       <td>self、end和out的数据类型不在支持的范围之内。</td>
     </tr>
     <tr>
@@ -201,6 +205,9 @@ aclnnStatus aclnnInplaceLerps(
     </tr>
     <tr>
       <td>self和end做broadcast后的shape与out的shape不一致。</td>
+    </tr>
+    <tr>
+      <td>self、end、out中存在非连续Tensor，且self或end的维度大于8。</td>
     </tr>
   </tbody>
   </table>
@@ -281,7 +288,7 @@ aclnnStatus aclnnInplaceLerps(
       <td>数据类型与end一致。shape需要与end满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>，且broadcast后的shape与selfRef一致。</td>
       <td>FLOAT、FLOAT16、BFLOAT16</td>
       <td>ND</td>
-      <td>0-8</td>
+      <td>见下方维度约束</td>
       <td>√</td>
     </tr>
     <tr>
@@ -291,7 +298,7 @@ aclnnStatus aclnnInplaceLerps(
       <td>数据类型与selfRef一致。shape需要与selfRef满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>。</td>
       <td>FLOAT、FLOAT16、BFLOAT16</td>
       <td>ND</td>
-      <td>0-8</td>
+      <td>见下方维度约束</td>
       <td>√</td>
     </tr>
     <tr>
@@ -330,6 +337,10 @@ aclnnStatus aclnnInplaceLerps(
   - <term>Atlas推理系列产品</term>、<term>Atlas训练系列产品</term>：selfRef、end不支持BFLOAT16。
   <!-- end id8 -->
 
+- **维度约束：**
+
+  selfRef、end中任一为非连续Tensor时，selfRef和end的维度均必须不大于8。上述Tensor全部连续时，第一段接口不执行此8维上限检查（selfRef超过8维时仅输出告警），仍需满足数据类型、broadcast和输出shape约束。weight为标量，不参与Tensor维度检查。
+
 - **返回值：**
 
   aclnnStatus：返回状态码，具体参见[aclnn返回码](../../../docs/zh/context/aclnn_return_code.md)。
@@ -354,8 +365,8 @@ aclnnStatus aclnnInplaceLerps(
       <td>传入的selfRef、end或weight是空指针。</td>
     </tr>
     <tr>
-      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="4">161002</td>
+      <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="5">161002</td>
       <td>selfRef和end的数据类型不在支持的范围之内。</td>
     </tr>
     <tr>
@@ -366,6 +377,9 @@ aclnnStatus aclnnInplaceLerps(
     </tr>
     <tr>
       <td>selfRef和end做broadcast后的shape与selfRef的shape不一致。</td>
+    </tr>
+    <tr>
+      <td>selfRef、end中存在非连续Tensor，且selfRef或end的维度大于8。</td>
     </tr>
   </tbody>
   </table>

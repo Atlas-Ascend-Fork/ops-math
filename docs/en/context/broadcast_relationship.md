@@ -23,7 +23,10 @@ When performing broadcast computation, the following rules generally apply:
   > NOTE:
   > In this use case, broadcasting along one dimension is sufficient. For example, to compute a+b, where a.shape=(1, 3) and b.shape=(3, 1), the two arrays are broadcast to a.shape=(3, 3) and b.shape=(3, 3).
 
-- Rule 3: If the arrays have different numbers of dimensions and neither has a dimension equal to 1, an error is reported.
+- Rule 3: Broadcasting fails with an error if dimension correspondence cannot be determined from the API convention or explicitly specified broadcast axes, or if any pair of aligned dimensions has unequal lengths and neither length is 1.
+
+  > NOTE: For a.shape=(2,2,2) and b.shape=(2,2), broadcasting along axis 0, 1, or 2 corresponds to padding b to (1,2,2), (2,1,2), or (2,2,1), respectively, with different element mappings. If the API has no default alignment convention, the broadcast axis must be specified explicitly. With right alignment under Rule 1, b becomes (1,2,2) and broadcasting succeeds.
+  > For example, aligning a.shape=(2,2,2) and b.shape=(2,3) under Rule 1 leaves incompatible final dimensions of lengths 2 and 3, so broadcasting fails with an error.
 
 Based on the above rules, the broadcast process generally first expands dimensions according to **Rule 1**, and then stretches shapes according to **Rule 2**. A specific example is as follows:
 

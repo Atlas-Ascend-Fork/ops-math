@@ -154,8 +154,8 @@ aclnnStatus aclnnAxpyV2(
       <td>传入的tensor是空指针。</td>
     </tr>
     <tr>
-      <td rowspan="8">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="8">161002</td>
+      <td rowspan="3">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="3">161002</td>
       <td>x1的数据类型和数据格式不在支持的范围之内。</td>
     </tr>
     <tr>
