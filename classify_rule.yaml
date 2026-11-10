@@ -465,6 +465,7 @@ HPTG2@ops-math:
         - ops/ops-math/common/inc/op_api/aclnn_check.h
         - ops/ops-math/common/inc/op_api/level2_base_math.h
         - ops/ops-math/experimental/math/reduce_mean_with_count/tests/ut/common/tiling_case_executor.cpp
+        - ops/ops-math/common/inc/op_graph/op_math_proto_extend.h
       non_delivery: null
       open_source: null
 
