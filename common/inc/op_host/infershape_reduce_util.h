@@ -57,6 +57,18 @@ static ge::graphStatus InferShape4ReduceWithoutAxes(const gert::Shape* inShape, 
         return ge::GRAPH_SUCCESS;
     }
 
+    // axesDim0 < 0 表示 axes 长度动态未知，非 keepDims 时输出 rank 无法确定
+    if (axesDim0 < 0) {
+        SetUnknownRank(*outShape);
+        return ge::GRAPH_SUCCESS;
+    }
+
+    // 轴个数非法（大于输入 rank）时直接失败，避免 dimNum - axesDim0 无符号下溢
+    if (static_cast<size_t>(axesDim0) > dimNum) {
+        OP_LOGE("InferShape4ReduceWithoutAxes", "axesDim0 %" PRId32 " is invalid for input rank %zu", axesDim0, dimNum);
+        return ge::GRAPH_FAILED;
+    }
+
     // 归约 K 个轴，输出 dimNum = N - K，不确定哪些轴→全部-1
     outShape->SetDimNum(dimNum - axesDim0);
     for (size_t i = 0; i < dimNum - axesDim0; i++) {
