@@ -12,14 +12,14 @@
 #include <array>
 
 namespace ops {
-// x data type: BasicType (10 types)
+// x data type: BasicType (12 types)
 static constexpr std::array VALUE_DATA_TYPE_ALL{
-    ge::DT_INT8,  ge::DT_UINT8,   ge::DT_INT16, ge::DT_UINT16, ge::DT_INT32,
-    ge::DT_INT64, ge::DT_FLOAT16, ge::DT_FLOAT, ge::DT_DOUBLE, ge::DT_BF16,
+    ge::DT_INT8,  ge::DT_UINT8,  ge::DT_INT16,   ge::DT_UINT16, ge::DT_INT32,  ge::DT_UINT32,
+    ge::DT_INT64, ge::DT_UINT64, ge::DT_FLOAT16, ge::DT_FLOAT,  ge::DT_DOUBLE, ge::DT_BF16,
 };
 // paddings index type
 static constexpr std::array INDEX_DATA_TYPE_ALL{ge::DT_INT32, ge::DT_INT64};
-// total combinations: 10 x dtype × 2 paddings dtype = 20
+// total combinations: 12 x dtype × 2 paddings dtype = 24
 static constexpr size_t DATA_TYPE_COMBINE_COUNT = VALUE_DATA_TYPE_ALL.size() * INDEX_DATA_TYPE_ALL.size();
 
 static constexpr std::array<std::array<ge::DataType, DATA_TYPE_COMBINE_COUNT>, 2> CombineDataTypes()

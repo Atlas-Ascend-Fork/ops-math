@@ -11,12 +11,14 @@
 # ----------------------------------------------------------------------------
 """SpaceToBatch golden reference implementations.
 
-TensorFlow is the in-process reference for the dtypes it supports. Dtypes that
-TensorFlow does not support (bool/uint32/uint64/complex32/complex64/complex128)
-and empty tensors use a pure numpy reference implementation instead. This is a
-dtype-based routing decision, not a runtime fallback: supported non-empty
-inputs always go through TensorFlow. For this 4D NHWC operator
-``tf.raw_ops.SpaceToBatchND`` is called with ``block_shape=[bs, bs]``.
+The operator only accepts dtypes that TensorFlow supports, so golden always
+uses TensorFlow (``tf.raw_ops.SpaceToBatchND`` with ``block_shape=[bs, bs]``),
+including empty tensors. bool/complex32/complex64/complex128 are NOT operator
+dtypes, so no dtype fallback is provided here.
+
+A torch small-operator composition (``F.pad`` + ``reshape`` + ``permute``) is
+kept only as an independent third_party reference for cross_check, not as a
+golden path.
 
 Kernel tests must set ``TORCH_DEVICE_BACKEND_AUTOLOAD=0`` so importing PyTorch
 does not pull in the PyTorch NPU plugin/CANN protobuf, whose symbols conflict
@@ -28,38 +30,6 @@ import numpy as np
 __golden__ = {"kernel": {"space_to_batch": "space_to_batch_golden"}}
 
 __spec__ = {"space_to_batch": "SpaceToBatchTestSpec"}
-
-
-# TensorFlow has no (or only experimental) support for these dtypes.
-_TF_UNSUPPORTED_DTYPES = {
-    "bool",
-    "uint32",
-    "uint64",
-    "complex32",
-    "complex64",
-    "complex128",
-}
-
-_DTYPE_ALIASES = {
-    "float": "float32",
-    "double": "float64",
-    "half": "float16",
-}
-
-
-def _dtype_name(x, kwargs):
-    """Resolve the logical dtype name, preferring the declared input dtype."""
-    dtypes = kwargs.get("input_dtypes")
-    if isinstance(dtypes, str):
-        candidate = dtypes
-    elif dtypes is not None and len(dtypes) > 0:
-        candidate = dtypes[0]
-    else:
-        candidate = getattr(x, "dtype", None)
-    if not isinstance(candidate, str):
-        candidate = getattr(candidate, "name", str(candidate))
-    name = str(candidate).lower().rsplit(".", 1)[-1]
-    return _DTYPE_ALIASES.get(name, name)
 
 
 def _normalize_paddings(paddings):
@@ -77,51 +47,94 @@ def _resolve_block_size(block_size):
     return int(np.asarray(block_size).reshape(-1)[0])
 
 
-def _is_empty(x):
-    return any(int(dim) == 0 for dim in getattr(x, "shape", ()))
-
-
 def _to_numpy(x):
     """Convert a value to numpy."""
     return np.asarray(x)
 
 
-def _space_to_batch_numpy(x, paddings, block_size):
-    """SpaceToBatch reference implemented with numpy primitives.
+def _numpy_bfloat16():
+    import ml_dtypes
 
-    Mirrors ``tf.raw_ops.SpaceToBatchND`` for 4D NHWC input: zero-pad H/W,
-    split each padded spatial dim into (out, block), move the block dims in
-    front of the batch dim, then merge them back into the batch dimension.
-    complex32 is stored as float16 with a trailing lane dimension, which is
-    simply part of ``C`` here.
+    return ml_dtypes.bfloat16
+
+
+def _to_torch(x):
+    """Convert a numpy array / torch tensor to a CPU torch tensor."""
+    import torch
+
+    if isinstance(x, torch.Tensor):
+        return x
+    arr = np.ascontiguousarray(np.asarray(x))
+    if arr.dtype.name == "bfloat16":
+        return torch.from_numpy(arr.view(np.int16)).view(torch.bfloat16)
+    return torch.from_numpy(arr)
+
+
+def _from_torch(tensor):
+    """Convert a torch tensor back to numpy, preserving bfloat16 lanes."""
+    import torch
+
+    tensor = tensor.detach().cpu().contiguous()
+    if tensor.dtype == torch.bfloat16:
+        return tensor.view(torch.int16).numpy().view(_numpy_bfloat16())
+    return tensor.numpy()
+
+
+def _space_to_batch_torch(x, paddings, block_size):
+    """SpaceToBatch reference composed from torch small operators.
+
+    torch has no native space_to_batch, so it is built from ``F.pad`` +
+    ``reshape`` + ``permute``.  Mirrors ``tf.raw_ops.SpaceToBatchND`` with
+    ``block_shape=[bs, bs]``: zero-pad H/W, split each padded spatial dim into
+    (out, block), move the block dims in front of the batch dim, then merge
+    them back into the batch dimension.  complex32 is stored as float16 with a
+    trailing lane dimension, which is simply part of ``C``/tail here, so the
+    real ndim is used throughout.  Returns numpy (bfloat16 kept as ml_dtypes).
     """
-    x_np = _to_numpy(x)
+    import torch
+
+    x_t = _to_torch(x)
     bs = _resolve_block_size(block_size)
+    pads = _normalize_paddings(paddings)
+    block = [bs, bs]
+    M = len(block)
+    rank = x_t.dim()
+    batch = int(x_t.shape[0])
 
-    batch, h_in, w_in, channels = (int(dim) for dim in x_np.shape)
-    pad_top = int(paddings[0, 0])
-    pad_bottom = int(paddings[0, 1])
-    pad_left = int(paddings[1, 0])
-    pad_right = int(paddings[1, 1])
+    out_spatial = [
+        (int(x_t.shape[1 + i]) + int(pads[i, 0]) + int(pads[i, 1])) // block[i]
+        for i in range(M)
+    ]
+    tail = [int(v) for v in x_t.shape[1 + M :]]
+    out_shape = [batch * int(np.prod(block))] + out_spatial + tail
 
-    h_padded = h_in + pad_top + pad_bottom
-    w_padded = w_in + pad_left + pad_right
-    h_out = h_padded // bs
-    w_out = w_padded // bs
-    out_shape = (batch * bs * bs, h_out, w_out, channels)
+    if x_t.numel() == 0:
+        return _from_torch(torch.zeros(out_shape, dtype=x_t.dtype))
 
-    if x_np.size == 0:
-        return np.zeros(out_shape, dtype=x_np.dtype)
+    # torch F.pad lists pads from the last dim backwards; pad spatial dims only.
+    pad = [0] * (2 * rank)
+    for i in range(M):
+        pos = rank - 2 - i
+        pad[2 * pos] = int(pads[i, 0])
+        pad[2 * pos + 1] = int(pads[i, 1])
+    if any(pad):
+        x_t = torch.nn.functional.pad(x_t, pad, mode="constant", value=0)
 
-    pad_width = ((0, 0), (pad_top, pad_bottom), (pad_left, pad_right), (0, 0))
-    if any(any(pair) for pair in pad_width):
-        x_np = np.pad(x_np, pad_width, mode="constant", constant_values=0)
+    # [B, outS_1, b_1, ..., outS_M, b_M, tail...]
+    interleaved = [batch]
+    for i in range(M):
+        interleaved.extend([out_spatial[i], block[i]])
+    interleaved.extend(tail)
+    x_t = x_t.reshape(interleaved)
 
-    # [N, H_out, bs_h, W_out, bs_w, C] -> [bs_h, bs_w, N, H_out, W_out, C]
-    # -> [N * bs * bs, H_out, W_out, C] (block-major, batch index fastest)
-    out = x_np.reshape(batch, h_out, bs, w_out, bs, channels)
-    out = out.transpose(2, 4, 0, 1, 3, 5)
-    return np.ascontiguousarray(out.reshape(out_shape))
+    # [b_1..b_M, B, outS_1..outS_M, tail...]; output batch is block_index * B + b.
+    perm = [2 * i + 2 for i in range(M)]
+    perm.append(0)
+    perm.extend(2 * i + 1 for i in range(M))
+    perm.extend(range(1 + 2 * M, 1 + 2 * M + len(tail)))
+    x_t = x_t.permute(perm)
+
+    return _from_torch(x_t.reshape(out_shape).contiguous())
 
 
 def _space_to_batch_tf(x, paddings, block_size):
@@ -164,11 +177,8 @@ def space_to_batch_golden(x, paddings, *, block_size, **kwargs):
     Returns:
         numpy result with shape [N * bs * bs, H_out, W_out, C].
     """
-    dtype_name = _dtype_name(x, kwargs)
     pads_2x2 = _normalize_paddings(paddings)
-    if not _is_empty(x) and dtype_name not in _TF_UNSUPPORTED_DTYPES:
-        return _space_to_batch_tf(x, pads_2x2, block_size)
-    return _space_to_batch_numpy(x, pads_2x2, block_size)
+    return _space_to_batch_tf(x, pads_2x2, block_size)
 
 
 class SpaceToBatchTFImpl:
@@ -178,11 +188,21 @@ class SpaceToBatchTFImpl:
     def __call__(self, x, paddings, block_size=None, **kwargs):
         if block_size is None:
             block_size = self.block_size
-        dtype_name = _dtype_name(x, kwargs)
         pads_2x2 = _normalize_paddings(paddings)
-        if not _is_empty(x) and dtype_name not in _TF_UNSUPPORTED_DTYPES:
-            return [_space_to_batch_tf(x, pads_2x2, block_size)]
-        return [_space_to_batch_numpy(x, pads_2x2, block_size)]
+        return [_space_to_batch_tf(x, pads_2x2, block_size)]
+
+
+class SpaceToBatchTorchImpl:
+    """torch 三方实现：PyTorch 无原生算子，用 torch 小算子拼接。"""
+
+    def __init__(self, *, block_size=None, **kwargs):
+        self.block_size = block_size
+
+    def __call__(self, x, paddings, block_size=None, **kwargs):
+        if block_size is None:
+            block_size = self.block_size
+        pads_2x2 = _normalize_paddings(paddings)
+        return [_space_to_batch_torch(x, pads_2x2, block_size)]
 
 
 class SpaceToBatchTestSpec:
@@ -190,7 +210,7 @@ class SpaceToBatchTestSpec:
     def golden(x, paddings, *, block_size, **kwargs):
         return [space_to_batch_golden(x, paddings, block_size=block_size, **kwargs)]
 
-    third_party = {"tf": SpaceToBatchTFImpl}
+    third_party = {"torch": SpaceToBatchTorchImpl, "tf": SpaceToBatchTFImpl}
 
     tolerance = {
         "int8": {"standard": "binary_equal"},
@@ -198,7 +218,9 @@ class SpaceToBatchTestSpec:
         "int16": {"standard": "binary_equal"},
         "uint16": {"standard": "binary_equal"},
         "int32": {"standard": "binary_equal"},
+        "uint32": {"standard": "binary_equal"},
         "int64": {"standard": "binary_equal"},
+        "uint64": {"standard": "binary_equal"},
         "float16": {"standard": "binary_equal"},
         "float32": {"standard": "binary_equal"},
         "float64": {"standard": "binary_equal"},

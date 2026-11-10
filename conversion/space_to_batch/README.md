@@ -71,7 +71,7 @@
       <td>x</td>
       <td>输入</td>
       <td>表示输入张量，4D NHWC张量 [N, H_in, W_in, C]，支持多种数据类型</td>
-      <td>INT8、UINT8、INT16、UINT16、INT32、INT64、BFLOAT16、FLOAT16、FLOAT、DOUBLE</td>
+      <td>INT8、UINT8、INT16、UINT16、INT32、UINT32、INT64、UINT64、BFLOAT16、FLOAT16、FLOAT、DOUBLE</td>
       <td>NHWC</td>
     </tr>
     <tr>
@@ -116,31 +116,3 @@
 | 调用方式  | 样例代码                                                     | 说明                                                         |
 | :-------- | :----------------------------------------------------------- | :----------------------------------------------------------- |
 |  GE图模式  |[test_geir_space_to_batch](examples/test_geir_space_to_batch.cpp) | 通过[算子IR](./op_graph/space_to_batch_proto.h)构图方式调用SpaceToBatch算子。 |
-
-### GE图模式示例构建与运行
-
-> 环境准备（CANN 环境变量、仓库依赖等）请参考仓级文档：[快速入门](../../docs/QUICKSTART.md)、[算子调用指导](../../docs/zh/invocation/quick_op_invocation.md)。本示例使用 `DT_INT32`，不要求覆盖全部数据类型。
-
-1. 在仓库根目录编译并安装算子包（以 ascend950 为例）：
-
-```bash
-source /usr/local/Ascend/cann/set_env.sh
-bash build.sh --pkg --soc=ascend950 --ops=space_to_batch -j16
-./build_out/cann-ops-math-*linux*.run
-```
-
-2. 编译并运行示例：
-
-```bash
-bash build.sh --run_example space_to_batch graph --soc=ascend950
-```
-
-> 运行前提：需要可用的 NPU 设备（示例固定使用 `ge.exec.deviceId=0`，即 0 号设备）；示例通过相对路径 `./dump`、`./tc_ge_irrun_test_0008_npu_input_*.bin`、`./tc_ge_irrun_test_0008_npu_output_*.bin` 写出文件，因此需在可写目录下运行（使用 `bash build.sh --run_example` 时工作目录为 `build/`）。
-
-3. 预期输出与产物：
-- 标准输出包含 `Session run ir compute graph success`、`Finalize ir graph session success`，并逐元素打印 `result[j] is: ...`。
-- 可执行文件与数据文件生成在构建目录 `build/` 下：
-  - `build/test_geir_space_to_batch`：示例可执行文件；
-  - `build/tc_ge_irrun_test_0008_npu_input_0.bin`、`build/tc_ge_irrun_test_0008_npu_input_1.bin`：输入 x 与 paddings 的原始数据；
-  - `build/tc_ge_irrun_test_0008_npu_output_0.bin`：输出 y 的原始数据（`DT_INT32`，形状 `[4,2,2,2]`）；
-  - `build/dump*`：`aclgrphDumpGraph` 生成的图 dump。

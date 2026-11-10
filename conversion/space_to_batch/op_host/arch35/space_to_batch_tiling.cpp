@@ -96,10 +96,12 @@ ge::graphStatus SpaceToBatchTiling::ParamCheck()
     OP_CHECK_NULL_WITH_CONTEXT(context_, inputDesc);
     auto xDtype = inputDesc->GetDataType();
     OP_CHECK_IF(xDtype != ge::DT_INT8 && xDtype != ge::DT_UINT8 && xDtype != ge::DT_INT16 && xDtype != ge::DT_UINT16 &&
-                    xDtype != ge::DT_INT32 && xDtype != ge::DT_INT64 && xDtype != ge::DT_FLOAT16 &&
-                    xDtype != ge::DT_FLOAT && xDtype != ge::DT_DOUBLE && xDtype != ge::DT_BF16,
+                    xDtype != ge::DT_INT32 && xDtype != ge::DT_UINT32 && xDtype != ge::DT_INT64 &&
+                    xDtype != ge::DT_UINT64 && xDtype != ge::DT_FLOAT16 && xDtype != ge::DT_FLOAT &&
+                    xDtype != ge::DT_DOUBLE && xDtype != ge::DT_BF16,
                 OP_LOGE(context_,
-                        "x only supports int8/uint8/int16/uint16/int32/int64/float16/float/double/bfloat16, but got %s",
+                        "x only supports int8/uint8/int16/uint16/int32/uint32/int64/uint64/float16/float/double/"
+                        "bfloat16, but got %s",
                         ge::TypeUtils::DataTypeToSerialString(xDtype).c_str()),
                 return ge::GRAPH_FAILED);
     dSize_ = ge::GetSizeByDataType(xDtype);

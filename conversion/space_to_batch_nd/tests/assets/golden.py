@@ -11,11 +11,14 @@
 # ----------------------------------------------------------------------------
 """SpaceToBatchND golden reference implementations.
 
-TensorFlow is the in-process reference for the dtypes it supports. Dtypes that
-TensorFlow does not support (bool/uint32/uint64/complex32/complex64/complex128)
-and empty tensors use a pure numpy reference implementation instead. This is a
-dtype-based routing decision, not a runtime fallback: supported non-empty
-inputs always go through TensorFlow.
+TensorFlow is the in-process reference for the dtypes it supports. Operator
+dtypes that TensorFlow does not support (bool/complex32/complex64)
+and empty tensors use a reference built from torch small operators
+(``F.pad`` + ``reshape`` + ``permute``) instead. This is a dtype-based routing
+decision, not a runtime fallback: supported non-empty inputs always go through
+TensorFlow.
+
+third_party 优先 torch（FX：远端 XPU 默认 provider 为 torch）。
 
 Kernel tests must set ``TORCH_DEVICE_BACKEND_AUTOLOAD=0`` so importing PyTorch
 does not pull in the PyTorch NPU plugin/CANN protobuf, whose symbols conflict
@@ -31,20 +34,12 @@ __input__ = {"kernel": {"space_to_batch_nd": "space_to_batch_nd_input"}}
 __spec__ = {"space_to_batch_nd": "SpaceToBatchNDTestSpec"}
 
 
-# TensorFlow has no (or only experimental) support for these dtypes.
+# Operator dtypes that TensorFlow has no (or only experimental) support for.
+# complex128 is not an operator dtype, so it is intentionally excluded.
 _TF_UNSUPPORTED_DTYPES = {
     "bool",
-    "uint32",
-    "uint64",
     "complex32",
     "complex64",
-    "complex128",
-}
-
-_DTYPE_ALIASES = {
-    "float": "float32",
-    "double": "float64",
-    "half": "float16",
 }
 
 
@@ -116,7 +111,7 @@ def _dtype_name(x, kwargs):
     if not isinstance(candidate, str):
         candidate = getattr(candidate, "name", str(candidate))
     name = str(candidate).lower().rsplit(".", 1)[-1]
-    return _DTYPE_ALIASES.get(name, name)
+    return name
 
 
 def _to_numpy(x):
@@ -124,61 +119,88 @@ def _to_numpy(x):
     return np.asarray(x)
 
 
-def _space_to_batch_nd_numpy(x, block_shape, paddings):
-    """SpaceToBatchND reference implemented with numpy primitives.
+def _numpy_bfloat16():
+    import ml_dtypes
 
-    Mirrors ``tf.raw_ops.SpaceToBatchND``: pad spatial dims 1..M with zeros,
-    split each padded spatial dim into (out, block), move the block dims in
-    front of the batch dim, then merge them back into the batch dimension.
-    complex32 is stored as float16 with a trailing lane dimension, which is
-    simply part of ``T...`` here, so the real ndim is used throughout.
+    return ml_dtypes.bfloat16
+
+
+def _to_torch(x):
+    """Convert a numpy array / torch tensor to a CPU torch tensor."""
+    import torch
+
+    if isinstance(x, torch.Tensor):
+        return x
+    arr = np.ascontiguousarray(np.asarray(x))
+    if arr.dtype.name == "bfloat16":
+        return torch.from_numpy(arr.view(np.int16)).view(torch.bfloat16)
+    return torch.from_numpy(arr)
+
+
+def _from_torch(tensor):
+    """Convert a torch tensor back to numpy, preserving bfloat16 lanes."""
+    import torch
+
+    tensor = tensor.detach().cpu().contiguous()
+    if tensor.dtype == torch.bfloat16:
+        return tensor.view(torch.int16).numpy().view(_numpy_bfloat16())
+    return tensor.numpy()
+
+
+def _space_to_batch_nd_torch(x, block_shape, paddings):
+    """SpaceToBatchND reference composed from torch small operators.
+
+    torch has no native space_to_batch_nd, so it is built from ``F.pad`` +
+    ``reshape`` + ``permute``.  Mirrors ``tf.raw_ops.SpaceToBatchND``: pad
+    spatial dims 1..M with zeros, split each padded spatial dim into
+    (out, block), move the block dims in front of the batch dim, then merge
+    them back into the batch dimension.  complex32 is stored as float16 with a
+    trailing lane dimension, which is simply part of ``T...`` here, so the real
+    ndim is used throughout.  Returns numpy (bfloat16 kept as ml_dtypes).
     """
-    x_np = _to_numpy(x)
+    import torch
+
+    x_t = _to_torch(x)
     block = [int(v) for v in _to_numpy(block_shape).reshape(-1)]
     pads = _to_numpy(paddings).astype(np.int64).reshape(len(block), 2)
     M = len(block)
-    rank = x_np.ndim
-    batch = int(x_np.shape[0])
+    rank = x_t.dim()
+    batch = int(x_t.shape[0])
 
-    if x_np.size == 0:
-        out_spatial = [
-            (int(x_np.shape[1 + i]) + int(pads[i, 0]) + int(pads[i, 1])) // block[i]
-            for i in range(M)
-        ]
-        out_shape = (
-            [batch * int(np.prod(block))]
-            + out_spatial
-            + [int(v) for v in x_np.shape[1 + M :]]
-        )
-        return np.zeros(out_shape, dtype=x_np.dtype)
+    out_spatial = [
+        (int(x_t.shape[1 + i]) + int(pads[i, 0]) + int(pads[i, 1])) // block[i]
+        for i in range(M)
+    ]
+    tail = [int(v) for v in x_t.shape[1 + M :]]
+    out_shape = [batch * int(np.prod(block))] + out_spatial + tail
 
-    # Pad only spatial dimensions 1..M; remaining dimensions are untouched.
-    pad_width = [(0, 0)]
+    if x_t.numel() == 0:
+        return _from_torch(torch.zeros(out_shape, dtype=x_t.dtype))
+
+    # torch F.pad lists pads from the last dim backwards; pad spatial dims only.
+    pad = [0] * (2 * rank)
     for i in range(M):
-        pad_width.append((int(pads[i, 0]), int(pads[i, 1])))
-    pad_width.extend([(0, 0)] * (rank - 1 - M))
-    if any(any(pair) for pair in pad_width):
-        x_np = np.pad(x_np, pad_width, mode="constant", constant_values=0)
-
-    out_spatial = [int(x_np.shape[1 + i]) // block[i] for i in range(M)]
-    tail = [int(v) for v in x_np.shape[1 + M :]]
+        pos = rank - 2 - i
+        pad[2 * pos] = int(pads[i, 0])
+        pad[2 * pos + 1] = int(pads[i, 1])
+    if any(pad):
+        x_t = torch.nn.functional.pad(x_t, pad, mode="constant", value=0)
 
     # [B, outS_1, b_1, ..., outS_M, b_M, tail...]
     interleaved = [batch]
     for i in range(M):
         interleaved.extend([out_spatial[i], block[i]])
     interleaved.extend(tail)
-    x_np = x_np.reshape(interleaved)
+    x_t = x_t.reshape(interleaved)
 
     # [b_1..b_M, B, outS_1..outS_M, tail...]; output batch is block_index * B + b.
     perm = [2 * i + 2 for i in range(M)]
     perm.append(0)
     perm.extend(2 * i + 1 for i in range(M))
     perm.extend(range(1 + 2 * M, 1 + 2 * M + len(tail)))
-    x_np = x_np.transpose(perm)
+    x_t = x_t.permute(perm)
 
-    out_shape = [batch * int(np.prod(block))] + out_spatial + tail
-    return np.ascontiguousarray(x_np.reshape(out_shape))
+    return _from_torch(x_t.reshape(out_shape).contiguous())
 
 
 def _space_to_batch_nd_tf(x, block_shape, paddings):
@@ -226,7 +248,7 @@ def space_to_batch_nd_golden(x, block_shape, paddings, **kwargs):
     dtype_name = _dtype_name(x, kwargs)
     if not _is_empty(x) and dtype_name not in _TF_UNSUPPORTED_DTYPES:
         return _space_to_batch_nd_tf(x, block_shape, paddings)
-    return _space_to_batch_nd_numpy(x, block_shape, paddings)
+    return _space_to_batch_nd_torch(x, block_shape, paddings)
 
 
 class SpaceToBatchNDTFImpl:
@@ -234,7 +256,14 @@ class SpaceToBatchNDTFImpl:
         dtype_name = _dtype_name(x, kwargs)
         if not _is_empty(x) and dtype_name not in _TF_UNSUPPORTED_DTYPES:
             return [_space_to_batch_nd_tf(x, block_shape, paddings)]
-        return [_space_to_batch_nd_numpy(x, block_shape, paddings)]
+        return [_space_to_batch_nd_torch(x, block_shape, paddings)]
+
+
+class SpaceToBatchNDTorchImpl:
+    """torch 三方实现：PyTorch 无原生算子，用 torch 小算子拼接。"""
+
+    def __call__(self, x, block_shape, paddings, **kwargs):
+        return [_space_to_batch_nd_torch(x, block_shape, paddings)]
 
 
 class SpaceToBatchNDTestSpec:
@@ -242,10 +271,22 @@ class SpaceToBatchNDTestSpec:
     def golden(x, block_shape, paddings, **kwargs):
         return [space_to_batch_nd_golden(x, block_shape, paddings, **kwargs)]
 
-    third_party = {"tf": SpaceToBatchNDTFImpl}
+    third_party = {"torch": SpaceToBatchNDTorchImpl, "tf": SpaceToBatchNDTFImpl}
 
     tolerance = {
-        "float32": {"standard": "binary_equal"},
+        "int8": {"standard": "binary_equal"},
+        "uint8": {"standard": "binary_equal"},
+        "int16": {"standard": "binary_equal"},
+        "uint16": {"standard": "binary_equal"},
+        "int32": {"standard": "binary_equal"},
+        "uint32": {"standard": "binary_equal"},
+        "int64": {"standard": "binary_equal"},
+        "uint64": {"standard": "binary_equal"},
         "float16": {"standard": "binary_equal"},
+        "float32": {"standard": "binary_equal"},
+        "float64": {"standard": "binary_equal"},
         "bfloat16": {"standard": "binary_equal"},
+        "bool": {"standard": "binary_equal"},
+        "complex32": {"standard": "isclose"},
+        "complex64": {"standard": "isclose"},
     }
