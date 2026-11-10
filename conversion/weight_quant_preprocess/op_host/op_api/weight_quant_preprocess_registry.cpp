@@ -2206,9 +2206,9 @@ static aclnnStatus CopyPerGroupScaleOrOffsetToOutput(const aclTensor* source, ac
 
 static aclnnStatus ProcessPerGroupScaleAndOffset(QuantContext& ctx)
 {
-    auto weightShape = ctx.weight->GetViewShape();
-    int64_t g = CeilDiv(weightShape.GetDim(IDX_0), ctx.kGroupSize);
-    int64_t n = weightShape.GetDim(IDX_1);
+    auto weightScaleShape = ctx.weightScale->GetViewShape();
+    int64_t g = weightScaleShape.GetDim(IDX_0);
+    int64_t n = weightScaleShape.GetDim(IDX_1);
     auto ret = CopyPerGroupScaleOrOffsetToOutput(ctx.weightScale, ctx.outWeightScale, g, n, ctx);
     CHECK_RET(ret == ACLNN_SUCCESS, ret);
     if (ctx.weightOffsetOptional != nullptr) {
