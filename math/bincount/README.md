@@ -13,7 +13,7 @@
 
 ## 功能说明
 
-- 算子功能：计算非负整数数组中每个数的频率。minlength为输出tensor的最小size；当weights为空指针时，self中的self[i]每出现一次，则其频率加1，当weights不为空时，self[i]每出现一次，其频率加weights[i]，最后存放到out的self[i]位置上；因此out大小为(self的最大值+1)与minlength中的最大值。
+- 算子功能：计算非负整数数组中每个数的频率。minlength为输出tensor的最小size；当weights为空指针时，self中的self[i]每出现一次，则其频率加1，当weights不为空时，self[i]每出现一次，其频率加weights[i]，最后存放到out中下标为self[i]的位置；因此out大小为(self的最大值+1)与minlength中的最大值。
 
 - 计算公式：
 

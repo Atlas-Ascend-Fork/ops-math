@@ -27,7 +27,7 @@
 
 - Description:
 
-  Computes the frequency of each value in a non-negative integer array. minlength specifies the minimum size of the output tensor. When weights is a null pointer, each occurrence of self[i] in self increments its frequency by 1. When weights is not null, each occurrence of self[i] increments its frequency by weights[i], and the result is stored at position self[i]+1 in out. Therefore, the size of out is the maximum of (the maximum value in self + 1) and minlength.
+  Computes the frequency of each value in a non-negative integer array. minlength specifies the minimum size of the output tensor. When weights is a null pointer, each occurrence of self[i] in self increments its frequency by 1. When weights is not null, each occurrence of self[i] increments its frequency by weights[i], and the result is stored at index self[i] in out. Therefore, the size of out is the maximum of (the maximum value in self + 1) and minlength.
 
 - Formula:
 

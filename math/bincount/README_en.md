@@ -15,7 +15,7 @@ English | [简体中文](./README.md)
 
 ## Function Description
 
-- Operator function: computes the frequency of each number in an array of non-negative integers. minlength is the minimum size of the output tensor. When weights is a null pointer, the frequency increases by 1 each time self[i] in self occurs. When weights is not empty, the frequency increases by weights[i] each time self[i] occurs. The result is finally stored at the self[i]+1 position in out. Therefore, the size of out is the maximum of (the maximum value in self + 1) and minlength.
+- Operator function: computes the frequency of each number in an array of non-negative integers. minlength is the minimum size of the output tensor. When weights is a null pointer, the frequency increases by 1 each time self[i] in self occurs. When weights is not empty, the frequency increases by weights[i] each time self[i] occurs. The result is finally stored at index self[i] in out. Therefore, the size of out is the maximum of (the maximum value in self + 1) and minlength.
 
 - Computation formula:
 
