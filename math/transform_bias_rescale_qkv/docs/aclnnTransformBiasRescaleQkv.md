@@ -128,7 +128,7 @@ aclnnStatus aclnnTransformBiasRescaleQkv(
       <td>numHeads（int64_t）</td>
       <td>输入</td>
       <td>输入的头数。</td>
-      <td>取值大于0。</td>
+      <td>取值大于0，即qkv和qkvBias的shape中的num_heads。</td>
       <td>-</td>
       <td>-</td>
       <td>-</td>
@@ -212,9 +212,29 @@ aclnnStatus aclnnTransformBiasRescaleQkv(
       <td>传入的输入和输出是空指针。</td>
     </tr>
     <tr>
-      <td rowspan="1">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="1">161002</td>
-      <td><ul><li>qkv和qkvBias的数据类型和数据格式不在支持的范围之内。</li><li>qkv和qkvBias的数据类型不一致。</li><li>qkv和qkvBias的shape不满足参数说明的要求。</li></ul></td>
+      <td rowspan="2">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="2">161002</td>
+      <td>qkv和qkvBias的数据类型和数据格式不在支持的范围之内。</td>
+    </tr>
+    <tr>
+      <td>qkv和qkvBias的数据类型不一致。</td>
+    </tr>
+    <tr>
+      <td rowspan="5">ACLNN_ERR_INNER_TILING_ERROR</td>
+      <td rowspan="5">561002</td>
+      <td>qkv和qkvBias的shape不满足参数说明的要求（如qkv的维度不为3、qkvBias的维度不为1）。</td>
+    </tr>
+    <tr>
+      <td>numHeads小于或等于0。</td>
+    </tr>
+    <tr>
+      <td>qkv最后一维的大小不能被3整除。</td>
+    </tr>
+    <tr>
+      <td>qkv最后一维的大小除以3之后不能被numHeads整除。</td>
+    </tr>
+    <tr>
+      <td>qkvBias的元素个数不等于3 * numHeads * dim_per_head。</td>
     </tr>
   </tbody></table>
 
@@ -269,6 +289,8 @@ aclnnStatus aclnnTransformBiasRescaleQkv(
 - 输入qkv、qkvBias和输出qOut、kOut、vOut的数据类型需要保持一致。
 - 输入值为NaN，输出也为NaN，输入是Inf，输出也是Inf。
 - 输入是-Inf，输出也是-Inf。
+- qkv的shape需为三维{B, T, 3 * numHeads * dim_per_head}，即最后一维的大小能被3整除，且除以3之后能被numHeads整除；qkvBias的shape需为一维{3 * numHeads * dim_per_head}。
+- numHeads取值需大于0。
 
 ## 调用示例
 
