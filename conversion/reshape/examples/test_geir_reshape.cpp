@@ -176,7 +176,7 @@ ge::Graph BuildDynamicShapeGraphDimNeg2(std::vector<ge::Tensor>& input)
     return graph;
 }
 
-// allowzero(0) set by name (a private attr, same channel as the ONNX plugin):
+// _allowzero(0) set by name (a private attr, same channel as the ONNX plugin):
 // x={2,6}, shape={0,3,2}, 0 copies the x dim, y={2,3,2}
 ge::Graph BuildAllowZeroGraph(std::vector<ge::Tensor>& input)
 {
@@ -198,6 +198,7 @@ ge::Graph BuildAllowZeroGraph(std::vector<ge::Tensor>& input)
     reshape_node.set_input_x(data_node);
     reshape_node.set_input_shape(shape_node);
     reshape_node.SetAttr("allowzero", static_cast<int64_t>(0));
+    reshape_node.SetAttr("_allowzero", static_cast<int64_t>(0));
 
     float* pData = new float[12];
     for (int i = 0; i < 12; i++) {

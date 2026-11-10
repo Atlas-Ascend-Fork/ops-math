@@ -44,7 +44,7 @@
   <tr>
    <td>shape</td>
    <td>输入</td>
-    <td>目标形状张量，支持一个<code>-1</code>；allowzero为0时<code>0</code>表示复制对应输入维度。</td>
+    <td>目标形状张量，支持一个<code>-1</code>；_allowzero为0时<code>0</code>表示复制对应输入维度。</td>
    <td>INT32, INT64</td>
    <td>1D</td>
   </tr>
@@ -76,7 +76,7 @@
 
 - 输出元素总数必须与输入元素总数一致。
 - shape中最多只能出现一个<code>-1</code>。
-- 当allowzero为0时，shape中的<code>0</code>会复制对应输入维度；当allowzero未设置或为非0值时，<code>0</code>按字面值参与计算。
+- 当_allowzero为0时，shape中的<code>0</code>会复制对应输入维度；当_allowzero未设置或为非0值时，<code>0</code>按字面值参与计算。
 
 ## 调用说明
 

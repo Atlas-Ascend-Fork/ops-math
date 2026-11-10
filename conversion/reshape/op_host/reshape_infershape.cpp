@@ -109,7 +109,15 @@ ge::graphStatus ReshapeInferShapeImpl(const gert::Shape& x_shape, const T* resha
     constexpr size_t kNoInferIndex = std::numeric_limits<size_t>::max();
     y_shape->SetDimNum(reshape_size);
     const auto x_shape_size = x_shape.GetShapeSize();
-    const bool x_is_dynamic = x_shape_size < 0;
+    // the sign of the size product cannot detect unknown dims: an even count of -1 dims
+    // multiplies to a positive value ([-1,-1] -> 1), so the dims are checked dimension-wise
+    bool x_is_dynamic = false;
+    for (size_t i = 0U; i < x_shape.GetDimNum(); ++i) {
+        if (x_shape.GetDim(i) < 0) {
+            x_is_dynamic = true;
+            break;
+        }
+    }
     int64_t output_shape_size = 1;
     size_t infer_index = kNoInferIndex;
     bool has_literal_zero = false;
@@ -254,7 +262,7 @@ static ge::graphStatus InferShapeForReshape(gert::InferShapeContext* context)
     OP_CHECK_NULL_WITH_CONTEXT(context, shape_tensor);
     OP_CHECK_NULL_WITH_CONTEXT(context, y_shape);
 
-    // allowzero is a private attr set by name by the ONNX plugin, materialized after the IR
+    // _allowzero is a private attr set by name by the ONNX plugin, materialized after the IR
     // segment (node value first, the default 1 as fallback), so it always sits at the last index
     const gert::RuntimeAttrs* attrs = context->GetAttrs();
     OP_CHECK_NULL_WITH_CONTEXT(context, attrs);
@@ -302,8 +310,18 @@ static ge::graphStatus InferShapeForReshape(gert::InferShapeContext* context)
     }
     // case 3: shape input contains no element, output is scalar; x must be a scalar or dynamic
     if (reshape_size == 0) {
+        bool has_unknown_dim = false;
+        bool has_zero_dim = false;
+        for (size_t i = 0U; i < x_shape->GetDimNum(); ++i) {
+            const auto x_dim = x_shape->GetDim(i);
+            if (x_dim < 0) {
+                has_unknown_dim = true;
+            } else if (x_dim == 0) {
+                has_zero_dim = true;
+            }
+        }
         const auto x_size = x_shape->GetShapeSize();
-        if ((x_size != 1) && (x_size >= 0)) {
+        if (has_zero_dim || (!has_unknown_dim && (x_size != 1))) {
             OP_LOGE(context, "Shape input contains no element, x shape size is %ld, must be 1 to reshape to scalar!",
                     x_size);
             return ge::GRAPH_FAILED;
@@ -334,7 +352,7 @@ static ge::graphStatus InferShapeForReshape(gert::InferShapeContext* context)
         }
         return InferShapeForEmptyTensorX(*x_shape, shape_tensor->GetData<int64_t>(), target_size, y_shape);
     }
-    // case 5: normal or dynamic x, -1 as unknown dim; 0 copies the x dim when allowzero is 0,
+    // case 5: normal or dynamic x, -1 as unknown dim; 0 copies the x dim when _allowzero is 0,
     // otherwise it is a literal dim value
     const bool literal_zero = (allowzero != 0);
     if (shape_dtype == ge::DT_INT32) {
@@ -352,5 +370,5 @@ IMPL_OP_INFERSHAPE(Reshape)
     .InferShape(InferShapeForReshape)
     .InferDataType(InferDataTypeForReshape)
     .InputsDataDependency({1U})
-    .PrivateAttr("allowzero", int64_t{1});
+    .PrivateAttr("_allowzero", int64_t{1});
 } // namespace ops

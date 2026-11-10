@@ -46,7 +46,7 @@ English | [简体中文](./README.md)
   <tr>
    <td>shape</td>
    <td>Input</td>
-    <td>Target shape tensor. One <code>-1</code> is supported; when allowzero is 0, <code>0</code> indicates copying the corresponding input dimension.</td>
+    <td>Target shape tensor. One <code>-1</code> is supported; when _allowzero is 0, <code>0</code> indicates copying the corresponding input dimension.</td>
    <td>INT32, INT64</td>
    <td>1D</td>
   </tr>
@@ -78,7 +78,7 @@ English | [简体中文](./README.md)
 
 - The total number of output elements must be consistent with the total number of input elements.
 - At most one <code>-1</code> can appear in shape.
-- When allowzero is 0, <code>0</code> in shape copies the corresponding input dimension; when allowzero is not set or is a non-zero value, <code>0</code> participates in the computation as a literal value.
+- When _allowzero is 0, <code>0</code> in shape copies the corresponding input dimension; when _allowzero is not set or is a non-zero value, <code>0</code> participates in the computation as a literal value.
 
 ## Invocation Description
 

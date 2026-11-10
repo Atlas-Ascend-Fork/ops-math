@@ -32,13 +32,13 @@ gert::ContextHolder<gert::InferShapeContext> GetInferShapeContextHolder(
     }
 
     gert::InferShapeContextFaker faker;
-    // attrs are positional: axis(0), num_axes(1), allowzero(2); when allowzero_attr is set, the
+    // attrs are positional: axis(0), num_axes(1), _allowzero(2); when allowzero_attr is set, the
     // copy(0) or literal(non-zero) semantics of 0 is pinned explicitly
     auto& faker_chain = faker.SetOpType("Reshape").NodeIoNum(2, 1);
     if (allowzero_attr >= 0) {
         faker_chain.Attr("axis", static_cast<int64_t>(0))
             .Attr("num_axes", static_cast<int64_t>(-1))
-            .Attr("allowzero", allowzero_attr);
+            .Attr("_allowzero", allowzero_attr);
     }
     auto holder = faker_chain.InputTensors({(gert::Tensor*)&x_shape, target_tensor}).OutputShapes({&y_shape}).Build();
     return holder;
@@ -398,6 +398,134 @@ TEST_F(ReshapeUT, Reshape_dynamic_x_target_known)
     EXPECT_EQ(holder.GetContext()->GetOutputShape(0)->GetDimNum(), 2);
     EXPECT_EQ(holder.GetContext()->GetOutputShape(0)->GetDim(0), 3);
     EXPECT_EQ(holder.GetContext()->GetOutputShape(0)->GetDim(1), 2);
+}
+
+// x is all-unknown with an even count of -1 dims: the size product flips to positive ([-1,-1]
+// multiplies to 1) and the product-sign check misreads it as a static 1-element tensor; the
+// DLRM broadcast-gradient graph hits exactly this case (dynamic Sum output [-1,-1] reshaped to
+// the static [65536]) and the dimension-wise dynamic check must let it pass
+TEST_F(ReshapeUT, Reshape_dynamic_x_even_unknown_dims_target_known)
+{
+    auto space_registry = gert::DefaultOpImplSpaceRegistryV2::GetInstance().GetSpaceRegistry();
+    ASSERT_NE(space_registry->GetOpImpl("Reshape"), nullptr);
+    auto infer_shape_func = space_registry->GetOpImpl("Reshape")->infer_shape;
+
+    std::vector<int64_t> target_dims = {65536};
+    gert::StorageShape x_shape = {{-1, -1}, {-1, -1}};
+    gert::StorageShape y_shape = {{}, {}};
+    gert::StorageShape target_storage_shape = {{1}, {1}};
+    auto tensor_holder = std::unique_ptr<uint8_t[]>(
+        new uint8_t[sizeof(gert::Tensor) + sizeof(int64_t) * target_dims.size()]);
+    auto holder = GetInferShapeContextHolder<int64_t>(tensor_holder, target_dims, x_shape, y_shape,
+                                                      target_storage_shape, ge::DT_INT64);
+
+    EXPECT_EQ(infer_shape_func(holder.GetContext()), ge::GRAPH_SUCCESS);
+    EXPECT_EQ(holder.GetContext()->GetOutputShape(0)->GetDimNum(), 1);
+    EXPECT_EQ(holder.GetContext()->GetOutputShape(0)->GetDim(0), 65536);
+}
+
+// even count of unknown dims mixed with a known dim: the product (-1)*5*(-1) is positive,
+// the unknown dims are still detected dimension-wise
+TEST_F(ReshapeUT, Reshape_dynamic_x_even_unknown_dims_three_dims)
+{
+    auto space_registry = gert::DefaultOpImplSpaceRegistryV2::GetInstance().GetSpaceRegistry();
+    ASSERT_NE(space_registry->GetOpImpl("Reshape"), nullptr);
+    auto infer_shape_func = space_registry->GetOpImpl("Reshape")->infer_shape;
+
+    std::vector<int64_t> target_dims = {25};
+    gert::StorageShape x_shape = {{-1, 5, -1}, {-1, 5, -1}};
+    gert::StorageShape y_shape = {{}, {}};
+    gert::StorageShape target_storage_shape = {{1}, {1}};
+    auto tensor_holder = std::unique_ptr<uint8_t[]>(
+        new uint8_t[sizeof(gert::Tensor) + sizeof(int64_t) * target_dims.size()]);
+    auto holder = GetInferShapeContextHolder<int64_t>(tensor_holder, target_dims, x_shape, y_shape,
+                                                      target_storage_shape, ge::DT_INT64);
+
+    EXPECT_EQ(infer_shape_func(holder.GetContext()), ge::GRAPH_SUCCESS);
+    EXPECT_EQ(holder.GetContext()->GetOutputShape(0)->GetDimNum(), 1);
+    EXPECT_EQ(holder.GetContext()->GetOutputShape(0)->GetDim(0), 25);
+}
+
+// even count of unknown dims and the target contains -1: the -1 dim cannot be inferred and
+// stays unknown (the pre-fix static path wrongly resolved it to 1)
+TEST_F(ReshapeUT, Reshape_dynamic_x_even_unknown_dims_keep_neg_1)
+{
+    auto space_registry = gert::DefaultOpImplSpaceRegistryV2::GetInstance().GetSpaceRegistry();
+    ASSERT_NE(space_registry->GetOpImpl("Reshape"), nullptr);
+    auto infer_shape_func = space_registry->GetOpImpl("Reshape")->infer_shape;
+
+    std::vector<int64_t> target_dims = {-1};
+    gert::StorageShape x_shape = {{-1, -1}, {-1, -1}};
+    gert::StorageShape y_shape = {{}, {}};
+    gert::StorageShape target_storage_shape = {{1}, {1}};
+    auto tensor_holder = std::unique_ptr<uint8_t[]>(
+        new uint8_t[sizeof(gert::Tensor) + sizeof(int64_t) * target_dims.size()]);
+    auto holder = GetInferShapeContextHolder<int64_t>(tensor_holder, target_dims, x_shape, y_shape,
+                                                      target_storage_shape, ge::DT_INT64);
+
+    EXPECT_EQ(infer_shape_func(holder.GetContext()), ge::GRAPH_SUCCESS);
+    EXPECT_EQ(holder.GetContext()->GetOutputShape(0)->GetDimNum(), 1);
+    EXPECT_EQ(holder.GetContext()->GetOutputShape(0)->GetDim(0), -1);
+}
+
+// reshape to scalar (empty target): x has an even count of unknown dims mixed with a known
+// dim ([-1,5,-1] multiplies to +5); the dimension-wise check treats it as dynamic and defers
+// to the runtime, the product-sign check rejected it as a static 5-element tensor
+TEST_F(ReshapeUT, Reshape_dynamic_x_even_unknown_dims_to_scalar_success)
+{
+    auto space_registry = gert::DefaultOpImplSpaceRegistryV2::GetInstance().GetSpaceRegistry();
+    ASSERT_NE(space_registry->GetOpImpl("Reshape"), nullptr);
+    auto infer_shape_func = space_registry->GetOpImpl("Reshape")->infer_shape;
+
+    std::vector<int64_t> target_dims = {};
+    gert::StorageShape x_shape = {{-1, 5, -1}, {-1, 5, -1}};
+    gert::StorageShape y_shape = {{}, {}};
+    gert::StorageShape target_storage_shape = {{0}, {0}};
+    auto tensor_holder = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor)]);
+    auto holder = GetInferShapeContextHolder<int64_t>(tensor_holder, target_dims, x_shape, y_shape,
+                                                      target_storage_shape, ge::DT_INT64);
+
+    EXPECT_EQ(infer_shape_func(holder.GetContext()), ge::GRAPH_SUCCESS);
+    EXPECT_EQ(holder.GetContext()->GetOutputShape(0)->GetDimNum(), 0);
+}
+
+// reshape to scalar with an all-unknown even-count x: passes via the dynamic reading
+// (the product-sign check passed it only by the coincidence 1 == 1)
+TEST_F(ReshapeUT, Reshape_dynamic_x_even_unknown_dims_two_dims_to_scalar_success)
+{
+    auto space_registry = gert::DefaultOpImplSpaceRegistryV2::GetInstance().GetSpaceRegistry();
+    ASSERT_NE(space_registry->GetOpImpl("Reshape"), nullptr);
+    auto infer_shape_func = space_registry->GetOpImpl("Reshape")->infer_shape;
+
+    std::vector<int64_t> target_dims = {};
+    gert::StorageShape x_shape = {{-1, -1}, {-1, -1}};
+    gert::StorageShape y_shape = {{}, {}};
+    gert::StorageShape target_storage_shape = {{0}, {0}};
+    auto tensor_holder = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor)]);
+    auto holder = GetInferShapeContextHolder<int64_t>(tensor_holder, target_dims, x_shape, y_shape,
+                                                      target_storage_shape, ge::DT_INT64);
+
+    EXPECT_EQ(infer_shape_func(holder.GetContext()), ge::GRAPH_SUCCESS);
+    EXPECT_EQ(holder.GetContext()->GetOutputShape(0)->GetDimNum(), 0);
+}
+
+// reshape to scalar with a zero dim: a zero dim means a deterministic 0 elements and is still
+// rejected even when the shape also carries an unknown dim ([0,-1] multiplies to 0)
+TEST_F(ReshapeUT, Reshape_dynamic_x_zero_dim_to_scalar_failed)
+{
+    auto space_registry = gert::DefaultOpImplSpaceRegistryV2::GetInstance().GetSpaceRegistry();
+    ASSERT_NE(space_registry->GetOpImpl("Reshape"), nullptr);
+    auto infer_shape_func = space_registry->GetOpImpl("Reshape")->infer_shape;
+
+    std::vector<int64_t> target_dims = {};
+    gert::StorageShape x_shape = {{0, -1}, {0, -1}};
+    gert::StorageShape y_shape = {{}, {}};
+    gert::StorageShape target_storage_shape = {{0}, {0}};
+    auto tensor_holder = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor)]);
+    auto holder = GetInferShapeContextHolder<int64_t>(tensor_holder, target_dims, x_shape, y_shape,
+                                                      target_storage_shape, ge::DT_INT64);
+
+    EXPECT_EQ(infer_shape_func(holder.GetContext()), ge::GRAPH_FAILED);
 }
 
 // x is dynamic and target contains 0, 0 cannot copy from unknown-rank x ({-2} marker)
@@ -775,7 +903,7 @@ TEST_F(ReshapeUT, Reshape_allowzero_0_copy_zero_success)
                       .NodeIoNum(2, 1)
                       .Attr("axis", static_cast<int64_t>(0))
                       .Attr("num_axes", static_cast<int64_t>(-1))
-                      .Attr("allowzero", static_cast<int64_t>(0))
+                      .Attr("_allowzero", static_cast<int64_t>(0))
                       .InputTensors({(gert::Tensor*)&x_shape, target_tensor})
                       .OutputShapes({&y_shape})
                       .Build();
@@ -810,7 +938,7 @@ TEST_F(ReshapeUT, Reshape_allowzero_1_zero_literal_failed)
                       .NodeIoNum(2, 1)
                       .Attr("axis", static_cast<int64_t>(0))
                       .Attr("num_axes", static_cast<int64_t>(-1))
-                      .Attr("allowzero", static_cast<int64_t>(1))
+                      .Attr("_allowzero", static_cast<int64_t>(1))
                       .InputTensors({(gert::Tensor*)&x_shape, target_tensor})
                       .OutputShapes({&y_shape})
                       .Build();
@@ -841,7 +969,7 @@ TEST_F(ReshapeUT, Reshape_private_attr_only_allowzero_0_copy_success)
     auto holder = gert::InferShapeContextFaker()
                       .SetOpType("Reshape")
                       .NodeIoNum(2, 1)
-                      .Attr("allowzero", static_cast<int64_t>(0))
+                      .Attr("_allowzero", static_cast<int64_t>(0))
                       .InputTensors({(gert::Tensor*)&x_shape, target_tensor})
                       .OutputShapes({&y_shape})
                       .Build();
@@ -876,7 +1004,7 @@ TEST_F(ReshapeUT, Reshape_allowzero_1_zero_with_neg_1_failed)
                       .NodeIoNum(2, 1)
                       .Attr("axis", static_cast<int64_t>(0))
                       .Attr("num_axes", static_cast<int64_t>(-1))
-                      .Attr("allowzero", static_cast<int64_t>(1))
+                      .Attr("_allowzero", static_cast<int64_t>(1))
                       .InputTensors({(gert::Tensor*)&x_shape, target_tensor})
                       .OutputShapes({&y_shape})
                       .Build();
@@ -910,7 +1038,7 @@ TEST_F(ReshapeUT, Reshape_allowzero_1_dynamic_x_literal_zero_failed)
                       .NodeIoNum(2, 1)
                       .Attr("axis", static_cast<int64_t>(0))
                       .Attr("num_axes", static_cast<int64_t>(-1))
-                      .Attr("allowzero", static_cast<int64_t>(1))
+                      .Attr("_allowzero", static_cast<int64_t>(1))
                       .InputTensors({(gert::Tensor*)&x_shape, target_tensor})
                       .OutputShapes({&y_shape})
                       .Build();
@@ -961,7 +1089,7 @@ TEST_F(ReshapeUT, Reshape_default_attrs_keep_normal_path)
                       .NodeIoNum(2, 1)
                       .Attr("axis", static_cast<int64_t>(0))
                       .Attr("num_axes", static_cast<int64_t>(-1))
-                      .Attr("allowzero", static_cast<int64_t>(0))
+                      .Attr("_allowzero", static_cast<int64_t>(0))
                       .InputTensors({(gert::Tensor*)&x_shape, target_tensor})
                       .OutputShapes({&y_shape})
                       .Build();

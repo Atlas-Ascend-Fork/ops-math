@@ -22,23 +22,19 @@ static Status ParseParamsReshape(const Message* op_src, ge::Operator& op_dest)
         }
     }
     op_dest.SetAttr("allowzero", allow_zero);
+    op_dest.SetAttr("_allowzero", allow_zero);
     return SUCCESS;
 }
 
 // register Add op info to GE
 REGISTER_CUSTOM_OP("Reshape")
     .FrameworkType(ONNX)
-    .OriginOpType({ge::AscendString("ai.onnx::8::Reshape"),
-                   ge::AscendString("ai.onnx::9::Reshape"),
-                   ge::AscendString("ai.onnx::10::Reshape"),
-                   ge::AscendString("ai.onnx::11::Reshape"),
-                   ge::AscendString("ai.onnx::12::Reshape"),
-                   ge::AscendString("ai.onnx::13::Reshape"),
-                   ge::AscendString("ai.onnx::14::Reshape"),
-                   ge::AscendString("ai.onnx::15::Reshape"),
-                   ge::AscendString("ai.onnx::16::Reshape"),
-                   ge::AscendString("ai.onnx::17::Reshape"),
+    .OriginOpType({ge::AscendString("ai.onnx::8::Reshape"), ge::AscendString("ai.onnx::9::Reshape"),
+                   ge::AscendString("ai.onnx::10::Reshape"), ge::AscendString("ai.onnx::11::Reshape"),
+                   ge::AscendString("ai.onnx::12::Reshape"), ge::AscendString("ai.onnx::13::Reshape"),
+                   ge::AscendString("ai.onnx::14::Reshape"), ge::AscendString("ai.onnx::15::Reshape"),
+                   ge::AscendString("ai.onnx::16::Reshape"), ge::AscendString("ai.onnx::17::Reshape"),
                    ge::AscendString("ai.onnx::18::Reshape")})
     .ParseParamsFn(ParseParamsReshape)
     .ImplyType(ImplyType::GELOCAL);
-}  // namespace domi
+} // namespace domi
