@@ -39,6 +39,7 @@ constexpr int32_t kOutputIndicesIdx = 1;
 const char* const kRegbaseArchDav3510 = "3510";
 const char* const kRegbaseArchDav5102 = "5102";
 const char* const kNonRegbaseArchDav2201 = "2201";
+const char* const kLegacyArchDav1001 = "1001";
 
 // UT stub for rtGetSocSpec: the UT executable does not link the runtime lib, while the pass gates
 // on NpuArch via this API. The stub feeds the arch from the ASCEND_NPU_ARCH env variable (same
@@ -67,6 +68,27 @@ static void SetNpuArch(const char* arch)
     } else {
         (void)unsetenv("ASCEND_NPU_ARCH");
     }
+}
+
+// UT stub for aclsysGetVersionNum: a strong definition that overrides the weak
+// declaration in fusion_pass_common.h (the executable's strong definition wins
+// any dynamic resolution, same convention as the hard_max UT). Without it a
+// driver-less environment makes libascendcl's implementation fail (100003)
+// without writing versionNum, the pass version gate (>= 9.1.0) then rejects
+// every test with an empty Patterns() result. Feeds the GE version from the
+// ASCEND_GE_VERSION env variable (default 9.1.0).
+extern "C" {
+int32_t aclsysGetVersionNum(char* pkgName, int32_t* versionNum);
+}
+
+int32_t aclsysGetVersionNum(char* pkgName, int32_t* versionNum)
+{
+    (void)pkgName;
+    const char* ver = std::getenv("ASCEND_GE_VERSION");
+    if (versionNum != nullptr) {
+        *versionNum = (ver == nullptr) ? 90100000 : std::atoi(ver);
+    }
+    return 0;
 }
 } // namespace
 
@@ -101,6 +123,23 @@ protected:
         }
     }
 
+    // Ascend910 (910A): the runtime SoC_version is the full model name
+    // "Ascend910A" (what PlatformInfoManager keys on) while short_soc_version
+    // is "Ascend910" (what the pass's soc whitelist matches) - the same split
+    // as the real platform_config Ascend910A.ini. SetPlatformInfo feeds both
+    // from one string; this overload feeds them separately.
+    static void SetPlatformInfo(const std::string& soc, const char* npuArch, const char* shortSoc)
+    {
+        PlatformInfo platformInfo;
+        OptionalInfo optiCompilationInfo;
+        platformInfo.soc_info.ai_core_cnt = 64;
+        platformInfo.str_info.short_soc_version = shortSoc;
+        optiCompilationInfo.soc_version = soc;
+        PlatformInfoManager::Instance().platform_info_map_[soc] = platformInfo;
+        PlatformInfoManager::Instance().SetOptionalCompilationInfo(optiCompilationInfo);
+        SetNpuArch(npuArch);
+    }
+
     // soc -> npu arch, aligned with cmake/soc_arch_variables.cmake.
     static const char* SocToArch(const std::string& soc)
     {
@@ -125,7 +164,13 @@ protected:
         if (soc == "Ascend035") {
             return "3505";
         }
-        return kNonRegbaseArchDav2201; // Ascend910 / 910B* / 910_93
+        if (soc == "Ascend910") {
+            // Ascend910 (910A) is DAV_1001 - a separate arch from the 2201 family, per
+            // platform_config Ascend910A.ini (NpuArch=1001) and soc_arch_variables.cmake
+            // (ascend910 -> dav_1001).
+            return kLegacyArchDav1001;
+        }
+        return kNonRegbaseArchDav2201; // Ascend910B* / 910_93
     }
 
     // Build a TopK node with a const k input.
@@ -2901,6 +2946,319 @@ TEST_F(TopKFusionPassTest, scalarConstKDimLastFp32Fused)
         EXPECT_EQ(fusedXDesc.GetDataType(), DT_FLOAT); // x stays float
         EXPECT_EQ(fusedKDesc.GetDataType(), DT_INT32); // k backfilled to int32
     }
+}
+
+// Test 35a: Ascend910 (910A) is DAV_1001 - a separate arch from the 2201 family
+// (platform_config Ascend910A.ini maps NpuArch=1001; soc_arch_variables.cmake
+// maps ascend910 -> dav_1001). Before the arch-set fix the pass mistook it for
+// an unknown arch and stayed silent on 910A, losing the canndev TopKD fusion
+// (fp16-only op_info entries on ascend910). Const k on the last dim fuses to
+// TopKD with the regular 2048-value fp16 assist_seq (910A is not a tik soc).
+TEST_F(TopKFusionPassTest, ascend910aConstKFp16FusedToTopKD)
+{
+    SetPlatformInfo("Ascend910A", kLegacyArchDav1001, "Ascend910");
+    std::vector<int64_t> dimsX{32, 100};
+    Shape shapeX(dimsX);
+
+    auto graphBuilder = es::EsGraphBuilder("test_910a_const_k");
+    auto x = graphBuilder.CreateInput(kInputXIdx, "x", DT_FLOAT16, FORMAT_ND, dimsX);
+    auto output = BuildTopKNodeWithConstK(graphBuilder, x, 5);
+
+    TensorDesc xDesc;
+    x.GetProducer()->GetOutputDesc(0, xDesc);
+    xDesc.SetDataType(DT_FLOAT16);
+    xDesc.SetShape(shapeX);
+    x.GetProducer()->UpdateOutputDesc(0, xDesc);
+    TensorDesc kDesc;
+    kDesc.SetDataType(DT_INT32);
+    kDesc.SetShape(Shape(std::vector<int64_t>{1}));
+    UpdateTopKNodeDesc(output, xDesc, kDesc, 5);
+
+    std::shared_ptr<Graph> graph = graphBuilder.BuildAndReset({output.values, output.indices});
+    Status status = RunPass(graph);
+    EXPECT_TRUE(status == SUCCESS || status == GRAPH_NOT_CHANGED);
+
+    EXPECT_EQ(CountNodeType(graph, "TopKD"), 1);
+    EXPECT_EQ(CountNodeType(graph, "TopK"), 0);
+    EXPECT_EQ(CountNodeType(graph, "TopKV2"), 0);
+    EXPECT_EQ(CountNodeType(graph, "TransposeD"), 0); // last dim, no transpose
+
+    // The k attr carries the const value; the assist is the regular 2048 fp16 flavour.
+    auto kAttrs = CollectNodeTypeAttr(graph, "TopKD", "k");
+    ASSERT_EQ(kAttrs.size(), 1);
+    EXPECT_EQ(kAttrs[0], 5);
+    auto assistData = CollectTopKDAssistSeqData(graph);
+    ASSERT_EQ(assistData.size(), 2048U);
+    EXPECT_EQ(assistData[0], 0x0000U);              // fp16(0)
+    EXPECT_EQ(assistData[2047], 0x67FFU);           // fp16(2047)
+    EXPECT_EQ(CountNodeType(graph, "Constant"), 1); // legacy "Constant" weight channel
+
+    // The values output shape keeps the x shape with the last dim replaced by k.
+    auto valuesShapes = CollectNodeTypeOutputShapes(graph, "TopKD", kOutputValuesIdx);
+    EXPECT_EQ(CountShape(valuesShapes, std::vector<int64_t>({32, 5})), 1);
+}
+
+// Test 35b: Ascend910 dynamic k on the last dim fuses to TopKV2 (the ascend910
+// op_info registers TopKV2 fp16-only, same as TopKD).
+TEST_F(TopKFusionPassTest, ascend910aDynamicKFp16FusedToTopKV2)
+{
+    SetPlatformInfo("Ascend910A", kLegacyArchDav1001, "Ascend910");
+    std::vector<int64_t> dimsX{32, 100};
+    Shape shapeX(dimsX);
+
+    auto graphBuilder = es::EsGraphBuilder("test_910a_dynamic_k");
+    auto x = graphBuilder.CreateInput(kInputXIdx, "x", DT_FLOAT16, FORMAT_ND, dimsX);
+    auto k = graphBuilder.CreateInput(kInputKIdx, "k", DT_INT32, FORMAT_ND, std::vector<int64_t>{1});
+    auto output = BuildTopKNodeWithDynamicK(graphBuilder, x, k);
+
+    TensorDesc xDesc;
+    x.GetProducer()->GetOutputDesc(0, xDesc);
+    xDesc.SetDataType(DT_FLOAT16);
+    xDesc.SetShape(shapeX);
+    x.GetProducer()->UpdateOutputDesc(0, xDesc);
+    TensorDesc kDesc;
+    k.GetProducer()->GetOutputDesc(0, kDesc);
+    kDesc.SetDataType(DT_INT32);
+    kDesc.SetShape(Shape(std::vector<int64_t>{1}));
+    k.GetProducer()->UpdateOutputDesc(0, kDesc);
+    UpdateTopKNodeDesc(output, xDesc, kDesc, 10);
+
+    std::shared_ptr<Graph> graph = graphBuilder.BuildAndReset({output.values, output.indices});
+    Status status = RunPass(graph);
+    EXPECT_TRUE(status == SUCCESS || status == GRAPH_NOT_CHANGED);
+
+    EXPECT_EQ(CountNodeType(graph, "TopKV2"), 1);
+    EXPECT_EQ(CountNodeType(graph, "TopK"), 0);
+    EXPECT_EQ(CountNodeType(graph, "TopKD"), 0);
+
+    // No indices_dtype attr on the legacy TopKV2; the indices output is int32.
+    auto indicesDtypeAttrs = CollectNodeTypeAttr(graph, "TopKV2", "indices_dtype");
+    EXPECT_EQ(indicesDtypeAttrs.size(), 0);
+    auto indicesDtypes = CollectNodeTypeOutputDtypes(graph, "TopKV2", kOutputIndicesIdx);
+    EXPECT_EQ(CountDtype(indicesDtypes, DT_INT32), 1);
+}
+
+// Test 35c: Ascend910 is fp16-only (the ascend910 op_info registers both TopKD
+// and TopKV2 for fp16 x only). A f32 x on a TopKV2 source is rejected by the
+// aicore whitelist and degraded to the AICPU-dispatchable TopK (canndev
+// parity: the legacy pass renamed the node to TopK on the dtype rejection
+// exit, "will using Aicpu").
+TEST_F(TopKFusionPassTest, ascend910aF32TopKV2DegradesToAicpuTopK)
+{
+    SetPlatformInfo("Ascend910A", kLegacyArchDav1001, "Ascend910");
+    std::vector<int64_t> dimsX{16, 128};
+    Shape shapeX(dimsX);
+
+    auto graphBuilder = es::EsGraphBuilder("test_910a_f32_topkv2_degrade");
+    auto x = graphBuilder.CreateInput(kInputXIdx, "x", DT_FLOAT, FORMAT_ND, dimsX);
+    auto kConst = graphBuilder.CreateConst(std::vector<int32_t>{5}, std::vector<int64_t>{1});
+    auto output = BuildTopKV2SourceNode(graphBuilder, x, kConst, -1); // TopKV2 source, dim = -1
+
+    TensorDesc xDesc;
+    x.GetProducer()->GetOutputDesc(0, xDesc);
+    xDesc.SetDataType(DT_FLOAT);
+    xDesc.SetShape(shapeX);
+    x.GetProducer()->UpdateOutputDesc(0, xDesc);
+    GNode sourceNode = *output.values.GetProducer();
+    sourceNode.UpdateInputDesc(kInputXIdx, xDesc);
+    TensorDesc kDesc;
+    kDesc.SetDataType(DT_INT32);
+    kDesc.SetShape(Shape(std::vector<int64_t>{1}));
+    sourceNode.UpdateInputDesc(kInputKIdx, kDesc);
+    TensorDesc valuesDesc = xDesc;
+    valuesDesc.SetShape(Shape(std::vector<int64_t>({16, 5})));
+    valuesDesc.SetOriginShape(Shape(std::vector<int64_t>({16, 5})));
+    sourceNode.UpdateOutputDesc(kOutputValuesIdx, valuesDesc);
+    TensorDesc indicesDesc = valuesDesc;
+    indicesDesc.SetDataType(DT_INT32);
+    sourceNode.UpdateOutputDesc(kOutputIndicesIdx, indicesDesc);
+
+    std::shared_ptr<Graph> graph = graphBuilder.BuildAndReset({output.values, output.indices});
+    Status status = RunPass(graph);
+    EXPECT_TRUE(status == SUCCESS || status == GRAPH_NOT_CHANGED);
+
+    // Degraded to the AICPU-dispatchable TopK; f32 stays on the AICPU whitelist.
+    EXPECT_EQ(CountNodeType(graph, "TopK"), 1);
+    EXPECT_EQ(CountNodeType(graph, "TopKV2"), 0);
+    EXPECT_EQ(CountNodeType(graph, "TopKD"), 0);
+    for (auto node : graph->GetAllNodes()) {
+        AscendString nodeType;
+        node.GetType(nodeType);
+        if (nodeType != "TopK") {
+            continue;
+        }
+        TensorDesc fusedXDesc;
+        ASSERT_EQ(node.GetInputDesc(kInputXIdx, fusedXDesc), SUCCESS);
+        EXPECT_EQ(fusedXDesc.GetDataType(), DT_FLOAT);
+        TensorDesc fusedIndicesDesc;
+        ASSERT_EQ(node.GetOutputDesc(kOutputIndicesIdx, fusedIndicesDesc), SUCCESS);
+        EXPECT_EQ(fusedIndicesDesc.GetDataType(), DT_INT32);
+    }
+}
+
+// Test 35d: Ascend910 f32 x on a plain TopK source stays unfused (the legacy
+// pass hit the same exit: the TopKD CheckOpSupported rejected f32 against the
+// fp16-only ascend910 op_info entry, NOT_CHANGED, node keeps dispatching to
+// AICPU TopK).
+TEST_F(TopKFusionPassTest, ascend910aF32TopKStaysUnfused)
+{
+    SetPlatformInfo("Ascend910A", kLegacyArchDav1001, "Ascend910");
+    std::vector<int64_t> dimsX{16, 128};
+    Shape shapeX(dimsX);
+
+    auto graphBuilder = es::EsGraphBuilder("test_910a_f32_topk_unfused");
+    auto x = graphBuilder.CreateInput(kInputXIdx, "x", DT_FLOAT, FORMAT_ND, dimsX);
+    auto output = BuildTopKNodeWithConstK(graphBuilder, x, 5);
+
+    TensorDesc xDesc;
+    x.GetProducer()->GetOutputDesc(0, xDesc);
+    xDesc.SetDataType(DT_FLOAT);
+    xDesc.SetShape(shapeX);
+    x.GetProducer()->UpdateOutputDesc(0, xDesc);
+    TensorDesc kDesc;
+    kDesc.SetDataType(DT_INT32);
+    kDesc.SetShape(Shape(std::vector<int64_t>{1}));
+    UpdateTopKNodeDesc(output, xDesc, kDesc, 5);
+
+    std::shared_ptr<Graph> graph = graphBuilder.BuildAndReset({output.values, output.indices});
+    Status status = RunPass(graph);
+    EXPECT_TRUE(status == SUCCESS || status == GRAPH_NOT_CHANGED);
+
+    EXPECT_EQ(CountNodeType(graph, "TopK"), 1); // stays silent, AICPU fallback
+    EXPECT_EQ(CountNodeType(graph, "TopKD"), 0);
+    EXPECT_EQ(CountNodeType(graph, "TopKV2"), 0);
+}
+
+// Test 35e: Ascend910 is NOT exempt from the TopKD backend input_size > 32768
+// with a const k in (0, 8) rejection (only Ascend910B is, per the tbe
+// check_supported soc_version != "Ascend910B" escape); the same shape that
+// fuses on 910B stays silent here.
+TEST_F(TopKFusionPassTest, ascend910aLargeInputSmallKNotFused)
+{
+    SetPlatformInfo("Ascend910A", kLegacyArchDav1001, "Ascend910");
+    std::vector<int64_t> dimsX{64, 600}; // input_size = 38400 > 32768
+    Shape shapeX(dimsX);
+
+    auto graphBuilder = es::EsGraphBuilder("test_910a_large_input_small_k");
+    auto x = graphBuilder.CreateInput(kInputXIdx, "x", DT_FLOAT16, FORMAT_ND, dimsX);
+    auto output = BuildTopKNodeWithConstK(graphBuilder, x, 4); // k = 4 in (0, 8)
+
+    TensorDesc xDesc;
+    x.GetProducer()->GetOutputDesc(0, xDesc);
+    xDesc.SetDataType(DT_FLOAT16);
+    xDesc.SetShape(shapeX);
+    x.GetProducer()->UpdateOutputDesc(0, xDesc);
+    TensorDesc kDesc;
+    kDesc.SetDataType(DT_INT32);
+    kDesc.SetShape(Shape(std::vector<int64_t>{1}));
+    UpdateTopKNodeDesc(output, xDesc, kDesc, 4);
+
+    std::shared_ptr<Graph> graph = graphBuilder.BuildAndReset({output.values, output.indices});
+    Status status = RunPass(graph);
+    EXPECT_TRUE(status == SUCCESS || status == GRAPH_NOT_CHANGED);
+
+    EXPECT_EQ(CountNodeType(graph, "TopK"), 1); // backend rejects on 910A (not 910B)
+    EXPECT_EQ(CountNodeType(graph, "TopKD"), 0);
+}
+
+// Test 35f: Ascend910 non-last-dim const k wraps TopKD with the attribute-based
+// TransposeD (review follow-up: 910A's op_info registers TransposeD - 11 dtypes
+// in aic-ascend910-ops-info.ini - so the dim != -1 transpose wrap is selectable
+// there; this pins the wrap behaviour and the perm/shape chain on 910A, the
+// path the first 910A tests (35a-35e) did not cover).
+TEST_F(TopKFusionPassTest, ascend910aConstKDimNotLastTransposeD)
+{
+    SetPlatformInfo("Ascend910A", kLegacyArchDav1001, "Ascend910");
+    std::vector<int64_t> dimsX{4, 64, 32};
+    Shape shapeX(dimsX);
+
+    auto graphBuilder = es::EsGraphBuilder("test_910a_const_k_not_last");
+    auto x = graphBuilder.CreateInput(kInputXIdx, "x", DT_FLOAT16, FORMAT_ND, dimsX);
+    auto output = BuildTopKNodeWithConstK(graphBuilder, x, 3, true, 1); // dim = 1
+
+    TensorDesc xDesc;
+    x.GetProducer()->GetOutputDesc(0, xDesc);
+    xDesc.SetDataType(DT_FLOAT16);
+    xDesc.SetShape(shapeX);
+    x.GetProducer()->UpdateOutputDesc(0, xDesc);
+    TensorDesc kDesc;
+    kDesc.SetDataType(DT_INT32);
+    kDesc.SetShape(Shape(std::vector<int64_t>{1}));
+    UpdateTopKNodeDesc(output, xDesc, kDesc, 3, 1); // dim = 1
+
+    std::shared_ptr<Graph> graph = graphBuilder.BuildAndReset({output.values, output.indices});
+    Status status = RunPass(graph);
+    EXPECT_TRUE(status == SUCCESS || status == GRAPH_NOT_CHANGED);
+
+    EXPECT_EQ(CountNodeType(graph, "TopKD"), 1);
+    EXPECT_EQ(CountNodeType(graph, "TopK"), 0);
+    EXPECT_EQ(CountNodeType(graph, "TransposeD"), 3); // 1 input + 2 output transposes
+    EXPECT_EQ(CountNodeType(graph, "Transpose"), 0);  // no two-input Transpose on legacy
+
+    // Every TransposeD carries the swap perm [0,2,1] as a ListInt attr.
+    auto perms = CollectTransposeDPermAttrs(graph);
+    ASSERT_EQ(perms.size(), 3);
+    for (const auto& perm : perms) {
+        EXPECT_EQ(perm, std::vector<int64_t>({0, 2, 1}));
+    }
+
+    // Shape chain for dimsX={4,64,32}, dim=1, k=3, perm=[0,2,1]: the output
+    // TransposeD outputs {4,3,32} x2 equal the source TopK output shape.
+    auto transposeShapes = CollectNodeTypeOutputShapes(graph, "TransposeD", kOutputValuesIdx);
+    EXPECT_EQ(CountShape(transposeShapes, std::vector<int64_t>({4, 32, 64})), 1);
+    EXPECT_EQ(CountShape(transposeShapes, std::vector<int64_t>({4, 3, 32})), 2);
+    auto fusedShapes = CollectNodeTypeOutputShapes(graph, "TopKD", kOutputValuesIdx);
+    EXPECT_EQ(CountShape(fusedShapes, std::vector<int64_t>({4, 32, 3})), 1);
+
+    // The dim attr is forced to -1 on the non-last-dim path.
+    auto dimAttrs = CollectNodeTypeAttr(graph, "TopKD", "dim");
+    ASSERT_EQ(dimAttrs.size(), 1);
+    EXPECT_EQ(dimAttrs[0], -1);
+}
+
+// Test 35g: Ascend910 non-last-dim dynamic k wraps TopKV2 with TransposeD x3
+// (the dynamic-k leg of the review follow-up: the same unconditional
+// BuildTransposeDNode call serves const-k and dynamic-k, pinned here for 910A).
+TEST_F(TopKFusionPassTest, ascend910aDynamicKDimNotLastTransposeD)
+{
+    SetPlatformInfo("Ascend910A", kLegacyArchDav1001, "Ascend910");
+    std::vector<int64_t> dimsX{2, 8, 16, 24};
+    Shape shapeX(dimsX);
+
+    auto graphBuilder = es::EsGraphBuilder("test_910a_dynamic_k_not_last");
+    auto x = graphBuilder.CreateInput(kInputXIdx, "x", DT_FLOAT16, FORMAT_ND, dimsX);
+    auto k = graphBuilder.CreateInput(kInputKIdx, "k", DT_INT32, FORMAT_ND, std::vector<int64_t>{1});
+    auto output = BuildTopKNodeWithDynamicK(graphBuilder, x, k, true, 0); // dim = 0
+
+    TensorDesc xDesc;
+    x.GetProducer()->GetOutputDesc(0, xDesc);
+    xDesc.SetDataType(DT_FLOAT16);
+    xDesc.SetShape(shapeX);
+    x.GetProducer()->UpdateOutputDesc(0, xDesc);
+    TensorDesc kDesc;
+    k.GetProducer()->GetOutputDesc(0, kDesc);
+    kDesc.SetDataType(DT_INT32);
+    kDesc.SetShape(Shape(std::vector<int64_t>{1}));
+    k.GetProducer()->UpdateOutputDesc(0, kDesc);
+    UpdateTopKNodeDesc(output, xDesc, kDesc, 4, 0); // dim = 0
+
+    std::shared_ptr<Graph> graph = graphBuilder.BuildAndReset({output.values, output.indices});
+    Status status = RunPass(graph);
+    EXPECT_TRUE(status == SUCCESS || status == GRAPH_NOT_CHANGED);
+
+    EXPECT_EQ(CountNodeType(graph, "TopKV2"), 1);
+    EXPECT_EQ(CountNodeType(graph, "TopK"), 0);
+    EXPECT_EQ(CountNodeType(graph, "TransposeD"), 3); // 1 input + 2 output transposes
+
+    auto perms = CollectTransposeDPermAttrs(graph);
+    ASSERT_EQ(perms.size(), 3);
+    for (const auto& perm : perms) {
+        EXPECT_EQ(perm, std::vector<int64_t>({3, 1, 2, 0})); // swap dim 0 with dim 3
+    }
+
+    // Dynamic-k TopKV2 output: swapped shape with the last dim = k (source output dim0).
+    auto fusedShapes = CollectNodeTypeOutputShapes(graph, "TopKV2", kOutputValuesIdx);
+    EXPECT_EQ(CountShape(fusedShapes, std::vector<int64_t>({24, 8, 16, 4})), 1);
 }
 
 // Test 36: an unset k input desc (a default-constructed TensorDesc reads

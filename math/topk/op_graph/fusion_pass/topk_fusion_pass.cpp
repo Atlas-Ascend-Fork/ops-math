@@ -19,9 +19,9 @@
  *             TopK/TopKV2 --> TopKV2 (k kept as an input);
  *             dim != -1  --> Transpose --> TopKV2(dim=-1) --> Transpose.
  *
- *        2. legacy tbe (DAV_2201/3002/2002/3004/3102: Ascend910/910B/910_93,
- *           310B/310P, 031, 610Lite): TopKD/TopKV2 + the attribute-based
- *           TransposeD.
+ *        2. legacy tbe (DAV_1001/2201/3002/2002/3004/3102: Ascend910 (910A),
+ *           910B/910_93, 310B/310P, 031, 610Lite): TopKD/TopKV2 + the
+ *           attribute-based TransposeD.
  *             const k   --> TopKD (k becomes an attr + assist_seq input);
  *             dynamic k --> TopKV2 (k kept as an input; an int64 k desc is
  *                           re-declared int32, legacy parity);
@@ -159,10 +159,17 @@ bool IsRegbaseArch(NpuArch npuArch)
 }
 
 // legacy tbe archs: the old op_info registers TopKD / TopKV2 / TransposeD there.
+// DAV_1001 is Ascend910 (910A) - a separate arch from the 910B family (the
+// platform_config Ascend910A.ini maps it to NpuArch 1001, not 2201; the repo
+// soc_arch_variables.cmake maps ascend910 -> dav_1001 the same way). Its
+// aic-ascend910-ops-info.ini registers the full legacy TopK set: fp16-only
+// TopKD / TopKV2 entries plus a TransposeD entry (11 dtypes incl. fp16) - the
+// dim != -1 TransposeD wrap is selectable on 910A exactly as on the other
+// legacy archs.
 bool IsLegacyArch(NpuArch npuArch)
 {
-    static const std::set<NpuArch> legacyArchs = {NpuArch::DAV_2201, NpuArch::DAV_3002, NpuArch::DAV_2002,
-                                                  NpuArch::DAV_3004, NpuArch::DAV_3102};
+    static const std::set<NpuArch> legacyArchs = {NpuArch::DAV_1001, NpuArch::DAV_2201, NpuArch::DAV_3002,
+                                                  NpuArch::DAV_2002, NpuArch::DAV_3004, NpuArch::DAV_3102};
     return legacyArchs.count(npuArch) > 0;
 }
 
@@ -181,7 +188,7 @@ bool IsKnownLegacySoc(const std::string& shortSocVersion)
 {
     if (shortSocVersion.rfind("Ascend910B", 0) == 0 || shortSocVersion == "Ascend910_93" ||
         shortSocVersion == "Ascend910") {
-        return true; // DAV_2201 family
+        return true; // DAV_2201 family (910B*/910_93); Ascend910 is DAV_1001 (910A)
     }
     if (shortSocVersion.rfind("Ascend310B", 0) == 0 || shortSocVersion.rfind("Ascend310P", 0) == 0) {
         return true; // DAV_3002 / DAV_2002
@@ -958,7 +965,7 @@ bool TopKFusionPass::MeetRequirements(const std::unique_ptr<MatchResult>& matchR
     // 1b. Platform gating by the operator information library reality:
     //     - regbase (DAV_3510/DAV_5102): TopKV2 + two-input Transpose (new AscendC
     //       system), legacy BigGuard gates on DAV_5102;
-    //     - legacy tbe archs (DAV_2201/3002/2002/3004/3102): TopKD/TopKV2/TransposeD,
+    //     - legacy tbe archs (DAV_1001/2201/3002/2002/3004/3102): TopKD/TopKV2/TransposeD,
     //       with the soc identified via short_soc_version (unknown legacy socs and
     //       archs without any TopK-family entry stay silent);
     //     - everything else: not covered by this pass.
