@@ -74,7 +74,7 @@ bool HistogramFusionPass::MeetRequirements(const std::unique_ptr<MatchResult>& m
         return false;
     }
     const std::string soc = platformInfo.str_info.short_soc_version;
-    if (soc != "Ascend950" && soc != "Ascend350") {
+    if (soc != "Ascend950" && soc != "Ascend350" && soc != "Ascend960DT" && soc != "Ascend960PR") {
         OP_LOGD(kPassName.c_str(), "Platform %s is not supported, only Ascend950 and Ascend350.", soc.c_str());
         return false;
     }

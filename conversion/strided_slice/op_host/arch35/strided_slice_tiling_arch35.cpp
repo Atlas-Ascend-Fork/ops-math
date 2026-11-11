@@ -940,10 +940,11 @@ void StrideSliceTiling::SetSIMTTilingMode()
     // key 映射: base(A6 编号，所有芯片一致) + 合并字节数偏移
     int64_t base = isShapeExceedUint32_ ? STRIDED_SLICE_KEY_SIMT_BIG_SHAPE : STRIDED_SLICE_KEY_SIMT;
 
-    // simt pack 仅在 960DT(NpuArch::DAV_9201) 启用, 其余平台只用 base key
+    // simt pack 仅在 960系列(NpuArch::DAV_9201/DAV_9202) 启用, 其余平台只用 base key
     auto platformInfo = tilingContext_->GetPlatformInfo();
     bool isSimtPackSupport = (platformInfo != nullptr) &&
-                             (platform_ascendc::PlatformAscendC(platformInfo).GetCurNpuArch() == NpuArch::DAV_9201);
+                             (platform_ascendc::PlatformAscendC(platformInfo).GetCurNpuArch() == NpuArch::DAV_9201 ||
+                              platform_ascendc::PlatformAscendC(platformInfo).GetCurNpuArch() == NpuArch::DAV_9202);
     if (!isSimtPackSupport) {
         tilingKey_ = base;
         return;

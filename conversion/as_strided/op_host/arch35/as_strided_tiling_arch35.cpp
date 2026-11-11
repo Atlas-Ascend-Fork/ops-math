@@ -1269,11 +1269,13 @@ ge::graphStatus AsStridedTilingClass::NDDMAForAsStrided(AsStridedTilingParam& ti
 
     // simt
     if (IsSmallShape(context_, outSize, tilingParam.sizeofDtype)) {
-        // simt pack(dtype 合并提升) 仅在 960DT(NpuArch::DAV_9201) 启用, 其余平台只用 base key
+        // simt pack(dtype 合并提升) 仅在 960(DAV_9201/DAV_9202) 启用, 其余平台只用 base key
         auto platformInfoSimtPack = context_->GetPlatformInfo();
         bool isSimtPackSupport = (platformInfoSimtPack != nullptr) &&
                                  (platform_ascendc::PlatformAscendC(platformInfoSimtPack).GetCurNpuArch() ==
-                                  NpuArch::DAV_9201);
+                                      NpuArch::DAV_9201 ||
+                                  platform_ascendc::PlatformAscendC(platformInfoSimtPack).GetCurNpuArch() ==
+                                      NpuArch::DAV_9202);
         if (isSimtPackSupport) {
             // 第一步：按原始 dtype 切分, 计算 baseThread
             AsStridedTilingParam baseParam = tempTilingParam;

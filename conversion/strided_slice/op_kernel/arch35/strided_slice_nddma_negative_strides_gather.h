@@ -189,7 +189,7 @@ __aicore__ inline void StridedSliceNDDMAGather<T, U>::ProcessWithDataCopyGather(
     const DataCopyExtParams& copyOutParam, const LocalTensor<RangeType>& idxTensor, RangeType idxBaseOffset)
 {
     auto inTensor = inQue_.AllocTensor<T>();
-#if defined(__DAV_920R1__)
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
     DataCopy<T, NDDMA_MAX_DIMS_NEG, nddmaConfig_>(inTensor, inputGM_[inGmAddr], nddmaParams, true);
 #else
     DataCopy<T, NDDMA_MAX_DIMS_NEG, nddmaConfig_>(inTensor, inputGM_[inGmAddr], nddmaParams);

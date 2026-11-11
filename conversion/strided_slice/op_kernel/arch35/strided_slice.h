@@ -213,8 +213,8 @@ extern "C" __aicore__ inline void StridedSliceSIMTBigShapeProcess(GM_ADDR x, GM_
 }
 #endif
 
-// 960DT 专用：末轴按 packFactor 合并为 2B/4B/8B/16B 宽元素后复用同一套 SIMT kernel
-#if defined(__DAV_920R1__)
+// 960系列 专用：末轴按 packFactor 合并为 2B/4B/8B/16B 宽元素后复用同一套 SIMT kernel
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
 extern "C" __aicore__ inline void StridedSliceSIMTPack2BProcess(GM_ADDR x, GM_ADDR begin, GM_ADDR end, GM_ADDR strides,
                                                                 GM_ADDR y, GM_ADDR tiling,
                                                                 const StridedSliceSIMTTilingData* tilingData)
@@ -290,7 +290,7 @@ extern "C" __aicore__ inline void StridedSliceSIMTBigShapePack16BProcess(GM_ADDR
     op.Init(x, begin, end, strides, y, tilingData, &pipe);
     op.Process(tiling);
 }
-#endif // __DAV_920R1__
+#endif // __DAV_920R1__ or __DAV_920R2__
 
 extern "C" __aicore__ inline void StridedSliceMoveAlignGatherProcess(GM_ADDR x, GM_ADDR begin, GM_ADDR end,
                                                                      GM_ADDR strides, GM_ADDR y,

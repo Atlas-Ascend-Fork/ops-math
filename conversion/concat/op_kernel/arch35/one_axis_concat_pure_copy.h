@@ -228,7 +228,7 @@ __aicore__ inline void OneAxisConcatPureCopy<TILINGDATA>::CopyInSingleTensor(con
     LocalTensor<int8_t> srcLocal = inQueue_.AllocTensor<int8_t>();
     DataCopyPadExtParams<int8_t> padParam{false, 0, 0, 0};
     SetCopyInparam(copyRows, copyCols, tensorDim1 - copyCols, 0);
-#if defined(__DAV_920R1__)
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
     DataCopyPad<int8_t, PaddingMode::Compact>(srcLocal, srcGm[srcOffset * tilingData_.dtypeSize], copyInParam_,
                                               padParam, true);
 #else

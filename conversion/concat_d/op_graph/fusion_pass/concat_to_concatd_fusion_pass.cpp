@@ -86,7 +86,8 @@ bool IsTargetPlatform()
         return false;
     }
     const auto npuArch = static_cast<NpuArch>(std::strtol(npuArchVal, nullptr, 10));
-    static const std::set<NpuArch> regbaseArch = {NpuArch::DAV_3510, NpuArch::DAV_9201, NpuArch::DAV_5102};
+    static const std::set<NpuArch> regbaseArch = {NpuArch::DAV_3510, NpuArch::DAV_9201, NpuArch::DAV_9202,
+                                                  NpuArch::DAV_5102};
     const bool isRegBase = (regbaseArch.count(npuArch) > 0);
     if (!isRegBase) {
         OP_LOGI(kPassName.c_str(), "Platform NpuArch %u is not regbase(DAV_3510/DAV_9201/DAV_5102), skip whole graph.",

@@ -153,7 +153,7 @@ public:
                     32,
                 0};
             DataCopyPadExtParams<T> padParames{false, padParams_.leftPadding, padParams_.rightPadding, 0};
-#if defined(__DAV_920R1__)
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
             // 最后一个参数enablePreReadIgnoreSync = true表示开启PreAllocation
             DataCopyPad(srcLocal, inputGm_[srcOffset], copyParams, padParames, true);
 #else
@@ -170,7 +170,7 @@ public:
                     32,
                 0};
             DataCopyPadExtParams<T> padParames{false, padParams_.leftPadding, padParams_.rightPadding, 0};
-#if defined(__DAV_920R1__)
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
             // 最后一个参数enablePreReadIgnoreSync = true表示开启PreAllocation
             DataCopyPad(srcLocal, inputGm_[srcOffset], copyParams, padParames, true);
 #else

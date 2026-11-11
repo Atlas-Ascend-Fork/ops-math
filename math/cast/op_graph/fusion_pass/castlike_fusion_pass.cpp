@@ -43,10 +43,8 @@ static const std::string kPassName = "CastlikeFusionPass";
 static const int64_t kCaptureIdxCastLikeNode = 0L;
 
 // Helper function to get inputs info
-static void GetInputsInfo(const std::vector<SubgraphInput>& subgraphInputs,
-                          std::vector<Shape>& inputShapes,
-                          std::vector<DataType>& inputDtypes,
-                          std::vector<Format>& inputFormats)
+static void GetInputsInfo(const std::vector<SubgraphInput>& subgraphInputs, std::vector<Shape>& inputShapes,
+                          std::vector<DataType>& inputDtypes, std::vector<Format>& inputFormats)
 {
     for (const auto& subgraphInput : subgraphInputs) {
         auto matchNode = subgraphInput.GetAllInputs().at(0);
@@ -59,8 +57,7 @@ static void GetInputsInfo(const std::vector<SubgraphInput>& subgraphInputs,
 }
 
 // Helper function to infer shape
-static Status InferShape(const std::unique_ptr<Graph>& replaceGraph,
-                         const std::vector<SubgraphInput>& subgraphInputs)
+static Status InferShape(const std::unique_ptr<Graph>& replaceGraph, const std::vector<SubgraphInput>& subgraphInputs)
 {
     OP_LOGD(kPassName.c_str(), "Begin infershape for replacement.");
     std::vector<Shape> inputShapes;
@@ -78,28 +75,24 @@ PatternUniqPtr MakePatternCastLike()
     auto graph_builder = es::EsGraphBuilder(kPassName.c_str());
     auto x = graph_builder.CreateInput(0, "x");
     auto y = graph_builder.CreateInput(1, "y");
-    
+
     ge::Graph* graph = graph_builder.GetCGraphBuilder()->GetGraph();
     GNode castlike = es::CompliantNodeBuilder(graph)
-        .OpType("CastLike")
-        .Name("CastLike")
-        .IrDefInputs({
-            {"input", es::CompliantNodeBuilder::kEsIrInputRequired, ""},
-            {"target_type", es::CompliantNodeBuilder::kEsIrInputRequired, ""}
-        })
-        .IrDefOutputs({
-            {"output", es::CompliantNodeBuilder::kEsIrOutputRequired, ""}
-        })
-        .Build();
+                         .OpType("CastLike")
+                         .Name("CastLike")
+                         .IrDefInputs({{"input", es::CompliantNodeBuilder::kEsIrInputRequired, ""},
+                                       {"target_type", es::CompliantNodeBuilder::kEsIrInputRequired, ""}})
+                         .IrDefOutputs({{"output", es::CompliantNodeBuilder::kEsIrOutputRequired, ""}})
+                         .Build();
 
     // Connect input to two input one output CastLike using AddEdgeAndUpdatePeerDesc
     es::AddEdgeAndUpdatePeerDesc(*graph, *x.GetProducer(), x.GetProducerOutIndex(), castlike, 0);
     es::AddEdgeAndUpdatePeerDesc(*graph, *y.GetProducer(), y.GetProducerOutIndex(), castlike, 1);
-    
+
     auto output = es::EsTensorHolder(graph_builder.GetCGraphBuilder()->GetTensorHolderFromNode(castlike, 0));
     auto build_graph = graph_builder.BuildAndReset({output});
     auto pattern = std::make_unique<Pattern>(std::move(*build_graph));
-    pattern->CaptureTensor({*output.GetProducer(), 0});  // Capture the Cast CastLike
+    pattern->CaptureTensor({*output.GetProducer(), 0}); // Capture the Cast CastLike
 
     return pattern;
 }
@@ -121,7 +114,7 @@ static bool IsTargetPlatform()
         return false;
     }
     const std::string soc = platform_info.str_info.short_soc_version;
-    bool is_platform950 = (soc == "Ascend950");
+    bool is_platform950 = (soc == "Ascend950" || soc == "Ascend960DT" || soc == "Ascend960PR");
     OP_LOGD(kPassName.c_str(), "Platform short soc: %s", soc.c_str());
     if (!is_platform950) {
         OP_LOGD(kPassName.c_str(), "Platform is not support, only work on Ascend950.");

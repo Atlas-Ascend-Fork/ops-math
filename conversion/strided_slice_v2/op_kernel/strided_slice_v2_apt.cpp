@@ -22,14 +22,14 @@ using namespace StridedSlice;
 #define STRIDED_SLICE_KEY_NDDMA_LAST_DIM 103
 #define STRIDED_SLICE_KEY_MOVE_ALIGN_TWO_DIM 150
 #define STRIDED_SLICE_KEY_SIMT 200
-#if defined(__DAV_920R1__)
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
 #define STRIDED_SLICE_KEY_SIMT_PACK_2B 201
 #define STRIDED_SLICE_KEY_SIMT_PACK_4B 202
 #define STRIDED_SLICE_KEY_SIMT_PACK_8B 203
 #define STRIDED_SLICE_KEY_SIMT_PACK_16B 204
 #endif
 #define STRIDED_SLICE_KEY_SIMT_BIG_SHAPE 210
-#if defined(__DAV_920R1__)
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
 #define STRIDED_SLICE_KEY_SIMT_BIG_SHAPE_PACK_2B 211
 #define STRIDED_SLICE_KEY_SIMT_BIG_SHAPE_PACK_4B 212
 #define STRIDED_SLICE_KEY_SIMT_BIG_SHAPE_PACK_8B 213
@@ -65,7 +65,7 @@ extern "C" __global__ __aicore__ void strided_slice_v2(GM_ADDR x, GM_ADDR begin,
         GET_TILING_DATA_WITH_STRUCT(StridedSliceSIMTTilingData, tilingData, tiling);
         StridedSliceSIMTProcess(x, begin, end, strides, y, tiling, &tilingData);
 #endif
-#if defined(__DAV_920R1__)
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
     } else if (TILING_KEY_IS(STRIDED_SLICE_KEY_SIMT_PACK_2B)) {
         GET_TILING_DATA_WITH_STRUCT(StridedSliceSIMTTilingData, tilingData, tiling);
         StridedSliceSIMTPack2BProcess(x, begin, end, strides, y, tiling, &tilingData);
@@ -84,7 +84,7 @@ extern "C" __global__ __aicore__ void strided_slice_v2(GM_ADDR x, GM_ADDR begin,
         GET_TILING_DATA_WITH_STRUCT(StridedSliceSIMTTilingData, tilingData, tiling);
         StridedSliceSIMTBigShapeProcess(x, begin, end, strides, y, tiling, &tilingData);
 #endif
-#if defined(__DAV_920R1__)
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
     } else if (TILING_KEY_IS(STRIDED_SLICE_KEY_SIMT_BIG_SHAPE_PACK_2B)) {
         GET_TILING_DATA_WITH_STRUCT(StridedSliceSIMTTilingData, tilingData, tiling);
         StridedSliceSIMTBigShapePack2BProcess(x, begin, end, strides, y, tiling, &tilingData);

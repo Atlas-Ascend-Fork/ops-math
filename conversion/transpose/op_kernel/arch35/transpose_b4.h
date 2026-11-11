@@ -497,7 +497,7 @@ __aicore__ inline void TransposeHIF4::CopyIn(int64_t gmInByteOffset, const int32
     loopParams.loop2DstStride = loopParams.loop1Size * loopParams.loop1DstStride;
 
     SetLoopModePara(loopParams, DataCopyMVType::OUT_TO_UB);
-#if defined(__DAV_920R1__)
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
     DataCopyPad<int8_t, PaddingMode::Compact>(inputLocal, xGM_[gmInByteOffset], copyInParams, padParams, true);
 #else
     DataCopyPad<int8_t, PaddingMode::Compact>(inputLocal, xGM_[gmInByteOffset], copyInParams, padParams);

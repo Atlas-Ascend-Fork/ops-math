@@ -57,7 +57,8 @@ protected:
     bool IsCapable() override
     {
         auto ascendcPlatform = platform_ascendc::PlatformAscendC(context_->GetPlatformInfo());
-        return !(Ops::Base::IsRegbaseSocVersion(context_) || ascendcPlatform.GetCurNpuArch() == NpuArch::DAV_9201);
+        return !(Ops::Base::IsRegbaseSocVersion(context_) || ascendcPlatform.GetCurNpuArch() == NpuArch::DAV_9201 ||
+                 ascendcPlatform.GetCurNpuArch() == NpuArch::DAV_9202);
     }
 
     // 3、计算数据切分TilingData

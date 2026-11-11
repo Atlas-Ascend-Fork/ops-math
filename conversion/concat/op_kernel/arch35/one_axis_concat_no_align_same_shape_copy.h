@@ -327,7 +327,7 @@ __aicore__ inline void OneAxisConcatNoAlignCopy<T, TILINGDATA>::CopyInNoSplitDim
             SetCopyInparam(1, rows * tilingData_.sameShapeTensorDim1, 0, 0);
         }
         srcGlobal_.SetGlobalBuffer(GetTensorAddr(i, blockOffset_ * dim0stride));
-#if defined(__DAV_920R1__)
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
         DataCopyPad<T, PaddingMode::Compact>(srcLocal[curDim1Offset], srcGlobal_[srcRowsOffset * dim0stride],
                                              copyInParam_, padParam, true);
 #else
@@ -432,7 +432,7 @@ __aicore__ inline void OneAxisConcatNoAlignCopy<T, TILINGDATA>::CopyInSingleTens
     int64_t dim0stride = GetTensorDim0Stride<TILINGDATA>(tilingData_, tensorIdx, tilingData_.sameShapeTensorDim1);
     srcGlobal_.SetGlobalBuffer(GetTensorAddr(tensorIdx, blockOffset_ * dim0stride));
     DataCopyPadExtParams<T> padParams = {false, 0, 0, 0};
-#if defined(__DAV_920R1__)
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
     DataCopyPad<T, PaddingMode::Compact>(dstLocal, srcGlobal_[srcOffset], params, padParams, true);
 #else
     DataCopyPad<T, PaddingMode::Compact>(dstLocal, srcGlobal_[srcOffset], params, padParams);

@@ -280,7 +280,7 @@ __aicore__ inline void TransposeNLast<T>::CopyIn(int64_t loopIdx, int64_t inputB
         copyInParams.blockLen = lastAxisLen * sizeof(T);
         copyInParams.blockCount = blockLen / lastAxisLen;
     }
-#if defined(__DAV_920R1__)
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
     DataCopyPad(bindLocalIn, inputGM_[srcAddressOffset], copyInParams, padParams, true);
 #else
     DataCopyPad(bindLocalIn, inputGM_[srcAddressOffset], copyInParams, padParams);

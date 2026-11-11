@@ -36,7 +36,8 @@ static ge::graphStatus InferDataType4Range(gert::InferDataTypeContext* context)
     if ((startDataType == limitDataType) && (limitDataType == deltaDataType)) {
         if (startDataType == ge::DT_DOUBLE && (platform_info.str_info.short_soc_version == "Ascend950" ||
                                                platform_info.str_info.short_soc_version == "Ascend350" ||
-                                               platform_info.str_info.short_soc_version == "Ascend960DT")) {
+                                               platform_info.str_info.short_soc_version == "Ascend960DT" ||
+                                               platform_info.str_info.short_soc_version == "Ascend960PR")) {
             context->SetOutputDataType(0, ge::DT_FLOAT);
         } else {
             context->SetOutputDataType(0, startDataType);

@@ -204,7 +204,7 @@ __aicore__ inline void SplitVUbSplitSameLen<T, U, Y>::CopyIn(int64_t blockCount,
     copyInParam_.blockLen = blockLen * dtypeSize_;
     copyInParam_.srcStride = srcStride * dtypeSize_;
     copyInParam_.dstStride = dstStride / BLOCK_ELENUM;
-#if defined(__DAV_920R1__)
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
     DataCopyPad<T, PaddingMode::Compact>(xUb, xGm_[srcOffset], copyInParam_, padParam_, true);
 #else
     DataCopyPad<T, PaddingMode::Compact>(xUb, xGm_[srcOffset], copyInParam_, padParam_);

@@ -197,7 +197,7 @@ public:
             }
 
             LocalTensor<T> inLocal = inOutQueue.template AllocTensor<T>();
-#if defined(__DAV_920R1__)
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
             // 最后一个参数enablePreReadIgnoreSync = true表示开启PreAllocation
             DataCopy(inLocal, inputGm_[inputAddr], dmaParam_, true);
 #else
@@ -255,7 +255,7 @@ public:
             }
 
             LocalTensor<T> inLocal = inOutQueue.template AllocTensor<T>();
-#if defined(__DAV_920R1__)
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
             // 最后一个参数enablePreReadIgnoreSync = true表示开启PreAllocation
             DataCopy(inLocal, inputGm_[inputAddr], dmaParam_, true);
 #else

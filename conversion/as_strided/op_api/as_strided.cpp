@@ -48,7 +48,7 @@ static const std::initializer_list<op::DataType> AICORE_DTYPE_SUPPORT_LIST_REGBA
     op::DataType::DT_COMPLEX32,    op::DataType::DT_COMPLEX64, op::DataType::DT_HIFLOAT8, op::DataType::DT_FLOAT8_E5M2,
     op::DataType::DT_FLOAT8_E4M3FN};
 
-// DAV_9201(ARCH92)
+// DAV_9201/DAV_9202(ARCH92)
 // float16,float,int8,int16,int32,int64,uint8,uint16,uint32,uint64,bool,bfloat16,complex32,complex64,fp4
 static const std::initializer_list<op::DataType> AICORE_DTYPE_SUPPORT_LIST_ARCH92 = {op::DataType::DT_FLOAT,
                                                                                      op::DataType::DT_FLOAT16,

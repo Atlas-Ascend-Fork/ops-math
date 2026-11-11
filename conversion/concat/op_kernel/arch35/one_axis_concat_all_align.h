@@ -271,7 +271,7 @@ __aicore__ inline void OneAxisConcatAllAlign<T, SAMESHAPE, TILINGDATA>::CopyInNo
         int64_t dim0stride = GetTensorDim0Stride<TILINGDATA>(tilingData_, i, dim1);
         srcGlobal_.SetGlobalBuffer(GetTensorAddr(i, blockOffset_ * dim0stride));
         SetCopyInparam(rows, dim1, dim0stride - dim1, (cols - dim1) / numPerBlock_);
-#if defined(__DAV_920R1__)
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
         DataCopyPad(srcLocal[curDim1Offset], srcGlobal_[srcRowsOffset * dim0stride], copyInParam_, padParam, true);
 #else
         DataCopyPad(srcLocal[curDim1Offset], srcGlobal_[srcRowsOffset * dim0stride], copyInParam_, padParam);
@@ -300,7 +300,7 @@ __aicore__ inline void OneAxisConcatAllAlign<T, SAMESHAPE, TILINGDATA>::CopyInSp
     }
     srcGlobal_.SetGlobalBuffer(GetTensorAddr(splitInfo.startIdx, blockOffset_ * dim0stride + splitInfo.startOffset));
     SetCopyInparam(rows, copyColsNum, dim0stride - copyColsNum, (cols - copyColsNum) / numPerBlock_);
-#if defined(__DAV_920R1__)
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
     DataCopyPad(srcLocal[curDim1Offset], srcGlobal_[srcRowsOffset * dim0stride], copyInParam_, padParam, true);
 #else
     DataCopyPad(srcLocal[curDim1Offset], srcGlobal_[srcRowsOffset * dim0stride], copyInParam_, padParam);
@@ -312,7 +312,7 @@ __aicore__ inline void OneAxisConcatAllAlign<T, SAMESHAPE, TILINGDATA>::CopyInSp
         dim0stride = GetTensorDim0Stride<TILINGDATA>(tilingData_, i, dim1);
         srcGlobal_.SetGlobalBuffer(GetTensorAddr(i, blockOffset_ * dim0stride));
         SetCopyInparam(rows, dim1, dim0stride - dim1, (cols - dim1) / numPerBlock_);
-#if defined(__DAV_920R1__)
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
         DataCopyPad(srcLocal[curDim1Offset], srcGlobal_[srcRowsOffset * dim0stride], copyInParam_, padParam, true);
 #else
         DataCopyPad(srcLocal[curDim1Offset], srcGlobal_[srcRowsOffset * dim0stride], copyInParam_, padParam);
@@ -326,7 +326,7 @@ __aicore__ inline void OneAxisConcatAllAlign<T, SAMESHAPE, TILINGDATA>::CopyInSp
         copyColsNum = splitInfo.endOffset;
         srcGlobal_.SetGlobalBuffer(GetTensorAddr(splitInfo.endIdx, blockOffset_ * dim0stride));
         SetCopyInparam(rows, copyColsNum, dim0stride - copyColsNum, (cols - copyColsNum) / numPerBlock_);
-#if defined(__DAV_920R1__)
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
         DataCopyPad(srcLocal[curDim1Offset], srcGlobal_[srcRowsOffset * dim0stride], copyInParam_, padParam, true);
 #else
         DataCopyPad(srcLocal[curDim1Offset], srcGlobal_[srcRowsOffset * dim0stride], copyInParam_, padParam);

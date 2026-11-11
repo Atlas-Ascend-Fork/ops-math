@@ -21,7 +21,7 @@ namespace ops {
 constexpr size_t ATTR_IDX = 2;
 constexpr int32_t NPU_ARCH_DECIMAL_BASE = 10;
 
-static const std::set<NpuArch> SUPPORTED_NPU_ARCH_LIST = {NpuArch::DAV_3510, NpuArch::DAV_9201};
+static const std::set<NpuArch> SUPPORTED_NPU_ARCH_LIST = {NpuArch::DAV_3510, NpuArch::DAV_9201, NpuArch::DAV_9202};
 
 static bool IsSupportedNpuArch()
 {

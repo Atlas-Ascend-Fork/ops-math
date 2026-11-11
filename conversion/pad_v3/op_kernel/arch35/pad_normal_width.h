@@ -270,7 +270,7 @@ private:
             loopParams.loop1SrcStride = tilingData_->inStride[dimNum - DIM_INDEX_THIRD] * sizeof(T);
             loopParams.loop1DstStride = tilingData_->outShape[dimNum - DIM_INDEX_SECOND] * padParam.padW * sizeof(T);
             SetLoopModePara(loopParams, DataCopyMVType::OUT_TO_UB);
-#if defined(__DAV_920R1__)
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
             DataCopyPad(src[additionOffset_ + ubInOffset], input_[inAddr], copyInParams, padParams, true);
 #else
             DataCopyPad(src[additionOffset_ + ubInOffset], input_[inAddr], copyInParams, padParams);
@@ -286,14 +286,14 @@ private:
             loopParams.loop2DstStride = tilingData_->outShape[dimNum - DIM_INDEX_THIRD] *
                                         tilingData_->outShape[dimNum - DIM_INDEX_SECOND] * padParam.padW * sizeof(T);
             SetLoopModePara(loopParams, DataCopyMVType::OUT_TO_UB);
-#if defined(__DAV_920R1__)
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
             DataCopyPad(src[additionOffset_ + ubInOffset], input_[inAddr], copyInParams, padParams, true);
 #else
             DataCopyPad(src[additionOffset_ + ubInOffset], input_[inAddr], copyInParams, padParams);
 #endif
             ResetLoopModePara(DataCopyMVType::OUT_TO_UB);
         } else {
-#if defined(__DAV_920R1__)
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
             DataCopyPad(src[additionOffset_ + ubInOffset], input_[inAddr], copyInParams, padParams, true);
 #else
             DataCopyPad(src[additionOffset_ + ubInOffset], input_[inAddr], copyInParams, padParams);

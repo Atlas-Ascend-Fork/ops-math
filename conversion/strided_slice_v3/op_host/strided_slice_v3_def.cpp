@@ -180,6 +180,7 @@ public:
             .NeedCheckSupportFlag(false)
             .ExtendCfgInfo("opFile.value", "strided_slice_v3_apt");
         this->AICore().AddConfig("ascend960dt", config91096);
+        this->AICore().AddConfig("ascend960pr", config91096);
     }
 };
 

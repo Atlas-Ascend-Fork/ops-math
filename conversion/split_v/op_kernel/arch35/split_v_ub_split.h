@@ -447,7 +447,7 @@ __aicore__ inline void SplitVUbSplit<T, U, Y>::DataCopyIn(int64_t mOffset, int64
     copyParams.blockLen = curNFactor * sizeof(T);
     copyParams.srcStride = (tilingData_->nSize - curNFactor) * sizeof(T);
     copyParams.dstStride = 0;
-#if defined(__DAV_920R1__)
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
     DataCopyPad(xUb, xGm[(mBlockOffset_ + mOffset) * tilingData_->nSize + nBlockOffset_ + nOffset], copyParams,
                 padParams, true);
 #else
@@ -629,7 +629,7 @@ __aicore__ inline void SplitVUbSplit<T, U, Y>::Process()
         copyParams.blockLen = numSplit_ * sizeof(int32_t);
         copyParams.srcStride = 0;
         copyParams.dstStride = 0;
-#if defined(__DAV_920R1__)
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
         DataCopyPad(splitOffsetLocalInt32_, sizeSplitsGmInt32_, copyParams, padParamsIdx, true);
 #else
         DataCopyPad(splitOffsetLocalInt32_, sizeSplitsGmInt32_, copyParams, padParamsIdx);
@@ -647,7 +647,7 @@ __aicore__ inline void SplitVUbSplit<T, U, Y>::Process()
         copyParams.blockLen = numSplit_ * sizeof(int64_t);
         copyParams.srcStride = 0;
         copyParams.dstStride = 0;
-#if defined(__DAV_920R1__)
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
         DataCopyPad(splitOffsetLocal_, sizeSplitsGm_, copyParams, padParamsIdx, true);
 #else
         DataCopyPad(splitOffsetLocal_, sizeSplitsGm_, copyParams, padParamsIdx);

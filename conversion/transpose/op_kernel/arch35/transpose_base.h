@@ -43,7 +43,7 @@ constexpr int64_t TWO = 2;
 constexpr int64_t BUFFER_NUM = 2; // 双缓冲数量，用于 TENSOR_MOVE 和 N_LAST 策略
 
 // 用于 NDDMA 相关模板的缓冲数量
-#if defined(__DAV_920R1__)
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
 constexpr int64_t NDDMA_BUFFER_NUM = 2;
 #else
 constexpr int64_t NDDMA_BUFFER_NUM = 1;

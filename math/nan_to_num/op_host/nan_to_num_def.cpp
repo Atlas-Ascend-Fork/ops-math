@@ -47,6 +47,7 @@ public:
             .ExtendCfgInfo("opFile.value", "nan_to_num_apt");
         this->AICore().AddConfig("ascend950", aicoreConfig);
         this->AICore().AddConfig("ascend960dt", aicoreConfig);
+        this->AICore().AddConfig("ascend960pr", aicoreConfig);
     }
 };
 

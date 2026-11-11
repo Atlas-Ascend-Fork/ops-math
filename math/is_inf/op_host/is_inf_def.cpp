@@ -47,6 +47,7 @@ public:
         this->AICore().AddConfig("ascend350", aicoreConfig);
         this->AICore().AddConfig("mc62", aicoreConfig);
         this->AICore().AddConfig("ascend960dt", aicoreConfig);
+        this->AICore().AddConfig("ascend960pr", aicoreConfig);
 
         OpAICoreConfig config310P;
         config310P.DynamicCompileStaticFlag(true)

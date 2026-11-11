@@ -23,16 +23,16 @@
 namespace AsStrided {
 using namespace AscendC;
 
-#ifdef __DAV_920R1__
-// 960DT 上 SIMT 启动线程数由 tiling 运行期下发（tilingData->threadNum，随合并因子变化），上限 2048
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
+// 960系列 上 SIMT 启动线程数由 tiling 运行期下发（tilingData->threadNum，随合并因子变化），上限 2048
 constexpr int64_t THREAD_NUM = 2048;
 #else
 // 其余芯片沿用编译期线程常量，行为与历史版本保持一致
 constexpr int64_t THREAD_NUM = 512;
 #endif
 
-// 960DT 上 SIMT 启动线程数由 tiling 运行期下发；其余芯片沿用编译期线程常量
-#ifdef __DAV_920R1__
+// 960系列 上 SIMT 启动线程数由 tiling 运行期下发；其余芯片沿用编译期线程常量
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
 #define AS_STRIDED_SIMT_LAUNCH_THREADS(tilingData) \
     dim3 { static_cast<uint32_t>((tilingData)->threadNum), 1, 1 }
 #else

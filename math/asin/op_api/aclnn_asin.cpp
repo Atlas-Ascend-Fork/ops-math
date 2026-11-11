@@ -68,8 +68,10 @@ static bool isSupportedKernel(DataType castDtype)
 
 static const std::initializer_list<DataType>& GetSelfRefDtypeList()
 {
-    if (GetCurrentPlatformInfo().GetSocVersion() >= SocVersion::ASCEND910B &&
-        GetCurrentPlatformInfo().GetSocVersion() <= SocVersion::ASCEND910E) {
+    if (GetCurrentPlatformInfo().GetCurNpuArch() == NpuArch::DAV_9201 ||
+        GetCurrentPlatformInfo().GetCurNpuArch() == NpuArch::DAV_9202 ||
+        (GetCurrentPlatformInfo().GetSocVersion() >= SocVersion::ASCEND910B &&
+         GetCurrentPlatformInfo().GetSocVersion() <= SocVersion::ASCEND910E)) {
         return DTYPE_OUT_LIST;
     } else {
         return DTYPE_OUT_LIST_V100;

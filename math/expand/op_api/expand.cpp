@@ -35,7 +35,8 @@ static const std::initializer_list<DataType> ASCEND910B_AICORE_DTYPE_SUPPORT_LIS
 static bool IsAiCoreSupport(const aclTensor* self)
 {
     auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
-    if ((curArch == NpuArch::DAV_2201) || (curArch == NpuArch::DAV_3510) || (curArch == NpuArch::DAV_9201)) {
+    if ((curArch == NpuArch::DAV_2201) || (curArch == NpuArch::DAV_3510) ||
+        (curArch == NpuArch::DAV_9201 || curArch == NpuArch::DAV_9202)) {
         return CheckType(self->GetDataType(), ASCEND910B_AICORE_DTYPE_SUPPORT_LIST);
     }
     return CheckType(self->GetDataType(), AICORE_DTYPE_SUPPORT_LIST);

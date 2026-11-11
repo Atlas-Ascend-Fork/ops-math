@@ -51,7 +51,8 @@ protected:
     bool IsCapable() override
     {
         auto platform = platform_ascendc::PlatformAscendC(context_->GetPlatformInfo());
-        return Ops::Base::IsRegbaseSocVersion(context_) || platform.GetCurNpuArch() == NpuArch::DAV_9201;
+        return Ops::Base::IsRegbaseSocVersion(context_) || platform.GetCurNpuArch() == NpuArch::DAV_9201 ||
+               platform.GetCurNpuArch() == NpuArch::DAV_9202;
     }
     ge::graphStatus DoOpTiling() override;
     ge::graphStatus DoLibApiTiling() override { return ge::GRAPH_SUCCESS; }

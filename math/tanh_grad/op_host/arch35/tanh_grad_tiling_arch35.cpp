@@ -46,7 +46,8 @@ ge::graphStatus TanhGradTiling::GetPlatformInfo()
     uint64_t ubSizePlatForm;
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSizePlatForm);
     ubSize = ubSizePlatForm;
-    preferMultiCore = (ascendcPlatform.GetCurNpuArch() == NpuArch::DAV_9201);
+    preferMultiCore = (ascendcPlatform.GetCurNpuArch() == NpuArch::DAV_9201 ||
+                       ascendcPlatform.GetCurNpuArch() == NpuArch::DAV_9202);
 
     return ge::GRAPH_SUCCESS;
 }

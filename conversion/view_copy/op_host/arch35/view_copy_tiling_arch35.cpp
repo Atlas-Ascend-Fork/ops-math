@@ -1158,10 +1158,11 @@ static ge::graphStatus ViewCopyTilingForAscendC(gert::TilingContext* context)
         return TilingForViewCopyPureMoveAlign(context, tilingParam);
     }
 
-    // 数据类型提升:SIMT模板在9201架构下,若尾轴连续且字节数可整除更大dtype,则提升dtype减少搬运次数
+    // 数据类型提升:SIMT模板在9201/9202架构下,若尾轴连续且字节数可整除更大dtype,则提升dtype减少搬运次数
     auto platformInfoDtypeImprove = context->GetPlatformInfo();
     auto ascendcPlatformDtypeImprove = platform_ascendc::PlatformAscendC(platformInfoDtypeImprove);
-    if (ascendcPlatformDtypeImprove.GetCurNpuArch() == NpuArch::DAV_9201) {
+    if (ascendcPlatformDtypeImprove.GetCurNpuArch() == NpuArch::DAV_9201 ||
+        ascendcPlatformDtypeImprove.GetCurNpuArch() == NpuArch::DAV_9202) {
         DoDtypeImproveForViewCopy(tilingParam);
     }
 

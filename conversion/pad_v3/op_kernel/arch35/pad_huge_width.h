@@ -206,7 +206,7 @@ private:
             padParam.padWLOffset = 0;
             padParam.padWROffset = ubFactor;
             copyInParams.blockLen = ubFactor * sizeof(T);
-#if defined(__DAV_920R1__)
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
             DataCopyPad(src[additionOffset_], input_[inAddr], copyInParams, padParams, true);
 #else
             DataCopyPad(src[additionOffset_], input_[inAddr], copyInParams, padParams);
@@ -237,7 +237,7 @@ private:
                     copyLen = inCopyLen_[ubAxis] - remainderLen;
                 }
                 copyInParams.blockLen = remainderLen * sizeof(T);
-#if defined(__DAV_920R1__)
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
                 DataCopyPad(src, input_[inAddr], copyInParams, padParams, true);
 #else
                 DataCopyPad(src, input_[inAddr], copyInParams, padParams);
@@ -245,7 +245,7 @@ private:
             }
             if (copyLen != 0) {
                 copyInParams.blockLen = copyLen * sizeof(T);
-#if defined(__DAV_920R1__)
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
                 DataCopyPad(src[additionOffset_ + ubOffset], input_[inAddr + remainderLen], copyInParams, padParams,
                             true);
 #else

@@ -209,6 +209,7 @@ public:
             .NeedCheckSupportFlag(false)
             .ExtendCfgInfo("opFile.value", "as_strided_apt");
         this->AICore().AddConfig("ascend960dt", CONFIG_ARCH92);
+        this->AICore().AddConfig("ascend960pr", CONFIG_ARCH92);
     }
 };
 OP_ADD(AsStrided);

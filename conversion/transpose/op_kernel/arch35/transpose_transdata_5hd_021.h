@@ -346,7 +346,7 @@ __aicore__ inline void KernelTransDataTo5HD021<T>::CopyIn(int64_t nIdx, uint32_t
     } else {
         CopyInWUnaligned(actualValidRows, r, c, ubLoop);
     }
-#if defined(__DAV_920R1__)
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
     DataCopyPad(srcLocal, srcGlobal[nSrcOffset + ubSrcOffset], copyInParams_, copyInPadParams, true);
 #else
     DataCopyPad(srcLocal, srcGlobal[nSrcOffset + ubSrcOffset], copyInParams_, copyInPadParams);
@@ -520,7 +520,7 @@ __aicore__ inline void KernelTransDataTo5HD021<T>::CopyInHSplit(int64_t nIdx, ui
         copyInParams_.srcStride = (tiling_->WLen - validW) * sizeof(T);
         copyInParams_.dstStride = (c - validW) * sizeof(T) / BLOCK_SIZE_BYTE;
     }
-#if defined(__DAV_920R1__)
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
     DataCopyPad(srcLocal, srcGlobal[totalSrcOffset], copyInParams_, copyInPadParams, true);
 #else
     DataCopyPad(srcLocal, srcGlobal[totalSrcOffset], copyInParams_, copyInPadParams);

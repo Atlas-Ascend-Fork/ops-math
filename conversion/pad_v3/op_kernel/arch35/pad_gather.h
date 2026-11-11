@@ -195,7 +195,7 @@ private:
 
         DataCopyPadExtParams<T> padParams{false, 0, 0, 0};
         DataCopyExtParams copyInParams = {1u, static_cast<uint32_t>(copyInNumGather * sizeof(T)), 0, 0, 0};
-#if defined(__DAV_920R1__)
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
         DataCopyPad(inLocal[VL_CNT], inputGm_[inAddr], copyInParams, padParams, true);
 #else
         DataCopyPad(inLocal[VL_CNT], inputGm_[inAddr], copyInParams, padParams);

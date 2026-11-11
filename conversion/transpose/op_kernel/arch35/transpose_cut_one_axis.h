@@ -326,7 +326,7 @@ __aicore__ inline void TransposeCutOneAxis<T>::CopyIn(int64_t loopIdx, NdDmaPara
                             srcLoopStride_[tiling_->expandedPerm[i]];
     }
     LocalTensor<T> bindLocalIn = vecQue_.AllocTensor<T>();
-#if defined(__DAV_920R1__)
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
     DataCopy<T, NDDMA_MAX_DIM_NUM, config>(bindLocalIn, inputGM_[srcAddressOffset], params, true);
 #else
     DataCopy<T, NDDMA_MAX_DIM_NUM, config>(bindLocalIn, inputGM_[srcAddressOffset], params);

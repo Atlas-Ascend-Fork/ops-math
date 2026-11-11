@@ -12,9 +12,9 @@ add_all_modules_sources(
     OPTYPE unpack
     ACLNNTYPE aclnn_exclude
     # 设置算子定义时支持的芯片类型
-    COMPUTE_UNIT "ascend310p" "ascend910_93" "ascend910b" "ascend950" "ascend350" "ascend960dt" "ascend5162"
+    COMPUTE_UNIT "ascend310p" "ascend910_93" "ascend910b" "ascend950" "ascend350" "ascend960dt" "ascend960pr" "ascend5162"
     # 设置每种芯片类型对应的tiling文件目录，即采用op_host目录下哪个文件夹下的tiling文件编译
-    TILING_DIR "arch22" "arch22" "arch22" "arch35" "arch35" "arch35" "arch35"
+    TILING_DIR "arch22" "arch22" "arch22" "arch35" "arch35" "arch35" "arch35" "arch35"
     DISABLE_IN_OPP TRUE
     DEPENDENCIES split_v
 )

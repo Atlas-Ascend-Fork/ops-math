@@ -232,7 +232,7 @@ __aicore__ inline void SplitVPureCopyModeSameLen<T>::CopyIn(int64_t blockCount, 
     copyInParam_.blockLen = blockLen * dtypeSize_;
     copyInParam_.srcStride = srcStride * dtypeSize_;
     copyInParam_.dstStride = dstStride * dtypeSize_ / BLOCK_SIZE;
-#if defined(__DAV_920R1__)
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
     DataCopyPad(srcLocal[ubOffset], xGm_[srcOffset], copyInParam_, padParam_, true);
 #else
     DataCopyPad(srcLocal[ubOffset], xGm_[srcOffset], copyInParam_, padParam_);

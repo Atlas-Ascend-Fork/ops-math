@@ -35,8 +35,8 @@ using namespace AsStrided;
 #define AS_STRIDED_DUAL_CUT 200
 #define ALL_STRIDEDS_ZERO_KEY 300
 #define SIMT_KEY 400
-// simt pack(dtype 合并提升) key 仅在 960DT(__DAV_920R1__) 编译, 其余平台只用 base key
-#if defined(__DAV_920R1__)
+// simt pack(dtype 合并提升) key 仅在 960系列(__DAV_920R1__/__DAV_920R2__) 编译, 其余平台只用 base key
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
 #define SIMT_KEY_B8 401
 #define SIMT_KEY_B16 402
 #define SIMT_KEY_B32 404
@@ -142,7 +142,7 @@ extern "C" __global__ __aicore__ void as_strided(GM_ADDR input, GM_ADDR outShape
             op.Init(input, output, &tilingData);
             op.Process(tiling);
         }
-#if defined(__DAV_920R1__)
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
     } else if (TILING_KEY_IS(SIMT_KEY_B8)) {
         GET_TILING_DATA_WITH_STRUCT(AsStridedSimtTilingData, tilingData, tiling);
         AsStridedSimt<int8_t> op;

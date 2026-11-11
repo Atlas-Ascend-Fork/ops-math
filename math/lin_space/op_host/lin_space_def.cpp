@@ -141,6 +141,7 @@ public:
         this->AICore().AddConfig("ascend950", regBaseConfig);
         this->AICore().AddConfig("ascend350", regBaseConfig);
         this->AICore().AddConfig("ascend960dt", regBaseConfig);
+        this->AICore().AddConfig("ascend960pr", regBaseConfig);
     }
 };
 

@@ -173,6 +173,7 @@ public:
             .NeedCheckSupportFlag(false)
             .ExtendCfgInfo("opFile.value", "strided_slice_apt");
         this->AICore().AddConfig("ascend960dt", config91096);
+        this->AICore().AddConfig("ascend960pr", config91096);
 
         OpAICoreConfig config_kirin;
         config_kirin.Input("x")
