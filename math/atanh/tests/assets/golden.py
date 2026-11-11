@@ -19,9 +19,10 @@ Kernel/GEIR Enable 使用原生 output_dtypes；直接调用无元信息时按 x
 推导（Atanh 的 y.dtype == x.dtype），在 BF16 容器转换之前保存目标 dtype。
 Kernel/GEIR 输出类型仅支持 FP16、BF16、FP32。
 Promote 会改写原生 output_dtypes，不能用其冒充实际输出；完整回归沿用 Enable。
-ACLNN 使用 out.dtype 或 inputRef.dtype，cast 后再写回并返回。
+普通 ACLNN 通路按 out.dtype cast 后写回；原地接口 Golden 按 inputRef.dtype 返回独立结果。
 BF16 在 Torch 中完成 cast，NumPy 仅按位承载同一 BF16 结果。
-provider third_party 保持原样；此修正不依赖该 provider 启用。
+Kernel/GEIR third_party 保持原样；ACLNN 原地通路在副本上执行 torch.atanh_ 参考。
+TF E2E 使用 tf.math.atanh，输入先转换为 NumPy，输出保持输入 dtype 和 shape。
 """
 
 import numpy as np
@@ -31,6 +32,7 @@ __spec__ = {
     "atanh": "AtanhTestSpec",
     "aclnnAtanh": "AclnnAtanhTestSpec",
     "aclnnInplaceAtanh": "AclnnInplaceAtanhTestSpec",
+    "tf.math.atanh": "TensorFlowAtanhTestSpec",
 }
 
 
@@ -111,9 +113,33 @@ class AclnnAtanhTestSpec:
 
 
 class AclnnInplaceAtanhTestSpec:
-    """按原始 inputRef dtype 完整 cast，再执行原地写回。"""
+    """CPU 数值参考：按 inputRef dtype 返回独立结果，保留调用方输入。"""
 
     def golden(inputRef, **kwargs):
+        if not (inputRef.is_floating_point() or inputRef.is_complex()):
+            raise TypeError(
+                "aclnnInplaceAtanh requires a floating-point or complex inputRef"
+            )
         result = _atanh_reference(inputRef).to(dtype=inputRef.dtype)
-        inputRef.copy_(result)
         return [result]
+
+    class ThirdPartyImpl:
+        def __call__(self, inputRef, **kwargs):
+            # 在副本上原地计算，避免重复参考调用污染调用方输入。
+            return [inputRef.clone().atanh_()]
+
+    third_party = {"torch": ThirdPartyImpl}
+
+
+class TensorFlowAtanhTestSpec:
+    """TF EagerTensor/Variable 的独立数值参考，支持标量和空张量。"""
+
+    def golden(x, **kwargs):
+        from ttk.utilities.dtypes import numpy_to_torch_tensor
+
+        array = np.asarray(x.numpy()) if hasattr(x, "numpy") else np.asarray(x)
+        tensor = numpy_to_torch_tensor(np.array(array, copy=True, order="C"))
+        result = _atanh_reference(tensor).to(dtype=tensor.dtype)
+        return [_numpy_result(result)]
+
+    third_party = {"tf": "tf.math.atanh"}
