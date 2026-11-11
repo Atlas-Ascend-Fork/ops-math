@@ -50,30 +50,37 @@
   </tr></thead>
 <tbody>
   <tr>
-    <td>inputs</td>
+    <td>x</td>
     <td>输入</td>
     <td>输入张量列表，包含1~32个张量。所有张量必须同shape、同dtype。支持空Tensor（0元素）。</td>
     <td>FLOAT、FLOAT16、BFLOAT16</td>
     <td>ND</td>
   </tr>
   <tr>
+    <td>N</td>
+    <td>属性（必选）</td>
+    <td><ul><li>输入张量的个数。</li><li>GE图模式构图必须设置该属性，取值与实际输入张量个数一致。</li></ul></td>
+    <td>INT64</td>
+    <td>-</td>
+  </tr>
+  <tr>
     <td>mode</td>
-    <td>属性</td>
-    <td><ul><li>计算模式。</li><li>0=PRODUCT（逐元素乘积），1=SUM（逐元素加权求和），2=MAX（逐元素取最大值）。</li></ul></td>
+    <td>属性（可选）</td>
+    <td><ul><li>计算模式，默认值为1。</li><li>0=PRODUCT（逐元素乘积），1=SUM（逐元素加权求和），2=MAX（逐元素取最大值）。</li></ul></td>
     <td>INT64</td>
     <td>-</td>
   </tr>
   <tr>
     <td>coeff</td>
-    <td>可选属性</td>
-    <td><ul><li>加权系数数组，仅mode=1时有效。</li><li>长度必须与inputs中张量个数一致。</li><li>可传空指针，此时默认所有系数为1.0。</li><li>mode=0和mode=2时忽略此参数。</li></ul></td>
+    <td>属性（可选）</td>
+    <td><ul><li>加权系数数组，仅mode=1时有效。</li><li>长度必须与输入张量个数一致。</li><li>不提供时默认所有系数为1.0。</li><li>mode=0和mode=2时忽略此参数。</li></ul></td>
     <td>FLOAT</td>
     <td>-</td>
   </tr>
   <tr>
-    <td>out</td>
+    <td>y</td>
     <td>输出</td>
-    <td>输出张量。shape与输入张量相同，dtype与输入张量相同。不支持空Tensor。</td>
+    <td>输出张量。shape与输入张量相同，dtype与输入张量相同。空输入（0元素）时返回空的输出张量。</td>
     <td>FLOAT、FLOAT16、BFLOAT16</td>
     <td>ND</td>
   </tr>
@@ -87,7 +94,7 @@
 - 仅支持ND数据格式，shape维度范围：0~8。
 - 输入输出配置了自动连续化（AutoContiguous），非连续Tensor由框架转换为连续Tensor后进入Kernel。
 - mode仅支持0（PRODUCT）、1（SUM）、2（MAX）三个取值。
-- mode=1时，若提供coeff，其长度必须等于输入张量个数；若不提供（传空指针），默认系数为1.0。
+- mode=1时，若提供coeff，其长度必须等于输入张量个数；若不提供，默认系数为1.0。
 - 空Tensor（0元素）：正常接受，返回空out，不进行计算。
 - 确定性计算：是（逐元素操作，不涉及Reduce，输出结果确定）。
 
@@ -95,4 +102,4 @@
 
 | 调用方式   | 样例代码           | 说明                                         |
 | ---------------- | --------------------------- | --------------------------------------------------- |
-| 图模式  | [test_geir_eltwise.cpp](examples/test_geir_eltwise.cpp) | 通过图模式方式调用Eltwise算子。 |
+| 图模式  | [test_geir_eltwise.cpp](examples/test_geir_eltwise.cpp) | 通过图模式方式调用Eltwise算子。端口名（x/y）与属性定义（N/mode/coeff）见[eltwise_proto.h](op_graph/eltwise_proto.h)。 |

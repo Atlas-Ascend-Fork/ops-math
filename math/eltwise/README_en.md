@@ -52,30 +52,37 @@ English | [简体中文](./README.md)
   </tr></thead>
 <tbody>
   <tr>
-    <td>inputs</td>
+    <td>x</td>
     <td>Input</td>
     <td>The list of input tensors, which contains 1 to 32 tensors. All tensors must have the same shape and the same dtype. Empty tensors (0 elements) are supported.</td>
     <td>FLOAT, FLOAT16, BFLOAT16</td>
     <td>ND</td>
   </tr>
   <tr>
+    <td>N</td>
+    <td>Attribute (required)</td>
+    <td><ul><li>The number of input tensors.</li><li>This attribute must be set when building a graph in GE graph mode, and the value must be the same as the actual number of input tensors.</li></ul></td>
+    <td>INT64</td>
+    <td>-</td>
+  </tr>
+  <tr>
     <td>mode</td>
-    <td>Attribute</td>
-    <td><ul><li>The computation mode.</li><li>0=PRODUCT (element-wise product), 1=SUM (element-wise weighted sum), 2=MAX (element-wise maximum).</li></ul></td>
+    <td>Attribute (optional)</td>
+    <td><ul><li>The computation mode, and the default value is 1.</li><li>0=PRODUCT (element-wise product), 1=SUM (element-wise weighted sum), 2=MAX (element-wise maximum).</li></ul></td>
     <td>INT64</td>
     <td>-</td>
   </tr>
   <tr>
     <td>coeff</td>
-    <td>Optional attribute</td>
-    <td><ul><li>The array of weighting coefficients, which is valid only when mode=1.</li><li>The length must be the same as the number of tensors in inputs.</li><li>A null pointer can be passed, in which case all coefficients default to 1.0.</li><li>This parameter is ignored when mode=0 and mode=2 are used.</li></ul></td>
+    <td>Attribute (optional)</td>
+    <td><ul><li>The array of weighting coefficients, which is valid only when mode=1.</li><li>The length must be the same as the number of input tensors.</li><li>If it is not provided, all coefficients default to 1.0.</li><li>This parameter is ignored when mode=0 and mode=2 are used.</li></ul></td>
     <td>FLOAT</td>
     <td>-</td>
   </tr>
   <tr>
-    <td>out</td>
+    <td>y</td>
     <td>Output</td>
-    <td>The output tensor. Its shape is the same as that of the input tensors, and its dtype is the same as that of the input tensors. Empty tensors are not supported.</td>
+    <td>The output tensor. Its shape is the same as that of the input tensors, and its dtype is the same as that of the input tensors. An empty output tensor is returned for empty input (0 elements).</td>
     <td>FLOAT, FLOAT16, BFLOAT16</td>
     <td>ND</td>
   </tr>
@@ -89,7 +96,7 @@ English | [简体中文](./README.md)
 - Only the ND data format is supported, and the shape dimension range is 0 to 8.
 - The input and output are configured with automatic contiguity (AutoContiguous), and non-contiguous Tensors are converted to contiguous Tensors by the framework before entering the Kernel.
 - mode supports only three values: 0 (PRODUCT), 1 (SUM), and 2 (MAX).
-- When mode=1, if coeff is provided, its length must equal the number of input tensors; if it is not provided (a null pointer is passed), the default coefficient is 1.0.
+- When mode=1, if coeff is provided, its length must equal the number of input tensors; if it is not provided, the coefficients default to 1.0.
 - Empty Tensor (0 elements): it is accepted normally, an empty out is returned, and no computation is performed.
 - Deterministic computation: yes (element-wise operations do not involve Reduce, and the output result is deterministic).
 
@@ -97,4 +104,4 @@ English | [简体中文](./README.md)
 
 | Invocation Method   | Sample Code           | Description                                         |
 | ---------------- | --------------------------- | --------------------------------------------------- |
-| Graph mode  | [test_geir_eltwise.cpp](examples/test_geir_eltwise.cpp) | Invokes the Eltwise operator in graph mode. |
+| Graph mode  | [test_geir_eltwise.cpp](examples/test_geir_eltwise.cpp) | Invokes the Eltwise operator in graph mode. Port names (x/y) and attribute definitions (N/mode/coeff) are defined in [eltwise_proto.h](op_graph/eltwise_proto.h). |

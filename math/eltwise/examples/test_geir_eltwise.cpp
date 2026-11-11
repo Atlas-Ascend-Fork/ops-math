@@ -50,32 +50,31 @@ using std::map;
 using std::string;
 using std::vector;
 
-#define ADD_DYNAMIC_INPUT(inputIndex, inputDtype, inputShape, dataName)                              \
-    do {                                                                                             \
-        vector<int64_t> shape##dataName = inputShape;                                                \
-        auto placeholder##dataName = op::Data("placeholder" #dataName).set_attr_index(inputIndex);   \
-        TensorDesc desc##dataName(ge::Shape(shape##dataName), FORMAT_ND, inputDtype);                \
-        desc##dataName.SetFormat(FORMAT_ND);                                                         \
-        placeholder##dataName.update_input_desc_x(desc##dataName);                                   \
-        placeholder##dataName.update_output_desc_y(desc##dataName);                                  \
-        Tensor tensor##dataName;                                                                     \
-        ret = GenInputData(shape##dataName, tensor##dataName, desc##dataName, inputDtype,            \
-                           (inputIndex + 1));                                                        \
-        if (ret != SUCCESS) {                                                                        \
-            printf("%s - ERROR - [XIR]: Generate input data failed\n", GetTime().c_str());           \
-            return FAILED;                                                                           \
-        }                                                                                            \
-        eltwiseOp.UpdateDynamicInputDesc("x", inputIndex, desc##dataName);                           \
-        eltwiseOp.set_dynamic_input_x(inputIndex, placeholder##dataName);                            \
-        input.push_back(tensor##dataName);                                                           \
-        graph.AddOp(placeholder##dataName);                                                          \
-        inputs.push_back(placeholder##dataName);                                                     \
+#define ADD_DYNAMIC_INPUT(inputIndex, inputDtype, inputShape, dataName)                            \
+    do {                                                                                           \
+        vector<int64_t> shape##dataName = inputShape;                                              \
+        auto placeholder##dataName = op::Data("placeholder" #dataName).set_attr_index(inputIndex); \
+        TensorDesc desc##dataName(ge::Shape(shape##dataName), FORMAT_ND, inputDtype);              \
+        desc##dataName.SetFormat(FORMAT_ND);                                                       \
+        placeholder##dataName.update_input_desc_x(desc##dataName);                                 \
+        placeholder##dataName.update_output_desc_y(desc##dataName);                                \
+        Tensor tensor##dataName;                                                                   \
+        ret = GenInputData(shape##dataName, tensor##dataName, desc##dataName, inputDtype);         \
+        if (ret != SUCCESS) {                                                                      \
+            printf("%s - ERROR - [XIR]: Generate input data failed\n", GetTime().c_str());         \
+            return FAILED;                                                                         \
+        }                                                                                          \
+        eltwiseOp.UpdateDynamicInputDesc("x", inputIndex, desc##dataName);                         \
+        eltwiseOp.set_dynamic_input_x(inputIndex, placeholder##dataName);                          \
+        input.push_back(tensor##dataName);                                                         \
+        graph.AddOp(placeholder##dataName);                                                        \
+        inputs.push_back(placeholder##dataName);                                                   \
     } while (0)
 
-#define ADD_OUTPUT(outputName, outputDtype, outputShape)                                              \
-    do {                                                                                              \
-        TensorDesc outputName##_desc = TensorDesc(ge::Shape(outputShape), FORMAT_ND, outputDtype);    \
-        eltwiseOp.update_output_desc_##outputName(outputName##_desc);                                 \
+#define ADD_OUTPUT(outputName, outputDtype, outputShape)                                           \
+    do {                                                                                           \
+        TensorDesc outputName##_desc = TensorDesc(ge::Shape(outputShape), FORMAT_ND, outputDtype); \
+        eltwiseOp.update_output_desc_##outputName(outputName##_desc);                              \
     } while (0)
 
 string GetTime()
@@ -97,32 +96,84 @@ uint32_t GetDataTypeSize(DataType dt)
     return 4;
 }
 
-int32_t GenInputData(
-    vector<int64_t> shapes, Tensor& input_tensor, TensorDesc& input_tensor_desc, DataType data_type, int inputIndex)
+constexpr uint16_t FLOAT16_ONE_BITS = 0x3C00;
+constexpr uint16_t BFLOAT16_ONE_BITS = 0x3F80;
+constexpr uint32_t BF16_TO_FP32_SHIFT = 16U;
+constexpr uint16_t FP16_SIGN_MASK = 0x8000U;
+constexpr uint32_t FP16_EXP_MASK = 0x1FU;
+constexpr uint32_t FP16_MANT_MASK = 0x3FFU;
+constexpr uint32_t FP16_EXP_SHIFT = 10U;
+constexpr uint32_t FP16_MANT_TO_FP32_SHIFT = 13U;
+constexpr uint32_t FP16_TO_FP32_SIGN_SHIFT = 16U;
+constexpr uint32_t FP32_EXP_BIAS_DELTA = 112U;
+constexpr uint32_t FP32_MANT_SHIFT = 23U;
+constexpr uint32_t FP32_INF_BITS = 0x7F800000U;
+constexpr float FP16_DENORM_SCALE = 16777216.0f;
+
+static float Bf16ToFp32(uint16_t bf16Bits)
 {
-    input_tensor_desc.SetRealDimCnt(shapes.size());
+    uint32_t fp32Bits = static_cast<uint32_t>(bf16Bits) << BF16_TO_FP32_SHIFT;
+    float out;
+    __builtin_memcpy(&out, &fp32Bits, sizeof(float));
+    return out;
+}
+
+static float Fp16ToFp32(uint16_t fp16Bits)
+{
+    const uint32_t sign = static_cast<uint32_t>(fp16Bits & FP16_SIGN_MASK) << FP16_TO_FP32_SIGN_SHIFT;
+    const uint32_t exp = (fp16Bits >> FP16_EXP_SHIFT) & FP16_EXP_MASK;
+    const uint32_t mant = fp16Bits & FP16_MANT_MASK;
+    uint32_t fp32Bits;
+    if (exp == FP16_EXP_MASK) {
+        fp32Bits = sign | FP32_INF_BITS | (mant << FP16_MANT_TO_FP32_SHIFT);
+    } else if (exp == 0) {
+        if (mant == 0) {
+            fp32Bits = sign;
+        } else {
+            float denorm = static_cast<float>(mant) / FP16_DENORM_SCALE;
+            return sign ? -denorm : denorm;
+        }
+    } else {
+        fp32Bits = sign | ((exp + FP32_EXP_BIAS_DELTA) << FP32_MANT_SHIFT) | (mant << FP16_MANT_TO_FP32_SHIFT);
+    }
+    float out;
+    __builtin_memcpy(&out, &fp32Bits, sizeof(float));
+    return out;
+}
+
+int32_t GenInputData(vector<int64_t> shapes, Tensor& inputTensor, TensorDesc& inputTensorDesc, DataType dataType)
+{
+    inputTensorDesc.SetRealDimCnt(shapes.size());
     size_t size = 1;
     for (uint32_t i = 0; i < shapes.size(); i++) {
         size *= shapes[i];
     }
-    uint32_t data_len = size * GetDataTypeSize(data_type);
-    float* pData = new (std::nothrow) float[size];
-    if (pData == nullptr) {
-        return FAILED;
-    }
+    uint32_t dataLen = size * GetDataTypeSize(dataType);
+    std::vector<uint8_t> pData(dataLen);
 
-    // All inputs filled with 1.0 to make verification simple.
-    for (size_t i = 0; i < size; ++i) {
-        pData[i] = 1.0f;
+    // All inputs filled with 1.0 in the target dtype to make verification simple.
+    if (dataType == DT_FLOAT16) {
+        uint16_t* fp16Data = reinterpret_cast<uint16_t*>(pData.data());
+        for (size_t i = 0; i < size; ++i) {
+            fp16Data[i] = FLOAT16_ONE_BITS;
+        }
+    } else if (dataType == DT_BF16) {
+        uint16_t* bf16Data = reinterpret_cast<uint16_t*>(pData.data());
+        for (size_t i = 0; i < size; ++i) {
+            bf16Data[i] = BFLOAT16_ONE_BITS;
+        }
+    } else {
+        float* fp32Data = reinterpret_cast<float*>(pData.data());
+        for (size_t i = 0; i < size; ++i) {
+            fp32Data[i] = 1.0f;
+        }
     }
-    input_tensor = Tensor(input_tensor_desc, reinterpret_cast<uint8_t*>(pData), data_len);
-    delete[] pData;
+    inputTensor = Tensor(inputTensorDesc, pData.data(), dataLen);
     return SUCCESS;
 }
 
-int CreateOppInGraph(
-    DataType inDtype, std::vector<ge::Tensor>& input, std::vector<Operator>& inputs, std::vector<Operator>& outputs,
-    Graph& graph)
+int CreateOppInGraph(DataType inDtype, std::vector<ge::Tensor>& input, std::vector<Operator>& inputs,
+                     std::vector<Operator>& outputs, Graph& graph)
 {
     Status ret = SUCCESS;
     constexpr int64_t kInputNum = 2;
@@ -179,6 +230,7 @@ int main(int argc, char* argv[])
     ret = CreateOppInGraph(inDtype, input, inputs, outputs, graph);
     if (ret != SUCCESS) {
         printf("%s - ERROR - [XIR]: Create op in graph failed\n", GetTime().c_str());
+        GEFinalize();
         return FAILED;
     }
 
@@ -224,16 +276,24 @@ int main(int argc, char* argv[])
     printf("%s - INFO - [XIR]: Number of outputs: %d\n", GetTime().c_str(), output_num);
     for (int i = 0; i < output_num; i++) {
         int64_t output_shape = output[i].GetTensorDesc().GetShape().GetShapeSize();
-        printf("%s - INFO - [XIR]: output %d shape size = %ld, dtype = %d\n",
-               GetTime().c_str(), i, output_shape,
+        printf("%s - INFO - [XIR]: output %d shape size = %ld, dtype = %d\n", GetTime().c_str(), i, output_shape,
                static_cast<int>(output[i].GetTensorDesc().GetDataType()));
 
-        if (output[i].GetTensorDesc().GetDataType() == DT_FLOAT && output_shape > 0) {
-            float* outData = reinterpret_cast<float*>(output[i].GetData());
+        if (output_shape > 0) {
+            const DataType outDtype = output[i].GetTensorDesc().GetDataType();
+            uint8_t* outData = output[i].GetData();
             int64_t printNum = (output_shape < 10) ? output_shape : 10;
-            const float expected = 2.0f;
+            const float expectedSum = 2.0f;
             for (int64_t j = 0; j < printNum; j++) {
-                printf("  output[%ld] = %.6f (expected = %.6f)\n", j, outData[j], expected);
+                float val = 0.0f;
+                if (outDtype == DT_FLOAT16) {
+                    val = Fp16ToFp32(reinterpret_cast<uint16_t*>(outData)[j]);
+                } else if (outDtype == DT_BF16) {
+                    val = Bf16ToFp32(reinterpret_cast<uint16_t*>(outData)[j]);
+                } else {
+                    val = reinterpret_cast<float*>(outData)[j];
+                }
+                printf("  output[%ld] = %.6f (expected = %.6f)\n", j, val, expectedSum);
             }
         }
     }

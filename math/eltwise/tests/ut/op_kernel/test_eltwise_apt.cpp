@@ -20,8 +20,7 @@
 
 using namespace std;
 
-extern "C" __global__ __aicore__ void eltwise(
-    GM_ADDR inputs, GM_ADDR output, GM_ADDR workspace, GM_ADDR tiling);
+extern "C" __global__ __aicore__ void eltwise(GM_ADDR inputs, GM_ADDR output, GM_ADDR workspace, GM_ADDR tiling);
 
 class EltwiseKernelTest : public testing::Test {
 protected:
@@ -43,6 +42,22 @@ TEST_F(EltwiseKernelTest, test_fp32_empty_tensor)
     uint8_t* output = (uint8_t*)AscendC::GmAlloc(kStubOutputBytes);
     uint8_t* workspace = (uint8_t*)AscendC::GmAlloc(1024 * 1024);
     uint8_t* tiling = (uint8_t*)AscendC::GmAlloc(tilingSize);
+    if (inputs == nullptr || output == nullptr || workspace == nullptr || tiling == nullptr) {
+        cout << "EltwiseKernelTest skipped: GmAlloc failed (out of host memory)" << endl;
+        if (inputs != nullptr) {
+            AscendC::GmFree(inputs);
+        }
+        if (output != nullptr) {
+            AscendC::GmFree(output);
+        }
+        if (workspace != nullptr) {
+            AscendC::GmFree(workspace);
+        }
+        if (tiling != nullptr) {
+            AscendC::GmFree(tiling);
+        }
+        return;
+    }
 
     EltwiseTilingData* tilingData = reinterpret_cast<EltwiseTilingData*>(tiling);
     memset(tilingData, 0, tilingSize);
