@@ -295,5 +295,5 @@ class TanTorchSpec:
 
 class TanTensorFlowSpec:
     golden = staticmethod(tan_golden)
-    third_party = {"tf": "tf.math.tan"}
+    third_party = {"tf": TanKernelTfRef}
     tolerance = _L1
