@@ -186,7 +186,7 @@ aclnnStatus aclnnInplaceUniformTensor(
       <td>selfRef的数据类型不在支持的范围之内。</td>
     </tr>
     <tr>
-      <td>selfRef的shape超过8维。</td>
+      <td>selfRef、seedTensor或offsetTensor的shape超过8维。</td>
     </tr>
     <tr>
       <td>from大于to。</td>

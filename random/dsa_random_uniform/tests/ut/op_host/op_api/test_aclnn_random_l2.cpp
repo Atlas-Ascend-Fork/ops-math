@@ -224,6 +224,30 @@ TEST_F(l2_random_test, aclnnInplaceRandom_3_4_bool_nd)
 
 // ======================== aclnnInplaceRandomTensor 新增用例 ========================
 
+TEST_F(l2_random_test, aclnnInplaceRandomTensor_reject_seed_offset_shape_over_8_dims)
+{
+    for (const auto& selfShape : std::vector<std::vector<int64_t>>{{2, 3}, {0}}) {
+        auto selfDesc = TensorDesc(selfShape, ACL_FLOAT, ACL_FORMAT_ND);
+        auto validDesc = TensorDesc({2}, ACL_INT64, ACL_FORMAT_ND);
+        auto invalidDesc = TensorDesc({1, 1, 1, 1, 1, 1, 1, 1, 1}, ACL_INT64, ACL_FORMAT_ND);
+
+        auto invalidSeedUt = OP_API_UT(aclnnInplaceRandomTensor,
+                                       INPUT(selfDesc, int64_t{0}, int64_t{2}, invalidDesc, validDesc, int64_t{0}),
+                                       OUTPUT());
+        uint64_t workspaceSize = 0;
+        EXPECT_EQ(invalidSeedUt.TestGetWorkspaceSize(&workspaceSize), ACLNN_ERR_PARAM_INVALID);
+
+        auto invalidOffsetUt = OP_API_UT(aclnnInplaceRandomTensor,
+                                         INPUT(selfDesc, int64_t{0}, int64_t{2}, validDesc, invalidDesc, int64_t{0}),
+                                         OUTPUT());
+        EXPECT_EQ(invalidOffsetUt.TestGetWorkspaceSize(&workspaceSize), ACLNN_ERR_PARAM_INVALID);
+
+        auto validUt = OP_API_UT(aclnnInplaceRandomTensor,
+                                 INPUT(selfDesc, int64_t{0}, int64_t{2}, validDesc, validDesc, int64_t{0}), OUTPUT());
+        EXPECT_EQ(validUt.TestGetWorkspaceSize(&workspaceSize), ACLNN_SUCCESS);
+    }
+}
+
 // 正常场景：float类型
 TEST_F(l2_random_test, aclnnInplaceRandomTensor_3_4_float_nd)
 {

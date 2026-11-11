@@ -185,6 +185,15 @@ static aclnnStatus CheckParams(const aclTensor* selfRef)
     return ACLNN_SUCCESS;
 }
 
+static aclnnStatus CheckSeedOffsetShape(const aclTensor* seedTensor, const aclTensor* offsetTensor)
+{
+    OP_CHECK_NULL(seedTensor, return ACLNN_ERR_PARAM_NULLPTR);
+    OP_CHECK_NULL(offsetTensor, return ACLNN_ERR_PARAM_NULLPTR);
+    OP_CHECK_MAX_DIM(seedTensor, MAX_DIM_LEN, return ACLNN_ERR_PARAM_INVALID);
+    OP_CHECK_MAX_DIM(offsetTensor, MAX_DIM_LEN, return ACLNN_ERR_PARAM_INVALID);
+    return ACLNN_SUCCESS;
+}
+
 static inline bool CheckSocVersionIsSupportDSA(void)
 {
     auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
@@ -452,6 +461,8 @@ aclnnStatus aclnnInplaceRandomTensorGetWorkspaceSize(const aclTensor* selfRef, i
     auto ret = CheckParams(selfRef);
     CHECK_RET(ret == ACLNN_SUCCESS, ret);
     CHECK_RET(CheckFromToRange(from, to), ACLNN_ERR_PARAM_INVALID);
+    ret = CheckSeedOffsetShape(seedTensor, offsetTensor);
+    CHECK_RET(ret == ACLNN_SUCCESS, ret);
     auto uniqueExecutor = CREATE_EXECUTOR();
     CHECK_RET(uniqueExecutor.get() != nullptr, ACLNN_ERR_INNER_CREATE_EXECUTOR);
 

@@ -188,7 +188,7 @@ aclnnStatus aclnnInplaceUniformTensor(
       <td>The data type of selfRef is out of the supported range.</td>
     </tr>
     <tr>
-      <td>The shape of selfRef exceeds 8 dimensions.</td>
+      <td>The shape of selfRef, seedTensor, or offsetTensor exceeds 8 dimensions.</td>
     </tr>
     <tr>
       <td>from is greater than to.</td>

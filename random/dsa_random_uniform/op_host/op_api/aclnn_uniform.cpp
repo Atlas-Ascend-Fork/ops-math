@@ -89,6 +89,15 @@ static aclnnStatus CheckSeedOffsetDtype(const aclTensor* seedTensor, const aclTe
     return ACLNN_SUCCESS;
 }
 
+static aclnnStatus CheckSeedOffsetShape(const aclTensor* seedTensor, const aclTensor* offsetTensor)
+{
+    CHECK_RET(CheckNotNull(seedTensor), ACLNN_ERR_PARAM_NULLPTR);
+    CHECK_RET(CheckNotNull(offsetTensor), ACLNN_ERR_PARAM_NULLPTR);
+    OP_CHECK_MAX_DIM(seedTensor, MAX_SUPPORT_DIMS_NUMS, return ACLNN_ERR_PARAM_INVALID);
+    OP_CHECK_MAX_DIM(offsetTensor, MAX_SUPPORT_DIMS_NUMS, return ACLNN_ERR_PARAM_INVALID);
+    return ACLNN_SUCCESS;
+}
+
 static aclScalar* CreateScalar(float input, op::DataType dtype, aclOpExecutor* executor)
 {
     op::fp16_t ratioF16;
@@ -282,6 +291,8 @@ aclnnStatus aclnnInplaceUniformTensorGetWorkspaceSize(const aclTensor* selfRef, 
     CHECK_RET(uniqueExecutor.get() != nullptr, ACLNN_ERR_INNER_CREATE_EXECUTOR);
 
     auto ret = CheckParams(selfRef, from, to);
+    CHECK_RET(ret == ACLNN_SUCCESS, ret);
+    ret = CheckSeedOffsetShape(seedTensor, offsetTensor);
     CHECK_RET(ret == ACLNN_SUCCESS, ret);
 
     if (selfRef->IsEmpty()) {

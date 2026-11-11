@@ -195,7 +195,7 @@ aclnnStatus aclnnInplaceRandomTensor(
       <td>The value of from is greater than or equal to the value of to.</td>
     </tr>
     <tr>
-      <td>The shape of selfRef exceeds 8 dimensions.</td>
+      <td>The shape of selfRef, seedTensor, or offsetTensor exceeds 8 dimensions.</td>
     </tr>
   </tbody>
   </table>

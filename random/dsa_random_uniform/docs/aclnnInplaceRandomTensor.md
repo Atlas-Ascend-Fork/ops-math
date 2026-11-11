@@ -193,7 +193,7 @@ aclnnStatus aclnnInplaceRandomTensor(
       <td>from大于等于to。</td>
     </tr>
     <tr>
-      <td>selfRef的shape超过8维。</td>
+      <td>selfRef、seedTensor或offsetTensor的shape超过8维。</td>
     </tr>
   </tbody>
   </table>
