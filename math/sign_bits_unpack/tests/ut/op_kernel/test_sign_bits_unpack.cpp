@@ -75,10 +75,9 @@ void ExpectUnpacked(const uint8_t* input, const T* output, size_t inputCount)
     for (size_t byteIndex = 0; byteIndex < inputCount; ++byteIndex) {
         for (size_t bitIndex = 0; bitIndex < 8; ++bitIndex) {
             const size_t outputIndex = byteIndex * 8 + bitIndex;
-            const size_t packedBitIndex = 7U - bitIndex;
-            const float expected = ((input[byteIndex] >> packedBitIndex) & 1U) != 0 ? -1.0F : 1.0F;
+            const float expected = ((input[byteIndex] >> bitIndex) & 1U) != 0 ? 1.0F : -1.0F;
             EXPECT_FLOAT_EQ(static_cast<float>(output[outputIndex]), expected)
-                << "byte=" << byteIndex << ", packed bit=" << packedBitIndex;
+                << "byte=" << byteIndex << ", bit=" << bitIndex;
         }
     }
 }
@@ -124,7 +123,7 @@ TEST_F(SignBitsUnpackKernelTest, float16_known_bit_patterns)
     ExpectUnpacked(inputData.data(), reinterpret_cast<const half*>(buffers.output), inputData.size());
 }
 
-TEST_F(SignBitsUnpackKernelTest, pack_compatible_msb_order_and_negative_polarity)
+TEST_F(SignBitsUnpackKernelTest, lsb_order_and_positive_polarity)
 {
     constexpr std::array<uint8_t, 3> inputData = {0x80, 0x01, 0x00};
     KernelBuffers buffers(inputData.size(), sizeof(float));

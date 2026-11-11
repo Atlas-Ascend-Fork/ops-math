@@ -20,7 +20,7 @@
  *   x      : uint8 1D, shape (2,), values {0xAA, 0x55}
  *   size   : Int attr = 2  (output first dim)
  *   dtype  : Type attr = DT_FLOAT
- *   y      : float 2D, shape (2, 8), bit=1 -> +1.0, bit=0 -> -1.0
+ *   y      : float 2D, shape (2, 8), LSB-first: bit=1 -> +1.0, bit=0 -> -1.0
  */
 
 #include <iostream>
@@ -70,8 +70,12 @@ static Tensor MakeInputTensor(const vector<int64_t>& shape, TensorDesc& desc)
     size_t n = 1;
     for (auto d : shape)
         n *= static_cast<size_t>(d);
-    std::vector<uint8_t> buf = {0xAA, 0x55};
-    return Tensor(desc, reinterpret_cast<uint8_t*>(buf.data()), n * sizeof(uint8_t));
+    static std::vector<uint8_t> g_inputData;
+    g_inputData.resize(n);
+    for (size_t i = 0; i < n; ++i) {
+        g_inputData[i] = (i % 2 == 0) ? 0xAA : 0x55;
+    }
+    return Tensor(desc, reinterpret_cast<uint8_t*>(g_inputData.data()), n * sizeof(uint8_t));
 }
 
 static int CreateOppInGraph(std::vector<ge::Tensor>& feeds, std::vector<Operator>& inputs,
@@ -178,7 +182,7 @@ int main(int argc, char* argv[])
         std::cout << "], shapeSize = " << d.GetShapeSize() << ", dtype = " << output[i].GetTensorDesc().GetDataType()
                   << std::endl;
 
-        // print result values (float: bit=1 -> +1.0, bit=0 -> -1.0)
+        // print result values (float, LSB-first: bit=1 -> +1.0, bit=0 -> -1.0)
         uint8_t* outData = output[i].GetData();
         int64_t outSize = d.GetShapeSize();
         float* floatData = reinterpret_cast<float*>(outData);

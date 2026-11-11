@@ -41,12 +41,16 @@ gert::StorageShape MakeStorageShape(const std::vector<int64_t>& dimensions)
 
 gert::TilingContextPara MakeTilingContext(const std::vector<int64_t>& inputShape,
                                           const std::vector<int64_t>& outputShape, ge::DataType outputType,
-                                          uint64_t coreNum = 64, uint64_t ubSize = 262144)
+                                          uint64_t coreNum = 64, uint64_t ubSize = 262144, int64_t attrSize = -1)
 {
     auto inputStorageShape = MakeStorageShape(inputShape);
     auto outputStorageShape = MakeStorageShape(outputShape);
+    const int64_t sizeValue = attrSize >= 0 ? attrSize : (outputShape.empty() ? 1 : outputShape[0]);
+    std::vector<gert::TilingContextPara::OpAttr> attrs;
+    attrs.emplace_back("size", Ops::Math::AnyValue::CreateFrom<int64_t>(sizeValue));
     return gert::TilingContextPara("SignBitsUnpack", {{inputStorageShape, ge::DT_UINT8, ge::FORMAT_ND}},
-                                   {{outputStorageShape, outputType, ge::FORMAT_ND}}, &g_compileInfo, coreNum, ubSize);
+                                   {{outputStorageShape, outputType, ge::FORMAT_ND}}, attrs, &g_compileInfo, coreNum,
+                                   ubSize);
 }
 
 void ExpectCommonSuccess(const TilingInfo& info)
@@ -148,6 +152,34 @@ TEST_F(SignBitsUnpackTilingTest, zero_core_count_fails)
 TEST_F(SignBitsUnpackTilingTest, zero_ub_size_fails)
 {
     auto context = MakeTilingContext({16}, {2, 64}, ge::DT_FLOAT16, 64, 0);
+
+    ExecuteTestCase(context, ge::GRAPH_FAILED);
+}
+
+TEST_F(SignBitsUnpackTilingTest, input_rank_must_be_one)
+{
+    auto context = MakeTilingContext({4, 4}, {2, 16}, ge::DT_FLOAT16);
+
+    ExecuteTestCase(context, ge::GRAPH_FAILED);
+}
+
+TEST_F(SignBitsUnpackTilingTest, size_must_divide_unpacked_bits)
+{
+    auto context = MakeTilingContext({3}, {5, 4}, ge::DT_FLOAT16, 64, 262144, 5);
+
+    ExecuteTestCase(context, ge::GRAPH_FAILED);
+}
+
+TEST_F(SignBitsUnpackTilingTest, size_attr_must_match_output_dim0)
+{
+    auto context = MakeTilingContext({16}, {4, 32}, ge::DT_FLOAT16, 64, 262144, 2);
+
+    ExecuteTestCase(context, ge::GRAPH_FAILED);
+}
+
+TEST_F(SignBitsUnpackTilingTest, output_dim1_must_match_unpacked_shape)
+{
+    auto context = MakeTilingContext({16}, {2, 32}, ge::DT_FLOAT16, 64, 262144, 2);
 
     ExecuteTestCase(context, ge::GRAPH_FAILED);
 }

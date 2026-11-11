@@ -19,10 +19,10 @@ English | [简体中文](./README.md)
 
 - Computation formula:
 
-Assume that the input `self` is a 1D UINT8 tensor with the length of N. Each byte contains 8 sign bits (consistent with SignBitsPack, in MSB-first order). The unpacking rule for the $i$-th bit from the most significant to the least significant in the $j$-th byte $b_j$ ($i = 0, 1, \dots, 7$) is as follows:
+Assume that the input `self` is a 1D UINT8 tensor with the length of N. Each byte contains 8 sign bits in LSB-first order. The unpacking rule for the $i$-th bit (from the least significant to the most significant) in the $j$-th byte $b_j$ ($i = 0, 1, \dots, 7$) is as follows:
 
 $$
-out_{j \cdot 8 + i} = \begin{cases} -1.0, & \text{bit}_{7-i}(b_j) = 1 \\ +1.0, & \text{bit}_{7-i}(b_j) = 0 \end{cases}
+out_{j \cdot 8 + i} = \begin{cases} +1.0, & \text{bit}_i(b_j) = 1 \\ -1.0, & \text{bit}_i(b_j) = 0 \end{cases}
 $$
 
 The output tensor has $N \times 8$ elements in total and is reshaped to 2D. Its shape is:

@@ -149,7 +149,7 @@ int main()
     CHECK_RET(ret == ACL_SUCCESS, LOG_PRINT("copy resultData from device to host failed. ERROR: %d\n", ret);
               return ret);
 
-    // 解析 fp32 结果 (bit=1→+1.0, bit=0→-1.0)
+    // 解析 fp32 结果 (LSB-first: bit=1→+1.0, bit=0→-1.0)
     for (int64_t i = 0; i < outSize; i++) {
         LOG_PRINT("resultData[%ld] = %f\n", i, resultData[i]);
     }

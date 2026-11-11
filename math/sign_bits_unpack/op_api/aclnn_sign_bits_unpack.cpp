@@ -24,6 +24,7 @@
 #include "opdev/platform.h"
 #include "opdev/make_op_executor.h"
 #include "op_api/aclnn_check.h"
+#include <limits>
 
 using namespace op;
 #ifdef __cplusplus
@@ -144,25 +145,41 @@ static inline bool CheckValue(const aclTensor* self, int64_t size, const aclTens
         return false;
     }
 
-    for (size_t i = 0; i < out->GetViewShape().GetDimNum(); i++) {
-        if (out->GetViewShape().GetDim(i) < 0) {
-            OP_LOGE(ACLNN_ERR_PARAM_INVALID, "Dim Value of out is negative.");
-            return false;
-        }
-    }
-
     // size可被uint8的拆包输出整除。输出大小为（self的元素个数) * 8
     int64_t selfDim = self->GetViewShape().GetDim(0);
-    if ((selfDim * PACK_SIZE) % size != 0) {
+    if (selfDim < 0) {
+        return true;
+    }
+    if (selfDim > std::numeric_limits<int64_t>::max() / PACK_SIZE) {
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "The number of elements in self is too large to unpack.");
+        return false;
+    }
+    int64_t totalBits = selfDim * PACK_SIZE;
+    if (totalBits % size != 0) {
         OP_LOGE(ACLNN_ERR_PARAM_INVALID, "The number of elements in self * 8 cannot be divided by size.");
         return false;
     }
 
     // 检查out第一维度是否等于size
     int64_t outDimOneNum = out->GetViewShape().GetDim(0);
+    if (outDimOneNum < 0) {
+        return true;
+    }
     if (size != outDimOneNum) {
         OP_LOGE(ACLNN_ERR_PARAM_INVALID,
                 "The value of the first dimension of 'out' is incorrect and should be equal to size.");
+        return false;
+    }
+
+    // 检查out第二维度是否等于解包后的列数
+    int64_t outDimTwoNum = out->GetViewShape().GetDim(1);
+    if (outDimTwoNum < 0) {
+        return true;
+    }
+    if (totalBits / size != outDimTwoNum) {
+        OP_LOGE(
+            ACLNN_ERR_PARAM_INVALID,
+            "The value of the second dimension of 'out' is incorrect and should be equal to self.numel() * 8 / size.");
         return false;
     }
     return true;
@@ -179,11 +196,11 @@ static inline aclnnStatus CheckParams(const aclTensor* self, aclDataType dtype, 
     // 3. 检查数据格式是否支持
     CHECK_RET(CheckFormat(self, out), ACLNN_ERR_PARAM_INVALID);
 
-    // 4. 检查入参数值是否合法
-    CHECK_RET(CheckValue(self, size, out), ACLNN_ERR_PARAM_INVALID);
-
-    // 5. 检查输入和输出tensor的shape是否为异常，输入必须1维
+    // 4. 检查输入和输出tensor的shape是否为异常，输入必须1维
     CHECK_RET(CheckShape(self, out), ACLNN_ERR_PARAM_INVALID);
+
+    // 5. 检查入参数值是否合法
+    CHECK_RET(CheckValue(self, size, out), ACLNN_ERR_PARAM_INVALID);
 
     return ACLNN_SUCCESS;
 }
