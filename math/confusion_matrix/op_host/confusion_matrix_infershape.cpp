@@ -34,8 +34,9 @@ static constexpr size_t kOutputDim1 = 1U;
 static constexpr size_t kInputDimNum = 1U;
 static constexpr size_t kInputDim0 = 0U;
 
-ge::graphStatus InferShapeForConfusionMatrix(gert::InferShapeContext* context)
+static ge::graphStatus InferShapeForConfusionMatrix(gert::InferShapeContext* context)
 {
+    OP_LOGI(context->GetNodeName(), "***runtime2.0 inferShape***");
     OP_LOGI(context->GetNodeName(), "Begin to do InferShapeForConfusionMatrix");
 
     auto attrs = context->GetAttrs();

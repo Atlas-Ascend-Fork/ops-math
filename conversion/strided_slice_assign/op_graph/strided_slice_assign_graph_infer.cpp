@@ -25,13 +25,14 @@ static constexpr int64_t IDX_0 = 0;
 
 static ge::graphStatus InferDataTypeStridedSliceAssign(gert::InferDataTypeContext* context)
 {
-    OP_LOGD(context->GetNodeName(), "Begin to do InferDataTypeStridedSliceAssign");
+    OP_LOGI(context->GetNodeName(), "***runtime2.0 inferDtype***");
+    OP_LOGI(context->GetNodeName(), "Begin to do InferDataTypeStridedSliceAssign");
 
     // 输出 var 的 dtype 与输入 var 相同（in-place 语义不改变 dtype）
     ge::DataType varDtype = context->GetInputDataType(IDX_0);
     context->SetOutputDataType(IDX_0, varDtype);
 
-    OP_LOGD(context->GetNodeName(), "End to do InferDataTypeStridedSliceAssign");
+    OP_LOGI(context->GetNodeName(), "End to do InferDataTypeStridedSliceAssign");
     return GRAPH_SUCCESS;
 }
 

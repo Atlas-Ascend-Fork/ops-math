@@ -54,6 +54,7 @@ static bool IsSupportedInputDtype(ge::DataType dtype)
 
 static ge::graphStatus InferDataTypeForConfusionMatrix(gert::InferDataTypeContext* context)
 {
+    OP_LOGI(context->GetNodeName(), "***runtime2.0 inferDtype***");
     OP_LOGI(context->GetNodeName(), "Begin to do InferDataTypeForConfusionMatrix");
 
     auto attrs = context->GetAttrs();

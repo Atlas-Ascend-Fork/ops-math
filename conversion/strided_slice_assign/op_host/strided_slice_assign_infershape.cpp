@@ -190,6 +190,7 @@ static ge::graphStatus ValidateNoValue(gert::InferShapeContext* context)
 
 static ge::graphStatus InferShapeStridedSliceAssign(gert::InferShapeContext* context)
 {
+    OP_LOGI(context->GetNodeName(), "***runtime2.0 inferShape***");
     OP_LOGD(context->GetNodeName(), "Begin to do InferShapeStridedSliceAssign");
     OP_CHECK_IF(ValidateNoValue(context) != ge::GRAPH_SUCCESS,
                 OP_LOGE_WITHOUT_REPORT(context->GetNodeName(), "ValidateNoValue failed"), return ge::GRAPH_FAILED);
