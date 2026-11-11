@@ -15,15 +15,9 @@
 
 class DataCompareInferShapeTest : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        std::cout << "DataCompareInferShapeTest SetUp" << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "DataCompareInferShapeTest SetUp" << std::endl; }
 
-    static void TearDownTestCase()
-    {
-        std::cout << "DataCompareInferShapeTest TearDown" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "DataCompareInferShapeTest TearDown" << std::endl; }
 };
 
 static std::vector<int64_t> ToVector(const gert::Shape& shape)
@@ -36,11 +30,9 @@ static std::vector<int64_t> ToVector(const gert::Shape& shape)
     return shapeVec;
 }
 
-static void ExeTestCase(
-    std::vector<std::vector<int64_t>> expectResults,
-    const std::vector<gert::StorageShape>& inputShapes,
-    const std::vector<ge::DataType>& dtypes,
-    gert::StorageShape& outStorageShape, ge::graphStatus testCaseResult = ge::GRAPH_SUCCESS)
+static void ExeTestCase(std::vector<std::vector<int64_t>> expectResults,
+                        const std::vector<gert::StorageShape>& inputShapes, const std::vector<ge::DataType>& dtypes,
+                        gert::StorageShape& outStorageShape, ge::graphStatus testCaseResult = ge::GRAPH_SUCCESS)
 {
     const auto& x1StorageShape = inputShapes[0];
     const auto& x2StorageShape = inputShapes[1];
@@ -160,10 +152,8 @@ TEST_F(DataCompareInferShapeTest, infershape_empty_tensor)
 
 TEST_F(DataCompareInferShapeTest, infershape_high_rank_8d)
 {
-    std::vector<gert::StorageShape> inputShapes = {
-        {{2, 2, 2, 2, 2, 2, 2, 2}, {2, 2, 2, 2, 2, 2, 2, 2}},
-        {{2, 2, 2, 2, 2, 2, 2, 2}, {2, 2, 2, 2, 2, 2, 2, 2}}
-    };
+    std::vector<gert::StorageShape> inputShapes = {{{2, 2, 2, 2, 2, 2, 2, 2}, {2, 2, 2, 2, 2, 2, 2, 2}},
+                                                   {{2, 2, 2, 2, 2, 2, 2, 2}, {2, 2, 2, 2, 2, 2, 2, 2}}};
     std::vector<ge::DataType> dtypes = {ge::DT_FLOAT, ge::DT_FLOAT, ge::DT_FLOAT};
     std::vector<int64_t> expectResult = {};
     gert::StorageShape outStorageShape = {};
@@ -190,10 +180,8 @@ TEST_F(DataCompareInferShapeTest, infershape_failed_shape_mismatch_dim)
 
 TEST_F(DataCompareInferShapeTest, infershape_failed_rank_exceeds_max)
 {
-    std::vector<gert::StorageShape> inputShapes = {
-        {{2, 2, 2, 2, 2, 2, 2, 2, 2}, {2, 2, 2, 2, 2, 2, 2, 2, 2}},
-        {{2, 2, 2, 2, 2, 2, 2, 2, 2}, {2, 2, 2, 2, 2, 2, 2, 2, 2}}
-    };
+    std::vector<gert::StorageShape> inputShapes = {{{2, 2, 2, 2, 2, 2, 2, 2, 2}, {2, 2, 2, 2, 2, 2, 2, 2, 2}},
+                                                   {{2, 2, 2, 2, 2, 2, 2, 2, 2}, {2, 2, 2, 2, 2, 2, 2, 2, 2}}};
     std::vector<ge::DataType> dtypes = {ge::DT_FLOAT, ge::DT_FLOAT, ge::DT_FLOAT};
     gert::StorageShape outStorageShape = {};
     ExeTestCase({}, inputShapes, dtypes, outStorageShape, ge::GRAPH_FAILED);

@@ -25,9 +25,8 @@
 
 #include "ascendc/host_api/tiling/template_argument.h"
 
-ASCENDC_TPL_ARGS_DECL(
-    DataCompare, ASCENDC_TPL_BOOL_DECL(templateType, 0, 1), // 0=normal/empty, 1=group
-    ASCENDC_TPL_BOOL_DECL(isEmptyTensor, 0, 1)              // 空 tensor 模板
+ASCENDC_TPL_ARGS_DECL(DataCompare, ASCENDC_TPL_BOOL_DECL(templateType, 0, 1), // 0=normal/empty, 1=group
+                      ASCENDC_TPL_BOOL_DECL(isEmptyTensor, 0, 1)              // 空 tensor 模板
 );
 
 ASCENDC_TPL_SEL(

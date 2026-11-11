@@ -66,6 +66,8 @@ struct ShapeAttrsInfo {
     bool isEmptyTensor = false;
 };
 
+constexpr float kMaxTolerance = 1e38f;
+
 static ge::graphStatus GetShapeAttrsInfo(gert::TilingContext* context, ShapeAttrsInfo* info)
 {
     auto inputX1 = context->GetInputShape(0);
@@ -89,7 +91,22 @@ static ge::graphStatus GetShapeAttrsInfo(gert::TilingContext* context, ShapeAttr
 
     auto inputDesc = context->GetInputDesc(0);
     OP_CHECK_NULL_WITH_CONTEXT(context, inputDesc);
+    auto inputDescX2 = context->GetInputDesc(1);
+    OP_CHECK_NULL_WITH_CONTEXT(context, inputDescX2);
     ge::DataType dataType = inputDesc->GetDataType();
+    OP_CHECK_IF(dataType != inputDescX2->GetDataType(),
+                OP_LOGE(context, "x1 dtype %d != x2 dtype %d", static_cast<int>(dataType),
+                        static_cast<int>(inputDescX2->GetDataType())),
+                return ge::GRAPH_FAILED);
+    // format 兜底校验（注册白名单仅 FORMAT_ND；图模式下显式声明的非 ND format 此处拦截）
+    OP_CHECK_IF(inputDesc->GetOriginFormat() != ge::FORMAT_ND,
+                OP_LOGE(context, "x1 format %d is not supported, only ND is supported",
+                        static_cast<int>(inputDesc->GetOriginFormat())),
+                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(inputDescX2->GetOriginFormat() != ge::FORMAT_ND,
+                OP_LOGE(context, "x2 format %d is not supported, only ND is supported",
+                        static_cast<int>(inputDescX2->GetOriginFormat())),
+                return ge::GRAPH_FAILED);
 
     auto attrs = context->GetAttrs();
     OP_CHECK_NULL_WITH_CONTEXT(context, attrs);
@@ -97,6 +114,11 @@ static ge::graphStatus GetShapeAttrsInfo(gert::TilingContext* context, ShapeAttr
     const float* rtolPtr = attrs->GetAttrPointer<float>(1);
     info->atol = (atolPtr != nullptr) ? *atolPtr : 1e-5f;
     info->rtol = (rtolPtr != nullptr) ? *rtolPtr : 1e-3f;
+    // 契约取值域 [0, 1e38]；NaN 不参与任何比较也为假，可一并拦截
+    OP_CHECK_IF(!(info->atol >= 0.0f && info->atol <= kMaxTolerance),
+                OP_LOGE(context, "atol value %f is out of range [0, 1e38]", info->atol), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(!(info->rtol >= 0.0f && info->rtol <= kMaxTolerance),
+                OP_LOGE(context, "rtol value %f is out of range [0, 1e38]", info->rtol), return ge::GRAPH_FAILED);
 
     for (int64_t i = 0; i < x1Rank; ++i) {
         int64_t dim = x1Shape.GetDim(static_cast<size_t>(i));
@@ -158,8 +180,25 @@ static void LogTilingData(gert::TilingContext* context, const DataCompareTilingD
 static ge::graphStatus HandleEmptyTensor(gert::TilingContext* context, DataCompareTilingData* tiling,
                                          const ShapeAttrsInfo* info)
 {
-    tiling->usedCoreNum = 0;
-    tiling->axisShape[0] = info->totalElements;
+    // EMPTY_R 语义：输出为 1 元素 fp32 标量，单核写入 0.0f
+    tiling->axisNum = 2;
+    tiling->axisShape[0] = 1; // A 轴固定 1（输出仅 1 个元素，不取截断乘积）
+    tiling->axisShape[1] = 0; // R 轴为空
+    tiling->axisStride[0] = 0;
+    tiling->axisStride[1] = 1;
+    tiling->aUbFactor = 1;
+    tiling->aUbFactorAlign = 1;
+    tiling->innerAProd = 1;
+    tiling->innerAProdAlign = 1;
+    tiling->innerRProd = 1;
+    tiling->innerRProdAlign = 1;
+    tiling->aLoopCntTotal = 1;
+    tiling->aSplitChunkCnt = 1;
+    tiling->aBigCoreCnt = 1;
+    tiling->aBigCoreLoopCnt = 1;
+    tiling->aSmallCoreLoopCnt = 0;
+    tiling->usedCoreNum = 1;
+    tiling->postReduceUbSize = 32;
     tiling->atol = info->atol;
     tiling->rtol = info->rtol;
     tiling->cacheBufUbSize = CACHE_BUF_SIZE;
@@ -201,35 +240,43 @@ static ge::graphStatus ComputeUbFactorTailR(gert::TilingContext* context, DataCo
     tiling->innerRProd = 1;
     tiling->innerRProdAlign = 1;
 
-    int64_t ubAvailable = static_cast<int64_t>(ubSize) - CACHE_BUF_SIZE;
-    int64_t bsElem = static_cast<int64_t>(blockSize) / typeSize;
+    constexpr int64_t kOutBufBytes = 32; // fp32 标量输出缓冲：CeilAlign(sizeof(float), 32B)
+    const int64_t bsElem = static_cast<int64_t>(blockSize) / typeSize;
+    OP_CHECK_IF(bsElem < 1,
+                OP_LOGE(context, "invalid bsElem=%ld, blockSize=%lu, typeSize=%ld", bsElem, blockSize, typeSize),
+                return ge::GRAPH_FAILED);
 
-    int64_t aUnit = tiling->aUbFactorAlign * tiling->innerAProdAlign;
-    int64_t aOnlyBytes = aUnit * typeSize;
-    int64_t bytesPerRElem = 3 * typeSize + 2 * static_cast<int64_t>(sizeof(float));
-    int64_t r_i_max = (ubAvailable - aOnlyBytes) / (aUnit * bytesPerRElem);
-    if (r_i_max < 1) {
-        OP_LOGE(context, "UB too small: r_i_max=%ld", r_i_max);
-        return ge::GRAPH_FAILED;
+    // Kernel Init 实际 UB 占用（按对齐后 rUbFactorAlign 计）：
+    //   preInQueX1_(双缓冲) + preInQueX2_ + tmpBuf_(双槽) + cacheBuf_ + outQue_
+    //   = 3 * CeilAlign(rAlign * typeSize, blockSize) + 2 * CeilAlign(rAlign * sizeof(float), blockSize)
+    //     + CACHE_BUF_SIZE + kOutBufBytes
+    const int64_t ubForRElem = static_cast<int64_t>(ubSize) - CACHE_BUF_SIZE - kOutBufBytes;
+    auto ubNeedBytes = [blockSize, typeSize](int64_t rAlign) {
+        const int64_t blk = static_cast<int64_t>(blockSize);
+        const int64_t pre = CeilAlign(rAlign * typeSize, blk);
+        const int64_t tmp = CeilAlign(rAlign * static_cast<int64_t>(sizeof(float)), blk);
+        return 3 * pre + 2 * tmp;
+    };
+
+    const int64_t bytesPerRElem = 3 * typeSize + 2 * static_cast<int64_t>(sizeof(float));
+    int64_t rAlignMax = FloorAlign(ubForRElem / bytesPerRElem, bsElem);
+    while (rAlignMax >= bsElem && ubNeedBytes(rAlignMax) > ubForRElem) {
+        rAlignMax -= bsElem;
     }
+    OP_CHECK_IF(
+        rAlignMax < bsElem,
+        OP_LOGE(context, "UB too small: rAlignMax=%ld, bsElem=%ld, ubForRElem=%ld", rAlignMax, bsElem, ubForRElem),
+        return ge::GRAPH_FAILED);
 
-    int64_t rUbFactor = r_i_max;
-    if (rUbFactor > totalElements) {
+    // 整张量装入：对齐后元素数也必须落在预算内，否则退回对齐的 rAlignMax
+    const int64_t totalAlign = CeilAlign(totalElements, bsElem);
+    int64_t rUbFactor = rAlignMax;
+    if (totalAlign <= rAlignMax) {
         rUbFactor = totalElements;
     }
 
-    if (rUbFactor < totalElements) {
-        rUbFactor = FloorAlign(rUbFactor, bsElem);
-        if (rUbFactor == 0) {
-            OP_LOGE(context, "rUbFactor FloorAlign to 0, bsElem=%ld", bsElem);
-            return ge::GRAPH_FAILED;
-        }
-    }
-
-    int64_t rUbFactorAlign = CeilAlign(rUbFactor, bsElem);
-
     tiling->rUbFactor = rUbFactor;
-    tiling->rUbFactorAlign = rUbFactorAlign;
+    tiling->rUbFactorAlign = (rUbFactor == totalElements) ? totalAlign : rAlignMax;
 
     return ge::GRAPH_SUCCESS;
 }

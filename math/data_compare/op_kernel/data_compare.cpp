@@ -9,8 +9,8 @@
  */
 
 /*!
- * \file data_compare_apt.cpp
- * \brief DataCompare 算子 kernel 入口分发（APT entry）
+ * \file data_compare.cpp
+ * \brief DataCompare 算子 kernel 入口分发
  *
  * All Reduce 简化：2 个 bool（templateType / isEmptyTensor），无 isTailR。
  * dtype 走 DTYPE_X1 编译期实例化（6 种 dtype），× 3 组合 = 18 份 binary。

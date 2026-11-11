@@ -72,6 +72,13 @@
     <td>ND</td>
   </tr>
   <tr>
+    <td>num</td>
+    <td>输出</td>
+    <td>不匹配元素总数，对应公式中的output。固定为FLOAT标量（0维张量）。</td>
+    <td>FLOAT</td>
+    <td>ND</td>
+  </tr>
+  <tr>
     <td>atol</td>
     <td>属性</td>
     <td><ul><li>绝对容差，对应公式中的atol。</li><li>需>=0。</li><li>默认值为1e-5。</li></ul></td>
@@ -85,27 +92,23 @@
     <td>FLOAT</td>
     <td>-</td>
   </tr>
-  <tr>
-    <td>num</td>
-    <td>输出</td>
-    <td>不匹配元素总数，对应公式中的output。固定为FLOAT标量（0维张量）。</td>
-    <td>FLOAT</td>
-    <td>ND</td>
-  </tr>
 </tbody></table>
 
 ## 约束说明
 
 - x1和x2的shape必须完全相同，不支持broadcast。
 - x1和x2的dtype必须完全相同，不支持混合dtype。
-- 整数类型（INT8/UINT8/INT32）输入时，算子内部先cast到FLOAT再执行比较计算。
+- x1、x2和输出num的format仅支持ND，非ND format输入将校验报错。
+- 除FLOAT外的输入类型（FLOAT16/BFLOAT16/INT8/UINT8/INT32）输入时，算子内部先升精度到FLOAT（fp32）再执行整条比较链计算，比较阈值与差值均按fp32精度计算。
+- atol/rtol取值范围为$[0, 1\times10^{38}]$，超出取值范围的输入将校验报错。
 - 归约方式为All Reduce（对所有轴归约），用户不可指定axis。
+- 支持动态shape/动态rank输入：允许传入含未知维（-1）的shape构图；实际执行时shape需已完成具体化，算子按具体化后的元素总数执行比较，输出恒为标量，语义与静态shape一致。
 - 输出固定为FLOAT标量。
 - 确定性实现：相同输入保证产生相同输出。
 - 当输入元素总数超过$2^{24}$（约16M）时，由于FLOAT精确表示范围限制，计数值可能不精确。
 
 ## 调用说明
 
-| 调用方式 | 调用样例                                                                   | 说明                                                           |
+| 调用方式 | 样例代码 | 说明 |
 |--------------|------------------------------------------------------------------------|--------------------------------------------------------------|
-| 图模式调用 | [test_geir_data_compare](./examples/arch35/test_geir_data_compare.cpp)   | 通过[算子IR](./op_graph/data_compare_proto.h)构图方式调用DataCompare算子。
+| GE图模式 | [test_geir_data_compare](./examples/arch35/test_geir_data_compare.cpp)   | 通过[算子IR](./op_graph/data_compare_proto.h)构图方式调用DataCompare算子。 |

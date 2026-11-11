@@ -12,8 +12,8 @@
  * \file data_compare_empty.h
  * \brief DataCompare 空 tensor 模板 kernel 类
  *
- * EMPTY_A：usedCoreNum=0，所有核早退，输出空 tensor
- * EMPTY_R：usedCoreNum>0，输出 0.0f（Reducer::empty_r_output_value）
+ * DataCompare 输出恒为 1 元素 fp32 标量，空输入固定走 EMPTY_R：
+ * usedCoreNum=1，单核向 y[0] 写入 0.0f（Reducer::empty_r_output_value）
  * 不带 isTailR 模板参数（All Reduce 简化）
  */
 #ifndef OPS_DATA_COMPARE_EMPTY_H_
@@ -91,8 +91,8 @@ __aicore__ inline void DataCompareEmpty<DType>::Process()
         aStart = blockIdx * aBigCoreLoopCnt_ * aUbFactor_;
         aEnd = aStart + aBigCoreLoopCnt_ * aUbFactor_;
     } else {
-        aStart =
-            aBigCoreCnt_ * aBigCoreLoopCnt_ * aUbFactor_ + (blockIdx - aBigCoreCnt_) * aSmallCoreLoopCnt_ * aUbFactor_;
+        aStart = aBigCoreCnt_ * aBigCoreLoopCnt_ * aUbFactor_ +
+                 (blockIdx - aBigCoreCnt_) * aSmallCoreLoopCnt_ * aUbFactor_;
         aEnd = aStart + aSmallCoreLoopCnt_ * aUbFactor_;
     }
     if (aEnd > aTotal_)
