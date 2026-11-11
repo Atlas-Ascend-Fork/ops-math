@@ -82,7 +82,7 @@ aclnnStatus aclnnStack(
       <td>-</td>
       <td>FLOAT16, FLOAT, INT8, INT16, INT32, INT64, UINT8, UINT16, UINT32, UINT64, BOOL, DOUBLE, COMPLEX64, COMPLEX128, BFLOAT16.</td>
       <td>ND</td>
-      <td>0-7</td>
+      <td>0-8</td>
       <td>√</td>
     </tr>
     <tr>
@@ -102,7 +102,7 @@ aclnnStatus aclnnStack(
       <td>-</td>
       <td>FLOAT16, FLOAT, INT8, INT16, INT32, INT64, UINT8, UINT16, UINT32, UINT64, BOOL, DOUBLE, COMPLEX64, COMPLEX128, BFLOAT16.</td>
       <td>ND</td>
-      <td>1-8</td>
+      <td>1-9</td>
       <td>√</td>
     </tr>
     <tr>
@@ -154,8 +154,8 @@ aclnnStatus aclnnStack(
       <td>tensors or out is a null pointer.</td>
     </tr>
     <tr>
-      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="4">161002</td>
+      <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="5">161002</td>
       <td>The data type of the tensor in the tensors list or out is not within the supported range.</td>
     </tr>
     <tr>
@@ -166,6 +166,9 @@ aclnnStatus aclnnStack(
     </tr>
     <tr>
       <td>dim is out of the tensor dimension range.</td>
+    </tr>
+    <tr>
+      <td>The dimension of the tensor in the tensors list exceeds 8.</td>
     </tr>
   </tbody>
   </table>

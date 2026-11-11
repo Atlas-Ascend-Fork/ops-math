@@ -80,7 +80,7 @@ aclnnStatus aclnnStack(
       <td>-</td>
       <td>FLOAT16、FLOAT、INT8、INT16、INT32、INT64、UINT8、UINT16、UINT32、UINT64、BOOL、DOUBLE、COMPLEX64、COMPLEX128、BFLOAT16、HIFLOAT8、FLOAT8_E5M2、FLOAT8_E4M3FN。</td>
       <td>ND</td>
-      <td>0-7</td>
+      <td>0-8</td>
       <td>√</td>
     </tr>
     <tr>
@@ -100,7 +100,7 @@ aclnnStatus aclnnStack(
       <td>-</td>
       <td>FLOAT16、FLOAT、INT8、INT16、INT32、INT64、UINT8、UINT16、UINT32、UINT64、BOOL、DOUBLE、COMPLEX64、COMPLEX128、BFLOAT16、HIFLOAT8、FLOAT8_E5M2、FLOAT8_E4M3FN。</td>
       <td>ND</td>
-      <td>1-8</td>
+      <td>1-9</td>
       <td>√</td>
     </tr>
     <tr>
@@ -156,8 +156,8 @@ aclnnStatus aclnnStack(
       <td>传入的tensors或out是空指针。</td>
     </tr>
     <tr>
-      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="4">161002</td>
+      <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="5">161002</td>
       <td>tensors列表中的tensor或out的数据类型不在支持的范围之内。</td>
     </tr>
     <tr>
@@ -168,6 +168,9 @@ aclnnStatus aclnnStack(
     </tr>
     <tr>
       <td>dim超过tensor维度范围。</td>
+    </tr>
+    <tr>
+      <td>tensors列表中的tensor维度超过8维。</td>
     </tr>
   </tbody>
   </table>
