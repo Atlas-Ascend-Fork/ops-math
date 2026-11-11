@@ -8,6 +8,9 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ----------------------------------------------------------------------------
 
+set_property(SOURCE "${CMAKE_CURRENT_LIST_DIR}/test_atan2.cpp" APPEND PROPERTY
+    COMPILE_DEFINITIONS "ATAN2_TEST_DATA_DIR=\"${CMAKE_CURRENT_LIST_DIR}/atan2_data\"")
+
 if (UT_TEST_ALL OR OP_KERNEL_UT)
     set(atan2_tiling_files
         ${CMAKE_CURRENT_SOURCE_DIR}/../../../op_host/atan2_tiling.cpp

@@ -27,8 +27,7 @@ using namespace AscendC;
 constexpr int32_t BUFFER_NUM = 2;
 
 constexpr float CONST_PI = 3.14159265358979323846f;
-constexpr float CONST_PI_BY_TWO = 1.57079632679489661923f;
-constexpr float EPSILON = 1e-37f;
+constexpr uint32_t COMPARE_ALIGN_ELEMS = 256 / sizeof(float);
 
 template <typename T>
 class Atan2 {
@@ -127,13 +126,8 @@ __aicore__ inline void Atan2<T>::CopyOut(int32_t progress)
 
 // ── Compute ────────────────────────────────────────────────────────────────
 //
-// Scratch assignment during Compute (all float32 except atanTmp):
-//   tmp0: step1→yF, step6→sign_x_soft→unsigned_out
-//   tmp1: step1→xF, step5→blend_xne0
-//   tmp2: step2→ind_xlt0, step6→blend*(base_atan−π/2)
-//   tmp3: step2→scratch for ind denominator, step3→sign_y
-//   tmp4: step4→base_atan = Atan(|yF/xF|)  [dst≠src per Atan constraint]
-//   atanTmpBuf: uint8_t scratch for Atan
+// Reuse float scratch as comparison masks after computing the base angle;
+// no additional UB allocation is required for the zero boundary handling.
 
 template <typename T>
 __aicore__ inline void Atan2<T>::Compute(int32_t progress)
@@ -150,69 +144,73 @@ __aicore__ inline void Atan2<T>::Compute(int32_t progress)
     LocalTensor<uint8_t> atanTmp = atanTmpBuf.Get<uint8_t>();
 
     uint32_t n = this->processDataNum;
+    uint32_t compareNum = (n + COMPARE_ALIGN_ELEMS - 1U) / COMPARE_ALIGN_ELEMS * COMPARE_ALIGN_ELEMS;
+    if (compareNum > n) {
+        // CompareScalar requires a complete 256-byte input repeat. Initialize
+        // that final repeat before copying/casting the valid input elements.
+        uint32_t lastRepeat = compareNum - COMPARE_ALIGN_ELEMS;
+        AscendC::Duplicate(tmp0[lastRepeat], 0.0f, COMPARE_ALIGN_ELEMS);
+        AscendC::Duplicate(tmp1[lastRepeat], 0.0f, COMPARE_ALIGN_ELEMS);
+        if constexpr (AscendC::Std::is_same<T, bfloat16_t>::value) {
+            AscendC::Duplicate(tmp4[lastRepeat], 0.0f, COMPARE_ALIGN_ELEMS);
+        }
+    }
 
     // ── Step 1: cast inputs to float32 → tmp0(yF), tmp1(xF) ──────────────
     if constexpr (AscendC::Std::is_same<T, half>::value || AscendC::Std::is_same<T, bfloat16_t>::value) {
         AscendC::Cast(tmp0, yLocal, RoundMode::CAST_NONE, n);
         AscendC::Cast(tmp1, xLocal, RoundMode::CAST_NONE, n);
     } else {
-        // T == float: copy into float scratch
-        AscendC::Adds(tmp0, yLocal.template ReinterpretCast<float>(), 0.0f, n);
-        AscendC::Adds(tmp1, xLocal.template ReinterpretCast<float>(), 0.0f, n);
+        // Copy the bits so that the sign of a negative zero is preserved.
+        AscendC::DataCopy(tmp0, yLocal.template ReinterpretCast<float>(), n);
+        AscendC::DataCopy(tmp1, xLocal.template ReinterpretCast<float>(), n);
     }
-    // tmp0 = yF,  tmp1 = xF
 
-    // ── Step 2: ind_xlt0 = (x<0)?1:0 → tmp2 ─────────────────────────────
-    // neg_x = min(xF, 0)  → 0 when x≥0, negative when x<0
-    // tmp2 = |neg_x| / (|neg_x| + ε)  → 1 when x<0, 0 when x≥0
-    AscendC::Mins(tmp2, tmp1, 0.0f, n);    // tmp2 = min(xF, 0)
-    AscendC::Abs(tmp2, tmp2, n);           // tmp2 = |min(xF,0)|
-    AscendC::Adds(tmp3, tmp2, EPSILON, n); // tmp3 = |min(xF,0)| + ε (borrow tmp3 momentarily)
-    AscendC::Div(tmp2, tmp2, tmp3, n);     // tmp2 = ind_xlt0 ∈ [0,1]
+    // Atan requires distinct source and destination tensors.
+    AscendC::Div(tmp2, tmp0, tmp1, n);
+    AscendC::Abs(tmp2, tmp2, n);
+    AscendC::Atan(tmp4, tmp2, atanTmp, n);
 
-    // ── Step 3: sign_y = yF/(|yF|+ε) → tmp3 ─────────────────────────────
-    AscendC::Abs(tmp3, tmp0, n);           // tmp3 = |yF|
-    AscendC::Adds(tmp3, tmp3, EPSILON, n); // tmp3 = |yF| + ε
-    AscendC::Div(tmp3, tmp0, tmp3, n);     // tmp3 = sign_y ∈ (-1,+1]
+    LocalTensor<uint8_t> mask = tmp2.ReinterpretCast<uint8_t>();
+    LocalTensor<uint8_t> xZeroMask = tmp3.ReinterpretCast<uint8_t>();
+    AscendC::CompareScalar(mask, tmp1, 0.0f, CMPMODE::LT, compareNum);
+    AscendC::Muls(tmp3, tmp4, -1.0f, n);
+    AscendC::Adds(tmp3, tmp3, CONST_PI, n);
+    AscendC::Select(tmp4, mask, tmp3, tmp4, SELMODE::VSEL_TENSOR_TENSOR_MODE, n);
 
-    // ── Step 4: base_atan = Atan(|yF/xF|) → tmp4 ─────────────────────────
-    // Use tmp0 as scratch for |yF/xF| (yF is no longer needed after step 3)
-    AscendC::Div(tmp0, tmp0, tmp1, n); // tmp0 = yF/xF  (±Inf when xF=0; handled by blend)
-    AscendC::Abs(tmp0, tmp0, n);       // tmp0 = |yF/xF| ≥ 0
-    // Atan: dst(tmp4) ≠ src(tmp0), sharedTmpBuffer = atanTmp
-    AscendC::Atan(tmp4, tmp0, atanTmp, n); // tmp4 = Atan(|yF/xF|) ∈ [0, π/2]
+    // Save the origin mask before reusing xF to form an exact +/-1 sign.
+    AscendC::CompareScalar(mask, tmp0, 0.0f, CMPMODE::EQ, compareNum);
+    AscendC::CompareScalar(xZeroMask, tmp1, 0.0f, CMPMODE::EQ, compareNum);
+    AscendC::And(mask.ReinterpretCast<uint16_t>(), mask.ReinterpretCast<uint16_t>(),
+                 xZeroMask.ReinterpretCast<uint16_t>(), (n + 15U) / 16U);
+    AscendC::ShiftRight(tmp1.ReinterpretCast<uint32_t>(), tmp0.ReinterpretCast<uint32_t>(), static_cast<uint32_t>(31),
+                        n);
+    AscendC::Cast(tmp1, tmp1.ReinterpretCast<int32_t>(), RoundMode::CAST_NONE, n);
+    AscendC::Muls(tmp1, tmp1, -2.0f, n);
+    AscendC::Adds(tmp1, tmp1, 1.0f, n);
+    AscendC::Mul(tmp4, tmp4, tmp1, n);
 
-    // ── Step 5: blend_xne0 = |xF|/(|xF|+ε) → tmp1 ───────────────────────
-    // xF is in tmp1; compute |xF| in-place
-    AscendC::Abs(tmp1, tmp1, n);           // tmp1 = |xF|
-    AscendC::Adds(tmp0, tmp1, EPSILON, n); // tmp0 = |xF| + ε
-    AscendC::Div(tmp1, tmp1, tmp0, n);     // tmp1 = blend_xne0
+    // Select the documented origin result: multiplying NaN by zero would
+    // leave the 0/0 from the division above as NaN.
+    AscendC::Duplicate(tmp0, 0.0f, n);
+    AscendC::Select(tmp4, mask, tmp0, tmp4, SELMODE::VSEL_TENSOR_TENSOR_MODE, n);
 
-    // ── Step 6: unsigned_out accumulation → tmp0 ──────────────────────────
-    // Correct formula: unsigned_out = sign_x_soft * blend*(base_atan − π/2) + π/2
-    //   where sign_x_soft = 1 − 2*ind_xlt0  (+1 when x≥0, −1 when x<0)
-    //
-    // Derivation check:
-    //   x>0 (ind=0): blend*(base−π/2)+π/2   → base when blend=1  ∈[0,π/2] ✓
-    //   x<0 (ind=1): −blend*(base−π/2)+π/2  → π−base when blend=1         ✓
-    //   x=0 (blend=0): π/2                                                  ✓
-    //
-    // tmp1=blend_xne0, tmp2=ind_xlt0, tmp4=base_atan
-    AscendC::Muls(tmp0, tmp2, -2.0f, n);            // tmp0 = −2*ind_xlt0
-    AscendC::Adds(tmp0, tmp0, 1.0f, n);             // tmp0 = sign_x_soft = 1−2*ind_xlt0
-    AscendC::Adds(tmp2, tmp4, -CONST_PI_BY_TWO, n); // tmp2 = base_atan − π/2
-    AscendC::Mul(tmp2, tmp1, tmp2, n);              // tmp2 = blend*(base_atan−π/2)
-    AscendC::Mul(tmp0, tmp0, tmp2, n);              // tmp0 = sign_x_soft*blend*(base_atan−π/2)
-    AscendC::Adds(tmp0, tmp0, CONST_PI_BY_TWO, n);  // tmp0 = unsigned_out
-
-    // ── Step 7: out = sign_y * unsigned_out → tmp0 ────────────────────────
-    AscendC::Mul(tmp0, tmp3, tmp0, n);
-
-    // ── Step 8: cast float32 result back to T → outLocal ─────────────────
+    // Cast the float32 result back to the input dtype.
     if constexpr (AscendC::Std::is_same<T, half>::value || AscendC::Std::is_same<T, bfloat16_t>::value) {
-        AscendC::Cast(outLocal, tmp0, RoundMode::CAST_ROUND, n);
+        AscendC::Cast(outLocal, tmp4, RoundMode::CAST_ROUND, n);
     } else {
-        AscendC::Adds(outLocal.template ReinterpretCast<float>(), tmp0, 0.0f, n);
+        AscendC::DataCopy(outLocal.template ReinterpretCast<float>(), tmp4, n);
+    }
+
+    if constexpr (AscendC::Std::is_same<T, bfloat16_t>::value) {
+        // Preserve the NaN result independently of float-to-BF16 conversion.
+        // Select only copies bits: treating BF16 storage as half here does
+        // not convert the quiet-NaN encoding or the rounded finite values.
+        AscendC::Compare(mask, tmp4, tmp4, CMPMODE::EQ, compareNum);
+        AscendC::Not(mask.ReinterpretCast<uint16_t>(), mask.ReinterpretCast<uint16_t>(), (compareNum + 15U) / 16U);
+        AscendC::Duplicate(tmp0.ReinterpretCast<uint16_t>(), static_cast<uint16_t>(0x7fc0), n);
+        AscendC::Select(outLocal.template ReinterpretCast<half>(), mask, tmp0.ReinterpretCast<half>(),
+                        outLocal.template ReinterpretCast<half>(), SELMODE::VSEL_TENSOR_TENSOR_MODE, n);
     }
 
     outputQueueY.EnQue<T>(outLocal);
