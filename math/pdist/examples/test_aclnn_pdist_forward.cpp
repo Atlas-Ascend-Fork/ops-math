@@ -18,7 +18,7 @@
 #include <vector>
 #include <cstring>
 #include "acl/acl.h"
-#include "aclnn_pdist_forward.h"
+#include "aclnnop/aclnn_pdist_forward.h"
 
 #define CHECK_RET(cond, return_expr) \
     do {                             \

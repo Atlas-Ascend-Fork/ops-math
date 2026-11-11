@@ -60,4 +60,7 @@ else()
         add_opapi_modules()
         target_sources(${OPHOST_NAME}_opapi_obj PRIVATE ${OPAPI_L2_SRCS})
     endif()
+    # 与 950 分支的 add_all_modules_sources 宏保持一致：收集本算子 tests/ut 下的 UT 源码，
+    # 保证非 950 构建（如 CI 默认 ascend910b 的 opapi UT）同样纳入本算子用例
+    add_all_ut_sources(UT_TILING_DIR "" OP_NAME ${OP_NAME})
 endif()
