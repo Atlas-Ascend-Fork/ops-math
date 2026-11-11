@@ -27,6 +27,7 @@ const int CAST_MODE_RINT = 1;
 constexpr uint32_t THREAD_NUM = 1024;
 
 #ifdef __CCE_AICORE__
+#ifdef __CCE_AICORE_SUPPORT_SIMT__
 template <typename T>
 __simt_vf__ __aicore__ LAUNCH_BOUND(THREAD_NUM) inline void SinSimtCompute(__ubuf__ T* x, __ubuf__ T* y,
                                                                            const int64_t totalNum)
@@ -35,25 +36,28 @@ __simt_vf__ __aicore__ LAUNCH_BOUND(THREAD_NUM) inline void SinSimtCompute(__ubu
         y[i] = Simt::Sin(x[i]);
     }
 }
-#endif
 
 template <class T>
 struct SinCustom : public Ops::Base::Vec::ElemwiseUnaryOP<T, T> {
     __aicore__ inline SinCustom(Ops::Base::LocalTensor<T>& dst, Ops::Base::LocalTensor<T>& src, uint32_t count)
     {
-#ifdef __CCE_AICORE__
         __ubuf__ T* srcAddr = (__ubuf__ T*)src.GetPhyAddr();
         __ubuf__ T* dstAddr = (__ubuf__ T*)dst.GetPhyAddr();
         Simt::VF_CALL<SinSimtCompute<T>>(Simt::Dim3(THREAD_NUM), srcAddr, dstAddr, count);
-#endif
     }
 };
+#endif
+#endif
 
 template <typename U, typename T = float>
 struct SinDAG {
     using OpCopyIn0 = Ops::Base::Bind<Ops::Base::Vec::CopyIn<U>, Ops::Base::Placeholder::In0<U>>;
     using OpCopyIn0Cast = Ops::Base::Bind<Ops::Base::Vec::Cast<T, U, CAST_MODE_NONE>, OpCopyIn0>;
+#ifdef __CCE_AICORE_SUPPORT_SIMT__
     using OpResult1 = Ops::Base::Bind<SinCustom<T>, OpCopyIn0Cast>;
+#else
+    using OpResult1 = Ops::Base::Bind<Ops::Base::Vec::Sin<T>, OpCopyIn0Cast>;
+#endif
     using OpResultCast = Ops::Base::Bind<Ops::Base::Vec::Cast<U, T, CAST_MODE_RINT>, OpResult1>;
     using OpCopyOut = Ops::Base::Bind<Ops::Base::Vec::CopyOut<U>, Ops::Base::Placeholder::Out0<U>, OpResultCast>;
 

@@ -13,47 +13,52 @@
  * \brief
  */
 
-#ifndef CANN_CUSTOM_OPS_ERF_DAG_H
-#define CANN_CUSTOM_OPS_ERF_DAG_H
+#ifndef CANN_CUSTOM_OPS_COS_DAG_H
+#define CANN_CUSTOM_OPS_COS_DAG_H
 
 #include "atvoss/util/dag.h"
 #include "atvoss/util/vec.h"
 #include "atvoss/util/placeholder.h"
-namespace CosOp
-{
+namespace CosOp {
 using namespace Ops::Base;
 const int CAST_MODE_NONE = 0;
 const int CAST_MODE_RINT = 1;
 constexpr uint32_t THREAD_NUM = 1024;
 
 #ifdef __CCE_AICORE__
+#ifdef __CCE_AICORE_SUPPORT_SIMT__
 using namespace AscendC;
 
-template<typename T>
-__simt_vf__ __aicore__ LAUNCH_BOUND(THREAD_NUM) inline void CosSimtCompute(__ubuf__ T* x, __ubuf__ T* y, const int64_t totalNum)
+template <typename T>
+__simt_vf__ __aicore__ LAUNCH_BOUND(THREAD_NUM) inline void CosSimtCompute(__ubuf__ T* x, __ubuf__ T* y,
+                                                                           const int64_t totalNum)
 {
-    for(int64_t i = threadIdx.x; i < totalNum; i += blockDim.x){
+    for (int64_t i = threadIdx.x; i < totalNum; i += blockDim.x) {
         y[i] = Simt::Cos(x[i]);
     }
 }
-#endif
 
-template<class T>
+template <class T>
 struct CosCustom : public Vec::ElemwiseUnaryOP<T, T> {
-    __aicore__ inline CosCustom(LocalTensor<T> &dst, LocalTensor<T> &src, uint32_t count) {
-#ifdef __CCE_AICORE__
+    __aicore__ inline CosCustom(LocalTensor<T>& dst, LocalTensor<T>& src, uint32_t count)
+    {
         __ubuf__ T* srcAddr = (__ubuf__ T*)src.GetPhyAddr();
         __ubuf__ T* dstAddr = (__ubuf__ T*)dst.GetPhyAddr();
-        Simt::VF_CALL<CosSimtCompute<T>>(Simt::Dim3(THREAD_NUM),srcAddr,dstAddr,count);
-#endif
+        Simt::VF_CALL<CosSimtCompute<T>>(Simt::Dim3(THREAD_NUM), srcAddr, dstAddr, count);
     }
 };
+#endif
+#endif
 
 template <typename U, typename T = float>
 struct CosDAG {
     using OpCopyIn0 = Bind<Vec::CopyIn<U>, Placeholder::In0<U>>;
     using OpCopyIn0Cast = Bind<Vec::Cast<T, U, CAST_MODE_NONE>, OpCopyIn0>;
+#ifdef __CCE_AICORE_SUPPORT_SIMT__
     using OpResult1 = Bind<CosCustom<T>, OpCopyIn0Cast>;
+#else
+    using OpResult1 = Bind<Vec::Cos<T>, OpCopyIn0Cast>;
+#endif
     using OpResultCast = Bind<Vec::Cast<U, T, CAST_MODE_RINT>, OpResult1>;
     using OpCopyOut = Bind<Vec::CopyOut<U>, Placeholder::Out0<U>, OpResultCast>;
 
@@ -61,5 +66,5 @@ struct CosDAG {
     using MemCfg = MemOptCfg<MemLevel::LEVEL_2>;
     using OpDag = DAGSch<Outputs, void, MemCfg>;
 };
-}
-#endif  // CANN_CUSTOM_OPS_ERF_DAG_H
+} // namespace CosOp
+#endif // CANN_CUSTOM_OPS_COS_DAG_H

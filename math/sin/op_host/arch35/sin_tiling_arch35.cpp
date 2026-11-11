@@ -22,6 +22,7 @@
 #include "../../op_kernel/arch35/sin_struct.h"
 #include "log/log.h"
 #include "op_host/tiling_base_util.h"
+#include "op_host/tiling_util.h"
 
 #include <iostream>
 
@@ -134,18 +135,23 @@ ge::graphStatus SinTiling::RunTiling()
                 return ge::GRAPH_FAILED);
 
     ge::graphStatus baseTilingResult = ge::GRAPH_FAILED;
+    int64_t extraSize = ASCEND_API_BUFFER + DCACHE_SIZE;
+    if (tilingContext->GetPlatformInfo() != nullptr && !Ops::Math::OpTiling::IsSimtSupported(tilingContext)) {
+        uint32_t maxLiveNodeCnt = 0;
+        uint32_t extraBuf = 0;
+        static constexpr AscendC::SinConfig sinConfig = {AscendC::SinAlgo::POLYNOMIAL_APPROXIMATION};
+        AscendC::GetSinTmpBufferFactorSize(sinConfig, sizeof(float), maxLiveNodeCnt, extraBuf);
+        extraSize = static_cast<int64_t>(extraBuf);
+    }
     if (this->outputDtype == ge::DT_FLOAT16) {
         dType = TPL_FP16;
-        baseTilingResult = elewiseBaseTiling.DoTiling<SinOp::SinDAG<Ops::Base::half>::OpDag>(
-            *tiling, ASCEND_API_BUFFER + DCACHE_SIZE);
+        baseTilingResult = elewiseBaseTiling.DoTiling<SinOp::SinDAG<Ops::Base::half>::OpDag>(*tiling, extraSize);
     } else if (this->outputDtype == ge::DT_BF16) {
         dType = TPL_BF16;
-        baseTilingResult = elewiseBaseTiling.DoTiling<SinOp::SinDAG<Ops::Base::bfloat16_t>::OpDag>(
-            *tiling, ASCEND_API_BUFFER + DCACHE_SIZE);
+        baseTilingResult = elewiseBaseTiling.DoTiling<SinOp::SinDAG<Ops::Base::bfloat16_t>::OpDag>(*tiling, extraSize);
     } else if (this->outputDtype == ge::DT_FLOAT) {
         dType = TPL_FP32;
-        baseTilingResult = elewiseBaseTiling.DoTiling<SinOp::SinDAG<float>::OpDag>(*tiling,
-                                                                                   ASCEND_API_BUFFER + DCACHE_SIZE);
+        baseTilingResult = elewiseBaseTiling.DoTiling<SinOp::SinDAG<float>::OpDag>(*tiling, extraSize);
     } else {
         OP_LOGE_FOR_INVALID_DTYPE(tilingContext->GetNodeName(), "y",
                                   ge::TypeUtils::DataTypeToSerialString(this->outputDtype), "FLOAT16, BF16, FLOAT");
