@@ -318,7 +318,8 @@ static aclnnStatus HandleSelfEmpty(const aclScalar* value, aclTensor* out, aclOp
 static aclnnStatus DoPadV3(const aclTensor* self, const aclIntArray* noneNegPad, const aclScalar* value,
                            const aclTensor** padV3Result, aclOpExecutor* executor)
 {
-    auto padTensor = executor->ConvertToTensor(noneNegPad, DataType::DT_INT32);
+    // 与pad家族其它接口(Reflection/Replication/Backward的GetPaddingTensor)保持一致：pad值按INT64张量化。
+    auto padTensor = executor->ConvertToTensor(noneNegPad, DataType::DT_INT64);
     CHECK_RET(padTensor != nullptr, ACLNN_ERR_INNER_NULLPTR);
     DataType dataType = self->GetDataType();
     if (dataType == DataType::DT_BOOL && !IsRegBase()) {
