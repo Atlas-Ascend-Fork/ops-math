@@ -1115,6 +1115,12 @@ CastMicro<id, ST, DT, MST, MMT, MDT, ldDist, stDist, castMode1, castMode2, RegCo
         Reg::RegTensor<MMT> vregOut;
         Reg::MaskReg mask;
         Reg::MaskReg maskAll = Reg::CreateMask<MST>();
+#if ORIG_DTYPE_X == DT_FLOAT8_E8M0
+        constexpr uint16_t bf16SubnormalBits = 0x0040;
+        Reg::RegTensor<uint16_t> subnormalFix;
+        Reg::MaskReg ftzMask;
+        Reg::Duplicate(subnormalFix, bf16SubnormalBits);
+#endif
 
         for (uint16_t loopIdx = 0; loopIdx < regLoop; loopIdx++) {
 #if ORIG_DTYPE_X == DT_UINT32 && ORIG_DTYPE_Y == DT_FLOAT
@@ -1132,6 +1138,9 @@ CastMicro<id, ST, DT, MST, MMT, MDT, ldDist, stDist, castMode1, castMode2, RegCo
             Reg::Cast<MMT, int64_t, trait>(vregOut, (Reg::RegTensor<int64_t>&)vregIn, maskAll);
 #elif ORIG_DTYPE_X == DT_FLOAT8_E8M0
             Reg::Cast<MMT, fp8_e8m0_t, trait>(vregOut, (Reg::RegTensor<fp8_e8m0_t>&)vregIn, maskAll);
+            Reg::CompareScalar<uint16_t, CMPMODE::EQ>(ftzMask, (Reg::RegTensor<uint16_t>&)vregOut,
+                                                      static_cast<uint16_t>(0), mask);
+            Reg::Select((Reg::RegTensor<uint16_t>&)vregOut, subnormalFix, (Reg::RegTensor<uint16_t>&)vregOut, ftzMask);
 #else
             Reg::Cast<MMT, MST, trait>(vregOut, vregIn, maskAll);
 #endif
