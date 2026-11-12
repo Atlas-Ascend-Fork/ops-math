@@ -76,6 +76,7 @@ public:
             .ExtendCfgInfo("opFile.value", "zeros_like_apt");
 
         this->AICore().AddConfig("ascend960dt", config91096);
+        this->AICore().AddConfig("ascend960pr", config91096);
     }
 };
 

@@ -66,7 +66,7 @@ static bool CheckNotNull(const aclTensor* self)
 static bool CheckDtypeValid(const aclTensor* self)
 {
     auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
-    if (curArch == NpuArch::DAV_9201) {
+    if (curArch == NpuArch::DAV_9201 || curArch == NpuArch::DAV_9202) {
         OP_CHECK_DTYPE_NOT_SUPPORT(self, DTYPE_SUPPORT_960dt_LIST, return false);
     } else if (IsRegBase()) {
         OP_CHECK_DTYPE_NOT_SUPPORT(self, DTYPE_SUPPORT_950_LIST, return false);
