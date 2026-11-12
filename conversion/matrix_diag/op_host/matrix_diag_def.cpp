@@ -16,14 +16,14 @@
 
 namespace ops {
 static const std::vector<ge::DataType> valueDataType = {
-    ge::DT_INT8,      ge::DT_UINT8,    ge::DT_INT16,       ge::DT_UINT16,       ge::DT_INT32, ge::DT_UINT32,
-    ge::DT_INT64,     ge::DT_UINT64,   ge::DT_BOOL,        ge::DT_FLOAT16,      ge::DT_BF16,  ge::DT_FLOAT,
-    ge::DT_COMPLEX64, ge::DT_HIFLOAT8, ge::DT_FLOAT8_E5M2, ge::DT_FLOAT8_E4M3FN};
+    ge::DT_INT8,      ge::DT_UINT8,     ge::DT_INT16,    ge::DT_UINT16,      ge::DT_INT32,        ge::DT_UINT32,
+    ge::DT_INT64,     ge::DT_UINT64,    ge::DT_BOOL,     ge::DT_FLOAT16,     ge::DT_BF16,         ge::DT_FLOAT,
+    ge::DT_COMPLEX32, ge::DT_COMPLEX64, ge::DT_HIFLOAT8, ge::DT_FLOAT8_E5M2, ge::DT_FLOAT8_E4M3FN};
 
-static const std::vector<ge::Format> dataFormat = {ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND,
-                                                   ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND,
-                                                   ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND,
-                                                   ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND};
+static const std::vector<ge::Format> dataFormat = {
+    ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND,
+    ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND,
+    ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND};
 
 class MatrixDiag : public OpDef {
 public:
