@@ -10,7 +10,7 @@
 
 /*!
  * \file reduce_mean_with_count_infershape.cpp
- * \brief InferShape for ReduceMeanWithCount operator
+ * \brief InferShape and InferDataType for ReduceMeanWithCount operator
  *
  * Prototype: INPUT(x, count, count_sum) -> OUTPUT(y), ATTR(axes[required], keep_dims)
  * axes is a REQUIRED_ATTR(ListInt), not an input tensor.
@@ -75,5 +75,16 @@ static ge::graphStatus InferShape4ReduceMeanWithCount(gert::InferShapeContext* c
     return ReduceDimsWithoutKeepDims<int64_t>(inShape, axesVec.data(), axesSize, outShape);
 }
 
-IMPL_OP_INFERSHAPE(ReduceMeanWithCount).InferShape(InferShape4ReduceMeanWithCount);
+static ge::graphStatus InferDataType4ReduceMeanWithCount(gert::InferDataTypeContext* context)
+{
+    OP_LOGD(context->GetNodeName(), "Begin to do InferDataType4ReduceMeanWithCount");
+    // y.dtype -> x.dtype
+    context->SetOutputDataType(0, context->GetInputDataType(0));
+    OP_LOGD(context->GetNodeName(), "End to do InferDataType4ReduceMeanWithCount");
+    return ge::GRAPH_SUCCESS;
+}
+
+IMPL_OP_INFERSHAPE(ReduceMeanWithCount)
+    .InferShape(InferShape4ReduceMeanWithCount)
+    .InferDataType(InferDataType4ReduceMeanWithCount);
 } // namespace ops

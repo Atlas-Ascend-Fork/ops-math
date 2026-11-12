@@ -10,7 +10,7 @@
 
 /*!
  * \file reduce_nansum_infershape.cpp
- * \brief InferShape for ReduceNansum operator.
+ * \brief InferShape and InferDataType for ReduceNansum operator.
  */
 
 #include "log/log.h"
@@ -77,5 +77,17 @@ static ge::graphStatus InferShape4ReduceNansum(gert::InferShapeContext* context)
     return ReduceDims<int64_t>(inShape, axesTensor, axesSize, *keepDims, outShape);
 }
 
-IMPL_OP_INFERSHAPE(ReduceNansum).InferShape(InferShape4ReduceNansum).InputsDataDependency({1});
+static ge::graphStatus InferDataType4ReduceNansum(gert::InferDataTypeContext* context)
+{
+    OP_LOGD(context->GetNodeName(), "Begin to do InferDataType4ReduceNansum");
+    // y.dtype -> x.dtype
+    context->SetOutputDataType(0, context->GetInputDataType(0));
+    OP_LOGD(context->GetNodeName(), "End to do InferDataType4ReduceNansum");
+    return ge::GRAPH_SUCCESS;
+}
+
+IMPL_OP_INFERSHAPE(ReduceNansum)
+    .InferShape(InferShape4ReduceNansum)
+    .InferDataType(InferDataType4ReduceNansum)
+    .InputsDataDependency({1});
 } // namespace ops
