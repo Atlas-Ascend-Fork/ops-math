@@ -20,5 +20,11 @@ static ge::graphStatus InferShapeForLogAddExp(gert::InferShapeContext* context)
     return Ops::Base::InferShape4Broadcast(context);
 }
 
-IMPL_OP_INFERSHAPE(LogAddExp).InferShape(InferShapeForLogAddExp);
+static ge::graphStatus InferDataTypeForLogAddExp(gert::InferDataTypeContext* context)
+{
+    context->SetOutputDataType(0, context->GetInputDataType(0));
+    return ge::GRAPH_SUCCESS;
+}
+
+IMPL_OP_INFERSHAPE(LogAddExp).InferShape(InferShapeForLogAddExp).InferDataType(InferDataTypeForLogAddExp);
 } // namespace ops
