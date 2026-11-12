@@ -19,28 +19,31 @@ using namespace AscendC;
 template <typename T>
 class SplitVUbSplitSameLenDeinterleave {
 public:
-    __aicore__ inline SplitVUbSplitSameLenDeinterleave(TPipe& pipe) : pipe_(pipe){};
-    __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, const SplitVTilingData* tilingData);
+    __aicore__ inline SplitVUbSplitSameLenDeinterleave(){};
+    __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, const SplitVScalarTilingData* tilingData);
     __aicore__ inline void Process();
 
 private:
     __aicore__ inline __gm__ T* GetTensorAddr(int64_t index);
-    __aicore__ inline void CopyIn(int64_t blockLen, int64_t srcOffset);
+    __aicore__ inline void CopyIn(int64_t blockLen, int64_t srcOffset, LocalTensor<T>& xUb);
     __aicore__ inline void CopyOut(LocalTensor<T>& yLocal, int64_t blockLen, int64_t dstOffset);
 
 private:
-    TPipe& pipe_;
-    constexpr static int32_t BUFFER_NUM = 2;
+    constexpr static uint32_t BUFFER_NUM = 2;
     constexpr static int64_t BLOCK_ELENUM = Ops::Base::GetUbBlockSize() / sizeof(T);
-    const SplitVTilingData* tilingData_;
-    TQue<QuePosition::VECIN, 1> inQueueX_;
-    TQue<QuePosition::VECOUT, 1> outQueueY0_;
-    TQue<QuePosition::VECOUT, 1> outQueueY1_;
+    constexpr static uint32_t BLOCK_BYTES = Ops::Base::GetUbBlockSize();
+    constexpr static int64_t DTYPE_SIZE = sizeof(T);
+    // 手动双缓冲同步(免TPipe/TQue): in 复用(V_MTE2)、in 就绪(MTE2_V)、out slot 复用(MTE3_V)、
+    // out 就绪(V_MTE3); 不同 HardEvent 类型同号 id 物理独立
+    constexpr static event_t EVT_ID0 = static_cast<event_t>(0);
+    constexpr static event_t EVT_ID1 = static_cast<event_t>(1);
+    constexpr static event_t EVT_ID2 = static_cast<event_t>(2);
+
+    const SplitVScalarTilingData* tilingData_ = nullptr;
     GlobalTensor<T> xGm_;
     GlobalTensor<T> yGm_;
     ListTensorDesc inputList_;
     int32_t blockIdx_ = 0;
-    int64_t dtypeSize_ = sizeof(T);
     int64_t gSize_ = 0;
     int64_t nSize_ = 0;
     int64_t mUBCount_ = 0;
@@ -50,13 +53,23 @@ private:
     int64_t blockFactorTail_ = 0;
     int64_t blkProcessNum_ = 0;
     int64_t curIdx_ = 0;
-    int64_t mIdx_ = 0;
+
+    // 手动UB布局: [in0][in1][slot0: y0|y1][slot1: y0|y1], 各子块32B对齐
+    uint32_t inXOffset0_ = 0;
+    uint32_t inXOffset1_ = 0;
+    uint32_t outY0Offset0_ = 0; // slot0 中 y0/y1 起始偏移
+    uint32_t outY1Offset0_ = 0;
+    uint32_t outY0Offset1_ = 0; // slot1 中 y0/y1 起始偏移
+    uint32_t outY1Offset1_ = 0;
+    uint32_t inBufElems_ = 0;
+    uint32_t outBufElems_ = 0;
 };
 
 template <typename T>
 __aicore__ inline void SplitVUbSplitSameLenDeinterleave<T>::Init(GM_ADDR x, GM_ADDR y,
-                                                                 const SplitVTilingData* tilingData)
+                                                                 const SplitVScalarTilingData* tilingData)
 {
+    AscendC::InitSocState();
     blockIdx_ = GetBlockIdx();
     tilingData_ = tilingData;
     gSize_ = tilingData_->gSize;
@@ -67,11 +80,19 @@ __aicore__ inline void SplitVUbSplitSameLenDeinterleave<T>::Init(GM_ADDR x, GM_A
     blockFactor_ = tilingData_->blockFactor;
     blockFactorTail_ = tilingData_->blockFactorTail;
 
-    uint32_t inSpace = gSize_ * mUBFactor_ * dtypeSize_;
-    uint32_t outSpace = CeilDivision(mUBFactor_, BLOCK_ELENUM) * BLOCK_ELENUM * dtypeSize_;
-    pipe_.InitBuffer(inQueueX_, BUFFER_NUM, inSpace);
-    pipe_.InitBuffer(outQueueY0_, BUFFER_NUM, outSpace);
-    pipe_.InitBuffer(outQueueY1_, BUFFER_NUM, outSpace);
+    const uint32_t inSpaceBytes = static_cast<uint32_t>(gSize_ * mUBFactor_ * DTYPE_SIZE);
+    const uint32_t inSpaceAlign = Ops::Base::CeilAlign(inSpaceBytes, BLOCK_BYTES);
+    const uint32_t outSpaceBytes = static_cast<uint32_t>(CeilDivision(mUBFactor_, BLOCK_ELENUM) * BLOCK_ELENUM *
+                                                         DTYPE_SIZE);
+    inXOffset0_ = 0;
+    inXOffset1_ = inXOffset0_ + inSpaceAlign;
+    outY0Offset0_ = inXOffset1_ + inSpaceAlign;
+    outY1Offset0_ = outY0Offset0_ + outSpaceBytes;
+    outY0Offset1_ = outY1Offset0_ + outSpaceBytes;
+    outY1Offset1_ = outY0Offset1_ + outSpaceBytes;
+    inBufElems_ = inSpaceBytes / static_cast<uint32_t>(DTYPE_SIZE);
+    outBufElems_ = outSpaceBytes / static_cast<uint32_t>(DTYPE_SIZE);
+
     xGm_.SetGlobalBuffer((__gm__ T*)x);
     inputList_ = ListTensorDesc(reinterpret_cast<__gm__ void*>(y));
 
@@ -92,51 +113,90 @@ __aicore__ inline void SplitVUbSplitSameLenDeinterleave<T>::Process()
         return;
     }
 
-    int64_t processMNum = 0;
-    int64_t srcCount = 0;
-    for (uint64_t i = 0; i < blkProcessNum_; i++) {
-        mIdx_ = curIdx_;
-        processMNum = (mIdx_ == mUBCount_ - 1) ? mUBFactorTail_ : mUBFactor_;
-        srcCount = processMNum * gSize_;
+    SetFlag<HardEvent::V_MTE2>(EVT_ID0);
+    SetFlag<HardEvent::V_MTE2>(EVT_ID1);
+    SetFlag<HardEvent::MTE3_V>(EVT_ID0);
+    SetFlag<HardEvent::MTE3_V>(EVT_ID1);
 
-        int64_t gmOffset = mIdx_ * mUBFactor_ * gSize_ * nSize_;
-        CopyIn(srcCount, gmOffset);
-        LocalTensor<T> srcLocal = inQueueX_.DeQue<T>();
+    const int64_t mUBCount = mUBCount_;
+    const int64_t mUBFactor = mUBFactor_;
+    const int64_t mUBFactorTail = mUBFactorTail_;
+    const int64_t gSize = gSize_;
+    const int64_t nSize = nSize_;
+    const int64_t blkProcessNum = blkProcessNum_;
 
-        LocalTensor<T> yLocal0 = outQueueY0_.AllocTensor<T>();
-        LocalTensor<T> yLocal1 = outQueueY1_.AllocTensor<T>();
+    int64_t curIdx = curIdx_;
+    uint16_t bufId = 0;
+
+    for (int64_t i = 0; i < blkProcessNum; i++) {
+        event_t evt = (bufId == 0) ? EVT_ID0 : EVT_ID1;
+
+        int64_t mIdx = curIdx;
+        int64_t processMNum = (mIdx == mUBCount - 1) ? mUBFactorTail : mUBFactor;
+        int64_t srcCount = processMNum * gSize;
+        int64_t gmOffset = mIdx * mUBFactor * gSize * nSize;
+        int64_t dstOffset = mIdx * mUBFactor * nSize;
+
+        // out slot 复用: 上一轮同 slot MTE3(拷出)读完 -> 本轮 V(DeInterleave) 可覆盖写
+        WaitFlag<HardEvent::MTE3_V>(evt);
+        uint32_t y0Offset = (bufId == 0) ? outY0Offset0_ : outY0Offset1_;
+        uint32_t y1Offset = (bufId == 0) ? outY1Offset0_ : outY1Offset1_;
+        LocalTensor<T> yLocal0(TPosition::VECOUT, y0Offset, outBufElems_);
+        LocalTensor<T> yLocal1(TPosition::VECOUT, y1Offset, outBufElems_);
+
+        // in 复用: 上一轮同块 V 读完 -> 本轮 MTE2 可覆盖写
+        WaitFlag<HardEvent::V_MTE2>(evt);
+        uint32_t inXOffset = (bufId == 0) ? inXOffset0_ : inXOffset1_;
+        LocalTensor<T> srcLocal(TPosition::VECIN, inXOffset, inBufElems_);
+
+        CopyIn(srcCount, gmOffset, srcLocal);
+
+        // in 就绪: MTE2 写完 -> V(DeInterleave) 读
+        SetFlag<HardEvent::MTE2_V>(evt);
+        WaitFlag<HardEvent::MTE2_V>(evt);
+
         AscendC::DeInterleave(yLocal0, yLocal1, srcLocal, srcCount);
-        event_t eventID = static_cast<event_t>(GetTPipePtr()->FetchEventID(HardEvent::V_MTE3));
-        SetFlag<HardEvent::V_MTE3>(eventID);
-        WaitFlag<HardEvent::V_MTE3>(eventID);
-        int64_t dstOffset = mIdx_ * mUBFactor_ * nSize_;
+
+        // V 读完 in -> 下一轮同块 MTE2 可覆盖写
+        SetFlag<HardEvent::V_MTE2>(evt);
+        // out 就绪: V 写完 y0/y1 -> MTE3 读出
+        SetFlag<HardEvent::V_MTE3>(EVT_ID2);
+        WaitFlag<HardEvent::V_MTE3>(EVT_ID2);
+
         yGm_.SetGlobalBuffer(GetTensorAddr(0));
         CopyOut(yLocal0, processMNum, dstOffset);
         yGm_.SetGlobalBuffer(GetTensorAddr(1));
         CopyOut(yLocal1, processMNum, dstOffset);
 
-        outQueueY0_.FreeTensor(yLocal0);
-        outQueueY1_.FreeTensor(yLocal1);
-        inQueueX_.FreeTensor(srcLocal);
-        curIdx_++;
+        // out slot 释放: MTE3 读完 -> 下一轮同 slot V 可覆盖写
+        SetFlag<HardEvent::MTE3_V>(evt);
+
+        bufId ^= 1;
+        curIdx++;
     }
+
+    // 收尾: 排空仍在途的复用事件
+    WaitFlag<HardEvent::V_MTE2>(EVT_ID0);
+    WaitFlag<HardEvent::V_MTE2>(EVT_ID1);
+    WaitFlag<HardEvent::MTE3_V>(EVT_ID0);
+    WaitFlag<HardEvent::MTE3_V>(EVT_ID1);
+    curIdx_ = curIdx;
 }
 
 template <typename T>
-__aicore__ inline void SplitVUbSplitSameLenDeinterleave<T>::CopyIn(int64_t blockLen, int64_t srcOffset)
+__aicore__ inline void SplitVUbSplitSameLenDeinterleave<T>::CopyIn(int64_t blockLen, int64_t srcOffset,
+                                                                   LocalTensor<T>& xUb)
 {
-    LocalTensor<T> xUb = inQueueX_.AllocTensor<T>();
-    DataCopyExtParams copyInParam{1, static_cast<uint32_t>(blockLen * dtypeSize_), 0, 0, 0};
+    DataCopyExtParams copyInParam{1, static_cast<uint32_t>(blockLen * DTYPE_SIZE), 0, 0, 0};
     DataCopyPadExtParams<T> padParam{false, 0, 0, 0};
     DataCopyPad(xUb, xGm_[srcOffset], copyInParam, padParam);
-    inQueueX_.EnQue(xUb);
 }
 
 template <typename T>
 __aicore__ inline void SplitVUbSplitSameLenDeinterleave<T>::CopyOut(LocalTensor<T>& yLocal, int64_t blockLen,
                                                                     int64_t dstOffset)
 {
-    DataCopyExtParams copyOutParam{1, static_cast<uint32_t>(blockLen * dtypeSize_), 0, 0, 0};
+    DataCopyExtParams copyOutParam{1, static_cast<uint32_t>(blockLen * DTYPE_SIZE), 0, 0, 0};
     DataCopyPad(yGm_[dstOffset], yLocal, copyOutParam);
 }
 

@@ -11,14 +11,15 @@
 #ifndef SPLIT_V_PURE_COPY_H
 #define SPLIT_V_PURE_COPY_H
 #include "op_kernel/platform_util.h"
+
 namespace SplitV {
 using namespace AscendC;
 const int32_t SPLIT_LIST_MAX_LEN = 72;
 template <typename T, typename S>
 class SplitVPureCopyMode {
 public:
-    __aicore__ inline SplitVPureCopyMode(TPipe& pipe) : pipe_(pipe){};
-    __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, GM_ADDR sizeSplits, const SplitVTilingData* tilingData);
+    __aicore__ inline SplitVPureCopyMode(){};
+    __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, GM_ADDR sizeSplits, const SplitVPureCopyTilingData* tilingData);
     __aicore__ inline void Process();
 
 private:
@@ -38,13 +39,12 @@ private:
     __aicore__ inline void CalcNSplitSize(int32_t i);
 
 private:
-    TPipe& pipe_;
-    const SplitVTilingData* tilingData_;
+    const SplitVPureCopyTilingData* tilingData_;
     constexpr static int32_t BUFFER_NUM = 2;
     constexpr static int64_t BLOCK_SIZE = Ops::Base::GetUbBlockSize(); // 一个 block 的字节数
     constexpr static int64_t BLOCK_ELENUM = Ops::Base::GetUbBlockSize() / sizeof(T);
-    TBuf<> inXBuf_;
-    TBuf<> splitBuf_;
+    // 标量预处理同步(splitOffsetLocal_ 的 MTE2->V 与 V->S); 不同 HardEvent 类型同号 id 物理独立
+    constexpr static event_t EVT_SCALAR = static_cast<event_t>(EVENT_ID0);
     LocalTensor<S> splitOffsetLocal_;
     GlobalTensor<T> xGm_;
     GlobalTensor<T> yGm_;
@@ -96,26 +96,27 @@ private:
 
 template <typename T, typename S>
 __aicore__ inline void SplitVPureCopyMode<T, S>::Init(GM_ADDR x, GM_ADDR y, GM_ADDR sizeSplits,
-                                                      const SplitVTilingData* tilingData)
+                                                      const SplitVPureCopyTilingData* tilingData)
 {
+    AscendC::InitSocState();
     blockIdx_ = GetBlockIdx();
     tilingData_ = tilingData;
     ubSize_ = tilingData_->ubSize;
     realCoreNum_ = tilingData_->realCoreNum; // 真实使用的核数
     numSplit_ = tilingData->gSize;
-    int32_t splitBufSize = Ops::Base::CeilAlign(static_cast<int32_t>(numSplit_ * sizeof(S)),
-                                                static_cast<int32_t>(BLOCK_SIZE));
-    pipe_.InitBuffer(splitBuf_, splitBufSize);
-    int32_t ubTotal = ubSize_ - splitBufSize;
+    // 手动UB布局(免TPipe): [splitOffset: splitBufSize][inX: BUFFER_NUM x ubPerBuf]
+    const uint32_t splitBufSize = static_cast<uint32_t>(
+        Ops::Base::CeilAlign(static_cast<int32_t>(numSplit_ * sizeof(S)), static_cast<int32_t>(BLOCK_SIZE)));
+    const uint32_t ubTotal = static_cast<uint32_t>(ubSize_) - splitBufSize;
     // double buffer: 整块 UB 切成 BUFFER_NUM 份, 单份按 block 对齐; ubSizeNum_ 既是单份可放元素数,
     // 也用作 ping-pong 子块偏移 inTensorX_[(pingPong_ & 1) * ubSizeNum_]
-    int32_t ubPerBuf = ubTotal / BUFFER_NUM / BLOCK_SIZE * BLOCK_SIZE;
+    const uint32_t ubPerBuf = ubTotal / BUFFER_NUM / static_cast<uint32_t>(BLOCK_SIZE) *
+                              static_cast<uint32_t>(BLOCK_SIZE);
     ubSizeNum_ = ubPerBuf / dtypeSize_;
-    pipe_.InitBuffer(inXBuf_, ubPerBuf * BUFFER_NUM);
-    inTensorX_ = inXBuf_.template Get<T>();
+    splitOffsetLocal_ = LocalTensor<S>(TPosition::VECCALC, 0, static_cast<uint32_t>(numSplit_));
+    inTensorX_ = LocalTensor<T>(TPosition::VECIN, splitBufSize, static_cast<uint32_t>(ubSizeNum_ * BUFFER_NUM));
     xGm_.SetGlobalBuffer((__gm__ T*)x);
     sizeSplitsGm_.SetGlobalBuffer((__gm__ S*)sizeSplits);
-    splitOffsetLocal_ = splitBuf_.template Get<S>();
     inputList_ = ListTensorDesc(reinterpret_cast<__gm__ void*>(y));
 
     nIdx_ = blockIdx_ % tilingData_->nBlockCount;
@@ -139,13 +140,11 @@ __aicore__ inline void SplitVPureCopyMode<T, S>::Init(GM_ADDR x, GM_ADDR y, GM_A
     copyParams.srcStride = 0;
     copyParams.dstStride = 0;
     DataCopyPad(splitOffsetLocal_, sizeSplitsGm_, copyParams, padParamsIdx);
-    event_t eventID = static_cast<event_t>(GetTPipePtr()->FetchEventID(HardEvent::MTE2_V));
-    SetFlag<HardEvent::MTE2_V>(eventID);
-    WaitFlag<HardEvent::MTE2_V>(eventID);
+    SetFlag<HardEvent::MTE2_V>(EVT_SCALAR);
+    WaitFlag<HardEvent::MTE2_V>(EVT_SCALAR);
     AscendC::Muls(splitOffsetLocal_, splitOffsetLocal_, tilingData_->sizeAfterSplitDim, numSplit_);
-    event_t eventID1 = static_cast<event_t>(GetTPipePtr()->FetchEventID(HardEvent::V_S));
-    SetFlag<HardEvent::V_S>(eventID1);
-    WaitFlag<HardEvent::V_S>(eventID1);
+    SetFlag<HardEvent::V_S>(EVT_SCALAR);
+    WaitFlag<HardEvent::V_S>(EVT_SCALAR);
     if (tilingData_->negIdx != -1) {
         uint32_t index = static_cast<uint32_t>(tilingData_->negIdx);
         int64_t value = tilingData_->negValue * tilingData_->sizeAfterSplitDim;

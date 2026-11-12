@@ -16,37 +16,33 @@
 
 namespace SplitV {
 using namespace AscendC;
+
 template <typename T>
 class SplitVPureCopyModeSameLen {
 public:
-    __aicore__ inline SplitVPureCopyModeSameLen(TPipe& pipe) : pipe_(pipe){};
-    __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, const SplitVTilingData* tilingData);
+    __aicore__ inline SplitVPureCopyModeSameLen(){};
+    __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, const SplitVSlimTilingData* tilingData);
     __aicore__ inline void Process();
 
 private:
     __aicore__ inline __gm__ T* GetTensorAddr(int64_t index);
     __aicore__ inline void ProcessWithCutN();
     __aicore__ inline void ProcessWithCutMG();
-    __aicore__ inline void CopyIn(int64_t blockCount, int64_t blockLen, int64_t srcOffset, int64_t ubOffset,
-                                  int64_t srcStride, int64_t dstStride);
-    __aicore__ inline void CopyOut(int64_t yGMIdx, int64_t blockCount, int64_t blockLen, int64_t dstOffset,
-                                   int64_t ubOffset, int64_t srcStride, int64_t dstStride);
-    __aicore__ inline int64_t CalcGMOffset();
+    __aicore__ inline int64_t CalcGMOffset(int64_t curIdx) const;
 
 private:
-    TPipe& pipe_;
     constexpr static uint32_t BUFFER_NUM = 2;
     constexpr static uint32_t BLOCK_SIZE = Ops::Base::GetUbBlockSize();
     constexpr static int64_t BLOCK_NUM = BLOCK_SIZE / sizeof(T);
-    const SplitVTilingData* tilingData_;
-    TQueBind<QuePosition::VECIN, QuePosition::VECOUT, BUFFER_NUM> inQueueX_;
+    constexpr static int64_t DTYPE_SIZE = sizeof(T);
+    constexpr static event_t EVT_ID0 = static_cast<event_t>(0);
+    constexpr static event_t EVT_ID1 = static_cast<event_t>(1);
+
+    const SplitVSlimTilingData* tilingData_ = nullptr;
     GlobalTensor<T> xGm_;
     GlobalTensor<T> yGm_;
-    LocalTensor<T> xLocal_;
     ListTensorDesc inputList_;
     int32_t blockIdx_ = 0;
-    int64_t dtypeSize_ = sizeof(T);
-    int64_t mSize_ = 0;
     int64_t gSize_ = 0;
     int64_t nSize_ = 0;
     int64_t mUBCount_ = 0;
@@ -61,197 +57,256 @@ private:
     int64_t blockFactor_ = 0;
     int64_t blockFactorTail_ = 0;
     int64_t blkProcessNum_ = 0;
+    int64_t ubSize_ = 0;
+    int64_t realCoreNum_ = 0;
 
-    // Record global loopTime
     int64_t curIdx_ = 0;
-    int64_t mIdx_ = 0;
-    int64_t gIdx_ = 0;
-    int64_t nIdx_ = 0;
-    int64_t gmOffset_ = 0;
 
     DataCopyExtParams copyInParam_{0, 0, 0, 0, 0};
     DataCopyPadExtParams<T> padParam_{false, 0, 0, 0};
     DataCopyExtParams copyOutParam_{0, 0, 0, 0, 0};
-    LoopModeParams loopMode_;
+    LoopModeParams loopMode_{};
 };
 
 template <typename T>
-__aicore__ inline void SplitVPureCopyModeSameLen<T>::Init(GM_ADDR x, GM_ADDR y, const SplitVTilingData* tilingData)
+__aicore__ inline void SplitVPureCopyModeSameLen<T>::Init(GM_ADDR x, GM_ADDR y, const SplitVSlimTilingData* tilingData)
 {
+    AscendC::InitSocState();
     blockIdx_ = GetBlockIdx();
     tilingData_ = tilingData;
-    mSize_ = tilingData_->mBlockFactorNum;
-    gSize_ = tilingData_->gSize;
-    nSize_ = tilingData_->nBlockFactorNum;
-    mUBFactor_ = tilingData_->mBlockFactor;
-    mUBFactorTail_ = tilingData_->mBlockFactorTail;
-    mUBCount_ = tilingData_->mBlockCount;
-    gUBFactor_ = tilingData_->gUBFactor;
-    gUBFactorTail_ = tilingData_->gUBFactorTail;
-    gUBCount_ = tilingData_->gUBCount;
-    nUBFactor_ = tilingData_->nBlockFactor;
-    nUBFactorTail_ = tilingData_->nBlockFactorTail;
-    nUBCount_ = tilingData_->nBlockCount;
-    blockFactor_ = tilingData_->blockFactor;
-    blockFactorTail_ = tilingData_->blockFactorTail;
 
-    pipe_.InitBuffer(inQueueX_, BUFFER_NUM, tilingData_->ubSize / BUFFER_NUM);
+    const int64_t ubSize = tilingData->ubSize;
+    const int64_t gSize = tilingData->gSize;
+    const int64_t nSize = tilingData->nBlockFactorNum;
+    const int64_t mUBFactor = tilingData->mBlockFactor;
+    const int64_t mUBFactorTail = tilingData->mBlockFactorTail;
+    const int64_t mUBCount = tilingData->mBlockCount;
+    const int64_t gUBFactor = tilingData->gUBFactor;
+    const int64_t gUBFactorTail = tilingData->gUBFactorTail;
+    const int64_t gUBCount = tilingData->gUBCount;
+    const int64_t nUBFactor = tilingData->nBlockFactor;
+    const int64_t nUBFactorTail = tilingData->nBlockFactorTail;
+    const int64_t nUBCount = tilingData->nBlockCount;
+    const int64_t blockFactor = tilingData->blockFactor;
+    const int64_t blockFactorTail = tilingData->blockFactorTail;
+    const int64_t realCoreNum = tilingData->realCoreNum;
+
+    gSize_ = gSize;
+    nSize_ = nSize;
+    mUBFactor_ = mUBFactor;
+    mUBFactorTail_ = mUBFactorTail;
+    mUBCount_ = mUBCount;
+    gUBFactor_ = gUBFactor;
+    gUBFactorTail_ = gUBFactorTail;
+    gUBCount_ = gUBCount;
+    nUBFactor_ = nUBFactor;
+    nUBFactorTail_ = nUBFactorTail;
+    nUBCount_ = nUBCount;
+    blockFactor_ = blockFactor;
+    blockFactorTail_ = blockFactorTail;
+    ubSize_ = ubSize;
+    realCoreNum_ = realCoreNum;
+
     xGm_.SetGlobalBuffer((__gm__ T*)x);
     inputList_ = ListTensorDesc(reinterpret_cast<__gm__ void*>(y));
 
-    // Calc start idx per core
-    blkProcessNum_ = blockFactor_;
-    curIdx_ = blockIdx_ * blockFactor_;
-    if (blockIdx_ < blockFactorTail_) {
+    blkProcessNum_ = blockFactor;
+    curIdx_ = blockIdx_ * blockFactor;
+    if (blockIdx_ < blockFactorTail) {
         blkProcessNum_ += 1;
         curIdx_ += blockIdx_;
     } else {
-        curIdx_ += blockFactorTail_;
+        curIdx_ += blockFactorTail;
     }
 }
 
 template <typename T>
 __aicore__ inline void SplitVPureCopyModeSameLen<T>::Process()
 {
-    if (blockIdx_ >= tilingData_->realCoreNum) {
+    if (blockIdx_ >= realCoreNum_) {
         return;
     }
 
     if (nUBCount_ > 1) {
-        ProcessWithCutN(); // UB only cut axisN
+        ProcessWithCutN();
     } else {
-        ProcessWithCutMG(); // UB cut axisM and axisG
+        ProcessWithCutMG();
     }
+}
+
+template <typename T>
+__aicore__ inline int64_t SplitVPureCopyModeSameLen<T>::CalcGMOffset(int64_t curIdx) const
+{
+    int64_t gRSize = nUBCount_;
+    int64_t mRSize = gUBCount_ * nUBCount_;
+    int64_t gASize = nSize_;
+    int64_t mASize = gSize_ * nSize_;
+    return curIdx % nUBCount_ * nUBFactor_ + curIdx / gRSize % gUBCount_ * gUBFactor_ * gASize +
+           curIdx / mRSize * mUBFactor_ * mASize;
 }
 
 template <typename T>
 __aicore__ inline void SplitVPureCopyModeSameLen<T>::ProcessWithCutN()
 {
-    int64_t processNNum = 0;
-    int64_t yGMIdx = 0;
-    int64_t mgIdx = 0;
+    SetFlag<HardEvent::MTE3_MTE2>(EVT_ID0);
+    SetFlag<HardEvent::MTE3_MTE2>(EVT_ID1);
+
     loopMode_.loop1Size = 1;
     loopMode_.loop2Size = 1;
-    for (uint64_t i = 0; i < blkProcessNum_; i++) {
-        // Process curent nFactor
-        nIdx_ = curIdx_ % nUBCount_;
-        processNNum = (nIdx_ == nUBCount_ - 1) ? nUBFactorTail_ : nUBFactor_;
-        gmOffset_ = CalcGMOffset();
-        CopyIn(1, processNNum, gmOffset_, 0, 0, 0);
-        xLocal_ = inQueueX_.DeQue<T>();
-        mgIdx = curIdx_ / nUBCount_;
-        yGMIdx = mgIdx % gSize_;
-        // Calc copyOut offset: mDirectionOffset + nDirectionOffset
-        gmOffset_ = mgIdx / gUBCount_ * nSize_ + nIdx_ * nUBFactor_;
-        CopyOut(yGMIdx, 1, processNNum, gmOffset_, 0, 0, 0);
-        inQueueX_.FreeTensor(xLocal_);
-        curIdx_++;
+    const int64_t nUBCount = nUBCount_;
+    const int64_t nUBFactor = nUBFactor_;
+    const int64_t nUBFactorTail = nUBFactorTail_;
+    const int64_t gUBCount = gUBCount_;
+    const int64_t gSize = gSize_;
+    const int64_t nSize = nSize_;
+    const int64_t blkProcessNum = blkProcessNum_;
+    const int64_t halfUbBytes = ubSize_ / BUFFER_NUM;
+    const int64_t halfUbElems = halfUbBytes / DTYPE_SIZE;
+
+    int64_t curIdx = curIdx_;
+    uint16_t bufId = 0;
+
+    for (int64_t i = 0; i < blkProcessNum; i++) {
+        event_t evt = (bufId == 0) ? EVT_ID0 : EVT_ID1;
+
+        WaitFlag<HardEvent::MTE3_MTE2>(evt);
+
+        LocalTensor<T> srcLocal(TPosition::VECIN, static_cast<uint32_t>(bufId * halfUbBytes),
+                                static_cast<uint32_t>(halfUbElems));
+
+        int64_t nIdx = curIdx % nUBCount;
+        int64_t processNNum = (nIdx == nUBCount - 1) ? nUBFactorTail : nUBFactor;
+        int64_t gmOffset = CalcGMOffset(curIdx);
+
+        SetLoopModePara(loopMode_, DataCopyMVType::OUT_TO_UB);
+        copyInParam_.blockCount = 1;
+        copyInParam_.blockLen = processNNum * DTYPE_SIZE;
+        copyInParam_.srcStride = 0;
+        copyInParam_.dstStride = 0;
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
+        DataCopyPad(srcLocal, xGm_[gmOffset], copyInParam_, padParam_, true);
+#else
+        DataCopyPad(srcLocal, xGm_[gmOffset], copyInParam_, padParam_);
+#endif
+        ResetLoopModePara(DataCopyMVType::OUT_TO_UB);
+
+        SetFlag<HardEvent::MTE2_MTE3>(evt);
+        WaitFlag<HardEvent::MTE2_MTE3>(evt);
+
+        int64_t mgIdx = curIdx / nUBCount;
+        int64_t yGMIdx = mgIdx % gSize;
+        int64_t dstOffset = mgIdx / gUBCount * nSize + nIdx * nUBFactor;
+        yGm_.SetGlobalBuffer(GetTensorAddr(yGMIdx));
+        copyOutParam_.blockCount = 1;
+        copyOutParam_.blockLen = processNNum * DTYPE_SIZE;
+        copyOutParam_.srcStride = 0;
+        copyOutParam_.dstStride = 0;
+        DataCopyPad(yGm_[dstOffset], srcLocal, copyOutParam_);
+
+        SetFlag<HardEvent::MTE3_MTE2>(evt);
+
+        bufId ^= 1;
+        curIdx++;
     }
+
+    WaitFlag<HardEvent::MTE3_MTE2>(EVT_ID0);
+    WaitFlag<HardEvent::MTE3_MTE2>(EVT_ID1);
+    curIdx_ = curIdx;
 }
 
 template <typename T>
 __aicore__ inline void SplitVPureCopyModeSameLen<T>::ProcessWithCutMG()
 {
-    int64_t processMNum = 0;
-    int64_t processGNum = 0;
-    int64_t yGMIdx = 0;
-    int64_t srcStride = 0;
-    int64_t dstStride = 0;
-    int64_t blockCount = 0;
-    int64_t nAlignSize = Ops::Base::CeilAlign(nSize_, BLOCK_NUM);
-    int64_t ubOffset = 0;
-    int64_t blockLen = 0;
-    for (uint64_t i = 0; i < blkProcessNum_; i++) {
-        // Used for cutting M/G, when No is 1
-        mIdx_ = curIdx_ / gUBCount_;
-        gIdx_ = curIdx_ - mIdx_ * gUBCount_;
-        // Calc 4 types processNum
-        if (mUBCount_ > 1 && gUBCount_ > 1 && mIdx_ == mUBCount_ - 1 && gIdx_ == gUBCount_ - 1) {
-            // Process last tail
-            processMNum = mUBFactorTail_;
-            processGNum = gUBFactorTail_;
-        } else if (mUBCount_ > 1 && mIdx_ == mUBCount_ - 1) {
-            // Process Mtail
-            processMNum = mUBFactorTail_;
-            processGNum = gUBFactor_;
-        } else if (gUBCount_ > 1 && gIdx_ == gUBCount_ - 1) {
-            // Process Gtail
-            processMNum = mUBFactor_;
-            processGNum = gUBFactorTail_;
+    SetFlag<HardEvent::MTE3_MTE2>(EVT_ID0);
+    SetFlag<HardEvent::MTE3_MTE2>(EVT_ID1);
+
+    const int64_t mUBCount = mUBCount_;
+    const int64_t mUBFactor = mUBFactor_;
+    const int64_t mUBFactorTail = mUBFactorTail_;
+    const int64_t gUBCount = gUBCount_;
+    const int64_t gUBFactor = gUBFactor_;
+    const int64_t gUBFactorTail = gUBFactorTail_;
+    const int64_t gSize = gSize_;
+    const int64_t nSize = nSize_;
+    const int64_t blkProcessNum = blkProcessNum_;
+    const int64_t halfUbBytes = ubSize_ / BUFFER_NUM;
+    const int64_t halfUbElems = halfUbBytes / DTYPE_SIZE;
+    const int64_t nAlignSize = Ops::Base::CeilAlign(nSize, BLOCK_NUM);
+
+    int64_t curIdx = curIdx_;
+    uint16_t bufId = 0;
+
+    for (int64_t i = 0; i < blkProcessNum; i++) {
+        event_t evt = (bufId == 0) ? EVT_ID0 : EVT_ID1;
+
+        WaitFlag<HardEvent::MTE3_MTE2>(evt);
+
+        int64_t mIdx = curIdx / gUBCount;
+        int64_t gIdx = curIdx - mIdx * gUBCount;
+
+        int64_t processMNum;
+        int64_t processGNum;
+        if (mUBCount > 1 && gUBCount > 1 && mIdx == mUBCount - 1 && gIdx == gUBCount - 1) {
+            processMNum = mUBFactorTail;
+            processGNum = gUBFactorTail;
+        } else if (mUBCount > 1 && mIdx == mUBCount - 1) {
+            processMNum = mUBFactorTail;
+            processGNum = gUBFactor;
+        } else if (gUBCount > 1 && gIdx == gUBCount - 1) {
+            processMNum = mUBFactor;
+            processGNum = gUBFactorTail;
         } else {
-            // Process mainFactor
-            processMNum = mUBFactor_;
-            processGNum = gUBFactor_;
+            processMNum = mUBFactor;
+            processGNum = gUBFactor;
         }
 
-        gmOffset_ = gIdx_ * gUBFactor_ * nSize_ + mIdx_ * mUBFactor_ * gSize_ * nSize_;
-        srcStride = 0;
-        dstStride = nAlignSize * (processMNum - 1);
-        blockCount = processGNum;
-        blockLen = nSize_;
+        int64_t gmOffset = gIdx * gUBFactor * nSize + mIdx * mUBFactor * gSize * nSize;
+
+        LocalTensor<T> srcLocal(TPosition::VECIN, static_cast<uint32_t>(bufId * halfUbBytes),
+                                static_cast<uint32_t>(halfUbElems));
+
+        int64_t srcStride = 0;
+        int64_t dstStride = nAlignSize * (processMNum - 1);
         loopMode_.loop1Size = processMNum;
         loopMode_.loop2Size = 1;
-        loopMode_.loop1SrcStride = gSize_ * nSize_ * dtypeSize_;
-        loopMode_.loop1DstStride = nAlignSize * dtypeSize_;
-        CopyIn(blockCount, blockLen, gmOffset_, 0, srcStride, dstStride);
-        xLocal_ = inQueueX_.DeQue<T>();
-        for (uint64_t g = 0; g < processGNum; g++) {
-            // CopyOut offset —— axisM
-            gmOffset_ = mIdx_ * mUBFactor_ * nSize_;
-            yGMIdx = gIdx_ * gUBFactor_ + g;
-            ubOffset = nAlignSize * processMNum * g;
-            CopyOut(yGMIdx, processMNum, nSize_, gmOffset_, ubOffset, 0, 0);
-        }
-        inQueueX_.FreeTensor(xLocal_);
-        curIdx_++;
-    }
-}
-
-template <typename T>
-__aicore__ inline int64_t SplitVPureCopyModeSameLen<T>::CalcGMOffset()
-{
-    int64_t offset = 0;
-    // UBouter: [Mo, Go, No], UBinner: [Mi, Gi, Ni]
-    int64_t gRSize = nUBCount_;
-    int64_t mRSize = gUBCount_ * nUBCount_;
-    // Src:[M, G, N] ==> Dst:[G, M, N]
-    int64_t gASize = nSize_;
-    int64_t mASize = gSize_ * nSize_;
-    offset = curIdx_ % nUBCount_ * nUBFactor_ + curIdx_ / gRSize % gUBCount_ * gUBFactor_ * gASize +
-             curIdx_ / mRSize * mUBFactor_ * mASize;
-    return offset;
-}
-
-template <typename T>
-__aicore__ inline void SplitVPureCopyModeSameLen<T>::CopyIn(int64_t blockCount, int64_t blockLen, int64_t srcOffset,
-                                                            int64_t ubOffset, int64_t srcStride, int64_t dstStride)
-{
-    LocalTensor<T> srcLocal = inQueueX_.AllocTensor<T>();
-    SetLoopModePara(loopMode_, DataCopyMVType::OUT_TO_UB);
-    copyInParam_.blockCount = blockCount;
-    copyInParam_.blockLen = blockLen * dtypeSize_;
-    copyInParam_.srcStride = srcStride * dtypeSize_;
-    copyInParam_.dstStride = dstStride * dtypeSize_ / BLOCK_SIZE;
+        loopMode_.loop1SrcStride = gSize * nSize * DTYPE_SIZE;
+        loopMode_.loop1DstStride = nAlignSize * DTYPE_SIZE;
+        SetLoopModePara(loopMode_, DataCopyMVType::OUT_TO_UB);
+        copyInParam_.blockCount = processGNum;
+        copyInParam_.blockLen = nSize * DTYPE_SIZE;
+        copyInParam_.srcStride = srcStride * DTYPE_SIZE;
+        copyInParam_.dstStride = dstStride * DTYPE_SIZE / BLOCK_SIZE;
 #if defined(__DAV_920R1__) || defined(__DAV_920R2__)
-    DataCopyPad(srcLocal[ubOffset], xGm_[srcOffset], copyInParam_, padParam_, true);
+        DataCopyPad(srcLocal, xGm_[gmOffset], copyInParam_, padParam_, true);
 #else
-    DataCopyPad(srcLocal[ubOffset], xGm_[srcOffset], copyInParam_, padParam_);
+        DataCopyPad(srcLocal, xGm_[gmOffset], copyInParam_, padParam_);
 #endif
-    ResetLoopModePara(DataCopyMVType::OUT_TO_UB);
-    inQueueX_.EnQue(srcLocal);
-}
+        ResetLoopModePara(DataCopyMVType::OUT_TO_UB);
 
-template <typename T>
-__aicore__ inline void SplitVPureCopyModeSameLen<T>::CopyOut(int64_t yGMIdx, int64_t blockCount, int64_t blockLen,
-                                                             int64_t dstOffset, int64_t ubOffset, int64_t srcStride,
-                                                             int64_t dstStride)
-{
-    yGm_.SetGlobalBuffer(GetTensorAddr(yGMIdx));
-    copyOutParam_.blockCount = blockCount;
-    copyOutParam_.blockLen = blockLen * dtypeSize_;
-    copyOutParam_.srcStride = srcStride * dtypeSize_ / BLOCK_SIZE;
-    copyOutParam_.dstStride = dstStride * dtypeSize_;
-    DataCopyPad(yGm_[dstOffset], xLocal_[ubOffset], copyOutParam_);
+        SetFlag<HardEvent::MTE2_MTE3>(evt);
+        WaitFlag<HardEvent::MTE2_MTE3>(evt);
+
+        for (int64_t g = 0; g < processGNum; g++) {
+            int64_t outOffset = mIdx * mUBFactor * nSize;
+            int64_t yGMIdx = gIdx * gUBFactor + g;
+            int64_t ubOffset = nAlignSize * processMNum * g;
+            yGm_.SetGlobalBuffer(GetTensorAddr(yGMIdx));
+            copyOutParam_.blockCount = processMNum;
+            copyOutParam_.blockLen = nSize * DTYPE_SIZE;
+            copyOutParam_.srcStride = 0;
+            copyOutParam_.dstStride = 0;
+            DataCopyPad(yGm_[outOffset], srcLocal[ubOffset], copyOutParam_);
+        }
+
+        SetFlag<HardEvent::MTE3_MTE2>(evt);
+
+        bufId ^= 1;
+        curIdx++;
+    }
+
+    WaitFlag<HardEvent::MTE3_MTE2>(EVT_ID0);
+    WaitFlag<HardEvent::MTE3_MTE2>(EVT_ID1);
+    curIdx_ = curIdx;
 }
 
 template <typename T>
@@ -261,4 +316,4 @@ __aicore__ inline __gm__ T* SplitVPureCopyModeSameLen<T>::GetTensorAddr(int64_t 
 }
 
 } // namespace SplitV
-#endif
+#endif // SPLIT_V_PURE_COPY_SAME_LEN_H

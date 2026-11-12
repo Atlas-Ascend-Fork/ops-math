@@ -15,7 +15,7 @@
 #include "register/op_impl_registry.h"
 
 namespace optiling {
-class UnpackTiling: public SplitVTiling{
+class UnpackTiling : public SplitVTiling {
 public:
     explicit UnpackTiling(gert::TilingContext* tilingContext) : SplitVTiling(tilingContext) {};
 
@@ -25,42 +25,49 @@ protected:
 };
 
 REGISTER_TILING_DATA_CLASS(Unpack, SplitVTilingData);
+// tilingKey: 100 等长纯搬运模板, 101 等长UB内split模板
+REGISTER_TILING_DATA_CLASS(Unpack_100, SplitVSlimTilingData);
+REGISTER_TILING_DATA_CLASS(Unpack_101, SplitVSlimTilingData);
+// tilingKey: 111 等长UB内split(g轴小)模板, 112 等长UB内split(deinterleave)模板。
+// 注: host选择逻辑已移除, 当前不产生这两个key, 仅保留kernel分支兼容。
+REGISTER_TILING_DATA_CLASS(Unpack_111, SplitVScalarTilingData);
+REGISTER_TILING_DATA_CLASS(Unpack_112, SplitVScalarTilingData);
 constexpr int32_t kBlockSize{32};
 constexpr int32_t kRegBufSize{192};
 constexpr int32_t kCalcMemSize{1024};
 constexpr int32_t RightIndex{2};
 enum class TilingStrategy : uint32_t {
-  SINGLE_OUTPUT = 0,
-  SMALL_SHAPE,
-  BIG_SHAPE,
-  LESS_32B,
-  LAST_DIM_SMALL,
-  SMALL_SHAPE_MULTI_COEXISTING_QUANTITIES
+    SINGLE_OUTPUT = 0,
+    SMALL_SHAPE,
+    BIG_SHAPE,
+    LESS_32B,
+    LAST_DIM_SMALL,
+    SMALL_SHAPE_MULTI_COEXISTING_QUANTITIES
 };
 
-const std::map<ge::DataType, int32_t> kDtypeSizeMap {
-    {ge::DT_INT8, 1},   {ge::DT_UINT8, 1},   {ge::DT_BOOL, 1},  {ge::DT_INT64, 8},
-    {ge::DT_UINT64, 8}, {ge::DT_FLOAT16, 2}, {ge::DT_INT16, 2}, {ge::DT_UINT16, 2},
-    {ge::DT_FLOAT, 4},  {ge::DT_INT32, 4},   {ge::DT_UINT32, 4}};
+const std::map<ge::DataType, int32_t> kDtypeSizeMap{{ge::DT_INT8, 1},  {ge::DT_UINT8, 1},  {ge::DT_BOOL, 1},
+                                                    {ge::DT_INT64, 8}, {ge::DT_UINT64, 8}, {ge::DT_FLOAT16, 2},
+                                                    {ge::DT_INT16, 2}, {ge::DT_UINT16, 2}, {ge::DT_FLOAT, 4},
+                                                    {ge::DT_INT32, 4}, {ge::DT_UINT32, 4}};
 
 struct TilingInfo {
-  int32_t axis;
-  int32_t output_num;
-  int32_t ub_size;
-  int32_t core_num;
-  int32_t dtype_size;
-  bool is_special_tiling;
-  int32_t multi_coexisting_quantities;
+    int32_t axis;
+    int32_t output_num;
+    int32_t ub_size;
+    int32_t core_num;
+    int32_t dtype_size;
+    bool is_special_tiling;
+    int32_t multi_coexisting_quantities;
 };
 
 struct UnpackCompileInfo {
-  uint32_t maxCoreNum{0};
-  uint32_t ubSizePlatform{0};
+    uint32_t maxCoreNum{0};
+    uint32_t ubSizePlatform{0};
 };
 
 struct ConstParams {
-  int32_t ub_limit;
-  TilingInfo tiling_info;
+    int32_t ub_limit;
+    TilingInfo tiling_info;
 };
-}  // namespace optiling
-#endif  // UNPACK_RUNTIME2_H_
+} // namespace optiling
+#endif // UNPACK_RUNTIME2_H_

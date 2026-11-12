@@ -48,7 +48,6 @@ constexpr int64_t SIMT_KEY = 200;
 constexpr int64_t SIMT_SAME_LEN_KEY = 201;
 constexpr int64_t SIMT_KEY_SPLIT_TENSOR = 202;
 constexpr int64_t SIMT_SAME_LEN_KEY_SPLIT_TENSOR = 203;
-constexpr int64_t SIMT_CHUNK_KEY = 204; // SIMT 全局 chunk 均衡模板
 constexpr int64_t BLOCK_SIZE = 32;
 constexpr double PURE_MOVE_RATIO = 0.9;    // 90%
 constexpr double PURE_MOVE_RATIO_M1 = 0.8; // M == 1 80%
@@ -57,31 +56,20 @@ constexpr int64_t PREF_BRANCH_GSIZE = 15;
 constexpr int64_t MAX_SIMT_PER_CORE_SIZE = 131072; // 128KB
 constexpr int32_t SIMT_THREAD_NUM = 1024;
 constexpr int64_t MAX_NUM = 9223372036854775807;
-constexpr int64_t SMALL_G_TILE_RATIO_LIMIT = 4;
-constexpr int64_t PERCENT_BASE = 100;
 constexpr int32_t BASE_TWO = 2;
 constexpr int32_t BASE_FOUR = 4;
+constexpr int64_t SMALL_G_TILE_RATIO_LIMIT = 4; // small-G分支相对原始分支的tile数缩减倍数下限
 constexpr int32_t SIMT_MIN_CORE_NUM = 8;
 // 数据量只做极端失衡保护, 不进入主评分。只有当某候选最重核数据量同时超过最优候选的
 // MAX_DATA_IMBALANCE_RATIO 倍且绝对差超过 MAX_DATA_IMBALANCE_BYTES 时才过滤。
 constexpr int64_t MAX_DATA_IMBALANCE_RATIO = 2;
 constexpr int64_t MAX_DATA_IMBALANCE_BYTES = USED_MIN_UB_SIZE * 4; // 32KB, 数倍 USED_MIN_UB_SIZE
 
-// 204 SIMT chunk 均衡模板准入与分配相关常量
-// constexpr int32_t SIMT_VECTOR_CORE_NUM = 56;                // 1024 逻辑 block = 64 核 * 16
-constexpr int32_t THREADS_PER_LOGIC_BLOCK = 128;            // 每个逻辑 block 128 线程
-constexpr int64_t SIMT_CHUNK_SKEW_RATIO_THRESHOLD = 2;      // max(M*wi)/min(M*wi) >= 2 视为偏斜
-constexpr int64_t SIMT_CHUNK_TOTAL_ELEM_THRESHOLD = 131072; // 1024 block * 128 thread, 总元素下限
-constexpr int64_t SIMT_REJECT_RELATIVE_SKEW_UPPER = 16;     // SIMT拒绝后回退Chunk的相对偏差上界
-constexpr int64_t SIMT_REJECT_ABSOLUTE_SKEW_UPPER = 2048;   // SIMT拒绝后回退Chunk的绝对偏差上界
-
 // IsDoSplitVSIMT 强制走 SIMT 的特定输入 shape [256, 16] 及 numSplit 上限
 constexpr size_t SIMT_FORCE_INPUT_DIM_NUM = 2;
 constexpr int64_t SIMT_FORCE_INPUT_DIM0 = 256;
 constexpr int64_t SIMT_FORCE_INPUT_DIM1 = 16;
 constexpr int64_t SIMT_FORCE_MAX_NUM_SPLIT = 16;
-// host 侧 uint64 fast-div 计算中的 uint64 位宽
-constexpr int64_t UINT64_BIT_WIDTH = 64;
 
 template <typename T>
 std::string SplitVTiling::ArrayToString(const T* vec, size_t num) const
@@ -943,28 +931,12 @@ bool SplitVTiling::IsDoSplitVSIMT(int32_t maxCoreNum)
     if (numSplit_ <= static_cast<int64_t>(maxCoreNum / BASE_TWO)) {
         divPara = static_cast<int32_t>(maxCoreNum / numSplit_);
     }
-    int64_t relativeSkew = maxSizeSplit * maxCoreNum / inputShape_.GetDim(splitDim_) / divPara;
-    int64_t absoluteSkew = mSimtSize_ * (maxFuseSizeAfterSplit_ - minFuseSizeAfterSplit_) / divPara;
-    if (relativeSkew >= BASE_TWO && absoluteSkew >= SIMT_THREAD_NUM) {
-        simtRelativeSkew_ = relativeSkew;
-        simtAbsoluteSkew_ = absoluteSkew;
-        simtSkewRejected_ = true;
+
+    if (maxSizeSplit * maxCoreNum / inputShape_.GetDim(splitDim_) / divPara >= BASE_TWO &&
+        mSimtSize_ * (maxFuseSizeAfterSplit_ - minFuseSizeAfterSplit_) / divPara >= SIMT_THREAD_NUM) {
         return false;
     }
 
-    return true;
-}
-
-bool SplitVTiling::IsFallbackToChunk()
-{
-    if (!simtSkewRejected_) {
-        return false;
-    }
-    if (simtRelativeSkew_ >= SIMT_REJECT_RELATIVE_SKEW_UPPER || simtAbsoluteSkew_ >= SIMT_REJECT_ABSOLUTE_SKEW_UPPER) {
-        return false;
-    }
-    OP_LOGI(context_->GetNodeName(), "SIMT rejected by skew, fallback to chunk 204. relativeSkew:%ld absoluteSkew:%ld",
-            simtRelativeSkew_, simtAbsoluteSkew_);
     return true;
 }
 
@@ -1024,6 +996,175 @@ void SplitVTiling::FillTilingData()
             ArrayToString(tilingData_.get_nBlockSplitOffsetEnd(), realCoreNum_).c_str());
 }
 
+void SplitVTiling::FillSlimTilingData()
+{
+    OP_LOGD(context_->GetNodeName(), "Entering FillSlimTilingData.");
+    slimTilingData_.set_ubSize(static_cast<int64_t>(ubSize_));
+    slimTilingData_.set_gSize(numSplit_);
+    slimTilingData_.set_nBlockFactorNum(nBlockFactorCount_);
+    slimTilingData_.set_mBlockFactor(mBlockFactor_);
+    slimTilingData_.set_mBlockFactorTail(mBlockFactorTail_);
+    slimTilingData_.set_mBlockCount(mBlockCount_);
+    slimTilingData_.set_gUBFactor(gUBFactor_);
+    slimTilingData_.set_gUBFactorTail(gUBFactorTail_);
+    slimTilingData_.set_gUBCount(gUBCount_);
+    slimTilingData_.set_nBlockFactor(nBlockFactor_);
+    slimTilingData_.set_nBlockFactorTail(nBlockFactorTail_);
+    slimTilingData_.set_nBlockCount(nBlockCount_);
+    slimTilingData_.set_blockFactor(blockFactor_);
+    slimTilingData_.set_blockFactorTail(blockFactorTail_);
+    slimTilingData_.set_realCoreNum(realCoreNum_);
+    slimTilingData_.set_mBlockFactorNum(mBlockFactorCount_);
+
+    slimTilingData_.SaveToBuffer(context_->GetRawTilingData()->GetData(), context_->GetRawTilingData()->GetCapacity());
+    context_->GetRawTilingData()->SetDataSize(slimTilingData_.GetDataSize());
+
+    OP_LOGI(context_->GetNodeName(),
+            "SlimTilingData ubSize:%ld gSize:%ld nBlockFactorNum:%ld mBlockFactor:%ld "
+            "mBlockFactorTail:%ld mBlockCount:%ld gUBFactor:%ld gUBFactorTail:%ld gUBCount:%ld "
+            "nBlockFactor:%ld nBlockFactorTail:%ld nBlockCount:%ld blockFactor:%ld blockFactorTail:%ld "
+            "realCoreNum:%ld mBlockFactorNum:%ld",
+            slimTilingData_.get_ubSize(), slimTilingData_.get_gSize(), slimTilingData_.get_nBlockFactorNum(),
+            slimTilingData_.get_mBlockFactor(), slimTilingData_.get_mBlockFactorTail(),
+            slimTilingData_.get_mBlockCount(), slimTilingData_.get_gUBFactor(), slimTilingData_.get_gUBFactorTail(),
+            slimTilingData_.get_gUBCount(), slimTilingData_.get_nBlockFactor(), slimTilingData_.get_nBlockFactorTail(),
+            slimTilingData_.get_nBlockCount(), slimTilingData_.get_blockFactor(), slimTilingData_.get_blockFactorTail(),
+            slimTilingData_.get_realCoreNum(), slimTilingData_.get_mBlockFactorNum());
+}
+
+void SplitVTiling::FillPureCopyTilingData()
+{
+    OP_LOGD(context_->GetNodeName(), "Entering FillPureCopyTilingData.");
+    pureCopyTilingData_.set_ubSize(static_cast<int64_t>(ubSize_));
+    pureCopyTilingData_.set_sizeAfterSplitDim(splitStride_);
+    pureCopyTilingData_.set_mBlockFactor(mBlockFactor_);
+    pureCopyTilingData_.set_mBlockFactorTail(mBlockFactorTail_);
+    pureCopyTilingData_.set_mBlockFactorNum(mBlockFactorCount_);
+    pureCopyTilingData_.set_gSize(numSplit_);
+    pureCopyTilingData_.set_nBlockFactor(nBlockFactor_);
+    pureCopyTilingData_.set_nBlockFactorTail(nBlockFactorTail_);
+    pureCopyTilingData_.set_nBlockFactorNum(nBlockFactorCount_);
+    pureCopyTilingData_.set_nBlockCount(nBlockCount_);
+    pureCopyTilingData_.set_realCoreNum(realCoreNum_);
+    pureCopyTilingData_.set_negIdx(negIdx_);
+    pureCopyTilingData_.set_negValue(negValue_);
+    pureCopyTilingData_.set_nSize(fusedShape_[1]);
+
+    pureCopyTilingData_.set_nBlockSplitOffset(nBlockSplitOffsetStart_);
+    pureCopyTilingData_.set_nBlockSplitOffsetEnd(nBlockSplitOffsetEnd_);
+    pureCopyTilingData_.set_nBlockSplitPrefixStart(nBlockSplitPrefixStart_);
+
+    pureCopyTilingData_.SaveToBuffer(context_->GetRawTilingData()->GetData(),
+                                     context_->GetRawTilingData()->GetCapacity());
+    context_->GetRawTilingData()->SetDataSize(pureCopyTilingData_.GetDataSize());
+
+    OP_LOGI(context_->GetNodeName(),
+            "PureCopyTilingData ubSize:%ld sizeAfterSplitDim:%ld mBlockFactor:%ld mBlockFactorTail:%ld "
+            "mBlockFactorNum:%ld gSize:%ld nBlockFactor:%ld nBlockFactorTail:%ld nBlockFactorNum:%ld "
+            "nBlockCount:%ld realCoreNum:%ld negIdx:%ld negValue:%ld nSize:%ld",
+            pureCopyTilingData_.get_ubSize(), pureCopyTilingData_.get_sizeAfterSplitDim(),
+            pureCopyTilingData_.get_mBlockFactor(), pureCopyTilingData_.get_mBlockFactorTail(),
+            pureCopyTilingData_.get_mBlockFactorNum(), pureCopyTilingData_.get_gSize(),
+            pureCopyTilingData_.get_nBlockFactor(), pureCopyTilingData_.get_nBlockFactorTail(),
+            pureCopyTilingData_.get_nBlockFactorNum(), pureCopyTilingData_.get_nBlockCount(),
+            pureCopyTilingData_.get_realCoreNum(), pureCopyTilingData_.get_negIdx(), pureCopyTilingData_.get_negValue(),
+            pureCopyTilingData_.get_nSize());
+    OP_LOGI(context_->GetNodeName(), "PureCopyTilingData nBlockSplitOffset:   %s",
+            ArrayToString(pureCopyTilingData_.get_nBlockSplitOffset(), realCoreNum_).c_str());
+    OP_LOGI(context_->GetNodeName(), "PureCopyTilingData nBlockSplitOffsetEnd:%s",
+            ArrayToString(pureCopyTilingData_.get_nBlockSplitOffsetEnd(), realCoreNum_).c_str());
+}
+
+void SplitVTiling::FillUbSplitTilingData()
+{
+    OP_LOGD(context_->GetNodeName(), "Entering FillUbSplitTilingData.");
+    ubSplitTilingData_.set_ubSize(static_cast<int64_t>(ubSize_));
+    ubSplitTilingData_.set_sizeAfterSplitDim(splitStride_);
+    ubSplitTilingData_.set_mBlockFactor(mBlockFactor_);
+    ubSplitTilingData_.set_mBlockFactorTail(mBlockFactorTail_);
+    ubSplitTilingData_.set_mBlockFactorNum(mBlockFactorCount_);
+    ubSplitTilingData_.set_gSize(numSplit_);
+    ubSplitTilingData_.set_nBlockFactor(nBlockFactor_);
+    ubSplitTilingData_.set_nBlockFactorAlign(Ops::Base::CeilAlign(nBlockFactor_, BLOCK_SIZE / xDtypeSize_));
+    ubSplitTilingData_.set_nBlockFactorTail(nBlockFactorTail_);
+    ubSplitTilingData_.set_nBlockFactorNum(nBlockFactorCount_);
+    ubSplitTilingData_.set_nBlockCount(nBlockCount_);
+    ubSplitTilingData_.set_realCoreNum(realCoreNum_);
+    ubSplitTilingData_.set_negIdx(negIdx_);
+    ubSplitTilingData_.set_negValue(negValue_);
+    ubSplitTilingData_.set_isInt32(isInt32_);
+    ubSplitTilingData_.set_nSize(fusedShape_[1]);
+    ubSplitTilingData_.set_mSize(fusedShape_[0]);
+
+    ubSplitTilingData_.set_nBlockSplitOffset(nBlockSplitOffsetStart_);
+    ubSplitTilingData_.set_nBlockSplitOffsetEnd(nBlockSplitOffsetEnd_);
+    ubSplitTilingData_.set_nBlockSplitPrefixStart(nBlockSplitPrefixStart_);
+    ubSplitTilingData_.set_nBlockSplitPrefixEnd(nBlockSplitPrefixEnd_);
+
+    ubSplitTilingData_.SaveToBuffer(context_->GetRawTilingData()->GetData(),
+                                    context_->GetRawTilingData()->GetCapacity());
+    context_->GetRawTilingData()->SetDataSize(ubSplitTilingData_.GetDataSize());
+
+    OP_LOGI(context_->GetNodeName(),
+            "UbSplitTilingData ubSize:%ld sizeAfterSplitDim:%ld mBlockFactor:%ld mBlockFactorTail:%ld "
+            "mBlockFactorNum:%ld gSize:%ld nBlockFactor:%ld nBlockFactorAlign:%ld nBlockFactorTail:%ld "
+            "nBlockFactorNum:%ld nBlockCount:%ld realCoreNum:%ld negIdx:%ld negValue:%ld isInt32:%ld "
+            "nSize:%ld mSize:%ld",
+            ubSplitTilingData_.get_ubSize(), ubSplitTilingData_.get_sizeAfterSplitDim(),
+            ubSplitTilingData_.get_mBlockFactor(), ubSplitTilingData_.get_mBlockFactorTail(),
+            ubSplitTilingData_.get_mBlockFactorNum(), ubSplitTilingData_.get_gSize(),
+            ubSplitTilingData_.get_nBlockFactor(), ubSplitTilingData_.get_nBlockFactorAlign(),
+            ubSplitTilingData_.get_nBlockFactorTail(), ubSplitTilingData_.get_nBlockFactorNum(),
+            ubSplitTilingData_.get_nBlockCount(), ubSplitTilingData_.get_realCoreNum(), ubSplitTilingData_.get_negIdx(),
+            ubSplitTilingData_.get_negValue(), ubSplitTilingData_.get_isInt32(), ubSplitTilingData_.get_nSize(),
+            ubSplitTilingData_.get_mSize());
+    OP_LOGI(context_->GetNodeName(), "UbSplitTilingData nBlockSplitOffset:   %s",
+            ArrayToString(ubSplitTilingData_.get_nBlockSplitOffset(), realCoreNum_).c_str());
+    OP_LOGI(context_->GetNodeName(), "UbSplitTilingData nBlockSplitOffsetEnd:%s",
+            ArrayToString(ubSplitTilingData_.get_nBlockSplitOffsetEnd(), realCoreNum_).c_str());
+}
+
+void SplitVTiling::FillScalarTilingData()
+{
+    OP_LOGD(context_->GetNodeName(), "Entering FillScalarTilingData.");
+    scalarTilingData_.set_ubSize(static_cast<int64_t>(ubSize_));
+    scalarTilingData_.set_splitDim(splitDim_);
+    scalarTilingData_.set_sizeAfterSplitDim(splitStride_);
+    scalarTilingData_.set_mBlockFactor(mBlockFactor_);
+    scalarTilingData_.set_mBlockFactorTail(mBlockFactorTail_);
+    scalarTilingData_.set_mBlockCount(mBlockCount_);
+    scalarTilingData_.set_gUBFactor(gUBFactor_);
+    scalarTilingData_.set_gUBFactorTail(gUBFactorTail_);
+    scalarTilingData_.set_gSize(numSplit_);
+    scalarTilingData_.set_gUBCount(gUBCount_);
+    scalarTilingData_.set_nBlockFactor(nBlockFactor_);
+    scalarTilingData_.set_nBlockFactorTail(nBlockFactorTail_);
+    scalarTilingData_.set_nBlockFactorNum(nBlockFactorCount_);
+    scalarTilingData_.set_nBlockCount(nBlockCount_);
+    scalarTilingData_.set_realCoreNum(realCoreNum_);
+    scalarTilingData_.set_blockFactor(blockFactor_);
+    scalarTilingData_.set_blockFactorTail(blockFactorTail_);
+    scalarTilingData_.set_pureOutIdx(pureOutIdx_);
+
+    scalarTilingData_.SaveToBuffer(context_->GetRawTilingData()->GetData(),
+                                   context_->GetRawTilingData()->GetCapacity());
+    context_->GetRawTilingData()->SetDataSize(scalarTilingData_.GetDataSize());
+
+    OP_LOGI(context_->GetNodeName(),
+            "ScalarTilingData ubSize:%ld splitDim:%ld sizeAfterSplitDim:%ld mBlockFactor:%ld mBlockFactorTail:%ld "
+            "mBlockCount:%ld gUBFactor:%ld gUBFactorTail:%ld gSize:%ld gUBCount:%ld nBlockFactor:%ld "
+            "nBlockFactorTail:%ld nBlockFactorNum:%ld nBlockCount:%ld realCoreNum:%ld blockFactor:%ld "
+            "blockFactorTail:%ld pureOutIdx:%ld",
+            scalarTilingData_.get_ubSize(), scalarTilingData_.get_splitDim(), scalarTilingData_.get_sizeAfterSplitDim(),
+            scalarTilingData_.get_mBlockFactor(), scalarTilingData_.get_mBlockFactorTail(),
+            scalarTilingData_.get_mBlockCount(), scalarTilingData_.get_gUBFactor(),
+            scalarTilingData_.get_gUBFactorTail(), scalarTilingData_.get_gSize(), scalarTilingData_.get_gUBCount(),
+            scalarTilingData_.get_nBlockFactor(), scalarTilingData_.get_nBlockFactorTail(),
+            scalarTilingData_.get_nBlockFactorNum(), scalarTilingData_.get_nBlockCount(),
+            scalarTilingData_.get_realCoreNum(), scalarTilingData_.get_blockFactor(),
+            scalarTilingData_.get_blockFactorTail(), scalarTilingData_.get_pureOutIdx());
+}
+
 void SplitVTiling::SetBlockDimAndTilingKey() const
 {
     context_->SetBlockDim(blockDim_);
@@ -1035,195 +1176,6 @@ void SplitVTiling::SetWorkspaceSize() const
 {
     size_t* workspaces = context_->GetWorkspaceSizes(1);
     workspaces[0] = WORK_SPACE_SIZE;
-}
-
-// host 侧 uint64 fast-div magic/shift 计算, 算法与 kernel 侧 GetUintDivMagicAndShiftImpl(uint64_t) + GetUintDivMagic
-// 一致, 供 kernel Simt::UintDiv<uint64_t> 使用; 用 __int128 实现 128 位除法避免溢出
-static inline void HostGetUintDivMagicAndShift64(uint64_t& magic, uint32_t& shift, uint64_t divisor)
-{
-    if (divisor == 0) {
-        magic = 0;
-        shift = 0;
-        return;
-    }
-    // pos = UINT64_BIT_WIDTH - clz(divisor) = floor(log2(divisor)) + 1
-    int64_t pos = UINT64_BIT_WIDTH - static_cast<int64_t>(__builtin_clzll(divisor));
-    int64_t cnt1 = static_cast<int64_t>(__builtin_popcountll(divisor));
-    shift = (cnt1 == 1) ? static_cast<uint32_t>(pos - 1) : static_cast<uint32_t>(pos);
-    uint64_t dividend = 0;
-    if (shift < UINT64_BIT_WIDTH) {
-        dividend = (1ULL << shift) - divisor;
-    } else {
-        // shift == UINT64_BIT_WIDTH, 2^64 - divisor
-        dividend = 0xFFFFFFFFFFFFFFFFULL - divisor + 1;
-    }
-    // magic = floor(2^64 * dividend / divisor) + 1
-    __uint128_t num = (static_cast<__uint128_t>(dividend) << UINT64_BIT_WIDTH);
-    magic = static_cast<uint64_t>(num / divisor) + 1;
-}
-
-// 204 per-output 预存版: 与 DoSplitVSIMTChunkTiling 同样的 blockPrefix/colOffset 均衡, 额外在 host 预存
-// qPerBlk/rPerBlk/divMagic/divShift/strideDiff, kernel 不再做 div/magic/strideDiff 派生
-void SplitVTiling::DoSplitVSIMTChunkPreTiling(int32_t maxCoreNum)
-{
-    OP_LOGD(context_->GetNodeName(), "DoSplitVSIMTChunkPreTiling start");
-    int32_t M = static_cast<int32_t>(mSimtSize_);
-    int32_t nLen = static_cast<int32_t>(nSimtSize_);
-    realCoreNum_ = maxCoreNum;
-    // logicBlockNum_ = static_cast<int32_t>(realCoreNum_) * LOGIC_BLOCK_PER_CORE;
-
-    // 1) wi / colOffset / totalElem / strideDiff
-    int64_t totalElem = 0;
-    uint32_t colStart = 0;
-    for (int32_t i = 0; i < numSplit_; i++) {
-        int32_t wi = static_cast<int32_t>(oriSizeSplits_[i] * simtSizeAfterSplit_);
-        colOffsetChunkBuf_[i] = colStart;
-        colStart += static_cast<uint32_t>(wi);
-        strideDiffBuf_[i] = static_cast<int64_t>(nLen) - static_cast<int64_t>(wi);
-        totalElem += static_cast<int64_t>(M) * static_cast<int64_t>(wi);
-    }
-
-    // 限制 logicBlockNum_: 每个 block 至少 128 个元素(每线程1个), 避免数据量少时大量线程空跑
-    int32_t maxLogicBlockByData = static_cast<int32_t>((totalElem + THREADS_PER_LOGIC_BLOCK - 1) /
-                                                       THREADS_PER_LOGIC_BLOCK);
-    int32_t maxLogicBlockByCore = static_cast<int32_t>(realCoreNum_) * LOGIC_BLOCK_PER_CORE;
-    logicBlockNum_ = std::min(maxLogicBlockByCore, maxLogicBlockByData);
-    logicBlockNum_ = std::max(logicBlockNum_, static_cast<int32_t>(numSplit_)); // 至少每个 output 1 个 block
-
-    // 2) 按 M*wi 比例分配整数逻辑 block, 空输出(wi==0)分配 0; 暂存到 blockPrefixBuf_
-    int32_t blkSum = 0;
-    int32_t maxCopyIdx = -1;
-    int64_t maxCopy = -1;
-    for (int32_t i = 0; i < numSplit_; i++) {
-        int32_t wi = static_cast<int32_t>(oriSizeSplits_[i] * simtSizeAfterSplit_);
-        if (wi <= 0) {
-            blockPrefixBuf_[i] = 0;
-            continue;
-        }
-        int64_t copy = static_cast<int64_t>(M) * static_cast<int64_t>(wi);
-        int32_t blk = static_cast<int32_t>((static_cast<int64_t>(logicBlockNum_) * copy + totalElem / 2) / totalElem);
-        blk = std::max(1, blk);
-        blockPrefixBuf_[i] = static_cast<uint32_t>(blk);
-        blkSum += blk;
-        if (copy > maxCopy) {
-            maxCopy = copy;
-            maxCopyIdx = i;
-        }
-    }
-
-    // 3) 校正使 Σ blkForTensor == logicBlockNum_
-    //    diff >= 0 (欠分配): 差值全部补到拷贝量最大的 output
-    //    diff <  0 (超分配): 按拷贝量降序逐个扣减, 每个非空 output 保留至少 1 块, 避免下游 q=total/blkCnt 除零
-    if (maxCopyIdx >= 0) {
-        int32_t diff = maxLogicBlockByCore - blkSum;
-        if (diff >= 0) {
-            realCoreNum_ = CeilDiv(blkSum, LOGIC_BLOCK_PER_CORE);
-        } else {
-            int32_t need = -diff;
-            // 收集可扣减的输出(blk > 1), 按拷贝量 M*wi 降序排序后贪心扣减
-            std::vector<int32_t> order;
-            order.reserve(static_cast<size_t>(numSplit_));
-            for (int32_t i = 0; i < numSplit_; i++) {
-                if (static_cast<int32_t>(blockPrefixBuf_[i]) > 1) {
-                    order.push_back(i);
-                }
-            }
-            std::sort(order.begin(), order.end(), [&](int32_t a, int32_t b) {
-                int32_t wa = static_cast<int32_t>(oriSizeSplits_[a] * simtSizeAfterSplit_);
-                int32_t wb = static_cast<int32_t>(oriSizeSplits_[b] * simtSizeAfterSplit_);
-                return static_cast<int64_t>(M) * wa > static_cast<int64_t>(M) * wb;
-            });
-            for (int32_t idx : order) {
-                if (need <= 0) {
-                    break;
-                }
-                int32_t spare = static_cast<int32_t>(blockPrefixBuf_[idx]) - 1;
-                int32_t take = std::min(spare, need);
-                blockPrefixBuf_[idx] = static_cast<uint32_t>(static_cast<int32_t>(blockPrefixBuf_[idx]) - take);
-                need -= take;
-            }
-            // need > 0 表示非空输出数 > logicBlockNum_, 无法在保证每输出 >= 1 块的前提下归零
-            if (need > 0) {
-                OP_LOGW(context_->GetNodeName(),
-                        "SIMT chunk-pre blk overflow cannot be fully corrected: "
-                        "numSplit=%ld remain=%d, total blocks exceed logicBlockNum_=%d.",
-                        numSplit_, need, logicBlockNum_);
-            }
-        }
-    }
-
-    // 4) 前缀求和填 blockPrefix, 同时算 qPerBlk/rPerBlk/divMagic/divShift
-    uint32_t pre = 0;
-    for (int32_t i = 0; i < numSplit_; i++) {
-        int32_t wi = static_cast<int32_t>(oriSizeSplits_[i] * simtSizeAfterSplit_);
-        if (wi <= 0) {
-            // 空 output: block 数为 0, 前缀保持不变, kernel 自然跳过
-            blockPrefixBuf_[i] = pre;
-            qPerBlkBuf_[i] = 0;
-            rPerBlkBuf_[i] = 0;
-            divMagicBuf_[i] = 0;
-            divShiftBuf_[i] = 0;
-            continue;
-        }
-        uint32_t blkCnt = blockPrefixBuf_[i]; // 该 output 的 block 数(前缀覆盖前)
-        int64_t total = static_cast<int64_t>(M) * static_cast<int64_t>(wi);
-        // q/r: 前 r 个 block 每个多分 1 个元素, 与 split_v_simt_chunk_ub.h 一致
-        int64_t q = total / static_cast<int64_t>(blkCnt);
-        int64_t r = total % static_cast<int64_t>(blkCnt);
-        qPerBlkBuf_[i] = q;
-        rPerBlkBuf_[i] = r;
-        // fast-div magic/shift for wi (uint64), 与 kernel Simt::UintDiv<uint64_t> 配套
-        uint64_t magic = 0;
-        uint32_t shift = 0;
-        HostGetUintDivMagicAndShift64(magic, shift, static_cast<uint64_t>(wi));
-        divMagicBuf_[i] = magic;
-        divShiftBuf_[i] = static_cast<int32_t>(shift);
-
-        pre += blockPrefixBuf_[i];
-        blockPrefixBuf_[i] = pre;
-    }
-
-    // 5) 1024 逻辑 block = 64 核 * 16
-    blockDim_ = realCoreNum_;
-    tilingKey_ = SIMT_CHUNK_KEY;
-
-    OP_LOGI(context_->GetNodeName(), "SIMT chunk-pre 204 M:%d nLen:%d splitNum:%ld totalElem:%ld blockDim:%ld", M, nLen,
-            numSplit_, totalElem, blockDim_);
-    OP_LOGI(context_->GetNodeName(), "SIMT chunk-pre 204 blockPrefix:  %s",
-            ArrayToString(blockPrefixBuf_, static_cast<size_t>(numSplit_)).c_str());
-    OP_LOGI(context_->GetNodeName(), "SIMT chunk-pre 204 colOffset:    %s",
-            ArrayToString(colOffsetChunkBuf_, static_cast<size_t>(numSplit_)).c_str());
-    OP_LOGI(context_->GetNodeName(), "SIMT chunk-pre 204 strideDiff:   %s",
-            ArrayToString(strideDiffBuf_, static_cast<size_t>(numSplit_)).c_str());
-
-    FillSIMTChunkPreTilingData();
-    SetBlockDimAndTilingKey();
-    SetWorkspaceSize();
-    OP_LOGD(context_->GetNodeName(), "DoSplitVSIMTChunkPreTiling end");
-}
-
-void SplitVTiling::FillSIMTChunkPreTilingData()
-{
-    OP_LOGD(context_->GetNodeName(), "Entering FillSIMTChunkPreTilingData.");
-    simtChunkPreTilingData_.set_mSize(static_cast<int32_t>(mSimtSize_));
-    simtChunkPreTilingData_.set_nSize(static_cast<int32_t>(nSimtSize_));
-    simtChunkPreTilingData_.set_splitNum(static_cast<int32_t>(numSplit_));
-    simtChunkPreTilingData_.set_realCoreNum(static_cast<int32_t>(realCoreNum_));
-    simtChunkPreTilingData_.set_blockPrefix(blockPrefixBuf_);
-    simtChunkPreTilingData_.set_colOffset(colOffsetChunkBuf_);
-    simtChunkPreTilingData_.set_qPerBlk(qPerBlkBuf_);
-    simtChunkPreTilingData_.set_rPerBlk(rPerBlkBuf_);
-    simtChunkPreTilingData_.set_divMagic(divMagicBuf_);
-    simtChunkPreTilingData_.set_divShift(divShiftBuf_);
-    simtChunkPreTilingData_.set_strideDiff(strideDiffBuf_);
-
-    OP_LOGI(context_->GetNodeName(), "ChunkPreTilingData mSize:%d nSize:%d splitNum:%d realCoreNum:%d",
-            simtChunkPreTilingData_.get_mSize(), simtChunkPreTilingData_.get_nSize(),
-            simtChunkPreTilingData_.get_splitNum(), simtChunkPreTilingData_.get_realCoreNum());
-
-    simtChunkPreTilingData_.SaveToBuffer(context_->GetRawTilingData()->GetData(),
-                                         context_->GetRawTilingData()->GetCapacity());
-    context_->GetRawTilingData()->SetDataSize(simtChunkPreTilingData_.GetDataSize());
 }
 
 ge::graphStatus SplitVTiling::DoSplitVTiling(int32_t maxCoreNum, uint32_t ubSize)
@@ -1258,7 +1210,20 @@ ge::graphStatus SplitVTiling::DoSplitVTiling(int32_t maxCoreNum, uint32_t ubSize
         SetTilingMode();
     }
 
-    FillTilingData();
+    // 111/112 走纯标量tiling数据, 与kernel侧 SplitVScalarTilingData 解析布局保持一致
+    if (tilingKey_ == SPLIT_KEY_UB_SPLIT_SMALL_G || tilingKey_ == SPLIT_KEY_UB_SPLIT_DEINTERLEAVE) {
+        FillScalarTilingData();
+    } else if (tilingKey_ == SPLIT_KEY_PURE_MOVE || tilingKey_ == SPLIT_KEY_UB_SPLIT) {
+        FillSlimTilingData();
+    } else if (tilingKey_ == SPLITV_KEY_PURE_MOVE) {
+        FillPureCopyTilingData();
+    } else if (tilingKey_ == SPLITV_KEY_UB_SPLIT_WITH_PURE_MOVE) {
+        FillUbSplitTilingData();
+    } else if (tilingKey_ == SPLITV_KEY_PURE_MOVE_1) {
+        FillScalarTilingData();
+    } else {
+        FillTilingData();
+    }
     SetBlockDimAndTilingKey();
     SetWorkspaceSize();
     return ge::GRAPH_SUCCESS;
@@ -1554,7 +1519,12 @@ ge::graphStatus SplitVTiling::DoSplitTiling(int32_t maxCoreNum, uint32_t ubSize)
         CalcSameLenTilingInfo();
     }
 
-    FillTilingData();
+    // 111/112 走纯标量tiling数据, 其余key走精简tiling数据
+    if (tilingKey_ == SPLIT_KEY_UB_SPLIT_SMALL_G || tilingKey_ == SPLIT_KEY_UB_SPLIT_DEINTERLEAVE) {
+        FillScalarTilingData();
+    } else {
+        FillSlimTilingData();
+    }
     SetBlockDimAndTilingKey();
     SetWorkspaceSize();
     OP_LOGD("SplitTilingForAscendC", "DoSplitTiling end");

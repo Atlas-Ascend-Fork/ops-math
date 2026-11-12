@@ -21,11 +21,30 @@ constexpr int64_t BASE_2 = 2;
 constexpr int64_t MAX_CORE_COUNT = 72;
 constexpr int32_t MAX_COL_OFFSET_COUNT = 128;
 
-// SIMT 全局 chunk 均衡模板(204)相关常量
-// constexpr int32_t LOGIC_BLOCK_NUM = 1024;        // 64 物理核 * 每核 16 个逻辑 block
-// constexpr int32_t LOGIC_BLOCK_NUM = 896;     // 56 物理核 * 每核 16 个逻辑 block
-constexpr int32_t LOGIC_BLOCK_PER_CORE = 16; // 每核逻辑 block 数
-constexpr int32_t SIMT_THREAD_DIM = 2048;    // asc_vf_call 单核拉起线程数(16*128)
+// 等长切分(same len)快速路径的精简tiling数据, 由tilingKey(100/101)区分, host与kernel经框架序列化传递
+BEGIN_TILING_DATA_DEF(SplitVSlimTilingData)
+TILING_DATA_FIELD_DEF(int64_t, ubSize);
+TILING_DATA_FIELD_DEF(int64_t, gSize);
+TILING_DATA_FIELD_DEF(int64_t, nBlockFactorNum);
+TILING_DATA_FIELD_DEF(int64_t, mBlockFactor);
+TILING_DATA_FIELD_DEF(int64_t, mBlockFactorTail);
+TILING_DATA_FIELD_DEF(int64_t, mBlockCount);
+TILING_DATA_FIELD_DEF(int64_t, gUBFactor);
+TILING_DATA_FIELD_DEF(int64_t, gUBFactorTail);
+TILING_DATA_FIELD_DEF(int64_t, gUBCount);
+TILING_DATA_FIELD_DEF(int64_t, nBlockFactor);
+TILING_DATA_FIELD_DEF(int64_t, nBlockFactorTail);
+TILING_DATA_FIELD_DEF(int64_t, nBlockCount);
+TILING_DATA_FIELD_DEF(int64_t, blockFactor);
+TILING_DATA_FIELD_DEF(int64_t, blockFactorTail);
+TILING_DATA_FIELD_DEF(int64_t, realCoreNum);
+TILING_DATA_FIELD_DEF(int64_t, mBlockFactorNum);
+END_TILING_DATA_DEF;
+// tilingKey: 100 等长纯搬运模板, 101 等长UB内split模板
+REGISTER_TILING_DATA_CLASS(SplitV_100, SplitVSlimTilingData)
+REGISTER_TILING_DATA_CLASS(SplitV_101, SplitVSlimTilingData)
+REGISTER_TILING_DATA_CLASS(Split_100, SplitVSlimTilingData)
+REGISTER_TILING_DATA_CLASS(Split_101, SplitVSlimTilingData)
 
 BEGIN_TILING_DATA_DEF(SplitVTilingData)
 TILING_DATA_FIELD_DEF(int64_t, ubSize);            // asc 接口获取到的ub大小，Bytes
@@ -66,6 +85,89 @@ END_TILING_DATA_DEF;
 REGISTER_TILING_DATA_CLASS(SplitV, SplitVTilingData)
 REGISTER_TILING_DATA_CLASS(Split, SplitVTilingData)
 
+// tilingKey=102(纯搬运模板)专用tiling数据, 仅包含 SplitVPureCopyMode 模板(op_kernel/arch35/split_v_pure_copy.h)
+// 实际访问的成员, 字段顺序与 SplitVTilingData 保持一致
+BEGIN_TILING_DATA_DEF(SplitVPureCopyTilingData)
+TILING_DATA_FIELD_DEF(int64_t, ubSize);            // asc 接口获取到的ub大小，Bytes
+TILING_DATA_FIELD_DEF(int64_t, sizeAfterSplitDim); // split轴之后所有shape的乘积, 个数
+TILING_DATA_FIELD_DEF(int64_t, mBlockFactor);      // m轴block切分factor, 个数
+TILING_DATA_FIELD_DEF(int64_t, mBlockFactorTail);  // m轴切分factor尾快, 个数
+TILING_DATA_FIELD_DEF(int64_t, mBlockFactorNum);   // m轴主块的个数
+TILING_DATA_FIELD_DEF(int64_t, gSize);             // Split: gSize
+TILING_DATA_FIELD_DEF(int64_t, nBlockFactor);      // n轴block切分factor, 个数
+TILING_DATA_FIELD_DEF(int64_t, nBlockFactorTail);  // n轴切分factor尾快, 个数
+TILING_DATA_FIELD_DEF(int64_t, nBlockFactorNum);   // n轴主块的个数
+TILING_DATA_FIELD_DEF(int64_t, nBlockCount);       // n轴切分块的总个数
+TILING_DATA_FIELD_DEF(int64_t, realCoreNum);       // 真实使用的核数
+TILING_DATA_FIELD_DEF(int64_t, negIdx);            // sizeSplits为负数的索引
+TILING_DATA_FIELD_DEF(int64_t, negValue);          // sizeSplits为负数的实际split轴大小
+TILING_DATA_FIELD_DEF(int64_t, nSize);             // 整个n轴的大小, 个数
+TILING_DATA_FIELD_DEF_ARR(int64_t, MAX_CORE_COUNT,
+                          nBlockSplitOffset); // 所有核在N轴上每个block起始位置在第几个Split块上, 从0开始
+TILING_DATA_FIELD_DEF_ARR(int64_t, MAX_CORE_COUNT, nBlockSplitOffsetEnd); // end - start = 处理的split块数, 至少为1
+TILING_DATA_FIELD_DEF_ARR(int64_t, MAX_CORE_COUNT,
+                          nBlockSplitPrefixStart); // 所有核在N轴上每个block起始位置在第几个Split块上, 从0开始
+END_TILING_DATA_DEF;
+REGISTER_TILING_DATA_CLASS(SplitV_102, SplitVPureCopyTilingData)
+
+// tilingKey=103(UB内split模板)专用tiling数据, 仅包含 SplitVUbSplit 模板(op_kernel/arch35/split_v_ub_split.h)
+// 实际访问的成员, 字段顺序与 SplitVTilingData 保持一致
+BEGIN_TILING_DATA_DEF(SplitVUbSplitTilingData)
+TILING_DATA_FIELD_DEF(int64_t, ubSize);            // asc 接口获取到的ub大小，Bytes
+TILING_DATA_FIELD_DEF(int64_t, sizeAfterSplitDim); // split轴之后所有shape的乘积, 个数
+TILING_DATA_FIELD_DEF(int64_t, mBlockFactor);      // m轴block切分factor, 个数
+TILING_DATA_FIELD_DEF(int64_t, mBlockFactorTail);  // m轴切分factor尾快, 个数
+TILING_DATA_FIELD_DEF(int64_t, mBlockFactorNum);   // m轴主块的个数
+TILING_DATA_FIELD_DEF(int64_t, gSize);             // Split: gSize
+TILING_DATA_FIELD_DEF(int64_t, nBlockFactor);      // n轴block切分factor, 个数
+TILING_DATA_FIELD_DEF(int64_t, nBlockFactorAlign); // n轴block切分factor对齐到32字节, 个数
+TILING_DATA_FIELD_DEF(int64_t, nBlockFactorTail);  // n轴切分factor尾快, 个数
+TILING_DATA_FIELD_DEF(int64_t, nBlockFactorNum);   // n轴主块的个数
+TILING_DATA_FIELD_DEF(int64_t, nBlockCount);       // n轴切分块的总个数
+TILING_DATA_FIELD_DEF(int64_t, realCoreNum);       // 真实使用的核数
+TILING_DATA_FIELD_DEF(int64_t, negIdx);            // sizeSplits为负数的索引
+TILING_DATA_FIELD_DEF(int64_t, negValue);          // sizeSplits为负数的实际split轴大小
+TILING_DATA_FIELD_DEF(int64_t, isInt32);           // sizeSplits是否为int32类型
+TILING_DATA_FIELD_DEF(int64_t, nSize);             // 整个n轴的大小, 个数
+TILING_DATA_FIELD_DEF(int64_t, mSize);             // 整个m轴的大小, 个数
+TILING_DATA_FIELD_DEF_ARR(int64_t, MAX_CORE_COUNT,
+                          nBlockSplitOffset); // 所有核在N轴上每个block起始位置在第几个Split块上, 从0开始
+TILING_DATA_FIELD_DEF_ARR(int64_t, MAX_CORE_COUNT, nBlockSplitOffsetEnd); // end - start = 处理的split块数, 至少为1
+TILING_DATA_FIELD_DEF_ARR(int64_t, MAX_CORE_COUNT,
+                          nBlockSplitPrefixStart); // 所有核在N轴上每个block起始位置在第几个Split块上, 从0开始
+TILING_DATA_FIELD_DEF_ARR(int64_t, MAX_CORE_COUNT, nBlockSplitPrefixEnd); // end - start = 处理的split块数, 至少为1
+END_TILING_DATA_DEF;
+REGISTER_TILING_DATA_CLASS(SplitV_103, SplitVUbSplitTilingData)
+
+// tilingKey=104/111/112 共用的纯标量tiling数据(无数组字段), 为三个模板实际访问成员的并集:
+// 104(SplitVPureCopySpecialMode, split_v)、111(SplitVUbSplitSameLenSmallG, split/unpack)、
+// 112(SplitVUbSplitSameLenDeinterleave, split/unpack)。字段顺序与 SplitVTilingData 保持一致。
+BEGIN_TILING_DATA_DEF(SplitVScalarTilingData)
+TILING_DATA_FIELD_DEF(int64_t, ubSize);            // asc 接口获取到的ub大小，Bytes
+TILING_DATA_FIELD_DEF(int64_t, splitDim);          // attr里带的原始的split的轴, 负数转正数
+TILING_DATA_FIELD_DEF(int64_t, sizeAfterSplitDim); // split轴之后所有shape的乘积, 个数
+TILING_DATA_FIELD_DEF(int64_t, mBlockFactor);      // m轴block切分factor, 个数
+TILING_DATA_FIELD_DEF(int64_t, mBlockFactorTail);  // m轴切分factor尾快, 个数
+TILING_DATA_FIELD_DEF(int64_t, mBlockCount);       // m轴切分块的总个数
+TILING_DATA_FIELD_DEF(int64_t, gUBFactor);         // Split: Gi
+TILING_DATA_FIELD_DEF(int64_t, gUBFactorTail);     // Split: GiTail
+TILING_DATA_FIELD_DEF(int64_t, gSize);             // Split: gSize
+TILING_DATA_FIELD_DEF(int64_t, gUBCount);          // Split: Go
+TILING_DATA_FIELD_DEF(int64_t, nBlockFactor);      // n轴block切分factor, 个数
+TILING_DATA_FIELD_DEF(int64_t, nBlockFactorTail);  // n轴切分factor尾快, 个数
+TILING_DATA_FIELD_DEF(int64_t, nBlockFactorNum);   // n轴主块的个数
+TILING_DATA_FIELD_DEF(int64_t, nBlockCount);       // n轴切分块的总个数
+TILING_DATA_FIELD_DEF(int64_t, realCoreNum);       // 真实使用的核数
+TILING_DATA_FIELD_DEF(int64_t, blockFactor);       // Split: blockFactor
+TILING_DATA_FIELD_DEF(int64_t, blockFactorTail);   // Split: blockFactorTail
+TILING_DATA_FIELD_DEF(int64_t, pureOutIdx);        // split个数为1的纯搬运场景，真实的输出的idx
+END_TILING_DATA_DEF;
+REGISTER_TILING_DATA_CLASS(SplitV_104, SplitVScalarTilingData)
+REGISTER_TILING_DATA_CLASS(SplitV_111, SplitVScalarTilingData)
+REGISTER_TILING_DATA_CLASS(SplitV_112, SplitVScalarTilingData)
+REGISTER_TILING_DATA_CLASS(Split_111, SplitVScalarTilingData)
+REGISTER_TILING_DATA_CLASS(Split_112, SplitVScalarTilingData)
+
 BEGIN_TILING_DATA_DEF(SplitVSIMTTilingData)
 TILING_DATA_FIELD_DEF(int32_t, mSize); // 整个m轴的大小, 元素个数
 TILING_DATA_FIELD_DEF(int32_t, nSize); // split轴之后所有shape的乘积, 个数
@@ -76,24 +178,6 @@ TILING_DATA_FIELD_DEF_ARR(uint32_t, MAX_COL_OFFSET_COUNT, colOffset);
 END_TILING_DATA_DEF;
 REGISTER_TILING_DATA_CLASS(SplitV_200, SplitVSIMTTilingData)
 REGISTER_TILING_DATA_CLASS(SplitV_202, SplitVSIMTTilingData)
-
-// SIMT 全局 chunk 均衡模板 per-output 预存版: host 预存 q/r/magic/shift/strideDiff, kernel 零派生(无 div/magic 计算)
-// 与 SplitVSIMTChunkTilingData 区别: 移除 splitWidth, 新增 qPerBlk/rPerBlk/divMagic/divShift/strideDiff
-BEGIN_TILING_DATA_DEF(SplitVSIMTChunkPreTilingData)
-TILING_DATA_FIELD_DEF(int32_t, mSize);       // 整个m轴的大小, 元素个数
-TILING_DATA_FIELD_DEF(int32_t, nSize);       // split轴之后所有shape的乘积, 个数(输入行宽 nLen)
-TILING_DATA_FIELD_DEF(int32_t, splitNum);    // output 个数
-TILING_DATA_FIELD_DEF(int32_t, realCoreNum); // 真实使用的核数(64)
-TILING_DATA_FIELD_DEF_ARR(uint32_t, MAX_COL_OFFSET_COUNT, blockPrefix); // 各 output 逻辑 block 数前缀, Σ=1024
-TILING_DATA_FIELD_DEF_ARR(uint32_t, MAX_COL_OFFSET_COUNT, colOffset);   // 各 output 输入行内列起点 Σ_{j<i} wj
-TILING_DATA_FIELD_DEF_ARR(int64_t, MAX_COL_OFFSET_COUNT, qPerBlk);      // = (M*wi)/cnt_i, cnt_i = blkForTensor[i]
-TILING_DATA_FIELD_DEF_ARR(int64_t, MAX_COL_OFFSET_COUNT, rPerBlk);      // = (M*wi)%cnt_i
-TILING_DATA_FIELD_DEF_ARR(uint64_t, MAX_COL_OFFSET_COUNT, divMagic);    // 对 wi 的 fast-div magic
-TILING_DATA_FIELD_DEF_ARR(int32_t, MAX_COL_OFFSET_COUNT, divShift);     // fast-div shift
-TILING_DATA_FIELD_DEF_ARR(int64_t, MAX_COL_OFFSET_COUNT, strideDiff);   // = nSize - wi
-END_TILING_DATA_DEF;
-REGISTER_TILING_DATA_CLASS(SplitV_204, SplitVSIMTChunkPreTilingData)
-REGISTER_TILING_DATA_CLASS(Split_204, SplitVSIMTChunkPreTilingData)
 
 BEGIN_TILING_DATA_DEF(SplitSIMTTilingData)
 TILING_DATA_FIELD_DEF(int32_t, mSize); // 整个m轴的大小, 元素个数
@@ -208,6 +292,10 @@ private:
     void CalcTilingKey(double condN, double condM, double totalCompareN, double totalCompareM);
     void SetTilingMode();
     void FillTilingData();
+    void FillSlimTilingData();
+    void FillPureCopyTilingData();
+    void FillUbSplitTilingData();
+    void FillScalarTilingData();
     void SetBlockDimAndTilingKey() const;
     void SetWorkspaceSize() const;
     // Used for split
@@ -225,14 +313,6 @@ private:
     bool IsDoSplitVSIMT(int32_t maxCoreNum);
     void DoDiffLenModeSplitVSIMTTiling(int32_t maxCoreNum);
     void CalSplitSizeDiff(int32_t maxCoreNum, int64_t& maxSizeSplit, int64_t& minSizeSplit, int32_t countPerCore);
-    bool IsDoSplitVSIMTChunk(int32_t maxCoreNum);
-    void DoSplitVSIMTChunkTiling(int32_t maxCoreNum);
-    void FillSIMTChunkTilingData();
-    bool IsFallbackToChunk();
-
-    // 204 per-output 预存版: host 算好 q/r/magic/shift/strideDiff, kernel 零派生; 准入复用 IsDoSplitVSIMTChunk
-    void DoSplitVSIMTChunkPreTiling(int32_t maxCoreNum);
-    void FillSIMTChunkPreTilingData();
 
 private:
     int64_t nonZeroSplitCnt_ = 0;
@@ -247,12 +327,8 @@ private:
     int64_t simtSizeAfterSplit_ = 0;
     int64_t maxFuseSizeAfterSplit_ = 0;
     int64_t minFuseSizeAfterSplit_ = 0;
-    int64_t simtRelativeSkew_ = 0;  // IsDoSplitVSIMT 计算的相对偏差比
-    int64_t simtAbsoluteSkew_ = 0;  // IsDoSplitVSIMT 计算的绝对偏差值
-    bool simtSkewRejected_ = false; // IsDoSplitVSIMT 是否因偏差被拒
-    int64_t realCoreNum_ = 0;       // 处理空tensor需要两个变量，realCoreNum_ 和 blockDim_分开赋值
+    int64_t realCoreNum_ = 0; // 处理空tensor需要两个变量，realCoreNum_ 和 blockDim_分开赋值
     int64_t blockDim_ = 0;
-    int32_t logicBlockNum_ = 0; // = realCoreNum * LOGIC_BLOCK_PER_CORE(这里把一个core分成16个block), 动态计算
     int64_t blockFactor_ = 0;
     int64_t blockFactorTail_ = 0;
 
@@ -280,21 +356,14 @@ private:
     int64_t nBlockSplitPrefixEnd_[MAX_CORE_COUNT] = {0}; // 所有核在N轴上每个blockfactor结束位置所在split块的split轴偏移
 
     SplitVTilingData tilingData_;
+    SplitVSlimTilingData slimTilingData_;
+    SplitVPureCopyTilingData pureCopyTilingData_;
+    SplitVUbSplitTilingData ubSplitTilingData_;
+    SplitVScalarTilingData scalarTilingData_;
     SplitVSIMTTilingData simtSplitVTilingData_;
     std::vector<int64_t> oriSizeSplits_;
     std::vector<int64_t> sizeSplits_; // 合轴后的
     uint32_t colOffset_[MAX_COL_OFFSET_COUNT] = {0};
-    // 204 SIMT chunk 均衡模板 per-output 缓冲(均 MAX_COL_OFFSET_COUNT 维)
-    uint32_t blockPrefixBuf_[MAX_COL_OFFSET_COUNT] = {0};
-    int32_t splitWidthBuf_[MAX_COL_OFFSET_COUNT] = {0};
-    uint32_t colOffsetChunkBuf_[MAX_COL_OFFSET_COUNT] = {0};
-    // 204 SIMT chunk 均衡 per-output 预存版缓冲(均 MAX_COL_OFFSET_COUNT 维)
-    SplitVSIMTChunkPreTilingData simtChunkPreTilingData_;
-    int64_t qPerBlkBuf_[MAX_COL_OFFSET_COUNT] = {0};
-    int64_t rPerBlkBuf_[MAX_COL_OFFSET_COUNT] = {0};
-    uint64_t divMagicBuf_[MAX_COL_OFFSET_COUNT] = {0};
-    int32_t divShiftBuf_[MAX_COL_OFFSET_COUNT] = {0};
-    int64_t strideDiffBuf_[MAX_COL_OFFSET_COUNT] = {0};
 };
 
 } // namespace optiling

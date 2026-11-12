@@ -18,8 +18,8 @@ using namespace AscendC;
 template <typename T>
 class SplitVPureCopySpecialMode {
 public:
-    __aicore__ inline SplitVPureCopySpecialMode(TPipe& pipe) : pipe_(pipe){};
-    __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, const SplitVTilingData* tilingData);
+    __aicore__ inline SplitVPureCopySpecialMode(){};
+    __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, const SplitVScalarTilingData* tilingData);
     __aicore__ inline void Process();
 
 private:
@@ -27,17 +27,21 @@ private:
     __aicore__ inline int64_t SplitPrefix(int64_t index);
     __aicore__ inline int64_t CurSplitSize(int64_t index);
     __aicore__ inline void ProcessSpecialCopy();
-    __aicore__ inline void CopyOutToGm(int64_t blockCount, int64_t blockLen, int64_t dstOffset);
-    __aicore__ inline void CopyInToUb(int64_t blockCount, int64_t blockLen, int64_t srcOffset);
+    __aicore__ inline void CopyOutToGm(int64_t blockCount, int64_t blockLen, int64_t dstOffset,
+                                       LocalTensor<T>& srcLocal);
+    __aicore__ inline void CopyInToUb(int64_t blockCount, int64_t blockLen, int64_t srcOffset,
+                                      LocalTensor<T>& srcLocal);
 
 private:
-    constexpr static int32_t bufferNum = 1;
-    TPipe& pipe_;
-    TQueBind<QuePosition::VECIN, QuePosition::VECOUT, bufferNum> inQueueX_;
+    constexpr static uint32_t BUFFER_NUM = 2;
+    constexpr static int64_t DTYPE_SIZE = sizeof(T);
+    // 手动双缓冲同步: 免去 TPipe/TQueBind 队列开销, MTE2/MTE3 跨半块 UB 乒乓重叠
+    constexpr static event_t EVT_ID0 = static_cast<event_t>(0);
+    constexpr static event_t EVT_ID1 = static_cast<event_t>(1);
     ListTensorDesc inputList_;
     GlobalTensor<T> xGm_;
     GlobalTensor<T> yGm_;
-    const SplitVTilingData* tilingData_;
+    const SplitVScalarTilingData* tilingData_;
     int64_t ubSize_ = 0;
     int32_t blockIdx_ = 0;
     int64_t splitDim_ = 0;          // split的轴
@@ -60,7 +64,8 @@ private:
     int64_t mUbFactorTail_ = 0; // Ub切分m轴尾块大小
     int64_t mGmToUbTimes_ = 0;  // Ub切分m轴处理次数
 
-    int64_t ubSizeNum_ = 1; // Ub可以放个数
+    int64_t ubSizeNum_ = 1;    // Ub单缓冲可以放个数(半块UB)
+    uint32_t halfUbBytes_ = 0; // 单缓冲字节数(ubSize_/BUFFER_NUM)
     int64_t ubCutNumPerCore_ = 0;
     int64_t curSrcOffset_ = 0;
     int64_t pureOutIdx_ = 0;
@@ -74,8 +79,10 @@ private:
 };
 
 template <typename T>
-__aicore__ inline void SplitVPureCopySpecialMode<T>::Init(GM_ADDR x, GM_ADDR y, const SplitVTilingData* tilingData)
+__aicore__ inline void SplitVPureCopySpecialMode<T>::Init(GM_ADDR x, GM_ADDR y,
+                                                          const SplitVScalarTilingData* tilingData)
 {
+    AscendC::InitSocState();
     blockIdx_ = GetBlockIdx();
     tilingData_ = tilingData;
     ubSize_ = tilingData_->ubSize;
@@ -87,8 +94,9 @@ __aicore__ inline void SplitVPureCopySpecialMode<T>::Init(GM_ADDR x, GM_ADDR y, 
     nBlockCount_ = tilingData_->nBlockCount;             // n轴切分块数
     pureOutIdx_ = tilingData_->pureOutIdx;               // 纯搬运特殊模板输出索引
     realCoreNum_ = tilingData_->realCoreNum;             // 真实使用的核数
-    ubSizeNum_ = ubSize_ / dtypeSize_;
-    pipe_.InitBuffer(inQueueX_, bufferNum, ubSize_);
+    // 双缓冲手动布局: 整块 UB 切成 BUFFER_NUM 份, 按 bufId*halfUbBytes_ 直接构造 LocalTensor
+    halfUbBytes_ = static_cast<uint32_t>(ubSize_) / BUFFER_NUM;
+    ubSizeNum_ = halfUbBytes_ / dtypeSize_;
     xGm_.SetGlobalBuffer((__gm__ T*)x);
     inputList_ = ListTensorDesc(reinterpret_cast<__gm__ void*>(y));
 
@@ -120,24 +128,42 @@ __aicore__ inline void SplitVPureCopySpecialMode<T>::ProcessSpecialCopy()
     nUbFactorTail_ = nSize_ % nUbFactor_;
     yGm_.SetGlobalBuffer(GetTensorAddr(pureOutIdx_));
 
-    // 纯搬运场景中的特殊场景, 展成1维n轴方向搬运
+    SetFlag<HardEvent::MTE3_MTE2>(EVT_ID0);
+    SetFlag<HardEvent::MTE3_MTE2>(EVT_ID1);
+    uint16_t bufId = 0;
+
+    // 纯搬运场景中的特殊场景, 展成1维n轴方向搬运; 双缓冲乒乓, MTE2(入)与MTE3(出)跨半块重叠
     for (int32_t j = 0; j < nGmToUbTimes_; j++) {
+        event_t evt = (bufId == 0) ? EVT_ID0 : EVT_ID1;
+
+        // 等上一轮同块 MTE3(拷出)读完, 本轮 MTE2 才能覆写
+        WaitFlag<HardEvent::MTE3_MTE2>(evt);
+        LocalTensor<T> srcLocal(TPosition::VECIN, bufId * halfUbBytes_, static_cast<uint32_t>(ubSizeNum_));
+
         curSrcOffset_ += ((j == 0) ? 0 : nUbFactor_);
-        if (nUbFactorTail_ != 0 && j == nGmToUbTimes_ - 1) {
-            // 处理Ub切分Tail数据
-            CopyInToUb(1, nUbFactorTail_, curSrcOffset_);
-            CopyOutToGm(1, nUbFactorTail_, curSrcOffset_);
-        } else {
-            CopyInToUb(1, nUbFactor_, curSrcOffset_);
-            CopyOutToGm(1, nUbFactor_, curSrcOffset_);
-        }
+        // 处理Ub切分Tail数据
+        int64_t copyLen = (nUbFactorTail_ != 0 && j == nGmToUbTimes_ - 1) ? nUbFactorTail_ : nUbFactor_;
+        CopyInToUb(1, copyLen, curSrcOffset_, srcLocal);
+
+        // 同块 in->out 硬依赖: MTE2 写完才能 MTE3 读
+        SetFlag<HardEvent::MTE2_MTE3>(evt);
+        WaitFlag<HardEvent::MTE2_MTE3>(evt);
+        CopyOutToGm(1, copyLen, curSrcOffset_, srcLocal);
+        // 只 set 不立即 wait: 延迟到下一轮复用同块前, 让相邻轮次 in/out 跨块重叠
+        SetFlag<HardEvent::MTE3_MTE2>(evt);
+
+        bufId ^= 1;
     }
+
+    // 收尾: 排空仍在途的拷出事件
+    WaitFlag<HardEvent::MTE3_MTE2>(EVT_ID0);
+    WaitFlag<HardEvent::MTE3_MTE2>(EVT_ID1);
 }
 
 template <typename T>
-__aicore__ inline void SplitVPureCopySpecialMode<T>::CopyInToUb(int64_t blockCount, int64_t blockLen, int64_t srcOffset)
+__aicore__ inline void SplitVPureCopySpecialMode<T>::CopyInToUb(int64_t blockCount, int64_t blockLen, int64_t srcOffset,
+                                                                LocalTensor<T>& srcLocal)
 {
-    LocalTensor<T> srcLocal = inQueueX_.AllocTensor<T>();
     copyInParam_.blockCount = blockCount;
     copyInParam_.blockLen = blockLen * dtypeSize_;
     copyInParam_.srcStride = 0;
@@ -147,20 +173,17 @@ __aicore__ inline void SplitVPureCopySpecialMode<T>::CopyInToUb(int64_t blockCou
 #else
     DataCopyPad(srcLocal, xGm_[srcOffset], copyInParam_, padParam_);
 #endif
-    inQueueX_.EnQue(srcLocal);
 }
 
 template <typename T>
 __aicore__ inline void SplitVPureCopySpecialMode<T>::CopyOutToGm(int64_t blockCount, int64_t blockLen,
-                                                                 int64_t dstOffset)
+                                                                 int64_t dstOffset, LocalTensor<T>& srcLocal)
 {
-    LocalTensor<T> xLocal = inQueueX_.DeQue<T>();
     copyOutParam_.blockCount = blockCount;
     copyOutParam_.blockLen = blockLen * dtypeSize_;
     copyOutParam_.srcStride = 0;
     copyOutParam_.dstStride = 0;
-    DataCopyPad(yGm_[dstOffset], xLocal, copyOutParam_);
-    inQueueX_.FreeTensor(xLocal);
+    DataCopyPad(yGm_[dstOffset], srcLocal, copyOutParam_);
 }
 
 template <typename T>

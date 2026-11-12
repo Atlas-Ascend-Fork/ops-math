@@ -45,25 +45,121 @@ TEST_F(SplitVTiling, SplitV_test_tiling_001)
         },
         {gert::TilingContextPara::OpAttr("num_split", Ops::Math::AnyValue::CreateFrom<int64_t>(1))}, &compileInfo);
     uint64_t expectTilingKey = 104;
-    string expectTilingData = "253952 0 0 1 1 1 1 0 0 1 0 13195 13216 13195 13216 32 32 32 0 0 422240 422240 0"
-                              " -1 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0"
-                              " 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0"
-                              " 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0"
-                              " 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0"
-                              " 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0"
-                              " 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0"
-                              " 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0"
-                              " 0 0 0 0 0 0 0 0 0 0 0 0 ";
+    // tilingKey=104 走 SplitVScalarTilingData(18个int64标量, 无数组字段)
+    string expectTilingData = "253952 0 0 1 1 1 0 0 1 0 13195 13195 32 32 32 0 0 0 ";
+    std::vector<size_t> expectWorkspaces = {0};
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
+}
+
+// SplitV算子(DoSplitVTiling内部等长分支)的小g轴场景回归: [11,16]沿dim1等长切成{8,8},
+// small-G分支胜出后 tilingKey 应为 111 且走 SplitVScalarTilingData(18个int64标量)填充,
+// 与kernel侧111分支的解析布局一致。
+TEST_F(SplitVTiling, SplitV_test_tiling_small_g_111)
+{
+    optiling::SplitVCompileInfo compileInfo = {32, 0, 253952};
+    int32_t sizeSplits[2] = {8, 8};
+    int32_t split_dim = 1;
+    gert::TilingContextPara tilingContextPara(
+        "SplitV",
+        {
+            {{{11, 16}, {11, 16}}, ge::DT_INT32, ge::FORMAT_ND},
+            {{{2}, {2}}, ge::DT_INT32, ge::FORMAT_ND, true, sizeSplits},
+            {{{1}, {1}}, ge::DT_INT32, ge::FORMAT_ND, true, &split_dim},
+        },
+        {
+            {{{11, 8}, {11, 8}}, ge::DT_INT32, ge::FORMAT_ND},
+            {{{11, 8}, {11, 8}}, ge::DT_INT32, ge::FORMAT_ND},
+        },
+        {gert::TilingContextPara::OpAttr("num_split", Ops::Math::AnyValue::CreateFrom<int64_t>(2))}, &compileInfo);
+    uint64_t expectTilingKey = 111;
+    // tilingKey=111 走 SplitVScalarTilingData(18个int64标量, 无数组字段)
+    string expectTilingData = "253952 1 0 11 11 1 2 2 2 1 8 8 8 1 1 1 0 1 ";
+    std::vector<size_t> expectWorkspaces = {0};
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
+}
+
+// SplitV算子小g轴场景的deinterleave特例回归: [11,2]沿dim1等长切成{1,1}(N=1且numSplit=2),
+// small-G分支胜出后 tilingKey 应为 112(deinterleave模板), 同样走 SplitVScalarTilingData 填充。
+TEST_F(SplitVTiling, SplitV_test_tiling_deinterleave_112)
+{
+    optiling::SplitVCompileInfo compileInfo = {32, 0, 253952};
+    int32_t sizeSplits[2] = {1, 1};
+    int32_t split_dim = 1;
+    gert::TilingContextPara tilingContextPara(
+        "SplitV",
+        {
+            {{{11, 2}, {11, 2}}, ge::DT_INT32, ge::FORMAT_ND},
+            {{{2}, {2}}, ge::DT_INT32, ge::FORMAT_ND, true, sizeSplits},
+            {{{1}, {1}}, ge::DT_INT32, ge::FORMAT_ND, true, &split_dim},
+        },
+        {
+            {{{11, 1}, {11, 1}}, ge::DT_INT32, ge::FORMAT_ND},
+            {{{11, 1}, {11, 1}}, ge::DT_INT32, ge::FORMAT_ND},
+        },
+        {gert::TilingContextPara::OpAttr("num_split", Ops::Math::AnyValue::CreateFrom<int64_t>(2))}, &compileInfo);
+    uint64_t expectTilingKey = 112;
+    // tilingKey=112 走 SplitVScalarTilingData(18个int64标量, 无数组字段)
+    string expectTilingData = "253952 1 0 11 11 1 2 2 2 1 1 1 1 1 1 1 0 1 ";
+    std::vector<size_t> expectWorkspaces = {0};
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
+}
+
+// tilingKey=102 纯搬运模板走精简的 SplitVPureCopyTilingData(14个int64标量 + 3x72数组, 共230个字段),
+// 构造非等长 + 大块切分场景(90%以上split块N轴>128B且块大小>48KB)触发纯搬运模板。
+class SplitVPureCopyTiling : public testing::Test {
+protected:
+    static void SetUpTestCase() {}
+
+    static void TearDownTestCase() {}
+};
+
+TEST_F(SplitVTiling, SplitV_test_tiling_pure_copy_102)
+{
+    optiling::SplitVCompileInfo compileInfo = {32, 0, 253952};
+    int32_t sizeSplits[2] = {2000, 4000};
+    int32_t split_dim = 1;
+    gert::TilingContextPara tilingContextPara(
+        "SplitV",
+        {
+            {{{512, 6000}, {512, 6000}}, ge::DT_FLOAT, ge::FORMAT_ND},
+            {{{2}, {2}}, ge::DT_INT32, ge::FORMAT_ND, true, sizeSplits},
+            {{{1}, {1}}, ge::DT_INT32, ge::FORMAT_ND, true, &split_dim},
+        },
+        {
+            {{{512, 2000}, {512, 2000}}, ge::DT_FLOAT, ge::FORMAT_ND},
+            {{{512, 4000}, {512, 4000}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        {gert::TilingContextPara::OpAttr("num_split", Ops::Math::AnyValue::CreateFrom<int64_t>(2))}, &compileInfo);
+
+    uint64_t expectTilingKey = 102;
+    string expectTilingData =
+        "253952 1 16 16 32 2 6000 6000 1 1 32 -1 0 6000 0 0 0 0 0 0 "
+        "0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 "
+        "0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 "
+        "0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 "
+        "0 0 0 0 0 0 2 2 2 2 2 2 2 2 2 2 2 2 2 2 "
+        "2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 0 0 "
+        "0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 "
+        "0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 2000 2000 "
+        "2000 2000 2000 2000 2000 2000 2000 2000 2000 2000 2000 2000 2000 2000 2000 2000 2000 2000 2000 2000 "
+        "2000 2000 2000 2000 2000 2000 2000 2000 2000 2000 2000 2000 2000 2000 2000 2000 2000 2000 2000 2000 "
+        "2000 2000 2000 2000 2000 2000 2000 2000 2000 2000 2000 2000 2000 2000 2000 2000 2000 2000 2000 2000 "
+        "2000 2000 2000 2000 2000 2000 2000 2000 2000 2000 ";
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
 namespace {
-// SplitVTilingData 全为 int64 字段, 按声明顺序紧密排布。
-// 索引: mBlockCount=6, gSize=9, nBlockCount=16, realCoreNum=17。
-constexpr size_t IDX_M_BLOCK_COUNT = 6;
-constexpr size_t IDX_N_BLOCK_COUNT = 16;
-constexpr size_t IDX_REAL_CORE_NUM = 17;
+// tilingKey=103(非等长UB内split)走 SplitVUbSplitTilingData(17个int64标量 + 4x72数组, 按声明顺序紧密排布)。
+// 索引: nBlockCount=10, realCoreNum=11; mBlockCount 未下发, 可由 realCoreNum / nBlockCount 推导
+// (SetBlockSplitInfo 中 realCoreNum = mBlockCount * nBlockCount)。
+constexpr size_t UB_IDX_N_BLOCK_COUNT = 10;
+constexpr size_t UB_IDX_REAL_CORE_NUM = 11;
+
+// 等长场景(sizeSplits全相等)走精简tiling数据 SplitVSlimTilingData(16个int64字段, tilingKey=100/101)。
+// slim索引: nBlockCount=11, realCoreNum=14。
+constexpr size_t SLIM_IDX_N_BLOCK_COUNT = 11;
+constexpr size_t SLIM_IDX_REAL_CORE_NUM = 14;
 
 int64_t GetTilingField(const TilingInfo& info, size_t idx)
 {
@@ -100,8 +196,8 @@ TEST_F(SplitVTiling, SplitV_test_tiling_split_balance_odd_n)
 
     TilingInfo tilingInfo;
     ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
-    int64_t nBlockCount = GetTilingField(tilingInfo, IDX_N_BLOCK_COUNT);
-    int64_t mBlockCount = GetTilingField(tilingInfo, IDX_M_BLOCK_COUNT);
+    int64_t nBlockCount = GetTilingField(tilingInfo, UB_IDX_N_BLOCK_COUNT);
+    int64_t mBlockCount = GetTilingField(tilingInfo, UB_IDX_REAL_CORE_NUM) / nBlockCount;
     // 关键断言: 不再被 delta=0 锁死在 n=1
     EXPECT_GT(nBlockCount, 1);
     // 不应退化为纯 M 轴全切
@@ -110,6 +206,7 @@ TEST_F(SplitVTiling, SplitV_test_tiling_split_balance_odd_n)
 
 // 大 M 小 N + split 块少: 切 N 会抬高 mTimes 而 maxSplitCnt 已经很小,
 // computeCost 模型应保持少切 N (nBlockCount 接近 1), 避免过度切分。
+// 注: sizeSplits={2,2} 为等长场景, 走 SplitVSlimTilingData 精简布局, 用 slim 索引读取。
 TEST_F(SplitVTiling, SplitV_test_tiling_split_balance_small_split)
 {
     optiling::SplitVCompileInfo compileInfo = {32, 0, 253952};
@@ -130,8 +227,8 @@ TEST_F(SplitVTiling, SplitV_test_tiling_split_balance_small_split)
 
     TilingInfo tilingInfo;
     ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
-    int64_t nBlockCount = GetTilingField(tilingInfo, IDX_N_BLOCK_COUNT);
-    int64_t realCoreNum = GetTilingField(tilingInfo, IDX_REAL_CORE_NUM);
+    int64_t nBlockCount = GetTilingField(tilingInfo, SLIM_IDX_N_BLOCK_COUNT);
+    int64_t realCoreNum = GetTilingField(tilingInfo, SLIM_IDX_REAL_CORE_NUM);
     // split 块少时不应为了均衡而过度切 N
     EXPECT_LE(nBlockCount, 2);
     // 仍应充分利用多核
@@ -171,7 +268,7 @@ TEST_F(SplitVTiling, SplitV_test_tiling_many_small_split_small_m)
 
     TilingInfo tilingInfo;
     ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
-    int64_t realCoreNum = GetTilingField(tilingInfo, IDX_REAL_CORE_NUM);
+    int64_t realCoreNum = GetTilingField(tilingInfo, UB_IDX_REAL_CORE_NUM);
     // 核心证据: 尽管有 200 个 split 块, 512B 上界 + 小 M 使核严重用不满。
     EXPECT_LT(realCoreNum, 32);
 }
@@ -204,8 +301,8 @@ TEST_F(SplitVTiling, SplitV_test_tiling_many_small_split_large_m)
 
     TilingInfo tilingInfo;
     ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
-    int64_t nBlockCount = GetTilingField(tilingInfo, IDX_N_BLOCK_COUNT);
-    int64_t realCoreNum = GetTilingField(tilingInfo, IDX_REAL_CORE_NUM);
+    int64_t nBlockCount = GetTilingField(tilingInfo, UB_IDX_N_BLOCK_COUNT);
+    int64_t realCoreNum = GetTilingField(tilingInfo, UB_IDX_REAL_CORE_NUM);
     // 放宽后 N 切核上界 = CeilDiv(401, 128/4) = 13, 应突破原 512B 对齐的上界 4。
     EXPECT_GT(nBlockCount, 4);
     // computeCost 模型据此在 M/N 间重新权衡, 应充分利用多核 (具体核数由模型决定, 不强绑 32)。
@@ -242,8 +339,8 @@ TEST_F(SplitVTiling, SplitV_test_tiling_huge_split_large_m_force_m2)
 
     TilingInfo tilingInfo;
     ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
-    int64_t nBlockCount = GetTilingField(tilingInfo, IDX_N_BLOCK_COUNT);
-    int64_t mBlockCount = GetTilingField(tilingInfo, IDX_M_BLOCK_COUNT);
+    int64_t nBlockCount = GetTilingField(tilingInfo, UB_IDX_N_BLOCK_COUNT);
+    int64_t mBlockCount = GetTilingField(tilingInfo, UB_IDX_REAL_CORE_NUM) / nBlockCount;
     // 硬覆盖强制 M 只切 2 份。
     EXPECT_EQ(mBlockCount, 2);
     // 其余核全给 N 轴, 充分分核。
