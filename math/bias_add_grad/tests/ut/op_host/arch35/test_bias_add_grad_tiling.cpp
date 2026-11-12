@@ -37,7 +37,7 @@ TEST_F(BiasAddGradTiling, BiasAddGrad_tiling1)
         {gert::TilingContextPara::OpAttr("data_format", Ops::Math::AnyValue::CreateFrom<std::string>("NHWC"))},
         &compileInfo);
     uint64_t expectTilingKey = 10321;
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {32};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
 
@@ -55,7 +55,7 @@ TEST_F(BiasAddGradTiling, BiasAddGrad_tiling2)
         {gert::TilingContextPara::OpAttr("data_format", Ops::Math::AnyValue::CreateFrom<std::string>("NCHW"))},
         &compileInfo);
     uint64_t expectTilingKey = 282749;
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {32};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
 

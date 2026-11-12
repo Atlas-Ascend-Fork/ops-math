@@ -24,17 +24,10 @@
 
 using namespace std;
 
-class reduce_log_sum_exp_test : public testing::Test
-{
+class reduce_log_sum_exp_test : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        cout << "reduce_log_sum_exp_test SetUp\n" << endl;
-    }
-    static void TearDownTestCase()
-    {
-        cout << "reduce_log_sum_exp_test TearDown\n" << endl;
-    }
+    static void SetUpTestCase() { cout << "reduce_log_sum_exp_test SetUp\n" << endl; }
+    static void TearDownTestCase() { cout << "reduce_log_sum_exp_test TearDown\n" << endl; }
 };
 
 static bool CompareData()
@@ -45,7 +38,8 @@ static bool CompareData()
 
 static void InitEnv(int32_t dimA, int32_t dimR, int32_t axes)
 {
-    system("cp -r ../../../../../../../ops/built-in/tests/ut/fast_op_test/reduce_log_sum_exp/reduce_log_sum_exp_data ./");
+    system(
+        "cp -r ../../../../../../../ops/built-in/tests/ut/fast_op_test/reduce_log_sum_exp/reduce_log_sum_exp_data ./");
     system("chmod -R 755 ./reduce_log_sum_exp_data/");
     system("cd ./reduce_log_sum_exp_data/ && rm -rf ./*bin");
     char buffer[1024] = {0};
@@ -64,10 +58,10 @@ TEST_F(reduce_log_sum_exp_test, test_case_0)
     size_t xSize = static_cast<size_t>(dimA) * static_cast<size_t>(dimR) * sizeof(float);
     size_t ySize = dimA * sizeof(float);
 
-    size_t workspaceFileSize = 16 * 1024 * 1024;
+    size_t workspaceFileSize = 32;
 
     uint8_t* x = (uint8_t*)AscendC::GmAlloc(xSize);
-    uint8_t* axes = (uint8_t*)AscendC::GmAlloc(sizeof(int32_t));  // axes没赋值, 用的tiling参数
+    uint8_t* axes = (uint8_t*)AscendC::GmAlloc(sizeof(int32_t)); // axes没赋值, 用的tiling参数
     uint8_t* y = (uint8_t*)AscendC::GmAlloc(ySize);
     uint8_t* workspace = (uint8_t*)AscendC::GmAlloc(workspaceFileSize);
     uint8_t* tiling = (uint8_t*)AscendC::GmAlloc(sizeof(ReduceOpTilingData));

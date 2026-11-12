@@ -60,7 +60,7 @@ TEST_F(ReduceMaxDavidTiling, reduce_max_david_tiling1)
     gert::TilingContextPara::TensorDescription y(yShape, ge::DT_FLOAT, ge::FORMAT_ND);
     gert::TilingContextPara tilingContextPara("ReduceMax", {input, axes}, {y}, &compileInfo);
     uint64_t expectedTilingKey = 1;
-    std::vector<size_t> expectedWorkspaces = {16777216};
+    std::vector<size_t> expectedWorkspaces = {32};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectedTilingKey, expectedWorkspaces);
 }
 
@@ -77,7 +77,7 @@ TEST_F(ReduceMaxDavidTiling, reduce_max_david_tiling2)
     gert::TilingContextPara::TensorDescription y(yShape, ge::DT_FLOAT, ge::FORMAT_ND);
     gert::TilingContextPara tilingContextPara("ReduceMax", {input, axes}, {y}, &compileInfo);
     uint64_t expectedTilingKey = 10285;
-    std::vector<size_t> expectedWorkspaces = {16777216};
+    std::vector<size_t> expectedWorkspaces = {32};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectedTilingKey, expectedWorkspaces);
 }
 
@@ -94,7 +94,7 @@ TEST_F(ReduceMaxDavidTiling, reduce_max_david_tiling3)
     gert::TilingContextPara::TensorDescription y(yShape, ge::DT_FLOAT, ge::FORMAT_ND);
     gert::TilingContextPara tilingContextPara("ReduceMax", {input, axes}, {y}, &compileInfo);
     uint64_t expectedTilingKey = 10285;
-    std::vector<size_t> expectedWorkspaces = {16777216};
+    std::vector<size_t> expectedWorkspaces = {32};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectedTilingKey, expectedWorkspaces);
 }
 
@@ -128,7 +128,7 @@ TEST_F(ReduceMaxDavidTiling, reduce_max_david_tiling5)
     gert::TilingContextPara::TensorDescription y(yShape, ge::DT_FLOAT, ge::FORMAT_ND);
     gert::TilingContextPara tilingContextPara("ReduceMax", {input, axes}, {y}, &compileInfo);
     uint64_t expectedTilingKey = 10285;
-    std::vector<size_t> expectedWorkspaces = {16777216};
+    std::vector<size_t> expectedWorkspaces = {32};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectedTilingKey, expectedWorkspaces);
 }
 

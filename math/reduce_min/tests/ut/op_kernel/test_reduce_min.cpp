@@ -24,17 +24,10 @@
 
 using namespace std;
 
-class reduce_min_test : public testing::Test
-{
+class reduce_min_test : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        cout << "reduce_min_test SetUp\n" << endl;
-    }
-    static void TearDownTestCase()
-    {
-        cout << "reduce_min_test TearDown\n" << endl;
-    }
+    static void SetUpTestCase() { cout << "reduce_min_test SetUp\n" << endl; }
+    static void TearDownTestCase() { cout << "reduce_min_test TearDown\n" << endl; }
 };
 
 static bool CompareData()
@@ -62,10 +55,10 @@ TEST_F(reduce_min_test, test_case_0)
     size_t xSize = dim0 * dim1 * sizeof(float);
     size_t ySize = dim0 * sizeof(float);
 
-    size_t workspaceFileSize = 16 * 1024 * 1024;
+    size_t workspaceFileSize = 32;
 
     uint8_t* x = (uint8_t*)AscendC::GmAlloc(xSize);
-    uint8_t* axes = (uint8_t*)AscendC::GmAlloc(sizeof(int32_t));  // axes没赋值, 用的tiling参数
+    uint8_t* axes = (uint8_t*)AscendC::GmAlloc(sizeof(int32_t)); // axes没赋值, 用的tiling参数
     uint8_t* y = (uint8_t*)AscendC::GmAlloc(ySize);
     uint8_t* workspace = (uint8_t*)AscendC::GmAlloc(workspaceFileSize);
     uint8_t* tiling = (uint8_t*)AscendC::GmAlloc(sizeof(ReduceOpTilingData));

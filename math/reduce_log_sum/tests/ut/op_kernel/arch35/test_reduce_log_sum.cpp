@@ -25,14 +25,8 @@ using namespace std;
 
 class ReduceLogSumKernel : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        cout << "ReduceLogSumKernel SetUp\n" << endl;
-    }
-    static void TearDownTestCase()
-    {
-        cout << "ReduceLogSumKernel TearDown\n" << endl;
-    }
+    static void SetUpTestCase() { cout << "ReduceLogSumKernel SetUp\n" << endl; }
+    static void TearDownTestCase() { cout << "ReduceLogSumKernel TearDown\n" << endl; }
 };
 
 // float32, 4x64 reduce axis=1 -> output 4
@@ -44,7 +38,7 @@ TEST_F(ReduceLogSumKernel, test_case_float32_4x64)
 
     size_t xSize = 4 * 64 * sizeof(float);
     size_t ySize = 4 * sizeof(float);
-    size_t workspaceFileSize = 16 * 1024 * 1024;
+    size_t workspaceFileSize = 32;
 
     uint8_t* x = (uint8_t*)AscendC::GmAlloc(xSize);
     uint8_t* axes = (uint8_t*)AscendC::GmAlloc(sizeof(int32_t));
@@ -93,7 +87,7 @@ TEST_F(ReduceLogSumKernel, test_case_float16_2x4)
 
     size_t xSize = 2 * 4 * sizeof(uint16_t);
     size_t ySize = 1 * 4 * sizeof(uint16_t);
-    size_t workspaceFileSize = 16 * 1024 * 1024;
+    size_t workspaceFileSize = 32;
 
     uint8_t* x = (uint8_t*)AscendC::GmAlloc(xSize);
     uint8_t* axes = (uint8_t*)AscendC::GmAlloc(sizeof(int32_t));
@@ -142,7 +136,7 @@ TEST_F(ReduceLogSumKernel, test_case_float32_16x256)
 
     size_t xSize = 16 * 256 * sizeof(float);
     size_t ySize = 1 * 256 * sizeof(float);
-    size_t workspaceFileSize = 16 * 1024 * 1024;
+    size_t workspaceFileSize = 32;
 
     uint8_t* x = (uint8_t*)AscendC::GmAlloc(xSize);
     uint8_t* axes = (uint8_t*)AscendC::GmAlloc(sizeof(int32_t));

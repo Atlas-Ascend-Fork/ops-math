@@ -42,7 +42,7 @@ TEST_F(ReduceMeanWithCountTiling, reduce_mean_with_count_tiling_4d_fp32)
          gert::TilingContextPara::OpAttr("keep_dims", Ops::Math::AnyValue::CreateFrom<bool>(true))},
         &compileInfo);
     uint64_t expectedTilingKey = 10321;
-    std::vector<size_t> expectedWorkspaces = {16777216};
+    std::vector<size_t> expectedWorkspaces = {32};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectedTilingKey, expectedWorkspaces);
 }
 
@@ -64,6 +64,6 @@ TEST_F(ReduceMeanWithCountTiling, reduce_mean_with_count_tiling_3d_fp16)
          gert::TilingContextPara::OpAttr("keep_dims", Ops::Math::AnyValue::CreateFrom<bool>(false))},
         &compileInfo);
     uint64_t expectedTilingKey = 10321;
-    std::vector<size_t> expectedWorkspaces = {16777216};
+    std::vector<size_t> expectedWorkspaces = {32};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectedTilingKey, expectedWorkspaces);
 }

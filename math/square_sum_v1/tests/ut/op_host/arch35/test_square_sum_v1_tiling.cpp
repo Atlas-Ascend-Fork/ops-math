@@ -40,7 +40,7 @@ TEST_F(SquareSumV1Tiling, test_SquareSumV1Tiling_0)
          gert::TilingContextPara::OpAttr("noop_with_empty_axes", Ops::Math::AnyValue::CreateFrom<bool>(true))},
         &compileInfo);
     uint64_t expectTilingKey = 10285;
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {32};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
 

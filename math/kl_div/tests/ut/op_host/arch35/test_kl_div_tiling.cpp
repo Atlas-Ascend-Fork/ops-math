@@ -63,7 +63,7 @@ TEST_F(KLDivTiling, kl_div_tiling_UT_float32_none)
                                               },
                                               &compileInfo);
     uint64_t expectTilingKey = 10641UL;
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {32};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
 
@@ -84,7 +84,7 @@ TEST_F(KLDivTiling, kl_div_tiling_UT_float32_mean)
                                               },
                                               &compileInfo);
     uint64_t expectTilingKey = 67119149UL;
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {32};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
 
@@ -105,7 +105,7 @@ TEST_F(KLDivTiling, kl_div_tiling_UT_float32_sum)
                                               },
                                               &compileInfo);
     uint64_t expectTilingKey = 134228013UL;
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {32};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
 
@@ -127,7 +127,7 @@ TEST_F(KLDivTiling, kl_div_tiling_UT_float32_batchmean)
         },
         &compileInfo);
     uint64_t expectTilingKey = 201336877UL;
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {32};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
 
@@ -149,7 +149,7 @@ TEST_F(KLDivTiling, kl_div_tiling_UT_bfloat16_sum)
                                               &compileInfo);
     // dtype is not encoded in the tiling key: bf16 sum shares the fp32 sum key
     uint64_t expectTilingKey = 134228013UL;
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {32};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
 
@@ -171,7 +171,7 @@ TEST_F(KLDivTiling, kl_div_tiling_UT_float16_sum)
                                               &compileInfo);
     // dtype is not encoded in the tiling key: fp16 sum shares the fp32 sum key
     uint64_t expectTilingKey = 134228013UL;
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {32};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
 
@@ -274,6 +274,6 @@ TEST_F(KLDivTiling, kl_div_tiling_UT_empty_tensor_sum)
                                               &compileInfo);
     // empty pattern short-circuit: only the reduction dim (sum=2) is set in the key
     uint64_t expectTilingKey = 134217729UL;
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {32};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
