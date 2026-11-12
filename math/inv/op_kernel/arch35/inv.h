@@ -17,8 +17,9 @@
  * Inv(x) = 1 / x
  *
  * 精度策略：
- *   - float32：Div(ones, x) 使用 0 ULP、非 FTZ 模式（不使用 Reciprocal，精度要求）
- *   - float16 / bfloat16：Cast to fp32 -> Div(ones, x, 0 ULP 非 FTZ，同 float32 分支) -> Cast back
+ *   - float32：Div(ones, x) 使用 DIFF_COMPENSATION（0 ULP 软件补偿，FTZ 语义跟随构建旗标 --cce-ftz）
+ *   - float16 / bfloat16：Cast to fp32 -> Div(ones, x, INTRINSIC 默认硬件除) -> Cast back。
+ *     已知取舍：bf16 次正规输入在 --cce-ftz=true 构建下 Cast 后被冲刷（1/0=inf）；fp16 次正规不受影响。
  *   - int32：截断向零整数倒数，等价三值映射 {+1->+1, -1->-1, 其他->0}。
  *            整型 Compare(==1)/Compare(==-1) + 嵌套 Select 实现，禁止对 INT_MIN 取负、不经 fp32 中转。
  *
@@ -167,7 +168,7 @@ __aicore__ inline void Inv<T>::ComputeFloat32(LocalTensor<float>& xLocal, LocalT
                                               int64_t alignedNum)
 {
     LocalTensor<float> ones = tmpBuf2_.template Get<float>();
-    static constexpr AscendC::DivConfig config = {AscendC::DivAlgo::PRECISION_0ULP_FTZ_FALSE};
+    static constexpr AscendC::DivConfig config = {AscendC::DivAlgo::DIFF_COMPENSATION};
     AscendC::Div<float, config>(yLocal, ones, xLocal, static_cast<int32_t>(alignedNum));
 }
 
@@ -178,10 +179,12 @@ __aicore__ inline void Inv<T>::ComputeWithCast(LocalTensor<SrcT>& xLocal, LocalT
 {
     LocalTensor<float> xFloat = tmpBuf1_.template Get<float>();
     LocalTensor<float> ones = tmpBuf2_.template Get<float>();
-    // 与 float32 分支同配置（0 ULP 非 FTZ）。bf16 与 fp32 同为 8 位指数域，bf16 次正规输入
-    // Cast 后仍是 fp32 次正规数，默认 INTRINSIC 除法按 FTZ 将其清零致 1/0=inf（违背 IEEE-754 契约）；
-    // fp16 次正规在 fp32 中为正规数、无此问题，统一此配置是为保证升精度中间商的正确舍入。
-    static constexpr AscendC::DivConfig config = {AscendC::DivAlgo::PRECISION_0ULP_FTZ_FALSE};
+    // 与 float32 分支不同配置（usercombo 组合臂）：fp32 直通用 DIFF_COMPENSATION（0 ULP 软件补偿，
+    // FTZ 语义跟随构建旗标 --cce-ftz）；本分支（fp16/bf16）用 INTRINSIC 默认硬件除。
+    // 已知语义取舍：bf16 与 fp32 同为 8 位指数域，bf16 次正规输入 Cast 后仍是 fp32 次正规数，
+    // 在 --cce-ftz=true 构建下会被冲刷为零致 1/0=inf（偏离 IEEE-754 契约）；
+    // fp16 次正规在 fp32 中恒为正规数、不受 FTZ 影响。
+    static constexpr AscendC::DivConfig config = {AscendC::DivAlgo::INTRINSIC};
 
     Cast(xFloat, xLocal, RoundMode::CAST_NONE, static_cast<uint32_t>(alignedNum));
     AscendC::Div<float, config>(xFloat, ones, xFloat, static_cast<int32_t>(alignedNum));
