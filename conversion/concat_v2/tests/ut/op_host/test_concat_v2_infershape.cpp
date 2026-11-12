@@ -14,8 +14,12 @@
 
 #include <gtest/gtest.h>
 #include <iostream>
+#include <memory>
+#include <vector>
 #include "infershape_context_faker.h"
 #include "infershape_case_executor.h"
+#include "base/registry/op_impl_space_registry_v2.h"
+#include "exe_graph/runtime/kernel_run_context.h"
 
 using namespace ge;
 class ConcatV2Test : public testing::Test {
@@ -402,4 +406,43 @@ TEST_F(ConcatV2Test, infer_mixed_unknown_rank_with_known_axis)
         {16, -1, 8},
     };
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+TEST_F(ConcatV2Test, infer_identical_shapes_shared_shape_pointer)
+{
+    // 回归(线上axis维漏加问题): 运行时可能对相同形状的多个实例返回同一个 Shape 对象(desc同源共享),
+    // 基底识别必须按索引而非指针, 否则同形输入被误判为基底跳过求和, 输出axis维漏加
+    int64_t axis_value = 2;
+    gert::Tensor x0(gert::StorageShape({16, 4, 8}, {16, 4, 8}),
+                    gert::StorageFormat(ge::FORMAT_ND, ge::FORMAT_ND, gert::ExpandDimsType()),
+                    gert::TensorPlacement::kOnHost, ge::DT_FLOAT16, nullptr);
+    gert::Tensor x1(gert::StorageShape({16, 4, 8}, {16, 4, 8}),
+                    gert::StorageFormat(ge::FORMAT_ND, ge::FORMAT_ND, gert::ExpandDimsType()),
+                    gert::TensorPlacement::kOnHost, ge::DT_FLOAT16, nullptr);
+    gert::Tensor axisTensor(gert::StorageShape({1}, {1}),
+                            gert::StorageFormat(ge::FORMAT_ND, ge::FORMAT_ND, gert::ExpandDimsType()),
+                            gert::TensorPlacement::kOnHost, ge::DT_INT64, &axis_value);
+    std::vector<gert::Tensor*> inputTensors = {&x0, &x1, &axisTensor};
+    auto contextHolder = gert::InferShapeContextFaker()
+                             .SetOpType("ConcatV2")
+                             .IrInstanceNum({2, 1}, {1})
+                             .NodeOutputTd(0, ge::DT_FLOAT16, ge::FORMAT_ND, ge::FORMAT_ND)
+                             .InputTensors(inputTensors)
+                             .Build();
+    // 指针别名: 把实例1的槽位指针改为指向实例0, 模拟运行时同形实例共享 Shape 对象
+    auto* kernelCtx = reinterpret_cast<KernelRunContext*>(contextHolder.GetContext());
+    kernelCtx->values[1]->data.pointer = kernelCtx->values[0]->data.pointer;
+
+    auto spaceRegistry = gert::DefaultOpImplSpaceRegistryV2::GetInstance().GetSpaceRegistry();
+    const auto* opImpl = spaceRegistry->GetOpImpl("ConcatV2");
+    ASSERT_NE(opImpl, nullptr);
+    ASSERT_NE(opImpl->infer_shape, nullptr);
+    EXPECT_EQ(opImpl->infer_shape(contextHolder.GetContext()), ge::GRAPH_SUCCESS);
+    auto* outShape = contextHolder.GetContext()->GetOutputShape(0);
+    ASSERT_NE(outShape, nullptr);
+    const std::vector<int64_t> expectDims = {16, 4, 16};
+    ASSERT_EQ(outShape->GetDimNum(), expectDims.size());
+    for (size_t d = 0; d < expectDims.size(); ++d) {
+        EXPECT_EQ(outShape->GetDim(d), expectDims[d]);
+    }
 }

@@ -143,33 +143,33 @@ static ge::graphStatus InferShape4ConcatV2(gert::InferShapeContext* context)
     auto outShape = context->GetOutputShape(0);
     OP_CHECK_NULL_WITH_CONTEXT(context, outShape);
 
+    // 以索引标识基底(首个已知秩输入), 不做实例指针相等比较:
+    // 运行时可能对相同形状的多个实例返回同一个 Shape 对象(如输入desc同源共享),
+    // 指针比较会把后续同形输入误判为基底而跳过求和, 导致输出 axis 维漏加
     std::vector<const gert::Shape*> inShapes;
     inShapes.reserve(static_cast<size_t>(numInputs));
+    int64_t baseIdx = -1;
+    bool hasUnknownRankInput = false;
     for (int64_t i = 0; i < numInputs; ++i) {
         auto shapeI = context->GetDynamicInputShape(INPUT_IDX_FOR_CONCAT_V2, static_cast<size_t>(i));
         OP_CHECK_NULL_WITH_CONTEXT(context, shapeI);
         inShapes.push_back(shapeI);
+        if (Ops::Base::IsUnknownRank(*shapeI)) {
+            hasUnknownRankInput = true;
+        } else if (baseIdx < 0) {
+            baseIdx = i;
+        }
     }
 
     // 对等 V1 all_unknown_rank_shape: 全部输入未知秩时, 输出未知秩
-    const gert::Shape* baseShape = nullptr;
-    bool hasUnknownRankInput = false;
-    for (const auto* shapeI : inShapes) {
-        if (Ops::Base::IsUnknownRank(*shapeI)) {
-            hasUnknownRankInput = true;
-            continue;
-        }
-        if (baseShape == nullptr) {
-            baseShape = shapeI;
-        }
-    }
-    if (baseShape == nullptr) {
+    if (baseIdx < 0) {
         Ops::Base::SetUnknownRank(*outShape);
         return ge::GRAPH_SUCCESS;
     }
 
     // 对等 V1 JoinShapes: 输出以首个已知秩输入为基底, 未知秩输入不参与形状合并;
     // 对等 V1 ConcatInferShapeCommonStatic: 标量基底升为 [1]
+    const gert::Shape* baseShape = inShapes[static_cast<size_t>(baseIdx)];
     *outShape = *baseShape;
     if (outShape->IsScalar()) {
         outShape->AppendDim(1);
@@ -196,10 +196,11 @@ static ge::graphStatus InferShape4ConcatV2(gert::InferShapeContext* context)
         }
     }
 
-    for (const auto* shapeI : inShapes) {
-        if (shapeI == baseShape) {
+    for (int64_t i = 0; i < numInputs; ++i) {
+        if (i == baseIdx) {
             continue; // 基底自身已计入 newDim
         }
+        const gert::Shape* shapeI = inShapes[static_cast<size_t>(i)];
         if (Ops::Base::IsUnknownRank(*shapeI)) {
             dimUnknown = true;
             continue;
