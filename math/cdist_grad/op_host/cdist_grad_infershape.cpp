@@ -10,11 +10,13 @@
 
 /*!
  * \file cdist_grad_infershape.cpp
- * \brief InferShape for CdistGrad operator
+ * \brief InferShape and InferDataType for CdistGrad operator
  *
  * CdistGrad reduces along axis -2 (without keepdims).
  * Input shape:  [..., P, R, M] (after broadcast)
  * Output shape: [..., P, M]   (R dimension is reduced away)
+ *
+ * Output dtype is the same as input grad (all inputs share the same dtype).
  */
 
 #include "log/log.h"
@@ -24,6 +26,8 @@ using namespace ge;
 
 namespace ops {
 constexpr int64_t NUMBER_TWO = 2;
+constexpr size_t CDIST_GRAD_INPUT_GRAD_INDEX = 0;
+constexpr size_t CDIST_GRAD_OUTPUT_Y_INDEX = 0;
 
 static ge::graphStatus InferShape4CdistGrad(gert::InferShapeContext* context)
 {
@@ -68,5 +72,15 @@ static ge::graphStatus InferShape4CdistGrad(gert::InferShapeContext* context)
     return GRAPH_SUCCESS;
 }
 
-IMPL_OP_INFERSHAPE(CdistGrad).InferShape(InferShape4CdistGrad);
+static ge::graphStatus InferDataType4CdistGrad(gert::InferDataTypeContext* context)
+{
+    OP_LOGD(context->GetNodeName(), "Begin to do InferDataType4CdistGrad");
+    // grad、x1、x2、cdist 要求同 dtype，输出 y 的 dtype 与 grad 一致
+    const auto gradDtype = context->GetInputDataType(CDIST_GRAD_INPUT_GRAD_INDEX);
+    context->SetOutputDataType(CDIST_GRAD_OUTPUT_Y_INDEX, gradDtype);
+    OP_LOGD(context->GetNodeName(), "End to do InferDataType4CdistGrad");
+    return GRAPH_SUCCESS;
+}
+
+IMPL_OP_INFERSHAPE(CdistGrad).InferShape(InferShape4CdistGrad).InferDataType(InferDataType4CdistGrad);
 } // namespace ops

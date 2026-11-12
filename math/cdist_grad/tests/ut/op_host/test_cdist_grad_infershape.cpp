@@ -10,13 +10,15 @@
 
 /*!
  * \file test_cdist_grad_infershape.cpp
- * \brief
+ * \brief CdistGrad InferShape and InferDataType UT.
  */
 
 #include <gtest/gtest.h>
 #include <iostream>
 #include "infershape_context_faker.h"
 #include "infershape_case_executor.h"
+#include "op_infer_datatype_context_builder.h"
+#include "base/registry/op_impl_space_registry_v2.h"
 
 class CdistGradInfershape : public testing::Test {
 protected:
@@ -157,4 +159,108 @@ TEST_F(CdistGradInfershape, cdist_grad_infershape_1d_failed_test)
                                                       });
     std::vector<std::vector<int64_t>> expectOutputShape = {};
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED, expectOutputShape);
+}
+
+// InferDataType：输出 dtype 与 grad 一致（float32）
+TEST_F(CdistGradInfershape, cdist_grad_infer_datatype_float)
+{
+    auto spaceRegistry = gert::DefaultOpImplSpaceRegistryV2::GetInstance().GetSpaceRegistry();
+    ASSERT_NE(spaceRegistry, nullptr);
+    auto opImpl = spaceRegistry->GetOpImpl("CdistGrad");
+    ASSERT_NE(opImpl, nullptr);
+    ASSERT_NE(opImpl->infer_datatype, nullptr);
+
+    gert::OpInferDataTypeContextBuilder builder;
+    builder.OpType("CdistGrad").OpName("CdistGrad");
+    builder.IONum(4, 1);
+    builder.InputTensorDesc(0, ge::DT_FLOAT, ge::FORMAT_ND, ge::FORMAT_ND);
+    builder.InputTensorDesc(1, ge::DT_FLOAT, ge::FORMAT_ND, ge::FORMAT_ND);
+    builder.InputTensorDesc(2, ge::DT_FLOAT, ge::FORMAT_ND, ge::FORMAT_ND);
+    builder.InputTensorDesc(3, ge::DT_FLOAT, ge::FORMAT_ND, ge::FORMAT_ND);
+    builder.OutputTensorDesc(0, ge::FORMAT_ND, ge::FORMAT_ND);
+    auto contextHolder = builder.Build();
+    auto* context = contextHolder.GetContext();
+    ASSERT_NE(context, nullptr);
+
+    auto ret = opImpl->infer_datatype(context);
+    EXPECT_EQ(ret, ge::GRAPH_SUCCESS);
+    EXPECT_EQ(context->GetOutputDataType(0), ge::DT_FLOAT);
+}
+
+// InferDataType：输出 dtype 与 grad 一致（float16）
+TEST_F(CdistGradInfershape, cdist_grad_infer_datatype_float16)
+{
+    auto spaceRegistry = gert::DefaultOpImplSpaceRegistryV2::GetInstance().GetSpaceRegistry();
+    ASSERT_NE(spaceRegistry, nullptr);
+    auto opImpl = spaceRegistry->GetOpImpl("CdistGrad");
+    ASSERT_NE(opImpl, nullptr);
+    ASSERT_NE(opImpl->infer_datatype, nullptr);
+
+    gert::OpInferDataTypeContextBuilder builder;
+    builder.OpType("CdistGrad").OpName("CdistGrad");
+    builder.IONum(4, 1);
+    builder.InputTensorDesc(0, ge::DT_FLOAT16, ge::FORMAT_ND, ge::FORMAT_ND);
+    builder.InputTensorDesc(1, ge::DT_FLOAT16, ge::FORMAT_ND, ge::FORMAT_ND);
+    builder.InputTensorDesc(2, ge::DT_FLOAT16, ge::FORMAT_ND, ge::FORMAT_ND);
+    builder.InputTensorDesc(3, ge::DT_FLOAT16, ge::FORMAT_ND, ge::FORMAT_ND);
+    builder.OutputTensorDesc(0, ge::FORMAT_ND, ge::FORMAT_ND);
+    auto contextHolder = builder.Build();
+    auto* context = contextHolder.GetContext();
+    ASSERT_NE(context, nullptr);
+
+    auto ret = opImpl->infer_datatype(context);
+    EXPECT_EQ(ret, ge::GRAPH_SUCCESS);
+    EXPECT_EQ(context->GetOutputDataType(0), ge::DT_FLOAT16);
+}
+
+// InferDataType：输出 dtype 与 grad 一致（bfloat16）
+TEST_F(CdistGradInfershape, cdist_grad_infer_datatype_bf16)
+{
+    auto spaceRegistry = gert::DefaultOpImplSpaceRegistryV2::GetInstance().GetSpaceRegistry();
+    ASSERT_NE(spaceRegistry, nullptr);
+    auto opImpl = spaceRegistry->GetOpImpl("CdistGrad");
+    ASSERT_NE(opImpl, nullptr);
+    ASSERT_NE(opImpl->infer_datatype, nullptr);
+
+    gert::OpInferDataTypeContextBuilder builder;
+    builder.OpType("CdistGrad").OpName("CdistGrad");
+    builder.IONum(4, 1);
+    builder.InputTensorDesc(0, ge::DT_BF16, ge::FORMAT_ND, ge::FORMAT_ND);
+    builder.InputTensorDesc(1, ge::DT_BF16, ge::FORMAT_ND, ge::FORMAT_ND);
+    builder.InputTensorDesc(2, ge::DT_BF16, ge::FORMAT_ND, ge::FORMAT_ND);
+    builder.InputTensorDesc(3, ge::DT_BF16, ge::FORMAT_ND, ge::FORMAT_ND);
+    builder.OutputTensorDesc(0, ge::FORMAT_ND, ge::FORMAT_ND);
+    auto contextHolder = builder.Build();
+    auto* context = contextHolder.GetContext();
+    ASSERT_NE(context, nullptr);
+
+    auto ret = opImpl->infer_datatype(context);
+    EXPECT_EQ(ret, ge::GRAPH_SUCCESS);
+    EXPECT_EQ(context->GetOutputDataType(0), ge::DT_BF16);
+}
+
+// InferDataType：输入 dtype 不一致时，输出 dtype 仍取 grad（输入 0）
+TEST_F(CdistGradInfershape, cdist_grad_infer_datatype_follows_grad)
+{
+    auto spaceRegistry = gert::DefaultOpImplSpaceRegistryV2::GetInstance().GetSpaceRegistry();
+    ASSERT_NE(spaceRegistry, nullptr);
+    auto opImpl = spaceRegistry->GetOpImpl("CdistGrad");
+    ASSERT_NE(opImpl, nullptr);
+    ASSERT_NE(opImpl->infer_datatype, nullptr);
+
+    gert::OpInferDataTypeContextBuilder builder;
+    builder.OpType("CdistGrad").OpName("CdistGrad");
+    builder.IONum(4, 1);
+    builder.InputTensorDesc(0, ge::DT_FLOAT, ge::FORMAT_ND, ge::FORMAT_ND);
+    builder.InputTensorDesc(1, ge::DT_FLOAT16, ge::FORMAT_ND, ge::FORMAT_ND);
+    builder.InputTensorDesc(2, ge::DT_FLOAT16, ge::FORMAT_ND, ge::FORMAT_ND);
+    builder.InputTensorDesc(3, ge::DT_FLOAT16, ge::FORMAT_ND, ge::FORMAT_ND);
+    builder.OutputTensorDesc(0, ge::FORMAT_ND, ge::FORMAT_ND);
+    auto contextHolder = builder.Build();
+    auto* context = contextHolder.GetContext();
+    ASSERT_NE(context, nullptr);
+
+    auto ret = opImpl->infer_datatype(context);
+    EXPECT_EQ(ret, ge::GRAPH_SUCCESS);
+    EXPECT_EQ(context->GetOutputDataType(0), ge::DT_FLOAT);
 }
