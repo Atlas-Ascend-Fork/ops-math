@@ -1,6 +1,6 @@
 # 互推导关系
 
-## TensorTensor互推导关系
+## Tensor-Tensor互推导关系
 
 ### 推导规则
 
@@ -42,7 +42,7 @@ aclTensor支持的数据类型参见[数据类型](data_type.md)，其中部分�
 - 调用aclnnAdd接口时，如果输入参数的数据类型不一致，一个为float16，一个为float32，那么API内部就会将float16的数据类型转换成float32的数据类型然后进行计算。
 - 调用aclnnAdd接口时，如果输入参数的数据类型不一致，一个为float32，一个为bool，那么API内部就会将bool的数据类型转换成float32的数据类型然后进行计算。
 
-## TensorScalar互推导关系
+## Tensor-Scalar互推导关系
 
 ### 推导规则
 

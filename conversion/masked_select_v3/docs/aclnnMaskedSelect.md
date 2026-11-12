@@ -106,7 +106,7 @@ aclnnStatus aclnnMaskedSelect(
       <td>out（aclTensor*）</td>
       <td>输出</td>
       <td>功能说明中的输出一维张量。</td>
-      <td>shape为一维，且元素个数为mask和self广播后的shapesize。</td>
+      <td>shape为一维，且元素个数为mask和self广播后的shape size。</td>
       <td>BFLOAT16、FLOAT16、FLOAT32、DOUBLE、INT8、INT16、INT32、INT64、UINT8、BOOL</td>
       <td>ND</td>
       <td>0-8</td>
@@ -176,7 +176,7 @@ aclnnStatus aclnnMaskedSelect(
       <td>out的shape不是一维时。</td>
     </tr>
     <tr>
-      <td>out的元素个数不等于self和mask广播后的shapesize时。</td>
+      <td>out的元素个数不等于self和mask广播后的shape size时。</td>
     </tr>
   </tbody>
   </table>

@@ -232,15 +232,6 @@
 
   aclnnStatus：返回状态码，具体参见[aclnn返回码](../../../docs/zh/context/aclnn_return_code.md)。
 
-## 约束说明
-
-- 确定性计算：
-  - aclnnRoundDecimals&aclnnInplaceRoundDecimals默认确定性实现。
-
-- 针对decimals不为0的场景：
-  输入数据超过(-347000, 347000)范围，精度可能会有影响。
-- decimals取值为整数：正数表示小数点后舍入位数，负数表示小数点前舍入位数。当|decimals|超出输入数据类型可表示的十进制指数范围时，中间缩放结果可能溢出，输出可能为NaN/Inf，具体边界与产品及计算路径相关。
-
 ## aclnnInplaceRoundDecimalsGetWorkspaceSize
 
 - **参数说明：**

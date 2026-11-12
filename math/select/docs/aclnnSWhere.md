@@ -43,7 +43,7 @@ $$
 ## aclnnSWhereGetWorkspaceSize
 
 - **参数说明**:
-  - condition（aclTensor*，计算输入）：公式中的输入`condition`，Device侧的aclTensor，数据类型支持UINT8、BOOL，支持[非连续的Tensor](../../../docs/zh/context/non_contiguous_tensor.md)，shape需要与self和other满足[broadcast关系](../../../docs/zh/context/broadcast_relationship.md)。支持[非连续的Tensor](../../../docs/zh/context/non_contiguous_tensor.md)，[数据格式](../../../docs/zh/context/data_format.md)支持ND，数据维度不支持8维以上。
+  - condition（aclTensor*，计算输入）：公式中的输入`condition`，Device侧的aclTensor，数据类型支持UINT8、BOOL，shape需要与self和other满足[broadcast关系](../../../docs/zh/context/broadcast_relationship.md)。支持[非连续的Tensor](../../../docs/zh/context/non_contiguous_tensor.md)，[数据格式](../../../docs/zh/context/data_format.md)支持ND，数据维度不支持8维以上。
 
   - self（aclTensor*，计算输入）：公式中的输入`self`，数据类型与other的数据类型需满足数据类型推导规则（参见[互推导关系](../../../docs/zh/context/deduction_relationship.md)），Device侧的aclTensor，shape需要与other和condition满足[broadcast关系](../../../docs/zh/context/broadcast_relationship.md)。支持[非连续的Tensor](../../../docs/zh/context/non_contiguous_tensor.md)，[数据格式](../../../docs/zh/context/data_format.md)支持ND，数据维度不支持8维以上。
 
@@ -63,7 +63,7 @@ $$
     - <term>Atlas推理系列产品</term>、<term>Atlas训练系列产品</term>：数据类型支持FLOAT、 INT32、 UINT64、 INT64、 UINT32、 FLOAT16、 UINT16、 INT16、 INT8、 UINT8、 DOUBLE、 BOOL、 COMPLEX64、 COMPLEX128。
     <!-- end id10 -->
 
-  - out（aclTensor \*，计算输出）：公式中的输出`out`，支持[非连续的Tensor](../../../docs/zh/context/non_contiguous_tensor.md)，Device侧的aclTensor，shape需要是self与other和condition broadcast之后的shape。支持[非连续的Tensor](../../../docs/zh/context/non_contiguous_tensor.md)，[数据格式](../../../docs/zh/context/data_format.md)支持ND，数据维度不支持8维以上。
+  - out（aclTensor \*，计算输出）：公式中的输出`out`，Device侧的aclTensor，shape需要是self与other和condition broadcast之后的shape。支持[非连续的Tensor](../../../docs/zh/context/non_contiguous_tensor.md)，[数据格式](../../../docs/zh/context/data_format.md)支持ND，数据维度不支持8维以上。
 
     <!-- npu="950,A3,910b" id11 -->
     - <term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>、<term>Ascend 950PR&950DT系列产品</term>：数据类型支持FLOAT、 INT32、 UINT64、 INT64、 UINT32、 FLOAT16、 UINT16、 INT16、 INT8、 UINT8、 DOUBLE、 BOOL、 COMPLEX64、 COMPLEX128、 BFLOAT16。

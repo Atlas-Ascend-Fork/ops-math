@@ -157,11 +157,8 @@ aclnnStatus aclnnInplaceCopy(
         <td>传入的selfRef或src是空指针时。</td>
       </tr>
       <tr>
-        <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
-        <td rowspan="4">161002</td>
-        <td>传入的selfRef或src是空指针时。</td>
-      </tr>
-      <tr>
+        <td rowspan="3">ACLNN_ERR_PARAM_INVALID</td>
+        <td rowspan="3">161002</td>
         <td>selfRef的shape超过8维。</td>
       </tr>
       <tr>

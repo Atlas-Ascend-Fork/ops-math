@@ -592,7 +592,6 @@ int main() {
   aclOpExecutor* executor;
 
   // aclnnInplaceLog10接口调用示例
-  // 3. 调用CANN算子库API
   LOG_PRINT("\ntest aclnnInplaceLog10\n");
   // 调用aclnnInplaceLog10第一段接口
   ret = aclnnInplaceLog10GetWorkspaceSize(self, &workspaceSize, &executor);
@@ -613,8 +612,7 @@ int main() {
   ret = aclrtSynchronizeStream(stream);
   CHECK_RET(ret == ACL_SUCCESS, LOG_PRINT("aclrtSynchronizeStream failed. ERROR: %d\n", ret); return ret);
 
-  // 5. 将device侧内存上的结果拷贝到host侧
-    // 5. 获取输出的值，将device侧内存上的结果拷贝至host侧，需要根据具体API的接口定义修改
+  // 5. 获取输出的值，将device侧内存上的结果拷贝至host侧，需要根据具体API的接口定义修改
   auto size = GetShapeSize(outShape);
   std::vector<double> resultData(size, 0);
   ret = aclrtMemcpy(resultData.data(), resultData.size() * sizeof(resultData[0]), selfDeviceAddr,

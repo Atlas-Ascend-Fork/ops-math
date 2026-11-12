@@ -73,7 +73,7 @@ aclnnStatus aclnnInplaceOne(
     <tr>
       <td>selfRef（aclTensor*）</td>
       <td>输出</td>
-      <td>输出张量，公式中的out。</td>
+      <td>输出张量，即输入张量selfRef本身。</td>
       <td>-</td>
       <td>FLOAT、FLOAT16、DOUBLE、INT8、INT16、INT32、UINT32、INT64、UINT64、UINT8、UINT16、BOOL、BFLOAT16</td>
       <td>ND</td>

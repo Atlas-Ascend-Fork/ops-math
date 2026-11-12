@@ -227,10 +227,6 @@ aclnnStatus aclnnExpand(
 
 - 确定性计算：aclnnExpand默认确定性实现。
 
-## 约束说明
-
-无
-
 ## 调用示例
 
 示例代码如下，仅供参考，具体编译和执行过程请参考[编译与运行样例](../../../docs/zh/context/compile_and_run_sample.md)。

@@ -28,7 +28,7 @@
 - 计算公式：
 
   $$
-  resultput_i = \left\{
+  result_i = \left\{
   \begin{aligned}
   1,\quad input_i > 0\\
   0,\quad input_i = 0\\
@@ -40,7 +40,7 @@
 - 计算公式（BOOL类型情况）：
 
   $$
-  resultput_i = \left\{
+  result_i = \left\{
   \begin{aligned}
   \text{True},\quad input_i = \text{True}\\
   \text{False},\quad input_i = \text{False}\\
@@ -48,10 +48,10 @@
   \right.
   $$
 
-- 计算公式（复数情况，其中real和下面各分别表示取实部和虚部）：
+- 计算公式（复数情况，其中real和imag分别表示取实部和虚部）：
 
   $$
-  resultput_i = \alpha \cdot cos(\theta_i) + \beta \cdot sin(\theta_i) \\
+  result_i = \alpha \cdot cos(\theta_i) + \beta \cdot sin(\theta_i) \\
   \alpha = \left\{
   \begin{aligned}
   1,\quad real(input_i) > 0 \\
@@ -62,13 +62,13 @@
   \\
   \beta = \left\{
   \begin{aligned}
-  1,\quad image(input_i) > 0 \\
-  0,\quad image(input_i) = 0 \\
-  -1,\quad image(input_i) < 0 \\
+  1,\quad imag(input_i) > 0 \\
+  0,\quad imag(input_i) = 0 \\
+  -1,\quad imag(input_i) < 0 \\
   \end{aligned}
   \right.
   \\
-  \theta_i = arctan(\frac{image(input_i)}{real(input_i)})
+  \theta_i = arctan(\frac{imag(input_i)}{real(input_i)})
   $$
 
 ## 函数原型
@@ -91,7 +91,7 @@
     - <term>Ascend 950PR&950DT系列产品</term>：数据类型支持DOUBLE、FLOAT、FLOAT16、INT32、INT64、COMPLEX64、COMPLEX128、BOOL、BFLOAT16。
     <!-- end id10 -->
 
-  - result(aclTensor，计算输出)：Device侧的tensor，支持1维~8维。支持非连续Tensor，[数据格式](../../../docs/zh/context/data_format.md)支持ND，且类型与shape需要与self一致，dtype要与self一致。
+  - result(aclTensor，计算输出)：Device侧的tensor，支持1维~8维。支持非连续Tensor，[数据格式](../../../docs/zh/context/data_format.md)支持ND，且类型与shape需要与self一致。
 
     <!-- npu="A3,910b" id8 -->
     - <term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>：数据类型支持DOUBLE、FLOAT、FLOAT16、INT32、INT64、COMPLEX64、COMPLEX128、BOOL、BFLOAT16。

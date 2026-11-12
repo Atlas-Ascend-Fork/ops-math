@@ -99,7 +99,7 @@ aclnnStatus aclnnMaxN(
       <td>
         <ul>
           <li>dtype需要和tensors中的tensor的dtype一致。</li>
-          <li>shape需要是输入tensorlist中所有tensor broadcast之后的shape。</li>
+          <li>shape需要是输入tensor list中所有tensor broadcast之后的shape。</li>
         </ul>
       </td>
       <td>FLOAT16、FLOAT、INT8、UINT8、INT32、INT64、BFLOAT16</td>

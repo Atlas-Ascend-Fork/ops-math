@@ -102,7 +102,7 @@ aclnnStatus aclnnIm2col(
       <td>-</td>
     </tr>
     <tr>
-      <td>dilation （aclIntArray*）</td>
+      <td>dilation（aclIntArray*）</td>
       <td>输入</td>
       <td>膨胀参数，对应公式中的dilation。</td>
       <td>dilation[0]表示'H'方向。<br>dilation[1]表示'W'方向。</td>
@@ -122,7 +122,7 @@ aclnnStatus aclnnIm2col(
       <td>-</td>
     </tr>
     <tr>
-      <td>stride （aclIntArray*）</td>
+      <td>stride（aclIntArray*）</td>
       <td>输入</td>
       <td>卷积的步长，对应公式中的stride。</td>
       <td>stride[0]表示'H'方向。<br>stride[1]表示'W'方向。</td>

@@ -218,7 +218,7 @@ aclnnStatus aclnnEqual(
 
 - 确定性计算：
   - aclnnEqual默认确定性实现。
-- 如果计算量过大可能会导致算子执行超时（aicore error类型报错，errorStr为：timeout or trap error），场景为最后2轴合轴小于16，前面的轴合轴超大。
+- 如果计算量过大可能会导致算子执行超时（AI Core error类型报错，errorStr为：timeout or trap error），场景为最后2轴合轴小于16，前面的轴合轴超大。
 
 ## 调用示例
 
