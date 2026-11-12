@@ -125,18 +125,3 @@ TEST_F(CholeskyTiling, cholesky_test_tiling_rejects_unsupported_dtype)
         {gert::TilingContextPara::OpAttr("upper", Ops::Math::AnyValue::CreateFrom<bool>(false))}, &compileInfo);
     ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED, 0, "", {});
 }
-
-TEST_F(CholeskyTiling, cholesky_test_tiling_rejects_unsupported_format)
-{
-    optiling::CholeskyCompileInfo compileInfo = {48, false};
-    gert::TilingContextPara tilingContextPara(
-        "Cholesky",
-        {
-            {{{2, 2}, {2, 2}}, ge::DT_FLOAT, ge::FORMAT_NCHW},
-        },
-        {
-            {{{2, 2}, {2, 2}}, ge::DT_FLOAT, ge::FORMAT_NCHW},
-        },
-        {gert::TilingContextPara::OpAttr("upper", Ops::Math::AnyValue::CreateFrom<bool>(false))}, &compileInfo);
-    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED, 0, "", {});
-}

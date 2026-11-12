@@ -91,16 +91,6 @@ ge::graphStatus CholeskyTiling::Init()
                 OP_LOGE_FOR_INVALID_DTYPE(tilingContext->GetNodeName(), "y",
                                           ge::TypeUtils::DataTypeToSerialString(outputDesc->GetDataType()), "DT_FLOAT"),
                 return ge::GRAPH_FAILED);
-    const std::string actualFormats = std::to_string(inputDesc->GetOriginFormat()) + ", " +
-                                      std::to_string(inputDesc->GetStorageFormat()) + ", " +
-                                      std::to_string(outputDesc->GetOriginFormat()) + ", " +
-                                      std::to_string(outputDesc->GetStorageFormat());
-    OP_CHECK_IF(inputDesc->GetOriginFormat() != ge::FORMAT_ND || inputDesc->GetStorageFormat() != ge::FORMAT_ND ||
-                    outputDesc->GetOriginFormat() != ge::FORMAT_ND || outputDesc->GetStorageFormat() != ge::FORMAT_ND,
-                OP_LOGE_FOR_INVALID_FORMATS_WITH_REASON(tilingContext->GetNodeName(),
-                                                        "x origin, x storage, y origin, y storage", actualFormats,
-                                                        "all input and output formats must be ND"),
-                return ge::GRAPH_FAILED);
 
     auto inputShape = tilingContext->GetInputShape(0);
     auto outputShape = tilingContext->GetOutputShape(0);
