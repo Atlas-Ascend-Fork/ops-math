@@ -48,7 +48,7 @@ constexpr int32_t FP32_EXP_BIAS = 127;
 constexpr int32_t FP16_EXP_BIAS = 15;
 constexpr int32_t FP16_EXP_MAX = 31;
 // Test fixture parameters: 14-value coverage (all intervals + special values +
-// x>88 overflow-safe correction path, aligned with expint_geir_v2_common.h MakeInput)
+// large-x saturation path, aligned with expint_geir_v2_common.h MakeInput)
 constexpr int32_t INPUT_FILL_VALUE = 2;
 constexpr std::array<float, 14> INPUT_VALUES = {-1.0f, -0.0f, 0.0f,  0.25f, 1.0f,  2.0f,  4.0f,
                                                 8.0f,  16.0f, 32.0f, 64.0f, 88.5f, 93.0f, 100.0f};

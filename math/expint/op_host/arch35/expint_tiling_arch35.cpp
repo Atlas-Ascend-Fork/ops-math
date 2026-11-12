@@ -28,12 +28,12 @@ using Ops::Base::GetUbBlockSize;
 constexpr uint32_t WS_SYS_SIZE = 0U;
 constexpr int64_t TYPE_SIZE_FP32 = 4;
 constexpr size_t WORKSPACE_NUM = 1;
-// FP32 path UB shares (fp32 each): output queue x2 + 5 calc buffers + initBuf.
+// FP32 path UB shares (fp32 each): output queue x2 + 4 calc buffers + initBuf.
 // The input queue is not allocated on the FP32 path (kernel streams via initBuf).
-constexpr int64_t BUFFER_NUM_FP32 = 8;
+constexpr int64_t BUFFER_NUM_FP32 = 7;
 // FP16/BF16 path UB shares (fp32-equivalent budget): input queue x2 + output queue x2
-// + 5 calc buffers + castInBuf + resultFp32Buf.
-constexpr int64_t BUFFER_NUM_FP16 = 10;
+// + 4 calc buffers + castInBuf + resultFp32Buf.
+constexpr int64_t BUFFER_NUM_FP16 = 9;
 constexpr int64_t SELECT_RESERVED_BYTES = 8192;
 // DataCopyParams.blockLen is uint16_t; cap ubFactor so blockLen never wraps.
 constexpr int64_t MAX_COPY_BYTES = 65535;

@@ -54,7 +54,8 @@ $$Ei(x) = PV \int_{-\infty}^{x} \frac{e^{t}}{t} \mathrm{d}t$$
 ## 约束说明
 
 - 不支持DOUBLE（FP64）数据类型。
-- 输入x < 0时输出为NaN，x = 0时输出为-inf，x = +inf时输出为+inf。
+- 输入x < 0时输出为NaN，x = 0时输出为-inf，x = +inf时输出为NaN。
+- x > 0时输出Ei(x)有限真值；x > 约88.72时因fp32中间量exp(x)溢出输出+inf（与三方标杆一致）。
 - 输出的Shape与数据类型由框架根据输入推导（逐元素计算，输出与输入x一致），数据格式为ND。
 - 支持0～8维ND Tensor，包括标量、空Tensor、动态Shape和动态Rank；不支持9维及以上Tensor。
 - 非连续Tensor输入由框架自动转换为连续Tensor后执行。

@@ -56,7 +56,8 @@ $$Ei(x) = PV \int_{-\infty}^{x} \frac{e^{t}}{t} \mathrm{d}t$$
 ## Constraint Description
 
 - The DOUBLE (FP64) data type is not supported.
-- When the input x < 0, the output is NaN; when x = 0, the output is -inf; and when x = +inf, the output is +inf.
+- When the input x < 0, the output is NaN; when x = 0, the output is -inf; and when x = +inf, the output is NaN.
+- For x > 0, the output is the finite true value of Ei(x); for x > ~88.72, the output saturates to +inf due to fp32 exp(x) intermediate overflow (consistent with the third-party reference).
 - The shape and data type of the output are inferred by the framework based on the input (the computation is element-wise, and the output is the same as the input x), and the data format is ND.
 - 0- to 8-dimensional ND tensors are supported, including scalars, empty tensors, dynamic shapes, and dynamic ranks. Tensors with 9 or more dimensions are not supported.
 - A non-contiguous tensor input is automatically converted to a contiguous tensor by the framework before execution.

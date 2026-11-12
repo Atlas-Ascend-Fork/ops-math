@@ -142,20 +142,18 @@ template <typename T>
 class ExpintKernel {
     static constexpr int BUFFER_NUM = 2;
     static constexpr bool NEED_CAST = !std::is_same_v<T, float>;
-    static constexpr int64_t CMP_ALIGN = 64;                     // 256 bytes / 4 bytes per float
-    static constexpr int64_t MASK_ELEM_PER_FLOAT = 8;            // Compare bit-packed mask: 8 element bits per byte
-    static constexpr int64_t MASK_ALIGN = 32;                    // mask buffer alignment in bytes
-    static constexpr float EXP_CLAMP = 88.0f;                    // exp(88) < FLT_MAX, exp(89) > FLT_MAX
-    static constexpr float EXP_CLAMP_E = 1.6516362549940018e38f; // exp(EXP_CLAMP), fp32-representable
-    static constexpr float ONE = 1.0f;                           // multiplicative identity / reciprocal numerator
-    static constexpr float ZERO = 0.0f;                          // additive identity / zero boundary
-    static constexpr float TAIL_PAD_VALUE = 1.0f;                // Ei(1) finite: safe fill for alignment tail lanes
-    static constexpr float INTERVAL_BOUND_2 = 2.0f;              // Interval 1/2 boundary
-    static constexpr float INTERVAL_BOUND_4 = 4.0f;              // Interval 2/3 boundary
-    static constexpr float INTERVAL_BOUND_8 = 8.0f;              // Interval 3/4 boundary
-    static constexpr float INTERVAL_BOUND_16 = 16.0f;            // Interval 4/5 boundary
-    static constexpr float INTERVAL_BOUND_32 = 32.0f;            // Interval 5/6 boundary
-    static constexpr float INTERVAL_BOUND_64 = 64.0f;            // Interval 6/7 boundary
+    static constexpr int64_t CMP_ALIGN = 64;          // 256 bytes / 4 bytes per float
+    static constexpr int64_t MASK_ELEM_PER_FLOAT = 8; // Compare bit-packed mask: 8 element bits per byte
+    static constexpr int64_t MASK_ALIGN = 32;         // mask buffer alignment in bytes
+    static constexpr float ONE = 1.0f;                // multiplicative identity / reciprocal numerator
+    static constexpr float ZERO = 0.0f;               // additive identity / zero boundary
+    static constexpr float TAIL_PAD_VALUE = 1.0f;     // Ei(1) finite: safe fill for alignment tail lanes
+    static constexpr float INTERVAL_BOUND_2 = 2.0f;   // Interval 1/2 boundary
+    static constexpr float INTERVAL_BOUND_4 = 4.0f;   // Interval 2/3 boundary
+    static constexpr float INTERVAL_BOUND_8 = 8.0f;   // Interval 3/4 boundary
+    static constexpr float INTERVAL_BOUND_16 = 16.0f; // Interval 4/5 boundary
+    static constexpr float INTERVAL_BOUND_32 = 32.0f; // Interval 5/6 boundary
+    static constexpr float INTERVAL_BOUND_64 = 64.0f; // Interval 6/7 boundary
 
 public:
     __aicore__ inline ExpintKernel() {}
@@ -186,7 +184,6 @@ private:
     TBuf<TPosition::VECCALC> scratchBuf_;
     TBuf<TPosition::VECCALC> maskBuf_;
     TBuf<TPosition::VECCALC> initBuf_;
-    TBuf<TPosition::VECCALC> xClampedBuf_;
 
     TBuf<TPosition::VECCALC> castInBuf_;
     TBuf<TPosition::VECCALC> resultFp32Buf_;
@@ -220,7 +217,6 @@ __aicore__ inline void ExpintKernel<T>::Init(GM_ADDR x, GM_ADDR y, const ExpintT
     pipe_->InitBuffer(tmpBuf2_, alignedUbLength_ * sizeof(float));
     pipe_->InitBuffer(oldResultBuf_, alignedUbLength_ * sizeof(float));
     pipe_->InitBuffer(scratchBuf_, alignedUbLength_ * sizeof(float));
-    pipe_->InitBuffer(xClampedBuf_, alignedUbLength_ * sizeof(float));
     pipe_->InitBuffer(maskBuf_, ((alignedUbLength_ / MASK_ELEM_PER_FLOAT + MASK_ALIGN - 1) / MASK_ALIGN) * MASK_ALIGN);
 
     if constexpr (NEED_CAST) {
@@ -283,14 +279,12 @@ __aicore__ inline void ExpintKernel<T>::Compute(LocalTensor<float> xInput, Local
     LocalTensor<float> oldResult = oldResultBuf_.Get<float>();
     LocalTensor<uint8_t> mask = maskBuf_.Get<uint8_t>();
 
-    // Clamp x to EXP_CLAMP to prevent exp(x) overflow in float32;
-    // lanes with x > EXP_CLAMP are recomputed after the interval merge (see below)
-    LocalTensor<float> xFp32 = xClampedBuf_.Get<float>();
-    Duplicate(tmp1, EXP_CLAMP, n);
-    Compare(mask, xInput, tmp1, CMPMODE::GT, n);
-    Select(xFp32, mask, tmp1, xInput, SELMODE::VSEL_TENSOR_TENSOR_MODE, n);
+    // No overflow clamp: the raw input feeds the direct Cephes computation (TF-aligned).
+    LocalTensor<float>& xFp32 = xInput;
 
-    // Interval 7 (x >= 64): asymptotic expansion
+    // Interval 7 (x >= 64): asymptotic expansion, direct exp(x) — matches the
+    // Cephes/TF reference semantics: x > ~88.72 saturates to +inf (expf overflow),
+    // x = +inf yields inf * 0 = NaN.
     Duplicate(tmp1, ONE, n);
     Div(result, tmp1, xFp32, n);              // w = 1/x
     HornerEval(tmp1, tmp2, result, A7, n);    // P7(w)
@@ -396,37 +390,10 @@ __aicore__ inline void ExpintKernel<T>::Compute(LocalTensor<float> xInput, Local
     Compare(mask, xFp32, tmp1, CMPMODE::LT, n);
     Select(result, mask, oldResult, scratch, SELMODE::VSEL_TENSOR_TENSOR_MODE, n);
 
-    // Large-x overflow-safe correction (x > EXP_CLAMP): the clamped computation
-    // above saturates those lanes at Ei(EXP_CLAMP). Recompute with the original
-    // x via Ei(x) = exp(x - EXP_CLAMP) * (exp(EXP_CLAMP) / x) * S(x), where
-    // S(x) = 1 + w * P7(w) / Q7(w) and w = 1 / x. Every factor stays finite
-    // for x <= ~93.2 and the final multiply overflows to +inf beyond, which
-    // matches the IEEE fp32 rounding of the true Ei(x).
-    Duplicate(tmp1, EXP_CLAMP, n);
-    Compare(mask, xInput, tmp1, CMPMODE::GT, n);
-    Adds(tmp2, xInput, -EXP_CLAMP, n);
-    Exp(tmp2, tmp2, n); // exp(x - EXP_CLAMP)
-    Duplicate(scratch, ONE, n);
-    Div(scratch, scratch, xInput, n);             // w = 1/x (original x)
-    HornerEval(tmp1, oldResult, scratch, A7, n);  // P7(w)
-    HornerEval(oldResult, xFp32, scratch, B7, n); // Q7(w), clamped-x buffer reused as Horner temp
-    Div(oldResult, tmp1, oldResult, n);           // P7/Q7
-    Mul(oldResult, oldResult, scratch, n);        // w * P7/Q7
-    Adds(oldResult, oldResult, ONE, n);           // S = 1 + w * P7/Q7
-    Mul(oldResult, oldResult, tmp2, n);           // S * exp(x - EXP_CLAMP)
-    Duplicate(tmp1, EXP_CLAMP_E, n);
-    Div(tmp1, tmp1, xInput, n);    // exp(EXP_CLAMP) / x
-    Mul(tmp1, tmp1, oldResult, n); // corrected Ei(x)
-    Select(result, mask, tmp1, result, SELMODE::VSEL_TENSOR_TENSOR_MODE, n);
-
     // x < 0 -> NaN
     Duplicate(tmp1, ZERO, n);
     Compare(mask, xInput, tmp1, CMPMODE::LT, n);
     Duplicate(tmp1, std::numeric_limits<float>::quiet_NaN(), n);
-    Select(result, mask, tmp1, result, SELMODE::VSEL_TENSOR_TENSOR_MODE, n);
-
-    Duplicate(tmp1, std::numeric_limits<float>::infinity(), n);
-    Compare(mask, xInput, tmp1, CMPMODE::EQ, n);
     Select(result, mask, tmp1, result, SELMODE::VSEL_TENSOR_TENSOR_MODE, n);
 
     // x == 0 -> -inf (exact comparison)

@@ -52,8 +52,8 @@ size_t ElementCount(const std::vector<int64_t>& shape)
 }
 
 // Covers all 7 intervals, special values (NaN/+/-inf/+/-0) and the
-// overflow-safe large-x correction path (x > EXP_CLAMP=88, where the
-// fp32 result saturates to +inf beyond ~93.2).
+// large-x saturation path (x > ~88.72 saturates to +inf, aligned
+// with the Cephes/TF direct-computation semantics).
 std::vector<float> MakeInput(const std::vector<int64_t>& shape)
 {
     static const std::array<float, 14> values = {-1.0f, -0.0f, 0.0f,  0.25f, 1.0f,  2.0f,  4.0f,
