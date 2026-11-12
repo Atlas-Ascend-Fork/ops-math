@@ -19,13 +19,38 @@
 #include "op_api_ut_common/tensor_desc.h"
 #include "opdev/platform.h"
 
+namespace op {
+extern SocVersion g_socVersion;
+extern NpuArch g_npuArchOverride;
+} // namespace op
+
 using namespace std;
 
 class l2_pdist_forward_test : public testing::Test {
 protected:
+    // mock 平台（g_socVersion/g_npuArchOverride）为进程级全局量，正常用例将 arch 切至 DAV_3510；
+    // SetUp/TearDown 精确保存并还原两个字段（对齐 test_aclnn_sin.cpp 既有模式，不经 setter），
+    // 防止泄漏给同进程内后续执行的套件（如 pow 的 out dtype 白名单校验仅 DAV_2201 生效）
+    void SetUp() override
+    {
+        savedSocVersion_ = op::g_socVersion;
+        savedNpuArchOverride_ = op::g_npuArchOverride;
+    }
+
+    void TearDown() override
+    {
+        // Restore both stub fields without the setters' coupled updates.
+        op::g_socVersion = savedSocVersion_;
+        op::g_npuArchOverride = savedNpuArchOverride_;
+    }
+
     static void SetUpTestCase() { cout << "pdist_forward_test SetUp" << endl; }
 
     static void TearDownTestCase() { cout << "pdist_forward_test TearDown" << endl; }
+
+private:
+    op::SocVersion savedSocVersion_{op::SocVersion::RESERVED_VERSION};
+    NpuArch savedNpuArchOverride_{NpuArch::DAV_RESV};
 };
 
 // self为空指针
