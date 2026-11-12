@@ -65,7 +65,7 @@ bash build.sh --pkg --soc=${soc_version} --ops=add_example -j16
 
 若提示如下信息，说明编译成功。
 
-```bash
+```output
 Self-extractable archive "cann-ops-math-custom_linux-${arch}.run" successfully created.
 ```
 
@@ -77,7 +77,7 @@ Self-extractable archive "cann-ops-math-custom_linux-${arch}.run" successfully c
 ./build_out/cann-ops-math-*linux*.run
 ```
 
-`AddExample`安装在```${ASCEND_HOME_PATH}/opp/vendors```路径中，```${ASCEND_HOME_PATH}```表示CANN软件安装目录。
+`AddExample`安装在`${ASCEND_HOME_PATH}/opp/vendors`路径中，`${ASCEND_HOME_PATH}`表示CANN软件安装目录。
 
 ### 4.配置环境变量
 
@@ -97,16 +97,16 @@ export LD_LIBRARY_PATH=${ASCEND_HOME_PATH}/opp/vendors/custom_math/op_api/lib:${
 bash build.sh --run_example add_example eager cust --vendor_name=custom --soc=${soc_version}
 ```
 
-- <算子名>:add_example
+- <算子名>：add_example
 - <运行模式>：eager
-- <包模式>:cust
-- --vendor_name(可选)：vendorname表示构建的自定义算子包名，默认名为custom。
+- <包模式>：cust
+- --vendor_name（可选）：vendor_name表示构建的自定义算子包名，默认名为custom。
 
 > **注意**：运行样例时需确保`--soc`参数与编译算子包时使用的`--soc`取值一致，否则可能报`error 161001`（如`aclnnXxxGetWorkspaceSize failed`）。如遇此错误，请回到[第2节](#2编译addexample算子)核对`--soc`取值后重新编译安装。
 
 预期输出：打印算子`AddExample`的加法计算结果，表明算子已成功部署并正确执行。样例中第一个输入从 1.0 开始递增，第二个输入使用固定随机数种子 42 生成，因此请以实际运行值为准；每组结果应等于两个输入之和。
 
-```text
+```output
 Print the first 10 groups of data:
 add_example first input[0] is: ..., second input[0] is: ..., result[0] is: ...
 ...
@@ -118,7 +118,7 @@ add_example first input[0] is: ..., second input[0] is: ..., result[0] is: ...
 
 ### 1.修改Kernel实现
 
-找到AddExample算子的核心kernel实现文件`ops-math/examples/add_example/op_kernel/add_example.h`，尝试将算子中的Add操作改为Mul操作：
+找到AddExample算子的核心Kernel实现文件`ops-math/examples/add_example/op_kernel/add_example.h`，尝试将算子中的Add操作改为Mul操作：
 
 ```cpp
 __aicore__ inline void AddExample<T>::Compute(int64_t currentNum)
@@ -163,7 +163,7 @@ __aicore__ inline void AddExample<T>::Compute(int64_t currentNum)
 
 4. **成功标志**：输出结果变成乘法结果，每组结果应等于两个输入之积。输入数据仍沿用样例中的递增序列和固定随机数种子42，请以实际运行值为准。
 
-    ```text
+    ```output
     Print the first 10 groups of data:
     add_example first input[0] is: ..., second input[0] is: ..., result[0] is: ...
     ...
@@ -231,7 +231,7 @@ __aicore__ inline void AddExample<T>::Compute(int64_t currentNum)
 
 找到并编辑`AddExample`的`ops-math/examples/add_example/examples/test_aclnn_add_example.cpp`，修改输入张量的数值。
 
-**修改输入数据**：保持当前支持的shape不变，修改初始化数据，构造更有区分度的输入tensor。
+**修改输入数据**：保持当前支持的shape不变，修改初始化数据，构造更有区分度的输入Tensor。
 
 ```c++
 int main()
