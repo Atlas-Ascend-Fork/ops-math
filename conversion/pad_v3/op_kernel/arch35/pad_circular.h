@@ -15,13 +15,16 @@
 #ifndef ASCENDC_PAD_CIRCULAR_H
 #define ASCENDC_PAD_CIRCULAR_H
 
+#ifdef __CCE_AICORE_SUPPORT_SIMT__
 #include "pad_circular_simt.h"
 #include "pad_circular_simt_huge.h"
+#endif
 #include "pad_circular_normal_w.h"
 #include "pad_circular_gather.h"
 #include "pad_circular_huge_width.h"
 
 namespace PadV3 {
+#ifdef __CCE_AICORE_SUPPORT_SIMT__
 template <typename T>
 __aicore__ inline void LaunchKernelPadCircularSimt(GM_ADDR x, GM_ADDR paddings, GM_ADDR y, GM_ADDR tiling)
 {
@@ -69,6 +72,7 @@ __aicore__ inline void LaunchKernelPadCircularSimtHuge(GM_ADDR x, GM_ADDR paddin
         op.Process(tiling);
     }
 }
+#endif // __CCE_AICORE_SUPPORT_SIMT__
 
 template <typename T>
 __aicore__ inline void LaunchKernelPadCircularWithHugeWidth(GM_ADDR x, GM_ADDR paddings, GM_ADDR y, GM_ADDR tiling)

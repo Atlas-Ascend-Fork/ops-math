@@ -19,7 +19,9 @@
 #include "arch35/one_axis_concat_no_align_same_shape_gather.h"
 #include "arch35/one_axis_concat_no_align_diff_shape.h"
 #include "arch35/one_axis_concat_pure_copy.h"
+#ifdef __CCE_AICORE_SUPPORT_SIMT__
 #include "arch35/one_axis_concat_simt.h"
+#endif
 
 #define NOTFIRST_ALIGN_SAME_BITWIDTH_1 2111
 #define NOTFIRST_ALIGN_SAME_BITWIDTH_2 2112
@@ -137,7 +139,9 @@ extern "C" __global__ __aicore__ void concat(GM_ADDR dim, GM_ADDR x, GM_ADDR y, 
     TILING_KEY_IS(NOTFIRST_NOALIGN_DIFF_BITWIDTH_1);
     TILING_KEY_IS(SPLIT_CORE_DIM0_NOTFIRST_ALIGN_SAME_BITWIDTH_1);
     TILING_KEY_IS(SPLIT_CORE_DIM0_NOTFIRST_ALIGN_DIFF_BITWIDTH_1);
+#ifdef __CCE_AICORE_SUPPORT_SIMT__
     TILING_KEY_IS(SIMT_TILINGKEY_1);
+#endif
     TILING_KEY_IS(SPLIT_CORE_DIM0_NOTFIRST_NALIGN_SAME_COPY_BITWIDTH_1);
     TILING_KEY_IS(SPLIT_CORE_DIM0_NOTFIRST_NALIGN_SAME_GATHER_BITWIDTH_1);
     TILING_KEY_IS(SPLIT_CORE_DIM0_NOTFIRST_NOALIGN_DIFF_BITWIDTH_1);
@@ -151,7 +155,9 @@ extern "C" __global__ __aicore__ void concat(GM_ADDR dim, GM_ADDR x, GM_ADDR y, 
     TILING_KEY_IS(SPLIT_CORE_DIM0_NOTFIRST_NALIGN_SAME_COPY_BITWIDTH_2);
     TILING_KEY_IS(SPLIT_CORE_DIM0_NOTFIRST_NALIGN_SAME_GATHER_BITWIDTH_2);
     TILING_KEY_IS(SPLIT_CORE_DIM0_NOTFIRST_NOALIGN_DIFF_BITWIDTH_2);
+#ifdef __CCE_AICORE_SUPPORT_SIMT__
     TILING_KEY_IS(SIMT_TILINGKEY_2);
+#endif
     TILING_KEY_IS(PURE_COPY_NO_SPLIT_DIM1_TILINGKEY);
     TILING_KEY_IS(PURE_COPY_SPLIT_DIM1_TILINGKEY);
     TILING_KEY_IS(COMPACT_ARRAY_ALIGN_SAME_1);
@@ -176,7 +182,7 @@ extern "C" __global__ __aicore__ void concat(GM_ADDR dim, GM_ADDR x, GM_ADDR y, 
     TILING_KEY_IS(COMPACT_NOARRAY_NALIGN_DIFF_2);
     TILING_KEY_IS(PURE_COPY_NO_SPLIT_DIM1_COMPACT_TILINGKEY);
     TILING_KEY_IS(PURE_COPY_SPLIT_DIM1_COMPACT_TILINGKEY);
-#if TILING_KEY_VAR == SIMT_TILINGKEY_1
+#if defined(__CCE_AICORE_SUPPORT_SIMT__) && (TILING_KEY_VAR == SIMT_TILINGKEY_1)
     GET_TILING_DATA_WITH_STRUCT(ConcatTilingDataForSimt, tilingData, tiling);
     Concat::OneAxisConcatSimt<uint8_t> op(tilingData);
     op.ProcessForSimt(x, y);
@@ -231,7 +237,7 @@ extern "C" __global__ __aicore__ void concat(GM_ADDR dim, GM_ADDR x, GM_ADDR y, 
     Concat::OneAxisConcatNoAlignDiffShape<uint8_t, uint16_t, ConcatTilingDataNoArray> op(tilingData, pipe);
     op.Init(x, y);
     op.Process();
-#elif TILING_KEY_VAR == SIMT_TILINGKEY_2
+#elif defined(__CCE_AICORE_SUPPORT_SIMT__) && (TILING_KEY_VAR == SIMT_TILINGKEY_2)
     GET_TILING_DATA_WITH_STRUCT(ConcatTilingDataForSimt, tilingData, tiling);
     Concat::OneAxisConcatSimt<uint16_t> op(tilingData);
     op.ProcessForSimt(x, y);
@@ -421,14 +427,18 @@ extern "C" __global__ __aicore__ void concat(GM_ADDR dim, GM_ADDR x, GM_ADDR y, 
     TILING_KEY_IS(SPLIT_CORE_DIM0_NOTFIRST_NALIGN_SAME_COPY_BITWIDTH_4);
     TILING_KEY_IS(SPLIT_CORE_DIM0_NOTFIRST_NALIGN_SAME_GATHER_BITWIDTH_4);
     TILING_KEY_IS(SPLIT_CORE_DIM0_NOTFIRST_NOALIGN_DIFF_BITWIDTH_4);
+#ifdef __CCE_AICORE_SUPPORT_SIMT__
     TILING_KEY_IS(SIMT_TILINGKEY_4);
+#endif
     TILING_KEY_IS(NOTFIRST_ALIGN_SAME_BITWIDTH_8);
     TILING_KEY_IS(NOTFIRST_ALIGN_DIFF_BITWIDTH_8);
     TILING_KEY_IS(NOTFIRST_NOALIGN_DIFF_BITWIDTH_8);
     TILING_KEY_IS(SPLIT_CORE_DIM0_NOTFIRST_ALIGN_SAME_BITWIDTH_8);
     TILING_KEY_IS(SPLIT_CORE_DIM0_NOTFIRST_ALIGN_DIFF_BITWIDTH_8);
     TILING_KEY_IS(SPLIT_CORE_DIM0_NOTFIRST_NOALIGN_DIFF_BITWIDTH_8);
+#ifdef __CCE_AICORE_SUPPORT_SIMT__
     TILING_KEY_IS(SIMT_TILINGKEY_8);
+#endif
     TILING_KEY_IS(PURE_COPY_NO_SPLIT_DIM1_TILINGKEY);
     TILING_KEY_IS(PURE_COPY_SPLIT_DIM1_TILINGKEY);
     TILING_KEY_IS(COMPACT_ARRAY_ALIGN_SAME_4);
@@ -449,7 +459,7 @@ extern "C" __global__ __aicore__ void concat(GM_ADDR dim, GM_ADDR x, GM_ADDR y, 
     TILING_KEY_IS(COMPACT_NOARRAY_NALIGN_DIFF_8);
     TILING_KEY_IS(PURE_COPY_NO_SPLIT_DIM1_COMPACT_TILINGKEY);
     TILING_KEY_IS(PURE_COPY_SPLIT_DIM1_COMPACT_TILINGKEY);
-#if TILING_KEY_VAR == SIMT_TILINGKEY_4
+#if defined(__CCE_AICORE_SUPPORT_SIMT__) && (TILING_KEY_VAR == SIMT_TILINGKEY_4)
     GET_TILING_DATA_WITH_STRUCT(ConcatTilingDataForSimt, tilingData, tiling);
     Concat::OneAxisConcatSimt<uint32_t> op(tilingData);
     op.ProcessForSimt(x, y);
@@ -504,7 +514,7 @@ extern "C" __global__ __aicore__ void concat(GM_ADDR dim, GM_ADDR x, GM_ADDR y, 
     Concat::OneAxisConcatNoAlignDiffShape<uint32_t, uint32_t, ConcatTilingDataNoArray> op(tilingData, pipe);
     op.Init(x, y);
     op.Process();
-#elif TILING_KEY_VAR == SIMT_TILINGKEY_8
+#elif defined(__CCE_AICORE_SUPPORT_SIMT__) && (TILING_KEY_VAR == SIMT_TILINGKEY_8)
     GET_TILING_DATA_WITH_STRUCT(ConcatTilingDataForSimt, tilingData, tiling);
     Concat::OneAxisConcatSimt<uint64_t> op(tilingData);
     op.ProcessForSimt(x, y);
@@ -647,10 +657,12 @@ extern "C" __global__ __aicore__ void concat(GM_ADDR dim, GM_ADDR x, GM_ADDR y, 
     TILING_KEY_IS(NOTFIRST_ALIGN_DIFF_BITWIDTH_16);
     TILING_KEY_IS(SPLIT_CORE_DIM0_NOTFIRST_ALIGN_SAME_BITWIDTH_16);
     TILING_KEY_IS(SPLIT_CORE_DIM0_NOTFIRST_ALIGN_DIFF_BITWIDTH_16);
+#ifdef __CCE_AICORE_SUPPORT_SIMT__
     TILING_KEY_IS(SIMT_TILINGKEY_16);
+#endif
     TILING_KEY_IS(PURE_COPY_NO_SPLIT_DIM1_TILINGKEY);
     TILING_KEY_IS(PURE_COPY_SPLIT_DIM1_TILINGKEY);
-#if TILING_KEY_VAR == SIMT_TILINGKEY_16
+#if defined(__CCE_AICORE_SUPPORT_SIMT__) && (TILING_KEY_VAR == SIMT_TILINGKEY_16)
     GET_TILING_DATA_WITH_STRUCT(ConcatTilingDataForSimt, tilingData, tiling);
     Concat::OneAxisConcatSimt<uint8_t> op(tilingData);
     op.ProcessForSimt(x, y);

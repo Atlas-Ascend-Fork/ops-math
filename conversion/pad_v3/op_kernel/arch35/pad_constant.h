@@ -19,8 +19,10 @@
 #include "pad_normal_width.h"
 #include "pad_gather.h"
 #include "pad_scatter.h"
+#ifdef __CCE_AICORE_SUPPORT_SIMT__
 #include "pad_simt_huge.h"
 #include "pad_simt.h"
+#endif
 
 namespace PadV3 {
 template <typename T>
@@ -123,6 +125,7 @@ __aicore__ inline void LaunchKernelPadScatter(GM_ADDR x, GM_ADDR paddings, GM_AD
     }
 }
 
+#ifdef __CCE_AICORE_SUPPORT_SIMT__
 template <typename T>
 __aicore__ inline void LaunchKernelPadSimt(GM_ADDR x, GM_ADDR paddings, GM_ADDR y, GM_ADDR tiling,
                                            GM_ADDR constValue = nullptr)
@@ -198,6 +201,7 @@ __aicore__ inline void LaunchKernelPadSimtHuge(GM_ADDR x, GM_ADDR paddings, GM_A
         op.Process(tiling);
     }
 }
+#endif // __CCE_AICORE_SUPPORT_SIMT__
 } // namespace PadV3
 
 #endif

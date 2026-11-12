@@ -216,7 +216,9 @@ void PadACTiling::CalculateGatherOrScatter()
     tilingKey_ = CONSTANT_SMALL_LAST_DIM_GATHER_BRANCH;
 }
 
-bool PadACTiling::ShouldUseSimtBranchReflect() { return outShapeSize_ <= SIMT_BRANCH_SIZE || dimNum_ > CONST5; }
+bool PadACTiling::SimtShapeTriggerReflect() { return outShapeSize_ <= SIMT_BRANCH_SIZE || dimNum_ > CONST5; }
+
+bool PadACTiling::ShouldUseSimtBranchReflect() { return simtSupported_ && SimtShapeTriggerReflect(); }
 
 void PadACTiling::ClampBufferSize()
 {
@@ -238,6 +240,75 @@ void PadACTiling::CutLastDimBranch(uint64_t tilingKey, uint64_t ubFactor, uint64
     tilingKey_ = tilingKey;
     outTileSize_ = outTileSize;
     return TilingInfoTune();
+}
+
+void PadACTiling::NoSimtCutLastDimFallback()
+{
+    // 无SIMT平台回退: 原SIMT场景(小shape/高维/空tensor)统一走切尾轴向量化分支，
+    // buffer 规格与各模式自身 cut-last 分支保持一致；切尾轴分支索引按软件解码、
+    // 搬运沿尾轴一维进行，不受MovealignV2轴数限制；
+    // 负数pad(混合符号裁剪)、mirror/circular超过5维两类场景暂未覆盖，
+    // 已在DoTilingMode*显式拦截，不会进入本回退
+    OP_LOGD(context_, "Start PadACTiling NoSimtCutLastDimFallback, padMode_:%u dimNum:%u.", padMode_, dimNum_);
+    ubAxis_ = dimNum_ - 1;
+    uint64_t ubFactor = 0;
+    if (padMode_ == ModeNum::CONSTANT || padMode_ == ModeNum::EDGE) {
+        bufferSize_ = GetSizeOfBlockAlign(ubSize_ / PAIR - vectorSize_, vectorSize_);
+        additionTileSize_ = vectorSize_;
+        ClampBufferSize();
+        tilingKey_ = (padMode_ == ModeNum::CONSTANT) ? CONSTANT_CUT_LAST_DIM_BRANCH : EDGE_CUT_LAST_DIM_BRANCH;
+        ubFactor = bufferSize_ / dtypeBytes_;
+    } else if (padMode_ == ModeNum::CIRCULAR) {
+        additionTileSize_ = vectorSize_;
+        bufferSize_ = (ubSize_ - PAIR * vectorSize_) / HALF_FACTOR / vectorSize_ * vectorSize_;
+        bufferSize_ = std::min(bufferSize_, UB_MAX_DATA_SIZE_PER_BUFFER);
+        bufferSize_ = std::max(bufferSize_, vectorSize_);
+        tilingKey_ = CIRCULAR_CUT_LAST_DIM_BRANCH;
+        ubFactor = std::min(bufferSize_ / dtypeBytes_, tilingData_->inShape[dimNum_ - 1]);
+    } else {
+        bufferSize_ = GetSizeOfBlockAlign(ubSize_ / UB_DIVIDER - vectorSize_, vectorSize_);
+        additionTileSize_ = vectorSize_ * EXPANSION_FACTOR;
+        ClampBufferSize();
+        tilingKey_ = SelectReflectCutLastKey();
+        ubFactor = bufferSize_ / dtypeBytes_;
+    }
+    ubFactor_ = static_cast<uint32_t>(ubFactor);
+    outTileSize_ = bufferSize_;
+    // 空tensor时驱动侧元素总数为0，kernel按ubTotalCount=0提前返回，仅需保证blockDim与ubPerCount合法；
+    // 元素总数须按当前tilingData形状计算、与kernel视图一致: EDGE空tensor坍缩后outShape[0]=0，
+    // 而成员outShapeSize_为坍缩前旧值(其他轴正pad时非0)，误用旧值会进入TilingInfoTune
+    // 并把usedCoreNum算成0，导致SetBlockDim(0)非法
+    const uint64_t* totalShape = (padMode_ == ModeNum::CONSTANT || padMode_ == ModeNum::EDGE) ? tilingData_->outShape :
+                                                                                                tilingData_->inShape;
+    uint64_t totalCount = 1;
+    for (uint16_t i = 0; i < dimNum_; ++i) {
+        totalCount *= totalShape[i];
+    }
+    if (totalCount == 0 || ubFactor == 0) {
+        ubTotalCount_ = 0;
+        ubPerCount_ = 1;
+        return;
+    }
+    TilingInfoTune();
+}
+
+ge::graphStatus PadACTiling::CheckNoSimtDimLimit(const char* modeName)
+{
+    // 无SIMT平台的高维场景会回退到切尾轴向量化模板(NoSimtCutLastDimFallback)，
+    // 而mirror/circular的切尾轴模板输出索引数组按最多5维静态展开:
+    // pad_mirror_huge_width 为 outIdxCnt[5] 且 realBase = 5 - dimNum，
+    // pad_circular_huge_width 为 outIdxCnt[4] 且遍历 dimNum - 1 根轴，
+    // 超过5维会数组越界产生静默错误结果，故与负数pad场景一样显式拦截；
+    // constant/edge 的切尾轴模板按 dimNum 循环展开(数组规格 PAD_MAX_DIMS_NUM)，支持到8维，无需拦截
+    if (simtSupported_ || dimNum_ <= CONST5) {
+        return ge::GRAPH_SUCCESS;
+    }
+    std::string reasonMsg = std::string("When the mode is ") + modeName +
+                            " and the platform does not support SIMT, the shape dim of input must be within the "
+                            "range [0, 5].";
+    OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context_->GetNodeName(), "input", std::to_string(dimNum_).c_str(),
+                                             reasonMsg.c_str());
+    return ge::GRAPH_FAILED;
 }
 
 uint64_t PadACTiling::SelectReflectSimtKey()
@@ -266,6 +337,11 @@ void PadACTiling::CalculateTilingKeyReflect()
     OP_LOGD(context_, "Start PadACTiling CalculateTilingKeyReflect.");
     if (ShouldUseSimtBranchReflect()) {
         tilingKey_ = SelectReflectSimtKey();
+        return;
+    }
+    if (!simtSupported_ && SimtShapeTriggerReflect()) {
+        // 无SIMT平台: 小shape/高维回退到切尾轴向量化分支
+        NoSimtCutLastDimFallback();
         return;
     }
     uint64_t lastShapeSizeAlign = GetSizeOfBlockAlign(tilingData_->outShape[dimNum_ - 1] * dtypeBytes_, vectorSize_);
@@ -559,7 +635,12 @@ void PadACTiling::CalculateTilingKeyCircular()
 {
     OP_LOGD(context_, "Start PadACTiling CalculateTilingKeyCircular.");
     if (outShapeSize_ <= SIMT_BRANCH_SIZE || dimNum_ > CONST5) {
-        tilingKey_ = CIRCULAR_SIMT_BRANCH;
+        if (simtSupported_) {
+            tilingKey_ = CIRCULAR_SIMT_BRANCH;
+            return;
+        }
+        // 无SIMT平台: 小shape/高维回退到切尾轴向量化分支
+        NoSimtCutLastDimFallback();
         return;
     }
 
@@ -602,11 +683,17 @@ void PadACTiling::CalculateTilingKeyCircular()
     }
 }
 
-bool PadACTiling::ShouldUseSimtBranchEdge()
+bool PadACTiling::SimtShapeTriggerEdge()
 {
     // MovealignV2指令限制，轴较多时走SIMT
     return outShapeSize_ <= SIMT_BRANCH_SIZE || dimNum_ > PAD_DIM_INDEX_FOURTH ||
            (dimNum_ == PAD_DIM_INDEX_FOURTH && (tilingData_->leftPad[0] != 0 || rightPad_[0] != 0));
+}
+
+bool PadACTiling::ShouldUseSimtBranchEdge()
+{
+    // MovealignV2指令限制，轴较多时走SIMT
+    return simtSupported_ && SimtShapeTriggerEdge();
 }
 
 void PadACTiling::KeyEdgeBigLastDim(uint64_t lastShapeSizeAlign)
@@ -647,6 +734,11 @@ void PadACTiling::CalculateTilingKeyEdge()
     OP_LOGD(context_, "Start PadACTiling CalculateTilingKeyEdge.");
     if (ShouldUseSimtBranchEdge()) {
         tilingKey_ = EDGE_SIMT_BRANCH;
+        return;
+    }
+    if (!simtSupported_ && SimtShapeTriggerEdge()) {
+        // 无SIMT平台: 小shape/高维/首轴带pad回退到切尾轴向量化分支
+        NoSimtCutLastDimFallback();
         return;
     }
     uint64_t lastShapeSizeAlign = GetSizeOfBlockAlign(tilingData_->outShape[dimNum_ - 1] * dtypeBytes_, vectorSize_);
@@ -717,7 +809,12 @@ void PadACTiling::CalculateTilingKey()
 {
     OP_LOGD(context_, "Start PadACTiling CalculateTilingKey.");
     if (outShapeSize_ <= SIMT_BRANCH_SIZE) {
-        tilingKey_ = CONSTANT_SIMT_BRANCH;
+        if (simtSupported_) {
+            tilingKey_ = CONSTANT_SIMT_BRANCH;
+            return;
+        }
+        // 无SIMT平台: 小shape回退到切尾轴向量化分支
+        NoSimtCutLastDimFallback();
         return;
     }
     uint64_t lastShapeSizeAlign = GetSizeOfBlockAlign(tilingData_->outShape[dimNum_ - 1] * dtypeBytes_, vectorSize_);
@@ -1368,9 +1465,11 @@ ge::graphStatus PadACTiling::Init()
     cacheLineSize_ = Ops::Base::GetCacheLineSize(context_);
     OP_CHECK_IF(cacheLineSize_ == 0U, OP_LOGE(context_, "Failed to get cache line size."), return ge::GRAPH_FAILED);
     npuArch_ = ascendcPlatform.GetCurNpuArch();
+    simtSupported_ = Ops::Math::OpTiling::IsSimtSupported(context_);
     OP_LOGD(context_,
-            "platform info is coreNum_ = %u, ubSize_ = %lu, blockSize_ = %lu, vectorSize_ = %lu, cacheLineSize_ = %u",
-            coreNum_, ubSize_, blockSize_, vectorSize_, cacheLineSize_);
+            "platform info is coreNum_ = %u, ubSize_ = %lu, blockSize_ = %lu, vectorSize_ = %lu, cacheLineSize_ = %u, "
+            "simtSupported_ = %d",
+            coreNum_, ubSize_, blockSize_, vectorSize_, cacheLineSize_, simtSupported_);
     tilingData_ = context_->GetTilingData<PadACTilingData>();
     OP_CHECK_IF(tilingData_ == nullptr, OP_LOGE(context_, "get tilingdata ptr failed"), return ge::GRAPH_FAILED);
     return ge::GRAPH_SUCCESS;
@@ -1465,7 +1564,12 @@ ge::graphStatus PadACTiling::DoTilingModeEdge()
                 OP_LOGE(context_, "PadACTiling Edge ComputeAfterPaddingsAndStrides error."), return ge::GRAPH_FAILED);
     if (isEmptyTensor_) {
         EmptyTensorCollapseMode();
-        DoTilingWithSIMTEdge();
+        if (simtSupported_) {
+            DoTilingWithSIMTEdge();
+        } else {
+            NoSimtCutLastDimFallback();
+            CaculateTilingParams();
+        }
     } else if (isPadAllPositive_) {
         DoTilingWithEdge();
     } else if (isPadAllNegative_) {
@@ -1474,8 +1578,13 @@ ge::graphStatus PadACTiling::DoTilingModeEdge()
                     OP_LOGE(context_, "PadACTiling Edge with slice op error."), return ge::GRAPH_FAILED);
         context_->SetTilingKey(tilingKey_);
         isUseSlice_ = true;
-    } else {
+    } else if (simtSupported_) {
         DoTilingWithSIMTEdge();
+    } else {
+        // 无SIMT平台暂未覆盖负数pad(混合符号裁剪)场景，显式报错，
+        // 避免下发无kernel分支的SIMT tilingKey而落入slice兜底产生静默错误结果
+        OP_LOGE(context_, "PadACTiling Edge mixed-sign padding is not supported on platform without SIMT.");
+        return ge::GRAPH_FAILED;
     }
     return ge::GRAPH_SUCCESS;
 }
@@ -1488,8 +1597,16 @@ ge::graphStatus PadACTiling::DoTilingModeMirror()
                 OP_LOGE(context_, "PadACTiling Mirror ComputeAfterPaddingsAndStrides error."), return ge::GRAPH_FAILED);
     if (isEmptyTensor_) {
         EmptyTensorCollapseMode();
-        DoTilingWithSIMTReflect();
+        if (simtSupported_) {
+            DoTilingWithSIMTReflect();
+        } else {
+            NoSimtCutLastDimFallback();
+            CaculateTilingParams();
+        }
     } else if (isPadAllPositive_) {
+        OP_CHECK_IF(CheckNoSimtDimLimit("reflect or symmetric") == ge::GRAPH_FAILED,
+                    OP_LOGE(context_, "PadACTiling Mirror dim num is not supported on platform without SIMT."),
+                    return ge::GRAPH_FAILED);
         DoTilingWithReflect();
     } else if (isPadAllNegative_) {
         tilingKey_ = CONSTANT_SLICE_BRANCH;
@@ -1497,8 +1614,13 @@ ge::graphStatus PadACTiling::DoTilingModeMirror()
                     OP_LOGE(context_, "PadACTiling Mirror with slice op error."), return ge::GRAPH_FAILED);
         context_->SetTilingKey(tilingKey_);
         isUseSlice_ = true;
-    } else {
+    } else if (simtSupported_) {
         DoTilingWithSIMTReflect();
+    } else {
+        // 无SIMT平台暂未覆盖负数pad(混合符号裁剪)场景，显式报错，
+        // 避免下发无kernel分支的SIMT tilingKey而落入slice兜底产生静默错误结果
+        OP_LOGE(context_, "PadACTiling Mirror mixed-sign padding is not supported on platform without SIMT.");
+        return ge::GRAPH_FAILED;
     }
     return ge::GRAPH_SUCCESS;
 }
@@ -1512,8 +1634,16 @@ ge::graphStatus PadACTiling::DoTilingModeCircular()
                 return ge::GRAPH_FAILED);
     if (isEmptyTensor_) {
         EmptyTensorCollapseMode();
-        DoTilingWithSIMTCircular();
+        if (simtSupported_) {
+            DoTilingWithSIMTCircular();
+        } else {
+            NoSimtCutLastDimFallback();
+            CaculateTilingParams();
+        }
     } else if (isPadAllPositive_) {
+        OP_CHECK_IF(CheckNoSimtDimLimit("circular") == ge::GRAPH_FAILED,
+                    OP_LOGE(context_, "PadACTiling Circular dim num is not supported on platform without SIMT."),
+                    return ge::GRAPH_FAILED);
         DoTilingWithCircular();
     } else if (isPadAllNegative_) {
         tilingKey_ = CONSTANT_SLICE_BRANCH;
@@ -1521,8 +1651,13 @@ ge::graphStatus PadACTiling::DoTilingModeCircular()
                     OP_LOGE(context_, "PadACTiling Circular with slice op error."), return ge::GRAPH_FAILED);
         context_->SetTilingKey(tilingKey_);
         isUseSlice_ = true;
-    } else {
+    } else if (simtSupported_) {
         DoTilingWithSIMTCircular();
+    } else {
+        // 无SIMT平台暂未覆盖负数pad(混合符号裁剪)场景，显式报错，
+        // 避免下发无kernel分支的SIMT tilingKey而落入slice兜底产生静默错误结果
+        OP_LOGE(context_, "PadACTiling Circular mixed-sign padding is not supported on platform without SIMT.");
+        return ge::GRAPH_FAILED;
     }
     return ge::GRAPH_SUCCESS;
 }
@@ -1553,8 +1688,13 @@ ge::graphStatus PadACTiling::DispatchTilingBranch()
                     OP_LOGE(context_, "PadACTiling Dispatch with slice op error."), return ge::GRAPH_FAILED);
         context_->SetTilingKey(tilingKey_);
         isUseSlice_ = true;
-    } else {
+    } else if (simtSupported_) {
         DoTilingWithSIMT();
+    } else {
+        // 无SIMT平台暂未覆盖负数pad(混合符号裁剪)场景，显式报错，
+        // 避免下发无kernel分支的SIMT tilingKey而落入slice兜底产生静默错误结果
+        OP_LOGE(context_, "PadACTiling Dispatch mixed-sign padding is not supported on platform without SIMT.");
+        return ge::GRAPH_FAILED;
     }
     return ge::GRAPH_SUCCESS;
 }

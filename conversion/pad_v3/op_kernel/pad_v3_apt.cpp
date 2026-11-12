@@ -56,16 +56,16 @@ extern "C" __global__ __aicore__ void pad_v3(GM_ADDR x, GM_ADDR paddings, GM_ADD
                TILING_KEY_IS(CONSTANT_SMALL_LAST_DIM_SCATTER_BRANCH_DIM3) ||
                TILING_KEY_IS(CONSTANT_SMALL_LAST_DIM_SCATTER_BRANCH_DIM4)) { // 30002
         PadV3::LaunchKernelPadScatter<DTYPE_X>(x, paddings, y, tiling, constValues);
+#ifdef __CCE_AICORE_SUPPORT_SIMT__
     } else if (TILING_KEY_IS(CONSTANT_SIMT_BRANCH)) { // 20000
         PadV3::LaunchKernelPadSimt<DTYPE_X>(x, paddings, y, tiling, constValues);
     } else if (TILING_KEY_IS(CONSTANT_SIMT_BIG_SIZE_BRANCH)) { // 20001
         PadV3::LaunchKernelPadSimtHuge<DTYPE_X>(x, paddings, y, tiling, constValues);
-    }
-
-    else if (TILING_KEY_IS(EDGE_SIMT_BRANCH)) { // 23000
+    } else if (TILING_KEY_IS(EDGE_SIMT_BRANCH)) { // 23000
         PadV3::LaunchKernelPadEdgeSimt<DTYPE_X>(x, paddings, y, tiling);
     } else if (TILING_KEY_IS(EDGE_SIMT_BIG_SIZE_BRANCH)) { // 23001
         PadV3::LaunchKernelPadEdgeSimtHuge<DTYPE_X>(x, paddings, y, tiling);
+#endif
     } else if (TILING_KEY_IS(EDGE_CUT_LAST_DIM_BRANCH)) { // 33010
         PadV3::LaunchKernelPadEdgeWithHugeWidth<DTYPE_X>(x, paddings, y, tiling);
     } else if (TILING_KEY_IS(EDGE_BIG_LAST_DIM_BRANCH_DIM2)) { // 33021
@@ -80,12 +80,12 @@ extern "C" __global__ __aicore__ void pad_v3(GM_ADDR x, GM_ADDR paddings, GM_ADD
         PadV3::LaunchKernelPadEdgeGather<DTYPE_X, EDGE_SMALL_LAST_DIM_GATHER_BRANCH_DIM3>(x, paddings, y, tiling);
     } else if (TILING_KEY_IS(EDGE_SMALL_LAST_DIM_GATHER_BRANCH_DIM4)) { // 33042
         PadV3::LaunchKernelPadEdgeGather<DTYPE_X, EDGE_SMALL_LAST_DIM_GATHER_BRANCH_DIM4>(x, paddings, y, tiling);
-    }
-
-    else if (TILING_KEY_IS(REFLECT_SIMT_BRANCH)) { // 21000
+#ifdef __CCE_AICORE_SUPPORT_SIMT__
+    } else if (TILING_KEY_IS(REFLECT_SIMT_BRANCH)) { // 21000
         PadV3::LaunchKernelPadMirrorSimt<DTYPE_X, REFLECT_SIMT_BRANCH>(x, paddings, y, tiling);
     } else if (TILING_KEY_IS(REFLECT_SIMT_BIG_SIZE_BRANCH)) { // 21001
         PadV3::LaunchKernelPadMirrorSimtHuge<DTYPE_X, REFLECT_SIMT_BIG_SIZE_BRANCH>(x, paddings, y, tiling);
+#endif
     } else if (TILING_KEY_IS(REFLECT_CUT_LAST_DIM_BRANCH)) { // 31010
         PadV3::LaunchKernelPadMirrorWithHugeWidth<DTYPE_X, REFLECT_CUT_LAST_DIM_BRANCH>(x, paddings, y, tiling);
     } else if (TILING_KEY_IS(REFLECT_BIG_LAST_DIM_BRANCH_DIM2)) { // 31021
@@ -100,12 +100,12 @@ extern "C" __global__ __aicore__ void pad_v3(GM_ADDR x, GM_ADDR paddings, GM_ADD
         PadV3::LaunchKernelPadMirrorGather<DTYPE_X, REFLECT_SMALL_LAST_DIM_GATHER_BRANCH_DIM3>(x, paddings, y, tiling);
     } else if (TILING_KEY_IS(REFLECT_SMALL_LAST_DIM_GATHER_BRANCH_DIM4)) { // 31042
         PadV3::LaunchKernelPadMirrorGather<DTYPE_X, REFLECT_SMALL_LAST_DIM_GATHER_BRANCH_DIM4>(x, paddings, y, tiling);
-    }
-
-    else if (TILING_KEY_IS(CIRCULAR_SIMT_BRANCH)) { // 24000
+#ifdef __CCE_AICORE_SUPPORT_SIMT__
+    } else if (TILING_KEY_IS(CIRCULAR_SIMT_BRANCH)) { // 24000
         PadV3::LaunchKernelPadCircularSimt<DTYPE_X>(x, paddings, y, tiling);
     } else if (TILING_KEY_IS(CIRCULAR_SIMT_BIG_SIZE_BRANCH)) { // 24001
         PadV3::LaunchKernelPadCircularSimtHuge<DTYPE_X>(x, paddings, y, tiling);
+#endif
     } else if (TILING_KEY_IS(CIRCULAR_CUT_LAST_DIM_BRANCH)) { // 34010
         PadV3::LaunchKernelPadCircularWithHugeWidth<DTYPE_X>(x, paddings, y, tiling);
     } else if (TILING_KEY_IS(CIRCULAR_BIG_LAST_DIM_BRANCH_DIM2)) { // 34021
@@ -126,12 +126,12 @@ extern "C" __global__ __aicore__ void pad_v3(GM_ADDR x, GM_ADDR paddings, GM_ADD
     } else if (TILING_KEY_IS(CIRCULAR_SMALL_LAST_DIM_GATHER_BRANCH_DIM4)) { // 34042
         PadV3::LaunchKernelPadCircularGather<DTYPE_X, CIRCULAR_SMALL_LAST_DIM_GATHER_BRANCH_DIM4>(x, paddings, y,
                                                                                                   tiling);
-    }
-
-    else if (TILING_KEY_IS(SYMMETRIC_SIMT_BRANCH)) { // 22000
+#ifdef __CCE_AICORE_SUPPORT_SIMT__
+    } else if (TILING_KEY_IS(SYMMETRIC_SIMT_BRANCH)) { // 22000
         PadV3::LaunchKernelPadMirrorSimt<DTYPE_X, SYMMETRIC_SIMT_BRANCH>(x, paddings, y, tiling);
     } else if (TILING_KEY_IS(SYMMETRIC_SIMT_BIG_SIZE_BRANCH)) { // 22001
         PadV3::LaunchKernelPadMirrorSimtHuge<DTYPE_X, SYMMETRIC_SIMT_BIG_SIZE_BRANCH>(x, paddings, y, tiling);
+#endif
     } else if (TILING_KEY_IS(SYMMETRIC_CUT_LAST_DIM_BRANCH)) { // 32010
         PadV3::LaunchKernelPadMirrorWithHugeWidth<DTYPE_X, SYMMETRIC_CUT_LAST_DIM_BRANCH>(x, paddings, y, tiling);
     } else if (TILING_KEY_IS(SYMMETRIC_BIG_LAST_DIM_BRANCH_DIM2)) { // 32021

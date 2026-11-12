@@ -19,6 +19,7 @@
 #include <cctype>
 #include "op_common/op_host/util/shape_util.h"
 #include "op_common/op_host/util/platform_util.h"
+#include "common/inc/op_host/tiling_util.h"
 #include "op_api/op_util.h"
 #include "platform/platform_infos_def.h"
 #include "platform/platform_ascendc.h"
@@ -2037,8 +2038,8 @@ ge::graphStatus TilingCommon(gert::TilingContext* context, int64_t inputIdx, int
             param.sameShapeTensorDim1 = MergeDim(param.tensorList[0], param.dim + 1, param.tensorList[0].size());
         }
     }
-    // 处理simt模板
-    if (IsEnableUsedSimt(param)) {
+    // 处理simt模板（无SIMT硬件的平台直接走向量化模板）
+    if (Ops::Math::OpTiling::IsSimtSupported(context) && IsEnableUsedSimt(param)) {
         return TilingForConcatDSimt(context, param);
     }
     OP_CHECK_IF(DoTiling(context, param) != ge::GRAPH_SUCCESS, OP_LOGE(context->GetNodeName(), "DoTiling failed."),

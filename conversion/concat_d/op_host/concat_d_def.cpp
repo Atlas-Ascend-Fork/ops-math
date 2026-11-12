@@ -88,6 +88,7 @@ public:
         this->AICore().AddConfig("ascend350", aicoreConfig);
         this->AICore().AddConfig("ascend960dt", aicoreConfig);
         this->AICore().AddConfig("ascend960pr", aicoreConfig);
+        this->AICore().AddConfig("ascend5162", aicoreConfig);
 
         const std::vector<ge::DataType> kirinDataTypes = {
             ge::DT_BF16,   ge::DT_FLOAT16, ge::DT_FLOAT,  ge::DT_UINT8, ge::DT_INT8, ge::DT_UINT16, ge::DT_INT16,

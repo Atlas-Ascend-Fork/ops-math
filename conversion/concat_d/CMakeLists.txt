@@ -12,8 +12,8 @@ add_all_modules_sources(
         OPTYPE concat_d
         ACLNNTYPE aclnn_exclude
         DEPENDENCIES concat
-        COMPUTE_UNIT ascend950 mc62 ascend350 ascend960dt ascend960pr kirin9030 kirinx90
-        TILING_DIR arch35 arch35 arch35 arch35 arch35 arch31 arch31
+        COMPUTE_UNIT ascend950 mc62 ascend350 ascend960dt ascend960pr ascend5162 kirin9030 kirinx90
+        TILING_DIR arch35 arch35 arch35 arch35 arch35 arch35 arch31 arch31
         DISABLE_IN_OPP TRUE
 )
 

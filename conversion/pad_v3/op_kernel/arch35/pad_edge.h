@@ -16,12 +16,15 @@
 #define ASCENDC_PAD_EDGE_H
 
 #include "pad_edge_huge_width.h"
+#ifdef __CCE_AICORE_SUPPORT_SIMT__
 #include "pad_edge_simt.h"
 #include "pad_edge_simt_huge.h"
+#endif
 #include "pad_edge_gather.h"
 #include "pad_edge_normal_w.h"
 
 namespace PadV3 {
+#ifdef __CCE_AICORE_SUPPORT_SIMT__
 template <typename T>
 __aicore__ inline void LaunchKernelPadEdgeSimt(GM_ADDR x, GM_ADDR paddings, GM_ADDR y, GM_ADDR tiling)
 {
@@ -95,6 +98,7 @@ __aicore__ inline void LaunchKernelPadEdgeSimtHuge(GM_ADDR x, GM_ADDR paddings, 
         op.Process(tiling);
     }
 }
+#endif // __CCE_AICORE_SUPPORT_SIMT__
 
 template <typename T>
 __aicore__ inline void LaunchKernelPadEdgeWithHugeWidth(GM_ADDR x, GM_ADDR paddings, GM_ADDR y, GM_ADDR tiling)

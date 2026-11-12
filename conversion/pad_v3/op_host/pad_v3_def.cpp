@@ -91,6 +91,7 @@ public:
             .ExtendCfgInfo("opFile.value", "pad_v3_apt");
         this->AICore().AddConfig("ascend950", aicore_config);
         this->AICore().AddConfig("ascend350", aicore_config);
+        this->AICore().AddConfig("ascend5162", aicore_config);
 
         OpAICoreConfig config960;
         config960.Input("x").ParamType(REQUIRED).DataType(valueDataType_960).Format(format_960);

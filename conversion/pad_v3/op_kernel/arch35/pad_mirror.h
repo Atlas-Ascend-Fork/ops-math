@@ -15,13 +15,16 @@
 #ifndef ASCENDC_PAD_MIRROR_H
 #define ASCENDC_PAD_MIRROR_H
 
+#ifdef __CCE_AICORE_SUPPORT_SIMT__
 #include "pad_mirror_simt.h"
 #include "pad_mirror_simt_huge.h"
+#endif
 #include "pad_mirror_normal_w.h"
 #include "pad_mirror_gather.h"
 #include "pad_mirror_huge_width.h"
 
 namespace PadV3 {
+#ifdef __CCE_AICORE_SUPPORT_SIMT__
 template <typename T, int32_t KEY>
 __aicore__ inline void LaunchKernelPadMirrorSimt(GM_ADDR x, GM_ADDR paddings, GM_ADDR y, GM_ADDR tiling)
 {
@@ -95,6 +98,7 @@ __aicore__ inline void LaunchKernelPadMirrorSimtHuge(GM_ADDR x, GM_ADDR paddings
         op.Process(tiling);
     }
 }
+#endif // __CCE_AICORE_SUPPORT_SIMT__
 
 template <typename T, int32_t KEY>
 __aicore__ inline void LaunchKernelPadMirrorWithNormalWidth(GM_ADDR x, GM_ADDR paddings, GM_ADDR y, GM_ADDR tiling)

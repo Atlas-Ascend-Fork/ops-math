@@ -21,6 +21,7 @@
 #include "conversion/slice/op_host/arch35/slice_tiling_arch35.h"
 #include "conversion/strided_slice/op_host/arch35/strided_slice_tiling_arch35.h"
 #include "conversion/pad_v3/op_kernel/arch35/pad_v3_struct.h"
+#include "common/inc/op_host/tiling_util.h"
 #include "platform/soc_spec.h"
 #include <string>
 
@@ -156,6 +157,10 @@ private:
     bool IsFp4Dtype();
     bool Is960Arch();
     ge::graphStatus DispatchTilingBranch();
+    bool SimtShapeTriggerReflect();
+    bool SimtShapeTriggerEdge();
+    void NoSimtCutLastDimFallback();
+    ge::graphStatus CheckNoSimtDimLimit(const char* modeName);
 
 public:
     bool isPadV3_{false};
@@ -196,6 +201,7 @@ private:
     uint64_t bufferSize_{0};
     uint64_t inShapeSize_{1};
     uint64_t outShapeSize_{1};
+    bool simtSupported_{true};
     int64_t rightPad_[PAD_MAX_DIMS_NUM] = {0, 0, 0, 0, 0, 0, 0, 0};
     NpuArch npuArch_{NpuArch::DAV_RESV};
 };
