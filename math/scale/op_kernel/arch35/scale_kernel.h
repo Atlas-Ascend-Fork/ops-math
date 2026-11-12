@@ -22,7 +22,7 @@
 
 // ============================================================
 // VF 函数前置声明 — ScaleMulAddVF: dst = src0 * src1 + dst
-// (DESIGN.md §3.6, Reg::MulAddDst 包装；FP32 直算, FP16/BF16 以 float 实例化)
+// (DESIGN.md §3.6, Reg::Mul/Reg::Add 顺序计算；FP32 直算, FP16/BF16 以 float 实例化)
 // ============================================================
 template <typename T>
 __simd_vf__ inline void ScaleMulAddVF(__ubuf__ T* dstAddr, __ubuf__ T* src0Addr, __ubuf__ T* src1Addr, uint32_t count,
@@ -110,6 +110,9 @@ public:
                                 const ScaleTilingData<RANK>* td)
     {
         td_ = td;
+        if (td_->multicore.total_tiles == 0) {
+            return;
+        }
         for (int i = 0; i < kMaxInputSlots; i++)
             gmIn_[i].SetGlobalBuffer((__gm__ T*)inputs[i]);
         for (int i = 0; i < kMaxOutputSlots; i++)
@@ -193,6 +196,9 @@ public:
 
     __aicore__ inline void Process()
     {
+        if (td_->multicore.total_tiles == 0) {
+            return;
+        }
         if constexpr (NEED_CAST) {
             ProcessWithCast();
         } else {
@@ -264,7 +270,7 @@ private:
         AscendC::WaitFlag<AscendC::HardEvent::MTE2_V>(ev.mte2toV);
         int outBuf = B3;
         if (td_->has_bias) {
-            // S1c: CopyInBrc bias → B2；S1d: MulAddDst(B2 ← B0·B1 + B2) in-place, 省 B3 中间读写
+            // S1c: CopyInBrc bias → B2；S1d: Mul/Add(B2 ← B0·B1 + B2) in-place, 省 B3 中间读写
             CopyInBrc(coord, IN_BIAS, B2, a_i_seg);
             AscendC::SetFlag<AscendC::HardEvent::MTE2_V>(ev.mte2toV);
             AscendC::WaitFlag<AscendC::HardEvent::MTE2_V>(ev.mte2toV);
@@ -325,7 +331,7 @@ private:
         AscendC::WaitFlag<AscendC::HardEvent::MTE2_V>(ev.mte2toV);
         AscendC::Cast(buf_[B2].template Get<float>(), buf_[B0].template Get<T>(), AscendC::RoundMode::CAST_NONE, count);
         if (td_->has_bias) {
-            // WAR 后 S2a CopyIn bias→B0; S2b Cast B0→B3(累加器); S2c MulAddDst(B3 ← B1·B2 + B3)
+            // WAR 后 S2a CopyIn bias→B0; S2b Cast B0→B3(累加器); S2c Mul/Add(B3 ← B1·B2 + B3)
             AscendC::SetFlag<AscendC::HardEvent::V_MTE2>(ev.vtoMte2);
             AscendC::WaitFlag<AscendC::HardEvent::V_MTE2>(ev.vtoMte2);
             CopyInBrc(coord, IN_BIAS, B0, a_i_seg);
@@ -419,7 +425,7 @@ private:
 };
 
 // ============================================================
-// ScaleMulAddVF — VF 函数: dst = src0 * src1 + dst (Reg::MulAddDst 包装)
+// ScaleMulAddVF — VF 函数: dst = src0 * src1 + dst (Reg::Mul/Reg::Add 顺序计算)
 // DESIGN.md §3.6; FP32 直算 / FP16·BF16 Cast 后均以 float 实例化
 // ============================================================
 template <typename T>
@@ -436,7 +442,8 @@ __simd_vf__ inline void ScaleMulAddVF(__ubuf__ T* dstAddr, __ubuf__ T* src0Addr,
         AscendC::Reg::LoadAlign(srcReg0, src0Addr, aReg);
         AscendC::Reg::LoadAlign(srcReg1, src1Addr, aReg);
         AscendC::Reg::LoadAlign(dstReg, dstAddr, aReg);
-        AscendC::Reg::MulAddDst(dstReg, srcReg0, srcReg1, mask);
+        AscendC::Reg::Mul(srcReg0, srcReg0, srcReg1, mask);
+        AscendC::Reg::Add(dstReg, srcReg0, dstReg, mask);
         AscendC::Reg::StoreAlign(dstAddr, dstReg, aReg, mask);
     }
 }

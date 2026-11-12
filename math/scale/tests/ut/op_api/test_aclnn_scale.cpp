@@ -9,6 +9,7 @@
  */
 
 #include <array>
+#include <limits>
 #include <vector>
 #include "gtest/gtest.h"
 
@@ -235,4 +236,50 @@ TEST_F(l2_scale_test, scale_empty_tensor)
     uint64_t workspace_size = 0;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
     EXPECT_EQ(aclRet, ACL_SUCCESS);
+}
+
+TEST_F(l2_scale_test, scale_num_axes_extreme_rejected)
+{
+    for (int64_t axis : {int64_t(1), int64_t(-1)}) {
+        for (int64_t axes : {std::numeric_limits<int64_t>::max(), std::numeric_limits<int64_t>::max() - 1}) {
+            auto x = TensorDesc({2, 3}, ACL_FLOAT, ACL_FORMAT_ND);
+            auto scale = TensorDesc({3}, ACL_FLOAT, ACL_FORMAT_ND);
+            auto y = TensorDesc({2, 3}, ACL_FLOAT, ACL_FORMAT_ND);
+            auto ut = OP_API_UT(aclnnScale, INPUT(x, scale, (aclTensor*)nullptr, axis, axes, true), OUTPUT(y));
+            uint64_t workspaceSize = 0;
+            EXPECT_EQ(ut.TestGetWorkspaceSize(&workspaceSize), ACLNN_ERR_PARAM_INVALID);
+        }
+    }
+}
+
+TEST_F(l2_scale_test, scale_num_axes_extreme_ignored_for_shape_when_not_from_blob)
+{
+    auto x = TensorDesc({2, 3}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto scale = TensorDesc({3}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto y = TensorDesc({2, 3}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto ut = OP_API_UT(aclnnScale,
+                        INPUT(x, scale, (aclTensor*)nullptr, int64_t(1), std::numeric_limits<int64_t>::max(), false),
+                        OUTPUT(y));
+    uint64_t workspaceSize = 0;
+    EXPECT_EQ(ut.TestGetWorkspaceSize(&workspaceSize), ACL_SUCCESS);
+}
+
+TEST_F(l2_scale_test, scale_null_output_addresses)
+{
+    uint64_t workspaceSize = 0;
+    aclOpExecutor* executor = nullptr;
+    EXPECT_EQ(aclnnScaleGetWorkspaceSize(nullptr, nullptr, nullptr, 0, 0, true, nullptr, nullptr, &executor),
+              ACLNN_ERR_PARAM_NULLPTR);
+    EXPECT_EQ(aclnnScaleGetWorkspaceSize(nullptr, nullptr, nullptr, 0, 0, true, nullptr, &workspaceSize, nullptr),
+              ACLNN_ERR_PARAM_NULLPTR);
+}
+
+TEST_F(l2_scale_test, scale_noblob_4d_keeps_exact_window_matching)
+{
+    auto x = TensorDesc({2, 4, 4, 4}, ACL_FLOAT, ACL_FORMAT_ND).ValueRange(-1, 1);
+    auto scale = TensorDesc({1, 4, 1, 1}, ACL_FLOAT, ACL_FORMAT_ND).ValueRange(-1, 1);
+    auto y = TensorDesc({2, 4, 4, 4}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto ut = OP_API_UT(aclnnScale, INPUT(x, scale, (aclTensor*)nullptr, (int64_t)0, (int64_t)1, false), OUTPUT(y));
+    uint64_t workspace_size = 0;
+    EXPECT_EQ(ut.TestGetWorkspaceSize(&workspace_size), ACLNN_ERR_PARAM_INVALID);
 }

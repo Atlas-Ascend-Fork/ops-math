@@ -85,7 +85,7 @@ static bool CheckShapeFromBlob(const aclTensor* x, const aclTensor* scale, int64
     int64_t newAxis = axis >= 0 ? axis : xRank + axis;
     int64_t scaleLen = numAxes == -1L ? xRank - newAxis : numAxes;
 
-    if ((scaleLen + newAxis) > xRank || scaleLen <= 0) {
+    if (scaleLen <= 0 || scaleLen > xRank - newAxis) {
         OP_LOGE(ACLNN_ERR_PARAM_INVALID, "the sum of scale axis(%ld) and numAxes(%ld) must be <= xRank(%ld).", newAxis,
                 numAxes, xRank);
         return false;
@@ -161,6 +161,20 @@ static bool CheckDim(const aclTensor* x, int64_t axis, int64_t numAxes)
 static bool CheckShape(const aclTensor* x, const aclTensor* scale, const aclTensor* bias, int64_t axis, int64_t numAxes,
                        bool scaleFromBlob, const aclTensor* out)
 {
+    for (const aclTensor* tensor : {x, scale, bias, out}) {
+        if (tensor == nullptr) {
+            continue;
+        }
+        const auto& shape = tensor->GetViewShape();
+        for (size_t i = 0; i < shape.GetDimNum(); ++i) {
+            if (shape.GetDim(i) < 0) {
+                OP_LOGE(ACLNN_ERR_PARAM_INVALID, "Tensor dimension must be non-negative, but dim[%zu] is %ld.", i,
+                        shape.GetDim(i));
+                return false;
+            }
+        }
+    }
+
     // x和out的shape必须一致
     OP_CHECK_SHAPE_NOT_EQUAL(out, x, return false);
     if (bias != nullptr) {
@@ -201,6 +215,8 @@ aclnnStatus aclnnScaleGetWorkspaceSize(const aclTensor* x, const aclTensor* scal
                                        aclOpExecutor** executor)
 {
     L2_DFX_PHASE_1(aclnnScale, DFX_IN(x, scale, bias, axis, numAxes, scaleFromBlob), DFX_OUT(y));
+    OP_CHECK_NULL(workspaceSize, return ACLNN_ERR_PARAM_NULLPTR);
+    OP_CHECK_NULL(executor, return ACLNN_ERR_PARAM_NULLPTR);
     // 固定写法，创建OpExecutor
     auto uniqueExecutor = CREATE_EXECUTOR();
     CHECK_RET(uniqueExecutor.get() != nullptr, ACLNN_ERR_INNER_CREATE_EXECUTOR);
@@ -227,6 +243,17 @@ aclnnStatus aclnnScaleGetWorkspaceSize(const aclTensor* x, const aclTensor* scal
     if (bias != nullptr) {
         biasContiguous = l0op::Contiguous(bias, uniqueExecutor.get());
         CHECK_RET(biasContiguous != nullptr, ACLNN_ERR_INNER_NULLPTR);
+    }
+    // Normalize ACLNN one-element scale/bias to internal [1] views for kernel dispatch.
+    // Normalize private views after validation/Contiguous without modifying caller tensors.
+    if (scaleFromBlob && numAxes == 0) {
+        const op::Shape scalarShape{1};
+        scaleContiguous = uniqueExecutor->CreateView(scaleContiguous, scalarShape, scaleContiguous->GetViewOffset());
+        CHECK_RET(scaleContiguous != nullptr, ACLNN_ERR_INNER_NULLPTR);
+        if (biasContiguous != nullptr) {
+            biasContiguous = uniqueExecutor->CreateView(biasContiguous, scalarShape, biasContiguous->GetViewOffset());
+            CHECK_RET(biasContiguous != nullptr, ACLNN_ERR_INNER_NULLPTR);
+        }
     }
     auto scaleResult = l0op::Scale(xContiguous, scaleContiguous, biasContiguous, axis, numAxes, scaleFromBlob,
                                    uniqueExecutor.get());

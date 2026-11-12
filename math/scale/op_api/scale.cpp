@@ -51,6 +51,7 @@ const aclTensor* Scale(const aclTensor* x, const aclTensor* scale, const aclTens
 {
     op::Shape outShape = x->GetViewShape();
     auto out = executor->AllocTensor(outShape, x->GetDataType());
+    OP_CHECK(out != nullptr, OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "Failed to allocate Scale output."), return nullptr);
 
     if (!IsAiCoreSupport(x)) {
         OP_LOGE(ACL_ERROR_INVALID_PARAM, "dtype of input x is not supported");
