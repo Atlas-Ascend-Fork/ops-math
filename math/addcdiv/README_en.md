@@ -87,6 +87,4 @@ None
 | Invocation Method | Invocation Sample                                                                   | Description                                                           |
 |--------------|------------------------------------------------------------------------|--------------------------------------------------------------|
 | aclnn invocation | [test_aclnn_addcdiv](./examples/test_aclnn_addcdiv.cpp) | Invokes the Addcdiv operator through the [aclnnAddcdiv](./docs/aclnnAddcdiv&aclnnInplaceAddcdiv_en.md) API. |
-| Graph-mode invocation | |  |
-
-This directory contains only the aclnn API of the Addcdiv operator. If you want to contribute the Ascend C implementation of this operator, refer to [Contribution Process](../../CONTRIBUTING_en.md).
+| Graph-mode invocation | - | Invokes the Addcdiv operator by building a graph through the [operator IR](./op_graph/addcdiv_proto.h). |

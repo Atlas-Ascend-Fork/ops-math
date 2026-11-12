@@ -87,6 +87,4 @@ None
 | Invocation Method | Invocation Sample                                                                   | Description                                                           |
 |--------------|------------------------------------------------------------------------|--------------------------------------------------------------|
 | aclnn invocation | [test_aclnn_addcmul](./examples/test_aclnn_addcmul.cpp) | Invokes the Addcmul operator through the [aclnnAddcmul](./docs/aclnnAddcmul&aclnnInplaceAddcmul_en.md) API. |
-| Graph-mode invocation |  |  |
-
-This directory contains only the aclnn API of the Addcmul operator. If you want to contribute the Ascend C implementation of this operator, refer to [Contribution Process](../../CONTRIBUTING_en.md).
+| Graph-mode invocation | - | Invokes the Addcmul operator by building a graph through the [operator IR](./op_graph/addcmul_proto.h). |

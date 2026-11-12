@@ -71,6 +71,4 @@ $out=input1∧input2$
 | 调用方式 | 调用样例                                                                   | 说明                                                           |
 |--------------|------------------------------------------------------------------------|--------------------------------------------------------------|
 | aclnn调用 | [test_aclnn_logical_and](./examples/test_aclnn_logical_and.cpp) | 通过[aclnnLogicalAnd](./docs/aclnnLogicalAnd&aclnnInplaceLogicalAnd.md)接口方式调用LogicalAnd算子。 |
-| 图模式调用 |  |  |
-
-本目录仅包含LogicalAnd算子对应的aclnn接口；如您想要贡献该算子的Ascend C实现，请参考[贡献流程](../../CONTRIBUTING.md)。
+| 图模式调用 | - | 通过[算子IR](./op_graph/logical_and_proto.h)构图方式调用LogicalAnd算子。 |

@@ -30,3 +30,4 @@
 | 调用方式 | 调用样例 | 说明 |
 | :--- | :--- | :--- |
 | aclnn调用 | [test_aclnn_logical_not](./examples/test_aclnn_logical_not.cpp) | 通过aclnnLogicalNot或aclnnInplaceLogicalNot接口调用LogicalNot算子。 |
+| 图模式调用 | - | 通过[算子IR](./op_graph/logical_not_proto.h)构图方式调用LogicalNot算子。 |

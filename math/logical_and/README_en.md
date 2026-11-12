@@ -73,6 +73,4 @@ None
 | Invocation Method | Invocation Sample                                                                   | Description                                                           |
 |--------------|------------------------------------------------------------------------|--------------------------------------------------------------|
 | aclnn invocation | [test_aclnn_logical_and](./examples/test_aclnn_logical_and.cpp) | Invokes the LogicalAnd operator through the [aclnnLogicalAnd](./docs/aclnnLogicalAnd&aclnnInplaceLogicalAnd_en.md) API. |
-| Graph-mode invocation |  |  |
-
-This directory contains only the aclnn API of the LogicalAnd operator. If you want to contribute an Ascend C implementation of this operator, refer to the [contribution process](../../CONTRIBUTING_en.md).
+| Graph-mode invocation | - | Invokes the LogicalAnd operator by building a graph through the [operator IR](./op_graph/logical_and_proto.h). |
