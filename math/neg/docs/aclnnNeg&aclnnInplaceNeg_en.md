@@ -107,8 +107,8 @@ aclnnStatus aclnnInplaceNeg(
       <td>out (aclTensor*)</td>
       <td>Output</td>
       <td>Output result after negation.</td>
-      <td>The data type of out must be a data type that self can be converted to.</td>
-      <td>INT8, INT32, INT64, FLOAT16, BFLOAT16, FLOAT32, DOUBLE, COMPLEX64, COMPLEX128</td>
+      <td>The data type of out must be a data type that self can be converted to. When self is an integer type, out can also be a convertible integer type such as UINT8.</td>
+      <td>INT8, UINT8, INT32, INT64, FLOAT16, BFLOAT16, FLOAT32, DOUBLE, COMPLEX64, COMPLEX128</td>
       <td>ND</td>
       <td>0-8</td>
       <td>√</td>

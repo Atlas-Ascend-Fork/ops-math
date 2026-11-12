@@ -105,8 +105,8 @@ aclnnStatus aclnnInplaceNeg(
       <td>out（aclTensor*）</td>
       <td>输出</td>
       <td>取反输出结果。</td>
-      <td>out的数据类型需要是self可转换的数据类型。</td>
-      <td>INT8、INT32、INT64、FLOAT16、BFLOAT16、FLOAT32、DOUBLE、COMPLEX64、COMPLEX128</td>
+      <td>out的数据类型需要是self可转换的数据类型（self为整型时，out可支持UINT8等可转换的整型）。</td>
+      <td>INT8、UINT8、INT32、INT64、FLOAT16、BFLOAT16、FLOAT32、DOUBLE、COMPLEX64、COMPLEX128</td>
       <td>ND</td>
       <td>0-8</td>
       <td>√</td>

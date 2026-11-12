@@ -108,7 +108,7 @@ aclnnStatus aclnnInplaceLogicalNot(
       <td class="tg-0pky">-</td>
       <td class="tg-0pky">BOOL, UINT8, INT8, INT16, INT32, INT64, FLOAT, FLOAT16, DOUBLE, BFLOAT16</td>
       <td class="tg-0pky">ND</td>
-      <td class="tg-0pky">0-8</td>
+      <td class="tg-0pky">0-8 (unlimited for contiguous tensors)</td>
       <td class="tg-0pky">√</td>
     </tr>
     <tr>
@@ -118,7 +118,7 @@ aclnnStatus aclnnInplaceLogicalNot(
       <td class="tg-0pky">Same shape as self.</td>
       <td class="tg-0pky">BOOL, UINT8, INT8, INT16, INT32, INT64, FLOAT, FLOAT16, DOUBLE, BFLOAT16</td>
       <td class="tg-0pky">ND</td>
-      <td class="tg-0pky">0-8</td>
+      <td class="tg-0pky">0-8 (unlimited for contiguous tensors)</td>
       <td class="tg-0pky">√</td>
     </tr>
     <tr>
@@ -171,12 +171,15 @@ aclnnStatus aclnnInplaceLogicalNot(
       <td>self or out is a null pointer.</td>
     </tr>
     <tr>
-      <td rowspan="2">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="2">161002</td>
+      <td rowspan="3">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="3">161002</td>
       <td>The data type of self or out is not in the supported range.</td>
     </tr>
     <tr>
       <td>The shapes of self and out are inconsistent.</td>
+    </tr>
+    <tr>
+      <td>The dimension of self or out is greater than 8 (non-contiguous tensors).</td>
     </tr>
   </tbody>
   </table>
@@ -257,7 +260,7 @@ aclnnStatus aclnnInplaceLogicalNot(
       <td class="tg-0pky">-</td>
       <td class="tg-0pky">BOOL, UINT8, INT8, INT16, INT32, INT64, FLOAT, FLOAT16, DOUBLE, BFLOAT16</td>
       <td class="tg-0pky">ND</td>
-      <td class="tg-0pky">0-8</td>
+      <td class="tg-0pky">0-8 (unlimited for contiguous tensors)</td>
       <td class="tg-0pky">√</td>
     </tr>
     <tr>
@@ -310,9 +313,12 @@ aclnnStatus aclnnInplaceLogicalNot(
       <td>selfRef is a null pointer.</td>
     </tr>
     <tr>
-      <td>ACLNN_ERR_PARAM_INVALID</td>
-      <td>161002</td>
+      <td rowspan="2">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="2">161002</td>
       <td>The data type of selfRef is out of the supported range.</td>
+    </tr>
+    <tr>
+      <td>The dimension of selfRef is greater than 8 (non-contiguous tensors).</td>
     </tr>
   </tbody>
   </table>

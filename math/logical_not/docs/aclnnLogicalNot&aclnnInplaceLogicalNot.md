@@ -106,7 +106,7 @@ aclnnStatus aclnnInplaceLogicalNot(
       <td>-</td>
       <td>BOOL、UINT8、INT8、INT16、INT32、INT64、FLOAT、FLOAT16、DOUBLE、BFLOAT16</td>
       <td>ND</td>
-      <td>0-8</td>
+      <td>0-8（连续Tensor不限制）</td>
       <td>√</td>
     </tr>
     <tr>
@@ -116,7 +116,7 @@ aclnnStatus aclnnInplaceLogicalNot(
       <td>shape与self一致。</td>
       <td>BOOL、UINT8、INT8、INT16、INT32、INT64、FLOAT、FLOAT16、DOUBLE、BFLOAT16</td>
       <td>ND</td>
-      <td>0-8</td>
+      <td>0-8（连续Tensor不限制）</td>
       <td>√</td>
     </tr>
     <tr>
@@ -169,12 +169,15 @@ aclnnStatus aclnnInplaceLogicalNot(
       <td>传入的self或out是空指针。</td>
     </tr>
     <tr>
-      <td rowspan="2">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="2">161002</td>
+      <td rowspan="3">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="3">161002</td>
       <td>self或out的数据类型不在支持的范围之内。</td>
     </tr>
     <tr>
       <td>self和out的shape不一致。</td>
+    </tr>
+    <tr>
+      <td>self或out的维度大于8（非连续Tensor）。</td>
     </tr>
   </tbody>
   </table>
@@ -255,7 +258,7 @@ aclnnStatus aclnnInplaceLogicalNot(
       <td>-</td>
       <td>BOOL、UINT8、INT8、INT16、INT32、INT64、FLOAT、FLOAT16、DOUBLE、BFLOAT16</td>
       <td>ND</td>
-      <td>0-8</td>
+      <td>0-8（连续Tensor不限制）</td>
       <td>√</td>
     </tr>
     <tr>
@@ -308,9 +311,12 @@ aclnnStatus aclnnInplaceLogicalNot(
       <td>传入的selfRef是空指针。</td>
     </tr>
     <tr>
-      <td>ACLNN_ERR_PARAM_INVALID</td>
-      <td>161002</td>
+      <td rowspan="2">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="2">161002</td>
       <td>selfRef的数据类型不在支持的范围之内。</td>
+    </tr>
+    <tr>
+      <td>selfRef的维度大于8（非连续Tensor）。</td>
     </tr>
   </tbody>
   </table>
