@@ -186,7 +186,6 @@ usage() {
     echo "    --test_type     (Optional) Specify test types to run (comma-separated). Supported: kernel, aclnn, e2e. Default: all types."
     echo "    --pr_filelist   (Optional) Path to file containing list of changed files (one per line). If not specified, extract from git diff."
     echo "    --case_path     (Optional) Custom base path for test cases. If specified, st_path will be {case_path}/\${op_type}/\${op_name}"
-    echo "    --testcase, -t  (Optional) Specify testcase name(s) to run (comma-separated). Mutually exclusive; cannot specify both or repeat."
     echo "    --update_ttk    (Optional) Force re-download ops-test-kit by removing existing directory and cloning again."
     echo "Examples:"
     echo "    bash ops_st_test.sh"
@@ -679,7 +678,7 @@ summarize_op_results() {
 
     local total_cases=0
     local passed_cases=0
-    while IFS=',' read -r csv_op csv_testcase csv_type csv_result csv_status; do
+    while IFS=',' read -r csv_op csv_testcase csv_type csv_result csv_status csv_extra; do
         if [[ "${csv_op}" == "${op_name}" && "${csv_type}" == "${test_type}" ]]; then
             ((total_cases++))
             if [[ "${csv_status}" == "PASS" ]]; then
@@ -705,6 +704,7 @@ print_reproduction_commands() {
     local repro_file="${log_path}/repro_commands.txt"
     : > "${repro_file}"
     local has_failed=0
+    local arch="${SOC_TO_ST_ARCH[${soc_version}]:-}"
 
     {
         echo ""
@@ -720,7 +720,7 @@ print_reproduction_commands() {
         [[ ! -f "${summary_path}" ]] && continue
         local test_type="${sf%%_summary.csv}"
 
-        while IFS=',' read -r f_op f_tc f_tt f_csv f_status || [[ -n "${f_op}" ]]; do
+        while IFS=',' read -r f_op f_tc f_tt f_csv f_status f_extra || [[ -n "${f_op}" ]]; do
             [[ "${f_op}" == "op_name" ]] && continue
             [[ "${f_status}" == "PASS" ]] && continue
             [[ -z "${f_op}" ]] && continue
@@ -741,15 +741,22 @@ print_reproduction_commands() {
                 input_csv=$(find "${framework_path}" -name "${csv_basename}.csv" -type f 2>/dev/null | head -1)
             fi
 
-            local ttk_mode extra_flags
-            case "${test_type}" in
-                kernel) ttk_mode="kernel";  extra_flags="-d=false -b=release";;
-                aclnn)  ttk_mode="aclnn";  extra_flags="";;
-                e2e)    ttk_mode="e2e";    extra_flags="";;
-                *)      ttk_mode="${test_type}"; extra_flags="";;
-            esac
+            local repro_cmd
+            local arch_path="${framework_path}/${op_type}/${f_op}/tests/st/${arch}"
+            if [[ -n "${arch}" && -f "${arch_path}/st_test.sh" ]]; then
+                # Override op: framework ran st_test.sh directly, print that command
+                repro_cmd="bash ${arch_path}/st_test.sh --test_path ${arch_path} --ttk_path ${ttk_path} --output_path ${log_path}/${f_op}"
+            else
+                local ttk_mode extra_flags
+                case "${test_type}" in
+                    kernel) ttk_mode="kernel";  extra_flags="-d=false -b=release";;
+                    aclnn)  ttk_mode="aclnn";  extra_flags="";;
+                    e2e)    ttk_mode="e2e";    extra_flags="";;
+                    *)      ttk_mode="${test_type}"; extra_flags="";;
+                esac
 
-            local repro_cmd="cd ${ttk_path} && python3 -m ttk ${ttk_mode} -i ${input_csv} -o ${f_csv} --plugin ${ops_test_path} ${extra_flags} --pc=16 --run 1 --compare close --task-prof false --no-memory-check -t ${f_tc}"
+                repro_cmd="cd ${ttk_path} && python3 -m ttk ${ttk_mode} -i ${input_csv} -o ${f_csv} --plugin ${ops_test_path} ${extra_flags} --pc=16 --run 1 --compare close --task-prof false --no-memory-check -t ${f_tc}"
+            fi
 
             {
                 echo "  # [${test_type}] ${f_op} / ${f_tc}"
@@ -768,6 +775,56 @@ print_reproduction_commands() {
     fi
     echo "${dotted_line}" >&2
     print_msg "Reproduction commands also saved to: ${repro_file}"
+}
+
+# Run the arch-specific st_test.sh override for an op and print its result csv paths
+run_override_st_test() {
+    local op_name="$1"
+    local st_test_sh="$2"
+    local test_path="$3"
+
+    local log_op_dir="${log_path}/${op_name}"
+    mkdir -p "${log_op_dir}"
+
+    # --test_type 过滤: 指定时按类型逐次调用(st_test.sh --exec_type 接单值), 未指定时整体跑一次
+    local -a override_exec_types=("")
+    if [[ -n "${test_type_list}" ]]; then
+        IFS=',' read -r -a override_exec_types <<< "${test_type_list}"
+    fi
+
+    local start_time=$(date +%s)
+    local test_failed=0
+    local exec_type_args=()
+    local exec_type_item
+    set +e
+    for exec_type_item in ${override_exec_types[@]+"${override_exec_types[@]}"}; do
+        exec_type_args=()
+        [[ -n "${exec_type_item}" ]] && exec_type_args=(--exec_type "${exec_type_item}")
+        print_msg "Executing: bash ${st_test_sh} --test_path ${test_path} --ttk_path ${ttk_path} --output_path ${log_op_dir}${exec_type_item:+ --exec_type ${exec_type_item}}"
+        bash "${st_test_sh}" --test_path "${test_path}" --ttk_path "${ttk_path}" \
+            --output_path "${log_op_dir}" ${exec_type_args[@]+"${exec_type_args[@]}"} \
+            2>&1 | tee -a "${log_op_dir}/st_test_run.log" > /dev/null
+        [[ ${PIPESTATUS[0]} -ne 0 ]] && test_failed=1
+    done
+    set -e
+    local end_time=$(date +%s)
+    local elapsed=$((end_time - start_time))
+
+    if [[ ${test_failed} -ne 0 ]]; then
+        print_error "override st_test failed for ${op_name}, elapsed: ${elapsed}s"
+    else
+        print_msg "override st_test completed for ${op_name}, elapsed: ${elapsed}s"
+    fi
+
+    local result_csv
+    for result_csv in "${log_op_dir}"/*_result.csv; do
+        [[ -f "${result_csv}" ]] || continue
+        echo "${result_csv}"
+    done
+
+    if [[ ${test_failed} -ne 0 ]]; then
+        return 1
+    fi
 }
 
 # Run all test types for a single op and collect results
@@ -796,52 +853,90 @@ run_single_op_test() {
         return 0
     fi
 
-    local test_cases=$(find_test_cases "${op_name}" "${op_type}" "${arch}")
-
-    if [[ -z "${test_cases}" ]]; then
-        print_msg "No test cases found for ${op_name}"
-        return 0
+    # Override: run the arch-specific st_test.sh directly when present
+    local override_st_test_sh=""
+    local arch_path=""
+    if [[ -n "${arch}" ]]; then
+        arch_path="${framework_path}/${op_type}/${op_name}/tests/st/${arch}"
+        if [[ -f "${arch_path}/st_test.sh" ]]; then
+            override_st_test_sh="${arch_path}/st_test.sh"
+        fi
     fi
 
     local result_csvs=()
     local kernel_csvs=()
     local aclnn_csvs=()
     local e2e_csvs=()
-    local test_case_array=(${test_cases})
     local result_csv
     local testcase_name
     local op_error_flag=0
 
-    declare -A test_runners=(
-        ["kernel"]="run_kernel_test"
-        ["aclnn"]="run_aclnn_test"
-        ["e2e"]="run_e2e_test"
-    )
+    if [[ -n "${override_st_test_sh}" ]]; then
+        local override_ret=0
+        local override_results
+        override_results=$(run_override_st_test "${op_name}" "${override_st_test_sh}" "${arch_path}") || override_ret=1
 
-    for test_item in "${test_case_array[@]}"; do
-        local test_type=$(echo "${test_item}" | cut -d':' -f1)
-        local test_csv=$(echo "${test_item}" | cut -d':' -f2-)
-        local test_ret=0
-
-        if [[ -z "${test_runners[${test_type}]+_}" ]]; then
-            print_warning "Unknown test type: ${test_type}, skipping"
-            continue
-        fi
-
-        local runner_func="${test_runners[${test_type}]}"
-        result_csv=$(${runner_func} "${op_name}" "${test_csv}" "${ops_test_path}")
-        test_ret=$?
-
-        if [[ ${test_ret} -ne 0 ]]; then
+        if [[ ${override_ret} -ne 0 ]]; then
             op_error_flag=1
         fi
 
-        if [[ -n "${result_csv}" ]]; then
+        local result_basename
+        while IFS= read -r result_csv; do
+            [[ -z "${result_csv}" ]] && continue
+            [[ -f "${result_csv}" ]] || continue
             result_csvs+=("${result_csv}")
-            # Append result to the per-type array dynamically, e.g. kernel_csvs
-            eval "${test_type}_csvs+=(\"\${result_csv}\")"
+            result_basename=$(basename "${result_csv}")
+            if [[ "${result_basename}" == *kernel* ]]; then
+                kernel_csvs+=("${result_csv}")
+            elif [[ "${result_basename}" == *aclnn* ]]; then
+                aclnn_csvs+=("${result_csv}")
+            elif [[ "${result_basename}" == *e2e* ]]; then
+                e2e_csvs+=("${result_csv}")
+            else
+                print_warning "Result csv name has no kernel/aclnn/e2e keyword, not summarized: ${result_basename}"
+            fi
+        done <<< "${override_results}"
+    else
+        local test_cases=$(find_test_cases "${op_name}" "${op_type}" "${arch}")
+
+        if [[ -z "${test_cases}" ]]; then
+            print_msg "No test cases found for ${op_name}"
+            return 0
         fi
-    done
+
+        local test_case_array=(${test_cases})
+
+        declare -A test_runners=(
+            ["kernel"]="run_kernel_test"
+            ["aclnn"]="run_aclnn_test"
+            ["e2e"]="run_e2e_test"
+        )
+
+        for test_item in "${test_case_array[@]}"; do
+            local test_type=$(echo "${test_item}" | cut -d':' -f1)
+            local test_csv=$(echo "${test_item}" | cut -d':' -f2-)
+            local test_ret=0
+
+            if [[ -z "${test_runners[${test_type}]+_}" ]]; then
+                print_warning "Unknown test type: ${test_type}, skipping"
+                continue
+            fi
+
+            local runner_func="${test_runners[${test_type}]}"
+            result_csv=$(${runner_func} "${op_name}" "${test_csv}" "${ops_test_path}")
+            test_ret=$?
+
+            if [[ ${test_ret} -ne 0 ]]; then
+                op_error_flag=1
+            fi
+
+            if [[ -n "${result_csv}" ]]; then
+                result_csvs+=("${result_csv}")
+                # Append result to the per-type array dynamically, e.g. kernel_csvs
+                eval "${test_type}_csvs+=(\"${result_csv}\")"
+            fi
+        done
+    fi
 
     summarize_op_results "${op_name}" "kernel" "${kernel_csvs[*]}"
     summarize_op_results "${op_name}" "aclnn" "${aclnn_csvs[*]}"
@@ -865,7 +960,6 @@ parse_args() {
     test_type_list=""
     pr_filelist=""
     case_path=""
-    testcase_filter=""
     update_ttk=""
 
     for arg in "$@"; do
@@ -884,14 +978,6 @@ parse_args() {
                 ;;
             --case_path=*)
                 case_path="${arg#*=}"
-                ;;
-            --testcase=*|-t=*)
-                if [[ -n "${testcase_filter}" ]]; then
-                    print_error "Cannot specify --testcase and -t together (or repeat either one)"
-                    usage
-                    exit 1
-                fi
-                testcase_filter="${arg#*=}"
                 ;;
             --update_ttk)
                 update_ttk="TRUE"
