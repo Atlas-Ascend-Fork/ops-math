@@ -20,6 +20,12 @@ TensorFlow.
 
 third_party 优先 torch（FX：远端 XPU 默认 provider 为 torch）。
 
+The e2e(tf) pathway is registered as ``tf.raw_ops.SpaceToBatchND``, matching
+``framework/space_to_batch_nd_tf_plugin.cpp`` (OriginOpType("SpaceToBatchND")).
+It reuses the same dtype routing as the kernel golden: TF for the dtypes it
+supports, torch small-operator composition for bool/complex/empty inputs, with
+the reference pinned to CPU.
+
 Kernel tests must set ``TORCH_DEVICE_BACKEND_AUTOLOAD=0`` so importing PyTorch
 does not pull in the PyTorch NPU plugin/CANN protobuf, whose symbols conflict
 with TensorFlow in the same process.
@@ -27,11 +33,12 @@ with TensorFlow in the same process.
 
 import numpy as np
 
-__golden__ = {"kernel": {"space_to_batch_nd": "space_to_batch_nd_golden"}}
-
 __input__ = {"kernel": {"space_to_batch_nd": "space_to_batch_nd_input"}}
 
-__spec__ = {"space_to_batch_nd": "SpaceToBatchNDTestSpec"}
+__spec__ = {
+    "space_to_batch_nd": "SpaceToBatchNDTestSpec",
+    "tf.raw_ops.SpaceToBatchND": "SpaceToBatchNDTfE2eTestSpec",
+}
 
 
 # Operator dtypes that TensorFlow has no (or only experimental) support for.
@@ -151,7 +158,7 @@ def _space_to_batch_nd_torch(x, block_shape, paddings):
     """SpaceToBatchND reference composed from torch small operators.
 
     torch has no native space_to_batch_nd, so it is built from ``F.pad`` +
-    ``reshape`` + ``permute``.  Mirrors ``tf.raw_ops.SpaceToBatchND``: pad
+    ``reshape`` + ``permute``.  Mirrors ``tf.space_to_batch_nd``: pad
     spatial dims 1..M with zeros, split each padded spatial dim into
     (out, block), move the block dims in front of the batch dim, then merge
     them back into the batch dimension.  complex32 is stored as float16 with a
@@ -218,7 +225,7 @@ def _space_to_batch_nd_tf(x, block_shape, paddings):
     else:
         tensor = tf.convert_to_tensor(x_np)
 
-    out = tf.raw_ops.SpaceToBatchND(
+    out = tf.space_to_batch_nd(
         input=tensor,
         block_shape=tf.constant(block_np, dtype=tf.int32),
         paddings=tf.constant(pads_np, dtype=tf.int32),
@@ -229,6 +236,30 @@ def _space_to_batch_nd_tf(x, block_shape, paddings):
 
         return tf.bitcast(out, tf.uint16).numpy().view(ml_dtypes.bfloat16)
     return out.numpy()
+
+
+def _space_to_batch_nd_tf_e2e(x, block_shape, paddings, dtype_name):
+    """SpaceToBatchND golden for the e2e(tf) pathway; returns a tf.Tensor.
+
+    Inputs arrive as tf.Tensor (the TF front-end is the tested API).  The same
+    dtype routing as the kernel golden applies: TF handles dtypes it supports,
+    while bool/complex and empty tensors fall back to the torch composition and
+    are converted back to tf.Tensor.
+    """
+    import tensorflow as tf
+
+    if _is_empty(x) or dtype_name in _TF_UNSUPPORTED_DTYPES:
+        out_np = np.asarray(_space_to_batch_nd_torch(x, block_shape, paddings))
+        if out_np.dtype.name == "bfloat16":
+            return tf.bitcast(tf.constant(out_np.view(np.uint16)), tf.bfloat16)
+        return tf.convert_to_tensor(out_np)
+
+    out = tf.space_to_batch_nd(
+        input=x,
+        block_shape=tf.cast(tf.reshape(block_shape, (-1,)), tf.int32),
+        paddings=tf.cast(tf.reshape(paddings, (-1, 2)), tf.int32),
+    )
+    return out
 
 
 def space_to_batch_nd_golden(x, block_shape, paddings, **kwargs):
@@ -266,6 +297,25 @@ class SpaceToBatchNDTorchImpl:
         return [_space_to_batch_nd_torch(x, block_shape, paddings)]
 
 
+_TOLERANCE = {
+    "int8": {"standard": "binary_equal"},
+    "uint8": {"standard": "binary_equal"},
+    "int16": {"standard": "binary_equal"},
+    "uint16": {"standard": "binary_equal"},
+    "int32": {"standard": "binary_equal"},
+    "uint32": {"standard": "binary_equal"},
+    "int64": {"standard": "binary_equal"},
+    "uint64": {"standard": "binary_equal"},
+    "float16": {"standard": "binary_equal"},
+    "float32": {"standard": "binary_equal"},
+    "float64": {"standard": "binary_equal"},
+    "bfloat16": {"standard": "binary_equal"},
+    "bool": {"standard": "binary_equal"},
+    "complex32": {"standard": "isclose"},
+    "complex64": {"standard": "isclose"},
+}
+
+
 class SpaceToBatchNDTestSpec:
     @staticmethod
     def golden(x, block_shape, paddings, **kwargs):
@@ -273,20 +323,37 @@ class SpaceToBatchNDTestSpec:
 
     third_party = {"torch": SpaceToBatchNDTorchImpl, "tf": SpaceToBatchNDTFImpl}
 
-    tolerance = {
-        "int8": {"standard": "binary_equal"},
-        "uint8": {"standard": "binary_equal"},
-        "int16": {"standard": "binary_equal"},
-        "uint16": {"standard": "binary_equal"},
-        "int32": {"standard": "binary_equal"},
-        "uint32": {"standard": "binary_equal"},
-        "int64": {"standard": "binary_equal"},
-        "uint64": {"standard": "binary_equal"},
-        "float16": {"standard": "binary_equal"},
-        "float32": {"standard": "binary_equal"},
-        "float64": {"standard": "binary_equal"},
-        "bfloat16": {"standard": "binary_equal"},
-        "bool": {"standard": "binary_equal"},
-        "complex32": {"standard": "isclose"},
-        "complex64": {"standard": "isclose"},
-    }
+    tolerance = _TOLERANCE
+
+
+class SpaceToBatchNDTfE2eTestSpec:
+    """E2E (tf) 通路：api_name ``tf.raw_ops.SpaceToBatchND`` —— 驱动接口，非标杆。
+
+    与 ``framework/space_to_batch_nd_tf_plugin.cpp`` 的
+    OriginOpType("SpaceToBatchND") 对齐：tf 前端 API 经 TF adapter 入 GE 图后
+    映射到本仓库 SpaceToBatchND 算子。
+
+    input:       输入 ND tensor [B, S_1, ..., S_M, T...] tf.Tensor
+    block_shape: 1-D int32/int64 tf.Tensor，长度 M，取值通常由 CSV attributes
+                 同名字段钉住
+    paddings:    2-D int32/int64 tf.Tensor，形状 [M, 2]，取值同上钉住
+
+    tf.raw_ops 参数按签名顺序传入，golden 以位置参数接收
+    input/block_shape/paddings，返回 [output]（tf.Tensor）。
+
+    golden 固定在 CPU 执行：npu_device.open() 后 NPU 是 TF 默认设备，参考实现
+    不能静默跑到被测设备上。dtype 路由与 kernel golden 一致：TF 不支持的
+    bool/complex 及空 tensor 改走 torch 小算子拼接，再转回 tf.Tensor。
+    """
+
+    def golden(input, block_shape, paddings, **kwargs):
+        import tensorflow as tf
+
+        dtype_name = _dtype_name(input, kwargs)
+        with tf.device("/CPU:0"):
+            out = _space_to_batch_nd_tf_e2e(input, block_shape, paddings, dtype_name)
+        return [out]
+
+    third_party = "tf.space_to_batch_nd"
+
+    tolerance = _TOLERANCE

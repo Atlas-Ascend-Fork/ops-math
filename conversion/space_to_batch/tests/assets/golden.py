@@ -12,13 +12,18 @@
 """SpaceToBatch golden reference implementations.
 
 The operator only accepts dtypes that TensorFlow supports, so golden always
-uses TensorFlow (``tf.raw_ops.SpaceToBatchND`` with ``block_shape=[bs, bs]``),
+uses TensorFlow (``tf.space_to_batch_nd`` with ``block_shape=[bs, bs]``),
 including empty tensors. bool/complex32/complex64/complex128 are NOT operator
 dtypes, so no dtype fallback is provided here.
 
 A torch small-operator composition (``F.pad`` + ``reshape`` + ``permute``) is
 kept only as an independent third_party reference for cross_check, not as a
 golden path.
+
+The e2e(tf) pathway is registered as ``tf.raw_ops.SpaceToBatch``, matching
+``framework/space_to_batch_tf_plugin.cpp`` (OriginOpType("SpaceToBatch")):
+the TF front-end API drives the GE graph, and the golden stays the operator
+semantics, pinned to CPU.
 
 Kernel tests must set ``TORCH_DEVICE_BACKEND_AUTOLOAD=0`` so importing PyTorch
 does not pull in the PyTorch NPU plugin/CANN protobuf, whose symbols conflict
@@ -27,9 +32,10 @@ with TensorFlow in the same process.
 
 import numpy as np
 
-__golden__ = {"kernel": {"space_to_batch": "space_to_batch_golden"}}
-
-__spec__ = {"space_to_batch": "SpaceToBatchTestSpec"}
+__spec__ = {
+    "space_to_batch": "SpaceToBatchTestSpec",
+    "tf.raw_ops.SpaceToBatch": "SpaceToBatchTfE2eTestSpec",
+}
 
 
 def _normalize_paddings(paddings):
@@ -84,7 +90,7 @@ def _space_to_batch_torch(x, paddings, block_size):
     """SpaceToBatch reference composed from torch small operators.
 
     torch has no native space_to_batch, so it is built from ``F.pad`` +
-    ``reshape`` + ``permute``.  Mirrors ``tf.raw_ops.SpaceToBatchND`` with
+    ``reshape`` + ``permute``.  Mirrors ``tf.space_to_batch_nd`` with
     ``block_shape=[bs, bs]``: zero-pad H/W, split each padded spatial dim into
     (out, block), move the block dims in front of the batch dim, then merge
     them back into the batch dimension.  complex32 is stored as float16 with a
@@ -150,7 +156,7 @@ def _space_to_batch_tf(x, paddings, block_size):
     else:
         tensor = tf.convert_to_tensor(x_np)
 
-    out = tf.raw_ops.SpaceToBatchND(
+    out = tf.space_to_batch_nd(
         input=tensor,
         block_shape=tf.constant([bs, bs], dtype=tf.int32),
         paddings=tf.constant(pads_np, dtype=tf.int32),
@@ -205,6 +211,22 @@ class SpaceToBatchTorchImpl:
         return [_space_to_batch_torch(x, pads_2x2, block_size)]
 
 
+_BINARY_EQUAL_TOLERANCE = {
+    "int8": {"standard": "binary_equal"},
+    "uint8": {"standard": "binary_equal"},
+    "int16": {"standard": "binary_equal"},
+    "uint16": {"standard": "binary_equal"},
+    "int32": {"standard": "binary_equal"},
+    "uint32": {"standard": "binary_equal"},
+    "int64": {"standard": "binary_equal"},
+    "uint64": {"standard": "binary_equal"},
+    "float16": {"standard": "binary_equal"},
+    "float32": {"standard": "binary_equal"},
+    "float64": {"standard": "binary_equal"},
+    "bfloat16": {"standard": "binary_equal"},
+}
+
+
 class SpaceToBatchTestSpec:
     @staticmethod
     def golden(x, paddings, *, block_size, **kwargs):
@@ -212,17 +234,42 @@ class SpaceToBatchTestSpec:
 
     third_party = {"torch": SpaceToBatchTorchImpl, "tf": SpaceToBatchTFImpl}
 
-    tolerance = {
-        "int8": {"standard": "binary_equal"},
-        "uint8": {"standard": "binary_equal"},
-        "int16": {"standard": "binary_equal"},
-        "uint16": {"standard": "binary_equal"},
-        "int32": {"standard": "binary_equal"},
-        "uint32": {"standard": "binary_equal"},
-        "int64": {"standard": "binary_equal"},
-        "uint64": {"standard": "binary_equal"},
-        "float16": {"standard": "binary_equal"},
-        "float32": {"standard": "binary_equal"},
-        "float64": {"standard": "binary_equal"},
-        "bfloat16": {"standard": "binary_equal"},
-    }
+    tolerance = _BINARY_EQUAL_TOLERANCE
+
+
+class SpaceToBatchTfE2eTestSpec:
+    """E2E (tf) 通路：api_name ``tf.raw_ops.SpaceToBatch`` —— 驱动接口，非标杆。
+
+    与 ``framework/space_to_batch_tf_plugin.cpp`` 的 OriginOpType("SpaceToBatch")
+    对齐：tf 前端 API 经 TF adapter 入 GE 图后映射到本仓库 SpaceToBatch 算子。
+    注意不能写成 ``tf.raw_ops.SpaceToBatchND``——那是 SpaceToBatchND 算子的
+    起源算子，本算子没有对应的插件映射。
+
+    input:      4D NHWC [N, H_in, W_in, C] tf.Tensor
+    paddings:   2D [[pad_top, pad_bottom], [pad_left, pad_right]] int32/int64
+                tf.Tensor，取值通常由 CSV attributes 同名字段钉住
+    block_size: int 属性，由 CSV attributes 提供
+
+    tf.raw_ops 参数按签名顺序传入，golden 以位置参数接收
+    input/paddings/block_size，返回 [output]（tf.Tensor）。
+
+    golden 固定在 CPU 执行：npu_device.open() 后 NPU 是 TF 默认设备，参考实现
+    不能静默跑到被测设备上。
+
+    精度标杆对标算子语义（零填充 + 块搬移），与 kernel 通路一致。参考实现用公开
+    接口 ``tf.space_to_batch_nd``（``block_shape=[bs, bs]``），等价于 v1 的
+    ``SpaceToBatch``，且没有 ``block_size >= 2`` 限制。
+    """
+
+    def golden(input, paddings, block_size, **kwargs):
+        import tensorflow as tf
+
+        bs = _resolve_block_size(block_size)
+        with tf.device("/CPU:0"):
+            pads = tf.cast(tf.reshape(paddings, (2, 2)), tf.int32)
+            out = tf.space_to_batch_nd(input=input, block_shape=[bs, bs], paddings=pads)
+        return [out]
+
+    third_party = "tf.raw_ops.SpaceToBatch"
+
+    tolerance = _BINARY_EQUAL_TOLERANCE
