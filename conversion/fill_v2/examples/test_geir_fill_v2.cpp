@@ -35,25 +35,24 @@ using namespace ge;
 using std::map;
 using std::string;
 using std::vector;
-#define ADD_CONST_INPUT(inputIndex, inputName, inputDtype, inputShape)                                                 \
-    vector<int64_t> placeholder##inputIndex##_shape = inputShape;                                                      \
-    auto placeholder##inputIndex = op::Const("placeholder" + inputIndex);                                              \
-    TensorDesc placeholder##inputIndex##_desc = TensorDesc(ge::Shape(placeholder##inputIndex##_shape), FORMAT_ND,      \
-                                                           inputDtype);                                                \
-    placeholder##inputIndex##_desc.SetPlacement(ge::kPlacementHost);                                                   \
-    placeholder##inputIndex##_desc.SetFormat(FORMAT_ND);                                                               \
-    Tensor tensor_placeholder##inputIndex;                                                                             \
-    ret = GenDimsData(placeholder##inputIndex##_shape, tensor_placeholder##inputIndex, placeholder##inputIndex##_desc, \
-                      inputDtype);                                                                                     \
-    if (ret != SUCCESS) {                                                                                              \
-        printf("%s - ERROR - [XIR]: Generate input data failed\n", GetTime().c_str());                                 \
-        return FAILED;                                                                                                 \
-    }                                                                                                                  \
-    placeholder##inputIndex.SetAttr("value", tensor_placeholder##inputIndex);                                          \
-    placeholder##inputIndex.update_output_desc_y(placeholder##inputIndex##_desc);                                      \
-    graph.AddOp(placeholder##inputIndex);                                                                              \
-    add1.set_input_##inputName(placeholder##inputIndex);                                                               \
-    add1.update_input_desc_##inputName(placeholder##inputIndex##_desc);                                                \
+#define ADD_CONST_INPUT(inputIndex, inputName, inputDtype, inputShape, inputData)                                 \
+    vector<int64_t> placeholder##inputIndex##_shape = inputShape;                                                 \
+    auto placeholder##inputIndex = op::Const("placeholder" + inputIndex);                                         \
+    TensorDesc placeholder##inputIndex##_desc = TensorDesc(ge::Shape(placeholder##inputIndex##_shape), FORMAT_ND, \
+                                                           inputDtype);                                           \
+    placeholder##inputIndex##_desc.SetPlacement(ge::kPlacementHost);                                              \
+    placeholder##inputIndex##_desc.SetFormat(FORMAT_ND);                                                          \
+    Tensor tensor_placeholder##inputIndex;                                                                        \
+    ret = GenDimsData(inputData, tensor_placeholder##inputIndex, placeholder##inputIndex##_desc, inputDtype);     \
+    if (ret != SUCCESS) {                                                                                         \
+        printf("%s - ERROR - [XIR]: Generate input data failed\n", GetTime().c_str());                            \
+        return FAILED;                                                                                            \
+    }                                                                                                             \
+    placeholder##inputIndex.SetAttr("value", tensor_placeholder##inputIndex);                                     \
+    placeholder##inputIndex.update_output_desc_y(placeholder##inputIndex##_desc);                                 \
+    graph.AddOp(placeholder##inputIndex);                                                                         \
+    add1.set_input_##inputName(placeholder##inputIndex);                                                          \
+    add1.update_input_desc_##inputName(placeholder##inputIndex##_desc);                                           \
     inputs.push_back(placeholder##inputIndex)
 
 #define ADD_OUTPUT(outputIndex, outputName, outputDtype, outputShape)                                           \
@@ -102,14 +101,15 @@ uint32_t GetDataTypeSize(DataType dt)
     return dilation;
 }
 
-int32_t GenDimsData(vector<int64_t> shapes, Tensor& input_tensor, TensorDesc& input_tensor_desc, DataType data_type)
+int32_t GenDimsData(const vector<int64_t>& dims, Tensor& input_tensor, TensorDesc& input_tensor_desc,
+                    DataType data_type)
 {
-    input_tensor_desc.SetRealDimCnt(shapes.size());
-    size_t size = shapes.size();
+    input_tensor_desc.SetRealDimCnt(input_tensor_desc.GetShape().GetDimNum());
+    size_t size = dims.size();
     uint32_t data_len = size * GetDataTypeSize(data_type);
     int64_t* pData = new (std::nothrow) int64_t[size];
     for (size_t i = 0; i < size; ++i) {
-        *(pData + i) = shapes[i];
+        *(pData + i) = dims[i];
     }
     input_tensor = Tensor(input_tensor_desc, reinterpret_cast<uint8_t*>(pData), data_len);
     return SUCCESS;
@@ -131,7 +131,7 @@ int CreateOppInGraph(DataType outDtype, std::vector<ge::Tensor>& input, std::vec
     auto add1 = op::FillV2("fill_v2");
     vector<int64_t> dimsValue = {3, 4};
 
-    ADD_CONST_INPUT(1, dims, DT_INT64, {static_cast<int64_t>(dimsValue.size())});
+    ADD_CONST_INPUT(1, dims, DT_INT64, {static_cast<int64_t>(dimsValue.size())}, dimsValue);
     ADD_OUTPUT(1, y, outDtype, dimsValue);
     ADD_INPUT_ATTR(value, 1.5f);
 
