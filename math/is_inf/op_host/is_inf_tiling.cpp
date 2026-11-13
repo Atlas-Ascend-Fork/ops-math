@@ -59,12 +59,12 @@ private:
 
     uint8_t dataBlockSize = 0;
 
-    uint32_t totalDataCount = 1;
+    uint64_t totalDataCount = 1;
     uint32_t usableUbSize = 0;
     uint32_t needCoreNum = 0;
-    uint32_t perCoreDataCount = 0;
-    uint32_t tailDataCoreNum = 0;
-    uint32_t lastCoreDataCount = 0;
+    uint64_t perCoreDataCount = 0;
+    uint64_t tailDataCoreNum = 0;
+    uint64_t lastCoreDataCount = 0;
 };
 
 ge::graphStatus IsInfTiling::RunBigKernelTiling()
@@ -92,7 +92,7 @@ ge::graphStatus IsInfTiling::RunBigKernelTiling()
     }
     for (uint16_t i = 0; i < dimNumOfShape; i++) {
         if (shape != nullptr) {
-            totalDataCount *= shape->GetStorageShape().GetDim(i);
+            totalDataCount *= static_cast<uint64_t>(shape->GetStorageShape().GetDim(i));
         }
     }
 
@@ -160,9 +160,9 @@ uint64_t IsInfTiling::GetTilingKeyVal() const
 
 uint32_t IsInfTiling::GetNeedCoreNum(uint32_t coreNumPlatform) const
 {
-    uint32_t tempCoreNum = (uint32_t)CeilA2B(totalDataCount, DATA_BLOCK);
+    uint64_t tempCoreNum = CeilA2B(totalDataCount, DATA_BLOCK);
     if (tempCoreNum < coreNumPlatform) {
-        return tempCoreNum;
+        return static_cast<uint32_t>(tempCoreNum);
     } else {
         return coreNumPlatform;
     }
@@ -172,7 +172,7 @@ void IsInfTiling::AssignDataToEachCore()
 {
     perCoreDataCount = totalDataCount / needCoreNum;
     perCoreDataCount = perCoreDataCount / DATA_BLOCK * DATA_BLOCK;
-    uint32_t tempTailDataCount = totalDataCount - perCoreDataCount * needCoreNum;
+    uint64_t tempTailDataCount = totalDataCount - perCoreDataCount * needCoreNum;
     tailDataCoreNum = tempTailDataCount / DATA_BLOCK;
     lastCoreDataCount = perCoreDataCount + tempTailDataCount % DATA_BLOCK;
 }

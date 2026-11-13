@@ -19,16 +19,15 @@
 #include "register/tilingdata_base.h"
 
 namespace optiling {
-struct IsInfCompileInfo {
-};
+struct IsInfCompileInfo {};
 
 BEGIN_TILING_DATA_DEF(IsInfTilingData)
-TILING_DATA_FIELD_DEF(uint32_t, totalDataCount);
+TILING_DATA_FIELD_DEF(uint64_t, totalDataCount);
 TILING_DATA_FIELD_DEF(uint32_t, usableUbSize);
 TILING_DATA_FIELD_DEF(uint32_t, needCoreNum);
-TILING_DATA_FIELD_DEF(uint32_t, perCoreDataCount);
-TILING_DATA_FIELD_DEF(uint32_t, tailDataCoreNum);
-TILING_DATA_FIELD_DEF(uint32_t, lastCoreDataCount);
+TILING_DATA_FIELD_DEF(uint64_t, perCoreDataCount);
+TILING_DATA_FIELD_DEF(uint64_t, tailDataCoreNum);
+TILING_DATA_FIELD_DEF(uint64_t, lastCoreDataCount);
 END_TILING_DATA_DEF;
 
 REGISTER_TILING_DATA_CLASS(IsInf, IsInfTilingData)

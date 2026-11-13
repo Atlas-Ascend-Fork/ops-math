@@ -34,8 +34,8 @@ public:
     constexpr static uint8_t FLOAT_INTERVAL_TYPE = 2;
 
 private:
-    __aicore__ inline void CopyInX(int64_t offset, int32_t dataLength);
-    __aicore__ inline void CopyOut(int32_t offset, int32_t dataLength);
+    __aicore__ inline void CopyInX(uint64_t offset, int32_t dataLength);
+    __aicore__ inline void CopyOut(uint64_t offset, int32_t dataLength);
     __aicore__ inline void ParseTilingData(const IsInfTilingData* tilingData);
 
     __aicore__ inline void ComputePerCore();
@@ -60,9 +60,9 @@ private:
 
     uint8_t selectInterval = 0;
     uint32_t coreNum = 0;
-    uint32_t tailCoreNum = 0;
-    uint32_t perCoreDataCount = 0;
-    uint32_t blockOffset = 0;
+    uint64_t tailCoreNum = 0;
+    uint64_t perCoreDataCount = 0;
+    uint64_t blockOffset = 0;
     uint32_t blockIdx = 0;
     uint32_t maxDataCount = 0;
     uint32_t actualMaxDataCount = 0;
@@ -119,7 +119,7 @@ __aicore__ inline void IsInf<T, MASK, INF_MASK>::ParseTilingData(const IsInfTili
 }
 
 template <typename T, auto MASK, auto INF_MASK>
-__aicore__ inline void IsInf<T, MASK, INF_MASK>::CopyInX(const int64_t offset, const int32_t dataLength)
+__aicore__ inline void IsInf<T, MASK, INF_MASK>::CopyInX(const uint64_t offset, const int32_t dataLength)
 {
     LocalTensor<int16_t> dataLocal = inputQueue.AllocTensor<int16_t>();
     uint32_t blockElems = DATA_BLOCK / sizeof(int16_t);
@@ -140,7 +140,7 @@ __aicore__ inline void IsInf<T, MASK, INF_MASK>::CopyInX(const int64_t offset, c
 }
 
 template <typename T, auto MASK, auto INF_MASK>
-__aicore__ inline void IsInf<T, MASK, INF_MASK>::CopyOut(const int32_t offset, const int32_t dataLength)
+__aicore__ inline void IsInf<T, MASK, INF_MASK>::CopyOut(const uint64_t offset, const int32_t dataLength)
 {
     LocalTensor<uint8_t> outLocal = outputQueue.DeQue<uint8_t>();
     uint32_t alignedLen = static_cast<uint32_t>(dataLength) / DATA_BLOCK * DATA_BLOCK;
@@ -208,8 +208,8 @@ __aicore__ inline void IsInf<T, MASK, INF_MASK>::ComputePerCore()
     uint32_t loopCount = perCoreDataCount / maxDataCount;
     uint32_t tailDataCount = perCoreDataCount % maxDataCount;
 
-    uint32_t actualInOffset = blockOffset;
-    uint32_t actualOutOffset = blockOffset / selectInterval;
+    uint64_t actualInOffset = blockOffset;
+    uint64_t actualOutOffset = blockOffset / selectInterval;
     uint32_t actualOutCount = maxDataCount / selectInterval;
 
     for (uint32_t idx = 0; idx < loopCount; idx++) {
