@@ -85,6 +85,8 @@ Here, $\odot$ denotes element-wise multiplication.
 
 - The inputs `x` and `y` support only the FLOAT data type and the ND format, and must be three-dimensional tensors $[N,H,W]$ with the same shape.
 - Under the existing graph fusion rules, the original graph must concatenate the 4 inputs in the order of `x`, `y`, `x-y`, and `x*y`, and the concatenation axis of Concat/ConcatV2/ConcatV2D must be -1 or 2.
+- The internal node accepts only `axis` values -1 and 2; other values are rejected by InferShape.
+- In dynamic shape scenarios, input dimensions may use the unknown-dimension descriptor -1. An unknown last dimension is not multiplied by $4 \times W$ and is preserved as is. The unknown-rank descriptor -2 is not part of this operator's rank-3 input contract and is rejected by InferShape.
 - The outputs of Sub and Mul can be consumed only by this concatenation node. Otherwise, the existing graph fusion rules will not generate the SubMulConcat node.
 - SubMulConcat is generated only by the existing graph fusion process. It has no public ACLNN API and does not support directly constructing its internal nodes.
 
@@ -92,6 +94,6 @@ Here, $\odot$ denotes element-wise multiplication.
 
 | Invocation Method | Sample Code | Description |
 | :--- | :--- | :--- |
-| GE graph mode | - | Supports only converting the original graph of the public Sub, Mul, and Concat/ConcatV2/ConcatV2D into internal nodes through the existing CANN graph fusion process. This directory does not deliver fusion rules and does not provide an API for directly constructing SubMulConcat. |
+| GE graph mode | - | Supports only converting the original graph of the public Sub, Mul, and Concat/ConcatV2/ConcatV2D into internal nodes through the existing CANN graph fusion process. This directory does not deliver fusion rules and does not provide an API for directly constructing SubMulConcat. The input, output, and attribute definitions of the internal node are available in the [Host operator definition](op_host/sub_mul_concat_def.cpp). |
 
 SubMulConcat does not provide an aclnn API or PyTorch API, and does not provide an API for directly constructing internal nodes in GE graph mode.

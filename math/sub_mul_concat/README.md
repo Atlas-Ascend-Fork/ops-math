@@ -83,6 +83,8 @@ $$
 
 - 输入`x`和`y`仅支持FLOAT数据类型和ND格式，必须为形状相同的三维张量$[N,H,W]$。
 - 在既有图融合规则下，原始图必须按`x`、`y`、`x-y`、`x*y`的顺序拼接4个输入，Concat/ConcatV2/ConcatV2D的拼接轴必须为-1或2。
+- 内部节点仅接受`axis`为-1或2，其他取值由InferShape拒绝。
+- 动态Shape场景允许输入维度使用未知维描述符-1；未知末维不参与$4\times W$计算并原样保留。未知Rank描述符-2不属于本算子rank=3的输入契约，由InferShape拒绝。
 - Sub和Mul的输出只能由该拼接节点消费，否则既有图融合规则不会生成SubMulConcat节点。
 - SubMulConcat仅供既有图融合流程生成，没有公开ACLNN接口，不支持用户直接构造其内部节点。
 
@@ -90,6 +92,6 @@ $$
 
 | 调用方式 | 样例代码 | 说明 |
 | :--- | :--- | :--- |
-| GE图模式 | - | 仅支持由CANN既有图融合流程将公开的Sub、Mul和Concat/ConcatV2/ConcatV2D原始图转换为内部节点；本目录不交付融合规则，也不提供SubMulConcat直接构造接口。 |
+| GE图模式 | - | 仅支持由CANN既有图融合流程将公开的Sub、Mul和Concat/ConcatV2/ConcatV2D原始图转换为内部节点；本目录不交付融合规则，也不提供SubMulConcat直接构造接口。内部节点的输入、输出与属性定义见[Host算子定义](op_host/sub_mul_concat_def.cpp)。 |
 
 SubMulConcat不提供aclnn API或PyTorch API，也不提供GE图模式下直接构造内部节点的接口。

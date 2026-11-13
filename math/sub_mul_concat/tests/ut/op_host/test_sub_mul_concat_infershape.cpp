@@ -14,6 +14,7 @@
 
 #include <gtest/gtest.h>
 
+#include "graph/types.h"
 #include "infershape_case_executor.h"
 #include "infershape_context_faker.h"
 
@@ -32,11 +33,15 @@ gert::StorageShape MakeStorageShape(const std::vector<int64_t>& dims)
 }
 
 gert::InfershapeContextPara MakeContext(const std::vector<int64_t>& inputXShape,
-                                        const std::vector<int64_t>& inputYShape)
+                                        const std::vector<int64_t>& inputYShape, const std::vector<int64_t>& axes)
 {
     const auto inputXStorageShape = MakeStorageShape(inputXShape);
     const auto inputYStorageShape = MakeStorageShape(inputYShape);
     const auto outputStorageShape = MakeStorageShape({});
+    std::vector<gert::InfershapeContextPara::OpAttr> attrs;
+    for (int64_t axis : axes) {
+        attrs.emplace_back("axis", Ops::Math::AnyValue::CreateFrom<int64_t>(axis));
+    }
     return gert::InfershapeContextPara("SubMulConcat",
                                        {
                                            {inputXStorageShape, ge::DT_FLOAT, ge::FORMAT_ND},
@@ -44,12 +49,19 @@ gert::InfershapeContextPara MakeContext(const std::vector<int64_t>& inputXShape,
                                        },
                                        {
                                            {outputStorageShape, ge::DT_FLOAT, ge::FORMAT_ND},
-                                       });
+                                       },
+                                       attrs);
+}
+
+gert::InfershapeContextPara MakeContext(const std::vector<int64_t>& inputXShape,
+                                        const std::vector<int64_t>& inputYShape)
+{
+    return MakeContext(inputXShape, inputYShape, {});
 }
 
 gert::InfershapeContextPara MakeContext(const std::vector<int64_t>& inputShape)
 {
-    return MakeContext(inputShape, inputShape);
+    return MakeContext(inputShape, inputShape, {});
 }
 } // namespace
 
@@ -71,22 +83,21 @@ TEST(SubMulConcatInferShape, RejectsNonRankThreeInput)
     ExecuteTestCase(context, ge::GRAPH_FAILED);
 }
 
-TEST(SubMulConcatInferShape, AppliesCanndevArithmeticToUnknownLastDimension)
+TEST(SubMulConcatInferShape, PreservesUnknownLastDimension)
 {
-    auto context = MakeContext({2, 3, -1});
-    ExecuteTestCase(context, ge::GRAPH_SUCCESS, {{2, 3, -4}});
+    auto context = MakeContext({2, 3, ge::UNKNOWN_DIM});
+    ExecuteTestCase(context, ge::GRAPH_SUCCESS, {{2, 3, ge::UNKNOWN_DIM}});
+}
+
+TEST(SubMulConcatInferShape, PreservesUnknownOuterDimension)
+{
+    auto context = MakeContext({2, ge::UNKNOWN_DIM, 9});
+    ExecuteTestCase(context, ge::GRAPH_SUCCESS, {{2, ge::UNKNOWN_DIM, 36}});
 }
 
 TEST(SubMulConcatInferShape, AcceptsLargestRepresentableLastDimension)
 {
     constexpr int64_t lastDimension = std::numeric_limits<int64_t>::max() / 4;
-    auto context = MakeContext({1, 1, lastDimension});
-    ExecuteTestCase(context, ge::GRAPH_SUCCESS, {{1, 1, lastDimension * 4}});
-}
-
-TEST(SubMulConcatInferShape, AcceptsSmallestRepresentableLastDimension)
-{
-    constexpr int64_t lastDimension = std::numeric_limits<int64_t>::min() / 4;
     auto context = MakeContext({1, 1, lastDimension});
     ExecuteTestCase(context, ge::GRAPH_SUCCESS, {{1, 1, lastDimension * 4}});
 }
@@ -98,21 +109,79 @@ TEST(SubMulConcatInferShape, RejectsPositiveLastDimensionOverflow)
     ExecuteTestCase(context, ge::GRAPH_FAILED);
 }
 
-TEST(SubMulConcatInferShape, RejectsNegativeLastDimensionOverflow)
+TEST(SubMulConcatInferShape, RejectsUnknownRankDescriptorAsDimension)
 {
+    auto context = MakeContext({2, ge::UNKNOWN_DIM_NUM, 9});
+    ExecuteTestCase(context, ge::GRAPH_FAILED);
+    auto lastDimensionContext = MakeContext({2, 3, ge::UNKNOWN_DIM_NUM});
+    ExecuteTestCase(lastDimensionContext, ge::GRAPH_FAILED);
+}
+
+TEST(SubMulConcatInferShape, RejectsIllegalNegativeDimension)
+{
+    auto minusThree = MakeContext({2, 3, -3});
+    ExecuteTestCase(minusThree, ge::GRAPH_FAILED);
+    auto int64Min = MakeContext({2, 3, std::numeric_limits<int64_t>::min()});
+    ExecuteTestCase(int64Min, ge::GRAPH_FAILED);
     constexpr int64_t lastDimension = std::numeric_limits<int64_t>::min() / 4 - 1;
-    auto context = MakeContext({1, 1, lastDimension});
+    auto negativeOverflow = MakeContext({1, 1, lastDimension});
+    ExecuteTestCase(negativeOverflow, ge::GRAPH_FAILED);
+}
+
+TEST(SubMulConcatInferShape, RejectsUnknownRankInput)
+{
+    auto context = MakeContext({ge::UNKNOWN_DIM_NUM});
     ExecuteTestCase(context, ge::GRAPH_FAILED);
 }
 
-TEST(SubMulConcatInferShape, UsesInputXShapeWhenInputYDiffers)
+TEST(SubMulConcatInferShape, RejectsMismatchedInputShapes)
 {
     auto context = MakeContext({2, 3, 9}, {2, 4, 9});
+    ExecuteTestCase(context, ge::GRAPH_FAILED);
+    auto lastDimensionContext = MakeContext({2, 3, 9}, {2, 3, 10});
+    ExecuteTestCase(lastDimensionContext, ge::GRAPH_FAILED);
+}
+
+TEST(SubMulConcatInferShape, RejectsMismatchedInputRank)
+{
+    auto context = MakeContext({2, 3, 9}, {2, 9});
+    ExecuteTestCase(context, ge::GRAPH_FAILED);
+}
+
+TEST(SubMulConcatInferShape, AcceptsMismatchWithUnknownDimension)
+{
+    auto context = MakeContext({2, ge::UNKNOWN_DIM, 9}, {2, 4, 9});
+    ExecuteTestCase(context, ge::GRAPH_SUCCESS, {{2, ge::UNKNOWN_DIM, 36}});
+    auto lastDimensionContext = MakeContext({2, 3, ge::UNKNOWN_DIM}, {2, 3, 8});
+    ExecuteTestCase(lastDimensionContext, ge::GRAPH_SUCCESS, {{2, 3, ge::UNKNOWN_DIM}});
+}
+
+TEST(SubMulConcatInferShape, UsesDefaultAxisWhenAttributeAbsent)
+{
+    auto context = MakeContext({2, 3, 9});
     ExecuteTestCase(context, ge::GRAPH_SUCCESS, {{2, 3, 36}});
 }
 
-TEST(SubMulConcatInferShape, PreservesCanndevNegativeOuterDimension)
+TEST(SubMulConcatInferShape, AcceptsExplicitLastAxis)
 {
-    auto context = MakeContext({2, -2, 9});
-    ExecuteTestCase(context, ge::GRAPH_SUCCESS, {{2, -2, 36}});
+    auto context = MakeContext({2, 3, 9}, {2, 3, 9}, {-1});
+    ExecuteTestCase(context, ge::GRAPH_SUCCESS, {{2, 3, 36}});
+}
+
+TEST(SubMulConcatInferShape, AcceptsExplicitTwoAxis)
+{
+    auto context = MakeContext({2, 3, 9}, {2, 3, 9}, {2});
+    ExecuteTestCase(context, ge::GRAPH_SUCCESS, {{2, 3, 36}});
+}
+
+TEST(SubMulConcatInferShape, RejectsInvalidAxis)
+{
+    auto axisZero = MakeContext({2, 3, 9}, {2, 3, 9}, {0});
+    ExecuteTestCase(axisZero, ge::GRAPH_FAILED);
+    auto axisOne = MakeContext({2, 3, 9}, {2, 3, 9}, {1});
+    ExecuteTestCase(axisOne, ge::GRAPH_FAILED);
+    auto axisNinetyNine = MakeContext({2, 3, 9}, {2, 3, 9}, {99});
+    ExecuteTestCase(axisNinetyNine, ge::GRAPH_FAILED);
+    auto axisWithUnknownLastDimension = MakeContext({2, 3, ge::UNKNOWN_DIM}, {2, 3, ge::UNKNOWN_DIM}, {0});
+    ExecuteTestCase(axisWithUnknownLastDimension, ge::GRAPH_FAILED);
 }
