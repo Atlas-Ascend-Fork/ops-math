@@ -24,40 +24,78 @@ using namespace std;
 
 class AdjacentDifferenceTilingTest : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        std::cout << "AdjacentDifferenceTilingTest SetUp" << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "AdjacentDifferenceTilingTest SetUp" << std::endl; }
 
-    static void TearDownTestCase()
-    {
-        std::cout << "AdjacentDifferenceTilingTest TearDown" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "AdjacentDifferenceTilingTest TearDown" << std::endl; }
 };
 
 // Helper function to create OpAttr
-static gert::TilingContextPara::OpAttr MakeYdtypeAttr(int64_t yDtype) {
+static gert::TilingContextPara::OpAttr MakeYdtypeAttr(int64_t yDtype)
+{
     return gert::TilingContextPara::OpAttr("yDtype", Ops::Math::AnyValue::CreateFrom(yDtype));
 }
 
 // Test: adjacent_difference tiling with int64
-TEST_F(AdjacentDifferenceTilingTest, test_tiling_int64) {
+TEST_F(AdjacentDifferenceTilingTest, test_tiling_int64)
+{
     optiling::AdjacentDifferenceCompileInfo compileInfo;
     compileInfo.aivCoreNum_ = 8;
     compileInfo.ubSize_ = 262144;
     // adjacent_difference with int64 output, yDtype should be DT_INT64 (6)
     gert::TilingContextPara tilingContextPara("AdjacentDifference",
                                               {
-                                                {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT64, ge::FORMAT_ND},
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT64, ge::FORMAT_ND},
                                               },
                                               {
-                                                {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT64, ge::FORMAT_ND},
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT64, ge::FORMAT_ND},
                                               },
                                               {
-                                                MakeYdtypeAttr(static_cast<int64_t>(ge::DT_INT64)),
+                                                  MakeYdtypeAttr(static_cast<int64_t>(ge::DT_INT64)),
                                               },
                                               &compileInfo);
     // Workspace size is 1 (WORKSPACE_SIZE = 1 in tiling implementation)
     std::vector<size_t> expectWorkspaces = {1};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, 1, "8192 128 64 ", expectWorkspaces);
+}
+
+// Test: adjacent_difference tiling with int64 output hitting UB ceiling
+TEST_F(AdjacentDifferenceTilingTest, test_tiling_int64_ub_ceiling)
+{
+    optiling::AdjacentDifferenceCompileInfo compileInfo;
+    compileInfo.aivCoreNum_ = 8;
+    compileInfo.ubSize_ = 262144;
+    gert::TilingContextPara tilingContextPara("AdjacentDifference",
+                                              {
+                                                  {{{200000, 64}, {200000, 64}}, ge::DT_INT64, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{200000, 64}, {200000, 64}}, ge::DT_INT64, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  MakeYdtypeAttr(static_cast<int64_t>(ge::DT_INT64)),
+                                              },
+                                              &compileInfo);
+    std::vector<size_t> expectWorkspaces = {1};
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, 1, "12800000 16352 64 ", expectWorkspaces);
+}
+
+// Test: adjacent_difference tiling with int32 output hitting UB ceiling
+TEST_F(AdjacentDifferenceTilingTest, test_tiling_int32_ub_ceiling)
+{
+    optiling::AdjacentDifferenceCompileInfo compileInfo;
+    compileInfo.aivCoreNum_ = 8;
+    compileInfo.ubSize_ = 262144;
+    gert::TilingContextPara tilingContextPara("AdjacentDifference",
+                                              {
+                                                  {{{40000, 64}, {40000, 64}}, ge::DT_INT32, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{40000, 64}, {40000, 64}}, ge::DT_INT32, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  MakeYdtypeAttr(static_cast<int64_t>(ge::DT_INT32)),
+                                              },
+                                              &compileInfo);
+    std::vector<size_t> expectWorkspaces = {1};
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, 1, "2560000 32704 64 ", expectWorkspaces);
 }

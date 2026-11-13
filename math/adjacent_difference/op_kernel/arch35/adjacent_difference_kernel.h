@@ -41,7 +41,7 @@ public:
         x1Gm_.SetGlobalBuffer((__gm__ EQS_TYPE*)(x));
         yGm_.SetGlobalBuffer((__gm__ int32_t*)(y));
 
-        pipe_->InitBuffer(x1Queue_, BUFFER_NUM, tilingNum_ * sizeof(EQS_TYPE));
+        pipe_->InitBuffer(x1Queue_, BUFFER_NUM, tilingNum_ * sizeof(EQS_TYPE) + BLOCKSIZE);
 
         if constexpr (sizeof(OUT_TYPE) == sizeof(int64_t)) {
             uint32_t bufferSize = tilingNum_ * sizeof(OUT_TYPE) + 2 * BLOCKSIZE;
@@ -140,7 +140,8 @@ public:
             Reg::Duplicate(regZero, 0, maskRegInt32);
             Reg::Duplicate(regOne, 1, maskRegInt32);
             for (uint16_t i = 0; i < (uint16_t)nLoop; i++) {
-                Reg::MaskReg mask = Reg::UpdateMask<EQS_TYPE>(inputElementNum);
+                uint32_t remainElementNum = inputElementNum - i * vLength_;
+                Reg::MaskReg mask = Reg::UpdateMask<EQS_TYPE>(remainElementNum);
                 AscendC::Reg::RegTensor<EQS_TYPE> regX1, regX2;
                 AscendC::Reg::RegTensor<int32_t> regY;
                 AscendC::Reg::UnalignRegForLoad u0;
@@ -176,7 +177,8 @@ public:
             Reg::Duplicate(regOne, 1, maskRegInt32);
             uint32_t inputElementNum = copyLen;
             for (uint16_t i = 0; i < (uint16_t)nLoop; i++) {
-                Reg::MaskReg mask = Reg::UpdateMask<EQS_TYPE>(inputElementNum);
+                uint32_t remainElementNum = inputElementNum - i * vLength_;
+                Reg::MaskReg mask = Reg::UpdateMask<EQS_TYPE>(remainElementNum);
                 AscendC::Reg::RegTensor<EQS_TYPE> regX1, regX2;
                 AscendC::Reg::RegTensor<int32_t> regY;
                 AscendC::Reg::UnalignRegForLoad u0;
@@ -208,7 +210,8 @@ public:
             Reg::Duplicate(regZero, 0, maskRegInt32);
             Reg::Duplicate(regOne, 1, maskRegInt32);
             for (uint16_t i = 0; i < (uint16_t)nLoop; i++) {
-                Reg::MaskReg mask = Reg::UpdateMask<EQS_TYPE>(inputElementNum);
+                uint32_t remainElementNum = inputElementNum - i * vLength_;
+                Reg::MaskReg mask = Reg::UpdateMask<EQS_TYPE>(remainElementNum);
                 AscendC::Reg::RegTensor<EQS_TYPE> regX1, regX2;
                 AscendC::Reg::RegTensor<int32_t> lowerRegY, higherRegY;
                 AscendC::Reg::UnalignRegForLoad u0;
@@ -248,7 +251,8 @@ public:
             Reg::Duplicate(regOne, 1, maskRegInt32);
             uint32_t inputElementNum = copyLen;
             for (uint16_t i = 0; i < (uint16_t)nLoop; i++) {
-                Reg::MaskReg mask = Reg::UpdateMask<EQS_TYPE>(inputElementNum);
+                uint32_t remainElementNum = inputElementNum - i * vLength_;
+                Reg::MaskReg mask = Reg::UpdateMask<EQS_TYPE>(remainElementNum);
                 AscendC::Reg::RegTensor<EQS_TYPE> regX1, regX2;
                 AscendC::Reg::RegTensor<int32_t> lowerLowerRegY, lowerHigherRegY, highLowerRegY, highHigherRegY;
                 AscendC::Reg::UnalignRegForLoad u0;
