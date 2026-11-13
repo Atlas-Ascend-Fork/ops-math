@@ -20,60 +20,111 @@
 using namespace std;
 
 class l2_range_test : public testing::Test {
- protected:
-  static void SetUpTestCase() { cout << "range_test SetUp" << endl; }
+protected:
+    static void SetUpTestCase() { cout << "range_test SetUp" << endl; }
 
-  static void TearDownTestCase() { cout << "range_test TearDown" << endl; }
+    static void TearDownTestCase() { cout << "range_test TearDown" << endl; }
 };
 
-TEST_F(l2_range_test, aclnnRange_0_to_10_step_1_float) {
-  // start
-  double startValue = 0.0;
-  aclDataType startDtype = ACL_FLOAT;
-  // end
-  double endValue = 10.0;
-  aclDataType endDtype = ACL_FLOAT;
-  // step
-  double stepValue = 1.0;
-  aclDataType stepDtype = ACL_FLOAT;
-  // output
-  const vector<int64_t>& outShape = {10};
-  aclDataType outDtype = ACL_FLOAT;
-  aclFormat outFormat = ACL_FORMAT_ND;
+TEST_F(l2_range_test, aclnnRange_0_to_10_step_1_float)
+{
+    // start
+    double startValue = 0.0;
+    aclDataType startDtype = ACL_FLOAT;
+    // end
+    double endValue = 10.0;
+    aclDataType endDtype = ACL_FLOAT;
+    // step
+    double stepValue = 1.0;
+    aclDataType stepDtype = ACL_FLOAT;
+    // output
+    const vector<int64_t>& outShape = {10};
+    aclDataType outDtype = ACL_FLOAT;
+    aclFormat outFormat = ACL_FORMAT_ND;
 
-  auto startDesc = ScalarDesc(startValue, startDtype);
-  auto endDesc = ScalarDesc(endValue, endDtype);
-  auto stepDesc = ScalarDesc(stepValue, stepDtype);
-  auto outTensorDesc = TensorDesc(outShape, outDtype, outFormat).Precision(0.0001, 0.0001);
+    auto startDesc = ScalarDesc(startValue, startDtype);
+    auto endDesc = ScalarDesc(endValue, endDtype);
+    auto stepDesc = ScalarDesc(stepValue, stepDtype);
+    auto outTensorDesc = TensorDesc(outShape, outDtype, outFormat).Precision(0.0001, 0.0001);
 
-  auto ut = OP_API_UT(aclnnRange, INPUT(startDesc, endDesc, stepDesc), OUTPUT(outTensorDesc));
-  uint64_t workspaceSize = 0;
-  aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
-  EXPECT_EQ(aclRet, ACL_SUCCESS);
+    auto ut = OP_API_UT(aclnnRange, INPUT(startDesc, endDesc, stepDesc), OUTPUT(outTensorDesc));
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACL_SUCCESS);
 }
 
-TEST_F(l2_range_test, aclnnRange_0_to_100_step_5_int32) {
-  // start
-  int64_t startValue = 0;
-  aclDataType startDtype = ACL_INT32;
-  // end
-  int64_t endValue = 100;
-  aclDataType endDtype = ACL_INT32;
-  // step
-  int64_t stepValue = 5;
-  aclDataType stepDtype = ACL_INT32;
-  // output
-  const vector<int64_t>& outShape = {20};
-  aclDataType outDtype = ACL_INT32;
-  aclFormat outFormat = ACL_FORMAT_ND;
+TEST_F(l2_range_test, aclnnRange_0_to_100_step_5_int32)
+{
+    // start
+    int64_t startValue = 0;
+    aclDataType startDtype = ACL_INT32;
+    // end
+    int64_t endValue = 100;
+    aclDataType endDtype = ACL_INT32;
+    // step
+    int64_t stepValue = 5;
+    aclDataType stepDtype = ACL_INT32;
+    // output
+    const vector<int64_t>& outShape = {20};
+    aclDataType outDtype = ACL_INT32;
+    aclFormat outFormat = ACL_FORMAT_ND;
 
-  auto startDesc = ScalarDesc(startValue);
-  auto endDesc = ScalarDesc(endValue);
-  auto stepDesc = ScalarDesc(stepValue);
-  auto outTensorDesc = TensorDesc(outShape, outDtype, outFormat).Precision(0, 0);
+    auto startDesc = ScalarDesc(startValue);
+    auto endDesc = ScalarDesc(endValue);
+    auto stepDesc = ScalarDesc(stepValue);
+    auto outTensorDesc = TensorDesc(outShape, outDtype, outFormat).Precision(0, 0);
 
-  auto ut = OP_API_UT(aclnnRange, INPUT(startDesc, endDesc, stepDesc), OUTPUT(outTensorDesc));
-  uint64_t workspaceSize = 0;
-  aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
-  EXPECT_EQ(aclRet, ACL_SUCCESS);
+    auto ut = OP_API_UT(aclnnRange, INPUT(startDesc, endDesc, stepDesc), OUTPUT(outTensorDesc));
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACL_SUCCESS);
+}
+
+// 空指针校验：入参为空时应返回 ACLNN_ERR_PARAM_NULLPTR（161001）
+TEST_F(l2_range_test, aclnnRange_start_nullptr)
+{
+    auto endDesc = ScalarDesc(10.0, ACL_FLOAT);
+    auto stepDesc = ScalarDesc(1.0, ACL_FLOAT);
+    auto outTensorDesc = TensorDesc({10}, ACL_FLOAT, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnRange, INPUT(nullptr, endDesc, stepDesc), OUTPUT(outTensorDesc));
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_NULLPTR);
+}
+
+TEST_F(l2_range_test, aclnnRange_end_nullptr)
+{
+    auto startDesc = ScalarDesc(0.0, ACL_FLOAT);
+    auto stepDesc = ScalarDesc(1.0, ACL_FLOAT);
+    auto outTensorDesc = TensorDesc({10}, ACL_FLOAT, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnRange, INPUT(startDesc, nullptr, stepDesc), OUTPUT(outTensorDesc));
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_NULLPTR);
+}
+
+TEST_F(l2_range_test, aclnnRange_step_nullptr)
+{
+    auto startDesc = ScalarDesc(0.0, ACL_FLOAT);
+    auto endDesc = ScalarDesc(10.0, ACL_FLOAT);
+    auto outTensorDesc = TensorDesc({10}, ACL_FLOAT, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnRange, INPUT(startDesc, endDesc, nullptr), OUTPUT(outTensorDesc));
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_NULLPTR);
+}
+
+TEST_F(l2_range_test, aclnnRange_out_nullptr)
+{
+    auto startDesc = ScalarDesc(0.0, ACL_FLOAT);
+    auto endDesc = ScalarDesc(10.0, ACL_FLOAT);
+    auto stepDesc = ScalarDesc(1.0, ACL_FLOAT);
+
+    auto ut = OP_API_UT(aclnnRange, INPUT(startDesc, endDesc, stepDesc), OUTPUT(nullptr));
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_NULLPTR);
 }

@@ -186,7 +186,7 @@ inline static aclnnStatus CheckParams(const aclScalar* start, const aclScalar* e
                                       const aclTensor* out)
 {
     // 1. 检查参数是否为空指针
-    CHECK_RET(CheckNotNull(start, end, step, out), ACLNN_ERR_INNER_NULLPTR);
+    CHECK_RET(CheckNotNull(start, end, step, out), ACLNN_ERR_PARAM_NULLPTR);
 
     // 2. 检查输入的数据类型是否在API支持的数据类型范围之内，需要根据api定义校验
     CHECK_RET(CheckDtypeValid(start, end, step, out), ACLNN_ERR_PARAM_INVALID);
