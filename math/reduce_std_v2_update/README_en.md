@@ -77,6 +77,14 @@ English | [简体中文](./README.md)
       <td>√</td>
     </tr>
     <tr>
+      <td>output (output_var)</td>
+      <td>Output</td>
+      <td>Variance or standard deviation, corresponding to output in the formula. Its dtype is the same as that of x, and its shape is the shape of x after reduction along dim.</td>
+      <td>FLOAT, FLOAT16, BFLOAT16</td>
+      <td>ND</td>
+      <td>×</td>
+    </tr>
+    <tr>
       <td>dim</td>
       <td>Attribute</td>
       <td>List of reduction dimensions, corresponding to D in the formula. Negative indexes are supported. If dim is empty, all dimensions are reduced.</td>
@@ -95,7 +103,7 @@ English | [简体中文](./README.md)
     <tr>
       <td>unbiased</td>
       <td>Attribute</td>
-      <td>Specifies whether to use Bessel correction. true=unbiased (N-1), false=biased (N). The default value is true.</td>
+      <td>Specifies whether to use Bessel correction. true=uses correction for the denominator, false=forces biased (denominator N). The default value is true. Mutually exclusive with correction.</td>
       <td>BOOL</td>
       <td>-</td>
       <td>-</td>
@@ -111,37 +119,36 @@ English | [简体中文](./README.md)
     <tr>
       <td>correction</td>
       <td>Attribute</td>
-      <td>Bessel correction factor. 0=biased (N), 1=unbiased (N-1). The default value is 1.</td>
+      <td>Bessel correction factor, any non-negative integer (aligned with the torch.var value domain). The denominator is N-correction, and NaN is output when N<=correction. The default value is 1. Mutually exclusive with unbiased.</td>
       <td>INT64</td>
       <td>-</td>
       <td>-</td>
     </tr>
-    <tr>
-      <td>output (output_var)</td>
-      <td>Output</td>
-      <td>Variance or standard deviation, corresponding to output in the formula. Its dtype is the same as that of x, and its shape is the shape of x after reduction along dim.</td>
-      <td>FLOAT, FLOAT16, BFLOAT16</td>
-      <td>ND</td>
-      <td>×</td>
-    </tr>
+
   </tbody></table>
 
 ## Constraint Description
 
 - Input data type restriction: `x` and `mean` support only FLOAT, FLOAT16, and BFLOAT16, and their data types must be the same. DOUBLE, complex, and integer types are not supported.
 - shape restriction: `mean` must have been broadcast to the shape of `x` through Expand. The output shape is the shape of `x` after reduction along `dim` (the dimension is set to 1 if keepdim=true, and is removed if keepdim=false).
-- correction/unbiased restriction: only two semantics are supported, that is, correction=0 (biased) and correction=1 (unbiased). correction>1 is handled by the upper-layer `aclnnVarCorrection`.
+- correction/unbiased restriction: correction supports any non-negative integer (denominator N-correction; NaN when N<=correction, consistent with the baseline and the torch.var routing), and negative values are rejected. unbiased and correction are mutually exclusive: unbiased=false forces biased (denominator N, correction is ignored); unbiased=true uses correction for the denominator. Setting both at the same time is not recommended.
 - Edge cases: scenarios with an empty tensor, or a single element and correction≥1, are usually handled in advance by the upper-layer `aclnnVar`/`aclnnVarCorrection`. The kernel still performs defensive processing. In the EMPTY_A path where the output is empty, no operation is performed. In the EMPTY_R path where the reduction axis is empty but the output is not empty, NaN is returned. In the normal path, when `N <= correction`, the same semantics are maintained through `cof=NaN`.
 - Precision restrictions (the 950 implementation is strictly aligned with the canndev prototype):
   - FP16/BF16 inputs are always promoted to FP32 for accumulation (fixed promotion, without GetPromoteType). FP32 inputs are computed directly. The results are converted back to the original dtype.
   - The conversion back to BF16 output uses the round mode (corresponding to AscendC Cast round), retaining the rounding semantics of BF16.
   - When if_std=true, high_precision vsqrt is used for the square root operation.
   - The output dtype is the same as that of the input x, and no type promotion is performed at the API layer.
+- Input size restriction: the GM stride of any axis of `x`/`mean` (the element count of all dimensions after
+  that axis multiplied by the dtype size in bytes) must not exceed the uint32 limit (about 4GiB); when the stride
+  consumed by block-to-block copy exceeds the limit, it is explicitly rejected at the Tiling stage. Boundary
+  tensors with 2^31 or more elements can still be computed normally as long as the axis strides stay within the
+  limit.
+- Dynamic shape support: dynamic compilation, dynamic shape, and dynamic rank are registered. When building a graph, use -1 for an unknown dimension and -2 for an unknown rank; they are concretized with the actual shape at RunGraph (the preceding dtype/shape/rank constraints must be satisfied). With keepdim=false, the output rank shrinks with the input rank.
 - Determinism: this operator is deterministic by default.
 
 ## Invocation Description
 
-| Invocation Method | Invocation Sample | Description |
+| Invocation Method | Sample Code | Description |
 |---------|---------|------|
 | GE graph-mode invocation | [test_geir_reduce_std_v2_update](./examples/arch35/test_geir_reduce_std_v2_update.cpp) | Invokes the ReduceStdV2Update operator by building a graph through the [operator IR](./op_graph/reduce_std_v2_update_proto.h). The if_std attribute is supported to control whether to output the variance or the standard deviation. |
 

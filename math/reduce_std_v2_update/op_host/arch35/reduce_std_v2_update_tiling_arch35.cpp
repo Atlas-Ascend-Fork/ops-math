@@ -76,6 +76,7 @@ static constexpr int32_t kReduceAxisOffset = 1;
 // UB 分配预算常量
 static constexpr int64_t kCacheBufBytes = 16 * 1024; // cacheBuf 固定 16 KB
 static constexpr int64_t kFp32Bytes = 4;             // ComputeT = fp32
+static constexpr int64_t kFp32BlockElems = 8;        // 32B 块对应的 fp32 元素数（缓存树每层对齐粒度）
 static constexpr int64_t kDbFactor = 2;     // 主链路 DB（仅复用槽，本算子 N_pre_reuse=0 不生效）
 static constexpr int64_t kNPreReuse = 0;    // 双输入并行载入，无复用槽
 static constexpr int64_t kNPreParallel = 2; // x + mean 双输入并行槽
@@ -303,9 +304,11 @@ static ge::graphStatus GetShapeDtypeAndAttrs(gert::TilingContext* context, Reduc
     ctx.keepdim = (keepdimPtr != nullptr) ? *keepdimPtr : false;
     const int64_t* correctionPtr = attrs->GetAttrPointer<int64_t>(kAttrCorrectionIdx);
     ctx.correction = (correctionPtr != nullptr) ? *correctionPtr : 1;
-    OP_CHECK_IF(ctx.correction != 0 && ctx.correction != 1,
-                OP_LOGE(context, "correction=%ld, only 0 or 1 supported", ctx.correction), return ge::GRAPH_FAILED);
-    // unbiased=false 等价 correction=0；unbiased=true 等价 correction=1
+    // 对齐基线取值域与 torch.var 路由：correction 为任意非负整数，N-correction<=0 时 cof=NaN（ComputeCof 处理）
+    OP_CHECK_IF(ctx.correction < 0,
+                OP_LOGE(context, "correction=%ld is negative; legal range=[0, +inf)", ctx.correction),
+                return ge::GRAPH_FAILED);
+    // unbiased=false 强制有偏（分母 N，等价 correction=0）；unbiased=true 保留 correction 原值（两属性互斥）
     if (!ctx.unbiased) {
         ctx.correction = 0;
     }
@@ -558,11 +561,15 @@ static int64_t ComputeRiMax(const ReduceStdV2UpdateCtx& ctx)
     const int64_t aUnit = ctx.aUbFactorAlign * ctx.innerAProdAlign;
     // 双输入：N_pre_parallel=2, N_pre_reuse=0（并行槽不开 DB）
     const int64_t bytesPerRElem = (kDbFactor * kNPreReuse + kNPreParallel) * ctx.dtypeSize + kTmpBufCopies * kFp32Bytes;
-    const int64_t outBytes = kNOut * ctx.dtypeSize * aUnit;
     if (aUnit <= 0 || bytesPerRElem <= 0) {
         return -1;
     }
-    const int64_t numer = ubAvailable - outBytes;
+
+    const int64_t outBytesAligned = (std::max(aUnit * ctx.dtypeSize, ctx.blockSize) + ctx.blockSize - 1) /
+                                    ctx.blockSize * ctx.blockSize;
+    // 各槽对齐填充余量：preReduce×2 槽 + tmpBuf×2 槽 + postReduce×1 槽 = 5×(32B-1)
+    const int64_t alignSlack = (kNPreParallel + kTmpBufCopies + kNOut) * (ctx.blockSize - 1);
+    const int64_t numer = ubAvailable - outBytesAligned - alignSlack;
     if (numer <= 0) {
         return -1;
     }
@@ -616,6 +623,15 @@ static ge::graphStatus ComputeRUbFactor(gert::TilingContext* context, ReduceStdV
 
     if (ctx.isTailR && ctx.rSplitAxisIdx == lastR) {
         ctx.rUbFactorAlign = (ctx.rUbFactor + bsAElem - 1) / bsAElem * bsAElem;
+
+        if (ctx.rUbFactorAlign * ctx.innerRProdAlign > rIMax) {
+            ctx.rUbFactor = (rIMax / ctx.innerRProdAlign) / bsAElem * bsAElem;
+            OP_CHECK_IF(ctx.rUbFactor == 0,
+                        OP_LOGE(context, "whole-axis rUbFactor align %ld exceeds rIMax=%ld and floor is 0",
+                                ctx.rUbFactorAlign, rIMax),
+                        return ge::GRAPH_FAILED);
+            ctx.rUbFactorAlign = ctx.rUbFactor;
+        }
     } else {
         ctx.rUbFactorAlign = ctx.rUbFactor;
     }
@@ -648,7 +664,9 @@ static int64_t SolveAFromUbBudget(const ReduceStdV2UpdateCtx& ctx)
     if (coeff <= 0) {
         return -1;
     }
-    return ubAvailable / coeff;
+
+    const int64_t alignSlack = (kNPreParallel + kTmpBufCopies + kNOut) * (ctx.blockSize - 1);
+    return (ubAvailable - alignSlack) / coeff;
 }
 
 static ge::graphStatus ExpandAIfRFullyLoaded(gert::TilingContext* context, ReduceStdV2UpdateCtx& ctx)
@@ -999,6 +1017,109 @@ static ge::graphStatus HandleEmptyTensor(gert::TilingContext* context, ReduceStd
     return ge::GRAPH_SUCCESS;
 }
 
+static ge::graphStatus CheckGmStrideRepresentable(gert::TilingContext* context, const ReduceStdV2UpdateCtx& ctx)
+{
+    constexpr int64_t kUint32Max = 0xFFFFFFFFLL;
+    const int32_t innerParity = ctx.isTailR ? 1 : 0;
+    const int32_t innerSplit = ctx.isTailR ? ctx.rSplitAxisIdx : ctx.aSplitAxisIdx;
+    const int32_t outerSplit = ctx.isTailR ? ctx.aSplitAxisIdx : ctx.rSplitAxisIdx;
+
+    // 求 ubAxes[1] 的 pattern 轴下标
+    int32_t idx1 = -1;
+    int32_t innerCount = 0;
+    for (int32_t i = ctx.axisNum - 1; i >= innerSplit; --i) {
+        if ((i % 2) != innerParity) {
+            continue;
+        }
+        ++innerCount;
+        if (innerCount == 2) {
+            idx1 = i;
+            break;
+        }
+    }
+    if (idx1 < 0) {
+        // inner bundle 仅 1 根（split 轴自身）→ ubAxes[1] 为 outer bundle 最内轴
+        for (int32_t i = ctx.axisNum - 1; i >= outerSplit; --i) {
+            if ((i % 2) == innerParity) {
+                continue;
+            }
+            idx1 = i;
+            break;
+        }
+    }
+    if (idx1 < 0) {
+        return ge::GRAPH_SUCCESS; // K < 2，kernel 置 srcStride=0，无消费
+    }
+
+    // ubSize：split 轴按分块因子（满块 = 因子，尾块更小），非 split 轴按整轴长度
+    int64_t ubSize1;
+    if (idx1 == ctx.aSplitAxisIdx) {
+        ubSize1 = ctx.aUbFactor;
+    } else if (idx1 == ctx.rSplitAxisIdx) {
+        ubSize1 = ctx.rUbFactor;
+    } else {
+        ubSize1 = ctx.axisShape[static_cast<size_t>(idx1)];
+    }
+    if (ubSize1 < 2) {
+        return ge::GRAPH_SUCCESS; // blockCount 恒为 1，srcStride 不被消费
+    }
+
+    int64_t strideElems = 1;
+    for (int32_t j = idx1 + 1; j < ctx.axisNum; ++j) {
+        const int64_t sz = ctx.axisShape[static_cast<size_t>(j)];
+        if (sz <= 0) { // 动态维（-1/-2）跨度未知，交由具体化后的运行时校验
+            return ge::GRAPH_SUCCESS;
+        }
+        strideElems *= sz;
+    }
+    OP_CHECK_IF(strideElems * ctx.dtypeSize > kUint32Max,
+                OP_LOGE(context,
+                        "axis[%d] GM stride %ld bytes exceeds uint32 limit %ld; input tensor too large for "
+                        "block-stride copy, input name=x, legal range=[0, 4GiB) bytes per axis stride",
+                        idx1, strideElems * ctx.dtypeSize, kUint32Max),
+                return ge::GRAPH_FAILED);
+    return ge::GRAPH_SUCCESS;
+}
+
+static int64_t CacheTreeLevels(int64_t treeCount)
+{
+    // FindNearestPower2（严格小于的最大 2 的幂）
+    uint64_t bisection = 0;
+    const uint64_t v = static_cast<uint64_t>(treeCount);
+    if (v == 0) {
+        bisection = 0;
+    } else if (v <= 2) {
+        bisection = 1;
+    } else if (v <= 4) {
+        bisection = 2;
+    } else {
+        const uint64_t num = v - 1;
+        bisection = static_cast<uint64_t>(1) << (63 - __builtin_clzll(num));
+    }
+    // CalLog2 + 1
+    int64_t levels = 1;
+    while (bisection > 1) {
+        bisection >>= 1;
+        ++levels;
+    }
+    return levels;
+}
+
+static ge::graphStatus CheckCacheTreeSpan(gert::TilingContext* context, int64_t treeCount, int64_t laneN)
+{
+    const int64_t levelStride = (laneN + kFp32BlockElems - 1) / kFp32BlockElems * kFp32BlockElems;
+    const int64_t levels = CacheTreeLevels(treeCount);
+    const int64_t spanElems = levels * levelStride;
+    const int64_t cacheBufElems = kCacheBufBytes / kFp32Bytes;
+    OP_CHECK_IF(spanElems > cacheBufElems,
+                OP_LOGE(context,
+                        "cache tree span %ld fp32 (levels=%ld levelStride=%ld treeCount=%ld laneN=%ld) exceeds "
+                        "cacheBuf %ld fp32; reduce R chunk count or A lane width",
+                        spanElems, levels, levelStride, treeCount, laneN, cacheBufElems),
+                return ge::GRAPH_FAILED);
+    return ge::GRAPH_SUCCESS;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Tiling 主入口
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1022,16 +1143,42 @@ static ge::graphStatus ReduceStdV2UpdateTilingFunc(gert::TilingContext* context)
     ComputeAUbFactor(ctx);
     OP_CHECK_IF(ComputeRUbFactor(context, ctx) != ge::GRAPH_SUCCESS, , return ge::GRAPH_FAILED);
     OP_CHECK_IF(ExpandAIfRFullyLoaded(context, ctx) != ge::GRAPH_SUCCESS, , return ge::GRAPH_FAILED);
+    OP_CHECK_IF(CheckGmStrideRepresentable(context, ctx) != ge::GRAPH_SUCCESS, , return ge::GRAPH_FAILED);
 
     ComputeFusedALoopSplit(ctx);
     ComputeRLoopCnt(ctx);
 
-    if (ShouldUseGroup(ctx)) {
+    const int64_t cacheLaneN = ctx.aUbFactorAlign * ctx.innerAProdAlign;
+    const bool useGroup = ShouldUseGroup(ctx);
+    if (useGroup) {
         ComputeGroupSplit(ctx);
         OP_CHECK_IF(context->SetScheduleMode(1) != ge::GRAPH_SUCCESS,
                     OP_LOGE(context->GetNodeName(), "Failed to set ScheduleMode!"), return ge::GRAPH_FAILED);
+        // group Phase1 每组独立建缓存树（DoOneAChunkGroup/Phase1OutputToWorkspace），
+        // 树规模由每组 chunk 数 rCount = ceil(rLoopCntTotal/rGroupCnt) 决定（大组多 1 chunk）
+        const int64_t groupTreeCount = (ctx.rLoopCntTotal + ctx.rGroupCnt - 1) / ctx.rGroupCnt;
+        OP_CHECK_IF(CheckCacheTreeSpan(context, groupTreeCount, cacheLaneN) != ge::GRAPH_SUCCESS, ,
+                    return ge::GRAPH_FAILED);
+    } else {
+        OP_CHECK_IF(CheckCacheTreeSpan(context, ctx.rLoopCntTotal, cacheLaneN) != ge::GRAPH_SUCCESS, ,
+                    return ge::GRAPH_FAILED);
     }
     ComputeUbSizes(ctx);
+
+    if (useGroup) {
+        constexpr int64_t kMinPhase2BlockElems = 8; // 32B / sizeof(fp32)
+        OP_CHECK_IF(ctx.rGroupCnt * kMinPhase2BlockElems * kFp32Bytes > ctx.preReduceUbSize / kNPreParallel,
+                    OP_LOGE(context, "rGroupCnt=%ld x 32B exceeds single preIn slot %ld bytes", ctx.rGroupCnt,
+                            ctx.preReduceUbSize / kNPreParallel),
+                    return ge::GRAPH_FAILED);
+    }
+
+    OP_CHECK_IF(
+        ctx.preReduceUbSize + kTmpBufCopies * ctx.tmpBufUbSize + ctx.postReduceUbSize + kCacheBufBytes > ctx.ubSize,
+        OP_LOGE(context, "UB budget %ld bytes exceeds ubSize %ld (preRed=%ld tmp=%ld postRed=%ld cache=%ld)",
+                ctx.preReduceUbSize + kTmpBufCopies * ctx.tmpBufUbSize + ctx.postReduceUbSize + kCacheBufBytes,
+                ctx.ubSize, ctx.preReduceUbSize, ctx.tmpBufUbSize, ctx.postReduceUbSize, kCacheBufBytes),
+        return ge::GRAPH_FAILED);
     ComputeCof(ctx);
 
     OP_CHECK_IF(FillAndLogTilingData(context, ctx) != ge::GRAPH_SUCCESS, , return ge::GRAPH_FAILED);

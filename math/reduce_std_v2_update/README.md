@@ -75,6 +75,14 @@
       <td>√</td>
     </tr>
     <tr>
+      <td>output（output_var）</td>
+      <td>输出</td>
+      <td>方差或标准差，对应公式中 output。dtype 与 x 一致，shape 为 x 沿 dim 归约后的 shape。</td>
+      <td>FLOAT、FLOAT16、BFLOAT16</td>
+      <td>ND</td>
+      <td>×</td>
+    </tr>
+    <tr>
       <td>dim</td>
       <td>属性</td>
       <td>归约维度列表，对应公式中 D，支持负索引。dim 为空时归约所有维度。</td>
@@ -93,7 +101,7 @@
     <tr>
       <td>unbiased</td>
       <td>属性</td>
-      <td>是否使用贝塞尔校正。true=无偏（N-1），false=有偏（N）。默认 true。</td>
+      <td>是否使用贝塞尔校正。true=按 correction 取分母，false=强制有偏（分母 N）。默认 true。与 correction 互斥。</td>
       <td>BOOL</td>
       <td>-</td>
       <td>-</td>
@@ -109,37 +117,32 @@
     <tr>
       <td>correction</td>
       <td>属性</td>
-      <td>贝塞尔校正因子。0=有偏（N），1=无偏（N-1）。默认 1。</td>
+      <td>贝塞尔校正因子，任意非负整数（对齐 torch.var 取值域），分母为 N-correction，N≤correction 时输出 NaN。默认 1。与 unbiased 互斥。</td>
       <td>INT64</td>
       <td>-</td>
       <td>-</td>
     </tr>
-    <tr>
-      <td>output（output_var）</td>
-      <td>输出</td>
-      <td>方差或标准差，对应公式中 output。dtype 与 x 一致，shape 为 x 沿 dim 归约后的 shape。</td>
-      <td>FLOAT、FLOAT16、BFLOAT16</td>
-      <td>ND</td>
-      <td>×</td>
-    </tr>
+
   </tbody></table>
 
 ## 约束说明
 
 - 输入数据类型限制：`x` 与 `mean` 仅支持 FLOAT、FLOAT16、BFLOAT16，且二者数据类型须一致；不支持 DOUBLE、复数、整型。
 - shape 约束：`mean` 必须已通过 Expand 广播到 `x` 的 shape；output shape 为 `x` 沿 `dim` 归约后的 shape（keepdim=true 维度设 1，false 移除）。
-- correction/unbiased 约束：仅支持 correction=0（有偏）和 correction=1（无偏）两种语义；correction>1 由上层 `aclnnVarCorrection` 处理。
+- correction/unbiased 约束：correction 支持任意非负整数（分母 N-correction，N≤correction 时输出 NaN，与基线及 torch.var 路由一致），负值拒绝。unbiased 与 correction 互斥：unbiased=false 时强制有偏（分母 N，忽略 correction），unbiased=true 时按 correction 取分母，不建议同时设置两者。
 - 边界情况：空Tensor、单元素且correction≥1的场景通常由上层 `aclnnVar`/`aclnnVarCorrection` 提前处理；kernel仍做防御性处理，其中输出为空的EMPTY_A路径零操作，归约轴为空但输出非空的EMPTY_R路径返回NaN，normal路径在 `N <= correction` 时通过 `cof=NaN` 保持相同语义。
 - 精度约束（950 实现严格对齐 canndev 原型）：
   - FP16/BF16 输入固定提升到 FP32 累加（固定提升，无 GetPromoteType），FP32 输入直接计算；结果转回原 dtype。
   - BF16 输出回转使用 round 模式（对应 AscendC Cast round），保留 BF16 舍入语义。
   - if_std=true 时使用 high_precision vsqrt 开方。
   - 输出 dtype 与输入 x 一致，不在接口层做类型提升。
+- 输入规模约束：`x`/`mean` 单轴 GM 跨度（该轴后所有维度元素数 × dtype 字节数）不得超过 uint32 上限（约 4GiB）；被块间搬运消费的轴跨度超限时 Tiling 阶段明确拒绝。2^31 元素及以上的边界张量若轴跨度不超限仍可正常计算。
+- 动态 shape 支持：算子已注册动态编译/动态 shape/动态 rank。构图时维度可用 -1 表示未知维度、-2 表示未知 rank，RunGraph 时以具体 shape 具体化（须满足上述 dtype/shape/维度数约束）；keepdim=false 时输出 rank 随输入 rank 收缩。
 - 确定性说明：本算子默认确定性实现。
 
 ## 调用说明
 
-| 调用方式 | 调用样例 | 说明 |
+| 调用方式 | 样例代码 | 说明 |
 |---------|---------|------|
 | GE图模式 | [test_geir_reduce_std_v2_update](./examples/arch35/test_geir_reduce_std_v2_update.cpp) | 通过[算子IR](./op_graph/reduce_std_v2_update_proto.h)构图方式调用ReduceStdV2Update算子，支持if_std属性控制输出方差或标准差。 |
 

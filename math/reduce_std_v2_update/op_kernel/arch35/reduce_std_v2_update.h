@@ -607,6 +607,7 @@ __aicore__ inline void ReduceStdV2UpdateKernel<DType, isTailR>::DoCopyInTile(Glo
     const int32_t K = BuildUBAxes(aLen, rLen, ubAxes);
 
     DataCopyExtParams extParams;
+    extParams.rsv = 0; // DESIGN.md：rsv 必须显式置 0
     LoopModeParams loopParams;
     loopParams.loop1Size = 0;
     loopParams.loop1SrcStride = 0;
@@ -634,8 +635,14 @@ __aicore__ inline void ReduceStdV2UpdateKernel<DType, isTailR>::DoCopyInTile(Glo
 
     if (K >= 2) {
         extParams.blockCount = static_cast<uint16_t>(ubAxes[1].ubSize);
+#if defined(__NPU_ARCH__) && ((__NPU_ARCH__ == 3510) || (__NPU_ARCH__ == 5102))
+        // DAV_3510/5102 的 srcStride 原生 int64，直传避免 uint32 截断回绕；
+        // host 侧 tiling 已统一按 uint32 上限校验各轴 GM 跨度
+        extParams.srcStride = ubAxes[1].gmStride * dtBytes - static_cast<int64_t>(extParams.blockLen);
+#else
         extParams.srcStride = static_cast<uint32_t>(ubAxes[1].gmStride * dtBytes -
                                                     static_cast<int64_t>(extParams.blockLen));
+#endif
     } else {
         extParams.blockCount = 1;
         extParams.srcStride = 0;
@@ -1026,6 +1033,7 @@ __aicore__ inline void ReduceStdV2UpdateKernel<DType, isTailR>::CopyOut(int64_t 
 {
     auto outDeq = outQue_.DeQue<D_T>();
     DataCopyExtParams outParams;
+    outParams.rsv = 0;
     if constexpr (isTailR) {
         // 路径 1：tail-R，单 burst
         outParams.blockLen = static_cast<uint32_t>(aLen * innerAProd_ * static_cast<int64_t>(sizeof(D_T)));
@@ -1237,6 +1245,7 @@ __aicore__ inline void ReduceStdV2UpdateKernel<DType, isTailR>::Phase1OutputToWo
     auto cacheLocal = cacheBuf_.Get<float>();
 
     DataCopyExtParams ext;
+    ext.rsv = 0;
     if constexpr (isTailR) {
         ext.blockLen = static_cast<uint32_t>(aLen * innerAProd_ * static_cast<int64_t>(sizeof(float)));
         ext.blockCount = 1;
@@ -1272,12 +1281,18 @@ __aicore__ inline void ReduceStdV2UpdateKernel<DType, isTailR>::Phase2Process()
 {
     int64_t blockIdx = static_cast<int64_t>(GetBlockIdx());
 
-    const int64_t preInElems = preReduceUbSize_ / static_cast<int64_t>(sizeof(float));
+    // preReduceUbSize 含 x/mean 双路（×2），Phase2 仅复用 x 路队列，
+    // 容量必须按单槽字节（preReduceUbSize/2）换算；此前按双槽总量推导使容量高估 2 倍，
+    // DataCopyPad 按 rGroupCnt×aUbFactorP2×4B 写入可越界至单槽容量的 2 倍
+    const int64_t preInSlotElems = (preReduceUbSize_ / 2) / static_cast<int64_t>(sizeof(float));
     constexpr int64_t BS_FP32 = 32 / static_cast<int64_t>(sizeof(float));
 
-    int64_t aUbFactorP2 = preInElems / rGroupCnt_;
+    int64_t aUbFactorP2 = preInSlotElems / rGroupCnt_;
     if (aUbFactorP2 >= BS_FP32) {
         aUbFactorP2 = (aUbFactorP2 / BS_FP32) * BS_FP32;
+    } else {
+        // <8 的块经 DataCopyPad dstPadding 铺到 8；host 侧 tiling 已保证 rGroupCnt×8×4B ≤ 单槽
+        aUbFactorP2 = (aUbFactorP2 > 0) ? aUbFactorP2 : 1;
     }
     {
         int64_t limit1 = postReduceUbSize_ / static_cast<int64_t>(sizeof(D_T));
@@ -1319,6 +1334,7 @@ __aicore__ inline void ReduceStdV2UpdateKernel<DType, isTailR>::Phase2Process()
         auto preInLocal = preInXQue_.AllocTensor<float>();
         {
             DataCopyExtParams ext;
+            ext.rsv = 0;
             ext.blockLen = static_cast<uint32_t>(a_len * static_cast<int64_t>(sizeof(float)));
             ext.blockCount = static_cast<uint16_t>(rGroupCnt_);
             ext.srcStride = static_cast<uint32_t>(aTotalAligned_ * static_cast<int64_t>(sizeof(float)) -
@@ -1379,6 +1395,7 @@ __aicore__ inline void ReduceStdV2UpdateKernel<DType, isTailR>::Phase2Process()
 
             auto outDeq = outQue_.DeQue<D_T>();
             DataCopyExtParams outParams;
+            outParams.rsv = 0;
             outParams.blockLen = static_cast<uint32_t>(a_len * static_cast<int64_t>(sizeof(D_T)));
             outParams.blockCount = 1;
             outParams.srcStride = 0;
