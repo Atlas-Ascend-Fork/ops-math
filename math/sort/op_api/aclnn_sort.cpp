@@ -317,7 +317,7 @@ static std::tuple<const aclTensor*, const aclTensor*> SortProcess(const aclTenso
     }
 
     bool needCastFp16 = (reshapeSelf->GetDataType() == op::DataType::DT_FLOAT) &&
-                        ((GetCurrentPlatformInfo().GetSocVersion()) == SocVersion::ASCEND910);
+                        ((GetCurrentPlatformInfo().GetCurNpuArch()) == NpuArch::DAV_1001);
     if (needCastFp16) {
         reshapeSelf = l0op::Cast(reshapeSelf, op::DataType::DT_FLOAT16, executor);
         CHECK_RET(reshapeSelf != nullptr, std::tie(nullPtr, nullPtr));
@@ -456,7 +456,7 @@ aclnnStatus aclnnSortGetWorkspaceSize(const aclTensor* self, bool stable, int64_
     auto uniqueExecutor = CREATE_EXECUTOR();
     CHECK_RET(uniqueExecutor.get() != nullptr, ACLNN_ERR_INNER_CREATE_EXECUTOR);
 
-    // Ascend310 不支持 stable = True
+    // Ascend310 不支持 stable = True；Ascend310 为无架构号的老型号，保留 SocVersion 兼容判断
     if (stable && GetCurrentPlatformInfo().GetSocVersion() == SocVersion::ASCEND310) {
         OP_LOGE(ACLNN_ERR_PARAM_INVALID, "Ascend310 does not support sort(stable=True)");
         CHECK_RET(false, ACLNN_ERR_PARAM_INVALID);

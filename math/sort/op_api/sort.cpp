@@ -39,8 +39,10 @@ static bool SocSupportDimSize(const aclTensor* self)
     // 该维度数据量为1 或数据量>100000 走AICPU
     auto shapeSize = (int64_t)(self->GetViewShape().GetDimNum());
     auto lastDimSize = (self->GetViewShape())[shapeSize - 1];
+    auto npuArch = GetCurrentPlatformInfo().GetCurNpuArch();
+    // Ascend310 为无架构号的老型号，保留 SocVersion 兼容判断
     auto socVersion = GetCurrentPlatformInfo().GetSocVersion();
-    if (socVersion == SocVersion::ASCEND310 || socVersion == SocVersion::ASCEND310B) {
+    if (npuArch == NpuArch::DAV_3002 || socVersion == SocVersion::ASCEND310) {
         // sort轴数据量大于100k
         if (lastDimSize > DATA_LIMIT) {
             return false;
@@ -57,11 +59,13 @@ static bool SocSupportDimSize(const aclTensor* self)
 // 根据dtype判断是否支持aicore
 static bool SocSupportDtype(const aclTensor* self)
 {
+    auto npuArch = GetCurrentPlatformInfo().GetCurNpuArch();
+    // Ascend310 为无架构号的老型号，保留 SocVersion 兼容判断
     auto socVersion = GetCurrentPlatformInfo().GetSocVersion();
     // AiCore只支持FLOAT16 + FLOAT32
     if (CheckType(self->GetDataType(), AICORE_DTYPE_SUPPORT_LIST)) {
         // 910和310芯片 + tensor为FLOAT32 则不支持AiCore
-        if (((socVersion == SocVersion::ASCEND910) || (socVersion == SocVersion::ASCEND310)) &&
+        if (((npuArch == NpuArch::DAV_1001) || (socVersion == SocVersion::ASCEND310)) &&
             (self->GetDataType() == op::DataType::DT_FLOAT || self->GetDataType() == op::DataType::DT_BF16)) {
             return false;
         }
@@ -74,7 +78,7 @@ static bool IsAiCoreSupport(const aclTensor* self, bool stable, bool descending)
 {
     if (IsRegBase()) {
         return true;
-    } else if (GetCurrentPlatformInfo().GetSocVersion() == SocVersion::ASCEND310B && stable && !descending) {
+    } else if (GetCurrentPlatformInfo().GetCurNpuArch() == NpuArch::DAV_3002 && stable && !descending) {
         return false;
     } else {
         return (SocSupportDimSize(self) && SocSupportDtype(self));

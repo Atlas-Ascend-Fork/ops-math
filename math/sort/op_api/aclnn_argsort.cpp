@@ -48,8 +48,7 @@ static const std::initializer_list<op::DataType> ARCH3510_DTYPE_SUPPORT_LIST = {
 
 static const std::initializer_list<DataType>& GetDtypeSupportList()
 {
-    if (GetCurrentPlatformInfo().GetSocVersion() == SocVersion::ASCEND910B ||
-        GetCurrentPlatformInfo().GetSocVersion() == SocVersion::ASCEND910_93) {
+    if (GetCurrentPlatformInfo().GetCurNpuArch() == NpuArch::DAV_2201) {
         return ASCEND910B_DTYPE_DTYPE_SUPPORT_LIST;
     } else if (IsRegBase()) {
         return ARCH3510_DTYPE_SUPPORT_LIST;
