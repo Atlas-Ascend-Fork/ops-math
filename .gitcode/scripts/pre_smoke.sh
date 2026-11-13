@@ -81,9 +81,9 @@ slog_name="slog.tar.gz"
 tar -zcf "${slog_name}" -C /root/ascend log
 obs_key=${obs_smoke_path}/plog/${slog_name}
 # upload plog
-# if python3 /home/upload.py --bucket-name "ascend-ci" --action upload  --local-file "slog.tar.gz" --obs-object-key "${obs_key}"; then
-#   echo "::set-output var=plog_url:https://ascend-ci.obs.cn-north-4.myhuaweicloud.com/${obs_key}"
-# fi
+if python3 /home/upload.py --bucket-name "ascend-ci" --action upload  --local-file "slog.tar.gz" --obs-object-key "${obs_key}"; then
+  echo "::set-output var=plog_url:https://ascend-ci.obs.cn-north-4.myhuaweicloud.com/${obs_key}"
+fi
 
 # ==============================
 # 检查 NPU 状态
