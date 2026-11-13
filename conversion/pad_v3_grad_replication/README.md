@@ -36,15 +36,15 @@
   <tr>
     <td>gradOutput</td>
     <td>输入</td>
-    <td>replication_pad3d的正向传播，shape支持5维且维度需要与self和gradInput保持一致。</td>
-    <td>FLOAT16、FLOAT32、DOUBLE、COMPLEX64、COMPLEX128</td>
+    <td>replication_pad3d的正向传播，shape支持4维或5维且维度需要与self和gradInput保持一致。</td>
+    <td>FLOAT16、FLOAT32、BFLOAT16</td>
     <td>ND</td>
   </tr>
   <tr>
     <td>self</td>
     <td>输入</td>
-    <td>shape支持5维且维度需要与self和gradInput保持一致，shape与gradInput一致。</td>
-    <td>FLOAT16、FLOAT32、DOUBLE、COMPLEX64、COMPLEX128</td>
+    <td>shape支持4维或5维且维度需要与gradOutput和gradInput保持一致，shape与gradInput一致。</td>
+    <td>FLOAT16、FLOAT32、BFLOAT16</td>
     <td>ND</td>
   </tr>
   <tr>
@@ -52,20 +52,22 @@
     <td>输入</td>
     <td>padding长度为6，表示三维张量左右上下前后需要填充的值，padding的前两个值都需要小于self最后一维度的数值，第三和第四个值小于self倒数第二维度的数值，第五和第六两个值小于self倒数第三维度的数值。</td>
     <td>INT64</td>
-    <td></td>
+    <td>-</td>
   </tr>
   <tr>
     <td>gradInput</td>
     <td>输出</td>
-    <td>数据类型与self保持一致。</td>
-    <td>FLOAT16、FLOAT32、DOUBLE、COMPLEX64、COMPLEX128</td>
+    <td>shape支持4维或5维，且维度、数据类型与self保持一致。</td>
+    <td>FLOAT16、FLOAT32、BFLOAT16</td>
     <td>ND</td>
   </tr>
 </tbody></table>
 
+
 ## 约束说明
 
-无。
+- gradOutput、self、gradInput 的数据类型需保持一致。
+- gradOutput、self、gradInput 的维度仅支持4维或5维。
 
 ## 调用说明
 

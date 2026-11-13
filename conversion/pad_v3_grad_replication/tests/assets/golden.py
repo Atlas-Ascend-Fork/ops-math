@@ -12,10 +12,18 @@
 
 import numpy as np
 
+try:
+    import ml_dtypes
+except ImportError:
+    ml_dtypes = None
+
 
 __golden__ = {"kernel": {"pad_v3_grad_replication": "pad_v3_grad_replication_golden"}}
 
-__spec__ = {"pad_v3_grad_replication": "PadV3GradReplicationTestSpec"}
+__spec__ = {
+    "pad_v3_grad_replication": "PadV3GradReplicationTestSpec",
+    "aclnnReplicationPad3dBackward": "AclnnReplicationPad3dBackwardPublicSpec",
+}
 
 
 def _cal_out_shape(in_shape, paddings):
@@ -31,97 +39,142 @@ def _cal_out_shape(in_shape, paddings):
     return out_shape
 
 
-def _numpy_pad_v3_grad_edge(grad_output, in_shape, pad_per_dim):
-    dim = grad_output.ndim
+def _np_to_torch(arr):
+    import torch
 
-    true_dtype = grad_output.dtype
-    grad_input = np.zeros(in_shape, dtype=np.float32)
-    grad_output = np.array(grad_output, dtype=np.float32)
+    if isinstance(arr, torch.Tensor):
+        return arr
+    arr = np.asarray(arr)
+    if ml_dtypes is not None and arr.dtype == ml_dtypes.bfloat16:
+        return torch.from_numpy(np.ascontiguousarray(arr).view(np.int16)).view(
+            torch.bfloat16
+        )
+    return torch.from_numpy(arr)
 
-    out_shape = grad_output.shape
-    for out_idx in np.ndindex(out_shape):
-        in_idx = []
-        pad_offset = dim - len(pad_per_dim)
-        for i in range(dim):
-            left, right = pad_per_dim[i - pad_offset] if i >= pad_offset else (0, 0)
-            out_len = out_shape[i]
-            in_len = in_shape[i]
-            o = out_idx[i]
 
-            left_pad = max(0, left)
-            right_pad = max(0, right)
+def _torch_to_np(t):
+    import torch
 
-            if left_pad > 0 and o < left_pad:
-                i_in = 0
-            elif right_pad > 0 and o >= out_len - right_pad:
-                i_in = in_len - 1
-            else:
-                i_in = o - left
+    if not isinstance(t, torch.Tensor):
+        return np.asarray(t)
+    t = t.detach().cpu().contiguous()
+    if t.dtype == torch.bfloat16:
+        if ml_dtypes is not None:
+            return t.view(torch.int16).numpy().view(ml_dtypes.bfloat16)
+        return t.float().numpy()
+    return t.numpy()
 
-            in_idx.append(i_in)
 
-        in_idx = tuple(in_idx)
-        grad_input[in_idx] += grad_output[out_idx]
-    grad_input = np.array(grad_input, dtype=true_dtype)
-    return grad_input
+def _norm_padding(padding):
+    import torch
+
+    if padding is None:
+        return [0, 0]
+    if isinstance(padding, np.ndarray):
+        padding = padding.tolist()
+    if isinstance(padding, torch.Tensor):
+        padding = padding.detach().cpu().tolist()
+    return [int(p) for p in padding]
+
+
+def _kernel_paddings(paddings):
+    import torch
+
+    if isinstance(paddings, torch.Tensor):
+        paddings = paddings.detach().cpu().numpy()
+    return np.array(paddings).astype(np.int64).reshape(-1, 2)
+
+
+def _calc_dtype(dtype):
+    import torch
+
+    if dtype in (torch.float16, torch.bfloat16):
+        return torch.float32
+    return dtype
+
+
+def _run_public_backward(grad_output, self_tensor, pad_whd):
+    """Compute replication-pad backward with the public F.pad + autograd API."""
+    import torch.nn.functional as F
+
+    grad_output = _np_to_torch(grad_output)
+    self_tensor = _np_to_torch(self_tensor)
+    if not (grad_output.is_floating_point() or grad_output.is_complex()) or not (
+        self_tensor.is_floating_point() or self_tensor.is_complex()
+    ):
+        raise NotImplementedError(
+            "replication pad backward requires floating-point or complex tensors"
+        )
+
+    calc_dtype = _calc_dtype(self_tensor.dtype)
+    self_calc = self_tensor.detach().clone().to(calc_dtype)
+    self_calc.requires_grad_(True)
+    out = F.pad(self_calc, tuple(int(v) for v in pad_whd), mode="replicate")
+    out.backward(grad_output.to(calc_dtype))
+    return self_calc.grad.to(self_tensor.dtype)
+
+
+def _kernel_self_shape(grad_output, paddings_arr):
+    return _cal_out_shape(list(grad_output.shape), paddings_arr.tolist())
+
+
+def _trim_leading_zero_pairs(paddings_arr):
+    i = 0
+    while i < len(paddings_arr) and not paddings_arr[i].any():
+        i += 1
+    return paddings_arr[i:]
+
+
+def _check_kernel_paddings(grad_output, paddings_arr):
+    pad_dim = len(paddings_arr)
+    if pad_dim not in (1, 2, 3) or grad_output.dim() not in (pad_dim + 1, pad_dim + 2):
+        raise NotImplementedError(
+            "PyTorch replication padding backward requires trailing 1-3 "
+            "dimensions with one or two leading dimensions"
+        )
+    return pad_dim
 
 
 def pad_v3_grad_replication_golden(x, paddings, **kwargs):
     """
-    Kernel golden for pad_v3_grad_replication.
+    Kernel golden for pad_v3_grad_replication using public torch APIs.
+
     All the parameters follow @pad_v3_grad_replication_def.cpp without outputs.
-    All the input Tensors are numpy.ndarray.
-    kwargs may contain: short_soc_version, input_ori_shapes, output_ori_shapes,
-        input_formats, output_formats, input_ori_formats, output_ori_formats,
-        input_dtypes, output_dtypes.
+    Inputs may be numpy.ndarray or torch.Tensor. The kernel path receives
+    paddings in D/H/W pair order; F.pad consumes W/H/D order, so the pairs are
+    reversed before the public API call.
     """
-    grad_output = x
+    import torch
 
-    paddings_arr = np.array(paddings).astype(np.int64)
-    if paddings_arr.ndim == 1:
-        paddings_arr = paddings_arr.reshape(-1, 2)
-    pad_shape = paddings_arr.tolist()
-
-    y_shape = _cal_out_shape(grad_output.shape, pad_shape)
-
-    grad = _numpy_pad_v3_grad_edge(grad_output, y_shape, pad_shape)
-    return grad
+    grad_output = _np_to_torch(x)
+    paddings_arr = _kernel_paddings(paddings)
+    y_shape = _kernel_self_shape(grad_output, paddings_arr)
+    pad_pairs = _trim_leading_zero_pairs(paddings_arr)
+    if not len(pad_pairs):
+        return _torch_to_np(grad_output.clone())
+    _check_kernel_paddings(grad_output, pad_pairs)
+    pad_whd = [p for pair in reversed(pad_pairs) for p in pair]
+    self_t = torch.zeros(y_shape, dtype=grad_output.dtype, device=grad_output.device)
+    grad = _run_public_backward(grad_output, self_t, pad_whd)
+    return _torch_to_np(grad)
 
 
 class PadV3GradReplicationImpl:
     def __call__(self, x, paddings, **kwargs):
         import torch
 
-        grad_output = x if isinstance(x, torch.Tensor) else torch.from_numpy(x)
-        paddings_arr = np.array(
-            paddings
-            if not isinstance(paddings, torch.Tensor)
-            else paddings.detach().cpu().numpy()
-        )
-        paddings_arr = paddings_arr.astype(np.int64).reshape(-1, 2)
-        y_shape = _cal_out_shape(list(grad_output.shape), paddings_arr.tolist())
-        while len(paddings_arr) and not paddings_arr[0].any():
-            paddings_arr = paddings_arr[1:]
-        if not len(paddings_arr):
+        grad_output = _np_to_torch(x)
+        paddings_arr = _kernel_paddings(paddings)
+        y_shape = _kernel_self_shape(grad_output, paddings_arr)
+        pad_pairs = _trim_leading_zero_pairs(paddings_arr)
+        if not len(pad_pairs):
             return grad_output.clone()
-        count = len(paddings_arr)
-        if count not in (1, 2, 3) or grad_output.dim() not in (count + 1, count + 2):
-            raise NotImplementedError(
-                "PyTorch replication padding backward requires trailing 1-3 "
-                "dimensions with one or two leading dimensions"
-            )
-        pad_list = [p for pair in reversed(paddings_arr) for p in pair]
-        aten = torch.ops.aten
-        fn = {
-            1: aten.replication_pad1d_backward,
-            2: aten.replication_pad2d_backward,
-            3: aten.replication_pad3d_backward,
-        }[len(paddings_arr)]
-        return fn(
-            grad_output,
-            torch.empty(y_shape, dtype=grad_output.dtype, device=grad_output.device),
-            pad_list,
+        _check_kernel_paddings(grad_output, pad_pairs)
+        pad_whd = [p for pair in reversed(pad_pairs) for p in pair]
+        self_t = torch.zeros(
+            y_shape, dtype=grad_output.dtype, device=grad_output.device
         )
+        return _run_public_backward(grad_output, self_t, pad_whd)
 
 
 class PadV3GradReplicationTestSpec:
@@ -129,3 +182,28 @@ class PadV3GradReplicationTestSpec:
         return [pad_v3_grad_replication_golden(x, paddings, **kwargs)]
 
     third_party = {"torch": PadV3GradReplicationImpl}
+
+
+class ReplicationPad3dBackwardPublicImpl:
+    """third_party for aclnnReplicationPad3dBackward using F.pad + autograd."""
+
+    def __call__(self, gradOutput, padding=None, *args, **kwargs):
+        self_tensor = args[0] if args else kwargs.get("self")
+        if self_tensor is None:
+            raise ValueError("self tensor is required")
+        pad = _norm_padding(padding)
+        if len(pad) not in (2, 4, 6):
+            raise ValueError(f"Unsupported padding length: {len(pad)}")
+        return _run_public_backward(gradOutput, self_tensor, pad)
+
+
+class AclnnReplicationPad3dBackwardPublicSpec:
+    """aclnn golden using F.pad + autograd (public API)."""
+
+    def golden(gradOutput, self, padding=None, gradInput=None, **kwargs):
+        pad = _norm_padding(padding)
+        if len(pad) not in (2, 4, 6):
+            raise ValueError(f"Unsupported padding length: {len(pad)}")
+        return [_run_public_backward(gradOutput, self, pad)]
+
+    third_party = {"torch": ReplicationPad3dBackwardPublicImpl}

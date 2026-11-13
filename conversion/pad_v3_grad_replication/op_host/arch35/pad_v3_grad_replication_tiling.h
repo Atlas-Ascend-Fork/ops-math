@@ -25,13 +25,8 @@
 namespace optiling {
 
 struct PadV3GradReplicationCompileInfo {
-    int64_t core_num;
-    uint64_t ub_size;
-    int64_t total_ub_size;
-    int64_t sysWorkspaceSize;
-    int64_t dtype_rate;
-    int64_t x_bytes_size;
-    std::string soc_version;
+    // 运行期平台参数（核数/UB/workspace）统一在 Tiling 方法内直接获取，不在编译期固化
+    int64_t reserved{0};
 };
 
 class PadV3GradReplicationTiling {
@@ -55,6 +50,8 @@ private:
     bool IsPaddingDim(uint32_t axis) const;
     uint64_t CalcWorstFactor(uint32_t axis) const;
     void CalcUsedCore();
+    bool IsEmptyOutput() const;
+    void CalcEmptyTiling();
     void FillTilingData(PadV3GradReplicationTilingData* tilingData);
 
     ge::graphStatus CalcDataSizeByDtype();

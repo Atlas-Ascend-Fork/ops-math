@@ -38,36 +38,37 @@ English | [简体中文](./README.md)
   <tr>
     <td>gradOutput</td>
     <td>Input</td>
-    <td>Forward propagation of replication_pad3d. The shape supports 5 dimensions, and the dimensions must be consistent with self and gradInput.</td>
-    <td>FLOAT16, FLOAT32, DOUBLE, COMPLEX64, COMPLEX128</td>
+    <td>Forward propagation of replication_pad3d. The shape supports 4 or 5 dimensions, and the dimensions must be consistent with self and gradInput.</td>
+    <td>FLOAT16, FLOAT32, BFLOAT16</td>
     <td>ND</td>
   </tr>
   <tr>
     <td>self</td>
     <td>Input</td>
-    <td>The shape supports 5 dimensions, and the dimensions must be consistent with self and gradInput. The shape is the same as that of gradInput.</td>
-    <td>FLOAT16, FLOAT32, DOUBLE, COMPLEX64, COMPLEX128</td>
+    <td>The shape supports 4 or 5 dimensions, and the dimensions must be consistent with gradOutput and gradInput. The shape is the same as that of gradInput.</td>
+    <td>FLOAT16, FLOAT32, BFLOAT16</td>
     <td>ND</td>
   </tr>
   <tr>
     <td>padding</td>
     <td>Input</td>
-    <td>The length of padding is 6, indicating the values to be padded on the left, right, top, bottom, front, and back of the 3D tensor. The first two values of padding must be smaller than the value of the last dimension of self, the third and fourth values must be smaller than the value of the second-to-last dimension of self, and the fifth and sixth values must be smaller than the value of the third-to-last dimension of self.</td>
+    <td>The length of padding is 6, indicating the values to be padded on the left, right, top, bottom, front, and back of the 3D tensor. The first two values must be less than the size of the last dimension of self; the third and fourth values must be less than the size of the second-to-last dimension of self; the fifth and sixth values must be less than the size of the third-to-last dimension of self.</td>
     <td>INT64</td>
-    <td></td>
+    <td>-</td>
   </tr>
   <tr>
     <td>gradInput</td>
     <td>Output</td>
-    <td>The data type is the same as that of self.</td>
-    <td>FLOAT16, FLOAT32, DOUBLE, COMPLEX64, COMPLEX128</td>
+    <td>The shape supports 4 or 5 dimensions, and the dimensions and data type are the same as those of self.</td>
+    <td>FLOAT16, FLOAT32, BFLOAT16</td>
     <td>ND</td>
   </tr>
 </tbody></table>
 
 ## Constraint Description
 
-None.
+- The data types of gradOutput, self, and gradInput must be the same.
+- The dimensions of gradOutput, self, and gradInput support only 4 or 5.
 
 ## Invocation Description
 

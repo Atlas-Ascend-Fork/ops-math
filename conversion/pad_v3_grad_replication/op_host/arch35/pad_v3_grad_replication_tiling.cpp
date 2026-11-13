@@ -117,7 +117,22 @@ ge::graphStatus PadV3GradReplicationTiling::GetShapeAttrsInfo()
         inputShape_[i] = yShape->GetStorageShape().GetDim(i); // 原始tensor（不含padding）
     }
 
-    paramsDtype_ = context_->GetInputDesc(0)->GetDataType();
+    // 首维（batch）允许为 0：与 aclnn 层空 tensor 短路语义对齐（合法空输入，输出为空张量）；
+    // 其余维必须为正：stride/UB 预算均按 uint64_t 计算，非首维为 0 会使预算表达式回绕失效
+    for (size_t i = 1; i < dimNum_; i++) {
+        OP_CHECK_IF(outputShape_[i] == 0 || inputShape_[i] == 0,
+                    OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(
+                        context_->GetNodeName(), "gradOutput/gradInput", std::to_string(i).c_str(),
+                        (std::string("shape dim must be positive for non-batch dims, but got x[") + std::to_string(i) +
+                         "]=" + std::to_string(outputShape_[i]) + ", y[" + std::to_string(i) +
+                         "]=" + std::to_string(inputShape_[i]) + "]")
+                            .c_str()),
+                    return ge::GRAPH_FAILED);
+    }
+
+    auto xDesc = context_->GetInputDesc(0);
+    OP_CHECK_NULL_WITH_CONTEXT(context_, xDesc);
+    paramsDtype_ = xDesc->GetDataType();
     if (CalcDataSizeByDtype() == ge::GRAPH_FAILED) {
         return ge::GRAPH_FAILED;
     }
@@ -173,6 +188,18 @@ ge::graphStatus PadV3GradReplicationTiling::GetPaddings()
                                                   Ops::Base::ToString(paddingsDtype).c_str(),
                                                   "The dtype of paddings must be int32 or int64");
             return ge::GRAPH_FAILED;
+    }
+
+    // 该实现按非负 padding 推导（int64_t 转 uint64_t 参与 stride/UB 预算），负值会破坏预算校验
+    for (size_t i = 0; i < dimNum_; ++i) {
+        OP_CHECK_IF(leftPad_[i] < 0 || rightPad_[i] < 0,
+                    OP_LOGE_FOR_INVALID_VALUES_WITH_REASON(
+                        context_->GetNodeName(), "paddings",
+                        (std::string("left=") + std::to_string(leftPad_[i]) +
+                         ", right=" + std::to_string(rightPad_[i]) + " at dim " + std::to_string(i))
+                            .c_str(),
+                        "negative padding is not supported"),
+                    return ge::GRAPH_FAILED);
     }
 
     return ge::GRAPH_SUCCESS;
@@ -519,6 +546,24 @@ void PadV3GradReplicationTiling::CalcUsedCore()
             splitCount_, coreNum_, usedCoreNum_, tilesPerCore_);
 }
 
+bool PadV3GradReplicationTiling::IsEmptyOutput() const
+{
+    // GetShapeAttrsInfo 已保证非首维为正，故此处只需检查首维：
+    // 首维（batch）= 0 时输出 gradInput（= self.shape）为空，等价于 aclnn 层空 tensor 短路。
+    return inputShape_[0] == 0;
+}
+
+void PadV3GradReplicationTiling::CalcEmptyTiling()
+{
+    // 空输出短路：与 aclnn 层空 tensor 语义对齐，不做数值计算。
+    // 走尾轴 edge_simt（kernel 在 inputSize==0 时直接返回），blockDim 至少为 1。
+    splitAxis_ = dimNum_ - 1;
+    splitSize_ = static_cast<uint32_t>(inputShape_[dimNum_ - 1]);
+    splitCount_ = 0;
+    usedCoreNum_ = 1;
+    tilesPerCore_ = 1;
+}
+
 void PadV3GradReplicationTiling::FillTilingData(PadV3GradReplicationTilingData* tilingData)
 {
     tilingData->dimNum = dimNum_;
@@ -567,11 +612,17 @@ ge::graphStatus PadV3GradReplicationTiling::DoTiling()
     // Step 4: Calc stride (32B aligned)
     CalcStrideAligned();
 
-    // Step 5: Calc split strategy
-    CalcSplitStrategy();
+    if (IsEmptyOutput()) {
+        // 空输出（batch=0）：与 aclnn 层空 tensor 短路等价，不进入数值计算路径
+        OP_LOGI(context_->GetNodeName(), "empty output (batch=0), take tail-axis short-circuit.");
+        CalcEmptyTiling();
+    } else {
+        // Step 5: Calc split strategy
+        CalcSplitStrategy();
 
-    // Step 6: Calc used core
-    CalcUsedCore();
+        // Step 6: Calc used core
+        CalcUsedCore();
+    }
 
     // Step 7: Fill tiling data
     PadV3GradReplicationTilingData* tilingData = context_->GetTilingData<PadV3GradReplicationTilingData>();
@@ -586,6 +637,7 @@ ge::graphStatus PadV3GradReplicationTiling::DoTiling()
     context_->SetBlockDim(usedCoreNum_);
 
     size_t* workspaces = context_->GetWorkspaceSizes(1);
+    OP_CHECK_NULL_WITH_CONTEXT(context_, workspaces);
     workspaces[0] = SYS_WORK_SPACE_SIZE;
 
     OP_LOGI(context_->GetNodeName(), "PadV3GradReplication tiling done. tilingKey=%lu, blockDim=%u", tilingKey,
@@ -596,26 +648,8 @@ ge::graphStatus PadV3GradReplicationTiling::DoTiling()
 
 static ge::graphStatus TilingPrepare4PadV3GradReplication(gert::TilingParseContext* context)
 {
-    OP_LOGI(context->GetNodeName(), "TilingPrepare4PadV3GradReplication start.");
-
     auto compileInfo = context->GetCompiledInfo<PadV3GradReplicationCompileInfo>();
     OP_CHECK_NULL_WITH_CONTEXT(context, compileInfo);
-
-    auto platformInfo = context->GetPlatformInfo();
-    OP_CHECK_NULL_WITH_CONTEXT(context, platformInfo);
-
-    auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
-    compileInfo->core_num = ascendcPlatform.GetCoreNumAiv();
-
-    OP_CHECK_IF(compileInfo->core_num <= 0, OP_LOGE(context->GetNodeName(), "Failed to get core num."),
-                return ge::GRAPH_FAILED);
-
-    ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, compileInfo->ub_size);
-    compileInfo->sysWorkspaceSize = ascendcPlatform.GetLibApiWorkSpaceSize();
-
-    OP_LOGI(context->GetNodeName(), "TilingPrepare4PadV3GradReplication done. coreNum=%ld, ubSize=%lu",
-            compileInfo->core_num, compileInfo->ub_size);
-
     return ge::GRAPH_SUCCESS;
 }
 

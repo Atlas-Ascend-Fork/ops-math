@@ -79,7 +79,7 @@ aclnnStatus aclnnReplicationPad3dBackward(
       <td>gradOutput (aclTensor*)</td>
       <td>Input</td>
       <td>Input of backward propagation.</td>
-      <td>Dimension support: 4D or 5D, consistent with self and gradInput. The shape and dtype must be consistent with out, the output of forward propagation API aclnnReplicationPad3d.</td>
+      <td>Dimension support: 4D or 5D, consistent with self and gradInput. The shape and dtype must be consistent with out, the output of forward propagation API aclnnReplicationPad3d. Empty tensor support: a 4D empty tensor is not supported; for a 5D empty tensor, only the first dimension may be 0, in which case gradInput is fully zero; any 0 in the last 4 dimensions is invalid.</td>
       <td>FLOAT16, FLOAT32, BFLOAT16, DOUBLE, COMPLEX64, COMPLEX128.</td>
       <td>ND</td>
       <td>Dimension consistent with self</td>
@@ -89,7 +89,7 @@ aclnnStatus aclnnReplicationPad3dBackward(
       <td>self (aclTensor*)</td>
       <td>Input</td>
       <td>Input tensor of forward propagation.</td>
-      <td>Supports four or five dimensions and is consistent with gradOutput and gradInput. The shape and dtype must be consistent with gradInput.</td>
+      <td>Supports four or five dimensions and is consistent with gradOutput and gradInput. The shape and dtype must be consistent with gradInput. Empty tensor support: same as gradOutput.</td>
       <td>FLOAT16, FLOAT32, BFLOAT16, DOUBLE, COMPLEX64, COMPLEX128</td>
       <td>ND</td>
       <td>4-5</td>
@@ -99,7 +99,7 @@ aclnnStatus aclnnReplicationPad3dBackward(
       <td>padding (aclIntArray*)</td>
       <td>Input</td>
       <td>-</td>
-      <td>The length is 6. The values indicate, in order, the padding sizes for the left, right, top, bottom, front, and back. The first two values of padding must be smaller than the size of the last dimension of self. The middle two values must be smaller than the size of the second-to-last dimension of self. The last two values must be smaller than the size of the third-to-last dimension of self.</td>
+      <td>The length is 6. The values indicate, in order, the padding sizes for the left, right, top, bottom, front, and back. For FLOAT16, FLOAT32, and BFLOAT16, each element must be greater than or equal to 0; DOUBLE, COMPLEX64, and COMPLEX128 use the AICPU path. The last three dimensions must satisfy: gradOutput size = self size + the corresponding pair of padding values (left+right, top+bottom, front+back).</td>
       <td>INT64</td>
       <td>-</td>
       <td>-</td>
@@ -109,7 +109,7 @@ aclnnStatus aclnnReplicationPad3dBackward(
       <td>gradInput (aclTensor*)</td>
       <td>Output</td>
       <td>Output of backward propagation.</td>
-      <td>Dimension support: four or five dimensions, consistent with gradOutput and self. The dtype must be consistent with gradOutput.</td>
+      <td>Dimension support: four or five dimensions, consistent with gradOutput and self. The dtype must be consistent with gradOutput. Empty tensor support: same as self.</td>
       <td>Consistent with self</td>
       <td>ND</td>
       <td>Consistent with self</td>
@@ -137,9 +137,15 @@ aclnnStatus aclnnReplicationPad3dBackward(
     </tr>
   </tbody></table>
 
+> Note: FLOAT16, FLOAT32, and BFLOAT16 are implemented by AscendC; DOUBLE, COMPLEX64, and COMPLEX128 are executed through the AICPU fallback. Availability depends on whether the CANN AICPU kernel is shipped for the target product; the AICPU path may be slower than the AI Core path.
+
   <!-- npu="910" id7 -->
   - <term>Atlas training products</term>: The BFLOAT16 data type is not supported.
   <!-- end id7 -->
+
+  <!-- npu="950,A3,910b" id8 -->
+  - For <term>Ascend 950PR&950DT products</term>, <term>Atlas A2 products</term>, and <term>Atlas A3 products</term>, when the data type is FLOAT16, FLOAT32, or BFLOAT16, each element of padding must be greater than or equal to 0.
+  <!-- end id8 -->
 
 - **Return Value**
 
@@ -175,16 +181,17 @@ aclnnStatus aclnnReplicationPad3dBackward(
       <td>self is an empty tensor and one of the last 4 dimensions has a size of 0.</td>
     </tr>
     <tr>
-      <td>The value in padding is greater than or equal to the dimension of self.</td>
-    </tr>
-    <tr>
       <td>The size of padding is not 6.</td>
     </tr>
     <tr>
       <td>The shape of gradOutput must be consistent with the output of the replication_pad3d forward propagation.</td>
     </tr>
+    <tr>
+      <td>The data type is FLOAT16, FLOAT32, or BFLOAT16 and padding contains a negative value.</td>
+    </tr>
   </tbody>
   </table>
+
 
 ## aclnnReplicationPad3dBackward
 

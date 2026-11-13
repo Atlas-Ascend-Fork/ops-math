@@ -288,14 +288,9 @@ TEST_F(replication_pad3d_backward_test, case_empty_grad_output_nonzero_grad_inpu
     EXPECT_EQ(aclRet, ACLNN_SUCCESS);
 }
 
-// A2/A3 AiCore dtypes: negative padding rejected in GetWorkspaceSize (161002).
-TEST_F(replication_pad3d_backward_test, case_negative_padding_arch22_aicore_dtype)
+// AI Core dtypes: negative padding rejected in GetWorkspaceSize (161002) on all platforms.
+TEST_F(replication_pad3d_backward_test, case_negative_padding_aicore_dtype)
 {
-    auto socVersion = op::GetCurrentPlatformInfo().GetSocVersion();
-    if (socVersion != op::SocVersion::ASCEND910B && socVersion != op::SocVersion::ASCEND910_93) {
-        GTEST_SKIP() << "negative padding intercept applies only to Ascend910B/Ascend910_93 AiCore dtypes";
-    }
-
     // self [1,1,4,5,6], padding [-1,1,0,2,1,0] -> gradOutput [1,1,5,7,6] (issue #3965)
     auto grad_output_tensor_desc = TensorDesc({1, 1, 5, 7, 6}, ACL_FLOAT, ACL_FORMAT_ND).ValueRange(1, 1);
     auto input_tensor_desc = TensorDesc({1, 1, 4, 5, 6}, ACL_FLOAT, ACL_FORMAT_ND);

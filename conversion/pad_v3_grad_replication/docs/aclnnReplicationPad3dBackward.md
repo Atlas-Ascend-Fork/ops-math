@@ -77,7 +77,7 @@ aclnnStatus aclnnReplicationPad3dBackward(
       <td>gradOutput（aclTensor*）</td>
       <td>输入</td>
       <td>反向传播的输入</td>
-      <td>维度支持四维或五维且与self和gradInput一致，shape、dtype需要与正向传播aclnnReplicationPad3d的输出out一致。</td>
+      <td>维度支持四维或五维且与self和gradInput一致，shape、dtype需要与正向传播aclnnReplicationPad3d的输出out一致。空Tensor支持度：4维空Tensor不支持；5维空Tensor仅支持第0维为0，此时输出gradInput为全0，后4维存在0时报错。</td>
       <td>FLOAT16、FLOAT32、BFLOAT16、DOUBLE、COMPLEX64、COMPLEX128。</td>
       <td>ND</td>
       <td>维度与self保持一致</td>
@@ -87,7 +87,7 @@ aclnnStatus aclnnReplicationPad3dBackward(
       <td>self（aclTensor*）</td>
       <td>输入</td>
       <td>正向的输入张量</td>
-      <td>维度支持四维或五维且与gradOutput和gradInput一致，shape、dtype需要与gradInput一致。</td>
+      <td>维度支持四维或五维且与gradOutput和gradInput一致，shape、dtype需要与gradInput一致。空Tensor支持度：同gradOutput。</td>
       <td>FLOAT16、FLOAT32、BFLOAT16、DOUBLE、COMPLEX64、COMPLEX128</td>
       <td>ND</td>
       <td>4-5</td>
@@ -97,7 +97,7 @@ aclnnStatus aclnnReplicationPad3dBackward(
       <td>padding（aclIntArray*）</td>
       <td>输入</td>
       <td>-</td>
-      <td>长度为6，数值依次代表左右上下前后需要填充的值。padding前两个数值需小于self最后一维度的数值，中间两个数值需小于self倒数第二维度的数值，后两个数值需小于self倒数第三维度的数值。</td>
+      <td>长度为6，数值依次代表左右上下前后需要填充的值。FLOAT16、FLOAT32、BFLOAT16 时各元素须大于等于0；DOUBLE、COMPLEX64、COMPLEX128 走 AICPU 路径。且需满足：gradOutput 最后一维 = self 最后一维 + 前两个数值之和，gradOutput 倒数第二维 = self 倒数第二维 + 中间两个数值之和，gradOutput 倒数第三维 = self 倒数第三维 + 后两个数值之和。</td>
       <td>INT64</td>
       <td>-</td>
       <td>-</td>
@@ -107,7 +107,7 @@ aclnnStatus aclnnReplicationPad3dBackward(
       <td>gradInput（aclTensor*）</td>
       <td>输出</td>
       <td>反向传播的输出</td>
-      <td>维度支持四维或五维且与gradOutput和self一致，dtype需要与gradOutput一致。</td>
+      <td>维度支持四维或五维且与gradOutput和self一致，dtype需要与gradOutput一致。空Tensor支持度：同self。</td>
       <td>与self保持一致</td>
       <td>ND</td>
       <td>与self保持一致</td>
@@ -135,11 +135,14 @@ aclnnStatus aclnnReplicationPad3dBackward(
     </tr>
   </tbody></table>
 
+> 说明：FLOAT16、FLOAT32、BFLOAT16 由 AscendC 实现；DOUBLE、COMPLEX64、COMPLEX128 由 AICPU 回退执行，是否可用取决于对应产品的 CANN AICPU 内核交付情况；AICPU 路径性能可能低于 AI Core 路径。
+
   <!-- npu="910" id7 -->
   - <term>Atlas训练系列产品</term>：数据类型不支持BFLOAT16。
   <!-- end id7 -->
-  <!-- npu="A3,910b" id8 -->
-  - <term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>：数据类型为FLOAT16、FLOAT32、BFLOAT16时，padding各元素须大于等于0。
+
+  <!-- npu="950,A3,910b" id8 -->
+  - <term>Ascend 950PR&950DT系列产品</term>、<term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>：数据类型为FLOAT16、FLOAT32、BFLOAT16时，padding各元素须大于等于0。
   <!-- end id8 -->
 
 - **返回值**
@@ -165,8 +168,8 @@ aclnnStatus aclnnReplicationPad3dBackward(
       <td>Tensor为空指针。</td>
     </tr>
     <tr>
-      <td rowspan="7">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="7">161002</td>
+      <td rowspan="6">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="6">161002</td>
       <td>gradOutput、self、padding和gradInput的数据类型或数据格式不在支持的范围之内。</td>
     </tr>
     <tr>
@@ -176,16 +179,13 @@ aclnnStatus aclnnReplicationPad3dBackward(
       <td>self为空tensor且后4维存在维度大小为0。</td>
     </tr>
     <tr>
-      <td>padding内的数值大于等于self的维度。</td>
-    </tr>
-    <tr>
       <td>padding的size不等于6。</td>
     </tr>
     <tr>
       <td>gradOutput shape需要与replication_pad3d正向传播的output一致。</td>
     </tr>
     <tr>
-      <td>Atlas A2系列产品、Atlas A3系列产品上，数据类型为FLOAT16、FLOAT32、BFLOAT16且padding含负值。</td>
+      <td>数据类型为FLOAT16、FLOAT32、BFLOAT16且padding含负值。</td>
     </tr>
   </tbody>
   </table>

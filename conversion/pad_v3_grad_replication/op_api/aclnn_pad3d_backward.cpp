@@ -104,34 +104,27 @@ inline static bool CheckFormat(const aclTensor* gradOutput, const aclTensor* sel
     return true;
 }
 
-// A2/A3 上 FLOAT/FLOAT16/BF16 走 PadV3GradReplication(arch22)，padding 存 uint32，
-// 负值会变成超大数并在 device 侧失败，故仅对该组合拦截。其余 dtype/平台不在此拦截。
-inline static bool IsReplicationPad3dGradArch22Platform()
+// FLOAT/FLOAT16/BF16 走 PadV3GradReplication AscendC 实现（arch22/arch35），padding 以无符号语义
+// 参与 Tiling 与寻址，负值会被解释为超大数，故在各平台统一提前拦截。DOUBLE/COMPLEX 走 AICPU 回退，
+// 不在此拦截。
+inline static bool IsReplicationPad3dGradAiCoreDtype(const aclTensor* gradOutput)
 {
-    auto socVersion = GetCurrentPlatformInfo().GetSocVersion();
-    return socVersion == SocVersion::ASCEND910B || socVersion == SocVersion::ASCEND910_93;
-}
-
-inline static bool IsReplicationPad3dGradArch22AiCoreDtype(const aclTensor* gradOutput)
-{
-    static const std::initializer_list<op::DataType> arch22AiCoreDtypeList = {
+    static const std::initializer_list<op::DataType> aiCoreDtypeList = {
         op::DataType::DT_FLOAT, op::DataType::DT_FLOAT16, op::DataType::DT_BF16};
-    return CheckType(gradOutput->GetDataType(), arch22AiCoreDtypeList);
+    return CheckType(gradOutput->GetDataType(), aiCoreDtypeList);
 }
 
-inline static bool CheckReplicationNonNegativePaddingOnArch22(const aclTensor* gradOutput, const aclIntArray* padding,
-                                                              const string& mode)
+inline static bool CheckReplicationNonNegativePadding(const aclTensor* gradOutput, const aclIntArray* padding,
+                                                      const string& mode)
 {
-    if (mode != REPLICATION_PAD_MODE || !IsReplicationPad3dGradArch22Platform() ||
-        !IsReplicationPad3dGradArch22AiCoreDtype(gradOutput)) {
+    if (mode != REPLICATION_PAD_MODE || !IsReplicationPad3dGradAiCoreDtype(gradOutput)) {
         return true;
     }
     for (size_t i = 0; i < padding->Size(); ++i) {
         if ((*padding)[i] < 0) {
             OP_LOGE(ACLNN_ERR_PARAM_INVALID,
-                    "negative padding is not supported for FLOAT/FLOAT16/BF16 on Ascend910B/Ascend910_93, "
-                    "got %ld at index %zu.",
-                    (*padding)[i], i);
+                    "negative padding is not supported for FLOAT/FLOAT16/BF16, got %ld at index %zu.", (*padding)[i],
+                    i);
             return false;
         }
     }
@@ -159,8 +152,8 @@ inline static bool CheckShape(const aclTensor* gradOutput, const aclTensor* self
              OP_LOGE(ACLNN_ERR_PARAM_INVALID, "padding length should be 6, but got %zu.", padding->Size()),
              return false);
 
-    // A2/A3 + AiCore dtype：拒绝负 padding，避免 arch22 设备侧运行时错误
-    if (!CheckReplicationNonNegativePaddingOnArch22(gradOutput, padding, mode)) {
+    // AiCore dtype：拒绝负 padding，避免 arch22/arch35 设备侧运行时错误
+    if (!CheckReplicationNonNegativePadding(gradOutput, padding, mode)) {
         return false;
     }
 
@@ -273,7 +266,7 @@ static aclnnStatus CommonPad3dBackward(const aclTensor* gradOutput, const aclTen
     auto ret = CheckParams(gradOutput, self, padding, mode, gradInput);
     CHECK_RET(ret == ACLNN_SUCCESS, ret);
 
-    // 空tensor处理
+    // 空tensor处理：4维输入无 batch 维，不接受空 Tensor；5维仅允许 batch 维为 0，输出全 0
     if (gradOutput->IsEmpty() || self->IsEmpty() || gradInput->IsEmpty()) {
         // 4 is dim number
         if (self->GetViewShape().GetDimNum() == 4) {

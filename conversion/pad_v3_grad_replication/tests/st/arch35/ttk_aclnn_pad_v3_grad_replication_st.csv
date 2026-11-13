@@ -1,0 +1,6 @@
+testcase_name,api_name,tensor_view_shapes,tensor_dtypes,input_data_ranges,attributes,output_tensor_indexes,remark
+aclnn_pad_v3_grad_replication_4d_fp32,aclnnReplicationPad3dBackward,"((1,6,7,8),(1,4,5,6),(1,4,5,6))","('float32','float32','float32')","((-1,1),(-1,1),(-1,1))","{'padding': [1, 1, 1, 1, 1, 1]}","(2,)",public-api-golden
+aclnn_pad_v3_grad_replication_4d_fp16,aclnnReplicationPad3dBackward,"((2,5,5,8),(2,3,4,5),(2,3,4,5))","('float16','float16','float16')","((-1,1),(-1,1),(-1,1))","{'padding': [1, 2, 0, 1, 2, 0]}","(2,)",public-api-golden
+aclnn_pad_v3_grad_replication_4d_bf16,aclnnReplicationPad3dBackward,"((1,2,5,8),(1,2,3,4),(1,2,3,4))","('bfloat16','bfloat16','bfloat16')","((-1,1),(-1,1),(-1,1))","{'padding': [2, 2, 1, 1, 0, 0]}","(2,)",public-api-golden
+aclnn_pad_v3_grad_replication_5d_fp32,aclnnReplicationPad3dBackward,"((2,3,6,7,8),(2,3,4,5,6),(2,3,4,5,6))","('float32','float32','float32')","((-1,1),(-1,1),(-1,1))","{'padding': [1, 1, 1, 1, 1, 1]}","(2,)",public-api-golden
+aclnn_pad_v3_grad_replication_5d_fp16,aclnnReplicationPad3dBackward,"((1,2,4,6,8),(1,2,3,4,5),(1,2,3,4,5))","('float16','float16','float16')","((-1,1),(-1,1),(-1,1))","{'padding': [2, 1, 0, 2, 1, 0]}","(2,)",public-api-golden
