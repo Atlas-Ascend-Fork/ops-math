@@ -439,7 +439,8 @@ aclnnStatus aclnnInplaceBernoulliTensor(
 
 - 确定性计算：aclnnBernoulliTensor&aclnnInplaceBernoulliTensor默认确定性实现。
 - 输入prob的元素值域必须为[0, 1]。
-- 输入prob的shape须可广播到self/selfRef的shape，不可广播时接口报错。
+- 输入prob的shape须可广播到self/selfRef的shape，不可广播时接口报错。广播不能改变self/selfRef的shape。
+- 非空out/selfRef不允许存在长度大于1且stride为0的维度，以避免多个输出元素写入同一存储位置。请先拷贝为无内部重叠的Tensor后再调用。
 
 ## 调用示例
 

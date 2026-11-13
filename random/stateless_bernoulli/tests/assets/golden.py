@@ -41,13 +41,13 @@ __golden__ = {
     "kernel": {"stateless_bernoulli": "stateless_bernoulli_golden"},
     "aclnn": {
         "aclnnBernoulli": "aclnn_bernoulli_golden",
-        "aclnnInplaceBernoulli": "aclnn_bernoulli_golden",
+        "aclnnInplaceBernoulli": "aclnn_inplace_bernoulli_golden",
         "aclnnBernoulliTensor": "aclnn_bernoulli_tensor_golden",
-        "aclnnInplaceBernoulliTensor": "aclnn_bernoulli_tensor_golden",
+        "aclnnInplaceBernoulliTensor": "aclnn_inplace_bernoulli_tensor_golden",
     },
     # e2e 通路（api_name = torch framework API 路径）：精度 golden 走本层注册，
     # 与 __spec__（三方/性能路由）无关。签名契约与 plan.build_args 装配结果一致：
-    # (self, p, generator, *extra attrs)，seed/offset 经 extra attrs（**kwargs）注入。
+    # (self, p, generator)：generator spec 按 ops-test-kit PR #578 原样传给 golden。
     "e2e": {
         # torch.ops.aten 具名 overload：p 为 float（标量）/ Tensor（张量）两种，
         # 由 e2e_bernoulli_golden 内按 p 类型自动分流。
@@ -63,12 +63,14 @@ __golden__ = {
 # 预建 generator（不计时），__call__ 仅含被测 bernoulli_ —— device_us 只累加真实 device
 # kernel 条目，prob 的 H2D 拷贝与 dtype cast 若留在 __call__ 会污染统计。
 # 本注册不声明 golden 属性，golden 查找自动回落到上方 __golden__。
+#
+# e2e 的 generator 物化/逐轮复位由框架负责；算子侧只注册 golden，不再重设默认 RNG。
 __spec__ = {
     "stateless_bernoulli": "StatelessBernoulliTestSpec",
     "aclnnBernoulli": "AclnnBernoulliTestSpec",
-    "aclnnInplaceBernoulli": "AclnnBernoulliTestSpec",
+    "aclnnInplaceBernoulli": "AclnnInplaceBernoulliTestSpec",
     "aclnnBernoulliTensor": "AclnnBernoulliTensorTestSpec",
-    "aclnnInplaceBernoulliTensor": "AclnnBernoulliTensorTestSpec",
+    "aclnnInplaceBernoulliTensor": "AclnnInplaceBernoulliTensorTestSpec",
 }
 
 _DT_ENUM = {
@@ -110,6 +112,66 @@ def _xpu_np(x):
     return _np.asarray(x)
 
 
+def _seed_generator(gen, seed, offset):
+    """按 (seed, offset) 设置 generator：manual_seed 归零 offset 后，CUDA
+    generator 的 Philox offset 需写入 state（16 字节 = seed[0:8] +
+    offset[8:16]，与 bernoulli_remote_golden 的全局状态 patch 同构）；CPU
+    MT19937 无 offset 语义，跳过。offset 容忍标量/tensor/numpy（kernel 通路
+    传 numpy 数组、aclnn 通路传 tensor 或标量）。"""
+    offset_v = int(offset.item() if hasattr(offset, "item") else offset)
+    gen.manual_seed(int(seed))
+    if gen.device.type != "cuda":
+        return
+    st = gen.get_state()
+    st[8:16] = torch.tensor(
+        list(struct.pack("<Q", offset_v & 0xFFFFFFFFFFFFFFFF)),
+        dtype=torch.uint8,
+    )
+    gen.set_state(st)
+
+
+def _kernel_shape_and_prob(shape, prob, input_ori_shapes=None):
+    """Recover logical scalars when TTK promotes () to a one-element array."""
+    shape_arr = _xpu_np(shape)
+    prob_arr = _xpu_np(prob)
+    declared = input_ori_shapes or ()
+    rank_zero_shape = shape_arr.ndim == 0 or (len(declared) > 0 and declared[0] == ())
+    output_shape = [] if rank_zero_shape else [int(s) for s in shape_arr.reshape(-1)]
+    if len(declared) > 1 and declared[1] == ():
+        prob_arr = prob_arr.reshape(())
+    return output_shape, prob_arr
+
+
+def _check_writable_tensor(tensor):
+    """CUDA assert_no_internal_overlap semantics, before any layout materialization.
+
+    Non-zero-stride layouts with indeterminate overlap are not rejected here,
+    matching PyTorch's MemOverlap::TooHard behavior. Empty tensors are no-ops.
+    """
+    if tensor is None or any(int(size) == 0 for size in tensor.shape):
+        return
+    strides = tensor.stride() if isinstance(tensor, torch.Tensor) else tensor.strides
+    if any(
+        int(size) > 1 and stride == 0 for size, stride in zip(tensor.shape, strides)
+    ):
+        raise RuntimeError(
+            "unsupported operation: more than one element of the written-to tensor "
+            "refers to a single memory location. Please clone() the tensor before "
+            "performing the operation."
+        )
+
+
+def _reference_output(self_t, out, device):
+    """Preserve a supplied output view instead of hiding it behind empty(shape)."""
+    _check_writable_tensor(out)
+    if isinstance(out, torch.Tensor):
+        storage_size = out.untyped_storage().nbytes() // out.element_size()
+        storage = torch.empty(storage_size, dtype=out.dtype, device=device)
+        return storage.as_strided(out.shape, out.stride(), out.storage_offset())
+    dtype = self_t.dtype if isinstance(self_t, torch.Tensor) else torch.float32
+    return torch.empty(list(self_t.shape), dtype=dtype, device=device)
+
+
 class BernoulliTorchImpl:
     """kernel 通路（参数 shape/prob/seed/offset/dtype）：prob 单元素走标量重载。"""
 
@@ -117,9 +179,10 @@ class BernoulliTorchImpl:
         import numpy as _np
         import torch
 
-        self.shape = [int(s) for s in _xpu_np(shape).reshape(-1)]
+        self.shape, prob_arr = _kernel_shape_and_prob(
+            shape, prob, kwargs.get("input_ori_shapes")
+        )
         self.seed = int(_xpu_np(seed).reshape(-1)[0])
-        prob_arr = _xpu_np(prob)
         self.is_scalar = prob_arr.size == 1
         dt = _TORCH_DT.get(
             _DT_ENUM.get(int(dtype) if dtype is not None else 0, "float32"), "float32"
@@ -127,7 +190,7 @@ class BernoulliTorchImpl:
         # 预分配（按目标 dtype，免 cast kernel）/ 预建 generator / prob 预上卡（免 H2D 计时）
         self.out = torch.empty(self.shape, device=device, dtype=getattr(torch, dt))
         self.gen = torch.Generator(device=device)
-        self.gen.manual_seed(self.seed)
+        _seed_generator(self.gen, self.seed, offset)
         if self.is_scalar:
             self.p = float(prob_arr.reshape(-1)[0])
             self.prob_t = None
@@ -150,23 +213,40 @@ class BernoulliTorchImpl:
 class AclnnBernoulliImpl:
     """aclnn 标量 API（参数 self/prob/seed/offset）：self 为 shape/dtype 载体。"""
 
-    def __init__(self, self_t, prob, seed=0, offset=0, device=None, **kwargs):
+    def __init__(
+        self,
+        self_t=None,
+        prob=None,
+        seed=0,
+        offset=0,
+        out=None,
+        *args,
+        device=None,
+        **kwargs,
+    ):
         import torch
 
+        # TTK delivers the API parameter named "self" via *args to avoid the
+        # Python instance parameter of the same name. Direct callers use self_t.
+        self_t = self_t if self_t is not None else args[0]
         self.shape = list(self_t.shape)
         self.seed = int(seed.item() if hasattr(seed, "item") else seed)
         self.p = float(prob.item() if hasattr(prob, "item") else prob)
-        self.out = torch.empty(
-            self.shape,
-            device=device,
-            dtype=self_t.dtype
-            if hasattr(self_t, "dtype") and not isinstance(self_t.dtype, str)
-            else torch.float32,
-        )
+        self.out = _reference_output(self_t, out, device)
         self.gen = torch.Generator(device=device)
-        self.gen.manual_seed(self.seed)
+        _seed_generator(self.gen, self.seed, offset)
 
-    def __call__(self, self_t, prob, seed=0, offset=0, device=None, **kwargs):
+    def __call__(
+        self,
+        self_t=None,
+        prob=None,
+        seed=0,
+        offset=0,
+        out=None,
+        *args,
+        device=None,
+        **kwargs,
+    ):
         self.out.bernoulli_(self.p, generator=self.gen)
         return [self.out]
 
@@ -174,20 +254,25 @@ class AclnnBernoulliImpl:
 class AclnnBernoulliTensorImpl:
     """aclnn 张量 API：prob 为概率张量（可广播），__init__ 预搬上卡。"""
 
-    def __init__(self, self_t, prob, seed=0, offset=0, device=None, **kwargs):
+    def __init__(
+        self,
+        self_t=None,
+        prob=None,
+        seed=0,
+        offset=0,
+        out=None,
+        *args,
+        device=None,
+        **kwargs,
+    ):
         import torch
 
+        self_t = self_t if self_t is not None else args[0]
         self.shape = list(self_t.shape)
         self.seed = int(seed.item() if hasattr(seed, "item") else seed)
-        self.out = torch.empty(
-            self.shape,
-            device=device,
-            dtype=self_t.dtype
-            if hasattr(self_t, "dtype") and not isinstance(self_t.dtype, str)
-            else torch.float32,
-        )
+        self.out = _reference_output(self_t, out, device)
         self.gen = torch.Generator(device=device)
-        self.gen.manual_seed(self.seed)
+        _seed_generator(self.gen, self.seed, offset)
         prob_t = (
             prob if isinstance(prob, torch.Tensor) else torch.from_numpy(_xpu_np(prob))
         )
@@ -195,9 +280,39 @@ class AclnnBernoulliTensorImpl:
             prob_t = prob_t.to(torch.float32)
         self.prob_t = prob_t.to(device)
 
-    def __call__(self, self_t, prob, seed=0, offset=0, device=None, **kwargs):
+    def __call__(
+        self,
+        self_t=None,
+        prob=None,
+        seed=0,
+        offset=0,
+        out=None,
+        *args,
+        device=None,
+        **kwargs,
+    ):
         self.out.bernoulli_(p=self.prob_t, generator=self.gen)
         return [self.out]
+
+
+class AclnnInplaceBernoulliImpl(AclnnBernoulliImpl):
+    def __init__(self, selfRef, prob, seed=0, offset=0, device=None, **kwargs):
+        super().__init__(
+            selfRef, prob, seed, offset, out=selfRef, device=device, **kwargs
+        )
+
+    def __call__(self, selfRef, prob, seed=0, offset=0, device=None, **kwargs):
+        return super().__call__(selfRef, prob, seed, offset, device=device, **kwargs)
+
+
+class AclnnInplaceBernoulliTensorImpl(AclnnBernoulliTensorImpl):
+    def __init__(self, selfRef, prob, seed=0, offset=0, device=None, **kwargs):
+        super().__init__(
+            selfRef, prob, seed, offset, out=selfRef, device=device, **kwargs
+        )
+
+    def __call__(self, selfRef, prob, seed=0, offset=0, device=None, **kwargs):
+        return super().__call__(selfRef, prob, seed, offset, device=device, **kwargs)
 
 
 class StatelessBernoulliTestSpec:
@@ -210,6 +325,14 @@ class AclnnBernoulliTestSpec:
 
 class AclnnBernoulliTensorTestSpec:
     third_party = {"torch": AclnnBernoulliTensorImpl}
+
+
+class AclnnInplaceBernoulliTestSpec:
+    third_party = {"torch": AclnnInplaceBernoulliImpl}
+
+
+class AclnnInplaceBernoulliTensorTestSpec:
+    third_party = {"torch": AclnnInplaceBernoulliTensorImpl}
 
 
 # ============================================================
@@ -421,6 +544,8 @@ def _prob_offset(li, output_shape, strides):
     """多维索引到 prob 偏移（与 kernel ProbIndexToOffset 同式）。"""
     li = np.asarray(li, dtype=np.int64)
     offset = np.zeros_like(li)
+    if not strides:  # 0 维输出：唯一元素偏移恒 0（恒指 prob 首元素）
+        return offset
     for i in range(len(output_shape) - 1, 0, -1):
         offset += (li % int(output_shape[i])) * strides[i]
         li = li // int(output_shape[i])
@@ -607,14 +732,15 @@ def _scalar_p(prob_arr):
 def stateless_bernoulli_golden(
     shape, prob, seed, offset, dtype=0, probMode=0, **kwargs
 ):
-    shape_arr = np.asarray(shape).reshape(-1)
-    prob_arr = np.asarray(prob)
-    output_shape = [int(s) for s in shape_arr]
+    output_shape, prob_arr = _kernel_shape_and_prob(
+        shape, prob, kwargs.get("input_ori_shapes")
+    )
     n = int(np.prod(output_shape)) if output_shape else 1
     out_dtype = (kwargs.get("output_dtypes") or ["float32"])[0]
     np_dt = np.float32 if out_dtype == "bfloat16" else _NP_DT.get(out_dtype, np.float32)
     if n == 0:
-        return np.zeros(0, dtype=np_dt)
+        # Preserve the declared empty shape instead of collapsing to (0,).
+        return np.zeros(list(output_shape), dtype=np_dt)
 
     mode = "scalar" if int(probMode or 0) == 1 else "tensor"
     if mode == "scalar":
@@ -643,7 +769,7 @@ def stateless_bernoulli_golden(
 
 # ============================================================
 # aclnn 层 golden（参数与 GetWorkspaceSize 一致，输入 torch.Tensor；
-# ttk build_args 位置传参：非 inplace API 尾部追加 out=None）
+# 非 inplace 检查显式 out；inplace 注册到独立 wrapper，检查 self 写目标）
 # ============================================================
 
 
@@ -659,6 +785,8 @@ def aclnn_bernoulli_golden(
     n = int(np.prod(shape)) if shape else 1
     if n == 0:
         return torch.empty(shape, dtype=dtype_t)
+
+    _check_writable_tensor(out)
 
     # probMode=0 显式覆盖为张量语义（单值张量广播）
     if probMode == 0:
@@ -697,6 +825,8 @@ def aclnn_bernoulli_tensor_golden(
     if n == 0:
         return torch.empty(shape, dtype=dtype_t)
 
+    _check_writable_tensor(out)
+
     prob_t = prob.detach().cpu() if hasattr(prob, "detach") else prob
     prob_np = (
         prob_t.float().numpy() if prob_t.dtype is torch.bfloat16 else prob_t.numpy()
@@ -728,23 +858,69 @@ def aclnn_bernoulli_tensor_golden(
     return torch.from_numpy(out).to(dtype_t).reshape(shape)
 
 
+def aclnn_inplace_bernoulli_golden(self, prob, seed=0, offset=0, **kwargs):
+    return aclnn_bernoulli_golden(self, prob, seed, offset, out=self, **kwargs)
+
+
+def aclnn_inplace_bernoulli_tensor_golden(self, prob, seed=0, offset=0, **kwargs):
+    return aclnn_bernoulli_tensor_golden(self, prob, seed, offset, out=self, **kwargs)
+
+
 # ============================================================
 # e2e 层 golden（torch.Tensor.bernoulli_）
 # 签名与 plan.build_args 装配结果对齐：(self, p=..., generator=None)；
-# seed/offset 不在 API 签名里，来自 CSV attributes 注入 **kwargs。
+# seed/offset 仅从 generator spec 读取；框架负责设备侧物化与逐轮复位。
 # p 为 float → 标量语义；p 为 Tensor（广播）→ 张量语义。
 # ============================================================
 
 
-def e2e_bernoulli_golden(self, p=None, generator=None, seed=0, offset=0, **kwargs):
-    seed_v = _to_u64(_scalar_of(seed))
-    offset_v = _to_u64(_scalar_of(offset))
+def _e2e_generator_seed_offset(generator):
+    """Consume merged PR #578's explicit dict/GeneratorSpec without RNG side effects."""
+    if not isinstance(generator, dict):
+        raise ValueError(
+            "Bernoulli E2E golden requires a generator spec: "
+            "attributes={'generator': {'seed': 42, 'offset': 4}}; "
+            "use ops-test-kit with PR #578 support, not a materialized Generator."
+        )
+    unknown = set(generator) - {"seed", "offset"}
+    seed = generator.get("seed")
+    offset = generator.get("offset", 0)
+    if (
+        unknown
+        or not isinstance(seed, int)
+        or isinstance(seed, bool)
+        or not -(2**63) <= seed < 2**64
+    ):
+        raise ValueError(
+            "GENERATOR_SPEC_INVALID: expected seed int in [-2^63, 2^64), keys {seed, offset}"
+        )
+    if (
+        not isinstance(offset, int)
+        or isinstance(offset, bool)
+        or offset < 0
+        or offset % 4
+    ):
+        raise ValueError(
+            "GENERATOR_SPEC_INVALID: offset must be a non-negative int multiple of 4"
+        )
+    # torch.Generator accepts the full uint64 seed domain and remaps negative seeds.
+    # Do not narrow through np.int64: seeds >= 2^63 are valid under PR #578.
+    return seed & 0xFFFFFFFFFFFFFFFF, offset
+
+
+def e2e_bernoulli_golden(self, p=None, generator=None, **kwargs):
+    _check_writable_tensor(self)
+    if "seed" in kwargs or "offset" in kwargs:
+        raise ValueError(
+            "Move E2E seed/offset into attributes.generator; top-level seed/offset are no longer supported"
+        )
+    seed_v, offset_v = _e2e_generator_seed_offset(generator)
     shape = list(self.shape)
     n = int(np.prod(shape)) if shape else 1
     dtype_t = self.dtype
     dt = str(dtype_t).replace("torch.", "")
     if n == 0:
-        return torch.empty(shape, dtype=dtype_t).bernoulli_()
+        return torch.empty(shape, dtype=dtype_t)
 
     if isinstance(p, torch.Tensor):
         prob_t = p.detach().cpu()

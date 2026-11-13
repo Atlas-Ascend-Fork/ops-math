@@ -34,12 +34,28 @@ import time
 import numpy as np
 
 
+def _allocate_output(req, dtype, device="cuda"):
+    """Keep the original write view so CUDA, not a dense substitute, validates it."""
+    import torch
+
+    shape = list(req["shape"])
+    strides = req.get("out_strides")
+    if strides is None:
+        return torch.empty(shape, device=device, dtype=dtype)
+    storage = torch.empty(int(req["out_storage_size"]), device=device, dtype=dtype)
+    return storage.as_strided(
+        shape, tuple(strides), int(req.get("out_storage_offset", 0))
+    )
+
+
 def gpu_golden_full(req):
     """在 GPU 上执行 bernoulli，返回完整输出原始字节（供 golden.py 远程模式逐 bit 比对）
 
     req: {"mode": "scalar"|"tensor", "shape": [...], "p": float,        # scalar 模式
           "prob_data": bytes, "prob_shape": [...], "prob_dtype": str,   # tensor 模式
-          "seed": int, "offset": int, "dtype": str}
+          "seed": int, "offset": int, "dtype": str,
+          "out_strides": [...], "out_storage_size": int, "out_storage_offset": int}
+    out_* fields are optional; when present the original output view is preserved.
     """
     import torch
 
@@ -96,8 +112,9 @@ def gpu_golden_full(req):
     )
     torch.cuda.set_rng_state(st)
 
+    out = _allocate_output(req, dt)
     if mode == "scalar":
-        out = torch.empty(shape, device="cuda", dtype=dt).bernoulli_(float(req["p"]))
+        out.bernoulli_(float(req["p"]))
     else:
         np_dt = np.dtype(
             {
@@ -111,7 +128,7 @@ def gpu_golden_full(req):
         if req["prob_dtype"] == "bfloat16":
             prob = prob.view(torch.bfloat16)
         prob = prob.reshape(list(req["prob_shape"])).cuda()
-        out = torch.empty(shape, device="cuda", dtype=dt).bernoulli_(p=prob)
+        out.bernoulli_(p=prob)
 
     tc = out.cpu()
     if uint_proxy:

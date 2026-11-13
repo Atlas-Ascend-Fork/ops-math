@@ -211,6 +211,49 @@ static bool CheckShapeTensor(const aclTensor* self, const aclTensor* prob, const
     OP_CHECK_MAX_DIM(self, MAX_SHAPE_LENGTH, return false);
     OP_CHECK_MAX_DIM(prob, MAX_SHAPE_LENGTH, return false);
     OP_CHECK_SHAPE_NOT_EQUAL(self, out, return false);
+    // Empty targets are no-ops, matching the early return in the API.
+    if (self->IsEmpty()) {
+        return true;
+    }
+    if (prob->IsEmpty()) {
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "prob is empty while self is not, which is not broadcastable to self shape.");
+        return false;
+    }
+    const auto& target = self->GetViewShape();
+    const auto& source = prob->GetViewShape();
+    if (source.GetDimNum() > target.GetDimNum()) {
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "prob rank must not exceed self rank.");
+        return false;
+    }
+    const size_t leading = target.GetDimNum() - source.GetDimNum();
+    for (size_t dim = 0; dim < source.GetDimNum(); ++dim) {
+        if (source.GetDim(dim) != 1 && source.GetDim(dim) != target.GetDim(leading + dim)) {
+            OP_LOGE(ACLNN_ERR_PARAM_INVALID, "prob shape is not broadcastable to self shape.");
+            return false;
+        }
+    }
+    return true;
+}
+
+static bool CheckOutputNotOverlapping(const aclTensor* out)
+{
+    // Match CUDA bernoulli_: empty tensors return before the internal-overlap check.
+    if (out->IsEmpty()) {
+        return true;
+    }
+    const auto& shape = out->GetViewShape();
+    const auto& strides = out->GetViewStrides();
+    for (size_t dim = 0; dim < shape.GetDimNum(); ++dim) {
+        if (shape.GetDim(dim) > 1 && strides[dim] == 0) {
+            OP_LOGE(ACLNN_ERR_PARAM_INVALID,
+                    "out (selfRef for inplace) has internal overlap: shape %s, strides %s, "
+                    "dimension %zu has size greater than 1 and stride 0. "
+                    "More than one output element refers to a single memory location. "
+                    "Use a non-overlapping output tensor.",
+                    op::ToString(shape).GetString(), op::ToString(strides).GetString(), dim);
+            return false;
+        }
+    }
     return true;
 }
 
@@ -228,6 +271,9 @@ static aclnnStatus CheckParamsTensor(const aclTensor* self, const aclTensor* pro
 
     // 4. 检查数据格式是否支持
     CHECK_RET(CheckFormatTensor(self, prob), ACLNN_ERR_PARAM_INVALID);
+
+    // 用户 out 在 ViewCopy 前仍保留原始 strides；tiling 仅能看到连续临时输出。
+    CHECK_RET(CheckOutputNotOverlapping(out), ACLNN_ERR_PARAM_INVALID);
 
     return ACLNN_SUCCESS;
 }
@@ -249,6 +295,8 @@ static aclnnStatus CheckParams(const aclTensor* self, const aclScalar* prob, con
 
     // 5. 检查数据格式是否支持
     CHECK_RET(CheckFormat(self), ACLNN_ERR_PARAM_INVALID);
+
+    CHECK_RET(CheckOutputNotOverlapping(out), ACLNN_ERR_PARAM_INVALID);
 
     return ACLNN_SUCCESS;
 }
@@ -321,11 +369,6 @@ aclnnStatus aclnnBernoulliTensorGetWorkspaceSize(const aclTensor* self, const ac
         *workspaceSize = 0;
         uniqueExecutor.ReleaseTo(executor);
         return ACLNN_SUCCESS;
-    }
-    if (prob->IsEmpty()) {
-        // 对齐竞品 expand_inplace：self 非空而 prob 为空时不可广播，须报错（原实现静默返回未初始化输出）
-        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "prob is empty while self is not, which is not broadcastable to self shape.");
-        return ACLNN_ERR_PARAM_INVALID;
     }
 
     auto input_contiguous = l0op::Contiguous(self, uniqueExecutor.get());

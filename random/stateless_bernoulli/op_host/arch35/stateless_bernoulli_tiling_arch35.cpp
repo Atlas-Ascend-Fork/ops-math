@@ -42,7 +42,8 @@ OpTilingConfig StatelessBernoulliTiling::BuildOpConfig()
     OpTilingConfig config;
 
     config.inputCheckRules = {
-        {INPUT_IDX_SHAPE, {{ge::DT_INT32, ge::DT_INT64}, -1, {1}, nullptr}},
+        // Accept rank-zero GEIR placeholders and rank-one dimension lists.
+        {INPUT_IDX_SHAPE, {{ge::DT_INT32, ge::DT_INT64}, -1, {0, 1}, nullptr}},
         {INPUT_IDX_PROB, {{ge::DT_FLOAT, ge::DT_FLOAT16, ge::DT_BF16}, -1, {}, nullptr}},
         {INPUT_IDX_SEED, {{ge::DT_INT64}, 1, {}, nullptr}},
         {INPUT_IDX_OFFSET, {{ge::DT_INT64}, 1, {}, nullptr}},
@@ -57,6 +58,27 @@ OpTilingConfig StatelessBernoulliTiling::BuildOpConfig()
     };
 
     config.getOutputSize = [](gert::TilingContext* ctx, int64_t& size) {
+        const auto* shape = ctx->GetInputShape(INPUT_IDX_SHAPE);
+        OP_CHECK_NULL_WITH_CONTEXT(ctx, shape);
+        const auto& logicalShape = shape->GetOriginShape();
+        const auto& storageShape = shape->GetStorageShape();
+        // GE may promote a logical scalar to storage [1]. Interpret the logical
+        // shape consistently with InferShape, not the promoted placeholder value.
+        if (logicalShape.GetDimNum() == 0 || logicalShape.GetShapeSize() == 0) {
+            OP_CHECK_IF(logicalShape.GetShapeSize() != storageShape.GetShapeSize(),
+                        OP_LOGE(ctx->GetNodeName(), "shape origin and storage element counts must match."),
+                        return ge::GRAPH_FAILED);
+            const auto* outputShape = ctx->GetOutputShape(OUTPUT_IDX_Y);
+            OP_CHECK_NULL_WITH_CONTEXT(ctx, outputShape);
+            const auto& outStorage = outputShape->GetStorageShape();
+            const auto& outOrigin = outputShape->GetOriginShape();
+            OP_CHECK_IF(outOrigin.GetDimNum() != 0 || outStorage.GetShapeSize() != 1,
+                        OP_LOGE(ctx->GetNodeName(),
+                                "An empty shape list requires a logical rank-zero output with one storage element."),
+                        return ge::GRAPH_FAILED);
+            size = 1;
+            return ge::GRAPH_SUCCESS;
+        }
         return RandomUtils::GetAndCheckOutputSize<INPUT_IDX_SHAPE, OUTPUT_IDX_Y, false>(ctx, size);
     };
 
@@ -194,12 +216,12 @@ ge::graphStatus StatelessBernoulliTiling::DoSimtBlockTiling()
     // 基类分块计算, 避免极端 shape（>8 分块）误报错
     config_.enableSplitBlocks = isScalarProb_;
 
-    auto probTensor = context_->GetRequiredInputTensor(INPUT_IDX_PROB);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, probTensor);
-    auto outputShape = context_->GetOutputShape(OUTPUT_IDX_Y);
+    const auto* probShapeInfo = context_->GetInputShape(INPUT_IDX_PROB);
+    OP_CHECK_NULL_WITH_CONTEXT(context_, probShapeInfo);
+    const auto* outputShape = context_->GetOutputShape(OUTPUT_IDX_Y);
     OP_CHECK_NULL_WITH_CONTEXT(context_, outputShape);
-    auto outputDims = outputShape->GetStorageShape();
-    auto probShape = probTensor->GetStorageShape();
+    const auto& outputDims = outputShape->GetOriginShape();
+    const auto& probShape = probShapeInfo->GetOriginShape();
 
     if (isScalarProb_) {
         // 标量语义: kernel 仅读 prob 首元素, prob 的 rank/shape 与输出无关(含输出 rank 0),

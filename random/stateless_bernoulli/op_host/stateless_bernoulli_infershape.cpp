@@ -28,12 +28,33 @@ static constexpr size_t STATELESS_BERNOULLI_Y = 0;
 
 static graphStatus InferShapeStatelessBernoulli(gert::InferShapeContext* context)
 {
-    const std::unordered_map<std::string, size_t>& inputMap = {
-        {"shape", STATELESS_BERNOULLI_SHAPE},
-        {"prob", STATELESS_BERNOULLI_PROB},
-        {"seed", STATELESS_BERNOULLI_SEED},
-        {"offset", STATELESS_BERNOULLI_OFFSET}};
+    if (context == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
+    const std::unordered_map<std::string, size_t>& inputMap = {{"shape", STATELESS_BERNOULLI_SHAPE},
+                                                               {"prob", STATELESS_BERNOULLI_PROB},
+                                                               {"seed", STATELESS_BERNOULLI_SEED},
+                                                               {"offset", STATELESS_BERNOULLI_OFFSET}};
     const std::unordered_map<std::string, size_t>& outputMap = {{"y", STATELESS_BERNOULLI_Y}};
+    const auto* shape = context->GetInputShape(STATELESS_BERNOULLI_SHAPE);
+    OP_CHECK_NULL_WITH_CONTEXT(context, shape);
+    // A logical scalar is the GEIR placeholder for an empty dimension list.
+    // Actual rank-one lists, including empty lists, retain the common path.
+    if (shape->GetDimNum() == 0) {
+        const auto* shapeDesc = context->GetInputDesc(STATELESS_BERNOULLI_SHAPE);
+        OP_CHECK_NULL_WITH_CONTEXT(context, shapeDesc);
+        const auto shapeDtype = shapeDesc->GetDataType();
+        OP_CHECK_IF(shapeDtype != ge::DT_INT32 && shapeDtype != ge::DT_INT64,
+                    OP_LOGE(context->GetNodeName(), "shape input must be int32 or int64."), return ge::GRAPH_FAILED);
+        for (size_t index = STATELESS_BERNOULLI_SHAPE; index <= STATELESS_BERNOULLI_OFFSET; ++index) {
+            const auto* inputShape = context->GetInputShape(index);
+            OP_CHECK_NULL_WITH_CONTEXT(context, inputShape);
+        }
+        auto* outputShape = context->GetOutputShape(STATELESS_BERNOULLI_Y);
+        OP_CHECK_NULL_WITH_CONTEXT(context, outputShape);
+        outputShape->SetDimNum(0);
+        return ge::GRAPH_SUCCESS;
+    }
     int32_t mode = ops::randomCommon::MODE_DEPENDENCY;
     return ops::randomCommon::CommonInferShape(context, inputMap, outputMap, mode);
 }

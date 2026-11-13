@@ -14,3 +14,9 @@ set(SUPPORT_COMPUTE_UNIT "ascend950" "ascend350" "ascend960dt" "ascend960pr")
 set(SUPPORT_TILING_DIR "arch35" "arch35" "arch35" "arch35")
 #编译
 add_all_modules_sources(OPTYPE stateless_bernoulli ACLNNTYPE aclnn_exclude COMPUTE_UNIT ${SUPPORT_COMPUTE_UNIT} TILING_DIR ${SUPPORT_TILING_DIR} DEPENDENCIES random_common DISABLE_IN_OPP TRUE)
+
+# The existing ACLNN tests live below op_host rather than tests/ut/op_api.
+if(UT_TEST_ALL OR OP_API_UT)
+    add_modules_ut_sources(UT_NAME ${OP_API_MODULE_NAME} MODE PRIVATE
+        DIR ${CMAKE_CURRENT_SOURCE_DIR}/tests/ut/op_host/op_api)
+endif()

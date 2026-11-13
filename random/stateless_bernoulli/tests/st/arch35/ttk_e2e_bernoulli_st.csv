@@ -1,0 +1,16 @@
+testcase_name,api_name,tensor_view_shapes,tensor_dtypes,tensor_formats,tensor_storage_shapes,tensor_view_strides,tensor_view_offsets,attributes,output_tensor_indexes,inplace_input_indexes,golden_api,input_data_ranges,precision_tolerances,absolute_precision,remark
+bernoulli_float_f32,torch.ops.aten.bernoulli_.float,"((1024,),)","('float32',)",,,,,"{'p': 0.5, 'generator': {'seed': 67, 'offset': 256}}",,"(0,)",,,,,标量 p：f32 基线 + 非零 offset（框架逐轮复位 generator）
+bernoulli_float_f16,torch.ops.aten.bernoulli_.float,"((100,101,102),)","('float16',)",,,,,"{'p': 0.12345, 'generator': {'seed': 1, 'offset': 400}}",,"(0,)",,,,,dtype 覆盖：float16
+bernoulli_float_bf16,torch.ops.aten.bernoulli_.float,"((1024,16,8),)","('bfloat16',)",,,,,"{'p': 0.1111, 'generator': {'seed': 100, 'offset': 64}}",,"(0,)",,,,,dtype 覆盖：bfloat16
+bernoulli_float_int8,torch.ops.aten.bernoulli_.float,"((6,),)","('int8',)",,,,,"{'p': 0.5, 'generator': {'seed': 3, 'offset': 16}}",,"(0,)",,,,,dtype 覆盖：int8（0/1 整型输出）
+bernoulli_float_p1_edge,torch.ops.aten.bernoulli_.float,"((4096,),)","('float32',)",,,,,"{'p': 1.0, 'generator': {'seed': 42, 'offset': 0}}",,"(0,)",,,,,边界值：p=1.0 的标量比较临界语义
+bernoulli_float_small,torch.ops.aten.bernoulli_.float,"((1,1,1,1,1,1),)","('float32',)",,,,,"{'p': 0.25, 'generator': {'seed': 9, 'offset': 8}}",,"(0,)",,,,,极小 shape（交织映射单线程组域）
+bernoulli_tensor_f32,torch.ops.aten.bernoulli_.Tensor,"((1024,),(1024,))","('float32','float32')",,,,,"{'generator': {'seed': 7, 'offset': 128}}",,"(0,)",,"((0.0,0.0),(0.0,1.0))",,,张量 p：逐元素概率
+bernoulli_tensor_f16,torch.ops.aten.bernoulli_.Tensor,"((1024,),(1024,))","('float16','float16')",,,,,"{'generator': {'seed': 21, 'offset': 192}}",,"(0,)",,"((0.0,0.0),(0.0,1.0))",,,张量 p：float16 输入/输出
+bernoulli_tensor_bcast,torch.ops.aten.bernoulli_.Tensor,"((64,64),(64,))","('float32','float32')",,,,,"{'generator': {'seed': 33, 'offset': 32}}",,"(0,)",,"((0.0,0.0),(0.0,1.0))",,,张量 p：一维广播到二维输出
+bernoulli_float_generator_seed_only,torch.ops.aten.bernoulli_.float,"((4,2),)","('float32',)",,,,,"{'p': 0.674, 'generator': {'seed': 603}}",,"(0,)",,,,,generator 显式 seed 字典：offset 省略时默认0
+bernoulli_float_generator_explicit_zero,torch.ops.aten.bernoulli_.float,"((4,2),)","('float32',)",,,,,"{'p': 0.674, 'generator': {'seed': 603, 'offset': 0}}",,"(0,)",,,,,回归:generator省略offset默认0；与seed_only用例输出逐bit一致；预期PASS
+bernoulli_float_rank0,torch.ops.aten.bernoulli_.float,"((),)","('float32',)",,,,,"{'p': 0.5, 'generator': {'seed': 6, 'offset': 8}}",,"(0,)",,,,,零维输出：显式generator和非零offset
+bernoulli_tensor_rank0,torch.ops.aten.bernoulli_.Tensor,"((),())","('float32','float32')",,,,,"{'generator': {'seed': 6, 'offset': 8}}",,"(0,)",,"((0,0),(0.5,0.5))",,,零维prob和输出：张量概率路径
+bernoulli_float_transpose,torch.ops.aten.bernoulli_.float,"((2,3),)","('float32',)",,"((6,),)","((1,2),)","(0,)","{'p': 0.5, 'generator': {'seed': 6, 'offset': 8}}",,"(0,)",,,,,合法非连续self：保留布局并逐轮复位generator
+bernoulli_float_empty,torch.ops.aten.bernoulli_.float,"((0, 8),)","('float32',)",(),,,,"{'p': 0.5, 'generator': {'seed': 6, 'offset': 8}}",,"(0,)",,,,,"回归:空输出(0,8)不产生随机数;逐轮复位generator;预期PASS"

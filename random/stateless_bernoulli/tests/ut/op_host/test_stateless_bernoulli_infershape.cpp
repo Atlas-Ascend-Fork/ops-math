@@ -21,14 +21,10 @@
 using namespace std;
 
 class StatelessBernoulliInfershape : public testing::Test {
- protected:
-  static void SetUpTestCase() {
-    std::cout << "StatelessBernoulli SetUp" << std::endl;
-  }
+protected:
+    static void SetUpTestCase() { std::cout << "StatelessBernoulli SetUp" << std::endl; }
 
-  static void TearDownTestCase() {
-    std::cout << "StatelessBernoulli TearDown" << std::endl;
-  }
+    static void TearDownTestCase() { std::cout << "StatelessBernoulli TearDown" << std::endl; }
 };
 
 TEST_F(StatelessBernoulliInfershape, stateless_bernoulli_infershape_test1)
@@ -38,9 +34,21 @@ TEST_F(StatelessBernoulliInfershape, stateless_bernoulli_infershape_test1)
         "StatelessBernoulli",
         {
             {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, shapeValue.data()},
-            {{{1}, {1}}, ge::DT_FLOAT, ge::FORMAT_ND,},
-            {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND,},
-            {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND,},
+            {
+                {{1}, {1}},
+                ge::DT_FLOAT,
+                ge::FORMAT_ND,
+            },
+            {
+                {{1}, {1}},
+                ge::DT_INT64,
+                ge::FORMAT_ND,
+            },
+            {
+                {{1}, {1}},
+                ge::DT_INT64,
+                ge::FORMAT_ND,
+            },
         },
         {
             {{{}, {}}, ge::DT_UINT8, ge::FORMAT_ND},
@@ -56,13 +64,117 @@ TEST_F(StatelessBernoulliInfershape, stateless_bernoulli_infershape_test2)
         "StatelessBernoulli",
         {
             {{{1}, {1}}, ge::DT_INT32, ge::FORMAT_ND, true, shapeValue.data()},
-            {{{1}, {1}}, ge::DT_FLOAT, ge::FORMAT_ND,},
-            {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND,},
-            {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND,},
+            {
+                {{1}, {1}},
+                ge::DT_FLOAT,
+                ge::FORMAT_ND,
+            },
+            {
+                {{1}, {1}},
+                ge::DT_INT64,
+                ge::FORMAT_ND,
+            },
+            {
+                {{1}, {1}},
+                ge::DT_INT64,
+                ge::FORMAT_ND,
+            },
         },
         {
             {{{}, {}}, ge::DT_UINT8, ge::FORMAT_ND},
         });
     std::vector<std::vector<int64_t>> expectOutputShape = {{1}};
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+TEST_F(StatelessBernoulliInfershape, rank_zero_shape_ignores_placeholder)
+{
+    for (int64_t placeholder : {0L, 1L, 7L}) {
+        gert::InfershapeContextPara params("StatelessBernoulli",
+                                           {{{{}, {}}, ge::DT_INT64, ge::FORMAT_ND, true, &placeholder},
+                                            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                            {{{}, {}}, ge::DT_INT64, ge::FORMAT_ND},
+                                            {{{}, {}}, ge::DT_INT64, ge::FORMAT_ND}},
+                                           {{{{9}, {9}}, ge::DT_UINT8, ge::FORMAT_ND}});
+        ExecuteTestCase(params, ge::GRAPH_SUCCESS, std::vector<std::vector<int64_t>>{{}});
+    }
+}
+
+TEST_F(StatelessBernoulliInfershape, rank_zero_int32_shape_ignores_placeholder)
+{
+    for (int32_t placeholder : {0, 1, 7}) {
+        gert::InfershapeContextPara params("StatelessBernoulli",
+                                           {{{{}, {}}, ge::DT_INT32, ge::FORMAT_ND, true, &placeholder},
+                                            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                            {{{}, {}}, ge::DT_INT64, ge::FORMAT_ND},
+                                            {{{}, {}}, ge::DT_INT64, ge::FORMAT_ND}},
+                                           {{{{9}, {9}}, ge::DT_UINT8, ge::FORMAT_ND}});
+        ExecuteTestCase(params, ge::GRAPH_SUCCESS, std::vector<std::vector<int64_t>>{{}});
+    }
+}
+
+TEST_F(StatelessBernoulliInfershape, empty_shape_list_produces_scalar)
+{
+    gert::InfershapeContextPara params("StatelessBernoulli",
+                                       {{{{0}, {0}}, ge::DT_INT64, ge::FORMAT_ND},
+                                        {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                        {{{}, {}}, ge::DT_INT64, ge::FORMAT_ND},
+                                        {{{}, {}}, ge::DT_INT64, ge::FORMAT_ND}},
+                                       {{{{9}, {9}}, ge::DT_UINT8, ge::FORMAT_ND}});
+    ExecuteTestCase(params, ge::GRAPH_SUCCESS, std::vector<std::vector<int64_t>>{{}});
+}
+
+TEST_F(StatelessBernoulliInfershape, rank_zero_shape_requires_all_inputs)
+{
+    int64_t placeholder = 0;
+    for (size_t index : {1UL, 2UL, 3UL}) {
+        gert::InfershapeContextPara params("StatelessBernoulli",
+                                           {{{{}, {}}, ge::DT_INT64, ge::FORMAT_ND, true, &placeholder},
+                                            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                            {{{}, {}}, ge::DT_INT64, ge::FORMAT_ND},
+                                            {{{}, {}}, ge::DT_INT64, ge::FORMAT_ND}},
+                                           {{{{}, {}}, ge::DT_UINT8, ge::FORMAT_ND}});
+        params.nullInputIndices_ = {index};
+        ExecuteTestCase(params, ge::GRAPH_FAILED, {});
+    }
+}
+
+TEST_F(StatelessBernoulliInfershape, rank_zero_shape_rejects_float_dtype)
+{
+    float placeholder = 0;
+    gert::InfershapeContextPara params("StatelessBernoulli",
+                                       {{{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND, true, &placeholder},
+                                        {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                        {{{}, {}}, ge::DT_INT64, ge::FORMAT_ND},
+                                        {{{}, {}}, ge::DT_INT64, ge::FORMAT_ND}},
+                                       {{{{}, {}}, ge::DT_UINT8, ge::FORMAT_ND}});
+    ExecuteTestCase(params, ge::GRAPH_FAILED, {});
+}
+
+TEST_F(StatelessBernoulliInfershape, promoted_scalar_shape_uses_origin_rank)
+{
+    int32_t placeholder32 = 7;
+    int64_t placeholder64 = 7;
+    for (auto dtype : {ge::DT_INT32, ge::DT_INT64}) {
+        void* data = dtype == ge::DT_INT32 ? static_cast<void*>(&placeholder32) : static_cast<void*>(&placeholder64);
+        gert::InfershapeContextPara params("StatelessBernoulli",
+                                           {{{{}, {1}}, dtype, ge::FORMAT_ND, true, data},
+                                            {{{}, {1}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                            {{{}, {1}}, ge::DT_INT64, ge::FORMAT_ND},
+                                            {{{}, {1}}, ge::DT_INT64, ge::FORMAT_ND}},
+                                           {{{{9}, {9}}, ge::DT_UINT8, ge::FORMAT_ND}});
+        ExecuteTestCase(params, ge::GRAPH_SUCCESS, std::vector<std::vector<int64_t>>{{}});
+    }
+}
+
+TEST_F(StatelessBernoulliInfershape, one_element_shape_list_is_not_a_scalar_placeholder)
+{
+    int64_t dimension = 7;
+    gert::InfershapeContextPara params("StatelessBernoulli",
+                                       {{{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, &dimension},
+                                        {{{1}, {1}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                        {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND},
+                                        {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND}},
+                                       {{{{}, {}}, ge::DT_UINT8, ge::FORMAT_ND}});
+    ExecuteTestCase(params, ge::GRAPH_SUCCESS, std::vector<std::vector<int64_t>>{{7}});
 }
