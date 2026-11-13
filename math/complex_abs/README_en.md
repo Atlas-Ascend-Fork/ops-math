@@ -78,4 +78,4 @@ $$
 
 | Invocation Method | Invocation Sample | Description |
 |--------------|--------|------|
-| Graph-mode invocation | [operator IR](./op_graph/complex_abs_proto.h) | Invokes the ComplexAbs operator by building a graph through the [operator IR](./op_graph/complex_abs_proto.h). |
+| Graph-mode invocation | [test_geir_complex_abs](./examples/test_geir_complex_abs.cpp) | Invokes the ComplexAbs operator by building a graph through the [operator IR](./op_graph/complex_abs_proto.h). |

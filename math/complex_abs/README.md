@@ -76,4 +76,4 @@ $$
 
 | 调用方式 | 调用样例 | 说明 |
 |--------------|--------|------|
-| 图模式调用 | [算子IR](./op_graph/complex_abs_proto.h) | 通过[算子IR](./op_graph/complex_abs_proto.h)构图方式调用ComplexAbs算子。 |
+| 图模式调用 | [test_geir_complex_abs](./examples/test_geir_complex_abs.cpp) | 通过[算子IR](./op_graph/complex_abs_proto.h)构图方式调用ComplexAbs算子。 |

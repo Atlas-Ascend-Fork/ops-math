@@ -76,6 +76,6 @@ $$
 
 | 调用方式 | 样例代码                                                                   | 说明                                                           |
 |--------------|------------------------------------------------------------------------|--------------------------------------------------------------|
-| GE图模式 | [test_geir_ada_cast.cpp](./examples/test_geir_ada_cast.cpp) | 通过 GE-IR（`ge::Session` / `RunGraph`）构图方式调用 AdaCast 算子；算子 IR 原型见 [ada_cast_proto.h](./op_graph/ada_cast_proto.h)。样例默认不参与构建（`ENABLE_GEIR_EXAMPLE` 未在仓库 CMake 中定义），需按样例注释在客户端工程中显式编译，并链接 libgraph / libge_runner。 |
+| GE图模式 | [test_geir_ada_cast.cpp](./examples/test_geir_ada_cast.cpp) | 通过[算子IR](./op_graph/ada_cast_proto.h)构图方式调用AdaCast算子。 |
 
 > 注：本算子仅提供 GE 图模式接口；`CMakeLists.txt` 中 `ACLNNTYPE aclnn_exclude` 且无 `op_api/`，未提供 ACLNN 与 PyTorch/TensorFlow 接口。

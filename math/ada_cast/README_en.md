@@ -78,6 +78,6 @@ In the final step, saturation (clipping to the fp16 value range [-65504, 65504])
 
 | Invocation Method | Sample Code                                                                   | Description                                                           |
 |--------------|------------------------------------------------------------------------|--------------------------------------------------------------|
-| GE graph mode | [test_geir_ada_cast.cpp](./examples/test_geir_ada_cast.cpp) | Invokes the AdaCast operator by building a graph through GE-IR (`ge::Session` / `RunGraph`). The operator IR prototype is defined in [ada_cast_proto.h](./op_graph/ada_cast_proto.h). The sample does not participate in the build by default (`ENABLE_GEIR_EXAMPLE` is not defined in the repository CMake). You need to explicitly compile the sample in the client project as described in the sample comments and link against libgraph / libge_runner. |
+| GE graph mode | [test_geir_ada_cast.cpp](./examples/test_geir_ada_cast.cpp) | Invokes the AdaCast operator by building a graph through the [operator IR](./op_graph/ada_cast_proto.h). |
 
 > Note: This operator provides only the GE graph mode API. In `CMakeLists.txt`, `ACLNNTYPE aclnn_exclude` is configured and no `op_api/` directory exists. Therefore, the ACLNN and PyTorch/TensorFlow APIs are not provided.
