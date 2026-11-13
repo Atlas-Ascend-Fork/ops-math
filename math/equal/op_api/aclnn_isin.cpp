@@ -11,6 +11,8 @@
 #include "aclnn_kernels/contiguous.h"
 #include "equal.h"
 #include "math/reduce_any/op_api/reduce_any.h"
+#include "math/reduce_all/op_api/reduce_all.h"
+#include "math/not_equal/op_api/not_equal.h"
 #include "math/logical_not/op_api/logical_not.h"
 #include "aclnn_kernels/cast.h"
 #include "conversion/fill/op_api/fill.h"
@@ -81,6 +83,10 @@ static inline bool CheckDtypeValid(const aclScalar* element, const aclTensor* te
 
 static inline DataType PromoteTypeScalar(const aclScalar* element, const aclTensor* testElements)
 {
+    if (IsRegBase()) {
+        return op::PromoteType(testElements->GetDataType(), element->GetDataType());
+    }
+
     if (testElements->Size() >= ELEMENTS_THRESHOLD) {
         return op::PromoteType(testElements->GetDataType(), element->GetDataType());
     }
@@ -204,17 +210,23 @@ aclnnStatus aclnnIsInScalarTensorGetWorkspaceSize(const aclScalar* element, cons
     const aclTensor* elementTensor = uniqueExecutor.get()->ConvertToTensor(element, promoteType);
     CHECK_RET(elementTensor != nullptr, ACLNN_ERR_INNER_NULLPTR);
 
-    // 调用l0算子Equal进行计算
-    auto equalResult = l0op::Equal(testElementsCasted, elementTensor, uniqueExecutor.get());
-    CHECK_RET(equalResult != nullptr, ACLNN_ERR_INNER_NULLPTR);
+    auto compareResult = (IsRegBase() && invert) ?
+                             l0op::NotEqual(testElementsCasted, elementTensor, uniqueExecutor.get()) :
+                             l0op::Equal(testElementsCasted, elementTensor, uniqueExecutor.get());
+    CHECK_RET(compareResult != nullptr, ACLNN_ERR_INNER_NULLPTR);
 
-    auto dim = GetAllDims(equalResult, uniqueExecutor.get());
+    auto dim = GetAllDims(compareResult, uniqueExecutor.get());
     CHECK_RET(dim != nullptr, ACLNN_ERR_INNER_NULLPTR);
 
-    auto anyResult = l0op::ReduceAny(equalResult, dim, false, uniqueExecutor.get());
-    CHECK_RET(anyResult != nullptr, ACLNN_ERR_INNER_NULLPTR);
-
-    auto result = invert ? l0op::LogicalNot(anyResult, uniqueExecutor.get()) : anyResult;
+    const aclTensor* result = nullptr;
+    if (IsRegBase()) {
+        result = invert ? l0op::ReduceAll(compareResult, dim, false, uniqueExecutor.get()) :
+                          l0op::ReduceAny(compareResult, dim, false, uniqueExecutor.get());
+    } else {
+        auto anyResult = l0op::ReduceAny(compareResult, dim, false, uniqueExecutor.get());
+        CHECK_RET(anyResult != nullptr, ACLNN_ERR_INNER_NULLPTR);
+        result = invert ? l0op::LogicalNot(anyResult, uniqueExecutor.get()) : anyResult;
+    }
     CHECK_RET(result != nullptr, ACLNN_ERR_INNER_NULLPTR);
 
     // 固定写法，将计算结果拷贝到输出out上，out可能是非连续的tensor
