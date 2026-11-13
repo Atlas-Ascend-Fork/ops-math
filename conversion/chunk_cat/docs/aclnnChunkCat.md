@@ -237,6 +237,9 @@ aclnnStatus aclnnChunkCat(
 
 - 确定性计算：
   - aclnnChunkCat默认确定性实现。
+- 输入约束：
+  - tensors列表必须非空，且列表内每个tensor必须为非空tensor。
+  - out必须为非空指针。
 
 ## 调用示例
 
