@@ -119,6 +119,8 @@ static ge::graphStatus ValidateInput(gert::TilingContext* context, int64_t* tota
     OP_CHECK_NULL_WITH_CONTEXT(context, inputShape);
     const gert::Shape& inputStorageShape = inputShape->GetStorageShape();
     const size_t inputRank = inputStorageShape.GetDimNum();
+    OP_CHECK_IF(inputRank == 0, OP_LOGE(context, "Asinh: input rank must be >= 1, scalar (rank-0) is not supported"),
+                return ge::GRAPH_FAILED);
     OP_CHECK_IF(inputRank > MAX_DIM_NUM, OP_LOGE(context, "Asinh: input rank must be <= 8, but got %zu", inputRank),
                 return ge::GRAPH_FAILED);
 
@@ -202,10 +204,15 @@ static ge::graphStatus AsinhTilingFunc(gert::TilingContext* context)
         return ge::GRAPH_SUCCESS;
     }
 
-    // 5. 多核切分（按 32B 向上对齐，避免相邻核 CopyOut 写覆盖）
+    // 5. 多核切分（按 32B 字节边界向上对齐，避免相邻核 CopyOut 写覆盖）
+    // GetUbBlockSize 返回的是字节数（32B），须按 dtype 尺寸换算为元素当量再对齐：
+    // FP32=8 元素 / FP16,BF16=16 元素；换算先例同 acosh 的 blockAlignElems。
     tiling->totalNum = totalNum;
     int64_t ubBlockSize = GetUbBlockSize(context);
-    tiling->blockFactor = CeilAlign(CeilDiv(totalNum, coreNum), ubBlockSize);
+    int64_t dtypeSize = ge::GetSizeByDataType(dtype);
+    OP_CHECK_IF(dtypeSize <= 0, OP_LOGE(context, "Asinh: invalid dtype size %ld", dtypeSize), return ge::GRAPH_FAILED);
+    int64_t blockAlignElems = std::max(ubBlockSize / dtypeSize, static_cast<int64_t>(1));
+    tiling->blockFactor = CeilAlign(CeilDiv(totalNum, coreNum), blockAlignElems);
     int64_t usedCoreNum = CeilDiv(totalNum, tiling->blockFactor);
 
     // 6. UB 切分

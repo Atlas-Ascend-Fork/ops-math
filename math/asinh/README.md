@@ -10,7 +10,7 @@
 | <term>Ascend 950PR&950DT系列产品</term>          |      √   |
 | <term>Atlas A3系列产品</term>     |    √    |
 | <term>Atlas A2系列产品</term> |    √    |
-| <term>Atlas 200I/500 A2推理产品</term>             |    √    |
+| <term>Atlas 200I/500 A2推理产品</term>             |    ×    |
 | <term>Atlas推理系列产品</term>                       |     √    |
 | <term>Atlas训练系列产品</term>                       |     √    |
 
@@ -45,7 +45,7 @@ $$
   <tr>
     <td>x</td>
     <td>输入</td>
-    <td>公式中的输入x，dtype与y一致，shape任意（0~8维），支持空Tensor，支持非连续Tensor。</td>
+    <td>公式中的输入x，dtype与y一致，shape任意（1~8维），支持空Tensor，支持非连续Tensor。</td>
     <td>FLOAT、FLOAT16、BFLOAT16</td>
     <td>ND</td>
   </tr>
@@ -64,6 +64,10 @@ $$
     <td>ND</td>
   </tr>
 </tbody></table>
+
+- <term>Ascend 950PR&950DT系列产品</term>、<term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>：支持BFLOAT16。
+- <term>Atlas训练系列产品</term>、<term>Atlas推理系列产品</term>：不支持BFLOAT16。
+- aclnn接口层额外支持的输入类型：INT8、INT16、INT32、INT64、UINT8、BOOL会转化为FLOAT32进行运算；DOUBLE、COMPLEX64、COMPLEX128通过AICPU路径计算。
 
 ## 约束说明
 

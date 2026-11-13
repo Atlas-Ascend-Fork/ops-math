@@ -102,7 +102,7 @@ aclnnStatus aclnnInplaceAsinh(
         <td>shape需要与out一致。</td>
         <td>FLOAT、FLOAT16、DOUBLE、INT8、INT16、INT32、INT64、UINT8、BOOL</td>
         <td>ND</td>
-        <td>不超过8维</td>
+        <td>1~8维</td>
         <td>√</td>
       </tr>
       <tr>
@@ -112,7 +112,7 @@ aclnnStatus aclnnInplaceAsinh(
         <td>shape需要与input一致。</td>
         <td>FLOAT、FLOAT16、DOUBLE</td>
         <td>ND</td>
-        <td>不超过8维</td>
+        <td>1~8维</td>
         <td>√</td>
       </tr>
       <tr>
@@ -140,6 +140,12 @@ aclnnStatus aclnnInplaceAsinh(
   <!-- npu="A3" id7 -->
   - <term>Atlas A3系列产品</term>：input和out数据类型额外支持BFLOAT16、COMPLEX64、COMPLEX128。
   <!-- end id7 -->
+  <!-- npu="910b" id11 -->
+  - <term>Atlas A2系列产品</term>：input数据类型额外支持BFLOAT16。
+  <!-- end id11 -->
+  <!-- npu="950" id9 -->
+  - <term>Ascend 950PR&950DT系列产品</term>：input和out数据类型额外支持BFLOAT16、COMPLEX64、COMPLEX128。
+  <!-- end id9 -->
 
 - **返回值：**
 
@@ -165,12 +171,15 @@ aclnnStatus aclnnInplaceAsinh(
       <td>传入的input或out是空指针。</td>
     </tr>
     <tr>
-      <td rowspan="3">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="3">161002</td>
+      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="4">161002</td>
       <td>input或out的数据类型不在支持的范围之内。</td>
     </tr>
     <tr>
       <td>input和out的shape不一致。</td>
+    </tr>
+    <tr>
+      <td>input的数据类型为INT8、INT16、INT32、INT64、UINT8、BOOL时，out的数据类型必须为FLOAT。</td>
     </tr>
     <tr>
       <td>input或out的维数大于8。</td>
@@ -254,7 +263,7 @@ aclnnStatus aclnnInplaceAsinh(
         <td>-</td>
         <td>FLOAT、FLOAT16、DOUBLE</td>
         <td>ND</td>
-        <td>不超过8维</td>
+        <td>1~8维</td>
         <td>√</td>
       </tr>
       <tr>
@@ -282,6 +291,12 @@ aclnnStatus aclnnInplaceAsinh(
   <!-- npu="A3" id8 -->
   - <term>Atlas A3系列产品</term>：inputRef数据类型额外支持BFLOAT16、COMPLEX64、COMPLEX128。
   <!-- end id8 -->
+  <!-- npu="910b" id12 -->
+  - <term>Atlas A2系列产品</term>：inputRef数据类型额外支持BFLOAT16。
+  <!-- end id12 -->
+  <!-- npu="950" id10 -->
+  - <term>Ascend 950PR&950DT系列产品</term>：inputRef数据类型额外支持BFLOAT16、COMPLEX64、COMPLEX128。
+  <!-- end id10 -->
 
 - **返回值：**
 

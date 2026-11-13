@@ -12,7 +12,7 @@ English | [简体中文](./README.md)
 | <term>Ascend 950PR&950DT products</term>          |      √   |
 | <term>Atlas A3 products</term>     |    √    |
 | <term>Atlas A2 products</term> |    √    |
-| <term>Atlas 200I/500 A2 inference products</term>             |    √    |
+| <term>Atlas 200I/500 A2 inference products</term>             |    ×    |
 | <term>Atlas inference products</term>                       |     √    |
 | <term>Atlas training products</term>                       |     √    |
 
@@ -47,7 +47,7 @@ $$
   <tr>
     <td>x</td>
     <td>Input</td>
-    <td>Input x in the formula. The dtype is the same as that of y, and the shape is arbitrary (0 to 8 dimensions). Empty Tensors are supported, and non-contiguous Tensors are supported.</td>
+    <td>Input x in the formula, whose dtype is the same as that of y. The shape is arbitrary (1 to 8 dimensions). Empty Tensors are supported, and non-contiguous Tensors are supported.</td>
     <td>FLOAT, FLOAT16, BFLOAT16</td>
     <td>ND</td>
   </tr>
@@ -66,6 +66,10 @@ $$
     <td>ND</td>
   </tr>
 </tbody></table>
+
+- <term>Ascend 950PR&950DT products</term>, <term>Atlas A2 products</term>, and <term>Atlas A3 products</term>: support BFLOAT16.
+- <term>Atlas training products</term> and <term>Atlas inference products</term>: do not support BFLOAT16.
+- Input types additionally supported by the aclnn interface: INT8, INT16, INT32, INT64, UINT8, and BOOL are converted to FLOAT32 for computation; DOUBLE, COMPLEX64, and COMPLEX128 are computed through the AICPU path.
 
 ## Constraint Description
 

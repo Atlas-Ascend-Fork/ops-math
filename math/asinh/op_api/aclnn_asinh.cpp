@@ -58,6 +58,8 @@ static bool IsPrivateFormat(ge::Format format)
            format == ge::FORMAT_FRACTAL_Z_3D || format == ge::FORMAT_FRACTAL_NZ || format == ge::FORMAT_NC1HWC0_C04;
 }
 
+constexpr int64_t kAsinhMaxDimNum = 8;
+
 static bool CheckInplaceDtypeValid(aclTensor* selfRef)
 {
     auto inplaceSupportList = GetDtypeSupportListV2(OUTPUT_DTYPE_SUPPORT_LIST_ASIN, ASCEND910_DTYPE_SELFREF_LIST_ASIN);
@@ -74,6 +76,28 @@ static aclnnStatus CheckParamsAsinh(const aclTensor* input, const aclTensor* out
     CHECK_RET(CheckDtypeValid1In1Out(input, out, supportList, OUTPUT_DTYPE_SUPPORT_LIST_ASIN), ACLNN_ERR_PARAM_INVALID);
     // 检查输入和输出的shape是否满足约束
     CHECK_RET(CheckSameShape1In1Out(input, out), ACLNN_ERR_PARAM_INVALID);
+    // 整数/BOOL 入参必须输出 FLOAT32（资料口径：整型 Cast 到 FLOAT32 计算后输出 FLOAT32，不随 out 降精度）
+    if (CheckType(input->GetDataType(), NEED_CAST_DTYPE_LIST_ASIN) && out->GetDataType() != DataType::DT_FLOAT) {
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID,
+                "Asinh: integer/bool input requires float32 output, but got input dtype=%d output dtype=%d",
+                static_cast<int>(input->GetDataType()), static_cast<int>(out->GetDataType()));
+        return ACLNN_ERR_PARAM_INVALID;
+    }
+    // 浮点/复数入参必须与输出同 dtype（设计 §3.3 same_as_first_input，不做类型提升），
+    // 避免「bf16 输入 + f16 输出」等设计外组合穿透校验、在 l0op::Cast 里跑出未文档化的中途舍入语义
+    if (!CheckType(input->GetDataType(), NEED_CAST_DTYPE_LIST_ASIN) && input->GetDataType() != out->GetDataType()) {
+        OP_LOGE(
+            ACLNN_ERR_PARAM_INVALID,
+            "Asinh: floating-point/complex input requires same dtype output, but got input dtype=%d output dtype=%d",
+            static_cast<int>(input->GetDataType()), static_cast<int>(out->GetDataType()));
+        return ACLNN_ERR_PARAM_INVALID;
+    }
+    // 检查维数是否不大于 8（维度 >8 以 161002 拒绝）
+    if (input->GetViewShape().GetDimNum() > kAsinhMaxDimNum || out->GetViewShape().GetDimNum() > kAsinhMaxDimNum) {
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "Asinh: input/output dim must be <= 8, but got input=%zu output=%zu",
+                input->GetViewShape().GetDimNum(), out->GetViewShape().GetDimNum());
+        return ACLNN_ERR_PARAM_INVALID;
+    }
 
     const auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
     if (IsRegBase(curArch)) {
@@ -97,6 +121,12 @@ static aclnnStatus CheckInplaceParamsAsinh(aclTensor* selfRef)
 
     // 检查selfRef的数据类型是否在inplace asinh算子的支持列表内
     CHECK_RET(CheckInplaceDtypeValid(selfRef), ACLNN_ERR_PARAM_INVALID);
+    // 检查维数是否不大于 8
+    if (selfRef->GetViewShape().GetDimNum() > kAsinhMaxDimNum) {
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "Asinh: input dim must be <= 8, but got %zu",
+                selfRef->GetViewShape().GetDimNum());
+        return ACLNN_ERR_PARAM_INVALID;
+    }
     return ACLNN_SUCCESS;
 }
 

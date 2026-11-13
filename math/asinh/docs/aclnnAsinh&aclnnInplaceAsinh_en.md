@@ -104,7 +104,7 @@ aclnnStatus aclnnInplaceAsinh(
         <td>The shape must be the same as that of out.</td>
         <td>FLOAT, FLOAT16, DOUBLE, INT8, INT16, INT32, INT64, UINT8, BOOL</td>
         <td>ND</td>
-        <td>Up to 8 dimensions</td>
+        <td>1 to 8 dimensions</td>
         <td>√</td>
       </tr>
       <tr>
@@ -114,7 +114,7 @@ aclnnStatus aclnnInplaceAsinh(
         <td>The shape must be the same as that of input.</td>
         <td>FLOAT, FLOAT16, DOUBLE</td>
         <td>ND</td>
-        <td>Up to 8 dimensions</td>
+        <td>1 to 8 dimensions</td>
         <td>√</td>
       </tr>
       <tr>
@@ -142,6 +142,12 @@ aclnnStatus aclnnInplaceAsinh(
   <!-- npu="A3" id7 -->
   - <term>Atlas A3 products</term>: The input and out data types additionally support BFLOAT16, COMPLEX64, and COMPLEX128.
   <!-- end id7 -->
+  <!-- npu="910b" id11 -->
+  - <term>Atlas A2 products</term>: The input data type additionally supports BFLOAT16.
+  <!-- end id11 -->
+  <!-- npu="950" id9 -->
+  - <term>Ascend 950PR&950DT products</term>: The input and out data types additionally support BFLOAT16, COMPLEX64, and COMPLEX128.
+  <!-- end id9 -->
 
 - **Return value**
 
@@ -167,12 +173,15 @@ aclnnStatus aclnnInplaceAsinh(
       <td>input or out is a null pointer.</td>
     </tr>
     <tr>
-      <td rowspan="3">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="3">161002</td>
+      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="4">161002</td>
       <td>The data type of input or out is out of the supported range.</td>
     </tr>
     <tr>
       <td>The shapes of input and out are inconsistent.</td>
+    </tr>
+    <tr>
+      <td>When the data type of input is INT8, INT16, INT32, INT64, UINT8, or BOOL, the data type of out must be FLOAT.</td>
     </tr>
     <tr>
       <td>The number of dimensions of input or out is greater than 8.</td>
@@ -256,7 +265,7 @@ aclnnStatus aclnnInplaceAsinh(
         <td>-</td>
         <td>FLOAT, FLOAT16, DOUBLE</td>
         <td>ND</td>
-        <td>Up to 8 dimensions</td>
+        <td>1 to 8 dimensions</td>
         <td>√</td>
       </tr>
       <tr>
@@ -284,6 +293,12 @@ aclnnStatus aclnnInplaceAsinh(
   <!-- npu="A3" id8 -->
   - <term>Atlas A3 products</term>: The inputRef data type additionally supports BFLOAT16, COMPLEX64, and COMPLEX128.
   <!-- end id8 -->
+  <!-- npu="910b" id12 -->
+  - <term>Atlas A2 products</term>: The inputRef data type additionally supports BFLOAT16.
+  <!-- end id12 -->
+  <!-- npu="950" id10 -->
+  - <term>Ascend 950PR&950DT products</term>: The inputRef data type additionally supports BFLOAT16, COMPLEX64, and COMPLEX128.
+  <!-- end id10 -->
 
 - **Return value**
 

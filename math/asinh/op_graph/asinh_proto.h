@@ -21,7 +21,7 @@ namespace ge {
 
 *
 *@par Inputs:
-* x: An ND or 5HD tensor. Support 1D~8D. Must be one of the following types:
+* x: An ND tensor. Support 1D~8D. Must be one of the following types:
 * bfloat16, float16, float32, float64, complex64, complex128.
 *
 *@par Outputs:
@@ -31,10 +31,7 @@ namespace ge {
 *Compatible with the TensorFlow operator Asinh.
 *
 */
-REG_OP(Asinh)
-    .INPUT(x, TensorType::UnaryDataType())
-    .OUTPUT(y, TensorType::UnaryDataType())
-    .OP_END_FACTORY_REG(Asinh)
+REG_OP(Asinh).INPUT(x, TensorType::UnaryDataType()).OUTPUT(y, TensorType::UnaryDataType()).OP_END_FACTORY_REG(Asinh)
 
-}  // namespace ge
-#endif  // OPS_OP_PROTO_INC_ASINH_H_
+} // namespace ge
+#endif // OPS_OP_PROTO_INC_ASINH_H_

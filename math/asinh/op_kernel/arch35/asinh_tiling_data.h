@@ -26,10 +26,10 @@
 #define _ASINH_TILING_DATA_H_
 
 struct AsinhTilingData {
-    int64_t totalNum = 0;     // 总元素数（input/out 一致）
-    int64_t blockFactor = 0;  // 单核处理元素数（按 32B 对齐，避免相邻核 CopyOut 写入越界）
-    int64_t ubFactor = 0;     // 单次 UB 循环处理元素数（**FP32 视角 64 元素 = 256B 对齐**，
-                              //   满足 Compare API 的 count 256B 对齐强约束）
+    int64_t totalNum = 0;    // 总元素数（input/out 一致）
+    int64_t blockFactor = 0; // 单核处理元素数（按 32B 对齐，避免相邻核 CopyOut 写入越界）
+    int64_t ubFactor = 0;    // 单次 UB 循环处理元素数（**FP32 视角 64 元素 = 256B 对齐**，
+                             //   满足 Compare API 的 count 256B 对齐强约束）
 };
 
 #endif // _ASINH_TILING_DATA_H_

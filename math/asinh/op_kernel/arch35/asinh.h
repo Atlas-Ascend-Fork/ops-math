@@ -373,16 +373,22 @@ __aicore__ inline void Asinh<T>::ComputeFp32Pipeline(LocalTensor<float>& xOrigFp
     // Muls 无 256B 对齐约束，使用 n 即可（nAligned 也安全）
     AscendC::Muls(r, s, CONST_NEG_ONE, n);
 
-    // ===== Step 19: yFp32 = select(x ≥ 0, output, -output) =====
-    // 19a: selMask = Compare(xOrigFp32, 0, GE)
-    //   借 absXBuf 临时存 0 tensor（absX 之前的角色 step 1~17 都已完成读取，可重新写入）
-    //   **v1.1 关键**：count 使用 nAligned 满足 256B 对齐
-    AscendC::Duplicate(absX, CONST_ZERO, nAligned);
-    AscendC::Compare(selMask, xOrigFp32, absX, AscendC::CMPMODE::GE, nAligned);
-    // 19b: yFp32 = select(selMask, output(=s), neg_output(=r))
+    // ===== Step 19: yFp32 = copysign(output, x)（保留负零符号位，对齐 torch.asinh）=====
+    // 单一数值比较 x ≥ 0 无法区分 -0.0（IEEE 754 下 -0.0 == +0.0），会把 -0.0 归入非负分支返回 +0.0，
+    // 而 torch.asinh / numpy.arcsinh 对 -0.0 返回 -0.0。采用 sign(x) = (x < 0) || (1/x < 0)，两次 Select 实现：
+    //   - x < 0 覆盖负有限数与 -inf，但漏掉 -0.0（-0.0 < 0 为 false）；
+    //   - 1/x 把 ±0 放大为 ±inf（1/+0=+inf、1/-0=-inf），< 0 判断补上 -0.0；
+    //     对 ±inf 输入 1/±inf=∓0 又会漏判，此时已被第一步 x < 0 覆盖，两步互补完整。
+    // 借 bBuf 存 1/x、借 absXBuf 存第一步中间结果（|x| 在 step 17 已读取完毕，可复用）。
+    AscendC::CompareScalar(selMask, xOrigFp32, CONST_ZERO, AscendC::CMPMODE::LT, nAligned);    // 负号 A：x < 0
+    AscendC::Select(absX, selMask, r, s, AscendC::SELMODE::VSEL_TENSOR_TENSOR_MODE, nAligned); // tmp = A ? r : s
+    AscendC::Duplicate(b, CONST_ONE, n);
+    AscendC::Div(b, b, xOrigFp32, n); // b = 1/x，符号与 x 一致且能区分 ±0
+    AscendC::CompareScalar(selMask, b, CONST_ZERO, AscendC::CMPMODE::LT, nAligned); // 负号 B：1/x < 0
+    // 19b: yFp32 = select(负号 B, -output(=r), tmp)
     //   yFp32[0..currentNum) = 最终 asinh(x) 有效结果
     //   yFp32[currentNum..nAligned) = 脏值（CopyOut DataCopyPad 按 currentNum * sizeof(T) 截断不写出）
-    AscendC::Select(yFp32, selMask, s, r, AscendC::SELMODE::VSEL_TENSOR_TENSOR_MODE, nAligned);
+    AscendC::Select(yFp32, selMask, r, absX, AscendC::SELMODE::VSEL_TENSOR_TENSOR_MODE, nAligned);
 }
 
 } // namespace NsAsinh

@@ -25,7 +25,7 @@ extern "C" {
  * out_{i}=ln(input_{i} + \sqrt{input_{i}^2 + 1})
  * 参数描述：
  * @param [in]   input
- * 输入Tensor，数据类型支持FLOAT，BFLOAT16, FLOAT16，DOUBLE，COMPLEX64，COMPLEX128。支持非连续Tensor，数据格式支持ND。
+ * 输入Tensor，数据类型支持FLOAT，FLOAT16，DOUBLE，INT8，INT16，INT32，INT64，UINT8，BOOL，BFLOAT16，COMPLEX64，COMPLEX128。支持非连续Tensor，数据格式支持ND。
  * @param [in]   out
  * 输出Tensor，数据类型支持FLOAT，BFLOAT16, FLOAT16，DOUBLE，COMPLEX64，COMPLEX128。支持非连续Tensor，数据格式支持ND。
  * @param [out]  workspaceSize   返回用户需要在npu device侧申请的workspace大小。
@@ -64,8 +64,8 @@ ACLNN_API aclnnStatus aclnnAsinh(void* workspace, uint64_t workspaceSize, aclOpE
  * 计算公式：
  * out_{i}=ln(input_{i} + \sqrt{input_{i}^2 + 1})
  * 参数描述：
- * @param [in]   input
- * 输入Tensor，数据类型支持INT8，INT16，INT32，INT64，UINT8，BOOL，FLOAT，FLOAT16，DOUBLE，COMPLEX64，COMPLEX128。支持非连续Tensor，数据格式支持ND。
+ * @param [in]   inputRef
+ * 输入Tensor，数据类型支持FLOAT，FLOAT16，DOUBLE，BFLOAT16，COMPLEX64，COMPLEX128。支持非连续Tensor，数据格式支持ND。
  * @param [out]  workspaceSize   返回用户需要在npu device侧申请的workspace大小。
  * @param [out]  executor         返回op执行器，包含了算子计算流程。
  * @return       aclnnStatus      返回状态码

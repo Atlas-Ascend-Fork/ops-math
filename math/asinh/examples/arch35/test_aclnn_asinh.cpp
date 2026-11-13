@@ -22,8 +22,9 @@
  *   6. 释放资源（Tensor / Memory / Stream / Device / Acl）
  *
  * 编译运行：
- *   1. source <cann_install>/set_env.sh
- *   2. cd operators/asinh/examples && bash run.sh
+ *   1. 参考 ops-math 仓库根 build.sh 完成算子编译与算子包安装（生成 opp/vendors/asinh_custom/）
+ *   2. source <cann_install>/set_env.sh
+ *   3. 参考 docs/zh/context/compile_and_run_sample.md，自备 CMakeLists.txt 手动编译本文件并运行
  */
 
 #include <iostream>

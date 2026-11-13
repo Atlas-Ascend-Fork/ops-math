@@ -135,3 +135,25 @@ TEST_F(l2_asinh_test, case_asinh_mismatched_shape)
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
     EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
 }
+
+// test integer input with float32 output is allowed
+TEST_F(l2_asinh_test, case_asinh_int32_to_float_succ)
+{
+    auto self_tensor_desc = TensorDesc({3, 5}, ACL_INT32, ACL_FORMAT_ND).ValueRange(-2.0, 2.0);
+    auto out_tensor_desc = TensorDesc({3, 5}, ACL_FLOAT, ACL_FORMAT_ND).Precision(0.001, 0.001);
+    auto ut = OP_API_UT(aclnnAsinh, INPUT(self_tensor_desc), OUTPUT(out_tensor_desc));
+    uint64_t workspace_size = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(aclRet, ACL_SUCCESS);
+}
+
+// test integer input with non-float32 output is rejected
+TEST_F(l2_asinh_test, case_asinh_int32_to_fp16_invalid)
+{
+    auto self_tensor_desc = TensorDesc({3, 5}, ACL_INT32, ACL_FORMAT_ND).ValueRange(-2.0, 2.0);
+    auto out_tensor_desc = TensorDesc({3, 5}, ACL_FLOAT16, ACL_FORMAT_ND).Precision(0.001, 0.001);
+    auto ut = OP_API_UT(aclnnAsinh, INPUT(self_tensor_desc), OUTPUT(out_tensor_desc));
+    uint64_t workspace_size = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
+}
