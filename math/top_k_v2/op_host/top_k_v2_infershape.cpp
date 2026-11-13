@@ -22,7 +22,8 @@ static constexpr int OUTPUT_INDICES_INDEX = 1;
 static constexpr int INPUT_X_INDEX = 0;
 using namespace ge;
 namespace ops {
-static graphStatus InferShapeForTopKCommon(gert::InferShapeContext* context, int64_t k, const int64_t* dim)
+static graphStatus InferShapeForTopKCommon(gert::InferShapeContext* context, int64_t k, const int64_t* dim,
+                                           bool kUnknown = false)
 {
     const gert::Shape* input_x_shape = context->GetInputShape(INPUT_X_INDEX);
     OP_CHECK_NULL_WITH_CONTEXT(context, input_x_shape);
@@ -48,7 +49,7 @@ static graphStatus InferShapeForTopKCommon(gert::InferShapeContext* context, int
         }
     }
 
-    if (k < 0) {
+    if (!kUnknown && k < 0) {
         OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "k", std::to_string(k).c_str(),
                                               "The value of k must be non-negative.");
         return GRAPH_FAILED;
@@ -88,15 +89,24 @@ static graphStatus InferShapeForTopKV2D(gert::InferShapeContext* context)
     OP_CHECK_NULL_WITH_CONTEXT(context, attrs);
     const int64_t* dim = attrs->GetInt(1);
     const gert::Tensor* input_k_tensor = context->GetInputTensor(1);
-    OP_CHECK_NULL_WITH_CONTEXT(context, input_k_tensor);
+    if (input_k_tensor == nullptr) {
+        OP_LOGW(context->GetNodeName(), "k has no compile-time tensor, degrade output dim to unknown.");
+        return InferShapeForTopKCommon(context, UNKNOWN_DIM, dim, true);
+    }
     DataType input_k_dtype = input_k_tensor->GetDataType();
     if (input_k_dtype == DT_INT32) {
         const int32_t* k = input_k_tensor->GetData<int32_t>();
-        OP_CHECK_NULL_WITH_CONTEXT(context, k);
+        if (k == nullptr) {
+            OP_LOGW(context->GetNodeName(), "k has no compile-time data, degrade output dim to unknown.");
+            return InferShapeForTopKCommon(context, UNKNOWN_DIM, dim, true);
+        }
         return InferShapeForTopKCommon(context, *k, dim);
     } else if (input_k_dtype == DT_INT64) {
         const int64_t* k = input_k_tensor->GetData<int64_t>();
-        OP_CHECK_NULL_WITH_CONTEXT(context, k);
+        if (k == nullptr) {
+            OP_LOGW(context->GetNodeName(), "k has no compile-time data, degrade output dim to unknown.");
+            return InferShapeForTopKCommon(context, UNKNOWN_DIM, dim, true);
+        }
         return InferShapeForTopKCommon(context, *k, dim);
     } else {
         OP_LOGE_FOR_INVALID_DTYPE(context->GetNodeName(), "k", Ops::Base::ToString(input_k_dtype).c_str(),

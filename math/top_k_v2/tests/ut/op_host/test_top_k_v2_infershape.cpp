@@ -99,6 +99,73 @@ TEST_F(TopKV2InferShape, validation_negative_k_is_rejected)
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED);
 }
 
+TEST_F(TopKV2InferShape, validation_k_tensor_null_degrades_to_unknown)
+{
+    gert::InfershapeContextPara infershapeContextPara(
+        "TopKV2",
+        {
+            {{{2, 32}, {2, 32}}, ge::DT_FLOAT, ge::FORMAT_ND},
+            {{{1, 1}, {1, 1}}, ge::DT_INT32, ge::FORMAT_ND},
+        },
+        {
+            {{{2, 32}, {2, 32}}, ge::DT_FLOAT, ge::FORMAT_ND},
+            {{{2, 32}, {2, 32}}, ge::DT_INT64, ge::FORMAT_ND},
+        },
+        {
+            {"sorted", Ops::Math::AnyValue::CreateFrom<bool>(true)},
+            {"dim", Ops::Math::AnyValue::CreateFrom<int64_t>(-1)},
+            {"largest", Ops::Math::AnyValue::CreateFrom<bool>(true)},
+            {"indices_dtype", Ops::Math::AnyValue::CreateFrom<int64_t>(9)},
+        },
+        {}, {}, {1});
+    std::cout << "validation_case k tensor null expected=GRAPH_SUCCESS with unknown dim" << std::endl;
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, {{2, -1}, {2, -1}});
+}
+
+TEST_F(TopKV2InferShape, validation_k_data_null_degrades_to_unknown)
+{
+    gert::InfershapeContextPara infershapeContextPara(
+        "TopKV2",
+        {
+            {{{2, 32}, {2, 32}}, ge::DT_FLOAT, ge::FORMAT_ND},
+            {{{1, 1}, {1, 1}}, ge::DT_INT32, ge::FORMAT_ND, true, nullptr},
+        },
+        {
+            {{{2, 32}, {2, 32}}, ge::DT_FLOAT, ge::FORMAT_ND},
+            {{{2, 32}, {2, 32}}, ge::DT_INT64, ge::FORMAT_ND},
+        },
+        {
+            {"sorted", Ops::Math::AnyValue::CreateFrom<bool>(true)},
+            {"dim", Ops::Math::AnyValue::CreateFrom<int64_t>(-1)},
+            {"largest", Ops::Math::AnyValue::CreateFrom<bool>(true)},
+            {"indices_dtype", Ops::Math::AnyValue::CreateFrom<int64_t>(9)},
+        });
+    std::cout << "validation_case k data null expected=GRAPH_SUCCESS with unknown dim" << std::endl;
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, {{2, -1}, {2, -1}});
+}
+
+TEST_F(TopKV2InferShape, validation_k_data_null_with_dim0_degrades_to_unknown)
+{
+    gert::InfershapeContextPara infershapeContextPara(
+        "TopKV2",
+        {
+            {{{2, 32}, {2, 32}}, ge::DT_FLOAT, ge::FORMAT_ND},
+            {{{1, 1}, {1, 1}}, ge::DT_INT64, ge::FORMAT_ND, true, nullptr},
+        },
+        {
+            {{{2, 32}, {2, 32}}, ge::DT_FLOAT, ge::FORMAT_ND},
+            {{{2, 32}, {2, 32}}, ge::DT_INT64, ge::FORMAT_ND},
+        },
+        {
+            {"sorted", Ops::Math::AnyValue::CreateFrom<bool>(true)},
+            {"dim", Ops::Math::AnyValue::CreateFrom<int64_t>(0)},
+            {"largest", Ops::Math::AnyValue::CreateFrom<bool>(true)},
+            {"indices_dtype", Ops::Math::AnyValue::CreateFrom<int64_t>(9)},
+        });
+    std::cout << "validation_case k data null dim=0 expected=GRAPH_SUCCESS with unknown dim" << std::endl;
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, {{-1, 32}, {-1, 32}});
+}
+
 TEST_F(TopKV2InferShape, validation_dim_below_negative_rank_is_rejected)
 {
     auto infershapeContextPara = MakeTopKV2Case(1, -3);
