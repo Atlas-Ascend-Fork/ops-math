@@ -115,7 +115,7 @@ aclnnStatus aclnnRsubs(
       <td>Output</td>
       <td>Output out of the formula.</td>
       <td>Empty tensors are supported.<br>The data type must be convertible to the data type deduced from self and other (see <a href="../../../docs/en/context/conversion_relationship.md" target="_blank">conversion relationship</a>).<br>The shape must be the same as the shape of self.</td>
-      <td>INT8, UINT8, INT16, INT32, INT64, FLOAT16, FLOAT, DOUBLE, COMPLEX64, COMPLEX128, BFLOAT16</td>
+      <td>INT8, UINT8, INT16, UINT16, INT32, UINT32, INT64, UINT64, FLOAT16, FLOAT, DOUBLE, COMPLEX64, COMPLEX128, BFLOAT16</td>
       <td>ND</td>
       <td>0-8</td>
       <td>√</td>

@@ -126,8 +126,8 @@ aclnnStatus aclnnInplaceBitwiseOrTensor(
       <td>out (aclTensor*)</td>
       <td>Output</td>
       <td>Output tensor that stores the computation result.</td>
-      <td>The shape is the shape after self and other are broadcast.</td>
-      <td>BOOL, INT8, INT16, INT32, INT64, UINT8, UINT16, UINT32, UINT64</td>
+      <td>The data type needs to be a data type convertible after the deduction of self and other (see also <a href="../../../docs/en/context/conversion_relationship.md" target="_blank">conversion relationship</a>). The shape is the shape after self and other are broadcast.</td>
+      <td>BOOL, INT8, INT16, INT32, INT64, UINT8, UINT16, UINT32, UINT64, FLOAT, FLOAT16, DOUBLE, BFLOAT16, COMPLEX64, COMPLEX128</td>
       <td>ND</td>
       <td>Not exceeding 8 dimensions</td>
       <td>√</td>
@@ -153,11 +153,6 @@ aclnnStatus aclnnInplaceBitwiseOrTensor(
       <td>-</td>
     </tr>
   </tbody></table>
-
-  <!-- npu="950" id7 -->
-  - <term>Ascend 950PR&950DT products</term>: The out data type additionally supports FLOAT, FLOAT16, DOUBLE, BFLOAT16, COMPLEX64, and COMPLEX128.
-
-  <!-- end id7 -->
 
 - **Return value**
 

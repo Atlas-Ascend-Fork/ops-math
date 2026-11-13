@@ -105,7 +105,7 @@ aclnnStatus aclnnBitwiseAndTensor(
       <td>Output</td>
       <td>out in the formula.</td>
       <td><ul><li>The data type needs to be a data type convertible after the deduction of self and other (see also <a href="../../../docs/en/context/conversion_relationship.md" target="_blank">conversion relationship</a>).</li><li>The shape needs to be the shape of self and other after broadcast.</li></ul></td>
-      <td>BOOL, INT8, INT16, INT32, INT64, UINT8, UINT16, UINT32, UINT64</td>
+      <td>BOOL, INT8, INT16, INT32, INT64, UINT8, UINT16, UINT32, UINT64, FLOAT, FLOAT16, DOUBLE, BFLOAT16, COMPLEX64, COMPLEX128</td>
       <td>ND</td>
       <td>Not exceeding 8 dimensions</td>
       <td>√</td>

@@ -114,8 +114,8 @@ aclnnStatus aclnnRsub(
       <td>out (aclTensor*)</td>
       <td>Output</td>
       <td>The output out in the formula.</td>
-      <td>Empty tensors are supported.<br>The data type must be one that the data type derived from self and other can be converted to (see <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">deduction relationship</a>).<br>The shape must be the shape after broadcasting self and other.</td>
-      <td>INT8, UINT8, INT16, INT32, INT64, FLOAT16, FLOAT, DOUBLE, COMPLEX64, COMPLEX128, BFLOAT16</td>
+      <td>Empty tensors are supported.<br>The data type must be one that the data type derived from self and other can be converted to (see <a href="../../../docs/en/context/conversion_relationship.md" target="_blank">conversion relationship</a>).<br>The shape must be the shape after broadcasting self and other.</td>
+      <td>INT8, UINT8, INT16, UINT16, INT32, UINT32, INT64, UINT64, FLOAT16, FLOAT, DOUBLE, COMPLEX64, COMPLEX128, BFLOAT16</td>
       <td>ND</td>
       <td>0-8</td>
       <td>√</td>

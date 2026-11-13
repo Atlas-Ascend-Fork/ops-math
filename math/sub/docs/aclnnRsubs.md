@@ -113,7 +113,7 @@ aclnnStatus aclnnRsubs(
       <td>输出</td>
       <td>公式中的输出out。</td>
       <td>支持空Tensor。<br>数据类型需要是self与other推导之后可转换的数据类型（参见<a href="../../../docs/zh/context/conversion_relationship.md" target="_blank">互转换关系</a>）。<br>shape需要与self的shape一致。</td>
-      <td>INT8、UINT8、INT16、INT32、INT64、FLOAT16、FLOAT、DOUBLE、COMPLEX64、COMPLEX128、BFLOAT16</td>
+      <td>INT8、UINT8、INT16、UINT16、INT32、UINT32、INT64、UINT64、FLOAT16、FLOAT、DOUBLE、COMPLEX64、COMPLEX128、BFLOAT16</td>
       <td>ND</td>
       <td>0-8</td>
       <td>√</td>
