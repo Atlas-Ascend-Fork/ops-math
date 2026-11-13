@@ -11,6 +11,7 @@
 #include <array>
 #include <vector>
 #include "gtest/gtest.h"
+#include "opdev/platform.h"
 
 #include "math/div/op_api/aclnn_div.h"
 
@@ -334,4 +335,163 @@ TEST_F(l2_div_mod_test, Ascend950PR_89_case_divmod_trunc_div)
     uint64_t workspace_size = 0;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
     EXPECT_EQ(aclRet, ACL_SUCCESS);
+}
+
+namespace op {
+extern SocVersion g_socVersion;
+extern NpuArch g_npuArchOverride;
+} // namespace op
+
+class l2_div_mod_regbase_out_dtype_test : public testing::Test {
+protected:
+    void SetUp() override
+    {
+        savedSoc_ = op::g_socVersion;
+        savedArch_ = op::g_npuArchOverride;
+        op::SetPlatformSocVersion(op::SocVersion::ASCEND950);
+    }
+    void TearDown() override
+    {
+        // Restore the raw stub state to avoid the setters changing the paired field.
+        op::g_socVersion = savedSoc_;
+        op::g_npuArchOverride = savedArch_;
+    }
+
+private:
+    op::SocVersion savedSoc_;
+    NpuArch savedArch_;
+};
+
+TEST_F(l2_div_mod_regbase_out_dtype_test, tensor_supports_unsigned_out_for_integer_computation)
+{
+    for (auto arch : {NpuArch::DAV_3510}) {
+        op::SetPlatformNpuArch(arch);
+        for (int mode : {1, 2}) {
+            for (auto inDtype : {ACL_INT8, ACL_INT16, ACL_INT32, ACL_INT64, ACL_UINT8}) {
+                for (auto outDtype : {ACL_UINT16, ACL_UINT32, ACL_UINT64}) {
+                    for (auto dims : {vector<int64_t>{2, 3}, vector<int64_t>{0}}) {
+                        SCOPED_TRACE(testing::Message() << "arch=" << static_cast<int>(arch) << " mode=" << mode
+                                                        << " outDtype=" << outDtype << " dim0=" << dims[0]);
+                        auto self = TensorDesc(dims, inDtype, ACL_FORMAT_ND).ValueRange(6, 12);
+                        auto other = TensorDesc(dims, inDtype, ACL_FORMAT_ND).ValueRange(2, 3);
+                        auto out = TensorDesc(dims, outDtype, ACL_FORMAT_ND);
+                        auto ut = OP_API_UT(aclnnDivMod, INPUT(self, other, mode), OUTPUT(out));
+                        uint64_t workspaceSize = 0;
+                        EXPECT_EQ(ut.TestGetWorkspaceSize(&workspaceSize), ACL_SUCCESS);
+                    }
+                }
+            }
+        }
+    }
+}
+
+TEST_F(l2_div_mod_regbase_out_dtype_test, scalar_supports_unsigned_out_for_integer_computation)
+{
+    for (auto arch : {NpuArch::DAV_3510}) {
+        op::SetPlatformNpuArch(arch);
+        for (int mode : {1, 2}) {
+            for (auto inDtype : {ACL_INT8, ACL_INT16, ACL_INT32, ACL_INT64, ACL_UINT8}) {
+                for (auto outDtype : {ACL_UINT16, ACL_UINT32, ACL_UINT64}) {
+                    for (auto dims : {vector<int64_t>{2, 3}, vector<int64_t>{0}}) {
+                        SCOPED_TRACE(testing::Message() << "arch=" << static_cast<int>(arch) << " mode=" << mode
+                                                        << " outDtype=" << outDtype << " dim0=" << dims[0]);
+                        auto self = TensorDesc(dims, inDtype, ACL_FORMAT_ND).ValueRange(6, 12);
+                        auto other = (inDtype == ACL_INT8)  ? ScalarDesc(int8_t(2)) :
+                                     (inDtype == ACL_INT16) ? ScalarDesc(int16_t(2)) :
+                                     (inDtype == ACL_INT32) ? ScalarDesc(int32_t(2)) :
+                                     (inDtype == ACL_UINT8) ? ScalarDesc(uint8_t(2)) :
+                                                              ScalarDesc(int64_t(2));
+                        auto out = TensorDesc(dims, outDtype, ACL_FORMAT_ND);
+                        auto ut = OP_API_UT(aclnnDivMods, INPUT(self, other, mode), OUTPUT(out));
+                        uint64_t workspaceSize = 0;
+                        EXPECT_EQ(ut.TestGetWorkspaceSize(&workspaceSize), ACL_SUCCESS);
+                    }
+                }
+            }
+        }
+    }
+}
+
+TEST_F(l2_div_mod_regbase_out_dtype_test, unsigned_out_is_not_unconditionally_supported)
+{
+    for (auto arch : {NpuArch::DAV_3510}) {
+        op::SetPlatformNpuArch(arch);
+        for (auto outDtype : {ACL_UINT16, ACL_UINT32, ACL_UINT64}) {
+            for (int mode : {0, 2}) {
+                SCOPED_TRACE(testing::Message()
+                             << "arch=" << static_cast<int>(arch) << " mode=" << mode << " outDtype=" << outDtype);
+                auto self = TensorDesc({2, 3}, ACL_FLOAT, ACL_FORMAT_ND).ValueRange(6, 12);
+                auto other = TensorDesc({2, 3}, ACL_FLOAT, ACL_FORMAT_ND).ValueRange(2, 3);
+                auto scalar = ScalarDesc(2.0f);
+                auto out = TensorDesc({2, 3}, outDtype, ACL_FORMAT_ND);
+                auto tensorUt = OP_API_UT(aclnnDivMod, INPUT(self, other, mode), OUTPUT(out));
+                auto scalarUt = OP_API_UT(aclnnDivMods, INPUT(self, scalar, mode), OUTPUT(out));
+                uint64_t workspaceSize = 0;
+                EXPECT_EQ(tensorUt.TestGetWorkspaceSize(&workspaceSize), ACLNN_ERR_PARAM_INVALID);
+                EXPECT_EQ(scalarUt.TestGetWorkspaceSize(&workspaceSize), ACLNN_ERR_PARAM_INVALID);
+            }
+        }
+    }
+}
+
+TEST_F(l2_div_mod_regbase_out_dtype_test, trunc_float_unsigned_out_uses_cast_path)
+{
+    for (auto arch : {NpuArch::DAV_3510}) {
+        op::SetPlatformNpuArch(arch);
+        for (auto outDtype : {ACL_UINT16, ACL_UINT32, ACL_UINT64}) {
+            for (auto dims : {vector<int64_t>{2, 3}, vector<int64_t>{0}}) {
+                SCOPED_TRACE(testing::Message()
+                             << "arch=" << static_cast<int>(arch) << " outDtype=" << outDtype << " dim0=" << dims[0]);
+                auto self = TensorDesc(dims, ACL_FLOAT, ACL_FORMAT_ND).ValueRange(6, 12);
+                auto other = TensorDesc(dims, ACL_FLOAT, ACL_FORMAT_ND).ValueRange(2, 3);
+                auto scalar = ScalarDesc(2.0f);
+                auto out = TensorDesc(dims, outDtype, ACL_FORMAT_ND);
+                auto tensorUt = OP_API_UT(aclnnDivMod, INPUT(self, other, 1), OUTPUT(out));
+                auto scalarUt = OP_API_UT(aclnnDivMods, INPUT(self, scalar, 1), OUTPUT(out));
+                uint64_t workspaceSize = 0;
+                EXPECT_EQ(tensorUt.TestGetWorkspaceSize(&workspaceSize), ACL_SUCCESS);
+                EXPECT_EQ(scalarUt.TestGetWorkspaceSize(&workspaceSize), ACL_SUCCESS);
+            }
+        }
+    }
+}
+
+TEST_F(l2_div_mod_regbase_out_dtype_test, bool_inputs_support_unsigned_out)
+{
+    for (auto arch : {NpuArch::DAV_3510}) {
+        op::SetPlatformNpuArch(arch);
+        for (int mode : {1, 2}) {
+            auto self = TensorDesc({2, 3}, ACL_BOOL, ACL_FORMAT_ND).ValueRange(1, 1);
+            auto other = TensorDesc({2, 3}, ACL_BOOL, ACL_FORMAT_ND).ValueRange(1, 1);
+            auto scalar = ScalarDesc(true);
+            auto out = TensorDesc({2, 3}, ACL_UINT16, ACL_FORMAT_ND);
+            auto tensorUt = OP_API_UT(aclnnDivMod, INPUT(self, other, mode), OUTPUT(out));
+            auto scalarUt = OP_API_UT(aclnnDivMods, INPUT(self, scalar, mode), OUTPUT(out));
+            uint64_t workspaceSize = 0;
+            EXPECT_EQ(tensorUt.TestGetWorkspaceSize(&workspaceSize), ACL_SUCCESS);
+            EXPECT_EQ(scalarUt.TestGetWorkspaceSize(&workspaceSize), ACL_SUCCESS);
+        }
+    }
+}
+
+TEST_F(l2_div_mod_regbase_out_dtype_test, negative_integer_inputs_support_unsigned_out)
+{
+    for (auto arch : {NpuArch::DAV_3510}) {
+        op::SetPlatformNpuArch(arch);
+        for (int mode : {1, 2}) {
+            for (auto outDtype : {ACL_UINT16, ACL_UINT32, ACL_UINT64}) {
+                SCOPED_TRACE(testing::Message()
+                             << "arch=" << static_cast<int>(arch) << " mode=" << mode << " outDtype=" << outDtype);
+                auto self = TensorDesc({2, 3}, ACL_INT32, ACL_FORMAT_ND).ValueRange(-12, -6);
+                auto other = TensorDesc({2, 3}, ACL_INT32, ACL_FORMAT_ND).ValueRange(2, 3);
+                auto scalar = ScalarDesc(int32_t(2));
+                auto out = TensorDesc({2, 3}, outDtype, ACL_FORMAT_ND);
+                auto tensorUt = OP_API_UT(aclnnDivMod, INPUT(self, other, mode), OUTPUT(out));
+                auto scalarUt = OP_API_UT(aclnnDivMods, INPUT(self, scalar, mode), OUTPUT(out));
+                uint64_t workspaceSize = 0;
+                EXPECT_EQ(tensorUt.TestGetWorkspaceSize(&workspaceSize), ACL_SUCCESS);
+                EXPECT_EQ(scalarUt.TestGetWorkspaceSize(&workspaceSize), ACL_SUCCESS);
+            }
+        }
+    }
 }

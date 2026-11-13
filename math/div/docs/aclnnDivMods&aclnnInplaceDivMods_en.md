@@ -171,7 +171,8 @@ aclnnStatus aclnnInplaceDivMods(
   - <term>Ascend 950PR&950DT products</term>:
     - The data type must comply with the [TensorScalar deduction relationship](../../../docs/en/context/deduction_relationship.md).
     - When mode is 0, the data type of out supports FLOAT, FLOAT16, DOUBLE, BFLOAT16, COMPLEX128, and COMPLEX64. If the data types of self and other after deduction are integer or Boolean types, the deducted data type is converted to FLOAT;
-    - When mode is 1 or 2, the out data type supports FLOAT, FLOAT16, DOUBLE, INT32, INT64, INT16, INT8, UINT8, BOOL, BFLOAT16, COMPLEX128, and COMPLEX64.
+    - When mode is 1, the computation result can be converted to the data type specified by out, including UINT16, UINT32, and UINT64. For conversion rules, see [aclnnCast](../../cast/docs/aclnnCast_en.md).
+    - When mode is 2, the out data type supports FLOAT, FLOAT16, DOUBLE, INT32, INT64, INT16, INT8, UINT8, BOOL, BFLOAT16, COMPLEX128, and COMPLEX64; when the computation data type deduced from self and other is an integer type or BOOL, out also supports UINT16, UINT32, and UINT64. Negative computation results can be converted to unsigned outputs according to the [data type conversion rules](../../cast/docs/aclnnCast_en.md).
   <!-- end id8 -->
 
 - **Return value**

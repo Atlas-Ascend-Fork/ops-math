@@ -169,7 +169,8 @@ aclnnStatus aclnnInplaceDivMod(
   <!-- npu="950" id8 -->
   - <term>Ascend 950PR&950DT系列产品</term>：
     - mode为0时，out数据类型支持FLOAT、FLOAT16、DOUBLE、BFLOAT16、COMPLEX128、COMPLEX64；
-    - mode为1或2时，out数据类型支持FLOAT、FLOAT16、DOUBLE、INT32、INT64、INT16、INT8、UINT8、BOOL、BFLOAT16、COMPLEX128、COMPLEX64。
+    - mode为1时，计算结果可转换为out指定的数据类型（包括UINT16、UINT32、UINT64），转换规则参见[aclnnCast](../../cast/docs/aclnnCast.md)。
+    - mode为2时，out数据类型支持FLOAT、FLOAT16、DOUBLE、INT32、INT64、INT16、INT8、UINT8、BOOL、BFLOAT16、COMPLEX128、COMPLEX64；当self与other推导出的计算类型为整型或BOOL时，out还支持UINT16、UINT32、UINT64，允许负数计算结果转换为无符号输出，转换遵循[类型转换规则](../../cast/docs/aclnnCast.md)写入。
     - 当mode为0且self与other推导之后的数据类型为整数类型或布尔类型时，推导之后的数据类型会转换为FLOAT。
   <!-- end id8 -->
 
