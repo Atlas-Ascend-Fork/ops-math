@@ -41,28 +41,30 @@ $$out_i=value_i$$
       <td>ref</td>
       <td>输入</td>
       <td>待进行Assign计算的入参，对应公式中的out，输入即输出。</td>
-      <td>FLOAT、FLOAT16、BFLOAT16、INT8、UINT8、INT16、UINT16、INT32、UINT32、INT64、UINT64、BOOL、COMPLEX32、COMPLEX64</td>
+      <td>FLOAT、FLOAT16、BFLOAT16、DOUBLE、INT8、UINT8、INT16、UINT16、INT32、UINT32、INT64、UINT64、BOOL、COMPLEX32、COMPLEX64</td>
       <td>ND</td>
     </tr>
     <tr>
       <td>value</td>
       <td>输入</td>
       <td>待进行Assign填充值，公式中的value。</td>
-      <td>FLOAT、FLOAT16、BFLOAT16、INT8、UINT8、INT16、UINT16、INT32、UINT32、INT64、UINT64、BOOL、COMPLEX32、COMPLEX64</td>
+      <td>FLOAT、FLOAT16、BFLOAT16、DOUBLE、INT8、UINT8、INT16、UINT16、INT32、UINT32、INT64、UINT64、BOOL、COMPLEX32、COMPLEX64</td>
       <td>ND</td>
     </tr>
     <tr>
       <td>ref</td>
       <td>输出</td>
       <td>待进行Assign计算的出参，公式中的out。</td>
-      <td>FLOAT、FLOAT16、BFLOAT16、INT8、UINT8、INT16、UINT16、INT32、UINT32、INT64、UINT64、BOOL、COMPLEX32、COMPLEX64</td>
+      <td>FLOAT、FLOAT16、BFLOAT16、DOUBLE、INT8、UINT8、INT16、UINT16、INT32、UINT32、INT64、UINT64、BOOL、COMPLEX32、COMPLEX64</td>
       <td>ND</td>
     </tr>
   </tbody></table>
 
 ## 约束说明
 
-无
+- <term>Ascend 950PR&950DT系列产品</term>：数据类型支持FLOAT、FLOAT16、BFLOAT16、DOUBLE、INT8、UINT8、INT16、UINT16、INT32、UINT32、INT64、UINT64、BOOL、COMPLEX32、COMPLEX64。
+- <term>Atlas A3系列产品</term>、<term>Atlas A2系列产品</term>：数据类型支持FLOAT、FLOAT16、BFLOAT16、INT8、UINT8、INT16、UINT16、INT32、UINT32、INT64、UINT64、BOOL。
+- <term>Atlas推理系列产品</term>、<term>Atlas训练系列产品</term>：数据类型支持FLOAT、FLOAT16、INT8、UINT8、INT16、UINT16、INT32、UINT32、INT64、UINT64、BOOL。
 
 ## 调用说明
 

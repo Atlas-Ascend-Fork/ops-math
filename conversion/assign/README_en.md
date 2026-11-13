@@ -43,28 +43,30 @@ $$out_i=value_i$$
       <td>ref</td>
       <td>Input</td>
       <td>Input parameter for the Assign computation, which is out in the formula. The input is also the output.</td>
-      <td>FLOAT, FLOAT16, BFLOAT16, INT8, UINT8, INT16, UINT16, INT32, UINT32, INT64, UINT64, BOOL, COMPLEX32, COMPLEX64</td>
+      <td>FLOAT, FLOAT16, BFLOAT16, DOUBLE, INT8, UINT8, INT16, UINT16, INT32, UINT32, INT64, UINT64, BOOL, COMPLEX32, COMPLEX64</td>
       <td>ND</td>
     </tr>
     <tr>
       <td>value</td>
       <td>Input</td>
       <td>Fill value for the Assign computation, which is value in the formula.</td>
-      <td>FLOAT, FLOAT16, BFLOAT16, INT8, UINT8, INT16, UINT16, INT32, UINT32, INT64, UINT64, BOOL, COMPLEX32, COMPLEX64</td>
+      <td>FLOAT, FLOAT16, BFLOAT16, DOUBLE, INT8, UINT8, INT16, UINT16, INT32, UINT32, INT64, UINT64, BOOL, COMPLEX32, COMPLEX64</td>
       <td>ND</td>
     </tr>
     <tr>
       <td>ref</td>
       <td>Output</td>
       <td>Output parameter for the Assign computation, which is out in the formula.</td>
-      <td>FLOAT, FLOAT16, BFLOAT16, INT8, UINT8, INT16, UINT16, INT32, UINT32, INT64, UINT64, BOOL, COMPLEX32, COMPLEX64</td>
+      <td>FLOAT, FLOAT16, BFLOAT16, DOUBLE, INT8, UINT8, INT16, UINT16, INT32, UINT32, INT64, UINT64, BOOL, COMPLEX32, COMPLEX64</td>
       <td>ND</td>
     </tr>
   </tbody></table>
 
 ## Constraint Description
 
-None
+- <term>Ascend 950PR&950DT products</term>: The supported data types are FLOAT, FLOAT16, BFLOAT16, DOUBLE, INT8, UINT8, INT16, UINT16, INT32, UINT32, INT64, UINT64, BOOL, COMPLEX32, and COMPLEX64.
+- <term>Atlas A3 products</term> and <term>Atlas A2 products</term>: The supported data types are FLOAT, FLOAT16, BFLOAT16, INT8, UINT8, INT16, UINT16, INT32, UINT32, INT64, UINT64, and BOOL.
+- <term>Atlas inference products</term> and <term>Atlas training products</term>: The supported data types are FLOAT, FLOAT16, INT8, UINT8, INT16, UINT16, INT32, UINT32, INT64, UINT64, and BOOL.
 
 ## Invocation Description
 
