@@ -13,15 +13,33 @@
 
 ## 功能说明
 
-- 算子功能：基于Philox4x32-10伪随机数生成算法，生成服从均匀分布的随机数张量，随机值范围为[from, to)。
+- 算子功能：基于Philox4x32-10伪随机数生成算法，生成服从均匀分布的随机数张量，随机值范围为[from, to)，边界与上界回绕按转换为输出数据类型后的值解释。
 
 - 计算公式：
 
+  记$T$为输出数据类型（FLOAT32、FLOAT16或BFLOAT16），$from$、$to$为DOUBLE标量，在tiling阶段先转换为FLOAT32，再分别转换为$T$得到边界$a$、$b$，差值$d$同样按$T$保存：
+
   $$
-  y_i = u_i \times (to - from) + from, \quad u_i \sim \text{Uniform}(0, 1]
+  a = T(\text{FLOAT32}(from)), \quad b = T(\text{FLOAT32}(to)), \quad d = T(b - a)
   $$
 
-  其中 $u_i$ 由Philox4x32-10算法生成，归一化方式与竞品curand_uniform一致：$u = x \times 2^{-32} + 2^{-33}$。
+  其中$x_i$为Philox4x32-10算法生成的原始uint32随机数，$u_i$与候选值$v_i$的计算如下：
+
+  $$
+  u_i = \text{FLOAT32}\left(\text{FLOAT32}(x_i) \times 2^{-32} + 2^{-33}\right), \quad
+  v_i = T\left(\text{FLOAT32}(u_i) \times \text{FLOAT32}(d) + \text{FLOAT32}(a)\right)
+  $$
+
+  候选值先转换回输出数据类型，再用`==`与上界$b$比较：相等时改写为下界$a$，否则保留$v_i$：
+
+  $$
+  y_i = \begin{cases}
+  a, & v_i = b \\
+  v_i, & v_i \neq b
+  \end{cases}
+  $$
+
+  $u_i$的归一化方式与竞品curand_uniform一致，即$u = x \times 2^{-32} + 2^{-33}$（FLOAT32计算）；受FLOAT32舍入影响，$u_i$在FLOAT32下可能取到1，FLOAT16/BFLOAT16的候选值也可能在转换为输出类型后等于上界；当候选值恰好等于上界$b$时触发上述上界回绕。因此$[from, to)$应按转换后的边界解释：当$a < b$时通常$y_i \in [a, b)$，但受浮点舍入影响，$u_i$接近1时候选值可能略高于$b$且不等于$b$（不回绕），此时$y_i$可略超$b$，下界$a$始终成立；当$a = b$（$from$、$to$转换为输出类型后重合，退化情形）时，$y_i$恒为$a$。上述计算过程不改变Philox随机序列的生成规则，且仅适用于本算子及其支持产品。
 
 ## 参数说明
 
@@ -79,7 +97,7 @@
     <tr>
       <td>y</td>
       <td>输出</td>
-      <td>输出指定形状的均匀分布随机值，值域为[from, to)。</td>
+      <td>输出指定形状的均匀分布随机值，值域为[from, to)，边界按转换为输出数据类型后的值解释（见计算公式）。</td>
       <td>FLOAT16、BFLOAT16、FLOAT32</td>
       <td>ND</td>
     </tr>
