@@ -331,6 +331,10 @@ inline static aclnnStatus CheckMulsParams(const aclTensor* self, const aclScalar
     // 3. 检查self和other的数据类型能否promote以及转换为输出的数据类型
     CHECK_RET(CheckMulsPromoteDtype(self, other, out), ACLNN_ERR_PARAM_INVALID);
     // 4. 检查输入输出shape间关系
+    if (IsRegBase()) {
+        OP_CHECK_MAX_DIM(self, MAX_SUPPORT_DIMS_NUMS, return ACLNN_ERR_PARAM_INVALID);
+        OP_CHECK_MAX_DIM(out, MAX_SUPPORT_DIMS_NUMS, return ACLNN_ERR_PARAM_INVALID);
+    }
     OP_CHECK_SHAPE_NOT_EQUAL(self, out, return ACLNN_ERR_PARAM_INVALID);
     return ACLNN_SUCCESS;
 }
@@ -357,6 +361,10 @@ inline static aclnnStatus CheckInplaceMulsParams(const aclTensor* selfRef, const
     OP_CHECK_DTYPE_NOT_SUPPORT(selfRef, supportList, return ACLNN_ERR_PARAM_INVALID);
     // 3. 检查self和other的数据类型能否promote以及转换为输出的数据类型
     CHECK_RET(CheckMulsPromoteDtype(selfRef, other, selfRef), ACLNN_ERR_PARAM_INVALID);
+    // 4. 检查输入的维度（仅 RegBase 路径）
+    if (IsRegBase()) {
+        OP_CHECK_MAX_DIM(selfRef, MAX_SUPPORT_DIMS_NUMS, return ACLNN_ERR_PARAM_INVALID);
+    }
     return ACLNN_SUCCESS;
 }
 

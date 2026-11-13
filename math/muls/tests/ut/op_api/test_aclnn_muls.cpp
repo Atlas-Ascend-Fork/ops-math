@@ -17,6 +17,7 @@
 #include "op_api_ut_common/op_api_ut.h"
 #include "op_api_ut_common/scalar_desc.h"
 #include "op_api_ut_common/tensor_desc.h"
+#include "opdev/platform.h"
 
 using namespace std;
 
@@ -116,6 +117,64 @@ TEST_F(l2_muls_test, case_008)
     auto out_desc = TensorDesc({10, 5}, ACL_FLOAT, ACL_FORMAT_NCHW);
 
     auto ut = OP_API_UT(aclnnMuls, INPUT(tensor_desc, scalar_desc), OUTPUT(out_desc));
+
+    // SAMPLE: only test GetWorkspaceSize
+    uint64_t workspace_size = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(aclRet, ACLNN_SUCCESS);
+}
+
+TEST_F(l2_muls_test, case_dim_above_8_regbase)
+{
+    op::SetPlatformNpuArch(NpuArch::DAV_3510);
+    auto tensor_desc = TensorDesc({1, 1, 1, 1, 1, 1, 1, 1, 1}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto scalar_desc = ScalarDesc(static_cast<int64_t>(5));
+    auto out_desc = TensorDesc({1, 1, 1, 1, 1, 1, 1, 1, 1}, ACL_FLOAT, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnMuls, INPUT(tensor_desc, scalar_desc), OUTPUT(out_desc));
+
+    // SAMPLE: only test GetWorkspaceSize
+    uint64_t workspace_size = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
+}
+
+TEST_F(l2_muls_test, case_dim_above_8_non_regbase)
+{
+    op::SetPlatformNpuArch(NpuArch::DAV_2201);
+    auto tensor_desc = TensorDesc({1, 1, 1, 1, 1, 1, 1, 1, 1}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto scalar_desc = ScalarDesc(static_cast<int64_t>(5));
+    auto out_desc = TensorDesc({1, 1, 1, 1, 1, 1, 1, 1, 1}, ACL_FLOAT, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnMuls, INPUT(tensor_desc, scalar_desc), OUTPUT(out_desc));
+
+    // SAMPLE: only test GetWorkspaceSize
+    uint64_t workspace_size = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(aclRet, ACLNN_SUCCESS);
+}
+
+TEST_F(l2_muls_test, case_inplace_dim_above_8_regbase)
+{
+    op::SetPlatformNpuArch(NpuArch::DAV_3510);
+    auto tensor_desc = TensorDesc({1, 1, 1, 1, 1, 1, 1, 1, 1}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto scalar_desc = ScalarDesc(static_cast<int64_t>(5));
+
+    auto ut = OP_API_UT(aclnnInplaceMuls, INPUT(tensor_desc, scalar_desc), OUTPUT());
+
+    // SAMPLE: only test GetWorkspaceSize
+    uint64_t workspace_size = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
+}
+
+TEST_F(l2_muls_test, case_inplace_dim_above_8_non_regbase)
+{
+    op::SetPlatformNpuArch(NpuArch::DAV_2201);
+    auto tensor_desc = TensorDesc({1, 1, 1, 1, 1, 1, 1, 1, 1}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto scalar_desc = ScalarDesc(static_cast<int64_t>(5));
+
+    auto ut = OP_API_UT(aclnnInplaceMuls, INPUT(tensor_desc, scalar_desc), OUTPUT());
 
     // SAMPLE: only test GetWorkspaceSize
     uint64_t workspace_size = 0;
