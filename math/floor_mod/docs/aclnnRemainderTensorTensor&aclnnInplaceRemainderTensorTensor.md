@@ -190,10 +190,10 @@
 
 - **参数说明：**
 
-  - selfRef(aclTensor*，计算输入|计算输出)：输入输出tensor，selfRef的数据类型与other的数据类型需满足数据类型推导规则（参见[互推导关系](../../../docs/zh/context/deduction_relationship.md)），且需要是推导之后可转换的数据类型。shape需要与other满足[broadcast关系](../../../docs/zh/context/broadcast_relationship.md)，且broadcast后的shape需要与selfRef的shape一致。支持[非连续的Tensor](../../../docs/zh/context/non_contiguous_tensor.md)，[数据格式](../../../docs/zh/context/data_format.md)支持ND，数据维度不支持8维以上。
+  - selfRef(aclTensor*，计算输入|计算输出)：输入输出tensor，selfRef的数据类型与other的数据类型需满足数据类型推导规则（参见[互推导关系](../../../docs/zh/context/deduction_relationship.md)），且推导后的数据类型需能转换为selfRef的数据类型。shape需要与other满足[broadcast关系](../../../docs/zh/context/broadcast_relationship.md)，且broadcast后的shape需要与selfRef的shape一致。支持[非连续的Tensor](../../../docs/zh/context/non_contiguous_tensor.md)，[数据格式](../../../docs/zh/context/data_format.md)支持ND，数据维度不支持8维以上。
 
     <!-- npu="950,A3,910b" id13 -->
-    - <term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>、<term>Ascend 950PR&950DT系列产品</term>：数据类型支持INT32、INT64、FLOAT16、FLOAT、DOUBLE、BFLOAT16。
+    - <term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>、<term>Ascend 950PR&950DT系列产品</term>：互推导后的数据类型为INT32、INT64、FLOAT16、FLOAT、DOUBLE、BFLOAT16。
     <!-- end id13 -->
     <!-- npu="910,310p" id14 -->
     - <term>Atlas推理系列产品</term>、<term>Atlas训练系列产品</term>：数据类型支持INT32、INT64、FLOAT16、FLOAT、DOUBLE。
@@ -202,7 +202,7 @@
   - other(aclTensor*，计算输入)：公式中的输入`other`，selfRef的数据类型与other的数据类型需满足数据类型推导规则（参见[互推导关系](../../../docs/zh/context/deduction_relationship.md)）。shape需要与selfRef满足[broadcast关系](../../../docs/zh/context/broadcast_relationship.md)。支持[非连续的Tensor](../../../docs/zh/context/non_contiguous_tensor.md)，[数据格式](../../../docs/zh/context/data_format.md)支持ND，数据维度不支持8维以上。
 
     <!-- npu="950,A3,910b" id15 -->
-    - <term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>、<term>Ascend 950PR&950DT系列产品</term>：数据类型支持INT32、INT64、FLOAT16、FLOAT、DOUBLE、BFLOAT16。
+    - <term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>、<term>Ascend 950PR&950DT系列产品</term>：互推导后的数据类型为INT32、INT64、FLOAT16、FLOAT、DOUBLE、BFLOAT16。
     <!-- end id15 -->
     <!-- npu="910,310p" id16 -->
     - <term>Atlas推理系列产品</term>、<term>Atlas训练系列产品</term>：数据类型支持INT32、INT64、FLOAT16、FLOAT、DOUBLE。

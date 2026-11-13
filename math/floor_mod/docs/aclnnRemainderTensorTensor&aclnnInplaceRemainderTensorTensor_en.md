@@ -192,10 +192,10 @@
 
 - **Parameters:**
 
-  - selfRef(aclTensor*, computation input|computation output): Input/output tensor. The data type of selfRef and the data type of other need to satisfy the data type deduction rules (see also [deduction relationship](../../../docs/en/context/deduction_relationship.md)) and need to be data types that are convertible after mutual derivation. The shape needs to satisfy the [broadcast relationship](../../../docs/en/context/broadcast_relationship.md) with other, and the shape after broadcasting needs to be the same as the shape of selfRef. [Non-contiguous tensor](../../../docs/en/context/non_contiguous_tensor.md) is supported, and the [data format](../../../docs/en/context/data_format.md) supports ND. Data dimensions of 8 dimensions or more are not supported.
+  - selfRef(aclTensor*, computation input|computation output): Input/output tensor. The data type of selfRef and the data type of other need to satisfy the data type deduction rules (see also [deduction relationship](../../../docs/en/context/deduction_relationship.md)) and the deduced data type must be convertible to the data type of selfRef. The shape needs to satisfy the [broadcast relationship](../../../docs/en/context/broadcast_relationship.md) with other, and the shape after broadcasting needs to be the same as the shape of selfRef. [Non-contiguous tensor](../../../docs/en/context/non_contiguous_tensor.md) is supported, and the [data format](../../../docs/en/context/data_format.md) supports ND. Data dimensions of 8 dimensions or more are not supported.
 
     <!-- npu="950,A3,910b" id13 -->
-    - <term>Atlas A2 products</term>, <term>Atlas A3 products</term>, <term>Ascend 950PR&950DT products</term>: The data type supports INT32, INT64, FLOAT16, FLOAT, DOUBLE, and BFLOAT16.
+    - <term>Atlas A2 products</term>, <term>Atlas A3 products</term>, <term>Ascend 950PR&950DT products</term>: The deduced data type must be INT32, INT64, FLOAT16, FLOAT, DOUBLE, or BFLOAT16.
     <!-- end id13 -->
     <!-- npu="910,310p" id14 -->
     - <term>Atlas inference products</term>, <term>Atlas training products</term>: The data type supports INT32, INT64, FLOAT16, FLOAT, and DOUBLE.
@@ -204,7 +204,7 @@
   - other(aclTensor*, computation input): Input `other` in the formula. The data type of selfRef and the data type of other need to satisfy the data type deduction rules (see also [deduction relationship](../../../docs/en/context/deduction_relationship.md)). The shape needs to satisfy the [broadcast relationship](../../../docs/en/context/broadcast_relationship.md) with selfRef. [Non-contiguous tensor](../../../docs/en/context/non_contiguous_tensor.md) is supported, and the [data format](../../../docs/en/context/data_format.md) supports ND. Data dimensions of 8 dimensions or more are not supported.
 
     <!-- npu="950,A3,910b" id15 -->
-    - <term>Atlas A2 products</term>, <term>Atlas A3 products</term>, <term>Ascend 950PR&950DT products</term>: The data type supports INT32, INT64, FLOAT16, FLOAT, DOUBLE, and BFLOAT16.
+    - <term>Atlas A2 products</term>, <term>Atlas A3 products</term>, <term>Ascend 950PR&950DT products</term>: The deduced data type must be INT32, INT64, FLOAT16, FLOAT, DOUBLE, or BFLOAT16.
     <!-- end id15 -->
     <!-- npu="910,310p" id16 -->
     - <term>Atlas inference products</term>, <term>Atlas training products</term>: The data type supports INT32, INT64, FLOAT16, FLOAT, and DOUBLE.

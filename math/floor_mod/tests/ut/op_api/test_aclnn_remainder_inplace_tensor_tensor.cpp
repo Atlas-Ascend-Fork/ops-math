@@ -281,3 +281,95 @@ TEST_F(l2_remainder_inplace_tensor_tensor_test, l2_remainder_inplace_tensor_tens
 //     // self < 0, other < 0
 //     test_run({3, 3, 5}, ACL_FLOAT, ACL_FORMAT_ND, {-10, -1}, {3, 3, 5}, ACL_DOUBLE, ACL_FORMAT_ND, {-10, -1});
 // }
+
+namespace op {
+extern SocVersion g_socVersion;
+extern NpuArch g_npuArchOverride;
+} // namespace op
+
+class l2_remainder_inplace_regbase_dtype_test : public testing::Test {
+protected:
+    void SetUp() override
+    {
+        savedSoc_ = op::g_socVersion;
+        savedArch_ = op::g_npuArchOverride;
+        op::SetPlatformSocVersion(op::SocVersion::ASCEND950);
+    }
+    void TearDown() override
+    {
+        // Restore the raw stub state to avoid the setters changing the paired field.
+        op::g_socVersion = savedSoc_;
+        op::g_npuArchOverride = savedArch_;
+    }
+
+private:
+    op::SocVersion savedSoc_;
+    NpuArch savedArch_;
+};
+
+TEST_F(l2_remainder_inplace_regbase_dtype_test, supports_promotable_other_dtype)
+{
+    for (auto arch : {NpuArch::DAV_3510}) {
+        op::SetPlatformNpuArch(arch);
+        for (auto dtype : {ACL_INT8, ACL_UINT8, ACL_INT16, ACL_BOOL}) {
+            for (auto dims : {vector<int64_t>{2, 3}, vector<int64_t>{0}}) {
+                SCOPED_TRACE(testing::Message()
+                             << "arch=" << static_cast<int>(arch) << " other=" << dtype << " dim0=" << dims[0]);
+                auto self = TensorDesc(dims, ACL_INT32, ACL_FORMAT_ND).ValueRange(6, 12);
+                auto other = TensorDesc(dims, dtype, ACL_FORMAT_ND).ValueRange(1, 1);
+                auto ut = OP_API_UT(aclnnInplaceRemainderTensorTensor, INPUT(self, other), OUTPUT());
+                uint64_t workspaceSize = 0;
+                EXPECT_EQ(ut.TestGetWorkspaceSize(&workspaceSize), ACL_SUCCESS);
+            }
+        }
+    }
+}
+
+TEST_F(l2_remainder_inplace_regbase_dtype_test, supports_narrow_integer_self_with_int32_computation)
+{
+    for (auto arch : {NpuArch::DAV_3510}) {
+        op::SetPlatformNpuArch(arch);
+        for (auto dtype : {ACL_INT8, ACL_UINT8, ACL_INT16}) {
+            for (auto dims : {vector<int64_t>{2, 3}, vector<int64_t>{0}}) {
+                SCOPED_TRACE(testing::Message()
+                             << "arch=" << static_cast<int>(arch) << " self=" << dtype << " dim0=" << dims[0]);
+                auto self = TensorDesc(dims, dtype, ACL_FORMAT_ND).ValueRange(6, 12);
+                auto other = TensorDesc(dims, ACL_INT32, ACL_FORMAT_ND).ValueRange(2, 3);
+                auto ut = OP_API_UT(aclnnInplaceRemainderTensorTensor, INPUT(self, other), OUTPUT());
+                uint64_t workspaceSize = 0;
+                EXPECT_EQ(ut.TestGetWorkspaceSize(&workspaceSize), ACL_SUCCESS);
+            }
+        }
+    }
+}
+
+TEST_F(l2_remainder_inplace_regbase_dtype_test, rejects_unsupported_computation_or_writeback_type)
+{
+    for (auto arch : {NpuArch::DAV_3510}) {
+        op::SetPlatformNpuArch(arch);
+        for (auto dims : {vector<int64_t>{2, 3}, vector<int64_t>{0}}) {
+            for (auto dtype : {ACL_INT8, ACL_UINT8, ACL_INT16, ACL_BOOL}) {
+                SCOPED_TRACE(testing::Message()
+                             << "arch=" << static_cast<int>(arch) << " dtype=" << dtype << " dim0=" << dims[0]);
+                auto self = TensorDesc(dims, dtype, ACL_FORMAT_ND).ValueRange(1, 1);
+                auto other = TensorDesc(dims, dtype, ACL_FORMAT_ND).ValueRange(1, 1);
+                auto ut = OP_API_UT(aclnnInplaceRemainderTensorTensor, INPUT(self, other), OUTPUT());
+                uint64_t workspaceSize = 0;
+                EXPECT_EQ(ut.TestGetWorkspaceSize(&workspaceSize), ACLNN_ERR_PARAM_INVALID);
+            }
+            for (auto dtype : {ACL_FLOAT16, ACL_FLOAT, ACL_DOUBLE, ACL_BF16}) {
+                SCOPED_TRACE(testing::Message() << "floating other=" << dtype);
+                auto self = TensorDesc(dims, ACL_INT32, ACL_FORMAT_ND).ValueRange(6, 12);
+                auto other = TensorDesc(dims, dtype, ACL_FORMAT_ND).ValueRange(2, 3);
+                auto ut = OP_API_UT(aclnnInplaceRemainderTensorTensor, INPUT(self, other), OUTPUT());
+                uint64_t workspaceSize = 0;
+                EXPECT_EQ(ut.TestGetWorkspaceSize(&workspaceSize), ACLNN_ERR_PARAM_INVALID);
+            }
+            auto self = TensorDesc(dims, ACL_BOOL, ACL_FORMAT_ND).ValueRange(1, 1);
+            auto other = TensorDesc(dims, ACL_INT32, ACL_FORMAT_ND).ValueRange(2, 3);
+            auto ut = OP_API_UT(aclnnInplaceRemainderTensorTensor, INPUT(self, other), OUTPUT());
+            uint64_t workspaceSize = 0;
+            EXPECT_EQ(ut.TestGetWorkspaceSize(&workspaceSize), ACLNN_ERR_PARAM_INVALID);
+        }
+    }
+}
