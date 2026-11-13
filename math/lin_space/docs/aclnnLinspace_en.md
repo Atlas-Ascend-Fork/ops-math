@@ -115,7 +115,7 @@ aclnnStatus aclnnLinspace(
       <td>out (aclTensor*)</td>
       <td>Output</td>
       <td>The out in the formula.</td>
-      <td>The number of elements in out must be the same as that of steps. Empty tensors are not supported.</td>
+      <td>The number of elements in out must equal steps. When steps is 0, out must be an empty tensor and the API returns success.</td>
       <td>INT8, INT16, INT32, INT64, UINT8, FLOAT, FLOAT16, DOUBLE, BFLOAT16</td>
       <td>ND</td>
       <td>-</td>

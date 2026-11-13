@@ -113,7 +113,7 @@ aclnnStatus aclnnLinspace(
       <td>out（aclTensor*）</td>
       <td>输出</td>
       <td>公式中的out。</td>
-      <td>out的元素个数需要与steps一致。不支持空Tensor。</td>
+      <td>out的元素个数需要与steps一致。steps为0时，out应为空Tensor，接口正常返回成功。</td>
       <td>INT8、INT16、INT32、INT64、UINT8、FLOAT、FLOAT16、DOUBLE、BFLOAT16</td>
       <td>ND</td>
       <td>-</td>
