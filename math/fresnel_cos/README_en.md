@@ -67,4 +67,4 @@ $$C(x) = \int_{0}^{x} \cos\left(\frac{\pi}{2} t^{2}\right) \mathrm{d}t$$
 
 | Invocation Method | Invocation Sample                                                                   | Description                                                           |
 |--------------|------------------------------------------------------------------------|--------------------------------------------------------------|
-| Graph-mode invocation | [test_geir_fresnel_cos](./examples/test_geir_fresnel_cos.cpp) | Invokes the FresnelCos operator through the graph mode. |
+| Graph-mode invocation | [test_geir_fresnel_cos](./examples/test_geir_fresnel_cos.cpp) | Invokes the FresnelCos operator by building a graph through the [operator IR](./op_graph/fresnel_cos_proto.h). |

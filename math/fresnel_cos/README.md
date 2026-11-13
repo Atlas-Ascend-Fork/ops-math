@@ -65,4 +65,4 @@ $$C(x) = \int_{0}^{x} \cos\left(\frac{\pi}{2} t^{2}\right) \mathrm{d}t$$
 
 | 调用方式 | 调用样例                                                                   | 说明                                                           |
 |--------------|------------------------------------------------------------------------|--------------------------------------------------------------|
-| 图模式调用 | [test_geir_fresnel_cos](./examples/test_geir_fresnel_cos.cpp) | 通过图模式调用FresnelCos算子。 |
+| 图模式调用 | [test_geir_fresnel_cos](./examples/test_geir_fresnel_cos.cpp) | 通过[算子IR](./op_graph/fresnel_cos_proto.h)构图方式调用FresnelCos算子。 |

@@ -28,7 +28,7 @@
 #include "array_ops.h"
 #include "ge_ir_build.h"
 
-#include "fresnel_cos_proto.h"
+#include "../op_graph/fresnel_cos_proto.h"
 
 #define FAILED -1
 #define SUCCESS 0

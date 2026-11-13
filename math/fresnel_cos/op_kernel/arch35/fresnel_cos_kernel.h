@@ -115,8 +115,10 @@ private:
     TPipe pipe;
     TQue<QuePosition::VECIN, 1> qIn;
     TQue<QuePosition::VECOUT, 1> qOut;
-    TQue<QuePosition::VECCALC, 1> calcQ[NUM_CALC_BUFFERS];
-    TQue<QuePosition::VECCALC, 1> maskQ;
+    // Pure scratch buffers (never EnQue/DeQue'd) use TBuf: TBuf blocks carry no queue sync
+    // eventID/bufId, so they do not count against the per-TPosition TQue Buffer limit.
+    TBuf<TPosition::VECCALC> calcBuf[NUM_CALC_BUFFERS];
+    TBuf<TPosition::VECCALC> maskBuf[NUM_MASK_BUFFERS];
     GlobalTensor<T> xGM;
     GlobalTensor<T> yGM;
     int64_t blkLen_ = 0;
@@ -136,8 +138,9 @@ __aicore__ inline void FresnelCosKernel<T>::Init(GM_ADDR x, GM_ADDR y, GM_ADDR w
     pipe.InitBuffer(qIn, NUM_IO_BUFFERS, ubLen_ * sizeof(T));
     pipe.InitBuffer(qOut, NUM_IO_BUFFERS, ubLen_ * sizeof(T));
     for (int i = 0; i < NUM_CALC_BUFFERS; i++)
-        pipe.InitBuffer(calcQ[i], 1, ubLen_ * sizeof(float));
-    pipe.InitBuffer(maskQ, NUM_MASK_BUFFERS, ubLen_ * sizeof(uint8_t));
+        pipe.InitBuffer(calcBuf[i], ubLen_ * sizeof(float));
+    for (int i = 0; i < NUM_MASK_BUFFERS; i++)
+        pipe.InitBuffer(maskBuf[i], ubLen_ * sizeof(uint8_t));
 }
 
 template <typename T>
@@ -164,6 +167,16 @@ __aicore__ inline void FresnelCosKernel<T>::Process()
         AscendC::DataCopyExtParams copyInParams{static_cast<uint16_t>(1), static_cast<uint32_t>(n * sizeof(T)), 0, 0,
                                                 0};
         AscendC::DataCopyPadExtParams<T> padInParams{true, 0, 0, static_cast<T>(0)};
+        // API-4/RED-5: DataCopyPad only fills the destination up to the 32-byte boundary, while
+        // the compute APIs below read the whole 256-byte-aligned computeN range. Pre-fill the
+        // aligned region so the gap [ceil32(n), computeN) is never read uninitialized; the fill
+        // (Vector pipe) must drain before DataCopyPad (MTE2) overwrites the first n elements.
+        if (computeN > n) {
+            Duplicate(xL, static_cast<T>(ONE_VAL), static_cast<uint32_t>(computeN));
+            event_t fillEventId = static_cast<event_t>(GetTPipePtr()->FetchEventID(HardEvent::V_MTE2));
+            SetFlag<HardEvent::V_MTE2>(fillEventId);
+            WaitFlag<HardEvent::V_MTE2>(fillEventId);
+        }
         AscendC::DataCopyPad(xL, xGM[i * ubLen_], copyInParams, padInParams);
         qIn.EnQue(xL);
         DoCompute(n, computeN);
@@ -342,18 +355,18 @@ __aicore__ inline void FresnelCosKernel<T>::DoCompute(int64_t n, int64_t compute
 {
     auto xL = qIn.DeQue<T>();
     auto yL = qOut.AllocTensor<T>();
-    auto b0 = calcQ[0].AllocTensor<float>();
-    auto b1 = calcQ[1].AllocTensor<float>();
-    auto b2 = calcQ[2].AllocTensor<float>();
-    auto b3 = calcQ[3].AllocTensor<float>();
-    auto b4 = calcQ[4].AllocTensor<float>();
-    auto b5 = calcQ[5].AllocTensor<float>();
-    auto b6 = calcQ[6].AllocTensor<float>();
-    auto b7 = calcQ[7].AllocTensor<float>();
-    auto mask = maskQ.AllocTensor<uint8_t>();
-    auto maskPInf = maskQ.AllocTensor<uint8_t>();
-    auto maskInf = maskQ.AllocTensor<uint8_t>();
-    auto maskSign = maskQ.AllocTensor<uint8_t>();
+    auto b0 = calcBuf[0].Get<float>();
+    auto b1 = calcBuf[1].Get<float>();
+    auto b2 = calcBuf[2].Get<float>();
+    auto b3 = calcBuf[3].Get<float>();
+    auto b4 = calcBuf[4].Get<float>();
+    auto b5 = calcBuf[5].Get<float>();
+    auto b6 = calcBuf[6].Get<float>();
+    auto b7 = calcBuf[7].Get<float>();
+    auto mask = maskBuf[0].Get<uint8_t>();
+    auto maskPInf = maskBuf[1].Get<uint8_t>();
+    auto maskInf = maskBuf[2].Get<uint8_t>();
+    auto maskSign = maskBuf[3].Get<uint8_t>();
     uint32_t cN = static_cast<uint32_t>(computeN);
 
     CastAndPrepare(xL, b0, b1, b2, cN);
@@ -364,19 +377,6 @@ __aicore__ inline void FresnelCosKernel<T>::DoCompute(int64_t n, int64_t compute
     ComputePolynomial(b1, b3, b4, b5, b6, b7, mask, cN);
     HandleSpecialAndOutput(xL, yL, b0, b1, b3, b4, b5, mask, maskPInf, maskInf, maskSign, cN);
     qOut.EnQue(yL);
-
-    calcQ[0].FreeTensor(b0);
-    calcQ[1].FreeTensor(b1);
-    calcQ[2].FreeTensor(b2);
-    calcQ[3].FreeTensor(b3);
-    calcQ[4].FreeTensor(b4);
-    calcQ[5].FreeTensor(b5);
-    calcQ[6].FreeTensor(b6);
-    calcQ[7].FreeTensor(b7);
-    maskQ.FreeTensor(mask);
-    maskQ.FreeTensor(maskPInf);
-    maskQ.FreeTensor(maskInf);
-    maskQ.FreeTensor(maskSign);
     qIn.FreeTensor(xL);
 }
 
