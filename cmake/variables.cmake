@@ -147,7 +147,11 @@ execute_process(
 # pack path
 set(CMAKE_INSTALL_PREFIX ${CMAKE_SOURCE_DIR}/build_out)
 
+# 仓库自带的 opbase 头文件（pin 了固定 tag）必须排在 CANN 安装目录之前。
+# 高版本 CANN（如 9.3.0）会在 ${ASCEND_DIR}/<arch>/include 下内置一份 op_common，
+# 若被优先命中，其缺失的新符号会导致编译失败。
 set(OPAPI_INCLUDE
+  ${OPBASE_INC_DIRS}
   ${OPS_MATH_DIR}/common/inc
   ${OPS_MATH_DIR}/common/inc/op_api
   ${OPS_MATH_DIR}/common/inc/external
@@ -155,7 +159,6 @@ set(OPAPI_INCLUDE
   ${PLATFORM_INC_DIRS}
   ${METADEF_INCLUDE_DIRS}
   ${NNOPBASE_INCLUDE_DIRS}
-  ${OPBASE_INC_DIRS}
   ${NPURUNTIME_INCLUDE_DIRS}
   ${AICPU_INC_DIRS}
   ${OPS_MATH_DIR}/
@@ -164,20 +167,20 @@ set(OPAPI_INCLUDE
 )
 
 set(OP_TILING_INCLUDE
+  ${OPBASE_INC_DIRS}
   ${C_SEC_INCLUDE}
   ${PLATFORM_INC_DIRS}
   ${METADEF_INCLUDE_DIRS}
   ${TILINGAPI_INC_DIRS}
   ${NPURUNTIME_INCLUDE_DIRS}
-  ${OPBASE_INC_DIRS}
   ${OPS_MATH_DIR}
   ${OPS_MATH_DIR}/common/inc/
 )
 
 set(OP_PROTO_INCLUDE
+  ${OPBASE_INC_DIRS}
   ${C_SEC_INCLUDE}
   ${METADEF_INCLUDE_DIRS}
-  ${OPBASE_INC_DIRS}
   ${NPURUNTIME_INCLUDE_DIRS}
   ${OPS_MATH_DIR}
   ${OPS_MATH_DIR}/common/inc/
