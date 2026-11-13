@@ -54,7 +54,6 @@ float TruncateDivTiling::GetReciprocal(float data)
         invScalarVal = -0.0f;
     } else {
         invScalarVal = 1.0f / scalarValue;
-        invScalarVal = invScalarVal * (2.0f - scalarValue * invScalarVal);
     }
     return invScalarVal;
 }
