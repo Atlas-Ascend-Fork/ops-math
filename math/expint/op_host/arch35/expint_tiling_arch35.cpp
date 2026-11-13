@@ -40,7 +40,11 @@ constexpr int64_t MAX_COPY_BYTES = 65535;
 constexpr size_t MAX_DIM_NUM = 8; // TBE dynamic-compile framework hard limit (E80012: dims in [0,8]), aligned with
                                   // A2/A3 legacy implementations
 
-static bool CheckFormat(ge::Format format) { return format == ge::FORMAT_ND; }
+static bool IsPrivateFormat(ge::Format format)
+{
+    return format == ge::FORMAT_NC1HWC0 || format == ge::FORMAT_FRACTAL_Z || format == ge::FORMAT_NDC1HWC0 ||
+           format == ge::FORMAT_FRACTAL_Z_3D || format == ge::FORMAT_FRACTAL_NZ || format == ge::FORMAT_NC1HWC0_C04;
+}
 
 static ge::graphStatus GetPlatformInfo(const gert::TilingContext* context, uint64_t* ubSize, int64_t* coreNum)
 {
@@ -83,9 +87,14 @@ static ge::graphStatus GetShapeAttrsInfo(const gert::TilingContext* context, int
     const std::set<ge::DataType> supportedDtype = {ge::DT_FLOAT16, ge::DT_FLOAT, ge::DT_BF16};
     auto inputDesc = context->GetInputDesc(0);
     OP_CHECK_NULL_WITH_CONTEXT(context, inputDesc);
-    OP_CHECK_IF(!CheckFormat(inputDesc->GetStorageFormat()),
-                OP_LOGE_WITH_INVALID_INPUT_FORMAT(context->GetNodeName(), "x",
-                                                  Ops::Base::ToString(inputDesc->GetStorageFormat()).c_str(), "ND"),
+    // Only private formats (e.g. FRACTAL_NZ) are rejected; public formats (ND/NCHW/...) are accepted
+    // and handled as element-wise storage shapes, aligned with asinh/acosh_grad.
+    OP_CHECK_IF(IsPrivateFormat(inputDesc->GetOriginFormat()) || IsPrivateFormat(inputDesc->GetStorageFormat()),
+                OP_LOGE_FOR_INVALID_FORMAT_WITH_REASON(
+                    context->GetNodeName(), "x",
+                    ge::GetFormatName(IsPrivateFormat(inputDesc->GetOriginFormat()) ? inputDesc->GetOriginFormat() :
+                                                                                      inputDesc->GetStorageFormat()),
+                    "private formats are not supported"),
                 return ge::GRAPH_FAILED);
     *dataType = inputDesc->GetDataType();
     OP_CHECK_IF(supportedDtype.count(*dataType) == 0,
