@@ -77,6 +77,36 @@ void SegsumTilingArch35::GetTilingKey(uint64_t ubSizePlatform)
     rowLen = CeilA2B(tailDimLength, blockElement) * blockElement;
 
     const int64_t ubAvailable = static_cast<int64_t>(ubSizePlatform - RESERVED_UB);
+    // All buffers coexist: input/output in T and, for narrow T, their FP32 views.
+    // Multiples of 64 sequences keep every UB buffer and core output boundary aligned.
+    constexpr int64_t batchAlign = 64;
+    constexpr int64_t minBatch = 256;
+    constexpr int64_t maxBatch = 1024;
+    constexpr int64_t maxFillBatch = 32768;
+    // Choose packed sequences when the peak live buffers can hold at least one batch tile.
+    // Divide before comparing to avoid forming length squared for large fallback inputs.
+    const int64_t packedScalarBytes = dataTypeSize + (isFloat ? 0 : BYTE_LEN_4);
+    const int64_t packedElementBudget = ubAvailable / (minBatch * packedScalarBytes);
+    const bool packedFits = tailDimLength == 1 ||
+                            (tailDimLength > 1 && packedElementBudget / tailDimLength > tailDimLength);
+    if (packedFits && averageBatches >= minBatch) {
+        const int64_t bytesPerBatch = tailDimLength == 1 ? dataTypeSize :
+                                                           (tailDimLength + tailDimLength * tailDimLength) *
+                                                               (dataTypeSize + (isFloat ? 0 : BYTE_LEN_4));
+        const int64_t workLimit = CeilA2B(averageBatches, batchAlign) * batchAlign;
+        int64_t batchTile = std::min(ubAvailable / bytesPerBatch, workLimit);
+        batchTile = std::min(batchTile, tailDimLength == 1 ? maxFillBatch : maxBatch);
+        batchTile = batchTile / batchAlign * batchAlign;
+        if (batchTile >= minBatch) {
+            averageBatches = CeilA2B(averageBatches, blockElement) * blockElement;
+            needCoreNum = static_cast<uint32_t>(CeilA2B(batches, averageBatches));
+            // Normal row blocks have rowNum <= length; larger values encode a packed tile.
+            rowNum = batchTile * tailDimLength;
+            stripeLen = 0;
+            tilingKey = ROW_BLOCK_TILING_KEY;
+            return;
+        }
+    }
     // TilingKey 1: x row (plus its fp32 view for non-float dtypes) and the fp32 carry are resident,
     // each extra row costs one fp32 accumulator plus its output buffer (for float the exp buffer
     // doubles as the output buffer).

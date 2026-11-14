@@ -30,6 +30,109 @@ using namespace AscendC;
 constexpr float ZERO_FLOAT = 0;
 constexpr int32_t NO_BUFFER_NUM = 1;
 
+constexpr Reg::CastTrait EXP_FP32_TO_S32_RINT = {Reg::RegLayout::ZERO, Reg::SatMode::NO_SAT,
+                                                 Reg::MaskMergeMode::ZEROING, RoundMode::CAST_RINT};
+constexpr Reg::CastTrait EXP_S32_TO_FP32 = {Reg::RegLayout::ZERO, Reg::SatMode::NO_SAT, Reg::MaskMergeMode::ZEROING,
+                                            RoundMode::CAST_NONE};
+
+// Preserve the carry input. Normal range reduction keeps the polynomial near
+// one; exceptional, overflow and subnormal ranges retain the original Exp.
+__simd_callee__ inline void ShortExpAccurate(Reg::RegTensor<float>& result, Reg::RegTensor<float>& input,
+                                             Reg::MaskReg& mask)
+{
+    Reg::RegTensor<float> absolute, zero, safe, scaled, powerFloat, negativePower, reduced, coefficient, polynomial;
+    Reg::RegTensor<int32_t> power;
+    Reg::MaskReg normal;
+    Reg::Exp(result, input, mask);
+    Reg::Abs(absolute, input, mask);
+    Reg::CompareScalar<float, CMPMODE::LE>(normal, absolute, 80.0f, mask);
+    Reg::Duplicate(zero, 0.0f, mask);
+    Reg::Select(safe, input, zero, normal);
+    Reg::Muls(scaled, safe, 1.4426950216293335f, mask);
+    Reg::Cast<int32_t, float, EXP_FP32_TO_S32_RINT>(power, scaled, mask);
+    Reg::Cast<float, int32_t, EXP_S32_TO_FP32>(powerFloat, power, mask);
+    Reg::Muls(negativePower, powerFloat, -1.0f, mask);
+    Reg::Muls(reduced, safe, 1.0f, mask);
+    Reg::Duplicate(coefficient, 0.693145751953125f, mask);
+    Reg::MulAddDst(reduced, negativePower, coefficient, mask);
+    Reg::Duplicate(coefficient, 1.428606765330187e-6f, mask);
+    Reg::MulAddDst(reduced, negativePower, coefficient, mask);
+    Reg::Duplicate(polynomial, 2.4801587642286904e-5f, mask);
+    Reg::Duplicate(coefficient, 1.9841270113829523e-4f, mask);
+    Reg::MulDstAdd(polynomial, reduced, coefficient, mask);
+    Reg::Duplicate(coefficient, 1.3888889225199819e-3f, mask);
+    Reg::MulDstAdd(polynomial, reduced, coefficient, mask);
+    Reg::Duplicate(coefficient, 8.333333767950535e-3f, mask);
+    Reg::MulDstAdd(polynomial, reduced, coefficient, mask);
+    Reg::Duplicate(coefficient, 4.16666679084301e-2f, mask);
+    Reg::MulDstAdd(polynomial, reduced, coefficient, mask);
+    Reg::Duplicate(coefficient, 1.666666716337204e-1f, mask);
+    Reg::MulDstAdd(polynomial, reduced, coefficient, mask);
+    Reg::Duplicate(coefficient, 0.5f, mask);
+    Reg::MulDstAdd(polynomial, reduced, coefficient, mask);
+    Reg::Duplicate(coefficient, 1.0f, mask);
+    Reg::MulDstAdd(polynomial, reduced, coefficient, mask);
+    Reg::Duplicate(coefficient, 1.0f, mask);
+    Reg::MulDstAdd(polynomial, reduced, coefficient, mask);
+    Reg::Adds(power, power, 127, mask);
+    Reg::ShiftLefts(power, power, static_cast<int16_t>(23), mask);
+    Reg::Mul(polynomial, polynomial, (Reg::RegTensor<float>&)power, mask);
+    Reg::Select(result, polynomial, result, normal);
+}
+
+__simd_vf__ inline void ComputeAccurateExpVf(__ubuf__ float* output, __ubuf__ float* input, uint32_t count)
+{
+    constexpr uint32_t lanes = VECTOR_REG_WIDTH / sizeof(float);
+    const uint16_t loops = static_cast<uint16_t>((count + lanes - 1) / lanes);
+    Reg::RegTensor<int32_t> signedIndex;
+    Reg::RegTensor<float> value, result;
+    Reg::Arange(signedIndex, 0);
+    for (uint16_t block = 0; block < loops; ++block) {
+        auto mask = Reg::UpdateMask<float>(count);
+        Reg::Gather(value, input + block * lanes, (Reg::RegTensor<uint32_t>&)signedIndex, mask);
+        ShortExpAccurate(result, value, mask);
+        Reg::Scatter(output + block * lanes, result, (Reg::RegTensor<uint32_t>&)signedIndex, mask);
+    }
+}
+
+// Each lane owns one sequence. Preserve the original per-column addition order.
+template <bool PRECISE_EXP>
+__simd_vf__ inline void ComputeShortBatchVf(__ubuf__ float* x, __ubuf__ float* y, uint32_t count, uint32_t length)
+{
+    constexpr uint32_t lanes = VECTOR_REG_WIDTH / sizeof(float);
+    const uint16_t loops = static_cast<uint16_t>((count + lanes - 1) / lanes);
+    Reg::RegTensor<int32_t> lane;
+    Reg::RegTensor<uint32_t> inputBase, outputBase, inputIndex, outputIndex;
+    Reg::RegTensor<float> one, sum, value, result;
+    auto full = Reg::CreateMask<float, Reg::MaskPattern::ALL>();
+    Reg::Arange(lane, 0);
+    Reg::Muls(inputBase, (Reg::RegTensor<uint32_t>&)lane, length, full);
+    Reg::Muls(outputBase, (Reg::RegTensor<uint32_t>&)lane, length * length, full);
+    Reg::Duplicate(one, 1.0f, full);
+    for (uint16_t i = 0; i < loops; ++i) {
+        auto mask = Reg::UpdateMask<float>(count);
+        auto xTile = x + i * lanes * length;
+        auto yTile = y + i * lanes * length * length;
+        for (uint16_t col = 0; col < length; ++col) {
+            Reg::Adds(outputIndex, outputBase, col * (length + 1), mask);
+            Reg::Scatter(yTile, one, outputIndex, mask);
+            Reg::Duplicate(sum, 0.0f, mask);
+            for (uint16_t row = col + 1; row < length; ++row) {
+                Reg::Adds(inputIndex, inputBase, static_cast<uint32_t>(row), mask);
+                Reg::Gather(value, xTile, inputIndex, mask);
+                Reg::Add(sum, sum, value, mask);
+                if constexpr (PRECISE_EXP) {
+                    ShortExpAccurate(result, sum, mask);
+                } else {
+                    Reg::Exp(result, sum, mask);
+                }
+                Reg::Adds(outputIndex, outputBase, row * length + col, mask);
+                Reg::Scatter(yTile, result, outputIndex, mask);
+            }
+        }
+    }
+}
+
 template <typename T, int32_t MODE>
 class Segsum {
 public:
@@ -71,6 +174,7 @@ private:
     __aicore__ inline void ParseTilingData(const SegsumTilingDataArch35* tilingData);
     __aicore__ inline void LoadX(int64_t offset, int64_t num);
     __aicore__ inline void ComputeRowBlocks();
+    __aicore__ inline void ComputeShortBatch();
     __aicore__ inline void ComputeColumnStripes();
     __aicore__ inline void CopyOutRows(int64_t offset, int64_t rows, uint32_t bytesPerRow);
 
@@ -122,6 +226,17 @@ __aicore__ inline void Segsum<T, MODE>::Init(GM_ADDR x, GM_ADDR y, const SegsumT
     yGm.SetGlobalBuffer((__gm__ T*)y);
 
     if constexpr (MODE == 1) {
+        if (rowNum > tailDimLength) {
+            if (tailDimLength > 1) {
+                pipe.InitBuffer(xBuf, rowNum * sizeof(T));
+                if constexpr (!IS_FLOAT) {
+                    pipe.InitBuffer(xFloatBuf, rowNum * sizeof(float));
+                    pipe.InitBuffer(expBuf, rowNum * tailDimLength * sizeof(float));
+                }
+            }
+            pipe.InitBuffer(yQue, NO_BUFFER_NUM, rowNum * tailDimLength * sizeof(T));
+            return;
+        }
         pipe.InitBuffer(xBuf, rowLen * sizeof(T));
         if constexpr (!IS_FLOAT) {
             pipe.InitBuffer(xFloatBuf, rowLen * sizeof(float));
@@ -149,6 +264,10 @@ __aicore__ inline void Segsum<T, MODE>::Process()
         return;
     }
     if constexpr (MODE == 1) {
+        if (rowNum > tailDimLength) {
+            ComputeShortBatch();
+            return;
+        }
         ComputeRowBlocks();
     } else {
         ComputeColumnStripes();
@@ -196,6 +315,46 @@ __aicore__ inline void Segsum<T, MODE>::CopyOutRows(int64_t offset, int64_t rows
     yQue.FreeTensor(yTensor);
 }
 
+template <typename T, int32_t MODE>
+__aicore__ inline void Segsum<T, MODE>::ComputeShortBatch()
+{
+    const int64_t tile = rowNum / tailDimLength;
+    if (tailDimLength == 1) {
+        // The 1x1 output is exp(0) regardless of the input, including NaN/Inf.
+        LocalTensor<T> ones = yQue.AllocTensor<T>();
+        Duplicate(ones, static_cast<T>(1.0f), static_cast<int32_t>(tile));
+        yQue.EnQue(ones);
+        ones = yQue.DeQue<T>();
+        for (int64_t start = batchStart; start < batchEnd; start += tile) {
+            const uint32_t count = static_cast<uint32_t>(Min(tile, batchEnd - start));
+            DataCopyExtParams copyParams{1, static_cast<uint32_t>(count * sizeof(T)), 0, 0, 0};
+            DataCopyPad(yGm[start], ones, copyParams);
+        }
+        yQue.FreeTensor(ones);
+        return;
+    }
+    LocalTensor<float> xFloat = GetXFloat();
+    for (int64_t start = batchStart; start < batchEnd; start += tile) {
+        const uint32_t count = static_cast<uint32_t>(Min(tile, batchEnd - start));
+        LoadX(tailDimLength * start, tailDimLength * count);
+        LocalTensor<T> yTensor = yQue.AllocTensor<T>();
+        LocalTensor<float> yFloat = GetExpTensor(yTensor);
+        const uint32_t outputCount = static_cast<uint32_t>(tailDimLength * tailDimLength * count);
+        Duplicate(yFloat, 0.0f, outputCount);
+        PipeBarrier<PIPE_V>();
+        asc_vf_call<ComputeShortBatchVf<IS_FLOAT>>((__ubuf__ float*)xFloat.GetPhyAddr(),
+                                                   (__ubuf__ float*)yFloat.GetPhyAddr(), count,
+                                                   static_cast<uint32_t>(tailDimLength));
+        PipeBarrier<PIPE_V>();
+        if constexpr (!IS_FLOAT) {
+            Cast(yTensor, yFloat, RoundMode::CAST_RINT, outputCount);
+            PipeBarrier<PIPE_V>();
+        }
+        yQue.EnQue(yTensor);
+        CopyOutRows(tailDimLength * tailDimLength * start, 1, outputCount * sizeof(T));
+    }
+}
+
 /*
  * TilingKey 1: a whole row fits in UB. rowNum consecutive rows are chained inside the fp32
  * accumulator buffer, exponentiated in place and written back with a single contiguous copy.
@@ -233,7 +392,12 @@ __aicore__ inline void Segsum<T, MODE>::ComputeRowBlocks()
                     Adds(curRow, prevRow, xFloat.GetValue(rowIdx), rowIdx);
                     PipeBarrier<PIPE_V>();
                 }
-                Exp(expRows[r * rowLen], curRow, rowIdx + 1);
+                if constexpr (IS_FLOAT) {
+                    asc_vf_call<ComputeAccurateExpVf>((__ubuf__ float*)expRows[r * rowLen].GetPhyAddr(),
+                                                      (__ubuf__ float*)curRow.GetPhyAddr(), rowIdx + 1);
+                } else {
+                    Exp(expRows[r * rowLen], curRow, rowIdx + 1);
+                }
                 PipeBarrier<PIPE_V>();
             }
 
@@ -293,7 +457,12 @@ __aicore__ inline void Segsum<T, MODE>::ComputeColumnStripes()
                     PipeBarrier<PIPE_V>();
                 }
                 if (validCols > 0) {
-                    Exp(expRow, curRow, validCols);
+                    if constexpr (IS_FLOAT) {
+                        asc_vf_call<ComputeAccurateExpVf>((__ubuf__ float*)expRow.GetPhyAddr(),
+                                                          (__ubuf__ float*)curRow.GetPhyAddr(), validCols);
+                    } else {
+                        Exp(expRow, curRow, validCols);
+                    }
                     PipeBarrier<PIPE_V>();
                 }
 
