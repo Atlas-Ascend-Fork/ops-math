@@ -31,12 +31,6 @@ static ge::graphStatus InferShapeForXdivy(gert::InferShapeContext* context)
     return status;
 }
 
-static ge::graphStatus InferDataTypeForXdivy(gert::InferDataTypeContext* context)
-{
-    context->SetOutputDataType(0, context->GetInputDataType(0));
-    return ge::GRAPH_SUCCESS;
-}
-
-IMPL_OP_INFERSHAPE(Xdivy).InferShape(InferShapeForXdivy).InferDataType(InferDataTypeForXdivy);
+IMPL_OP_INFERSHAPE(Xdivy).InferShape(InferShapeForXdivy);
 
 } // namespace ops

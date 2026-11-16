@@ -1,0 +1,4 @@
+testcase_name,op_name,input_shapes,dyn_input_shapes,input_dtypes,input_formats,output_shapes,output_dtypes,output_formats,input_data_ranges,attributes,remark
+square_sum_all_geir_normal,square_sum_all,((4,8),(4,8)),((4,8),(4,8)),('float32','float32'),('ND', 'ND'),((),()),('float32','float32'),('ND', 'ND'),((-2,2),(-2,2)),{},Both inputs share the same 4x8 shape; y1 and y2 are rank-0 scalars per InferShape
+square_sum_all_geir_dyn_dim,square_sum_all,((4,8),(4,8)),((-1,8),(-1,8)),('float32','float32'),('ND', 'ND'),((),()),('float32','float32'),('ND', 'ND'),((-2,2),(-2,2)),{},dim0 declared -1 on both inputs so ranks and concrete dims stay equal
+square_sum_all_geir_dyn_rank,square_sum_all,((4,8),(4,8)),((-2,),(4,8)),('float32','float32'),('ND', 'ND'),((),()),('float32','float32'),('ND', 'ND'),((-2,2),(-2,2)),{},x1 declared unknown rank (-2); the rank-equality check is skipped and both outputs stay scalars

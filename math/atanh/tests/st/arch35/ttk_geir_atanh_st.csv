@@ -1,0 +1,4 @@
+testcase_name,op_name,input_shapes,dyn_input_shapes,input_dtypes,input_formats,output_shapes,output_dtypes,output_formats,input_data_ranges,attributes,remark
+atanh_geir_normal,atanh,((4,8),),((4,8),),('float32',),('ND',),((4,8),),('float32',),('ND',),((-0.99,0.99),),{},Input kept within -0.99..0.99 so atanh stays finite; y mirrors the x shape
+atanh_geir_dyn_dim,atanh,((4,8),),((-1,8),),('float32',),('ND',),((4,8),),('float32',),('ND',),((-0.99,0.99),),{},x dim0 declared -1; y dim0 re-inferred at runtime
+atanh_geir_dyn_rank,atanh,((4,8),),((-2,),),('float32',),('ND',),((4,8),),('float32',),('ND',),((-0.99,0.99),),{},x declared unknown rank (-2); actual 4x8 tensor fed at runtime

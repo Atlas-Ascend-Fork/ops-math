@@ -26,8 +26,8 @@
 #include "array_ops.h"
 #include "ge_ir_build.h"
 
-#include "experiment_ops.h"
-#include "nn_other.h"
+// CANN 9.3.0 起 experiment_ops.h 内置 REG_OP(Trilu)，与仓库自有 proto 同含会类重定义；
+// 本样例仅使用 op::Trilu 与 op::Data，直接采用仓库自有算子 IR 定义。
 #include "../op_graph/trilu_proto.h"
 
 #define FAILED -1
@@ -37,9 +37,14 @@ using namespace ge;
 using std::map;
 using std::string;
 using std::vector;
+
+// 样例自管的主机输入缓冲（Tensor 构造不接管所有权），进程结束前统一释放
+static std::vector<uint8_t*> g_hostInputBuffers;
+
 #define ADD_INPUT(intputIndex, intputName, intputDtype, inputShape)                                                 \
     vector<int64_t> placeholder##intputIndex##_shape = inputShape;                                                  \
-    auto placeholder##intputIndex = op::Data("placeholder" + intputIndex).set_attr_index(0);                        \
+    string placeholder##intputIndex##_name = "placeholder" + std::to_string(intputIndex);                           \
+    auto placeholder##intputIndex = op::Data(placeholder##intputIndex##_name.c_str()).set_attr_index(0);            \
     TensorDesc placeholder##intputIndex##_desc = TensorDesc(ge::Shape(placeholder##intputIndex##_shape), FORMAT_ND, \
                                                             intputDtype);                                           \
     placeholder##intputIndex##_desc.SetPlacement(ge::kPlacementHost);                                               \
@@ -59,7 +64,8 @@ using std::vector;
 
 #define ADD_INT_INPUT(intputIndex, intputName, intputDtype, inputShape, value)                                      \
     vector<int64_t> placeholder##intputIndex##_shape = inputShape;                                                  \
-    auto placeholder##intputIndex = op::Data("placeholder" + intputIndex).set_attr_index(0);                        \
+    string placeholder##intputIndex##_name = "placeholder" + std::to_string(intputIndex);                           \
+    auto placeholder##intputIndex = op::Data(placeholder##intputIndex##_name.c_str()).set_attr_index(0);            \
     TensorDesc placeholder##intputIndex##_desc = TensorDesc(ge::Shape(placeholder##intputIndex##_shape), FORMAT_ND, \
                                                             intputDtype);                                           \
     placeholder##intputIndex##_desc.SetPlacement(ge::kPlacementHost);                                               \
@@ -132,6 +138,11 @@ int32_t GenOnesDataFloat32(vector<int64_t> shapes, Tensor& input_tensor, TensorD
     uint32_t byteSizeFloat32 = 4;
     uint32_t data_len = size * byteSizeFloat32;
     float* pData = new (std::nothrow) float[size];
+    if (pData == nullptr) {
+        printf("%s - ERROR - [XIR]: Alloc input buffer failed\n", GetTime().c_str());
+        return FAILED;
+    }
+    g_hostInputBuffers.push_back(reinterpret_cast<uint8_t*>(pData));
 
     for (size_t i = 0; i < size; ++i) {
         *(pData + i) = value;
@@ -150,7 +161,12 @@ int32_t GenOnesData(vector<int64_t> shapes, Tensor& input_tensor, TensorDesc& in
     }
     uint32_t data_len = size * GetDataTypeSize(data_type);
     int32_t* pData = new (std::nothrow) int32_t[data_len];
-    for (uint32_t i = 0; i < size; ++i) {
+    if (pData == nullptr) {
+        printf("%s - ERROR - [XIR]: Alloc input buffer failed\n", GetTime().c_str());
+        return FAILED;
+    }
+    g_hostInputBuffers.push_back(reinterpret_cast<uint8_t*>(pData));
+    for (size_t i = 0; i < size; ++i) {
         *(pData + i) = value;
     }
     input_tensor = Tensor(input_tensor_desc, reinterpret_cast<uint8_t*>(pData), data_len);
@@ -160,6 +176,10 @@ int32_t GenOnesData(vector<int64_t> shapes, Tensor& input_tensor, TensorDesc& in
 int32_t WriteDataToFile(string bin_file, uint64_t data_size, uint8_t* inputData)
 {
     FILE* fp = fopen(bin_file.c_str(), "w");
+    if (fp == nullptr) {
+        printf("%s - ERROR - [XIR]: Open file %s failed\n", GetTime().c_str(), bin_file.c_str());
+        return FAILED;
+    }
     fwrite(inputData, sizeof(uint8_t), data_size, fp);
     fclose(fp);
     return SUCCESS;
@@ -226,6 +246,12 @@ int main(int argc, char* argv[])
     std::map<AscendString, AscendString> graph_options = {};
     uint32_t graph_id = 0;
     ret = session->AddGraph(graph_id, graph, graph_options);
+    if (ret != SUCCESS) {
+        printf("%s - ERROR - [XIR]: Session add ir compute graph to ir session failed\n", GetTime().c_str());
+        delete session;
+        GEFinalize();
+        return FAILED;
+    }
 
     printf("%s - INFO - [XIR]: Session add ir compute graph to ir session success\n", GetTime().c_str());
     printf("%s - INFO - [XIR]: dump graph to txt\n", GetTime().c_str());
@@ -270,8 +296,13 @@ int main(int argc, char* argv[])
     ge::AscendString warning_msg = ge::GEGetWarningMsgV2();
     std::string warning_str(warning_msg.GetString());
     std::cout << "Warning message: " << warning_str << std::endl;
-    printf("%s - INFO - [XIR]: Precision is ok\n", GetTime().c_str());
+    // 本样例为图模式调用演示，仅落盘输入/输出数据，不执行数值比较
+    printf("%s - INFO - [XIR]: Sample finished, input/output data dumped to .bin files\n", GetTime().c_str());
     printf("%s - INFO - [XIR]: Start to finalize ir graph session\n", GetTime().c_str());
+    delete session;
+    for (auto buffer : g_hostInputBuffers) {
+        delete[] buffer;
+    }
     ret = ge::GEFinalize();
     if (ret != SUCCESS) {
         printf("%s - INFO - [XIR]: Finalize ir graph session failed\n", GetTime().c_str());

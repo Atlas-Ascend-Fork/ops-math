@@ -1,0 +1,4 @@
+testcase_name,op_name,input_shapes,dyn_input_shapes,input_dtypes,input_formats,output_shapes,output_dtypes,output_formats,input_data_ranges,attributes,remark
+bias_geir_normal,bias,((8,4),(8,)),((8,4),(8,)),('float32','float32'),('ND', 'ND'),((8,4),),('float32',),('ND',),((-2,2),(-2,2)),{'axis': 0, 'num_axes': 1, 'bias_from_blob': False},axis=0 with num_axes=1 and bias_from_blob=False broadcasts bias as 8x1 against x 8x4; y equals the x shape
+bias_geir_dyn_dim,bias,((8,4),(8,)),((-1,4),(8,)),('float32','float32'),('ND', 'ND'),((8,4),),('float32',),('ND',),((-2,2),(-2,2)),{'axis': 0, 'num_axes': 1, 'bias_from_blob': False},x dim0 declared -1; y equals the x shape and is re-inferred at runtime
+bias_geir_dyn_rank,bias,((8,4),(8,)),((-2,),(8,)),('float32','float32'),('ND', 'ND'),((8,4),),('float32',),('ND',),((-2,2),(-2,2)),{'axis': 0, 'num_axes': 1, 'bias_from_blob': False},x declared unknown rank (-2); actual 8x4 tensor fed at runtime
