@@ -11,6 +11,7 @@
  * \file histogram.cpp
  * \brief
  */
+#include "op_common/op_host/util/op_const_def.h"
 #include "histogram.h"
 #include "opdev/aicpu/aicpu_task.h"
 #include "opdev/data_type_utils.h"
@@ -45,7 +46,7 @@ static bool IsAiCoreSupport(const aclTensor* self, const aclTensor* out)
     }
     auto checkSelfType = CheckType(self->GetDataType(), AICORE_DTYPE_SUPPORT_LIST_SELF);
     auto npuArch = op::GetCurrentPlatformInfo().GetCurNpuArch();
-    if (npuArch != NpuArch::DAV_2201 && !IsRegBase(npuArch) && npuArch != NpuArch::DAV_2002) {
+    if (npuArch != Ops::Base::DAV_2201 && !IsRegBase(npuArch) && npuArch != Ops::Base::DAV_2002) {
         return false;
     }
     return checkSelfType;

@@ -14,6 +14,7 @@
  */
 #ifndef MATH_HISTOGRAM_V2_H
 #define MATH_HISTOGRAM_V2_H
+#include "op_common/op_host/util/op_const_def.h"
 #include "register/tilingdata_base.h"
 #include "platform/platform_ascendc.h"
 #include "op_host/tiling_base_class.h"
@@ -111,7 +112,7 @@ struct HistogramV2CompileInfo {
     int32_t totalCoreNum = 0;
     uint64_t ubSizePlatForm = 0;
     int64_t sysWorkspaceSize = 0;
-    NpuArch npuArch = NpuArch::DAV_2201;
+    NpuArch npuArch = Ops::Base::DAV_2201;
 };
 
 class HistogramV2BaseClass : public Ops::Base::TilingBaseClass {
@@ -125,7 +126,7 @@ protected:
     ge::graphStatus GetWorkspaceSize() override;
     ge::graphStatus DoLibApiTiling() override;
 
-    NpuArch npuArch = NpuArch::DAV_2201;
+    NpuArch npuArch = Ops::Base::DAV_2201;
 };
 } // namespace optiling
 #endif // MATH_HISTOGRAM_V2_H

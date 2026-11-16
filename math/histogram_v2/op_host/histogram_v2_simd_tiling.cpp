@@ -14,6 +14,7 @@
  *        when the output is fp32, the launch is deterministic, bins <= 127 and
  *        the local histogram fits in UB.
  */
+#include "op_common/op_host/util/op_const_def.h"
 #include "histogram_v2_tiling.h"
 #include "op_host/math_tiling_templates_registry.h"
 #include "log/log.h"
@@ -76,7 +77,8 @@ private:
 
 bool HistogramV2SimdTiling::IsCapable()
 {
-    if (!(Ops::Base::IsRegbaseSocVersion(context_) || npuArch == NpuArch::DAV_9201 || npuArch == NpuArch::DAV_9202)) {
+    if (!(Ops::Base::IsRegbaseSocVersion(context_) || npuArch == Ops::Base::DAV_9201 ||
+          npuArch == Ops::Base::DAV_9202)) {
         return false;
     }
     if (isDeterministic_ != 1 || !isFp32Output_) {

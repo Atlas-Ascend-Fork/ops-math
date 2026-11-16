@@ -12,6 +12,7 @@
  * \file histogram_v2_simt_tiling.cpp
  * \brief
  */
+#include "op_common/op_host/util/op_const_def.h"
 #include "histogram_v2_tiling.h"
 #include "op_host/math_tiling_templates_registry.h"
 #include "log/log.h"
@@ -50,8 +51,8 @@ public:
 protected:
     bool IsCapable() override
     {
-        if (!(Ops::Base::IsRegbaseSocVersion(context_) || npuArch == NpuArch::DAV_9201 ||
-              npuArch == NpuArch::DAV_9202)) {
+        if (!(Ops::Base::IsRegbaseSocVersion(context_) || npuArch == Ops::Base::DAV_9201 ||
+              npuArch == Ops::Base::DAV_9202)) {
             return false;
         }
         return true;

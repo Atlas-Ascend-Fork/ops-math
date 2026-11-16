@@ -26,6 +26,7 @@
  * operator directory).
  */
 
+#include "op_common/op_host/util/op_const_def.h"
 #include <algorithm>
 #include <cstdlib>
 #include <set>
@@ -568,7 +569,7 @@ bool MulAddNPass::MeetRequirements(const std::unique_ptr<MatchResult>& matchResu
         return false;
     }
     const auto npuArch = static_cast<NpuArch>(std::strtol(npuArchVal, nullptr, 10));
-    static const std::set<NpuArch> supportedArch = {NpuArch::DAV_2201};
+    static const std::set<NpuArch> supportedArch = {Ops::Base::DAV_2201};
     if (supportedArch.count(npuArch) == 0) {
         OP_LOGI(kPassName.c_str(), "NpuArch [%u] is not DAV_2201, skip the multi-input fusion.",
                 static_cast<uint32_t>(npuArch));

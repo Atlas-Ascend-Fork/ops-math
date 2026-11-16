@@ -12,6 +12,7 @@
  * \file lin_space.cpp
  * \brief
  */
+#include "op_common/op_host/util/op_arch_helper.h"
 #include "register/op_def_registry.h"
 
 namespace ops {
@@ -138,10 +139,9 @@ public:
             .NeedCheckSupportFlag(false)
             .PrecisionReduceFlag(true)
             .ExtendCfgInfo("opFile.value", "lin_space_apt");
-        this->AICore().AddConfig("ascend950", regBaseConfig);
-        this->AICore().AddConfig("ascend350", regBaseConfig);
-        this->AICore().AddConfig("ascend960dt", regBaseConfig);
-        this->AICore().AddConfig("ascend960pr", regBaseConfig);
+        opbase::ArchConfigHelper::AddConfigByArch(this->AICore(), Ops::Base::DAV_3510, regBaseConfig);
+        opbase::ArchConfigHelper::AddConfigByArch(this->AICore(), Ops::Base::DAV_9201, regBaseConfig);
+        opbase::ArchConfigHelper::AddConfigByArch(this->AICore(), Ops::Base::DAV_9202, regBaseConfig);
     }
 };
 

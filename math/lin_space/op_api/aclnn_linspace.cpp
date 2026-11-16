@@ -8,6 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+#include "op_common/op_host/util/op_const_def.h"
 #include "aclnn_linspace.h"
 #include "linspace.h"
 #include "conversion/fill/op_api/fill.h"
@@ -59,10 +60,10 @@ static const std::initializer_list<op::DataType> ASCEND910B_DTYPE_SUPPORT_LIST =
 static const inline std::initializer_list<DataType>& GetSupportDtypeList(NpuArch npuArch)
 {
     static const std::initializer_list<DataType> emptyDtypes = {};
-    if (npuArch == NpuArch::DAV_2201 || IsRegBase(npuArch)) {
+    if (npuArch == Ops::Base::DAV_2201 || IsRegBase(npuArch)) {
         return ASCEND910B_DTYPE_SUPPORT_LIST;
     }
-    if (npuArch == NpuArch::DAV_1001 || npuArch == NpuArch::DAV_2002) {
+    if (npuArch == Ops::Base::DAV_1001 || npuArch == Ops::Base::DAV_2002) {
         return ASCEND910_DTYPE_SUPPORT_LIST;
     }
     return emptyDtypes;

@@ -12,6 +12,7 @@
  * \file histogram_v2_op_tiling.cpp
  * \brief
  */
+#include "op_common/op_host/util/op_const_def.h"
 #include "histogram_v2_tiling.h"
 #include "log/log.h"
 #include "platform/platform_info.h"
@@ -197,14 +198,14 @@ ge::graphStatus HistogramV2Tiling::Init()
     SetTilingKeyMode(dType);
     tilingContext->SetNeedAtomic(true);
     TilingDataForCore();
-    if (compileInfo->npuArch == NpuArch::DAV_2002) {
+    if (compileInfo->npuArch == Ops::Base::DAV_2002) {
         is310Soc = true;
         ubSelfLength = UB_SELF_LENGTH_310P;
         ubBinsLength = UB_BINS_LENGTH_310P;
     }
     TilingDataInCore(dType);
     // Sync workspace size and kernel result size
-    if (compileInfo->npuArch == NpuArch::DAV_2002) {
+    if (compileInfo->npuArch == Ops::Base::DAV_2002) {
         int64_t alignNum = BYTE_BLOCK / SIZE_OF_FP32;
         userWorkspaceSize = coreNum * BYTE_BLOCK + coreNum * (bins + alignNum) * SIZE_OF_FP32;
     }
@@ -276,7 +277,8 @@ public:
 protected:
     bool IsCapable() override
     {
-        if (Ops::Base::IsRegbaseSocVersion(context_) || npuArch == NpuArch::DAV_9201 || npuArch == NpuArch::DAV_9202) {
+        if (Ops::Base::IsRegbaseSocVersion(context_) || npuArch == Ops::Base::DAV_9201 ||
+            npuArch == Ops::Base::DAV_9202) {
             return false;
         }
         return true;

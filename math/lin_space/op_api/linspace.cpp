@@ -8,6 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+#include "op_common/op_host/util/op_const_def.h"
 #include "linspace.h"
 #include "opdev/aicpu/aicpu_task.h"
 #include "opdev/make_op_executor.h"
@@ -38,7 +39,7 @@ static bool IsAiCoreSupport(const aclTensor* start)
 {
     // 获取芯片类型
     auto npuArch = op::GetCurrentPlatformInfo().GetCurNpuArch();
-    if (npuArch == NpuArch::DAV_2201 || IsRegBase(npuArch)) {
+    if (npuArch == Ops::Base::DAV_2201 || IsRegBase(npuArch)) {
         return CheckType(start->GetDataType(), ASCEND910B_AICORE_DTYPE_SUPPORT_LIST);
     }
     return CheckType(start->GetDataType(), ASCEND910_AICORE_DTYPE_SUPPORT_LIST);

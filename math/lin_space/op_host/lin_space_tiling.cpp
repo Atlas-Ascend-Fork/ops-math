@@ -13,6 +13,7 @@
  * \brief
  */
 
+#include "op_common/op_host/util/op_const_def.h"
 #include "lin_space_tiling.h"
 #include "register/op_impl_registry.h"
 #include "log/log.h"
@@ -60,8 +61,8 @@ protected:
     bool IsCapable() override
     {
         auto ascendcPlatform = platform_ascendc::PlatformAscendC(context_->GetPlatformInfo());
-        return !(Ops::Base::IsRegbaseSocVersion(context_) || ascendcPlatform.GetCurNpuArch() == NpuArch::DAV_9201 ||
-                 ascendcPlatform.GetCurNpuArch() == NpuArch::DAV_9202);
+        return !(Ops::Base::IsRegbaseSocVersion(context_) || ascendcPlatform.GetCurNpuArch() == Ops::Base::DAV_9201 ||
+                 ascendcPlatform.GetCurNpuArch() == Ops::Base::DAV_9202);
     }
 
     ge::graphStatus DoOpTiling() override;

@@ -14,6 +14,7 @@
 // unconditionally alongside the arch22 (MemBase) UT, so a single build (any SoC) covers both
 // the SIMT and MemBase tiling templates without needing --soc=ascend950.
 
+#include "op_common/op_host/util/op_const_def.h"
 #include <iostream>
 #include <vector>
 #include <gtest/gtest.h>
@@ -85,7 +86,7 @@ static gert::TilingContextPara MakePara(void* compileInfo, const std::vector<int
     return para;
 }
 
-static optiling::HistogramV2CompileInfo MakeCompileInfo(int64_t coreNum = 64, NpuArch arch = NpuArch::DAV_2201)
+static optiling::HistogramV2CompileInfo MakeCompileInfo(int64_t coreNum = 64, NpuArch arch = Ops::Base::DAV_2201)
 {
     optiling::HistogramV2CompileInfo ci;
     ci.totalCoreNum = static_cast<int32_t>(coreNum);

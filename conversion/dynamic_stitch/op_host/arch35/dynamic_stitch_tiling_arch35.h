@@ -21,6 +21,7 @@
 #ifndef __DYNAMIC_STITCH_TILING_ARCH35_H__
 #define __DYNAMIC_STITCH_TILING_ARCH35_H__
 
+#include "op_common/op_host/util/op_const_def.h"
 #include <vector>
 #include "register/op_def_registry.h"
 #include "tiling/tiling_api.h"
@@ -51,8 +52,8 @@ protected:
     bool IsCapable() override
     {
         auto platform = platform_ascendc::PlatformAscendC(context_->GetPlatformInfo());
-        return Ops::Base::IsRegbaseSocVersion(context_) || platform.GetCurNpuArch() == NpuArch::DAV_9201 ||
-               platform.GetCurNpuArch() == NpuArch::DAV_9202;
+        return Ops::Base::IsRegbaseSocVersion(context_) || platform.GetCurNpuArch() == Ops::Base::DAV_9201 ||
+               platform.GetCurNpuArch() == Ops::Base::DAV_9202;
     }
     ge::graphStatus DoOpTiling() override;
     ge::graphStatus DoLibApiTiling() override { return ge::GRAPH_SUCCESS; }

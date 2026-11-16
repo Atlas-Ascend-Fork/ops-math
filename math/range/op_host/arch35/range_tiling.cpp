@@ -12,6 +12,7 @@
  * \file range_tiling.cpp
  * \brief
  */
+#include "op_common/op_host/util/op_const_def.h"
 #include "range_tiling.h"
 #include <cmath>
 #include <type_traits>
@@ -57,8 +58,8 @@ protected:
     bool IsCapable() override
     {
         auto ascendcPlatform = platform_ascendc::PlatformAscendC(context_->GetPlatformInfo());
-        return !(Ops::Base::IsRegbaseSocVersion(context_) || ascendcPlatform.GetCurNpuArch() == NpuArch::DAV_9201 ||
-                 ascendcPlatform.GetCurNpuArch() == NpuArch::DAV_9202);
+        return !(Ops::Base::IsRegbaseSocVersion(context_) || ascendcPlatform.GetCurNpuArch() == Ops::Base::DAV_9201 ||
+                 ascendcPlatform.GetCurNpuArch() == Ops::Base::DAV_9202);
     }
 
     // 3、计算数据切分TilingData

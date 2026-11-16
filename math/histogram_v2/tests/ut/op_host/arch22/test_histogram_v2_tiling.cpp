@@ -15,6 +15,7 @@
 // build (any SoC) covers both templates. It covers the MemBase-specific tiling branches; MemBase
 // GetShapeAttrsInfo does not validate inputs, so input-validation failure cases live only in arch35.
 
+#include "op_common/op_host/util/op_const_def.h"
 #include <iostream>
 #include <vector>
 #include <gtest/gtest.h>
@@ -91,7 +92,7 @@ static gert::TilingContextPara MakePara(void* compileInfo, const std::vector<int
     return para;
 }
 
-static optiling::HistogramV2CompileInfo MakeCompileInfo(int64_t coreNum = 64, NpuArch arch = NpuArch::DAV_2201)
+static optiling::HistogramV2CompileInfo MakeCompileInfo(int64_t coreNum = 64, NpuArch arch = Ops::Base::DAV_2201)
 {
     optiling::HistogramV2CompileInfo ci;
     ci.totalCoreNum = static_cast<int32_t>(coreNum);
@@ -158,7 +159,7 @@ TEST_F(HistogramV2MembaseTilingTest, tiling_int64)
 // npuArch DAV_2002 exercises the MemBase 310P branch (ubSelfLength_310P, userWorkspaceSize, ScheduleMode).
 TEST_F(HistogramV2MembaseTilingTest, tiling_membase_310p_branch)
 {
-    auto ci = MakeCompileInfo(64, NpuArch::DAV_2002);
+    auto ci = MakeCompileInfo(64, Ops::Base::DAV_2002);
     auto para = MakePara(&ci, {256}, ge::DT_FLOAT, {1}, ge::DT_FLOAT, {100}, ge::DT_INT32, 100);
     EXPECT_TRUE(RunTiling(para, "ascend310p"));
 }

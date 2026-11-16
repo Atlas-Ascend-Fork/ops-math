@@ -13,6 +13,7 @@
  * \brief
  */
 
+#include "op_common/op_host/util/op_arch_helper.h"
 #include "register/op_def_registry.h"
 
 namespace ops {
@@ -52,8 +53,8 @@ public:
             .ExtendCfgInfo("opFile.value", "confusion_transpose_d_apt");
 
         this->AICore().AddConfig("ascend950", aicore_config);
-        this->AICore().AddConfig("ascend960dt", aicore_config);
-        this->AICore().AddConfig("ascend960pr", aicore_config);
+        opbase::ArchConfigHelper::AddConfigByArch(this->AICore(), Ops::Base::DAV_9201, aicore_config);
+        opbase::ArchConfigHelper::AddConfigByArch(this->AICore(), Ops::Base::DAV_9202, aicore_config);
     }
 };
 

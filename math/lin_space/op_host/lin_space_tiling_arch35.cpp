@@ -12,6 +12,7 @@
  * \file lin_space_tiling_arch35.cpp
  * \brief
  */
+#include "op_common/op_host/util/op_const_def.h"
 #include "lin_space_tiling_arch35.h"
 #include "log/log.h"
 #include "op_host/tiling_base_class.h"
@@ -316,8 +317,8 @@ static ge::graphStatus CalcLinSpaceTilingParam(LinSpaceRegbaseTilingParam& tilin
 bool LinSpaceRegbaseTilingClass::IsCapable()
 {
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(context_->GetPlatformInfo());
-    return Ops::Base::IsRegbaseSocVersion(context_) || ascendcPlatform.GetCurNpuArch() == NpuArch::DAV_9201 ||
-           ascendcPlatform.GetCurNpuArch() == NpuArch::DAV_9202;
+    return Ops::Base::IsRegbaseSocVersion(context_) || ascendcPlatform.GetCurNpuArch() == Ops::Base::DAV_9201 ||
+           ascendcPlatform.GetCurNpuArch() == Ops::Base::DAV_9202;
 }
 
 ge::graphStatus LinSpaceRegbaseTilingClass::GetPlatformInfo()

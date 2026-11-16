@@ -15,6 +15,7 @@
 #ifndef AIR_CXX_RUNTIME_V2_OP_IMPL_LINSPACE_H_
 #define AIR_CXX_RUNTIME_V2_OP_IMPL_LINSPACE_H_
 
+#include "op_common/op_host/util/op_const_def.h"
 #include "register/tilingdata_base.h"
 #include "op_host/tiling_base_class.h"
 #include "platform/platform_ascendc.h"
@@ -47,11 +48,10 @@ REGISTER_TILING_DATA_CLASS(LinSpace, LinSpaceTilingData)
 struct LinSpaceCompileInfo {
     int32_t totalCoreNum = 0;
     uint64_t ubSizePlatForm = 0;
-    NpuArch npuArch = NpuArch::DAV_2201;
+    NpuArch npuArch = Ops::Base::DAV_2201;
 };
 
-enum class LinSpaceTilingKey : int64_t
-{
+enum class LinSpaceTilingKey : int64_t {
     TILINGKEY_101 = 101,
     TILINGKEY_102 = 102,
     TILINGKEY_103 = 103,
