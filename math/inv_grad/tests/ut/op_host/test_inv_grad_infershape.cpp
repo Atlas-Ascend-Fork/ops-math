@@ -12,18 +12,19 @@
 
 /*!
  * \file test_inv_grad_infershape.cpp
- * \brief InvGrad InferShape UT (uses InferShape4Broadcast util).
+ * \brief InvGrad InferShape UT (same-shape contract, no broadcast).
  *
  * Op signature (aligned with proto.h):
  *   Input 0: x     (forward Inv output = 1 / original_x)
  *   Input 1: grad  (upstream gradient)
  *   Output 0: y    (gradient w.r.t. original input; same shape as x/grad)
  *
- * Supported dtypes (per inv_grad_def.cpp): FLOAT, FLOAT16, BF16.
+ * Supported dtypes (per inv_grad_def.cpp): FLOAT, FLOAT16, BF16, INT32, INT8.
  * Format: ND only.
- * No broadcast on AI Core fast path -- but the InferShape registration
- * delegates to the generic Broadcast util, so equal-shape inputs produce
- * equal-shape output.
+ * x and grad must have the exactly same shape with rank <= 8: broadcast is
+ * NOT supported (pre-broadcast externally if needed) and the same-shape /
+ * rank contracts are enforced independently by InferShape itself (F01/F34),
+ * mirroring the tiling gate on the single-op path.
  */
 
 #include <gtest/gtest.h>
@@ -33,15 +34,9 @@
 
 class InvGradInfershape : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        std::cout << "InvGradInfershape SetUp" << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "InvGradInfershape SetUp" << std::endl; }
 
-    static void TearDownTestCase()
-    {
-        std::cout << "InvGradInfershape TearDown" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "InvGradInfershape TearDown" << std::endl; }
 };
 
 // ---------------------------------------------------------------------------
@@ -52,11 +47,11 @@ TEST_F(InvGradInfershape, inv_grad_infershape_1d_fp32)
     gert::InfershapeContextPara infershapeContextPara(
         "InvGrad",
         {
-            {{{16}, {16}}, ge::DT_FLOAT, ge::FORMAT_ND},   // x
-            {{{16}, {16}}, ge::DT_FLOAT, ge::FORMAT_ND},   // grad
+            {{{16}, {16}}, ge::DT_FLOAT, ge::FORMAT_ND}, // x
+            {{{16}, {16}}, ge::DT_FLOAT, ge::FORMAT_ND}, // grad
         },
         {
-            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},       // y (shape to be inferred)
+            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND}, // y (shape to be inferred)
         });
     std::vector<std::vector<int64_t>> expectOutputShape = {
         {16},
@@ -69,15 +64,14 @@ TEST_F(InvGradInfershape, inv_grad_infershape_1d_fp32)
 // ---------------------------------------------------------------------------
 TEST_F(InvGradInfershape, inv_grad_infershape_1d_tail_fp32)
 {
-    gert::InfershapeContextPara infershapeContextPara(
-        "InvGrad",
-        {
-            {{{7}, {7}}, ge::DT_FLOAT, ge::FORMAT_ND},
-            {{{7}, {7}}, ge::DT_FLOAT, ge::FORMAT_ND},
-        },
-        {
-            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
-        });
+    gert::InfershapeContextPara infershapeContextPara("InvGrad",
+                                                      {
+                                                          {{{7}, {7}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                          {{{7}, {7}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      });
     std::vector<std::vector<int64_t>> expectOutputShape = {
         {7},
     };
@@ -89,15 +83,14 @@ TEST_F(InvGradInfershape, inv_grad_infershape_1d_tail_fp32)
 // ---------------------------------------------------------------------------
 TEST_F(InvGradInfershape, inv_grad_infershape_2d_fp16)
 {
-    gert::InfershapeContextPara infershapeContextPara(
-        "InvGrad",
-        {
-            {{{4, 8}, {4, 8}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-            {{{4, 8}, {4, 8}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-        },
-        {
-            {{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-        });
+    gert::InfershapeContextPara infershapeContextPara("InvGrad",
+                                                      {
+                                                          {{{4, 8}, {4, 8}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                          {{{4, 8}, {4, 8}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                      });
     std::vector<std::vector<int64_t>> expectOutputShape = {
         {4, 8},
     };
@@ -109,15 +102,14 @@ TEST_F(InvGradInfershape, inv_grad_infershape_2d_fp16)
 // ---------------------------------------------------------------------------
 TEST_F(InvGradInfershape, inv_grad_infershape_4d_bf16)
 {
-    gert::InfershapeContextPara infershapeContextPara(
-        "InvGrad",
-        {
-            {{{2, 3, 4, 5}, {2, 3, 4, 5}}, ge::DT_BF16, ge::FORMAT_ND},
-            {{{2, 3, 4, 5}, {2, 3, 4, 5}}, ge::DT_BF16, ge::FORMAT_ND},
-        },
-        {
-            {{{}, {}}, ge::DT_BF16, ge::FORMAT_ND},
-        });
+    gert::InfershapeContextPara infershapeContextPara("InvGrad",
+                                                      {
+                                                          {{{2, 3, 4, 5}, {2, 3, 4, 5}}, ge::DT_BF16, ge::FORMAT_ND},
+                                                          {{{2, 3, 4, 5}, {2, 3, 4, 5}}, ge::DT_BF16, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_BF16, ge::FORMAT_ND},
+                                                      });
     std::vector<std::vector<int64_t>> expectOutputShape = {
         {2, 3, 4, 5},
     };
@@ -149,15 +141,14 @@ TEST_F(InvGradInfershape, inv_grad_infershape_large_4d_fp32)
 // ---------------------------------------------------------------------------
 TEST_F(InvGradInfershape, inv_grad_infershape_empty_fp32)
 {
-    gert::InfershapeContextPara infershapeContextPara(
-        "InvGrad",
-        {
-            {{{0}, {0}}, ge::DT_FLOAT, ge::FORMAT_ND},
-            {{{0}, {0}}, ge::DT_FLOAT, ge::FORMAT_ND},
-        },
-        {
-            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
-        });
+    gert::InfershapeContextPara infershapeContextPara("InvGrad",
+                                                      {
+                                                          {{{0}, {0}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                          {{{0}, {0}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      });
     std::vector<std::vector<int64_t>> expectOutputShape = {
         {0},
     };
@@ -165,22 +156,282 @@ TEST_F(InvGradInfershape, inv_grad_infershape_empty_fp32)
 }
 
 // ---------------------------------------------------------------------------
-// int32 — 1D shape (与 fp32/fp16/bf16 走同样的 broadcast 推导路径，覆盖 dtype 维)
+// int32 — 1D shape (walks the same same-shape copy path as fp32/fp16/bf16,
+// covering the dtype dimension)
 // ---------------------------------------------------------------------------
 TEST_F(InvGradInfershape, inv_grad_infershape_1d_int32)
 {
-    gert::InfershapeContextPara infershapeContextPara(
-        "InvGrad",
-        {
-            {{{16}, {16}}, ge::DT_INT32, ge::FORMAT_ND},
-            {{{16}, {16}}, ge::DT_INT32, ge::FORMAT_ND},
-        },
-        {
-            {{{}, {}}, ge::DT_INT32, ge::FORMAT_ND},
-        });
+    gert::InfershapeContextPara infershapeContextPara("InvGrad",
+                                                      {
+                                                          {{{16}, {16}}, ge::DT_INT32, ge::FORMAT_ND},
+                                                          {{{16}, {16}}, ge::DT_INT32, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_INT32, ge::FORMAT_ND},
+                                                      });
     std::vector<std::vector<int64_t>> expectOutputShape = {
         {16},
     };
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
 
+// ---------------------------------------------------------------------------
+// F01 negative: x and grad are not the same shape (dimNum differs, x=[2,3]
+// vs grad=[6]) -> GRAPH_FAILED. Broadcast is not supported; the graph-path
+// error is EZ0010 with a "pre-broadcast externally" reason.
+// ---------------------------------------------------------------------------
+TEST_F(InvGradInfershape, inv_grad_infershape_fail_nonsame_shape_dimnum)
+{
+    gert::InfershapeContextPara infershapeContextPara("InvGrad",
+                                                      {
+                                                          {{{2, 3}, {2, 3}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                          {{{6}, {6}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      });
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED, {});
+}
+
+// ---------------------------------------------------------------------------
+// F01 negative: same dimNum but per-dim mismatch (x=[2,3] vs grad=[3,2],
+// equal element count) -> GRAPH_FAILED. Guards against an elements-only
+// comparison accepting a transposed shape.
+// ---------------------------------------------------------------------------
+TEST_F(InvGradInfershape, inv_grad_infershape_fail_nonsame_shape_dims)
+{
+    gert::InfershapeContextPara infershapeContextPara("InvGrad",
+                                                      {
+                                                          {{{2, 3}, {2, 3}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                          {{{3, 2}, {3, 2}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      });
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED, {});
+}
+
+// ---------------------------------------------------------------------------
+// F34 negative: x rank 9 exceeds the ND limit of 8 -> GRAPH_FAILED
+// (InferShape rejects independently of tiling; graph path reports EZ0012).
+// ---------------------------------------------------------------------------
+TEST_F(InvGradInfershape, inv_grad_infershape_fail_rank9_x)
+{
+    gert::InfershapeContextPara infershapeContextPara(
+        "InvGrad",
+        {
+            {{{1, 1, 1, 1, 1, 1, 1, 1, 1}, {1, 1, 1, 1, 1, 1, 1, 1, 1}}, ge::DT_FLOAT, ge::FORMAT_ND},
+            {{{1, 1, 1, 1, 1, 1, 1, 1, 1}, {1, 1, 1, 1, 1, 1, 1, 1, 1}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        {
+            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        });
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED, {});
+}
+
+// ---------------------------------------------------------------------------
+// F34 negative: grad rank 9 (x is a legal 8-dim shape) -> GRAPH_FAILED
+// (the grad-side rank guard fires before the same-shape comparison)
+// ---------------------------------------------------------------------------
+TEST_F(InvGradInfershape, inv_grad_infershape_fail_rank9_grad)
+{
+    gert::InfershapeContextPara infershapeContextPara(
+        "InvGrad",
+        {
+            {{{1, 1, 1, 1, 1, 1, 2, 32}, {1, 1, 1, 1, 1, 1, 2, 32}}, ge::DT_FLOAT, ge::FORMAT_ND},
+            {{{1, 1, 1, 1, 1, 1, 1, 1, 1}, {1, 1, 1, 1, 1, 1, 1, 1, 1}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        {
+            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        });
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED, {});
+}
+
+// ---------------------------------------------------------------------------
+// F34 positive boundary: rank 8 is the max legal rank and is accepted
+// (no over-rejection); output shape mirrors the 8-dim input shape.
+// ---------------------------------------------------------------------------
+TEST_F(InvGradInfershape, inv_grad_infershape_rank8_pos)
+{
+    gert::InfershapeContextPara infershapeContextPara(
+        "InvGrad",
+        {
+            {{{2, 1, 2, 1, 2, 1, 2, 2}, {2, 1, 2, 1, 2, 1, 2, 2}}, ge::DT_FLOAT, ge::FORMAT_ND},
+            {{{2, 1, 2, 1, 2, 1, 2, 2}, {2, 1, 2, 1, 2, 1, 2, 2}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        {
+            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        });
+    std::vector<std::vector<int64_t>> expectOutputShape = {
+        {2, 1, 2, 1, 2, 1, 2, 2},
+    };
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+// ---------------------------------------------------------------------------
+// Dynamic shape (-1 unknown dim / -2 unknown rank) semantics: the same-shape
+// gate only rejects when a dim is known on both sides and differs, or when
+// ranks differ without an unknown-rank (-2) marker on either side. Unknown
+// dims/rank are passed through to the output; runtime tiling (GetShapeInfo)
+// re-validates the same-shape contract on concrete shapes.
+// ---------------------------------------------------------------------------
+
+// Static same shape, no dynamic markers -> pass, output mirrors input.
+TEST_F(InvGradInfershape, inv_grad_infershape_dynamic_static_same_shape)
+{
+    gert::InfershapeContextPara infershapeContextPara("InvGrad",
+                                                      {
+                                                          {{{2, 3}, {2, 3}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                          {{{2, 3}, {2, 3}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      });
+    std::vector<std::vector<int64_t>> expectOutputShape = {
+        {2, 3},
+    };
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+// One side holds a -1 unknown dim, the other side is concrete on that dim
+// -> pass (unknown dim never conflicts at compile time); output transmits
+// the unknown dim as-is.
+TEST_F(InvGradInfershape, inv_grad_infershape_dynamic_unknown_dim_one_side_passthrough)
+{
+    gert::InfershapeContextPara infershapeContextPara("InvGrad",
+                                                      {
+                                                          {{{-1, 8}, {-1, 8}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                          {{{4, 8}, {4, 8}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      });
+    std::vector<std::vector<int64_t>> expectOutputShape = {
+        {-1, 8},
+    };
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+// Both sides hold -1 unknown dims at different positions -> pass (each dim
+// has at least one unknown side); output transmits x's markers.
+TEST_F(InvGradInfershape, inv_grad_infershape_dynamic_unknown_dim_both_sides_passthrough)
+{
+    gert::InfershapeContextPara infershapeContextPara("InvGrad",
+                                                      {
+                                                          {{{-1, 8}, {-1, 8}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                          {{{4, -1}, {4, -1}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      });
+    std::vector<std::vector<int64_t>> expectOutputShape = {
+        {-1, 8},
+    };
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+// x is unknown-rank ([-2]) and grad is a 0-dim scalar ([]) -> pass (rank
+// differs but x carries the -2 unknown-rank marker); output transmits the
+// unknown rank.
+TEST_F(InvGradInfershape, inv_grad_infershape_dynamic_unknown_rank_vs_scalar_passthrough)
+{
+    gert::InfershapeContextPara infershapeContextPara("InvGrad",
+                                                      {
+                                                          {{{-2}, {-2}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      });
+    std::vector<std::vector<int64_t>> expectOutputShape = {
+        {-2},
+    };
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+// Mirror of the previous case: x is a 0-dim scalar ([]) and grad is
+// unknown-rank ([-2]) -> pass; output mirrors x's scalar shape.
+TEST_F(InvGradInfershape, inv_grad_infershape_dynamic_scalar_vs_unknown_rank_passthrough)
+{
+    gert::InfershapeContextPara infershapeContextPara("InvGrad",
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                          {{{-2}, {-2}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      });
+    std::vector<std::vector<int64_t>> expectOutputShape = {
+        {},
+    };
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+// x is unknown-rank ([-2]) and grad is rank-2 unknown-dims ([-1,-1]) ->
+// pass (rank differs, x carries -2); output transmits the unknown rank.
+TEST_F(InvGradInfershape, inv_grad_infershape_dynamic_unknown_rank_vs_unknown_dims_passthrough)
+{
+    gert::InfershapeContextPara infershapeContextPara("InvGrad",
+                                                      {
+                                                          {{{-2}, {-2}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                          {{{-1, -1}, {-1, -1}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      });
+    std::vector<std::vector<int64_t>> expectOutputShape = {
+        {-2},
+    };
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+// Mirror of the previous case: x is rank-2 unknown-dims ([-1,-1]) and grad
+// is unknown-rank ([-2]) -> pass (rank differs, grad carries -2); output
+// transmits x's unknown dims.
+TEST_F(InvGradInfershape, inv_grad_infershape_dynamic_unknown_dims_vs_unknown_rank_passthrough)
+{
+    gert::InfershapeContextPara infershapeContextPara("InvGrad",
+                                                      {
+                                                          {{{-1, -1}, {-1, -1}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                          {{{-2}, {-2}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      });
+    std::vector<std::vector<int64_t>> expectOutputShape = {
+        {-1, -1},
+    };
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+// Dynamic negative: same rank, one dim known on both sides and differs
+// ([2,3] vs [2,4]) -> GRAPH_FAILED. Unknown markers must not weaken the
+// known-dim conflict rejection (EZ0010 on the graph path).
+TEST_F(InvGradInfershape, inv_grad_infershape_dynamic_fail_known_dim_conflict)
+{
+    gert::InfershapeContextPara infershapeContextPara("InvGrad",
+                                                      {
+                                                          {{{2, 3}, {2, 3}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                          {{{2, 4}, {2, 4}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      });
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED, {});
+}
+
+// Dynamic negative: ranks differ and neither side carries an unknown-rank
+// (-2) marker ([2,3] vs [2]) -> GRAPH_FAILED. A plain rank mismatch with
+// no unknown rank is still a broadcast-shaped contract violation.
+TEST_F(InvGradInfershape, inv_grad_infershape_dynamic_fail_rank_diff_no_unknown_rank)
+{
+    gert::InfershapeContextPara infershapeContextPara("InvGrad",
+                                                      {
+                                                          {{{2, 3}, {2, 3}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                          {{{2}, {2}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      });
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED, {});
+}

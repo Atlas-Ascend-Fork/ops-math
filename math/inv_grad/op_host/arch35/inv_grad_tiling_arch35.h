@@ -36,6 +36,6 @@ namespace optiling {
 // context->GetPlatformInfo(); no fields are persisted in the compile info.
 struct InvGradCompileInfo {};
 
-}  // namespace optiling
+} // namespace optiling
 
-#endif  // OPS_MATH_INV_GRAD_OP_HOST_INV_GRAD_TILING_ARCH35_H
+#endif // OPS_MATH_INV_GRAD_OP_HOST_INV_GRAD_TILING_ARCH35_H

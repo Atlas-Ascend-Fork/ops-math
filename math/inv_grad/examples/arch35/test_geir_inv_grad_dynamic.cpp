@@ -41,7 +41,9 @@ bool RunScenario(ge::Session& session, uint32_t graphId, const DynamicScenario& 
     if (!(scenario.declaredShape.size() == 1U && scenario.declaredShape[0] == -2)) {
         graphOptions.emplace("ge.exec.dataInputsShapeRange", "[1~16,1~16],[1~16,1~16]");
     }
-    if (session.AddGraph(graphId, graph, graphOptions) != ge::SUCCESS) {
+    const ge::Status addStatus = session.AddGraph(graphId, graph, graphOptions);
+    if (addStatus != ge::SUCCESS) {
+        std::printf("AddGraph failed for %s, status=%d\n", scenario.name, addStatus);
         return false;
     }
 
@@ -52,13 +54,28 @@ bool RunScenario(ge::Session& session, uint32_t graphId, const DynamicScenario& 
         ge::Tensor grad;
         if (!inv_grad_geir_test::MakeFilledTensor(shape, ge::DT_FLOAT, 2.0, x) ||
             !inv_grad_geir_test::MakeFilledTensor(shape, ge::DT_FLOAT, 3.0, grad)) {
+            std::printf("Make input tensors failed for %s\n", inv_grad_geir_test::ShapeToJson(shape).c_str());
             return false;
         }
         std::vector<ge::Tensor> outputs;
-        if (session.RunGraph(graphId, {x, grad}, outputs) != ge::SUCCESS) {
+        const ge::Status runStatus = session.RunGraph(graphId, {x, grad}, outputs);
+        if (runStatus != ge::SUCCESS) {
+            std::printf("RunGraph failed for %s, status=%d\n", inv_grad_geir_test::ShapeToJson(shape).c_str(),
+                        runStatus);
             return false;
         }
+        // 打印 RunGraph 状态与实际输出元数据，区分「RunGraph 失败」与
+        // 「RunGraph 成功但输出 TensorDesc 未刷新导致的校验失败」（F28 可观测性）
+        std::printf("RunGraph status=%d, outputs=%zu\n", runStatus, outputs.size());
+        if (!outputs.empty()) {
+            const ge::TensorDesc& outputDesc = outputs[0].GetTensorDesc();
+            std::printf("Output metadata: shape=%s, dtype=%s\n",
+                        inv_grad_geir_test::ShapeToJson(outputDesc.GetShape()).c_str(),
+                        inv_grad_geir_test::DtypeName(outputDesc.GetDataType()));
+        }
         if (!inv_grad_geir_test::ValidateOutput(outputs, shape, ge::DT_FLOAT, -12.0)) {
+            std::printf("ValidateOutput failed for %s: expected shape=%s, dtype=float32, value=-12\n",
+                        inv_grad_geir_test::ShapeToJson(shape).c_str(), inv_grad_geir_test::ShapeToJson(shape).c_str());
             return false;
         }
         ++passed;

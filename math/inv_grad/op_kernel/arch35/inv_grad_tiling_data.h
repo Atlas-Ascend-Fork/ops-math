@@ -19,9 +19,9 @@
 #define OPS_MATH_INV_GRAD_TILING_DATA_H
 
 struct InvGradTilingData {
-    int64_t totalElements = 0;   // Total number of elements (flattened)
-    int64_t blockFactor = 0;     // Number of elements per AI Core
-    int64_t ubFactor = 0;        // Number of elements per UB iteration
+    int64_t totalElements = 0; // Total number of elements (flattened)
+    int64_t blockFactor = 0;   // Number of elements per AI Core
+    int64_t ubFactor = 0;      // Number of elements per UB iteration
 };
 
 #endif // OPS_MATH_INV_GRAD_TILING_DATA_H

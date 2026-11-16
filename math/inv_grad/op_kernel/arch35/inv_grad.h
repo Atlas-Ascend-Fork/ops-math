@@ -12,28 +12,40 @@
 
 /*!
  * \file inv_grad.h
- * \brief InvGrad kernel class definition (arch35)
+ * \brief InvGrad kernel class definition (arch35 / Ascend950)
  *
  * Formula: y = -grad * x * x
  *
- * Precision strategy:
+ * Precision strategy (float paths square first, aligned with the TF cwise
+ * grouping of -grad*x*x as grad*(x*x)):
  *   - float32: native fp32 — Mul(xx, x, x) -> Mul(y, grad, xx) -> Muls(y, y, -1.0f)
  *   - int32  : native int32 — Mul(xx, x, x) -> Mul(y, grad, xx) -> Muls(y, y, -1)
  *              (int32 范围足够大，常见场景不溢出；与 TBE int32 路径等价)
- *   - float16/bfloat16: 上行 fp32 计算后 Cast 回原 dtype（CAST_ROUND 银行家舍入）
+ *   - float16/bfloat16: 上行 fp32 后同样 x² 先行，再 Cast 回原 dtype（CAST_ROUND
+ *             银行家舍入）
+ *   - int8  : arch35 用户层 Cast 不支持 int8<->fp32 直转，仅支持 int8->half（CAST_NONE）
+ *             与 half->int8（CAST_ROUND）；经 half 中继上行 fp32、精确计算后按
+ *             ((y+128) mod 256)-128 折回 int8（逐步二补码 wrap8 与最终 wrap 对纯
+ *             乘/负链等价），再经 half 下行。
  *
- * 注：int8 支持本来按 TBE 语义实现，但 arch35 上 AscendC 用户层 Cast API
- * 不支持"to int8"方向的直接转换（cast 算子 policy 表显示该方向走 MIRCRO_CAST
- * 微指令拼装，需 CastMicro 类的寄存器级编程），故 int8 由 AICPU 路径承接。
+ * x² 先行的已知数值行为：|x| >= 2^64 时 x*x 先溢出 fp32（真值仍可表示），输出为
+ * ±Inf——与竞品 TF 对齐后的已知行为，不作为缺陷修复。
+ *
+ * Float special values (TF direct contract):
+ *   grad == ±0 时无论 x 是否 NaN/±Inf 一律返回类型零；grad != 0 时保持普通乘法
+ *   语义（x = NaN/Inf 逐位置传播）。int8/int32 无 NaN，grad=0 时乘积自然为 0。
  *
  * Buffer layout (single buffer, depth=1):
  *   xQueue:    ubFactor * sizeof(T)     (input x)
  *   gradQueue: ubFactor * sizeof(T)     (input grad)
  *   outQueue:  ubFactor * sizeof(T)     (output y)
- *   tmpBuf1:   ubFactor * sizeof(float) (intermediate: fp32 xFloat / int32 xx)
+ *   tmpBuf1:   ubFactor * sizeof(float) (intermediate: fp32 xx/xFloat / int32 xx)
  *   tmpBuf2:   ubFactor * sizeof(float) (intermediate: fp32 gradFloat; int32 路径未用)
  *
  * tmpBuf 均按 sizeof(float)=4 分配，可同时承载 fp32 与 int32 视图（sizeof 一致）。
+ * int8 路径在 tmpBuf1/tmpBuf2 内以 32 对齐子块（FloorAlign(ubFactor/2, 32)）循环：
+ * tmpBuf1 前半承载 xFloat、后半承载 gradFloat，half 中继张量复用 tmpBuf2（各阶段
+ * 生存期不重叠，与 tiling 的 bytesPerElem = 3*sizeof(T) + 2*sizeof(float) 记账一致）。
  */
 
 #ifndef OPS_MATH_INV_GRAD_OP_KERNEL_ARCH35_INV_GRAD_H
@@ -46,27 +58,41 @@
 
 namespace NsInvGrad {
 
-using AscendC::TPipe;
-using AscendC::TQue;
-using AscendC::TBuf;
-using AscendC::QuePosition;
+using AscendC::Adds;
+using AscendC::Cast;
+using AscendC::CompareScalar;
+using AscendC::DataCopyPad;
+using AscendC::DataCopyParams;
+using AscendC::Duplicate;
+using AscendC::Floor;
+using AscendC::GetBlockIdx;
 using AscendC::GlobalTensor;
 using AscendC::LocalTensor;
-using AscendC::DataCopyParams;
-using AscendC::DataCopyPad;
-using AscendC::RoundMode;
-using AscendC::GetBlockIdx;
-using AscendC::Cast;
 using AscendC::Mul;
 using AscendC::Muls;
+using AscendC::QuePosition;
+using AscendC::RoundMode;
+using AscendC::Select;
+using AscendC::Sub;
+using AscendC::TBuf;
+using AscendC::TPipe;
+using AscendC::TQue;
+
+// ComputeInt8 具名常量：int8 每元素 1 字节，向量访存要求子块起始在 xLocal/gradLocal/
+// yLocal 上的偏移为 32 字节的倍数；tmpBuf1 内并行承载 FP32_SUBBLOCK_NUM 个 fp32 子块；
+// wrap8 折回 r = ((y + 128) mod 256) - 128，模数与倒数均为 2 的幂，各步 fp32 精确。
+constexpr int64_t DATA_BLOCK_BYTES = 32;
+constexpr int64_t FP32_SUBBLOCK_NUM = 2;
+constexpr float INT8_WRAP_MODULUS = 256.0F;
+constexpr float INT8_WRAP_OFFSET = 128.0F;
+constexpr float INT8_WRAP_MODULUS_INV = 0.00390625F;
 
 template <typename T>
 class InvGrad {
 public:
     __aicore__ inline InvGrad() {}
 
-    __aicore__ inline void Init(GM_ADDR x, GM_ADDR grad, GM_ADDR y,
-                                const InvGradTilingData* tilingData);
+    __aicore__ inline void Init(GM_ADDR x, GM_ADDR grad, GM_ADDR y, const InvGradTilingData* tilingData);
     __aicore__ inline void Process();
 
 private:
@@ -75,51 +101,60 @@ private:
     __aicore__ inline void CopyOut(int64_t gmOffset, int64_t currentNum);
 
     // float32 native path: Mul(xx, x, x) -> Mul(y, grad, xx) -> Muls(-1.0f)
-    __aicore__ inline void ComputeFloat32(LocalTensor<float>& xLocal,
-                                          LocalTensor<float>& gradLocal,
-                                          LocalTensor<float>& yLocal,
-                                          int64_t count);
+    __aicore__ inline void ComputeFloat32(LocalTensor<float>& xLocal, LocalTensor<float>& gradLocal,
+                                          LocalTensor<float>& yLocal, int64_t count);
     // int32 native path: Mul(xx, x, x) -> Mul(y, grad, xx) -> Muls(-1)
-    __aicore__ inline void ComputeInt32(LocalTensor<int32_t>& xLocal,
-                                        LocalTensor<int32_t>& gradLocal,
-                                        LocalTensor<int32_t>& yLocal,
-                                        int64_t count);
-    // half/bfloat16/int8 path: Cast(T -> fp32) -> compute -> Cast(fp32 -> T)
+    __aicore__ inline void ComputeInt32(LocalTensor<int32_t>& xLocal, LocalTensor<int32_t>& gradLocal,
+                                        LocalTensor<int32_t>& yLocal, int64_t count);
+    // half/bfloat16 path: Cast(T -> fp32) -> compute -> Cast(fp32 -> T)
     template <typename SrcT>
-    __aicore__ inline void ComputeWithCast(LocalTensor<SrcT>& xLocal,
-                                           LocalTensor<SrcT>& gradLocal,
-                                           LocalTensor<SrcT>& yLocal,
-                                           int64_t count);
+    __aicore__ inline void ComputeWithCast(LocalTensor<SrcT>& xLocal, LocalTensor<SrcT>& gradLocal,
+                                           LocalTensor<SrcT>& yLocal, int64_t count);
+    // int8 path: int8 -> half -> fp32 上行，fp32 精确计算 + wrap8 折回，half -> int8 下行
+    __aicore__ inline void ComputeInt8(LocalTensor<int8_t>& xLocal, LocalTensor<int8_t>& gradLocal,
+                                       LocalTensor<int8_t>& yLocal, int64_t currentNum);
 
 private:
     TPipe pipe;
-    TQue<QuePosition::VECIN, 1>  xQueue_;     // input x
-    TQue<QuePosition::VECIN, 1>  gradQueue_;  // input grad
-    TQue<QuePosition::VECOUT, 1> outQueue_;   // output y
-    TBuf<QuePosition::VECCALC>   tmpBuf1_;    // fp32 scratch 1 (xx / xFloat)
-    TBuf<QuePosition::VECCALC>   tmpBuf2_;    // fp32 scratch 2 (gradFloat)
+    TQue<QuePosition::VECIN, 1> xQueue_;    // input x
+    TQue<QuePosition::VECIN, 1> gradQueue_; // input grad
+    TQue<QuePosition::VECOUT, 1> outQueue_; // output y
+    TBuf<QuePosition::VECCALC> tmpBuf1_;    // fp32 scratch 1 (xx / xFloat)
+    TBuf<QuePosition::VECCALC> tmpBuf2_;    // fp32 scratch 2 (gradFloat)
 
     GlobalTensor<T> xGM_;
     GlobalTensor<T> gradGM_;
     GlobalTensor<T> yGM_;
 
     int64_t blockOffset_ = 0;
-    int64_t blockLen_    = 0;
-    int64_t ubFactor_    = 0;
+    int64_t blockLen_ = 0;
+    int64_t ubFactor_ = 0;
 };
 
 // =============================================================================
 // Init
 // =============================================================================
 template <typename T>
-__aicore__ inline void InvGrad<T>::Init(GM_ADDR x, GM_ADDR grad, GM_ADDR y,
-                                        const InvGradTilingData* tilingData)
+__aicore__ inline void InvGrad<T>::Init(GM_ADDR x, GM_ADDR grad, GM_ADDR y, const InvGradTilingData* tilingData)
 {
     ubFactor_ = tilingData->ubFactor;
 
     if (tilingData->totalElements == 0 || tilingData->blockFactor == 0) {
         blockOffset_ = 0;
-        blockLen_    = 0;
+        blockLen_ = 0;
+        return;
+    }
+
+    // Bound blockIdx before the signed multiply blockFactor * blockIdx. Tiling sets
+    // blockDim = ceil(totalElements / blockFactor), so a valid blockIdx always passes this
+    // check; when it fires (malformed/stale tiling data) the core simply has no work, and
+    // the guarantee blockFactor * blockIdx < totalElements <= INT64_MAX also keeps the
+    // offset/remaining arithmetic below overflow-free. Ceil-div uses division/remainder
+    // only (no signed addition near INT64_MAX).
+    const int64_t usedCoreNum = tilingData->totalElements / tilingData->blockFactor +
+                                ((tilingData->totalElements % tilingData->blockFactor != 0) ? 1 : 0);
+    if (static_cast<int64_t>(GetBlockIdx()) >= usedCoreNum) {
+        blockLen_ = 0;
         return;
     }
 
@@ -131,15 +166,15 @@ __aicore__ inline void InvGrad<T>::Init(GM_ADDR x, GM_ADDR grad, GM_ADDR y,
     }
     blockLen_ = (remaining > tilingData->blockFactor) ? tilingData->blockFactor : remaining;
 
-    xGM_.SetGlobalBuffer   ((__gm__ T*)x    + blockOffset_, blockLen_);
+    xGM_.SetGlobalBuffer((__gm__ T*)x + blockOffset_, blockLen_);
     gradGM_.SetGlobalBuffer((__gm__ T*)grad + blockOffset_, blockLen_);
-    yGM_.SetGlobalBuffer   ((__gm__ T*)y    + blockOffset_, blockLen_);
+    yGM_.SetGlobalBuffer((__gm__ T*)y + blockOffset_, blockLen_);
 
-    pipe.InitBuffer(xQueue_,    1, ubFactor_ * sizeof(T));
+    pipe.InitBuffer(xQueue_, 1, ubFactor_ * sizeof(T));
     pipe.InitBuffer(gradQueue_, 1, ubFactor_ * sizeof(T));
-    pipe.InitBuffer(outQueue_,  1, ubFactor_ * sizeof(T));
-    pipe.InitBuffer(tmpBuf1_,      ubFactor_ * sizeof(float));
-    pipe.InitBuffer(tmpBuf2_,      ubFactor_ * sizeof(float));
+    pipe.InitBuffer(outQueue_, 1, ubFactor_ * sizeof(T));
+    pipe.InitBuffer(tmpBuf1_, ubFactor_ * sizeof(float));
+    pipe.InitBuffer(tmpBuf2_, ubFactor_ * sizeof(float));
 }
 
 // =============================================================================
@@ -148,14 +183,14 @@ __aicore__ inline void InvGrad<T>::Init(GM_ADDR x, GM_ADDR grad, GM_ADDR y,
 template <typename T>
 __aicore__ inline void InvGrad<T>::CopyIn(int64_t gmOffset, int64_t currentNum)
 {
-    LocalTensor<T> xLocal    = xQueue_.template AllocTensor<T>();
+    LocalTensor<T> xLocal = xQueue_.template AllocTensor<T>();
     LocalTensor<T> gradLocal = gradQueue_.template AllocTensor<T>();
     DataCopyParams copyParams;
     copyParams.blockCount = 1;
-    copyParams.blockLen   = static_cast<uint16_t>(currentNum * sizeof(T));
-    copyParams.srcStride  = 0;
-    copyParams.dstStride  = 0;
-    DataCopyPad(xLocal,    xGM_[gmOffset],    copyParams, {false, 0, 0, 0});
+    copyParams.blockLen = static_cast<uint16_t>(currentNum * sizeof(T));
+    copyParams.srcStride = 0;
+    copyParams.dstStride = 0;
+    DataCopyPad(xLocal, xGM_[gmOffset], copyParams, {false, 0, 0, 0});
     DataCopyPad(gradLocal, gradGM_[gmOffset], copyParams, {false, 0, 0, 0});
     xQueue_.EnQue(xLocal);
     gradQueue_.EnQue(gradLocal);
@@ -170,9 +205,9 @@ __aicore__ inline void InvGrad<T>::CopyOut(int64_t gmOffset, int64_t currentNum)
     LocalTensor<T> yLocal = outQueue_.template DeQue<T>();
     DataCopyParams copyParams;
     copyParams.blockCount = 1;
-    copyParams.blockLen   = static_cast<uint16_t>(currentNum * sizeof(T));
-    copyParams.srcStride  = 0;
-    copyParams.dstStride  = 0;
+    copyParams.blockLen = static_cast<uint16_t>(currentNum * sizeof(T));
+    copyParams.srcStride = 0;
+    copyParams.dstStride = 0;
     DataCopyPad(yGM_[gmOffset], yLocal, copyParams);
     outQueue_.FreeTensor(yLocal);
 }
@@ -181,33 +216,42 @@ __aicore__ inline void InvGrad<T>::CopyOut(int64_t gmOffset, int64_t currentNum)
 // ComputeFloat32: Mul(xx, x, x) -> Mul(y, grad, xx) -> Muls(y, y, -1)
 // =============================================================================
 template <typename T>
-__aicore__ inline void InvGrad<T>::ComputeFloat32(LocalTensor<float>& xLocal,
-                                                  LocalTensor<float>& gradLocal,
-                                                  LocalTensor<float>& yLocal,
-                                                  int64_t count)
+__aicore__ inline void InvGrad<T>::ComputeFloat32(LocalTensor<float>& xLocal, LocalTensor<float>& gradLocal,
+                                                  LocalTensor<float>& yLocal, int64_t count)
 {
+    // x² 先行（TF 分组序）：|x| >= 2^64 时 x*x 先溢出 fp32（真值仍可表示），
+    // 输出 ±Inf，为对齐竞品后的已知行为。xx 经 tmpBuf1 中转，乘积链消费完后
+    // tmpBuf1 可复用为下方 no-NaN 的零向量，不引入额外 buffer。
     LocalTensor<float> xx = tmpBuf1_.template Get<float>();
-    Mul (xx,     xLocal,    xLocal, static_cast<int32_t>(count));   // xx = x * x
-    Mul (yLocal, gradLocal, xx,     static_cast<int32_t>(count));   // y = grad * xx
+    Mul(xx, xLocal, xLocal, static_cast<int32_t>(count));    // xx = x * x
+    Mul(yLocal, gradLocal, xx, static_cast<int32_t>(count)); // y = grad * xx
     Muls(yLocal, yLocal, static_cast<float>(-1.0f),
-         static_cast<int32_t>(count));                              // y = -y
+         static_cast<int32_t>(count)); // y = -y
+
+    // grad == ±0 时返回类型零（即使 x 为 NaN/±Inf，普通乘法会得到 NaN）；grad != 0
+    // 时保留普通乘法结果（x = NaN 仍传播 NaN）。掩码放入本路径未使用的 tmpBuf2，
+    // 零向量复用 tmpBuf1。
+    LocalTensor<float> unusedF32 = tmpBuf2_.template Get<float>();
+    LocalTensor<float> zeroVec = tmpBuf1_.template Get<float>();
+    LocalTensor<uint8_t> zeroMask = unusedF32.template ReinterpretCast<uint8_t>();
+    CompareScalar(zeroMask, gradLocal, static_cast<float>(0.0f), AscendC::CMPMODE::EQ, static_cast<uint32_t>(count));
+    Duplicate(zeroVec, static_cast<float>(0.0f), static_cast<uint32_t>(count));
+    Select(yLocal, zeroMask, zeroVec, yLocal, AscendC::SELMODE::VSEL_TENSOR_TENSOR_MODE, static_cast<uint32_t>(count));
 }
 
 // =============================================================================
 // ComputeInt32: native int32 path — Mul(xx, x, x) -> Mul(y, grad, xx) -> Muls(-1)
 // =============================================================================
 template <typename T>
-__aicore__ inline void InvGrad<T>::ComputeInt32(LocalTensor<int32_t>& xLocal,
-                                                LocalTensor<int32_t>& gradLocal,
-                                                LocalTensor<int32_t>& yLocal,
-                                                int64_t count)
+__aicore__ inline void InvGrad<T>::ComputeInt32(LocalTensor<int32_t>& xLocal, LocalTensor<int32_t>& gradLocal,
+                                                LocalTensor<int32_t>& yLocal, int64_t count)
 {
     // 复用 tmpBuf1（fp32 分配 = sizeof(int32_t) = 4 字节，按 int32 视图使用）
     LocalTensor<int32_t> xx = tmpBuf1_.template Get<int32_t>();
-    Mul (xx,     xLocal,    xLocal, static_cast<int32_t>(count));   // xx = x * x
-    Mul (yLocal, gradLocal, xx,     static_cast<int32_t>(count));   // y = grad * xx
+    Mul(xx, xLocal, xLocal, static_cast<int32_t>(count));    // xx = x * x
+    Mul(yLocal, gradLocal, xx, static_cast<int32_t>(count)); // y = grad * xx
     Muls(yLocal, yLocal, static_cast<int32_t>(-1),
-         static_cast<int32_t>(count));                              // y = -y
+         static_cast<int32_t>(count)); // y = -y
 }
 
 // =============================================================================
@@ -216,29 +260,107 @@ __aicore__ inline void InvGrad<T>::ComputeInt32(LocalTensor<int32_t>& xLocal,
 // =============================================================================
 template <typename T>
 template <typename SrcT>
-__aicore__ inline void InvGrad<T>::ComputeWithCast(LocalTensor<SrcT>& xLocal,
-                                                   LocalTensor<SrcT>& gradLocal,
-                                                   LocalTensor<SrcT>& yLocal,
-                                                   int64_t count)
+__aicore__ inline void InvGrad<T>::ComputeWithCast(LocalTensor<SrcT>& xLocal, LocalTensor<SrcT>& gradLocal,
+                                                   LocalTensor<SrcT>& yLocal, int64_t count)
 {
-    LocalTensor<float> xFloat    = tmpBuf1_.template Get<float>();
+    LocalTensor<float> xFloat = tmpBuf1_.template Get<float>();
     LocalTensor<float> gradFloat = tmpBuf2_.template Get<float>();
 
     // Up-cast: half/bf16 → float32 (CAST_NONE 无损上行)
-    Cast(xFloat,    xLocal,    RoundMode::CAST_NONE, static_cast<uint32_t>(count));
+    Cast(xFloat, xLocal, RoundMode::CAST_NONE, static_cast<uint32_t>(count));
     Cast(gradFloat, gradLocal, RoundMode::CAST_NONE, static_cast<uint32_t>(count));
 
-    // fp32 compute:
+    // grad == ±0 的掩码基于原始 gradFloat 求出：乘积链只写 xFloat，gradFloat 保持
+    // 原值直到下方 no-NaN 的 Duplicate 覆写。掩码暂存尚未写入的 yLocal（Select 消费
+    // 后由下行 Cast 覆写）。
+    LocalTensor<uint8_t> zeroMask = yLocal.template ReinterpretCast<uint8_t>();
+    CompareScalar(zeroMask, gradFloat, static_cast<float>(0.0f), AscendC::CMPMODE::EQ, static_cast<uint32_t>(count));
+
+    // fp32 compute（x² 先行，TF 分组序，理由同 ComputeFloat32）:
     //   xFloat = x * x
     //   xFloat = grad * xFloat
     //   xFloat = -xFloat
-    Mul (xFloat, xFloat,    xFloat, static_cast<int32_t>(count));
-    Mul (xFloat, gradFloat, xFloat, static_cast<int32_t>(count));
-    Muls(xFloat, xFloat, static_cast<float>(-1.0f),
-         static_cast<int32_t>(count));
+    Mul(xFloat, xFloat, xFloat, static_cast<int32_t>(count));
+    Mul(xFloat, gradFloat, xFloat, static_cast<int32_t>(count));
+    Muls(xFloat, xFloat, static_cast<float>(-1.0f), static_cast<int32_t>(count));
+
+    // grad == ±0 时返回类型零（即使 x 为 NaN/±Inf）；零向量复用已被消费的 gradFloat。
+    Duplicate(gradFloat, static_cast<float>(0.0f), static_cast<uint32_t>(count));
+    Select(xFloat, zeroMask, gradFloat, xFloat, AscendC::SELMODE::VSEL_TENSOR_TENSOR_MODE,
+           static_cast<uint32_t>(count));
 
     // Down-cast: fp32 → half/bf16 (CAST_ROUND 银行家舍入)
     Cast(yLocal, xFloat, RoundMode::CAST_ROUND, static_cast<uint32_t>(count));
+}
+
+// =============================================================================
+// ComputeInt8: int8 -> half -> fp32 上行，fp32 精确计算 + wrap8 折回，half -> int8 下行
+//
+// arch35 用户层 Cast 对 int8 仅支持 int8->half（CAST_NONE，经 CAST_RINT）与
+// half->int8（CAST_ROUND），不存在 int8<->fp32 或 int32->int8 直转，故以 half 中继。
+// 语义 = 逐步二补码 wrap8（int8 输入的 y = -(grad*x*x) 在 fp32 中精确，|y| <= 2^21 < 2^24；
+// 对纯乘/负链，按环同态逐步 wrap 与对精确结果一次 wrap 等价）：
+//   r = ((y + 128) mod 256) - 128, r ∈ [-128, 128)
+// fp32 折回算术全部精确：t/256 = t*2^-8（2 的幂），floor、256*q、t-q、r-128 均
+// 为小整数运算。int8 无 NaN，grad=0 时乘积自然为 0，无需特殊值分支。
+//
+// 子块划分：ubFactor 个元素按子块长 M = FloorAlign(ubFactor/2, 32) 循环，使 half
+// 中继张量与两个 fp32 操作数在 tmpBuf1/tmpBuf2（各 ubFactor*4 字节）内生存期不重叠：
+//   tmpBuf1 = [xFloat 4M 字节][gradFloat 4M 字节]，
+//   tmpBuf2 依次承载 xHalf/gradHalf（2M 字节，复用同一区域）、q（4M 字节）、yHalf。
+// 各跨尺寸 Cast 的 src/dst 均位于不相交区域，不做就地跨尺寸转换。
+// int8 每元素 1 字节：向量访存要求子块起始在 xLocal/gradLocal/yLocal 上的元素偏移
+// 为 32 的倍数（32 字节对齐），故 M 向下对齐到 32；ubFactor 是 ubBlockSize(32) 的
+// 倍数（tiling 保证），对齐后 M <= ubFactor/2 仍成立（tmpBuf1 布局不越界），
+// gradFloat 的字节偏移 4M 亦为 32 字节对齐。ubFactor 非 64 的倍数时一个整块按
+// M、M、余量三段循环，否则恰为两段。
+// =============================================================================
+template <typename T>
+__aicore__ inline void InvGrad<T>::ComputeInt8(LocalTensor<int8_t>& xLocal, LocalTensor<int8_t>& gradLocal,
+                                               LocalTensor<int8_t>& yLocal, int64_t currentNum)
+{
+    const int64_t subLen = ubFactor_ / FP32_SUBBLOCK_NUM / DATA_BLOCK_BYTES * DATA_BLOCK_BYTES;
+    // After the 32-alignment, subLen == 0 exactly when ubFactor < 64 (i.e. ubFactor == 32,
+    // which needs a UB under 704 bytes — no real platform provides that, and the parallel
+    // [xFloat M][gradFloat M] layout cannot host any 32-aligned sub-block there anyway);
+    // bail out defensively rather than spin on a zero sub-chunk stride.
+    if (subLen <= 0) {
+        return;
+    }
+    for (int64_t off = 0; off < currentNum; off += subLen) {
+        const int64_t cnt = (currentNum - off < subLen) ? (currentNum - off) : subLen;
+        const int32_t cnt32 = static_cast<int32_t>(cnt);
+        const uint32_t cntU32 = static_cast<uint32_t>(cnt);
+
+        LocalTensor<half> halfView = tmpBuf2_.template Get<half>();
+        LocalTensor<float> f32View = tmpBuf1_.template Get<float>();
+
+        // 上行：int8 -> half -> fp32
+        Cast(halfView, xLocal[static_cast<uint32_t>(off)], RoundMode::CAST_NONE, cntU32);
+        LocalTensor<float> xFloat = f32View;
+        Cast(xFloat, halfView, RoundMode::CAST_NONE, cntU32);
+        Cast(halfView, gradLocal[static_cast<uint32_t>(off)], RoundMode::CAST_NONE, cntU32); // xHalf 已死，复用
+        LocalTensor<float> gradFloat = f32View[static_cast<uint32_t>(subLen)];
+        Cast(gradFloat, halfView, RoundMode::CAST_NONE, cntU32);
+
+        // fp32 精确计算：y = -(grad * x * x)
+        Mul(xFloat, xFloat, xFloat, cnt32);
+        Mul(xFloat, gradFloat, xFloat, cnt32);
+        Muls(xFloat, xFloat, static_cast<float>(-1.0f), cnt32);
+
+        // wrap8 折回：r = ((y + 128) mod 256) - 128
+        Adds(xFloat, xFloat, INT8_WRAP_OFFSET, cnt32);         // t = y + 128
+        LocalTensor<float> q = tmpBuf2_.template Get<float>(); // gradFloat 已死，复用
+        Muls(q, xFloat, INT8_WRAP_MODULUS_INV, cnt32);         // q = t * 2^-8（精确）
+        Floor(q, q, cnt32);                                    // q = floor(t / 256)
+        Muls(q, q, INT8_WRAP_MODULUS, cnt32);                  // q = 256 * floor(t / 256)
+        Sub(xFloat, xFloat, q, cnt32);                         // u = t mod 256 ∈ [0, 256)
+        Adds(xFloat, xFloat, -INT8_WRAP_OFFSET, cnt32);        // r = u - 128 ∈ [-128, 128)
+
+        // 下行：fp32 -> half -> int8
+        Cast(halfView, xFloat, RoundMode::CAST_ROUND, cntU32); // q 已死，复用 halfView
+        Cast(yLocal[static_cast<uint32_t>(off)], halfView, RoundMode::CAST_ROUND, cntU32);
+    }
 }
 
 // =============================================================================
@@ -247,9 +369,9 @@ __aicore__ inline void InvGrad<T>::ComputeWithCast(LocalTensor<SrcT>& xLocal,
 template <typename T>
 __aicore__ inline void InvGrad<T>::Compute(int64_t currentNum)
 {
-    LocalTensor<T> xLocal    = xQueue_.template DeQue<T>();
+    LocalTensor<T> xLocal = xQueue_.template DeQue<T>();
     LocalTensor<T> gradLocal = gradQueue_.template DeQue<T>();
-    LocalTensor<T> yLocal    = outQueue_.template AllocTensor<T>();
+    LocalTensor<T> yLocal = outQueue_.template AllocTensor<T>();
 
     // Vector API 的 count 参数本身不要求 block 对齐——硬件 mask 处理边界。
     // 直接以 currentNum 作为 count，不再上对齐到 alignBlock：
@@ -259,6 +381,8 @@ __aicore__ inline void InvGrad<T>::Compute(int64_t currentNum)
         ComputeFloat32(xLocal, gradLocal, yLocal, currentNum);
     } else if constexpr (std::is_same_v<T, int32_t>) {
         ComputeInt32(xLocal, gradLocal, yLocal, currentNum);
+    } else if constexpr (std::is_same_v<T, int8_t>) {
+        ComputeInt8(xLocal, gradLocal, yLocal, currentNum);
     } else {
         // half / bfloat16
         ComputeWithCast(xLocal, gradLocal, yLocal, currentNum);
@@ -275,12 +399,15 @@ __aicore__ inline void InvGrad<T>::Compute(int64_t currentNum)
 template <typename T>
 __aicore__ inline void InvGrad<T>::Process()
 {
-    if (blockLen_ <= 0) {
+    if (blockLen_ <= 0 || ubFactor_ <= 0) {
         return;
     }
-    int64_t loopCount = (blockLen_ + ubFactor_ - 1) / ubFactor_;
+    // Division/remainder ceil-div — the signed addition "blockLen_ + ubFactor_ - 1"
+    // overflows int64 for huge tiling-accepted shapes (e.g. coreNum=1 with blockFactor
+    // within ubFactor of INT64_MAX); division/remainder keeps the count exact.
+    int64_t loopCount = blockLen_ / ubFactor_ + ((blockLen_ % ubFactor_ != 0) ? 1 : 0);
     for (int64_t i = 0; i < loopCount; ++i) {
-        int64_t gmOffset   = i * ubFactor_;
+        int64_t gmOffset = i * ubFactor_;
         int64_t currentNum = (i == (loopCount - 1)) ? (blockLen_ - gmOffset) : ubFactor_;
         CopyIn(gmOffset, currentNum);
         Compute(currentNum);

@@ -62,7 +62,7 @@ English | [简体中文](./README.md)
     <tr>
       <td>y</td>
       <td>Output</td>
-      <td>Derivative gradient of the input tensor x</td>
+      <td>Gradient with respect to original_x, the original input of the forward Inv operator.</td>
       <td>FLOAT16, FLOAT32, BFLOAT16, INT32, INT8</td>
       <td>ND</td>
     </tr>
@@ -70,7 +70,10 @@ English | [简体中文](./README.md)
 
 ## Constraint Description
 
-None
+- `x`, `grad`, and `y` must have exactly the same data type; only `FLOAT16`, `FLOAT32`, `BFLOAT16`, `INT32`, and `INT8` are supported, and no data type promotion is performed.
+- `x` and `grad` must have exactly the same shape: broadcasting is not supported. Empty tensors (0 elements) are supported.
+- The rank of each input ranges from 0 to 8.
+- Dynamic shape support: `-1` denotes an unknown dimension and `-2` denotes an unknown rank.
 
 ## Invocation Description
 

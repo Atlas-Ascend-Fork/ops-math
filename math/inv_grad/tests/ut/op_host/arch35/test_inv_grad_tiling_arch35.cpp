@@ -26,6 +26,23 @@
  *        - shape mismatch (dimNum differs)     -> GRAPH_FAILED
  *        - shape mismatch (same rank, dim differs) -> GRAPH_FAILED
  *        - unsupported dtype (DT_DOUBLE)       -> GRAPH_FAILED
+ *        - rank > 8 on x or grad (F34)         -> GRAPH_FAILED
+ *        - negative totalElements (F04: negative dims / GetShapeSize
+ *          overflow sentinel)                  -> GRAPH_FAILED
+ *        - blockFactor align-up overflow on a
+ *          huge single-dim shape @coreNum=1 (F04) -> GRAPH_FAILED
+ *   6) INT8 tiling tiers (F02): small (013), multi-core, unaligned
+ *      tail, empty -- ubFactor = 23808 (bytesPerElem = 3*1 + 2*4).
+ *   7) F04 boundary pair: {INT64_MAX-3} @coreNum=1 is rejected
+ *      (align-up would exceed INT64_MAX) while {INT64_MAX-7} @coreNum=1
+ *      is accepted (already 8-aligned, no increment needed).
+ *
+ * Defensive positive-value checks in ComputeTilingParams (typeSize == 0,
+ * totalElements <= 0, coreNum <= 0, blockFactor <= 0, usedCoreNum <= 0)
+ * and AlignUpSafe(align <= 0) are unreachable under the legal upstream
+ * contract (GetDtypeTypeSize only emits 1/2/4; the caller early-returns
+ * on totalElements == 0; GetShapeInfo rejects negatives; GetPlatformInfo
+ * rejects coreNum == 0) and are exempted from UT coverage by design.
  *
  * Default platform info from TilingContextPara: coreNum=64, ubSize=262144.
  *
@@ -38,6 +55,8 @@
  *   FP16 typeSize=2 -> bytesPerElem=14 -> ubFactor=FloorAlign(262144/14, 16)
  *                                                 = FloorAlign(18724, 16) = 18720
  *   BF16 typeSize=2 -> same formula as FP16        -> ubFactor=18720
+ *   INT8 typeSize=1 -> bytesPerElem=11 -> ubFactor=FloorAlign(262144/11, 32)
+ *                                                 = FloorAlign(23831, 32) = 23808
  *
  *   blockFactor = ceil_align( ceil(totalElements/coreNum), ubBlockSize )
  *   usedCoreNum = ceil(totalElements / blockFactor)
@@ -49,6 +68,7 @@
 #include "../../../../op_host/arch35/inv_grad_tiling_arch35.h"
 #include "../../../../op_kernel/arch35/inv_grad_tiling_data.h"
 #include <cstdint>
+#include <limits>
 #include <iostream>
 #include <gtest/gtest.h>
 #include "tiling_context_faker.h"
@@ -337,9 +357,17 @@ TEST_F(InvGradTilingTest, test_tiling_fail_unsupported_dtype_double_012)
 }
 
 // ===========================================================================
-// 13) FAIL: unsupported dtype DT_INT8 (int32 支持，int8 因 arch35 cast 限制不支持)
+// 13) PASS: int8 small shape (INT8 is a registered dtype per D-invgrad-scan-002;
+//     tiling part of the INT8 full implementation)
+//    shape {16} = 16 elem, coreNum=64, ubSize=262144
+//      ubBlockSize = 32/1 = 32
+//      perCoreRaw = ceil(16/64) = 1; blockFactor = align_up(1, 32) = 32
+//      usedCoreNum = ceil(16/32) = 1
+//      bytesPerElem = 3*1 + 2*4 = 11 -> ubFactor = FloorAlign(262144/11=23831, 32) = 23808
+//    (supersedes the pre-D-invgrad-scan-002 "unsupported dtype DT_INT8" expectation;
+//     INT8 kernel compute and golden reference belong to the op_kernel/golden phases)
 // ===========================================================================
-TEST_F(InvGradTilingTest, test_tiling_fail_unsupported_dtype_int8_013)
+TEST_F(InvGradTilingTest, test_tiling_int8_small_013)
 {
     optiling::InvGradCompileInfo compileInfo;
     gert::TilingContextPara tilingContextPara("InvGrad",
@@ -351,7 +379,8 @@ TEST_F(InvGradTilingTest, test_tiling_fail_unsupported_dtype_int8_013)
                                                   {{{16}, {16}}, ge::DT_INT8, ge::FORMAT_ND},
                                               },
                                               &compileInfo);
-    ExecuteInvGradTilingCase(tilingContextPara, ge::GRAPH_FAILED, 0, 0, 0, {});
+    std::vector<size_t> expectWorkspaces = {0};
+    ExecuteInvGradTilingCase(tilingContextPara, ge::GRAPH_SUCCESS, 16, 32, 23808, expectWorkspaces);
 }
 
 // ===========================================================================
@@ -415,4 +444,303 @@ TEST_F(InvGradTilingTest, test_tiling_int32_unalign_016)
                                               &compileInfo);
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteInvGradTilingCase(tilingContextPara, ge::GRAPH_SUCCESS, 33, 8, 13104, expectWorkspaces);
+}
+
+// ===========================================================================
+// 17) FAIL: F34 independent rank guard on x -- 9-dim shape is rejected by
+//     tiling itself, without relying on InferShape having run before (the
+//     kernel path has E80012 and the GEIR path EZ0012 in front of tiling,
+//     so the tiling faker is the only direct observation point).
+// ===========================================================================
+TEST_F(InvGradTilingTest, test_tiling_fail_rank9_x_017)
+{
+    optiling::InvGradCompileInfo compileInfo;
+    gert::TilingContextPara tilingContextPara(
+        "InvGrad",
+        {
+            {{{1, 1, 1, 1, 1, 1, 1, 1, 1}, {1, 1, 1, 1, 1, 1, 1, 1, 1}}, ge::DT_FLOAT, ge::FORMAT_ND},
+            {{{1, 1, 1, 1, 1, 1, 1, 1, 1}, {1, 1, 1, 1, 1, 1, 1, 1, 1}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        {
+            {{{1, 1, 1, 1, 1, 1, 1, 1, 1}, {1, 1, 1, 1, 1, 1, 1, 1, 1}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        &compileInfo);
+    ExecuteInvGradTilingCase(tilingContextPara, ge::GRAPH_FAILED, 0, 0, 0, {});
+}
+
+// ===========================================================================
+// 18) FAIL: F34 independent rank guard on grad (x is a legal 8-dim shape,
+//     grad is 9-dim -> the grad-side guard fires before shape comparison)
+// ===========================================================================
+TEST_F(InvGradTilingTest, test_tiling_fail_rank9_grad_018)
+{
+    optiling::InvGradCompileInfo compileInfo;
+    gert::TilingContextPara tilingContextPara(
+        "InvGrad",
+        {
+            {{{1, 1, 1, 1, 1, 1, 2, 32}, {1, 1, 1, 1, 1, 1, 2, 32}}, ge::DT_FLOAT, ge::FORMAT_ND},
+            {{{1, 1, 1, 1, 1, 1, 1, 1, 1}, {1, 1, 1, 1, 1, 1, 1, 1, 1}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        {
+            {{{1, 1, 1, 1, 1, 1, 2, 32}, {1, 1, 1, 1, 1, 1, 2, 32}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        &compileInfo);
+    ExecuteInvGradTilingCase(tilingContextPara, ge::GRAPH_FAILED, 0, 0, 0, {});
+}
+
+// ===========================================================================
+// 19) PASS: rank-8 boundary -- the max legal rank is accepted (no
+//      over-rejection). shape {1,1,1,1,1,1,2,32} = 64 elem, fp32:
+//      perCoreRaw = ceil(64/64) = 1; blockFactor = align_up(1, 8) = 8
+//      usedCoreNum = ceil(64/8) = 8; ubFactor = 13104
+// ===========================================================================
+TEST_F(InvGradTilingTest, test_tiling_rank8_pos_019)
+{
+    optiling::InvGradCompileInfo compileInfo;
+    gert::TilingContextPara tilingContextPara(
+        "InvGrad",
+        {
+            {{{1, 1, 1, 1, 1, 1, 2, 32}, {1, 1, 1, 1, 1, 1, 2, 32}}, ge::DT_FLOAT, ge::FORMAT_ND},
+            {{{1, 1, 1, 1, 1, 1, 2, 32}, {1, 1, 1, 1, 1, 1, 2, 32}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        {
+            {{{1, 1, 1, 1, 1, 1, 2, 32}, {1, 1, 1, 1, 1, 1, 2, 32}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        &compileInfo);
+    std::vector<size_t> expectWorkspaces = {0};
+    ExecuteInvGradTilingCase(tilingContextPara, ge::GRAPH_SUCCESS, 64, 8, 13104, expectWorkspaces);
+}
+
+// ===========================================================================
+// 20) FAIL: F04 negative totalElements -- single dim {-2} gives
+//      GetShapeSize() == -2; the negative check rejects it instead of the
+//      old "== 0 only" early return letting it slip through.
+// ===========================================================================
+TEST_F(InvGradTilingTest, test_tiling_fail_negative_dim_m2_020)
+{
+    optiling::InvGradCompileInfo compileInfo;
+    gert::TilingContextPara tilingContextPara("InvGrad",
+                                              {
+                                                  {{{-2}, {-2}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                  {{{-2}, {-2}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{-2}, {-2}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
+    ExecuteInvGradTilingCase(tilingContextPara, ge::GRAPH_FAILED, 0, 0, 0, {});
+}
+
+// ===========================================================================
+// 21) FAIL: F04 negative totalElements -- mixed-sign dims {-1, 6} give
+//      GetShapeSize() == -6 (1 * -1 * 6)
+// ===========================================================================
+TEST_F(InvGradTilingTest, test_tiling_fail_negative_dim_pair_021)
+{
+    optiling::InvGradCompileInfo compileInfo;
+    gert::TilingContextPara tilingContextPara("InvGrad",
+                                              {
+                                                  {{{-1, 6}, {-1, 6}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                  {{{-1, 6}, {-1, 6}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{-1, 6}, {-1, 6}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
+    ExecuteInvGradTilingCase(tilingContextPara, ge::GRAPH_FAILED, 0, 0, 0, {});
+}
+
+// ===========================================================================
+// 22) FAIL: F04 negative totalElements -- multiple negative dims {2,-3,4}
+//      give GetShapeSize() == -24
+// ===========================================================================
+TEST_F(InvGradTilingTest, test_tiling_fail_negative_dims_multi_022)
+{
+    optiling::InvGradCompileInfo compileInfo;
+    gert::TilingContextPara tilingContextPara("InvGrad",
+                                              {
+                                                  {{{2, -3, 4}, {2, -3, 4}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                  {{{2, -3, 4}, {2, -3, 4}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{2, -3, 4}, {2, -3, 4}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
+    ExecuteInvGradTilingCase(tilingContextPara, ge::GRAPH_FAILED, 0, 0, 0, {});
+}
+
+// ===========================================================================
+// 23) FAIL: F04 GetShapeSize overflow sentinel -- {INT64_MAX, 2} overflows
+//      the checked multiply and returns kInvalidDimValue (INT64_MIN), a
+//      negative value that the F04 guard rejects (no wrap-around to a
+//      bogus positive size).
+// ===========================================================================
+TEST_F(InvGradTilingTest, test_tiling_fail_shapesize_overflow_023)
+{
+    optiling::InvGradCompileInfo compileInfo;
+    gert::TilingContextPara tilingContextPara(
+        "InvGrad",
+        {
+            {{{std::numeric_limits<int64_t>::max(), 2}, {std::numeric_limits<int64_t>::max(), 2}},
+             ge::DT_FLOAT,
+             ge::FORMAT_ND},
+            {{{std::numeric_limits<int64_t>::max(), 2}, {std::numeric_limits<int64_t>::max(), 2}},
+             ge::DT_FLOAT,
+             ge::FORMAT_ND},
+        },
+        {
+            {{{std::numeric_limits<int64_t>::max(), 2}, {std::numeric_limits<int64_t>::max(), 2}},
+             ge::DT_FLOAT,
+             ge::FORMAT_ND},
+        },
+        &compileInfo);
+    ExecuteInvGradTilingCase(tilingContextPara, ge::GRAPH_FAILED, 0, 0, 0, {});
+}
+
+// ===========================================================================
+// 24) FAIL: F04 align-up overflow on a huge shape -- {INT64_MAX - 3} at
+//      coreNum=1: CeilDiv gives INT64_MAX-3, which is not 8-aligned; the
+//      aligned value (INT64_MAX-7 rounded down to INT64_MAX-8+... = 2^63-8)
+//      would exceed INT64_MAX when incremented, so AlignUpSafe returns
+//      false and tiling rejects (the legacy additive align-up would wrap).
+// ===========================================================================
+TEST_F(InvGradTilingTest, test_tiling_fail_blockfactor_overflow_024)
+{
+    optiling::InvGradCompileInfo compileInfo;
+    gert::TilingContextPara tilingContextPara(
+        "InvGrad",
+        {
+            {{{std::numeric_limits<int64_t>::max() - 3}, {std::numeric_limits<int64_t>::max() - 3}},
+             ge::DT_FLOAT,
+             ge::FORMAT_ND},
+            {{{std::numeric_limits<int64_t>::max() - 3}, {std::numeric_limits<int64_t>::max() - 3}},
+             ge::DT_FLOAT,
+             ge::FORMAT_ND},
+        },
+        {
+            {{{std::numeric_limits<int64_t>::max() - 3}, {std::numeric_limits<int64_t>::max() - 3}},
+             ge::DT_FLOAT,
+             ge::FORMAT_ND},
+        },
+        &compileInfo,
+        1); // coreNum=1: per-core chunk == totalElements, exercises the overflow
+    ExecuteInvGradTilingCase(tilingContextPara, ge::GRAPH_FAILED, 0, 0, 0, {});
+}
+
+// ===========================================================================
+// 25) PASS: F04 boundary -- {INT64_MAX - 7} at coreNum=1 is already
+//      8-aligned (2^63-8 mod 8 == 0), so AlignUpSafe needs no increment
+//      and the shape is accepted (guard rejects only what would overflow).
+//      totalElements = blockFactor = INT64_MAX-7; usedCoreNum = 1.
+// ===========================================================================
+TEST_F(InvGradTilingTest, test_tiling_pass_hugeshape_boundary_025)
+{
+    optiling::InvGradCompileInfo compileInfo;
+    gert::TilingContextPara tilingContextPara(
+        "InvGrad",
+        {
+            {{{std::numeric_limits<int64_t>::max() - 7}, {std::numeric_limits<int64_t>::max() - 7}},
+             ge::DT_FLOAT,
+             ge::FORMAT_ND},
+            {{{std::numeric_limits<int64_t>::max() - 7}, {std::numeric_limits<int64_t>::max() - 7}},
+             ge::DT_FLOAT,
+             ge::FORMAT_ND},
+        },
+        {
+            {{{std::numeric_limits<int64_t>::max() - 7}, {std::numeric_limits<int64_t>::max() - 7}},
+             ge::DT_FLOAT,
+             ge::FORMAT_ND},
+        },
+        &compileInfo,
+        1); // coreNum=1
+    std::vector<size_t> expectWorkspaces = {0};
+    ExecuteInvGradTilingCase(tilingContextPara, ge::GRAPH_SUCCESS, std::numeric_limits<int64_t>::max() - 7,
+                             std::numeric_limits<int64_t>::max() - 7, 13104, expectWorkspaces);
+}
+
+// ===========================================================================
+// 26) PASS: INT8 multi-core tier (F02) -- shape {1, 64, 2, 64} = 8192 elem
+//      ubBlockSize = 32; perCoreRaw = ceil(8192/64) = 128
+//      blockFactor = align_up(128, 32) = 128; usedCoreNum = ceil(8192/128) = 64
+//      bytesPerElem = 3*1 + 2*4 = 11 -> ubFactor = 23808
+// ===========================================================================
+TEST_F(InvGradTilingTest, test_tiling_int8_multi_core_026)
+{
+    optiling::InvGradCompileInfo compileInfo;
+    gert::TilingContextPara tilingContextPara("InvGrad",
+                                              {
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT8, ge::FORMAT_ND},
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT8, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT8, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
+    std::vector<size_t> expectWorkspaces = {0};
+    ExecuteInvGradTilingCase(tilingContextPara, ge::GRAPH_SUCCESS, 8192, 128, 23808, expectWorkspaces);
+}
+
+// ===========================================================================
+// 27) PASS: INT8 unaligned tail tier (F02) -- shape {33}
+//      perCoreRaw = ceil(33/64) = 1; blockFactor = align_up(1, 32) = 32
+//      usedCoreNum = ceil(33/32) = 2; ubFactor = 23808
+// ===========================================================================
+TEST_F(InvGradTilingTest, test_tiling_int8_unalign_tail_027)
+{
+    optiling::InvGradCompileInfo compileInfo;
+    gert::TilingContextPara tilingContextPara("InvGrad",
+                                              {
+                                                  {{{33}, {33}}, ge::DT_INT8, ge::FORMAT_ND},
+                                                  {{{33}, {33}}, ge::DT_INT8, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{33}, {33}}, ge::DT_INT8, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
+    std::vector<size_t> expectWorkspaces = {0};
+    ExecuteInvGradTilingCase(tilingContextPara, ge::GRAPH_SUCCESS, 33, 32, 23808, expectWorkspaces);
+}
+
+// ===========================================================================
+// 28) PASS: INT8 empty tier (F02) -- {0} hits the totalElements==0 early
+//      return: tiling data all zero, blockDim=1
+// ===========================================================================
+TEST_F(InvGradTilingTest, test_tiling_empty_int8_028)
+{
+    optiling::InvGradCompileInfo compileInfo;
+    gert::TilingContextPara tilingContextPara("InvGrad",
+                                              {
+                                                  {{{0}, {0}}, ge::DT_INT8, ge::FORMAT_ND},
+                                                  {{{0}, {0}}, ge::DT_INT8, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{0}, {0}}, ge::DT_INT8, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
+    std::vector<size_t> expectWorkspaces = {0};
+    ExecuteInvGradTilingCase(tilingContextPara, ge::GRAPH_SUCCESS, 0, 0, 0, expectWorkspaces);
+}
+
+// ===========================================================================
+// 29) PASS: rank-0 (scalar) boundary -- the contract allows rank 0..8 and
+//      EnsureNotScalar promotes a scalar to {1}; tiling succeeds with
+//      totalElements=1, blockFactor=8 (align_up(ceil(1/64), 8)),
+//      usedCoreNum=1, ubFactor=13104. (On-device rank-0 execution is blocked
+//      by the CANN compile tool's empty-shape limitation, F08; the tiling
+//      gate itself accepts the legal boundary.)
+// ===========================================================================
+TEST_F(InvGradTilingTest, test_tiling_scalar_rank0_pos_029)
+{
+    optiling::InvGradCompileInfo compileInfo;
+    gert::TilingContextPara tilingContextPara("InvGrad",
+                                              {
+                                                  {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                  {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
+    std::vector<size_t> expectWorkspaces = {0};
+    ExecuteInvGradTilingCase(tilingContextPara, ge::GRAPH_SUCCESS, 1, 8, 13104, expectWorkspaces);
 }

@@ -20,13 +20,16 @@
 
 namespace ge {
 /**
-* @brief Computes "x" reciprocal grad, dx = -1*dy*y*y, where, "y = 1/x",
-* and "dy" is the corresponding input gradient.  Support broadcasting operations.
+* @brief Computes "x" reciprocal grad, y = -grad * x * x, where "x" is the output of
+* the forward Inv operator (i.e., "x = 1 / original_x"), "grad" is the corresponding
+* input gradient, and "y" is the gradient with respect to the original input.
+* Inputs "x" and "grad" must have the
+* same shape; broadcasting is not supported, pre-broadcast the inputs externally
+* before calling this operator.
 
 * @par Inputs:
 * Two inputs, including:
-* @li x: A ND Tensor. Must be one of the following types: float16, float32, bfloat16.
-* int32, int8.
+* @li x: A ND Tensor. Must be one of the following types: float16, float32, bfloat16, int32, int8.
 * @li grad: A ND Tensor. Has the same dtype as "x". \n
 
 * @par Outputs:

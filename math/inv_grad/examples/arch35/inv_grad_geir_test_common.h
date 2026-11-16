@@ -14,6 +14,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <memory>
 #include <new>
 #include <sstream>
 #include <string>
@@ -49,6 +50,17 @@ inline std::string ShapeToJson(const std::vector<int64_t>& shape)
     }
     stream << "]";
     return stream.str();
+}
+
+inline std::string ShapeToJson(const ge::Shape& shape)
+{
+    std::vector<int64_t> dims;
+    const size_t dimNum = shape.GetDimNum();
+    dims.reserve(dimNum);
+    for (size_t index = 0; index < dimNum; ++index) {
+        dims.push_back(shape.GetDim(index));
+    }
+    return ShapeToJson(dims);
 }
 
 inline const char* DtypeName(ge::DataType dtype)
@@ -141,18 +153,20 @@ inline bool MakeFilledTensor(const std::vector<int64_t>& shape, ge::DataType dty
     const size_t numel = NumElements(shape);
 
     if (dtype == ge::DT_FLOAT) {
-        float* data = new (std::nothrow) float[numel];
+        // Tensor(desc, data, size) 为拷贝构造，缓冲区所有权归调用方：
+        // unique_ptr RAII 保证任何路径（含分配失败早退）都不泄漏
+        std::unique_ptr<float[]> data(new (std::nothrow) float[numel]);
         if (data == nullptr) {
             return false;
         }
         for (size_t index = 0; index < numel; ++index) {
             data[index] = static_cast<float>(value);
         }
-        tensor = ge::Tensor(desc, reinterpret_cast<uint8_t*>(data), numel * sizeof(float));
+        tensor = ge::Tensor(desc, reinterpret_cast<uint8_t*>(data.get()), numel * sizeof(float));
         return true;
     }
     if (dtype == ge::DT_FLOAT16 || dtype == ge::DT_BF16) {
-        uint16_t* data = new (std::nothrow) uint16_t[numel];
+        std::unique_ptr<uint16_t[]> data(new (std::nothrow) uint16_t[numel]);
         if (data == nullptr) {
             return false;
         }
@@ -161,18 +175,18 @@ inline bool MakeFilledTensor(const std::vector<int64_t>& shape, ge::DataType dty
         for (size_t index = 0; index < numel; ++index) {
             data[index] = bits;
         }
-        tensor = ge::Tensor(desc, reinterpret_cast<uint8_t*>(data), numel * sizeof(uint16_t));
+        tensor = ge::Tensor(desc, reinterpret_cast<uint8_t*>(data.get()), numel * sizeof(uint16_t));
         return true;
     }
     if (dtype == ge::DT_INT32) {
-        int32_t* data = new (std::nothrow) int32_t[numel];
+        std::unique_ptr<int32_t[]> data(new (std::nothrow) int32_t[numel]);
         if (data == nullptr) {
             return false;
         }
         for (size_t index = 0; index < numel; ++index) {
             data[index] = static_cast<int32_t>(value);
         }
-        tensor = ge::Tensor(desc, reinterpret_cast<uint8_t*>(data), numel * sizeof(int32_t));
+        tensor = ge::Tensor(desc, reinterpret_cast<uint8_t*>(data.get()), numel * sizeof(int32_t));
         return true;
     }
     return false;

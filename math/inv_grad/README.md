@@ -48,28 +48,31 @@
       <td>x</td>
       <td>输入</td>
       <td>输入张量。</td>
-      <td>FLOAT16, FLOAT32, BFLOAT16, INT32, INT8</td>
+      <td>FLOAT16、FLOAT32、BFLOAT16、INT32、INT8</td>
       <td>ND</td>
     </tr>
     <tr>
       <td>grad</td>
       <td>输入</td>
       <td>对应的输入梯度。</td>
-      <td>FLOAT16, FLOAT32, BFLOAT16, INT32, INT8</td>
+      <td>FLOAT16、FLOAT32、BFLOAT16、INT32、INT8</td>
       <td>ND</td>
     </tr>
     <tr>
       <td>y</td>
       <td>输出</td>
-      <td>输入张量x的导数梯度</td>
-      <td>FLOAT16, FLOAT32, BFLOAT16, INT32, INT8</td>
+      <td>对前向Inv算子原始输入original_x的梯度。</td>
+      <td>FLOAT16、FLOAT32、BFLOAT16、INT32、INT8</td>
       <td>ND</td>
     </tr>
   </tbody></table>
 
 ## 约束说明
 
-无
+- `x`、`grad`、`y` 必须具有完全一致的数据类型，仅支持 `FLOAT16`、`FLOAT32`、`BFLOAT16`、`INT32`、`INT8`，不支持数据类型提升。
+- `x` 与 `grad` 必须完全同形（shape 相同）：不支持广播。支持空 Tensor（0 元素）输入。
+- 输入维度数（rank）范围为 0~8。
+- 动态 shape 支持：`-1` 表示未知维度，`-2` 表示未知 rank。
 
 ## 调用说明
 

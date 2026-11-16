@@ -11,7 +11,7 @@
  */
 
 /*!
- * \file inv_grad_apt.cpp
+ * \file inv_grad.cpp
  * \brief InvGrad kernel entry point (arch35 / Ascend950)
  *
  * Formula: y = -grad * x * x

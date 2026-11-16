@@ -28,11 +28,15 @@
  *   bytesPerElem = 3 * sizeof(T) + 2 * sizeof(float)
  *   ubFactor = FloorAlign(ubSize / bytesPerElem, ubBlockSize)
  *
- * Shape/dtype equality between x and grad is enforced here.
- * InferShape uses the broadcast util in op_host/inv_grad_infershape.cpp.
+ * x and grad must have the same dtype and the same shape with rank <= 8.
+ * Broadcast is NOT supported: pre-broadcast externally if needed. The
+ * same-shape/rank contract is enforced independently by InferShape
+ * (op_host/inv_grad_infershape.cpp) on the graph path; this tiling gate
+ * enforces it on the single-op path where InferShape does not run.
  */
 
 #include "securec.h"
+#include <limits>
 #include "register/op_def_registry.h"
 #include "op_common/log/log.h"
 #include "op_common/op_host/util/math_util.h"
@@ -46,6 +50,9 @@ using Ops::Base::CeilDiv;
 using Ops::Base::FloorAlign;
 
 constexpr uint32_t WS_SYS_SIZE = 0U;
+
+// Tiling independently rejects rank > 8 (same limit as InferShape / OA spec rank 0-8).
+constexpr size_t INV_GRAD_MAX_RANK = 8U;
 
 static const gert::Shape g_vec_1_shape = {1};
 
@@ -75,15 +82,30 @@ static ge::graphStatus GetShapeInfo(gert::TilingContext* context, int64_t& total
     auto xStorage = context->GetInputShape(0);
     OP_CHECK_NULL_WITH_CONTEXT(context, xStorage);
     auto xShape = EnsureNotScalar(xStorage->GetStorageShape());
+    // Independent rank guard (do not rely on InferShape having run on the graph path)
+    if (xShape.GetDimNum() > INV_GRAD_MAX_RANK) {
+        OP_LOGE(context, "InvGrad: x rank %zu exceeds the limit %zu", xShape.GetDimNum(), INV_GRAD_MAX_RANK);
+        return ge::GRAPH_FAILED;
+    }
     totalElements = xShape.GetShapeSize();
+    // Reject negative totalElements (negative/dynamic-marker dims or shape-size overflow,
+    // kInvalidDimValue) instead of letting it slip past the totalElements == 0 early return.
+    if (totalElements < 0) {
+        OP_LOGE(context, "InvGrad: x totalElements %ld is invalid (negative dim or shape size overflow)",
+                totalElements);
+        return ge::GRAPH_FAILED;
+    }
 
     auto xDesc = context->GetInputDesc(0);
     OP_CHECK_NULL_WITH_CONTEXT(context, xDesc);
     dataType = xDesc->GetDataType();
 
-    const std::set<ge::DataType> supportedDtype = {ge::DT_FLOAT, ge::DT_FLOAT16, ge::DT_BF16, ge::DT_INT32};
+    // Five registered dtypes, aligned with inv_grad_def.cpp DataType profile
+    const std::set<ge::DataType> supportedDtype = {ge::DT_FLOAT, ge::DT_FLOAT16, ge::DT_BF16, ge::DT_INT32,
+                                                   ge::DT_INT8};
     if (supportedDtype.count(dataType) == 0) {
-        OP_LOGE(context, "InvGrad: unsupported x dtype %d", static_cast<int>(dataType));
+        OP_LOGE(context, "InvGrad: unsupported x dtype %d (supported: fp16, bf16, fp32, int32, int8)",
+                static_cast<int>(dataType));
         return ge::GRAPH_FAILED;
     }
 
@@ -91,6 +113,11 @@ static ge::graphStatus GetShapeInfo(gert::TilingContext* context, int64_t& total
     auto gradStorage = context->GetInputShape(1);
     OP_CHECK_NULL_WITH_CONTEXT(context, gradStorage);
     auto gradShape = EnsureNotScalar(gradStorage->GetStorageShape());
+    // Independent rank guard for grad as well
+    if (gradShape.GetDimNum() > INV_GRAD_MAX_RANK) {
+        OP_LOGE(context, "InvGrad: grad rank %zu exceeds the limit %zu", gradShape.GetDimNum(), INV_GRAD_MAX_RANK);
+        return ge::GRAPH_FAILED;
+    }
 
     auto gradDesc = context->GetInputDesc(1);
     OP_CHECK_NULL_WITH_CONTEXT(context, gradDesc);
@@ -103,15 +130,20 @@ static ge::graphStatus GetShapeInfo(gert::TilingContext* context, int64_t& total
         return ge::GRAPH_FAILED;
     }
 
-    // shape must match exactly (no broadcast on AI Core fast path)
+    // shape must match exactly: broadcast is not supported, pre-broadcast externally if needed
     if (gradShape.GetDimNum() != xShape.GetDimNum()) {
-        OP_LOGE(context, "InvGrad: x.dimNum %zu != grad.dimNum %zu", xShape.GetDimNum(), gradShape.GetDimNum());
+        OP_LOGE(context,
+                "InvGrad: x.dimNum %zu != grad.dimNum %zu, InvGrad does not support broadcast, x and grad "
+                "must have the same shape, pre-broadcast externally if needed",
+                xShape.GetDimNum(), gradShape.GetDimNum());
         return ge::GRAPH_FAILED;
     }
     for (size_t i = 0; i < xShape.GetDimNum(); ++i) {
         if (xShape.GetDim(i) != gradShape.GetDim(i)) {
-            OP_LOGE(context, "InvGrad: x.shape[%zu] %ld != grad.shape[%zu] %ld", i, xShape.GetDim(i), i,
-                    gradShape.GetDim(i));
+            OP_LOGE(context,
+                    "InvGrad: x.shape[%zu] %ld != grad.shape[%zu] %ld, InvGrad does not support broadcast, "
+                    "x and grad must have the same shape, pre-broadcast externally if needed",
+                    i, xShape.GetDim(i), i, gradShape.GetDim(i));
             return ge::GRAPH_FAILED;
         }
     }
@@ -127,8 +159,9 @@ static ge::graphStatus GetWorkspaceSize(gert::TilingContext* context)
     return ge::GRAPH_SUCCESS;
 }
 
-// Map dtype → element byte size (fp32:4, fp16/bf16:2). Other dtypes are rejected upstream by GetShapeInfo,
-// but defensive default branch returns GRAPH_FAILED to keep tiling robust against future dtype additions.
+// Map dtype → element byte size (fp32/int32:4, fp16/bf16:2, int8:1). Other dtypes are rejected upstream by
+// GetShapeInfo, but defensive default branch returns GRAPH_FAILED to keep tiling robust against future dtype
+// additions.
 static ge::graphStatus GetDtypeTypeSize(gert::TilingContext* context, ge::DataType dataType, int64_t& typeSize)
 {
     switch (dataType) {
@@ -144,10 +177,31 @@ static ge::graphStatus GetDtypeTypeSize(gert::TilingContext* context, ge::DataTy
         case ge::DT_INT32:
             typeSize = 4;
             return ge::GRAPH_SUCCESS;
+        case ge::DT_INT8:
+            typeSize = 1;
+            return ge::GRAPH_SUCCESS;
         default:
             OP_LOGE(context, "InvGrad: unexpected dtype %d", static_cast<int>(dataType));
             return ge::GRAPH_FAILED;
     }
+}
+
+// Overflow-safe align-up (value >= 0, align > 0). Returns false when the aligned value would
+// exceed INT64_MAX, so huge shapes are rejected instead of wrapping around (signed overflow is UB).
+// Equivalent to ((value + align - 1) / align) * align whenever that expression does not overflow.
+static inline bool AlignUpSafe(int64_t value, int64_t align, int64_t& aligned)
+{
+    if (align <= 0) {
+        return false;
+    }
+    aligned = (value / align) * align;
+    if (value % align != 0) {
+        if (aligned > std::numeric_limits<int64_t>::max() - align) {
+            return false;
+        }
+        aligned += align;
+    }
+    return true;
 }
 
 // Compute multi-core split + UB split + populate tiling fields.
@@ -156,7 +210,7 @@ static ge::graphStatus ComputeTilingParams(gert::TilingContext* context, int64_t
                                            uint64_t ubSize, int64_t typeSize, InvGradTilingData* tiling,
                                            int64_t& usedCoreNum)
 {
-    // Defensive: typeSize must be non-zero before any division. Upstream GetDtypeTypeSize only emits 2 or 4,
+    // Defensive: typeSize must be non-zero before any division. Upstream GetDtypeTypeSize only emits 1, 2 or 4,
     // but an explicit plain-if guard here makes the divisor-non-zero contract obvious to static analyzers
     // that cannot trace through OP_CHECK_IF macro expansion (G.EXP.22-CPP).
     if (typeSize == 0) {
@@ -164,10 +218,32 @@ static ge::graphStatus ComputeTilingParams(gert::TilingContext* context, int64_t
         return ge::GRAPH_FAILED;
     }
 
+    // Entry contract of this function — the caller early-returns on totalElements == 0 and
+    // GetShapeInfo rejects negative values, so a non-positive value here means an upstream contract broke;
+    // reject defensively instead of deriving a garbage split.
+    if (totalElements <= 0) {
+        OP_LOGE(context, "InvGrad: invalid totalElements %ld (must be positive)", totalElements);
+        return ge::GRAPH_FAILED;
+    }
+    if (coreNum <= 0) {
+        OP_LOGE(context, "InvGrad: invalid coreNum %ld (must be positive)", coreNum);
+        return ge::GRAPH_FAILED;
+    }
+
     int64_t ubBlockSize = 32 / typeSize; // 32-byte alignment in elements
-    int64_t blockFactor = CeilDiv(totalElements, coreNum);
-    blockFactor = ((blockFactor + ubBlockSize - 1) / ubBlockSize) * ubBlockSize;
+    int64_t blockFactor = 0;
+    // Align up without the signed addition "value + align - 1" that overflows near INT64_MAX
+    // (Ops::Base::CeilDiv itself is division/remainder based and overflow-free).
+    OP_CHECK_IF(!AlignUpSafe(CeilDiv(totalElements, coreNum), ubBlockSize, blockFactor),
+                OP_LOGE(context, "InvGrad: blockFactor align-up overflows int64, totalElements=%ld, coreNum=%ld",
+                        totalElements, coreNum),
+                return ge::GRAPH_FAILED);
     usedCoreNum = CeilDiv(totalElements, blockFactor);
+    // Both splits must stay positive; a non-positive value means an upstream contract broke.
+    OP_CHECK_IF(blockFactor <= 0, OP_LOGE(context, "InvGrad: invalid blockFactor %ld (must be positive)", blockFactor),
+                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(usedCoreNum <= 0, OP_LOGE(context, "InvGrad: invalid usedCoreNum %ld (must be positive)", usedCoreNum),
+                return ge::GRAPH_FAILED);
 
     int64_t bytesPerElem = 3 * typeSize + 2 * static_cast<int64_t>(sizeof(float));
     int64_t maxElementsPerCopy = static_cast<int64_t>(UINT16_MAX) / typeSize;
