@@ -22,9 +22,9 @@ extern "C" {
  * @domain aclnn_math
  *
  * 算子功能： 对输入Tensor完成sinh操作
- * @param [in] selfRef: npu device侧的aclTensor, 数据类型支持INT8、INT16、INT32, INT64, UINT8、BOOL、FLOAT、FLOAT16、
+ * @param [in] self: npu device侧的aclTensor, 数据类型支持INT8、INT16、INT32, INT64, UINT8、BOOL、FLOAT、FLOAT16、
  *  BFLOAT16、DOUBLE、COMPLEX64、COMPLEX128，shape为非空，支持非连续的Tensor，数据格式支持ND。
- * @param [in] out: npu device侧的aclTensor, 数据类型支持FLOAT、BFLOAT16、FLOAT16、DOUBLE、COMPLEX64、COMPLEX128,
+ * @param [out] out: npu device侧的aclTensor, 数据类型支持FLOAT、BFLOAT16、FLOAT16、DOUBLE、COMPLEX64、COMPLEX128,
  * shape与self 保持相同，数据格式支持ND。
  * @param [out] workspaceSize: 返回用户需要在npu device侧申请的workspace大小。
  * @param [out] executor: 返回op执行器，包含算子计算流程。
@@ -50,8 +50,8 @@ ACLNN_API aclnnStatus aclnnSinh(void* workspace, uint64_t workspaceSize, aclOpEx
  * @domain aclnn_math
  *
  * 算子功能： 对输入Tensor完成sinh操作
- * @param [in] selfRef: npu device侧的aclTensor, 数据类型支持INT8、INT16、INT32, INT64, UINT8、BOOL、FLOAT、
- *  FLOAT16、BFLOAT16、DOUBLE、COMPLEX64、COMPLEX128，shape为非空，支持非连续的Tensor，数据格式支持ND。
+ * @param [in] selfRef: npu device侧的aclTensor, 数据类型支持FLOAT、FLOAT16、BFLOAT16、DOUBLE、COMPLEX64、
+ *  COMPLEX128，shape为非空，支持非连续的Tensor，数据格式支持ND。
  * @param [out] workspaceSize: 返回用户需要在npu device侧申请的workspace大小。
  * @param [out] executor: 返回op执行器，包含算子计算流程。
  * @return aclnnStatus: 返回状态码
@@ -64,7 +64,7 @@ ACLNN_API aclnnStatus aclnnInplaceSinhGetWorkspaceSize(aclTensor* selfRef, uint6
  *
  * 算子功能： 对输入Tensor原地完成sinh操作
  * @param [in] workspace: 在npu device侧申请的workspace内存起址。
- * @param [in] workspaceSize: 在npu device侧申请的workspace大小，由第一段接口aclnnSinhGetWorkspaceSize获取。
+ * @param [in] workspaceSize: 在npu device侧申请的workspace大小，由第一段接口aclnnInplaceSinhGetWorkspaceSize获取。
  * @param [in] stream: acl stream流。
  * @param [in] executor: op执行器，包含了算子计算流程。
  * @return aclnnStatus: 返回状态码。
@@ -76,4 +76,4 @@ ACLNN_API aclnnStatus aclnnInplaceSinh(void* workspace, uint64_t workspaceSize, 
 }
 #endif
 
-#endif  // OP_API_INC_SINH_H_
+#endif // OP_API_INC_SINH_H_

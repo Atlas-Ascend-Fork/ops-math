@@ -110,7 +110,6 @@ aclnnStatus aclnnInplaceSinh(
       <td>输入张量，公式中的self。</td>
       <td>
         <ul>
-          <li>数据类型与out的数据类型需满足数据类型推导规则（参见<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>）。</li>
           <li>shape需要与out一致。</li>
         </ul>
       </td>
@@ -125,7 +124,6 @@ aclnnStatus aclnnInplaceSinh(
       <td>输出张量，公式中的out。</td>
       <td>
         <ul>
-          <li>数据类型与self的数据类型需满足数据类型推导规则（参见<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>）。</li>
           <li>shape需要与self一致。</li>
         </ul>
       </td>
@@ -184,12 +182,9 @@ aclnnStatus aclnnInplaceSinh(
       <td>传入的self或out是空指针。</td>
     </tr>
     <tr>
-      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="4">161002</td>
+      <td rowspan="3">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="3">161002</td>
       <td>self和out的数据类型不在支持的范围之内。</td>
-    </tr>
-    <tr>
-      <td>self和out的数据类型不满足数据类型推导规则。</td>
     </tr>
     <tr>
       <td>self和out的维度大于8。</td>
@@ -326,15 +321,12 @@ aclnnStatus aclnnInplaceSinh(
     <tr>
       <td>ACLNN_ERR_PARAM_NULLPTR</td>
       <td>161001</td>
-      <td>传入的cost或p是空指针。</td>
+      <td>传入的selfRef是空指针。</td>
     </tr>
     <tr>
-      <td rowspan="2">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="2">161002</td>
-      <td>cost和p的数据类型不在支持的范围之内。</td>
-    </tr>
-    <tr>
-      <td>cost和p无法做数据类型推导。</td>
+      <td rowspan="1">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="1">161002</td>
+      <td>selfRef的数据类型不在支持的范围之内。</td>
     </tr>
   </tbody>
   </table>

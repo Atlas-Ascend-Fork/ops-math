@@ -111,7 +111,6 @@ aclnnStatus aclnnInplaceSinh(
       <td class="tg-0pky">Input</td>
       <td class="tg-0pky">Input tensor. Corresponds to self in the formula.</td>
       <td class="tg-0pky">        <ul>
-          <li>The data type and the data type of out must satisfy the data type derivation rule (see <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">deduction relationship</a>).</li>
           <li>The shape must be the same as that of out.</li>
         </ul>
       </td>
@@ -125,7 +124,6 @@ aclnnStatus aclnnInplaceSinh(
       <td class="tg-0pky">Output</td>
       <td class="tg-0pky">Output tensor. Corresponds to out in the formula.</td>
       <td class="tg-0pky">        <ul>
-          <li>The data type must conform to the data type derivation rule with the data type of self (see <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">deduction relationship</a>).</li>
           <li>The shape must be the same as that of self.</li>
         </ul>
       </td>
@@ -184,12 +182,9 @@ aclnnStatus aclnnInplaceSinh(
       <td>self or out is a null pointer.</td>
     </tr>
     <tr>
-      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="4">161002</td>
+      <td rowspan="3">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="3">161002</td>
       <td>The data types of self and out are not supported.</td>
-    </tr>
-    <tr>
-      <td>The data types of self and out do not meet the data type derivation rule.</td>
     </tr>
     <tr>
       <td>The dimensions of self and out are greater than 8.</td>
@@ -326,15 +321,12 @@ aclnnStatus aclnnInplaceSinh(
     <tr>
       <td>ACLNN_ERR_PARAM_NULLPTR</td>
       <td>161001</td>
-      <td>The input cost or p is a null pointer.</td>
+      <td>The input selfRef is a null pointer.</td>
     </tr>
     <tr>
-      <td rowspan="2">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="2">161002</td>
-      <td>The data types of cost and p are not in the supported range.</td>
-    </tr>
-    <tr>
-      <td>Data type derivation cannot be performed for cost and p.</td>
+      <td rowspan="1">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="1">161002</td>
+      <td>The data type of selfRef is not in the supported range.</td>
     </tr>
   </tbody>
   </table>
