@@ -171,7 +171,7 @@ int RunScenario(RunContext& ctx, const std::string& name, const std::vector<int6
     std::cout << name << ": BuildModel success, size=" << model.length << std::endl;
 
     std::string om_file = name;
-    if (aclgrphSaveModel(om_file, model) != SUCCESS) {
+    if (aclgrphSaveModel(om_file.c_str(), model) != SUCCESS) {
         std::cerr << name << " FAILED: SaveModel" << std::endl;
         return kFailed;
     }

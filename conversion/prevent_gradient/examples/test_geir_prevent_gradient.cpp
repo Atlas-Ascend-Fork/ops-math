@@ -76,7 +76,7 @@ int CheckInferShape(const Graph& graph, const std::vector<int64_t>& expected_dim
         std::cerr << "CheckInferShape: FindOpByName failed" << std::endl;
         return kFailed;
     }
-    TensorDesc desc = op_obj.GetOutputDesc("y");
+    TensorDesc desc = op_obj.GetOutputDescByName("y");
     Shape shape = desc.GetShape();
     std::cout << "InferShape: dim_num=" << shape.GetDimNum();
     for (size_t i = 0; i < shape.GetDims().size(); i++) {
@@ -172,7 +172,7 @@ int RunScenario(RunContext& ctx, const std::string& name, const std::vector<int6
     std::cout << name << ": BuildModel success, size=" << model.length << std::endl;
 
     std::string om_file = name;
-    if (aclgrphSaveModel(om_file, model) != SUCCESS) {
+    if (aclgrphSaveModel(om_file.c_str(), model) != SUCCESS) {
         std::cerr << name << " FAILED: SaveModel" << std::endl;
         return kFailed;
     }
