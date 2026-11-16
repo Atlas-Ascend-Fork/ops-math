@@ -462,6 +462,8 @@ aclnnStatus aclnnAddGetWorkspaceSize(const aclTensor* self, const aclTensor* oth
     // 固定写法，将计算结果转换成输出out的数据类型
     auto castOut = l0op::Cast(addOpOut, out->GetDataType(), uniqueExecutor.get());
     CHECK_RET(castOut != nullptr, ACLNN_ERR_INNER_NULLPTR);
+    castOut = l0op::NormalizeBoolOut(castOut, uniqueExecutor.get());
+    CHECK_RET(castOut != nullptr, ACLNN_ERR_INNER_NULLPTR);
 
     // 固定写法，将计算结果拷贝到输出out上，out可能是非连续的tensor
     auto viewCopyResult = l0op::ViewCopy(castOut, out, uniqueExecutor.get());
@@ -623,6 +625,9 @@ aclnnStatus aclnnAddsGetWorkspaceSize(const aclTensor* self, const aclScalar* ot
         castOut = l0op::Cast(castOut, out->GetDataType(), uniqueExecutor.get());
         CHECK_RET(castOut != nullptr, ACLNN_ERR_INNER_NULLPTR);
     }
+
+    castOut = l0op::NormalizeBoolOut(castOut, uniqueExecutor.get());
+    CHECK_RET(castOut != nullptr, ACLNN_ERR_INNER_NULLPTR);
 
     // 固定写法，将计算结果拷贝到输出out上，out可能是非连续的tensor
     auto viewCopyResult = l0op::ViewCopy(castOut, out, uniqueExecutor.get());

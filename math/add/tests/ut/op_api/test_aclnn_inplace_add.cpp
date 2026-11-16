@@ -421,3 +421,33 @@ TEST_F(l2_inplace_add_test, case_034)
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
     EXPECT_EQ(aclRet, ACL_SUCCESS);
 }
+
+// aclnnInplaceAdd bool + bool：原地 BOOL 输出需归一化为 0/1
+TEST_F(l2_inplace_add_test, Ascend910B2_case_bool_bool)
+{
+    auto self_tensor_desc = TensorDesc({10, 5}, ACL_BOOL, ACL_FORMAT_ND).Value(vector<bool>{true, true, false});
+    auto other_desc = TensorDesc({10, 5}, ACL_BOOL, ACL_FORMAT_ND).Value(vector<bool>{true, false, true});
+    auto scalar_desc = ScalarDesc(static_cast<bool>(1));
+
+    auto ut = OP_API_UT(aclnnInplaceAdd, INPUT(self_tensor_desc, other_desc, scalar_desc), OUTPUT());
+
+    // SAMPLE: only test GetWorkspaceSize
+    uint64_t workspace_size = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(aclRet, ACL_SUCCESS);
+}
+
+// aclnnInplaceAdds bool tensor + bool scalar：标量路径原地 BOOL 输出同样需要归一化
+TEST_F(l2_inplace_add_test, Ascend910B2_case_bool_scalar)
+{
+    auto self_tensor_desc = TensorDesc({10, 5}, ACL_BOOL, ACL_FORMAT_ND).Value(vector<bool>{true, true, false});
+    auto other_desc = ScalarDesc(static_cast<bool>(1));
+    auto scalar_desc = ScalarDesc(static_cast<bool>(1));
+
+    auto ut = OP_API_UT(aclnnInplaceAdds, INPUT(self_tensor_desc, other_desc, scalar_desc), OUTPUT());
+
+    // SAMPLE: only test GetWorkspaceSize
+    uint64_t workspace_size = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(aclRet, ACL_SUCCESS);
+}

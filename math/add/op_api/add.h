@@ -16,6 +16,7 @@
 namespace l0op {
 const aclTensor* Add(const aclTensor* self, const aclTensor* other, aclOpExecutor* executor);
 const aclTensor* AddInplace(const aclTensor* self, const aclTensor* other, aclOpExecutor* executor);
+const aclTensor* NormalizeBoolOut(const aclTensor* outTensor, aclOpExecutor* executor);
 bool IsAddSupportNonContiguous(const aclTensor* self, const aclTensor* other);
 } // namespace l0op
 

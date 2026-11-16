@@ -9,6 +9,7 @@
  */
 
 #include "add.h"
+#include "aclnn_kernels/cast.h"
 #include "op_api/aclnn_check.h"
 #include "opdev/aicpu/aicpu_task.h"
 #include "opdev/make_op_executor.h"
@@ -76,6 +77,21 @@ bool IsAddSupportNonContiguous(const aclTensor* self, const aclTensor* other)
 {
     bool isSupportNonContiguous = IsRegBase();
     return isSupportNonContiguous && IsAiCoreSupport(self) && IsAiCoreSupport(other);
+}
+
+// BOOL输出归一化：存量内核（A2/A3）可能把1+1直接写成原始字节2，而Cast(BOOL->BOOL)
+// 会因同类型短路而不做处理。RegBase平台（950等）的BOOL内核已用Mins(x, 1)归一化，
+// 这里只对非RegBase平台补一次BOOL->INT8->BOOL，把非零值统一归一化为1。
+const aclTensor* NormalizeBoolOut(const aclTensor* outTensor, aclOpExecutor* executor)
+{
+    if (outTensor == nullptr || outTensor->GetDataType() != DataType::DT_BOOL || IsRegBase()) {
+        return outTensor;
+    }
+    auto int8Tensor = Cast(outTensor, DataType::DT_INT8, executor);
+    if (int8Tensor == nullptr) {
+        return nullptr;
+    }
+    return Cast(int8Tensor, DataType::DT_BOOL, executor);
 }
 
 // AICORE算子kernel
