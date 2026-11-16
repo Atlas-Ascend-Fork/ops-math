@@ -74,7 +74,7 @@
     <td>×</td>
     <td>√</td>
     <td>AI CORE</td>
-    <td>计算Acosh算子的反向梯度，公式z = dy / sqrt(y² - 1)。</td>
+    <td>计算Acosh算子的反向梯度，公式z = dy / sinh(y)，其中y为前向输出。</td>
   </tr>
   <tr>
     <td>math</td>

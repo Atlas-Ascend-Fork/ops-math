@@ -14,9 +14,11 @@
  * \file acosh_grad_infershape.cpp
  * \brief AcoshGrad 算子形状推导
  *
- * z.shape = y.shape（element-wise，无广播）
+ * Shape inference follows the legacy CANN graph callback; runtime validation remains in Tiling.
  */
 
+#include <algorithm>
+#include <vector>
 #include "util/shape_util.h"
 #include "register/op_impl_registry.h"
 #include "exe_graph/runtime/infer_shape_context.h"
@@ -26,19 +28,60 @@ using namespace ge;
 
 namespace ops {
 
+static bool IsUnknownRank(const gert::Shape& shape) { return shape.GetDimNum() == 1 && shape.GetDim(0) == -2; }
+
 static ge::graphStatus InferShape4AcoshGrad(gert::InferShapeContext* context)
 {
-    const gert::Shape* input_shape = context->GetInputShape(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context, input_shape);
+    if (context == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
+    const auto* yShape = context->GetInputShape(0);
+    OP_CHECK_NULL_WITH_CONTEXT(context, yShape);
+    const auto* dyShape = context->GetInputShape(1);
+    OP_CHECK_NULL_WITH_CONTEXT(context, dyShape);
+    auto* outputShape = context->GetOutputShape(0);
+    OP_CHECK_NULL_WITH_CONTEXT(context, outputShape);
 
-    gert::Shape* output_shape = context->GetOutputShape(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context, output_shape);
+    if (IsUnknownRank(*yShape) || IsUnknownRank(*dyShape)) {
+        outputShape->SetDimNum(1);
+        outputShape->SetDim(0, -2);
+        return ge::GRAPH_SUCCESS;
+    }
 
-    // z.shape = y.shape
-    *output_shape = *input_shape;
+    const size_t rank = std::max(yShape->GetDimNum(), dyShape->GetDimNum());
+    std::vector<int64_t> yDims(rank, 1);
+    std::vector<int64_t> dyDims(rank, 1);
+    bool hasUnknownDim = false;
+    for (size_t i = 0; i < yShape->GetDimNum(); ++i) {
+        const auto dim = yShape->GetDim(i);
+        yDims[rank - yShape->GetDimNum() + i] = dim;
+        hasUnknownDim = hasUnknownDim || dim == -1;
+    }
+    for (size_t i = 0; i < dyShape->GetDimNum(); ++i) {
+        const auto dim = dyShape->GetDim(i);
+        dyDims[rank - dyShape->GetDimNum() + i] = dim;
+        hasUnknownDim = hasUnknownDim || dim == -1;
+    }
 
-    OP_LOGI(context->GetNodeName(), "[InferShape] output0 shape=%s", Ops::Base::ToString(*output_shape).c_str());
-
+    gert::Shape inferred;
+    for (size_t i = 0; i < rank; ++i) {
+        const auto yDim = yDims[i];
+        const auto dyDim = dyDims[i];
+        // The legacy callback validates compatibility only in its dynamic-dimension branch.
+        OP_CHECK_IF(hasUnknownDim && yDim != dyDim && yDim != 1 && dyDim != 1 && yDim != -1 && dyDim != -1,
+                    OP_LOGE(context->GetNodeName(), "Input dimensions do not match the legacy broadcast rule"),
+                    return ge::GRAPH_FAILED);
+        int64_t outputDim;
+        if (hasUnknownDim && (yDim == -1 || dyDim == -1)) {
+            const auto knownDim = yDim == -1 ? dyDim : yDim;
+            outputDim = knownDim > 1 ? knownDim : -1;
+        } else {
+            outputDim = (yDim == 0 || dyDim == 0) ? 0 : std::max(yDim, dyDim);
+        }
+        inferred.AppendDim(outputDim);
+    }
+    *outputShape = inferred;
+    OP_LOGI(context->GetNodeName(), "[InferShape] output0 shape=%s", Ops::Base::ToString(*outputShape).c_str());
     return ge::GRAPH_SUCCESS;
 }
 

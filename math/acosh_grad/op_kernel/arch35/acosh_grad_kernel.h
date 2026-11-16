@@ -14,15 +14,16 @@
  * \file acosh_grad_kernel.h
  * \brief AcoshGrad 算子 Kernel 类定义（arch35 / DAV_3510）
  *
- * 公式: z = dy / sqrt(y² - 1)
- * 计算路径 (FP16/BF16): Cast→FP32 → Mul → Adds(-1) → Sqrt → Div → Cast→原dtype
- * 计算路径 (FP32): Mul → Adds(-1) → Sqrt → Div
+ * 公式: z = dy / sinh(y)（TF AcoshGrad 语义，y 为前向 Acosh 的输出）
+ * Device path: sinh(y), then correctly rounded division, with the TensorFlow dtype boundary.
+ * For |y| < 1 an odd polynomial avoids exponential cancellation.
+ * For |y| < 2^-12 sinh(y) rounds to y; selecting the input preserves signed zero.
  * Double Buffer 流水线并行
  *
  * 关键设计约束（穿刺验证）：
  *   1. GlobalTensor 多 tile 不自动推进：每次 tile 循环前必须显式调用
  *      SetGlobalBuffer(base + offset, remain) 更新 GM 指针偏移
- *   2. TBuf 必须用独立实例：3 个独立 TBuf<VECCALC>（bufSlot0_/1_/2_），
+ *   2. TBuf 必须用独立实例：4 个独立 TBuf<VECCALC>（bufSlot0_/1_/2_/3_），
  *      禁止单 TBuf + GetWithOffset（totalNum=1 时仅 12 字节导致 +Inf）
  *
  * dtype 通过 DTYPE_Y 宏指定（由 CANN 编译系统根据 op_def 输入名 "y" 自动生成）
@@ -34,6 +35,7 @@
 #include "kernel_tiling/kernel_tiling.h"
 #include "acosh_grad_tiling_data.h"
 #include "acosh_grad_tiling_key.h"
+#include "adv_api/math/sinh.h"
 
 namespace NsAcoshGrad {
 
@@ -60,12 +62,14 @@ private:
     TQue<TPosition::VECIN, BUFFER_NUM> inQueueDy;
     TQue<TPosition::VECOUT, BUFFER_NUM> outQueueZ;
 
-    // 3 个独立 FP32 中间计算 buffer（禁止合并为单 TBuf + GetWithOffset）
+    // 4 个独立 FP32 中间计算 buffer（禁止合并为单 TBuf + GetWithOffset）
     // 穿刺 probe_fp16_overflow 验证：单 TBuf 在 totalNum=1 时仅分配 12 字节，
     // 导致 slot 地址重叠，输出 +Inf
-    TBuf<TPosition::VECCALC> bufSlot0_; // yFp32 → dyFp32 → result
-    TBuf<TPosition::VECCALC> bufSlot1_; // ySq → ySqM1
-    TBuf<TPosition::VECCALC> bufSlot2_; // sqrtVal
+    TBuf<TPosition::VECCALC> bufSlot0_; // yFp32 → dyFp32 → result（FP32 路径为 exp(y) → sinh(y)）
+    TBuf<TPosition::VECCALC> bufSlot1_; // -y（FP32 路径）/ exp(y) → sinh(y)（FP16/BF16 路径）
+    TBuf<TPosition::VECCALC> bufSlot2_; // -y → exp(-y)（FP16/BF16 路径）/ exp(-y)（FP32 路径）
+    TBuf<TPosition::VECCALC> bufSlot3_; // Polynomial workspace, independent of sinh input/output.
+    TBuf<TPosition::VECCALC> maskBuf_;  // 负零修复比较掩码（uint8，y == ±0 保符号位）
 
     GlobalTensor<T> yGM;
     GlobalTensor<T> dyGM;
@@ -107,12 +111,16 @@ __aicore__ inline void AcoshGradKernel<T>::Init(GM_ADDR y, GM_ADDR dy, GM_ADDR z
     pipe.InitBuffer(inQueueDy, BUFFER_NUM, ubLength_ * sizeof(T));
     pipe.InitBuffer(outQueueZ, BUFFER_NUM, ubLength_ * sizeof(T));
 
-    // FP32 中间 buffer：3 个独立 TBuf 实例（禁止合并为单 TBuf）
+    // FP32 中间 buffer：4 个独立 TBuf 实例（禁止合并为单 TBuf）
     // 穿刺 probe_fp16_overflow 验证：单 TBuf + GetWithOffset 在 totalNum=1 时
     // 仅分配 12 字节（3*sizeof(float)），slot 地址重叠导致输出 +Inf
     pipe.InitBuffer(bufSlot0_, ubLength_ * sizeof(float));
     pipe.InitBuffer(bufSlot1_, ubLength_ * sizeof(float));
     pipe.InitBuffer(bufSlot2_, ubLength_ * sizeof(float));
+    pipe.InitBuffer(bufSlot3_, ubLength_ * sizeof(float));
+
+    // 负零修复掩码缓冲：Compare/Select 每元素 1 bit，按 sizeof(uint8) 上界宽松分配（≥ ubLength/8）
+    pipe.InitBuffer(maskBuf_, ubLength_ * sizeof(uint8_t));
 }
 
 template <typename T>
@@ -122,14 +130,15 @@ __aicore__ inline void AcoshGradKernel<T>::CopyIn(int64_t currentNum)
     LocalTensor<T> dyLocal = inQueueDy.template AllocTensor<T>();
 
     // DataCopyPad 直接从 GlobalTensor 当前地址读取（Process 中已推进到正确 tile）
-    DataCopyParams copyParams;
+    DataCopyExtParams copyParams{};
     copyParams.blockCount = 1;
-    copyParams.blockLen = currentNum * sizeof(T);
+    copyParams.blockLen = static_cast<uint32_t>(currentNum * sizeof(T));
     copyParams.srcStride = 0;
     copyParams.dstStride = 0;
 
-    DataCopyPad(yLocal, yGM, copyParams, {false, 0, 0, 0});
-    DataCopyPad(dyLocal, dyGM, copyParams, {false, 0, 0, 0});
+    DataCopyPadExtParams<T> padParams{false, 0, 0, T(0)};
+    DataCopyPad(yLocal, yGM, copyParams, padParams);
+    DataCopyPad(dyLocal, dyGM, copyParams, padParams);
 
     inQueueY.EnQue(yLocal);
     inQueueDy.EnQue(dyLocal);
@@ -142,38 +151,44 @@ __aicore__ inline void AcoshGradKernel<T>::Compute(int64_t currentNum)
     LocalTensor<T> dyLocal = inQueueDy.template DeQue<T>();
     LocalTensor<T> zLocal = outQueueZ.template AllocTensor<T>();
 
-    // 从 3 个独立 TBuf 获取 FP32 中间 Buffer（无地址冲突）
-    // 穿刺 probe_fp16_overflow 验证：独立 TBuf 实例保证地址不重叠
-    LocalTensor<float> slot0 = bufSlot0_.Get<float>(); // yFp32 → dyFp32 → result
-    LocalTensor<float> slot1 = bufSlot1_.Get<float>(); // ySq → ySqM1
-    LocalTensor<float> slot2 = bufSlot2_.Get<float>(); // sqrtVal
-
+    LocalTensor<float> slot0 = bufSlot0_.Get<float>();
+    LocalTensor<float> sinhY = bufSlot1_.Get<float>();
+    LocalTensor<float> squared = bufSlot2_.Get<float>();
+    LocalTensor<float> polynomial = bufSlot3_.Get<float>();
+    LocalTensor<uint8_t> mask = maskBuf_.Get<uint8_t>();
+    const uint32_t count = static_cast<uint32_t>(currentNum);
+    LocalTensor<float> yFloat = slot0;
     if constexpr (std::is_same_v<T, float>) {
-        // FP32 路径：直接计算，无需 Cast
-        // slot0 = y² (临时)
-        AscendC::Mul<float>(slot0, yLocal, yLocal, currentNum);
-        // slot1 = y² - 1
-        AscendC::Adds<float>(slot1, slot0, -1.0f, currentNum);
-        // slot2 = sqrt(y² - 1)
-        AscendC::Sqrt<float>(slot2, slot1, currentNum);
-        // zLocal = dy / sqrt(y² - 1)
-        AscendC::Div<float>(zLocal, dyLocal, slot2, currentNum);
+        yFloat = yLocal;
     } else {
-        // FP16/BF16 路径：Cast→FP32→计算→Cast
-        // Cast y → FP32 (slot0)
-        AscendC::Cast<float, T>(slot0, yLocal, AscendC::RoundMode::CAST_NONE, currentNum);
-        // y² (slot1)
-        AscendC::Mul<float>(slot1, slot0, slot0, currentNum);
-        // y² - 1 (slot1, in-place)
-        AscendC::Adds<float>(slot1, slot1, -1.0f, currentNum);
-        // sqrt(y² - 1) (slot2)
-        AscendC::Sqrt<float>(slot2, slot1, currentNum);
-        // Cast dy → FP32 (slot0, 复用)
-        AscendC::Cast<float, T>(slot0, dyLocal, AscendC::RoundMode::CAST_NONE, currentNum);
-        // dy / sqrt (slot0, 复用)
-        AscendC::Div<float>(slot0, slot0, slot2, currentNum);
-        // Cast result → 原 dtype (zLocal)
-        AscendC::Cast<T, float>(zLocal, slot0, AscendC::RoundMode::CAST_ROUND, currentNum);
+        AscendC::Cast<float, T>(yFloat, yLocal, AscendC::RoundMode::CAST_NONE, currentNum);
+    }
+    AscendC::Sinh<float>(sinhY, yFloat, count);
+    AscendC::Mul(squared, yFloat, yFloat, count);
+    // sinh(y)/y = 1 + y^2/3! + ... + y^12/13!, evaluated in Horner order.
+    AscendC::Duplicate(polynomial, 1.6059043836821613e-10f, count);
+    constexpr float coefficients[] = {2.505210838544172e-8f,  2.7557319223985893e-6f, 1.9841269841269841e-4f,
+                                      8.3333333333333333e-3f, 1.6666666666666667e-1f, 1.0f};
+    for (uint32_t i = 0; i < 6; ++i) {
+        AscendC::Mul(polynomial, polynomial, squared, count);
+        AscendC::Adds(polynomial, polynomial, coefficients[i], count);
+    }
+    AscendC::Mul(polynomial, polynomial, yFloat, count);
+    AscendC::Abs(squared, yFloat, count);
+    AscendC::CompareScalar(mask, squared, 1.0f, AscendC::CMPMODE::LT, count);
+    AscendC::Select(sinhY, mask, polynomial, sinhY, AscendC::SELMODE::VSEL_TENSOR_TENSOR_MODE, count);
+    AscendC::CompareScalar(mask, squared, 0.000244140625f, AscendC::CMPMODE::LT, count);
+    AscendC::Select(sinhY, mask, yFloat, sinhY, AscendC::SELMODE::VSEL_TENSOR_TENSOR_MODE, count);
+    static constexpr AscendC::DivConfig divConfig = {AscendC::DivAlgo::PRECISION_0ULP_FTZ_TRUE};
+    if constexpr (std::is_same_v<T, float>) {
+        AscendC::Div<float, divConfig>(zLocal, dyLocal, sinhY, count);
+    } else {
+        // TensorFlow stores Sinh in the input dtype before the separate RealDiv operation.
+        AscendC::Cast<T, float>(zLocal, sinhY, AscendC::RoundMode::CAST_ROUND, count);
+        AscendC::Cast<float, T>(sinhY, zLocal, AscendC::RoundMode::CAST_NONE, count);
+        AscendC::Cast<float, T>(slot0, dyLocal, AscendC::RoundMode::CAST_NONE, count);
+        AscendC::Div<float, divConfig>(slot0, slot0, sinhY, count);
+        AscendC::Cast<T, float>(zLocal, slot0, AscendC::RoundMode::CAST_ROUND, count);
     }
 
     outQueueZ.template EnQue<T>(zLocal);
@@ -187,9 +202,9 @@ __aicore__ inline void AcoshGradKernel<T>::CopyOut(int64_t currentNum)
     LocalTensor<T> zLocal = outQueueZ.template DeQue<T>();
 
     // DataCopyPad 直接写入 GlobalTensor 当前地址（Process 中已推进到正确 tile）
-    DataCopyParams copyParams;
+    DataCopyExtParams copyParams{};
     copyParams.blockCount = 1;
-    copyParams.blockLen = currentNum * sizeof(T);
+    copyParams.blockLen = static_cast<uint32_t>(currentNum * sizeof(T));
     copyParams.srcStride = 0;
     copyParams.dstStride = 0;
 

@@ -34,7 +34,7 @@ using Ops::Base::FloorDiv;
 constexpr uint32_t WS_SYS_SIZE = 0U;
 constexpr size_t WORKSPACE_NUM = 1;
 constexpr int64_t DOUBLE_BUF_TENSOR_COUNT = 6; // 3 queues × 2 slots
-constexpr int64_t WORK_BUF_COUNT = 3;          // 3 份 FP32 中间 buffer
+constexpr int64_t WORK_BUF_COUNT = 4;          // 4 independent FP32 work buffers
 constexpr int64_t TYPE_SIZE_FP16 = 2;
 constexpr int64_t TYPE_SIZE_FP32 = 4;
 
@@ -48,23 +48,19 @@ static inline const gert::Shape EnsureNotScalar(const gert::Shape& in_shape)
     return in_shape;
 }
 
-static bool IsPrivateFormat(ge::Format format)
-{
-    return format == ge::FORMAT_NC1HWC0 || format == ge::FORMAT_FRACTAL_Z || format == ge::FORMAT_NDC1HWC0 ||
-           format == ge::FORMAT_FRACTAL_Z_3D || format == ge::FORMAT_FRACTAL_NZ || format == ge::FORMAT_NC1HWC0_C04;
-}
-
 static ge::graphStatus GetPlatformInfo(gert::TilingContext* context, uint64_t* ubSize, int64_t* coreNum)
 {
     fe::PlatFormInfos* platformInfoPtr = context->GetPlatformInfo();
     OP_CHECK_NULL_WITH_CONTEXT(context, platformInfoPtr);
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfoPtr);
     *coreNum = ascendcPlatform.GetCoreNumAiv();
-    OP_CHECK_IF(*coreNum == 0,
-                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON("AcoshGrad", "coreNum", "0", "coreNum must not be 0"),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        *coreNum <= 0,
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "coreNum", "0", "coreNum must be positive"),
+        return ge::GRAPH_FAILED);
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, *ubSize);
-    OP_CHECK_IF(*ubSize == 0, OP_LOGE_FOR_INVALID_VALUE_WITH_REASON("AcoshGrad", "ubSize", "0", "ubSize must not be 0"),
+    OP_CHECK_IF(*ubSize == 0,
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "ubSize", "0", "ubSize must not be 0"),
                 return ge::GRAPH_FAILED);
     return ge::GRAPH_SUCCESS;
 }
@@ -83,21 +79,29 @@ static ge::graphStatus GetShapeAttrsInfo(gert::TilingContext* context, int64_t* 
     OP_CHECK_NULL_WITH_CONTEXT(context, outZ);
     auto outShapeZ = EnsureNotScalar(outZ->GetStorageShape());
 
-    // shape 校验：y.shape == dy.shape == z.shape
-    // （逐维度完全一致，元素数相同但维度排列不同也视为不一致）
-    const int64_t yDimNum = static_cast<int64_t>(inputShapeY.GetDimNum());
-    bool shapeConsistent = (static_cast<int64_t>(inputShapeDy.GetDimNum()) == yDimNum) &&
-                           (static_cast<int64_t>(outShapeZ.GetDimNum()) == yDimNum);
-    for (int64_t i = 0; shapeConsistent && i < yDimNum; i++) {
-        shapeConsistent = (inputShapeY.GetDim(static_cast<size_t>(i)) == inputShapeDy.GetDim(static_cast<size_t>(i))) &&
-                          (inputShapeY.GetDim(static_cast<size_t>(i)) == outShapeZ.GetDim(static_cast<size_t>(i)));
+    // Static CANN compatibility: pair inputs in flattened order, keep y's output shape.
+    const auto& yStorageShape = inputY->GetStorageShape();
+    const auto& dyStorageShape = inputDy->GetStorageShape();
+    const auto& zStorageShape = outZ->GetStorageShape();
+    for (const auto* shape : {&yStorageShape, &dyStorageShape, &zStorageShape}) {
+        for (size_t i = 0; i < shape->GetDimNum(); ++i) {
+            OP_CHECK_IF(shape->GetDim(i) < 0,
+                        OP_LOGE(context->GetNodeName(), "Tiling requires concrete runtime dimensions"),
+                        return ge::GRAPH_FAILED);
+        }
     }
-    OP_CHECK_IF(!shapeConsistent,
-                OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON("AcoshGrad", "y, dy, z",
-                                                       std::to_string(inputShapeY.GetShapeSize()) + ", " +
-                                                           std::to_string(inputShapeDy.GetShapeSize()) + ", " +
-                                                           std::to_string(outShapeZ.GetShapeSize()),
-                                                       "input/output shapes must be identical"),
+    OP_CHECK_IF(inputShapeY.GetShapeSize() < 0 || inputShapeDy.GetShapeSize() < 0 || outShapeZ.GetShapeSize() < 0,
+                OP_LOGE(context->GetNodeName(), "Shape element count exceeds int64 range"), return ge::GRAPH_FAILED);
+    bool outputMatchesY = yStorageShape.GetDimNum() == zStorageShape.GetDimNum();
+    for (size_t i = 0; outputMatchesY && i < yStorageShape.GetDimNum(); ++i) {
+        outputMatchesY = yStorageShape.GetDim(i) == zStorageShape.GetDim(i);
+    }
+    OP_CHECK_IF(inputShapeY.GetShapeSize() != inputShapeDy.GetShapeSize() || !outputMatchesY,
+                OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(
+                    context->GetNodeName(), "y, dy, z",
+                    std::to_string(inputShapeY.GetShapeSize()) + ", " + std::to_string(inputShapeDy.GetShapeSize()) +
+                        ", " + std::to_string(outShapeZ.GetShapeSize()),
+                    "y and dy must have equal element counts; output shape must match y"),
                 return ge::GRAPH_FAILED);
 
     *totalIdx = inputShapeY.GetShapeSize();
@@ -109,38 +113,11 @@ static ge::graphStatus GetShapeAttrsInfo(gert::TilingContext* context, int64_t* 
     const auto* outputZDesc = context->GetOutputDesc(0);
     OP_CHECK_NULL_WITH_CONTEXT(context, outputZDesc);
 
-    // 格式校验：仅支持 FORMAT_ND，对私有格式（NC1HWC0/FRACTAL_Z 等）显式拒绝，
-    // 不依赖 AutoContiguous 静默转换（origin/storage 均校验）
-    const ge::Format yOriginFormat = inputYDesc->GetOriginFormat();
-    const ge::Format yStorageFormat = inputYDesc->GetStorageFormat();
-    OP_CHECK_IF(
-        IsPrivateFormat(yOriginFormat) || IsPrivateFormat(yStorageFormat),
-        OP_LOGE_FOR_INVALID_FORMAT_WITH_REASON(
-            "AcoshGrad", "y", ge::GetFormatName(IsPrivateFormat(yOriginFormat) ? yOriginFormat : yStorageFormat),
-            "private formats are not supported, only ND format is supported"),
-        return ge::GRAPH_FAILED);
-    const ge::Format dyOriginFormat = inputDyDesc->GetOriginFormat();
-    const ge::Format dyStorageFormat = inputDyDesc->GetStorageFormat();
-    OP_CHECK_IF(
-        IsPrivateFormat(dyOriginFormat) || IsPrivateFormat(dyStorageFormat),
-        OP_LOGE_FOR_INVALID_FORMAT_WITH_REASON(
-            "AcoshGrad", "dy", ge::GetFormatName(IsPrivateFormat(dyOriginFormat) ? dyOriginFormat : dyStorageFormat),
-            "private formats are not supported, only ND format is supported"),
-        return ge::GRAPH_FAILED);
-    const ge::Format zOriginFormat = outputZDesc->GetOriginFormat();
-    const ge::Format zStorageFormat = outputZDesc->GetStorageFormat();
-    OP_CHECK_IF(
-        IsPrivateFormat(zOriginFormat) || IsPrivateFormat(zStorageFormat),
-        OP_LOGE_FOR_INVALID_FORMAT_WITH_REASON(
-            "AcoshGrad", "z", ge::GetFormatName(IsPrivateFormat(zOriginFormat) ? zOriginFormat : zStorageFormat),
-            "private formats are not supported, only ND format is supported"),
-        return ge::GRAPH_FAILED);
-
     const ge::DataType yDtype = inputYDesc->GetDataType();
     const ge::DataType dyDtype = inputDyDesc->GetDataType();
     const ge::DataType zDtype = outputZDesc->GetDataType();
     OP_CHECK_IF(yDtype != dyDtype || yDtype != zDtype,
-                OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON("AcoshGrad", "y, dy, z",
+                OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(context->GetNodeName(), "y, dy, z",
                                                        std::to_string(static_cast<int>(yDtype)) + ", " +
                                                            std::to_string(static_cast<int>(dyDtype)) + ", " +
                                                            std::to_string(static_cast<int>(zDtype)),
@@ -151,8 +128,8 @@ static ge::graphStatus GetShapeAttrsInfo(gert::TilingContext* context, int64_t* 
     // 支持 FP16、BF16、FP32
     const std::set<ge::DataType> supportedDtype = {ge::DT_FLOAT16, ge::DT_BF16, ge::DT_FLOAT};
     OP_CHECK_IF(supportedDtype.count(*dataType) == 0,
-                OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON("AcoshGrad", "y", std::to_string(static_cast<int>(*dataType)),
-                                                      "unsupported dtype"),
+                OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "y",
+                                                      std::to_string(static_cast<int>(*dataType)), "unsupported dtype"),
                 return ge::GRAPH_FAILED);
 
     return ge::GRAPH_SUCCESS;
@@ -168,6 +145,9 @@ static ge::graphStatus GetWorkspaceSize(gert::TilingContext* context)
 
 static ge::graphStatus AcoshGradTilingFunc(gert::TilingContext* context)
 {
+    if (context == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     OP_LOGD(context->GetNodeName(), "Begin the tiling process for Arch35 architecture");
     uint64_t ubSize;
     int64_t coreNum;
@@ -195,8 +175,9 @@ static ge::graphStatus AcoshGradTilingFunc(gert::TilingContext* context)
     }
 
     int64_t ubBlockSize = Ops::Base::GetUbBlockSize(context);
-    OP_CHECK_IF(ubBlockSize == 0,
-                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON("AcoshGrad", "ubBlockSize", "0", "ubBlockSize must not be 0"),
+    OP_CHECK_IF(ubBlockSize <= 0,
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "ubBlockSize", "0",
+                                                      "ubBlockSize must be positive"),
                 return ge::GRAPH_FAILED);
     tiling->totalNum = totalIdx;
     tiling->blockFactor = CeilAlign(CeilDiv(totalIdx, coreNum), ubBlockSize);
@@ -204,15 +185,18 @@ static ge::graphStatus AcoshGradTilingFunc(gert::TilingContext* context)
 
     // FP16/BF16 + Double Buffer:
     //   Queue 内存: 3 queues × 2 slots × ubFactor × 2 = 12 × ubFactor
-    //   Work 内存:  3 bufs × ubFactor × sizeof(float) = 12 × ubFactor
-    //   总计: 24 × ubFactor bytes
+    //   Work 内存:  4 bufs × ubFactor × sizeof(float) = 16 × ubFactor
+    //   Mask 内存:  负零修复掩码 ubFactor × sizeof(uint8_t) = 1 × ubFactor
+    //   总计: 29 × ubFactor bytes
     // FP32 + Double Buffer:
     //   Queue 内存: 3 queues × 2 slots × ubFactor × 4 = 24 × ubFactor
-    //   Work 内存:  3 bufs × ubFactor × sizeof(float) = 12 × ubFactor
-    //   总计: 36 × ubFactor bytes
+    //   Work 内存:  4 bufs × ubFactor × sizeof(float) = 16 × ubFactor
+    //   Mask 内存:  负零修复掩码 ubFactor × sizeof(uint8_t) = 1 × ubFactor
+    //   总计: 41 × ubFactor bytes
     int64_t elemBytes = (dataType == ge::DT_FLOAT) ? TYPE_SIZE_FP32 : TYPE_SIZE_FP16;
     int64_t queueBufCount = DOUBLE_BUF_TENSOR_COUNT;
-    int64_t totalBytesPerElem = queueBufCount * elemBytes + WORK_BUF_COUNT * static_cast<int64_t>(sizeof(float));
+    int64_t totalBytesPerElem = queueBufCount * elemBytes + WORK_BUF_COUNT * static_cast<int64_t>(sizeof(float)) +
+                                static_cast<int64_t>(sizeof(uint8_t));
     tiling->ubFactor = FloorAlign(FloorDiv(static_cast<int64_t>(ubSize), totalBytesPerElem), ubBlockSize);
 
     context->SetBlockDim(usedCoreNum);

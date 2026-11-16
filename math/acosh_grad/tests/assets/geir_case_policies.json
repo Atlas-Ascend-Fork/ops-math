@@ -1,0 +1,11 @@
+{
+  "ag_l2_exc_dtype_mix_fp16_fp32": {
+    "compute_dtype": "float16"
+  },
+  "ag_l2_exc_dtype_mix_bf16_fp32": {
+    "compute_dtype": "bfloat16"
+  },
+  "ag_l2_exc_dtype_mix_fp32_fp16": {
+    "compute_dtype": "float32"
+  }
+}

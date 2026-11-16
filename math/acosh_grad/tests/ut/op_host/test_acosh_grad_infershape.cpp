@@ -12,15 +12,15 @@
 
 /*!
  * \file test_acosh_grad_infershape.cpp
- * \brief AcoshGrad InferShape UT — output shape copies input[0] shape.
+ * \brief AcoshGrad InferShape UT — legacy CANN graph shape inference.
  *
  * Op signature (aligned with proto.h / def.cpp):
  *   Input 0: y   (forward output of Acosh)
  *   Input 1: dy  (upstream gradient)
- *   Output 0: z  (gradient w.r.t. original input, same shape as y)
+ *   Output 0: z  (gradient w.r.t. original input; runtime shape validation is performed by Tiling)
  *
  * Supported dtypes (per def.cpp): FLOAT16, BF16, FLOAT. Format: ND only.
- * Shape rule: z.shape = y.shape (acosh_grad_infershape.cpp: *output_shape = *input_shape).
+ * Shape rule: legacy CANN graph callback; inference is separate from runtime acceptance.
  */
 
 #include <gtest/gtest.h>
@@ -30,15 +30,9 @@
 
 class AcoshGradInfershape : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        std::cout << "AcoshGradInfershape SetUp" << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "AcoshGradInfershape SetUp" << std::endl; }
 
-    static void TearDownTestCase()
-    {
-        std::cout << "AcoshGradInfershape TearDown" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "AcoshGradInfershape TearDown" << std::endl; }
 };
 
 // ---------------------------------------------------------------------------
@@ -46,15 +40,14 @@ protected:
 // ---------------------------------------------------------------------------
 TEST_F(AcoshGradInfershape, acosh_grad_infershape_1d_fp32)
 {
-    gert::InfershapeContextPara infershapeContextPara(
-        "AcoshGrad",
-        {
-            {{{16}, {16}}, ge::DT_FLOAT, ge::FORMAT_ND},   // y
-            {{{16}, {16}}, ge::DT_FLOAT, ge::FORMAT_ND},   // dy
-        },
-        {
-            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},        // z (to infer)
-        });
+    gert::InfershapeContextPara infershapeContextPara("AcoshGrad",
+                                                      {
+                                                          {{{16}, {16}}, ge::DT_FLOAT, ge::FORMAT_ND}, // y
+                                                          {{{16}, {16}}, ge::DT_FLOAT, ge::FORMAT_ND}, // dy
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND}, // z (to infer)
+                                                      });
     std::vector<std::vector<int64_t>> expectOutputShape = {{16}};
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
@@ -64,15 +57,14 @@ TEST_F(AcoshGradInfershape, acosh_grad_infershape_1d_fp32)
 // ---------------------------------------------------------------------------
 TEST_F(AcoshGradInfershape, acosh_grad_infershape_1d_tail_fp32)
 {
-    gert::InfershapeContextPara infershapeContextPara(
-        "AcoshGrad",
-        {
-            {{{7}, {7}}, ge::DT_FLOAT, ge::FORMAT_ND},
-            {{{7}, {7}}, ge::DT_FLOAT, ge::FORMAT_ND},
-        },
-        {
-            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
-        });
+    gert::InfershapeContextPara infershapeContextPara("AcoshGrad",
+                                                      {
+                                                          {{{7}, {7}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                          {{{7}, {7}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      });
     std::vector<std::vector<int64_t>> expectOutputShape = {{7}};
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
@@ -82,15 +74,14 @@ TEST_F(AcoshGradInfershape, acosh_grad_infershape_1d_tail_fp32)
 // ---------------------------------------------------------------------------
 TEST_F(AcoshGradInfershape, acosh_grad_infershape_2d_fp16)
 {
-    gert::InfershapeContextPara infershapeContextPara(
-        "AcoshGrad",
-        {
-            {{{4, 8}, {4, 8}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-            {{{4, 8}, {4, 8}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-        },
-        {
-            {{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-        });
+    gert::InfershapeContextPara infershapeContextPara("AcoshGrad",
+                                                      {
+                                                          {{{4, 8}, {4, 8}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                          {{{4, 8}, {4, 8}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                      });
     std::vector<std::vector<int64_t>> expectOutputShape = {{4, 8}};
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
@@ -100,15 +91,14 @@ TEST_F(AcoshGradInfershape, acosh_grad_infershape_2d_fp16)
 // ---------------------------------------------------------------------------
 TEST_F(AcoshGradInfershape, acosh_grad_infershape_4d_bf16)
 {
-    gert::InfershapeContextPara infershapeContextPara(
-        "AcoshGrad",
-        {
-            {{{2, 3, 4, 5}, {2, 3, 4, 5}}, ge::DT_BF16, ge::FORMAT_ND},
-            {{{2, 3, 4, 5}, {2, 3, 4, 5}}, ge::DT_BF16, ge::FORMAT_ND},
-        },
-        {
-            {{{}, {}}, ge::DT_BF16, ge::FORMAT_ND},
-        });
+    gert::InfershapeContextPara infershapeContextPara("AcoshGrad",
+                                                      {
+                                                          {{{2, 3, 4, 5}, {2, 3, 4, 5}}, ge::DT_BF16, ge::FORMAT_ND},
+                                                          {{{2, 3, 4, 5}, {2, 3, 4, 5}}, ge::DT_BF16, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_BF16, ge::FORMAT_ND},
+                                                      });
     std::vector<std::vector<int64_t>> expectOutputShape = {{2, 3, 4, 5}};
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
@@ -136,15 +126,14 @@ TEST_F(AcoshGradInfershape, acosh_grad_infershape_large_fp32)
 // ---------------------------------------------------------------------------
 TEST_F(AcoshGradInfershape, acosh_grad_infershape_large_1d_fp16)
 {
-    gert::InfershapeContextPara infershapeContextPara(
-        "AcoshGrad",
-        {
-            {{{416910}, {416910}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-            {{{416910}, {416910}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-        },
-        {
-            {{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-        });
+    gert::InfershapeContextPara infershapeContextPara("AcoshGrad",
+                                                      {
+                                                          {{{416910}, {416910}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                          {{{416910}, {416910}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                      });
     std::vector<std::vector<int64_t>> expectOutputShape = {{416910}};
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
@@ -154,15 +143,199 @@ TEST_F(AcoshGradInfershape, acosh_grad_infershape_large_1d_fp16)
 // ---------------------------------------------------------------------------
 TEST_F(AcoshGradInfershape, acosh_grad_infershape_empty_fp32)
 {
-    gert::InfershapeContextPara infershapeContextPara(
-        "AcoshGrad",
-        {
-            {{{0}, {0}}, ge::DT_FLOAT, ge::FORMAT_ND},
-            {{{0}, {0}}, ge::DT_FLOAT, ge::FORMAT_ND},
-        },
-        {
-            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
-        });
+    gert::InfershapeContextPara infershapeContextPara("AcoshGrad",
+                                                      {
+                                                          {{{0}, {0}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                          {{{0}, {0}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      });
     std::vector<std::vector<int64_t>> expectOutputShape = {{0}};
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+TEST_F(AcoshGradInfershape, static_incompatible_shapes_follow_legacy_maximum)
+{
+    gert::InfershapeContextPara param(
+        "AcoshGrad", {{{{2, 3}, {2, 3}}, ge::DT_FLOAT, ge::FORMAT_ND}, {{{3, 2}, {3, 2}}, ge::DT_FLOAT, ge::FORMAT_ND}},
+        {{{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND}});
+    std::vector<std::vector<int64_t>> expected = {{3, 3}};
+    ExecuteTestCase(param, ge::GRAPH_SUCCESS, expected);
+}
+
+TEST_F(AcoshGradInfershape, cross_broadcast_infers_four)
+{
+    for (auto dtype : {ge::DT_FLOAT16, ge::DT_BF16, ge::DT_FLOAT}) {
+        gert::InfershapeContextPara param(
+            "AcoshGrad", {{{{2, 1}, {2, 1}}, dtype, ge::FORMAT_ND}, {{{1, 2}, {1, 2}}, dtype, ge::FORMAT_ND}},
+            {{{{}, {}}, dtype, ge::FORMAT_ND}});
+        std::vector<std::vector<int64_t>> expected = {{2, 2}};
+        ExecuteTestCase(param, ge::GRAPH_SUCCESS, expected);
+    }
+}
+
+TEST_F(AcoshGradInfershape, trailing_broadcast)
+{
+    for (auto dtype : {ge::DT_FLOAT16, ge::DT_BF16, ge::DT_FLOAT}) {
+        gert::InfershapeContextPara param(
+            "AcoshGrad", {{{{2, 3}, {2, 3}}, dtype, ge::FORMAT_ND}, {{{3}, {3}}, dtype, ge::FORMAT_ND}},
+            {{{{}, {}}, dtype, ge::FORMAT_ND}});
+        std::vector<std::vector<int64_t>> expected = {{2, 3}};
+        ExecuteTestCase(param, ge::GRAPH_SUCCESS, expected);
+    }
+}
+
+TEST_F(AcoshGradInfershape, scalar_and_tensor)
+{
+    for (auto dtype : {ge::DT_FLOAT16, ge::DT_BF16, ge::DT_FLOAT}) {
+        gert::InfershapeContextPara param("AcoshGrad",
+                                          {{{{}, {}}, dtype, ge::FORMAT_ND}, {{{2, 3}, {2, 3}}, dtype, ge::FORMAT_ND}},
+                                          {{{{}, {}}, dtype, ge::FORMAT_ND}});
+        std::vector<std::vector<int64_t>> expected = {{2, 3}};
+        ExecuteTestCase(param, ge::GRAPH_SUCCESS, expected);
+    }
+}
+
+TEST_F(AcoshGradInfershape, both_scalar)
+{
+    for (auto dtype : {ge::DT_FLOAT16, ge::DT_BF16, ge::DT_FLOAT}) {
+        gert::InfershapeContextPara param("AcoshGrad",
+                                          {{{{}, {}}, dtype, ge::FORMAT_ND}, {{{}, {}}, dtype, ge::FORMAT_ND}},
+                                          {{{{}, {}}, dtype, ge::FORMAT_ND}});
+        std::vector<std::vector<int64_t>> expected = {{}};
+        ExecuteTestCase(param, ge::GRAPH_SUCCESS, expected);
+    }
+}
+
+TEST_F(AcoshGradInfershape, empty_broadcast)
+{
+    for (auto dtype : {ge::DT_FLOAT16, ge::DT_BF16, ge::DT_FLOAT}) {
+        gert::InfershapeContextPara param(
+            "AcoshGrad", {{{{0, 1}, {0, 1}}, dtype, ge::FORMAT_ND}, {{{1, 2}, {1, 2}}, dtype, ge::FORMAT_ND}},
+            {{{{}, {}}, dtype, ge::FORMAT_ND}});
+        std::vector<std::vector<int64_t>> expected = {{0, 2}};
+        ExecuteTestCase(param, ge::GRAPH_SUCCESS, expected);
+    }
+}
+
+TEST_F(AcoshGradInfershape, dynamic_known_axis)
+{
+    for (auto dtype : {ge::DT_FLOAT16, ge::DT_BF16, ge::DT_FLOAT}) {
+        gert::InfershapeContextPara param(
+            "AcoshGrad", {{{{-1, 1}, {-1, 1}}, dtype, ge::FORMAT_ND}, {{{1, 2}, {1, 2}}, dtype, ge::FORMAT_ND}},
+            {{{{}, {}}, dtype, ge::FORMAT_ND}});
+        std::vector<std::vector<int64_t>> expected = {{-1, 2}};
+        ExecuteTestCase(param, ge::GRAPH_SUCCESS, expected);
+    }
+}
+
+TEST_F(AcoshGradInfershape, dynamic_known_axis_reversed)
+{
+    for (auto dtype : {ge::DT_FLOAT16, ge::DT_BF16, ge::DT_FLOAT}) {
+        gert::InfershapeContextPara param(
+            "AcoshGrad", {{{{1, 2}, {1, 2}}, dtype, ge::FORMAT_ND}, {{{-1, 1}, {-1, 1}}, dtype, ge::FORMAT_ND}},
+            {{{{}, {}}, dtype, ge::FORMAT_ND}});
+        std::vector<std::vector<int64_t>> expected = {{-1, 2}};
+        ExecuteTestCase(param, ge::GRAPH_SUCCESS, expected);
+    }
+}
+
+TEST_F(AcoshGradInfershape, dynamic_unknown_with_known)
+{
+    for (auto dtype : {ge::DT_FLOAT16, ge::DT_BF16, ge::DT_FLOAT}) {
+        gert::InfershapeContextPara param(
+            "AcoshGrad", {{{{-1, 3}, {-1, 3}}, dtype, ge::FORMAT_ND}, {{{2, 3}, {2, 3}}, dtype, ge::FORMAT_ND}},
+            {{{{}, {}}, dtype, ge::FORMAT_ND}});
+        std::vector<std::vector<int64_t>> expected = {{2, 3}};
+        ExecuteTestCase(param, ge::GRAPH_SUCCESS, expected);
+    }
+}
+
+TEST_F(AcoshGradInfershape, dynamic_unknown_with_zero)
+{
+    for (auto dtype : {ge::DT_FLOAT16, ge::DT_BF16, ge::DT_FLOAT}) {
+        gert::InfershapeContextPara param(
+            "AcoshGrad", {{{{-1, 3}, {-1, 3}}, dtype, ge::FORMAT_ND}, {{{0, 3}, {0, 3}}, dtype, ge::FORMAT_ND}},
+            {{{{}, {}}, dtype, ge::FORMAT_ND}});
+        std::vector<std::vector<int64_t>> expected = {{-1, 3}};
+        ExecuteTestCase(param, ge::GRAPH_SUCCESS, expected);
+    }
+}
+
+TEST_F(AcoshGradInfershape, dynamic_zero_with_unknown)
+{
+    for (auto dtype : {ge::DT_FLOAT16, ge::DT_BF16, ge::DT_FLOAT}) {
+        gert::InfershapeContextPara param(
+            "AcoshGrad", {{{{0, 3}, {0, 3}}, dtype, ge::FORMAT_ND}, {{{-1, 3}, {-1, 3}}, dtype, ge::FORMAT_ND}},
+            {{{{}, {}}, dtype, ge::FORMAT_ND}});
+        std::vector<std::vector<int64_t>> expected = {{-1, 3}};
+        ExecuteTestCase(param, ge::GRAPH_SUCCESS, expected);
+    }
+}
+
+TEST_F(AcoshGradInfershape, dynamic_unknown_with_one)
+{
+    for (auto dtype : {ge::DT_FLOAT16, ge::DT_BF16, ge::DT_FLOAT}) {
+        gert::InfershapeContextPara param(
+            "AcoshGrad", {{{{-1, 3}, {-1, 3}}, dtype, ge::FORMAT_ND}, {{{1, 3}, {1, 3}}, dtype, ge::FORMAT_ND}},
+            {{{{}, {}}, dtype, ge::FORMAT_ND}});
+        std::vector<std::vector<int64_t>> expected = {{-1, 3}};
+        ExecuteTestCase(param, ge::GRAPH_SUCCESS, expected);
+    }
+}
+
+TEST_F(AcoshGradInfershape, dynamic_both_unknown)
+{
+    for (auto dtype : {ge::DT_FLOAT16, ge::DT_BF16, ge::DT_FLOAT}) {
+        gert::InfershapeContextPara param(
+            "AcoshGrad", {{{{-1, 3}, {-1, 3}}, dtype, ge::FORMAT_ND}, {{{-1, 3}, {-1, 3}}, dtype, ge::FORMAT_ND}},
+            {{{{}, {}}, dtype, ge::FORMAT_ND}});
+        std::vector<std::vector<int64_t>> expected = {{-1, 3}};
+        ExecuteTestCase(param, ge::GRAPH_SUCCESS, expected);
+    }
+}
+
+TEST_F(AcoshGradInfershape, unknown_rank_first)
+{
+    for (auto dtype : {ge::DT_FLOAT16, ge::DT_BF16, ge::DT_FLOAT}) {
+        gert::InfershapeContextPara param(
+            "AcoshGrad", {{{{-2}, {-2}}, dtype, ge::FORMAT_ND}, {{{2, 3}, {2, 3}}, dtype, ge::FORMAT_ND}},
+            {{{{}, {}}, dtype, ge::FORMAT_ND}});
+        std::vector<std::vector<int64_t>> expected = {{-2}};
+        ExecuteTestCase(param, ge::GRAPH_SUCCESS, expected);
+    }
+}
+
+TEST_F(AcoshGradInfershape, unknown_rank_second)
+{
+    for (auto dtype : {ge::DT_FLOAT16, ge::DT_BF16, ge::DT_FLOAT}) {
+        gert::InfershapeContextPara param(
+            "AcoshGrad", {{{{2, 3}, {2, 3}}, dtype, ge::FORMAT_ND}, {{{-2}, {-2}}, dtype, ge::FORMAT_ND}},
+            {{{{}, {}}, dtype, ge::FORMAT_ND}});
+        std::vector<std::vector<int64_t>> expected = {{-2}};
+        ExecuteTestCase(param, ge::GRAPH_SUCCESS, expected);
+    }
+}
+
+TEST_F(AcoshGradInfershape, dynamic_incompatible_known_axis)
+{
+    for (auto dtype : {ge::DT_FLOAT16, ge::DT_BF16, ge::DT_FLOAT}) {
+        gert::InfershapeContextPara param(
+            "AcoshGrad", {{{{-1, 2}, {-1, 2}}, dtype, ge::FORMAT_ND}, {{{3, 3}, {3, 3}}, dtype, ge::FORMAT_ND}},
+            {{{{}, {}}, dtype, ge::FORMAT_ND}});
+        std::vector<std::vector<int64_t>> expected = {};
+        ExecuteTestCase(param, ge::GRAPH_FAILED, expected);
+    }
+}
+
+TEST_F(AcoshGradInfershape, static_incompatible_zero)
+{
+    for (auto dtype : {ge::DT_FLOAT16, ge::DT_BF16, ge::DT_FLOAT}) {
+        gert::InfershapeContextPara param(
+            "AcoshGrad", {{{{0, 2}, {0, 2}}, dtype, ge::FORMAT_ND}, {{{3, 4}, {3, 4}}, dtype, ge::FORMAT_ND}},
+            {{{{}, {}}, dtype, ge::FORMAT_ND}});
+        std::vector<std::vector<int64_t>> expected = {{0, 4}};
+        ExecuteTestCase(param, ge::GRAPH_SUCCESS, expected);
+    }
 }

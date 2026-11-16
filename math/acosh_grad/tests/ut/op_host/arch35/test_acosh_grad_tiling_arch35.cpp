@@ -17,7 +17,7 @@
  * Covers paths in op_host/arch35/acosh_grad_tiling_arch35.cpp:
  *   1) Dtype paths: FP16 / BF16 / FP32 all map to the SAME TilingKey
  *      (GET_TPL_TILING_KEY(ACOSH_GRAD_TPL_SCH_MODE_0)=0). dtype only changes
- *      bytesPerElem in UB-split (fp32=36, fp16/bf16=24) → different ubFactor.
+ *      bytesPerElem in UB-split (fp32=41, fp16/bf16=29) → different ubFactor.
  *   2) Multi-core path (large shape) vs single-core path (small shape, tail).
  *   3) Non-aligned tail.
  *   4) Empty tensor (totalNum==0) → early-return, all fields zero.
@@ -38,13 +38,17 @@
  *
  * Formulas:
  *   blockFactor = CeilAlign(CeilDiv(total, 64), 32)
- *   perElem     = 6*elemBytes + 3*4   (fp32: 36, fp16/bf16: 24)
- *   ubFactor    = FloorAlign(262144 / perElem, 32)  (fp32: 7264, fp16/bf16: 10912)
+ *   perElem     = 6*elemBytes + 4*4 + 1   (fp32: 41, fp16/bf16: 29)
+ *   ubFactor    = FloorAlign(262144 / perElem, 32)  (fp32: 6368, fp16/bf16: 9024)
  */
 
 #include <cstdint>
+#include <map>
+#include "platform/platform_info.h"
+#include "base/registry/op_impl_space_registry_v2.h"
 #include <iostream>
 #include <gtest/gtest.h>
+#include <limits>
 #include "tiling_context_faker.h"
 #include "tiling_case_executor.h"
 
@@ -63,7 +67,7 @@ protected:
 
 // ===========================================================================
 // 1) FP32 multi-core aligned — 8192 elem {1,64,2,64}
-//    blockFactor=CeilAlign(CeilDiv(8192,64)=128,32)=128, ubFactor=7264
+//    blockFactor=CeilAlign(CeilDiv(8192,64)=128,32)=128, ubFactor=6368
 //    TilingKey 0
 // ===========================================================================
 TEST_F(AcoshGradTilingTest, test_tiling_fp32_multi_core_001)
@@ -79,13 +83,13 @@ TEST_F(AcoshGradTilingTest, test_tiling_fp32_multi_core_001)
                                               },
                                               &compileInfo);
     uint64_t expectTilingKey = 0;
-    string expectTilingData = "8192 128 7264 ";
+    string expectTilingData = "8192 128 6368 ";
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
 // ===========================================================================
-// 2) FP16 multi-core aligned — same shape; ubFactor=10912
+// 2) FP16 multi-core aligned — same shape; ubFactor=9024
 // ===========================================================================
 TEST_F(AcoshGradTilingTest, test_tiling_fp16_multi_core_002)
 {
@@ -100,13 +104,13 @@ TEST_F(AcoshGradTilingTest, test_tiling_fp16_multi_core_002)
                                               },
                                               &compileInfo);
     uint64_t expectTilingKey = 0;
-    string expectTilingData = "8192 128 10912 ";
+    string expectTilingData = "8192 128 9024 ";
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
 // ===========================================================================
-// 3) BF16 multi-core aligned — same shape; ubFactor=10912
+// 3) BF16 multi-core aligned — same shape; ubFactor=9024
 // ===========================================================================
 TEST_F(AcoshGradTilingTest, test_tiling_bf16_multi_core_003)
 {
@@ -121,14 +125,14 @@ TEST_F(AcoshGradTilingTest, test_tiling_bf16_multi_core_003)
                                               },
                                               &compileInfo);
     uint64_t expectTilingKey = 0;
-    string expectTilingData = "8192 128 10912 ";
+    string expectTilingData = "8192 128 9024 ";
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
 // ===========================================================================
 // 4) FP32 small + single-core + tail — {7} elem
-//    blockFactor=CeilAlign(CeilDiv(7,64)=1,32)=32, usedCore=1, ubFactor=7264
+//    blockFactor=CeilAlign(CeilDiv(7,64)=1,32)=32, usedCore=1, ubFactor=6368
 // ===========================================================================
 TEST_F(AcoshGradTilingTest, test_tiling_fp32_small_tail_004)
 {
@@ -143,14 +147,14 @@ TEST_F(AcoshGradTilingTest, test_tiling_fp32_small_tail_004)
                                               },
                                               &compileInfo);
     uint64_t expectTilingKey = 0;
-    string expectTilingData = "7 32 7264 ";
+    string expectTilingData = "7 32 6368 ";
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
 // ===========================================================================
 // 5) FP16 unaligned single-core — {17} elem
-//    blockFactor=32, usedCore=1, ubFactor=10912
+//    blockFactor=32, usedCore=1, ubFactor=9024
 // ===========================================================================
 TEST_F(AcoshGradTilingTest, test_tiling_fp16_unalign_005)
 {
@@ -165,14 +169,14 @@ TEST_F(AcoshGradTilingTest, test_tiling_fp16_unalign_005)
                                               },
                                               &compileInfo);
     uint64_t expectTilingKey = 0;
-    string expectTilingData = "17 32 10912 ";
+    string expectTilingData = "17 32 9024 ";
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
 // ===========================================================================
 // 6) FP32 large multi-core — {416910} elem
-//    blockFactor=CeilAlign(CeilDiv(416910,64)=6515,32)=6528, ubFactor=7264
+//    blockFactor=CeilAlign(CeilDiv(416910,64)=6515,32)=6528, ubFactor=6368
 // ===========================================================================
 TEST_F(AcoshGradTilingTest, test_tiling_fp32_large_multi_core_006)
 {
@@ -187,14 +191,14 @@ TEST_F(AcoshGradTilingTest, test_tiling_fp32_large_multi_core_006)
                                               },
                                               &compileInfo);
     uint64_t expectTilingKey = 0;
-    string expectTilingData = "416910 6528 7264 ";
+    string expectTilingData = "416910 6528 6368 ";
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
 // ===========================================================================
 // 7) FP16 2D large multi-core — {60882, 23} = 1400286 elem
-//    blockFactor=CeilAlign(CeilDiv(1400286,64)=21880,32)=21888, ubFactor=10912
+//    blockFactor=CeilAlign(CeilDiv(1400286,64)=21880,32)=21888, ubFactor=9024
 // ===========================================================================
 TEST_F(AcoshGradTilingTest, test_tiling_fp16_2d_large_multi_core_007)
 {
@@ -209,7 +213,7 @@ TEST_F(AcoshGradTilingTest, test_tiling_fp16_2d_large_multi_core_007)
                                               },
                                               &compileInfo);
     uint64_t expectTilingKey = 0;
-    string expectTilingData = "1400286 21888 10912 ";
+    string expectTilingData = "1400286 21888 9024 ";
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
@@ -341,9 +345,9 @@ TEST_F(AcoshGradTilingTest, test_tiling_fail_output_dtype_mismatch_013)
 }
 
 // ===========================================================================
-// 14) FAIL: y private origin format (NC1HWC0) → GRAPH_FAILED
+// 14) Format metadata alone is not rejected by Tiling.
 // ===========================================================================
-TEST_F(AcoshGradTilingTest, test_tiling_fail_private_format_y_014)
+TEST_F(AcoshGradTilingTest, test_tiling_does_not_reject_format_y_014)
 {
     optiling::AcoshGradCompileInfo compileInfo;
     gert::TilingContextPara tilingContextPara("AcoshGrad",
@@ -356,15 +360,15 @@ TEST_F(AcoshGradTilingTest, test_tiling_fail_private_format_y_014)
                                               },
                                               &compileInfo);
     uint64_t expectTilingKey = 0;
-    string expectTilingData = "";
+    string expectTilingData = "6 32 6368 ";
     std::vector<size_t> expectWorkspaces = {0};
-    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED, expectTilingKey, expectTilingData, expectWorkspaces);
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
 // ===========================================================================
-// 15) FAIL: dy private origin format (FRACTAL_NZ) → GRAPH_FAILED
+// 15) Format metadata alone is not rejected by Tiling.
 // ===========================================================================
-TEST_F(AcoshGradTilingTest, test_tiling_fail_private_format_dy_015)
+TEST_F(AcoshGradTilingTest, test_tiling_does_not_reject_format_dy_015)
 {
     optiling::AcoshGradCompileInfo compileInfo;
     gert::TilingContextPara tilingContextPara("AcoshGrad",
@@ -377,15 +381,15 @@ TEST_F(AcoshGradTilingTest, test_tiling_fail_private_format_dy_015)
                                               },
                                               &compileInfo);
     uint64_t expectTilingKey = 0;
-    string expectTilingData = "";
+    string expectTilingData = "6 32 9024 ";
     std::vector<size_t> expectWorkspaces = {0};
-    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED, expectTilingKey, expectTilingData, expectWorkspaces);
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
 // ===========================================================================
-// 16) FAIL: z private origin format (FRACTAL_Z) → GRAPH_FAILED
+// 16) Format metadata alone is not rejected by Tiling.
 // ===========================================================================
-TEST_F(AcoshGradTilingTest, test_tiling_fail_private_format_z_016)
+TEST_F(AcoshGradTilingTest, test_tiling_does_not_reject_format_z_016)
 {
     optiling::AcoshGradCompileInfo compileInfo;
     gert::TilingContextPara tilingContextPara("AcoshGrad",
@@ -398,7 +402,459 @@ TEST_F(AcoshGradTilingTest, test_tiling_fail_private_format_z_016)
                                               },
                                               &compileInfo);
     uint64_t expectTilingKey = 0;
-    string expectTilingData = "";
+    string expectTilingData = "6 32 9024 ";
     std::vector<size_t> expectWorkspaces = {0};
-    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED, expectTilingKey, expectTilingData, expectWorkspaces);
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
+}
+
+// ===========================================================================
+// 17) Format metadata alone is not rejected by Tiling.
+// ===========================================================================
+TEST_F(AcoshGradTilingTest, test_tiling_does_not_reject_format_fractal_nz_c0_2_017)
+{
+    optiling::AcoshGradCompileInfo compileInfo;
+    gert::TilingContextPara tilingContextPara("AcoshGrad",
+                                              {
+                                                  {{{2, 3}, {2, 3}}, ge::DT_FLOAT, ge::FORMAT_FRACTAL_NZ_C0_2},
+                                                  {{{2, 3}, {2, 3}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{2, 3}, {2, 3}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
+    uint64_t expectTilingKey = 0;
+    string expectTilingData = "6 32 6368 ";
+    std::vector<size_t> expectWorkspaces = {0};
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
+}
+
+// ===========================================================================
+// 18) Format metadata alone is not rejected by Tiling.
+// ===========================================================================
+TEST_F(AcoshGradTilingTest, test_tiling_does_not_reject_format_fractal_nz_c0_32_018)
+{
+    optiling::AcoshGradCompileInfo compileInfo;
+    gert::TilingContextPara tilingContextPara("AcoshGrad",
+                                              {
+                                                  {{{2, 3}, {2, 3}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                  {{{2, 3}, {2, 3}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{2, 3}, {2, 3}}, ge::DT_FLOAT16, ge::FORMAT_FRACTAL_NZ_C0_32},
+                                              },
+                                              &compileInfo);
+    uint64_t expectTilingKey = 0;
+    string expectTilingData = "6 32 9024 ";
+    std::vector<size_t> expectWorkspaces = {0};
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
+}
+
+TEST_F(AcoshGradTilingTest, equal_numel_different_shape)
+{
+    optiling::AcoshGradCompileInfo compileInfo;
+    gert::TilingContextPara param(
+        "AcoshGrad", {{{{2, 3}, {2, 3}}, ge::DT_FLOAT, ge::FORMAT_ND}, {{{3, 2}, {3, 2}}, ge::DT_FLOAT, ge::FORMAT_ND}},
+        {{{{2, 3}, {2, 3}}, ge::DT_FLOAT, ge::FORMAT_ND}}, &compileInfo);
+    uint64_t key = 0;
+    std::string data = "6 32 6368 ";
+    std::vector<size_t> workspace = {0};
+    ExecuteTestCase(param, ge::GRAPH_SUCCESS, key, data, workspace);
+}
+
+TEST_F(AcoshGradTilingTest, scalar_vector_compatible)
+{
+    optiling::AcoshGradCompileInfo compileInfo;
+    gert::TilingContextPara param("AcoshGrad",
+                                  {{{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND}, {{{1}, {1}}, ge::DT_FLOAT, ge::FORMAT_ND}},
+                                  {{{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND}}, &compileInfo);
+    uint64_t key = 0;
+    std::string data = "1 32 6368 ";
+    std::vector<size_t> workspace = {0};
+    ExecuteTestCase(param, ge::GRAPH_SUCCESS, key, data, workspace);
+}
+
+TEST_F(AcoshGradTilingTest, empty_different_shape)
+{
+    optiling::AcoshGradCompileInfo compileInfo;
+    gert::TilingContextPara param(
+        "AcoshGrad", {{{{0, 3}, {0, 3}}, ge::DT_FLOAT, ge::FORMAT_ND}, {{{5, 0}, {5, 0}}, ge::DT_FLOAT, ge::FORMAT_ND}},
+        {{{{0, 3}, {0, 3}}, ge::DT_FLOAT, ge::FORMAT_ND}}, &compileInfo);
+    uint64_t key = 0;
+    std::string data = "0 0 0 ";
+    std::vector<size_t> workspace = {0};
+    ExecuteTestCase(param, ge::GRAPH_SUCCESS, key, data, workspace);
+}
+
+TEST_F(AcoshGradTilingTest, output_shape_must_match_y)
+{
+    optiling::AcoshGradCompileInfo compileInfo;
+    gert::TilingContextPara param(
+        "AcoshGrad", {{{{2, 3}, {2, 3}}, ge::DT_FLOAT, ge::FORMAT_ND}, {{{6}, {6}}, ge::DT_FLOAT, ge::FORMAT_ND}},
+        {{{{3, 2}, {3, 2}}, ge::DT_FLOAT, ge::FORMAT_ND}}, &compileInfo);
+    uint64_t key = 0;
+    std::string data = "";
+    std::vector<size_t> workspace = {0};
+    ExecuteTestCase(param, ge::GRAPH_FAILED, key, data, workspace);
+}
+
+TEST_F(AcoshGradTilingTest, unknown_runtime_shape_rejected)
+{
+    optiling::AcoshGradCompileInfo compileInfo;
+    gert::TilingContextPara param(
+        "AcoshGrad", {{{{-1}, {-1}}, ge::DT_FLOAT, ge::FORMAT_ND}, {{{-1}, {-1}}, ge::DT_FLOAT, ge::FORMAT_ND}},
+        {{{{-1}, {-1}}, ge::DT_FLOAT, ge::FORMAT_ND}}, &compileInfo);
+    uint64_t key = 0;
+    std::string data = "";
+    std::vector<size_t> workspace = {0};
+    ExecuteTestCase(param, ge::GRAPH_FAILED, key, data, workspace);
+}
+
+TEST_F(AcoshGradTilingTest, rank9_equal_numel_allowed)
+{
+    optiling::AcoshGradCompileInfo compileInfo;
+    gert::TilingContextPara param(
+        "AcoshGrad",
+        {{{{2, 2, 2, 2, 2, 2, 2, 2, 2}, {2, 2, 2, 2, 2, 2, 2, 2, 2}}, ge::DT_FLOAT, ge::FORMAT_ND},
+         {{{512}, {512}}, ge::DT_FLOAT, ge::FORMAT_ND}},
+        {{{{2, 2, 2, 2, 2, 2, 2, 2, 2}, {2, 2, 2, 2, 2, 2, 2, 2, 2}}, ge::DT_FLOAT, ge::FORMAT_ND}}, &compileInfo);
+    uint64_t key = 0;
+    std::string data = "512 32 6368 ";
+    std::vector<size_t> workspace = {0};
+    ExecuteTestCase(param, ge::GRAPH_SUCCESS, key, data, workspace);
+}
+
+TEST_F(AcoshGradTilingTest, rank16_dense_allowed)
+{
+    optiling::AcoshGradCompileInfo compileInfo;
+    gert::TilingContextPara param(
+        "AcoshGrad",
+        {{{{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2}, {2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2}},
+          ge::DT_FLOAT,
+          ge::FORMAT_ND},
+         {{{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2}, {2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2}},
+          ge::DT_FLOAT,
+          ge::FORMAT_ND}},
+        {{{{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2}, {2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2}},
+          ge::DT_FLOAT,
+          ge::FORMAT_ND}},
+        &compileInfo);
+    uint64_t key = 0;
+    std::string data = "65536 1024 6368 ";
+    std::vector<size_t> workspace = {0};
+    ExecuteTestCase(param, ge::GRAPH_SUCCESS, key, data, workspace);
+}
+
+TEST_F(AcoshGradTilingTest, rank25_single_element_allowed)
+{
+    optiling::AcoshGradCompileInfo compileInfo;
+    gert::TilingContextPara param("AcoshGrad",
+                                  {{{{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+                                     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}},
+                                    ge::DT_FLOAT,
+                                    ge::FORMAT_ND},
+                                   {{{1}, {1}}, ge::DT_FLOAT, ge::FORMAT_ND}},
+                                  {{{{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+                                     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}},
+                                    ge::DT_FLOAT,
+                                    ge::FORMAT_ND}},
+                                  &compileInfo);
+    uint64_t key = 0;
+    std::string data = "1 32 6368 ";
+    std::vector<size_t> workspace = {0};
+    ExecuteTestCase(param, ge::GRAPH_SUCCESS, key, data, workspace);
+}
+
+static void RunNullInputBoundary(int missingInput, ge::graphStatus expected)
+{
+    fe::PlatFormInfos platform;
+    ASSERT_TRUE(platform.Init());
+    std::map<std::string, std::string> soc = {
+        {"ai_core_cnt", "64"}, {"cube_core_cnt", "64"}, {"vector_core_cnt", "64"}, {"core_type_list", "AICore"}};
+    std::map<std::string, std::string> spec = {{"ub_size", "262144"}};
+    std::map<std::string, std::string> version = {{"Short_SoC_version", "Ascend950"}, {"NpuArch", "3510"}};
+    platform.SetPlatformRes("SoCInfo", soc);
+    platform.SetPlatformRes("AICoreSpec", spec);
+    platform.SetPlatformRes("version", version);
+    platform.SetCoreNumByCoreType("AICore");
+    gert::StorageShape shape = {{2, 3}, {2, 3}};
+    gert::StorageFormat format(ge::FORMAT_ND, ge::FORMAT_ND, gert::ExpandDimsType());
+    gert::Tensor y(shape, format, gert::TensorPlacement::kOnHost, ge::DT_FLOAT, nullptr);
+    gert::Tensor dy(shape, format, gert::TensorPlacement::kOnHost, ge::DT_FLOAT, nullptr);
+    gert::Tensor z(shape, format, gert::TensorPlacement::kOnHost, ge::DT_FLOAT, nullptr);
+    auto data = gert::TilingData::CreateCap(1024);
+    auto workspace = gert::ContinuousVector::Create<size_t>(4096);
+    optiling::AcoshGradCompileInfo compileInfo{};
+    auto holder = gert::TilingContextFaker()
+                      .SetOpType("AcoshGrad")
+                      .NodeIoNum(2, 1)
+                      .InputTensors({&y, &dy})
+                      .OutputTensors({&z})
+                      .NodeInputTd(0, ge::DT_FLOAT, ge::FORMAT_ND, ge::FORMAT_ND)
+                      .NodeInputTd(1, ge::DT_FLOAT, ge::FORMAT_ND, ge::FORMAT_ND)
+                      .NodeOutputTd(0, ge::DT_FLOAT, ge::FORMAT_ND, ge::FORMAT_ND)
+                      .CompileInfo(&compileInfo)
+                      .PlatformInfo(&platform)
+                      .TilingData(data.get())
+                      .Workspace(reinterpret_cast<gert::ContinuousVector*>(workspace.get()))
+                      .Build();
+    auto registry = gert::DefaultOpImplSpaceRegistryV2::GetInstance().GetSpaceRegistry();
+    ASSERT_NE(registry, nullptr);
+    const auto* impl = registry->GetOpImpl("AcoshGrad");
+    ASSERT_NE(impl, nullptr);
+    auto* context = holder.GetContext();
+    ASSERT_EQ(context->GetComputeNodeInfo()->GetInputsNum(), 2U);
+    if (missingInput >= 0) {
+        reinterpret_cast<gert::KernelContext*>(context)->MutableInput(missingInput)->Set(nullptr, nullptr);
+        ASSERT_EQ(context->GetInputShape(missingInput), nullptr);
+    }
+    EXPECT_EQ(impl->tiling(context), expected);
+}
+
+TEST_F(AcoshGradTilingTest, required_input_shape_pointers_are_checked)
+{
+    RunNullInputBoundary(-1, ge::GRAPH_SUCCESS);
+    RunNullInputBoundary(0, ge::GRAPH_FAILED);
+    RunNullInputBoundary(1, ge::GRAPH_FAILED);
+}
+
+TEST_F(AcoshGradTilingTest, null_context_is_rejected)
+{
+    auto registry = gert::DefaultOpImplSpaceRegistryV2::GetInstance().GetSpaceRegistry();
+    ASSERT_NE(registry, nullptr);
+    const auto* impl = registry->GetOpImpl("AcoshGrad");
+    ASSERT_NE(impl, nullptr);
+    EXPECT_EQ(impl->tiling(nullptr), ge::GRAPH_FAILED);
+}
+
+TEST_F(AcoshGradTilingTest, large_index_thresholds_use_metadata_only)
+{
+    for (auto dtype : {ge::DT_FLOAT16, ge::DT_BF16, ge::DT_FLOAT}) {
+        for (int64_t threshold : {int64_t(1) << 30, (int64_t(1) << 31) - 1, int64_t(1) << 31, int64_t(1) << 32}) {
+            for (int64_t delta : {-1, 0, 1}) {
+                int64_t n = threshold + delta;
+                int64_t factor = 1;
+                for (int64_t candidate = 2; candidate <= 1024; ++candidate) {
+                    if (n % candidate == 0) {
+                        factor = candidate;
+                        break;
+                    }
+                }
+                for (bool multidimensional : {false, true}) {
+                    std::initializer_list<int64_t> flat = {n};
+                    std::initializer_list<int64_t> multi = {factor, n / factor};
+                    auto dims = multidimensional ? multi : flat;
+                    optiling::AcoshGradCompileInfo compileInfo;
+                    gert::TilingContextPara param(
+                        "AcoshGrad", {{{dims, dims}, dtype, ge::FORMAT_ND}, {{dims, dims}, dtype, ge::FORMAT_ND}},
+                        {{{dims, dims}, dtype, ge::FORMAT_ND}}, &compileInfo);
+                    int64_t block = (((n + 63) / 64 + 31) / 32) * 32;
+                    std::string data = std::to_string(n) + " " + std::to_string(block) +
+                                       (dtype == ge::DT_FLOAT ? " 6368 " : " 9024 ");
+                    ExecuteTestCase(param, ge::GRAPH_SUCCESS, uint64_t(0), data, std::vector<size_t>{0});
+                }
+            }
+        }
+    }
+}
+
+TEST_F(AcoshGradTilingTest, overflowing_element_count_is_rejected)
+{
+    const int64_t dim = int64_t(1) << 32;
+    optiling::AcoshGradCompileInfo compileInfo;
+    gert::TilingContextPara param("AcoshGrad",
+                                  {{{{dim, dim}, {dim, dim}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                   {{{dim, dim}, {dim, dim}}, ge::DT_FLOAT, ge::FORMAT_ND}},
+                                  {{{{dim, dim}, {dim, dim}}, ge::DT_FLOAT, ge::FORMAT_ND}}, &compileInfo);
+    ExecuteTestCase(param, ge::GRAPH_FAILED, uint64_t(0), "", std::vector<size_t>{0});
+}
+
+// Shape metadata only: no GM allocation and no device precision acceptance.
+TEST_F(AcoshGradTilingTest, int64_element_count_boundary_metadata_only)
+{
+    for (auto dtype : {ge::DT_FLOAT16, ge::DT_BF16, ge::DT_FLOAT}) {
+        for (int64_t n : {std::numeric_limits<int64_t>::max() - 1, std::numeric_limits<int64_t>::max()}) {
+            std::initializer_list<int64_t> dims = {n};
+            optiling::AcoshGradCompileInfo compileInfo;
+            gert::TilingContextPara param("AcoshGrad",
+                                          {{{dims, dims}, dtype, ge::FORMAT_ND}, {{dims, dims}, dtype, ge::FORMAT_ND}},
+                                          {{{dims, dims}, dtype, ge::FORMAT_ND}}, &compileInfo);
+            const int64_t perCore = n / 64 + (n % 64 != 0);
+            const int64_t block = (perCore / 32 + (perCore % 32 != 0)) * 32;
+            const std::string data = std::to_string(n) + " " + std::to_string(block) +
+                                     (dtype == ge::DT_FLOAT ? " 6368 " : " 9024 ");
+            ExecuteTestCase(param, ge::GRAPH_SUCCESS, uint64_t(0), data, std::vector<size_t>{0});
+        }
+    }
+}
+
+TEST_F(AcoshGradTilingTest, int64_product_first_overflow_is_rejected)
+{
+    const int64_t dim = int64_t(1) << 62;
+    for (auto dtype : {ge::DT_FLOAT16, ge::DT_BF16, ge::DT_FLOAT}) {
+        optiling::AcoshGradCompileInfo compileInfo;
+        gert::TilingContextPara param(
+            "AcoshGrad", {{{{dim, 2}, {dim, 2}}, dtype, ge::FORMAT_ND}, {{{dim, 2}, {dim, 2}}, dtype, ge::FORMAT_ND}},
+            {{{{dim, 2}, {dim, 2}}, dtype, ge::FORMAT_ND}}, &compileInfo);
+        ExecuteTestCase(param, ge::GRAPH_FAILED, uint64_t(0), "", std::vector<size_t>{0});
+    }
+}
+
+TEST_F(AcoshGradTilingTest, rank8_dense_allowed)
+{
+    for (auto dtype : {ge::DT_FLOAT16, ge::DT_BF16, ge::DT_FLOAT}) {
+        optiling::AcoshGradCompileInfo compileInfo;
+        gert::TilingContextPara param("AcoshGrad",
+                                      {{{{2, 2, 2, 2, 2, 2, 2, 2}, {2, 2, 2, 2, 2, 2, 2, 2}}, dtype, ge::FORMAT_ND},
+                                       {{{256}, {256}}, dtype, ge::FORMAT_ND}},
+                                      {{{{2, 2, 2, 2, 2, 2, 2, 2}, {2, 2, 2, 2, 2, 2, 2, 2}}, dtype, ge::FORMAT_ND}},
+                                      &compileInfo);
+        ExecuteTestCase(param, ge::GRAPH_SUCCESS, uint64_t(0),
+                        (dtype == ge::DT_FLOAT ? "256 32 6368 " : "256 32 9024 "), std::vector<size_t>{0});
+    }
+}
+
+TEST_F(AcoshGradTilingTest, rank9_singleton_allowed)
+{
+    for (auto dtype : {ge::DT_FLOAT16, ge::DT_BF16, ge::DT_FLOAT}) {
+        optiling::AcoshGradCompileInfo compileInfo;
+        gert::TilingContextPara param(
+            "AcoshGrad",
+            {{{{1, 1, 1, 1, 1, 1, 1, 1, 1}, {1, 1, 1, 1, 1, 1, 1, 1, 1}}, dtype, ge::FORMAT_ND},
+             {{{1}, {1}}, dtype, ge::FORMAT_ND}},
+            {{{{1, 1, 1, 1, 1, 1, 1, 1, 1}, {1, 1, 1, 1, 1, 1, 1, 1, 1}}, dtype, ge::FORMAT_ND}}, &compileInfo);
+        ExecuteTestCase(param, ge::GRAPH_SUCCESS, uint64_t(0), (dtype == ge::DT_FLOAT ? "1 32 6368 " : "1 32 9024 "),
+                        std::vector<size_t>{0});
+    }
+}
+
+TEST_F(AcoshGradTilingTest, origin_y_rank9_allowed)
+{
+    for (auto dtype : {ge::DT_FLOAT16, ge::DT_BF16, ge::DT_FLOAT}) {
+        optiling::AcoshGradCompileInfo compileInfo;
+        gert::TilingContextPara param(
+            "AcoshGrad",
+            {{{{1, 1, 1, 1, 1, 1, 1, 1, 1}, {1}}, dtype, ge::FORMAT_ND}, {{{1}, {1}}, dtype, ge::FORMAT_ND}},
+            {{{{1}, {1}}, dtype, ge::FORMAT_ND}}, &compileInfo);
+        ExecuteTestCase(param, ge::GRAPH_SUCCESS, uint64_t(0), (dtype == ge::DT_FLOAT ? "1 32 6368 " : "1 32 9024 "),
+                        std::vector<size_t>{0});
+    }
+}
+
+TEST_F(AcoshGradTilingTest, origin_dy_rank9_allowed)
+{
+    for (auto dtype : {ge::DT_FLOAT16, ge::DT_BF16, ge::DT_FLOAT}) {
+        optiling::AcoshGradCompileInfo compileInfo;
+        gert::TilingContextPara param(
+            "AcoshGrad",
+            {{{{1}, {1}}, dtype, ge::FORMAT_ND}, {{{1, 1, 1, 1, 1, 1, 1, 1, 1}, {1}}, dtype, ge::FORMAT_ND}},
+            {{{{1}, {1}}, dtype, ge::FORMAT_ND}}, &compileInfo);
+        ExecuteTestCase(param, ge::GRAPH_SUCCESS, uint64_t(0), (dtype == ge::DT_FLOAT ? "1 32 6368 " : "1 32 9024 "),
+                        std::vector<size_t>{0});
+    }
+}
+
+TEST_F(AcoshGradTilingTest, origin_z_rank9_allowed)
+{
+    for (auto dtype : {ge::DT_FLOAT16, ge::DT_BF16, ge::DT_FLOAT}) {
+        optiling::AcoshGradCompileInfo compileInfo;
+        gert::TilingContextPara param("AcoshGrad",
+                                      {{{{1}, {1}}, dtype, ge::FORMAT_ND}, {{{1}, {1}}, dtype, ge::FORMAT_ND}},
+                                      {{{{1, 1, 1, 1, 1, 1, 1, 1, 1}, {1}}, dtype, ge::FORMAT_ND}}, &compileInfo);
+        ExecuteTestCase(param, ge::GRAPH_SUCCESS, uint64_t(0), (dtype == ge::DT_FLOAT ? "1 32 6368 " : "1 32 9024 "),
+                        std::vector<size_t>{0});
+    }
+}
+
+TEST_F(AcoshGradTilingTest, storage_dy_rank9_allowed)
+{
+    for (auto dtype : {ge::DT_FLOAT16, ge::DT_BF16, ge::DT_FLOAT}) {
+        optiling::AcoshGradCompileInfo compileInfo;
+        gert::TilingContextPara param(
+            "AcoshGrad",
+            {{{{1}, {1}}, dtype, ge::FORMAT_ND}, {{{1}, {1, 1, 1, 1, 1, 1, 1, 1, 1}}, dtype, ge::FORMAT_ND}},
+            {{{{1}, {1}}, dtype, ge::FORMAT_ND}}, &compileInfo);
+        ExecuteTestCase(param, ge::GRAPH_SUCCESS, uint64_t(0), (dtype == ge::DT_FLOAT ? "1 32 6368 " : "1 32 9024 "),
+                        std::vector<size_t>{0});
+    }
+}
+
+TEST_F(AcoshGradTilingTest, storage_z_shape_mismatch_is_rejected)
+{
+    for (auto dtype : {ge::DT_FLOAT16, ge::DT_BF16, ge::DT_FLOAT}) {
+        optiling::AcoshGradCompileInfo compileInfo;
+        gert::TilingContextPara param("AcoshGrad",
+                                      {{{{1}, {1}}, dtype, ge::FORMAT_ND}, {{{1}, {1}}, dtype, ge::FORMAT_ND}},
+                                      {{{{1}, {1, 1, 1, 1, 1, 1, 1, 1, 1}}, dtype, ge::FORMAT_ND}}, &compileInfo);
+        ExecuteTestCase(param, ge::GRAPH_FAILED, uint64_t(0), "", std::vector<size_t>{0});
+    }
+}
+
+TEST_F(AcoshGradTilingTest, rank9_empty_allowed)
+{
+    for (auto dtype : {ge::DT_FLOAT16, ge::DT_BF16, ge::DT_FLOAT}) {
+        optiling::AcoshGradCompileInfo compileInfo;
+        gert::TilingContextPara param(
+            "AcoshGrad",
+            {{{{0, 1, 1, 1, 1, 1, 1, 1, 1}, {0, 1, 1, 1, 1, 1, 1, 1, 1}}, dtype, ge::FORMAT_ND},
+             {{{0}, {0}}, dtype, ge::FORMAT_ND}},
+            {{{{0, 1, 1, 1, 1, 1, 1, 1, 1}, {0, 1, 1, 1, 1, 1, 1, 1, 1}}, dtype, ge::FORMAT_ND}}, &compileInfo);
+        ExecuteTestCase(param, ge::GRAPH_SUCCESS, uint64_t(0), "0 0 0 ", std::vector<size_t>{0});
+    }
+}
+
+TEST_F(AcoshGradTilingTest, rank8_empty_allowed)
+{
+    for (auto dtype : {ge::DT_FLOAT16, ge::DT_BF16, ge::DT_FLOAT}) {
+        optiling::AcoshGradCompileInfo compileInfo;
+        gert::TilingContextPara param("AcoshGrad",
+                                      {{{{0, 1, 1, 1, 1, 1, 1, 1}, {0, 1, 1, 1, 1, 1, 1, 1}}, dtype, ge::FORMAT_ND},
+                                       {{{0}, {0}}, dtype, ge::FORMAT_ND}},
+                                      {{{{0, 1, 1, 1, 1, 1, 1, 1}, {0, 1, 1, 1, 1, 1, 1, 1}}, dtype, ge::FORMAT_ND}},
+                                      &compileInfo);
+        ExecuteTestCase(param, ge::GRAPH_SUCCESS, uint64_t(0), "0 0 0 ", std::vector<size_t>{0});
+    }
+}
+
+TEST_F(AcoshGradTilingTest, inferred_cross_broadcast_is_rejected)
+{
+    for (auto dtype : {ge::DT_FLOAT16, ge::DT_BF16, ge::DT_FLOAT}) {
+        optiling::AcoshGradCompileInfo compileInfo;
+        gert::TilingContextPara param(
+            "AcoshGrad", {{{{2, 1}, {2, 1}}, dtype, ge::FORMAT_ND}, {{{1, 2}, {1, 2}}, dtype, ge::FORMAT_ND}},
+            {{{{2, 2}, {2, 2}}, dtype, ge::FORMAT_ND}}, &compileInfo);
+        ExecuteTestCase(param, ge::GRAPH_FAILED, uint64_t(0), "", std::vector<size_t>{0});
+    }
+}
+
+TEST_F(AcoshGradTilingTest, inferred_permuted_shape_is_rejected)
+{
+    for (auto dtype : {ge::DT_FLOAT16, ge::DT_BF16, ge::DT_FLOAT}) {
+        optiling::AcoshGradCompileInfo compileInfo;
+        gert::TilingContextPara param(
+            "AcoshGrad", {{{{2, 3}, {2, 3}}, dtype, ge::FORMAT_ND}, {{{3, 2}, {3, 2}}, dtype, ge::FORMAT_ND}},
+            {{{{3, 3}, {3, 3}}, dtype, ge::FORMAT_ND}}, &compileInfo);
+        ExecuteTestCase(param, ge::GRAPH_FAILED, uint64_t(0), "", std::vector<size_t>{0});
+    }
+}
+
+TEST_F(AcoshGradTilingTest, inferred_trailing_broadcast_is_rejected)
+{
+    for (auto dtype : {ge::DT_FLOAT16, ge::DT_BF16, ge::DT_FLOAT}) {
+        optiling::AcoshGradCompileInfo compileInfo;
+        gert::TilingContextPara param("AcoshGrad",
+                                      {{{{2, 3}, {2, 3}}, dtype, ge::FORMAT_ND}, {{{3}, {3}}, dtype, ge::FORMAT_ND}},
+                                      {{{{2, 3}, {2, 3}}, dtype, ge::FORMAT_ND}}, &compileInfo);
+        ExecuteTestCase(param, ge::GRAPH_FAILED, uint64_t(0), "", std::vector<size_t>{0});
+    }
+}
+
+TEST_F(AcoshGradTilingTest, inferred_scalar_broadcast_is_rejected)
+{
+    for (auto dtype : {ge::DT_FLOAT16, ge::DT_BF16, ge::DT_FLOAT}) {
+        optiling::AcoshGradCompileInfo compileInfo;
+        gert::TilingContextPara param("AcoshGrad",
+                                      {{{{}, {}}, dtype, ge::FORMAT_ND}, {{{2, 3}, {2, 3}}, dtype, ge::FORMAT_ND}},
+                                      {{{{2, 3}, {2, 3}}, dtype, ge::FORMAT_ND}}, &compileInfo);
+        ExecuteTestCase(param, ge::GRAPH_FAILED, uint64_t(0), "", std::vector<size_t>{0});
+    }
 }

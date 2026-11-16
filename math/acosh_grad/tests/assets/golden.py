@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # -*- coding: UTF-8 -*-
 # ----------------------------------------------------------------------------
 # Copyright (c) 2026 Huawei Technologies Co., Ltd.
@@ -9,59 +8,67 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # ----------------------------------------------------------------------------
-"""
-AcoshGrad kernel-direct golden.
+"""TensorFlow public Acosh autodiff reference, preserving supplied saved y."""
 
-Uses torch.acosh + autograd backward as the golden reference.
-Formula: z = dy / sqrt(y^2 - 1)
-  y  : original input of acosh (domain >= 1)
-  dy : upstream gradient
-  z  : gradient w.r.t. the original input
+from typing import ClassVar
+import numpy
+import tensorflow as tf
 
-The kernel test context supplies NumPy arrays. Inputs are promoted to float32
-for the complete forward/backward calculation, then the result is converted
-back to the original output dtype.
-"""
-
-from types import SimpleNamespace
-
-import torch
-from ttk.utilities.dtypes import numpy_to_torch_tensor, torch_to_numpy_tensor
-
-
-__golden__ = {
-    "kernel": {
-        "acosh_grad": "acosh_grad_golden",
-    }
+__spec__ = {"acosh_grad": "AcoshGradKernelSpec"}
+_L2 = {
+    name: {"standard": "cross_check", "level": "L2"}
+    for name in ("float16", "bfloat16", "float32")
 }
+
+
+def _numpy(value):
+    if hasattr(value, "detach"):
+        value = value.detach().cpu()
+        if str(value.dtype) == "torch.bfloat16":
+            import torch
+            from ml_dtypes import bfloat16
+
+            return value.view(torch.int16).numpy().view(bfloat16)
+        return value.numpy()
+    if hasattr(value, "numpy"):
+        return value.numpy()
+    return numpy.asarray(value)
+
+
+def _compute(y, dy, device):
+    y, dy = _numpy(y), _numpy(dy)
+    if y.size != dy.size:
+        raise ValueError("y and dy must have equal element counts")
+    dy = dy.reshape(y.shape)
+    graph = tf.Graph()
+    with graph.as_default(), tf.device(device):
+        original_x = tf.compat.v1.placeholder(tf.as_dtype(y.dtype), shape=y.shape)
+        saved_y = tf.math.acosh(original_x)
+        upstream = tf.compat.v1.placeholder(tf.as_dtype(dy.dtype), shape=dy.shape)
+        result = tf.compat.v1.gradients(saved_y, original_x, grad_ys=upstream)[0]
+    config = tf.compat.v1.ConfigProto(
+        allow_soft_placement=False,
+        intra_op_parallelism_threads=1,
+        inter_op_parallelism_threads=1,
+    )
+    config.gpu_options.allow_growth = True
+    if device == "/CPU:0":
+        config.device_count["GPU"] = 0
+    with tf.compat.v1.Session(graph=graph, config=config) as session:
+        # Feed the actual saved forward output: no reconstruction or cast.
+        return [session.run(result, feed_dict={saved_y: y, upstream: dy})]
 
 
 def acosh_grad_golden(y, dy, **kwargs):
-    del kwargs
-    context = SimpleNamespace(input_arrays=(y, dy))
-    return _acosh_grad(context)
+    return _compute(y, dy, "/CPU:0")
 
 
-def _acosh_grad(context):
-    arrs = context.input_arrays
-    y = arrs[0]
-    dy = arrs[1]
-    # Preserve the original output dtype, including bfloat16 via a lossless bit
-    # view, but perform the complete calculation in float32.
-    y_t = numpy_to_torch_tensor(y)
-    dy_t = numpy_to_torch_tensor(dy)
-    out_dtype = y_t.dtype
-    y_f = y_t.to(torch.float32).clone().requires_grad_(True)
-    dy_f = dy_t.to(torch.float32)
-
-    # Compute acosh forward, then backward to get its input gradient.
-    result = torch.autograd.grad(torch.acosh(y_f), y_f, grad_outputs=dy_f)[0]
-    return torch_to_numpy_tensor(result.to(out_dtype).detach().cpu())
+class _TensorFlowAcoshGrad:
+    def __call__(self, y, dy, **kwargs):
+        return _compute(y, dy, "/GPU:0")
 
 
-third_party = {"torch": "torch.acosh"}
-tolerance = {
-    "float16": {"standard": "cross_check", "level": "L2"},
-    "bfloat16": {"standard": "cross_check", "level": "L2"},
-    "float32": {"standard": "cross_check", "level": "L2"},
-}
+class AcoshGradKernelSpec:
+    golden = staticmethod(acosh_grad_golden)
+    third_party: ClassVar = {"tf": _TensorFlowAcoshGrad}
+    tolerance: ClassVar = _L2

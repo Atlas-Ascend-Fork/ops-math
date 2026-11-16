@@ -23,14 +23,17 @@
 namespace ge {
 
 /**
- *@brief AcoshGrad: z = dy / sqrt(y² - 1), reverse gradient of acosh.
+ *@brief AcoshGrad: z = dy / sinh(y), reverse gradient of acosh (TensorFlow AcoshGrad semantics).
  *@par Inputs:
  *Two inputs:
- * @li y: A Tensor. Must be float16, bfloat16, or float32. Original input of forward acosh, domain ≥ 1.
- * @li dy: A Tensor. Must be float16, bfloat16, or float32. Upstream gradient, same shape/dtype as y.
+ * @li y: A Tensor. Must be float16, bfloat16, or float32. Output of forward acosh, domain ≥ 0.
+ * @li dy: A Tensor. Must be float16, bfloat16, or float32. Upstream gradient, same element count and dtype as y; shape
+ *may differ.
  *
  *@par Outputs:
- *z: A Tensor. Must be float16, bfloat16, or float32. Reverse gradient, same shape/dtype as y.
+ *z: A Tensor. Must be float16, bfloat16, or float32. Reverse gradient w.r.t. the original input
+ * of forward acosh, same dtype as y. Graph shape inference follows the legacy CANN rule;
+ * runtime execution requires the inferred shape to match y and both inputs to have equal element counts.
  *
  *@par Third-party framework compatibility:
  *Compatible with TensorFlow AcoshGrad.

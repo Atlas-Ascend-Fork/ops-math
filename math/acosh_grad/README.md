@@ -4,12 +4,12 @@
 
 | 产品                                                         | 是否支持 |
 | :----------------------------------------------------------- | :------: |
-| <term>Ascend 950PR&950DT系列产品</term>                       |    √     |
-| <term>Atlas A3系列产品</term>     |    √      |
-| <term>Atlas A2系列产品</term>     |    √     |
-| <term>Atlas 200I/500 A2推理产品</term>                      |    ×     |
-| <term>Atlas推理系列产品</term>                              |    √     |
-| <term>Atlas训练系列产品</term>                              |   √     |
+| <term>Ascend 950PR&950DT系列产品</term>                       | √ |
+| <term>Atlas A3系列产品</term>     | √ |
+| <term>Atlas A2系列产品</term>     | √ |
+| <term>Atlas 200I/500 A2推理产品</term>                      | √ |
+| <term>Atlas推理系列产品</term>                              | √ |
+| <term>Atlas训练系列产品</term>                              | √ |
 
 ## 功能说明
 
@@ -17,16 +17,16 @@
 - 算子公式：
 
   $$
-  z_i = dy_i \cdot \dfrac{1}{\sqrt{y_i^2 - 1}}
+  z_i = dy_i \cdot \dfrac{1}{\sinh(y_i)}
   $$
 
   其中：
-
-  - $y_i$为前向Acosh算子的输入张量，值域期望$\geq 1$；
+  - $y_i$为前向Acosh算子的输出张量，值域期望$\geq 0$；
   - $dy_i$为上游传入的梯度；
-  - $z_i$为对原始输入张量的梯度，等于上游梯度乘以$1/\sqrt{y_i^2 - 1}$。
+  - $\sinh$为双曲正弦函数；
+  - $z_i$为对前向原始输入张量的梯度，等于上游梯度乘以$1/\sinh(y_i)$。
 
-- 边界（$y_i \leq 1$）：$y_i = 1$时$\sqrt{0}=0$，除零结果为$+\text{Inf}$；$y_i < 1$时$\sqrt{负数}$结果为NaN，按IEEE 754自然传播。建议输入$y$的值域落在$[1, +\infty)$，以避免产生Inf或NaN结果。
+- y为0时，输出可能出现Inf或NaN。
 
 ## 参数说明
 
@@ -49,21 +49,21 @@
     <tr>
       <td>y</td>
       <td>输入</td>
-      <td>前向Acosh算子的输入张量。值域期望落在[1, +∞)。</td>
+      <td>前向Acosh算子的输出张量。值域期望落在[0, +∞)。</td>
       <td>FLOAT16, FLOAT32, BFLOAT16</td>
       <td>ND</td>
     </tr>
     <tr>
       <td>dy</td>
       <td>输入</td>
-      <td>上游传入的梯度张量，shape与dtype与y一致。</td>
+      <td>上游传入的梯度张量，元素数和dtype与y一致，shape可不同。</td>
       <td>FLOAT16, FLOAT32, BFLOAT16</td>
       <td>ND</td>
     </tr>
     <tr>
       <td>z</td>
       <td>输出</td>
-      <td>对原始输入张量的梯度，shape与dtype与y一致。</td>
+      <td>对前向原始输入张量的梯度，shape与dtype与y一致。</td>
       <td>FLOAT16, FLOAT32, BFLOAT16</td>
       <td>ND</td>
     </tr>
@@ -71,15 +71,19 @@
 
 ## 约束说明
 
-- y与dy的shape必须完全一致。
-- y与dy的dtype必须完全一致。
-- 仅支持ND格式。
-- 支持动态shape：shape在运行时确定，支持动态shape与动态rank（rank范围0~8）；y/dy/z的shape需完全一致。
-- 空Tensor（元素个数为0）直接返回空结果。
-- 支持[非连续的Tensor](../../docs/zh/context/non_contiguous_tensor.md)，非连续的Tensor维度不大于8。
+- y与dy的元素数和dtype必须相同，shape可不同；输出shape与y相同。
+- 图模式中，y与dy的广播shape必须等于y的shape，两输入的元素数仍需相同。
+- 支持ND格式。
+- 支持动态shape（-1）和未知rank（-2）。
+- 满足上述输入约束的空Tensor返回空结果。
+- 算子不限制输入输出的维数。
+- 直接调用Kernel时，输入需为连续Tensor。
 
 ## 调用说明
 
-| 调用方式 | 调用样例                                                                      | 说明                                                                                       |
-| -------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| 图模式调用 | [test_geir_acosh_grad](./examples/test_geir_acosh_grad.cpp)             | 通过[算子IR](./op_graph/acosh_grad_proto.h)构图方式调用AcoshGrad算子。                 |
+| 调用方式 | 调用样例 | 说明 |
+| -------- | -------- | ---- |
+| 图模式调用 | [test_geir_acosh_grad](./examples/test_geir_acosh_grad.cpp) | 通过[算子IR](./op_graph/acosh_grad_proto.h)构图调用AcoshGrad。 |
+| 图模式调用（arch35） | [test_geir_acosh_grad](./examples/arch35/test_geir_acosh_grad.cpp) | arch35目录下的调用样例。 |
+
+示例编译与运行方法参见[快速算子调用（GE图模式）](../../docs/zh/invocation/quick_op_invocation.md)。
