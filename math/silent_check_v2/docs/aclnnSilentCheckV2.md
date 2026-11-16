@@ -137,7 +137,7 @@ aclnnStatus aclnnSilentCheckV2(
       <td>stepRef</td>
       <td>输入</td>
       <td>当前步数step。</td>
-      <td>不支持负数</td>
+      <td>不支持负数，负值在执行阶段被内核识别为非法输入并返回失败</td>
       <td>INT64</td>
       <td>ND</td>
       <td>要求是[1]</td>
@@ -272,7 +272,7 @@ aclnnStatus aclnnSilentCheckV2(
       <td>传入的val, max, avgRef, inputGradRef, stepRef, dstSize, dstStride, dstOffset的数据类型不在支持的范围内。</td>
     </tr>
     <tr>
-      <td>传入的val, max, avgRef, inputGradRef, stepRef, dstSize, dstStride, dstOffset的shape不满足要求。</td>
+      <td>传入的val, max, avgRef, inputGradRef, stepRef, dstSize, dstStride, dstOffset的shape不满足要求；其中stepRef的shape必须为[1]。</td>
     </tr>
     <tr>
       <td>传入的cThreshL1, cThreshL2, beta1的范围不满足要求。</td>

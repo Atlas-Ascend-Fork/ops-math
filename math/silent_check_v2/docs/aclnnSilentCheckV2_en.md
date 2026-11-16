@@ -139,7 +139,7 @@ aclnnStatus aclnnSilentCheckV2(
       <td>stepRef</td>
       <td>Input</td>
       <td>Current step.</td>
-      <td>Negative values are not supported.</td>
+      <td>Negative values are not supported. A negative value is identified as an invalid input by the kernel during execution and a failure is returned.</td>
       <td>INT64</td>
       <td>ND</td>
       <td>Must be [1]</td>
@@ -274,7 +274,7 @@ aclnnStatus aclnnSilentCheckV2(
       <td>The data types of the input val, max, avgRef, inputGradRef, stepRef, dstSize, dstStride, and dstOffset are not within the supported range.</td>
     </tr>
     <tr>
-      <td>The shapes of the input val, max, avgRef, inputGradRef, stepRef, dstSize, dstStride, and dstOffset do not meet the requirements.</td>
+      <td>The shapes of the input val, max, avgRef, inputGradRef, stepRef, dstSize, dstStride, and dstOffset do not meet the requirements. The shape of stepRef must be [1].</td>
     </tr>
     <tr>
       <td>The ranges of the input cThreshL1, cThreshL2, and beta1 do not meet the requirements.</td>
