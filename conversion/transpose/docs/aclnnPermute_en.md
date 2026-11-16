@@ -78,7 +78,7 @@ aclnnStatus aclnnPermute(
       <td>self (aclTensor*)</td>
       <td>Input</td>
       <td>Input tensor.</td>
-      <td>-</td>
+      <td>Supports empty tensors. When the shape of self contains 0, the output is an empty tensor.</td>
       <td>FLOAT, FLOAT16, DOUBLE, UINT64, INT64, UINT32, INT32, UINT16, INT16, UINT8, INT8, BOOL, COMPLEX64, COMPLEX128, BFLOAT16, HIFLOAT8, FLOAT8_E5M2, FLOAT8_E4M3FN</td>
       <td>ND</td>
       <td>≤8</td>
@@ -88,7 +88,7 @@ aclnnStatus aclnnPermute(
       <td>dims (aclIntArray*)</td>
       <td>Input</td>
       <td>Integer array that represents the dimensions of the original tensor and specifies the new axis order.</td>
-      <td>The value must be in the range [-number of dimensions of self, number of dimensions of self - 1].</td>
+      <td>The number of elements must be equal to the number of dimensions of self. Each value must be in the range [-number of dimensions of self, number of dimensions of self - 1], and the elements must not be repeated. A negative value indicates counting from the end.</td>
       <td>INT64</td>
       <td>-</td>
       <td>-</td>
@@ -98,8 +98,8 @@ aclnnStatus aclnnPermute(
       <td>out (aclTensor*)</td>
       <td>Output</td>
       <td>Output tensor.</td>
-      <td>The shape is determined by dims and the shape of the original self. The dtype must be the same as that of self.</td>
-      <td>FLOAT, FLOAT16, DOUBLE, UINT64, INT64, UINT32, INT32, UINT16, INT16, UINT8, INT8, BOOL, COMPLEX64, COMPLEX128, BFLOAT16, HIFLOAT8, FLOAT8_E5M2, FLOAT8_E4M3FN.</td>
+      <td>The shape is determined by dims and the shape of self, that is, out.shape[i] = self.shape[dims[i]]. The dtype must be the same as that of self.</td>
+      <td>FLOAT, FLOAT16, DOUBLE, UINT64, INT64, UINT32, INT32, UINT16, INT16, UINT8, INT8, BOOL, COMPLEX64, COMPLEX128, BFLOAT16, HIFLOAT8, FLOAT8_E5M2, FLOAT8_E4M3FN</td>
       <td>ND</td>
       <td>≤8</td>
       <td>√</td>
@@ -156,8 +156,8 @@ aclnnStatus aclnnPermute(
         <td>self, dims, or out is a null pointer.</td>
       </tr>
       <tr>
-        <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
-        <td rowspan="4">161002</td>
+        <td rowspan="7">ACLNN_ERR_PARAM_INVALID</td>
+        <td rowspan="7">161002</td>
         <td>The data type of self or out is not in the supported range.</td>
       </tr>
       <tr>
@@ -168,6 +168,15 @@ aclnnStatus aclnnPermute(
       </tr>
       <tr>
         <td>The value of dims is not in the range of [-number of dimensions of self, number of dimensions of self - 1].</td>
+      </tr>
+      <tr>
+        <td>The number of elements in dims is inconsistent with the number of dimensions of self.</td>
+      </tr>
+      <tr>
+        <td>dims contains duplicate elements.</td>
+      </tr>
+      <tr>
+        <td>The shape of out is inconsistent with the shape of self permuted by dims.</td>
       </tr>
     </tbody>
     </table>
@@ -194,14 +203,14 @@ aclnnStatus aclnnPermute(
       <td>Memory address of the workspace allocated on the Device.</td>
     </tr>
     <tr>
-      <td>workspace_size</td>
+      <td>workspaceSize</td>
       <td>Input</td>
-      <td>Size of the workspace allocated on the Device. The value is obtained by calling the first-phase API aclnnPermuteGetWorkspaceSize.</td>
+      <td>Size of the workspace allocated on the Device, obtained by the first-phase API aclnnPermuteGetWorkspaceSize.</td>
     </tr>
     <tr>
       <td>executor</td>
       <td>Input</td>
-      <td>Op executor, containing the operator computation process.</td>
+      <td>op executor, which contains the operator computation process.</td>
     </tr>
     <tr>
       <td>stream</td>
@@ -217,6 +226,7 @@ aclnnStatus aclnnPermute(
 
 ## Constraints
 
+- The number of dimensions of input self must not exceed 8.
 - Deterministic computation:
   - aclnnPermute defaults to a deterministic implementation.
 
@@ -242,7 +252,8 @@ The following sample code is for reference only. For details about compilation a
     printf(message, ##__VA_ARGS__); \
   } while (0)
 
-int64_t GetShapeSize(const std::vector<int64_t>& shape) {
+int64_t GetShapeSize(const std::vector<int64_t>& shape)
+{
   int64_t shapeSize = 1;
   for (auto i : shape) {
     shapeSize *= i;
@@ -250,7 +261,8 @@ int64_t GetShapeSize(const std::vector<int64_t>& shape) {
   return shapeSize;
 }
 
-int Init(int32_t deviceId, aclrtStream* stream) {
+int Init(int32_t deviceId, aclrtStream* stream)
+{
   // Boilerplate for resource initialization
   auto ret = aclInit(nullptr);
   CHECK_RET(ret == ACL_SUCCESS, LOG_PRINT("aclInit failed. ERROR: %d\n", ret); return ret);
@@ -263,7 +275,8 @@ int Init(int32_t deviceId, aclrtStream* stream) {
 
 template <typename T>
 int CreateAclTensor(const std::vector<T>& hostData, const std::vector<int64_t>& shape, void** deviceAddr,
-                    aclDataType dataType, aclTensor** tensor) {
+                    aclDataType dataType, aclTensor** tensor)
+{
   auto size = GetShapeSize(shape) * sizeof(T);
   // Call aclrtMalloc to apply for device-side memory
   auto ret = aclrtMalloc(deviceAddr, size, ACL_MEM_MALLOC_HUGE_FIRST);
@@ -284,7 +297,8 @@ int CreateAclTensor(const std::vector<T>& hostData, const std::vector<int64_t>& 
   return 0;
 }
 
-int main() {
+int main()
+{
   // 1. (Boilerplate) Device/stream initialization. For details, see the acl API documentation
   // Set deviceId based on the actual device
   int32_t deviceId = 0;
@@ -306,7 +320,7 @@ int main() {
   ret = CreateAclTensor(selfHostData, selfShape, &selfDeviceAddr, aclDataType::ACL_FLOAT, &self);
   CHECK_RET(ret == ACL_SUCCESS, return ret);
   // Create the dims aclIntArray
-  aclIntArray *dims = aclCreateIntArray(dimsData.data(), dimsData.size());
+  aclIntArray* dims = aclCreateIntArray(dimsData.data(), dimsData.size());
   // Create the out aclTensor.
   ret = CreateAclTensor(outHostData, outShape, &outDeviceAddr, aclDataType::ACL_FLOAT, &out);
   CHECK_RET(ret == ACL_SUCCESS, return ret);
@@ -319,7 +333,7 @@ int main() {
   CHECK_RET(ret == ACL_SUCCESS, LOG_PRINT("aclnnPermuteGetWorkspaceSize failed. ERROR: %d\n", ret); return ret);
   // Allocate device memory based on the workspaceSize calculated by the first-phase API.
   void* workspaceAddr = nullptr;
-  if (workspaceSize > 0) {
+  if (workspaceSize > static_cast<uint64_t>(0)) {
     ret = aclrtMalloc(&workspaceAddr, workspaceSize, ACL_MEM_MALLOC_HUGE_FIRST);
     CHECK_RET(ret == ACL_SUCCESS, LOG_PRINT("allocate workspace failed. ERROR: %d\n", ret); return ret);
   }
@@ -349,7 +363,7 @@ int main() {
   // 7. Release device resources.
   aclrtFree(selfDeviceAddr);
   aclrtFree(outDeviceAddr);
-  if (workspaceSize > 0) {
+  if (workspaceSize > static_cast<uint64_t>(0)) {
     aclrtFree(workspaceAddr);
   }
   aclrtDestroyStream(stream);

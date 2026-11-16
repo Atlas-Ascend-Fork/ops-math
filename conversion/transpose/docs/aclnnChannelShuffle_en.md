@@ -25,7 +25,7 @@
 
 ## Function
 
-Divides the channels of a (*, C, H, W) tensor into g groups, randomly shuffles the channels within each group, and then merges all channels for output, while keeping the shape of the final output tensor consistent with the input tensor.
+Divides the channels (the fixed dimension 1, 0-based, with length C) of an (N, C, *) tensor into groups groups, reorders the channels within each group, and then merges all channels for output, while keeping the shape of the output tensor consistent with that of the input tensor.
 
 ## Function Prototype
 
@@ -79,7 +79,7 @@ aclnnStatus aclnnChannelShuffle(
       <td class="tg-0pky">Input</td>
       <td class="tg-0pky">Input tensor.</td>
       <td class="tg-0pky">The data dimension is greater than 2, and more than 7 dimensions are not supported.</td>
-      <td class="tg-0pky">FLOAT16, FLOAT, DOUBLE, UINT8, INT8, INT16, INT32, INT64, COMPLEX64, COMPLEX128, BOOL</td>
+      <td class="tg-0pky">FLOAT16, FLOAT, DOUBLE, INT8, UINT8, INT16, INT32, INT64, BOOL, COMPLEX64, COMPLEX128, BFLOAT16</td>
       <td class="tg-0pky">ND</td>
       <td class="tg-0pky">3-7</td>
       <td class="tg-0pky">√</td>
@@ -87,8 +87,8 @@ aclnnStatus aclnnChannelShuffle(
     <tr>
       <td class="tg-0lax">groups (int64_t)</td>
       <td class="tg-0lax">Input</td>
-      <td class="tg-0lax">Specifies the number of groups to divide the channels of input self into.</td>
-      <td class="tg-0lax">The value must be greater than 0 and divisible by the channels of self.</td>
+      <td class="tg-0lax">Specifies the number of groups into which the channel dimension (dimension 1, 0-based) of input self is divided.</td>
+      <td class="tg-0lax">The value must be greater than 0 and divisible by the channel dimension length C of self.</td>
       <td class="tg-0lax">INT64</td>
       <td class="tg-0lax">-</td>
       <td class="tg-0lax">-</td>
@@ -99,7 +99,7 @@ aclnnStatus aclnnChannelShuffle(
       <td class="tg-0pky">Output</td>
       <td class="tg-0pky">Output tensor.</td>
       <td class="tg-0pky">The dimensions must be greater than 2, and 7 or more dimensions are not supported.</td>
-      <td class="tg-0pky">FLOAT16, FLOAT, DOUBLE, UINT8, INT8, INT16, INT32, INT64, COMPLEX64, COMPLEX128, BOOL, BFLOAT16.</td>
+      <td class="tg-0pky">FLOAT16, FLOAT, DOUBLE, INT8, UINT8, INT16, INT32, INT64, BOOL, COMPLEX64, COMPLEX128, BFLOAT16</td>
       <td class="tg-0pky">ND</td>
       <td class="tg-0pky">3-7</td>
       <td class="tg-0pky">√</td>
@@ -125,6 +125,10 @@ aclnnStatus aclnnChannelShuffle(
       <td class="tg-0lax">-</td>
     </tr>
   </tbody></table>
+
+  <!-- npu="910" id7 -->
+  - <term>Atlas training products</term>: BFLOAT16 is not supported.
+  <!-- end id7 -->
 
 - **Return value**
 
@@ -163,7 +167,7 @@ aclnnStatus aclnnChannelShuffle(
       <td class="tg-0lax">The number of dimensions of parameters self and out is greater than 7 or less than 3.</td>
     </tr>
     <tr>
-      <td class="tg-0lax">The value of parameter groups is less than or equal to 0 or cannot be divided evenly by the channels of self.</td>
+      <td class="tg-0lax">The value of parameter groups is less than or equal to 0 or cannot be divided evenly by the channel dimension length C of self.</td>
     </tr>
   </tbody>
   </table>

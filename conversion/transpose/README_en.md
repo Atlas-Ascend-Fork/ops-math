@@ -17,26 +17,30 @@ English | [简体中文](./README.md)
 
 ## Function Description
 
-- Operator function: swaps arbitrary dimensions of a tensor. For example, if the input self is a tensor with shape [2, 3, 5] and dims is (2, 0, 1), the output is a tensor with shape [5, 2, 3].
+- Operator function: swaps arbitrary dimensions of a tensor. For example, if the input x is a tensor with shape [2, 3, 5] and perm is (2, 0, 1), the output y is a tensor with shape [5, 2, 3].
 
 ## Parameter Description
 
 | Parameter Name | Input/Output/Attribute | Description                                                         | Data Type | Data Format |
 | :----- | :------------- | :----------------------------------------------------------- | :------- | :------- |
-| x   | Input tensor       | Input tensor for dimension permutation.                                 | See below   | ND       |
-| perm   | Input tensor       | Represents the permutation of the dimensions of x. The value must be in the range [0, number of dimensions of self - 1]. | INT64, INT32    | -        |
-| y    | Output           | Has no more than 8 dimensions. The shape is jointly determined by dims and the shape of the original self, and the dtype must be the same as that of self. | Same as x   | ND       |
+| x   | Input tensor       | Input tensor for dimension permutation.                                 | INT8, UINT8, INT16, UINT16, INT32, UINT32, INT64, UINT64, FLOAT, FLOAT16, BFLOAT16, BOOL, HIFLOAT8, FLOAT8_E5M2, FLOAT8_E4M3FN, FLOAT4_E2M1, FLOAT4_E1M2, HIFLOAT4, HIFLOAT4_SCALE | ND       |
+| perm   | Input tensor       | Represents the permutation of the dimensions of x. The number of elements must be equal to the number of dimensions of x. Each value must be in the range [-number of dimensions of x, number of dimensions of x - 1], and the elements must not be repeated. | INT32, INT64    | -        |
+| y    | Output           | Has no more than 8 dimensions. The shape is jointly determined by perm and the shape of x (y.shape[i] = x.shape[perm[i]]), and the dtype must be the same as that of x. | Same as x   | ND       |
 
-- <term>Data types supported by the GPU</term>: The supported data types are DT_BF16, DT_FLOAT16, DT_FLOAT, DT_DOUBLE, DT_INT64, DT_INT32, DT_UINT8, DT_UINT16, DT_UINT32, DT_UINT64, DT_INT8, DT_INT16, DT_COMPLEX32, DT_COMPLEX64, DT_COMPLEX128, DT_QINT8, DT_QUINT8, DT_QINT16, DT_QUINT16, DT_QINT32, DT_BOOL, DT_HIFLOAT8, DT_FLOAT8_E5M2, and DT_FLOAT8_E4M3FN.
-- <term>Data types supported by the CPU</term>: The supported data types are the same as those of the GPU.
+- <term>Ascend 950PR&950DT products</term>, <term>Atlas A3 products</term>, <term>Atlas A2 products</term>, <term>Atlas 200I/500 A2 inference products</term>, <term>Atlas inference products</term>, <term>Atlas training products</term>: FLOAT4_E2M1, FLOAT4_E1M2, HIFLOAT4, and HIFLOAT4_SCALE are not supported.
+- <term>Kirin X90 processor series products</term>, <term>Kirin 9030 processor series products</term>: INT16, UINT16, UINT32, INT64, UINT64, BFLOAT16, BOOL, HIFLOAT8, FLOAT8_E5M2, FLOAT8_E4M3FN, FLOAT4_E2M1, FLOAT4_E1M2, HIFLOAT4, and HIFLOAT4_SCALE are not supported.
 
 ## Constraint Description
 
-None
+- The number of dimensions of x must not exceed 8.
+- The number of elements in perm must be equal to the number of dimensions of x. Each value must be in the range [-number of dimensions of x, number of dimensions of x - 1], and the elements must not be repeated.
+- The shape of y is jointly determined by perm and the shape of x, and the dtype must be the same as that of x.
 
 ## Invocation Description
 
 | Invocation Method  | Sample Code                                                     | Description                                                         |
 | :-------- | :----------------------------------------------------------- | :----------------------------------------------------------- |
-| aclnn API | [test_aclnn_channel_shuffle](examples/test_aclnn_channel_shuffle.cpp) | Invokes the transpose operator through the [aclnn_channel_shuffle](docs/aclnnChannelShuffle_en.md) API. |
-| aclnn API | [test_aclnn_permute](examples/test_aclnn_permute.cpp) | Invokes the transpose operator through the [aclnn_permute](docs/aclnnPermute_en.md) API. |
+| aclnn API | [test_aclnn_channel_shuffle](examples/test_aclnn_channel_shuffle.cpp) | Invokes the Transpose operator through the [aclnnChannelShuffle](docs/aclnnChannelShuffle_en.md) API. |
+| aclnn API | [test_aclnn_permute](examples/test_aclnn_permute.cpp) | Invokes the Transpose operator through the [aclnnPermute](docs/aclnnPermute_en.md) API. |
+| Graph mode | [test_geir_permute](examples/test_geir_permute.cpp) | Invokes the Transpose operator by building a graph with the [operator IR](op_graph/permute_proto.h). |
+| Graph mode | [test_geir_transpose](examples/test_geir_transpose.cpp) | Invokes the Transpose operator by building a graph with the [operator IR](op_graph/transpose_proto.h). |

@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-将(*, C, H, W)张量的channels分成g个组，然后将每个通道组中的通道进行随机重排，最后将所有通道合并输出，同时保持最终输出张量的shape和输入张量保持一致。
+将(N, C, *)张量按通道维（固定为第1维，下标从0开始，长度为C）分成groups个组，然后将每个通道组中的通道进行重排，最后将所有通道合并输出，同时保持输出张量的shape与输入张量一致。
 
 ## 函数原型
 
@@ -77,7 +77,7 @@ aclnnStatus aclnnChannelShuffle(
       <td>输入</td>
       <td>输入Tensor。</td>
       <td>数据维度大于2且不支持7维以上。</td>
-      <td>FLOAT16、FLOAT、DOUBLE、UINT8、INT8、INT16、INT32、INT64、COMPLEX64、COMPLEX128、BOOL</td>
+      <td>FLOAT16、FLOAT、DOUBLE、INT8、UINT8、INT16、INT32、INT64、BOOL、COMPLEX64、COMPLEX128、BFLOAT16</td>
       <td>ND</td>
       <td>3-7</td>
       <td>√</td>
@@ -85,8 +85,8 @@ aclnnStatus aclnnChannelShuffle(
     <tr>
       <td>groups（int64_t）</td>
       <td>输入</td>
-      <td>表示将输入self的channels分成多少组。</td>
-      <td>值需要大于0且要能被self的channels整除。</td>
+      <td>表示将输入self的通道维（第1维，下标从0开始）分成多少组。</td>
+      <td>值需要大于0且能被self的通道维长度C整除。</td>
       <td>INT64</td>
       <td>-</td>
       <td>-</td>
@@ -97,7 +97,7 @@ aclnnStatus aclnnChannelShuffle(
       <td>输出</td>
       <td>输出Tensor。</td>
       <td>数据维度大于2且不支持7维以上。</td>
-      <td>FLOAT16、FLOAT、DOUBLE、UINT8、INT8、INT16、INT32、INT64、COMPLEX64、COMPLEX128、BOOL、BFLOAT16。</td>
+      <td>FLOAT16、FLOAT、DOUBLE、INT8、UINT8、INT16、INT32、INT64、BOOL、COMPLEX64、COMPLEX128、BFLOAT16</td>
       <td>ND</td>
       <td>3-7</td>
       <td>√</td>
@@ -123,6 +123,10 @@ aclnnStatus aclnnChannelShuffle(
       <td>-</td>
     </tr>
   </tbody></table>
+
+  <!-- npu="910" id7 -->
+  - <term>Atlas训练系列产品</term>：数据类型不支持BFLOAT16。
+  <!-- end id7 -->
 
 - **返回值：**
 
@@ -158,7 +162,7 @@ aclnnStatus aclnnChannelShuffle(
       <td>参数self、out的维度数大于7或小于3。</td>
     </tr>
     <tr>
-      <td>参数groups值小于等于0或不能被self的channels整除。</td>
+      <td>参数groups值小于等于0或不能被self的通道维长度C整除。</td>
     </tr>
   </tbody>
   </table>
