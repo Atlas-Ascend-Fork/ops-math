@@ -15,6 +15,7 @@
 #include "op_common/log/log.h"
 #include "op_common/op_host/util/math_util.h"
 #include "op_common/op_host/util/platform_util.h"
+#include "op_common/op_host/tiling_base_util.h"
 #include "../../op_kernel/arch35/approximate_equal_tiling_data.h"
 #include "../../op_kernel/arch35/approximate_equal_tiling_key.h"
 
@@ -22,6 +23,7 @@ namespace optiling {
 
 using Ops::Base::CeilAlign;
 using Ops::Base::CeilDiv;
+using Ops::Base::EnsureNotScalar;
 using Ops::Base::FloorAlign;
 using Ops::Base::FloorDiv;
 using Ops::Base::GetUbBlockSize;
@@ -38,35 +40,41 @@ constexpr int64_t DTYPE_SIZE_BF16 = 2;
 
 constexpr int64_t UB_RESERVED_BYTES = 32 * 1024;
 
-static const gert::Shape g_vec_1_shape = {1};
-
-static bool IsPrivateFormat(ge::Format format)
-{
-    if (format == ge::FORMAT_NC1HWC0 || format == ge::FORMAT_FRACTAL_Z || format == ge::FORMAT_NDC1HWC0 ||
-        format == ge::FORMAT_FRACTAL_Z_3D || format == ge::FORMAT_FRACTAL_NZ || format == ge::FORMAT_NC1HWC0_C04) {
-        return true;
-    }
-    return false;
-}
-
-static inline const gert::Shape EnsureNotScalar(const gert::Shape& shape)
-{
-    if (shape.GetDimNum() == 0) {
-        return g_vec_1_shape;
-    }
-    return shape;
-}
-
 static ge::graphStatus GetPlatformInfo(gert::TilingContext* context, uint64_t& ubSize, int64_t& coreNum)
 {
     fe::PlatFormInfos* platformInfoPtr = context->GetPlatformInfo();
     OP_CHECK_NULL_WITH_CONTEXT(context, platformInfoPtr);
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfoPtr);
     coreNum = ascendcPlatform.GetCoreNumAiv();
-    OP_CHECK_IF(coreNum == 0, OP_LOGE(context, "coreNum is 0"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(coreNum <= 0, OP_LOGE(context, "coreNum <= 0"), return ge::GRAPH_FAILED);
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSize);
     OP_CHECK_IF(ubSize == 0, OP_LOGE(context, "ubSize is 0"), return ge::GRAPH_FAILED);
     return ge::GRAPH_SUCCESS;
+}
+
+static bool CheckDtypePair(gert::TilingContext* context, ge::DataType x1Dtype, ge::DataType x2Dtype)
+{
+    const std::set<ge::DataType> supported = {ge::DT_FLOAT, ge::DT_FLOAT16, ge::DT_BF16};
+    if (supported.count(x1Dtype) == 0) {
+        OP_LOGE(context, "ApproximateEqual: unsupported dtype=%d (allowed: FLOAT/FLOAT16/BF16)",
+                static_cast<int>(x1Dtype));
+        return false;
+    }
+    if (x2Dtype != x1Dtype) {
+        OP_LOGE(context, "ApproximateEqual: x1 dtype(%d) != x2 dtype(%d)", static_cast<int>(x1Dtype),
+                static_cast<int>(x2Dtype));
+        return false;
+    }
+    return true;
+}
+
+static bool CheckToleranceValid(gert::TilingContext* context, float tolerance)
+{
+    if (tolerance >= 0.0f && !std::isnan(tolerance) && !std::isinf(tolerance)) {
+        return true;
+    }
+    OP_LOGE(context, "ApproximateEqual: illegal tolerance=%f", tolerance);
+    return false;
 }
 
 static ge::graphStatus GetShapeAttrsInfo(gert::TilingContext* context, int64_t& totalNum, ge::DataType& dataType,
@@ -75,10 +83,6 @@ static ge::graphStatus GetShapeAttrsInfo(gert::TilingContext* context, int64_t& 
     auto inputX1 = context->GetInputShape(0);
     OP_CHECK_NULL_WITH_CONTEXT(context, inputX1);
     auto shapeX1 = EnsureNotScalar(inputX1->GetStorageShape());
-    OP_CHECK_IF(
-        shapeX1.GetDimNum() > 8,
-        OP_LOGE(context, "ApproximateEqual: input dimensions %zu exceeds platform limit 8", shapeX1.GetDimNum()),
-        return ge::GRAPH_FAILED);
 
     auto inputX2 = context->GetInputShape(1);
     OP_CHECK_NULL_WITH_CONTEXT(context, inputX2);
@@ -98,35 +102,17 @@ static ge::graphStatus GetShapeAttrsInfo(gert::TilingContext* context, int64_t& 
     auto inputDesc = context->GetInputDesc(0);
     OP_CHECK_NULL_WITH_CONTEXT(context, inputDesc);
     dataType = inputDesc->GetDataType();
-    const std::set<ge::DataType> supported = {ge::DT_FLOAT, ge::DT_FLOAT16, ge::DT_BF16};
-    if (supported.count(dataType) == 0) {
-        OP_LOGE(context, "ApproximateEqual: unsupported dtype=%d (allowed: FLOAT/FLOAT16/BF16)",
-                static_cast<int>(dataType));
-        return ge::GRAPH_FAILED;
-    }
-    OP_CHECK_IF(IsPrivateFormat(inputDesc->GetOriginFormat()),
-                OP_LOGE(context, "ApproximateEqual: unsupported private origin format=%d",
-                        static_cast<int>(inputDesc->GetOriginFormat())),
-                return ge::GRAPH_FAILED);
-
     auto inputDesc2 = context->GetInputDesc(1);
     OP_CHECK_NULL_WITH_CONTEXT(context, inputDesc2);
-    if (inputDesc2->GetDataType() != dataType) {
-        OP_LOGE(context, "ApproximateEqual: x1 dtype(%d) != x2 dtype(%d)", static_cast<int>(dataType),
-                static_cast<int>(inputDesc2->GetDataType()));
+    if (!CheckDtypePair(context, dataType, inputDesc2->GetDataType())) {
         return ge::GRAPH_FAILED;
     }
-    OP_CHECK_IF(IsPrivateFormat(inputDesc2->GetOriginFormat()),
-                OP_LOGE(context, "ApproximateEqual: x2 unsupported private origin format=%d",
-                        static_cast<int>(inputDesc2->GetOriginFormat())),
-                return ge::GRAPH_FAILED);
 
     auto attrs = context->GetAttrs();
     OP_CHECK_NULL_WITH_CONTEXT(context, attrs);
     const float* tolerancePtr = attrs->GetAttrPointer<float>(0);
     tolerance = (tolerancePtr != nullptr) ? *tolerancePtr : 1e-5f;
-    if (!(tolerance >= 0.0f) || std::isnan(tolerance) || std::isinf(tolerance)) {
-        OP_LOGE(context, "ApproximateEqual: illegal tolerance=%f", tolerance);
+    if (!CheckToleranceValid(context, tolerance)) {
         return ge::GRAPH_FAILED;
     }
     return ge::GRAPH_SUCCESS;
@@ -173,7 +159,11 @@ static ge::graphStatus ComputeSplit(gert::TilingContext* context, ApproximateEqu
     int64_t ubBytesPerElem = 0;
     PickDtypeParams(dataType, inputTypeSize, ubBytesPerElem);
     const int64_t ubBlockSize = Ops::Base::GetUbBlockSize(context);
-    const int64_t alignElems = ubBlockSize / inputTypeSize;
+    // Kernel CompareScalar 以比较域粒度(COMPARE_ALIGN_ELEMS, 256/sizeof(float)=64 元素)读写 UB
+    // 缓冲(fp32 直比; fp16/bf16 经 Cast 升 fp32 后比较), 缓冲按 ubFactor 元素分配且比较长度按
+    // 该粒度向上取整, 对齐粒度须不小于该值, 否则 UB 越界读写
+    const int64_t ubBlockElems = ubBlockSize / inputTypeSize;
+    const int64_t alignElems = (ubBlockElems > COMPARE_ALIGN_ELEMS) ? ubBlockElems : COMPARE_ALIGN_ELEMS;
 
     tiling->blockFactor = CeilAlign(CeilDiv(tiling->totalNum, coreNum), alignElems);
     int64_t usedCoreNum = CeilDiv(tiling->totalNum, tiling->blockFactor);

@@ -17,7 +17,7 @@
 
 namespace ge {
 /**
-*@brief Returns the truth value of abs(x1-x2) < tolerance element-wise.
+*@brief Returns the truth value of abs(x1-x2) <= tolerance element-wise.
 
 *@par Inputs:
 * @li x1: A tensor. Must be one of the following types: float32, float16, bfloat16. \n
@@ -33,12 +33,12 @@ namespace ge {
 *Compatible with the TensorFlow operator ApproximateEqual.
 */
 REG_OP(ApproximateEqual)
-  .INPUT(x1, TensorType::NumberType())
-  .INPUT(x2, TensorType::NumberType())
-  .OUTPUT(y, TensorType({DT_BOOL}))
-  .ATTR(tolerance, Float, 1e-5f)
-  .OP_END_FACTORY_REG(ApproximateEqual)
+    .INPUT(x1, TensorType::NumberType())
+    .INPUT(x2, TensorType::NumberType())
+    .OUTPUT(y, TensorType({DT_BOOL}))
+    .ATTR(tolerance, Float, 1e-5f)
+    .OP_END_FACTORY_REG(ApproximateEqual)
 
-}  // namespace ge
+} // namespace ge
 
-#endif  // APPROXIMATE_EQUAL_PROTO_H_
+#endif // APPROXIMATE_EQUAL_PROTO_H_

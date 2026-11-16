@@ -15,6 +15,9 @@
 
 #include <cstdint>
 
+// 向量指令repeat粒度对齐基(fp32域256B), 须不小于kernel侧repeat粒度
+constexpr int64_t COMPARE_ALIGN_ELEMS = 256 / sizeof(float);
+
 struct ApproximateEqualTilingData {
     int64_t totalNum = 0;
     int64_t blockFactor = 0;
@@ -23,4 +26,4 @@ struct ApproximateEqualTilingData {
     uint32_t reserved = 0;
 };
 
-#endif  // APPROXIMATE_EQUAL_TILING_DATA_H_
+#endif // APPROXIMATE_EQUAL_TILING_DATA_H_

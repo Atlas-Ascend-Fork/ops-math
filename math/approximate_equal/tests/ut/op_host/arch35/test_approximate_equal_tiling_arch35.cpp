@@ -16,6 +16,7 @@
  */
 
 #include "../../../../op_host/arch35/approximate_equal_tiling_arch35.h"
+#include <limits>
 #include <iostream>
 #include <gtest/gtest.h>
 #include "tiling_context_faker.h"
@@ -165,6 +166,192 @@ TEST_F(ApproximateEqualTilingTest, test_tiling_empty_tensor_009)
                                               },
                                               {
                                                   {{{0, 3, 4}, {0, 3, 4}}, ge::DT_BOOL, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
+    std::vector<size_t> expectWorkspaces = {0};
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, 0, EMPTY_EXPECT_TILING_DATA, expectWorkspaces);
+}
+
+TEST_F(ApproximateEqualTilingTest, test_tiling_private_format_passthrough_010)
+{
+    optiling::ApproximateEqualCompileInfo compileInfo = {};
+    gert::TilingContextPara tilingContextPara(
+        "ApproximateEqual",
+        {
+            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_FLOAT, ge::FORMAT_FRACTAL_NZ},
+            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        {
+            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_BOOL, ge::FORMAT_ND},
+        },
+        &compileInfo);
+    std::vector<size_t> expectWorkspaces = {0};
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, 0, EMPTY_EXPECT_TILING_DATA, expectWorkspaces);
+}
+
+TEST_F(ApproximateEqualTilingTest, test_tiling_scalar_0dim_011)
+{
+    optiling::ApproximateEqualCompileInfo compileInfo = {};
+    gert::TilingContextPara tilingContextPara("ApproximateEqual",
+                                              {
+                                                  {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                  {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{}, {}}, ge::DT_BOOL, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
+    std::vector<size_t> expectWorkspaces = {0};
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, 0, EMPTY_EXPECT_TILING_DATA, expectWorkspaces);
+}
+
+TEST_F(ApproximateEqualTilingTest, test_tiling_failed_negative_tolerance_012)
+{
+    optiling::ApproximateEqualCompileInfo compileInfo = {};
+    gert::TilingContextPara tilingContextPara(
+        "ApproximateEqual",
+        {
+            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_FLOAT, ge::FORMAT_ND},
+            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        {
+            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_BOOL, ge::FORMAT_ND},
+        },
+        {gert::TilingContextPara::OpAttr("tolerance", Ops::Math::AnyValue::CreateFrom(-1.0f))}, &compileInfo);
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED, 0, "", {0});
+}
+
+TEST_F(ApproximateEqualTilingTest, test_tiling_failed_nan_tolerance_013)
+{
+    optiling::ApproximateEqualCompileInfo compileInfo = {};
+    gert::TilingContextPara tilingContextPara(
+        "ApproximateEqual",
+        {
+            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_FLOAT, ge::FORMAT_ND},
+            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        {
+            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_BOOL, ge::FORMAT_ND},
+        },
+        {gert::TilingContextPara::OpAttr("tolerance",
+                                         Ops::Math::AnyValue::CreateFrom(std::numeric_limits<float>::quiet_NaN()))},
+        &compileInfo);
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED, 0, "", {0});
+}
+
+TEST_F(ApproximateEqualTilingTest, test_tiling_failed_inf_tolerance_014)
+{
+    optiling::ApproximateEqualCompileInfo compileInfo = {};
+    gert::TilingContextPara tilingContextPara(
+        "ApproximateEqual",
+        {
+            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_FLOAT, ge::FORMAT_ND},
+            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        {
+            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_BOOL, ge::FORMAT_ND},
+        },
+        {gert::TilingContextPara::OpAttr("tolerance",
+                                         Ops::Math::AnyValue::CreateFrom(std::numeric_limits<float>::infinity()))},
+        &compileInfo);
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED, 0, "", {0});
+}
+
+TEST_F(ApproximateEqualTilingTest, test_tiling_tolerance_attr_015)
+{
+    optiling::ApproximateEqualCompileInfo compileInfo = {};
+    gert::TilingContextPara tilingContextPara(
+        "ApproximateEqual",
+        {
+            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_FLOAT, ge::FORMAT_ND},
+            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        {
+            {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_BOOL, ge::FORMAT_ND},
+        },
+        {gert::TilingContextPara::OpAttr("tolerance", Ops::Math::AnyValue::CreateFrom(0.5f))}, &compileInfo);
+    std::vector<size_t> expectWorkspaces = {0};
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, 0, EMPTY_EXPECT_TILING_DATA, expectWorkspaces);
+}
+
+TEST_F(ApproximateEqualTilingTest, test_tiling_large_ub_clamp_016)
+{
+    optiling::ApproximateEqualCompileInfo compileInfo = {};
+    gert::TilingContextPara tilingContextPara("ApproximateEqual",
+                                              {
+                                                  {{{256, 1024, 64}, {256, 1024, 64}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                  {{{256, 1024, 64}, {256, 1024, 64}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{256, 1024, 64}, {256, 1024, 64}}, ge::DT_BOOL, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo, 64, 8388608);
+    std::vector<size_t> expectWorkspaces = {0};
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, 0, EMPTY_EXPECT_TILING_DATA, expectWorkspaces);
+}
+
+TEST_F(ApproximateEqualTilingTest, test_tiling_eqnum_shape_mismatch_passthrough_017)
+{
+    // 期望翻转: 用户裁决回归GetShapeSize(2026-11-13)——等数异形(2,3)vs(3,2)总数6==6==6,tiling放行。
+    optiling::ApproximateEqualCompileInfo compileInfo = {};
+    gert::TilingContextPara tilingContextPara("ApproximateEqual",
+                                              {
+                                                  {{{2, 3}, {2, 3}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                  {{{3, 2}, {3, 2}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{2, 3}, {2, 3}}, ge::DT_BOOL, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
+    std::vector<size_t> expectWorkspaces = {0};
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, 0, EMPTY_EXPECT_TILING_DATA, expectWorkspaces);
+}
+
+TEST_F(ApproximateEqualTilingTest, test_tiling_rank9_passthrough_018)
+{
+    optiling::ApproximateEqualCompileInfo compileInfo = {};
+    gert::TilingContextPara tilingContextPara(
+        "ApproximateEqual",
+        {
+            {{{1, 1, 1, 1, 1, 1, 1, 1, 4}, {1, 1, 1, 1, 1, 1, 1, 1, 4}}, ge::DT_FLOAT, ge::FORMAT_ND},
+            {{{1, 1, 1, 1, 1, 1, 1, 1, 4}, {1, 1, 1, 1, 1, 1, 1, 1, 4}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        {
+            {{{1, 1, 1, 1, 1, 1, 1, 1, 4}, {1, 1, 1, 1, 1, 1, 1, 1, 4}}, ge::DT_BOOL, ge::FORMAT_ND},
+        },
+        &compileInfo);
+    std::vector<size_t> expectWorkspaces = {0};
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, 0, EMPTY_EXPECT_TILING_DATA, expectWorkspaces);
+}
+
+TEST_F(ApproximateEqualTilingTest, test_tiling_near_max_totalnum_019)
+{
+    optiling::ApproximateEqualCompileInfo compileInfo = {};
+    const int64_t dimMax = std::numeric_limits<int64_t>::max();
+    gert::TilingContextPara tilingContextPara("ApproximateEqual",
+                                              {
+                                                  {{{dimMax}, {dimMax}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                  {{{dimMax}, {dimMax}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{dimMax}, {dimMax}}, ge::DT_BOOL, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
+    std::vector<size_t> expectWorkspaces = {0};
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, 0, EMPTY_EXPECT_TILING_DATA, expectWorkspaces);
+}
+
+TEST_F(ApproximateEqualTilingTest, test_tiling_prefix_overflow_zero_tail_020)
+{
+    optiling::ApproximateEqualCompileInfo compileInfo = {};
+    const int64_t dimMax = std::numeric_limits<int64_t>::max();
+    gert::TilingContextPara tilingContextPara("ApproximateEqual",
+                                              {
+                                                  {{{dimMax, 2, 0}, {dimMax, 2, 0}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                  {{{dimMax, 2, 0}, {dimMax, 2, 0}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{dimMax, 2, 0}, {dimMax, 2, 0}}, ge::DT_BOOL, ge::FORMAT_ND},
                                               },
                                               &compileInfo);
     std::vector<size_t> expectWorkspaces = {0};

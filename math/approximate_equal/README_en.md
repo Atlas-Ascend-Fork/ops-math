@@ -19,7 +19,7 @@ English | [简体中文](./README.md)
 - Computation formula:
 
   $$
-  y_i = |x1_i - x2_i| < tolerance
+  y_i = |x1_i - x2_i| <= tolerance
   $$
 
   where tolerance is a non-negative floating-point number, and the default value is 1e-5. The output is a tensor of the BOOL type, whose element values are true (approximately equal) or false (not approximately equal).

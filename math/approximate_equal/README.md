@@ -17,7 +17,7 @@
 - 计算公式：
 
   $$
-  y_i = |x1_i - x2_i| < tolerance
+  y_i = |x1_i - x2_i| <= tolerance
   $$
 
   其中tolerance为非负浮点数，默认值为1e-5。输出为BOOL类型张量，元素值为true（近似相等）或false（不近似相等）。
