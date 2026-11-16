@@ -1,5 +1,7 @@
 # 两段式接口
 
+本文档介绍基于单算子API执行方式调用算子API的两段式接口，涵盖第一段接口aclxxXxxGetWorkspaceSize计算workspaceSize、按workspaceSize申请NPU内存及第二段接口aclxxXxx执行计算的完整流程，适用于使用单算子API开发算子调用的开发者。
+
 基于单算子API执行方式调用算子API时，通常分为“两段式”，样式形如：
 
 ```cpp
