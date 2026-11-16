@@ -11,7 +11,7 @@
  */
 
 /*!
- * \file acos_grad_apt.cpp
+ * \file acos_grad.cpp
  * \brief AcosGrad kernel entry (arch35 / Ascend950)
  *
  * Inputs (aligned with proto.h / def.cpp):

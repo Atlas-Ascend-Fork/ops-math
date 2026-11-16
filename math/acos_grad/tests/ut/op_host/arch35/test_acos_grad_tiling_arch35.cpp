@@ -23,13 +23,30 @@
  *   3) Non-aligned tail.
  *   4) Empty tensor (totalLength==0) → early-return, all fields zero.
  *   5) Failure paths:
- *        - shape mismatch (different dims) → GRAPH_FAILED
- *        - unsupported dtype (DT_DOUBLE)   → GRAPH_FAILED
+ *        - element-count mismatch (y vs dy/z)    → GRAPH_FAILED
+ *        - unsupported dtype (DT_DOUBLE)          → GRAPH_FAILED
+ *        - dy dtype != y dtype                    → GRAPH_FAILED
+ *        - z dtype != y dtype                     → GRAPH_FAILED
+ *        - negative element count (dim = -1)      → GRAPH_FAILED
+ *        - element count > uint32 domain ({INT64_MAX})
+ *                                                → GRAPH_FAILED
+ *        - negative element count via int64 overflow sentinel
+ *          ({2, INT64_MAX}: 2*INT64_MAX wraps to INT64_MIN)
+ *                                                → GRAPH_FAILED
+ *        - prefix overflow x trailing zero ({INT64_MAX, 2, 0}: framework
+ *          GetShapeSize zero-scans dims first → 0 → early return)
+ *                                                → GRAPH_SUCCESS (all zero)
+ *   6) Element-count relaxation (2026-11-13 user ruling, upstream 23af05a68
+ *      GetShapeSize-comparison pattern): tiling validates that y/dy/z carry
+ *      the SAME ELEMENT COUNT; per-dim arrangement does not participate
+ *      (element-wise kernel only consumes the total count). Count-equal
+ *      different-arrangement shapes pass; count-unequal pairs reject.
  *
  * Hardcoded constants (from acos_grad_tiling_arch35.cpp):
- *   ELEM_ALIGN = 512, UB_SIZE_BYTES = 188416
+ *   ELEM_ALIGN = 512
  *   bytesPerElem: FP32=32, FP16/BF16=28
  *   alignFactor:  FP32=64, FP16/BF16=128
+ *   ubFormer derives from GetCoreMemSize(UB) queried value (faker platform ubSize = 262144)
  *
  * Default platform: coreNum=64 (not used for ubFormer calc).
  *
@@ -178,8 +195,9 @@ TEST_F(AcosGradTilingTest, test_tiling_fp16_unalign_005)
 
 // ===========================================================================
 // 6) FP32 large multi-core — {416910} elem
-//    coreNum=64, blockFormer=6656, blockNum=63, ubFormer=5888,
-//    ubLoopFormer=1, ubTailFormer=768, ubLoopTail=0, ubTailTail=4238
+//    coreNum=64, blockFormer=6656, blockNum=63,
+//    ubFormer=min(FloorDiv(262144/32,64)*64=8192, 6656)=6656,
+//    ubLoopFormer=1, ubTailFormer=0, ubLoopTail=0, ubTailTail=4238
 // ===========================================================================
 TEST_F(AcosGradTilingTest, test_tiling_fp32_large_multi_core_006)
 {
@@ -194,7 +212,7 @@ TEST_F(AcosGradTilingTest, test_tiling_fp32_large_multi_core_006)
                                               },
                                               &compileInfo);
     uint64_t expectTilingKey = 1;
-    string expectTilingData = "416910 270582946304 4294973184 768 4238 ";
+    string expectTilingData = "416910 270582946304 4294973952 0 4238 ";
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
@@ -204,10 +222,10 @@ TEST_F(AcosGradTilingTest, test_tiling_fp32_large_multi_core_006)
 //    coreNum=64, blockFormerRaw=CeilDiv(1400286,64)=21880
 //    blockFormer=CeilDiv(21880,512)*512=43*512=22016
 //    blockNum=CeilDiv(1400286,22016)=64
-//    ubFormer=min(FlrDiv(188416/28,128)*128=6656, 22016)=6656
-//    ubLoopFormer=22016/6656=3, ubTailFormer=22016%6656=2048
+//    ubFormer=min(FloorDiv(262144/28,128)*128=9344, 22016)=9344
+//    ubLoopFormer=22016/9344=2, ubTailFormer=22016%9344=3328
 //    tailBlockLen=1400286-63*22016=13278
-//    ubLoopTail=13278/6656=1, ubTailTail=13278%6656=6622
+//    ubLoopTail=13278/9344=1, ubTailTail=13278%9344=3934
 // ===========================================================================
 TEST_F(AcosGradTilingTest, test_tiling_fp16_2d_large_multi_core_007)
 {
@@ -224,10 +242,10 @@ TEST_F(AcosGradTilingTest, test_tiling_fp16_2d_large_multi_core_007)
     uint64_t expectTilingKey = 1;
     // totalLength=1400286, blockFormer=22016, blockNum=64
     // [1] = 22016 | (64<<32) = 22016 + 274877906944 = 274877928960
-    // ubFormer=6656, ubLoopFormer=3 -> [2] = 6656 | (3<<32) = 6656 + 12884901888 = 12884908544
-    // ubTailFormer=2048, ubLoopTail=1 -> [3] = 2048 | (1<<32) = 2048 + 4294967296 = 4294969344
-    // [4] = 6622
-    string expectTilingData = "1400286 274877928960 12884908544 4294969344 6622 ";
+    // ubFormer=9344, ubLoopFormer=2 -> [2] = 9344 | (2<<32) = 9344 + 8589934592 = 8589943936
+    // ubTailFormer=3328, ubLoopTail=1 -> [3] = 3328 | (1<<32) = 3328 + 4294967296 = 4294970624
+    // [4] = 3934
+    string expectTilingData = "1400286 274877928960 8589943936 4294970624 3934 ";
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
@@ -275,7 +293,7 @@ TEST_F(AcosGradTilingTest, test_tiling_empty_bf16_009)
 }
 
 // ===========================================================================
-// 10) FAIL: shape mismatch (different dims) → GRAPH_FAILED
+// 10) FAIL: element-count mismatch (y {16} vs dy {8}, 16 != 8) → GRAPH_FAILED
 // ===========================================================================
 TEST_F(AcosGradTilingTest, test_tiling_fail_shape_mismatch_010)
 {
@@ -308,6 +326,288 @@ TEST_F(AcosGradTilingTest, test_tiling_fail_unsupported_dtype_011)
                                               },
                                               {
                                                   {{{8}, {8}}, ge::DT_DOUBLE, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
+    uint64_t expectTilingKey = 0;
+    string expectTilingData = "";
+    std::vector<size_t> expectWorkspaces = {0};
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED, expectTilingKey, expectTilingData, expectWorkspaces);
+}
+
+// ===========================================================================
+// 12) FAIL: dy dtype != y dtype (y FLOAT, dy FLOAT16) → GRAPH_FAILED
+//     The kernel reads y/dy/z with a single T derived from y; a mixed-dtype
+//     pair would silently misread the dy buffer.
+// ===========================================================================
+TEST_F(AcosGradTilingTest, test_tiling_fail_dy_dtype_mismatch_012)
+{
+    optiling::AcosGradCompileInfo compileInfo;
+    gert::TilingContextPara tilingContextPara("AcosGrad",
+                                              {
+                                                  {{{8}, {8}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                  {{{8}, {8}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{8}, {8}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
+    uint64_t expectTilingKey = 0;
+    string expectTilingData = "";
+    std::vector<size_t> expectWorkspaces = {0};
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED, expectTilingKey, expectTilingData, expectWorkspaces);
+}
+
+// ===========================================================================
+// 13) FAIL: z dtype != y dtype (y FLOAT, z FLOAT16) → GRAPH_FAILED
+//     Same single-T contract on the output side.
+// ===========================================================================
+TEST_F(AcosGradTilingTest, test_tiling_fail_z_dtype_mismatch_013)
+{
+    optiling::AcosGradCompileInfo compileInfo;
+    gert::TilingContextPara tilingContextPara("AcosGrad",
+                                              {
+                                                  {{{8}, {8}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                  {{{8}, {8}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{8}, {8}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
+    uint64_t expectTilingKey = 0;
+    string expectTilingData = "";
+    std::vector<size_t> expectWorkspaces = {0};
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED, expectTilingKey, expectTilingData, expectWorkspaces);
+}
+
+// ===========================================================================
+// 14) PASS: z shape != y shape (y {2,3}, z {3,2} — same element count,
+//     different arrangement) → GRAPH_SUCCESS. The tiling gate validates
+//     element counts only (2026-11-13 user ruling); totalLength derives
+//     from y ({2,3} → 6).
+// ===========================================================================
+TEST_F(AcosGradTilingTest, test_tiling_pass_z_same_count_diff_shape_014)
+{
+    optiling::AcosGradCompileInfo compileInfo;
+    gert::TilingContextPara tilingContextPara("AcosGrad",
+                                              {
+                                                  {{{2, 3}, {2, 3}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                  {{{2, 3}, {2, 3}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{3, 2}, {3, 2}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
+    uint64_t expectTilingKey = 0;
+    string expectTilingData = "6 4294967808 4294967808 0 6 ";
+    std::vector<size_t> expectWorkspaces = {0};
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
+}
+
+// ===========================================================================
+// 15) PASS: y/dy rank mismatch (y {2,3} 2D, dy {6} 1D — same element count)
+//     → GRAPH_SUCCESS. Count-only gate: rank/arrangement differences with
+//     equal element counts (6 == 6) pass tiling.
+// ===========================================================================
+TEST_F(AcosGradTilingTest, test_tiling_pass_dy_same_count_diff_rank_015)
+{
+    optiling::AcosGradCompileInfo compileInfo;
+    gert::TilingContextPara tilingContextPara("AcosGrad",
+                                              {
+                                                  {{{2, 3}, {2, 3}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                  {{{6}, {6}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{2, 3}, {2, 3}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
+    uint64_t expectTilingKey = 0;
+    string expectTilingData = "6 4294967808 4294967808 0 6 ";
+    std::vector<size_t> expectWorkspaces = {0};
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
+}
+
+// ===========================================================================
+// 16) FAIL: negative element count (dim = -1, the unknown-dim marker reaching
+//     the tiling gate) → GRAPH_FAILED. A negative int64 cast to uint64 wraps
+//     to a huge value that the block-parameter clamps would silently accept.
+// ===========================================================================
+TEST_F(AcosGradTilingTest, test_tiling_fail_negative_shape_size_016)
+{
+    optiling::AcosGradCompileInfo compileInfo;
+    gert::TilingContextPara tilingContextPara("AcosGrad",
+                                              {
+                                                  {{{-1}, {-1}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                  {{{-1}, {-1}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{-1}, {-1}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
+    uint64_t expectTilingKey = 0;
+    string expectTilingData = "";
+    std::vector<size_t> expectWorkspaces = {0};
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED, expectTilingKey, expectTilingData, expectWorkspaces);
+}
+
+// ===========================================================================
+// 17) FAIL: uint32 domain — y = {INT64_MAX} (single dim). Element count
+//     INT64_MAX is non-negative, passes the negative-count gate; then
+//     CeilDiv(INT64_MAX, coreNum=64) ≈ 1.44e17 aligns up beyond
+//     MAX_UINT32_VALUE → the uint32 value-range gate in CalcBlockParams
+//     rejects before narrowing into the uint32 tiling fields.
+// ===========================================================================
+TEST_F(AcosGradTilingTest, test_tiling_fail_max_uint32_domain_017)
+{
+    optiling::AcosGradCompileInfo compileInfo;
+    gert::TilingContextPara tilingContextPara("AcosGrad",
+                                              {
+                                                  {{{INT64_MAX}, {INT64_MAX}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                  {{{INT64_MAX}, {INT64_MAX}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{INT64_MAX}, {INT64_MAX}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
+    uint64_t expectTilingKey = 0;
+    string expectTilingData = "";
+    std::vector<size_t> expectWorkspaces = {0};
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED, expectTilingKey, expectTilingData, expectWorkspaces);
+}
+
+// ===========================================================================
+// 18) FAIL: negative element count via int64 overflow sentinel — y = {2, INT64_MAX}.
+//     Framework GetShapeSize uses checked multiplication: 2 * INT64_MAX
+//     overflows int64 and yields the kInvalidDimValue sentinel (INT64_MIN),
+//     which the negative-count gate rejects. This is the production-reachable
+//     form of a negative element count (the {-1} synthetic marker in case 16
+//     never reaches the tiling gate on real links).
+// ===========================================================================
+TEST_F(AcosGradTilingTest, test_tiling_fail_negative_overflow_sentinel_018)
+{
+    optiling::AcosGradCompileInfo compileInfo;
+    gert::TilingContextPara tilingContextPara("AcosGrad",
+                                              {
+                                                  {{{2, INT64_MAX}, {2, INT64_MAX}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                  {{{2, INT64_MAX}, {2, INT64_MAX}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{2, INT64_MAX}, {2, INT64_MAX}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
+    uint64_t expectTilingKey = 0;
+    string expectTilingData = "";
+    std::vector<size_t> expectWorkspaces = {0};
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED, expectTilingKey, expectTilingData, expectWorkspaces);
+}
+
+// ===========================================================================
+// 19) Prefix overflow x trailing zero — y = {INT64_MAX, 2, 0}. Framework
+//     GetShapeSize zero-scans all dims first: any dim == 0 → element count
+//     0 (the potential 2*INT64_MAX overflow is short-circuited before the
+//     checked multiply). totalLength == 0 takes the early-return path:
+//     all-zero tiling data, block dim 1, GRAPH_SUCCESS.
+// ===========================================================================
+TEST_F(AcosGradTilingTest, test_tiling_prefix_overflow_trailing_zero_019)
+{
+    optiling::AcosGradCompileInfo compileInfo;
+    gert::TilingContextPara tilingContextPara("AcosGrad",
+                                              {
+                                                  {{{INT64_MAX, 2, 0}, {INT64_MAX, 2, 0}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                  {{{INT64_MAX, 2, 0}, {INT64_MAX, 2, 0}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{INT64_MAX, 2, 0}, {INT64_MAX, 2, 0}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
+    uint64_t expectTilingKey = 0;
+    string expectTilingData = "0 0 0 0 0 ";
+    std::vector<size_t> expectWorkspaces = {0};
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
+}
+
+// ===========================================================================
+// 20) PASS: same element count on all three tensors, every arrangement
+//     different — y {2,3}, dy {3,2}, z {6} (count 6 each) → GRAPH_SUCCESS.
+//     totalLength derives from y (6); the count-only gate accepts the mixed
+//     arrangement (2026-11-13 user ruling).
+// ===========================================================================
+TEST_F(AcosGradTilingTest, test_tiling_pass_all_diff_arrangement_020)
+{
+    optiling::AcosGradCompileInfo compileInfo;
+    gert::TilingContextPara tilingContextPara("AcosGrad",
+                                              {
+                                                  {{{2, 3}, {2, 3}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                  {{{3, 2}, {3, 2}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{6}, {6}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
+    uint64_t expectTilingKey = 0;
+    string expectTilingData = "6 4294967808 4294967808 0 6 ";
+    std::vector<size_t> expectWorkspaces = {0};
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
+}
+
+// ===========================================================================
+// 21) PASS: same element count 20, three different arrangements —
+//     y {4,5}, dy {10,2}, z {2,10} → GRAPH_SUCCESS, totalLength=20.
+// ===========================================================================
+TEST_F(AcosGradTilingTest, test_tiling_pass_all_diff_arrangement_021)
+{
+    optiling::AcosGradCompileInfo compileInfo;
+    gert::TilingContextPara tilingContextPara("AcosGrad",
+                                              {
+                                                  {{{4, 5}, {4, 5}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                  {{{10, 2}, {10, 2}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{2, 10}, {2, 10}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
+    uint64_t expectTilingKey = 0;
+    string expectTilingData = "20 4294967808 4294967808 0 20 ";
+    std::vector<size_t> expectWorkspaces = {0};
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
+}
+
+// ===========================================================================
+// 22) FAIL: element-count mismatch — y {2,3} (6 elems) vs dy {2,4} (8 elems)
+//     → GRAPH_FAILED. The count gate rejects unequal totals; the rejection
+//     logs the three element counts (SHAPESIZE error family).
+// ===========================================================================
+TEST_F(AcosGradTilingTest, test_tiling_fail_count_mismatch_dy_022)
+{
+    optiling::AcosGradCompileInfo compileInfo;
+    gert::TilingContextPara tilingContextPara("AcosGrad",
+                                              {
+                                                  {{{2, 3}, {2, 3}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                  {{{2, 4}, {2, 4}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{2, 3}, {2, 3}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
+    uint64_t expectTilingKey = 0;
+    string expectTilingData = "";
+    std::vector<size_t> expectWorkspaces = {0};
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED, expectTilingKey, expectTilingData, expectWorkspaces);
+}
+
+// ===========================================================================
+// 23) FAIL: element-count mismatch on the output — y {5,4} (20 elems),
+//     z {4,4} (16 elems) → GRAPH_FAILED.
+// ===========================================================================
+TEST_F(AcosGradTilingTest, test_tiling_fail_count_mismatch_z_023)
+{
+    optiling::AcosGradCompileInfo compileInfo;
+    gert::TilingContextPara tilingContextPara("AcosGrad",
+                                              {
+                                                  {{{5, 4}, {5, 4}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                  {{{5, 4}, {5, 4}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{4, 4}, {4, 4}}, ge::DT_FLOAT, ge::FORMAT_ND},
                                               },
                                               &compileInfo);
     uint64_t expectTilingKey = 0;

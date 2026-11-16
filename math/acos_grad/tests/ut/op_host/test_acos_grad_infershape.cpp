@@ -12,7 +12,12 @@
 
 /*!
  * \file test_acos_grad_infershape.cpp
- * \brief AcosGrad InferShape UT — output shape copies input[0] shape.
+ * \brief AcosGrad InferShape UT — same-shape inference with unknown-marker
+ * wildcard and unknown-info merge: z.shape = y.shape, y/dy must have the same
+ * shape (no broadcast); -1 (unknown dim) / -2 (unknown rank) markers act as
+ * wildcards in the same-shape check (actual shape is validated by Tiling at
+ * runtime); output merges unknown info: takes dy known shape when y rank is
+ * unknown, y as base with dim-level known absorption from dy otherwise.
  *
  * Op signature (aligned with proto.h / def.cpp):
  *   Input 0: y   (forward input of Acos, value constraint [-1, 1])
@@ -20,7 +25,11 @@
  *   Output 0: z  (gradient w.r.t. original input, same shape as y)
  *
  * Supported dtypes (per def.cpp): FLOAT, FLOAT16, BF16. Format: ND only.
- * Shape rule: z.shape = y.shape.
+ * Shape rule: y.shape == dy.shape with -1/-2 wildcard semantics — an unknown
+ * dim (-1) or unknown rank (-2) on either side passes the same-shape check and
+ * known values from the other side are absorbed into z; pairs with differing
+ * concrete dim values (different dim value, equal-element-count permutation,
+ * broadcast pair, rank mismatch) are still rejected with GRAPH_FAILED.
  */
 
 #include <gtest/gtest.h>
@@ -30,15 +39,9 @@
 
 class AcosGradInfershape : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        std::cout << "AcosGradInfershape SetUp" << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "AcosGradInfershape SetUp" << std::endl; }
 
-    static void TearDownTestCase()
-    {
-        std::cout << "AcosGradInfershape TearDown" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "AcosGradInfershape TearDown" << std::endl; }
 };
 
 // ---------------------------------------------------------------------------
@@ -46,15 +49,14 @@ protected:
 // ---------------------------------------------------------------------------
 TEST_F(AcosGradInfershape, acos_grad_infershape_1d_fp32)
 {
-    gert::InfershapeContextPara infershapeContextPara(
-        "AcosGrad",
-        {
-            {{{16}, {16}}, ge::DT_FLOAT, ge::FORMAT_ND},   // y
-            {{{16}, {16}}, ge::DT_FLOAT, ge::FORMAT_ND},   // dy
-        },
-        {
-            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},        // z (to infer)
-        });
+    gert::InfershapeContextPara infershapeContextPara("AcosGrad",
+                                                      {
+                                                          {{{16}, {16}}, ge::DT_FLOAT, ge::FORMAT_ND}, // y
+                                                          {{{16}, {16}}, ge::DT_FLOAT, ge::FORMAT_ND}, // dy
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND}, // z (to infer)
+                                                      });
     std::vector<std::vector<int64_t>> expectOutputShape = {{16}};
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
@@ -64,15 +66,14 @@ TEST_F(AcosGradInfershape, acos_grad_infershape_1d_fp32)
 // ---------------------------------------------------------------------------
 TEST_F(AcosGradInfershape, acos_grad_infershape_1d_tail_fp32)
 {
-    gert::InfershapeContextPara infershapeContextPara(
-        "AcosGrad",
-        {
-            {{{7}, {7}}, ge::DT_FLOAT, ge::FORMAT_ND},
-            {{{7}, {7}}, ge::DT_FLOAT, ge::FORMAT_ND},
-        },
-        {
-            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
-        });
+    gert::InfershapeContextPara infershapeContextPara("AcosGrad",
+                                                      {
+                                                          {{{7}, {7}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                          {{{7}, {7}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      });
     std::vector<std::vector<int64_t>> expectOutputShape = {{7}};
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
@@ -82,15 +83,14 @@ TEST_F(AcosGradInfershape, acos_grad_infershape_1d_tail_fp32)
 // ---------------------------------------------------------------------------
 TEST_F(AcosGradInfershape, acos_grad_infershape_2d_fp16)
 {
-    gert::InfershapeContextPara infershapeContextPara(
-        "AcosGrad",
-        {
-            {{{4, 8}, {4, 8}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-            {{{4, 8}, {4, 8}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-        },
-        {
-            {{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-        });
+    gert::InfershapeContextPara infershapeContextPara("AcosGrad",
+                                                      {
+                                                          {{{4, 8}, {4, 8}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                          {{{4, 8}, {4, 8}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                      });
     std::vector<std::vector<int64_t>> expectOutputShape = {{4, 8}};
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
@@ -100,15 +100,14 @@ TEST_F(AcosGradInfershape, acos_grad_infershape_2d_fp16)
 // ---------------------------------------------------------------------------
 TEST_F(AcosGradInfershape, acos_grad_infershape_4d_bf16)
 {
-    gert::InfershapeContextPara infershapeContextPara(
-        "AcosGrad",
-        {
-            {{{2, 3, 4, 5}, {2, 3, 4, 5}}, ge::DT_BF16, ge::FORMAT_ND},
-            {{{2, 3, 4, 5}, {2, 3, 4, 5}}, ge::DT_BF16, ge::FORMAT_ND},
-        },
-        {
-            {{{}, {}}, ge::DT_BF16, ge::FORMAT_ND},
-        });
+    gert::InfershapeContextPara infershapeContextPara("AcosGrad",
+                                                      {
+                                                          {{{2, 3, 4, 5}, {2, 3, 4, 5}}, ge::DT_BF16, ge::FORMAT_ND},
+                                                          {{{2, 3, 4, 5}, {2, 3, 4, 5}}, ge::DT_BF16, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_BF16, ge::FORMAT_ND},
+                                                      });
     std::vector<std::vector<int64_t>> expectOutputShape = {{2, 3, 4, 5}};
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
@@ -136,15 +135,14 @@ TEST_F(AcosGradInfershape, acos_grad_infershape_large_fp32)
 // ---------------------------------------------------------------------------
 TEST_F(AcosGradInfershape, acos_grad_infershape_large_1d_fp16)
 {
-    gert::InfershapeContextPara infershapeContextPara(
-        "AcosGrad",
-        {
-            {{{416910}, {416910}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-            {{{416910}, {416910}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-        },
-        {
-            {{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-        });
+    gert::InfershapeContextPara infershapeContextPara("AcosGrad",
+                                                      {
+                                                          {{{416910}, {416910}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                          {{{416910}, {416910}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                      });
     std::vector<std::vector<int64_t>> expectOutputShape = {{416910}};
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
@@ -154,15 +152,265 @@ TEST_F(AcosGradInfershape, acos_grad_infershape_large_1d_fp16)
 // ---------------------------------------------------------------------------
 TEST_F(AcosGradInfershape, acos_grad_infershape_empty_fp32)
 {
+    gert::InfershapeContextPara infershapeContextPara("AcosGrad",
+                                                      {
+                                                          {{{0}, {0}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                          {{{0}, {0}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      });
+    std::vector<std::vector<int64_t>> expectOutputShape = {{0}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+// ---------------------------------------------------------------------------
+// Wildcard + dim-level merge: y=[2,-1] vs dy=[2,4] — the -1 unknown dim is a
+// wildcard in the same-shape check; output takes y as base and absorbs dy's
+// known value at the unknown position: z=[2,4].
+// ---------------------------------------------------------------------------
+TEST_F(AcosGradInfershape, acos_grad_infershape_dyn_unknown_dim_wildcard)
+{
+    gert::InfershapeContextPara infershapeContextPara("AcosGrad",
+                                                      {
+                                                          {{{2, -1}, {2, -1}}, ge::DT_FLOAT, ge::FORMAT_ND}, // y
+                                                          {{{2, 4}, {2, 4}}, ge::DT_FLOAT, ge::FORMAT_ND},   // dy
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      });
+    std::vector<std::vector<int64_t>> expectOutputShape = {{2, 4}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+// ---------------------------------------------------------------------------
+// Wildcard + rank merge: y=[-2] (unknown rank) vs dy=[-1,-1,-1,-1] — unknown
+// rank is a wildcard in the same-shape check; y rank unknown takes dy's
+// known shape: z=[-1,-1,-1,-1].
+// ---------------------------------------------------------------------------
+TEST_F(AcosGradInfershape, acos_grad_infershape_dyn_unknown_rank_wildcard)
+{
     gert::InfershapeContextPara infershapeContextPara(
         "AcosGrad",
         {
-            {{{0}, {0}}, ge::DT_FLOAT, ge::FORMAT_ND},
-            {{{0}, {0}}, ge::DT_FLOAT, ge::FORMAT_ND},
+            {{{-2}, {-2}}, ge::DT_FLOAT, ge::FORMAT_ND},
+            {{{-1, -1, -1, -1}, {-1, -1, -1, -1}}, ge::DT_FLOAT, ge::FORMAT_ND},
         },
         {
             {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
         });
-    std::vector<std::vector<int64_t>> expectOutputShape = {{0}};
+    std::vector<std::vector<int64_t>> expectOutputShape = {{-1, -1, -1, -1}};
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+// ---------------------------------------------------------------------------
+// Wildcard + dim-level merge: all-unknown dims y=[-1,...,-1] (rank 8) vs
+// concrete dy=[2,2,3,525,2,2,2,1505] — every unknown dim is a wildcard and
+// absorbs dy's known value: z=[2,2,3,525,2,2,2,1505].
+// ---------------------------------------------------------------------------
+TEST_F(AcosGradInfershape, acos_grad_infershape_dyn_all_unknown_wildcard)
+{
+    gert::InfershapeContextPara infershapeContextPara(
+        "AcosGrad",
+        {
+            {{{-1, -1, -1, -1, -1, -1, -1, -1}, {-1, -1, -1, -1, -1, -1, -1, -1}}, ge::DT_FLOAT, ge::FORMAT_ND},
+            {{{2, 2, 3, 525, 2, 2, 2, 1505}, {2, 2, 3, 525, 2, 2, 2, 1505}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        {
+            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        });
+    std::vector<std::vector<int64_t>> expectOutputShape = {{2, 2, 3, 525, 2, 2, 2, 1505}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+// ---------------------------------------------------------------------------
+// Wildcard boundary: y=[-1,3] vs dy=[2,4] — the -1 dim is a wildcard, but the
+// concrete pair 3 vs 4 differs at that position: still rejected (a wildcard is
+// not a free pass over differing concrete dims).
+// ---------------------------------------------------------------------------
+TEST_F(AcosGradInfershape, acos_grad_infershape_dyn_concrete_mismatch_reject_test)
+{
+    gert::InfershapeContextPara infershapeContextPara("AcosGrad",
+                                                      {
+                                                          {{{-1, 3}, {-1, 3}}, ge::DT_FLOAT, ge::FORMAT_ND}, // y
+                                                          {{{2, 4}, {2, 4}}, ge::DT_FLOAT, ge::FORMAT_ND},   // dy
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      });
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED);
+}
+
+// ---------------------------------------------------------------------------
+// Merge: y=[2,3] fully known vs dy=[2,-1] — the -1 wildcard passes; y as base
+// has no unknown dims to fill: z=y=[2,3] unchanged.
+// ---------------------------------------------------------------------------
+TEST_F(AcosGradInfershape, acos_grad_infershape_dyn_dy_unknown_dim_keep_y_test)
+{
+    gert::InfershapeContextPara infershapeContextPara("AcosGrad",
+                                                      {
+                                                          {{{2, 3}, {2, 3}}, ge::DT_FLOAT, ge::FORMAT_ND},   // y
+                                                          {{{2, -1}, {2, -1}}, ge::DT_FLOAT, ge::FORMAT_ND}, // dy
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      });
+    std::vector<std::vector<int64_t>> expectOutputShape = {{2, 3}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+// ---------------------------------------------------------------------------
+// Merge: y=[-2] and dy=[-2] both unknown rank — wildcard passes; no known
+// side to absorb from: z=y=[-2] unchanged.
+// ---------------------------------------------------------------------------
+TEST_F(AcosGradInfershape, acos_grad_infershape_dyn_both_unknown_rank_test)
+{
+    gert::InfershapeContextPara infershapeContextPara("AcosGrad",
+                                                      {
+                                                          {{{-2}, {-2}}, ge::DT_FLOAT, ge::FORMAT_ND}, // y
+                                                          {{{-2}, {-2}}, ge::DT_FLOAT, ge::FORMAT_ND}, // dy
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      });
+    std::vector<std::vector<int64_t>> expectOutputShape = {{-2}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+// ---------------------------------------------------------------------------
+// Dynamic declaration, both sides identical: y=[2,-1] == dy=[2,-1] — identical
+// declared shapes pass through (dynamic markers included) as z.shape.
+// ---------------------------------------------------------------------------
+TEST_F(AcosGradInfershape, acos_grad_infershape_dyn_same_decl_test)
+{
+    gert::InfershapeContextPara infershapeContextPara("AcosGrad",
+                                                      {
+                                                          {{{2, -1}, {2, -1}}, ge::DT_FLOAT, ge::FORMAT_ND}, // y
+                                                          {{{2, -1}, {2, -1}}, ge::DT_FLOAT, ge::FORMAT_ND}, // dy
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      });
+    std::vector<std::vector<int64_t>> expectOutputShape = {{2, -1}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+// ---------------------------------------------------------------------------
+// Dynamic declaration, both sides all-unknown rank 8 — identical declarations
+// pass through.
+// ---------------------------------------------------------------------------
+TEST_F(AcosGradInfershape, acos_grad_infershape_dyn_all_unknown_same_decl_test)
+{
+    gert::InfershapeContextPara infershapeContextPara(
+        "AcosGrad",
+        {
+            {{{-1, -1, -1, -1, -1, -1, -1, -1}, {-1, -1, -1, -1, -1, -1, -1, -1}}, ge::DT_FLOAT, ge::FORMAT_ND},
+            {{{-1, -1, -1, -1, -1, -1, -1, -1}, {-1, -1, -1, -1, -1, -1, -1, -1}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        {
+            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        });
+    std::vector<std::vector<int64_t>> expectOutputShape = {{-1, -1, -1, -1, -1, -1, -1, -1}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+// ---------------------------------------------------------------------------
+// 0-dim scalar, fp32 — same-shape pair of rank 0.
+// ---------------------------------------------------------------------------
+TEST_F(AcosGradInfershape, acos_grad_infershape_0dim_fp32_test)
+{
+    gert::InfershapeContextPara infershapeContextPara("AcosGrad",
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND}, // y
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND}, // dy
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      });
+    std::vector<std::vector<int64_t>> expectOutputShape = {};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+// ---------------------------------------------------------------------------
+// 3D, fp32 — same-shape pair, middle rank coverage.
+// ---------------------------------------------------------------------------
+TEST_F(AcosGradInfershape, acos_grad_infershape_3d_fp32_test)
+{
+    gert::InfershapeContextPara infershapeContextPara("AcosGrad",
+                                                      {
+                                                          {{{2, 3, 4}, {2, 3, 4}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                          {{{2, 3, 4}, {2, 3, 4}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      });
+    std::vector<std::vector<int64_t>> expectOutputShape = {{2, 3, 4}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+// ---------------------------------------------------------------------------
+// y/dy shape mismatch (same rank, different dim value) — must be rejected by
+// the strict same-shape gate: AcosGrad does not support broadcast.
+// ---------------------------------------------------------------------------
+TEST_F(AcosGradInfershape, acos_grad_infershape_mismatch_reject_test)
+{
+    gert::InfershapeContextPara infershapeContextPara("AcosGrad",
+                                                      {
+                                                          {{{2, 3}, {2, 3}}, ge::DT_FLOAT, ge::FORMAT_ND}, // y
+                                                          {{{2, 4}, {2, 4}}, ge::DT_FLOAT, ge::FORMAT_ND}, // dy
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      });
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED);
+}
+
+// ---------------------------------------------------------------------------
+// y/dy broadcast-shaped pair (y=[2,1] vs dy=[1,3]) — broadcast is not
+// supported, must be rejected.
+// ---------------------------------------------------------------------------
+TEST_F(AcosGradInfershape, acos_grad_infershape_broadcast_reject_test)
+{
+    gert::InfershapeContextPara infershapeContextPara("AcosGrad",
+                                                      {
+                                                          {{{2, 1}, {2, 1}}, ge::DT_FLOAT, ge::FORMAT_ND}, // y
+                                                          {{{1, 3}, {1, 3}}, ge::DT_FLOAT, ge::FORMAT_ND}, // dy
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      });
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED);
+}
+
+// ---------------------------------------------------------------------------
+// y/dy equal-element-count but different shape (y=[2,3] vs dy=[3,2]) — same
+// total elements must NOT bypass the same-shape gate.
+// ---------------------------------------------------------------------------
+TEST_F(AcosGradInfershape, acos_grad_infershape_eqnum_mismatch_reject_test)
+{
+    gert::InfershapeContextPara infershapeContextPara("AcosGrad",
+                                                      {
+                                                          {{{2, 3}, {2, 3}}, ge::DT_FLOAT, ge::FORMAT_ND}, // y
+                                                          {{{3, 2}, {3, 2}}, ge::DT_FLOAT, ge::FORMAT_ND}, // dy
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      });
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED);
+}
+
+// ---------------------------------------------------------------------------
+// y/dy rank mismatch (y=[2,3] vs dy=[2,3,4]) — must be rejected.
+// ---------------------------------------------------------------------------
+TEST_F(AcosGradInfershape, acos_grad_infershape_rank_mismatch_reject_test)
+{
+    gert::InfershapeContextPara infershapeContextPara("AcosGrad",
+                                                      {
+                                                          {{{2, 3}, {2, 3}}, ge::DT_FLOAT, ge::FORMAT_ND},       // y
+                                                          {{{2, 3, 4}, {2, 3, 4}}, ge::DT_FLOAT, ge::FORMAT_ND}, // dy
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      });
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED);
 }

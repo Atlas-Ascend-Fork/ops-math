@@ -56,8 +56,7 @@ public:
             .DynamicShapeSupportFlag(true)
             .PrecisionReduceFlag(true)
             .NeedCheckSupportFlag(false)
-            .DynamicRankSupportFlag(true)
-            .ExtendCfgInfo("opFile.value", "acos_grad_apt");
+            .DynamicRankSupportFlag(true);
         this->AICore().AddConfig("ascend950", aiCoreConfig);
         this->AICore().AddConfig("ascend350", aiCoreConfig);
     }

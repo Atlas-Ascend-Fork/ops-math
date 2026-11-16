@@ -1,6 +1,6 @@
 /**
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
- * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * This program is free software: you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
@@ -12,39 +12,72 @@
 
 /*!
  * \file acos_grad_infershape.cpp
- * \brief AcosGrad shape inference (z shape equals y shape)
+ * \brief AcosGrad shape inference (z shape = y shape, y and dy must have the same shape;
+ *        output merges unknown info: takes dy known shape when y rank is unknown, y as base with
+ *        dim-level known absorption from dy otherwise)
  */
 
 #include "util/shape_util.h"
-#include "register/op_impl_registry.h"
-#include "exe_graph/runtime/infer_shape_context.h"
 #include "log/log.h"
+#include "register/op_impl_registry.h"
 
 using namespace ge;
 
 namespace ops {
 
+// GE shape标记语义: -1=未知维, -2=未知rank; 同形校验中标记按通配处理。
+static bool ShapeEqualOrUnknown(const gert::Shape& yShape, const gert::Shape& dyShape)
+{
+    if (Ops::Base::IsUnknownRank(yShape) || Ops::Base::IsUnknownRank(dyShape)) {
+        return true;
+    }
+    if (yShape.GetDimNum() != dyShape.GetDimNum()) {
+        return false;
+    }
+    for (size_t i = 0; i < yShape.GetDimNum(); ++i) {
+        const int64_t dimY = yShape.GetDim(i);
+        const int64_t dimDy = dyShape.GetDim(i);
+        if (dimY != dimDy && dimY != -1 && dimDy != -1) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// 用known侧同位值填充out中标记为未知(-1)的维。
+static void FillUnknownDims(gert::Shape& outShape, const gert::Shape& knownSide)
+{
+    for (size_t i = 0; i < outShape.GetDimNum(); ++i) {
+        if (outShape.GetDim(i) == -1 && knownSide.GetDim(i) != -1) {
+            outShape.SetDim(i, knownSide.GetDim(i));
+        }
+    }
+}
+
 static ge::graphStatus InferShape4AcosGrad(gert::InferShapeContext* context)
 {
     const gert::Shape* yShape = context->GetInputShape(0);
-    if (yShape == nullptr) {
-        return ge::GRAPH_FAILED;
-    }
-
+    OP_CHECK_NULL_WITH_CONTEXT(context, yShape);
     const gert::Shape* dyShape = context->GetInputShape(1);
-    if (dyShape == nullptr) {
-        return ge::GRAPH_FAILED;
-    }
-
+    OP_CHECK_NULL_WITH_CONTEXT(context, dyShape);
     gert::Shape* outputShape = context->GetOutputShape(0);
-    if (outputShape == nullptr) {
-        return ge::GRAPH_FAILED;
+    OP_CHECK_NULL_WITH_CONTEXT(context, outputShape);
+
+    OP_CHECK_IF(!ShapeEqualOrUnknown(*yShape, *dyShape),
+                OP_LOGE(context->GetNodeName(), "AcosGrad does not support broadcast: y shape=%s != dy shape=%s",
+                        Ops::Base::ToString(*yShape).c_str(), Ops::Base::ToString(*dyShape).c_str()),
+                return ge::GRAPH_FAILED);
+    const bool yUnknownRank = Ops::Base::IsUnknownRank(*yShape);
+    const bool dyUnknownRank = Ops::Base::IsUnknownRank(*dyShape);
+    if (yUnknownRank && !dyUnknownRank) {
+        *outputShape = *dyShape;
+    } else {
+        *outputShape = *yShape;
+        if (!dyUnknownRank) {
+            FillUnknownDims(*outputShape, *dyShape);
+        }
     }
-
-    *outputShape = *yShape;
-
     OP_LOGI(context->GetNodeName(), "[InferShape] output0 shape=%s", Ops::Base::ToString(*outputShape).c_str());
-
     return ge::GRAPH_SUCCESS;
 }
 

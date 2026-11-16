@@ -23,6 +23,7 @@
  */
 
 #include "register/op_def_registry.h"
+#include <graph/utils/type_utils.h>
 #include "log/log.h"
 #include "util/math_util.h"
 #include "util/platform_util.h"
@@ -37,7 +38,8 @@ using Ops::Base::FloorDiv;
 
 constexpr uint32_t WS_SYS_SIZE = 0U;
 constexpr uint32_t ELEM_ALIGN = 512U;
-constexpr uint64_t UB_SIZE_BYTES = 184U * 1024U;
+// uint32_t 表示上界: tiling 块参数(uint32 字段)窄化前的值域校验基准
+constexpr int64_t MAX_UINT32_VALUE = 4294967295;
 
 static const gert::Shape g_vec_1_shape = {1};
 
@@ -62,7 +64,68 @@ static ge::graphStatus GetPlatformInfo(gert::TilingContext* context, uint64_t& u
     return ge::GRAPH_SUCCESS;
 }
 
-static ge::graphStatus GetShapeInfo(gert::TilingContext* context, uint64_t& totalLength, ge::DataType& dataType)
+static bool CheckShapeInfoValid(gert::TilingContext* context, const gert::Shape& yShape, const gert::Shape& dyShape,
+                                const gert::Shape& zShape)
+{
+    // y/dy/z 元素数一致: element-wise kernel 只消费总元素数, 逐维形状不参与
+    // (2026-11-13 用户裁决, 回归 upstream 23af05a68 GetShapeSize 计数比较形态)
+    OP_CHECK_IF(yShape.GetShapeSize() != dyShape.GetShapeSize() || yShape.GetShapeSize() != zShape.GetShapeSize(),
+                OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(
+                    context->GetNodeName(), "y, dy, z",
+                    (std::to_string(yShape.GetShapeSize()) + ", " + std::to_string(dyShape.GetShapeSize()) + ", " +
+                     std::to_string(zShape.GetShapeSize()))
+                        .c_str(),
+                    "the element counts of y, dy and z must be the same"),
+                return false);
+    return true;
+}
+
+static bool CheckElementCountValid(gert::TilingContext* context, int64_t totalLengthI64)
+{
+    // 元素总数全程以 int64 承载(块数学原生域), 仅在下发 tiling 时单次转 uint64(kernel 契约):
+    // 负值(维度乘积溢出 int64 时框架 checked 乘法返回 INT64_MIN 哨兵值)若穿透该边界
+    // 转换会回绕为巨值, 后续块参数下限钳位使 uint32 值域门无法拦截, 巨值 totalLength
+    // 将被下发到 kernel
+    OP_CHECK_IF(
+        totalLengthI64 < 0,
+        OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(context->GetNodeName(), "y", std::to_string(totalLengthI64).c_str(),
+                                                  "shape element count is negative (non-concrete dim or overflow)"),
+        return false);
+    return true;
+}
+
+static bool CheckDtypeValid(gert::TilingContext* context, const ge::DataType& yDtype, const ge::DataType& dyDtype,
+                            const ge::DataType& zDtype)
+{
+    // Dtype validation: y must be in the supported set and dy/z must share the
+    // same dtype. The kernel reads y/dy/z with a single T derived from y, so a
+    // mixed-dtype pair would silently misread the dy buffer.
+    const std::set<ge::DataType> supportedDtype = {ge::DT_FLOAT16, ge::DT_FLOAT, ge::DT_BF16};
+    if (supportedDtype.count(yDtype) == 0) {
+        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "y",
+                                              ge::TypeUtils::DataTypeToSerialString(yDtype),
+                                              "The dtype of y must be FLOAT16, FLOAT or BF16");
+        return false;
+    }
+    OP_CHECK_IF(
+        dyDtype != yDtype,
+        OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(context->GetNodeName(), "y, dy",
+                                               std::string(ge::TypeUtils::DataTypeToSerialString(yDtype)) + ", " +
+                                                   std::string(ge::TypeUtils::DataTypeToSerialString(dyDtype)),
+                                               "The dtypes of y and dy must be the same"),
+        return false);
+    // README: z 的数据类型与 y/dy 一致(kernel 以单一 T 读写 z)
+    OP_CHECK_IF(
+        zDtype != yDtype,
+        OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(context->GetNodeName(), "y, z",
+                                               std::string(ge::TypeUtils::DataTypeToSerialString(yDtype)) + ", " +
+                                                   std::string(ge::TypeUtils::DataTypeToSerialString(zDtype)),
+                                               "The dtypes of y and z must be the same"),
+        return false);
+    return true;
+}
+
+static ge::graphStatus GetShapeInfo(gert::TilingContext* context, int64_t& totalLength, ge::DataType& dataType)
 {
     auto inputY = context->GetInputShape(0);
     OP_CHECK_NULL_WITH_CONTEXT(context, inputY);
@@ -76,21 +139,23 @@ static ge::graphStatus GetShapeInfo(gert::TilingContext* context, uint64_t& tota
     OP_CHECK_NULL_WITH_CONTEXT(context, outputZ);
     auto zShape = EnsureNotScalar(outputZ->GetStorageShape());
 
-    OP_CHECK_IF(yShape.GetShapeSize() != dyShape.GetShapeSize() || yShape.GetShapeSize() != zShape.GetShapeSize(),
-                OP_LOGE(context, "AcosGrad: shape size mismatch: y=%ld, dy=%ld, z=%ld", yShape.GetShapeSize(),
-                        dyShape.GetShapeSize(), zShape.GetShapeSize()),
-                return ge::GRAPH_FAILED);
-
-    totalLength = static_cast<uint64_t>(yShape.GetShapeSize());
-
-    const std::set<ge::DataType> supportedDtype = {ge::DT_FLOAT16, ge::DT_FLOAT, ge::DT_BF16};
     auto inputDesc = context->GetInputDesc(0);
     OP_CHECK_NULL_WITH_CONTEXT(context, inputDesc);
     dataType = inputDesc->GetDataType();
-    if (supportedDtype.count(dataType) == 0) {
-        OP_LOGE(context, "AcosGrad: unsupported dtype %d", static_cast<int>(dataType));
-        return ge::GRAPH_FAILED;
-    }
+    auto dyDesc = context->GetInputDesc(1);
+    OP_CHECK_NULL_WITH_CONTEXT(context, dyDesc);
+    auto zDesc = context->GetOutputDesc(0);
+    OP_CHECK_NULL_WITH_CONTEXT(context, zDesc);
+
+    const int64_t totalLengthI64 = yShape.GetShapeSize();
+    OP_CHECK_IF(!CheckShapeInfoValid(context, yShape, dyShape, zShape), OP_LOGE(context, "CheckShapeInfoValid error"),
+                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(!CheckElementCountValid(context, totalLengthI64), OP_LOGE(context, "CheckElementCountValid error"),
+                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(!CheckDtypeValid(context, dataType, dyDesc->GetDataType(), zDesc->GetDataType()),
+                OP_LOGE(context, "CheckDtypeValid error"), return ge::GRAPH_FAILED);
+    // 不变量: totalLength 输出为非负 int64(负值已由上方 CheckElementCountValid 拦截)
+    totalLength = totalLengthI64;
     return ge::GRAPH_SUCCESS;
 }
 
@@ -102,37 +167,49 @@ static ge::graphStatus SetWorkspaceSize(gert::TilingContext* context)
     return ge::GRAPH_SUCCESS;
 }
 
-static void CalcBlockParams(uint64_t totalLength, uint32_t availCoreNum, uint32_t& blockFormer, uint32_t& blockNum)
+static ge::graphStatus CalcBlockParams(gert::TilingContext* context, int64_t totalLength, uint32_t availCoreNum,
+                                       uint32_t& blockFormer, uint32_t& blockNum)
 {
-    uint32_t coreNum = static_cast<uint32_t>(
-        CeilDiv(static_cast<int64_t>(totalLength), static_cast<int64_t>(ELEM_ALIGN)));
-    if (coreNum > availCoreNum) {
-        coreNum = availCoreNum;
+    // 块参数全程以 int64 承载, 窄化到 uint32 tiling 字段前校验值域:
+    // 中间值 ≥ 2^32 时显式报错, 杜绝先运算后窄化的按模回绕
+    int64_t blockCount = CeilDiv(totalLength, static_cast<int64_t>(ELEM_ALIGN));
+    if (blockCount > static_cast<int64_t>(availCoreNum)) {
+        blockCount = static_cast<int64_t>(availCoreNum);
     }
-    if (coreNum < 1U) {
-        coreNum = 1U;
-    }
-
-    uint32_t blockFormerRaw = static_cast<uint32_t>(
-        CeilDiv(static_cast<int64_t>(totalLength), static_cast<int64_t>(coreNum)));
-    blockFormer = static_cast<uint32_t>(
-        CeilDiv(static_cast<int64_t>(blockFormerRaw), static_cast<int64_t>(ELEM_ALIGN)) * ELEM_ALIGN);
-    if (blockFormer < ELEM_ALIGN) {
-        blockFormer = ELEM_ALIGN;
+    if (blockCount < 1) {
+        blockCount = 1;
     }
 
-    blockNum = static_cast<uint32_t>(CeilDiv(static_cast<int64_t>(totalLength), static_cast<int64_t>(blockFormer)));
-    if (blockNum < 1U) {
-        blockNum = 1U;
+    int64_t blockFormerRaw = CeilDiv(totalLength, blockCount);
+    int64_t blockFormerAligned = CeilDiv(blockFormerRaw, static_cast<int64_t>(ELEM_ALIGN)) *
+                                 static_cast<int64_t>(ELEM_ALIGN);
+    if (blockFormerAligned < static_cast<int64_t>(ELEM_ALIGN)) {
+        blockFormerAligned = static_cast<int64_t>(ELEM_ALIGN);
     }
+
+    int64_t blockNumAligned = CeilDiv(totalLength, blockFormerAligned);
+    if (blockNumAligned < 1) {
+        blockNumAligned = 1;
+    }
+
+    OP_CHECK_IF(
+        blockFormerAligned > MAX_UINT32_VALUE || blockNumAligned > MAX_UINT32_VALUE,
+        OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(context->GetNodeName(), "y", std::to_string(totalLength),
+                                                  "total elements exceed the uint32 range of tiling block parameters"),
+        return ge::GRAPH_FAILED);
+
+    blockFormer = static_cast<uint32_t>(blockFormerAligned);
+    blockNum = static_cast<uint32_t>(blockNumAligned);
+    return ge::GRAPH_SUCCESS;
 }
 
-static void CalcTilingParams(uint64_t totalLength, uint32_t availCoreNum, ge::DataType dataType,
-                             AcosGradTilingData* tiling)
+static ge::graphStatus CalcTilingParams(gert::TilingContext* context, int64_t totalLength, uint32_t availCoreNum,
+                                        uint64_t ubSize, ge::DataType dataType, AcosGradTilingData* tiling)
 {
     uint32_t blockFormer = 0U;
     uint32_t blockNum = 0U;
-    CalcBlockParams(totalLength, availCoreNum, blockFormer, blockNum);
+    OP_CHECK_IF(CalcBlockParams(context, totalLength, availCoreNum, blockFormer, blockNum) != ge::GRAPH_SUCCESS,
+                OP_LOGE(context, "CalcBlockParams error"), return ge::GRAPH_FAILED);
 
     uint32_t bytesPerElem;
     uint32_t alignFactor;
@@ -145,7 +222,8 @@ static void CalcTilingParams(uint64_t totalLength, uint32_t availCoreNum, ge::Da
         alignFactor = 128U;
     }
 
-    uint32_t ubFormerRaw = static_cast<uint32_t>(UB_SIZE_BYTES / bytesPerElem);
+    // UB 容量以 GetCoreMemSize 返回值为准(仓内跨平台迁移指南约定), 不使用硬编码常量
+    uint32_t ubFormerRaw = static_cast<uint32_t>(ubSize / bytesPerElem);
     uint32_t ubFormer = static_cast<uint32_t>(
         FloorDiv(static_cast<int64_t>(ubFormerRaw), static_cast<int64_t>(alignFactor)) * alignFactor);
     if (ubFormer < alignFactor) {
@@ -155,7 +233,7 @@ static void CalcTilingParams(uint64_t totalLength, uint32_t availCoreNum, ge::Da
         ubFormer = blockFormer;
     }
 
-    uint64_t tailBlockStart = static_cast<uint64_t>(blockNum - 1) * blockFormer;
+    int64_t tailBlockStart = static_cast<int64_t>(blockNum - 1) * blockFormer;
     uint32_t tailBlockLen = (tailBlockStart < totalLength) ? static_cast<uint32_t>(totalLength - tailBlockStart) : 0U;
 
     uint32_t ubLoopOfFormerBlock = (ubFormer > 0U) ? (blockFormer / ubFormer) : 0U;
@@ -164,7 +242,7 @@ static void CalcTilingParams(uint64_t totalLength, uint32_t availCoreNum, ge::Da
     uint32_t ubLoopOfTailBlock = (ubFormer > 0U && tailBlockLen > 0U) ? (tailBlockLen / ubFormer) : 0U;
     uint32_t ubTailOfTailBlock = (ubFormer > 0U && tailBlockLen > 0U) ? (tailBlockLen % ubFormer) : tailBlockLen;
 
-    tiling->totalLength = totalLength;
+    tiling->totalLength = static_cast<uint64_t>(totalLength);
     tiling->blockFormer = blockFormer;
     tiling->blockNum = blockNum;
     tiling->ubFormer = ubFormer;
@@ -172,6 +250,7 @@ static void CalcTilingParams(uint64_t totalLength, uint32_t availCoreNum, ge::Da
     tiling->ubTailOfFormerBlock = ubTailOfFormerBlock;
     tiling->ubLoopOfTailBlock = ubLoopOfTailBlock;
     tiling->ubTailOfTailBlock = ubTailOfTailBlock;
+    return ge::GRAPH_SUCCESS;
 }
 
 static ge::graphStatus AcosGradTilingFunc(gert::TilingContext* context)
@@ -181,19 +260,19 @@ static ge::graphStatus AcosGradTilingFunc(gert::TilingContext* context)
     uint64_t ubSize = 0UL;
     uint32_t coreNum = 0U;
     OP_CHECK_IF(GetPlatformInfo(context, ubSize, coreNum) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context, "AcosGrad: GetPlatformInfo error"), return ge::GRAPH_FAILED);
+                OP_LOGE(context, "GetPlatformInfo error"), return ge::GRAPH_FAILED);
 
     OP_LOGI(context, "[AcosGrad Tiling] coreNum=%u, ubSize=%lu", coreNum, ubSize);
 
-    uint64_t totalLength = 0UL;
+    int64_t totalLength = 0;
     ge::DataType dataType;
     OP_CHECK_IF(GetShapeInfo(context, totalLength, dataType) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context, "AcosGrad: GetShapeInfo error"), return ge::GRAPH_FAILED);
+                OP_LOGE(context, "GetShapeInfo error"), return ge::GRAPH_FAILED);
 
-    OP_CHECK_IF(SetWorkspaceSize(context) != ge::GRAPH_SUCCESS, OP_LOGE(context, "AcosGrad: SetWorkspaceSize error"),
+    OP_CHECK_IF(SetWorkspaceSize(context) != ge::GRAPH_SUCCESS, OP_LOGE(context, "SetWorkspaceSize error"),
                 return ge::GRAPH_FAILED);
 
-    if (totalLength == 0UL) {
+    if (totalLength == 0) {
         AcosGradTilingData* tiling = context->GetTilingData<AcosGradTilingData>();
         OP_CHECK_NULL_WITH_CONTEXT(context, tiling);
         memset_s(tiling, sizeof(AcosGradTilingData), 0, sizeof(AcosGradTilingData));
@@ -206,13 +285,14 @@ static ge::graphStatus AcosGradTilingFunc(gert::TilingContext* context)
     AcosGradTilingData* tiling = context->GetTilingData<AcosGradTilingData>();
     OP_CHECK_NULL_WITH_CONTEXT(context, tiling);
     OP_CHECK_IF(memset_s(tiling, sizeof(AcosGradTilingData), 0, sizeof(AcosGradTilingData)) != EOK,
-                OP_LOGE(context, "AcosGrad: memset_s tiling data error"), return ge::GRAPH_FAILED);
+                OP_LOGE(context, "memset_s tiling data error"), return ge::GRAPH_FAILED);
 
-    CalcTilingParams(totalLength, coreNum, dataType, tiling);
+    OP_CHECK_IF(CalcTilingParams(context, totalLength, coreNum, ubSize, dataType, tiling) != ge::GRAPH_SUCCESS,
+                OP_LOGE(context, "CalcTilingParams error"), return ge::GRAPH_FAILED);
 
     context->SetBlockDim(tiling->blockNum);
 
-    uint64_t useDoubleBuffer = (totalLength > 1024UL) ? 1 : 0;
+    uint64_t useDoubleBuffer = (totalLength > 1024) ? 1 : 0;
     ASCENDC_TPL_SEL_PARAM(context, useDoubleBuffer);
 
     OP_LOGI(context,

@@ -22,23 +22,23 @@
 
 namespace ge {
 /**
-* @brief Computes gradients for Acos operation. Support broadcasting operations.
-*
-* @par Inputs:
-* Two inputs, including:
-* @li y: A tensor of type float16 or float32 or bfloat16.
-*        Semantically the forward input of Acos (per TensorFlow convention).
-* @li dy: A tensor with the same dtype as "y". Upstream gradient. \n
-*
-* @attention Constraints:
-* "dy" has the same shape with "y".
-*
-* @par Outputs:
-* z: A tensor. Has the same dtype as "y". Gradient w.r.t. the original input of Acos.
-*
-* @par Third-party framework compatibility
-* Compatible with the TensorFlow operator AcosGrad.
-*/
+ * @brief Computes gradients for Acos operation. The shapes of "y" and "dy" must be identical.
+ *
+ * @par Inputs:
+ * Two inputs, including:
+ * @li y: A tensor of type float16 or float32 or bfloat16.
+ *        Semantically the forward input of Acos (per TensorFlow convention).
+ * @li dy: A tensor with the same dtype as "y". Upstream gradient. \n
+ *
+ * @attention Constraints:
+ * "dy" has the same shape with "y".
+ *
+ * @par Outputs:
+ * z: A tensor. Has the same dtype as "y". Gradient w.r.t. the original input of Acos.
+ *
+ * @par Third-party framework compatibility
+ * Compatible with the TensorFlow operator AcosGrad.
+ */
 REG_OP(AcosGrad)
     .INPUT(y, TensorType({DT_BF16, DT_FLOAT16, DT_FLOAT}))
     .INPUT(dy, TensorType({DT_BF16, DT_FLOAT16, DT_FLOAT}))

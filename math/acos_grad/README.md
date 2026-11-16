@@ -26,7 +26,7 @@
   - $dy_i$ 为上游传入的梯度；
   - $z_i$ 为对原始输入张量的梯度，等于上游梯度乘以 $-1/\sqrt{1 - y_i^2}$。
 
-- 超出定义域（$|y_i| > 1$）时：$1 - y_i^2 < 0$，平方根结果为NaN，结果同样为NaN。
+- 边界行为：当 $y_i = \pm 1$ 时，$1 - y_i^2 = 0$，$dy_i \neq 0$ 时除零结果为 $\pm\text{Inf}$（符号与 $-dy_i$ 一致），$dy_i = 0$ 时 $0/0$ 结果为NaN；超出定义域（$|y_i| > 1$）时，$1 - y_i^2 < 0$，平方根结果为NaN，结果同样为NaN。建议输入 $y$ 的值域落在 $(-1, 1)$，以避免产生Inf或NaN结果。
 
 ## 参数说明
 
@@ -50,21 +50,21 @@
       <td>y</td>
       <td>输入</td>
       <td>前向Acos算子的输入张量。值域期望落在 [-1, 1]。</td>
-      <td>FLOAT16, FLOAT32, BFLOAT16</td>
+      <td>FLOAT16, FLOAT, BFLOAT16</td>
       <td>ND</td>
     </tr>
     <tr>
       <td>dy</td>
       <td>输入</td>
       <td>上游传入的梯度张量，shape与dtype与y一致。</td>
-      <td>FLOAT16, FLOAT32, BFLOAT16</td>
+      <td>FLOAT16, FLOAT, BFLOAT16</td>
       <td>ND</td>
     </tr>
     <tr>
       <td>z</td>
       <td>输出</td>
       <td>对原始输入张量的梯度，shape与dtype与y一致。</td>
-      <td>FLOAT16, FLOAT32, BFLOAT16</td>
+      <td>FLOAT16, FLOAT, BFLOAT16</td>
       <td>ND</td>
     </tr>
   </tbody></table>
@@ -73,8 +73,6 @@
 
 - y与dy的shape必须完全一致。
 - y与dy的dtype必须完全一致。
-- 仅支持ND格式。
-- 支持 [非连续的Tensor](../../docs/zh/context/non_contiguous_tensor.md)，非连续的Tensor维度不大于8。
 
 ## 调用说明
 

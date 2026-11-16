@@ -27,7 +27,7 @@ English | [简体中文](./README.md)
   - $dy_i$ is the gradient passed from upstream;
   - $z_i$ is the gradient with respect to the original input tensor, which equals the upstream gradient multiplied by $-1/\sqrt{1 - y_i^2}$.
 
-- When the value is out of the domain ($|y_i| > 1$): $1 - y_i^2 < 0$, the square root result is NaN, and the result is also NaN.
+- Boundary behavior: when $y_i = \pm 1$, $1 - y_i^2 = 0$ — the division-by-zero result is $\pm\text{Inf}$ if $dy_i \neq 0$ (the sign is consistent with $-dy_i$), and NaN if $dy_i = 0$ ($0/0$); when the value is out of the domain ($|y_i| > 1$), $1 - y_i^2 < 0$, the square root result is NaN, and the result is also NaN. It is recommended that the input $y$ fall within $(-1, 1)$ to avoid Inf or NaN results.
 
 ## Parameter Description
 
@@ -51,21 +51,21 @@ English | [简体中文](./README.md)
       <td>y</td>
       <td>Input</td>
       <td>The input tensor of the forward Acos operator. The value range is expected to fall within [-1, 1].</td>
-      <td>FLOAT16, FLOAT32, BFLOAT16</td>
+      <td>FLOAT16, FLOAT, BFLOAT16</td>
       <td>ND</td>
     </tr>
     <tr>
       <td>dy</td>
       <td>Input</td>
       <td>The gradient tensor passed from upstream, whose shape and dtype are the same as those of y.</td>
-      <td>FLOAT16, FLOAT32, BFLOAT16</td>
+      <td>FLOAT16, FLOAT, BFLOAT16</td>
       <td>ND</td>
     </tr>
     <tr>
       <td>z</td>
       <td>Output</td>
       <td>The gradient with respect to the original input tensor, whose shape and dtype are the same as those of y.</td>
-      <td>FLOAT16, FLOAT32, BFLOAT16</td>
+      <td>FLOAT16, FLOAT, BFLOAT16</td>
       <td>ND</td>
     </tr>
   </tbody></table>
@@ -74,8 +74,6 @@ English | [简体中文](./README.md)
 
 - The shapes of y and dy must be exactly the same.
 - The dtypes of y and dy must be exactly the same.
-- Only the ND format is supported.
-- [Non-contiguous tensors](../../docs/en/context/non_contiguous_tensor.md) are supported, and the number of dimensions of a non-contiguous tensor cannot be greater than 8.
 
 ## Invocation Description
 
