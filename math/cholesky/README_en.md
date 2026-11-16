@@ -65,7 +65,8 @@ English | [简体中文](./README.md)
 
 ## Constraint Description
 
-- The dimensions of self must be greater than or equal to 2, and self must be a positive-definite matrix.
+- The rank of self must be in [2, 8], the last two dimensions must be equal to form a square matrix, and the last dimension must not exceed 8192. Otherwise the operator-side tiling reports a failure.
+- self must be a real symmetric positive-definite matrix.
 
 ## Invocation Description
 

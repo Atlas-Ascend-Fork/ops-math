@@ -519,12 +519,12 @@
   <tr>
     <td>math</td>
     <td><a href="../../math/cholesky/README.md">cholesky</a></td>
-    <td> </td>
-    <td> </td>
-    <td> </td>
-    <td> </td>
-    <td> </td>
-    <td> </td>
+    <td>√</td>
+    <td>√</td>
+    <td>√</td>
+    <td>√</td>
+    <td>AI Core</td>
+    <td>计算一个或多个实数对称正定矩阵的Cholesky分解。</td>
   </tr>
   <tr>
     <td>math</td>

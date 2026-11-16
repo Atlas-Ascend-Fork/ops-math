@@ -229,8 +229,10 @@ aclnnStatus aclnnLinalgCholesky(
 
 ## Constraints
 
-- Deterministic computation:
-  - aclnnLinalgCholesky defaults to a deterministic implementation.
+- Dimension: the rank of self must be in [2, 8], the last two dimensions must be equal to form a square matrix, and the last dimension M must be in [0, 8192]. Otherwise 161002 (ACLNN_ERR_PARAM_INVALID) is returned.
+- Data type: FLOAT, FLOAT16, BFLOAT16.
+- Empty tensor: an empty tensor whose last two dimensions are equal and whose last dimension does not exceed 8192 (for example `(0, 0)` or `(3, 0, 0)`) is a valid input; the first phase returns success with workspaceSize 0. An empty tensor whose last two dimensions are not equal or whose last dimension exceeds 8192 returns 161002.
+- Deterministic computation: aclnnLinalgCholesky defaults to a deterministic implementation.
 
 ## Example
 

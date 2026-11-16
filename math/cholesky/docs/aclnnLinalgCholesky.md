@@ -227,8 +227,10 @@ aclnnStatus aclnnLinalgCholesky(
 
 ## 约束说明
 
-- 确定性计算：
-  - aclnnLinalgCholesky默认确定性实现。
+- 维度约束：self的维度（rank）必须在[2, 8]范围内，最后两维必须相等构成方阵，最后一维M必须在[0, 8192]范围内；不满足时返回161002（ACLNN_ERR_PARAM_INVALID）。
+- 数据类型：支持FLOAT、FLOAT16、BFLOAT16。
+- 空Tensor：最后两维相等且最后一维不超过8192的空Tensor（如`(0, 0)`、`(3, 0, 0)`）为合法输入，第一段接口返回成功且workspaceSize为0；最后两维不相等或最后一维超过8192的空Tensor返回161002。
+- 确定性计算：aclnnLinalgCholesky默认确定性实现。
 
 ## 调用示例
 
