@@ -11,9 +11,11 @@
 #ifndef SIGNED_ZERO_SORT_UTILS_H
 #define SIGNED_ZERO_SORT_UTILS_H
 
+#include <cstdint>
 #include <type_traits>
 
 #include "kernel_operator.h"
+#include "op_kernel/math_util.h"
 #include "op_kernel/platform_util.h"
 
 namespace SignedZeroSortCommon {
@@ -211,8 +213,12 @@ __aicore__ inline void RestoreSignedZeroValuesByIndexVec(LocalTensor<T>& values,
         for (uint16_t i = 0U; i < repeatTimes; ++i) {
             uint32_t curCount = totalElems - static_cast<uint32_t>(i) * vlSize;
             curCount = curCount > vlSize ? vlSize : curCount;
-            Reg::MaskReg valueMask = Reg::UpdateMask<BitsT>(curCount);
-            Reg::MaskReg indexMask = Reg::UpdateMask<uint32_t>(curCount);
+            // UpdateMask consumes its counter; values and indices need independent
+            // counts even when both use B32 lanes, otherwise indexMask is empty.
+            uint32_t valueCount = curCount;
+            uint32_t indexCount = curCount;
+            Reg::MaskReg valueMask = Reg::UpdateMask<BitsT>(valueCount);
+            Reg::MaskReg indexMask = Reg::UpdateMask<uint32_t>(indexCount);
             Reg::LoadAlign(valueReg, valueAddr + static_cast<uint32_t>(i) * vlSize);
             Reg::LoadAlign(indexReg, indexAddr + static_cast<uint32_t>(i) * vlSize);
             Reg::Gather(sourceOrderReg, sourceOrderAddr, indexReg, indexMask);

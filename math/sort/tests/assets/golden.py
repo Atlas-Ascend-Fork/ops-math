@@ -32,11 +32,7 @@ __golden__ = {
 __input__ = {"kernel": {"sort": "sort_input"}}
 
 _TOLERANCE = {
-    dtype: {
-        "standard": "stat_rel_err"
-        if dtype in ("float16", "float32", "bfloat16")
-        else "binary_equal"
-    }
+    dtype: {"standard": "binary_equal"}
     for dtype in (
         "float16",
         "float32",
