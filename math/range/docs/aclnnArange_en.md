@@ -230,6 +230,8 @@ aclnnStatus aclnnArange(
 - Deterministic computation:
   - aclnnArange defaults to a deterministic implementation.
 
+- Integer output semantics: When out is INT32 or INT64, start and step are first converted to the data type of out (truncated toward zero) before value generation, so the fractional parts of start and step are discarded. For example, with start=0, end=9, step=1.5, out=INT32, and an out tensor of 6 elements, the output is 0, 1, 2, 3, 4, 5.
+
 Warning: When the input data type is float, use float to calculate the output size of out due to precision errors inherent to the data type. If you use double to calculate the output, the double result may be smaller than the float result, in which case the Tiling side will perform verification and issue an alarm.
 
 ## Example

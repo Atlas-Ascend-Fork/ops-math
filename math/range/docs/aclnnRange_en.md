@@ -25,7 +25,7 @@
 
 ## Function
 
-- Description: Generates values from start to end at the interval of step and returns a 1-dimensional tensor of size $\lfloor\frac{end-start}{step}\rfloor+1$. The stride step is the interval between two adjacent values in the tensor.
+- Description: Generates values from start to end at the interval of step and returns a 1-dimensional tensor of size $\lfloor\frac{end-start}{step}\rfloor+1$ (when out is INT32 or INT64, start, end, and step in the formula are the values converted to the data type of out). The stride step is the interval between two adjacent values in the tensor.
 
 - Formula:
 
@@ -229,6 +229,8 @@ aclnnStatus aclnnRange(
 
 - Deterministic computation:
   - aclnnRange defaults to a deterministic implementation.
+
+- Integer output semantics: When out is INT32 or INT64, start, end, and step are first converted to the data type of out (truncated toward zero) before length derivation and value generation, so the fractional parts of start and step are discarded. For example, with start=0, end=9, step=1.5, and out=INT32, step is converted to 1, the derived length is 10, and the output is 0, 1, ..., 9. If out contains fewer elements than the derived length (for example, 7), only the first out-size values are written and the remaining elements of out are not written (their values are undefined); set the number of out elements to the derived length.
 
 Warning: When the input data type is float, use float to calculate the output size of out due to precision errors inherent to the data type. If you use double to calculate the output, the double result may be smaller than the float result, in which case the Tiling side will perform verification and issue an alarm.
 
