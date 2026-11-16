@@ -58,3 +58,16 @@ TEST_F(l2_cumprod_test, l2_cumprod_abnormal_out_nullptr)
     auto explicitDtypeUt = OP_API_UT(aclnnCumprod, INPUT(inputDesc, dimDesc, ACL_FLOAT), OUTPUT((aclTensor*)nullptr));
     EXPECT_EQ(explicitDtypeUt.TestGetWorkspaceSize(&workspaceSize), ACLNN_ERR_PARAM_NULLPTR);
 }
+
+// CheckNotNull_inplace_self_nullptr: 原地入口input为空指针时应在判空处返回161001，而非前置解引用导致进程崩溃
+TEST_F(l2_cumprod_test, l2_cumprod_abnormal_inplace_self_nullptr)
+{
+    auto dimDesc = ScalarDesc(static_cast<int32_t>(1));
+
+    auto ut = OP_API_UT(aclnnInplaceCumprod, INPUT(nullptr, dimDesc), OUTPUT());
+
+    // only test GetWorkspaceSize
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_NULLPTR);
+}

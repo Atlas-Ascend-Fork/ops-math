@@ -23,8 +23,7 @@ extern "C" {
  * @domain aclnn_ops_train
  * 算子功能： 计算输入张量（Tensor）input沿着指定维度的累积乘积。它返回一个新的张量，其形状与输入张量相同
  * @param [in] input: device侧的aclTensor，表示要进行累积乘积运算的输入张量，数据类型支持DT_FLOAT32, DT_FLOAT16,
- DT_BFLOAT16, DT_DOUBLE, DT_INT8, DT_INT16, DT_INT32, DT_INT64, DT_UINT8, DT_UINT16, DT_UINT32, DT_UINT64,
- DT_COMPLEX128, DT_COMPLEX64
+ DT_BFLOAT16, DT_DOUBLE, DT_INT8, DT_INT16, DT_INT32, DT_INT64, DT_UINT8, DT_UINT16, DT_UINT32, DT_UINT64
  * @param [in] dim: npu device侧的aclScalar，用于指定沿着哪个维度进行累积乘积运算,数据类型支持DT_INT32
  * @param [in] dtype host侧的aclDataType，输出tensor的数据类型，需要与out数据类型一致
  * @param [in] out: 返回一个新的张量，其形状与输入张量相同,包含累积乘积。
@@ -41,8 +40,7 @@ ACLNN_API aclnnStatus aclnnCumprodGetWorkspaceSize(const aclTensor* input, const
  * @domain aclnn_ops_train
  * 算子功能： 计算输入张量（Tensor）input沿着指定维度的累积乘积。它返回一个新的张量，其形状与输入张量相同
  * @param [in] input: device侧的aclTensor，表示要进行累积乘积运算的输入张量，数据类型支持DT_FLOAT32, DT_FLOAT16,
- DT_BFLOAT16, DT_DOUBLE, DT_INT8, DT_INT16, DT_INT32, DT_INT64, DT_UINT8, DT_UINT16, DT_UINT32, DT_UINT64,
- DT_COMPLEX128, DT_COMPLEX64
+ DT_BFLOAT16, DT_DOUBLE, DT_INT8, DT_INT16, DT_INT32, DT_INT64, DT_UINT8, DT_UINT16, DT_UINT32, DT_UINT64
  * @param [in] dim: npu device侧的aclScalar，用于指定沿着哪个维度进行累积乘积运算,数据类型支持DT_INT32
  * @param [out] workspaceSize: 返回用户需要在npu device侧申请的workspace大小。
  * @param [out] executor: 返回op执行器，包含算子计算流程。

@@ -162,7 +162,9 @@ aclnnStatus aclnnInplaceCumprodGetWorkspaceSize(aclTensor* input, const aclScala
                                                 aclOpExecutor** executor)
 {
     L2_DFX_PHASE_1(aclnnInplaceCumprod, DFX_IN(input, dim), DFX_OUT(input));
-    return doGetWorkspaceSize(input, dim, ToAclDataType(input->GetDataType()), input, workspaceSize, executor);
+    // 此处不能前置解引用input取dtype，input为空指针时会在进入doGetWorkspaceSize的判空检查前崩溃；
+    // 传ACL_DT_UNDEFINED，由doGetWorkspaceSize在判空后回退取out(即input)的dtype
+    return doGetWorkspaceSize(input, dim, ACL_DT_UNDEFINED, input, workspaceSize, executor);
 }
 aclnnStatus aclnnCumprod(void* workspace, uint64_t workspaceSize, aclOpExecutor* executor, aclrtStream stream)
 {
