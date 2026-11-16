@@ -235,3 +235,55 @@ TEST_F(TransposeInferShapeTest, transpose_infershape_const_unknown_rank)
     std::vector<std::vector<int64_t>> expectOutputShape = {{-1, -1, -1, -1}};
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
+
+// ONNX default: empty const perm with known rank, expect the reversed perm infer result
+TEST_F(TransposeInferShapeTest, transpose_infershape_empty_const_perm_known_rank)
+{
+    gert::InfershapeContextPara::TensorDescription x({{2, 3, 4}, {2, 3, 4}}, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::InfershapeContextPara::TensorDescription perm({{0}, {0}}, ge::DT_INT64, ge::FORMAT_ND, true, nullptr);
+    gert::InfershapeContextPara::TensorDescription out({{1}, {1}}, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::InfershapeContextPara infershapeContextPara("Transpose", {x, perm}, {out});
+    // empty perm behaves like perm = {2, 1, 0}, output shape = {4, 3, 2}
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, {{4, 3, 2}});
+}
+
+// ONNX default: empty const perm with unknown rank input, expect unknown rank output
+TEST_F(TransposeInferShapeTest, transpose_infershape_empty_const_perm_unknown_rank)
+{
+    gert::InfershapeContextPara::TensorDescription x({{-2}, {-2}}, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::InfershapeContextPara::TensorDescription perm({{0}, {0}}, ge::DT_INT64, ge::FORMAT_ND, true, nullptr);
+    gert::InfershapeContextPara::TensorDescription out({{1}, {1}}, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::InfershapeContextPara infershapeContextPara("Transpose", {x, perm}, {out});
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, {{-2}});
+}
+
+// Non-const perm whose desc is 2-D, expect failure (perm rank must not exceed 1)
+TEST_F(TransposeInferShapeTest, transpose_infershape_non_const_perm_multi_dim_desc)
+{
+    gert::InfershapeContextPara::TensorDescription x({{2, 3, 4}, {2, 3, 4}}, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::InfershapeContextPara::TensorDescription perm({{2, 2}, {2, 2}}, ge::DT_INT64, ge::FORMAT_ND);
+    gert::InfershapeContextPara::TensorDescription out({{1}, {1}}, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::InfershapeContextPara infershapeContextPara("Transpose", {x, perm}, {out});
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED, {});
+}
+
+// Perm input pointer is null (the perm shape is dropped together with the tensor), expect failure
+// from the null perm desc check instead of dereferencing it.
+TEST_F(TransposeInferShapeTest, transpose_infershape_null_perm_tensor)
+{
+    gert::InfershapeContextPara::TensorDescription x({{2, 3, 4}, {2, 3, 4}}, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::InfershapeContextPara::TensorDescription perm({{3}, {3}}, ge::DT_INT64, ge::FORMAT_ND);
+    gert::InfershapeContextPara::TensorDescription out({{1}, {1}}, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::InfershapeContextPara infershapeContextPara("Transpose", {x, perm}, {out});
+    infershapeContextPara.nullInputIndices_ = {1};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED, {});
+}
+
+// Only the data input is present (no perm input shape), expect failure from the null perm desc check
+TEST_F(TransposeInferShapeTest, transpose_infershape_missing_perm_input)
+{
+    gert::InfershapeContextPara::TensorDescription x({{2, 3, 4}, {2, 3, 4}}, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::InfershapeContextPara::TensorDescription out({{1}, {1}}, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::InfershapeContextPara infershapeContextPara("Transpose", {x}, {out});
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED, {});
+}

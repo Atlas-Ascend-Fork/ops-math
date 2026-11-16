@@ -27,6 +27,7 @@
  */
 #include <graph/utils/type_utils.h>
 #include <set>
+#include <vector>
 #include "util/math_util.h"
 #include "log/log.h"
 #include "register/op_impl_registry.h"
@@ -138,15 +139,34 @@ static ge::graphStatus TransposeInferShape(gert::InferShapeContext* context)
         return TransposeInferShapeWithUnknownPerm(context, xShape, yShape);
     }
 
-    // 校验 perm 大小必须等于输入维度数
     int64_t permSize = permTensor->GetShapeSize();
     size_t inputDimSize = xShape->GetDimNum();
 
     if (Ops::Base::IsUnknownRank(*xShape)) {
+        if (permSize == 0) {
+            Ops::Base::SetUnknownRank(*yShape);
+            return ge::GRAPH_SUCCESS;
+        }
         Ops::Base::SetUnknownShape(permSize, *yShape);
         return ge::GRAPH_SUCCESS;
     }
 
+    // ONNX Transpose 的 perm 属性允许为空：不传 perm 时默认对输入维度逆序（perm = [rank-1, ..., 0]）。
+    // 此处不能拦截空 perm（空 perm 由 TransposeEmptyPermFusionPass 在 InferShape 之后实体化到图中）；
+    // 为保证推导出的 shape 与最终 perm 语义一致，空 perm 时按逆序规则推导输出 shape。
+    if (permSize == 0) {
+        std::vector<int64_t> reversePerm(inputDimSize);
+        for (size_t i = 0; i < inputDimSize; ++i) {
+            reversePerm[i] = static_cast<int64_t>(inputDimSize - 1 - i);
+        }
+        // The reverse perm built from the input rank is always valid and unique, so the common
+        // inference only fails on genuinely invalid graph state.
+        OP_LOGD(context->GetNodeName(), "Begin to do TransposeInferShape with empty perm (reverse default)");
+        const bool inferOk = TransposeInferCommon(context, xShape, reversePerm.data(), yShape);
+        return inferOk ? ge::GRAPH_SUCCESS : ge::GRAPH_FAILED;
+    }
+
+    // 校验 perm 大小必须等于输入维度数
     OP_CHECK_IF(permSize != static_cast<int64_t>(inputDimSize),
                 OP_LOGE_FOR_INVALID_SHAPESIZE(context->GetNodeName(), "perm", ConcatString(permSize).c_str(),
                                               ConcatString(inputDimSize).c_str()),
@@ -178,6 +198,7 @@ static ge::graphStatus TransposeInferShape(gert::InferShapeContext* context)
     OP_LOGD(context->GetNodeName(), "End to do TransposeInferShape");
     return ge::GRAPH_SUCCESS;
 }
+
 static int64_t privateDefaultValue = 0; ///< _inserted_by_fe 默认值
 IMPL_OP_INFERSHAPE(Transpose)
     .InferShape(TransposeInferShape)
