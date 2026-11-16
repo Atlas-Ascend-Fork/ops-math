@@ -28,9 +28,11 @@ promote to float64 when out=DOUBLE (INT64 low-bit preservation) else
 float32; the result is cast back to the out dtype.
 
 Tolerance is keyed by OUTPUT dtype (TTK convention): float16/float32/
-bfloat16 cross_check L2 on Kernel/Aclnn/Torch specs, plus float64/
-complex64/complex128 on Aclnn/Torch specs (wide input coverage); the TF
-path is level L1.
+bfloat16 cross_check (L2 on Kernel/Aclnn/Torch specs, L1 on the TF spec);
+float64/complex64/complex128 isclose (cross_check supports fp16/bf16/fp32
+outputs only). isclose effective params: rtol/atol prefer the CSV
+precision columns when set, else rtol=1e-4 / atol=1e-8 / ptol=1e-4;
+equal_nan=True.
 """
 
 __spec__ = {
@@ -140,11 +142,12 @@ class AclnnAcoshTestSpec:
         "float16": {"standard": "cross_check", "level": "L2"},
         "float32": {"standard": "cross_check", "level": "L2"},
         "bfloat16": {"standard": "cross_check", "level": "L2"},
-        # 宽集输入例的输出 dtype 补齐(计算类浮点口径); int/uint/bool 经算子
-        # cast 链后输出必落输出 dtype 家族之一
-        "float64": {"standard": "cross_check", "level": "L2"},
-        "complex64": {"standard": "cross_check", "level": "L2"},
-        "complex128": {"standard": "cross_check", "level": "L2"},
+        # 宽集输入例的输出 dtype 补齐; int/uint/bool 经算子 cast 链后
+        # 输出必落输出 dtype 家族之一。f64/complex 键 = isclose
+        # (cross_check 仅支持 f16/bf16/f32 输出); 生效参数见文件头。
+        "float64": {"standard": "isclose"},
+        "complex64": {"standard": "isclose"},
+        "complex128": {"standard": "isclose"},
     }
 
 
@@ -162,10 +165,11 @@ class TorchAcoshTestSpec:
         "float16": {"standard": "cross_check", "level": "L2"},
         "float32": {"standard": "cross_check", "level": "L2"},
         "bfloat16": {"standard": "cross_check", "level": "L2"},
-        # torch e2e 用例含 float64/complex64 输入, 输出 dtype 补齐
-        "float64": {"standard": "cross_check", "level": "L2"},
-        "complex64": {"standard": "cross_check", "level": "L2"},
-        "complex128": {"standard": "cross_check", "level": "L2"},
+        # torch e2e 用例含 float64/complex64 输入, 输出 dtype 补齐;
+        # f64/complex 键 = isclose (口径与生效参数见文件头)。
+        "float64": {"standard": "isclose"},
+        "complex64": {"standard": "isclose"},
+        "complex128": {"standard": "isclose"},
     }
 
 
@@ -178,8 +182,9 @@ class AcoshTensorFlowTestSpec:
         "float16": {"standard": "cross_check", "level": "L1"},
         "float32": {"standard": "cross_check", "level": "L1"},
         "bfloat16": {"standard": "cross_check", "level": "L1"},
-        # tf e2e 用例含 float64/complex64/complex128 输入, 输出 dtype 补齐
-        "float64": {"standard": "cross_check", "level": "L1"},
-        "complex64": {"standard": "cross_check", "level": "L1"},
-        "complex128": {"standard": "cross_check", "level": "L1"},
+        # tf e2e 用例含 float64/complex64/complex128 输入, 输出 dtype 补齐;
+        # f64/complex 键 = isclose (口径与生效参数见文件头)。
+        "float64": {"standard": "isclose"},
+        "complex64": {"standard": "isclose"},
+        "complex128": {"standard": "isclose"},
     }
