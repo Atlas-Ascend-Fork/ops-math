@@ -24,6 +24,26 @@ using namespace ge::fusion;
 class __attribute__((visibility("default"))) ConcatToConcatDFusionPass : public FusionBasePass {
 public:
     Status Run(GraphPtr& graph, CustomPassContext& passContext) override;
+
+protected:
+    // Type filter for rewrite targets. Virtual so the early-stage twin can narrow its scope
+    // (see ConcatToConcatDPrepareFusionPass); the main pass keeps the full concat family.
+    virtual bool IsTargetType(const std::string& opType) const;
+};
+
+// Early-stage twin of ConcatToConcatDFusionPass, registered at kBeforeInferShape (the new-framework
+// counterpart of the legacy BUILT_IN_PREPARE_GRAPH_PASS timing: before shape inference and before
+// the main fusion round, so downstream infershape/const-folding already sees ConcatD).
+// The new-framework PassRegistry deduplicates registrations by name (= class name), and the main
+// registration must keep the name "ConcatToConcatDFusionPass" to match the built-in pass for the
+// kCompatibleInherited takeover, so the early slot needs this separately named subclass that
+// reuses the same Run implementation.
+// Scope narrowing: the early slot rewrites ONLY the classic Concat (axis as input 0) — the type
+// whose axis must be const-to-attr'd before infershape; ConcatV2/ConcatV2D are left for the
+// main-round takeover pass, keeping the early intervention minimal.
+class __attribute__((visibility("default"))) ConcatToConcatDPrepareFusionPass : public ConcatToConcatDFusionPass {
+protected:
+    bool IsTargetType(const std::string& opType) const override;
 };
 
 } // namespace ops

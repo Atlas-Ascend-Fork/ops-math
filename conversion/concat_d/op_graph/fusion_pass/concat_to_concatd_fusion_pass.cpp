@@ -168,6 +168,19 @@ es::EsTensorHolder BuildConcatDTree(es::EsGraphBuilder& builder, std::vector<es:
 }
 } // namespace
 
+// Main-round scope: the full concat family (the built-in pass this one takes over rewrites all
+// three types, so the takeover must keep parity).
+bool ConcatToConcatDFusionPass::IsTargetType(const std::string& opType) const
+{
+    return opType == kTypeConcat || opType == kTypeConcatV2 || opType == kTypeConcatV2D;
+}
+
+// Early-slot scope: ONLY the classic Concat (axis as a const input) — the type whose conversion
+// must happen before infershape for downstream -1 resolution / const folding. ConcatV2 shares the
+// same motivation but is deliberately left to the main round to keep the early intervention
+// minimal; ConcatV2D already carries concat_dim as an attr and has no early-conversion need.
+bool ConcatToConcatDPrepareFusionPass::IsTargetType(const std::string& opType) const { return opType == kTypeConcat; }
+
 Status ConcatToConcatDFusionPass::Run(GraphPtr& graph, CustomPassContext& passContext)
 {
     OP_LOGI(kPassName.c_str(), "ConcatToConcatDFusionPass fusion start.");
@@ -200,7 +213,7 @@ Status ConcatToConcatDFusionPass::Run(GraphPtr& graph, CustomPassContext& passCo
         AscendString typeStr;
         node.GetType(typeStr);
         const std::string opType = typeStr.GetString();
-        if (opType == kTypeConcat || opType == kTypeConcatV2 || opType == kTypeConcatV2D) {
+        if (IsTargetType(opType)) {
             matchedNodes.emplace_back(node);
         }
     }
@@ -472,6 +485,16 @@ Status ConcatToConcatDFusionPass::Run(GraphPtr& graph, CustomPassContext& passCo
 }
 
 #if GE_COMPILER_VERSION_NUM >= GE_COMPILER_VERSION_900
+// Early ("prepare") registration: kBeforeInferShape runs before shape inference, replicating the
+// legacy BUILT_IN_PREPARE_GRAPH_PASS timing of ZConcatFusionPass on A2/A3. All platform/version
+// gates in Run() apply unchanged; on old runtimes the early run defers exactly like the main one.
+// Kept inside this #if: with pre-9.0 headers the main name itself registers at kBeforeInferShape
+// and Run() defers unconditionally, so an extra same-stage registration would be dead weight.
+// Note: on a >=9.0-headers build deployed against an old runtime, GetConcatToConcatDPassStage()
+// falls back to kBeforeInferShape and BOTH names land on that stage; the registry deduplicates by
+// name (not stage) so both coexist, and both defer via the version gate — a tolerated inert
+// duplicate, removable only with runtime-conditional registration which is not worth the complexity.
+REG_FUSION_PASS(ConcatToConcatDPrepareFusionPass).Stage(CustomPassStage::kBeforeInferShape);
 REG_FUSION_PASS(ConcatToConcatDFusionPass).Stage(GetConcatToConcatDPassStage());
 #else
 REG_FUSION_PASS(ConcatToConcatDFusionPass).Stage(CustomPassStage::kBeforeInferShape);

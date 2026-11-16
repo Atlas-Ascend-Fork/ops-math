@@ -1041,3 +1041,128 @@ TEST_F(ConcatToConcatDFusionPassTest, regbaseDav5102FusionSuccess)
 
     EXPECT_EQ(CountNodesOfType(graphPtr, kTypeConcatD), 1);
 }
+
+TEST_F(ConcatToConcatDFusionPassTest, preparePassFusionSuccess)
+{
+    // Path: the early-stage twin (registered at kBeforeInferShape) reuses the same Run and
+    // converts identically to the main pass.
+    SetPlatform("Ascend950", "Ascend950");
+    SetNpuArch(kRegbaseArchDav3510);
+    std::vector<std::vector<int64_t>> dimsVec{{2, 3}, {2, 5}};
+    std::shared_ptr<Graph> graphPtr = BuildConcatGraph(1, dimsVec, DT_FLOAT);
+
+    ConcatToConcatDPrepareFusionPass preparePass;
+    CustomPassContext passContext;
+    SetTestPassName(passContext);
+    Status status = preparePass.Run(graphPtr, passContext);
+    EXPECT_EQ(status, SUCCESS);
+
+    EXPECT_EQ(CountNodesOfType(graphPtr, kTypeConcatD), 1);
+    EXPECT_FALSE(HasNodeType(graphPtr, kTypeConcat));
+}
+
+TEST_F(ConcatToConcatDFusionPassTest, prepareThenMainRoundIdempotent)
+{
+    // Path: dual-stage execution order — the early (kBeforeInferShape) run converts first, then
+    // the main-round run (kCompatibleInherited takeover of the built-in pass) must find nothing
+    // left to do: NOT_CHANGED, exactly one ConcatD, no duplicated rewrite.
+    SetPlatform("Ascend950", "Ascend950");
+    SetNpuArch(kRegbaseArchDav3510);
+    std::vector<std::vector<int64_t>> dimsVec{{2, 3}, {2, 5}};
+    std::shared_ptr<Graph> graphPtr = BuildConcatGraph(1, dimsVec, DT_FLOAT);
+
+    ConcatToConcatDPrepareFusionPass preparePass;
+    CustomPassContext prepareContext;
+    SetTestPassName(prepareContext);
+    ASSERT_EQ(preparePass.Run(graphPtr, prepareContext), SUCCESS);
+    ASSERT_EQ(CountNodesOfType(graphPtr, kTypeConcatD), 1);
+
+    ConcatToConcatDFusionPass mainPass;
+    CustomPassContext mainContext;
+    SetTestPassName(mainContext);
+    Status status = mainPass.Run(graphPtr, mainContext);
+    EXPECT_EQ(status, GRAPH_NOT_CHANGED);
+
+    EXPECT_EQ(CountNodesOfType(graphPtr, kTypeConcatD), 1);
+    EXPECT_FALSE(HasNodeType(graphPtr, kTypeConcat));
+}
+
+TEST_F(ConcatToConcatDFusionPassTest, prepareSkipsConcatV2MainConverts)
+{
+    // Path: scope narrowing — the early twin rewrites ONLY the classic Concat. A ConcatV2 graph
+    // is left unchanged at kBeforeInferShape (NOT_CHANGED), then the main-round pass converts it.
+    SetPlatform("Ascend950", "Ascend950");
+    SetNpuArch(kRegbaseArchDav3510);
+    std::vector<std::vector<int64_t>> dimsVec{{2, 3}, {2, 5}};
+    std::shared_ptr<Graph> graphPtr = BuildConcatV2Graph(1, dimsVec, DT_FLOAT);
+
+    ConcatToConcatDPrepareFusionPass preparePass;
+    CustomPassContext prepareContext;
+    SetTestPassName(prepareContext);
+    Status status = preparePass.Run(graphPtr, prepareContext);
+    EXPECT_EQ(status, GRAPH_NOT_CHANGED);
+    EXPECT_FALSE(HasNodeType(graphPtr, kTypeConcatD));
+    EXPECT_TRUE(HasNodeType(graphPtr, kTypeConcatV2));
+
+    ConcatToConcatDFusionPass mainPass;
+    CustomPassContext mainContext;
+    SetTestPassName(mainContext);
+    status = mainPass.Run(graphPtr, mainContext);
+    EXPECT_EQ(status, SUCCESS);
+    EXPECT_EQ(CountNodesOfType(graphPtr, kTypeConcatD), 1);
+    EXPECT_FALSE(HasNodeType(graphPtr, kTypeConcatV2));
+}
+
+TEST_F(ConcatToConcatDFusionPassTest, prepareSkipsConcatV2DMainConverts)
+{
+    // Path: scope narrowing — ConcatV2D (axis already an attr) is likewise left to the main round.
+    SetPlatform("Ascend950", "Ascend950");
+    SetNpuArch(kRegbaseArchDav3510);
+    const int64_t inputNum = 2;
+    std::vector<int64_t> dimsX{2, 3};
+
+    auto graphBuilder = es::EsGraphBuilder("concat_v2d_prepare_test_graph");
+    std::vector<es::EsTensorHolder> xVec;
+    for (int64_t i = 0; i < inputNum; ++i) {
+        auto x = graphBuilder.CreateInput(static_cast<int32_t>(i), "x", DT_FLOAT, FORMAT_ND, dimsX);
+        SetTensorOutputDesc(x, DT_FLOAT, dimsX);
+        xVec.emplace_back(x);
+    }
+    auto* graph = graphBuilder.GetCGraphBuilder()->GetGraph();
+    auto concatV2D = es::CompliantNodeBuilder(graph)
+                         .OpType("ConcatV2D")
+                         .Name("concat_v2d")
+                         .IrDefInputs({
+                             {"x", es::CompliantNodeBuilder::kEsIrInputDynamic, ""},
+                         })
+                         .InstanceDynamicInputNum("x", static_cast<int32_t>(inputNum))
+                         .IrDefOutputs({{"y", es::CompliantNodeBuilder::kEsIrOutputRequired, ""}})
+                         .IrDefAttrs({
+                             {"concat_dim", es::CompliantNodeBuilder::kEsAttrRequired, "Int",
+                              es::CreateFrom(static_cast<int64_t>(1))},
+                             {"N", es::CompliantNodeBuilder::kEsAttrOptional, "Int",
+                              es::CreateFrom(static_cast<int64_t>(inputNum))},
+                         })
+                         .Build();
+    for (int64_t i = 0; i < inputNum; ++i) {
+        es::AddEdgeAndUpdatePeerDesc(*graph, *xVec[i].GetProducer(), xVec[i].GetProducerOutIndex(), concatV2D,
+                                     static_cast<int32_t>(i));
+    }
+    auto y = graphBuilder.GetCGraphBuilder()->GetTensorHolderFromNode(concatV2D, 0);
+    std::shared_ptr<Graph> graphPtr = graphBuilder.BuildAndReset({y});
+
+    ConcatToConcatDPrepareFusionPass preparePass;
+    CustomPassContext prepareContext;
+    SetTestPassName(prepareContext);
+    Status status = preparePass.Run(graphPtr, prepareContext);
+    EXPECT_EQ(status, GRAPH_NOT_CHANGED);
+    EXPECT_TRUE(HasNodeType(graphPtr, "ConcatV2D"));
+
+    ConcatToConcatDFusionPass mainPass;
+    CustomPassContext mainContext;
+    SetTestPassName(mainContext);
+    status = mainPass.Run(graphPtr, mainContext);
+    EXPECT_EQ(status, SUCCESS);
+    EXPECT_EQ(CountNodesOfType(graphPtr, kTypeConcatD), 1);
+    EXPECT_FALSE(HasNodeType(graphPtr, "ConcatV2D"));
+}
