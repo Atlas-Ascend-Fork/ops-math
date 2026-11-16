@@ -21,6 +21,7 @@
 #include "opdev/platform.h"
 
 #include "math/nan_to_num/op_api/nan_to_num.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 
@@ -38,11 +39,7 @@ static bool IsAiCoreSupport(const aclTensor* self)
 {
     // 获取芯片类型，判断是910B还是950
     auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
-    auto socVer = GetCurrentPlatformInfo().GetSocVersion();
-    if (socVer == SocVersion::ASCEND950) {
-        return CheckType(self->GetDataType(), AICORE950_DTYPE_SUPPORT_LIST);
-    }
-    if (curArch == NpuArch::DAV_3510) {
+    if (curArch == Ops::Base::DAV_3510) {
         return CheckType(self->GetDataType(), AICORE950_DTYPE_SUPPORT_LIST);
     }
     return CheckType(self->GetDataType(), AICORE910B_DTYPE_SUPPORT_LIST);

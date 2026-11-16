@@ -19,6 +19,7 @@
 #include "opdev/make_op_executor.h"
 #include "opdev/op_dfx.h"
 #include "op_api/aclnn_check.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 
@@ -29,7 +30,7 @@ OP_TYPE_REGISTER(Roll);
 static bool IsAiCoreSupport()
 {
     auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
-    if (curArch == NpuArch::DAV_2002 || curArch == NpuArch::DAV_1001 || curArch == NpuArch::DAV_2201 ||
+    if (curArch == Ops::Base::DAV_2002 || curArch == Ops::Base::DAV_1001 || curArch == Ops::Base::DAV_2201 ||
         IsRegBase(curArch)) {
         return true;
     }

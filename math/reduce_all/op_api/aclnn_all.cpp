@@ -28,6 +28,7 @@
 #include "opdev/op_log.h"
 #include "opdev/shape_utils.h"
 #include "opdev/platform.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 using std::bitset;
@@ -290,12 +291,12 @@ aclnnStatus aclnnAllGetWorkspaceSize(const aclTensor* self, const aclIntArray* d
     CHECK_RET(selfContiguous != nullptr, ACLNN_ERR_INNER_NULLPTR);
 
     auto selfCasted = selfContiguous;
+    auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
     if (!((selfContiguous->GetDataType() == op::DataType::DT_FLOAT16 ||
            selfContiguous->GetDataType() == op::DataType::DT_BF16 ||
            selfContiguous->GetDataType() == op::DataType::DT_FLOAT) &&
           (GetCurrentPlatformInfo().GetSocVersion() == SocVersion::ASCEND910B ||
-           GetCurrentPlatformInfo().GetSocVersion() == SocVersion::ASCEND910_93 ||
-           GetCurrentPlatformInfo().GetCurNpuArch() == NpuArch::DAV_3510))) {
+           GetCurrentPlatformInfo().GetSocVersion() == SocVersion::ASCEND910_93 || curArch == Ops::Base::DAV_3510))) {
         // 将输入self的数据类型转换成隐式数据类型，根据具体算子语义按需调用
         selfCasted = l0op::Cast(selfContiguous, DataType::DT_BOOL, uniqueExecutor.get());
         CHECK_RET(selfCasted != nullptr, ACLNN_ERR_INNER_NULLPTR);

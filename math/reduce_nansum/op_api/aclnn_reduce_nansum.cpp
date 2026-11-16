@@ -28,6 +28,7 @@
 #include "math/reduce_sum/op_api/reduce_sum_op.h"
 #include "op_api/op_api_def_math.h"
 #include "op_api/aclnn_check.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 using std::bitset;
@@ -51,8 +52,8 @@ static const std::initializer_list<op::DataType> ASCEND950_DTYPE_SUPPORT_LIST = 
 static const std::initializer_list<op::DataType> GetDtypeSupportList()
 {
     // 950 上 nansum 仅支持浮点（fp32/fp16/bf16），910B 系列（910B/910_93/RegBase）支持完整类型
-    auto socVer = GetCurrentPlatformInfo().GetSocVersion();
-    if (socVer == SocVersion::ASCEND950) {
+    auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
+    if (curArch == Ops::Base::DAV_3510) {
         return ASCEND950_DTYPE_SUPPORT_LIST;
     }
     return ASCEND910B_DTYPE_SUPPORT_LIST;
@@ -69,9 +70,8 @@ static bool CheckNotNull(const aclTensor* self, const aclIntArray* dim, const ac
 static bool CheckDtypeValid(const aclTensor* self, aclDataType dtype, const aclTensor* out)
 {
     // nansum只在ascend910B和ascend950上支持
-    if (GetCurrentPlatformInfo().GetSocVersion() != SocVersion::ASCEND910B &&
-        GetCurrentPlatformInfo().GetSocVersion() != SocVersion::ASCEND910_93 &&
-        GetCurrentPlatformInfo().GetSocVersion() != SocVersion::ASCEND950) {
+    auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
+    if (curArch != Ops::Base::DAV_2201 && curArch != Ops::Base::DAV_3510) {
         OP_LOGE(ACLNN_ERR_PARAM_INVALID, "ReduceNansum is not supported on this device.");
         return false;
     }

@@ -20,6 +20,7 @@
 #include "opdev/platform.h"
 #include "aclnn_kernels/common/op_error_check.h"
 #include "op_api/aclnn_check.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 
@@ -49,19 +50,19 @@ static bool IsAiCoreSupport(const aclTensor* self)
     // 获取芯片类型，判断是910还是910B
     auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
     switch (curArch) {
-        case NpuArch::DAV_2201:
+        case Ops::Base::DAV_2201:
             return CheckType(self->GetDataType(), AICORE910B_DTYPE_SUPPORT_LIST);
-        case NpuArch::DAV_3510:
+        case Ops::Base::DAV_3510:
             return CheckType(self->GetDataType(), ARCH3510_DTYPE_SUPPORT_LIST);
-        case NpuArch::DAV_9201:
+        case Ops::Base::DAV_9201:
             return CheckType(self->GetDataType(), ARCH3510_DTYPE_SUPPORT_LIST);
-        case NpuArch::DAV_9202:
+        case Ops::Base::DAV_9202:
             return CheckType(self->GetDataType(), ARCH3510_DTYPE_SUPPORT_LIST);
-        case NpuArch::DAV_2002:
+        case Ops::Base::DAV_2002:
             return CheckType(self->GetDataType(), AICORE310P_DTYPE_SUPPORT_LIST);
-        case NpuArch::DAV_1001:
+        case Ops::Base::DAV_1001:
             return CheckType(self->GetDataType(), AICORE910_DTYPE_SUPPORT_LIST);
-        case NpuArch::DAV_3102:
+        case Ops::Base::DAV_3102:
             return CheckType(self->GetDataType(), AICORE610LITE_DTYPE_SUPPORT_LIST);
         default:
             return CheckType(self->GetDataType(), AICORE910_DTYPE_SUPPORT_LIST);

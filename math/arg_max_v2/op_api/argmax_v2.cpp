@@ -15,6 +15,7 @@
 #include "opdev/platform.h"
 #include "op_api/aclnn_check.h"
 #include "aclnn_kernels/common/op_error_check.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 namespace l0op {
@@ -37,11 +38,11 @@ static const std::initializer_list<op::DataType> AICORE_DTYPE_SUPPORT_LIST_610LI
 static bool IsAiCoreSupport(const aclTensor* self)
 {
     auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
-    if (curArch == NpuArch::DAV_2201) {
+    if (curArch == Ops::Base::DAV_2201) {
         return CheckType(self->GetDataType(), AICORE_DTYPE_SUPPORT_LIST_910B);
-    } else if (curArch == NpuArch::DAV_1001) {
+    } else if (curArch == Ops::Base::DAV_1001) {
         return CheckType(self->GetDataType(), AICORE_DTYPE_SUPPORT_LIST_910);
-    } else if (curArch == NpuArch::DAV_3102) {
+    } else if (curArch == Ops::Base::DAV_3102) {
         return CheckType(self->GetDataType(), AICORE_DTYPE_SUPPORT_LIST_610LITE);
     } else if (IsRegBase(curArch)) {
         return CheckType(self->GetDataType(), AICORE_DTYPE_SUPPORT_LIST_910B);
