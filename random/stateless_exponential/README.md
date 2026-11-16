@@ -75,7 +75,7 @@
 1. `self` 仅支持 FLOAT16/BFLOAT16/FLOAT，ND 格式，维度数 ≤8；非连续输入通过 AutoContiguous 转为连续。
 2. `lambd` 必须 > 0。
 3. `offset` 必须为 4 的倍数。
-4. 仅支持 Ascend 950；不支持入图（op_graph）、不支持 L2 接口、不支持非连续 Tensor。
+4. 仅支持 Ascend 950；不支持入图（op_graph）。
 
 ## 调用说明
 

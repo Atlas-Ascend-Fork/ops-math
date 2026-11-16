@@ -77,7 +77,7 @@ English | [简体中文](./README.md)
 1. `self` supports only FLOAT16/BFLOAT16/FLOAT, the ND format, and at most 8 dimensions; non-contiguous inputs are converted to contiguous ones by AutoContiguous.
 2. `lambd` must be > 0.
 3. `offset` must be a multiple of 4.
-4. Only Ascend 950 is supported. Graph building (op_graph), the L2 APIs, and non-contiguous tensors are not supported.
+4. Only Ascend 950 is supported. Graph building (op_graph) are not supported.
 
 ## Invocation Description
 
