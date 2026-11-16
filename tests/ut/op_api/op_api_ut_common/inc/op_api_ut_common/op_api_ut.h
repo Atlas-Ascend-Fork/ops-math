@@ -31,9 +31,8 @@ using namespace nlohmann;
 ////////////  reload tensor data  ///////////////
 
 template <typename T>
-int ReloadDataFromBinaryFile(
-    [[maybe_unused]] T arg, [[maybe_unused]] size_t index, [[maybe_unused]] size_t total_input,
-    [[maybe_unused]] const string& file_prefix)
+int ReloadDataFromBinaryFile([[maybe_unused]] T arg, [[maybe_unused]] size_t index, [[maybe_unused]] size_t total_input,
+                             [[maybe_unused]] const string& file_prefix)
 {
     return 0;
 }
@@ -68,8 +67,8 @@ int ReloadTensorData(tuple<Ts...>& t, size_t input_count, const string& file_pre
 
 ////////////  save result      ///////////////
 
-[[maybe_unused]] static short int GetInplaceOutputIdx(
-    size_t index, size_t input_count, const map<short int, short int>& inplace_map_reserve)
+[[maybe_unused]] static short int GetInplaceOutputIdx(size_t index, size_t input_count,
+                                                      const map<short int, short int>& inplace_map_reserve)
 {
     if (index >= input_count) {
         return -1;
@@ -79,25 +78,24 @@ int ReloadTensorData(tuple<Ts...>& t, size_t input_count, const string& file_pre
 }
 
 template <typename T>
-int SaveResultToBinaryFile(
-    [[maybe_unused]] T arg, [[maybe_unused]] size_t index, [[maybe_unused]] size_t total_input,
-    [[maybe_unused]] const string& file_prefix, [[maybe_unused]] const set<short int>& inplace_output)
+int SaveResultToBinaryFile([[maybe_unused]] T arg, [[maybe_unused]] size_t index, [[maybe_unused]] size_t total_input,
+                           [[maybe_unused]] const string& file_prefix,
+                           [[maybe_unused]] const set<short int>& inplace_output)
 {
     return 0;
 }
 
 template <typename T>
-int SaveResultToBinaryFile(
-    [[maybe_unused]] T arg, [[maybe_unused]] size_t index, [[maybe_unused]] const string& file_prefix)
+int SaveResultToBinaryFile([[maybe_unused]] T arg, [[maybe_unused]] size_t index,
+                           [[maybe_unused]] const string& file_prefix)
 {
     return 0;
 }
 
 template <size_t index, typename... Ts>
 struct SaveIterator {
-    int operator()(
-        tuple<Ts...>& t, size_t input_count, const string& file_prefix,
-        const map<short int, short int>& inplace_map_reserve, const set<short int>& inplace_output)
+    int operator()(tuple<Ts...>& t, size_t input_count, const string& file_prefix,
+                   const map<short int, short int>& inplace_map_reserve, const set<short int>& inplace_output)
     {
         short int inplace_output_idx = GetInplaceOutputIdx(index, input_count, inplace_map_reserve);
         int ret = 0;
@@ -116,9 +114,8 @@ struct SaveIterator {
 
 template <typename... Ts>
 struct SaveIterator<0, Ts...> {
-    int operator()(
-        tuple<Ts...>& t, size_t input_count, const string& file_prefix,
-        const map<short int, short int>& inplace_map_reserve, const set<short int>& inplace_output)
+    int operator()(tuple<Ts...>& t, size_t input_count, const string& file_prefix,
+                   const map<short int, short int>& inplace_map_reserve, const set<short int>& inplace_output)
     {
         short int inplace_output_idx = GetInplaceOutputIdx(0, input_count, inplace_map_reserve);
         if (inplace_output_idx < 0) {
@@ -130,9 +127,8 @@ struct SaveIterator<0, Ts...> {
 };
 
 template <typename... Ts>
-int SaveResult(
-    tuple<Ts...>& t, size_t input_count, const string& file_prefix,
-    const map<short int, short int>& inplace_map_reserve, const set<short int>& inplace_output)
+int SaveResult(tuple<Ts...>& t, size_t input_count, const string& file_prefix,
+               const map<short int, short int>& inplace_map_reserve, const set<short int>& inplace_output)
 {
     const auto size = tuple_size<tuple<Ts...>>::value;
     SaveIterator<size - 1, Ts...> it;
@@ -167,10 +163,9 @@ private:
 template <typename GET_F, typename API_F, typename INPUT_T, typename OUTPUT_T, typename ACL_ARGS_T, typename EXTRA_T>
 class OpApiUt {
 public:
-    OpApiUt(
-        const string& test_suite_name, const string& test_case_name, const string& op_name,
-        GET_F get_workspace_size_func, API_F api_func, const INPUT_T& inputs, const OUTPUT_T& outputs,
-        [[maybe_unused]] const ACL_ARGS_T& wrapper_args, const EXTRA_T& extra_args)
+    OpApiUt(const string& test_suite_name, const string& test_case_name, const string& op_name,
+            GET_F get_workspace_size_func, API_F api_func, const INPUT_T& inputs, const OUTPUT_T& outputs,
+            [[maybe_unused]] const ACL_ARGS_T& wrapper_args, const EXTRA_T& extra_args)
         : op_name_(op_name),
           case_name_(test_suite_name + "_" + test_case_name),
           api_func_(api_func),
@@ -235,8 +230,8 @@ public:
             return;
         }
 
-        unique_ptr<void, decltype(&FreeDeviceMemory)> workspace_ptr(
-            MallocDeviceMemory(workspace_size), FreeDeviceMemory);
+        unique_ptr<void, decltype(&FreeDeviceMemory)> workspace_ptr(MallocDeviceMemory(workspace_size),
+                                                                    FreeDeviceMemory);
 
         cout << "invoke aclnnX function ..." << endl;
         aclRet = api_func_(workspace_ptr.get(), workspace_size, executor, nullptr);
@@ -380,11 +375,10 @@ private:
     size_t input_count_;
 };
 
-#define OP_API_UT(api, input, output, ...)                                                                      \
-    OpApiUt(                                                                                                    \
-        testing::UnitTest::GetInstance()->current_test_info()->test_case_name(),                                \
-        testing::UnitTest::GetInstance()->current_test_info()->name(), #api, api##GetWorkspaceSize, api, input, \
-        output, InferAclTypes(tuple_cat(input, output)), make_tuple(__VA_ARGS__))
+#define OP_API_UT(api, input, output, ...)                                                                          \
+    OpApiUt(testing::UnitTest::GetInstance()->current_test_info()->test_case_name(),                                \
+            testing::UnitTest::GetInstance()->current_test_info()->name(), #api, api##GetWorkspaceSize, api, input, \
+            output, InferAclTypes(tuple_cat(input, output)), make_tuple(__VA_ARGS__))
 
 #define INPUT(...) make_tuple(__VA_ARGS__)
 #define OUTPUT(...) make_tuple(__VA_ARGS__)

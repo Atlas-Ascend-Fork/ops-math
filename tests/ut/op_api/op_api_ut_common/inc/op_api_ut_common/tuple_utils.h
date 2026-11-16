@@ -69,9 +69,8 @@ void ReleaseAclTypes(const tuple<T...>& t)
 {
     apply(
         [](const auto&... args) {
-            ((IsAny<
-                  remove_const_t<remove_pointer_t<remove_reference_t<decltype(args)>>>, aclTensor, aclScalar,
-                  aclTensorList, aclIntArray, aclFloatArray, aclBoolArray>::value ?
+            ((IsAny<remove_const_t<remove_pointer_t<remove_reference_t<decltype(args)>>>, aclTensor, aclScalar,
+                    aclTensorList, aclIntArray, aclFloatArray, aclBoolArray>::value ?
                   Release(args) :
                   void()),
              ...);
@@ -136,21 +135,20 @@ inline void ConvertDescToJson(json& root, const tuple<T...>& t, bool is_input = 
 ////////////  invoke acl***GetWorkspaceSize function ////////
 
 template <typename Function, typename Tuple, typename ExtraT, size_t... I, size_t... EI>
-inline aclnnStatus InvokeGetWorkspaceSizeFunc(
-    Function f, Tuple t, [[maybe_unused]] ExtraT et, index_sequence<I...>, index_sequence<EI...>,
-    uint64_t* workspace_size, aclOpExecutor** executor)
+inline aclnnStatus InvokeGetWorkspaceSizeFunc(Function f, Tuple t, [[maybe_unused]] ExtraT et, index_sequence<I...>,
+                                              index_sequence<EI...>, uint64_t* workspace_size, aclOpExecutor** executor)
 {
     return f(get<I>(t)..., get<EI>(et)..., workspace_size, executor);
 }
 
 template <typename Function, typename Tuple, typename ExtraT>
-inline aclnnStatus InvokeGetWorkspaceSizeFunc(
-    Function f, Tuple t, ExtraT et, uint64_t* workspace_size, aclOpExecutor** executor)
+inline aclnnStatus InvokeGetWorkspaceSizeFunc(Function f, Tuple t, ExtraT et, uint64_t* workspace_size,
+                                              aclOpExecutor** executor)
 {
     constexpr auto s = tuple_size<Tuple>::value;
     constexpr auto es = tuple_size<ExtraT>::value;
-    return InvokeGetWorkspaceSizeFunc(
-        f, t, et, make_index_sequence<s>{}, make_index_sequence<es>{}, workspace_size, executor);
+    return InvokeGetWorkspaceSizeFunc(f, t, et, make_index_sequence<s>{}, make_index_sequence<es>{}, workspace_size,
+                                      executor);
 }
 
 #endif

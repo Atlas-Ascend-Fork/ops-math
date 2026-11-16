@@ -20,9 +20,8 @@ class TilingContextPara {
 public:
     class TensorDescription {
     public:
-        TensorDescription(
-            const gert::StorageShape& shape, ge::DataType dtype, ge::Format format, bool isConst = false,
-            void* constValue = nullptr)
+        TensorDescription(const gert::StorageShape& shape, ge::DataType dtype, ge::Format format, bool isConst = false,
+                          void* constValue = nullptr)
             : shape_(shape), dtype_(dtype), format_(format), isConst_(isConst), constValue_(constValue)
         {}
 
@@ -44,10 +43,10 @@ public:
     };
 
 public:
-    TilingContextPara(
-        const std::string& opName, const std::vector<TensorDescription>& inputTensorDesc,
-        const std::vector<TensorDescription>& outputTensorDesc, const std::vector<OpAttr>& attrs,
-        void* compileInfo = nullptr, uint64_t coreNum = 64, uint64_t ubSize = 262144, uint64_t tilingDataSize = 4096)
+    TilingContextPara(const std::string& opName, const std::vector<TensorDescription>& inputTensorDesc,
+                      const std::vector<TensorDescription>& outputTensorDesc, const std::vector<OpAttr>& attrs,
+                      void* compileInfo = nullptr, uint64_t coreNum = 64, uint64_t ubSize = 262144,
+                      uint64_t tilingDataSize = 4096)
         : opName_(opName),
           inputTensorDesc_(inputTensorDesc),
           outputTensorDesc_(outputTensorDesc),
@@ -58,10 +57,9 @@ public:
           tilingDataSize_(tilingDataSize)
     {}
 
-    TilingContextPara(
-        const std::string& opName, const std::vector<TensorDescription>& inputTensorDesc,
-        const std::vector<TensorDescription>& outputTensorDesc, void* compileInfo = nullptr, uint64_t coreNum = 64,
-        uint64_t ubSize = 262144, uint64_t tilingDataSize = 4096)
+    TilingContextPara(const std::string& opName, const std::vector<TensorDescription>& inputTensorDesc,
+                      const std::vector<TensorDescription>& outputTensorDesc, void* compileInfo = nullptr,
+                      uint64_t coreNum = 64, uint64_t ubSize = 262144, uint64_t tilingDataSize = 4096)
         : opName_(opName),
           inputTensorDesc_(inputTensorDesc),
           outputTensorDesc_(outputTensorDesc),
@@ -71,11 +69,11 @@ public:
           tilingDataSize_(tilingDataSize)
     {}
 
-    TilingContextPara(
-        const std::string& opName, const std::vector<TensorDescription>& inputTensorDesc,
-        const std::vector<TensorDescription>& outputTensorDesc, const std::vector<OpAttr>& attrs,
-        const std::vector<uint32_t>& inputInstanceNum, const std::vector<uint32_t>& outputInstanceNum,
-        void* compileInfo = nullptr, uint64_t coreNum = 64, uint64_t ubSize = 262144, uint64_t tilingDataSize = 4096)
+    TilingContextPara(const std::string& opName, const std::vector<TensorDescription>& inputTensorDesc,
+                      const std::vector<TensorDescription>& outputTensorDesc, const std::vector<OpAttr>& attrs,
+                      const std::vector<uint32_t>& inputInstanceNum, const std::vector<uint32_t>& outputInstanceNum,
+                      void* compileInfo = nullptr, uint64_t coreNum = 64, uint64_t ubSize = 262144,
+                      uint64_t tilingDataSize = 4096)
         : opName_(opName),
           inputTensorDesc_(inputTensorDesc),
           outputTensorDesc_(outputTensorDesc),
@@ -88,11 +86,11 @@ public:
           tilingDataSize_(tilingDataSize)
     {}
 
-    TilingContextPara(
-        const std::string& opName, const std::vector<TensorDescription>& inputTensorDesc,
-        const std::vector<TensorDescription>& outputTensorDesc, const std::vector<uint32_t>& inputInstanceNum,
-        const std::vector<uint32_t>& outputInstanceNum, void* compileInfo = nullptr, uint64_t coreNum = 64,
-        uint64_t ubSize = 262144, uint64_t tilingDataSize = 4096)
+    TilingContextPara(const std::string& opName, const std::vector<TensorDescription>& inputTensorDesc,
+                      const std::vector<TensorDescription>& outputTensorDesc,
+                      const std::vector<uint32_t>& inputInstanceNum, const std::vector<uint32_t>& outputInstanceNum,
+                      void* compileInfo = nullptr, uint64_t coreNum = 64, uint64_t ubSize = 262144,
+                      uint64_t tilingDataSize = 4096)
         : opName_(opName),
           inputTensorDesc_(inputTensorDesc),
           outputTensorDesc_(outputTensorDesc),
@@ -126,14 +124,14 @@ public:
 
     /* can be used for dynamic inputs/outputs
      * only one can be choosed from NodeIoNum */
-    TilingContextFaker& IrInstanceNum(
-        const std::vector<uint32_t>& inputInstanceNum, const std::vector<uint32_t>& outputInstanceNum);
+    TilingContextFaker& IrInstanceNum(const std::vector<uint32_t>& inputInstanceNum,
+                                      const std::vector<uint32_t>& outputInstanceNum);
 
-    TilingContextFaker& NodeInputTd(
-        int32_t index, ge::DataType dtype, ge::Format originFormat, ge::Format storageFormat);
+    TilingContextFaker& NodeInputTd(int32_t index, ge::DataType dtype, ge::Format originFormat,
+                                    ge::Format storageFormat);
 
-    TilingContextFaker& NodeOutputTd(
-        int32_t index, ge::DataType dtype, ge::Format originFormat, ge::Format storageFormat);
+    TilingContextFaker& NodeOutputTd(int32_t index, ge::DataType dtype, ge::Format originFormat,
+                                     ge::Format storageFormat);
 
     TilingContextFaker& Attr(const std::string& attrName, bool attr)
     {

@@ -44,21 +44,21 @@ English | [简体中文](./README.md)
     <tr>
       <td>x1</td>
       <td>Input</td>
-      <td>The input tensor x_1 in the formula</td>
+      <td>The input tensor x<sub>1</sub> in the formula.</td>
       <td>BOOL, INT8, INT16, INT32, INT64, UINT8, FLOAT64, FLOAT16, BFLOAT16, FLOAT32, COMPLEX128, COMPLEX64</td>
       <td>ND</td>
     </tr>
     <tr>
       <td>x2</td>
       <td>Input</td>
-      <td>The input tensor x2 in the formula</td>
+      <td>The input tensor x<sub>2</sub> in the formula.</td>
       <td>Same as x1</td>
       <td>ND</td>
     </tr>
     <tr>
       <td>y</td>
       <td>Output</td>
-      <td>The output tensor y in the formula</td>
+      <td>The output tensor y in the formula.</td>
       <td>Same as x1</td>
       <td>ND</td>
     </tr>
@@ -74,5 +74,5 @@ English | [简体中文](./README.md)
 
 | Invocation Method   | Invocation Sample                                       | Description                                                                                 |
 | ---------- | ---------------------------------------------- | ------------------------------------------------------------------------------------ |
-| aclnn invocation  | [test\_aclnn\_add](./examples/test_aclnn_add.cpp) | Invokes the Add operator through the [aclnnAdd and aclnnInplaceAdd](./docs/aclnnAdd&aclnnInplaceAdd_en.md) APIs |
-| Graph-mode invocation | [test\_geir\_add](./examples/test_geir_add.cpp)   | Invokes the Add operator by building a graph through the [operator IR](./op_graph/add_proto.h)                                 |
+| aclnn API  | [test\_aclnn\_add](./examples/test_aclnn_add.cpp) | Invokes the Add operator through the [aclnnAdd and aclnnInplaceAdd](./docs/aclnnAdd&aclnnInplaceAdd_en.md) APIs. |
+| GE graph mode | [test\_geir\_add](./examples/test_geir_add.cpp)   | Invokes the Add operator by building a graph through the [operator IR](./op_graph/add_proto.h). For compilation and verification, see [Compile and Run Samples](../../docs/en/context/compile_and_run_sample.md). |

@@ -42,21 +42,21 @@
     <tr>
       <td>x1</td>
       <td>输入</td>
-      <td>公式中的输入张量x_1</td>
+      <td>公式中的输入张量x<sub>1</sub>。</td>
       <td>BOOL, INT8, INT16, INT32, INT64, UINT8, FLOAT64, FLOAT16, BFLOAT16, FLOAT32, COMPLEX128, COMPLEX64</td>
       <td>ND</td>
     </tr>
     <tr>
       <td>x2</td>
       <td>输入</td>
-      <td>公式中的输入张量x2</td>
+      <td>公式中的输入张量x<sub>2</sub>。</td>
       <td>同x1</td>
       <td>ND</td>
     </tr>
     <tr>
       <td>y</td>
       <td>输出</td>
-      <td>公式中的输出张量y</td>
+      <td>公式中的输出张量y。</td>
       <td>同x1</td>
       <td>ND</td>
     </tr>
@@ -72,5 +72,5 @@
 
 | 调用方式   | 调用样例                                       | 说明                                                                                 |
 | ---------- | ---------------------------------------------- | ------------------------------------------------------------------------------------ |
-| aclnn调用  | [test\_aclnn\_add](./examples/test_aclnn_add.cpp) | 通过[aclnnAdd和aclnnInplaceAdd](./docs/aclnnAdd\&aclnnInplaceAdd.md)接口方式调用Add算子 |
-| 图模式调用 | [test\_geir\_add](./examples/test_geir_add.cpp)   | 通过[算子IR](./op_graph/add_proto.h)构图方式调用Add算子                                 |
+| aclnn API  | [test\_aclnn\_add](./examples/test_aclnn_add.cpp) | 通过[aclnnAdd和aclnnInplaceAdd](./docs/aclnnAdd\&aclnnInplaceAdd.md)接口方式调用Add算子。 |
+| GE图模式 | [test\_geir\_add](./examples/test_geir_add.cpp)   | 通过[算子IR](./op_graph/add_proto.h)构图方式调用Add算子，参见[算子调用](../../docs/zh/invocation/quick_op_invocation.md)完成编译和验证。 |

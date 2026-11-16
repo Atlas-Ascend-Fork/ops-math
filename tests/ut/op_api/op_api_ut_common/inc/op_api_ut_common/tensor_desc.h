@@ -22,10 +22,9 @@ using namespace nlohmann;
 
 class TensorDesc {
 public:
-    TensorDesc(
-        const vector<int64_t>& view_dims = {1, 1, 16, 16}, aclDataType data_type = ACL_FLOAT,
-        aclFormat format = ACL_FORMAT_NCHW, const vector<int64_t>& stride_ = {}, int64_t offset = 0,
-        const vector<int64_t>& storage_dims = {});
+    TensorDesc(const vector<int64_t>& view_dims = {1, 1, 16, 16}, aclDataType data_type = ACL_FLOAT,
+               aclFormat format = ACL_FORMAT_NCHW, const vector<int64_t>& stride_ = {}, int64_t offset = 0,
+               const vector<int64_t>& storage_dims = {});
     TensorDesc(const TensorDesc& desc);
     ~TensorDesc();
 
@@ -127,11 +126,10 @@ void DescToJson(json& root, const TensorListDesc& tensor_list_desc, bool is_inpu
 int ReloadDataFromBinaryFile(aclTensor* p, size_t index, size_t total_input, const string& file_prefix);
 int ReloadDataFromBinaryFile(aclTensorList* p, size_t index, size_t total_input, const string& file_prefix);
 
-int SaveResultToBinaryFile(
-    aclTensor* p, size_t index, size_t total_input, const string& file_prefix, const set<short int>& inplace_output);
-int SaveResultToBinaryFile(
-    aclTensorList* p, size_t index, size_t total_input, const string& file_prefix,
-    const set<short int>& inplace_output);
+int SaveResultToBinaryFile(aclTensor* p, size_t index, size_t total_input, const string& file_prefix,
+                           const set<short int>& inplace_output);
+int SaveResultToBinaryFile(aclTensorList* p, size_t index, size_t total_input, const string& file_prefix,
+                           const set<short int>& inplace_output);
 
 int SaveResultToBinaryFile(aclTensor* p, size_t index, const string& file_prefix);
 int SaveResultToBinaryFile(aclTensorList* p, size_t index, const string& file_prefix);

@@ -115,17 +115,21 @@ class AddTestSpec:
         out_dtype = str(out_dtypes[0]).lower() if out_dtypes else None
 
         if out_dtype == "complex32":
-            import numpy
-
-            a = x1[..., 0].astype(numpy.float32) + 1j * x1[..., 1].astype(numpy.float32)
-            b = x2[..., 0].astype(numpy.float32) + 1j * x2[..., 1].astype(numpy.float32)
-            res = a + b
-            return [
-                numpy.stack(
-                    (res.real.astype(numpy.float16), res.imag.astype(numpy.float16)),
-                    axis=-1,
-                )
-            ]
+            x1_torch = numpy_to_torch_tensor(x1)
+            x2_torch = numpy_to_torch_tensor(x2)
+            a = torch.complex(
+                x1_torch[..., 0].to(torch.float32),
+                x1_torch[..., 1].to(torch.float32),
+            )
+            b = torch.complex(
+                x2_torch[..., 0].to(torch.float32),
+                x2_torch[..., 1].to(torch.float32),
+            )
+            res = torch.add(a, b)
+            res_torch = torch.stack(
+                (res.real.to(torch.float16), res.imag.to(torch.float16)), dim=-1
+            )
+            return [torch_to_numpy_tensor(res_torch)]
 
         x1_torch = numpy_to_torch_tensor(x1)
         x2_torch = numpy_to_torch_tensor(x2)
@@ -137,6 +141,7 @@ class AddTestSpec:
 class AclnnAddTestSpec:
     """aclnnAdd / aclnnAdds 流程：out = self + alpha * other（other 张量或标量）。"""
 
+    @staticmethod
     def golden(self, other, alpha, out, **kwargs):
         """参数跟随 aclnnAdd/aclnnAdds：self 张量、other 张量/标量、alpha 标量、out 张量。"""
         return [_cast_to_out(_torch_add(self, other, alpha), out)]
@@ -157,6 +162,7 @@ class AclnnInplaceAddTestSpec:
 class AclnnAddV3TestSpec:
     """aclnnAddV3 流程：out = self + alpha * other（self 标量、other 张量）。"""
 
+    @staticmethod
     def golden(self, other, alpha, out, **kwargs):
         """参数跟随 aclnnAddV3：self 标量、other 张量、alpha 标量、out 张量。"""
         return [_cast_to_out(_torch_add(self, other, alpha), out)]
