@@ -218,7 +218,7 @@ aclnnStatus aclnnSlogdet(
 >     ${ASCEND_PATH}/lib64/libnnopbase.so)
 > ```
 >
-> 运行前需保证自定义算子包已安装，并通过 `SLOGDET_CUSTOM_OPP` 指向 vendor 目录（如 `export SLOGDET_CUSTOM_OPP=/usr/local/Ascend/cann-9.0.0/opp/vendors/custom_math`），CMake 据此定位 `aclnn_slogdet_native.h` 与 `libcust_opapi.so`。完整工程（CMakeLists.txt / run.sh）见 `experimental/math/slogdet/examples/`。
+> 运行前需保证自定义算子包已安装，并通过 `SLOGDET_CUSTOM_OPP` 指向 vendor 目录（如 `export SLOGDET_CUSTOM_OPP=${ASCEND_HOME_PATH:-/usr/local/Ascend/cann}/opp/vendors/custom_math`），CMake 据此定位 `aclnn_slogdet_native.h` 与 `libcust_opapi.so`。完整工程（CMakeLists.txt / run.sh）见 `experimental/math/slogdet/examples/`。
 
 ```Cpp
 #include <cmath>
