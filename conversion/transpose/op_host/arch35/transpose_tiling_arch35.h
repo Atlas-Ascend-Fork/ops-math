@@ -126,21 +126,34 @@ END_TILING_DATA_DEF;
 REGISTER_TILING_DATA_CLASS(Transpose, TransposeTilingData);
 
 /**
+ * @brief 2D perm=[1,0] 特化模板的精简 Tiling 数据（10011 TRANSPOSE_2D_TRANSDATA 使用）
+ */
+BEGIN_TILING_DATA_DEF(Transpose2DTilingData)
+TILING_DATA_FIELD_DEF(int32_t, m);
+TILING_DATA_FIELD_DEF(int32_t, n);
+TILING_DATA_FIELD_DEF(int32_t, coreNum);
+TILING_DATA_FIELD_DEF(int32_t, tileM);
+TILING_DATA_FIELD_DEF(int32_t, tileN);
+END_TILING_DATA_DEF;
+REGISTER_TILING_DATA_CLASS(Transpose_10011, Transpose2DTilingData);
+
+/**
  * @brief 9种 Tiling 策略的 Key 值枚举
  *
  */
 enum class SplitMode : int64_t {
-    TENSOR_MOVE = 10000,         // 仅1维，纯数据搬运
-    SMALL_SHAPE = 10001,         // 小shape，SIMT模式GM→GM
-    CUT_ONCE = 10002,            // NDDMA单轴切分
-    CUT_TWICE = 10003,           // NDDMA双轴切分
-    N_LAST_TRANSPOSE = 10004,    // 尾轴不转置+连续行搬移
-    BIG_DIM = 10005,             // >5维压缩到5维NDDMA
-    GATHER_TRANSPOSE = 10006,    // DataCopyGather硬件加速
-    VCONV_TRANSPOSE = 10007,     // TransDataTo5HD 2D转置(DAV_5102)
-    VCONV_021_TRANSPOSE = 10008, // TransDataTo5HD 3D 021转置(DAV_5102)
-    B4_DOUBLE_SPLIT = 10009,     // B4 双切分
-    NDDMA_BASE = 90000           // NDDMA基础key（非实际使用的key，用于策略选型中间状态）
+    TENSOR_MOVE = 10000,            // 仅1维，纯数据搬运
+    SMALL_SHAPE = 10001,            // 小shape，SIMT模式GM→GM
+    CUT_ONCE = 10002,               // NDDMA单轴切分
+    CUT_TWICE = 10003,              // NDDMA双轴切分
+    N_LAST_TRANSPOSE = 10004,       // 尾轴不转置+连续行搬移
+    BIG_DIM = 10005,                // >5维压缩到5维NDDMA
+    GATHER_TRANSPOSE = 10006,       // DataCopyGather硬件加速
+    VCONV_TRANSPOSE = 10007,        // TransDataTo5HD 2D转置(DAV_5102)
+    VCONV_021_TRANSPOSE = 10008,    // TransDataTo5HD 3D 021转置(DAV_5102)
+    B4_DOUBLE_SPLIT = 10009,        // B4 双切分
+    TRANSPOSE_2D_TRANSDATA = 10011, // 2D perm=[1,0] 特化，TransDataTo5HD 全tile转置
+    NDDMA_BASE = 90000              // NDDMA基础key（非实际使用的key，用于策略选型中间状态）
 };
 
 /**
@@ -219,6 +232,8 @@ private:
     ge::graphStatus AdjustShapeForB4();
     ge::graphStatus TryVCONVTiling();
     bool Is021VConvValid();
+    bool Is2DPermutation();
+    ge::graphStatus Fill2DTransDataTilingData();
     void FlushBaseNumForBigDim();
     void EntryTilingTemplate();
     void CalcUBSplitInfo();
@@ -257,6 +272,7 @@ private:
 
 private:
     TransposeTilingData tilingData_;
+    Transpose2DTilingData tilingData2D_;
     gert::TilingContext* tilingContext_ = nullptr;
 
     int64_t realCoreNum_ = 0;

@@ -40,6 +40,7 @@
 
 #include <sstream>
 #include <set>
+#include <limits>
 #include "util/platform_util.h"
 #include "transpose_tiling_base.h"
 #include "transpose_tiling_arch35.h"
@@ -103,6 +104,11 @@ ge::graphStatus TransposeNddmaTiling::RunTranposelTiling()
     CHECK_RET_SUCC(ret);
 
     CalcTotalVolumeActual();
+    // 2D perm=[1,0] 特化模板优先: 满足条件直接走 10011
+    if (!isRelatedTranspose_ && Is2DPermutation() && Fill2DTransDataTilingData() == ge::GRAPH_SUCCESS) {
+        OP_LOGD(tilingContext_->GetNodeName(), "2D TransData tiling done.");
+        return ge::GRAPH_SUCCESS;
+    }
     OP_CHECK_IF(TryVCONVTiling() == ge::GRAPH_SUCCESS, OP_LOGD(tilingContext_->GetNodeName(), "Do convTiling success"),
                 return ge::GRAPH_SUCCESS);
 
@@ -210,6 +216,130 @@ ge::graphStatus TransposeNddmaTiling::TryVCONVTiling()
         }
     }
     return ge::GRAPH_FAILED;
+}
+
+/**
+ * @brief 判断是否为 2D perm=[1,0] 转置
+ *
+ * RemoveAxis/MergeAxis 后 identity 场景已归并为 1 维，因此 dim==2 且
+ * perm=[1,0] 即为真正的二维转置。
+ */
+bool TransposeNddmaTiling::Is2DPermutation()
+{
+    if (shapeInfo_.dim != DIM_TWO) {
+        return false;
+    }
+    return shapeInfo_.reducedPerm[0] == DIM_ONE && shapeInfo_.reducedPerm[1] == DIM_ZERO;
+}
+
+/**
+ * @brief 填充 2D perm=[1,0] 特化模板（10011 TRANSPOSE_2D_TRANSDATA）的 TilingData
+ *
+ * 准入条件：
+ * 1. dtype 为 16bit/32bit（kernel 仅实例化 int16_t/int32_t）
+ * 2. m、n 均 16 对齐（TransDataTo5HD 按 16x16 块转置）
+ * 3. 总数据量达到门槛：DAV_3510 为 512KB（实测对 SIMT/gather 交叉点），
+ *    其它代际保持 4MB
+ *
+ * @return ge::GRAPH_SUCCESS 命中并使用 10011；ge::GRAPH_FAILED 不满足条件，回落主流程
+ */
+ge::graphStatus TransposeNddmaTiling::Fill2DTransDataTilingData()
+{
+    static constexpr int64_t TRANSDATA_TILE = 16;
+    static constexpr int64_t TRANSDATA_UB_BLOCK = 32;
+    static constexpr int64_t TRANSDATA_UB_RESERVE = 4096;
+    static constexpr int64_t TRANSDATA_MAX_M_16BIT = 256;
+    static constexpr int64_t TRANSDATA_MAX_M_32BIT = 128;
+    static constexpr int64_t TRANSDATA_MAX_REPEAT = 255;
+    static constexpr int64_t TRANSDATA_MIN_BYTES = 512 * 1024;
+    static constexpr int64_t TRANSDATA_MIN_BYTES_LEGACY = 4000000;
+    // TilingData 中 m/n 为 int32, 准入时拒绝超范围 shape, 避免下发时静默截断
+    static constexpr int64_t TRANSDATA_MAX_DIM_ELEMS = std::numeric_limits<int32_t>::max();
+
+    int64_t m = shapeInfo_.reducedInShape[0];
+    int64_t n = shapeInfo_.reducedInShape[1];
+    int64_t eleLen = shapeInfo_.eleLenInBytes;
+    int64_t totalBytes = m * n * eleLen;
+
+    auto ascendcPlatform = platform_ascendc::PlatformAscendC(tilingContext_->GetPlatformInfo());
+    auto arch = ascendcPlatform.GetCurNpuArch();
+    if (arch != NpuArch::DAV_3510 && arch != NpuArch::DAV_5102) {
+        return ge::GRAPH_FAILED;
+    }
+    int64_t minBytes = (arch == NpuArch::DAV_3510) ? TRANSDATA_MIN_BYTES : TRANSDATA_MIN_BYTES_LEGACY;
+    if (eleLen < static_cast<int64_t>(B16_BYTES) || eleLen > static_cast<int64_t>(B32_BYTES) ||
+        m > TRANSDATA_MAX_DIM_ELEMS || n > TRANSDATA_MAX_DIM_ELEMS || m % TRANSDATA_TILE != 0 ||
+        n % TRANSDATA_TILE != 0 || totalBytes < minBytes) {
+        return ge::GRAPH_FAILED;
+    }
+
+    // tile 几何自适应：tileM 不超过 m（m<=cap 时保证整行搬出，不把连续输出行切碎），
+    // tileN 按 UB 预算（tileM*(tileN+pad) + 2*tileN*(tileM+pad) 个元素）确定，
+    // 避免 m 很小时 tile 退化成 16x128 的 4KB 小块。
+    int64_t pad = TRANSDATA_UB_BLOCK / eleLen;
+    int64_t maxTileM = (eleLen == static_cast<int64_t>(B16_BYTES)) ? TRANSDATA_MAX_M_16BIT : TRANSDATA_MAX_M_32BIT;
+    int64_t tileM = std::min(m, maxTileM);
+    int64_t ubBudgetElems = (ubSize_ - TRANSDATA_UB_RESERVE) / eleLen;
+    int64_t maxTileN = (ubBudgetElems - tileM * pad) / (3 * tileM + 2 * pad);
+    maxTileN = std::min(maxTileN, TRANSDATA_TILE * TRANSDATA_MAX_REPEAT);
+    if (maxTileN < TRANSDATA_TILE) {
+        return ge::GRAPH_FAILED;
+    }
+    // tileM 达到单块行数上限 (m 需要按 cap 行分块) 时, tileN 取 2 的幂次:
+    // 此时 tile 已足够大, 2 的幂次行宽对齐收益更高 (实测 m=256/1024 更快);
+    // 小 m 场景则取 UB 预算允许的最大 16 倍数, 用更少的 tile 摊薄固定开销。
+    int64_t tileN = TRANSDATA_TILE;
+    if (tileM == maxTileM) {
+        while (tileN * 2 <= maxTileN) {
+            tileN *= 2;
+        }
+    } else {
+        tileN = (maxTileN / TRANSDATA_TILE) * TRANSDATA_TILE;
+    }
+    // 窄列场景 (n < tileN 预算, 如 131072x16): 每 tile 实际只用 n 列, 按 n 收紧
+    // tileN, 改用行方向切分。tileM 取能满足 "行块数≈k*coreNum" 的最大值 (k 从小到大),
+    // 既放大单 tile 又保证多核负载均衡 (避免行块数落在 coreNum 与 2*coreNum 之间)。
+    if (n < tileN) {
+        tileN = n;
+        // 列宽只有一个 32B block 的整数倍时无需 padding 即可让 16 个并发源地址
+        // 落在不同 bank; 此时去掉源侧 padding, tile 在 UB 内保持连续, 搬入可退化为
+        // 单次连续 DataCopyPad。
+        int64_t blockElems = TRANSDATA_UB_BLOCK / eleLen;
+        int64_t srcPad = ((tileN / blockElems) % 2 == 1) ? 0 : pad;
+        int64_t bestTileM = tileM;
+        for (int64_t k = 1; k <= coreNum_; ++k) {
+            int64_t cand = Ops::Base::CeilDiv(m, k * coreNum_);
+            cand = Ops::Base::CeilAlign(cand, TRANSDATA_TILE);
+            cand = std::max(cand, tileM);
+            cand = std::min(cand, m);
+            int64_t inElems = cand * (tileN + srcPad);
+            int64_t outElems = tileN * (cand + pad);
+            if (inElems + 2 * outElems <= ubBudgetElems) {
+                bestTileM = cand;
+                break;
+            }
+        }
+        tileM = bestTileM;
+    }
+
+    tilingData2D_.set_m(static_cast<int32_t>(m));
+    tilingData2D_.set_n(static_cast<int32_t>(n));
+    tilingData2D_.set_coreNum(static_cast<int32_t>(coreNum_));
+    tilingData2D_.set_tileM(static_cast<int32_t>(tileM));
+    tilingData2D_.set_tileN(static_cast<int32_t>(tileN));
+    tilingData2D_.SaveToBuffer(tilingContext_->GetRawTilingData()->GetData(),
+                               tilingContext_->GetRawTilingData()->GetCapacity());
+    tilingContext_->GetRawTilingData()->SetDataSize(tilingData2D_.GetDataSize());
+
+    tilingContext_->SetBlockDim(coreNum_);
+    tilingContext_->SetTilingKey(static_cast<int64_t>(SplitMode::TRANSPOSE_2D_TRANSDATA));
+    size_t* workspaces = tilingContext_->GetWorkspaceSizes(1);
+    OP_CHECK_NULL_WITH_CONTEXT(tilingContext_, workspaces);
+    workspaces[0] = 0;
+    OP_LOGD(tilingContext_->GetNodeName(),
+            "Fill2DTransDataTilingData success. m=%ld, n=%ld, coreNum=%ld, tileM=%ld, tileN=%ld", m, n, coreNum_, tileM,
+            tileN);
+    return ge::GRAPH_SUCCESS;
 }
 
 /**

@@ -39,6 +39,7 @@
  *   10006 GATHER_TRANSPOSE    - 尾轴转置+大shape，DataCopyGather硬件指令+RegBase
  *   10007 VCONV_TRANSPOSE     - 2D perm=[1,0]+16bit，TransDataTo5HD硬件指令
  *   10008 VCONV_021_TRANSPOSE - 3D perm=[0,2,1]+8/16/32bit，TransDataTo5HD硬件指令
+ *   10011 TRANSPOSE_2D_TRANSDATA - 2D perm=[1,0] 特化，TransDataTo5HD 全 tile 转置
  */
 
 #include "arch35/transpose_big_dim.h"
@@ -52,6 +53,7 @@
 #include "arch35/transpose_with_gather.h"
 #include "arch35/transpose_transdata_5hd.h"
 #include "arch35/transpose_transdata_5hd_021.h"
+#include "arch35/transpose_2d_transdata.h"
 #ifdef __CCE_AICORE_SUPPORT_SIMT__
 #include "arch35/transpose_b4.h"
 #endif
@@ -65,8 +67,9 @@
 #define BIG_DIM 10005          // 维度>5，压缩到5维NDDMA格式进行搬运
 #define GATHER_TRANSPOSE 10006 // 尾轴转置+大shape，使用DataCopyGather硬件指令(RegBase路径)
 #define VCONV_TRANSPOSE 10007  // 2D perm=[1,0]+16bit(DAV_5102)，TransDataTo5HD硬件指令
-#define VCONV_021_TRANSPOSE 10008 // 3D perm=[0,2,1]+8/16/32bit(DAV_5102)，TransDataTo5HD硬件指令
-#define B4_DUAL_CUT 10009         // B4 双切分
+#define VCONV_021_TRANSPOSE 10008    // 3D perm=[0,2,1]+8/16/32bit(DAV_5102)，TransDataTo5HD硬件指令
+#define TRANSPOSE_2D_TRANSDATA 10011 // 2D perm=[1,0] 特化，TransDataTo5HD 全 tile 转置
+#define B4_DUAL_CUT 10009            // B4 双切分
 
 using namespace Transpose;
 
@@ -383,6 +386,29 @@ extern "C" __aicore__ inline void Transpose021VconvProcess(GM_ADDR x, GM_ADDR y,
     }
 }
 
+/**
+ * @brief TRANSPOSE_2D_TRANSDATA(10011) 策略的 Process 函数
+ * 2D perm=[1,0] 特化路径：dtype 为 16bit/32bit 且 m/n 均 16 对齐。
+ * 按 tile 搬入 UB 后用 TransDataTo5HD 完成 16x16 块转置，再按列搬出。
+ *
+ * @param x         输入张量 GM 地址
+ * @param y         输出张量 GM 地址
+ * @param tilingData Tiling 数据指针（Transpose2DTilingData 结构）
+ */
+extern "C" __aicore__ inline void Transpose2DTransDataProcess(GM_ADDR x, GM_ADDR y,
+                                                              __tiling_data_ptr__ Transpose2DTilingData* tilingData)
+{
+    if constexpr (sizeof(DTYPE_X) == sizeof(int16_t)) {
+        Transpose::Transpose2DTransData<int16_t> op;
+        op.Init(x, y, tilingData);
+        op.Process();
+    } else if constexpr (sizeof(DTYPE_X) == sizeof(int32_t)) {
+        Transpose::Transpose2DTransData<int32_t> op;
+        op.Init(x, y, tilingData);
+        op.Process();
+    }
+}
+
 #ifdef __CCE_AICORE_SUPPORT_SIMT__
 extern "C" __aicore__ inline void TransposeHIF4DualCutProcess(GM_ADDR x, GM_ADDR y,
                                                               const HIF4DualCutTilingData* tilingData, TPipe* pipe)
@@ -407,6 +433,7 @@ extern "C" __aicore__ inline void TransposeHIF4DualCutProcess(GM_ADDR x, GM_ADDR
  *   - TilingKey 10006 使用 GatherTransposeTilingData
  *   - TilingKey 10007 使用 TransposeVCONVTilingData
  *   - TilingKey 10008 使用 Transpose021VCONVTilingData
+ *   - TilingKey 10011 使用 Transpose2DTilingData
  *
  * @param x         输入张量 GM 地址
  * @param perm      perm 数组 GM 地址（Kernel 侧不直接使用，通过 TilingData 传递）
@@ -449,6 +476,9 @@ extern "C" __global__ __aicore__ void transpose(GM_ADDR x, GM_ADDR perm, GM_ADDR
     } else if (TILING_KEY_IS(VCONV_021_TRANSPOSE)) { // 10008: TransDataTo5HD 3D 021转置
         GET_TILING_DATA_WITH_STRUCT(Transpose021VCONVTilingData, tilingData, tiling);
         Transpose021VconvProcess(x, y, &tilingData, &pipe);
+    } else if (TILING_KEY_IS(TRANSPOSE_2D_TRANSDATA)) { // 10011: 2D TransDataTo5HD 全tile转置
+        GET_TILING_DATA_PTR_WITH_STRUCT(Transpose2DTilingData, tilingDataPtr, tiling);
+        Transpose2DTransDataProcess(x, y, tilingDataPtr);
     }
 #ifdef __CCE_AICORE_SUPPORT_SIMT__
     else if (TILING_KEY_IS(B4_DUAL_CUT)) {
