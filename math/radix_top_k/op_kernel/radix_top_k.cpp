@@ -18,9 +18,11 @@
 #include "radix_top_k_ub.h"
 #include "radix_top_k_ws.h"
 #include "radix_top_k_ws_i64.h"
+#include "radix_top_k_select.h"
 using namespace AscendC;
 
-template <bool sorted, bool largest, bool isLargeShape, bool isInt64Shape>
+// 模板参数顺序与 radix_top_k_tiling_key.h 的 ASCENDC_TPL_ARGS_DECL 顺序一致
+template <bool sorted, bool largest, bool isLargeShape, bool isInt64Shape, bool isSelectTopK>
 __global__ __aicore__ void radix_top_k(GM_ADDR x, GM_ADDR k, GM_ADDR values, GM_ADDR indices, GM_ADDR workspace,
                                        GM_ADDR tiling)
 {
@@ -28,7 +30,11 @@ __global__ __aicore__ void radix_top_k(GM_ADDR x, GM_ADDR k, GM_ADDR values, GM_
     REGISTER_TILING_DEFAULT(RadixTopKTilingData);
     GET_TILING_DATA(tilingData, tiling);
 #if (defined(DTYPE_X))
-    if constexpr (isInt64Shape) {
+    if constexpr (isSelectTopK) {
+        RadixTopK::RadixTopKSelectTopK<DTYPE_X, largest> op(tpipe, tilingData);
+        op.Init(x, k, values, indices, workspace);
+        op.Process();
+    } else if constexpr (isInt64Shape) {
         RadixTopK::RadixTopKWsI64<DTYPE_X, largest> op(tpipe, tilingData);
         op.Init(x, k, values, indices, workspace);
         op.Process();
@@ -49,6 +55,6 @@ __global__ __aicore__ void radix_top_k(GM_ADDR x, GM_ADDR k, GM_ADDR values, GM_
 extern "C" __global__ __aicore__ void radix_top_k(GM_ADDR x, GM_ADDR k, GM_ADDR values, GM_ADDR indices,
                                                   GM_ADDR workspace, GM_ADDR tiling)
 {
-    radix_top_k<true, true, false, false>(x, k, values, indices, workspace, tiling);
+    radix_top_k<true, true, false, false, false>(x, k, values, indices, workspace, tiling);
 }
 #endif

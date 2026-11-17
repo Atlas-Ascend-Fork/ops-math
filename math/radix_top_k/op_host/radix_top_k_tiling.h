@@ -49,6 +49,8 @@ protected:
 
     bool CalcLargeTilingParams(const uint64_t& dataNum, const uint64_t& ubCoefPerTile);
     bool CalcTilingParams(const uint64_t& dataNum);
+    // SelectTopK 单遍扫描快路径的 tiling；返回 false 表示 UB 三档均不满足，调用方回落 radix
+    bool CalcSelectTopKTilingParams();
     void PrintTilingData();
 
     template <typename CheckUbFn>
@@ -64,6 +66,8 @@ private:
     uint64_t xAlign_{0};
     bool isLargeShape_{false};
     bool isInt64Shape_{false};
+    // SelectTopK 最高位键维：子门控满足时置 true
+    bool isSelectTopK_{false};
     RadixTopKTilingData tilingData_{};
 
     void SetTilingData();

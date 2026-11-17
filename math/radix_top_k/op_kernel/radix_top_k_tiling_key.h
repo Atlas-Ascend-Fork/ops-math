@@ -11,8 +11,8 @@
 /*!
  * \file radix_top_k_tiling_key.h
  * \brief Radix TopK TilingKey 模板参数声明
- *        定义 sorted/largest/isLargeShape 模板参数组合，
- *        用于编译期选择模板实例化，避免运行时分支
+ *        定义 sorted/largest/isLargeShape/isInt64Shape/isSelectTopK 组合，
+ *        编译期选择模板实例化，避免运行时分支
  */
 
 #ifndef RADIX_TOP_K_TILING_KEY_H
@@ -20,22 +20,18 @@
 #include "ascendc/host_api/tiling/template_argument.h"
 
 /**
- * @brief 模板参数声明
- *        sorted: 输出是否排序（0/1）
- *        largest: 是否求最大 k 值（0/1）
- *        isLargeShape: 是否大 shape 场景（0/1），用于选择 UB/WS 变体
- *        isInt64Shape: sortLen 超过 int32 上限（0/1），选择 int64 变体（追加在最高位，
- *        现有 3 参数 key 编码值不变）
+ * @brief 声明 isSelectTopK 为最高位；取 0 时现网 16 个 radix 键编码不变，取 1 时收敛为 4 键
  */
 ASCENDC_TPL_ARGS_DECL(RadixTopK, ASCENDC_TPL_BOOL_DECL(sorted, 0, 1), ASCENDC_TPL_BOOL_DECL(largest, 0, 1),
-                      ASCENDC_TPL_BOOL_DECL(isLargeShape, 0, 1), ASCENDC_TPL_BOOL_DECL(isInt64Shape, 0, 1));
+                      ASCENDC_TPL_BOOL_DECL(isLargeShape, 0, 1), ASCENDC_TPL_BOOL_DECL(isInt64Shape, 0, 1),
+                      ASCENDC_TPL_BOOL_DECL(isSelectTopK, 0, 1));
 
-/**
- * @brief 模板参数组合选择
- *        用于 GET_TPL_TILING_KEY 获取 TilingKey 时校验 TilingKey 合法性
- */
+/** @brief 组合选择：isSelectTopK=0 全组合 16 键，=1 收敛 4 键（供 GET_TPL_TILING_KEY 校验） */
 ASCENDC_TPL_SEL(ASCENDC_TPL_ARGS_SEL(ASCENDC_TPL_BOOL_SEL(sorted, 0, 1), ASCENDC_TPL_BOOL_SEL(largest, 0, 1),
-                                     ASCENDC_TPL_BOOL_SEL(isLargeShape, 0, 1),
-                                     ASCENDC_TPL_BOOL_SEL(isInt64Shape, 0, 1)), );
+                                     ASCENDC_TPL_BOOL_SEL(isLargeShape, 0, 1), ASCENDC_TPL_BOOL_SEL(isInt64Shape, 0, 1),
+                                     ASCENDC_TPL_BOOL_SEL(isSelectTopK, 0)),
+                ASCENDC_TPL_ARGS_SEL(ASCENDC_TPL_BOOL_SEL(sorted, 0, 1), ASCENDC_TPL_BOOL_SEL(largest, 0, 1),
+                                     ASCENDC_TPL_BOOL_SEL(isLargeShape, 0), ASCENDC_TPL_BOOL_SEL(isInt64Shape, 0),
+                                     ASCENDC_TPL_BOOL_SEL(isSelectTopK, 1)));
 
 #endif // RADIX_TOP_K_TILING_KEY_H

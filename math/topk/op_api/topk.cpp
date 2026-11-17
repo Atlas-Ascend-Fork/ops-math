@@ -42,9 +42,11 @@ constexpr int64_t RADIX_TOP_K_S_THRESHOLD_1 = 12000000;
 constexpr int64_t RADIX_TOP_K_S_K_RATIO_1 = 100;
 constexpr int64_t RADIX_TOP_K_S_THRESHOLD_2 = 100000000;
 constexpr int64_t RADIX_TOP_K_S_K_RATIO_2 = 50;
-constexpr int64_t RADIX_TOP_K_MIN_K = 1000;
+constexpr int64_t RADIX_TOP_K_MIN_K = 8;
 constexpr int64_t MAX_INT32_INPUTSIZE = 2147483647;
 
+// RadixTopK 的 k 下限门控：k >= 8 才走 RadixTopK，k < 8 由其他 TopK 路径处理；
+// 仅影响性能取舍，不影响正确性（与 ops-nn 侧一致）。
 static const std::initializer_list<op::DataType> ANCIENT_DTYPE_SUPPORT_LIST = {op::DataType::DT_FLOAT16,
                                                                                op::DataType::DT_FLOAT};
 
@@ -124,7 +126,7 @@ static bool IsRadixTopKSupport(const aclTensor* self, int64_t k, bool sorted, op
     } else if (sortLen >= RADIX_TOP_K_S_THRESHOLD_1) {
         shapeCheck = sortLen > RADIX_TOP_K_S_K_RATIO_1 * k;
     }
-    return socCheck && dtypeCheck && shapeCheck && k > RADIX_TOP_K_MIN_K;
+    return socCheck && dtypeCheck && shapeCheck && k >= RADIX_TOP_K_MIN_K;
 }
 
 // 根据芯片类型、dtype判断算子是否支持走TopKV3

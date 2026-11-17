@@ -50,8 +50,65 @@ static constexpr uint64_t NUM_VALUE_2BIT = 4;
 static constexpr uint64_t BIT_PER_BYTE = 8;
 static constexpr uint64_t BUFFER_NUM_IN_OUT = 4;
 static constexpr uint64_t ATTR_INDEX_SORTED = 0;
+static constexpr uint64_t ATTR_INDEX_DIM = 1;
 static constexpr uint64_t ATTR_INDEX_LARGEST = 2;
+static constexpr uint64_t OUTPUT_INDICES = 1;
 static constexpr uint64_t WS_INT32_PER_TILE = 5;
+
+// ---- SelectTopK 常量（与 kernel 同口径）----
+static constexpr uint64_t STK_MAX_K = 4096;            /**< 子门控窗口上界：k ≤ 4096 */
+static constexpr uint64_t STK_MIN_SORT_LEN = 12000000; /**< 子门控窗口下界：sortLen ≥ 12e6 */
+static constexpr uint64_t STK_MIN_SEG_LEN = 256;       /**< 行内多核单核最小段长 = CACHE_LINE / sizeof(T) */
+static constexpr uint64_t STK_SLOT_ALIGN = 64; /**< GM 归并槽位步长对齐（元素，与 kernel 同口径） */
+static constexpr uint64_t STK_FILTERED_CAP = 1536; /**< 阈值命中上限（候选水位余量） */
+static constexpr uint64_t STK_PAD = 256;           /**< 候选容量余量 */
+static constexpr uint64_t STK_MERGE4_MAX_K = 2048; /**< 4 路归并的最大 k：4k 候选缓冲放得进 UB 才启用 */
+static constexpr uint64_t STK_SINGLE_MERGE_MAX_K = 128; /**< 单核归并的最大 k：k≤128 由核 0 串行合并全部槽位 */
+static constexpr uint64_t STK_UB_RESERVE = 4096;    /**< UB 预算预留（对齐/框架开销保守下界） */
+static constexpr uint32_t STK_MIN_ACTIVE_CORES = 2; /**< 并行度下限（防御值） */
+
+/** @brief 向上取整到 32 字节（与 kernel STK_ALIGN32BYTE 同口径） */
+static inline uint64_t StkAlign32Byte(uint64_t v) { return (v + 31ULL) / 32ULL * 32ULL; }
+
+/** @brief 归并槽位合并所需候选数：sides·AlignUp(k,8) + k（与 kernel MergeSlots 同口径） */
+static inline uint64_t StkMergeNeed(uint64_t kValue, uint64_t sides)
+{
+    const uint64_t kA = (kValue + 7ULL) / 8ULL * 8ULL;
+    return sides * kA + kValue;
+}
+
+/**
+ * @brief SelectTopK 单帧 UB 占用核算（与 kernel InitBuffers 逐项对应，E=2、EW=4）
+ */
+static uint64_t SelectTopKUbUsage(uint64_t kValue, uint64_t blockSize, uint32_t numStages, uint64_t cap,
+                                  uint64_t mergeArity, uint64_t mergeSides, uint64_t blockDim)
+{
+    // 4 路/单核归并的 fp32 暂存按合并候选数放大（与 kernel InitBuffers 同口径）
+    uint64_t mergeElems = blockSize;
+    if (mergeArity == 0ULL) {
+        const uint64_t kA = (kValue + 7ULL) / 8ULL * 8ULL;
+        uint64_t singleSides = (cap > kValue) ? ((cap - kValue) / kA) : 0ULL;
+        if (singleSides + 1ULL > blockDim) {
+            singleSides = blockDim - 1ULL;
+        }
+        mergeElems = singleSides * kA + kValue;
+    } else if (mergeArity > 2ULL) {
+        mergeElems = StkMergeNeed(kValue, mergeSides);
+    }
+    const uint64_t fp32Elems = (mergeElems > blockSize) ? mergeElems : blockSize;
+    uint64_t maskBytes = StkAlign32Byte((cap + 64ULL) / 8ULL);
+    uint64_t usage = 0;
+    usage += static_cast<uint64_t>(numStages) * blockSize * sizeof(uint16_t); // 输入 staging（bf16，多级流水）
+    usage += fp32Elems * sizeof(float);                                       // fp32 工作缓冲
+    usage += cap * sizeof(float);                                             // 候选 value（fp32 尺寸双视图）
+    usage += cap * sizeof(int32_t);                                           // 候选 index（0-based 轴下标）
+    usage += cap * sizeof(int32_t);    // 复选二分 / EQ 掩码压实用 scratch
+    usage += kValue * sizeof(float);   // LT/GT 值压实
+    usage += kValue * sizeof(int32_t); // LT/GT 索引压实
+    usage += 2ULL * maskBytes;         // 复选掩码（LT / EQ）
+    return usage;
+}
+
 // 1、获取平台信息比如CoreNum、UB/L1/L0C资源大小
 ge::graphStatus RadixTopKTiling::GetPlatformInfo()
 {
@@ -120,10 +177,49 @@ ge::graphStatus RadixTopKTiling::GetShapeAttrsInfo()
                     return ge::GRAPH_FAILED);
     }
 
+    // dim 属性须为 -1（最后一维）或 rank-1，否则报错；aclnn 层会先行转置。
+    auto attrsDim = attrs->GetAttrPointer<int64_t>(ATTR_INDEX_DIM);
+    if (attrsDim != nullptr && dimNum > 0) {
+        int64_t lastDim = static_cast<int64_t>(dimNum) - 1;
+        OP_CHECK_IF(((*attrsDim != -1) && (*attrsDim != lastDim)),
+                    OP_LOGE(opName_, "RadixTopK dim [%ld] must be -1 or rank-1 [%ld].", *attrsDim, lastDim),
+                    return ge::GRAPH_FAILED);
+    }
+
     xDType_ = context_->GetInputDesc(INPUT_X)->GetDataType();
     xDtypeSize_ = ge::GetSizeByDataType(xDType_);
 
+    // SelectTopK 子门控：窗口 k ≤ 4096 ∧ sortLen ≥ 12e6，且 indices 为 int32、非 int64 shape；
+    // 窗口内 k ≤ sortLen、sortLen/k ≥ 100 与 dtype 由算子注册约束保证。不满足则回落 radix。
+    auto indicesDesc = context_->GetOutputDesc(OUTPUT_INDICES);
+    OP_CHECK_NULL_WITH_CONTEXT(context_, indicesDesc);
+    const ge::DataType indicesDType = indicesDesc->GetDataType();
+    const bool inStkWindow = (tilingData_.sortLen >= STK_MIN_SORT_LEN) && (tilingData_.kValue <= STK_MAX_K);
+    isSelectTopK_ = inStkWindow && (indicesDType == ge::DT_INT32) && !isInt64Shape_;
+
     return ge::GRAPH_SUCCESS;
+}
+
+// SelectTopK 尝试失败回落 radix 时清理 stk* 字段：保证回落口径确定（TilingKey bit4=0 时 kernel 不读这些字段）
+static void ResetSelectTopKTilingData(RadixTopKTilingData& td)
+{
+    td.stkKLevel = 0;
+    td.stkBlockSize = 0;
+    td.stkCandidateCapacity = 0;
+    td.stkFilteredCapacity = 0;
+    td.stkNumStages = 0;
+    td.stkSafeTrigger = 0;
+    td.stkWarmupLen = 0;
+    td.stkCoreMode = 0;
+    td.stkRowsPerCore = 0;
+    td.stkFormerCoreNum = 0;
+    td.stkTailCoreNum = 0;
+    td.stkSegLen = 0;
+    td.stkFormerSegCoreNum = 0;
+    td.stkTailSegCoreNum = 0;
+    td.stkFullRows = 0;
+    td.stkResidualRows = 0;
+    td.stkMergeArity = 0;
 }
 
 // 3、计算数据切分TilingData
@@ -131,36 +227,50 @@ ge::graphStatus RadixTopKTiling::DoOpTiling()
 {
     OP_LOGD(opName_, "RadixTopKTiling DoOpTiling.");
     bool isCalcSuccess = false;
-    if (isInt64Shape_) {
-        isCalcSuccess = CalcLargeTilingParams(tilingData_.sortLen, UB_COEF_PER_TILE_I64);
-    } else if (!isLargeShape_) {
-        isCalcSuccess = CalcTilingParams(tilingData_.sortLen);
+    // SelectTopK 优先；UB 三档均不满足时清理 stk 字段并回落 radix 三分支
+    if (isSelectTopK_) {
+        isCalcSuccess = CalcSelectTopKTilingParams();
         if (!isCalcSuccess) {
-            isLargeShape_ = true;
+            ResetSelectTopKTilingData(tilingData_);
+            isSelectTopK_ = false;
+        }
+    }
+    if (isSelectTopK_) {
+        // SelectTopK 分支已自持 blockDim_ 与 coreNum，直接进入公共收尾
+        OP_CHECK_IF((blockDim_ == 0), OP_LOGE(opName_, "RadixTopK SelectTopK blockDim is zero."),
+                    return ge::GRAPH_FAILED);
+    } else {
+        if (isInt64Shape_) {
+            isCalcSuccess = CalcLargeTilingParams(tilingData_.sortLen, UB_COEF_PER_TILE_I64);
+        } else if (!isLargeShape_) {
+            isCalcSuccess = CalcTilingParams(tilingData_.sortLen);
+            if (!isCalcSuccess) {
+                isLargeShape_ = true;
+                isCalcSuccess = CalcLargeTilingParams(tilingData_.sortLen, UB_COEF_PER_TILE);
+            }
+        } else {
             isCalcSuccess = CalcLargeTilingParams(tilingData_.sortLen, UB_COEF_PER_TILE);
         }
-    } else {
-        isCalcSuccess = CalcLargeTilingParams(tilingData_.sortLen, UB_COEF_PER_TILE);
-    }
-    OP_CHECK_IF((!isCalcSuccess), OP_LOGE(opName_, "RadixTopK Tiling failed."), return ge::GRAPH_FAILED);
-    // int64 模板的 coreTopK/边界计数等 int32 通道要求 kValue 不超 int32 上限
-    OP_CHECK_IF((isInt64Shape_ && tilingData_.kValue > INT32_SORT_LEN_MAX),
-                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(opName_, "k", std::to_string(tilingData_.kValue).c_str(),
-                                                      "kValue exceeds int32 limit for int64 shape"),
-                return ge::GRAPH_FAILED);
-    // per-core 直方图计数保持 int32：per-core 元素数须 < 2^31（S < 2^31*coreNum，物理内存内恒成立，防御性校验）
-    OP_CHECK_IF((isInt64Shape_ && tilingData_.formerTileNum * tilingData_.formerTileLen > INT32_SORT_LEN_MAX),
-                OP_LOGE(opName_, "RadixTopK per-core element num exceeds int32 limit."), return ge::GRAPH_FAILED);
+        OP_CHECK_IF((!isCalcSuccess), OP_LOGE(opName_, "RadixTopK Tiling failed."), return ge::GRAPH_FAILED);
+        // int64 模板的 coreTopK/边界计数等 int32 通道要求 kValue 不超 int32 上限
+        OP_CHECK_IF((isInt64Shape_ && tilingData_.kValue > INT32_SORT_LEN_MAX),
+                    OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(opName_, "k", std::to_string(tilingData_.kValue).c_str(),
+                                                          "kValue exceeds int32 limit for int64 shape"),
+                    return ge::GRAPH_FAILED);
+        // per-core 直方图计数保持 int32：per-core 元素数须 < 2^31（S < 2^31*coreNum，物理内存内恒成立，防御性校验）
+        OP_CHECK_IF((isInt64Shape_ && tilingData_.formerTileNum * tilingData_.formerTileLen > INT32_SORT_LEN_MAX),
+                    OP_LOGE(opName_, "RadixTopK per-core element num exceeds int32 limit."), return ge::GRAPH_FAILED);
 
-    blockDim_ = tilingData_.formerCoreNum + tilingData_.tailCoreNum;
-    tilingData_.coreNum = blockDim_;
-    // 仅 UB 变体可复用 indices 内存（WS/INT64 变体的 tileTopK/tileHist 与 CopyOutResult 跨 core 冲突）
-    // 注：isInt64Shape_ ⇒ isLargeShape_（见文件头 static_assert），这里的 `|| isInt64Shape_` 是防御性冗余
-    if (isLargeShape_ || isInt64Shape_) {
-        tilingData_.needWorkspace = true;
-    } else {
-        uint64_t wsInt32Cnt = tilingData_.coreNum * (NUM_VALUE_2BIT + 2);
-        tilingData_.needWorkspace = (tilingData_.kValue <= wsInt32Cnt);
+        blockDim_ = tilingData_.formerCoreNum + tilingData_.tailCoreNum;
+        tilingData_.coreNum = blockDim_;
+        // 仅 UB 变体可复用 indices 内存（WS/INT64 变体的跨核暂存与之冲突）；isInt64Shape_ ⇒ isLargeShape_，||
+        // 为防御性冗余
+        if (isLargeShape_ || isInt64Shape_) {
+            tilingData_.needWorkspace = true;
+        } else {
+            uint64_t wsInt32Cnt = tilingData_.coreNum * (NUM_VALUE_2BIT + 2);
+            tilingData_.needWorkspace = (tilingData_.kValue <= wsInt32Cnt);
+        }
     }
     SetTilingData();
     PrintTilingData();
@@ -175,11 +285,14 @@ uint64_t RadixTopKTiling::GetTilingKey() const
 {
     OP_LOGD(opName_, "RadixTopKTiling GetTilingKey.");
 
-    const uint64_t tilingKey = GET_TPL_TILING_KEY(tilingData_.sorted, tilingData_.largest, isLargeShape_,
-                                                  isInt64Shape_);
+    // isSelectTopK=1 时 isLargeShape/isInt64Shape 按编码约定恒置 0
+    const bool keyLargeShape = isSelectTopK_ ? false : isLargeShape_;
+    const bool keyInt64Shape = isSelectTopK_ ? false : isInt64Shape_;
+    const uint64_t tilingKey = GET_TPL_TILING_KEY(tilingData_.sorted, tilingData_.largest, keyLargeShape, keyInt64Shape,
+                                                  isSelectTopK_);
     OP_LOGD(opName_, "tilingKey is: [%lu]", tilingKey);
-    OP_LOGD(opName_, "sorted, largest, isLargeShape, isInt64Shape is: [%d, %d, %d, %d]", tilingData_.sorted,
-            tilingData_.largest, isLargeShape_, isInt64Shape_);
+    OP_LOGD(opName_, "sorted, largest, isLargeShape, isInt64Shape, isSelectTopK is: [%d, %d, %d, %d, %d]",
+            tilingData_.sorted, tilingData_.largest, keyLargeShape, keyInt64Shape, isSelectTopK_);
 
     return tilingKey;
 }
@@ -187,6 +300,17 @@ uint64_t RadixTopKTiling::GetTilingKey() const
 // 6、计算Workspace 大小
 ge::graphStatus RadixTopKTiling::GetWorkspaceSize()
 {
+    // SelectTopK：stkCoreMode==1（行内多核）与行模式余数行段化（stkResidualRows>0）都走 GM 槽位树形归并，
+    // 须按 coreNum 分配归并槽位 workspace（每核 k 个值 + k 个索引；余数行时 blockDim==coreNum，公式同），
+    // 系统 workspace 由框架计入
+    if (isSelectTopK_) {
+        workspaceSize_ = 0;
+        if (tilingData_.stkCoreMode == 1 || tilingData_.stkResidualRows > 0) {
+            const uint64_t slotStride = (tilingData_.kValue + STK_SLOT_ALIGN - 1) / STK_SLOT_ALIGN * STK_SLOT_ALIGN;
+            workspaceSize_ += 2ULL * tilingData_.coreNum * slotStride * sizeof(int32_t);
+        }
+        return ge::GRAPH_SUCCESS;
+    }
     if (!tilingData_.needWorkspace) {
         workspaceSize_ = 0;
         return ge::GRAPH_SUCCESS;
@@ -257,6 +381,149 @@ void RadixTopKTiling::PrintTilingData()
     OP_LOGD(opName_, "sorted:           %d.", tilingData_.sorted);
     OP_LOGD(opName_, "isInt64Shape:     %d.", isInt64Shape_);
     OP_LOGD(opName_, "needWorkspace:    %d.", tilingData_.needWorkspace);
+    OP_LOGD(opName_, "isSelectTopK:     %d.", isSelectTopK_);
+    OP_LOGD(opName_, "stkKLevel:         %u.", tilingData_.stkKLevel);
+    OP_LOGD(opName_, "stkBlockSize:      %lu.", tilingData_.stkBlockSize);
+    OP_LOGD(opName_, "stkCandidateCap:   %lu.", tilingData_.stkCandidateCapacity);
+    OP_LOGD(opName_, "stkFilteredCap:    %lu.", tilingData_.stkFilteredCapacity);
+    OP_LOGD(opName_, "stkNumStages:      %u.", tilingData_.stkNumStages);
+    OP_LOGD(opName_, "stkSafeTrigger:    %lu.", tilingData_.stkSafeTrigger);
+    OP_LOGD(opName_, "stkWarmupLen:      %lu.", tilingData_.stkWarmupLen);
+    OP_LOGD(opName_, "stkCoreMode:       %u.", tilingData_.stkCoreMode);
+    OP_LOGD(opName_, "stkRowsPerCore:    %lu.", tilingData_.stkRowsPerCore);
+    OP_LOGD(opName_, "stkFormerCoreNum:  %lu.", tilingData_.stkFormerCoreNum);
+    OP_LOGD(opName_, "stkTailCoreNum:    %lu.", tilingData_.stkTailCoreNum);
+    OP_LOGD(opName_, "stkSegLen:         %lu.", tilingData_.stkSegLen);
+    OP_LOGD(opName_, "stkFormerSegCore:  %lu.", tilingData_.stkFormerSegCoreNum);
+    OP_LOGD(opName_, "stkTailSegCore:    %lu.", tilingData_.stkTailSegCoreNum);
+}
+
+/**
+ * @brief SelectTopK 单遍扫描快路径 tiling；返回 false 表示 UB 三档均不满足，调用方回落 radix
+ */
+bool RadixTopKTiling::CalcSelectTopKTilingParams()
+{
+    const uint64_t sortLen = tilingData_.sortLen;
+    const uint64_t kValue = tilingData_.kValue;
+    const uint64_t batch = tilingData_.batch;
+
+    // ---- ① k 档位（向上取档）：0→512 / 1→1024 / 2→4096 ----
+    uint32_t kLevel = 0;
+    if (kValue > 512ULL) {
+        kLevel = (kValue > 1024ULL) ? 2U : 1U;
+    }
+    tilingData_.stkKLevel = kLevel;
+
+    // ---- ② 核映射模式（以 totalCoreNum_ 为基准，避免与 blockDim_ 循环依赖）----
+    // 行内多核：单行且段长足以摊薄归并开销。归并为 GM 槽位树形归并，
+    // 层数随 log2(D) 增长，故不再按 √(S/(4k)) 限流，直接取满核数。
+    const bool segMode = (batch < totalCoreNum_) && (sortLen >= totalCoreNum_ * STK_MIN_SEG_LEN);
+
+    if (segMode) {
+        tilingData_.stkCoreMode = 1;
+        blockDim_ = totalCoreNum_;
+    } else {
+        tilingData_.stkCoreMode = 0;
+        blockDim_ = (batch < totalCoreNum_) ? batch : totalCoreNum_;
+        // 并行度下限防御：窗口内不可达，保留以防后续调整窗口下界
+        if (blockDim_ < STK_MIN_ACTIVE_CORES) {
+            OP_LOGD(opName_, "SelectTopK fallback: active cores [%u] < min [%u].", blockDim_, STK_MIN_ACTIVE_CORES);
+            return false;
+        }
+    }
+    if (blockDim_ == 0) {
+        return false;
+    }
+
+    // ---- ③ 行 / 段切分公式 ----
+    if (tilingData_.stkCoreMode == 1) {
+        const uint64_t segLen = Ops::Base::CeilDiv(sortLen, static_cast<uint64_t>(blockDim_));
+        const uint64_t formerSeg = sortLen - (segLen - 1) * static_cast<uint64_t>(blockDim_);
+        tilingData_.stkSegLen = segLen;
+        tilingData_.stkFormerSegCoreNum = formerSeg;
+        tilingData_.stkTailSegCoreNum = static_cast<uint64_t>(blockDim_) - formerSeg;
+        tilingData_.stkRowsPerCore = 0;
+        tilingData_.stkFormerCoreNum = 0;
+        tilingData_.stkTailCoreNum = 0;
+        tilingData_.stkFullRows = 0;
+        tilingData_.stkResidualRows = 0;
+    } else {
+        // 余数行段化：batch = q*blockDim + r（r>0）时 r 个余数行由全核协作扫，避免尾核多扛整行
+        const uint64_t q = batch / static_cast<uint64_t>(blockDim_);
+        const uint64_t r = batch % static_cast<uint64_t>(blockDim_);
+        const bool residualSeg = (r > 0) && (sortLen >= static_cast<uint64_t>(blockDim_) * STK_MIN_SEG_LEN);
+        if (residualSeg) {
+            tilingData_.stkRowsPerCore = q;
+            tilingData_.stkFormerCoreNum = static_cast<uint64_t>(blockDim_);
+            tilingData_.stkTailCoreNum = 0;
+            tilingData_.stkFullRows = q * static_cast<uint64_t>(blockDim_);
+            tilingData_.stkResidualRows = r;
+            tilingData_.stkSegLen = Ops::Base::CeilDiv(sortLen, static_cast<uint64_t>(blockDim_));
+            const uint64_t formerSeg = sortLen - (tilingData_.stkSegLen - 1) * static_cast<uint64_t>(blockDim_);
+            tilingData_.stkFormerSegCoreNum = formerSeg;
+            tilingData_.stkTailSegCoreNum = static_cast<uint64_t>(blockDim_) - formerSeg;
+        } else {
+            const uint64_t rowsPerCore = Ops::Base::CeilDiv(batch, static_cast<uint64_t>(blockDim_));
+            const uint64_t formerCores = batch - (rowsPerCore - 1) * static_cast<uint64_t>(blockDim_);
+            tilingData_.stkRowsPerCore = rowsPerCore;
+            tilingData_.stkFormerCoreNum = formerCores;
+            tilingData_.stkTailCoreNum = static_cast<uint64_t>(blockDim_) - formerCores;
+            tilingData_.stkFullRows = 0;
+            tilingData_.stkResidualRows = 0;
+            tilingData_.stkSegLen = 0;
+            tilingData_.stkFormerSegCoreNum = 0;
+            tilingData_.stkTailSegCoreNum = 0;
+        }
+    }
+
+    // ---- ④ UB 自适应降级选档（严格不改写其它 stk 字段；三档均超限 ⇒ 回落）----
+    static const uint32_t kTierStages[3] = {3U, 2U, 2U};
+    static const uint64_t kTierBlockSize[3] = {8192ULL, 8192ULL, 4096ULL};
+    // 归并叉数：k≤128 由核 0 串行合并全部槽位（只留 2 次 SyncAll）；
+    // k≤2048 四路（4k 候选放得进 UB），k>2048 二叉（4k 约 246 KB 超预算）。
+    const uint64_t mergeArity = (kValue <= STK_SINGLE_MERGE_MAX_K) ? 0ULL :
+                                                                     ((kValue <= STK_MERGE4_MAX_K) ? 4ULL : 2ULL);
+    const uint64_t mergeSides = (mergeArity == 0ULL) ? 0ULL : (mergeArity - 1ULL);
+    const uint64_t ubBudget = (ubSize_ > STK_UB_RESERVE) ? (ubSize_ - STK_UB_RESERVE) : ubSize_;
+    bool ubFound = false;
+    for (uint32_t t = 0; (t < 3U) && !ubFound; ++t) {
+        const uint64_t blockSize = kTierBlockSize[t];
+        // cap 线性取值：cap ≥ safeTrigger + B 是扫描追加的硬约束，+STK_PAD 补 repeat 余量；
+        // 还需覆盖归并布局 sides·AlignUp(k,8)+k（见 ⑤ 断言），不依赖 cap 为 2 的幂。
+        const uint64_t scanCap = kValue + blockSize + STK_FILTERED_CAP + STK_PAD;
+        const uint64_t mergeCap = StkMergeNeed(kValue, mergeSides) + STK_PAD;
+        const uint64_t cap = (mergeCap > scanCap) ? mergeCap : scanCap;
+        if (SelectTopKUbUsage(kValue, blockSize, kTierStages[t], cap, mergeArity, mergeSides, blockDim_) <= ubBudget) {
+            tilingData_.stkNumStages = kTierStages[t];
+            tilingData_.stkBlockSize = blockSize;
+            tilingData_.stkFilteredCapacity = STK_FILTERED_CAP;
+            tilingData_.stkCandidateCapacity = cap;
+            tilingData_.stkSafeTrigger = kValue + STK_FILTERED_CAP;
+            tilingData_.stkWarmupLen = blockSize;
+            tilingData_.stkMergeArity = static_cast<uint32_t>(mergeArity);
+            ubFound = true;
+        }
+    }
+    if (!ubFound) {
+        OP_LOGD(opName_, "SelectTopK fallback: no UB tier fits (ubSize [%lu]).", ubSize_);
+        return false;
+    }
+
+    // ---- ⑤ 候选容量与触发水位断言：cap ≥ safeTrigger + B（保证一次全块追加不溢出）----
+    OP_CHECK_IF((tilingData_.stkCandidateCapacity < tilingData_.stkSafeTrigger + tilingData_.stkBlockSize),
+                OP_LOGE(opName_, "SelectTopK: stkCandidateCapacity [%lu] < stkSafeTrigger [%lu] + stkBlockSize [%lu].",
+                        tilingData_.stkCandidateCapacity, tilingData_.stkSafeTrigger, tilingData_.stkBlockSize),
+                return false);
+    // 归并/复选布局断言：cap 须覆盖 sides·AlignUp(k,8)+k 与 EQ 值暂存，避免调档后静默越界。
+    const uint64_t mergeNeed = StkMergeNeed(kValue, mergeSides);
+    OP_CHECK_IF((tilingData_.stkCandidateCapacity < mergeNeed),
+                OP_LOGE(opName_, "SelectTopK: stkCandidateCapacity [%lu] < mergeSides·AlignUp(k,8)+k [%lu].",
+                        tilingData_.stkCandidateCapacity, mergeNeed),
+                return false);
+
+    tilingData_.coreNum = blockDim_;
+    tilingData_.needWorkspace = false; // SelectTopK 自持 GM workspace = 0 B（仅保留系统量）
+    return true;
 }
 
 void RadixTopKTiling::CalcTileDistribution(const uint64_t& dataNum, const uint64_t& formerTileLen)
@@ -360,6 +627,24 @@ void RadixTopKTiling::SetTilingData()
     tilingData->sorted = tilingData_.sorted;
     tilingData->largest = tilingData_.largest;
     tilingData->needWorkspace = tilingData_.needWorkspace;
+    // ---- SelectTopK 字段组 ----
+    tilingData->stkKLevel = tilingData_.stkKLevel;
+    tilingData->stkBlockSize = tilingData_.stkBlockSize;
+    tilingData->stkCandidateCapacity = tilingData_.stkCandidateCapacity;
+    tilingData->stkFilteredCapacity = tilingData_.stkFilteredCapacity;
+    tilingData->stkNumStages = tilingData_.stkNumStages;
+    tilingData->stkSafeTrigger = tilingData_.stkSafeTrigger;
+    tilingData->stkWarmupLen = tilingData_.stkWarmupLen;
+    tilingData->stkCoreMode = tilingData_.stkCoreMode;
+    tilingData->stkRowsPerCore = tilingData_.stkRowsPerCore;
+    tilingData->stkFormerCoreNum = tilingData_.stkFormerCoreNum;
+    tilingData->stkTailCoreNum = tilingData_.stkTailCoreNum;
+    tilingData->stkSegLen = tilingData_.stkSegLen;
+    tilingData->stkFormerSegCoreNum = tilingData_.stkFormerSegCoreNum;
+    tilingData->stkTailSegCoreNum = tilingData_.stkTailSegCoreNum;
+    tilingData->stkFullRows = tilingData_.stkFullRows;
+    tilingData->stkResidualRows = tilingData_.stkResidualRows;
+    tilingData->stkMergeArity = tilingData_.stkMergeArity;
 }
 } // namespace RadixTopK
 

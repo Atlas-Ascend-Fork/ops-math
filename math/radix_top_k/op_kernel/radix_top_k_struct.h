@@ -37,6 +37,25 @@ struct RadixTopKTilingData {
     bool largest;       /**< 是否求最大 k 值（true: largest, false: smallest） */
     bool sorted;        /**< 输出结果是否排序（当前仅支持 false） */
     bool needWorkspace; /**< 是否使用 workspace（false: 复用 indices 内存做暂存） */
+
+    // SelectTopK 专用字段组（追加在末尾，现网 radix 字段偏移不变；host 与 kernel 共用）
+    uint32_t stkKLevel;            /**< k 档位：0→512 / 1→1024 / 2→4096（由 kValue 向上取档） */
+    uint64_t stkBlockSize;         /**< 扫描块大小 B（host 按 UB 预算选定） */
+    uint64_t stkCandidateCapacity; /**< 候选缓冲容量 = k + B + filtered + 256 */
+    uint64_t stkFilteredCapacity;  /**< 阈值命中上限（候选水位余量） */
+    uint32_t stkNumStages;         /**< 输入 staging 流水级数（host 选定） */
+    uint64_t stkSafeTrigger;       /**< 候选压缩触发水位 = k + filtered */
+    uint64_t stkWarmupLen;         /**< 预热段长度（初始化阈值），≤ B 量级 */
+    uint32_t stkCoreMode;          /**< 核映射模式：0 = 行-核映射；1 = 行内多核 */
+    uint64_t stkRowsPerCore;       /**< 行-核映射：前核每核行数 = CeilDiv(batch, blockDim) */
+    uint64_t stkFormerCoreNum;     /**< 行-核映射：处理 stkRowsPerCore 行的核数 */
+    uint64_t stkTailCoreNum;       /**< 行-核映射：处理 stkRowsPerCore-1 行的核数 */
+    uint64_t stkSegLen;            /**< 段长 = CeilDiv(sortLen, blockDim)，行内多核与余数行段化复用 */
+    uint64_t stkFormerSegCoreNum;  /**< 段切分：处理 stkSegLen 段的核数 */
+    uint64_t stkTailSegCoreNum;    /**< 段切分：处理 stkSegLen-1 段的核数 */
+    uint64_t stkFullRows; /**< 余数行段化：整行分配的完整行数（余数行起始 = q*blockDim） */
+    uint64_t stkResidualRows; /**< 余数行段化：需块内多核协作的余数行数 = batch % blockDim；0 = 纯整行 */
+    uint32_t stkMergeArity; /**< 槽位归并叉数：0 = 核 0 串行合并（k≤128）；4 = 四路（k≤2048）；2 = 二叉（k>2048） */
 };
 
 #pragma pack(pop)
