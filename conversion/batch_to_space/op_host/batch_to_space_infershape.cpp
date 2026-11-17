@@ -98,7 +98,17 @@ ge::graphStatus BatchToSpaceInferShapeHelper::Inference()
     OP_CHECK_IF(xShape_->GetDimNum() != X_RANK,
                 OP_LOGE(context_, "x must be %zuD, got %zu", X_RANK, xShape_->GetDimNum()), return ge::GRAPH_FAILED);
 
-    yShape_->SetDimNum(0);
+    const gert::CompileTimeTensorDesc* xDesc = context_->GetInputDesc(INPUT_IDX_X);
+    OP_CHECK_NULL_WITH_CONTEXT(context_, xDesc);
+    const bool isNchw = ge::GetPrimaryFormat(xDesc->GetOriginFormat()) == ge::FORMAT_NCHW;
+    const size_t hDim = isNchw ? 2 : DIM_H;
+    const size_t wDim = isNchw ? 3 : DIM_W;
+    const size_t cDim = isNchw ? 1 : DIM_C;
+
+    int64_t nOut = UNKNOWN_DIM;
+    int64_t hOut = UNKNOWN_DIM;
+    int64_t wOut = UNKNOWN_DIM;
+    int64_t cOut = UNKNOWN_DIM;
 
     // N = N_in / (block_size * block_size)
     int64_t bs2 = blockSize_ * blockSize_;
@@ -107,34 +117,35 @@ ge::graphStatus BatchToSpaceInferShapeHelper::Inference()
                     OP_LOGE(context_, "N_in must be divisible by block_size^2, got N_in=%ld, block_size=%ld",
                             xShape_->GetDim(DIM_N), blockSize_),
                     return ge::GRAPH_FAILED);
-        yShape_->AppendDim(xShape_->GetDim(DIM_N) / bs2);
-    } else {
-        yShape_->AppendDim(UNKNOWN_DIM);
+        nOut = xShape_->GetDim(DIM_N) / bs2;
     }
 
     // H_out = H_in * block_size - crop_top - crop_bottom
-    if (xShape_->GetDim(DIM_H) != UNKNOWN_DIM && hasCropsConst_) {
-        int64_t hOut = xShape_->GetDim(DIM_H) * blockSize_ - crops_[0] - crops_[1];
+    if (xShape_->GetDim(hDim) != UNKNOWN_DIM && hasCropsConst_) {
+        hOut = xShape_->GetDim(hDim) * blockSize_ - crops_[0] - crops_[1];
         OP_CHECK_IF(hOut <= 0, OP_LOGE(context_, "H_out must be positive, got %ld", hOut), return ge::GRAPH_FAILED);
-        yShape_->AppendDim(hOut);
-    } else {
-        yShape_->AppendDim(UNKNOWN_DIM);
     }
 
     // W_out = W_in * block_size - crop_left - crop_right
-    if (xShape_->GetDim(DIM_W) != UNKNOWN_DIM && hasCropsConst_) {
-        int64_t wOut = xShape_->GetDim(DIM_W) * blockSize_ - crops_[2] - crops_[3];
+    if (xShape_->GetDim(wDim) != UNKNOWN_DIM && hasCropsConst_) {
+        wOut = xShape_->GetDim(wDim) * blockSize_ - crops_[2] - crops_[3];
         OP_CHECK_IF(wOut <= 0, OP_LOGE(context_, "W_out must be positive, got %ld", wOut), return ge::GRAPH_FAILED);
-        yShape_->AppendDim(wOut);
-    } else {
-        yShape_->AppendDim(UNKNOWN_DIM);
     }
 
     // C: unchanged
-    if (xShape_->GetDim(DIM_C) != UNKNOWN_DIM) {
-        yShape_->AppendDim(xShape_->GetDim(DIM_C));
+    cOut = xShape_->GetDim(cDim);
+
+    yShape_->SetDimNum(0);
+    if (isNchw) {
+        yShape_->AppendDim(nOut);
+        yShape_->AppendDim(cOut);
+        yShape_->AppendDim(hOut);
+        yShape_->AppendDim(wOut);
     } else {
-        yShape_->AppendDim(UNKNOWN_DIM);
+        yShape_->AppendDim(nOut);
+        yShape_->AppendDim(hOut);
+        yShape_->AppendDim(wOut);
+        yShape_->AppendDim(cOut);
     }
 
     return ge::GRAPH_SUCCESS;

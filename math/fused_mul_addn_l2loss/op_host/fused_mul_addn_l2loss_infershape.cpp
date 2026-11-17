@@ -11,8 +11,7 @@
 /*!
  * \file fused_mul_addn_l2loss_infershape.cpp
  * \brief y1 shape = x1 shape；y2 = 单元素标量（shape (1,)）
- *        与 canndev built-in FusedMulAddNL2lossInferShape（elewise_calculation_ops.cc）
- *        功能完全一致，gert infershape 2.0 写法
+ *        gert infershape 2.0 写法
  */
 #include "register/op_impl_registry.h"
 #include "log/log.h"

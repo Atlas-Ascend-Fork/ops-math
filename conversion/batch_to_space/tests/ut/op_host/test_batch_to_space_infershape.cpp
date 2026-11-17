@@ -41,6 +41,48 @@ TEST_F(BatchToSpaceInfershapeTest, batch_to_space_basic_4d)
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
 
+TEST_F(BatchToSpaceInfershapeTest, batch_to_space_nchw_basic)
+{
+    int64_t cropsValues[4] = {0, 0, 0, 0};
+
+    gert::InfershapeContextPara infershapeContextPara(
+        "BatchToSpace",
+        {
+            {{{8, 4, 8, 8}, {8, 4, 8, 8}}, ge::DT_FLOAT16, ge::FORMAT_NCHW},
+            {{{2, 2}, {2, 2}}, ge::DT_INT64, ge::FORMAT_ND, true, cropsValues},
+        },
+        {
+            {{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_NCHW},
+        },
+        {
+            gert::InfershapeContextPara::OpAttr("block_size", Ops::Math::AnyValue::CreateFrom<int64_t>(2)),
+        });
+
+    std::vector<std::vector<int64_t>> expectOutputShape = {{2, 4, 16, 16}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+TEST_F(BatchToSpaceInfershapeTest, batch_to_space_nchw_nonzero_crops)
+{
+    int64_t cropsValues[4] = {1, 2, 3, 4};
+
+    gert::InfershapeContextPara infershapeContextPara(
+        "BatchToSpace",
+        {
+            {{{8, 4, 8, 8}, {8, 4, 8, 8}}, ge::DT_FLOAT16, ge::FORMAT_NCHW},
+            {{{2, 2}, {2, 2}}, ge::DT_INT64, ge::FORMAT_ND, true, cropsValues},
+        },
+        {
+            {{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_NCHW},
+        },
+        {
+            gert::InfershapeContextPara::OpAttr("block_size", Ops::Math::AnyValue::CreateFrom<int64_t>(2)),
+        });
+
+    std::vector<std::vector<int64_t>> expectOutputShape = {{2, 4, 13, 9}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
 TEST_F(BatchToSpaceInfershapeTest, batch_to_space_nonconst_crops_valid_shape)
 {
     gert::InfershapeContextPara infershapeContextPara(

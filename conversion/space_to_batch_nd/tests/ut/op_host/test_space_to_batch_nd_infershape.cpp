@@ -231,3 +231,18 @@ TEST_F(SpaceToBatchNDInfershapeTest, padded_dim_overflow_should_fail)
 
     ExecuteTestCase(para, ge::GRAPH_FAILED);
 }
+
+TEST_F(SpaceToBatchNDInfershapeTest, unknown_rank_with_non_const_inputs_success)
+{
+    gert::InfershapeContextPara para("SpaceToBatchND",
+                                     {
+                                         {{{-2}, {-2}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                         {{{1}, {1}}, ge::DT_INT32, ge::FORMAT_ND},
+                                         {{{1, 2}, {1, 2}}, ge::DT_INT32, ge::FORMAT_ND},
+                                     },
+                                     {
+                                         {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                     });
+    std::vector<std::vector<int64_t>> expectOutputShape = {{-2}};
+    ExecuteTestCase(para, ge::GRAPH_SUCCESS, expectOutputShape);
+}

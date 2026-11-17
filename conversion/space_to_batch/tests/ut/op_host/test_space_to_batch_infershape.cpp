@@ -43,6 +43,71 @@ TEST_F(SpaceToBatchInfershapeTest, KnownDimDivisible)
     ExecuteTestCase(para, ge::GRAPH_SUCCESS, expectOutputShape);
 }
 
+TEST_F(SpaceToBatchInfershapeTest, NchwKnownDimDivisible)
+{
+    // NCHW in [2, 4, 8, 8], bs=2, pad=0
+    // batch = 2*2*2 = 8, C=4, out_spatial = [4, 4]
+    std::vector<int32_t> paddingsValues = {0, 0, 0, 0};
+
+    gert::InfershapeContextPara para(
+        "SpaceToBatch",
+        {
+            {{{2, 4, 8, 8}, {2, 4, 8, 8}}, ge::DT_FLOAT, ge::FORMAT_NCHW},
+            {{{2, 2}, {2, 2}}, ge::DT_INT32, ge::FORMAT_ND, true, paddingsValues.data()},
+        },
+        {
+            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_NCHW},
+        },
+        {
+            gert::InfershapeContextPara::OpAttr("block_size", Ops::Math::AnyValue::CreateFrom<int64_t>(2)),
+        });
+
+    std::vector<std::vector<int64_t>> expectOutputShape = {{8, 4, 4, 4}};
+    ExecuteTestCase(para, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+TEST_F(SpaceToBatchInfershapeTest, NchwKnownDimWithPadding)
+{
+    std::vector<int32_t> paddingsValues = {1, 1, 1, 1};
+
+    gert::InfershapeContextPara para(
+        "SpaceToBatch",
+        {
+            {{{2, 4, 8, 8}, {2, 4, 8, 8}}, ge::DT_FLOAT, ge::FORMAT_NCHW},
+            {{{2, 2}, {2, 2}}, ge::DT_INT32, ge::FORMAT_ND, true, paddingsValues.data()},
+        },
+        {
+            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_NCHW},
+        },
+        {
+            gert::InfershapeContextPara::OpAttr("block_size", Ops::Math::AnyValue::CreateFrom<int64_t>(2)),
+        });
+
+    std::vector<std::vector<int64_t>> expectOutputShape = {{8, 4, 5, 5}};
+    ExecuteTestCase(para, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+TEST_F(SpaceToBatchInfershapeTest, NchwUnknownSpatialDimKept)
+{
+    std::vector<int32_t> paddingsValues = {0, 0, 0, 0};
+
+    gert::InfershapeContextPara para(
+        "SpaceToBatch",
+        {
+            {{{2, 4, -1, -1}, {2, 4, -1, -1}}, ge::DT_FLOAT, ge::FORMAT_NCHW},
+            {{{2, 2}, {2, 2}}, ge::DT_INT32, ge::FORMAT_ND, true, paddingsValues.data()},
+        },
+        {
+            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_NCHW},
+        },
+        {
+            gert::InfershapeContextPara::OpAttr("block_size", Ops::Math::AnyValue::CreateFrom<int64_t>(2)),
+        });
+
+    std::vector<std::vector<int64_t>> expectOutputShape = {{8, 4, -1, -1}};
+    ExecuteTestCase(para, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
 TEST_F(SpaceToBatchInfershapeTest, KnownDimNotDivisible)
 {
     // in [1, 4, 4, 3], bs=2, pad=[[1,0],[0,0]]

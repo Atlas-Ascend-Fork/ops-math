@@ -57,10 +57,6 @@ ge::graphStatus SpaceToBatchInferShapeHelper::Init()
 
     const gert::CompileTimeTensorDesc* xDesc = context_->GetInputDesc(INPUT_IDX_X);
     OP_CHECK_NULL_WITH_CONTEXT(context_, xDesc);
-    OP_CHECK_IF(
-        xDesc->GetOriginFormat() != ge::FORMAT_NHWC,
-        OP_LOGE(context_, "x only supports format NHWC, but got %d", static_cast<int32_t>(xDesc->GetOriginFormat())),
-        return ge::GRAPH_FAILED);
 
     const gert::CompileTimeTensorDesc* paddingsDesc = context_->GetInputDesc(INPUT_IDX_PADDINGS);
     OP_CHECK_NULL_WITH_CONTEXT(context_, paddingsDesc);
@@ -68,13 +64,6 @@ ge::graphStatus SpaceToBatchInferShapeHelper::Init()
                 OP_LOGE(context_, "paddings only supports format ND, but got %d",
                         static_cast<int32_t>(paddingsDesc->GetOriginFormat())),
                 return ge::GRAPH_FAILED);
-
-    const gert::CompileTimeTensorDesc* yDesc = context_->GetOutputDesc(OUTPUT_IDX_Y);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, yDesc);
-    OP_CHECK_IF(
-        yDesc->GetOriginFormat() != ge::FORMAT_NHWC,
-        OP_LOGE(context_, "y only supports format NHWC, but got %d", static_cast<int32_t>(yDesc->GetOriginFormat())),
-        return ge::GRAPH_FAILED);
 
     blockSize_ = GetBlockSize();
     OP_CHECK_IF(blockSize_ <= 0, OP_LOGE(context_, "block_size must be positive, but got %ld", blockSize_),
@@ -125,7 +114,12 @@ ge::graphStatus SpaceToBatchInferShapeHelper::Inference()
     OP_CHECK_IF(xShape_->GetDimNum() != 4, OP_LOGE(context_, "x must be 4D, got %zu", xShape_->GetDimNum()),
                 return ge::GRAPH_FAILED);
 
-    yShape_->SetDimNum(0);
+    const gert::CompileTimeTensorDesc* xDesc = context_->GetInputDesc(INPUT_IDX_X);
+    OP_CHECK_NULL_WITH_CONTEXT(context_, xDesc);
+    const bool isNchw = ge::GetPrimaryFormat(xDesc->GetOriginFormat()) == ge::FORMAT_NCHW;
+    const size_t hDim = isNchw ? 2 : 1;
+    const size_t wDim = isNchw ? 3 : 2;
+    const size_t cDim = isNchw ? 1 : 3;
 
     int64_t batch = xShape_->GetDim(0);
     if (batch != UNKNOWN_DIM) {
@@ -136,12 +130,12 @@ ge::graphStatus SpaceToBatchInferShapeHelper::Inference()
                     return ge::GRAPH_FAILED);
         batch = batchMul;
     }
-    yShape_->AppendDim(batch);
 
+    int64_t hOut = UNKNOWN_DIM;
     if (isConstPaddings_) {
         int64_t padTop = paddingsVec_.GetDim(0);
         int64_t padBottom = paddingsVec_.GetDim(1);
-        int64_t hIn = xShape_->GetDim(1);
+        int64_t hIn = xShape_->GetDim(hDim);
         if (hIn != UNKNOWN_DIM) {
             int64_t hPadded = 0;
             OP_CHECK_IF(
@@ -151,18 +145,15 @@ ge::graphStatus SpaceToBatchInferShapeHelper::Inference()
             OP_CHECK_IF(hPadded % blockSize_ != 0,
                         OP_LOGE(context_, "H_padded (%ld) not divisible by block_size (%ld)", hPadded, blockSize_),
                         return ge::GRAPH_FAILED);
-            yShape_->AppendDim(hPadded / blockSize_);
-        } else {
-            yShape_->AppendDim(UNKNOWN_DIM);
+            hOut = hPadded / blockSize_;
         }
-    } else {
-        yShape_->AppendDim(UNKNOWN_DIM);
     }
 
+    int64_t wOut = UNKNOWN_DIM;
     if (isConstPaddings_) {
         int64_t padLeft = paddingsVec_.GetDim(2);
         int64_t padRight = paddingsVec_.GetDim(3);
-        int64_t wIn = xShape_->GetDim(2);
+        int64_t wIn = xShape_->GetDim(wDim);
         if (wIn != UNKNOWN_DIM) {
             int64_t wPadded = 0;
             OP_CHECK_IF(
@@ -172,15 +163,24 @@ ge::graphStatus SpaceToBatchInferShapeHelper::Inference()
             OP_CHECK_IF(wPadded % blockSize_ != 0,
                         OP_LOGE(context_, "W_padded (%ld) not divisible by block_size (%ld)", wPadded, blockSize_),
                         return ge::GRAPH_FAILED);
-            yShape_->AppendDim(wPadded / blockSize_);
-        } else {
-            yShape_->AppendDim(UNKNOWN_DIM);
+            wOut = wPadded / blockSize_;
         }
-    } else {
-        yShape_->AppendDim(UNKNOWN_DIM);
     }
 
-    yShape_->AppendDim(xShape_->GetDim(3));
+    int64_t cOut = xShape_->GetDim(cDim);
+
+    yShape_->SetDimNum(0);
+    if (isNchw) {
+        yShape_->AppendDim(batch);
+        yShape_->AppendDim(cOut);
+        yShape_->AppendDim(hOut);
+        yShape_->AppendDim(wOut);
+    } else {
+        yShape_->AppendDim(batch);
+        yShape_->AppendDim(hOut);
+        yShape_->AppendDim(wOut);
+        yShape_->AppendDim(cOut);
+    }
 
     OP_LOGI(context_->GetNodeName(), "SpaceToBatch output shape: %s.", Ops::Base::ToString(*yShape_).c_str());
     return ge::GRAPH_SUCCESS;

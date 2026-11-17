@@ -48,12 +48,6 @@ private:
 
 ge::graphStatus SpaceToBatchNDInferShapeHelper::Init()
 {
-    xShape_ = context_->GetInputShape(INPUT_IDX_X);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, xShape_);
-
-    yShape_ = context_->GetOutputShape(OUTPUT_IDX_Y);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, yShape_);
-
     const gert::Tensor* bsTensor = context_->GetInputTensor(INPUT_IDX_BS);
     OP_CHECK_NULL_WITH_CONTEXT(context_, bsTensor);
     N_ = bsTensor->GetShapeSize();
@@ -150,14 +144,17 @@ ge::graphStatus SpaceToBatchNDInferShapeHelper::CheckAndInfer()
 
 ge::graphStatus SpaceToBatchNDInferShapeHelper::Inference()
 {
-    OP_CHECK_IF(Init() != ge::GRAPH_SUCCESS, OP_LOGE(context_, "init failed"), return ge::GRAPH_FAILED);
-
+    xShape_ = context_->GetInputShape(INPUT_IDX_X);
+    OP_CHECK_NULL_WITH_CONTEXT(context_, xShape_);
+    yShape_ = context_->GetOutputShape(OUTPUT_IDX_Y);
+    OP_CHECK_NULL_WITH_CONTEXT(context_, yShape_);
     if (Ops::Base::IsUnknownRank(*xShape_)) {
         Ops::Base::SetUnknownRank(*yShape_);
         OP_LOGI(context_->GetNodeName(), "SpaceToBatchND output shape: %s.", Ops::Base::ToString(*yShape_).c_str());
         return ge::GRAPH_SUCCESS;
     }
 
+    OP_CHECK_IF(Init() != ge::GRAPH_SUCCESS, OP_LOGE(context_, "init failed"), return ge::GRAPH_FAILED);
     OP_CHECK_IF(CheckAndInfer() != ge::GRAPH_SUCCESS, OP_LOGE(context_, "infer failed"), return ge::GRAPH_FAILED);
     OP_LOGI(context_->GetNodeName(), "SpaceToBatchND output shape: %s.", Ops::Base::ToString(*yShape_).c_str());
     return ge::GRAPH_SUCCESS;
