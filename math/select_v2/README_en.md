@@ -43,7 +43,7 @@ None
 
 ## Invocation Description
 
-| Invocation Method | Invocation Sample | Description |
+| Invocation Method | Sample Code | Description |
 |--------------|------------------------------------------------------------------------|--------------------------------------------------------------|
 | aclnn API | [test_aclnn_s_where](../select/examples/test_aclnn_s_where.cpp) | Invokes the SelectV2 operator through the [aclnnSWhere](../select/docs/aclnnSWhere_en.md) API. The API is delivered by the select directory. |
 | Graph-mode invocation | [test_geir_select_v2](./examples/test_geir_select_v2.cpp) | Invokes the SelectV2 operator by building a graph through the [operator IR](./op_graph/select_v2_proto.h). |

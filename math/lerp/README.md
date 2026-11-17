@@ -75,6 +75,7 @@ end、weight的dtype需要与self一致。
 
 ## 调用说明
 
-| 调用方式 | 调用样例                                                                   | 说明                                                           |
+| 调用方式 | 样例代码                                                                   | 说明                                                           |
 |--------------|------------------------------------------------------------------------|--------------------------------------------------------------|
 | aclnn调用 | [test_aclnn_lerp](./examples/test_aclnn_lerp.cpp) | 通过[aclnnLerp](docs/aclnnLerp&aclnnInplaceLerp.md)接口方式调用Lerp算子。 |
+| aclnn调用 | [test_aclnn_inplace_lerp.cpp](./examples/test_aclnn_inplace_lerp.cpp) | 通过[aclnnLerp&aclnnInplaceLerp](./docs/aclnnLerp&aclnnInplaceLerp.md#aclnninplacelerp)接口方式调用lerp算子。 |

@@ -67,7 +67,7 @@
 
 ## 调用说明
 
-| 调用方式 | 调用样例                                                                   | 说明                                                 |
+| 调用方式 | 样例代码                                                                   | 说明                                                 |
 |--------------|------------------------------------------------------------------------|----------------------------------------------------|
 | aclnn调用 | [test_aclnn_logical_or](./examples/test_aclnn_logical_or.cpp) | 通过[aclnnLogicalOr](./docs/aclnnLogicalOr&aclnnInplaceLogicalOr.md)接口方式调用LogicalOr算子。 |
 | aclnn调用 | [test_aclnn_inplace_logical_or](./examples/test_aclnn_inplace_logical_or.cpp) | 通过[aclnnInplaceLogicalOr](./docs/aclnnLogicalOr&aclnnInplaceLogicalOr.md)接口方式调用LogicalOr算子。       |

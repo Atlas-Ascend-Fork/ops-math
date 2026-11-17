@@ -63,6 +63,9 @@
 
 ## 调用说明
 
-| 调用方式 | 调用样例                                                                   | 说明                                                             |
+| 调用方式 | 样例代码                                                                   | 说明                                                             |
 |--------------|------------------------------------------------------------------------|----------------------------------------------------------------|
 | aclnn API | [test_aclnn_le_scalar](./examples/test_aclnn_le_scalar.cpp) | 通过[aclnnLeScalar&aclnnInplaceLeScalar](./docs/aclnnLeScalar&aclnnInplaceLeScalar.md)接口方式调用LessEqual算子。    |
+| aclnn调用 | [test_aclnn_inplace_le_scalar.cpp](./examples/test_aclnn_inplace_le_scalar.cpp) | 通过[aclnnLeScalar&aclnnInplaceLeScalar](./docs/aclnnLeScalar&aclnnInplaceLeScalar.md#aclnninplacelescalar)接口方式调用less_equal算子。 |
+| aclnn调用 | [test_aclnn_inplace_le_tensor.cpp](./examples/test_aclnn_inplace_le_tensor.cpp) | 通过[aclnnLeTensor&aclnnInplaceLeTensor](./docs/aclnnLeTensor&aclnnInplaceLeTensor.md)接口方式调用less_equal算子。 |
+| aclnn调用 | [test_aclnn_le_tensor.cpp](./examples/test_aclnn_le_tensor.cpp) | 通过[aclnnLeTensor&aclnnInplaceLeTensor](./docs/aclnnLeTensor&aclnnInplaceLeTensor.md#aclnnletensor)接口方式调用less_equal算子。 |

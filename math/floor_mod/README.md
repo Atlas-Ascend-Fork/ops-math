@@ -79,6 +79,10 @@ result = remainder(self, other)
 
 ## 调用说明
 
-| 调用方式 | 调用样例                                             | 说明                                                                                         |
+| 调用方式 | 样例代码                                             | 说明                                                                                         |
 |---------|----------------------------------------------------|----------------------------------------------------------------------------------------------|
 | aclnn调用 | [test_aclnn_remainder_scalar_tensor](./examples/test_aclnn_remainder_scalar_tensor.cpp) | 通过[aclnnRemainderScalarTensor](./docs/aclnnRemainderScalarTensor.md)接口方式调用FloorMod算子  |
+| aclnn调用 | [test_aclnn_inplace_remainder_tensor_scalar.cpp](./examples/test_aclnn_inplace_remainder_tensor_scalar.cpp) | 通过[aclnnRemainderTensorScalar&aclnnInplaceRemainderTensorScalar](./docs/aclnnRemainderTensorScalar&aclnnInplaceRemainderTensorScalar.md)接口方式调用floor_mod算子。 |
+| aclnn调用 | [test_aclnn_inplace_remainder_tensor_tensor.cpp](./examples/test_aclnn_inplace_remainder_tensor_tensor.cpp) | 通过[aclnnRemainderTensorTensor&aclnnInplaceRemainderTensorTensor](./docs/aclnnRemainderTensorTensor&aclnnInplaceRemainderTensorTensor.md)接口方式调用floor_mod算子。 |
+| aclnn调用 | [test_aclnn_remainder_tensor_scalar.cpp](./examples/test_aclnn_remainder_tensor_scalar.cpp) | 通过[aclnnRemainderTensorScalar&aclnnInplaceRemainderTensorScalar](./docs/aclnnRemainderTensorScalar&aclnnInplaceRemainderTensorScalar.md#aclnnremaindertensorscalar)接口方式调用floor_mod算子。 |
+| aclnn调用 | [test_aclnn_remainder_tensor_tensor.cpp](./examples/test_aclnn_remainder_tensor_tensor.cpp) | 通过[aclnnRemainderTensorTensor&aclnnInplaceRemainderTensorTensor](./docs/aclnnRemainderTensorTensor&aclnnInplaceRemainderTensorTensor.md#aclnnremaindertensortensor)接口方式调用floor_mod算子。 |

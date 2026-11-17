@@ -68,6 +68,6 @@ English | [简体中文](./README.md)
 
 ## Invocation Description
 
-| Invocation Method | Invocation Sample                                             | Description                                                                                         |
+| Invocation Method | Sample Code                                             | Description                                                                                         |
 |---------|----------------------------------------------------|----------------------------------------------------------------------------------------------|
 | Graph-mode invocation | [test_geir_real_div](./examples/test_geir_real_div.cpp)   | Invokes the RealDiv operator by building a graph through the [operator IR](./op_graph/real_div_proto.h)                                      |

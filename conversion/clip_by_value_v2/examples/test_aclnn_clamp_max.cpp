@@ -82,7 +82,7 @@ int PrepareInputAndOutput(std::vector<int64_t>& selfShape, std::vector<int64_t>&
     CHECK_RET(ret == ACL_SUCCESS, return ret);
     // 创建max aclScalar
     *max = aclCreateScalar(&maxValue, aclDataType::ACL_INT32);
-    CHECK_RET(*max != nullptr, return ret);
+    CHECK_RET(*max != nullptr, LOG_PRINT("aclCreate failed.\n"); return ACL_ERROR_FAILURE);
     // 创建out aclTensor
     ret = CreateAclTensor(outHostData, outShape, outDeviceAddr, aclDataType::ACL_INT32, out);
     CHECK_RET(ret == ACL_SUCCESS, return ret);

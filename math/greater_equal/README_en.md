@@ -71,7 +71,8 @@ None
 
 ## Invocation Description
 
-| Invocation Method | Invocation Sample                                                                   | Description                                                             |
+| Invocation Method | Sample Code                                                                   | Description                                                             |
 |--------------|------------------------------------------------------------------------|----------------------------------------------------------------|
 | aclnn API | [test_aclnn_ge_scalar](./examples/test_aclnn_ge_scalar.cpp) | Invokes the GreaterEqual operator through the [aclnnGeScalar&aclnnInplaceGeScalar](./docs/aclnnGeScalar&aclnnInplaceGeScalar_en.md) API.    |
 | GE graph mode | [test_geir_greater_equal](./examples/test_geir_greater_equal.cpp) | Invokes the GreaterEqual operator by building a graph through the [operator IR](./op_graph/greater_equal_proto.h). |
+| aclnn invocation | [test\_aclnn\_ge\_tensor](./examples/test_aclnn_ge_tensor.cpp) | Invokes the greater_equal operator through the [aclnnGeTensor&aclnnInplaceGeTensor](./docs/aclnnGeTensor&aclnnInplaceGeTensor_en.md) APIs |

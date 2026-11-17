@@ -89,7 +89,7 @@ int main()
     CHECK_RET(ret == ACL_SUCCESS, return ret);
     // 创建exponent aclScalar
     exponent = aclCreateScalar(&exponentVal, aclDataType::ACL_FLOAT);
-    CHECK_RET(exponent != nullptr, return ret);
+    CHECK_RET(exponent != nullptr, LOG_PRINT("aclCreate failed.\n"); return ACL_ERROR_FAILURE);
     // 创建out aclTensor
     ret = CreateAclTensor(outHostData, outShape, &outDeviceAddr, aclDataType::ACL_FLOAT, &out);
     CHECK_RET(ret == ACL_SUCCESS, return ret);

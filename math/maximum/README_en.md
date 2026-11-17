@@ -68,7 +68,7 @@ None
 
 ## Invocation Description
 
-| Invocation Method | Invocation Sample                                                                   | Description                                                           |
+| Invocation Method | Sample Code                                                                   | Description                                                           |
 |--------------|------------------------------------------------------------------------|--------------------------------------------------------------|
 | aclnn invocation | [test_aclnn_maximum](./examples/test_aclnn_maximum.cpp) | Invokes the aclnnMaximum operator through the [aclnnMaximum](./docs/aclnnMaximum_en.md) API. |
 | aclnn invocation | [test_aclnn_maxn](./examples/test_aclnn_maxn.cpp) | Invokes the aclnnMaxN operator through the [aclnnMaxN](./docs/aclnnMaxN_en.md) API. |

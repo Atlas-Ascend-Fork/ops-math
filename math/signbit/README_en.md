@@ -68,6 +68,6 @@ None
 
 ## Invocation Description
 
-| Invocation Method | Invocation Sample                                                                   | Description                                                           |
+| Invocation Method | Sample Code                                                                   | Description                                                           |
 |--------------|------------------------------------------------------------------------|--------------------------------------------------------------|
 | aclnn invocation | [test_aclnn_signbit](./examples/test_aclnn_signbit.cpp) | Invokes the Signbit operator through the [aclnnSignbit](./docs/aclnnSignbit_en.md) API. |

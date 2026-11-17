@@ -83,5 +83,5 @@ $$
 | aclnn调用 | [test_aclnn_clamp_min](./examples/test_aclnn_clamp_min.cpp) | 通过[aclnnClampMin](./docs/aclnnClampMin.md)接口方式调用clip_by_value_v2算子。    |
 | aclnn调用 | [test_aclnn_clamp_min_tensor](./examples/test_aclnn_clamp_min_tensor.cpp) <br> [test_aclnn_inplace_clamp_min_tensor](./examples/test_aclnn_inplace_clamp_min_tensor.cpp) | 通过[aclnnClampMinTensor&aclnnInplaceClampMinTensor](./docs/aclnnClampMinTensor&aclnnInplaceClampMinTensor.md)接口方式调用clip_by_value_v2算子。    |
 | aclnn调用 | [test_aclnn_clamp_tensor](./examples/test_aclnn_clamp_tensor.cpp) | 通过[aclnnClampTensor](./docs/aclnnClampTensor.md)接口方式调用clip_by_value_v2算子。    |
-| aclnn调用 | [test_aclnn_hardtanh](./examples/test_aclnn_hardtanh.cpp) <br> [test_aclnn_inplace_ardtanh](./examples/test_aclnn_inplace_ardtanh.cpp) | 通过[aclnnHardtanh&aclnnInplaceHardtanh](./docs/aclnnHardtanh&aclnnInplaceHardtanh.md)接口方式调用clip_by_value_v2算子。    |
+| aclnn调用 | [test_aclnn_hardtanh](./examples/test_aclnn_hardtanh.cpp) <br> [test_aclnn_inplace_hardtanh](./examples/test_aclnn_inplace_hardtanh.cpp) | 通过[aclnnHardtanh&aclnnInplaceHardtanh](./docs/aclnnHardtanh&aclnnInplaceHardtanh.md)接口方式调用clip_by_value_v2算子。    |
 | 图模式调用 | [test_geir_clip_by_value_v2](./examples/test_geir_clip_by_value_v2.cpp)   | 通过[算子IR](./op_graph/clip_by_value_v2_proto.h)构图方式调用clip_by_value_v2算子。 |

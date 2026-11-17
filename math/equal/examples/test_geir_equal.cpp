@@ -41,7 +41,7 @@ using std::vector;
 #define ADD_INPUT(idx, name, dtype, shape)                                                       \
     do {                                                                                         \
         std::string name##idx = "placeholder" + std::to_string(idx);                             \
-        auto placeholder##idx = op::Data(name##idx.c_str()).set_attr_index(0);                   \
+        auto placeholder##idx = op::Data(name##idx.c_str()).set_attr_index(idx - 1);             \
         TensorDesc placeholder##idx##_desc(ge::Shape(shape), FORMAT_ND, dtype);                  \
         placeholder##idx##_desc.SetPlacement(ge::kPlacementHost);                                \
         Tensor tensor_placeholder##idx;                                                          \
@@ -82,6 +82,8 @@ uint32_t GetDataTypeSize(DataType dt)
         return 2;
     if (dt == DT_BOOL)
         return 1;
+    if (dt == DT_DOUBLE)
+        return 8;
     return 4;
 }
 
@@ -93,7 +95,7 @@ int32_t GenOnesDataFloat32(vector<int64_t> shapes, Tensor& tensor, TensorDesc& d
     for (auto s : shapes)
         size *= s;
 
-    uint32_t data_len = size * 4;
+    size_t data_len = size * 4;
     float* p = new float[size];
 
     for (size_t i = 0; i < size; ++i)
@@ -105,12 +107,20 @@ int32_t GenOnesDataFloat32(vector<int64_t> shapes, Tensor& tensor, TensorDesc& d
 
 int32_t WriteDataToFile(string bin_file, uint64_t data_size, uint8_t* inputData)
 {
+    if (inputData == nullptr) {
+        printf("dump data is null: %s\n", bin_file.c_str());
+        return FAILED;
+    }
     FILE* fp = fopen(bin_file.c_str(), "wb");
     if (fp == nullptr) {
+        printf("open dump file failed: %s, reason: %s\n", bin_file.c_str(), strerror(errno));
         return FAILED;
     }
     size_t written = fwrite(inputData, 1, data_size, fp);
-    fclose(fp);
+    if (fclose(fp) != 0) {
+        printf("close dump file failed: %s, reason: %s\n", bin_file.c_str(), strerror(errno));
+        return FAILED;
+    }
     if (written != data_size) {
         return FAILED;
     }
@@ -140,6 +150,7 @@ int CreateOppInGraph(DataType inDtype, vector<Tensor>& input, vector<Operator>& 
 
 int main(int argc, char* argv[])
 {
+    bool dumpOk = true;
     const char* graph_name = "tc_ge_irrun_test";
     Graph graph(graph_name);
     std::vector<ge::Tensor> input;
@@ -178,6 +189,7 @@ int main(int argc, char* argv[])
     ge::Session* session = new Session(build_options);
     if (session == nullptr) {
         printf("%s - ERROR - [XIR]: Create ir session using build options failed\n", GetTime().c_str());
+        ge::GEFinalize();
         return FAILED;
     }
     printf("%s - INFO - [XIR]: Create ir session using build options success\n", GetTime().c_str());
@@ -217,7 +229,10 @@ int main(int argc, char* argv[])
 
         uint32_t data_size = input_shape * GetDataTypeSize(input[i].GetTensorDesc().GetDataType());
 
-        WriteDataToFile(input_file.c_str(), data_size, input_data_i);
+        if (WriteDataToFile(input_file.c_str(), data_size, input_data_i) != SUCCESS) {
+            printf("write dump file failed: %s\n", input_file.c_str());
+            dumpOk = false;
+        }
     }
 
     int output_num = output.size();
@@ -233,7 +248,10 @@ int main(int argc, char* argv[])
 
         uint32_t data_size = output_shape * GetDataTypeSize(output[i].GetTensorDesc().GetDataType());
 
-        WriteDataToFile(output_file.c_str(), data_size, output_data_i);
+        if (WriteDataToFile(output_file.c_str(), data_size, output_data_i) != SUCCESS) {
+            printf("write dump file failed: %s\n", output_file.c_str());
+            dumpOk = false;
+        }
 
         for (int64_t j = 0; j < output_shape; j++) {
             printf("result[%ld] = %d\n", j, output_data_i[j]);
@@ -247,6 +265,7 @@ int main(int argc, char* argv[])
     std::cout << "Warning message: " << warning_msg.GetString() << std::endl;
 
     printf("%s - INFO - [XIR]: Start to finalize ir graph session\n", GetTime().c_str());
+    delete session;
     ret = ge::GEFinalize();
     if (ret != SUCCESS) {
         printf("%s - ERROR - [XIR]: Finalize ir graph session failed\n", GetTime().c_str());
@@ -254,5 +273,9 @@ int main(int argc, char* argv[])
     }
     printf("%s - INFO - [XIR]: Finalize ir graph session success\n", GetTime().c_str());
 
+    if (!dumpOk) {
+        printf("%s - ERROR - [XIR]: Save input or output data failed\n", GetTime().c_str());
+        return FAILED;
+    }
     return SUCCESS;
 }

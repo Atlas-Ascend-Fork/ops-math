@@ -80,7 +80,7 @@
 
 ## 调用说明
 
-| 调用方式 | 调用样例                                            | 说明                                                           |
+| 调用方式 | 样例代码                                            | 说明                                                           |
 |--------------|-------------------------------------------------|--------------------------------------------------------------|
 | aclnn调用 | [test_aclnn_sub](./examples/test_aclnn_sub.cpp) | 通过[aclnnSub](./docs/aclnnSub&aclnnInplaceSub.md)接口方式调用Sub算子。 |
 | 图模式调用 | [test_geir_sub](./examples/test_geir_sub.cpp) | 通过[算子IR](./op_graph/sub_proto.h)构图方式调用Sub算子。 |

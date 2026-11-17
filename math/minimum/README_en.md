@@ -68,7 +68,7 @@ None
 
 ## Invocation Description
 
-| Invocation Method | Invocation Sample                                                                   | Description                                                           |
+| Invocation Method | Sample Code                                                                   | Description                                                           |
 |--------------|------------------------------------------------------------------------|--------------------------------------------------------------|
 | aclnn invocation | [test_aclnn_mimimum](./examples/test_aclnn_Minimum.cpp) | Invokes the aclnnMinimum operator through the [aclnnMinimum](./docs/aclnnMinimum_en.md) API. |
 | aclnn invocation | [test_aclnn_minn](./examples/test_aclnn_MinN.cpp) | Invokes the aclnnMinN operator through the [aclnnMinN](./docs/aclnnMinN_en.md) API. |

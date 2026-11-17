@@ -70,7 +70,8 @@ None
 
 ## Invocation Description
 
-| Invocation Method | Invocation Sample                                                                   | Description                                                           |
+| Invocation Method | Sample Code                                                                   | Description                                                           |
 |--------------|------------------------------------------------------------------------|--------------------------------------------------------------|
 | aclnn invocation | [test_aclnn_logical_and](./examples/test_aclnn_logical_and.cpp) | Invokes the LogicalAnd operator through the [aclnnLogicalAnd](./docs/aclnnLogicalAnd&aclnnInplaceLogicalAnd_en.md) API. |
+| aclnn invocation | [test\_aclnn\_inplace\_logical\_and](./examples/test_aclnn_inplace_logical_and.cpp) | Invokes the logical_and operator through the [aclnnLogicalAnd&aclnnInplaceLogicalAnd](./docs/aclnnLogicalAnd&aclnnInplaceLogicalAnd.md#aclnninplacelogicaland) APIs |
 | Graph-mode invocation | - | Invokes the LogicalAnd operator by building a graph through the [operator IR](./op_graph/logical_and_proto.h). |

@@ -70,7 +70,11 @@ $$
 
 ## Invocation Description
 
-| Invocation Method | Invocation Sample                                                                   | Description                                                             |
+| Invocation Method | Sample Code                                                                   | Description                                                             |
 |--------------|------------------------------------------------------------------------|----------------------------------------------------------------|
 | aclnn API | [test_aclnn_ne_tensor](./examples/test_aclnn_ne_tensor.cpp) | Invokes the NotEqual operator through the [aclnnNeTensor](./docs/aclnnNeTensor&aclnnInplaceNeTensor_en.md) API    |
 | GE graph mode | [test_geir_not_equal](./examples/test_geir_not_equal.cpp)   | Invokes the NotEqual operator by building a graph through the [operator IR](./op_graph/not_equal_proto.h) |
+| aclnn invocation | [test\_aclnn\_inplace\_ne\_scalar](./examples/test_aclnn_inplace_ne_scalar.cpp) | Invokes the not_equal operator through the [aclnnNeScalar&aclnnInplaceNeScalar](./docs/aclnnNeScalar&aclnnInplaceNeScalar_en.md) APIs |
+| aclnn invocation | [test\_aclnn\_inplace\_ne\_tensor](./examples/test_aclnn_inplace_ne_tensor.cpp) | Invokes the not_equal operator through the [aclnnNeTensor&aclnnInplaceNeTensor](./docs/aclnnNeTensor&aclnnInplaceNeTensor.md#aclnninplacenetensor) APIs |
+| aclnn invocation | [test\_aclnn\_logical\_xor](./examples/test_aclnn_logical_xor.cpp) | Invokes the not_equal operator through the [aclnnLogicalXor](./docs/aclnnLogicalXor_en.md) APIs |
+| aclnn invocation | [test\_aclnn\_ne\_scalar](./examples/test_aclnn_ne_scalar.cpp) | Invokes the not_equal operator through the [aclnnNeScalar&aclnnInplaceNeScalar](./docs/aclnnNeScalar&aclnnInplaceNeScalar.md#aclnnnescalar) APIs |

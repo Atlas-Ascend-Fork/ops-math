@@ -35,7 +35,7 @@
 
 ## 调用说明
 
-| 调用方式   | 调用样例                                  | 说明                                             |
+| 调用方式   | 样例代码                                  | 说明                                             |
 | :--- | :--- | :--- |
 | aclnn API  | [test_aclnn_ger](./examples/test_aclnn_ger.cpp) | 通过[aclnnGer](./docs/aclnnGer.md)接口方式调用Ger算子。 |
 | GE图模式   | -                                        | 通过[算子IR](./op_graph/ger_proto.h)构图方式调用Ger算子。 |

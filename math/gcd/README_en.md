@@ -38,7 +38,7 @@ None
 
 ## Invocation Description
 
-| Invocation Method   | Invocation Sample                                  | Description                                             |
+| Invocation Method   | Sample Code                                  | Description                                             |
 | :--- | :--- | :--- |
 | aclnn API  | [test_aclnn_gcd](./examples/test_aclnn_gcd.cpp) | Invokes the Gcd operator through the [aclnnGcd](./docs/aclnnGcd_en.md) API. |
 | GE graph mode   | -                                        | Invokes the Gcd operator by building a graph through the [operator IR](./op_graph/gcd_proto.h). |

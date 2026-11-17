@@ -85,10 +85,10 @@ int PrepareInputAndOutput(std::vector<int64_t>& selfShape, std::vector<int64_t>&
     CHECK_RET(ret == ACL_SUCCESS, return ret);
     // 创建clipValueMin aclScalar
     *clipValueMin = aclCreateScalar(&clipValueMinValue, aclDataType::ACL_FLOAT);
-    CHECK_RET(*clipValueMin != nullptr, return ret);
+    CHECK_RET(*clipValueMin != nullptr, LOG_PRINT("aclCreate failed.\n"); return ACL_ERROR_FAILURE);
     // 创建clipValueMax aclScalar
     *clipValueMax = aclCreateScalar(&clipValueMaxValue, aclDataType::ACL_FLOAT);
-    CHECK_RET(*clipValueMax != nullptr, return ret);
+    CHECK_RET(*clipValueMax != nullptr, LOG_PRINT("aclCreate failed.\n"); return ACL_ERROR_FAILURE);
     // 创建out aclTensor
     ret = CreateAclTensor(outHostData, outShape, outDeviceAddr, aclDataType::ACL_FLOAT, out);
     CHECK_RET(ret == ACL_SUCCESS, return ret);

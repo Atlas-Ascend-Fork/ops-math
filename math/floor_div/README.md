@@ -116,6 +116,7 @@
 
 ## 调用说明
 
-| 调用方式 | 调用样例                                             | 说明                                                                                         |
+| 调用方式 | 样例代码                                             | 说明                                                                                         |
 |---------|----------------------------------------------------|----------------------------------------------------------------------------------------------|
 | aclnn调用 | [test_aclnn_floor_divide](./examples/test_aclnn_floor_divide.cpp) | 通过[aclnnFloorDivide和aclnnInplaceFloorDivide](./docs/aclnnFloorDivide&aclnnInplaceFloorDivide.md)接口方式调用FloorDiv算子  |
+| aclnn调用 | [test_aclnn_floor_divides.cpp](./examples/test_aclnn_floor_divides.cpp) | 通过[aclnnFloorDivides&aclnnInplaceFloorDivides](./docs/aclnnFloorDivides&aclnnInplaceFloorDivides.md)接口方式调用floor_div算子。 |

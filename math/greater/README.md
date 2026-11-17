@@ -69,7 +69,10 @@
 
 ## 调用说明
 
-| 调用方式 | 调用样例                                                                   | 说明                                                             |
+| 调用方式 | 样例代码                                                                   | 说明                                                             |
 |--------------|------------------------------------------------------------------------|----------------------------------------------------------------|
 | aclnn API | [test_aclnn_gt_scalar](./examples/test_aclnn_gt_scalar.cpp) | 通过[aclnnGtScalar&aclnnInplaceGtScalar](./docs/aclnnGtScalar&aclnnInplaceGtScalar.md)接口方式调用Greater算子。    |
 | GE图模式 | [test_geir_greater](./examples/test_geir_greater.cpp)   | 通过[算子IR](./op_graph/greater_proto.h)构图方式调用Greater算子。 |
+| aclnn调用 | [test_aclnn_gt_tensor.cpp](./examples/test_aclnn_gt_tensor.cpp) | 通过[aclnnGtTensor&aclnnInplaceGtTensor](./docs/aclnnGtTensor&aclnnInplaceGtTensor.md)接口方式调用greater算子。 |
+| aclnn调用 | [test_aclnn_inplace_gt_scalar.cpp](./examples/test_aclnn_inplace_gt_scalar.cpp) | 通过[aclnnGtScalar&aclnnInplaceGtScalar](./docs/aclnnGtScalar&aclnnInplaceGtScalar.md#aclnninplacegtscalar)接口方式调用greater算子。 |
+| aclnn调用 | [test_aclnn_inplace_gt_tensor.cpp](./examples/test_aclnn_inplace_gt_tensor.cpp) | 通过[aclnnGtTensor&aclnnInplaceGtTensor](./docs/aclnnGtTensor&aclnnInplaceGtTensor.md#aclnninplacegttensor)接口方式调用greater算子。 |

@@ -67,7 +67,12 @@
 
 ## 调用说明
 
-| 调用方式 | 调用样例                                                   | 说明                                               |
+| 调用方式 | 样例代码                                                   | 说明                                               |
 |--------------|--------------------------------------------------------|--------------------------------------------------|
 | aclnn API | [test_aclnn_eq_tensor.cpp](../equal/examples/test_aclnn_eq_tensor.cpp) | 通过[aclnnEqTensor](../equal/docs/aclnnEqTensor&aclnnInplaceEqTensor.md)接口方式调用Equal算子。 |
 | GE图模式 | [test_geir_equal.cpp](examples/test_geir_equal.cpp) | 通过[算子IR](op_graph/equal_proto.h)构图方式调用Equal算子。   |
+| aclnn调用 | [test_aclnn_eq_scalar.cpp](./examples/test_aclnn_eq_scalar.cpp) | 通过[aclnnEqScalar&aclnnInplaceEqScalar](./docs/aclnnEqScalar&aclnnInplaceEqScalar.md)接口方式调用equal算子。 |
+| aclnn调用 | [test_aclnn_inplace_eq_scalar.cpp](./examples/test_aclnn_inplace_eq_scalar.cpp) | 通过[aclnnEqScalar&aclnnInplaceEqScalar](./docs/aclnnEqScalar&aclnnInplaceEqScalar.md#aclnninplaceeqscalar)接口方式调用equal算子。 |
+| aclnn调用 | [test_aclnn_inplace_eq_tensor.cpp](./examples/test_aclnn_inplace_eq_tensor.cpp) | 通过[aclnnEqTensor&aclnnInplaceEqTensor](./docs/aclnnEqTensor&aclnnInplaceEqTensor.md)接口方式调用equal算子。 |
+| aclnn调用 | [test_aclnn_is_in_scalar_tensor.cpp](./examples/test_aclnn_is_in_scalar_tensor.cpp) | 通过[aclnnIsInScalarTensor](./docs/aclnnIsInScalarTensor.md)接口方式调用equal算子。 |
+| aclnn调用 | [test_aclnn_isin_tensor_scalar.cpp](./examples/test_aclnn_isin_tensor_scalar.cpp) | 通过[aclnnIsInTensorScalar](./docs/aclnnIsInTensorScalar.md)接口方式调用equal算子。 |

@@ -65,6 +65,9 @@ English | [简体中文](./README.md)
 
 ## Invocation Description
 
-| Invocation Method | Invocation Sample                                                                   | Description                                                             |
+| Invocation Method | Sample Code                                                                   | Description                                                             |
 |--------------|------------------------------------------------------------------------|----------------------------------------------------------------|
 | aclnn API | [test_aclnn_le_scalar](./examples/test_aclnn_le_scalar.cpp) | Invokes the LessEqual operator through the [aclnnLeScalar&aclnnInplaceLeScalar](./docs/aclnnLeScalar&aclnnInplaceLeScalar_en.md) API.    |
+| aclnn invocation | [test\_aclnn\_inplace\_le\_scalar](./examples/test_aclnn_inplace_le_scalar.cpp) | Invokes the less_equal operator through the [aclnnLeScalar&aclnnInplaceLeScalar](./docs/aclnnLeScalar&aclnnInplaceLeScalar.md#aclnninplacelescalar) APIs |
+| aclnn invocation | [test\_aclnn\_inplace\_le\_tensor](./examples/test_aclnn_inplace_le_tensor.cpp) | Invokes the less_equal operator through the [aclnnLeTensor&aclnnInplaceLeTensor](./docs/aclnnLeTensor&aclnnInplaceLeTensor_en.md) APIs |
+| aclnn invocation | [test\_aclnn\_le\_tensor](./examples/test_aclnn_le_tensor.cpp) | Invokes the less_equal operator through the [aclnnLeTensor&aclnnInplaceLeTensor](./docs/aclnnLeTensor&aclnnInplaceLeTensor.md#aclnnletensor) APIs |

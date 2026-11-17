@@ -82,7 +82,7 @@ None
 
 ## Invocation Description
 
-| Invocation Method | Invocation Sample                                            | Description                                                           |
+| Invocation Method | Sample Code                                            | Description                                                           |
 |--------------|-------------------------------------------------|--------------------------------------------------------------|
 | aclnn invocation | [test_aclnn_sub](./examples/test_aclnn_sub.cpp) | Invokes the Sub operator through the [aclnnSub](./docs/aclnnSub&aclnnInplaceSub_en.md) API. |
 | Graph-mode invocation | [test_geir_sub](./examples/test_geir_sub.cpp) | Invokes the Sub operator by building a graph through the [operator IR](./op_graph/sub_proto.h). |

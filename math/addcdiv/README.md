@@ -82,7 +82,8 @@ $out = self + value × (input_1 / input_2)$
 
 ## 调用说明
 
-| 调用方式 | 调用样例                                                                   | 说明                                                           |
+| 调用方式 | 样例代码                                                                   | 说明                                                           |
 |--------------|------------------------------------------------------------------------|--------------------------------------------------------------|
 | aclnn调用 | [test_aclnn_addcdiv](./examples/test_aclnn_addcdiv.cpp) | 通过[aclnnAddcdiv](./docs/aclnnAddcdiv&aclnnInplaceAddcdiv.md)接口方式调用Addcdiv算子。 |
+| aclnn调用 | [test_aclnn_Inplace_addcdiv.cpp](./examples/test_aclnn_Inplace_addcdiv.cpp) | 通过[aclnnAddcdiv&aclnnInplaceAddcdiv](./docs/aclnnAddcdiv&aclnnInplaceAddcdiv.md#aclnninplaceaddcdiv)接口方式调用addcdiv算子。 |
 | 图模式调用 | - | 通过[算子IR](./op_graph/addcdiv_proto.h)构图方式调用Addcdiv算子。 |

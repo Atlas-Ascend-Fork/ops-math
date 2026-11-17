@@ -750,7 +750,7 @@ int main() {
   float scalarValue = 1.2f;
 
   // Create the self aclTensor.
-  ret = CreateAclTensor(selfHostData, selfShape, &selfDeviceAddr, aclDataType::ACL_FLOAT, &self);
+  ret = CreateAclTensor(selfHostData, selfShape, &selfDeviceAddr, aclDataType::ACL_FLOAT, &selfRef);
   CHECK_RET(ret == ACL_SUCCESS, return ret);
   // Create the tensor1 aclTensor.
   ret = CreateAclTensor(tensor1HostData, tensor1Shape, &tensor1DeviceAddr, aclDataType::ACL_FLOAT, &tensor1);
@@ -766,7 +766,7 @@ int main() {
   uint64_t workspaceSize = 0;
   aclOpExecutor* executor;
   // Call the first-phase API of aclnnInplaceAddcmul.
-  ret = aclnnInplaceAddcmulGetWorkspaceSize(self, tensor1, tensor2, value, &workspaceSize, &executor);
+  ret = aclnnInplaceAddcmulGetWorkspaceSize(selfRef, tensor1, tensor2, value, &workspaceSize, &executor);
   CHECK_RET(ret == ACL_SUCCESS, LOG_PRINT("aclnnInplaceAddcmulGetWorkspaceSize failed. ERROR: %d\n", ret); return ret);
   // Request device memory based on the workspaceSize calculated by the first-phase API.
   void* workspaceAddr = nullptr;

@@ -68,6 +68,7 @@ None
 
 ## Invocation Description
 
-| Invocation Method | Invocation Sample                                                                   | Description                                                           |
+| Invocation Method | Sample Code                                                                   | Description                                                           |
 |--------------|------------------------------------------------------------------------|--------------------------------------------------------------|
 | aclnn invocation | [test_aclnn_muls](./examples/test_aclnn_muls.cpp) | Invokes the Muls operator through the [aclnnMuls](./docs/aclnnMuls&aclnnInplaceMuls_en.md) API. |
+| aclnn invocation | [test\_aclnn\_inplace\_muls](./examples/test_aclnn_inplace_muls.cpp) | Invokes the muls operator through the [aclnnMuls&aclnnInplaceMuls](./docs/aclnnMuls&aclnnInplaceMuls.md#aclnninplacemuls) APIs |

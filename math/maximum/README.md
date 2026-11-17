@@ -66,7 +66,7 @@ $$out[i] = max(x_1[i], x_2[i])$$
 
 ## 调用说明
 
-| 调用方式 | 调用样例                                                                   | 说明                                                           |
+| 调用方式 | 样例代码                                                                   | 说明                                                           |
 |--------------|------------------------------------------------------------------------|--------------------------------------------------------------|
 | aclnn调用 | [test_aclnn_maximum](./examples/test_aclnn_maximum.cpp) | 通过[aclnnMaximum](./docs/aclnnMaximum.md)接口方式调用aclnnMaximum算子。 |
 | aclnn调用 | [test_aclnn_maxn](./examples/test_aclnn_maxn.cpp) | 通过[aclnnMaxN](./docs/aclnnMaxN.md)接口方式调用aclnnMaxN算子。 |

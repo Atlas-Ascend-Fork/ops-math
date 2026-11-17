@@ -16,6 +16,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <cerrno>
 #include <string.h>
 #include <stdint.h>
 #include <vector>
@@ -104,7 +105,7 @@ int32_t GenBoolData(vector<int64_t> shapes, Tensor& input_tensor, TensorDesc& in
     for (uint32_t i = 0; i < shapes.size(); i++) {
         size *= shapes[i];
     }
-    uint32_t data_len = size * sizeof(bool);
+    size_t data_len = size * sizeof(bool);
     bool* pData = new (std::nothrow) bool[size];
     if (pData == nullptr) {
         return FAILED;
@@ -124,7 +125,7 @@ int32_t GenDoubleData(vector<int64_t> shapes, Tensor& input_tensor, TensorDesc& 
     for (uint32_t i = 0; i < shapes.size(); i++) {
         size *= shapes[i];
     }
-    uint32_t data_len = size * sizeof(double);
+    size_t data_len = size * sizeof(double);
     double* pData = new (std::nothrow) double[size];
     if (pData == nullptr) {
         return FAILED;
@@ -139,13 +140,25 @@ int32_t GenDoubleData(vector<int64_t> shapes, Tensor& input_tensor, TensorDesc& 
 
 int32_t WriteDataToFile(string bin_file, uint64_t data_size, uint8_t* inputData)
 {
+    if (inputData == nullptr) {
+        printf("dump data is null: %s\n", bin_file.c_str());
+        return FAILED;
+    }
     FILE* fp = fopen(bin_file.c_str(), "wb");
     if (fp == nullptr) {
         printf("Failed to open file: %s\n", bin_file.c_str());
         return FAILED;
     }
-    fwrite(inputData, sizeof(uint8_t), data_size, fp);
-    fclose(fp);
+    size_t written = fwrite(inputData, sizeof(uint8_t), data_size, fp);
+    if (written != data_size) {
+        printf("write dump file failed: %s, reason: %s\n", bin_file.c_str(), strerror(errno));
+        (void)fclose(fp);
+        return FAILED;
+    }
+    if (fclose(fp) != 0) {
+        printf("close dump file failed: %s, reason: %s\n", bin_file.c_str(), strerror(errno));
+        return FAILED;
+    }
     return SUCCESS;
 }
 
@@ -215,8 +228,9 @@ int CreateOppInGraph(DataType inDtype, std::vector<ge::Tensor>& input, std::vect
     return SUCCESS;
 }
 
-void SaveInputOutput(std::vector<ge::Tensor>& input, std::vector<ge::Tensor>& output)
+int32_t SaveInputOutput(std::vector<ge::Tensor>& input, std::vector<ge::Tensor>& output)
 {
+    bool saveOk = true;
     int input_num = input.size();
     for (int i = 0; i < input_num; i++) {
         std::cout << "input " << i << " dtype :  " << input[i].GetTensorDesc().GetDataType() << std::endl;
@@ -225,7 +239,10 @@ void SaveInputOutput(std::vector<ge::Tensor>& input, std::vector<ge::Tensor>& ou
         int64_t input_shape = input[i].GetTensorDesc().GetShape().GetShapeSize();
         std::cout << "this is " << i << "th input, input shape size =" << input_shape << std::endl;
         uint32_t data_size = input_shape * GetDataTypeSize(input[i].GetTensorDesc().GetDataType());
-        WriteDataToFile((const char*)input_file.c_str(), data_size, input_data_i);
+        if (WriteDataToFile((const char*)input_file.c_str(), data_size, input_data_i) != SUCCESS) {
+            printf("write dump file failed: %s\n", input_file.c_str());
+            saveOk = false;
+        }
     }
 
     int output_num = output.size();
@@ -236,12 +253,16 @@ void SaveInputOutput(std::vector<ge::Tensor>& input, std::vector<ge::Tensor>& ou
         int64_t output_shape = output[i].GetTensorDesc().GetShape().GetShapeSize();
         std::cout << "this is " << i << "th output, output shape size =" << output_shape << std::endl;
         uint32_t data_size = output_shape * GetDataTypeSize(output[i].GetTensorDesc().GetDataType());
-        WriteDataToFile((const char*)output_file.c_str(), data_size, output_data_i);
+        if (WriteDataToFile((const char*)output_file.c_str(), data_size, output_data_i) != SUCCESS) {
+            printf("write dump file failed: %s\n", output_file.c_str());
+            saveOk = false;
+        }
         double* resultData = reinterpret_cast<double*>(output_data_i);
         for (int64_t j = 0; j < output_shape; j++) {
             LOG_PRINT("result[%ld] is: %f\n", j, resultData[j]);
         }
     }
+    return saveOk ? SUCCESS : FAILED;
 }
 
 int main(int argc, char* argv[])
@@ -298,6 +319,7 @@ int main(int argc, char* argv[])
     if (ret != SUCCESS) {
         printf("%s - ERROR - [XIR]: Add compute graph to ir session failed\n", GetTime().c_str());
         delete session;
+        ge::GEFinalize();
         return FAILED;
     }
     printf("%s - INFO - [XIR]: Add compute graph to ir session success\n", GetTime().c_str());
@@ -313,7 +335,7 @@ int main(int argc, char* argv[])
     }
     printf("%s - INFO - [XIR]: Run graph in ir session success\n", GetTime().c_str());
 
-    SaveInputOutput(input, outputs_tensor);
+    const int32_t saveRet = SaveInputOutput(input, outputs_tensor);
 
     delete session;
 
@@ -323,5 +345,9 @@ int main(int argc, char* argv[])
         return FAILED;
     }
 
+    if (saveRet != SUCCESS) {
+        printf("%s - ERROR - [XIR]: Save input or output data failed\n", GetTime().c_str());
+        return FAILED;
+    }
     return SUCCESS;
 }

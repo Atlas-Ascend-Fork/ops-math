@@ -123,11 +123,11 @@ int main()
     CHECK_RET(ret == ACL_SUCCESS, return ret);
     // 创建other aclScalar
     aclScalar* rawOther = aclCreateScalar(&otherValue, aclDataType::ACL_FLOAT);
-    CHECK_RET(rawOther != nullptr, return ret);
+    CHECK_RET(rawOther != nullptr, LOG_PRINT("aclCreate failed.\n"); return ACL_ERROR_FAILURE);
     other.reset(rawOther);
     // 创建alpha aclScalar
     aclScalar* rawAlpha = aclCreateScalar(&alphaValue, aclDataType::ACL_FLOAT);
-    CHECK_RET(rawAlpha != nullptr, return ret);
+    CHECK_RET(rawAlpha != nullptr, LOG_PRINT("aclCreate failed.\n"); return ACL_ERROR_FAILURE);
     alpha.reset(rawAlpha);
     // 创建out aclTensor
     ret = CreateAclTensor(outHostData, outShape, aclDataType::ACL_FLOAT, outDeviceAddr, out);

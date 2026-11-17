@@ -68,6 +68,6 @@ English | [简体中文](./README.md)
 
 ## Invocation Description
 
-| Invocation Method | Invocation Sample                                                                        | Description                                                             |
+| Invocation Method | Sample Code                                                                        | Description                                                             |
 |---------|-----------------------------------------------------------------------------|----------------------------------------------------------------|
 | Graph-mode invocation | [test_geir_squared_difference](./examples/test_geir_squared_difference.cpp) | Invokes the SquaredDifference operator by building a graph through the [operator IR](./op_graph/squared_difference_proto.h). |

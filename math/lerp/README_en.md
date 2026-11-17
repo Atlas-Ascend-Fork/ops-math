@@ -77,6 +77,7 @@ The dtypes of end and weight must be the same as that of self.
 
 ## Invocation Description
 
-| Invocation Method | Invocation Sample                                                                   | Description                                                           |
+| Invocation Method | Sample Code                                                                   | Description                                                           |
 |--------------|------------------------------------------------------------------------|--------------------------------------------------------------|
 | aclnn invocation | [test_aclnn_lerp](./examples/test_aclnn_lerp.cpp) | Invokes the Lerp operator through the [aclnnLerp](docs/aclnnLerp&aclnnInplaceLerp_en.md) API. |
+| aclnn invocation | [test\_aclnn\_inplace\_lerp](./examples/test_aclnn_inplace_lerp.cpp) | Invokes the lerp operator through the [aclnnLerp&aclnnInplaceLerp](./docs/aclnnLerp&aclnnInplaceLerp.md#aclnninplacelerp) APIs |

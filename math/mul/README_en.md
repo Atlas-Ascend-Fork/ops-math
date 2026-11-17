@@ -70,6 +70,8 @@ None
 
 ## Invocation Description
 
-| Invocation Method | Invocation Sample                                                                   | Description                                                           |
+| Invocation Method | Sample Code                                                                   | Description                                                           |
 |--------------|------------------------------------------------------------------------|--------------------------------------------------------------|
 | aclnn invocation | [test_aclnn_mul](./examples/test_aclnn_mul.cpp) | Invokes the Mul operator through the [aclnnMul](./docs/aclnnMul&aclnnInplaceMul_en.md) API. |
+| aclnn invocation | [test\_aclnn\_inplace\_mul](./examples/test_aclnn_inplace_mul.cpp) | Invokes the mul operator through the [aclnnMul&aclnnInplaceMul](./docs/aclnnMul&aclnnInplaceMul.md#aclnninplacemul) APIs |
+| Graph-mode invocation | [test\_geir\_mul](./examples/test_geir_mul.cpp) | Invokes the operator by building a graph through the [算子IR](./op_graph/mul_proto.h) |

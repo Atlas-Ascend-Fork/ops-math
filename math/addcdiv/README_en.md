@@ -84,7 +84,8 @@ None
 
 ## Invocation Description
 
-| Invocation Method | Invocation Sample                                                                   | Description                                                           |
+| Invocation Method | Sample Code                                                                   | Description                                                           |
 |--------------|------------------------------------------------------------------------|--------------------------------------------------------------|
 | aclnn invocation | [test_aclnn_addcdiv](./examples/test_aclnn_addcdiv.cpp) | Invokes the Addcdiv operator through the [aclnnAddcdiv](./docs/aclnnAddcdiv&aclnnInplaceAddcdiv_en.md) API. |
+| aclnn invocation | [test\_aclnn\_Inplace\_addcdiv](./examples/test_aclnn_Inplace_addcdiv.cpp) | Invokes the addcdiv operator through the [aclnnAddcdiv&aclnnInplaceAddcdiv](./docs/aclnnAddcdiv&aclnnInplaceAddcdiv.md#aclnninplaceaddcdiv) APIs |
 | Graph-mode invocation | - | Invokes the Addcdiv operator by building a graph through the [operator IR](./op_graph/addcdiv_proto.h). |

@@ -94,7 +94,7 @@ int main()
 
     // 创建self aclScalar
     self = aclCreateScalar(&Self, aclDataType::ACL_INT64);
-    CHECK_RET(self != nullptr, return ret);
+    CHECK_RET(self != nullptr, LOG_PRINT("aclCreate failed.\n"); return ACL_ERROR_FAILURE);
     // 创建other aclTensor
     ret = CreateAclTensor(otherHostData, otherShape, &otherDeviceAddr, aclDataType::ACL_INT64, &other);
     CHECK_RET(ret == ACL_SUCCESS, return ret);

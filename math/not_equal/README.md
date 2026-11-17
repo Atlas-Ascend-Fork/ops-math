@@ -68,7 +68,11 @@ $$
 
 ## 调用说明
 
-| 调用方式 | 调用样例                                                                   | 说明                                                             |
+| 调用方式 | 样例代码                                                                   | 说明                                                             |
 |--------------|------------------------------------------------------------------------|----------------------------------------------------------------|
 | aclnn API | [test_aclnn_ne_tensor](./examples/test_aclnn_ne_tensor.cpp) | 通过[aclnnNeTensor](./docs/aclnnNeTensor&aclnnInplaceNeTensor.md)接口方式调用NotEqual算子    |
 | GE图模式 | [test_geir_not_equal](./examples/test_geir_not_equal.cpp)   | 通过[算子IR](./op_graph/not_equal_proto.h)构图方式调用NotEqual算子 |
+| aclnn调用 | [test_aclnn_inplace_ne_scalar.cpp](./examples/test_aclnn_inplace_ne_scalar.cpp) | 通过[aclnnNeScalar&aclnnInplaceNeScalar](./docs/aclnnNeScalar&aclnnInplaceNeScalar.md)接口方式调用not_equal算子。 |
+| aclnn调用 | [test_aclnn_inplace_ne_tensor.cpp](./examples/test_aclnn_inplace_ne_tensor.cpp) | 通过[aclnnNeTensor&aclnnInplaceNeTensor](./docs/aclnnNeTensor&aclnnInplaceNeTensor.md#aclnninplacenetensor)接口方式调用not_equal算子。 |
+| aclnn调用 | [test_aclnn_logical_xor.cpp](./examples/test_aclnn_logical_xor.cpp) | 通过[aclnnLogicalXor](./docs/aclnnLogicalXor.md)接口方式调用not_equal算子。 |
+| aclnn调用 | [test_aclnn_ne_scalar.cpp](./examples/test_aclnn_ne_scalar.cpp) | 通过[aclnnNeScalar&aclnnInplaceNeScalar](./docs/aclnnNeScalar&aclnnInplaceNeScalar.md#aclnnnescalar)接口方式调用not_equal算子。 |

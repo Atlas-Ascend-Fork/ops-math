@@ -85,7 +85,7 @@ int PrepareInputAndOutput(std::vector<int64_t>& shape, void** selfDeviceAddr, ac
     CHECK_RET(ret == ACL_SUCCESS, return ret);
     // 创建min
     *min = aclCreateScalar(&min_v, aclDataType::ACL_FLOAT);
-    CHECK_RET(*min != nullptr, return ret);
+    CHECK_RET(*min != nullptr, LOG_PRINT("aclCreate failed.\n"); return ACL_ERROR_FAILURE);
     // 创建out aclTensor
     ret = CreateAclTensor(outHostData, shape, outDeviceAddr, aclDataType::ACL_FLOAT, out);
     CHECK_RET(ret == ACL_SUCCESS, return ret);

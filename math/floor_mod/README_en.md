@@ -81,6 +81,10 @@ result = remainder(self, other)
 
 ## Invocation Description
 
-| Invocation Method | Invocation Sample                                             | Description                                                                                         |
+| Invocation Method | Sample Code                                             | Description                                                                                         |
 |---------|----------------------------------------------------|----------------------------------------------------------------------------------------------|
 | aclnn invocation | [test_aclnn_remainder_scalar_tensor](./examples/test_aclnn_remainder_scalar_tensor.cpp) | Invokes the FloorMod operator through the [aclnnRemainderScalarTensor](./docs/aclnnRemainderScalarTensor_en.md) API  |
+| aclnn invocation | [test\_aclnn\_inplace\_remainder\_tensor\_scalar](./examples/test_aclnn_inplace_remainder_tensor_scalar.cpp) | Invokes the floor_mod operator through the [aclnnRemainderTensorScalar&aclnnInplaceRemainderTensorScalar](./docs/aclnnRemainderTensorScalar&aclnnInplaceRemainderTensorScalar_en.md) APIs |
+| aclnn invocation | [test\_aclnn\_inplace\_remainder\_tensor\_tensor](./examples/test_aclnn_inplace_remainder_tensor_tensor.cpp) | Invokes the floor_mod operator through the [aclnnRemainderTensorTensor&aclnnInplaceRemainderTensorTensor](./docs/aclnnRemainderTensorTensor&aclnnInplaceRemainderTensorTensor_en.md) APIs |
+| aclnn invocation | [test\_aclnn\_remainder\_tensor\_scalar](./examples/test_aclnn_remainder_tensor_scalar.cpp) | Invokes the floor_mod operator through the [aclnnRemainderTensorScalar&aclnnInplaceRemainderTensorScalar](./docs/aclnnRemainderTensorScalar&aclnnInplaceRemainderTensorScalar.md#aclnnremaindertensorscalar) APIs |
+| aclnn invocation | [test\_aclnn\_remainder\_tensor\_tensor](./examples/test_aclnn_remainder_tensor_tensor.cpp) | Invokes the floor_mod operator through the [aclnnRemainderTensorTensor&aclnnInplaceRemainderTensorTensor](./docs/aclnnRemainderTensorTensor&aclnnInplaceRemainderTensorTensor.md#aclnnremaindertensortensor) APIs |

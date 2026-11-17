@@ -70,6 +70,6 @@ None
 
 ## Invocation Description
 
-| Invocation Method | Invocation Sample                                                                   | Description                                                           |
+| Invocation Method | Sample Code                                                                   | Description                                                           |
 |--------------|------------------------------------------------------------------------|--------------------------------------------------------------|
 | Graph-mode invocation | [test_geir_bias_add](./examples/test_geir_bias_add.cpp)   | Invokes the BiasAdd operator by building a graph through the [operator IR](./op_graph/bias_add_proto.h). |

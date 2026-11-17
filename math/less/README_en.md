@@ -70,7 +70,10 @@ None
 
 ## Invocation Description
 
-| Invocation Method | Invocation Sample                                                                   | Description                                                             |
+| Invocation Method | Sample Code                                                                   | Description                                                             |
 |--------------|------------------------------------------------------------------------|----------------------------------------------------------------|
 | aclnn API | [test_aclnn_lt_scalar](./examples/test_aclnn_lt_scalar.cpp) | Invokes the Less operator through the [aclnnLtScalar&aclnnInplaceLtScalar](./docs/aclnnLtScalar&aclnnInplaceLtScalar_en.md) API.    |
 | GE graph mode | [test_geir_less](./examples/test_geir_less.cpp)   | Invokes the Less operator by building a graph through the [operator IR](./op_graph/less_proto.h). |
+| aclnn invocation | [test\_aclnn\_inplace\_lt\_scalar](./examples/test_aclnn_inplace_lt_scalar.cpp) | Invokes the less operator through the [aclnnLtScalar&aclnnInplaceLtScalar](./docs/aclnnLtScalar&aclnnInplaceLtScalar.md#aclnninplaceltscalar) APIs |
+| aclnn invocation | [test\_aclnn\_inplace\_lt\_tensor](./examples/test_aclnn_inplace_lt_tensor.cpp) | Invokes the less operator through the [aclnnLtTensor&aclnnInplaceLtTensor](./docs/aclnnLtTensor&aclnnInplaceLtTensor_en.md) APIs |
+| aclnn invocation | [test\_aclnn\_lt\_tensor](./examples/test_aclnn_lt_tensor.cpp) | Invokes the less operator through the [aclnnLtTensor&aclnnInplaceLtTensor](./docs/aclnnLtTensor&aclnnInplaceLtTensor.md#aclnnlttensor) APIs |

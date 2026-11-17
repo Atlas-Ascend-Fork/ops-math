@@ -84,7 +84,8 @@ None
 
 ## Invocation Description
 
-| Invocation Method | Invocation Sample                                                                   | Description                                                           |
+| Invocation Method | Sample Code                                                                   | Description                                                           |
 |--------------|------------------------------------------------------------------------|--------------------------------------------------------------|
 | aclnn invocation | [test_aclnn_addcmul](./examples/test_aclnn_addcmul.cpp) | Invokes the Addcmul operator through the [aclnnAddcmul](./docs/aclnnAddcmul&aclnnInplaceAddcmul_en.md) API. |
+| aclnn invocation | [test\_aclnn\_inplace\_addcmul](./examples/test_aclnn_inplace_addcmul.cpp) | Invokes the addcmul operator through the [aclnnAddcmul&aclnnInplaceAddcmul](./docs/aclnnAddcmul&aclnnInplaceAddcmul.md#aclnninplaceaddcmul) APIs |
 | Graph-mode invocation | - | Invokes the Addcmul operator by building a graph through the [operator IR](./op_graph/addcmul_proto.h). |

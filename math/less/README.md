@@ -68,7 +68,10 @@
 
 ## 调用说明
 
-| 调用方式 | 调用样例                                                                   | 说明                                                             |
+| 调用方式 | 样例代码                                                                   | 说明                                                             |
 |--------------|------------------------------------------------------------------------|----------------------------------------------------------------|
 | aclnn API | [test_aclnn_lt_scalar](./examples/test_aclnn_lt_scalar.cpp) | 通过[aclnnLtScalar&aclnnInplaceLtScalar](./docs/aclnnLtScalar&aclnnInplaceLtScalar.md)接口方式调用Less算子。    |
 | GE图模式 | [test_geir_less](./examples/test_geir_less.cpp)   | 通过[算子IR](./op_graph/less_proto.h)构图方式调用Less算子。 |
+| aclnn调用 | [test_aclnn_inplace_lt_scalar.cpp](./examples/test_aclnn_inplace_lt_scalar.cpp) | 通过[aclnnLtScalar&aclnnInplaceLtScalar](./docs/aclnnLtScalar&aclnnInplaceLtScalar.md#aclnninplaceltscalar)接口方式调用less算子。 |
+| aclnn调用 | [test_aclnn_inplace_lt_tensor.cpp](./examples/test_aclnn_inplace_lt_tensor.cpp) | 通过[aclnnLtTensor&aclnnInplaceLtTensor](./docs/aclnnLtTensor&aclnnInplaceLtTensor.md)接口方式调用less算子。 |
+| aclnn调用 | [test_aclnn_lt_tensor.cpp](./examples/test_aclnn_lt_tensor.cpp) | 通过[aclnnLtTensor&aclnnInplaceLtTensor](./docs/aclnnLtTensor&aclnnInplaceLtTensor.md#aclnnlttensor)接口方式调用less算子。 |

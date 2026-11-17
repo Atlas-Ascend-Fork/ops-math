@@ -41,7 +41,7 @@ $$
 
 ## 调用说明
 
-| 调用方式 | 调用样例 | 说明 |
+| 调用方式 | 样例代码 | 说明 |
 |--------------|------------------------------------------------------------------------|--------------------------------------------------------------|
 | aclnn API | [test_aclnn_s_where](../select/examples/test_aclnn_s_where.cpp) | 通过[aclnnSWhere](../select/docs/aclnnSWhere.md)接口方式调用SelectV2算子，接口由select目录交付。 |
 | 图模式调用 | [test_geir_select_v2](./examples/test_geir_select_v2.cpp) | 通过[算子IR](./op_graph/select_v2_proto.h)构图方式调用SelectV2算子。 |

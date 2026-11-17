@@ -10,6 +10,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <cerrno>
 #include <string.h>
 #include <stdint.h>
 #include <ctime>
@@ -130,7 +131,7 @@ int32_t GenSampleData(vector<int64_t> shapes, Tensor& input_tensor, TensorDesc& 
     if (values.size() != size) {
         return FAILED;
     }
-    uint32_t data_len = static_cast<uint32_t>(size * GetDataTypeSize(data_type));
+    size_t data_len = static_cast<uint32_t>(size * GetDataTypeSize(data_type));
     std::vector<uint8_t> data(data_len, 0);
     if (data_type == DT_FLOAT) {
         float* data_ptr = reinterpret_cast<float*>(data.data());
@@ -151,13 +152,26 @@ int32_t GenSampleData(vector<int64_t> shapes, Tensor& input_tensor, TensorDesc& 
 
 int32_t WriteDataToFile(string bin_file, uint64_t data_size, uint8_t* inputData)
 {
-    FILE* fp = fopen(bin_file.c_str(), "wb");
-    if (fp == nullptr) {
+    if (inputData == nullptr) {
+        printf("dump data is null: %s\n", bin_file.c_str());
         return FAILED;
     }
-    size_t write_size = fwrite(inputData, sizeof(uint8_t), data_size, fp);
-    fclose(fp);
-    return write_size == data_size ? SUCCESS : FAILED;
+    FILE* fp = fopen(bin_file.c_str(), "wb");
+    if (fp == nullptr) {
+        printf("open dump file failed: %s, reason: %s\n", bin_file.c_str(), strerror(errno));
+        return FAILED;
+    }
+    size_t written = fwrite(inputData, sizeof(uint8_t), data_size, fp);
+    if (written != data_size) {
+        printf("write dump file failed: %s, reason: %s\n", bin_file.c_str(), strerror(errno));
+        (void)fclose(fp);
+        return FAILED;
+    }
+    if (fclose(fp) != 0) {
+        printf("close dump file failed: %s, reason: %s\n", bin_file.c_str(), strerror(errno));
+        return FAILED;
+    }
+    return SUCCESS;
 }
 
 int CreateOppInGraph(DataType inDtype, std::vector<ge::Tensor>& input, std::vector<Operator>& inputs,
@@ -179,6 +193,7 @@ int CreateOppInGraph(DataType inDtype, std::vector<ge::Tensor>& input, std::vect
 
 int main(int argc, char* argv[])
 {
+    bool dumpOk = true;
     (void)argc;
     (void)argv;
     const char* graph_name = "tc_ge_irrun_test";
@@ -217,6 +232,7 @@ int main(int argc, char* argv[])
 
     if (session == nullptr) {
         printf("%s - ERROR - [XIR]: Create ir session using build options failed\n", GetTime().c_str());
+        ge::GEFinalize();
         return FAILED;
     }
     printf("%s - INFO - [XIR]: Create ir session using build options success\n", GetTime().c_str());
@@ -227,6 +243,12 @@ int main(int argc, char* argv[])
     };
     uint32_t graph_id = 0;
     ret = session->AddGraph(graph_id, graph, graph_options);
+    if (ret != SUCCESS) {
+        printf("%s - ERROR - [XIR]: Session add ir compute graph to ir session failed\n", GetTime().c_str());
+        delete session;
+        GEFinalize();
+        return FAILED;
+    }
 
     printf("%s - INFO - [XIR]: Session add ir compute graph to ir session success\n", GetTime().c_str());
     std::string file_path = "./dump";
@@ -250,7 +272,10 @@ int main(int argc, char* argv[])
         int64_t input_shape = input[i].GetTensorDesc().GetShape().GetShapeSize();
         uint32_t data_size = static_cast<uint32_t>(input_shape) *
                              GetDataTypeSize(input[i].GetTensorDesc().GetDataType());
-        (void)WriteDataToFile((const char*)input_file.c_str(), data_size, input_data_i);
+        if (WriteDataToFile((const char*)input_file.c_str(), data_size, input_data_i) != SUCCESS) {
+            printf("write dump file failed: %s\n", input_file.c_str());
+            dumpOk = false;
+        }
     }
 
     int output_num = static_cast<int>(output.size());
@@ -260,7 +285,10 @@ int main(int argc, char* argv[])
         int64_t output_shape = output[i].GetTensorDesc().GetShape().GetShapeSize();
         uint32_t data_size = static_cast<uint32_t>(output_shape) *
                              GetDataTypeSize(output[i].GetTensorDesc().GetDataType());
-        (void)WriteDataToFile((const char*)output_file.c_str(), data_size, output_data_i);
+        if (WriteDataToFile((const char*)output_file.c_str(), data_size, output_data_i) != SUCCESS) {
+            printf("write dump file failed: %s\n", output_file.c_str());
+            dumpOk = false;
+        }
         PrintOutputData(output_data_i, output_shape, output[i].GetTensorDesc().GetDataType());
     }
 
@@ -272,5 +300,9 @@ int main(int argc, char* argv[])
         return FAILED;
     }
     printf("%s - INFO - [XIR]: Finalize ir graph session success\n", GetTime().c_str());
+    if (!dumpOk) {
+        printf("%s - ERROR - [XIR]: Save input or output data failed\n", GetTime().c_str());
+        return FAILED;
+    }
     return SUCCESS;
 }

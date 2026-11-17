@@ -84,3 +84,4 @@ Operator constraint: for INT32 integer computation, a timeout occurs in scenario
 | aclnn invocation | [test_aclnn_exp2](./examples/test_aclnn_exp2.cpp) | Invokes the Pow operator through the [aclnnExp2](./docs/aclnnExp2&aclnnInplaceExp2_en.md) API. |
 | aclnn invocation | [test_aclnn_pow_tensor_tensor](./examples/test_aclnn_pow_tensor_tensor.cpp) | Invokes the Pow operator through the [aclnnPowTensorTensor](./docs/aclnnPowTensorTensor&aclnnInplacePowTensorTensor_en.md) API. |
 | Graph-mode invocation | [test\_geir\_pow](./examples/test_geir_pow.cpp) | Invokes the Pow operator by building a graph through the [operator IR](./op_graph/pow_proto.h). |
+| aclnn invocation | [test\_aclnn\_pow](./examples/test_aclnn_pow.cpp) | Invokes the pow operator through the [aclnnPowTensorScalar&aclnnInplacePowTensorScalar](./docs/aclnnPowTensorScalar&aclnnInplacePowTensorScalar_en.md) APIs |

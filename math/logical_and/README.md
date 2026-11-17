@@ -68,7 +68,8 @@ $out=input1∧input2$
 
 ## 调用说明
 
-| 调用方式 | 调用样例                                                                   | 说明                                                           |
+| 调用方式 | 样例代码                                                                   | 说明                                                           |
 |--------------|------------------------------------------------------------------------|--------------------------------------------------------------|
 | aclnn调用 | [test_aclnn_logical_and](./examples/test_aclnn_logical_and.cpp) | 通过[aclnnLogicalAnd](./docs/aclnnLogicalAnd&aclnnInplaceLogicalAnd.md)接口方式调用LogicalAnd算子。 |
+| aclnn调用 | [test_aclnn_inplace_logical_and.cpp](./examples/test_aclnn_inplace_logical_and.cpp) | 通过[aclnnLogicalAnd&aclnnInplaceLogicalAnd](./docs/aclnnLogicalAnd&aclnnInplaceLogicalAnd.md#aclnninplacelogicaland)接口方式调用logical_and算子。 |
 | 图模式调用 | - | 通过[算子IR](./op_graph/logical_and_proto.h)构图方式调用LogicalAnd算子。 |

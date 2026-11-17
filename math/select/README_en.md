@@ -78,3 +78,9 @@ Return 161002 (ACLNN_ERR_PARAM_INVALID): 1. The data type and dimensions of self
 
 - Deterministic computation:
   - aclnnSWhere defaults to a deterministic implementation.
+
+## Invocation Description
+
+| Invocation Method | Sample Code | Description |
+| --- | --- | --- |
+| aclnn invocation | [test\_aclnn\_s\_where](./examples/test_aclnn_s_where.cpp) | Invokes the select operator through the [aclnnSWhere](./docs/aclnnSWhere_en.md) APIs |

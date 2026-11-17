@@ -69,7 +69,7 @@ None
 
 ## Invocation Description
 
-| Invocation Method | Invocation Sample                                                                   | Description                                                 |
+| Invocation Method | Sample Code                                                                   | Description                                                 |
 |--------------|------------------------------------------------------------------------|----------------------------------------------------|
 | aclnn invocation | [test_aclnn_logical_or](./examples/test_aclnn_logical_or.cpp) | Invokes the LogicalOr operator through the [aclnnLogicalOr](./docs/aclnnLogicalOr&aclnnInplaceLogicalOr_en.md) API. |
 | aclnn invocation | [test_aclnn_inplace_logical_or](./examples/test_aclnn_inplace_logical_or.cpp) | Invokes the LogicalOr operator through the [aclnnInplaceLogicalOr](./docs/aclnnLogicalOr&aclnnInplaceLogicalOr_en.md) API.       |

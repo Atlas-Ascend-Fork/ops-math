@@ -118,6 +118,7 @@ English | [简体中文](./README.md)
 
 ## Invocation Description
 
-| Invocation Method | Invocation Sample                                             | Description                                                                                         |
+| Invocation Method | Sample Code                                             | Description                                                                                         |
 |---------|----------------------------------------------------|----------------------------------------------------------------------------------------------|
 | aclnn invocation | [test_aclnn_floor_divide](./examples/test_aclnn_floor_divide.cpp) | Invokes the FloorDiv operator through the [aclnnFloorDivide and aclnnInplaceFloorDivide](./docs/aclnnFloorDivide&aclnnInplaceFloorDivide_en.md) APIs  |
+| aclnn invocation | [test\_aclnn\_floor\_divides](./examples/test_aclnn_floor_divides.cpp) | Invokes the floor_div operator through the [aclnnFloorDivides&aclnnInplaceFloorDivides](./docs/aclnnFloorDivides&aclnnInplaceFloorDivides_en.md) APIs |

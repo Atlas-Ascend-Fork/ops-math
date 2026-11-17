@@ -68,6 +68,8 @@ $$y = x_1 \times x_2$$
 
 ## 调用说明
 
-| 调用方式 | 调用样例                                                                   | 说明                                                           |
+| 调用方式 | 样例代码                                                                   | 说明                                                           |
 |--------------|------------------------------------------------------------------------|--------------------------------------------------------------|
 | aclnn调用 | [test_aclnn_mul](./examples/test_aclnn_mul.cpp) | 通过[aclnnMul](./docs/aclnnMul&aclnnInplaceMul.md)接口方式调用Mul算子。 |
+| aclnn调用 | [test_aclnn_inplace_mul.cpp](./examples/test_aclnn_inplace_mul.cpp) | 通过[aclnnMul&aclnnInplaceMul](./docs/aclnnMul&aclnnInplaceMul.md#aclnninplacemul)接口方式调用mul算子。 |
+| 图模式调用 | [test_geir_mul.cpp](./examples/test_geir_mul.cpp) | 通过[算子IR](./op_graph/mul_proto.h)构图方式调用mul算子。 |

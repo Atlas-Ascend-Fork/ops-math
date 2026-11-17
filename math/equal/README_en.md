@@ -69,7 +69,12 @@ If the computation workload is too large, the operator execution may time out (a
 
 ## Invocation Description
 
-| Invocation Method | Invocation Sample                                                   | Description                                               |
+| Invocation Method | Sample Code                                                   | Description                                               |
 |--------------|--------------------------------------------------------|--------------------------------------------------|
 | aclnn API | [test_aclnn_eq_tensor.cpp](../equal/examples/test_aclnn_eq_tensor.cpp) | Invokes the Equal operator through the [aclnnEqTensor](../equal/docs/aclnnEqTensor&aclnnInplaceEqTensor_en.md) API. |
 | GE graph mode | [test_geir_equal.cpp](examples/test_geir_equal.cpp) | Invokes the Equal operator by building a graph through the [operator IR](op_graph/equal_proto.h).   |
+| aclnn invocation | [test\_aclnn\_eq\_scalar](./examples/test_aclnn_eq_scalar.cpp) | Invokes the equal operator through the [aclnnEqScalar&aclnnInplaceEqScalar](./docs/aclnnEqScalar&aclnnInplaceEqScalar_en.md) APIs |
+| aclnn invocation | [test\_aclnn\_inplace\_eq\_scalar](./examples/test_aclnn_inplace_eq_scalar.cpp) | Invokes the equal operator through the [aclnnEqScalar&aclnnInplaceEqScalar](./docs/aclnnEqScalar&aclnnInplaceEqScalar.md#aclnninplaceeqscalar) APIs |
+| aclnn invocation | [test\_aclnn\_inplace\_eq\_tensor](./examples/test_aclnn_inplace_eq_tensor.cpp) | Invokes the equal operator through the [aclnnEqTensor&aclnnInplaceEqTensor](./docs/aclnnEqTensor&aclnnInplaceEqTensor_en.md) APIs |
+| aclnn invocation | [test\_aclnn\_is\_in\_scalar\_tensor](./examples/test_aclnn_is_in_scalar_tensor.cpp) | Invokes the equal operator through the [aclnnIsInScalarTensor](./docs/aclnnIsInScalarTensor_en.md) APIs |
+| aclnn invocation | [test\_aclnn\_isin\_tensor\_scalar](./examples/test_aclnn_isin_tensor_scalar.cpp) | Invokes the equal operator through the [aclnnIsInTensorScalar](./docs/aclnnIsInTensorScalar_en.md) APIs |

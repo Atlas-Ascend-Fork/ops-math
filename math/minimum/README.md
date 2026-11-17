@@ -66,7 +66,7 @@ $$out[i] = min(x_1[i], x_2[i])$$
 
 ## 调用说明
 
-| 调用方式 | 调用样例                                                                   | 说明                                                           |
+| 调用方式 | 样例代码                                                                   | 说明                                                           |
 |--------------|------------------------------------------------------------------------|--------------------------------------------------------------|
 | aclnn调用 | [test_aclnn_mimimum](./examples/test_aclnn_Minimum.cpp) | 通过[aclnnMinimum](./docs/aclnnMinimum.md)接口方式调用aclnnMinimum算子。 |
 | aclnn调用 | [test_aclnn_minn](./examples/test_aclnn_MinN.cpp) | 通过[aclnnMinN](./docs/aclnnMinN.md)接口方式调用aclnnMinN算子。 |

@@ -82,7 +82,8 @@ $out = self + value × input_1 × input_2$
 
 ## 调用说明
 
-| 调用方式 | 调用样例                                                                   | 说明                                                           |
+| 调用方式 | 样例代码                                                                   | 说明                                                           |
 |--------------|------------------------------------------------------------------------|--------------------------------------------------------------|
 | aclnn调用 | [test_aclnn_addcmul](./examples/test_aclnn_addcmul.cpp) | 通过[aclnnAddcmul](./docs/aclnnAddcmul&aclnnInplaceAddcmul.md)接口方式调用Addcmul算子。 |
+| aclnn调用 | [test_aclnn_inplace_addcmul.cpp](./examples/test_aclnn_inplace_addcmul.cpp) | 通过[aclnnAddcmul&aclnnInplaceAddcmul](./docs/aclnnAddcmul&aclnnInplaceAddcmul.md#aclnninplaceaddcmul)接口方式调用addcmul算子。 |
 | 图模式调用 | - | 通过[算子IR](./op_graph/addcmul_proto.h)构图方式调用Addcmul算子。 |

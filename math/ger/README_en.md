@@ -37,7 +37,7 @@ None
 
 ## Invocation Description
 
-| Invocation Method   | Invocation Sample                                  | Description                                             |
+| Invocation Method   | Sample Code                                  | Description                                             |
 | :--- | :--- | :--- |
 | aclnn API  | [test_aclnn_ger](./examples/test_aclnn_ger.cpp) | Invokes the Ger operator through the [aclnnGer](./docs/aclnnGer_en.md) API. |
 | GE graph mode   | -                                        | Invokes the Ger operator by building a graph through the [operator IR](./op_graph/ger_proto.h). |

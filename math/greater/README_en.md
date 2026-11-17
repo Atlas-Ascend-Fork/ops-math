@@ -71,7 +71,10 @@ None
 
 ## Invocation Description
 
-| Invocation Method | Invocation Sample                                                                   | Description                                                             |
+| Invocation Method | Sample Code                                                                   | Description                                                             |
 |--------------|------------------------------------------------------------------------|----------------------------------------------------------------|
 | aclnn API | [test_aclnn_gt_scalar](./examples/test_aclnn_gt_scalar.cpp) | Invokes the Greater operator through the [aclnnGtScalar&aclnnInplaceGtScalar](./docs/aclnnGtScalar&aclnnInplaceGtScalar_en.md) API.    |
 | GE graph mode | [test_geir_greater](./examples/test_geir_greater.cpp)   | Invokes the Greater operator by building a graph through the [operator IR](./op_graph/greater_proto.h). |
+| aclnn invocation | [test\_aclnn\_gt\_tensor](./examples/test_aclnn_gt_tensor.cpp) | Invokes the greater operator through the [aclnnGtTensor&aclnnInplaceGtTensor](./docs/aclnnGtTensor&aclnnInplaceGtTensor_en.md) APIs |
+| aclnn invocation | [test\_aclnn\_inplace\_gt\_scalar](./examples/test_aclnn_inplace_gt_scalar.cpp) | Invokes the greater operator through the [aclnnGtScalar&aclnnInplaceGtScalar](./docs/aclnnGtScalar&aclnnInplaceGtScalar.md#aclnninplacegtscalar) APIs |
+| aclnn invocation | [test\_aclnn\_inplace\_gt\_tensor](./examples/test_aclnn_inplace_gt_tensor.cpp) | Invokes the greater operator through the [aclnnGtTensor&aclnnInplaceGtTensor](./docs/aclnnGtTensor&aclnnInplaceGtTensor.md#aclnninplacegttensor) APIs |

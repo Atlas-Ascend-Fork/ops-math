@@ -76,3 +76,9 @@ $$
 
 - 确定性计算：
   - aclnnSWhere默认确定性实现。
+
+## 调用说明
+
+| 调用方式 | 样例代码 | 说明 |
+| --- | --- | --- |
+| aclnn调用 | [test_aclnn_s_where.cpp](./examples/test_aclnn_s_where.cpp) | 通过[aclnnSWhere](./docs/aclnnSWhere.md)接口方式调用select算子。 |

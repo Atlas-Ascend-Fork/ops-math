@@ -75,6 +75,6 @@ None
 
 ## Invocation Description
 
-| Invocation Method | Invocation Sample                                             | Description                                                                                         |
+| Invocation Method | Sample Code                                             | Description                                                                                         |
 |---------|----------------------------------------------------|----------------------------------------------------------------------------------------------|
 | Graph-mode invocation | [test_geir_axpy](./examples/test_geir_axpy.cpp)   | Invokes the Axpy operator by building a graph through the [operator IR](./op_graph/axpy_proto.h) |
