@@ -79,7 +79,7 @@ aclnnStatus aclnnCast(
       <td>Input</td>
       <td>Input parameter for the cast computation, which is an aclTensor on the Device side.</td>
       <td>-</td>
-      <td>FLOAT16, FLOAT, DOUBLE, INT8, UINT8, INT16, UINT16, INT32, UINT32, INT64, UINT64, BOOL, COMPLEX32, COMPLEX64, COMPLEX128, BFLOAT16, HIFLOAT8, FLOAT8_E5M2, FLOAT8_E4M3FN, FLOAT4_E2M1, FLOAT4_E1M2</td>
+      <td>FLOAT16, FLOAT, DOUBLE, INT8, UINT8, INT16, UINT16, INT32, UINT32, INT64, UINT64, BOOL, COMPLEX32, COMPLEX64, COMPLEX128, BFLOAT16, HIFLOAT8, FLOAT8_E5M2, FLOAT8_E4M3FN, FLOAT8_E8M0, FLOAT4_E2M1, FLOAT4_E1M2</td>
       <td>ND</td>
       <td>0-8</td>
       <td>√</td>
@@ -99,7 +99,7 @@ aclnnStatus aclnnCast(
       <td>Output</td>
       <td>Output parameter of the cast computation, an aclTensor on the Device side.</td>
       <td>Same shape as self.</td>
-      <td>FLOAT16, FLOAT, DOUBLE, INT8, UINT8, INT16, UINT16, INT32, UINT32, INT64, UINT64, BOOL, COMPLEX32, COMPLEX64, COMPLEX128, BFLOAT16, HIFLOAT8, FLOAT8_E5M2, FLOAT8_E4M3FN, FLOAT4_E2M1, FLOAT4_E1M2, INT4 (non-contiguous tensors not supported yet)</td>
+      <td>FLOAT16, FLOAT, DOUBLE, INT8, UINT8, INT16, UINT16, INT32, UINT32, INT64, UINT64, BOOL, COMPLEX32, COMPLEX64, COMPLEX128, BFLOAT16, HIFLOAT8, FLOAT8_E5M2, FLOAT8_E4M3FN, FLOAT8_E8M0, FLOAT4_E2M1, FLOAT4_E1M2, INT4 (non-contiguous tensors not supported yet)</td>
       <td>ND</td>
       <td>0-8</td>
       <td>√</td>
@@ -130,7 +130,7 @@ aclnnStatus aclnnCast(
   - <term>Atlas training products</term> and <term>Atlas inference products</term>: BFLOAT16 and INT4 are not supported.
   <!-- end id7 -->
   <!-- npu="A3,910b" id8 -->
-  - <term>Atlas A2 products</term>, <term>Atlas A3 products</term>: COMPLEX32, HIFLOAT8, FLOAT8_E5M2, FLOAT8_E4M3FN, FLOAT4_E2M1, FLOAT4_E1M2, and INT4 are not supported.
+  - <term>Atlas A2 products</term>, <term>Atlas A3 products</term>: COMPLEX32, HIFLOAT8, FLOAT8_E5M2, FLOAT8_E4M3FN, FLOAT8_E8M0, FLOAT4_E2M1, FLOAT4_E1M2, and INT4 are not supported.
   <!-- end id8 -->
 
 - **Return value**
@@ -247,7 +247,7 @@ aclnnStatus aclnnCast(
 <!-- npu="950" id11 -->
 - <term>Ascend 950PR&950DT products</term>:
   - For scenarios where the output type is INT4: the last axis of the input shape being odd is not supported, and non-contiguous input is not supported.
-  - For input and output types involving COMPLEX32, COMPLEX64, FLOAT4_E2M1, FLOAT4_E1M2, HIFLOAT8, FLOAT8_E5M2, FLOAT8_E4M3FN, or INT4, only the conversion paths in the following table are supported:
+  - For input and output types involving COMPLEX32, COMPLEX64, FLOAT4_E2M1, FLOAT4_E1M2, HIFLOAT8, FLOAT8_E5M2, FLOAT8_E4M3FN, FLOAT8_E8M0, or INT4, only the conversion paths in the following table are supported:
 
     | `self` data type | `out` data type |
     | ------------ | ------------ |
@@ -263,6 +263,8 @@ aclnnStatus aclnnCast(
     | HIFLOAT8/FLOAT8_E5M2/FLOAT8_E4M3FN | FLOAT32/FLOAT16/BFLOAT16 |
     | HIFLOAT8/FLOAT8_E5M2/FLOAT8_E4M3FN | FLOAT4_E2M1/FLOAT4_E1M2 |
     | FLOAT4_E2M1/FLOAT4_E1M2 | HIFLOAT8/FLOAT8_E5M2/FLOAT8_E4M3FN |
+    | BFLOAT16 | FLOAT8_E8M0 |
+    | FLOAT8_E8M0 | BFLOAT16 |
     | INT32 | INT4 |
 
 <!-- end id11 -->

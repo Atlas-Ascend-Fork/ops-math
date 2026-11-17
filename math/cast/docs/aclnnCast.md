@@ -77,7 +77,7 @@ aclnnStatus aclnnCast(
       <td>输入</td>
       <td>待进行cast计算的入参，Device侧的aclTensor。</td>
       <td>-</td>
-      <td>FLOAT16、FLOAT、DOUBLE、INT8、UINT8、INT16、UINT16、INT32、UINT32、INT64、UINT64、BOOL、COMPLEX32、COMPLEX64、COMPLEX128、BFLOAT16、HIFLOAT8、FLOAT8_E5M2、FLOAT8_E4M3FN、FLOAT4_E2M1、FLOAT4_E1M2</td>
+      <td>FLOAT16、FLOAT、DOUBLE、INT8、UINT8、INT16、UINT16、INT32、UINT32、INT64、UINT64、BOOL、COMPLEX32、COMPLEX64、COMPLEX128、BFLOAT16、HIFLOAT8、FLOAT8_E5M2、FLOAT8_E4M3FN、FLOAT8_E8M0、FLOAT4_E2M1、FLOAT4_E1M2</td>
       <td>ND</td>
       <td>0-8</td>
       <td>√</td>
@@ -97,7 +97,7 @@ aclnnStatus aclnnCast(
       <td>输出</td>
       <td>待进行cast计算的出参，Device侧的aclTensor。</td>
       <td>shape与self相同。</td>
-      <td>FLOAT16、FLOAT、DOUBLE、INT8、UINT8、INT16、UINT16、INT32、UINT32、INT64、UINT64、BOOL、COMPLEX32、COMPLEX64、COMPLEX128、BFLOAT16、HIFLOAT8、FLOAT8_E5M2、FLOAT8_E4M3FN、FLOAT4_E2M1、FLOAT4_E1M2、INT4（暂不支持非连续Tensor）</td>
+      <td>FLOAT16、FLOAT、DOUBLE、INT8、UINT8、INT16、UINT16、INT32、UINT32、INT64、UINT64、BOOL、COMPLEX32、COMPLEX64、COMPLEX128、BFLOAT16、HIFLOAT8、FLOAT8_E5M2、FLOAT8_E4M3FN、FLOAT8_E8M0、FLOAT4_E2M1、FLOAT4_E1M2、INT4（暂不支持非连续Tensor）</td>
       <td>ND</td>
       <td>0-8</td>
       <td>√</td>
@@ -128,7 +128,7 @@ aclnnStatus aclnnCast(
   - <term>Atlas训练系列产品</term>、<term>Atlas推理系列产品</term>：不支持BFLOAT16、INT4。
   <!-- end id7 -->
   <!-- npu="A3,910b" id8 -->
-  - <term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>：不支持COMPLEX32、HIFLOAT8、FLOAT8_E5M2、FLOAT8_E4M3FN、FLOAT4_E2M1、FLOAT4_E1M2、INT4。
+  - <term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>：不支持COMPLEX32、HIFLOAT8、FLOAT8_E5M2、FLOAT8_E4M3FN、FLOAT8_E8M0、FLOAT4_E2M1、FLOAT4_E1M2、INT4。
   <!-- end id8 -->
 
 - **返回值：**
@@ -245,7 +245,7 @@ aclnnStatus aclnnCast(
 <!-- npu="950" id11 -->
 - <term>Ascend 950PR&950DT系列产品</term>：
   - 针对输出类型为INT4的场景：不支持输入Shape的尾轴为奇数、不支持输入为非连续。
-  - 针对输入、输出类型，涉及COMPLEX32、COMPLEX64、FLOAT4_E2M1、FLOAT4_E1M2、HIFLOAT8、FLOAT8_E5M2、FLOAT8_E4M3FN、INT4的，只支持如下表格中的转换路径：
+  - 针对输入、输出类型，涉及COMPLEX32、COMPLEX64、FLOAT4_E2M1、FLOAT4_E1M2、HIFLOAT8、FLOAT8_E5M2、FLOAT8_E4M3FN、FLOAT8_E8M0、INT4的，只支持如下表格中的转换路径：
 
     | `self`数据类型 | `out`数据类型 |
     | ------------ | ------------ |
@@ -261,6 +261,8 @@ aclnnStatus aclnnCast(
     | HIFLOAT8/FLOAT8_E5M2/FLOAT8_E4M3FN | FLOAT32/FLOAT16/BFLOAT16 |
     | HIFLOAT8/FLOAT8_E5M2/FLOAT8_E4M3FN | FLOAT4_E2M1/FLOAT4_E1M2 |
     | FLOAT4_E2M1/FLOAT4_E1M2 | HIFLOAT8/FLOAT8_E5M2/FLOAT8_E4M3FN |
+    | BFLOAT16 | FLOAT8_E8M0 |
+    | FLOAT8_E8M0 | BFLOAT16 |
     | INT32 | INT4 |
 
 <!-- end id11 -->
