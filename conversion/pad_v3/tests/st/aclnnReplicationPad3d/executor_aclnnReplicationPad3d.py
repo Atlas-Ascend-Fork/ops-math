@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # -----------------------------------------------------------------------------------------------------------
 # Copyright (c) 2025 Huawei Technologies Co., Ltd.
-# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
 # CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
 # THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
@@ -27,9 +27,9 @@ class ReplicationPad3dApi(BaseApi):
         self.dtype = None
 
     def init_by_input_data(self, input_data: InputDataset):
-        self.input = input_data.kwargs['input']
+        self.input = input_data.kwargs["input"]
         self.dtype = self.input.dtype
-        self.padding = input_data.kwargs['padding']
+        self.padding = input_data.kwargs["padding"]
 
     def __call__(self, input_data: InputDataset, with_output: bool = False):
         if self.device == "cpu":
@@ -40,8 +40,12 @@ class ReplicationPad3dApi(BaseApi):
         data_padding = torch.nn.ReplicationPad3d(self.padding)
         output = data_padding(self.input)
         if self.device == "cpu":
-            if self.dtype in [torch.int8, torch.int16, torch.int32, torch.float16, torch.int64]:
+            if self.dtype in [
+                torch.int8,
+                torch.int16,
+                torch.int32,
+                torch.float16,
+                torch.int64,
+            ]:
                 output = output.to(self.dtype)
         return output
-
-

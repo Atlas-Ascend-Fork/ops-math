@@ -1,0 +1,6238 @@
+[
+ {
+  "id": 0,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     16,
+     16
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: fp16 [16, 16]"
+ },
+ {
+  "id": 1,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     16,
+     32
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: fp16 [16, 32]"
+ },
+ {
+  "id": 2,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     32,
+     16
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: fp16 [32, 16]"
+ },
+ {
+  "id": 3,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     32,
+     32
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: fp16 [32, 32]"
+ },
+ {
+  "id": 4,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     48,
+     96
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: fp16 [48, 96]"
+ },
+ {
+  "id": 5,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     64,
+     64
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: fp16 [64, 64]"
+ },
+ {
+  "id": 6,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     64,
+     96
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: fp16 [64, 96]"
+ },
+ {
+  "id": 7,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     96,
+     128
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: fp16 [96, 128]"
+ },
+ {
+  "id": 8,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     128,
+     128
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: fp16 [128, 128]"
+ },
+ {
+  "id": 9,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     128,
+     256
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: fp16 [128, 256]"
+ },
+ {
+  "id": 10,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     256,
+     256
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: fp16 [256, 256]"
+ },
+ {
+  "id": 11,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     256,
+     512
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: fp16 [256, 512]"
+ },
+ {
+  "id": 12,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     512,
+     512
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: fp16 [512, 512]"
+ },
+ {
+  "id": 13,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     512,
+     1024
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: fp16 [512, 1024]"
+ },
+ {
+  "id": 14,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     1024,
+     1024
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: fp16 [1024, 1024]"
+ },
+ {
+  "id": 15,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     1024,
+     2048
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: fp16 [1024, 2048]"
+ },
+ {
+  "id": 16,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     2048,
+     512
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: fp16 [2048, 512]"
+ },
+ {
+  "id": 17,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     2048,
+     2048
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: fp16 [2048, 2048]"
+ },
+ {
+  "id": 18,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     4096,
+     512
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: fp16 [4096, 512]"
+ },
+ {
+  "id": 19,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     4096,
+     1024
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: fp16 [4096, 1024]"
+ },
+ {
+  "id": 20,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     17,
+     16
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: fp16 [17, 16]"
+ },
+ {
+  "id": 21,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     33,
+     32
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: fp16 [33, 32]"
+ },
+ {
+  "id": 22,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     1,
+     16
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: fp16 [1, 16]"
+ },
+ {
+  "id": 23,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     15,
+     32
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: fp16 [15, 32]"
+ },
+ {
+  "id": 24,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     31,
+     48
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: fp16 [31, 48]"
+ },
+ {
+  "id": 25,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     50,
+     64
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: fp16 [50, 64]"
+ },
+ {
+  "id": 26,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     100,
+     128
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: fp16 [100, 128]"
+ },
+ {
+  "id": 27,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     7,
+     256
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: fp16 [7, 256]"
+ },
+ {
+  "id": 28,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     127,
+     128
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: fp16 [127, 128]"
+ },
+ {
+  "id": 29,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     255,
+     256
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: fp16 [255, 256]"
+ },
+ {
+  "id": 30,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     16,
+     17
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: fp16 [16, 17]"
+ },
+ {
+  "id": 31,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     32,
+     33
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: fp16 [32, 33]"
+ },
+ {
+  "id": 32,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     16,
+     1
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: fp16 [16, 1]"
+ },
+ {
+  "id": 33,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     16,
+     15
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: fp16 [16, 15]"
+ },
+ {
+  "id": 34,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     32,
+     31
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: fp16 [32, 31]"
+ },
+ {
+  "id": 35,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     48,
+     50
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: fp16 [48, 50]"
+ },
+ {
+  "id": 36,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     64,
+     100
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: fp16 [64, 100]"
+ },
+ {
+  "id": 37,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     128,
+     7
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: fp16 [128, 7]"
+ },
+ {
+  "id": 38,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     16,
+     127
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: fp16 [16, 127]"
+ },
+ {
+  "id": 39,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     16,
+     255
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: fp16 [16, 255]"
+ },
+ {
+  "id": 40,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     17,
+     17
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: fp16 [17, 17]"
+ },
+ {
+  "id": 41,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     33,
+     33
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: fp16 [33, 33]"
+ },
+ {
+  "id": 42,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     1,
+     1
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: fp16 [1, 1]"
+ },
+ {
+  "id": 43,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     15,
+     15
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: fp16 [15, 15]"
+ },
+ {
+  "id": 44,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     31,
+     31
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: fp16 [31, 31]"
+ },
+ {
+  "id": 45,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     50,
+     50
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: fp16 [50, 50]"
+ },
+ {
+  "id": 46,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     7,
+     9
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: fp16 [7, 9]"
+ },
+ {
+  "id": 47,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     100,
+     200
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: fp16 [100, 200]"
+ },
+ {
+  "id": 48,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     63,
+     64
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: fp16 [63, 64]"
+ },
+ {
+  "id": 49,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     65,
+     64
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: fp16 [65, 64]"
+ },
+ {
+  "id": 50,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     64,
+     63
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: fp16 [64, 63]"
+ },
+ {
+  "id": 51,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     64,
+     65
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: fp16 [64, 65]"
+ },
+ {
+  "id": 52,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     15,
+     16
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: fp16 [15, 16]"
+ },
+ {
+  "id": 53,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     127,
+     129
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: fp16 [127, 129]"
+ },
+ {
+  "id": 54,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     129,
+     127
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: fp16 [129, 127]"
+ },
+ {
+  "id": 55,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     255,
+     257
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: fp16 [255, 257]"
+ },
+ {
+  "id": 56,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     257,
+     255
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: fp16 [257, 255]"
+ },
+ {
+  "id": 57,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     16,
+     0
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: fp16 [16, 0]"
+ },
+ {
+  "id": 58,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     0,
+     16
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: fp16 [0, 16]"
+ },
+ {
+  "id": 59,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "fp16",
+    "shape": [
+     0,
+     0
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: fp16 [0, 0]"
+ },
+ {
+  "id": 60,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     16,
+     16
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: bf16 [16, 16]"
+ },
+ {
+  "id": 61,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     16,
+     32
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: bf16 [16, 32]"
+ },
+ {
+  "id": 62,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     32,
+     16
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: bf16 [32, 16]"
+ },
+ {
+  "id": 63,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     32,
+     32
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: bf16 [32, 32]"
+ },
+ {
+  "id": 64,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     48,
+     96
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: bf16 [48, 96]"
+ },
+ {
+  "id": 65,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     64,
+     64
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: bf16 [64, 64]"
+ },
+ {
+  "id": 66,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     64,
+     96
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: bf16 [64, 96]"
+ },
+ {
+  "id": 67,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     96,
+     128
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: bf16 [96, 128]"
+ },
+ {
+  "id": 68,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     128,
+     128
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: bf16 [128, 128]"
+ },
+ {
+  "id": 69,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     128,
+     256
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: bf16 [128, 256]"
+ },
+ {
+  "id": 70,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     256,
+     256
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: bf16 [256, 256]"
+ },
+ {
+  "id": 71,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     256,
+     512
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: bf16 [256, 512]"
+ },
+ {
+  "id": 72,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     512,
+     512
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: bf16 [512, 512]"
+ },
+ {
+  "id": 73,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     512,
+     1024
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: bf16 [512, 1024]"
+ },
+ {
+  "id": 74,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     1024,
+     1024
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: bf16 [1024, 1024]"
+ },
+ {
+  "id": 75,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     1024,
+     2048
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: bf16 [1024, 2048]"
+ },
+ {
+  "id": 76,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     2048,
+     512
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: bf16 [2048, 512]"
+ },
+ {
+  "id": 77,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     2048,
+     2048
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: bf16 [2048, 2048]"
+ },
+ {
+  "id": 78,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     4096,
+     512
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: bf16 [4096, 512]"
+ },
+ {
+  "id": 79,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     4096,
+     1024
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: bf16 [4096, 1024]"
+ },
+ {
+  "id": 80,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     17,
+     16
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: bf16 [17, 16]"
+ },
+ {
+  "id": 81,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     33,
+     32
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: bf16 [33, 32]"
+ },
+ {
+  "id": 82,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     1,
+     16
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: bf16 [1, 16]"
+ },
+ {
+  "id": 83,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     15,
+     32
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: bf16 [15, 32]"
+ },
+ {
+  "id": 84,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     31,
+     48
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: bf16 [31, 48]"
+ },
+ {
+  "id": 85,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     50,
+     64
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: bf16 [50, 64]"
+ },
+ {
+  "id": 86,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     100,
+     128
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: bf16 [100, 128]"
+ },
+ {
+  "id": 87,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     7,
+     256
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: bf16 [7, 256]"
+ },
+ {
+  "id": 88,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     127,
+     128
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: bf16 [127, 128]"
+ },
+ {
+  "id": 89,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     255,
+     256
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: bf16 [255, 256]"
+ },
+ {
+  "id": 90,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     16,
+     17
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: bf16 [16, 17]"
+ },
+ {
+  "id": 91,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     32,
+     33
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: bf16 [32, 33]"
+ },
+ {
+  "id": 92,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     16,
+     1
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: bf16 [16, 1]"
+ },
+ {
+  "id": 93,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     16,
+     15
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: bf16 [16, 15]"
+ },
+ {
+  "id": 94,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     32,
+     31
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: bf16 [32, 31]"
+ },
+ {
+  "id": 95,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     48,
+     50
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: bf16 [48, 50]"
+ },
+ {
+  "id": 96,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     64,
+     100
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: bf16 [64, 100]"
+ },
+ {
+  "id": 97,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     128,
+     7
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: bf16 [128, 7]"
+ },
+ {
+  "id": 98,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     16,
+     127
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: bf16 [16, 127]"
+ },
+ {
+  "id": 99,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     16,
+     255
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: bf16 [16, 255]"
+ },
+ {
+  "id": 100,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     17,
+     17
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: bf16 [17, 17]"
+ },
+ {
+  "id": 101,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     33,
+     33
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: bf16 [33, 33]"
+ },
+ {
+  "id": 102,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     1,
+     1
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: bf16 [1, 1]"
+ },
+ {
+  "id": 103,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     15,
+     15
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: bf16 [15, 15]"
+ },
+ {
+  "id": 104,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     31,
+     31
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: bf16 [31, 31]"
+ },
+ {
+  "id": 105,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     50,
+     50
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: bf16 [50, 50]"
+ },
+ {
+  "id": 106,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     7,
+     9
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: bf16 [7, 9]"
+ },
+ {
+  "id": 107,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     100,
+     200
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: bf16 [100, 200]"
+ },
+ {
+  "id": 108,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     63,
+     64
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: bf16 [63, 64]"
+ },
+ {
+  "id": 109,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     65,
+     64
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: bf16 [65, 64]"
+ },
+ {
+  "id": 110,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     64,
+     63
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: bf16 [64, 63]"
+ },
+ {
+  "id": 111,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     64,
+     65
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: bf16 [64, 65]"
+ },
+ {
+  "id": 112,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     15,
+     16
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: bf16 [15, 16]"
+ },
+ {
+  "id": 113,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     127,
+     129
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: bf16 [127, 129]"
+ },
+ {
+  "id": 114,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     129,
+     127
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: bf16 [129, 127]"
+ },
+ {
+  "id": 115,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     255,
+     257
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: bf16 [255, 257]"
+ },
+ {
+  "id": 116,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     257,
+     255
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: bf16 [257, 255]"
+ },
+ {
+  "id": 117,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     16,
+     0
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: bf16 [16, 0]"
+ },
+ {
+  "id": 118,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     0,
+     16
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: bf16 [0, 16]"
+ },
+ {
+  "id": 119,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "bf16",
+    "shape": [
+     0,
+     0
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: bf16 [0, 0]"
+ },
+ {
+  "id": 120,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     16,
+     16
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: int8 [16, 16]"
+ },
+ {
+  "id": 121,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     16,
+     32
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: int8 [16, 32]"
+ },
+ {
+  "id": 122,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     32,
+     16
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: int8 [32, 16]"
+ },
+ {
+  "id": 123,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     32,
+     32
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: int8 [32, 32]"
+ },
+ {
+  "id": 124,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     48,
+     96
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: int8 [48, 96]"
+ },
+ {
+  "id": 125,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     64,
+     64
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: int8 [64, 64]"
+ },
+ {
+  "id": 126,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     64,
+     96
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: int8 [64, 96]"
+ },
+ {
+  "id": 127,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     96,
+     128
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: int8 [96, 128]"
+ },
+ {
+  "id": 128,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     128,
+     128
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: int8 [128, 128]"
+ },
+ {
+  "id": 129,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     128,
+     256
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: int8 [128, 256]"
+ },
+ {
+  "id": 130,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     256,
+     256
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: int8 [256, 256]"
+ },
+ {
+  "id": 131,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     256,
+     512
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: int8 [256, 512]"
+ },
+ {
+  "id": 132,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     512,
+     512
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: int8 [512, 512]"
+ },
+ {
+  "id": 133,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     512,
+     1024
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: int8 [512, 1024]"
+ },
+ {
+  "id": 134,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     1024,
+     1024
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: int8 [1024, 1024]"
+ },
+ {
+  "id": 135,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     1024,
+     2048
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: int8 [1024, 2048]"
+ },
+ {
+  "id": 136,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     2048,
+     512
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: int8 [2048, 512]"
+ },
+ {
+  "id": 137,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     2048,
+     2048
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: int8 [2048, 2048]"
+ },
+ {
+  "id": 138,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     4096,
+     512
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: int8 [4096, 512]"
+ },
+ {
+  "id": 139,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     4096,
+     1024
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "2d: int8 [4096, 1024]"
+ },
+ {
+  "id": 140,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     17,
+     16
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: int8 [17, 16]"
+ },
+ {
+  "id": 141,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     33,
+     32
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: int8 [33, 32]"
+ },
+ {
+  "id": 142,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     1,
+     16
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: int8 [1, 16]"
+ },
+ {
+  "id": 143,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     15,
+     32
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: int8 [15, 32]"
+ },
+ {
+  "id": 144,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     31,
+     48
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: int8 [31, 48]"
+ },
+ {
+  "id": 145,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     50,
+     64
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: int8 [50, 64]"
+ },
+ {
+  "id": 146,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     100,
+     128
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: int8 [100, 128]"
+ },
+ {
+  "id": 147,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     7,
+     256
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: int8 [7, 256]"
+ },
+ {
+  "id": 148,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     127,
+     128
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: int8 [127, 128]"
+ },
+ {
+  "id": 149,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     255,
+     256
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: int8 [255, 256]"
+ },
+ {
+  "id": 150,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     16,
+     17
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: int8 [16, 17]"
+ },
+ {
+  "id": 151,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     32,
+     33
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: int8 [32, 33]"
+ },
+ {
+  "id": 152,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     16,
+     1
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: int8 [16, 1]"
+ },
+ {
+  "id": 153,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     16,
+     15
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: int8 [16, 15]"
+ },
+ {
+  "id": 154,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     32,
+     31
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: int8 [32, 31]"
+ },
+ {
+  "id": 155,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     48,
+     50
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: int8 [48, 50]"
+ },
+ {
+  "id": 156,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     64,
+     100
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: int8 [64, 100]"
+ },
+ {
+  "id": 157,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     128,
+     7
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: int8 [128, 7]"
+ },
+ {
+  "id": 158,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     16,
+     127
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: int8 [16, 127]"
+ },
+ {
+  "id": 159,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     16,
+     255
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: int8 [16, 255]"
+ },
+ {
+  "id": 160,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     17,
+     17
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: int8 [17, 17]"
+ },
+ {
+  "id": 161,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     33,
+     33
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: int8 [33, 33]"
+ },
+ {
+  "id": 162,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     1,
+     1
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: int8 [1, 1]"
+ },
+ {
+  "id": 163,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     15,
+     15
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: int8 [15, 15]"
+ },
+ {
+  "id": 164,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     31,
+     31
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: int8 [31, 31]"
+ },
+ {
+  "id": 165,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     50,
+     50
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: int8 [50, 50]"
+ },
+ {
+  "id": 166,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     7,
+     9
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: int8 [7, 9]"
+ },
+ {
+  "id": 167,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     100,
+     200
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: int8 [100, 200]"
+ },
+ {
+  "id": 168,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     63,
+     64
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: int8 [63, 64]"
+ },
+ {
+  "id": 169,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     65,
+     64
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: int8 [65, 64]"
+ },
+ {
+  "id": 170,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     64,
+     63
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: int8 [64, 63]"
+ },
+ {
+  "id": 171,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     64,
+     65
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: int8 [64, 65]"
+ },
+ {
+  "id": 172,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     15,
+     16
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: int8 [15, 16]"
+ },
+ {
+  "id": 173,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     127,
+     129
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: int8 [127, 129]"
+ },
+ {
+  "id": 174,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     129,
+     127
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: int8 [129, 127]"
+ },
+ {
+  "id": 175,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     255,
+     257
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: int8 [255, 257]"
+ },
+ {
+  "id": 176,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     257,
+     255
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: int8 [257, 255]"
+ },
+ {
+  "id": 177,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     16,
+     0
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: int8 [16, 0]"
+ },
+ {
+  "id": 178,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     0,
+     16
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: int8 [0, 16]"
+ },
+ {
+  "id": 179,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     0,
+     0
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "2d: int8 [0, 0]"
+ },
+ {
+  "id": 180,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     2,
+     16,
+     16
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "rank3: int8 [2, 16, 16]"
+ },
+ {
+  "id": 181,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     2,
+     17,
+     33
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "rank3: int8 [2, 17, 33]"
+ },
+ {
+  "id": 182,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     3,
+     32,
+     17
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "rank3: int8 [3, 32, 17]"
+ },
+ {
+  "id": 183,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     4,
+     1,
+     1
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "rank3: int8 [4, 1, 1]"
+ },
+ {
+  "id": 184,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     2,
+     8,
+     8
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "rank3: int8 [2, 8, 8]"
+ },
+ {
+  "id": 185,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     5,
+     16,
+     40
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "rank3: int8 [5, 16, 40]"
+ },
+ {
+  "id": 186,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     2,
+     33,
+     17
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "rank3: int8 [2, 33, 17]"
+ },
+ {
+  "id": 187,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     1,
+     16,
+     16
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "rank3: int8 [1, 16, 16]"
+ },
+ {
+  "id": 188,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     7,
+     15,
+     17
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "rank3: int8 [7, 15, 17]"
+ },
+ {
+  "id": 189,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     2,
+     31,
+     63
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "rank3: int8 [2, 31, 63]"
+ },
+ {
+  "id": 190,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     2,
+     2,
+     16,
+     32
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "rank4: int8 [2, 2, 16, 32]"
+ },
+ {
+  "id": 191,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     2,
+     2,
+     17,
+     33
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "rank4: int8 [2, 2, 17, 33]"
+ },
+ {
+  "id": 192,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     3,
+     1,
+     16,
+     17
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "rank4: int8 [3, 1, 16, 17]"
+ },
+ {
+  "id": 193,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     2,
+     3,
+     32,
+     16
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "rank4: int8 [2, 3, 32, 16]"
+ },
+ {
+  "id": 194,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "rank4: int8 [1, 1, 1, 1]"
+ },
+ {
+  "id": 195,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     2,
+     2,
+     15,
+     15
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "rank4: int8 [2, 2, 15, 15]"
+ },
+ {
+  "id": 196,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     2,
+     2,
+     2,
+     16,
+     32
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "rank5: int8 [2, 2, 2, 16, 32]"
+ },
+ {
+  "id": 197,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     1,
+     2,
+     3,
+     17,
+     33
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "rank5: int8 [1, 2, 3, 17, 33]"
+ },
+ {
+  "id": 198,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     2,
+     2,
+     2,
+     2,
+     16,
+     32
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": false,
+  "note": "rank6: int8 [2, 2, 2, 2, 16, 32]"
+ },
+ {
+  "id": 199,
+  "name": "torch.aclnnTransMatmulWeight",
+  "aclnn_name": "TransMatmulWeight",
+  "aclnn_api_type": "aclnn_trans_matmul_weight",
+  "api_type": "function_trans_matmul_weight",
+  "standard": {
+   "acc": "md5",
+   "perf": "not_key"
+  },
+  "inputs": [
+   {
+    "name": "mmWeightRef",
+    "type": "tensor",
+    "required": true,
+    "dtype": "int8",
+    "shape": [
+     1,
+     1,
+     2,
+     3,
+     17,
+     33
+    ],
+    "range_values": [
+     -5,
+     5
+    ],
+    "backward": false,
+    "align_32B": null
+   }
+  ],
+  "is_boundary": true,
+  "note": "rank6: int8 [1, 1, 2, 3, 17, 33]"
+ }
+]
