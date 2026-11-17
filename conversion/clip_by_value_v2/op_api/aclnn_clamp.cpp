@@ -437,6 +437,7 @@ aclnnStatus aclnnClampGetWorkspaceSize(const aclTensor* self, const aclScalar* c
                                        const aclScalar* clipValueMax, aclTensor* out, uint64_t* workspaceSize,
                                        aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnClamp, DFX_IN(self, clipValueMin, clipValueMax), DFX_OUT(out));
     return aclnnClampCommon(self, clipValueMin, clipValueMax, out, workspaceSize, executor);
 }
@@ -451,6 +452,7 @@ aclnnStatus aclnnClamp(void* workspace, uint64_t workspaceSize, aclOpExecutor* e
 aclnnStatus aclnnClampMinGetWorkspaceSize(const aclTensor* self, const aclScalar* clipValueMin, aclTensor* out,
                                           uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnClampMin, DFX_IN(self, clipValueMin), DFX_OUT(out));
     OP_CHECK_NULL(clipValueMin, return ACLNN_ERR_PARAM_NULLPTR);
     return aclnnClampCommon(self, clipValueMin, nullptr, out, workspaceSize, executor);
@@ -622,6 +624,7 @@ aclnnStatus aclnnClampTensorGetWorkspaceSize(const aclTensor* self, const aclTen
                                              const aclTensor* clipValueMax, aclTensor* out, uint64_t* workspaceSize,
                                              aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnClampTensor, DFX_IN(self, clipValueMin, clipValueMax), DFX_OUT(out));
     return aclnnClampTensorCommon(self, clipValueMin, clipValueMax, out, workspaceSize, executor);
 }
@@ -636,6 +639,7 @@ aclnnStatus aclnnClampTensor(void* workspace, uint64_t workspaceSize, aclOpExecu
 aclnnStatus aclnnClampMinTensorGetWorkspaceSize(const aclTensor* self, const aclTensor* clipValueMin, aclTensor* out,
                                                 uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnClampMinTensor, DFX_IN(self, clipValueMin), DFX_OUT(out));
     OP_CHECK_NULL(clipValueMin, return ACLNN_ERR_PARAM_NULLPTR);
     return aclnnClampTensorCommon(self, clipValueMin, nullptr, out, workspaceSize, executor);
@@ -652,6 +656,7 @@ aclnnStatus aclnnClampMinTensor(void* workspace, uint64_t workspaceSize, aclOpEx
 aclnnStatus aclnnInplaceClampMinTensorGetWorkspaceSize(aclTensor* selfRef, const aclTensor* clipValueMin,
                                                        uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnInplaceClampMinTensor, DFX_IN(selfRef, clipValueMin), DFX_OUT(selfRef));
     OP_CHECK_NULL(clipValueMin, return ACLNN_ERR_PARAM_NULLPTR);
     return aclnnClampTensorCommon(selfRef, clipValueMin, nullptr, selfRef, workspaceSize, executor);
@@ -668,6 +673,7 @@ aclnnStatus aclnnInplaceClampMinTensor(void* workspace, uint64_t workspaceSize, 
 aclnnStatus aclnnClampMaxGetWorkspaceSize(const aclTensor* self, const aclScalar* clipValueMax, aclTensor* out,
                                           uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnClampMax, DFX_IN(self, clipValueMax), DFX_OUT(out));
     OP_CHECK_NULL(clipValueMax, return ACLNN_ERR_PARAM_NULLPTR);
     return aclnnClampCommon(self, nullptr, clipValueMax, out, workspaceSize, executor);
@@ -683,6 +689,7 @@ aclnnStatus aclnnClampMax(void* workspace, uint64_t workspaceSize, aclOpExecutor
 aclnnStatus aclnnInplaceClampMaxGetWorkspaceSize(const aclTensor* selfRef, const aclScalar* clipValueMax,
                                                  uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnInplaceClampMax, DFX_IN(selfRef, clipValueMax), DFX_OUT(selfRef));
     auto out = const_cast<aclTensor*>(selfRef);
     OP_CHECK_NULL(clipValueMax, return ACLNN_ERR_PARAM_NULLPTR);
@@ -699,6 +706,7 @@ aclnnStatus aclnnInplaceClampMax(void* workspace, uint64_t workspaceSize, aclOpE
 aclnnStatus aclnnInplaceClampMaxTensorGetWorkspaceSize(aclTensor* selfRef, const aclTensor* max,
                                                        uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnInplaceClampMaxTensor, DFX_IN(selfRef, max), DFX_OUT(selfRef));
     OP_CHECK_NULL(max, return ACLNN_ERR_PARAM_NULLPTR);
     return aclnnClampTensorCommon(selfRef, nullptr, max, selfRef, workspaceSize, executor);
@@ -715,6 +723,7 @@ aclnnStatus aclnnInplaceClampMaxTensor(void* workspace, uint64_t workspaceSize, 
 aclnnStatus aclnnClampMaxTensorGetWorkspaceSize(const aclTensor* self, const aclTensor* max, aclTensor* out,
                                                 uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnClampMaxTensor, DFX_IN(self, max), DFX_OUT(out));
     OP_CHECK_NULL(max, return ACLNN_ERR_PARAM_NULLPTR);
     return aclnnClampTensorCommon(self, nullptr, max, out, workspaceSize, executor);

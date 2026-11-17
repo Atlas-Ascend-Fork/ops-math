@@ -215,6 +215,7 @@ static aclnnStatus GetWorkspaceSizeCommon(const aclTensor* self, const aclTensor
 aclnnStatus aclnnLogicalOrGetWorkspaceSize(const aclTensor* self, const aclTensor* other, aclTensor* out,
                                            uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnLogicalOr, DFX_IN(self, other), DFX_OUT(out));
     return GetWorkspaceSizeCommon(self, other, out, workspaceSize, executor);
 }
@@ -229,6 +230,7 @@ aclnnStatus aclnnLogicalOr(void* workspace, uint64_t workspaceSize, aclOpExecuto
 aclnnStatus aclnnInplaceLogicalOrGetWorkspaceSize(aclTensor* selfRef, const aclTensor* other, uint64_t* workspaceSize,
                                                   aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnInplaceLogicalOr, DFX_IN(selfRef, other), DFX_OUT(selfRef));
     return GetWorkspaceSizeCommon(selfRef, other, selfRef, workspaceSize, executor);
 }

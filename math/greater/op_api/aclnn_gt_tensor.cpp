@@ -176,6 +176,7 @@ static aclnnStatus CheckParams4Gt(const aclTensor* self, const aclTensor* other,
 aclnnStatus aclnnGtTensorGetWorkspaceSize(const aclTensor* self, const aclTensor* other, aclTensor* out,
                                           uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnGtTensor, DFX_IN(self, other), DFX_OUT(out));
     // 固定写法，创建OpExecutor
     auto uniqueExecutor = CREATE_EXECUTOR();
@@ -240,6 +241,7 @@ aclnnStatus aclnnGtTensor(void* workspace, uint64_t workspaceSize, aclOpExecutor
 aclnnStatus aclnnInplaceGtTensorGetWorkspaceSize(const aclTensor* selfRef, const aclTensor* other,
                                                  uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     auto out = const_cast<aclTensor*>(selfRef);
     return aclnnGtTensorGetWorkspaceSize(selfRef, other, out, workspaceSize, executor);
 }

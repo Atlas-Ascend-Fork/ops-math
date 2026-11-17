@@ -116,6 +116,7 @@ static aclnnStatus CheckParams(const aclTensor* gradOutput, const aclTensor* out
 aclnnStatus aclnnTanhBackwardGetWorkspaceSize(const aclTensor* gradOutput, const aclTensor* output,
                                               aclTensor* gradInput, uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnTanhBackward, DFX_IN(gradOutput, output), DFX_OUT(gradInput));
 
     // 固定写法，创建OpExecutor

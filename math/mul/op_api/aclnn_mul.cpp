@@ -400,6 +400,7 @@ static void MulsCheckFormat(const aclTensor* self)
 aclnnStatus aclnnMulsGetWorkspaceSize(const aclTensor* self, const aclScalar* other, aclTensor* out,
                                       uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnMuls, DFX_IN(self, other), DFX_OUT(out));
 
     // 固定写法，创建OpExecutor
@@ -603,6 +604,7 @@ static bool MulPreferContiguous(const aclTensor* self, const aclTensor* other)
 aclnnStatus aclnnMulGetWorkspaceSize(const aclTensor* self, const aclTensor* other, aclTensor* out,
                                      uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnMul, DFX_IN(self, other), DFX_OUT(out));
 
     // 固定写法，创建OpExecutor
@@ -698,6 +700,7 @@ aclnnStatus aclnnMulGetWorkspaceSize(const aclTensor* self, const aclTensor* oth
 aclnnStatus aclnnInplaceMulsGetWorkspaceSize(aclTensor* selfRef, const aclScalar* other, uint64_t* workspaceSize,
                                              aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnInplaceMuls, DFX_IN(selfRef, other), DFX_OUT(selfRef));
 
     // 固定写法，创建OpExecutor
@@ -761,6 +764,7 @@ aclnnStatus aclnnInplaceMulsGetWorkspaceSize(aclTensor* selfRef, const aclScalar
 aclnnStatus aclnnInplaceMulGetWorkspaceSize(aclTensor* selfRef, const aclTensor* other, uint64_t* workspaceSize,
                                             aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnInplaceMul, DFX_IN(selfRef, other), DFX_OUT(selfRef));
 
     // 固定写法，创建OpExecutor

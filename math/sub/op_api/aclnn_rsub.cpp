@@ -284,6 +284,7 @@ static bool UseAxpyV2(const DataType promoteType, [[maybe_unused]] const aclScal
 aclnnStatus aclnnRsubGetWorkspaceSize(const aclTensor* self, const aclTensor* other, const aclScalar* alpha,
                                       aclTensor* out, uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnRsub, DFX_IN(self, other, alpha), DFX_OUT(out));
     // 固定写法，创建OpExecutor
     auto uniqueExecutor = CREATE_EXECUTOR();
@@ -415,6 +416,7 @@ static inline aclnnStatus CheckParamsScalar(const aclTensor* self, const aclScal
 aclnnStatus aclnnRsubsGetWorkspaceSize(const aclTensor* self, const aclScalar* other, const aclScalar* alpha,
                                        aclTensor* out, uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnRsubs, DFX_IN(self, other, alpha), DFX_OUT(out));
     // 固定写法，创建OpExecutor
     auto uniqueExecutor = CREATE_EXECUTOR();

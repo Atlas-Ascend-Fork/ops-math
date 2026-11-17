@@ -131,6 +131,7 @@ static aclnnStatus CheckParams(const aclTensorList* tensors, aclTensor* out, con
 aclnnStatus aclnnMinNGetWorkspaceSize(const aclTensorList* tensors, aclTensor* out, uint64_t* workspaceSize,
                                       aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnMinN, DFX_IN(tensors), DFX_OUT(out));
 
     // 固定写法，创建OpExecutor

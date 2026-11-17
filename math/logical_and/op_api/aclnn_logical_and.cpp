@@ -168,6 +168,7 @@ static aclnnStatus CalculateResult(const aclTensor* self, const aclTensor* other
 aclnnStatus aclnnLogicalAndGetWorkspaceSize(const aclTensor* self, const aclTensor* other, aclTensor* out,
                                             uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnLogicalAnd, DFX_IN(self, other), DFX_OUT(out));
 
     // 创建OpExecutor
@@ -186,6 +187,7 @@ aclnnStatus aclnnLogicalAndGetWorkspaceSize(const aclTensor* self, const aclTens
 aclnnStatus aclnnInplaceLogicalAndGetWorkspaceSize(aclTensor* selfRef, const aclTensor* other, uint64_t* workspaceSize,
                                                    aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnInplaceLogicalAnd, DFX_IN(selfRef, other), DFX_OUT(selfRef));
 
     // 创建OpExecutor

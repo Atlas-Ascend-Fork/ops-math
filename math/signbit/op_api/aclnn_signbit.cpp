@@ -141,6 +141,7 @@ static aclnnStatus FillScalar(aclTensor* out, bool val, aclOpExecutor* executor)
 aclnnStatus aclnnSignbitGetWorkspaceSize(const aclTensor* self, aclTensor* out, uint64_t* workspaceSize,
                                          aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnSignbit, DFX_IN(self), DFX_OUT(out));
 
     // 固定写法，创建OpExecutor

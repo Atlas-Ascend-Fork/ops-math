@@ -269,6 +269,7 @@ static aclnnStatus CalcFloorDivide(const aclTensor* self, const aclTensor* other
 aclnnStatus aclnnFloorDivideGetWorkspaceSize(const aclTensor* self, const aclTensor* other, aclTensor* out,
                                              uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnFloorDivide, DFX_IN(self, other), DFX_OUT(out));
     auto uniqueExecutor = CREATE_EXECUTOR();
     CHECK_RET(uniqueExecutor.get() != nullptr, ACLNN_ERR_INNER_CREATE_EXECUTOR);
@@ -359,6 +360,7 @@ static aclnnStatus CalcFloorDivides(const aclTensor* self, const aclScalar* othe
 aclnnStatus aclnnFloorDividesGetWorkspaceSize(const aclTensor* self, const aclScalar* other, aclTensor* out,
                                               uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnFloorDivides, DFX_IN(self, other), DFX_OUT(out));
     auto uniqueExecutor = CREATE_EXECUTOR();
     CHECK_RET(uniqueExecutor.get() != nullptr, ACLNN_ERR_INNER_CREATE_EXECUTOR);
@@ -399,6 +401,7 @@ static inline aclnnStatus CheckInplace(const aclTensor* selfRef, const aclTensor
 aclnnStatus aclnnInplaceFloorDivideGetWorkspaceSize(aclTensor* selfRef, const aclTensor* other, uint64_t* workspaceSize,
                                                     aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnInplaceFloorDivide, DFX_IN(selfRef, other), DFX_OUT(selfRef));
     auto uniqueExecutor = CREATE_EXECUTOR();
     CHECK_RET(uniqueExecutor.get() != nullptr, ACLNN_ERR_INNER_CREATE_EXECUTOR);
@@ -425,6 +428,7 @@ aclnnStatus aclnnInplaceFloorDivide(void* workspace, uint64_t workspaceSize, acl
 aclnnStatus aclnnInplaceFloorDividesGetWorkspaceSize(aclTensor* selfRef, const aclScalar* other,
                                                      uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnInplaceFloorDivides, DFX_IN(selfRef, other), DFX_OUT(selfRef));
     auto uniqueExecutor = CREATE_EXECUTOR();
     CHECK_RET(uniqueExecutor.get() != nullptr, ACLNN_ERR_INNER_CREATE_EXECUTOR);

@@ -301,6 +301,7 @@ static aclnnStatus CheckParamsScalar(const aclTensor* self, const aclScalar* oth
 aclnnStatus aclnnLtScalarGetWorkspaceSizeV35(const aclTensor* self, const aclScalar* other, aclTensor* out,
                                              uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     // 固定写法，创建OpExecutor
     auto uniqueExecutor = CREATE_EXECUTOR();
     CHECK_RET(uniqueExecutor.get() != nullptr, ACLNN_ERR_INNER_CREATE_EXECUTOR);
@@ -364,6 +365,7 @@ aclnnStatus aclnnLtScalarGetWorkspaceSizeV35(const aclTensor* self, const aclSca
 aclnnStatus aclnnLtScalarGetWorkspaceSize(const aclTensor* self, const aclScalar* other, aclTensor* out,
                                           uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnLtScalar, DFX_IN(self, other), DFX_OUT(out));
     auto npuArch = op::GetCurrentPlatformInfo().GetCurNpuArch();
     if (IsRegBase(npuArch)) {
@@ -445,6 +447,7 @@ aclnnStatus aclnnLtScalar(void* workspace, uint64_t workspaceSize, aclOpExecutor
 aclnnStatus aclnnInplaceLtScalarGetWorkspaceSize(const aclTensor* selfRef, const aclScalar* other,
                                                  uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     auto out = const_cast<aclTensor*>(selfRef);
     return aclnnLtScalarGetWorkspaceSize(selfRef, other, out, workspaceSize, executor);
 }

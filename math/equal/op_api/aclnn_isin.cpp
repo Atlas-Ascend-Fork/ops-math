@@ -174,6 +174,7 @@ aclnnStatus aclnnIsInScalarTensorGetWorkspaceSize(const aclScalar* element, cons
                                                   bool assumeUnique, bool invert, aclTensor* out,
                                                   uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnIsInScalarTensor, DFX_IN(element, testElements, assumeUnique, invert), DFX_OUT(out));
     // 固定写法，创建OpExecutor
     auto uniqueExecutor = CREATE_EXECUTOR();

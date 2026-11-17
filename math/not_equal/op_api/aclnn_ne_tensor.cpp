@@ -248,6 +248,7 @@ aclnnStatus aclnnNeTensorCommon(const aclTensor* self, const aclTensor* other, a
 aclnnStatus aclnnNeTensorGetWorkspaceSize(const aclTensor* self, const aclTensor* other, aclTensor* out,
                                           uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnNeTensor, DFX_IN(self, other), DFX_OUT(out));
     return aclnnNeTensorCommon(self, other, out, workspaceSize, executor);
 }
@@ -262,6 +263,7 @@ aclnnStatus aclnnNeTensor(void* workspace, uint64_t workspaceSize, aclOpExecutor
 aclnnStatus aclnnInplaceNeTensorGetWorkspaceSize(aclTensor* selfRef, const aclTensor* other, uint64_t* workspaceSize,
                                                  aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnInplaceNeTensor, DFX_IN(selfRef, other), DFX_OUT(selfRef));
     return aclnnNeTensorCommon(selfRef, other, selfRef, workspaceSize, executor);
 }

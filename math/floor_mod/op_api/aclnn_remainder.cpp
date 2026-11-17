@@ -637,6 +637,7 @@ aclnnStatus ExecRemainderTensorScalarGetWorkspaceSize(const aclTensor* self, con
 aclnnStatus aclnnRemainderTensorTensorGetWorkspaceSize(const aclTensor* self, const aclTensor* other, aclTensor* out,
                                                        uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnRemainderTensorTensor, DFX_IN(self, other), DFX_OUT(out));
     auto ret = CheckParamsTensorTensor(self, other, out);
     CHECK_RET(ret == ACLNN_SUCCESS, ret);
@@ -646,6 +647,7 @@ aclnnStatus aclnnRemainderTensorTensorGetWorkspaceSize(const aclTensor* self, co
 aclnnStatus aclnnRemainderTensorScalarGetWorkspaceSize(const aclTensor* self, const aclScalar* other, aclTensor* out,
                                                        uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnRemainderTensorScalar, DFX_IN(self, other), DFX_OUT(out));
     auto ret = CheckParamsTensorScalar(self, other, out);
     CHECK_RET(ret == ACLNN_SUCCESS, ret);
@@ -656,6 +658,7 @@ aclnnStatus aclnnRemainderTensorScalarGetWorkspaceSize(const aclTensor* self, co
 aclnnStatus aclnnRemainderScalarTensorGetWorkspaceSize(const aclScalar* self, const aclTensor* other, aclTensor* out,
                                                        uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnRemainderScalarTensor, DFX_IN(self, other), DFX_OUT(out));
     auto uniqueExecutor = CREATE_EXECUTOR();
     CHECK_RET(uniqueExecutor.get() != nullptr, ACLNN_ERR_INNER_CREATE_EXECUTOR);
@@ -712,6 +715,7 @@ aclnnStatus aclnnRemainderScalarTensorGetWorkspaceSize(const aclScalar* self, co
 aclnnStatus aclnnInplaceRemainderTensorTensorGetWorkspaceSize(aclTensor* selfRef, const aclTensor* other,
                                                               uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnInplaceRemainderTensorTensor, DFX_IN(selfRef, other), DFX_OUT(selfRef));
     auto out = const_cast<aclTensor*>(selfRef);
     auto ret = CheckParamsInplaceTensorTensor(selfRef, other, out);
@@ -722,6 +726,7 @@ aclnnStatus aclnnInplaceRemainderTensorTensorGetWorkspaceSize(aclTensor* selfRef
 aclnnStatus aclnnInplaceRemainderTensorScalarGetWorkspaceSize(aclTensor* selfRef, const aclScalar* other,
                                                               uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnInplaceRemainderTensorScalar, DFX_IN(selfRef, other), DFX_OUT(selfRef));
     auto out = const_cast<aclTensor*>(selfRef);
     auto ret = CheckParamsInplaceTensorScalar(selfRef, other, out);

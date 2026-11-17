@@ -189,6 +189,7 @@ static aclnnStatus GetWorkspaceSizeCommon(const aclTensor* self, const aclScalar
 aclnnStatus aclnnBitwiseXorScalarGetWorkspaceSize(const aclTensor* self, const aclScalar* other, aclTensor* out,
                                                   uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnBitwiseXorScalar, DFX_IN(self, other), DFX_OUT(out));
     return GetWorkspaceSizeCommon(self, other, out, workspaceSize, executor);
 }
@@ -203,6 +204,7 @@ aclnnStatus aclnnBitwiseXorScalar(void* workspace, uint64_t workspaceSize, aclOp
 aclnnStatus aclnnInplaceBitwiseXorScalarGetWorkspaceSize(aclTensor* selfRef, const aclScalar* other,
                                                          uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnInplaceBitwiseXorScalar, DFX_IN(selfRef, other), DFX_OUT(selfRef));
     return GetWorkspaceSizeCommon(selfRef, other, selfRef, workspaceSize, executor);
 }

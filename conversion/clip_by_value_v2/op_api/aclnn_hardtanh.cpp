@@ -166,6 +166,7 @@ aclnnStatus aclnnHardtanhGetWorkspaceSize(const aclTensor* self, const aclScalar
                                           const aclScalar* clipValueMax, aclTensor* out, uint64_t* workspaceSize,
                                           aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnHardtanh, DFX_IN(self, clipValueMin, clipValueMax), DFX_OUT(out));
     return GetWorkspaceSizeCommon(self, clipValueMin, clipValueMax, out, workspaceSize, executor);
 }
@@ -181,6 +182,7 @@ aclnnStatus aclnnInplaceHardtanhGetWorkspaceSize(aclTensor* selfRef, const aclSc
                                                  const aclScalar* clipValueMax, uint64_t* workspaceSize,
                                                  aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnInplaceHardtanh, DFX_IN(selfRef, clipValueMin, clipValueMax), DFX_OUT(selfRef));
     return GetWorkspaceSizeCommon(selfRef, clipValueMin, clipValueMax, selfRef, workspaceSize, executor);
 }

@@ -245,6 +245,7 @@ aclnnStatus aclnnInplaceAddcdivGetWorkspaceSize(const aclTensor* selfRef, const 
                                                 const aclTensor* tensor2, const aclScalar* value,
                                                 uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     return aclnnAddcdivGetWorkspaceSize(selfRef, tensor1, tensor2, value, selfRef, workspaceSize, executor);
 }
 

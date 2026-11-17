@@ -197,6 +197,7 @@ static aclnnStatus GetWorkspaceSizeCommon(const aclTensor* self, aclTensor* out,
 aclnnStatus aclnnExp2GetWorkspaceSize(const aclTensor* self, aclTensor* out, uint64_t* workspaceSize,
                                       aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnExp2, DFX_IN(self), DFX_OUT(out));
     return GetWorkspaceSizeCommon(self, out, workspaceSize, executor);
 }
@@ -210,6 +211,7 @@ aclnnStatus aclnnExp2(void* workspace, uint64_t workspaceSize, aclOpExecutor* ex
 
 aclnnStatus aclnnInplaceExp2GetWorkspaceSize(aclTensor* selfRef, uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnInplaceExp2, DFX_IN(selfRef), DFX_OUT(selfRef));
     // 固定写法，创建OpExecutor
     auto uniqueExecutor = CREATE_EXECUTOR();

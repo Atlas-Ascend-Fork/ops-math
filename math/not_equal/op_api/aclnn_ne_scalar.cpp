@@ -312,6 +312,7 @@ aclnnStatus aclnnNeScalarCommon(const aclTensor* self, const aclScalar* other, a
 aclnnStatus aclnnNeScalarGetWorkspaceSize(const aclTensor* self, const aclScalar* other, aclTensor* out,
                                           uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnNeScalar, DFX_IN(self, other), DFX_OUT(out));
     return aclnnNeScalarCommon(self, other, out, workspaceSize, executor);
 }
@@ -326,6 +327,7 @@ aclnnStatus aclnnNeScalar(void* workspace, uint64_t workspaceSize, aclOpExecutor
 aclnnStatus aclnnInplaceNeScalarGetWorkspaceSize(aclTensor* selfRef, const aclScalar* other, uint64_t* workspaceSize,
                                                  aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnInplaceNeScalar, DFX_IN(selfRef, other), DFX_OUT(selfRef));
     return aclnnNeScalarCommon(selfRef, other, selfRef, workspaceSize, executor);
 }

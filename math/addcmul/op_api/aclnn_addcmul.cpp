@@ -308,6 +308,7 @@ aclnnStatus aclnnInplaceAddcmulGetWorkspaceSize(const aclTensor* selfRef, const 
                                                 const aclTensor* tensor2, const aclScalar* value,
                                                 uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     auto out = const_cast<aclTensor*>(selfRef);
     return aclnnAddcmulGetWorkspaceSize(selfRef, tensor1, tensor2, value, out, workspaceSize, executor);
 }

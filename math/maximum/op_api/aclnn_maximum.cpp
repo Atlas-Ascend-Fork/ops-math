@@ -143,6 +143,7 @@ static void GetComputeType(const aclTensor* self, const aclTensor* other, const 
 aclnnStatus aclnnMaximumGetWorkspaceSize(const aclTensor* self, const aclTensor* other, aclTensor* out,
                                          uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnMaximum, DFX_IN(self, other), DFX_OUT(out));
     auto uniqueExecutor = CREATE_EXECUTOR();
     CHECK_RET(uniqueExecutor.get() != nullptr, ACLNN_ERR_INNER_CREATE_EXECUTOR);

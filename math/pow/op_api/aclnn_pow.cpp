@@ -427,6 +427,7 @@ static void CheckFormat(const aclTensor* self)
 aclnnStatus aclnnPowTensorScalarGetWorkspaceSize(const aclTensor* self, const aclScalar* exponent, const aclTensor* out,
                                                  uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnPowTensorScalar, DFX_IN(self, exponent), DFX_OUT(out));
 
     // 固定写法，创建OpExecutor
@@ -518,6 +519,7 @@ aclnnStatus aclnnPowTensorScalar(void* workspace, uint64_t workspaceSize, aclOpE
 aclnnStatus aclnnInplacePowTensorScalarGetWorkspaceSize(const aclTensor* self, const aclScalar* exponent,
                                                         uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     auto out = const_cast<aclTensor*>(self);
     return aclnnPowTensorScalarGetWorkspaceSize(self, exponent, out, workspaceSize, executor);
 }
@@ -591,6 +593,7 @@ static aclnnStatus BuildPowScalarTensorCompute(const aclScalar* self, const aclT
 aclnnStatus aclnnPowScalarTensorGetWorkspaceSize(const aclScalar* self, const aclTensor* exponent, const aclTensor* out,
                                                  uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnPowScalarTensor, DFX_IN(self, exponent), DFX_OUT(out));
 
     // 固定写法，创建OpExecutor

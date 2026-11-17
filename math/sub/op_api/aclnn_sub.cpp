@@ -298,6 +298,7 @@ static void SubsCheckFormat(const aclTensor* self)
 aclnnStatus aclnnSubGetWorkspaceSize(const aclTensor* self, const aclTensor* other, const aclScalar* alpha,
                                      aclTensor* out, uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnSub, DFX_IN(self, other, alpha), DFX_OUT(out));
 
     // 固定写法，创建OpExecutor
@@ -453,6 +454,7 @@ static aclnnStatus CheckParamsScalar(const aclTensor* self, const aclScalar* oth
 aclnnStatus aclnnSubsGetWorkspaceSize(const aclTensor* self, const aclScalar* other, const aclScalar* alpha,
                                       aclTensor* out, uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnSubs, DFX_IN(self, other, alpha), DFX_OUT(out));
 
     // 固定写法，创建OpExecutor
@@ -535,6 +537,7 @@ static inline aclnnStatus CheckInplace(const aclTensor* selfRef, const aclTensor
 aclnnStatus aclnnInplaceSubGetWorkspaceSize(aclTensor* selfRef, const aclTensor* other, const aclScalar* alpha,
                                             uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     // 固定写法，参数检查
     auto ret = CheckInplace(selfRef, other);
     CHECK_RET(ret == ACLNN_SUCCESS, ret);
@@ -545,6 +548,7 @@ aclnnStatus aclnnInplaceSubGetWorkspaceSize(aclTensor* selfRef, const aclTensor*
 aclnnStatus aclnnInplaceSubsGetWorkspaceSize(aclTensor* selfRef, const aclScalar* other, const aclScalar* alpha,
                                              uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     return aclnnSubsGetWorkspaceSize(selfRef, other, alpha, selfRef, workspaceSize, executor);
 }
 

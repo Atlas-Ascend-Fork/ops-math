@@ -158,6 +158,7 @@ static aclnnStatus CheckParams(const aclTensor* self, const aclTensor* exponent,
 aclnnStatus aclnnPowTensorTensorGetWorkspaceSize(const aclTensor* self, const aclTensor* exponent, aclTensor* out,
                                                  uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnPowTensorTensor, DFX_IN(self, exponent), DFX_OUT(out));
 
     // 固定写法，创建OpExecutor
@@ -219,6 +220,7 @@ aclnnStatus aclnnPowTensorTensorGetWorkspaceSize(const aclTensor* self, const ac
 aclnnStatus aclnnInplacePowTensorTensorGetWorkspaceSize(const aclTensor* self, const aclTensor* exponent,
                                                         uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     auto out = const_cast<aclTensor*>(self);
     return aclnnPowTensorTensorGetWorkspaceSize(self, exponent, out, workspaceSize, executor);
 }

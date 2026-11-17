@@ -214,6 +214,7 @@ static aclnnStatus CheckParams(const aclTensor* self, const aclTensor* other, co
 aclnnStatus aclnnEqTensorGetWorkspaceSize(const aclTensor* self, const aclTensor* other, aclTensor* out,
                                           uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnEqTensor, DFX_IN(self, other), DFX_OUT(out));
 
     // 固定写法，创建OpExecutor
@@ -290,6 +291,7 @@ static inline aclnnStatus CheckInplace(const aclTensor* selfRef, const aclTensor
 aclnnStatus aclnnInplaceEqTensorGetWorkspaceSize(const aclTensor* selfRef, const aclTensor* other,
                                                  uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     auto ret = CheckInplace(selfRef, other);
     CHECK_RET(ret == ACLNN_SUCCESS, ret);
 

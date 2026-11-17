@@ -564,6 +564,7 @@ static aclnnStatus HandleNotMixDataTypeDiv(const aclTensor* self, const aclTenso
 aclnnStatus aclnnDivGetWorkspaceSize(const aclTensor* self, const aclTensor* other, aclTensor* out,
                                      uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnDiv, DFX_IN(self, other), DFX_OUT(out));
     // 固定写法，创建OpExecutor
     auto uniqueExecutor = CREATE_EXECUTOR();
@@ -698,6 +699,7 @@ static bool CanUseMuls(const aclTensor* self, const aclScalar* other)
 aclnnStatus aclnnDivsGetWorkspaceSize(const aclTensor* self, const aclScalar* other, aclTensor* out,
                                       uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnDivs, DFX_IN(self, other), DFX_OUT(out));
 
     auto uniqueExecutor = CREATE_EXECUTOR();
@@ -819,6 +821,7 @@ static inline aclIntArray* GetBaseShape(aclOpExecutor* executor)
 aclnnStatus aclnnDivModGetWorkspaceSize(const aclTensor* self, const aclTensor* other, int mode, aclTensor* out,
                                         uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnDivMod, DFX_IN(self, other, mode), DFX_OUT(out));
 
     auto uniqueExecutor = CREATE_EXECUTOR();
@@ -946,6 +949,7 @@ aclnnStatus aclnnDivMod(void* workspace, uint64_t workspaceSize, aclOpExecutor* 
 aclnnStatus aclnnDivModsGetWorkspaceSize(const aclTensor* self, const aclScalar* other, int mode, aclTensor* out,
                                          uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnDivMods, DFX_IN(self, other, mode), DFX_OUT(out));
 
     auto uniqueExecutor = CREATE_EXECUTOR();
@@ -1089,6 +1093,7 @@ static inline aclnnStatus CheckInplace(const aclTensor* selfRef, const aclTensor
 aclnnStatus aclnnInplaceDivGetWorkspaceSize(aclTensor* selfRef, const aclTensor* other, uint64_t* workspaceSize,
                                             aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     auto ret = CheckInplace(selfRef, other);
     CHECK_RET(ret == ACLNN_SUCCESS, ret);
     auto out = const_cast<aclTensor*>(selfRef);
@@ -1147,6 +1152,7 @@ aclnnStatus aclnnInplaceDiv(void* workspace, uint64_t workspaceSize, aclOpExecut
 aclnnStatus aclnnInplaceDivsGetWorkspaceSize(aclTensor* selfRef, const aclScalar* other, uint64_t* workspaceSize,
                                              aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     auto out = const_cast<aclTensor*>(selfRef);
     return aclnnDivsGetWorkspaceSize(selfRef, other, out, workspaceSize, executor);
 }
@@ -1160,6 +1166,7 @@ aclnnStatus aclnnInplaceDivs(void* workspace, uint64_t workspaceSize, aclOpExecu
 aclnnStatus aclnnInplaceDivModGetWorkspaceSize(aclTensor* selfRef, const aclTensor* other, int mode,
                                                uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     auto ret = CheckInplace(selfRef, other);
     CHECK_RET(ret == ACLNN_SUCCESS, ret);
     auto out = const_cast<aclTensor*>(selfRef);
@@ -1220,6 +1227,7 @@ aclnnStatus aclnnInplaceDivMod(void* workspace, uint64_t workspaceSize, aclOpExe
 aclnnStatus aclnnInplaceDivModsGetWorkspaceSize(aclTensor* selfRef, const aclScalar* other, int mode,
                                                 uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     auto out = const_cast<aclTensor*>(selfRef);
     return aclnnDivModsGetWorkspaceSize(selfRef, other, mode, out, workspaceSize, executor);
 }

@@ -258,6 +258,7 @@ static aclnnStatus aclnnGeTensorCommon(const aclTensor* self, const aclTensor* o
 aclnnStatus aclnnGeTensorGetWorkspaceSize(const aclTensor* self, const aclTensor* other, aclTensor* out,
                                           uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnGeTensor, DFX_IN(self, other), DFX_OUT(out));
     return aclnnGeTensorCommon(self, other, out, workspaceSize, executor);
 }
@@ -272,6 +273,7 @@ aclnnStatus aclnnGeTensor(void* workspace, uint64_t workspaceSize, aclOpExecutor
 aclnnStatus aclnnInplaceGeTensorGetWorkspaceSize(aclTensor* selfRef, const aclTensor* other, uint64_t* workspaceSize,
                                                  aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnInplaceGeTensor, DFX_IN(selfRef, other), DFX_OUT(selfRef));
     return aclnnGeTensorCommon(selfRef, other, selfRef, workspaceSize, executor);
 }

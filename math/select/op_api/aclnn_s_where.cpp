@@ -113,6 +113,7 @@ static aclnnStatus CheckParams(const aclTensor* self, const aclTensor* condition
 aclnnStatus aclnnSWhereGetWorkspaceSize(const aclTensor* condition, const aclTensor* self, const aclTensor* other,
                                         aclTensor* out, uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnSWhere, DFX_IN(condition, self, other), DFX_OUT(out));
     // 固定写法，创建OpExecutor
     auto uniqueExecutor = CREATE_EXECUTOR();
