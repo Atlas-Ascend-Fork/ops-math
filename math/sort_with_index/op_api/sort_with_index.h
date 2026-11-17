@@ -19,8 +19,11 @@
 #include "opdev/fast_vector.h"
 
 namespace l0op {
-const std::tuple<aclTensor*, aclTensor*> SortWithIndex(const aclTensor* self, const aclTensor* index, int64_t axis, bool descending, bool stable,
-    aclOpExecutor* executor);
-}
+// 独立升级时供调用方确认当前 math 已提供 A2/A3 实现。
+bool IsSortWithIndexA2A3Supported();
+
+const std::tuple<aclTensor*, aclTensor*> SortWithIndex(const aclTensor* self, const aclTensor* index, int64_t axis,
+                                                       bool descending, bool stable, aclOpExecutor* executor);
+} // namespace l0op
 
 #endif // PTA_NPU_OP_API_INC_LEVEL0_OP_SORT_WITH_INDEX_OP_H_

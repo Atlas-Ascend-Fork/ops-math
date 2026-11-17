@@ -5,17 +5,27 @@ English | [简体中文](./README.md)
 ## Product Support Status
 
 | Product | Supported |
-| ---- | :----:|
-| <term>Ascend 950PR&950DT products</term>                    |    √      |
-| <term>Atlas A3 products</term>    |    ×      |
-| <term>Atlas A2 products</term>    |    ×      |
-| <term>Atlas 200I/500 A2 inference products</term>                    |    ×      |
-| <term>Atlas inference products</term>                            |   ×       |
-| <term>Atlas training products</term>                            |   √       |
+| ---- | :----: |
+| <term>Ascend 950PR&950DT products</term> | √ |
+| <term>Atlas A3 products</term> |√ |
+| <term>Atlas A2 products</term> | √ |
+| <term>Atlas 200I/500 A2 inference products</term> | × |
+| <term>Atlas inference products</term> | × |
+| <term>Atlas training products</term> | √ |
 
 ## Function Description
 
-- Operator function: sorts the input tensor by element value, and sorts the index values along with the corresponding element values.
+- Operator function: Sorts the input tensor x along the specified dimension in ascending or descending order and reorders the input indices index accordingly, producing y and sorted_index.
+
+- Formulas:
+
+$$p = \operatorname{argsort}(x, \text{axis}, \text{descending}, \text{stable})$$
+
+$$y = \operatorname{gather}(x, \text{axis}, p)$$
+
+$$\text{sorted\_index} = \operatorname{gather}(\text{index}, \text{axis}, p)$$
+
+Here, p denotes the positions of the sorted elements in the input tensor x.
 
 ## Parameter Description
 
@@ -38,57 +48,62 @@ English | [简体中文](./README.md)
     <tr>
       <td>x</td>
       <td>Input</td>
-      <td>Input tensor for element value sorting.</td>
+      <td>Input tensor to be sorted.</td>
       <td>FLOAT16, FLOAT, BFLOAT16, INT8, INT16, INT32, INT64, UINT8, UINT16, UINT32, UINT64</td>
       <td>ND</td>
     </tr>
     <tr>
       <td>index</td>
       <td>Input</td>
-      <td>Input tensor for element value sorting.</td>
+      <td>Input index tensor to be reordered with x. Its shape must match x. Index values are not used for sorting comparisons.</td>
       <td>INT32, INT64</td>
       <td>ND</td>
     </tr>
     <tr>
       <td>axis</td>
-      <td>Input</td>
-      <td>Dimension used as the sorting criterion.</td>
+      <td>Attribute</td>
+      <td>Dimension along which to sort. Defaults to -1 (the last dimension).</td>
       <td>INT64</td>
       <td>-</td>
     </tr>
     <tr>
       <td>descending</td>
-      <td>Input</td>
-      <td>Controls the sorting order. True indicates descending order, and False indicates ascending order.</td>
+      <td>Attribute</td>
+      <td>Whether to sort in descending order. true indicates descending order and false indicates ascending order. Defaults to false.</td>
       <td>BOOL</td>
       <td>-</td>
     </tr>
     <tr>
       <td>stable</td>
-      <td>Input</td>
-      <td>Whether to perform stable sorting. True indicates stable sorting, and False indicates unstable sorting.</td>
+      <td>Attribute</td>
+      <td>Whether to perform stable sorting. true indicates stable sorting and false indicates unstable sorting. Defaults to false.</td>
       <td>BOOL</td>
       <td>-</td>
     </tr>
     <tr>
       <td>y</td>
       <td>Output</td>
-      <td>Output result after elements are sorted by value.</td>
+      <td>Sorted result of x, with the same shape, data type, and data format as x.</td>
       <td>FLOAT16, FLOAT, BFLOAT16, INT8, INT16, INT32, INT64, UINT8, UINT16, UINT32, UINT64</td>
       <td>ND</td>
     </tr>
     <tr>
       <td>sorted_index</td>
       <td>Output</td>
-      <td>Output result after the index values are sorted along with the element values.</td>
+      <td>Input indices index reordered according to the sorting order of x, with the same shape as x.</td>
       <td>INT32, INT64</td>
       <td>ND</td>
     </tr>
   </tbody></table>
 
+- <term>Atlas A2 products</term> and <term>Atlas A3 products</term>: x and y support only FLOAT16 and BFLOAT16; index and sorted_index support only INT32.
+
 ## Constraint Description
 
-- The shapes of input x and index must be the same.
+- <term>Atlas A2 products</term> and <term>Atlas A3 products</term>:
+  - Sorting is supported only along the last dimension. axis must be -1 or the input rank minus 1.
+  - Scalars and empty tensors are not supported. All input dimensions must have positive lengths.
+  - The last dimension must not exceed 2147483647. The product of the remaining dimensions must not exceed 4294967295.
 
 ## Invocation Description
 
