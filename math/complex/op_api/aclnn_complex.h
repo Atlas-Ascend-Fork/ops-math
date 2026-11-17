@@ -22,10 +22,10 @@ extern "C" {
  * @brief aclnnComplex的第一段接口，根据具体的计算流程，计算workspace大小。
  * @domain aclnn_math
  * @param [in] real: npu device侧的aclTensor，
- * 数据类型支持FLOAT16,FLOAT数据类型，
+ * 数据类型支持FLOAT16、FLOAT、DOUBLE数据类型，
  * shape需要与imag满足broadcast关系，支持非连续的Tensor，数据格式支持ND。
  * @param [in] imag: npu device侧的aclTensor，
- * 数据类型支持FLOAT16,FLOAT数据类型，
+ * 数据类型支持FLOAT16、FLOAT、DOUBLE数据类型，
  * shape需要与real满足broadcast关系，支持非连续的Tensor，数据格式支持ND，数据类型需要与real相同。
  * @param [in] out: npu device侧的aclTensor，数据格式支持ND。
  * @param [in] Tout: host侧的int，表示
@@ -51,4 +51,4 @@ ACLNN_API aclnnStatus aclnnComplex(void* workspace, uint64_t workspaceSize, aclO
 }
 #endif
 
-#endif  // OP_API_INC_LEVEL2_ACLNN_COMPLEX_TENSOR_H_
+#endif // OP_API_INC_LEVEL2_ACLNN_COMPLEX_TENSOR_H_

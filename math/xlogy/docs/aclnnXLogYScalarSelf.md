@@ -82,7 +82,7 @@ aclnnStatus aclnnXLogYScalarSelf(
       <td>self（aclScalar*）</td>
       <td>输入</td>
       <td>公式中的输入self。</td>
-      <td><ul><li>数据类型与other的数据类型需满足数据类型推导规则（参见<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>）。</li></ul></td>
+      <td><ul><li>数据类型与other的数据类型需满足数据类型推导规则（参见<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>）。</li><li>当self与other推导出的数据类型为整数类型或布尔类型，或self的数据类型为DOUBLE时，会转换为FLOAT（float32）参与计算，计算结果再转换为out的数据类型。</li></ul></td>
       <td>FLOAT、FLOAT16、DOUBLE、INT32、INT64、INT16、INT8、UINT8、BOOL、BFLOAT16</td>
       <td>-</td>
       <td>-</td>

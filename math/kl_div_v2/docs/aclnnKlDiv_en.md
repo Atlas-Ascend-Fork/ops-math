@@ -197,8 +197,8 @@ aclnnStatus aclnnKlDiv(
       <td>self, target, or out is a null pointer.</td>
     </tr>
     <tr>
-      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="4">161002</td>
+      <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="5">161002</td>
       <td>The data type of self, target, or out is not supported.</td>
     </tr>
     <tr>
@@ -209,6 +209,9 @@ aclnnStatus aclnnKlDiv(
     </tr>
     <tr>
       <td>The shape dim of self or target is greater than 8.</td>
+    </tr>
+    <tr>
+      <td>The value of reduction is not in the range [0, 3].</td>
     </tr>
   </tbody>
   </table>

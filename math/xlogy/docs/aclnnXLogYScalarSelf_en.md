@@ -84,7 +84,7 @@ aclnnStatus aclnnXLogYScalarSelf(
       <td>self (aclScalar*)</td>
       <td>Input</td>
       <td>Input self in the formula.</td>
-      <td><ul><li>The data type of self and that of other must satisfy the data type derivation rule (see <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">deduction relationship</a>).</li></ul></td>
+      <td><ul><li>The data type of self and that of other must satisfy the data type derivation rule (see <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">deduction relationship</a>).</li><li>If the promoted data type of self and other is an integer or boolean type, or self is of type DOUBLE, the computation is performed in FLOAT (float32), and the result is converted to the data type of out.</li></ul></td>
       <td>FLOAT, FLOAT16, DOUBLE, INT32, INT64, INT16, INT8, UINT8, BOOL, BFLOAT16</td>
       <td>-</td>
       <td>-</td>

@@ -35,9 +35,9 @@ extern "C" {
  * ```
  *
  * @param [in] self: 待进行square计算的入参。npu device侧的aclTensor,
- * 数据类型支持FLOAT、FLOAT16、INT64、INT32、BF16，数据格式支持ND，支持非连续的Tensor。
+ * 数据类型支持FLOAT、FLOAT16、INT64、INT32、BFLOAT16，数据格式支持ND，支持非连续的Tensor。
  * @param [in] out: square计算的出参。npu device侧的aclTensor,
- * 数据类型支持FLOAT、FLOAT16、DOUBLE、INT32、BF16，数据格式支持ND，支持非连续的Tensor。
+ * 数据类型支持FLOAT、FLOAT16、BFLOAT16、INT32、INT64，数据格式支持ND，支持非连续的Tensor。
  * @param [out] workspace_size: 返回用户需要在npu device侧申请的workspace大小。
  * @param [out] executor: 返回op执行器，包括算子计算流程
  * @return aclnnStatus: 返回状态码

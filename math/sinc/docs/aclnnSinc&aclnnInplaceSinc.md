@@ -105,7 +105,7 @@ aclnnStatus aclnnInplaceSinc(
       <td>self（aclTensor*）</td>
       <td>输入</td>
       <td>输入tensor。</td>
-      <td>shape需要与out一致，和out的数据类型满足数据类型<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>。当输入的数据类型为INT8、INT16、INT32、INT64、UINT8、BOOL时，会转换为FLOAT数据类型做计算，输出FLOAT类型。</td>
+      <td>shape需要与out一致。当输入的数据类型为INT8、INT16、INT32、INT64、UINT8、BOOL时，会转换为FLOAT（float32）数据类型做计算；计算结果会转换为out的数据类型。</td>
       <td>INT8、INT16、INT32、INT64、UINT8、BOOL、FLOAT、FLOAT16、DOUBLE、BFLOAT16</td>
       <td>ND</td>
       <td>不大于8</td>
@@ -115,7 +115,7 @@ aclnnStatus aclnnInplaceSinc(
       <td>out（aclTensor*）</td>
       <td>输出</td>
       <td>输出tensor。</td>
-      <td>和self的数据类型满足数据类型<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>。</td>
+      <td>数据类型由out指定，self的计算结果会转换为out的数据类型。</td>
       <td>FLOAT、FLOAT16、DOUBLE、BFLOAT16</td>
       <td>ND</td>
       <td>需要与self一致</td>
@@ -171,12 +171,9 @@ aclnnStatus aclnnInplaceSinc(
       <td>传入的self或out是空指针。</td>
     </tr>
     <tr>
-      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="4">161002</td>
+      <td rowspan="3">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="3">161002</td>
       <td>self和out的数据类型和数据格式不在支持的范围之内。</td>
-    </tr>
-    <tr>
-      <td>self和out的数据类型不满足数据类型推导规则。</td>
     </tr>
     <tr>
       <td>self和out的维度大于8。</td>

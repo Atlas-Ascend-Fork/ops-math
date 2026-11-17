@@ -107,7 +107,7 @@ aclnnStatus aclnnInplaceSinc(
       <td>self (aclTensor*)</td>
       <td>Input</td>
       <td>Input tensor.</td>
-      <td>The shape must be the same as that of out, and the data type must satisfy the data type <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">deduction relationship</a> with out. When the input data type is INT8, INT16, INT32, INT64, UINT8, or BOOL, the input is converted to the FLOAT data type for computation, and the output is of the FLOAT type.</td>
+      <td>The shape must be the same as that of out. When the input data type is INT8, INT16, INT32, INT64, UINT8, or BOOL, the input is converted to the FLOAT (float32) data type for computation. The computation result is converted to the data type of out.</td>
       <td>INT8, INT16, INT32, INT64, UINT8, BOOL, FLOAT, FLOAT16, DOUBLE, BFLOAT16</td>
       <td>ND</td>
       <td>≤8</td>
@@ -117,7 +117,7 @@ aclnnStatus aclnnInplaceSinc(
       <td>out (aclTensor*)</td>
       <td>Output</td>
       <td>Output tensor.</td>
-      <td>and the data type of self satisfies the data type <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">deduction relationship</a>.</td>
+      <td>The data type is specified by out, and the computation result of self is converted to the data type of out.</td>
       <td>FLOAT, FLOAT16, DOUBLE, BFLOAT16</td>
       <td>ND</td>
       <td>Consistent with self</td>
@@ -173,12 +173,9 @@ aclnnStatus aclnnInplaceSinc(
       <td>self or out is a null pointer.</td>
     </tr>
     <tr>
-      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="4">161002</td>
+      <td rowspan="3">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="3">161002</td>
       <td>The data type and data format of self and out are not within the supported range.</td>
-    </tr>
-    <tr>
-      <td>The data types of self and out do not conform to the data type deduction rules.</td>
     </tr>
     <tr>
       <td>The dimensions of self and out are greater than 8.</td>
