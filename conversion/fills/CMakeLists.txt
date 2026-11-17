@@ -18,5 +18,5 @@ add_kernel_sources(
     KERNEL_SRC fills_apt.cpp
     COMPUTE_UNITS dav_3510 dav_9201 dav_9202
     AUTO_SYNC false
-    OPTIONS "--cce-simd-vf-fusion=true -mllvm -cce-aicore-dcci-before-kernel-end=false"
+    OPTIONS "--cce-simd-vf-fusion=true" "-mllvm -cce-aicore-dcci-before-kernel-end=false"
 )
