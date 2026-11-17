@@ -11,7 +11,7 @@
 add_all_modules_sources(
         OPTYPE im2col
         ACLNNTYPE aclnn_exclude
-        NPU_ARCH dav_3510 dav_9201 dav_9202
+        COMPUTE_UNIT dav_3510 dav_9201 dav_9202
         TILING_DIR arch35 arch35 arch35
         DISABLE_IN_OPP TRUE
 )

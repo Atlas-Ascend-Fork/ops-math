@@ -17,7 +17,7 @@ add_all_modules_sources(OPTYPE bias_add_grad ACLNNTYPE aclnn_exclude COMPUTE_UNI
 
 add_kernel_sources(
     KERNEL_SRC bias_add_grad_apt.cpp
-    NPU_ARCH dav_9201 dav_9202
+    COMPUTE_UNITS dav_9201 dav_9202
     AUTO_SYNC false
     OPTIONS "-mllvm -cce-aicore-dcci-before-kernel-end=false"
 )

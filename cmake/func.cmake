@@ -570,6 +570,10 @@ endfunction()
 ###################################################################################################
 function(get_npu_arch_by_soc_version soc_version npu_arch)
     string(TOLOWER "${soc_version}" soc_version_lower)
+    # 平台完整名称归一化到构建使用的短名称，不将别名加入支持芯片列表
+    if(soc_version_lower STREQUAL "mc62cm12a" OR soc_version_lower STREQUAL "mc62cm12aa")
+        set(soc_version_lower "mc62")
+    endif()
     list(FIND ASCEND_ALL_COMPUTE_UNIT ${soc_version_lower} index)
     if(NOT index EQUAL -1)
         list(GET SOC_TO_ARCH_VALUES ${index} mapped_value)
@@ -774,19 +778,18 @@ function(add_tiling_sources tiling_dir disable_in_opp)
   endif()
 endfunction()
 
-# usage: add_all_modules_sources(OPTYPE ACLNNTYPE DEPENDENCIES COMPUTE_UNIT NPU_ARCH TILING_DIR DISABLE_IN_OPP)
+# usage: add_all_modules_sources(OPTYPE ACLNNTYPE DEPENDENCIES COMPUTE_UNIT TILING_DIR DISABLE_IN_OPP)
 # ACLNNTYPE 支持类型aclnn/aclnn_inner/aclnn_exclude
 # OPTYPE 和 ACLNNTYPE 需一一对应
 # DEPENDENCIES 指定依赖的算子名称列表，如果开启 experimental，则会优先加载 experimental 下的算子
-# COMPUTE_UNIT 兼容参数：设置支持芯片版本号（soc列表），必须与TILING_DIR一一对应，内部逐项转换为npuArch后统一按arch匹配；与NPU_ARCH互斥
-# NPU_ARCH 设置支持的npuArch列表，必须与TILING_DIR一一对应，示例：dav_2201 dav_3510
-# TILING_DIR 设置所支持芯片类型对应的tiling文件目录，必须与NPU_ARCH（或COMPUTE_UNIT）一一对应，示例：arch22 arch35
-#            同一芯片型号如需配置多个tiling目录，可在NPU_ARCH（或COMPUTE_UNIT）中重复填写该型号并按位置配对多个目录，
-#            示例：NPU_ARCH dav_2201 dav_2201 dav_3510 TILING_DIR arch22 arch22_common arch35
+# COMPUTE_UNIT 支持soc与npuArch混配，逐项转换为arch后匹配，同arch的soc共享tiling目录
+# TILING_DIR 与COMPUTE_UNIT按位置一一对应；同一arch可配对多个目录，重复目录自动去重
+#            示例：COMPUTE_UNIT dav_2201 dav_2201 ascend950 TILING_DIR arch22 arch22_common arch35
+#            多目录中算子注册只能存在于一个目录，其余目录仅放公共tiling代码
 # DISABLE_IN_OPP 设置是否在opp包中编译tiling文件，布尔类型：TRUE，FALSE
 macro(add_all_modules_sources)
   set(oneValueArgs DISABLE_IN_OPP HOSTCPU)
-  set(multiValueArgs OPTYPE ACLNNTYPE DEPENDENCIES COMPUTE_UNIT NPU_ARCH TILING_DIR)
+  set(multiValueArgs OPTYPE ACLNNTYPE DEPENDENCIES COMPUTE_UNIT TILING_DIR)
 
   cmake_parse_arguments(MODULE "" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
   set(SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
@@ -843,22 +846,29 @@ macro(add_all_modules_sources)
     target_sources(${OPHOST_NAME}_infer_obj PRIVATE ${OPINFER_SRCS})
   endif()
 
-  # 添加tiling文件：NPU_ARCH 与 TILING_DIR 按位置一一配对；兼容旧 COMPUTE_UNIT 参数。
-  # 允许 npuArch 与 socVersion 混合书写：优先按当前构建芯片的 npuArch 匹配，
-  # 未命中（声明列表里全是 socVersion）时回退到按 socVersion 字面值匹配。
-  # 同一芯片型号允许出现多次，此时会收集所有配对的 tiling 目录（一个芯片型号可配置多个目录）
-  if(MODULE_NPU_ARCH)
-    set(_cur_keys "${MODULE_NPU_ARCH}")
-  else()
-    set(_cur_keys "${MODULE_COMPUTE_UNIT}")
-  endif()
+  # COMPUTE_UNIT支持soc与arch混配；统一转为arch后收集全部配对目录，供Host和UT共用
+  set(_arch_keys "")
+  foreach(_unit IN LISTS MODULE_COMPUTE_UNIT)
+    get_npu_arch_by_soc_version("${_unit}" _unit_arch)
+    if(_unit_arch)
+      list(APPEND _arch_keys "${_unit_arch}")
+    else()
+      string(TOLOWER "${_unit}" _unit_lower)
+      list(APPEND _arch_keys "${_unit_lower}")
+    endif()
+  endforeach()
   get_npu_arch_by_soc_version("${ASCEND_COMPUTE_UNIT}" _cur_key)
-  list(FIND _cur_keys "${_cur_key}" _cur_key_index)
-  if(_cur_key_index EQUAL -1)
-    set(_cur_key "${ASCEND_COMPUTE_UNIT}")
+  # 未登记的soc仍按字面值匹配显式声明，避免丢失其Host和UT的tiling目录
+  if(NOT _cur_key)
+    string(TOLOWER "${ASCEND_COMPUTE_UNIT}" _cur_key)
   endif()
-
-  find_values_by_key("${_cur_keys}" "${MODULE_TILING_DIR}" "${_cur_key}" TILING_SOC_DIR)
+  find_values_by_key("${_arch_keys}" "${MODULE_TILING_DIR}" "${_cur_key}" TILING_SOC_DIR)
+  list(REMOVE_DUPLICATES TILING_SOC_DIR)
+  unset(_arch_keys)
+  unset(_unit)
+  unset(_unit_arch)
+  unset(_unit_lower)
+  unset(_cur_key)
   add_tiling_sources("${TILING_SOC_DIR}" "${MODULE_DISABLE_IN_OPP}")
 
   file(GLOB AICPU_SRCS ${SOURCE_DIR}/op_kernel_aicpu/*_aicpu.cpp)
@@ -1042,16 +1052,15 @@ endfunction()
 # 2.调用asc_opc工具 算子名.py 中auto_sync与compile_option中的配置项。
 # 格式如下所示：
 # [KERNEL_SRC op_name.cpp]          算子入口文件，缺省为算子名.cpp
-# [COMPUTE_UNITS ascendxx]          soc版本，支持配置多个unit，缺省为配置所有的soc（兼容参数，
-#                                    内部逐项转换为npuArch后统一按arch匹配；与NPU_ARCH互斥）
-# [NPU_ARCH dav_2201]               npuArch版本，支持配置多个，缺省为全部支持
+# [COMPUTE_UNITS ascendxx/dav_xxxx] 支持soc与npuArch混配，缺省为全部芯片
+#                                 soc精确匹配，arch覆盖其下全部soc；同一算子同一arch不能混用两种声明形式
 # [SIMPLIFIED_KEY 0/None]           缺省为0，最终的编译参数则是--simplified_key_mode=0，若设置为None，则不会携带该参数
 # [AUTO_SYNC false]                 同步选项，缺省为true
 # [IMPL_MODE high_performance]      高性能模式，缺省为high_performance[,optional] [optional]是可选的
 # [OPTIONS "option1" "option2"]     其他编译选项
 function(add_kernel_sources)
   set(oneValueArgs KERNEL_SRC SIMPLIFIED_KEY AUTO_SYNC IMPL_MODE)
-  set(multiValueArgs COMPUTE_UNITS NPU_ARCH OPTIONS)
+  set(multiValueArgs COMPUTE_UNITS OPTIONS)
   cmake_parse_arguments(MODULE "" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
   set(SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/op_kernel)
@@ -1095,41 +1104,81 @@ function(add_kernel_sources)
 
   string(JOIN "," unit_options ${options})
 
-  # 支持芯片过滤：优先 NPU_ARCH（npuArch 列表），兼容旧 COMPUTE_UNITS（soc 列表，逐项转换为
-  # npuArch）；当前构建芯片同样转换为 npuArch 后统一按 arch 匹配，未配置时视为全部支持。
-  # 注意 arch 化后同 arch 的 soc 共享过滤结果（如 ascend950 与 ascend350 同为 dav_3510）
-  if(MODULE_NPU_ARCH)
+  # 支持芯片过滤：仅 COMPUTE_UNITS，支持 soc（ascend950 等）与 npuArch（dav_3510 等）混配：
+  # soc 条目精确匹配当前芯片，npuArch 条目按 arch 匹配覆盖该 arch 下全部 soc，未配置视为全部支持。
+  # 同一算子同一 arch 不允许 npuArch 条目与其下 soc 条目混用（要么逐个声明其下 soc，要么仅声明 npuArch），
+  # 以 soc:<arch>/arch:<arch> 形式跨段记录声明，发现两种形式并存即配置冲突，编译期报错
+  set(_arch_explicit "")
+  set(_decl "${_aks_decl_${OP_NAME}}")
+  if(MODULE_COMPUTE_UNITS)
+    foreach(_unit IN LISTS MODULE_COMPUTE_UNITS)
+      get_npu_arch_by_soc_version("${_unit}" _seg_arch)
+      if(_seg_arch)
+        set(_mine "soc:${_seg_arch}")
+        set(_foe "arch:${_seg_arch}")
+      else()
+        string(TOLOWER "${_unit}" _seg_arch)
+        set(_mine "arch:${_seg_arch}")
+        set(_foe "soc:${_seg_arch}")
+        list(APPEND _arch_explicit "${_seg_arch}")
+      endif()
+      if("${_foe}" IN_LIST _decl)
+        message(FATAL_ERROR
+                "add_kernel_sources: op ${OP_NAME} COMPUTE_UNITS declaration conflict: npuArch entry "
+                "and soc entry \"${_unit}\" are both declared for arch \"${_seg_arch}\"; the "
+                "declaration form must be consistent per arch, either list all its soc versions "
+                "or only the npuArch")
+      elseif(NOT "${_mine}" IN_LIST _decl)
+        list(APPEND _decl "${_mine}")
+      endif()
+    endforeach()
+    set(_aks_decl_${OP_NAME} "${_decl}" PARENT_SCOPE)
+
+    # 命中：精确 soc 命中，或显式 npuArch 条目覆盖当前芯片 arch
     get_npu_arch_by_soc_version("${ASCEND_COMPUTE_UNIT}" _cur_arch)
-    if(NOT "${_cur_arch}" IN_LIST MODULE_NPU_ARCH)
+    if(NOT ("${ASCEND_COMPUTE_UNIT}" IN_LIST MODULE_COMPUTE_UNITS
+            OR "${_cur_arch}" IN_LIST _arch_explicit))
       return()
     endif()
+  else()
+    set(MODULE_COMPUTE_UNITS "ALL")
   endif()
 
-  if(NOT MODULE_COMPUTE_UNITS OR MODULE_COMPUTE_UNITS STREQUAL "")
+  # 按当前soc和归一化源路径检测重叠，覆盖ALL段与显式soc段，以及隐式默认源
+  get_filename_component(_kernel_src_path "${MODULE_KERNEL_SRC}" ABSOLUTE BASE_DIR "${SOURCE_DIR}")
+  set(_sources_var "_aks_sources_${OP_NAME}_${ASCEND_COMPUTE_UNIT}")
+  if("${_kernel_src_path}" IN_LIST ${_sources_var})
+    message(FATAL_ERROR
+            "add_kernel_sources: op ${OP_NAME} KERNEL_SRC \"${MODULE_KERNEL_SRC}\" registered "
+            "duplicated on \"${ASCEND_COMPUTE_UNIT}\"; merge overlapping COMPUTE_UNITS segments")
+  endif()
+  list(APPEND ${_sources_var} "${_kernel_src_path}")
+  set(${_sources_var} "${${_sources_var}}" PARENT_SCOPE)
+
+  if(MODULE_COMPUTE_UNITS STREQUAL "ALL")
     set(target_compute_units "ALL")
   else()
     set(target_compute_units "${ASCEND_COMPUTE_UNIT}")
   endif()
 
-  if(NOT MODULE_COMPUTE_UNITS OR "${target_compute_units}" IN_LIST MODULE_COMPUTE_UNITS)
-    if(_kernel_src_provided)
-      list(APPEND KERNEL_SRC_LIST "${op_type} ${target_compute_units} ${MODULE_KERNEL_SRC}")
-      set(KERNEL_SRC_LIST ${KERNEL_SRC_LIST} CACHE INTERNAL "kernel_src")
-    endif()
-    list(APPEND SIMPLIFIED_KEY_LIST "${op_type} ${target_compute_units} ${simplified_key}")
-    list(APPEND IMPL_MODE_LIST "${op_type} ${target_compute_units} ${impl_mode}")
-    set(SIMPLIFIED_KEY_LIST ${SIMPLIFIED_KEY_LIST} CACHE INTERNAL "simplified_key")
-    set(IMPL_MODE_LIST ${IMPL_MODE_LIST} CACHE INTERNAL "impl_mode")
-
-    if(auto_sync_option STREQUAL "false")
-      list(APPEND AUTO_SYNC_LIST "${op_type} ${target_compute_units} ${auto_sync_option}")
-      set(AUTO_SYNC_LIST ${AUTO_SYNC_LIST} CACHE INTERNAL "auto_sync")
-    endif()
-    if(unit_options)
-      list(APPEND OPTION_LIST "${op_type} ${target_compute_units} ${unit_options}")
-      set(OPTION_LIST ${OPTION_LIST} CACHE INTERNAL "options")
-    endif()
+  if(_kernel_src_provided)
+    list(APPEND KERNEL_SRC_LIST "${op_type} ${target_compute_units} ${MODULE_KERNEL_SRC}")
+    set(KERNEL_SRC_LIST ${KERNEL_SRC_LIST} CACHE INTERNAL "kernel_src")
   endif()
+  list(APPEND SIMPLIFIED_KEY_LIST "${op_type} ${target_compute_units} ${simplified_key}")
+  list(APPEND IMPL_MODE_LIST "${op_type} ${target_compute_units} ${impl_mode}")
+  set(SIMPLIFIED_KEY_LIST ${SIMPLIFIED_KEY_LIST} CACHE INTERNAL "simplified_key")
+  set(IMPL_MODE_LIST ${IMPL_MODE_LIST} CACHE INTERNAL "impl_mode")
+
+  if(auto_sync_option STREQUAL "false")
+    list(APPEND AUTO_SYNC_LIST "${op_type} ${target_compute_units} ${auto_sync_option}")
+    set(AUTO_SYNC_LIST ${AUTO_SYNC_LIST} CACHE INTERNAL "auto_sync")
+  endif()
+  if(unit_options)
+    list(APPEND OPTION_LIST "${op_type} ${target_compute_units} ${unit_options}")
+    set(OPTION_LIST ${OPTION_LIST} CACHE INTERNAL "options")
+  endif()
+
 endfunction()
 
 # usage: add_graph_plugin_sources()

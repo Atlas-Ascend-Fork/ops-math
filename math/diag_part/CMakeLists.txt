@@ -16,6 +16,6 @@ add_all_modules_sources(OPTYPE diag_part ACLNNTYPE aclnn_exclude COMPUTE_UNIT ${
 
 add_kernel_sources(
     KERNEL_SRC diag_part_apt.cpp
-    NPU_ARCH dav_9201 dav_9202
+    COMPUTE_UNITS dav_9201 dav_9202
     AUTO_SYNC false
 )
