@@ -247,6 +247,7 @@
 - [aclnnScale](../../math/scale/docs/aclnnScale.md)
 - [aclnnSearchSorted](../../math/search_sorted/docs/aclnnSearchSorted.md)
 - [aclnnSearchSorteds](../../math/search_sorted/docs/aclnnSearchSorteds.md)
+- [aclnnSelectTopK](../../math/select_top_k/docs/aclnnSelectTopK.md)
 - [aclnnSign](../../math/sign/docs/aclnnSign.md)
 - [aclnnSignbit](../../math/signbit/docs/aclnnSignbit.md)
 - [aclnnSignBitsPack](../../math/sign_bits_pack/docs/aclnnSignBitsPack.md)
