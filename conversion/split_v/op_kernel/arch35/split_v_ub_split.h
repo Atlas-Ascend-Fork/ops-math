@@ -80,9 +80,12 @@ private:
     int32_t ubSizeNum_ = 0;
     int64_t nBlockOffset_ = 0;
     int64_t mBlockOffset_ = 0;
-    int32_t maxGatherNum_ = DATA_COPY_GATHER / sizeof(T);
     int32_t vfLen_ = Ops::Base::GetVRegSize() / sizeof(T);
     int32_t vfLenU_ = Ops::Base::GetVRegSize() / sizeof(U);
+    // gather 路径要求一行能放进一个 U 寄存器：若 niSize 超过该值，DataCopyGatherVf 里 size0 会算成 0，导致除0问题
+    // 非 64 位可容纳 vfLenU_ 个；64 位在 DataCopyGatherVf 里按 niSize*2 参与计算，故可容纳的行宽只有 vfLenU_ / 2。
+    int32_t gatherVlCap = (sizeof(T) == sizeof(int64_t)) ? (vfLenU_ / 2) : vfLenU_;
+    int32_t maxGatherNum_ = DATA_COPY_GATHER / sizeof(T) < gatherVlCap ? DATA_COPY_GATHER / sizeof(T) : gatherVlCap;
     int32_t numSplit_ = 0;
     int64_t splitPrefixNow_ = 0;
     int64_t splitPrefixNext_ = 0;
