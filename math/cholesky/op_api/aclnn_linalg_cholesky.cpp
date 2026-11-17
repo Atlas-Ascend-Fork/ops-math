@@ -125,13 +125,6 @@ aclnnStatus aclnnLinalgCholeskyGetWorkspaceSize(const aclTensor* self, bool uppe
     auto ret = CheckParams(self, out);
     CHECK_RET(ret == ACLNN_SUCCESS, ret);
 
-    if (self->IsEmpty()) {
-        // 根据实际支持情况补充
-        *workspaceSize = 0;
-        uniqueExecutor.ReleaseTo(executor);
-        return ACLNN_SUCCESS;
-    }
-
     // self最后两维必须为相同
     auto dims = static_cast<int64_t>(self->GetViewShape().GetDimNum());
     int64_t last_dim_size = self->GetViewShape().GetDim(dims - 1);
@@ -146,6 +139,13 @@ aclnnStatus aclnnLinalgCholeskyGetWorkspaceSize(const aclTensor* self, bool uppe
     if (last_dim_size > MAX_LAST_DIM_SIZE) {
         OP_LOGE(ACLNN_ERR_PARAM_INVALID, "The last dim must be less than or equal to 8192.");
         return ACLNN_ERR_PARAM_INVALID;
+    }
+
+    if (self->IsEmpty()) {
+        // 根据实际支持情况补充
+        *workspaceSize = 0;
+        uniqueExecutor.ReleaseTo(executor);
+        return ACLNN_SUCCESS;
     }
 
     // self如果非连续，需要转换

@@ -80,3 +80,30 @@ TEST_F(l2_linalg_cholesky_test, ascend910B_case_5)
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
     EXPECT_EQ(aclRet, ACLNN_SUCCESS);
 }
+
+TEST_F(l2_linalg_cholesky_test, rejects_empty_non_square_matrix)
+{
+    auto tensor = TensorDesc({0, 2, 3}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto ut = OP_API_UT(aclnnLinalgCholesky, INPUT(tensor, false), OUTPUT(tensor));
+    uint64_t workspaceSize = 0;
+    EXPECT_EQ(ut.TestGetWorkspaceSize(&workspaceSize), ACLNN_ERR_PARAM_INVALID);
+}
+
+TEST_F(l2_linalg_cholesky_test, rejects_empty_matrix_over_size_limit)
+{
+    auto tensor = TensorDesc({0, 8193, 8193}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto ut = OP_API_UT(aclnnLinalgCholesky, INPUT(tensor, false), OUTPUT(tensor));
+    uint64_t workspaceSize = 0;
+    EXPECT_EQ(ut.TestGetWorkspaceSize(&workspaceSize), ACLNN_ERR_PARAM_INVALID);
+}
+
+TEST_F(l2_linalg_cholesky_test, valid_empty_matrices_require_no_workspace)
+{
+    for (const auto& shape : std::vector<std::vector<int64_t>>{{0, 0}, {3, 0, 0}, {0, 8192, 8192}}) {
+        auto tensor = TensorDesc(shape, ACL_FLOAT, ACL_FORMAT_ND);
+        auto ut = OP_API_UT(aclnnLinalgCholesky, INPUT(tensor, true), OUTPUT(tensor));
+        uint64_t workspaceSize = 123;
+        EXPECT_EQ(ut.TestGetWorkspaceSize(&workspaceSize), ACLNN_SUCCESS);
+        EXPECT_EQ(workspaceSize, 0);
+    }
+}

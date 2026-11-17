@@ -81,7 +81,7 @@ aclnnStatus aclnnLinalgCholesky(
       <td>self（aclTensor*）</td>
       <td>输入</td>
       <td>公式中的输入self。</td>
-      <td>shape的最后两维需要相等，self需为对称正定矩阵。</td>
+      <td>shape的最后两维需要相等，self需为实数对称正定矩阵。</td>
       <td>FLOAT、FLOAT16、BFLOAT16</td>
       <td>ND</td>
       <td>2-8</td>
@@ -133,6 +133,8 @@ aclnnStatus aclnnLinalgCholesky(
 - **返回值：**
 
   aclnnStatus：返回状态码，具体参见[aclnn返回码](../../../docs/zh/context/aclnn_return_code.md)。
+
+  本接口不校验 self 数据的对称性和正定性。
 
   第一段接口完成入参校验，出现以下场景时报错：
 
@@ -224,6 +226,8 @@ aclnnStatus aclnnLinalgCholesky(
 - **返回值：**
 
   aclnnStatus：返回状态码，具体参见[aclnn返回码](../../../docs/zh/context/aclnn_return_code.md)。
+
+  如果 self 数据不满足约束，分解可能失败，执行错误可在同步 stream 时报告。
 
 ## 约束说明
 

@@ -25,23 +25,6 @@ constexpr uint32_t BUFFER_NUM = 1;
 constexpr uint32_t BASIC_BLOCK = 32;
 // 正定性检查上界：拦截 +inf（inf > 0 为真，需显式排除）；NaN 与任何比较均为假，天然被拦截
 constexpr float MAX_FINITE_FLOAT = 3.402823466e+38f;
-// 非法主元的降级值：IEEE-754 quiet NaN 位模式
-constexpr uint32_t FLOAT_NAN_BITS = 0x7FC00000U;
-
-// 主元非法 = 非「有限且严格大于零」。取反判定使 NaN（任何比较均为假）与 +-Inf 一并落入降级分支
-__aicore__ inline bool IsIllegalPivot(float pivot) { return !(pivot > 0.0f && pivot <= MAX_FINITE_FLOAT); }
-
-// 非法主元的降级缩放因子。NaN 经既有 Muls 与后续点积自然传播到当前及后续所有结果，
-// 替代设备 ASSERT：不触发设备核异常、不污染 stream、不新增 info、不改 ACLNN 原型
-__aicore__ inline float IllegalPivotScale()
-{
-    union {
-        float f;
-        uint32_t u;
-    } nanBits;
-    nanBits.u = FLOAT_NAN_BITS;
-    return nanBits.f;
-}
 // 单矩阵面板宽度（列/行面板）：右看面板算法的串行段宽度。8 的倍数保证面板行 32B 对齐；
 // tiling 侧以相同阈值决定单矩阵是否启用多核
 constexpr uint32_t PANEL_WIDTH = 64;
@@ -58,6 +41,16 @@ constexpr uint32_t FP32_VECTOR_LENGTH = 64;
 constexpr uint32_t DIAGONAL_SCAN_THREADS = 512;
 
 // [RegBase-native] SIMT 路径（__simt_vf__ + asc_vf_call(dim3)），仅 DAV_3510 生效
+__simt_vf__ __aicore__ __launch_bounds__(DIAGONAL_SCAN_THREADS) inline void CholeskyDiagonalVf(uint64_t elementCount,
+                                                                                               uint32_t matrixSize,
+                                                                                               __gm__ float* input,
+                                                                                               __gm__ float* output)
+{
+    for (uint64_t index = blockIdx.x * blockDim.x + threadIdx.x; index < elementCount;
+         index += static_cast<uint64_t>(blockDim.x) * gridDim.x) {
+        output[index] = index / matrixSize == index % matrixSize ? sqrt(input[index]) : 0.0f;
+    }
+}
 
 // [RegBase-native] 原地转置输出：上三角值搬移到下三角（L = U^T），上三角清零（对齐
 // 旧 tril 路径只写下三角、golden 上三角为零的输出契约）。单调用者执行；
@@ -131,6 +124,7 @@ private:
 #if __NPU_ARCH__ == 3510
     __aicore__ inline void RunUpperPanels();
     __aicore__ inline void TransposeOutputInPlace();
+    __aicore__ inline bool ProcessDiagonalMatrix();
 #endif
 
     template <typename T1, typename T2>
@@ -240,6 +234,70 @@ __aicore__ inline void Cholesky<T>::SyncSingleMatrix()
     }
 }
 
+#if __NPU_ARCH__ == 3510
+template <typename T>
+__aicore__ inline bool Cholesky<T>::ProcessDiagonalMatrix()
+{
+    if (matrixNumCount_ != 1) {
+        return false;
+    }
+    bool localPositiveDiagonal = true;
+    LocalTensor<T> scanLocal = matAQueue_.AllocTensor<T>();
+    for (uint32_t row = blockIdx_; row < matSizeN_ && localPositiveDiagonal; row += blockDim_) {
+        for (uint32_t column = 0; column < matSizeN_ && localPositiveDiagonal; column += blockSize_) {
+            uint32_t count = matSizeN_ - column > blockSize_ ? blockSize_ : matSizeN_ - column;
+            DataCopyExtParams copyParams{1, static_cast<uint32_t>(count * sizeof(T)), 0, 0, 0};
+            DataCopyPadExtParams<T> padParams{false, 0, 0, 0};
+            DataCopyPad(scanLocal, matAGM_[static_cast<uint64_t>(row) * matSizeN_ + column], copyParams, padParams);
+            SyncPipeMte2ToS();
+            for (uint32_t offset = 0; offset < count; ++offset) {
+                const T value = scanLocal.GetValue(offset);
+                const bool valid = column + offset == row ? (value > zero_ && value <= MAX_FINITE_FLOAT) :
+                                                            value == zero_;
+                if (!valid) {
+                    localPositiveDiagonal = false;
+                    break;
+                }
+            }
+        }
+    }
+    matAQueue_.FreeTensor(scanLocal);
+
+    // 跨核投票：本核判定结果经 Duplicate 写 UB 后单元素 DataCopyPad 写出到 GM 自身槽位，
+    // SyncAll 前等待 MTE3 写出完成，保证其余核 SyncAll 后可见
+    LocalTensor<T> flagLocal = matAQueue_.AllocTensor<T>();
+    Duplicate(flagLocal, localPositiveDiagonal ? zero_ : one_, 1);
+    SyncPipeVToMte3();
+    DataCopyExtParams flagCopyParams{1, sizeof(T), 0, 0, 0};
+    DataCopyPad(workspaceFlagGM_[blockIdx_], flagLocal, flagCopyParams);
+    SyncPipeMte3ToS();
+    SyncSingleMatrix();
+
+    // 读票：每票单块搬入后标量读取（与首主元搬运同模式）。不能按 blockDim_ 个
+    // sizeof(T) 块做一次 2D 搬入：blockLen < 32B 时 UB 侧各块按 32B 对齐间距落位，
+    // 连续 GetValue(core) 会读到槽间残留数据，导致跨核投票误判
+    DataCopyExtParams oneVoteParams{1, sizeof(T), 0, 0, 0};
+    DataCopyPadExtParams<T> oneVotePadParams{false, 0, 0, 0};
+    bool allPositiveDiagonal = true;
+    for (uint32_t core = 0; core < blockDim_; ++core) {
+        DataCopyPad(flagLocal, workspaceFlagGM_[core], oneVoteParams, oneVotePadParams);
+        SyncPipeMte2ToS();
+        if (flagLocal.GetValue(0) != zero_) {
+            allPositiveDiagonal = false;
+            break;
+        }
+    }
+    matAQueue_.FreeTensor(flagLocal);
+    if (!allPositiveDiagonal) {
+        return false;
+    }
+    const uint64_t elementCount = static_cast<uint64_t>(matSizeN_) * matSizeN_;
+    asc_vf_call<CholeskyDiagonalVf>(dim3(DIAGONAL_SCAN_THREADS), elementCount, matSizeN_,
+                                    (__gm__ float*)matAGM_.GetPhyAddr(), (__gm__ float*)outGM_.GetPhyAddr());
+    return true;
+}
+#endif
+
 template <typename T>
 __aicore__ inline void Cholesky<T>::InitTril(GM_ADDR self, GM_ADDR out, GM_ADDR workspace,
                                              const CholeskyTilingData* tilingData, TPipe* pipe)
@@ -324,6 +382,9 @@ template <typename T>
 __aicore__ inline void Cholesky<T>::ProcessTril()
 {
 #if __NPU_ARCH__ == 3510
+    if (ProcessDiagonalMatrix()) {
+        return;
+    }
     if (cooperative_) {
         // 协同模式（单矩阵或大维度批量）：下三角 = 上三角分解结果的转置（A 对称，SPD 契约
         // 保证）。上三角面板算法已验证 6.7x，转置经 SIMT 成对交换完成，免去逐行点积慢路径
@@ -366,7 +427,10 @@ __aicore__ inline void Cholesky<T>::FirstColumn(uint64_t offsetPrefix, uint64_t 
         DataCopyPad(matALocal, matAGM_[offset], pivotCopyParams, pivotPadParams);
         SyncPipeMte2ToS();
         T a11 = matALocal.GetValue(0);
-        invSqrtA11_ = IsIllegalPivot(a11) ? T(IllegalPivotScale()) : T(1 / sqrt(a11));
+        ascendc_assert(a11 > 0.0f && a11 <= MAX_FINITE_FLOAT,
+                       "The factorization could not be completed because the input is not positive-definite "
+                       "(the leading minor of order 1 is not positive-definite).\n");
+        invSqrtA11_ = T(1 / sqrt(a11));
     }
 
     // 核内分块处理，每次处理blockSize大小的数据
@@ -386,7 +450,11 @@ __aicore__ inline void Cholesky<T>::FirstColumn(uint64_t offsetPrefix, uint64_t 
         if (blockStart == 0 && matrixNumCount_ > 1) {
             SyncPipeMte2ToS();
             T a11 = matALocal.GetValue(0);
-            invSqrtA11_ = IsIllegalPivot(a11) ? T(IllegalPivotScale()) : T(1 / sqrt(a11));
+            ascendc_assert(a11 > 0.0f && a11 <= MAX_FINITE_FLOAT,
+                           "(Batch element %llu): The factorization could not be completed because the input is not "
+                           "positive-definite (the leading minor of order 1 is not positive-definite).\n",
+                           offsetPrefix);
+            invSqrtA11_ = T(1 / sqrt(a11));
         }
         ScaleCholesky(matALocal, static_cast<float>(invSqrtA11_), count * BASIC_BLOCK / sizeof(T));
 
@@ -451,9 +519,20 @@ __aicore__ inline T Cholesky<T>::ComputeScaleFactor(const LocalTensor<T>& matLLo
     // 调用方 Sub（V 写）与本次标量读取之间同步
     SyncPipeVToS();
     T b1 = matLLocal.GetValue(0);
+    if (matrixNumCount_ > 1) {
+        ascendc_assert(b1 > 0.0f && b1 <= MAX_FINITE_FLOAT,
+                       "(Batch element %llu): The factorization could not be completed because the input is not "
+                       "positive-definite (the leading minor of order %u is not positive-definite).\n",
+                       offsetPrefix, index + 1);
+    } else {
+        ascendc_assert(b1 > 0.0f && b1 <= MAX_FINITE_FLOAT,
+                       "The factorization could not be completed because the input is not positive-definite (the "
+                       "leading minor of order %u is not positive-definite).\n",
+                       index + 1);
+    }
 
-    // 计算缩放因子；非法主元降级为 NaN 并沿数据流传播
-    return IsIllegalPivot(b1) ? T(IllegalPivotScale()) : T(1 / sqrt(b1));
+    // 计算缩放因子
+    return T(1 / sqrt(b1));
 }
 
 // 辅助函数：批量模式行点积。保持逐列 Mul+ReduceSum 树归约的原始数值序（Add 链在病态
@@ -614,6 +693,9 @@ template <typename T>
 __aicore__ inline void Cholesky<T>::ProcessTriu()
 {
 #if __NPU_ARCH__ == 3510
+    if (ProcessDiagonalMatrix()) {
+        return;
+    }
     if (cooperative_) {
         // 协同模式（单矩阵或大维度批量）：上三角右看面板算法，面板间全核并行更新 Schur 补，
         // SyncAll 次数从逐列 M 次降为逐面板 2*ceil(M/PANEL_WIDTH) 次；批量逐矩阵串行推进
@@ -700,7 +782,11 @@ __aicore__ inline void Cholesky<T>::FactorPanelTriu(uint32_t panelStart, uint32_
                     SyncPipeMte2ToS();
                 }
                 T pivot = matA.GetValue(0);
-                scaleFactor = IsIllegalPivot(pivot) ? T(IllegalPivotScale()) : T(1 / sqrt(pivot));
+                ascendc_assert(pivot > 0.0f && pivot <= MAX_FINITE_FLOAT,
+                               "The factorization could not be completed because the input is not positive-definite "
+                               "(the leading minor of order %u is not positive-definite).\n",
+                               j + 1);
+                scaleFactor = T(1 / sqrt(pivot));
             }
             Muls(matA, matA, static_cast<float>(scaleFactor), cols);
             SyncPipeVToMte3();
@@ -792,7 +878,10 @@ __aicore__ inline void Cholesky<T>::FirstRow(uint64_t offsetPrefix, uint64_t off
         DataCopyPad(matALocal, matAGM_[offset], pivotCopyParams, pivotPadParams);
         SyncPipeMte2ToS();
         T a11 = matALocal.GetValue(0);
-        invSqrtA11_ = IsIllegalPivot(a11) ? T(IllegalPivotScale()) : T(1 / sqrt(a11));
+        ascendc_assert(a11 > 0.0f && a11 <= MAX_FINITE_FLOAT,
+                       "The factorization could not be completed because the input is not positive-definite "
+                       "(the leading minor of order 1 is not positive-definite).\n");
+        invSqrtA11_ = T(1 / sqrt(a11));
     }
 
     // 核内分块处理，每次处理blockSize大小的数据
@@ -811,7 +900,11 @@ __aicore__ inline void Cholesky<T>::FirstRow(uint64_t offsetPrefix, uint64_t off
         if (blockStart == 0 && matrixNumCount_ > 1) {
             SyncPipeMte2ToS();
             T a11 = matALocal.GetValue(0);
-            invSqrtA11_ = IsIllegalPivot(a11) ? T(IllegalPivotScale()) : T(1 / sqrt(a11));
+            ascendc_assert(a11 > 0.0f && a11 <= MAX_FINITE_FLOAT,
+                           "(Batch element %llu): The factorization could not be completed because the input is not "
+                           "positive-definite (the leading minor of order 1 is not positive-definite).\n",
+                           offsetPrefix);
+            invSqrtA11_ = T(1 / sqrt(a11));
         }
         ScaleCholesky(matALocal, static_cast<float>(invSqrtA11_), count);
 

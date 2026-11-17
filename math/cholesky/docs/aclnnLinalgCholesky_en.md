@@ -136,6 +136,8 @@ aclnnStatus aclnnLinalgCholesky(
 
   aclnnStatus: return status code. For details, see [aclnn Return Codes](../../../docs/en/context/aclnn_return_code.md).
 
+  This API does not check whether the data in self is symmetric and positive definite.
+
   The first-phase API performs input parameter validation and returns an error in the following scenarios:
 
   <table style="table-layout: fixed; width: 1149px"><colgroup>
@@ -226,6 +228,8 @@ aclnnStatus aclnnLinalgCholesky(
 - **Return value**
 
   aclnnStatus: return status code. For details, see [aclnn Return Codes](../../../docs/en/context/aclnn_return_code.md).
+
+  If the data in self violates the input constraint, the factorization may fail and the execution error may be reported when the stream is synchronized.
 
 ## Constraints
 
