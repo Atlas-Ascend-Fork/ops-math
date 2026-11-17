@@ -167,8 +167,7 @@ static const aclTensor* uniformDoublePath(const aclTensor* uniformOut, double fr
 static const aclTensor* uniformDavidPath(const aclTensor* selfRef, uint64_t seed, uint64_t offset, double from,
                                          double to, aclOpExecutor* executor)
 {
-    if (GetCurrentPlatformInfo().GetCurNpuArch() == NpuArch::DAV_3510 &&
-        selfRef->GetDataType() != DataType::DT_DOUBLE) {
+    if (IsRegBase(GetCurrentPlatformInfo().GetCurNpuArch()) && selfRef->GetDataType() != DataType::DT_DOUBLE) {
         if (!aclnnGetPytorchRandom()) {
             OP_LOGD("compat mode, use V3 uniform");
             int32_t uniformV3ScaleMode = 0;
@@ -189,8 +188,7 @@ static const aclTensor* uniformTensorDavidPath(const aclTensor* selfRef, const a
                                                const aclTensor* offsetTensor, uint64_t offset, double from, double to,
                                                aclOpExecutor* executor)
 {
-    if (GetCurrentPlatformInfo().GetCurNpuArch() == NpuArch::DAV_3510 &&
-        selfRef->GetDataType() != DataType::DT_DOUBLE) {
+    if (IsRegBase(GetCurrentPlatformInfo().GetCurNpuArch()) && selfRef->GetDataType() != DataType::DT_DOUBLE) {
         if (!aclnnGetPytorchRandom()) {
             OP_LOGD("compat mode, use V3 uniform");
             auto seedUint64 = l0op::Cast(seedTensor, op::DataType::DT_UINT64, executor);

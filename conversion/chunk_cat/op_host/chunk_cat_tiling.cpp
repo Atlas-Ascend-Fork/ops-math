@@ -58,7 +58,9 @@ ge::graphStatus ChunkCatTiling::GetPlatformInfo()
     OP_CHECK_IF(ubSize_ == 0, OP_LOGE(context_, "ubSize is 0"), return ge::GRAPH_FAILED);
     sysWorkspaceSize_ = ascendcPlatform.GetLibApiWorkSpaceSize();
     isRegBase = Ops::Base::IsRegbaseSocVersion(context_);
-    isAscend960dt_ = ascendcPlatform.GetCurNpuArch() == NpuArch::DAV_9201;
+    // Ascend960 (DAV_9201/9202) 共用同一套 tiling 适配逻辑
+    isAscend960dt_ = ascendcPlatform.GetCurNpuArch() == NpuArch::DAV_9201 ||
+                     ascendcPlatform.GetCurNpuArch() == NpuArch::DAV_9202;
     return ge::GRAPH_SUCCESS;
 }
 

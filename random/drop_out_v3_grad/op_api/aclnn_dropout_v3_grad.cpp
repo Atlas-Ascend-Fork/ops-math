@@ -44,12 +44,13 @@ static const std::initializer_list<op::DataType> DTYPE_SUPPORT_LIST = {op::DataT
 // 对外接口mask仅支持uint8
 static const std::initializer_list<op::DataType> MASK_DTYPE_SUPPORT_LIST = {op::DataType::DT_UINT8};
 
-// 本算子仅在Ascend910_95上提供kernel实现，其余产品形态直接返回错误
+// 本算子仅在 Ascend910_95/Ascend960（DAV_3510/9201/9202）上提供kernel实现，其余产品形态直接返回错误
 static inline bool CheckSocVersion()
 {
-    if (op::GetCurrentPlatformInfo().GetCurNpuArch() != NpuArch::DAV_3510) {
+    const auto curArch = op::GetCurrentPlatformInfo().GetCurNpuArch();
+    if (curArch != NpuArch::DAV_3510 && curArch != NpuArch::DAV_9201 && curArch != NpuArch::DAV_9202) {
         OP_LOGE(ACLNN_ERR_PARAM_INVALID, "aclnnDropoutV3Grad is not supported in current socversion %d.",
-                static_cast<int>(op::GetCurrentPlatformInfo().GetCurNpuArch()));
+                static_cast<int>(curArch));
         return false;
     }
     return true;

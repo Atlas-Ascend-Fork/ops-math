@@ -26,6 +26,7 @@
 #include "opdev/op_dfx.h"
 #include "opdev/op_executor.h"
 #include "opdev/common_types.h"
+#include "opdev/platform.h"
 #include "opdev/data_type_utils.h"
 #include "opdev/op_log.h"
 #include "opdev/shape_utils.h"
@@ -202,9 +203,9 @@ aclnnStatus aclnnCdistBackwardGetWorkspaceSize(const aclTensor* grad, const aclT
         gradContiguous != nullptr && x1Contiguous != nullptr && x2Contiguous != nullptr && cdistContiguous != nullptr,
         ACLNN_ERR_INNER_NULLPTR);
 
-    SocVersion socVersion = GetCurrentPlatformInfo().GetSocVersion();
+    // BF16 先转 FP32 仅 arch22（DAV_2201，即 Ascend910B/Ascend910_93）需要，与原 SocVersion 判断等价
     bool needCast = x1->GetDataType() == op::DataType::DT_BF16 &&
-                    (socVersion == SocVersion::ASCEND910B || socVersion == SocVersion::ASCEND910_93);
+                    GetCurrentPlatformInfo().GetCurNpuArch() == NpuArch::DAV_2201;
 
     if (needCast) {
         gradContiguous = l0op::Cast(gradContiguous, op::DataType::DT_FLOAT, uniqueExecutor.get());

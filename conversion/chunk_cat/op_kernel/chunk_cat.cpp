@@ -12,7 +12,7 @@
  * \file chunk_cat.cpp
  * \brief
  */
-#if __CCE_AICORE__ == 310 || __NPU_ARCH__ == 9201
+#if __CCE_AICORE__ == 310 || __NPU_ARCH__ == 9201 || __NPU_ARCH__ == 9202
 #include "chunk_cat_arch35.h"
 #else
 #include "chunk_cat.h"
@@ -24,7 +24,7 @@ extern "C" __global__ __aicore__ void chunk_cat(GM_ADDR x, GM_ADDR y, GM_ADDR wo
     AscendC::TPipe pipe;
     REGISTER_TILING_DEFAULT(ChunkCatTilingData);
     GET_TILING_DATA_WITH_STRUCT(ChunkCatTilingData, tilingData, tiling);
-#if __CCE_AICORE__ == 310 || __NPU_ARCH__ == 9201
+#if __CCE_AICORE__ == 310 || __NPU_ARCH__ == 9201 || __NPU_ARCH__ == 9202
     ChunkCatArch35<DTYPE_X, DTYPE_Y> op(&pipe);
     op.Init(x, y, tilingData);
     op.Process();

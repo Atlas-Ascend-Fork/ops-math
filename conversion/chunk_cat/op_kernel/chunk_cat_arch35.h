@@ -371,7 +371,7 @@ private:
         uint16_t rowLoop1 = 0;
         uint16_t rowLoop2 = 0;
         // 部分pad情况下pad部分
-#if __NPU_ARCH__ == 9201
+#if __NPU_ARCH__ == 9201 || __NPU_ARCH__ == 9202
         uint32_t colLen0 = 0;
         uint32_t colLen1 = 0;
         uint16_t colLoop1 = 0;
@@ -404,7 +404,7 @@ private:
             }
         }
         uint32_t rowNum = GetVRegSize() / sizeof(T2) / srcLen;
-#if __NPU_ARCH__ == 9201
+#if __NPU_ARCH__ == 9201 || __NPU_ARCH__ == 9202
         if constexpr (IS_SCATTER) {
             if constexpr (std::is_same_v<T2, bfloat16_t> || std::is_same_v<T2, half>) {
                 uint32_t rowNumSafe = srcLen < UINT16_LIMIT ? (UINT16_LIMIT - srcLen) / rowStride + 1 : rowNum;

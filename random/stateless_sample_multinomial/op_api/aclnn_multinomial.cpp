@@ -62,6 +62,7 @@ static inline bool IsArch22(NpuArch arch) { return arch == NpuArch::DAV_2201; }
 
 static inline bool IsArch35(NpuArch arch)
 {
+    // Ascend960 (DAV_9201/9202) 与 Ascend950 共用 arch35 L0 实现路径
     return arch == NpuArch::DAV_3510 || arch == NpuArch::DAV_9201 || arch == NpuArch::DAV_9202;
 }
 

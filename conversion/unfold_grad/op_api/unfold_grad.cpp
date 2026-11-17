@@ -55,7 +55,9 @@ bool IsSecondLastAxisAiCoreSupport(op::DataType dataType, int64_t size, int64_t 
         return false;
     }
 
-    const bool isArch35 = GetCurrentPlatformInfo().GetCurNpuArch() == NpuArch::DAV_3510;
+    // Ascend960 (DAV_9201/9202) 与 Ascend950 共用 arch35 UB 规格
+    const auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
+    const bool isArch35 = curArch == NpuArch::DAV_3510 || curArch == NpuArch::DAV_9201 || curArch == NpuArch::DAV_9202;
     const int64_t ubSize = isArch35 ? ARCH35_UB_SIZE : ARCH22_UB_SIZE;
     int64_t ubSizeT2 = 0;
     if (dataType == DataType::DT_FLOAT16 || dataType == DataType::DT_BF16) {
