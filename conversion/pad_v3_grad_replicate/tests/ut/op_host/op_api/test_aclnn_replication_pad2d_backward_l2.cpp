@@ -261,3 +261,42 @@ TEST_F(replication_pad2d_backward_test, case_empty_grad_output_nonzero_grad_inpu
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
     EXPECT_EQ(aclRet, ACLNN_SUCCESS);
 }
+
+TEST_F(replication_pad2d_backward_test, case_rank3_empty_first_dim_only)
+{
+    auto grad_output_tensor_desc = TensorDesc({0, 5, 5}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto input_tensor_desc = TensorDesc({0, 5, 5}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto padding_desc = IntArrayDesc(vector<int64_t>{0, 0, 0, 0});
+    auto grad_input_desc = TensorDesc({0, 5, 5}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto ut = OP_API_UT(aclnnReplicationPad2dBackward, INPUT(grad_output_tensor_desc, input_tensor_desc, padding_desc),
+                        OUTPUT(grad_input_desc));
+    uint64_t workspace_size = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
+}
+
+TEST_F(replication_pad2d_backward_test, case_rank3_empty_dim1)
+{
+    auto grad_output_tensor_desc = TensorDesc({2, 0, 5}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto input_tensor_desc = TensorDesc({2, 0, 5}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto padding_desc = IntArrayDesc(vector<int64_t>{0, 0, 0, 0});
+    auto grad_input_desc = TensorDesc({2, 0, 5}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto ut = OP_API_UT(aclnnReplicationPad2dBackward, INPUT(grad_output_tensor_desc, input_tensor_desc, padding_desc),
+                        OUTPUT(grad_input_desc));
+    uint64_t workspace_size = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
+}
+
+TEST_F(replication_pad2d_backward_test, case_rank4_empty_batch_only)
+{
+    auto grad_output_tensor_desc = TensorDesc({0, 2, 5, 5}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto input_tensor_desc = TensorDesc({0, 2, 5, 5}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto padding_desc = IntArrayDesc(vector<int64_t>{0, 0, 0, 0});
+    auto grad_input_desc = TensorDesc({0, 2, 5, 5}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto ut = OP_API_UT(aclnnReplicationPad2dBackward, INPUT(grad_output_tensor_desc, input_tensor_desc, padding_desc),
+                        OUTPUT(grad_input_desc));
+    uint64_t workspace_size = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(aclRet, ACLNN_SUCCESS);
+}

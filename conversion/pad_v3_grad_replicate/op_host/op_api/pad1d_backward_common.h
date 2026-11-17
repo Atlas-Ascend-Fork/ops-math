@@ -13,12 +13,14 @@
 #include "opdev/op_executor.h"
 #include "opdev/op_dfx.h"
 #include "opdev/platform.h"
+#include "opdev/shape_utils.h"
 #include "aclnn_kernels/common/op_error_check.h"
 #include "aclnn_kernels/contiguous.h"
 #include "aclnn_kernels/cast.h"
 #include "../../../squeeze/op_host/op_api/squeeze.h"
 #include "../../../unsqueeze/op_host/op_api/unsqueeze.h"
 #include "../../../pad_v3_grad/op_api/padv3grad.h"
+#include "../../../fill/op_api/fill.h"
 #include "op_api/aclnn_check.h"
 
 namespace op {
@@ -249,6 +251,17 @@ static aclnnStatus Pad1dBwdHandleEmptyTensor(const aclTensor* self, Pad1dBackwar
     return ACLNN_SUCCESS;
 }
 
+// 构造与gradInput同shape、同dtype的全零tensor，用于空tensor分支回填gradInput
+static const aclTensor* Pad1dBwdGetGradInputWithValueZero(aclTensor* gradInput, aclOpExecutor* executor)
+{
+    aclScalar* scalar = executor->AllocScalar(0);
+    auto valueTensor = executor->ConvertToTensor(scalar, gradInput->GetDataType());
+    auto outputDims = op::ToShapeVector(gradInput->GetViewShape());
+    aclIntArray* dimArray = executor->AllocIntArray(outputDims.data(), outputDims.size());
+    auto dimTensor = executor->ConvertToTensor(dimArray, op::DataType::DT_INT64);
+    return l0op::Fill(dimTensor, valueTensor, dimArray, executor);
+}
+
 // Pad1d backward公共计算逻辑
 // mode: REFLECT对应reflection_pad, REPLICATE对应replication_pad
 // modeStr: l0op::PadV3Grad的mode字符串 ("reflect" 或 "edge")
@@ -268,9 +281,13 @@ static aclnnStatus Pad1dBackwardCompute(const aclTensor*& gradOutput, const aclT
 
     // 空tensor处理
     if (gradOutput->IsEmpty() || self->IsEmpty() || gradInput->IsEmpty()) {
-        *workspaceSize = 0;
         auto emptyRet = Pad1dBwdHandleEmptyTensor(self, mode);
         CHECK_RET(emptyRet == ACLNN_SUCCESS, emptyRet);
+        auto fillout = Pad1dBwdGetGradInputWithValueZero(gradInput, uniqueExecutor.get());
+        CHECK_RET(fillout != nullptr, ACLNN_ERR_INNER_NULLPTR);
+        auto viewCopyResult = l0op::ViewCopy(fillout, gradInput, uniqueExecutor.get());
+        CHECK_RET(viewCopyResult != nullptr, ACLNN_ERR_INNER_NULLPTR);
+        *workspaceSize = uniqueExecutor->GetWorkspaceSize();
         uniqueExecutor.ReleaseTo(executor);
         return ACLNN_SUCCESS;
     }

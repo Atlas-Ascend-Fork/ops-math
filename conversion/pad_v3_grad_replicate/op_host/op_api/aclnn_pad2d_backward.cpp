@@ -241,8 +241,13 @@ static aclnnStatus commonPad2dBackward(const aclTensor* gradOutput, const aclTen
         // 3 is dim number
         if (self->GetViewShape().GetDimNum() == 3) {
             // 1, 2 are indexes
-            if (self->GetViewShape().GetDim(1) == 0 || self->GetViewShape().GetDim(2) == 0 || mode == "edge") {
+            if (self->GetViewShape().GetDim(1) == 0 || self->GetViewShape().GetDim(2) == 0) {
                 OP_LOGE(ACLNN_ERR_PARAM_INVALID, "Input dim 1 or dim 2 should not be empty.");
+                return ACLNN_ERR_PARAM_INVALID;
+            }
+            // 与正向ReplicationPad2d对齐: 3维输入不支持空tensor, 仅4维输入支持第一维(batch)为0
+            if (mode == "edge") {
+                OP_LOGE(ACLNN_ERR_PARAM_INVALID, "3D empty tensor is not supported in replication mode.");
                 return ACLNN_ERR_PARAM_INVALID;
             }
         }
