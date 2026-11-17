@@ -146,7 +146,7 @@ ge::graphStatus LogAddExpTiling::DoSimplifiedTiling(ge::DataType input0Dtype)
         ret = brcBaseTiling.DoTiling();
         tilingKey = GET_TPL_TILING_KEY(brcBaseTiling.GetSchMode(), FORMULA_TYPE_SIMPLIFIED);
     } else if (input0Dtype == ge::DT_FLOAT16) {
-        BroadcastBaseTiling<LogAddExpOp::LogAddExpSimplifiedCompute<half>::OpDag> brcBaseTiling(context_);
+        BroadcastBaseTiling<LogAddExpOp::LogAddExpSimplifiedWithCastCompute<half>::OpDag> brcBaseTiling(context_);
         ret = brcBaseTiling.DoTiling();
         tilingKey = GET_TPL_TILING_KEY(brcBaseTiling.GetSchMode(), FORMULA_TYPE_SIMPLIFIED);
     } else if (input0Dtype == ge::DT_FLOAT) {

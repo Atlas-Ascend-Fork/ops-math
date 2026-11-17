@@ -26,8 +26,9 @@ template <uint64_t schMode, uint64_t formulaType>
 __global__ __aicore__ void log_add_exp(GM_ADDR x1, GM_ADDR x2, GM_ADDR y, GM_ADDR workspace, GM_ADDR tiling)
 {
     constexpr bool useFullFormula = (formulaType == 1);
+    constexpr bool useFp32Compute = std::is_same<DTYPE_X1, bfloat16_t>::value || std::is_same<DTYPE_X1, half>::value;
 
-    if constexpr (std::is_same<DTYPE_X1, bfloat16_t>::value) {
+    if constexpr (useFp32Compute) {
         if constexpr (useFullFormula) {
             using OpDag = LogAddExpOp::LogAddExpFullWithCastCompute<DTYPE_X1>::OpDag;
             BroadcastSch<schMode, OpDag> sch(tiling);
