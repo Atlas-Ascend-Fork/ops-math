@@ -6,7 +6,7 @@
 
 在应用开发过程中，部分算子为了追求较高的性能，针对同一个Token在不同批次大小或者同一批次不同位置场景中，可能存在计算结果偏差。
 当前，针对部分算子在满足相同的运行环境条件下，可以通过配置计算过程采用Batch一致性算法，来使得无论如何组合输入，计算结果保持完全一致。
-**Batch一致性算法**：对于给定的一个Token，无论该Token在批次内所处的位置、批次大小、或是和哪些其他Token一同被批处理，输出结果必须逐比特完全一致。
+**Batch一致性算法**：对于给定的一个Token，无论该Token在批次内所处的位置、批次大小，或是和哪些其他Token一同被批处理，输出结果必须逐比特完全一致。
 
 ## 注意事项
 
@@ -22,10 +22,10 @@
 
 - **调用aclnn API**
 
-  该场景下，通过[《Runtime运行时API》](https://hiascend.com/document/redirect/CannCommunityRuntimeApi)中“运行时配置>aclrtSetSysParamOpt”接口（进程级）开启Batch一致性。具体通过设置`ACL_OPT_DETERMINISTIC=3`开启Batch一致性计算。
+  该场景下，通过《[Runtime运行时API](https://hiascend.com/document/redirect/CannCommunityRuntimeApi)》中“运行时配置>aclrtSetSysParamOpt”接口（进程级）开启Batch一致性。具体通过设置`ACL_OPT_DETERMINISTIC=3`开启Batch一致性计算。
 
 - **调用PyTorch API**
 
-  该场景下，通过[《TorchNPU自定义API》](https://www.hiascend.com/document/detail/zh/Pytorch/latest/apiref/customapi/docs/zh/custom_APIs/overview.md)中`torch_npu.npu.set_deterministic_level`接口开启Batch一致性计算。
+  该场景下，通过《[TorchNPU自定义API](https://www.hiascend.com/document/detail/zh/Pytorch/latest/apiref/customapi/docs/zh/custom_APIs/overview.md)》中`torch_npu.npu.set_deterministic_level`接口开启Batch一致性计算。
 
 对于不同框架的算子API，其默认的Batch一致性计算实现策略请以具体的aclnn API文档或PyTorch API文档描述为准。

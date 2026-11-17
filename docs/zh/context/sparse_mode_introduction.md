@@ -32,7 +32,7 @@ sparseMode为0时，代表defaultMask模式。
 
   ![sparseMode=0且不传入mask时的Masked原理图](../figures/sparsemode_0_masked_matrix.png)
 
-- nextTokens取值为0，preTokens大于等于Sq，表示causal场景sparse，attenMask应传入下三角矩阵，此时preTokens和nextTokens之间的部分需要计算，Masked $QK^T$矩阵示意如下：
+- nextTokens取值为0，preTokens大于等于Sq，表示causal场景，attenMask应传入下三角矩阵，此时preTokens和nextTokens之间的部分需要计算，Masked $QK^T$矩阵示意如下：
 
   ![sparseMode=0在nextTokens=0、preTokens≥Sq的causal场景下的Masked原理图](../figures/sparsemode_0_masked_matrix_1.png)
 
@@ -48,13 +48,13 @@ sparseMode为0时，代表defaultMask模式。
 
   ![band场景应传入的band形状attenMask矩阵示意图](../figures/attenmask_band_matrix.png)
 
-- nextTokens为负数，以preTokens=9，nextTokens=-3为例，preTokens和nextTokens之间的部分需要计算。Masked $QK^T$示意如下：
+- nextTokens为负数，以preTokens=9、nextTokens=-3为例，preTokens和nextTokens之间的部分需要计算。Masked $QK^T$示意如下：
 
   **说明：nextTokens为负数时，preTokens取值必须大于等于nextTokens的绝对值，且nextTokens的绝对值小于Skv。**
 
   ![sparseMode=0在nextTokens为负数原理图](../figures/sparsemode_0_masked_matrix_3.png)
 
-- preTokens为负数，以nextTokens=7，preTokens=-3为例，preTokens和nextTokens之间的部分需要计算。Masked $QK^T$示意如下：
+- preTokens为负数，以nextTokens=7、preTokens=-3为例，preTokens和nextTokens之间的部分需要计算。Masked $QK^T$示意如下：
 
   **说明：preTokens为负数时，nextTokens取值必须大于等于preTokens的绝对值，且preTokens的绝对值小于Sq。**
 
@@ -108,13 +108,13 @@ attenMask应传入矩阵示意如下：
 
 ## sparseMode=6
 
-sparseMode为6时，代表prefix压缩场景，即prefix场景时，attenMask为优化后的压缩下三角+矩形的矩阵（3072\*2048）：其中上半部分[2048, 2048]的下三角矩阵，下半部分为[1024, 2048]的矩形矩阵，矩形矩阵左半部分全0，右半部分全1，attenMask应传入矩阵示意如下。该场景下忽略preTokens、nextTokens取值。
+sparseMode为6时，代表prefix压缩场景，即prefix场景时，attenMask为优化后的压缩下三角+矩形的矩阵（3072\*2048）：其中上半部分为[2048, 2048]的下三角矩阵，下半部分为[1024, 2048]的矩形矩阵，矩形矩阵左半部分全0，右半部分全1，attenMask应传入矩阵示意如下。该场景下忽略preTokens、nextTokens取值。
 
 ![sparseMode=6（prefix压缩）的Masked原理图](../figures/sparsemode_6_masked_matrix.png)
 
 ## sparseMode=7
 
-sparseMode为7时，表示varlen且为长序列外切场景（即长序列在模型脚本中进行多卡切query的sequence length）；用户需要确保外切前为使用sparseMode 3的场景；当前mode下用户需要设置preTokens和nextTokens（起点为右下顶点），且需要保证参数正确，否则会存在精度问题。
+sparseMode为7时，表示varlen且为长序列外切场景（即长序列在模型脚本中进行多卡切分query的sequence length）；用户需要确保外切前为使用sparseMode 3的场景；当前mode下用户需要设置preTokens和nextTokens（起点为右下顶点），且需要保证参数正确，否则会存在精度问题。
 
 Masked $QK^T$矩阵示意如下，在第二个batch对query进行切分，key和value不切分，4x6的mask矩阵被切分成2x6和2x6的mask，分别在卡1和卡2上计算：
 
