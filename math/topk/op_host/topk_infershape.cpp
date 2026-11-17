@@ -10,7 +10,10 @@
 
 /*!
  * \file topk_infershape.cpp
- * \brief InferShape for TopK operator: output shape = input shape with dim-th axis replaced by k
+ * \brief InferShape and InferDataType for TopK operator:
+ *        output shape = input shape with dim-th axis replaced by k;
+ *        k 在编译态取不到时输出 dim 降级为 -1（unknown）;
+ *        values.dtype = x.dtype, indices.dtype = k.dtype.
  */
 #include "register/op_impl_registry.h"
 #include "util/shape_util.h"
@@ -19,11 +22,13 @@
 static constexpr int OUTPUT_VALUES_INDEX = 0;
 static constexpr int OUTPUT_INDICES_INDEX = 1;
 static constexpr int INPUT_X_INDEX = 0;
+static constexpr int INPUT_K_INDEX = 1;
 
 using namespace ge;
 namespace ops {
 
-static graphStatus InferShapeForTopKCommon(gert::InferShapeContext* context, int64_t k, const int64_t* dim)
+static graphStatus InferShapeForTopKCommon(gert::InferShapeContext* context, int64_t k, const int64_t* dim,
+                                           bool kUnknown = false)
 {
     const gert::Shape* input_x_shape = context->GetInputShape(INPUT_X_INDEX);
     if (input_x_shape == nullptr) {
@@ -35,7 +40,7 @@ static graphStatus InferShapeForTopKCommon(gert::InferShapeContext* context, int
         OP_LOGE_FOR_INVALID_SHAPESIZE(context->GetNodeName(), "x", std::to_string(dim_size).c_str(), "greater than 0");
         return ge::GRAPH_FAILED;
     }
-    if (k < 0) {
+    if (!kUnknown && k < 0) {
         OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "k", std::to_string(k).c_str(), "k must be >= 0");
         return ge::GRAPH_FAILED;
     }
@@ -93,20 +98,31 @@ static graphStatus InferShapeForTopK(gert::InferShapeContext* context)
         OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "attrs");
         return ge::GRAPH_FAILED;
     }
-    const gert::Tensor* input_k_tensor = context->GetInputTensor(1U);
+    const int64_t* dim = attrs->GetInt(2U);
+    const gert::Tensor* input_k_tensor = context->GetInputTensor(INPUT_K_INDEX);
     if (input_k_tensor == nullptr) {
-        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "k");
-        return ge::GRAPH_FAILED;
+        OP_LOGW(context->GetNodeName(), "k has no compile-time tensor, degrade output dim to unknown.");
+        return InferShapeForTopKCommon(context, UNKNOWN_DIM, dim, true);
     }
     const int32_t* k = input_k_tensor->GetData<int32_t>();
     if (k == nullptr) {
-        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "k");
-        return ge::GRAPH_FAILED;
+        OP_LOGW(context->GetNodeName(), "k has no compile-time data, degrade output dim to unknown.");
+        return InferShapeForTopKCommon(context, UNKNOWN_DIM, dim, true);
     }
-    const int64_t* dim = attrs->GetInt(2U);
     return InferShapeForTopKCommon(context, *k, dim);
 }
 
-IMPL_OP_INFERSHAPE(TopK).InferShape(InferShapeForTopK).InputsDataDependency({1});
+static graphStatus InferDataTypeForTopK(gert::InferDataTypeContext* context)
+{
+    OP_LOGD(context->GetNodeName(), "Begin to do InferDataTypeForTopK");
+    // values.dtype 与输入 x 一致
+    context->SetOutputDataType(OUTPUT_VALUES_INDEX, context->GetInputDataType(INPUT_X_INDEX));
+    // indices.dtype 与输入 k 一致
+    context->SetOutputDataType(OUTPUT_INDICES_INDEX, context->GetInputDataType(INPUT_K_INDEX));
+    OP_LOGD(context->GetNodeName(), "End to do InferDataTypeForTopK");
+    return GRAPH_SUCCESS;
+}
+
+IMPL_OP_INFERSHAPE(TopK).InferShape(InferShapeForTopK).InferDataType(InferDataTypeForTopK).InputsDataDependency({1});
 
 } // namespace ops
