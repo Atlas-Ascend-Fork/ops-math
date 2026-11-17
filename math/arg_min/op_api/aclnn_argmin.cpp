@@ -28,6 +28,7 @@
 #include "conversion/fill/op_api/fill.h"
 #include "op_api/op_api_def_math.h"
 #include "op_api/aclnn_check.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 #ifdef __cplusplus
@@ -51,9 +52,9 @@ static const std::initializer_list<DataType> EMPTY_DTYPE_SUPPORT_LIST = {};
 
 static const inline std::initializer_list<DataType>& GetSupportDtypeList(NpuArch arch)
 {
-    if (arch == NpuArch::DAV_2002 || arch == NpuArch::DAV_1001) {
+    if (arch == Ops::Base::DAV_2002 || arch == Ops::Base::DAV_1001) {
         return ASCEND910_DTYPE_DTYPE_SUPPORT_LIST;
-    } else if (arch == NpuArch::DAV_2201 || arch == NpuArch::DAV_3002) {
+    } else if (arch == Ops::Base::DAV_2201 || arch == Ops::Base::DAV_3002) {
         return ASCEND910B_DTYPE_DTYPE_SUPPORT_LIST;
     } else if (IsRegBase(arch)) {
         return ASCEND910B_DTYPE_DTYPE_SUPPORT_LIST;

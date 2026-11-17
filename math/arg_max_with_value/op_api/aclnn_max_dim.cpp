@@ -22,6 +22,7 @@
 #include "opdev/op_log.h"
 #include "opdev/tensor_view_utils.h"
 #include "opdev/platform.h"
+#include "op_common/op_host/util/op_const_def.h"
 #include "op_api/aclnn_check.h"
 
 using namespace op;
@@ -47,14 +48,14 @@ static const std::initializer_list<op::DataType> DTYPE_SUPPORT_REGBASE_LIST = {
 static inline bool CheckSocVersionGe910B(void)
 {
     auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
-    return curArch == NpuArch::DAV_2201 || IsRegBase(curArch);
+    return curArch == Ops::Base::DAV_2201 || IsRegBase(curArch);
 }
 
 // 判断芯片类型是否大于等于910
 static inline bool CheckSocVersionGe910(void)
 {
     auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
-    return curArch == NpuArch::DAV_1001 || curArch == NpuArch::DAV_2201 || IsRegBase(curArch);
+    return curArch == Ops::Base::DAV_1001 || curArch == Ops::Base::DAV_2201 || IsRegBase(curArch);
 }
 
 static bool CheckDtypeValid(const aclTensor* self, const aclTensor* out)

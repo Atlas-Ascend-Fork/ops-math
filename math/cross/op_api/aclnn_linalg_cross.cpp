@@ -17,6 +17,7 @@
 #include "conversion/broadcast_to/op_api/broadcast_to.h"
 #include "op_api/op_api_def_math.h"
 #include "op_api/aclnn_check.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 #ifdef __cplusplus
@@ -44,8 +45,8 @@ inline static bool CheckNotNull(const aclTensor* self, const aclTensor* other, c
 static bool CheckDtypeValid(const aclTensor* self, const aclTensor* other, const aclTensor* out)
 {
     // 检查self的数据类型是否在linalg cross算子的支持列表内
-    if (op::GetCurrentPlatformInfo().GetCurNpuArch() == NpuArch::DAV_2201 ||
-        op::GetCurrentPlatformInfo().GetCurNpuArch() == NpuArch::DAV_3510) {
+    auto curArch = op::GetCurrentPlatformInfo().GetCurNpuArch();
+    if (curArch == Ops::Base::DAV_2201 || curArch == Ops::Base::DAV_3510) {
         OP_CHECK_DTYPE_NOT_SUPPORT(self, DTYPE_SUPPORT_LIST_910B, return false);
     } else {
         OP_CHECK_DTYPE_NOT_SUPPORT(self, DTYPE_SUPPORT_LIST, return false);
@@ -187,9 +188,9 @@ static aclnnStatus ExecLinalgCrossGetWorkspaceSize(const aclTensor* self, const 
         return ACLNN_ERR_PARAM_INVALID;
     }
 
-    if (self->GetDataType() == op::DataType::DT_BF16 &&
-        op::GetCurrentPlatformInfo().GetCurNpuArch() != NpuArch::DAV_2201 &&
-        op::GetCurrentPlatformInfo().GetCurNpuArch() != NpuArch::DAV_3510) {
+    auto curArch = op::GetCurrentPlatformInfo().GetCurNpuArch();
+    if (self->GetDataType() == op::DataType::DT_BF16 && curArch != Ops::Base::DAV_2201 &&
+        curArch != Ops::Base::DAV_3510) {
         selfBroadCast = l0op::Cast(selfBroadCast, op::DataType::DT_FLOAT, uniqueExecutor.get());
         CHECK_RET(selfBroadCast != nullptr, ACLNN_ERR_INNER_NULLPTR);
         otherBroadCast = l0op::Cast(otherBroadCast, op::DataType::DT_FLOAT, uniqueExecutor.get());
@@ -200,9 +201,8 @@ static aclnnStatus ExecLinalgCrossGetWorkspaceSize(const aclTensor* self, const 
     auto crossOpOut = l0op::Cross(selfBroadCast, otherBroadCast, dimInner, uniqueExecutor.get());
     CHECK_RET(crossOpOut != nullptr, ACLNN_ERR_INNER_NULLPTR);
 
-    if (self->GetDataType() == op::DataType::DT_BF16 &&
-        op::GetCurrentPlatformInfo().GetCurNpuArch() != NpuArch::DAV_2201 &&
-        op::GetCurrentPlatformInfo().GetCurNpuArch() != NpuArch::DAV_3510) {
+    if (self->GetDataType() == op::DataType::DT_BF16 && curArch != Ops::Base::DAV_2201 &&
+        curArch != Ops::Base::DAV_3510) {
         crossOpOut = l0op::Cast(crossOpOut, op::DataType::DT_BF16, uniqueExecutor.get());
         CHECK_RET(crossOpOut != nullptr, ACLNN_ERR_INNER_NULLPTR);
     }

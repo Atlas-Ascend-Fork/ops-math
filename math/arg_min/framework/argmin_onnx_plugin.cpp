@@ -13,6 +13,7 @@
 #include "conversion/expand_dims/op_graph/expand_dims_proto.h"
 #include "math/arg_min/op_graph/arg_min_proto.h"
 #include "platform/soc_spec.h"
+#include "op_common/op_host/util/op_const_def.h"
 #include <set>
 #include <cstdlib>
 
@@ -31,8 +32,8 @@ static bool IsRegBasePlatform()
         return false;
     }
     auto curArch = static_cast<NpuArch>(std::strtol(archStr, nullptr, 10));
-    const static std::set<NpuArch> regbaseArch = {NpuArch::DAV_3510, NpuArch::DAV_5102, NpuArch::DAV_9201,
-                                                  NpuArch::DAV_9202};
+    const static std::set<NpuArch> regbaseArch = {Ops::Base::DAV_3510, Ops::Base::DAV_5102, Ops::Base::DAV_9201,
+                                                  Ops::Base::DAV_9202};
     bool isRegbase = (regbaseArch.find(curArch) != regbaseArch.end());
     OP_LOGD("ArgMin", "IsRegBasePlatform: curArch=%u, is_regbase=%d.", static_cast<uint32_t>(curArch), isRegbase);
     return isRegbase;
