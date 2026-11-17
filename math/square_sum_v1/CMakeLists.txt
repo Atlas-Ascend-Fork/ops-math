@@ -16,7 +16,7 @@ add_all_modules_sources(OPTYPE square_sum_v1 ACLNNTYPE aclnn_exclude COMPUTE_UNI
 
 add_kernel_sources(
     KERNEL_SRC square_sum_v1_apt.cpp
-    COMPUTE_UNITS dav_9201 dav_9202
+    COMPUTE_UNITS dav_9201 dav_9202 dav_3510
     AUTO_SYNC false
     OPTIONS "-mllvm -cce-aicore-dcci-before-kernel-end=false"
 )

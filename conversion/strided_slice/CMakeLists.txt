@@ -21,3 +21,10 @@ if(TARGET ${OP_FRAMEWORK_MODULE_NAME}_cases_obj)
     target_include_directories(${OP_FRAMEWORK_MODULE_NAME}_cases_obj
         PRIVATE ${OPS_MATH_DIR}/common/inc/op_host)
 endif()
+
+add_kernel_sources(
+    KERNEL_SRC strided_slice_apt.cpp
+    COMPUTE_UNITS dav_3510 dav_9201 dav_9202
+    AUTO_SYNC false
+    OPTIONS "-mllvm -cce-aicore-dcci-before-kernel-end=false"
+)

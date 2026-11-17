@@ -13,3 +13,10 @@ set(SUPPORT_COMPUTE_UNIT "ascend310p" "ascend910_93" "ascend910b" "dav_3510" "da
 # 设置每种芯片类型对应的tiling文件目录，即采用op_host目录下哪个文件夹下的tiling文件编译
 set(SUPPORT_TILING_DIR "arch22" "arch22" "arch22" "arch35" "arch35" "arch35")
 add_all_modules_sources(OPTYPE masked_select_v3 ACLNNTYPE aclnn_exclude COMPUTE_UNIT ${SUPPORT_COMPUTE_UNIT} TILING_DIR ${SUPPORT_TILING_DIR} DISABLE_IN_OPP TRUE)
+
+add_kernel_sources(
+    KERNEL_SRC masked_select_v3_apt.cpp
+    COMPUTE_UNITS dav_3510
+    AUTO_SYNC false
+    OPTIONS "-mllvm -cce-aicore-dcci-before-kernel-end=false"
+)

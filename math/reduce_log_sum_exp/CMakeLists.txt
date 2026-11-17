@@ -16,7 +16,7 @@ add_all_modules_sources(OPTYPE reduce_log_sum_exp ACLNNTYPE aclnn_exclude COMPUT
 
 add_kernel_sources(
     KERNEL_SRC reduce_log_sum_exp_apt.cpp
-    COMPUTE_UNITS dav_9201 dav_9202
+    COMPUTE_UNITS dav_9201 dav_9202 dav_3510
     AUTO_SYNC false
     OPTIONS "-mllvm -cce-aicore-dcci-before-kernel-end=false"
 )
