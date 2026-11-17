@@ -89,7 +89,7 @@ aclnnStatus aclnnInplaceZero(
 构建 experimental 树的自定义运行包（含本算子的 op_host / op_kernel / op_api）：
 
 ```bash
-source /usr/local/Ascend/ascend-toolkit/set_env.sh
+source ${ASCEND_HOME_PATH:-/usr/local/Ascend/ascend-toolkit}/set_env.sh
 bash build.sh --pkg --experimental --soc=ascend910b --ops=zeros_like
 ```
 

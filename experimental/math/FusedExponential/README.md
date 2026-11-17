@@ -77,16 +77,15 @@ DEVICE=0 bash build.sh --run_example FusedExponential eager cust --vendor_name=f
 Host/Tiling、shape/dtype 推导及 API 参数校验使用仓库 UT 框架，在仓库根目录执行：
 
 ```bash
-source /usr/local/Ascend/cann-9.1.0/set_env.sh
+source ${ASCEND_HOME_PATH:-/usr/local/Ascend/ascend-toolkit}/set_env.sh
 bash build.sh -u --ophost --opapi --soc=ascend910b --ops=FusedExponential --experimental -j8
 ```
 
 UT 不替代设备精度和性能测试。设备构建与补充集成测试命令如下。
 
-在仓库根目录执行：
+在仓库根目录执行（环境变量已在前述 UT 步骤中设置；若使用新的终端会话，请先执行 `source ${ASCEND_HOME_PATH:-/usr/local/Ascend/ascend-toolkit}/set_env.sh`）：
 
 ```bash
-source /usr/local/Ascend/cann-9.1.0/set_env.sh
 bash build.sh --pkg --soc=ascend910b --vendor_name=fusedexp --ops=FusedExponential --experimental -j8
 bash build_out/cann-ops-math-fusedexp_linux-aarch64.run --quiet --install-path=/path/to/opp
 export ASCEND_CUSTOM_OPP_PATH=/path/to/opp/vendors/fusedexp_math
