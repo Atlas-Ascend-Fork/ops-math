@@ -17,14 +17,14 @@
 using namespace std;
 using namespace ge;
 
-class ZerosLikeTilingTest : public testing::Test {
+class ZerosLikeConversionTilingTest : public testing::Test {
 protected:
-    static void SetUpTestCase() { std::cout << "ZerosLikeTilingTest SetUp" << std::endl; }
+    static void SetUpTestCase() { std::cout << "ZerosLikeConversionTilingTest SetUp" << std::endl; }
 
-    static void TearDownTestCase() { std::cout << "ZerosLikeTilingTest TearDown" << std::endl; }
+    static void TearDownTestCase() { std::cout << "ZerosLikeConversionTilingTest TearDown" << std::endl; }
 };
 
-TEST_F(ZerosLikeTilingTest, test_tiling_fp32_001)
+TEST_F(ZerosLikeConversionTilingTest, test_tiling_fp32_001)
 {
     optiling::ElewiseCompileInfo compileInfo = {64, 262144};
     gert::TilingContextPara tilingContextPara("ZerosLike",
@@ -40,7 +40,7 @@ TEST_F(ZerosLikeTilingTest, test_tiling_fp32_001)
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
 
-TEST_F(ZerosLikeTilingTest, test_tiling_fp16_001)
+TEST_F(ZerosLikeConversionTilingTest, test_tiling_fp16_001)
 {
     optiling::ElewiseCompileInfo compileInfo = {64, 262144};
     gert::TilingContextPara tilingContextPara("ZerosLike",
@@ -56,7 +56,7 @@ TEST_F(ZerosLikeTilingTest, test_tiling_fp16_001)
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
 
-TEST_F(ZerosLikeTilingTest, test_tiling_bf16_001)
+TEST_F(ZerosLikeConversionTilingTest, test_tiling_bf16_001)
 {
     optiling::ElewiseCompileInfo compileInfo = {64, 262144};
     gert::TilingContextPara tilingContextPara("ZerosLike",
@@ -72,7 +72,7 @@ TEST_F(ZerosLikeTilingTest, test_tiling_bf16_001)
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
 
-TEST_F(ZerosLikeTilingTest, test_tiling_int8_001)
+TEST_F(ZerosLikeConversionTilingTest, test_tiling_int8_001)
 {
     optiling::ElewiseCompileInfo compileInfo = {64, 262144};
     gert::TilingContextPara tilingContextPara("ZerosLike",
@@ -88,7 +88,7 @@ TEST_F(ZerosLikeTilingTest, test_tiling_int8_001)
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
 
-TEST_F(ZerosLikeTilingTest, test_tiling_uint8_001)
+TEST_F(ZerosLikeConversionTilingTest, test_tiling_uint8_001)
 {
     optiling::ElewiseCompileInfo compileInfo = {64, 262144};
     gert::TilingContextPara tilingContextPara("ZerosLike",
@@ -104,7 +104,7 @@ TEST_F(ZerosLikeTilingTest, test_tiling_uint8_001)
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
 
-TEST_F(ZerosLikeTilingTest, test_tiling_int32_001)
+TEST_F(ZerosLikeConversionTilingTest, test_tiling_int32_001)
 {
     optiling::ElewiseCompileInfo compileInfo = {64, 262144};
     gert::TilingContextPara tilingContextPara("ZerosLike",
@@ -120,7 +120,7 @@ TEST_F(ZerosLikeTilingTest, test_tiling_int32_001)
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
 
-TEST_F(ZerosLikeTilingTest, test_tiling_bool_001)
+TEST_F(ZerosLikeConversionTilingTest, test_tiling_bool_001)
 {
     optiling::ElewiseCompileInfo compileInfo = {64, 262144};
     gert::TilingContextPara tilingContextPara("ZerosLike",
@@ -136,7 +136,7 @@ TEST_F(ZerosLikeTilingTest, test_tiling_bool_001)
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
 
-TEST_F(ZerosLikeTilingTest, test_tiling_int64_001)
+TEST_F(ZerosLikeConversionTilingTest, test_tiling_int64_001)
 {
     optiling::ElewiseCompileInfo compileInfo = {64, 262144};
     gert::TilingContextPara tilingContextPara("ZerosLike",
@@ -152,7 +152,7 @@ TEST_F(ZerosLikeTilingTest, test_tiling_int64_001)
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
 
-TEST_F(ZerosLikeTilingTest, test_tiling_float8_e5m2_001)
+TEST_F(ZerosLikeConversionTilingTest, test_tiling_float8_e5m2_001)
 {
     optiling::ElewiseCompileInfo compileInfo = {64, 262144};
     gert::TilingContextPara tilingContextPara("ZerosLike",
@@ -168,7 +168,7 @@ TEST_F(ZerosLikeTilingTest, test_tiling_float8_e5m2_001)
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
 
-TEST_F(ZerosLikeTilingTest, test_tiling_float8_e4m3fn_001)
+TEST_F(ZerosLikeConversionTilingTest, test_tiling_float8_e4m3fn_001)
 {
     optiling::ElewiseCompileInfo compileInfo = {64, 262144};
     gert::TilingContextPara tilingContextPara(
@@ -185,7 +185,7 @@ TEST_F(ZerosLikeTilingTest, test_tiling_float8_e4m3fn_001)
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
 
-TEST_F(ZerosLikeTilingTest, test_tiling_hifloat8_001)
+TEST_F(ZerosLikeConversionTilingTest, test_tiling_hifloat8_001)
 {
     optiling::ElewiseCompileInfo compileInfo = {64, 262144};
     gert::TilingContextPara tilingContextPara("ZerosLike",
@@ -201,7 +201,7 @@ TEST_F(ZerosLikeTilingTest, test_tiling_hifloat8_001)
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
 
-TEST_F(ZerosLikeTilingTest, test_tiling_float4_e1m2_001)
+TEST_F(ZerosLikeConversionTilingTest, test_tiling_float4_e1m2_001)
 {
     optiling::ElewiseCompileInfo compileInfo = {64, 262144};
     gert::TilingContextPara tilingContextPara("ZerosLike",
@@ -217,7 +217,7 @@ TEST_F(ZerosLikeTilingTest, test_tiling_float4_e1m2_001)
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
 
-TEST_F(ZerosLikeTilingTest, test_tiling_float4_e2m1_001)
+TEST_F(ZerosLikeConversionTilingTest, test_tiling_float4_e2m1_001)
 {
     optiling::ElewiseCompileInfo compileInfo = {64, 262144};
     gert::TilingContextPara tilingContextPara("ZerosLike",

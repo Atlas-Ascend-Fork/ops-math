@@ -13,14 +13,14 @@
 #include "infershape_context_faker.h"
 #include "infershape_case_executor.h"
 
-class ZerosLike : public testing::Test {
+class ZerosLikeConversion : public testing::Test {
 protected:
     static void SetUpTestCase() { std::cout << "zeros_like SetUp" << std::endl; }
 
     static void TearDownTestCase() { std::cout << "zeros_like TearDown" << std::endl; }
 };
 
-TEST_F(ZerosLike, zeros_like_infershape_test)
+TEST_F(ZerosLikeConversion, zeros_like_infershape_test)
 {
     gert::InfershapeContextPara infershapeContextPara("ZerosLike",
                                                       {
@@ -35,7 +35,7 @@ TEST_F(ZerosLike, zeros_like_infershape_test)
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
 
-TEST_F(ZerosLike, zeros_like_infershape_test_float)
+TEST_F(ZerosLikeConversion, zeros_like_infershape_test_float)
 {
     gert::InfershapeContextPara infershapeContextPara("ZerosLike",
                                                       {
@@ -50,7 +50,7 @@ TEST_F(ZerosLike, zeros_like_infershape_test_float)
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
 
-TEST_F(ZerosLike, zeros_like_infershape_test_int32)
+TEST_F(ZerosLikeConversion, zeros_like_infershape_test_int32)
 {
     gert::InfershapeContextPara infershapeContextPara("ZerosLike",
                                                       {
@@ -65,7 +65,7 @@ TEST_F(ZerosLike, zeros_like_infershape_test_int32)
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
 
-TEST_F(ZerosLike, zeros_like_infershape_test_int64)
+TEST_F(ZerosLikeConversion, zeros_like_infershape_test_int64)
 {
     gert::InfershapeContextPara infershapeContextPara("ZerosLike",
                                                       {
@@ -80,7 +80,7 @@ TEST_F(ZerosLike, zeros_like_infershape_test_int64)
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
 
-TEST_F(ZerosLike, zeros_like_infershape_test_bool)
+TEST_F(ZerosLikeConversion, zeros_like_infershape_test_bool)
 {
     gert::InfershapeContextPara infershapeContextPara("ZerosLike",
                                                       {
