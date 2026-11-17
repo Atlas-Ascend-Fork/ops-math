@@ -300,11 +300,13 @@ uint64_t RadixTopKTiling::GetTilingKey() const
 // 6、计算Workspace 大小
 ge::graphStatus RadixTopKTiling::GetWorkspaceSize()
 {
-    // SelectTopK：stkCoreMode==1（行内多核）与行模式余数行段化（stkResidualRows>0）都走 GM 槽位树形归并，
-    // 须按 coreNum 分配归并槽位 workspace（每核 k 个值 + k 个索引；余数行时 blockDim==coreNum，公式同），
-    // 系统 workspace 由框架计入
+    const auto ascendcPlatform = platform_ascendc::PlatformAscendC(context_->GetPlatformInfo());
+    const uint64_t sysWorkspaceSize = ascendcPlatform.GetLibApiWorkSpaceSize();
+
     if (isSelectTopK_) {
-        workspaceSize_ = 0;
+        // SelectTopK：stkCoreMode==1（行内多核）与行模式余数行段化（stkResidualRows>0）都走 GM 槽位树形归并，
+        // 须按 coreNum 分配归并槽位 workspace（每核 k 个值 + k 个索引；余数行时 blockDim==coreNum，公式同）
+        workspaceSize_ = sysWorkspaceSize;
         if (tilingData_.stkCoreMode == 1 || tilingData_.stkResidualRows > 0) {
             const uint64_t slotStride = (tilingData_.kValue + STK_SLOT_ALIGN - 1) / STK_SLOT_ALIGN * STK_SLOT_ALIGN;
             workspaceSize_ += 2ULL * tilingData_.coreNum * slotStride * sizeof(int32_t);
@@ -324,8 +326,6 @@ ge::graphStatus RadixTopKTiling::GetWorkspaceSize()
         workspaceSize_ = (NUM_VALUE_2BIT * tilingData_.coreNum + tilingData_.coreNum + tilingData_.coreNum) *
                          sizeof(int32_t);
     }
-    auto ascendcPlatform = platform_ascendc::PlatformAscendC(context_->GetPlatformInfo());
-    uint64_t sysWorkspaceSize = ascendcPlatform.GetLibApiWorkSpaceSize();
     workspaceSize_ += sysWorkspaceSize;
     return ge::GRAPH_SUCCESS;
 }

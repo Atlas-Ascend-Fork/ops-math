@@ -44,6 +44,7 @@ constexpr uint64_t STK_BIT = 1ULL << 4;                // isSelectTopK 位于最
 constexpr uint64_t STK_MAX_K = 4096;                   // SelectTopK 窗口上界：k ≤ 4096
 constexpr uint64_t STK_WINDOW_MIN_SORT_LEN = 12000000; // SelectTopK 窗口下界：sortLen ≥ 12e6
 constexpr uint64_t STK_SLOT_ALIGN = 64;                // GM 归并槽位步长对齐（与 op_host/kernel 一致）
+constexpr uint64_t SYS_WORKSPACE_SIZE = 16777216;      // GetLibApiWorkSpaceSize 在 UT 平台返回 16 MiB
 
 static thread_local int32_t g_kValue = 0;
 
@@ -614,9 +615,9 @@ TEST_F(RadixTopKTilingTest, stk_fields_bf16_k1024_s12e6)
     ASSERT_TRUE(ExecuteTiling(tilingCtx, tilingInfo));
     EXPECT_TRUE(IsSelectTopKKey(tilingInfo.tilingKey));
     CheckDsTilingFields(tilingInfo, /*coreMode=*/1U, /*kLevel=*/1U, /*mergeArity=*/4U, CORE_NUM);
-    // 行内多核（stkCoreMode==1）：归并槽位 workspace = 2 * coreNum * align64(k) * sizeof(int32)
+    // 行内多核（stkCoreMode==1）：归并槽位 workspace = 2 * coreNum * align64(k) * sizeof(int32)，另加系统 workspace
     ASSERT_EQ(tilingInfo.workspaceSizes.size(), 1);
-    EXPECT_EQ(tilingInfo.workspaceSizes[0], 2ULL * CORE_NUM * 1024ULL * 4ULL);
+    EXPECT_EQ(tilingInfo.workspaceSizes[0], SYS_WORKSPACE_SIZE + 2ULL * CORE_NUM * 1024ULL * 4ULL);
 }
 
 TEST_F(RadixTopKTilingTest, stk_fields_bf16_k4096_s12e6)
@@ -659,10 +660,10 @@ TEST_F(RadixTopKTilingTest, stk_fields_row_mode_batch48)
     EXPECT_EQ(td.stkRowsPerCore, 1ULL);
     EXPECT_EQ(td.stkFormerCoreNum, CORE_NUM);
     EXPECT_EQ(td.stkTailCoreNum, 0ULL);
-    // 整行整除（r=0）无余数行段化 ⇒ 无 GM 槽位归并，workspace 为 0
+    // 整行整除（r=0）无余数行段化 ⇒ 不分配 GM 槽位归并，仅保留系统 workspace
     EXPECT_EQ(td.stkResidualRows, 0ULL);
     ASSERT_EQ(tilingInfo.workspaceSizes.size(), 1);
-    EXPECT_EQ(tilingInfo.workspaceSizes[0], 0u) << "纯整行行模式不应分配归并槽位 workspace";
+    EXPECT_EQ(tilingInfo.workspaceSizes[0], SYS_WORKSPACE_SIZE) << "纯整行行模式不应分配归并槽位 workspace";
 }
 
 TEST_F(RadixTopKTilingTest, stk_fields_row_mode_residual_ws)
@@ -687,7 +688,7 @@ TEST_F(RadixTopKTilingTest, stk_fields_row_mode_residual_ws)
     // 余数行走 GM 槽位树归并：workspace = 2 * coreNum * align64(k) * sizeof(int32)
     constexpr uint64_t kAlign = (1000ULL + STK_SLOT_ALIGN - 1) / STK_SLOT_ALIGN * STK_SLOT_ALIGN; // = 1024
     ASSERT_EQ(tilingInfo.workspaceSizes.size(), 1);
-    EXPECT_EQ(tilingInfo.workspaceSizes[0], 2ULL * CORE_NUM * kAlign * 4ULL)
+    EXPECT_EQ(tilingInfo.workspaceSizes[0], SYS_WORKSPACE_SIZE + 2ULL * CORE_NUM * kAlign * 4ULL)
         << "行模式余数行段化同样需要归并槽位 workspace";
 }
 
