@@ -80,7 +80,7 @@ aclnnStatus aclnnReduceNansum(
       <td>self (aclTensor*)</td>
       <td>Input</td>
       <td>Input tensor.</td>
-      <td>Empty tensors are supported.<br>The data type must satisfy the conversion relationship with the dtype of out (see <a href="../../../docs/en/context/conversion_relationship.md" target="_blank">conversion relationship</a>).</td>
+      <td>Empty tensors are supported.<br>The data type must satisfy the conversion relationship with the dtype of out (see <a href="../../../docs/en/context/conversion_relationship.md" target="_blank">conversion relationship</a>).<br>Due to current implementation restrictions, converting floating-point types to INT8, INT16, INT32, INT64, or UINT8 is not supported, and converting non-BOOL types to BOOL is not supported.</td>
       <td>FLOAT16, FLOAT32, INT8, INT16, INT32, INT64, UINT8, BOOL, BFLOAT16</td>
       <td>ND</td>
       <td>0-8</td>
@@ -179,8 +179,8 @@ aclnnStatus aclnnReduceNansum(
       <td>The self, dim, or out parameter is a null pointer.</td>
     </tr>
     <tr>
-      <td rowspan="6">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="6">161002</td>
+      <td rowspan="7">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="7">161002</td>
       <td>The data type of self or out is not supported.</td>
     </tr>
     <tr>
@@ -197,6 +197,9 @@ aclnnStatus aclnnReduceNansum(
     </tr>
     <tr>
       <td>The shape of out does not match the actual shape.</td>
+    </tr>
+    <tr>
+      <td>The data type conversion among self, dtype, and out does not satisfy the preceding constraints (for example, converting a floating-point type to an integer type or to BOOL).</td>
     </tr>
   </tbody>
   </table>

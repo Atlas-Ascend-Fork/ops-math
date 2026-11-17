@@ -592,3 +592,130 @@ TEST_F(l2_atan2_test, ascend910B2_atan2_self_int16_other_int64_out_bool)
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
     EXPECT_EQ(aclRet, ACL_SUCCESS);
 }
+
+/* ------------------------- aclnnInplaceAtan2 -------------------------
+ * 原地接口契约（math/atan2/docs/aclnnAtan2&aclnnInplaceAtan2.md 原地接口段）：
+ * selfRef 数据类型为 INT8、INT16、INT32、INT64、UINT8、BOOL、FLOAT、FLOAT16、DOUBLE、BFLOAT16，
+ * selfRef 同时作为输出写回，计算结果 cast 回 selfRef 的 dtype 属预期行为，
+ * 表外 dtype 才在第一段返回 161002。
+ */
+
+// 基础用例：float 原地对照
+TEST_F(l2_atan2_test, aclnnInplaceAtan2_float_base)
+{
+    const vector<int64_t>& selfRefShape = {2, 4};
+    auto selfRefDesc = TensorDesc(selfRefShape, ACL_FLOAT, ACL_FORMAT_ND).Value(vector<float>{1, 2, 3, 4, 5, 6, 7, 8});
+    auto otherDesc = TensorDesc(selfRefShape, ACL_FLOAT, ACL_FORMAT_ND).Value(vector<float>{8, 7, 6, 5, 4, 3, 2, 1});
+
+    auto ut = OP_API_UT(aclnnInplaceAtan2, INPUT(selfRefDesc, otherDesc), OUTPUT());
+
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACL_SUCCESS);
+}
+
+// other 向 selfRef 广播：selfRef {4, 2}，other {2}
+TEST_F(l2_atan2_test, aclnnInplaceAtan2_broadcast)
+{
+    auto selfRefDesc = TensorDesc({4, 2}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto otherDesc = TensorDesc({2}, ACL_FLOAT, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnInplaceAtan2, INPUT(selfRefDesc, otherDesc), OUTPUT());
+
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACL_SUCCESS);
+}
+
+// selfRef 整型契约：INT8/UINT8/INT32/BOOL 属原地接口支持列表（issue #4200 报告的四个 dtype），
+// 第一段应返回成功而非 161002
+TEST_F(l2_atan2_test, aclnnInplaceAtan2_int8_self_ref)
+{
+    const vector<int64_t>& selfRefShape = {2, 4};
+    auto selfRefDesc = TensorDesc(selfRefShape, ACL_INT8, ACL_FORMAT_ND);
+    auto otherDesc = TensorDesc(selfRefShape, ACL_FLOAT, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnInplaceAtan2, INPUT(selfRefDesc, otherDesc), OUTPUT());
+
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACL_SUCCESS);
+}
+
+TEST_F(l2_atan2_test, aclnnInplaceAtan2_uint8_self_ref)
+{
+    const vector<int64_t>& selfRefShape = {2, 4};
+    auto selfRefDesc = TensorDesc(selfRefShape, ACL_UINT8, ACL_FORMAT_ND);
+    auto otherDesc = TensorDesc(selfRefShape, ACL_FLOAT, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnInplaceAtan2, INPUT(selfRefDesc, otherDesc), OUTPUT());
+
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACL_SUCCESS);
+}
+
+TEST_F(l2_atan2_test, aclnnInplaceAtan2_int32_self_ref)
+{
+    const vector<int64_t>& selfRefShape = {2, 4};
+    auto selfRefDesc = TensorDesc(selfRefShape, ACL_INT32, ACL_FORMAT_ND);
+    auto otherDesc = TensorDesc(selfRefShape, ACL_FLOAT, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnInplaceAtan2, INPUT(selfRefDesc, otherDesc), OUTPUT());
+
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACL_SUCCESS);
+}
+
+TEST_F(l2_atan2_test, aclnnInplaceAtan2_bool_self_ref)
+{
+    const vector<int64_t>& selfRefShape = {2, 4};
+    auto selfRefDesc = TensorDesc(selfRefShape, ACL_BOOL, ACL_FORMAT_ND);
+    auto otherDesc = TensorDesc(selfRefShape, ACL_FLOAT, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnInplaceAtan2, INPUT(selfRefDesc, otherDesc), OUTPUT());
+
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACL_SUCCESS);
+}
+
+// selfRef 类型不在原地接口支持列表内
+TEST_F(l2_atan2_test, aclnnInplaceAtan2_self_dtype_error)
+{
+    const vector<int64_t>& selfRefShape = {2, 4};
+    auto selfRefDesc = TensorDesc(selfRefShape, ACL_COMPLEX64, ACL_FORMAT_ND);
+    auto otherDesc = TensorDesc(selfRefShape, ACL_FLOAT, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnInplaceAtan2, INPUT(selfRefDesc, otherDesc), OUTPUT());
+
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
+}
+
+// selfRef 为空指针
+TEST_F(l2_atan2_test, aclnnInplaceAtan2_self_nullptr)
+{
+    auto otherDesc = TensorDesc({2, 4}, ACL_FLOAT, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnInplaceAtan2, INPUT((aclTensor*)nullptr, otherDesc), OUTPUT());
+
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_NULLPTR);
+}
+
+// selfRef 维数大于 8
+TEST_F(l2_atan2_test, aclnnInplaceAtan2_self_shape_out_of_8)
+{
+    auto selfRefDesc = TensorDesc({1, 2, 3, 4, 5, 6, 7, 8, 9}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto otherDesc = TensorDesc({1, 2, 3, 4, 5, 6, 7, 8, 9}, ACL_FLOAT, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnInplaceAtan2, INPUT(selfRefDesc, otherDesc), OUTPUT());
+
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
+}

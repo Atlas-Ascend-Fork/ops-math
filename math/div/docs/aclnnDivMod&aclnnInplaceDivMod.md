@@ -451,6 +451,12 @@ aclnnStatus aclnnInplaceDivMod(
 <!-- npu="A3,910b" id11 -->
 - <term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>：当mode为1（trunc模式）或2（floor模式），因FLOAT16/BFLOAT16数据类型精度有限，无法表示所有小数，在舍入取整/向下取整时存在一定误差，可以选择更高精度的数据类型如FLOAT32。
 <!-- end id11 -->
+<!-- npu="A3,910b" id12 -->
+- <term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>：当mode为0（none模式）或1（trunc模式）且self、other的数据类型推导结果为DOUBLE时，接口内部会将数据类型降为FLOAT32进行计算，计算结果精度与FLOAT32一致，而非DOUBLE精度；mode为2（floor模式）时DOUBLE保持DOUBLE精度计算。
+<!-- end id12 -->
+<!-- npu="A3,910b" id13 -->
+- <term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>：当self、other的数据类型均为INT16且mode为2（floor模式）时，不支持other中存在0的元素。该场景下第二段接口返回成功，但aclrtSynchronizeStream会返回507018（AICPU执行异常），输出结果未写入。若输入可能包含0，建议使用mode为0或1，或将数据类型转换为INT32及以上。
+<!-- end id13 -->
 
 ## 调用示例
 

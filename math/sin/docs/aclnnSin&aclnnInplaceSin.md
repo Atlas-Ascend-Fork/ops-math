@@ -98,7 +98,7 @@ aclnnStatus aclnnInplaceSin(
       <td>self（aclTensor*）</td>
       <td>输入</td>
       <td>输入tensor。</td>
-      <td>shape需要与out一致，和out的数据类型满足数据类型<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>。当输入的数据类型为INT8、INT16、INT32、INT64、UINT8、BOOL时，会转换为FLOAT（float32）数据类型做计算；其余支持的数据类型保持self的数据类型调用Sin。计算结果转换成out的数据类型。</td>
+      <td>shape需要与out一致，计算结果的数据类型需满足可转换为out数据类型的<a href="../../../docs/zh/context/conversion_relationship.md" target="_blank">互转换关系</a>。当输入的数据类型为INT8、INT16、INT32、INT64、UINT8、BOOL时，会转换为FLOAT（float32）数据类型做计算；其余支持的数据类型保持self的数据类型调用Sin。计算结果转换成out的数据类型。</td>
       <td>INT8、INT16、INT32、INT64、UINT8、BOOL、FLOAT、FLOAT16、DOUBLE、COMPLEX64、COMPLEX128、BFLOAT16</td>
       <td>ND</td>
       <td>不大于8</td>
@@ -108,7 +108,7 @@ aclnnStatus aclnnInplaceSin(
       <td>out（aclTensor*）</td>
       <td>输出</td>
       <td>输出tensor。</td>
-      <td>和self的数据类型满足数据类型<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>。</td>
+      <td>需满足可转换为该数据类型的<a href="../../../docs/zh/context/conversion_relationship.md" target="_blank">互转换关系</a>。</td>
       <td>FLOAT、FLOAT16、DOUBLE、COMPLEX64、COMPLEX128、BFLOAT16</td>
       <td>ND</td>
       <td>需要与self一致</td>
@@ -169,7 +169,7 @@ aclnnStatus aclnnInplaceSin(
       <td>self和out的数据类型和数据格式不在支持的范围之内。</td>
     </tr>
     <tr>
-      <td>self和out的数据类型不满足数据类型推导规则。</td>
+      <td>self的计算结果不满足可转换为out数据类型的互转换关系。</td>
     </tr>
     <tr>
       <td>self和out的维度大于8。</td>

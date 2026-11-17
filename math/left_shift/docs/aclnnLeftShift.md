@@ -221,9 +221,9 @@ aclnnStatus aclnnLeftShift(
 - 确定性计算：
   - aclnnLeftShift默认确定性实现。
 
-- 只能保证shiftBits的数值小于self数据类型位宽时，精度无误差。
+- 只能保证shiftBits的数值小于self与shiftBits互推导后的数据类型位宽时，精度无误差。
 
-- 当shiftBits为负数或不小于self数据类型的位宽时，输出为0。
+- 当shiftBits为负数或不小于self与shiftBits互推导后的数据类型的位宽时，输出为0。
 
 - 广播（broadcast）说明：
 
@@ -233,6 +233,9 @@ aclnnStatus aclnnLeftShift(
   <!-- npu="A3,910b" id8 -->
   - <term>Atlas A3系列产品</term>、<term>Atlas A2系列产品</term>：接口内部会显式调用BroadcastTo，将输入广播至out的shape后再计算。
   <!-- end id8 -->
+  <!-- npu="910b" id9 -->
+  - 受接口内部BroadcastTo算子实现限制，<term>Atlas A2系列产品</term>上self或shiftBits为int16、uint16时，广播过程中不可合并的维度数不能超过5；例如self为[2,1,2,1,2,1]、out为[2,2,2,2,2,2]时合并相邻维度后仍有6维，该广播场景不支持，调用失败（同步时返回507018）。
+  <!-- end id9 -->
 
 ## 调用示例
 

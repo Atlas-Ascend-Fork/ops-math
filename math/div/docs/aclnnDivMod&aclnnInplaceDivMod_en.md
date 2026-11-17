@@ -453,6 +453,12 @@ aclnnStatus aclnnInplaceDivMod(
 <!-- npu="A3,910b" id11 -->
 - <term>Atlas A2 products</term>, <term>Atlas A3 products</term>: When mode is 1 (trunc mode) or 2 (floor mode), due to the limited precision of FLOAT16/BFLOAT16 data types, which cannot represent all decimals, certain errors may occur during rounding/flooring. You can choose a higher-precision data type such as FLOAT32.
 <!-- end id11 -->
+<!-- npu="A3,910b" id12 -->
+- <term>Atlas A2 products</term>, <term>Atlas A3 products</term>: When mode is 0 (none mode) or 1 (trunc mode) and the deduced data type of self and other is DOUBLE, the data type is downgraded to FLOAT32 for internal computation. In this case, the accuracy of the result is the same as that of FLOAT32 rather than DOUBLE. When mode is 2 (floor mode), DOUBLE is retained and computed in DOUBLE precision.
+<!-- end id12 -->
+<!-- npu="A3,910b" id13 -->
+- <term>Atlas A2 products</term>, <term>Atlas A3 products</term>: When both self and other are INT16 and mode is 2 (floor mode), 0 elements in other are not supported. In this case, the second-stage API returns success, but aclrtSynchronizeStream returns 507018 (AICPU execution exception) and the output is not written. If the input may contain 0, use mode 0 or 1, or convert the data type to INT32 or a wider type.
+<!-- end id13 -->
 
 ## Example
 

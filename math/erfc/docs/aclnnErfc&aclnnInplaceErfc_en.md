@@ -140,8 +140,8 @@ aclnnStatus aclnnInplaceErfc(
     </tr>
   </tbody></table>
 
-  <!-- npu="950,A3" id7 -->
-  - <term>Ascend 950PR&950DT products</term>, <term>Atlas A3 products</term>: self and out additionally support BFLOAT16.
+  <!-- npu="950,A3,910b" id7 -->
+  - <term>Ascend 950PR&950DT products</term>, <term>Atlas A3 products</term>, <term>Atlas A2 products</term>: self and out additionally support BFLOAT16.
   <!-- end id7 -->
 
 - **Return value**
@@ -285,8 +285,8 @@ aclnnStatus aclnnInplaceErfc(
     </tr>
   </tbody></table>
 
-  <!-- npu="950,A3" id8 -->
-  - <term>Ascend 950PR&950DT products</term>, <term>Atlas A3 products</term>: selfRef additionally supports BFLOAT16.
+  <!-- npu="950,A3,910b" id8 -->
+  - <term>Ascend 950PR&950DT products</term>, <term>Atlas A3 products</term>, <term>Atlas A2 products</term>: selfRef additionally supports BFLOAT16.
   <!-- end id8 -->
 
 - **Return value**

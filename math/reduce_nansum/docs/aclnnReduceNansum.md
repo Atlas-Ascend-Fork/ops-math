@@ -78,7 +78,7 @@ aclnnStatus aclnnReduceNansum(
       <td>self（aclTensor*）</td>
       <td>输入</td>
       <td>输入tensor。</td>
-      <td>支持空Tensor。<br>数据类型需和out的dtype满足可转换关系（参见<a href="../../../docs/zh/context/conversion_relationship.md" target="_blank">互转换关系</a>）。</td>
+      <td>支持空Tensor。<br>数据类型需和out的dtype满足可转换关系（参见<a href="../../../docs/zh/context/conversion_relationship.md" target="_blank">互转换关系</a>）。<br>受当前实现限制，不支持将浮点类型转换为INT8、INT16、INT32、INT64、UINT8，也不支持将非BOOL类型转换为BOOL。</td>
       <td>FLOAT16、FLOAT32、INT8、INT16、INT32、INT64、UINT8、BOOL、BFLOAT16</td>
       <td>ND</td>
       <td>0-8</td>
@@ -177,8 +177,8 @@ aclnnStatus aclnnReduceNansum(
       <td>传入的self、dim或out是空指针。</td>
     </tr>
     <tr>
-      <td rowspan="6">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="6">161002</td>
+      <td rowspan="7">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="7">161002</td>
       <td>self或out的数据类型不在支持范围内。</td>
     </tr>
     <tr>
@@ -195,6 +195,9 @@ aclnnStatus aclnnReduceNansum(
     </tr>
     <tr>
       <td>out shape与实际不匹配。</td>
+    </tr>
+    <tr>
+      <td>self、dtype和out之间的数据类型转换不满足上述约束（如浮点类型转换为整型、转换为BOOL）。</td>
     </tr>
   </tbody>
   </table>

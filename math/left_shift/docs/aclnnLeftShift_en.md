@@ -223,7 +223,11 @@ aclnnStatus aclnnLeftShift(
 - Deterministic computation:
   - aclnnLeftShift defaults to a deterministic implementation.
 
-- Accuracy is guaranteed only when the value of shiftBits is less than the bit width of the self data type.
+- Accuracy is guaranteed only when the value of shiftBits is less than the bit width of the data type deduced from self and shiftBits.
+
+<!-- npu="910b" id9 -->
+- On Atlas A2 series products, broadcasting of int16 or uint16 self/shiftBits is limited by the internal BroadcastTo operator: the number of non-mergeable dimensions must not exceed 5. For example, when self is [2,1,2,1,2,1] and out is [2,2,2,2,2,2], the broadcast is not supported and the call fails (aclrtSynchronizeStream returns 507018).
+<!-- end id9 -->
 
 ## Example
 
