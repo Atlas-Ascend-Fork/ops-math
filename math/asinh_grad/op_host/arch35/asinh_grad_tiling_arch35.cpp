@@ -28,7 +28,8 @@
 #include "op_common/op_host/util/math_util.h"
 #include "op_common/op_host/util/platform_util.h"
 #include "../../op_kernel/arch35/asinh_grad_tiling_data.h"
-#include "../../op_kernel/arch35/asinh_grad_tiling_key.h"
+#include "../../op_kernel/arch35/asinh_grad_sech_tiling_key.h"
+#include "asinh_grad_sech_host_route.h"
 
 namespace optiling {
 
@@ -161,7 +162,8 @@ static ge::graphStatus AsinhGradTilingFunc(gert::TilingContext* context)
     context->SetBlockDim(usedCoreNum);
 
     // 5. Set TilingKey
-    ASCENDC_TPL_SEL_PARAM(context, useDoubleBuffer);
+    ASCENDC_TPL_SEL_PARAM(
+        context, NsAsinhGradSechHostRoute::Select(context, dataType, totalIdx, useDoubleBuffer, ubSize, tiling));
     OP_LOGI(context->GetNodeName(), "[TilingData] totalNum=%ld, blockFactor=%ld, ubFactor=%ld", tiling->totalNum,
             tiling->blockFactor, tiling->ubFactor);
     return ge::GRAPH_SUCCESS;

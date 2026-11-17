@@ -13,7 +13,7 @@
   y = forward asinh 的输出（op.outputs[0]）
   z = dy / cosh(y)
 
-CPU Golden 使用 TensorFlow 小算子按 z = dy / cosh(y) 计算。
+CPU Golden 与 GPU 三方参考均使用 TensorFlow 小算子按 z = dy / cosh(y) 计算。
 参考值升精度由 TTK Promote 完成；golden 保持传入 dtype。
 """
 
@@ -38,19 +38,20 @@ def asinh_grad_golden(y, dy, **kwargs):
     return [normalize_from_tf_dtype(result.numpy())]
 
 
-class _TorchAsinhGrad:
-    """PyTorch 三方实现：直接计算 dy / cosh(y)，不升精度。"""
+class _TensorFlowAsinhGrad:
+    """TensorFlow 三方实现：在 TTK 指定设备计算 dy / cosh(y)，不升精度。"""
 
-    def __call__(self, y, dy, **kwargs):
+    def __call__(self, y, dy, *, device="cpu", **kwargs):
         del kwargs
-        import torch
+        import tensorflow as tf
 
-        return [torch.div(dy, torch.cosh(y))]
+        with tf.device(device):
+            return [tf.math.divide(dy, tf.math.cosh(y))]
 
 
 class AsinhGradTestSpec:
     golden = staticmethod(asinh_grad_golden)
-    third_party = {"torch": _TorchAsinhGrad}
+    third_party = {"tf": _TensorFlowAsinhGrad}
     tolerance = {
         "float16": {"standard": "cross_check", "level": "L1"},
         "bfloat16": {"standard": "cross_check", "level": "L1"},

@@ -19,7 +19,10 @@
  *   - BUFFER_MODE: 0=single buffer, 1=double buffer
  */
 
+#include "arch35/asinh_grad_sech_tiling_key.h"
 #include "arch35/asinh_grad.h"
+#include "arch35/asinh_grad_certified_sech.h"
+#include "arch35/asinh_grad_fast_cosh.h"
 
 #ifdef __CCE_KT_TEST__
 extern "C" __global__ __aicore__ void asinh_grad(GM_ADDR y, GM_ADDR dy, GM_ADDR z, GM_ADDR workspace, GM_ADDR tiling)
@@ -35,8 +38,18 @@ __global__ __aicore__ void asinh_grad(GM_ADDR y, GM_ADDR dy, GM_ADDR z, GM_ADDR 
 {
     REGISTER_TILING_DEFAULT(AsinhGradTilingData);
     GET_TILING_DATA_WITH_STRUCT(AsinhGradTilingData, tilingData, tiling);
-    NsAsinhGrad::AsinhGrad<DTYPE_Y, BUFFER_MODE> op;
-    op.Init(y, dy, z, &tilingData);
-    op.Process();
+    if constexpr (BUFFER_MODE == 2 && std::is_same_v<DTYPE_Y, float>) {
+        NsAsinhGradFastCosh::AsinhGrad<float, 1> op;
+        op.Init(y, dy, z, &tilingData);
+        op.Process();
+    } else if constexpr (BUFFER_MODE == 2) {
+        NsAsinhGrad::AsinhGrad<DTYPE_Y, 1> op;
+        op.Init(y, dy, z, &tilingData);
+        op.Process();
+    } else {
+        NsAsinhGrad::AsinhGrad<DTYPE_Y, BUFFER_MODE> op;
+        op.Init(y, dy, z, &tilingData);
+        op.Process();
+    }
 }
 #endif
