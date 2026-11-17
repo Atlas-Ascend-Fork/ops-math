@@ -1277,8 +1277,8 @@ void TransposeNddmaTiling::CalcBlockSplitInfoForSmallShape()
         blkTailFactor_ = 0;
         return;
     }
-    // simt every core elemets align to 128Byte
-    int64_t blkFactor = totalElements / coreNum_;
+    // 先向上均分再对齐，确保可用核数能够覆盖全部元素。
+    int64_t blkFactor = Ops::Base::CeilDiv(totalElements, coreNum_);
     int64_t ceilAlignFactor = Ops::Base::CeilAlign(blkFactor, alignElements);
     realCoreNum_ = Ops::Base::CeilDiv(totalElements, ceilAlignFactor);
     blkFactor_ = ceilAlignFactor;

@@ -1234,6 +1234,28 @@ inline int64_t GetOpTilingField(const TilingInfo& tilingInfo, size_t idx)
     }
     return value;
 }
+
+inline void ExpectSmallShapeCoverage(const TilingInfo& tilingInfo, int64_t totalElements, int64_t coreBudget,
+                                     int64_t elementBytes)
+{
+    ASSERT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::SMALL_SHAPE));
+    ASSERT_NE(tilingInfo.tilingData, nullptr);
+    ASSERT_GE(tilingInfo.tilingDataSize, (IDX_BLK_TAIL_FACTOR + 1) * sizeof(int64_t));
+    const int64_t realCoreNum = GetOpTilingField(tilingInfo, IDX_REAL_CORE_NUM);
+    const int64_t blkFactor = GetOpTilingField(tilingInfo, IDX_BLK_FACTOR);
+    const int64_t blkTailFactor = GetOpTilingField(tilingInfo, IDX_BLK_TAIL_FACTOR);
+    ASSERT_GT(realCoreNum, 0);
+    EXPECT_LE(realCoreNum, coreBudget);
+    EXPECT_EQ(tilingInfo.blockNum, realCoreNum);
+    ASSERT_GT(blkFactor, 0);
+    ASSERT_GE(blkTailFactor, 0);
+    ASSERT_LT(blkTailFactor, blkFactor);
+    if (realCoreNum > 1) {
+        EXPECT_EQ(blkFactor * elementBytes % 128, 0);
+    }
+    const int64_t lastBlockElements = blkTailFactor == 0 ? blkFactor : blkTailFactor;
+    EXPECT_EQ((realCoreNum - 1) * blkFactor + lastBlockElements, totalElements);
+}
 } // namespace transpose_tiling_detail
 
 // Absorption success: [4000, 7000, 8] perm [1, 0, 2] with 248K UB. The sqrt budget (251)
@@ -1371,6 +1393,8 @@ TEST_F(TransposeTiling, transpose_tiling_small_shape_fp32_below_align_single_cor
     EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_REAL_CORE_NUM), 1);
     EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_BLK_FACTOR), 28);
     EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_BLK_TAIL_FACTOR), 0);
+    ASSERT_NO_FATAL_FAILURE(
+        transpose_tiling_detail::ExpectSmallShapeCoverage(tilingInfo, 4 * 7, compileInfo.coreNum, 4));
 }
 
 // SMALL_SHAPE with int8: 20*6=120 elements < alignment unit (128/1=128) -> single core,
@@ -1441,6 +1465,76 @@ TEST_F(TransposeTiling, transpose_tiling_small_shape_floor_align_full_cores)
     EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_REAL_CORE_NUM), 48);
     EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_BLK_FACTOR), 3200);
     EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_BLK_TAIL_FACTOR), 0);
+    ASSERT_NO_FATAL_FAILURE(
+        transpose_tiling_detail::ExpectSmallShapeCoverage(tilingInfo, 256 * 150 * 4, compileInfo.coreNum, 4));
+}
+
+TEST_F(TransposeTiling, transpose_tiling_small_shape_core_budget_with_tail)
+{
+    optiling::TransposeCompilerInfo compileInfo;
+    compileInfo.coreNum = 48;
+    compileInfo.ubSize = 253952;
+
+    int64_t permValue[] = {1, 0, 2};
+    gert::TilingContextPara::TensorDescription x({{2, 9601, 8}, {2, 9601, 8}}, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::TilingContextPara::TensorDescription perm({{3}, {3}}, ge::DT_INT64, ge::FORMAT_ND, true, &permValue);
+    gert::TilingContextPara::TensorDescription y({{9601, 2, 8}, {9601, 2, 8}}, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::TilingContextPara contextPara("Transpose", {x, perm}, {y}, &compileInfo, compileInfo.coreNum,
+                                        compileInfo.ubSize);
+
+    TilingInfo tilingInfo;
+    ASSERT_TRUE(ExecuteTiling(contextPara, tilingInfo));
+    ASSERT_NO_FATAL_FAILURE(
+        transpose_tiling_detail::ExpectSmallShapeCoverage(tilingInfo, 2 * 9601 * 8, compileInfo.coreNum, 4));
+    EXPECT_EQ(tilingInfo.blockNum, 48);
+    EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_REAL_CORE_NUM), 48);
+    EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_BLK_FACTOR), 3232);
+    EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_BLK_TAIL_FACTOR),
+              1712);
+}
+
+TEST_F(TransposeTiling, transpose_tiling_small_shape_core_budget_dtypes_and_limits)
+{
+    struct SplitCase {
+        ge::DataType dtype;
+        int64_t elementBytes;
+        int64_t coreBudget;
+        int64_t realCoreNum;
+        int64_t blkFactor;
+        int64_t blkTailFactor;
+        int64_t middleDim = 9601;
+        int64_t lastDim = 8;
+    };
+    const SplitCase cases[] = {
+        {ge::DT_FLOAT16, 2, 48, 48, 3264, 208}, {ge::DT_INT8, 1, 48, 47, 3328, 528},
+        {ge::DT_FLOAT, 4, 8, 8, 19232, 18992},  {ge::DT_FLOAT, 4, 1, 1, 153632, 153616},
+        {ge::DT_FLOAT, 4, 48, 1, 40, 0, 5, 4},
+    };
+    for (const auto& testCase : cases) {
+        SCOPED_TRACE(::testing::Message() << "dtype=" << testCase.dtype << ", coreBudget=" << testCase.coreBudget);
+        optiling::TransposeCompilerInfo compileInfo;
+        compileInfo.coreNum = testCase.coreBudget;
+        compileInfo.ubSize = 253952;
+        int64_t permValue[] = {1, 0, 2};
+        gert::TilingContextPara::TensorDescription x(
+            {{2, testCase.middleDim, testCase.lastDim}, {2, testCase.middleDim, testCase.lastDim}}, testCase.dtype,
+            ge::FORMAT_ND);
+        gert::TilingContextPara::TensorDescription perm({{3}, {3}}, ge::DT_INT64, ge::FORMAT_ND, true, &permValue);
+        gert::TilingContextPara::TensorDescription y(
+            {{testCase.middleDim, 2, testCase.lastDim}, {testCase.middleDim, 2, testCase.lastDim}}, testCase.dtype,
+            ge::FORMAT_ND);
+        gert::TilingContextPara contextPara("Transpose", {x, perm}, {y}, &compileInfo, compileInfo.coreNum,
+                                            compileInfo.ubSize);
+        TilingInfo tilingInfo;
+        ASSERT_TRUE(ExecuteTiling(contextPara, tilingInfo));
+        ASSERT_NO_FATAL_FAILURE(transpose_tiling_detail::ExpectSmallShapeCoverage(
+            tilingInfo, 2 * testCase.middleDim * testCase.lastDim, testCase.coreBudget, testCase.elementBytes));
+        EXPECT_EQ(tilingInfo.blockNum, testCase.realCoreNum);
+        EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_BLK_FACTOR),
+                  testCase.blkFactor);
+        EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_BLK_TAIL_FACTOR),
+                  testCase.blkTailFactor);
+    }
 }
 
 // SMALL_SHAPE ceil-align branch: [200, 200, 4] fp32 -> 160000 elements, raw blkFactor=3333.
