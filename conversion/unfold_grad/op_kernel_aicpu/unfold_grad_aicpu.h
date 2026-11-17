@@ -18,25 +18,25 @@
 
 namespace aicpu {
 class UnfoldGradCpuKernel : public CpuKernel {
- public:
-  UnfoldGradCpuKernel() = default;
-  ~UnfoldGradCpuKernel() = default;
-  uint32_t Compute(CpuKernelContext &ctx) override;
+public:
+    UnfoldGradCpuKernel() = default;
+    ~UnfoldGradCpuKernel() = default;
+    uint32_t Compute(CpuKernelContext& ctx) override;
 
- private:
-   /**
-   * @brief Init params
-   * @param ctx cpu kernel context
-   * @return status if success
-   */
-  uint32_t CheckParam(CpuKernelContext &ctx);
+private:
     /**
-   * @brief Init params
-   * @param ctx cpu kernel context
-   * @return status if success
-   */
-  template <typename T>
-  uint32_t DoCompute(CpuKernelContext &ctx);
+     * @brief Init params
+     * @param ctx cpu kernel context
+     * @return status if success
+     */
+    uint32_t CheckParam(CpuKernelContext& ctx) const;
+    /**
+     * @brief Init params
+     * @param ctx cpu kernel context
+     * @return status if success
+     */
+    template <typename T>
+    uint32_t DoCompute(CpuKernelContext& ctx) const;
 };
-}  // namespace aicpu
+} // namespace aicpu
 #endif

@@ -94,7 +94,7 @@ static const aclTensor* GetPaddingTensor(int64_t dim, const aclIntArray* padding
 {
     FVector<int64_t, op::MAX_DIM_NUM> paddingsVector;
     // 2 is the magnification
-    for (size_t i = 2 * dim; i > 0; i -= 2) {
+    for (size_t i = static_cast<size_t>(2 * dim); i > 0; i -= 2) {
         if (i <= (size_t)padding->Size()) {
             // 2 and 1 indicate the element of padding is put into paddingsVector from the back to the front
             paddingsVector.emplace_back((*padding)[i - 2]);
@@ -120,7 +120,7 @@ static aclnnStatus InputPreprocess(const aclTensor*& gradOutput, const aclTensor
     return ACLNN_SUCCESS;
 }
 
-inline static const aclTensor* GetGradInputWithValueZero(aclTensor* gradInput, aclOpExecutor* executor)
+inline static const aclTensor* GetGradInputWithValueZero(const aclTensor* gradInput, aclOpExecutor* executor)
 {
     aclScalar* scalar = executor->AllocScalar(0);
     auto valueTensor = executor->ConvertToTensor(scalar, gradInput->GetDataType());

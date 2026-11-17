@@ -214,7 +214,7 @@ static aclnnStatus InputPreprocess(const aclTensor*& gradOutput, const aclTensor
     return ACLNN_SUCCESS;
 }
 
-static const aclTensor* GetGradInputWithValueZero(aclTensor* gradInput, aclOpExecutor* executor)
+static const aclTensor* GetGradInputWithValueZero(const aclTensor* gradInput, aclOpExecutor* executor)
 {
     aclScalar* scalar = executor->AllocScalar(0);
     auto valueTensor = executor->ConvertToTensor(scalar, gradInput->GetDataType());

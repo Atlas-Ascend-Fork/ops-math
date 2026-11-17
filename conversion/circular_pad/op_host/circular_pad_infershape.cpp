@@ -32,6 +32,9 @@ static constexpr size_t INPUT_IDX_X = 0;
 static constexpr size_t INPUT_IDX_PADDINGS = 1;
 static constexpr size_t OUTPUT_IDX_Y = 0;
 static constexpr int64_t UNKNOWN_DIM = -1;
+// paddings 元素个数：2D 为 4（H/W 各前后），3D 为 6（D/H/W 各前后）
+static constexpr int64_t PADDINGS_NUM_2D = 4;
+static constexpr int64_t PADDINGS_NUM_3D = 6;
 
 // 安全计算 dimSize + padFront + padBack 并校验有效性：求和会溢出 int64、或任一侧负 padding
 // 裁剪使对应维度为负时返回 false（避免有符号溢出 UB 及负输出维度）。与 aclnn 入口
@@ -87,7 +90,7 @@ static ge::graphStatus InferShape4CircularPad(gert::InferShapeContext* context)
         }
     }
 
-    if (padValues != nullptr && (paddingsNum == 4 || paddingsNum == 6)) {
+    if (padValues != nullptr && (paddingsNum == PADDINGS_NUM_2D || paddingsNum == PADDINGS_NUM_3D)) {
         // 3. paddings 可读 → 精确推导输出 shape
         size_t paddingDim = static_cast<size_t>(paddingsNum / 2); // 2D=2, 3D=3
 

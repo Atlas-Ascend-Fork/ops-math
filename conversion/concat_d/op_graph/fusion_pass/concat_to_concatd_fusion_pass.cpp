@@ -15,6 +15,7 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <cstring>
 #include <set>
 #include <string>
 #include <vector>
@@ -32,9 +33,8 @@
 #include "concat_to_concatd_fusion_pass.h"
 
 extern "C" {
-typedef int32_t rtError_t;
 static const int32_t RT_ERROR_NONE = 0;
-rtError_t rtGetSocSpec(const char* label, const char* key, char* val, const uint32_t maxLen);
+int32_t rtGetSocSpec(const char* label, const char* key, char* val, const uint32_t maxLen);
 __attribute__((weak)) int32_t aclsysGetVersionNum(char* pkgName, int32_t* versionNum);
 }
 
@@ -54,6 +54,8 @@ const std::string kTypeConcatV2D = "ConcatV2D";
 const std::string kTypeConcatD = "ConcatD";
 constexpr int32_t kConcatDimIdxConcat = 0;
 constexpr int64_t kMaxConcatDInputs = 512; // max data inputs per ConcatD node; more are split into a tree
+// Concat/ConcatV2 节点最少输入数：1 个 concat_dim 输入 + 至少 1 个数据输入
+constexpr int64_t kMinConcatInputs = 2;
 // Dtypes ConcatD supports; mirrors the TensorType of the ConcatD IR definition
 // (op_graph/concat_d_proto.h). Keep in sync when the proto dtype range changes.
 // Unsupported dtypes (e.g. DT_STRING) skip fusion and stay on the original
@@ -69,7 +71,8 @@ CustomPassStage GetConcatToConcatDPassStage()
 {
     int32_t version = 0;
     if (aclsysGetVersionNum != nullptr) {
-        aclsysGetVersionNum(const_cast<char*>("ge_compiler"), &version);
+        char pkgName[] = "ge_compiler";
+        aclsysGetVersionNum(pkgName, &version);
     }
     if (version >= GE_COMPILER_VERSION_900) {
         return CustomPassStage::kCompatibleInherited;
@@ -110,9 +113,14 @@ bool ReadConcatDim(const GNode& matchedNode, int32_t concatDimIdx, int64_t& conc
         return false;
     }
     if (dimDtype == DT_INT32) {
-        concatDim = static_cast<int64_t>(*reinterpret_cast<const int32_t*>(rawData));
+        // 用 memcpy 读取常量数据，避免 reinterpret_cast
+        int32_t dim32 = 0;
+        (void)memcpy(&dim32, rawData, sizeof(dim32));
+        concatDim = static_cast<int64_t>(dim32);
     } else if (dimDtype == DT_INT64) {
-        concatDim = *reinterpret_cast<const int64_t*>(rawData);
+        int64_t dim64 = 0;
+        (void)memcpy(&dim64, rawData, sizeof(dim64));
+        concatDim = dim64;
     } else {
         OP_LOGD(kPassName.c_str(), "Unsupported concat_dim dtype %d, skip node.", static_cast<int32_t>(dimDtype));
         return false;
@@ -187,7 +195,8 @@ Status ConcatToConcatDFusionPass::Run(GraphPtr& graph, CustomPassContext& passCo
     int32_t geVersion = 0;
     const bool versionQueryOk = (aclsysGetVersionNum != nullptr);
     if (versionQueryOk) {
-        aclsysGetVersionNum(const_cast<char*>("ge_compiler"), &geVersion);
+        char pkgName[] = "ge_compiler";
+        aclsysGetVersionNum(pkgName, &geVersion);
     } else {
         // Distinguish "symbol unresolved" from "runtime too old": the former is an environment
         // anomaly worth a warning, the latter is a normal old-runtime deployment.
@@ -242,7 +251,7 @@ Status ConcatToConcatDFusionPass::Run(GraphPtr& graph, CustomPassContext& passCo
         // Guard: axis must be a constant (Concat/ConcatV2) or an attr (ConcatV2D).
         int64_t concatDim = 0;
         if (concatDimIdx >= 0) {
-            if (inputNum < 2) {
+            if (inputNum < kMinConcatInputs) {
                 OP_LOGD(kPassName.c_str(), "Node %s has too few inputs (%ld), skip node.", nodeNameStr.GetString(),
                         inputNum);
                 continue;

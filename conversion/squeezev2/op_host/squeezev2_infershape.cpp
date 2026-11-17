@@ -48,12 +48,14 @@ ge::graphStatus SetOutputShapeAsUnknownRank(gert::Shape* y_shape)
 
 // squeeze x by squeeze_dims; when squeeze_dims is nullptr, squeeze all dims whose value is 1;
 // unknown dim(-1) pointed by axis is treated as 1, as no method to verify it on compile stage
-ge::graphStatus SqueezeImpl(const gert::Shape* x_shape, const bool* squeeze_dims, gert::Shape* y_shape)
+ge::graphStatus SqueezeImpl(const gert::Shape* x_shape, const bool* squeeze_dims, size_t squeeze_dims_len,
+                            gert::Shape* y_shape)
 {
     y_shape->SetDimNum(0U);
     for (size_t idx = 0U; idx < x_shape->GetDimNum(); ++idx) {
         const auto x_shape_dim = x_shape->GetDim(idx);
-        const bool squeeze = (squeeze_dims == nullptr) ? (x_shape_dim == 1) : squeeze_dims[idx];
+        const bool squeeze = (squeeze_dims == nullptr) ? (x_shape_dim == 1) :
+                                                         ((idx < squeeze_dims_len) && squeeze_dims[idx]);
         if (!squeeze) {
             y_shape->AppendDim(x_shape_dim);
         } else if ((x_shape_dim != 1) && (x_shape_dim != ge::UNKNOWN_DIM)) {
@@ -68,7 +70,8 @@ ge::graphStatus SqueezeImpl(const gert::Shape* x_shape, const bool* squeeze_dims
 }
 
 // validate axes in range [-x_dim_num, x_dim_num), mark the squeeze positions on squeeze_dims
-bool GetSqueezeDims(const gert::Shape* x_shape, const gert::TypedContinuousVector<int64_t>* axes, bool* squeeze_dims)
+bool GetSqueezeDims(const gert::Shape* x_shape, const gert::TypedContinuousVector<int64_t>* axes, bool* squeeze_dims,
+                    size_t squeeze_dims_len)
 {
     const auto x_dim_num = static_cast<int64_t>(x_shape->GetDimNum());
     for (size_t idx = 0U; idx < axes->GetSize(); ++idx) {
@@ -76,6 +79,10 @@ bool GetSqueezeDims(const gert::Shape* x_shape, const gert::TypedContinuousVecto
         const auto real_axis = (raw_axis < 0) ? (raw_axis + x_dim_num) : raw_axis;
         if ((real_axis < 0) || (real_axis >= x_dim_num)) {
             OP_LOGW("SqueezeV2", "SqueezeV2 axis[%ld] is not in range [-%ld, %ld)!", raw_axis, x_dim_num, x_dim_num);
+            return false;
+        }
+        if (static_cast<size_t>(real_axis) >= squeeze_dims_len) {
+            OP_LOGW("SqueezeV2", "SqueezeV2 axis[%ld] is out of the squeeze_dims array range!", raw_axis);
             return false;
         }
         squeeze_dims[real_axis] = true;
@@ -127,13 +134,13 @@ static ge::graphStatus InferShapeForSqueezeV2(gert::InferShapeContext* context)
             return SetOutputShapeAsUnknownRank(y_shape);
         }
         OP_LOGD(context, "Axis is not set or empty. Squeeze all dims whose value is 1.");
-        return SqueezeImpl(x_shape, nullptr, y_shape);
+        return SqueezeImpl(x_shape, nullptr, 0U, y_shape);
     }
 
     // case 3: V2 special logic of RT1.0: axis out of range, or deduped axis num not less than the
     // x dim num: the output shape falls back to the input shape
     bool squeeze_dims[gert::Shape::kMaxDimNum] = {false};
-    if (!GetSqueezeDims(x_shape, axes, squeeze_dims)) {
+    if (!GetSqueezeDims(x_shape, axes, squeeze_dims, gert::Shape::kMaxDimNum)) {
         OP_LOGW(context, "SqueezeV2 axis is not valid. Set output shape as input shape.");
         *y_shape = *x_shape;
         return ge::GRAPH_SUCCESS;
@@ -145,7 +152,7 @@ static ge::graphStatus InferShapeForSqueezeV2(gert::InferShapeContext* context)
     }
 
     // case 4: squeeze by axis, unknown dim(-1) pointed by axis is treated as 1
-    return SqueezeImpl(x_shape, squeeze_dims, y_shape);
+    return SqueezeImpl(x_shape, squeeze_dims, gert::Shape::kMaxDimNum, y_shape);
 }
 
 static ge::graphStatus InferDataTypeForSqueezeV2(gert::InferDataTypeContext* context)

@@ -390,7 +390,7 @@ static bool IsNonContiguousSupport(op::FVector<const aclTensor*> tensors, int64_
         for (int64_t j = breakAxis + 1; j < dimNum; j++) {
             innerSize *= shapeI.GetDim(j);
         }
-        if (stridesI[breakAxis] < 0 || stridesI[breakAxis] < innerSize) {
+        if (stridesI[static_cast<uint64_t>(breakAxis)] < 0 || stridesI[static_cast<uint64_t>(breakAxis)] < innerSize) {
             return false;
         }
     }

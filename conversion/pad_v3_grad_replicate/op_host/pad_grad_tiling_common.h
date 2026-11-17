@@ -152,6 +152,8 @@ static ge::graphStatus GetInputInfo(gert::TilingContext* tilingContext, InputPar
                 return ge::GRAPH_FAILED);
 
     const T* paddingsValue = paddingsTensor->GetData<T>();
+    OP_CHECK_IF(paddingsValue == nullptr, OP_LOGE_WITH_INVALID_INPUT(tilingContext->GetNodeName(), "paddings"),
+                return ge::GRAPH_FAILED);
 
     params.padTop = static_cast<int32_t>(paddingsValue[PADDING_NUM_INDEX4]);
     params.padBottom = static_cast<int32_t>(paddingsValue[PADDING_NUM_INDEX5]);

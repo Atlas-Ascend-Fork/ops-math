@@ -42,7 +42,7 @@ namespace aicpu {
         break;                                                       \
     }
 
-uint32_t UnfoldGradCpuKernel::CheckParam(CpuKernelContext& ctx)
+uint32_t UnfoldGradCpuKernel::CheckParam(CpuKernelContext& ctx) const
 {
     auto output_data_temp = ctx.Output(gradInIndex)->GetData();
     Tensor* input_tensor = ctx.Input(gradOutIndex);
@@ -109,7 +109,7 @@ static void Process(T* output_data, T* input_data, int64_t* input_sizes, int64_t
 }
 
 template <typename T>
-uint32_t UnfoldGradCpuKernel::DoCompute(CpuKernelContext& ctx)
+uint32_t UnfoldGradCpuKernel::DoCompute(CpuKernelContext& ctx) const
 {
     T* output_data = reinterpret_cast<T*>(ctx.Output(gradInIndex)->GetData());
     Tensor* input_tensor = ctx.Input(gradOutIndex);

@@ -20,6 +20,9 @@ namespace l0op {
 OP_TYPE_REGISTER(Im2col);
 
 static const string PADDING_MODE = "CALCULATED";
+// im2col 输入为 NCHW，H 位于第 2 维、W 位于第 3 维
+constexpr size_t IM2COL_H_DIM_IDX = 2;
+constexpr size_t IM2COL_W_DIM_IDX = 3;
 
 static bool SafeMul(int64_t lhs, int64_t rhs, int64_t& result)
 {
@@ -51,10 +54,10 @@ static bool Im2colInferShape(const aclTensor* self, const aclIntArray* kernelSiz
 {
     int64_t outH = 0;
     int64_t outW = 0;
-    if (!CalculateOutputDim(self->GetViewShape().GetDim(2), (*kernelSize)[0], (*dilation)[0], (*padding)[0],
-                            (*padding)[1], (*stride)[0], outH) ||
-        !CalculateOutputDim(self->GetViewShape().GetDim(3), (*kernelSize)[1], (*dilation)[1], (*padding)[2],
-                            (*padding)[3], (*stride)[1], outW)) {
+    if (!CalculateOutputDim(self->GetViewShape().GetDim(IM2COL_H_DIM_IDX), (*kernelSize)[0], (*dilation)[0],
+                            (*padding)[0], (*padding)[1], (*stride)[0], outH) ||
+        !CalculateOutputDim(self->GetViewShape().GetDim(IM2COL_W_DIM_IDX), (*kernelSize)[1], (*dilation)[1],
+                            (*padding)[2], (*padding)[3], (*stride)[1], outW)) {
         return false;
     }
     int64_t outChannels = 0;

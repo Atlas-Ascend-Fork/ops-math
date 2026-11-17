@@ -241,7 +241,7 @@ aclnnStatus aclnnTransConvolutionWeightGetWorkspaceSize(const aclTensor* weightI
 }
 
 aclnnStatus aclnnTransConvolutionWeight(void* workspace, uint64_t workspaceSize, aclOpExecutor* executor,
-                                        const aclrtStream stream)
+                                        aclrtStream stream)
 {
     // 固定写法，调用框架能力，完成计算
     L2_DFX_PHASE_2(aclnnTransConvolutionWeight);

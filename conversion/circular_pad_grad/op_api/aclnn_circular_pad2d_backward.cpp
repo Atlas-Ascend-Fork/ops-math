@@ -16,6 +16,9 @@ using namespace op;
 extern "C" {
 #endif
 
+// circular pad 2D 只填充最后 2 个维度（H/W），校验 gradOutput 前导维度时跳过
+static constexpr size_t CIRCULAR_PAD_2D_LAST_DIM_NUM = 2;
+
 static bool CheckShape(const aclTensor* gradOutput, const aclTensor* self, const aclIntArray* padding,
                        const aclTensor* gradInput)
 {
@@ -48,7 +51,7 @@ static bool CheckShape(const aclTensor* gradOutput, const aclTensor* self, const
     // gradOutput 前导维度需与 self 一致（文档：gradOutput shape 与正向 output 一致）
     // 空 tensor 场景（gradOutput 前导维为 0）由下方"空tensor处理"分支短路，此处跳过校验
     if (!gradOutput->IsEmpty()) {
-        for (size_t i = 0; i + 2 < static_cast<size_t>(selfDimnum); ++i) {
+        for (size_t i = 0; i + CIRCULAR_PAD_2D_LAST_DIM_NUM < static_cast<size_t>(selfDimnum); ++i) {
             OP_CHECK(gradOutput->GetViewShape().GetDim(i) == self->GetViewShape().GetDim(i),
                      OP_LOGE(ACLNN_ERR_PARAM_INVALID, "gradOutput leading dim should be same as self."), return false);
         }

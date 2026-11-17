@@ -63,13 +63,13 @@ static inline bool CheckDtypeSupportAiCore(op::DataType dtype)
 static inline bool CheckAiCoreIsSupport(op::DataType dtype) { return (IsRegBase() && CheckDtypeSupportAiCore(dtype)); }
 
 const aclTensor* StatelessRandperm(op::Shape shape, const aclTensor* n, const aclTensor* seed, const aclTensor* offset,
-                                   int64_t layout, op::DataType dtype, aclOpExecutor* executor)
+                                   int64_t layout, op::DataType dstDtype, aclOpExecutor* executor)
 {
-    auto out = executor->AllocTensor(shape, dtype);
-    if (CheckAiCoreIsSupport(dtype)) {
-        return StatelessRandpermAiCore(n, seed, offset, layout, dtype, out, executor);
+    auto out = executor->AllocTensor(shape, dstDtype);
+    if (CheckAiCoreIsSupport(dstDtype)) {
+        return StatelessRandpermAiCore(n, seed, offset, layout, dstDtype, out, executor);
     } else {
-        return StatelessRandpermAiCpu(n, seed, offset, layout, dtype, out, executor);
+        return StatelessRandpermAiCpu(n, seed, offset, layout, dstDtype, out, executor);
     }
 }
 

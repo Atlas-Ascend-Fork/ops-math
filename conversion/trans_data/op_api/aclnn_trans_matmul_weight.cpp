@@ -312,8 +312,7 @@ aclnnStatus aclnnTransMatmulWeightGetWorkspaceSize(aclTensor* mmWeightRef, uint6
     return ACLNN_SUCCESS;
 }
 
-aclnnStatus aclnnTransMatmulWeight(void* workspace, uint64_t workspaceSize, aclOpExecutor* executor,
-                                   const aclrtStream stream)
+aclnnStatus aclnnTransMatmulWeight(void* workspace, uint64_t workspaceSize, aclOpExecutor* executor, aclrtStream stream)
 {
     L2_DFX_PHASE_2(aclnnTransMatmulWeight);
 

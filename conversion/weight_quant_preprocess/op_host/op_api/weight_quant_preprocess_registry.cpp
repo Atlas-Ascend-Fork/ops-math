@@ -93,7 +93,6 @@ static bool IsMMMxA8HIF4DataFlow(QuantContext& ctx)
     auto weightDtype = ctx.weight->GetDataType();
     auto scaleDtype = ctx.weightScale->GetDataType();
     auto weightViewShape = ctx.weight->GetViewShape();
-
     if (weightDtype == Ops::Math::DT_HIFLOAT4 && scaleDtype == Ops::Math::DT_HIFLOAT4_SCALE &&
         ctx.xDtype == op::DataType::DT_FLOAT8_E4M3FN && ctx.xScaleDtype == op::DataType::DT_FLOAT8_E8M0 &&
         weightViewShape.GetDimNum() == DIMS_2) {
@@ -2224,17 +2223,17 @@ static aclnnStatus ProcessPerGroupScaleAndOffset(QuantContext& ctx)
 // ND 直拷与 NZ TransData 共用此前提），ND 入 + NZ 出的条目均可复用
 // scale/offset/bias 为透传参数：out 侧 same 校验已保证输出与输入完全一致，
 // 其自身的 dtype/format/shape 约束 preprocess 不消费也不处理，统一下放下游（wqbmmv2/qbmmv4）拦截
-const std::vector<CheckFunc> INPUT_4BIT_BASE_CHECKS = {CheckWeightNotEmpty, CheckWeightFormatND,
-                                                       CheckWeightPackingDimEven, CheckWeight4BitPackedView};
+static const std::vector<CheckFunc> INPUT_4BIT_BASE_CHECKS = {CheckWeightNotEmpty, CheckWeightFormatND,
+                                                              CheckWeightPackingDimEven, CheckWeight4BitPackedView};
 
 // A16F4/A8W4-MX 条目无 offset 直拷 process：入参 offset 必须 nullptr，否则会被静默丢弃
-const std::vector<CheckFunc> OFFSET_NULL_CHECK = {CheckWeightOffsetOptionalNull};
+static const std::vector<CheckFunc> OFFSET_NULL_CHECK = {CheckWeightOffsetOptionalNull};
 
 // out weight ND 直拷检查
-const std::vector<CheckFunc> OUT_WEIGHT_ND_CHECKS = {CheckOutWeightSameAsInput};
+static const std::vector<CheckFunc> OUT_WEIGHT_ND_CHECKS = {CheckOutWeightSameAsInput};
 
 // 非转置防御（judge 已保证非转置）：供 CombineChecks 条目在 OUT_WEIGHT_NZ_C016/C032_CHECKS 前插入
-const std::vector<CheckFunc> WEIGHT_NOT_TRANS_CHECK = {CheckWeightNotTrans};
+static const std::vector<CheckFunc> WEIGHT_NOT_TRANS_CHECK = {CheckWeightNotTrans};
 
 // out weight NZ_C0_16 分形检查（非转置防御由 WEIGHT_NOT_TRANS_CHECK 承担）
 const std::vector<CheckFunc> OUT_WEIGHT_NZ_C016_CHECKS = {
@@ -2242,16 +2241,17 @@ const std::vector<CheckFunc> OUT_WEIGHT_NZ_C016_CHECKS = {
     CheckOutWeightNz<NZ_C0_16, op::Format::FORMAT_FRACTAL_NZ_C0_16, NON_TRANS_WEIGHT>};
 
 // out weight NZ_C0_32 分形检查（非转置 -> N 块在前）
-const std::vector<CheckFunc> OUT_WEIGHT_NZ_C032_CHECKS = {
+static const std::vector<CheckFunc> OUT_WEIGHT_NZ_C032_CHECKS = {
     CheckOutWeightSameBase, CheckOutWeightDtypeSame, CheckOutWeightNzStorageDim,
     CheckOutWeightNz<NZ_C0_32, op::Format::FORMAT_FRACTAL_NZ_C0_32, NON_TRANS_WEIGHT>};
 
 // 输出 scale/offset/bias 与入参一致性检查（公共尾部）
-const std::vector<CheckFunc> OUT_TAIL_CHECKS = {CheckOutWeightScaleSameAsInput, CheckOutWeightOffsetOptionalSameAsInput,
-                                                CheckOutBiasOptionalSameAsInput};
+static const std::vector<CheckFunc> OUT_TAIL_CHECKS = {
+    CheckOutWeightScaleSameAsInput, CheckOutWeightOffsetOptionalSameAsInput, CheckOutBiasOptionalSameAsInput};
 
 // 输出 scale/bias 与入参一致性检查（offset 无直拷 process、必须 nullptr 的条目用此尾部）
-const std::vector<CheckFunc> OUT_SCALE_BIAS_CHECKS = {CheckOutWeightScaleSameAsInput, CheckOutBiasOptionalSameAsInput};
+static const std::vector<CheckFunc> OUT_SCALE_BIAS_CHECKS = {CheckOutWeightScaleSameAsInput,
+                                                             CheckOutBiasOptionalSameAsInput};
 
 template <typename... Groups>
 static std::vector<CheckFunc> CombineChecks(const Groups&... groups)
