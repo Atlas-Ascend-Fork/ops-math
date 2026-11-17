@@ -16,6 +16,7 @@
 #include "util/const_util.h"
 #include "atvoss/broadcast/broadcast_tiling.h"
 #include "util/math_util.h"
+#include "util/platform_util.h"
 #include "op_host/tiling_base_util.h"
 #include "op_host/tiling_util.h"
 #include "log/log.h"
@@ -1509,6 +1510,11 @@ ge::graphStatus SplitVTiling::DoSplitTiling(int32_t maxCoreNum, uint32_t ubSize)
     FuseInputShapeSameLen();
 
     int64_t nSwitchSize = PURE_MOVE_BASE_LEN / xDtypeSize_;
+    auto ascendcPlatform = platform_ascendc::PlatformAscendC(context_->GetPlatformInfo());
+    auto curArch = ascendcPlatform.GetCurNpuArch();
+    if (curArch == Ops::Base::DAV_5162) {
+        nSwitchSize = Ops::Base::GetVRegSize(context_) / BASE_TWO / xDtypeSize_;
+    }
     if (fusedShape_[0] == 0 || fusedShape_[1] == 0) {
         // Empty branch
         tilingKey_ = SPLIT_KEY_PURE_MOVE;
