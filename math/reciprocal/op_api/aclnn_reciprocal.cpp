@@ -25,6 +25,7 @@
 #include "aclnn_kernels/cast.h"
 #include "aclnn_kernels/contiguous.h"
 #include "reciprocal.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 #ifdef __cplusplus
@@ -71,7 +72,7 @@ static inline bool CheckNotNull(const aclTensor* self, const aclTensor* out)
 static inline bool CheckSocVersionIsSupportBf16(void)
 {
     auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
-    return curArch == NpuArch::DAV_2201 || IsRegBase(curArch);
+    return curArch == Ops::Base::DAV_2201 || IsRegBase(curArch);
 }
 
 static bool CheckDtypeValid(const aclTensor* self, const aclTensor* out)
@@ -102,7 +103,7 @@ static bool CheckDtypeValid(const aclTensor* self, const aclTensor* out)
 static const std::initializer_list<DataType>& GetSelfRefDtypeList()
 {
     auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
-    if (curArch == NpuArch::DAV_2201 || IsRegBase(curArch)) {
+    if (curArch == Ops::Base::DAV_2201 || IsRegBase(curArch)) {
         return OUTPUT_DTYPE_SUPPORT_LIST;
     } else {
         return ASCEND910_DTYPE_SELFREF_LIST;

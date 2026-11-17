@@ -17,6 +17,7 @@
 #include "opdev/platform.h"
 #include "op_api/level2_base_math.h"
 #include "op_api/aclnn_check.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 #ifdef __cplusplus
@@ -39,7 +40,7 @@ static const std::initializer_list<op::DataType> GetDtypeSupportListSelfTri(
     const std::initializer_list<op::DataType>& l3)
 {
     auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
-    if (curArch == NpuArch::DAV_2201 || IsRegBase(curArch)) {
+    if (curArch == Ops::Base::DAV_2201 || IsRegBase(curArch)) {
         if (IsRegBase(curArch)) {
             return l3;
         }

@@ -14,14 +14,15 @@
 #include "opdev/make_op_executor.h"
 #include "opdev/aicpu/aicpu_task.h"
 #include "op_api/aclnn_check.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 namespace l0op {
 
 OP_TYPE_REGISTER(Ceil);
 
-static const std::initializer_list<op::DataType> AICORE_DTYPE_SUPPORT_LIST = {
-    op::DataType::DT_FLOAT, op::DataType::DT_FLOAT16};
+static const std::initializer_list<op::DataType> AICORE_DTYPE_SUPPORT_LIST = {op::DataType::DT_FLOAT,
+                                                                              op::DataType::DT_FLOAT16};
 
 static const std::initializer_list<op::DataType> AICORE_910B_DTYPE_SUPPORT_LIST = {
     op::DataType::DT_FLOAT, op::DataType::DT_FLOAT16, op::DataType::DT_BF16};
@@ -30,7 +31,7 @@ static const std::initializer_list<op::DataType> AICORE_910B_DTYPE_SUPPORT_LIST 
 static bool IsAiCoreSupport(const aclTensor* self)
 {
     auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
-    if (curArch == NpuArch::DAV_2201 || IsRegBase(curArch)) {
+    if (curArch == Ops::Base::DAV_2201 || IsRegBase(curArch)) {
         return CheckType(self->GetDataType(), AICORE_910B_DTYPE_SUPPORT_LIST);
     }
     return CheckType(self->GetDataType(), AICORE_DTYPE_SUPPORT_LIST);
@@ -41,9 +42,8 @@ static const aclTensor* CeilAiCore(const aclTensor* self, aclTensor* out, aclOpE
     L0_DFX(CeilAiCore, self, out);
 
     auto ret = ADD_TO_LAUNCHER_LIST_AICORE(Ceil, OP_INPUT(self), OP_OUTPUT(out));
-    OP_CHECK(
-        ret == ACLNN_SUCCESS, OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "Ceil ADD_TO_LAUNCHER_LIST_AICORE failed."),
-        return nullptr);
+    OP_CHECK(ret == ACLNN_SUCCESS, OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "Ceil ADD_TO_LAUNCHER_LIST_AICORE failed."),
+             return nullptr);
     return out;
 }
 
@@ -53,9 +53,8 @@ static const aclTensor* CeilAiCpu(const aclTensor* self, aclTensor* out, aclOpEx
 
     static internal::AicpuTaskSpace space("Ceil");
     auto ret = ADD_TO_LAUNCHER_LIST_AICPU(Ceil, OP_ATTR_NAMES(), OP_INPUT(self), OP_OUTPUT(out));
-    OP_CHECK(
-        ret == ACL_SUCCESS, OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "CeilAiCpu ADD_TO_LAUNCHER_LIST_AICPU failed."),
-        return nullptr);
+    OP_CHECK(ret == ACL_SUCCESS, OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "CeilAiCpu ADD_TO_LAUNCHER_LIST_AICPU failed."),
+             return nullptr);
     return out;
 }
 

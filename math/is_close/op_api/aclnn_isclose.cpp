@@ -21,6 +21,7 @@
 #include "aclnn_kernels/common/op_error_check.h"
 #include "aclnn_isclose.h"
 #include "op_api/aclnn_check.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 
@@ -49,7 +50,7 @@ static bool CheckNotNull(const aclTensor* self, const aclTensor* other, const ac
 static bool CheckDtypeValid(const aclTensor* self, const aclTensor* other)
 {
     auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
-    bool isBf16Support = (curArch == NpuArch::DAV_2201 || IsRegBase(curArch));
+    bool isBf16Support = (curArch == Ops::Base::DAV_2201 || IsRegBase(curArch));
     const std::initializer_list<op::DataType> dtypeSupportList = isBf16Support ? DTYPE_SUPPORT_LIST_910B :
                                                                                  DTYPE_SUPPORT_LIST_910;
 

@@ -13,6 +13,7 @@
  * \brief
  */
 #include "register/op_def_registry.h"
+#include "op_common/op_host/util/op_arch_helper.h"
 
 namespace ops {
 class IsFinite : public OpDef {
@@ -41,10 +42,9 @@ public:
             .NeedCheckSupportFlag(false)
             .PrecisionReduceFlag(true)
             .ExtendCfgInfo("opFile.value", "is_finite_apt");
-        this->AICore().AddConfig("ascend950", config910d);
-        this->AICore().AddConfig("ascend350", config910d);
-        this->AICore().AddConfig("ascend960dt", config910d);
-        this->AICore().AddConfig("ascend960pr", config910d);
+        opbase::ArchConfigHelper::AddConfigByArch(this->AICore(), Ops::Base::DAV_3510, config910d);
+        opbase::ArchConfigHelper::AddConfigByArch(this->AICore(), Ops::Base::DAV_9201, config910d);
+        opbase::ArchConfigHelper::AddConfigByArch(this->AICore(), Ops::Base::DAV_9202, config910d);
 
         OpAICoreConfig config310p;
         config310p.DynamicCompileStaticFlag(true)

@@ -22,6 +22,7 @@
 #include "opdev/tensor_view_utils.h"
 #include "op_api/level2_base_math.h"
 #include "op_api/aclnn_check.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 #ifdef __cplusplus
@@ -56,7 +57,7 @@ static const std::initializer_list<DataType> NEED_CAST_DTYPE_LIST = {DataType::D
 static bool CheckDtypeValid(const aclTensor* input, const aclTensor* out)
 {
     auto npuArch = op::GetCurrentPlatformInfo().GetCurNpuArch();
-    bool isAscend910BSocVersion = (npuArch == NpuArch::DAV_2201 || IsRegBase(npuArch));
+    bool isAscend910BSocVersion = (npuArch == Ops::Base::DAV_2201 || IsRegBase(npuArch));
     const std::initializer_list<op::DataType>
         CURRENT_INPUT_DTYPE_SUPPORT_LIST = isAscend910BSocVersion ? ASCEND910B_INPUT_DTYPE_SUPPORT_LIST :
                                                                     ASCEND910_INPUT_DTYPE_SUPPORT_LIST;

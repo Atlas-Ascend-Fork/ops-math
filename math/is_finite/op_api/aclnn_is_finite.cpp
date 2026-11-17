@@ -18,6 +18,7 @@
 #include "opdev/platform.h"
 #include "aclnn_kernels/common/op_error_check.h"
 #include "op_api/aclnn_check.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 namespace {
@@ -42,7 +43,7 @@ static inline bool CheckNotNull(const aclTensor* self, const aclTensor* out)
 static bool CheckDtypeValid(const aclTensor* self, const aclTensor* out)
 {
     auto npuArch = op::GetCurrentPlatformInfo().GetCurNpuArch();
-    bool is910BSocVersion = (npuArch == NpuArch::DAV_2201 || IsRegBase(npuArch));
+    bool is910BSocVersion = (npuArch == Ops::Base::DAV_2201 || IsRegBase(npuArch));
     const std::initializer_list<DataType> DTYPE_SUPPORT_LIST = is910BSocVersion ? DTYPE_SUPPORT_LIST_910B :
                                                                                   DTYPE_SUPPORT_LIST_910;
 

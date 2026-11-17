@@ -24,6 +24,7 @@
 #include "opdev/platform.h"
 #include "op_api/level2_base_math.h"
 #include "op_api/aclnn_check.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 #ifdef __cplusplus
@@ -51,7 +52,7 @@ static const std::initializer_list<DataType> ASCEND910B_DTYPE_SELFREF_LIST = {
 static inline bool CheckDtypeValid(const aclTensor* self, const aclTensor* out)
 {
     auto npuArch = op::GetCurrentPlatformInfo().GetCurNpuArch();
-    bool is910BSocVersion = (npuArch == NpuArch::DAV_2201 || IsRegBase(npuArch));
+    bool is910BSocVersion = (npuArch == Ops::Base::DAV_2201 || IsRegBase(npuArch));
     const std::initializer_list<DataType> DTYPE_SUPPORT_LIST_CURRENT = is910BSocVersion ? DTYPE_SUPPORT_LIST_910B :
                                                                                           DTYPE_SUPPORT_LIST_910;
 

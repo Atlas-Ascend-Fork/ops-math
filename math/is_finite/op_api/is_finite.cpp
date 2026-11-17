@@ -14,6 +14,7 @@
 #include "opdev/op_dfx.h"
 #include "opdev/platform.h"
 #include "op_api/aclnn_check.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 
@@ -58,10 +59,10 @@ const aclTensor* IsFinite(const aclTensor* self, aclOpExecutor* executor)
 {
     auto out = executor->AllocTensor(self->GetViewShape(), op::DataType::DT_BOOL, op::Format::FORMAT_ND);
     auto npuArch = op::GetCurrentPlatformInfo().GetCurNpuArch();
-    bool socSupported = (npuArch == NpuArch::DAV_2201 || IsRegBase(npuArch));
+    bool socSupported = (npuArch == Ops::Base::DAV_2201 || IsRegBase(npuArch));
     if (socSupported && CheckType(self->GetDataType(), AICORE_DTYPE_SUPPORT_LIST)) {
         return IsFiniteAiCore(self, out, executor);
-    } else if ((npuArch == NpuArch::DAV_2002) && CheckType(self->GetDataType(), AICORE_310P_DTYPE_SUPPORT_LIST)) {
+    } else if ((npuArch == Ops::Base::DAV_2002) && CheckType(self->GetDataType(), AICORE_310P_DTYPE_SUPPORT_LIST)) {
         return IsFiniteAiCore(self, out, executor);
     } else {
         return IsFiniteAiCpu(self, out, executor);

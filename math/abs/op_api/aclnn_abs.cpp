@@ -21,6 +21,7 @@
 #include "opdev/make_op_executor.h"
 #include "opdev/platform.h"
 #include "op_api/aclnn_check.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 
@@ -50,7 +51,7 @@ static const std::unordered_map<DataType, DataType> COMPLEX_IN_AND_OUT_DTYPE_MAP
 static const std::initializer_list<DataType>& GetDtypeSupportList()
 {
     auto npuArch = GetCurrentPlatformInfo().GetCurNpuArch();
-    if (npuArch == NpuArch::DAV_2201) {
+    if (npuArch == Ops::Base::DAV_2201) {
         return ASCEND910B_DTYPE_DTYPE_SUPPORT_LIST;
     } else if (IsRegBase(npuArch)) {
         return ARCH_REGBASE_DTYPE_DTYPE_SUPPORT_LIST;
@@ -157,7 +158,7 @@ static bool IsSupportComplexAbs(const op::DataType selfType)
 {
     if (IsComplexType(selfType)) {
         auto npuArch = GetCurrentPlatformInfo().GetCurNpuArch();
-        if (npuArch == NpuArch::DAV_2201) {
+        if (npuArch == Ops::Base::DAV_2201) {
             return CheckType(selfType, ASCEND910B_DTYPE_DTYPE_SUPPORT_LIST);
         } else {
             return false;

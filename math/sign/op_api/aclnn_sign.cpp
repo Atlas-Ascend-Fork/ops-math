@@ -27,6 +27,7 @@
 #include "opdev/tensor_view_utils.h"
 #include "op_api/op_api_def_math.h"
 #include "op_api/level2_base_caculation_math.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 
@@ -49,15 +50,15 @@ static bool CheckDtypeValid(const aclTensor* self, const aclTensor* result)
         SocVersion socVersion = GetCurrentPlatformInfo().GetSocVersion();
         auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
         switch (curArch) {
-            case NpuArch::DAV_1001: {
+            case Ops::Base::DAV_1001: {
                 OP_LOGE(ACLNN_ERR_PARAM_INVALID, "On Ascend910 self dtype %s should be in dtype support list %s.",
                         op::ToString(self->GetDataType()).GetString(), op::ToString(DTYPE_SUPPORT_LIST).GetString());
                 return false;
             }
-            case NpuArch::DAV_2201:
-            case NpuArch::DAV_3510:
-            case NpuArch::DAV_9202:
-            case NpuArch::DAV_9201: {
+            case Ops::Base::DAV_2201:
+            case Ops::Base::DAV_3510:
+            case Ops::Base::DAV_9202:
+            case Ops::Base::DAV_9201: {
                 if (!CheckType(self->GetDataType(), DTYPE_SUPPORT_LIST_WITH_BF16)) {
                     OP_LOGE(ACLNN_ERR_PARAM_INVALID, "On %s, self dtype %s should be in dtype support list %s.",
                             op::ToString(socVersion).GetString(), op::ToString(self->GetDataType()).GetString(),

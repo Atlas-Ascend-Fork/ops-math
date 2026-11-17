@@ -23,6 +23,7 @@
 #include "opdev/tensor_view_utils.h"
 #include "opdev/platform.h"
 #include "op_api/aclnn_check.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 #ifdef __cplusplus
@@ -49,7 +50,7 @@ static bool CheckNotNull(const aclTensor* self, const aclTensor* out)
 static bool CheckDtypeValid(const aclTensor* self)
 {
     auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
-    bool isAfterV200 = curArch == NpuArch::DAV_2201 || IsRegBase(curArch);
+    bool isAfterV200 = curArch == Ops::Base::DAV_2201 || IsRegBase(curArch);
     bool isSupport = isAfterV200 ? CheckType(self->GetDataType(), dtype_support_list_afterV200) :
                                    CheckType(self->GetDataType(), dtype_support_list);
     if (!isSupport) {

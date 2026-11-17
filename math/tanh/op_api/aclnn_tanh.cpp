@@ -24,6 +24,7 @@
 #include "aclnn_kernels/common/op_error_check.h"
 #include "op_api/op_api_def_math.h"
 #include "op_api/aclnn_check.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 #ifdef __cplusplus
@@ -52,7 +53,7 @@ static const std::initializer_list<op::DataType> DTYPE_CAST_LIST = {op::DataType
 static const std::initializer_list<DataType>& GetOutDtypeSupportList()
 {
     auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
-    if (curArch == NpuArch::DAV_2201 || IsRegBase(curArch)) {
+    if (curArch == Ops::Base::DAV_2201 || IsRegBase(curArch)) {
         return ASCEND910B_DTYPE_OUT_LIST;
     } else {
         return ASCEND910_DTYPE_OUT_LIST;
@@ -70,7 +71,7 @@ static bool CheckDtypeValid(const aclTensor* self, const aclTensor* out)
 {
     // 检查self的数据类型是否在tanh算子的支持列表内
     auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
-    bool isAscend910BSocVersion = (curArch == NpuArch::DAV_2201 || IsRegBase(curArch));
+    bool isAscend910BSocVersion = (curArch == Ops::Base::DAV_2201 || IsRegBase(curArch));
     const std::initializer_list<op::DataType> CURRENT_DTYPE_SUPPORT_LIST = isAscend910BSocVersion ?
                                                                                ASCEND910B_DTYPE_SUPPORT_LIST :
                                                                                ASCEND910_DTYPE_SUPPORT_LIST;

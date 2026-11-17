@@ -26,6 +26,7 @@
 #include "opdev/platform.h"
 #include "op_api/aclnn_check.h"
 #include "acl/acl_base.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 #ifdef __cplusplus
@@ -81,7 +82,7 @@ static bool CheckDtypeValid(const aclTensorList* tensors, const aclTensor* out)
 static bool CheckArch()
 {
     auto npuArch = op::GetCurrentPlatformInfo().GetCurNpuArch();
-    if (npuArch != NpuArch::DAV_2201 && !IsRegBase(npuArch)) {
+    if (npuArch != Ops::Base::DAV_2201 && !IsRegBase(npuArch)) {
         return false;
     }
     return true;

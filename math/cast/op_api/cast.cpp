@@ -18,6 +18,7 @@
 #include "opdev/shape_utils.h"
 #include "opdev/platform.h"
 #include "op_api/aclnn_check.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 
@@ -324,7 +325,7 @@ static bool IsAiCoreSupport(const aclTensor* self, op::DataType dstDtype)
                                          ASCEND310P_SUPPORT_910_NOT_SUPPORT_LIST.end(),
                                          std::pair<op::DataType, op::DataType>(self->GetDataType(), dstDtype)) !=
                                ASCEND310P_SUPPORT_910_NOT_SUPPORT_LIST.end();
-    if (curArch == NpuArch::DAV_2002 && isAscend310pSupport) {
+    if (curArch == Ops::Base::DAV_2002 && isAscend310pSupport) {
         return true;
     }
 
@@ -332,17 +333,17 @@ static bool IsAiCoreSupport(const aclTensor* self, op::DataType dstDtype)
                                             ASCEND610LITE_AICORE_DTYPE_SUPPORT_LIST.end(),
                                             std::pair<op::DataType, op::DataType>(self->GetDataType(), dstDtype)) !=
                                   ASCEND610LITE_AICORE_DTYPE_SUPPORT_LIST.end();
-    if (curArch == NpuArch::DAV_3102) {
+    if (curArch == Ops::Base::DAV_3102) {
         return isAscend610liteSupport;
     }
 
-    if (curArch == NpuArch::DAV_2201) {
+    if (curArch == Ops::Base::DAV_2201) {
         return std::find(ASCEND910B_AICORE_DTYPE_SUPPORT_LIST.begin(), ASCEND910B_AICORE_DTYPE_SUPPORT_LIST.end(),
                          std::pair<op::DataType, op::DataType>(self->GetDataType(), dstDtype)) !=
                ASCEND910B_AICORE_DTYPE_SUPPORT_LIST.end();
     }
 
-    if (curArch == NpuArch::DAV_3003 || curArch == NpuArch::DAV_3113) {
+    if (curArch == Ops::Base::DAV_3003 || curArch == Ops::Base::DAV_3113) {
         return std::find(KIRIN_AICORE_DTYPE_SUPPORT_LIST.begin(), KIRIN_AICORE_DTYPE_SUPPORT_LIST.end(),
                          std::pair<op::DataType, op::DataType>(self->GetDataType(), dstDtype)) !=
                KIRIN_AICORE_DTYPE_SUPPORT_LIST.end();

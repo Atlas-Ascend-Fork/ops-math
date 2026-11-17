@@ -18,6 +18,7 @@
 #include "opdev/make_op_executor.h"
 #include "op_api/level2_base_math.h"
 #include "op_api/aclnn_check.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 
@@ -37,7 +38,7 @@ static bool CheckDtypeValid(const aclTensor* self, const aclTensor* out)
     OP_CHECK_DTYPE_NOT_MATCH(out, self->GetDataType(), return false);
 
     auto npuArch = op::GetCurrentPlatformInfo().GetCurNpuArch();
-    bool is910BSocVersion = npuArch == NpuArch::DAV_2201 || IsRegBase(npuArch);
+    bool is910BSocVersion = npuArch == Ops::Base::DAV_2201 || IsRegBase(npuArch);
     const std::initializer_list<DataType> DTYPE_SUPPORT_LIST = is910BSocVersion ? DTYPE_SUPPORT_LIST_910B :
                                                                                   DTYPE_SUPPORT_LIST_910;
     // 检查self的数据类型是否在支持列表内

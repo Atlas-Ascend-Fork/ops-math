@@ -17,6 +17,7 @@
 #include "opdev/op_dfx.h"
 #include "opdev/platform.h"
 #include "op_api/level2_base_math.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 #ifdef __cplusplus
@@ -40,7 +41,7 @@ static const std::initializer_list<op::DataType> ASCEND910_DTYPE_SELFREF_LIST = 
 static inline bool CheckSocVersionIsSupportBf16(void)
 {
     auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
-    return curArch == NpuArch::DAV_2201 || IsRegBase(curArch);
+    return curArch == Ops::Base::DAV_2201 || IsRegBase(curArch);
 }
 
 static bool CheckDtypeValid(const aclTensor* self, const aclTensor* out)

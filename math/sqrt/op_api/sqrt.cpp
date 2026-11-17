@@ -19,6 +19,7 @@
 #include "opdev/platform.h"
 #include "op_api/aclnn_check.h"
 #include "aclnn_kernels/common/op_error_check.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 
@@ -31,7 +32,7 @@ static bool IsAiCoreSupport(const aclTensor* self)
 {
     // 获取芯片类型,判断是1971还是1980
     auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
-    if (curArch == NpuArch::DAV_2201 || IsRegBase(curArch)) {
+    if (curArch == Ops::Base::DAV_2201 || IsRegBase(curArch)) {
         return CheckType(self->GetDataType(),
                          {op::DataType::DT_FLOAT, op::DataType::DT_FLOAT16, op::DataType::DT_BF16});
     }
