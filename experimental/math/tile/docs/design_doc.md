@@ -8,9 +8,9 @@
 
 ### 1.2 TBE 算子源码参考
 
-- kernel 实现：`/usr/local/Ascend/cann-8.5.0/opp/built-in/op_impl/ai_core/tbe/impl/ops_legacy/dynamic/tile.py`
-- 算子信息库：`/usr/local/Ascend/cann-8.5.0/opp/built-in/op_impl/ai_core/tbe/config/ascend910b/aic-ascend910b-ops-info-legacy.json`（Tile 条目）
-- aclnn 接口：`/usr/local/Ascend/cann-8.5.0/aarch64-linux/include/aclnnop/level2/aclnn_repeat.h`（aclnnRepeat）
+- kernel 实现：`${ASCEND_HOME_PATH:-/usr/local/Ascend/cann}/opp/built-in/op_impl/ai_core/tbe/impl/ops_legacy/dynamic/tile.py`
+- 算子信息库：`${ASCEND_HOME_PATH:-/usr/local/Ascend/cann}/opp/built-in/op_impl/ai_core/tbe/config/ascend910b/aic-ascend910b-ops-info-legacy.json`（Tile 条目）
+- aclnn 接口：`${ASCEND_HOME_PATH:-/usr/local/Ascend/cann}/aarch64-linux/include/aclnnop/level2/aclnn_repeat.h`（aclnnRepeat）
 
 ### 1.3 TBE 实现概述
 
