@@ -484,3 +484,71 @@ TEST_F(l2_pow_tensor_scalar_test, Ascend950PR_89_aclnnPowTensorScalar_base_fp16_
   aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
   EXPECT_EQ(aclRet, ACL_SUCCESS);
 } */
+
+namespace op {
+extern SocVersion g_socVersion;
+extern NpuArch g_npuArchOverride;
+} // namespace op
+
+class l2_pow_scalar_empty_validation_test : public testing::Test {
+protected:
+    void SetUp() override
+    {
+        savedSoc_ = op::g_socVersion;
+        savedArch_ = op::g_npuArchOverride;
+        op::SetPlatformSocVersion(op::SocVersion::ASCEND950);
+    }
+    void TearDown() override
+    {
+        op::g_socVersion = savedSoc_;
+        op::g_npuArchOverride = savedArch_;
+    }
+    void Check(const vector<int64_t>& shape, aclDataType dtype, const ScalarDesc& exponent, aclnnStatus expected)
+    {
+        auto self = TensorDesc(shape, dtype, ACL_FORMAT_ND).ValueRange(1, 2);
+        auto out = TensorDesc(shape, dtype, ACL_FORMAT_ND);
+        auto ut = OP_API_UT(aclnnPowTensorScalar, INPUT(self, exponent), OUTPUT(out));
+        uint64_t workspaceSize = 0;
+        EXPECT_EQ(ut.TestGetWorkspaceSize(&workspaceSize), expected);
+        auto inplace = OP_API_UT(aclnnInplacePowTensorScalar, INPUT(self, exponent), OUTPUT());
+        EXPECT_EQ(inplace.TestGetWorkspaceSize(&workspaceSize), expected);
+        if (expected == ACL_SUCCESS && shape[0] == 0) {
+            EXPECT_EQ(workspaceSize, 0U);
+        }
+    }
+
+private:
+    op::SocVersion savedSoc_;
+    NpuArch savedArch_;
+};
+
+TEST_F(l2_pow_scalar_empty_validation_test, overflowing_float_exponent)
+{
+    for (auto shape : {vector<int64_t>{0, 2}, vector<int64_t>{2, 2}}) {
+        Check(shape, ACL_FLOAT, ScalarDesc(1e308), ACLNN_ERR_PARAM_INVALID);
+    }
+}
+
+TEST_F(l2_pow_scalar_empty_validation_test, negative_integer_exponent)
+{
+    for (auto shape : {vector<int64_t>{0, 2}, vector<int64_t>{2, 2}}) {
+        Check(shape, ACL_INT32, ScalarDesc(int32_t(-1)), ACLNN_ERR_PARAM_INVALID);
+    }
+}
+
+TEST_F(l2_pow_scalar_empty_validation_test, valid_empty_and_mixed_inputs)
+{
+    Check({0, 2}, ACL_FLOAT, ScalarDesc(2.0), ACL_SUCCESS);
+    Check({0, 2}, ACL_INT32, ScalarDesc(int32_t(0)), ACL_SUCCESS);
+    Check({0, 2}, ACL_FLOAT, ScalarDesc(int32_t(-1)), ACL_SUCCESS);
+    Check({0, 2}, ACL_DOUBLE, ScalarDesc(1e308), ACL_SUCCESS);
+}
+
+TEST_F(l2_pow_scalar_empty_validation_test, legacy_platform_empty_behavior)
+{
+    for (auto soc : {op::SocVersion::ASCEND910B, op::SocVersion::ASCEND910_93}) {
+        op::SetPlatformSocVersion(soc);
+        Check({0, 2}, ACL_FLOAT, ScalarDesc(1e308), ACL_SUCCESS);
+        Check({0, 2}, ACL_INT32, ScalarDesc(int32_t(-1)), ACL_SUCCESS);
+    }
+}

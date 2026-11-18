@@ -442,12 +442,6 @@ aclnnStatus aclnnPowTensorScalarGetWorkspaceSize(const aclTensor* self, const ac
 
     CheckFormat(self);
 
-    // pow算子的空tensor在kernel中支持，对标竞品根据算子实际情况补充
-    if (self->IsEmpty()) {
-        *workspaceSize = 0;
-        uniqueExecutor.ReleaseTo(executor);
-        return ACLNN_SUCCESS;
-    }
     auto promoteType = InferTensorScalarDtype(self, exponent, out);
     if (IsRegBase()) {
         // promoteType为整形的情况，exponent需要大于0
@@ -455,6 +449,12 @@ aclnnStatus aclnnPowTensorScalarGetWorkspaceSize(const aclTensor* self, const ac
 
         // 检查exponent是否溢出
         CHECK_RET(CheckNotOverflow(promoteType, exponent), ACLNN_ERR_PARAM_INVALID);
+    }
+    // pow算子的空tensor在kernel中支持，对标竞品根据算子实际情况补充
+    if (self->IsEmpty()) {
+        *workspaceSize = 0;
+        uniqueExecutor.ReleaseTo(executor);
+        return ACLNN_SUCCESS;
     }
     // 固定写法，将输入self转换成连续的tensor
     auto selfContiguous = l0op::Contiguous(self, uniqueExecutor.get());
