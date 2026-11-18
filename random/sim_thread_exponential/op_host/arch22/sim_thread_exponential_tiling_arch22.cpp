@@ -264,11 +264,10 @@ ge::graphStatus SimThreadExponentialTiling::SetAttrParams()
         return ge::GRAPH_FAILED;
     }
     lambda = static_cast<float>(*lambdaPtr);
-    OP_CHECK_IF(
-        lambda == 0,
-        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "attr lambd", std::to_string(lambda).c_str(),
-                                              "lambd is the denominator and cannot be zero"),
-        return ge::GRAPH_FAILED);
+    OP_CHECK_IF(lambda <= 0,
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "attr lambd",
+                                                      std::to_string(lambda).c_str(), "lambd must be greater than 0"),
+                return ge::GRAPH_FAILED);
     const int64_t* seedPtr = attrs->GetAttrPointer<int64_t>(ATTR_2);
     if (seedPtr == nullptr) {
         OP_LOGE_WITHOUT_REPORT(OpNameOf(context), "seedPtr is nullptr");

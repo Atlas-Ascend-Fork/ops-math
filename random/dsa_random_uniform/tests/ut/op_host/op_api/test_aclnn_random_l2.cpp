@@ -417,3 +417,94 @@ TEST_F(l2_random_test, aclnnInplaceRandomTensor_3_4_float_with_offset)
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
     EXPECT_EQ(aclRet, ACL_SUCCESS);
 }
+
+// 异常场景：seedTensor为nullptr（#3909）
+TEST_F(l2_random_test, aclnnInplaceRandomTensor_seed_nullptr)
+{
+    int64_t from = 2;
+    int64_t to = 4;
+    int64_t offset = 0;
+
+    auto selfTensorDesc = TensorDesc({3, 4}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto offsetTensorDesc = TensorDesc({1}, ACL_INT64, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnInplaceRandomTensor,
+                        INPUT(selfTensorDesc, from, to, (aclTensor*)nullptr, offsetTensorDesc, offset), OUTPUT());
+
+    uint64_t workspace_size = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_NULLPTR);
+}
+
+// 异常场景：offsetTensor为nullptr（#3909）
+TEST_F(l2_random_test, aclnnInplaceRandomTensor_offset_nullptr)
+{
+    int64_t from = 2;
+    int64_t to = 4;
+    int64_t offset = 0;
+
+    auto selfTensorDesc = TensorDesc({3, 4}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto seedTensorDesc = TensorDesc({1}, ACL_INT64, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnInplaceRandomTensor,
+                        INPUT(selfTensorDesc, from, to, seedTensorDesc, (aclTensor*)nullptr, offset), OUTPUT());
+
+    uint64_t workspace_size = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_NULLPTR);
+}
+
+// from < 0 冒烟测试（DSA 路径，默认 mock 910B2，INT32 dtype）：需 Floor 向下取整，避免取值域整体右移（#3910）
+TEST_F(l2_random_test, ascend910B2_aclnnInplaceRandomTensor_from_negative)
+{
+    int64_t from = -3;
+    int64_t to = 4;
+    int64_t offset = 0;
+
+    auto selfTensorDesc = TensorDesc({3, 4}, ACL_INT32, ACL_FORMAT_ND);
+    auto seedTensorDesc = TensorDesc({1}, ACL_INT64, ACL_FORMAT_ND);
+    auto offsetTensorDesc = TensorDesc({1}, ACL_INT64, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnInplaceRandomTensor,
+                        INPUT(selfTensorDesc, from, to, seedTensorDesc, offsetTensorDesc, offset), OUTPUT());
+
+    uint64_t workspace_size = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(aclRet, ACL_SUCCESS);
+}
+
+// from < 0 冒烟测试（DSA 路径，默认 mock 910B2，FLOAT dtype）：Floor 条件不命中，走原有路径不回归（#3910）
+TEST_F(l2_random_test, ascend910B2_aclnnInplaceRandomTensor_from_negative_float)
+{
+    int64_t from = -3;
+    int64_t to = 4;
+    int64_t offset = 0;
+
+    auto selfTensorDesc = TensorDesc({3, 4}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto seedTensorDesc = TensorDesc({1}, ACL_INT64, ACL_FORMAT_ND);
+    auto offsetTensorDesc = TensorDesc({1}, ACL_INT64, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnInplaceRandomTensor,
+                        INPUT(selfTensorDesc, from, to, seedTensorDesc, offsetTensorDesc, offset), OUTPUT());
+
+    uint64_t workspace_size = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(aclRet, ACL_SUCCESS);
+}
+
+// from < 0 冒烟测试（DSA 路径，默认 mock 910B2，INT32 dtype）：非 Tensor 版本（#3910）
+TEST_F(l2_random_test, ascend910B2_aclnnInplaceRandom_from_negative)
+{
+    int64_t from = -3;
+    int64_t to = 4;
+    int64_t seed = 0;
+    int64_t offset = 0;
+
+    auto selfTensorDesc = TensorDesc({3, 4}, ACL_INT32, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnInplaceRandom, INPUT(selfTensorDesc, from, to, seed, offset), OUTPUT());
+
+    uint64_t workspace_size = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(aclRet, ACL_SUCCESS);
+}

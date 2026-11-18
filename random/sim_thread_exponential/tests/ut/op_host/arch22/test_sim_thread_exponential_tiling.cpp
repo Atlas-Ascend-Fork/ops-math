@@ -157,6 +157,26 @@ TEST_F(SimThreadExponentialTilingTest, SimThreadExponentialTilingData_test_lambd
     ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
 }
 
+// attr lambd 为负数 → OP_LOGE_FOR_INVALID_VALUE_WITH_REASON 首报后返回 GRAPH_FAILED（#3912）
+TEST_F(SimThreadExponentialTilingTest, SimThreadExponentialTilingData_test_lambd_negative_failed)
+{
+    optiling::Tiling4SimThreadExponentialCompileInfo compileInfo = {};
+    gert::TilingContextPara tilingContextPara(
+        "SimThreadExponential",
+        {
+            {{{300000}, {300000}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        {
+            {{{300000}, {300000}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        {gert::TilingContextPara::OpAttr("count", Ops::Math::AnyValue::CreateFrom<int64_t>(300000)),
+         gert::TilingContextPara::OpAttr("lambd", Ops::Math::AnyValue::CreateFrom<float>(-1.0)),
+         gert::TilingContextPara::OpAttr("seed", Ops::Math::AnyValue::CreateFrom<int64_t>(5)),
+         gert::TilingContextPara::OpAttr("offset", Ops::Math::AnyValue::CreateFrom<int64_t>(4))},
+        &compileInfo);
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
+}
+
 // 输入 self dtype 不在支持列表 → OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON 首报后返回 GRAPH_FAILED
 TEST_F(SimThreadExponentialTilingTest, SimThreadExponentialTilingData_test_unsupported_dtype_failed)
 {

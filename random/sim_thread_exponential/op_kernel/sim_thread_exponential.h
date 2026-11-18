@@ -41,51 +41,46 @@ constexpr uint32_t SHIFT_LEFT_31 = 31;
 constexpr float EPSILON_ = std::numeric_limits<float>::epsilon();
 
 template <typename T1, typename T2>
-__aicore__ inline void myAdd(
-    const AscendC::LocalTensor<T1>& zLocal, const AscendC::LocalTensor<T1>& xLocal,
-    const AscendC::LocalTensor<T1>& yLocal, uint32_t len)
+__aicore__ inline void myAdd(const AscendC::LocalTensor<T1>& zLocal, const AscendC::LocalTensor<T1>& xLocal,
+                             const AscendC::LocalTensor<T1>& yLocal, uint32_t len)
 {
-    AscendC::Add<T2>(
-        zLocal.template ReinterpretCast<T2>(), xLocal.template ReinterpretCast<T2>(), yLocal.template ReinterpretCast<T2>(), len);
+    AscendC::Add<T2>(zLocal.template ReinterpretCast<T2>(), xLocal.template ReinterpretCast<T2>(),
+                     yLocal.template ReinterpretCast<T2>(), len);
 }
 
-__aicore__ inline void myAdd2(
-    const AscendC::LocalTensor<uint32_t>& zLocal, const AscendC::LocalTensor<uint32_t>& xLocal,
-    const AscendC::LocalTensor<int32_t>& yLocal, uint32_t len)
+__aicore__ inline void myAdd2(const AscendC::LocalTensor<uint32_t>& zLocal,
+                              const AscendC::LocalTensor<uint32_t>& xLocal, const AscendC::LocalTensor<int32_t>& yLocal,
+                              uint32_t len)
 {
-    AscendC::Add<int32_t>(
-        zLocal.template ReinterpretCast<int32_t>(), xLocal.template ReinterpretCast<int32_t>(), yLocal, len);
+    AscendC::Add<int32_t>(zLocal.template ReinterpretCast<int32_t>(), xLocal.template ReinterpretCast<int32_t>(),
+                          yLocal, len);
 }
 
-__aicore__ inline void myAdds(
-    const AscendC::LocalTensor<uint32_t>& zLocal, const AscendC::LocalTensor<uint32_t>& xLocal,
-    const uint32_t yScalar, uint32_t len)
+__aicore__ inline void myAdds(const AscendC::LocalTensor<uint32_t>& zLocal,
+                              const AscendC::LocalTensor<uint32_t>& xLocal, const uint32_t yScalar, uint32_t len)
 {
-    AscendC::Adds<int32_t>(
-        zLocal.template ReinterpretCast<int32_t>(), xLocal.template ReinterpretCast<int32_t>(), yScalar, len);
+    AscendC::Adds<int32_t>(zLocal.template ReinterpretCast<int32_t>(), xLocal.template ReinterpretCast<int32_t>(),
+                           yScalar, len);
 }
 
 template <typename T1, typename T2>
-__aicore__ inline void myMul(
-    const AscendC::LocalTensor<T1>& zLocal, const AscendC::LocalTensor<T1>& xLocal,
-    const AscendC::LocalTensor<T1>& yLocal, uint32_t len)
+__aicore__ inline void myMul(const AscendC::LocalTensor<T1>& zLocal, const AscendC::LocalTensor<T1>& xLocal,
+                             const AscendC::LocalTensor<T1>& yLocal, uint32_t len)
 {
-    AscendC::Mul<T2>(
-        zLocal.template ReinterpretCast<T2>(), xLocal.template ReinterpretCast<T2>(), yLocal.template ReinterpretCast<T2>(), len);
+    AscendC::Mul<T2>(zLocal.template ReinterpretCast<T2>(), xLocal.template ReinterpretCast<T2>(),
+                     yLocal.template ReinterpretCast<T2>(), len);
 }
 
-__aicore__ inline void myMuls(
-    const AscendC::LocalTensor<uint32_t>& zLocal, const AscendC::LocalTensor<uint32_t>& xLocal,
-    const uint32_t yScalar, uint32_t len)
+__aicore__ inline void myMuls(const AscendC::LocalTensor<uint32_t>& zLocal,
+                              const AscendC::LocalTensor<uint32_t>& xLocal, const uint32_t yScalar, uint32_t len)
 {
-    AscendC::Muls<int32_t>(
-        zLocal.template ReinterpretCast<int32_t>(), xLocal.template ReinterpretCast<int32_t>(), yScalar, len);
+    AscendC::Muls<int32_t>(zLocal.template ReinterpretCast<int32_t>(), xLocal.template ReinterpretCast<int32_t>(),
+                           yScalar, len);
 }
 
-__aicore__ inline void myEqual(
-    const AscendC::LocalTensor<uint32_t>& zLocal, const AscendC::LocalTensor<uint32_t>& xLocal,
-    const AscendC::LocalTensor<uint32_t>& yLocal, AscendC::TBuf<>& tensorBuf,
-    uint32_t len)
+__aicore__ inline void myEqual(const AscendC::LocalTensor<uint32_t>& zLocal,
+                               const AscendC::LocalTensor<uint32_t>& xLocal,
+                               const AscendC::LocalTensor<uint32_t>& yLocal, AscendC::TBuf<>& tensorBuf, uint32_t len)
 {
     uint32_t offset = 0;
     AscendC::LocalTensor<uint32_t> onesLocal = tensorBuf.GetWithOffset<uint32_t>(len, offset);
@@ -95,18 +90,18 @@ __aicore__ inline void myEqual(
     AscendC::Duplicate<uint32_t>(onesLocal, 1, len);
     AscendC::PipeBarrier<PIPE_V>();
 
-    AscendC::Compare<float, uint8_t>(maskLocal, xLocal.template ReinterpretCast<float>(), yLocal.template ReinterpretCast<float>(), AscendC::CMPMODE::EQ, len);
+    AscendC::Compare<float, uint8_t>(maskLocal, xLocal.template ReinterpretCast<float>(),
+                                     yLocal.template ReinterpretCast<float>(), AscendC::CMPMODE::EQ, len);
     AscendC::PipeBarrier<PIPE_V>();
 
-    AscendC::Select<float, uint8_t>(
-        zLocal.template ReinterpretCast<float>(), maskLocal,
-        onesLocal.template ReinterpretCast<float>(), 0,
-        AscendC::SELMODE::VSEL_TENSOR_SCALAR_MODE, len);
+    AscendC::Select<float, uint8_t>(zLocal.template ReinterpretCast<float>(), maskLocal,
+                                    onesLocal.template ReinterpretCast<float>(), 0,
+                                    AscendC::SELMODE::VSEL_TENSOR_SCALAR_MODE, len);
 }
 
-__aicore__ inline void myEqualZeroScalar(
-    const AscendC::LocalTensor<uint32_t>& zLocal, const AscendC::LocalTensor<uint32_t>& xLocal,
-    AscendC::TBuf<>& tensorBuf, uint32_t len)
+__aicore__ inline void myEqualZeroScalar(const AscendC::LocalTensor<uint32_t>& zLocal,
+                                         const AscendC::LocalTensor<uint32_t>& xLocal, AscendC::TBuf<>& tensorBuf,
+                                         uint32_t len)
 {
     uint32_t offset = 0;
     AscendC::LocalTensor<uint32_t> onesLocal = tensorBuf.GetWithOffset<uint32_t>(len, offset);
@@ -116,24 +111,22 @@ __aicore__ inline void myEqualZeroScalar(
     AscendC::Duplicate<uint32_t>(onesLocal, 1, len);
     AscendC::PipeBarrier<PIPE_V>();
 
-    AscendC::Cast<float, int32_t>(
-        zLocal.template ReinterpretCast<float>(), xLocal.template ReinterpretCast<int32_t>(),
-        AscendC::RoundMode::CAST_NONE, len);
+    AscendC::Cast<float, int32_t>(zLocal.template ReinterpretCast<float>(), xLocal.template ReinterpretCast<int32_t>(),
+                                  AscendC::RoundMode::CAST_NONE, len);
     AscendC::PipeBarrier<PIPE_V>();
 
-    AscendC::CompareScalar<float, uint8_t>(maskLocal, zLocal.template ReinterpretCast<float>(), 0.0f, AscendC::CMPMODE::EQ, len);
+    AscendC::CompareScalar<float, uint8_t>(maskLocal, zLocal.template ReinterpretCast<float>(), 0.0f,
+                                           AscendC::CMPMODE::EQ, len);
     AscendC::PipeBarrier<PIPE_V>();
 
-    AscendC::Select<float, uint8_t>(
-        zLocal.template ReinterpretCast<float>(), maskLocal,
-        onesLocal.template ReinterpretCast<float>(), 0,
-        AscendC::SELMODE::VSEL_TENSOR_SCALAR_MODE, len);
+    AscendC::Select<float, uint8_t>(zLocal.template ReinterpretCast<float>(), maskLocal,
+                                    onesLocal.template ReinterpretCast<float>(), 0,
+                                    AscendC::SELMODE::VSEL_TENSOR_SCALAR_MODE, len);
 }
 
-__aicore__ inline void myLess(
-    const AscendC::LocalTensor<uint32_t>& zLocal, const AscendC::LocalTensor<uint32_t>& xLocal,
-    const AscendC::LocalTensor<uint32_t>& yLocal, AscendC::TBuf<>& tensorBuf,
-    uint32_t len)
+__aicore__ inline void myLess(const AscendC::LocalTensor<uint32_t>& zLocal,
+                              const AscendC::LocalTensor<uint32_t>& xLocal,
+                              const AscendC::LocalTensor<uint32_t>& yLocal, AscendC::TBuf<>& tensorBuf, uint32_t len)
 {
     uint32_t offset = 0;
     AscendC::LocalTensor<uint32_t> onesLocal = tensorBuf.GetWithOffset<uint32_t>(len, offset);
@@ -155,22 +148,22 @@ __aicore__ inline void myLess(
     AscendC::PipeBarrier<PIPE_V>();
     AscendC::ShiftRight(yu16Local, yLocal, static_cast<uint32_t>(SHIFT_LEFT_16), len);
     AscendC::PipeBarrier<PIPE_V>();
-    AscendC::Cast<float, int32_t>(
-        xu16Local.template ReinterpretCast<float>(), xu16Local.template ReinterpretCast<int32_t>(),
-        AscendC::RoundMode::CAST_NONE, len);
+    AscendC::Cast<float, int32_t>(xu16Local.template ReinterpretCast<float>(),
+                                  xu16Local.template ReinterpretCast<int32_t>(), AscendC::RoundMode::CAST_NONE, len);
     AscendC::PipeBarrier<PIPE_V>();
-    AscendC::Cast<float, int32_t>(
-        yu16Local.template ReinterpretCast<float>(), yu16Local.template ReinterpretCast<int32_t>(),
-        AscendC::RoundMode::CAST_NONE, len);
+    AscendC::Cast<float, int32_t>(yu16Local.template ReinterpretCast<float>(),
+                                  yu16Local.template ReinterpretCast<int32_t>(), AscendC::RoundMode::CAST_NONE, len);
     AscendC::PipeBarrier<PIPE_V>();
-    AscendC::Compare(maskHiLessLocal, xu16Local.template ReinterpretCast<float>(), yu16Local.template ReinterpretCast<float>(), AscendC::CMPMODE::LT, len);
+    AscendC::Compare(maskHiLessLocal, xu16Local.template ReinterpretCast<float>(),
+                     yu16Local.template ReinterpretCast<float>(), AscendC::CMPMODE::LT, len);
     AscendC::PipeBarrier<PIPE_V>();
 
     AscendC::ShiftRight(xu16Local, xLocal, static_cast<uint32_t>(SHIFT_LEFT_16), len);
     AscendC::PipeBarrier<PIPE_V>();
     AscendC::ShiftRight(yu16Local, yLocal, static_cast<uint32_t>(SHIFT_LEFT_16), len);
     AscendC::PipeBarrier<PIPE_V>();
-    AscendC::Compare(maskHiEqLocal, xu16Local.template ReinterpretCast<int32_t>(), yu16Local.template ReinterpretCast<int32_t>(), AscendC::CMPMODE::EQ, len);
+    AscendC::Compare(maskHiEqLocal, xu16Local.template ReinterpretCast<int32_t>(),
+                     yu16Local.template ReinterpretCast<int32_t>(), AscendC::CMPMODE::EQ, len);
     AscendC::PipeBarrier<PIPE_V>();
 
     AscendC::ShiftLeft(xu16Local, xLocal, static_cast<uint32_t>(SHIFT_LEFT_16), len);
@@ -181,76 +174,81 @@ __aicore__ inline void myLess(
     AscendC::PipeBarrier<PIPE_V>();
     AscendC::ShiftRight(yu16Local, yu16Local, static_cast<uint32_t>(SHIFT_LEFT_16), len);
     AscendC::PipeBarrier<PIPE_V>();
-    AscendC::Cast<float, int32_t>(
-        xu16Local.template ReinterpretCast<float>(), xu16Local.template ReinterpretCast<int32_t>(),
-        AscendC::RoundMode::CAST_NONE, len);
+    AscendC::Cast<float, int32_t>(xu16Local.template ReinterpretCast<float>(),
+                                  xu16Local.template ReinterpretCast<int32_t>(), AscendC::RoundMode::CAST_NONE, len);
     AscendC::PipeBarrier<PIPE_V>();
-    AscendC::Cast<float, int32_t>(
-        yu16Local.template ReinterpretCast<float>(), yu16Local.template ReinterpretCast<int32_t>(),
-        AscendC::RoundMode::CAST_NONE, len);
+    AscendC::Cast<float, int32_t>(yu16Local.template ReinterpretCast<float>(),
+                                  yu16Local.template ReinterpretCast<int32_t>(), AscendC::RoundMode::CAST_NONE, len);
     AscendC::PipeBarrier<PIPE_V>();
-    AscendC::Compare(maskLoLessLocal, xu16Local.template ReinterpretCast<float>(), yu16Local.template ReinterpretCast<float>(), AscendC::CMPMODE::LT, len);
-    AscendC::PipeBarrier<PIPE_V>();
-
-    AscendC::And(maskLoLessLocal.template ReinterpretCast<uint16_t>(), maskHiEqLocal.template ReinterpretCast<uint16_t>(), maskLoLessLocal.template ReinterpretCast<uint16_t>(), len/UINT_EIGHT/UINT_DOUBLE);
-    AscendC::PipeBarrier<PIPE_V>();
-    AscendC::Or(maskHiLessLocal.template ReinterpretCast<uint16_t>(), maskHiLessLocal.template ReinterpretCast<uint16_t>(), maskLoLessLocal.template ReinterpretCast<uint16_t>(), len/UINT_EIGHT/UINT_DOUBLE);
+    AscendC::Compare(maskLoLessLocal, xu16Local.template ReinterpretCast<float>(),
+                     yu16Local.template ReinterpretCast<float>(), AscendC::CMPMODE::LT, len);
     AscendC::PipeBarrier<PIPE_V>();
 
-    AscendC::Select<float, uint8_t>(
-        zLocal.template ReinterpretCast<float>(), maskHiLessLocal,
-        onesLocal.template ReinterpretCast<float>(), static_cast<float>(0),
-        AscendC::SELMODE::VSEL_TENSOR_SCALAR_MODE, len);
+    AscendC::And(maskLoLessLocal.template ReinterpretCast<uint16_t>(),
+                 maskHiEqLocal.template ReinterpretCast<uint16_t>(),
+                 maskLoLessLocal.template ReinterpretCast<uint16_t>(), len / UINT_EIGHT / UINT_DOUBLE);
     AscendC::PipeBarrier<PIPE_V>();
-    AscendC::Cast<int32_t, float>(
-        zLocal.template ReinterpretCast<int32_t>(), zLocal.template ReinterpretCast<float>(),
-        AscendC::RoundMode::CAST_RINT, len);
+    AscendC::Or(maskHiLessLocal.template ReinterpretCast<uint16_t>(),
+                maskHiLessLocal.template ReinterpretCast<uint16_t>(),
+                maskLoLessLocal.template ReinterpretCast<uint16_t>(), len / UINT_EIGHT / UINT_DOUBLE);
+    AscendC::PipeBarrier<PIPE_V>();
+
+    AscendC::Select<float, uint8_t>(zLocal.template ReinterpretCast<float>(), maskHiLessLocal,
+                                    onesLocal.template ReinterpretCast<float>(), static_cast<float>(0),
+                                    AscendC::SELMODE::VSEL_TENSOR_SCALAR_MODE, len);
+    AscendC::PipeBarrier<PIPE_V>();
+    AscendC::Cast<int32_t, float>(zLocal.template ReinterpretCast<int32_t>(), zLocal.template ReinterpretCast<float>(),
+                                  AscendC::RoundMode::CAST_RINT, len);
     AscendC::PipeBarrier<PIPE_V>();
 }
 
-__aicore__ inline void myCast(
-    const AscendC::LocalTensor<uint32_t>& yLocal, const AscendC::LocalTensor<uint64_t>& xLocal, uint32_t len)
+__aicore__ inline void myCast(const AscendC::LocalTensor<uint32_t>& yLocal,
+                              const AscendC::LocalTensor<uint64_t>& xLocal, uint32_t len)
 {
-    AscendC::Cast<int32_t, int64_t>(
-        yLocal.template ReinterpretCast<int32_t>(), xLocal.template ReinterpretCast<int64_t>(),
-        AscendC::RoundMode::CAST_NONE, len);
+    AscendC::Cast<int32_t, int64_t>(yLocal.template ReinterpretCast<int32_t>(),
+                                    xLocal.template ReinterpretCast<int64_t>(), AscendC::RoundMode::CAST_NONE, len);
 }
 
-}
+} // namespace
 
 template <typename T1>
 class SimThreadExponential {
 public:
-    __aicore__ inline SimThreadExponential(AscendC::TPipe* p) : pipe(p) {};
+    __aicore__ inline SimThreadExponential(AscendC::TPipe* p) : pipe(p){};
 
-    __aicore__ inline void Init(GM_ADDR srcGm, GM_ADDR dstGm, GM_ADDR workspace, const SimThreadExponentialTilingData* tiling_data)
+    __aicore__ inline void Init(GM_ADDR srcGm, GM_ADDR dstGm, GM_ADDR workspace,
+                                const SimThreadExponentialTilingData* tiling_data)
     {
         ParseTilingData(tiling_data);
 
         uint32_t blockIdx = AscendC::GetBlockIdx();
         blockIdxoffset = batchNumPerCore * blockIdx;
         outputOffset = batchNumPerCore * blockIdx * blockSize;
-        if(blockIdx < useCoreNum - 1) {
+        if (blockIdx < useCoreNum - 1) {
             curCoreBatchNum = batchNumPerCore;
-        } else {                                                                    // blockIdx == useCoreNum - 1
+        } else { // blockIdx == useCoreNum - 1
             curCoreBatchNum = batchNumTailCore;
         }
 
-        dstGlobal.SetGlobalBuffer((__gm__ T1 *)dstGm + outputOffset);
+        dstGlobal.SetGlobalBuffer((__gm__ T1*)dstGm + outputOffset);
 
         pipe->InitBuffer(ctrTensorBuf, batchNumPerHandle * unroll_factor * blockSize * sizeof(uint32_t));
         pipe->InitBuffer(outputBuf, batchNumPerHandle * unroll_factor * blockSize * sizeof(uint32_t));
-        pipe->InitBuffer(ctrTensorTmpAndTmpBuf, UINT_DOUBLE * batchNumPerHandle * unroll_factor * blockSize * sizeof(uint32_t));
-        pipe->InitBuffer(largeTmpTensorBuf, UINT_DOUBLE * batchNumPerHandle * unroll_factor * blockSize * sizeof(uint32_t));
+        pipe->InitBuffer(ctrTensorTmpAndTmpBuf,
+                         UINT_DOUBLE * batchNumPerHandle * unroll_factor * blockSize * sizeof(uint32_t));
+        pipe->InitBuffer(largeTmpTensorBuf,
+                         UINT_DOUBLE * batchNumPerHandle * unroll_factor * blockSize * sizeof(uint32_t));
 
         pipe->InitBuffer(tmpTensorBuf, UINT_FIVE * batchNumPerHandle * blockSize * sizeof(uint32_t));
 
         this->ctrTensor = ctrTensorBuf.Get<uint32_t>();
         this->output = outputBuf.Get<uint32_t>();
         uint32_t offset = 0;
-        this->ctrTensorTmp = ctrTensorTmpAndTmpBuf.GetWithOffset<uint32_t>(batchNumPerHandle * unroll_factor * blockSize, offset);
+        this->ctrTensorTmp = ctrTensorTmpAndTmpBuf.GetWithOffset<uint32_t>(
+            batchNumPerHandle * unroll_factor * blockSize, offset);
         offset += batchNumPerHandle * unroll_factor * blockSize * sizeof(uint32_t);
-        this->tmp = ctrTensorTmpAndTmpBuf.GetWithOffset<uint32_t>(batchNumPerHandle * unroll_factor * blockSize, offset);
+        this->tmp = ctrTensorTmpAndTmpBuf.GetWithOffset<uint32_t>(batchNumPerHandle * unroll_factor * blockSize,
+                                                                  offset);
 
         offset = 0;
         this->tmp0Tensor = tmpTensorBuf.GetWithOffset<uint32_t>(batchNumPerHandle * blockSize, offset);
@@ -264,6 +262,38 @@ public:
         this->tmp4Tensor = tmpTensorBuf.GetWithOffset<uint32_t>(batchNumPerHandle * blockSize, offset);
     }
 
+    // 计算该 chunk 从起点起未越过 numel 的拷贝长度：起始绝对偏移为
+    // linearIndexBlock * blockSize + chunkIndex * batchNumTotal * blockSize（与 DataCopy 写入位置一致）
+    __aicore__ inline uint32_t GetCopyLen(uint32_t linearIndexBlock, uint32_t chunkIndex,
+                                          uint32_t batchNumCurHandle) const
+    {
+        int64_t globalStart = static_cast<int64_t>(linearIndexBlock) * static_cast<int64_t>(blockSize) +
+                              static_cast<int64_t>(chunkIndex) * static_cast<int64_t>(batchNumTotal) *
+                                  static_cast<int64_t>(blockSize);
+        if (globalStart >= numel) {
+            return 0;
+        }
+        int64_t copyLen = static_cast<int64_t>(batchNumCurHandle) * static_cast<int64_t>(blockSize);
+        int64_t remaining = numel - globalStart;
+        return (copyLen <= remaining) ? static_cast<uint32_t>(copyLen) : static_cast<uint32_t>(remaining);
+    }
+
+    // 按 numel 裁剪后的 GM 拷贝：全量时长度满足 32 字节对齐，走 DataCopy；
+    // 尾部裁剪后长度可能不满足 32 字节对齐，使用 DataCopyPad 精确搬运，避免越界写
+    __aicore__ inline void CopyOutToGm(const AscendC::GlobalTensor<T1>& dst, const AscendC::LocalTensor<T1>& src,
+                                       uint32_t copyLen, uint32_t fullLen) const
+    {
+        if (copyLen == 0U) {
+            return; // 该 chunk 起始位置已达到 numel，无剩余有效元素
+        }
+        if (copyLen == fullLen) {
+            AscendC::DataCopy(dst, src, copyLen);
+            return;
+        }
+        AscendC::DataCopyExtParams copyParams{1U, static_cast<uint32_t>(copyLen * sizeof(T1)), 0U, 0U, 0U};
+        AscendC::DataCopyPad(dst, src, copyParams);
+    }
+
     __aicore__ inline void genRandomData(uint32_t idx, uint32_t batchNumPerHandle, uint32_t batchNumCurHandle)
     {
         uint32_t threadIdx = blockIdxoffset + idx * batchNumPerHandle;
@@ -273,128 +303,179 @@ public:
         AscendC::Duplicate<uint32_t>(ctrTensor, zeroVal, batchNumCurHandle * unroll_factor * blockSize);
         AscendC::PipeBarrier<PIPE_V>();
 
-        setnlo0nhi0(ctrTensor, tmp.template ReinterpretCast<int32_t>(), tmp0Tensor, tmp1Tensor, tmp2Tensor, tmp3Tensor, tmp4Tensor, largeTmpTensorBuf, threadIdx, batchNumCurHandle * blockSize);
+        setnlo0nhi0(ctrTensor, tmp.template ReinterpretCast<int32_t>(), tmp0Tensor, tmp1Tensor, tmp2Tensor, tmp3Tensor,
+                    tmp4Tensor, largeTmpTensorBuf, threadIdx, batchNumCurHandle * blockSize);
 
-        setnlo1nhi1(ctrTensor, tmp0Tensor, tmp1Tensor, tmp2Tensor, tmp3Tensor, tmp4Tensor, largeTmpTensorBuf, batchNumCurHandle * blockSize);
+        setnlo1nhi1(ctrTensor, tmp0Tensor, tmp1Tensor, tmp2Tensor, tmp3Tensor, tmp4Tensor, largeTmpTensorBuf,
+                    batchNumCurHandle * blockSize);
 
         AscendC::DataCopy(output, ctrTensor, batchNumCurHandle * unroll_factor * blockSize);
         AscendC::PipeBarrier<PIPE_V>();
         keyTmp0 = key0;
         keyTmp1 = key1;
-        for(uint32_t idx2 = 0; idx2 < UINT_NINE; idx2++) {
-            rand_Philox4x32_10(output, tmp0Tensor, tmp1Tensor, tmp2Tensor, tmp3Tensor, tmp4Tensor, 
-                largeTmpTensorBuf, keyTmp0, keyTmp1, batchNumCurHandle * blockSize);
+        for (uint32_t idx2 = 0; idx2 < UINT_NINE; idx2++) {
+            rand_Philox4x32_10(output, tmp0Tensor, tmp1Tensor, tmp2Tensor, tmp3Tensor, tmp4Tensor, largeTmpTensorBuf,
+                               keyTmp0, keyTmp1, batchNumCurHandle * blockSize);
             AscendC::PipeBarrier<PIPE_V>();
             keyTmp0 += PHILOX_W32_0;
             keyTmp1 += PHILOX_W32_1;
         }
-        rand_Philox4x32_10(output, tmp0Tensor, tmp1Tensor, tmp2Tensor, tmp3Tensor, tmp4Tensor, 
-            largeTmpTensorBuf, keyTmp0, keyTmp1, batchNumCurHandle * blockSize);
+        rand_Philox4x32_10(output, tmp0Tensor, tmp1Tensor, tmp2Tensor, tmp3Tensor, tmp4Tensor, largeTmpTensorBuf,
+                           keyTmp0, keyTmp1, batchNumCurHandle * blockSize);
         AscendC::PipeBarrier<PIPE_V>();
 
-        for(uint32_t linearIndexBlock = threadIdx; linearIndexBlock < roundedSizeBlock; linearIndexBlock += stepBlock) {
+        for (uint32_t linearIndexBlock = threadIdx; linearIndexBlock < roundedSizeBlock;
+             linearIndexBlock += stepBlock) {
             uint32_t linearIndexBlockCurCore = linearIndexBlock - blockIdxoffset;
             AscendC::DataCopy(tmp, output, batchNumCurHandle * unroll_factor * blockSize);
 
-            setCtrTensor(ctrTensor, tmp0Tensor, tmp1Tensor, tmp2Tensor, tmp3Tensor, tmp4Tensor, largeTmpTensorBuf, batchNumCurHandle * blockSize);
+            setCtrTensor(ctrTensor, tmp0Tensor, tmp1Tensor, tmp2Tensor, tmp3Tensor, tmp4Tensor, largeTmpTensorBuf,
+                         batchNumCurHandle * blockSize);
             AscendC::DataCopy(output, ctrTensor, batchNumCurHandle * unroll_factor * blockSize);
 
             keyTmp0 = key0;
             keyTmp1 = key1;
-            for(uint32_t idx2 = 0; idx2 < UINT_NINE; idx2++) {
-                rand_Philox4x32_10(output, tmp0Tensor, tmp1Tensor, tmp2Tensor, tmp3Tensor, tmp4Tensor, 
-                    largeTmpTensorBuf, keyTmp0, keyTmp1, batchNumCurHandle * blockSize);
+            for (uint32_t idx2 = 0; idx2 < UINT_NINE; idx2++) {
+                rand_Philox4x32_10(output, tmp0Tensor, tmp1Tensor, tmp2Tensor, tmp3Tensor, tmp4Tensor,
+                                   largeTmpTensorBuf, keyTmp0, keyTmp1, batchNumCurHandle * blockSize);
                 AscendC::PipeBarrier<PIPE_V>();
                 keyTmp0 += PHILOX_W32_0;
                 keyTmp1 += PHILOX_W32_1;
             }
-            rand_Philox4x32_10(output, tmp0Tensor, tmp1Tensor, tmp2Tensor, tmp3Tensor, tmp4Tensor, 
-                largeTmpTensorBuf, keyTmp0, keyTmp1, batchNumCurHandle * blockSize);
+            rand_Philox4x32_10(output, tmp0Tensor, tmp1Tensor, tmp2Tensor, tmp3Tensor, tmp4Tensor, largeTmpTensorBuf,
+                               keyTmp0, keyTmp1, batchNumCurHandle * blockSize);
             AscendC::PipeBarrier<PIPE_V>();
             AscendC::DataCopy(ctrTensorTmp, output, batchNumCurHandle * unroll_factor * blockSize);
             AscendC::PipeBarrier<PIPE_V>();
 
-            AscendC::LocalTensor<uint32_t> xTensor = largeTmpTensorBuf.GetWithOffset<uint32_t>(UINT_DOUBLE * batchNumCurHandle * unroll_factor * blockSize, static_cast<uint32_t>(0));
+            AscendC::LocalTensor<uint32_t> xTensor = largeTmpTensorBuf.GetWithOffset<uint32_t>(
+                UINT_DOUBLE * batchNumCurHandle * unroll_factor * blockSize, static_cast<uint32_t>(0));
             AscendC::Duplicate<uint32_t>(xTensor, zeroVal, batchNumCurHandle * unroll_factor * blockSize);
             AscendC::PipeBarrier<PIPE_V>();
             setXTensor(xTensor, tmp, ctrTensorTmp, batchNumCurHandle * blockSize);
 
             AscendC::PipeBarrier<PIPE_ALL>();
-            ctrTensorTmp = ctrTensorTmpAndTmpBuf.GetWithOffset<uint32_t>(UINT_DOUBLE* batchNumCurHandle * unroll_factor * blockSize, static_cast<uint32_t>(0));
-            AscendC::LocalTensor<uint32_t> u32Tof32Tensor = tmpTensorBuf.GetWithOffset<uint32_t>(batchNumCurHandle * unroll_factor * blockSize, static_cast<uint32_t>(0));
+            ctrTensorTmp = ctrTensorTmpAndTmpBuf.GetWithOffset<uint32_t>(
+                UINT_DOUBLE * batchNumCurHandle * unroll_factor * blockSize, static_cast<uint32_t>(0));
+            AscendC::LocalTensor<uint32_t> u32Tof32Tensor = tmpTensorBuf.GetWithOffset<uint32_t>(
+                batchNumCurHandle * unroll_factor * blockSize, static_cast<uint32_t>(0));
 
-            uint32_to_float_func(u32Tof32Tensor.template ReinterpretCast<float>(), ctrTensorTmp.template ReinterpretCast<float>(), xTensor, batchNumCurHandle * unroll_factor * blockSize);
+            uint32_to_float_func(u32Tof32Tensor.template ReinterpretCast<float>(),
+                                 ctrTensorTmp.template ReinterpretCast<float>(), xTensor,
+                                 batchNumCurHandle * unroll_factor * blockSize);
             AscendC::PipeBarrier<PIPE_V>();
-            AscendC::Muls(ctrTensorTmp.template ReinterpretCast<float>(), ctrTensorTmp.template ReinterpretCast<float>(), static_cast<float>(CURAND_2POW32_INV), batchNumCurHandle * unroll_factor * blockSize);
+            AscendC::Muls(ctrTensorTmp.template ReinterpretCast<float>(),
+                          ctrTensorTmp.template ReinterpretCast<float>(), static_cast<float>(CURAND_2POW32_INV),
+                          batchNumCurHandle * unroll_factor * blockSize);
             AscendC::PipeBarrier<PIPE_V>();
-            AscendC::Adds(ctrTensorTmp.template ReinterpretCast<float>(), ctrTensorTmp.template ReinterpretCast<float>(), static_cast<float>(1.1641532e-10f), batchNumCurHandle * unroll_factor * blockSize);
+            AscendC::Adds(ctrTensorTmp.template ReinterpretCast<float>(),
+                          ctrTensorTmp.template ReinterpretCast<float>(), static_cast<float>(1.1641532e-10f),
+                          batchNumCurHandle * unroll_factor * blockSize);
             AscendC::PipeBarrier<PIPE_V>();
-            uniform_func(ctrTensorTmp.template ReinterpretCast<float>(), tmp0Tensor.template ReinterpretCast<uint8_t>(), tmp.template ReinterpretCast<float>(), start, end, batchNumCurHandle * unroll_factor * blockSize);
+            uniform_func(ctrTensorTmp.template ReinterpretCast<float>(), tmp0Tensor.template ReinterpretCast<uint8_t>(),
+                         tmp.template ReinterpretCast<float>(), start, end,
+                         batchNumCurHandle * unroll_factor * blockSize);
             AscendC::PipeBarrier<PIPE_V>();
             AscendC::PipeBarrier<PIPE_ALL>();
 
             uint32_t maskOffset = 0;
-            AscendC::LocalTensor<uint8_t> zeroMask = tmpTensorBuf.GetWithOffset<uint8_t>(batchNumCurHandle * unroll_factor * blockSize / PER_UINT8_8BITS, maskOffset);
-            AscendC::CompareScalar<float, uint8_t>(zeroMask, ctrTensorTmp.template ReinterpretCast<float>(), 0, AscendC::CMPMODE::NE, batchNumCurHandle * unroll_factor * blockSize);
+            AscendC::LocalTensor<uint8_t> zeroMask = tmpTensorBuf.GetWithOffset<uint8_t>(
+                batchNumCurHandle * unroll_factor * blockSize / PER_UINT8_8BITS, maskOffset);
+            AscendC::CompareScalar<float, uint8_t>(zeroMask, ctrTensorTmp.template ReinterpretCast<float>(), 0,
+                                                   AscendC::CMPMODE::NE, batchNumCurHandle * unroll_factor * blockSize);
             AscendC::PipeBarrier<PIPE_V>();
             AscendC::Select<float, uint8_t>(
-                ctrTensorTmp.template ReinterpretCast<float>(), zeroMask, ctrTensorTmp.template ReinterpretCast<float>(), 1, AscendC::SELMODE::VSEL_TENSOR_SCALAR_MODE,
-                REPEAT_NUM_64, batchNumCurHandle * unroll_factor * blockSize / REPEAT_NUM_64, { 1, 1, 1, 8, 8, 8 });
+                ctrTensorTmp.template ReinterpretCast<float>(), zeroMask,
+                ctrTensorTmp.template ReinterpretCast<float>(), 1, AscendC::SELMODE::VSEL_TENSOR_SCALAR_MODE,
+                REPEAT_NUM_64, batchNumCurHandle * unroll_factor * blockSize / REPEAT_NUM_64, {1, 1, 1, 8, 8, 8});
             AscendC::PipeBarrier<PIPE_V>();
             halfEpsilon = EPSILON_ / DOUBLE;
-            AscendC::CompareScalar<float, uint8_t>(zeroMask, ctrTensorTmp.template ReinterpretCast<float>(), 1 - halfEpsilon, AscendC::CMPMODE::LT, batchNumCurHandle * unroll_factor * blockSize);
+            AscendC::CompareScalar<float, uint8_t>(zeroMask, ctrTensorTmp.template ReinterpretCast<float>(),
+                                                   1 - halfEpsilon, AscendC::CMPMODE::LT,
+                                                   batchNumCurHandle * unroll_factor * blockSize);
             AscendC::PipeBarrier<PIPE_V>();
-            AscendC::Log<float>(ctrTensorTmp.template ReinterpretCast<float>(), ctrTensorTmp.template ReinterpretCast<float>());
+            AscendC::Log<float>(ctrTensorTmp.template ReinterpretCast<float>(),
+                                ctrTensorTmp.template ReinterpretCast<float>());
             AscendC::PipeBarrier<PIPE_V>();
             AscendC::Select<float, uint8_t>(
-                ctrTensorTmp.template ReinterpretCast<float>(), zeroMask, ctrTensorTmp.template ReinterpretCast<float>(), -halfEpsilon, AscendC::SELMODE::VSEL_TENSOR_SCALAR_MODE,
-                REPEAT_NUM_64, batchNumCurHandle * unroll_factor * blockSize / REPEAT_NUM_64, { 1, 1, 1, 8, 8, 8 });
+                ctrTensorTmp.template ReinterpretCast<float>(), zeroMask,
+                ctrTensorTmp.template ReinterpretCast<float>(), -halfEpsilon, AscendC::SELMODE::VSEL_TENSOR_SCALAR_MODE,
+                REPEAT_NUM_64, batchNumCurHandle * unroll_factor * blockSize / REPEAT_NUM_64, {1, 1, 1, 8, 8, 8});
             AscendC::PipeBarrier<PIPE_V>();
-            AscendC::Muls<float>(ctrTensorTmp.template ReinterpretCast<float>(), ctrTensorTmp.template ReinterpretCast<float>(), -1, batchNumCurHandle * unroll_factor * blockSize);
+            AscendC::Muls<float>(ctrTensorTmp.template ReinterpretCast<float>(),
+                                 ctrTensorTmp.template ReinterpretCast<float>(), -1,
+                                 batchNumCurHandle * unroll_factor * blockSize);
             AscendC::PipeBarrier<PIPE_V>();
-            AscendC::Duplicate<float>(u32Tof32Tensor.template ReinterpretCast<float>(), lambda, batchNumCurHandle * unroll_factor * blockSize);
+            AscendC::Duplicate<float>(u32Tof32Tensor.template ReinterpretCast<float>(), lambda,
+                                      batchNumCurHandle * unroll_factor * blockSize);
             AscendC::PipeBarrier<PIPE_V>();
-            AscendC::Div<float>(ctrTensorTmp.template ReinterpretCast<float>(), ctrTensorTmp.template ReinterpretCast<float>(), u32Tof32Tensor.template ReinterpretCast<float>(), batchNumCurHandle * unroll_factor * blockSize);
+            AscendC::Div<float>(
+                ctrTensorTmp.template ReinterpretCast<float>(), ctrTensorTmp.template ReinterpretCast<float>(),
+                u32Tof32Tensor.template ReinterpretCast<float>(), batchNumCurHandle * unroll_factor * blockSize);
             AscendC::PipeBarrier<PIPE_V>();
             AscendC::PipeBarrier<PIPE_ALL>();
-            
+
             if (std::is_same<T1, float>::value == false) {
-                AscendC::Cast<T1, float>(
-                    xTensor.template ReinterpretCast<T1>(), ctrTensorTmp.template ReinterpretCast<float>(),
-                    AscendC::RoundMode::CAST_RINT, batchNumCurHandle * unroll_factor * blockSize);
+                AscendC::Cast<T1, float>(xTensor.template ReinterpretCast<T1>(),
+                                         ctrTensorTmp.template ReinterpretCast<float>(), AscendC::RoundMode::CAST_RINT,
+                                         batchNumCurHandle * unroll_factor * blockSize);
                 AscendC::PipeBarrier<PIPE_ALL>();
 
-                if(linearIndexBlock * blockSize <= numel) {
-                    AscendC::DataCopy(dstGlobal[linearIndexBlockCurCore * blockSize], xTensor.template ReinterpretCast<T1>(), batchNumCurHandle * blockSize);
+                if (linearIndexBlock * blockSize <= numel) {
+                    uint32_t copyLen = GetCopyLen(linearIndexBlock, 0, batchNumCurHandle);
+                    CopyOutToGm(dstGlobal[linearIndexBlockCurCore * blockSize], xTensor.template ReinterpretCast<T1>(),
+                                copyLen, batchNumCurHandle * blockSize);
                     AscendC::PipeBarrier<PIPE_ALL>();
                 }
-                if(linearIndexBlock * blockSize + batchNumTotal * blockSize <= numel) {
-                    AscendC::DataCopy(dstGlobal[linearIndexBlockCurCore * blockSize + batchNumTotal * blockSize], xTensor.template ReinterpretCast<T1>()[batchNumCurHandle * blockSize], batchNumCurHandle * blockSize);
+                if (linearIndexBlock * blockSize + batchNumTotal * blockSize <= numel) {
+                    uint32_t copyLen = GetCopyLen(linearIndexBlock, 1, batchNumCurHandle);
+                    CopyOutToGm(dstGlobal[linearIndexBlockCurCore * blockSize + batchNumTotal * blockSize],
+                                xTensor.template ReinterpretCast<T1>()[batchNumCurHandle * blockSize], copyLen,
+                                batchNumCurHandle * blockSize);
                     AscendC::PipeBarrier<PIPE_ALL>();
                 }
-                if(linearIndexBlock * blockSize + UINT_DOUBLE * batchNumTotal * blockSize <= numel) {
-                    AscendC::DataCopy(dstGlobal[linearIndexBlockCurCore * blockSize + UINT_DOUBLE * batchNumTotal * blockSize], xTensor.template ReinterpretCast<T1>()[UINT_DOUBLE * batchNumCurHandle * blockSize], batchNumCurHandle * blockSize);
+                if (linearIndexBlock * blockSize + UINT_DOUBLE * batchNumTotal * blockSize <= numel) {
+                    uint32_t copyLen = GetCopyLen(linearIndexBlock, 2, batchNumCurHandle);
+                    CopyOutToGm(
+                        dstGlobal[linearIndexBlockCurCore * blockSize + UINT_DOUBLE * batchNumTotal * blockSize],
+                        xTensor.template ReinterpretCast<T1>()[UINT_DOUBLE * batchNumCurHandle * blockSize], copyLen,
+                        batchNumCurHandle * blockSize);
                     AscendC::PipeBarrier<PIPE_ALL>();
                 }
-                if(linearIndexBlock * blockSize + UINT_THREE * batchNumTotal * blockSize <= numel) {
-                    AscendC::DataCopy(dstGlobal[linearIndexBlockCurCore * blockSize + UINT_THREE * batchNumTotal * blockSize], xTensor.template ReinterpretCast<T1>()[UINT_THREE * batchNumCurHandle * blockSize], batchNumCurHandle * blockSize);
+                if (linearIndexBlock * blockSize + UINT_THREE * batchNumTotal * blockSize <= numel) {
+                    uint32_t copyLen = GetCopyLen(linearIndexBlock, 3, batchNumCurHandle);
+                    CopyOutToGm(dstGlobal[linearIndexBlockCurCore * blockSize + UINT_THREE * batchNumTotal * blockSize],
+                                xTensor.template ReinterpretCast<T1>()[UINT_THREE * batchNumCurHandle * blockSize],
+                                copyLen, batchNumCurHandle * blockSize);
                     AscendC::PipeBarrier<PIPE_ALL>();
                 }
             } else {
-                if(linearIndexBlock * blockSize <= numel) {
-                    AscendC::DataCopy(dstGlobal[linearIndexBlockCurCore * blockSize], ctrTensorTmp.template ReinterpretCast<T1>(), batchNumCurHandle * blockSize);
+                if (linearIndexBlock * blockSize <= numel) {
+                    uint32_t copyLen = GetCopyLen(linearIndexBlock, 0, batchNumCurHandle);
+                    CopyOutToGm(dstGlobal[linearIndexBlockCurCore * blockSize],
+                                ctrTensorTmp.template ReinterpretCast<T1>(), copyLen, batchNumCurHandle * blockSize);
                     AscendC::PipeBarrier<PIPE_ALL>();
                 }
-                if(linearIndexBlock * blockSize + batchNumTotal * blockSize <= numel) {
-                    AscendC::DataCopy(dstGlobal[linearIndexBlockCurCore * blockSize + batchNumTotal * blockSize], ctrTensorTmp[batchNumCurHandle * blockSize].template ReinterpretCast<T1>(), batchNumCurHandle * blockSize);
+                if (linearIndexBlock * blockSize + batchNumTotal * blockSize <= numel) {
+                    uint32_t copyLen = GetCopyLen(linearIndexBlock, 1, batchNumCurHandle);
+                    CopyOutToGm(dstGlobal[linearIndexBlockCurCore * blockSize + batchNumTotal * blockSize],
+                                ctrTensorTmp[batchNumCurHandle * blockSize].template ReinterpretCast<T1>(), copyLen,
+                                batchNumCurHandle * blockSize);
                     AscendC::PipeBarrier<PIPE_ALL>();
                 }
-                if(linearIndexBlock * blockSize + UINT_DOUBLE * batchNumTotal * blockSize <= numel) {
-                    AscendC::DataCopy(dstGlobal[linearIndexBlockCurCore * blockSize + UINT_DOUBLE * batchNumTotal * blockSize], ctrTensorTmp[UINT_DOUBLE * batchNumCurHandle * blockSize].template ReinterpretCast<T1>(), batchNumCurHandle * blockSize);
+                if (linearIndexBlock * blockSize + UINT_DOUBLE * batchNumTotal * blockSize <= numel) {
+                    uint32_t copyLen = GetCopyLen(linearIndexBlock, 2, batchNumCurHandle);
+                    CopyOutToGm(
+                        dstGlobal[linearIndexBlockCurCore * blockSize + UINT_DOUBLE * batchNumTotal * blockSize],
+                        ctrTensorTmp[UINT_DOUBLE * batchNumCurHandle * blockSize].template ReinterpretCast<T1>(),
+                        copyLen, batchNumCurHandle * blockSize);
                     AscendC::PipeBarrier<PIPE_ALL>();
                 }
-                if(linearIndexBlock * blockSize + UINT_THREE * batchNumTotal * blockSize <= numel) {
-                    AscendC::DataCopy(dstGlobal[linearIndexBlockCurCore * blockSize + UINT_THREE * batchNumTotal * blockSize], ctrTensorTmp[UINT_THREE * batchNumCurHandle * blockSize].template ReinterpretCast<T1>(), batchNumCurHandle * blockSize);
+                if (linearIndexBlock * blockSize + UINT_THREE * batchNumTotal * blockSize <= numel) {
+                    uint32_t copyLen = GetCopyLen(linearIndexBlock, 3, batchNumCurHandle);
+                    CopyOutToGm(dstGlobal[linearIndexBlockCurCore * blockSize + UINT_THREE * batchNumTotal * blockSize],
+                                ctrTensorTmp[UINT_THREE * batchNumCurHandle * blockSize].template ReinterpretCast<T1>(),
+                                copyLen, batchNumCurHandle * blockSize);
                     AscendC::PipeBarrier<PIPE_ALL>();
                 }
             }
@@ -403,7 +484,7 @@ public:
 
     __aicore__ inline void Process()
     {
-        for(uint32_t idx=0; idx<handleNumLoop; idx++) {
+        for (uint32_t idx = 0; idx < handleNumLoop; idx++) {
             genRandomData(idx, batchNumPerHandle, batchNumPerHandle);
         }
         if (handleNumTail > 0) {
@@ -411,11 +492,14 @@ public:
         }
     }
 
-    __aicore__ inline void setnlo0nhi0(
-        const AscendC::LocalTensor<uint32_t>& ctrTensor, const AscendC::LocalTensor<int32_t>& arangeTensor, 
-        const AscendC::LocalTensor<uint32_t>& blockNumTensor, const AscendC::LocalTensor<uint32_t>& iTensor, 
-        const AscendC::LocalTensor<uint32_t>& nlo0Tensor, const AscendC::LocalTensor<uint32_t>& nhi0Tensor, 
-        const AscendC::LocalTensor<uint32_t>& nhi0TmpTensor, AscendC::TBuf<>& compareTensorBuf, uint32_t curThreadIdx, uint32_t len)
+    __aicore__ inline void setnlo0nhi0(const AscendC::LocalTensor<uint32_t>& ctrTensor,
+                                       const AscendC::LocalTensor<int32_t>& arangeTensor,
+                                       const AscendC::LocalTensor<uint32_t>& blockNumTensor,
+                                       const AscendC::LocalTensor<uint32_t>& iTensor,
+                                       const AscendC::LocalTensor<uint32_t>& nlo0Tensor,
+                                       const AscendC::LocalTensor<uint32_t>& nhi0Tensor,
+                                       const AscendC::LocalTensor<uint32_t>& nhi0TmpTensor,
+                                       AscendC::TBuf<>& compareTensorBuf, uint32_t curThreadIdx, uint32_t len)
     {
         AscendC::Duplicate<uint32_t>(blockNumTensor, static_cast<uint32_t>(curThreadIdx), len);
         AscendC::PipeBarrier<PIPE_V>();
@@ -441,11 +525,13 @@ public:
         AscendC::PipeBarrier<PIPE_V>();
     }
 
-    __aicore__ inline void setnlo1nhi1(
-        const AscendC::LocalTensor<uint32_t>& ctrTensor, const AscendC::LocalTensor<uint32_t>& nlo1Tensor, 
-        const AscendC::LocalTensor<uint32_t>& nhi1Tensor, const AscendC::LocalTensor<uint32_t>& nhi1TmpTensor,
-        const AscendC::LocalTensor<uint32_t>& nhi1TmpGTTensor, const AscendC::LocalTensor<uint32_t>& ctrTensorEQ0Tensor,
-        AscendC::TBuf<>& compareTensorBuf, uint32_t len)
+    __aicore__ inline void setnlo1nhi1(const AscendC::LocalTensor<uint32_t>& ctrTensor,
+                                       const AscendC::LocalTensor<uint32_t>& nlo1Tensor,
+                                       const AscendC::LocalTensor<uint32_t>& nhi1Tensor,
+                                       const AscendC::LocalTensor<uint32_t>& nhi1TmpTensor,
+                                       const AscendC::LocalTensor<uint32_t>& nhi1TmpGTTensor,
+                                       const AscendC::LocalTensor<uint32_t>& ctrTensorEQ0Tensor,
+                                       AscendC::TBuf<>& compareTensorBuf, uint32_t len)
     {
         AscendC::Duplicate<uint32_t>(nlo1Tensor, offset_t_low, len);
         AscendC::PipeBarrier<PIPE_V>();
@@ -471,11 +557,13 @@ public:
         AscendC::PipeBarrier<PIPE_V>();
     }
 
-    __aicore__ inline void setCtrTensor(
-        const AscendC::LocalTensor<uint32_t>& ctrTensor, const AscendC::LocalTensor<uint32_t>& ctr0EQ0Tensor,
-        const AscendC::LocalTensor<uint32_t>& ctr1EQ0Tensor, const AscendC::LocalTensor<uint32_t>& ctrMulEQ01Tensor,
-        const AscendC::LocalTensor<uint32_t>& ctr2EQ0Tensor, const AscendC::LocalTensor<uint32_t>& ctrMulEQ012Tensor,
-        AscendC::TBuf<>& compareTensorBuf, uint32_t len)
+    __aicore__ inline void setCtrTensor(const AscendC::LocalTensor<uint32_t>& ctrTensor,
+                                        const AscendC::LocalTensor<uint32_t>& ctr0EQ0Tensor,
+                                        const AscendC::LocalTensor<uint32_t>& ctr1EQ0Tensor,
+                                        const AscendC::LocalTensor<uint32_t>& ctrMulEQ01Tensor,
+                                        const AscendC::LocalTensor<uint32_t>& ctr2EQ0Tensor,
+                                        const AscendC::LocalTensor<uint32_t>& ctrMulEQ012Tensor,
+                                        AscendC::TBuf<>& compareTensorBuf, uint32_t len)
     {
         myAdds(ctrTensor, ctrTensor, static_cast<uint32_t>(1), len);
         AscendC::PipeBarrier<PIPE_V>();
@@ -497,11 +585,11 @@ public:
         AscendC::PipeBarrier<PIPE_V>();
     }
 
-    __aicore__ inline void setXTensor(
-        const AscendC::LocalTensor<uint32_t>& xTensor, const AscendC::LocalTensor<uint32_t>& tmp, 
-        const AscendC::LocalTensor<uint32_t>& output, uint32_t len)
+    __aicore__ inline void setXTensor(const AscendC::LocalTensor<uint32_t>& xTensor,
+                                      const AscendC::LocalTensor<uint32_t>& tmp,
+                                      const AscendC::LocalTensor<uint32_t>& output, uint32_t len)
     {
-        if(state == UINT_DOUBLE) {
+        if (state == UINT_DOUBLE) {
             AscendC::DataCopy(xTensor, tmp[UINT_DOUBLE * len], len);
             AscendC::PipeBarrier<PIPE_V>();
             AscendC::DataCopy(xTensor[len], tmp[UINT_THREE * len], len);
@@ -510,7 +598,7 @@ public:
             AscendC::PipeBarrier<PIPE_V>();
             AscendC::DataCopy(xTensor[UINT_THREE * len], output[len], len);
             AscendC::PipeBarrier<PIPE_V>();
-        } else if(state == UINT_THREE) {
+        } else if (state == UINT_THREE) {
             AscendC::DataCopy(xTensor, tmp[UINT_THREE * len], len);
             AscendC::PipeBarrier<PIPE_V>();
             AscendC::DataCopy(xTensor[len], output, len);
@@ -531,8 +619,10 @@ public:
         }
     }
 
-    __aicore__ inline void uniform_func(
-        const AscendC::LocalTensor<float>& randVal, const AscendC::LocalTensor<uint8_t>& randValEQEndBitMask, const AscendC::LocalTensor<float>& startTensor, float start, float end, uint32_t len)
+    __aicore__ inline void uniform_func(const AscendC::LocalTensor<float>& randVal,
+                                        const AscendC::LocalTensor<uint8_t>& randValEQEndBitMask,
+                                        const AscendC::LocalTensor<float>& startTensor, float start, float end,
+                                        uint32_t len)
     {
         float range = end - start;
         AscendC::Muls(randVal, randVal, static_cast<float>(range), len);
@@ -546,33 +636,41 @@ public:
         Select(randVal, randValEQEndBitMask, startTensor, randVal, AscendC::SELMODE::VSEL_TENSOR_TENSOR_MODE, len);
     }
 
-    __aicore__ inline void uint32_to_float_func(
-        const AscendC::LocalTensor<float>& dstValTmp, const AscendC::LocalTensor<float>& dstVal, const AscendC::LocalTensor<uint32_t>& u32Value, 
-        uint32_t len)
+    __aicore__ inline void uint32_to_float_func(const AscendC::LocalTensor<float>& dstValTmp,
+                                                const AscendC::LocalTensor<float>& dstVal,
+                                                const AscendC::LocalTensor<uint32_t>& u32Value, uint32_t len)
     {
         AscendC::PipeBarrier<PIPE_V>();
-        AscendC::ShiftRight(dstValTmp.template ReinterpretCast<uint32_t>(), u32Value, static_cast<uint32_t>(SHIFT_LEFT_31), len);
+        AscendC::ShiftRight(dstValTmp.template ReinterpretCast<uint32_t>(), u32Value,
+                            static_cast<uint32_t>(SHIFT_LEFT_31), len);
         AscendC::PipeBarrier<PIPE_V>();
-        AscendC::Cast(dstVal.template ReinterpretCast<int64_t>(), u32Value.template ReinterpretCast<int32_t>(), AscendC::RoundMode::CAST_NONE, len);
+        AscendC::Cast(dstVal.template ReinterpretCast<int64_t>(), u32Value.template ReinterpretCast<int32_t>(),
+                      AscendC::RoundMode::CAST_NONE, len);
         AscendC::PipeBarrier<PIPE_V>();
-        AscendC::Cast(u32Value.template ReinterpretCast<int64_t>(), dstValTmp.template ReinterpretCast<int32_t>(), AscendC::RoundMode::CAST_NONE, len);
+        AscendC::Cast(u32Value.template ReinterpretCast<int64_t>(), dstValTmp.template ReinterpretCast<int32_t>(),
+                      AscendC::RoundMode::CAST_NONE, len);
         AscendC::PipeBarrier<PIPE_V>();
-        AscendC::ShiftLeft(u32Value.template ReinterpretCast<uint32_t>(), u32Value.template ReinterpretCast<uint32_t>(), static_cast<uint32_t>(SHIFT_LEFT_31), UINT_DOUBLE * len);
+        AscendC::ShiftLeft(u32Value.template ReinterpretCast<uint32_t>(), u32Value.template ReinterpretCast<uint32_t>(),
+                           static_cast<uint32_t>(SHIFT_LEFT_31), UINT_DOUBLE * len);
         AscendC::PipeBarrier<PIPE_V>();
-        AscendC::Or(u32Value.template ReinterpretCast<uint16_t>(), dstVal.template ReinterpretCast<uint16_t>(), u32Value.template ReinterpretCast<uint16_t>(), UINT_FOUR * len);
+        AscendC::Or(u32Value.template ReinterpretCast<uint16_t>(), dstVal.template ReinterpretCast<uint16_t>(),
+                    u32Value.template ReinterpretCast<uint16_t>(), UINT_FOUR * len);
         AscendC::PipeBarrier<PIPE_V>();
-        AscendC::Duplicate<uint32_t>(dstVal.template ReinterpretCast<uint32_t>(), static_cast<uint32_t>(0), UINT_DOUBLE * len);
+        AscendC::Duplicate<uint32_t>(dstVal.template ReinterpretCast<uint32_t>(), static_cast<uint32_t>(0),
+                                     UINT_DOUBLE * len);
         AscendC::PipeBarrier<PIPE_V>();
-        uint64_t mask[UINT_DOUBLE] = { 0xCCCCCCCCCCCCCCCC, 0xCCCCCCCCCCCCCCCC };
-        AscendC::And(u32Value.template ReinterpretCast<uint16_t>(), u32Value.template ReinterpretCast<uint16_t>(), dstVal.template ReinterpretCast<uint16_t>(), mask, len / SHIFT_LEFT_32, { 1, 1, 1, 8, 8, 8 });
+        uint64_t mask[UINT_DOUBLE] = {0xCCCCCCCCCCCCCCCC, 0xCCCCCCCCCCCCCCCC};
+        AscendC::And(u32Value.template ReinterpretCast<uint16_t>(), u32Value.template ReinterpretCast<uint16_t>(),
+                     dstVal.template ReinterpretCast<uint16_t>(), mask, len / SHIFT_LEFT_32, {1, 1, 1, 8, 8, 8});
         AscendC::PipeBarrier<PIPE_V>();
         AscendC::Cast(dstVal, u32Value.template ReinterpretCast<int64_t>(), AscendC::RoundMode::CAST_RINT, len);
     }
 
-    __aicore__ inline void multiply_uint64(
-        const AscendC::LocalTensor<uint32_t>& ctrTensor, const AscendC::LocalTensor<uint32_t>& tensor, 
-        const AscendC::LocalTensor<uint32_t>& hiTensor, const AscendC::LocalTensor<uint32_t>& loTensor, 
-        AscendC::TBuf<>& hlAndpTensorBuf, uint32_t len)
+    __aicore__ inline void multiply_uint64(const AscendC::LocalTensor<uint32_t>& ctrTensor,
+                                           const AscendC::LocalTensor<uint32_t>& tensor,
+                                           const AscendC::LocalTensor<uint32_t>& hiTensor,
+                                           const AscendC::LocalTensor<uint32_t>& loTensor,
+                                           AscendC::TBuf<>& hlAndpTensorBuf, uint32_t len)
     {
         uint32_t offset = 0;
         AscendC::LocalTensor<uint32_t> aHLocal = hlAndpTensorBuf.GetWithOffset<uint32_t>(len, offset);
@@ -637,12 +735,10 @@ public:
     }
 
     __aicore__ inline void rand_Philox4x32_10(
-        const AscendC::LocalTensor<uint32_t>& ctrTensor,
-        AscendC::LocalTensor<uint32_t>& tensor0, 
-        AscendC::LocalTensor<uint32_t>& hi0Tensor, AscendC::LocalTensor<uint32_t>& lo0Tensor, 
-        const AscendC::LocalTensor<uint32_t>& hi1Tensor, 
-        const AscendC::LocalTensor<uint32_t>& lo1Tensor, AscendC::TBuf<>& largeTmpTensorBuf,
-        uint32_t key0, uint32_t key1, uint32_t len)
+        const AscendC::LocalTensor<uint32_t>& ctrTensor, AscendC::LocalTensor<uint32_t>& tensor0,
+        AscendC::LocalTensor<uint32_t>& hi0Tensor, AscendC::LocalTensor<uint32_t>& lo0Tensor,
+        const AscendC::LocalTensor<uint32_t>& hi1Tensor, const AscendC::LocalTensor<uint32_t>& lo1Tensor,
+        AscendC::TBuf<>& largeTmpTensorBuf, uint32_t key0, uint32_t key1, uint32_t len)
     {
         AscendC::Duplicate<uint32_t>(tensor0, static_cast<uint32_t>(PHILOX_M4x32_0), len);
         AscendC::PipeBarrier<PIPE_V>();
@@ -653,19 +749,24 @@ public:
         AscendC::PipeBarrier<PIPE_V>();
         multiply_uint64(ctrTensor[UINT_DOUBLE * len], tensor0, hi1Tensor, lo1Tensor, largeTmpTensorBuf, len);
         AscendC::PipeBarrier<PIPE_V>();
-        AscendC::Xor(tensor0.template ReinterpretCast<uint16_t>(), hi1Tensor.template ReinterpretCast<uint16_t>(), ctrTensor[len].template ReinterpretCast<uint16_t>(), UINT_DOUBLE * len);
+        AscendC::Xor(tensor0.template ReinterpretCast<uint16_t>(), hi1Tensor.template ReinterpretCast<uint16_t>(),
+                     ctrTensor[len].template ReinterpretCast<uint16_t>(), UINT_DOUBLE * len);
         AscendC::PipeBarrier<PIPE_V>();
         AscendC::Duplicate<uint32_t>(ctrTensor[len], static_cast<uint32_t>(key0), len);
         AscendC::PipeBarrier<PIPE_V>();
-        AscendC::Xor(ctrTensor.template ReinterpretCast<uint16_t>(), tensor0.template ReinterpretCast<uint16_t>(), ctrTensor[len].template ReinterpretCast<uint16_t>(), UINT_DOUBLE * len);
+        AscendC::Xor(ctrTensor.template ReinterpretCast<uint16_t>(), tensor0.template ReinterpretCast<uint16_t>(),
+                     ctrTensor[len].template ReinterpretCast<uint16_t>(), UINT_DOUBLE * len);
         AscendC::PipeBarrier<PIPE_V>();
         AscendC::DataCopy(ctrTensor[len], lo1Tensor, len);
         AscendC::PipeBarrier<PIPE_V>();
-        AscendC::Xor(tensor0.template ReinterpretCast<uint16_t>(), hi0Tensor.template ReinterpretCast<uint16_t>(), ctrTensor[UINT_THREE * len].template ReinterpretCast<uint16_t>(), UINT_DOUBLE * len);
+        AscendC::Xor(tensor0.template ReinterpretCast<uint16_t>(), hi0Tensor.template ReinterpretCast<uint16_t>(),
+                     ctrTensor[UINT_THREE * len].template ReinterpretCast<uint16_t>(), UINT_DOUBLE * len);
         AscendC::PipeBarrier<PIPE_V>();
         AscendC::Duplicate<uint32_t>(ctrTensor[UINT_THREE * len], static_cast<uint32_t>(key1), len);
         AscendC::PipeBarrier<PIPE_V>();
-        AscendC::Xor(ctrTensor[UINT_DOUBLE * len].template ReinterpretCast<uint16_t>(), tensor0.template ReinterpretCast<uint16_t>(), ctrTensor[UINT_THREE * len].template ReinterpretCast<uint16_t>(), UINT_DOUBLE * len);
+        AscendC::Xor(ctrTensor[UINT_DOUBLE * len].template ReinterpretCast<uint16_t>(),
+                     tensor0.template ReinterpretCast<uint16_t>(),
+                     ctrTensor[UINT_THREE * len].template ReinterpretCast<uint16_t>(), UINT_DOUBLE * len);
         AscendC::PipeBarrier<PIPE_V>();
         AscendC::DataCopy(ctrTensor[UINT_THREE * len], lo0Tensor, len);
         AscendC::PipeBarrier<PIPE_V>();

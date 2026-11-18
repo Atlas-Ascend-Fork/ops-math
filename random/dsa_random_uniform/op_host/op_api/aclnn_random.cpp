@@ -15,6 +15,7 @@
 #include "math/round/op_api/round.h"
 #include "math/muls/op_api/muls.h"
 #include "math/sub/op_api/sub.h"
+#include "math/floor/op_api/floor.h"
 #include "conversion/view_copy/op_api/view_copy.h"
 #include "../../../random_common/op_api/random_common_utils.h"
 
@@ -434,6 +435,13 @@ aclnnStatus aclnnInplaceRandomGetWorkspaceSize(const aclTensor* selfRef, int64_t
         ret = AllocFromToScalars(selfContiguous, from, to, uniqueExecutor.get(), inputShapeArray, low, high);
         CHECK_RET(ret == ACLNN_SUCCESS, ret);
         computeOut = l0op::DSARandomUniform(inputShapeArray, seed, offset, low, high, uniqueExecutor.get());
+        CHECK_RET(computeOut != nullptr, ACLNN_ERR_INNER_NULLPTR);
+        // from<0 时浮点采样向零截断会使取值域整体右移（from 桶为空、0 桶翻倍），先向下取整修正；
+        // 仅整数 dtype 生效（from>=0 时 floor 与 trunc 等价，无需额外开销），仅 DSA 芯片路径，RegBase 不受影响
+        if (from < 0 && CheckType(selfRef->GetDataType(), INT_DTYPE_LIST)) {
+            computeOut = l0op::Floor(computeOut, uniqueExecutor.get());
+            CHECK_RET(computeOut != nullptr, ACLNN_ERR_INNER_NULLPTR);
+        }
     } else {
         computeOut = randomDavidPath(selfContiguous, seed, offset, from, to, uniqueExecutor.get());
     }
@@ -460,6 +468,8 @@ aclnnStatus aclnnInplaceRandomTensorGetWorkspaceSize(const aclTensor* selfRef, i
     auto out = const_cast<aclTensor*>(selfRef);
     auto ret = CheckParams(selfRef);
     CHECK_RET(ret == ACLNN_SUCCESS, ret);
+    OP_CHECK_NULL(seedTensor, return ACLNN_ERR_PARAM_NULLPTR);
+    OP_CHECK_NULL(offsetTensor, return ACLNN_ERR_PARAM_NULLPTR);
     CHECK_RET(CheckFromToRange(from, to), ACLNN_ERR_PARAM_INVALID);
     ret = CheckSeedOffsetShape(seedTensor, offsetTensor);
     CHECK_RET(ret == ACLNN_SUCCESS, ret);
@@ -492,6 +502,13 @@ aclnnStatus aclnnInplaceRandomTensorGetWorkspaceSize(const aclTensor* selfRef, i
 
         computeOut = l0op::DSARandomUniformTensor(inputShapeArray, seedTensor, concatTensor, low, high,
                                                   uniqueExecutor.get());
+        CHECK_RET(computeOut != nullptr, ACLNN_ERR_INNER_NULLPTR);
+        // from<0 时浮点采样向零截断会使取值域整体右移（from 桶为空、0 桶翻倍），先向下取整修正；
+        // 仅整数 dtype 生效（from>=0 时 floor 与 trunc 等价，无需额外开销），仅 DSA 芯片路径，RegBase 不受影响
+        if (from < 0 && CheckType(selfRef->GetDataType(), INT_DTYPE_LIST)) {
+            computeOut = l0op::Floor(computeOut, uniqueExecutor.get());
+            CHECK_RET(computeOut != nullptr, ACLNN_ERR_INNER_NULLPTR);
+        }
     } else {
         computeOut = randomTensorDavidPath(selfContiguous, seedTensor, offsetTensor, offset, from, to,
                                            uniqueExecutor.get());
@@ -556,6 +573,8 @@ aclnnStatus aclnnInplaceRandomWithoutFromToTensorGetWorkspaceSize(const aclTenso
     auto out = const_cast<aclTensor*>(selfRef);
     auto ret = CheckParams(selfRef);
     CHECK_RET(ret == ACLNN_SUCCESS, ret);
+    OP_CHECK_NULL(seedTensor, return ACLNN_ERR_PARAM_NULLPTR);
+    OP_CHECK_NULL(offsetTensor, return ACLNN_ERR_PARAM_NULLPTR);
     auto uniqueExecutor = CREATE_EXECUTOR();
     CHECK_RET(uniqueExecutor.get() != nullptr, ACLNN_ERR_INNER_CREATE_EXECUTOR);
 
