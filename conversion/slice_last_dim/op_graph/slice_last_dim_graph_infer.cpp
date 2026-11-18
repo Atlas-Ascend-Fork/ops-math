@@ -25,14 +25,13 @@ static ge::graphStatus InferDataType4SliceLastDim(gert::InferDataTypeContext* co
 {
     const ge::DataType xDataType = context->GetInputDataType(INPUT_IDX_X);
     // The dtype whitelist is aligned with the OpDef baseDataType (see slice_last_dim_def.cpp),
-    // the operator info dtype list and README: int8/int16/int32/int64/float16/float32/bfloat16.
+    // the operator info dtype list and README: int8/int16/int32/int64/float16/float32.
     OP_CHECK_IF(xDataType != ge::DT_INT8 && xDataType != ge::DT_INT16 && xDataType != ge::DT_INT32 &&
-                    xDataType != ge::DT_INT64 && xDataType != ge::DT_FLOAT16 && xDataType != ge::DT_FLOAT &&
-                    xDataType != ge::DT_BF16,
+                    xDataType != ge::DT_INT64 && xDataType != ge::DT_FLOAT16 && xDataType != ge::DT_FLOAT,
                 OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "x",
                                                       ge::TypeUtils::DataTypeToSerialString(xDataType),
                                                       "The dtype of x must be one of [int8, int16, int32, int64, "
-                                                      "float16, float32, bfloat16]."),
+                                                      "float16, float32]."),
                 return ge::GRAPH_FAILED);
     context->SetOutputDataType(OUTPUT_IDX_Y, xDataType);
     return ge::GRAPH_SUCCESS;

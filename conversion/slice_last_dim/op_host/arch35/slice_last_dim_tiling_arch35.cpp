@@ -114,12 +114,10 @@ ge::graphStatus SliceLastDimTiling::GetParams()
     // non-whitelist dtypes with a positive byte size (e.g. bool, complex128) reach the kernel.
     OP_CHECK_IF(
         inputDataType != ge::DT_INT8 && inputDataType != ge::DT_INT16 && inputDataType != ge::DT_INT32 &&
-            inputDataType != ge::DT_INT64 && inputDataType != ge::DT_FLOAT16 && inputDataType != ge::DT_FLOAT &&
-            inputDataType != ge::DT_BF16,
+            inputDataType != ge::DT_INT64 && inputDataType != ge::DT_FLOAT16 && inputDataType != ge::DT_FLOAT,
         OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(
             context_->GetNodeName(), "x", Ops::Base::ToString(inputDataType).c_str(),
-            "The dtype of x must be within the range [DT_INT8, DT_INT16, DT_INT32, DT_INT64, DT_FLOAT16, DT_FLOAT, "
-            "DT_BF16]."),
+            "The dtype of x must be within the range [DT_INT8, DT_INT16, DT_INT32, DT_INT64, DT_FLOAT16, DT_FLOAT]."),
         return ge::GRAPH_FAILED);
     dSize_ = ge::GetSizeByDataType(inputDataType);
     OP_CHECK_IF(dSize_ <= 0,

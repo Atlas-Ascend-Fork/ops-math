@@ -307,6 +307,24 @@ TEST_F(SliceLastDimTilingTest, slice_last_dim_tiling_dtype_bool_reject)
     ASSERT_FALSE(ExecuteTiling(tilingContextPara, tilingInfo));
 }
 
+// BF16 support has been removed and must be rejected at the tiling entry.
+TEST_F(SliceLastDimTilingTest, slice_last_dim_tiling_dtype_bf16_reject)
+{
+    SliceLastDimCompileInfo compileInfo;
+    gert::StorageShape inShape = {{4, 16}, {4, 16}};
+    gert::StorageShape outShape = {{4, 8}, {4, 8}};
+    gert::TilingContextPara tilingContextPara("SliceLastDim", {{inShape, ge::DT_BF16, ge::FORMAT_ND}},
+                                              {{outShape, ge::DT_BF16, ge::FORMAT_ND}},
+                                              {
+                                                  {"start", Ops::Math::AnyValue::CreateFrom<int64_t>(0)},
+                                                  {"end", Ops::Math::AnyValue::CreateFrom<int64_t>(8)},
+                                                  {"stride", Ops::Math::AnyValue::CreateFrom<int64_t>(1)},
+                                              },
+                                              &compileInfo);
+    TilingInfo tilingInfo;
+    ASSERT_FALSE(ExecuteTiling(tilingContextPara, tilingInfo));
+}
+
 // Dtype whitelist — DT_COMPLEX128 must be rejected (a byte size > 0 is not enough).
 TEST_F(SliceLastDimTilingTest, slice_last_dim_tiling_dtype_complex128_reject)
 {

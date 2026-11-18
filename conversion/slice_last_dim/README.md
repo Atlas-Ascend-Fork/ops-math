@@ -34,7 +34,7 @@
 
 | 参数名 | 输入/输出/属性 | 描述 | 数据类型 | 数据格式 |
 |--------|---------------|------|----------|----------|
-| x      | 输入          | 输入张量。 | INT8、INT16、INT32、INT64、FLOAT16、FLOAT、BFLOAT16 | ND |
+| x      | 输入          | 输入张量。 | INT8、INT16、INT32、INT64、FLOAT16、FLOAT | ND |
 | y      | 输出          | 输出张量，与x具有相同的数据类型和格式。 | 与x一致 | ND |
 | start  | 属性          | 最后一维切片的起始索引，支持负数索引。 | INT | - |
 | end    | 属性          | 最后一维切片的结束索引，支持负数索引。 | INT | - |
@@ -55,7 +55,7 @@
 | :------- | :------- | :------- |
 | x的维度数（rank）不在[1, 8]内 | 图编译推导 / Host Tiling | 返回GRAPH_FAILED，呈现`EZ0012`并记录shape dim校验日志 |
 | stride < 1，或输出非空时stride >= 2^40 | 图编译推导 / Host Tiling | 返回GRAPH_FAILED，呈现`EZ0026`并记录stride校验日志 |
-| x的数据类型不在支持集（INT8、INT16、INT32、INT64、FLOAT16、FLOAT、BFLOAT16）内 | 图编译推导 / Host Tiling | 返回GRAPH_FAILED，呈现`EZ0020`并记录dtype校验日志 |
+| x的数据类型不在支持集（INT8、INT16、INT32、INT64、FLOAT16、FLOAT）内 | 图编译推导 / Host Tiling | 返回GRAPH_FAILED，呈现`EZ0020`并记录dtype校验日志 |
 
 > 说明：错误码由图编译或运行框架对校验失败进行封装，不同集成通路可能只返回GRAPH_FAILED并保留具体日志；部分非法输入在到达算子校验前可能被框架层检查先拦截（如rank越界时部分通路的`E80012`），此时以框架层报码为准。
 

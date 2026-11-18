@@ -18,10 +18,10 @@
 namespace ops {
 class SliceLastDim : public OpDef {
 public:
-    const std::vector<ge::DataType> baseDataType = {ge::DT_INT8,    ge::DT_INT16, ge::DT_INT32, ge::DT_INT64,
-                                                    ge::DT_FLOAT16, ge::DT_FLOAT, ge::DT_BF16};
+    const std::vector<ge::DataType> baseDataType = {ge::DT_INT8,  ge::DT_INT16,   ge::DT_INT32,
+                                                    ge::DT_INT64, ge::DT_FLOAT16, ge::DT_FLOAT};
 
-    const std::vector<ge::Format> baseFormat = {ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND,
+    const std::vector<ge::Format> baseFormat = {ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND,
                                                 ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND};
 
     explicit SliceLastDim(const char* name) : OpDef(name)

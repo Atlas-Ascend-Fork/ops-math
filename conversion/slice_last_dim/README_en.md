@@ -36,7 +36,7 @@ English | [简体中文](./README.md)
 
 | Parameter Name | Input/Output/Attribute | Description | Data Type | Data Format |
 | :--- | :--- | :--- | :--- | :--- |
-| x | Input | Input tensor. | INT8, INT16, INT32, INT64, FLOAT16, FLOAT, BFLOAT16 | ND |
+| x | Input | Input tensor. | INT8, INT16, INT32, INT64, FLOAT16, FLOAT | ND |
 | y | Output | Output tensor, with the same data type and format as `x`. | Same as `x` | ND |
 | start | Attribute | Start index of the last-dimension slice; negative indexing is supported. | INT | - |
 | end | Attribute | End index of the last-dimension slice; negative indexing is supported. | INT | - |
@@ -57,7 +57,7 @@ English | [简体中文](./README.md)
 | :------- | :------- | :------- |
 | The rank (number of dimensions) of `x` is not in [1, 8] | Graph-compilation inference / Host Tiling | Returns GRAPH_FAILED, presenting `EZ0012` and recording the shape-dim validation log |
 | stride < 1, or stride >= 2^40 when the output is non-empty | Graph-compilation inference / Host Tiling | Returns GRAPH_FAILED, presenting `EZ0026` and recording the stride validation log |
-| The data type of `x` is not in the supported set (INT8, INT16, INT32, INT64, FLOAT16, FLOAT, BFLOAT16) | Graph-compilation inference / Host Tiling | Returns GRAPH_FAILED, presenting `EZ0020` and recording the dtype validation log |
+| The data type of `x` is not in the supported set (INT8, INT16, INT32, INT64, FLOAT16, FLOAT) | Graph-compilation inference / Host Tiling | Returns GRAPH_FAILED, presenting `EZ0020` and recording the dtype validation log |
 
 > Note: Error codes are wrapped by graph compilation or the running framework upon validation failure; different integration paths may only return GRAPH_FAILED while keeping the detailed logs. Some invalid inputs may be intercepted by framework-level checks before reaching operator validation (e.g. `E80012` on some paths for rank out-of-range), in which case the framework-level code takes precedence.
 
