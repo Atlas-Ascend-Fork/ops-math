@@ -38,6 +38,7 @@
  *   dim>5 → BIG_DIM
  */
 
+#include <array>
 #include <sstream>
 #include <set>
 #include <limits>
@@ -56,6 +57,20 @@ static constexpr int32_t VCONV_DIM_NUM = 2;
 static constexpr int32_t VCONV_DSIZE = 2;
 static constexpr int64_t B4_TYPE_ELES_PER_BYTE = 2;
 static constexpr int64_t B4_BIT_SIZE = 4;
+static constexpr std::array VALUE_DATA_TYPE_ALL{
+    ge::DT_INT8,   ge::DT_UINT8, ge::DT_INT16,    ge::DT_UINT16,      ge::DT_INT32,
+    ge::DT_UINT32, ge::DT_INT64, ge::DT_UINT64,   ge::DT_FLOAT,       ge::DT_FLOAT16,
+    ge::DT_BF16,   ge::DT_BOOL,  ge::DT_HIFLOAT8, ge::DT_FLOAT8_E5M2, ge::DT_FLOAT8_E4M3FN,
+};
+
+static std::string FormatShape(const std::vector<int64_t>& shape, int64_t dimNum)
+{
+    gert::Shape tensorShape;
+    for (int64_t i = 0; i < dimNum; ++i) {
+        tensorShape.AppendDim(shape[i]);
+    }
+    return Ops::Base::ToString(tensorShape);
+}
 
 ge::graphStatus TransposeNddmaTiling::Init(const int64_t& coreNum, const int64_t& ubSize)
 {
@@ -89,8 +104,7 @@ ge::graphStatus TransposeNddmaTiling::RunTranposelTiling()
 {
     OP_LOGD(tilingContext_->GetNodeName(), "Start running Tiling4Transpose.");
     if (!isRelatedTranspose_) {
-        OP_CHECK_IF(GetShapeInfo() != ge::GRAPH_SUCCESS,
-                    OP_LOGE(tilingContext_->GetNodeName(), "Failed to get shape info!"), return ge::GRAPH_FAILED);
+        CHECK_RET_SUCC(GetShapeInfo());
     }
 
     auto ret = CheckShapeInfo();
@@ -103,7 +117,6 @@ ge::graphStatus TransposeNddmaTiling::RunTranposelTiling()
     ret = CheckReducedShapeInfo();
     CHECK_RET_SUCC(ret);
 
-    CalcTotalVolumeActual();
     // 2D perm=[1,0] 特化模板优先: 满足条件直接走 10011
     if (!isRelatedTranspose_ && Is2DPermutation() && Fill2DTransDataTilingData() == ge::GRAPH_SUCCESS) {
         OP_LOGD(tilingContext_->GetNodeName(), "2D TransData tiling done.");
@@ -396,14 +409,23 @@ bool TransposeNddmaTiling::Is021VConvValid()
 template <typename T>
 bool TransposeNddmaTiling::GetPerm(const gert::Tensor* permTensor)
 {
+    int64_t dims = permTensor->GetShapeSize();
+    if (dims < 1 || dims > TRANSPOSE_MAX_AXIS_NUM) {
+        OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(
+            tilingContext_->GetNodeName(), "perm", std::to_string(dims).c_str(),
+            ("The total number of elements of perm must be within the range [1, " +
+             std::to_string(TRANSPOSE_MAX_AXIS_NUM) + "]")
+                .c_str());
+        return false;
+    }
     const T* permValue = permTensor->GetData<T>();
     if (!permValue) {
         OP_LOGE(tilingContext_->GetNodeName(), "Perm GetData is nullptr");
         return false;
     }
-    int64_t dims = permTensor->GetShapeSize();
     for (int64_t i = 0; i < dims; i++) {
-        shapeInfo_.perm[i] = permValue[i] < 0 ? permValue[i] + dims : permValue[i];
+        // 非法负轴保留原值，以便报错时展示调用方的实际输入。
+        shapeInfo_.perm[i] = permValue[i] < 0 && permValue[i] >= -dims ? permValue[i] + dims : permValue[i];
     }
     return true;
 }
@@ -412,15 +434,6 @@ void TransposeNddmaTiling::SetIsLastAxisTranspose()
 {
     int64_t dim = shapeInfo_.dim;
     shapeInfo_.isLastAxisTranspose = shapeInfo_.reducedPerm[dim - 1] != dim - 1 ? true : false;
-}
-
-void TransposeNddmaTiling::CalcTotalVolumeActual()
-{
-    int64_t vol = 1;
-    for (int64_t i = 0; i < shapeInfo_.dim; i++) {
-        vol = vol * shapeInfo_.reducedInShape[i];
-    }
-    shapeInfo_.totalVolumeActual = vol;
 }
 
 ge::graphStatus TransposeNddmaTiling::GetShapeInfo()
@@ -432,18 +445,17 @@ ge::graphStatus TransposeNddmaTiling::GetShapeInfo()
     shapeInfo_.permSize = permTensor->GetShapeSize();
 
     auto permDtype = tilingContext_->GetInputDesc(INPUT_IDX_PERM)->GetDataType();
-    uint64_t permDtypeSize = ge::GetSizeByDataType(permDtype);
-    if (permDtypeSize == B32_BYTES) {
+    if (permDtype == ge::DT_INT32) {
         if (!GetPerm<int32_t>(permTensor)) {
             return ge::GRAPH_FAILED;
         }
-    } else if (permDtypeSize == B64_BYTES) {
+    } else if (permDtype == ge::DT_INT64) {
         if (!GetPerm<int64_t>(permTensor)) {
             return ge::GRAPH_FAILED;
         }
     } else {
         OP_LOGE_FOR_INVALID_DTYPE(tilingContext_->GetNodeName(), "perm",
-                                  ge::TypeUtils::DataTypeToSerialString(permDtype).c_str(), "int32 or int64");
+                                  ge::TypeUtils::DataTypeToSerialString(permDtype).c_str(), "INT32 or INT64");
         return ge::GRAPH_FAILED;
     }
 
@@ -473,12 +485,14 @@ ge::graphStatus TransposeNddmaTiling::GetShapeInfo()
 
 ge::graphStatus TransposeNddmaTiling::CheckShapeDims()
 {
-    int64_t inDims = shapeInfo_.inShapeSize;
-    int64_t outDims = shapeInfo_.outShapeSize;
-    int64_t permDims = shapeInfo_.permSize;
-    OP_CHECK_IF(inDims < 1,
-                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(tilingContext_->GetNodeName(), "x",
-                                                         std::to_string(inDims).c_str(), "positive"),
+    const int64_t inDims = shapeInfo_.inShapeSize;
+    const int64_t outDims = shapeInfo_.outShapeSize;
+    const int64_t permDims = shapeInfo_.permSize;
+    OP_CHECK_IF(inDims < 1 || inDims > TRANSPOSE_MAX_AXIS_NUM,
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(
+                    tilingContext_->GetNodeName(), "x", std::to_string(inDims).c_str(),
+                    ("The shape dim of x must be within the range [1, " + std::to_string(TRANSPOSE_MAX_AXIS_NUM) + "]")
+                        .c_str()),
                 return ge::GRAPH_FAILED);
     OP_CHECK_IF(inDims != outDims,
                 OP_LOGE_FOR_INVALID_SHAPEDIMS_WITH_REASON(tilingContext_->GetNodeName(), "x and y",
@@ -486,10 +500,11 @@ ge::graphStatus TransposeNddmaTiling::CheckShapeDims()
                                                           "The shape dims of x and y must be the same"),
                 return ge::GRAPH_FAILED);
     OP_CHECK_IF(inDims != permDims,
-                OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON(
+                OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(
                     tilingContext_->GetNodeName(), "perm", std::to_string(permDims).c_str(),
                     "The total number of elements of perm must be equal to the shape dim of x"),
                 return ge::GRAPH_FAILED);
+
     return ge::GRAPH_SUCCESS;
 }
 
@@ -507,15 +522,18 @@ ge::graphStatus TransposeNddmaTiling::CheckPermValue()
     std::set<int64_t> permSet;
     for (int64_t i = 0; i < shapeInfo_.inShapeSize; i++) {
         if (shapeInfo_.perm[i] < 0 || shapeInfo_.perm[i] >= shapeInfo_.inShapeSize) {
-            OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(tilingContext_->GetNodeName(), "perm",
-                                                  std::to_string(shapeInfo_.perm[i]).c_str(),
-                                                  "The value of perm must be in the range of [0, shape dim of x)");
+            OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                tilingContext_->GetNodeName(), "perm", std::to_string(shapeInfo_.perm[i]).c_str(),
+                ("Each value of perm must be within the range [-" + std::to_string(shapeInfo_.inShapeSize) + ", " +
+                 std::to_string(shapeInfo_.inShapeSize) + ")")
+                    .c_str());
             return ge::GRAPH_FAILED;
         }
         if (!permSet.insert(shapeInfo_.perm[i]).second) {
             OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(tilingContext_->GetNodeName(), "perm",
                                                   std::to_string(shapeInfo_.perm[i]).c_str(),
-                                                  "The values of perm must not be duplicated");
+                                                  "The axes selected by perm must not be duplicated after normalizing "
+                                                  "negative indices");
             return ge::GRAPH_FAILED;
         }
     }
@@ -532,17 +550,19 @@ ge::graphStatus TransposeNddmaTiling::CheckB4ShapeInfo()
     int64_t lastAxisIdx = shapeInfo_.inShapeSize - 1;
     if (lastAxisIdx >= 0 && shapeInfo_.inShape[lastAxisIdx] % B4_TYPE_ELES_PER_BYTE != 0) {
         std::string reasonMsg = "Last axis of x must be exactly divided by " + std::to_string(B4_TYPE_ELES_PER_BYTE) +
-                                ", when the type of x is 4bit type";
+                                ", when the type of x is 4-bit dtype";
         OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON(tilingContext_->GetNodeName(), "x",
-                                              std::to_string(shapeInfo_.inShape[lastAxisIdx]).c_str(), reasonMsg);
+                                              FormatShape(shapeInfo_.inShape, shapeInfo_.inShapeSize).c_str(),
+                                              reasonMsg);
         return ge::GRAPH_FAILED;
     }
     lastAxisIdx = shapeInfo_.outShapeSize - 1;
     if (lastAxisIdx >= 0 && shapeInfo_.outShape[lastAxisIdx] % B4_TYPE_ELES_PER_BYTE != 0) {
         std::string reasonMsg = "Last axis of y must be exactly divided by " + std::to_string(B4_TYPE_ELES_PER_BYTE) +
-                                ", when the type of y is 4bit type";
+                                ", when the type of y is 4-bit dtype";
         OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON(tilingContext_->GetNodeName(), "y",
-                                              std::to_string(shapeInfo_.outShape[lastAxisIdx]).c_str(), reasonMsg);
+                                              FormatShape(shapeInfo_.outShape, shapeInfo_.outShapeSize).c_str(),
+                                              reasonMsg);
         return ge::GRAPH_FAILED;
     }
     return ge::GRAPH_SUCCESS;
@@ -553,6 +573,14 @@ ge::graphStatus TransposeNddmaTiling::CheckShapeInfo()
     OP_LOGD(tilingContext_->GetNodeName(), "Entering CheckShapeInfo.");
     CHECK_RET_SUCC(CheckShapeDims());
     CHECK_RET_SUCC(CheckPermValue());
+    if (shapeInfo_.eleLenInBytes <= 0) {
+        const auto* inputDesc = tilingContext_->GetInputDesc(INPUT_IDX_X);
+        OP_CHECK_NULL_WITH_CONTEXT(tilingContext_, inputDesc);
+        OP_LOGE_FOR_INVALID_DTYPE(tilingContext_->GetNodeName(), "x",
+                                  ge::TypeUtils::DataTypeToSerialString(inputDesc->GetDataType()).c_str(),
+                                  Ops::Math::JoinArray<Ops::Math::ItemConj::OR>(VALUE_DATA_TYPE_ALL).c_str());
+        return ge::GRAPH_FAILED;
+    }
 
     for (int64_t i = 0; i < shapeInfo_.inShapeSize; i++) {
         if (shapeInfo_.inShape[shapeInfo_.perm[i]] != shapeInfo_.outShape[i]) {
@@ -569,6 +597,7 @@ ge::graphStatus TransposeNddmaTiling::CheckShapeInfo()
         }
     }
 
+    gert::Shape inputShape;
     for (int64_t i = 0; i < shapeInfo_.inShapeSize; i++) {
         if (shapeInfo_.inShape[i] <= 0) {
             OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON(tilingContext_->GetNodeName(), "x",
@@ -582,7 +611,28 @@ ge::graphStatus TransposeNddmaTiling::CheckShapeInfo()
                                                   "All axes of y must be positive numbers");
             return ge::GRAPH_FAILED;
         }
+        inputShape.AppendDim(shapeInfo_.inShape[i]);
     }
+
+    // 正维度检查与溢出检查分开，元素数量溢出由 SDK 的 Shape 接口检测。
+    const int64_t totalVolume = inputShape.GetShapeSize();
+    OP_CHECK_IF(
+        totalVolume == gert::Shape::kInvalidDimValue,
+        OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON(
+            tilingContext_->GetNodeName(), "x", Ops::Base::ToString(inputShape).c_str(),
+            ("The total number of elements of x must not exceed " + std::to_string(std::numeric_limits<int64_t>::max()))
+                .c_str()),
+        return ge::GRAPH_FAILED);
+    // 4bit 类型的元素字节数是 SDK 编码值，不能作为实际字节数参与校验。
+    OP_CHECK_IF(
+        !is4bit_ && totalVolume > std::numeric_limits<int64_t>::max() / shapeInfo_.eleLenInBytes,
+        OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON(
+            tilingContext_->GetNodeName(), "x", Ops::Base::ToString(inputShape).c_str(),
+            ("The total size of x in bytes must not exceed " + std::to_string(std::numeric_limits<int64_t>::max()))
+                .c_str()),
+        return ge::GRAPH_FAILED);
+    // 删除单例轴和合并连续轴均保持元素总数，后续直接复用已通过溢出校验的结果。
+    shapeInfo_.totalVolumeActual = totalVolume;
 
     return CheckB4ShapeInfo();
 }
@@ -1044,13 +1094,11 @@ void TransposeNddmaTiling::FlushBaseNumForBigDim()
     OP_LOGD(tilingContext_->GetNodeName(), "Entering FlushBaseNumForBigDim.");
     int64_t idxNum = NDDMA_MAX_DIM_NUM - 1;
     int64_t baseInNum = 1;
-    int64_t baseOutNum = 1;
     int64_t tmpNddmaShape[NDDMA_MAX_DIM_NUM] = {0};
     int64_t oriNddmaIdx[NDDMA_MAX_DIM_NUM] = {-1};
     for (int64_t i = shapeInfo_.dim - 1; i >= 0; i--) {
         baseInShape_[i] = baseInNum;
         baseInNum *= shapeInfo_.reducedInShape[i];
-        baseOutNum *= shapeInfo_.reducedOutShape[i];
         if (i > splitInfo_.outCutIndex) {
             nddmaIdx_[idxNum] = shapeInfo_.reducedPerm[i];
             oriNddmaIdx[idxNum] = shapeInfo_.reducedPerm[i];
@@ -1094,7 +1142,6 @@ void TransposeNddmaTiling::FlushBaseNumForBigDim()
 void TransposeNddmaTiling::EntryTilingTemplate()
 {
     OP_LOGD(tilingContext_->GetNodeName(), "Entering EntryTilingTemplate.");
-    SetIsLastAxisTranspose();
     splitInfo_.ubElement = ubSize_ / shapeInfo_.eleLenInBytes;
     if (shapeInfo_.dim == 1) {
         // just tensor move
@@ -1206,54 +1253,6 @@ void TransposeNddmaTiling::CalcBlockSplitInfoForTensorMove()
         blkTailFactor_ = shapeInfo_.totalVolumeActual % coreNum_;
         splitInfo_.inUbFactor = splitInfo_.ubElement;
     }
-}
-
-/**
- * @brief SMALL_SHAPE 分核的多核切分辅助（每个候选轴的最小因数切分）
- *
- * 遍历形状轴 i，若整根轴搬移的字节超过 cacheLineSize（无法一次搬完），
- * 就在该轴按最小因数 j 切分 outCutIndex，使块级地址跳到下一条 cache line：
- *   - j == 轴全长 且是第 0 轴（素数轴且已到最后）：outUbFactor 取 ceil(cacheLine)，
- *     最终靠其他轴或外层循环开多核
- *   - j == 轴全长 且非第 0 轴：全切，剩余外层轴继续开多核
- *   - 其他：按最小因数 j 切分
- *
- * @param i            候选轴索引
- * @param shapeSizeByte 该轴完整尺寸（字节）
- * @param totalElment   [in,out] 累计 block 基数（切分后按 CeilDiv 更新）
- * @return 更新后的 totalElment
- */
-int64_t TransposeNddmaTiling::CalcBlockSplitInfoForNoCutForMultiCore(int64_t i, int64_t shapeSizeByte,
-                                                                     int64_t& totalElment)
-{
-    for (int64_t j = 2; j <= shapeInfo_.reducedOutShape[i]; j++) {
-        if ((shapeInfo_.reducedOutShape[i] % j == 0) &&
-            (shapeSizeByte / shapeInfo_.reducedOutShape[i] * j > cacheLineSize_)) {
-            if (j == shapeInfo_.reducedOutShape[i] && i == 0) {
-                // 素数且切到了最后，正常切
-                splitInfo_.outCutIndex = i;
-                splitInfo_.outUbFactor = Ops::Base::CeilDiv(cacheLineSize_ + 1,
-                                                            shapeSizeByte / shapeInfo_.reducedOutShape[i]);
-                splitInfo_.outTailFactor = shapeInfo_.reducedOutShape[i] % splitInfo_.outUbFactor;
-                totalElment *= Ops::Base::CeilDiv(shapeInfo_.reducedOutShape[i], splitInfo_.outUbFactor);
-                break;
-            } else if (j == shapeInfo_.reducedOutShape[i] && i != 0) {
-                // 素数但还没切到最后，全切，剩下的轴开多核
-                splitInfo_.outCutIndex = i;
-                splitInfo_.outUbFactor = shapeInfo_.reducedOutShape[i];
-                splitInfo_.outTailFactor = 0;
-                break;
-            } else {
-                // 其他场景，按最小因数切
-                splitInfo_.outCutIndex = i;
-                splitInfo_.outUbFactor = j;
-                splitInfo_.outTailFactor = 0;
-                totalElment *= Ops::Base::CeilDiv(shapeInfo_.reducedOutShape[i], splitInfo_.outUbFactor);
-                break;
-            }
-        }
-    }
-    return totalElment;
 }
 
 /**
@@ -1972,6 +1971,8 @@ ge::graphStatus TransposeNddmaTiling::TilingForRelatedTranspose(gert::TilingCont
                                                                 TransposeOpTilingData* tilingData,
                                                                 TransposeCompilerInfo* compilerInfo, ShapeInfo& opInput)
 {
+    OP_CHECK_NULL_WITH_CONTEXT(context, context);
+    OP_CHECK_NULL_WITH_CONTEXT(context, compilerInfo);
     OP_LOGD(context->GetNodeName(), "Start TilingForRelatedTranspose.");
     TransposeNddmaTiling tilingObject(context);
     OP_CHECK_NULL_WITH_CONTEXT(context, tilingData);

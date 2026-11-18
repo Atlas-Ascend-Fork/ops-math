@@ -15,11 +15,9 @@
  * 它们是 Tiling 策略选择的前置步骤。
  *
  * RemoveAxisV2 算法：
- *   1. 如果所有轴都是1，直接降为1维
- *   2. 遍历 shape，找出 size=1 的轴索引（delPerm）
- *   3. 从 perm 中删除这些轴对应的索引
- *   4. 调整剩余 perm 值（大于被删除轴索引的值减1）
- *   5. 重新计算 reducedInShape 和 reducedOutShape
+ *   1. 压缩非单例轴，记录原始轴到新轴编号的映射
+ *   2. 如果所有轴都是1，直接降为1维
+ *   3. 遍历 perm，跳过单例轴，按映射生成 reducedPerm 和 reducedOutShape
  *
  * MergeAxisV2 算法：
  *   1. 按 perm 顺序遍历，检查相邻两个 perm 值是否连续
@@ -37,40 +35,18 @@
 #include <memory>
 #include <algorithm>
 #include <iostream>
-#include <math.h>
 #include <climits>
-#include <functional>
 
 using namespace std;
 using namespace gert;
 
 namespace optiling {
 
-static void DuplicateArray(const int64_t* src, vector<int64_t>& dst, int64_t len)
-{
-    for (int64_t i = 0; i < len; i++) {
-        dst[i] = src[i];
-    }
-}
-
 static void DuplicateArray(const vector<int64_t>& src, vector<int64_t>& dst, int64_t len)
 {
     for (int64_t i = 0; i < len; i++) {
         dst[i] = src[i];
     }
-}
-
-static void DuplicateArray(const vector<int64_t>& src, int64_t* dst, int64_t len)
-{
-    for (int64_t i = 0; i < len; i++) {
-        dst[i] = src[i];
-    }
-}
-
-static bool IsAllOne(const ShapeInfo& shapeInfo)
-{
-    return std::all_of(shapeInfo.inShape.begin(), shapeInfo.inShape.begin() + shapeInfo.dim,
-                       [](const int64_t& item) { return item == 1; });
 }
 
 static void CalcOutShape(ShapeInfo& shapeInfo)
@@ -93,7 +69,19 @@ void RemoveAxisV2(ShapeInfo& shapeInfo)
         return;
     }
 
-    if (IsAllOne(shapeInfo)) {
+    // 建立原始轴到删除单例维度后的新轴编号的映射。
+    int64_t axisMap[TRANSPOSE_MAX_AXIS_NUM];
+    int64_t reducedDim = 0;
+    for (int64_t i = 0; i < dim; i++) {
+        if (shapeInfo.inShape[i] == 1) {
+            axisMap[i] = -1;
+        } else {
+            axisMap[i] = reducedDim;
+            shapeInfo.reducedInShape[reducedDim++] = shapeInfo.inShape[i];
+        }
+    }
+
+    if (reducedDim == 0) {
         shapeInfo.reducedInShape[0] = 1;
         shapeInfo.reducedPerm[0] = 0;
         shapeInfo.reducedOutShape[0] = 1;
@@ -101,119 +89,50 @@ void RemoveAxisV2(ShapeInfo& shapeInfo)
         return;
     }
 
-    vector<int64_t>& shape = shapeInfo.reducedInShape;
-    vector<int64_t> delPerm;
-    delPerm.reserve(TRANSPOSE_MAX_AXIS_NUM);
-    int64_t newPerm[TRANSPOSE_MAX_AXIS_NUM];
-    int64_t shapeSize = 0;
-    int64_t delPermSize = 0;
-    int64_t newPermSize = 0;
-
+    int64_t outAxis = 0;
     for (int64_t i = 0; i < dim; i++) {
-        if (shapeInfo.inShape[i] != 1) {
-            shape[shapeSize++] = shapeInfo.inShape[i];
-        } else {
-            for (int64_t j = 0; j < dim; j++) {
-                if (shapeInfo.perm[j] == i) {
-                    delPerm.push_back(shapeInfo.perm[j]);
-                    delPermSize++;
-                }
-            }
+        const int64_t originalAxis = shapeInfo.perm[i];
+        const int64_t reducedAxis = axisMap[originalAxis];
+        if (reducedAxis >= 0) {
+            shapeInfo.reducedPerm[outAxis] = reducedAxis;
+            shapeInfo.reducedOutShape[outAxis++] = shapeInfo.inShape[originalAxis];
         }
     }
-
-    std::sort(delPerm.begin(), delPerm.begin() + delPermSize, std::greater<int64_t>());
-
-    for (int64_t i = 0; i < dim; i++) {
-        bool delFlag = false;
-        for (int64_t j = 0; j < delPermSize; j++) {
-            if (shapeInfo.perm[i] == delPerm[j]) {
-                delFlag = true;
-            }
-        }
-        if (!delFlag) {
-            newPerm[newPermSize++] = shapeInfo.perm[i];
-        }
-    }
-
-    for (int64_t i = 0; i < delPermSize; i++) {
-        for (int64_t j = 0; j < newPermSize; j++) {
-            if (newPerm[j] > delPerm[i]) {
-                newPerm[j] = newPerm[j] - 1;
-            }
-        }
-    }
-
-    DuplicateArray(newPerm, shapeInfo.reducedPerm, newPermSize);
-    shapeInfo.dim = newPermSize;
-    CalcOutShape(shapeInfo);
+    shapeInfo.dim = reducedDim;
 }
 
 void MergeAxisV2(ShapeInfo& shapeInfo)
 {
-    int64_t dim = shapeInfo.dim;
+    const int64_t dim = shapeInfo.dim;
     if (dim == 1) {
         return;
     }
-    int64_t perm[TRANSPOSE_MAX_AXIS_NUM];
-    int64_t shape[TRANSPOSE_MAX_AXIS_NUM];
-    int64_t newPerm[TRANSPOSE_MAX_AXIS_NUM];
-    int64_t newShape[TRANSPOSE_MAX_AXIS_NUM];
-    int64_t newDimPosition[TRANSPOSE_MAX_AXIS_NUM];
-    int64_t mergedShape[TRANSPOSE_MAX_AXIS_NUM] = {0};
-    DuplicateArray(shapeInfo.reducedPerm, perm, dim);
-    DuplicateArray(shapeInfo.reducedInShape, shape, dim);
-    for (int i = 0; i < TRANSPOSE_MAX_AXIS_NUM; i++) {
-        newDimPosition[i] = -1;
-    }
 
-    int64_t curHead = shapeInfo.reducedPerm[0];
-    newDimPosition[curHead] = 0;
-    mergedShape[0] = shape[curHead];
-    int dimIndex = 0;
-    for (int permIndex = 1; permIndex < dim; ++permIndex) {
-        // If two indices in permutation are consecutive numbers, combine their dimensions.
-        if (curHead + 1 == perm[permIndex]) {
-            curHead = perm[permIndex];
-            mergedShape[dimIndex] *= shape[curHead];
-        } else {
-            // Else start a new dimension.
-            curHead = perm[permIndex];
-            dimIndex++;
-            newDimPosition[curHead] = dimIndex;
-            mergedShape[dimIndex] = shape[curHead];
-        }
-    }
-
-    shapeInfo.dim = dimIndex + 1;
-
-    dimIndex = 0;
-    for (int i = 0; i < dim; i++) {
-        if (newDimPosition[i] >= 0) {
-            newDimPosition[dimIndex++] = newDimPosition[i];
-        }
-    }
-
-    // Compact the new permutations and dimension sizes.
-    dimIndex = 0;
+    // 按输出轴顺序识别连续轴组，并在每组的输入起始轴处记录组编号。
+    int64_t groupAtHead[TRANSPOSE_MAX_AXIS_NUM];
+    std::fill_n(groupAtHead, dim, -1);
+    int64_t mergedShape[TRANSPOSE_MAX_AXIS_NUM];
+    int64_t groupCount = 0;
     for (int64_t i = 0; i < dim; ++i) {
-        if (newDimPosition[i] >= 0) {
-            int64_t newPermIndex = newDimPosition[i];
-            for (int64_t j = 0; j < dim; j++) {
-                if (newDimPosition[j] == i) {
-                    newPerm[dimIndex] = j;
-                    break;
-                }
-            }
-            newShape[dimIndex] = mergedShape[newPermIndex];
-            dimIndex++;
+        const int64_t axis = shapeInfo.reducedPerm[i];
+        if (i > 0 && axis == shapeInfo.reducedPerm[i - 1] + 1) {
+            mergedShape[groupCount - 1] *= shapeInfo.reducedInShape[axis];
+        } else {
+            groupAtHead[axis] = groupCount;
+            mergedShape[groupCount++] = shapeInfo.reducedInShape[axis];
         }
     }
 
-    DuplicateArray(newShape, shapeInfo.reducedInShape, dimIndex);
-    DuplicateArray(newPerm, shapeInfo.reducedPerm, dimIndex);
-    shapeInfo.lastAxisLen = shapeInfo.reducedInShape[shapeInfo.dim - 1];
-    shapeInfo.lastAxisBurstLen = static_cast<int64_t>(ceil(shapeInfo.lastAxisLen * 1.0 / shapeInfo.elePerBlock));
+    // 按输入轴顺序遍历，直接建立输出轴组到新输入轴编号的映射。
+    int64_t inputAxis = 0;
+    for (int64_t axis = 0; axis < dim; ++axis) {
+        const int64_t group = groupAtHead[axis];
+        if (group >= 0) {
+            shapeInfo.reducedInShape[inputAxis] = mergedShape[group];
+            shapeInfo.reducedPerm[group] = inputAxis++;
+        }
+    }
+    shapeInfo.dim = groupCount;
     CalcOutShape(shapeInfo);
 }
 

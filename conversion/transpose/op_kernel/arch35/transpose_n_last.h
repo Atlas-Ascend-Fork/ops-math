@@ -79,9 +79,6 @@ private:
     int64_t inUbInputShapeMain_[TRANSPOSE_MAX_AXIS_NUM] = {0, 0, 0, 0, 0, 0, 0, 0};  ///< Main 块输入 UB shape
     int64_t inUbOutputShapeMain_[TRANSPOSE_MAX_AXIS_NUM] = {0, 0, 0, 0, 0, 0, 0, 0}; ///< Main 块输出 UB shape
     int64_t inUbInputShapeTail_[TRANSPOSE_MAX_AXIS_NUM] = {0, 0, 0, 0, 0, 0, 0, 0};  ///< Tail 块输入 UB shape
-    int64_t inUbOutputShapeTail_[TRANSPOSE_MAX_AXIS_NUM] = {0, 0, 0, 0, 0, 0, 0, 0}; ///< Tail 块输出 UB shape
-    int64_t outputBlockLenMain_ = 0; ///< Main 块输出尾轴长度（连续元素数）
-    int64_t outputBlockLenTail_ = 0; ///< Tail 块输出尾轴长度
 
     // core params
     int64_t blkProcessNum_ = 0;
@@ -144,11 +141,7 @@ __aicore__ inline void TransposeNLast<T>::ParseTilingData()
     for (int64_t i = 0; i < tiling_->permSize; i++) {
         reducedOutputShape_[i] = reducedInputShape_[tiling_->perm[i]];
         inUbOutputShapeMain_[i] = inUbInputShapeMain_[tiling_->perm[i]];
-        inUbOutputShapeTail_[i] = inUbInputShapeTail_[tiling_->perm[i]];
     }
-
-    outputBlockLenMain_ = inUbOutputShapeMain_[tiling_->permSize - 1];
-    outputBlockLenTail_ = inUbOutputShapeTail_[tiling_->permSize - 1];
 }
 
 template <typename T>

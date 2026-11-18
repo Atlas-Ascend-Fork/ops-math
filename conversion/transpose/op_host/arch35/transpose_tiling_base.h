@@ -42,7 +42,6 @@ namespace optiling {
  * 包含原始和简化后的 shape、perm 信息，以及轴变换过程中的中间状态。
  */
 struct ShapeInfo {
-    int64_t id;                           ///< 标识符
     std::vector<int64_t> inShape;         ///< 原始输入 shape（最多8维）
     std::vector<int64_t> outShape;        ///< 原始输出 shape
     std::vector<int64_t> perm;            ///< 原始 perm 数组
@@ -54,18 +53,11 @@ struct ShapeInfo {
     int64_t outShapeSize; ///< 输出维度数
     int64_t permSize;     ///< perm 数组长度
 
-    int64_t origDim;               ///< 原始维度数
-    int64_t dim;                   ///< 简化后的维度数
-    int64_t totalVolumeActual;     ///< 总元素数（简化后 shape 的乘积）
-    int64_t identical;             ///< 是否恒等变换标志
-    int64_t lastAxisLen;           ///< 最后一维的长度
-    int64_t lastAxisBurstLen;      ///< 最后一维的 Burst 长度（按 Block 对齐）
-    int64_t elePerBlock;           ///< 每个 Block 的元素数（= 32/eleLenInBytes）
-    int64_t eleLenInBytes;         ///< 每个元素的字节数
-    int64_t alignElement;          ///< 尾轴对齐填充元素数
-    bool isLastAxisTranspose;      ///< 最后一维是否参与转置
-    bool isLastAxisHuge;           ///< 最后一维是否很大
-    bool isLastTwoAlignedAndTrans; ///< 最后两维是否对齐且转置
+    int64_t origDim;           ///< 原始维度数
+    int64_t dim;               ///< 简化后的维度数
+    int64_t totalVolumeActual; ///< 总元素数（简化后 shape 的乘积）
+    int64_t eleLenInBytes;     ///< 每个元素的字节数
+    bool isLastAxisTranspose;  ///< 最后一维是否参与转置
 
     ShapeInfo()
     {
@@ -80,22 +72,14 @@ struct ShapeInfo {
 
     void Reset()
     {
-        id = 0;
         inShapeSize = 0;
         outShapeSize = 0;
         permSize = 0;
         origDim = 0;
         dim = 0;
         totalVolumeActual = 0;
-        identical = 0;
-        lastAxisLen = 0;
-        lastAxisBurstLen = 0;
-        elePerBlock = 8;
         eleLenInBytes = 0;
-        alignElement = 0;
         isLastAxisTranspose = false;
-        isLastAxisHuge = false;
-        isLastTwoAlignedAndTrans = false;
     }
 };
 
@@ -130,8 +114,7 @@ void RemoveAxisV2(ShapeInfo& shapeInfo);
  * 这可以进一步减少维度数。
  *
  * 例如：shape=[2,3,4], perm=[0,1,2] → reducedShape=[24], reducedPerm=[0]
- *       shape=[2,3,4], perm=[1,0,2] → reducedShape=[6,4], reducedPerm=[1,0]
- *       （0和1不连续在原始perm中，但1和0在排序后不是连续数字，所以不合并）
+ *       shape=[2,3,4], perm=[1,2,0] → reducedShape=[2,12], reducedPerm=[1,0]
  *
  * @param shapeInfo [in,out] Shape 信息结构体
  */

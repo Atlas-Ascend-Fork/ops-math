@@ -171,22 +171,17 @@ enum class SplitMode : int64_t {
  *   - inTailFactor/outTailFactor：尾块元素数（shape % factor，0 表示无尾块）
  */
 struct SplitInfo {
-    int64_t inUbAxisSize = 1;       ///< 输入切分轴完整尺寸（未切前）
-    int64_t outUbAxisSize = 1;      ///< 输出切分轴完整尺寸
-    int64_t ubElement = 1;          ///< UB 元素预算
-    int64_t inUbElement = 1;        ///< 输入侧剩余预算
-    int64_t outUbElement = 1;       ///< 输出侧剩余预算
-    int64_t inUbActual = 1;         ///< 输入侧已吞入轴容量乘积
-    int64_t outUbActual = 1;        ///< 输出侧已吞入轴容量乘积
-    int64_t inCutIndex = 0;         ///< 输入切分轴索引
-    int64_t outCutIndex = 0;        ///< 输出切分轴索引
-    int64_t inUbFactor = 0;         ///< 输入主块切分因子
-    int64_t outUbFactor = 0;        ///< 输出主块切分因子
-    int64_t inTailFactor = 0;       ///< 输入尾块元素数
-    int64_t outTailFactor = 0;      ///< 输出尾块元素数
-    int64_t blkFactor = 0;          ///< 分核：每核基础 block 数
-    int64_t blkTailFactor = 0;      ///< 分核：尾核额外 block 数
-    bool isAllLastAxisInUb = false; ///< 最末轴是否整体在 UB 内
+    int64_t ubElement = 1;     ///< UB 元素预算
+    int64_t inUbElement = 1;   ///< 输入侧剩余预算
+    int64_t outUbElement = 1;  ///< 输出侧剩余预算
+    int64_t inUbActual = 1;    ///< 输入侧已吞入轴容量乘积
+    int64_t outUbActual = 1;   ///< 输出侧已吞入轴容量乘积
+    int64_t inCutIndex = 0;    ///< 输入切分轴索引
+    int64_t outCutIndex = 0;   ///< 输出切分轴索引
+    int64_t inUbFactor = 0;    ///< 输入主块切分因子
+    int64_t outUbFactor = 0;   ///< 输出主块切分因子
+    int64_t inTailFactor = 0;  ///< 输入尾块元素数
+    int64_t outTailFactor = 0; ///< 输出尾块元素数
 };
 
 /**
@@ -205,7 +200,6 @@ struct ParamInfo {
     const char* dataFormatPtr;
 };
 
-ge::graphStatus TransposeTilingForAscendC(gert::TilingContext* context, const int64_t& coreNum, const int64_t& ubSize);
 ge::graphStatus TilingPrepareTransposeForAscendC(gert::TilingParseContext* context);
 
 class TransposeNddmaTiling {
@@ -220,7 +214,6 @@ private:
     template <typename T>
     bool GetPerm(const gert::Tensor* permTensor);
     void SetIsLastAxisTranspose();
-    void CalcTotalVolumeActual();
     ge::graphStatus GetShapeInfo();
     ge::graphStatus CheckShapeDims();
     ge::graphStatus CheckPermValue();
@@ -240,7 +233,6 @@ private:
     void CalcBlockSplitInfo();
     void CalcBlockSplitInfoForTensorMove();
     void CalcBlockSplitInfoForSmallShape();
-    int64_t CalcBlockSplitInfoForNoCutForMultiCore(int64_t i, int64_t shapeSizeByte, int64_t& totalElment);
     void CalcBlockSplitInfoForNLastTranspose();
     void SetRealCoreNumAndBlkFactor(int64_t coreNum);
     void CalcBlockSplitInfoForCutOnce();
@@ -282,7 +274,6 @@ private:
     int64_t nddmaBufferNum_ = 1;
     int64_t bigDimBufferNum_ = 1;
     int64_t totalNddmaNum_ = 1;
-    int64_t isNddmaAxisContinue_ = 0;
     int64_t SMALL_SHAPE_BYTES_THRES_HOLD = 4000000;
     int64_t inputShape_[MAX_AXIS_NUM_FOR_TRANSPOSE] = {0};
     int64_t outputShape_[MAX_AXIS_NUM_FOR_TRANSPOSE] = {0};

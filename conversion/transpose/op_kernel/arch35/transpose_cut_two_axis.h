@@ -90,7 +90,6 @@ private:
     int64_t inputOutputCutIndex_; ///< 从输入角度看，输出切分轴对应的输入轴索引
     int64_t outputInputCutIndex_; ///< 从输出角度看，输入切分轴对应的输出轴索引
     int64_t maxCutIndex_;         ///< 两个切分轴中较大的索引（用于对齐计算）
-    int64_t minCutIndex_;         ///< 两个切分轴中较小的索引
     int64_t outUbLoop_ = 1;       ///< 非切分轴的 UB 循环数
 
     /// 区间结构体，记录某个数据区间的起始和结束索引
@@ -179,14 +178,6 @@ __aicore__ inline void DecimalToMixedBase(int64_t num, int64_t bases[], int64_t 
             break;
         }
     }
-}
-
-__aicore__ inline int64_t AlignToMultiple(int64_t a, int64_t b)
-{
-    if (b <= 0) {
-        return a;
-    }
-    return CeilDivision(a, b) * b;
 }
 
 /**
@@ -821,7 +812,6 @@ __aicore__ inline void TransposeCutTwoAxis<T>::ProcessPerCore()
         }
     }
     maxCutIndex_ = expandedOutputCutIndex_ > outputInputCutIndex_ ? expandedOutputCutIndex_ : outputInputCutIndex_;
-    minCutIndex_ = expandedOutputCutIndex_ > outputInputCutIndex_ ? outputInputCutIndex_ : expandedOutputCutIndex_;
 
     GetCopyOutParams();
     GetTailAddressOffsetBase();

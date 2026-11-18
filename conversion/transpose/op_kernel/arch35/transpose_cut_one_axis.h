@@ -65,8 +65,6 @@ private:
     __aicore__ inline void ParseTilingData();
     __aicore__ inline NdDmaLoopInfo<NDDMA_MAX_DIM_NUM> SetupLoopInfo(const int64_t inUbSrcShape[],
                                                                      const int64_t inUbDstShape[]);
-    __aicore__ inline void ProcessMain(int64_t loopidxEnd);
-    __aicore__ inline void ProcessTail();
     __aicore__ inline void GetLoopParams(int64_t n);
     __aicore__ inline void DecimalToMixed(int64_t num, int64_t bases[],
                                           int64_t mixedBase[]); ///< 十进制转混合基（地址计算核心）
@@ -92,19 +90,12 @@ private:
     int64_t blkProcessIdxStart_ = 0;
     int64_t blkProcessIdxEnd_ = 0;
 
-    // blockCount and blockLen of copyOut
-    int64_t mainBlockLen_ = 1;
-    int64_t tailBlockLen_ = 1;
-    int64_t blockCount_ = 1;
-    int64_t dstStrideTotalLen_ = 1;
-
     // expand output init
     int64_t expandedOutputCutIndex_; ///< 输出切分轴在5维扩展后的索引
     int64_t expandedInputCutIndex_;  ///< 输入切分轴在5维扩展后的索引（由 expandedPerm 映射得到）
     bool isWholeCut_ = true;         ///< UB 内 dst shape 与完整输出 shape 是否完全一致（整切）
 
     // address offset
-    int64_t srcLoopSize_[NDDMA_MAX_DIM_NUM] = {0, 0, 0, 0, 0};   ///< 源各维度的循环次数
     int64_t dstLoopSize_[NDDMA_MAX_DIM_NUM] = {0, 0, 0, 0, 0};   ///< 目标各维度的循环次数
     int64_t srcLoopStride_[NDDMA_MAX_DIM_NUM] = {0, 0, 0, 0, 0}; ///< 源各维度的步长（元素数）
     int64_t dstLoopStride_[NDDMA_MAX_DIM_NUM] = {0, 0, 0, 0, 0}; ///< 目标各维度的步长（元素数）
@@ -310,7 +301,6 @@ __aicore__ inline void TransposeCutOneAxis<T>::GetLoopAndStride()
     dstLoopStride_[expandedOutputCutIndex_] *= tiling_->outUbFactor;
 
     for (int64_t i = 0; i < NDDMA_MAX_DIM_NUM; i++) {
-        srcLoopSize_[i] = Ops::Base::CeilDiv(tiling_->expandedInputShape[i], tiling_->inUbMainSrcShape[i]);
         dstLoopSize_[i] = Ops::Base::CeilDiv(tiling_->expandedOutputShape[i], tiling_->inUbMainDstShape[i]);
     }
 }
@@ -348,7 +338,6 @@ __aicore__ inline void TransposeCutOneAxis<T>::CopyOut(int64_t loopIdx, int64_t 
 
     copyOutParams.blockLen = sizeof(T);
     int64_t endIndex = 0;
-    int64_t dstStride = 1;
     for (int64_t i = NDDMA_MAX_DIM_NUM - 1; i >= 0; i--) {
         // 整切兜底: shapes 全等时, 在最后一维提前break
         // 正常切分场景由下方shape不匹配的break先触发, 此处条件不满足
