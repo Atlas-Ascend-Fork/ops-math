@@ -31,14 +31,14 @@ namespace ge {
         uint16, uint64, support format: [ND].
 *
 *@par Outputs:
-* y: A tensor. Must have the same shpae as x, dtype support int32, int64. Support format: [ND].
+* y: A tensor. Must have the same shape as x, dtype support int32, int64. Support format: [ND].
 *
 *@par Attributes:
 * y_dtype: The output type, either "DT_INT32(3)" or "DT_INT64(9)". Defaults to "DT_INT32(3)".
 */
 REG_OP(AdjacentDifference)
-    .INPUT(x, TensorType({DT_FLOAT16, DT_FLOAT, DT_BF16, DT_INT8, DT_INT16, DT_INT32, DT_INT64,
-                          DT_UINT8, DT_UINT16, DT_UINT32, DT_UINT64}))
+    .INPUT(x, TensorType({DT_FLOAT16, DT_FLOAT, DT_BF16, DT_INT8, DT_INT16, DT_INT32, DT_INT64, DT_UINT8, DT_UINT16,
+                          DT_UINT32, DT_UINT64}))
     .OUTPUT(y, TensorType({DT_INT32, DT_INT64}))
     .ATTR(y_dtype, Int, DT_INT32)
     .OP_END_FACTORY_REG(AdjacentDifference)
@@ -46,4 +46,3 @@ REG_OP(AdjacentDifference)
 } // namespace ge
 
 #endif // OPS_OP_PROTO_INC_ADJACENT_DIFFERENCE_H_
-
