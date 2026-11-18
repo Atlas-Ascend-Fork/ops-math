@@ -206,3 +206,43 @@ TEST_F(ScaleInferShapeTest, unknown_scale_rank_preserves_x_shape)
     CheckShape({-2}, {-2}, 1, 1, true, ge::GRAPH_SUCCESS, {-2});
     CheckShape({2, 3}, {-2}, 2, 1, true, ge::GRAPH_FAILED);
 }
+
+namespace {
+void CheckBiasShape(std::initializer_list<int64_t> xDims, std::initializer_list<int64_t> scaleDims,
+                    std::initializer_list<int64_t> biasDims, ge::graphStatus status)
+{
+    gert::InfershapeContextPara para(
+        "Scale",
+        {{{xDims, xDims}, ge::DT_FLOAT, ge::FORMAT_ND},
+         {{scaleDims, scaleDims}, ge::DT_FLOAT, ge::FORMAT_ND},
+         {{biasDims, biasDims}, ge::DT_FLOAT, ge::FORMAT_ND}},
+        {{{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND}},
+        {gert::InfershapeContextPara::OpAttr("axis", Ops::Math::AnyValue::CreateFrom<int64_t>(1)),
+         gert::InfershapeContextPara::OpAttr("num_axes", Ops::Math::AnyValue::CreateFrom<int64_t>(1)),
+         gert::InfershapeContextPara::OpAttr("scale_from_blob", Ops::Math::AnyValue::CreateFrom<bool>(true))});
+    ExecuteTestCase(para, status, {std::vector<int64_t>(xDims)});
+}
+} // namespace
+
+TEST_F(ScaleInferShapeTest, empty_output_rejects_known_bias_mismatch)
+{
+    CheckBiasShape({0, 3}, {3}, {2}, ge::GRAPH_FAILED);
+    CheckBiasShape({0, 3}, {3}, {1, 3}, ge::GRAPH_FAILED);
+}
+
+TEST_F(ScaleInferShapeTest, empty_output_preserves_valid_and_deferred_bias)
+{
+    CheckBiasShape({0, 3}, {3}, {3}, ge::GRAPH_SUCCESS);
+    CheckBiasShape({0, 3}, {3}, {0}, ge::GRAPH_SUCCESS);
+    CheckBiasShape({0, 3}, {3}, {-1}, ge::GRAPH_SUCCESS);
+    CheckBiasShape({0, 3}, {3}, {-1, 3}, ge::GRAPH_SUCCESS);
+    CheckBiasShape({0, 3}, {3}, {-2}, ge::GRAPH_SUCCESS);
+    CheckBiasShape({0, 3}, {-2}, {2}, ge::GRAPH_SUCCESS);
+}
+
+TEST_F(ScaleInferShapeTest, nonempty_and_unknown_x_preserve_runtime_bias_validation)
+{
+    CheckBiasShape({2, 3}, {3}, {2}, ge::GRAPH_SUCCESS);
+    CheckBiasShape({-1, 3}, {3}, {2}, ge::GRAPH_SUCCESS);
+    CheckBiasShape({-2}, {3}, {2}, ge::GRAPH_SUCCESS);
+}

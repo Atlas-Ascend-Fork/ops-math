@@ -17,10 +17,6 @@
  */
 
 #include "register/op_impl_registry.h"
-#include "graph/operator_factory.h"
-#include "graph/tensor.h"
-#include <algorithm>
-#include <vector>
 #include "log/log.h"
 
 using namespace ge;
@@ -49,90 +45,8 @@ static ge::graphStatus InferDataType4Scale(gert::InferDataTypeContext* context)
     return GRAPH_SUCCESS;
 }
 
+// Legacy GE verification is shared with existing Scale graph implementations.
+// Keep shape checks in the runtime InferShape/Tiling paths instead of a global VerifyFunc.
 IMPL_OP(Scale).InferDataType(InferDataType4Scale);
 
 } // namespace ops
-
-// Legacy GE registration also defers unknown descriptors to the concrete Tiling checks.
-namespace {
-using Dims = std::vector<int64_t>;
-bool UnknownRank(const Dims& x) { return x == Dims{-2}; }
-bool ValidShape(const Dims& x)
-{
-    return UnknownRank(x) || (x.size() <= 8 && std::all_of(x.begin(), x.end(), [](int64_t d) { return d >= -1; }));
-}
-bool Compatible(const Dims& a, const Dims& b)
-{
-    if (UnknownRank(a) || UnknownRank(b))
-        return true;
-    if (a.size() != b.size())
-        return false;
-    for (size_t i = 0; i < a.size(); ++i)
-        if (a[i] >= 0 && b[i] >= 0 && a[i] != b[i])
-            return false;
-    return true;
-}
-ge::graphStatus VerifyScale(ge::Operator& op)
-{
-    // GE common graph validation checks required input connections.
-    // Optional scalar descriptors may be absent from this legacy query; Tiling rechecks concrete inputs.
-    auto xd = op.GetInputDescByName("x"), sd = op.GetInputDescByName("scale");
-    ge::TensorDesc bd;
-    auto x = xd.GetShape().GetDims(), s = sd.GetShape().GetDims();
-    const auto dt = xd.GetDataType();
-    auto supported = [](ge::DataType value) {
-        return value == ge::DT_FLOAT16 || value == ge::DT_FLOAT || value == ge::DT_BF16;
-    };
-    if (!supported(dt) || !supported(sd.GetDataType()))
-        return ge::GRAPH_FAILED;
-    if (!ValidShape(x) || !ValidShape(s))
-        return ge::GRAPH_FAILED;
-    if (op.TryGetInputDesc("bias", bd) == ge::GRAPH_SUCCESS) {
-        auto b = bd.GetShape().GetDims();
-        const bool emptyBias = std::find(b.begin(), b.end(), 0) != b.end();
-        if (!supported(bd.GetDataType()) || !ValidShape(b) || (!emptyBias && !Compatible(s, b)))
-            return ge::GRAPH_FAILED;
-    }
-    int64_t axis = 1, axes = 1;
-    bool blob = true;
-    op.GetAttr("axis", axis);
-    op.GetAttr("num_axes", axes);
-    op.GetAttr("scale_from_blob", blob);
-    if (axes < -1)
-        return ge::GRAPH_FAILED;
-    if (!UnknownRank(x)) {
-        const int64_t rank = x.size();
-        if (rank == 0 || axis < -rank || axis >= rank)
-            return ge::GRAPH_FAILED;
-        if (axis < 0)
-            axis += rank;
-        if (blob && axes > rank - axis)
-            return ge::GRAPH_FAILED;
-    }
-    if (UnknownRank(s))
-        return ge::GRAPH_SUCCESS;
-    if (blob && axes == 0) {
-        return s.empty() ? ge::GRAPH_SUCCESS : ge::GRAPH_FAILED;
-    }
-    if (blob && axes > 0 && int64_t(s.size()) != axes)
-        return ge::GRAPH_FAILED;
-    if (UnknownRank(x))
-        return ge::GRAPH_SUCCESS;
-    if (!blob && (s.empty() || s == Dims{1}))
-        return ge::GRAPH_SUCCESS;
-    const int64_t span = blob ? (axes == -1 ? int64_t(x.size()) - axis : axes) : int64_t(s.size());
-    if (span < 0 || axis + span > int64_t(x.size()) || int64_t(s.size()) != span)
-        return ge::GRAPH_FAILED;
-    int64_t checkedSpan = span;
-    if (!blob && x.size() == 4) {
-        while (checkedSpan > 0 && s[checkedSpan - 1] == 1 && x[axis + checkedSpan - 1] >= 0 &&
-               x[axis + checkedSpan - 1] != 1)
-            --checkedSpan;
-    }
-    for (int64_t i = 0; i < checkedSpan; ++i)
-        if (x[axis + i] >= 0 && s[i] >= 0 && x[axis + i] != s[i])
-            return ge::GRAPH_FAILED;
-    return ge::GRAPH_SUCCESS;
-}
-const ge::VerifyFuncRegister verify("Scale", VerifyScale);
-} // namespace

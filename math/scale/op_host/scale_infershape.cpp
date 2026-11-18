@@ -136,6 +136,26 @@ static ge::graphStatus InferShape4Scale(gert::InferShapeContext* context)
         OP_LOGE(context->GetNodeName(), "Invalid Scale shape window or attributes");
         return ge::GRAPH_FAILED;
     }
+    // An empty output may be eliminated before Tiling can validate a nonempty bias.
+    if (std::find(xd.begin(), xd.end(), 0) != xd.end()) {
+        const auto* biasShape = context->GetOptionalInputShape(2);
+        if (biasShape != nullptr) {
+            const auto bd = dims(*biasShape);
+            if (!scale_shape::UnknownRank(sd) &&
+                std::all_of(bd.begin(), bd.end(), [](int64_t dim) { return dim > 0; })) {
+                if (bd.size() != sd.size()) {
+                    OP_LOGE(context->GetNodeName(), "Nonempty bias must match scale for an empty output");
+                    return ge::GRAPH_FAILED;
+                }
+                for (size_t i = 0; i < sd.size(); ++i) {
+                    if (sd[i] >= 0 && bd[i] >= 0 && sd[i] != bd[i]) {
+                        OP_LOGE(context->GetNodeName(), "Nonempty bias must match scale for an empty output");
+                        return ge::GRAPH_FAILED;
+                    }
+                }
+            }
+        }
+    }
     // Validate before empty-output graph elimination; Tiling may never run for zero elements.
     if (scale_shape::UnknownRank(xd)) {
         auto* y = context->GetOutputShape(0);
