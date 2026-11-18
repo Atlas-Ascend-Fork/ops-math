@@ -10,7 +10,7 @@
 
 /*!
  * \file reshape_infershape.cpp
- * \brief InferShape and InferDataType implementation for Reshape operator.
+ * \brief InferShape, InferDataType and InferFormat implementation for Reshape operator.
  */
 #include <limits>
 #include <vector>
@@ -18,6 +18,7 @@
 #include "register/op_impl_registry.h"
 #include "exe_graph/runtime/infer_shape_context.h"
 #include "exe_graph/runtime/infer_datatype_context.h"
+#include "graph/infer_format_context.h"
 #include "log/log.h"
 
 using namespace ge;
@@ -366,9 +367,107 @@ static ge::graphStatus InferDataTypeForReshape(gert::InferDataTypeContext* conte
     return context->SetOutputDataType(0, context->GetInputDataType(0));
 }
 
+// whether the format is a 4D/5D rank-bound format matching the tensor rank
+static bool IsFormatMatchRank(const ge::Format format, const int64_t rank)
+{
+    const auto primaryFormat = static_cast<ge::Format>(ge::GetPrimaryFormat(static_cast<int32_t>(format)));
+    switch (primaryFormat) {
+        case ge::FORMAT_NCHW:
+        case ge::FORMAT_NHWC:
+        case ge::FORMAT_CHWN:
+        case ge::FORMAT_HWCN:
+            return rank == 4;
+        case ge::FORMAT_NDHWC:
+        case ge::FORMAT_NCDHW:
+        case ge::FORMAT_DHWCN:
+        case ge::FORMAT_DHWNC:
+            return rank == 5;
+        default:
+            return false;
+    }
+}
+
+// keep the rank-bound format only on a rank match, otherwise fall back to ND
+static void NormalizeFormatToNd(gert::StorageFormat* fmt, const int64_t rank)
+{
+    if (!IsFormatMatchRank(fmt->GetOriginFormat(), rank)) {
+        fmt->SetOriginFormat(ge::FORMAT_ND);
+        fmt->SetStorageFormat(ge::FORMAT_ND);
+    }
+}
+
+// the y rank InferShape set: the element num of the shape input, or the dim of its shape
+// when the data is absent (-1 when unknown)
+static int64_t GetReshapeOutputRank(const gert::InferFormatContext* context, const size_t shapeIdx)
+{
+    const auto shape_tensor = context->GetInputTensor(shapeIdx);
+    if ((shape_tensor != nullptr) && (shape_tensor->GetTensorData().GetAddr() != nullptr)) {
+        return shape_tensor->GetShapeSize();
+    }
+    const auto shape_input_shape = context->GetInputShape(shapeIdx);
+    if (shape_input_shape == nullptr) {
+        return -1;
+    }
+    const auto dimNum = static_cast<int64_t>(shape_input_shape->GetDimNum());
+    if (dimNum == 0) {
+        return 0;
+    }
+    if (dimNum == 1) {
+        return shape_input_shape->GetDim(0U);
+    }
+    return -1;
+}
+
+// V2 InferFormat of Reshape, ported from the RT1.0 ReshapeInferFormat: a rank-bound
+// format survives on y only on a rank match (otherwise ND), and the first format among
+// x, the shape input and y that matches its own rank floods onto y, so a rank-surviving
+// 4D/5D format stays transparent across the reshape; the input formats are only read as
+// flood sources and never written back, unlike the RT1.0 pass which flooded them too
+static ge::graphStatus InferFormatForReshape(gert::InferFormatContext* context)
+{
+    constexpr size_t kIdxX = 0U;
+    constexpr size_t kIdxShape = 1U;
+    constexpr size_t kIdxY = 0U;
+    auto x_fmt = context->GetInputFormat(kIdxX);
+    OP_CHECK_NULL_WITH_CONTEXT(context, x_fmt);
+    const auto x_shape = context->GetInputShape(kIdxX);
+    OP_CHECK_NULL_WITH_CONTEXT(context, x_shape);
+    auto y_fmt = context->GetOutputFormat(kIdxY);
+    OP_CHECK_NULL_WITH_CONTEXT(context, y_fmt);
+
+    const int64_t xRank = static_cast<int64_t>(x_shape->GetDimNum());
+    const int64_t yRank = GetReshapeOutputRank(context, kIdxShape);
+    const auto shape_fmt = context->GetInputFormat(kIdxShape);
+    const auto shape_input_shape = context->GetInputShape(kIdxShape);
+    const bool shapeReadable = (shape_fmt != nullptr) && (shape_input_shape != nullptr);
+    const int64_t shapeRank = shapeReadable ? static_cast<int64_t>(shape_input_shape->GetDimNum()) : -1;
+
+    NormalizeFormatToNd(y_fmt, yRank);
+
+    // the DefaultInferFormat step: the first format matching its own rank among x, the
+    // shape input and y floods onto y
+    ge::Format floodFormat = ge::FORMAT_ND;
+    if (IsFormatMatchRank(x_fmt->GetOriginFormat(), xRank)) {
+        floodFormat = x_fmt->GetOriginFormat();
+    } else if (shapeReadable && IsFormatMatchRank(shape_fmt->GetOriginFormat(), shapeRank)) {
+        floodFormat = shape_fmt->GetOriginFormat();
+    } else if (IsFormatMatchRank(y_fmt->GetOriginFormat(), yRank)) {
+        floodFormat = y_fmt->GetOriginFormat();
+    }
+    if ((floodFormat != ge::FORMAT_ND) && (y_fmt->GetOriginFormat() == ge::FORMAT_ND)) {
+        y_fmt->SetOriginFormat(floodFormat);
+        y_fmt->SetStorageFormat(floodFormat);
+    }
+
+    // re-check the flooded format against the y rank
+    NormalizeFormatToNd(y_fmt, yRank);
+    return ge::GRAPH_SUCCESS;
+}
+
 IMPL_OP_INFERSHAPE(Reshape)
     .InferShape(InferShapeForReshape)
     .InferDataType(InferDataTypeForReshape)
+    .InferFormat(InferFormatForReshape)
     .InputsDataDependency({1U})
     .PrivateAttr("_allowzero", int64_t{1});
 } // namespace ops

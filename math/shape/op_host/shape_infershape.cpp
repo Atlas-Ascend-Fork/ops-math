@@ -15,6 +15,7 @@
 #include "register/op_impl_registry.h"
 #include "exe_graph/runtime/infer_shape_context.h"
 #include "exe_graph/runtime/infer_datatype_context.h"
+#include "graph/infer_format_context.h"
 #include "runtime/storage_shape.h"
 #include "log/log.h"
 #include "util/shape_util.h"
@@ -67,5 +68,22 @@ static ge::graphStatus InferDataTypeForShape(gert::InferDataTypeContext* context
     return context->SetOutputDataType(0, out_type);
 }
 
-IMPL_OP_INFERSHAPE(Shape).InferShape(InferShapeForShape).InferDataType(InferDataTypeForShape);
+static ge::graphStatus InferFormat4Shape(gert::InferFormatContext* context)
+{
+    // 与 V1 行为对齐（canndev ShapeInferFormat）：Shape 输出为输入维数的一维向量，不携带布局语义，
+    // 所有输出格式无条件置为 ND，防止上游布局格式（NCHW/NHWC）经 DefaultInferFormat 传染到一维输出
+    const auto output_num = context->GetComputeNodeOutputNum();
+    for (size_t i = 0U; i < output_num; ++i) {
+        gert::StorageFormat* out_fmt = context->GetOutputFormat(i);
+        OP_CHECK_NULL_WITH_CONTEXT(context, out_fmt);
+        out_fmt->SetOriginFormat(ge::FORMAT_ND);
+        out_fmt->SetStorageFormat(ge::FORMAT_ND);
+    }
+    return ge::GRAPH_SUCCESS;
+}
+
+IMPL_OP_INFERSHAPE(Shape)
+    .InferShape(InferShapeForShape)
+    .InferDataType(InferDataTypeForShape)
+    .InferFormat(InferFormat4Shape);
 } // namespace ops

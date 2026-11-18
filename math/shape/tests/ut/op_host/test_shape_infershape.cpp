@@ -12,7 +12,10 @@
 #include "register/op_impl_registry.h"
 #include "infershape_context_faker.h"
 #include "op_infer_datatype_context_builder.h"
+#include "op_kernel_run_context_builder.h"
 #include "exe_graph/runtime/kernel_run_context.h"
+#include "exe_graph/runtime/runtime_tensor.h"
+#include "graph/infer_format_context.h"
 #include "base/registry/op_impl_space_registry_v2.h"
 
 namespace ops {
@@ -186,5 +189,46 @@ TEST_F(ShapeUT, InferDataTypeInvalidValue)
     ASSERT_NE(context, nullptr);
 
     EXPECT_EQ(op_impl->infer_datatype(context), ge::GRAPH_FAILED);
+}
+TEST_F(ShapeUT, InferFormatOutputNd)
+{
+    auto space_registry = gert::DefaultOpImplSpaceRegistryV2::GetInstance().GetSpaceRegistry();
+    ASSERT_NE(space_registry->GetOpImpl("Shape"), nullptr);
+    auto op_impl = space_registry->GetOpImpl("Shape");
+    ASSERT_NE(op_impl->infer_format_func, nullptr);
+
+    // 用 KernelContext 构造器 + 真实 Tensor 承载输入/输出槽位，与 InferFormatContext 的槽位契约
+    // （GetOutputFormat 按 Tensor::MutableFormat 取格式）保持一致，避免用 InferShape 上下文的
+    // Shape 槽位伪造格式上下文导致类型混淆
+    gert::Tensor input_tensor(gert::StorageShape({1, 3, 4, 5}, {1, 3, 4, 5}),
+                              gert::StorageFormat(ge::FORMAT_NCHW, ge::FORMAT_NCHW, gert::ExpandDimsType()),
+                              ge::DT_FLOAT);
+    gert::Tensor output_tensor(gert::StorageShape({4}, {4}),
+                               gert::StorageFormat(ge::FORMAT_NCHW, ge::FORMAT_NCHW, gert::ExpandDimsType()),
+                               ge::DT_INT32);
+    auto holder = gert::OpKernelContextBuilder()
+                      .OpType("Shape")
+                      .OpName("Shape")
+                      .IONum(1, 1)
+                      .Inputs({static_cast<void*>(&input_tensor)})
+                      .Outputs({static_cast<void*>(&output_tensor)})
+                      .Build();
+    auto* fmt_ctx = reinterpret_cast<gert::InferFormatContext*>(holder.GetContext());
+    ASSERT_NE(fmt_ctx, nullptr);
+    ASSERT_NE(fmt_ctx->GetComputeNodeOutputNum(), 0U);
+    auto* out_fmt = fmt_ctx->GetOutputFormat(0);
+    ASSERT_NE(out_fmt, nullptr);
+    auto* in_fmt = fmt_ctx->GetInputFormat(0);
+    ASSERT_NE(in_fmt, nullptr);
+    // 前置确认脏标签与上下文构造真实生效，防构造失效导致的假绿
+    EXPECT_EQ(out_fmt->GetOriginFormat(), ge::FORMAT_NCHW);
+    EXPECT_EQ(in_fmt->GetOriginFormat(), ge::FORMAT_NCHW);
+
+    EXPECT_EQ(op_impl->infer_format_func(fmt_ctx), ge::GRAPH_SUCCESS);
+    // 输出一维向量不携带布局语义，origin/storage 无条件洗为 ND（与 V1 ShapeInferFormat 对齐）
+    EXPECT_EQ(out_fmt->GetOriginFormat(), ge::FORMAT_ND);
+    EXPECT_EQ(out_fmt->GetStorageFormat(), ge::FORMAT_ND);
+    // 输入格式不受影响
+    EXPECT_EQ(in_fmt->GetOriginFormat(), ge::FORMAT_NCHW);
 }
 } // namespace ops
