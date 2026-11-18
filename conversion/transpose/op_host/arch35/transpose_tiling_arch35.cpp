@@ -145,12 +145,12 @@ ge::graphStatus TransposeNddmaTiling::RunTranposelTiling()
     CalcUBSplitInfo();
     // block split
     CalcBlockSplitInfo();
-    // dim expand
-    NDDMADimExpand();
-    // get in ub shape info
-    GetInUbShapeInfo();
-    // cut twice get interval info
-    GetIntervalInfo();
+    // 五维展开及后续数组计算只适用于不超过五维的有效形状。
+    if (shapeInfo_.dim <= NDDMA_MAX_DIM_NUM) {
+        NDDMADimExpand();
+        GetInUbShapeInfo();
+        GetIntervalInfo();
+    }
     // fill data
     FillTilingData();
     // print data

@@ -77,7 +77,8 @@ protected:
     __aicore__ inline void reverseArray(T1 array[])
     {
         for (uint8_t i = 0; i < NDDMA_MAX_DIM_NUM / 2; i++) {
-            uint32_t temp = array[i];
+            // 保留数组元素类型，避免截断 64 位源步长。
+            T1 temp = array[i];
             array[i] = array[NDDMA_MAX_DIM_NUM - 1 - i];
             array[NDDMA_MAX_DIM_NUM - 1 - i] = temp;
         }
