@@ -30,6 +30,15 @@ type2digits[torch.bfloat16] = BF16_DIGITS
 type2digits[torch.float32] = FLOAT32_DIGITS
 type2digits[torch.float64] = DOUBLE_DIGITS
 
+TORCH_DTYPE = [
+    torch.float32,
+    torch.float16,
+    torch.float64,
+    torch.bfloat16,
+    torch.complex64,
+    torch.complex128,
+]
+
 
 def update_from(from_value, scalar_type=torch.float32):
     # 判断是否为浮点数数据类型
@@ -98,7 +107,9 @@ def random_golden(torch_tensor, params):
     mul_data = tf.multiply(uniform_data, (end - start))
     add_data = tf.add(mul_data, start)
     if params["dtype_input"][0] == torch.bool:
-        add_data = tf.math.round(add_data)
+        add_data = tf.math.floor(add_data) if start < 0 else tf.math.round(add_data)
+    elif start < 0 and params["dtype_input"][0] not in TORCH_DTYPE:
+        add_data = tf.math.floor(add_data)
     output_data = tf.cast(add_data, tf.int64)
     output_data = output_data.numpy()
     output_data = torch.from_numpy(output_data)
