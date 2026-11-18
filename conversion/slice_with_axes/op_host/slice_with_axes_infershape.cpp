@@ -100,14 +100,7 @@ static ge::graphStatus Infershape4SliceWithAxes(gert::InferShapeContext* context
     return ge::GRAPH_SUCCESS;
 }
 
-static ge::graphStatus InferDataType4SliceWithAxes(gert::InferDataTypeContext* context)
-{
-    context->SetOutputDataType(OUTPUT_IDX_Y, context->GetInputDataType(INPUT_IDX_X));
-    return ge::GRAPH_SUCCESS;
-}
-
 IMPL_OP_INFERSHAPE(SliceWithAxes)
     .InferShape(Infershape4SliceWithAxes)
-    .InferDataType(InferDataType4SliceWithAxes)
     .InputsDataDependency({INPUT_IDX_OFFSETS, INPUT_IDX_SIZE});
 } // namespace ops

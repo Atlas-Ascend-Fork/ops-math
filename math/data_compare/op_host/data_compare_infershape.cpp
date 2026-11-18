@@ -69,18 +69,6 @@ static ge::graphStatus InferShape4DataCompare(gert::InferShapeContext* context)
     return GRAPH_SUCCESS;
 }
 
-static ge::graphStatus InferDataType4DataCompare(gert::InferDataTypeContext* context)
-{
-    // 输出固定为 float32；调用方显式声明的输出 dtype 不一致时提前拦截
-    const ge::DataType declaredOutDtype = context->GetOutputDataType(kOutputNumIdx);
-    OP_CHECK_IF(declaredOutDtype != ge::DT_UNDEFINED && declaredOutDtype != ge::DT_FLOAT,
-                OP_LOGE(context->GetNodeName(), "output num dtype %d is not supported, must be float32",
-                        static_cast<int>(declaredOutDtype)),
-                return ge::GRAPH_FAILED);
-    context->SetOutputDataType(kOutputNumIdx, ge::DT_FLOAT);
-    return ge::GRAPH_SUCCESS;
-}
-
-IMPL_OP_INFERSHAPE(DataCompare).InferShape(InferShape4DataCompare).InferDataType(InferDataType4DataCompare);
+IMPL_OP_INFERSHAPE(DataCompare).InferShape(InferShape4DataCompare);
 
 } // namespace ops
