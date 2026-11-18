@@ -12,7 +12,8 @@
  * \file fused_mul_addn_l2loss_tiling_arch35.cpp
  * \brief FusedMulAddNL2loss arch35 tiling
  *        展平为一维，按核均分；不使用 workspace
- *        （y2 归约：fp32 走 y2 GM 原子加，fp16 走 core0 串行，见 kernel 注释）
+ *        （y2 归约：fp32 走 per-core (acc, comp) → y1 尾部 scratch → core0 确定性合并，
+ *          fp16 走 core0 串行，见 kernel 注释）
  */
 
 #include "register/op_impl_registry.h"
@@ -41,7 +42,8 @@ static constexpr int64_t QUEUE_NUM = 3; // x1_in, x2_in, y1_out（双缓冲）
 static constexpr int64_t DOUBLE_BUFFER = 2;
 
 static constexpr int64_t FLOAT_BYTES = 4;
-static constexpr int64_t RESERVED_UB = 8512; // TPipe 元数据 + ReduceSum 小 buffer(320B) + 余量
+// TPipe 元数据 + ReduceSum 小 buffer(320B) + TwoSum 补偿累加 scratch(6 x 32B) + 余量
+static constexpr int64_t RESERVED_UB = 8768;
 
 ge::graphStatus FusedMulAddNL2lossTiling::GetPlatformInfo()
 {
@@ -144,7 +146,7 @@ ge::graphStatus FusedMulAddNL2lossTiling::DoTiling()
     int64_t coreElements = totalN / usedCores;
     int64_t tailCoreElements = totalN - coreElements * (usedCores - 1);
 
-    // 不使用 workspace（y2 归约走 y2 GM 原子加 / core0 串行，见 kernel 注释）
+    // 不使用框架 workspace：y2 跨核确定性归约借用 y1 尾部 scratch（见 kernel 注释）
     int64_t wsBytes = 0;
 
     // 填 tiling data
