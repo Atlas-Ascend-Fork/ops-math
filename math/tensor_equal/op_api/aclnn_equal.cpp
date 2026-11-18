@@ -25,6 +25,7 @@
 #include "opdev/platform.h"
 #include "aclnn_kernels/common/op_error_check.h"
 #include "op_api/aclnn_check.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 #ifdef __cplusplus
@@ -72,7 +73,7 @@ static bool CheckNotNull(const aclTensor* self, const aclTensor* other, const ac
 static inline bool CheckSocVersionGe910B(void)
 {
     auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
-    return curArch == NpuArch::DAV_2201 || IsRegBase(curArch);
+    return curArch == Ops::Base::DAV_2201 || IsRegBase(curArch);
 }
 
 static bool CheckDtypeValid(const aclTensor* self, const aclTensor* other, const aclTensor* out)

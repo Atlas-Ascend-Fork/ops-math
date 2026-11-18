@@ -29,6 +29,7 @@
 #include "opdev/op_log.h"
 #include "opdev/tensor_view_utils.h"
 #include "../../random_common/op_api/aclnn_set_pytorch_random.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 #ifdef __cplusplus
@@ -46,7 +47,7 @@ enum class ScalarMode { TensorTensor, TensorScalar, ScalarTensor, ScalarScalar }
 static inline bool IsNormalV3SupportedArch()
 {
     auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
-    return curArch == NpuArch::DAV_3510 || curArch == NpuArch::DAV_9201 || curArch == NpuArch::DAV_9202;
+    return curArch == Ops::Base::DAV_3510 || curArch == Ops::Base::DAV_9201 || curArch == Ops::Base::DAV_9202;
 }
 
 /* 查看TensorFloat的Dtype和Shape */

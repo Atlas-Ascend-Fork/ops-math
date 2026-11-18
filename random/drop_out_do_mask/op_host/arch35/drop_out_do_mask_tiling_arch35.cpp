@@ -22,6 +22,7 @@
 #include "platform/platform_info.h"
 #include "register/op_def_registry.h"
 #include "util/math_util.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 namespace optiling {
 using namespace Ops::Base;
@@ -121,8 +122,8 @@ bool DropOutDoMaskTiling::IsDv121()
     auto platformInfo = context_->GetPlatformInfo();
     OP_CHECK_NULL_WITH_CONTEXT(context_, platformInfo);
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
-    return (ascendcPlatform.GetCurNpuArch() == NpuArch::DAV_9201 ||
-            ascendcPlatform.GetCurNpuArch() == NpuArch::DAV_9202);
+    return (ascendcPlatform.GetCurNpuArch() == Ops::Base::DAV_9201 ||
+            ascendcPlatform.GetCurNpuArch() == Ops::Base::DAV_9202);
 }
 
 ge::graphStatus DropOutDoMaskTiling::DoOpTiling()

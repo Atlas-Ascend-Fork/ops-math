@@ -14,7 +14,7 @@
  */
 #define STATELESS_DROP_OUT_GEN_MASK_DEFAULT_TILING_KEY 100
 
-// A5 (ascend950/ascend350)/A6 (ascend960dt/ascend960pr) 共用 arch35 kernel：
+// A5 (DAV_3510)/A6 (DAV_9201/DAV_9202) 共用 arch35 kernel：
 // key/counter 由 kernel 从 GM 直接读取 seed/offset，无架构差异
 #include "arch35/stateless_drop_out_gen_mask_pt.h"
 

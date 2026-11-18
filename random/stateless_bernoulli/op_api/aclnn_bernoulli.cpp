@@ -35,6 +35,7 @@
 #include "opdev/op_log.h"
 #include "opdev/platform.h"
 #include "opdev/tensor_view_utils.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 #ifdef __cplusplus
@@ -428,7 +429,7 @@ aclnnStatus aclnnBernoulliGetWorkspaceSize(const aclTensor* self, const aclScala
 
     auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
     const aclTensor* opOut = nullptr;
-    if (curArch == NpuArch::DAV_2201) {
+    if (curArch == Ops::Base::DAV_2201) {
         // 调用DSAGenBitMask算子kernel
         const aclTensor* doMaskOut = nullptr;
         if (IsDoubleEqual(prob->ToDouble(), 0)) {

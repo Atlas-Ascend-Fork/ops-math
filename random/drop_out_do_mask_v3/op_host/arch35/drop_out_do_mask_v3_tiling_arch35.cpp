@@ -23,6 +23,7 @@
 #include "drop_out_do_mask_v3_tiling_arch35.h"
 #include "util/fp16.h"
 #include "util/bfloat16.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace ge;
 
@@ -91,8 +92,8 @@ ge::graphStatus DropOutDoMaskV3Tiling::BeforeProcess()
     auto platformInfo = context_->GetPlatformInfo();
     OP_CHECK_NULL_WITH_CONTEXT(context_, platformInfo);
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
-    config_.coreAlignSize = (ascendcPlatform.GetCurNpuArch() == NpuArch::DAV_9201 ||
-                             ascendcPlatform.GetCurNpuArch() == NpuArch::DAV_9202) ?
+    config_.coreAlignSize = (ascendcPlatform.GetCurNpuArch() == Ops::Base::DAV_9201 ||
+                             ascendcPlatform.GetCurNpuArch() == Ops::Base::DAV_9202) ?
                                 ALIGN32 :
                                 ALIGN256;
     return ge::GRAPH_SUCCESS;

@@ -20,6 +20,7 @@
 #include "exe_graph/runtime/shape.h"
 #include "op_host/tiling_base_class.h"
 #include "stateless_random_normal_v3_tiling_arch35.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace ge;
 
@@ -104,7 +105,7 @@ ge::graphStatus StatelessRandomNormalV3Tiling::BeforeProcess()
     }
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
     auto npuArch = ascendcPlatform.GetCurNpuArch();
-    if (npuArch == NpuArch::DAV_9201 || npuArch == NpuArch::DAV_9202) {
+    if (npuArch == Ops::Base::DAV_9201 || npuArch == Ops::Base::DAV_9202) {
         config_.coreAlignSize = CORE_ALIGN_SIZE_ARCH92;
     }
     return ge::GRAPH_SUCCESS;

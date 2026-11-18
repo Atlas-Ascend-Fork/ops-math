@@ -24,6 +24,7 @@
 #include "opdev/op_executor.h"
 #include "opdev/op_log.h"
 #include "opdev/shape_utils.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 
@@ -34,10 +35,10 @@ static const int64_t BIT_NUMBER = 128;
 static const int64_t UINT8_BIT_NUMBER = 8;
 static const std::initializer_list<DataType> AICORE_DTYPE_SUPPORT_LIST = {DataType::DT_UINT8};
 
-// Ascend960 (DAV_9201/9202) 与 Ascend950 共用 StatelessDropOutGenMask 的 AICore 实现与 dtype 支持集合
+// DAV_9201/DAV_9202 与 DAV_3510 共用 StatelessDropOutGenMask 的 AICore 实现与 dtype 支持集合
 static inline bool IsRegBaseOrArch92(NpuArch arch)
 {
-    return arch == NpuArch::DAV_3510 || arch == NpuArch::DAV_9201 || arch == NpuArch::DAV_9202;
+    return arch == Ops::Base::DAV_3510 || arch == Ops::Base::DAV_9201 || arch == Ops::Base::DAV_9202;
 }
 
 // 根据芯片型号，dtype 判断AICore 是否支持

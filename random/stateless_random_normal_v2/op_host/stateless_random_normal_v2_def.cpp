@@ -13,6 +13,7 @@
  * \brief
  */
 #include "register/op_def_registry.h"
+#include "op_common/op_host/util/op_arch_helper.h"
 
 namespace ops {
 class StatelessRandomNormalV2 : public OpDef {
@@ -54,10 +55,9 @@ public:
                 {ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND});
 
         this->Attr("dtype").AttrType(OPTIONAL).Int(0);
-        this->AICore().AddConfig("ascend950");
-        this->AICore().AddConfig("ascend350");
-        this->AICore().AddConfig("ascend960dt");
-        this->AICore().AddConfig("ascend960pr");
+        opbase::ArchConfigHelper::AddConfigByArch(this->AICore(), Ops::Base::DAV_3510);
+        opbase::ArchConfigHelper::AddConfigByArch(this->AICore(), Ops::Base::DAV_9201);
+        opbase::ArchConfigHelper::AddConfigByArch(this->AICore(), Ops::Base::DAV_9202);
     }
 };
 

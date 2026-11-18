@@ -37,6 +37,7 @@
 #include "opdev/make_op_executor.h"
 #include "opdev/platform.h"
 #include "random/stateless_random/op_api/stateless_random.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 using namespace std;
@@ -61,7 +62,7 @@ public:
 
     void SetUp() override
     {
-        SetPlatformNpuArch(NpuArch::DAV_3510);
+        SetPlatformNpuArch(Ops::Base::DAV_3510);
         auto executor = &exe;
         auto unique_executor = CREATE_EXECUTOR();
         unique_executor.ReleaseTo(executor);

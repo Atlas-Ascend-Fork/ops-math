@@ -23,6 +23,7 @@
 #include "opdev/op_dfx.h"
 #include "opdev/platform.h"
 #include "op_api/aclnn_check.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 
@@ -58,7 +59,7 @@ static bool CheckShapeValid(const aclTensor* out, int64_t n)
 static bool CheckDtypeValid(const aclTensor* out)
 {
     auto npuArch = op::GetCurrentPlatformInfo().GetCurNpuArch();
-    bool isBf16Support = ((npuArch == NpuArch::DAV_2201) || IsRegBase());
+    bool isBf16Support = ((npuArch == Ops::Base::DAV_2201) || IsRegBase());
     const std::initializer_list<op::DataType> DTYPE_SUPPORT_LIST = isBf16Support ? DTYPE_SUPPORT_LIST_2201 :
                                                                                    DTYPE_SUPPORT_LIST_DEFAULT;
     OP_CHECK_DTYPE_NOT_SUPPORT(out, DTYPE_SUPPORT_LIST, return false);

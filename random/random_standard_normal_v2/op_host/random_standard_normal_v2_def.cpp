@@ -13,6 +13,7 @@
  * \brief
  */
 #include "register/op_def_registry.h"
+#include "op_common/op_host/util/op_arch_helper.h"
 
 namespace ops {
 class RandomStandardNormalV2 : public OpDef {
@@ -56,10 +57,9 @@ public:
             .DynamicShapeSupportFlag(true)
             .NeedCheckSupportFlag(false)
             .PrecisionReduceFlag(true);
-        this->AICore().AddConfig("ascend950", aicoreconfig);
-        this->AICore().AddConfig("ascend350", aicoreconfig);
-        this->AICore().AddConfig("ascend960dt", aicoreconfig);
-        this->AICore().AddConfig("ascend960pr", aicoreconfig);
+        opbase::ArchConfigHelper::AddConfigByArch(this->AICore(), Ops::Base::DAV_3510, aicoreconfig);
+        opbase::ArchConfigHelper::AddConfigByArch(this->AICore(), Ops::Base::DAV_9201, aicoreconfig);
+        opbase::ArchConfigHelper::AddConfigByArch(this->AICore(), Ops::Base::DAV_9202, aicoreconfig);
     }
 };
 OP_ADD(RandomStandardNormalV2);

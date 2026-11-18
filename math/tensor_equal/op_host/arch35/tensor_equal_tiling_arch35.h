@@ -60,7 +60,7 @@ protected:
     void DumpTilingInfo() override;
 
 private:
-    // 121 平台（DAV_9201/DAV_9202，含 ascend960dt 与 ascend960pr）使用更小的单核最小处理粒度
+    // 121 平台（DAV_9201/DAV_9202，含 DAV_9201 与 DAV_9202）使用更小的单核最小处理粒度
     bool IsDv121();
     ge::graphStatus CheckDType();
     void SetTilingData();

@@ -20,6 +20,7 @@
 #include "register/tilingdata_base.h"
 #include "util/math_util.h"
 #include "platform/platform_ascendc.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 namespace optiling {
 const static size_t INPUT_X = 0;
@@ -145,7 +146,7 @@ bool TensorEqualTiling::IsDv121()
     OP_CHECK_NULL_WITH_CONTEXT(context_, platformInfo);
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
     auto npuArch = ascendcPlatform.GetCurNpuArch();
-    return npuArch == NpuArch::DAV_9201 || npuArch == NpuArch::DAV_9202;
+    return npuArch == Ops::Base::DAV_9201 || npuArch == Ops::Base::DAV_9202;
 }
 
 // 3、计算数据切分TilingData
@@ -156,7 +157,7 @@ ge::graphStatus TensorEqualTiling::DoOpTiling()
     int64_t vRegFactor = Ops::Base::CeilDiv(vRegSize_, inputDtypeSize_);
     // split core
     int64_t perCoreProcessTemp = Ops::Base::CeilDiv(inputShapeSize_, totalCoreNum_);
-    // 121 平台（ascend960dt/ascend960pr）通过架构判断隔离，使用更小的单核最小处理粒度
+    // 121 平台（DAV_9201/DAV_9202）通过架构判断隔离，使用更小的单核最小处理粒度
     int64_t minCoreProcess = IsDv121() ? DV121_MIN_CORE_PROCESS : MIN_CORE_PROCESS;
     int64_t perCoreProcess = std::max(perCoreProcessTemp, minCoreProcess);
     perCoreProcess = Ops::Base::CeilAlign(perCoreProcess, vRegFactor);

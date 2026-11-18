@@ -18,6 +18,7 @@
 #include "platform/platform_ascendc.h"
 #include "log/log.h"
 #include "register/op_impl_registry.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 namespace optiling {
 
@@ -33,7 +34,10 @@ static constexpr uint16_t SIZE_OF_FLOAT = 4;
 static constexpr uint16_t SPLIT_UB_NUM = 5;
 static constexpr int64_t COUNTER_NUMBER_LOW_BOUND = 1;
 
-static inline bool IsArch92(NpuArch npuArch) { return npuArch == NpuArch::DAV_9201 || npuArch == NpuArch::DAV_9202; }
+static inline bool IsArch92(NpuArch npuArch)
+{
+    return npuArch == Ops::Base::DAV_9201 || npuArch == Ops::Base::DAV_9202;
+}
 
 ge::graphStatus StatelessRandomNormalV2Tiling::GetPlatformInfo()
 {

@@ -2,10 +2,10 @@
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
- * Please refer to License for details. You may not use this file except in compliance with License.
- * THIS SOFTWARE IS PROVIDED ON AN "AS N" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
- * See LICENSE in root of the software repository for the full text of the License.
+ * See LICENSE in the root of the software repository for the full text of the License.
  */
 
 #include <iostream>
@@ -30,23 +30,26 @@ std::string DimsToString(const std::vector<int64_t>& dims)
 {
     std::string result = "[";
     for (size_t i = 0; i < dims.size(); i++) {
-        if (i > 0) result += ", ";
+        if (i > 0)
+            result += ", ";
         result += std::to_string(dims[i]);
     }
     result += "]";
     return result;
 }
 
-void UpdateDropOutV3NodeTensorDescs(GraphPtr& graph, const std::vector<int64_t>& dimsX,
-                                    DataType xDtype, DataType pDtype, DataType seedDtype)
+void UpdateDropOutV3NodeTensorDescs(GraphPtr& graph, const std::vector<int64_t>& dimsX, DataType xDtype,
+                                    DataType pDtype, DataType seedDtype)
 {
     for (auto& node : graph->GetDirectNode()) {
         AscendString nodeType;
         node.GetType(nodeType);
         if (std::string(nodeType.GetString()) == "DropOutV3") {
-            OP_LOGI(kPassName.c_str(), "Update DropOutV3 node TensorDescs: dimsX=%s, xDtype=%d, pDtype=%d, seedDtype=%d",
-                    DimsToString(dimsX).c_str(), static_cast<int>(xDtype), static_cast<int>(pDtype), static_cast<int>(seedDtype));
-            
+            OP_LOGI(kPassName.c_str(),
+                    "Update DropOutV3 node TensorDescs: dimsX=%s, xDtype=%d, pDtype=%d, seedDtype=%d",
+                    DimsToString(dimsX).c_str(), static_cast<int>(xDtype), static_cast<int>(pDtype),
+                    static_cast<int>(seedDtype));
+
             TensorDesc xDesc;
             xDesc.SetDataType(xDtype);
             xDesc.SetShape(Shape(dimsX));
@@ -76,13 +79,13 @@ void UpdateDropOutV3NodeTensorDescs(GraphPtr& graph, const std::vector<int64_t>&
             yDesc.SetShape(Shape(dimsX));
             yDesc.SetFormat(FORMAT_ND);
             node.UpdateOutputDesc(0, yDesc);
-            
+
             OP_LOGI(kPassName.c_str(), "DropOutV3 node TensorDescs updated successfully");
             break;
         }
     }
 }
-}
+} // namespace
 
 class DropOutV3SplitFusionPassTest : public testing::Test {
 protected:
@@ -131,10 +134,7 @@ protected:
     }
 };
 
-TEST_F(DropOutV3SplitFusionPassTest, passCreationTest)
-{
-    DropOutV3SplitFusionPass pass;
-}
+TEST_F(DropOutV3SplitFusionPassTest, passCreationTest) { DropOutV3SplitFusionPass pass; }
 
 TEST_F(DropOutV3SplitFusionPassTest, unsupportedPlatformFail)
 {
@@ -149,8 +149,10 @@ TEST_F(DropOutV3SplitFusionPassTest, unsupportedPlatformFail)
     auto seed = graphBuilder.CreateInput(2, "seed", DT_INT64, FORMAT_ND, std::vector<int64_t>{1});
     auto offset = graphBuilder.CreateInput(3, "offset", DT_INT64, FORMAT_ND, std::vector<int64_t>{1});
 
-    auto output = es::DropOutV3(x, graphBuilder.CreateConst(dimsX, std::vector<int64_t>{static_cast<int64_t>(dimsX.size())}, DT_INT64, FORMAT_ND),
-                                 p, seed, offset);
+    auto output = es::DropOutV3(
+        x,
+        graphBuilder.CreateConst(dimsX, std::vector<int64_t>{static_cast<int64_t>(dimsX.size())}, DT_INT64, FORMAT_ND),
+        p, seed, offset);
 
     TensorDesc xDesc;
     xDesc.SetDataType(DT_FLOAT);
@@ -180,8 +182,10 @@ TEST_F(DropOutV3SplitFusionPassTest, fusionSuccess91093)
     auto offset = graphBuilder.CreateInput(3, "offset", DT_INT64, FORMAT_ND, std::vector<int64_t>{1});
 
     OP_LOGI(kPassName.c_str(), "Created inputs: x[0], p[1], seed[2], offset[3] (4 inputs, noise_shape will be Const)");
-    auto output = es::DropOutV3(x, graphBuilder.CreateConst(dimsX, std::vector<int64_t>{static_cast<int64_t>(dimsX.size())}, DT_INT64, FORMAT_ND),
-                                 p, seed, offset);
+    auto output = es::DropOutV3(
+        x,
+        graphBuilder.CreateConst(dimsX, std::vector<int64_t>{static_cast<int64_t>(dimsX.size())}, DT_INT64, FORMAT_ND),
+        p, seed, offset);
     OP_LOGI(kPassName.c_str(), "Created DropOutV3 node");
 
     std::shared_ptr<Graph> graph = graphBuilder.BuildAndReset({output.y, output.mask});
@@ -211,8 +215,10 @@ TEST_F(DropOutV3SplitFusionPassTest, fusionSuccess910B)
     auto seed = graphBuilder.CreateInput(2, "seed", DT_INT64, FORMAT_ND, std::vector<int64_t>{1});
     auto offset = graphBuilder.CreateInput(3, "offset", DT_INT64, FORMAT_ND, std::vector<int64_t>{1});
 
-    auto output = es::DropOutV3(x, graphBuilder.CreateConst(dimsX, std::vector<int64_t>{static_cast<int64_t>(dimsX.size())}, DT_INT64, FORMAT_ND),
-                                 p, seed, offset);
+    auto output = es::DropOutV3(
+        x,
+        graphBuilder.CreateConst(dimsX, std::vector<int64_t>{static_cast<int64_t>(dimsX.size())}, DT_INT64, FORMAT_ND),
+        p, seed, offset);
     std::shared_ptr<Graph> graph = graphBuilder.BuildAndReset({output.y, output.mask});
 
     UpdateDropOutV3NodeTensorDescs(graph, dimsX, DT_FLOAT, DT_FLOAT, DT_INT64);
@@ -235,8 +241,10 @@ TEST_F(DropOutV3SplitFusionPassTest, fusionSuccessFp16)
     auto seed = graphBuilder.CreateInput(2, "seed", DT_INT64, FORMAT_ND, std::vector<int64_t>{1});
     auto offset = graphBuilder.CreateInput(3, "offset", DT_INT64, FORMAT_ND, std::vector<int64_t>{1});
 
-    auto output = es::DropOutV3(x, graphBuilder.CreateConst(dimsX, std::vector<int64_t>{static_cast<int64_t>(dimsX.size())}, DT_INT64, FORMAT_ND),
-                                 p, seed, offset);
+    auto output = es::DropOutV3(
+        x,
+        graphBuilder.CreateConst(dimsX, std::vector<int64_t>{static_cast<int64_t>(dimsX.size())}, DT_INT64, FORMAT_ND),
+        p, seed, offset);
     std::shared_ptr<Graph> graph = graphBuilder.BuildAndReset({output.y, output.mask});
 
     UpdateDropOutV3NodeTensorDescs(graph, dimsX, DT_FLOAT16, DT_FLOAT16, DT_INT64);
@@ -259,8 +267,10 @@ TEST_F(DropOutV3SplitFusionPassTest, fusionSuccessBf16)
     auto seed = graphBuilder.CreateInput(2, "seed", DT_INT64, FORMAT_ND, std::vector<int64_t>{1});
     auto offset = graphBuilder.CreateInput(3, "offset", DT_INT64, FORMAT_ND, std::vector<int64_t>{1});
 
-    auto output = es::DropOutV3(x, graphBuilder.CreateConst(dimsX, std::vector<int64_t>{static_cast<int64_t>(dimsX.size())}, DT_INT64, FORMAT_ND),
-                                 p, seed, offset);
+    auto output = es::DropOutV3(
+        x,
+        graphBuilder.CreateConst(dimsX, std::vector<int64_t>{static_cast<int64_t>(dimsX.size())}, DT_INT64, FORMAT_ND),
+        p, seed, offset);
     std::shared_ptr<Graph> graph = graphBuilder.BuildAndReset({output.y, output.mask});
 
     UpdateDropOutV3NodeTensorDescs(graph, dimsX, DT_BF16, DT_BF16, DT_INT64);
@@ -283,8 +293,10 @@ TEST_F(DropOutV3SplitFusionPassTest, fusionSuccessShape2)
     auto seed = graphBuilder.CreateInput(2, "seed", DT_INT64, FORMAT_ND, std::vector<int64_t>{1});
     auto offset = graphBuilder.CreateInput(3, "offset", DT_INT64, FORMAT_ND, std::vector<int64_t>{1});
 
-    auto output = es::DropOutV3(x, graphBuilder.CreateConst(dimsX, std::vector<int64_t>{static_cast<int64_t>(dimsX.size())}, DT_INT64, FORMAT_ND),
-                                 p, seed, offset);
+    auto output = es::DropOutV3(
+        x,
+        graphBuilder.CreateConst(dimsX, std::vector<int64_t>{static_cast<int64_t>(dimsX.size())}, DT_INT64, FORMAT_ND),
+        p, seed, offset);
     std::shared_ptr<Graph> graph = graphBuilder.BuildAndReset({output.y, output.mask});
 
     UpdateDropOutV3NodeTensorDescs(graph, dimsX, DT_FLOAT, DT_FLOAT, DT_INT64);
@@ -307,8 +319,10 @@ TEST_F(DropOutV3SplitFusionPassTest, fusionSuccessShape5)
     auto seed = graphBuilder.CreateInput(2, "seed", DT_INT64, FORMAT_ND, std::vector<int64_t>{1});
     auto offset = graphBuilder.CreateInput(3, "offset", DT_INT64, FORMAT_ND, std::vector<int64_t>{1});
 
-    auto output = es::DropOutV3(x, graphBuilder.CreateConst(dimsX, std::vector<int64_t>{static_cast<int64_t>(dimsX.size())}, DT_INT64, FORMAT_ND),
-                                 p, seed, offset);
+    auto output = es::DropOutV3(
+        x,
+        graphBuilder.CreateConst(dimsX, std::vector<int64_t>{static_cast<int64_t>(dimsX.size())}, DT_INT64, FORMAT_ND),
+        p, seed, offset);
     std::shared_ptr<Graph> graph = graphBuilder.BuildAndReset({output.y, output.mask});
 
     UpdateDropOutV3NodeTensorDescs(graph, dimsX, DT_FLOAT, DT_FLOAT, DT_INT64);
@@ -331,8 +345,10 @@ TEST_F(DropOutV3SplitFusionPassTest, fusionSuccessSeedInt32)
     auto seed = graphBuilder.CreateInput(2, "seed", DT_INT32, FORMAT_ND, std::vector<int64_t>{1});
     auto offset = graphBuilder.CreateInput(3, "offset", DT_INT64, FORMAT_ND, std::vector<int64_t>{1});
 
-    auto output = es::DropOutV3(x, graphBuilder.CreateConst(dimsX, std::vector<int64_t>{static_cast<int64_t>(dimsX.size())}, DT_INT64, FORMAT_ND),
-                                 p, seed, offset);
+    auto output = es::DropOutV3(
+        x,
+        graphBuilder.CreateConst(dimsX, std::vector<int64_t>{static_cast<int64_t>(dimsX.size())}, DT_INT64, FORMAT_ND),
+        p, seed, offset);
     std::shared_ptr<Graph> graph = graphBuilder.BuildAndReset({output.y, output.mask});
 
     UpdateDropOutV3NodeTensorDescs(graph, dimsX, DT_FLOAT, DT_FLOAT, DT_INT32);
@@ -341,5 +357,5 @@ TEST_F(DropOutV3SplitFusionPassTest, fusionSuccessSeedInt32)
     DropOutV3SplitFusionPass pass;
     Status status = pass.Run(graph, passContext);
 
-EXPECT_TRUE(status == SUCCESS || status == GRAPH_NOT_CHANGED);
+    EXPECT_TRUE(status == SUCCESS || status == GRAPH_NOT_CHANGED);
 }

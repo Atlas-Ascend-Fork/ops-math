@@ -15,7 +15,7 @@
 
 #if (defined(__CCE_AICORE__) && __CCE_AICORE__ == 310) || \
     (defined(__NPU_ARCH__) && (__NPU_ARCH__ == 9201 || __NPU_ARCH__ == 9202))
-// 950/960dt/960pr chip: SIMT implementation
+// DAV_3510/DAV_9201/DAV_9202 chip: SIMT implementation
 #include "arch35/sim_thread_exponential_simt.h"
 
 extern "C" __global__ __aicore__ void sim_thread_exponential(GM_ADDR self, GM_ADDR self_ref, GM_ADDR workspace,

@@ -13,6 +13,7 @@
  * \brief
  */
 #include "register/op_def_registry.h"
+#include "op_common/op_host/util/op_arch_helper.h"
 #include "../../random_common/op_host/random_dtype_fmt_gen.h"
 
 namespace ops {
@@ -75,10 +76,9 @@ public:
             .DynamicShapeSupportFlag(true)
             .NeedCheckSupportFlag(false)
             .PrecisionReduceFlag(true);
-        this->AICore().AddConfig("ascend950");
-        this->AICore().AddConfig("ascend350");
-        this->AICore().AddConfig("ascend960dt");
-        this->AICore().AddConfig("ascend960pr");
+        opbase::ArchConfigHelper::AddConfigByArch(this->AICore(), Ops::Base::DAV_3510);
+        opbase::ArchConfigHelper::AddConfigByArch(this->AICore(), Ops::Base::DAV_9201);
+        opbase::ArchConfigHelper::AddConfigByArch(this->AICore(), Ops::Base::DAV_9202);
     }
 };
 

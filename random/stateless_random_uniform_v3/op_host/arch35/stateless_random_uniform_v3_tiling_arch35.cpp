@@ -20,6 +20,7 @@
 #include "exe_graph/runtime/shape.h"
 #include "op_host/tiling_base_class.h"
 #include "stateless_random_uniform_v3_tiling_arch35.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace ge;
 
@@ -98,8 +99,8 @@ StatelessRandomUniformV3Tiling::StatelessRandomUniformV3Tiling(gert::TilingConte
     auto platformInfo = context_->GetPlatformInfo();
     if (platformInfo != nullptr) {
         auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
-        if (ascendcPlatform.GetCurNpuArch() == NpuArch::DAV_9201 ||
-            ascendcPlatform.GetCurNpuArch() == NpuArch::DAV_9202) {
+        if (ascendcPlatform.GetCurNpuArch() == Ops::Base::DAV_9201 ||
+            ascendcPlatform.GetCurNpuArch() == Ops::Base::DAV_9202) {
             config_.coreAlignSize = CORE_ALIGN_SIZE_DV121;
         }
     }

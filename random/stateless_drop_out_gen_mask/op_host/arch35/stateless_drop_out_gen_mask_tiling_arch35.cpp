@@ -10,7 +10,7 @@
 
 /*!
  * \file stateless_drop_out_gen_mask_tiling_arch35.cpp
- * \brief A5 (ascend950/ascend350)/A6 (ascend960dt/ascend960pr) 通用 tiling 实现：
+ * \brief A5 (DAV_3510)/A6 (DAV_9201/DAV_9202) 通用 tiling 实现：
  *        1. key/counter 元数据经 tilingData 下发，seed/offset 由 kernel 从 GM 直接读取；
  *        2. A6 (DAV_9201/DAV_9202) 核间对齐粒度为 32（DV121），其余平台沿用 256，
  *           通过运行时 NpuArch 精确匹配隔离，A5/A6 共用本文件。
@@ -25,6 +25,7 @@
 #include "log/log.h"
 #include <string>
 #include "register/op_impl_registry.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace ge;
 
@@ -143,8 +144,8 @@ StatelessDropOutGenMaskTiling::StatelessDropOutGenMaskTiling(gert::TilingContext
         return;
     }
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
-    config_.coreAlignSize = (ascendcPlatform.GetCurNpuArch() == NpuArch::DAV_9201 ||
-                             ascendcPlatform.GetCurNpuArch() == NpuArch::DAV_9202) ?
+    config_.coreAlignSize = (ascendcPlatform.GetCurNpuArch() == Ops::Base::DAV_9201 ||
+                             ascendcPlatform.GetCurNpuArch() == Ops::Base::DAV_9202) ?
                                 CORE_ALIGN_SIZE_DV121 :
                                 CORE_ALIGN_SIZE;
 }

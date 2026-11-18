@@ -22,6 +22,7 @@
 #include "random/random_common/op_host/arch35/random_tiling_base.h"
 #include "op_host/math_tiling_templates_registry.h"
 #include "register/op_def_registry.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 namespace optiling {
 
@@ -282,8 +283,8 @@ void RandomUniformIntV2Tiling::DoBlockTiling()
 
     auto platformInfo = context_->GetPlatformInfo();
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
-    auto coreAlignFactor = (ascendcPlatform.GetCurNpuArch() == NpuArch::DAV_9201 ||
-                            ascendcPlatform.GetCurNpuArch() == NpuArch::DAV_9202) ?
+    auto coreAlignFactor = (ascendcPlatform.GetCurNpuArch() == Ops::Base::DAV_9201 ||
+                            ascendcPlatform.GetCurNpuArch() == Ops::Base::DAV_9202) ?
                                CORE_ALIGN_FACTOR :
                                (CORE_ALIGN_SIZE / outputDtypeSize_);
     auto blockFactor = Ops::Base::CeilDiv(outputSize_, totalCoreNum_);

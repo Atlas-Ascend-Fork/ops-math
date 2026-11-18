@@ -35,6 +35,7 @@
 #include "opdev/make_op_executor.h"
 #include "opdev/platform.h"
 #include "random/stateless_uniform/op_api/stateless_uniform.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 using namespace std;
@@ -59,8 +60,8 @@ public:
 
     void SetUp() override
     {
-        // 该算子仅注册 ascend950，统一在 950 平台下构图
-        SetPlatformNpuArch(NpuArch::DAV_3510);
+        // 该算子仅注册 DAV_3510，统一在 DAV_3510 平台下构图
+        SetPlatformNpuArch(Ops::Base::DAV_3510);
         auto executor = &exe;
         auto unique_executor = CREATE_EXECUTOR();
         unique_executor.ReleaseTo(executor);

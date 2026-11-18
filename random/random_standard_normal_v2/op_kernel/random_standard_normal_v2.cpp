@@ -10,9 +10,9 @@
 
 /*!
  * \file random_standard_normal_v2.cpp
- * \brief RandomStandardNormalV2 Kernel 入口（Ascend950/Ascend350/Ascend960dt/Ascend960pr）
+ * \brief RandomStandardNormalV2 Kernel 入口（DAV_3510/DAV_9201/DAV_9202）
  */
-// ascend950/ascend350(A5)与ascend960dt/ascend960pr(A6)芯片：共用arch35目录下的实现
+// DAV_3510(A5)与DAV_9201/DAV_9202(A6)芯片：共用arch35目录下的实现
 #include "arch35/random_standard_normal_v2.h"
 
 using namespace AscendC;
