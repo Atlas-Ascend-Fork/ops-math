@@ -18,6 +18,7 @@
 #include "op_api_ut_common/scalar_desc.h"
 #include "op_api_ut_common/tensor_desc.h"
 #include "opdev/platform.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 using namespace std;
@@ -39,7 +40,7 @@ protected:
     }
 };
 
-NpuArch l2_clamp_max_test::savedArch_ = NpuArch::DAV_2201;
+NpuArch l2_clamp_max_test::savedArch_ = Ops::Base::DAV_2201;
 
 // 各元素特殊类型覆盖用例
 // 空tensor   self ,out为空时，空进空出
@@ -139,7 +140,7 @@ TEST_F(l2_clamp_max_test, ascend950pr_9589_aclnnClampMax_input_diff)
 // A2：clipValueMax 超出 self/out 整型可表示范围时，第一段应返回 161002，禁止静默环绕
 TEST_F(l2_clamp_max_test, ascend910B2_scalar_overflow_int8)
 {
-    SetPlatformNpuArch(NpuArch::DAV_2201);
+    SetPlatformNpuArch(Ops::Base::DAV_2201);
     auto self = TensorDesc({5}, ACL_INT8, ACL_FORMAT_ND);
     auto out = TensorDesc({5}, ACL_INT8, ACL_FORMAT_ND);
     auto maxOver = ScalarDesc(static_cast<int32_t>(1000));
@@ -159,7 +160,7 @@ TEST_F(l2_clamp_max_test, ascend910B2_scalar_overflow_int8)
 
 TEST_F(l2_clamp_max_test, ascend910B2_scalar_overflow_uint8_int16)
 {
-    SetPlatformNpuArch(NpuArch::DAV_2201);
+    SetPlatformNpuArch(Ops::Base::DAV_2201);
     uint64_t workspaceSize = 0;
 
     auto selfU8 = TensorDesc({3}, ACL_UINT8, ACL_FORMAT_ND);
@@ -178,7 +179,7 @@ TEST_F(l2_clamp_max_test, ascend910B2_scalar_overflow_uint8_int16)
 // A2 Inplace：越界标量应在第一段拒绝，避免原地写回环绕值（#3850）
 TEST_F(l2_clamp_max_test, ascend910B2_inplace_scalar_overflow_int8)
 {
-    SetPlatformNpuArch(NpuArch::DAV_2201);
+    SetPlatformNpuArch(Ops::Base::DAV_2201);
     auto selfRef = TensorDesc({5}, ACL_INT8, ACL_FORMAT_ND);
     auto maxOver = ScalarDesc(static_cast<int32_t>(1000));
     auto maxValid = ScalarDesc(static_cast<int32_t>(100));

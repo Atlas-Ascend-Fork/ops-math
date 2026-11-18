@@ -19,6 +19,7 @@
 #include "opdev/shape_utils.h"
 #include "opdev/platform.h"
 #include "op_api/aclnn_check.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 
@@ -54,17 +55,17 @@ static inline const std::initializer_list<DataType>& GetAiCoreDtypeSupportListBy
         return REGBASE_AICORE_DTYPE_SUPPORT_LIST;
     }
     switch (curArch) {
-        case NpuArch::DAV_2201: {
+        case Ops::Base::DAV_2201: {
             return ASCEND910B_AICORE_DTYPE_SUPPORT_LIST;
         }
-        case NpuArch::DAV_1001: {
+        case Ops::Base::DAV_1001: {
             return ASCEND910_AICORE_DTYPE_SUPPORT_LIST;
         }
-        case NpuArch::DAV_3102: {
+        case Ops::Base::DAV_3102: {
             return ASCEND610LITE_AICORE_DTYPE_SUPPORT_LIST;
         }
-        case NpuArch::DAV_3003:
-        case NpuArch::DAV_3113: {
+        case Ops::Base::DAV_3003:
+        case Ops::Base::DAV_3113: {
             return KIRIN_AICORE_DTYPE_SUPPORT_LIST;
         }
         default: {
@@ -105,7 +106,7 @@ static bool isBroadcastTemplateNonContiguousSupport(const aclTensor* input)
 static inline bool IsMixDtypeAiCoreSupport()
 {
     const auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
-    return curArch != NpuArch::DAV_3003 && curArch != NpuArch::DAV_3113;
+    return curArch != Ops::Base::DAV_3003 && curArch != Ops::Base::DAV_3113;
 }
 
 inline static bool IsAiCoreSupport(const aclTensor* self)

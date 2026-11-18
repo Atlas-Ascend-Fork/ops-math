@@ -26,6 +26,7 @@
 #include "op_api/aclnn_check.h"
 #include "conversion/broadcast_to/op_api/broadcast_to.h"
 #include "clip_by_value.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 
@@ -116,7 +117,7 @@ static op::DataType GetScalarDefaultDtype(const op::DataType input)
 static const std::initializer_list<DataType>& GetDtypeSupportList()
 {
     auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
-    if (curArch == NpuArch::DAV_2201 || IsRegBase(curArch)) {
+    if (curArch == Ops::Base::DAV_2201 || IsRegBase(curArch)) {
         return Ascend910B_dtype_support_list;
     } else {
         return Ascend910_dtype_support_list;
