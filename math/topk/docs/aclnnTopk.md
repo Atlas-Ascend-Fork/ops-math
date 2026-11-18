@@ -256,6 +256,9 @@ aclnnStatus aclnnTopk(
 
 - 确定性计算：
   - aclnnTopk默认确定性实现。
+<!-- npu="A3,910b,310p,910" id8 -->
+- <term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>、<term>Atlas推理系列产品</term>、<term>Atlas训练系列产品</term>：不支持输入数据中存在`-inf`值，否则可能出现非预期的功能报错。
+<!-- end id8 -->
 
 ## 调用示例
 

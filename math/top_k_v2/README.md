@@ -108,7 +108,7 @@
 
 ## 约束说明
 
-无
+- <term>Atlas A3系列产品</term>、<term>Atlas A2系列产品</term>、<term>Atlas 200I/500 A2推理产品</term>、<term>Atlas推理系列产品</term>、<term>Atlas训练系列产品</term>：不支持输入数据中存在`-inf`值，否则可能出现非预期的功能报错。
 
 ## 调用说明
 

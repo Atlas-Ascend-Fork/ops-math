@@ -110,7 +110,7 @@ English | [简体中文](./README.md)
 
 ## Constraint Description
 
-None
+- <term>Atlas A3 products</term>, <term>Atlas A2 products</term>, <term>Atlas 200I/500 A2 inference products</term>, <term>Atlas inference products</term>, and <term>Atlas training products</term>: The input data does not support `-inf` values; otherwise, unexpected functional errors may occur.
 
 ## Invocation Description
 

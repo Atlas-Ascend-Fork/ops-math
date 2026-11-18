@@ -258,6 +258,9 @@ aclnnStatus aclnnTopk(
 
 - Deterministic computation:
   - aclnnTopk defaults to a deterministic implementation.
+<!-- npu="A3,910b,310p,910" id8 -->
+- <term>Atlas A2 products</term>, <term>Atlas A3 products</term>, <term>Atlas inference products</term>, and <term>Atlas training products</term>: The input data does not support `-inf` values; otherwise, unexpected functional errors may occur.
+<!-- end id8 -->
 
 ## Example
 
