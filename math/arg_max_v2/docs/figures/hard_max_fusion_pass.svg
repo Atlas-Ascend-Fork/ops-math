@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="360" viewBox="0 0 1000 360">
+  <defs><marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#686D75"/></marker></defs>
+  <rect width="1000" height="360" fill="white"/>
+  <g font-family="HarmonyOS Sans, sans-serif" font-size="14" text-anchor="middle" fill="#202329">
+    <text x="250" y="30">&#34701;&#21512;&#21069;</text><text x="750" y="30">&#34701;&#21512;&#21518;</text>
+    <g fill="#C2D5FE" stroke="#C2D5FE" stroke-width="0.75"><rect x="200" y="60" width="100" height="32" rx="4"/><rect x="180" y="155" width="140" height="32" rx="4"/><rect x="700" y="60" width="100" height="32" rx="4"/><rect x="635" y="130" width="230" height="32" rx="4"/><rect x="635" y="215" width="230" height="32" rx="4"/></g>
+    <text x="250" y="81">x</text><text x="250" y="176">HardMax</text><text x="750" y="81">x</text><text x="750" y="151">ArgMaxD / ArgMaxV2</text><text x="750" y="236">OneHot / OneHotD</text><text x="250" y="335">y</text><text x="750" y="335">y</text>
+    <g stroke="#686D75" stroke-width="0.75" fill="none" marker-end="url(#arrow)"><path d="M250 92 L250 155"/><path d="M250 187 L250 312"/><path d="M750 92 L750 130"/><path d="M750 162 L750 215"/><path d="M750 247 L750 312"/></g>
+    <path d="M450 175 L550 175" stroke="#686D75" stroke-width="0.75" marker-end="url(#arrow)"/>
+  </g>
+</svg>

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="360" viewBox="0 0 1000 360">
+  <defs><marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#686D75"/></marker></defs>
+  <rect width="1000" height="360" fill="white"/>
+  <g font-family="HarmonyOS Sans, sans-serif" font-size="14" text-anchor="middle" fill="#202329">
+    <text x="250" y="30">&#34701;&#21512;&#21069;</text><text x="750" y="30">&#34701;&#21512;&#21518;</text>
+    <g fill="#C2D5FE" stroke="#C2D5FE" stroke-width="0.75">
+      <rect x="80" y="60" width="100" height="32" rx="4"/><rect x="210" y="60" width="100" height="32" rx="4"/><rect x="360" y="60" width="100" height="32" rx="4"/>
+      <rect x="145" y="140" width="100" height="32" rx="4"/><rect x="230" y="225" width="100" height="32" rx="4"/>
+      <rect x="570" y="60" width="100" height="32" rx="4"/><rect x="700" y="60" width="100" height="32" rx="4"/><rect x="830" y="60" width="100" height="32" rx="4"/>
+      <rect x="650" y="155" width="200" height="32" rx="4"/>
+    </g>
+    <g><text x="130" y="81">x1</text><text x="260" y="81">x3</text><text x="410" y="81">x2</text><text x="195" y="161">Mul</text><text x="280" y="246">AddN</text><text x="620" y="81">x1</text><text x="750" y="81">x2</text><text x="880" y="81">x3</text><text x="750" y="176">FusedMulAddN</text><text x="280" y="335">y</text><text x="750" y="335">y</text></g>
+    <g stroke="#686D75" stroke-width="0.75" fill="none" marker-end="url(#arrow)"><path d="M130 92 L175 140"/><path d="M260 92 L215 140"/><path d="M195 172 L260 225"/><path d="M410 92 L410 205 L300 225"/><path d="M280 257 L280 312"/><path d="M620 92 L690 155"/><path d="M750 92 L750 155"/><path d="M880 92 L810 155"/><path d="M750 187 L750 312"/></g>
+    <path d="M465 180 L535 180" stroke="#686D75" stroke-width="0.75" marker-end="url(#arrow)"/>
+  </g>
+</svg>

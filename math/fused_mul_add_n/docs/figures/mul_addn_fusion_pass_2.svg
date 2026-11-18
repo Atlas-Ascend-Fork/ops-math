@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="360" viewBox="0 0 1000 360">
+  <defs><marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#686D75"/></marker></defs>
+  <rect width="1000" height="360" fill="white"/>
+  <g font-family="HarmonyOS Sans, sans-serif" font-size="14" text-anchor="middle" fill="#202329">
+    <text x="250" y="30">&#34701;&#21512;&#21069;</text><text x="750" y="30">&#34701;&#21512;&#21518;</text>
+    <g fill="#C2D5FE" stroke="#C2D5FE" stroke-width="0.75">
+      <rect x="20" y="65" width="95" height="32" rx="4"/><rect x="130" y="65" width="95" height="32" rx="4"/><rect x="290" y="65" width="95" height="32" rx="4"/><rect x="400" y="65" width="95" height="32" rx="4"/>
+      <rect x="75" y="145" width="95" height="32" rx="4"/><rect x="345" y="145" width="95" height="32" rx="4"/><rect x="210" y="230" width="95" height="32" rx="4"/>
+      <rect x="585" y="65" width="125" height="32" rx="4"/><rect x="790" y="65" width="125" height="32" rx="4"/><rect x="675" y="165" width="150" height="32" rx="4"/>
+    </g>
+    <text x="67" y="86">x1[0]</text><text x="177" y="86">x2[0]</text><text x="337" y="86">x1[N-1]</text><text x="447" y="86">x2[N-1]</text>
+    <text x="122" y="166">Mul</text><text x="392" y="166">Mul</text><text x="257" y="166">...</text><text x="257" y="251">AddN</text>
+    <text x="647" y="86">x1 list</text><text x="852" y="86">x2 list</text><text x="750" y="186">MulAddn (N)</text><text x="257" y="338">y</text><text x="750" y="338">y</text>
+    <g stroke="#686D75" stroke-width="0.75" fill="none" marker-end="url(#arrow)"><path d="M67 97 L105 145"/><path d="M177 97 L140 145"/><path d="M337 97 L375 145"/><path d="M447 97 L410 145"/><path d="M122 177 L225 230"/><path d="M392 177 L290 230"/><path d="M257 262 L257 315"/><path d="M647 97 L710 165"/><path d="M852 97 L790 165"/><path d="M750 197 L750 315"/></g>
+    <path d="M505 180 L565 180" stroke="#686D75" stroke-width="0.75" marker-end="url(#arrow)"/>
+  </g>
+</svg>
