@@ -1130,9 +1130,17 @@ __aicore__ inline void DropOutV3SimdImpl<T, U>::Process(const DropOutV3TilingDat
         constexpr int64_t UINT8_BIT_NUMBER = 8;
         int64_t maskWrittenBytes = Ops::Base::CeilDiv(tilingData->outputSize, UINT8_BIT_NUMBER);
         int64_t maskTotalBytes = Ops::Base::CeilAlign(tilingData->outputSize, BIT_NUMBER) / UINT8_BIT_NUMBER;
-        __gm__ uint8_t* maskU8 = (__gm__ uint8_t*)maskGm_.GetPhyAddr();
-        for (int64_t i = maskWrittenBytes; i < maskTotalBytes; i++) {
-            WriteGmBypassDCache<uint8_t>(maskU8 + i, 0);
+        int64_t padBytes = maskTotalBytes - maskWrittenBytes;
+        if (padBytes > 0) {
+            LocalTensor<uint8_t> padUb = maskBitQue_.template AllocTensor<uint8_t>();
+            Duplicate(padUb, static_cast<uint8_t>(0), NUM_16);
+            maskBitQue_.EnQue(padUb);
+            LocalTensor<uint8_t> padUbOut = maskBitQue_.template DeQue<uint8_t>();
+            DataCopyExtParams copyParamsPad{static_cast<uint16_t>(1), static_cast<uint32_t>(padBytes),
+                                            static_cast<uint32_t>(0), static_cast<uint32_t>(0),
+                                            static_cast<uint32_t>(0)};
+            DataCopyPad(maskGm_[maskWrittenBytes], padUbOut, copyParamsPad);
+            maskBitQue_.FreeTensor(padUbOut);
         }
     }
 }
