@@ -32,6 +32,8 @@ static constexpr int32_t STK_KEY16_BITS_MIN = 17;
 static constexpr uint32_t STK_SLOT_ALIGN = 64;        // GM 归并槽位步长对齐（64 元素 = 256B）
 static constexpr uint32_t STK_EQ_DIRECT_VEC_MIN = 32; // 已对齐 EQ 启用直接向量写回的最短长度
 static constexpr uint32_t STK_EQ_GATHER_VEC_MIN = 32; // 非对齐 EQ 启用 GatherMask 直接写回的最短长度
+static constexpr uint32_t STK_MASK_BITS_PER_BYTE = 8; // 1 个掩码字节承载 8 个元素的比较结果
+static constexpr uint32_t STK_KEY16_HIGH_SHIFT = 16;  // 16bit 键左移至 32bit 单调键高半区的位偏移
 
 /** @brief 向上取整到 32 字节（DAV_2201 向量基址对齐要求） */
 #define STK_ALIGN32BYTE(x) ((((x) + 31u) / 32u) * 32u)
@@ -51,7 +53,7 @@ __aicore__ inline float StkKeyToFloat(uint32_t key)
 __aicore__ inline float StkKey16ToFloatBf16(uint32_t key16)
 {
     const uint32_t lowBits = ((key16 & 0x8000u) != 0U) ? 0U : 0x0000FFFFu;
-    return StkKeyToFloat((key16 << 16) | lowBits);
+    return StkKeyToFloat((key16 << STK_KEY16_HIGH_SHIFT) | lowBits);
 }
 
 /**
@@ -144,7 +146,8 @@ __aicore__ inline bool StkIsNan(float v)
 
 #define STK_MASK_BINARY(OP, dst, a, b, cnt)                                                \
     OP((dst).template ReinterpretCast<int16_t>(), (a).template ReinterpretCast<int16_t>(), \
-       (b).template ReinterpretCast<int16_t>(), static_cast<uint32_t>(((cnt) >> 3) / sizeof(int16_t)))
+       (b).template ReinterpretCast<int16_t>(),                                            \
+       static_cast<uint32_t>(((cnt) / STK_MASK_BITS_PER_BYTE) / sizeof(int16_t)))
 
 /** @brief SelectTopK 单遍扫描快路径；stkCoreMode=0 行-核映射逐行写回，=1 行内多核树形归并 */
 template <typename T, bool largest>
@@ -187,7 +190,7 @@ private:
     {
         // 掩码按「对齐到 STK_REPEAT_F32 的元素数 / 8」取字节再向 32B 对齐（复选 Compares 的 cnt 可略超 cap）
         uint32_t maskBytes = static_cast<uint32_t>(
-            STK_ALIGN32BYTE((static_cast<uint64_t>(cap_) + STK_REPEAT_F32) / 8u));
+            STK_ALIGN32BYTE((static_cast<uint64_t>(cap_) + STK_REPEAT_F32) / STK_MASK_BITS_PER_BYTE));
         // fp32Buf_ 兼作扫描工作区与 ReduceToK 的 NaN 索引暂存，容量 ≥ k，与 tiling 的 UB 核算一致。
         const uint32_t kA = StkAlignUp(kValue_, 8u);
         uint32_t mergeSides = 0;
@@ -261,7 +264,7 @@ private:
             PipeBarrier<PIPE_V>();
             if (off == start) {
                 // 首块无需阈值过滤；NaN 也必须进入候选，由 ReduceToK 按最大键语义统一处理。
-                StkFillScalar(mf, 0, cmpCnt / 8, static_cast<uint8_t>(0xFF));
+                StkFillScalar(mf, 0, cmpCnt / STK_MASK_BITS_PER_BYTE, static_cast<uint8_t>(0xFF));
                 SToVSync();
             } else if (StkIsNan(thr)) {
                 // 边界是 NaN：largest 只让更小索引的 NaN 竞争；smallest 允许正常值替换 NaN
@@ -269,13 +272,13 @@ private:
                     Compare<float, uint8_t>(mf, f32, f32, CMPMODE::EQ, cmpCnt);
                     PipeBarrier<PIPE_V>();
                     Not(mf.template ReinterpretCast<int16_t>(), mf.template ReinterpretCast<int16_t>(),
-                        static_cast<uint32_t>((cmpCnt >> 3) / sizeof(int16_t)));
+                        static_cast<uint32_t>((cmpCnt / STK_MASK_BITS_PER_BYTE) / sizeof(int16_t)));
                 } else {
                     Compare<float, uint8_t>(mE, f32, f32, CMPMODE::EQ, cmpCnt); // 非 NaN
                     Compare<float, uint8_t>(mf, f32, f32, CMPMODE::EQ, cmpCnt);
                     PipeBarrier<PIPE_V>();
                     Not(mf.template ReinterpretCast<int16_t>(), mf.template ReinterpretCast<int16_t>(),
-                        static_cast<uint32_t>((cmpCnt >> 3) / sizeof(int16_t)));
+                        static_cast<uint32_t>((cmpCnt / STK_MASK_BITS_PER_BYTE) / sizeof(int16_t)));
                 }
                 Compares<int32_t, uint8_t>(mi, idxT, thrIdx, CMPMODE::LT, cmpCnt);
                 PipeBarrier<PIPE_V>();
@@ -290,7 +293,7 @@ private:
                     Compares<float, uint8_t>(mf, f32, thr, CMPMODE::LE, cmpCnt);
                     PipeBarrier<PIPE_V>();
                     Not(mf.template ReinterpretCast<int16_t>(), mf.template ReinterpretCast<int16_t>(),
-                        static_cast<uint32_t>((cmpCnt >> 3) / sizeof(int16_t)));
+                        static_cast<uint32_t>((cmpCnt / STK_MASK_BITS_PER_BYTE) / sizeof(int16_t)));
                 } else {
                     Compares<float, uint8_t>(mf, f32, thr, CMPMODE::LT, cmpCnt);
                 }
@@ -362,7 +365,7 @@ private:
         Compare<float, uint8_t>(mE, curV, curV, CMPMODE::EQ, cnt);
         PipeBarrier<PIPE_V>();
         Not(mE.template ReinterpretCast<int16_t>(), mE.template ReinterpretCast<int16_t>(),
-            static_cast<uint32_t>((cnt >> 3) / sizeof(int16_t)));
+            static_cast<uint32_t>((cnt / STK_MASK_BITS_PER_BYTE) / sizeof(int16_t)));
         PipeBarrier<PIPE_V>();
         uint64_t nanCnt64 = 0;
         GatherMask(scratchI, curI, mE32, true, n, {1, 1, 0, 0}, nanCnt64);
@@ -392,7 +395,7 @@ private:
             Compares<int32_t, uint8_t>(mE, curI, static_cast<int32_t>(0x7FFFFFFF), CMPMODE::EQ, cnt);
             PipeBarrier<PIPE_V>();
             Not(mE.template ReinterpretCast<int16_t>(), mE.template ReinterpretCast<int16_t>(),
-                static_cast<uint32_t>((cnt >> 3) / sizeof(int16_t)));
+                static_cast<uint32_t>((cnt / STK_MASK_BITS_PER_BYTE) / sizeof(int16_t)));
             PipeBarrier<PIPE_V>();
             STK_MASK_BINARY(And, mL, mL, mE, cnt);
             PipeBarrier<PIPE_V>();
@@ -635,7 +638,7 @@ private:
         Compare<float, uint8_t>(mN, srcV, srcV, CMPMODE::EQ, cmpCnt);
         PipeBarrier<PIPE_V>();
         Not(mN.template ReinterpretCast<int16_t>(), mN.template ReinterpretCast<int16_t>(),
-            static_cast<uint32_t>((cmpCnt >> 3) / sizeof(int16_t)));
+            static_cast<uint32_t>((cmpCnt / STK_MASK_BITS_PER_BYTE) / sizeof(int16_t)));
         PipeBarrier<PIPE_V>();
         uint64_t nanCnt = 0;
         GatherMask(scratchV, srcV, mN32, true, kValue_, {1, 1, 0, 0}, nanCnt);
@@ -648,7 +651,7 @@ private:
             VToSSync();
             for (uint32_t i = 0; i < kValue_; ++i) {
                 const uint8_t bit = static_cast<uint8_t>(1u << (i & 7u));
-                if ((mN.GetValue(i >> 3) & bit) != 0) {
+                if ((mN.GetValue(i / STK_MASK_BITS_PER_BYTE) & bit) != 0) {
                     ov.SetValue(i, StkCanonicalNan<T>());
                 }
             }
