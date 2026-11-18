@@ -35,6 +35,7 @@ public:
         this->Output("y").ParamType(REQUIRED).DataType(dataType).UnknownShapeFormat(format);
 
         this->Attr("keep_dims").AttrType(OPTIONAL).Bool(false);
+        this->Attr("noop_with_empty_axes").AttrType(OPTIONAL).Bool(true);
 
         OpAICoreConfig aicoreConfig;
         aicoreConfig.DynamicCompileStaticFlag(true)

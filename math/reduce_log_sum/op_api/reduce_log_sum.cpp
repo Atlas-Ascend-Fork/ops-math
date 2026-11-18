@@ -22,30 +22,34 @@ using namespace op;
 namespace l0op {
 OP_TYPE_REGISTER(ReduceLogSum);
 
-static const std::initializer_list<DataType> AICORE_DTYPE_SUPPORT_LIST = {DataType::DT_FLOAT, DataType::DT_FLOAT16, };
+static const std::initializer_list<DataType> AICORE_DTYPE_SUPPORT_LIST = {
+    DataType::DT_FLOAT,
+    DataType::DT_FLOAT16,
+};
 static const std::initializer_list<op::DataType> DTYPE_SUPPORT_LIST_950 = {
     op::DataType::DT_FLOAT16, op::DataType::DT_FLOAT, op::DataType::DT_BF16};
 
-//根据芯片类型，dtype判断算子是否支持走aicore
+// 根据芯片类型，dtype判断算子是否支持走aicore
 static inline bool IsAiCoreSupport(DataType inputDtype)
 {
     if (IsRegBase()) {
         return CheckType(inputDtype, DTYPE_SUPPORT_LIST_950);
     }
-    //只需要判断dtype
+    // 只需要判断dtype
     return CheckType(inputDtype, AICORE_DTYPE_SUPPORT_LIST);
 }
 
 // AICORE算子kernel
-static inline const aclTensor* ReduceLogSumAiCore(
-    const aclTensor* data, const aclTensor* axes, aclTensor* reduce, bool keepDims, aclOpExecutor* executor)
+static inline const aclTensor* ReduceLogSumAiCore(const aclTensor* data, const aclTensor* axes, aclTensor* reduce,
+                                                  bool keepDims, bool noopWithEmptyAxes, aclOpExecutor* executor)
 {
-    L0_DFX(ReduceLogSumAiCore, data, axes, reduce, keepDims);
-    //使用框架宏ADD_TO_LAUNCHER_LIST_AICORE,将AiCore ReduceLogSum算子加入任务队列
-    auto ret = ADD_TO_LAUNCHER_LIST_AICORE(ReduceLogSum, OP_INPUT(data, axes), OP_OUTPUT(reduce), OP_ATTR(keepDims));
-    OP_CHECK(
-        ret == ACLNN_SUCCESS,
-        OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "ReduceLogSumAiCore ADD_TO_LAUNCHER_LIST_AICORE failed."), return nullptr);
+    L0_DFX(ReduceLogSumAiCore, data, axes, reduce, keepDims, noopWithEmptyAxes);
+    // 使用框架宏ADD_TO_LAUNCHER_LIST_AICORE,将AiCore ReduceLogSum算子加入任务队列
+    auto ret = ADD_TO_LAUNCHER_LIST_AICORE(ReduceLogSum, OP_INPUT(data, axes), OP_OUTPUT(reduce),
+                                           OP_ATTR(keepDims, noopWithEmptyAxes));
+    OP_CHECK(ret == ACLNN_SUCCESS,
+             OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "ReduceLogSumAiCore ADD_TO_LAUNCHER_LIST_AICORE failed."),
+             return nullptr);
 
     return reduce;
 }
@@ -54,7 +58,9 @@ const aclTensor* ReduceLogSum(const aclTensor* data, const aclIntArray* axes, bo
 {
     auto dims = executor->ConvertToTensor(axes, op::DataType::DT_INT64);
     auto output = executor->AllocTensor(data->GetDataType(), op::Format::FORMAT_ND, op::Format::FORMAT_ND);
-    INFER_SHAPE(ReduceLogSum, OP_INPUT(data, dims), OP_OUTPUT(output), OP_ATTR(keepDims));
+    // axes为空时，默认保留所有轴
+    bool noopWithEmptyAxes = true;
+    INFER_SHAPE(ReduceLogSum, OP_INPUT(data, dims), OP_OUTPUT(output), OP_ATTR(keepDims, noopWithEmptyAxes));
 
     op::Shape outShape = data->GetViewShape();
     auto count = axes->Size();
@@ -69,7 +75,7 @@ const aclTensor* ReduceLogSum(const aclTensor* data, const aclIntArray* axes, bo
     }
 
     if (IsAiCoreSupport(data->GetDataType())) {
-        return ReduceLogSumAiCore(data, dims, output, keepDims, executor);
+        return ReduceLogSumAiCore(data, dims, output, keepDims, noopWithEmptyAxes, executor);
     }
     return output;
 }

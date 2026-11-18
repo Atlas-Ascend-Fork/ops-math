@@ -9,83 +9,33 @@
  */
 
 /*!
- * \file reduce_infer.cc
+ * \file reduce_log_sum_infershape.cpp
  * \brief
  */
-#include "log/log.h"
+#include "common/inc/op_host/infershape_reduce_util.h"
 #include "register/op_impl_registry.h"
-#include "op_host/util/shape_util.h"
-#include "op_api/op_util.h"
-#include "util/math_util.h"
-#include "op_host/infershape_reduce_util.h"
 
 using namespace ge;
-using namespace Ops::Base;
+using namespace Ops::Math;
 namespace ops {
-static ge::graphStatus InferShape4ReduceCommon(gert::InferShapeContext* context)
+static ge::graphStatus InferShape4ReduceLogSum(gert::InferShapeContext* context)
 {
-    auto in_shape = context->GetInputShape(0);
-    if (in_shape == nullptr) {
-        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x");
-        return ge::GRAPH_FAILED;
-    }
-    auto axes_tensor = context->GetInputTensor(1);
-    if (axes_tensor == nullptr) {
-        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "axes");
-        return ge::GRAPH_FAILED;
-    }
-    auto out_shape = context->GetOutputShape(0);
-    if (out_shape == nullptr) {
-        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "y");
-        return ge::GRAPH_FAILED;
-    }
-    auto attrs = context->GetAttrs();
-    if (attrs == nullptr) {
-        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "attrs");
-        return ge::GRAPH_FAILED;
-    }
+    return InferShape4ReduceCommon(context, "InferShape4ReduceLogSum");
+}
 
-    const bool* keep_dims = attrs->GetAttrPointer<bool>(0);
-    if (keep_dims == nullptr) {
-        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "keep_dims");
-        return ge::GRAPH_FAILED;
-    }
-
-    auto axes_size = static_cast<int32_t>(axes_tensor->GetShapeSize());
-
-    OP_CHECK_IF(axes_size < 0,
-                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "axes", std::to_string(axes_size).c_str(),
-                                                      "axes num cannot be less than 0"),
-                return ge::GRAPH_FAILED);
-
-    if (axes_size == 0) {
-        *out_shape = *in_shape;
-        OP_LOGD(context->GetNodeName(), "axes is empty tensor, will ignore infer, set output shape = input shape");
-        return ge::GRAPH_SUCCESS;
-    }
-
-    auto dtype = axes_tensor->GetDataType();
-    OP_CHECK_IF(dtype != ge::DT_INT32 && dtype != ge::DT_INT64,
-                OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "axes", ToString(dtype).c_str(),
-                                                      "must be in (int32, int64)"),
-                return ge::GRAPH_FAILED);
-    if (dtype == ge::DT_INT32) {
-        return ReduceDims<int32_t>(in_shape, axes_tensor, axes_size, *keep_dims, out_shape);
-    }
-    return ReduceDims<int64_t>(in_shape, axes_tensor, axes_size, *keep_dims, out_shape);
+static ge::graphStatus InferShapeRange4ReduceLogSum(gert::InferShapeRangeContext* context)
+{
+    return InferShapeRange4ReduceCommon(context, "InferShapeRange4ReduceLogSum");
 }
 
 static ge::graphStatus InferDataType4ReduceLogSum(gert::InferDataTypeContext* context)
 {
-    OP_LOGD(context->GetNodeName(), "Begin to do InferDataType4ReduceLogSum");
-    // y.dtype -> x.dtype
-    context->SetOutputDataType(0, context->GetInputDataType(0));
-    OP_LOGD(context->GetNodeName(), "End to do InferDataType4ReduceLogSum");
-    return ge::GRAPH_SUCCESS;
+    return InferDataType4ReduceCommon(context, "InferDataType4ReduceLogSum");
 }
 
 IMPL_OP_INFERSHAPE(ReduceLogSum)
-    .InferShape(InferShape4ReduceCommon)
+    .InferShape(InferShape4ReduceLogSum)
+    .InferShapeRange(InferShapeRange4ReduceLogSum)
     .InferDataType(InferDataType4ReduceLogSum)
     .InputsDataDependency({1});
 } // namespace ops
