@@ -144,6 +144,26 @@ TEST_F(l2_ones_test, l2_ones_test_dtype_int32)
     // ut.TestPrecision();
 }
 
+// A2 supports uint16 through the AICPU path.
+TEST_F(l2_ones_test, ascend910b_l2_ones_test_dtype_uint16)
+{
+    op::SetPlatformSocVersion(op::SocVersion::ASCEND910B);
+    auto selfDesc = TensorDesc({2, 3}, ACL_UINT16, ACL_FORMAT_ND);
+    auto ut = OP_API_UT(aclnnInplaceOne, INPUT(selfDesc), OUTPUT());
+    uint64_t workspaceSize = 0;
+    EXPECT_EQ(ut.TestGetWorkspaceSize(&workspaceSize), ACLNN_SUCCESS);
+}
+
+// A3 supports uint16 through the AICPU path.
+TEST_F(l2_ones_test, ascend910_93_l2_ones_test_dtype_uint16)
+{
+    op::SetPlatformSocVersion(op::SocVersion::ASCEND910_93);
+    auto selfDesc = TensorDesc({2, 3}, ACL_UINT16, ACL_FORMAT_ND);
+    auto ut = OP_API_UT(aclnnInplaceOne, INPUT(selfDesc), OUTPUT());
+    uint64_t workspaceSize = 0;
+    EXPECT_EQ(ut.TestGetWorkspaceSize(&workspaceSize), ACLNN_SUCCESS);
+}
+
 // A2 supports uint32 through the same-width signed dtype view.
 TEST_F(l2_ones_test, ascend910b_l2_ones_test_dtype_uint32)
 {

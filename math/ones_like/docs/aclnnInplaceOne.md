@@ -132,9 +132,12 @@ aclnnStatus aclnnInplaceOne(
       <td>传入的selfRef是空指针。</td>
     </tr>
     <tr>
-      <td>ACLNN_ERR_PARAM_INVALID</td>
-      <td>161002</td>
+      <td rowspan="2">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="2">161002</td>
       <td>selfRef的数据类型不在支持范围之内。</td>
+    </tr>
+    <tr>
+      <td>selfRef的数据维度超过了8维。</td>
     </tr>
   </tbody></table>
 

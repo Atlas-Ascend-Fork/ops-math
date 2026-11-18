@@ -134,9 +134,12 @@ aclnnStatus aclnnInplaceOne(
       <td>selfRef is a null pointer.</td>
     </tr>
     <tr>
-      <td>ACLNN_ERR_PARAM_INVALID</td>
-      <td>161002</td>
+      <td rowspan="2">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="2">161002</td>
       <td>The data type of selfRef is not supported.</td>
+    </tr>
+    <tr>
+      <td>The number of dimensions of selfRef exceeds 8.</td>
     </tr>
   </tbody></table>
 
