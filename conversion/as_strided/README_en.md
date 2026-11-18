@@ -87,3 +87,4 @@ None
 | Invocation Method | Invocation Sample                                             | Description                                                                                         |
 |---------|----------------------------------------------------|----------------------------------------------------------------------------------------------|
 | Graph-mode invocation | [test_geir_as_strided](./examples/test_geir_as_strided.cpp)   | Invokes the as_strided operator by building a graph through the [operator IR](./op_graph/as_strided_proto.h).
+| aclnn API invocation | [test_aclnn_as_strided](./examples/arch35/test_aclnn_as_strided.cpp)   | Invokes the as_strided operator through the [aclnnAsStrided](./docs/aclnnAsStrided.md) API.

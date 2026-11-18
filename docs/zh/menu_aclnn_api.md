@@ -28,6 +28,7 @@
 - [aclnnArgsort](../../math/sort/docs/aclnnArgsort.md)
 - [aclnnAsin&aclnnInplaceAsin](../../math/asin/docs/aclnnAsin&aclnnInplaceAsin.md)
 - [aclnnAsinh&aclnnInplaceAsinh](../../math/asinh/docs/aclnnAsinh&aclnnInplaceAsinh.md)
+- [aclnnAsStrided](../../conversion/as_strided/docs/aclnnAsStrided.md)
 - [aclnnAtan&aclnnInplaceAtan](../../math/atan/docs/aclnnAtan&aclnnInplaceAtan.md)
 - [aclnnAtan2&aclnnInplaceAtan2](../../math/atan2/docs/aclnnAtan2&aclnnInplaceAtan2.md)
 - [aclnnAtanh&aclnnInplaceAtanh](../../math/atanh/docs/aclnnAtanh&aclnnInplaceAtanh.md)

@@ -54,6 +54,7 @@
 | [aclnnArgsort](../../math/sort/docs/aclnnArgsort.md)           | 将输入tensor中的元素根据某个维度进行升序/降序排序，返回对应的index值。              | 默认确定性实现| 默认确定性实现  |
 | [aclnnAsin&aclnnInplaceAsin](../../math/asin/docs/aclnnAsin&aclnnInplaceAsin.md) | 对输入矩阵的每个元素进行反正弦操作后输出。                   | 默认确定性实现| 默认确定性实现 |
 | [aclnnAsinh&aclnnInplaceAsinh](../../math/asinh/docs/aclnnAsinh&aclnnInplaceAsinh.md) | 对输入Tensor中的每个元素进行反双曲正弦操作后输出。           | 默认确定性实现| 默认确定性实现 |
+| [aclnnAsStrided](../../conversion/as_strided/docs/aclnnAsStrided.md) | 按输出形状size、读取步幅stride和存储偏移storageOffset，从输入张量x中读取元素，物化生成形状为size的输出张量y。 | - | 默认确定性实现 |
 | [aclnnAtan&aclnnInplaceAtan](../../math/atan/docs/aclnnAtan&aclnnInplaceAtan.md) | 对输入矩阵的每个元素进行反正切操作后输出。                   | 默认确定性实现| 默认确定性实现|
 | [aclnnAtan2&aclnnInplaceAtan2](../../math/atan2/docs/aclnnAtan2&aclnnInplaceAtan2.md) | 对输入张量self和other进行逐元素的反正切运算。                | 默认确定性实现| 默认确定性实现  |
 | [aclnnAtanh&aclnnInplaceAtanh](../../math/atanh/docs/aclnnAtanh&aclnnInplaceAtanh.md) | 对输入Tensor中的每个元素进行反双曲正切操作后输出。           | 默认确定性实现| 默认确定性实现 |

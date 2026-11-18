@@ -85,3 +85,4 @@ $$
 | 调用方式 | 调用样例                                             | 说明                                                                                         |
 |---------|----------------------------------------------------|----------------------------------------------------------------------------------------------|
 | 图模式调用 | [test_geir_as_strided](./examples/test_geir_as_strided.cpp)   | 通过[算子IR](./op_graph/as_strided_proto.h)构图方式调用as_strided算子
+| aclnn API调用方式 | [test_aclnn_as_strided](./examples/arch35/test_aclnn_as_strided.cpp)   | 通过[aclnnAsStrided](./docs/aclnnAsStrided.md)接口调用as_strided算子
