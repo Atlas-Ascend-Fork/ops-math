@@ -31,6 +31,7 @@
 #include "aclnn_kernels/transpose.h"
 #include "tile.h"
 #include "conversion/unsqueeze/op_host/op_api/unsqueeze.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 
@@ -68,9 +69,8 @@ static inline bool CheckNotNull(const aclTensor* self, const aclIntArray* repeat
 
 static bool CheckDtypeValid(const aclTensor* self, const aclTensor* out)
 {
-    if (GetCurrentPlatformInfo().GetSocVersion() == SocVersion::ASCEND910B ||
-        GetCurrentPlatformInfo().GetSocVersion() == SocVersion::ASCEND910_93 ||
-        GetCurrentPlatformInfo().GetSocVersion() == SocVersion::ASCEND310P) {
+    if (GetCurrentPlatformInfo().GetCurNpuArch() == Ops::Base::DAV_2201 ||
+        GetCurrentPlatformInfo().GetCurNpuArch() == Ops::Base::DAV_2002) {
         OP_CHECK_DTYPE_NOT_SUPPORT(self, DTYPE_SUPPORT_910B310P_LIST, return false);
     } else if (IsRegBase()) {
         OP_CHECK_DTYPE_NOT_SUPPORT(self, DTYPE_SUPPORT_950_LIST, return false);
@@ -163,8 +163,8 @@ static inline bool CheckRepeatOutShapeByInfer(const aclTensor* self, const aclIn
 // A2/A3内部broadcast kernel对非1 repeat维度的数量有限制，A5无此限制
 static inline bool CheckA2A3RepeatNonOneDimCount(const aclIntArray* repeats)
 {
-    auto socVersion = GetCurrentPlatformInfo().GetSocVersion();
-    if (socVersion != SocVersion::ASCEND910B && socVersion != SocVersion::ASCEND910_93) {
+    auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
+    if (curArch != Ops::Base::DAV_2201) {
         return true;
     }
 

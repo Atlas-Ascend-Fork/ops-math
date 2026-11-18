@@ -11,7 +11,14 @@
 add_all_modules_sources(
     OPTYPE matrix_set_diag
     ACLNNTYPE aclnn_exclude
-    COMPUTE_UNIT ascend950 ascend350 ascend960dt ascend960pr
-    TILING_DIR arch35 arch35 arch35 arch35
+    COMPUTE_UNIT dav_3510 dav_9201 dav_9202
+    TILING_DIR arch35 arch35 arch35
     DEPENDENCIES matrix_set_diag_v2
+)
+
+add_kernel_sources(
+    KERNEL_SRC matrix_set_diag_apt.cpp
+    COMPUTE_UNITS dav_3510 dav_9201
+    AUTO_SYNC false
+    OPTIONS "-mllvm -cce-aicore-dcci-before-kernel-end=false"
 )

@@ -14,6 +14,7 @@
  */
 
 #include "register/op_def_registry.h"
+#include "op_common/op_host/util/op_arch_helper.h"
 
 namespace ops {
 namespace {
@@ -94,13 +95,12 @@ public:
             .NeedCheckSupportFlag(false)
             .ExtendCfgInfo("opFile.value", "transpose_apt");
 
-        this->AICore().AddConfig("ascend950", aicoreConfig);
-        this->AICore().AddConfig("ascend350", aicoreConfig);
+        opbase::ArchConfigHelper::AddConfigByArch(this->AICore(), Ops::Base::DAV_3510, aicoreConfig);
         this->AICore().AddConfig("ascend5162", aicoreConfig);
 
         auto config92 = buildConfig(VALUE_DTS_ARCH92, PERM_DTS_ARCH92, DATA_FORMATS_ARCH92);
-        this->AICore().AddConfig("ascend960dt", config92);
-        this->AICore().AddConfig("ascend960pr", config92);
+        opbase::ArchConfigHelper::AddConfigByArch(this->AICore(), Ops::Base::DAV_9201, config92);
+        opbase::ArchConfigHelper::AddConfigByArch(this->AICore(), Ops::Base::DAV_9202, config92);
 
         OpAICoreConfig config_kirin;
         config_kirin.Input("x")

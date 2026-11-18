@@ -24,6 +24,7 @@
 #include "opdev/op_dfx.h"
 #include "opdev/platform.h"
 #include "op_api/aclnn_check.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 #ifdef __cplusplus
@@ -53,9 +54,7 @@ static bool CheckNotNull(const aclTensor* self, const aclTensor* out)
 
 static inline bool CheckSocVersionIsSupportBf16(void)
 {
-    return (GetCurrentPlatformInfo().GetSocVersion() >= SocVersion::ASCEND910B &&
-            GetCurrentPlatformInfo().GetSocVersion() <= SocVersion::ASCEND910E) ||
-           IsRegBase();
+    return GetCurrentPlatformInfo().GetCurNpuArch() == Ops::Base::DAV_2201 || IsRegBase();
 }
 
 static bool CheckDtypeValid(const aclTensor* self, const aclTensor* out)

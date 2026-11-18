@@ -35,6 +35,7 @@
 #include "opdev/tensor_view_utils.h"
 #include "opdev/platform.h"
 #include "aclnn_kernels/common/op_error_check.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 
@@ -139,8 +140,7 @@ static bool IsTransposeV2AiCoreSupport(const aclTensor* self, const aclIntArray*
                self->GetViewShape().GetDim(DIM2) != 1 && self->GetViewShape().GetDim(DIM3) != 1) {
         IsSupport = IsTransposeV20213Support(self, perm);
     }
-    if (op::GetCurrentPlatformInfo().GetSocVersion() == op::SocVersion::ASCEND910B ||
-        op::GetCurrentPlatformInfo().GetSocVersion() == op::SocVersion::ASCEND910_93) {
+    if (op::GetCurrentPlatformInfo().GetCurNpuArch() == Ops::Base::DAV_2201) {
         return (IsSupport && op::CheckType(self->GetDataType(), TRANSPOSEV2_AICORE_DTYPE_SUPPORT_LIST));
     }
     return false;

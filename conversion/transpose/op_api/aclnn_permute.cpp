@@ -87,8 +87,7 @@ static inline bool CheckNotNull(const aclTensor* self, const aclIntArray* dims, 
 
 static inline bool CheckSocVersionIsSupportBf16(void)
 {
-    return GetCurrentPlatformInfo().GetSocVersion() == SocVersion::ASCEND910B ||
-           GetCurrentPlatformInfo().GetSocVersion() == SocVersion::ASCEND910_93 || IsRegBase();
+    return GetCurrentPlatformInfo().GetCurNpuArch() == NpuArch::DAV_2201 || IsRegBase();
 }
 
 inline static bool CheckDtypeValid(const aclTensor* self, const aclTensor* out)

@@ -9,7 +9,21 @@
 # ----------------------------------------------------------------------------
 
 # 设置算子定义时支持的芯片类型
-set(SUPPORT_COMPUTE_UNIT "ascend950" "mc62" "ascend350" "ascend960dt" "ascend960pr" "ascend5162")
+set(SUPPORT_COMPUTE_UNIT "dav_3510" "mc62" "dav_9201" "dav_9202" "ascend5162")
 # 设置每种芯片类型对应的tiling文件目录，即采用op_host目录下哪个文件夹下的tiling文件编译
-set(SUPPORT_TILING_DIR "arch35" "arch35" "arch35" "arch35" "arch35" "arch35")
+set(SUPPORT_TILING_DIR "arch35" "arch35" "arch35" "arch35" "arch35")
 add_all_modules_sources(OPTYPE tile ACLNNTYPE aclnn_exclude COMPUTE_UNIT ${SUPPORT_COMPUTE_UNIT} TILING_DIR ${SUPPORT_TILING_DIR} DISABLE_IN_OPP TRUE HOSTCPU TRUE DEPENDENCIES broadcast_to)
+
+add_kernel_sources(
+    KERNEL_SRC tile_apt.cpp
+    COMPUTE_UNITS dav_3510 dav_9201 dav_9202
+    AUTO_SYNC false
+    OPTIONS "-mllvm -cce-aicore-dcci-before-kernel-end=false"
+)
+
+add_kernel_sources(
+    KERNEL_SRC tile_apt.cpp
+    COMPUTE_UNITS mc62
+    AUTO_SYNC false
+    OPTIONS "--cce-no-dcache-flush"
+)

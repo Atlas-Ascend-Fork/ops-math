@@ -15,6 +15,7 @@
 #include "op_api_ut_common/scalar_desc.h"
 #include "op_api_ut_common/op_api_ut.h"
 #include "opdev/platform.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 using namespace std;
@@ -32,7 +33,7 @@ TEST_F(l2ConstantPadNd, case_norm_int64)
     auto pad = IntArrayDesc(vector<int64_t>{1, 1, 1, 1});
     auto value = ScalarDesc(static_cast<int64_t>(2));
     auto out_tensor_desc = TensorDesc({6, 6}, ACL_INT64, ACL_FORMAT_ND);
-    SetPlatformNpuArch(NpuArch::DAV_3510);
+    SetPlatformNpuArch(Ops::Base::DAV_3510);
     auto ut = OP_API_UT(aclnnConstantPadNd, INPUT(tensor_desc, pad, value), OUTPUT(out_tensor_desc));
 
     uint64_t workspace_size = 0;
@@ -46,7 +47,7 @@ TEST_F(l2ConstantPadNd, case_norm_int32)
     auto pad = IntArrayDesc(vector<int64_t>{0, 0, 0, 0});
     auto value = ScalarDesc(static_cast<int64_t>(2));
     auto out_tensor_desc = TensorDesc({4, 4}, ACL_INT32, ACL_FORMAT_ND);
-    SetPlatformNpuArch(NpuArch::DAV_3510);
+    SetPlatformNpuArch(Ops::Base::DAV_3510);
     auto ut = OP_API_UT(aclnnConstantPadNd, INPUT(tensor_desc, pad, value), OUTPUT(out_tensor_desc));
 
     uint64_t workspace_size = 0;
@@ -60,7 +61,7 @@ TEST_F(l2ConstantPadNd, case_norm_int32_new)
     auto pad = IntArrayDesc(vector<int64_t>{0, 1, 0, 0});
     auto value = ScalarDesc(static_cast<int64_t>(2));
     auto out_tensor_desc = TensorDesc({22948, 4}, ACL_INT32, ACL_FORMAT_ND);
-    SetPlatformNpuArch(NpuArch::DAV_3510);
+    SetPlatformNpuArch(Ops::Base::DAV_3510);
     auto ut = OP_API_UT(aclnnConstantPadNd, INPUT(tensor_desc, pad, value), OUTPUT(out_tensor_desc));
 
     uint64_t workspace_size = 0;
@@ -74,7 +75,7 @@ TEST_F(l2ConstantPadNd, case_norm_int16)
     auto pad = IntArrayDesc(vector<int64_t>{1, 0, 0, -1});
     auto value = ScalarDesc(static_cast<int64_t>(2));
     auto out_tensor_desc = TensorDesc({3, 5}, ACL_INT16, ACL_FORMAT_ND);
-    SetPlatformNpuArch(NpuArch::DAV_3510);
+    SetPlatformNpuArch(Ops::Base::DAV_3510);
     auto ut = OP_API_UT(aclnnConstantPadNd, INPUT(tensor_desc, pad, value), OUTPUT(out_tensor_desc));
 
     uint64_t workspace_size = 0;
@@ -88,7 +89,7 @@ TEST_F(l2ConstantPadNd, case_norm_int8)
     auto pad = IntArrayDesc(vector<int64_t>{1, -1, 1, -1});
     auto value = ScalarDesc(static_cast<int64_t>(2));
     auto out_tensor_desc = TensorDesc({4, 4}, ACL_INT8, ACL_FORMAT_ND);
-    SetPlatformNpuArch(NpuArch::DAV_3510);
+    SetPlatformNpuArch(Ops::Base::DAV_3510);
     auto ut = OP_API_UT(aclnnConstantPadNd, INPUT(tensor_desc, pad, value), OUTPUT(out_tensor_desc));
 
     uint64_t workspace_size = 0;
@@ -102,7 +103,7 @@ TEST_F(l2ConstantPadNd, case_norm_uint8)
     auto pad = IntArrayDesc(vector<int64_t>{1, -1, 1, -1});
     auto value = ScalarDesc(static_cast<int64_t>(2));
     auto out_tensor_desc = TensorDesc({4, 4}, ACL_UINT8, ACL_FORMAT_ND);
-    SetPlatformNpuArch(NpuArch::DAV_3510);
+    SetPlatformNpuArch(Ops::Base::DAV_3510);
     auto ut = OP_API_UT(aclnnConstantPadNd, INPUT(tensor_desc, pad, value), OUTPUT(out_tensor_desc));
 
     uint64_t workspace_size = 0;

@@ -15,6 +15,7 @@
 #include "opdev/op_dfx.h"
 #include "opdev/aicpu/aicpu_task.h"
 #include "op_api/aclnn_check.h"
+#include "op_common/op_host/util/op_const_def.h"
 #include "aclnn_kernels/common/op_error_check.h"
 
 using namespace op;
@@ -40,8 +41,8 @@ static const std::initializer_list<op::DataType> REGBASE_AICORE_DTYPE_SUPPORT_LI
 
 inline static bool IsAiCoreSupport(const aclTensor* self)
 {
-    if (GetCurrentPlatformInfo().GetSocVersion() == SocVersion::ASCEND910B ||
-        GetCurrentPlatformInfo().GetSocVersion() == SocVersion::ASCEND910_93) {
+    auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
+    if (curArch == Ops::Base::DAV_2201) {
         return CheckType(self->GetDataType(), ASCEND910B_AICORE_DTYPE_SUPPORT_LIST);
     } else if (IsRegBase()) {
         return CheckType(self->GetDataType(), REGBASE_AICORE_DTYPE_SUPPORT_LIST);

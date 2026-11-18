@@ -15,6 +15,7 @@
 
 #include "register/op_def_registry.h"
 #include "common/inc/op_host/op_const_def_math.h"
+#include "op_common/op_host/util/op_arch_helper.h"
 
 namespace ops {
 static const std::vector<ge::DataType> BASE_DATA_TYPE_ARCH92 = {ge::DT_INT8,
@@ -102,9 +103,7 @@ public:
             .DynamicShapeSupportFlag(true)
             .NeedCheckSupportFlag(false)
             .ExtendCfgInfo("opFile.value", "broadcast_to_apt");
-        this->AICore().AddConfig("ascend950", aicoreConfig);
-        this->AICore().AddConfig("ascend350", aicoreConfig);
-        this->AICore().AddConfig("ascend960dt", aicoreConfig);
+        opbase::ArchConfigHelper::AddConfigByArch(this->AICore(), Ops::Base::DAV_3510, aicoreConfig);
         this->AICore().AddConfig("ascend5162", aicoreConfig);
 
         OpAICoreConfig CONFIG_ARCH92;
@@ -130,8 +129,8 @@ public:
             .DynamicShapeSupportFlag(true)
             .NeedCheckSupportFlag(false)
             .ExtendCfgInfo("opFile.value", "broadcast_to_apt");
-        this->AICore().AddConfig("ascend960dt", CONFIG_ARCH92);
-        this->AICore().AddConfig("ascend960pr", CONFIG_ARCH92);
+        opbase::ArchConfigHelper::AddConfigByArch(this->AICore(), Ops::Base::DAV_9201, CONFIG_ARCH92);
+        opbase::ArchConfigHelper::AddConfigByArch(this->AICore(), Ops::Base::DAV_9202, CONFIG_ARCH92);
     }
 };
 

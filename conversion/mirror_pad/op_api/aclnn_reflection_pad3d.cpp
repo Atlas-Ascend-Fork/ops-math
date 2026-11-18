@@ -13,6 +13,7 @@
 #include "aclnn_kernels/contiguous.h"
 #include "opdev/platform.h"
 #include "op_api/aclnn_check.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 #ifdef __cplusplus
@@ -48,8 +49,8 @@ inline static bool CheckNotNull(const aclTensor* self, const aclIntArray* paddin
 }
 static const std::initializer_list<DataType>& GetDtypeSupportList()
 {
-    if (GetCurrentPlatformInfo().GetSocVersion() == SocVersion::ASCEND910B ||
-        GetCurrentPlatformInfo().GetSocVersion() == SocVersion::ASCEND910_93) {
+    auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
+    if (curArch == Ops::Base::DAV_2201) {
         return ASCEND910B_DTYPE_DTYPE_SUPPORT_LIST;
     } else if (IsRegBase()) {
         return ASCEND950_DTYPE_DTYPE_SUPPORT_LIST;

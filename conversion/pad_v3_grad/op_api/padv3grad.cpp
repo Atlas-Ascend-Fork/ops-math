@@ -15,6 +15,7 @@
 #include "opdev/op_dfx.h"
 #include "opdev/aicpu/aicpu_task.h"
 #include "op_api/aclnn_check.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 
@@ -83,8 +84,7 @@ inline static bool IsPadV4GradAicoreSupport(const aclTensor* gradOutput, const s
         return false;
     }
     return mode == "reflect" && CheckType(gradOutput->GetDataType(), PAD_V4_GRAD_AICORE_DTYPE_SUPPORT_LIST) &&
-           (GetCurrentPlatformInfo().GetSocVersion() == SocVersion::ASCEND910B ||
-            GetCurrentPlatformInfo().GetSocVersion() == SocVersion::ASCEND910_93);
+           GetCurrentPlatformInfo().GetCurNpuArch() == Ops::Base::DAV_2201;
 }
 
 inline static bool IsPadV4GradAicoreRegBaseSupport(const aclTensor* gradOutput, const std::string& mode)
@@ -104,8 +104,7 @@ inline static bool IsPadV3GradReplicateAicoreSupport(const aclTensor* gradOutput
     }
     return mode == REPLICATION_PAD_MODE &&
            CheckType(gradOutput->GetDataType(), REPLICATION_2D_AICORE_DTYPE_SUPPORT_LIST) &&
-           (GetCurrentPlatformInfo().GetSocVersion() == SocVersion::ASCEND910B ||
-            GetCurrentPlatformInfo().GetSocVersion() == SocVersion::ASCEND910_93);
+           GetCurrentPlatformInfo().GetCurNpuArch() == Ops::Base::DAV_2201;
 }
 
 inline static bool IsPadV3GradReplicateAicoreRegBaseSupport(const aclTensor* gradOutput, const std::string& mode)
@@ -122,8 +121,7 @@ inline static bool IsAiCoreSupportReplication3D(const aclTensor* gradOutput, con
 {
     if (gradOutput->GetViewShape().GetDimNum() == AI_CORE_DIM_3D && mode == REPLICATION_PAD_MODE &&
         CheckType(gradOutput->GetDataType(), REPLICATION_3D_AICORE_DTYPE_SUPPORT_LIST) &&
-        (GetCurrentPlatformInfo().GetSocVersion() == SocVersion::ASCEND910B ||
-         GetCurrentPlatformInfo().GetSocVersion() == SocVersion::ASCEND910_93)) {
+        GetCurrentPlatformInfo().GetCurNpuArch() == Ops::Base::DAV_2201) {
         OP_LOGD("[PadV3Grad] IsAiCoreSupportReplication3D: true");
         return true;
     }
@@ -150,8 +148,7 @@ inline static bool IsAiCoreSupportReflection3D(const aclTensor* gradOutput, cons
                 "not reflect");
         return false;
     }
-    if (GetCurrentPlatformInfo().GetSocVersion() != SocVersion::ASCEND910B &&
-        GetCurrentPlatformInfo().GetSocVersion() != SocVersion::ASCEND910_93) {
+    if (GetCurrentPlatformInfo().GetCurNpuArch() != Ops::Base::DAV_2201) {
         OP_LOGD("[PadV3Grad] IsAiCoreSupportReflection3D: false, The device does not support");
         return false;
     }

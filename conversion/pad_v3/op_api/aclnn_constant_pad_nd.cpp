@@ -24,6 +24,7 @@
 #include "opdev/platform.h"
 #include "aclnn_kernels/common/op_error_check.h"
 #include "op_api/aclnn_check.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 
@@ -87,10 +88,9 @@ static bool CheckNotNull(const aclTensor* self, const aclIntArray* pad, const ac
 
 static bool CheckDtypeValid(const aclTensor* self, const aclTensor* out)
 {
-    bool is910bSocVersion = (GetCurrentPlatformInfo().GetSocVersion() == SocVersion::ASCEND910B ||
-                             GetCurrentPlatformInfo().GetSocVersion() == SocVersion::ASCEND910_93);
-    std::initializer_list<op::DataType> CURRENT_DTYPE_SUPPORT_LIST = is910bSocVersion ? DTYPE_SUPPORT_910B_LIST :
-                                                                                        DTYPE_SUPPORT_LIST;
+    bool isArch22 = (GetCurrentPlatformInfo().GetCurNpuArch() == Ops::Base::DAV_2201);
+    std::initializer_list<op::DataType> CURRENT_DTYPE_SUPPORT_LIST = isArch22 ? DTYPE_SUPPORT_910B_LIST :
+                                                                                DTYPE_SUPPORT_LIST;
     if (GetCurrentPlatformInfo().GetCurNpuArch() == NpuArch::DAV_9201 ||
         GetCurrentPlatformInfo().GetCurNpuArch() == NpuArch::DAV_9202) {
         CURRENT_DTYPE_SUPPORT_LIST = DTYPE_SUPPORT_REGBASE_LIST_960;

@@ -23,6 +23,7 @@
 #include "opdev/op_log.h"
 #include "opdev/shape_utils.h"
 #include "opdev/platform.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 namespace l0op {
@@ -56,14 +57,13 @@ static const std::initializer_list<DataType> ASCEND950_AICORE_DTYPE_SUPPORT_LIST
 
 static inline bool IsAiCoreSupport(const aclTensor* self)
 {
-    if (GetCurrentPlatformInfo().GetSocVersion() == SocVersion::ASCEND910B ||
-        GetCurrentPlatformInfo().GetSocVersion() == SocVersion::ASCEND910_93) {
+    if (GetCurrentPlatformInfo().GetCurNpuArch() == Ops::Base::DAV_2201) {
         return CheckType(self->GetDataType(), AICORE_DTYPE_SUPPORT_910B_LIST);
     }
-    if (GetCurrentPlatformInfo().GetSocVersion() == SocVersion::ASCEND310P) {
+    if (GetCurrentPlatformInfo().GetCurNpuArch() == Ops::Base::DAV_2002) {
         return CheckType(self->GetDataType(), AICORE_DTYPE_SUPPORT_310P_LIST);
     }
-    if (GetCurrentPlatformInfo().GetSocVersion() == SocVersion::ASCEND610LITE) {
+    if (GetCurrentPlatformInfo().GetCurNpuArch() == Ops::Base::DAV_3102) {
         return CheckType(self->GetDataType(), ASCEND610LITE_DTYPE_SUPPORT_LIST);
     }
     if (IsRegBase()) {
