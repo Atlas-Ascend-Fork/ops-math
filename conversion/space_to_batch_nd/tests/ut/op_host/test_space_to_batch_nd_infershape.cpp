@@ -246,3 +246,56 @@ TEST_F(SpaceToBatchNDInfershapeTest, unknown_rank_with_non_const_inputs_success)
     std::vector<std::vector<int64_t>> expectOutputShape = {{-2}};
     ExecuteTestCase(para, ge::GRAPH_SUCCESS, expectOutputShape);
 }
+
+TEST_F(SpaceToBatchNDInfershapeTest, nonconst_block_shape_and_paddings_degrade_to_unknown)
+{
+    // 编译期 block_shape/paddings 均为非常量：不报错，受影响输出维降级为 -1
+    gert::InfershapeContextPara para("SpaceToBatchND",
+                                     {
+                                         {{{2, 2, 2}, {2, 2, 2}}, ge::DT_INT32, ge::FORMAT_ND},
+                                         {{{2}, {2}}, ge::DT_INT32, ge::FORMAT_ND},
+                                         {{{2, 2}, {2, 2}}, ge::DT_INT32, ge::FORMAT_ND},
+                                     },
+                                     {
+                                         {{{}, {}}, ge::DT_INT32, ge::FORMAT_ND},
+                                     });
+
+    std::vector<std::vector<int64_t>> expectOutputShape = {{-1, -1, -1}};
+    ExecuteTestCase(para, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+TEST_F(SpaceToBatchNDInfershapeTest, nonconst_paddings_degrade_spatial_to_unknown)
+{
+    // block_shape 常量可算 batch 倍率；paddings 非常量 -> 空间维降级为 -1
+    std::vector<int32_t> blockShapeValues = {1, 1};
+    gert::InfershapeContextPara para("SpaceToBatchND",
+                                     {
+                                         {{{2, 2, 2}, {2, 2, 2}}, ge::DT_INT32, ge::FORMAT_ND},
+                                         {{{2}, {2}}, ge::DT_INT32, ge::FORMAT_ND, true, blockShapeValues.data()},
+                                         {{{2, 2}, {2, 2}}, ge::DT_INT32, ge::FORMAT_ND},
+                                     },
+                                     {
+                                         {{{}, {}}, ge::DT_INT32, ge::FORMAT_ND},
+                                     });
+
+    std::vector<std::vector<int64_t>> expectOutputShape = {{2, -1, -1}};
+    ExecuteTestCase(para, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+TEST_F(SpaceToBatchNDInfershapeTest, nonconst_block_shape_degrade_batch_and_spatial_to_unknown)
+{
+    // paddings 常量、block_shape 非常量 -> batch 与空间维均降级为 -1
+    std::vector<int32_t> paddingsValues = {1, 0, 0, 0};
+    gert::InfershapeContextPara para("SpaceToBatchND",
+                                     {
+                                         {{{2, 2, 2}, {2, 2, 2}}, ge::DT_INT32, ge::FORMAT_ND},
+                                         {{{2}, {2}}, ge::DT_INT32, ge::FORMAT_ND},
+                                         {{{2, 2}, {2, 2}}, ge::DT_INT32, ge::FORMAT_ND, true, paddingsValues.data()},
+                                     },
+                                     {
+                                         {{{}, {}}, ge::DT_INT32, ge::FORMAT_ND},
+                                     });
+
+    std::vector<std::vector<int64_t>> expectOutputShape = {{-1, -1, -1}};
+    ExecuteTestCase(para, ge::GRAPH_SUCCESS, expectOutputShape);
+}

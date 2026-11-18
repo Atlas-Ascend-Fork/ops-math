@@ -44,6 +44,9 @@ private:
     size_t N_{0};
     gert::Shape blockVec_;
     gert::Shape padsVec_;
+    // 值依赖输入在编译期可能不是常量：读不到数据时降级为 UNKNOWN_DIM(-1)，不中断 shape 推导。
+    bool blockShapeIsConst_{false};
+    bool paddingsIsConst_{false};
 };
 
 ge::graphStatus SpaceToBatchNDInferShapeHelper::Init()
@@ -54,8 +57,12 @@ ge::graphStatus SpaceToBatchNDInferShapeHelper::Init()
     OP_CHECK_IF(static_cast<int64_t>(N_) < 0, OP_LOGE(context_, "block_shape element count is negative"),
                 return ge::GRAPH_FAILED);
 
-    OP_CHECK_IF(!Ops::Base::GetConstIntToShape<gert::InferShapeContext>(context_, INPUT_IDX_BS, blockVec_),
-                OP_LOGE(context_, "get block_shape const data failed"), return ge::GRAPH_FAILED);
+    // block_shape 允许在编译期不是常量：读不到数据时后续把相关输出维降级为 -1，不再直接失败。
+    blockShapeIsConst_ = Ops::Base::GetConstIntToShape<gert::InferShapeContext>(context_, INPUT_IDX_BS, blockVec_);
+    if (!blockShapeIsConst_) {
+        OP_LOGI(context_->GetNodeName(),
+                "block_shape is not a compile-time constant, related output dims will be inferred as unknown(-1).");
+    }
 
     const gert::Tensor* padsTensor = context_->GetInputTensor(INPUT_IDX_PADS);
     OP_CHECK_NULL_WITH_CONTEXT(context_, padsTensor);
@@ -65,18 +72,21 @@ ge::graphStatus SpaceToBatchNDInferShapeHelper::Init()
                     padsShape->GetDim(1) != static_cast<int64_t>(PADS_DIM2),
                 OP_LOGE(context_, "paddings shape must be [%zu, 2]", N_), return ge::GRAPH_FAILED);
 
-    if (!Ops::Base::GetConstIntToShape<gert::InferShapeContext>(context_, INPUT_IDX_PADS, padsVec_)) {
-        OP_LOGE(context_, "get paddings const data failed");
-        return ge::GRAPH_FAILED;
-    }
-
-    OP_CHECK_IF(padsVec_.GetDimNum() < N_ * PADS_DIM2,
-                OP_LOGE(context_, "paddings element count=%zu is less than %zu", padsVec_.GetDimNum(), N_ * PADS_DIM2),
-                return ge::GRAPH_FAILED);
-    for (size_t i = 0; i < N_ * PADS_DIM2; ++i) {
-        OP_CHECK_IF(padsVec_.GetDim(i) < 0,
-                    OP_LOGE(context_, "paddings[%zu]=%ld must be non-negative", i, padsVec_.GetDim(i)),
-                    return ge::GRAPH_FAILED);
+    // paddings 同样允许在编译期不是常量：读不到数据时相关空间维降级为 -1。
+    paddingsIsConst_ = Ops::Base::GetConstIntToShape<gert::InferShapeContext>(context_, INPUT_IDX_PADS, padsVec_);
+    if (paddingsIsConst_) {
+        OP_CHECK_IF(
+            padsVec_.GetDimNum() < N_ * PADS_DIM2,
+            OP_LOGE(context_, "paddings element count=%zu is less than %zu", padsVec_.GetDimNum(), N_ * PADS_DIM2),
+            return ge::GRAPH_FAILED);
+        for (size_t i = 0; i < N_ * PADS_DIM2; ++i) {
+            OP_CHECK_IF(padsVec_.GetDim(i) < 0,
+                        OP_LOGE(context_, "paddings[%zu]=%ld must be non-negative", i, padsVec_.GetDim(i)),
+                        return ge::GRAPH_FAILED);
+        }
+    } else {
+        OP_LOGI(context_->GetNodeName(),
+                "paddings is not a compile-time constant, related output dims will be inferred as unknown(-1).");
     }
 
     return ge::GRAPH_SUCCESS;
@@ -88,22 +98,25 @@ ge::graphStatus SpaceToBatchNDInferShapeHelper::CheckAndInfer()
     OP_CHECK_IF(static_cast<size_t>(rank) < N_ + 1 || rank > MAX_RANK,
                 OP_LOGE(context_, "invalid rank %zu, N=%zu", rank, N_), return ge::GRAPH_FAILED);
 
+    // block_shape 非常量时 batch 倍率不可知，输出 batch 维退化为 -1。
     int64_t batchMul = 1;
-    for (size_t i = 0; i < N_; i++) {
-        int64_t bs = blockVec_.GetDim(i);
-        OP_CHECK_IF(bs <= 0, OP_LOGE(context_, "block_shape[%zu]=%ld must be > 0", i, bs), return ge::GRAPH_FAILED);
-        int64_t nextBatchMul = 0;
-        OP_CHECK_IF(
-            !SafeMulI64(batchMul, bs, nextBatchMul),
-            OP_LOGE(context_, "batch multiplier overflow: batchMul=%ld * block_shape[%zu]=%ld", batchMul, i, bs),
-            return ge::GRAPH_FAILED);
-        batchMul = nextBatchMul;
+    if (blockShapeIsConst_) {
+        for (size_t i = 0; i < N_; i++) {
+            int64_t bs = blockVec_.GetDim(i);
+            OP_CHECK_IF(bs <= 0, OP_LOGE(context_, "block_shape[%zu]=%ld must be > 0", i, bs), return ge::GRAPH_FAILED);
+            int64_t nextBatchMul = 0;
+            OP_CHECK_IF(
+                !SafeMulI64(batchMul, bs, nextBatchMul),
+                OP_LOGE(context_, "batch multiplier overflow: batchMul=%ld * block_shape[%zu]=%ld", batchMul, i, bs),
+                return ge::GRAPH_FAILED);
+            batchMul = nextBatchMul;
+        }
     }
 
     yShape_->SetDimNum(0);
 
     int64_t firstDim = xShape_->GetDim(0);
-    if (firstDim == -1) {
+    if (firstDim == -1 || !blockShapeIsConst_) {
         yShape_->AppendDim(-1);
     } else {
         int64_t outFirstDim = 0;
@@ -115,7 +128,8 @@ ge::graphStatus SpaceToBatchNDInferShapeHelper::CheckAndInfer()
 
     for (size_t i = 0; i < N_; i++) {
         int64_t xDim = xShape_->GetDim(i + 1);
-        if (xDim == -1) {
+        // x 该维未知，或 block_shape/paddings 非常量导致整除关系不可知时，该空间维降级为 -1。
+        if (xDim == -1 || !blockShapeIsConst_ || !paddingsIsConst_) {
             yShape_->AppendDim(-1);
             continue;
         }
