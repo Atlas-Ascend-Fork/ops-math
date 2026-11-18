@@ -224,9 +224,17 @@ aclnnStatus aclnnRandperm(
 - Deterministic computation: aclnnRandperm defaults to a deterministic implementation.
 <!-- npu="950" id8 -->
 - Ascend 950PR&950DT products:
-  - INT64, INT32, INT16, UINT8, INT8, FLOAT, FLOAT16, BFLOAT16: n does not exceed the maximum value of int32.
+  - INT64, INT32: n does not exceed the maximum value of int32.
+  - INT8: n does not exceed 128; UINT8: n does not exceed 256; INT16: n does not exceed 32768; FLOAT16: n does not exceed 2049; BFLOAT16: n does not exceed 257; FLOAT: n does not exceed 16777217 (the output is a random permutation of 0 to n-1, and the maximum output value n-1 must be exactly representable by the output dtype).
   - DOUBLE: If n is greater than 268000000, runtime timeout may occur. Set the timeout period using aclrtSetOpExecuteTimeOut.
 <!-- end id8 -->
+<!-- npu="A3,910b,910" id9 -->
+- Atlas A2 products, Atlas A3 products, and Atlas training products:
+  - INT64, INT32: n does not exceed the maximum value of int32.
+  - INT8: n does not exceed 127; UINT8: n does not exceed 255; INT16: n does not exceed 32767. If n exceeds the preceding limits, no error is reported, but the output may not be written at all. The caller must ensure that n is within the limits.
+  - FLOAT16: n does not exceed 2049; BFLOAT16: n does not exceed 257; FLOAT: n does not exceed 16777217 (the output is a random permutation of 0 to n-1, and the maximum output value n-1 must be exactly representable by the output dtype).
+  - DOUBLE: If n is greater than 268000000, runtime timeout may occur. Set the timeout period using aclrtSetOpExecuteTimeOut.
+<!-- end id9 -->
 
 ## Example
 

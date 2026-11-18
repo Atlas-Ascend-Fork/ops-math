@@ -79,7 +79,7 @@ aclnnStatus aclnnMultinomial(
       <td>self（aclTensor*）</td>
       <td>输入</td>
       <td>输入tensor。</td>
-      <td>self的取值范围需要大于等于0。</td>
+      <td>self的取值范围需要大于等于0。该值域由调用方保证，第一段接口不做校验；传入负值或NaN等非法值时，错误将在任务同步阶段以设备侧异常（如507018）暴露。</td>
       <td>BFLOAT16、FLOAT16、FLOAT、DOUBLE</td>
       <td>ND</td>
       <td>为(N, C)或(C)，且self与out的维度一致。</td>

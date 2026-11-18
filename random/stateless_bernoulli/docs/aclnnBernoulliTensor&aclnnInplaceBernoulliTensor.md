@@ -135,7 +135,7 @@ aclnnStatus aclnnInplaceBernoulliTensor(
       <td>offset</td>
       <td>输入</td>
       <td>Host侧的整型，设置随机数偏移量。</td>
-      <td>取值约束：offset % 4 == 0，例如可以取0、4、8 ...，不满足约束会调用失败</td>
+      <td>取值约束：offset % 4 == 0，例如可以取0、4、8 ...。该约束由调用方保证，接口不做校验：不满足约束时接口不报错，生成的随机数序列不保证符合预期</td>
       <td>INT64</td>
       <td>ND</td>
       <td>-</td>
@@ -295,7 +295,7 @@ aclnnStatus aclnnInplaceBernoulliTensor(
       <td>输入、输出</td>
       <td>公式中的out，Device侧的aclTensor</td>
       <td>-</td>
-      <td>FLOAT16、FLOAT、DOUBLE、UINT8、INT8、INT16、INT32、INT64、BOOL</td>
+      <td>FLOAT16、FLOAT、DOUBLE、UINT8、INT8、INT16、INT32、INT64、BOOL、BFLOAT16</td>
       <td>ND</td>
       <td>0-8</td>
       <td>√</td>
@@ -324,7 +324,7 @@ aclnnStatus aclnnInplaceBernoulliTensor(
       <td>offset</td>
       <td>输入</td>
       <td>Host侧的整型，设置随机数偏移量。</td>
-      <td>取值约束：offset % 4 == 0，例如可以取0、4、8 ...，不满足约束会调用失败</td>
+      <td>取值约束：offset % 4 == 0，例如可以取0、4、8 ...。该约束由调用方保证，接口不做校验：不满足约束时接口不报错，生成的随机数序列不保证符合预期</td>
       <td>INT64</td>
       <td>ND</td>
       <td>-</td>
@@ -438,7 +438,7 @@ aclnnStatus aclnnInplaceBernoulliTensor(
 ## 约束说明
 
 - 确定性计算：aclnnBernoulliTensor&aclnnInplaceBernoulliTensor默认确定性实现。
-- 输入prob的元素值域必须为[0, 1]。
+- 输入prob的元素值域必须为[0, 1]，该值域由调用方保证，第一段接口不做校验；元素值越界（如为负数或大于1）时，错误将在任务同步阶段以设备侧异常（如507018）暴露。
 - 输入prob的shape须可广播到self/selfRef的shape，不可广播时接口报错。广播不能改变self/selfRef的shape。
 - 非空out/selfRef不允许存在长度大于1且stride为0的维度，以避免多个输出元素写入同一存储位置。请先拷贝为无内部重叠的Tensor后再调用。
 

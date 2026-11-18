@@ -139,7 +139,7 @@ aclnnStatus aclnnInplaceBernoulli(
       <td>offset (int64_t)</td>
       <td>Input</td>
       <td>Sets the random number offset.</td>
-      <td>Value constraint: offset % 4 == 0, for example, 0, 4, 8, ... The call fails if the constraint is not met.</td>
+      <td>Value constraint: offset % 4 == 0, for example, 0, 4, 8, ... This constraint must be ensured by the caller and is not validated by the API. If the constraint is not met, no error is reported, and the generated random number sequence is not guaranteed to be as expected.</td>
       <td>INT64</td>
       <td>-</td>
       <td>-</td>
@@ -332,7 +332,7 @@ aclnnStatus aclnnInplaceBernoulli(
       <td>offset (int64_t)</td>
       <td>Input</td>
       <td>Sets the random number offset.</td>
-      <td>Value constraint: offset % 4 == 0 (for example, 0, 4, 8...). The call fails if the constraint is not met.</td>
+      <td>Value constraint: offset % 4 == 0 (for example, 0, 4, 8...). This constraint must be ensured by the caller and is not validated by the API. If the constraint is not met, no error is reported, and the generated random number sequence is not guaranteed to be as expected.</td>
       <td>INT64</td>
       <td>-</td>
       <td>-</td>

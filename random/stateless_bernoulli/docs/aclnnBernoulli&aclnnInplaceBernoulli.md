@@ -137,7 +137,7 @@ aclnnStatus aclnnInplaceBernoulli(
       <td>offset（int64_t）</td>
       <td>输入</td>
       <td>设置随机数偏移量。</td>
-      <td>取值约束：offset % 4 == 0，例如可以取0、4、8 ...，不满足约束会调用失败</td>
+      <td>取值约束：offset % 4 == 0，例如可以取0、4、8 ...。该约束由调用方保证，接口不做校验：不满足约束时接口不报错，生成的随机数序列不保证符合预期</td>
       <td>INT64</td>
       <td>-</td>
       <td>-</td>
@@ -330,7 +330,7 @@ aclnnStatus aclnnInplaceBernoulli(
       <td>offset（int64_t）</td>
       <td>输入</td>
       <td>设置随机数偏移量。</td>
-      <td>取值约束：offset % 4 == 0，例如可以取0、4、8 ...，不满足约束会调用失败</td>
+      <td>取值约束：offset % 4 == 0，例如可以取0、4、8 ...。该约束由调用方保证，接口不做校验：不满足约束时接口不报错，生成的随机数序列不保证符合预期</td>
       <td>INT64</td>
       <td>-</td>
       <td>-</td>

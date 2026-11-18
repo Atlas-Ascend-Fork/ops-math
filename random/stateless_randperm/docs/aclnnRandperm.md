@@ -226,6 +226,13 @@ aclnnStatus aclnnRandperm(
   - INT8：n不超过128；UINT8：n不超过256；INT16：n不超过32768；FLOAT16：n不超过2049；BFLOAT16：n不超过257；FLOAT：n不超过16777217（输出为0..n-1的随机排列，最大输出值n-1需能被输出dtype精确表示）。
   - DOUBLE：当n大于268000000时有运行超时风险，通过aclrtSetOpExecuteTimeOut设置超时时间。
 <!-- end id8 -->
+<!-- npu="A3,910b,910" id9 -->
+- Atlas A2系列产品、Atlas A3系列产品、Atlas训练系列产品：
+  - INT64、INT32：n不超过int32的最大值。
+  - INT8：n不超过127；UINT8：n不超过255；INT16：n不超过32767。n超出上述限制时接口不报错，但输出可能整体未被写入，调用方须自行保证n在限制范围内。
+  - FLOAT16：n不超过2049；BFLOAT16：n不超过257；FLOAT：n不超过16777217（输出为0..n-1的随机排列，最大输出值n-1需能被输出dtype精确表示）。
+  - DOUBLE：当n大于268000000时有运行超时风险，通过aclrtSetOpExecuteTimeOut设置超时时间。
+<!-- end id9 -->
 
 ## 调用示例
 

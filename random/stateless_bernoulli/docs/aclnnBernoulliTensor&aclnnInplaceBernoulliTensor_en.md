@@ -137,7 +137,7 @@ aclnnStatus aclnnInplaceBernoulliTensor(
       <td>offset</td>
       <td>Input</td>
       <td>Host-side integer that sets the random number offset.</td>
-      <td>Value constraint: offset % 4 == 0, for example, 0, 4, 8... The call fails if the constraint is not met.</td>
+      <td>Value constraint: offset % 4 == 0, for example, 0, 4, 8... This constraint must be ensured by the caller and is not validated by the API. If the constraint is not met, no error is reported, and the generated random number sequence is not guaranteed to be as expected.</td>
       <td>INT64</td>
       <td>ND</td>
       <td>-</td>
@@ -297,7 +297,7 @@ aclnnStatus aclnnInplaceBernoulliTensor(
       <td>Input/Output</td>
       <td>out in the formula, an aclTensor on the Device side.</td>
       <td>-</td>
-      <td>FLOAT16, FLOAT, DOUBLE, UINT8, INT8, INT16, INT32, INT64, BOOL</td>
+      <td>FLOAT16, FLOAT, DOUBLE, UINT8, INT8, INT16, INT32, INT64, BOOL, BFLOAT16</td>
       <td>ND</td>
       <td>0-8</td>
       <td>√</td>
@@ -326,7 +326,7 @@ aclnnStatus aclnnInplaceBernoulliTensor(
       <td>offset</td>
       <td>Input</td>
       <td>Integer on the Host side, which sets the random number offset.</td>
-      <td>Value constraint: offset % 4 == 0, for example, 0, 4, 8, .... Otherwise, the call fails.</td>
+      <td>Value constraint: offset % 4 == 0, for example, 0, 4, 8... This constraint must be ensured by the caller and is not validated by the API. If the constraint is not met, no error is reported, and the generated random number sequence is not guaranteed to be as expected.</td>
       <td>INT64</td>
       <td>ND</td>
       <td>-</td>
@@ -440,8 +440,8 @@ aclnnStatus aclnnInplaceBernoulliTensor(
 ## Constraints
 
 - Deterministic computation: aclnnBernoulliTensor&aclnnInplaceBernoulliTensor default to a deterministic implementation.
-- The element values of the input prob must be in the range [0, 1].
-- If the shape of the input prob differs from that of the input self/selfRef, only the data of the corresponding elements between the two is computed, and the behavior of the remaining data is undefined. For example, when prob is of shape [4, 2] and self is of shape [4, 4], only the first 8 elements are computed, and the output is of shape [4, 4]. When prob is of shape [4, 4, 2] and self is of shape [4, 4], only the first 16 elements are computed, and the output is of shape [4, 4].
+- The element values of the input prob must be in the range [0, 1]. This value range must be ensured by the caller and is not validated by the first-phase API. If an element value is out of range (for example, a negative value or a value greater than 1), the error is exposed as a device-side exception (such as 507018) during stream synchronization.
+- The shape of the input prob must be broadcastable to the shape of self/selfRef. If it is not broadcastable, the API reports an error. Broadcasting must not change the shape of self/selfRef.
 
 ## Example
 

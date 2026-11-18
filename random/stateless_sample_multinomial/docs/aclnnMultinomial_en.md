@@ -81,7 +81,7 @@ aclnnStatus aclnnMultinomial(
       <td class="tg-0pky">self (aclTensor*)</td>
       <td class="tg-0pky">Input</td>
       <td class="tg-0pky">Input tensor.</td>
-      <td class="tg-0pky">The value of self must be greater than or equal to 0.</td>
+      <td class="tg-0pky">The value of self must be greater than or equal to 0. This value range must be ensured by the caller and is not validated by the first-phase API. If an invalid value (such as a negative value or NaN) is passed in, the error is exposed as a device-side exception (such as 507018) during stream synchronization.</td>
       <td class="tg-0pky">BFLOAT16, FLOAT16, FLOAT, DOUBLE</td>
       <td class="tg-0pky">ND</td>
       <td class="tg-0pky">(N, C) or (C), and the dimensions of self and out must be the same.</td>
