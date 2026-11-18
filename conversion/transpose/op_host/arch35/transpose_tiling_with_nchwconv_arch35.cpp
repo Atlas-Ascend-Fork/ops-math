@@ -13,8 +13,10 @@
  * \brief transpose_tiling_nchwconv_arch35
  */
 #include "transpose_tiling_with_nchwconv_arch35.h"
+#include "common/inc/op_host/math_log.h"
 
 namespace optiling {
+using namespace Transpose;
 namespace TransposeWithVCONV {
 static constexpr size_t SYS_WORKSPACE_SIZE = 0;
 static constexpr int64_t TRANSELEM = 16;
@@ -56,48 +58,52 @@ void TransposeVCONVTiling::CalcCSplitInfo()
 
 void TransposeVCONVTiling::FillBlockPara(CoreSplitPara& coreSplitPara, CoreSplitInfo& corePara)
 {
-    coreSplitPara.set_AlignBlockFactor(corePara.AlignBlockFactor);
-    coreSplitPara.set_BlockFactor(corePara.BlockFactor);
-    coreSplitPara.set_BlockCount(corePara.BlockCount);
-    coreSplitPara.set_AlignBlockTailFactor(corePara.AlignBlockTailFactor);
-    coreSplitPara.set_BlockTailFactor(corePara.BlockTailFactor);
+    coreSplitPara.AlignBlockFactor = corePara.AlignBlockFactor;
+    coreSplitPara.BlockFactor = corePara.BlockFactor;
+    coreSplitPara.BlockCount = corePara.BlockCount;
+    coreSplitPara.AlignBlockTailFactor = corePara.AlignBlockTailFactor;
+    coreSplitPara.BlockTailFactor = corePara.BlockTailFactor;
 }
 
 void TransposeVCONVTiling::FillUbPara(UbSplitPara& ubSplitPara, UbParamInfo& ubPara)
 {
-    ubSplitPara.set_MainCoreUbAlignFactor(ubPara.MainCoreUbAlignFactor);
-    ubSplitPara.set_MainCoreUbFactor(ubPara.MainCoreUbFactor);
-    ubSplitPara.set_MainCoreUbCount(ubPara.MainCoreUbCount);
-    ubSplitPara.set_MainCoreTailUbAlignFactor(ubPara.MainCoreTailUbAlignFactor);
-    ubSplitPara.set_MainCoreTailUbFactor(ubPara.MainCoreTailUbFactor);
-    ubSplitPara.set_TailCoreUbAlignFactor(ubPara.TailCoreUbAlignFactor);
-    ubSplitPara.set_TailCoreUbFactor(ubPara.TailCoreUbFactor);
-    ubSplitPara.set_TailCoreUbCount(ubPara.TailCoreUbCount);
-    ubSplitPara.set_TailCoreTailUbAlignFactor(ubPara.TailCoreTailUbAlignFactor);
-    ubSplitPara.set_TailCoreTailUbFactor(ubPara.TailCoreTailUbFactor);
+    ubSplitPara.MainCoreUbAlignFactor = ubPara.MainCoreUbAlignFactor;
+    ubSplitPara.MainCoreUbFactor = ubPara.MainCoreUbFactor;
+    ubSplitPara.MainCoreUbCount = ubPara.MainCoreUbCount;
+    ubSplitPara.MainCoreTailUbAlignFactor = ubPara.MainCoreTailUbAlignFactor;
+    ubSplitPara.MainCoreTailUbFactor = ubPara.MainCoreTailUbFactor;
+    ubSplitPara.TailCoreUbAlignFactor = ubPara.TailCoreUbAlignFactor;
+    ubSplitPara.TailCoreUbFactor = ubPara.TailCoreUbFactor;
+    ubSplitPara.TailCoreUbCount = ubPara.TailCoreUbCount;
+    ubSplitPara.TailCoreTailUbAlignFactor = ubPara.TailCoreTailUbAlignFactor;
+    ubSplitPara.TailCoreTailUbFactor = ubPara.TailCoreTailUbFactor;
 }
 
-void TransposeVCONVTiling::WriteTilingData()
+ge::graphStatus TransposeVCONVTiling::WriteTilingData()
 {
-    tiling_.set_AvailableUbSize(AvailableUbSize);
-    tiling_.set_UsedCoreNum(basicInfo_.UsedCoreNum);
-    tiling_.set_MainCoreLoopCount(basicInfo_.MainCoreLoopCount);
-    tiling_.set_TailCoreLoopCount(basicInfo_.TailCoreLoopCount);
-    tiling_.set_RLen(basicInfo_.RLen);
-    tiling_.set_CLen(basicInfo_.CLen);
-    tiling_.set_RAlignBlock(basicInfo_.RAlignBlock);
-    tiling_.set_CAlignBlock(basicInfo_.CAlignBlock);
-    tiling_.set_RAlignBlockElem(basicInfo_.RAlignBlockElem);
-    tiling_.set_CAlignBlockElem(basicInfo_.CAlignBlockElem);
-    tiling_.set_IsRSplit(basicInfo_.IsRSplit);
-    tiling_.set_IsRCSplit(basicInfo_.IsRCSplit);
-    FillBlockPara(tiling_.rSplitPara, rCoreSplitInfo_);
-    FillBlockPara(tiling_.cSplitPara, cCoreSplitInfo_);
-    FillUbPara(tiling_.rUbSplitPara, rUbParamInfo_);
-    FillUbPara(tiling_.cUbSplitPara, cUbParamInfo_);
+    TransposeVCONVTilingData* tiling = context_->GetTilingData<TransposeVCONVTilingData>();
+    if (tiling == nullptr) {
+        OP_LOGE(context_->GetNodeName(), "get tiling data failed, capacity is not enough!");
+        return ge::GRAPH_FAILED;
+    }
 
-    tiling_.SaveToBuffer(context_->GetRawTilingData()->GetData(), context_->GetRawTilingData()->GetCapacity());
-    context_->GetRawTilingData()->SetDataSize(tiling_.GetDataSize());
+    tiling->AvailableUbSize = AvailableUbSize;
+    tiling->UsedCoreNum = basicInfo_.UsedCoreNum;
+    tiling->MainCoreLoopCount = basicInfo_.MainCoreLoopCount;
+    tiling->TailCoreLoopCount = basicInfo_.TailCoreLoopCount;
+    tiling->RLen = basicInfo_.RLen;
+    tiling->CLen = basicInfo_.CLen;
+    tiling->RAlignBlock = basicInfo_.RAlignBlock;
+    tiling->CAlignBlock = basicInfo_.CAlignBlock;
+    tiling->RAlignBlockElem = basicInfo_.RAlignBlockElem;
+    tiling->CAlignBlockElem = basicInfo_.CAlignBlockElem;
+    tiling->IsRSplit = basicInfo_.IsRSplit;
+    tiling->IsRCSplit = basicInfo_.IsRCSplit;
+    FillBlockPara(tiling->rSplitPara, rCoreSplitInfo_);
+    FillBlockPara(tiling->cSplitPara, cCoreSplitInfo_);
+    FillUbPara(tiling->rUbSplitPara, rUbParamInfo_);
+    FillUbPara(tiling->cUbSplitPara, cUbParamInfo_);
+    return ge::GRAPH_SUCCESS;
 }
 
 void TransposeVCONVTiling::PrintTilingData()
@@ -350,7 +356,7 @@ ge::graphStatus TransposeVCONVTiling::DoTiling()
                 OP_LOGD(context_->GetNodeName(), "Stop to run vconv tiling, block_factor need split!"),
                 return ge::GRAPH_FAILED);
 
-    WriteTilingData();
+    CHECK_RET_SUCC(WriteTilingData());
     PrintTilingData();
     return SetTilingKeyAndCore();
 }

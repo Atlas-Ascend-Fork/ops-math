@@ -26,6 +26,8 @@
 
 namespace {
 
+using namespace Transpose;
+
 std::vector<int64_t> Shape2Vec(const int64_t* values, int64_t dim)
 {
     return std::vector<int64_t>(values, values + dim);
@@ -47,15 +49,13 @@ TEST(TransposeTilingAxis, RemoveSingletonAxes)
     TilingInfo tilingInfo;
     ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
     ASSERT_EQ(tilingInfo.tilingKey, 10001);
-    optiling::TransposeOpTilingData data(tilingInfo.tilingData.get());
-    ASSERT_EQ(tilingInfo.tilingDataSize, data.GetDataSize());
-    // permSize 是序列化数据的首字段；标量 getter 返回缓存值，因此直接读取原始数据。
-    int64_t permSize = 0;
-    std::memcpy(&permSize, tilingInfo.tilingData.get(), sizeof(permSize));
-    ASSERT_EQ(permSize, 3);
-    EXPECT_THAT(Shape2Vec(data.get_inputShape(), permSize), ::testing::ElementsAreArray({2, 3, 4}));
-    EXPECT_THAT(Shape2Vec(data.get_outputShape(), permSize), ::testing::ElementsAreArray({3, 2, 4}));
-    EXPECT_THAT(Shape2Vec(data.get_perm(), permSize), ::testing::ElementsAreArray({1, 0, 2}));
+    // TilingData 为 Host/Kernel 共用的纯 struct，可直接按结构体解读码流。
+    ASSERT_EQ(tilingInfo.tilingDataSize, sizeof(optiling::TransposeOpTilingData));
+    const auto* data = reinterpret_cast<const optiling::TransposeOpTilingData*>(tilingInfo.tilingData.get());
+    ASSERT_EQ(data->permSize, 3);
+    EXPECT_THAT(Shape2Vec(data->inputShape, data->permSize), ::testing::ElementsAreArray({2, 3, 4}));
+    EXPECT_THAT(Shape2Vec(data->outputShape, data->permSize), ::testing::ElementsAreArray({3, 2, 4}));
+    EXPECT_THAT(Shape2Vec(data->perm, data->permSize), ::testing::ElementsAreArray({1, 0, 2}));
 }
 
 TEST(TransposeTilingAxis, MergeContinuousAxes)
@@ -74,14 +74,12 @@ TEST(TransposeTilingAxis, MergeContinuousAxes)
     TilingInfo tilingInfo;
     ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
     ASSERT_EQ(tilingInfo.tilingKey, 10001);
-    optiling::TransposeOpTilingData data(tilingInfo.tilingData.get());
-    ASSERT_EQ(tilingInfo.tilingDataSize, data.GetDataSize());
-    int64_t permSize = 0;
-    std::memcpy(&permSize, tilingInfo.tilingData.get(), sizeof(permSize));
-    ASSERT_EQ(permSize, 3);
-    EXPECT_THAT(Shape2Vec(data.get_inputShape(), permSize), ::testing::ElementsAreArray({6, 20, 6}));
-    EXPECT_THAT(Shape2Vec(data.get_outputShape(), permSize), ::testing::ElementsAreArray({20, 6, 6}));
-    EXPECT_THAT(Shape2Vec(data.get_perm(), permSize), ::testing::ElementsAreArray({1, 0, 2}));
+    ASSERT_EQ(tilingInfo.tilingDataSize, sizeof(optiling::TransposeOpTilingData));
+    const auto* data = reinterpret_cast<const optiling::TransposeOpTilingData*>(tilingInfo.tilingData.get());
+    ASSERT_EQ(data->permSize, 3);
+    EXPECT_THAT(Shape2Vec(data->inputShape, data->permSize), ::testing::ElementsAreArray({6, 20, 6}));
+    EXPECT_THAT(Shape2Vec(data->outputShape, data->permSize), ::testing::ElementsAreArray({20, 6, 6}));
+    EXPECT_THAT(Shape2Vec(data->perm, data->permSize), ::testing::ElementsAreArray({1, 0, 2}));
 }
 
 using Shape = std::vector<int64_t>;
@@ -133,8 +131,8 @@ void ExpectOriginalUnchanged(const optiling::ShapeInfo& actual, const optiling::
     EXPECT_EQ(actual.eleLenInBytes, original.eleLenInBytes);
     EXPECT_EQ(actual.isLastAxisTranspose, original.isLastAxisTranspose);
     for (const auto* values : {&actual.reducedInShape, &actual.reducedOutShape, &actual.reducedPerm}) {
-        ASSERT_EQ(values->size(), TRANSPOSE_MAX_AXIS_NUM);
-        EXPECT_THAT(Shape2Vec(values->data() + original.origDim, TRANSPOSE_MAX_AXIS_NUM - original.origDim),
+        ASSERT_EQ(values->size(), TP_MAX_AXIS_NUM);
+        EXPECT_THAT(Shape2Vec(values->data() + original.origDim, TP_MAX_AXIS_NUM - original.origDim),
                     ::testing::Each(::testing::Eq(UNUSED_AXIS_VALUE)));
     }
 }
@@ -184,8 +182,8 @@ std::vector<AxisCase> RemoveCases()
          {7, 5, 3, 1, 6, 4, 2, 0},
          {9, 7, 5, 3, 8, 6, 4, 2}}};
     // 覆盖八个位置中任意一个轴保留的情形，perm 始终是合法的完整排列。
-    for (int64_t axis = 0; axis < TRANSPOSE_MAX_AXIS_NUM; ++axis) {
-        Shape input(TRANSPOSE_MAX_AXIS_NUM, 1);
+    for (int64_t axis = 0; axis < TP_MAX_AXIS_NUM; ++axis) {
+        Shape input(TP_MAX_AXIS_NUM, 1);
         input[axis] = 7;
         cases.push_back(
             {"OnlyAxis" + std::to_string(axis) + "Remains", input, {4, 0, 7, 2, 5, 1, 6, 3}, {7}, {0}, {7}});
@@ -381,7 +379,7 @@ TEST(TransposeAxisSemantics, AllPermutationsAndSingletonPatternsUpToFiveAxes)
 TEST(TransposeAxisSemantics, ReproducibleSixToEightAxisSamples)
 {
     std::mt19937 random(3510);
-    for (int64_t rank = 6; rank <= TRANSPOSE_MAX_AXIS_NUM; ++rank) {
+    for (int64_t rank = 6; rank <= TP_MAX_AXIS_NUM; ++rank) {
         for (int64_t sample = 0; sample < 64; ++sample) {
             Shape input(rank);
             Shape perm(rank);

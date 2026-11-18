@@ -29,6 +29,7 @@
 #include "transpose_tiling_arch35.h"
 
 namespace optiling {
+using namespace Transpose;
 namespace Transpose021WithVCONV {
 static constexpr int8_t BUFFER_NUM = 2;
 static constexpr int8_t NUM_TWO = 2;
@@ -36,35 +37,6 @@ static constexpr int64_t TRANSELEM = 16;
 static constexpr int64_t BLOCKELEM_8BIT = 32;
 static constexpr int64_t BLOCKELEM_16BIT = 16;
 static constexpr int64_t BLOCKELEM_32BIT = 8;
-
-BEGIN_TILING_DATA_DEF(Transpose021UbSplitPara)
-TILING_DATA_FIELD_DEF(int64_t, UbAlignFactor);
-TILING_DATA_FIELD_DEF(int64_t, UbFactor);
-TILING_DATA_FIELD_DEF(int64_t, UbCount);
-TILING_DATA_FIELD_DEF(int64_t, UbTailAlignFactor);
-TILING_DATA_FIELD_DEF(int64_t, UbTailFactor);
-END_TILING_DATA_DEF;
-REGISTER_TILING_DATA_CLASS(Transpose021UbSplitParaOp, Transpose021UbSplitPara);
-
-BEGIN_TILING_DATA_DEF(Transpose021VCONVTilingData)
-TILING_DATA_FIELD_DEF(int64_t, AvailableUbSize);
-TILING_DATA_FIELD_DEF(int64_t, UsedCoreNum);
-TILING_DATA_FIELD_DEF(int64_t, NLen);
-TILING_DATA_FIELD_DEF(int64_t, HLen);
-TILING_DATA_FIELD_DEF(int64_t, WLen);
-TILING_DATA_FIELD_DEF(int64_t, HAlignBlockElem);
-TILING_DATA_FIELD_DEF(int64_t, WAlignBlockElem);
-TILING_DATA_FIELD_DEF(int64_t, NPerCore);
-TILING_DATA_FIELD_DEF(int64_t, NTailCore);
-TILING_DATA_FIELD_DEF(int64_t, UbLoopCount);
-TILING_DATA_FIELD_DEF(bool, UseRConv);
-TILING_DATA_FIELD_DEF(bool, UseHSplit);
-TILING_DATA_FIELD_DEF(int64_t, HPerCore);
-TILING_DATA_FIELD_DEF(int64_t, HTailCore);
-TILING_DATA_FIELD_DEF_STRUCT(Transpose021UbSplitPara, rUbSplitPara);
-TILING_DATA_FIELD_DEF_STRUCT(Transpose021UbSplitPara, cUbSplitPara);
-END_TILING_DATA_DEF;
-REGISTER_TILING_DATA_CLASS(Transpose_10008, Transpose021VCONVTilingData);
 
 struct PlatInfo {
     int64_t coreNum = 0;
@@ -112,7 +84,7 @@ private:
     ge::graphStatus CalcUbSplitRConv();
     ge::graphStatus CalcUbSplitCConv();
     void FillUbPara(Transpose021UbSplitPara& ubSplitPara, UbParamInfo& ubPara);
-    void WriteTilingData();
+    ge::graphStatus WriteTilingData();
     ge::graphStatus SetTilingKeyAndCore();
 
     gert::TilingContext* context_ = nullptr;
@@ -121,7 +93,6 @@ private:
     BasicInfo basicInfo_;
     UbParamInfo rUbParamInfo_;
     UbParamInfo cUbParamInfo_;
-    Transpose021VCONVTilingData tiling_;
 };
 
 } // namespace Transpose021WithVCONV

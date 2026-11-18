@@ -48,11 +48,11 @@ public:
 
 private:
     __aicore__ inline void DecimalToMixed(int64_t num, int64_t bases[], int64_t mixedBase[]);
-    __aicore__ inline void SetLoopInfo(NdDmaLoopInfo<NDDMA_MAX_DIM_NUM>& loopInfo);
-    __aicore__ inline void CopyIn(int64_t loopIdx, NdDmaParams<T, NDDMA_MAX_DIM_NUM>& params);
+    __aicore__ inline void SetLoopInfo(NdDmaLoopInfo<TP_NDDMA_MAX_DIM_NUM>& loopInfo);
+    __aicore__ inline void CopyIn(int64_t loopIdx, NdDmaParams<T, TP_NDDMA_MAX_DIM_NUM>& params);
     __aicore__ inline void CopyOut(int64_t loopIdx, DataCopyExtParams& copyOutParams);
-    __aicore__ inline void ProcessPerCore(NdDmaParams<T, NDDMA_MAX_DIM_NUM>& paramsMain,
-                                          NdDmaParams<T, NDDMA_MAX_DIM_NUM>& paramsTail,
+    __aicore__ inline void ProcessPerCore(NdDmaParams<T, TP_NDDMA_MAX_DIM_NUM>& paramsMain,
+                                          NdDmaParams<T, TP_NDDMA_MAX_DIM_NUM>& paramsTail,
                                           DataCopyExtParams& copyOutParamsMain, DataCopyExtParams& copyOutParamsTail);
 
 private:
@@ -72,10 +72,10 @@ private:
     int64_t blkProcessIdxEnd_ = 0;
 
     // addressOffset params
-    int64_t dstAddressOffsetMixedBase_[TRANSPOSE_MAX_AXIS_NUM] = {1, 1, 1, 1, 1, 1, 1, 1};
-    int64_t dstAddressOffsetMixedBaseRes_[TRANSPOSE_MAX_AXIS_NUM] = {0, 0, 0, 0, 0, 0, 0, 0};
-    int64_t dstLoopStride_[TRANSPOSE_MAX_AXIS_NUM] = {1, 1, 1, 1, 1, 1, 1, 1};
-    int64_t srcLoopStride_[TRANSPOSE_MAX_AXIS_NUM] = {1, 1, 1, 1, 1, 1, 1, 1};
+    int64_t dstAddressOffsetMixedBase_[TP_MAX_AXIS_NUM] = {1, 1, 1, 1, 1, 1, 1, 1};
+    int64_t dstAddressOffsetMixedBaseRes_[TP_MAX_AXIS_NUM] = {0, 0, 0, 0, 0, 0, 0, 0};
+    int64_t dstLoopStride_[TP_MAX_AXIS_NUM] = {1, 1, 1, 1, 1, 1, 1, 1};
+    int64_t srcLoopStride_[TP_MAX_AXIS_NUM] = {1, 1, 1, 1, 1, 1, 1, 1};
 
     int64_t cutIdx_ = 0;
     int64_t bufferNum_ = 2;
@@ -118,10 +118,10 @@ __aicore__ inline void TransposeBigDim<T>::DecimalToMixed(int64_t num, int64_t b
  *   - nddmaFlag[i] == 0：该维在输出切分轴之前，大小为1（不参与循环）
  */
 template <typename T>
-__aicore__ inline void TransposeBigDim<T>::SetLoopInfo(NdDmaLoopInfo<NDDMA_MAX_DIM_NUM>& loopInfo)
+__aicore__ inline void TransposeBigDim<T>::SetLoopInfo(NdDmaLoopInfo<TP_NDDMA_MAX_DIM_NUM>& loopInfo)
 {
-    int64_t nddmaFlag[NDDMA_MAX_DIM_NUM] = {0};
-    for (int64_t i = 0; i < NDDMA_MAX_DIM_NUM; i++) {
+    int64_t nddmaFlag[TP_NDDMA_MAX_DIM_NUM] = {0};
+    for (int64_t i = 0; i < TP_NDDMA_MAX_DIM_NUM; i++) {
         if (tiling_->nddmaIdx[i] == tiling_->perm[tiling_->outCutIndex]) {
             nddmaFlag[i] = -1;
         }
@@ -132,20 +132,20 @@ __aicore__ inline void TransposeBigDim<T>::SetLoopInfo(NdDmaLoopInfo<NDDMA_MAX_D
         }
     }
 
-    for (int64_t i = NDDMA_MAX_DIM_NUM - 1; i >= 0; i--) {
-        if (nddmaFlag[NDDMA_MAX_DIM_NUM - 1 - i] == 1) {
-            loopInfo.loopSize[i] = tiling_->inputShape[tiling_->nddmaIdx[NDDMA_MAX_DIM_NUM - 1 - i]];
-            loopInfo.loopSrcStride[i] = tiling_->baseInShape[tiling_->nddmaIdx[NDDMA_MAX_DIM_NUM - 1 - i]];
-            loopInfo.loopDstStride[i] = tiling_->baseNddmaShape[NDDMA_MAX_DIM_NUM - 1 - i];
-        } else if (nddmaFlag[NDDMA_MAX_DIM_NUM - 1 - i] == -1) {
+    for (int64_t i = TP_NDDMA_MAX_DIM_NUM - 1; i >= 0; i--) {
+        if (nddmaFlag[TP_NDDMA_MAX_DIM_NUM - 1 - i] == 1) {
+            loopInfo.loopSize[i] = tiling_->inputShape[tiling_->nddmaIdx[TP_NDDMA_MAX_DIM_NUM - 1 - i]];
+            loopInfo.loopSrcStride[i] = tiling_->baseInShape[tiling_->nddmaIdx[TP_NDDMA_MAX_DIM_NUM - 1 - i]];
+            loopInfo.loopDstStride[i] = tiling_->baseNddmaShape[TP_NDDMA_MAX_DIM_NUM - 1 - i];
+        } else if (nddmaFlag[TP_NDDMA_MAX_DIM_NUM - 1 - i] == -1) {
             cutIdx_ = i;
             loopInfo.loopSize[i] = tiling_->outUbFactor; // not tail
-            loopInfo.loopSrcStride[i] = tiling_->baseInShape[tiling_->nddmaIdx[NDDMA_MAX_DIM_NUM - 1 - i]];
-            loopInfo.loopDstStride[i] = tiling_->baseNddmaShape[NDDMA_MAX_DIM_NUM - 1 - i];
+            loopInfo.loopSrcStride[i] = tiling_->baseInShape[tiling_->nddmaIdx[TP_NDDMA_MAX_DIM_NUM - 1 - i]];
+            loopInfo.loopDstStride[i] = tiling_->baseNddmaShape[TP_NDDMA_MAX_DIM_NUM - 1 - i];
         } else {
             loopInfo.loopSize[i] = 1;
             loopInfo.loopSrcStride[i] = 1;
-            loopInfo.loopDstStride[i] = tiling_->baseNddmaShape[NDDMA_MAX_DIM_NUM - 1 - i];
+            loopInfo.loopDstStride[i] = tiling_->baseNddmaShape[TP_NDDMA_MAX_DIM_NUM - 1 - i];
         }
 
         loopInfo.loopLpSize[i] = 0;
@@ -161,7 +161,7 @@ __aicore__ inline void TransposeBigDim<T>::Process()
         return;
     }
 
-    NdDmaLoopInfo<NDDMA_MAX_DIM_NUM> loopInfo;
+    NdDmaLoopInfo<TP_NDDMA_MAX_DIM_NUM> loopInfo;
     SetLoopInfo(loopInfo);
 
     // calculate blockCount
@@ -172,17 +172,17 @@ __aicore__ inline void TransposeBigDim<T>::Process()
     copyOutParamsTail.blockLen = tiling_->totalNddmaNum / tiling_->outUbFactor * tiling_->outTailFactor * sizeof(T);
 
     T constValue = 0;
-    NdDmaParams<T, NDDMA_MAX_DIM_NUM> paramsMain = {loopInfo, constValue};
+    NdDmaParams<T, TP_NDDMA_MAX_DIM_NUM> paramsMain = {loopInfo, constValue};
     if (tiling_->outTailFactor != 0) {
         loopInfo.loopSize[cutIdx_] = tiling_->outTailFactor;
-        loopInfo.loopDstStride[cutIdx_] = tiling_->baseNddmaShape[NDDMA_MAX_DIM_NUM - 1 - cutIdx_];
+        loopInfo.loopDstStride[cutIdx_] = tiling_->baseNddmaShape[TP_NDDMA_MAX_DIM_NUM - 1 - cutIdx_];
     }
-    NdDmaParams<T, NDDMA_MAX_DIM_NUM> paramsTail = {loopInfo, constValue};
+    NdDmaParams<T, TP_NDDMA_MAX_DIM_NUM> paramsTail = {loopInfo, constValue};
     ProcessPerCore(paramsMain, paramsTail, copyOutParamsMain, copyOutParamsTail);
 }
 
 template <typename T>
-__aicore__ inline void TransposeBigDim<T>::CopyIn(int64_t loopIdx, NdDmaParams<T, NDDMA_MAX_DIM_NUM>& params)
+__aicore__ inline void TransposeBigDim<T>::CopyIn(int64_t loopIdx, NdDmaParams<T, TP_NDDMA_MAX_DIM_NUM>& params)
 {
     int64_t srcAddressOffset = 0;
     DecimalToMixed(loopIdx, dstAddressOffsetMixedBase_, dstAddressOffsetMixedBaseRes_);
@@ -192,9 +192,9 @@ __aicore__ inline void TransposeBigDim<T>::CopyIn(int64_t loopIdx, NdDmaParams<T
     }
     LocalTensor<T> bindLocalIn = vecQue_.AllocTensor<T>();
 #if defined(__DAV_920R1__) || defined(__DAV_920R2__)
-    DataCopy<T, NDDMA_MAX_DIM_NUM, config>(bindLocalIn, inputGM_[srcAddressOffset], params, true);
+    DataCopy<T, TP_NDDMA_MAX_DIM_NUM, config>(bindLocalIn, inputGM_[srcAddressOffset], params, true);
 #else
-    DataCopy<T, NDDMA_MAX_DIM_NUM, config>(bindLocalIn, inputGM_[srcAddressOffset], params);
+    DataCopy<T, TP_NDDMA_MAX_DIM_NUM, config>(bindLocalIn, inputGM_[srcAddressOffset], params);
 #endif
     vecQue_.EnQue(bindLocalIn);
 }
@@ -212,8 +212,8 @@ __aicore__ inline void TransposeBigDim<T>::CopyOut(int64_t loopIdx, DataCopyExtP
 }
 
 template <typename T>
-__aicore__ inline void TransposeBigDim<T>::ProcessPerCore(NdDmaParams<T, NDDMA_MAX_DIM_NUM>& paramsMain,
-                                                          NdDmaParams<T, NDDMA_MAX_DIM_NUM>& paramsTail,
+__aicore__ inline void TransposeBigDim<T>::ProcessPerCore(NdDmaParams<T, TP_NDDMA_MAX_DIM_NUM>& paramsMain,
+                                                          NdDmaParams<T, TP_NDDMA_MAX_DIM_NUM>& paramsTail,
                                                           DataCopyExtParams& copyOutParamsMain,
                                                           DataCopyExtParams& copyOutParamsTail)
 {

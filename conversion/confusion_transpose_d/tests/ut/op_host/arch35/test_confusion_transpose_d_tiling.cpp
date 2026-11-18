@@ -32,9 +32,9 @@ protected:
 TEST_F(ConfusionTransposeDTilingTest, ConfusionTransposeDTiling_Not_Transpose_First)
 {
     // compile info
-    optiling::ConfusionTransposeDCompileInfo compileInfo;
-    compileInfo.transposeCompilerInfo.coreNum = 64;
-    compileInfo.transposeCompilerInfo.ubSize = 253952;
+    optiling::TransposeCompilerInfo compileInfo;
+    compileInfo.coreNum = 64;
+    compileInfo.ubSize = 253952;
 
     gert::TilingContextPara tilingContextPara(
         "ConfusionTransposeD",
@@ -57,10 +57,10 @@ TEST_F(ConfusionTransposeDTilingTest, ConfusionTransposeDTiling_Not_Transpose_Fi
 TEST_F(ConfusionTransposeDTilingTest, ConfusionTransposeDTiling_Transpose_First)
 {
     // compile info
-    optiling::ConfusionTransposeDCompileInfo compileInfo;
+    optiling::TransposeCompilerInfo compileInfo;
 
-    compileInfo.transposeCompilerInfo.coreNum = 64;
-    compileInfo.transposeCompilerInfo.ubSize = 253952;
+    compileInfo.coreNum = 64;
+    compileInfo.ubSize = 253952;
 
     gert::TilingContextPara tilingContextPara(
         "ConfusionTransposeD",
@@ -83,10 +83,10 @@ TEST_F(ConfusionTransposeDTilingTest, ConfusionTransposeDTiling_Transpose_First)
 TEST_F(ConfusionTransposeDTilingTest, ConfusionTransposeDTiling_Fail_01)
 {
     // compile info
-    optiling::ConfusionTransposeDCompileInfo compileInfo;
+    optiling::TransposeCompilerInfo compileInfo;
 
-    compileInfo.transposeCompilerInfo.coreNum = 64;
-    compileInfo.transposeCompilerInfo.ubSize = 253952;
+    compileInfo.coreNum = 64;
+    compileInfo.ubSize = 253952;
 
     gert::TilingContextPara tilingContextPara(
         "ConfusionTransposeD",
@@ -109,10 +109,10 @@ TEST_F(ConfusionTransposeDTilingTest, ConfusionTransposeDTiling_Fail_01)
 TEST_F(ConfusionTransposeDTilingTest, ConfusionTransposeDTiling_Fail_02)
 {
     // compile info
-    optiling::ConfusionTransposeDCompileInfo compileInfo;
+    optiling::TransposeCompilerInfo compileInfo;
 
-    compileInfo.transposeCompilerInfo.coreNum = 64;
-    compileInfo.transposeCompilerInfo.ubSize = 253952;
+    compileInfo.coreNum = 64;
+    compileInfo.ubSize = 253952;
 
     gert::TilingContextPara tilingContextPara(
         "ConfusionTransposeD",
@@ -135,10 +135,10 @@ TEST_F(ConfusionTransposeDTilingTest, ConfusionTransposeDTiling_Fail_02)
 TEST_F(ConfusionTransposeDTilingTest, ConfusionTransposeDTiling_Fail_03)
 {
     // compile info
-    optiling::ConfusionTransposeDCompileInfo compileInfo;
+    optiling::TransposeCompilerInfo compileInfo;
 
-    compileInfo.transposeCompilerInfo.coreNum = 64;
-    compileInfo.transposeCompilerInfo.ubSize = 253952;
+    compileInfo.coreNum = 64;
+    compileInfo.ubSize = 253952;
 
     gert::TilingContextPara tilingContextPara(
         "ConfusionTransposeD",
@@ -161,10 +161,10 @@ TEST_F(ConfusionTransposeDTilingTest, ConfusionTransposeDTiling_Fail_03)
 TEST_F(ConfusionTransposeDTilingTest, ConfusionTransposeDTiling_Fail_04)
 {
     // compile info
-    optiling::ConfusionTransposeDCompileInfo compileInfo;
+    optiling::TransposeCompilerInfo compileInfo;
 
-    compileInfo.transposeCompilerInfo.coreNum = 64;
-    compileInfo.transposeCompilerInfo.ubSize = 253952;
+    compileInfo.coreNum = 64;
+    compileInfo.ubSize = 253952;
 
     gert::TilingContextPara tilingContextPara(
         "ConfusionTransposeD",

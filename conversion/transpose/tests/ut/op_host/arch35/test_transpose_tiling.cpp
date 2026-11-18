@@ -14,7 +14,6 @@
  */
 
 #include <gtest/gtest.h>
-#include <cstring>
 #include <iostream>
 #include <vector>
 #include "tiling_context_faker.h"
@@ -24,6 +23,18 @@
 #include "../../../../op_host/arch35/transpose_tiling_arch35.h"
 
 using namespace ge;
+using namespace Transpose;
+
+/**
+ * @brief 断言 TilingData 码流大小并直接访问字段
+ *
+ * TilingData 已改为 Host/Kernel 共用的纯 struct，码流大小必须与结构体大小严格一致。
+ * 断言失败会直接退出当前用例，后续无需再做长度判断。
+ * 用法：GetTilingData(具体类型, tilingInfo, data);
+ */
+#define GetTilingData(T, tilingInfo, data)             \
+    ASSERT_EQ((tilingInfo).tilingDataSize, sizeof(T)); \
+    const auto* data = reinterpret_cast<const T*>((tilingInfo).tilingData.get())
 
 class TransposeTiling : public testing::Test {
 protected:
@@ -68,12 +79,12 @@ TEST_F(TransposeTiling, transpose_021vconv_float32_rconv)
     bool success = ExecuteTiling(tilingContextPara, tilingInfo);
     EXPECT_TRUE(success);
     if (success && tilingInfo.tilingKey == 10008) {
-        optiling::Transpose021WithVCONV::Transpose021VCONVTilingData tilingData(tilingInfo.tilingData.get());
-        EXPECT_EQ(tilingData.get_HLen(), 16);
-        EXPECT_EQ(tilingData.get_WLen(), 8);
-        EXPECT_EQ(tilingData.get_UseRConv(), true);
-        EXPECT_EQ(tilingData.get_HAlignBlockElem(), 16);
-        EXPECT_EQ(tilingData.get_WAlignBlockElem(), 8);
+        GetTilingData(Transpose021VCONVTilingData, tilingInfo, tilingData);
+        EXPECT_EQ(tilingData->HLen, 16);
+        EXPECT_EQ(tilingData->WLen, 8);
+        EXPECT_EQ(tilingData->UseRConv, true);
+        EXPECT_EQ(tilingData->HAlignBlockElem, 16);
+        EXPECT_EQ(tilingData->WAlignBlockElem, 8);
         std::vector<size_t> expectWorkspaces = {0};
         ASSERT_EQ(tilingInfo.workspaceSizes.size(), expectWorkspaces.size());
         for (size_t i = 0; i < expectWorkspaces.size(); i++) {
@@ -98,12 +109,12 @@ TEST_F(TransposeTiling, transpose_021vconv_float32_rconv_aligned_w)
     bool success = ExecuteTiling(tilingContextPara, tilingInfo);
     EXPECT_TRUE(success);
     if (success && tilingInfo.tilingKey == 10008) {
-        optiling::Transpose021WithVCONV::Transpose021VCONVTilingData tilingData(tilingInfo.tilingData.get());
-        EXPECT_EQ(tilingData.get_HLen(), 32);
-        EXPECT_EQ(tilingData.get_WLen(), 24);
-        EXPECT_EQ(tilingData.get_UseRConv(), true);
-        EXPECT_EQ(tilingData.get_HAlignBlockElem(), 32);
-        EXPECT_EQ(tilingData.get_WAlignBlockElem(), 24);
+        GetTilingData(Transpose021VCONVTilingData, tilingInfo, tilingData);
+        EXPECT_EQ(tilingData->HLen, 32);
+        EXPECT_EQ(tilingData->WLen, 24);
+        EXPECT_EQ(tilingData->UseRConv, true);
+        EXPECT_EQ(tilingData->HAlignBlockElem, 32);
+        EXPECT_EQ(tilingData->WAlignBlockElem, 24);
     }
 }
 
@@ -123,12 +134,12 @@ TEST_F(TransposeTiling, transpose_021vconv_float32_cconv)
     bool success = ExecuteTiling(tilingContextPara, tilingInfo);
     EXPECT_TRUE(success);
     if (success && tilingInfo.tilingKey == 10008) {
-        optiling::Transpose021WithVCONV::Transpose021VCONVTilingData tilingData(tilingInfo.tilingData.get());
-        EXPECT_EQ(tilingData.get_HLen(), 8);
-        EXPECT_EQ(tilingData.get_WLen(), 32);
-        EXPECT_EQ(tilingData.get_UseRConv(), false);
-        EXPECT_EQ(tilingData.get_HAlignBlockElem(), 16);
-        EXPECT_EQ(tilingData.get_WAlignBlockElem(), 32);
+        GetTilingData(Transpose021VCONVTilingData, tilingInfo, tilingData);
+        EXPECT_EQ(tilingData->HLen, 8);
+        EXPECT_EQ(tilingData->WLen, 32);
+        EXPECT_EQ(tilingData->UseRConv, false);
+        EXPECT_EQ(tilingData->HAlignBlockElem, 16);
+        EXPECT_EQ(tilingData->WAlignBlockElem, 32);
     }
 }
 
@@ -148,12 +159,12 @@ TEST_F(TransposeTiling, transpose_021vconv_int32_rconv)
     bool success = ExecuteTiling(tilingContextPara, tilingInfo);
     EXPECT_TRUE(success);
     if (success && tilingInfo.tilingKey == 10008) {
-        optiling::Transpose021WithVCONV::Transpose021VCONVTilingData tilingData(tilingInfo.tilingData.get());
-        EXPECT_EQ(tilingData.get_HLen(), 16);
-        EXPECT_EQ(tilingData.get_WLen(), 16);
-        EXPECT_EQ(tilingData.get_UseRConv(), true);
-        EXPECT_EQ(tilingData.get_HAlignBlockElem(), 16);
-        EXPECT_EQ(tilingData.get_WAlignBlockElem(), 16);
+        GetTilingData(Transpose021VCONVTilingData, tilingInfo, tilingData);
+        EXPECT_EQ(tilingData->HLen, 16);
+        EXPECT_EQ(tilingData->WLen, 16);
+        EXPECT_EQ(tilingData->UseRConv, true);
+        EXPECT_EQ(tilingData->HAlignBlockElem, 16);
+        EXPECT_EQ(tilingData->WAlignBlockElem, 16);
     }
 }
 
@@ -173,12 +184,12 @@ TEST_F(TransposeTiling, transpose_021vconv_int8_rconv)
     bool success = ExecuteTiling(tilingContextPara, tilingInfo);
     EXPECT_TRUE(success);
     if (success && tilingInfo.tilingKey == 10008) {
-        optiling::Transpose021WithVCONV::Transpose021VCONVTilingData tilingData(tilingInfo.tilingData.get());
-        EXPECT_EQ(tilingData.get_HLen(), 32);
-        EXPECT_EQ(tilingData.get_WLen(), 32);
-        EXPECT_EQ(tilingData.get_UseRConv(), true);
-        EXPECT_EQ(tilingData.get_HAlignBlockElem(), 32);
-        EXPECT_EQ(tilingData.get_WAlignBlockElem(), 32);
+        GetTilingData(Transpose021VCONVTilingData, tilingInfo, tilingData);
+        EXPECT_EQ(tilingData->HLen, 32);
+        EXPECT_EQ(tilingData->WLen, 32);
+        EXPECT_EQ(tilingData->UseRConv, true);
+        EXPECT_EQ(tilingData->HAlignBlockElem, 32);
+        EXPECT_EQ(tilingData->WAlignBlockElem, 32);
     }
 }
 
@@ -198,12 +209,12 @@ TEST_F(TransposeTiling, transpose_021vconv_uint8_rconv)
     bool success = ExecuteTiling(tilingContextPara, tilingInfo);
     EXPECT_TRUE(success);
     if (success && tilingInfo.tilingKey == 10008) {
-        optiling::Transpose021WithVCONV::Transpose021VCONVTilingData tilingData(tilingInfo.tilingData.get());
-        EXPECT_EQ(tilingData.get_HLen(), 64);
-        EXPECT_EQ(tilingData.get_WLen(), 32);
-        EXPECT_EQ(tilingData.get_UseRConv(), true);
-        EXPECT_EQ(tilingData.get_HAlignBlockElem(), 64);
-        EXPECT_EQ(tilingData.get_WAlignBlockElem(), 32);
+        GetTilingData(Transpose021VCONVTilingData, tilingInfo, tilingData);
+        EXPECT_EQ(tilingData->HLen, 64);
+        EXPECT_EQ(tilingData->WLen, 32);
+        EXPECT_EQ(tilingData->UseRConv, true);
+        EXPECT_EQ(tilingData->HAlignBlockElem, 64);
+        EXPECT_EQ(tilingData->WAlignBlockElem, 32);
     }
 }
 
@@ -243,12 +254,12 @@ TEST_F(TransposeTiling, transpose_021vconv_int8_cconv_hlen16_wlen128)
     bool success = ExecuteTiling(tilingContextPara, tilingInfo);
     EXPECT_TRUE(success);
     if (success && tilingInfo.tilingKey == 10008) {
-        optiling::Transpose021WithVCONV::Transpose021VCONVTilingData tilingData(tilingInfo.tilingData.get());
-        EXPECT_EQ(tilingData.get_HLen(), 16);
-        EXPECT_EQ(tilingData.get_WLen(), 128);
-        EXPECT_EQ(tilingData.get_UseRConv(), false);
-        EXPECT_EQ(tilingData.get_HAlignBlockElem(), 32);
-        EXPECT_EQ(tilingData.get_WAlignBlockElem(), 128);
+        GetTilingData(Transpose021VCONVTilingData, tilingInfo, tilingData);
+        EXPECT_EQ(tilingData->HLen, 16);
+        EXPECT_EQ(tilingData->WLen, 128);
+        EXPECT_EQ(tilingData->UseRConv, false);
+        EXPECT_EQ(tilingData->HAlignBlockElem, 32);
+        EXPECT_EQ(tilingData->WAlignBlockElem, 128);
     }
 }
 
@@ -268,12 +279,12 @@ TEST_F(TransposeTiling, transpose_021vconv_int8_cconv_hlen16_wlen64)
     bool success = ExecuteTiling(tilingContextPara, tilingInfo);
     EXPECT_TRUE(success);
     if (success && tilingInfo.tilingKey == 10008) {
-        optiling::Transpose021WithVCONV::Transpose021VCONVTilingData tilingData(tilingInfo.tilingData.get());
-        EXPECT_EQ(tilingData.get_HLen(), 16);
-        EXPECT_EQ(tilingData.get_WLen(), 64);
-        EXPECT_EQ(tilingData.get_UseRConv(), false);
-        EXPECT_EQ(tilingData.get_HAlignBlockElem(), 32);
-        EXPECT_EQ(tilingData.get_WAlignBlockElem(), 64);
+        GetTilingData(Transpose021VCONVTilingData, tilingInfo, tilingData);
+        EXPECT_EQ(tilingData->HLen, 16);
+        EXPECT_EQ(tilingData->WLen, 64);
+        EXPECT_EQ(tilingData->UseRConv, false);
+        EXPECT_EQ(tilingData->HAlignBlockElem, 32);
+        EXPECT_EQ(tilingData->WAlignBlockElem, 64);
     }
 }
 
@@ -581,7 +592,7 @@ TEST_F(TransposeTiling, transpose_tiling_fp16_3d_perm_021)
     EXPECT_TRUE(success);
 }
 
-// 5D NDDMA_BASE path, dim = 5 (<= NDDMA_MAX_DIM_NUM), last axis transposed, large shape
+// 5D NDDMA_BASE path, dim = 5 (<= TP_NDDMA_MAX_DIM_NUM), last axis transposed, large shape
 TEST_F(TransposeTiling, transpose_tiling_nddma_5d)
 {
     optiling::TransposeCompilerInfo compileInfo;
@@ -854,15 +865,13 @@ TEST_F(TransposeTiling, transpose_tiling_2d_transdata_route)
     EXPECT_TRUE(success);
     EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::TRANSPOSE_2D_TRANSDATA));
     EXPECT_EQ(tilingInfo.blockNum, 40U);
-    ASSERT_GE(tilingInfo.tilingDataSize, 5 * sizeof(int32_t));
-    int32_t tilingData[5] = {0};
-    std::memcpy(tilingData, tilingInfo.tilingData.get(), sizeof(tilingData));
-    EXPECT_EQ(tilingData[0], 512);
-    EXPECT_EQ(tilingData[1], 512);
-    EXPECT_EQ(tilingData[2], 40);
+    GetTilingData(Transpose2DTilingData, tilingInfo, tilingData);
+    EXPECT_EQ(tilingData->m, 512);
+    EXPECT_EQ(tilingData->n, 512);
+    EXPECT_EQ(tilingData->coreNum, 40);
     // m=512 > cap(256): tileM 取 256; 248KB UB 预算下 tileN 取最大 2 的幂次 128
-    EXPECT_EQ(tilingData[3], 256);
-    EXPECT_EQ(tilingData[4], 128);
+    EXPECT_EQ(tilingData->tileM, 256);
+    EXPECT_EQ(tilingData->tileN, 128);
 }
 
 // 2D perm [1, 0], fp16, m=16: tileM 跟随 m, 避免 tile 退化成 16x128 的 4KB 小块
@@ -882,13 +891,11 @@ TEST_F(TransposeTiling, transpose_tiling_2d_transdata_small_m_tile)
     bool success = ExecuteTiling(tilingContextPara, tilingInfo);
     EXPECT_TRUE(success);
     EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::TRANSPOSE_2D_TRANSDATA));
-    ASSERT_GE(tilingInfo.tilingDataSize, 5 * sizeof(int32_t));
-    int32_t tilingData[5] = {0};
-    std::memcpy(tilingData, tilingInfo.tilingData.get(), sizeof(tilingData));
-    EXPECT_EQ(tilingData[0], 16);
-    EXPECT_EQ(tilingData[1], 262144);
-    EXPECT_EQ(tilingData[3], 16);
-    EXPECT_EQ(tilingData[4], 1552);
+    GetTilingData(Transpose2DTilingData, tilingInfo, tilingData);
+    EXPECT_EQ(tilingData->m, 16);
+    EXPECT_EQ(tilingData->n, 262144);
+    EXPECT_EQ(tilingData->tileM, 16);
+    EXPECT_EQ(tilingData->tileN, 1552);
 }
 
 // 2D perm [1, 0], fp16, 窄列 (m=131072, n=16): 收起多余 tileN, 改为行方向切分,
@@ -909,13 +916,11 @@ TEST_F(TransposeTiling, transpose_tiling_2d_transdata_narrow_n_tile)
     bool success = ExecuteTiling(tilingContextPara, tilingInfo);
     EXPECT_TRUE(success);
     EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::TRANSPOSE_2D_TRANSDATA));
-    ASSERT_GE(tilingInfo.tilingDataSize, 5 * sizeof(int32_t));
-    int32_t tilingData[5] = {0};
-    std::memcpy(tilingData, tilingInfo.tilingData.get(), sizeof(tilingData));
-    EXPECT_EQ(tilingData[0], 131072);
-    EXPECT_EQ(tilingData[1], 16);
-    EXPECT_EQ(tilingData[3], 1648);
-    EXPECT_EQ(tilingData[4], 16);
+    GetTilingData(Transpose2DTilingData, tilingInfo, tilingData);
+    EXPECT_EQ(tilingData->m, 131072);
+    EXPECT_EQ(tilingData->n, 16);
+    EXPECT_EQ(tilingData->tileM, 1648);
+    EXPECT_EQ(tilingData->tileN, 16);
 }
 
 // 2D perm [1, 0], fp16, m/n 均 16 对齐但不是 tile 整数倍 (1040x1040):
@@ -936,15 +941,13 @@ TEST_F(TransposeTiling, transpose_tiling_2d_transdata_tail_tile)
     bool success = ExecuteTiling(tilingContextPara, tilingInfo);
     EXPECT_TRUE(success);
     EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::TRANSPOSE_2D_TRANSDATA));
-    ASSERT_GE(tilingInfo.tilingDataSize, 5 * sizeof(int32_t));
-    int32_t tilingData[5] = {0};
-    std::memcpy(tilingData, tilingInfo.tilingData.get(), sizeof(tilingData));
-    EXPECT_EQ(tilingData[0], 1040);
-    EXPECT_EQ(tilingData[1], 1040);
-    EXPECT_EQ(tilingData[2], 40);
+    GetTilingData(Transpose2DTilingData, tilingInfo, tilingData);
+    EXPECT_EQ(tilingData->m, 1040);
+    EXPECT_EQ(tilingData->n, 1040);
+    EXPECT_EQ(tilingData->coreNum, 40);
     // tileM=256 / tileN=128: 1040 既不是 256 也不是 128 的整数倍, 行/列均有尾块
-    EXPECT_EQ(tilingData[3], 256);
-    EXPECT_EQ(tilingData[4], 128);
+    EXPECT_EQ(tilingData->tileM, 256);
+    EXPECT_EQ(tilingData->tileN, 128);
 }
 
 // 2D perm [1, 0] 但 n 非 16 对齐: 10011 不适用, 回落主流程
@@ -1206,47 +1209,18 @@ TEST_F(TransposeTiling, transpose_tiling_small_3d_shape_absorb)
 //   2. UB out-of-bound safety validation with fallback to the original strategy
 //   3. CalcBlockSplitInfoForSmallShape 128B-aligned core split (CeilAlign/FloorAlign)
 //   4. TransposeGatherTiling MTE gate / bank conflict rejection split
-//
-// TransposeOpTilingData flat int64 field layout (CUT_ONCE/CUT_TWICE/SMALL_SHAPE keys):
-//   [0]permSize [1]inCutIndex [2]outCutIndex [3]inUbFactor [4]outUbFactor
-//   [5]inTailFactor [6]outTailFactor [7]realCoreNum [8]blkFactor [9]blkTailFactor
 // ============================================================================
-namespace transpose_tiling_detail {
-enum OpTilingFieldIdx {
-    IDX_PERM_SIZE = 0,
-    IDX_IN_CUT_INDEX = 1,
-    IDX_OUT_CUT_INDEX = 2,
-    IDX_IN_UB_FACTOR = 3,
-    IDX_OUT_UB_FACTOR = 4,
-    IDX_IN_TAIL_FACTOR = 5,
-    IDX_OUT_TAIL_FACTOR = 6,
-    IDX_REAL_CORE_NUM = 7,
-    IDX_BLK_FACTOR = 8,
-    IDX_BLK_TAIL_FACTOR = 9,
-};
-
-inline int64_t GetOpTilingField(const TilingInfo& tilingInfo, size_t idx)
+inline void ExpectSmallShapeCoverage(const TilingInfo& tilingInfo, const TransposeOpTilingData* opTiling,
+                                     int64_t totalElements, int64_t coreBudget, int64_t elementBytes)
 {
-    EXPECT_GE(tilingInfo.tilingDataSize, (idx + 1) * sizeof(int64_t));
-    int64_t value = 0;
-    if (tilingInfo.tilingDataSize >= (idx + 1) * sizeof(int64_t)) {
-        std::memcpy(&value, tilingInfo.tilingData.get() + idx * sizeof(int64_t), sizeof(int64_t));
-    }
-    return value;
-}
-
-inline void ExpectSmallShapeCoverage(const TilingInfo& tilingInfo, int64_t totalElements, int64_t coreBudget,
-                                     int64_t elementBytes)
-{
+    ASSERT_NE(opTiling, nullptr);
     ASSERT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::SMALL_SHAPE));
-    ASSERT_NE(tilingInfo.tilingData, nullptr);
-    ASSERT_GE(tilingInfo.tilingDataSize, (IDX_BLK_TAIL_FACTOR + 1) * sizeof(int64_t));
-    const int64_t realCoreNum = GetOpTilingField(tilingInfo, IDX_REAL_CORE_NUM);
-    const int64_t blkFactor = GetOpTilingField(tilingInfo, IDX_BLK_FACTOR);
-    const int64_t blkTailFactor = GetOpTilingField(tilingInfo, IDX_BLK_TAIL_FACTOR);
+    const int64_t realCoreNum = opTiling->realCoreNum;
+    const int64_t blkFactor = opTiling->blkFactor;
+    const int64_t blkTailFactor = opTiling->blkTailFactor;
     ASSERT_GT(realCoreNum, 0);
     EXPECT_LE(realCoreNum, coreBudget);
-    EXPECT_EQ(tilingInfo.blockNum, realCoreNum);
+    EXPECT_EQ(tilingInfo.blockNum, static_cast<uint64_t>(realCoreNum));
     ASSERT_GT(blkFactor, 0);
     ASSERT_GE(blkTailFactor, 0);
     ASSERT_LT(blkTailFactor, blkFactor);
@@ -1256,7 +1230,6 @@ inline void ExpectSmallShapeCoverage(const TilingInfo& tilingInfo, int64_t total
     const int64_t lastBlockElements = blkTailFactor == 0 ? blkFactor : blkTailFactor;
     EXPECT_EQ((realCoreNum - 1) * blkFactor + lastBlockElements, totalElements);
 }
-} // namespace transpose_tiling_detail
 
 // Absorption success: [4000, 7000, 8] perm [1, 0, 2] with 248K UB. The sqrt budget (251)
 // cannot hold axis 1 (7000) after swallowing axis 2, so the original strategy cuts axis 1
@@ -1280,9 +1253,10 @@ TEST_F(TransposeTiling, transpose_tiling_absorb_promote_3d_to_cut_once)
     bool success = ExecuteTiling(tilingContextPara, tilingInfo);
     EXPECT_TRUE(success);
     EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::CUT_ONCE));
-    EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_PERM_SIZE), 3);
-    EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_IN_CUT_INDEX), 0);
-    EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_IN_UB_FACTOR), 1);
+    GetTilingData(TransposeOpTilingData, tilingInfo, data);
+    EXPECT_EQ(data->permSize, 3);
+    EXPECT_EQ(data->inCutIndex, 0);
+    EXPECT_EQ(data->inUbFactor, 1);
 }
 
 // Absorption CUT_ONCE rejected by the UB safety validation: [8000, 256, 8] perm [1, 0, 2].
@@ -1307,10 +1281,11 @@ TEST_F(TransposeTiling, transpose_tiling_absorb_validation_fail_3d_revert_to_cut
     bool success = ExecuteTiling(tilingContextPara, tilingInfo);
     EXPECT_TRUE(success);
     EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::CUT_TWICE));
-    EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_IN_CUT_INDEX), 1);
-    EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_IN_UB_FACTOR), 31);
-    EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_OUT_CUT_INDEX), 1);
-    EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_OUT_UB_FACTOR), 217);
+    GetTilingData(TransposeOpTilingData, tilingInfo, data);
+    EXPECT_EQ(data->inCutIndex, 1);
+    EXPECT_EQ(data->inUbFactor, 31);
+    EXPECT_EQ(data->outCutIndex, 1);
+    EXPECT_EQ(data->outUbFactor, 217);
 }
 
 // Absorption budget rejection: axis 1 (100000) of [512, 100000, 8] exceeds the full remaining
@@ -1333,12 +1308,13 @@ TEST_F(TransposeTiling, transpose_tiling_absorb_full_budget_reject_keeps_cut_twi
     bool success = ExecuteTiling(tilingContextPara, tilingInfo);
     EXPECT_TRUE(success);
     EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::CUT_TWICE));
+    GetTilingData(TransposeOpTilingData, tilingInfo, data);
     // The original strategy splits axis 1 with inUbFactor = 251 / 8 = 31; the retry cannot
     // swallow axis 1 (100000 > 7936), so the reverted split info is identical to the original.
-    EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_IN_CUT_INDEX), 1);
-    EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_IN_UB_FACTOR), 31);
-    EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_OUT_CUT_INDEX), 1);
-    EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_OUT_UB_FACTOR), 256);
+    EXPECT_EQ(data->inCutIndex, 1);
+    EXPECT_EQ(data->inUbFactor, 31);
+    EXPECT_EQ(data->outCutIndex, 1);
+    EXPECT_EQ(data->outUbFactor, 256);
 }
 
 // Absorption succeeded in the retry but the result is still CUT_TWICE: [3000, 900, 500, 6]
@@ -1364,11 +1340,12 @@ TEST_F(TransposeTiling, transpose_tiling_absorb_still_cut_twice_reverts_original
     bool success = ExecuteTiling(tilingContextPara, tilingInfo);
     EXPECT_TRUE(success);
     EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::CUT_TWICE));
+    GetTilingData(TransposeOpTilingData, tilingInfo, data);
     // If the revert to originalResult were broken, the absorbed retry would leave the input
     // cut on axis 1 (inCutIndex=1, inUbFactor=21) instead of the original axis 2 split.
-    EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_PERM_SIZE), 4);
-    EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_IN_CUT_INDEX), 2);
-    EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_IN_UB_FACTOR), 41);
+    EXPECT_EQ(data->permSize, 4);
+    EXPECT_EQ(data->inCutIndex, 2);
+    EXPECT_EQ(data->inUbFactor, 41);
 }
 
 // SMALL_SHAPE with fp32 total elements (28) below the 128B alignment unit (128/4=32):
@@ -1390,11 +1367,11 @@ TEST_F(TransposeTiling, transpose_tiling_small_shape_fp32_below_align_single_cor
     bool success = ExecuteTiling(tilingContextPara, tilingInfo);
     EXPECT_TRUE(success);
     EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::SMALL_SHAPE));
-    EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_REAL_CORE_NUM), 1);
-    EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_BLK_FACTOR), 28);
-    EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_BLK_TAIL_FACTOR), 0);
-    ASSERT_NO_FATAL_FAILURE(
-        transpose_tiling_detail::ExpectSmallShapeCoverage(tilingInfo, 4 * 7, compileInfo.coreNum, 4));
+    GetTilingData(TransposeOpTilingData, tilingInfo, data);
+    EXPECT_EQ(data->realCoreNum, 1);
+    EXPECT_EQ(data->blkFactor, 28);
+    EXPECT_EQ(data->blkTailFactor, 0);
+    ASSERT_NO_FATAL_FAILURE(ExpectSmallShapeCoverage(tilingInfo, data, 4 * 7, compileInfo.coreNum, 4));
 }
 
 // SMALL_SHAPE with int8: 20*6=120 elements < alignment unit (128/1=128) -> single core,
@@ -1415,9 +1392,10 @@ TEST_F(TransposeTiling, transpose_tiling_small_shape_int8_below_align_single_cor
     bool success = ExecuteTiling(tilingContextPara, tilingInfo);
     EXPECT_TRUE(success);
     EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::SMALL_SHAPE));
-    EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_REAL_CORE_NUM), 1);
-    EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_BLK_FACTOR), 120);
-    EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_BLK_TAIL_FACTOR), 0);
+    GetTilingData(TransposeOpTilingData, tilingInfo, data);
+    EXPECT_EQ(data->realCoreNum, 1);
+    EXPECT_EQ(data->blkFactor, 120);
+    EXPECT_EQ(data->blkTailFactor, 0);
 }
 
 // SMALL_SHAPE with fp16 [5, 8] (shape[0] <= 5 keeps the 2D VCONV path off): 40 elements is
@@ -1438,9 +1416,10 @@ TEST_F(TransposeTiling, transpose_tiling_small_shape_fp16_below_align_single_cor
     bool success = ExecuteTiling(tilingContextPara, tilingInfo);
     EXPECT_TRUE(success);
     EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::SMALL_SHAPE));
-    EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_REAL_CORE_NUM), 1);
-    EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_BLK_FACTOR), 40);
-    EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_BLK_TAIL_FACTOR), 0);
+    GetTilingData(TransposeOpTilingData, tilingInfo, data);
+    EXPECT_EQ(data->realCoreNum, 1);
+    EXPECT_EQ(data->blkFactor, 40);
+    EXPECT_EQ(data->blkTailFactor, 0);
 }
 
 // SMALL_SHAPE floor-align branch: [256, 150, 4] fp32 -> 153600 elements, blkFactor=3200 is
@@ -1462,11 +1441,11 @@ TEST_F(TransposeTiling, transpose_tiling_small_shape_floor_align_full_cores)
     bool success = ExecuteTiling(tilingContextPara, tilingInfo);
     EXPECT_TRUE(success);
     EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::SMALL_SHAPE));
-    EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_REAL_CORE_NUM), 48);
-    EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_BLK_FACTOR), 3200);
-    EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_BLK_TAIL_FACTOR), 0);
-    ASSERT_NO_FATAL_FAILURE(
-        transpose_tiling_detail::ExpectSmallShapeCoverage(tilingInfo, 256 * 150 * 4, compileInfo.coreNum, 4));
+    GetTilingData(TransposeOpTilingData, tilingInfo, data);
+    EXPECT_EQ(data->realCoreNum, 48);
+    EXPECT_EQ(data->blkFactor, 3200);
+    EXPECT_EQ(data->blkTailFactor, 0);
+    ASSERT_NO_FATAL_FAILURE(ExpectSmallShapeCoverage(tilingInfo, data, 256 * 150 * 4, compileInfo.coreNum, 4));
 }
 
 TEST_F(TransposeTiling, transpose_tiling_small_shape_core_budget_with_tail)
@@ -1484,13 +1463,13 @@ TEST_F(TransposeTiling, transpose_tiling_small_shape_core_budget_with_tail)
 
     TilingInfo tilingInfo;
     ASSERT_TRUE(ExecuteTiling(contextPara, tilingInfo));
-    ASSERT_NO_FATAL_FAILURE(
-        transpose_tiling_detail::ExpectSmallShapeCoverage(tilingInfo, 2 * 9601 * 8, compileInfo.coreNum, 4));
+    EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::SMALL_SHAPE));
+    GetTilingData(TransposeOpTilingData, tilingInfo, data);
+    ASSERT_NO_FATAL_FAILURE(ExpectSmallShapeCoverage(tilingInfo, data, 2 * 9601 * 8, compileInfo.coreNum, 4));
     EXPECT_EQ(tilingInfo.blockNum, 48);
-    EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_REAL_CORE_NUM), 48);
-    EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_BLK_FACTOR), 3232);
-    EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_BLK_TAIL_FACTOR),
-              1712);
+    EXPECT_EQ(data->realCoreNum, 48);
+    EXPECT_EQ(data->blkFactor, 3232);
+    EXPECT_EQ(data->blkTailFactor, 1712);
 }
 
 TEST_F(TransposeTiling, transpose_tiling_small_shape_core_budget_dtypes_and_limits)
@@ -1527,13 +1506,13 @@ TEST_F(TransposeTiling, transpose_tiling_small_shape_core_budget_dtypes_and_limi
                                             compileInfo.ubSize);
         TilingInfo tilingInfo;
         ASSERT_TRUE(ExecuteTiling(contextPara, tilingInfo));
-        ASSERT_NO_FATAL_FAILURE(transpose_tiling_detail::ExpectSmallShapeCoverage(
-            tilingInfo, 2 * testCase.middleDim * testCase.lastDim, testCase.coreBudget, testCase.elementBytes));
+        EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::SMALL_SHAPE));
+        GetTilingData(TransposeOpTilingData, tilingInfo, data);
+        ASSERT_NO_FATAL_FAILURE(ExpectSmallShapeCoverage(tilingInfo, data, 2 * testCase.middleDim * testCase.lastDim,
+                                                         testCase.coreBudget, testCase.elementBytes));
         EXPECT_EQ(tilingInfo.blockNum, testCase.realCoreNum);
-        EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_BLK_FACTOR),
-                  testCase.blkFactor);
-        EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_BLK_TAIL_FACTOR),
-                  testCase.blkTailFactor);
+        EXPECT_EQ(data->blkFactor, testCase.blkFactor);
+        EXPECT_EQ(data->blkTailFactor, testCase.blkTailFactor);
     }
 }
 
@@ -1557,10 +1536,10 @@ TEST_F(TransposeTiling, transpose_tiling_small_shape_ceil_align_reduced_cores)
     bool success = ExecuteTiling(tilingContextPara, tilingInfo);
     EXPECT_TRUE(success);
     EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::SMALL_SHAPE));
-    EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_REAL_CORE_NUM), 48);
-    EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_BLK_FACTOR), 3360);
-    EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_BLK_TAIL_FACTOR),
-              2080);
+    GetTilingData(TransposeOpTilingData, tilingInfo, data);
+    EXPECT_EQ(data->realCoreNum, 48);
+    EXPECT_EQ(data->blkFactor, 3360);
+    EXPECT_EQ(data->blkTailFactor, 2080);
 }
 
 // SMALL_SHAPE ceil-align with fp16 alignment unit 64: [16, 60, 4] fp16 -> 3840 elements,
@@ -1582,9 +1561,10 @@ TEST_F(TransposeTiling, transpose_tiling_small_shape_fp16_ceil_align)
     bool success = ExecuteTiling(tilingContextPara, tilingInfo);
     EXPECT_TRUE(success);
     EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::SMALL_SHAPE));
-    EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_REAL_CORE_NUM), 30);
-    EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_BLK_FACTOR), 128);
-    EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_BLK_TAIL_FACTOR), 0);
+    GetTilingData(TransposeOpTilingData, tilingInfo, data);
+    EXPECT_EQ(data->realCoreNum, 30);
+    EXPECT_EQ(data->blkFactor, 128);
+    EXPECT_EQ(data->blkTailFactor, 0);
 }
 
 // SMALL_SHAPE with fp64 [3, 5]: 15 elements is below the fp64 alignment unit (128/8=16),
@@ -1605,9 +1585,10 @@ TEST_F(TransposeTiling, transpose_tiling_small_shape_fp64_below_align_single_cor
     bool success = ExecuteTiling(tilingContextPara, tilingInfo);
     EXPECT_TRUE(success);
     EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::SMALL_SHAPE));
-    EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_REAL_CORE_NUM), 1);
-    EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_BLK_FACTOR), 15);
-    EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_BLK_TAIL_FACTOR), 0);
+    GetTilingData(TransposeOpTilingData, tilingInfo, data);
+    EXPECT_EQ(data->realCoreNum, 1);
+    EXPECT_EQ(data->blkFactor, 15);
+    EXPECT_EQ(data->blkTailFactor, 0);
 }
 
 // Gather rejected, NDDMA fallback: [1000000, 3] perm [1, 0] (12MB, above the small-shape
@@ -1676,6 +1657,7 @@ TEST_F(TransposeTiling, transpose_tiling_absorb_3d_slack_window_cut_once)
     bool success = ExecuteTiling(tilingContextPara, tilingInfo);
     EXPECT_TRUE(success);
     EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::CUT_ONCE));
-    EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_IN_CUT_INDEX), 0);
-    EXPECT_EQ(transpose_tiling_detail::GetOpTilingField(tilingInfo, transpose_tiling_detail::IDX_IN_UB_FACTOR), 1);
+    GetTilingData(TransposeOpTilingData, tilingInfo, data);
+    EXPECT_EQ(data->inCutIndex, 0);
+    EXPECT_EQ(data->inUbFactor, 1);
 }

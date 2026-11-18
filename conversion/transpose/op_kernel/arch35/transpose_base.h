@@ -23,22 +23,21 @@
 #include "kernel_operator.h"
 #include "op_kernel/platform_util.h"
 #include "op_kernel/math_util.h"
+#include "transpose_tiling_data.h"
 
 namespace Transpose {
 using namespace AscendC;
 
 /* 以下常量定义了 Transpose Kernel 侧的核心约束参数 */
-constexpr int64_t TRANSPOSE_MAX_AXIS_NUM = 8; // 最大支持维度数（与 Host 侧 TRANSPOSE_MAX_AXIS_NUM 一致）
-constexpr int64_t NDDMA_MAX_DIM_NUM = 5;      // NDDMA 硬件支持的最大维度数（5维搬运格式）
-constexpr int64_t BLOCK_SIZE_BYTE = 32;       // 硬件 Block 大小（32字节），所有 UB 对齐以此为单位
-constexpr int64_t DIM_TWO = 2;                // 维度常量：2维
-constexpr int64_t DIM_THREE = 3;              // 维度常量：3维
-constexpr int64_t DIM_FOUR = 4;               // 维度常量：4维
-constexpr int64_t DIM_FIVE = 5;               // 维度常量：5维
-constexpr int64_t DIM_SIX = 6;                // 维度常量：6维
-constexpr int64_t DIM_SEVEN = 7;              // 维度常量：7维
-constexpr int64_t DIM_EIGHT = 8;              // 维度常量：8维
-constexpr NdDmaConfig config = {false, 0, 0, false}; // NDDMA DataCopy 默认配置（非重复模式）
+constexpr int64_t BLOCK_SIZE_BYTE = Ops::Base::GetUbBlockSize(); // 硬件 Block 大小
+constexpr int64_t DIM_TWO = 2;                                   // 维度常量：2维
+constexpr int64_t DIM_THREE = 3;                                 // 维度常量：3维
+constexpr int64_t DIM_FOUR = 4;                                  // 维度常量：4维
+constexpr int64_t DIM_FIVE = 5;                                  // 维度常量：5维
+constexpr int64_t DIM_SIX = 6;                                   // 维度常量：6维
+constexpr int64_t DIM_SEVEN = 7;                                 // 维度常量：7维
+constexpr int64_t DIM_EIGHT = 8;                                 // 维度常量：8维
+constexpr NdDmaConfig config = {false, 0, 0, false};             // NDDMA DataCopy 默认配置（非重复模式）
 constexpr int64_t TWO = 2;
 constexpr int64_t BUFFER_NUM = 2; // 双缓冲数量，用于 TENSOR_MOVE 和 N_LAST 策略
 
@@ -76,11 +75,11 @@ protected:
     template <typename T1>
     __aicore__ inline void reverseArray(T1 array[])
     {
-        for (uint8_t i = 0; i < NDDMA_MAX_DIM_NUM / 2; i++) {
+        for (uint8_t i = 0; i < TP_NDDMA_MAX_DIM_NUM / 2; i++) {
             // 保留数组元素类型，避免截断 64 位源步长。
             T1 temp = array[i];
-            array[i] = array[NDDMA_MAX_DIM_NUM - 1 - i];
-            array[NDDMA_MAX_DIM_NUM - 1 - i] = temp;
+            array[i] = array[TP_NDDMA_MAX_DIM_NUM - 1 - i];
+            array[TP_NDDMA_MAX_DIM_NUM - 1 - i] = temp;
         }
     };
 };

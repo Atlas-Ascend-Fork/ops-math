@@ -31,49 +31,10 @@
 #include "transpose_tiling_arch35.h"
 
 namespace optiling {
+using namespace Transpose;
 namespace TransWithGather {
-constexpr int8_t MAX_TRANS_AXIS_NUM = 8;
-constexpr int8_t UB_MAX_DIM_NUM = 6;
 constexpr int8_t UB_MAX_BRW_NUM = 3;
 constexpr int32_t MTE_GATE = 16 * 1024;
-
-BEGIN_TILING_DATA_DEF(GatherTransposeTilingData)
-TILING_DATA_FIELD_DEF(uint64_t, tilingKey);
-TILING_DATA_FIELD_DEF(uint32_t, dataTensorSize);  // unit is B
-TILING_DATA_FIELD_DEF(uint32_t, indexTensorSize); // unit is B
-TILING_DATA_FIELD_DEF(uint32_t, usedCoreCnt);
-TILING_DATA_FIELD_DEF(int8_t, blkAxesCnt);
-TILING_DATA_FIELD_DEF(int8_t, blkInUbCutPos);
-TILING_DATA_FIELD_DEF(int8_t, blkOutUbCutPos);
-TILING_DATA_FIELD_DEF(int8_t, ubAxesCnt);
-TILING_DATA_FIELD_DEF(int8_t, inUbInCutPos);
-TILING_DATA_FIELD_DEF(int8_t, inUbOutCutPos);
-TILING_DATA_FIELD_DEF(int8_t, outUbInCutPos);
-TILING_DATA_FIELD_DEF(int8_t, outUbOutCutPos);
-
-TILING_DATA_FIELD_DEF(int64_t, blkFactor);
-TILING_DATA_FIELD_DEF(int64_t, blkTailFactor);
-
-TILING_DATA_FIELD_DEF(int64_t, inUbCutAxisSize);
-TILING_DATA_FIELD_DEF(int64_t, outUbCutAxisSize);
-TILING_DATA_FIELD_DEF(int32_t, inUbCutAxisFactor);
-TILING_DATA_FIELD_DEF(int32_t, outUbCutAxisFactor);
-TILING_DATA_FIELD_DEF(int64_t, axis0InSrcStride);
-TILING_DATA_FIELD_DEF(int64_t, axis1InSrcStride);
-TILING_DATA_FIELD_DEF(int64_t, axis2InSrcStride);
-TILING_DATA_FIELD_DEF(int64_t, axis0OutDstStride);
-TILING_DATA_FIELD_DEF(int64_t, axis1OutDstStride);
-TILING_DATA_FIELD_DEF(int64_t, axis2OutDstStride);
-
-TILING_DATA_FIELD_DEF_ARR(int64_t, MAX_TRANS_AXIS_NUM, blkAxes);
-TILING_DATA_FIELD_DEF_ARR(int64_t, MAX_TRANS_AXIS_NUM, blkAxesInAOffset);
-TILING_DATA_FIELD_DEF_ARR(int64_t, MAX_TRANS_AXIS_NUM, blkAxesOutAOffset);
-TILING_DATA_FIELD_DEF_ARR(int32_t, UB_MAX_DIM_NUM, inUbAxes);
-TILING_DATA_FIELD_DEF_ARR(int32_t, UB_MAX_DIM_NUM, outUbAxes);
-TILING_DATA_FIELD_DEF_ARR(int8_t, UB_MAX_DIM_NUM, ubPerm);
-END_TILING_DATA_DEF;
-
-REGISTER_TILING_DATA_CLASS(Transpose_10006, GatherTransposeTilingData);
 
 struct PlatInfo {
     int64_t coreNum = 0;
@@ -87,7 +48,7 @@ struct PlatInfo {
  *
  * 记录进入 UB 的轴尺寸、切分轴因子、MTE 搬运跨步等
  *
- *   inUbAxes/outUbAxes：UB 内输入/输出各轴尺寸（最多 UB_MAX_DIM_NUM=6 维）
+ *   inUbAxes/outUbAxes：UB 内输入/输出各轴尺寸（最多 TP_GATHER_UB_MAX_DIM_NUM=6 维）
  *   ubPerm：UB 内轴的排列顺序（索引=allUbPerm 中的序号）
  *   inUbCutAxisSize/outUbCutAxisSize：输入/输出切分轴完整尺寸
  *   inUbCutAxisFactor/outUbCutAxisFactor：切分轴主块因子
@@ -108,9 +69,9 @@ struct UbSplitInfo {
     int32_t inUbCutAxisFactor = 1;
     int32_t outUbCutAxisFactor = 1;
     // for count gather index
-    int32_t inUbAxes[UB_MAX_DIM_NUM] = {1, 1, 1, 1, 1, 1}; // maybe changed accorrding to MTE2
-    int32_t outUbAxes[UB_MAX_DIM_NUM] = {1, 1, 1, 1, 1, 1};
-    int8_t ubPerm[UB_MAX_DIM_NUM] = {0xf, 0xf, 0xf, 0xf, 0xf, 0xf}; // maybe changed accorrding to MTE2
+    int32_t inUbAxes[TP_GATHER_UB_MAX_DIM_NUM] = {1, 1, 1, 1, 1, 1}; // maybe changed accorrding to MTE2
+    int32_t outUbAxes[TP_GATHER_UB_MAX_DIM_NUM] = {1, 1, 1, 1, 1, 1};
+    int8_t ubPerm[TP_GATHER_UB_MAX_DIM_NUM] = {0xf, 0xf, 0xf, 0xf, 0xf, 0xf}; // maybe changed accorrding to MTE2
     int8_t ubAxesCnt = 0;
     // for update inUbAxes and outUbAxes
     int8_t inUbInCutPos = 0;  // include right offset to be move in burst length
@@ -132,9 +93,9 @@ struct UbSplitInfo {
  *     （kernel UpdateUbAxes 据此切换 main/tail 与 gather 索引 phase）
  */
 struct BlockSplitInfo {
-    int64_t blkAxes[MAX_TRANS_AXIS_NUM] = {1, 1, 1, 1, 1, 1, 1, 1};
-    int64_t blkAxesInAOffset[MAX_TRANS_AXIS_NUM] = {1, 1, 1, 1, 1, 1, 1, 1};
-    int64_t blkAxesOutAOffset[MAX_TRANS_AXIS_NUM] = {1, 1, 1, 1, 1, 1, 1, 1};
+    int64_t blkAxes[TP_GATHER_MAX_AXIS_NUM] = {1, 1, 1, 1, 1, 1, 1, 1};
+    int64_t blkAxesInAOffset[TP_GATHER_MAX_AXIS_NUM] = {1, 1, 1, 1, 1, 1, 1, 1};
+    int64_t blkAxesOutAOffset[TP_GATHER_MAX_AXIS_NUM] = {1, 1, 1, 1, 1, 1, 1, 1};
     int64_t blkFactor = 1;
     int64_t blkTailFactor = 0;
     uint32_t usedCoreCnt = 0;
@@ -170,11 +131,12 @@ private:
                                      int64_t inSavedElems, int64_t elemPerBlock);
     void CalcUbCutFactorOutLeftOnly(int64_t elemInTensor, int64_t maxCutAxisSize, int64_t maxOutCutAxisSize);
     void CalcUbCutFactorInLeftOnly(int64_t elemInTensor, int64_t maxCutAxisSize);
-    ge::graphStatus CalcUbAxesInfo(const int64_t (&tmpInAxes)[MAX_TRANS_AXIS_NUM],
-                                   const int64_t (&tmpOutAxes)[MAX_TRANS_AXIS_NUM],
-                                   const int8_t (&tmpOutPerm)[MAX_TRANS_AXIS_NUM]);
-    void CompactUbAxes(const int64_t (&tmpInAxes)[MAX_TRANS_AXIS_NUM], const int64_t (&tmpOutAxes)[MAX_TRANS_AXIS_NUM],
-                       const int8_t (&tmpOutPerm)[MAX_TRANS_AXIS_NUM]);
+    ge::graphStatus CalcUbAxesInfo(const int64_t (&tmpInAxes)[TP_GATHER_MAX_AXIS_NUM],
+                                   const int64_t (&tmpOutAxes)[TP_GATHER_MAX_AXIS_NUM],
+                                   const int8_t (&tmpOutPerm)[TP_GATHER_MAX_AXIS_NUM]);
+    void CompactUbAxes(const int64_t (&tmpInAxes)[TP_GATHER_MAX_AXIS_NUM],
+                       const int64_t (&tmpOutAxes)[TP_GATHER_MAX_AXIS_NUM],
+                       const int8_t (&tmpOutPerm)[TP_GATHER_MAX_AXIS_NUM]);
     ge::graphStatus CheckUbHwConstraint();
     void MapUbCutPosToOut();
     ge::graphStatus CalcUbSplitInfo4Gather(int64_t elemInTensor, int64_t sqrtedTensor);
@@ -206,7 +168,7 @@ private:
     void CalcBlkUbCutAxis(int64_t& axisFactor, int64_t cutAxisSize, int32_t cutAxisFactor, int8_t& cutPos,
                           int8_t blkAxesCnt);
     void CalcBlkAxesOffset(int8_t i, int8_t dim, int64_t axisFactor, int64_t& totalElems);
-    void WriteTilingData();
+    ge::graphStatus WriteTilingData();
     std::string PrintTilingData();
     ge::graphStatus SetTilingKeyAndCore();
     bool CheckBC(int32_t steps);
@@ -219,7 +181,6 @@ private:
     uint32_t indexTensorSize_ = 0;
     UbSplitInfo ubSplitInfo_;
     BlockSplitInfo blkSplitInfo_;
-    GatherTransposeTilingData tilingData_;
 
     PlatInfo platInfo_;
     ShapeInfo shapeInfo_;

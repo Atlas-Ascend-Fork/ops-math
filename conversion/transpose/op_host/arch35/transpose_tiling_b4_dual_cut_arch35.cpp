@@ -17,6 +17,7 @@
 #include <algorithm>
 
 namespace optiling {
+using namespace Transpose;
 namespace TransHIF4DualCut {
 
 // ---------------------------------------------------------------------------
@@ -261,7 +262,7 @@ bool DualCutAxisSeeker::FindDualCutAxis(int32_t ubSize, int32_t bufferNum)
     uint32_t ubAxisSet = 0;
     uint32_t joinUbAxisSet = 0;
 
-    for (int32_t findLoops = DUAL_CUT_GM_LEN + DUAL_CUT_UB_LEN; findLoops >= 0; findLoops--) {
+    for (int32_t findLoops = TP_B4_GM_LEN + TP_B4_UB_LEN; findLoops >= 0; findLoops--) {
         int64_t remainUB = ComputeRemainUB(ubNum, ubAxisSet);
         if (remainUB <= 0) {
             break;
@@ -397,14 +398,14 @@ void DualCutAxisSeeker::FillGmUbAxis(uint32_t ubAxisSet, uint32_t cutAxisSet)
 // Priority: evict non-final axes first; always keep the output final axis in UB.
 void DualCutAxisSeeker::EvictExcessUbAxis(const std::vector<AxisInf>& innerAxis)
 {
-    if (ubAxis_.size() + innerAxis.size() <= static_cast<size_t>(DUAL_CUT_UB_LEN)) {
+    if (ubAxis_.size() + innerAxis.size() <= static_cast<size_t>(TP_B4_UB_LEN)) {
         return;
     }
 
     uint32_t inFinalCode = inputAxis_[dimNums_ - 1].code;
     uint32_t outFinalCode = outputAxis_[dimNums_ - 1].code;
 
-    int32_t excess = static_cast<int32_t>(ubAxis_.size() + innerAxis.size()) - DUAL_CUT_UB_LEN;
+    int32_t excess = static_cast<int32_t>(ubAxis_.size() + innerAxis.size()) - TP_B4_UB_LEN;
 
     // Separate non-final and final axes
     std::vector<AxisInf> nonFinal;
@@ -824,7 +825,7 @@ int32_t DualCutAxisSeeker::FindOutputPos(int32_t axisIdx) const
 // Fill gmShape_ / gmInStride_ / gmOutStride_ (right-aligned).
 void DualCutAxisSeeker::FillGmArrays()
 {
-    int32_t gmBaseIdx = DUAL_CUT_GM_LEN - outerAxisNums_;
+    int32_t gmBaseIdx = TP_B4_GM_LEN - outerAxisNums_;
     for (int32_t i = 0; i < outerAxisNums_; i++) {
         int32_t slot = gmBaseIdx + i;
         gmShape_[slot] = static_cast<int32_t>(gmAxis_[i].dim);
@@ -841,11 +842,11 @@ void DualCutAxisSeeker::FillGmArrays()
 // Fill ubShape_ (input axis order) and ubShapeId_ (-1 for unused slots).
 void DualCutAxisSeeker::FillUbShapeAndId()
 {
-    int32_t baseIdx = DUAL_CUT_UB_LEN - innerAxisNums_;
+    int32_t baseIdx = TP_B4_UB_LEN - innerAxisNums_;
     for (int32_t i = 0; i < innerAxisNums_; i++) {
         ubShape_[baseIdx + i] = static_cast<int32_t>(ubAxis_[i].dim);
     }
-    for (int32_t i = 0; i < DUAL_CUT_UB_LEN; i++) {
+    for (int32_t i = 0; i < TP_B4_UB_LEN; i++) {
         ubShapeId_[i] = -1;
     }
     for (int32_t i = 0; i < innerAxisNums_; i++) {
@@ -856,7 +857,7 @@ void DualCutAxisSeeker::FillUbShapeAndId()
 // Fill ubInStride_ / ubOutStride_ aligned with ubShape_.
 void DualCutAxisSeeker::FillUbStrides()
 {
-    int32_t baseIdx = DUAL_CUT_UB_LEN - innerAxisNums_;
+    int32_t baseIdx = TP_B4_UB_LEN - innerAxisNums_;
     for (int32_t i = 0; i < innerAxisNums_; i++) {
         int32_t slot = baseIdx + i;
         int32_t axisIdx = ubAxis_[i].idx;
@@ -880,7 +881,7 @@ void DualCutAxisSeeker::FillUbStrides()
 // Fill ubPerm_ / moveUbStride_: ub axes reordered by output position.
 void DualCutAxisSeeker::FillUbPermAndMoveStride()
 {
-    int32_t baseIdx = DUAL_CUT_UB_LEN - innerAxisNums_;
+    int32_t baseIdx = TP_B4_UB_LEN - innerAxisNums_;
     std::vector<std::pair<int32_t, int32_t>> ubOutOrder; // (outPos, ubAxisIndex)
     ubOutOrder.reserve(innerAxisNums_);
     for (int32_t i = 0; i < innerAxisNums_; i++) {
@@ -953,7 +954,7 @@ void DualCutAxisSeeker::FillCutIds()
 // Multiply gmOutStride_ of cut outer axes by the corresponding inner dim.
 void DualCutAxisSeeker::FixGmOutStrideForCuts()
 {
-    int32_t gmBaseIdx = DUAL_CUT_GM_LEN - outerAxisNums_;
+    int32_t gmBaseIdx = TP_B4_GM_LEN - outerAxisNums_;
     for (int32_t k = 0; k < outerAxisNums_; k++) {
         uint32_t axisCode = gmAxis_[k].code;
         for (const auto& ua : ubAxis_) {
@@ -1067,17 +1068,17 @@ void DualCutAxisSeeker::PrintTilingData() const
     oss << "\n  [CutId]     outCutId=" << outCutId_ << "  inCutId=" << inCutId_;
 
     // --- GM arrays ---
-    AppendArray(oss, "[gmShape]    ", gmShape_, DUAL_CUT_GM_LEN);
-    AppendArray(oss, "[gmInStride] ", gmInStride_, DUAL_CUT_GM_LEN);
-    AppendArray(oss, "[gmOutStride]", gmOutStride_, DUAL_CUT_GM_LEN);
+    AppendArray(oss, "[gmShape]    ", gmShape_, TP_B4_GM_LEN);
+    AppendArray(oss, "[gmInStride] ", gmInStride_, TP_B4_GM_LEN);
+    AppendArray(oss, "[gmOutStride]", gmOutStride_, TP_B4_GM_LEN);
 
     // --- UB arrays ---
-    AppendArray(oss, "[ubShape]    ", ubShape_, DUAL_CUT_UB_LEN);
-    AppendArray(oss, "[ubInStride] ", ubInStride_, DUAL_CUT_UB_LEN);
-    AppendArray(oss, "[ubOutStride]", ubOutStride_, DUAL_CUT_UB_LEN);
-    AppendArray(oss, "[moveUbStride]", moveUbStride_, DUAL_CUT_UB_LEN);
-    AppendArray(oss, "[ubPerm]     ", ubPerm_, DUAL_CUT_UB_LEN);
-    AppendArray(oss, "[ubShapeId]  ", ubShapeId_, DUAL_CUT_UB_LEN);
+    AppendArray(oss, "[ubShape]    ", ubShape_, TP_B4_UB_LEN);
+    AppendArray(oss, "[ubInStride] ", ubInStride_, TP_B4_UB_LEN);
+    AppendArray(oss, "[ubOutStride]", ubOutStride_, TP_B4_UB_LEN);
+    AppendArray(oss, "[moveUbStride]", moveUbStride_, TP_B4_UB_LEN);
+    AppendArray(oss, "[ubPerm]     ", ubPerm_, TP_B4_UB_LEN);
+    AppendArray(oss, "[ubShapeId]  ", ubShapeId_, TP_B4_UB_LEN);
 
     // --- gmAxis / ubAxis detail (for debug) ---
     AppendAxisList(oss, "[gmAxis]", gmAxis_);
@@ -1177,47 +1178,41 @@ ge::graphStatus TransposeTilingHIF4DualCut::FillTilingData()
 {
     OP_LOGD(context_, "[HIF4DualCut] FillTilingData start.");
 
-    tilingData_.set_gmShape(seeker_.gmShape_);
-    tilingData_.set_gmInStride(seeker_.gmInStride_);
-    tilingData_.set_gmOutStride(seeker_.gmOutStride_);
-    tilingData_.set_ubShape(seeker_.ubShape_);
-    tilingData_.set_ubInStride(seeker_.ubInStride_);
-    tilingData_.set_ubOutStride(seeker_.ubOutStride_);
-    tilingData_.set_moveUbStride(seeker_.moveUbStride_);
-    tilingData_.set_ubPerm(seeker_.ubPerm_);
-    tilingData_.set_ubShapeId(seeker_.ubShapeId_);
-    tilingData_.set_cutAxisIdx01(seeker_.cutAxisIdx01_);
-    tilingData_.set_cutAxisIdx02(seeker_.cutAxisIdx02_);
-    tilingData_.set_cutAxisTail01(seeker_.cutAxisTail01_);
-    tilingData_.set_cutAxisTail02(seeker_.cutAxisTail02_);
-    tilingData_.set_outCutId(seeker_.outCutId_);
-    tilingData_.set_inCutId(seeker_.inCutId_);
-    tilingData_.set_outerAxisNums(seeker_.outerAxisNums_);
-    tilingData_.set_innerAxisNums(seeker_.innerAxisNums_);
-    tilingData_.set_dimsPerCore(seeker_.dimsPerCore_);
-    tilingData_.set_useCoreNum(seeker_.useCoreNum_);
-    tilingData_.set_dimsPerCoreTail(seeker_.dimsPerCoreTail_);
+    HIF4DualCutTilingData* tilingData = context_->GetTilingData<HIF4DualCutTilingData>();
+    OP_CHECK_NULL_WITH_CONTEXT(context_, tilingData);
+
+    std::copy(seeker_.gmShape_, seeker_.gmShape_ + TP_B4_GM_LEN, tilingData->gmShape);
+    std::copy(seeker_.gmInStride_, seeker_.gmInStride_ + TP_B4_GM_LEN, tilingData->gmInStride);
+    std::copy(seeker_.gmOutStride_, seeker_.gmOutStride_ + TP_B4_GM_LEN, tilingData->gmOutStride);
+    std::copy(seeker_.ubShape_, seeker_.ubShape_ + TP_B4_UB_LEN, tilingData->ubShape);
+    std::copy(seeker_.ubInStride_, seeker_.ubInStride_ + TP_B4_UB_LEN, tilingData->ubInStride);
+    std::copy(seeker_.ubOutStride_, seeker_.ubOutStride_ + TP_B4_UB_LEN, tilingData->ubOutStride);
+    std::copy(seeker_.moveUbStride_, seeker_.moveUbStride_ + TP_B4_UB_LEN, tilingData->moveUbStride);
+    std::copy(seeker_.ubPerm_, seeker_.ubPerm_ + TP_B4_UB_LEN, tilingData->ubPerm);
+    std::copy(seeker_.ubShapeId_, seeker_.ubShapeId_ + TP_B4_UB_LEN, tilingData->ubShapeId);
+    tilingData->cutAxisIdx01 = seeker_.cutAxisIdx01_;
+    tilingData->cutAxisIdx02 = seeker_.cutAxisIdx02_;
+    tilingData->cutAxisTail01 = seeker_.cutAxisTail01_;
+    tilingData->cutAxisTail02 = seeker_.cutAxisTail02_;
+    tilingData->outCutId = seeker_.outCutId_;
+    tilingData->inCutId = seeker_.inCutId_;
+    tilingData->outerAxisNums = seeker_.outerAxisNums_;
+    tilingData->innerAxisNums = seeker_.innerAxisNums_;
+    tilingData->dimsPerCore = seeker_.dimsPerCore_;
+    tilingData->useCoreNum = seeker_.useCoreNum_;
+    tilingData->dimsPerCoreTail = seeker_.dimsPerCoreTail_;
     int32_t ubSizePerBuf = (seeker_.ubSize_ / HIF4_BUFFER_NUM) / HIF4_BLOCK_BYTES * HIF4_BLOCK_BYTES;
     if (ubSizePerBuf <= 0) {
         ubSizePerBuf = HIF4_BLOCK_BYTES;
     }
-    tilingData_.set_ubSize(ubSizePerBuf);
+    tilingData->ubSize = ubSizePerBuf;
 
     // Fill perm info for kernel
     int32_t permSize = static_cast<int32_t>(shapeInfo_.dim);
-    tilingData_.set_permSize(permSize);
-    int64_t permArr[MAX_AXIS_NUM_FOR_TRANSPOSE] = {0};
-    for (int32_t i = 0; i < MAX_AXIS_NUM_FOR_TRANSPOSE; i++) {
-        if (i < permSize) {
-            permArr[i] = shapeInfo_.reducedPerm[i];
-        } else {
-            permArr[i] = 0;
-        }
+    tilingData->permSize = permSize;
+    for (int32_t i = 0; i < TP_MAX_AXIS_NUM; i++) {
+        tilingData->perm[i] = (i < permSize) ? shapeInfo_.reducedPerm[i] : 0;
     }
-    tilingData_.set_perm(permArr);
-
-    tilingData_.SaveToBuffer(context_->GetRawTilingData()->GetData(), context_->GetRawTilingData()->GetCapacity());
-    context_->GetRawTilingData()->SetDataSize(tilingData_.GetDataSize());
 
     size_t* workspaces = context_->GetWorkspaceSizes(1);
     OP_CHECK_NULL_WITH_CONTEXT(context_, workspaces);

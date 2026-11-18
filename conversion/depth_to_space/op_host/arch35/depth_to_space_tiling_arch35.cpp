@@ -228,19 +228,10 @@ ge::graphStatus DepthToSpaceTilingForAscendC(gert::TilingContext* context,
     ShapeInfo inputShapeInfo;
     tilingObject.ProcessShapeInfo(inputShapeInfo);
 
-    DepthToSpaceTilingData tilingData;
-    DepthToSpaceCompileInfo compileInfo;
-    compileInfo.transposeCompilerInfo.coreNum = transposeCompileInfo->coreNum;
-    compileInfo.transposeCompilerInfo.ubSize = transposeCompileInfo->ubSize;
-
     TransposeNddmaTiling transposeTilingObject(context);
-    OP_CHECK_IF((transposeTilingObject.TilingForRelatedTranspose(context, &tilingData.transposeOpTiling,
-                                                                 &compileInfo.transposeCompilerInfo,
-                                                                 inputShapeInfo) == ge::GRAPH_FAILED),
+    OP_CHECK_IF((transposeTilingObject.TilingForRelatedTranspose(context, *transposeCompileInfo, inputShapeInfo) ==
+                 ge::GRAPH_FAILED),
                 OP_LOGE(context->GetNodeName(), "Transpose Tiling failed"), return ge::GRAPH_FAILED);
-
-    tilingData.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
-    context->GetRawTilingData()->SetDataSize(tilingData.GetDataSize());
 
     OP_LOGD(context->GetNodeName(), "DepthToSpaceTilingForAscendC success.");
     return ge::GRAPH_SUCCESS;

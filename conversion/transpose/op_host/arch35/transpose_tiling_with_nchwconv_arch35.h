@@ -31,53 +31,9 @@
 #include "transpose_tiling_arch35.h"
 
 namespace optiling {
+using namespace Transpose;
 namespace TransposeWithVCONV {
 static constexpr int8_t BUFFER_NUM = 2;
-
-BEGIN_TILING_DATA_DEF(CoreSplitPara)
-TILING_DATA_FIELD_DEF(int64_t, AlignBlockFactor);
-TILING_DATA_FIELD_DEF(int64_t, BlockFactor);
-TILING_DATA_FIELD_DEF(int64_t, BlockCount);
-TILING_DATA_FIELD_DEF(int64_t, AlignBlockTailFactor);
-TILING_DATA_FIELD_DEF(int64_t, BlockTailFactor);
-END_TILING_DATA_DEF;
-REGISTER_TILING_DATA_CLASS(CoreSplitParaOp, CoreSplitPara);
-
-BEGIN_TILING_DATA_DEF(UbSplitPara)
-TILING_DATA_FIELD_DEF(int64_t, MainCoreUbAlignFactor);
-TILING_DATA_FIELD_DEF(int64_t, MainCoreUbFactor);
-TILING_DATA_FIELD_DEF(int64_t, MainCoreUbCount);
-TILING_DATA_FIELD_DEF(int64_t, MainCoreTailUbAlignFactor);
-TILING_DATA_FIELD_DEF(int64_t, MainCoreTailUbFactor);
-TILING_DATA_FIELD_DEF(int64_t, TailCoreUbAlignFactor);
-TILING_DATA_FIELD_DEF(int64_t, TailCoreUbFactor);
-TILING_DATA_FIELD_DEF(int64_t, TailCoreUbCount);
-TILING_DATA_FIELD_DEF(int64_t, TailCoreTailUbAlignFactor);
-TILING_DATA_FIELD_DEF(int64_t, TailCoreTailUbFactor);
-END_TILING_DATA_DEF;
-REGISTER_TILING_DATA_CLASS(UbSplitParaOp, UbSplitPara);
-
-BEGIN_TILING_DATA_DEF(TransposeVCONVTilingData)
-TILING_DATA_FIELD_DEF(int64_t, AvailableUbSize);
-TILING_DATA_FIELD_DEF(int64_t, UsedCoreNum);
-TILING_DATA_FIELD_DEF(int64_t, MainCoreLoopCount);
-TILING_DATA_FIELD_DEF(int64_t, TailCoreLoopCount);
-TILING_DATA_FIELD_DEF(int64_t, RLen);
-TILING_DATA_FIELD_DEF(int64_t, CLen);
-TILING_DATA_FIELD_DEF(int64_t, RAlignBlock);
-TILING_DATA_FIELD_DEF(int64_t, CAlignBlock);
-TILING_DATA_FIELD_DEF(int64_t, RAlignBlockElem);
-TILING_DATA_FIELD_DEF(int64_t, CAlignBlockElem);
-TILING_DATA_FIELD_DEF(bool, IsRSplit);
-TILING_DATA_FIELD_DEF(bool, IsRCSplit);
-TILING_DATA_FIELD_DEF_STRUCT(CoreSplitPara, rSplitPara);
-TILING_DATA_FIELD_DEF_STRUCT(CoreSplitPara, cSplitPara);
-TILING_DATA_FIELD_DEF_STRUCT(UbSplitPara, rUbSplitPara);
-TILING_DATA_FIELD_DEF_STRUCT(UbSplitPara, cUbSplitPara);
-
-END_TILING_DATA_DEF;
-
-REGISTER_TILING_DATA_CLASS(Transpose_10007, TransposeVCONVTilingData);
 
 struct PlatInfo {
     int64_t coreNum = 0;
@@ -140,7 +96,7 @@ private:
     void SetCFullLoadCUbSplitInfo();
     void SetRFullLoadCUbSplitInfo();
     void SetRBlockFactorUbFullLoadSplitInfo();
-    void WriteTilingData();
+    ge::graphStatus WriteTilingData();
     void FillBlockPara(CoreSplitPara& coreSplitPara, CoreSplitInfo& corePara);
     void FillUbPara(UbSplitPara& ubSplitPara, UbParamInfo& ubPara);
     void PrintTilingData();
@@ -157,7 +113,6 @@ private:
     UbParamInfo cUbParamInfo_{};
     CoreSplitInfo rCoreSplitInfo_{};
     CoreSplitInfo cCoreSplitInfo_{};
-    TransposeVCONVTilingData tiling_;
 };
 
 } // namespace TransposeWithVCONV

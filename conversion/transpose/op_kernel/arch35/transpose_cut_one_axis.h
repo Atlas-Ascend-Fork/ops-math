@@ -16,7 +16,7 @@
  * 即输出切分轴不比输入切分轴"更靠前"，只需切1个轴。
  *
  * 核心设计：
- *   - 使用 DataCopy<T, NDDMA_MAX_DIM_NUM> 5维 NDDMA 搬运，硬件自动完成维度重排
+ *   - 使用 DataCopy<T, TP_NDDMA_MAX_DIM_NUM> 5维 NDDMA 搬运，硬件自动完成维度重排
  *   - 单缓冲 TQueBind（BUFFER_NUM=1），UB 大小 = tiling_->ubSize
  *   - Main/Tail 分支：每个 block loop 判断是否为尾块，选择对应的 NDDMA 参数
  *
@@ -63,13 +63,13 @@ public:
 
 private:
     __aicore__ inline void ParseTilingData();
-    __aicore__ inline NdDmaLoopInfo<NDDMA_MAX_DIM_NUM> SetupLoopInfo(const int64_t inUbSrcShape[],
-                                                                     const int64_t inUbDstShape[]);
+    __aicore__ inline NdDmaLoopInfo<TP_NDDMA_MAX_DIM_NUM> SetupLoopInfo(const int64_t inUbSrcShape[],
+                                                                        const int64_t inUbDstShape[]);
     __aicore__ inline void GetLoopParams(int64_t n);
     __aicore__ inline void DecimalToMixed(int64_t num, int64_t bases[],
                                           int64_t mixedBase[]); ///< 十进制转混合基（地址计算核心）
     __aicore__ inline void GetLoopAndStride();                  ///< 计算源/目标循环步长
-    __aicore__ inline void CopyIn(int64_t loopIdx, NdDmaParams<T, NDDMA_MAX_DIM_NUM>& params);
+    __aicore__ inline void CopyIn(int64_t loopIdx, NdDmaParams<T, TP_NDDMA_MAX_DIM_NUM>& params);
     __aicore__ inline void CopyOut(int64_t loopIdx, int64_t loopSize[], int64_t loopSrcStride[],
                                    int64_t loopDstStride[]);
     __aicore__ inline void ProcessPerCore();
@@ -96,19 +96,19 @@ private:
     bool isWholeCut_ = true;         ///< UB 内 dst shape 与完整输出 shape 是否完全一致（整切）
 
     // address offset
-    int64_t dstLoopSize_[NDDMA_MAX_DIM_NUM] = {0, 0, 0, 0, 0};   ///< 目标各维度的循环次数
-    int64_t srcLoopStride_[NDDMA_MAX_DIM_NUM] = {0, 0, 0, 0, 0}; ///< 源各维度的步长（元素数）
-    int64_t dstLoopStride_[NDDMA_MAX_DIM_NUM] = {0, 0, 0, 0, 0}; ///< 目标各维度的步长（元素数）
-    int64_t srcAddressOffsetMixedBase_[NDDMA_MAX_DIM_NUM] = {0, 0, 0, 0, 0}; ///< 源地址偏移的混合基分解结果
-    int64_t dstAddressOffsetMixedBase_[NDDMA_MAX_DIM_NUM] = {0, 0, 0, 0, 0}; ///< 目标地址偏移的混合基分解结果
+    int64_t dstLoopSize_[TP_NDDMA_MAX_DIM_NUM] = {0, 0, 0, 0, 0};   ///< 目标各维度的循环次数
+    int64_t srcLoopStride_[TP_NDDMA_MAX_DIM_NUM] = {0, 0, 0, 0, 0}; ///< 源各维度的步长（元素数）
+    int64_t dstLoopStride_[TP_NDDMA_MAX_DIM_NUM] = {0, 0, 0, 0, 0}; ///< 目标各维度的步长（元素数）
+    int64_t srcAddressOffsetMixedBase_[TP_NDDMA_MAX_DIM_NUM] = {0, 0, 0, 0, 0}; ///< 源地址偏移的混合基分解结果
+    int64_t dstAddressOffsetMixedBase_[TP_NDDMA_MAX_DIM_NUM] = {0, 0, 0, 0, 0}; ///< 目标地址偏移的混合基分解结果
 
     // NDDMA DataCopy 参数（Main 和 Tail 各一组）
-    int64_t loopSizeMain_[NDDMA_MAX_DIM_NUM] = {1, 1, 1, 1, 1};      ///< Main 块 NDDMA loopSize
-    int64_t loopSrcStrideMain_[NDDMA_MAX_DIM_NUM] = {1, 0, 0, 0, 0}; ///< Main 块 NDDMA loopSrcStride
-    int64_t loopDstStrideMain_[NDDMA_MAX_DIM_NUM] = {1, 0, 0, 0, 0}; ///< Main 块 NDDMA loopDstStride
-    int64_t loopSizeTail_[NDDMA_MAX_DIM_NUM] = {1, 1, 1, 1, 1};      ///< Tail 块 NDDMA loopSize
-    int64_t loopSrcStrideTail_[NDDMA_MAX_DIM_NUM] = {1, 0, 0, 0, 0}; ///< Tail 块 NDDMA loopSrcStride
-    int64_t loopDstStrideTail_[NDDMA_MAX_DIM_NUM] = {1, 0, 0, 0, 0}; ///< Tail 块 NDDMA loopDstStride
+    int64_t loopSizeMain_[TP_NDDMA_MAX_DIM_NUM] = {1, 1, 1, 1, 1};      ///< Main 块 NDDMA loopSize
+    int64_t loopSrcStrideMain_[TP_NDDMA_MAX_DIM_NUM] = {1, 0, 0, 0, 0}; ///< Main 块 NDDMA loopSrcStride
+    int64_t loopDstStrideMain_[TP_NDDMA_MAX_DIM_NUM] = {1, 0, 0, 0, 0}; ///< Main 块 NDDMA loopDstStride
+    int64_t loopSizeTail_[TP_NDDMA_MAX_DIM_NUM] = {1, 1, 1, 1, 1};      ///< Tail 块 NDDMA loopSize
+    int64_t loopSrcStrideTail_[TP_NDDMA_MAX_DIM_NUM] = {1, 0, 0, 0, 0}; ///< Tail 块 NDDMA loopSrcStride
+    int64_t loopDstStrideTail_[TP_NDDMA_MAX_DIM_NUM] = {1, 0, 0, 0, 0}; ///< Tail 块 NDDMA loopDstStride
 };
 
 template <typename T>
@@ -136,9 +136,9 @@ __aicore__ inline void TransposeCutOneAxis<T>::Process()
 template <typename T>
 __aicore__ inline void TransposeCutOneAxis<T>::ParseTilingData()
 {
-    expandedOutputCutIndex_ = tiling_->outCutIndex + NDDMA_MAX_DIM_NUM - tiling_->permSize;
+    expandedOutputCutIndex_ = tiling_->outCutIndex + TP_NDDMA_MAX_DIM_NUM - tiling_->permSize;
     // 整切检测：UB 内 dst shape 与完整输出 shape 完全一致，说明该块没有被实际切分。
-    for (int64_t i = 0; i < NDDMA_MAX_DIM_NUM; i++) {
+    for (int64_t i = 0; i < TP_NDDMA_MAX_DIM_NUM; i++) {
         if (tiling_->expandedOutputShape[i] != tiling_->inUbMainDstShape[i]) {
             isWholeCut_ = false;
             break;
@@ -168,16 +168,16 @@ __aicore__ inline void TransposeCutOneAxis<T>::ParseTilingData()
  * @return NDDMA 搬运参数
  */
 template <typename T>
-__aicore__ inline NdDmaLoopInfo<NDDMA_MAX_DIM_NUM> TransposeCutOneAxis<T>::SetupLoopInfo(const int64_t inUbSrcShape[],
-                                                                                         const int64_t inUbDstShape[])
+__aicore__ inline NdDmaLoopInfo<TP_NDDMA_MAX_DIM_NUM> TransposeCutOneAxis<T>::SetupLoopInfo(
+    const int64_t inUbSrcShape[], const int64_t inUbDstShape[])
 {
-    NdDmaLoopInfo<NDDMA_MAX_DIM_NUM> loopInfo;
-    int64_t loopDstStrideTmp[NDDMA_MAX_DIM_NUM] = {0};
-    for (int64_t i = 0; i < NDDMA_MAX_DIM_NUM; i++) {
+    NdDmaLoopInfo<TP_NDDMA_MAX_DIM_NUM> loopInfo;
+    int64_t loopDstStrideTmp[TP_NDDMA_MAX_DIM_NUM] = {0};
+    for (int64_t i = 0; i < TP_NDDMA_MAX_DIM_NUM; i++) {
         int64_t recumMultiSrc = 1;
         int64_t recumMultiDst = 1;
         loopInfo.loopSize[i] = inUbSrcShape[i];
-        for (int64_t j = i + 1; j < NDDMA_MAX_DIM_NUM; j++) {
+        for (int64_t j = i + 1; j < TP_NDDMA_MAX_DIM_NUM; j++) {
             recumMultiSrc *= tiling_->expandedInputShape[j];
             recumMultiDst *= inUbDstShape[j];
         }
@@ -186,8 +186,8 @@ __aicore__ inline NdDmaLoopInfo<NDDMA_MAX_DIM_NUM> TransposeCutOneAxis<T>::Setup
         loopInfo.loopLpSize[i] = 0;
         loopInfo.loopRpSize[i] = 0;
     }
-    loopInfo.loopSrcStride[NDDMA_MAX_DIM_NUM - 1] = 1;
-    loopDstStrideTmp[NDDMA_MAX_DIM_NUM - 1] = 1;
+    loopInfo.loopSrcStride[TP_NDDMA_MAX_DIM_NUM - 1] = 1;
+    loopDstStrideTmp[TP_NDDMA_MAX_DIM_NUM - 1] = 1;
 
     int64_t alignDstStride = 1;
     if (expandedOutputCutIndex_ - 1 >= 0) {
@@ -206,7 +206,7 @@ __aicore__ inline NdDmaLoopInfo<NDDMA_MAX_DIM_NUM> TransposeCutOneAxis<T>::Setup
     // NDDMA 硬件的 loopDstStride 按"输入维度的顺序"排列
     // expandedPerm[i] 表示输出第i维对应输入第 expandedPerm[i] 维
     // 因此 loopDstStride[expandedPerm[i]] = loopDstStrideTmp[i]
-    for (int64_t i = 0; i < NDDMA_MAX_DIM_NUM; i++) {
+    for (int64_t i = 0; i < TP_NDDMA_MAX_DIM_NUM; i++) {
         loopInfo.loopDstStride[tiling_->expandedPerm[i]] = loopDstStrideTmp[i];
     }
     // NDDMA 硬件要求参数逆序排列（dim4→dim0）
@@ -221,7 +221,7 @@ __aicore__ inline NdDmaLoopInfo<NDDMA_MAX_DIM_NUM> TransposeCutOneAxis<T>::Setup
  * @brief 十进制数转混合基表示
  *
  * 将线性索引 num 分解到各维度的混合基表示，用于计算多维偏移地址。
- * 算法：从最低维（i=NDDMA_MAX_DIM_NUM-1）开始，依次取余和整除，
+ * 算法：从最低维（i=TP_NDDMA_MAX_DIM_NUM-1）开始，依次取余和整除，
  * mixedBase[i] = num % bases[i]，num /= bases[i]。
  *
  * 示例（3维 shape=[2,3,4]，num=17）：
@@ -238,7 +238,7 @@ __aicore__ inline void TransposeCutOneAxis<T>::DecimalToMixed(int64_t num, int64
     if (num == 0) {
         return;
     }
-    for (int64_t i = NDDMA_MAX_DIM_NUM - 1; i >= 0; i--) {
+    for (int64_t i = TP_NDDMA_MAX_DIM_NUM - 1; i >= 0; i--) {
         mixedBase[i] = num % bases[i];
         num /= bases[i];
         if (num == 0) {
@@ -250,36 +250,36 @@ __aicore__ inline void TransposeCutOneAxis<T>::DecimalToMixed(int64_t num, int64
 template <typename T>
 __aicore__ inline void TransposeCutOneAxis<T>::GetLoopParams(int64_t n)
 {
-    const int64_t reverseIdx = NDDMA_MAX_DIM_NUM - 1 - n;
+    const int64_t reverseIdx = TP_NDDMA_MAX_DIM_NUM - 1 - n;
     // main and tail loopSize
     loopSizeMain_[n] = tiling_->inUbMainDstShape[reverseIdx];
     loopSizeTail_[n] = tiling_->inUbTailDstShape[reverseIdx];
     // main loopSrcStride and loopDstStride
     if (n > 0) {
-        if (n == NDDMA_MAX_DIM_NUM - expandedOutputCutIndex_) {
+        if (n == TP_NDDMA_MAX_DIM_NUM - expandedOutputCutIndex_) {
             loopSrcStrideMain_[n] = Ops::Base::CeilAlign(
-                                        static_cast<int64_t>(tiling_->inUbMainDstShape[NDDMA_MAX_DIM_NUM - n] *
+                                        static_cast<int64_t>(tiling_->inUbMainDstShape[TP_NDDMA_MAX_DIM_NUM - n] *
                                                              loopSrcStrideMain_[n - 1] * sizeof(T)),
                                         BLOCK_SIZE_BYTE) /
                                     sizeof(T);
         } else {
-            loopSrcStrideMain_[n] = loopSrcStrideMain_[n - 1] * tiling_->inUbMainDstShape[NDDMA_MAX_DIM_NUM - n];
+            loopSrcStrideMain_[n] = loopSrcStrideMain_[n - 1] * tiling_->inUbMainDstShape[TP_NDDMA_MAX_DIM_NUM - n];
         }
-        loopDstStrideMain_[n] = loopDstStrideMain_[n - 1] * tiling_->expandedOutputShape[NDDMA_MAX_DIM_NUM - n];
+        loopDstStrideMain_[n] = loopDstStrideMain_[n - 1] * tiling_->expandedOutputShape[TP_NDDMA_MAX_DIM_NUM - n];
     }
     // tail loopSrcStride and loopDstStride
     if (tiling_->outTailFactor != 0) {
         if (n > 0) {
-            if (n == NDDMA_MAX_DIM_NUM - expandedOutputCutIndex_) {
+            if (n == TP_NDDMA_MAX_DIM_NUM - expandedOutputCutIndex_) {
                 loopSrcStrideTail_[n] = Ops::Base::CeilAlign(
-                                            static_cast<int64_t>(tiling_->inUbTailDstShape[NDDMA_MAX_DIM_NUM - n] *
+                                            static_cast<int64_t>(tiling_->inUbTailDstShape[TP_NDDMA_MAX_DIM_NUM - n] *
                                                                  loopSrcStrideTail_[n - 1] * sizeof(T)),
                                             BLOCK_SIZE_BYTE) /
                                         sizeof(T);
             } else {
-                loopSrcStrideTail_[n] = loopSrcStrideTail_[n - 1] * tiling_->inUbTailDstShape[NDDMA_MAX_DIM_NUM - n];
+                loopSrcStrideTail_[n] = loopSrcStrideTail_[n - 1] * tiling_->inUbTailDstShape[TP_NDDMA_MAX_DIM_NUM - n];
             }
-            loopDstStrideTail_[n] = loopDstStrideTail_[n - 1] * tiling_->expandedOutputShape[NDDMA_MAX_DIM_NUM - n];
+            loopDstStrideTail_[n] = loopDstStrideTail_[n - 1] * tiling_->expandedOutputShape[TP_NDDMA_MAX_DIM_NUM - n];
         }
     }
 }
@@ -289,37 +289,37 @@ __aicore__ inline void TransposeCutOneAxis<T>::GetLoopAndStride()
 {
     // calculate the loopSize and stride of src and dst
     expandedInputCutIndex_ = tiling_->expandedPerm[expandedOutputCutIndex_];
-    srcLoopStride_[NDDMA_MAX_DIM_NUM - 1] = 1;
-    dstLoopStride_[NDDMA_MAX_DIM_NUM - 1] = 1;
-    srcLoopStride_[NDDMA_MAX_DIM_NUM - 2] = tiling_->expandedInputShape[NDDMA_MAX_DIM_NUM - 1];
-    dstLoopStride_[NDDMA_MAX_DIM_NUM - 2] = tiling_->expandedOutputShape[NDDMA_MAX_DIM_NUM - 1];
-    for (int64_t i = NDDMA_MAX_DIM_NUM - 3; i >= 0; i--) {
+    srcLoopStride_[TP_NDDMA_MAX_DIM_NUM - 1] = 1;
+    dstLoopStride_[TP_NDDMA_MAX_DIM_NUM - 1] = 1;
+    srcLoopStride_[TP_NDDMA_MAX_DIM_NUM - 2] = tiling_->expandedInputShape[TP_NDDMA_MAX_DIM_NUM - 1];
+    dstLoopStride_[TP_NDDMA_MAX_DIM_NUM - 2] = tiling_->expandedOutputShape[TP_NDDMA_MAX_DIM_NUM - 1];
+    for (int64_t i = TP_NDDMA_MAX_DIM_NUM - 3; i >= 0; i--) {
         srcLoopStride_[i] = srcLoopStride_[i + 1] * tiling_->expandedInputShape[i + 1];
         dstLoopStride_[i] = dstLoopStride_[i + 1] * tiling_->expandedOutputShape[i + 1];
     }
     srcLoopStride_[expandedInputCutIndex_] *= tiling_->outUbFactor;
     dstLoopStride_[expandedOutputCutIndex_] *= tiling_->outUbFactor;
 
-    for (int64_t i = 0; i < NDDMA_MAX_DIM_NUM; i++) {
+    for (int64_t i = 0; i < TP_NDDMA_MAX_DIM_NUM; i++) {
         dstLoopSize_[i] = Ops::Base::CeilDiv(tiling_->expandedOutputShape[i], tiling_->inUbMainDstShape[i]);
     }
 }
 
 template <typename T>
-__aicore__ inline void TransposeCutOneAxis<T>::CopyIn(int64_t loopIdx, NdDmaParams<T, NDDMA_MAX_DIM_NUM>& params)
+__aicore__ inline void TransposeCutOneAxis<T>::CopyIn(int64_t loopIdx, NdDmaParams<T, TP_NDDMA_MAX_DIM_NUM>& params)
 {
     int64_t srcAddressOffset = 0;
     DecimalToMixed(loopIdx, dstLoopSize_, dstAddressOffsetMixedBase_);
-    for (int64_t i = 0; i < NDDMA_MAX_DIM_NUM; i++) {
+    for (int64_t i = 0; i < TP_NDDMA_MAX_DIM_NUM; i++) {
         srcAddressOffsetMixedBase_[tiling_->expandedPerm[i]] = dstAddressOffsetMixedBase_[i];
         srcAddressOffset += srcAddressOffsetMixedBase_[tiling_->expandedPerm[i]] *
                             srcLoopStride_[tiling_->expandedPerm[i]];
     }
     LocalTensor<T> bindLocalIn = vecQue_.AllocTensor<T>();
 #if defined(__DAV_920R1__) || defined(__DAV_920R2__)
-    DataCopy<T, NDDMA_MAX_DIM_NUM, config>(bindLocalIn, inputGM_[srcAddressOffset], params, true);
+    DataCopy<T, TP_NDDMA_MAX_DIM_NUM, config>(bindLocalIn, inputGM_[srcAddressOffset], params, true);
 #else
-    DataCopy<T, NDDMA_MAX_DIM_NUM, config>(bindLocalIn, inputGM_[srcAddressOffset], params);
+    DataCopy<T, TP_NDDMA_MAX_DIM_NUM, config>(bindLocalIn, inputGM_[srcAddressOffset], params);
 #endif
     vecQue_.EnQue(bindLocalIn);
 }
@@ -329,7 +329,7 @@ __aicore__ inline void TransposeCutOneAxis<T>::CopyOut(int64_t loopIdx, int64_t 
                                                        int64_t loopDstStride[])
 {
     int64_t dstAddressOffset = 0;
-    for (int64_t i = 0; i < NDDMA_MAX_DIM_NUM; i++) {
+    for (int64_t i = 0; i < TP_NDDMA_MAX_DIM_NUM; i++) {
         dstAddressOffset += dstAddressOffsetMixedBase_[i] * dstLoopStride_[i];
     }
     // MTE3 parms
@@ -338,44 +338,44 @@ __aicore__ inline void TransposeCutOneAxis<T>::CopyOut(int64_t loopIdx, int64_t 
 
     copyOutParams.blockLen = sizeof(T);
     int64_t endIndex = 0;
-    for (int64_t i = NDDMA_MAX_DIM_NUM - 1; i >= 0; i--) {
+    for (int64_t i = TP_NDDMA_MAX_DIM_NUM - 1; i >= 0; i--) {
         // 整切兜底: shapes 全等时, 在最后一维提前break
         // 正常切分场景由下方shape不匹配的break先触发, 此处条件不满足
         if (isWholeCut_ && expandedOutputCutIndex_ > 0 && i == expandedOutputCutIndex_ - 1) {
-            endIndex = NDDMA_MAX_DIM_NUM - 1 - i - 1;
+            endIndex = TP_NDDMA_MAX_DIM_NUM - 1 - i - 1;
             break;
         }
         // isWholeCut_ 且 expandedOutputCutIndex_ == 0 时, 不会触发上方break, 继续循环
-        // 所有维度已累成入 blockLen, endIndex 应当为 NDDMA_MAX_DIM_NUM - 1
+        // 所有维度已累成入 blockLen, endIndex 应当为 TP_NDDMA_MAX_DIM_NUM - 1
         if (isWholeCut_ && expandedOutputCutIndex_ == 0) {
-            endIndex = NDDMA_MAX_DIM_NUM - 1;
+            endIndex = TP_NDDMA_MAX_DIM_NUM - 1;
         }
-        copyOutParams.blockLen *= loopSize[NDDMA_MAX_DIM_NUM - 1 - i];
+        copyOutParams.blockLen *= loopSize[TP_NDDMA_MAX_DIM_NUM - 1 - i];
         if (tiling_->expandedOutputShape[i] != tiling_->inUbMainDstShape[i]) {
-            endIndex = NDDMA_MAX_DIM_NUM - 1 - i;
+            endIndex = TP_NDDMA_MAX_DIM_NUM - 1 - i;
             break;
         }
     }
-    if (endIndex + 1 < NDDMA_MAX_DIM_NUM) {
+    if (endIndex + 1 < TP_NDDMA_MAX_DIM_NUM) {
         copyOutParams.blockCount = loopSize[endIndex + 1];
         copyOutParams.dstStride = copyOutParams.blockCount == 1 ?
                                       0 :
                                       (loopDstStride[endIndex + 1] - copyOutParams.blockLen / sizeof(T)) * sizeof(T);
     }
     loopParams.loop1Size = 1;
-    if (endIndex + 2 < NDDMA_MAX_DIM_NUM) {
+    if (endIndex + 2 < TP_NDDMA_MAX_DIM_NUM) {
         loopParams.loop1Size = loopSize[endIndex + 2];
         loopParams.loop1SrcStride = loopSrcStride[endIndex + 2] * sizeof(T);
         loopParams.loop1DstStride = loopDstStride[endIndex + 2] * sizeof(T);
     }
     loopParams.loop2Size = 1;
-    if (endIndex + 3 < NDDMA_MAX_DIM_NUM) {
+    if (endIndex + 3 < TP_NDDMA_MAX_DIM_NUM) {
         loopParams.loop2Size = loopSize[endIndex + 3];
         loopParams.loop2SrcStride = loopSrcStride[endIndex + 3] * sizeof(T);
         loopParams.loop2DstStride = loopDstStride[endIndex + 3] * sizeof(T);
     }
     LocalTensor<T> bindLocalOut = vecQue_.DeQue<T>();
-    if (endIndex + 4 < NDDMA_MAX_DIM_NUM) {
+    if (endIndex + 4 < TP_NDDMA_MAX_DIM_NUM) {
         for (int64_t loop4Idx = 0; loop4Idx < loopSize[4]; loop4Idx++) {
             SetLoopModePara(loopParams, DataCopyMVType::UB_TO_OUT);
             DataCopyPad(outputGM_[dstAddressOffset + loop4Idx * loopDstStride[4]],
@@ -400,17 +400,18 @@ __aicore__ inline void TransposeCutOneAxis<T>::ProcessPerCore()
 
     // MTE2 params main
     T constValue = 0;
-    NdDmaLoopInfo<NDDMA_MAX_DIM_NUM> loopInfoMain = SetupLoopInfo(tiling_->inUbMainSrcShape, tiling_->inUbMainDstShape);
-    NdDmaParams<T, NDDMA_MAX_DIM_NUM> paramsMain = {loopInfoMain, constValue};
+    NdDmaLoopInfo<TP_NDDMA_MAX_DIM_NUM> loopInfoMain = SetupLoopInfo(tiling_->inUbMainSrcShape,
+                                                                     tiling_->inUbMainDstShape);
+    NdDmaParams<T, TP_NDDMA_MAX_DIM_NUM> paramsMain = {loopInfoMain, constValue};
 
     int64_t outCutLoopSize = Ops::Base::CeilDiv(tiling_->expandedOutputShape[expandedOutputCutIndex_],
                                                 tiling_->outUbFactor);
     for (int64_t loopIdx = blkProcessIdxStart_; loopIdx < blkProcessIdxEnd_; loopIdx++) {
         if (tiling_->outTailFactor != 0 && (loopIdx + 1) % outCutLoopSize == 0) { // tail
             // MTE2 params tail
-            NdDmaLoopInfo<NDDMA_MAX_DIM_NUM> loopInfoTail = SetupLoopInfo(tiling_->inUbTailSrcShape,
-                                                                          tiling_->inUbTailDstShape);
-            NdDmaParams<T, NDDMA_MAX_DIM_NUM> paramsTail = {loopInfoTail, constValue};
+            NdDmaLoopInfo<TP_NDDMA_MAX_DIM_NUM> loopInfoTail = SetupLoopInfo(tiling_->inUbTailSrcShape,
+                                                                             tiling_->inUbTailDstShape);
+            NdDmaParams<T, TP_NDDMA_MAX_DIM_NUM> paramsTail = {loopInfoTail, constValue};
             CopyIn(loopIdx, paramsTail);
             CopyOut(loopIdx, loopSizeTail_, loopSrcStrideTail_, loopDstStrideTail_);
         } else {

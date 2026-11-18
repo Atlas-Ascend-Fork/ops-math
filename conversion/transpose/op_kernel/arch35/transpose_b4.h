@@ -58,8 +58,6 @@ __aicore__ inline T1 CeilAlign(T1 a, T2 b)
 };
 
 constexpr int32_t HIF4_ELEMENTS_PER_BYTE = 2;
-constexpr int32_t DUAL_CUT_GM_LEN = 8;
-constexpr int32_t DUAL_CUT_UB_LEN = 4;
 
 constexpr int32_t TAIL_TWO = 2;
 constexpr int32_t TAIL_THREE = 3;
@@ -158,24 +156,24 @@ __aicore__ inline void TransposeHIF4::Init(GM_ADDR x, GM_ADDR y, const HIF4DualC
     gmShapeIdx02_ = tiling_->inCutId;
 
     if (tiling_->cutAxisIdx01 != -1) {
-        for (int16_t i = 0; i < DUAL_CUT_UB_LEN; i++) {
+        for (int16_t i = 0; i < TP_B4_UB_LEN; i++) {
             if (tiling_->ubShapeId[i] == tiling_->cutAxisIdx01) {
                 ubInshapeIdx01_ = i;
             }
         }
-        for (int16_t idx = 0; idx < DUAL_CUT_UB_LEN; idx++) {
+        for (int16_t idx = 0; idx < TP_B4_UB_LEN; idx++) {
             if (ubInshapeIdx01_ == tiling_->ubPerm[idx]) {
                 ubOutshapeIdx01_ = idx;
             }
         }
     }
     if (tiling_->cutAxisIdx02 != -1) {
-        for (int16_t i = 0; i < DUAL_CUT_UB_LEN; i++) {
+        for (int16_t i = 0; i < TP_B4_UB_LEN; i++) {
             if (tiling_->ubShapeId[i] == tiling_->cutAxisIdx02) {
                 ubInshapeIdx02_ = i;
             }
         }
-        for (int16_t idx = 0; idx < DUAL_CUT_UB_LEN; idx++) {
+        for (int16_t idx = 0; idx < TP_B4_UB_LEN; idx++) {
             if (ubInshapeIdx02_ == tiling_->ubPerm[idx]) {
                 ubOutshapeIdx02_ = idx;
             }
@@ -190,7 +188,7 @@ __aicore__ inline void TransposeHIF4::Init(GM_ADDR x, GM_ADDR y, const HIF4DualC
     pipe_->InitBuffer(castBuf_, castBufSize);
     pipe_->InitBuffer(transposeBuf_, transposeBufSize);
 
-    baseIdx_ = DUAL_CUT_UB_LEN - innerAxisNums_;
+    baseIdx_ = TP_B4_UB_LEN - innerAxisNums_;
 }
 
 __aicore__ inline void TransposeHIF4::Process()
@@ -250,7 +248,7 @@ __aicore__ inline void TransposeHIF4::ComputeGmByteOffsets(const int32_t* gmIdx,
 __aicore__ inline void TransposeHIF4::ComputeUpdatedUbShape(const int32_t* gmIdx, int32_t gmBaseIdx,
                                                             int32_t* updatedUbInShape, int32_t* updatedUbOutShape)
 {
-    for (int32_t i = baseIdx_; i < DUAL_CUT_UB_LEN; i++) {
+    for (int32_t i = baseIdx_; i < TP_B4_UB_LEN; i++) {
         updatedUbInShape[i] = tiling_->ubShape[i];
         updatedUbOutShape[i] = tiling_->ubShape[tiling_->ubPerm[i]];
     }
@@ -277,9 +275,9 @@ __aicore__ inline void TransposeHIF4::ComputeTileStrides(const int32_t* updatedU
                                                          int64_t* updatedUbOutStride, int64_t* updatedGmInStride)
 {
     int64_t probStride = 1;
-    for (int32_t i = DUAL_CUT_UB_LEN - 1; i >= baseIdx_; i--) {
+    for (int32_t i = TP_B4_UB_LEN - 1; i >= baseIdx_; i--) {
         // 1、计算 tileB16Elem、planeEleBf16
-        if (i == DUAL_CUT_UB_LEN - TAIL_TWO) {
+        if (i == TP_B4_UB_LEN - TAIL_TWO) {
             tileB16Elem = CeilAlign(tileB16Elem * updatedUbInShape[i] / HIF4_ELEMENTS_PER_BYTE, UB_BLOCK);
             planeEleBf16 = tileB16Elem;
         } else {
@@ -291,13 +289,13 @@ __aicore__ inline void TransposeHIF4::ComputeTileStrides(const int32_t* updatedU
 
         // 3、计算UB->UB转置的dstStride
         int32_t idx = -1;
-        for (int32_t k = 0; k < DUAL_CUT_UB_LEN; k++) {
+        for (int32_t k = 0; k < TP_B4_UB_LEN; k++) {
             if (tiling_->ubPerm[k] == i) {
                 idx = k;
             }
         }
         int64_t currentStride = 1;
-        for (int32_t j = idx + 1; j < DUAL_CUT_UB_LEN; j++) {
+        for (int32_t j = idx + 1; j < TP_B4_UB_LEN; j++) {
             currentStride *= updatedUbOutShape[j];
         }
         updatedUbOutStride[i] = currentStride;
@@ -322,10 +320,10 @@ __aicore__ inline void TransposeHIF4::AlignOutStrideForB4(const int32_t* updated
         return;
     }
 
-    int32_t indices[DUAL_CUT_UB_LEN];
-    int64_t values[DUAL_CUT_UB_LEN];
+    int32_t indices[TP_B4_UB_LEN];
+    int64_t values[TP_B4_UB_LEN];
     int32_t validCount = 0;
-    for (int32_t i = baseIdx_; i < DUAL_CUT_UB_LEN; i++) {
+    for (int32_t i = baseIdx_; i < TP_B4_UB_LEN; i++) {
         indices[validCount] = i;
         values[validCount] = updatedUbOutStride[i];
         validCount++;
@@ -349,13 +347,13 @@ __aicore__ inline void TransposeHIF4::AlignOutStrideForB4(const int32_t* updated
                                                     UB_BLOCK) *
                                           HIF4_ELEMENTS_PER_BYTE;
     validBf16ToB4Elem = updatedUbOutStride[thirdLargestIdx] * updatedUbInShape[thirdLargestIdx];
-    updatedGmInStride[DUAL_CUT_UB_LEN - TAIL_THREE] = updatedUbOutStride[thirdLargestIdx];
+    updatedGmInStride[TP_B4_UB_LEN - TAIL_THREE] = updatedUbOutStride[thirdLargestIdx];
     if (innerAxisNums_ == INNNER_AXIS_NUMS_FOUR) {
         int32_t fourthLargestIdx = indices[MAIN_THREE];
         int64_t originalFourth = values[MAIN_THREE];
         updatedUbOutStride[fourthLargestIdx] = (originalFourth / originalThird) * updatedUbOutStride[thirdLargestIdx];
         validBf16ToB4Elem = updatedUbOutStride[fourthLargestIdx] * updatedUbInShape[fourthLargestIdx];
-        updatedGmInStride[DUAL_CUT_UB_LEN - TAIL_FOUR] = updatedUbOutStride[fourthLargestIdx];
+        updatedGmInStride[TP_B4_UB_LEN - TAIL_FOUR] = updatedUbOutStride[fourthLargestIdx];
     }
 }
 
@@ -363,13 +361,13 @@ __aicore__ inline void TransposeHIF4::AlignOutStrideForB4(const int32_t* updated
 __aicore__ inline void TransposeHIF4::ComputeUbInStride(const int32_t* updatedUbInShape, int64_t planeEleBf16,
                                                         int64_t* updatedUbInStride)
 {
-    updatedUbInStride[DUAL_CUT_UB_LEN - 1] = 1;
-    updatedUbInStride[DUAL_CUT_UB_LEN - TAIL_TWO] = updatedUbInShape[DUAL_CUT_UB_LEN - 1];
+    updatedUbInStride[TP_B4_UB_LEN - 1] = 1;
+    updatedUbInStride[TP_B4_UB_LEN - TAIL_TWO] = updatedUbInShape[TP_B4_UB_LEN - 1];
     if (innerAxisNums_ >= INNNER_AXIS_NUMS_THREE) {
-        updatedUbInStride[DUAL_CUT_UB_LEN - TAIL_THREE] = planeEleBf16;
+        updatedUbInStride[TP_B4_UB_LEN - TAIL_THREE] = planeEleBf16;
     }
     if (innerAxisNums_ >= INNNER_AXIS_NUMS_FOUR) {
-        updatedUbInStride[DUAL_CUT_UB_LEN - TAIL_FOUR] = updatedUbInShape[DUAL_CUT_UB_LEN - TAIL_THREE] * planeEleBf16;
+        updatedUbInStride[TP_B4_UB_LEN - TAIL_FOUR] = updatedUbInShape[TP_B4_UB_LEN - TAIL_THREE] * planeEleBf16;
     }
 }
 
@@ -377,10 +375,10 @@ __aicore__ inline void TransposeHIF4::ComputeUbInStride(const int32_t* updatedUb
 __aicore__ inline void TransposeHIF4::ProcessOneIteration(int32_t iter, const LocalTensor<bfloat16_t>& castLocal,
                                                           const LocalTensor<bfloat16_t>& transposeLocal)
 {
-    int32_t gmBaseIdx = DUAL_CUT_GM_LEN - tiling_->outerAxisNums;
+    int32_t gmBaseIdx = TP_B4_GM_LEN - tiling_->outerAxisNums;
 
     // ----- Unflatten linear gm-iter into multi-dim gmIdx -----
-    int32_t gmIdx[DUAL_CUT_GM_LEN] = {0};
+    int32_t gmIdx[TP_B4_GM_LEN] = {0};
     UnflattenGmIdx(iter, gmBaseIdx, gmIdx);
 
     // ----- Compute GM offsets (HIF4 element units) -----
@@ -389,16 +387,16 @@ __aicore__ inline void TransposeHIF4::ProcessOneIteration(int32_t iter, const Lo
     ComputeGmByteOffsets(gmIdx, gmBaseIdx, gmInByteOffset, gmOutByteOffset);
 
     // ----- Determine actual ubShape with cut-axis tail -----
-    int32_t updatedUbInShape[DUAL_CUT_UB_LEN] = {1, 1, 1, 1};
-    int32_t updatedUbOutShape[DUAL_CUT_UB_LEN] = {1, 1, 1, 1};
+    int32_t updatedUbInShape[TP_B4_UB_LEN] = {1, 1, 1, 1};
+    int32_t updatedUbOutShape[TP_B4_UB_LEN] = {1, 1, 1, 1};
     ComputeUpdatedUbShape(gmIdx, gmBaseIdx, updatedUbInShape, updatedUbOutShape);
 
     // ----- Current tile element count -----
     int64_t tileB16Elem = 1;
     int64_t planeEleBf16 = 1;
     int64_t validBf16Elem = 1;
-    int64_t updatedUbOutStride[DUAL_CUT_UB_LEN] = {0, 0, 0, 0};
-    int64_t updatedGmInStride[DUAL_CUT_UB_LEN] = {0, 0, 0, 0};
+    int64_t updatedUbOutStride[TP_B4_UB_LEN] = {0, 0, 0, 0};
+    int64_t updatedGmInStride[TP_B4_UB_LEN] = {0, 0, 0, 0};
     ComputeTileStrides(updatedUbInShape, updatedUbOutShape, tileB16Elem, planeEleBf16, validBf16Elem,
                        updatedUbOutStride, updatedGmInStride);
 
@@ -406,7 +404,7 @@ __aicore__ inline void TransposeHIF4::ProcessOneIteration(int32_t iter, const Lo
     AlignOutStrideForB4(updatedUbInShape, updatedUbOutStride, updatedGmInStride, validBf16Elem, validBf16ToB4Elem);
 
     // 计算UB->UB转置的srcStride
-    int64_t updatedUbInStride[DUAL_CUT_UB_LEN] = {0, 0, 0, 0};
+    int64_t updatedUbInStride[TP_B4_UB_LEN] = {0, 0, 0, 0};
     ComputeUbInStride(updatedUbInShape, planeEleBf16, updatedUbInStride);
 
     RunTilePipeline(gmInByteOffset, gmOutByteOffset, updatedUbInShape, updatedUbOutShape, updatedUbInStride,
@@ -455,20 +453,19 @@ __aicore__ inline void TransposeHIF4::CopyOut(int64_t gmOutByteOffset, const int
 {
     LocalTensor<int8_t> tmp = (LocalTensor<int8_t>&)castLocal;
     LoopModeParams loopParams;
-    loopParams.loop1Size = updatedUbOutShape[DUAL_CUT_UB_LEN - TAIL_THREE];
-    loopParams.loop1SrcStride = updatedGmInStride[DUAL_CUT_UB_LEN - TAIL_THREE] / HIF4_ELEMENTS_PER_BYTE;
-    loopParams.loop1DstStride = tiling_->moveUbStride[DUAL_CUT_UB_LEN - TAIL_THREE] / HIF4_ELEMENTS_PER_BYTE;
+    loopParams.loop1Size = updatedUbOutShape[TP_B4_UB_LEN - TAIL_THREE];
+    loopParams.loop1SrcStride = updatedGmInStride[TP_B4_UB_LEN - TAIL_THREE] / HIF4_ELEMENTS_PER_BYTE;
+    loopParams.loop1DstStride = tiling_->moveUbStride[TP_B4_UB_LEN - TAIL_THREE] / HIF4_ELEMENTS_PER_BYTE;
 
-    loopParams.loop2Size = updatedUbOutShape[DUAL_CUT_UB_LEN - TAIL_FOUR];
-    loopParams.loop2SrcStride = updatedGmInStride[DUAL_CUT_UB_LEN - TAIL_FOUR] / HIF4_ELEMENTS_PER_BYTE;
-    loopParams.loop2DstStride = tiling_->moveUbStride[DUAL_CUT_UB_LEN - TAIL_FOUR] / HIF4_ELEMENTS_PER_BYTE;
+    loopParams.loop2Size = updatedUbOutShape[TP_B4_UB_LEN - TAIL_FOUR];
+    loopParams.loop2SrcStride = updatedGmInStride[TP_B4_UB_LEN - TAIL_FOUR] / HIF4_ELEMENTS_PER_BYTE;
+    loopParams.loop2DstStride = tiling_->moveUbStride[TP_B4_UB_LEN - TAIL_FOUR] / HIF4_ELEMENTS_PER_BYTE;
 
     DataCopyExtParams copyOutParams;
-    copyOutParams.blockCount = updatedUbOutShape[DUAL_CUT_UB_LEN - TAIL_TWO];
-    copyOutParams.blockLen = updatedUbOutShape[DUAL_CUT_UB_LEN - 1] / HIF4_ELEMENTS_PER_BYTE;
+    copyOutParams.blockCount = updatedUbOutShape[TP_B4_UB_LEN - TAIL_TWO];
+    copyOutParams.blockLen = updatedUbOutShape[TP_B4_UB_LEN - 1] / HIF4_ELEMENTS_PER_BYTE;
     copyOutParams.srcStride = 0;
-    copyOutParams.dstStride = (tiling_->moveUbStride[DUAL_CUT_UB_LEN - TAIL_TWO] -
-                               updatedUbOutShape[DUAL_CUT_UB_LEN - 1]) /
+    copyOutParams.dstStride = (tiling_->moveUbStride[TP_B4_UB_LEN - TAIL_TWO] - updatedUbOutShape[TP_B4_UB_LEN - 1]) /
                               HIF4_ELEMENTS_PER_BYTE;
 
     SetLoopModePara(loopParams, DataCopyMVType::UB_TO_OUT);
@@ -482,18 +479,18 @@ __aicore__ inline void TransposeHIF4::CopyIn(int64_t gmInByteOffset, const int32
 
     DataCopyPadExtParams<int8_t> padParams{true, 0, 0, 0};
     DataCopyExtParams copyInParams;
-    copyInParams.blockCount = updatedUbInShape[DUAL_CUT_UB_LEN - TAIL_TWO];
-    copyInParams.blockLen = updatedUbInShape[DUAL_CUT_UB_LEN - 1] / HIF4_ELEMENTS_PER_BYTE;
-    copyInParams.srcStride = (tiling_->ubInStride[DUAL_CUT_UB_LEN - TAIL_TWO] - updatedUbInShape[DUAL_CUT_UB_LEN - 1]) /
+    copyInParams.blockCount = updatedUbInShape[TP_B4_UB_LEN - TAIL_TWO];
+    copyInParams.blockLen = updatedUbInShape[TP_B4_UB_LEN - 1] / HIF4_ELEMENTS_PER_BYTE;
+    copyInParams.srcStride = (tiling_->ubInStride[TP_B4_UB_LEN - TAIL_TWO] - updatedUbInShape[TP_B4_UB_LEN - 1]) /
                              HIF4_ELEMENTS_PER_BYTE;
     copyInParams.dstStride = 0;
 
     LoopModeParams loopParams;
-    loopParams.loop1Size = updatedUbInShape[DUAL_CUT_UB_LEN - TAIL_THREE];
-    loopParams.loop1SrcStride = tiling_->ubInStride[DUAL_CUT_UB_LEN - TAIL_THREE] / HIF4_ELEMENTS_PER_BYTE;
+    loopParams.loop1Size = updatedUbInShape[TP_B4_UB_LEN - TAIL_THREE];
+    loopParams.loop1SrcStride = tiling_->ubInStride[TP_B4_UB_LEN - TAIL_THREE] / HIF4_ELEMENTS_PER_BYTE;
     loopParams.loop1DstStride = CeilAlign(copyInParams.blockCount * copyInParams.blockLen, UB_BLOCK);
-    loopParams.loop2Size = updatedUbInShape[DUAL_CUT_UB_LEN - TAIL_FOUR];
-    loopParams.loop2SrcStride = tiling_->ubInStride[DUAL_CUT_UB_LEN - TAIL_FOUR] / HIF4_ELEMENTS_PER_BYTE;
+    loopParams.loop2Size = updatedUbInShape[TP_B4_UB_LEN - TAIL_FOUR];
+    loopParams.loop2SrcStride = tiling_->ubInStride[TP_B4_UB_LEN - TAIL_FOUR] / HIF4_ELEMENTS_PER_BYTE;
     loopParams.loop2DstStride = loopParams.loop1Size * loopParams.loop1DstStride;
 
     SetLoopModePara(loopParams, DataCopyMVType::OUT_TO_UB);
@@ -565,9 +562,9 @@ __aicore__ inline void TransposeHIF4::SimtTranspose(int64_t elemCount, const int
                                                     const LocalTensor<bfloat16_t>& castLocal,
                                                     const LocalTensor<bfloat16_t>& transposeLocal)
 {
-    int32_t shape[DUAL_CUT_UB_LEN] = {1, 1, 1, 1};
-    int64_t srcStride[DUAL_CUT_UB_LEN] = {0, 0, 0, 0};
-    int64_t dstStride[DUAL_CUT_UB_LEN] = {0, 0, 0, 0};
+    int32_t shape[TP_B4_UB_LEN] = {1, 1, 1, 1};
+    int64_t srcStride[TP_B4_UB_LEN] = {0, 0, 0, 0};
+    int64_t dstStride[TP_B4_UB_LEN] = {0, 0, 0, 0};
     for (int32_t i = 0; i < innerAxisNums_; i++) {
         int32_t ubIdx = baseIdx_ + i;
         shape[i] = updatedUbInShape[ubIdx];

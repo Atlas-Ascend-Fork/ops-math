@@ -14,8 +14,10 @@
  */
 
 #include "transpose_tiling_with_021vconv_arch35.h"
+#include "common/inc/op_host/math_log.h"
 
 namespace optiling {
+using namespace Transpose;
 namespace Transpose021WithVCONV {
 static constexpr size_t SYS_WORKSPACE_SIZE = 0;
 
@@ -234,34 +236,38 @@ ge::graphStatus Transpose021VCONVTiling::CalcUbSplitCConv()
 
 void Transpose021VCONVTiling::FillUbPara(Transpose021UbSplitPara& ubSplitPara, UbParamInfo& ubPara)
 {
-    ubSplitPara.set_UbAlignFactor(ubPara.UbAlignFactor);
-    ubSplitPara.set_UbFactor(ubPara.UbFactor);
-    ubSplitPara.set_UbCount(ubPara.UbCount);
-    ubSplitPara.set_UbTailAlignFactor(ubPara.UbTailAlignFactor);
-    ubSplitPara.set_UbTailFactor(ubPara.UbTailFactor);
+    ubSplitPara.UbAlignFactor = ubPara.UbAlignFactor;
+    ubSplitPara.UbFactor = ubPara.UbFactor;
+    ubSplitPara.UbCount = ubPara.UbCount;
+    ubSplitPara.UbTailAlignFactor = ubPara.UbTailAlignFactor;
+    ubSplitPara.UbTailFactor = ubPara.UbTailFactor;
 }
 
-void Transpose021VCONVTiling::WriteTilingData()
+ge::graphStatus Transpose021VCONVTiling::WriteTilingData()
 {
-    tiling_.set_AvailableUbSize(basicInfo_.AvailableUbSize);
-    tiling_.set_UsedCoreNum(basicInfo_.UsedCoreNum);
-    tiling_.set_NLen(basicInfo_.NLen);
-    tiling_.set_HLen(basicInfo_.HLen);
-    tiling_.set_WLen(basicInfo_.WLen);
-    tiling_.set_HAlignBlockElem(basicInfo_.HAlignBlockElem);
-    tiling_.set_WAlignBlockElem(basicInfo_.WAlignBlockElem);
-    tiling_.set_NPerCore(basicInfo_.NPerCore);
-    tiling_.set_NTailCore(basicInfo_.NTailCore);
-    tiling_.set_UbLoopCount(basicInfo_.UbLoopCount);
-    tiling_.set_UseRConv(basicInfo_.UseRConv);
-    tiling_.set_UseHSplit(basicInfo_.UseHSplit);
-    tiling_.set_HPerCore(basicInfo_.HPerCore);
-    tiling_.set_HTailCore(basicInfo_.HTailCore);
-    FillUbPara(tiling_.rUbSplitPara, rUbParamInfo_);
-    FillUbPara(tiling_.cUbSplitPara, cUbParamInfo_);
+    Transpose021VCONVTilingData* tiling = context_->GetTilingData<Transpose021VCONVTilingData>();
+    if (tiling == nullptr) {
+        OP_LOGE(context_->GetNodeName(), "get tiling data failed, capacity is not enough!");
+        return ge::GRAPH_FAILED;
+    }
 
-    tiling_.SaveToBuffer(context_->GetRawTilingData()->GetData(), context_->GetRawTilingData()->GetCapacity());
-    context_->GetRawTilingData()->SetDataSize(tiling_.GetDataSize());
+    tiling->AvailableUbSize = basicInfo_.AvailableUbSize;
+    tiling->UsedCoreNum = basicInfo_.UsedCoreNum;
+    tiling->NLen = basicInfo_.NLen;
+    tiling->HLen = basicInfo_.HLen;
+    tiling->WLen = basicInfo_.WLen;
+    tiling->HAlignBlockElem = basicInfo_.HAlignBlockElem;
+    tiling->WAlignBlockElem = basicInfo_.WAlignBlockElem;
+    tiling->NPerCore = basicInfo_.NPerCore;
+    tiling->NTailCore = basicInfo_.NTailCore;
+    tiling->UbLoopCount = basicInfo_.UbLoopCount;
+    tiling->UseRConv = basicInfo_.UseRConv;
+    tiling->UseHSplit = basicInfo_.UseHSplit;
+    tiling->HPerCore = basicInfo_.HPerCore;
+    tiling->HTailCore = basicInfo_.HTailCore;
+    FillUbPara(tiling->rUbSplitPara, rUbParamInfo_);
+    FillUbPara(tiling->cUbSplitPara, cUbParamInfo_);
+    return ge::GRAPH_SUCCESS;
 }
 
 ge::graphStatus Transpose021VCONVTiling::SetTilingKeyAndCore()
@@ -294,7 +300,7 @@ ge::graphStatus Transpose021VCONVTiling::DoTiling()
                 OP_LOGD(context_->GetNodeName(), "Stop to run 021 VCONV tiling, UB split failed!"),
                 return ge::GRAPH_FAILED);
 
-    WriteTilingData();
+    CHECK_RET_SUCC(WriteTilingData());
     return SetTilingKeyAndCore();
 }
 

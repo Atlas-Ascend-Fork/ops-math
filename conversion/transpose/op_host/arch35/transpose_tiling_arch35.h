@@ -13,11 +13,12 @@
  * \brief Transpose Tiling 核心数据结构和策略选型定义
  *
  * 本文件定义了：
- * 1. TransposeOpTilingData：通用 Tiling 数据结构（TilingKey 10000-10005 使用）
- * 2. TransposeTilingData：外层封装（包含 TransposeOpTilingData）
- * 3. SplitMode 枚举：9种 Tiling 策略的 key 值定义
- * 4. SplitInfo/Interval/ParamInfo：Tiling 计算中间结构体
- * 5. TransposeNddmaTiling：核心 Tiling 计算类
+ * 1. SplitMode 枚举：各 Tiling 策略的 key 值定义
+ * 2. SplitInfo/Interval/ParamInfo：Tiling 计算中间结构体
+ * 3. TransposeNddmaTiling：核心 Tiling 计算类
+ *
+ * TilingData 结构体本身由 op_kernel/arch35/transpose_tiling_data.h 以纯 struct 形式定义，
+ * Host 与 Kernel 共用同一份定义，保证两侧内存布局完全一致。
  */
 
 #ifndef AIR_CXX_RUNTIME_V2_OP_IMPL_TRANSPOSE_TILING_ARCH35_H
@@ -34,11 +35,11 @@
 #include "register/op_impl_registry.h"
 #include "register/tilingdata_base.h"
 #include "transpose_tiling_base.h"
+#include "../../op_kernel/arch35/transpose_tiling_data.h"
 
 namespace optiling {
+using namespace Transpose;
 /* 核心常量定义 */
-constexpr int64_t MAX_AXIS_NUM_FOR_TRANSPOSE = 8;           ///< 最大支持维度数
-constexpr int64_t NDDMA_MAX_DIM_NUM = 5;                    ///< NDDMA 5维搬运的最大维度数
 constexpr int64_t NDDMA_MAX_LOOP_NUM = 3;                   ///< NDDMA 最大循环层数
 constexpr uint64_t INPUT_IDX_X = 0;                         ///< 输入 x 的索引
 constexpr uint64_t OUTPUT_IDX_Y = 0;                        ///< 输出 y 的索引
@@ -73,72 +74,9 @@ constexpr int64_t HW_MIN_PRODUCT = 448; ///< HW 最小乘积阈值（021 VCONV �
 constexpr int64_t SMALL_SHAPE_BYTES_THRES_HOLD_DAV_5102 = 1000000;      ///< DAV_5102 小shape阈值：1MB
 constexpr int64_t SMALL_SHAPE_BYTES_THRES_HOLD_DAV_5102_NLAST = 400000; ///< DAV_5102 N_LAST小shape阈值：400KB
 constexpr int64_t SMALL_SHAPE_BYTES_THRES_HOLD_DAV_5102_021 = 70000;    ///< DAV_5102 021小shape阈值：70KB
-BEGIN_TILING_DATA_DEF(TransposeOpTilingData)
-/**
- * @brief TransposeOpTilingData 结构体定义
- *
- * 通用 Tiling 数据，TilingKey 10000-10005 使用此结构。
- * 包含 perm 信息、切分参数、核数分配、NDDMA 5维扩展参数和 UB shape 信息。
- */
-TILING_DATA_FIELD_DEF(int64_t, permSize);
-TILING_DATA_FIELD_DEF(int64_t, inCutIndex);
-TILING_DATA_FIELD_DEF(int64_t, outCutIndex);
-TILING_DATA_FIELD_DEF(int64_t, inUbFactor);
-TILING_DATA_FIELD_DEF(int64_t, outUbFactor);
-TILING_DATA_FIELD_DEF(int64_t, inTailFactor);
-TILING_DATA_FIELD_DEF(int64_t, outTailFactor);
-TILING_DATA_FIELD_DEF(int64_t, realCoreNum);
-TILING_DATA_FIELD_DEF(int64_t, blkFactor);
-TILING_DATA_FIELD_DEF(int64_t, blkTailFactor);
-TILING_DATA_FIELD_DEF(int64_t, ubSize);
-TILING_DATA_FIELD_DEF(int64_t, totalNddmaNum);
-TILING_DATA_FIELD_DEF(int64_t, rangeMainEnd);
-TILING_DATA_FIELD_DEF(int64_t, rangeInputTailStart);
-TILING_DATA_FIELD_DEF(int64_t, rangeInputTailEnd);
-TILING_DATA_FIELD_DEF(int64_t, rangeOutputTailStart);
-TILING_DATA_FIELD_DEF(int64_t, rangeOutputTailEnd);
-TILING_DATA_FIELD_DEF(int64_t, rangeTailStart);
-TILING_DATA_FIELD_DEF(int64_t, rangeTailEnd);
-TILING_DATA_FIELD_DEF(int64_t, bigDimBufferNum);
-TILING_DATA_FIELD_DEF_ARR(int64_t, MAX_AXIS_NUM_FOR_TRANSPOSE, inputShape);
-TILING_DATA_FIELD_DEF_ARR(int64_t, MAX_AXIS_NUM_FOR_TRANSPOSE, outputShape);
-TILING_DATA_FIELD_DEF_ARR(int64_t, MAX_AXIS_NUM_FOR_TRANSPOSE, perm);
-TILING_DATA_FIELD_DEF_ARR(int64_t, MAX_AXIS_NUM_FOR_TRANSPOSE, baseInShape);
-TILING_DATA_FIELD_DEF_ARR(int64_t, NDDMA_MAX_DIM_NUM, baseNddmaShape);
-TILING_DATA_FIELD_DEF_ARR(int64_t, NDDMA_MAX_DIM_NUM, nddmaIdx);
-TILING_DATA_FIELD_DEF_ARR(int64_t, NDDMA_MAX_DIM_NUM, expandedPerm);
-TILING_DATA_FIELD_DEF_ARR(int64_t, NDDMA_MAX_DIM_NUM, expandedInputShape);
-TILING_DATA_FIELD_DEF_ARR(int64_t, NDDMA_MAX_DIM_NUM, expandedOutputShape);
-TILING_DATA_FIELD_DEF_ARR(int64_t, NDDMA_MAX_DIM_NUM, inUbMainSrcShape);
-TILING_DATA_FIELD_DEF_ARR(int64_t, NDDMA_MAX_DIM_NUM, inUbMainDstShape);
-TILING_DATA_FIELD_DEF_ARR(int64_t, NDDMA_MAX_DIM_NUM, inUbInputTailSrcShape);
-TILING_DATA_FIELD_DEF_ARR(int64_t, NDDMA_MAX_DIM_NUM, inUbInputTailDstShape);
-TILING_DATA_FIELD_DEF_ARR(int64_t, NDDMA_MAX_DIM_NUM, inUbOutputTailSrcShape);
-TILING_DATA_FIELD_DEF_ARR(int64_t, NDDMA_MAX_DIM_NUM, inUbOutputTailDstShape);
-TILING_DATA_FIELD_DEF_ARR(int64_t, NDDMA_MAX_DIM_NUM, inUbTailSrcShape);
-TILING_DATA_FIELD_DEF_ARR(int64_t, NDDMA_MAX_DIM_NUM, inUbTailDstShape);
-END_TILING_DATA_DEF;
-REGISTER_TILING_DATA_CLASS(TransposeOpTilingDataOp, TransposeOpTilingData)
-
-BEGIN_TILING_DATA_DEF(TransposeTilingData)
-TILING_DATA_FIELD_DEF_STRUCT(TransposeOpTilingData, transposeOpTiling);
-END_TILING_DATA_DEF;
-REGISTER_TILING_DATA_CLASS(Transpose, TransposeTilingData);
 
 /**
- * @brief 2D perm=[1,0] 特化模板的精简 Tiling 数据（10011 TRANSPOSE_2D_TRANSDATA 使用）
- */
-BEGIN_TILING_DATA_DEF(Transpose2DTilingData)
-TILING_DATA_FIELD_DEF(int32_t, m);
-TILING_DATA_FIELD_DEF(int32_t, n);
-TILING_DATA_FIELD_DEF(int32_t, coreNum);
-TILING_DATA_FIELD_DEF(int32_t, tileM);
-TILING_DATA_FIELD_DEF(int32_t, tileN);
-END_TILING_DATA_DEF;
-REGISTER_TILING_DATA_CLASS(Transpose_10011, Transpose2DTilingData);
-
-/**
- * @brief 9种 Tiling 策略的 Key 值枚举
+ * @brief Tiling 策略的 Key 值枚举
  *
  */
 enum class SplitMode : int64_t {
@@ -207,8 +145,10 @@ public:
     explicit TransposeNddmaTiling(gert::TilingContext* context) : tilingContext_(context) {};
     ge::graphStatus Init(const int64_t& coreNum, const int64_t& ubSize);
     ge::graphStatus RunTranposelTiling();
-    ge::graphStatus TilingForRelatedTranspose(gert::TilingContext* context, TransposeOpTilingData* tilingData,
-                                              TransposeCompilerInfo* compilerInfo, ShapeInfo& opInput);
+    // 关联转置：Tiling 计算与 TilingData 写入全部由 Transpose 侧完成，调用方无需持有 TilingData，
+    // 直接把自己的编译信息（const 引用）传进来即可
+    ge::graphStatus TilingForRelatedTranspose(gert::TilingContext* context, const TransposeCompilerInfo& compilerInfo,
+                                              ShapeInfo& opInput);
 
 private:
     template <typename T>
@@ -238,7 +178,7 @@ private:
     void CalcBlockSplitInfoForCutOnce();
     void CalcBlockSplitInfoForCutTwice();
     void CalcBlockSplitInfoForBigDim();
-    void FillTilingData();
+    ge::graphStatus FillTilingData();
     void PrintTilingData();
     void DoSplitUB();
     int64_t DoSplitUBInput(bool tryAbsorb = false);
@@ -263,8 +203,6 @@ private:
     void GetIntervalInfoForCutTwice();
 
 private:
-    TransposeTilingData tilingData_;
-    Transpose2DTilingData tilingData2D_;
     gert::TilingContext* tilingContext_ = nullptr;
 
     int64_t realCoreNum_ = 0;
@@ -275,9 +213,9 @@ private:
     int64_t bigDimBufferNum_ = 1;
     int64_t totalNddmaNum_ = 1;
     int64_t SMALL_SHAPE_BYTES_THRES_HOLD = 4000000;
-    int64_t inputShape_[MAX_AXIS_NUM_FOR_TRANSPOSE] = {0};
-    int64_t outputShape_[MAX_AXIS_NUM_FOR_TRANSPOSE] = {0};
-    int64_t perm_[MAX_AXIS_NUM_FOR_TRANSPOSE] = {0};
+    int64_t inputShape_[TP_MAX_AXIS_NUM] = {0};
+    int64_t outputShape_[TP_MAX_AXIS_NUM] = {0};
+    int64_t perm_[TP_MAX_AXIS_NUM] = {0};
     ShapeInfo shapeInfo_;
     SplitInfo splitInfo_;
     int64_t coreNum_ = 0;
@@ -288,21 +226,21 @@ private:
     Interval offsetRangeInputTail_;
     Interval offsetRangeOutputTail_;
     Interval offsetRangeTail_;
-    int64_t baseInShape_[TRANSPOSE_MAX_AXIS_NUM] = {0};
-    int64_t baseNddmaShape_[NDDMA_MAX_DIM_NUM] = {0};
-    int64_t nddmaIdx_[NDDMA_MAX_DIM_NUM] = {-1};
+    int64_t baseInShape_[TP_MAX_AXIS_NUM] = {0};
+    int64_t baseNddmaShape_[TP_NDDMA_MAX_DIM_NUM] = {0};
+    int64_t nddmaIdx_[TP_NDDMA_MAX_DIM_NUM] = {-1};
 
-    int64_t expandedPerm_[NDDMA_MAX_DIM_NUM] = {0, 1, 2, 3, 4};
-    int64_t expandedInputShape_[NDDMA_MAX_DIM_NUM] = {1, 1, 1, 1, 1};
-    int64_t expandedOutputShape_[NDDMA_MAX_DIM_NUM] = {1, 1, 1, 1, 1};
-    int64_t inUbMainSrcShape_[NDDMA_MAX_DIM_NUM] = {0};
-    int64_t inUbMainDstShape_[NDDMA_MAX_DIM_NUM] = {0};
-    int64_t inUbInputTailSrcShape_[NDDMA_MAX_DIM_NUM] = {0};
-    int64_t inUbInputTailDstShape_[NDDMA_MAX_DIM_NUM] = {0};
-    int64_t inUbOutputTailSrcShape_[NDDMA_MAX_DIM_NUM] = {0};
-    int64_t inUbOutputTailDstShape_[NDDMA_MAX_DIM_NUM] = {0};
-    int64_t inUbTailSrcShape_[NDDMA_MAX_DIM_NUM] = {0};
-    int64_t inUbTailDstShape_[NDDMA_MAX_DIM_NUM] = {0};
+    int64_t expandedPerm_[TP_NDDMA_MAX_DIM_NUM] = {0, 1, 2, 3, 4};
+    int64_t expandedInputShape_[TP_NDDMA_MAX_DIM_NUM] = {1, 1, 1, 1, 1};
+    int64_t expandedOutputShape_[TP_NDDMA_MAX_DIM_NUM] = {1, 1, 1, 1, 1};
+    int64_t inUbMainSrcShape_[TP_NDDMA_MAX_DIM_NUM] = {0};
+    int64_t inUbMainDstShape_[TP_NDDMA_MAX_DIM_NUM] = {0};
+    int64_t inUbInputTailSrcShape_[TP_NDDMA_MAX_DIM_NUM] = {0};
+    int64_t inUbInputTailDstShape_[TP_NDDMA_MAX_DIM_NUM] = {0};
+    int64_t inUbOutputTailSrcShape_[TP_NDDMA_MAX_DIM_NUM] = {0};
+    int64_t inUbOutputTailDstShape_[TP_NDDMA_MAX_DIM_NUM] = {0};
+    int64_t inUbTailSrcShape_[TP_NDDMA_MAX_DIM_NUM] = {0};
+    int64_t inUbTailDstShape_[TP_NDDMA_MAX_DIM_NUM] = {0};
 
     bool isRelatedTranspose_ = false;
     bool is4bit_ = false;

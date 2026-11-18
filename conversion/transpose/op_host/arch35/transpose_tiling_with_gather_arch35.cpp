@@ -13,8 +13,10 @@
  * \brief
  */
 #include "transpose_tiling_with_gather_arch35.h"
+#include "common/inc/op_host/math_log.h"
 
 namespace optiling {
+using namespace Transpose;
 namespace TransWithGather {
 static constexpr int8_t NUM_TWO = 2;
 static constexpr int8_t NUM_THREE = 3;
@@ -447,9 +449,9 @@ void TransposeGatherTiling::CalcUbCutFactorInLeftOnly(int64_t elemInTensor, int6
  *
  * @return GRAPH_SUCCESS 校验通过；GRAPH_FAILED MTE 效率不足或 bank 冲突
  */
-ge::graphStatus TransposeGatherTiling::CalcUbAxesInfo(const int64_t (&tmpInAxes)[MAX_TRANS_AXIS_NUM],
-                                                      const int64_t (&tmpOutAxes)[MAX_TRANS_AXIS_NUM],
-                                                      const int8_t (&tmpOutPerm)[MAX_TRANS_AXIS_NUM])
+ge::graphStatus TransposeGatherTiling::CalcUbAxesInfo(const int64_t (&tmpInAxes)[TP_GATHER_MAX_AXIS_NUM],
+                                                      const int64_t (&tmpOutAxes)[TP_GATHER_MAX_AXIS_NUM],
+                                                      const int8_t (&tmpOutPerm)[TP_GATHER_MAX_AXIS_NUM])
 {
     CompactUbAxes(tmpInAxes, tmpOutAxes, tmpOutPerm);
     if (CheckUbHwConstraint() == ge::GRAPH_FAILED) {
@@ -462,17 +464,17 @@ ge::graphStatus TransposeGatherTiling::CalcUbAxesInfo(const int64_t (&tmpInAxes)
 /**
  * @brief CalcUbAxesInfo 的压实段：把 tmpInAxes/tmpOutAxes/tmpOutPerm 压实为 UB 轴信息
  *
- * 原函数首个 for 循环逐行搬移：遍历 MAX_TRANS_AXIS_NUM，非零 tmpOutAxes[j] 填入
+ * 原函数首个 for 循环逐行搬移：遍历 TP_GATHER_MAX_AXIS_NUM，非零 tmpOutAxes[j] 填入
  * outUbAxes[outIdx] 并按 allUbPerm 序号填 ubPerm[outIdx]；非零 tmpInAxes[j] 填入
  * inUbAxes[inIdx]。inIdx/outIdx 为本段局部变量（原函数对应分支逐行同名同形）。
  */
-void TransposeGatherTiling::CompactUbAxes(const int64_t (&tmpInAxes)[MAX_TRANS_AXIS_NUM],
-                                          const int64_t (&tmpOutAxes)[MAX_TRANS_AXIS_NUM],
-                                          const int8_t (&tmpOutPerm)[MAX_TRANS_AXIS_NUM])
+void TransposeGatherTiling::CompactUbAxes(const int64_t (&tmpInAxes)[TP_GATHER_MAX_AXIS_NUM],
+                                          const int64_t (&tmpOutAxes)[TP_GATHER_MAX_AXIS_NUM],
+                                          const int8_t (&tmpOutPerm)[TP_GATHER_MAX_AXIS_NUM])
 {
     int8_t inIdx = 0;
     int8_t outIdx = 0;
-    for (int8_t j = 0; j < MAX_TRANS_AXIS_NUM; ++j) {
+    for (int8_t j = 0; j < TP_GATHER_MAX_AXIS_NUM; ++j) {
         if (tmpOutAxes[j] != 0) {
             ubSplitInfo_.outUbAxes[outIdx] = static_cast<int32_t>(tmpOutAxes[j]);
             // do like [5,2,3,0] -> [3,1,2,0]
@@ -559,9 +561,9 @@ void TransposeGatherTiling::MapUbCutPosToOut()
  */
 ge::graphStatus TransposeGatherTiling::CalcUbSplitInfo4Gather(int64_t elemInTensor, int64_t sqrtedTensor)
 {
-    int8_t tmpOutPerm[MAX_TRANS_AXIS_NUM] = {0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf};
-    int64_t tmpInAxes[MAX_TRANS_AXIS_NUM] = {0, 0, 0, 0, 0, 0, 0, 0};
-    int64_t tmpOutAxes[MAX_TRANS_AXIS_NUM] = {0, 0, 0, 0, 0, 0, 0, 0};
+    int8_t tmpOutPerm[TP_GATHER_MAX_AXIS_NUM] = {0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf};
+    int64_t tmpInAxes[TP_GATHER_MAX_AXIS_NUM] = {0, 0, 0, 0, 0, 0, 0, 0};
+    int64_t tmpOutAxes[TP_GATHER_MAX_AXIS_NUM] = {0, 0, 0, 0, 0, 0, 0, 0};
     std::set<int8_t> viceAllUbPerm(allUbPerm_);
 
     ubSplitInfo_.ubAxesCnt = static_cast<int8_t>(allUbPerm_.size());
@@ -1030,42 +1032,48 @@ ge::graphStatus TransposeGatherTiling::SetTilingKeyAndCore()
     return ge::GRAPH_SUCCESS;
 }
 
-void TransposeGatherTiling::WriteTilingData()
+ge::graphStatus TransposeGatherTiling::WriteTilingData()
 {
-    tilingData_.set_tilingKey(tilingKey_);
-    tilingData_.set_dataTensorSize(dataTensorSize_);
-    tilingData_.set_indexTensorSize(indexTensorSize_);
-    tilingData_.set_usedCoreCnt(blkSplitInfo_.usedCoreCnt);
-    tilingData_.set_blkAxesCnt(blkSplitInfo_.blkAxesCnt);
-    tilingData_.set_blkInUbCutPos(blkSplitInfo_.blkInUbCutPos);
-    tilingData_.set_blkOutUbCutPos(blkSplitInfo_.blkOutUbCutPos);
-    tilingData_.set_ubAxesCnt(ubSplitInfo_.ubAxesCnt);
-    tilingData_.set_inUbInCutPos(ubSplitInfo_.inUbInCutPos);
-    tilingData_.set_inUbOutCutPos(ubSplitInfo_.inUbOutCutPos);
-    tilingData_.set_outUbInCutPos(ubSplitInfo_.outUbInCutPos);
-    tilingData_.set_outUbOutCutPos(ubSplitInfo_.outUbOutCutPos);
-    tilingData_.set_blkFactor(blkSplitInfo_.blkFactor);
-    tilingData_.set_blkTailFactor(blkSplitInfo_.blkTailFactor);
-    tilingData_.set_inUbCutAxisSize(ubSplitInfo_.inUbCutAxisSize);
-    tilingData_.set_outUbCutAxisSize(ubSplitInfo_.outUbCutAxisSize);
-    tilingData_.set_inUbCutAxisFactor(ubSplitInfo_.inUbCutAxisFactor);
-    tilingData_.set_outUbCutAxisFactor(ubSplitInfo_.outUbCutAxisFactor);
-    tilingData_.set_axis0InSrcStride(ubSplitInfo_.axis0InSrcStride);
-    tilingData_.set_axis1InSrcStride(ubSplitInfo_.axis1InSrcStride);
-    tilingData_.set_axis2InSrcStride(ubSplitInfo_.axis2InSrcStride);
-    tilingData_.set_axis0OutDstStride(ubSplitInfo_.axis0OutDstStride);
-    tilingData_.set_axis1OutDstStride(ubSplitInfo_.axis1OutDstStride);
-    tilingData_.set_axis2OutDstStride(ubSplitInfo_.axis2OutDstStride);
+    GatherTransposeTilingData* tiling = context_->GetTilingData<GatherTransposeTilingData>();
+    if (tiling == nullptr) {
+        OP_LOGE(context_->GetNodeName(), "get tiling data failed, capacity is not enough!");
+        return ge::GRAPH_FAILED;
+    }
 
-    tilingData_.set_blkAxes(blkSplitInfo_.blkAxes);
-    tilingData_.set_blkAxesInAOffset(blkSplitInfo_.blkAxesInAOffset);
-    tilingData_.set_blkAxesOutAOffset(blkSplitInfo_.blkAxesOutAOffset);
-    tilingData_.set_inUbAxes(ubSplitInfo_.inUbAxes);
-    tilingData_.set_outUbAxes(ubSplitInfo_.outUbAxes);
-    tilingData_.set_ubPerm(ubSplitInfo_.ubPerm);
+    tiling->tilingKey = tilingKey_;
+    tiling->dataTensorSize = dataTensorSize_;
+    tiling->indexTensorSize = indexTensorSize_;
+    tiling->usedCoreCnt = blkSplitInfo_.usedCoreCnt;
+    tiling->blkAxesCnt = blkSplitInfo_.blkAxesCnt;
+    tiling->blkInUbCutPos = blkSplitInfo_.blkInUbCutPos;
+    tiling->blkOutUbCutPos = blkSplitInfo_.blkOutUbCutPos;
+    tiling->ubAxesCnt = ubSplitInfo_.ubAxesCnt;
+    tiling->inUbInCutPos = ubSplitInfo_.inUbInCutPos;
+    tiling->inUbOutCutPos = ubSplitInfo_.inUbOutCutPos;
+    tiling->outUbInCutPos = ubSplitInfo_.outUbInCutPos;
+    tiling->outUbOutCutPos = ubSplitInfo_.outUbOutCutPos;
+    tiling->blkFactor = blkSplitInfo_.blkFactor;
+    tiling->blkTailFactor = blkSplitInfo_.blkTailFactor;
+    tiling->inUbCutAxisSize = ubSplitInfo_.inUbCutAxisSize;
+    tiling->outUbCutAxisSize = ubSplitInfo_.outUbCutAxisSize;
+    tiling->inUbCutAxisFactor = ubSplitInfo_.inUbCutAxisFactor;
+    tiling->outUbCutAxisFactor = ubSplitInfo_.outUbCutAxisFactor;
+    tiling->axis0InSrcStride = ubSplitInfo_.axis0InSrcStride;
+    tiling->axis1InSrcStride = ubSplitInfo_.axis1InSrcStride;
+    tiling->axis2InSrcStride = ubSplitInfo_.axis2InSrcStride;
+    tiling->axis0OutDstStride = ubSplitInfo_.axis0OutDstStride;
+    tiling->axis1OutDstStride = ubSplitInfo_.axis1OutDstStride;
+    tiling->axis2OutDstStride = ubSplitInfo_.axis2OutDstStride;
 
-    tilingData_.SaveToBuffer(context_->GetRawTilingData()->GetData(), context_->GetRawTilingData()->GetCapacity());
-    context_->GetRawTilingData()->SetDataSize(tilingData_.GetDataSize());
+    std::copy(blkSplitInfo_.blkAxes, blkSplitInfo_.blkAxes + TP_GATHER_MAX_AXIS_NUM, tiling->blkAxes);
+    std::copy(blkSplitInfo_.blkAxesInAOffset, blkSplitInfo_.blkAxesInAOffset + TP_GATHER_MAX_AXIS_NUM,
+              tiling->blkAxesInAOffset);
+    std::copy(blkSplitInfo_.blkAxesOutAOffset, blkSplitInfo_.blkAxesOutAOffset + TP_GATHER_MAX_AXIS_NUM,
+              tiling->blkAxesOutAOffset);
+    std::copy(ubSplitInfo_.inUbAxes, ubSplitInfo_.inUbAxes + TP_GATHER_UB_MAX_DIM_NUM, tiling->inUbAxes);
+    std::copy(ubSplitInfo_.outUbAxes, ubSplitInfo_.outUbAxes + TP_GATHER_UB_MAX_DIM_NUM, tiling->outUbAxes);
+    std::copy(ubSplitInfo_.ubPerm, ubSplitInfo_.ubPerm + TP_GATHER_UB_MAX_DIM_NUM, tiling->ubPerm);
+    return ge::GRAPH_SUCCESS;
 }
 
 std::string TransposeGatherTiling::PrintTilingData()
@@ -1096,27 +1104,27 @@ std::string TransposeGatherTiling::PrintTilingData()
     tdStr += std::to_string(ubSplitInfo_.axis1OutDstStride) + ",";
     tdStr += std::to_string(ubSplitInfo_.axis2OutDstStride) + ",";
     tdStr += "block axes:";
-    for (int8_t i = 0; i < MAX_TRANS_AXIS_NUM; ++i) {
+    for (int8_t i = 0; i < TP_GATHER_MAX_AXIS_NUM; ++i) {
         tdStr += std::to_string(blkSplitInfo_.blkAxes[i]) + " ";
     }
     tdStr += ",block axes in offset:";
-    for (int8_t i = 0; i < MAX_TRANS_AXIS_NUM; ++i) {
+    for (int8_t i = 0; i < TP_GATHER_MAX_AXIS_NUM; ++i) {
         tdStr += std::to_string(blkSplitInfo_.blkAxesInAOffset[i]) + " ";
     }
     tdStr += ",block axes out offset:";
-    for (int8_t i = 0; i < MAX_TRANS_AXIS_NUM; ++i) {
+    for (int8_t i = 0; i < TP_GATHER_MAX_AXIS_NUM; ++i) {
         tdStr += std::to_string(blkSplitInfo_.blkAxesOutAOffset[i]) + " ";
     }
     tdStr += ",ub in axes:";
-    for (int8_t i = 0; i < UB_MAX_DIM_NUM; ++i) {
+    for (int8_t i = 0; i < TP_GATHER_UB_MAX_DIM_NUM; ++i) {
         tdStr += std::to_string(ubSplitInfo_.inUbAxes[i]) + " ";
     }
     tdStr += ",ub out axes:";
-    for (int8_t i = 0; i < UB_MAX_DIM_NUM; ++i) {
+    for (int8_t i = 0; i < TP_GATHER_UB_MAX_DIM_NUM; ++i) {
         tdStr += std::to_string(ubSplitInfo_.outUbAxes[i]) + " ";
     }
     tdStr += ",ub perm:";
-    for (int8_t i = 0; i < UB_MAX_DIM_NUM; ++i) {
+    for (int8_t i = 0; i < TP_GATHER_UB_MAX_DIM_NUM; ++i) {
         tdStr += std::to_string(ubSplitInfo_.ubPerm[i]) + " ";
     }
     return tdStr;
@@ -1142,7 +1150,7 @@ ge::graphStatus TransposeGatherTiling::DoTiling()
     OP_CHECK_IF(CalcBlockSplitInfo() != ge::GRAPH_SUCCESS,
                 OP_LOGD(context_->GetNodeName(), "Stop to run gather tiling, block count is too small!"),
                 return ge::GRAPH_FAILED);
-    WriteTilingData();
+    CHECK_RET_SUCC(WriteTilingData());
     OP_LOGI(context_->GetNodeName(), "The tiling data is: %s", PrintTilingData().c_str());
     return SetTilingKeyAndCore();
 }

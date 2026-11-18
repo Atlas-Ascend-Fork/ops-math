@@ -74,11 +74,11 @@ private:
 
     // tiling params
     const TransposeOpTilingData* tiling_;
-    int64_t reducedInputShape_[TRANSPOSE_MAX_AXIS_NUM] = {0, 0, 0, 0, 0, 0, 0, 0};   ///< 简化后的输入 shape
-    int64_t reducedOutputShape_[TRANSPOSE_MAX_AXIS_NUM] = {0, 0, 0, 0, 0, 0, 0, 0};  ///< 简化后的输出 shape
-    int64_t inUbInputShapeMain_[TRANSPOSE_MAX_AXIS_NUM] = {0, 0, 0, 0, 0, 0, 0, 0};  ///< Main 块输入 UB shape
-    int64_t inUbOutputShapeMain_[TRANSPOSE_MAX_AXIS_NUM] = {0, 0, 0, 0, 0, 0, 0, 0}; ///< Main 块输出 UB shape
-    int64_t inUbInputShapeTail_[TRANSPOSE_MAX_AXIS_NUM] = {0, 0, 0, 0, 0, 0, 0, 0};  ///< Tail 块输入 UB shape
+    int64_t reducedInputShape_[TP_MAX_AXIS_NUM] = {0, 0, 0, 0, 0, 0, 0, 0};   ///< 简化后的输入 shape
+    int64_t reducedOutputShape_[TP_MAX_AXIS_NUM] = {0, 0, 0, 0, 0, 0, 0, 0};  ///< 简化后的输出 shape
+    int64_t inUbInputShapeMain_[TP_MAX_AXIS_NUM] = {0, 0, 0, 0, 0, 0, 0, 0};  ///< Main 块输入 UB shape
+    int64_t inUbOutputShapeMain_[TP_MAX_AXIS_NUM] = {0, 0, 0, 0, 0, 0, 0, 0}; ///< Main 块输出 UB shape
+    int64_t inUbInputShapeTail_[TP_MAX_AXIS_NUM] = {0, 0, 0, 0, 0, 0, 0, 0};  ///< Tail 块输入 UB shape
 
     // core params
     int64_t blkProcessNum_ = 0;
@@ -86,16 +86,16 @@ private:
     int64_t blkProcessIdxEnd_ = 0;
 
     // 地址偏移参数（用于 GetDstAddressOffset 的混合基分解）
-    int64_t dstAddressOffsetMixedBase_[TRANSPOSE_MAX_AXIS_NUM] = {0, 0, 0, 0, 0, 0, 0, 0}; ///< 输出地址偏移混合基
-    int64_t dstLoopNumArray_[TRANSPOSE_MAX_AXIS_NUM] = {0, 0, 0, 0, 0, 0, 0, 0};           ///< 输出各维度步长
+    int64_t dstAddressOffsetMixedBase_[TP_MAX_AXIS_NUM] = {0, 0, 0, 0, 0, 0, 0, 0}; ///< 输出地址偏移混合基
+    int64_t dstLoopNumArray_[TP_MAX_AXIS_NUM] = {0, 0, 0, 0, 0, 0, 0, 0};           ///< 输出各维度步长
 
     // DataCopy 参数：Main 和 Tail 各一组
-    int64_t loopSizeMain_[TRANSPOSE_MAX_AXIS_NUM] = {1, 1, 1, 1, 1, 1, 1, 1};      ///< Main 块各维 loopSize
-    int64_t loopSrcStrideMain_[TRANSPOSE_MAX_AXIS_NUM] = {0, 0, 0, 0, 0, 0, 0, 0}; ///< Main 块各维 srcStride
-    int64_t loopDstStrideMain_[TRANSPOSE_MAX_AXIS_NUM] = {0, 0, 0, 0, 0, 0, 0, 0}; ///< Main 块各维 dstStride
-    int64_t loopSizeTail_[TRANSPOSE_MAX_AXIS_NUM] = {1, 1, 1, 1, 1, 1, 1, 1};      ///< Tail 块各维 loopSize
-    int64_t loopSrcStrideTail_[TRANSPOSE_MAX_AXIS_NUM] = {0, 0, 0, 0, 0, 0, 0, 0}; ///< Tail 块各维 srcStride
-    int64_t loopDstStrideTail_[TRANSPOSE_MAX_AXIS_NUM] = {0, 0, 0, 0, 0, 0, 0, 0}; ///< Tail 块各维 dstStride
+    int64_t loopSizeMain_[TP_MAX_AXIS_NUM] = {1, 1, 1, 1, 1, 1, 1, 1};      ///< Main 块各维 loopSize
+    int64_t loopSrcStrideMain_[TP_MAX_AXIS_NUM] = {0, 0, 0, 0, 0, 0, 0, 0}; ///< Main 块各维 srcStride
+    int64_t loopDstStrideMain_[TP_MAX_AXIS_NUM] = {0, 0, 0, 0, 0, 0, 0, 0}; ///< Main 块各维 dstStride
+    int64_t loopSizeTail_[TP_MAX_AXIS_NUM] = {1, 1, 1, 1, 1, 1, 1, 1};      ///< Tail 块各维 loopSize
+    int64_t loopSrcStrideTail_[TP_MAX_AXIS_NUM] = {0, 0, 0, 0, 0, 0, 0, 0}; ///< Tail 块各维 srcStride
+    int64_t loopDstStrideTail_[TP_MAX_AXIS_NUM] = {0, 0, 0, 0, 0, 0, 0, 0}; ///< Tail 块各维 dstStride
 };
 
 template <typename T>
@@ -148,8 +148,8 @@ template <typename T>
 __aicore__ inline void TransposeNLast<T>::GetBlockLoopNum()
 {
     const int64_t permSize = tiling_->permSize;
-    int64_t dstLoopNumArrayTmp[TRANSPOSE_MAX_AXIS_NUM];
-    int64_t rightProducts[TRANSPOSE_MAX_AXIS_NUM + 1];
+    int64_t dstLoopNumArrayTmp[TP_MAX_AXIS_NUM];
+    int64_t rightProducts[TP_MAX_AXIS_NUM + 1];
     rightProducts[permSize] = 1;
 
     for (int64_t i = permSize - 1; i >= 0; i--) {
@@ -352,8 +352,8 @@ __aicore__ inline void TransposeNLast<T>::ProcessPerCore()
     const int64_t loopEnd = blkProcessIdxEnd_;
 
     // P1: cache member arrays to stack to break alias pollution from struct dynamic indexing
-    int64_t localMixedBase[TRANSPOSE_MAX_AXIS_NUM];
-    int64_t localLoopNum[TRANSPOSE_MAX_AXIS_NUM];
+    int64_t localMixedBase[TP_MAX_AXIS_NUM];
+    int64_t localLoopNum[TP_MAX_AXIS_NUM];
     for (int64_t i = 0; i < permSize; i++) {
         localMixedBase[i] = dstAddressOffsetMixedBase_[i];
         localLoopNum[i] = dstLoopNumArray_[i];

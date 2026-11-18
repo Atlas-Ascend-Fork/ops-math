@@ -41,6 +41,7 @@ using namespace std;
 using namespace gert;
 
 namespace optiling {
+using namespace Transpose;
 
 static void DuplicateArray(const vector<int64_t>& src, vector<int64_t>& dst, int64_t len)
 {
@@ -70,7 +71,7 @@ void RemoveAxisV2(ShapeInfo& shapeInfo)
     }
 
     // 建立原始轴到删除单例维度后的新轴编号的映射。
-    int64_t axisMap[TRANSPOSE_MAX_AXIS_NUM];
+    int64_t axisMap[TP_MAX_AXIS_NUM];
     int64_t reducedDim = 0;
     for (int64_t i = 0; i < dim; i++) {
         if (shapeInfo.inShape[i] == 1) {
@@ -109,9 +110,9 @@ void MergeAxisV2(ShapeInfo& shapeInfo)
     }
 
     // 按输出轴顺序识别连续轴组，并在每组的输入起始轴处记录组编号。
-    int64_t groupAtHead[TRANSPOSE_MAX_AXIS_NUM];
+    int64_t groupAtHead[TP_MAX_AXIS_NUM];
     std::fill_n(groupAtHead, dim, -1);
-    int64_t mergedShape[TRANSPOSE_MAX_AXIS_NUM];
+    int64_t mergedShape[TP_MAX_AXIS_NUM];
     int64_t groupCount = 0;
     for (int64_t i = 0; i < dim; ++i) {
         const int64_t axis = shapeInfo.reducedPerm[i];

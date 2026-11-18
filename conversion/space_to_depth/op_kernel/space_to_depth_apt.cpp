@@ -10,57 +10,13 @@
 
 /*!
  * \file space_to_depth_apt.cpp
- * \brief
+ * \brief space_to_depth
  */
 
-#include "../transpose/arch35/transpose_tensor_move.h"
-#include "../transpose/arch35/transpose_cut_one_axis.h"
-#include "../transpose/arch35/transpose_cut_two_axis.h"
-#ifdef __CCE_AICORE_SUPPORT_SIMT__
-#include "../transpose/arch35/transpose_small_shape.h"
-#endif
-#include "../transpose/arch35/transpose_big_dim.h"
-#include "../transpose/arch35/transpose_n_last.h"
-
-#define TENSOR_MOVE 10000
-#define SMALL_SHAPE 10001
-#define CUT_ONCE 10002
-#define CUT_TWICE 10003
-#define N_LAST_TRANSPOSE 10004
-#define BIG_DIM 10005
-
-using namespace Transpose;
+#include "../transpose/arch35/transpose_impl.h"
 
 __global__ __aicore__ void space_to_depth(GM_ADDR x, GM_ADDR y, GM_ADDR workspace, GM_ADDR tiling)
 {
-    KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_AIV_ONLY);
-    GET_TILING_DATA(tilingData, tiling);
-    TPipe pipe;
-    if (TILING_KEY_IS(TENSOR_MOVE)) {
-        Transpose::TransposeTensorMove<DTYPE_X> op;
-        op.Init(x, y, &tilingData.transposeOpTiling, &pipe);
-        op.Process();
-#ifdef __CCE_AICORE_SUPPORT_SIMT__
-    } else if (TILING_KEY_IS(SMALL_SHAPE)) {
-        Transpose::TransposeSmallShape<DTYPE_X> op;
-        op.Init(x, y, &tilingData.transposeOpTiling);
-        op.Process();
-#endif
-    } else if (TILING_KEY_IS(CUT_ONCE)) {
-        Transpose::TransposeCutOneAxis<DTYPE_X> op;
-        op.Init(x, y, &tilingData.transposeOpTiling, &pipe);
-        op.Process();
-    } else if (TILING_KEY_IS(CUT_TWICE)) {
-        Transpose::TransposeCutTwoAxis<DTYPE_X> op;
-        op.Init(x, y, &tilingData.transposeOpTiling, &pipe);
-        op.Process();
-    } else if (TILING_KEY_IS(BIG_DIM)) {
-        Transpose::TransposeBigDim<DTYPE_X> op;
-        op.Init(x, y, &tilingData.transposeOpTiling, &pipe);
-        op.Process();
-    } else if (TILING_KEY_IS(N_LAST_TRANSPOSE)) {
-        Transpose::TransposeNLast<DTYPE_X> op;
-        op.Init(x, y, &tilingData.transposeOpTiling, &pipe);
-        op.Process();
-    }
+    // TilingData 解析、TPipe/TaskType 与策略分发全部在 transpose_impl.h 内完成
+    Transpose::TransposeImpl<DTYPE_X>(x, y, tiling);
 }

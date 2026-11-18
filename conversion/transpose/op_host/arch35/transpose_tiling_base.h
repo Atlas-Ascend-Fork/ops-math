@@ -33,8 +33,10 @@
 #include <queue>
 #include <memory>
 
+#include "../../op_kernel/arch35/transpose_tiling_data.h"
+
 namespace optiling {
-#define TRANSPOSE_MAX_AXIS_NUM 8
+using namespace Transpose;
 
 /**
  * @brief Shape 信息结构体，Tiling 计算的核心数据
@@ -61,12 +63,12 @@ struct ShapeInfo {
 
     ShapeInfo()
     {
-        inShape.resize(TRANSPOSE_MAX_AXIS_NUM);
-        outShape.resize(TRANSPOSE_MAX_AXIS_NUM);
-        perm.resize(TRANSPOSE_MAX_AXIS_NUM);
-        reducedInShape.resize(TRANSPOSE_MAX_AXIS_NUM);
-        reducedOutShape.resize(TRANSPOSE_MAX_AXIS_NUM);
-        reducedPerm.resize(TRANSPOSE_MAX_AXIS_NUM);
+        inShape.resize(TP_MAX_AXIS_NUM);
+        outShape.resize(TP_MAX_AXIS_NUM);
+        perm.resize(TP_MAX_AXIS_NUM);
+        reducedInShape.resize(TP_MAX_AXIS_NUM);
+        reducedOutShape.resize(TP_MAX_AXIS_NUM);
+        reducedPerm.resize(TP_MAX_AXIS_NUM);
         Reset();
     }
 

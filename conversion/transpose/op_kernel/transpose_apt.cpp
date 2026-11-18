@@ -57,19 +57,7 @@
 #ifdef __CCE_AICORE_SUPPORT_SIMT__
 #include "arch35/transpose_b4.h"
 #endif
-
-/* TilingKey 常量定义，与 Host 侧 SplitMode 枚举值一一对应 */
-#define TENSOR_MOVE 10000      // 融合后仅1维，等价于纯数据搬运
-#define SMALL_SHAPE 10001      // 小数据量(<阈值字节)，SIMT模式GM→GM直读直写
-#define CUT_ONCE 10002         // NDDMA 5维搬运，切1个轴（输出切分轴≤输入切分轴映射）
-#define CUT_TWICE 10003        // NDDMA 5维搬运，切2个轴（4种数据区间：Main/InputTail/OutputTail/Tail）
-#define N_LAST_TRANSPOSE 10004 // 尾轴不转置 + 尾轴≥32元素，双缓冲流水线连续行搬移
-#define BIG_DIM 10005          // 维度>5，压缩到5维NDDMA格式进行搬运
-#define GATHER_TRANSPOSE 10006 // 尾轴转置+大shape，使用DataCopyGather硬件指令(RegBase路径)
-#define VCONV_TRANSPOSE 10007  // 2D perm=[1,0]+16bit(DAV_5102)，TransDataTo5HD硬件指令
-#define VCONV_021_TRANSPOSE 10008    // 3D perm=[0,2,1]+8/16/32bit(DAV_5102)，TransDataTo5HD硬件指令
-#define TRANSPOSE_2D_TRANSDATA 10011 // 2D perm=[1,0] 特化，TransDataTo5HD 全 tile 转置
-#define B4_DUAL_CUT 10009            // B4 双切分
+#include "arch35/transpose_tiling_key.h"
 
 using namespace Transpose;
 
@@ -152,7 +140,7 @@ extern "C" __aicore__ inline void TransposeSmallShapeProcess(GM_ADDR x, GM_ADDR 
 /**
  * @brief CUT_ONCE(10002) 策略的 Process 函数
  * NDDMA 5维搬运，单轴切分。适用于 outCutIndex ≤ FindOutIndex(inCutIndex) 的场景。
- * 通过 DataCopy<T, NDDMA_MAX_DIM_NUM> 5维NDDMA自动转置，硬件完成维度重排。
+ * 通过 DataCopy<T, TP_NDDMA_MAX_DIM_NUM> 5维NDDMA自动转置，硬件完成维度重排。
  *
  * @param x         输入张量 GM 地址
  * @param y         输出张量 GM 地址
@@ -429,11 +417,13 @@ extern "C" __aicore__ inline void TransposeHIF4DualCutProcess(GM_ADDR x, GM_ADDR
  * 4. 调用对应策略的 Process 函数
  *
  * Tiling 数据结构说明：
- *   - TilingKey 10000-10005 使用 TransposeTilingData（内含 TransposeOpTilingData）
+ *   - TilingKey 10000-10005 使用 TransposeOpTilingData
  *   - TilingKey 10006 使用 GatherTransposeTilingData
  *   - TilingKey 10007 使用 TransposeVCONVTilingData
  *   - TilingKey 10008 使用 Transpose021VCONVTilingData
+ *   - TilingKey 10009 使用 HIF4DualCutTilingData
  *   - TilingKey 10011 使用 Transpose2DTilingData
+ *   所有结构体定义见 arch35/transpose_tiling_data.h（Host / Kernel 共用）
  *
  * @param x         输入张量 GM 地址
  * @param perm      perm 数组 GM 地址（Kernel 侧不直接使用，通过 TilingData 传递）
@@ -445,28 +435,30 @@ extern "C" __global__ __aicore__ void transpose(GM_ADDR x, GM_ADDR perm, GM_ADDR
 {
     TPipe pipe;
     KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_AIV_ONLY); // 声明为纯 Vector 核任务，不使用 Cube 核
-    if (TILING_KEY_IS(TENSOR_MOVE)) {               // 10000: 纯数据搬运
-        GET_TILING_DATA_WITH_STRUCT(TransposeTilingData, tilingData, tiling);
-        TransposeTensorMoveProcess(x, y, &tilingData.transposeOpTiling, &pipe);
+    // 各 TilingKey 使用不同的 TilingData 结构体，无法注册唯一的默认结构体，故按 key 分支各自解读
+    REGISTER_NONE_TILING;
+    if (TILING_KEY_IS(TENSOR_MOVE)) { // 10000: 纯数据搬运
+        GET_TILING_DATA_WITH_STRUCT(TransposeOpTilingData, tilingData, tiling);
+        TransposeTensorMoveProcess(x, y, &tilingData, &pipe);
     }
 #ifdef __CCE_AICORE_SUPPORT_SIMT__
     else if (TILING_KEY_IS(SMALL_SHAPE)) { // 10001: SIMT 小shape直读直写
-        GET_TILING_DATA_WITH_STRUCT(TransposeTilingData, tilingData, tiling);
-        TransposeSmallShapeProcess(x, y, &tilingData.transposeOpTiling);
+        GET_TILING_DATA_WITH_STRUCT(TransposeOpTilingData, tilingData, tiling);
+        TransposeSmallShapeProcess(x, y, &tilingData);
     }
 #endif
     else if (TILING_KEY_IS(CUT_ONCE)) { // 10002: NDDMA单轴切分
-        GET_TILING_DATA_WITH_STRUCT(TransposeTilingData, tilingData, tiling);
-        TransposeCutOneAxisProcess(x, y, &tilingData.transposeOpTiling, &pipe);
+        GET_TILING_DATA_WITH_STRUCT(TransposeOpTilingData, tilingData, tiling);
+        TransposeCutOneAxisProcess(x, y, &tilingData, &pipe);
     } else if (TILING_KEY_IS(CUT_TWICE)) { // 10003: NDDMA双轴切分
-        GET_TILING_DATA_WITH_STRUCT(TransposeTilingData, tilingData, tiling);
-        TransposeCutTwoAxisProcess(x, y, &tilingData.transposeOpTiling, &pipe);
+        GET_TILING_DATA_WITH_STRUCT(TransposeOpTilingData, tilingData, tiling);
+        TransposeCutTwoAxisProcess(x, y, &tilingData, &pipe);
     } else if (TILING_KEY_IS(N_LAST_TRANSPOSE)) { // 10004: 尾轴不转置+连续行搬移
-        GET_TILING_DATA_WITH_STRUCT(TransposeTilingData, tilingData, tiling);
-        TransposeNLastProcess(x, y, &tilingData.transposeOpTiling, &pipe);
+        GET_TILING_DATA_WITH_STRUCT(TransposeOpTilingData, tilingData, tiling);
+        TransposeNLastProcess(x, y, &tilingData, &pipe);
     } else if (TILING_KEY_IS(BIG_DIM)) { // 10005: >5维压缩到5维NDDMA
-        GET_TILING_DATA_WITH_STRUCT(TransposeTilingData, tilingData, tiling);
-        TransposeBigDimProcess(x, y, &tilingData.transposeOpTiling, &pipe);
+        GET_TILING_DATA_WITH_STRUCT(TransposeOpTilingData, tilingData, tiling);
+        TransposeBigDimProcess(x, y, &tilingData, &pipe);
     } else if (TILING_KEY_IS(GATHER_TRANSPOSE)) { // 10006: DataCopyGather硬件加速
         GET_TILING_DATA_WITH_STRUCT(GatherTransposeTilingData, tilingData, tiling);
         TransposeGatherProcess(x, y, &tilingData, &pipe);

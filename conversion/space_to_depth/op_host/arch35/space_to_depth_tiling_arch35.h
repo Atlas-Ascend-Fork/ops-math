@@ -22,15 +22,6 @@
 
 namespace optiling {
 
-BEGIN_TILING_DATA_DEF(SpaceToDepthTilingData)
-TILING_DATA_FIELD_DEF_STRUCT(TransposeOpTilingData, transposeOpTiling);
-END_TILING_DATA_DEF;
-REGISTER_TILING_DATA_CLASS(SpaceToDepth, SpaceToDepthTilingData);
-
-struct SpaceToDepthCompileInfo {
-    TransposeCompilerInfo transposeCompilerInfo;
-};
-
 ge::graphStatus SpaceToDepthTilingForAscendC(gert::TilingContext* context,
                                              const TransposeCompilerInfo* transposeCompileInfo);
 

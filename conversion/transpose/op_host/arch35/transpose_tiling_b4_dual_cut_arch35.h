@@ -35,12 +35,12 @@
  *   ubNum = ubSize * 2 / bufferNum  (2 HIF4 elements per byte)
  *
  * Tiling data layout (kernel side reads in this order):
- *   gmShape[DUAL_CUT_GM_LEN]      — outer loop shape (multi-core)
- *   gmInStride[DUAL_CUT_GM_LEN]   — input  strides for each gm axis
- *   gmOutStride[DUAL_CUT_GM_LEN]  — output strides for each gm axis
- *   ubShape[DUAL_CUT_UB_LEN]      — UB inner loop shape
- *   ubInStride[DUAL_CUT_UB_LEN]   — input  strides for each ub axis
- *   ubOutStride[DUAL_CUT_UB_LEN]  — output strides for each ub axis
+ *   gmShape[TP_B4_GM_LEN]      — outer loop shape (multi-core)
+ *   gmInStride[TP_B4_GM_LEN]   — input  strides for each gm axis
+ *   gmOutStride[TP_B4_GM_LEN]  — output strides for each gm axis
+ *   ubShape[TP_B4_UB_LEN]      — UB inner loop shape
+ *   ubInStride[TP_B4_UB_LEN]   — input  strides for each ub axis
+ *   ubOutStride[TP_B4_UB_LEN]  — output strides for each ub axis
  *   cutAxisIdx01 / cutAxisIdx02    — which ub axis is the cut axis (tail handling)
  *   cutAxisTail01 / cutAxisTail02  — tail size for the cut axis
  *   outerAxisNums / innerAxisNums  — number of gm / ub axes actually used
@@ -65,6 +65,7 @@
 #include "transpose_tiling_arch35.h"
 
 namespace optiling {
+using namespace Transpose;
 namespace TransHIF4DualCut {
 
 // -----------------------------------------------------------------------
@@ -76,48 +77,10 @@ static constexpr int32_t HIF4_ALIGN_ELEMENTS = 64;   // 64 HIF4 elements = 32 by
 static constexpr int32_t HIF4_BUFFER_NUM = 2;        // double buffer
 static constexpr int32_t NUM_TWO = 2;
 
-// Maximum axis counts for tiling arrays
-static constexpr int32_t DUAL_CUT_GM_LEN = 8; // max outer (gm) axes
-static constexpr int32_t DUAL_CUT_UB_LEN = 4; // max inner (ub) axes (move_align limit: 4D)
-
 // -----------------------------------------------------------------------
-// Tiling data structure for HIF4 dual-cut (TilingKey = 10009)
+// Tiling data structure for HIF4 dual-cut (TilingKey = 10009) is defined in
+// op_kernel/arch35/transpose_tiling_data.h and shared with the kernel side.
 // -----------------------------------------------------------------------
-BEGIN_TILING_DATA_DEF(HIF4DualCutTilingData)
-// --- multi-core (GM) loop ---
-TILING_DATA_FIELD_DEF_ARR(int32_t, DUAL_CUT_GM_LEN, gmShape);     // outer loop shape
-TILING_DATA_FIELD_DEF_ARR(int64_t, DUAL_CUT_GM_LEN, gmInStride);  // input stride per gm axis
-TILING_DATA_FIELD_DEF_ARR(int64_t, DUAL_CUT_GM_LEN, gmOutStride); // output stride per gm axis
-// --- UB inner loop ---
-TILING_DATA_FIELD_DEF_ARR(int32_t, DUAL_CUT_UB_LEN, ubShape);      // ub loop shape
-TILING_DATA_FIELD_DEF_ARR(int64_t, DUAL_CUT_UB_LEN, ubInStride);   // input  stride per ub axis
-TILING_DATA_FIELD_DEF_ARR(int64_t, DUAL_CUT_UB_LEN, ubOutStride);  // output stride per ub axis
-TILING_DATA_FIELD_DEF_ARR(int64_t, DUAL_CUT_UB_LEN, moveUbStride); // output stride of ub axes in output order
-TILING_DATA_FIELD_DEF_ARR(int32_t, DUAL_CUT_UB_LEN, ubPerm);       // perm of ub axes in output order
-TILING_DATA_FIELD_DEF_ARR(int32_t, DUAL_CUT_UB_LEN, ubShapeId);    // input axis idx for each ub axis (-1 if unused)
-// --- cut axis tail info ---
-TILING_DATA_FIELD_DEF(int32_t, cutAxisIdx01);  // ub axis index of 1st cut axis (-1 if none)
-TILING_DATA_FIELD_DEF(int32_t, cutAxisIdx02);  // ub axis index of 2nd cut axis (-1 if none)
-TILING_DATA_FIELD_DEF(int32_t, cutAxisTail01); // tail size for 1st cut axis
-TILING_DATA_FIELD_DEF(int32_t, cutAxisTail02); // tail size for 2nd cut axis
-// --- cut axis id (index in input shape) ---
-TILING_DATA_FIELD_DEF(int32_t, outCutId); // output cut axis index in inShape (-1 if none)
-TILING_DATA_FIELD_DEF(int32_t, inCutId);  // input cut axis index in inShape (-1 if none)
-// --- axis counts ---
-TILING_DATA_FIELD_DEF(int32_t, outerAxisNums); // number of gm axes used
-TILING_DATA_FIELD_DEF(int32_t, innerAxisNums); // number of ub axes used
-// --- multi-core split ---
-TILING_DATA_FIELD_DEF(int32_t, dimsPerCore);     // outer iterations per core (main)
-TILING_DATA_FIELD_DEF(int32_t, useCoreNum);      // actual cores used
-TILING_DATA_FIELD_DEF(int32_t, dimsPerCoreTail); // outer iterations for the last core
-// --- UB budget ---
-TILING_DATA_FIELD_DEF(int32_t, ubSize); // effective UB size per buffer (bytes)
-// --- perm info for kernel ---
-TILING_DATA_FIELD_DEF(int32_t, permSize);                             // number of valid perm entries
-TILING_DATA_FIELD_DEF_ARR(int64_t, MAX_AXIS_NUM_FOR_TRANSPOSE, perm); // transpose permutation
-END_TILING_DATA_DEF;
-
-REGISTER_TILING_DATA_CLASS(Transpose_10009, HIF4DualCutTilingData);
 
 // -----------------------------------------------------------------------
 // AxisInf: single-axis descriptor
@@ -248,16 +211,16 @@ public:
     std::vector<int64_t> perm_;
 
     // Tiling data arrays (written by GenTilingData, read by FillTilingData)
-    int32_t gmShape_[DUAL_CUT_GM_LEN] = {1, 1, 1, 1, 1, 1, 1, 1};
-    int64_t gmInStride_[DUAL_CUT_GM_LEN] = {0, 0, 0, 0, 0, 0, 0, 0};
-    int64_t gmOutStride_[DUAL_CUT_GM_LEN] = {0, 0, 0, 0, 0, 0, 0, 0};
+    int32_t gmShape_[TP_B4_GM_LEN] = {1, 1, 1, 1, 1, 1, 1, 1};
+    int64_t gmInStride_[TP_B4_GM_LEN] = {0, 0, 0, 0, 0, 0, 0, 0};
+    int64_t gmOutStride_[TP_B4_GM_LEN] = {0, 0, 0, 0, 0, 0, 0, 0};
 
-    int32_t ubShape_[DUAL_CUT_UB_LEN] = {1, 1, 1, 1};
-    int64_t ubInStride_[DUAL_CUT_UB_LEN] = {0, 0, 0, 0};
-    int64_t ubOutStride_[DUAL_CUT_UB_LEN] = {0, 0, 0, 0};
-    int64_t moveUbStride_[DUAL_CUT_UB_LEN] = {0, 0, 0, 0};
-    int32_t ubPerm_[DUAL_CUT_UB_LEN] = {0, 0, 0, 0};
-    int32_t ubShapeId_[DUAL_CUT_UB_LEN] = {-1, -1, -1, -1};
+    int32_t ubShape_[TP_B4_UB_LEN] = {1, 1, 1, 1};
+    int64_t ubInStride_[TP_B4_UB_LEN] = {0, 0, 0, 0};
+    int64_t ubOutStride_[TP_B4_UB_LEN] = {0, 0, 0, 0};
+    int64_t moveUbStride_[TP_B4_UB_LEN] = {0, 0, 0, 0};
+    int32_t ubPerm_[TP_B4_UB_LEN] = {0, 0, 0, 0};
+    int32_t ubShapeId_[TP_B4_UB_LEN] = {-1, -1, -1, -1};
 
     int32_t cutAxisNums_ = 0;
     int32_t outerAxisNums_ = 0;
@@ -363,7 +326,6 @@ private:
     std::vector<int64_t> outShape_; // reduced output shape (element view)
 
     DualCutAxisSeeker seeker_;
-    HIF4DualCutTilingData tilingData_;
 };
 
 } // namespace TransHIF4DualCut

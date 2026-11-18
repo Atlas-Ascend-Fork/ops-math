@@ -297,23 +297,18 @@ ge::graphStatus ConfusionTransposeDTilingForAscendC(gert::TilingContext* context
         return ge::GRAPH_FAILED;
     }
 
-    ConfusionTransposeDTilingData tilingData;
-    ConfusionTransposeDCompileInfo compileInfo;
-    compileInfo.transposeCompilerInfo.coreNum = coreNum;
-    compileInfo.transposeCompilerInfo.ubSize = ubSize;
+    TransposeCompilerInfo compileInfo;
+    compileInfo.coreNum = static_cast<int64_t>(coreNum);
+    compileInfo.ubSize = static_cast<int64_t>(ubSize);
 
     TransposeNddmaTiling transposeTilingObject(context);
-    OP_CHECK_IF((transposeTilingObject.TilingForRelatedTranspose(context, &tilingData.transposeOpTiling,
-                                                                 &compileInfo.transposeCompilerInfo,
-                                                                 inputShapeInfo) == ge::GRAPH_FAILED),
-                OP_LOGE(context->GetNodeName(), "Transpose Tiling failed"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        (transposeTilingObject.TilingForRelatedTranspose(context, compileInfo, inputShapeInfo) == ge::GRAPH_FAILED),
+        OP_LOGE(context->GetNodeName(), "Transpose Tiling failed"), return ge::GRAPH_FAILED);
 
     size_t* workspaceSize = context->GetWorkspaceSizes(1);
     OP_CHECK_NULL_WITH_CONTEXT(context, workspaceSize);
     workspaceSize[0] = DEFAULT_WORKSPACE_SIZE;
-
-    tilingData.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
-    context->GetRawTilingData()->SetDataSize(tilingData.GetDataSize());
 
     OP_LOGD(context->GetNodeName(), "ConfusionTransposeDTilingForAscendC success.");
     return ge::GRAPH_SUCCESS;
@@ -378,6 +373,6 @@ static ge::graphStatus TilingPrepareForConfusionTransposeD(gert::TilingParseCont
 
 IMPL_OP_OPTILING(ConfusionTransposeD)
     .Tiling(TilingForConfusionTransposeD)
-    .TilingParse<ConfusionTransposeDCompileInfo>(TilingPrepareForConfusionTransposeD);
+    .TilingParse<TransposeCompilerInfo>(TilingPrepareForConfusionTransposeD);
 
 } // namespace optiling

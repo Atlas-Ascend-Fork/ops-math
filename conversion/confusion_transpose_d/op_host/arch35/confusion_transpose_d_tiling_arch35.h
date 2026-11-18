@@ -25,15 +25,6 @@
 
 namespace optiling {
 
-BEGIN_TILING_DATA_DEF(ConfusionTransposeDTilingData)
-TILING_DATA_FIELD_DEF_STRUCT(TransposeOpTilingData, transposeOpTiling);
-END_TILING_DATA_DEF;
-REGISTER_TILING_DATA_CLASS(ConfusionTransposeD, ConfusionTransposeDTilingData);
-
-struct ConfusionTransposeDCompileInfo {
-    TransposeCompilerInfo transposeCompilerInfo;
-};
-
 ge::graphStatus ConfusionTransposeDTilingForAscendC(gert::TilingContext* context,
                                                     const TransposeCompilerInfo* transposeCompileInfo);
 

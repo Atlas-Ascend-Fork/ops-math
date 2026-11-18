@@ -55,7 +55,6 @@ using AscendC::Reg::MaskReg;
 using AscendC::Reg::RegTensor;
 using AscendC::Reg::UpdateMask;
 
-constexpr int8_t UB_MAX_DIM_NUM = 6;
 constexpr int8_t NUM_TWO = 2;
 constexpr int8_t NUM_THREE = 3;
 
@@ -113,14 +112,14 @@ private:
 
     int64_t blkBeg_ = 0;
     int64_t blkEnd_ = 0;
-    int64_t blkInAddr_ = 0;                                  ///< 当前 block 的 GM 输入起始地址偏移
-    int64_t blkOutAddr_ = 0;                                 ///< 当前 block 的 GM 输出起始地址偏移
-    int64_t blkInCutROffset_ = 0;                            ///< 输入切分轴的块级循环偏移
-    int64_t blkOutCutROffset_ = 0;                           ///< 输出切分轴的块级循环偏移
-    int64_t blkInCutAxisSize_ = 0;                           ///< 输入切分轴的块级尺寸
-    int64_t blkOutCutAxisSize_ = 0;                          ///< 输出切分轴的块级尺寸
-    int32_t inUbAxes_[UB_MAX_DIM_NUM] = {1, 1, 1, 1, 1, 1};  ///< 输入 UB 各轴尺寸（动态更新）
-    int32_t outUbAxes_[UB_MAX_DIM_NUM] = {1, 1, 1, 1, 1, 1}; ///< 输出 UB 各轴尺寸（动态更新）
+    int64_t blkInAddr_ = 0;                                            ///< 当前 block 的 GM 输入起始地址偏移
+    int64_t blkOutAddr_ = 0;                                           ///< 当前 block 的 GM 输出起始地址偏移
+    int64_t blkInCutROffset_ = 0;                                      ///< 输入切分轴的块级循环偏移
+    int64_t blkOutCutROffset_ = 0;                                     ///< 输出切分轴的块级循环偏移
+    int64_t blkInCutAxisSize_ = 0;                                     ///< 输入切分轴的块级尺寸
+    int64_t blkOutCutAxisSize_ = 0;                                    ///< 输出切分轴的块级尺寸
+    int32_t inUbAxes_[TP_GATHER_UB_MAX_DIM_NUM] = {1, 1, 1, 1, 1, 1};  ///< 输入 UB 各轴尺寸（动态更新）
+    int32_t outUbAxes_[TP_GATHER_UB_MAX_DIM_NUM] = {1, 1, 1, 1, 1, 1}; ///< 输出 UB 各轴尺寸（动态更新）
     /* 4种 Gather 索引 phase 的控制变量
      *  0: out_cut=false, in_cut=false  （主块）
      *  1: out_cut=false, in_cut=true   （输入尾块）
