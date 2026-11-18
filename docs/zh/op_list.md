@@ -1908,6 +1908,16 @@
   </tr>
   <tr>
     <td>math</td>
+    <td><a href="../../math/select_top_k/README.md">select_top_k</a></td>
+    <td>√</td>
+    <td>√</td>
+    <td>√</td>
+    <td>×</td>
+    <td>AI Core</td>
+    <td>沿指定维度从每行的有效区间内选取 k 个极值，支持返回值、索引或两者。</td>
+  </tr>
+  <tr>
+    <td>math</td>
     <td><a href="../../math/select_v2/README.md">select_v2</a></td>
     <td>√</td>
     <td>√</td>

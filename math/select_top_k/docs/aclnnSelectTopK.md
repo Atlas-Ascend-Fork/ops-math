@@ -2,14 +2,24 @@
 
 ## 产品支持情况
 
-| 产品                                                     | 是否支持 |
-| :------------------------------------------------------- | :------: |
-| <term>Ascend 950PR/Ascend 950DT</term>                   |    ×    |
-| <term>Atlas A3 训练系列产品/Atlas A3 推理系列产品</term> |    √    |
-| <term>Atlas A2 训练系列产品/Atlas A2 推理系列产品</term> |    √    |
-| <term>Atlas 200I/500 A2 推理产品</term>                  |    ×    |
-| <term>Atlas 推理系列产品</term>                          |    ×    |
-| <term>Atlas 训练系列产品</term>                          |    ×    |
+<!-- npu="950" id1 -->
+- <term>Ascend 950PR&950DT系列产品</term>：不支持
+<!-- end id1 -->
+<!-- npu="A3" id2 -->
+- <term>Atlas A3系列产品</term>：支持
+<!-- end id2 -->
+<!-- npu="910b" id3 -->
+- <term>Atlas A2系列产品</term>：支持
+<!-- end id3 -->
+<!-- npu="310b" id4 -->
+- <term>Atlas 200I/500 A2推理产品</term>：不支持
+<!-- end id4 -->
+<!-- npu="310p" id5 -->
+- <term>Atlas推理系列产品</term>：不支持
+<!-- end id5 -->
+<!-- npu="910" id6 -->
+- <term>Atlas训练系列产品</term>：不支持
+<!-- end id6 -->
 
 ## 功能说明
 
@@ -217,6 +227,8 @@ aclnnStatus aclnnSelectTopK(
 
 ## 约束说明
 
+- 确定性计算：
+  - aclnnSelectTopK默认确定性实现
 - `ORDER_VALUE`仅保证有效结果按值排序，填充部分不参与排序；`ORDER_NONE`不保证顺序。相等值不保证稳定排序，同时输出值和索引时两者逐项对应。
 - indicesOffset须满足`type_min ≤ indicesOffset ≤ type_max - max(N-1, 0)`，indexFill须在同一类型范围内，其中type_min、type_max为indicesType的取值边界。仅输出值时也校验这两个参数；indexFill可与有效索引相同，不能用其数值判断有效项数。
 - 维度乘积不得溢出INT64，`rows×N`和`rows×k`均不得超过`INT64_MAX/sizeof(int64_t)`。

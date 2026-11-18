@@ -275,6 +275,7 @@
 | [aclnnScale](../../math/scale/docs/aclnnScale.md)               | 对输入Tensor进行scale和bias计算。若不输入bias，则 $y = x \cdot scale$；若输入bias，则 $y = x \cdot scale + bias$。                                               | 默认确定性实现| 默认确定性实现 |
 | [aclnnSearchSorted](../../math/search_sorted/docs/aclnnSearchSorted.md) | 在一个已排序的张量（sortedSequence）中查找给定tensor值（self）应该插入的位置。 | 默认确定性实现| 默认确定性实现 |
 | [aclnnSearchSorteds](../../math/search_sorted/docs/aclnnSearchSorteds.md) | 在一个已排序的一维张量（sortedSequence）中查找给定Scalar值（self）应该插入的位置。 | 默认确定性实现| - |
+| [aclnnSelectTopK](../../math/select_top_k/docs/aclnnSelectTopK.md) | 沿指定维度从每行的有效区间内选取 k 个极值，支持返回值、索引或两者。 | 默认确定性实现 | - |
 | [aclnnSign](../../math/sign/docs/aclnnSign.md)                  | 对输入的tensor逐元素进行Sign符号函数的运算并输出结果tensor。 | 默认确定性实现| 默认确定性实现|
 | [aclnnSignbit](../../math/signbit/docs/aclnnSignbit.md)            | 判断输入中的每个元素符号位是否为1，返回一个tensor。 | 默认确定性实现| 默认确定性实现 |
 | [aclnnSignBitsPack](../../math/sign_bits_pack/docs/aclnnSignBitsPack.md) | 将float16类型或者float32类型的1位Adam打包为uint8。           | 默认确定性实现| 默认确定性实现 |
