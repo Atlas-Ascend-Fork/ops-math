@@ -30,11 +30,10 @@ static ge::graphStatus InferDataType4Spence(gert::InferDataTypeContext* context)
     OP_LOGD(context->GetNodeName(), "Begin to do InferDataType4Spence");
     const ge::DataType inputDataType = context->GetInputDataType(IDX_0);
     const std::set<ge::DataType> supportedDtypes = {ge::DT_FLOAT, ge::DT_FLOAT16, ge::DT_BF16};
-    OP_CHECK_IF(
-        supportedDtypes.count(inputDataType) == 0,
-        OP_LOGE_WITH_INVALID_INPUT_DTYPE(context->GetNodeName(), "x", Ops::Base::ToString(inputDataType).c_str(),
-                                         "DT_FLOAT, DT_FLOAT16, DT_BFLOAT16"),
-        return ge::GRAPH_FAILED);
+    OP_CHECK_IF(supportedDtypes.count(inputDataType) == 0,
+                OP_LOGE_FOR_INVALID_DTYPE(context->GetNodeName(), "x", Ops::Base::ToString(inputDataType).c_str(),
+                                          "DT_FLOAT, DT_FLOAT16, DT_BFLOAT16"),
+                return ge::GRAPH_FAILED);
     context->SetOutputDataType(IDX_0, inputDataType);
     OP_LOGD(context->GetNodeName(), "End to do InferDataType4Spence");
     return ge::GRAPH_SUCCESS;

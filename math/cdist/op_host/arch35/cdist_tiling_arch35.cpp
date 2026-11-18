@@ -155,8 +155,9 @@ ge::graphStatus CdistTiling::CheckParams()
         const float* pAttr = attrs->GetAttrPointer<float>(0);
         tilingData_.p = pAttr == nullptr ? 2.0f : *pAttr;
         OP_CHECK_IF(tilingData_.p < 0,
-                    OP_LOGE_WITH_INVALID_ATTR(tilingContext_->GetNodeName(), "p", std::to_string(tilingData_.p).c_str(),
-                                              "greater than or equal to 0"),
+                    OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(tilingContext_->GetNodeName(), "p",
+                                                          std::to_string(tilingData_.p).c_str(),
+                                                          "The value of p must be greater than or equal to 0"),
                     return ge::GRAPH_FAILED);
     }
     return ge::GRAPH_SUCCESS;

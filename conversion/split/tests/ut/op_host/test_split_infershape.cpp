@@ -126,20 +126,18 @@ TEST_F(SplitInfershape, split_infershape_negative_split_dim)
 // Test: Split infershape with split_dim not get const (unknown split_dim)
 TEST_F(SplitInfershape, split_infershape_unknown_split_dim)
 {
-    std::vector<int64_t> splitDimValue = {0};
-    gert::InfershapeContextPara infershapeContextPara(
-        "Split",
-        {
-            {{{-1}, {-1}}, ge::DT_INT32, ge::FORMAT_ND, true, splitDimValue.data()},
-            {{{4, 8}, {4, 8}}, ge::DT_INT32, ge::FORMAT_ND},
-        },
-        {
-            {{{}, {}}, ge::DT_INT32, ge::FORMAT_ND},
-            {{{}, {}}, ge::DT_INT32, ge::FORMAT_ND},
-        },
-        {
-            {"num_split", Ops::Math::AnyValue::CreateFrom<int64_t>(2)},
-        });
+    gert::InfershapeContextPara infershapeContextPara("Split",
+                                                      {
+                                                          {{{-1}, {-1}}, ge::DT_INT32, ge::FORMAT_ND},
+                                                          {{{4, 8}, {4, 8}}, ge::DT_INT32, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_INT32, ge::FORMAT_ND},
+                                                          {{{}, {}}, ge::DT_INT32, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {"num_split", Ops::Math::AnyValue::CreateFrom<int64_t>(2)},
+                                                      });
     std::vector<std::vector<int64_t>> expectOutputShape = {{-1, -1}, {-1, -1}};
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }

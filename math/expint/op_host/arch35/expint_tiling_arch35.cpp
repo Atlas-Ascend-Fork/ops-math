@@ -97,10 +97,11 @@ static ge::graphStatus GetShapeAttrsInfo(const gert::TilingContext* context, int
                     "private formats are not supported"),
                 return ge::GRAPH_FAILED);
     *dataType = inputDesc->GetDataType();
-    OP_CHECK_IF(supportedDtype.count(*dataType) == 0,
-                OP_LOGE_WITH_INVALID_INPUT_DTYPE(context->GetNodeName(), "x", Ops::Base::ToString(*dataType).c_str(),
-                                                 "DT_FLOAT16, DT_FLOAT, DT_BFLOAT16"),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        supportedDtype.count(*dataType) == 0,
+        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "x", Ops::Base::ToString(*dataType).c_str(),
+                                              "The dtype of x must be DT_FLOAT16, DT_FLOAT, or DT_BFLOAT16"),
+        return ge::GRAPH_FAILED);
     return ge::GRAPH_SUCCESS;
 }
 

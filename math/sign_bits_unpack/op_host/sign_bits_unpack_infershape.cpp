@@ -44,7 +44,8 @@ static ge::graphStatus InferShape4SignBitsUnpack(gert::InferShapeContext* contex
     OP_CHECK_NULL_WITH_CONTEXT(context, size);
     const int64_t sizeValue = *size;
     OP_CHECK_IF(sizeValue <= 0,
-                OP_LOGE_WITH_INVALID_ATTR(context->GetNodeName(), "size", std::to_string(sizeValue), "positive"),
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "size", std::to_string(sizeValue).c_str(),
+                                                      "The value of size must be positive"),
                 return ge::GRAPH_FAILED);
 
     // 未知 rank：无法推导输出 rank，输出 shape 也置为未知 rank

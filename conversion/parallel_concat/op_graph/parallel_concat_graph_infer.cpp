@@ -58,8 +58,8 @@ static ge::graphStatus InferDataTypeForParallelConcat(gert::InferDataTypeContext
     // Instance 0 dtype: whitelist gate + propagation source.
     const ge::DataType dtype0 = context->GetDynamicInputDataType(IR_INDEX_VALUES, 0);
     if (!IsSupportedDtype(dtype0)) {
-        OP_LOGE_WITH_INVALID_INPUT_DTYPE(nodeName, "values[0]", std::to_string(static_cast<int>(dtype0)),
-                                         DTYPE_WHITELIST_TEXT);
+        OP_LOGE_FOR_INVALID_DTYPE(nodeName, "values[0]", std::to_string(static_cast<int>(dtype0)).c_str(),
+                                  DTYPE_WHITELIST_TEXT);
         return ge::GRAPH_FAILED; // dtype_not_supported
     }
     // Cross-instance consistency: all N instances must share one dtype (no
@@ -67,13 +67,13 @@ static ge::graphStatus InferDataTypeForParallelConcat(gert::InferDataTypeContext
     for (size_t i = 1; i < inputCount; ++i) {
         const ge::DataType dt = context->GetDynamicInputDataType(IR_INDEX_VALUES, i);
         if (!IsSupportedDtype(dt)) {
-            OP_LOGE_WITH_INVALID_INPUT_DTYPE(nodeName, "values[" + std::to_string(i) + "]",
-                                             std::to_string(static_cast<int>(dt)), DTYPE_WHITELIST_TEXT);
+            OP_LOGE_FOR_INVALID_DTYPE(nodeName, "values[" + std::to_string(i) + "]",
+                                      std::to_string(static_cast<int>(dt)).c_str(), DTYPE_WHITELIST_TEXT);
             return ge::GRAPH_FAILED; // dtype_not_supported
         }
         if (dt != dtype0) {
-            OP_LOGE_WITH_INVALID_INPUT_DTYPE(nodeName, "values", std::to_string(static_cast<int>(dt)),
-                                             "identical to values[0] (no promotion)");
+            OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(nodeName, "values", std::to_string(static_cast<int>(dt)).c_str(),
+                                                  "The dtype of values must be identical to values[0] (no promotion)");
             return ge::GRAPH_FAILED; // dtype_not_supported
         }
     }

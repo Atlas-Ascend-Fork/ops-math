@@ -103,26 +103,30 @@ static ge::graphStatus InferShapeParallelConcat(gert::InferShapeContext* context
 
     // Attr value checks (attribute_value_out_of_range).
     if (n < 1) {
-        OP_LOGE_WITH_INVALID_ATTR(nodeName, "N", std::to_string(n), ">= 1");
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(nodeName, "N", std::to_string(n).c_str(),
+                                              "The value of N must be greater than or equal to 1");
         return GRAPH_FAILED;
     }
     if (attrShapeLen == 0UL) {
-        OP_LOGE_WITH_INVALID_ATTR_SIZE(nodeName, "shape", "0", ">= 1");
+        OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(nodeName, "shape", "0",
+                                                  "The shape size of shape must be greater than or equal to 1");
         return GRAPH_FAILED;
     }
     for (size_t j = 0; j < attrShapeLen; ++j) {
         if (attrShape[j] < 0) {
-            OP_LOGE_WITH_INVALID_ATTR(nodeName, "shape[" + std::to_string(j) + "]", std::to_string(attrShape[j]),
-                                      "fully defined and non-negative");
+            OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                nodeName, "shape", ("shape[" + std::to_string(j) + "]=" + std::to_string(attrShape[j])).c_str(),
+                "Every dimension of the shape attribute must be non-negative");
             return GRAPH_FAILED;
         }
     }
     if (attrShape[0] != n) {
-        OP_LOGE_WITH_INVALID_ATTR(nodeName, "shape[0]", std::to_string(attrShape[0]), std::to_string(n));
+        OP_LOGE_FOR_INVALID_VALUE(nodeName, "shape", ("shape[0]=" + std::to_string(attrShape[0])).c_str(),
+                                  std::to_string(n).c_str());
         return GRAPH_FAILED;
     }
     if (static_cast<uint64_t>(n) != static_cast<uint64_t>(inputCount)) {
-        OP_LOGE_WITH_INVALID_ATTR(nodeName, "N", std::to_string(inputCount), std::to_string(n));
+        OP_LOGE_FOR_INVALID_VALUE(nodeName, "N", std::to_string(inputCount).c_str(), std::to_string(n).c_str());
         return GRAPH_FAILED;
     }
 
@@ -139,21 +143,21 @@ static ge::graphStatus InferShapeParallelConcat(gert::InferShapeContext* context
         }
         const size_t rank = shp->GetDimNum();
         if (rank < MIN_RANK || rank > MAX_RANK) {
-            OP_LOGE_WITH_INVALID_INPUT_SHAPE(nodeName, static_cast<int>(i), "rank " + std::to_string(rank),
-                                             "rank in [1, 8]");
+            OP_LOGE_FOR_INVALID_SHAPE(nodeName, ("values[" + std::to_string(i) + "]").c_str(),
+                                      ("rank " + std::to_string(rank)).c_str(), "rank in [1, 8]");
             return GRAPH_FAILED; // shape_mismatch (rank out of range)
         }
         const int64_t dim0 = shp->GetDim(0);
         if (dim0 != 1 && dim0 != ge::UNKNOWN_DIM) {
-            OP_LOGE_WITH_INVALID_INPUT_SHAPE(nodeName, static_cast<int>(i), "first dim " + std::to_string(dim0),
-                                             "first dim 1");
+            OP_LOGE_FOR_INVALID_SHAPE(nodeName, ("values[" + std::to_string(i) + "]").c_str(),
+                                      ("first dim " + std::to_string(dim0)).c_str(), "first dim 1");
             return GRAPH_FAILED; // shape_mismatch
         }
         if (shape0 == nullptr) {
             shape0 = shp;
         } else if (!ShapesCompatible(shp, shape0)) {
-            OP_LOGE_WITH_INVALID_INPUT_SHAPE(nodeName, static_cast<int>(i), "different shape",
-                                             "identical to the representative input");
+            OP_LOGE_FOR_INVALID_SHAPE(nodeName, ("values[" + std::to_string(i) + "]").c_str(), "different shape",
+                                      "identical to the representative input");
             return GRAPH_FAILED; // shape_mismatch
         }
     }
@@ -161,8 +165,8 @@ static ge::graphStatus InferShapeParallelConcat(gert::InferShapeContext* context
     // attr shape[1:] == values.shape[1:] (双源合一, shape_mismatch).
     if (shape0 != nullptr) {
         if (attrShapeLen != shape0->GetDimNum()) {
-            OP_LOGE_WITH_INVALID_ATTR_SIZE(nodeName, "shape", std::to_string(attrShapeLen),
-                                           std::to_string(shape0->GetDimNum()));
+            OP_LOGE_FOR_INVALID_SHAPESIZE(nodeName, "shape", std::to_string(attrShapeLen).c_str(),
+                                          std::to_string(shape0->GetDimNum()).c_str());
             return GRAPH_FAILED;
         }
         for (size_t j = 1; j < attrShapeLen; ++j) {
@@ -171,9 +175,9 @@ static ge::graphStatus InferShapeParallelConcat(gert::InferShapeContext* context
                 continue; // dynamic-shape input dim: resolved by the fully-defined attr shape
             }
             if (inDim != attrShape[j]) {
-                OP_LOGE_WITH_INVALID_ATTR(
-                    nodeName, "shape[" + std::to_string(j) + "]", std::to_string(attrShape[j]),
-                    "equal to values.shape[" + std::to_string(j) + "] = " + std::to_string(inDim));
+                OP_LOGE_FOR_INVALID_VALUE(nodeName, "shape",
+                                          ("shape[" + std::to_string(j) + "]=" + std::to_string(attrShape[j])).c_str(),
+                                          std::to_string(inDim).c_str());
                 return GRAPH_FAILED;
             }
         }

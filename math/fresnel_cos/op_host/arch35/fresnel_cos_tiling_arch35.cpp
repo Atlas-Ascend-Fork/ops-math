@@ -109,10 +109,9 @@ static ge::graphStatus GetShapeDtypeInfo(gert::TilingContext* ctx, int64_t* tota
     OP_CHECK_NULL_WITH_CONTEXT(ctx, inDesc);
     *dt = inDesc->GetDataType();
     const std::set<ge::DataType> supported = {ge::DT_FLOAT, ge::DT_FLOAT16, ge::DT_BF16};
-    OP_CHECK_IF(
-        supported.count(*dt) == 0,
-        OP_LOGE_WITH_INVALID_INPUT_DTYPE(ctx->GetNodeName(), "x", "unsupported", "DT_FLOAT, DT_FLOAT16, DT_BF16"),
-        return ge::GRAPH_FAILED);
+    OP_CHECK_IF(supported.count(*dt) == 0,
+                OP_LOGE_FOR_INVALID_DTYPE(ctx->GetNodeName(), "x", "unsupported", "DT_FLOAT, DT_FLOAT16, DT_BF16"),
+                return ge::GRAPH_FAILED);
 
     auto inFormat = inDesc->GetFormat().GetStorageFormat();
     OP_CHECK_IF(inFormat != ge::FORMAT_ND,

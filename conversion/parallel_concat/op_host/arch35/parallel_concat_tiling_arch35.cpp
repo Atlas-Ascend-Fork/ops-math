@@ -116,8 +116,8 @@ inline ge::graphStatus CheckDtypes(gert::TilingContext* context, const char* nod
     OP_CHECK_NULL_WITH_CONTEXT(context, desc0);
     const ge::DataType inDtype0 = desc0->GetDataType();
     if (!IsDtypeWhitelisted(inDtype0)) {
-        OP_LOGE_WITH_INVALID_INPUT_DTYPE(nodeName, "values[0]", std::to_string(static_cast<int>(inDtype0)),
-                                         DTYPE_WHITELIST_TEXT);
+        OP_LOGE_FOR_INVALID_DTYPE(nodeName, "values[0]", std::to_string(static_cast<int>(inDtype0)).c_str(),
+                                  DTYPE_WHITELIST_TEXT);
         return ge::GRAPH_FAILED; // dtype_not_supported
     }
     dtypeSize = static_cast<uint64_t>(ge::GetSizeByDataType(inDtype0));
@@ -127,22 +127,22 @@ inline ge::graphStatus CheckDtypes(gert::TilingContext* context, const char* nod
         OP_CHECK_NULL_WITH_CONTEXT(context, desc);
         const ge::DataType dt = desc->GetDataType();
         if (!IsDtypeWhitelisted(dt)) {
-            OP_LOGE_WITH_INVALID_INPUT_DTYPE(nodeName, "values[" + std::to_string(i) + "]",
-                                             std::to_string(static_cast<int>(dt)), DTYPE_WHITELIST_TEXT);
+            OP_LOGE_FOR_INVALID_DTYPE(nodeName, "values[" + std::to_string(i) + "]",
+                                      std::to_string(static_cast<int>(dt)).c_str(), DTYPE_WHITELIST_TEXT);
             return ge::GRAPH_FAILED; // dtype_not_supported
         }
         if (dt != inDtype0) {
-            OP_LOGE_WITH_INVALID_INPUT_DTYPE(nodeName, "values", std::to_string(static_cast<int>(dt)),
-                                             "identical to values[0] (no promotion)");
+            OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(nodeName, "values", std::to_string(static_cast<int>(dt)).c_str(),
+                                                  "The dtype of values must be identical to values[0] (no promotion)");
             return ge::GRAPH_FAILED; // dtype_not_supported
         }
     }
     const auto* outDesc = context->GetOutputDesc(0);
     OP_CHECK_NULL_WITH_CONTEXT(context, outDesc);
     if (outDesc->GetDataType() != inDtype0) {
-        OP_LOGE_WITH_INVALID_INPUT_DTYPE(nodeName, "output_data",
-                                         std::to_string(static_cast<int>(outDesc->GetDataType())),
-                                         "identical to values[0] (no promotion)");
+        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(nodeName, "output_data",
+                                              std::to_string(static_cast<int>(outDesc->GetDataType())).c_str(),
+                                              "The dtype of output_data must be identical to values[0] (no promotion)");
         return ge::GRAPH_FAILED; // dtype_not_supported
     }
     return ge::GRAPH_SUCCESS;
@@ -160,8 +160,9 @@ inline ge::graphStatus CollectInputShapes(gert::TilingContext* context, const ch
         const gert::Shape s = shp->GetStorageShape();
         const size_t rank = s.GetDimNum();
         if (rank < 1UL || rank > MAX_OP_RANK) {
-            OP_LOGE_WITH_INVALID_INPUT_SHAPE(nodeName, static_cast<int>(i), "rank " + std::to_string(rank),
-                                             "rank in [1, 8]");
+            OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON(nodeName, ("values[" + std::to_string(i) + "]").c_str(),
+                                                  ("rank " + std::to_string(rank)).c_str(),
+                                                  "The rank of values[i] must be in [1, 8]");
             return ge::GRAPH_FAILED; // shape_mismatch (rank out of range)
         }
         std::vector<int64_t> dims;
@@ -180,26 +181,31 @@ inline ge::graphStatus CheckAttrValues(const char* nodeName, const gert::TypedCo
                                        int64_t n, size_t inputCount)
 {
     if (n < 1) {
-        OP_LOGE_WITH_INVALID_ATTR(nodeName, "N", std::to_string(n), ">= 1");
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(nodeName, "N", std::to_string(n).c_str(),
+                                              "The value of N must be greater than or equal to 1");
         return ge::GRAPH_FAILED; // attribute_value_out_of_range
     }
     const size_t attrShapeLen = attrShapeVec->GetSize();
     if (attrShapeLen == 0UL) {
-        OP_LOGE_WITH_INVALID_ATTR_SIZE(nodeName, "shape", "0", ">= 1");
+        OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(nodeName, "shape", "0",
+                                                  "The shape size of shape must be greater than or equal to 1");
         return ge::GRAPH_FAILED; // attribute_value_out_of_range
     }
     if (static_cast<uint64_t>(attrShapeVec->GetData()[0]) != static_cast<uint64_t>(n)) {
-        OP_LOGE_WITH_INVALID_ATTR(nodeName, "shape[0]", std::to_string(attrShapeVec->GetData()[0]), std::to_string(n));
+        OP_LOGE_FOR_INVALID_VALUE(nodeName, "shape[0]", std::to_string(attrShapeVec->GetData()[0]).c_str(),
+                                  std::to_string(n).c_str());
         return ge::GRAPH_FAILED; // attribute_value_out_of_range
     }
     if (static_cast<uint64_t>(n) != static_cast<uint64_t>(inputCount)) {
-        OP_LOGE_WITH_INVALID_ATTR(nodeName, "N", std::to_string(inputCount), std::to_string(n));
+        OP_LOGE_FOR_INVALID_VALUE(nodeName, "N", std::to_string(inputCount).c_str(), std::to_string(n).c_str());
         return ge::GRAPH_FAILED; // attribute_value_out_of_range
     }
     for (size_t j = 0; j < attrShapeLen; ++j) {
         if (attrShapeVec->GetData()[j] < 0) {
-            OP_LOGE_WITH_INVALID_ATTR(nodeName, "shape[" + std::to_string(j) + "]",
-                                      std::to_string(attrShapeVec->GetData()[j]), "fully defined and non-negative");
+            OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                nodeName, "shape",
+                ("shape[" + std::to_string(j) + "]=" + std::to_string(attrShapeVec->GetData()[j])).c_str(),
+                "Every dimension of the shape attribute must be non-negative");
             return ge::GRAPH_FAILED; // attribute_value_out_of_range
         }
     }
@@ -215,28 +221,31 @@ inline ge::graphStatus CheckInputConsistency(const char* nodeName,
     const std::vector<int64_t>& s0 = inputShapes[0];
     for (size_t i = 0; i < inputCount; ++i) {
         if (inputShapes[i][0] != 1) {
-            OP_LOGE_WITH_INVALID_INPUT_SHAPE(nodeName, static_cast<int>(i),
-                                             "first dim " + std::to_string(inputShapes[i][0]), "first dim 1");
+            OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON(nodeName, "values",
+                                                  ("first dim " + std::to_string(inputShapes[i][0])).c_str(),
+                                                  "The first dimension of each input value must be 1");
             return ge::GRAPH_FAILED; // shape_mismatch
         }
     }
     for (size_t i = 1; i < inputCount; ++i) {
         if (inputShapes[i] != s0) {
-            OP_LOGE_WITH_INVALID_INPUT_SHAPE(nodeName, static_cast<int>(i), ShapeToString(inputShapes[i]),
-                                             "identical to values[0]");
+            OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON(nodeName, "values", ShapeToString(inputShapes[i]).c_str(),
+                                                  "The shape of each input value must be identical to values[0]");
             return ge::GRAPH_FAILED; // shape_mismatch
         }
     }
     const size_t attrShapeLen = attrShapeVec->GetSize();
     if (attrShapeLen != s0.size()) {
-        OP_LOGE_WITH_INVALID_ATTR_SIZE(nodeName, "shape", std::to_string(attrShapeLen), std::to_string(s0.size()));
+        OP_LOGE_FOR_INVALID_SHAPESIZE(nodeName, "shape", std::to_string(attrShapeLen).c_str(),
+                                      std::to_string(s0.size()).c_str());
         return ge::GRAPH_FAILED; // shape_mismatch
     }
     for (size_t j = 1; j < s0.size(); ++j) {
         if (attrShapeVec->GetData()[j] != s0[j]) {
-            OP_LOGE_WITH_INVALID_ATTR(nodeName, "shape[" + std::to_string(j) + "]",
-                                      std::to_string(attrShapeVec->GetData()[j]),
-                                      "equal to values.shape[" + std::to_string(j) + "] = " + std::to_string(s0[j]));
+            OP_LOGE_FOR_INVALID_VALUE(
+                nodeName, "shape",
+                ("shape[" + std::to_string(j) + "]=" + std::to_string(attrShapeVec->GetData()[j])).c_str(),
+                std::to_string(s0[j]).c_str());
             return ge::GRAPH_FAILED; // shape_mismatch
         }
     }
@@ -283,7 +292,7 @@ inline ge::graphStatus ValidateInputs(gert::TilingContext* context, const char* 
     v.n = *handles.nPtr;                                    // attr "N" (Int, attr index 1)
     v.inputCount = handles.computeNodeInfo->GetInputsNum(); // len(values)
     if (v.inputCount == 0UL) {
-        OP_LOGE_WITH_INVALID_ATTR(nodeName, "N", std::to_string(v.inputCount), std::to_string(v.n));
+        OP_LOGE_FOR_INVALID_VALUE(nodeName, "N", std::to_string(v.inputCount).c_str(), std::to_string(v.n).c_str());
         return ge::GRAPH_FAILED; // attribute_value_out_of_range
     }
     if (CheckDtypes(context, nodeName, v.inputCount, v.dtypeSize) != ge::GRAPH_SUCCESS) {

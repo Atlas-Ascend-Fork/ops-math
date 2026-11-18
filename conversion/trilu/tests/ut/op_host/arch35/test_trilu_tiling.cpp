@@ -77,7 +77,7 @@ TEST_F(TriluTiling, trilu_float32)
                                               attrs, &compileInfo);
     uint64_t expectTilingKey = 134;
     string expectTilingData = "59392 16 1 1 0 1 1 1 36079 0 0 0 ";
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
@@ -98,7 +98,7 @@ TEST_F(TriluTiling, trilu_float16)
                                               attrs, &compileInfo);
     uint64_t expectTilingKey = 32;
     string expectTilingData = "59392 16 1 1 0 1 1 1 63281 0 0 0 ";
-    std::vector<size_t> expectWorkspaces = {16777216};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 

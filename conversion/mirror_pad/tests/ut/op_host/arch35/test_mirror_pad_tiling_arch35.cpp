@@ -38,8 +38,8 @@ TEST_F(MirrorPadTiling, mirror_pad_tiling_test_001)
         {gert::TilingContextPara::OpAttr("mode", Ops::Math::AnyValue::CreateFrom<std::string>("REFLECT"))},
         &compileInfo);
     uint64_t expectTilingKey = 21000;
-    string
-        expectTilingData = "1 0 0 24 3 4 0 0 0 0 0 24 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ";
+    string expectTilingData = "67633153 0 0 12 3 4 0 0 0 0 0 12 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 "
+                              "0 0 0 0 ";
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }

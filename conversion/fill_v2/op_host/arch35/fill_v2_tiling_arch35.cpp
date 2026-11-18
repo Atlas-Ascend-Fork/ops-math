@@ -169,8 +169,9 @@ ge::graphStatus FillV2Tiling::SetAttr()
         case ge::DT_FLOAT16:
             // 对齐 torch.full：有限值超出 fp16 最大有限值 65504 时报错；inf/nan 原样填充
             if (std::isfinite(value) && std::fabs(value) > 65504.0f) {
-                OP_LOGE_WITH_INVALID_ATTR(context_->GetNodeName(), "value", std::to_string(value).c_str(),
-                                          "in range [-65504, 65504] when y is float16");
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                    context_->GetNodeName(), "value", std::to_string(value).c_str(),
+                    "The value of value must be in the range [-65504, 65504] when y is float16");
                 return ge::GRAPH_FAILED;
             }
             if (std::isnan(value)) {
@@ -189,16 +190,18 @@ ge::graphStatus FillV2Tiling::SetAttr()
             break;
         case ge::DT_INT8:
             if (!(value >= -128.0f && value <= 127.0f)) {
-                OP_LOGE_WITH_INVALID_ATTR(context_->GetNodeName(), "value", std::to_string(value).c_str(),
-                                          "in range [-128, 127] when y is int8");
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                    context_->GetNodeName(), "value", std::to_string(value).c_str(),
+                    "The value of value must be in the range [-128, 127] when y is int8");
                 return ge::GRAPH_FAILED;
             }
             v.vI8 = static_cast<int8_t>(value);
             break;
         case ge::DT_INT16:
             if (!(value >= -32768.0f && value <= 32767.0f)) {
-                OP_LOGE_WITH_INVALID_ATTR(context_->GetNodeName(), "value", std::to_string(value).c_str(),
-                                          "in range [-32768, 32767] when y is int16");
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                    context_->GetNodeName(), "value", std::to_string(value).c_str(),
+                    "The value of value must be in the range [-32768, 32767] when y is int16");
                 return ge::GRAPH_FAILED;
             }
             v.vI16 = static_cast<int16_t>(value);
@@ -206,8 +209,9 @@ ge::graphStatus FillV2Tiling::SetAttr()
         case ge::DT_INT32:
             // INT32_MAX(2147483647) 在 fp32 不可精确表示，fp32 值不超过 INT32_MAX 等价于严格小于 2^31
             if (!(value >= -2147483648.0f && value < 2147483648.0f)) {
-                OP_LOGE_WITH_INVALID_ATTR(context_->GetNodeName(), "value", std::to_string(value).c_str(),
-                                          "in range [-2147483648, 2147483647] when y is int32");
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                    context_->GetNodeName(), "value", std::to_string(value).c_str(),
+                    "The value of value must be in the range [-2147483648, 2147483647] when y is int32");
                 return ge::GRAPH_FAILED;
             }
             v.vI32 = static_cast<int32_t>(value);
@@ -216,8 +220,9 @@ ge::graphStatus FillV2Tiling::SetAttr()
             // INT64_MAX 在 fp32 不可精确表示，fp32 域上边界取 2^63：
             // 恰为 2^63 时与 torch.full 一致饱和为 INT64_MAX，超过 2^63 报错；-2^63 恰为 INT64_MIN 可精确表示
             if (!(value >= -9223372036854775808.0f && value <= 9223372036854775808.0f)) {
-                OP_LOGE_WITH_INVALID_ATTR(context_->GetNodeName(), "value", std::to_string(value).c_str(),
-                                          "in range [-9223372036854775808, 9223372036854775807] when y is int64");
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context_->GetNodeName(), "value", std::to_string(value).c_str(),
+                                                      "The value of value must be in the range [-9223372036854775808, "
+                                                      "9223372036854775807] when y is int64");
                 return ge::GRAPH_FAILED;
             }
             if (value == 9223372036854775808.0f) {

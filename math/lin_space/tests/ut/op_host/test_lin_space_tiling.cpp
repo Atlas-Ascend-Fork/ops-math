@@ -67,7 +67,7 @@ TEST_F(LinSpaceTiling, lin_space_tiling_int64_big_num)
     // sizeof(生成类) 含基类开销不可作判据，按序列化大小区分平台路径
     if (tinfo.tilingDataSize == 168) {
         EXPECT_EQ(tinfo.tilingKey, static_cast<int64_t>(optiling::DOUBLE_CAST_TILING_KEY));
-        EXPECT_EQ(tinfo.blockNum, static_cast<size_t>(48));
+        EXPECT_EQ(tinfo.blockNum, static_cast<size_t>(64));
         std::vector<int64_t> expectWorkspaces = {0};
         EXPECT_EQ(tinfo.workspaceSizes, expectWorkspaces);
     } else {

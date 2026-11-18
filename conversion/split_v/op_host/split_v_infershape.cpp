@@ -70,10 +70,11 @@ graphStatus CalcSplitVOut(gert::InferShapeContext* context, const gert::Tensor* 
     OP_CHECK_NULL_WITH_CONTEXT(context, numSplit);
     int64_t num_split = *numSplit;
 
-    OP_CHECK_IF(num_split <= 0,
-                OP_LOGE_WITH_INVALID_ATTR(context->GetNodeName(), "num_split", std::to_string(num_split).c_str(),
-                                          "greater than 0"),
-                return GRAPH_FAILED);
+    OP_CHECK_IF(
+        num_split <= 0,
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "num_split", std::to_string(num_split).c_str(),
+                                              "The value of num_split must be greater than 0"),
+        return GRAPH_FAILED);
 
     OP_CHECK_IF(IsUnknownRank(*x_shape),
                 OP_LOGD(context->GetNodeName(), "input x is unknown rank, will set all output the same as input."),
@@ -87,10 +88,12 @@ graphStatus CalcSplitVOut(gert::InferShapeContext* context, const gert::Tensor* 
     }
 
     int64_t x_dim_num = x_shape->GetDimNum();
-    OP_CHECK_IF(!IsDimValid(x_dim_num, split_dim),
-                OP_LOGE_WITH_INVALID_ATTR(context->GetNodeName(), "split_dim", std::to_string(split_dim).c_str(),
-                                          ConcatString("[-", x_dim_num, ", ", x_dim_num, ")").c_str()),
-                return GRAPH_FAILED);
+    OP_CHECK_IF(
+        !IsDimValid(x_dim_num, split_dim),
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+            context->GetNodeName(), "split_dim", std::to_string(split_dim).c_str(),
+            ConcatString("The value of split_dim must be in the range [-", x_dim_num, ", ", x_dim_num, ")").c_str()),
+        return GRAPH_FAILED);
     split_dim = split_dim < 0 ? split_dim + x_dim_num : split_dim;
 
     // size_splits is not const: only the dim on split_dim is unknown
@@ -101,11 +104,11 @@ graphStatus CalcSplitVOut(gert::InferShapeContext* context, const gert::Tensor* 
     }
 
     int64_t size_splits_size = static_cast<int64_t>(size_splits_vec->GetShapeSize());
-    OP_CHECK_IF(size_splits_size != num_split,
-                OP_LOGE_WITH_INVALID_INPUT_SHAPESIZE(context->GetNodeName(), SPLIT_V_IDX_IN_SIZE_SPLITS,
-                                                     std::to_string(size_splits_size).c_str(),
-                                                     std::to_string(num_split).c_str()),
-                return GRAPH_FAILED);
+    OP_CHECK_IF(
+        size_splits_size != num_split,
+        OP_LOGE_FOR_INVALID_SHAPESIZE(context->GetNodeName(), "size_splits", std::to_string(size_splits_size).c_str(),
+                                      std::to_string(num_split).c_str()),
+        return GRAPH_FAILED);
 
     int64_t dynamic_value_idx = -1;
     int64_t split_size_value_sum = 0;

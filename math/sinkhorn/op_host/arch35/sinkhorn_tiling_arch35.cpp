@@ -198,8 +198,8 @@ ge::graphStatus SinkhornTilingArch35::Init()
             sizeOfDataType = sizeof(float);
             break;
         default:
-            OP_LOGE_WITH_INVALID_INPUT_DTYPE(tilingContext->GetNodeName(), "cost", std::to_string(dataType).c_str(),
-                                             "FLOAT/FLOAT16/BF16");
+            OP_LOGE_FOR_INVALID_DTYPE(tilingContext->GetNodeName(), "cost", std::to_string(dataType).c_str(),
+                                      "FLOAT/FLOAT16/BF16");
             return ge::GRAPH_FAILED;
     }
     tilingKey = dataType;
