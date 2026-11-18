@@ -18,17 +18,19 @@
  * 数值流程：换底 + 范围缩减（Cody-Waite）+ 位操作 2^n：
  *
  *   ① ax = |x|
- *   ② n  = trunc(ax · log2e)                         // 换底后取整，n ≥ 0
- *   ③ n  = min(n, 126)                               // 钳位（copysign(126,n) 于 ax≥0 对应 min，在缩减之前）
+ *   ② n  = round(ax · log2e)                         // 四舍五入取整，n ≥ 0，使 |r| ≤ ln2/2
+ *   ③ n  = min(n, 130)                               // 钳位（copysign(130,n) 于 ax≥0 对应 min，在缩减之前）
  *   ④⑤ r = ax − n·ln2   （Cody-Waite 双 FMA，单次舍入，用钳位后的 n）
  *   ⑥⑨ p2 = 2^(n−2)     （n + 0x4B40007D 位重解释后 <<23，低 9 位 125+n 落入 IEEE754 指数字段）
- *   ⑩⑪ er = exp(r) · 2^(n−2) = e^x / 4               // 用 base-e Exp(r)=e^r（无硬件 2^x 指令）
+ *   ⑩   exp(r) = Σ r^k/k! (k≤7)                      // FMA Horner，|r|≤ln2/2 时相对误差 <1 ulp
+ *   ⑪   er = exp(r) · 2^(n−2) = e^x / 4
  *   ⑫⑮ y  = 2·er + 0.125/er = e^x/2 + e^(−x)/2 = cosh(x)
  *   ⑯⑰ 溢出兜底：|x| ≥ 90 ⇒ +inf；[≈89.42, 90) 由 2·(e^x/4) 自然溢出到 inf
  *
  * ⚠ 数值实现的关键点（易错，务必保持）：
- *   1. n 钳位 min(n,126) 必须在 Cody-Waite 之前：r 与 2^(n−2) 用同一 n 合成才等于 e^x/4；
- *      钳位到 126 使指数字段 125+n≤251<256，位构造不产生 inf/nan；被钳元素残差 r 变大由 Exp 吸收。
+ *   1. n 钳位 min(n,130) 必须在 Cody-Waite 之前：r 与 2^(n−2) 用同一 n 合成才等于 e^x/4；
+ *      钳位到 130 使指数字段 125+n≤255；n=130 时 p2=2^128 位构造为 +inf（e^x/4 已溢出，正确）。
+ *      ax<90 时 n=round(ax·log2e)≤130，故不会触发钳位，|r|≤ln2/2；ax≥90 由溢出兜底置 +inf。
  *   2. 2^(n−2) 位操作 magic=0x4B40007D（=1.5·2^23+125，含 +125 偏置）：(n+magic)<<23 靠 32 位
  *      逐位左移高位丢弃、低 9 位=125+n 落入指数字段。
  *   3. Cody-Waite 低位项符号为 +ln2_lo（+1.9046e-9，bit 0x3102E308）。
@@ -74,11 +76,20 @@ class KernelCosh {
     static constexpr float kExpMagic = 12583037.0f;    // bit 0x4B40007D = 1.5·2^23 + 125（含 +125 偏置）；
                                                     // (n+magic) 位重解释后 <<23，低 9 位 125+n 落入指数字段 ⇒ 2^(n−2)
     static constexpr int32_t kFp32MantissaBits = 23; // 左移量 = fp32 尾数位宽
-    static constexpr float kNClamp = 126.0f;         // n 钳位上限（ax≥0 即 min(n,126)）；
-                                                     // 保证 125+n≤251<256，位构造不越指数字段
-    static constexpr float kHalfInv8 = 0.125f;       // e^(−x)/2 分子 0.125，bit 0x3E000000
-    static constexpr float kTwo = 2.0f;              // e^x/4 → e^x/2 系数，bit 0x40000000
+    static constexpr float kNClamp = 130.0f;         // n 钳位上限（ax≥0 即 min(n,130)）；
+                                             // 125+n≤255；n=130 的 p2 位构造为 +inf（已溢出，正确）
+    static constexpr float kHalfInv8 = 0.125f; // e^(−x)/2 分子 0.125，bit 0x3E000000
+    static constexpr float kTwo = 2.0f;        // e^x/4 → e^x/2 系数，bit 0x40000000
     static constexpr float kOvfThreshold = 90.0f; // |x|≥90 ⇒ +inf，bit 0x42B40000（[≈89.42,90) 由自然溢出兜底）
+    // exp(r) 的 7 阶 Taylor 系数 1/k!（FMA Horner，|r|≤ln2/2）
+    static constexpr float kExpC7 = 1.984126984e-4f; // 1/5040
+    static constexpr float kExpC6 = 1.388888889e-3f; // 1/720
+    static constexpr float kExpC5 = 8.333333333e-3f; // 1/120
+    static constexpr float kExpC4 = 4.166666667e-2f; // 1/24
+    static constexpr float kExpC3 = 1.666666667e-1f; // 1/6
+    static constexpr float kExpC2 = 5.0e-1f;         // 1/2
+    static constexpr float kExpC1 = 1.0f;
+    static constexpr float kExpC0 = 1.0f;
 
 public:
     __aicore__ inline KernelCosh() {}
@@ -201,12 +212,13 @@ __aicore__ inline void KernelCosh<T>::Compute(int64_t currentNum)
         AscendC::Abs(ax, xLocal, cnt); // fp32 直通
     }
 
-    // ── ② 换底取整 n = trunc(ax · log2e) ──
+    // ── ② 换底取整 n = round(ax · log2e)：四舍五入使 |r| ≤ ln2/2，缩短多项式所需区间 ──
     AscendC::Muls(n, ax, kLog2e, cnt);
-    AscendC::Trunc(n, n, cntU); // 高阶 API，count 形免 tmpBuffer 重载
+    AscendC::Adds(n, n, 0.5f, cnt); // ax≥0 ⇒ trunc(v+0.5) 即四舍五入
+    AscendC::Trunc(n, n, cntU);     // 高阶 API，count 形免 tmpBuffer 重载
 
-    // ── ③ n 钳位 min(n,126)（钳位在 Cody-Waite 之前，使 r 与 2^(n−2) 用同一 n 合成）──
-    // ax≥0 ⇒ n≥0，copysign(126,n) 即 min(n,126)；被钳元素残差 r 变大由 Exp 吸收，e^r·2^(n−2)=e^x/4 仍精确。
+    // ── ③ n 钳位 min(n,130)（钳位在 Cody-Waite 之前，使 r 与 2^(n−2) 用同一 n 合成）──
+    // ax≥0 ⇒ n≥0，copysign(130,n) 即 min(n,130)。ax<90 时 n≤130 不触发钳位；ax≥90 由溢出兜底置 +inf。
     AscendC::Mins(n, n, kNClamp, cnt);
 
     // ── ④⑤ Cody-Waite 双 FMA 范围缩减 r = ax − n·ln2（用钳位后的 n，单次舍入，dst≠src2 避免地址重叠）──
@@ -214,16 +226,35 @@ __aicore__ inline void KernelCosh<T>::Compute(int64_t currentNum)
     AscendC::Fma(er, n, cwLo, r, cntU); // er = n·(+ln2_lo) + r  → 缩减后的 r
 
     // ── ⑥⑨ 位操作构造 p2 = 2^(n−2)（magic 加 + 左移 23 构造 IEEE754 指数字段）──
-    // (n + 0x4B40007D) 位重解释后 <<23：32 位逐位左移，高位丢弃、低 9 位 (125+n)≤251 落入 IEEE754 指数字段；
-    // n≤126 保证指数字段有效（不产生 inf/nan）。
+    // (n + 0x4B40007D) 位重解释后 <<23：32 位逐位左移，高位丢弃、低 9 位 (125+n)≤255 落入 IEEE754 指数字段；
+    // n≤129 为有限 2^(n−2)，n=130 位构造为 +inf（对应 e^x/4 已溢出），均不越指数字段。
     AscendC::Adds(p2, n, kExpMagic, cnt);
     AscendC::LocalTensor<int32_t> p2i = p2.ReinterpretCast<int32_t>();
     AscendC::ShiftLeft(p2i, p2i, kFp32MantissaBits, cnt);
     // p2（float 视图）现为 2^((125+n)−127) = 2^(n−2)
 
-    // ── ⑩⑪ 合成 e^x/4 = exp(r) · 2^(n−2) ──
-    AscendC::Exp(er, er, cnt);     // er = exp(r)（缩减小区间，高精度）
-    AscendC::Mul(er, er, p2, cnt); // er = e^x / 4
+    // ── ⑩ 求 exp(r)：FMA 单次舍入的 7 阶 Taylor（|r| ≤ ln2/2），
+    //    比单指令向量 Exp（~1–2 ulp）更接近正确舍入。nBuf 已不再需要，借作 ping-pong 暂存。──
+    AscendC::Duplicate(work, kExpC7, cnt);
+    AscendC::Duplicate(cwHi, kExpC6, cnt);
+    AscendC::Fma(n, work, er, cwHi, cntU); // n = work·r + c6
+    AscendC::Duplicate(cwHi, kExpC5, cnt);
+    AscendC::Fma(work, n, er, cwHi, cntU);
+    AscendC::Duplicate(cwHi, kExpC4, cnt);
+    AscendC::Fma(n, work, er, cwHi, cntU);
+    AscendC::Duplicate(cwHi, kExpC3, cnt);
+    AscendC::Fma(work, n, er, cwHi, cntU);
+    AscendC::Duplicate(cwHi, kExpC2, cnt);
+    AscendC::Fma(n, work, er, cwHi, cntU);
+    AscendC::Duplicate(cwHi, kExpC1, cnt);
+    AscendC::Fma(work, n, er, cwHi, cntU);
+    AscendC::Duplicate(cwHi, kExpC0, cnt);
+    AscendC::Fma(n, work, er, cwHi, cntU); // n = exp(r)
+    // cwHiBuf_ 本轮被系数复用，恢复为 Cody-Waite 常量，供下一轮 Compute 使用
+    AscendC::Duplicate(cwHi, kNegLn2Hi, cnt);
+
+    // ── ⑪ 合成 e^x/4 = exp(r) · 2^(n−2) ──
+    AscendC::Mul(er, n, p2, cnt); // er = e^x / 4
 
     // ── ⑫⑮ cosh 合成：y = 2·(e^x/4) + 0.125/(e^x/4) = e^x/2 + e^(−x)/2 ──
     AscendC::Reciprocal(work, er, cnt);        // work = 4 / e^x

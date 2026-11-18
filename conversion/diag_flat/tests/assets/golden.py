@@ -14,7 +14,11 @@ import numpy as np
 
 __golden__ = {"kernel": {"diag_flat": "diag_flat_golden"}}
 
-__spec__ = {"diag_flat": "DiagFlatKernelSpec", "aclnnDiagFlat": "AclnnDiagFlatSpec"}
+__spec__ = {
+    "diag_flat": "DiagFlatKernelSpec",
+    "DiagFlat": "DiagFlatKernelSpec",  # GE 类型名双注册（REG_OP(DiagFlat)）：GEIR op_name 为 DiagFlat 时同样命中
+    "aclnnDiagFlat": "AclnnDiagFlatSpec",
+}
 
 
 def _bf16_numpy_dtype():
@@ -52,10 +56,26 @@ def diag_flat_golden(x, **kwargs):
     return np.diagflat(x, k=diagonal)
 
 
+class _TorchDiagFlatReference:
+    """torch.diagflat 三方对照：属性名 diagonal 需映射为 torch 的 offset。"""
+
+    def __call__(self, *args, **kwargs):
+        import torch  # 三方实现只在远端执行，本地 golden 保持 numpy-only
+
+        x = kwargs.get("x")
+        if x is None:
+            x = kwargs.get("self")
+        if x is None and args:
+            x = args[0]
+        return [torch.diagflat(x, offset=int(kwargs.get("diagonal", 0)))]
+
+
 class DiagFlatKernelSpec:
     @staticmethod
     def golden(x, **kwargs):
         return [diag_flat_golden(x, **kwargs)]
+
+    third_party = {"torch": _TorchDiagFlatReference}
 
     tolerance = {
         "float16": {"standard": "binary_equal"},
@@ -87,5 +107,7 @@ class AclnnDiagFlatSpec:
                 (a for a in args[1:] if isinstance(a, (int, np.integer))), 0
             )
         return [np.diagflat(_as_numpy(args[0]), k=int(diagonal))]
+
+    third_party = {"torch": _TorchDiagFlatReference}
 
     tolerance = DiagFlatKernelSpec.tolerance

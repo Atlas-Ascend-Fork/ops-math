@@ -12,8 +12,15 @@
 """TestSpec definitions for Cosh on GEIR/Kernel, ACLNN, Torch Single/Graph, and TensorFlow E2E paths."""
 
 import numpy as np
-import torch
 
+try:
+    import torch
+except ImportError:  # TF-only Python (ttk geir): keep numpy/TF TestSpecs loadable
+    torch = None
+
+_TORCH_TENSOR = torch.Tensor if torch is not None else ()
+
+# Static __spec__ index is AST-scanned by ttk; every key must stay in this literal.
 __spec__ = {
     "cosh": "CoshKernelTestSpec",
     "aclnnCosh": "AclnnCoshTestSpec",
@@ -22,17 +29,18 @@ __spec__ = {
     "tf.math.cosh": "CoshTensorFlowTestSpec",
 }
 
+if torch is not None:
 
-class CoshGraph(torch.nn.Module):
-    """Graph module consumed by TTK E2E torch.compile modes."""
+    class CoshGraph(torch.nn.Module):
+        """Graph module consumed by TTK E2E torch.compile modes."""
 
-    def forward(self, input):
-        return torch.cosh(input)
+        def forward(self, input):
+            return torch.cosh(input)
 
 
 def _as_numpy(x):
     """Torch/TF/numpy -> numpy，供 CPU golden 统一计算。"""
-    if isinstance(x, torch.Tensor):
+    if _TORCH_TENSOR and isinstance(x, _TORCH_TENSOR):
         if x.dtype == torch.bfloat16:
             # numpy 无原生 bf16，torch 也不支持 bf16 张量直接 .numpy()
             # （TypeError: Got unsupported ScalarType BFloat16）。
@@ -110,11 +118,18 @@ class _TensorFlowCosh:
         return [tf.math.cosh(_get_tf_input(args, kwargs))]
 
 
+_THIRD_PARTY = (
+    {"torch": "torch.cosh", "tf": _TensorFlowCosh}
+    if torch is not None
+    else {"tf": _TensorFlowCosh}
+)
+
+
 class CoshKernelTestSpec:
     """Shared GEIR/Kernel spec registered by CSV ``op_name``."""
 
     golden = staticmethod(cosh_golden)
-    third_party = {"torch": "torch.cosh", "tf": _TensorFlowCosh}
+    third_party = _THIRD_PARTY
     tolerance = {
         "float16": {"standard": "cross_check", "level": "L0"},
         "float32": {"standard": "cross_check", "level": "L0"},
@@ -126,7 +141,7 @@ class AclnnCoshTestSpec:
     """ACLNN out-of-place spec registered by CSV ``api_name``."""
 
     golden = staticmethod(aclnn_cosh_golden)
-    third_party = {"torch": "torch.cosh", "tf": _TensorFlowCosh}
+    third_party = _THIRD_PARTY
     tolerance = {
         "float16": {"standard": "cross_check", "level": "L0"},
         "float32": {"standard": "cross_check", "level": "L0"},
@@ -138,7 +153,7 @@ class AclnnInplaceCoshTestSpec:
     """ACLNN inplace spec registered by CSV ``api_name``."""
 
     golden = staticmethod(cosh_golden)
-    third_party = {"torch": "torch.cosh", "tf": _TensorFlowCosh}
+    third_party = _THIRD_PARTY
     tolerance = {
         "float16": {"standard": "cross_check", "level": "L0"},
         "float32": {"standard": "cross_check", "level": "L0"},
@@ -150,8 +165,9 @@ class TorchCoshTestSpec:
     """Shared Torch Single/Graph spec registered by CSV ``api_name``."""
 
     golden = staticmethod(torch_cosh_golden)
-    third_party = {"torch": "torch.cosh", "tf": _TensorFlowCosh}
-    torch_graph = CoshGraph
+    third_party = _THIRD_PARTY
+    if torch is not None:
+        torch_graph = CoshGraph
     tolerance = {
         "float16": {"standard": "cross_check", "level": "L0"},
         "float32": {"standard": "cross_check", "level": "L0"},
