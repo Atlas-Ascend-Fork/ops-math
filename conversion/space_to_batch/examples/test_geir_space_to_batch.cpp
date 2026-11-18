@@ -45,6 +45,7 @@ using std::vector;
                                                             intputDtype);                                             \
     placeholder##intputIndex##_desc.SetPlacement(ge::kPlacementHost);                                                 \
     placeholder##intputIndex##_desc.SetFormat(FORMAT_NHWC);                                                           \
+    placeholder##intputIndex##_desc.SetOriginFormat(FORMAT_NHWC);                                                     \
     Tensor tensor_placeholder##intputIndex;                                                                           \
     ret = GenSequenceData(placeholder##intputIndex##_shape, tensor_placeholder##intputIndex,                          \
                           placeholder##intputIndex##_desc, intputDtype);                                              \
@@ -53,9 +54,11 @@ using std::vector;
         return FAILED;                                                                                                \
     }                                                                                                                 \
     placeholder##intputIndex.update_input_desc_x(placeholder##intputIndex##_desc);                                    \
+    placeholder##intputIndex.update_output_desc_y(placeholder##intputIndex##_desc);                                   \
     input.push_back(tensor_placeholder##intputIndex);                                                                 \
     graph.AddOp(placeholder##intputIndex);                                                                            \
     node.set_input_##intputName(placeholder##intputIndex);                                                            \
+    node.update_input_desc_##intputName(placeholder##intputIndex##_desc);                                             \
     inputs.push_back(placeholder##intputIndex);
 
 #define ADD_INT_INPUT(intputIndex, intputName, intputDtype, inputShape, value)                                      \
@@ -65,6 +68,7 @@ using std::vector;
                                                             intputDtype);                                           \
     placeholder##intputIndex##_desc.SetPlacement(ge::kPlacementHost);                                               \
     placeholder##intputIndex##_desc.SetFormat(FORMAT_ND);                                                           \
+    placeholder##intputIndex##_desc.SetOriginFormat(FORMAT_ND);                                                     \
     Tensor tensor_placeholder##intputIndex;                                                                         \
     ret = GenOnesData(placeholder##intputIndex##_shape, tensor_placeholder##intputIndex,                            \
                       placeholder##intputIndex##_desc, intputDtype, value);                                         \
@@ -73,13 +77,16 @@ using std::vector;
         return FAILED;                                                                                              \
     }                                                                                                               \
     placeholder##intputIndex.update_input_desc_x(placeholder##intputIndex##_desc);                                  \
+    placeholder##intputIndex.update_output_desc_y(placeholder##intputIndex##_desc);                                 \
     input.push_back(tensor_placeholder##intputIndex);                                                               \
     graph.AddOp(placeholder##intputIndex);                                                                          \
     node.set_input_##intputName(placeholder##intputIndex);                                                          \
+    node.update_input_desc_##intputName(placeholder##intputIndex##_desc);                                           \
     inputs.push_back(placeholder##intputIndex);
 
 #define ADD_OUTPUT(outputIndex, outputName, outputDtype, outputShape)                                         \
     TensorDesc outputName##outputIndex##_desc = TensorDesc(ge::Shape(outputShape), FORMAT_NHWC, outputDtype); \
+    outputName##outputIndex##_desc.SetOriginFormat(FORMAT_NHWC);                                              \
     node.update_output_desc_##outputName(outputName##outputIndex##_desc);
 
 #define LOG_PRINT(message, ...)         \
