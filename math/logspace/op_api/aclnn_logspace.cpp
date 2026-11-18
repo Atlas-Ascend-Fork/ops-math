@@ -58,7 +58,7 @@ static bool CheckStepsValid(int64_t steps)
 
 static aclnnStatus CheckParams(const aclScalar* start, const aclScalar* end, int64_t steps, const aclTensor* result)
 {
-    CHECK_RET(CheckNotNull(start, end, result), ACLNN_ERR_INNER_NULLPTR);
+    CHECK_RET(CheckNotNull(start, end, result), ACLNN_ERR_PARAM_NULLPTR);
     // 检查数据类型支持
     CHECK_RET(CheckDtypeValid(result), ACLNN_ERR_PARAM_INVALID);
     // 检查steps有效性

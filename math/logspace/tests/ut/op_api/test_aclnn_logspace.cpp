@@ -34,7 +34,7 @@ TEST_F(l2_logspace_test, aclnnLogSpace_input_float16)
     auto start = ScalarDesc(static_cast<float>(3.5));
     auto end = ScalarDesc(static_cast<float>(15.5));
     double base = 10.0;
-    int64_t steps = 5;    
+    int64_t steps = 5;
 
     auto outTensor = TensorDesc({5}, ACL_FLOAT16, ACL_FORMAT_ND).Precision(0.0001, 0.0001);
 
@@ -62,7 +62,6 @@ TEST_F(l2_logspace_test, aclnnLogSpace_input_float)
     uint64_t workspace_size = 0;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
     EXPECT_EQ(aclRet, ACL_SUCCESS);
-
 }
 
 // 输出bfloat16
@@ -81,7 +80,6 @@ TEST_F(l2_logspace_test, aclnnLogSpace_output_bfloat16)
     uint64_t workspace_size = 0;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
     EXPECT_EQ(aclRet, ACL_SUCCESS);
-
 }
 
 // 输入step = 0
@@ -100,7 +98,6 @@ TEST_F(l2_logspace_test, aclnnLogSpace_steps_0)
     uint64_t workspace_size = 0;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
     EXPECT_EQ(aclRet, ACL_SUCCESS);
-
 }
 
 // 输入step = 1
@@ -119,9 +116,9 @@ TEST_F(l2_logspace_test, aclnnLogSpace_steps_1)
     uint64_t workspace_size = 0;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
     EXPECT_EQ(aclRet, ACL_SUCCESS);
-
 }
 
+// 空指针校验：入参为空时应返回 ACLNN_ERR_PARAM_NULLPTR（161001）
 // start 空指针
 TEST_F(l2_logspace_test, aclnnLogSpace_start_nullptr)
 {
@@ -137,7 +134,7 @@ TEST_F(l2_logspace_test, aclnnLogSpace_start_nullptr)
     // SAMPLE: only test GetWorkspaceSize
     uint64_t workspace_size = 0;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
-    EXPECT_EQ(aclRet, ACLNN_ERR_INNER_NULLPTR);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_NULLPTR);
 }
 
 // end 空指针
@@ -150,12 +147,28 @@ TEST_F(l2_logspace_test, aclnnLogSpace_end_nullptr)
 
     auto outTensor = TensorDesc({5}, ACL_FLOAT, ACL_FORMAT_ND).Precision(0.0001, 0.0001);
 
-    auto ut = OP_API_UT(aclnnLogSpace, INPUT(start, nullptr, steps,base), OUTPUT(outTensor));
+    auto ut = OP_API_UT(aclnnLogSpace, INPUT(start, nullptr, steps, base), OUTPUT(outTensor));
 
     // SAMPLE: only test GetWorkspaceSize
     uint64_t workspace_size = 0;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
-    EXPECT_EQ(aclRet, ACLNN_ERR_INNER_NULLPTR);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_NULLPTR);
+}
+
+// out 空指针
+TEST_F(l2_logspace_test, aclnnLogSpace_out_nullptr)
+{
+    auto start = ScalarDesc(static_cast<float>(3));
+    auto end = ScalarDesc(static_cast<float>(17));
+    double base = 10.0;
+    int64_t steps = 5;
+
+    auto ut = OP_API_UT(aclnnLogSpace, INPUT(start, end, steps, base), OUTPUT(nullptr));
+
+    // SAMPLE: only test GetWorkspaceSize
+    uint64_t workspace_size = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_NULLPTR);
 }
 
 // steps = 5, start > end
@@ -176,7 +189,7 @@ TEST_F(l2_logspace_test, aclnnLogSpace_start_greater_than_end)
     EXPECT_EQ(aclRet, ACL_SUCCESS);
 }
 
-// step = -2 
+// step = -2
 TEST_F(l2_logspace_test, aclnnLogSpace_steps_less_than_0)
 {
     auto start = ScalarDesc(static_cast<float>(3));

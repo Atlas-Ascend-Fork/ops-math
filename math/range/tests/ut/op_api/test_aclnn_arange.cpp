@@ -114,3 +114,52 @@ TEST_F(l2_arange_test, aclnnArange_out_size_mismatch)
         EXPECT_EQ(ut.TestGetWorkspaceSize(&workspaceSize), ACL_SUCCESS);
     }
 }
+
+// 空指针校验：入参为空时应返回 ACLNN_ERR_PARAM_NULLPTR（161001）
+TEST_F(l2_arange_test, aclnnArange_start_nullptr)
+{
+    auto endDesc = ScalarDesc(10.0, ACL_FLOAT);
+    auto stepDesc = ScalarDesc(1.0, ACL_FLOAT);
+    auto outTensorDesc = TensorDesc({10}, ACL_FLOAT, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnArange, INPUT(nullptr, endDesc, stepDesc), OUTPUT(outTensorDesc));
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_NULLPTR);
+}
+
+TEST_F(l2_arange_test, aclnnArange_end_nullptr)
+{
+    auto startDesc = ScalarDesc(0.0, ACL_FLOAT);
+    auto stepDesc = ScalarDesc(1.0, ACL_FLOAT);
+    auto outTensorDesc = TensorDesc({10}, ACL_FLOAT, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnArange, INPUT(startDesc, nullptr, stepDesc), OUTPUT(outTensorDesc));
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_NULLPTR);
+}
+
+TEST_F(l2_arange_test, aclnnArange_step_nullptr)
+{
+    auto startDesc = ScalarDesc(0.0, ACL_FLOAT);
+    auto endDesc = ScalarDesc(10.0, ACL_FLOAT);
+    auto outTensorDesc = TensorDesc({10}, ACL_FLOAT, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnArange, INPUT(startDesc, endDesc, nullptr), OUTPUT(outTensorDesc));
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_NULLPTR);
+}
+
+TEST_F(l2_arange_test, aclnnArange_out_nullptr)
+{
+    auto startDesc = ScalarDesc(0.0, ACL_FLOAT);
+    auto endDesc = ScalarDesc(10.0, ACL_FLOAT);
+    auto stepDesc = ScalarDesc(1.0, ACL_FLOAT);
+
+    auto ut = OP_API_UT(aclnnArange, INPUT(startDesc, endDesc, stepDesc), OUTPUT(nullptr));
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_NULLPTR);
+}

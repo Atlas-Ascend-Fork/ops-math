@@ -266,6 +266,7 @@ TEST_F(l2_linspace_test, aclnnLinspace_steps_1)
     EXPECT_EQ(aclRet, ACL_SUCCESS);
 }
 
+// 空指针校验：入参为空时应返回 ACLNN_ERR_PARAM_NULLPTR（161001）
 // start 空指针
 TEST_F(l2_linspace_test, aclnnLinspace_start_nullptr)
 {
@@ -280,7 +281,7 @@ TEST_F(l2_linspace_test, aclnnLinspace_start_nullptr)
     // SAMPLE: only test GetWorkspaceSize
     uint64_t workspace_size = 0;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
-    EXPECT_EQ(aclRet, ACLNN_ERR_INNER_NULLPTR);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_NULLPTR);
 }
 
 // end 空指针
@@ -297,7 +298,22 @@ TEST_F(l2_linspace_test, aclnnLinspace_end_nullptr)
     // SAMPLE: only test GetWorkspaceSize
     uint64_t workspace_size = 0;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
-    EXPECT_EQ(aclRet, ACLNN_ERR_INNER_NULLPTR);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_NULLPTR);
+}
+
+// out 空指针
+TEST_F(l2_linspace_test, aclnnLinspace_out_nullptr)
+{
+    auto start = ScalarDesc(static_cast<int>(3));
+    auto end = ScalarDesc(static_cast<int>(17));
+    int64_t steps = 5;
+
+    auto ut = OP_API_UT(aclnnLinspace, INPUT(start, end, steps), OUTPUT(nullptr));
+
+    // SAMPLE: only test GetWorkspaceSize
+    uint64_t workspace_size = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_NULLPTR);
 }
 
 // steps = 5, start > end
