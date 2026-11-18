@@ -30,6 +30,7 @@
 #include "opdev/platform.h"
 #include "op_api/op_api_def_math.h"
 #include "op_api/aclnn_check.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 
@@ -48,7 +49,7 @@ static const std::initializer_list<DataType> Ascend910B_out_dtype_support_list =
 static const std::initializer_list<DataType>& GetSelfDtypeSupportList()
 {
     auto npuArch = op::GetCurrentPlatformInfo().GetCurNpuArch();
-    if (npuArch == NpuArch::DAV_2201 || IsRegBase(npuArch)) {
+    if (npuArch == Ops::Base::DAV_2201 || IsRegBase(npuArch)) {
         return Ascend910B_input_dtype_support_list;
     }
     return Ascend910_input_dtype_support_list;
@@ -57,7 +58,7 @@ static const std::initializer_list<DataType>& GetSelfDtypeSupportList()
 static const std::initializer_list<DataType>& GetOutDtypeSupportList()
 {
     auto npuArch = op::GetCurrentPlatformInfo().GetCurNpuArch();
-    if (npuArch == NpuArch::DAV_2201 || IsRegBase(npuArch)) {
+    if (npuArch == Ops::Base::DAV_2201 || IsRegBase(npuArch)) {
         return Ascend910B_out_dtype_support_list;
     }
     return Ascend910_out_dtype_support_list;

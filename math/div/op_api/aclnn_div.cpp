@@ -29,6 +29,7 @@
 #include "opdev/tensor_view_utils.h"
 #include "opdev/platform.h"
 #include "conversion/broadcast_to/op_api/broadcast_to.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 #ifdef __cplusplus
@@ -155,7 +156,7 @@ static const std::initializer_list<std::pair<op::DataType, op::DataType>> Allowe
 static const std::initializer_list<DataType>& GetDtypeSupportList()
 {
     auto npuArch = op::GetCurrentPlatformInfo().GetCurNpuArch();
-    if (npuArch == NpuArch::DAV_2201 || IsRegBase(npuArch)) {
+    if (npuArch == Ops::Base::DAV_2201 || IsRegBase(npuArch)) {
         return ASCEND910B_DTYPE_SUPPORT_LIST;
     } else {
         return ASCEND910_DTYPE_SUPPORT_LIST;
@@ -343,7 +344,7 @@ static bool CheckPromoteType(const aclTensor* self, const aclTensor* other, cons
     bool outDtypeToFloat = IsRegBase() && mode == MODE_REAL_DIV &&
                            (promoteType == op::DataType::DT_INT32 || promoteType == op::DataType::DT_BOOL);
     auto computeDtype = outDtypeToFloat ? op::DataType::DT_FLOAT : promoteType;
-    if (GetCurrentPlatformInfo().GetCurNpuArch() >= NpuArch::DAV_3510 && mode == MODE_TRUNC_DIV) {
+    if (GetCurrentPlatformInfo().GetCurNpuArch() >= Ops::Base::DAV_3510 && mode == MODE_TRUNC_DIV) {
         return true;
     }
     OP_CHECK_RESULT_DTYPE_CAST_FAILED(computeDtype, y->GetDataType(), return false);
@@ -632,7 +633,7 @@ static bool CheckPromoteTypeScalar(const aclTensor* self, const aclScalar* other
                     op::ToString(self->GetDataType()).GetString(), op::ToString(other->GetDataType()).GetString());
             return false;
         }
-        if (GetCurrentPlatformInfo().GetCurNpuArch() >= NpuArch::DAV_3510 && mode == MODE_TRUNC_DIV) {
+        if (GetCurrentPlatformInfo().GetCurNpuArch() >= Ops::Base::DAV_3510 && mode == MODE_TRUNC_DIV) {
             return true;
         }
         // 检查推导后的数据类型能否转换为输出的数据类型

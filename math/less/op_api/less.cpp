@@ -18,6 +18,7 @@
 #include "opdev/op_dfx.h"
 #include "opdev/aicpu/aicpu_task.h"
 #include "op_api/aclnn_check.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 namespace l0op {
@@ -43,7 +44,7 @@ static bool IsAiCoreSupport(const aclTensor* self)
     if (IsRegBase(npuArch)) {
         return CheckType(self->GetDataType(), REGBASE_DTYPE_SUPPORT_LIST);
     }
-    if (npuArch == NpuArch::DAV_3102) {
+    if (npuArch == Ops::Base::DAV_3102) {
         return CheckType(self->GetDataType(), ASCEND610LITE_DTYPE_SUPPORT_LIST);
     }
     return CheckType(self->GetDataType(), AICORE_DTYPE_SUPPORT_LIST);

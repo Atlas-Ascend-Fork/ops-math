@@ -25,6 +25,7 @@
 #include "opdev/platform.h"
 #include "op_api/aclnn_check.h"
 #include "op_api/data_type_utils.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 
@@ -56,7 +57,7 @@ static bool CheckNotNull(const aclTensor* self, const aclTensor* other, const ac
 static bool CheckSocExtraType(const DataType dtype)
 {
     auto npuArch = op::GetCurrentPlatformInfo().GetCurNpuArch();
-    if (dtype == op::DataType::DT_BF16 && (npuArch == NpuArch::DAV_2201 || IsRegBase(npuArch))) {
+    if (dtype == op::DataType::DT_BF16 && (npuArch == Ops::Base::DAV_2201 || IsRegBase(npuArch))) {
         return true;
     }
     return false;
@@ -65,7 +66,7 @@ static bool CheckSocExtraType(const DataType dtype)
 static const std::initializer_list<DataType>& GetDtypeSupportList()
 {
     auto npuArch = op::GetCurrentPlatformInfo().GetCurNpuArch();
-    if (npuArch == NpuArch::DAV_2201 || IsRegBase(npuArch)) {
+    if (npuArch == Ops::Base::DAV_2201 || IsRegBase(npuArch)) {
         return ASCEND910B_DTYPE_DTYPE_SUPPORT_LIST;
     } else {
         return ASCEND910_DTYPE_DTYPE_SUPPORT_LIST;

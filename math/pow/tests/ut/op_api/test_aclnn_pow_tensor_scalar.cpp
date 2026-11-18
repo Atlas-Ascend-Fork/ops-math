@@ -17,6 +17,7 @@
 #include "op_api_ut_common/op_api_ut.h"
 #include "op_api_ut_common/scalar_desc.h"
 #include "op_api_ut_common/tensor_desc.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace std;
 
@@ -275,7 +276,7 @@ TEST_F(l2_pow_tensor_scalar_test, Ascend950_aclnnPowTensorScalar_square_complex6
 
 TEST_F(l2_pow_tensor_scalar_test, Ascend950_aclnnPowTensorScalar_square_complex128)
 {
-    op::SetPlatformNpuArch(NpuArch::DAV_3510);
+    op::SetPlatformNpuArch(Ops::Base::DAV_3510);
 
     const vector<int64_t>& selfShape = {1, 1, 16, 129};
     aclDataType selfDtype = ACL_COMPLEX128;
@@ -292,20 +293,20 @@ TEST_F(l2_pow_tensor_scalar_test, Ascend950_aclnnPowTensorScalar_square_complex1
     auto ut = OP_API_UT(aclnnPowTensorScalar, INPUT(selfTensorDesc, expScalarDesc), OUTPUT(outTensorDesc));
     uint64_t workspaceSize = 0;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
-    op::SetPlatformNpuArch(NpuArch::DAV_2201);
+    op::SetPlatformNpuArch(Ops::Base::DAV_2201);
     EXPECT_EQ(aclRet, ACL_SUCCESS);
 }
 
 TEST_F(l2_pow_tensor_scalar_test, Ascend950_out_dtype_check_not_applied)
 {
-    op::SetPlatformNpuArch(NpuArch::DAV_3510);
+    op::SetPlatformNpuArch(Ops::Base::DAV_3510);
     auto selfTensorDesc = TensorDesc({4, 8}, ACL_FLOAT, ACL_FORMAT_ND);
     auto expScalarDesc = ScalarDesc(2);
     auto outTensorDesc = TensorDesc({4, 8}, ACL_INT4, ACL_FORMAT_ND);
     auto ut = OP_API_UT(aclnnPowTensorScalar, INPUT(selfTensorDesc, expScalarDesc), OUTPUT(outTensorDesc));
     uint64_t workspaceSize = 0;
     EXPECT_NE(ut.TestGetWorkspaceSize(&workspaceSize), ACLNN_ERR_PARAM_INVALID);
-    op::SetPlatformNpuArch(NpuArch::DAV_2201);
+    op::SetPlatformNpuArch(Ops::Base::DAV_2201);
 }
 /*
 TEST_F(l2_pow_tensor_scalar_test, aclnnPowTensorScalar_1_1_16_129_complex64_hwcn_1_1_16_129_complex64_hwcn) {

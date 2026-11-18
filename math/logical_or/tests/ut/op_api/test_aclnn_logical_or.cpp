@@ -17,6 +17,7 @@
 #include "op_api_ut_common/scalar_desc.h"
 #include "op_api_ut_common/tensor_desc.h"
 #include "opdev/platform.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace std;
 using namespace op;
@@ -28,7 +29,7 @@ protected:
     static void TearDownTestCase() { cout << "logical_or_test TearDown" << endl; }
 
     // 恢复默认平台(ASCEND910B/DAV_2201)，避免 testcase005 设置的 DAV_3510 泄漏到后续用例
-    void TearDown() override { op::SetPlatformNpuArch(NpuArch::DAV_2201); }
+    void TearDown() override { op::SetPlatformNpuArch(Ops::Base::DAV_2201); }
 };
 
 TEST_F(l2_logical_or_test, aclnnLogicalOr_223_32_17_17_float16_nchw_223_1_1_17_float16_nchw_testcase002)
@@ -121,7 +122,7 @@ TEST_F(l2_logical_or_test, ascend910B2_support_bf16_910B)
 
 TEST_F(l2_logical_or_test, aclnnLogicalOr_1_5_1_16_129_int32_ndhwc_32_5_32_16_1_int32_ndhwc_testcase005)
 {
-    op::SetPlatformNpuArch(NpuArch::DAV_3510);
+    op::SetPlatformNpuArch(Ops::Base::DAV_3510);
     // left input
     const vector<int64_t>& selfShape = {1, 5, 1, 16, 129};
     aclDataType selfDtype = ACL_INT32;

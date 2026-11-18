@@ -19,6 +19,7 @@
 #include "opdev/op_log.h"
 #include "opdev/shape_utils.h"
 #include "op_api/aclnn_check.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 
@@ -38,7 +39,7 @@ static bool IsAiCoreSupport(const aclTensor* self)
     auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
     if (IsRegBase(curArch)) {
         return CheckType(self->GetDataType(), AICORE_DTYPE_SUPPORT_LIST);
-    } else if (curArch == NpuArch::DAV_2201) {
+    } else if (curArch == Ops::Base::DAV_2201) {
         return CheckType(self->GetDataType(), ASCEND910B_DTYPE_SUPPORT_LIST);
     }
     return false;

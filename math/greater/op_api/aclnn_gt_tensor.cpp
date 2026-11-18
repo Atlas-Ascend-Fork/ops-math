@@ -24,6 +24,7 @@
 #include "aclnn_kernels/common/op_error_check.h"
 #include "op_api/aclnn_check.h"
 #include "op_api/data_type_utils.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 #ifdef __cplusplus
@@ -89,7 +90,7 @@ static const size_t DIM_SUPPORT_MAX = 8;
 static bool CheckDtypeValid(const aclTensor* self, const aclTensor* other, const aclTensor* out, DataType& promoteType)
 {
     auto npuArch = op::GetCurrentPlatformInfo().GetCurNpuArch();
-    bool is910bSocVersion = (npuArch == NpuArch::DAV_2201 || IsRegBase(npuArch));
+    bool is910bSocVersion = (npuArch == Ops::Base::DAV_2201 || IsRegBase(npuArch));
     const std::initializer_list<op::DataType> CURRENT_DTYPE_SUPPORT_LIST = is910bSocVersion ? DTYPE_SUPPORT_910B_LIST :
                                                                                               DTYPE_SUPPORT_910_LIST;
     const std::initializer_list<op::DataType> CURRENT_OUT_DTYPE_SUPPORT_LIST = is910bSocVersion ?

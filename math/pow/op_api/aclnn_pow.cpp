@@ -28,6 +28,7 @@
 #include "opdev/platform.h"
 #include "opdev/op_log.h"
 #include <cmath>
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 #ifdef __cplusplus
@@ -191,7 +192,8 @@ static bool CheckDtypeValid(const op::DataType selfDtype, const op::DataType exp
                 op::ToString(selfDtype).GetString(), op::ToString(expDtype).GetString());
         return false;
     }
-    if (GetCurrentPlatformInfo().GetCurNpuArch() == NpuArch::DAV_2201 && !CheckType(outDtype, OUT_DTYPE_SUPPORT_LIST)) {
+    if (GetCurrentPlatformInfo().GetCurNpuArch() == Ops::Base::DAV_2201 &&
+        !CheckType(outDtype, OUT_DTYPE_SUPPORT_LIST)) {
         OP_LOGE(ACLNN_ERR_PARAM_INVALID, "out dtype %s should be in out dtype support list %s.",
                 op::ToString(outDtype).GetString(), op::ToString(OUT_DTYPE_SUPPORT_LIST).GetString());
         return false;

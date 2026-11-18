@@ -17,6 +17,7 @@
 #include "opdev/shape_utils.h"
 #include "opdev/platform.h"
 #include "op_api/aclnn_check.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 
@@ -57,11 +58,11 @@ static bool IsAiCoreSupport(const aclTensor* self)
     if (IsRegBase(npuArch)) {
         return CheckType(self->GetDataType(), REGBASE_DTYPE_SUPPORT_LIST);
     }
-    if (npuArch == NpuArch::DAV_2201) {
+    if (npuArch == Ops::Base::DAV_2201) {
         return CheckType(self->GetDataType(), AICORE910B_DTYPE_SUPPORT_LIST);
     }
 
-    if (npuArch == NpuArch::DAV_3102) {
+    if (npuArch == Ops::Base::DAV_3102) {
         return CheckType(self->GetDataType(), ASCEND610LITE_DTYPE_SUPPORT_LIST);
     }
     // 1980 & other

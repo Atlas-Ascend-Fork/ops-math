@@ -16,6 +16,7 @@
 #include "op_api_ut_common/scalar_desc.h"
 #include "op_api_ut_common/op_api_ut.h"
 #include "opdev/platform.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace std;
 using namespace op;
@@ -152,7 +153,7 @@ TEST_F(l2_inplace_ne_scalar_test, ascend910B2_support_bf16_910B)
 
     auto scalar_ohter = ScalarDesc(3.0f);
 
-    SetPlatformNpuArch(NpuArch::DAV_2201);
+    SetPlatformNpuArch(Ops::Base::DAV_2201);
     auto ut = OP_API_UT(aclnnInplaceNeScalar, INPUT(tensor_self_ref, scalar_ohter), OUTPUT());
 
     // SAMPLE: only test GetWorkspaceSize

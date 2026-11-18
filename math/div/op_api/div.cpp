@@ -18,6 +18,7 @@
 #include "opdev/platform.h"
 #include "opdev/shape_utils.h"
 #include "op_api/aclnn_check.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 
@@ -40,10 +41,10 @@ static inline const std::initializer_list<op::DataType>& GetAiCoreDtypeSupportLi
         return ASCEND910B_AICORE_DTYPE_SUPPORT_LIST;
     }
     switch (npuArch) {
-        case NpuArch::DAV_2201: {
+        case Ops::Base::DAV_2201: {
             return ASCEND910B_AICORE_DTYPE_SUPPORT_LIST;
         }
-        case NpuArch::DAV_1001:
+        case Ops::Base::DAV_1001:
         default: {
             return ASCEND910_AICORE_DTYPE_SUPPORT_LIST;
         }

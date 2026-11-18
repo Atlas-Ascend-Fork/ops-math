@@ -17,6 +17,7 @@
 #include "log/log.h"
 #include "util/math_util.h"
 #include "platform/platform_info.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace AscendC;
 using namespace ge;
@@ -46,8 +47,8 @@ ge::graphStatus TanhGradTiling::GetPlatformInfo()
     uint64_t ubSizePlatForm;
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSizePlatForm);
     ubSize = ubSizePlatForm;
-    preferMultiCore = (ascendcPlatform.GetCurNpuArch() == NpuArch::DAV_9201 ||
-                       ascendcPlatform.GetCurNpuArch() == NpuArch::DAV_9202);
+    preferMultiCore = (ascendcPlatform.GetCurNpuArch() == Ops::Base::DAV_9201 ||
+                       ascendcPlatform.GetCurNpuArch() == Ops::Base::DAV_9202);
 
     return ge::GRAPH_SUCCESS;
 }

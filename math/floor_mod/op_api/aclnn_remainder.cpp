@@ -24,6 +24,7 @@
 #include "aclnn_kernels/common/op_error_check.h"
 #include "opdev/op_dfx.h"
 #include "opdev/op_executor.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 #ifdef __cplusplus
@@ -49,13 +50,13 @@ static const std::initializer_list<DataType>& GetDtypeSupportList(NpuArch npuArc
         return ASCEND910B_DTYPE_DTYPE_SUPPORT_LIST;
     }
     switch (npuArch) {
-        case NpuArch::DAV_2201: {
+        case Ops::Base::DAV_2201: {
             return ASCEND910B_DTYPE_DTYPE_SUPPORT_LIST;
         }
-        case NpuArch::DAV_1001: {
+        case Ops::Base::DAV_1001: {
             return ASCEND910_DTYPE_DTYPE_SUPPORT_LIST;
         }
-        case NpuArch::DAV_2002: {
+        case Ops::Base::DAV_2002: {
             return ASCEND310P_DTYPE_DTYPE_SUPPORT_LIST;
         }
         default: {

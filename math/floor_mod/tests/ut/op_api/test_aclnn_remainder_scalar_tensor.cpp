@@ -17,17 +17,18 @@
 #include "op_api_ut_common/scalar_desc.h"
 #include "op_api_ut_common/tensor_desc.h"
 #include "opdev/platform.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 
 class l2_remainder_scalar_tensor_ascend950_test : public testing::Test {
 protected:
-    void TearDown() override { SetPlatformNpuArch(NpuArch::DAV_2201); }
+    void TearDown() override { SetPlatformNpuArch(Ops::Base::DAV_2201); }
 };
 
 TEST_F(l2_remainder_scalar_tensor_ascend950_test, double_scalar_int32_tensor_to_float16)
 {
-    SetPlatformNpuArch(NpuArch::DAV_3510);
+    SetPlatformNpuArch(Ops::Base::DAV_3510);
 
     auto self = ScalarDesc(2049.0);
     auto other = TensorDesc({1}, ACL_INT32, ACL_FORMAT_ND).Value(std::vector<int32_t>{2});
@@ -40,7 +41,7 @@ TEST_F(l2_remainder_scalar_tensor_ascend950_test, double_scalar_int32_tensor_to_
 
 TEST_F(l2_remainder_scalar_tensor_ascend950_test, integer_scalar_unsupported_compute_dtype)
 {
-    SetPlatformNpuArch(NpuArch::DAV_3510);
+    SetPlatformNpuArch(Ops::Base::DAV_3510);
     for (auto otherDtype : {ACL_INT8, ACL_UINT8, ACL_INT16}) {
         for (auto outDtype : {ACL_INT32, ACL_FLOAT}) {
             SCOPED_TRACE(static_cast<int>(otherDtype));
@@ -57,7 +58,7 @@ TEST_F(l2_remainder_scalar_tensor_ascend950_test, integer_scalar_unsupported_com
 
 TEST_F(l2_remainder_scalar_tensor_ascend950_test, float_scalar_promotes_int8_tensor)
 {
-    SetPlatformNpuArch(NpuArch::DAV_3510);
+    SetPlatformNpuArch(Ops::Base::DAV_3510);
     auto self = ScalarDesc(7.0f);
     auto other = TensorDesc({4}, ACL_INT8, ACL_FORMAT_ND).ValueRange(2, 5);
     auto out = TensorDesc({4}, ACL_FLOAT, ACL_FORMAT_ND);
@@ -68,7 +69,7 @@ TEST_F(l2_remainder_scalar_tensor_ascend950_test, float_scalar_promotes_int8_ten
 
 TEST_F(l2_remainder_scalar_tensor_ascend950_test, non_regbase_widens_int8_tensor_to_output_dtype)
 {
-    SetPlatformNpuArch(NpuArch::DAV_2201);
+    SetPlatformNpuArch(Ops::Base::DAV_2201);
     auto self = ScalarDesc(int64_t{7});
     auto other = TensorDesc({4}, ACL_INT8, ACL_FORMAT_ND).ValueRange(2, 5);
     auto out = TensorDesc({4}, ACL_INT64, ACL_FORMAT_ND);
@@ -79,7 +80,7 @@ TEST_F(l2_remainder_scalar_tensor_ascend950_test, non_regbase_widens_int8_tensor
 
 TEST_F(l2_remainder_scalar_tensor_ascend950_test, empty_tensor_rejects_unsupported_compute_dtype)
 {
-    SetPlatformNpuArch(NpuArch::DAV_3510);
+    SetPlatformNpuArch(Ops::Base::DAV_3510);
     auto self = ScalarDesc(int64_t{7});
     auto other = TensorDesc({0}, ACL_INT8, ACL_FORMAT_ND);
     auto out = TensorDesc({0}, ACL_INT32, ACL_FORMAT_ND);
@@ -90,7 +91,7 @@ TEST_F(l2_remainder_scalar_tensor_ascend950_test, empty_tensor_rejects_unsupport
 
 TEST_F(l2_remainder_scalar_tensor_ascend950_test, supported_compute_dtypes)
 {
-    SetPlatformNpuArch(NpuArch::DAV_3510);
+    SetPlatformNpuArch(Ops::Base::DAV_3510);
     for (auto dtype : {ACL_INT32, ACL_INT64, ACL_FLOAT16, ACL_FLOAT, ACL_DOUBLE, ACL_BF16}) {
         SCOPED_TRACE(static_cast<int>(dtype));
         auto self = ScalarDesc(int64_t{7});
@@ -104,7 +105,7 @@ TEST_F(l2_remainder_scalar_tensor_ascend950_test, supported_compute_dtypes)
 
 TEST_F(l2_remainder_scalar_tensor_ascend950_test, empty_tensor_supported_compute_dtype)
 {
-    SetPlatformNpuArch(NpuArch::DAV_3510);
+    SetPlatformNpuArch(Ops::Base::DAV_3510);
     auto self = ScalarDesc(int64_t{7});
     auto other = TensorDesc({0}, ACL_INT32, ACL_FORMAT_ND);
     auto out = TensorDesc({0}, ACL_INT32, ACL_FORMAT_ND);
@@ -116,7 +117,7 @@ TEST_F(l2_remainder_scalar_tensor_ascend950_test, empty_tensor_supported_compute
 
 TEST_F(l2_remainder_scalar_tensor_ascend950_test, unsupported_output_dtype)
 {
-    SetPlatformNpuArch(NpuArch::DAV_3510);
+    SetPlatformNpuArch(Ops::Base::DAV_3510);
     auto self = ScalarDesc(int64_t{7});
     auto other = TensorDesc({4}, ACL_INT32, ACL_FORMAT_ND).ValueRange(2, 5);
     auto out = TensorDesc({4}, ACL_INT8, ACL_FORMAT_ND);

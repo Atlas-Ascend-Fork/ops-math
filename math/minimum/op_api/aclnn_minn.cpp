@@ -17,6 +17,7 @@
 #include "op_api/op_api_def_math.h"
 #include "op_api/aclnn_check.h"
 #include "aclnn_kernels/common/op_error_check.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 #ifdef __cplusplus
@@ -42,7 +43,7 @@ static const std::initializer_list<DataType>& GetDtypeSupportList()
     if (IsRegBase(curArch)) {
         return REGBASE_DTYPE_SUPPORT_LIST;
     }
-    if (curArch == NpuArch::DAV_2201) {
+    if (curArch == Ops::Base::DAV_2201) {
         return ASCEND910B_DTYPE_SUPPORT_LIST;
     } else {
         return ASCEND910_DTYPE_SUPPORT_LIST;

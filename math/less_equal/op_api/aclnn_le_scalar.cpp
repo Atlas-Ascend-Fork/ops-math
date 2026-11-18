@@ -21,6 +21,7 @@
 #include "opdev/make_op_executor.h"
 #include "opdev/platform.h"
 #include "op_api/aclnn_check.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 #ifdef __cplusplus
@@ -137,7 +138,7 @@ static inline const std::initializer_list<op::DataType>& GetDtypeSupportList()
     if (IsRegBase(npuArch)) {
         return REGBASE_DTYPE_SUPPORT_LIST;
     }
-    if (npuArch == NpuArch::DAV_2201) {
+    if (npuArch == Ops::Base::DAV_2201) {
         return ASCEND910B_DTYPE_SUPPORT_LIST;
     } else {
         return ASCEND910_DTYPE_SUPPORT_LIST;

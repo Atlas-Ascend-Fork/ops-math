@@ -20,6 +20,7 @@
 #include "opdev/platform.h"
 #include "aclnn_kernels/common/op_error_check.h"
 #include "op_api/aclnn_check.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 #ifdef __cplusplus
@@ -202,10 +203,10 @@ static const std::initializer_list<op::DataType> GetInputDtypeSupportList()
         return REGBASE_DTYPE_SUPPORT_LIST;
     }
     switch (npuArch) {
-        case NpuArch::DAV_2201: {
+        case Ops::Base::DAV_2201: {
             return DTYPE_SUPPORT_910B_LIST;
         }
-        case NpuArch::DAV_1001: {
+        case Ops::Base::DAV_1001: {
             return DTYPE_SUPPORT_910_LIST;
         }
         default: {
@@ -218,7 +219,7 @@ static const std::initializer_list<op::DataType> GetInputDtypeSupportList()
 static inline const std::initializer_list<op::DataType>& GetOutputDtypeSupportList()
 {
     auto npuArch = op::GetCurrentPlatformInfo().GetCurNpuArch();
-    if (npuArch == NpuArch::DAV_1001) {
+    if (npuArch == Ops::Base::DAV_1001) {
         return DTYPE_SUPPORT_910_LIST;
     } else if (IsRegBase(npuArch)) {
         return REGBASE_OUT_DTYPE_SUPPORT_LIST;

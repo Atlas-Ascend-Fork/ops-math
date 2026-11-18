@@ -12,6 +12,7 @@
  * \file equal_def.cpp
  * \brief aicore info for not equal op
  */
+#include "op_common/op_host/util/op_arch_helper.h"
 #include "register/op_def_registry.h"
 
 namespace ops {
@@ -46,10 +47,9 @@ public:
             .NeedCheckSupportFlag(false)
             .PrecisionReduceFlag(true)
             .ExtendCfgInfo("opFile.value", "equal_apt");
-        this->AICore().AddConfig("ascend950", aicoreConfig);
-        this->AICore().AddConfig("ascend960dt", aicoreConfig);
-        this->AICore().AddConfig("ascend960pr", aicoreConfig);
-        this->AICore().AddConfig("ascend350", aicoreConfig);
+        opbase::ArchConfigHelper::AddConfigByArch(this->AICore(), Ops::Base::DAV_3510, aicoreConfig);
+        opbase::ArchConfigHelper::AddConfigByArch(this->AICore(), Ops::Base::DAV_9201, aicoreConfig);
+        opbase::ArchConfigHelper::AddConfigByArch(this->AICore(), Ops::Base::DAV_9202, aicoreConfig);
         this->AICore().AddConfig("ascend5162", aicoreConfig);
     }
 };

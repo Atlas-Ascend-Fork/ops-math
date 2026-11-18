@@ -26,6 +26,7 @@
 #include "opdev/tensor_view_utils.h"
 #include "opdev/platform.h"
 #include "op_api/aclnn_check.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 #ifdef __cplusplus
@@ -118,7 +119,7 @@ static inline const std::initializer_list<op::DataType>& GetDtypeSupportListBySo
         return ASCEND910B_DTYPE_SUPPORT_LIST;
     }
     switch (curArch) {
-        case NpuArch::DAV_2201: {
+        case Ops::Base::DAV_2201: {
             return ASCEND910B_DTYPE_SUPPORT_LIST;
         }
         default: {
