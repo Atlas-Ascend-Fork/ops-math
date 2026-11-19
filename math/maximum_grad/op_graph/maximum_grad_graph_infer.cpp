@@ -56,16 +56,17 @@ ge::graphStatus InferDataTypeForMaximumGrad(gert::InferDataTypeContext* context)
     // 实例 0（grads）dtype：白名单门禁 + 传播源。
     const ge::DataType dtype0 = context->GetInputDataType(0);
     if (!IsSupportedDtype(dtype0)) {
-        OP_LOGE_WITH_INVALID_INPUT_DTYPE(nodeName, "grads", std::to_string(static_cast<int>(dtype0)),
-                                         DTYPE_WHITELIST_TEXT);
+        OP_LOGE_FOR_INVALID_DTYPE(nodeName, "grads", std::to_string(static_cast<int>(dtype0)).c_str(),
+                                  DTYPE_WHITELIST_TEXT);
         return ge::GRAPH_FAILED; // dtype_not_supported
     }
     // 跨输入一致性：x1/x2 必须与 grads 同 dtype（无提升），不一致在写输出前拒绝。
     for (size_t i = 1U; i < INPUT_NUM; ++i) {
         const ge::DataType dt = context->GetInputDataType(i);
         if (dt != dtype0) {
-            OP_LOGE_WITH_INVALID_INPUT_DTYPE(nodeName, i == 1U ? "x1" : "x2", std::to_string(static_cast<int>(dt)),
-                                             "identical to grads (no promotion)");
+            OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(nodeName, i == 1U ? "x1" : "x2",
+                                                  std::to_string(static_cast<int>(dt)).c_str(),
+                                                  "The dtype of x1/x2 must be identical to grads (no promotion)");
             return ge::GRAPH_FAILED; // dtype_not_supported
         }
     }

@@ -22,7 +22,6 @@
 #include <string>
 #include "register/op_def_registry.h"
 #include "op_common/log/log.h"
-#include "op_common/op_host/infershape_broadcast_util.h"
 #include "atvoss/broadcast/broadcast_tiling.h"
 #include "exe_graph/runtime/tiling_context.h"
 #include "exe_graph/runtime/runtime_attrs.h"
@@ -93,34 +92,23 @@ static bool ValidateInputShapes(const gert::TilingContext* context)
     return true;
 }
 
-// 校验广播合法性并返回 broadcast shape
-static bool ValidateBroadcastShape(const gert::TilingContext* context, gert::Shape* broadcastShape)
+// 获取 infershape 推导出的 broadcast shape（infershape 保证 y1 = broadcast(grads, x1, x2)，
+// 广播合法性校验由 infershape 完成，tiling 侧不重复计算）
+static bool GetBroadcastShape(const gert::TilingContext* context, gert::Shape* broadcastShape)
 {
-    const gert::StorageShape* gradsStorageShape = context->GetInputShape(0);
-    const gert::StorageShape* x1StorageShape = context->GetInputShape(1);
-    const gert::StorageShape* x2StorageShape = context->GetInputShape(2);
-
-    // 获取 origin shapes 用于广播计算
-    const gert::Shape& gradsShape = gradsStorageShape->GetOriginShape();
-    const gert::Shape& x1Shape = x1StorageShape->GetOriginShape();
-    const gert::Shape& x2Shape = x2StorageShape->GetOriginShape();
-
-    std::vector<const gert::Shape*> inShapes = {&gradsShape, &x1Shape, &x2Shape};
-    if (!Ops::Base::BroadcastShape(inShapes, broadcastShape)) {
-        const std::string shapeMsg = "grads: " + Ops::Base::ToString(gradsShape) +
-                                     ", x1: " + Ops::Base::ToString(x1Shape) + ", x2: " + Ops::Base::ToString(x2Shape);
-        OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(context->GetNodeName(), "grads, x1, x2", shapeMsg.c_str(),
-                                               "the shapes cannot be broadcast together");
+    const gert::StorageShape* y1StorageShape = context->GetOutputShape(0);
+    if (y1StorageShape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "y1");
         return false;
     }
+    *broadcastShape = y1StorageShape->GetOriginShape();
 
     return true;
 }
 
-// 校验输出 shape 与期望一致（无论 grad_x/grad_y 属性值，两个输出都需要校验）
-static bool ValidateOutputShapes(const gert::TilingContext* context, const gert::Shape& expectedShape)
+// 校验两个输出 shape 一致（infershape 保证 y1/y2 均为 broadcast 结果；允许动态 shape -1）
+static bool ValidateOutputShapes(const gert::TilingContext* context)
 {
-    // 校验 y1 shape 与 broadcast shape 一致（允许动态 shape -1）
     const gert::StorageShape* y1StorageShape = context->GetOutputShape(0);
     if (y1StorageShape == nullptr) {
         OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "y1");
@@ -128,25 +116,6 @@ static bool ValidateOutputShapes(const gert::TilingContext* context, const gert:
     }
     const gert::Shape& y1Shape = y1StorageShape->GetOriginShape();
 
-    size_t dimNum = expectedShape.GetDimNum();
-    if (y1Shape.GetDimNum() != dimNum) {
-        OP_LOGE_FOR_INVALID_SHAPEDIM(context->GetNodeName(), "y1", std::to_string(y1Shape.GetDimNum()).c_str(),
-                                     std::to_string(dimNum).c_str());
-        return false;
-    }
-    for (size_t i = 0; i < dimNum; i++) {
-        int64_t expectedDim = expectedShape.GetDim(i);
-        int64_t actualDim = y1Shape.GetDim(i);
-        // 允许动态 shape (-1)，其他情况必须一致
-        if (expectedDim != -1 && actualDim != -1 && expectedDim != actualDim) {
-            OP_LOGE_FOR_INVALID_SHAPEDIM(context->GetNodeName(), "y1",
-                                         ("dim[" + std::to_string(i) + "]=" + std::to_string(actualDim)).c_str(),
-                                         ("dim[" + std::to_string(i) + "]=" + std::to_string(expectedDim)).c_str());
-            return false;
-        }
-    }
-
-    // 校验 y2 shape 与 broadcast shape 一致
     const gert::StorageShape* y2StorageShape = context->GetOutputShape(1);
     if (y2StorageShape == nullptr) {
         OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "y2");
@@ -154,14 +123,16 @@ static bool ValidateOutputShapes(const gert::TilingContext* context, const gert:
     }
     const gert::Shape& y2Shape = y2StorageShape->GetOriginShape();
 
+    size_t dimNum = y1Shape.GetDimNum();
     if (y2Shape.GetDimNum() != dimNum) {
         OP_LOGE_FOR_INVALID_SHAPEDIM(context->GetNodeName(), "y2", std::to_string(y2Shape.GetDimNum()).c_str(),
                                      std::to_string(dimNum).c_str());
         return false;
     }
     for (size_t i = 0; i < dimNum; i++) {
-        int64_t expectedDim = expectedShape.GetDim(i);
+        int64_t expectedDim = y1Shape.GetDim(i);
         int64_t actualDim = y2Shape.GetDim(i);
+        // 允许动态 shape (-1)，其他情况必须一致
         if (expectedDim != -1 && actualDim != -1 && expectedDim != actualDim) {
             OP_LOGE_FOR_INVALID_SHAPEDIM(context->GetNodeName(), "y2",
                                          ("dim[" + std::to_string(i) + "]=" + std::to_string(actualDim)).c_str(),
@@ -266,9 +237,9 @@ ge::graphStatus MinimumGradTilingFunc(gert::TilingContext* context)
         return ge::GRAPH_FAILED;
     }
 
-    // 校验广播合法性并计算 broadcast shape
+    // 获取 broadcast shape（infershape 推导结果，广播合法性已在 infershape 校验）
     gert::Shape broadcastShape;
-    if (!ValidateBroadcastShape(context, &broadcastShape)) {
+    if (!GetBroadcastShape(context, &broadcastShape)) {
         return ge::GRAPH_FAILED;
     }
 
@@ -277,8 +248,8 @@ ge::graphStatus MinimumGradTilingFunc(gert::TilingContext* context)
         return HandleEmptyTensor(context, outputCount);
     }
 
-    // 校验输出 shape 与期望一致（无论 grad_x/grad_y 属性值）
-    if (!ValidateOutputShapes(context, broadcastShape)) {
+    // 校验两个输出 shape 一致（无论 grad_x/grad_y 属性值）
+    if (!ValidateOutputShapes(context)) {
         return ge::GRAPH_FAILED;
     }
 
@@ -301,9 +272,8 @@ ge::graphStatus MinimumGradTilingFunc(gert::TilingContext* context)
         case ge::DT_INT32:
             return DoTilingWithOutputCount<int32_t>(context, outputCount);
         default:
-            OP_LOGE_WITH_INVALID_INPUT_DTYPE(context->GetNodeName(), "grads",
-                                             std::to_string(static_cast<int>(dtype)).c_str(),
-                                             "float16/float32/bfloat16/int32");
+            OP_LOGE_FOR_INVALID_DTYPE(context->GetNodeName(), "grads", std::to_string(static_cast<int>(dtype)).c_str(),
+                                      "float16/float32/bfloat16/int32");
             return ge::GRAPH_FAILED;
     }
 }
