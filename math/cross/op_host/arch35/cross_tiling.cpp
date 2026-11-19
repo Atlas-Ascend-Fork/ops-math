@@ -282,7 +282,10 @@ ge::graphStatus CrossTiling::PostTiling()
     errno_t ret = memcpy_s(context_->GetRawTilingData()->GetData(), context_->GetRawTilingData()->GetCapacity(),
                            &tilingData_, sizeof(CrossRegbaseTilingData));
     if (ret != EOK) {
-        OP_LOGE(context_->GetNodeName(), "memcpy_s failed, ret=%d", ret);
+        REPORT_PREDEFINED_ERR_MSG(
+            "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+            (std::vector<const char*>{context_->GetNodeName(), "memcpy_s failed to serialize tiling data; check tiling "
+                                                               "data size and buffer capacity."}));
         return ge::GRAPH_FAILED;
     }
     context_->GetRawTilingData()->SetDataSize(sizeof(CrossRegbaseTilingData));
@@ -307,18 +310,30 @@ static ge::graphStatus TilingPrepare4CrossAscendc(gert::TilingParseContext* cont
 
     auto compileInfo = context->GetCompiledInfo<CrossCompileInfo>();
     if (compileInfo == nullptr) {
-        OP_LOGE(context->GetNodeName(), "Get compiled info failed.");
+        REPORT_PREDEFINED_ERR_MSG(
+            "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+            (std::vector<const char*>{context->GetNodeName(), "compileInfo is unavailable; check TilingParse "
+                                                              "registration."}));
         return ge::GRAPH_FAILED;
     }
     auto platformInfo = context->GetPlatformInfo();
     if (platformInfo == nullptr) {
-        OP_LOGE(context->GetNodeName(), "Get platform info failed.");
+        REPORT_PREDEFINED_ERR_MSG(
+            "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+            (std::vector<const char*>{context->GetNodeName(), "platformInfo is unavailable; check platform metadata "
+                                                              "configuration."}));
         return ge::GRAPH_FAILED;
     }
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
 
     compileInfo->coreNum = ascendcPlatform.GetCoreNumAiv();
-    OP_CHECK_IF((compileInfo->coreNum <= 0), OP_LOGE(context->GetNodeName(), "core num is negative."),
+    OP_CHECK_IF((compileInfo->coreNum <= 0),
+                REPORT_PREDEFINED_ERR_MSG(
+                    "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                    (std::vector<const char*>{context->GetNodeName(), (std::string("Failed to get coreNum; actual=") +
+                                                                       std::to_string(compileInfo->coreNum) +
+                                                                       "; check platform resource metadata.")
+                                                                          .c_str()})),
                 return ge::GRAPH_FAILED);
 
     OP_LOGD(context->GetNodeName(), "Exit TilingPrepare4CrossAscendc.");

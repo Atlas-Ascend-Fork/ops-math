@@ -16,6 +16,7 @@
 #include "platform/platform_info.h"
 #include "platform/platform_ascendc.h"
 #include "math/sinkhorn/op_host/sinkhorn_tiling.h"
+#include <graph/utils/type_utils.h>
 #include <limits>
 #include <log/log.h>
 #include <tiling/platform/platform_ascendc.h>
@@ -208,8 +209,9 @@ ge::graphStatus SinkhornTilingArch22::Init()
             sizeOfDataType = SIZEOF_FP16;
             break;
         default:
-            OP_LOGE_WITH_INVALID_INPUT_DTYPE(tilingContext->GetNodeName(), "cost", std::to_string(dataType).c_str(),
-                                             "FLOAT/FLOAT16/BF16");
+            OP_LOGE_FOR_INVALID_DTYPE(
+                tilingContext->GetNodeName(), "cost",
+                ge::TypeUtils::DataTypeToSerialString(static_cast<ge::DataType>(dataType)).c_str(), "fp16/bf16/fp32");
             return ge::GRAPH_FAILED;
     }
     tilingKey = dataType;

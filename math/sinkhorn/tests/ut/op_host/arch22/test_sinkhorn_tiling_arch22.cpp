@@ -209,6 +209,21 @@ TEST_F(SinkhornTilingArch22, sinkhorn_tiling_invalid_shape_rejected)
     }
 }
 
+// 废弃错误码整改回归：非法 dtype（非 FLOAT/FLOAT16/BF16）命中 arch22 tiling 的 default 分支。
+// 该分支由 OP_LOGE_WITH_INVALID_INPUT_DTYPE（EZ0007，废弃）改为 OP_LOGE_FOR_INVALID_DTYPE（EZ0019）。
+// 判定信号：运行时日志出现 "error_code:EZ0019"（需 ASCEND_SLOG_PRINT_TO_STDOUT=1 ASCEND_GLOBAL_LOG_LEVEL=1）。
+TEST_F(SinkhornTilingArch22, sinkhorn_tiling_invalid_dtype_rejected)
+{
+    const std::vector<ge::DataType> invalidDtypes = {ge::DT_INT32, ge::DT_INT64, ge::DT_DOUBLE, ge::DT_INT8};
+    for (const auto dt : invalidDtypes) {
+        optiling::SinkhornCompileInfo compileInfo = {72, 16 * 1024 * 1024, 253952};
+        gert::TilingContextPara tilingContextPara(
+            "Sinkhorn", {{{{8, 2}, {8, 2}}, dt, ge::FORMAT_ND}}, {{{{8, 2}, {8, 2}}, dt, ge::FORMAT_ND}},
+            {gert::TilingContextPara::OpAttr("tol", Ops::Math::AnyValue::CreateFrom<float>(0.0001f))}, &compileInfo);
+        ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED, 0, "", {});
+    }
+}
+
 TEST_F(SinkhornTilingArch22, sinkhorn_tiling_ge_direct_col_4097_accepted)
 {
     optiling::SinkhornCompileInfo compileInfo = {72, 16 * 1024 * 1024, 253952};

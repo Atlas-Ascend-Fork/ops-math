@@ -167,13 +167,25 @@ static ge::graphStatus TilingPrepare4Pows(gert::TilingParseContext* context)
     }
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
     compileInfo->totalCoreNum = ascendcPlatform.GetCoreNumAiv();
-    OP_CHECK_IF((compileInfo->totalCoreNum <= 0), OP_LOGE(context, "TilingPrepare4Pows fail to get core num."),
+    OP_CHECK_IF((compileInfo->totalCoreNum <= 0),
+                REPORT_PREDEFINED_ERR_MSG(
+                    "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                    (std::vector<const char*>{context->GetNodeName(), (std::string("Failed to get coreNum; actual=") +
+                                                                       std::to_string(compileInfo->totalCoreNum) +
+                                                                       "; check platform resource metadata.")
+                                                                          .c_str()})),
                 return ge::GRAPH_FAILED);
 
     uint64_t ubSizePlatForm;
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSizePlatForm);
     compileInfo->ubSizePlatForm = static_cast<int64_t>(ubSizePlatForm);
-    OP_CHECK_IF((compileInfo->ubSizePlatForm <= 0), OP_LOGE(context, "TilingPrepare4Pows fail to get ub size."),
+    OP_CHECK_IF((compileInfo->ubSizePlatForm <= 0),
+                REPORT_PREDEFINED_ERR_MSG(
+                    "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                    (std::vector<const char*>{context->GetNodeName(), (std::string("Failed to get ubSize; actual=") +
+                                                                       std::to_string(compileInfo->ubSizePlatForm) +
+                                                                       "; check platform resource metadata.")
+                                                                          .c_str()})),
                 return ge::GRAPH_FAILED);
     OP_LOGD(context, "TilingPrepare4Pows exit.");
     return ge::GRAPH_SUCCESS;

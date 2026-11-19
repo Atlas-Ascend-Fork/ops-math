@@ -290,7 +290,10 @@ ge::graphStatus CumminTiling::PostTiling()
 
     res = context_->SetLocalMemorySize(ubSize_);
     if (res != ge::GRAPH_SUCCESS) {
-        OP_LOGE(context_, "SetLocalMemorySize failed.");
+        REPORT_PREDEFINED_ERR_MSG("EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                                  (std::vector<const char*>{context_->GetNodeName(),
+                                                            "SetLocalMemorySize failed; check the tiling UB size and "
+                                                            "framework support."}));
         return ge::GRAPH_FAILED;
     }
 
@@ -298,7 +301,10 @@ ge::graphStatus CumminTiling::PostTiling()
     errno_t ret = memcpy_s(context_->GetRawTilingData()->GetData(), context_->GetRawTilingData()->GetCapacity(),
                            &tilingData_, sizeof(CumminRegbaseTilingData));
     if (ret != EOK) {
-        OP_LOGE(context_->GetNodeName(), "memcpy_s failed, ret=%d", ret);
+        REPORT_PREDEFINED_ERR_MSG(
+            "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+            (std::vector<const char*>{context_->GetNodeName(), "memcpy_s failed to serialize tiling data; check tiling "
+                                                               "data size and buffer capacity."}));
         return ge::GRAPH_FAILED;
     }
     context_->GetRawTilingData()->SetDataSize(sizeof(CumminRegbaseTilingData));
@@ -328,14 +334,22 @@ static ge::graphStatus TilingPrepare4CumminAscendc(gert::TilingParseContext* con
     }
     auto platformInfo = context->GetPlatformInfo();
     if (platformInfo == nullptr) {
-        OP_LOGE(context->GetNodeName(), "Get platform info failed.");
+        REPORT_PREDEFINED_ERR_MSG(
+            "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+            (std::vector<const char*>{context->GetNodeName(), "platformInfo is unavailable; check platform metadata "
+                                                              "configuration."}));
         return ge::GRAPH_FAILED;
     }
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
 
     compileInfo->coreNum = ascendcPlatform.GetCoreNumAiv();
     if (compileInfo->coreNum <= 0) {
-        OP_LOGE(context->GetNodeName(), "core num is negative.");
+        REPORT_PREDEFINED_ERR_MSG(
+            "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+            (std::vector<const char*>{context->GetNodeName(),
+                                      (std::string("Failed to get coreNum; actual=") +
+                                       std::to_string(compileInfo->coreNum) + "; check platform resource metadata.")
+                                          .c_str()}));
         return ge::GRAPH_FAILED;
     }
 
@@ -343,25 +357,45 @@ static ge::graphStatus TilingPrepare4CumminAscendc(gert::TilingParseContext* con
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSize);
     compileInfo->ubSize = static_cast<int64_t>(ubSize);
     if (compileInfo->ubSize <= 0) {
-        OP_LOGE(context->GetNodeName(), "fail to get ub size.");
+        REPORT_PREDEFINED_ERR_MSG(
+            "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+            (std::vector<const char*>{context->GetNodeName(),
+                                      (std::string("Failed to get ubSize; actual=") +
+                                       std::to_string(compileInfo->ubSize) + "; check platform resource metadata.")
+                                          .c_str()}));
         return ge::GRAPH_FAILED;
     }
 
     compileInfo->clSize = Ops::Base::GetCacheLineSize(context);
     if (compileInfo->clSize <= 0) {
-        OP_LOGE(context->GetNodeName(), "fail to get cache line size.");
+        REPORT_PREDEFINED_ERR_MSG(
+            "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+            (std::vector<const char*>{context->GetNodeName(),
+                                      (std::string("Failed to get cacheLineSize; actual=") +
+                                       std::to_string(compileInfo->clSize) + "; check platform resource metadata.")
+                                          .c_str()}));
         return ge::GRAPH_FAILED;
     }
 
     compileInfo->blockSize = Ops::Base::GetUbBlockSize(context);
     if (compileInfo->blockSize <= 0) {
-        OP_LOGE(context->GetNodeName(), "fail to get block size.");
+        REPORT_PREDEFINED_ERR_MSG(
+            "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+            (std::vector<const char*>{context->GetNodeName(),
+                                      (std::string("Failed to get ubBlockSize; actual=") +
+                                       std::to_string(compileInfo->blockSize) + "; check platform resource metadata.")
+                                          .c_str()}));
         return ge::GRAPH_FAILED;
     }
 
     compileInfo->vRegSize = Ops::Base::GetVRegSize(context);
     if (compileInfo->vRegSize <= 0) {
-        OP_LOGE(context->GetNodeName(), "fail to get vReg size.");
+        REPORT_PREDEFINED_ERR_MSG(
+            "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+            (std::vector<const char*>{context->GetNodeName(),
+                                      (std::string("Failed to get vRegSize; actual=") +
+                                       std::to_string(compileInfo->vRegSize) + "; check platform resource metadata.")
+                                          .c_str()}));
         return ge::GRAPH_FAILED;
     }
 

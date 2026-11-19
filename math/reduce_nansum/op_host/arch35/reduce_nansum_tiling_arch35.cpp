@@ -49,7 +49,10 @@ static ge::graphStatus DoTiling(gert::TilingContext* context, ReduceOpInputParam
         status = Tiling4ReduceOp<ReduceNansum::ReduceNansumDag<half, float>::OpDag>(context, opInput, key);
     }
     OP_CHECK_IF((status == ge::GRAPH_FAILED),
-                OP_LOGE(context->GetNodeName(), "ReduceOp Tiling failed, dtype shoude be in (bfloat16/float16/float)"),
+                REPORT_PREDEFINED_ERR_MSG(
+                    "EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                    (std::vector<const char*>{context->GetNodeName(), "ReduceOp Tiling failed; dtype should be one of "
+                                                                      "(bfloat16/float16/float)."})),
                 return ge::GRAPH_FAILED);
     return status;
 }
