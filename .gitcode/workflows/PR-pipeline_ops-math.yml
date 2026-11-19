@@ -68,6 +68,7 @@ stages:
           repository: read
           id-token: write
         name: Check_Example
+        if: env.TARGET_BRANCH == 'master'
         uses: .gitcode/workflows/compile_action.yml
         with:
           task_name: 'Check_Example'
