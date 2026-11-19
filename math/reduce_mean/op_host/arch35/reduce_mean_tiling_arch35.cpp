@@ -30,15 +30,14 @@ static constexpr int32_t SIZE4 = 4;
 static constexpr int32_t SIZE2 = 2;
 static constexpr int32_t BATCH_INVARIANT_LEVEL = 3;
 
-static ge::graphStatus DoTilingAscendC(gert::TilingContext* context, const ReduceOpCompileInfo* compileInfo,
-                                       ReduceOpInputParam& opInput, ReduceTilingKey& key)
+static ge::graphStatus DoTilingAscendC(gert::TilingContext* context, ReduceOpInputParam& opInput, ReduceTilingKey& key)
 {
     ge::graphStatus status = ge::GRAPH_FAILED;
 
     if (ge::GetSizeByDataType(opInput.inputDtype) == SIZE4) {
-        status = Tiling4ReduceOp<ReduceMean::ReduceMeanDag<float, float>::OpDag>(context, opInput, key, compileInfo);
+        status = Tiling4ReduceOpCompact<ReduceMean::ReduceMeanDag<float, float>::OpDag>(context, opInput, key);
     } else if (ge::GetSizeByDataType(opInput.inputDtype) == SIZE2) {
-        status = Tiling4ReduceOp<ReduceMean::ReduceMeanDag<half, float>::OpDag>(context, opInput, key, compileInfo);
+        status = Tiling4ReduceOpCompact<ReduceMean::ReduceMeanDag<half, float>::OpDag>(context, opInput, key);
     }
 
     OP_CHECK_IF((status == ge::GRAPH_FAILED),
@@ -79,7 +78,7 @@ static ge::graphStatus Tiling4ReduceMean(gert::TilingContext* context)
         }
     }
 
-    OP_CHECK_IF((DoTilingAscendC(context, compile_info, opInput, key) == ge::GRAPH_FAILED),
+    OP_CHECK_IF((DoTilingAscendC(context, opInput, key) == ge::GRAPH_FAILED),
                 OP_LOGE(context->GetNodeName(), "DoTiling Failed for ReduceMean"), return ge::GRAPH_FAILED);
     uint64_t tilingKey;
     GEN_REDUCE_TILING_KEY(tilingKey, key);

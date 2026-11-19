@@ -35,13 +35,13 @@ static ge::graphStatus DoTiling(gert::TilingContext* context, ReduceOpInputParam
     ge::graphStatus status = ge::GRAPH_FAILED;
 
     if (ge::GetSizeByDataType(opInput.inputDtype) == SIZE8) {
-        status = Tiling4ReduceOp<ReduceSum::ReduceSumDag<int64_t, int64_t>::OpDag>(context, opInput, key);
+        status = Tiling4ReduceOpCompact<ReduceSum::ReduceSumDag<int64_t, int64_t>::OpDag>(context, opInput, key);
     } else if (ge::GetSizeByDataType(opInput.inputDtype) == SIZE4) {
-        status = Tiling4ReduceOp<ReduceSum::ReduceSumDag<float, float>::OpDag>(context, opInput, key);
+        status = Tiling4ReduceOpCompact<ReduceSum::ReduceSumDag<float, float>::OpDag>(context, opInput, key);
     } else if (ge::GetSizeByDataType(opInput.inputDtype) == SIZE2) {
-        status = Tiling4ReduceOp<ReduceSum::ReduceSumDag<half, float>::OpDag>(context, opInput, key);
+        status = Tiling4ReduceOpCompact<ReduceSum::ReduceSumDag<half, float>::OpDag>(context, opInput, key);
     } else if (ge::GetSizeByDataType(opInput.inputDtype) == SIZE1) {
-        status = Tiling4ReduceOp<ReduceSum::ReduceSumBoolDag<bool, int64_t>::OpDag>(context, opInput, key);
+        status = Tiling4ReduceOpCompact<ReduceSum::ReduceSumBoolDag<bool, int64_t>::OpDag>(context, opInput, key);
     }
     OP_CHECK_IF((status == ge::GRAPH_FAILED),
                 OP_LOGE_FOR_INVALID_DTYPE(context->GetNodeName(), "x", Ops::Base::ToString(opInput.inputDtype).c_str(),

@@ -30,41 +30,38 @@ static ge::graphStatus DoTiling(gert::TilingContext* context, ReduceOpInputParam
     OP_CHECK_NULL_WITH_CONTEXT(context, xDesc);
     auto dType = xDesc->GetDataType();
     if (dType == ge::DT_FLOAT) {
-        status = Tiling4ReduceOp<ReduceAll::ReduceAllDagFloat<float, int32_t>::OpDag>(context, opInput, key);
+        status = Tiling4ReduceOpCompact<ReduceAll::ReduceAllDagFloat<float, int32_t>::OpDag>(context, opInput, key);
     } else if (dType == ge::DT_FLOAT16) {
-        status = Tiling4ReduceOp<ReduceAll::ReduceAllDagFloat<half, int16_t>::OpDag>(context, opInput, key);
+        status = Tiling4ReduceOpCompact<ReduceAll::ReduceAllDagFloat<half, int16_t>::OpDag>(context, opInput, key);
     } else if (dType == ge::DT_BF16) {
-        status = Tiling4ReduceOp<ReduceAll::ReduceAllDagFloat<bfloat16_t, int16_t>::OpDag>(context, opInput, key);
+        status = Tiling4ReduceOpCompact<ReduceAll::ReduceAllDagFloat<bfloat16_t, int16_t>::OpDag>(context, opInput,
+                                                                                                  key);
     } else {
-        status = Tiling4ReduceOp<ReduceAll::ReduceAllDag<int8_t, half>::OpDag>(context, opInput, key);
+        status = Tiling4ReduceOpCompact<ReduceAll::ReduceAllDag<int8_t, half>::OpDag>(context, opInput, key);
     }
-    OP_CHECK_IF(
-        (status == ge::GRAPH_FAILED),
-        OP_LOGE_FOR_INVALID_DTYPE(context->GetNodeName(), "x", Ops::Base::ToString(dType).c_str(), "bool"),
-        return ge::GRAPH_FAILED);
+    OP_CHECK_IF((status == ge::GRAPH_FAILED),
+                OP_LOGE_FOR_INVALID_DTYPE(context->GetNodeName(), "x", Ops::Base::ToString(dType).c_str(), "bool"),
+                return ge::GRAPH_FAILED);
     return status;
 }
 
 static ge::graphStatus Tiling4ReduceAll(gert::TilingContext* context)
 {
     auto compileInfo = static_cast<const ReduceOpCompileInfo*>(context->GetCompileInfo());
-    OP_CHECK_IF(
-        compileInfo == nullptr, OP_LOGE(context->GetNodeName(), "CompileInfo is nullptr"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(compileInfo == nullptr, OP_LOGE(context->GetNodeName(), "CompileInfo is nullptr"),
+                return ge::GRAPH_FAILED);
 
     ReduceOpInputParam opInput;
-    OP_CHECK_IF(
-        (ReduceOpTmpl::GetInputParam(context, opInput, 0, 1, 0) == ge::GRAPH_FAILED),
-        OP_LOGE(context->GetNodeName(), "ReduceOp get x input param failed"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF((ReduceOpTmpl::GetInputParam(context, opInput, 0, 1, 0) == ge::GRAPH_FAILED),
+                OP_LOGE(context->GetNodeName(), "ReduceOp get x input param failed"), return ge::GRAPH_FAILED);
 
     ReduceTilingKey key;
-    OP_CHECK_IF(
-        (DoTiling(context, opInput, key) == ge::GRAPH_FAILED),
-        OP_LOGE(context->GetNodeName(), "Tiling For ReduceAll Failed"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF((DoTiling(context, opInput, key) == ge::GRAPH_FAILED),
+                OP_LOGE(context->GetNodeName(), "Tiling For ReduceAll Failed"), return ge::GRAPH_FAILED);
     uint64_t tilingKey;
     GEN_REDUCE_TILING_KEY(tilingKey, key);
-    OP_LOGI(
-        context->GetNodeName(), "patternID:%u, loopARCount:%u, loopInnerARCount:%u, Tiling Key is:%lu", key.patternID,
-        key.loopARCount, key.loopInnerARCount, tilingKey);
+    OP_LOGI(context->GetNodeName(), "patternID:%u, loopARCount:%u, loopInnerARCount:%u, Tiling Key is:%lu",
+            key.patternID, key.loopARCount, key.loopInnerARCount, tilingKey);
     context->SetTilingKey(tilingKey);
     return ge::GRAPH_SUCCESS;
 }

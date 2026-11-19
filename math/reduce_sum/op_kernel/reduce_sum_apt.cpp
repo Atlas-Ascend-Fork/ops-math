@@ -34,22 +34,27 @@ __global__ __aicore__ void reduce_sum(GM_ADDR x, GM_ADDR axes, GM_ADDR y, GM_ADD
     if (userWS == nullptr) {
         return;
     }
-    REGISTER_TILING_DEFAULT(ReduceOpTilingData);
-    GET_TILING_DATA_WITH_STRUCT(ReduceOpTilingData, tilingData, tiling);
+    REGISTER_TILING_DEFAULT(ReduceOpTilingDataNonContiguous);
     TPipe pipe;
-    using PromoteType = std::conditional_t<std::is_same_v<DTYPE_X, bool>, int64_t, __reduceType::GetPromoteType<DTYPE_X>::T>;
+    using PromoteType = std::conditional_t<std::is_same_v<DTYPE_X, bool>, int64_t,
+                                           __reduceType::GetPromoteType<DTYPE_X>::T>;
 
     // 自动选择 bool / 非 bool 分支
-    using Op = ReduceSch<
-        REDUCE_TPL_VALUE,
-        std::conditional_t<
-            std::is_same_v<DTYPE_X, bool>,
-            typename ReduceSum::ReduceSumBoolDag<DTYPE_X, PromoteType>::OpDag,
-            typename ReduceSum::ReduceSumDag<DTYPE_X, PromoteType>::OpDag
-        >
-    >;
+    using Op = ReduceSch<REDUCE_TPL_VALUE,
+                         std::conditional_t<std::is_same_v<DTYPE_X, bool>,
+                                            typename ReduceSum::ReduceSumBoolDag<DTYPE_X, PromoteType>::OpDag,
+                                            typename ReduceSum::ReduceSumDag<DTYPE_X, PromoteType>::OpDag> >;
 
-    Op op(&tilingData);
-    op.Init(&pipe, x, y, userWS);
-    op.Process();
+    if constexpr (IsContiguous && !BatchInvariant) {
+        REGISTER_TILING_FOR_TILINGKEY("IsContiguous == 1 && BatchInvariant == 0", ReduceOpTilingDataContiguous);
+        GET_TILING_DATA_WITH_STRUCT(ReduceOpTilingDataContiguous, tilingData, tiling);
+        Op op(&tilingData);
+        op.Init(&pipe, x, y, userWS);
+        op.Process();
+    } else {
+        GET_TILING_DATA_WITH_STRUCT(ReduceOpTilingDataNonContiguous, tilingData, tiling);
+        Op op(&tilingData);
+        op.Init(&pipe, x, y, userWS);
+        op.Process();
+    }
 }

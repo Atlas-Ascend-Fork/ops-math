@@ -32,13 +32,13 @@ static ge::graphStatus DoTiling(gert::TilingContext* context, ReduceOpInputParam
 {
     ge::graphStatus status = ge::GRAPH_FAILED;
     if (ge::GetSizeByDataType(opInput.inputDtype) == SIZE8) {
-        status = Tiling4ReduceOp<ReduceMax::ReduceMaxDag<int64_t>::OpDag>(context, opInput, key);
+        status = Tiling4ReduceOpCompact<ReduceMax::ReduceMaxDag<int64_t>::OpDag>(context, opInput, key);
     } else if (ge::GetSizeByDataType(opInput.inputDtype) == SIZE4) {
-        status = Tiling4ReduceOp<ReduceMax::ReduceMaxDag<float>::OpDag>(context, opInput, key);
+        status = Tiling4ReduceOpCompact<ReduceMax::ReduceMaxDag<float>::OpDag>(context, opInput, key);
     } else if (ge::GetSizeByDataType(opInput.inputDtype) == SIZE2) {
-        status = Tiling4ReduceOp<ReduceMax::ReduceMaxDag<half>::OpDag>(context, opInput, key);
+        status = Tiling4ReduceOpCompact<ReduceMax::ReduceMaxDag<half>::OpDag>(context, opInput, key);
     } else if (ge::GetSizeByDataType(opInput.inputDtype) == 1) {
-        status = Tiling4ReduceOp<ReduceMax::ReduceMaxDag<int8_t>::OpDag>(context, opInput, key);
+        status = Tiling4ReduceOpCompact<ReduceMax::ReduceMaxDag<int8_t>::OpDag>(context, opInput, key);
     }
     OP_CHECK_IF((status == ge::GRAPH_FAILED),
                 OP_LOGE_FOR_INVALID_DTYPE(context->GetNodeName(), "x", Ops::Base::ToString(opInput.inputDtype).c_str(),

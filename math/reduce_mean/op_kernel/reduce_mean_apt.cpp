@@ -17,7 +17,7 @@
 #include "arch35/reduce_mean_dag.h"
 #include "arch35/reduce_mean_tiling_key.h"
 
-using namespace Ops::Base::ReduceOpTmpl;;
+using namespace Ops::Base::ReduceOpTmpl;
 using namespace AscendC;
 
 template <REDUCE_TPL_PARAM>
@@ -34,13 +34,24 @@ __global__ __aicore__ void reduce_mean(GM_ADDR x, GM_ADDR axes, GM_ADDR y, GM_AD
     if (userWS == nullptr) {
         return;
     }
-    REGISTER_TILING_DEFAULT(ReduceOpTilingData);
-    GET_TILING_DATA_WITH_STRUCT(ReduceOpTilingData, tilingData, tiling);
+    REGISTER_TILING_DEFAULT(ReduceOpTilingDataNonContiguous);
     TPipe pipe;
-    using PromoteType = __reduceType::GetPromoteType<DTYPE_X>::T;
-    using Op = ReduceSch<REDUCE_TPL_VALUE, ReduceMean::ReduceMeanDag<DTYPE_X, PromoteType>::OpDag>;
-    Op op(&tilingData);
-    op.template SetVar<PromoteType, 0>(tilingData.meanVar);
-    op.Init(&pipe, x, y, userWS);
-    op.Process(AscendC::NumericLimits<DTYPE_X>::QuietNaN());
+    if constexpr (IsContiguous && !BatchInvariant) {
+        REGISTER_TILING_FOR_TILINGKEY("IsContiguous == 1 && BatchInvariant == 0", ReduceOpTilingDataContiguous);
+        GET_TILING_DATA_WITH_STRUCT(ReduceOpTilingDataContiguous, tilingData, tiling);
+        using PromoteType = __reduceType::GetPromoteType<DTYPE_X>::T;
+        using Op = ReduceSch<REDUCE_TPL_VALUE, ReduceMean::ReduceMeanDag<DTYPE_X, PromoteType>::OpDag>;
+        Op op(&tilingData);
+        op.template SetVar<PromoteType, 0>(tilingData.meanVar);
+        op.Init(&pipe, x, y, userWS);
+        op.Process(AscendC::NumericLimits<DTYPE_X>::QuietNaN());
+    } else {
+        GET_TILING_DATA_WITH_STRUCT(ReduceOpTilingDataNonContiguous, tilingData, tiling);
+        using PromoteType = __reduceType::GetPromoteType<DTYPE_X>::T;
+        using Op = ReduceSch<REDUCE_TPL_VALUE, ReduceMean::ReduceMeanDag<DTYPE_X, PromoteType>::OpDag>;
+        Op op(&tilingData);
+        op.template SetVar<PromoteType, 0>(tilingData.meanVar);
+        op.Init(&pipe, x, y, userWS);
+        op.Process(AscendC::NumericLimits<DTYPE_X>::QuietNaN());
+    }
 }
