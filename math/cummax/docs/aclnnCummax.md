@@ -101,7 +101,7 @@ aclnnStatus aclnnCummax(
         <td>dim (int64_t)</td>
         <td>输入</td>
         <td>表示处理维度。</td>
-        <td>当self.dim()=0时，取值范围[-1, 0]；<br>当self.dim()>0时，取值范围[-self.dim(), self.dim()-1)。</td>
+        <td>当self.dim()=0时，取值范围[-1, 0]；<br>当self.dim()>0时，取值范围[-self.dim(), self.dim()-1]。</td>
         <td>int64_t</td>
         <td>-</td>
         <td>-</td>

@@ -103,7 +103,7 @@ aclnnStatus aclnnCummax(
         <td>dim (int64_t)</td>
         <td>Input</td>
         <td>Dimension to process.</td>
-        <td>If self.dim()=0, value range [-1, 0].<br>If self.dim()>0, value range [-self.dim(), self.dim()-1).</td>
+        <td>If self.dim()=0, value range [-1, 0].<br>If self.dim()>0, value range [-self.dim(), self.dim()-1].</td>
         <td>int64_t</td>
         <td>-</td>
         <td>-</td>
