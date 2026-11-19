@@ -9,11 +9,12 @@
 
 """SignBitsPack TestSpec — golden + third_party + tolerance.
 
-按 TestSpec 规范编写，覆盖 Kernel/GEIR 和 ACLNN 通路。
+按 TestSpec 规范编写，覆盖 Kernel/GEIR、ACLNN 和 Torch Eager 通路。
 
 通路注册：
   - Kernel/GEIR: sign_bits_pack → SignBitsPackTestSpec
   - ACLNN:       aclnnSignBitsPack → AclnnSignBitsPackTestSpec
+  - Torch Eager: torch_npu.npu_sign_bits_pack → TorchSignBitsPackTestSpec
 
 精度升精度策略：
   - golden: FP16/BF16 输入在计算前统一升精度到 FP32（计算前全部完成，不在计算过程中升精度）
@@ -31,9 +32,10 @@ import torch
 __spec__ = {
     "sign_bits_pack": "SignBitsPackTestSpec",
     "aclnnSignBitsPack": "AclnnSignBitsPackTestSpec",
+    "torch_npu.npu_sign_bits_pack": "TorchSignBitsPackTestSpec",
 }
 
-_MSB_WEIGHTS = torch.tensor([128, 64, 32, 16, 8, 4, 2, 1], dtype=torch.uint8)
+_MSB_WEIGHTS = (128, 64, 32, 16, 8, 4, 2, 1)
 
 _UPCAST_DTYPES = (torch.float16, torch.bfloat16)
 
@@ -49,10 +51,12 @@ def _sign_bits_pack_torch(x: torch.Tensor, size: int) -> torch.Tensor:
     n = x_flat.shape[0]
     pad = (-n) % 8
     if pad:
-        x_flat = torch.cat([x_flat, torch.full((pad,), -1.0, dtype=x_flat.dtype)])
+        padding = torch.full((pad,), -1.0, dtype=x_flat.dtype, device=x_flat.device)
+        x_flat = torch.cat([x_flat, padding])
     bits = (x_flat < 0).to(torch.uint8)
     bits = bits.reshape(-1, 8)
-    packed = (bits * _MSB_WEIGHTS.to(bits.dtype)).sum(dim=1).to(torch.uint8)
+    weights = torch.tensor(_MSB_WEIGHTS, dtype=bits.dtype, device=bits.device)
+    packed = (bits * weights).sum(dim=1).to(torch.uint8)
     packed_len = (n + 7) // 8
     return packed.reshape(size, packed_len // size)
 
@@ -103,8 +107,9 @@ class AclnnSignBitsPackTestSpec:
         def __init__(self, size, out=None, **kwargs):
             self.size = int(size)
 
-        def __call__(self, selfT, out=None, **kwargs):
-            return [_sign_bits_pack_torch(selfT, self.size)]
+        def __call__(instance, self, out=None, **kwargs):
+            # TTK binds the input by its public name, self.
+            return [_sign_bits_pack_torch(self, instance.size)]
 
     third_party = {"torch": ThirdPartyImpl}
 
@@ -112,3 +117,20 @@ class AclnnSignBitsPackTestSpec:
         "float16": {"standard": "binary_equal"},
         "float32": {"standard": "binary_equal"},
     }
+
+
+class TorchSignBitsPackTestSpec:
+    """Torch Eager reference for npu_sign_bits_pack(input, size)."""
+
+    def golden(input, size):
+        return AclnnSignBitsPackTestSpec.golden(input, size)
+
+    class ThirdPartyImpl:
+        def __init__(self, size, **kwargs):
+            self.size = int(size)
+
+        def __call__(self, input, **kwargs):
+            return [_sign_bits_pack_torch(input, self.size)]
+
+    third_party = {"torch": ThirdPartyImpl}
+    tolerance = AclnnSignBitsPackTestSpec.tolerance

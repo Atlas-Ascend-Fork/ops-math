@@ -27,6 +27,10 @@
 
 Packs 1-bit Adam of the FLOAT16 or FLOAT32 data type into UINT8.
 
+- The sign bits of every eight input elements are packed into one `UINT8` byte, most significant bit first (MSB-first). The first element in each group maps to `bit7` and the eighth to `bit0`.
+- If the final group contains fewer than eight elements, the remaining bits are set to `1`.
+- Positive infinity (`+Inf`) is encoded as `0`, and negative infinity (`-Inf`) as `1`.
+
 ## Function Prototype
 
 Each operator uses a [two-phase API](../../../docs/en/context/two_phase_api.md). First call "aclnnSignBitsPackGetWorkspaceSize" to obtain the workspace size required for computation and the executor containing the operator computation flow, and then call "aclnnSignBitsPack" to perform the computation.

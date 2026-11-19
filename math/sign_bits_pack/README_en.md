@@ -88,5 +88,5 @@ Here, $L = \lceil N / 8 \rceil$, and $N$ is the number of input elements. When $
 
 | Invocation Method | Invocation Sample                                                                   | Description                                                           |
 |--------------|------------------------------------------------------------------------|--------------------------------------------------------------|
-| Single-operator invocation | [test_aclnn_sign_bits_pack](./examples/test_aclnn_sign_bits_pack.cpp) | Invokes the SignBitsPack operator through the aclnn API. |
-| Graph-mode invocation | [test_geir_sign_bits_pack](./examples/test_geir_sign_bits_pack.cpp) | Invokes the SignBitsPack operator by building a graph through GE-IR. |
+| Single-operator invocation | [test_aclnn_sign_bits_pack](./examples/test_aclnn_sign_bits_pack.cpp) | Invokes the SignBitsPack operator through the [aclnnSignBitsPack API](./docs/aclnnSignBitsPack_en.md). |
+| Graph-mode invocation | - | Invokes the SignBitsPack operator by building a graph using the [operator IR](./op_graph/sign_bits_pack_proto.h). |

@@ -21,7 +21,7 @@ static Status ParseParamsNpuSignBitsPack(const Message* op_src, ge::Operator& op
         return FAILED;
     }
 
-    int size = 0;
+    int64_t size = 0;
     // The initialization of required attribute count
     int req_attr_count = 0;
     for (const auto& attr : node->attribute()) {
@@ -44,15 +44,11 @@ static Status ParseParamsNpuSignBitsPack(const Message* op_src, ge::Operator& op
 // register SignBitsPack op info to GE
 REGISTER_CUSTOM_OP("SignBitsPack")
     .FrameworkType(ONNX)
-    .OriginOpType({ge::AscendString("npu::1::NPUSignBitsPack"),
-                   ge::AscendString("ai.onnx::11::NPUSignBitsPack"),
-                   ge::AscendString("ai.onnx::12::NPUSignBitsPack"),
-                   ge::AscendString("ai.onnx::13::NPUSignBitsPack"),
-                   ge::AscendString("ai.onnx::14::NPUSignBitsPack"),
-                   ge::AscendString("ai.onnx::15::NPUSignBitsPack"),
-                   ge::AscendString("ai.onnx::16::NPUSignBitsPack"),
-                   ge::AscendString("ai.onnx::17::NPUSignBitsPack"),
+    .OriginOpType({ge::AscendString("npu::1::NPUSignBitsPack"), ge::AscendString("ai.onnx::11::NPUSignBitsPack"),
+                   ge::AscendString("ai.onnx::12::NPUSignBitsPack"), ge::AscendString("ai.onnx::13::NPUSignBitsPack"),
+                   ge::AscendString("ai.onnx::14::NPUSignBitsPack"), ge::AscendString("ai.onnx::15::NPUSignBitsPack"),
+                   ge::AscendString("ai.onnx::16::NPUSignBitsPack"), ge::AscendString("ai.onnx::17::NPUSignBitsPack"),
                    ge::AscendString("ai.onnx::18::NPUSignBitsPack")})
     .ParseParamsFn(ParseParamsNpuSignBitsPack)
     .ImplyType(ImplyType::TVM);
-}  // namespace domi
+} // namespace domi

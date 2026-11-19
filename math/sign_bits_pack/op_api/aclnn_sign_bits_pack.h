@@ -27,7 +27,7 @@ extern "C" {
  * device侧的aclTensor，数据类型支持FLOAT、FLOAT16。数据格式支持ND。
  * 支持非连续的Tensor。
  * @param [in] size: reshape时输出张量的第一个维度， 数据类型支持INT64。
- * @param [in] out: device侧的aclTensor，数据类型UINT8。数据格式支持ND.
+ * @param [out] out: device侧的aclTensor，数据类型UINT8。数据格式支持ND.
  * @param [out] workspaceSize: 返回用户需要在npu device侧申请的workspace大小。
  * @param [out] executor: 返回op执行器，包含算子计算流程。
  * @return aclnnStatus: 返回状态码。

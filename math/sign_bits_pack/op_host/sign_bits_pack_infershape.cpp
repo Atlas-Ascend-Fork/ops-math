@@ -46,18 +46,18 @@ static ge::graphStatus InferShape4SignBitsPack(gert::InferShapeContext* context)
     int64_t size = *size_ptr;
 
     size_t dim_num = input_shape->GetDimNum();
-    bool is_unknown_rank = (dim_num == 0) || (dim_num == 1 && input_shape->GetDim(0) == -2);
+    if (dim_num != 1 || size < 1) {
+        OP_LOGE(context->GetNodeName(), "input dim_num must be 1 and size must be >= 1, but dim_num=%zu, size=%ld.",
+                dim_num, size);
+        return ge::GRAPH_FAILED;
+    }
+
+    bool is_unknown_rank = (dim_num == 1 && input_shape->GetDim(0) == -2);
     if (is_unknown_rank) {
         output_shape->SetDimNum(0);
         output_shape->AppendDim(size);
         output_shape->AppendDim(-1);
         return ge::GRAPH_SUCCESS;
-    }
-
-    if (dim_num != 1 || size < 1) {
-        OP_LOGE(context->GetNodeName(), "input dim_num must be 1 and size must be >= 1, but dim_num=%zu, size=%ld.",
-                dim_num, size);
-        return ge::GRAPH_FAILED;
     }
 
     int64_t n = input_shape->GetDim(0);

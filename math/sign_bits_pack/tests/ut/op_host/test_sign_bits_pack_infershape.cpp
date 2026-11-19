@@ -97,3 +97,33 @@ TEST_F(SignBitsPackTest, sign_bits_pack_infershape_non8_test)
     };
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
+
+TEST_F(SignBitsPackTest, sign_bits_pack_infershape_scalar_test)
+{
+    gert::InfershapeContextPara infershapeContextPara("SignBitsPack",
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_UINT8, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {"size", Ops::Math::AnyValue::CreateFrom<int64_t>(2)},
+                                                      });
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED, {});
+}
+
+TEST_F(SignBitsPackTest, sign_bits_pack_infershape_unknown_rank_zero_size_test)
+{
+    gert::InfershapeContextPara infershapeContextPara("SignBitsPack",
+                                                      {
+                                                          {{{-2}, {-2}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_UINT8, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {"size", Ops::Math::AnyValue::CreateFrom<int64_t>(0)},
+                                                      });
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED, {});
+}

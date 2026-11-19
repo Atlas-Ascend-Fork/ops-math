@@ -86,5 +86,5 @@ $$
 
 | 调用方式 | 调用样例                                                                   | 说明                                                           |
 |--------------|------------------------------------------------------------------------|--------------------------------------------------------------|
-| 单算子调用 | [test_aclnn_sign_bits_pack](./examples/test_aclnn_sign_bits_pack.cpp) | 通过aclnn接口调用SignBitsPack算子。 |
-| 图模式调用 | [test_geir_sign_bits_pack](./examples/test_geir_sign_bits_pack.cpp) | 通过GE-IR构图方式调用SignBitsPack算子。 |
+| 单算子调用 | [test_aclnn_sign_bits_pack](./examples/test_aclnn_sign_bits_pack.cpp) | 通过[aclnnSignBitsPack接口](./docs/aclnnSignBitsPack.md)调用SignBitsPack算子。 |
+| 图模式调用 | - | 通过[算子IR](./op_graph/sign_bits_pack_proto.h)构图调用SignBitsPack算子。 |
