@@ -27,7 +27,7 @@
 
 完成伪量化Matmul（包括QuantBatchMatmulV5、GroupedMatmul-伪量化、WeightQuantBatchMatmulV2）的参数预处理，支持的数据流如下：
 
-- MM_MX_A8W4数据流：QuantBatchMatmulV4算子的MX量化场景（x为FLOAT8_E4M3FN，weight为FLOAT4_E2M1紧凑4-bit），weight由ND转换为FRACTAL_NZ格式；
+- MM_MX_A8W4数据流：QuantBatchMatmulV4算子的MX量化场景（x为FLOAT8_E4M3FN，weight为FLOAT4_E2M1紧凑4-bit），weight由ND转换为FRACTAL_NZ格式，weightScale由ND转换为FRACTAL_NZ_C0_2格式（ScaleNZ）；
 - GMM_MX_A8W4数据流：GroupedMatmul算子的MX量化场景（x为FLOAT8_E4M3FN，weight为FLOAT4_E2M1紧凑4-bit），weight由ND转换为FRACTAL_NZ格式；
 - MM_A16S4数据流：WeightQuantBatchMatmulV2算子的pertensor/perchannel/pergroup量化场景（x为FLOAT16/BFLOAT16，weight为INT4紧凑4-bit）；pertensor（转置/非转置）与perchannel/pergroup转置场景为ND直拷透传，perchannel/pergroup非转置场景由ND转换为FRACTAL_NZ格式；
 - MM_A16F4数据流：WeightQuantBatchMatmulV2算子的pergroup量化场景（x为FLOAT16/BFLOAT16，weight为FLOAT4_E2M1紧凑4-bit）；仅支持非转置，weight由ND转换为FRACTAL_NZ格式；
@@ -183,7 +183,7 @@ aclnnStatus aclnnWeightQuantPreprocess(
       <td>预处理后的weightScale</td>
       <td>-</td>
       <td>float16/bfloat16/fp8_e8m0</td>
-      <td>ND/NCL/NCHW</td>
+      <td>ND/NCL/NCHW、FRACTAL_NZ_C0_2</td>
       <td>1-4</td>
       <td>仅转置场景支持</td>
     </tr>
@@ -356,9 +356,9 @@ aclnnStatus aclnnWeightQuantPreprocess(
 
 - **outWeightScale**
   - 数据类型：与weightScale相同
-  - 格式：ND
-  - view shape：与weightScale view shape相同
-  - storage shape：与weightScale storage shape相同
+  - 格式：FRACTAL_NZ_C0_2
+  - view shape：与weightScale view shape相同 `{ceildiv(K, 64), N, 2}`，且必须为contiguous
+  - storage shape：4-D `{ceildiv(N, 16), ceildiv(K, 64), 16, 2}`
 
 - **outBiasOptional**
   - 数据类型：与biasOptional相同
@@ -788,6 +788,9 @@ aclnnStatus aclnnWeightQuantPreprocess(
 - outWeight viewShape：与weight viewShape相同
 - outWeight storageShape：`{CeilDiv(K, 32), CeilDiv(N, 16), 16, 32}`
 - outWeight format：`ACL_FORMAT_FRACTAL_NZ_C0_32`
+- outWeightScale viewShape：与weightScale viewShape相同，且必须为contiguous
+- outWeightScale storageShape：`{CeilDiv(N, 16), CeilDiv(K, 64), 16, 2}`
+- outWeightScale format：`ACL_FORMAT_FRACTAL_NZ_C0_2`
 
 ```cpp
 #include <iostream>
@@ -930,15 +933,18 @@ int main()
     CHECK_RET(outWeight != nullptr, std::cout << "Create outWeight tensor failed" << std::endl;
               return ACL_ERROR_FAILURE);
 
-    // 构造 outWeightScale (viewShape 和 storageShape 都与 weightScale 相同)
-    // 根据实现要求：outWeightScale 的 viewShape 和 storageShape 必须都与 weightScale 相同
+    // 用户自行构造 outWeightScale (FRACTAL_NZ_C0_2，ScaleNZ)
+    // viewShape 与 weightScale viewShape 相同且为contiguous；storageShape 按公式计算
+    std::vector<int64_t> outScaleStorageShape = {CEIL_DIV(n, 16), k / 64, 16, 2};
+    int64_t outScaleBytes = GetShapeSize(outScaleStorageShape); // FP8: 1 byte per element
+
     void* outScaleDeviceAddr = nullptr;
-    ret = aclrtMalloc(&outScaleDeviceAddr, scaleBytes, ACL_MEM_MALLOC_HUGE_FIRST);
+    ret = aclrtMalloc(&outScaleDeviceAddr, outScaleBytes, ACL_MEM_MALLOC_HUGE_FIRST);
     CHECK_RET(ret == ACL_SUCCESS, std::cout << "Malloc outWeightScale failed" << std::endl; return ret);
     std::unique_ptr<void, aclError (*)(void*)> outScaleDeviceAddrPtr(outScaleDeviceAddr, aclrtFree);
     aclTensor* outWeightScale = aclCreateTensor(scaleViewShape.data(), scaleViewShape.size(), ACL_FLOAT8_E8M0,
-                                                scaleStrides.data(), 0, ACL_FORMAT_ND, scaleStorageShape.data(),
-                                                scaleStorageShape.size(), outScaleDeviceAddr);
+                                                nullptr, 0, ACL_FORMAT_FRACTAL_NZ_C0_2, outScaleStorageShape.data(),
+                                                outScaleStorageShape.size(), outScaleDeviceAddr);
     std::unique_ptr<aclTensor, aclnnStatus (*)(const aclTensor*)> outWeightScalePtr(outWeightScale, aclDestroyTensor);
     CHECK_RET(outWeightScale != nullptr, std::cout << "Create outWeightScale tensor failed" << std::endl;
               return ACL_ERROR_FAILURE);

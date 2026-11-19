@@ -28,7 +28,7 @@
 
 Performs parameter preprocessing for pseudo-quantization Matmul (including QuantBatchMatmulV5, GroupedMatmul-pseudo-quantization, and WeightQuantBatchMatmulV2). The supported data flows are as follows:
 
-- MM_MX_A8W4 data flow: MX quantization scenario of the QuantBatchMatmulV4 operator (x is FLOAT8_E4M3FN, weight is compact 4-bit FLOAT4_E2M1), where weight is converted from ND to FRACTAL_NZ format;
+- MM_MX_A8W4 data flow: MX quantization scenario of the QuantBatchMatmulV4 operator (x is FLOAT8_E4M3FN, weight is compact 4-bit FLOAT4_E2M1), where weight is converted from ND to FRACTAL_NZ format and weightScale is converted from ND to FRACTAL_NZ_C0_2 format (ScaleNZ);
 - GMM_MX_A8W4 data flow: MX quantization scenario of the GroupedMatmul operator (x is FLOAT8_E4M3FN, weight is compact 4-bit FLOAT4_E2M1); weight is converted from ND to FRACTAL_NZ format;
 - MM_A16S4 data flow: pertensor/perchannel/pergroup quantization scenarios of the WeightQuantBatchMatmulV2 operator (x is FLOAT16/BFLOAT16, weight is compact 4-bit INT4); the pertensor (transpose/non-transpose) and perchannel/pergroup transpose scenarios are ND direct copy pass-through, and the perchannel/pergroup non-transpose scenario converts weight from ND to FRACTAL_NZ format;
 - MM_A16F4 data flow: pergroup quantization scenario of the WeightQuantBatchMatmulV2 operator (x is FLOAT16/BFLOAT16, weight is compact 4-bit FLOAT4_E2M1); only the non-transpose scenario is supported, and weight is converted from ND to FRACTAL_NZ format;
@@ -181,7 +181,7 @@ aclnnStatus aclnnWeightQuantPreprocess(
       <td class="tg-0pky">weightScale after preprocessing.</td>
       <td class="tg-0pky">-</td>
       <td class="tg-0pky">float16/bfloat16/fp8_e8m0</td>
-      <td class="tg-0pky">ND/NCL/NCHW</td>
+      <td class="tg-0pky">ND/NCL/NCHW/FRACTAL_NZ_C0_2</td>
       <td class="tg-0pky">1-4</td>
       <td class="tg-0pky">Supported in transpose-only scenario.</td>
     </tr>
@@ -354,9 +354,9 @@ aclnnStatus aclnnWeightQuantPreprocess(
 
 - **outWeightScale**
   - Data type: same as weightScale
-  - Format: ND
-  - view shape: same as weightScale view shape
-  - storage shape: same as weightScale storage shape
+  - Format: FRACTAL_NZ_C0_2
+  - view shape: same as weightScale view shape `{ceildiv(K, 64), N, 2}`, and must be contiguous
+  - storage shape: 4-D `{ceildiv(N, 16), ceildiv(K, 64), 16, 2}`
 
 - **outBiasOptional**
   - Data type: same as biasOptional
@@ -619,6 +619,9 @@ The following sample code is for reference only. For details about compilation a
 - outWeight viewShape: same as weight viewShape
 - outWeight storageShape: `{CeilDiv(K, 32), CeilDiv(N, 16), 16, 32}`
 - outWeight format: `ACL_FORMAT_FRACTAL_NZ_C0_32`
+- outWeightScale viewShape: same as weightScale viewShape, and must be contiguous
+- outWeightScale storageShape: `{CeilDiv(N, 16), CeilDiv(K, 64), 16, 2}`
+- outWeightScale format: `ACL_FORMAT_FRACTAL_NZ_C0_2`
 
 ```cpp
 #include <iostream>
@@ -761,15 +764,18 @@ int main()
     CHECK_RET(outWeight != nullptr, std::cout << "Create outWeight tensor failed" << std::endl;
               return ACL_ERROR_FAILURE);
 
-    // Construct outWeightScale (both viewShape and storageShape are the same as weightScale).
-    // Per implementation requirements: viewShape and storageShape of outWeightScale must both be the same as weightScale.
+    // The user manually constructs outWeightScale (FRACTAL_NZ_C0_2, ScaleNZ).
+    // viewShape is the same as weightScale viewShape and must be contiguous; storageShape is calculated using the formula.
+    std::vector<int64_t> outScaleStorageShape = {CEIL_DIV(n, 16), k / 64, 16, 2};
+    int64_t outScaleBytes = GetShapeSize(outScaleStorageShape); // FP8: 1 byte per element
+
     void* outScaleDeviceAddr = nullptr;
-    ret = aclrtMalloc(&outScaleDeviceAddr, scaleBytes, ACL_MEM_MALLOC_HUGE_FIRST);
+    ret = aclrtMalloc(&outScaleDeviceAddr, outScaleBytes, ACL_MEM_MALLOC_HUGE_FIRST);
     CHECK_RET(ret == ACL_SUCCESS, std::cout << "Malloc outWeightScale failed" << std::endl; return ret);
     std::unique_ptr<void, aclError (*)(void*)> outScaleDeviceAddrPtr(outScaleDeviceAddr, aclrtFree);
     aclTensor* outWeightScale = aclCreateTensor(scaleViewShape.data(), scaleViewShape.size(), ACL_FLOAT8_E8M0,
-                                                scaleStrides.data(), 0, ACL_FORMAT_ND, scaleStorageShape.data(),
-                                                scaleStorageShape.size(), outScaleDeviceAddr);
+                                                nullptr, 0, ACL_FORMAT_FRACTAL_NZ_C0_2, outScaleStorageShape.data(),
+                                                outScaleStorageShape.size(), outScaleDeviceAddr);
     std::unique_ptr<aclTensor, aclnnStatus (*)(const aclTensor*)> outWeightScalePtr(outWeightScale, aclDestroyTensor);
     CHECK_RET(outWeightScale != nullptr, std::cout << "Create outWeightScale tensor failed" << std::endl;
               return ACL_ERROR_FAILURE);
