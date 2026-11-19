@@ -11,8 +11,15 @@
 add_all_modules_sources(
     OPTYPE split
     ACLNNTYPE aclnn_exclude
-    COMPUTE_UNIT ascend950 mc62 ascend350 ascend960dt ascend960pr ascend5162
-    TILING_DIR arch35 arch35 arch35 arch35 arch35 arch35
+    COMPUTE_UNIT dav_3510 mc62 dav_9201 dav_9202 ascend5162
+    TILING_DIR arch35 arch35 arch35 arch35 arch35
     DISABLE_IN_OPP TRUE
     DEPENDENCIES split_v
+)
+
+add_kernel_sources(
+    KERNEL_SRC split_apt.cpp
+    COMPUTE_UNITS dav_3510 dav_9201 dav_9202
+    AUTO_SYNC false
+    OPTIONS "-mllvm -cce-aicore-dcci-before-kernel-end=false"
 )

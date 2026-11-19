@@ -16,6 +16,7 @@
 #include "opdev/op_dfx.h"
 #include "opdev/platform.h"
 #include "op_api/aclnn_check.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 
@@ -76,11 +77,11 @@ static bool IsAiCoreSupport(const aclTensor* self)
 {
     auto dataType = self->GetDataType();
     auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
-    if (curArch == NpuArch::DAV_2201) {
+    if (curArch == Ops::Base::DAV_2201) {
         return op::CheckType(dataType, AICORE_DTYPE_SUPPORT_LIST_910B);
-    } else if (curArch == NpuArch::DAV_3510) {
+    } else if (curArch == Ops::Base::DAV_3510) {
         return op::CheckType(dataType, AICORE_DTYPE_SUPPORT_LIST_REGBASE);
-    } else if (curArch == NpuArch::DAV_9201 || curArch == NpuArch::DAV_9202) {
+    } else if (curArch == Ops::Base::DAV_9201 || curArch == Ops::Base::DAV_9202) {
         return op::CheckType(dataType, AICORE_DTYPE_SUPPORT_LIST_ARCH92);
     }
     return op::CheckType(dataType, AICORE_DTYPE_SUPPORT_LIST);

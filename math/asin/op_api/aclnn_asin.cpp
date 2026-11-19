@@ -22,6 +22,7 @@
 #include "opdev/tensor_view_utils.h"
 #include "op_api/level2_base_math.h"
 #include "op_api/aclnn_check.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 #ifdef __cplusplus
@@ -46,7 +47,8 @@ static const std::initializer_list<op::DataType> DTYPE_OUT_LIST_V100 = {DataType
 static bool isSupportBf16Version()
 {
     auto socVersion = op::GetCurrentPlatformInfo().GetSocVersion();
-    if (socVersion == SocVersion::ASCEND910B || socVersion == SocVersion::ASCEND910_93 || IsRegBase()) {
+    auto curArch = op::GetCurrentPlatformInfo().GetCurNpuArch();
+    if (curArch == Ops::Base::DAV_2201 || IsRegBase()) {
         return true;
     } else {
         OP_LOGD("The soc version [%s] does not support BFloat16 with input", op::ToString(socVersion).GetString());
@@ -57,7 +59,7 @@ static bool isSupportBf16Version()
 static bool isSupportedKernel(DataType castDtype)
 {
     auto npuArch = GetCurrentPlatformInfo().GetCurNpuArch();
-    if (npuArch == NpuArch::DAV_3510 &&
+    if (npuArch == Ops::Base::DAV_3510 &&
         (castDtype == DataType::DT_BF16 || castDtype == DataType::DT_FLOAT16 || castDtype == DataType::DT_FLOAT)) {
         return true;
     } else {
@@ -68,10 +70,10 @@ static bool isSupportedKernel(DataType castDtype)
 
 static const std::initializer_list<DataType>& GetSelfRefDtypeList()
 {
-    if (GetCurrentPlatformInfo().GetCurNpuArch() == NpuArch::DAV_9201 ||
-        GetCurrentPlatformInfo().GetCurNpuArch() == NpuArch::DAV_9202 ||
-        (GetCurrentPlatformInfo().GetSocVersion() >= SocVersion::ASCEND910B &&
-         GetCurrentPlatformInfo().GetSocVersion() <= SocVersion::ASCEND910E)) {
+    if (GetCurrentPlatformInfo().GetCurNpuArch() == Ops::Base::DAV_9201 ||
+        GetCurrentPlatformInfo().GetCurNpuArch() == Ops::Base::DAV_9202 ||
+        GetCurrentPlatformInfo().GetCurNpuArch() == Ops::Base::DAV_2201 ||
+        IsRegBase(GetCurrentPlatformInfo().GetCurNpuArch())) {
         return DTYPE_OUT_LIST;
     } else {
         return DTYPE_OUT_LIST_V100;

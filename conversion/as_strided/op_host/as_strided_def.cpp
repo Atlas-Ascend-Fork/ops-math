@@ -13,6 +13,7 @@
  * \brief as_strided
  */
 #include "register/op_def_registry.h"
+#include "op_common/op_host/util/op_arch_helper.h"
 
 namespace ops {
 static constexpr ge::DataType DT_HIFLOAT4 = static_cast<ge::DataType>(42);
@@ -170,8 +171,7 @@ public:
             .DynamicShapeSupportFlag(true)
             .NeedCheckSupportFlag(false)
             .ExtendCfgInfo("opFile.value", "as_strided_apt");
-        this->AICore().AddConfig("ascend950", aicoreConfig);
-        this->AICore().AddConfig("ascend350", aicoreConfig);
+        opbase::ArchConfigHelper::AddConfigByArch(this->AICore(), Ops::Base::DAV_3510, aicoreConfig);
 
         OpAICoreConfig CONFIG_ARCH92;
         CONFIG_ARCH92.Input("x")
@@ -208,8 +208,8 @@ public:
             .DynamicShapeSupportFlag(true)
             .NeedCheckSupportFlag(false)
             .ExtendCfgInfo("opFile.value", "as_strided_apt");
-        this->AICore().AddConfig("ascend960dt", CONFIG_ARCH92);
-        this->AICore().AddConfig("ascend960pr", CONFIG_ARCH92);
+        opbase::ArchConfigHelper::AddConfigByArch(this->AICore(), Ops::Base::DAV_9201, CONFIG_ARCH92);
+        opbase::ArchConfigHelper::AddConfigByArch(this->AICore(), Ops::Base::DAV_9202, CONFIG_ARCH92);
     }
 };
 OP_ADD(AsStrided);

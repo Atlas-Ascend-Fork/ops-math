@@ -26,6 +26,7 @@
 #include "opdev/tensor_view_utils.h"
 #include "opdev/op_executor.h"
 #include "opdev/platform.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 #ifdef __cplusplus
@@ -66,7 +67,7 @@ static bool CheckNotNull(const aclTensor* selfRef, const aclTensor* mask, const 
 static inline bool CheckSocVersionIsSupportBf16(void)
 {
     auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
-    return curArch == NpuArch::DAV_2201 || IsRegBase(curArch);
+    return curArch == Ops::Base::DAV_2201 || IsRegBase(curArch);
 }
 
 static bool CheckDtypeValid(const aclTensor* selfRef, const aclTensor* mask)

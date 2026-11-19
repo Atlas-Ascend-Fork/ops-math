@@ -19,6 +19,7 @@
 #include "view_copy_tiling_arch35.h"
 #include "register/op_impl_registry.h"
 #include "atvoss/reduce/reduce_tiling.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace std;
 using namespace ge;
@@ -1161,8 +1162,8 @@ static ge::graphStatus ViewCopyTilingForAscendC(gert::TilingContext* context)
     // 数据类型提升:SIMT模板在9201/9202架构下,若尾轴连续且字节数可整除更大dtype,则提升dtype减少搬运次数
     auto platformInfoDtypeImprove = context->GetPlatformInfo();
     auto ascendcPlatformDtypeImprove = platform_ascendc::PlatformAscendC(platformInfoDtypeImprove);
-    if (ascendcPlatformDtypeImprove.GetCurNpuArch() == NpuArch::DAV_9201 ||
-        ascendcPlatformDtypeImprove.GetCurNpuArch() == NpuArch::DAV_9202) {
+    if (ascendcPlatformDtypeImprove.GetCurNpuArch() == Ops::Base::DAV_9201 ||
+        ascendcPlatformDtypeImprove.GetCurNpuArch() == Ops::Base::DAV_9202) {
         DoDtypeImproveForViewCopy(tilingParam);
     }
 

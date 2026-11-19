@@ -25,6 +25,7 @@
 #include "opdev/shape_utils.h"
 #include "opdev/tensor_view_utils.h"
 #include "pack.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 #ifdef __cplusplus
@@ -69,7 +70,7 @@ static bool CheckNotNull(const aclTensorList* tensors, const int64_t* realDim, c
 static const std::initializer_list<DataType>& GetDtypeSupportList()
 {
     auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
-    if (curArch == NpuArch::DAV_2201) {
+    if (curArch == Ops::Base::DAV_2201) {
         return ASCEND910B_DTYPE_DTYPE_SUPPORT_LIST;
     } else if (IsRegBase(curArch)) {
         return REGBASE_DTYPE_DTYPE_SUPPORT_LIST;

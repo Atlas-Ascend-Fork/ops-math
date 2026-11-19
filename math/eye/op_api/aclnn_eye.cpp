@@ -25,6 +25,7 @@
 #include "opdev/platform.h"
 #include "aclnn_kernels/common/op_error_check.h"
 #include "opdev/op_log.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 
@@ -38,7 +39,7 @@ static const std::initializer_list<DataType> DTYPE_SUPPORT_LIST_A2 = {
 static inline const std::initializer_list<op::DataType>& GetDtypeSupportList()
 {
     auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
-    if (curArch == NpuArch::DAV_3002 || curArch == NpuArch::DAV_2002 || curArch == NpuArch::DAV_1001) {
+    if (curArch == Ops::Base::DAV_3002 || curArch == Ops::Base::DAV_2002 || curArch == Ops::Base::DAV_1001) {
         return DTYPE_SUPPORT_LIST;
     } else {
         return DTYPE_SUPPORT_LIST_A2;

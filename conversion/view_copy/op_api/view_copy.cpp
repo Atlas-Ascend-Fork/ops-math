@@ -17,6 +17,7 @@
 #include "opdev/op_dfx.h"
 #include "opdev/platform.h"
 #include "op_api/aclnn_check.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 static const int64_t DIM_ZERO = 0;
 static const int64_t DIM_ONE = 1;
@@ -95,7 +96,7 @@ static int64_t GetByteSize(const op::DataType dtype)
 static bool IsAiCoreSupport(const op::DataType dataType)
 {
     auto curArch = op::GetCurrentPlatformInfo().GetCurNpuArch();
-    if (curArch == NpuArch::DAV_2201) {
+    if (curArch == Ops::Base::DAV_2201) {
         return op::CheckType(dataType, AICORE_DTYPE_SUPPORT_LIST_910B);
     }
     if (op::IsRegBase(curArch)) {

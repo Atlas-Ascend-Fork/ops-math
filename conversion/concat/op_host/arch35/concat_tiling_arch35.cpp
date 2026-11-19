@@ -25,6 +25,7 @@
 #include "platform/platform_ascendc.h"
 #include <algorithm>
 #include <limits>
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace std;
 using namespace ge;
@@ -295,7 +296,7 @@ static bool IsMultiCoreBoost(const gert::TilingContext* context)
         return false;
     }
     auto arch = platform_ascendc::PlatformAscendC(platformInfo).GetCurNpuArch();
-    return arch == NpuArch::DAV_9201 || arch == NpuArch::DAV_9202;
+    return arch == Ops::Base::DAV_9201 || arch == Ops::Base::DAV_9202;
 }
 
 inline static ge::graphStatus CalcBaseTilingParam(const gert::TilingContext* context, ConcatTilingParam& param)
@@ -620,7 +621,8 @@ static ge::graphStatus TilingUbForNosplitDim1(gert::TilingContext* context, int6
         return ge::GRAPH_FAILED);
     auto platformInfo = context->GetPlatformInfo();
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
-    if (ascendcPlatform.GetCurNpuArch() == NpuArch::DAV_9201 || ascendcPlatform.GetCurNpuArch() == NpuArch::DAV_9202) {
+    if (ascendcPlatform.GetCurNpuArch() == Ops::Base::DAV_9201 ||
+        ascendcPlatform.GetCurNpuArch() == Ops::Base::DAV_9202) {
         if (((param.ubFactorDim0 * param.dtypeSize + BLOCK_SIZE - 1) / BLOCK_SIZE * BLOCK_SIZE) % TWO_BLOCK_SIZE !=
             BLOCK_SIZE) {
             param.ubFactorDim0 = param.ubFactorDim0 - (BLOCK_SIZE / param.dtypeSize);
@@ -1330,7 +1332,8 @@ static ge::graphStatus TilingForConcatDSimt(gert::TilingContext* context, Concat
 {
     auto platformInfo = context->GetPlatformInfo();
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
-    if (ascendcPlatform.GetCurNpuArch() == NpuArch::DAV_9201 || ascendcPlatform.GetCurNpuArch() == NpuArch::DAV_9202) {
+    if (ascendcPlatform.GetCurNpuArch() == Ops::Base::DAV_9201 ||
+        ascendcPlatform.GetCurNpuArch() == Ops::Base::DAV_9202) {
         // 数据类型提升计算
         OP_CHECK_IF(DoDtypeImprove(param) != ge::GRAPH_SUCCESS,
                     OP_LOGE(context->GetNodeName(), "DoDtypeImprove failed"), return ge::GRAPH_FAILED);
@@ -1346,7 +1349,8 @@ static ge::graphStatus TilingForConcatDSimt(gert::TilingContext* context, Concat
     // 计算simt模板使用的核数，每核处理的tensor个数，计算tilingKey
     param.usedCoreNum = std::min(static_cast<int64_t>(param.tensorNum), param.totalCoreNum);
     param.tensorNumPerCore = (static_cast<int64_t>(param.tensorNum) + param.usedCoreNum - 1) / param.usedCoreNum;
-    if (ascendcPlatform.GetCurNpuArch() == NpuArch::DAV_9201 || ascendcPlatform.GetCurNpuArch() == NpuArch::DAV_9202) {
+    if (ascendcPlatform.GetCurNpuArch() == Ops::Base::DAV_9201 ||
+        ascendcPlatform.GetCurNpuArch() == Ops::Base::DAV_9202) {
         // B128使用独立的tilingKey
         param.tilingKey = orgDtypeSize >= B128_BYTES ? SIMT_TILINGKEY_PREFIX + B128_BYTES :
                                                        SIMT_TILINGKEY_PREFIX + dtypeSize;

@@ -8,13 +8,18 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ----------------------------------------------------------------------------
 
-set(SUPPORT_COMPUTE_UNIT "ascend950" "ascend960pr" "ascend960dt")
+set(SUPPORT_COMPUTE_UNIT "dav_3510" "dav_9202" "dav_9201")
 set(SUPPORT_TILING_DIR "arch35" "arch35" "arch35")
 add_all_modules_sources(OPTYPE power ACLNNTYPE aclnn_exclude COMPUTE_UNIT ${SUPPORT_COMPUTE_UNIT} TILING_DIR ${SUPPORT_TILING_DIR} DISABLE_IN_OPP TRUE)
 
 add_kernel_sources(
     KERNEL_SRC power_apt.cpp
-    COMPUTE_UNITS ascend960dt ascend960pr
+    COMPUTE_UNITS dav_3510
+)
+
+add_kernel_sources(
+    KERNEL_SRC power_apt.cpp
+    COMPUTE_UNITS dav_9201 dav_9202
     AUTO_SYNC false
     OPTIONS "-mllvm -cce-aicore-dcci-before-kernel-end=false"
 )

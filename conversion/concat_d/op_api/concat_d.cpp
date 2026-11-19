@@ -20,6 +20,7 @@
 #include "aclnn_kernels/common/op_error_check.h"
 #include "opdev/platform.h"
 #include "op_api/aclnn_check.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 #define NUM_32 32
 #define NUM_2048 2048
@@ -39,7 +40,7 @@ bool IsSupportConcatDV2(const aclTensorList* inputs, int64_t dim)
 {
     CHECK_RET(inputs != nullptr, ACLNN_ERR_INNER_NULLPTR);
     auto curArch = op::GetCurrentPlatformInfo().GetCurNpuArch();
-    if (curArch != NpuArch::DAV_2201) {
+    if (curArch != Ops::Base::DAV_2201) {
         return false;
     }
     if (dim != 0) {

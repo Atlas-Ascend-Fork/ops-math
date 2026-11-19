@@ -46,6 +46,7 @@
 #include "ge/compliant_node_builder.h"
 #include "ge/es_graph_builder.h"
 #include "platform/soc_spec.h"
+#include "op_common/op_host/util/op_const_def.h"
 #include "ge/ge_utils.h"
 #include "log/log.h"
 #include "version/ge-compiler_version.h"
@@ -133,7 +134,7 @@ static bool IsTargetPlatform()
         return false;
     }
     const auto npuArch = static_cast<NpuArch>(std::strtol(npuArchVal, nullptr, 10));
-    static const std::set<NpuArch> supportedArch = {NpuArch::DAV_3510};
+    static const std::set<NpuArch> supportedArch = {Ops::Base::DAV_3510};
     const bool isSupported = (supportedArch.count(npuArch) > 0);
     if (!isSupported) {
         OP_LOGI(kPassName.c_str(), "Platform NpuArch %u is not supported(DAV_3510), skip pass.",

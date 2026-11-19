@@ -15,6 +15,7 @@
 #include "opdev/op_dfx.h"
 #include "opdev/platform.h"
 #include "op_api/aclnn_check.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 static constexpr ge::DataType DT_HIFLOAT4 = static_cast<ge::DataType>(42);
 
@@ -73,11 +74,11 @@ static bool IsAiCoreSupport(const aclTensor* self)
 {
     auto dataType = self->GetDataType();
     auto curArch = op::GetCurrentPlatformInfo().GetCurNpuArch();
-    if (curArch == NpuArch::DAV_2201) {
+    if (curArch == Ops::Base::DAV_2201) {
         return op::CheckType(dataType, AICORE_DTYPE_SUPPORT_LIST_910B);
     }
 
-    if (curArch == NpuArch::DAV_9201 || curArch == NpuArch::DAV_9202) {
+    if (curArch == Ops::Base::DAV_9201 || curArch == Ops::Base::DAV_9202) {
         return op::CheckType(dataType, AICORE_DTYPE_SUPPORT_LIST_ARCH92);
     }
     if (op::IsRegBase(curArch)) {
@@ -105,13 +106,13 @@ bool IsCopyNpuToNpu(const aclTensor* x)
 {
     auto dataSize = static_cast<uint64_t>(x->GetViewShape().GetShapeSize()) * op::TypeSize(x->GetDataType());
     auto curArch = op::GetCurrentPlatformInfo().GetCurNpuArch();
-    if (curArch == NpuArch::DAV_2201 || op::IsRegBase(curArch)) {
+    if (curArch == Ops::Base::DAV_2201 || op::IsRegBase(curArch)) {
         return static_cast<int64_t>(dataSize) <= DATA_LIMIT_910B;
     }
-    if (curArch == NpuArch::DAV_1001) {
+    if (curArch == Ops::Base::DAV_1001) {
         return static_cast<int64_t>(dataSize) <= DATA_LIMIT_910;
     }
-    if (curArch == NpuArch::DAV_2002) {
+    if (curArch == Ops::Base::DAV_2002) {
         return static_cast<int64_t>(dataSize) < DATA_LIMIT_310P;
     }
     return false;

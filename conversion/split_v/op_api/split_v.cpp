@@ -17,6 +17,7 @@
 #include "opdev/aicpu/aicpu_task.h"
 #include "opdev/shape_utils.h"
 #include "op_api/aclnn_check.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 
@@ -72,8 +73,7 @@ bool IsSplitV2AiCoreSupport(const aclTensor* self, const aclIntArray* splitSize,
     blockNum = self->GetDataType() == DataType::DT_FLOAT ? FP32_BLOCK_NUM : FP16_BLOCK_NUM;
     // 切分轴大于0, 输入数据大于65536, 输入数据合轴后首维小于等于8(fp32时为8，bf16/fp16为16), 切分块数大于32
     isSupport = dim > 0 && totalLen > SPLITV2_NUM_THRESHOLD && firstDim <= blockNum && numSplit > 32;
-    if (op::GetCurrentPlatformInfo().GetSocVersion() == op::SocVersion::ASCEND910B ||
-        op::GetCurrentPlatformInfo().GetSocVersion() == op::SocVersion::ASCEND910_93) {
+    if (op::GetCurrentPlatformInfo().GetCurNpuArch() == Ops::Base::DAV_2201) {
         return (isSupport && op::CheckType(self->GetDataType(), SPLITV2_AICORE_DTYPE_SUPPORT_LIST));
     }
     return false;
@@ -83,10 +83,9 @@ bool SplitVAiCoreSupport(const aclTensor* self)
 {
     if (IsRegBase()) {
         return op::CheckType(self->GetDataType(), AICORE_DTYPE_SUPPORT_LIST_ASCEND950);
-    } else if (op::GetCurrentPlatformInfo().GetSocVersion() == op::SocVersion::ASCEND910B ||
-               op::GetCurrentPlatformInfo().GetSocVersion() == op::SocVersion::ASCEND910_93) {
+    } else if (op::GetCurrentPlatformInfo().GetCurNpuArch() == Ops::Base::DAV_2201) {
         return op::CheckType(self->GetDataType(), AICORE_DTYPE_SUPPORT_LIST_ASCEND910B);
-    } else if (op::GetCurrentPlatformInfo().GetSocVersion() == op::SocVersion::ASCEND310P) {
+    } else if (op::GetCurrentPlatformInfo().GetCurNpuArch() == Ops::Base::DAV_2002) {
         return op::CheckType(self->GetDataType(), AICORE_DTYPE_SUPPORT_LIST_ASCEND310P);
     }
     return op::CheckType(self->GetDataType(), AICORE_DTYPE_SUPPORT_LIST_ASCEND910);

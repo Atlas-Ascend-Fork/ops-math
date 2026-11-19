@@ -28,6 +28,7 @@
 #include "opdev/platform.h"
 #include "opdev/tensor_view_utils.h"
 #include "op_api/op_api_def_math.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 #ifdef __cplusplus
@@ -65,9 +66,9 @@ static const std::initializer_list<op::DataType> REGBASE_DTYPE_SUPPORT_LIST = {
 static const inline std::initializer_list<DataType>& GetSupportDtypeList(NpuArch npuArch)
 {
     static const std::initializer_list<DataType> emptyDtypes = {};
-    if (npuArch == NpuArch::DAV_2002 || npuArch == NpuArch::DAV_1001) {
+    if (npuArch == Ops::Base::DAV_2002 || npuArch == Ops::Base::DAV_1001) {
         return ASCEND910_DTYPE_SUPPORT_LIST;
-    } else if (npuArch == NpuArch::DAV_2201 || npuArch == NpuArch::DAV_3002) {
+    } else if (npuArch == Ops::Base::DAV_2201 || npuArch == Ops::Base::DAV_3002) {
         return ASCEND910B_DTYPE_SUPPORT_LIST;
     } else if (IsRegBase(npuArch)) {
         return REGBASE_DTYPE_SUPPORT_LIST;

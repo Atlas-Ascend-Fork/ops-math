@@ -30,6 +30,7 @@
  * 芯片支持：Ascend950 (DAV_3510)、Ascend960DT、Ascend960PR（复用 arch35 tiling/kernel 实现）
  */
 #include "register/op_def_registry.h"
+#include "op_common/op_host/util/op_arch_helper.h"
 
 namespace ops {
 class ReciprocalGrad : public OpDef {
@@ -71,9 +72,9 @@ public:
             .NeedCheckSupportFlag(false)
             .PrecisionReduceFlag(true)
             .ExtendCfgInfo("opFile.value", "reciprocal_grad"); // Kernel 入口文件名
-        this->AICore().AddConfig("ascend950", aicoreConfig950);
-        this->AICore().AddConfig("ascend960dt", aicoreConfig950);
-        this->AICore().AddConfig("ascend960pr", aicoreConfig950);
+        opbase::ArchConfigHelper::AddConfigByArch(this->AICore(), Ops::Base::DAV_3510, aicoreConfig950);
+        opbase::ArchConfigHelper::AddConfigByArch(this->AICore(), Ops::Base::DAV_9201, aicoreConfig950);
+        opbase::ArchConfigHelper::AddConfigByArch(this->AICore(), Ops::Base::DAV_9202, aicoreConfig950);
     }
 };
 OP_ADD(ReciprocalGrad); // 添加算子信息库

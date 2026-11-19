@@ -23,6 +23,7 @@
 #include "ge/es_graph_builder.h"
 #include "es_math_ops.h"
 #include "platform/soc_spec.h"
+#include "op_common/op_host/util/op_const_def.h"
 #include "ge/fusion/pass/pattern_fusion_pass.h"
 #include "fusion_pass_compat_weak_symbols.h"
 #include "ge/ge_utils.h"
@@ -89,8 +90,8 @@ bool IsTargetPlatform()
         return false;
     }
     const auto npuArch = static_cast<NpuArch>(std::strtol(npuArchVal, nullptr, 10));
-    static const std::set<NpuArch> regbaseArch = {NpuArch::DAV_3510, NpuArch::DAV_9201, NpuArch::DAV_9202,
-                                                  NpuArch::DAV_5102};
+    static const std::set<NpuArch> regbaseArch = {Ops::Base::DAV_3510, Ops::Base::DAV_9201, Ops::Base::DAV_9202,
+                                                  Ops::Base::DAV_5102};
     const bool isRegBase = (regbaseArch.count(npuArch) > 0);
     if (!isRegBase) {
         OP_LOGI(kPassName.c_str(), "Platform NpuArch %u is not regbase(DAV_3510/DAV_9201/DAV_5102), skip whole graph.",

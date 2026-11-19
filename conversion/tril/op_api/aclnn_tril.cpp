@@ -28,6 +28,7 @@
 #include "opdev/shape_utils.h"
 #include "opdev/platform.h"
 #include "op_api/level2_base_math.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 
@@ -51,7 +52,7 @@ static const std::initializer_list<DataType> DTYPE_SUPPORT_LIST_REGBASE = {
 static inline const std::initializer_list<DataType>& GetDtypeSupportList()
 {
     auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
-    if (curArch == NpuArch::DAV_2201) {
+    if (curArch == Ops::Base::DAV_2201) {
         return DTYPE_SUPPORT_LIST_910B;
     } else if (IsRegBase(curArch)) {
         return DTYPE_SUPPORT_LIST_REGBASE;

@@ -20,6 +20,7 @@
  */
 
 #include "register/op_def_registry.h"
+#include "op_common/op_host/util/op_arch_helper.h"
 
 namespace ops {
 class MaximumGrad : public OpDef {
@@ -78,7 +79,7 @@ public:
             .DynamicShapeSupportFlag(true)
             .NeedCheckSupportFlag(false)
             .ExtendCfgInfo("opFile.value", "maximum_grad");
-        this->AICore().AddConfig("ascend950", aicoreConfig950);
+        opbase::ArchConfigHelper::AddConfigByArch(this->AICore(), Ops::Base::DAV_3510, aicoreConfig950);
     }
 };
 OP_ADD(MaximumGrad);

@@ -17,6 +17,7 @@
 #include "log/log.h"
 #include "util/math_util.h"
 #include "register/op_impl_registry.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace ge;
 using namespace Ops::Base;
@@ -98,8 +99,8 @@ ge::graphStatus CheckNpuArch(const gert::TilingContext* context)
     auto platformInfo = context->GetPlatformInfo();
     OP_CHECK_NULL_WITH_CONTEXT(context, platformInfo);
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
-    isAscend960dt_ = ascendcPlatform.GetCurNpuArch() == NpuArch::DAV_9201 ||
-                     ascendcPlatform.GetCurNpuArch() == NpuArch::DAV_9202;
+    isAscend960dt_ = ascendcPlatform.GetCurNpuArch() == Ops::Base::DAV_9201 ||
+                     ascendcPlatform.GetCurNpuArch() == Ops::Base::DAV_9202;
     return ge::GRAPH_SUCCESS;
 }
 

@@ -12,9 +12,16 @@ add_all_modules_sources(
         OPTYPE concat_d
         ACLNNTYPE aclnn_exclude
         DEPENDENCIES concat
-        COMPUTE_UNIT ascend950 mc62 ascend350 ascend960dt ascend960pr ascend5162 kirin9030 kirinx90
-        TILING_DIR arch35 arch35 arch35 arch35 arch35 arch35 arch31 arch31
+        COMPUTE_UNIT dav_3510 mc62 dav_9201 dav_9202 ascend5162 kirin9030 kirinx90
+        TILING_DIR arch35 arch35 arch35 arch35 arch35 arch31 arch31
         DISABLE_IN_OPP TRUE
+)
+
+add_kernel_sources(
+    KERNEL_SRC concat_d_apt.cpp
+    COMPUTE_UNITS dav_3510 dav_9201 dav_9202
+    AUTO_SYNC false
+    OPTIONS "-DFORCE_TILING_CONST_PROPAGATION" "-mllvm -cce-aicore-dcci-before-kernel-end=false"
 )
 
 add_kernel_sources(

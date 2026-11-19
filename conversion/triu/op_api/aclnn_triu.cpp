@@ -26,6 +26,7 @@
 #include "aclnn_kernels/common/op_error_check.h"
 #include "opdev/platform.h"
 #include "op_api/aclnn_check.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
 
@@ -66,7 +67,7 @@ static inline bool HasEmptyTensor(const aclTensor* self)
 static inline const std::initializer_list<DataType>& GetDtypeSupportList()
 {
     auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
-    if (curArch == NpuArch::DAV_2201) {
+    if (curArch == Ops::Base::DAV_2201) {
         return DTYPE_SUPPORT_LIST_910B;
     } else if (IsRegBase(curArch)) {
         return DTYPE_SUPPORT_LIST_REGBASE;

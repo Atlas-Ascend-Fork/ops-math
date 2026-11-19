@@ -28,6 +28,7 @@
 #include "op_host/tiling_base_util.h"
 #include "log/log.h"
 #include "util/platform_util.h"
+#include "op_common/op_host/util/op_const_def.h"
 
 using namespace std;
 using namespace ge;
@@ -1273,9 +1274,9 @@ ge::graphStatus AsStridedTilingClass::NDDMAForAsStrided(AsStridedTilingParam& ti
         auto platformInfoSimtPack = context_->GetPlatformInfo();
         bool isSimtPackSupport = (platformInfoSimtPack != nullptr) &&
                                  (platform_ascendc::PlatformAscendC(platformInfoSimtPack).GetCurNpuArch() ==
-                                      NpuArch::DAV_9201 ||
+                                      Ops::Base::DAV_9201 ||
                                   platform_ascendc::PlatformAscendC(platformInfoSimtPack).GetCurNpuArch() ==
-                                      NpuArch::DAV_9202);
+                                      Ops::Base::DAV_9202);
         if (isSimtPackSupport) {
             // 第一步：按原始 dtype 切分, 计算 baseThread
             AsStridedTilingParam baseParam = tempTilingParam;

@@ -11,6 +11,18 @@
 add_all_modules_sources(
         OPTYPE mem_set
         ACLNNTYPE aclnn_exclude
-        COMPUTE_UNIT ascend950 mc62 ascend350 ascend960pr ascend960dt
-        TILING_DIR arch35 arch35 arch35 arch35 arch35
+        COMPUTE_UNIT dav_3510 mc62 dav_9202 dav_9201
+        TILING_DIR arch35 arch35 arch35 arch35
+)
+
+add_kernel_sources(
+    KERNEL_SRC mem_set_apt.cpp
+    COMPUTE_UNITS dav_3510
+    AUTO_SYNC false
+    OPTIONS "-mllvm -cce-aicore-dcci-before-kernel-end=false"
+)
+
+add_kernel_sources(
+    KERNEL_SRC mem_set_apt.cpp
+    COMPUTE_UNITS dav_9202 dav_9201
 )
