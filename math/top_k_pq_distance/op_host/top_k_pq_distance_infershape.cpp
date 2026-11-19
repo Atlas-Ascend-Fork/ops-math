@@ -16,6 +16,8 @@
  *        - topk_ivf.dtype      ← pq_ivf[0].dtype
  *        - topk_index.dtype    ← pq_index[0].dtype
  */
+#include <string>
+
 #include "log/log.h"
 #include "register/op_impl_registry.h"
 
@@ -55,11 +57,15 @@ static ge::graphStatus InferShape4TopKPQDistance(gert::InferShapeContext* contex
     OP_CHECK_NULL_WITH_CONTEXT(context, group_size_ptr);
     const int64_t groupSize = *group_size_ptr;
 
-    OP_CHECK_IF(topK <= 0, OP_LOGE(context, "k should be bigger than zero, but got k[%ld].", topK),
+    OP_CHECK_IF(topK <= 0,
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "k", std::to_string(topK).c_str(),
+                                                      "k should be positive"),
                 return GRAPH_FAILED);
-    OP_CHECK_IF(groupSize <= 0,
-                OP_LOGE(context, "group_size should be bigger than zero, but got group_size[%ld].", groupSize),
-                return GRAPH_FAILED);
+    OP_CHECK_IF(
+        groupSize <= 0,
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "group_size", std::to_string(groupSize).c_str(),
+                                              "group_size should be positive"),
+        return GRAPH_FAILED);
 
     // 三个输出 shape 均为 {topK}
     for (size_t i = 0; i < TOPK_PQ_DISTANCE_OUTPUT_NUM; i++) {

@@ -16,7 +16,11 @@
 #include <cstring>
 
 #include "register/op_impl_registry.h"
+#include <string>
+
+#include "common/inc/op_host/math_log.h"
 #include "log/log.h"
+#include "util/shape_util.h"
 
 using namespace ge;
 
@@ -50,20 +54,23 @@ static ge::graphStatus CheckAttrAndGetK(gert::InferShapeContext* context, int64_
     const int64_t groupSize = *groupSizePtr;
 
     OP_CHECK_IF((strcmp(order, kOrderAsc) != 0) && (strcmp(order, kOrderDes) != 0),
-                OP_LOGE(context, "order should be ASC or DES, but got %s.", order), return ge::GRAPH_FAILED);
-    OP_CHECK_IF(
-        (k <= 0) || (k > elementNum),
-        OP_LOGE(context, "k should be in range (0, element_num], but got k[%ld], element_num[%ld].", k, elementNum),
-        return ge::GRAPH_FAILED);
-    OP_CHECK_IF(groupSize <= 0,
-                OP_LOGE(context, "group_size should bigger than zero, but got group_size[%ld].", groupSize),
+                OP_LOGE_FOR_INVALID_VALUE(context->GetNodeName(), "order", order,
+                                          Ops::Math::Join<Ops::Math::ItemConj::OR>(kOrderAsc, kOrderDes).c_str()),
+                return ge::GRAPH_FAILED);
+    OP_CHECK_IF((k <= 0) || (k > elementNum),
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "k", std::to_string(k).c_str(),
+                                                      "k should be in range (0, element_num]"),
                 return ge::GRAPH_FAILED);
     OP_CHECK_IF(
+        groupSize <= 0,
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "group_size", std::to_string(groupSize).c_str(),
+                                              "group_size should be positive"),
+        return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
         (elementNum % groupSize) != 0,
-        OP_LOGE(context,
-                "element_num should be an integer multiple of group_size, but element_num is [%ld], group_size is "
-                "[%ld].",
-                elementNum, groupSize),
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+            context->GetNodeName(), "element_num", std::to_string(elementNum).c_str(),
+            ("element_num should be an integer multiple of group_size [" + std::to_string(groupSize) + "]").c_str()),
         return ge::GRAPH_FAILED);
     return ge::GRAPH_SUCCESS;
 }
@@ -74,13 +81,19 @@ static ge::graphStatus InferShape4TopKPQDistanceV2(gert::InferShapeContext* cont
 
     const gert::Shape* input0Shape = context->GetInputShape(kInputIndex0);
     OP_CHECK_NULL_WITH_CONTEXT(context, input0Shape);
-    OP_CHECK_IF(input0Shape->GetDimNum() != kInputsDimNum, OP_LOGE(context, "input pq_distance shape is not 2D."),
+    OP_CHECK_IF(input0Shape->GetDimNum() != kInputsDimNum,
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "pq_distance",
+                                                         std::to_string(input0Shape->GetDimNum()).c_str(),
+                                                         "input pq_distance must be 2D"),
                 return ge::GRAPH_FAILED);
 
     const gert::Shape* input1Shape = context->GetInputShape(kInputIndex1);
     OP_CHECK_NULL_WITH_CONTEXT(context, input1Shape);
     OP_CHECK_IF(input1Shape->GetDimNum() != kInputsDimNum,
-                OP_LOGE(context, "input grouped_extreme_distance shape is not 2D."), return ge::GRAPH_FAILED);
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "grouped_extreme_distance",
+                                                         std::to_string(input1Shape->GetDimNum()).c_str(),
+                                                         "input grouped_extreme_distance must be 2D"),
+                return ge::GRAPH_FAILED);
 
     const int64_t batch = input0Shape->GetDim(0);
     const int64_t elementNum = input0Shape->GetDim(1);

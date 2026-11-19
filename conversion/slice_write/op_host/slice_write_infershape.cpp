@@ -12,6 +12,8 @@
  * \file slice_write_infershape.cpp
  * \brief infershape func of SliceWrite
  */
+#include <string>
+
 #include "log/log.h"
 #include "register/op_impl_registry.h"
 #include "op_api/op_util.h"
@@ -36,11 +38,12 @@ static ge::graphStatus SliceWriteInferShape(gert::InferShapeContext* context)
     OP_CHECK_NULL_WITH_CONTEXT(context, xTensor);
     const auto* valueTensor = context->GetInputTensor(SLICE_WRITE_IDX_IN_VALUE);
     OP_CHECK_NULL_WITH_CONTEXT(context, valueTensor);
-    OP_CHECK_IF(xTensor->GetDataType() != valueTensor->GetDataType(),
-                OP_LOGE(context->GetNodeName(), "dtype of x [%s] must be same as value [%s]",
-                        Ops::Base::ToString(xTensor->GetDataType()).c_str(),
-                        Ops::Base::ToString(valueTensor->GetDataType()).c_str()),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        xTensor->GetDataType() != valueTensor->GetDataType(),
+        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(
+            context->GetNodeName(), "x", Ops::Base::ToString(xTensor->GetDataType()).c_str(),
+            ("dtype of x must be same as value [" + Ops::Base::ToString(valueTensor->GetDataType()) + "]").c_str()),
+        return ge::GRAPH_FAILED);
 
     *outShape = *xShape;
     OP_LOGD(context->GetNodeName(), "End to do SliceWriteInferShape");

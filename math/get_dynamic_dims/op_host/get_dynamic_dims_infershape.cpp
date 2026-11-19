@@ -15,6 +15,8 @@
 
 #include <algorithm>
 
+#include <string>
+
 #include "log/log.h"
 #include "register/op_impl_registry.h"
 
@@ -44,14 +46,26 @@ static ge::graphStatus InferShape4GetDynamicDims(gert::InferShapeContext* contex
     OP_CHECK_NULL_WITH_CONTEXT(context, inputInstanceInfo);
     const size_t inputInstanceNum = inputInstanceInfo->GetInstanceNum();
     if (static_cast<int64_t>(inputInstanceNum) != *nAttr) {
-        OP_LOGE(context->GetNodeName(), "Inputs size [%zu] must equal attr N [%ld]", inputInstanceNum, *nAttr);
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+            context->GetNodeName(), "N", std::to_string(*nAttr).c_str(),
+            ("inputs size must equal attr N, but got " + std::to_string(static_cast<int64_t>(inputInstanceNum)))
+                .c_str());
         return ge::GRAPH_FAILED;
     }
 
     const int64_t* shapeInfoData = shapeInfo->GetData();
     int64_t unknownDimsNum = std::count(shapeInfoData, shapeInfoData + shapeInfo->GetSize(), kUnknownDim);
     if (unknownDimsNum == 0) {
-        OP_LOGE(context->GetNodeName(), "No need to perform GetDynamicDims in a known shape");
+        std::string shapeInfoDesc = "[";
+        for (int64_t i = 0; i < static_cast<int64_t>(shapeInfo->GetSize()); ++i) {
+            if (i > 0) {
+                shapeInfoDesc += ", ";
+            }
+            shapeInfoDesc += std::to_string(shapeInfoData[i]);
+        }
+        shapeInfoDesc += "]";
+        OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON(context->GetNodeName(), "shape_info", shapeInfoDesc.c_str(),
+                                              "no need to perform GetDynamicDims in a known shape");
         return ge::GRAPH_FAILED;
     }
 

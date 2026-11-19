@@ -8,6 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+#include <string>
+
 #include "op_common/log/log.h"
 #include "register/op_impl_registry.h"
 #include "util/shape_util.h"
@@ -29,8 +31,10 @@ static ge::graphStatus InferShape4CompareAndBitpack(gert::InferShapeContext* con
     gert::Shape* yShape = context->GetOutputShape(kOutputYIdx);
     OP_CHECK_NULL_WITH_CONTEXT(context, yShape);
 
-    OP_CHECK_IF(xShape->GetDimNum() == 0, OP_LOGE(context->GetNodeName(), "The rank of x must be at least 1."),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        xShape->GetDimNum() == 0,
+        OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "x", "0D", "the rank of x must be at least 1"),
+        return ge::GRAPH_FAILED);
     OP_CHECK_IF(!Ops::Base::IsUnknownRank(*thresholdShape) && thresholdShape->GetDimNum() != 0,
                 OP_LOGE(context->GetNodeName(), "The threshold must be a scalar."), return ge::GRAPH_FAILED);
 
@@ -40,10 +44,10 @@ static ge::graphStatus InferShape4CompareAndBitpack(gert::InferShapeContext* con
     if (lastDim == ge::UNKNOWN_DIM) {
         return ge::GRAPH_SUCCESS;
     }
-    OP_CHECK_IF(
-        lastDim % kBitsPerByte != 0,
-        OP_LOGE(context->GetNodeName(), "The last dimension of x must be divisible by 8, but got %ld.", lastDim),
-        return ge::GRAPH_FAILED);
+    OP_CHECK_IF(lastDim % kBitsPerByte != 0,
+                OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON(context->GetNodeName(), "x", Ops::Base::ToString(*xShape).c_str(),
+                                                      "the last dimension of x must be divisible by 8"),
+                return ge::GRAPH_FAILED);
 
     yShape->SetDim(lastDimIdx, lastDim / kBitsPerByte);
     return ge::GRAPH_SUCCESS;

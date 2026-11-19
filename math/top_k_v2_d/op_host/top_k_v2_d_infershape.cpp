@@ -14,6 +14,8 @@
  */
 #include "register/op_impl_registry.h"
 #include "util/shape_util.h"
+#include <string>
+
 #include "log/log.h"
 
 static constexpr int OUTPUT_VALUES_INDEX = 0;
@@ -29,7 +31,9 @@ static bool InferShapeForTopKV2DCommon(gert::InferShapeContext* context, int64_t
     OP_CHECK_NULL_WITH_CONTEXT(context, input_x_shape);
     size_t dim_size = input_x_shape->GetDimNum();
     if (dim_size <= 0) {
-        OP_LOGE(context->GetNodeName(), "The dims_in size should more than 0!");
+        OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "x",
+                                                 std::to_string(static_cast<int64_t>(dim_size)).c_str(),
+                                                 "the rank of x must be more than 0");
         return GRAPH_FAILED;
     }
     int64_t sorted_axis = dim_size - 1;
