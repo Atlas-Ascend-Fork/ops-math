@@ -23,6 +23,8 @@
 - <term>Atlas training products</term>: Supported
 <!-- end id6 -->
 
+> Note: The BFLOAT16 data type is supported only on Ascend 950PR&950DT products.
+
 ## Function
 
 Computes the histogram of a tensor.
@@ -82,7 +84,7 @@ aclnnStatus aclnnHistc(
       <td>Input</td>
       <td>Tensor whose elements are to be counted in each bin.</td>
       <td>-</td>
-      <td>FLOAT16, FLOAT32, INT32, INT64, INT16, INT8, UINT8</td>
+      <td>FLOAT16, FLOAT32, BFLOAT16, INT32, INT64, INT16, INT8, UINT8</td>
       <td>ND</td>
       <td>0-8</td>
       <td>√</td>
@@ -91,7 +93,7 @@ aclnnStatus aclnnHistc(
       <td>bins (int64_t)</td>
       <td>Input</td>
       <td>Number of histogram bins.</td>
-      <td>The value range must be greater than 0.</td>
+      <td>The value range must be greater than 0 and no greater than 2147483647.</td>
       <td>-</td>
       <td>-</td>
       <td>-</td>
@@ -101,7 +103,7 @@ aclnnStatus aclnnHistc(
       <td>min (aclScalar*)</td>
       <td>Input</td>
       <td>Lower statistical bound of the histogram (inclusive).</td>
-      <td>The data type must be convertible to FLOAT. The value range must not be greater than the value of max.</td>
+      <td>The value range must not be greater than the value of max. Other products keep the existing semantics.</td>
       <td>-</td>
       <td>-</td>
       <td>-</td>
@@ -111,7 +113,7 @@ aclnnStatus aclnnHistc(
       <td>max(aclScalar*)</td>
       <td>Input</td>
       <td>Upper statistical limit (inclusive) of the histogram.</td>
-      <td>The data type must be convertible to FLOAT, and the value range must not be smaller than the value of min.</td>
+      <td>The value range must not be smaller than the value of min. Other products keep the existing semantics.</td>
       <td>-</td>
       <td>-</td>
       <td>-</td>
@@ -122,7 +124,7 @@ aclnnStatus aclnnHistc(
       <td>Output</td>
       <td>Histogram statistics result.</td>
       <td><ul><li>The data type of out must be convertible to the data type of self (see <a href="../../../docs/en/context/conversion_relationship.md" target="_blank">conversion relationship</a>).</li><li>The number of elements equals bins.</li></ul></td>
-      <td>FLOAT16, FLOAT32, INT32, INT64, INT16, INT8, UINT8</td>
+      <td>FLOAT16, FLOAT32, BFLOAT16, INT32, INT64, INT16, INT8, UINT8</td>
       <td>ND</td>
       <td>1</td>
       <td>√</td>
@@ -238,12 +240,19 @@ aclnnStatus aclnnHistc(
   </tbody>
   </table>
 
+  <!-- npu="950" id9 -->
+  - <term>Ascend 950PR&950DT products</term>: the `min`/`max` scalars are interpreted as int64 when self is an integer type and as float when self is a floating-point type (including BFLOAT16); the scalars must be losslessly convertible. If a scalar is outside the value range of self, self and the scalar are widened together before computation.
+  <!-- end id9 -->
+
 - **Return value**
 
   aclnnStatus: return status code. For details, see [aclnn Return Codes](../../../docs/en/context/aclnn_return_code.md).
 
 ## Constraints
 
+- Value ranges: `bins` must be greater than 0 and no greater than 2147483647; `min` must not be greater than `max`; `min`/`max` must be finite (only both being +inf or both being -inf is allowed).
+- When `min == max`, the statistical bounds are first recomputed from the minimum/maximum element of self; if they are still equal, they are expanded to the adjacent representable values.
+- The number of elements in `out` must equal `bins`, and the data type of `out` must be convertible to the data type of self.
 - Deterministic computation:
 
   <!-- npu="A3,910b,910,310p" id7 -->

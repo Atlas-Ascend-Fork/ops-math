@@ -21,6 +21,8 @@
 - <term>Atlas训练系列产品</term>：支持
 <!-- end id6 -->
 
+> 说明：BFLOAT16数据类型仅在Ascend 950PR&950DT系列产品上支持。
+
 ## 功能说明
 
 计算张量直方图。
@@ -80,7 +82,7 @@ aclnnStatus aclnnHistc(
       <td>输入</td>
       <td>待被统计元素在各个bins的数量的张量。</td>
       <td>-</td>
-      <td>FLOAT16、FLOAT32、INT32、INT64、INT16、INT8、UINT8</td>
+      <td>FLOAT16、FLOAT32、BFLOAT16、INT32、INT64、INT16、INT8、UINT8</td>
       <td>ND</td>
       <td>0-8</td>
       <td>√</td>
@@ -89,7 +91,7 @@ aclnnStatus aclnnHistc(
       <td>bins（int64_t）</td>
       <td>输入</td>
       <td>直方图bins的数量。</td>
-      <td>取值范围需大于0。</td>
+      <td>取值范围需大于0且不超过2147483647。</td>
       <td>-</td>
       <td>-</td>
       <td>-</td>
@@ -99,7 +101,7 @@ aclnnStatus aclnnHistc(
       <td>min（aclScalar*）</td>
       <td>输入</td>
       <td>直方图的统计下限（包括）。</td>
-      <td>数据类型需要是可转换成FLOAT的类型，取值范围不能大于max的值。</td>
+      <td>取值范围不能大于max的值。其他产品保持既有语义。</td>
       <td>-</td>
       <td>-</td>
       <td>-</td>
@@ -109,7 +111,7 @@ aclnnStatus aclnnHistc(
       <td>max（aclScalar*）</td>
       <td>输入</td>
       <td>直方图的统计上限（包括）。</td>
-      <td>数据类型需要是可转换成FLOAT的类型，取值范围不能小于min的值。</td>
+      <td>取值范围不能小于min的值。其他产品保持既有语义。</td>
       <td>-</td>
       <td>-</td>
       <td>-</td>
@@ -120,7 +122,7 @@ aclnnStatus aclnnHistc(
       <td>输出</td>
       <td>直方图统计结果。</td>
       <td><ul><li>out数据类型需要可转换为self的数据类型，（参考<a href="../../../docs/zh/context/conversion_relationship.md" target="_blank">互转换关系</a>）。</li><li>元素个数等于bins。</li></ul></td>
-      <td>FLOAT16、FLOAT32、INT32、INT64、INT16、INT8、UINT8</td>
+      <td>FLOAT16、FLOAT32、BFLOAT16、INT32、INT64、INT16、INT8、UINT8</td>
       <td>ND</td>
       <td>1</td>
       <td>√</td>
@@ -236,12 +238,19 @@ aclnnStatus aclnnHistc(
   </tbody>
   </table>
 
+  <!-- npu="950" id9 -->
+  - <term>Ascend 950PR&950DT系列产品</term>：`min`/`max` 标量在self为整数类型时按int64解释，在self为浮点类型（含BFLOAT16）时按float解释，标量需可无损转换为对应类型；标量超出self数据类型值域时，self与标量会共同提升后再计算。
+  <!-- end id9 -->
+
 - **返回值：**
 
   aclnnStatus：返回状态码，具体参见[aclnn返回码](../../../docs/zh/context/aclnn_return_code.md)。
 
 ## 约束说明
 
+- 取值范围：`bins`需大于0且不超过2147483647；`min`不得大于`max`；`min`/`max`需为有限值（仅允许两者同为+inf或同为-inf）。
+- `min == max`时，先按self元素的最小值/最大值重算统计上下限；重算后仍相等时，按邻接可表示值向两侧展开后统计。
+- `out`的元素个数必须等于`bins`，且数据类型需可转换为self的数据类型。
 - 确定性计算：
 
   <!-- npu="A3,910b,910,310p" id7 -->

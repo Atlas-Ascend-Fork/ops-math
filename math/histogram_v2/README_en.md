@@ -13,6 +13,8 @@ English | [简体中文](./README.md)
 | <term>Atlas inference products</term>                             |    √     |
 | <term>Atlas training products</term>                              |    ×     |
 
+> Note: The BFLOAT16 data type is supported only on Ascend 950PR&950DT products (arch35/regbase).
+
 ## Function Description
 
 - Operator function: computes the histogram of a tensor.
@@ -40,28 +42,28 @@ English | [简体中文](./README.md)
       <td>x</td>
       <td>Input</td>
       <td>Input tensor x in the formula.</td>
-      <td>FLOAT, FLOAT16, INT64, INT32, INT16, INT8, UINT8</td>
+      <td>FLOAT, FLOAT16, BFLOAT16, INT64, INT32, INT16, INT8, UINT8</td>
       <td>ND</td>
     </tr>
     <tr>
       <td>min</td>
       <td>Input</td>
       <td>Input tensor min in the formula, containing only 1 element.</td>
-      <td>FLOAT, FLOAT16, INT64, INT32, INT16, INT8, UINT8</td>
+      <td>FLOAT, FLOAT16, BFLOAT16, INT64, INT32, INT16, INT8, UINT8</td>
       <td>ND</td>
     </tr>
     <tr>
       <td>max</td>
       <td>Input</td>
       <td>Input tensor max in the formula, containing only 1 element.</td>
-      <td>FLOAT, FLOAT16, INT64, INT32, INT16, INT8, UINT8</td>
+      <td>FLOAT, FLOAT16, BFLOAT16, INT64, INT32, INT16, INT8, UINT8</td>
       <td>ND</td>
     </tr>
     <tr>
       <td>y</td>
       <td>Output</td>
       <td>Output tensor, which is the histogram computation result.</td>
-      <td>INT32</td>
+      <td>FLOAT32, INT32 (derived from input x on Ascend 950PR&950DT products; selected by y_dtype on other products)</td>
       <td>ND</td>
     </tr>
     <tr>
@@ -71,11 +73,23 @@ English | [简体中文](./README.md)
       <td>INT</td>
       <td>-</td>
     </tr>
+    <tr>
+      <td>y_dtype</td>
+      <td>Optional attribute</td>
+      <td><ul><li>Indicates the output data type: INT32 or FLOAT (float32).</li><li>On Ascend 950PR&950DT products, the output type is derived from input x (floating-point → FLOAT32, integer → INT32), so this attribute does not need to be set; if set explicitly, it must match the derived type, otherwise an error is reported.</li><li>On other products, this attribute selects the output type; the default value is INT32.</li></ul></td>
+      <td>INT</td>
+      <td>-</td>
+    </tr>
   </tbody></table>
 
 ## Constraint Description
 
-None
+- `bins` must be in the range (0, 2147483647]: greater than 0 and no greater than INT32_MAX (the kernel bin index is int32).
+- `min` must not be greater than `max`. When `min == max`, the statistical bounds are recomputed from the minimum/maximum element; if they are still equal, they are expanded to the adjacent representable values.
+- `min`/`max` must be finite; only both being +inf or both being -inf is allowed.
+- On Ascend 950PR&950DT products (arch35), `min`/`max` are interpreted as int64 for integer inputs; when a scalar is outside the value range of the input data type, the input and the scalar are widened together before computation. Other products keep the existing semantics.
+- Output type: on Ascend 950PR&950DT products it is derived from input x (floating-point → FLOAT32, integer → INT32) and `y_dtype` does not need to be set; on other products it is selected by `y_dtype` (default INT32).
+- Floating-point output uses atomic accumulation by default (non-deterministic); determinism can be enabled through `aclrtSetSysParamOpt`. Integer/INT32 output is deterministic.
 
 ## Invocation Description
 
