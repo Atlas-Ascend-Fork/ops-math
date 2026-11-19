@@ -246,19 +246,52 @@ static const aclTensor* normalDavidPath(const aclTensor* selfContiguous, int64_t
     }
 }
 
+static bool IsSeedOffsetDtypeInt64(const aclTensor* seedTensor, const aclTensor* offsetTensor)
+{
+    if (seedTensor->GetDataType() != op::DataType::DT_INT64) {
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "Normal seedTensor dtype must be DT_INT64, got %s.",
+                op::ToString(seedTensor->GetDataType()).GetString());
+        return false;
+    }
+    if (offsetTensor->GetDataType() != op::DataType::DT_INT64) {
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "Normal offsetTensor dtype must be DT_INT64, got %s.",
+                op::ToString(offsetTensor->GetDataType()).GetString());
+        return false;
+    }
+    return true;
+}
+
+// compat mode 下走 V3 Normal
+static const aclTensor* StatelessNormalV3WithTensorSeed(const aclTensor* selfContiguous, const aclTensor* seedTensor,
+                                                        const aclTensor* offsetTensor, int64_t offset, float mean,
+                                                        float std, aclOpExecutor* executor)
+{
+    OP_LOGD("compat mode, use V3 Normal");
+    // seedTensor/offsetTensor 从 int64 Cast 为 uint64（V3 OpDef 要求 uint64）
+    auto normalSeedU64 = l0op::Cast(seedTensor, op::DataType::DT_UINT64, executor);
+    CHECK_RET(normalSeedU64 != nullptr, nullptr);
+    auto normalOffsetU64 = l0op::Cast(offsetTensor, op::DataType::DT_UINT64, executor);
+    CHECK_RET(normalOffsetU64 != nullptr, nullptr);
+
+    FVector<int64_t> offsetVector{0, static_cast<int64_t>(offset)};
+    aclIntArray* offsetList = executor->AllocIntArray(offsetVector.data(), 2);
+    auto tmpTensor = executor->ConvertToTensor(offsetList, op::DataType::DT_UINT64);
+    auto resultAddOut = l0op::Add(normalOffsetU64, tmpTensor, executor);
+    CHECK_RET(resultAddOut != nullptr, nullptr);
+    FVector<float> meanVector = {mean};
+    auto meanTensorV3 = executor->ConvertToTensor(meanVector.data(), meanVector.size(), op::DataType::DT_FLOAT);
+    FVector<float> stdVector = {std};
+    auto stdTensorV3 = executor->ConvertToTensor(stdVector.data(), stdVector.size(), op::DataType::DT_FLOAT);
+    return l0op::StatelessRandomNormalV3(selfContiguous, normalSeedU64, resultAddOut, meanTensorV3, stdTensorV3,
+                                         executor);
+}
+
 // 非DSA路径的 normal 正态分布计算（Tensor seed/offset 版本）
 static const aclTensor* normalTensorDavidPath(const aclTensor* selfContiguous, const aclTensor* seedTensor,
                                               const aclTensor* offsetTensor, int64_t offset, float mean, float std,
                                               aclOpExecutor* executor)
 {
-    if (seedTensor->GetDataType() != op::DataType::DT_INT64) {
-        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "Normal seedTensor dtype must be DT_INT64, got %s.",
-                op::ToString(seedTensor->GetDataType()).GetString());
-        return nullptr;
-    }
-    if (offsetTensor->GetDataType() != op::DataType::DT_INT64) {
-        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "Normal offsetTensor dtype must be DT_INT64, got %s.",
-                op::ToString(offsetTensor->GetDataType()).GetString());
+    if (!IsSeedOffsetDtypeInt64(seedTensor, offsetTensor)) {
         return nullptr;
     }
 
@@ -267,24 +300,8 @@ static const aclTensor* normalTensorDavidPath(const aclTensor* selfContiguous, c
          GetCurrentPlatformInfo().GetCurNpuArch() == NpuArch::DAV_9202) &&
         selfContiguous->GetDataType() != DataType::DT_DOUBLE) {
         if (!aclnnGetPytorchRandom()) {
-            OP_LOGD("compat mode, use V3 Normal");
-            // seedTensor/offsetTensor 从 int64 Cast 为 uint64（V3 OpDef 要求 uint64）
-            auto normalSeedU64 = l0op::Cast(seedTensor, op::DataType::DT_UINT64, executor);
-            CHECK_RET(normalSeedU64 != nullptr, nullptr);
-            auto normalOffsetU64 = l0op::Cast(offsetTensor, op::DataType::DT_UINT64, executor);
-            CHECK_RET(normalOffsetU64 != nullptr, nullptr);
-
-            FVector<int64_t> offsetVector{0, static_cast<int64_t>(offset)};
-            aclIntArray* offsetList = executor->AllocIntArray(offsetVector.data(), 2);
-            auto tmpTensor = executor->ConvertToTensor(offsetList, op::DataType::DT_UINT64);
-            auto resultAddOut = l0op::Add(normalOffsetU64, tmpTensor, executor);
-            CHECK_RET(resultAddOut != nullptr, nullptr);
-            FVector<float> meanVector = {mean};
-            auto meanTensorV3 = executor->ConvertToTensor(meanVector.data(), meanVector.size(), op::DataType::DT_FLOAT);
-            FVector<float> stdVector = {std};
-            auto stdTensorV3 = executor->ConvertToTensor(stdVector.data(), stdVector.size(), op::DataType::DT_FLOAT);
-            return l0op::StatelessRandomNormalV3(selfContiguous, normalSeedU64, resultAddOut, meanTensorV3, stdTensorV3,
-                                                 executor);
+            return StatelessNormalV3WithTensorSeed(selfContiguous, seedTensor, offsetTensor, offset, mean, std,
+                                                   executor);
         }
         // 精度等价论证同 normalDavidPath 改造
         FVector<int64_t> offsetVector{static_cast<int64_t>(offset)};

@@ -32,6 +32,28 @@ public:
 
     explicit TensorMove(const char* name) : OpDef(name)
     {
+        this->RegisterMainInputOutput();
+
+        OpAICoreConfig aicoreConfig;
+        aicoreConfig.DynamicCompileStaticFlag(true)
+            .DynamicFormatFlag(false)
+            .DynamicRankSupportFlag(true)
+            .DynamicShapeSupportFlag(true)
+            .NeedCheckSupportFlag(false)
+            .PrecisionReduceFlag(true)
+            .ExtendCfgInfo("opFile.value", "tensor_move_apt");
+        this->AICore().AddConfig("ascend950", aicoreConfig);
+        this->AICore().AddConfig("ascend350", aicoreConfig);
+        this->AICore().AddConfig("ascend960pr", aicoreConfig);
+
+        OpAICoreConfig CONFIG_ARCH92;
+        this->SetArch92Config(CONFIG_ARCH92);
+        this->AICore().AddConfig("ascend960dt", CONFIG_ARCH92);
+    }
+
+private:
+    void RegisterMainInputOutput()
+    {
         this->Input("x")
             .ParamType(REQUIRED)
             .DataType({ge::DT_BF16, ge::DT_FLOAT16, ge::DT_FLOAT, ge::DT_UINT8, ge::DT_INT8, ge::DT_UINT16,
@@ -68,8 +90,10 @@ public:
             .ExtendCfgInfo("opFile.value", "tensor_move_apt");
         opbase::ArchConfigHelper::AddConfigByArch(this->AICore(), Ops::Base::DAV_3510, aicoreConfig);
         opbase::ArchConfigHelper::AddConfigByArch(this->AICore(), Ops::Base::DAV_9202, aicoreConfig);
+    }
 
-        OpAICoreConfig CONFIG_ARCH92;
+    void SetArch92Config(OpAICoreConfig& CONFIG_ARCH92)
+    {
         CONFIG_ARCH92.Input("x")
             .ParamType(REQUIRED)
             .DataType(BASE_DATA_TYPE_ARCH92)

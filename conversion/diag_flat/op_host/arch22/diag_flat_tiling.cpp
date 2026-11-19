@@ -97,13 +97,8 @@ static void PrintTilingData(DiagV2TilingData& tilingData)
     OP_LOGI("---[DiagFlat]---", "tilingKey: %ld", tilingData.get_tilingKey());
 }
 
-ge::graphStatus TilingDiagFlat(gert::TilingContext* context)
+static ge::graphStatus GetDiagonalAttr(gert::TilingContext* context, int64_t& diagonal)
 {
-    OP_LOGD(context->GetNodeName(), "TilingDiagFlat running begin");
-    auto input = context->GetInputTensor(0);
-    OP_CHECK_IF(input == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x"), return ge::GRAPH_FAILED);
-    auto inputShape = input->GetStorageShape();
-    DiagV2TilingData tilingData;
     auto attrs = context->GetAttrs();
     OP_CHECK_IF(attrs == nullptr,
                 OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "diagonal", "null",
@@ -114,7 +109,30 @@ ge::graphStatus TilingDiagFlat(gert::TilingContext* context)
                 OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "diagonal", "null",
                                                       "required attribute is missing"),
                 return ge::GRAPH_FAILED);
-    const int64_t diagonal = *diagonalPtr;
+    diagonal = *diagonalPtr;
+    return ge::GRAPH_SUCCESS;
+}
+
+static void SetUbSizeFields(int64_t ubSize, ge::DataType dataType, DiagV2TilingData& tilingData)
+{
+    int32_t dtypeSize = ge::GetSizeByDataType(dataType);
+    auto auxMatrix = SCALAR_THRESHOLD_NUM * SCALAR_THRESHOLD_NUM * dtypeSize;
+    auto outputDataSize = SCALAR_THRESHOLD_NUM * SCALAR_THRESHOLD_NUM * dtypeSize;
+    auto inputDataSize = ubSize - auxMatrix - outputDataSize;
+    tilingData.set_ubInputSize(inputDataSize);
+    tilingData.set_ubOutputSize(outputDataSize);
+}
+
+ge::graphStatus TilingDiagFlat(gert::TilingContext* context)
+{
+    OP_LOGD(context->GetNodeName(), "TilingDiagFlat running begin");
+    auto input = context->GetInputTensor(0);
+    OP_CHECK_IF(input == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x"), return ge::GRAPH_FAILED);
+    auto inputShape = input->GetStorageShape();
+    DiagV2TilingData tilingData;
+    int64_t diagonal = 0;
+    OP_CHECK_IF(GetDiagonalAttr(context, diagonal) != ge::GRAPH_SUCCESS,
+                ReportTilingFailure(context->GetNodeName(), "GetDiagonalAttr failed"), return ge::GRAPH_FAILED);
     tilingData.set_diagonal(diagonal);
     // set coreNum
     auto compileInfo = reinterpret_cast<const DiagV2CompileInfo*>(context->GetCompileInfo());
@@ -124,14 +142,7 @@ ge::graphStatus TilingDiagFlat(gert::TilingContext* context)
     int64_t totalCoreNum = static_cast<int64_t>(compileInfo->totalCoreNum);
     tilingData.set_totalCoreNum(totalCoreNum);
     // set ubSize
-    int64_t ubSize = compileInfo->ubSizePlatForm;
-    auto dataType = input->GetDataType();
-    int32_t dtypeSize = ge::GetSizeByDataType(dataType);
-    auto auxMatrix = SCALAR_THRESHOLD_NUM * SCALAR_THRESHOLD_NUM * dtypeSize;
-    auto outputDataSize = SCALAR_THRESHOLD_NUM * SCALAR_THRESHOLD_NUM * dtypeSize;
-    auto inputDataSize = ubSize - auxMatrix - outputDataSize;
-    tilingData.set_ubInputSize(inputDataSize);
-    tilingData.set_ubOutputSize(outputDataSize);
+    SetUbSizeFields(compileInfo->ubSizePlatForm, input->GetDataType(), tilingData);
     // set inputNum
     tilingData.set_inputNum(inputShape.GetShapeSize());
     if (tilingData.get_inputNum() <= SCALAR_THRESHOLD_NUM) {

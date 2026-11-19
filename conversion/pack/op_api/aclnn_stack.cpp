@@ -410,30 +410,10 @@ static bool IsNonContiguousSupport(const op::FVector<const aclTensor*>& tensors,
     return true;
 }
 
-// 构造插轴 view 保留 stride 信息, 插轴放在用户 dim 位(p = dim), 调用前门控已保证仅两类几何:
-// - dim == 0: 插轴后断点轴 b+1 > 0, 直通 ConcatD dim=0 gather 泛化分支(参考 aclnnCat dim=0
-//   非连续实现), concat 输出物理布局 == 用户期望布局(N 轴恰在用户 dim 位), 无需仿射重排;
-// - dim == b+1: 断点恰为 dim-1, 走存量 legacy 非连续模板(与插轴 p=breakAxis+1 等价);
-// 按 MAX_TENSOR_NUM 分批; 返回 false 表示底层 ConcatD 拒绝, 由调用方回退常规路径
-static bool ProcessNonContiguous(const op::FVector<const aclTensor*>& tensors, int64_t dim, int64_t breakAxis,
-                                 aclOpExecutor* executor, const aclTensor** out)
+// 按 MAX_TENSOR_NUM 分批调用 ConcatD 逐层归并 tensorListA, 底层 ConcatD 拒绝时返回 false,
+// 由调用方回退常规路径
+static bool ConcatNonContiguousByBatch(op::FVector<const aclTensor*>& tensorListA, int64_t p, aclOpExecutor* executor)
 {
-    (void)breakAxis; // 插轴位仅由用户 dim 决定, 断点位置已由门控保证可直通
-    int64_t p = dim;
-    op::FVector<const aclTensor*> tensorListA;
-    for (uint64_t i = 0; i < tensors.size(); i++) {
-        op::Shape shapeI = tensors[i]->GetViewShape();
-        op::Shape viewShape = MakeStackViewShape(shapeI, p);
-        op::Strides viewStrides = MakeStackViewStrides(shapeI, tensors[i]->GetViewStrides(), p);
-        auto viewTensor = executor->CreateView(tensors[i], viewShape, tensors[i]->GetStorageShape(), viewStrides,
-                                               tensors[i]->GetViewOffset());
-        if (viewTensor == nullptr) {
-            OP_LOGW("aclnnStack create non contiguous view failed, fallback to contiguous path.");
-            return false;
-        }
-        tensorListA.emplace_back(viewTensor);
-    }
-
     while (tensorListA.size() > 1) {
         op::FVector<const aclTensor*> tensorListOnce;
         op::FVector<const aclTensor*> tensorListB;
@@ -465,6 +445,36 @@ static bool ProcessNonContiguous(const op::FVector<const aclTensor*>& tensors, i
             tensorListOnce.clear();
         }
         tensorListA = tensorListB;
+    }
+    return true;
+}
+
+// 构造插轴 view 保留 stride 信息, 插轴放在用户 dim 位(p = dim), 调用前门控已保证仅两类几何:
+// - dim == 0: 插轴后断点轴 b+1 > 0, 直通 ConcatD dim=0 gather 泛化分支(参考 aclnnCat dim=0
+//   非连续实现), concat 输出物理布局 == 用户期望布局(N 轴恰在用户 dim 位), 无需仿射重排;
+// - dim == b+1: 断点恰为 dim-1, 走存量 legacy 非连续模板(与插轴 p=breakAxis+1 等价);
+// 按 MAX_TENSOR_NUM 分批; 返回 false 表示底层 ConcatD 拒绝, 由调用方回退常规路径
+static bool ProcessNonContiguous(const op::FVector<const aclTensor*>& tensors, int64_t dim, int64_t breakAxis,
+                                 aclOpExecutor* executor, const aclTensor** out)
+{
+    (void)breakAxis; // 插轴位仅由用户 dim 决定, 断点位置已由门控保证可直通
+    int64_t p = dim;
+    op::FVector<const aclTensor*> tensorListA;
+    for (uint64_t i = 0; i < tensors.size(); i++) {
+        op::Shape shapeI = tensors[i]->GetViewShape();
+        op::Shape viewShape = MakeStackViewShape(shapeI, p);
+        op::Strides viewStrides = MakeStackViewStrides(shapeI, tensors[i]->GetViewStrides(), p);
+        auto viewTensor = executor->CreateView(tensors[i], viewShape, tensors[i]->GetStorageShape(), viewStrides,
+                                               tensors[i]->GetViewOffset());
+        if (viewTensor == nullptr) {
+            OP_LOGW("aclnnStack create non contiguous view failed, fallback to contiguous path.");
+            return false;
+        }
+        tensorListA.emplace_back(viewTensor);
+    }
+
+    if (!ConcatNonContiguousByBatch(tensorListA, p, executor)) {
+        return false;
     }
     if (tensorListA.empty()) {
         *out = nullptr;

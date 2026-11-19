@@ -159,6 +159,29 @@ ge::graphStatus SimThreadExponentialTiling::GetInputTensorInfo()
                                                       "start must be less than or equal to end"),
                 return ge::GRAPH_FAILED);
 
+    if (GetSelfShapeInfo() != ge::GRAPH_SUCCESS) {
+        return ge::GRAPH_FAILED;
+    }
+
+    auto selfDesc = context->GetInputDesc(INPUT_SELF_IDX);
+    if (selfDesc == nullptr) {
+        OP_LOGE_WITHOUT_REPORT(OpNameOf(context), "selfDesc is nullptr");
+        return ge::GRAPH_FAILED;
+    }
+    selfDType = selfDesc->GetDataType();
+    GetDataTypeKey(selfDType);
+    OP_CHECK_IF(
+        GetDataTypeKey(selfDType) == false,
+        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(nodeName, "self", std::to_string(static_cast<int>(selfDType)).c_str(),
+                                              "dtype must be one of [float32, float16, bfloat16]"),
+        return ge::GRAPH_FAILED);
+
+    return ge::GRAPH_SUCCESS;
+}
+
+ge::graphStatus SimThreadExponentialTiling::GetSelfShapeInfo()
+{
+    auto nodeName = context->GetNodeName();
     // 获取第一个输入gradOut的信息：空指针为框架契约防御检查，仅写日志透传，不再隐式注册EZ9999
     auto selfShapePtr = context->GetInputShape(INPUT_SELF_IDX);
     if (selfShapePtr == nullptr) {
@@ -179,19 +202,6 @@ ge::graphStatus SimThreadExponentialTiling::GetInputTensorInfo()
         return ge::GRAPH_FAILED);
     usrWorkspaceSize = Ceil(usrWorkspaceSize, BATCHNUMPERHANDLE * BLOCKSIZE);
     usrWorkspaceSize *= FP32_TYPESIZE;
-
-    auto selfDesc = context->GetInputDesc(INPUT_SELF_IDX);
-    if (selfDesc == nullptr) {
-        OP_LOGE_WITHOUT_REPORT(OpNameOf(context), "selfDesc is nullptr");
-        return ge::GRAPH_FAILED;
-    }
-    selfDType = selfDesc->GetDataType();
-    GetDataTypeKey(selfDType);
-    OP_CHECK_IF(
-        GetDataTypeKey(selfDType) == false,
-        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(nodeName, "self", std::to_string(static_cast<int>(selfDType)).c_str(),
-                                              "dtype must be one of [float32, float16, bfloat16]"),
-        return ge::GRAPH_FAILED);
 
     return ge::GRAPH_SUCCESS;
 }

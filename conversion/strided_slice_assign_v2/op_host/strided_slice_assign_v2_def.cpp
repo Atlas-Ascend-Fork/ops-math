@@ -38,6 +38,28 @@ class StridedSliceAssignV2 : public OpDef {
 public:
     explicit StridedSliceAssignV2(const char* name) : OpDef(name)
     {
+        this->RegisterInputs();
+        this->Output("var")
+            .ParamType(REQUIRED)
+            .DataType(inputDataType)
+            .Format(format)
+            .UnknownShapeFormat(format)
+            .AutoContiguous();
+
+        this->AICore().AddConfig("ascend910b");
+        this->AICore().AddConfig("ascend910_93");
+        this->AICore().AddConfig("ascend950");
+        this->AICore().AddConfig("ascend350");
+        this->AICore().AddConfig("ascend960dt");
+
+        OpAICoreConfig config_kirin = GetKirinCoreConfig();
+        this->AICore().AddConfig("kirinx90", config_kirin);
+        this->AICore().AddConfig("kirin9030", config_kirin);
+    }
+
+private:
+    void RegisterInputs()
+    {
         this->Input("var")
             .ParamType(REQUIRED)
             .DataType(inputDataType)
@@ -78,34 +100,10 @@ public:
             .Format(format)
             .UnknownShapeFormat(format)
             .AutoContiguous();
-        this->Output("var")
-            .ParamType(REQUIRED)
-            .DataType(inputDataType)
-            .Format(format)
-            .UnknownShapeFormat(format)
-            .AutoContiguous();
-
-        this->AICore().AddConfig("ascend910b");
-        this->AICore().AddConfig("ascend910_93");
-        this->AICore().AddConfig("ascend950");
-        this->AICore().AddConfig("ascend350");
-        this->AICore().AddConfig("ascend960dt");
-
-        OpAICoreConfig config_kirin = GetKirinCoreConfig();
-        this->AICore().AddConfig("kirinx90", config_kirin);
-        this->AICore().AddConfig("kirin9030", config_kirin);
     }
 
-private:
-    OpAICoreConfig GetKirinCoreConfig() const
+    void SetKirinInputs(OpAICoreConfig& config_kirin) const
     {
-        OpAICoreConfig config_kirin;
-        config_kirin.DynamicCompileStaticFlag(true)
-            .DynamicFormatFlag(true)
-            .DynamicRankSupportFlag(true)
-            .DynamicShapeSupportFlag(true)
-            .NeedCheckSupportFlag(false)
-            .PrecisionReduceFlag(true);
         config_kirin.Input("var")
             .ParamType(REQUIRED)
             .DataType(inputDataTypeKirin)
@@ -146,6 +144,18 @@ private:
             .Format(formatKirin)
             .UnknownShapeFormat(formatKirin)
             .AutoContiguous();
+    }
+
+    OpAICoreConfig GetKirinCoreConfig() const
+    {
+        OpAICoreConfig config_kirin;
+        config_kirin.DynamicCompileStaticFlag(true)
+            .DynamicFormatFlag(true)
+            .DynamicRankSupportFlag(true)
+            .DynamicShapeSupportFlag(true)
+            .NeedCheckSupportFlag(false)
+            .PrecisionReduceFlag(true);
+        SetKirinInputs(config_kirin);
         config_kirin.Output("var")
             .ParamType(REQUIRED)
             .DataType(inputDataTypeKirin)

@@ -126,6 +126,10 @@ protected:
 
     gert::TilingContext* context_ = nullptr;
     CircularPadCommonTilingData tilingData_;
+
+private:
+    ge::graphStatus GetXShapeInfo();
+    ge::graphStatus GetYShapeInfo();
 };
 } // namespace optiling
 #endif

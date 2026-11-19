@@ -104,6 +104,24 @@ static ge::graphStatus SetTilingBatch(const gert::TilingContext* context, FeedsR
     return ge::GRAPH_SUCCESS;
 }
 
+static ge::graphStatus SetTilingTimesDtype(const gert::TilingContext* context, uint32_t& tiling_key,
+                                           uint32_t& elem_size)
+{
+    const auto* times_desc = context->GetInputDesc(1);
+    OP_CHECK_NULL_WITH_CONTEXT(context, times_desc);
+    auto dtype_length = times_desc->GetDataType();
+    if (dtype_length == ge::DT_INT32) {
+        elem_size = SIZE_OF_INT32;
+    } else if (dtype_length == ge::DT_INT64) {
+        tiling_key = TILING_KEY_100; // feeds_repeat_times为int64时tiling_key百位为1
+        elem_size = SIZE_OF_INT64;
+    } else {
+        OP_LOGE(context->GetNodeName(), "[FeedsRepeat] feeds_repeat_times dtype only support int32, int64");
+        return ge::GRAPH_FAILED;
+    }
+    return ge::GRAPH_SUCCESS;
+}
+
 static ge::graphStatus SetTilingLength(const gert::TilingContext* context, FeedsRepeatTilingData& tiling,
                                        uint32_t& tiling_key, uint32_t& length_space)
 {
@@ -132,18 +150,10 @@ static ge::graphStatus SetTilingLength(const gert::TilingContext* context, Feeds
                                                "feeds_repeat_times element count must equal feeds dim0");
         return ge::GRAPH_FAILED;
     }
-    const auto* times_desc = context->GetInputDesc(1);
-    OP_CHECK_NULL_WITH_CONTEXT(context, times_desc);
-    auto dtype_length = times_desc->GetDataType();
     uint32_t elem_size = 0;
-    if (dtype_length == ge::DT_INT32) {
-        elem_size = SIZE_OF_INT32;
-    } else if (dtype_length == ge::DT_INT64) {
-        tiling_key = TILING_KEY_100; // feeds_repeat_times为int64时tiling_key百位为1
-        elem_size = SIZE_OF_INT64;
-    } else {
-        OP_LOGE(context->GetNodeName(), "[FeedsRepeat] feeds_repeat_times dtype only support int32, int64");
-        return ge::GRAPH_FAILED;
+    ge::graphStatus ret = SetTilingTimesDtype(context, tiling_key, elem_size);
+    if (ret != ge::GRAPH_SUCCESS) {
+        return ret;
     }
     const uint64_t length = static_cast<uint64_t>(feeds_dim0);
     // 先按元素数上界拒绝，再对齐/相乘，避免 length_aligned * elem_size 在 uint64 中回绕后绕过限长校验

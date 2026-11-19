@@ -20,7 +20,6 @@
 #include "register/tilingdata_base.h"
 #include "platform/platform_ascendc.h"
 
-
 namespace optiling {
 BEGIN_TILING_DATA_DEF(UnfoldGradTilingData)
 TILING_DATA_FIELD_DEF(int64_t, batchNum);
@@ -59,13 +58,15 @@ struct Tiling4UnfoldGradCompileInfo {};
 
 class UnfoldGradTiling {
 public:
-    explicit UnfoldGradTiling(gert::TilingContext *context_) : context(context_){};
+    explicit UnfoldGradTiling(gert::TilingContext* context_) : context(context_) {};
     virtual ~UnfoldGradTiling() = default;
     ge::graphStatus DoTiling();
     ge::graphStatus GetPlatformInfo();
     ge::graphStatus GetInputTensorInfo();
     ge::graphStatus SetAttrParams();
     ge::graphStatus TilingBlock4SizeLevelBig();
+    ge::graphStatus CalcUbSize4Block();
+    ge::graphStatus TilingBlock4NotLastDim(int64_t neededAmountForOneSize);
     ge::graphStatus Tiling4Block();
     uint64_t GetTilingKey();
     bool GetDataTypeKey(ge::DataType dataType);
@@ -76,7 +77,7 @@ public:
 
 private:
     UnfoldGradTilingData tiling;
-    gert::TilingContext *context = nullptr;
+    gert::TilingContext* context = nullptr;
 
     template <typename T>
     inline auto Max(T x, T y) const -> T
@@ -104,7 +105,7 @@ private:
 
     int64_t usrWorkspaceSize = 1;
     int64_t dataTypeTilingKey = 0;
-    uint64_t tilingKey_{ 0 };
+    uint64_t tilingKey_{0};
 
     int64_t batchNum = 1;         // 总任务批次
     int64_t batchNumPerCore = 1;  // 每个核的任务批次
@@ -137,8 +138,8 @@ private:
     int64_t ubSize = 0;
     ge::DataType gardInDType = ge::DT_UNDEFINED;
 
-    int64_t loop = 0; // 一个迭代内的循环次数
-    int64_t tail = 0; // 尾块大小
+    int64_t loop = 0;      // 一个迭代内的循环次数
+    int64_t tail = 0;      // 尾块大小
     int64_t sizeLevel = 0; // 0 标记size 在UB Trans可处理数量范围内，1 超出UB Trans限制
 };
 } // namespace optiling

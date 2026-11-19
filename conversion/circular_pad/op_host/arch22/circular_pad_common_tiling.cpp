@@ -66,6 +66,17 @@ ge::graphStatus CircularPadCommonTiling::GetShapeAttrsInfo()
         back = padding_valus[paddingDim - DIM_1];
     }
 
+    if (GetXShapeInfo() != ge::GRAPH_SUCCESS) {
+        return ge::GRAPH_FAILED;
+    }
+    if (GetYShapeInfo() != ge::GRAPH_SUCCESS) {
+        return ge::GRAPH_FAILED;
+    }
+    return ge::GRAPH_SUCCESS;
+}
+
+ge::graphStatus CircularPadCommonTiling::GetXShapeInfo()
+{
     // get x shape
     auto x_shape = context_->GetInputShape(0);
     OP_CHECK_IF(x_shape == nullptr, OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "x"), return ge::GRAPH_FAILED);
@@ -84,7 +95,11 @@ ge::graphStatus CircularPadCommonTiling::GetShapeAttrsInfo()
     if (xDimNum >= DIM_3) {
         inputL = x_shape->GetStorageShape().GetDim(xDim - DIM_1);
     }
+    return ge::GRAPH_SUCCESS;
+}
 
+ge::graphStatus CircularPadCommonTiling::GetYShapeInfo()
+{
     // get y shape
     auto y_shape = context_->GetOutputShape(0);
     if (y_shape == nullptr) {

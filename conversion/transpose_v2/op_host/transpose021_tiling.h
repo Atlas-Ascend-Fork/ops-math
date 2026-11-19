@@ -56,18 +56,9 @@ public:
     }
     ge::graphStatus DoTiling()
     {
-        const gert::StorageShape* x_shape = context->GetInputShape(0);
-        auto dimNum = x_shape->GetStorageShape().GetDimNum();
-        OP_CHECK_IF(
-            dimNum < 2, // 2 is x's dims min
-            OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "x", std::to_string(dimNum).c_str(),
-                                                     "x's dims must be greater than or equal to 2"),
-            return ge::GRAPH_FAILED);
-        for (uint64_t i = 0; i < dimNum - 2; i++) { // 2 is x's dims min
-            params.inputNC *= x_shape->GetStorageShape().GetDim(i);
+        if (GetInputDims() != ge::GRAPH_SUCCESS) {
+            return ge::GRAPH_FAILED;
         }
-        params.inputH = x_shape->GetStorageShape().GetDim(dimNum - 2); // dimNum - 2 is h dim index
-        params.inputW = x_shape->GetStorageShape().GetDim(dimNum - 1); // dimNum - 1 is w dim index
 
         // 分核
         params.tasksPerCore = params.inputNC / params.coreNum;
@@ -75,14 +66,7 @@ public:
         params.coreNum = params.tasksPerCore == 0U ? params.tasksTail : params.coreNum;
 
         // 分块
-        auto xDataType = context->GetInputDesc(0)->GetDataType();
-        if (xDataType == ge::DataType::DT_FLOAT16 || xDataType == ge::DataType::DT_BF16) {
-            params.typeSize = sizeof(uint16_t);
-        } else if (xDataType == ge::DataType::DT_FLOAT) {
-            params.typeSize = sizeof(float);
-        } else {
-            OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "x", Ops::Base::ToString(xDataType).c_str(),
-                                                  "supported dtypes are DT_FLOAT16, DT_BF16 and DT_FLOAT");
+        if (SetTypeSizeByDtype() != ge::GRAPH_SUCCESS) {
             return ge::GRAPH_FAILED;
         }
 
@@ -164,6 +148,38 @@ public:
 
 private:
     uint64_t GetAlign(uint64_t len, uint64_t size) { return size == 0U ? 0U : (len + size - 1U) / size * size; }
+
+    ge::graphStatus GetInputDims()
+    {
+        const gert::StorageShape* x_shape = context->GetInputShape(0);
+        auto dimNum = x_shape->GetStorageShape().GetDimNum();
+        OP_CHECK_IF(
+            dimNum < 2, // 2 is x's dims min
+            OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "x", std::to_string(dimNum).c_str(),
+                                                     "x's dims must be greater than or equal to 2"),
+            return ge::GRAPH_FAILED);
+        for (uint64_t i = 0; i < dimNum - 2; i++) { // 2 is x's dims min
+            params.inputNC *= x_shape->GetStorageShape().GetDim(i);
+        }
+        params.inputH = x_shape->GetStorageShape().GetDim(dimNum - 2); // dimNum - 2 is h dim index
+        params.inputW = x_shape->GetStorageShape().GetDim(dimNum - 1); // dimNum - 1 is w dim index
+        return ge::GRAPH_SUCCESS;
+    }
+
+    ge::graphStatus SetTypeSizeByDtype()
+    {
+        auto xDataType = context->GetInputDesc(0)->GetDataType();
+        if (xDataType == ge::DataType::DT_FLOAT16 || xDataType == ge::DataType::DT_BF16) {
+            params.typeSize = sizeof(uint16_t);
+        } else if (xDataType == ge::DataType::DT_FLOAT) {
+            params.typeSize = sizeof(float);
+        } else {
+            OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "x", Ops::Base::ToString(xDataType).c_str(),
+                                                  "supported dtypes are DT_FLOAT16, DT_BF16 and DT_FLOAT");
+            return ge::GRAPH_FAILED;
+        }
+        return ge::GRAPH_SUCCESS;
+    }
 
 private:
     gert::TilingContext* context = nullptr;

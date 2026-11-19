@@ -22,32 +22,9 @@ static constexpr size_t OUTPUT_IDX_Y = 0;
 static constexpr size_t PADDING_PAIR_SIZE = 2;
 static constexpr int64_t UNKNOWN_DIM = -1;
 
-static ge::graphStatus InferShape4CircularPadGrad(gert::InferShapeContext* context)
+static ge::graphStatus CheckPaddingsAndSetOutputShape(gert::InferShapeContext* context, const gert::Shape* xShape,
+                                                      const gert::Shape& paddings, gert::Shape* yShape)
 {
-    const gert::Shape* xShape = context->GetInputShape(INPUT_IDX_X);
-    OP_CHECK_IF(xShape == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x"), return ge::GRAPH_FAILED);
-    gert::Shape* yShape = context->GetOutputShape(OUTPUT_IDX_Y);
-    if (yShape == nullptr) {
-        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "y");
-        return ge::GRAPH_FAILED;
-    }
-
-    if (Ops::Base::IsUnknownRank(*xShape)) {
-        Ops::Base::SetUnknownRank(*yShape);
-        OP_LOGI(context->GetNodeName(), "CircularPadGrad output shape: %s.", Ops::Base::ToString(*yShape).c_str());
-        return ge::GRAPH_SUCCESS;
-    }
-
-    gert::Shape paddings;
-    if (!Ops::Base::GetConstIntToShape<gert::InferShapeContext>(context, INPUT_IDX_PADDINGS, paddings)) {
-        yShape->SetDimNum(xShape->GetDimNum());
-        for (size_t i = 0; i < xShape->GetDimNum(); ++i) {
-            yShape->SetDim(i, UNKNOWN_DIM);
-        }
-        OP_LOGI(context->GetNodeName(), "CircularPadGrad output shape: %s.", Ops::Base::ToString(*yShape).c_str());
-        return ge::GRAPH_SUCCESS;
-    }
-
     OP_CHECK_IF(paddings.GetDimNum() != xShape->GetDimNum() * PADDING_PAIR_SIZE,
                 OP_LOGE_FOR_INVALID_SHAPESIZES_WITH_REASON(
                     context->GetNodeName(), "paddings and x",
@@ -76,6 +53,34 @@ static ge::graphStatus InferShape4CircularPadGrad(gert::InferShapeContext* conte
     }
     OP_LOGI(context->GetNodeName(), "CircularPadGrad output shape: %s.", Ops::Base::ToString(*yShape).c_str());
     return ge::GRAPH_SUCCESS;
+}
+
+static ge::graphStatus InferShape4CircularPadGrad(gert::InferShapeContext* context)
+{
+    const gert::Shape* xShape = context->GetInputShape(INPUT_IDX_X);
+    OP_CHECK_IF(xShape == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x"), return ge::GRAPH_FAILED);
+    gert::Shape* yShape = context->GetOutputShape(OUTPUT_IDX_Y);
+    if (yShape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "y");
+        return ge::GRAPH_FAILED;
+    }
+
+    if (Ops::Base::IsUnknownRank(*xShape)) {
+        Ops::Base::SetUnknownRank(*yShape);
+        OP_LOGI(context->GetNodeName(), "CircularPadGrad output shape: %s.", Ops::Base::ToString(*yShape).c_str());
+        return ge::GRAPH_SUCCESS;
+    }
+
+    gert::Shape paddings;
+    if (!Ops::Base::GetConstIntToShape<gert::InferShapeContext>(context, INPUT_IDX_PADDINGS, paddings)) {
+        yShape->SetDimNum(xShape->GetDimNum());
+        for (size_t i = 0; i < xShape->GetDimNum(); ++i) {
+            yShape->SetDim(i, UNKNOWN_DIM);
+        }
+        OP_LOGI(context->GetNodeName(), "CircularPadGrad output shape: %s.", Ops::Base::ToString(*yShape).c_str());
+        return ge::GRAPH_SUCCESS;
+    }
+    return CheckPaddingsAndSetOutputShape(context, xShape, paddings, yShape);
 }
 
 static ge::graphStatus InferDataType4CircularPadGrad(gert::InferDataTypeContext* context)

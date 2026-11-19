@@ -22,32 +22,9 @@ static constexpr size_t OUTPUT_IDX_Z = 0;
 static constexpr size_t PADDING_PAIR_SIZE = 2;
 static constexpr int64_t UNKNOWN_DIM = -1;
 
-static ge::graphStatus InferShape4PadV3GradReplication(gert::InferShapeContext* context)
+static ge::graphStatus CheckPaddingsAndSetOutputShape(gert::InferShapeContext* context, const gert::Shape* xShape,
+                                                      const gert::Shape& paddings, gert::Shape* zShape)
 {
-    const gert::Shape* xShape = context->GetInputShape(INPUT_IDX_X);
-    OP_CHECK_IF(xShape == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x"), return ge::GRAPH_FAILED);
-    gert::Shape* zShape = context->GetOutputShape(OUTPUT_IDX_Z);
-    if (zShape == nullptr) {
-        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "z");
-        return ge::GRAPH_FAILED;
-    }
-
-    if (Ops::Base::IsUnknownRank(*xShape)) {
-        Ops::Base::SetUnknownRank(*zShape);
-        OP_LOGI(context->GetNodeName(), "PadV3GradReplication output shape: %s.", Ops::Base::ToString(*zShape).c_str());
-        return ge::GRAPH_SUCCESS;
-    }
-
-    gert::Shape paddings;
-    if (!Ops::Base::GetConstIntToShape<gert::InferShapeContext>(context, INPUT_IDX_PADDINGS, paddings)) {
-        zShape->SetDimNum(xShape->GetDimNum());
-        for (size_t i = 0; i < xShape->GetDimNum(); ++i) {
-            zShape->SetDim(i, UNKNOWN_DIM);
-        }
-        OP_LOGI(context->GetNodeName(), "PadV3GradReplication output shape: %s.", Ops::Base::ToString(*zShape).c_str());
-        return ge::GRAPH_SUCCESS;
-    }
-
     OP_CHECK_IF(paddings.GetDimNum() != xShape->GetDimNum() * PADDING_PAIR_SIZE,
                 OP_LOGE_FOR_INVALID_SHAPESIZES_WITH_REASON(
                     context->GetNodeName(), "paddings and x",
@@ -76,6 +53,34 @@ static ge::graphStatus InferShape4PadV3GradReplication(gert::InferShapeContext* 
     }
     OP_LOGI(context->GetNodeName(), "PadV3GradReplication output shape: %s.", Ops::Base::ToString(*zShape).c_str());
     return ge::GRAPH_SUCCESS;
+}
+
+static ge::graphStatus InferShape4PadV3GradReplication(gert::InferShapeContext* context)
+{
+    const gert::Shape* xShape = context->GetInputShape(INPUT_IDX_X);
+    OP_CHECK_IF(xShape == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x"), return ge::GRAPH_FAILED);
+    gert::Shape* zShape = context->GetOutputShape(OUTPUT_IDX_Z);
+    if (zShape == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "z");
+        return ge::GRAPH_FAILED;
+    }
+
+    if (Ops::Base::IsUnknownRank(*xShape)) {
+        Ops::Base::SetUnknownRank(*zShape);
+        OP_LOGI(context->GetNodeName(), "PadV3GradReplication output shape: %s.", Ops::Base::ToString(*zShape).c_str());
+        return ge::GRAPH_SUCCESS;
+    }
+
+    gert::Shape paddings;
+    if (!Ops::Base::GetConstIntToShape<gert::InferShapeContext>(context, INPUT_IDX_PADDINGS, paddings)) {
+        zShape->SetDimNum(xShape->GetDimNum());
+        for (size_t i = 0; i < xShape->GetDimNum(); ++i) {
+            zShape->SetDim(i, UNKNOWN_DIM);
+        }
+        OP_LOGI(context->GetNodeName(), "PadV3GradReplication output shape: %s.", Ops::Base::ToString(*zShape).c_str());
+        return ge::GRAPH_SUCCESS;
+    }
+    return CheckPaddingsAndSetOutputShape(context, xShape, paddings, zShape);
 }
 
 static ge::graphStatus InferDataType4PadV3GradReplication(gert::InferDataTypeContext* context)

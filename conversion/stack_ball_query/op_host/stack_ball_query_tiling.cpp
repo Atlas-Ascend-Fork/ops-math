@@ -45,7 +45,7 @@ static int32_t GetCeilInt(int32_t num1, int32_t num2)
 }
 
 // ========== ValidateDtype ==========
-static ge::graphStatus ValidateDtype(gert::TilingContext* context)
+static ge::graphStatus ValidateDtypeOfCoords(gert::TilingContext* context)
 {
     auto opName = context->GetNodeName();
 
@@ -74,6 +74,13 @@ static ge::graphStatus ValidateDtype(gert::TilingContext* context)
                                                        "center_xyz dtype must equal xyz dtype"),
                 return ge::GRAPH_FAILED);
 
+    return ge::GRAPH_SUCCESS;
+}
+
+static ge::graphStatus ValidateDtypeOfBatchCnt(gert::TilingContext* context)
+{
+    auto opName = context->GetNodeName();
+
     auto xyzBatchCntDesc = context->GetInputDesc(INDEX_INPUT_XYZ_BATCH_CNT);
     if (xyzBatchCntDesc == nullptr) {
         OP_LOGE_WITH_INVALID_INPUT(opName, "xyz_batch_cnt");
@@ -101,6 +108,17 @@ static ge::graphStatus ValidateDtype(gert::TilingContext* context)
                                                "center_xyz_batch_cnt dtype must equal xyz_batch_cnt dtype"),
         return ge::GRAPH_FAILED);
 
+    return ge::GRAPH_SUCCESS;
+}
+
+static ge::graphStatus ValidateDtype(gert::TilingContext* context)
+{
+    if (ValidateDtypeOfCoords(context) != ge::GRAPH_SUCCESS) {
+        return ge::GRAPH_FAILED;
+    }
+    if (ValidateDtypeOfBatchCnt(context) != ge::GRAPH_SUCCESS) {
+        return ge::GRAPH_FAILED;
+    }
     return ge::GRAPH_SUCCESS;
 }
 

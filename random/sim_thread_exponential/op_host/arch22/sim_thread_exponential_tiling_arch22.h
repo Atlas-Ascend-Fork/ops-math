@@ -110,6 +110,8 @@ private:
     int streamProcessorCount = 0;
 
     ge::DataType selfDType = ge::DT_UNDEFINED;
+
+    ge::graphStatus GetSelfShapeInfo();
 };
 } // namespace optiling
 

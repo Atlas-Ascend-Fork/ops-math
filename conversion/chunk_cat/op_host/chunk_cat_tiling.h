@@ -42,6 +42,8 @@ public:
     std::string TilingDataToString() const;
 
 private:
+    ge::graphStatus GetAttrParams();
+    ge::graphStatus GetDtypeUbInfo();
     int64_t FindMaxAlignedDivisor(int64_t block, int64_t limit, int64_t align) const;
     int64_t FindMaxAlignedFactor(int64_t block, int64_t limit, int64_t align) const;
     gert::TilingContext* context_;

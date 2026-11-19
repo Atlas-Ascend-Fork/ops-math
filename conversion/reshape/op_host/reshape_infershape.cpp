@@ -29,6 +29,35 @@ bool MulOverflow(const int64_t lhs, const int64_t rhs)
     return (lhs != 0) && (rhs != 0) && (lhs > (std::numeric_limits<int64_t>::max() / rhs));
 }
 
+ge::graphStatus InferNegOneDimForEmptyTensorX(const gert::Shape& x_shape, gert::Shape* y_shape, int64_t neg_index,
+                                              bool target_has_zero, int64_t shape_des_size)
+{
+    // target has no 0: the -1 dim is the only dim that can make the output empty
+    if (!target_has_zero) {
+        y_shape->SetDim(static_cast<size_t>(neg_index), 0);
+        return ge::GRAPH_SUCCESS;
+    }
+    // target contains 0: infer from the non-zero products, the remainder is discarded as RT1.0 does
+    int64_t x_shape_size = 1;
+    for (size_t i = 0U; i < x_shape.GetDimNum(); ++i) {
+        if (x_shape.GetDim(i) < 0) {
+            OP_LOGE("Reshape", "x dim[%zu] is %ld, cannot infer the -1 dim of shape input for empty tensor x!", i,
+                    x_shape.GetDim(i));
+            return ge::GRAPH_FAILED;
+        }
+        if (x_shape.GetDim(i) != 0) {
+            if (MulOverflow(x_shape_size, x_shape.GetDim(i))) {
+                OP_LOGE("Reshape", "The product of the x dims overflows int64 at dim[%zu]!", i);
+                return ge::GRAPH_FAILED;
+            }
+            x_shape_size = x_shape_size * x_shape.GetDim(i);
+        }
+    }
+    const auto real_dim = (x_shape_size == shape_des_size) ? 0 : (x_shape_size / shape_des_size);
+    y_shape->SetDim(static_cast<size_t>(neg_index), real_dim);
+    return ge::GRAPH_SUCCESS;
+}
+
 template <typename T>
 ge::graphStatus InferShapeForEmptyTensorX(const gert::Shape& x_shape, const T* reshape_data, const size_t reshape_size,
                                           gert::Shape* y_shape)
@@ -65,30 +94,7 @@ ge::graphStatus InferShapeForEmptyTensorX(const gert::Shape& x_shape, const T* r
     }
     // target contains one -1
     if (num_of_neg_1 == 1) {
-        // target has no 0: the -1 dim is the only dim that can make the output empty
-        if (!target_has_zero) {
-            y_shape->SetDim(static_cast<size_t>(neg_index), 0);
-            return ge::GRAPH_SUCCESS;
-        }
-        // target contains 0: infer from the non-zero products, the remainder is discarded as RT1.0 does
-        int64_t x_shape_size = 1;
-        for (size_t i = 0U; i < x_shape.GetDimNum(); ++i) {
-            if (x_shape.GetDim(i) < 0) {
-                OP_LOGE("Reshape", "x dim[%zu] is %ld, cannot infer the -1 dim of shape input for empty tensor x!", i,
-                        x_shape.GetDim(i));
-                return ge::GRAPH_FAILED;
-            }
-            if (x_shape.GetDim(i) != 0) {
-                if (MulOverflow(x_shape_size, x_shape.GetDim(i))) {
-                    OP_LOGE("Reshape", "The product of the x dims overflows int64 at dim[%zu]!", i);
-                    return ge::GRAPH_FAILED;
-                }
-                x_shape_size = x_shape_size * x_shape.GetDim(i);
-            }
-        }
-        const auto real_dim = (x_shape_size == shape_des_size) ? 0 : (x_shape_size / shape_des_size);
-        y_shape->SetDim(static_cast<size_t>(neg_index), real_dim);
-        return ge::GRAPH_SUCCESS;
+        return InferNegOneDimForEmptyTensorX(x_shape, y_shape, neg_index, target_has_zero, shape_des_size);
     }
     // more than one -1 in target
     if (num_of_neg_1 > 1) {

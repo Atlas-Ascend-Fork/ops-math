@@ -82,6 +82,27 @@ static int64_t GetDtypeSize(ge::DataType dataType)
 }
 
 // ============================================================================
+// Helper: Compute output dimensions (guard against int64 overflow of outWidth/outTotal)
+// ============================================================================
+static ge::graphStatus CalcOutDims(gert::TilingContext* context, int64_t diagonal, int64_t numInput, int64_t& outWidth,
+                                   int64_t& outTotal)
+{
+    OP_CHECK_IF(diagonal == std::numeric_limits<int64_t>::min(),
+                OP_LOGE(context, "diagonal is INT64_MIN, its absolute value overflows int64."),
+                return ge::GRAPH_FAILED);
+    // floor(sqrt(INT64_MAX)), keeps outWidth * outWidth within int64
+    constexpr int64_t MAX_OUT_WIDTH = 3037000499;
+    int64_t absDiagonal = diagonal >= 0 ? diagonal : -diagonal;
+    OP_CHECK_IF(absDiagonal > MAX_OUT_WIDTH || numInput < 0 || numInput > MAX_OUT_WIDTH - absDiagonal,
+                OP_LOGE(context, "output width %ld + %ld exceeds the supported bound %ld.", numInput, absDiagonal,
+                        MAX_OUT_WIDTH),
+                return ge::GRAPH_FAILED);
+    outWidth = numInput + absDiagonal;
+    outTotal = outWidth * outWidth;
+    return ge::GRAPH_SUCCESS;
+}
+
+// ============================================================================
 // Exported: core 1D→2D tiling computation (one-way dependency: no diag_v2 includes)
 // ============================================================================
 ge::graphStatus TilingDiagFlatArch35(gert::TilingContext* context, DiagFlatTilingOutput* out)
@@ -111,18 +132,10 @@ ge::graphStatus TilingDiagFlatArch35(gert::TilingContext* context, DiagFlatTilin
     int64_t dtypeSize = GetDtypeSize(dataType);
 
     // 5. Compute output dimensions (guard against int64 overflow of outWidth/outTotal)
-    OP_CHECK_IF(diagonal == std::numeric_limits<int64_t>::min(),
-                OP_LOGE(context, "diagonal is INT64_MIN, its absolute value overflows int64."),
-                return ge::GRAPH_FAILED);
-    // floor(sqrt(INT64_MAX)), keeps outWidth * outWidth within int64
-    constexpr int64_t MAX_OUT_WIDTH = 3037000499;
-    int64_t absDiagonal = diagonal >= 0 ? diagonal : -diagonal;
-    OP_CHECK_IF(absDiagonal > MAX_OUT_WIDTH || numInput < 0 || numInput > MAX_OUT_WIDTH - absDiagonal,
-                OP_LOGE(context, "output width %ld + %ld exceeds the supported bound %ld.", numInput, absDiagonal,
-                        MAX_OUT_WIDTH),
-                return ge::GRAPH_FAILED);
-    int64_t outWidth = numInput + absDiagonal;
-    int64_t outTotal = outWidth * outWidth;
+    int64_t outWidth = 0;
+    int64_t outTotal = 0;
+    OP_CHECK_IF(CalcOutDims(context, diagonal, numInput, outWidth, outTotal) != ge::GRAPH_SUCCESS,
+                OP_LOGE(context, "CalcOutDims error"), return ge::GRAPH_FAILED);
 
     // 6. Multi-core split
     int64_t realCoreNum = std::min(hwCoreNum, std::max<int64_t>(1, (numInput + outTotal) / MIN_WORK_PER_CORE / 2));

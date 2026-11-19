@@ -308,6 +308,37 @@ static ge::graphStatus GetWorkspaceSize(gert::TilingContext* context)
     return ge::GRAPH_SUCCESS;
 }
 
+static ge::graphStatus CheckOutputShape(gert::TilingContext* context, const CircularPadParams& p)
+{
+    OP_CHECK_IF(
+        p.outputH != p.inputH + p.top + p.bottom,
+        OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(context->GetNodeName(), "x, y",
+                                               (std::to_string(p.inputH) + " + " + std::to_string(p.top) + " + " +
+                                                std::to_string(p.bottom) + " != " + std::to_string(p.outputH))
+                                                   .c_str(),
+                                               "outputH must equal inputH + top + bottom"),
+        return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        p.outputW != p.inputW + p.left + p.right,
+        OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(context->GetNodeName(), "x, y",
+                                               (std::to_string(p.inputW) + " + " + std::to_string(p.left) + " + " +
+                                                std::to_string(p.right) + " != " + std::to_string(p.outputW))
+                                                   .c_str(),
+                                               "outputW must equal inputW + left + right"),
+        return ge::GRAPH_FAILED);
+    if (p.is3D) {
+        OP_CHECK_IF(
+            p.outputL != p.inputL + p.front + p.back,
+            OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(context->GetNodeName(), "x, y",
+                                                   (std::to_string(p.inputL) + " + " + std::to_string(p.front) + " + " +
+                                                    std::to_string(p.back) + " != " + std::to_string(p.outputL))
+                                                       .c_str(),
+                                                   "outputL must equal inputL + front + back"),
+            return ge::GRAPH_FAILED);
+    }
+    return ge::GRAPH_SUCCESS;
+}
+
 static ge::graphStatus ReadAndCheckParams(gert::TilingContext* context, [[maybe_unused]] ge::DataType dataType,
                                           CircularPadParams& p)
 {
@@ -348,32 +379,8 @@ static ge::graphStatus ReadAndCheckParams(gert::TilingContext* context, [[maybe_
                     OP_LOGE(context, "CheckPadPair D failed"), return ge::GRAPH_FAILED);
     }
     // 校验输出 shape 一致性（shape 推导关系）
-    OP_CHECK_IF(
-        p.outputH != p.inputH + p.top + p.bottom,
-        OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(context->GetNodeName(), "x, y",
-                                               (std::to_string(p.inputH) + " + " + std::to_string(p.top) + " + " +
-                                                std::to_string(p.bottom) + " != " + std::to_string(p.outputH))
-                                                   .c_str(),
-                                               "outputH must equal inputH + top + bottom"),
-        return ge::GRAPH_FAILED);
-    OP_CHECK_IF(
-        p.outputW != p.inputW + p.left + p.right,
-        OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(context->GetNodeName(), "x, y",
-                                               (std::to_string(p.inputW) + " + " + std::to_string(p.left) + " + " +
-                                                std::to_string(p.right) + " != " + std::to_string(p.outputW))
-                                                   .c_str(),
-                                               "outputW must equal inputW + left + right"),
-        return ge::GRAPH_FAILED);
-    if (p.is3D) {
-        OP_CHECK_IF(
-            p.outputL != p.inputL + p.front + p.back,
-            OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(context->GetNodeName(), "x, y",
-                                                   (std::to_string(p.inputL) + " + " + std::to_string(p.front) + " + " +
-                                                    std::to_string(p.back) + " != " + std::to_string(p.outputL))
-                                                       .c_str(),
-                                                   "outputL must equal inputL + front + back"),
-            return ge::GRAPH_FAILED);
-    }
+    OP_CHECK_IF(CheckOutputShape(context, p) != ge::GRAPH_SUCCESS, OP_LOGE(context, "CheckOutputShape failed"),
+                return ge::GRAPH_FAILED);
     // 注: 输出最后一维无上限约束（SIMT kernel 逐元素 GM 访问，行宽不受 UB 限制；
     // 索引位宽按输入/输出总元素数共同选择 uint32_t/uint64_t 路径）
     p.totalInputElements = xShape.GetShapeSize();

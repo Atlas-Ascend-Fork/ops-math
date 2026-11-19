@@ -103,7 +103,7 @@ static bool CheckCanCastType(const aclScalar* fillValue)
     return true;
 }
 
-static bool CheckNotOverflow(const aclTensor* selfRef, const aclScalar* fillValue)
+static int8_t CalcOverflowFlag(const aclTensor* selfRef, const aclScalar* fillValue)
 {
     auto dataType = selfRef->GetDataType();
     int8_t overFlowFlag = 1;
@@ -148,9 +148,18 @@ static bool CheckNotOverflow(const aclTensor* selfRef, const aclScalar* fillValu
             break;
         }
         default: {
-            return true;
+            break;
         }
     }
+    return overFlowFlag;
+}
+
+static bool CheckNotOverflow(const aclTensor* selfRef, const aclScalar* fillValue)
+{
+    auto dataType = selfRef->GetDataType();
+    int8_t floatFlag = 1;
+    int8_t intFlag = 2;
+    int8_t overFlowFlag = CalcOverflowFlag(selfRef, fillValue);
 
     if ((overFlowFlag >> floatFlag) == 1) {
         OP_LOGE(ACLNN_ERR_PARAM_INVALID, "value cannot be converted to type %s without overflow : %lf.",

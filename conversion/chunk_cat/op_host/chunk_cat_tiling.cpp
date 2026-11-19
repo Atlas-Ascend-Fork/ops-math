@@ -64,9 +64,8 @@ ge::graphStatus ChunkCatTiling::GetPlatformInfo()
     return ge::GRAPH_SUCCESS;
 }
 
-ge::graphStatus ChunkCatTiling::GetInputInfo()
+ge::graphStatus ChunkCatTiling::GetAttrParams()
 {
-    // 获取属性
     const gert::RuntimeAttrs* attrs = context_->GetAttrs();
     const int64_t* dimPtr = attrs->GetAttrPointer<int64_t>(0);
     OP_CHECK_IF(dimPtr == nullptr, OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "dim"), return ge::GRAPH_FAILED);
@@ -84,13 +83,11 @@ ge::graphStatus ChunkCatTiling::GetInputInfo()
         OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context_->GetNodeName(), "num_chunks", std::to_string(numChunk_).c_str(),
                                               "num_chunks must be greater than 0"),
         return ge::GRAPH_FAILED);
+    return ge::GRAPH_SUCCESS;
+}
 
-    auto computeNodeInfo = context_->GetComputeNodeInfo();
-    OP_CHECK_NULL_WITH_CONTEXT(context_, computeNodeInfo);
-    auto anchorInstanceInfo = computeNodeInfo->GetInputInstanceInfo(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, anchorInstanceInfo);
-    inputNum_ = anchorInstanceInfo->GetInstanceNum();
-    OP_CHECK_IF(inputNum_ == 0, OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "x"), return ge::GRAPH_FAILED);
+ge::graphStatus ChunkCatTiling::GetDtypeUbInfo()
+{
     // 获取数据类型
     auto inputDesc = context_->GetDynamicInputDesc(0, 0);
     if (inputDesc == nullptr) {
@@ -129,6 +126,26 @@ ge::graphStatus ChunkCatTiling::GetInputInfo()
         inUbSize_ = (ubSize_ + reserveUb) / HALF;
     }
     outUbSize_ = (ubSize_ + reserveUb) - inUbSize_;
+    return ge::GRAPH_SUCCESS;
+}
+
+ge::graphStatus ChunkCatTiling::GetInputInfo()
+{
+    // 获取属性
+    if (GetAttrParams() != ge::GRAPH_SUCCESS) {
+        return ge::GRAPH_FAILED;
+    }
+
+    auto computeNodeInfo = context_->GetComputeNodeInfo();
+    OP_CHECK_NULL_WITH_CONTEXT(context_, computeNodeInfo);
+    auto anchorInstanceInfo = computeNodeInfo->GetInputInstanceInfo(0);
+    OP_CHECK_NULL_WITH_CONTEXT(context_, anchorInstanceInfo);
+    inputNum_ = anchorInstanceInfo->GetInstanceNum();
+    OP_CHECK_IF(inputNum_ == 0, OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "x"), return ge::GRAPH_FAILED);
+    // 获取数据类型
+    if (GetDtypeUbInfo() != ge::GRAPH_SUCCESS) {
+        return ge::GRAPH_FAILED;
+    }
     return ge::GRAPH_SUCCESS;
 }
 

@@ -15,11 +15,11 @@
 
 #include <algorithm>
 #include <cstdlib>
-#include <cstring>
 #include <set>
 #include <string>
 #include <vector>
 
+#include "securec.h"
 #include "ge/es_graph_builder.h"
 #include "es_math_ops.h"
 #include "platform/soc_spec.h"
@@ -114,13 +114,19 @@ bool ReadConcatDim(const GNode& matchedNode, int32_t concatDimIdx, int64_t& conc
         return false;
     }
     if (dimDtype == DT_INT32) {
-        // 用 memcpy 读取常量数据，避免 reinterpret_cast
+        // 用 memcpy_s 读取常量数据，避免 reinterpret_cast
         int32_t dim32 = 0;
-        (void)memcpy(&dim32, rawData, sizeof(dim32));
+        if (memcpy_s(&dim32, sizeof(dim32), rawData, sizeof(dim32)) != EOK) {
+            OP_LOGD(kPassName.c_str(), "Read concat_dim const data failed, skip node.");
+            return false;
+        }
         concatDim = static_cast<int64_t>(dim32);
     } else if (dimDtype == DT_INT64) {
         int64_t dim64 = 0;
-        (void)memcpy(&dim64, rawData, sizeof(dim64));
+        if (memcpy_s(&dim64, sizeof(dim64), rawData, sizeof(dim64)) != EOK) {
+            OP_LOGD(kPassName.c_str(), "Read concat_dim const data failed, skip node.");
+            return false;
+        }
         concatDim = dim64;
     } else {
         OP_LOGD(kPassName.c_str(), "Unsupported concat_dim dtype %d, skip node.", static_cast<int32_t>(dimDtype));

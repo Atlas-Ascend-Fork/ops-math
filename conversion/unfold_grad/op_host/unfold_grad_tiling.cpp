@@ -326,10 +326,8 @@ ge::graphStatus UnfoldGradTiling::TilingBlock4SizeLevelBig()
     return ge::GRAPH_SUCCESS;
 }
 
-ge::graphStatus UnfoldGradTiling::Tiling4Block()
+ge::graphStatus UnfoldGradTiling::CalcUbSize4Block()
 {
-    auto nodeName = context->GetNodeName();
-
     if (gardInDType == ge::DT_FLOAT16 || gardInDType == ge::DT_BF16) {
         ubSizeT2 = ubSize / (ONCE_TRANSDATATO5HD_SIZE * TOTAL_SIZE) * (ONCE_TRANSDATATO5HD_SIZE * DOUBLE);
         ubSizeT1 = ubSize / (ONCE_TRANSDATATO5HD_SIZE * TOTAL_SIZE) * ONCE_TRANSDATATO5HD_SIZE;
@@ -338,6 +336,41 @@ ge::graphStatus UnfoldGradTiling::Tiling4Block()
     } else {
         return ge::GRAPH_FAILED;
     }
+    return ge::GRAPH_SUCCESS;
+}
+
+ge::graphStatus UnfoldGradTiling::TilingBlock4NotLastDim(int64_t neededAmountForOneSize)
+{
+    auto nodeName = context->GetNodeName();
+
+    iterationNumPerCore = gradOutSizeDim;
+    handleNUMOnceIterationPerCore = inputSizeLastDim;
+    rowAvailableLengthSrc = (size + width - 1) / width * width;
+    lowestCommonMultiple = getLowestCommonMultiple(size, TRANS_BLOCK);
+    int64_t rowT2NeededLength = lowestCommonMultiple / size * rowAvailableLengthSrc;
+    colOnceMaxPerUB = ubSizeT2 / FP32_TYPESIZE / rowT2NeededLength / TRANS_BLOCK * TRANS_BLOCK;
+    tasksOnceMaxPerCore = colOnceMaxPerUB * lowestCommonMultiple / neededAmountForOneSize;
+
+    int32_t maxSize = FP16BF16_SIZE_CEIL;
+    if (typeSizeT1 == FP32_TYPESIZE) {
+        maxSize = FP32_SIZE_CEIL;
+    }
+    OP_CHECK_IF(tasksOnceMaxPerCore <= 0,
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                    nodeName, "size", std::to_string(size).c_str(),
+                    ("TasksOnceMaxPerCore " + std::to_string(tasksOnceMaxPerCore) +
+                     " must be greater than 0. This is because size should be less than " + std::to_string(maxSize))
+                        .c_str()),
+                return ge::GRAPH_FAILED);
+    return ge::GRAPH_SUCCESS;
+}
+
+ge::graphStatus UnfoldGradTiling::Tiling4Block()
+{
+    auto nodeName = context->GetNodeName();
+
+    OP_CHECK_IF(CalcUbSize4Block() != ge::GRAPH_SUCCESS, OP_LOGE_WITHOUT_REPORT(nodeName, "CalcUbSize4Block failed."),
+                return ge::GRAPH_FAILED);
 
     // 分核计算
     useCoreNum = static_cast<int64_t>(Ops::Base::CeilDiv(batchNum, Ops::Base::CeilDiv(batchNum, totalCoreNum)));
@@ -364,25 +397,8 @@ ge::graphStatus UnfoldGradTiling::Tiling4Block()
                                   TRANS_BLOCK;
         }
     } else {
-        iterationNumPerCore = gradOutSizeDim;
-        handleNUMOnceIterationPerCore = inputSizeLastDim;
-        rowAvailableLengthSrc = (size + width - 1) / width * width;
-        lowestCommonMultiple = getLowestCommonMultiple(size, TRANS_BLOCK);
-        int64_t rowT2NeededLength = lowestCommonMultiple / size * rowAvailableLengthSrc;
-        colOnceMaxPerUB = ubSizeT2 / FP32_TYPESIZE / rowT2NeededLength / TRANS_BLOCK * TRANS_BLOCK;
-        tasksOnceMaxPerCore = colOnceMaxPerUB * lowestCommonMultiple / neededAmountForOneSize;
-
-        int32_t maxSize = FP16BF16_SIZE_CEIL;
-        if (typeSizeT1 == FP32_TYPESIZE) {
-            maxSize = FP32_SIZE_CEIL;
-        }
-        OP_CHECK_IF(tasksOnceMaxPerCore <= 0,
-                    OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
-                        nodeName, "size", std::to_string(size).c_str(),
-                        ("TasksOnceMaxPerCore " + std::to_string(tasksOnceMaxPerCore) +
-                         " must be greater than 0. This is because size should be less than " + std::to_string(maxSize))
-                            .c_str()),
-                    return ge::GRAPH_FAILED);
+        OP_CHECK_IF(TilingBlock4NotLastDim(neededAmountForOneSize) != ge::GRAPH_SUCCESS,
+                    OP_LOGE_WITHOUT_REPORT(nodeName, "TilingBlock4NotLastDim failed."), return ge::GRAPH_FAILED);
     }
 
     loop = handleNUMOnceIterationPerCore / tasksOnceMaxPerCore;

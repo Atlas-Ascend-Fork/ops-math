@@ -109,7 +109,6 @@ static ge::graphStatus InferShapeForSqueeze(gert::InferShapeContext* context)
     // explicitly empty one, both squeeze all 1-dims
     auto axes = attrs->GetListInt(0);
     const auto axes_size = (axes == nullptr) ? 0U : axes->GetSize();
-
     // case 1: input shape is unknown rank(-2), or has unknown dims(-1) while axes is empty,
     // cannot determine which unknown dim is 1, set output shape as unknown rank
     if (IsUnknownRank(*x_shape) || (IsUnknownDim(*x_shape) && (axes_size == 0U))) {

@@ -697,11 +697,10 @@ bool IsSupportedTransdataForwardPair910B(op::Format src, op::Format dst)
     return kTransdataForwardFormatPairs910B.count({src, dst});
 }
 
-aclnnStatus CalcNdToNz(const aclTensor* srcTensor, int additionalDtype, int64_t** dstShape, uint64_t* dstShapeSize,
-                       int* actualFormat)
+// 根据A矩阵和B矩阵数据类型计算实际转换成NZ格式后的C0大小
+static aclnnStatus CalcNzC0AndFormat(const aclTensor* srcTensor, int additionalDtype, int64_t& c0, int* actualFormat)
 {
     DataType srcDtype = srcTensor->GetDataType();
-    int64_t c0 = 16; // 默认NZ分型的c0为16
     if (!IsRegBase()) {
         aclnnStatus ret = FallbackAclop(srcTensor);
         if (ret != ACLNN_SUCCESS) {
@@ -710,7 +709,6 @@ aclnnStatus CalcNdToNz(const aclTensor* srcTensor, int additionalDtype, int64_t*
         c0 = BLOCK_SIZE / ge::GetSizeByDataType(static_cast<op::DataType>(additionalDtype));
         *actualFormat = op::Format::FORMAT_FRACTAL_NZ;
     }
-    // 根据A矩阵和B矩阵数据类型计算实际转换成NZ格式后的C0大小
     if (IsRegBase()) {
         if (static_cast<op::DataType>(additionalDtype) == srcDtype) {
             c0 = GetNzC0ByDtype(srcDtype);
@@ -729,7 +727,12 @@ aclnnStatus CalcNdToNz(const aclTensor* srcTensor, int additionalDtype, int64_t*
             }
         }
     }
+    return ACLNN_SUCCESS;
+}
 
+static aclnnStatus AllocAndFillNzDstShape(const aclTensor* srcTensor, int64_t c0, int64_t** dstShape,
+                                          uint64_t* dstShapeSize)
+{
     auto viewShape = srcTensor->GetViewShape();
     auto viewShapeDim = viewShape.GetDimNum();
     int64_t srcTensorDimFirst = viewShape.GetDim(viewShapeDim - 2); // 倒数第2维为ND的shape第一维
@@ -759,6 +762,17 @@ aclnnStatus CalcNdToNz(const aclTensor* srcTensor, int additionalDtype, int64_t*
     }
 
     return ACLNN_SUCCESS;
+}
+
+aclnnStatus CalcNdToNz(const aclTensor* srcTensor, int additionalDtype, int64_t** dstShape, uint64_t* dstShapeSize,
+                       int* actualFormat)
+{
+    int64_t c0 = 16; // 默认NZ分型的c0为16
+    aclnnStatus ret = CalcNzC0AndFormat(srcTensor, additionalDtype, c0, actualFormat);
+    if (ret != ACLNN_SUCCESS) {
+        return ret;
+    }
+    return AllocAndFillNzDstShape(srcTensor, c0, dstShape, dstShapeSize);
 }
 
 aclnnStatus CalcFloat8E8m0NdToNn(const aclTensor* srcTensor, int64_t** dstShape, uint64_t* dstShapeSize,

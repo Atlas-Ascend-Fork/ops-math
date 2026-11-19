@@ -66,6 +66,9 @@ private:
     uint64_t moveValueLen = 0;
     uint64_t moveValueTail = 0;
     uint64_t deterministicFlag = 0;
+
+    ge::graphStatus CalcTaskSplit(uint32_t coreNum, int64_t ret, bool isAscend950);
+    ge::graphStatus CalcMoveOneSize(uint64_t indexUb, uint64_t indiceTypeSize, uint64_t uniqueIndiceTypeSize);
 };
 
 void CoalesceSparseTiling::TilingKeyCalcu(ge::DataType uniqueIndicesDtype, ge::DataType indicesDtype,
@@ -120,6 +123,35 @@ ge::graphStatus CoalesceSparseTiling::TilingDataCalcu(ge::DataType uniqueIndices
     OP_LOGD(TilingContext, "Init coreNum.");
     uint32_t coreNum = platformInfo->GetCoreNum();
     OP_LOGD(TilingContext, "Calculate taskNum.");
+    auto npuArch = ascendcPlatform.GetCurNpuArch();
+    bool isAscend950 = (npuArch == NpuArch::DAV_3510 || npuArch == NpuArch::DAV_9201);
+    if (CalcTaskSplit(coreNum, ret, isAscend950) != ge::GRAPH_SUCCESS) {
+        return ge::GRAPH_FAILED;
+    }
+    moveValueLen = valueSize;
+    if (moveValueLen > MAXRPTIME) {
+        moveValueLen = MAXRPTIME;
+    }
+    OP_LOGD(TilingContext, "Init ubSize.");
+    uint64_t ubSize;
+    ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSize);
+    uint64_t indexUb = ubSize - (moveValueLen * valueTypeSize / AILGN32 + 1) * AILGN32;
+
+    if (CalcMoveOneSize(indexUb, indiceTypeSize, uniqueIndiceTypeSize) != ge::GRAPH_SUCCESS) {
+        return ge::GRAPH_FAILED;
+    }
+    taskRepeatTimes = taskNum / moveOneSize;
+    taskRepeatTail = taskNum % moveOneSize;
+    taskTailRepeatTimes = taskTail / moveOneSize;
+    taskTailRepeatTail = taskTail % moveOneSize;
+
+    moveValueTimes = valueSize / moveValueLen;
+    moveValueTail = valueSize % moveValueLen;
+    return ge::GRAPH_SUCCESS;
+}
+
+ge::graphStatus CoalesceSparseTiling::CalcTaskSplit(uint32_t coreNum, int64_t ret, bool isAscend950)
+{
     OP_CHECK_IF(coreNum == 0, OP_LOGD(TilingContext, "Variale CoreNum should not be 0."), return ge::GRAPH_FAILED);
     taskNum = ((n - 1) / coreNum / AILGN256 + 1) * AILGN256;
     usedCoreNum = (n - 1) / taskNum + 1;
@@ -127,8 +159,6 @@ ge::graphStatus CoalesceSparseTiling::TilingDataCalcu(ge::DataType uniqueIndices
     if (taskTail == 0) {
         taskTail = taskNum;
     }
-    auto npuArch = ascendcPlatform.GetCurNpuArch();
-    bool isAscend950 = (npuArch == NpuArch::DAV_3510 || npuArch == NpuArch::DAV_9201);
     if (isAscend950) {
         taskNum = (n + coreNum - 1) / coreNum;
         usedCoreNum = (n + taskNum - 1) / taskNum;
@@ -142,15 +172,12 @@ ge::graphStatus CoalesceSparseTiling::TilingDataCalcu(ge::DataType uniqueIndices
         taskTail = n;
         deterministicFlag = 1;
     }
-    moveValueLen = valueSize;
-    if (moveValueLen > MAXRPTIME) {
-        moveValueLen = MAXRPTIME;
-    }
-    OP_LOGD(TilingContext, "Init ubSize.");
-    uint64_t ubSize;
-    ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSize);
-    uint64_t indexUb = ubSize - (moveValueLen * valueTypeSize / AILGN32 + 1) * AILGN32;
+    return ge::GRAPH_SUCCESS;
+}
 
+ge::graphStatus CoalesceSparseTiling::CalcMoveOneSize(uint64_t indexUb, uint64_t indiceTypeSize,
+                                                      uint64_t uniqueIndiceTypeSize)
+{
     OP_CHECK_IF(indiceTypeSize == 0, OP_LOGD(TilingContext, "Variale indiceTypeSize should not be 0."),
                 return ge::GRAPH_FAILED);
     OP_CHECK_IF(indiceTypeSize > AILGN32, OP_LOGD(TilingContext, "indiceTypeSize should not be greater than 32."),
@@ -160,13 +187,6 @@ ge::graphStatus CoalesceSparseTiling::TilingDataCalcu(ge::DataType uniqueIndices
     if (moveOneSize >= MAXRPTIME) {
         moveOneSize = MAXRPTIME - AILGN32;
     }
-    taskRepeatTimes = taskNum / moveOneSize;
-    taskRepeatTail = taskNum % moveOneSize;
-    taskTailRepeatTimes = taskTail / moveOneSize;
-    taskTailRepeatTail = taskTail % moveOneSize;
-
-    moveValueTimes = valueSize / moveValueLen;
-    moveValueTail = valueSize % moveValueLen;
     return ge::GRAPH_SUCCESS;
 }
 
