@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-- 接口功能：实现groupBiasAdd的反向计算。本接口是对[aclnnGroupedBiasAddGrad](./aclnnGroupedBiasAddGrad.md)接口的功能扩展，增加了groupIdxType属性，支持指定groupIdx的类型。
+- 接口功能：实现GroupedBiasAdd的反向计算。本接口是对[aclnnGroupedBiasAddGrad](./aclnnGroupedBiasAddGrad.md)接口的功能扩展，增加了groupIdxType属性，支持指定groupIdx的类型。
 - 计算公式：<br>
 (1)有可选输入groupIdxOptional，且groupIdxType为0时：
 

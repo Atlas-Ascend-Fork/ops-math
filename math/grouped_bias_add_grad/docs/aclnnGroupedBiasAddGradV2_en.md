@@ -25,7 +25,7 @@
 
 ## Function
 
-- Description: Performs backward computation of groupBiasAdd. This API extends the functionality of the [aclnnGroupedBiasAddGrad](./aclnnGroupedBiasAddGrad_en.md) API by adding the groupIdxType attribute, which specifies the type of groupIdx.
+- Description: Performs backward computation of GroupedBiasAdd. This API extends the functionality of the [aclnnGroupedBiasAddGrad](./aclnnGroupedBiasAddGrad_en.md) API by adding the groupIdxType attribute, which specifies the type of groupIdx.
 - Formula:<br>
 (1) When the optional input groupIdxOptional is provided and groupIdxType is 0:
 
