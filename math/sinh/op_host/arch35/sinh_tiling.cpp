@@ -198,5 +198,10 @@ extern "C" __attribute__((visibility("default"))) ge::graphStatus SinhTilingTest
 }
 #endif
 
-IMPL_OP_OPTILING(Sinh).Tiling(TilingFuncSinh);
+// The RegBase kernel emits empty compile info and gets platform data at runtime.
+struct SinhCompileInfo {};
+
+static ge::graphStatus TilingParseForSinh(gert::TilingParseContext*) { return ge::GRAPH_SUCCESS; }
+
+IMPL_OP_OPTILING(Sinh).Tiling(TilingFuncSinh).TilingParse<SinhCompileInfo>(TilingParseForSinh);
 } // namespace optiling
