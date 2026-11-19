@@ -33,9 +33,8 @@
 #include "common/inc/op_graph/fusion_pass/fusion_pass_common.h"
 
 extern "C" {
-typedef int32_t rtError_t;
 static const int32_t RT_ERROR_NONE = 0;
-rtError_t rtGetSocSpec(const char* label, const char* key, char* val, const uint32_t maxLen);
+int32_t rtGetSocSpec(const char* label, const char* key, char* val, const uint32_t maxLen);
 }
 
 using namespace ge;
