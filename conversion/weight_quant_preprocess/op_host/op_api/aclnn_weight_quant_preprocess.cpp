@@ -10,11 +10,14 @@
 
 #include "aclnn_weight_quant_preprocess.h"
 
+#include <string>
+
 #include "weight_quant_preprocess_registry.h"
 #include "opdev/make_op_executor.h"
 #include "opdev/op_dfx.h"
 #include "opdev/op_log.h"
 #include "opdev/platform.h"
+#include "log/log.h"
 
 using namespace op;
 
@@ -30,7 +33,14 @@ static aclnnStatus ExecuteDataFlow(QuantContext& ctx, const std::vector<DataFlow
         }
     }
 
-    OP_CHECK(matched != nullptr, OP_LOGE(ACLNN_ERR_PARAM_INVALID, "dataflow is UNSUPPORTED."),
+    OP_CHECK(matched != nullptr,
+             OP_LOGE_FOR_INVALID_VALUES_WITH_REASON(
+                 "aclnnWeightQuantPreprocessGetWorkspaceSize", "xDtype, xScaleDtype, kGroupSize",
+                 (std::string(op::ToString(ctx.xDtype).GetString()) + ", " + op::ToString(ctx.xScaleDtype).GetString() +
+                  ", " + std::to_string(ctx.kGroupSize))
+                     .c_str(),
+                 "the tensor dtypes, shapes, layouts and these values must match a supported data flow on the current "
+                 "NPU architecture"),
              return ACLNN_ERR_PARAM_INVALID);
 
     for (const auto& check : matched->checks) {
@@ -72,15 +82,25 @@ aclnnStatus aclnnWeightQuantPreprocessGetWorkspaceSize(const aclTensor* weight, 
     auto npuArch = GetCurrentPlatformInfo().GetCurNpuArch();
     auto archIt = NPU_DATA_FLOW_REGISTRY_MAP.find(npuArch);
     OP_CHECK(archIt != NPU_DATA_FLOW_REGISTRY_MAP.end(),
-             OP_LOGE(ACLNN_ERR_RUNTIME_ERROR, "Unsupported NPU architecture: %u.", static_cast<uint32_t>(npuArch)),
+             OP_LOGE_FOR_INVALID_VALUE_WITH_REASON("aclnnWeightQuantPreprocessGetWorkspaceSize", "npuArch",
+                                                   std::to_string(static_cast<uint32_t>(npuArch)).c_str(),
+                                                   "the current NPU architecture must support weight_quant_preprocess"),
              return ACLNN_ERR_RUNTIME_ERROR);
-    OP_CHECK(weight != nullptr, OP_LOGE(ACLNN_ERR_PARAM_NULLPTR, "Weight must not be nullptr."),
+    OP_CHECK(weight != nullptr,
+             OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON("aclnnWeightQuantPreprocessGetWorkspaceSize", "weight",
+                                                      "weight can not be null"),
              return ACLNN_ERR_PARAM_NULLPTR);
-    OP_CHECK(weightScale != nullptr, OP_LOGE(ACLNN_ERR_PARAM_NULLPTR, "WeightScale must not be nullptr."),
+    OP_CHECK(weightScale != nullptr,
+             OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON("aclnnWeightQuantPreprocessGetWorkspaceSize", "weightScale",
+                                                      "weightScale can not be null"),
              return ACLNN_ERR_PARAM_NULLPTR);
-    OP_CHECK(outWeight != nullptr, OP_LOGE(ACLNN_ERR_PARAM_NULLPTR, "outWeight must not be nullptr."),
+    OP_CHECK(outWeight != nullptr,
+             OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON("aclnnWeightQuantPreprocessGetWorkspaceSize", "outWeight",
+                                                      "outWeight can not be null"),
              return ACLNN_ERR_PARAM_NULLPTR);
-    OP_CHECK(outWeightScale != nullptr, OP_LOGE(ACLNN_ERR_PARAM_NULLPTR, "outWeightScale must not be nullptr."),
+    OP_CHECK(outWeightScale != nullptr,
+             OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON("aclnnWeightQuantPreprocessGetWorkspaceSize", "outWeightScale",
+                                                      "outWeightScale can not be null"),
              return ACLNN_ERR_PARAM_NULLPTR);
 
     QuantContext ctx{weight,

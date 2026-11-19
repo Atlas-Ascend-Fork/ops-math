@@ -36,6 +36,10 @@
 
 #define CEIL_DIV(x, y) (((x) + (y) - 1) / (y))
 
+static constexpr int64_t NZ_INNER = 16;
+static constexpr int64_t NZ_C0_2 = 2;
+static constexpr int64_t MX_GROUP_SIZE = 32;
+
 struct WeightQuantPreprocessTestParam {
     string caseName;
     vector<int64_t> weightViewShape;
@@ -68,6 +72,8 @@ struct WeightQuantPreprocessTestParam {
     aclDataType outWeightScaleDtype;
     vector<int64_t> outWeightStorageShape; // 非空时覆盖自动推导的 outWeight storageShape（用于构造负例）
     int64_t weightViewOffset = 0;          // weight 的 viewOffset（默认 0；用于构造 4-bit 奇偏移负例）
+    aclFormat outScaleFormat = ACL_FORMAT_UNDEFINED;
+    vector<int64_t> outScaleStorageShape;
 };
 
 class l2_weight_quant_preprocess_test : public testing::TestWithParam<WeightQuantPreprocessTestParam> {
@@ -179,6 +185,22 @@ static void TestOneParamCase(const WeightQuantPreprocessTestParam& param)
 
     auto outScaleViewShape = param.scaleViewShape;
     auto outScaleStorageShape = param.scaleStorageShape;
+    auto outScaleFormat = param.scaleFormat;
+    bool isMmMxA8W4 = !param.isGMM && param.weightDtype == ACL_FLOAT4_E2M1 && param.scaleDtype == ACL_FLOAT8_E8M0 &&
+                      param.xDtype == ACL_FLOAT8_E4M3FN && param.xScaleDtype == ACL_FLOAT8_E8M0 &&
+                      param.kGroupSize == MX_GROUP_SIZE;
+    if (param.outScaleFormat != ACL_FORMAT_UNDEFINED) {
+        outScaleFormat = param.outScaleFormat;
+    } else if (isMmMxA8W4) {
+        outScaleFormat = ACL_FORMAT_FRACTAL_NZ_C0_2;
+    }
+    if (!param.outScaleStorageShape.empty()) {
+        outScaleStorageShape = param.outScaleStorageShape;
+    } else if (isMmMxA8W4 && outScaleViewShape.size() >= 3) {
+        size_t scaleDimNum = outScaleViewShape.size();
+        outScaleStorageShape = {CEIL_DIV(outScaleViewShape[scaleDimNum - 2], NZ_INNER),
+                                outScaleViewShape[scaleDimNum - 3], NZ_INNER, NZ_C0_2};
+    }
     int64_t outScaleStorageSize = scaleStorageSize;
 
     aclTensor* outWeightScale = nullptr;
@@ -186,7 +208,7 @@ static void TestOneParamCase(const WeightQuantPreprocessTestParam& param)
         aclDataType outScaleDtype = param.outWeightScaleDtype != ACL_DT_UNDEFINED ? param.outWeightScaleDtype :
                                                                                     param.scaleDtype;
         outWeightScale = aclCreateTensor(outScaleViewShape.data(), outScaleViewShape.size(), outScaleDtype,
-                                         param.scaleStrides.data(), 0, param.scaleFormat, outScaleStorageShape.data(),
+                                         param.scaleStrides.data(), 0, outScaleFormat, outScaleStorageShape.data(),
                                          outScaleStorageShape.size(), outScaleDeviceAddr);
     }
 
@@ -369,7 +391,6 @@ static WeightQuantPreprocessTestParam mmNormalCases[] = {
      ACL_FORMAT_UNDEFINED,
      ACL_DT_UNDEFINED,
      ACL_DT_UNDEFINED},
-
     {"ascend950_test_MM_MX_A8W4_bias_1d",
      {64, 128},
      {128, 64},
@@ -1467,7 +1488,7 @@ static WeightQuantPreprocessTestParam casesParams[] = {
      ACL_DT_UNDEFINED,
      ACL_DT_UNDEFINED},
 
-    // v2：scale 输入侧 format 校验已删（outScale 同为 NHWC，same 一致），约束下放 wqbmmv2
+    // MM MxA8W4 输入 scale 仅允许 ND/NCL；NHWC 须在 preprocess 入口拦截。
     {"ascend950_test_weightScale_format_invalid",
      {64, 128},
      {128, 64},
@@ -1483,7 +1504,7 @@ static WeightQuantPreprocessTestParam casesParams[] = {
      ACL_FLOAT8_E8M0,
      32,
      false,
-     ACLNN_SUCCESS,
+     ACLNN_ERR_PARAM_INVALID,
      false,
      false,
      false,
@@ -1769,7 +1790,7 @@ static WeightQuantPreprocessTestParam casesParams[] = {
      ACL_DT_UNDEFINED,
      ACL_DT_UNDEFINED},
 
-    // v2：kGroupSize 一致性校验已删，约束下放 wqbmmv2，preprocess 放行
+    // MM MxA8W4 的 ScaleNZ 输出依赖 kGroupSize=32，preprocess 需拦截。
     {"ascend950_test_kGroupSize_not_32",
      {64, 128},
      {128, 64},
@@ -1785,7 +1806,7 @@ static WeightQuantPreprocessTestParam casesParams[] = {
      ACL_FLOAT8_E8M0,
      64,
      false,
-     ACLNN_SUCCESS,
+     ACLNN_ERR_PARAM_INVALID,
      false,
      false,
      false,
@@ -1800,7 +1821,7 @@ static WeightQuantPreprocessTestParam casesParams[] = {
      ACL_DT_UNDEFINED,
      ACL_DT_UNDEFINED},
 
-    // v2：kGroupSize 一致性校验已删，约束下放 wqbmmv2，preprocess 放行
+    // MM MxA8W4 的 ScaleNZ 输出依赖 kGroupSize=32，preprocess 需拦截。
     {"ascend950_test_kGroupSize_zero",
      {64, 128},
      {128, 64},
@@ -1816,7 +1837,7 @@ static WeightQuantPreprocessTestParam casesParams[] = {
      ACL_FLOAT8_E8M0,
      0,
      false,
-     ACLNN_SUCCESS,
+     ACLNN_ERR_PARAM_INVALID,
      false,
      false,
      false,
@@ -1831,7 +1852,7 @@ static WeightQuantPreprocessTestParam casesParams[] = {
      ACL_DT_UNDEFINED,
      ACL_DT_UNDEFINED},
 
-    // v2：scale 输入侧 viewShape 校验已删，约束下放 wqbmmv2，preprocess 放行
+    // MM MxA8W4 的 ScaleNZ 输出要求输入 scale shape 与 weight 匹配。
     {"ascend950_test_weightScale_shape_invalid",
      {64, 128},
      {128, 64},
@@ -1847,7 +1868,7 @@ static WeightQuantPreprocessTestParam casesParams[] = {
      ACL_FLOAT8_E8M0,
      32,
      false,
-     ACLNN_SUCCESS,
+     ACLNN_ERR_PARAM_INVALID,
      false,
      false,
      false,
@@ -1862,7 +1883,7 @@ static WeightQuantPreprocessTestParam casesParams[] = {
      ACL_DT_UNDEFINED,
      ACL_DT_UNDEFINED},
 
-    // v2：scale 输入侧转置校验已删，约束下放 wqbmmv2，preprocess 放行
+    // MM MxA8W4 的 ScaleND→NZ 转换要求输入 scale 为转置布局。
     {"ascend950_test_weightScale_not_transposed",
      {64, 128},
      {128, 64},
@@ -1878,7 +1899,7 @@ static WeightQuantPreprocessTestParam casesParams[] = {
      ACL_FLOAT8_E8M0,
      32,
      false,
-     ACLNN_SUCCESS,
+     ACLNN_ERR_PARAM_INVALID,
      false,
      false,
      false,

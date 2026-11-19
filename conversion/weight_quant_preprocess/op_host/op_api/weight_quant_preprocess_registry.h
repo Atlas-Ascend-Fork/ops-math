@@ -14,6 +14,8 @@
 #include "opdev/common_types.h"
 #include "opdev/op_executor.h"
 #include "opdev/platform.h"
+#include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <unordered_map>
 #include <vector>
@@ -83,6 +85,43 @@ struct DataFlowEntry {
     std::vector<CheckFunc> checks;
     std::vector<ProcessFunc> processes;
 };
+
+namespace WeightQuantPreprocess {
+
+inline constexpr size_t DIMS_1 = 1;
+inline constexpr size_t DIMS_2 = 2;
+inline constexpr size_t DIMS_3 = 3;
+inline constexpr size_t IDX_0 = 0;
+inline constexpr size_t IDX_1 = 1;
+inline constexpr size_t IDX_2 = 2;
+inline constexpr size_t IDX_3 = 3;
+inline constexpr size_t IDX_4 = 4;
+inline constexpr size_t SINGLE = 1;
+inline constexpr size_t DOUBLE = 2;
+inline constexpr int64_t KGROUP_SIZE_MX = 32;
+inline constexpr int64_t KGROUP_SIZE_64 = 64;
+inline constexpr int64_t KGROUP_SIZE_128 = 128;
+inline constexpr int64_t NZ_16 = 16;
+inline constexpr int64_t NZ_C0_2 = 2;
+inline constexpr int64_t NZ_C0_16 = 16;
+inline constexpr int64_t NZ_C0_32 = 32;
+inline constexpr int64_t NZ_C0_64 = 64;
+
+inline constexpr int64_t B4_NUMS_PER_BYTE = 2; // 1 字节打包 2 个 4-bit 值（INT4/FP4 通用）
+
+int64_t CeilDiv(int64_t a, int64_t b);
+
+bool IsTensor2DTransposed(const aclTensor* tensor2D);
+
+bool IsTensor2DNonTransposed(const aclTensor* tensor2D);
+
+bool IsTensor3DTransposed(const aclTensor* tensor3D);
+
+bool IsTensor3DNonTransposed(const aclTensor* tensor3D);
+
+bool IsB4TypeNormal(const aclTensor* tensorLocal);
+
+} // namespace WeightQuantPreprocess
 
 extern const std::unordered_map<NpuArch, std::vector<DataFlowEntry>> NPU_DATA_FLOW_REGISTRY_MAP;
 
