@@ -20,8 +20,10 @@ English | [简体中文](./README.md)
 - Computation formula:
 
 $$
-y_i=log_e(\Gamma(|x_i|))
+y_i=\ln|\Gamma(x_i)|
 $$
+
+When $x_i$ is a non-positive integer, the gamma function has a pole and $y_i=+\infty$.
 
 ## Parameter Description
 

@@ -29,8 +29,10 @@
 - Formula:
 
   $$
-  out_i=log_e(\Gamma(|self_i|))
+  out_i=\ln|\Gamma(self_i)|
   $$
+
+  When $self_i$ is a non-positive integer, the gamma function has a pole and $out_i=+\infty$.
 
 ## Function Prototype
 

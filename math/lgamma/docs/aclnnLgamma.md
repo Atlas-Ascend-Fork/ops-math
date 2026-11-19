@@ -27,8 +27,10 @@
 - 计算公式：
 
   $$
-  out_i=log_e(\Gamma(|self_i|))
+  out_i=\ln|\Gamma(self_i)|
   $$
+
+  当$self_i$为非正整数时，Gamma函数存在极点，$out_i=+\infty$。
 
 ## 函数原型
 

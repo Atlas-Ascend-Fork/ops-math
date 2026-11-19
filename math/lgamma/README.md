@@ -18,8 +18,10 @@
 - 计算公式：
 
 $$
-y_i=log_e(\Gamma(|x_i|))
+y_i=\ln|\Gamma(x_i)|
 $$
+
+当$x_i$为非正整数时，Gamma函数存在极点，$y_i=+\infty$。
 
 ## 参数说明
 

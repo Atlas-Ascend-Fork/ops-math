@@ -18,8 +18,11 @@
 - 计算公式：
 
 $$
-y_i= \frac{{\rm d}} {{\rm d}x_i}log_e(\Gamma(|x_i|))
+y_i=\psi(x_i)=\frac{{\rm d}}{{\rm d}x_i}\ln|\Gamma(x_i)|
+=\frac{\Gamma'(x_i)}{\Gamma(x_i)}
 $$
+
+其中，非正整数是digamma函数的极点。
 
 ## 参数说明
 
