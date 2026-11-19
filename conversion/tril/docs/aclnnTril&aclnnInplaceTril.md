@@ -289,7 +289,7 @@ aclnnStatus aclnnInplaceTril(
       <td>输入</td>
       <td>对角线的位置。</td>
       <td>-</td>
-      <td>int64</td>
+      <td>int64_t</td>
       <td>-</td>
       <td>-</td>
       <td>-</td>

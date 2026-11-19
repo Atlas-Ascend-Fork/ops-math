@@ -294,7 +294,7 @@ aclnnStatus aclnnInplaceTril(
       <td>Input</td>
       <td>Position of the diagonal.</td>
       <td>-</td>
-      <td>int64</td>
+      <td>int64_t</td>
       <td>-</td>
       <td>-</td>
       <td>-</td>
