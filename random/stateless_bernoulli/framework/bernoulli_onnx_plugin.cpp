@@ -55,7 +55,7 @@ static Status ParseOpToGraphBernoulli(const Operator& op, Graph& graph)
 {
     std::string ori_name;
     if (op.GetAttr("name", ori_name) != SUCCESS) {
-        OP_LOGE(GetOpName(op).c_str(), "get name from op failed.");
+        OP_LOGE(GetOpName(op).c_str(), "Failed to get attribute name from op.");
         return FAILED;
     }
 

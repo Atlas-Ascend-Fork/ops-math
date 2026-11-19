@@ -62,7 +62,8 @@ static const aclTensor* DropoutDoMaskAiCore(const aclTensor* input, const aclTen
     L0_DFX(DropoutDoMaskAiCore, input, mask, prob, out);
     auto ret = ADD_TO_LAUNCHER_LIST_AICORE(DropOutDoMask, OP_INPUT(input, mask, prob), OP_OUTPUT(out));
     OP_CHECK(ret == ACL_SUCCESS,
-             OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "DropoutDoMaskAiCore ADD_TO_LAUNCHER_LIST_AICORE failed."),
+             OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "DropoutDoMaskAiCore ADD_TO_LAUNCHER_LIST_AICORE failed, ret is %d.",
+                     static_cast<int>(ret)),
              return nullptr);
     return out;
 }
@@ -76,7 +77,9 @@ static const aclTensor* DropoutDoMaskAiCpu(const aclTensor* input, const aclTens
     static internal::AicpuTaskSpace space("DropOutDoMask");
     auto ret = ADD_TO_LAUNCHER_LIST_AICPU(DropOutDoMask, OP_ATTR_NAMES(), OP_INPUT(input, mask, prob), OP_OUTPUT(out));
     OP_CHECK(ret == ACL_SUCCESS,
-             OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "DropoutDoMaskAiCpu ADD_TO_LAUNCHER_LIST_AICPU failed."), return nullptr);
+             OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "DropoutDoMaskAiCpu ADD_TO_LAUNCHER_LIST_AICPU failed, ret is %d.",
+                     static_cast<int>(ret)),
+             return nullptr);
     return out;
 }
 const aclTensor* DropoutDoMask(const aclTensor* input, const aclTensor* mask, const aclTensor* prob,

@@ -20,7 +20,8 @@ static Status ParseParamsRandomuniform(const Message* op_src, ge::Operator& op_d
 {
     const ge::onnx::NodeProto* node = dynamic_cast<const ge::onnx::NodeProto*>(op_src);
     if (node == nullptr) {
-        OP_LOGE(GetOpName(op_dest).c_str(), "Dynamic cast op_src to NodeProto failed.");
+        OP_LOGE(GetOpName(op_dest).c_str(),
+                "Dynamic cast op_src to NodeProto failed, please check the source operator type.");
         return FAILED;
     }
 
@@ -77,32 +78,32 @@ struct RandomuniformProp {
 Status GetProperty(const ge::Operator& op, RandomuniformProp& prop)
 {
     if (op.GetAttr("name", prop.ori_name) != SUCCESS) {
-        OP_LOGE(GetOpName(op).c_str(), "get name from op failed.");
+        OP_LOGE(GetOpName(op).c_str(), "Failed to get attribute name from op.");
         return FAILED;
     }
 
     if (op.GetAttr("shape", prop.shape) != SUCCESS) {
-        OP_LOGE(GetOpName(op).c_str(), "get shape from op failed");
+        OP_LOGE(GetOpName(op).c_str(), "Failed to get attribute shape from op.");
         return FAILED;
     }
 
     if (op.GetAttr("max", prop.max_f) != SUCCESS) {
-        OP_LOGE(GetOpName(op).c_str(), "get max from op failed");
+        OP_LOGE(GetOpName(op).c_str(), "Failed to get attribute max from op.");
         return FAILED;
     }
 
     if (op.GetAttr("min", prop.min_f) != SUCCESS) {
-        OP_LOGE(GetOpName(op).c_str(), "get min from op failed");
+        OP_LOGE(GetOpName(op).c_str(), "Failed to get attribute min from op.");
         return FAILED;
     }
 
     if (op.GetAttr("dtype", prop.dtype) != SUCCESS) {
-        OP_LOGE(GetOpName(op).c_str(), "get dtype from op failed");
+        OP_LOGE(GetOpName(op).c_str(), "Failed to get attribute dtype from op.");
         return FAILED;
     }
 
     if (op.GetAttr("seed", prop.seed) != SUCCESS) {
-        OP_LOGE(GetOpName(op).c_str(), "get seed from op failed");
+        OP_LOGE(GetOpName(op).c_str(), "Failed to get attribute seed from op.");
         return FAILED;
     }
     return SUCCESS;
@@ -121,7 +122,8 @@ static Status ParseOpToGraphRandomuniform(const ge::Operator& op, ge::Graph& gra
     // float32, float16, int32, uint8
     std::map<int, int> kvlist = {{1, 0}, {10, 1}, {6, 3}, {2, 9}};
     if (kvlist.find(prop.dtype) == kvlist.end()) {
-        OP_LOGE(GetOpName(op).c_str(), "only float32/float16/int32/uint8 are supported, but got %d", prop.dtype);
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(GetOpName(op).c_str(), "dtype", std::to_string(prop.dtype).c_str(),
+                                              "supported values are 1(float32), 10(float16), 6(int32) and 2(uint8)");
         return FAILED;
     }
     ge::DataType temp_type = GetOmDtypeFromOnnxDtype(prop.dtype);

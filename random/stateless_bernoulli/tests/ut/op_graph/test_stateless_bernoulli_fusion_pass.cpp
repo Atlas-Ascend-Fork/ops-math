@@ -185,6 +185,58 @@ TEST_F(BernoulliFusionPassTest, unsupportedPlatformFail)
     EXPECT_EQ(status, GRAPH_NOT_CHANGED);
 }
 
+TEST_F(BernoulliFusionPassTest, fusionFailPlatformInfoMissing)
+{
+    // 清空平台信息映射，触发 MeetRequirements 中 GetPlatformInfoWithOutSocVersion 失败出口
+    PlatformInfoManager::Instance().platform_info_map_.clear();
+    OptionalInfo optiCompilationInfo;
+    optiCompilationInfo.soc_version = "Ascend910_93";
+    PlatformInfoManager::Instance().SetOptionalCompilationInfo(optiCompilationInfo);
+
+    std::vector<int64_t> dimsX{-1, 3, 5, 4};
+    Shape shapeX(dimsX);
+
+    auto graphBuilder = es::EsGraphBuilder("test");
+    auto x = graphBuilder.CreateInput(0, "x", DT_FLOAT16, FORMAT_NCHW, shapeX.GetDims());
+    auto seed = graphBuilder.CreateInput(1, "seed", DT_INT64, FORMAT_ND, std::vector<int64_t>{2});
+    auto offset = graphBuilder.CreateInput(2, "offset", DT_INT64, FORMAT_ND, std::vector<int64_t>{2});
+
+    auto output = es::StatelessBernoulliV2(x, seed, offset);
+
+    TensorDesc xDesc;
+    x.GetProducer()->GetOutputDesc(0, xDesc);
+    xDesc.SetDataType(DT_FLOAT16);
+    xDesc.SetShape(shapeX);
+    xDesc.SetFormat(FORMAT_NCHW);
+    x.GetProducer()->UpdateOutputDesc(0, xDesc);
+
+    TensorDesc seedDesc;
+    seed.GetProducer()->GetOutputDesc(0, seedDesc);
+    seedDesc.SetDataType(DT_INT64);
+    seedDesc.SetShape(Shape(std::vector<int64_t>{2}));
+    seedDesc.SetFormat(FORMAT_ND);
+    seed.GetProducer()->UpdateOutputDesc(0, seedDesc);
+
+    TensorDesc offsetDesc;
+    offset.GetProducer()->GetOutputDesc(0, offsetDesc);
+    offsetDesc.SetDataType(DT_INT64);
+    offsetDesc.SetShape(Shape(std::vector<int64_t>{2}));
+    offsetDesc.SetFormat(FORMAT_ND);
+    offset.GetProducer()->UpdateOutputDesc(0, offsetDesc);
+
+    output.GetProducer()->UpdateInputDesc(0, xDesc);
+    output.GetProducer()->UpdateInputDesc(1, seedDesc);
+    output.GetProducer()->UpdateInputDesc(2, offsetDesc);
+
+    std::shared_ptr<Graph> graph = graphBuilder.BuildAndReset({output});
+
+    CustomPassContext passContext;
+    BernoulliFusionPass pass;
+    Status status = pass.Run(graph, passContext);
+
+    EXPECT_EQ(status, GRAPH_NOT_CHANGED);
+}
+
 TEST_F(BernoulliFusionPassTest, fusionSuccessFp16On960DT) { CheckFusionOnPlatform("Ascend960DT", DT_FLOAT16); }
 
 TEST_F(BernoulliFusionPassTest, fusionSuccessFp32On960DT) { CheckFusionOnPlatform("Ascend960DT", DT_FLOAT); }

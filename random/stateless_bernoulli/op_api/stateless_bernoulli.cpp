@@ -77,7 +77,8 @@ static const aclTensor* CreateShapeTensor(const aclTensor* input, aclOpExecutor*
 {
     auto inputShape = op::ToShapeVector(input->GetViewShape());
     auto sizeArr = executor->AllocIntArray(inputShape.data(), inputShape.size());
-    OP_CHECK(sizeArr != nullptr, OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "StatelessBernoulli inputShape is null."),
+    OP_CHECK(sizeArr != nullptr,
+             OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "StatelessBernoulli failed to allocate int array for input shape."),
              return nullptr);
     int64_t size = 1;
     for (size_t index = 0; index < sizeArr->Size(); index++) {

@@ -137,7 +137,7 @@ bool BernoulliFusionPass::MeetRequirements(const std::unique_ptr<MatchResult>& m
     PlatformInfo platformInfo;
     OptionalInfo optionalInfo;
     if (PlatformInfoManager::Instance().GetPlatformInfoWithOutSocVersion(platformInfo, optionalInfo) != SUCCESS) {
-        OP_LOGE(kPassName.c_str(), "Get platformInfo failed.");
+        OP_LOGE(kPassName.c_str(), "Failed to get platform info for StatelessBernoulliV2 fusion pass.");
         return false;
     }
     if (!CheckPlatform(platformInfo.str_info.short_soc_version)) {
@@ -146,7 +146,7 @@ bool BernoulliFusionPass::MeetRequirements(const std::unique_ptr<MatchResult>& m
 
     NodeIo v2NodeIo;
     if (matchResult->GetCapturedTensor(kCaptureIdxV2Node, v2NodeIo) != SUCCESS) {
-        OP_LOGE(kPassName.c_str(), "Failed to GetCaptured tensor");
+        OP_LOGE(kPassName.c_str(), "Failed to get captured tensor of StatelessBernoulliV2 node.");
         return false;
     }
 
@@ -176,7 +176,7 @@ std::unique_ptr<Graph> BernoulliFusionPass::Replacement(const std::unique_ptr<Ma
 
     NodeIo v2NodeIo;
     if (matchResult->GetCapturedTensor(kCaptureIdxV2Node, v2NodeIo) != SUCCESS) {
-        OP_LOGE(kPassName.c_str(), "Failed to GetCaptured tensor in Replacement");
+        OP_LOGE(kPassName.c_str(), "Failed to get captured tensor of StatelessBernoulliV2 node in Replacement.");
         return nullptr;
     }
 
@@ -219,7 +219,7 @@ std::unique_ptr<Graph> BernoulliFusionPass::Replacement(const std::unique_ptr<Ma
     matchResult->ToSubgraphBoundary()->GetAllInputs(subgraphInputs);
     GraphUniqPtr replaceGraph = replaceGraphBuilder.BuildAndReset({output});
     if (InferShape(replaceGraph, subgraphInputs) != SUCCESS) {
-        OP_LOGE(kPassName.c_str(), "InferShape failed.");
+        OP_LOGE(kPassName.c_str(), "Failed to infer shape for StatelessBernoulliV2 replacement graph.");
         return nullptr;
     }
     return replaceGraph;
