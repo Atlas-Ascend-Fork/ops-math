@@ -29,6 +29,12 @@ constexpr uint32_t DETERMINISTIC_PARTIAL = 1U;
 constexpr uint32_t DETERMINISTIC_HISTOGRAM = 2U;
 constexpr uint64_t DETERMINISTIC_PARTIAL_BYTES = 64U;
 constexpr uint64_t DETERMINISTIC_HISTOGRAM_SLOT_BYTES = 128U;
+// Mirrors the host-side histogram workspace limit: one tile of exact slots is
+// reused for every output range, so the workspace stays constant while the
+// tile count covers arbitrarily large outputs.
+constexpr uint64_t DETERMINISTIC_HISTOGRAM_LIMIT = 64U * 1024U * 1024U;
+constexpr int64_t DETERMINISTIC_HISTOGRAM_TILE_BINS = static_cast<int64_t>(DETERMINISTIC_HISTOGRAM_LIMIT /
+                                                                           DETERMINISTIC_HISTOGRAM_SLOT_BYTES);
 
 template <typename T, bool IS_1D>
 __simt_callee__ inline bool MapInputToOutput(T value, int64_t index, int64_t inputRows, int64_t inputCols, int64_t size,
@@ -454,7 +460,12 @@ __simt_vf__ __aicore__ LAUNCH_BOUND(THREAD_NUM) inline void FinalizeDeterministi
     }
 }
 
-__simt_callee__ inline void AddIntegerHistogram(__gm__ IntegerHistogram* slot, float weight)
+// Returns the previous flag word so the caller can consume it: discarding the
+// result of the final atomic lets the hardware post it fire-and-forget, and a
+// posted flag OR can still be in flight when the phase barrier already counts
+// the thread as done. The caller folds the value into a scratch atomic, which
+// forces the completion.
+__simt_callee__ inline uint64_t AddIntegerHistogram(__gm__ IntegerHistogram* slot, float weight)
 {
     union FloatBits {
         float value;
@@ -481,58 +492,178 @@ __simt_callee__ inline void AddIntegerHistogram(__gm__ IntegerHistogram* slot, f
     const uint64_t flags = static_cast<uint64_t>(value.hasNan) |
                            (static_cast<uint64_t>(value.hasPositiveInf) << (negative ? 2U : 1U));
     if (firstNonzero || flags != 0U) {
-        (void)asc_atomic_or(&slot->words[12], flags | 8U);
+        return asc_atomic_or(&slot->words[12], flags | 8U);
+    }
+    return 0ULL;
+}
+
+template <typename T, uint32_t THREAD_NUM, bool IS_1D>
+__simt_vf__ __aicore__ LAUNCH_BOUND(THREAD_NUM) inline void TiledDeterministicHistogram(
+    uint32_t coreIdx, uint32_t coreNum, __gm__ T* input, __gm__ float* weights, int64_t numValues, int64_t inputRows,
+    int64_t inputCols, int64_t size, __gm__ IntegerHistogram* histogram, __gm__ float* output, int64_t outputSize,
+    int64_t tiles)
+{
+    // One vector launch runs the whole tile loop. Cross-phase ordering cannot
+    // rely on SyncAll (it only barriers the scalar cores, and vector work may
+    // still be in flight), so each phase ends with the proven intra-call
+    // primitives instead: asc_syncthreads (all threads of the core done),
+    // asc_threadfence (their writes globally visible), one atomic bump per
+    // core, and the next phase spins until every core has bumped. The phase
+    // counter is monotonic, so the expected value is derived locally.
+    constexpr int64_t wordsPerSlot = static_cast<int64_t>(DETERMINISTIC_HISTOGRAM_SLOT_BYTES) / 4;
+    __gm__ uint32_t* slots = reinterpret_cast<__gm__ uint32_t*>(histogram);
+    const int64_t slotCapacity = outputSize < DETERMINISTIC_HISTOGRAM_TILE_BINS ? outputSize :
+                                                                                  DETERMINISTIC_HISTOGRAM_TILE_BINS;
+    // The monotonic phase counter lives in the 32 bytes right behind the slot
+    // array; the host sizes the workspace accordingly. The witness scratch
+    // words sit another 128 bytes out, on their own cache line, so their
+    // stores can never merge with the counter's line.
+    __gm__ uint64_t* barrier = reinterpret_cast<__gm__ uint64_t*>(slots) + slotCapacity * wordsPerSlot / 2;
+    __gm__ uint64_t* witnessScratch = barrier + 16;
+    const int64_t first = static_cast<int64_t>(coreIdx) * blockDim.x + threadIdx.x;
+    const int64_t stride = static_cast<int64_t>(coreNum) * blockDim.x;
+    uint64_t phase = 0U;
+    for (int64_t tile = 0; tile < tiles; ++tile) {
+        const int64_t tileStart = tile * DETERMINISTIC_HISTOGRAM_TILE_BINS;
+        const int64_t remaining = outputSize - tileStart;
+        const int64_t tileBins = remaining < DETERMINISTIC_HISTOGRAM_TILE_BINS ? remaining :
+                                                                                 DETERMINISTIC_HISTOGRAM_TILE_BINS;
+        const int64_t tileEnd = tileStart + tileBins;
+        uint64_t witness = 0ULL;
+        for (int64_t index = first; index < numValues; index += stride) {
+            int64_t outputOffset = 0;
+            if (MapInputToOutput<T, IS_1D>(input[index], index, inputRows, inputCols, size, outputOffset) &&
+                outputOffset >= tileStart && outputOffset < tileEnd) {
+                witness += AddIntegerHistogram(histogram + (outputOffset - tileStart), weights[index]);
+            }
+        }
+        // Consuming every flag OR's returned word into the witness makes each
+        // posted atomic retire before the phase is counted; a discarded result
+        // could stay in flight past the barrier. The witness itself goes to a
+        // distant scratch word with a plain store: an atomic RMW next to the
+        // counter can merge the whole cache line and corrupt the barrier.
+        witnessScratch[0] = witness;
+        asc_syncthreads();
+        if (threadIdx.x == 0U) {
+            asc_threadfence();
+            (void)asc_atomic_add(barrier, 1ULL);
+        }
+        const uint64_t scatterTarget = (++phase) * coreNum;
+        while (asc_atomic_add(barrier, 0ULL) < scatterTarget) {
+        }
+        __gm__ float* tileOutput = output + tileStart;
+        uint64_t resetWitness = 0ULL;
+        for (int64_t index = first; index < tileBins; index += stride) {
+            const uint64_t flags = histogram[index].words[12];
+            if ((flags & 8U) == 0U) {
+                continue;
+            }
+            ExactFloatAccumulator sum{histogram[index].words[0],
+                                      histogram[index].words[1],
+                                      histogram[index].words[2],
+                                      histogram[index].words[3],
+                                      histogram[index].words[4],
+                                      histogram[index].words[5],
+                                      false,
+                                      false,
+                                      false};
+            ExactFloatAccumulator negative{histogram[index].words[6],
+                                           histogram[index].words[7],
+                                           histogram[index].words[8],
+                                           histogram[index].words[9],
+                                           histogram[index].words[10],
+                                           histogram[index].words[11],
+                                           false,
+                                           false,
+                                           false};
+            MakeAccumulatorMagnitude(negative);
+            uint64_t carry = AddWithCarry(sum.limb0, negative.limb0);
+            carry = MergeAccumulatorWord(sum.limb1, negative.limb1, carry);
+            carry = MergeAccumulatorWord(sum.limb2, negative.limb2, carry);
+            carry = MergeAccumulatorWord(sum.limb3, negative.limb3, carry);
+            carry = MergeAccumulatorWord(sum.limb4, negative.limb4, carry);
+            (void)MergeAccumulatorWord(sum.limb5, negative.limb5, carry);
+            sum.hasNan = (flags & 1U) != 0U;
+            sum.hasPositiveInf = (flags & 2U) != 0U;
+            sum.hasNegativeInf = (flags & 4U) != 0U;
+            (void)asc_atomic_exch(tileOutput + index, FinalizeExactFloat(sum));
+            for (uint32_t word = 0U; word < 12U; ++word) {
+                resetWitness += asc_atomic_exch(&histogram[index].words[word], 0ULL);
+            }
+            resetWitness += asc_atomic_exch(&histogram[index].words[12], 0ULL);
+        }
+        // Same completion-forcing contract for the slot resets: their returned
+        // words land in the distant scratch so the exchanges retire before the
+        // next tile's scatter touches the slots.
+        witnessScratch[1] = resetWitness;
+        asc_syncthreads();
+        if (threadIdx.x == 0U) {
+            asc_threadfence();
+            (void)asc_atomic_add(barrier, 1ULL);
+        }
+        const uint64_t finalizeTarget = (++phase) * coreNum;
+        while (asc_atomic_add(barrier, 0ULL) < finalizeTarget) {
+        }
     }
 }
 
-__aicore__ inline void InitializeIntegerHistogram(uint32_t coreIdx, uint32_t coreNum, int64_t outputElements,
-                                                  uint32_t bufferBytes, __gm__ IntegerHistogram* histogram, TPipe* pipe)
+__aicore__ inline void ZeroHistogramTiles(uint32_t coreIdx, uint32_t coreNum, int64_t tileBins, uint32_t bufferBytes,
+                                          const LocalTensor<uint32_t>& zeros, __gm__ IntegerHistogram* histogram)
 {
+    // MTE copies land directly in GM and are ordered by the SyncAll barrier.
+    // Plain vector-thread stores are not: their store buffer can flush after
+    // the following scatter's atomic adds, silently erasing contributions.
+    // The zero buffer is allocated once per kernel by the caller because the
+    // VECOUT queue space is limited.
     const uint32_t tileWords = bufferBytes / sizeof(uint32_t);
     constexpr int64_t wordsPerSlot = DETERMINISTIC_HISTOGRAM_SLOT_BYTES / sizeof(uint32_t);
-    const int64_t slotsPerCore = outputElements / coreNum + static_cast<int64_t>(outputElements % coreNum != 0U);
+    const int64_t slotsPerCore = tileBins / coreNum + static_cast<int64_t>(tileBins % coreNum != 0U);
     const int64_t begin = static_cast<int64_t>(coreIdx) * slotsPerCore * wordsPerSlot;
     const int64_t lastSlot = (static_cast<int64_t>(coreIdx) + 1) * slotsPerCore;
-    const int64_t end = (lastSlot < outputElements ? lastSlot : outputElements) * wordsPerSlot;
-    TQue<TPosition::VECOUT, 1> queue;
-    pipe->InitBuffer(queue, 1, bufferBytes);
-    LocalTensor<uint32_t> zeros = queue.AllocTensor<uint32_t>();
-    Duplicate(zeros, uint32_t{0}, tileWords);
-    queue.EnQue(zeros);
-    zeros = queue.DeQue<uint32_t>();
+    const int64_t end = (lastSlot < tileBins ? lastSlot : tileBins) * wordsPerSlot;
     GlobalTensor<uint32_t> target;
-    target.SetGlobalBuffer(reinterpret_cast<__gm__ uint32_t*>(histogram), outputElements * wordsPerSlot);
+    target.SetGlobalBuffer(reinterpret_cast<__gm__ uint32_t*>(histogram), (tileBins + 1) * wordsPerSlot);
     for (int64_t offset = begin; offset < end; offset += tileWords) {
         const uint32_t count = static_cast<uint32_t>(end - offset < tileWords ? end - offset : tileWords);
         DataCopy(target[offset], zeros, count);
     }
-    queue.FreeTensor(zeros);
+    if (coreIdx == 0U) {
+        // Zero the monotonic phase counter behind the slot array (32 bytes).
+        DataCopy(target[tileBins * wordsPerSlot], zeros, 8U);
+    }
 }
 
 template <typename T, uint32_t THREAD_NUM, bool IS_1D>
 __simt_vf__ __aicore__ LAUNCH_BOUND(THREAD_NUM) inline void ScatterIntegerHistogram(
     uint32_t coreIdx, uint32_t coreNum, __gm__ T* input, __gm__ float* weights, int64_t numValues, int64_t inputRows,
-    int64_t inputCols, int64_t size, __gm__ IntegerHistogram* histogram)
+    int64_t inputCols, int64_t size, int64_t tileStart, int64_t tileBins, __gm__ IntegerHistogram* histogram)
 {
+    const int64_t tileEnd = tileStart + tileBins;
     const int64_t first = static_cast<int64_t>(coreIdx) * blockDim.x + threadIdx.x;
     const int64_t stride = static_cast<int64_t>(coreNum) * blockDim.x;
     for (int64_t index = first; index < numValues; index += stride) {
         int64_t outputOffset = 0;
-        if (MapInputToOutput<T, IS_1D>(input[index], index, inputRows, inputCols, size, outputOffset)) {
-            AddIntegerHistogram(histogram + outputOffset, weights[index]);
+        if (MapInputToOutput<T, IS_1D>(input[index], index, inputRows, inputCols, size, outputOffset) &&
+            outputOffset >= tileStart && outputOffset < tileEnd) {
+            AddIntegerHistogram(histogram + (outputOffset - tileStart), weights[index]);
         }
     }
 }
 
 template <uint32_t THREAD_NUM>
 __simt_vf__ __aicore__ LAUNCH_BOUND(THREAD_NUM) inline void FinalizeIntegerHistogram(uint32_t coreIdx, uint32_t coreNum,
-                                                                                     int64_t outputElements,
+                                                                                     int64_t tileBins,
+                                                                                     int64_t tileStart,
                                                                                      __gm__ IntegerHistogram* histogram,
                                                                                      __gm__ float* output)
 {
+    // Pre-offset the output base: the atomic keeps the proven small-offset
+    // addressing of the single-tile mode instead of a tileStart+index sum that
+    // can overflow the addressing mode the codegen relies on.
+    __gm__ float* tileOutput = output + tileStart;
     const int64_t first = static_cast<int64_t>(coreIdx) * blockDim.x + threadIdx.x;
     const int64_t stride = static_cast<int64_t>(coreNum) * blockDim.x;
-    for (int64_t index = first; index < outputElements; index += stride) {
+    for (int64_t index = first; index < tileBins; index += stride) {
         const uint64_t flags = histogram[index].words[12];
         if ((flags & 8U) == 0U) {
             continue;
@@ -565,7 +696,15 @@ __simt_vf__ __aicore__ LAUNCH_BOUND(THREAD_NUM) inline void FinalizeIntegerHisto
         sum.hasNan = (flags & 1U) != 0U;
         sum.hasPositiveInf = (flags & 2U) != 0U;
         sum.hasNegativeInf = (flags & 4U) != 0U;
-        (void)asc_atomic_exch(output + index, FinalizeExactFloat(sum));
+        (void)asc_atomic_exch(tileOutput + index, FinalizeExactFloat(sum));
+        // Reset the slot in place with atomics so the next tile inherits clean
+        // slots: atomic exchanges commit immediately, and the reset happens in
+        // the same thread that read the slot, before the next tile's scatter
+        // (separated by SyncAll).
+        for (uint32_t word = 0U; word < 12U; ++word) {
+            (void)asc_atomic_exch(&histogram[index].words[word], 0ULL);
+        }
+        (void)asc_atomic_exch(&histogram[index].words[12], 0ULL);
     }
 }
 
@@ -904,21 +1043,29 @@ public:
                 }
             } else if (tiling_.deterministicMode == DETERMINISTIC_HISTOGRAM) {
                 auto histogram = reinterpret_cast<__gm__ IntegerHistogram*>(workspace_);
+                TQue<TPosition::VECOUT, 1> zeroQueue;
+                pipe_->InitBuffer(zeroQueue, 1, tiling_.deterministicBufferBytes);
+                LocalTensor<uint32_t> zeros = zeroQueue.AllocTensor<uint32_t>();
+                Duplicate(zeros, uint32_t{0}, tiling_.deterministicBufferBytes / sizeof(uint32_t));
+                zeroQueue.EnQue(zeros);
+                zeros = zeroQueue.DeQue<uint32_t>();
+                const int64_t tiles = static_cast<int64_t>(tiling_.deterministicTiles);
+                const int64_t tileBins = outputSize < DETERMINISTIC_HISTOGRAM_TILE_BINS ?
+                                             outputSize :
+                                             DETERMINISTIC_HISTOGRAM_TILE_BINS;
                 if (participates) {
-                    InitializeIntegerHistogram(coreIdx, coreNum, outputSize, tiling_.deterministicBufferBytes,
-                                               histogram, pipe_);
+                    ZeroHistogramTiles(coreIdx, coreNum, tileBins, tiling_.deterministicBufferBytes, zeros, histogram);
                 }
+                const event_t zerosReady = static_cast<event_t>(pipe_->FetchEventID(HardEvent::MTE3_S));
+                SetFlag<HardEvent::MTE3_S>(zerosReady);
+                WaitFlag<HardEvent::MTE3_S>(zerosReady);
                 SyncAll();
                 if (participates) {
-                    asc_vf_call<ScatterIntegerHistogram<T, THREAD_NUM, IS_1D>>(
+                    asc_vf_call<TiledDeterministicHistogram<T, THREAD_NUM, IS_1D>>(
                         dim3(THREAD_NUM), coreIdx, coreNum, input_, weights_, tiling_.numValues, tiling_.inputRows,
-                        tiling_.inputCols, size, histogram);
+                        tiling_.inputCols, size, histogram, output_, outputSize, tiles);
                 }
-                SyncAll();
-                if (participates) {
-                    asc_vf_call<FinalizeIntegerHistogram<THREAD_NUM>>(dim3(THREAD_NUM), coreIdx, coreNum, outputSize,
-                                                                      histogram, output_);
-                }
+                zeroQueue.FreeTensor(zeros);
             }
             return;
         }

@@ -24,6 +24,7 @@ struct DenseBincountTilingData {
     uint32_t deterministicMode;
     uint32_t deterministicPartitions;
     uint32_t deterministicBufferBytes;
+    uint32_t deterministicTiles;
 };
 
 #endif // DENSE_BINCOUNT_TILING_DATA_H

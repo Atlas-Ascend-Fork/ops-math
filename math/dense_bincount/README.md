@@ -109,6 +109,7 @@
   - `weights`为FLOAT32类型ND张量，rank不能超过2；元素数量为0时表示不使用权重，非空时元素数量必须与`input`相同。
   - 支持`input`任意维度大小为0或`M`为0。`input`的shape为`[0]`时，输出shape为`[M]`；shape为`[N, 0]`时，输出shape为`[N, M]`；shape为`[0, N]`或`[0, 0]`时，输出shape为`[0, M]`。`M`为0时，输出最后一维大小为0。
   - 输出元素数`rows * M`不能超过INT64索引可表示的FLOAT32元素数量上限，且输出张量所需存储必须能由运行环境分配；一维输入的`rows`取1。
+  - 图模式开启确定性开关（`ge.deterministic=1`）时，加权累加通过分块精确直方图与精确定点累加实现，任意规格内输入的结果跨运行完全一致；确定性模式的workspace上界恒定（64 MiB），输出按块复用，不随输出规模增长。
 - <term>Atlas A3训练系列产品/Atlas A3推理系列产品</term>、<term>Atlas A2训练系列产品/Atlas A2推理系列产品</term>：
   - 沿用既有实现的空Tensor处理边界。
   - `weights`的rank不能超过2；元素数量为0时表示不使用权重，非空时元素数量必须与`input`相同，不要求与`input`逐维同shape。

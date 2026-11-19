@@ -43,6 +43,8 @@ constexpr uint64_t DETERMINISTIC_WORKSPACE_LIMIT = 16U * 1024U * 1024U;
 constexpr uint64_t DETERMINISTIC_PARTIAL_BYTES = 64U;
 constexpr uint64_t DETERMINISTIC_HISTOGRAM_LIMIT = 64U * 1024U * 1024U;
 constexpr uint64_t DETERMINISTIC_HISTOGRAM_SLOT_BYTES = 128U;
+constexpr uint64_t DETERMINISTIC_HISTOGRAM_TILE_BINS = DETERMINISTIC_HISTOGRAM_LIMIT /
+                                                       DETERMINISTIC_HISTOGRAM_SLOT_BYTES;
 constexpr uint64_t DETERMINISTIC_PARTIAL_MAX_WORK = 16U * 1024U * 1024U;
 constexpr uint32_t DETERMINISTIC_ZERO_BUFFER_BYTES = 32U * 1024U;
 constexpr int64_t DETERMINISTIC_PARTITIONS_PER_CORE = 16;
@@ -141,12 +143,6 @@ static bool UseDeterministicPartials(int64_t numValues, int64_t outputElements, 
         return false;
     }
     return static_cast<uint64_t>(numValues) <= DETERMINISTIC_PARTIAL_MAX_WORK / static_cast<uint64_t>(outputElements);
-}
-
-static bool UseDeterministicHistogram(int64_t outputElements)
-{
-    return outputElements > 0 &&
-           static_cast<uint64_t>(outputElements) <= DETERMINISTIC_HISTOGRAM_LIMIT / DETERMINISTIC_HISTOGRAM_SLOT_BYTES;
 }
 
 static bool ValidateDenseBincountInputs(gert::TilingContext* context)
@@ -254,7 +250,12 @@ static ge::graphStatus ConfigureDenseBincountSchedule(gert::TilingContext* conte
             tiling->deterministicMode = DETERMINISTIC_PARTIAL;
             tiling->deterministicPartitions = GetDeterministicPartitions(tiling->numValues, outputElements,
                                                                          tiling->usedCoreNum);
-        } else if (UseDeterministicHistogram(outputElements)) {
+        } else {
+            // Out of reach of the partial strategy: cover the output with
+            // exact-histogram tiles. One tile of slots is reused for every
+            // output range, so the workspace stays constant while the tile
+            // count scales with the output size. Every legal shape therefore
+            // stays runnable in deterministic mode.
             if (localMemorySize < DETERMINISTIC_ZERO_BUFFER_BYTES) {
                 OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "local UB",
                                                       std::to_string(localMemorySize),
@@ -263,11 +264,9 @@ static ge::graphStatus ConfigureDenseBincountSchedule(gert::TilingContext* conte
             }
             tiling->deterministicMode = DETERMINISTIC_HISTOGRAM;
             tiling->deterministicBufferBytes = DETERMINISTIC_ZERO_BUFFER_BYTES;
-        } else {
-            OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
-                context->GetNodeName(), "output.numel", std::to_string(outputElements),
-                "deterministic weighted accumulation exceeds the bounded workspace policies");
-            return ge::GRAPH_FAILED;
+            tiling->deterministicTiles = static_cast<uint32_t>(
+                (static_cast<uint64_t>(outputElements) + DETERMINISTIC_HISTOGRAM_TILE_BINS - 1U) /
+                DETERMINISTIC_HISTOGRAM_TILE_BINS);
         }
     }
     const bool useRowPrivate = rank == 2 && binary && tiling->inputRows > 1 && tiling->inputRows <= usedCoreNum;
@@ -319,7 +318,13 @@ static ge::graphStatus SetDenseBincountWorkspace(gert::TilingContext* context,
         }
         userWorkspace = entries * DETERMINISTIC_PARTIAL_BYTES;
     } else if (tiling.deterministicMode == DETERMINISTIC_HISTOGRAM) {
-        userWorkspace = static_cast<uint64_t>(outputElements) * DETERMINISTIC_HISTOGRAM_SLOT_BYTES;
+        const int64_t tileBins = outputElements < static_cast<int64_t>(DETERMINISTIC_HISTOGRAM_TILE_BINS) ?
+                                     outputElements :
+                                     static_cast<int64_t>(DETERMINISTIC_HISTOGRAM_TILE_BINS);
+        // One tile of exact slots plus 256 bytes for the monotonic phase
+        // counter of the in-kernel software barrier and its witness scratch
+        // (kept on a separate cache line from the counter).
+        userWorkspace = static_cast<uint64_t>(tileBins) * DETERMINISTIC_HISTOGRAM_SLOT_BYTES + 256U;
     }
     const uint64_t systemWorkspace = platform.GetLibApiWorkSpaceSize();
     // Current policies cap user workspace at 64 MiB; this remains a defensive

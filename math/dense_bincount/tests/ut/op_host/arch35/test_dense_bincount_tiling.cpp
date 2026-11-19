@@ -56,6 +56,7 @@ struct DenseBincountTilingResult {
     uint32_t deterministicMode = 0U;
     uint32_t deterministicPartitions = 0U;
     uint32_t deterministicBufferBytes = 0U;
+    uint32_t deterministicTiles = 0U;
     size_t workspaceSize = 0U;
 };
 
@@ -109,6 +110,7 @@ DenseBincountTilingResult ExecuteTiling(gert::ContextHolder<gert::TilingContext>
     result.deterministicMode = tiling->deterministicMode;
     result.deterministicPartitions = tiling->deterministicPartitions;
     result.deterministicBufferBytes = tiling->deterministicBufferBytes;
+    result.deterministicTiles = tiling->deterministicTiles;
     result.workspaceSize = holder.GetContext()->GetWorkspaceSizes(1)[0];
     return result;
 }
@@ -246,7 +248,7 @@ TEST(DenseBincountTiling, deterministic_weighted_dispatch_and_workspace_boundari
     EXPECT_EQ(histogramResult.deterministicPartitions, 0U);
     EXPECT_EQ(histogramResult.deterministicBufferBytes, 32U * 1024U);
     EXPECT_EQ(histogramResult.workspaceSize,
-              baselineResult.workspaceSize + histogram.size * DETERMINISTIC_HISTOGRAM_SLOT_BYTES);
+              baselineResult.workspaceSize + histogram.size * DETERMINISTIC_HISTOGRAM_SLOT_BYTES + 256U);
 
     DenseBincountTilingCase partialBoundary;
     partialBoundary.inputShape = {64};
@@ -273,10 +275,57 @@ TEST(DenseBincountTiling, deterministic_weighted_dispatch_and_workspace_boundari
     ASSERT_EQ(histogramBoundaryResult.status, ge::GRAPH_SUCCESS);
     EXPECT_EQ(histogramBoundaryResult.deterministicMode, 2U);
     EXPECT_EQ(histogramBoundaryResult.workspaceSize,
-              baselineResult.workspaceSize + histogramBoundary.size * DETERMINISTIC_HISTOGRAM_SLOT_BYTES);
+              baselineResult.workspaceSize + histogramBoundary.size * DETERMINISTIC_HISTOGRAM_SLOT_BYTES + 256U);
 
     histogramBoundary.size = 524289;
-    EXPECT_EQ(RunTiling(histogramBoundary).status, ge::GRAPH_FAILED);
+    const auto tiledResult = RunTiling(histogramBoundary);
+    ASSERT_EQ(tiledResult.status, ge::GRAPH_SUCCESS);
+    EXPECT_EQ(tiledResult.deterministicMode, 2U);
+    EXPECT_EQ(tiledResult.deterministicTiles, 2U);
+    EXPECT_EQ(tiledResult.workspaceSize,
+              baselineResult.workspaceSize + 524288U * DETERMINISTIC_HISTOGRAM_SLOT_BYTES + 256U);
+}
+
+TEST(DenseBincountTiling, deterministic_tiled_histogram_covers_large_outputs)
+{
+    DenseBincountTilingCase large1D;
+    large1D.inputShape = {34113756};
+    large1D.weightsShape = {34113756};
+    large1D.size = 762602;
+    large1D.deterministic = 1;
+    const auto large1DResult = RunTiling(large1D);
+    ASSERT_EQ(large1DResult.status, ge::GRAPH_SUCCESS);
+    EXPECT_EQ(large1DResult.key, ONE_D_DETERMINISTIC_TILING_KEY);
+    EXPECT_EQ(large1DResult.deterministicMode, 2U);
+    EXPECT_EQ(large1DResult.deterministicTiles, 2U);
+    auto large1DBaseline = large1D;
+    large1DBaseline.deterministic = 0;
+    const auto large1DBaselineResult = RunTiling(large1DBaseline);
+    ASSERT_EQ(large1DBaselineResult.status, ge::GRAPH_SUCCESS);
+    EXPECT_EQ(large1DResult.workspaceSize,
+              large1DBaselineResult.workspaceSize + 524288U * DETERMINISTIC_HISTOGRAM_SLOT_BYTES + 256U);
+
+    DenseBincountTilingCase largeND;
+    largeND.inputShape = {10, 41411};
+    largeND.weightsShape = {414110};
+    largeND.size = 40812498;
+    largeND.deterministic = 1;
+    const auto largeNDResult = RunTiling(largeND);
+    ASSERT_EQ(largeNDResult.status, ge::GRAPH_SUCCESS);
+    EXPECT_EQ(largeNDResult.key, ND_DETERMINISTIC_TILING_KEY);
+    EXPECT_EQ(largeNDResult.deterministicMode, 2U);
+    EXPECT_EQ(largeNDResult.deterministicTiles, 779U);
+
+    DenseBincountTilingCase binary;
+    binary.inputShape = {34113756};
+    binary.weightsShape = {34113756};
+    binary.size = 762602;
+    binary.binaryOutput = true;
+    binary.deterministic = 1;
+    const auto binaryResult = RunTiling(binary);
+    ASSERT_EQ(binaryResult.status, ge::GRAPH_SUCCESS);
+    EXPECT_EQ(binaryResult.key, SCH_MODE_1D_BINARY_WEIGHT);
+    EXPECT_EQ(binaryResult.deterministicMode, 0U);
 }
 
 TEST(DenseBincountTiling, deterministic_histogram_rejects_insufficient_ub)
