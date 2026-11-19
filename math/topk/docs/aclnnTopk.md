@@ -25,22 +25,22 @@
 
 ```Cpp
 aclnnStatus aclnnTopkGetWorkspaceSize(
-  const aclTensor* self, 
-  int64_t          k, 
-  int64_t          dim, 
-  bool             largest, 
-  bool             sorted, 
-  aclTensor*       valuesOut, 
-  aclTensor*       indicesOut, 
-  uint64_t*        workspaceSize, 
+  const aclTensor* self,
+  int64_t          k,
+  int64_t          dim,
+  bool             largest,
+  bool             sorted,
+  aclTensor*       valuesOut,
+  aclTensor*       indicesOut,
+  uint64_t*        workspaceSize,
   aclOpExecutor**  executor)
 ```
 
 ```Cpp
 aclnnStatus aclnnTopk(
-  void*          workspace, 
-  uint64_t       workspaceSize, 
-  aclOpExecutor* executor, 
+  void*          workspace,
+  uint64_t       workspaceSize,
+  aclOpExecutor* executor,
   const aclrtStream stream)
 ```
 
@@ -114,7 +114,7 @@ aclnnStatus aclnnTopk(
       <td>sorted（bool）</td>
       <td>输入</td>
       <td>表示输出结果是否排序。</td>
-      <td>True表示输出结果排序，False表示输出结果不排序。注意：当前该参数仅支持取True。</td>
+      <td>True表示接口保证输出结果有序；False表示不要求输出结果有序。sorted为False时不保证输出顺序及等值元素的索引稳定性，但部分实现或输入形状下结果仍可能有序。</td>
       <td>-</td>
       <td>-</td>
       <td>-</td>
