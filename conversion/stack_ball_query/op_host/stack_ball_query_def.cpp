@@ -13,6 +13,7 @@
  * \brief
  */
 #include "register/op_def_registry.h"
+#include "op_common/op_host/util/op_arch_helper.h"
 
 namespace ops {
 class StackBallQuery : public OpDef {
@@ -51,8 +52,7 @@ public:
         this->AICore().AddConfig("ascend910b");
         this->AICore().AddConfig("ascend910");
         this->AICore().AddConfig("ascend910_93");
-        this->AICore().AddConfig("ascend950");
-        this->AICore().AddConfig("ascend350");
+        opbase::ArchConfigHelper::AddConfigByArch(this->AICore(), Ops::Base::DAV_3510);
         this->AICore().AddConfig("kirinx90");
         this->AICore().AddConfig("kirin9030");
     }

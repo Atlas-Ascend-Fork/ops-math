@@ -13,6 +13,7 @@
  * \brief
  */
 #include "register/op_def_registry.h"
+#include "op_common/op_host/util/op_arch_helper.h"
 
 namespace ops {
 namespace {
@@ -58,7 +59,7 @@ public:
         aicoreConfig.NeedCheckSupportFlag(false);
         aicoreConfig.PrecisionReduceFlag(true);
         aicoreConfig.ExtendCfgInfo("opFile.value", "add_v2");
-        this->AICore().AddConfig("ascend950", aicoreConfig);
+        opbase::ArchConfigHelper::AddConfigByArch(this->AICore(), Ops::Base::DAV_3510, aicoreConfig);
     }
 };
 

@@ -9,7 +9,7 @@
 # ----------------------------------------------------------------------------
 
 # 设置算子定义时支持的芯片类型
-set(SUPPORT_COMPUTE_UNIT "ascend950" "mc62")
+set(SUPPORT_COMPUTE_UNIT "dav_3510" "mc62")
 # 设置每种芯片类型对应的tiling文件目录，即采用op_host目录下哪个文件夹下的tiling文件编译
 set(SUPPORT_TILING_DIR "arch35" "arch35")
 add_all_modules_sources(OPTYPE add_v2 ACLNNTYPE aclnn_exclude
@@ -22,7 +22,7 @@ endif()
 
 add_kernel_sources(
     KERNEL_SRC arch35/add_v2.cpp
-    COMPUTE_UNITS ascend950
+    COMPUTE_UNITS dav_3510
     AUTO_SYNC false
 )
 

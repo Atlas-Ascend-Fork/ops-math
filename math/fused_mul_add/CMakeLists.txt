@@ -8,7 +8,7 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ----------------------------------------------------------------------------
 
-set(SUPPORT_COMPUTE_UNIT "ascend950")
+set(SUPPORT_COMPUTE_UNIT "dav_3510")
 set(SUPPORT_TILING_DIR   "arch35")
 add_all_modules_sources(OPTYPE fused_mul_add
     ACLNNTYPE aclnn_exclude
