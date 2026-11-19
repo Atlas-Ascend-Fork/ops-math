@@ -38,9 +38,15 @@ extern "C" {
 
 constexpr size_t MAX_DIM = 8;
 
+// 910b 等旧芯片无 bf16 kernel（def 仅 950/960DT/350 注册 bf16），bf16 只允许 regbase 平台通过校验，
+// 旧芯片保持"aclnn 层干净拒绝 161002"的既有行为
 static const std::initializer_list<op::DataType> DTYPE_SUPPORT_LIST_910B = {
     op::DataType::DT_FLOAT, op::DataType::DT_FLOAT16, op::DataType::DT_INT64, op::DataType::DT_INT32,
     op::DataType::DT_INT16, op::DataType::DT_INT8,    op::DataType::DT_UINT8};
+
+static const std::initializer_list<op::DataType> DTYPE_SUPPORT_LIST_REGBASE = {
+    op::DataType::DT_FLOAT, op::DataType::DT_FLOAT16, op::DataType::DT_BF16, op::DataType::DT_INT64,
+    op::DataType::DT_INT32, op::DataType::DT_INT16,   op::DataType::DT_INT8, op::DataType::DT_UINT8};
 
 static const std::initializer_list<op::DataType> DTYPE_INT_LIST = {op::DataType::DT_INT64, op::DataType::DT_INT32,
                                                                    op::DataType::DT_INT16, op::DataType::DT_INT8,
@@ -68,10 +74,12 @@ static bool SelfDTypeInt(op::DataType selfDType)
 
 static bool CheckDtypeValid(const aclTensor* self, const aclTensor* out)
 {
-    // 检查self的数据类型是否在Histogram算子的支持列表内
-    OP_CHECK_DTYPE_NOT_SUPPORT(self, DTYPE_SUPPORT_LIST_910B, return false);
+    // 检查self的数据类型是否在Histogram算子的支持列表内（bf16 仅 regbase，旧芯片不含 bf16 kernel）
+    auto npuArch = op::GetCurrentPlatformInfo().GetCurNpuArch();
+    const auto& supportList = IsRegBase(npuArch) ? DTYPE_SUPPORT_LIST_REGBASE : DTYPE_SUPPORT_LIST_910B;
+    OP_CHECK_DTYPE_NOT_SUPPORT(self, supportList, return false);
 
-    OP_CHECK_DTYPE_NOT_SUPPORT(out, DTYPE_SUPPORT_LIST_910B, return false);
+    OP_CHECK_DTYPE_NOT_SUPPORT(out, supportList, return false);
 
     return true;
 }
@@ -116,6 +124,90 @@ static bool CheckMinMaxIsInfNan(float minValue, float maxValue)
     return true;
 }
 
+// CUDA 语义: min/max 标量在 dispatch 入口转换为 acc_type(整数一律 int64, fp32 为 float),
+// 不存在"标量超出 x dtype 值域"的问题。NPU kernel 要求 min/max 与 x 同 dtype, 标量超出 x 值域
+// 会被 ConvertToTensor 静默截断/回绕(M3a: int8 输入 + ±1000 标量 -> 回绕后 min>max, 静默全零)。
+// RegBase 上对标 CUDA: 把 x 与标量共同提升到能容纳标量的最窄类型再下发。
+static bool ScalarOutOfIntRange(const aclScalar* scalar, double lo, double hi)
+{
+    // CUDA double payload -> int64 为向零截断(checked_convert), 截断后再做范围比较
+    double value = std::trunc(scalar->ToDouble());
+    return value < lo || value > hi;
+}
+
+static op::DataType WidenIntDtypeForScalars(const aclScalar* min, const aclScalar* max, double xLo, double xHi)
+{
+    if (!ScalarOutOfIntRange(min, xLo, xHi) && !ScalarOutOfIntRange(max, xLo, xHi)) {
+        return op::DataType::DT_UNDEFINED; // 标量在 x 值域内, 无需提升
+    }
+    constexpr double kInt32Lo = -2147483648.0;
+    constexpr double kInt32Hi = 2147483647.0;
+    if (!ScalarOutOfIntRange(min, kInt32Lo, kInt32Hi) && !ScalarOutOfIntRange(max, kInt32Lo, kInt32Hi)) {
+        return op::DataType::DT_INT32;
+    }
+    return op::DataType::DT_INT64;
+}
+
+static op::DataType WidenDtypeForScalars(op::DataType xDtype, const aclScalar* min, const aclScalar* max)
+{
+    switch (xDtype) {
+        case op::DataType::DT_INT8:
+            return WidenIntDtypeForScalars(min, max, -128.0, 127.0);
+        case op::DataType::DT_UINT8:
+            return WidenIntDtypeForScalars(min, max, 0.0, 255.0);
+        case op::DataType::DT_INT16:
+            return WidenIntDtypeForScalars(min, max, -32768.0, 32767.0);
+        case op::DataType::DT_INT32:
+            return WidenIntDtypeForScalars(min, max, -2147483648.0, 2147483647.0);
+        case op::DataType::DT_FLOAT16: {
+            // fp16 是 NPU 扩展支持(CUDA 不支持), 标量超 fp16 值域(65504)时提升到 fp32
+            constexpr double kFp16Max = 65504.0;
+            if (std::fabs(min->ToDouble()) > kFp16Max || std::fabs(max->ToDouble()) > kFp16Max) {
+                return op::DataType::DT_FLOAT;
+            }
+            return op::DataType::DT_UNDEFINED;
+        }
+        case op::DataType::DT_BF16: {
+            // bf16 同为 NPU 扩展支持(CUDA 不支持), 标量超 bf16 值域(~3.39e38)时提升到 fp32
+            constexpr double kBf16Max = 3.3895314e38;
+            if (std::fabs(min->ToDouble()) > kBf16Max || std::fabs(max->ToDouble()) > kBf16Max) {
+                return op::DataType::DT_FLOAT;
+            }
+            return op::DataType::DT_UNDEFINED;
+        }
+        default:
+            // DT_INT64 无更宽类型可提升; DT_FLOAT 不需要
+            return op::DataType::DT_UNDEFINED;
+    }
+}
+
+// CUDA checked_convert 语义: 浮点 payload 标量转换为 int64 bounds 时, |v| >= 2^63 或 NaN
+// 响亮报错 ("value cannot be converted to type int64_t without overflow"), 不允许静默截断。
+static bool CheckScalarConvertibleToInt64(const aclScalar* scalar)
+{
+    op::DataType payloadDtype = scalar->GetDataType();
+    switch (payloadDtype) {
+        case op::DataType::DT_INT8:
+        case op::DataType::DT_INT16:
+        case op::DataType::DT_INT32:
+        case op::DataType::DT_INT64:
+        case op::DataType::DT_UINT8:
+        case op::DataType::DT_UINT16:
+        case op::DataType::DT_UINT32:
+        case op::DataType::DT_UINT64:
+        case op::DataType::DT_BOOL:
+            return true; // int payload 在 int64 内恒精确
+        default:
+            break; // 其余(含 DT_BFLOAT16)统一走 ToDouble 检查, 避免绕过 checked_convert 语义
+    }
+    double value = scalar->ToDouble();
+    if (std::isnan(value) || value >= 9223372036854775808.0 || value < -9223372036854775808.0) {
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "value cannot be converted to type int64_t without overflow");
+        return false;
+    }
+    return true;
+}
+
 static bool CheckValueRange(int64_t bins, const aclScalar* min, const aclScalar* max, op::DataType selfDType)
 {
     if (bins <= 0) {
@@ -124,6 +216,21 @@ static bool CheckValueRange(int64_t bins, const aclScalar* min, const aclScalar*
     }
 
     if (SelfDTypeInt(selfDType)) {
+        // CUDA 语义: 整数输入的 bounds 以 int64(acc_type) 比较; RegBase 上用 ToInt64,
+        // 避免 int64 大值域标量经 ToInt32 截断后比较结果错误。
+        auto npuArch = op::GetCurrentPlatformInfo().GetCurNpuArch();
+        if (IsRegBase(npuArch)) {
+            if (!CheckScalarConvertibleToInt64(min) || !CheckScalarConvertibleToInt64(max)) {
+                return false;
+            }
+            int64_t minValue = min->ToInt64();
+            int64_t maxValue = max->ToInt64();
+            if (minValue > maxValue) {
+                OP_LOGE(ACLNN_ERR_PARAM_INVALID, "The value of max should be greater than or equal to min.");
+                return false;
+            }
+            return true;
+        }
         int32_t minValue = min->ToInt32();
         int32_t maxValue = max->ToInt32();
         if (minValue > maxValue) {
@@ -178,6 +285,11 @@ static bool NeedComputeMinMax(const aclScalar* min, const aclScalar* max, op::Da
     float maxValue = max->ToFloat();
     if (CheckMinMaxInfEqual(minValue, maxValue)) {
         return true;
+    }
+    // CUDA 语义: 标量转换到 acc_type 后按精确相等判断重算; RegBase 上与 CUDA 对齐。
+    // 910b(DAV_2201) 保持原有 1e-6 epsilon 判断不变。
+    if (IsRegBase(npuArch)) {
+        return minValue == maxValue;
     }
     return maxValue - minValue < static_cast<float>(1e-6) && maxValue - minValue > static_cast<float>(-1e-6);
 }
@@ -274,15 +386,29 @@ aclnnStatus aclnnHistcGetWorkspaceSize(const aclTensor* self, int64_t bins, cons
     auto selfContiguous = l0op::Contiguous(self, uniqueExecutor.get());
     CHECK_RET(selfContiguous != nullptr, ACLNN_ERR_INNER_NULLPTR);
 
-    // min, max转tensor
     aclOpExecutor* executorP = uniqueExecutor.get();
-    auto minTensor = executorP->ConvertToTensor(min, selfContiguous->GetDataType());
+
+    // RegBase 上对标 CUDA 的 acc_type 语义: 标量超出 x dtype 值域时, 把 x 与标量
+    // 共同提升到更宽类型, 避免 ConvertToTensor 按 x dtype 静默截断/回绕
+    op::DataType xEffDtype = selfContiguous->GetDataType();
+    auto npuArch = op::GetCurrentPlatformInfo().GetCurNpuArch();
+    if (IsRegBase(npuArch)) {
+        op::DataType widenDtype = WidenDtypeForScalars(xEffDtype, min, max);
+        if (widenDtype != op::DataType::DT_UNDEFINED) {
+            selfContiguous = l0op::Cast(selfContiguous, widenDtype, executorP);
+            CHECK_RET(selfContiguous != nullptr, ACLNN_ERR_INNER_NULLPTR);
+            xEffDtype = widenDtype;
+        }
+    }
+
+    // min, max转tensor
+    auto minTensor = executorP->ConvertToTensor(min, xEffDtype);
     CHECK_RET(minTensor != nullptr, ACLNN_ERR_PARAM_NULLPTR);
-    auto maxTensor = executorP->ConvertToTensor(max, selfContiguous->GetDataType());
+    auto maxTensor = executorP->ConvertToTensor(max, xEffDtype);
     CHECK_RET(maxTensor != nullptr, ACLNN_ERR_PARAM_NULLPTR);
 
     // 重新求self中的min max值
-    if (NeedComputeMinMax(min, max, selfContiguous->GetDataType())) {
+    if (NeedComputeMinMax(min, max, xEffDtype)) {
         auto minMaxResult = AllMinMax(selfContiguous, uniqueExecutor.get());
         minTensor = std::get<0>(minMaxResult);
         maxTensor = std::get<1>(minMaxResult);

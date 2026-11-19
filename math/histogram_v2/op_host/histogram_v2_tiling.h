@@ -18,6 +18,8 @@
 #include "register/tilingdata_base.h"
 #include "platform/platform_ascendc.h"
 #include "op_host/tiling_base_class.h"
+#include "math/histogram_v2/op_kernel/arch35/histogram_v2_tiling_data.h"
+#include "math/histogram_v2/op_kernel/arch35/histogram_v2_tiling_key.h"
 
 namespace optiling {
 
@@ -45,68 +47,10 @@ END_TILING_DATA_DEF;
 
 REGISTER_TILING_DATA_CLASS(HistogramV2, HistogramV2TilingData)
 
-BEGIN_TILING_DATA_DEF(HistogramV2SimtTilingData)
-TILING_DATA_FIELD_DEF(int64_t, bins);
-TILING_DATA_FIELD_DEF(int64_t, ubNumCanUse);
-TILING_DATA_FIELD_DEF(int64_t, ubLoopNum);
-TILING_DATA_FIELD_DEF(int64_t, needXCoreNum);
-TILING_DATA_FIELD_DEF(int64_t, formerLength);
-TILING_DATA_FIELD_DEF(int64_t, tailLength);
-TILING_DATA_FIELD_DEF(int64_t, clearYCoreNum);
-TILING_DATA_FIELD_DEF(int64_t, clearYFactor);
-TILING_DATA_FIELD_DEF(int64_t, clearYTail);
-END_TILING_DATA_DEF;
-
-REGISTER_TILING_DATA_CLASS(HistogramV2_101, HistogramV2SimtTilingData)
-REGISTER_TILING_DATA_CLASS(HistogramV2_102, HistogramV2SimtTilingData)
-REGISTER_TILING_DATA_CLASS(HistogramV2_103, HistogramV2SimtTilingData)
-REGISTER_TILING_DATA_CLASS(HistogramV2_104, HistogramV2SimtTilingData)
-REGISTER_TILING_DATA_CLASS(HistogramV2_105, HistogramV2SimtTilingData)
-REGISTER_TILING_DATA_CLASS(HistogramV2_106, HistogramV2SimtTilingData)
-REGISTER_TILING_DATA_CLASS(HistogramV2_107, HistogramV2SimtTilingData)
-
-REGISTER_TILING_DATA_CLASS(HistogramV2_201, HistogramV2SimtTilingData)
-REGISTER_TILING_DATA_CLASS(HistogramV2_202, HistogramV2SimtTilingData)
-REGISTER_TILING_DATA_CLASS(HistogramV2_203, HistogramV2SimtTilingData)
-REGISTER_TILING_DATA_CLASS(HistogramV2_204, HistogramV2SimtTilingData)
-REGISTER_TILING_DATA_CLASS(HistogramV2_205, HistogramV2SimtTilingData)
-REGISTER_TILING_DATA_CLASS(HistogramV2_206, HistogramV2SimtTilingData)
-REGISTER_TILING_DATA_CLASS(HistogramV2_207, HistogramV2SimtTilingData)
-
-REGISTER_TILING_DATA_CLASS(HistogramV2_301, HistogramV2SimtTilingData)
-REGISTER_TILING_DATA_CLASS(HistogramV2_302, HistogramV2SimtTilingData)
-REGISTER_TILING_DATA_CLASS(HistogramV2_303, HistogramV2SimtTilingData)
-REGISTER_TILING_DATA_CLASS(HistogramV2_304, HistogramV2SimtTilingData)
-REGISTER_TILING_DATA_CLASS(HistogramV2_305, HistogramV2SimtTilingData)
-REGISTER_TILING_DATA_CLASS(HistogramV2_306, HistogramV2SimtTilingData)
-REGISTER_TILING_DATA_CLASS(HistogramV2_307, HistogramV2SimtTilingData)
-
-// fp32 output (non-deterministic): tens digit = 1 (base + 10 + inputDtypeVal); only fp32(1) and fp16(7) used
-// UB_FULL fp32-out: 100 + 10 + 1/7 = 111/117
-// UB_NOT_FULL fp32-out: 200 + 10 + 1/7 = 211/217
-// UB_NOT_FULL_SIMT fp32-out: 300 + 10 + 1/7 = 311/317
-REGISTER_TILING_DATA_CLASS(HistogramV2_111, HistogramV2SimtTilingData)
-REGISTER_TILING_DATA_CLASS(HistogramV2_117, HistogramV2SimtTilingData)
-REGISTER_TILING_DATA_CLASS(HistogramV2_211, HistogramV2SimtTilingData)
-REGISTER_TILING_DATA_CLASS(HistogramV2_217, HistogramV2SimtTilingData)
-REGISTER_TILING_DATA_CLASS(HistogramV2_311, HistogramV2SimtTilingData)
-REGISTER_TILING_DATA_CLASS(HistogramV2_317, HistogramV2SimtTilingData)
-
-// fp32 output + deterministic: thousands digit = 1 (fp32-out-key + 1000); only fp32(1) and fp16(7) used
-// UB_FULL det fp32-out: 111 + 1000 = 1111 / 117 + 1000 = 1117
-// UB_NOT_FULL det fp32-out: 211 + 1000 = 1211 / 217 + 1000 = 1217
-// UB_NOT_FULL_SIMT det fp32-out: 311 + 1000 = 1311 / 317 + 1000 = 1317
-REGISTER_TILING_DATA_CLASS(HistogramV2_1111, HistogramV2SimtTilingData)
-REGISTER_TILING_DATA_CLASS(HistogramV2_1117, HistogramV2SimtTilingData)
-REGISTER_TILING_DATA_CLASS(HistogramV2_1211, HistogramV2SimtTilingData)
-REGISTER_TILING_DATA_CLASS(HistogramV2_1217, HistogramV2SimtTilingData)
-REGISTER_TILING_DATA_CLASS(HistogramV2_1311, HistogramV2SimtTilingData)
-REGISTER_TILING_DATA_CLASS(HistogramV2_1317, HistogramV2SimtTilingData)
-
-// SIMD deterministic UB_FULL fp32-out (dhistv2 BIN0). Thousands digit = 2.
-// 2100 + 10 + 1/7 = 2111 / 2117
-REGISTER_TILING_DATA_CLASS(HistogramV2_2111, HistogramV2SimtTilingData)
-REGISTER_TILING_DATA_CLASS(HistogramV2_2117, HistogramV2SimtTilingData)
+// arch35 uses the pure-struct HistogramV2SimtTilingData (see
+// op_kernel/arch35/histogram_v2_tiling_data.h) with a template-parameter tiling
+// key (schId, see op_kernel/arch35/histogram_v2_tiling_key.h); the legacy
+// numeric keys 101..2117 and their REGISTER_TILING_DATA_CLASS entries are gone.
 
 struct HistogramV2CompileInfo {
     int32_t totalCoreNum = 0;

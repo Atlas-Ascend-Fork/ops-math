@@ -112,6 +112,20 @@ TEST_F(HistogramV2SimtTilingTest, tiling_fp16)
     EXPECT_TRUE(RunTiling(para));
 }
 
+TEST_F(HistogramV2SimtTilingTest, tiling_bf16)
+{
+    auto ci = MakeCompileInfo();
+    auto para = MakePara(&ci, {256}, ge::DT_BF16, {1}, ge::DT_BF16, {100}, ge::DT_INT32, 100);
+    EXPECT_TRUE(RunTiling(para));
+}
+
+TEST_F(HistogramV2SimtTilingTest, tiling_bf16_out_fp32)
+{
+    auto ci = MakeCompileInfo();
+    auto para = MakePara(&ci, {256}, ge::DT_BF16, {1}, ge::DT_BF16, {100}, ge::DT_FLOAT, 100);
+    EXPECT_TRUE(RunTiling(para));
+}
+
 TEST_F(HistogramV2SimtTilingTest, tiling_int32)
 {
     auto ci = MakeCompileInfo();
@@ -206,7 +220,8 @@ TEST_F(HistogramV2SimtTilingTest, tiling_minmax_dtype_mismatch)
 TEST_F(HistogramV2SimtTilingTest, tiling_unsupported_dtype)
 {
     auto ci = MakeCompileInfo();
-    auto para = MakePara(&ci, {256}, ge::DT_BF16, {1}, ge::DT_BF16, {100}, ge::DT_INT32, 100);
+    // fp64 不在支持集内(bf16 自 2026-11 起支持, 反面用例改用 fp64)
+    auto para = MakePara(&ci, {256}, ge::DT_DOUBLE, {1}, ge::DT_DOUBLE, {100}, ge::DT_INT32, 100);
     EXPECT_FALSE(RunTiling(para));
 }
 
@@ -238,43 +253,85 @@ TEST_F(HistogramV2SimtTilingTest, tiling_core_num_zero)
     EXPECT_FALSE(RunTiling(para));
 }
 
-// SIMD template: deterministic + fp32-out + bins<=127 + UB_FULL -> 2111 / 2117.
-TEST_F(HistogramV2SimtTilingTest, tiling_simd_det_fp32)
+// Deterministic + fp32-out maps to schId = base mode + TPL_SCH_ID_UB_FULL_DET (3).
+// The SIMD dhistv2 path (legacy keys 2111/2117) was removed in the arch35 rewrite;
+// bins<=127 is no longer special-cased.
+TEST_F(HistogramV2SimtTilingTest, tiling_det_fp32_ub_full)
 {
     auto ci = MakeCompileInfo();
     auto para = MakePara(&ci, {4096}, ge::DT_FLOAT, {1}, ge::DT_FLOAT, {100}, ge::DT_FLOAT, 100);
     uint64_t key = 0;
     EXPECT_TRUE(histogram_v2_ut::RunTilingWithSoc(para, "ascend950", key, 1));
-    EXPECT_EQ(key, 2111u);
+    EXPECT_EQ(key, GET_TPL_TILING_KEY(TPL_SCH_ID_UB_FULL_DET));
 }
 
-TEST_F(HistogramV2SimtTilingTest, tiling_simd_det_fp16)
+TEST_F(HistogramV2SimtTilingTest, tiling_det_fp16_ub_full)
 {
     auto ci = MakeCompileInfo();
     auto para = MakePara(&ci, {256}, ge::DT_FLOAT16, {1}, ge::DT_FLOAT16, {31}, ge::DT_FLOAT, 31);
     uint64_t key = 0;
     EXPECT_TRUE(histogram_v2_ut::RunTilingWithSoc(para, "ascend950", key, 1));
-    EXPECT_EQ(key, 2117u);
+    EXPECT_EQ(key, GET_TPL_TILING_KEY(TPL_SCH_ID_UB_FULL_DET));
 }
 
-// bins > 127 stays on SIMT det (1111), SIMD IsCapable is false.
-TEST_F(HistogramV2SimtTilingTest, tiling_simd_bins_over_limit_falls_back)
+// bins > 127 stays on UB_FULL_DET (ubNumCanUse = 229376/4 = 57344 >> 200).
+TEST_F(HistogramV2SimtTilingTest, tiling_det_bins_over_127)
 {
     auto ci = MakeCompileInfo();
     auto para = MakePara(&ci, {256}, ge::DT_FLOAT, {1}, ge::DT_FLOAT, {200}, ge::DT_FLOAT, 200);
     uint64_t key = 0;
     EXPECT_TRUE(histogram_v2_ut::RunTilingWithSoc(para, "ascend950", key, 1));
-    EXPECT_EQ(key, 1111u);
+    EXPECT_EQ(key, GET_TPL_TILING_KEY(TPL_SCH_ID_UB_FULL_DET));
 }
 
-// Non-deterministic keeps SIMT fp32-out key 111, not SIMD.
-TEST_F(HistogramV2SimtTilingTest, tiling_simd_not_selected_when_nondet)
+// Non-deterministic fp32-out keeps the plain UB_FULL schId.
+TEST_F(HistogramV2SimtTilingTest, tiling_nondet_fp32_out)
 {
     auto ci = MakeCompileInfo();
     auto para = MakePara(&ci, {256}, ge::DT_FLOAT, {1}, ge::DT_FLOAT, {100}, ge::DT_FLOAT, 100);
     uint64_t key = 0;
     EXPECT_TRUE(RunTiling(para, key));
-    EXPECT_EQ(key, 111u);
+    EXPECT_EQ(key, GET_TPL_TILING_KEY(TPL_SCH_ID_UB_FULL));
+}
+
+// det + fp32-out + bins >= ubNumCanUse + long input -> UB_WINDOW det schId.
+TEST_F(HistogramV2SimtTilingTest, tiling_det_ub_window)
+{
+    auto ci = MakeCompileInfo();
+    auto para = MakePara(&ci, {1000}, ge::DT_FLOAT, {1}, ge::DT_FLOAT, {60000}, ge::DT_FLOAT, 60000);
+    uint64_t key = 0;
+    EXPECT_TRUE(histogram_v2_ut::RunTilingWithSoc(para, "ascend950", key, 1));
+    EXPECT_EQ(key, GET_TPL_TILING_KEY(TPL_SCH_ID_UB_WINDOW_DET));
+}
+
+// det + fp32-out + huge bins + short input -> GM_ATOMIC det schId (true deterministic,
+// closes the legacy 1311/1317 hole that silently ran the non-deterministic path).
+TEST_F(HistogramV2SimtTilingTest, tiling_det_gm_atomic)
+{
+    auto ci = MakeCompileInfo();
+    auto para = MakePara(&ci, {100}, ge::DT_FLOAT, {1}, ge::DT_FLOAT, {60000}, ge::DT_FLOAT, 60000);
+    uint64_t key = 0;
+    EXPECT_TRUE(histogram_v2_ut::RunTilingWithSoc(para, "ascend950", key, 1));
+    EXPECT_EQ(key, GET_TPL_TILING_KEY(TPL_SCH_ID_GM_ATOMIC_DET));
+}
+
+// Non-deterministic mode selection: UB_WINDOW / GM_ATOMIC schIds.
+TEST_F(HistogramV2SimtTilingTest, tiling_nondet_ub_window_key)
+{
+    auto ci = MakeCompileInfo();
+    auto para = MakePara(&ci, {1000}, ge::DT_FLOAT, {1}, ge::DT_FLOAT, {60000}, ge::DT_INT32, 60000);
+    uint64_t key = 0;
+    EXPECT_TRUE(RunTiling(para, key));
+    EXPECT_EQ(key, GET_TPL_TILING_KEY(TPL_SCH_ID_UB_WINDOW));
+}
+
+TEST_F(HistogramV2SimtTilingTest, tiling_nondet_gm_atomic_key)
+{
+    auto ci = MakeCompileInfo();
+    auto para = MakePara(&ci, {100}, ge::DT_FLOAT, {1}, ge::DT_FLOAT, {60000}, ge::DT_INT32, 60000);
+    uint64_t key = 0;
+    EXPECT_TRUE(RunTiling(para, key));
+    EXPECT_EQ(key, GET_TPL_TILING_KEY(TPL_SCH_ID_GM_ATOMIC));
 }
 
 } // namespace

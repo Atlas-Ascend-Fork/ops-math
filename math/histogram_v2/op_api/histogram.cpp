@@ -29,10 +29,13 @@ using namespace op;
 namespace l0op {
 OP_TYPE_REGISTER(Histogram);
 OP_TYPE_REGISTER(HistogramV2);
-// AiCore支持的类型
+// AiCore支持的类型（bf16 仅 regbase 平台有 kernel，旧芯片校验与行为保持原样）
 static const std::initializer_list<op::DataType> AICORE_DTYPE_SUPPORT_LIST_SELF = {
     op::DataType::DT_FLOAT, op::DataType::DT_FLOAT16, op::DataType::DT_INT64, op::DataType::DT_INT32,
     op::DataType::DT_INT16, op::DataType::DT_INT8,    op::DataType::DT_UINT8};
+static const std::initializer_list<op::DataType> AICORE_DTYPE_SUPPORT_LIST_SELF_REGBASE = {
+    op::DataType::DT_FLOAT, op::DataType::DT_FLOAT16, op::DataType::DT_BF16, op::DataType::DT_INT64,
+    op::DataType::DT_INT32, op::DataType::DT_INT16,   op::DataType::DT_INT8, op::DataType::DT_UINT8};
 
 static bool IsAiCoreSupport(const aclTensor* self, const aclTensor* out)
 {
@@ -44,8 +47,10 @@ static bool IsAiCoreSupport(const aclTensor* self, const aclTensor* out)
         OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "out is nullptr, check AiCoreSupport failed.");
         return false;
     }
-    auto checkSelfType = CheckType(self->GetDataType(), AICORE_DTYPE_SUPPORT_LIST_SELF);
     auto npuArch = op::GetCurrentPlatformInfo().GetCurNpuArch();
+    const auto& supportList = IsRegBase(npuArch) ? AICORE_DTYPE_SUPPORT_LIST_SELF_REGBASE :
+                                                   AICORE_DTYPE_SUPPORT_LIST_SELF;
+    auto checkSelfType = CheckType(self->GetDataType(), supportList);
     if (npuArch != Ops::Base::DAV_2201 && !IsRegBase(npuArch) && npuArch != Ops::Base::DAV_2002) {
         return false;
     }
@@ -84,9 +89,10 @@ const aclTensor* Histogram(const aclTensor* self, const aclTensor* min, const ac
 {
     if (IsAiCoreSupport(self, out)) {
         auto npuArch = op::GetCurrentPlatformInfo().GetCurNpuArch();
-        // 当前950支持输出int32和f32，其他芯片只支持int32
+        // 当前950支持输出int32和f32(浮点输入: fp32/fp16/bf16 均出 f32)，其他芯片只支持int32
         auto desDtype = ((out->GetDataType() == op::DataType::DT_FLOAT16 ||
-                          out->GetDataType() == op::DataType::DT_FLOAT) &&
+                          out->GetDataType() == op::DataType::DT_FLOAT ||
+                          out->GetDataType() == op::DataType::DT_BF16) &&
                          IsRegBase(npuArch)) ?
                             op::DataType::DT_FLOAT :
                             op::DataType::DT_INT32;

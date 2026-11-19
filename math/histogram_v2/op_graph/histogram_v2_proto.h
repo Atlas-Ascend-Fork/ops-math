@@ -22,9 +22,9 @@ namespace ge {
 * @brief Computes the histogram of a tensor.
 
 *@par Inputs:
-* @li x: A tensor of type float16, float32, int64, int32, int16, int8, uint8.
-* @li min: A tensor of type float16, float32, int64, int32, int16, int8, uint8, with only one element.
-* @li max: A tensor of type float16, float32, int64, int32, int16, int8, uint8, with only one element.
+* @li x: A tensor of type float16, float32, bfloat16, int64, int32, int16, int8, uint8.
+* @li min: A tensor of type float16, float32, bfloat16, int64, int32, int16, int8, uint8, with only one element.
+* @li max: A tensor of type float16, float32, bfloat16, int64, int32, int16, int8, uint8, with only one element.
 *@par Attributes:
 
  * bins: Optional. Type Must be int64. Value must be greater than 0, Defaults to 100.
@@ -38,9 +38,9 @@ namespace ge {
 */
 
 REG_OP(HistogramV2)
-    .INPUT(x, TensorType({DT_FLOAT16, DT_FLOAT, DT_INT64, DT_INT32, DT_INT16, DT_INT8, DT_UINT8}))
-    .INPUT(min, TensorType({DT_FLOAT16, DT_FLOAT, DT_INT64, DT_INT32, DT_INT16, DT_INT8, DT_UINT8}))
-    .INPUT(max, TensorType({DT_FLOAT16, DT_FLOAT, DT_INT64, DT_INT32, DT_INT16, DT_INT8, DT_UINT8}))
+    .INPUT(x, TensorType({DT_FLOAT16, DT_FLOAT, DT_BF16, DT_INT64, DT_INT32, DT_INT16, DT_INT8, DT_UINT8}))
+    .INPUT(min, TensorType({DT_FLOAT16, DT_FLOAT, DT_BF16, DT_INT64, DT_INT32, DT_INT16, DT_INT8, DT_UINT8}))
+    .INPUT(max, TensorType({DT_FLOAT16, DT_FLOAT, DT_BF16, DT_INT64, DT_INT32, DT_INT16, DT_INT8, DT_UINT8}))
     .OUTPUT(y, TensorType({DT_INT32, DT_FLOAT}))
     .ATTR(bins, Int, 100)
     .ATTR(y_dtype, Type, DT_INT32)
