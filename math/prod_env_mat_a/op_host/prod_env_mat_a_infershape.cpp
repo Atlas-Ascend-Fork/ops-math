@@ -22,6 +22,7 @@
 #include "register/op_impl_registry.h"
 #include "graph/utils/type_utils.h"
 #include "op_common/log/log.h"
+#include "op_common/op_host/util/shape_util.h"
 
 using namespace ge;
 
@@ -48,6 +49,24 @@ static ge::graphStatus InferShapeForProdEnvMatA(gert::InferShapeContext* context
     const char* opName = context->GetNodeName();
     const gert::Shape* coordShape = context->GetInputShape(IDX_0);
     OP_CHECK_NULL_WITH_CONTEXT(context, coordShape);
+
+    // ===== 未知秩（coord.shape == [-2]）：输出恒为 2D，置 (-1, -1)（与 1.0 语义一致）=====
+    // 输出秩由算子契约固定（4 输出恒为 (nsample, nnei*k) 2D），不透传 [-2]（会谎报秩未知）；
+    // 两维均不在此处取值：dim0 待运行期按真实输入收敛，dim1 同样交给运行期（不读 natoms，
+    // 避免编译期值依赖）。残留 -1 使 GE 按动态图编译，运行期 InferShape 节点携真实数据重推。
+    if (Ops::Base::IsUnknownRank(*coordShape)) {
+        const size_t kNumOutputs = 4;
+        for (size_t outIdx = 0; outIdx < kNumOutputs; outIdx++) {
+            gert::Shape* outShape = context->GetOutputShape(outIdx);
+            OP_CHECK_NULL_WITH_CONTEXT(context, outShape);
+            outShape->SetDimNum(2);
+            outShape->SetDim(0, -1);
+            outShape->SetDim(1, -1);
+        }
+        OP_LOGD(opName, "coord is unknown rank, outputs fixed 2D (-1, -1)");
+        return GRAPH_SUCCESS;
+    }
+
     OP_CHECK_IF(coordShape->GetDimNum() != 2,
                 OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON(opName, "coord",
                                                       ("dimNum=" + std::to_string(coordShape->GetDimNum())).c_str(),
@@ -136,6 +155,22 @@ static ge::graphStatus InferShapeForProdEnvMatA(gert::InferShapeContext* context
     for (size_t i = 0; i < selA->GetSize(); i++) {
         nnei += selA->GetData()[i];
     }
+
+    // ===== -1 推导 =====
+    const int64_t kUnknownDim = -1;
+    if (coordShape->GetDim(1) == kUnknownDim && nsample != kUnknownDim) {
+        const size_t kNumOutputs = 4;
+        for (size_t outIdx = 0; outIdx < kNumOutputs; outIdx++) {
+            gert::Shape* outShape = context->GetOutputShape(outIdx);
+            OP_CHECK_NULL_WITH_CONTEXT(context, outShape);
+            outShape->SetDimNum(2);
+            outShape->SetDim(0, nsample);
+            outShape->SetDim(1, kUnknownDim);
+        }
+        OP_LOGD(opName, "neg1 probe: coord.shape[1] is UNKNOWN_DIM, output dim1 passthrough -1");
+        return GRAPH_SUCCESS;
+    }
+
     // 值依赖: 从 natoms tensor 读取 nloc
     auto natomsTensor = context->GetInputTensor(kNatomsIdx);
     OP_CHECK_NULL_WITH_CONTEXT(context, natomsTensor);
