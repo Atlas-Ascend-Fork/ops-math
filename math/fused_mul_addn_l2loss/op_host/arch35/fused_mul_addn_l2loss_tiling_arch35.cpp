@@ -12,8 +12,8 @@
  * \file fused_mul_addn_l2loss_tiling_arch35.cpp
  * \brief FusedMulAddNL2loss arch35 tiling
  *        展平为一维，按核均分；不使用 workspace
- *        （y2 归约：fp32 走 per-core (acc, comp) → y1 尾部 scratch → core0 确定性合并，
- *          fp16 走 core0 串行，见 kernel 注释）
+ *        （y2 归约：fp16/fp32 统一走 per-core (acc, comp) → y1 尾部 scratch →
+ *          core0 确定性合并，见 kernel 注释）
  */
 
 #include "register/op_impl_registry.h"

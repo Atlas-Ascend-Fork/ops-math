@@ -14,16 +14,13 @@
  *        y1 = x1 * x3 + x2   (elementwise, x3 标量广播, 多核均分)
  *        y2 = Σ(x1² / 2)     (全量 reduce, 标量输出)
  *        与 910b TBE 语义一致；fp16 输入统一 cast 到 fp32 计算，y2 fp32 累加。
- *        y2 归约（两条路径的 partial 都在 y1 循环里顺路计算，零额外访存）：
- *          fp32 —— 每核用 TwoSum 补偿累加（Knuth）把各 tile partial 精确累进
- *                  (acc, comp)；SyncAll 后各核把二元组写 y1 尾部 scratch（2 x 核数
- *                  个元素），core0 按核号固定顺序 TwoSum 合并后单次舍入写 y2，
- *                  再用 x1/x2/x3 重算恢复这段 y1。
- *                  无原子加 → 多次运行 bit 级一致；补偿累加 → 误差 ~eps²，
- *                  等价于高精度归约后再舍入（fp32 顺序累加会偏 1~2 ulp，
- *                  大 N 时 cross_check 三比值超标）。
- *          fp16 —— 避免半精度原子加误差，core0 串行归约全量（只读 x1，fp32 累加，
- *                  单次舍入写回）。
+ *        y2 归约（fp16/fp32 统一，partial 在 y1 循环里顺路计算，零额外全量读）：
+ *          每核用 TwoSum 补偿累加（Knuth）把各 tile partial 精确累进 (acc, comp)；
+ *          SyncAll 后各核把二元组写 y1 尾部 scratch（2 x 核数 个 float），core0 按
+ *          核号固定顺序 TwoSum 合并后单次舍入写 y2，再用 x1/x2/x3 重算恢复这段 y1。
+ *          fp16 的 y1 为 2B 元素，scratch 以 float 视角覆盖尾部并做 4B 对齐。
+ *          无原子加 → 多次运行 bit 级一致；补偿累加 → 误差 ~eps²，等价于高精度
+ *          归约后再舍入（fp32 顺序累加会偏 1~2 ulp，大 N 时 cross_check 三比值超标）。
  */
 
 #ifndef FUSED_MUL_ADD_NL2LOSS_H
@@ -60,6 +57,7 @@ public:
         x1Gm_.SetGlobalBuffer((__gm__ T*)x1);
         x2Gm_.SetGlobalBuffer((__gm__ T*)x2);
         y1Gm_.SetGlobalBuffer((__gm__ T*)y1);
+        y1Raw_ = y1; // scratch 以 float 视角复用 y1 尾部，需要原始字节地址
         y2Gm_.SetGlobalBuffer((__gm__ T*)y2);
         (void)workspace; // 不走框架 workspace：跨核归约借用 y1 尾部 scratch，见 ReduceY2Deterministic
 
@@ -90,21 +88,13 @@ public:
 
     __aicore__ inline void Process()
     {
-        if constexpr (std::is_same<T, half>::value) {
-            if (coreSize_ <= 0) {
-                return; // fp16 无跨核同步，零工作核直接退出是安全的
-            }
-            ComputeY1Fp16();
-            if (blockIdx_ == 0) {
-                ReduceY2Serial(); // fp16：core0 串行归约全量
-            }
-        } else {
-            // fp32 路径所有核都必须到达 ReduceY2Deterministic 里的 SyncAll，
-            // 零工作核也要参与（partial=0），不能提前 return（当前 tiling 保证每核 >=VL 个元素，
-            // 这里按防御式写法不依赖该保证）
-            ComputeY1AndPartialFp32();
-            ReduceY2Deterministic(); // fp32：写 y1 尾部 scratch + SyncAll + core0 固定顺序合并
-        }
+        // fp16/fp32 统一走"每核 partial + y1 尾部 scratch + core0 固定顺序合并"：
+        // 归约 partial 在 y1 循环里顺路完成，无二次全量读。
+        // 所有核都必须到达 ReduceY2Deterministic 里的 SyncAll，零工作核也要参与
+        // （partial=0），不能提前 return（当前 tiling 保证每核 >=VL 个元素，
+        // 这里按防御式写法不依赖该保证）
+        ComputeY1AndPartial();
+        ReduceY2Deterministic();
     }
 
 private:
@@ -201,8 +191,8 @@ private:
         }
     }
 
-    // fp32 路径：y1 多核均分 + 本核 partial（零工作核 partial=0）
-    __aicore__ inline void ComputeY1AndPartialFp32()
+    // y1 多核均分 + 本核 partial（零工作核 partial=0）
+    __aicore__ inline void ComputeY1AndPartial()
     {
         LocalTensor<float> accUb = accBuf_.Get<float>();
         LocalTensor<float> compUb = compBuf_.Get<float>();
@@ -214,15 +204,7 @@ private:
         // 0.5 在 core0 合并后统一乘（2 的幂，乘法本身精确，不引入舍入）
     }
 
-    // fp16 路径：仅 y1（y2 由 core0 串行处理，y1 循环不算 partial）
-    __aicore__ inline void ComputeY1Fp16()
-    {
-        LocalTensor<float> accUb = accBuf_.Get<float>();   // doPartial=false，仅占位
-        LocalTensor<float> compUb = compBuf_.Get<float>(); // 同上
-        RunTileLoop<false>(coreStart_, coreSize_, accUb, compUb);
-    }
-
-    // fp32 y2：各核把 (acc, comp) 写 y1 尾部 scratch → SyncAll → core0 按核号固定顺序
+    // y2（fp16/fp32 统一）：各核把 (acc, comp) 写 y1 尾部 scratch → SyncAll → core0 按核号固定顺序
     //           TwoSum 合并 → core0 用 x1/x2/x3 重算恢复这段 y1。
     //           不用原子加（顺序随调度变化，多次运行结果 bit 级不一致）；
     //           也不走框架 workspace（小 workspace 落位不稳定，实测会压到 y1 输出）。
@@ -231,15 +213,23 @@ private:
         LocalTensor<float> accUb = accBuf_.Get<float>();
         LocalTensor<float> compUb = compBuf_.Get<float>();
         DataCopyExtParams cpOne{1, sizeof(float), 0, 0, 0};
-        const int64_t scratchNum = (blockNum_ > 1) ? 2 * blockNum_ : 0;
-        const int64_t scratchStart = tl_->totalElements - scratchNum;
+        const int64_t scratchFloats = (blockNum_ > 1) ? 2 * blockNum_ : 0;
+        // scratch 以 float 视角覆盖 y1 尾部：fp16 的 y1 元素为 2B，起始下标取偶保证 4B 对齐
+        int64_t scratchStart = tl_->totalElements - scratchFloats * sizeof(float) / sizeof(T);
+        if constexpr (std::is_same<T, half>::value) {
+            scratchStart &= ~static_cast<int64_t>(1);
+        }
+        const int64_t scratchElems = tl_->totalElements - scratchStart;
 
-        if (scratchNum > 0) {
+        GlobalTensor<float> scratchGm;
+        if (scratchFloats > 0) {
+            scratchGm.SetGlobalBuffer(reinterpret_cast<__gm__ float*>(y1Raw_ + scratchStart * sizeof(T)),
+                                      scratchFloats);
             // 先等所有核写完 y1，再借尾部做 scratch，避免与尾核的 y1 写竞争
             PipeBarrier<PIPE_ALL>();
             SyncAll();
-            DataCopyPad(y1Gm_[scratchStart + 2 * blockIdx_], accUb, cpOne);
-            DataCopyPad(y1Gm_[scratchStart + 2 * blockIdx_ + 1], compUb, cpOne);
+            DataCopyPad(scratchGm[2 * blockIdx_], accUb, cpOne);
+            DataCopyPad(scratchGm[2 * blockIdx_ + 1], compUb, cpOne);
             PipeBarrier<PIPE_ALL>();
             SyncAll();
         }
@@ -248,15 +238,15 @@ private:
             return;
         }
         float y2 = 0.0f;
-        if (scratchNum == 0) {
+        if (scratchFloats == 0) {
             PipeBarrier<PIPE_ALL>();
             y2 = (accUb.GetValue(0) + compUb.GetValue(0)) * 0.5f;
         } else {
             // core0：读回全部核的 (acc, comp)，按 0..blockNum-1 的固定顺序做 TwoSum 合并
             LocalTensor<float> allUb = reduceTmpBuf_.Get<float>(); // 归约已结束，可复用
-            DataCopyExtParams cpAll{1, static_cast<uint32_t>(scratchNum * sizeof(float)), 0, 0, 0};
+            DataCopyExtParams cpAll{1, static_cast<uint32_t>(scratchFloats * sizeof(float)), 0, 0, 0};
             DataCopyPadExtParams<float> padAll{false, 0, 0, 0};
-            DataCopyPad(allUb, y1Gm_[scratchStart], cpAll, padAll);
+            DataCopyPad(allUb, scratchGm[0], cpAll, padAll);
             PipeBarrier<PIPE_ALL>();
 
             float acc = 0.0f;
@@ -274,17 +264,28 @@ private:
             y2 = (acc + comp) * 0.5f; // 唯一一次舍入
         }
 
-        LocalTensor<float> outUb = sumBuf_.Get<float>();
-        outUb.SetValue(0, y2);
-        PipeBarrier<PIPE_ALL>();
-        DataCopyPad(y2Gm_[0], outUb, cpOne);
+        LocalTensor<T> y2Ub = y1Que_.AllocTensor<T>();
+        if constexpr (std::is_same<T, half>::value) {
+            LocalTensor<float> outUb = sumBuf_.Get<float>();
+            outUb.SetValue(0, y2);
+            PipeBarrier<PIPE_ALL>();
+            Cast(y2Ub, outUb, RoundMode::CAST_NONE, 1);
+        } else {
+            y2Ub.SetValue(0, y2);
+            PipeBarrier<PIPE_ALL>(); // 标量写 UB 需显式同步后才能被 MTE3 搬出
+        }
+        DataCopyExtParams cpOut{1, sizeof(T), 0, 0, 0};
+        y1Que_.EnQue(y2Ub);
+        y2Ub = y1Que_.DeQue<T>();
+        DataCopyPad(y2Gm_[0], y2Ub, cpOut);
+        y1Que_.FreeTensor(y2Ub);
 
-        if (scratchNum > 0) {
-            RestoreY1Range(scratchStart, scratchNum);
+        if (scratchFloats > 0) {
+            RestoreY1Range(scratchStart, scratchElems);
         }
     }
 
-    // 重算并写回 y1[start, start+num)（仅 fp32 路径调用，T 为 float）
+    // 重算并写回 y1[start, start+num)（fp16/fp32 通用，T 元素粒度）
     __aicore__ inline void RestoreY1Range(int64_t start, int64_t num)
     {
         LocalTensor<T> x1Ub = x1Que_.AllocTensor<T>();
@@ -316,47 +317,6 @@ private:
         x2Que_.FreeTensor(x2Ub);
     }
 
-    // fp16 y2：core0 串行归约全量 x1（只读 x1 一条流，fp32 累加，单次舍入写回）
-    __aicore__ inline void ReduceY2Serial()
-    {
-        LocalTensor<float> accUb = accBuf_.Get<float>();
-        LocalTensor<float> sumUb = sumBuf_.Get<float>();
-        LocalTensor<float> tmpUb = reduceTmpBuf_.Get<float>();
-        LocalTensor<float> x1f = x1F32Buf_.Get<float>();
-        LocalTensor<float> sqBuf = y1F32Buf_.Get<float>(); // 借作平方缓冲
-        Duplicate(accUb, 0.0f, 8);
-
-        int64_t totalN = tl_->totalElements;
-        int64_t ubTile = tl_->ubTileSize;
-        int64_t fullTiles = totalN / ubTile;
-        int64_t tailCount = totalN - fullTiles * ubTile;
-        int64_t totalTiles = fullTiles + (tailCount > 0 ? 1 : 0);
-        for (int64_t t = 0; t < totalTiles; t++) {
-            int64_t extent = (t == totalTiles - 1 && tailCount > 0) ? tailCount : ubTile;
-            LocalTensor<T> x1Ub = x1Que_.AllocTensor<T>();
-            DataCopyExtParams cpIn{1, static_cast<uint32_t>(extent * sizeof(T)), 0, 0, 0};
-            DataCopyPadExtParams<T> padIn{false, 0, 0, 0};
-            DataCopyPad(x1Ub, x1Gm_[t * ubTile], cpIn, padIn);
-            x1Que_.EnQue(x1Ub);
-            x1Ub = x1Que_.DeQue<T>();
-
-            Cast(x1f, x1Ub, RoundMode::CAST_NONE, extent);
-            Mul(sqBuf, x1f, x1f, extent);
-            ReduceSum(sumUb, sqBuf, tmpUb, extent);
-            Add(accUb, accUb, sumUb, 1);
-            x1Que_.FreeTensor(x1Ub);
-        }
-        Muls(accUb, accUb, 0.5f, 1);
-
-        LocalTensor<T> y2Ub = y1Que_.AllocTensor<T>();
-        Cast(y2Ub, accUb, RoundMode::CAST_NONE, 1);
-        y1Que_.EnQue(y2Ub);
-        y2Ub = y1Que_.DeQue<T>();
-        DataCopyExtParams cpOut{1, sizeof(T), 0, 0, 0};
-        DataCopyPad(y2Gm_[0], y2Ub, cpOut);
-        y1Que_.FreeTensor(y2Ub);
-    }
-
 private:
     TPipe* pipe_ = nullptr;
     const FusedMulAddNL2lossTilingData* tl_ = nullptr;
@@ -370,6 +330,7 @@ private:
     GlobalTensor<T> x2Gm_;
     GlobalTensor<T> y1Gm_;
     GlobalTensor<T> y2Gm_;
+    GM_ADDR y1Raw_ = nullptr;
 
     TQue<QuePosition::VECIN, 2> x1Que_;
     TQue<QuePosition::VECIN, 2> x2Que_;
