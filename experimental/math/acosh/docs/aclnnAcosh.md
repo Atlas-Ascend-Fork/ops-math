@@ -135,12 +135,15 @@ aclnnStatus aclnnAcosh(
       <td>self或out存在空指针。</td>
     </tr>
     <tr>
-      <td rowspan="3">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="3">161002</td>
+      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="4">161002</td>
       <td>self或out的数据类型不在支持的范围之内（仅支持FLOAT16、FLOAT、BFLOAT16）。</td>
     </tr>
     <tr>
       <td>self与out的数据类型不一致。</td>
+    </tr>
+    <tr>
+      <td>self或out使用了不支持的私有存储格式。</td>
     </tr>
     <tr>
       <td>self或out的shape维度不在支持的范围之内（仅支持0-8维），或self与out的shape不一致。</td>
@@ -176,6 +179,7 @@ aclnnStatus aclnnAcosh(
 - <term>Atlas A2系列产品</term>：仅支持FLOAT16、FLOAT、BFLOAT16数据类型，不支持其他数据类型。
 - 输入值域约束：acosh数学定义域为[1, +∞)，输入元素小于1时结果为NaN，接口层不做拦截，由调用方保证输入合法性。
 - 逐元素算子，不涉及广播，输入输出shape须完全一致。
+- self和out均不支持私有存储格式。
 
 ## 调用示例
 

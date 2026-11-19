@@ -94,7 +94,7 @@ aclnnStatus aclnnInplaceGtScalar(
       <td>other</td>
       <td>输入</td>
       <td>参与greater大小比较计算的输入张量，公式中的other。</td>
-      <td>scalar变量，数据类型需要与selfRef的数据类型满足数据类型推导规则。</td>
+      <td>scalar变量，数据类型需要与self的数据类型满足数据类型推导规则。</td>
       <td>DOUBLE、BFLOAT16、FLOAT16、FLOAT32、INT32、UINT32、INT64、UINT64、INT16、UINT16、INT8、UINT8、BOOL</td>
       <td>-</td>
       <td>-</td>

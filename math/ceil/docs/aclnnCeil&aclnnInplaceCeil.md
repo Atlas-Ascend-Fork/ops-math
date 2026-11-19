@@ -512,7 +512,7 @@ aclError ExecOpAPI(
   ret = aclnnInplaceCeilGetWorkspaceSize(self, &workspaceSize, &executor);
   CHECK_RET(ret == ACL_SUCCESS, LOG_PRINT("aclnnInplaceCeilGetWorkspaceSize failed. ERROR: %d\n", ret); return ret);
 
-  // 根据workspaceSize再次申请device内存（与原逻辑一致）
+  // 根据workspaceSize申请device内存
   if (workspaceSize > 0) {
     ret = aclrtMalloc(&workspaceAddr, workspaceSize, ACL_MEM_MALLOC_HUGE_FIRST);
     CHECK_RET(ret == ACL_SUCCESS, LOG_PRINT("allocate workspace failed. ERROR: %d\n", ret); return ret);

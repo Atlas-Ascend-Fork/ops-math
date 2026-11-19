@@ -365,7 +365,7 @@ int ProcessAndPrintResults(const LtTensorData& data) {
 }
 
 void ReleaseResources(LtTensorData& data) {
-  // 释放aclTensor和aclScalar
+  // 释放aclTensor
   aclDestroyTensor(data.self);
   aclDestroyTensor(data.other);
   aclDestroyTensor(data.out);

@@ -143,7 +143,7 @@
 | [aclnnGlobalAveragePool](../../math/reduce_mean/docs/aclnnGlobalAveragePool.md) | 传入一个输入张量X，并在同一通道中的值上应用平均池化。        | 默认确定性实现| 默认确定性实现|
 | [aclnnGlobalMaxPool](../../math/reduce_max/docs/aclnnGlobalMaxPool.md) | 输入一个张量，并对同一通道中的值取最大值。                   | 默认确定性实现| 默认确定性实现|
 | [aclnnGroupedBiasAddGrad](../../math/grouped_bias_add_grad/docs/aclnnGroupedBiasAddGrad.md) | 分组偏置加法（GroupedBiasAdd）的反向传播。                   | 默认确定性实现| 默认确定性实现|
-| [aclnnGroupedBiasAddGradV2](../../math/grouped_bias_add_grad/docs/aclnnGroupedBiasAddGradV2.md) | 实现groupBiasAdd的反向计算。本接口是对[aclnnGroupedBiasAddGrad](../../math/grouped_bias_add_grad/docs/aclnnGroupedBiasAddGrad.md)接口的功能扩展，增加了groupIdxType属性，支持指定groupIdx的类型。                   | 默认确定性实现| 默认确定性实现  |
+| [aclnnGroupedBiasAddGradV2](../../math/grouped_bias_add_grad/docs/aclnnGroupedBiasAddGradV2.md) | 实现GroupedBiasAdd的反向计算。本接口是对[aclnnGroupedBiasAddGrad](../../math/grouped_bias_add_grad/docs/aclnnGroupedBiasAddGrad.md)接口的功能扩展，增加了groupIdxType属性，支持指定groupIdx的类型。                   | 默认确定性实现| 默认确定性实现  |
 | [aclnnGtScalar&aclnnInplaceGtScalar](../../math/greater/docs/aclnnGtScalar&aclnnInplaceGtScalar.md) | 判断输入Tensor中的每个元素是否大于other Scalar的值，返回一个Bool类型的Tensor，对应输入Tensor中每个位置的大于判断是否成立。 | 默认确定性实现| 默认确定性实现 |
 | [aclnnGtTensor&aclnnInplaceGtTensor](../../math/greater/docs/aclnnGtTensor&aclnnInplaceGtTensor.md)                                               | 判断self Tensor中的元素是否大于other Tensor中的元素。返回一个Tensor，若self>other，为True(1)；否则为False(0)。 | 默认确定性实现| 默认确定性实现 |
 | [aclnnHansDecode](../../math/hans_decode/docs/aclnnHansDecode.md) | 对压缩后的张量基于PDF进行解码，同时基于mantissa（尾数）重组恢复张量。 | 默认确定性实现| 默认确定性实现 |

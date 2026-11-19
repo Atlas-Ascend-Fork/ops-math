@@ -162,7 +162,7 @@ aclnnStatus aclnnMaskedScale(
     <tr>
       <td>ACLNN_ERR_PARAM_NULLPTR</td>
       <td>161001</td>
-      <td>传入的self、mask或y是空指针。</td>
+      <td>传入的self、mask或out是空指针。</td>
     </tr>
     <tr>
       <td rowspan="3">ACLNN_ERR_PARAM_INVALID</td>
@@ -170,10 +170,10 @@ aclnnStatus aclnnMaskedScale(
       <td>输入和输出的数据类型不在支持的范围之内。</td>
     </tr>
     <tr>
-      <td>输出y和输入self数据类型不一致。</td>
+      <td>输出out和输入self数据类型不一致。</td>
     </tr>
     <tr>
-      <td>self、mask和y的shape不一致。</td>
+      <td>self、mask和out的shape不一致。</td>
     </tr>
   </tbody>
   </table>
