@@ -33,31 +33,28 @@ static bool IsAiCoreSupport(const aclTensor* weights)
 }
 
 // AICPU算子kernel
-static const aclTensor* BincountAiCpu(
-    const aclTensor* x, const aclTensor* size, const aclTensor* weights, aclTensor* out, aclOpExecutor* executor)
+static const aclTensor* BincountAiCpu(const aclTensor* x, const aclTensor* size, const aclTensor* weights,
+                                      aclTensor* out, aclOpExecutor* executor)
 {
     L0_DFX(BincountAiCpu, x, size, weights, out);
 
     static internal::AicpuTaskSpace space("Bincount", ge::DEPEND_IN_SHAPE, true);
-    auto ret = ADD_TO_LAUNCHER_LIST_AICPU(
-        Bincount, OP_ATTR_NAMES({"T", "T"}), OP_INPUT(x, size, weights), OP_OUTPUT(out),
-        OP_ATTR(weights->GetDataType(), out->GetDataType()));
-    OP_CHECK(
-        ret == ACL_SUCCESS, OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "BincountAiCpu ADD_TO_LAUNCHER_LIST_AICPU failed."),
-        return nullptr);
+    auto ret = ADD_TO_LAUNCHER_LIST_AICPU(Bincount, OP_ATTR_NAMES({"T", "T"}), OP_INPUT(x, size, weights),
+                                          OP_OUTPUT(out), OP_ATTR(weights->GetDataType(), out->GetDataType()));
+    OP_CHECK(ret == ACL_SUCCESS, OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "BincountAiCpu ADD_TO_LAUNCHER_LIST_AICPU failed."),
+             return nullptr);
     return out;
 }
 
 // AICORE算子kernel
-static const aclTensor* BincountAiCore(
-    const aclTensor* x, const aclTensor* size, const aclTensor* weights, aclTensor* bins, aclOpExecutor* executor)
+static const aclTensor* BincountAiCore(const aclTensor* x, const aclTensor* size, const aclTensor* weights,
+                                       aclTensor* bins, aclOpExecutor* executor)
 {
     L0_DFX(BincountAiCore, x, size, weights, bins);
 
     auto ret = ADD_TO_LAUNCHER_LIST_AICORE(Bincount, OP_INPUT(x, size, weights), OP_OUTPUT(bins));
-    OP_CHECK(
-        ret == ACL_SUCCESS, OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "BincountAiCore ADD_TO_LAUNCHER_LIST_AICORE failed."),
-        return nullptr);
+    OP_CHECK(ret == ACL_SUCCESS, OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "BincountAiCore ADD_TO_LAUNCHER_LIST_AICORE failed."),
+             return nullptr);
     return bins;
 }
 
@@ -68,8 +65,8 @@ const aclTensor* Bincount(const aclTensor* x, const aclTensor* weights, int64_t 
     outShape.SetDimNum(1);
     outShape.SetDim(0, size);
 
-    auto out =
-        executor->AllocTensor(outShape, outShape, weights->GetDataType(), op::Format::FORMAT_ND, op::Format::FORMAT_ND);
+    auto out = executor->AllocTensor(outShape, outShape, weights->GetDataType(), op::Format::FORMAT_ND,
+                                     op::Format::FORMAT_ND);
     if (IsAiCoreSupport(weights)) {
         return BincountAiCore(x, sizeTensor, weights, out, executor);
     } else {
