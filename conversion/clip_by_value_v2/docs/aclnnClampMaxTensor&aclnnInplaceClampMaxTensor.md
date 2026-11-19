@@ -576,7 +576,7 @@ int main() {
     LOG_PRINT("result[%ld] is: %f\n", i, resultData[i]);
   }
 
-  // 6.释放aclTensor和aclScalar，需要根据具体API的接口定义修改
+  // 6.释放aclTensor，需要根据具体API的接口定义修改
   ReleaseTensorAndScalar(self, max, out);
 
   // 7.释放device资源，需要根据具体API的接口定义修改
@@ -736,7 +736,7 @@ int main() {
     LOG_PRINT("result[%ld] is: %f\n", i, resultData[i]);
   }
 
-  // 6.释放aclTensor和aclScalar，需要根据具体API的接口定义修改
+  // 6.释放aclTensor，需要根据具体API的接口定义修改
   ReleaseTensorAndScalar(self, max);
 
   // 7.释放device资源，需要根据具体API的接口定义修改
