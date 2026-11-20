@@ -12,6 +12,7 @@
 #include <gtest/gtest.h>
 #include "tiling_context_faker.h"
 #include "tiling_case_executor.h"
+#include "atvoss/reduce/reduce_tiling_data.h"
 #include "../../../../../reduce_var/op_host/arch35/reduce_var_tiling.h"
 
 using namespace std;

@@ -10,6 +10,7 @@
 
 #include <iostream>
 #include <gtest/gtest.h>
+#include "atvoss/reduce/reduce_tiling_data.h"
 #include "../../../../op_host/arch35/bias_add_grad_tiling.h"
 #include "tiling_context_faker.h"
 #include "tiling_case_executor.h"

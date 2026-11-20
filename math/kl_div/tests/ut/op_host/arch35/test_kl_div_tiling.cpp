@@ -26,6 +26,7 @@
 #include <gtest/gtest.h>
 #include "tiling_context_faker.h"
 #include "tiling_case_executor.h"
+#include "atvoss/reduce/reduce_tiling_data.h"
 #include "../../../../op_host/arch35/kl_div_tiling_arch35.h"
 
 class KLDivTiling : public testing::Test {
