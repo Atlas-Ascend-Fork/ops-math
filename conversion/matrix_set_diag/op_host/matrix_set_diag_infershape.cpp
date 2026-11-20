@@ -34,7 +34,9 @@ ge::graphStatus MatrixSetDiagInferShapeFunc(gert::InferShapeContext* context)
 
     // check size
     size_t sizeIn = shapeIn->GetDimNum();
-    OP_CHECK_IF(sizeIn < 2, OP_LOGE(context->GetNodeName(), "input shape must at least 2 dims."),
+    OP_CHECK_IF(sizeIn < 2,
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "x", std::to_string(sizeIn).c_str(),
+                                                         "The rank of x must be at least 2"),
                 return ge::GRAPH_FAILED);
     size_t sizeDiag = shapeDiag->GetDimNum();
     OP_CHECK_IF(sizeDiag != sizeIn - 1, OP_LOGE(context->GetNodeName(), "diag dims must be input dims - 1"),

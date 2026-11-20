@@ -40,10 +40,11 @@ static ge::graphStatus InferShape4SpaceToDepth(gert::InferShapeContext* context)
     }
 
     // verify 并入：输入 rank >= 4
-    OP_CHECK_IF(
-        x_shape->GetDimNum() < SUPPORTED_DIM_NUM,
-        OP_LOGE(context->GetNodeName(), "The dim num of input x must be >= 4, but got %zu.", x_shape->GetDimNum()),
-        return ge::GRAPH_FAILED);
+    OP_CHECK_IF(x_shape->GetDimNum() < SUPPORTED_DIM_NUM,
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "x",
+                                                         std::to_string(x_shape->GetDimNum()).c_str(),
+                                                         "The rank of x must be at least 4"),
+                return ge::GRAPH_FAILED);
 
     auto attrs = context->GetAttrs();
     OP_CHECK_NULL_WITH_CONTEXT(context, attrs);
@@ -73,17 +74,13 @@ static ge::graphStatus InferShape4SpaceToDepth(gert::InferShapeContext* context)
         const size_t w_dim_idx = is_nchw ? 3U : 2U;
         const int64_t h_dim = x_shape->GetDim(h_dim_idx);
         OP_CHECK_IF(h_dim != -1 && (h_dim % block_size) != 0,
-                    OP_LOGE(context->GetNodeName(),
-                            "Height size must be divisible by block_size, but got height[%ld], block_size[%ld], "
-                            "data_format[%s].",
-                            h_dim, block_size, data_format),
+                    OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "x", std::to_string(h_dim).c_str(),
+                                                          "The H of x must be divisible by block_size"),
                     return ge::GRAPH_FAILED);
         const int64_t w_dim = x_shape->GetDim(w_dim_idx);
         OP_CHECK_IF(w_dim != -1 && (w_dim % block_size) != 0,
-                    OP_LOGE(context->GetNodeName(),
-                            "Width size must be divisible by block_size, but got width[%ld], block_size[%ld], "
-                            "data_format[%s].",
-                            w_dim, block_size, data_format),
+                    OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "x", std::to_string(w_dim).c_str(),
+                                                          "The W of x must be divisible by block_size"),
                     return ge::GRAPH_FAILED);
     }
 

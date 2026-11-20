@@ -15,6 +15,7 @@
 #include "op_host/util/platform_util.h"
 #include "op_host/util/math_util.h"
 #include "op_host/util/const_util.h"
+#include "common/inc/op_host/math_log.h"
 
 namespace optiling {
 
@@ -95,13 +96,21 @@ ge::graphStatus BatchToSpaceTiling::GetParams()
     OP_CHECK_NULL_WITH_CONTEXT(context_, inputValueDesc);
     auto inputDataType = inputValueDesc->GetDataType();
     dSize_ = ge::GetSizeByDataType(inputDataType);
-    OP_CHECK_IF(dSize_ <= 0, OP_LOGE(context_, "data size should be positive"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        dSize_ <= 0,
+        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context_->GetNodeName(), "x", Ops::Base::ToString(inputDataType).c_str(),
+                                              "The dtype of x is not supported"),
+        return ge::GRAPH_FAILED);
 
     // get input shape
     auto xInputShape = context_->GetInputShape(INPUT_IDX_X);
     OP_CHECK_NULL_WITH_CONTEXT(context_, xInputShape);
     auto xShape = xInputShape->GetStorageShape();
-    OP_CHECK_IF(xShape.GetDimNum() != AXIS_COUNT, OP_LOGE(context_, "x must be 4D"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        xShape.GetDimNum() != AXIS_COUNT,
+        OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context_->GetNodeName(), "x",
+                                                 std::to_string(xShape.GetDimNum()).c_str(), "The rank of x must be 4"),
+        return ge::GRAPH_FAILED);
     for (size_t i = 0; i < AXIS_COUNT; ++i) {
         inShape_[i] = xShape.GetDim(i);
     }
@@ -112,14 +121,20 @@ ge::graphStatus BatchToSpaceTiling::GetParams()
     auto blockSizePtr = attrs->GetAttrPointer<int64_t>(0);
     OP_CHECK_NULL_WITH_CONTEXT(context_, blockSizePtr);
     blockSize_ = *blockSizePtr;
-    OP_CHECK_IF(blockSize_ <= 0, OP_LOGE(context_, "block_size must be positive"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        blockSize_ <= 0,
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context_->GetNodeName(), "block_size", std::to_string(blockSize_).c_str(),
+                                              "The value of block_size must be positive"),
+        return ge::GRAPH_FAILED);
 
     // get crops values (default to 0 if const data not available, e.g. TTK const mode)
     const gert::Tensor* cropsTensor = context_->GetInputTensor(INPUT_IDX_CROPS);
     gert::Shape cropsShape;
     if (cropsTensor != nullptr) {
         OP_CHECK_IF(static_cast<size_t>(cropsTensor->GetShapeSize()) != CROPS_SIZE,
-                    OP_LOGE(context_, "crops must have %zu elements, got %ld", CROPS_SIZE, cropsTensor->GetShapeSize()),
+                    OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(context_->GetNodeName(), "crops",
+                                                              std::to_string(cropsTensor->GetShapeSize()).c_str(),
+                                                              "The element count of crops must be 4"),
                     return ge::GRAPH_FAILED);
     }
     // kernel 模式下 crops 是运行期输入（非 const）时 GetData 为空，共享 helper
@@ -130,7 +145,11 @@ ge::graphStatus BatchToSpaceTiling::GetParams()
     if (cropsHasData && Ops::Base::GetConstIntToShape(context_, INPUT_IDX_CROPS, cropsShape)) {
         for (size_t i = 0; i < CROPS_SIZE; ++i) {
             crops_[i] = cropsShape[i];
-            OP_CHECK_IF(crops_[i] < 0, OP_LOGE(context_, "crops must be non-negative"), return ge::GRAPH_FAILED);
+            OP_CHECK_IF(crops_[i] < 0,
+                        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context_->GetNodeName(), "crops",
+                                                              std::to_string(crops_[i]).c_str(),
+                                                              "Each value of crops must be non-negative"),
+                        return ge::GRAPH_FAILED);
         }
     } else {
         for (size_t i = 0; i < CROPS_SIZE; ++i) {
@@ -140,8 +159,11 @@ ge::graphStatus BatchToSpaceTiling::GetParams()
 
     // derive outShape
     int64_t bs2 = blockSize_ * blockSize_;
-    OP_CHECK_IF(inShape_[AXIS_N] % bs2 != 0, OP_LOGE(context_, "N must be divisible by block_size^2"),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        inShape_[AXIS_N] % bs2 != 0,
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context_->GetNodeName(), "x", std::to_string(inShape_[AXIS_N]).c_str(),
+                                              "The N of x must be divisible by block_size^2"),
+        return ge::GRAPH_FAILED);
     outShape_[AXIS_N] = inShape_[AXIS_N] / bs2;
     outShape_[AXIS_H] = inShape_[AXIS_H] * blockSize_ - crops_[0] - crops_[1];
     outShape_[AXIS_W] = inShape_[AXIS_W] * blockSize_ - crops_[2] - crops_[3];

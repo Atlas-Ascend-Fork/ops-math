@@ -15,6 +15,7 @@
 #include "pad_v2_tiling_arch35.h"
 #include "conversion/pad_v3/op_host/arch35/pad_v3_tiling_arch35.h"
 #include "log/log.h"
+#include <graph/utils/type_utils.h>
 
 namespace optiling {
 
@@ -34,16 +35,20 @@ static ge::graphStatus Tiling4PadV2(gert::TilingContext* context)
     OP_CHECK_NULL_WITH_CONTEXT(context, xDesc);
     auto cvDesc = context->GetInputDesc(2);
     OP_CHECK_NULL_WITH_CONTEXT(context, cvDesc);
-    OP_CHECK_IF(xDesc->GetDataType() != cvDesc->GetDataType(),
-                OP_LOGE(context, "The dtype of constant_values must be the same as the dtype of input."),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        xDesc->GetDataType() != cvDesc->GetDataType(),
+        OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(context->GetNodeName(), "x, constant_values",
+                                               ge::TypeUtils::DataTypeToSerialString(cvDesc->GetDataType()).c_str(),
+                                               "The dtype of constant_values must be the same as the dtype of x"),
+        return ge::GRAPH_FAILED);
     // 2) constant_values 必须为标量（0 维或元素数为 1；空 tensor 会被 kernel 读元素 0 越界）
     auto cvTensor = context->GetInputTensor(2);
     OP_CHECK_NULL_WITH_CONTEXT(context, cvTensor);
-    OP_CHECK_IF(
-        cvTensor->GetShapeSize() != 1,
-        OP_LOGE(context, "constant_values must be a scalar tensor, got shape size %ld", cvTensor->GetShapeSize()),
-        return ge::GRAPH_FAILED);
+    OP_CHECK_IF(cvTensor->GetShapeSize() != 1,
+                OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(context->GetNodeName(), "constant_values",
+                                                          std::to_string(cvTensor->GetShapeSize()).c_str(),
+                                                          "The element count of constant_values must be 1"),
+                return ge::GRAPH_FAILED);
 
     // 直接使用 PadV3 的 Tiling 类
     PadACTiling tilingObject(context);

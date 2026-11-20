@@ -114,7 +114,10 @@ static ge::graphStatus TransposeInferShapeWithUnknownPerm(gert::InferShapeContex
     const auto* perm_desc = context->GetInputShape(TRANSPOSE_IDX_IN_PERM);
     OP_CHECK_NULL_WITH_CONTEXT(context, perm_desc);
     OP_CHECK_IF(perm_desc->GetDimNum() > 1,
-                OP_LOGE(context->GetNodeName(), "the rank of perm should not be more than 1"), return ge::GRAPH_FAILED);
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "perm",
+                                                         std::to_string(perm_desc->GetDimNum()).c_str(),
+                                                         "The rank of perm must not be more than 1"),
+                return ge::GRAPH_FAILED);
     if (Ops::Base::IsUnknownRank(*x_shape)) {
         Ops::Base::SetUnknownRank(*y_shape);
         return ge::GRAPH_SUCCESS;

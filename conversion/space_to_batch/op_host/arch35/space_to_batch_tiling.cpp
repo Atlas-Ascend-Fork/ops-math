@@ -99,36 +99,43 @@ ge::graphStatus SpaceToBatchTiling::ParamCheck()
                     xDtype != ge::DT_INT32 && xDtype != ge::DT_UINT32 && xDtype != ge::DT_INT64 &&
                     xDtype != ge::DT_UINT64 && xDtype != ge::DT_FLOAT16 && xDtype != ge::DT_FLOAT &&
                     xDtype != ge::DT_DOUBLE && xDtype != ge::DT_BF16,
-                OP_LOGE(context_,
-                        "x only supports int8/uint8/int16/uint16/int32/uint32/int64/uint64/float16/float/double/"
-                        "bfloat16, but got %s",
-                        ge::TypeUtils::DataTypeToSerialString(xDtype).c_str()),
+                OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(
+                    context_->GetNodeName(), "x", ge::TypeUtils::DataTypeToSerialString(xDtype).c_str(),
+                    "The dtype of x must be int8/uint8/int16/uint16/int32/uint32/int64/uint64/fp16/fp32/fp64/bf16"),
                 return ge::GRAPH_FAILED);
     dSize_ = ge::GetSizeByDataType(xDtype);
-    OP_CHECK_IF(dSize_ <= 0, OP_LOGE(context_, "data size should be positive"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(dSize_ <= 0,
+                OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context_->GetNodeName(), "x", Ops::Base::ToString(xDtype).c_str(),
+                                                      "The dtype of x is not supported"),
+                return ge::GRAPH_FAILED);
     OP_CHECK_IF(inputDesc->GetOriginFormat() != ge::FORMAT_NHWC,
-                OP_LOGE(context_, "x only supports format NHWC, but got %d",
-                        static_cast<int32_t>(inputDesc->GetOriginFormat())),
+                OP_LOGE_FOR_INVALID_FORMAT_WITH_REASON(context_->GetNodeName(), "x",
+                                                       Ops::Base::ToString(inputDesc->GetOriginFormat()).c_str(),
+                                                       "The format of x must be NHWC"),
                 return ge::GRAPH_FAILED);
 
     auto paddingsDesc = context_->GetInputDesc(INPUT_IDX_PADDINGS);
     OP_CHECK_NULL_WITH_CONTEXT(context_, paddingsDesc);
     OP_CHECK_IF(paddingsDesc->GetDataType() != ge::DT_INT32 && paddingsDesc->GetDataType() != ge::DT_INT64,
-                OP_LOGE(context_, "paddings only supports int32/int64, but got %s",
-                        ge::TypeUtils::DataTypeToSerialString(paddingsDesc->GetDataType()).c_str()),
+                OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(
+                    context_->GetNodeName(), "paddings",
+                    ge::TypeUtils::DataTypeToSerialString(paddingsDesc->GetDataType()).c_str(),
+                    "The dtype of paddings must be int32 or int64"),
                 return ge::GRAPH_FAILED);
     OP_CHECK_IF(paddingsDesc->GetOriginFormat() != ge::FORMAT_ND,
-                OP_LOGE(context_, "paddings only supports format ND, but got %d",
-                        static_cast<int32_t>(paddingsDesc->GetOriginFormat())),
+                OP_LOGE_FOR_INVALID_FORMAT_WITH_REASON(context_->GetNodeName(), "paddings",
+                                                       Ops::Base::ToString(paddingsDesc->GetOriginFormat()).c_str(),
+                                                       "The format of paddings must be ND"),
                 return ge::GRAPH_FAILED);
 
     auto yDesc = context_->GetOutputDesc(OUTPUT_IDX_Y);
     OP_CHECK_NULL_WITH_CONTEXT(context_, yDesc);
-    OP_CHECK_IF(yDesc->GetDataType() != xDtype,
-                OP_LOGE(context_, "y dtype must be same as x dtype, but got x %s, y %s",
-                        ge::TypeUtils::DataTypeToSerialString(xDtype).c_str(),
-                        ge::TypeUtils::DataTypeToSerialString(yDesc->GetDataType()).c_str()),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        yDesc->GetDataType() != xDtype,
+        OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(context_->GetNodeName(), "x, y",
+                                               ge::TypeUtils::DataTypeToSerialString(yDesc->GetDataType()).c_str(),
+                                               "The dtype of y must be the same as the dtype of x"),
+        return ge::GRAPH_FAILED);
     OP_CHECK_IF(
         yDesc->GetOriginFormat() != ge::FORMAT_NHWC,
         OP_LOGE(context_, "y only supports format NHWC, but got %d", static_cast<int32_t>(yDesc->GetOriginFormat())),
@@ -137,12 +144,18 @@ ge::graphStatus SpaceToBatchTiling::ParamCheck()
     auto xShape = context_->GetInputShape(INPUT_IDX_X);
     OP_CHECK_NULL_WITH_CONTEXT(context_, xShape);
     auto xStorageShape = xShape->GetStorageShape();
-    OP_CHECK_IF(xStorageShape.GetDimNum() != STB_AXIS_COUNT,
-                OP_LOGE(context_, "x must be 4D, got %zu", xStorageShape.GetDimNum()), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        xStorageShape.GetDimNum() != STB_AXIS_COUNT,
+        OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(
+            context_->GetNodeName(), "x", std::to_string(xStorageShape.GetDimNum()).c_str(), "The rank of x must be 4"),
+        return ge::GRAPH_FAILED);
     for (size_t i = 0; i < STB_AXIS_COUNT; ++i) {
         inShape_[i] = xStorageShape.GetDim(i);
-        OP_CHECK_IF(inShape_[i] < 0, OP_LOGE(context_, "x dim[%zu] must be non-negative, got %ld", i, inShape_[i]),
-                    return ge::GRAPH_FAILED);
+        OP_CHECK_IF(
+            inShape_[i] < 0,
+            OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context_->GetNodeName(), "x", std::to_string(inShape_[i]).c_str(),
+                                                  "Each dim of x must be non-negative"),
+            return ge::GRAPH_FAILED);
     }
 
     // block_size attribute
@@ -151,21 +164,28 @@ ge::graphStatus SpaceToBatchTiling::ParamCheck()
     auto blockSizePtr = attrs->GetAttrPointer<int64_t>(ATTR_IDX_BLOCK_SIZE);
     OP_CHECK_NULL_WITH_CONTEXT(context_, blockSizePtr);
     blockSize_ = *blockSizePtr;
-    OP_CHECK_IF(blockSize_ <= 0, OP_LOGE(context_, "block_size must be positive, got %ld", blockSize_),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        blockSize_ <= 0,
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context_->GetNodeName(), "block_size", std::to_string(blockSize_).c_str(),
+                                              "The value of block_size must be positive"),
+        return ge::GRAPH_FAILED);
 
     // paddings
     gert::Shape paddings;
     OP_CHECK_IF(!Ops::Base::GetConstIntToShape(context_, INPUT_IDX_PADDINGS, paddings),
                 OP_LOGE(context_, "get paddings tensor failed"), return ge::GRAPH_FAILED);
     OP_CHECK_IF(paddings.GetDimNum() != PADDINGS_ELEM_COUNT,
-                OP_LOGE(context_, "paddings must have 4 elements, got %zu", paddings.GetDimNum()),
+                OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(context_->GetNodeName(), "paddings",
+                                                          std::to_string(paddings.GetDimNum()).c_str(),
+                                                          "The element count of paddings must be 4"),
                 return ge::GRAPH_FAILED);
     for (size_t i = 0; i < PADDINGS_ROWS; ++i) {
         for (size_t j = 0; j < PADDINGS_COLS; ++j) {
             paddings_[i][j] = paddings[i * PADDINGS_COLS + j];
             OP_CHECK_IF(paddings_[i][j] < 0,
-                        OP_LOGE(context_, "paddings[%zu][%zu] must be non-negative, got %ld", i, j, paddings_[i][j]),
+                        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context_->GetNodeName(), "paddings",
+                                                              std::to_string(paddings_[i][j]).c_str(),
+                                                              "Each value of paddings must be non-negative"),
                         return ge::GRAPH_FAILED);
         }
     }
@@ -192,10 +212,12 @@ ge::graphStatus SpaceToBatchTiling::ComputeOutShape()
                 return ge::GRAPH_FAILED);
 
     OP_CHECK_IF(hPadded % blockSize_ != 0,
-                OP_LOGE(context_, "H_padded (%ld) not divisible by block_size (%ld)", hPadded, blockSize_),
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context_->GetNodeName(), "x", std::to_string(hPadded).c_str(),
+                                                      "The padded H of x must be divisible by block_size"),
                 return ge::GRAPH_FAILED);
     OP_CHECK_IF(wPadded % blockSize_ != 0,
-                OP_LOGE(context_, "W_padded (%ld) not divisible by block_size (%ld)", wPadded, blockSize_),
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context_->GetNodeName(), "x", std::to_string(wPadded).c_str(),
+                                                      "The padded W of x must be divisible by block_size"),
                 return ge::GRAPH_FAILED);
 
     int64_t outN = 0;

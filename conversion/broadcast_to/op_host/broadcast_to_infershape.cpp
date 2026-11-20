@@ -68,8 +68,8 @@ static ge::graphStatus ValidateShapeDtype(const gert::InferShapeContext* context
 {
     OP_CHECK_IF(
         (data_type != DT_INT32) && (data_type != DT_INT64),
-        OP_LOGE(context->GetNodeName(), "%s",
-                ConcatString("shape's dtype ", Ops::Base::ToString(data_type), " must be in (int32,int64)!").c_str()),
+        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "shape", Ops::Base::ToString(data_type).c_str(),
+                                              "The dtype of shape must be int32 or int64"),
         return ge::GRAPH_FAILED);
     return ge::GRAPH_SUCCESS;
 }
@@ -122,12 +122,11 @@ static ge::graphStatus BroadcastToInferShapeWithShapeTensor(const gert::InferSha
         WarnShapeValues(context, out_shape);
         return ge::GRAPH_SUCCESS;
     }
-    OP_CHECK_IF(shape_size < x_shape->GetDimNum(),
-                OP_LOGE(context->GetNodeName(), "%s",
-                        ConcatString("shape size ", shape_size, " cannot be less than x size ", x_shape->GetDimNum(),
-                                     ", error!")
-                            .c_str()),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        shape_size < x_shape->GetDimNum(),
+        OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(context->GetNodeName(), "shape", std::to_string(shape_size).c_str(),
+                                                  "The element count of shape must not be less than the rank of x"),
+        return ge::GRAPH_FAILED);
     out_shape->SetDimNum(shape_size);
     OP_LOGD(context->GetNodeName(), "shape_size is %zu", shape_size);
     size_t diff = shape_size - x_shape->GetDimNum();
@@ -149,7 +148,9 @@ static ge::graphStatus BroadcastToInferShapeWithUnknownShape(gert::InferShapeCon
     const auto* shape_desc = context->GetInputShape(INPUT_INDEX_SHAPE);
     OP_CHECK_NULL_WITH_CONTEXT(context, shape_desc);
     OP_CHECK_IF(shape_desc->GetDimNum() > 1,
-                OP_LOGE(context->GetNodeName(), "the rank of shape should not be more than 1"),
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "shape",
+                                                         std::to_string(shape_desc->GetDimNum()).c_str(),
+                                                         "The rank of shape must not be more than 1"),
                 return ge::GRAPH_FAILED);
     if (Ops::Base::IsUnknownRank(*x_shape)) {
         Ops::Base::SetUnknownRank(*out_shape);

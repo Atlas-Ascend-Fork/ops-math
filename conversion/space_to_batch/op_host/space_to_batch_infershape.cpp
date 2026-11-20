@@ -61,13 +61,17 @@ ge::graphStatus SpaceToBatchInferShapeHelper::Init()
     const gert::CompileTimeTensorDesc* paddingsDesc = context_->GetInputDesc(INPUT_IDX_PADDINGS);
     OP_CHECK_NULL_WITH_CONTEXT(context_, paddingsDesc);
     OP_CHECK_IF(paddingsDesc->GetOriginFormat() != ge::FORMAT_ND,
-                OP_LOGE(context_, "paddings only supports format ND, but got %d",
-                        static_cast<int32_t>(paddingsDesc->GetOriginFormat())),
+                OP_LOGE_FOR_INVALID_FORMAT_WITH_REASON(context_->GetNodeName(), "paddings",
+                                                       Ops::Base::ToString(paddingsDesc->GetOriginFormat()).c_str(),
+                                                       "The format of paddings must be ND"),
                 return ge::GRAPH_FAILED);
 
     blockSize_ = GetBlockSize();
-    OP_CHECK_IF(blockSize_ <= 0, OP_LOGE(context_, "block_size must be positive, but got %ld", blockSize_),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        blockSize_ <= 0,
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context_->GetNodeName(), "block_size", std::to_string(blockSize_).c_str(),
+                                              "The value of block_size must be positive"),
+        return ge::GRAPH_FAILED);
 
     const gert::Tensor* paddingsTensor = context_->GetInputTensor(INPUT_IDX_PADDINGS);
     OP_CHECK_NULL_WITH_CONTEXT(context_, paddingsTensor);
@@ -76,8 +80,9 @@ ge::graphStatus SpaceToBatchInferShapeHelper::Init()
                                                                               paddingsVec_);
     if (isConstPaddings_) {
         OP_CHECK_IF(paddingsVec_.GetDimNum() != PADDINGS_ROWS * PADDINGS_COLS,
-                    OP_LOGE(context_, "paddings must have %zu elements, got %zu", PADDINGS_ROWS * PADDINGS_COLS,
-                            paddingsVec_.GetDimNum()),
+                    OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(context_->GetNodeName(), "paddings",
+                                                              std::to_string(paddingsVec_.GetDimNum()).c_str(),
+                                                              "The element count of paddings must be 4"),
                     return ge::GRAPH_FAILED);
         for (size_t i = 0; i < PADDINGS_ROWS * PADDINGS_COLS; ++i) {
             OP_CHECK_IF(paddingsVec_.GetDim(i) < 0,
@@ -111,8 +116,11 @@ ge::graphStatus SpaceToBatchInferShapeHelper::Inference()
         return ge::GRAPH_SUCCESS;
     }
 
-    OP_CHECK_IF(xShape_->GetDimNum() != 4, OP_LOGE(context_, "x must be 4D, got %zu", xShape_->GetDimNum()),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        xShape_->GetDimNum() != 4,
+        OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(
+            context_->GetNodeName(), "x", std::to_string(xShape_->GetDimNum()).c_str(), "The rank of x must be 4"),
+        return ge::GRAPH_FAILED);
 
     const gert::CompileTimeTensorDesc* xDesc = context_->GetInputDesc(INPUT_IDX_X);
     OP_CHECK_NULL_WITH_CONTEXT(context_, xDesc);

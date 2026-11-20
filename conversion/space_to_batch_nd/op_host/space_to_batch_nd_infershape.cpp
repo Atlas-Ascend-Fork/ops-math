@@ -54,8 +54,11 @@ ge::graphStatus SpaceToBatchNDInferShapeHelper::Init()
     const gert::Tensor* bsTensor = context_->GetInputTensor(INPUT_IDX_BS);
     OP_CHECK_NULL_WITH_CONTEXT(context_, bsTensor);
     N_ = bsTensor->GetShapeSize();
-    OP_CHECK_IF(static_cast<int64_t>(N_) < 0, OP_LOGE(context_, "block_shape element count is negative"),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        static_cast<int64_t>(N_) < 0,
+        OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(context_->GetNodeName(), "block_shape", std::to_string(N_).c_str(),
+                                                  "The element count of block_shape must be non-negative"),
+        return ge::GRAPH_FAILED);
 
     // block_shape 允许在编译期不是常量：读不到数据时后续把相关输出维降级为 -1，不再直接失败。
     blockShapeIsConst_ = Ops::Base::GetConstIntToShape<gert::InferShapeContext>(context_, INPUT_IDX_BS, blockVec_);
@@ -70,7 +73,10 @@ ge::graphStatus SpaceToBatchNDInferShapeHelper::Init()
     OP_CHECK_NULL_WITH_CONTEXT(context_, padsShape);
     OP_CHECK_IF(padsShape->GetDimNum() != 2 || padsShape->GetDim(0) != static_cast<int64_t>(N_) ||
                     padsShape->GetDim(1) != static_cast<int64_t>(PADS_DIM2),
-                OP_LOGE(context_, "paddings shape must be [%zu, 2]", N_), return ge::GRAPH_FAILED);
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(
+                    context_->GetNodeName(), "paddings", Ops::Base::ToString(*padsShape).c_str(),
+                    "The shape of paddings must be [" + std::to_string(N_) + ", 2]"),
+                return ge::GRAPH_FAILED);
 
     // paddings 同样允许在编译期不是常量：读不到数据时相关空间维降级为 -1。
     paddingsIsConst_ = Ops::Base::GetConstIntToShape<gert::InferShapeContext>(context_, INPUT_IDX_PADS, padsVec_);
@@ -96,14 +102,21 @@ ge::graphStatus SpaceToBatchNDInferShapeHelper::CheckAndInfer()
 {
     auto rank = xShape_->GetDimNum();
     OP_CHECK_IF(static_cast<size_t>(rank) < N_ + 1 || rank > MAX_RANK,
-                OP_LOGE(context_, "invalid rank %zu, N=%zu", rank, N_), return ge::GRAPH_FAILED);
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(
+                    context_->GetNodeName(), "x", std::to_string(rank).c_str(),
+                    "The rank of x must be in [" + std::to_string(N_ + 1) + ", " + std::to_string(MAX_RANK) + "]"),
+                return ge::GRAPH_FAILED);
 
     // block_shape 非常量时 batch 倍率不可知，输出 batch 维退化为 -1。
     int64_t batchMul = 1;
     if (blockShapeIsConst_) {
         for (size_t i = 0; i < N_; i++) {
             int64_t bs = blockVec_.GetDim(i);
-            OP_CHECK_IF(bs <= 0, OP_LOGE(context_, "block_shape[%zu]=%ld must be > 0", i, bs), return ge::GRAPH_FAILED);
+            OP_CHECK_IF(bs <= 0,
+                        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context_->GetNodeName(), "block_shape",
+                                                              std::to_string(bs).c_str(),
+                                                              "Each value of block_shape must be greater than 0"),
+                        return ge::GRAPH_FAILED);
             int64_t nextBatchMul = 0;
             OP_CHECK_IF(
                 !SafeMulI64(batchMul, bs, nextBatchMul),
@@ -145,8 +158,9 @@ ge::graphStatus SpaceToBatchNDInferShapeHelper::CheckAndInfer()
                             padsVec_.GetDim(i * 2 + 1)),
                     return ge::GRAPH_FAILED);
         OP_CHECK_IF(paddedDim % bs != 0,
-                    OP_LOGE(context_, "padded spatial dim[%zu]=%ld must be divisible by block_shape[%zu]=%ld", i,
-                            paddedDim, i, bs),
+                    OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context_->GetNodeName(), "paddings",
+                                                          std::to_string(paddedDim).c_str(),
+                                                          "The padded spatial dim must be divisible by block_shape"),
                     return ge::GRAPH_FAILED);
         yShape_->AppendDim(paddedDim / bs);
     }

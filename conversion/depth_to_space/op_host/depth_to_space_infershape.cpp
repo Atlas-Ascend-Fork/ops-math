@@ -41,10 +41,11 @@ static ge::graphStatus InferShape4DepthToSpace(gert::InferShapeContext* context)
     }
 
     // verify 并入：输入 rank >= 4
-    OP_CHECK_IF(
-        x_shape->GetDimNum() < SUPPORTED_DIM_NUM,
-        OP_LOGE(context->GetNodeName(), "The dim num of input x must be >= 4, but got %zu.", x_shape->GetDimNum()),
-        return ge::GRAPH_FAILED);
+    OP_CHECK_IF(x_shape->GetDimNum() < SUPPORTED_DIM_NUM,
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "x",
+                                                         std::to_string(x_shape->GetDimNum()).c_str(),
+                                                         "The rank of x must be at least 4"),
+                return ge::GRAPH_FAILED);
 
     auto attrs = context->GetAttrs();
     OP_CHECK_NULL_WITH_CONTEXT(context, attrs);
@@ -80,10 +81,8 @@ static ge::graphStatus InferShape4DepthToSpace(gert::InferShapeContext* context)
         const size_t c_dim_idx = is_nchw ? 1U : 3U;
         const int64_t c_dim = x_shape->GetDim(c_dim_idx);
         OP_CHECK_IF(c_dim != -1 && (c_dim % block_area) != 0,
-                    OP_LOGE(context->GetNodeName(),
-                            "Depth size must be divisible by block_size * block_size, but got depth[%ld], "
-                            "block_size[%ld], data_format[%s].",
-                            c_dim, block_size, data_format),
+                    OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "x", std::to_string(c_dim).c_str(),
+                                                          "The C of x must be divisible by block_size * block_size"),
                     return ge::GRAPH_FAILED);
     }
 

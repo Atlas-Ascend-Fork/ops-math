@@ -16,6 +16,7 @@
 #include "op_host/util/platform_util.h"
 #include "op_host/util/math_util.h"
 #include "op_host/util/const_util.h"
+#include "common/inc/op_host/math_log.h"
 
 namespace optiling {
 
@@ -130,10 +131,16 @@ ge::graphStatus SpaceToBatchNDTiling::GetParams()
     OP_CHECK_NULL_WITH_CONTEXT(context_, inputValueDesc);
     auto inputDataType = inputValueDesc->GetDataType();
     OP_CHECK_IF(!IsSupportedXDataType(inputDataType),
-                OP_LOGE(context_, "input x dtype %d is not supported", static_cast<int>(inputDataType)),
+                OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context_->GetNodeName(), "x",
+                                                      ge::TypeUtils::DataTypeToSerialString(inputDataType).c_str(),
+                                                      "The dtype of x is not supported"),
                 return ge::GRAPH_FAILED);
     dSize_ = ge::GetSizeByDataType(inputDataType);
-    OP_CHECK_IF(dSize_ <= 0, OP_LOGE(context_, "data size should be positive"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        dSize_ <= 0,
+        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context_->GetNodeName(), "x", Ops::Base::ToString(inputDataType).c_str(),
+                                              "The dtype of x is not supported"),
+        return ge::GRAPH_FAILED);
 
     // The kernel assumes contiguous ND storage. Reject any other storage format
     // instead of letting an illegal format silently flow into the ND data path.
@@ -143,8 +150,10 @@ ge::graphStatus SpaceToBatchNDTiling::GetParams()
         auto inputDesc = context_->GetInputDesc(idx);
         OP_CHECK_NULL_WITH_CONTEXT(context_, inputDesc);
         OP_CHECK_IF(inputDesc->GetStorageFormat() != ge::FORMAT_ND,
-                    OP_LOGE(context_, "input[%zu] format %d is not supported, only FORMAT_ND is allowed", idx,
-                            static_cast<int>(inputDesc->GetStorageFormat())),
+                    OP_LOGE_FOR_INVALID_FORMAT_WITH_REASON(
+                        context_->GetNodeName(),
+                        (idx == INPUT_IDX_X ? "x" : (idx == INPUT_IDX_BS ? "block_shape" : "paddings")),
+                        Ops::Base::ToString(inputDesc->GetStorageFormat()).c_str(), "Only FORMAT_ND is allowed"),
                     return ge::GRAPH_FAILED);
     }
 
@@ -157,30 +166,39 @@ ge::graphStatus SpaceToBatchNDTiling::GetParams()
     // The kernel consumes ND **storage**. Origin format may legitimately differ after
     // framework format conversion, so only the storage format is constrained here.
     OP_CHECK_IF(outputDesc->GetStorageFormat() != ge::FORMAT_ND,
-                OP_LOGE(context_, "output y format %d is not supported, only FORMAT_ND is allowed",
-                        static_cast<int>(outputDesc->GetStorageFormat())),
+                OP_LOGE_FOR_INVALID_FORMAT_WITH_REASON(context_->GetNodeName(), "y",
+                                                       Ops::Base::ToString(outputDesc->GetStorageFormat()).c_str(),
+                                                       "Only FORMAT_ND is allowed"),
                 return ge::GRAPH_FAILED);
-    OP_CHECK_IF(outputDesc->GetDataType() != inputDataType && outputDesc->GetDataType() != ge::DT_UNDEFINED,
-                OP_LOGE(context_, "output y dtype %d must match input x dtype %d",
-                        static_cast<int>(outputDesc->GetDataType()), static_cast<int>(inputDataType)),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        outputDesc->GetDataType() != inputDataType && outputDesc->GetDataType() != ge::DT_UNDEFINED,
+        OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(context_->GetNodeName(), "x, y",
+                                               ge::TypeUtils::DataTypeToSerialString(outputDesc->GetDataType()).c_str(),
+                                               "The dtype of y must match the dtype of x"),
+        return ge::GRAPH_FAILED);
 
     auto xInputShape = context_->GetInputShape(INPUT_IDX_X);
     OP_CHECK_NULL_WITH_CONTEXT(context_, xInputShape);
     auto xShape = xInputShape->GetStorageShape();
     const size_t inputRank = xShape.GetDimNum();
     OP_CHECK_IF(inputRank < 2 || inputRank > static_cast<size_t>(MAX_INPUT_RANK),
-                OP_LOGE(context_, "invalid rank %zu, must be in [2, %d]", inputRank, MAX_INPUT_RANK),
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(
+                    context_->GetNodeName(), "x", std::to_string(inputRank).c_str(),
+                    "The rank of x must be in [2, " + std::to_string(MAX_INPUT_RANK) + "]"),
                 return ge::GRAPH_FAILED);
 
     auto bsTensor = context_->GetInputTensor(INPUT_IDX_BS);
     OP_CHECK_NULL_WITH_CONTEXT(context_, bsTensor);
     const int64_t blockShapeLen = bsTensor->GetShapeSize();
     OP_CHECK_IF(blockShapeLen < 1 || blockShapeLen > static_cast<int64_t>(MAX_SPATIAL),
-                OP_LOGE(context_, "invalid numSpatialDims %ld, must be in [1, %d]", blockShapeLen, MAX_SPATIAL),
+                OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(
+                    context_->GetNodeName(), "block_shape", std::to_string(blockShapeLen).c_str(),
+                    "The element count of block_shape must be in [1, " + std::to_string(MAX_SPATIAL) + "]"),
                 return ge::GRAPH_FAILED);
     OP_CHECK_IF(blockShapeLen >= static_cast<int64_t>(inputRank),
-                OP_LOGE(context_, "block_shape length M=%ld must be less than x rank N=%zu", blockShapeLen, inputRank),
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context_->GetNodeName(), "block_shape",
+                                                         std::to_string(blockShapeLen).c_str(),
+                                                         "The length of block_shape must be less than the rank of x"),
                 return ge::GRAPH_FAILED);
 
     rank_ = static_cast<uint8_t>(inputRank);
@@ -194,40 +212,45 @@ ge::graphStatus SpaceToBatchNDTiling::GetParams()
     OP_CHECK_NULL_WITH_CONTEXT(context_, padsShape);
     auto padsStorageShape = padsShape->GetStorageShape();
     OP_CHECK_IF(padsStorageShape.GetDimNum() != 2,
-                OP_LOGE(context_, "paddings shape dim num=%zu must be 2, paddings shape must be [%u,2]",
-                        padsStorageShape.GetDimNum(), static_cast<uint32_t>(numSpatialDims_)),
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context_->GetNodeName(), "paddings",
+                                                         std::to_string(padsStorageShape.GetDimNum()).c_str(),
+                                                         "The rank of paddings must be 2"),
                 return ge::GRAPH_FAILED);
     OP_CHECK_IF(padsStorageShape.GetDim(0) != static_cast<int64_t>(numSpatialDims_),
-                OP_LOGE(context_,
-                        "paddings shape[0]=%ld must be equal to numSpatialDims=%u, "
-                        "paddings shape must be [%u,2]",
-                        padsStorageShape.GetDim(0), static_cast<uint32_t>(numSpatialDims_),
-                        static_cast<uint32_t>(numSpatialDims_)),
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(
+                    context_->GetNodeName(), "paddings", std::to_string(padsStorageShape.GetDim(0)).c_str(),
+                    "The dim 0 of paddings must be " + std::to_string(numSpatialDims_)),
                 return ge::GRAPH_FAILED);
     OP_CHECK_IF(padsStorageShape.GetDim(1) != 2,
-                OP_LOGE(context_, "paddings shape[1]=%ld must be 2, paddings shape must be [%u,2]",
-                        padsStorageShape.GetDim(1), static_cast<uint32_t>(numSpatialDims_)),
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context_->GetNodeName(), "paddings",
+                                                         std::to_string(padsStorageShape.GetDim(1)).c_str(),
+                                                         "The dim 1 of paddings must be 2"),
                 return ge::GRAPH_FAILED);
 
     gert::Shape padsVec;
     OP_CHECK_IF(!Ops::Base::GetConstIntToShape(context_, INPUT_IDX_PADS, padsVec),
                 OP_LOGE(context_, "get paddings const data failed"), return ge::GRAPH_FAILED);
-    OP_CHECK_IF(
-        padsVec.GetDimNum() < static_cast<size_t>(numSpatialDims_) * 2,
-        OP_LOGE(context_,
-                "paddings element count=%zu is less than 2*numSpatialDims=%zu, "
-                "paddings shape must be [%u,2]",
-                padsVec.GetDimNum(), static_cast<size_t>(numSpatialDims_) * 2, static_cast<uint32_t>(numSpatialDims_)),
-        return ge::GRAPH_FAILED);
+    OP_CHECK_IF(padsVec.GetDimNum() < static_cast<size_t>(numSpatialDims_) * 2,
+                OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(
+                    context_->GetNodeName(), "paddings", std::to_string(padsVec.GetDimNum()).c_str(),
+                    "The element count of paddings must be 2 * " + std::to_string(numSpatialDims_)),
+                return ge::GRAPH_FAILED);
 
     for (size_t i = 0; i < numSpatialDims_; i++) {
         blockShape_[i] = bsVec.GetDim(i);
-        OP_CHECK_IF(blockShape_[i] <= 0, OP_LOGE(context_, "block_shape[%zu]=%ld must be > 0", i, blockShape_[i]),
+        OP_CHECK_IF(blockShape_[i] <= 0,
+                    OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context_->GetNodeName(), "block_shape",
+                                                          std::to_string(blockShape_[i]).c_str(),
+                                                          "Each value of block_shape must be greater than 0"),
                     return ge::GRAPH_FAILED);
         padTop_[i] = padsVec.GetDim(i * 2);
         padBottom_[i] = padsVec.GetDim(i * 2 + 1);
-        OP_CHECK_IF(padTop_[i] < 0 || padBottom_[i] < 0, OP_LOGE(context_, "paddings must be non-negative"),
-                    return ge::GRAPH_FAILED);
+        OP_CHECK_IF(
+            padTop_[i] < 0 || padBottom_[i] < 0,
+            OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context_->GetNodeName(), "paddings",
+                                                  std::to_string(padTop_[i] < 0 ? padTop_[i] : padBottom_[i]).c_str(),
+                                                  "Each value of paddings must be non-negative"),
+            return ge::GRAPH_FAILED);
     }
 
     return ge::GRAPH_SUCCESS;
@@ -252,8 +275,9 @@ ge::graphStatus SpaceToBatchNDTiling::ComputeShapes()
         }
         paddedShape_[i] = paddedDim;
         OP_CHECK_IF(paddedShape_[i] % blockShape_[i] != 0,
-                    OP_LOGE(context_, "padded spatial[%zu]=%ld not divisible by block_shape[%zu]=%ld", i,
-                            paddedShape_[i], i, blockShape_[i]),
+                    OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context_->GetNodeName(), "paddings",
+                                                          std::to_string(paddedShape_[i]).c_str(),
+                                                          "The padded spatial dim must be divisible by block_shape"),
                     return ge::GRAPH_FAILED);
         if (!SafeMulI64(batchProd_, blockShape_[i], batchProd_)) {
             OP_LOGE(context_, "batch product overflow at axis %zu: batchProd=%ld blockShape=%ld", i, batchProd_,

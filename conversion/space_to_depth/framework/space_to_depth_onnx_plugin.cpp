@@ -27,10 +27,9 @@ static Status ParseParamsSpaceToDepth(const Message* op_src, ge::Operator& op_de
         }
     }
     if (blocksize_val <= 0) {
-        OP_LOGE(GetOpName(op_dest).c_str(),
-                "Because input tensor shape is [N,C,H,W] and "
-                "output tensor shape is [N, C*blocksize*blocksize, H/blocksize, W/blocksize],"
-                "attr blocksize must be INT.");
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(GetOpName(op_dest).c_str(), "blocksize",
+                                              std::to_string(blocksize_val).c_str(),
+                                              "The value of blocksize must be a positive integer");
         return FAILED;
     }
 

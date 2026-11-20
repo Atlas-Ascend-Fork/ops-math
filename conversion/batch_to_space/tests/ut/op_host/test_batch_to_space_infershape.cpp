@@ -227,3 +227,27 @@ TEST_F(BatchToSpaceInfershapeTest, batch_to_space_zero_c)
     std::vector<std::vector<int64_t>> expectOutputShape = {{2, 56, 56, 0}};
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
+
+// 边界对齐 arch35 tiling：H_in*block_size == crop_top + crop_bottom 时 H_out=0 合法（crops 裁剪至空），
+// 仅负值非法；修复 infershape 侧 `<= 0` 误拒空输出导致的与 tiling 分叉
+TEST_F(BatchToSpaceInfershapeTest, batch_to_space_hout_zero_by_crops)
+{
+    // H_in=1, block_size=2, crops top/bottom=1/1 -> H_out = 1*2-1-1 = 0
+    int64_t cropsValues[4] = {1, 1, 0, 0};
+
+    gert::InfershapeContextPara infershapeContextPara(
+        "BatchToSpace",
+        {
+            {{{8, 1, 28, 128}, {8, 1, 28, 128}}, ge::DT_FLOAT16, ge::FORMAT_NHWC},
+            {{{2, 2}, {2, 2}}, ge::DT_INT64, ge::FORMAT_ND, true, cropsValues},
+        },
+        {
+            {{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_NHWC},
+        },
+        {
+            gert::InfershapeContextPara::OpAttr("block_size", Ops::Math::AnyValue::CreateFrom<int64_t>(2)),
+        });
+
+    std::vector<std::vector<int64_t>> expectOutputShape = {{2, 0, 56, 128}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}

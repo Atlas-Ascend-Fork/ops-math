@@ -57,7 +57,11 @@ ge::graphStatus BatchToSpaceInferShapeHelper::Init()
     auto blockSizePtr = attrs->GetAttrPointer<int64_t>(0);
     OP_CHECK_NULL_WITH_CONTEXT(context_, blockSizePtr);
     blockSize_ = *blockSizePtr;
-    OP_CHECK_IF(blockSize_ <= 0, OP_LOGE(context_, "block_size must be positive"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        blockSize_ <= 0,
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context_->GetNodeName(), "block_size", std::to_string(blockSize_).c_str(),
+                                              "The value of block_size must be positive"),
+        return ge::GRAPH_FAILED);
 
     const gert::Tensor* cropsTensor = context_->GetInputTensor(INPUT_IDX_CROPS);
     gert::Shape cropsShape;
@@ -68,13 +72,18 @@ ge::graphStatus BatchToSpaceInferShapeHelper::Init()
     const bool isConstCrops = IsConstTensor(cropsTensor);
     if (isConstCrops) {
         OP_CHECK_IF(static_cast<size_t>(cropsTensor->GetShapeSize()) != CROPS_SIZE,
-                    OP_LOGE(context_, "crops must have %zu elements, got %ld", CROPS_SIZE, cropsTensor->GetShapeSize()),
+                    OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(context_->GetNodeName(), "crops",
+                                                              std::to_string(cropsTensor->GetShapeSize()).c_str(),
+                                                              "The element count of crops must be 4"),
                     return ge::GRAPH_FAILED);
     }
     if (isConstCrops && Ops::Base::GetConstIntToShape<gert::InferShapeContext>(context_, INPUT_IDX_CROPS, cropsShape)) {
         for (size_t i = 0; i < CROPS_SIZE; ++i) {
             crops_[i] = cropsShape[i];
-            OP_CHECK_IF(crops_[i] < 0, OP_LOGE(context_, "crops[%zu] must be non-negative, got %ld", i, crops_[i]),
+            OP_CHECK_IF(crops_[i] < 0,
+                        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context_->GetNodeName(), "crops",
+                                                              std::to_string(crops_[i]).c_str(),
+                                                              "Each value of crops must be non-negative"),
                         return ge::GRAPH_FAILED);
         }
         hasCropsConst_ = true;
@@ -95,8 +104,11 @@ ge::graphStatus BatchToSpaceInferShapeHelper::Inference()
         return ge::GRAPH_SUCCESS;
     }
 
-    OP_CHECK_IF(xShape_->GetDimNum() != X_RANK,
-                OP_LOGE(context_, "x must be %zuD, got %zu", X_RANK, xShape_->GetDimNum()), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        xShape_->GetDimNum() != X_RANK,
+        OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(
+            context_->GetNodeName(), "x", std::to_string(xShape_->GetDimNum()).c_str(), "The rank of x must be 4"),
+        return ge::GRAPH_FAILED);
 
     const gert::CompileTimeTensorDesc* xDesc = context_->GetInputDesc(INPUT_IDX_X);
     OP_CHECK_NULL_WITH_CONTEXT(context_, xDesc);
@@ -114,22 +126,30 @@ ge::graphStatus BatchToSpaceInferShapeHelper::Inference()
     int64_t bs2 = blockSize_ * blockSize_;
     if (xShape_->GetDim(DIM_N) != UNKNOWN_DIM) {
         OP_CHECK_IF(xShape_->GetDim(DIM_N) % bs2 != 0,
-                    OP_LOGE(context_, "N_in must be divisible by block_size^2, got N_in=%ld, block_size=%ld",
-                            xShape_->GetDim(DIM_N), blockSize_),
+                    OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context_->GetNodeName(), "x",
+                                                          std::to_string(xShape_->GetDim(DIM_N)).c_str(),
+                                                          "The N of x must be divisible by block_size^2"),
                     return ge::GRAPH_FAILED);
         nOut = xShape_->GetDim(DIM_N) / bs2;
     }
 
     // H_out = H_in * block_size - crop_top - crop_bottom
     if (xShape_->GetDim(hDim) != UNKNOWN_DIM && hasCropsConst_) {
+        // 对齐 arch35 tiling「允许为 0：crops 恰好裁剪至空是合法语义（仅负值非法）」
         hOut = xShape_->GetDim(hDim) * blockSize_ - crops_[0] - crops_[1];
-        OP_CHECK_IF(hOut <= 0, OP_LOGE(context_, "H_out must be positive, got %ld", hOut), return ge::GRAPH_FAILED);
+        OP_CHECK_IF(hOut < 0,
+                    OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context_->GetNodeName(), "y", std::to_string(hOut).c_str(),
+                                                          "The H of y must be non-negative"),
+                    return ge::GRAPH_FAILED);
     }
 
     // W_out = W_in * block_size - crop_left - crop_right
     if (xShape_->GetDim(wDim) != UNKNOWN_DIM && hasCropsConst_) {
         wOut = xShape_->GetDim(wDim) * blockSize_ - crops_[2] - crops_[3];
-        OP_CHECK_IF(wOut <= 0, OP_LOGE(context_, "W_out must be positive, got %ld", wOut), return ge::GRAPH_FAILED);
+        OP_CHECK_IF(wOut < 0,
+                    OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context_->GetNodeName(), "y", std::to_string(wOut).c_str(),
+                                                          "The W of y must be non-negative"),
+                    return ge::GRAPH_FAILED);
     }
 
     // C: unchanged
