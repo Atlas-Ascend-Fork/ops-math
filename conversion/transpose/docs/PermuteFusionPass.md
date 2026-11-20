@@ -29,7 +29,7 @@ Atlas训练系列产品
 
 融合前后图结构如下：
 
-![](../../../docs/zh/figures/PermuteFusionPass_1.png)
+![PermuteFusionPass_1](../../../docs/zh/figures/PermuteFusionPass_1.png)
 <!-- end id16 -->
 
 <!-- npu="950" id15 -->
@@ -46,7 +46,7 @@ Ascend 950PR&950DT系列产品
 
 融合前后图结构如下：
 
-![](../../../docs/zh/figures/PermuteFusionPass_2.png)
+![PermuteFusionPass_2](../../../docs/zh/figures/PermuteFusionPass_2.png)
 <!-- end id15 -->
 
 Permute算子的维度排列顺序优先从`perm`属性读取，若不存在则回退读取`order`属性。替换后输出的shape与dtype与原Permute输出一致。

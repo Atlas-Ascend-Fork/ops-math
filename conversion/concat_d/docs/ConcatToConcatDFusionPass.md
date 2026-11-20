@@ -10,7 +10,7 @@
 
 融合前后图结构如下：
 
-![](../../../docs/zh/figures/ConcatToConcatDFusionPass.png)
+![ConcatToConcatDFusionPass](../../../docs/zh/figures/ConcatToConcatDFusionPass.png)
 
 替换后ConcatD输出的dtype、shape、format与原算子输出保持一致。
 

@@ -4,7 +4,7 @@
 
 该融合将图中的CastLike算子替换为Cast算子：CastLike的输入为x（待转换的tensor）和y（目标类型参考tensor），输出为output；融合时从y的数据类型中提取目标类型dst_type，将CastLike替换为仅接收x输入、携带dst_type属性的Cast算子，输出shape与x相同。融合前后图结构如下。
 
-![](../../../docs/zh/figures/CastlikeFusionPass.png)
+![CastlikeFusionPass](../../../docs/zh/figures/CastlikeFusionPass.png)
 
 ## 使用约束
 

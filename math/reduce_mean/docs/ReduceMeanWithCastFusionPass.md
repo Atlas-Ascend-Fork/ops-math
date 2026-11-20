@@ -6,11 +6,11 @@
 
 **场景一：dtype 有效（插入 Cast）**
 
-![](../../../docs/zh/figures/ReduceMeanWithCastFusionPass_1.png)
+![ReduceMeanWithCastFusionPass_1](../../../docs/zh/figures/ReduceMeanWithCastFusionPass_1.png)
 
 **场景二：dtype 为 DT_UNDEFINED（不插入 Cast）**
 
-![](../../../docs/zh/figures/ReduceMeanWithCastFusionPass_2.png)
+![ReduceMeanWithCastFusionPass_2](../../../docs/zh/figures/ReduceMeanWithCastFusionPass_2.png)
 
 替换后 `ReduceMean` 的 `keep_dims`、`noop_with_empty_axes` 属性继承自原 `ReduceMeanWithCast` 节点；`Cast` 的 `dst_type` 取自原节点的 `dtype` 属性。
 

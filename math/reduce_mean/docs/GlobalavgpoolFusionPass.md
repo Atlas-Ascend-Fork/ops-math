@@ -4,7 +4,7 @@
 
 该融合将图中的 `GlobalAveragePool` 算子替换为 `ReduceMean` 算子，沿空间维度（从第 2 维起的所有维度）求均值。如下图所示。
 
-![](../../../docs/zh/figures/GlobalavgpoolFusionPass.png)
+![GlobalavgpoolFusionPass](../../../docs/zh/figures/GlobalavgpoolFusionPass.png)
 
 替换后 `ReduceMean` 的属性设置为 `keep_dims=true`、`noop_with_empty_axes=true`。
 
