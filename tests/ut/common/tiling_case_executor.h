@@ -11,6 +11,11 @@
 #ifndef OPS_MATH_DEV_TESTS_UT_COMMON_TILING_CASE_EXECUTOR_H
 #define OPS_MATH_DEV_TESTS_UT_COMMON_TILING_CASE_EXECUTOR_H
 
+#include <memory>
+#include <string>
+#include <vector>
+#include "base/context_builder/context_holder.h"
+#include "platform/platform_infos_def.h"
 #include "tiling_context_faker.h"
 
 using namespace std;
@@ -24,6 +29,33 @@ struct TilingInfo {
     size_t tilingDataSize = 0;
     size_t blockNum = 0;
 };
+
+/**
+ * @brief tiling 上下文及其依赖资源
+ *
+ * BuildTilingContext() 构造该 bundle，RunTiling() 与后续断言期间必须保持存活。
+ * 被 context 以指针引用的对象（platformInfo/tilingData/workspace/tensors）使用
+ * unique_ptr/容器持有，保证 bundle 返回时的地址稳定。
+ */
+struct TilingContextBundle {
+    std::unique_ptr<fe::PlatFormInfos> platformInfo;
+    std::unique_ptr<uint8_t[]> tilingData;
+    std::unique_ptr<uint8_t[]> workspace;
+    std::vector<std::unique_ptr<gert::Tensor>> inputTensors;
+    std::vector<std::unique_ptr<gert::Tensor>> outputTensors;
+    gert::ContextHolder<gert::TilingContext> holder;
+    gert::TilingContext* context = nullptr;
+};
+
+/**
+ * @brief 构造 tiling 执行上下文（张量/属性/平台信息/TilingData/Workspace 等）
+ */
+TilingContextBundle BuildTilingContext(const gert::TilingContextPara& tilingContextPara, bool withWorkspace = true);
+
+/**
+ * @brief 执行 tiling 函数（查找并调用 op 的 tiling 实现）
+ */
+ge::graphStatus RunTiling(TilingContextBundle& bundle, const gert::TilingContextPara& tilingContextPara);
 
 void ExecuteTestCase(const gert::TilingContextPara& tilingContextPara, ge::graphStatus expectResult = ge::GRAPH_FAILED,
                      uint64_t expectTilingKey = 0, const string& expectTilingData = "",
