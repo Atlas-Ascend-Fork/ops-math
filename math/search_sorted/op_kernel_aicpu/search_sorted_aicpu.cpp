@@ -108,6 +108,12 @@ KernelStatus SearchSortedKernel::GetInputAndCheck(const CpuKernelContext& ctx)
     values_dtype_ = static_cast<DataType>(values_t_->GetDataType());
     auto values_shape = values_t_->GetTensorShape();
     auto values_dims = values_shape->GetDimSizes();
+    if (values_dtype_ != sequence_dtype_) {
+        KERNEL_LOG_ERROR("SearchSorted requires the same dtype for sorted_sequence and values, "
+                         "but got [%s] and [%s].",
+                         DTypeStr(sequence_dtype_).c_str(), DTypeStr(values_dtype_).c_str());
+        return KERNEL_STATUS_PARAM_INVALID;
+    }
     KERNEL_LOG_DEBUG("sequence shape is [%s], value shape is [%s].", VectorToString(sequence_dims).c_str(),
                      VectorToString(values_dims).c_str());
     sorter_t_ = ctx.Input(2); // 2 is for sorter

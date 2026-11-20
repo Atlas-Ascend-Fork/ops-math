@@ -536,3 +536,18 @@ TEST_F(TEST_SearchSorted_UTest, NONEMPTY_SORTER_VALIDATION)
         }
     }
 }
+
+TEST_F(TEST_SearchSorted_UTest, VALUES_DTYPE_MISMATCH_REJECTED)
+{
+    float sequence[5] = {1.0f, 3.0f, 5.0f, 7.0f, 9.0f};
+    int64_t values[3] = {3, 6, 9};
+    int32_t output[3] = {};
+    auto node_def = CpuKernelUtils::CreateNodeDef();
+    NodeDefBuilder(node_def.get(), "SearchSorted", "SearchSorted")
+        .Input({"sorted_sequence", DT_FLOAT, {5}, sequence})
+        .Input({"values", DT_INT64, {3}, values})
+        .Output({"out", DT_INT32, {3}, output})
+        .Attr("dtype", DT_INT32)
+        .Attr("right", false);
+    RUN_KERNEL(node_def, HOST, KERNEL_STATUS_PARAM_INVALID);
+}
