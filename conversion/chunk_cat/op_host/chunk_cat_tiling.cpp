@@ -13,11 +13,27 @@
  * \brief
  */
 
+#include <string>
+#include <vector>
+
 #include "chunk_cat_tiling.h"
 #include "tiling/platform/platform_ascendc.h"
 #include "op_host/tiling_base_util.h"
 
 namespace optiling {
+
+static void ReportTilingFailure(const char* opName, const char* reason)
+{
+    // GetNodeName() may return nullptr when node name is missing; fall back to "nil"
+    // to keep UB-safe string construction and still report EZ1008.
+    const std::string opNameStr(opName == nullptr ? "nil" : opName);
+    const std::string reasonStr(reason);
+    const std::string msg = "Failed to execute operator " + opNameStr + ". Reason: " + reasonStr + ".";
+    const std::vector<const char*> msgKey = {"opName", "reason"};
+    const std::vector<const char*> msgValue = {opNameStr.c_str(), reasonStr.c_str()};
+    OP_LOGE_WITHOUT_REPORT(opNameStr.c_str(), "%s", msg.c_str());
+    REPORT_PREDEFINED_ERR_MSG("EZ1008", msgKey, msgValue);
+}
 
 constexpr uint32_t UB_BLOCK_SIZE = 32;    // UB块大小
 constexpr uint32_t TRANS_BLOCK = 16;      // 转置行数
@@ -50,12 +66,23 @@ ge::graphStatus ChunkCatTiling::GetPlatformInfo()
 {
     // 获取ubsize coreNum_
     auto platformInfo = context_->GetPlatformInfo();
-    OP_CHECK_NULL_WITH_CONTEXT(context_, platformInfo);
+    if (platformInfo == nullptr) {
+        ReportTilingFailure(context_->GetNodeName(), "ChunkCatTiling failed because platform info is null");
+        return ge::GRAPH_FAILED;
+    }
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
     coreNum_ = ascendcPlatform.GetCoreNumAiv();
-    OP_CHECK_IF(coreNum_ == 0, OP_LOGE(context_, "coreNum is 0"), return ge::GRAPH_FAILED);
+    if (coreNum_ == 0) {
+        std::string reason = "ChunkCatTiling failed to get AIV core number, actual=" + std::to_string(coreNum_);
+        ReportTilingFailure(context_->GetNodeName(), reason.c_str());
+        return ge::GRAPH_FAILED;
+    }
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSize_);
-    OP_CHECK_IF(ubSize_ == 0, OP_LOGE(context_, "ubSize is 0"), return ge::GRAPH_FAILED);
+    if (ubSize_ == 0) {
+        std::string reason = "ChunkCatTiling failed to get UB size, actual=" + std::to_string(ubSize_);
+        ReportTilingFailure(context_->GetNodeName(), reason.c_str());
+        return ge::GRAPH_FAILED;
+    }
     sysWorkspaceSize_ = ascendcPlatform.GetLibApiWorkSpaceSize();
     isRegBase = Ops::Base::IsRegbaseSocVersion(context_);
     // Ascend960 (DAV_9201/9202) 共用同一套 tiling 适配逻辑
@@ -117,7 +144,9 @@ ge::graphStatus ChunkCatTiling::GetDtypeUbInfo()
         return ge::GRAPH_FAILED;
     }
     srcDtypeSize_ = ge::GetSizeByDataType(inputDataType);
-    OP_CHECK_IF(srcDtypeSize_ == 0, OP_LOGE(context_, "input dtype size can not be 0"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(srcDtypeSize_ == 0,
+                ReportTilingFailure(context_->GetNodeName(), "ChunkCatTiling failed because input dtype size is 0"),
+                return ge::GRAPH_FAILED);
     srcEleUbBlock_ = UB_BLOCK_SIZE / srcDtypeSize_;
     uint32_t reserveUb = isRegBase ? 0 : RESERVE_UB;
     if (inputDataType != outputDataType) {
@@ -137,9 +166,15 @@ ge::graphStatus ChunkCatTiling::GetInputInfo()
     }
 
     auto computeNodeInfo = context_->GetComputeNodeInfo();
-    OP_CHECK_NULL_WITH_CONTEXT(context_, computeNodeInfo);
+    if (computeNodeInfo == nullptr) {
+        ReportTilingFailure(context_->GetNodeName(), "ChunkCatTiling failed because compute node info is null");
+        return ge::GRAPH_FAILED;
+    }
     auto anchorInstanceInfo = computeNodeInfo->GetInputInstanceInfo(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, anchorInstanceInfo);
+    if (anchorInstanceInfo == nullptr) {
+        ReportTilingFailure(context_->GetNodeName(), "ChunkCatTiling failed because anchor instance info is null");
+        return ge::GRAPH_FAILED;
+    }
     inputNum_ = anchorInstanceInfo->GetInstanceNum();
     OP_CHECK_IF(inputNum_ == 0, OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "x"), return ge::GRAPH_FAILED);
     // 获取数据类型
@@ -174,7 +209,8 @@ ge::graphStatus ChunkCatTiling::CalculateOutputInfo()
         if (i == 0) {
             outputRow_ = dim0Size;
         } else if (outputRow_ != dim0Size) {
-            OP_LOGE(context_, "op expects same sizes of 0,...,dim-1 dimensions for all tensors");
+            OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context_->GetNodeName(), "x", std::to_string(dim0Size).c_str(),
+                                                  "op expects same sizes of 0,...,dim-1 dimensions for all tensors");
             return ge::GRAPH_FAILED;
         }
         if (dim1Size % srcEleUbBlock_ != 0) {
@@ -364,9 +400,13 @@ static ge::graphStatus Tiling4ChunkCat(gert::TilingContext* context)
     }
 
     ChunkCatTilingData* tilingData = context->GetTilingData<ChunkCatTilingData>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, tilingData);
+    if (tilingData == nullptr) {
+        ReportTilingFailure(context->GetNodeName(), "ChunkCatTiling failed because tiling data is null");
+        return ge::GRAPH_FAILED;
+    }
     OP_CHECK_IF(memset_s(tilingData, sizeof(ChunkCatTilingData), 0, sizeof(ChunkCatTilingData)) != EOK,
-                OP_LOGE(context, "set tiling data error"), return ge::GRAPH_FAILED);
+                ReportTilingFailure(context->GetNodeName(), "ChunkCatTiling failed to set tiling data"),
+                return ge::GRAPH_FAILED);
     tiling.SetTilingData(tilingData);
     OP_LOGD(context, "tiling data: %s", tiling.TilingDataToString().c_str());
     return ge::GRAPH_SUCCESS;

@@ -18,18 +18,43 @@
 #include "op_common/op_host/util/shape_util.h"
 #include "register/op_impl_registry.h"
 
+#include <string>
+#include <vector>
+
 using namespace ge;
 namespace ops {
+
+static void ReportInferShapeExecutionError(const char* opName, const char* reason)
+{
+    const std::string opNameStr(opName == nullptr ? "" : opName);
+    const std::string reasonStr(reason == nullptr ? "" : reason);
+    const std::string msg = "Failed to execute operator " + opNameStr + ". Reason: " + reasonStr + ".";
+    const std::vector<const char*> msgKey = {"opName", "reason"};
+    const std::vector<const char*> msgValue = {opNameStr.c_str(), reasonStr.c_str()};
+    OP_LOGE_WITHOUT_REPORT(opNameStr.c_str(), "%s", msg.c_str());
+    REPORT_PREDEFINED_ERR_MSG("EZ1014", msgKey, msgValue);
+}
 
 static ge::graphStatus InferShape4ChunkCat(gert::InferShapeContext* context)
 {
     auto computeNodeInfo = context->GetComputeNodeInfo();
-    OP_CHECK_NULL_WITH_CONTEXT(context, computeNodeInfo);
+    if (computeNodeInfo == nullptr) {
+        ReportInferShapeExecutionError(context->GetNodeName(),
+                                       "InferShape4ChunkCat failed because compute node info is null");
+        return ge::GRAPH_FAILED;
+    }
     auto anchorInstanceInfo = computeNodeInfo->GetInputInstanceInfo(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context, anchorInstanceInfo);
+    if (anchorInstanceInfo == nullptr) {
+        ReportInferShapeExecutionError(context->GetNodeName(),
+                                       "InferShape4ChunkCat failed because anchor instance info is null");
+        return ge::GRAPH_FAILED;
+    }
     uint32_t inputNum = anchorInstanceInfo->GetInstanceNum();
     auto attrs = context->GetAttrs();
-    OP_CHECK_NULL_WITH_CONTEXT(context, attrs);
+    if (attrs == nullptr) {
+        ReportInferShapeExecutionError(context->GetNodeName(), "InferShape4ChunkCat failed because attrs is null");
+        return ge::GRAPH_FAILED;
+    }
     const int64_t dim = *attrs->GetAttrPointer<int64_t>(0);
     const int64_t numChunks = *attrs->GetAttrPointer<int64_t>(1);
     OP_CHECK_IF(dim != 0,
