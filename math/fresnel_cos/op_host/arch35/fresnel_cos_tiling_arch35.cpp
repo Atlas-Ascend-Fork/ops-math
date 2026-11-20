@@ -53,7 +53,7 @@ constexpr int64_t NUM_MASK_BUFFERS = 4;       // mask buffers (mask, maskPInf, m
 constexpr int64_t FP32_ELEM_BYTES = 4;        // sizeof(float)
 constexpr int64_t FP16_ELEM_BYTES = 2;        // sizeof(half) / sizeof(bfloat16)
 constexpr int64_t BITS_PER_BYTE = 8;          // bits per byte
-constexpr int64_t NUM_IO_BUFFERS = 2;         // 1*In + 1*Out
+constexpr int64_t NUM_IO_BUFFERS = 4;         // 2*In + 2*Out (both double-buffered)
 constexpr int64_t MIN_UB_FORMER_DEFAULT = 64; // minimum UB block elements
 constexpr int32_t MIN_CORE_NUM = 1;           // minimum core number
 constexpr int64_t MIN_ALIGN = 1;              // minimum alignment value
@@ -143,23 +143,44 @@ static void ComputeMultiCoreSplit(int64_t total, int64_t coreNum, int64_t elemBy
     td->blockFormer = ((total + td->coreNum - 1) / td->coreNum + ELEM_ALIGN - 1) / ELEM_ALIGN * ELEM_ALIGN;
     td->blockNum = (total + td->blockFormer - 1) / td->blockFormer;
 }
-
 static void ComputeUBSplit(uint64_t ubSize, int64_t elemBytes, FresnelCosTilingData* td)
 {
-    // buffer plan:
-    //   I/O: 2 * ubFormer * elemBytes (1*In+1*Out, single buffer)
-    //   FP32: 8 * ubFormer * 4
-    //   masks: 4 * ubFormer * 1 (approx)
-    int64_t bufferDivisor = NUM_IO_BUFFERS * elemBytes + NUM_CALC_BUFFERS * FP32_ELEM_BYTES + NUM_MASK_BUFFERS;
-    if (bufferDivisor <= 0) {
-        bufferDivisor = MIN_UB_FORMER_DEFAULT;
+    // buffer plan (per ubFormer element):
+    //   I/O: 4 * elemBytes  (2*In + 2*Out, both double-buffered)
+    //   FP32: 8 * 4
+    //   masks: 4 * 1/8 byte (bit-packed, one bit per element, 256B-aligned)
+    // The linear model below treats the mask term as exactly 1 bit per element,
+    // but the kernel rounds every mask buffer up to the next 256B boundary
+    // (ceil(ubFormer/8) -> round-up-256), i.e. up to 255B extra per mask. On UB
+    // sizes where the align-floor slack does not cover that round-up, the real
+    // allocation would exceed UB (e.g. fp32 overflows for ~992-value windows
+    // around every 100KB). Instead of relying on that parameter coincidence,
+    // the exact kernel allocation is verified after the linear estimate and
+    // ubFormer steps down by one alignment unit until it fits.
+    int64_t divisorBits = NUM_IO_BUFFERS * elemBytes * BITS_PER_BYTE +
+                          NUM_CALC_BUFFERS * FP32_ELEM_BYTES * BITS_PER_BYTE + NUM_MASK_BUFFERS;
+    if (divisorBits <= 0) {
+        divisorBits = MIN_UB_FORMER_DEFAULT;
     }
-    int64_t maxElem = static_cast<int64_t>(ubSize) / bufferDivisor;
     int64_t align = (elemBytes > 0) ? (UB_ALIGN_BYTES / elemBytes) : MIN_ALIGN;
     if (align < MIN_ALIGN) {
         align = MIN_ALIGN;
     }
-    td->ubFormer = (maxElem / align) * align;
+    // Exact buffer sizes, must stay in sync with FresnelCosKernel::Init:
+    // maskBytes rounds ceil(elems/8) up to a 256B boundary.
+    auto maskBytesOf = [](int64_t elems) {
+        return ((elems + BITS_PER_BYTE - 1) / BITS_PER_BYTE + UB_ALIGN_BYTES - 1) / UB_ALIGN_BYTES * UB_ALIGN_BYTES;
+    };
+    auto totalBytesOf = [&](int64_t elems) {
+        return NUM_IO_BUFFERS * elems * elemBytes + NUM_CALC_BUFFERS * elems * FP32_ELEM_BYTES +
+               NUM_MASK_BUFFERS * maskBytesOf(elems);
+    };
+    int64_t maxElem = static_cast<int64_t>(ubSize) * BITS_PER_BYTE / divisorBits;
+    int64_t ubFormer = (maxElem / align) * align;
+    while (ubFormer >= align && totalBytesOf(ubFormer) > static_cast<int64_t>(ubSize)) {
+        ubFormer -= align;
+    }
+    td->ubFormer = ubFormer;
     if (td->ubFormer < MIN_UB_FORMER_DEFAULT) {
         td->ubFormer = MIN_UB_FORMER_DEFAULT;
     }
