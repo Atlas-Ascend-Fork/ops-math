@@ -10,7 +10,7 @@
 
 /*!
  * \file reshape_infershape.cpp
- * \brief InferShape and InferDataType implementation for Reshape operator.
+ * \brief InferShape, InferDataType and InferFormat implementation for Reshape operator.
  */
 #include <limits>
 #include <vector>
@@ -18,6 +18,7 @@
 #include "register/op_impl_registry.h"
 #include "exe_graph/runtime/infer_shape_context.h"
 #include "exe_graph/runtime/infer_datatype_context.h"
+#include "graph/infer_format_context.h"
 #include "log/log.h"
 
 using namespace ge;
@@ -372,9 +373,168 @@ static ge::graphStatus InferDataTypeForReshape(gert::InferDataTypeContext* conte
     return context->SetOutputDataType(0, context->GetInputDataType(0));
 }
 
+// whether the format is a 4D/5D rank-bound format matching the tensor rank
+static bool IsFormatMatchRank(const ge::Format format, const int64_t rank)
+{
+    const auto primaryFormat = static_cast<ge::Format>(ge::GetPrimaryFormat(static_cast<int32_t>(format)));
+    switch (primaryFormat) {
+        case ge::FORMAT_NCHW:
+        case ge::FORMAT_NHWC:
+        case ge::FORMAT_CHWN:
+        case ge::FORMAT_HWCN:
+            return rank == 4;
+        case ge::FORMAT_NDHWC:
+        case ge::FORMAT_NCDHW:
+        case ge::FORMAT_DHWCN:
+        case ge::FORMAT_DHWNC:
+            return rank == 5;
+        default:
+            return false;
+    }
+}
+
+// primary storage format of a tensor desc, used by the RT1.0 rank check
+static ge::Format GetPrimaryStorageFormat(const gert::StorageFormat* fmt)
+{
+    return static_cast<ge::Format>(ge::GetPrimaryFormat(static_cast<int32_t>(fmt->GetStorageFormat())));
+}
+
+// keep the rank-bound format only on a rank match, otherwise fall back to ND
+static void NormalizeFormatToNd(gert::StorageFormat* fmt, const int64_t rank)
+{
+    if (!IsFormatMatchRank(GetPrimaryStorageFormat(fmt), rank)) {
+        fmt->SetOriginFormat(ge::FORMAT_ND);
+        fmt->SetStorageFormat(ge::FORMAT_ND);
+    }
+}
+
+static int64_t GetInputRank(const gert::InferFormatContext* context, const size_t idx)
+{
+    // RT1.0 checks the rank on GeTensorDesc::GetShape(), i.e. the storage shape
+    const auto tensor = context->GetInputTensor(idx);
+    if (tensor != nullptr) {
+        return static_cast<int64_t>(tensor->GetStorageShape().GetDimNum());
+    }
+    const auto shape = context->GetInputShape(idx);
+    return (shape == nullptr) ? -1 : static_cast<int64_t>(shape->GetDimNum());
+}
+
+// OpDesc::DefaultInferFormat: the first non-ND origin format, inputs before outputs
+static ge::Format GetFirstNonNdFormat(const std::vector<gert::StorageFormat*>& inputFmts,
+                                      const std::vector<gert::StorageFormat*>& outputFmts)
+{
+    for (const auto* fmt : inputFmts) {
+        if (fmt->GetOriginFormat() != ge::FORMAT_ND) {
+            return fmt->GetOriginFormat();
+        }
+    }
+    for (const auto* fmt : outputFmts) {
+        if (fmt->GetOriginFormat() != ge::FORMAT_ND) {
+            return fmt->GetOriginFormat();
+        }
+    }
+    return ge::FORMAT_ND;
+}
+
+static void FloodFormat(const std::vector<gert::StorageFormat*>& fmts, const ge::Format format)
+{
+    for (auto* fmt : fmts) {
+        if (fmt->GetOriginFormat() == ge::FORMAT_ND) {
+            fmt->SetOriginFormat(format);
+            fmt->SetStorageFormat(format);
+        }
+    }
+}
+
+// the y rank InferShape set: the element num of the shape input, or the dim of its shape
+// when the data is absent (-1 when unknown)
+static int64_t GetReshapeOutputRank(const gert::InferFormatContext* context, const size_t shapeIdx)
+{
+    const auto shape_tensor = context->GetInputTensor(shapeIdx);
+    if ((shape_tensor != nullptr) && (shape_tensor->GetTensorData().GetAddr() != nullptr)) {
+        return shape_tensor->GetShapeSize();
+    }
+    const auto shape_input_shape = context->GetInputShape(shapeIdx);
+    if (shape_input_shape == nullptr) {
+        return -1;
+    }
+    const auto dimNum = static_cast<int64_t>(shape_input_shape->GetDimNum());
+    if (dimNum == 0) {
+        return 0;
+    }
+    if (dimNum == 1) {
+        return shape_input_shape->GetDim(0U);
+    }
+    return -1;
+}
+
+// V2 InferFormat of Reshape, kept in step with the RT1.0 ReshapeInferFormat:
+//   1. normalize every input and output against its own rank (primary storage format);
+//   2. run the OpDesc::DefaultInferFormat flood (first non-ND origin, inputs before outputs);
+//   3. normalize every input and output again.
+// The V2 compile bridge does not seed the output StorageFormat from OpDesc: the output
+// tensor is zero-filled, so FORMAT_NCHW (0) would otherwise be mistaken for a real format.
+// Read the real incoming output format from GetOutputDesc instead.
+static ge::graphStatus InferFormatForReshape(gert::InferFormatContext* context)
+{
+    constexpr size_t kIdxShape = 1U;
+    OP_CHECK_NULL_WITH_CONTEXT(context, context);
+
+    const size_t inputNum = context->GetComputeNodeInputNum();
+    const size_t outputNum = context->GetComputeNodeOutputNum();
+    const int64_t yRank = GetReshapeOutputRank(context, kIdxShape);
+
+    std::vector<gert::StorageFormat*> inputFmts;
+    std::vector<int64_t> inputRanks;
+    std::vector<gert::StorageFormat*> outputFmts;
+    std::vector<int64_t> outputRanks;
+    inputFmts.reserve(inputNum);
+    inputRanks.reserve(inputNum);
+    outputFmts.reserve(outputNum);
+    outputRanks.reserve(outputNum);
+
+    for (size_t i = 0U; i < inputNum; ++i) {
+        auto fmt = context->GetInputFormat(i);
+        OP_CHECK_NULL_WITH_CONTEXT(context, fmt);
+        inputFmts.push_back(fmt);
+        inputRanks.push_back(GetInputRank(context, i));
+    }
+    for (size_t i = 0U; i < outputNum; ++i) {
+        auto fmt = context->GetOutputFormat(i);
+        OP_CHECK_NULL_WITH_CONTEXT(context, fmt);
+        const auto outDesc = context->GetOutputDesc(i);
+        OP_CHECK_NULL_WITH_CONTEXT(context, outDesc);
+        *fmt = outDesc->GetFormat();
+        outputFmts.push_back(fmt);
+        outputRanks.push_back((i == 0U) ? yRank : -1);
+    }
+
+    for (size_t i = 0U; i < inputFmts.size(); ++i) {
+        NormalizeFormatToNd(inputFmts[i], inputRanks[i]);
+    }
+    for (size_t i = 0U; i < outputFmts.size(); ++i) {
+        NormalizeFormatToNd(outputFmts[i], outputRanks[i]);
+    }
+
+    const ge::Format floodFormat = GetFirstNonNdFormat(inputFmts, outputFmts);
+    if (floodFormat != ge::FORMAT_ND) {
+        FloodFormat(inputFmts, floodFormat);
+        FloodFormat(outputFmts, floodFormat);
+    }
+
+    for (size_t i = 0U; i < inputFmts.size(); ++i) {
+        NormalizeFormatToNd(inputFmts[i], inputRanks[i]);
+    }
+    for (size_t i = 0U; i < outputFmts.size(); ++i) {
+        NormalizeFormatToNd(outputFmts[i], outputRanks[i]);
+    }
+    return ge::GRAPH_SUCCESS;
+}
+
 IMPL_OP_INFERSHAPE(Reshape)
     .InferShape(InferShapeForReshape)
     .InferDataType(InferDataTypeForReshape)
+    .InferFormat(InferFormatForReshape)
     .InputsDataDependency({1U})
     .PrivateAttr("_allowzero", int64_t{1});
 } // namespace ops

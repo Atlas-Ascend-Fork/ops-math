@@ -13,6 +13,8 @@
 #include "register/op_impl_registry.h"
 #include "infershape_context_faker.h"
 #include "op_infer_datatype_context_builder.h"
+#include "graph/infer_format_context.h"
+#include "exe_graph/runtime/kernel_run_context.h"
 #include "base/registry/op_impl_space_registry_v2.h"
 
 namespace {
@@ -42,6 +44,55 @@ gert::ContextHolder<gert::InferShapeContext> GetInferShapeContextHolder(
     }
     auto holder = faker_chain.InputTensors({(gert::Tensor*)&x_shape, target_tensor}).OutputShapes({&y_shape}).Build();
     return holder;
+}
+
+// real tensors for x, the shape input and y: the format context reads the formats off
+// them, while the shape builder wires the output slot for the shape inference only.
+// y_fmt is the format on the output tensor (zero-initialized to NCHW by the GE bridge),
+// y_desc_fmt is the real output format carried by the OpDesc / CompileTimeTensorDesc.
+gert::ContextHolder<gert::InferShapeContext> GetInferFormatContextHolderWithDesc(
+    std::unique_ptr<uint8_t[]>& x_holder, std::unique_ptr<uint8_t[]>& shape_holder,
+    std::unique_ptr<uint8_t[]>& y_holder, const gert::StorageShape& x_storage_shape, const ge::Format x_fmt,
+    const gert::StorageShape& shape_storage_shape, const ge::Format shape_fmt, const bool shape_data_present,
+    const std::vector<int64_t>& target_dims, const gert::StorageShape& y_storage_shape, const ge::Format y_fmt,
+    const ge::Format y_desc_fmt)
+{
+    auto* x_tensor = reinterpret_cast<gert::Tensor*>(x_holder.get());
+    new (x_tensor) gert::Tensor(x_storage_shape, {x_fmt, x_fmt, {}}, gert::kFollowing, ge::DT_FLOAT, nullptr);
+
+    auto* shape_tensor = reinterpret_cast<gert::Tensor*>(shape_holder.get());
+    auto* shape_data = reinterpret_cast<int64_t*>(shape_tensor + 1);
+    new (shape_tensor) gert::Tensor(shape_storage_shape, {shape_fmt, shape_fmt, {}}, gert::kFollowing, ge::DT_INT64,
+                                    shape_data_present ? shape_data : nullptr);
+    for (size_t idx = 0; idx < target_dims.size(); ++idx) {
+        shape_data[idx] = target_dims[idx];
+    }
+
+    auto holder = gert::InferShapeContextFaker()
+                      .SetOpType("Reshape")
+                      .NodeIoNum(2, 1)
+                      .NodeOutputTd(0, ge::DT_FLOAT, y_desc_fmt, y_desc_fmt)
+                      .InputTensors({x_tensor, shape_tensor})
+                      .Build();
+
+    auto* y_tensor = reinterpret_cast<gert::Tensor*>(y_holder.get());
+    new (y_tensor) gert::Tensor(y_storage_shape, {y_fmt, y_fmt, {}}, gert::kFollowing, ge::DT_FLOAT, nullptr);
+    auto* kernel_ctx = reinterpret_cast<KernelRunContext*>(holder.GetContext());
+    auto* out_slot = kernel_ctx->values[kernel_ctx->input_size];
+    out_slot->data.pointer = y_tensor;
+    out_slot->deleter = nullptr;
+    return holder;
+}
+
+gert::ContextHolder<gert::InferShapeContext> GetInferFormatContextHolder(
+    std::unique_ptr<uint8_t[]>& x_holder, std::unique_ptr<uint8_t[]>& shape_holder,
+    std::unique_ptr<uint8_t[]>& y_holder, const gert::StorageShape& x_storage_shape, const ge::Format x_fmt,
+    const gert::StorageShape& shape_storage_shape, const ge::Format shape_fmt, const bool shape_data_present,
+    const std::vector<int64_t>& target_dims, const gert::StorageShape& y_storage_shape, const ge::Format y_fmt)
+{
+    return GetInferFormatContextHolderWithDesc(x_holder, shape_holder, y_holder, x_storage_shape, x_fmt,
+                                               shape_storage_shape, shape_fmt, shape_data_present, target_dims,
+                                               y_storage_shape, y_fmt, y_fmt);
 }
 } // namespace
 class ReshapeUT : public testing::Test {
@@ -1365,4 +1416,339 @@ TEST_F(ReshapeUT, Reshape_infer_datatype)
     EXPECT_EQ(ret, ge::GRAPH_SUCCESS);
     // output dtype is same as input x
     EXPECT_EQ(context->GetOutputDataType(0), ge::DT_FLOAT);
+}
+
+// the rank-4 x keeps NCHW, the NCHW y on the rank-2 target normalizes to ND
+TEST_F(ReshapeUT, Reshape_infer_format_rank_mismatch_to_nd)
+{
+    auto space_registry = gert::DefaultOpImplSpaceRegistryV2::GetInstance().GetSpaceRegistry();
+    ASSERT_NE(space_registry->GetOpImpl("Reshape"), nullptr);
+    auto* op_impl = space_registry->GetOpImpl("Reshape");
+    ASSERT_NE(op_impl->infer_format_func, nullptr);
+
+    auto x_holder = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor)]);
+    auto shape_holder = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor) + sizeof(int64_t) * 2]);
+    auto y_holder = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor)]);
+    auto holder = GetInferFormatContextHolder(x_holder, shape_holder, y_holder, {{1, 3, 224, 224}, {1, 3, 224, 224}},
+                                              ge::FORMAT_NCHW, {{2}, {2}}, ge::FORMAT_ND, true, {1, 150528}, {{2}, {2}},
+                                              ge::FORMAT_NCHW);
+    auto* fmt_ctx = reinterpret_cast<gert::InferFormatContext*>(holder.GetContext());
+
+    EXPECT_EQ(op_impl->infer_format_func(fmt_ctx), ge::GRAPH_SUCCESS);
+    EXPECT_EQ(fmt_ctx->GetInputFormat(0)->GetOriginFormat(), ge::FORMAT_NCHW);
+    EXPECT_EQ(fmt_ctx->GetInputFormat(0)->GetStorageFormat(), ge::FORMAT_NCHW);
+    EXPECT_EQ(fmt_ctx->GetOutputFormat(0)->GetOriginFormat(), ge::FORMAT_ND);
+    EXPECT_EQ(fmt_ctx->GetOutputFormat(0)->GetStorageFormat(), ge::FORMAT_ND);
+}
+
+// the reshaped output keeps the rank-4 NCHW: the rank-bound format survives on rank match
+TEST_F(ReshapeUT, Reshape_infer_format_rank_match_kept)
+{
+    auto space_registry = gert::DefaultOpImplSpaceRegistryV2::GetInstance().GetSpaceRegistry();
+    ASSERT_NE(space_registry->GetOpImpl("Reshape"), nullptr);
+    auto* op_impl = space_registry->GetOpImpl("Reshape");
+    ASSERT_NE(op_impl->infer_format_func, nullptr);
+
+    auto x_holder = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor)]);
+    auto shape_holder = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor) + sizeof(int64_t) * 4]);
+    auto y_holder = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor)]);
+    auto holder = GetInferFormatContextHolder(x_holder, shape_holder, y_holder, {{1, 3, 224, 224}, {1, 3, 224, 224}},
+                                              ge::FORMAT_NCHW, {{4}, {4}}, ge::FORMAT_ND, true, {1, 3, 224, 224},
+                                              {{4}, {4}}, ge::FORMAT_NCHW);
+    auto* fmt_ctx = reinterpret_cast<gert::InferFormatContext*>(holder.GetContext());
+
+    EXPECT_EQ(op_impl->infer_format_func(fmt_ctx), ge::GRAPH_SUCCESS);
+    EXPECT_EQ(fmt_ctx->GetInputFormat(0)->GetOriginFormat(), ge::FORMAT_NCHW);
+    EXPECT_EQ(fmt_ctx->GetOutputFormat(0)->GetOriginFormat(), ge::FORMAT_NCHW);
+    EXPECT_EQ(fmt_ctx->GetOutputFormat(0)->GetStorageFormat(), ge::FORMAT_NCHW);
+}
+
+// the rank-5 NDHWC x survives the rank check, the NDHWC y on a rank-3 target becomes ND
+TEST_F(ReshapeUT, Reshape_infer_format_5d_rank_mismatch_to_nd)
+{
+    auto space_registry = gert::DefaultOpImplSpaceRegistryV2::GetInstance().GetSpaceRegistry();
+    ASSERT_NE(space_registry->GetOpImpl("Reshape"), nullptr);
+    auto* op_impl = space_registry->GetOpImpl("Reshape");
+    ASSERT_NE(op_impl->infer_format_func, nullptr);
+
+    auto x_holder = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor)]);
+    auto shape_holder = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor) + sizeof(int64_t) * 3]);
+    auto y_holder = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor)]);
+    auto holder = GetInferFormatContextHolder(x_holder, shape_holder, y_holder, {{1, 2, 4, 4, 3}, {1, 2, 4, 4, 3}},
+                                              ge::FORMAT_NDHWC, {{3}, {3}}, ge::FORMAT_ND, true, {2, 4, 12}, {{3}, {3}},
+                                              ge::FORMAT_NDHWC);
+    auto* fmt_ctx = reinterpret_cast<gert::InferFormatContext*>(holder.GetContext());
+
+    EXPECT_EQ(op_impl->infer_format_func(fmt_ctx), ge::GRAPH_SUCCESS);
+    EXPECT_EQ(fmt_ctx->GetInputFormat(0)->GetOriginFormat(), ge::FORMAT_NDHWC);
+    EXPECT_EQ(fmt_ctx->GetOutputFormat(0)->GetOriginFormat(), ge::FORMAT_ND);
+    EXPECT_EQ(fmt_ctx->GetOutputFormat(0)->GetStorageFormat(), ge::FORMAT_ND);
+}
+
+// the reshaped output keeps the rank-5 NDHWC on a rank-5 target
+TEST_F(ReshapeUT, Reshape_infer_format_5d_rank_match_kept)
+{
+    auto space_registry = gert::DefaultOpImplSpaceRegistryV2::GetInstance().GetSpaceRegistry();
+    ASSERT_NE(space_registry->GetOpImpl("Reshape"), nullptr);
+    auto* op_impl = space_registry->GetOpImpl("Reshape");
+    ASSERT_NE(op_impl->infer_format_func, nullptr);
+
+    auto x_holder = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor)]);
+    auto shape_holder = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor) + sizeof(int64_t) * 5]);
+    auto y_holder = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor)]);
+    auto holder = GetInferFormatContextHolder(x_holder, shape_holder, y_holder, {{1, 2, 4, 4, 3}, {1, 2, 4, 4, 3}},
+                                              ge::FORMAT_NDHWC, {{5}, {5}}, ge::FORMAT_ND, true, {1, 2, 4, 4, 3},
+                                              {{5}, {5}}, ge::FORMAT_NDHWC);
+    auto* fmt_ctx = reinterpret_cast<gert::InferFormatContext*>(holder.GetContext());
+
+    EXPECT_EQ(op_impl->infer_format_func(fmt_ctx), ge::GRAPH_SUCCESS);
+    EXPECT_EQ(fmt_ctx->GetOutputFormat(0)->GetOriginFormat(), ge::FORMAT_NDHWC);
+    EXPECT_EQ(fmt_ctx->GetOutputFormat(0)->GetStorageFormat(), ge::FORMAT_NDHWC);
+}
+
+// the NCHW on the rank-4 x floods onto the ND y: the 4D format crosses the rank-4 reshape
+TEST_F(ReshapeUT, Reshape_infer_format_x_format_propagates_to_y)
+{
+    auto space_registry = gert::DefaultOpImplSpaceRegistryV2::GetInstance().GetSpaceRegistry();
+    ASSERT_NE(space_registry->GetOpImpl("Reshape"), nullptr);
+    auto* op_impl = space_registry->GetOpImpl("Reshape");
+    ASSERT_NE(op_impl->infer_format_func, nullptr);
+
+    auto x_holder = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor)]);
+    auto shape_holder = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor) + sizeof(int64_t) * 4]);
+    auto y_holder = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor)]);
+    auto holder = GetInferFormatContextHolder(x_holder, shape_holder, y_holder, {{2, 24, 4, 4}, {2, 24, 4, 4}},
+                                              ge::FORMAT_NCHW, {{4}, {4}}, ge::FORMAT_ND, true, {2, 8, 6, 8},
+                                              {{4}, {4}}, ge::FORMAT_ND);
+    auto* fmt_ctx = reinterpret_cast<gert::InferFormatContext*>(holder.GetContext());
+
+    EXPECT_EQ(op_impl->infer_format_func(fmt_ctx), ge::GRAPH_SUCCESS);
+    EXPECT_EQ(fmt_ctx->GetInputFormat(0)->GetOriginFormat(), ge::FORMAT_NCHW);
+    EXPECT_EQ(fmt_ctx->GetOutputFormat(0)->GetOriginFormat(), ge::FORMAT_NCHW);
+    EXPECT_EQ(fmt_ctx->GetOutputFormat(0)->GetStorageFormat(), ge::FORMAT_NCHW);
+}
+
+// the NCHW preset on the rank-4 y floods back onto the ND x: matches RT1.0 input writeback
+TEST_F(ReshapeUT, Reshape_infer_format_back_propagated_to_x)
+{
+    auto space_registry = gert::DefaultOpImplSpaceRegistryV2::GetInstance().GetSpaceRegistry();
+    ASSERT_NE(space_registry->GetOpImpl("Reshape"), nullptr);
+    auto* op_impl = space_registry->GetOpImpl("Reshape");
+    ASSERT_NE(op_impl->infer_format_func, nullptr);
+
+    auto x_holder = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor)]);
+    auto shape_holder = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor) + sizeof(int64_t) * 4]);
+    auto y_holder = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor)]);
+    auto holder = GetInferFormatContextHolder(x_holder, shape_holder, y_holder, {{2, 24, 4, 4}, {2, 24, 4, 4}},
+                                              ge::FORMAT_ND, {{4}, {4}}, ge::FORMAT_ND, true, {2, 8, 6, 8}, {{4}, {4}},
+                                              ge::FORMAT_NCHW);
+    auto* fmt_ctx = reinterpret_cast<gert::InferFormatContext*>(holder.GetContext());
+
+    EXPECT_EQ(op_impl->infer_format_func(fmt_ctx), ge::GRAPH_SUCCESS);
+    EXPECT_EQ(fmt_ctx->GetInputFormat(0)->GetOriginFormat(), ge::FORMAT_NCHW);
+    EXPECT_EQ(fmt_ctx->GetInputFormat(0)->GetStorageFormat(), ge::FORMAT_NCHW);
+    EXPECT_EQ(fmt_ctx->GetOutputFormat(0)->GetOriginFormat(), ge::FORMAT_NCHW);
+    EXPECT_EQ(fmt_ctx->GetOutputFormat(0)->GetStorageFormat(), ge::FORMAT_NCHW);
+}
+
+// the NCHW flooded from x onto the rank-2 y is dropped again by the second pass
+TEST_F(ReshapeUT, Reshape_infer_format_flood_cleaned_by_second_pass)
+{
+    auto space_registry = gert::DefaultOpImplSpaceRegistryV2::GetInstance().GetSpaceRegistry();
+    ASSERT_NE(space_registry->GetOpImpl("Reshape"), nullptr);
+    auto* op_impl = space_registry->GetOpImpl("Reshape");
+    ASSERT_NE(op_impl->infer_format_func, nullptr);
+
+    auto x_holder = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor)]);
+    auto shape_holder = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor) + sizeof(int64_t) * 2]);
+    auto y_holder = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor)]);
+    auto holder = GetInferFormatContextHolder(x_holder, shape_holder, y_holder, {{8, 3, 224, 224}, {8, 3, 224, 224}},
+                                              ge::FORMAT_NCHW, {{2}, {2}}, ge::FORMAT_ND, true, {48, -1}, {{2}, {2}},
+                                              ge::FORMAT_ND);
+    auto* fmt_ctx = reinterpret_cast<gert::InferFormatContext*>(holder.GetContext());
+
+    EXPECT_EQ(op_impl->infer_format_func(fmt_ctx), ge::GRAPH_SUCCESS);
+    EXPECT_EQ(fmt_ctx->GetInputFormat(0)->GetOriginFormat(), ge::FORMAT_NCHW);
+    EXPECT_EQ(fmt_ctx->GetOutputFormat(0)->GetOriginFormat(), ge::FORMAT_ND);
+    EXPECT_EQ(fmt_ctx->GetOutputFormat(0)->GetStorageFormat(), ge::FORMAT_ND);
+}
+
+// both survive with different formats (NDHWC x, NHWC y): no cross overwrite
+TEST_F(ReshapeUT, Reshape_infer_format_different_surviving_formats_kept)
+{
+    auto space_registry = gert::DefaultOpImplSpaceRegistryV2::GetInstance().GetSpaceRegistry();
+    ASSERT_NE(space_registry->GetOpImpl("Reshape"), nullptr);
+    auto* op_impl = space_registry->GetOpImpl("Reshape");
+    ASSERT_NE(op_impl->infer_format_func, nullptr);
+
+    auto x_holder = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor)]);
+    auto shape_holder = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor) + sizeof(int64_t) * 4]);
+    auto y_holder = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor)]);
+    auto holder = GetInferFormatContextHolder(x_holder, shape_holder, y_holder, {{1, 2, 4, 4, 3}, {1, 2, 4, 4, 3}},
+                                              ge::FORMAT_NDHWC, {{4}, {4}}, ge::FORMAT_ND, true, {2, 4, 4, 3},
+                                              {{4}, {4}}, ge::FORMAT_NHWC);
+    auto* fmt_ctx = reinterpret_cast<gert::InferFormatContext*>(holder.GetContext());
+
+    EXPECT_EQ(op_impl->infer_format_func(fmt_ctx), ge::GRAPH_SUCCESS);
+    EXPECT_EQ(fmt_ctx->GetInputFormat(0)->GetOriginFormat(), ge::FORMAT_NDHWC);
+    EXPECT_EQ(fmt_ctx->GetOutputFormat(0)->GetOriginFormat(), ge::FORMAT_NHWC);
+    EXPECT_EQ(fmt_ctx->GetOutputFormat(0)->GetStorageFormat(), ge::FORMAT_NHWC);
+}
+
+// FRACTAL_NZ fails the rank check: both inputs and the y normalize to ND
+TEST_F(ReshapeUT, Reshape_infer_format_fractal_nz_to_nd)
+{
+    auto space_registry = gert::DefaultOpImplSpaceRegistryV2::GetInstance().GetSpaceRegistry();
+    ASSERT_NE(space_registry->GetOpImpl("Reshape"), nullptr);
+    auto* op_impl = space_registry->GetOpImpl("Reshape");
+    ASSERT_NE(op_impl->infer_format_func, nullptr);
+
+    auto x_holder = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor)]);
+    auto shape_holder = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor) + sizeof(int64_t) * 2]);
+    auto y_holder = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor)]);
+    auto holder = GetInferFormatContextHolder(x_holder, shape_holder, y_holder, {{8, 128}, {1, 8, 16, 16}},
+                                              ge::FORMAT_FRACTAL_NZ, {{2}, {2}}, ge::FORMAT_ND, true, {128, 8},
+                                              {{2}, {2}}, ge::FORMAT_FRACTAL_NZ);
+    auto* fmt_ctx = reinterpret_cast<gert::InferFormatContext*>(holder.GetContext());
+
+    EXPECT_EQ(op_impl->infer_format_func(fmt_ctx), ge::GRAPH_SUCCESS);
+    EXPECT_EQ(fmt_ctx->GetInputFormat(0)->GetOriginFormat(), ge::FORMAT_ND);
+    EXPECT_EQ(fmt_ctx->GetInputFormat(0)->GetStorageFormat(), ge::FORMAT_ND);
+    EXPECT_EQ(fmt_ctx->GetOutputFormat(0)->GetOriginFormat(), ge::FORMAT_ND);
+    EXPECT_EQ(fmt_ctx->GetOutputFormat(0)->GetStorageFormat(), ge::FORMAT_ND);
+}
+
+// an unset y normalizes to ND when no tensor carries a format to flood onto it
+TEST_F(ReshapeUT, Reshape_infer_format_unset_y_to_nd)
+{
+    auto space_registry = gert::DefaultOpImplSpaceRegistryV2::GetInstance().GetSpaceRegistry();
+    ASSERT_NE(space_registry->GetOpImpl("Reshape"), nullptr);
+    auto* op_impl = space_registry->GetOpImpl("Reshape");
+    ASSERT_NE(op_impl->infer_format_func, nullptr);
+
+    auto x_holder = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor)]);
+    auto shape_holder = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor) + sizeof(int64_t) * 2]);
+    auto y_holder = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor)]);
+    auto holder = GetInferFormatContextHolder(x_holder, shape_holder, y_holder, {{2, 3}, {2, 3}}, ge::FORMAT_ND,
+                                              {{2}, {2}}, ge::FORMAT_ND, true, {3, 2}, {{2}, {2}}, ge::FORMAT_RESERVED);
+    auto* fmt_ctx = reinterpret_cast<gert::InferFormatContext*>(holder.GetContext());
+
+    EXPECT_EQ(op_impl->infer_format_func(fmt_ctx), ge::GRAPH_SUCCESS);
+    EXPECT_EQ(fmt_ctx->GetOutputFormat(0)->GetOriginFormat(), ge::FORMAT_ND);
+    EXPECT_EQ(fmt_ctx->GetOutputFormat(0)->GetStorageFormat(), ge::FORMAT_ND);
+}
+
+// shape data absent with a known length [4]: the NCHW y survives the rank-4 check
+TEST_F(ReshapeUT, Reshape_infer_format_dynamic_known_rank_kept)
+{
+    auto space_registry = gert::DefaultOpImplSpaceRegistryV2::GetInstance().GetSpaceRegistry();
+    ASSERT_NE(space_registry->GetOpImpl("Reshape"), nullptr);
+    auto* op_impl = space_registry->GetOpImpl("Reshape");
+    ASSERT_NE(op_impl->infer_format_func, nullptr);
+
+    auto x_holder = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor)]);
+    auto shape_holder = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor) + sizeof(int64_t) * 4]);
+    auto y_holder = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor)]);
+    auto holder = GetInferFormatContextHolder(x_holder, shape_holder, y_holder, {{1, 3, 224, 224}, {1, 3, 224, 224}},
+                                              ge::FORMAT_NCHW, {{4}, {4}}, ge::FORMAT_ND, false, {}, {{4}, {4}},
+                                              ge::FORMAT_NCHW);
+    auto* fmt_ctx = reinterpret_cast<gert::InferFormatContext*>(holder.GetContext());
+
+    EXPECT_EQ(op_impl->infer_format_func(fmt_ctx), ge::GRAPH_SUCCESS);
+    EXPECT_EQ(fmt_ctx->GetOutputFormat(0)->GetOriginFormat(), ge::FORMAT_NCHW);
+}
+
+// shape data absent with an unknown length [-1]: the NCHW y falls back to ND
+TEST_F(ReshapeUT, Reshape_infer_format_dynamic_unknown_rank_to_nd)
+{
+    auto space_registry = gert::DefaultOpImplSpaceRegistryV2::GetInstance().GetSpaceRegistry();
+    ASSERT_NE(space_registry->GetOpImpl("Reshape"), nullptr);
+    auto* op_impl = space_registry->GetOpImpl("Reshape");
+    ASSERT_NE(op_impl->infer_format_func, nullptr);
+
+    auto x_holder = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor)]);
+    auto shape_holder = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor)]);
+    auto y_holder = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor)]);
+    auto holder = GetInferFormatContextHolder(x_holder, shape_holder, y_holder, {{1, 3, 224, 224}, {1, 3, 224, 224}},
+                                              ge::FORMAT_NCHW, {{-1}, {-1}}, ge::FORMAT_ND, false, {}, {{1}, {1}},
+                                              ge::FORMAT_NCHW);
+    auto* fmt_ctx = reinterpret_cast<gert::InferFormatContext*>(holder.GetContext());
+
+    EXPECT_EQ(op_impl->infer_format_func(fmt_ctx), ge::GRAPH_SUCCESS);
+    EXPECT_EQ(fmt_ctx->GetOutputFormat(0)->GetOriginFormat(), ge::FORMAT_ND);
+    EXPECT_EQ(fmt_ctx->GetOutputFormat(0)->GetStorageFormat(), ge::FORMAT_ND);
+}
+
+// the NCHW on the 1-D shape input fails the rank check: it is normalized back to ND
+TEST_F(ReshapeUT, Reshape_infer_format_malformed_shape_input_normalized)
+{
+    auto space_registry = gert::DefaultOpImplSpaceRegistryV2::GetInstance().GetSpaceRegistry();
+    ASSERT_NE(space_registry->GetOpImpl("Reshape"), nullptr);
+    auto* op_impl = space_registry->GetOpImpl("Reshape");
+    ASSERT_NE(op_impl->infer_format_func, nullptr);
+
+    auto x_holder = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor)]);
+    auto shape_holder = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor) + sizeof(int64_t) * 4]);
+    auto y_holder = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor)]);
+    auto holder = GetInferFormatContextHolder(x_holder, shape_holder, y_holder, {{1, 3, 224, 224}, {1, 3, 224, 224}},
+                                              ge::FORMAT_NCHW, {{4}, {4}}, ge::FORMAT_NCHW, false, {}, {{4}, {4}},
+                                              ge::FORMAT_NCHW);
+    auto* fmt_ctx = reinterpret_cast<gert::InferFormatContext*>(holder.GetContext());
+
+    EXPECT_EQ(op_impl->infer_format_func(fmt_ctx), ge::GRAPH_SUCCESS);
+    EXPECT_EQ(fmt_ctx->GetInputFormat(1)->GetOriginFormat(), ge::FORMAT_ND);
+    EXPECT_EQ(fmt_ctx->GetInputFormat(1)->GetStorageFormat(), ge::FORMAT_ND);
+    EXPECT_EQ(fmt_ctx->GetOutputFormat(0)->GetOriginFormat(), ge::FORMAT_NCHW);
+}
+
+// The GE compile bridge zero-fills the output tensor, and FORMAT_NCHW is 0. The real y
+// format lives on the output desc (ND here). An identity NHWC reshape must follow x
+// instead of keeping the fake NCHW from the zero-filled output tensor.
+TEST_F(ReshapeUT, Reshape_infer_format_zero_init_y_follows_x)
+{
+    auto space_registry = gert::DefaultOpImplSpaceRegistryV2::GetInstance().GetSpaceRegistry();
+    ASSERT_NE(space_registry->GetOpImpl("Reshape"), nullptr);
+    auto* op_impl = space_registry->GetOpImpl("Reshape");
+    ASSERT_NE(op_impl->infer_format_func, nullptr);
+
+    auto x_holder = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor)]);
+    auto shape_holder = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor) + sizeof(int64_t) * 4]);
+    auto y_holder = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor)]);
+    auto holder = GetInferFormatContextHolderWithDesc(
+        x_holder, shape_holder, y_holder, {{32, 32, 32, 3}, {32, 32, 32, 3}}, ge::FORMAT_NHWC, {{4}, {4}},
+        ge::FORMAT_ND, true, {32, 32, 32, 3}, {{4}, {4}}, ge::FORMAT_NCHW, ge::FORMAT_ND);
+    auto* fmt_ctx = reinterpret_cast<gert::InferFormatContext*>(holder.GetContext());
+
+    // the real y desc is ND while the output tensor carries the zero-filled NCHW
+    ASSERT_EQ(fmt_ctx->GetOutputDesc(0)->GetOriginFormat(), ge::FORMAT_ND);
+    ASSERT_EQ(fmt_ctx->GetOutputFormat(0)->GetOriginFormat(), ge::FORMAT_NCHW);
+
+    EXPECT_EQ(op_impl->infer_format_func(fmt_ctx), ge::GRAPH_SUCCESS);
+    EXPECT_EQ(fmt_ctx->GetInputFormat(0)->GetOriginFormat(), ge::FORMAT_NHWC);
+    EXPECT_EQ(fmt_ctx->GetOutputFormat(0)->GetOriginFormat(), ge::FORMAT_NHWC);
+    EXPECT_EQ(fmt_ctx->GetOutputFormat(0)->GetStorageFormat(), ge::FORMAT_NHWC);
+}
+
+// a rank-matched NCHW on the 4-D shape input floods onto x and y when x is ND
+TEST_F(ReshapeUT, Reshape_infer_format_rank_matched_shape_input_floods)
+{
+    auto space_registry = gert::DefaultOpImplSpaceRegistryV2::GetInstance().GetSpaceRegistry();
+    ASSERT_NE(space_registry->GetOpImpl("Reshape"), nullptr);
+    auto* op_impl = space_registry->GetOpImpl("Reshape");
+    ASSERT_NE(op_impl->infer_format_func, nullptr);
+
+    auto x_holder = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor)]);
+    auto shape_holder = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor) + sizeof(int64_t) * 4]);
+    auto y_holder = std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(gert::Tensor)]);
+    auto holder = GetInferFormatContextHolder(x_holder, shape_holder, y_holder, {{8, 3, 224, 224}, {8, 3, 224, 224}},
+                                              ge::FORMAT_ND, {{1, 1, 1, 4}, {1, 1, 1, 4}}, ge::FORMAT_NCHW, true,
+                                              {8, 3, 224, 224}, {{4}, {4}}, ge::FORMAT_ND);
+    auto* fmt_ctx = reinterpret_cast<gert::InferFormatContext*>(holder.GetContext());
+
+    EXPECT_EQ(op_impl->infer_format_func(fmt_ctx), ge::GRAPH_SUCCESS);
+    EXPECT_EQ(fmt_ctx->GetInputFormat(0)->GetOriginFormat(), ge::FORMAT_NCHW);
+    EXPECT_EQ(fmt_ctx->GetInputFormat(0)->GetStorageFormat(), ge::FORMAT_NCHW);
+    EXPECT_EQ(fmt_ctx->GetInputFormat(1)->GetOriginFormat(), ge::FORMAT_NCHW);
+    EXPECT_EQ(fmt_ctx->GetOutputFormat(0)->GetOriginFormat(), ge::FORMAT_NCHW);
+    EXPECT_EQ(fmt_ctx->GetOutputFormat(0)->GetStorageFormat(), ge::FORMAT_NCHW);
 }
