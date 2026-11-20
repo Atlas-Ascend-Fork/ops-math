@@ -259,7 +259,7 @@ aclnnStatus aclnnStdMeanCorrectionV2(
 #include <iostream>
 #include <vector>
 #include "acl/acl.h"
-#include "aclnnop/aclnn_std_mean_correction.h"
+#include "aclnnop/aclnn_std_mean_correction_v2.h"
 
 #define CHECK_RET(cond, return_expr) \
   do {                               \

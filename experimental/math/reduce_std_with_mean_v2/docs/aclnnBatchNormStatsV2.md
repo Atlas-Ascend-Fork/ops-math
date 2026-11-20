@@ -239,7 +239,7 @@ aclnnStatus aclnnBatchNormStatsV2(
 #include <iostream>
 #include <vector>
 #include "acl/acl.h"
-#include "aclnnop/aclnn_batch_norm_stats.h"
+#include "aclnnop/aclnn_batch_norm_stats_v2.h"
 
 #define CHECK_RET(cond, return_expr) \
   do {                               \
