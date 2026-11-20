@@ -78,7 +78,7 @@ aclnnStatus aclnnReduceSum(
       <td>self（aclTensor*）</td>
       <td>输入</td>
       <td>输入tensor。</td>
-      <td>支持空Tensor。<br>输入为空tensor时，输出类型不能是复数类型COMPLEX64和COMPLEX128。</td>
+      <td>支持空Tensor。<br>输入为空Tensor时，输出类型不能是复数类型COMPLEX64和COMPLEX128。</td>
       <td>FLOAT16、FLOAT32、INT8、INT16、INT32、INT64、UINT8、BOOL、DOUBLE、COMPLEX64、COMPLEX128、BFLOAT16</td>
       <td>ND</td>
       <td>0-8</td>

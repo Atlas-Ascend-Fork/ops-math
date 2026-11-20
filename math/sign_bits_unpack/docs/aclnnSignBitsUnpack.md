@@ -27,7 +27,7 @@
 
 ## 函数原型
 
-每个算子分为[两段式接口](../../../docs/zh/context/two_phase_api.md)，必须先调用"aclnnSignBitsUnpackGetWorkspaceSize"接口获取计算所需workspace大小以及包含了算子计算流程的执行器，再调用"aclnnSignBitsUnpack"接口执行计算。
+每个算子分为[两段式接口](../../../docs/zh/context/two_phase_api.md)，必须先调用“aclnnSignBitsUnpackGetWorkspaceSize”接口获取计算所需workspace大小以及包含了算子计算流程的执行器，再调用"aclnnSignBitsUnpack"接口执行计算。
 
 ```Cpp
 aclnnStatus aclnnSignBitsUnpackGetWorkspaceSize(
@@ -77,7 +77,7 @@ aclnnStatus aclnnSignBitsUnpack(
       <td>self（aclTensor*）</td>
       <td>输入</td>
       <td>表示用于计算的1D张量。</td>
-      <td>支持空tensor场景。</td>
+      <td>支持空Tensor场景。</td>
       <td>UINT8</td>
       <td>ND</td>
       <td>1</td>

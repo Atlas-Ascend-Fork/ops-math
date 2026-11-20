@@ -43,7 +43,7 @@
   \end{cases}
   $$
 
-  $out.shape$与$self.shape$只有dim轴上不一致，其他轴一致:
+  $out.shape$与$self.shape$只有dim轴上不一致，其他轴一致：
 
   $$
   out.shape[dim] = ⌊\frac{end - begin + strides - 1}{strides}⌋

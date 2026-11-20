@@ -180,7 +180,7 @@ aclnnStatus aclnnSilentCheck(
       <td>npuAsdDetect</td>
       <td>输入</td>
       <td>环境变量。</td>
-      <td>可选取值1，2，3</td>
+      <td>可选取值1、2、3</td>
       <td>INT32</td>
       <td>-</td>
       <td>-</td>

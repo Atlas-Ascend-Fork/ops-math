@@ -30,7 +30,7 @@
 $$
 z_i =
 \begin{cases}
-0,                                & x_i = 0 \\
+0, & x_i = 0 \\
 x_i \cdot \log(1 + y_i),          & x_i \neq 0
 \end{cases}
 $$

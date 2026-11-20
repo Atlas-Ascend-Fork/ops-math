@@ -262,7 +262,7 @@
 
 ## aclnnInplaceRemainderTensorScalarGetWorkspaceSize
 
-- **参数说明**
+- **参数说明：**
 
   <table style="table-layout: fixed; width: 1615px"><colgroup>
   <col style="width: 180px">

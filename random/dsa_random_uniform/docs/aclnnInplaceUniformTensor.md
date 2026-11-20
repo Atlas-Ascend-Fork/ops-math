@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-生成[from, to)区间内离散均匀分布的随机数，并将其填充到selfRef张量中。(该接口的BOOL类型已废弃，如需使用，建议采用aclnnBernoulli或者aclnnInplaceBernoulli接口)
+生成[from, to)区间内离散均匀分布的随机数，并将其填充到selfRef张量中。（该接口的BOOL类型已废弃，如需使用，建议采用aclnnBernoulli或者aclnnInplaceBernoulli接口）
 
 ## 函数原型
 

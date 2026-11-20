@@ -114,7 +114,7 @@ aclnnStatus aclnnInplaceHardtanh(
       <td>clipValueMin（aclScalar*）</td>
       <td>输入</td>
       <td>输入Scalar，对self的下界进行限制，即公式中的clipValueMin。</td>
-      <td>且数据类型与self的数据类型需满足数据类型转换规则（参见<a href="../../../docs/zh/context/conversion_relationship.md" target="_blank">互转换关系</a>）。</td>
+      <td>数据类型与self的数据类型需满足数据类型转换规则（参见<a href="../../../docs/zh/context/conversion_relationship.md" target="_blank">互转换关系</a>）。</td>
       <td>FLOAT16、FLOAT、DOUBLE、INT8、UINT8、INT16、INT32、INT64、BFLOAT16、BOOL</td>
       <td>ND</td>
       <td>1-8</td>
@@ -124,7 +124,7 @@ aclnnStatus aclnnInplaceHardtanh(
       <td>clipValueMax（aclScalar*）</td>
       <td>输入</td>
       <td>输入Scalar，对self的上界进行限制，即公式中的clipValueMax。</td>
-      <td>且数据类型与self的数据类型需满足数据类型转换规则（参见<a href="../../../docs/zh/context/conversion_relationship.md" target="_blank">互转换关系</a>）。</td>
+      <td>数据类型与self的数据类型需满足数据类型转换规则（参见<a href="../../../docs/zh/context/conversion_relationship.md" target="_blank">互转换关系</a>）。</td>
       <td>FLOAT16、FLOAT、DOUBLE、INT8、UINT8、INT16、INT32、INT64、BFLOAT16、BOOL</td>
       <td>ND</td>
       <td>1-8</td>

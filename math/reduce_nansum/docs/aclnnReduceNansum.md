@@ -117,7 +117,7 @@ aclnnStatus aclnnReduceNansum(
     <tr>
       <td>out（aclTensor*）</td>
       <td>输出</td>
-      <td>输出tensor。</td>
+      <td>输出Tensor。</td>
       <td>支持空Tensor。<br>数据类型需和self的dtype满足可转换关系（参见<a href="../../../docs/zh/context/conversion_relationship.md" target="_blank">互转换关系</a>）。<br>shape需要是self经过计算后的shape。</td>
       <td>FLOAT16、FLOAT32、INT8、INT16、INT32、INT64、UINT8、BOOL、BFLOAT16</td>
       <td>ND</td>

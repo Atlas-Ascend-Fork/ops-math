@@ -27,13 +27,13 @@
 
 完成伪量化Matmul（包括QuantBatchMatmulV5、GroupedMatmul-伪量化、WeightQuantBatchMatmulV2）的参数预处理，支持的数据流如下：
 
-- MM_MX_A8W4数据流：QuantBatchMatmulV4算子的MX量化场景（x为FLOAT8_E4M3FN，weight为FLOAT4_E2M1紧凑4-bit），weight由ND转换为FRACTAL_NZ格式，weightScale由ND转换为FRACTAL_NZ_C0_2格式（ScaleNZ）；
-- GMM_MX_A8W4数据流：GroupedMatmul算子的MX量化场景（x为FLOAT8_E4M3FN，weight为FLOAT4_E2M1紧凑4-bit），weight由ND转换为FRACTAL_NZ格式；
-- MM_A16S4数据流：WeightQuantBatchMatmulV2算子的pertensor/perchannel/pergroup量化场景（x为FLOAT16/BFLOAT16，weight为INT4紧凑4-bit）；pertensor（转置/非转置）与perchannel/pergroup转置场景为ND直拷透传，perchannel/pergroup非转置场景由ND转换为FRACTAL_NZ格式；
-- MM_A16F4数据流：WeightQuantBatchMatmulV2算子的pergroup量化场景（x为FLOAT16/BFLOAT16，weight为FLOAT4_E2M1紧凑4-bit）；仅支持非转置，weight由ND转换为FRACTAL_NZ格式；
-- MM_A16MXF4数据流：WeightQuantBatchMatmulV2算子的MX量化场景（x为FLOAT16/BFLOAT16，weight为FLOAT4_E2M1紧凑4-bit）；转置场景为ND直拷透传，非转置场景由ND转换为FRACTAL_NZ格式；
-- MM_A16INT8数据流：WeightQuantBatchMatmulV2算子的pertensor/perchannel/pergroup量化场景（x为FLOAT16/BFLOAT16，weight为INT8）；pertensor/perchannel/pergroup的转置与非转置场景均为ND直拷透传；
-- MM_A16FP8HIF8数据流：WeightQuantBatchMatmulV2算子的perchannel量化场景（x为FLOAT16/BFLOAT16，weight为FLOAT8_E4M3FN或HIFLOAT8）；perchannel的转置与非转置场景均为ND直拷透传；
+- MM_MX_A8W4数据流：QuantBatchMatmulV4算子的MX量化场景（x为FLOAT8_E4M3FN，weight为FLOAT4_E2M1紧凑4-bit），weight由ND转换为FRACTAL_NZ格式，weightScale由ND转换为FRACTAL_NZ_C0_2格式（ScaleNZ）。
+- GMM_MX_A8W4数据流：GroupedMatmul算子的MX量化场景（x为FLOAT8_E4M3FN，weight为FLOAT4_E2M1紧凑4-bit），weight由ND转换为FRACTAL_NZ格式。
+- MM_A16S4数据流：WeightQuantBatchMatmulV2算子的pertensor/perchannel/pergroup量化场景（x为FLOAT16/BFLOAT16，weight为INT4紧凑4-bit）；pertensor（转置/非转置）与perchannel/pergroup转置场景为ND直拷透传，perchannel/pergroup非转置场景由ND转换为FRACTAL_NZ格式。
+- MM_A16F4数据流：WeightQuantBatchMatmulV2算子的pergroup量化场景（x为FLOAT16/BFLOAT16，weight为FLOAT4_E2M1紧凑4-bit）；仅支持非转置，weight由ND转换为FRACTAL_NZ格式。
+- MM_A16MXF4数据流：WeightQuantBatchMatmulV2算子的MX量化场景（x为FLOAT16/BFLOAT16，weight为FLOAT4_E2M1紧凑4-bit）；转置场景为ND直拷透传，非转置场景由ND转换为FRACTAL_NZ格式。
+- MM_A16INT8数据流：WeightQuantBatchMatmulV2算子的pertensor/perchannel/pergroup量化场景（x为FLOAT16/BFLOAT16，weight为INT8）；pertensor/perchannel/pergroup的转置与非转置场景均为ND直拷透传。
+- MM_A16FP8HIF8数据流：WeightQuantBatchMatmulV2算子的perchannel量化场景（x为FLOAT16/BFLOAT16，weight为FLOAT8_E4M3FN或HIFLOAT8）；perchannel的转置与非转置场景均为ND直拷透传。
 - MM_A8F4_TCG数据流：QuantBatchMatmulV4算子的T-CG伪量化场景（x为FLOAT8_E4M3FN，weight为FLOAT4_E2M1紧凑4-bit），仅支持pergroup量化；转置场景为ND直拷透传，非转置场景由ND转换为FRACTAL_NZ格式。
 
 转换过程中在需要时对weightScale、weightOffsetOptional、biasOptional进行同步处理。
@@ -42,7 +42,7 @@
 
 每个算子分为[两段式接口](../../../docs/zh/context/two_phase_api.md)：
 
-1. 调用`aclnnWeightQuantPreprocessGetWorkspaceSize`获取workspace大小及执行器；
+1. 调用`aclnnWeightQuantPreprocessGetWorkspaceSize`获取workspace大小及执行器。
 2. 调用`aclnnWeightQuantPreprocess`执行计算。
 
 **注意**：用户需自行构造输出张量，参考约束说明中的shape计算公式。
@@ -460,7 +460,7 @@ aclnnStatus aclnnWeightQuantPreprocess(
   - 不支持空tensor（若提供）
 
 - **kGroupSize**
-  - pertensor/perchannel：必须等于 0
+  - pertensor/perchannel：必须等于0
   - pergroup：必须大于 0，且weightScale第0维等于ceildiv(K, kGroupSize)
 
 - **xDtype**
@@ -520,7 +520,7 @@ aclnnStatus aclnnWeightQuantPreprocess(
   - 不支持空tensor
 
 - **kGroupSize**
-  - pertensor/perchannel：必须等于 0
+  - pertensor/perchannel：必须等于0
   - pergroup：必须大于 0，且weightScale第0维等于ceildiv(K, kGroupSize)
 
 - **xDtype**
@@ -577,7 +577,7 @@ aclnnStatus aclnnWeightQuantPreprocess(
   - 不支持空tensor（若提供）
 
 - **kGroupSize**
-  - 必须等于 0
+  - 必须等于0
 
 - **xDtype**
   - FLOAT16/BFLOAT16

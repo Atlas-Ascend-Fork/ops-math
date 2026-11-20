@@ -281,7 +281,7 @@ aclnnStatus aclnnRepeat(
 - 确定性计算：
   - aclnnRepeat默认确定性实现。
 
-repeat功能内部broadcast的kernel有最大8维度的限制，暂不支持扩维度后超过8维的场景，详细如下：
+repeat功能内部broadcast的kernel有最大8维度的限制，暂不支持扩展维度后超过8维的场景，详细如下：
   限制1.当需要对第一根轴进行repeat时，最大支持同时对4个维度进行repeat操作（即repeats的参数非1数据个数不超过4）。
 
   ```text

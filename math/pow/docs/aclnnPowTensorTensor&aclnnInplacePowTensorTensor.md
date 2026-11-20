@@ -36,10 +36,10 @@
   | shape  | exponent_value|
   |----|----|
   |<=100000（十万） |-200000000~200000000(两亿)|
-  |<=1000000（百万） |-20000000~20000000(两千万)|
+  |<=1000000（百万） |-20000000~20000000（两千万）|
   |<=10000000（千万） |-2000000~2000000(两百万)|
   |<=100000000（亿） |-200000~200000(二十万)|
-  |<=1000000000（十亿） |-20000~20000(两万)|
+  |<=1000000000（十亿） |-20000~20000（两万）|
 
 ## 函数原型
 
@@ -276,7 +276,7 @@ aclnnStatus aclnnInplacePowTensorTensor(
     <tr>
       <td>self（aclTensor*）</td>
       <td>输入/输出</td>
-      <td>公式中的x和out，pow运算的底数，计算结果写回此tensor。</td>
+      <td>公式中的x和out，pow运算的底数，计算结果写回此Tensor。</td>
       <td>数据类型是self与exponent推导之后可转换的数据类型，shape需要与exponent满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>。</td>
       <td>FLOAT、FLOAT16、DOUBLE、INT32、INT64、INT8、UINT8、COMPLEX64、COMPLEX128、INT16、BFLOAT16</td>
       <td>ND</td>

@@ -292,7 +292,7 @@
       <td>selfRef（aclScalar*）</td>
       <td>输入</td>
       <td>公式中的输入self。</td>
-      <td>数据类型与other的数据类型需满足数据类型推导规则（参见<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>）</td>
+      <td>数据类型与other的数据类型需满足数据类型推导规则（参见<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>）。</td>
       <td>FLOAT、FLOAT16、INT32、INT8、BFLOAT16</td>
       <td>-</td>
       <td>-</td>
@@ -301,7 +301,7 @@
     <tr>
       <td>other（aclTensor*）</td>
       <td>输入/输出</td>
-      <td>输入输出tensor，即公式中的other与out。</td>
+      <td>输入输出Tensor，即公式中的other与out。</td>
       <td>数据类型与selfRef的数据类型需满足数据类型推导规则（参见<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>），并且数据类型需要是selfRef与other推导之后可转换的数据类型（参见<a href="../../../docs/zh/context/conversion_relationship.md" target="_blank">互转换关系</a>）。</td>
       <td>FLOAT、FLOAT16、INT32、INT8、BFLOAT16</td>
       <td>ND</td>

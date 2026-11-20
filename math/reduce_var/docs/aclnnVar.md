@@ -30,7 +30,7 @@
   out = \frac{1}{max(0, N - \delta N)}\sum_{j=0}^{N-1}(self_{ij}-\bar{x_{i}})^2
   $$
 
-  `unbiased = true`时，需加入无偏估计，$\delta N = 1$；`unbiased = false`时，不加入无偏估计，$\delta N = 0$；
+  `unbiased = true`时，需加入无偏估计，$\delta N = 1$；`unbiased = false`时，不加入无偏估计，$\delta N = 0$。
   当`keepdim = true`时，reduce后保留该维度，且输出shape中该维度值为1；当`keepdim = false`时，不保留该维度。
   当dim为nullptr或[]时，视为计算所有维度。
 
@@ -126,7 +126,7 @@ aclnnStatus aclnnVar(
     <tr>
       <td>out（aclTensor*）</td>
       <td>输出</td>
-      <td>输出tensor。</td>
+      <td>输出Tensor。</td>
       <td>shape支持0到8维。</td>
       <td>FLOAT、FLOAT16、BFLOAT16</td>
       <td>ND</td>

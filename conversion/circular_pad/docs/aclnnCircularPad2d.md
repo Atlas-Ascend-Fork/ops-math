@@ -99,7 +99,7 @@ aclnnStatus aclnnCircularPad2d(
     <tr>
       <td>padding（aclIntArray*）</td>
       <td>输入</td>
-      <td>长度为4，数值依次代表左右上下需要填充的值。</td>
+      <td>输入中需要填充的大小。</td>
       <td><ul><li>长度为4，数值依次代表左右上下需要填充的值。</li><li>padding前两个数值对应self最后一维，后两个对应倒数第二维。</li></ul></td>
       <td>INT64</td>
       <td>-</td>

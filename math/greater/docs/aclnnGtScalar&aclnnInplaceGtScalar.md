@@ -108,7 +108,7 @@ aclnnStatus aclnnInplaceGtScalar(
     <tr>
       <td>other（aclScalar*）</td>
       <td>输入</td>
-      <td>参与greater大小比较计算的输入张量，公式中的other。</td>
+      <td>参与greater大小比较计算的输入标量，公式中的other。</td>
       <td>scalar变量，数据类型需要与selfRef的数据类型满足数据类型推导规则。</td>
       <td>DOUBLE、BFLOAT16、FLOAT16、FLOAT32、INT32、UINT32、INT64、UINT64、INT16、UINT16、INT8、UINT8、BOOL</td>
       <td>-</td>
@@ -118,7 +118,7 @@ aclnnStatus aclnnInplaceGtScalar(
     <tr>
       <td>out（aclTensor*）</td>
       <td>输出</td>
-      <td>tensor与scalar值比较大小后的输出，公式中的输出out。</td>
+      <td>Tensor与Scalar值比较大小后的输出，公式中的输出out。</td>
       <td>数据类型需要是BOOL可转换的数据类型。</td>
       <td>DOUBLE、BFLOAT16、FLOAT16、FLOAT32、INT32、UINT32、INT64、UINT64、INT16、UINT16、INT8、UINT8、BOOL、COMPLEX64、COMPLEX128</td>
       <td>ND</td>
@@ -274,7 +274,7 @@ aclnnStatus aclnnInplaceGtScalar(
     <tr>
       <td>other（aclScalar*）</td>
       <td>输入</td>
-      <td>参与greater大小比较计算的输入张量，公式中的other。</td>
+      <td>参与greater大小比较计算的输入标量，公式中的other。</td>
       <td>scalar变量，数据类型需要与selfRef的数据类型满足数据类型推导规则。</td>
       <td>DOUBLE、BFLOAT16、FLOAT16、FLOAT32、INT32、UINT32、INT64、UINT64、INT16、UINT16、INT8、UINT8、BOOL</td>
       <td>-</td>

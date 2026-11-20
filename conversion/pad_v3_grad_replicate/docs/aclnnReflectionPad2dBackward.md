@@ -105,7 +105,7 @@ aclnnStatus aclnnReflectionPad2dBackward(
       <td>padding</td>
       <td>输入</td>
       <td>填充范围</td>
-      <td>长度为4。padding前两维度的数值都需小于self最后一维度的数值，后两维度的数值需小于self倒数第二维度的数值。</td>
+      <td>长度为4。padding前两个数值都需小于self最后一维度的数值，后两个数值需小于self倒数第二维度的数值。</td>
       <td>INT64</td>
       <td>-</td>
       <td>-</td>
@@ -163,7 +163,7 @@ aclnnStatus aclnnReflectionPad2dBackward(
     <tr>
       <td>ACLNN_ERR_PARAM_NULLPTR</td>
       <td>161001</td>
-      <td>gradOutput、self、 padding、 gradInput任何一个为空指针。</td>
+      <td>gradOutput、self、padding、 gradInput任何一个为空指针。</td>
     </tr>
     <tr>
       <td rowspan="7">ACLNN_ERR_PARAM_INVALID</td>

@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-返回tensor中指定轴的最小值索引，并保存到out中。如果keepdim为false，则不保留对应的轴；如果为true，则保留指定轴的维度值为1。
+返回Tensor中指定轴的最小值索引，并保存到out中。如果keepdim为false，则不保留对应的轴；如果为true，则保留指定轴的维度值为1。
 
 ## 函数原型
 
@@ -178,7 +178,7 @@ aclnnStatus aclnnArgMin(
       <td>dim超出tensor的维度范围。</td>
     </tr>
     <tr>
-      <td>传入的out的shape不满足infershape。</td>
+      <td>传入的out的shape不满足InferShape。</td>
     </tr>
   </tbody>
   </table>

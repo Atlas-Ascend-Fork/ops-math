@@ -172,7 +172,7 @@ aclnnStatus aclnnInplaceGeScalar(
     <tr>
       <td>ACLNN_ERR_PARAM_NULLPTR</td>
       <td>161001</td>
-      <td>传入的self，other或out是空指针。</td>
+      <td>传入的self、other或out是空指针。</td>
     </tr>
     <tr>
       <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>

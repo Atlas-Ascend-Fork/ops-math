@@ -147,7 +147,7 @@
       <td>value（aclScalar*）</td>
       <td>输入</td>
       <td>填充部分的填充值</td>
-      <td>填充前按 self 类型转换，转换可能有损。</td>
+      <td>填充前按self类型转换，转换可能有损。</td>
       <td>FLOAT、FLOAT16、INT32、INT64、INT16、INT8、UINT8、UINT16、UINT32、UINT64、BOOL、DOUBLE、COMPLEX64、COMPLEX128、BFLOAT16、HIFLOAT8、FLOAT8_E5M2、FLOAT8_E4M3FN、FLOAT8_E8M0、FLOAT6_E3M2、FLOAT6_E2M3、FLOAT4_E2M1、FLOAT4_E1M2。</td>
       <td>-</td>
       <td>-</td>
@@ -242,7 +242,7 @@
         <td>pad中每个值都不能让out的shape小于0，如果pad中存在正数，则out的shape中不能有0。</td>
       </tr>
       <tr>
-        <td>当self的数据格式不为ND，out的数据格式与self的数据格式不一致。</td>
+        <td>当self的数据格式不为ND时，out的数据格式与self的数据格式不一致。</td>
       </tr>
       <tr>
         <td>当self的数据类型为HIFLOAT8、FLOAT8_E5M2、FLOAT8_E4M3FN、FLOAT8_E8M0、FLOAT4_E2M1、FLOAT4_E1M2时，pad中元素是负数。</td>
@@ -304,7 +304,7 @@
 
 示例代码如下，仅供参考，具体编译和执行过程请参考[编译与运行样例](../../../docs/zh/context/compile_and_run_sample.md)。
 
-```Cpp
+```cpp
 #include <iostream>
 #include <inttypes.h>
 #include <vector>

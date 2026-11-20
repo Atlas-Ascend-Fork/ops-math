@@ -43,7 +43,7 @@
 
   - 当scaleFromBlob为True时（axis转换为正数，numAxes为-1时表示到最后轴）：
 
-    numAxes=0时，scale必须包含且仅包含一个元素，rank为0～8，允许`()`、`[1]`、`[1,1]`等单元素形状按标量广播；x的rank为1～8，axis等通用约束仍须满足。
+    numAxes=0时，scale必须包含且仅包含一个元素，rank为0~8，允许`()`、`[1]`、`[1,1]`等单元素形状按标量广播；x的rank为1～8，axis等通用约束仍须满足。
 
     numAxes=-1时，scaleShape为xShape[axis:]；numAxes>0时，须满足axis + numAxes ≤ rank(xShape)，scaleShape为xShape[axis:axis + numAxes]。
 
@@ -60,7 +60,7 @@
 
     - scaleFromBlob = True：
 
-      xShape = [a, b, c, d, e, f] axis = 3 numAxes = 2  --> scaleShape = [d, e]
+      xShape = [a, b, c, d, e, f] axis = 3 numAxes = 2 --> scaleShape = [d, e]
 
       xShape = [a, b, c, d, e, f] axis = 3 numAxes = 3  --> scaleShape = [d, e, f]
 
@@ -178,7 +178,7 @@ aclnnStatus aclnnScale(
     <tr>
       <td>scaleFromBlob（bool）</td>
       <td>输入</td>
-      <td>指定要scaleFromBlob类型。</td>
+      <td>指定scaleFromBlob类型。</td>
       <td><ul><li>True：scale from blob，使用numAxes + axis进行scale；</li><li>False：scale from input scale，从axis开始按scale的rank推导shape；numAxes不参与shape推导，但仍须>=-1。</li></ul></td>
       <td>-</td>
       <td>-</td>
@@ -337,7 +337,7 @@ aclnnStatus aclnnScale(
 - scale的shape必须满足[功能说明](#功能说明)中的广播窗口规则。
 - 支持[非连续的Tensor](../../../docs/zh/context/non_contiguous_tensor.md)，维数不超过8。
 - 参数表中的ND为公开保证的数据格式。接口不对所有非ND格式统一报错；非ND描述可能由框架转换后执行，不代表任意非ND格式组合均受支持。
-- 可执行的Tensor规模受设备可用内存及框架资源限制；本接口未规定统一的2³¹元素或4GiB字节上限。
+- 可执行的Tensor规模受设备可用内存及框架资源限制；本接口未规定统一的2³¹元素或4GiB上限。
 
 <!-- npu="950" id8 -->
 - <term>Ascend 950PR&950DT系列产品</term>：FLOAT16、BFLOAT16输入使用FLOAT计算，结果转换回输入的数据类型；FLOAT输入直接计算。

@@ -33,8 +33,8 @@
   <!-- end id7 -->
   <!-- npu="A3,910b" id8 -->
   - <term>Atlas A3系列产品</term>、<term>Atlas A2系列产品</term>：
-    - 完成ND←→[NZ](../../../docs/zh/context/data_format.md)、NCL←→[NZ](../../../docs/zh/context/data_format.md)、NCHW←→[NZ](../../../docs/zh/context/data_format.md)、NCDHW←→[NZ](../../../docs/zh/context/data_format.md)的转换功能。C0是[NZ](../../../docs/zh/context/data_format.md)数据格式最后一维的大小。计算方法C0 = 32B / `ge::GetSizeByDataType(static_cast<op::DataType>(additionalDtype))`。
-    - 完成NCDHW←→[NDC1HWC0](../../../docs/zh/context/data_format.md)、NCDHW←→[FRACTAL_Z_3D](../../../docs/zh/context/data_format.md)、NCHW←→[NC1HWC0](../../../docs/zh/context/data_format.md)、NHWC←→[NC1HWC0](../../../docs/zh/context/data_format.md)、NCHW←→[FRACTAL_Z](../../../docs/zh/context/data_format.md)、HWCN←→[FRACTAL_Z](../../../docs/zh/context/data_format.md)、NDHWC←→[NDC1HWC0](../../../docs/zh/context/data_format.md)、DHWCN←→[FRACTAL_Z_3D](../../../docs/zh/context/data_format.md)的转换功能。其中，C0与微架构强相关，该值等于cube单元的size，例如16。C1是将C维度按照C0切分：C1=C/C0，若结果不整除，最后一份数据需要padding到C0。计算方法C0 = 32B / `ge::GetSizeByDataType(static_cast<op::DataType>(additionalDtype))`（例如FP16的additionalDtype枚举值为1，对应的数据FP16为2 Byte）。
+    - 完成ND←→[NZ](../../../docs/zh/context/data_format.md)、NCL←→[NZ](../../../docs/zh/context/data_format.md)、NCHW←→[NZ](../../../docs/zh/context/data_format.md)、NCDHW←→[NZ](../../../docs/zh/context/data_format.md)的转换功能。C0是[NZ](../../../docs/zh/context/data_format.md)数据格式最后一维的大小。计算方法C0 = 32Byte / `ge::GetSizeByDataType(static_cast<op::DataType>(additionalDtype))`。
+    - 完成NCDHW←→[NDC1HWC0](../../../docs/zh/context/data_format.md)、NCDHW←→[FRACTAL_Z_3D](../../../docs/zh/context/data_format.md)、NCHW←→[NC1HWC0](../../../docs/zh/context/data_format.md)、NHWC←→[NC1HWC0](../../../docs/zh/context/data_format.md)、NCHW←→[FRACTAL_Z](../../../docs/zh/context/data_format.md)、HWCN←→[FRACTAL_Z](../../../docs/zh/context/data_format.md)、NDHWC←→[NDC1HWC0](../../../docs/zh/context/data_format.md)、DHWCN←→[FRACTAL_Z_3D](../../../docs/zh/context/data_format.md)的转换功能。其中，C0与微架构强相关，该值等于cube单元的size，例如16。C1是将C维度按照C0切分：C1=C/C0，若结果不整除，最后一份数据需要padding到C0。计算方法C0 = 32Byte / `ge::GetSizeByDataType(static_cast<op::DataType>(additionalDtype))`（例如FP16的additionalDtype枚举值为1，对应的数据FP16为2 Byte）。
   <!-- end id8 -->
 
 - **计算流程**：
@@ -340,10 +340,10 @@ aclnnStatus aclnnNpuFormatCast(
   </table>
 
   <!-- npu="950" id13 -->
-  - <term>Ascend 950PR&950DT系列产品</term>：上表数据类型列中的角标“1”代表该系列不支持的拦截类型。
+  - <term>Ascend 950PR&950DT系列产品</term>：上表数据类型列中的角标“1”代表该系列不支持的数据类型或数据格式。
   <!-- end id13 -->
   <!-- npu="A3,910b" id14 -->
-  - <term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>：上表数据类型列中的角标“2”代表该系列不支持的拦截类型。
+  - <term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>：上表数据类型列中的角标“2”代表该系列不支持的数据类型或数据格式。
   <!-- end id14 -->
 
 ## aclnnNpuFormatCast
@@ -484,7 +484,7 @@ aclnnStatus aclnnNpuFormatCast(
       | ACL_FLOAT8_E4M3FN(36)    | 32 |
       | ACL_HIFLOAT8(34)    | 32 |
 
-  - FLOAT8_E8M0特殊场景:
+  - FLOAT8_E8M0特殊场景：
     - srcTensor数据类型为FLOAT8_E8M0，srcTensor格式为ND/NCL/NCHW，dstFormat为FRACTAL_NZ时，仅支持3维或4维scale输入。转换后的storage shape分别为`(ceil(N/16), ceil(K/64), 16, 2)`或`(g, ceil(N/16), ceil(K/64), 16, 2)`。
     - FLOAT8_E8M0 scale转换为昇腾亲和存储shape的能力不支持图模式，仅支持单算子模式和aclnn直调场景。
 

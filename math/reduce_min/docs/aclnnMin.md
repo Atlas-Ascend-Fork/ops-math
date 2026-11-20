@@ -84,7 +84,7 @@ aclrtStream    stream)
       <tr>
         <td>out</td>
         <td>输出</td>
-        <td>输出的最小值tensor。</td>
+        <td>输出的最小值Tensor。</td>
         <td>数据类型与self一致。</td>
         <td>FLOAT、BFLOAT16、FLOAT16、DOUBLE、INT8、INT16、INT32、INT64、UINT8、BOOL</td>
         <td>ND</td>

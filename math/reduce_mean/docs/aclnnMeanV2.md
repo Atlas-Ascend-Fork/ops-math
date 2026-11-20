@@ -83,7 +83,7 @@ aclnnStatus aclnnMeanV2(
       <td>self（aclTensor*）</td>
       <td>输入</td>
       <td>公式中的X。</td>
-      <td>输入为空tensor时，输出类型不能是复数类型COMPLEX64和COMPLEX128。</td>
+      <td>输入为空Tensor时，输出类型不能是复数类型COMPLEX64和COMPLEX128。</td>
       <td>FLOAT、FLOAT16、BFLOAT16、DOUBLE、INT32、INT64、INT16、INT8、UINT8、COMPLEX64、COMPLEX128</td>
       <td>ND</td>
       <td>0-8</td>

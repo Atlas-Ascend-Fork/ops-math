@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-- 接口功能：circular_pad2d的反向传播，前向计算参考[[aclnnCircularPad2d](../../circular_pad/docs/aclnnCircularPad2d.md)]。
+- 接口功能：circular_pad2d的反向传播，前向计算参考[aclnnCircularPad2d](../../circular_pad/docs/aclnnCircularPad2d.md)。
 - 示例：
 
   ```text
@@ -249,7 +249,7 @@ float32：(0, 24576)
 
 示例代码如下，仅供参考，具体编译和执行过程请参考[编译与运行样例](../../../docs/zh/context/compile_and_run_sample.md)。
 
-```Cpp
+```cpp
 #include "acl/acl.h"
 #include "aclnnop/aclnn_circular_pad2d_backward.h"
 #include <iostream>

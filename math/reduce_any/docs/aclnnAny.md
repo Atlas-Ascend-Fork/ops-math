@@ -128,7 +128,7 @@ aclnnStatus aclnnAny(
       <tr>
         <td>executor</td>
         <td>输出</td>
-        <td>返回op执行器，包含了算子计算流程。</td>
+        <td>返回OP执行器，包含了算子计算流程。</td>
         <td>-</td>
         <td>-</td>
         <td>-</td>

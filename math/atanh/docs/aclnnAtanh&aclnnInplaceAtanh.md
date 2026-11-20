@@ -110,7 +110,7 @@ aclnnStatus aclnnInplaceAtanh(
     <tr>
       <td>out（aclTensor*）</td>
       <td>输出</td>
-      <td>输出tensor，存储计算结果。</td>
+      <td>输出Tensor，存储计算结果。</td>
       <td>shape需要与input一致。</td>
       <td>FLOAT、FLOAT16、DOUBLE、COMPLEX64、COMPLEX128、BFLOAT16</td>
       <td>ND</td>

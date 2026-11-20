@@ -146,7 +146,7 @@ aclnnStatus aclnnAbs(
     <tr>
       <td>ACLNN_ERR_PARAM_NULLPTR</td>
       <td>161001</td>
-      <td>传入的tensor是空指针。</td>
+      <td>传入的Tensor是空指针。</td>
     </tr>
     <tr>
       <td rowspan="6">ACLNN_ERR_PARAM_INVALID</td>

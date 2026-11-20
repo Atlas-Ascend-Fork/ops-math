@@ -93,7 +93,7 @@ aclnnStatus aclnnClampTensor(
       <td>clipValueMin（aclTensor*）</td>
       <td>输入</td>
       <td>输入Tensor，对self的下界限制，即公式中的min_value<sub>i</sub>。</td>
-      <td>shape需要可以self、clipValueMax进行<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast</a>，数据类型与self的数据类型需满足数据类型转换规则（参见<a href="../../../docs/zh/context/conversion_relationship.md" target="_blank">互转换关系</a>）。</td>
+      <td>shape需要可以和self、clipValueMax进行<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast</a>，数据类型与self的数据类型需满足数据类型转换规则（参见<a href="../../../docs/zh/context/conversion_relationship.md" target="_blank">互转换关系</a>）。</td>
       <td>FLOAT16、FLOAT、DOUBLE、INT8、UINT8、INT16、INT32、INT64、BFLOAT16、BOOL</td>
       <td>ND</td>
       <td>1-8</td>
@@ -182,7 +182,7 @@ aclnnStatus aclnnClampTensor(
 
 ## aclnnClampTensor
 
-- **参数说明**
+- **参数说明：**
   <table style="table-layout: fixed; width: 1150px"><colgroup>
   <col style="width: 184px">
   <col style="width: 134px">

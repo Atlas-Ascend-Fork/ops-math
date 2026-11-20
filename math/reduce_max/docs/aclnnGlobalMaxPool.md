@@ -145,7 +145,7 @@ aclnnStatus aclnnGlobalMaxPool(
       <td>self和out的数据格式不满足以下支持条件：<br>1) self和out的数据格式相同；<br>2) self和out支持ND、NCHW、NCDHW。</td>
     </tr>
     <tr>
-      <td>self和out的shape不满足以下支持条件：<br>1) self和out最大维度数为8维；<br>2) self和out最小维度数为4维；<br>3) self和out维度数相同；<br>4) out前两维与self相同，其他维度均为1。</td>
+      <td>self和out的shape不满足以下支持条件：<br>（1）self和out最大维度数为8维。<br>（2）self和out最小维度数为4维。<br>（3）self和out维度数相同。<br>（4）out前两维与self相同，其他维度均为1。</td>
     </tr>
   </tbody>
   </table>

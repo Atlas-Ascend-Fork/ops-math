@@ -266,7 +266,7 @@ aclnnStatus aclnnHypot(
   | NaN | 有限值 | NaN | 无inf输入时NaN向输出传播。 |
   | 有限值 | 有限值 | sqrt(self^2 + other^2) | 按稳定算法计算，结果恒≥0。 |
 
-- 精度约束：FLOAT16、BFLOAT16输入在Kernel内以FLOAT32计算后回转原dtype。
+- 精度约束：FLOAT16、BFLOAT16输入在Kernel内以FLOAT32计算后转回原dtype。
 
 ## 调用示例
 

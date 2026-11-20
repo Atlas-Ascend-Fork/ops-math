@@ -398,7 +398,7 @@ aclnnStatus aclnnInplaceBernoulli(
       <td>prob不满足0≤prob≤1。</td>
     </tr>
     <tr>
-      <td>selfRef的维度大于8维。</td>
+      <td>selfRef的维度大于8。</td>
     </tr>
   </tbody>
   </table>

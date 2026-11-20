@@ -27,7 +27,7 @@
 - 计算表达式：
 
   $$
-  out = (self_i == other_i)  ?  [True] : [False]
+  out = (self_i == other_i) ? [True] : [False]
   $$
 
 ## 函数原型
@@ -121,7 +121,7 @@ aclnnStatus aclnnInplaceEqTensor(
     <tr>
       <td>out（aclTensor*）</td>
       <td>输出</td>
-      <td>输出tensor。</td>
+      <td>输出Tensor。</td>
       <td><ul><li>数据类型需要是BOOL可转换的数据类型<a href="../../../docs/zh/context/conversion_relationship.md" target="_blank">互转换关系</a>。</li><li>shape与self、other广播之后的shape（参见<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>）一致。</li></ul></td>
       <td>DOUBLE、FLOAT16、FLOAT、BFLOAT16、INT64、INT32、INT8、UINT8、BOOL、INT16、COMPLEX64、COMPLEX128、UINT64、UINT32、UINT16</td>
       <td>ND</td>
@@ -141,7 +141,7 @@ aclnnStatus aclnnInplaceEqTensor(
     <tr>
       <td>executor（aclOpExecutor**）</td>
       <td>输出</td>
-      <td>返回op执行器，包含了算子计算流程。</td>
+      <td>返回OP执行器，包含了算子计算流程。</td>
       <td>-</td>
       <td>-</td>
       <td>-</td>
@@ -237,7 +237,7 @@ aclnnStatus aclnnInplaceEqTensor(
     <tr>
       <td>executor</td>
       <td>输入</td>
-      <td>op执行器，包含了算子计算流程。</td>
+      <td>OP执行器，包含了算子计算流程。</td>
     </tr>
     <tr>
       <td>stream</td>
@@ -310,7 +310,7 @@ aclnnStatus aclnnInplaceEqTensor(
     <tr>
       <td>executor</td>
       <td>输出</td>
-      <td>返回op执行器，包含了算子计算流程。</td>
+      <td>返回OP执行器，包含了算子计算流程。</td>
       <td>-</td>
       <td>-</td>
       <td>-</td>
@@ -405,7 +405,7 @@ aclnnStatus aclnnInplaceEqTensor(
     <tr>
       <td>executor</td>
       <td>输入</td>
-      <td>op执行器，包含了算子计算流程。</td>
+      <td>OP执行器，包含了算子计算流程。</td>
     </tr>
     <tr>
       <td>stream</td>

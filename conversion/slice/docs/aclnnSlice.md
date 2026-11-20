@@ -42,7 +42,7 @@ $start$和$end$可以取$[0, self.shape[dim]]$以外的值，取值后根据以�
   \end{cases}
   $$
 
-  $out.shape$与$self.shape$只有dim轴上不一致，其他轴一致:
+  $out.shape$与$self.shape$只有dim轴上不一致，其他轴一致：
 
   $$
   out.shape[dim] = ⌊\frac{end - start + step - 1}{step}⌋

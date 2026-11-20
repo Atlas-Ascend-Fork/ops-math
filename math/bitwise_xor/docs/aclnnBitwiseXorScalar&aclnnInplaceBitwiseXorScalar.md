@@ -39,7 +39,7 @@ aclnnBitwiseXorScalar和aclnnInplaceBitwiseXorScalar实现相同的功能，使�
 - aclnnBitwiseXorScalar：需新建一个输出张量对象存储计算结果。
 - aclnnInplaceBitwiseXorScalar：无需新建输出张量对象，直接在输入张量的内存中存储计算结果。
 
-每个算子分为[两段式接口](../../../docs/zh/context/two_phase_api.md)，必须先调用"aclnnBitwiseXorScalarGetWorkspaceSize"或者"aclnnInplaceBitwiseXorScalarGetWorkspaceSize"接口获取计算所需workspace大小以及包含了算子计算流程的执行器，再调用"aclnnBitwiseXorScalar"或者"aclnnInplaceBitwiseXorScalar"接口执行计算。
+每个算子分为[两段式接口](../../../docs/zh/context/two_phase_api.md)，必须先调用“aclnnBitwiseXorScalarGetWorkspaceSize”或者“aclnnInplaceBitwiseXorScalarGetWorkspaceSize”接口获取计算所需workspace大小以及包含了算子计算流程的执行器，再调用“aclnnBitwiseXorScalar”或者“aclnnInplaceBitwiseXorScalar”接口执行计算。
 
 ```Cpp
 aclnnStatus aclnnBitwiseXorScalarGetWorkspaceSize(
@@ -321,7 +321,7 @@ aclnnStatus aclnnInplaceBitwiseXorScalar(
   </tbody></table>
 
   <!-- npu="950" id10 -->
-  - <term>Ascend 950PR&950DT系列产品</term>：selfRef和other数据类型需满足[TensorScalar互推导关系](../../../docs/zh/context/deduction_relationship.md)，且需要是推导之后可转换的数据类型（参见[互转换关系](../../../docs/zh/context/conversion_relationship.md)）。
+  - <term>Ascend 950PR&950DT系列产品</term>：selfRef和other的数据类型需满足[TensorScalar互推导关系](../../../docs/zh/context/deduction_relationship.md)，且需要是推导之后可转换的数据类型（参见[互转换关系](../../../docs/zh/context/conversion_relationship.md)）。
   <!-- end id10 -->
   <!-- npu="A3,910b,910,310p" id11 -->
   - <term>Atlas A3系列产品</term>、<term>Atlas A2系列产品</term>、<term>Atlas推理系列产品</term>、<term>Atlas训练系列产品</term>：selfRef和other的数据类型不支持UINT16、UINT32、UINT64。

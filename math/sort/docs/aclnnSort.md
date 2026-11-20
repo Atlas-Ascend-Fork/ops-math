@@ -98,7 +98,7 @@ aclnnStatus aclnnSort(
     <tr>
       <td>stable</td>
       <td>输入</td>
-      <td>是否稳定排序, True为稳定排序，False为非稳定排序。</td>
+      <td>是否稳定排序，True为稳定排序，False为非稳定排序。</td>
       <td>-</td>
       <td>BOOL</td>
       <td>-</td>
@@ -138,7 +138,7 @@ aclnnStatus aclnnSort(
     <tr>
       <td>indicesOut</td>
       <td>输出</td>
-      <td>表示排序后每个元素在原tensor中的索引。</td>
+      <td>表示排序后每个元素在原Tensor中的索引。</td>
       <td>-</td>
       <td>INT64</td>
       <td>ND</td>

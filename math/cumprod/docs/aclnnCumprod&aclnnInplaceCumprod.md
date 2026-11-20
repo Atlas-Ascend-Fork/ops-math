@@ -28,7 +28,7 @@
 - 计算公式：
 
   - **一维张量（向量）情况**
-      对于一维张量，累积乘积$y=[y_1,y_2,y_3...,y_n]$的计算公式为:
+      对于一维张量，累积乘积$y=[y_1,y_2,y_3...,y_n]$的计算公式为：
 
       $y_1=x_1$
       $y_2=x_1 \times x_2$
@@ -63,7 +63,7 @@
     y_{ij}=\prod_{k=1}^{i} x_{kj}
     $$
 
-  - **高维张量情况（以二维张量为例， dim=1沿列方向）**
+  - **高维张量情况（以二维张量为例，dim=1沿列方向）**
     所以对于任意列j，也有类似规律即:
 
     $$
@@ -165,7 +165,7 @@ aclnnStatus aclnnInplaceCumprod(
       <td>dtype（aclDataType）</td>
       <td>输入</td>
       <td>指定计算过程input的数据类型。</td>
-      <td><ul><li>若为ACL_DT_UNDEFINED，使用传入input的原始类型计算。</li><li>若指定具体类型（需在input支持数据类型范围内），计算前将input转换为此类型。</li></ul></td>
+      <td><ul><li>若为ACL_DT_UNDEFINED，使用传入input的原始类型计算。</li><li>若指定具体类型（需在input支持的数据类型范围内），计算前将input转换为此类型。</li></ul></td>
       <td>-</td>
       <td>-</td>
       <td>-</td>

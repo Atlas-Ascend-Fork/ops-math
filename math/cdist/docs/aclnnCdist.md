@@ -188,7 +188,7 @@ aclnnStatus aclnnCdist(
         <td>x1的点特征维度和x2的不一致。</td>
       </tr>
       <tr>
-        <td>p为负数或nan。</td>
+        <td>p为负数或NaN。</td>
       </tr>
     </tbody>
     </table>
@@ -204,7 +204,7 @@ aclnnStatus aclnnCdist(
       <tbody>
           <tr><td>workspace</td><td>输入</td><td>在Device侧申请的workspace内存地址。</td></tr>
           <tr><td>workspaceSize</td><td>输入</td><td>在Device侧申请的workspace大小，由第一段接口aclnnCdistGetWorkspaceSize获取。</td></tr>
-          <tr><td>executor</td><td>输入</td><td> op执行器，包含了算子计算流程。 </td></tr>
+          <tr><td>executor</td><td>输入</td><td>OP执行器，包含了算子计算流程。</td></tr>
           <tr><td>stream</td><td>输入</td><td> 指定执行任务的Stream。 </td></tr>
       </tbody>
   </table>

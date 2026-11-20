@@ -360,7 +360,7 @@ aclnnStatus aclnnInplaceNeScalar(
 
 ## aclnnInplaceNeScalar
 
-- **参数说明**
+- **参数说明**：
 
   <table style="table-layout: fixed; width: 1151px"><colgroup>
   <col style="width: 184px">

@@ -231,7 +231,7 @@ aclnnStatus aclnnLogSpace(
 
 ## 约束说明
 
-- **确定性计算:**
+- **确定性计算：**
 
   - aclnnLogSpace默认确定性实现。
 

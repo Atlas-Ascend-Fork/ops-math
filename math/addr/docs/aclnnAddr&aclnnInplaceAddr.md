@@ -175,7 +175,7 @@ aclnnStatus aclnnInplaceAddr(
       <tr>
         <td>executor (aclOpExecutor**)</td>
         <td>输出</td>
-        <td>返回op执行器，包含了算子计算流程。</td>
+        <td>返回OP执行器，包含了算子计算流程。</td>
         <td>-</td>
         <td>-</td>
         <td>-</td>
@@ -363,7 +363,7 @@ aclnnStatus aclnnInplaceAddr(
       <tr>
         <td>executor (aclOpExecutor**)</td>
         <td>输出</td>
-        <td>返回op执行器，包含了算子计算流程。</td>
+        <td>返回OP执行器，包含了算子计算流程。</td>
         <td>-</td>
         <td>-</td>
         <td>-</td>
@@ -414,7 +414,7 @@ aclnnStatus aclnnInplaceAddr(
       <td>beta或者alpha为bool类型时，selfRef、vec1、vec2数据类型非bool类型。</td>
     </tr>
     <tr>
-      <td>selfRef、vec1、vec2类型都为整型或bool或"整型+bool"时，beta或alpha为浮点型。</td>
+      <td>selfRef、vec1、vec2类型都为整型或bool或“整型+bool”时，beta或alpha为浮点型。</td>
     </tr>
   </tbody>
   </table>
@@ -471,7 +471,7 @@ aclnnStatus aclnnInplaceAddr(
 
 示例代码如下，仅供参考，具体编译和执行过程请参考[编译与运行样例](../../../docs/zh/context/compile_and_run_sample.md)。
 
-```Cpp
+```cpp
 #include <iostream>
 #include <vector>
 #include "acl/acl.h"

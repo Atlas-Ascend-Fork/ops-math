@@ -124,7 +124,7 @@ aclnnStatus aclnnStd(
     <tr>
       <td>out（aclTensor*）</td>
       <td>输出</td>
-      <td>输出tensor。</td>
+      <td>输出Tensor。</td>
       <td>-</td>
       <td>FLOAT、FLOAT16、BFLOAT16</td>
       <td>ND</td>

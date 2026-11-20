@@ -29,7 +29,7 @@
 
 每个算子分为[两段式接口](../../../docs/zh/context/two_phase_api.md)，必须先调用“aclnnDropoutGenMaskV2GetWorkspaceSize”接口获取计算所需workspace大小以及包含了算子计算流程的执行器，再调用“aclnnDropoutGenMaskV2”接口执行计算。
 
-```Cpp
+```cpp
 aclnnStatus aclnnDropoutGenMaskV2GetWorkspaceSize(
   const aclIntArray*  shape,
   double              prob,
@@ -41,7 +41,7 @@ aclnnStatus aclnnDropoutGenMaskV2GetWorkspaceSize(
   aclOpExecutor**     executor)
 ```
 
-```Cpp
+```cpp
 aclnnStatus aclnnDropoutGenMaskV2(
   void*               workspace,
   uint64_t            workspaceSize,

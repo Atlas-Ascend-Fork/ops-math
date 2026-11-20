@@ -121,7 +121,7 @@ aclnnStatus aclnnHistc(
       <td>out（aclTensor*）</td>
       <td>输出</td>
       <td>直方图统计结果。</td>
-      <td><ul><li>out数据类型需要可转换为self的数据类型，（参考<a href="../../../docs/zh/context/conversion_relationship.md" target="_blank">互转换关系</a>）。</li><li>元素个数等于bins。</li></ul></td>
+      <td><ul><li>out数据类型需要可转换为self的数据类型（参考<a href="../../../docs/zh/context/conversion_relationship.md" target="_blank">互转换关系</a>）。</li><li>元素个数等于bins。</li></ul></td>
       <td>FLOAT16、FLOAT32、BFLOAT16、INT32、INT64、INT16、INT8、UINT8</td>
       <td>ND</td>
       <td>1</td>

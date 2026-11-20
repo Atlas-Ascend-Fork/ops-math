@@ -186,7 +186,7 @@ aclnnStatus aclnnReplicationPad2dBackward(
       <td>self为空tensor且存在非第一维度的值为0。</td>
     </tr>
     <tr>
-      <td>self为3维空tensor（3维输入不支持空tensor，仅4维输入支持第一维度batch size为0）。</td>
+      <td>self为3维空Tensor（3维输入不支持空Tensor，仅4维输入支持第一维度batch size为0）。</td>
     </tr>
     <tr>
       <td>gradOutput shape需要与replication_pad2d正向传播的output一致。</td>

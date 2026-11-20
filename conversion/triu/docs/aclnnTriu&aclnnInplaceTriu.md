@@ -103,7 +103,7 @@ aclnnStatus aclnnInplaceTriu(
       <th>数据类型</th>
       <th>数据格式</th>
       <th>维度(shape)</th>
-      <th>非连续tensor</th>
+      <th>非连续Tensor</th>
     </tr></thead>
   <tbody>
     <tr>
@@ -111,7 +111,7 @@ aclnnStatus aclnnInplaceTriu(
       <td>输入</td>
       <td>公式中的self。</td>
       <td> - </td>
-      <td>UINT64、INT64、UINT32、 INT32、UINT16、INT16、UINT8、 INT8、FLOAT16、FLOAT32、DOUBLE、BOOL、BFLOAT16、COMPLEX32、COMPLEX64</td>
+      <td>UINT64、INT64、UINT32、INT32、UINT16、INT16、UINT8、 INT8、FLOAT16、FLOAT32、DOUBLE、BOOL、BFLOAT16、COMPLEX32、COMPLEX64</td>
       <td>ND、NCHW、NHWC、HWCN、NDHWC、NCDHW</td>
       <td>2-8维和0维</td>
       <td>√</td>
@@ -131,7 +131,7 @@ aclnnStatus aclnnInplaceTriu(
       <td>输出</td>
       <td>表示输出张量。</td>
       <td>-</td>
-      <td>UINT64、INT64、UINT32、 INT32、UINT16、INT16、UINT8、 INT8、FLOAT16、FLOAT32、DOUBLE、BOOL、BFLOAT16、COMPLEX32、COMPLEX64</td>
+      <td>UINT64、INT64、UINT32、INT32、UINT16、INT16、UINT8、 INT8、FLOAT16、FLOAT32、DOUBLE、BOOL、BFLOAT16、COMPLEX32、COMPLEX64</td>
       <td>ND、NCHW、NHWC、HWCN、NDHWC、NCDHW</td>
       <td>2-8维和0维</td>
       <td>√</td>
@@ -276,7 +276,7 @@ aclnnStatus aclnnInplaceTriu(
       <th>数据类型</th>
       <th>数据格式</th>
       <th>维度(shape)</th>
-      <th>非连续tensor</th>
+      <th>非连续Tensor</th>
     </tr></thead>
   <tbody>
     <tr>
@@ -284,7 +284,7 @@ aclnnStatus aclnnInplaceTriu(
       <td>输入</td>
       <td>表示输入张量</td>
       <td>-</td>
-      <td>UINT64、INT64、UINT32、 INT32、UINT16、INT16、UINT8、 INT8、FLOAT16、FLOAT32、DOUBLE、BOOL、BFLOAT16、COMPLEX32、COMPLEX64</td>
+      <td>UINT64、INT64、UINT32、INT32、UINT16、INT16、UINT8、 INT8、FLOAT16、FLOAT32、DOUBLE、BOOL、BFLOAT16、COMPLEX32、COMPLEX64</td>
       <td>ND、NCHW、NHWC、HWCN、NDHWC、NCDHW</td>
       <td>2-8</td>
       <td>√</td>
@@ -416,7 +416,7 @@ aclnnStatus aclnnInplaceTriu(
 
 示例代码如下，仅供参考，具体编译和执行过程请参考[编译与运行样例](../../../docs/zh/context/compile_and_run_sample.md)。
 
-```Cpp
+```cpp
 #include <iostream>
 #include <vector>
 #include "acl/acl.h"

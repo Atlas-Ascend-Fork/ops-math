@@ -115,7 +115,7 @@ aclnnStatus aclnnMaxV2(
       <td>定义dims为空时的行为。</td>
       <td>
         <ul>
-          <li>为true时，dims为空输入tensor不会reduce，即输出tensor和输入tensor一致。</li>
+          <li>为true时，dims为空时，输入tensor不会reduce，即输出tensor和输入tensor一致。</li>
           <li>为false时，dims为空输入tensor会reduce所有轴。</li>
         </ul>
       </td>

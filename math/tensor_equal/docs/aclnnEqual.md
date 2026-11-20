@@ -27,7 +27,7 @@
 - 计算表达式：
 
   $$
-  out = (self == other)  ?  True : False
+  out = (self == other) ? True : False
   $$
 
 ## 函数原型

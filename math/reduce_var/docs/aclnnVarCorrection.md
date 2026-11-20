@@ -30,7 +30,7 @@
   out = \frac{1}{max(0, N - \delta N)}\sum_{j=0}^{N-1}(self_{ij}-\bar{x_{i}})^2
   $$
 
-  当`keepdim = true`时，reduce后保留该维度，且输出shape中该维度值为1；当`keepdim = false`时，不保留该维度。
+  当`keepdim = true`时，Reduce后保留该维度，且输出shape中该维度值为1；当`keepdim = false`时，不保留该维度。
   当dim为nullptr或[]时，视为计算所有维度。
 
 ## 函数原型

@@ -52,7 +52,7 @@ aclnnStatus aclnnCalculateMatmulWeightSizeV2(
     uint64_t          *weightTensorSize)
 ```
 
-## aclnnCalculateMatmulWeightSizeV2
+## 参数说明与返回值
 
 - **参数说明：**
 

@@ -139,7 +139,7 @@ aclnnStatus aclnnDropoutGenMaskV2Tensor(
     <tr>
       <td>out（aclTensor*）</td>
       <td>输出</td>
-      <td>输出的tensor。bit类型并使用UINT8类型存储的mask数据。</td>
+      <td>输出的tensor，bit类型并使用UINT8类型存储的mask数据。</td>
       <td>-</td>
       <td>UINT8</td>
       <td>ND</td>
@@ -246,7 +246,7 @@ aclnnStatus aclnnDropoutGenMaskV2Tensor(
 
 - **返回值：**
 
-  aclnnStatus: 返回状态码，具体参见[aclnn返回码](../../../docs/zh/context/aclnn_return_code.md)。
+  aclnnStatus：返回状态码，具体参见[aclnn返回码](../../../docs/zh/context/aclnn_return_code.md)。
 
 ## 约束说明
 

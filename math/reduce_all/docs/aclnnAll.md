@@ -107,7 +107,7 @@ const aclrtStream stream)
       <tr>
         <td>out</td>
         <td>输出</td>
-        <td>输出tensor。</td>
+        <td>输出Tensor。</td>
         <td>-</td>
         <td>BOOL、UINT8</td>
         <td>ND</td>

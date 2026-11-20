@@ -30,7 +30,7 @@
   对于入参self，和张量other，Fmod可以用如下数学公式表示：
 
   $$
-  out_{i} = self_{i} -  trunc \left(\frac{self_{i}}{other_{i}}\right) * other_{i}
+  out_{i} = self_{i} - trunc \left(\frac{self_{i}}{other_{i}}\right) * other_{i}
   $$
 
 ## 函数原型

@@ -95,7 +95,7 @@ aclnnStatus aclnnDropout(
       <td>p（double）</td>
       <td>输入</td>
       <td>元素置零的概率，公式中的p。</td>
-      <td>数值的值域为[0, 1]。</td>
+      <td>取值范围为[0, 1]。</td>
       <td>-</td>
       <td>-</td>
       <td>-</td>

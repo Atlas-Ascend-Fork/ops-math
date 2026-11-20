@@ -34,7 +34,7 @@
   \bar{x} = \frac{\sum_{i=1}^{n} x_i}{n}
   $$
 
-  标准差倒数:
+  标准差倒数：
 
   $$
   \frac{1}\sigma = \frac{1}{\sqrt{\frac{1}{n}\sum_{i=1}^{n}(x_i- \bar{x})^2 + eps}}

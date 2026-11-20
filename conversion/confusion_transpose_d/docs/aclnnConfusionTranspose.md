@@ -93,8 +93,8 @@ aclnnStatus aclnnConfusionTranspose(
       <td>x（aclTensor*）</td>
       <td>输入/输出</td>
       <td>输入Tensor，对应公式中的x。</td>
-      <td>支持空tensor。</td>
-      <td>INT8、INT16、 INT32、 INT64、UINT8、UINT16、UINT32、UINT64、FLOAT16、FLOAT、BFLOAT16</td>
+      <td>支持空Tensor。</td>
+      <td>INT8、INT16、INT32、INT64、UINT8、UINT16、UINT32、UINT64、FLOAT16、FLOAT、BFLOAT16</td>
       <td>ND</td>
       <td>1-8</td>
       <td>-</td>
@@ -246,7 +246,7 @@ aclnnStatus aclnnConfusionTranspose(
 
   例如：
 
-  设shape_before为reshape操作前的数据形状，shape_after为reshape操作后的数据形状，
+  设shape_before为reshape操作前的数据形状，shape_after为reshape操作后的数据形状。
 
     shape_before = [(ab),(cd),f,(gh)]
     shape_after = [a,(bc),d,e,(fg),h]

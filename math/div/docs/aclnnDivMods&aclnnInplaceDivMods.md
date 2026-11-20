@@ -37,7 +37,7 @@ aclnnDivMods和aclnnInplaceDivMods实现相同的功能，使用区别如下，�
 - aclnnDivMods：需新建一个输出张量对象存储计算结果。
 - aclnnInplaceDivMods：无需新建输出张量对象，直接在输入张量的内存中存储计算结果。
 
-每个算子分为[两段式接口](../../../docs/zh/context/two_phase_api.md)，必须先调用"aclnnDivModsGetWorkspaceSize"或者"aclnnInplaceDivModsGetWorkspaceSize"接口获取计算所需workspace大小以及包含了算子计算流程的执行器，再调用"aclnnDivMods"或者"aclnnInplaceDivMods"接口执行计算。
+每个算子分为[两段式接口](../../../docs/zh/context/two_phase_api.md)，必须先调用“aclnnDivModsGetWorkspaceSize”或者“aclnnInplaceDivModsGetWorkspaceSize”接口获取计算所需workspace大小以及包含了算子计算流程的执行器，再调用“aclnnDivMods”或者“aclnnInplaceDivMods”接口执行计算。
 
 ```Cpp
 aclnnStatus aclnnDivModsGetWorkspaceSize(
@@ -103,7 +103,7 @@ aclnnStatus aclnnInplaceDivMods(
     <tr>
       <td>self（aclTensor*）</td>
       <td>输入</td>
-      <td>表示被除数，公式中的input。</td>
+      <td>表示被除数，公式中的输入input。</td>
       <td>数据类型与other的数据类型需满足数据类型推导规则（参见<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">TensorScalar互推导关系</a>）。</td>
       <td>FLOAT、FLOAT16、DOUBLE、INT32、INT64、INT16、INT8、UINT8、BOOL、COMPLEX128、COMPLEX64、BFLOAT16</td>
       <td>ND</td>

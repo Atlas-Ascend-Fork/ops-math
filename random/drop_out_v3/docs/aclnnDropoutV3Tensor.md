@@ -34,7 +34,7 @@
 
 每个算子分为[两段式接口](../../../docs/zh/context/two_phase_api.md)，必须先调用"aclnnDropoutV3TensorGetWorkspaceSize"接口获取计算所需workspace大小以及包含了算子计算流程的执行器，再调用"aclnnDropoutV3Tensor"接口执行计算。
 
-```Cpp
+```cpp
 aclnnStatus aclnnDropoutV3TensorGetWorkspaceSize(
   const aclTensor* input,
   const aclTensor* optionalNoiseShape,
@@ -48,7 +48,7 @@ aclnnStatus aclnnDropoutV3TensorGetWorkspaceSize(
   aclOpExecutor**  executor)
 ```
 
-```Cpp
+```cpp
 aclnnStatus aclnnDropoutV3Tensor(
   void          *workspace,
   uint64_t       workspaceSize,
@@ -126,7 +126,7 @@ aclnnStatus aclnnDropoutV3Tensor(
       <td>offsetTensor</td>
       <td>输入</td>
       <td>随机数的偏移量，以Tensor形式传入，影响生成的随机数序列的位置。</td>
-      <td>维度为1，元素个数为1；取值约束：offset % 4 == 0，例如可以取0、4、8 ...，不满足约束会导致精度无法对标竞品。</td>
+      <td>维度为1，元素个数为1；取值约束：offset % 4 == 0，例如可以取0、4、8……，不满足约束会导致精度无法对标竞品。</td>
       <td>INT64</td>
       <td>ND</td>
       <td>1</td>

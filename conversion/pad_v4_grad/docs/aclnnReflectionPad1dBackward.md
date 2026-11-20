@@ -105,7 +105,7 @@ aclnnStatus aclnnReflectionPad1dBackward(
       <td>padding（aclIntArray*）</td>
       <td>输入</td>
       <td>填充范围</td>
-      <td>数据类型长度为2。padding的两个数值都需小于self最后一维度的数值。</td>
+      <td>长度为2。padding的两个数值都需小于self最后一维度的数值。</td>
       <td>INT64</td>
       <td>-</td>
       <td>-</td>
@@ -242,7 +242,7 @@ aclnnStatus aclnnReflectionPad1dBackward(
 
 示例代码如下，仅供参考，具体编译和执行过程请参考[编译与运行样例](../../../docs/zh/context/compile_and_run_sample.md)。
 
-```Cpp
+```cpp
 #include "acl/acl.h"
 #include "aclnnop/aclnn_reflection_pad1d_backward.h"
 #include <iostream>

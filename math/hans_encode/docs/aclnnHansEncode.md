@@ -36,7 +36,7 @@
 
 - **参数说明：**
 
-  - inputTensor(aclTensor*，计算输入): 表示输入的待压缩张量，Device侧的aclTensor，数据类型支持FLOAT16、BFLOAT16、FLOAT32，数据元素大小仅支持64的倍数且大于等于32768，支持[非连续的Tensor](../../../docs/zh/context/non_contiguous_tensor.md)，[数据格式](../../../docs/zh/context/data_format.md)支持ND。
+  - inputTensor(aclTensor*，计算输入): 表示输入的待压缩张量，Device侧的aclTensor，数据类型支持FLOAT16、BFLOAT16、FLOAT32，数据元素个数仅支持64的倍数且大于等于32768，支持[非连续的Tensor](../../../docs/zh/context/non_contiguous_tensor.md)，[数据格式](../../../docs/zh/context/data_format.md)支持ND。
   - pdfRef(aclTensor*，计算输入/计算输出)：表示inputTensor的指数位所在字节的概率密度分布，Device侧的aclTensor，数据类型支持INT32，shape要求为(1, 256)，支持[非连续的Tensor](../../../docs/zh/context/non_contiguous_tensor.md)，[数据格式](../../../docs/zh/context/data_format.md)支持ND。
   - statistic(bool，计算输入): 表示是否进行pdf统计。
   - reshuff(bool，计算输入): 表示是否对各核编码后的结果进行内存重整。

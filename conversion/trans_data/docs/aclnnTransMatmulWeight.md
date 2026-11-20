@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-需要和[aclnnCalculateMatmulWeightSize](./aclnnCalculateMatmulWeightSize.md)、[aclnnCalculateMatmulWeightSizeV2](./aclnnCalculateMatmulWeightSizeV2.md)接口配套使用，用于创建一个对于Matmul算子计算性能亲和的weight Tensor。支持FLOAT16、BFLOAT16、 Int8数据类型。
+需要和[aclnnCalculateMatmulWeightSize](./aclnnCalculateMatmulWeightSize.md)、[aclnnCalculateMatmulWeightSizeV2](./aclnnCalculateMatmulWeightSizeV2.md)接口配套使用，用于创建一个对于Matmul算子计算性能亲和的weight Tensor。支持FLOAT16、BFLOAT16、Int8数据类型。
 
 转为 FRACTAL_NZ 时：view shape 保持输入 ND 逻辑 shape，storage format/shape 更新为 NZ。排布与 [aclnnNpuFormatCast](../../npu_format_cast/docs/aclnnNpuFormatCast.md) 的 ND→NZ 通式相同（`[..., ceil(N/C0), ceil(M/16), 16, C0]`，`NZ[..., n1, m1, m0, n0] = ND[..., 16*m1+m0, C0*n1+n0]`）；C0 对 FLOAT16/BFLOAT16 为 16，对 INT8 为 32。须与权重大小计算接口配套分配容量；有效元素按通式校验或经 NZ→ND 回转检查，补齐区不纳入判定。
 
@@ -113,7 +113,7 @@ aclnnStatus aclnnTransMatmulWeight(
 
 - **返回值**
 
-  aclnnStatus：返回状态码，具体参见[aclnn返回码](../../../docs/zh/context/aclnn_return_code.md)
+  aclnnStatus：返回状态码，具体参见[aclnn返回码](../../../docs/zh/context/aclnn_return_code.md)。
 
   第一段接口完成入参校验，出现以下场景时报错：
 

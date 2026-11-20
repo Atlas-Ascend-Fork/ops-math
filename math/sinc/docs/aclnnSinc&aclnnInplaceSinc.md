@@ -315,7 +315,7 @@ aclnnStatus aclnnInplaceSinc(
     <tr>
       <td rowspan="2">ACLNN_ERR_PARAM_INVALID</td>
       <td rowspan="2">161002</td>
-      <td>selfRef数据类型和数据格式不在支持的范围之内。</td>
+      <td>selfRef的数据类型和数据格式不在支持的范围之内。</td>
     </tr>
     <tr>
       <td>selfRef的维度大于8。</td>

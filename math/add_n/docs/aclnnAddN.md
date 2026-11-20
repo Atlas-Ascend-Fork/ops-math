@@ -33,7 +33,7 @@
 
 ## 函数原型
 
-每个算子分为两段式接口，必须先调用"aclnnAddNGetWorkspaceSize"接口获取计算所需workspace大小以及包含了算子计算流程的执行器，再调用"aclnnAddN"接口执行计算。
+每个算子分为两段式接口，必须先调用"aclnnAddNGetWorkspaceSize"接口获取计算所需workspace大小以及包含了算子计算流程的执行器，再调用“aclnnAddN”接口执行计算。
 
 ```cpp
 aclnnStatus aclnnAddNGetWorkspaceSize(
@@ -194,7 +194,7 @@ aclnnStatus aclnnAddN(
 - <term>Ascend 950PR&950DT系列产品</term>、<term>Atlas A3系列产品</term>、<term>Atlas A2系列产品</term>：
   - 数据类型：支持INT32、INT64、FLOAT16、BFLOAT16、FLOAT32。
   - 数据格式：仅支持ND格式。
-  - 参数Shape：输入Tensor维度范围为1~8，需要满足shape一致。
+  - 参数shape：输入Tensor维度范围为1~8，需要满足shape一致。
 <!-- end id7 -->
 
 ## 调用示例

@@ -89,7 +89,7 @@ aclnnStatus aclnnTrace(
     <tr>
       <td>out</td>
       <td>输出</td>
-      <td>表示输出张量，公式中的输出out。 调用前分配0D标量；整数及BOOL输入要求INT64输出，其余类型与self一致。</td>
+      <td>表示输出张量，公式中的输出out。调用前分配0D标量；整数及BOOL输入要求INT64输出，其余类型与self一致。</td>
       <td>-</td>
       <td>BFLOAT16、FLOAT16、FLOAT32、DOUBLE、COMPLEX64、COMPLEX128、INT64</td>
       <td>ND</td>

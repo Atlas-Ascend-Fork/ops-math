@@ -31,7 +31,7 @@
   out_{i}=input_{i} - \lfloor \vert input_{i} \vert \rfloor * sgn(input_{i})
   $$
 
-  其中， $sgn(\cdot)$是符号函数，功能为提取$input_{i}$的符号。
+  其中，$sgn(\cdot)$是符号函数，功能为提取$input_{i}$的符号。
 
 ## 函数原型
 

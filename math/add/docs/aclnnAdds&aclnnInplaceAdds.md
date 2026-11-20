@@ -107,7 +107,7 @@ aclnnStatus aclnnInplaceAdds(
         <td>-</td>
         <td>FLOAT、FLOAT16、DOUBLE、INT32、INT64、INT16、INT8、UINT8、BOOL、COMPLEX128、COMPLEX64、BFLOAT16</td>
         <td>ND</td>
-        <td>不高于8维</td>
+        <td>不超过8维</td>
         <td>√</td>
       </tr>
       <tr>

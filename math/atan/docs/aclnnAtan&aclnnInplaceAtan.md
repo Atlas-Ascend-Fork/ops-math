@@ -251,7 +251,7 @@ aclnnStatus aclnnInplaceAtan(
     </tr></thead>
   <tbody>
     <tr>
-      <td>inputRef(aclTensor*)</td>
+      <td>inputRef（aclTensor*）</td>
       <td>输入/输出</td>
       <td>输入输出Tensor。</td>
       <td>非连续的Tensor维度不大于8。</td>

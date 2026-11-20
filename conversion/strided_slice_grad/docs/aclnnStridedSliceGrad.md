@@ -153,7 +153,7 @@ aclnnStatus aclnnStridedSliceGrad(
     <tr>
       <td>ellipsisMask（int64_t）</td>
       <td>输入</td>
-      <td>位掩码，标记省略号维度，被标记的维度全量保留（等价于":"）。</td>
+      <td>位掩码，标记省略号维度，被标记的维度全量保留（等价于“:”）。</td>
       <td><ul><li>至多有1位为1。</li></ul></td>
       <td>INT64</td>
       <td>-</td>

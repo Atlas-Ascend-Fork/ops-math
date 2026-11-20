@@ -407,7 +407,7 @@ aclnnStatus aclnnInplaceClampMax(
 
 **aclnnClampMax示例代码：**
 
-```Cpp
+```cpp
 #include <iostream>
 #include <vector>
 #include "acl/acl.h"
@@ -573,7 +573,7 @@ int main() {
 
 **aclnnInplaceClampMax示例代码：**
 
-```Cpp
+```cpp
 #include <iostream>
 #include <vector>
 #include "acl/acl.h"

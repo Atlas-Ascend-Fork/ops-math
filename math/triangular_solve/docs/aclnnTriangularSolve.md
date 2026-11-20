@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-- 接口功能：求解一个具有方形上或下三角形可逆矩阵A和多个右侧b的方程组。
+- 接口功能：求解一个具有方形上或下三角形可逆矩阵A和多个右侧项b的方程组。
 - 计算公式：
 
   $$
@@ -128,7 +128,7 @@ aclnnStatus aclnnTriangularSolve(
       <td>unitriangular（bool）</td>
       <td>输入</td>
       <td>控制公式中的A是否按单位三角矩阵处理的计算属性。</td>
-      <td><ul><li>默认为false。</li><li>当unitriangular为true时，在方程求解过程中A的主对角线元素视为1，而不是从A引用。</li><li>当unitriangular为true时，输入self和A、输出xOut和mOut的数据类型只支持FLOAT。</li></ul></td>
+      <td><ul><li>默认为false。</li><li>当unitriangular为true时，在方程求解过程中A的主对角线元素视为1，而不是从A中引用。</li><li>当unitriangular为true时，输入self和A、输出xOut和mOut的数据类型只支持FLOAT。</li></ul></td>
       <td>BOOL</td>
       <td>-</td>
       <td>-</td>

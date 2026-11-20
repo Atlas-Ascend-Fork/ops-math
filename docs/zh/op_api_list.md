@@ -100,7 +100,7 @@
 | [aclnnCumprod&aclnnInplaceCumprod](../../math/cumprod/docs/aclnnCumprod&aclnnInplaceCumprod.md) | 新增aclnnCumprod接口，cumprod函数用于计算输入张量在指定维度上的累积乘积。 | 默认确定性实现| - |
 | [aclnnCumsum](../../math/cumsum/docs/aclnnCumsum.md)            | 对输入张量self的元素，按照指定维度dim依次进行累加，并将结果保存到输出张量out中。 | 默认确定性实现| 默认确定性实现|
 | [aclnnCumsumV2](../../math/cumsum/docs/aclnnCumsumV2.md)        | 对输入张量self的元素，按照指定维度dim依次进行累加，并将结果保存到输出张量out中。 | 默认确定性实现| 默认确定性实现|
-| [aclnnDiag](../../conversion/diag_v2/docs/aclnnDiag.md) | 如果输入是向量（一维向量），则返回二维矩阵张量，其中input元素为对角线;如果输入是二维张量，则输出一维向量，取值为diagonal指定的输入矩阵的对角线元素。 | 默认确定性实现|  默认确定性实现 |
+| [aclnnDiag](../../conversion/diag_v2/docs/aclnnDiag.md) | 如果输入是向量（一维向量），则返回二维矩阵张量，其中input元素为对角线；如果输入是二维张量，则输出一维向量，取值为diagonal指定的输入矩阵的对角线元素。 | 默认确定性实现|  默认确定性实现 |
 | [aclnnDiagFlat](../../conversion/diag_flat/docs/aclnnDiagFlat.md) | 生成对角线张量。如果输入self为一维张量，则返回二维张量，self里元素为对角线值；如果输入self是二维及以上张量，则先进行扁平化（化简为一维张量），再转化为第一种场景处理。 | 默认确定性实现| 默认确定性实现 |
 | [aclnnDigamma](../../math/digamma/docs/aclnnDigamma.md) | 为输入张量的每一个元素进行digamma数学运算。 | 默认确定性实现| 默认确定性实现 |
 | [aclnnDiv&aclnnInplaceDiv](../../math/div/docs/aclnnDiv&aclnnInplaceDiv.md) | 完成除法计算。                                               | 默认确定性实现| 默认确定性实现 |
@@ -118,7 +118,7 @@
 | [aclnnDropoutV3Tensor](../../random/drop_out_v3/docs/aclnnDropoutV3Tensor.md)         | 按照概率p随机将输入中的元素置零，并将输出按照1/(1-p)的比例缩放。seed和offset以Tensor形式传入。 | - | 默认确定性实现  |
 | [aclnnDropoutV3Grad](../../random/drop_out_v3_grad/docs/aclnnDropoutV3Grad.md)         | 按照传入mask将输入中的元素置零，并将输出按照scale的比例缩放。 | -| 默认确定性实现  |
 | [aclnnEqScalar&aclnnInplaceEqScalar](../../math/equal/docs/aclnnEqScalar&aclnnInplaceEqScalar.md) | 计算self中的元素的值与other的值是否相等，将self每个元素与other的值的比较结果写入out中。 | 默认确定性实现| 默认确定性实现 |
-| [aclnnEqTensor&aclnnInplaceEqTensor](../../math/equal/docs/aclnnEqTensor&aclnnInplaceEqTensor.md) | 计算两个Tensor中的元素是否相等，返回一个Tensor，self=other的为True(1.)，否则为False(0.)。 | 默认确定性实现| 默认确定性实现 |
+| [aclnnEqTensor&aclnnInplaceEqTensor](../../math/equal/docs/aclnnEqTensor&aclnnInplaceEqTensor.md) | 计算两个Tensor中的元素是否相等，返回一个Tensor，self=other时为True(1.)，否则为False(0.)。 | 默认确定性实现| 默认确定性实现 |
 | [aclnnEqual](../../math/tensor_equal/docs/aclnnEqual.md)               | 计算两个Tensor是否有相同的大小和元素，返回一个Bool类型。     | 默认确定性实现| 默认确定性实现  |
 | [aclnnErf&aclnnInplaceErf](../../math/erf/docs/aclnnErf&aclnnInplaceErf.md) | 返回输入Tensor中每个元素对应的误差函数的值。                 | 默认确定性实现| 默认确定性实现|
 | [aclnnErfc&aclnnInplaceErfc](../../math/erfc/docs/aclnnErfc&aclnnInplaceErfc.md) | 返回输入Tensor中每个元素对应的误差互补函数的值。             | 默认确定性实现| 默认确定性实现 |
@@ -136,7 +136,7 @@
 | [aclnnFmodScalar&aclnnInplaceFmodScalar](../../math/mod/docs/aclnnFmodScalar&aclnnInplaceFmodScalar.md) | 返回self除以other的余数。                                   | 默认确定性实现| 默认确定性实现 |
 | [aclnnFmodTensor&aclnnInplaceFmodTensor](../../math/mod/docs/aclnnFmodTensor&aclnnInplaceFmodTensor.md) | 返回self除以other的余数。                                    | 默认确定性实现| 默认确定性实现 |
 | [aclnnFrac&aclnnInplaceFrac](../../math/sub/docs/aclnnFrac&aclnnInplaceFrac.md) | 计算输入Tensor中每个元素的小数部分后输出。                   | 默认确定性实现|  默认确定性实现 |
-| [aclnnGcd](../../math/gcd/docs/aclnnGcd.md)                     | 对给定的self和other计算element-wise维度的最大公约数，其中self和other都需要为整数。 | 默认确定性实现| 默认确定性实现 |
+| [aclnnGcd](../../math/gcd/docs/aclnnGcd.md)                     | 对给定的self和other计算element-wise的最大公约数，其中self和other都需要为整数。 | 默认确定性实现| 默认确定性实现 |
 | [aclnnGer](../../math/ger/docs/aclnnGer.md)                     | 实现self和vec2的外积。                                       | 默认确定性实现| 默认确定性实现 |
 | [aclnnGeScalar&aclnnInplaceGeScalar](../../math/greater_equal/docs/aclnnGeScalar&aclnnInplaceGeScalar.md) | 判断输入Tensor中的每个元素是否大于等于other Scalar的值，返回一个Bool类型的Tensor，对应输入Tensor中每个位置的大于等于判断是否成立。 | 默认确定性实现| 默认确定性实现 |
 | [aclnnGeTensor&aclnnInplaceGeTensor](../../math/greater_equal/docs/aclnnGeTensor&aclnnInplaceGeTensor.md) | 判断输入Tensor中的每个元素是否大于等于other Tensor的值，返回一个Bool类型的Tensor，对应输入Tensor中每个位置的大于等于判断是否成立。 | 默认确定性实现| 默认确定性实现 |
@@ -188,7 +188,7 @@
 | [aclnnLinalgQr](../../math/qr/docs/aclnnLinalgQr.md)     | 对输入Tensor进行正交分解。             | 默认确定性实现| 默认确定性实现 |
 | [aclnnLinspace](../../math/lin_space/docs/aclnnLinspace.md)     | 生成一个等间隔数值序列。                                     | 默认确定性实现| 默认确定性实现 |
 | [aclnnLog&aclnnInplaceLog](../../math/log/docs/aclnnLog&aclnnInplaceLog.md) | 完成自然对数的计算                                           | 默认确定性实现| 默认确定性实现|
-| [aclnnLog2&aclnnInplaceLog2](../../math/log/docs/aclnnLog2&aclnnInplaceLog2.md) | 完成以2为底的对数计算                                        | 默认确定性实现| 默认确定性实现|
+| [aclnnLog2&aclnnInplaceLog2](../../math/log/docs/aclnnLog2&aclnnInplaceLog2.md) | 完成以2为底的对数计算。                                        | 默认确定性实现| 默认确定性实现|
 | [aclnnLog10&aclnnInplaceLog10](../../math/log/docs/aclnnLog10&aclnnInplaceLog10.md) | 完成输入以10为底的对数计算                                   | 默认确定性实现| 默认确定性实现|
 | [aclnnLog1p&aclnnInplaceLog1p](../../math/log1p/docs/aclnnLog1p&aclnnInplaceLog1p.md) | 对输入Tensor完成log1p运算。                                  | 默认确定性实现| 默认确定性实现|
 | [aclnnLogAddExp](../../math/log_add_exp/docs/aclnnLogAddExp.md) | 对输入的tensor计算幂和的对数（以e为底）。                                           | 默认确定性实现| 默认确定性实现 |
@@ -241,7 +241,7 @@
 | [aclnnProdDim](../../math/reduce_prod/docs/aclnnProdDim.md)     | 返回输入tensor给定维度上每行的乘积。                         | 默认确定性实现| 默认确定性实现|
 | [aclnnQr](../../math/qr/docs/aclnnQr.md)     | 对输入Tensor进行正交分解。                         | 默认确定性实现| 默认确定性实现 |
 | [aclnnInplaceRandomWithoutFromTo](../../random/dsa_random_uniform/docs/aclnnInplaceRandomWithoutFromTo.md)     | 给定seed/offset(int64),默认从 [0, DTYPE_MAX_VALUE] 的离散均匀分布中采样整数填充selfRef张量。                         | - |  默认确定性实现 |
-| [aclnnInplaceRandomWithoutFromToTensor](../../random/dsa_random_uniform/docs/aclnnInplaceRandomWithoutFromToTensor.md)     | 给定seed/offset(tensor),默认从 [0, DTYPE_MAX_VALUE] 的离散均匀分布中采样整数填充selfRef张量。                         | - |  默认确定性实现 |
+| [aclnnInplaceRandomWithoutFromToTensor](../../random/dsa_random_uniform/docs/aclnnInplaceRandomWithoutFromToTensor.md)     | 给定seed/offset(Tensor)，默认从 [0, DTYPE_MAX_VALUE] 的离散均匀分布中采样整数填充selfRef张量。                         | - |  默认确定性实现 |
 | [aclnnRandperm](../../random/stateless_randperm/docs/aclnnRandperm.md)     | 返回从0到n-1的整数随机排列。                         | 默认确定性实现|  默认确定性实现 |
 | [aclnnRange](../../math/range/docs/aclnnRange.md)               | 从start起始到end结束按照step的间隔取值。                     | 默认确定性实现| 默认确定性实现 |
 | [aclnnReal](../../math/real/docs/aclnnReal.md)                  | 为输入张量的每一个元素取实数部分。                           | 默认确定性实现| 默认确定性实现 |
