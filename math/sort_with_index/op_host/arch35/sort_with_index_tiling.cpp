@@ -333,6 +333,8 @@ bool NeedAdjTileData1(SortTileInfo& sortTileInfo, uint32_t& tileData, uint32_t l
         uint32_t hCore = sortTileInfo.maxCoreNum / static_cast<uint32_t>(sortTileInfo.unSortDimNum);
         uint32_t hTileData = static_cast<uint32_t>(sortTileInfo.sortAxisNum) / hCore;
         tileData = CeilDivMul1<uint32_t>(int64_t(hTileData), int64_t(BIN_NUM));
+        // outValueQueue_ also holds the fixed-size histogram prefix sums.
+        tileData = std::max(tileData, SMALL_TILE_DATA_NUM);
         SetSortTmpSize1(ge::DT_UINT8, tileData, false, sortTileInfo);
         AdjTmpUb1(sortTileInfo, tileData, ubExtra, tileFactor);
         return tileData;
@@ -342,6 +344,7 @@ bool NeedAdjTileData1(SortTileInfo& sortTileInfo, uint32_t& tileData, uint32_t l
         OP_LOGI("[SortWithIndexTilingForAscendC]", "unSortDimNum is one, lastDimTileNum greater than one");
         int64_t newTileData = sortTileInfo.sortAxisNum / int64_t(lastDimTileNum);
         tileData = CeilDivMul1<uint32_t>(newTileData, int64_t(BIN_NUM));
+        tileData = std::max(tileData, SMALL_TILE_DATA_NUM);
         lastDimTileNum = CeilDiv1(sortTileInfo.sortAxisNum, int64_t(tileData));
         uint32_t bCore = lastDimTileNum == 0 ? sortTileInfo.maxCoreNum : sortTileInfo.maxCoreNum / lastDimTileNum;
         if (lastDimTileNum < sortTileInfo.maxCoreNum && sortTileInfo.unSortDimNum < int64_t(sortTileInfo.maxCoreNum)) {
@@ -350,6 +353,7 @@ bool NeedAdjTileData1(SortTileInfo& sortTileInfo, uint32_t& tileData, uint32_t l
                 uint32_t hCore = sortTileInfo.maxCoreNum / bCore;
                 uint32_t tileDataNew = CeilDiv1(int64_t(sortTileInfo.sortAxisNum), int64_t(hCore));
                 tileData = CeilDivMul1<uint32_t>(int64_t(tileDataNew), int64_t(BIN_NUM));
+                tileData = std::max(tileData, SMALL_TILE_DATA_NUM);
             }
         }
         if (bCore == 1U && lastDimTileNum < sortTileInfo.maxCoreNum) {
