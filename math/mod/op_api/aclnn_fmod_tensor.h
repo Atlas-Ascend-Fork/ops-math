@@ -23,7 +23,7 @@ extern "C" {
  * @domain aclnn_math
  *
  * 算子功能：返回self除以other的余数。
- * 计算公式：$$ out_{i} = self_{i} - (other_{i} *\left \lfloor (self_{i}/other_{i}) \right \rfloor) $$
+ * 计算公式：$$ out_{i} = self_{i} - trunc\left(self_{i}/other_{i}\right) * other_{i} $$
  *
  * 实现说明：api计算的基本路径：
  * ```mermaid
@@ -70,7 +70,7 @@ ACLNN_API aclnnStatus aclnnFmodTensor(void* workspace, uint64_t workspaceSize, a
  * @domain aclnn_math
  *
  * 算子功能：返回selfRef除以other的余数。
- * 计算公式：$$ out_{i} = self_{i} - (other_{i} *\left \lfloor (self_{i}/other_{i}) \right \rfloor) $$
+ * 计算公式：$$ out_{i} = self_{i} - trunc\left(self_{i}/other_{i}\right) * other_{i} $$
  *
  * 实现说明：api计算的基本路径：
  * ```mermaid
