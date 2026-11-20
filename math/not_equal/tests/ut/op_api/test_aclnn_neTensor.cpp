@@ -531,14 +531,42 @@ TEST_F(l2_ne_tensor_test, test_ne_tensor_emptytensor)
                             .ValueRange(-10, 10)
                             .Value(vector<int8_t>{3, 4, 5, 6, 7, 8});
 
-    auto out_tensor_desc = TensorDesc({2, 3}, ACL_INT8, ACL_FORMAT_ND)
-                               .Value(vector<bool>{false, false, false, false, false, false});
+    auto out_tensor_desc = TensorDesc({2, 0}, ACL_INT8, ACL_FORMAT_ND);
 
     auto ut = OP_API_UT(aclnnNeTensor, INPUT(tensor_self, tensor_other), OUTPUT(out_tensor_desc));
 
     uint64_t workspace_size = 5;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
     EXPECT_EQ(aclRet, ACLNN_SUCCESS);
+    EXPECT_EQ(workspace_size, 0u);
+}
+
+// 空tensor仍需校验broadcast后的输出shape
+TEST_F(l2_ne_tensor_test, test_ne_tensor_emptytensor_invalid_out_shape)
+{
+    auto tensor_self = TensorDesc({0, 2}, ACL_INT8, ACL_FORMAT_ND);
+    auto tensor_other = TensorDesc({1, 2}, ACL_INT8, ACL_FORMAT_ND).ValueRange(-10, 10);
+    auto out_tensor_desc = TensorDesc({2, 4}, ACL_INT8, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnNeTensor, INPUT(tensor_self, tensor_other), OUTPUT(out_tensor_desc));
+
+    uint64_t workspace_size = 5;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
+}
+
+// 空tensor仍需校验broadcast兼容性
+TEST_F(l2_ne_tensor_test, test_ne_tensor_emptytensor_cannot_broadcast)
+{
+    auto tensor_self = TensorDesc({0, 2}, ACL_INT8, ACL_FORMAT_ND);
+    auto tensor_other = TensorDesc({4, 2}, ACL_INT8, ACL_FORMAT_ND).ValueRange(-10, 10);
+    auto out_tensor_desc = TensorDesc({0, 2}, ACL_INT8, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnNeTensor, INPUT(tensor_self, tensor_other), OUTPUT(out_tensor_desc));
+
+    uint64_t workspace_size = 5;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
 }
 
 // 入参为self为null场景

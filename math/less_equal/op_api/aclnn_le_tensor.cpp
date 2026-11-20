@@ -187,17 +187,17 @@ static aclnnStatus aclnnLeTensorCommon(const aclTensor* self, const aclTensor* o
     // 检查三个入参参数是否为空指针
     CHECK_RET(CheckNotNull(self, other, out), ACLNN_ERR_PARAM_NULLPTR);
 
+    // 固定写法，参数检查
+    DataType promoteType = DataType::DT_UNDEFINED;
+    auto ret = CheckParams(self, other, out, promoteType);
+    CHECK_RET(ret == ACLNN_SUCCESS, ret);
+
     // 空tensor处理
     if (self->IsEmpty() || other->IsEmpty()) {
         *workspaceSize = 0;
         uniqueExecutor.ReleaseTo(executor);
         return ACLNN_SUCCESS;
     }
-
-    // 固定写法，参数检查
-    DataType promoteType = DataType::DT_UNDEFINED;
-    auto ret = CheckParams(self, other, out, promoteType);
-    CHECK_RET(ret == ACLNN_SUCCESS, ret);
 
     if (promoteType == DataType::DT_BOOL) {
         promoteType = DataType::DT_FLOAT;

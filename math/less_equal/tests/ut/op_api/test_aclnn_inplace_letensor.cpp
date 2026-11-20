@@ -153,3 +153,30 @@ TEST_F(l2_inplace_le_tensor_test, test_inplace_le_tensor_not_support_complex64)
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
     EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
 }
+
+// 空tensor在参数合法时保持零workspace
+TEST_F(l2_inplace_le_tensor_test, test_inplace_le_tensor_emptytensor)
+{
+    auto tensor_self_ref = TensorDesc({2, 0}, ACL_INT8, ACL_FORMAT_ND);
+    auto tensor_other = TensorDesc({2, 0}, ACL_INT8, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnInplaceLeTensor, INPUT(tensor_self_ref, tensor_other), OUTPUT());
+
+    uint64_t workspace_size = 5;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(aclRet, ACLNN_SUCCESS);
+    EXPECT_EQ(workspace_size, 0u);
+}
+
+// 空tensor仍需校验broadcast兼容性
+TEST_F(l2_inplace_le_tensor_test, test_inplace_le_tensor_emptytensor_cannot_broadcast)
+{
+    auto tensor_self_ref = TensorDesc({0, 2}, ACL_INT8, ACL_FORMAT_ND);
+    auto tensor_other = TensorDesc({4, 2}, ACL_INT8, ACL_FORMAT_ND).ValueRange(-10, 10);
+
+    auto ut = OP_API_UT(aclnnInplaceLeTensor, INPUT(tensor_self_ref, tensor_other), OUTPUT());
+
+    uint64_t workspace_size = 5;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
+}
