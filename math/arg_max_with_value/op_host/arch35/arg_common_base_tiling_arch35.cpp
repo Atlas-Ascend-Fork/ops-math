@@ -610,8 +610,8 @@ ge::graphStatus ArgCommonBaseTiling::CalcSplitInfoForArA()
                                                           MAX_NEXTA_SIZE) { // nextA较小且R * nextA UB放不下的场景，切R
         aRaMode_ = static_cast<uint64_t>(ARAMode::ARA_MODE3);
         CalcCutA();
-        uint64_t rTempSize = ubElement_ / tilingData_.get_nextASize();
-        rTempSize = std::min(rTempSize, MAX_VALUE_UINT16);
+        // tilesize限制大小
+        uint64_t rTempSize = std::min(ubElement_, MAX_VALUE_UINT16) / tilingData_.get_nextASize();
         rTempSize = std::min(rTempSize, tilingData_.get_rSize());
         cutRSize_ = static_cast<uint16_t>(rTempSize);
         cutASize_ = static_cast<uint16_t>(1);
@@ -653,11 +653,11 @@ ge::graphStatus ArgCommonBaseTiling::CalcSplitInfoForGatherRa()
                                               "The value of unitUbSpace must be greater than 0.");
         return ge::GRAPH_FAILED;
     }
-    uint64_t calcASize = ubSize_ / VALUE_TWO / aSize;
+    // tilesize限制大小
+    uint64_t calcASize = std::min(ubSize_ / VALUE_TWO / aSize, MAX_VALUE_UINT16 / tilingData_.get_rSize());
     uint64_t cutASize = calcASize <= vlCnt ? calcASize : (calcASize / vlCnt * vlCnt); // 向下对齐到VLSIZE
     cutASize_ = static_cast<uint16_t>(std::min(factor, cutASize));
     cutRSize_ = static_cast<uint16_t>(tilingData_.get_rSize());
-
     return ge::GRAPH_SUCCESS;
 }
 
@@ -854,6 +854,11 @@ ge::graphStatus ArgCommonBaseTiling::CalcGroupReduceArBranch(uint64_t aSize, uin
         cutRSize = cutRSize <= vlCnt ? cutRSize : (cutRSize / vlCnt * vlCnt);
         cutRSize = std::min(cutRSize, MAX_VALUE_UINT16);
         cutRSize = std::min(cutRSize, maxBlkPerCore);
+        if (nextASize > 1) {
+            // tilesize限制大小
+            uint64_t cutRLimit = MAX_VALUE_UINT16 / aSize / elementPerBlock_ * elementPerBlock_ / nextASize;
+            cutRSize = std::min(cutRSize, cutRLimit);
+        }
         cutRSize_ = static_cast<uint16_t>(cutRSize);
         gatherBlockSize_ = static_cast<uint16_t>(nextASize);
     } else {
