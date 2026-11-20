@@ -37,6 +37,8 @@
 
   The shape of out is [$\frac{1}{2}N(N-1)$], where the elements are arranged in the order of $out_{01}$, ..., $out_{0,N-1}$,$out_{1,2}$, ... $out_{1,N-1}$, ..., $out_{N-2,N-1}$
 
+- When p is 0, $out_{ij}$ is the number of positions where the i-th row and the j-th row differ, that is, $out_{ij}=\sum_{k=0}^{M-1}(self_{in} \ne self_{jn})$. If any element is NaN, NaN is treated as unequal to any value (including NaN) and is counted, so the output does not contain NaN.
+
 ## Function Prototype
 
 Each operator uses a [two-phase API](../../../docs/en/context/two_phase_api.md). Call the "aclnnPdistForwardGetWorkspaceSize" API first to obtain the workspace size required for computation and the executor containing the operator computation process. Then, call the "aclnnPdistForward" API to perform computation.
@@ -98,7 +100,7 @@ aclnnStatus aclnnPdistForward(
       <td>pScalar (aclScalar*)</td>
       <td>Input</td>
       <td>Norm coefficient, corresponding to p in the formula.</td>
-      <td>Value range: [0, +∞].</td>
+      <td>Value range: [0, +∞]. When p is 0, the output is the number of positions where the two rows differ; NaN is treated as unequal to any value (including NaN) and is counted, so the output does not contain NaN.</td>
       <td>-</td>
       <td>-</td>
       <td>-</td>

@@ -35,6 +35,8 @@
 
   out的shape为[$\frac{1}{2}N(N-1)$]，其中元素的排列顺序为$out_{01}$, ..., $out_{0,N-1}$,$out_{1,2}$, ... $out_{1,N-1}$, ..., $out_{N-2,N-1}$
 
+- p=0时的语义：$out_{ij}$为self第i行与第j行对应位置元素不相等的个数，即$out_{ij}=\sum_{k=0}^{M-1}(self_{in} \ne self_{jn})$；输入中任一元素为NaN时，NaN与任意值（包括NaN）均判定为不相等并计入个数，输出中不含NaN。
+
 ## 函数原型
 
 每个算子分为[两段式接口](../../../docs/zh/context/two_phase_api.md)，必须先调用“aclnnPdistGetWorkspaceSize”接口获取计算所需workspace大小以及包含了算子计算流程的执行器，再调用“aclnnPdist”接口执行计算。
@@ -96,7 +98,7 @@ aclnnStatus aclnnPdist(
       <td>p（float）</td>
       <td>输入</td>
       <td>表示范数的系数，公式中的p。</td>
-      <td>值域为[0, +∞]。</td>
+      <td>数据范围为[0, +∞]。p=0时，输出为两行对应位置元素不相等的个数；输入含NaN时，NaN与任意值（包括NaN）均判定为不相等并计入个数，输出中不含NaN。</td>
       <td>-</td>
       <td>-</td>
       <td>-</td>
