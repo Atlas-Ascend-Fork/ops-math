@@ -12,7 +12,7 @@
 #include <fstream>
 #include <vector>
 #include <gtest/gtest.h>
-#include "../../../op_host/fill_diagonal_v2_tiling.h"
+#include "../../../../op_host/fill_diagonal_v2_tiling.h"
 
 #include "tiling_context_faker.h"
 #include "tiling_case_executor.h"

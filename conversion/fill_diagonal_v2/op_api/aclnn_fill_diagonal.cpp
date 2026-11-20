@@ -23,6 +23,7 @@
 #include "opdev/format_utils.h"
 #include "opdev/op_dfx.h"
 #include "opdev/op_executor.h"
+#include "opdev/platform.h"
 #include "opdev/op_log.h"
 #include "opdev/tensor_view_utils.h"
 #include "opdev/make_op_executor.h"
@@ -55,12 +56,10 @@ static bool CheckNotNull(const aclTensor* selfRef, const aclScalar* fillValue)
 
 static bool CheckDtypeValid(const aclTensor* selfRef)
 {
-    // 根据芯片类型获取数据类型支持列表
-    bool isAscend910BSocVersion = (GetCurrentPlatformInfo().GetSocVersion() >= SocVersion::ASCEND910B &&
-                                   GetCurrentPlatformInfo().GetSocVersion() <= SocVersion::ASCEND910E);
-    const std::initializer_list<op::DataType> dtypeSupportList = isAscend910BSocVersion ?
-                                                                     ASCEND910B_DTYPE_SUPPORT_LIST :
-                                                                     ASCEND910_DTYPE_SUPPORT_LIST;
+    auto npuArch = GetCurrentPlatformInfo().GetCurNpuArch();
+    bool use910BList = npuArch == NpuArch::DAV_2201 || npuArch == NpuArch::DAV_3510;
+    const std::initializer_list<op::DataType> dtypeSupportList = use910BList ? ASCEND910B_DTYPE_SUPPORT_LIST :
+                                                                               ASCEND910_DTYPE_SUPPORT_LIST;
 
     // 检查selfRef的数据类型是否在FillDiagonal算子的支持列表内
     OP_CHECK_DTYPE_NOT_SUPPORT(selfRef, dtypeSupportList, return false);
