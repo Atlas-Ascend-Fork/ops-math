@@ -121,3 +121,109 @@ TEST_F(l2_isin_scalar_tensor_test, case_can_not_promote_type)
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
     EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
 }
+
+// 元素数边界回归：类型推导不再随testElements的元素个数切换，
+// 9/10/11个元素（旧实现的阈值10两侧）应走同一条推导路径并成功构建执行器
+TEST_F(l2_isin_scalar_tensor_test, case_promote_fp16_tensor_fp32_scalar_elems9)
+{
+    auto element = ScalarDesc(0.1f);
+    auto testElements = TensorDesc({9}, ACL_FLOAT16, ACL_FORMAT_ND).ValueRange(0.1, 0.1);
+    auto outDesc = TensorDesc({}, ACL_BOOL, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnIsInScalarTensor, INPUT(element, testElements, false, false), OUTPUT(outDesc));
+
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACL_SUCCESS);
+}
+
+TEST_F(l2_isin_scalar_tensor_test, case_promote_fp16_tensor_fp32_scalar_elems10)
+{
+    auto element = ScalarDesc(0.1f);
+    auto testElements = TensorDesc({10}, ACL_FLOAT16, ACL_FORMAT_ND).ValueRange(0.1, 0.1);
+    auto outDesc = TensorDesc({}, ACL_BOOL, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnIsInScalarTensor, INPUT(element, testElements, false, false), OUTPUT(outDesc));
+
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACL_SUCCESS);
+}
+
+TEST_F(l2_isin_scalar_tensor_test, case_promote_fp16_tensor_fp32_scalar_elems11)
+{
+    auto element = ScalarDesc(0.1f);
+    auto testElements = TensorDesc({11}, ACL_FLOAT16, ACL_FORMAT_ND).ValueRange(0.1, 0.1);
+    auto outDesc = TensorDesc({}, ACL_BOOL, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnIsInScalarTensor, INPUT(element, testElements, false, false), OUTPUT(outDesc));
+
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACL_SUCCESS);
+}
+
+TEST_F(l2_isin_scalar_tensor_test, case_promote_fp16_tensor_fp64_scalar_elems9)
+{
+    auto element = ScalarDesc(0.1);
+    auto testElements = TensorDesc({9}, ACL_FLOAT16, ACL_FORMAT_ND).ValueRange(0.1, 0.1);
+    auto outDesc = TensorDesc({}, ACL_BOOL, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnIsInScalarTensor, INPUT(element, testElements, false, false), OUTPUT(outDesc));
+
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACL_SUCCESS);
+}
+
+TEST_F(l2_isin_scalar_tensor_test, case_promote_bf16_tensor_fp64_scalar_elems10)
+{
+    auto element = ScalarDesc(0.1);
+    auto testElements = TensorDesc({10}, ACL_BF16, ACL_FORMAT_ND).ValueRange(0.1, 0.1);
+    auto outDesc = TensorDesc({}, ACL_BOOL, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnIsInScalarTensor, INPUT(element, testElements, false, false), OUTPUT(outDesc));
+
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACL_SUCCESS);
+}
+
+TEST_F(l2_isin_scalar_tensor_test, case_promote_int32_tensor_int64_scalar_elems9)
+{
+    auto element = ScalarDesc(static_cast<int64_t>(4294967295));
+    auto testElements = TensorDesc({9}, ACL_INT32, ACL_FORMAT_ND).ValueRange(-1, 1);
+    auto outDesc = TensorDesc({}, ACL_BOOL, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnIsInScalarTensor, INPUT(element, testElements, false, false), OUTPUT(outDesc));
+
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACL_SUCCESS);
+}
+
+TEST_F(l2_isin_scalar_tensor_test, case_promote_int32_tensor_int64_scalar_elems10)
+{
+    auto element = ScalarDesc(static_cast<int64_t>(4294967295));
+    auto testElements = TensorDesc({10}, ACL_INT32, ACL_FORMAT_ND).ValueRange(-1, 1);
+    auto outDesc = TensorDesc({}, ACL_BOOL, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnIsInScalarTensor, INPUT(element, testElements, false, false), OUTPUT(outDesc));
+
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACL_SUCCESS);
+}
+
+TEST_F(l2_isin_scalar_tensor_test, case_promote_fp16_tensor_fp32_scalar_elems10_invert)
+{
+    auto element = ScalarDesc(0.1f);
+    auto testElements = TensorDesc({10}, ACL_FLOAT16, ACL_FORMAT_ND).ValueRange(0.1, 0.1);
+    auto outDesc = TensorDesc({}, ACL_BOOL, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnIsInScalarTensor, INPUT(element, testElements, false, true), OUTPUT(outDesc));
+
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACL_SUCCESS);
+}

@@ -33,7 +33,6 @@ extern "C" {
 #endif
 
 static const size_t MAX_DIM_LEN = 8;
-static const int64_t ELEMENTS_THRESHOLD = 10; // 当testElements的元素个数大于等于10，直接进行类型推导
 
 // 根据API定义，需要列出所能支持的所有dtype
 static const std::initializer_list<op::DataType> ASCEND910_DTYPE_SUPPORT_LIST = {
@@ -83,23 +82,9 @@ static inline bool CheckDtypeValid(const aclScalar* element, const aclTensor* te
 
 static inline DataType PromoteTypeScalar(const aclScalar* element, const aclTensor* testElements)
 {
-    if (IsRegBase()) {
-        return op::PromoteType(testElements->GetDataType(), element->GetDataType());
-    }
-
-    if (testElements->Size() >= ELEMENTS_THRESHOLD) {
-        return op::PromoteType(testElements->GetDataType(), element->GetDataType());
-    }
-
-    if (IsFloatingType(testElements->GetDataType())) {
-        return testElements->GetDataType();
-    }
-
-    if (IsFloatingType(element->GetDataType())) {
-        return op::PromoteType(testElements->GetDataType(), element->GetDataType());
-    }
-
-    return testElements->GetDataType();
+    // 类型推导结果与testElements的元素个数无关：element与testElements统一推导到同一比较类型，
+    // 与Ascend950实现及GPU(torch result_type)语义保持一致
+    return op::PromoteType(testElements->GetDataType(), element->GetDataType());
 }
 
 static inline bool CheckPromoteType(const aclScalar* element, const aclTensor* testElements)

@@ -88,7 +88,7 @@ aclnnStatus aclnnIsInScalarTensor(
       <td>testElements（aclTensor*）</td>
       <td>输入</td>
       <td>输入张量，公式中的testElements。</td>
-      <td>数据类型需要与element的数据类型满足<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">数据类型推导规则</a>。</td>
+      <td>数据类型需要与element的数据类型满足<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">数据类型推导规则</a>；比较时element与testElements会统一推导到同一数据类型，该推导与testElements的元素个数无关。</td>
       <td>FLOAT、FLOAT16、DOUBLE、BFLOAT16、INT8、INT16、INT32、INT64、UINT8</td>
       <td>ND</td>
       <td>0-8</td>

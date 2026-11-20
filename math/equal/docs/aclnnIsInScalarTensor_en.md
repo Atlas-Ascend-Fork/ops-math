@@ -90,7 +90,7 @@ aclnnStatus aclnnIsInScalarTensor(
       <td>testElements (aclTensor*)</td>
       <td>Input</td>
       <td>Input tensor, testElements in the formula.</td>
-      <td>The data type must conform to the <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">data type deduction rules</a> with the data type of element.</td>
+      <td>The data type must conform to the <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">data type deduction rules</a> with the data type of element. During comparison, element and testElements are deduced to a common data type, and the deduction is independent of the number of elements in testElements.</td>
       <td>FLOAT, FLOAT16, DOUBLE, BFLOAT16, INT8, INT16, INT32, INT64, UINT8</td>
       <td>ND</td>
       <td>0-8</td>
