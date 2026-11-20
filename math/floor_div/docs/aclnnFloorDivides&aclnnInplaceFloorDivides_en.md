@@ -125,7 +125,7 @@ aclnnStatus aclnnInplaceFloorDivides(
       <td>Output</td>
       <td>-</td>
       <td>The data type must be convertible from the data types of self and other after type inference, and the shape must be the shape after self and other are broadcast.</td>
-      <td>FLOAT, FLOAT16, DOUBLE, INT32, INT64, INT16, INT8, UINT8, BOOL</td>
+      <td>FLOAT, FLOAT16, DOUBLE, INT32, INT64, INT16, INT8, UINT8, BOOL, UINT16, UINT32, UINT64, COMPLEX64, COMPLEX128</td>
       <td>ND</td>
       <td>Up to 8 dimensions</td>
       <td>√</td>

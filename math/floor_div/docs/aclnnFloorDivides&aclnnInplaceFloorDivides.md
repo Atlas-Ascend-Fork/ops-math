@@ -123,7 +123,7 @@ aclnnStatus aclnnInplaceFloorDivides(
       <td>输出</td>
       <td>-</td>
       <td>数据类型需要是self与other推导之后可转换的数据类型，shape需要是self与other broadcast之后的shape。</td>
-      <td>FLOAT、FLOAT16、DOUBLE、INT32、INT64、INT16、INT8、UINT8、BOOL</td>
+      <td>FLOAT、FLOAT16、DOUBLE、INT32、INT64、INT16、INT8、UINT8、BOOL、UINT16、UINT32、UINT64、COMPLEX64、COMPLEX128</td>
       <td>ND</td>
       <td>不超过8维</td>
       <td>√</td>
