@@ -77,13 +77,15 @@ _SPECIAL_DTYPES = (
 )
 
 # 判据声明: 覆盖 cast_def.cpp 注册的全部 dtype。
-# 浮点一律 cross_check —— 只有 cross_check 才会让 TTK 取三方(GPU)输出并开 golden_mode=Promote;
+# 浮点默认 cross_check —— 只有 cross_check 才会让 TTK 取三方(GPU)输出并开 golden_mode=Promote;
+# bfloat16 例外走 binary_equal: cast 是精确类型转换，而 cross_check 会触发 golden
+# Promote，遇到输入为 e8m0(非 torch 原生) 时跨边界 promote 未实现会直接报错。
 # 整型/布尔位精确，用 binary_equal; 复数走 stat_rel_err。
 _KERNEL_TOLERANCE = {
-    "float16": {"standard": "cross_check", "level": "L1"},
-    "float32": {"standard": "cross_check", "level": "L1"},
-    "float64": {"standard": "cross_check", "level": "L1"},
-    "bfloat16": {"standard": "cross_check", "level": "L1"},
+    "float16": {"standard": "binary_equal", "level": "L1"},
+    "float32": {"standard": "binary_equal", "level": "L1"},
+    "float64": {"standard": "binary_equal", "level": "L1"},
+    "bfloat16": {"standard": "binary_equal"},
     # E8M0 无尾数、按位精确，且 NaN 编码无法用浮点比较校验，故用 binary_equal。
     "float8_e8m0": {"standard": "binary_equal"},
     "int8": {"standard": "binary_equal"},
@@ -205,19 +207,96 @@ def aclnn_cast_golden(self, dtype=0, out=None, **kwargs):
     """
     Aclnn golden for aclnnCast.
     Parameters follow @aclnnCastGetWorkspaceSize without workspaceSize & executor.
-    All the input Tensors are torch.Tensor.
+
+    Torch-native dtypes arrive as torch.Tensor; CANN-only target dtypes (e.g.
+    float8_e8m0) are not representable by torch, so the framework keeps the
+    input as numpy.ndarray (use_numpy=True) and the numpy golden is used.
     """
-    from ttk.utilities import acl_to_torch_dtype
+    import torch
 
-    torch_dtype = acl_to_torch_dtype([dtype])[0]
-    return self.to(dtype=torch_dtype)
+    if isinstance(self, torch.Tensor):
+        return self.to(dtype=_torch_dtype(dtype))
+    return cast_golden(self, dtype, **kwargs)
 
 
-def _resolve_torch_dtype(dtype_int):
-    """Map aclnn dtype int to torch dtype, falling back to ttk utilities."""
-    from ttk.utilities import acl_to_torch_dtype
+# torch 侧命名差异与 torch 无法表示的 CANN 专有 dtype。
+_TORCH_DTYPE_ALIASES = {"float8_e8m0": "float8_e8m0fnu"}
+_TORCH_UNSUPPORTED_DTYPES = frozenset(
+    (
+        "hifloat8",
+        "hifloat4",
+        "int4",
+        "int2",
+        "uint1",
+        "uint2",
+        "float4_e2m1",
+        "float4_e1m2",
+    )
+)
 
-    return acl_to_torch_dtype([dtype_int])[0]
+
+def _torch_dtype(dtype):
+    """Resolve the cast target dtype to a torch.dtype.
+
+    Accepts an aclnn dtype enum int, a torch.dtype, or a string ("torch.float16"
+    / "float16"). Raises ValueError naming the dtype when torch cannot represent
+    it, so an unsupported case fails readably instead of deep inside the table
+    lookup.
+    """
+    import torch
+
+    if isinstance(dtype, torch.dtype):
+        return dtype
+    if isinstance(dtype, bool) or not isinstance(dtype, (int, str)):
+        raise ValueError(f"cast: unsupported target dtype {dtype!r}")
+    name = (
+        _DATA_TYPE_INT_TO_STR.get(dtype, str(dtype))
+        if isinstance(dtype, int)
+        else dtype
+    )
+    name = _TORCH_DTYPE_ALIASES.get(name.rsplit(".", 1)[-1], name.rsplit(".", 1)[-1])
+    if name in _TORCH_UNSUPPORTED_DTYPES:
+        raise ValueError(f"cast: torch has no dtype for '{name}' (CANN-only dtype)")
+    resolved = getattr(torch, name, None)
+    if not isinstance(resolved, torch.dtype):
+        raise ValueError(f"cast: torch has no dtype for '{name}'")
+    return resolved
+
+
+def _third_party_tensor_and_dtype(args, kwargs):
+    """Locate the input tensor and the target dtype in a bound third_party call.
+
+    The aclnn input is named ``self`` (aclnn_cast.h) while the kernel pool is
+    (x, dst_type). The compose declares ``self`` verbatim (renaming the instance
+    slot to ``impl``) so it binds under both old and new XPU binders; kernel
+    tensors still arrive as ``x``. Scan both channels by type.
+    """
+    import torch
+
+    tensor = kwargs.get("x")
+    tensor_types = (torch.Tensor, np.ndarray)
+    if not isinstance(tensor, tensor_types):
+        tensor = next(
+            (
+                v
+                for v in list(args) + list(kwargs.values())
+                if isinstance(v, tensor_types)
+            ),
+            None,
+        )
+    dtype = kwargs.get("dtype")
+    if dtype is None:
+        dtype = kwargs.get("dst_type")
+    if dtype is None:
+        dtype = next(
+            (v for v in args if v is not None and not isinstance(v, tensor_types)), None
+        )
+    if tensor is None or dtype is None:
+        raise ValueError(
+            "cast third_party expects one input tensor and a target dtype "
+            f"(args={[type(v).__name__ for v in args]}, kwargs={sorted(kwargs)})"
+        )
+    return tensor, dtype
 
 
 class _CastCompose:
@@ -228,10 +307,13 @@ class _CastCompose:
     cast semantics and can cross-validate each other.
     """
 
-    def __call__(self, self_=None, dtype=0, *args, **kwargs):
-        del args, kwargs
-        torch_dtype = _resolve_torch_dtype(dtype)
-        return [self_.to(dtype=torch_dtype)]
+    def __call__(impl, self=None, *args, **kwargs):
+        tensor, dtype = _third_party_tensor_and_dtype((self, *args), kwargs)
+        import torch
+
+        if isinstance(tensor, torch.Tensor):
+            return [tensor.to(dtype=_torch_dtype(dtype))]
+        return [cast_golden(tensor, dtype, **kwargs)]
 
 
 class CastKernelSpec:
@@ -262,8 +344,7 @@ class CastAclnnSpec:
     @staticmethod
     def golden(self, dtype=0, out=None, **kwargs):
         del out
-        torch_dtype = _resolve_torch_dtype(dtype)
-        return [self.to(dtype=torch_dtype)]
+        return [aclnn_cast_golden(self, dtype, **kwargs)]
 
     third_party = {"torch": _CastCompose}
     tolerance = _KERNEL_TOLERANCE
@@ -279,23 +360,22 @@ class _CastE2eCompose:
     key (string form, e.g. "torch.float32").
     """
 
-    def __call__(self, *args, **kwargs):
+    def __call__(impl, self=None, *args, **kwargs):
         import torch
 
         tensor = None
-        for v in kwargs.values():
+        for v in (self, *args, *kwargs.values()):
             if isinstance(v, torch.Tensor):
                 tensor = v
                 break
-        if tensor is None:
-            for v in args:
-                if isinstance(v, torch.Tensor):
-                    tensor = v
-                    break
         dtype = kwargs.get("dtype")
         if dtype is None:
-            for v in args:
-                if not isinstance(v, torch.Tensor) and not isinstance(v, (list, tuple)):
+            for v in (self, *args):
+                if (
+                    v is not None
+                    and not isinstance(v, torch.Tensor)
+                    and not isinstance(v, (list, tuple))
+                ):
                     dtype = v
                     break
         if tensor is None or dtype is None:
