@@ -20,15 +20,9 @@ using namespace std;
 
 class l2_reduce_log_sum_test : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        cout << "reduce_log_sum_test SetUp" << endl;
-    }
+    static void SetUpTestCase() { cout << "reduce_log_sum_test SetUp" << endl; }
 
-    static void TearDownTestCase()
-    {
-        cout << "reduce_log_sum_test TearDown" << endl;
-    }
+    static void TearDownTestCase() { cout << "reduce_log_sum_test TearDown" << endl; }
 };
 
 // 正常场景 - float16
@@ -273,6 +267,20 @@ TEST_F(l2_reduce_log_sum_test, l2_reduce_log_sum_empty_tensor)
     EXPECT_EQ(aclRet, ACL_SUCCESS);
 }
 
+// 边界场景 - 空tensor归约后输出非空，结果应为-log(0)即-INFINITY
+TEST_F(l2_reduce_log_sum_test, l2_reduce_log_sum_empty_tensor_non_empty_out)
+{
+    auto xDesc = TensorDesc({0, 3}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto dim = IntArrayDesc(vector<int64_t>{0});
+    bool keep_dim = false;
+    bool noopWithEmptyAxes = false;
+    auto outTensorDesc = TensorDesc({3}, ACL_FLOAT, ACL_FORMAT_ND).ValidCount(3);
+    auto ut = OP_API_UT(aclnnReduceLogSum, INPUT(xDesc, dim, keep_dim, noopWithEmptyAxes), OUTPUT(outTensorDesc));
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACL_SUCCESS);
+}
+
 // 边界场景 - 0维tensor
 TEST_F(l2_reduce_log_sum_test, l2_reduce_log_sum_zero_dim_tensor)
 {
@@ -290,8 +298,8 @@ TEST_F(l2_reduce_log_sum_test, l2_reduce_log_sum_zero_dim_tensor)
 // 不连续场景 - self discontinues
 TEST_F(l2_reduce_log_sum_test, l2_reduce_log_sum_self_discontinues)
 {
-    auto xDesc =
-        TensorDesc({2, 2, 5, 4}, ACL_FLOAT, ACL_FORMAT_ND, {40, 20, 1, 5}, 0, {2, 2, 4, 5}).ValueRange(-50, 50);
+    auto xDesc = TensorDesc({2, 2, 5, 4}, ACL_FLOAT, ACL_FORMAT_ND, {40, 20, 1, 5}, 0, {2, 2, 4, 5})
+                     .ValueRange(-50, 50);
     auto dim = IntArrayDesc(vector<int64_t>{0});
     bool keep_dim = true;
     bool noopWithEmptyAxes = false;
@@ -309,8 +317,8 @@ TEST_F(l2_reduce_log_sum_test, l2_reduce_log_sum_out_discontinues)
     auto dim = IntArrayDesc(vector<int64_t>{0});
     bool keep_dim = true;
     bool noopWithEmptyAxes = false;
-    auto outTensorDesc =
-        TensorDesc({1, 2, 5, 4}, ACL_FLOAT, ACL_FORMAT_ND, {40, 20, 1, 5}, 0, {1, 2, 4, 5}).ValidCount(40);
+    auto outTensorDesc = TensorDesc({1, 2, 5, 4}, ACL_FLOAT, ACL_FORMAT_ND, {40, 20, 1, 5}, 0, {1, 2, 4, 5})
+                             .ValidCount(40);
     auto ut = OP_API_UT(aclnnReduceLogSum, INPUT(xDesc, dim, keep_dim, noopWithEmptyAxes), OUTPUT(outTensorDesc));
     uint64_t workspaceSize = 0;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);

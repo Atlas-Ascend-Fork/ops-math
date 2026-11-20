@@ -160,9 +160,9 @@ aclnnStatus aclnnReduceLogSumGetWorkspaceSize(const aclTensor* data, const aclIn
     auto ret = CheckParams(data, axes, reduce);
     CHECK_RET(ret == ACLNN_SUCCESS, ret);
 
-    // 输入self为空tensor时，直接返回dtype类型的空tensor
+    // 输入self为空tensor时，空维度归约和为0，取对数后结果为-INFINITY
     if (data->IsEmpty()) {
-        ret = FillScalar(reduce, 0.0f, uniqueExecutor.get());
+        ret = FillScalar(reduce, -INFINITY, uniqueExecutor.get());
         if (ret == ACLNN_SUCCESS) {
             *workspaceSize = uniqueExecutor->GetWorkspaceSize();
             uniqueExecutor.ReleaseTo(executor);
