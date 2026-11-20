@@ -307,8 +307,8 @@
 - Deterministic computation:
   - aclnnRemainderTensorTensor&aclnnInplaceRemainderTensorTensor default to a deterministic implementation.
 
-- When the data type of self is INT32, functionality and precision within the range [-2^24, 2^24] are prioritized.
-- When other is 0 and the data type of self is an integer type, the result in out is self.
+- When the data type of self (aclnnRemainderTensorTensor) or selfRef (aclnnInplaceRemainderTensorTensor) is INT32, functionality and precision within the range [-2^24, 2^24] are prioritized.
+- When other is 0 and the data type of self (aclnnRemainderTensorTensor) or selfRef (aclnnInplaceRemainderTensorTensor) is an integer type, the result in out equals self for aclnnRemainderTensorTensor, and the result is written back to selfRef for aclnnInplaceRemainderTensorTensor.
 
 ## Example
 
