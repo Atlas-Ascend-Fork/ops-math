@@ -519,10 +519,10 @@ __aicore__ inline void AddExample<T>::Process()
 
 5. **（可选）卸载自定义算子包。**
 
-    自定义算子包安装后在```${ASCEND_HOME_PATH}/opp/vendors/custom_math/scripts```目录会生成`uninstall.sh`，通过该脚本可卸载自定义算子包，命令如下：
+    自定义算子包安装后在```${ASCEND_HOME_PATH}/opp/vendors/${vendor_name}_math/scripts```目录会生成`uninstall.sh`，通过该脚本可卸载自定义算子包。路径中的vendor_name与编译时--vendor_name参数保持一致，未指定时使用custom。命令如下：
 
     ```bash
-    bash ${ASCEND_HOME_PATH}/opp/vendors/custom_math/scripts/uninstall.sh
+    bash "${ASCEND_HOME_PATH}/opp/vendors/${vendor_name:-custom}_math/scripts/uninstall.sh"
     ```
 
 ## 算子验证
