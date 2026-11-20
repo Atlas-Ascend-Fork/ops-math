@@ -290,3 +290,68 @@ TEST_F(l2_arg_max_v2_test, case_arg_max_v2_8d_float)
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
     EXPECT_EQ(aclRet, ACL_SUCCESS);
 }
+
+// out为BOOL：资料仅支持INT32/INT64，需返回161002
+TEST_F(l2_arg_max_v2_test, case_arg_max_v2_out_bool)
+{
+    auto self_tensor_desc = TensorDesc({3, 5}, ACL_FLOAT, ACL_FORMAT_ND).ValueRange(-2.0, 2.0);
+    auto out_tensor_desc = TensorDesc({3}, ACL_BOOL, ACL_FORMAT_ND);
+    int64_t dim = 1;
+    bool keepdim = false;
+    auto ut = OP_API_UT(aclnnArgMax, INPUT(self_tensor_desc, dim, keepdim), OUTPUT(out_tensor_desc));
+    uint64_t workspace_size = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
+}
+
+// out为FLOAT：需返回161002
+TEST_F(l2_arg_max_v2_test, case_arg_max_v2_out_float)
+{
+    auto self_tensor_desc = TensorDesc({3, 5}, ACL_FLOAT, ACL_FORMAT_ND).ValueRange(-2.0, 2.0);
+    auto out_tensor_desc = TensorDesc({3}, ACL_FLOAT, ACL_FORMAT_ND);
+    int64_t dim = 1;
+    bool keepdim = false;
+    auto ut = OP_API_UT(aclnnArgMax, INPUT(self_tensor_desc, dim, keepdim), OUTPUT(out_tensor_desc));
+    uint64_t workspace_size = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
+}
+
+// out为INT8：需返回161002
+TEST_F(l2_arg_max_v2_test, case_arg_max_v2_out_int8)
+{
+    auto self_tensor_desc = TensorDesc({3, 5}, ACL_FLOAT, ACL_FORMAT_ND).ValueRange(-2.0, 2.0);
+    auto out_tensor_desc = TensorDesc({3}, ACL_INT8, ACL_FORMAT_ND);
+    int64_t dim = 1;
+    bool keepdim = false;
+    auto ut = OP_API_UT(aclnnArgMax, INPUT(self_tensor_desc, dim, keepdim), OUTPUT(out_tensor_desc));
+    uint64_t workspace_size = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
+}
+
+// out为UINT8：需返回161002
+TEST_F(l2_arg_max_v2_test, case_arg_max_v2_out_uint8)
+{
+    auto self_tensor_desc = TensorDesc({3, 5}, ACL_FLOAT, ACL_FORMAT_ND).ValueRange(-2.0, 2.0);
+    auto out_tensor_desc = TensorDesc({3}, ACL_UINT8, ACL_FORMAT_ND);
+    int64_t dim = 1;
+    bool keepdim = false;
+    auto ut = OP_API_UT(aclnnArgMax, INPUT(self_tensor_desc, dim, keepdim), OUTPUT(out_tensor_desc));
+    uint64_t workspace_size = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
+}
+
+// 空tensor且out为BOOL：dtype校验先于空张量分支，需返回161002
+TEST_F(l2_arg_max_v2_test, case_arg_max_v2_empty_out_bool)
+{
+    auto self_tensor_desc = TensorDesc({0, 3}, ACL_FLOAT, ACL_FORMAT_ND);
+    auto out_tensor_desc = TensorDesc({0}, ACL_BOOL, ACL_FORMAT_ND);
+    int64_t dim = 0;
+    bool keepdim = false;
+    auto ut = OP_API_UT(aclnnArgMax, INPUT(self_tensor_desc, dim, keepdim), OUTPUT(out_tensor_desc));
+    uint64_t workspace_size = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
+}

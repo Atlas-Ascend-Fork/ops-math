@@ -49,6 +49,9 @@ static const std::initializer_list<DataType> ARCH_REGBASE_DTYPE_DTYPE_SUPPORT_LI
 
 static const std::initializer_list<DataType> EMPTY_DTYPE_SUPPORT_LIST = {};
 
+// 根据API定义，out仅支持INT32、INT64两种索引类型
+static const std::initializer_list<DataType> OUT_DTYPE_SUPPORT_LIST = {DataType::DT_INT32, DataType::DT_INT64};
+
 static const inline std::initializer_list<DataType>& GetSupportDtypeList(NpuArch npuArch)
 {
     if (npuArch == Ops::Base::DAV_2002 || npuArch == Ops::Base::DAV_1001) {
@@ -62,11 +65,12 @@ static const inline std::initializer_list<DataType>& GetSupportDtypeList(NpuArch
     }
 }
 
-static bool CheckDtypeValid(const aclTensor* self)
+static bool CheckDtypeValid(const aclTensor* self, const aclTensor* out)
 {
     auto curArch = GetCurrentPlatformInfo().GetCurNpuArch();
     const auto& dTypeSupportList = GetSupportDtypeList(curArch);
     OP_CHECK_DTYPE_NOT_SUPPORT(self, dTypeSupportList, return false);
+    OP_CHECK_DTYPE_NOT_SUPPORT(out, OUT_DTYPE_SUPPORT_LIST, return false);
     return true;
 }
 
@@ -160,8 +164,8 @@ static aclnnStatus CheckParams(const aclTensor* self, const aclTensor* out, int6
     // 1. 检查参数是否为空指针
     CHECK_RET(CheckNotNull(self, out), ACLNN_ERR_PARAM_NULLPTR);
 
-    // 2. 检查输入的数据类型是否在API支持的数据类型范围之内，需要根据api定义校验
-    CHECK_RET(CheckDtypeValid(self), ACLNN_ERR_PARAM_INVALID);
+    // 2. 检查输入self和输出out的数据类型是否在API支持的数据类型范围之内，需要根据api定义校验
+    CHECK_RET(CheckDtypeValid(self, out), ACLNN_ERR_PARAM_INVALID);
 
     // 3. 检查shape是否支持
     CHECK_RET(CheckShape(self, out), ACLNN_ERR_PARAM_INVALID);
