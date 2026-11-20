@@ -53,9 +53,9 @@ check_git() {
 check_and_install_and_activate_spack() {
     local spack_dir="$SPACK_INSTALL_DIR/"
     local setup_script="$spack_dir/spack/share/spack/setup-env.sh"
-    
+
     echo "🔍 检查 Spack 安装状态..."
-    
+
     if [ ! -f "$setup_script" ]; then
         echo "📥 未检测到 Spack，开始下载 Spack v1.1.0..."
         cd "$SPACK_INSTALL_DIR"
@@ -73,12 +73,12 @@ check_and_install_and_activate_spack() {
 
     echo "🔧 激活 Spack 环境..."
     . "$setup_script"
-    
+
     if ! spack --version > /dev/null 2>&1; then
         echo "❌ 错误：Spack 激活失败，请检查安装"
         return 1 2>/dev/null || exit 1
     fi
-    
+
     echo "✅ Spack 环境激活成功"
     echo "   Spack 版本：$(spack --version | head -n1)"
 }
@@ -91,7 +91,7 @@ create_spack_env_and_activate() {
     local spack_buitin_repo="$SPACK_INSTALL_DIR/.spack/package_repos/ughgqqd/spack-repo-index.yaml"
 
     echo "🔧 正在创建 Spack 环境：$env_name"
-    
+
     # 如果因网络问题下载仓库失败会导致生成空目录，导致第二次git clone失败，检测仓库目录是否为空，如果为空则删除
     if [ ! -d "$spack_buitin_repo" ]; then
         rm -rf "$SPACK_INSTALL_DIR/.spack/package_repos"
@@ -116,23 +116,23 @@ create_spack_env_and_activate() {
             echo "❌ 错误：激活 Spack 环境失败"
             return 1 2>/dev/null || exit 1
         fi
-    
+
     # 查找并配置编译器
     echo "🔧 正在查找并配置可用编译器..."
     spack compiler find
-    
+
     #配置并信任官方证书
-    #echo "🔧 正在设置并信任官方二进制包（Buildcache）的 GPG 签名密钥..."   
+    #echo "🔧 正在设置并信任官方二进制包（Buildcache）的 GPG 签名密钥..."
     #spack buildcache keys --install --trust
 
-    
+
     echo "✅ Spack 环境 '$env_name' 已激活并准备就绪"
 }
 
 # 配置 Spack 的软件包安装目录到用户目录
 add_user_spack_config() {
     echo "⚙️  配置 Spack 用户级安装路径..."
-    
+
     CURRENT_USER=$(whoami)
     if [ "$CURRENT_USER" = "root" ]; then
         # 管理员路径（全局共享目录）
@@ -143,7 +143,7 @@ add_user_spack_config() {
         local SPACK_PACKAGES_INSTALL_DIR="$HOME/.spack"
         echo "   将使用用户级安装目录：$SPACK_PACKAGES_INSTALL_DIR"
     fi
-    
+
     spack config --scope user add "config:install_tree:root:$SPACK_PACKAGES_INSTALL_DIR"
     echo "✅ Spack 安装路径配置完成"
 }
@@ -151,7 +151,7 @@ add_user_spack_config() {
 # 配置 Spack 仓库（repos.yaml）
 copy_spack_repos_yaml() {
     echo "⚙️  配置 Spack 仓库..."
-    
+
     # 确保 ~/.spack 目录存在
     mkdir -p ~/.spack
     cd ~/.spack
@@ -169,19 +169,19 @@ copy_spack_repos_yaml() {
 
     echo "📄 复制 repos.yaml 到 ~/.spack 目录"
     cp "$script_dir/repos.yaml" .
-    
+
     if ! spack repo list > /dev/null 2>&1; then
         echo "❌ 错误：Spack 仓库配置失败"
         return 1 2>/dev/null || exit 1
     fi
-    
+
     echo "✅ Spack 仓库配置完成"
 }
 
 # 下载 CANN Spack 包仓库
 download_cann_repo() {
     echo "📥 正在下载 CANN Spack 包仓库..."
-    
+
     cd $SPACK_INSTALL_DIR
     if [ ! -d cann-spack-package ]; then
         echo "   从 $CANN_PACKAGES_REPO_URL 下载仓库..."
@@ -204,7 +204,7 @@ download_cann_repo() {
         echo "ℹ️  CANN Spack 包仓库已添加，跳过添加"
         return
     fi
-    
+
     echo "🔗 将 CANN 仓库添加到 Spack..."
     spack repo add "$SPACK_INSTALL_DIR/cann-spack-package"
     if [ $? -ne 0 ]; then
@@ -217,9 +217,9 @@ download_cann_repo() {
 # 将 Spack 环境配置添加到 .bashrc，实现终端启动时自动加载
 add_spack_env_to_bashrc() {
     echo "⚙️  配置终端自动加载 Spack 环境..."
-    
+
     target_line="source $SPACK_INSTALL_DIR/spack/share/spack/setup-env.sh"
-    
+
     # 检查是否已配置
     if ! grep -qF "$target_line" ~/.bashrc; then
         # 如果不存在则追加
@@ -229,7 +229,7 @@ add_spack_env_to_bashrc() {
     else
         echo "ℹ️  Spack 环境配置已存在，无需添加"
     fi
-    
+
     # 立即生效（仅当前会话）
     echo "🔄 立即应用配置..."
     source ~/.bashrc
@@ -240,21 +240,21 @@ add_spack_env_to_bashrc() {
 # 将本地代码仓库设置为开发分支，并安装所有依赖
 pull_develop_branch_local() {
     echo "🔧 设置 $PACKAGE_NAME 为开发模式..."
-    
+
     # 将本地路径设置为开发分支
-    spack develop -p $develop_path "$PACKAGE_NAME"
+    spack develop -p "$develop_path" "$PACKAGE_NAME"
     if [ $? -ne 0 ]; then
         echo "❌ 错误：设置开发模式失败"
         return 1 2>/dev/null || exit 1
     fi
-    
+
     echo "✅ $PACKAGE_NAME 已设置为开发模式"
     echo "   源代码路径：$develop_path"
-    
+
     # 添加包到环境
     echo "📦 添加 $PACKAGE_NAME 到当前环境..."
     spack add "$PACKAGE_NAME"
-    
+
     # 解决依赖关系
     echo "🔍 解析依赖关系..."
     spack concretize -f
@@ -288,29 +288,29 @@ environment_clean() {
     echo "   - 所有配置文件"
     echo ""
     read -p "   确定要继续吗？(y/N): " confirm
-    
+
     if [[ ! $confirm =~ ^[Yy]$ ]]; then
         echo "❌ 操作已取消"
         return 0 2>/dev/null || exit 0
     fi
-    
+
     echo "正在清理..."
-    
+
     # 删除 Spack 相关目录
     rm -rf ~/.spack
     rm -rf "$SPACK_INSTALL_DIR/spack"
     rm -rf "$SPACK_INSTALL_DIR/spack-repo"
     rm -rf "$SPACK_INSTALL_DIR/spack-packages-develop"
     rm -rf "$SPACK_INSTALL_DIR/cann-spack-package"
-    
+
     # 显示清理后的目录
     echo "✅ 清理完成，剩余文件："
     ls -al $SPACK_INSTALL_DIR
-    
+
     # 从 .bashrc 中移除 Spack 配置
     sed -i "\|^source $SPACK_INSTALL_DIR/spack/share/spack/setup-env.sh$|d" ~/.bashrc
     echo "✅ 已从 ~/.bashrc 中移除 Spack 配置"
-    
+
     echo ""
     echo "🎉 所有 Spack 相关文件已清理完成！"
     echo "   注意：可能存在环境变量残留，需要重启终端以清理环境变量"
@@ -359,36 +359,36 @@ main() {
     echo "========================================="
     echo "🔧 CANN 开发环境配置工具"
     echo "========================================="
-    
+
     # 显示环境信息
     echo "📋 环境配置："
     echo "   - 环境名称：$ENV_NAME"
     echo "   - Spack 目录：$SPACK_INSTALL_DIR"
     echo "   - 包名称：$PACKAGE_NAME"
     echo "========================================="
-    
+
     # 检查 Git
     check_git
-    
+
     # 安装并激活 Spack
     check_and_install_and_activate_spack
-    
+
     # 配置仓库
     copy_spack_repos_yaml
     download_cann_repo
-    
+
     # 配置用户安装路径
     add_user_spack_config
-    
+
     # 创建并激活环境
     create_spack_env_and_activate
-    
+
     # 配置终端自动加载
     add_spack_env_to_bashrc
-    
+
     # 设置开发分支并安装依赖
     pull_develop_branch_local
-    
+
     echo ""
     echo "========================================="
     echo "🎉 CANN 开发环境配置完成！"
@@ -418,4 +418,4 @@ case "$1" in
         ;;
 esac
 restore_umask
-cd $develop_path
+cd "$develop_path"
