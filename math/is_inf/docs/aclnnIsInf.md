@@ -157,7 +157,7 @@ aclnnStatus aclnnIsInf(
       <td>参数x、out是空指针</td>
     </tr>
     <tr>
-      <td rowspan="8">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="2">ACLNN_ERR_PARAM_INVALID</td>
       <td rowspan="2">161002</td>
       <td>参数x、out的数据类型不在支持范围内。</td>
     </tr>
