@@ -409,6 +409,10 @@ __aicore__ inline void RadixSortTopKSingleCore<T, UNSIGNED_TYPE, NUM_PASS, IS_LA
                     } else {
                         tileKLocal_(tileId) += tileCusumLocal(boundaryBinPrev);
                     }
+                    // Protect cumulative-sum reads before the next tile overwrites the buffer.
+                    event_t scalarReadDone = static_cast<event_t>(GetTPipePtr()->FetchEventID(HardEvent::S_MTE2));
+                    SetFlag<HardEvent::S_MTE2>(scalarReadDone);
+                    WaitFlag<HardEvent::S_MTE2>(scalarReadDone);
                 }
             }
         }
@@ -547,6 +551,10 @@ __aicore__ inline void RadixSortTopKSingleCore<T, UNSIGNED_TYPE, NUM_PASS, IS_LA
         WaitFlag<HardEvent::MTE2_S>(eventIdScalar);
         T_INDEX tilePrevCusum = (boundaryBin >= 1) ? tileCusumLocal(boundaryBin - 1) : 0;
         T_INDEX boundaryNum = tileCusumLocal(boundaryBin) - tilePrevCusum;
+        // Complete both scalar reads before this cumulative-sum buffer is reused.
+        event_t scalarReadDone = static_cast<event_t>(GetTPipePtr()->FetchEventID(HardEvent::S_MTE2));
+        SetFlag<HardEvent::S_MTE2>(scalarReadDone);
+        WaitFlag<HardEvent::S_MTE2>(scalarReadDone);
         if (updatedK_ <= boundaryNum) {
             tileKLocal_(tileId) += updatedK_;
             break;
@@ -622,7 +630,7 @@ __aicore__ inline void RadixSortTopKSingleCore<T, UNSIGNED_TYPE, NUM_PASS, IS_LA
             AscendC::TopK<T, false, false, false, TopKMode::TOPK_NORMAL, topkConfig>(
                 valuesLocal, indicesLocal, xLocal, this->srcIndexLocal, emptyFinishLocal, tmpBuffer,
                 static_cast<int32_t>(tileKLocal_(tileId)), emptyTopkTiling, topKInfo, IS_LARGEST);
-            Adds(indicesLocal, indicesLocal, inputTileOffset, tileNum);
+            Adds(indicesLocal, indicesLocal, inputTileOffset, static_cast<int32_t>(tileKLocal_(tileId)));
             this->indicesQue_.template EnQue<int32_t>(indicesLocal);
         } else {
             AscendC::LocalTensor<int64_t> indicesLocal = this->indicesQue_.template AllocTensor<int64_t>();
@@ -632,7 +640,7 @@ __aicore__ inline void RadixSortTopKSingleCore<T, UNSIGNED_TYPE, NUM_PASS, IS_LA
                 static_cast<int32_t>(tileKLocal_(tileId)), emptyTopkTiling, topKInfo, IS_LARGEST);
             AscendC::Cast<int64_t, int32_t>(indicesLocal, indicesTmp, RoundMode::CAST_NONE,
                                             static_cast<int32_t>(tileKLocal_(tileId)));
-            Adds(indicesLocal, indicesLocal, inputTileOffset, tileNum);
+            Adds(indicesLocal, indicesLocal, inputTileOffset, static_cast<int32_t>(tileKLocal_(tileId)));
             this->indicesQue_.template EnQue<int64_t>(indicesLocal);
             this->indicesOutTbuf_.template FreeTensor(indicesTmp);
         }

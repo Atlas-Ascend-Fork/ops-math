@@ -943,6 +943,10 @@ __aicore__ inline void RunBitonicSmallTopKFinalizeWithFlags(LocalTensor<T> value
             BitonicSmallRegFinalizeSelectionFlagBatch<T, IS_LARGEST>(valueBase + rowStart * valueStride,
                                                                      indexBase + rowStart * indexStride, flagBase, k,
                                                                      rows, valueStride, indexStride);
+            // Finish scalar flag reads before the next batch or Sort reuses this buffer.
+            event_t scalarReadDone = static_cast<event_t>(GetTPipePtr()->FetchEventID(HardEvent::S_V));
+            SetFlag<HardEvent::S_V>(scalarReadDone);
+            WaitFlag<HardEvent::S_V>(scalarReadDone);
         }
     } else {
         RunBitonicFinalizeSelectionRows<T, T_INDEX_TO, IS_LARGEST>(values, indices, k, batchNum, valueStride,

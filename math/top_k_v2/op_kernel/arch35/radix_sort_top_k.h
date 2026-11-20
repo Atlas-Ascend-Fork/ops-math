@@ -845,7 +845,8 @@ __aicore__ inline void RadixSortTopK<T, UNSIGNED_TYPE, NUM_PASS, IS_LARGEST, IS_
                 IS_LARGEST);
             // convert index to global index
             int32_t indexStride = tileId * numTileData_;
-            AscendC::Adds(topkValueOutIndexLocal, topkValueOutIndexLocal, indexStride, nowTileSize);
+            AscendC::Adds(topkValueOutIndexLocal, topkValueOutIndexLocal, indexStride,
+                          static_cast<int32_t>(tileTopkValue_(tileTopkValueIndex)));
             topkValueIndexQueue_.EnQue<int32_t>(topkValueOutIndexLocal);
         } else {
             AscendC::LocalTensor<int64_t> topkValueOutIndexLocal = topkValueIndexQueue_.AllocTensor<int64_t>();
@@ -857,7 +858,8 @@ __aicore__ inline void RadixSortTopK<T, UNSIGNED_TYPE, NUM_PASS, IS_LARGEST, IS_
             AscendC::Cast<int64_t, int32_t>(topkValueOutIndexLocal, topkValueOutIndexTmp, RoundMode::CAST_NONE,
                                             static_cast<int32_t>(tileTopkValue_(tileTopkValueIndex)));
             int64_t indexStride = tileId * numTileData_;
-            AscendC::Adds(topkValueOutIndexLocal, topkValueOutIndexLocal, indexStride, nowTileSize);
+            AscendC::Adds(topkValueOutIndexLocal, topkValueOutIndexLocal, indexStride,
+                          static_cast<int32_t>(tileTopkValue_(tileTopkValueIndex)));
             topkValueIndexQueue_.EnQue<int64_t>(topkValueOutIndexLocal);
             topkValueIndexTbuf_.FreeTensor(topkValueOutIndexTmp);
         }
