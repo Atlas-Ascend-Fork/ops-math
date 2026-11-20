@@ -81,7 +81,7 @@ English | [简体中文](./README.md)
 ## Constraint Description
 
 - All input tensors must have the same shape except for the concatenation dimension.
-- The input list "x" contains at least two tensors.
+- The input list "x" contains at least one tensor.
 - The concatenation dimension concat_dim must be within the valid dimension range of the input tensors.
 - All tensors in x must have the same data type.
 - The attribute N specifies the number of inputs and is only used for description. It does not affect the dynamic input list at runtime.

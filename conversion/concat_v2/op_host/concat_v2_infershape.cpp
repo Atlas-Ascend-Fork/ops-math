@@ -90,8 +90,9 @@ static ge::graphStatus InferShape4ConcatV2(gert::InferShapeContext* context)
 
     int64_t numInputs = static_cast<int64_t>(xInfo->GetInstanceNum());
     OP_LOGW(context, "ConcatV2 Dynamic input count = %ld", numInputs);
-    if (numInputs <= 1) {
-        OP_LOGE_FOR_INVALID_TENSORNUM(context->GetNodeName(), "x", numInputs, "at least 2");
+    // 对等 V1 ConcatInferShapeCommon: 仅拒绝空输入列表; 单输入放行, 输出=输入形状(等价identity)
+    if (numInputs < 1) {
+        OP_LOGE_FOR_INVALID_TENSORNUM(context->GetNodeName(), "x", numInputs, "at least 1");
         return ge::GRAPH_FAILED;
     }
 

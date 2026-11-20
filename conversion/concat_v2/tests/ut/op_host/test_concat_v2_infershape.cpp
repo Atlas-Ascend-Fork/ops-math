@@ -148,9 +148,76 @@ TEST_F(ConcatV2Test, infer_invalid_axis_too_negative)
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED);
 }
 
-TEST_F(ConcatV2Test, infer_single_input_error)
+TEST_F(ConcatV2Test, infer_single_input_pass_through)
 {
+    // 对等V1: 单输入放行, 输出=输入形状(等价identity)
     int64_t axis_value = 2;
+    gert::InfershapeContextPara infershapeContextPara("ConcatV2",
+                                                      {
+                                                          {{{16, 4, 8}, {16, 4, 8}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                          {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, &axis_value},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {"N", Ops::Math::AnyValue::CreateFrom<int64_t>(1)},
+                                                      },
+                                                      {1, 1}, {1});
+    std::vector<std::vector<int64_t>> expectOutputShape = {
+        {16, 4, 8},
+    };
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+TEST_F(ConcatV2Test, infer_single_input_negative_axis)
+{
+    // 对等V1: 单输入+负轴, 归一化后输出=输入形状
+    int64_t axis_value = -1;
+    gert::InfershapeContextPara infershapeContextPara("ConcatV2",
+                                                      {
+                                                          {{{16, 4, 8}, {16, 4, 8}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                          {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, &axis_value},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {"N", Ops::Math::AnyValue::CreateFrom<int64_t>(1)},
+                                                      },
+                                                      {1, 1}, {1});
+    std::vector<std::vector<int64_t>> expectOutputShape = {
+        {16, 4, 8},
+    };
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+TEST_F(ConcatV2Test, infer_single_input_unknown_rank)
+{
+    // 对等V1: 单输入为未知秩, 输出未知秩
+    int64_t axis_value = 0;
+    gert::InfershapeContextPara infershapeContextPara("ConcatV2",
+                                                      {
+                                                          {{{-2}, {-2}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                          {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, &axis_value},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {"N", Ops::Math::AnyValue::CreateFrom<int64_t>(1)},
+                                                      },
+                                                      {1, 1}, {1});
+    std::vector<std::vector<int64_t>> expectOutputShape = {
+        {-2},
+    };
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+TEST_F(ConcatV2Test, infer_single_input_invalid_axis_failed)
+{
+    // 对等V1: 单输入+axis越界仍应报错(校验逻辑不因单输入跳过)
+    int64_t axis_value = 3;
     gert::InfershapeContextPara infershapeContextPara("ConcatV2",
                                                       {
                                                           {{{16, 4, 8}, {16, 4, 8}}, ge::DT_FLOAT, ge::FORMAT_ND},
@@ -445,4 +512,22 @@ TEST_F(ConcatV2Test, infer_identical_shapes_shared_shape_pointer)
     for (size_t d = 0; d < expectDims.size(); ++d) {
         EXPECT_EQ(outShape->GetDim(d), expectDims[d]);
     }
+}
+
+TEST_F(ConcatV2Test, infer_empty_input_failed)
+{
+    // 对齐V1 ConcatInferShapeCommon: 空输入列表(num_concat <= 0)应报错
+    int64_t axis_value = 0;
+    gert::InfershapeContextPara infershapeContextPara("ConcatV2",
+                                                      {
+                                                          {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, &axis_value},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {"N", Ops::Math::AnyValue::CreateFrom<int64_t>(0)},
+                                                      },
+                                                      {0, 1}, {1});
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED);
 }

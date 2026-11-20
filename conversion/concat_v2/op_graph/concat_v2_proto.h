@@ -34,15 +34,17 @@ namespace ge {
 * y: A Tensor. Has the same type and format as "x" . \n
 
 * @attention Constraints:
-* "x" is a list of at least 2 "tensor" objects of the same type . \n
+* "x" is a list of at least 1 "tensor" objects of the same type . \n
 
 * @par Third-party framework compatibility
 * Compatible with the TensorFlow operator ConcatV2.
 */
 REG_OP(ConcatV2)
-    .DYNAMIC_INPUT(x, TensorType({BasicType(), DT_BOOL, DT_STRING, DT_FLOAT8_E4M3FN, DT_FLOAT8_E5M2, DT_HIFLOAT8, DT_FLOAT8_E8M0}))
+    .DYNAMIC_INPUT(x, TensorType({BasicType(), DT_BOOL, DT_STRING, DT_FLOAT8_E4M3FN, DT_FLOAT8_E5M2, DT_HIFLOAT8,
+                                  DT_FLOAT8_E8M0}))
     .INPUT(concat_dim, TensorType::IndexNumberType())
-    .OUTPUT(y, TensorType({BasicType(), DT_BOOL, DT_STRING, DT_FLOAT8_E4M3FN, DT_FLOAT8_E5M2, DT_HIFLOAT8, DT_FLOAT8_E8M0}))
+    .OUTPUT(y, TensorType({BasicType(), DT_BOOL, DT_STRING, DT_FLOAT8_E4M3FN, DT_FLOAT8_E5M2, DT_HIFLOAT8,
+                           DT_FLOAT8_E8M0}))
     .ATTR(N, Int, 1)
     .OP_END_FACTORY_REG(ConcatV2)
 } // namespace ge
