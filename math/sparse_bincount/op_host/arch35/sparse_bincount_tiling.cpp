@@ -55,9 +55,11 @@ constexpr int32_t SCH_MODE_WEIGHTS_SHIFT = 0;
 
 // Precise workspace-compensated path policy
 constexpr int64_t PRECISE_MAX_BINS = 64;
-constexpr int64_t PRECISE_PARTITIONS_PER_CORE = 16;
-constexpr int64_t PRECISE_PARTIAL_BYTES = 16;
 constexpr int64_t DETERMINISTIC_PARTIAL_BYTES = 64;
+constexpr int64_t DETERMINISTIC_HISTOGRAM_SLOT_BYTES = 128;
+constexpr int64_t DETERMINISTIC_HISTOGRAM_FLAG_BYTES = 8;
+constexpr int64_t DETERMINISTIC_HISTOGRAM_MAX_OUTPUT = 16LL * 1024 * 1024;
+constexpr int64_t DETERMINISTIC_HISTOGRAM_MIN_OUTPUT = 4096;
 
 // Defaults
 constexpr int64_t DEFAULT_COL_NUM = 1;
@@ -266,8 +268,27 @@ static ge::graphStatus SparseBincountTilingFunc(gert::TilingContext* context)
     int64_t preciseOutputSize = 0;
     auto outputShape = context->GetOutputShape(0);
     if (outputShape != nullptr && numValues > 0 && needCoreNum > 0) {
-        int64_t outElems = outputShape->GetOriginShape().GetShapeSize();
-        if (outElems > 0 && outElems <= PRECISE_MAX_BINS) {
+        const auto& originShape = outputShape->GetOriginShape();
+        bool outStatic = true;
+        for (size_t dim = 0; dim < originShape.GetDimNum(); ++dim) {
+            if (originShape.GetDim(dim) < 0) {
+                outStatic = false;
+                break;
+            }
+        }
+        const auto& storageShape = outputShape->GetStorageShape();
+        for (size_t dim = 0; dim < storageShape.GetDimNum(); ++dim) {
+            if (storageShape.GetDim(dim) < 0) {
+                outStatic = false;
+                break;
+            }
+        }
+        const int64_t outElems = outStatic ? originShape.GetShapeSize() : 0;
+        const bool detWeighted = isDeterministic != 0 && hasWeights != 0 && binaryOutput == 0;
+        const bool useDetHistogram = detWeighted && outStatic && outElems > DETERMINISTIC_HISTOGRAM_MIN_OUTPUT &&
+                                     outElems <= DETERMINISTIC_HISTOGRAM_MAX_OUTPUT;
+        const bool usePreciseGather = isDeterministic == 0 && outStatic && outElems > 0 && outElems <= PRECISE_MAX_BINS;
+        if (useDetHistogram || usePreciseGather) {
             preciseOutputSize = outElems;
             isPrecise = 1;
         }
@@ -282,14 +303,13 @@ static ge::graphStatus SparseBincountTilingFunc(gert::TilingContext* context)
     // 9. Set workspace
     size_t* ws = context->GetWorkspaceSizes(1);
     OP_CHECK_NULL_WITH_CONTEXT(context, ws);
-    if (isPrecise) {
-        int64_t slotBytes = isDeterministic ? DETERMINISTIC_PARTIAL_BYTES : PRECISE_PARTIAL_BYTES;
-        uint64_t entries = static_cast<uint64_t>(needCoreNum) * static_cast<uint64_t>(preciseOutputSize) *
-                           static_cast<uint64_t>(PRECISE_PARTITIONS_PER_CORE);
-        uint64_t bytes = entries * static_cast<uint64_t>(slotBytes);
-        OP_CHECK_IF(entries == 0 || entries > (UINT64_MAX / static_cast<uint64_t>(slotBytes)) ||
-                        bytes > std::numeric_limits<size_t>::max(),
-                    OP_LOGE(context, "precise workspace size overflow"), return ge::GRAPH_FAILED);
+    if (isPrecise && isDeterministic) {
+        uint64_t bytes = static_cast<uint64_t>(preciseOutputSize) *
+                         static_cast<uint64_t>(DETERMINISTIC_HISTOGRAM_SLOT_BYTES + DETERMINISTIC_HISTOGRAM_FLAG_BYTES);
+        OP_CHECK_IF(bytes > std::numeric_limits<size_t>::max(),
+                    OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "workspace", "overflow",
+                                                          "deterministic histogram workspace exceeds size_t limit"),
+                    return ge::GRAPH_FAILED);
         ws[0] = static_cast<size_t>(bytes);
     } else {
         ws[0] = 0;

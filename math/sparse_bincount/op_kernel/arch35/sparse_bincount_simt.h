@@ -36,9 +36,6 @@ using namespace AscendC;
 static constexpr uint32_t THREAD_NUM_U32 = 1024;
 static constexpr uint32_t THREAD_NUM_U64 = 512;
 
-// Partials per core for the workspace reduction paths
-static constexpr int64_t PRECISE_PARTITIONS_PER_CORE = 16;
-
 // IEEE 754 float32 bit layout
 static constexpr uint32_t FLOAT_SIGN_BIT_POS = 31U;
 static constexpr uint32_t FLOAT_EXP_SHIFT = 23U;
@@ -66,13 +63,6 @@ static constexpr uint32_t LIMB_BIT_OFFSET_MASK = 63U;
 static constexpr int32_t ACC_LIMB_COUNT = 6;
 static constexpr int32_t ACC_TOTAL_BITS = ACC_LIMB_COUNT * 64;
 static constexpr uint64_t ACC_ALL_ONES = ~0ULL;
-
-// Deterministic partial flags word index and bit positions
-static constexpr uint32_t DET_FLAGS_WORD_INDEX = 6;
-static constexpr uint32_t DET_COUNT_WORD_INDEX = 7;
-static constexpr uint64_t DET_FLAG_HAS_NAN = 1ULL;
-static constexpr uint64_t DET_FLAG_HAS_POS_INF = 2ULL;
-static constexpr uint64_t DET_FLAG_HAS_NEG_INF = 4ULL;
 
 // Carry/borrow sentinel values for multi-limb arithmetic
 static constexpr uint64_t CARRY_ONE = 1ULL;
@@ -105,8 +95,6 @@ static constexpr int32_t LIMB1_BASE_BIT = 1 * LIMB_BITS;
 // Core count and flag sentinels
 static constexpr uint32_t MIN_EFFECTIVE_CORES = 1U;
 static constexpr uint32_t CORE_ZERO = 0U;
-static constexpr uint32_t PARTIAL_HIT = 1U;
-static constexpr uint32_t PARTIAL_NO_HIT = 0U;
 
 // Adjacent limb offset in carry/borrow propagation
 static constexpr uint32_t NEXT_LIMB_OFFSET = 1U;
@@ -147,6 +135,18 @@ static constexpr uint32_t SIGN_BIT_POSITIVE = 0U;
 static constexpr uint32_t BIT_SHIFT_NONE = 0U;
 static constexpr uint32_t BIT_ADJ_PREV = 1U;
 static constexpr uint64_t BIT_MASK_ONE = 1ULL;
+
+// Deterministic exact weighted histogram: integer limb atomics + compact per-output flags
+static constexpr uint32_t HIST_TOTAL_WORDS = 16U;
+static constexpr uint32_t HIST_POS_BASE = 0U;
+static constexpr uint32_t HIST_NEG_BASE = 6U;
+static constexpr uint32_t HIST_FLAGS_WORD = 12U;
+static constexpr uint64_t HIST_FLAG_NAN = 1ULL;
+static constexpr uint64_t HIST_FLAG_POS_INF = 2ULL;
+static constexpr uint64_t HIST_FLAG_NEG_INF = 4ULL;
+static constexpr uint64_t HIST_FLAG_HIT = 8ULL;
+
+static constexpr int64_t SINGLE_PASS_MAX_OUTPUT = 2LL * 1024 * 1024;
 
 // 1D scatter write, atomic_add 1.0f or weight depending on template flags
 template <bool BINARY_OUTPUT, bool HAS_WEIGHTS>
@@ -224,6 +224,57 @@ __simt_vf__ __aicore__ __launch_bounds__(THREAD_NUM) inline void OpSparseBincoun
     }
 }
 
+template <typename IDX_T, uint32_t THREAD_NUM>
+__simt_vf__ __aicore__ __launch_bounds__(THREAD_NUM) inline void OpSparseBincountClearCounts(int64_t outputSize,
+                                                                                             __gm__ uint32_t* counts)
+{
+    for (IDX_T idx = static_cast<IDX_T>(blockIdx.x * blockDim.x + threadIdx.x); idx < static_cast<IDX_T>(outputSize);
+         idx += static_cast<IDX_T>(blockDim.x * gridDim.x)) {
+        counts[idx] = 0U;
+    }
+}
+
+template <typename V, typename IDX_T, uint32_t THREAD_NUM, bool IS_1D>
+__simt_vf__ __aicore__ __launch_bounds__(THREAD_NUM) inline void OpSparseBincountCountAccumulate(
+    int64_t numValues, int64_t sizeVal, int64_t denseShapeRows, int64_t indicesColNum, __gm__ int64_t* indices,
+    __gm__ V* values, __gm__ uint32_t* counts)
+{
+    for (IDX_T idx = static_cast<IDX_T>(blockIdx.x * blockDim.x + threadIdx.x); idx < static_cast<IDX_T>(numValues);
+         idx += static_cast<IDX_T>(blockDim.x * gridDim.x)) {
+        const int64_t binIdx = static_cast<int64_t>(values[idx]);
+        if (binIdx < 0 || binIdx >= sizeVal) {
+            continue;
+        }
+        int64_t target;
+        if constexpr (IS_1D) {
+            target = binIdx;
+        } else {
+            const int64_t batch = static_cast<int64_t>(indices[idx * indicesColNum]);
+            if (batch < 0 || batch >= denseShapeRows) {
+                continue;
+            }
+            target = batch * sizeVal + binIdx;
+        }
+        (void)asc_atomic_add(counts + target, static_cast<uint32_t>(1));
+    }
+}
+
+template <typename IDX_T, uint32_t THREAD_NUM, bool BINARY_OUTPUT>
+__simt_vf__ __aicore__ __launch_bounds__(THREAD_NUM) inline void OpSparseBincountFinalizeCount(int64_t outputSize,
+                                                                                               __gm__ uint32_t* counts,
+                                                                                               __gm__ float* output)
+{
+    for (IDX_T idx = static_cast<IDX_T>(blockIdx.x * blockDim.x + threadIdx.x); idx < static_cast<IDX_T>(outputSize);
+         idx += static_cast<IDX_T>(blockDim.x * gridDim.x)) {
+        const uint32_t count = counts[idx];
+        if constexpr (BINARY_OUTPUT) {
+            output[idx] = (count != 0) ? 1.0F : 0.0F;
+        } else {
+            output[idx] = static_cast<float>(count);
+        }
+    }
+}
+
 // Deterministic gather: each thread owns disjoint outputs and accumulates in fixed value order for bitwise
 // reproducibility
 template <typename V, typename IDX_T, uint32_t THREAD_NUM, bool IS_1D, bool BINARY_OUTPUT, bool HAS_WEIGHTS>
@@ -261,139 +312,6 @@ __simt_vf__ __aicore__ __launch_bounds__(THREAD_NUM) inline void OpSparseBincoun
             output[outIdx] = (acc > 0.0f) ? 1.0f : 0.0f;
         } else {
             output[outIdx] = acc;
-        }
-    }
-}
-
-// TwoSum error-free transformation for float pair addition
-__simt_callee__ inline void PreciseTwoSum(float lhs, float rhs, float& sum, float& error)
-{
-    sum = lhs + rhs;
-    const float rhsVirtual = sum - lhs;
-    error = (lhs - (sum - rhsVirtual)) + (rhs - rhsVirtual);
-    if (error != error) {
-        error = 0.0F;
-    }
-}
-
-// Kahan-style accumulate into a high+low two-float representation for extended precision
-__simt_callee__ inline void PreciseAccumulate(float value, float& high, float& low)
-{
-    float s1 = 0.0F, e1 = 0.0F, t1 = 0.0F, e2 = 0.0F, s2 = 0.0F, e3 = 0.0F;
-    PreciseTwoSum(high, value, s1, e1);
-    PreciseTwoSum(low, e1, t1, e2);
-    PreciseTwoSum(s1, t1, s2, e3);
-    high = s2;
-    low = e3 + e2;
-}
-
-// Build precise workspace partials: each task computes one output element's high+low sum for its value range
-template <typename V, typename IDX_T, uint32_t THREAD_NUM, bool IS_1D, bool BINARY_OUTPUT, bool HAS_WEIGHTS>
-__simt_vf__ __aicore__ __launch_bounds__(THREAD_NUM) inline void SparseBincountBuildPrecisePartials(
-    uint32_t coreIdx, uint32_t coreNum, int64_t numValues, int64_t outputSize, int64_t sizeVal, int64_t denseShapeRows,
-    int64_t indicesColNum, int64_t partitions, __gm__ int64_t* indices, __gm__ V* values, __gm__ float* weights,
-    __gm__ SparseBincountPrecisePartial* partials)
-{
-    uint32_t effectiveCore = coreNum > CORE_ZERO ? coreNum : MIN_EFFECTIVE_CORES;
-    const int64_t totalPartitions = static_cast<int64_t>(effectiveCore) * partitions;
-    if (totalPartitions <= 0 || outputSize <= 0 || numValues <= 0) {
-        return;
-    }
-    const int64_t logicalTasks = outputSize * partitions;
-    const int64_t baseLength = numValues / totalPartitions;
-    const int64_t extraPartitions = numValues - baseLength * totalPartitions;
-    for (IDX_T task = static_cast<IDX_T>(threadIdx.x); task < static_cast<IDX_T>(logicalTasks);
-         task += static_cast<IDX_T>(blockDim.x)) {
-        const int64_t outputIndex = static_cast<int64_t>(task) / partitions;
-        const int64_t localPartition = static_cast<int64_t>(task) % partitions;
-        const int64_t globalPartition = static_cast<int64_t>(coreIdx) * partitions + localPartition;
-        const int64_t rangeBegin = globalPartition * baseLength +
-                                   (globalPartition < extraPartitions ? globalPartition : extraPartitions);
-        const int64_t rangeLength = baseLength + (globalPartition < extraPartitions ? PARTITION_EXTRA : PARTITION_BASE);
-        float high = 0.0F;
-        float low = 0.0F;
-        bool hasHit = false;
-        for (int64_t i = rangeBegin; i < rangeBegin + rangeLength; ++i) {
-            const int64_t binIdx = static_cast<int64_t>(values[i]);
-            if (binIdx < 0 || binIdx >= sizeVal) {
-                continue;
-            }
-            int64_t target;
-            if constexpr (IS_1D) {
-                target = binIdx;
-            } else {
-                const int64_t batch = indices[i * indicesColNum];
-                if (batch < 0 || batch >= denseShapeRows) {
-                    continue;
-                }
-                target = batch * sizeVal + binIdx;
-            }
-            if (target == outputIndex) {
-                if constexpr (!BINARY_OUTPUT) {
-                    if constexpr (HAS_WEIGHTS) {
-                        PreciseAccumulate(weights[i], high, low);
-                    } else {
-                        PreciseAccumulate(1.0F, high, low);
-                    }
-                }
-                hasHit = true;
-            }
-        }
-        const int64_t slot = (static_cast<int64_t>(coreIdx) * outputSize + outputIndex) * partitions + localPartition;
-        union {
-            struct {
-                float hi;
-                float lo;
-            } f;
-            uint64_t u;
-        } packed;
-        packed.f.hi = high;
-        packed.f.lo = low;
-        (void)asc_atomic_exch(reinterpret_cast<__gm__ uint64_t*>(&partials[slot].high), packed.u);
-        (void)asc_atomic_exch(&partials[slot].flags, hasHit ? PARTIAL_HIT : PARTIAL_NO_HIT);
-    }
-}
-
-// Finalize precise workspace partials: core 0 merges all cores' high+low sums per output element
-template <typename V, typename IDX_T, uint32_t THREAD_NUM, bool BINARY_OUTPUT>
-__simt_vf__ __aicore__ __launch_bounds__(THREAD_NUM) inline void SparseBincountFinalizePrecisePartials(
-    uint32_t coreIdx, uint32_t coreNum, int64_t outputSize, int64_t partitions,
-    __gm__ SparseBincountPrecisePartial* partials, __gm__ float* output)
-{
-    if (coreIdx != CORE_ZERO) {
-        return;
-    }
-    uint32_t effectiveCore = coreNum > CORE_ZERO ? coreNum : MIN_EFFECTIVE_CORES;
-    for (IDX_T outIdx = static_cast<IDX_T>(threadIdx.x); outIdx < static_cast<IDX_T>(outputSize);
-         outIdx += static_cast<IDX_T>(blockDim.x)) {
-        const int64_t outputIndex = static_cast<int64_t>(outIdx);
-        float high = 0.0F;
-        float low = 0.0F;
-        bool hasHit = false;
-        for (uint32_t core = CORE_ZERO; core < effectiveCore; ++core) {
-            for (int64_t p = 0; p < partitions; ++p) {
-                const int64_t slot = (static_cast<int64_t>(core) * outputSize + outputIndex) * partitions + p;
-                const uint32_t flags = partials[slot].flags;
-                if (flags == PARTIAL_NO_HIT) {
-                    continue;
-                }
-                union {
-                    struct {
-                        float hi;
-                        float lo;
-                    } f;
-                    uint64_t u;
-                } packed;
-                packed.u = *reinterpret_cast<__gm__ uint64_t*>(&partials[slot].high);
-                hasHit = true;
-                PreciseAccumulate(packed.f.hi, high, low);
-                PreciseAccumulate(packed.f.lo, high, low);
-            }
-        }
-        if constexpr (BINARY_OUTPUT) {
-            output[outputIndex] = hasHit ? 1.0F : 0.0F;
-        } else {
-            output[outputIndex] = hasHit ? (high + low) : 0.0F;
         }
     }
 }
@@ -718,152 +636,214 @@ __simt_callee__ inline void SparseMergeDetPartialWord(uint64_t& destination, uin
     outCarry = firstCarry | secondCarry;
 }
 
-// Merge all 6 limbs + flags from a deterministic partial into the running sum
-__simt_callee__ inline void SparseMergeDetPartial(SparseBincountExactAccumulator& sum,
-                                                  __gm__ SparseBincountDeterministicPartial* partial)
+__simt_callee__ inline void SparseAddHistogramWeight(__gm__ SparseBincountIntegerHistogram* slot,
+                                                     __gm__ uint64_t* flags, float weight)
 {
-    uint64_t carry = SparseAddWithCarry(sum.limb0, partial->words[LIMB_0]);
-    SparseMergeDetPartialWord(sum.limb1, partial->words[LIMB_1], carry, carry);
-    SparseMergeDetPartialWord(sum.limb2, partial->words[LIMB_2], carry, carry);
-    SparseMergeDetPartialWord(sum.limb3, partial->words[LIMB_3], carry, carry);
-    SparseMergeDetPartialWord(sum.limb4, partial->words[LIMB_4], carry, carry);
-    SparseMergeDetPartialWord(sum.limb5, partial->words[LIMB_5], carry, carry);
-    const uint64_t flags = partial->words[DET_FLAGS_WORD_INDEX];
-    sum.hasNan = sum.hasNan || ((flags & DET_FLAG_HAS_NAN) != CARRY_NONE);
-    sum.hasPositiveInf = sum.hasPositiveInf || ((flags & DET_FLAG_HAS_POS_INF) != CARRY_NONE);
-    sum.hasNegativeInf = sum.hasNegativeInf || ((flags & DET_FLAG_HAS_NEG_INF) != CARRY_NONE);
-}
-
-// Build deterministic workspace partials: each task computes one output's exact fixed-point sum for its value range
-template <typename V, typename IDX_T, uint32_t THREAD_NUM, bool IS_1D, bool HAS_WEIGHTS>
-__simt_vf__ __aicore__ __launch_bounds__(THREAD_NUM) inline void SparseBincountBuildDeterministicPartials(
-    uint32_t coreIdx, uint32_t coreNum, int64_t numValues, int64_t outputSize, int64_t sizeVal, int64_t denseShapeRows,
-    int64_t indicesColNum, int64_t partitions, __gm__ int64_t* indices, __gm__ V* values, __gm__ float* weights,
-    __gm__ SparseBincountDeterministicPartial* partials)
-{
-    uint32_t effectiveCore = coreNum > CORE_ZERO ? coreNum : MIN_EFFECTIVE_CORES;
-    const int64_t totalPartitions = static_cast<int64_t>(effectiveCore) * partitions;
-    if (totalPartitions <= 0 || outputSize <= 0 || numValues <= 0) {
+    union {
+        float f;
+        uint32_t u;
+    } bits;
+    bits.f = weight;
+    const uint32_t sign = bits.u >> FLOAT_SIGN_BIT_POS;
+    const uint32_t exponent = (bits.u >> FLOAT_EXP_SHIFT) & FLOAT_EXP_ALL_ONES;
+    const uint32_t mantissa = bits.u & FLOAT_MANTISSA_MASK;
+    if (exponent == FLOAT_EXP_ALL_ONES) {
+        const uint64_t special = (mantissa != FLOAT_MANTISSA_ZERO) ?
+                                     HIST_FLAG_NAN :
+                                     (sign == FLOAT_SIGN_POS ? HIST_FLAG_POS_INF : HIST_FLAG_NEG_INF);
+        (void)asc_atomic_or(flags, special | HIST_FLAG_HIT);
         return;
     }
-    const int64_t logicalTasks = outputSize * partitions;
-    const int64_t baseLength = numValues / totalPartitions;
-    const int64_t extraPartitions = numValues - baseLength * totalPartitions;
-    for (IDX_T task = static_cast<IDX_T>(threadIdx.x); task < static_cast<IDX_T>(logicalTasks);
-         task += static_cast<IDX_T>(blockDim.x)) {
-        const int64_t outputIndex = static_cast<int64_t>(task) / partitions;
-        const int64_t localPartition = static_cast<int64_t>(task) % partitions;
-        const int64_t globalPartition = static_cast<int64_t>(coreIdx) * partitions + localPartition;
-        const int64_t rangeBegin = globalPartition * baseLength +
-                                   (globalPartition < extraPartitions ? globalPartition : extraPartitions);
-        const int64_t rangeLength = baseLength + (globalPartition < extraPartitions ? PARTITION_EXTRA : PARTITION_BASE);
-        SparseBincountExactAccumulator acc{};
-        uint64_t count = CARRY_NONE;
-        for (int64_t i = rangeBegin; i < rangeBegin + rangeLength; ++i) {
-            const int64_t binIdx = static_cast<int64_t>(values[i]);
-            if (binIdx < 0 || binIdx >= sizeVal) {
+    if (exponent == FLOAT_EXP_ZERO && mantissa == FLOAT_MANTISSA_ZERO) {
+        return;
+    }
+    SparseBincountExactAccumulator value{};
+    const float magnitude = (sign == FLOAT_SIGN_POS) ? weight : -weight;
+    SparseAccumulateExactFloat(magnitude, value);
+    const uint32_t base = (sign == FLOAT_SIGN_POS) ? HIST_POS_BASE : HIST_NEG_BASE;
+    uint64_t carry = CARRY_NONE;
+    bool hit = false;
+    for (uint32_t word = 0U; word <= LIMB_5; ++word) {
+        const uint64_t limb = SparseGetLimb(value, word);
+        const uint64_t increment = limb + carry;
+        carry = (increment < limb) ? CARRY_ONE : CARRY_NONE;
+        if (increment != CARRY_NONE) {
+            const uint64_t previous = asc_atomic_add(&slot->words[base + word], increment);
+            carry += (previous > ~increment) ? CARRY_ONE : CARRY_NONE;
+            hit = hit || (previous == CARRY_NONE);
+        }
+    }
+    if (hit) {
+        (void)asc_atomic_or(flags, HIST_FLAG_HIT);
+    }
+}
+
+template <typename IDX_T, uint32_t THREAD_NUM>
+__simt_vf__ __aicore__ __launch_bounds__(THREAD_NUM) inline void OpSparseBincountClearHistogramAll(
+    int64_t outputSize, __gm__ SparseBincountIntegerHistogram* hist, __gm__ uint64_t* flags)
+{
+    for (IDX_T idx = static_cast<IDX_T>(blockIdx.x * blockDim.x + threadIdx.x); idx < static_cast<IDX_T>(outputSize);
+         idx += static_cast<IDX_T>(blockDim.x * gridDim.x)) {
+        for (uint32_t word = 0U; word < HIST_TOTAL_WORDS; ++word) {
+            hist[idx].words[word] = CARRY_NONE;
+        }
+        flags[idx] = CARRY_NONE;
+    }
+    asc_threadfence();
+}
+
+template <typename IDX_T, uint32_t THREAD_NUM>
+__simt_vf__ __aicore__ __launch_bounds__(THREAD_NUM) inline void OpSparseBincountClearHistogramFlags(
+    int64_t outputSize, __gm__ uint64_t* flags)
+{
+    for (IDX_T idx = static_cast<IDX_T>(blockIdx.x * blockDim.x + threadIdx.x); idx < static_cast<IDX_T>(outputSize);
+         idx += static_cast<IDX_T>(blockDim.x * gridDim.x)) {
+        flags[idx] = CARRY_NONE;
+    }
+    asc_threadfence();
+}
+
+template <typename V, typename IDX_T, uint32_t THREAD_NUM, bool IS_1D>
+__simt_vf__ __aicore__ __launch_bounds__(THREAD_NUM) inline void OpSparseBincountMarkHistogramHits(
+    int64_t numValues, int64_t sizeVal, int64_t denseShapeRows, int64_t indicesColNum, __gm__ int64_t* indices,
+    __gm__ V* values, __gm__ uint64_t* flags)
+{
+    for (IDX_T idx = static_cast<IDX_T>(blockIdx.x * blockDim.x + threadIdx.x); idx < static_cast<IDX_T>(numValues);
+         idx += static_cast<IDX_T>(blockDim.x * gridDim.x)) {
+        const int64_t binIdx = static_cast<int64_t>(values[idx]);
+        if (binIdx < 0 || binIdx >= sizeVal) {
+            continue;
+        }
+        int64_t target;
+        if constexpr (IS_1D) {
+            target = binIdx;
+        } else {
+            const int64_t batch = static_cast<int64_t>(indices[idx * indicesColNum]);
+            if (batch < 0 || batch >= denseShapeRows) {
                 continue;
             }
-            int64_t target;
-            if constexpr (IS_1D) {
-                target = binIdx;
-            } else {
-                const int64_t batch = indices[i * indicesColNum];
-                if (batch < 0 || batch >= denseShapeRows) {
-                    continue;
-                }
-                target = batch * sizeVal + binIdx;
-            }
-            if (target == outputIndex) {
-                ++count;
-                if constexpr (HAS_WEIGHTS) {
-                    SparseAccumulateExactFloat(weights[i], acc);
-                }
-            }
+            target = batch * sizeVal + binIdx;
         }
-        const int64_t slot = (static_cast<int64_t>(coreIdx) * outputSize + outputIndex) * partitions + localPartition;
-        uint64_t flags = CARRY_NONE;
-        if constexpr (HAS_WEIGHTS) {
-            (void)asc_atomic_exch(&partials[slot].words[LIMB_0], SparseGetLimb(acc, LIMB_0));
-            (void)asc_atomic_exch(&partials[slot].words[LIMB_1], SparseGetLimb(acc, LIMB_1));
-            (void)asc_atomic_exch(&partials[slot].words[LIMB_2], SparseGetLimb(acc, LIMB_2));
-            (void)asc_atomic_exch(&partials[slot].words[LIMB_3], SparseGetLimb(acc, LIMB_3));
-            (void)asc_atomic_exch(&partials[slot].words[LIMB_4], SparseGetLimb(acc, LIMB_4));
-            (void)asc_atomic_exch(&partials[slot].words[LIMB_5], SparseGetLimb(acc, LIMB_5));
-            flags = static_cast<uint64_t>(acc.hasNan) | (static_cast<uint64_t>(acc.hasPositiveInf) << 1U) |
-                    (static_cast<uint64_t>(acc.hasNegativeInf) << 2U);
-            (void)asc_atomic_exch(&partials[slot].words[DET_FLAGS_WORD_INDEX], flags);
-            (void)asc_atomic_exch(&partials[slot].words[DET_COUNT_WORD_INDEX], count);
+        (void)asc_atomic_or(flags + target, HIST_FLAG_HIT);
+    }
+    asc_threadfence();
+}
+
+template <typename IDX_T, uint32_t THREAD_NUM>
+__simt_vf__ __aicore__ __launch_bounds__(THREAD_NUM) inline void OpSparseBincountInitHistogramLimbs(
+    int64_t outputSize, __gm__ SparseBincountIntegerHistogram* hist, __gm__ uint64_t* flags)
+{
+    for (IDX_T idx = static_cast<IDX_T>(blockIdx.x * blockDim.x + threadIdx.x); idx < static_cast<IDX_T>(outputSize);
+         idx += static_cast<IDX_T>(blockDim.x * gridDim.x)) {
+        if ((flags[idx] & HIST_FLAG_HIT) == 0U) {
+            continue;
+        }
+        for (uint32_t word = 0U; word < HIST_FLAGS_WORD; ++word) {
+            hist[idx].words[word] = CARRY_NONE;
+        }
+    }
+    asc_threadfence();
+}
+
+template <typename V, typename IDX_T, uint32_t THREAD_NUM, bool IS_1D>
+__simt_vf__ __aicore__ __launch_bounds__(THREAD_NUM) inline void OpSparseBincountScatterHistogram(
+    int64_t numValues, int64_t sizeVal, int64_t denseShapeRows, int64_t indicesColNum, __gm__ int64_t* indices,
+    __gm__ V* values, __gm__ float* weights, __gm__ SparseBincountIntegerHistogram* hist, __gm__ uint64_t* flags)
+{
+    asc_threadfence();
+    for (IDX_T idx = static_cast<IDX_T>(blockIdx.x * blockDim.x + threadIdx.x); idx < static_cast<IDX_T>(numValues);
+         idx += static_cast<IDX_T>(blockDim.x * gridDim.x)) {
+        const int64_t binIdx = static_cast<int64_t>(values[idx]);
+        if (binIdx < 0 || binIdx >= sizeVal) {
+            continue;
+        }
+        int64_t target;
+        if constexpr (IS_1D) {
+            target = binIdx;
         } else {
-            (void)asc_atomic_exch(&partials[slot].words[LIMB_0], count);
-            (void)asc_atomic_exch(&partials[slot].words[DET_FLAGS_WORD_INDEX], CARRY_NONE);
+            const int64_t batch = static_cast<int64_t>(indices[idx * indicesColNum]);
+            if (batch < 0 || batch >= denseShapeRows) {
+                continue;
+            }
+            target = batch * sizeVal + binIdx;
         }
+        SparseAddHistogramWeight(hist + target, flags + target, weights[idx]);
     }
 }
 
-// Finalize deterministic workspace partials: core 0 merges all cores' exact sums per output element
-template <typename V, typename IDX_T, uint32_t THREAD_NUM, bool BINARY_OUTPUT, bool HAS_WEIGHTS>
-__simt_vf__ __aicore__ __launch_bounds__(THREAD_NUM) inline void SparseBincountFinalizeDeterministicPartials(
-    uint32_t coreIdx, uint32_t coreNum, int64_t outputSize, int64_t partitions,
-    __gm__ SparseBincountDeterministicPartial* partials, __gm__ float* output)
+template <typename IDX_T, uint32_t THREAD_NUM>
+__simt_vf__ __aicore__ __launch_bounds__(THREAD_NUM) inline void OpSparseBincountFinalizeHistogram(
+    int64_t outputSize, __gm__ SparseBincountIntegerHistogram* hist, __gm__ uint64_t* flags, __gm__ float* output)
 {
-    if (coreIdx != CORE_ZERO) {
+    for (IDX_T idx = static_cast<IDX_T>(blockIdx.x * blockDim.x + threadIdx.x); idx < static_cast<IDX_T>(outputSize);
+         idx += static_cast<IDX_T>(blockDim.x * gridDim.x)) {
+        const uint64_t flag = flags[idx];
+        if ((flag & HIST_FLAG_HIT) == CARRY_NONE) {
+            output[idx] = 0.0F;
+            continue;
+        }
+        SparseBincountExactAccumulator positive{hist[idx].words[HIST_POS_BASE + LIMB_0],
+                                                hist[idx].words[HIST_POS_BASE + LIMB_1],
+                                                hist[idx].words[HIST_POS_BASE + LIMB_2],
+                                                hist[idx].words[HIST_POS_BASE + LIMB_3],
+                                                hist[idx].words[HIST_POS_BASE + LIMB_4],
+                                                hist[idx].words[HIST_POS_BASE + LIMB_5],
+                                                false,
+                                                false,
+                                                false};
+        SparseBincountExactAccumulator negative{hist[idx].words[HIST_NEG_BASE + LIMB_0],
+                                                hist[idx].words[HIST_NEG_BASE + LIMB_1],
+                                                hist[idx].words[HIST_NEG_BASE + LIMB_2],
+                                                hist[idx].words[HIST_NEG_BASE + LIMB_3],
+                                                hist[idx].words[HIST_NEG_BASE + LIMB_4],
+                                                hist[idx].words[HIST_NEG_BASE + LIMB_5],
+                                                false,
+                                                false,
+                                                false};
+        SparseMakeMagnitude(negative);
+        uint64_t carry = SparseAddWithCarry(positive.limb0, negative.limb0);
+        SparseMergeDetPartialWord(positive.limb1, negative.limb1, carry, carry);
+        SparseMergeDetPartialWord(positive.limb2, negative.limb2, carry, carry);
+        SparseMergeDetPartialWord(positive.limb3, negative.limb3, carry, carry);
+        SparseMergeDetPartialWord(positive.limb4, negative.limb4, carry, carry);
+        SparseMergeDetPartialWord(positive.limb5, negative.limb5, carry, carry);
+        positive.hasNan = (flag & HIST_FLAG_NAN) != CARRY_NONE;
+        positive.hasPositiveInf = (flag & HIST_FLAG_POS_INF) != CARRY_NONE;
+        positive.hasNegativeInf = (flag & HIST_FLAG_NEG_INF) != CARRY_NONE;
+        output[idx] = SparseFinalizeExactFloat(positive);
+    }
+}
+
+template <typename V, typename IDX_T, uint32_t TN, bool IS_1D>
+__aicore__ inline void RunSparseIntegerHistogram(uint32_t coreIdx, uint32_t coreNum, int64_t numValues,
+                                                 int64_t outputSize, int64_t sizeVal, int64_t denseShapeRows,
+                                                 int64_t indicesColNum, __gm__ int64_t* indicesGm, __gm__ V* valuesGm,
+                                                 __gm__ float* weightsGm, __gm__ float* outputGm)
+{
+    (void)coreIdx;
+    (void)coreNum;
+    auto* hist = reinterpret_cast<__gm__ SparseBincountIntegerHistogram*>(GetSysWorkSpacePtr());
+    auto* flags = reinterpret_cast<__gm__ uint64_t*>(hist + outputSize);
+    if (outputSize <= SINGLE_PASS_MAX_OUTPUT) {
+        asc_vf_call<OpSparseBincountClearHistogramAll<IDX_T, TN>>(dim3(TN), outputSize, hist, flags);
+        SyncAll();
+        asc_vf_call<OpSparseBincountScatterHistogram<V, IDX_T, TN, IS_1D>>(
+            dim3(TN), numValues, sizeVal, denseShapeRows, indicesColNum, indicesGm, valuesGm, weightsGm, hist, flags);
+        SyncAll();
+        asc_vf_call<OpSparseBincountFinalizeHistogram<IDX_T, TN>>(dim3(TN), outputSize, hist, flags, outputGm);
         return;
     }
-    uint32_t effectiveCore = coreNum > CORE_ZERO ? coreNum : MIN_EFFECTIVE_CORES;
-    for (IDX_T outIdx = static_cast<IDX_T>(threadIdx.x); outIdx < static_cast<IDX_T>(outputSize);
-         outIdx += static_cast<IDX_T>(blockDim.x)) {
-        const int64_t outputIndex = static_cast<int64_t>(outIdx);
-        SparseBincountExactAccumulator sum{};
-        uint64_t count = CARRY_NONE;
-        for (uint32_t core = CORE_ZERO; core < effectiveCore; ++core) {
-            for (int64_t p = 0; p < partitions; ++p) {
-                const int64_t slot = (static_cast<int64_t>(core) * outputSize + outputIndex) * partitions + p;
-                if constexpr (HAS_WEIGHTS) {
-                    SparseMergeDetPartial(sum, partials + slot);
-                    count += partials[slot].words[DET_COUNT_WORD_INDEX];
-                } else {
-                    count += partials[slot].words[LIMB_0];
-                }
-            }
-        }
-        if constexpr (BINARY_OUTPUT) {
-            const bool hit = count != CARRY_NONE;
-            output[outputIndex] = hit ? 1.0F : 0.0F;
-        } else if constexpr (HAS_WEIGHTS) {
-            output[outputIndex] = SparseFinalizeExactFloat(sum);
-        } else {
-            output[outputIndex] = static_cast<float>(count);
-        }
-    }
-}
-
-// Dispatch workspace reduction: deterministic path uses exact fixed-point partials, precise path uses two-float
-// partials
-template <typename V, typename IDX_T, uint32_t TN, bool IS_1D, bool IS_DETERMINISTIC, bool BINARY_OUTPUT,
-          bool HAS_WEIGHTS>
-__aicore__ inline void RunSparseWorkspaceReduce(uint32_t coreIdx, uint32_t coreNum, int64_t numValues,
-                                                int64_t outputSize, int64_t sizeVal, int64_t denseShapeRows,
-                                                int64_t indicesColNum, int64_t partitions, __gm__ int64_t* indicesGm,
-                                                __gm__ V* valuesGm, __gm__ float* weightsGm, __gm__ float* outputGm)
-{
-    if constexpr (IS_DETERMINISTIC) {
-        auto* det = reinterpret_cast<__gm__ SparseBincountDeterministicPartial*>(GetSysWorkSpacePtr());
-        asc_vf_call<SparseBincountBuildDeterministicPartials<V, IDX_T, TN, IS_1D, HAS_WEIGHTS>>(
-            dim3(TN), coreIdx, coreNum, numValues, outputSize, sizeVal, denseShapeRows, indicesColNum, partitions,
-            indicesGm, valuesGm, weightsGm, det);
-        SyncAll();
-        asc_vf_call<SparseBincountFinalizeDeterministicPartials<V, IDX_T, TN, BINARY_OUTPUT, HAS_WEIGHTS>>(
-            dim3(TN), coreIdx, coreNum, outputSize, partitions, det, outputGm);
-    } else {
-        auto* partials = reinterpret_cast<__gm__ SparseBincountPrecisePartial*>(GetSysWorkSpacePtr());
-        asc_vf_call<SparseBincountBuildPrecisePartials<V, IDX_T, TN, IS_1D, BINARY_OUTPUT, HAS_WEIGHTS>>(
-            dim3(TN), coreIdx, coreNum, numValues, outputSize, sizeVal, denseShapeRows, indicesColNum, partitions,
-            indicesGm, valuesGm, weightsGm, partials);
-        SyncAll();
-        asc_vf_call<SparseBincountFinalizePrecisePartials<V, IDX_T, TN, BINARY_OUTPUT>>(
-            dim3(TN), coreIdx, coreNum, outputSize, partitions, partials, outputGm);
-    }
+    asc_vf_call<OpSparseBincountClearHistogramFlags<IDX_T, TN>>(dim3(TN), outputSize, flags);
+    SyncAll();
+    asc_vf_call<OpSparseBincountMarkHistogramHits<V, IDX_T, TN, IS_1D>>(dim3(TN), numValues, sizeVal, denseShapeRows,
+                                                                        indicesColNum, indicesGm, valuesGm, flags);
+    SyncAll();
+    asc_vf_call<OpSparseBincountInitHistogramLimbs<IDX_T, TN>>(dim3(TN), outputSize, hist, flags);
+    SyncAll();
+    asc_vf_call<OpSparseBincountScatterHistogram<V, IDX_T, TN, IS_1D>>(
+        dim3(TN), numValues, sizeVal, denseShapeRows, indicesColNum, indicesGm, valuesGm, weightsGm, hist, flags);
+    SyncAll();
+    asc_vf_call<OpSparseBincountFinalizeHistogram<IDX_T, TN>>(dim3(TN), outputSize, hist, flags, outputGm);
 }
 
 // Kernel entry: reads size/dense_shape from GM, dispatches precise/deterministic/scatter paths by template flags
@@ -887,23 +867,74 @@ __aicore__ inline void Process(GM_ADDR indices, GM_ADDR values, GM_ADDR denseSha
     __gm__ V* valuesGm = (__gm__ V*)values;
     __gm__ float* weightsGm = (__gm__ float*)weights;
     __gm__ float* outputGm = (__gm__ float*)output;
+    __gm__ uint32_t* outputCountGm = reinterpret_cast<__gm__ uint32_t*>(outputGm);
 
-    if constexpr (IS_PRECISE) {
-        constexpr int64_t partitions = PRECISE_PARTITIONS_PER_CORE;
-        const uint32_t coreIdx = AscendC::GetBlockIdx();
-        const uint32_t coreNum = AscendC::GetBlockNum();
-        const uint64_t u32Step = static_cast<uint64_t>(THREAD_NUM_U32) * static_cast<uint64_t>(coreNum);
-        const uint64_t u32SafeLimit = U32_OVERFLOW_BOUND - u32Step;
+    if constexpr (IS_DETERMINISTIC && (BINARY_OUTPUT || !HAS_WEIGHTS)) {
         const uint64_t numValuesU64 = static_cast<uint64_t>(tilingData->numValues);
         const uint64_t outputSizeU64 = static_cast<uint64_t>(outputSize);
-        if (numValuesU64 <= u32SafeLimit && outputSizeU64 <= u32SafeLimit) {
-            RunSparseWorkspaceReduce<V, uint32_t, THREAD_NUM_U32, IS_1D, IS_DETERMINISTIC, BINARY_OUTPUT, HAS_WEIGHTS>(
-                coreIdx, coreNum, tilingData->numValues, outputSize, sizeVal, denseShapeRows, tilingData->indicesColNum,
-                partitions, indicesGm, valuesGm, weightsGm, outputGm);
+        if (numValuesU64 < U32_OVERFLOW_BOUND) {
+            const uint64_t u32Step = static_cast<uint64_t>(THREAD_NUM_U32) *
+                                     static_cast<uint64_t>(AscendC::GetBlockNum());
+            const uint64_t u32SafeLimit = U32_OVERFLOW_BOUND - u32Step;
+            if (numValuesU64 <= u32SafeLimit && outputSizeU64 <= u32SafeLimit) {
+                asc_vf_call<OpSparseBincountClearCounts<uint32_t, THREAD_NUM_U32>>(dim3(THREAD_NUM_U32), outputSize,
+                                                                                   outputCountGm);
+                SyncAll();
+                asc_vf_call<OpSparseBincountCountAccumulate<V, uint32_t, THREAD_NUM_U32, IS_1D>>(
+                    dim3(THREAD_NUM_U32), tilingData->numValues, sizeVal, denseShapeRows, tilingData->indicesColNum,
+                    indicesGm, valuesGm, outputCountGm);
+                SyncAll();
+                asc_vf_call<OpSparseBincountFinalizeCount<uint32_t, THREAD_NUM_U32, BINARY_OUTPUT>>(
+                    dim3(THREAD_NUM_U32), outputSize, outputCountGm, outputGm);
+            } else {
+                asc_vf_call<OpSparseBincountClearCounts<uint64_t, THREAD_NUM_U64>>(dim3(THREAD_NUM_U64), outputSize,
+                                                                                   outputCountGm);
+                SyncAll();
+                asc_vf_call<OpSparseBincountCountAccumulate<V, uint64_t, THREAD_NUM_U64, IS_1D>>(
+                    dim3(THREAD_NUM_U64), tilingData->numValues, sizeVal, denseShapeRows, tilingData->indicesColNum,
+                    indicesGm, valuesGm, outputCountGm);
+                SyncAll();
+                asc_vf_call<OpSparseBincountFinalizeCount<uint64_t, THREAD_NUM_U64, BINARY_OUTPUT>>(
+                    dim3(THREAD_NUM_U64), outputSize, outputCountGm, outputGm);
+            }
         } else {
-            RunSparseWorkspaceReduce<V, uint64_t, THREAD_NUM_U64, IS_1D, IS_DETERMINISTIC, BINARY_OUTPUT, HAS_WEIGHTS>(
-                coreIdx, coreNum, tilingData->numValues, outputSize, sizeVal, denseShapeRows, tilingData->indicesColNum,
-                partitions, indicesGm, valuesGm, weightsGm, outputGm);
+            asc_vf_call<
+                OpSparseBincountDetermineAccumulate<V, uint64_t, THREAD_NUM_U64, IS_1D, BINARY_OUTPUT, HAS_WEIGHTS>>(
+                dim3(THREAD_NUM_U64), tilingData->numValues, sizeVal, denseShapeRows, tilingData->indicesColNum,
+                indicesGm, valuesGm, weightsGm, outputGm, outputSize);
+        }
+        return;
+    }
+
+    if constexpr (IS_PRECISE) {
+        const uint32_t coreIdx = AscendC::GetBlockIdx();
+        const uint32_t coreNum = AscendC::GetBlockNum();
+        const uint64_t numValuesU64 = static_cast<uint64_t>(tilingData->numValues);
+        const uint64_t outputSizeU64 = static_cast<uint64_t>(outputSize);
+        const uint64_t u32Step = static_cast<uint64_t>(THREAD_NUM_U32) * static_cast<uint64_t>(coreNum);
+        const uint64_t u32SafeLimit = U32_OVERFLOW_BOUND - u32Step;
+        if constexpr (IS_DETERMINISTIC) {
+            if (numValuesU64 <= u32SafeLimit && outputSizeU64 <= u32SafeLimit) {
+                RunSparseIntegerHistogram<V, uint32_t, THREAD_NUM_U32, IS_1D>(
+                    coreIdx, coreNum, tilingData->numValues, outputSize, sizeVal, denseShapeRows,
+                    tilingData->indicesColNum, indicesGm, valuesGm, weightsGm, outputGm);
+            } else {
+                RunSparseIntegerHistogram<V, uint64_t, THREAD_NUM_U64, IS_1D>(
+                    coreIdx, coreNum, tilingData->numValues, outputSize, sizeVal, denseShapeRows,
+                    tilingData->indicesColNum, indicesGm, valuesGm, weightsGm, outputGm);
+            }
+        } else {
+            if (numValuesU64 <= u32SafeLimit && outputSizeU64 <= u32SafeLimit) {
+                asc_vf_call<OpSparseBincountDetermineAccumulate<V, uint32_t, THREAD_NUM_U32, IS_1D, BINARY_OUTPUT,
+                                                                HAS_WEIGHTS>>(
+                    dim3(THREAD_NUM_U32), tilingData->numValues, sizeVal, denseShapeRows, tilingData->indicesColNum,
+                    indicesGm, valuesGm, weightsGm, outputGm, outputSize);
+            } else {
+                asc_vf_call<OpSparseBincountDetermineAccumulate<V, uint64_t, THREAD_NUM_U64, IS_1D, BINARY_OUTPUT,
+                                                                HAS_WEIGHTS>>(
+                    dim3(THREAD_NUM_U64), tilingData->numValues, sizeVal, denseShapeRows, tilingData->indicesColNum,
+                    indicesGm, valuesGm, weightsGm, outputGm, outputSize);
+            }
         }
         return;
     }

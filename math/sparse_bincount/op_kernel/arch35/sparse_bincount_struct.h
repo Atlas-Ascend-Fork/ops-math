@@ -13,15 +13,8 @@
 
 #include <cstdint>
 
-struct SparseBincountPrecisePartial {
-    float high;
-    float low;
-    uint32_t flags;
-    uint32_t reserved;
-};
-
-struct SparseBincountDeterministicPartial {
-    uint64_t words[8];
+struct SparseBincountIntegerHistogram {
+    uint64_t words[16];
 };
 
 struct SparseBincountExactAccumulator {

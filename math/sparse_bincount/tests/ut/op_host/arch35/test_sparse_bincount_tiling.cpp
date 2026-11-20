@@ -61,7 +61,7 @@ TEST_F(SparseBincountTiling, sparse_bincount_1d_with_weights)
                                               K_DEFAULT_TILING_DATA_SIZE); // max tiling data size
     uint64_t expectTilingKey = 21;
     string expectTilingData = "4 1 1 ";
-    std::vector<size_t> expectWorkspaces = {2048};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
@@ -91,7 +91,7 @@ TEST_F(SparseBincountTiling, sparse_bincount_nd_with_weights)
                                               K_DEFAULT_TILING_DATA_SIZE);
     uint64_t expectTilingKey = 17;
     string expectTilingData = "4 2 2 ";
-    std::vector<size_t> expectWorkspaces = {8192};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
@@ -121,7 +121,7 @@ TEST_F(SparseBincountTiling, sparse_bincount_1d_no_weights)
                                               K_DEFAULT_TILING_DATA_SIZE);
     uint64_t expectTilingKey = 20;
     string expectTilingData = "4 1 1 ";
-    std::vector<size_t> expectWorkspaces = {2048};
+    std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
