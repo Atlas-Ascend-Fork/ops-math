@@ -198,15 +198,36 @@ aclnnStatus aclnnCdistBackward(
       <tr>
         <td>ACLNN_ERR_PARAM_NULLPTR</td>
         <td>161001</td>
-        <td>grad, x1, x2, or cdist is a null pointer.</td>
+        <td>grad, x1, x2, cdist, or out is a null pointer.</td>
       </tr>
       <tr>
-        <td rowspan="2">ACLNN_ERR_PARAM_INVALID</td>
-        <td rowspan="2">161002</td>
-        <td>The data type of grad, x1, x2, or cdist is not within the supported range.</td>
+        <td rowspan="9">ACLNN_ERR_PARAM_INVALID</td>
+        <td rowspan="9">161002</td>
+        <td>The data type of grad, x1, x2, cdist, or out is not within the supported range.</td>
       </tr>
       <tr>
-        <td>The shape of grad, x1, x2, or cdist is not within the supported range.</td>
+        <td>The data types of grad, x1, x2, cdist, and out are inconsistent.</td>
+      </tr>
+      <tr>
+        <td>The number of dimensions of grad is not within the range of 2 to 7.</td>
+      </tr>
+      <tr>
+        <td>The numbers of dimensions of grad, x1, x2, cdist, and out are inconsistent.</td>
+      </tr>
+      <tr>
+        <td>The shapes of x1 and x2 do not satisfy the broadcast relationship.</td>
+      </tr>
+      <tr>
+        <td>The shape of cdist is inconsistent with the broadcast shape of x1 and x2.</td>
+      </tr>
+      <tr>
+        <td>The shape of cdist is inconsistent with the shape of grad.</td>
+      </tr>
+      <tr>
+        <td>The shape of out is inconsistent with the shape of x1.</td>
+      </tr>
+      <tr>
+        <td>p is NaN, or p is negative (except for the compatible value where |p+1|&lt;1e-6).</td>
       </tr>
     </tbody>
     </table>

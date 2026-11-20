@@ -196,15 +196,36 @@ aclnnStatus aclnnCdistBackward(
       <tr>
         <td>ACLNN_ERR_PARAM_NULLPTR</td>
         <td>161001</td>
-        <td>传入的grad、x1、x2或cdist是空指针。</td>
+        <td>传入的grad、x1、x2、cdist或out是空指针。</td>
       </tr>
       <tr>
-        <td rowspan="2">ACLNN_ERR_PARAM_INVALID</td>
-        <td rowspan="2">161002</td>
-        <td>grad、x1、x2或cdist的数据类型不在支持的范围之内。</td>
+        <td rowspan="9">ACLNN_ERR_PARAM_INVALID</td>
+        <td rowspan="9">161002</td>
+        <td>grad、x1、x2、cdist或out的数据类型不在支持的范围之内。</td>
       </tr>
       <tr>
-        <td>grad、x1、x2或cdist的shape不在支持范围内。</td>
+        <td>grad、x1、x2、cdist或out的数据类型不一致。</td>
+      </tr>
+      <tr>
+        <td>grad的维度数不在2~7范围内。</td>
+      </tr>
+      <tr>
+        <td>grad、x1、x2、cdist或out的维度数不一致。</td>
+      </tr>
+      <tr>
+        <td>x1、x2的shape不满足broadcast关系。</td>
+      </tr>
+      <tr>
+        <td>cdist的shape与x1、x2广播后的shape不一致。</td>
+      </tr>
+      <tr>
+        <td>cdist的shape与grad的shape不一致。</td>
+      </tr>
+      <tr>
+        <td>out的shape与x1的shape不一致。</td>
+      </tr>
+      <tr>
+        <td>p为NaN，或p为负数（|p+1|&lt;1e-6的兼容取值除外）。</td>
       </tr>
     </tbody>
     </table>
