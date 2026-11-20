@@ -160,8 +160,8 @@ aclnnStatus aclnnMinimum(
       <td>When self, other, or out is a null pointer.</td>
     </tr>
     <tr>
-      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="4">161002</td>
+      <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="5">161002</td>
       <td>The data type of self or other is out of the supported range.</td>
     </tr>
     <tr>
@@ -172,6 +172,9 @@ aclnnStatus aclnnMinimum(
     </tr>
     <tr>
       <td>The shapes of self and other cannot be broadcast.</td>
+    </tr>
+    <tr>
+      <td>The shapes of self and other do not meet the broadcast restriction: when the broadcast data type (or the deduced data type) is COMPLEX64, COMPLEX128, DOUBLE, INT16, UINT16, or UINT64, consecutive broadcast axes and consecutive non-broadcast axes must be merged, and the number of merged segments must be less than 6.</td>
     </tr>
   </tbody>
   </table>
@@ -223,6 +226,8 @@ aclnnStatus aclnnMinimum(
 
 - Deterministic computation:
   - aclnnMinimum defaults to a deterministic implementation.
+- Broadcast restriction:
+  - When the broadcast data type (or the deduced data type) is COMPLEX64, COMPLEX128, DOUBLE, INT16, UINT16, or UINT64, consecutive broadcast axes and consecutive non-broadcast axes must be merged in addition to the broadcast relationship, and the number of merged segments must be less than 6. Otherwise, 161002 (ACLNN_ERR_PARAM_INVALID) is returned.
 
 ## Example
 

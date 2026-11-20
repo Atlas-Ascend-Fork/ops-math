@@ -8,6 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+#include <algorithm>
 #include "aclnn_minimum.h"
 #include "minimum.h"
 #include "math/logical_and/op_api/logical_and.h"
@@ -104,6 +105,60 @@ static bool CheckShape(const aclTensor* self, const aclTensor* other, const aclT
     return true;
 }
 
+// 参考 docs/zh/context/broadcast_relationship.md 的限制：当参与广播的数据类型（或推导后的数据类型）为
+// COMPLEX64、COMPLEX128、DOUBLE、INT16、UINT16、UINT64 时，连续广播轴与连续非广播轴合并后的段数需小于 6
+static const std::initializer_list<op::DataType> BROADCAST_SEGMENT_LIMIT_DTYPE_LIST = {
+    op::DataType::DT_COMPLEX64, op::DataType::DT_COMPLEX128, op::DataType::DT_DOUBLE,
+    op::DataType::DT_INT16,     op::DataType::DT_UINT16,     op::DataType::DT_UINT64};
+
+static bool IsBroadcastSegmentLimitDtype(op::DataType dtype)
+{
+    for (auto supportDtype : BROADCAST_SEGMENT_LIMIT_DTYPE_LIST) {
+        if (supportDtype == dtype) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// 将两个输入按广播规则逐轴标记为“需要广播”/“不需要广播”，相邻同标记轴合并后统计段数
+static int64_t CountBroadcastSegments(const aclTensor* self, const aclTensor* other)
+{
+    auto selfShape = self->GetViewShape();
+    auto otherShape = other->GetViewShape();
+    size_t selfRank = selfShape.GetDimNum();
+    size_t otherRank = otherShape.GetDimNum();
+    size_t rank = std::max(selfRank, otherRank);
+    int64_t segments = 0;
+    bool lastBroadcast = false;
+    for (size_t i = 0; i < rank; i++) {
+        int64_t selfDim = i + selfRank >= rank ? selfShape.GetDim(i + selfRank - rank) : 1;
+        int64_t otherDim = i + otherRank >= rank ? otherShape.GetDim(i + otherRank - rank) : 1;
+        bool broadcast = (selfDim != otherDim);
+        if (i == 0 || broadcast != lastBroadcast) {
+            segments++;
+            lastBroadcast = broadcast;
+        }
+    }
+    return segments;
+}
+
+static bool CheckBroadcastSegmentLimit(const aclTensor* self, const aclTensor* other, op::DataType computeType)
+{
+    if (!IsBroadcastSegmentLimitDtype(computeType)) {
+        return true;
+    }
+    int64_t segments = CountBroadcastSegments(self, other);
+    if (segments >= 6) {
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID,
+                "Broadcast segments of self and other is %ld after merging adjacent axes, exceeds the limit 5 "
+                "for dtype %s.",
+                segments, op::ToString(computeType).GetString());
+        return false;
+    }
+    return true;
+}
+
 static aclnnStatus CheckParams(const aclTensor* self, const aclTensor* other, const aclTensor* out)
 {
     CHECK_RET(CheckNotNull(self, other, out), ACLNN_ERR_PARAM_NULLPTR);
@@ -157,6 +212,7 @@ aclnnStatus aclnnMinimumGetWorkspaceSize(const aclTensor* self, const aclTensor*
     bool needOutputCast = true;
     GetComputeType(self, other, out, computeType, needOutputCast);
     CHECK_RET(computeType != DataType::DT_UNDEFINED, ACLNN_ERR_INNER);
+    CHECK_RET(CheckBroadcastSegmentLimit(self, other, computeType), ACLNN_ERR_PARAM_INVALID);
     auto selfContiguous = l0op::Contiguous(self, uniqueExecutor.get());
     CHECK_RET(selfContiguous != nullptr, ACLNN_ERR_INNER_NULLPTR);
     auto selfCasted = l0op::Cast(selfContiguous, computeType, uniqueExecutor.get());

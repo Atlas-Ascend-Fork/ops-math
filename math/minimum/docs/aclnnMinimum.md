@@ -158,8 +158,8 @@ aclnnStatus aclnnMinimum(
       <td>传入的self、other或out是空指针时。</td>
     </tr>
     <tr>
-      <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="5">161002</td>
+      <td rowspan="6">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="6">161002</td>
       <td>self、other、out的数据类型不在支持的范围之内。</td>
     </tr>
     <tr>
@@ -170,6 +170,9 @@ aclnnStatus aclnnMinimum(
     </tr>
     <tr>
       <td>self和other的shape无法做broadcast。</td>
+    </tr>
+    <tr>
+      <td>self和other的shape不满足broadcast限制：当参与广播的数据类型（或推导后的数据类型）为COMPLEX64、COMPLEX128、DOUBLE、INT16、UINT16、UINT64时，将连续需要广播的轴与连续不需要广播的轴合并后的段数需小于6。</td>
     </tr>
     <tr>
       <td>self和other的shape的最大维度超过8。</td>
@@ -224,6 +227,8 @@ aclnnStatus aclnnMinimum(
 
 - 确定性计算：
   - aclnnMinimum默认确定性实现。
+- 广播限制：
+  - 当参与广播的数据类型（或推导后的数据类型）为COMPLEX64、COMPLEX128、DOUBLE、INT16、UINT16、UINT64时，除满足broadcast关系外，还需将连续需要广播的轴与连续不需要广播的轴分别合并，合并后的段数需小于6，否则返回161002（ACLNN_ERR_PARAM_INVALID）。
 
 ## 调用示例
 
