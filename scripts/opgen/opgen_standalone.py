@@ -66,6 +66,11 @@ class OpGenerator:
                 f"算子名称 '{self.op_name}' 包含无效字符。只允许字母、数字和下划线。"
             )
 
+        if not re.match(r"^_*[a-zA-Z]", self.op_name):
+            raise ValueError(
+                f"算子名称 '{self.op_name}' 去除前导下划线后必须以字母开头。"
+            )
+
         if os.path.exists(self.dest_dir):
             raise FileExistsError(f"目标目录 '{self.dest_dir}' 已存在。")
 
