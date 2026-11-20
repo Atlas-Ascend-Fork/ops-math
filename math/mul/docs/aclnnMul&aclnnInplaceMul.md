@@ -106,7 +106,7 @@ aclnnStatus aclnnInplaceMul(
       <td>数据类型与other的数据类型需满足<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">数据类型推导规则</a>，shape需要与other满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>。</td>
       <td>FLOAT、FLOAT16、DOUBLE、INT32、INT64、INT16、INT8、UINT8、BOOL、COMPLEX128、COMPLEX64、BFLOAT16</td>
       <td>ND</td>
-      <td>-</td>
+      <td>不大于8</td>
       <td>√</td>
     </tr>
     <tr>
@@ -116,7 +116,7 @@ aclnnStatus aclnnInplaceMul(
       <td>数据类型与self的数据类型需满足<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">数据类型推导规则</a>，shape需要与self满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>。</td>
       <td>FLOAT、FLOAT16、DOUBLE、INT32、INT64、INT16、INT8、UINT8、BOOL、COMPLEX128、COMPLEX64、BFLOAT16</td>
       <td>ND</td>
-      <td>-</td>
+      <td>不大于8</td>
       <td>√</td>
     </tr>
     <tr>
@@ -179,8 +179,8 @@ aclnnStatus aclnnInplaceMul(
       <td>传入的self、other、out是空指针时。</td>
     </tr>
     <tr>
-      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="4">161002</td>
+      <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="5">161002</td>
       <td>self、other、out的数据类型不在支持的范围内时。</td>
     </tr>
     <tr>
@@ -191,6 +191,9 @@ aclnnStatus aclnnInplaceMul(
     </tr>
     <tr>
       <td>self和other的shape无法做broadcast。</td>
+    </tr>
+    <tr>
+      <td>self、other的维度大于8。</td>
     </tr>
   </tbody>
   </table>
@@ -271,7 +274,7 @@ aclnnStatus aclnnInplaceMul(
       <td>数据类型需要与other的数据类型满足<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">数据类型推导规则</a>，且推导后的数据类型需支持转换到selfRef的数据类型。shape需要与other满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>，且broadcast后的shape需与selfRef的shape相等。</td>
       <td>FLOAT、FLOAT16、DOUBLE、INT32、INT64、INT16、INT8、UINT8、BOOL、COMPLEX128、COMPLEX64、BFLOAT16</td>
       <td>ND</td>
-      <td>-</td>
+      <td>不大于8</td>
       <td>√</td>
     </tr>
     <tr>
@@ -281,7 +284,7 @@ aclnnStatus aclnnInplaceMul(
       <td>数据类型需要与selfRef的数据类型满足<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">数据类型推导规则</a>，shape需要与selfRef满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>。</td>
       <td>FLOAT、FLOAT16、DOUBLE、INT32、INT64、INT16、INT8、UINT8、BOOL、COMPLEX128、COMPLEX64、BFLOAT16</td>
       <td>ND</td>
-      <td>-</td>
+      <td>不大于8</td>
       <td>√</td>
     </tr>
     <tr>
@@ -334,8 +337,8 @@ aclnnStatus aclnnInplaceMul(
       <td>传入的selfRef、other是空指针。</td>
     </tr>
     <tr>
-      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="4">161002</td>
+      <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="5">161002</td>
       <td>selfRef和other的数据类型不在支持的范围内。</td>
     </tr>
     <tr>
@@ -346,6 +349,9 @@ aclnnStatus aclnnInplaceMul(
     </tr>
     <tr>
       <td>selfRef和other进行broadcast后的shape不等于selfRef的shape。</td>
+    </tr>
+    <tr>
+      <td>selfRef、other的维度大于8。</td>
     </tr>
   </tbody>
   </table>
