@@ -124,6 +124,7 @@
 
     ```bash
     git clone -b ${tag_version} https://gitcode.com/cann/ops-math.git
+    cd ops-math
     ```
 
 2. 安装依赖。
