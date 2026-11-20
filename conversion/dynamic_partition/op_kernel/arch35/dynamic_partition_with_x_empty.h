@@ -18,13 +18,11 @@
 
 #include "dynamic_partition_with_h_mc.h"
 
-namespace DynPart
-{
+namespace DynPart {
 using namespace AscendC;
 
 template <typename T>
-class DynPartWithXEmpty : public DynPartWithHMC<T>
-{
+class DynPartWithXEmpty : public DynPartWithHMC<T> {
 public:
     __aicore__ inline DynPartWithXEmpty(){};
     __aicore__ inline void Init(GM_ADDR x, GM_ADDR partitions, GM_ADDR y, GM_ADDR yshape, GM_ADDR workspace,
@@ -83,6 +81,7 @@ __aicore__ inline void DynPartWithXEmpty<T>::CalcPartBase()
     if (this->blockIdx_ == tdPtr_->usedCoreCnt - 1) {
         auto ubPartBase = this->pBaseQue_.template AllocTensor<uint64_t>();
         Duplicate(ubPartBase, 0UL, this->coreWSAlign_);
+        this->InsertSync(HardEvent::V_S);
         this->pBaseQue_.EnQue(ubPartBase);
         ubPartBase = this->pBaseQue_.template DeQue<uint64_t>();
         auto ubPartCnt = this->pCntQue_.template AllocTensor<uint64_t>();
@@ -100,6 +99,6 @@ __aicore__ inline void DynPartWithXEmpty<T>::CalcPartBase()
     }
 }
 
-}  // namespace DynPart
+} // namespace DynPart
 
-#endif  // OP_KERNEL_DYNAMIC_PARTITION_WITH_X_EMPTY_H_
+#endif // OP_KERNEL_DYNAMIC_PARTITION_WITH_X_EMPTY_H_

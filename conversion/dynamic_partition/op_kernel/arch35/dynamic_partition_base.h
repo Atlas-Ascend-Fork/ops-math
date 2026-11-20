@@ -153,6 +153,7 @@ __aicore__ inline void DynPartBase<T>::SetPartBaseZero(TQue<QuePosition::VECCALC
 {
     auto ubPartBase = pBaseQue.AllocTensor<uint64_t>();
     Duplicate(ubPartBase, 0UL, coreWSAlign_);
+    InsertSync(HardEvent::V_S);
     pBaseQue.EnQue(ubPartBase);
 }
 

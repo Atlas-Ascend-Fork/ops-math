@@ -196,6 +196,7 @@ __aicore__ inline void DynPartWithHMC<T, isSingleW>::CalcPartBase(int32_t begPar
 
     auto ubPartBase = this->pBaseQue_.template AllocTensor<uint64_t>();
     Duplicate(ubPartBase, 0UL, this->coreWSAlign_);
+    this->InsertSync(HardEvent::V_S);
     this->pBaseQue_.EnQue(ubPartBase);
 
     if (this->blockIdx_ != 0) {
