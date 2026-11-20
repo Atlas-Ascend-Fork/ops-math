@@ -10,7 +10,7 @@
 # ----------------------------------------------------------------------------------------------------------
 
 # [RegBase-native] DESIGN.md§3 selects the Ascend950 arch35 SIMD-VF implementation.
-set(SUPPORT_COMPUTE_UNIT "ascend950")
+set(SUPPORT_COMPUTE_UNIT "dav_3510")
 set(SUPPORT_TILING_DIR "arch35")
 
 add_all_modules_sources(
@@ -22,7 +22,7 @@ add_all_modules_sources(
 
 add_kernel_sources(
     KERNEL_SRC arch35/log_space_d.cpp
-    COMPUTE_UNITS ascend950
+    COMPUTE_UNITS dav_3510
     AUTO_SYNC false
     OPTIONS "--cce-simd-vf-fusion=true" "-mllvm -cce-aicore-dcci-before-kernel-end=false"
 )

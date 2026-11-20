@@ -20,6 +20,7 @@
  *   z  : gradient w.r.t. the original input
  */
 #include "register/op_def_registry.h"
+#include "op_common/op_host/util/op_arch_helper.h"
 
 namespace ops {
 class AcosGrad : public OpDef {
@@ -57,8 +58,7 @@ public:
             .PrecisionReduceFlag(true)
             .NeedCheckSupportFlag(false)
             .DynamicRankSupportFlag(true);
-        this->AICore().AddConfig("ascend950", aiCoreConfig);
-        this->AICore().AddConfig("ascend350", aiCoreConfig);
+        opbase::ArchConfigHelper::AddConfigByArch(this->AICore(), Ops::Base::DAV_3510, aiCoreConfig);
     }
 };
 OP_ADD(AcosGrad);

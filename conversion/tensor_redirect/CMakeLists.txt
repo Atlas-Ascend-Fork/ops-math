@@ -9,7 +9,7 @@
 # ----------------------------------------------------------------------------
 
 # 支持的芯片类型
-set(SUPPORT_COMPUTE_UNIT "ascend950")
+set(SUPPORT_COMPUTE_UNIT "dav_3510")
 # tiling 文件目录
 set(SUPPORT_TILING_DIR "arch35")
 add_all_modules_sources(OPTYPE tensor_redirect ACLNNTYPE aclnn_exclude
@@ -19,3 +19,8 @@ add_all_modules_sources(OPTYPE tensor_redirect ACLNNTYPE aclnn_exclude
 if(OP_HOST_UT AND TARGET ${OP_TILING_MODULE_NAME}_cases_obj)
     target_include_directories(${OP_TILING_MODULE_NAME}_cases_obj PRIVATE ${ASCEND_DIR}/pkg_inc)
 endif()
+
+add_kernel_sources(
+    KERNEL_SRC tensor_redirect.cpp
+    COMPUTE_UNITS dav_3510
+)
