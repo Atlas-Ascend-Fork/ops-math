@@ -38,6 +38,9 @@ static const std::initializer_list<op::DataType> DTYPE_SUPPORT_910_LIST = {
 static const std::initializer_list<op::DataType> DTYPE_SUPPORT_GE910B_LIST = {
     op::DataType::DT_FLOAT, op::DataType::DT_FLOAT16, op::DataType::DT_INT64, op::DataType::DT_BOOL,
     op::DataType::DT_BF16};
+
+static const std::initializer_list<op::DataType> INDICES_DTYPE_SUPPORT_LIST = {op::DataType::DT_INT32,
+                                                                               op::DataType::DT_INT64};
 namespace {
 static const std::initializer_list<op::DataType> DTYPE_SUPPORT_REGBASE_LIST = {
     op::DataType::DT_FLOAT, op::DataType::DT_FLOAT16, op::DataType::DT_INT64,
@@ -58,7 +61,7 @@ static inline bool CheckSocVersionGe910(void)
     return curArch == Ops::Base::DAV_1001 || curArch == Ops::Base::DAV_2201 || IsRegBase(curArch);
 }
 
-static bool CheckDtypeValid(const aclTensor* self, const aclTensor* out)
+static bool CheckDtypeValid(const aclTensor* self, const aclTensor* out, const aclTensor* indices)
 {
     std::initializer_list<DataType> CURRENT_DTYPE_SUPPORT_LIST;
     if (IsRegBase()) {
@@ -70,6 +73,7 @@ static bool CheckDtypeValid(const aclTensor* self, const aclTensor* out)
 
     OP_CHECK_DTYPE_NOT_SUPPORT(self, CURRENT_DTYPE_SUPPORT_LIST, return false);
     OP_CHECK_DTYPE_NOT_SAME(self, out, return false);
+    OP_CHECK_DTYPE_NOT_SUPPORT(indices, INDICES_DTYPE_SUPPORT_LIST, return false);
     return true;
 }
 
@@ -111,7 +115,7 @@ static aclnnStatus CheckParams(const aclTensor* self, const int64_t dim, const a
     CHECK_RET(CheckNotNull(self, out, indices), ACLNN_ERR_PARAM_NULLPTR);
 
     // 2. 检查输入的数据类型是否在API支持的数据类型范围之内，需要根据api定义校验
-    CHECK_RET(CheckDtypeValid(self, out), ACLNN_ERR_PARAM_INVALID);
+    CHECK_RET(CheckDtypeValid(self, out, indices), ACLNN_ERR_PARAM_INVALID);
 
     // 3. 检查shape是否支持
     CHECK_RET(CheckShape(self, out, indices), ACLNN_ERR_PARAM_INVALID);
