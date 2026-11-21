@@ -115,16 +115,27 @@ class HistogramFixedWidthTestSpec:
             res[: len(counts)] = counts[:nbins_val].astype(out_dtype)
         else:
             compute_dtype = np.int64
-            min_c = compute_dtype(min_data)
-            max_c = compute_dtype(max_data)
-            range_c = compute_dtype(max_data - min_data)
+            min_c = int(min_data)
+            max_c = int(max_data)
+            range_c = max_c - min_c
             if range_c != 0 and x.size > 0:
                 x_c = x.astype(compute_dtype)
                 x_clamped = np.clip(x_c, min_c, max_c)
-                idx = ((x_clamped - min_c) * compute_dtype(nbins_val) / range_c).astype(
-                    np.int32
-                )
-                idx = np.clip(idx, 0, nbins_val - 1)
+                bins = int(nbins_val)
+                # Keep vectorized integer arithmetic when every numerator fits.
+                if abs(range_c) * bins <= np.iinfo(np.int64).max:
+                    idx = ((x_clamped - min_c) * bins) // range_c
+                else:
+                    # A valid INT64 range or scaled offset can exceed INT64.
+                    idx = np.fromiter(
+                        (
+                            (int(value) - min_c) * bins // range_c
+                            for value in x_clamped.flat
+                        ),
+                        dtype=np.int64,
+                        count=x_clamped.size,
+                    )
+                idx = np.clip(idx, 0, bins - 1)
                 counts = np.bincount(idx.ravel(), minlength=nbins_val)
                 res[: len(counts)] = counts[:nbins_val].astype(out_dtype)
 
@@ -132,6 +143,13 @@ class HistogramFixedWidthTestSpec:
 
     def customize_inputs(x, value_range, nbins, **kwargs):
         range_dtype = value_range.dtype
+        # A valid declared integer interval must not pass through float.
+        if (
+            x.dtype in (np.int32, np.int64)
+            and range_dtype == x.dtype
+            and value_range[0] < value_range[1]
+        ):
+            return (x, value_range.copy(), nbins)
         x_f32 = x.astype(np.float32) if x.dtype == np.float16 else x
         lo = (
             float(value_range[0].astype(np.float32))
