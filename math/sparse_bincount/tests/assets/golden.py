@@ -170,5 +170,5 @@ class SparseBincountSpec:
 
     third_party = {"torch": SparseBincountTorchImpl}
     tolerance = {
-        "float32": {"standard": "cross_check", "level": "L1"},
+        "float32": {"standard": "cross_check", "level": "L0"},
     }
