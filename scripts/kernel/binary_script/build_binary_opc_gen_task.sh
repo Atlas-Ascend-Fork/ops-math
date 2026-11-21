@@ -108,7 +108,7 @@ function get_simplified_key_config_file() {
 }
 
 main() {
-  echo "[INFO]excute file: $0"
+  echo "[INFO]execute file: $0"
   if [ $# -lt 9 ]; then
     echo "[ERROR]input error"
     echo "[ERROR]bash $0 {op_type} {soc_version} {output_path} {enable_mssanitizer} {enable_debug} {enable_oom} {enable_dump_cce} bisheng_flags={bisheng_flags} kernel_template_input={kernel_template_input}"
@@ -227,7 +227,7 @@ main() {
       impl_list=$(echo "${impl_list}" | sed 's/,optional$//')
     fi
   fi
-  
+
   if [ -z "$key_mode" ]; then
     local simplified_key_file=$(get_simplified_key_config_file ${workdir} ${op_type} ${op_file_name_prefix} ${soc_version_lower})
     local key_mode_default=0
@@ -336,14 +336,15 @@ main() {
               OLD_IFS="${IFS}"
               IFS=','
               cmd="${cmd} --op_debug_config=${op_debug_configs[*]}"
-              IFS="$OLD_IFS" 
+              IFS="$OLD_IFS"
           fi
         fi
         if [[ "$cmd" == *"dump_cce"* ]]; then
-          cmd="${cmd} --debug_dir=${output_path}/kernel_metas" 
+          mkdir -p "${output_path}/kernel_metas/${op_type}_${impl_mode}_${i}"
+          cmd="${cmd} --debug_dir=${output_path}/kernel_metas/${op_type}_${impl_mode}_${i}"
         fi
 
-        
+
         if [[ -n "$kernel_template_input" ]]; then
           echo "kernel-template-input is: ${kernel_template_input}"
           cmd="${cmd} --kernel-template-input='${kernel_template_input}'"

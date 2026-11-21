@@ -67,6 +67,9 @@ main() {
     fi
     exit ${compile_rc}
   fi
+  if [[ -d ${output_path}/kernel_metas ]]; then
+    chmod +r ${output_path}/kernel_metas/*
+  fi
   echo "[INFO]exe_task: end to build kernel with cmd: ${cmd_task} --exe_time=${exe_time}"
 }
 set -o pipefail
