@@ -13,11 +13,17 @@
 
 ## 功能说明
 
-- 算子功能：计算实数对称正定矩阵的Cholesky分解。
-- 计算公式：
+- 算子功能：计算一个或多个实数对称正定矩阵的Cholesky分解。
+- 当upper为false时，out为下三角矩阵，满足：
 
   $$
   self = out \times out^{H}
+  $$
+
+- 当upper为true时，out为上三角矩阵，满足：
+
+  $$
+  self = out^{H} \times out
   $$
 
 ## 参数说明
@@ -46,28 +52,28 @@
       <td>ND</td>
     </tr>
     <tr>
-      <td>upper</td>
-      <td>属性</td>
-      <td>表示选择上三角矩阵分解还是下三角矩阵分解。</td>
-      <td>BOOL</td>
-      <td>-</td>
-    </tr>
-    <tr>
       <td>out</td>
       <td>输出</td>
       <td>表示传出的tensor，公式中的out。</td>
       <td>FLOAT</td>
       <td>ND</td>
     </tr>
+    <tr>
+      <td>upper</td>
+      <td>属性</td>
+      <td>可选属性，默认值false。true表示分解为上三角矩阵，false表示分解为下三角矩阵。</td>
+      <td>BOOL</td>
+      <td>-</td>
+    </tr>
   </tbody></table>
 
 ## 约束说明
 
-- self的维度必须在[2, 8]范围内，最后两维必须相等构成方阵，最后一维不超过8192；不满足时由算子侧Tiling校验并返回失败。
+- self的维度必须在[2, 8]范围内，最后两维必须相等构成方阵，最后一维不超过8192。
 - self须为实数对称正定矩阵。
 
 ## 调用说明
 
-| 调用方式 | 调用样例                                                                   | 说明                                                             |
+| 调用方式 | 样例代码                                                                   | 说明                                                             |
 |--------------|------------------------------------------------------------------------|----------------------------------------------------------------|
-| aclnn调用 | [test_aclnn_linalg_cholesky](./examples/test_aclnn_linalg_cholesky.cpp) | 通过[aclnnLinalgCholesky](./docs/aclnnLinalgCholesky.md)接口方式调用Cholesky算子。    |
+| aclnn API | [test_aclnn_linalg_cholesky](./examples/test_aclnn_linalg_cholesky.cpp) | 通过[aclnnLinalgCholesky](./docs/aclnnLinalgCholesky.md)接口方式调用Cholesky算子。    |

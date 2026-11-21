@@ -1,12 +1,12 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
- * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
- * Please refer to the License for details. You may not use this file except in compliance with the License.
- * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
- * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
- * See LICENSE in the root of the software repository for the full text of the License.
- */
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
 
 #ifndef CHOLESKY_TILING_H
 #define CHOLESKY_TILING_H
@@ -17,8 +17,7 @@ namespace optiling {
 
 struct CholeskyCompileInfo {
     uint32_t coreNum = 0;
-    // 面板算法（全核尾随更新 + SIMT 转置）仅在 950（arch 3510）kernel 实现，TilingParse 阶段判定
-    bool socSupportsPanel = false;
+    uint32_t aicNum = 0;
 };
 
 BEGIN_TILING_DATA_DEF(CholeskyTilingData)
@@ -30,4 +29,4 @@ END_TILING_DATA_DEF;
 
 REGISTER_TILING_DATA_CLASS(Cholesky, CholeskyTilingData)
 } // namespace optiling
-#endif
+#endif // CHOLESKY_TILING_H

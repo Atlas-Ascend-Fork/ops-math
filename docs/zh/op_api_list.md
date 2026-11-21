@@ -183,7 +183,7 @@
 | [aclnnLeScalar&aclnnInplaceLeScalar](../../math/less_equal/docs/aclnnLeScalar&aclnnInplaceLeScalar.md) | 判断输入self中的元素值是否小于等于other的值，并将self的每个元素的值与other值的比较结果写入out中。 | 默认确定性实现| 默认确定性实现 |
 | [aclnnLeTensor&aclnnInplaceLeTensor](../../math/less_equal/docs/aclnnLeTensor&aclnnInplaceLeTensor.md) | 计算self中的元素值是否小于等于other的值，将self每个元素与other值的比较结果写入out中。 | 默认确定性实现| 默认确定性实现 |
 | [aclnnLgamma](../../math/lgamma/docs/aclnnLgamma.md)           | 为输入张量的每一个元素进行lgamma数学运算。           | 默认确定性实现| 默认确定性实现 |
-| [aclnnLinalgCholesky](../../math/cholesky/docs/aclnnLinalgCholesky.md)     | 计算实数对称正定矩阵的Cholesky分解。             | 默认确定性实现| - |
+| [aclnnLinalgCholesky](../../math/cholesky/docs/aclnnLinalgCholesky.md)     | 计算一个或多个实数对称正定矩阵的Cholesky分解。             | 默认确定性实现| 默认确定性实现 |
 | [aclnnLinalgCross](../../math/cross/docs/aclnnLinalgCross.md)     | 对输入Tensor完成linear_cross运算。             | 默认确定性实现| 默认确定性实现 |
 | [aclnnLinalgQr](../../math/qr/docs/aclnnLinalgQr.md)     | 对输入Tensor进行正交分解。             | 默认确定性实现| 默认确定性实现 |
 | [aclnnLinspace](../../math/lin_space/docs/aclnnLinspace.md)     | 生成一个等间隔数值序列。                                     | 默认确定性实现| 默认确定性实现 |

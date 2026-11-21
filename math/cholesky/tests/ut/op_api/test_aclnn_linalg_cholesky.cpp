@@ -107,3 +107,33 @@ TEST_F(l2_linalg_cholesky_test, valid_empty_matrices_require_no_workspace)
         EXPECT_EQ(workspaceSize, 0);
     }
 }
+
+TEST_F(l2_linalg_cholesky_test, ascend910B_case_6_null_workspace_or_executor)
+{
+    auto self = TensorDesc({3, 3}, ACL_FLOAT, ACL_FORMAT_ND).ToAclType();
+    auto out = TensorDesc({3, 3}, ACL_FLOAT, ACL_FORMAT_ND).ToAclType();
+    uint64_t workspaceSize = 0;
+    aclOpExecutor* executor = nullptr;
+    EXPECT_EQ(aclnnLinalgCholeskyGetWorkspaceSize(self.get(), true, out.get(), nullptr, &executor),
+              ACLNN_ERR_PARAM_NULLPTR);
+    EXPECT_EQ(aclnnLinalgCholeskyGetWorkspaceSize(self.get(), true, out.get(), &workspaceSize, nullptr),
+              ACLNN_ERR_PARAM_NULLPTR);
+}
+
+TEST_F(l2_linalg_cholesky_test, ascend910B_case_8_format_mismatch)
+{
+    auto ut = OP_API_UT(aclnnLinalgCholesky, INPUT(TensorDesc({3, 3}, ACL_FLOAT, ACL_FORMAT_ND), true),
+                        OUTPUT(TensorDesc({3, 3}, ACL_FLOAT, ACL_FORMAT_NCHW)));
+    uint64_t workspaceSize = 0;
+    EXPECT_EQ(ut.TestGetWorkspaceSize(&workspaceSize), ACLNN_ERR_PARAM_INVALID);
+}
+
+// Base formats used by the framework remain accepted at the ACLNN boundary.
+TEST_F(l2_linalg_cholesky_test, accepts_ncl_base_format)
+{
+    auto self = TensorDesc({2, 2, 2}, ACL_FLOAT, ACL_FORMAT_NCL);
+    auto out = TensorDesc({2, 2, 2}, ACL_FLOAT, ACL_FORMAT_NCL);
+    auto ut = OP_API_UT(aclnnLinalgCholesky, INPUT(self, false), OUTPUT(out));
+    uint64_t workspaceSize = 0;
+    EXPECT_EQ(ut.TestGetWorkspaceSize(&workspaceSize), ACLNN_SUCCESS);
+}

@@ -12,11 +12,16 @@
  * \file test_aclnn_linalg_cholesky.cpp
  * \brief
  */
+#include <cstdio>
+#include <cstdlib>
+#include <exception>
 #include <iostream>
+#include <new>
 #include <memory>
 #include <type_traits>
 #include <vector>
 #include "acl/acl.h"
+#include "aclnn/acl_meta.h"
 #include "aclnnop/aclnn_linalg_cholesky.h"
 
 #define CHECK_RET(cond, return_expr) \
@@ -43,6 +48,69 @@ int64_t GetShapeSize(const std::vector<int64_t>& shape)
 using StreamPtr = std::unique_ptr<std::remove_pointer<aclrtStream>::type, decltype(&aclrtDestroyStream)>;
 using DeviceMemPtr = std::unique_ptr<void, decltype(&aclrtFree)>;
 using TensorPtr = std::unique_ptr<aclTensor, decltype(&aclDestroyTensor)>;
+void DestroyUnusedExecutor(aclOpExecutor* executor)
+{
+    if (executor == nullptr) {
+        return;
+    }
+    auto ret = aclSetAclOpExecutorRepeatable(executor);
+    if (ret != ACL_SUCCESS) {
+        LOG_PRINT("aclSetAclOpExecutorRepeatable failed. ERROR: %d\n", ret);
+        return;
+    }
+    ret = aclDestroyAclOpExecutor(executor);
+    if (ret != ACL_SUCCESS) {
+        LOG_PRINT("aclDestroyAclOpExecutor failed. ERROR: %d\n", ret);
+    }
+}
+
+using ExecutorPtr = std::unique_ptr<aclOpExecutor, decltype(&DestroyUnusedExecutor)>;
+
+// Standalone failure boundary: never release submitted buffers before a successful wait.
+class PendingStreamGuard {
+public:
+    explicit PendingStreamGuard(aclrtStream stream) noexcept : stream_(stream) {}
+    PendingStreamGuard(const PendingStreamGuard&) = delete;
+    PendingStreamGuard& operator=(const PendingStreamGuard&) = delete;
+
+    void MarkSubmitted() noexcept { pending_ = true; }
+    void RecordApiStatus(int status) noexcept
+    {
+        apiStatus_ = status;
+        apiStatusKnown_ = true;
+    }
+
+    aclError Synchronize(bool fromCleanup = false) noexcept
+    {
+        const auto syncStatus = aclrtSynchronizeStream(stream_);
+        if (syncStatus != ACL_SUCCESS) {
+            // A failed wait does not establish completion. This standalone process stops
+            // without normal destruction; it does not claim graceful resource recovery.
+            std::fprintf(stderr,
+                         "Pending stream failed: api2_status_known=%d api2_status=%d "
+                         "sync_status=%d cleanup=%d; exiting without normal cleanup\n",
+                         static_cast<int>(apiStatusKnown_), apiStatus_, static_cast<int>(syncStatus),
+                         static_cast<int>(fromCleanup));
+            std::fflush(stderr);
+            std::_Exit(EXIT_FAILURE);
+        }
+        pending_ = false;
+        return syncStatus;
+    }
+
+    ~PendingStreamGuard() noexcept
+    {
+        if (pending_) {
+            (void)Synchronize(true);
+        }
+    }
+
+private:
+    aclrtStream stream_;
+    bool pending_ = false;
+    bool apiStatusKnown_ = false;
+    int apiStatus_ = 0;
+};
 
 int Init(int32_t deviceId, StreamPtr& stream, bool& initialized, bool& deviceSet)
 {
@@ -88,7 +156,7 @@ int CreateAclTensor(const std::vector<T>& hostData, const std::vector<int64_t>& 
     return 0;
 }
 
-int main()
+int RunExample()
 {
     // 1. （固定写法）device/stream初始化，参考acl API手册
     // 根据自己的实际device填写deviceId
@@ -125,13 +193,14 @@ int main()
 
     // 3. 调用CANN算子库API，需要修改为具体的Api名称
     uint64_t workspaceSize = 0;
-    aclOpExecutor* executor;
+    DeviceMemPtr workspaceAddr(nullptr, &aclrtFree);
+    aclOpExecutor* executor = nullptr;
     // 调用aclnnLinalgCholesky第一段接口
     ret = aclnnLinalgCholeskyGetWorkspaceSize(self.get(), false, out.get(), &workspaceSize, &executor);
     CHECK_RET(ret == ACL_SUCCESS, LOG_PRINT("aclnnLinalgCholeskyGetWorkspaceSize failed. ERROR: %d\n", ret);
               return ret);
+    ExecutorPtr executorGuard(executor, &DestroyUnusedExecutor);
     // 根据第一段接口计算出的workspaceSize申请device内存
-    DeviceMemPtr workspaceAddr(nullptr, &aclrtFree);
     if (workspaceSize > static_cast<uint64_t>(0)) {
         void* rawWorkspaceAddr = nullptr;
         ret = aclrtMalloc(&rawWorkspaceAddr, workspaceSize, ACL_MEM_MALLOC_HUGE_FIRST);
@@ -139,12 +208,14 @@ int main()
         workspaceAddr.reset(rawWorkspaceAddr);
     }
     // 调用aclnnLinalgCholesky第二段接口
-    ret = aclnnLinalgCholesky(workspaceAddr.get(), workspaceSize, executor, stream.get());
+    PendingStreamGuard pendingStream(stream.get());
+    pendingStream.MarkSubmitted();
+    ret = aclnnLinalgCholesky(workspaceAddr.get(), workspaceSize, executorGuard.release(), stream.get());
+    pendingStream.RecordApiStatus(ret);
     CHECK_RET(ret == ACL_SUCCESS, LOG_PRINT("aclnnLinalgCholesky failed. ERROR: %d\n", ret); return ret);
 
     // 4. （固定写法）同步等待任务执行结束
-    ret = aclrtSynchronizeStream(stream.get());
-    CHECK_RET(ret == ACL_SUCCESS, LOG_PRINT("aclrtSynchronizeStream failed. ERROR: %d\n", ret); return ret);
+    ret = pendingStream.Synchronize();
 
     // 5. 获取输出的值，将device侧内存上的结果拷贝至host侧，需要根据具体API的接口定义修改
     auto size = GetShapeSize(outShape);
@@ -157,4 +228,16 @@ int main()
     }
 
     return 0;
+}
+
+int main()
+{
+    try {
+        return RunExample();
+    } catch (const std::bad_alloc& error) {
+        std::fprintf(stderr, "Host allocation failed: %s\n", error.what());
+    } catch (const std::exception& error) {
+        std::fprintf(stderr, "Host exception: %s\n", error.what());
+    }
+    return EXIT_FAILURE;
 }

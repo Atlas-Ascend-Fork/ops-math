@@ -15,11 +15,17 @@ English | [简体中文](./README.md)
 
 ## Function Description
 
-- Operator function: computes the Cholesky decomposition of a real symmetric positive-definite matrix.
-- Computation formula:
+- Operator function: computes the Cholesky decomposition of one or more real symmetric positive-definite matrices.
+- When upper is false, out is lower triangular and satisfies:
 
   $$
   self = out \times out^{H}
+  $$
+
+- When upper is true, out is upper triangular and satisfies:
+
+  $$
+  self = out^{H} \times out
   $$
 
 ## Parameter Description
@@ -48,28 +54,28 @@ English | [简体中文](./README.md)
       <td>ND</td>
     </tr>
     <tr>
-      <td>upper</td>
-      <td>Attribute</td>
-      <td>Specifies whether to perform the upper-triangular or lower-triangular matrix decomposition.</td>
-      <td>BOOL</td>
-      <td>-</td>
-    </tr>
-    <tr>
       <td>out</td>
       <td>Output</td>
       <td>Output tensor, which is out in the formula.</td>
       <td>FLOAT</td>
       <td>ND</td>
     </tr>
+    <tr>
+      <td>upper</td>
+      <td>Attribute</td>
+      <td>Optional attribute with a default value of false. true selects an upper-triangular result, and false selects a lower-triangular result.</td>
+      <td>BOOL</td>
+      <td>-</td>
+    </tr>
   </tbody></table>
 
 ## Constraint Description
 
-- The rank of self must be in [2, 8], the last two dimensions must be equal to form a square matrix, and the last dimension must not exceed 8192. Otherwise the operator-side tiling reports a failure.
+- The rank of self must be in [2, 8], the last two dimensions must be equal to form a square matrix, and the last dimension must not exceed 8192.
 - self must be a real symmetric positive-definite matrix.
 
 ## Invocation Description
 
-| Invocation Method | Invocation Sample                                                                   | Description                                                             |
+| Invocation Method | Sample Code                                                                   | Description                                                             |
 |--------------|------------------------------------------------------------------------|----------------------------------------------------------------|
-| aclnn invocation | [test_aclnn_linalg_cholesky](./examples/test_aclnn_linalg_cholesky.cpp) | Invokes the Cholesky operator through the [aclnnLinalgCholesky](./docs/aclnnLinalgCholesky_en.md) API.    |
+| aclnn API | [test_aclnn_linalg_cholesky](./examples/test_aclnn_linalg_cholesky.cpp) | Invokes the Cholesky operator through the [aclnnLinalgCholesky](./docs/aclnnLinalgCholesky_en.md) API.    |

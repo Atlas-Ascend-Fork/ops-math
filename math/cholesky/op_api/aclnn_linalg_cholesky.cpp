@@ -69,13 +69,13 @@ static bool CheckFormat(const aclTensor* self, const aclTensor* out)
     // 输入输出的格式需要一致
     if (self->GetStorageFormat() != out->GetStorageFormat()) {
         OP_LOGE(ACLNN_ERR_PARAM_INVALID, "Format of input and output should be equal. self [%s], out [%s].",
-                ToString(self->GetStorageShape()).GetString(), ToString(out->GetStorageShape()).GetString());
+                ToString(self->GetStorageFormat()).GetString(), ToString(out->GetStorageFormat()).GetString());
         return false;
     }
 
     // self格式不能是私有格式
     if (IsPrivateFormat(self->GetStorageFormat())) {
-        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "Format only support ND.");
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "Private storage formats are not supported.");
         return false;
     }
 
@@ -116,6 +116,7 @@ static aclnnStatus CheckParams(const aclTensor* self, aclTensor* out)
 aclnnStatus aclnnLinalgCholeskyGetWorkspaceSize(const aclTensor* self, bool upper, aclTensor* out,
                                                 uint64_t* workspaceSize, aclOpExecutor** executor)
 {
+    OP_CHECK_COMM_INPUT(workspaceSize, executor);
     L2_DFX_PHASE_1(aclnnLinalgCholesky, DFX_IN(self, upper), DFX_OUT(out));
 
     // 固定写法，创建OpExecutor
