@@ -141,12 +141,13 @@ private:
     ge::graphStatus SetBlockCnt();
     std::string PrintTilingData();
     uint32_t CalcAxisWeight(int64_t lpCnt);
+    template <typename T>
+    void FillCommonFields(T* td);
 
 private:
     gert::TilingContext* context_ = nullptr;
     const gert::Shape* inShapePtr_ = nullptr;
     const gert::Shape* outShapePtr_ = nullptr;
-    BroadcastToTilingData* tilingData_ = nullptr;
 
     int64_t coreNum_{0};
     int64_t ubSize_{0};

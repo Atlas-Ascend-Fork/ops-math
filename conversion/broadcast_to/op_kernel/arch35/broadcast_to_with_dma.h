@@ -10,7 +10,7 @@
 
 /*!
  * \file broadcast_to_with_dma.h
- * \brief kernel of broadcast_to with nddma
+ * \brief kernel of broadcast_to with nddma (静态Tensor编程 + Mutex同步)
  */
 
 #ifndef BROADCAST_TO_WITH_NDDMA_H_
@@ -22,22 +22,21 @@
 namespace BrcTo {
 using namespace AscendC;
 
-constexpr uint8_t bufferNum = 1;
-constexpr int32_t queDepth = 1;
 constexpr NdDmaConfig copyCfg{false, 0, 0, false};
+constexpr MutexID NDDMA_MUTEX_ID = 0; // 单buffer: MTE2↔MTE3同步
 
 template <typename T, typename U, uint8_t maxDim = 4>
 class BrcToWithNDDMA : public BrcToBase<U> {
 public:
     __aicore__ inline BrcToWithNDDMA(){};
-    __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, const U* tilingDataPtr, TPipe* pipeIn);
+    __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, const U* tilingDataPtr);
     __aicore__ inline void Process();
 
 private:
     __aicore__ inline void SetDMAParams();
     __aicore__ inline void CalcOutSize();
-    __aicore__ inline void CopyDataInWithDMA(LocalTensor<T>& tensor);
-    __aicore__ inline void CopyDataOut(LocalTensor<T>& tensor);
+    __aicore__ inline void CopyDataInWithDMA();
+    __aicore__ inline void CopyDataOut();
 
 private:
     const U* tdPtr_;
@@ -45,10 +44,9 @@ private:
     AxesLpInfo lpInfo;
     int64_t aBaseIdx = 0;
     int64_t bBaseIdx = 0;
-    TPipe* pipe_;
-    TQue<QuePosition::VECIN, queDepth> que;
     GlobalTensor<T> inGM;
     GlobalTensor<T> outGM;
+    LocalTensor<T> ubBuf_;
     int64_t gmInOffset;
     int64_t gmOutOffset;
     int64_t inBlockOffset = 0;
@@ -61,14 +59,16 @@ private:
 };
 
 template <typename T, typename U, uint8_t maxDim>
-__aicore__ inline void BrcToWithNDDMA<T, U, maxDim>::Init(GM_ADDR x, GM_ADDR y, const U* tilingDataPtr, TPipe* pipeIn)
+__aicore__ inline void BrcToWithNDDMA<T, U, maxDim>::Init(GM_ADDR x, GM_ADDR y, const U* tilingDataPtr)
 {
     inGM.SetGlobalBuffer(reinterpret_cast<__gm__ T*>(x));
     outGM.SetGlobalBuffer(reinterpret_cast<__gm__ T*>(y));
-    pipe_ = pipeIn;
     tdPtr_ = tilingDataPtr;
-    pipe_->InitBuffer(que, bufferNum, tdPtr_->tensorSize * sizeof(T));
-    blockIdx = GetBlockIdx() % tdPtr_->usedCoreCnt;
+
+    // 静态Tensor: 每核按核编号偏移UB地址
+    int64_t realBlockIdx = GetBlockIdx();
+    blockIdx = (tdPtr_->doubleMode != 0) ? realBlockIdx % tdPtr_->usedCoreCnt : realBlockIdx;
+    ubBuf_ = LocalTensor<T>(TPosition::VECCALC, 0, tdPtr_->tensorSize);
 }
 
 template <typename T, typename U, uint8_t maxDim>
@@ -83,11 +83,13 @@ __aicore__ inline void BrcToWithNDDMA<T, U, maxDim>::SetDMAParams()
 }
 
 template <typename T, typename U, uint8_t maxDim>
-__aicore__ inline void BrcToWithNDDMA<T, U, maxDim>::CopyDataInWithDMA(LocalTensor<T>& tensor)
+__aicore__ inline void BrcToWithNDDMA<T, U, maxDim>::CopyDataInWithDMA()
 {
     if (copySwitch > 0) {
-        DataCopy<T, maxDim, copyCfg>(tensor, inGM[gmInOffset], mCopyParams);
-        this->InsertSync(HardEvent::MTE2_MTE3);
+        // 获取buffer(等待MTE3释放上一笔), 搬入后释放给MTE3
+        Mutex::Lock<PIPE_MTE2>(NDDMA_MUTEX_ID);
+        DataCopy<T, maxDim, copyCfg>(ubBuf_, inGM[gmInOffset], mCopyParams);
+        Mutex::Unlock<PIPE_MTE2>(NDDMA_MUTEX_ID);
         copySwitch = copySwitch * uint8_t(tdPtr_->isUNotB);
     }
 }
@@ -101,14 +103,16 @@ __aicore__ inline void BrcToWithNDDMA<T, U, maxDim>::CalcOutSize()
 }
 
 template <typename T, typename U, uint8_t maxDim>
-__aicore__ inline void BrcToWithNDDMA<T, U, maxDim>::CopyDataOut(LocalTensor<T>& tensor)
+__aicore__ inline void BrcToWithNDDMA<T, U, maxDim>::CopyDataOut()
 {
     int64_t bOffset = 0;
+    // 获取buffer(等待MTE2写入完成), 搬出后释放给下一笔MTE2复用
+    Mutex::Lock<PIPE_MTE3>(NDDMA_MUTEX_ID);
     for (int64_t bIdx = lpInfo.bLpBegIdx; bIdx < lpInfo.bLpEndIdx; bIdx++) {
         bOffset = this->CalcBAxesOffset(tdPtr_, bBaseIdx + bIdx);
-        DataCopyPad(outGM[gmOutOffset + bOffset], tensor, copyParams);
+        DataCopyPad(outGM[gmOutOffset + bOffset], ubBuf_, copyParams);
     }
-    this->InsertSync(HardEvent::MTE3_MTE2);
+    Mutex::Unlock<PIPE_MTE3>(NDDMA_MUTEX_ID);
 }
 
 template <typename T, typename U, uint8_t maxDim>
@@ -118,8 +122,6 @@ __aicore__ inline void BrcToWithNDDMA<T, U, maxDim>::Process()
     this->CalcAxesLoopInfo(tdPtr_, blockIdx, lpInfo);
     this->CalcInBlockOffset(tdPtr_, blockIdx, inBlockOffset);
     this->CalcOutBlockOffset(tdPtr_, blockIdx, outBlockOffset);
-
-    LocalTensor<T> tensor = que.AllocTensor<T>();
 
     SetDMAParams();
     CalcOutSize();
@@ -131,22 +133,20 @@ __aicore__ inline void BrcToWithNDDMA<T, U, maxDim>::Process()
         int64_t aOutOffset = this->CalcAOutAxesOffset(tdPtr_, aBaseIdx + aIdx);
         for (int64_t uLpIdx = lpInfo.uLpBegIdx; uLpIdx < lpInfo.uLpEndIdx; uLpIdx++) {
             gmInOffset = (aInOffset + inBlockOffset + uLpIdx * tdPtr_->uLpUnit * tdPtr_->uInOffset * tdPtr_->isUNotB);
-            CopyDataInWithDMA(tensor);
+            CopyDataInWithDMA();
             gmOutOffset = (aOutOffset + outBlockOffset + uLpIdx * tdPtr_->uLpUnit * tdPtr_->uOutOffset);
-            CopyDataOut(tensor);
+            CopyDataOut();
         }
         if (lpInfo.uLeft > 0) {
             mCopyParams.loopInfo.loopSize[0] = lpInfo.uLeft;
             copyParams.blockLen = lpInfo.uLeft * outLen;
             gmInOffset = (aInOffset + inBlockOffset +
                           lpInfo.uLpCnt * tdPtr_->uLpUnit * tdPtr_->uInOffset * tdPtr_->isUNotB);
-            CopyDataInWithDMA(tensor);
+            CopyDataInWithDMA();
             gmOutOffset = (aOutOffset + outBlockOffset + lpInfo.uLpCnt * tdPtr_->uLpUnit * tdPtr_->uOutOffset);
-            CopyDataOut(tensor);
+            CopyDataOut();
         }
     }
-
-    que.FreeTensor(tensor);
 }
 
 } // namespace BrcTo

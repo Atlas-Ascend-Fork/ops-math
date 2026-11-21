@@ -66,31 +66,38 @@ static __aicore__ inline void broadcast_to_impl(GM_ADDR x, GM_ADDR shape, GM_ADD
             op.Process();
         }
     } else {
-        TPipe pipe;
-        GET_TILING_DATA_WITH_STRUCT(BroadcastToTilingData, tilingData, tiling);
-        if (TILING_KEY_IS(TILING_MODE_NDDMA)) {
+        // 非single-axis为静态Tensor编程, 不经过TPipe, 需显式初始化SOC状态(atomic/mask/ctrl等)
+        // (single-axis在BroadcastSingleAxis::Init中已调用, 此处不重复调用)
+        AscendC::InitSocState();
+        if (TILING_KEY_IS(TILING_MODE_LAST_DIM_LARGE_B)) {
+            GET_TILING_DATA_WITH_STRUCT(TailAxisTilingData, tailTilingData, tiling);
+            BrcToWithTailAxis<DTYPE_X_, TailAxisTilingData> op;
+            op.Init(x, y, &tailTilingData);
+            op.Process();
+        } else if (TILING_KEY_IS(TILING_MODE_NDDMA)) {
+            GET_TILING_DATA_WITH_STRUCT(BroadcastToTilingData, tilingData, tiling);
             BrcToWithNDDMA<DTYPE_X_, BroadcastToTilingData> op;
-            op.Init(x, y, &tilingData, &pipe);
-            op.Process();
-        } else if (TILING_KEY_IS(TILING_MODE_UB_BRC)) {
-            BroadcastToUb<DTYPE_X_, BroadcastToTilingData> op;
-            op.Init(x, y, &tilingData, &pipe);
-            op.Process();
-        } else if (TILING_KEY_IS(TILING_MODE_LAST_DIM_LARGE_A)) {
-            BrcToDataCopyPad<DTYPE_X_, BroadcastToTilingData> op;
-            op.Init(x, y, &tilingData, &pipe);
-            op.Process();
-        } else if (TILING_KEY_IS(TILING_MODE_LAST_DIM_LARGE_B)) {
-            BrcToWithTailAxis<DTYPE_X_, BroadcastToTilingData> op;
-            op.Init(x, y, &tilingData, &pipe);
+            op.Init(x, y, &tilingData);
             op.Process();
         } else if (TILING_KEY_IS(TILING_MODE_FULL_NDDMA)) {
+            GET_TILING_DATA_WITH_STRUCT(BroadcastToTilingData, tilingData, tiling);
             BrcToWithNDDMA<DTYPE_X_, BroadcastToTilingData, 5U> op;
-            op.Init(x, y, &tilingData, &pipe);
+            op.Init(x, y, &tilingData);
+            op.Process();
+        } else if (TILING_KEY_IS(TILING_MODE_UB_BRC)) {
+            GET_TILING_DATA_WITH_STRUCT(UbBrcTilingData, ubTilingData, tiling);
+            BroadcastToUb<DTYPE_X_, UbBrcTilingData> op;
+            op.Init(x, y, &ubTilingData);
+            op.Process();
+        } else if (TILING_KEY_IS(TILING_MODE_LAST_DIM_LARGE_A)) {
+            GET_TILING_DATA_WITH_STRUCT(CopyPadTilingData, cpTilingData, tiling);
+            BrcToDataCopyPad<DTYPE_X_, CopyPadTilingData> op;
+            op.Init(x, y, &cpTilingData);
             op.Process();
         } else if (TILING_KEY_IS(TILING_MODE_LAST_DIM_SMALL_A)) {
-            BroadcastToUb<DTYPE_X_, BroadcastToTilingData, true> op;
-            op.Init(x, y, &tilingData, &pipe);
+            GET_TILING_DATA_WITH_STRUCT(UbBrcTilingData, ubTilingData, tiling);
+            BroadcastToUb<DTYPE_X_, UbBrcTilingData, true> op;
+            op.Init(x, y, &ubTilingData);
             op.Process();
         }
     }

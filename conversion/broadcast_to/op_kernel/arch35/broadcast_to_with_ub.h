@@ -10,7 +10,7 @@
 
 /*!
  * \file broadcast_to_with_ub.h
- * \brief broadcst_to schedule
+ * \brief broadcst_to schedule (静态Tensor编程 + Mutex同步, 支持双buffer)
  */
 
 #ifndef BROADCAST_TO_WITH_UB_H_
@@ -34,17 +34,26 @@ constexpr uint32_t DIM_TWO = 2;
 constexpr uint32_t DIM_THREE = 3;
 constexpr uint32_t DIM_FOUR = 4;
 constexpr uint32_t DATA_ALIGN_SIZE = 32;
+constexpr MutexID UB_MUTEX_ID_IN0 = 0;  // 输入buffer0: MTE2↔V同步
+constexpr MutexID UB_MUTEX_ID_OUT0 = 1; // 输出buffer0: V↔MTE3同步
+constexpr MutexID UB_MUTEX_ID_OUT1 = 2; // 输出buffer1: V↔MTE3同步(与OUT0按buffer乒乓配对)
+constexpr MutexID UB_MUTEX_ID_IN1 = 3;  // 输入buffer1: MTE2↔V同步(与IN0按buffer乒乓配对)
 
 template <typename T, typename U, bool isLastDimSmall = false>
 class BroadcastToUb : public BrcToBase<U> {
 public:
     __aicore__ inline BroadcastToUb(){};
-    __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, const U* tilingDataPtr, TPipe* pipeIn);
+    __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, const U* tilingDataPtr);
     __aicore__ inline void Process();
 
 private:
-    __aicore__ inline void CopyDataIn(LocalTensor<T>& tensor);
-    __aicore__ inline void CopyDataOut(LocalTensor<T>& tensor);
+    __aicore__ inline void CopyDataIn(int64_t bufIdx);
+    __aicore__ inline void CopyDataOut(int64_t bufIdx);
+    __aicore__ inline void CopyDataOutInner(LocalTensor<T>& tensor);
+    __aicore__ inline LocalTensor<T>& GetInBuf(int64_t bufIdx);
+    __aicore__ inline LocalTensor<T>& GetOutBuf(int64_t bufIdx);
+    __aicore__ inline MutexID GetInMutexId(int64_t bufIdx);
+    __aicore__ inline MutexID GetOutMutexId(int64_t bufIdx);
     __aicore__ inline void CalcInnerShape();
     __aicore__ inline void SetOutputParams(uint32_t uLen);
     __aicore__ inline void SetInputParams(uint32_t uLen);
@@ -56,7 +65,7 @@ private:
     __aicore__ inline void VFInnerBrcLastDimLEBlock(LocalTensor<T>& outputTensor, LocalTensor<T>& inputTensor);
     __aicore__ inline void GenGatherIdx(Reg::RegTensor<int32_t>& gatherIdx, int32_t axis4BA);
     __aicore__ inline void VFInnerBrcLastDimGTBlock(LocalTensor<T>& outputTensor, LocalTensor<T>& inputTensor);
-    __aicore__ inline void BroadcastUb(LocalTensor<T>& outputTensor);
+    __aicore__ inline void BroadcastUb(int64_t bufIdx);
     __aicore__ inline void BrcUNotB(int64_t aIdx);
     __aicore__ inline void BrcUIsB(int64_t aIdx);
 
@@ -66,9 +75,14 @@ private:
     AxesLpInfo lpInfo;
     int64_t aBaseIdx = 0;
     int64_t bBaseIdx = 0;
-    TPipe* pipe_;
-    TQue<QuePosition::VECIN, 1> inQueue_;
-    TQue<QuePosition::VECOUT, 1> outQueue_;
+    // 静态Tensor: 不通过TPipe/TQue, UB地址在Init时直接指定
+    LocalTensor<T> inBuf0_;
+    LocalTensor<T> inBuf1_;
+    LocalTensor<T> outBuf0_;
+    LocalTensor<T> outBuf1_;
+    uint8_t bufferCnt_ = 1;
+    uint32_t tensorSize_ = 0;
+    int64_t brcIter_ = 0; // 核内广播序号(跨a/u循环连续递增), 输入/输出buffer按其奇偶乒乓
     GlobalTensor<T> inGM;
     GlobalTensor<T> outGM;
     int64_t gmInOffset;
@@ -90,35 +104,84 @@ private:
 };
 
 template <typename T, typename U, bool isLastDimSmall>
-__aicore__ inline void BroadcastToUb<T, U, isLastDimSmall>::Init(GM_ADDR x, GM_ADDR y, const U* tilingDataPtr,
-                                                                 TPipe* pipeIn)
+__aicore__ inline LocalTensor<T>& BroadcastToUb<T, U, isLastDimSmall>::GetInBuf(int64_t bufIdx)
+{
+    return (bufferCnt_ > 1 && (bufIdx & 1)) ? inBuf1_ : inBuf0_;
+}
+
+template <typename T, typename U, bool isLastDimSmall>
+__aicore__ inline LocalTensor<T>& BroadcastToUb<T, U, isLastDimSmall>::GetOutBuf(int64_t bufIdx)
+{
+    return (bufferCnt_ > 1 && (bufIdx & 1)) ? outBuf1_ : outBuf0_;
+}
+
+template <typename T, typename U, bool isLastDimSmall>
+__aicore__ inline MutexID BroadcastToUb<T, U, isLastDimSmall>::GetInMutexId(int64_t bufIdx)
+{
+    return (bufferCnt_ > 1 && (bufIdx & 1)) ? UB_MUTEX_ID_IN1 : UB_MUTEX_ID_IN0;
+}
+
+template <typename T, typename U, bool isLastDimSmall>
+__aicore__ inline MutexID BroadcastToUb<T, U, isLastDimSmall>::GetOutMutexId(int64_t bufIdx)
+{
+    return (bufferCnt_ > 1 && (bufIdx & 1)) ? UB_MUTEX_ID_OUT1 : UB_MUTEX_ID_OUT0;
+}
+
+template <typename T, typename U, bool isLastDimSmall>
+__aicore__ inline void BroadcastToUb<T, U, isLastDimSmall>::Init(GM_ADDR x, GM_ADDR y, const U* tilingDataPtr)
 {
     inGM.SetGlobalBuffer(reinterpret_cast<__gm__ T*>(x));
     outGM.SetGlobalBuffer(reinterpret_cast<__gm__ T*>(y));
-    pipe_ = pipeIn;
     tdPtr_ = tilingDataPtr;
-    pipe_->InitBuffer(inQueue_, tdPtr_->bufferCnt, tdPtr_->tensorSize * sizeof(T));
-    pipe_->InitBuffer(outQueue_, tdPtr_->bufferCnt, tdPtr_->tensorSize * sizeof(T));
+    // 读取高频字段到成员变量, 减少GM读取次数
+    tensorSize_ = tilingDataPtr->tensorSize;
+    bufferCnt_ = tilingDataPtr->bufferCnt;
+
+    // 静态Tensor: 每核UB独立, 各buffer地址32B对齐; 双buffer时输入/输出ping/pong各一套
+    // (host侧ubSizeCheck保证tensorSize不超UB/4/dtype, 4块buffer不越界)
+    constexpr uint32_t alignBytes = 32;
+    uint32_t bufBytes = (tensorSize_ * sizeof(T) + alignBytes - 1) / alignBytes * alignBytes;
+    inBuf0_ = LocalTensor<T>(TPosition::VECCALC, 0, tensorSize_);
+    outBuf0_ = LocalTensor<T>(TPosition::VECCALC, bufBytes, tensorSize_);
+    if (bufferCnt_ > 1) {
+        inBuf1_ = LocalTensor<T>(TPosition::VECCALC, bufBytes * DIM_TWO, tensorSize_);
+        outBuf1_ = LocalTensor<T>(TPosition::VECCALC, bufBytes * DIM_THREE, tensorSize_);
+    }
     dataAlignCnt = DATA_ALIGN_SIZE / sizeof(T);
     VL_CNT = Ops::Base::GetVRegSize() / sizeof(T);
     blockIdx = GetBlockIdx() % tdPtr_->usedCoreCnt;
 }
 
 template <typename T, typename U, bool isLastDimSmall>
-__aicore__ inline void BroadcastToUb<T, U, isLastDimSmall>::CopyDataIn(LocalTensor<T>& tensor)
+__aicore__ inline void BroadcastToUb<T, U, isLastDimSmall>::CopyDataIn(int64_t bufIdx)
 {
-    DataCopyPad(tensor, inGM[gmInOffset], copyInParams_, copyInPadParams_);
-    inQueue_.EnQue(tensor);
+    MutexID inMutexId = GetInMutexId(bufIdx);
+    // 获取输入buffer: 等待V消费完同buffer的上一轮数据
+    Mutex::Lock<PIPE_MTE2>(inMutexId);
+    DataCopyPad(GetInBuf(bufIdx), inGM[gmInOffset], copyInParams_, copyInPadParams_);
+    // 释放输入buffer, 通知V数据就绪
+    Mutex::Unlock<PIPE_MTE2>(inMutexId);
 }
 
 template <typename T, typename U, bool isLastDimSmall>
-__aicore__ inline void BroadcastToUb<T, U, isLastDimSmall>::CopyDataOut(LocalTensor<T>& tensor)
+__aicore__ inline void BroadcastToUb<T, U, isLastDimSmall>::CopyDataOutInner(LocalTensor<T>& tensor)
 {
     int64_t bOffset = 0;
     for (int64_t bIdx = lpInfo.bLpBegIdx; bIdx < lpInfo.bLpEndIdx; bIdx++) {
         bOffset = this->CalcBAxesOffset(tdPtr_, bBaseIdx + bIdx);
         DataCopyPad(outGM[gmOutOffset + bOffset], tensor, copyOutParams_);
     }
+}
+
+template <typename T, typename U, bool isLastDimSmall>
+__aicore__ inline void BroadcastToUb<T, U, isLastDimSmall>::CopyDataOut(int64_t bufIdx)
+{
+    MutexID outMutexId = GetOutMutexId(bufIdx);
+    // 获取输出buffer, 等待V写入完成
+    Mutex::Lock<PIPE_MTE3>(outMutexId);
+    CopyDataOutInner(GetOutBuf(bufIdx));
+    // 释放输出buffer, 通知V可复用
+    Mutex::Unlock<PIPE_MTE3>(outMutexId);
 }
 
 template <typename T, typename U, bool isLastDimSmall>
@@ -133,22 +196,23 @@ template <typename T, typename U, bool isLastDimSmall>
 __aicore__ inline void BroadcastToUb<T, U, isLastDimSmall>::SetOutputParams(uint32_t uLen)
 {
     if (innerShape[DIM_FOUR] % dataAlignCnt != 0) {
-        copyOutParams_.blockCount = uLen * uint32_t(tdPtr_->uOutOffset) / innerShape[DIM_FOUR];
+        // 64位乘法, 避免uint32中间量截断
+        copyOutParams_.blockCount = uLen * static_cast<uint64_t>(tdPtr_->uOutOffset) / innerShape[DIM_FOUR];
         copyOutParams_.blockLen = innerShape[DIM_FOUR] * sizeof(T);
         return;
     }
-    copyOutParams_.blockLen = uLen * tdPtr_->uOutOffset * sizeof(T);
+    copyOutParams_.blockLen = uLen * static_cast<uint64_t>(tdPtr_->uOutOffset) * sizeof(T);
 }
 
 template <typename T, typename U, bool isLastDimSmall>
 __aicore__ inline void BroadcastToUb<T, U, isLastDimSmall>::SetInputParams(uint32_t uLen)
 {
     if (tdPtr_->isLastDimB == 0 && innerShape[DIM_FOUR] % dataAlignCnt != 0U) {
-        copyInParams_.blockCount = uLen * uint32_t(tdPtr_->uInOffset) / innerShape[DIM_FOUR];
+        copyInParams_.blockCount = uLen * static_cast<uint64_t>(tdPtr_->uInOffset) / innerShape[DIM_FOUR];
         copyInParams_.blockLen = innerShape[DIM_FOUR] * sizeof(T);
         return;
     }
-    copyInParams_.blockLen = uLen * tdPtr_->uInOffset * sizeof(T);
+    copyInParams_.blockLen = uLen * static_cast<uint64_t>(tdPtr_->uInOffset) * sizeof(T);
 }
 
 template <typename T, typename U, bool isLastDimSmall>
@@ -450,14 +514,21 @@ __aicore__ inline void BroadcastToUb<T, U, isLastDimSmall>::VFInnerBrcLastDimGTB
 }
 
 template <typename T, typename U, bool isLastDimSmall>
-__aicore__ inline void BroadcastToUb<T, U, isLastDimSmall>::BroadcastUb(LocalTensor<T>& outputTensor)
+__aicore__ inline void BroadcastToUb<T, U, isLastDimSmall>::BroadcastUb(int64_t bufIdx)
 {
+    MutexID outMutexId = GetOutMutexId(bufIdx);
+    MutexID inMutexId = GetInMutexId(bufIdx);
+    // 获取输出buffer(等待MTE3搬完同buffer的上一笔), 获取输入buffer(等待MTE2写入完成)
+    Mutex::Lock<PIPE_V>(outMutexId);
+    Mutex::Lock<PIPE_V>(inMutexId);
+
     innerAxis0 = innerShape[0];
     innerAxis1 = innerShape[1];
     innerAxis2 = innerShape[DIM_TWO];
     innerAxis3 = innerShape[DIM_THREE];
     innerAxis4 = innerShape[DIM_FOUR];
-    LocalTensor<T> inputTensor = inQueue_.DeQue<T>();
+    LocalTensor<T>& inputTensor = GetInBuf(bufIdx);
+    LocalTensor<T>& outputTensor = GetOutBuf(bufIdx);
     if constexpr (!isLastDimSmall) {
         if (tdPtr_->isLastDimB == 1) {
             VFInnerBroadcastToB(outputTensor, inputTensor);
@@ -471,8 +542,10 @@ __aicore__ inline void BroadcastToUb<T, U, isLastDimSmall>::BroadcastUb(LocalTen
             VFInnerBrcLastDimGTBlock(outputTensor, inputTensor);
         }
     }
-    inQueue_.FreeTensor(inputTensor);
-    outQueue_.EnQue(outputTensor);
+
+    // 释放输入buffer, 通知MTE2可复用; 释放输出buffer, 通知MTE3输出就绪
+    Mutex::Unlock<PIPE_V>(inMutexId);
+    Mutex::Unlock<PIPE_V>(outMutexId);
 }
 
 template <typename T, typename U, bool isLastDimSmall>
@@ -482,25 +555,27 @@ __aicore__ inline void BroadcastToUb<T, U, isLastDimSmall>::BrcUIsB(int64_t aIdx
     SetInputParams(1);
     SetOutputParams(tdPtr_->uLpUnit);
 
-    LocalTensor<T> inTensor = inQueue_.AllocTensor<T>();
-    LocalTensor<T> outTensor = outQueue_.AllocTensor<T>();
-
     gmInOffset = (this->CalcAInAxesOffset(tdPtr_, aBaseIdx + aIdx) + inBlockOffset);
-    CopyDataIn(inTensor);
-    BroadcastUb(outTensor);
-    LocalTensor<T> broTensor = outQueue_.DeQue<T>();
+    CopyDataIn(brcIter_);
+    BroadcastUb(brcIter_);
 
+    // 同一输出buffer连续搬出多笔, MTE3侧统一加锁/解锁
+    MutexID outMutexId = GetOutMutexId(brcIter_);
+    Mutex::Lock<PIPE_MTE3>(outMutexId);
+    LocalTensor<T>& broTensor = GetOutBuf(brcIter_);
     int64_t aOutOffset = this->CalcAOutAxesOffset(tdPtr_, aBaseIdx + aIdx);
     for (int64_t uLpIdx = lpInfo.uLpBegIdx; uLpIdx < lpInfo.uLpEndIdx; uLpIdx++) {
         gmOutOffset = (aOutOffset + outBlockOffset + uLpIdx * tdPtr_->uLpUnit * tdPtr_->uOutOffset);
-        CopyDataOut(broTensor);
+        CopyDataOutInner(broTensor);
     }
     if (lpInfo.uLeft > 0) {
         SetOutputParams(lpInfo.uLeft);
         gmOutOffset = (aOutOffset + outBlockOffset + lpInfo.uLpCnt * tdPtr_->uLpUnit * tdPtr_->uOutOffset);
-        CopyDataOut(broTensor);
+        CopyDataOutInner(broTensor);
     }
-    outQueue_.FreeTensor(broTensor);
+    // 全部搬出完成, 释放输出buffer
+    Mutex::Unlock<PIPE_MTE3>(outMutexId);
+    brcIter_++;
 }
 
 template <typename T, typename U, bool isLastDimSmall>
@@ -513,29 +588,23 @@ __aicore__ inline void BroadcastToUb<T, U, isLastDimSmall>::BrcUNotB(int64_t aId
     int64_t aInOffset = this->CalcAInAxesOffset(tdPtr_, aBaseIdx + aIdx);
     int64_t aOutOffset = this->CalcAOutAxesOffset(tdPtr_, aBaseIdx + aIdx);
     for (int64_t uLpIdx = lpInfo.uLpBegIdx; uLpIdx < lpInfo.uLpEndIdx; uLpIdx++) {
-        LocalTensor<T> inTensor = inQueue_.AllocTensor<T>();
-        LocalTensor<T> outTensor = outQueue_.AllocTensor<T>();
         gmInOffset = (aInOffset + inBlockOffset + uLpIdx * tdPtr_->uLpUnit * tdPtr_->uInOffset);
-        CopyDataIn(inTensor);
-        BroadcastUb(outTensor);
-        LocalTensor<T> broTensor = outQueue_.DeQue<T>();
+        CopyDataIn(brcIter_);
+        BroadcastUb(brcIter_);
         gmOutOffset = (aOutOffset + outBlockOffset + uLpIdx * tdPtr_->uLpUnit * tdPtr_->uOutOffset);
-        CopyDataOut(broTensor);
-        outQueue_.FreeTensor(broTensor);
+        CopyDataOut(brcIter_);
+        brcIter_++;
     }
     if (lpInfo.uLeft > 0) {
         innerShape[MAX_INNER_DIM - tdPtr_->uAxisCnt] = lpInfo.uLeft;
         SetInputParams(lpInfo.uLeft);
         SetOutputParams(lpInfo.uLeft);
-        LocalTensor<T> inTensor = inQueue_.AllocTensor<T>();
-        LocalTensor<T> outTensor = outQueue_.AllocTensor<T>();
         gmInOffset = (aInOffset + inBlockOffset + lpInfo.uLpCnt * tdPtr_->uLpUnit * tdPtr_->uInOffset);
-        CopyDataIn(inTensor);
-        BroadcastUb(outTensor);
-        LocalTensor<T> broTensor = outQueue_.DeQue<T>();
+        CopyDataIn(brcIter_);
+        BroadcastUb(brcIter_);
         gmOutOffset = (aOutOffset + outBlockOffset + lpInfo.uLpCnt * tdPtr_->uLpUnit * tdPtr_->uOutOffset);
-        CopyDataOut(broTensor);
-        outQueue_.FreeTensor(broTensor);
+        CopyDataOut(brcIter_);
+        brcIter_++;
     }
 }
 
@@ -548,6 +617,7 @@ __aicore__ inline void BroadcastToUb<T, U, isLastDimSmall>::Process()
     this->CalcOutBlockOffset(tdPtr_, blockIdx, outBlockOffset);
 
     CalcInnerShape();
+    brcIter_ = 0;
     for (int64_t aIdx = 0; aIdx < lpInfo.aLpCnt; aIdx++) {
         if (tdPtr_->isUNotB == 0) {
             BrcUIsB(aIdx);

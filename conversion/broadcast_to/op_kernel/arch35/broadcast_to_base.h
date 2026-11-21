@@ -49,7 +49,6 @@ public:
     __aicore__ inline BrcToBase(){};
 
 protected:
-    __aicore__ inline void InsertSync(const HardEvent& event);
     __aicore__ inline int64_t CalcAInAxesOffset(const U* tdPtr, int64_t curIdx);
     __aicore__ inline int64_t CalcAOutAxesOffset(const U* tdPtr, int64_t curIdx);
     __aicore__ inline int64_t CalcBAxesOffset(const U* tdPtr, int64_t curIdx);
@@ -58,36 +57,6 @@ protected:
     __aicore__ inline void CalcABBaseIdx(const U* tdPtr, int64_t blockIdx, int64_t& aBaseIdx, int64_t& bBaseIdx);
     __aicore__ inline void CalcAxesLoopInfo(const U* tdPtr, int64_t blockIdx, AxesLpInfo& lpInfo);
 };
-
-template <typename U>
-__aicore__ inline void BrcToBase<U>::InsertSync(const HardEvent& event)
-{
-    event_t eventID = static_cast<event_t>(GetTPipePtr()->FetchEventID(event));
-    switch (event) {
-        case HardEvent::V_MTE3:
-            SetFlag<HardEvent::V_MTE3>(eventID);
-            WaitFlag<HardEvent::V_MTE3>(eventID);
-            break;
-        case HardEvent::V_MTE2:
-            SetFlag<HardEvent::V_MTE2>(eventID);
-            WaitFlag<HardEvent::V_MTE2>(eventID);
-            break;
-        case HardEvent::MTE3_MTE2:
-            SetFlag<HardEvent::MTE3_MTE2>(eventID);
-            WaitFlag<HardEvent::MTE3_MTE2>(eventID);
-            break;
-        case HardEvent::MTE2_V:
-            SetFlag<HardEvent::MTE2_V>(eventID);
-            WaitFlag<HardEvent::MTE2_V>(eventID);
-            break;
-        case HardEvent::MTE2_MTE3:
-            SetFlag<HardEvent::MTE2_MTE3>(eventID);
-            WaitFlag<HardEvent::MTE2_MTE3>(eventID);
-            break;
-        default:
-            break;
-    }
-}
 
 template <typename U>
 __aicore__ inline int64_t BrcToBase<U>::CalcAInAxesOffset(const U* tdPtr, int64_t curIdx)
@@ -160,7 +129,7 @@ __aicore__ inline void BrcToBase<U>::CalcAxesLoopInfo(const U* tdPtr, int64_t bl
     int64_t realBlockIdx = GetBlockIdx();
     int64_t blkFactor = realBlockIdx / tdPtr->usedCoreCnt;
     if (tdPtr->doubleMode == 1U) {
-        int64_t bCntPerCore = Ops::Base::CeilDiv(lpInfo.bLpCnt, tdPtr->dFactor);
+        int64_t bCntPerCore = Ops::Base::CeilDiv(lpInfo.bLpCnt, static_cast<int64_t>(tdPtr->dFactor));
         if (blkFactor < tdPtr->dFactor - 1) {
             lpInfo.bLpBegIdx = bCntPerCore * blkFactor;
             lpInfo.bLpEndIdx = bCntPerCore * (blkFactor + 1);
@@ -173,7 +142,7 @@ __aicore__ inline void BrcToBase<U>::CalcAxesLoopInfo(const U* tdPtr, int64_t bl
         return;
     }
     if (tdPtr->doubleMode == nTwo) {
-        int64_t uCntPerCore = Ops::Base::CeilDiv(lpInfo.uLpCnt, tdPtr->dFactor);
+        int64_t uCntPerCore = Ops::Base::CeilDiv(lpInfo.uLpCnt, static_cast<int64_t>(tdPtr->dFactor));
         if (blkFactor < tdPtr->dFactor - 1) {
             lpInfo.uLpBegIdx = uCntPerCore * blkFactor;
             lpInfo.uLpEndIdx = uCntPerCore * (blkFactor + 1);

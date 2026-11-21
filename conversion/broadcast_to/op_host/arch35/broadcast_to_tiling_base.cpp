@@ -766,6 +766,33 @@ ge::graphStatus BroadcastToTilingAscendC::SetBlockCnt()
     return context_->SetBlockDim(usedCoreCnt_ * dFactor_);
 }
 
+template <typename T>
+void BroadcastToTilingAscendC::FillCommonFields(T* td)
+{
+    // 仅填充各tiling结构共有的字段, kernel专属字段由WriteTilingData按tilingKey补充
+    td->ntcALen = ntcALen_;
+    td->tcALen = tcALen_;
+    td->ntcBLen = ntcBLen_;
+    td->tcBLen = tcBLen_;
+    td->tensorSize = static_cast<uint32_t>(tensorSize_);
+    // 核数受限(<=AIV核数, 恒<2^16): UbBrc/CopyPad结构中以uint16传递,
+    // BroadcastToTilingData/TailAxisTilingData中为uint32字段, 赋值自动提升, 值不变
+    td->dFactor = static_cast<uint16_t>(dFactor_);
+    td->usedCoreCnt = static_cast<uint16_t>(usedCoreCnt_);
+    td->ntcULen = ntcULen_;
+    td->tcULen = tcULen_;
+    td->doubleMode = static_cast<uint8_t>(doubleMode_);
+    td->blockAxis = static_cast<uint8_t>(blockAxis_);
+    td->aAxesNum = static_cast<int8_t>(aAxesNum_);
+    td->bAxesNum = static_cast<int8_t>(bAxesNum_);
+    for (size_t i = 0; i < BRC_TO_MAX_A_DIM_NUM; i++) {
+        td->aAxesParams[i] = aAxesParams_[i];
+    }
+    for (size_t i = 0; i < BRC_TO_MAX_B_DIM_NUM; i++) {
+        td->bAxesParams[i] = bAxesParams_[i];
+    }
+}
+
 ge::graphStatus BroadcastToTilingAscendC::WriteTilingData()
 {
     if (SetBlockCnt() != ge::GRAPH_SUCCESS) {
@@ -782,41 +809,53 @@ ge::graphStatus BroadcastToTilingAscendC::WriteTilingData()
         return ge::GRAPH_FAILED;
     }
 
-    tilingData_ = context_->GetTilingData<BroadcastToTilingData>();
-    tilingData_->tilingKey = tilingKey_;
-    tilingData_->doubleMode = static_cast<uint8_t>(doubleMode_);
-    tilingData_->dFactor = dFactor_;
-    tilingData_->tensorSize = static_cast<uint32_t>(tensorSize_);
-    tilingData_->usedCoreCnt = usedCoreCnt_;
-    tilingData_->blockAxis = static_cast<uint8_t>(blockAxis_);
-    tilingData_->ntcALen = ntcALen_;
-    tilingData_->tcALen = tcALen_;
-    tilingData_->ntcBLen = ntcBLen_;
-    tilingData_->tcBLen = tcBLen_;
-    tilingData_->ntcULen = ntcULen_;
-    tilingData_->tcULen = tcULen_;
-    tilingData_->aLpUnit = aLpUnit_;
-    tilingData_->uLpUnit = uLpUnit_;
-    tilingData_->uInOffset = uInOffset_;
-    tilingData_->uOutOffset = uOutOffset_;
-    tilingData_->isUNotB = isUNotB_;
-    tilingData_->isLastDimB = isLastDimB_;
-    tilingData_->uAxisCnt = static_cast<uint8_t>(uAxisCnt_);
-    tilingData_->bufferCnt = static_cast<uint8_t>(bufferCnt_);
-    for (size_t i = 0; i < BRC_TO_MAX_DMA_DIM_NUM; i++) {
-        tilingData_->xSrcStride[i] = xSrcStride_[i];
-        tilingData_->xDstStride[i] = xDstStride_[i];
-        tilingData_->xSize[i] = xSize_[i];
+    // 按tilingKey写入各kernel专属tiling结构, 仅保留该kernel实际使用的字段, 减小tilingData大小
+    if (tilingKey_ == TILING_MODE_LAST_DIM_LARGE_B) {
+        auto tailTilingData = context_->GetTilingData<TailAxisTilingData>();
+        OP_CHECK_NULL_WITH_CONTEXT(context_, tailTilingData);
+        FillCommonFields(tailTilingData);
+        tailTilingData->aLpUnit = static_cast<uint32_t>(aLpUnit_);
+        tailTilingData->bufferCnt = static_cast<uint8_t>(bufferCnt_);
+        // 供kernel复用base CalcAxesLoopInfo: LAST_DIM_LARGE_B下 uLpUnit=tensorSize
+        tailTilingData->uLpUnit = static_cast<uint32_t>(uLpUnit_);
+    } else if (tilingKey_ == TILING_MODE_LAST_DIM_LARGE_A) {
+        auto cpTilingData = context_->GetTilingData<CopyPadTilingData>();
+        OP_CHECK_NULL_WITH_CONTEXT(context_, cpTilingData);
+        FillCommonFields(cpTilingData);
+        // LARGE_A下uAxis恒为尾轴: uInOffset/uOutOffset/isUNotB恒为1, 已内化到kernel, 不再传递
+        cpTilingData->uLpUnit = static_cast<uint32_t>(uLpUnit_);
+    } else if (tilingKey_ == TILING_MODE_UB_BRC || tilingKey_ == TILING_MODE_LAST_DIM_SMALL_A) {
+        auto ubTilingData = context_->GetTilingData<UbBrcTilingData>();
+        OP_CHECK_NULL_WITH_CONTEXT(context_, ubTilingData);
+        FillCommonFields(ubTilingData);
+        ubTilingData->uLpUnit = static_cast<uint32_t>(uLpUnit_);
+        ubTilingData->uInOffset = uInOffset_;
+        ubTilingData->uOutOffset = uOutOffset_;
+        ubTilingData->isUNotB = static_cast<uint8_t>(isUNotB_);
+        ubTilingData->isLastDimB = static_cast<uint8_t>(isLastDimB_);
+        ubTilingData->uAxisCnt = static_cast<uint8_t>(uAxisCnt_);
+        ubTilingData->bufferCnt = static_cast<uint8_t>(bufferCnt_);
+        for (size_t i = 0; i < BRC_TO_MAX_DMA_DIM_NUM; i++) {
+            ubTilingData->xSize[i] = xSize_[i];
+        }
+    } else {
+        auto tilingData = context_->GetTilingData<BroadcastToTilingData>();
+        OP_CHECK_NULL_WITH_CONTEXT(context_, tilingData);
+        FillCommonFields(tilingData);
+        tilingData->aLpUnit = static_cast<uint32_t>(aLpUnit_);
+        tilingData->bufferCnt = static_cast<uint8_t>(bufferCnt_);
+        tilingData->uLpUnit = static_cast<uint32_t>(uLpUnit_);
+        tilingData->uInOffset = uInOffset_;
+        tilingData->uOutOffset = uOutOffset_;
+        tilingData->isUNotB = static_cast<uint8_t>(isUNotB_);
+        tilingData->isLastDimB = static_cast<uint8_t>(isLastDimB_);
+        tilingData->uAxisCnt = static_cast<uint8_t>(uAxisCnt_);
+        for (size_t i = 0; i < BRC_TO_MAX_DMA_DIM_NUM; i++) {
+            tilingData->xSrcStride[i] = xSrcStride_[i];
+            tilingData->xDstStride[i] = xDstStride_[i];
+            tilingData->xSize[i] = xSize_[i];
+        }
     }
-    tilingData_->aAxesNum = aAxesNum_;
-    tilingData_->bAxesNum = bAxesNum_;
-    for (size_t i = 0; i < BRC_TO_MAX_A_DIM_NUM; i++) {
-        tilingData_->aAxesParams[i] = aAxesParams_[i];
-    }
-    for (size_t i = 0; i < BRC_TO_MAX_B_DIM_NUM; i++) {
-        tilingData_->bAxesParams[i] = bAxesParams_[i];
-    }
-
     size_t* currentWorkspace = context_->GetWorkspaceSizes(1);
     OP_CHECK_NULL_WITH_CONTEXT(context_, currentWorkspace);
     currentWorkspace[0] = 0;
