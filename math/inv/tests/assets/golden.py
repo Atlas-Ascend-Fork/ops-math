@@ -21,7 +21,7 @@
 参考实现政策（GOLDEN.05）：参考结果的数学计算（算术、逻辑选择、语义类型转换）全部由
 Torch 承担——float 路径调用直接竞品 torch.reciprocal，int32 三值映射用 torch.where 组合；
 NumPy 仅承担数组/Tensor 数据桥接（from_numpy / to_numpy / 位视图），不参与参考数学。
-bfloat16 的 numpy 形态（ml_dtypes）经 uint16 位视图桥接（仅重解释位型，不改数值与语义）。
+bfloat16 的 numpy 形态（ml_dtypes）经 int16 位视图桥接（仅重解释位型，不改数值与语义）。
 
 - 三方标杆（third_party）为 TensorFlow 与 PyTorch，三方部分不做升精度，按原生 dtype 计算。
 - E2E 注册：TF 通路注册 tf.raw_ops.Inv（对齐 framework/inv_tf_plugin.cpp 的
@@ -75,7 +75,8 @@ def _inv_reference_torch(t):
     return result if orig_dtype == torch.float32 else result.to(orig_dtype)
 
 
-# torch.from_numpy 原生支持的 numpy dtype（含 TTK Promote 上下文可能传入的 float64）
+# golden 桥接准入的 numpy dtype（torch.from_numpy 原生支持；uint16/32/64 不在 Inv
+# 输入域，显式 TypeError 早失败；含 TTK Promote 上下文可能传入的 float64）
 _TORCH_NATIVE_DTYPES = (
     np.float16,
     np.float32,
@@ -85,9 +86,6 @@ _TORCH_NATIVE_DTYPES = (
     np.int32,
     np.int64,
     np.uint8,
-    np.uint16,
-    np.uint32,
-    np.uint64,
     np.bool_,
 )
 
@@ -97,12 +95,12 @@ def _torch_from_numpy(x):
     """NumPy 数组桥接到 torch（仅数据搬运）。
 
     原生 dtype 直接 from_numpy；ml_dtypes bfloat16（torch.from_numpy 不支持）经
-    uint16 位视图桥接——仅重解释位型，不改数值与语义。未知 dtype 不猜测。
+    int16 位视图桥接——仅重解释位型，不改数值与语义。未知 dtype 不猜测。
     """
     if x.dtype in _TORCH_NATIVE_DTYPES:
         return torch.from_numpy(x)
     if x.dtype.name == "bfloat16" and x.dtype.itemsize == 2:
-        return torch.from_numpy(x.view(np.uint16)).view(torch.bfloat16)
+        return torch.from_numpy(x.view(np.int16)).view(torch.bfloat16)
     raise TypeError(f"unsupported golden input dtype: {x.dtype!r}")
 
 
@@ -110,7 +108,7 @@ def _numpy_from_torch(t, orig_dtype):
     _ensure_torch()
     """torch 张量桥接回 NumPy 数组（仅数据搬运）。bfloat16 经位视图还原为入参 dtype。"""
     if t.dtype == torch.bfloat16:
-        return t.view(torch.uint16).numpy().view(orig_dtype)
+        return t.view(torch.int16).numpy().view(orig_dtype)
     return t.numpy()
 
 
