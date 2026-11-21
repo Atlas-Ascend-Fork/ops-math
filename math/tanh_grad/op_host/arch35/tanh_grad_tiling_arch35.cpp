@@ -209,7 +209,12 @@ ge::graphStatus TanhGradTiling::DoOpTiling()
     Ops::Base::BroadcastTilingData broadcastTilingData;
     ge::graphStatus status = BroadcastTiling(broadcastTilingParams, broadcastTilingData);
     if (status != ge::GRAPH_SUCCESS) {
-        OP_LOGE(context_->GetNodeName(), "broadcast tiling failed.");
+        // 合法输入下 tiling 内部计算失败：按已注册语义码 EZ1008 正式上报
+        const std::string msgOpName = std::string(context_->GetNodeName());
+        std::string reasonMsg = "BroadcastTiling failed, status=" + std::to_string(static_cast<int64_t>(status));
+        OP_LOGE_WITHOUT_REPORT(msgOpName.c_str(), "%s", "broadcast tiling failed.");
+        REPORT_PREDEFINED_ERR_MSG("EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                                  (std::vector<const char*>{msgOpName.c_str(), reasonMsg.c_str()}));
         return ge::GRAPH_FAILED;
     }
 
