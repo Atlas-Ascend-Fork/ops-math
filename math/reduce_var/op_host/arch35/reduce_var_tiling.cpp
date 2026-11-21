@@ -104,13 +104,21 @@ ge::graphStatus ReduceVarTiling::ReduceVarGetInputParams(Ops::Base::ReduceOpInpu
     auto attrs = context_->GetAttrs();
     OP_CHECK_NULL_WITH_CONTEXT(context_, attrs);
 
-    const int64_t* attrCorrection = attrs->GetAttrPointer<int64_t>(INDEX_ATTR_CORRECTION);
-    correction_ = (attrCorrection == nullptr) ? 1 : (*attrCorrection);
+    if (correctionOverride_.has_value()) {
+        correction_ = *correctionOverride_;
+    } else {
+        const int64_t* attrCorrection = attrs->GetAttrPointer<int64_t>(INDEX_ATTR_CORRECTION);
+        correction_ = (attrCorrection == nullptr) ? 1 : (*attrCorrection);
+    }
 
-    const bool* attrMeantOut = attrs->GetAttrPointer<bool>(INDEX_ATTR_MEANOUT);
-    isMeanOut_ = 1;
-    if (attrMeantOut != nullptr && !(*attrMeantOut)) {
-        isMeanOut_ = 0;
+    if (isMeanOutOverride_.has_value()) {
+        isMeanOut_ = (*isMeanOutOverride_) ? 1 : 0;
+    } else {
+        const bool* attrMeantOut = attrs->GetAttrPointer<bool>(INDEX_ATTR_MEANOUT);
+        isMeanOut_ = 1;
+        if (attrMeantOut != nullptr && !(*attrMeantOut)) {
+            isMeanOut_ = 0;
+        }
     }
 
     int64_t inputDimNum = inputParam.shape.size();

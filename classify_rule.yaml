@@ -696,6 +696,7 @@ VC2@ops-math:
         - ops/ops-math/math/ones_like/
         - ops/ops-math/math/reduce_log_sum_exp/
         - ops/ops-math/math/reduce_mean/op_host/
+        - ops/ops-math/math/reduce_std/
         - ops/ops-math/math/reduce_std_v2_update/
         - ops/ops-math/math/reduce_std_v2/
         - ops/ops-math/math/reduce_std_with_mean/
@@ -761,6 +762,7 @@ VC2@ops-math:
         - ops/ops-math/math/reduce_log_sum_exp/tests/
         - ops/ops-math/math/reduce_mean/examples/
         - ops/ops-math/math/reduce_mean/tests/
+        - ops/ops-math/math/reduce_std/tests/
         - ops/ops-math/math/reduce_std_v2_update/examples/
         - ops/ops-math/math/reduce_std_v2_update/tests/
         - ops/ops-math/math/reduce_std_v2/examples/

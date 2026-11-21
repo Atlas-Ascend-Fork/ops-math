@@ -14,6 +14,7 @@
  */
 #ifndef REDUCE_VAR_TILING_H
 #define REDUCE_VAR_TILING_H
+#include <optional>
 #include <vector>
 #include "register/op_impl_registry.h"
 #include "util/platform_util.h"
@@ -31,8 +32,9 @@ struct ReduceVarCompileInfo {
 class ReduceVarTiling {
 public:
     explicit ReduceVarTiling(gert::TilingContext* context, const ReduceVarCompileInfo* varCompileInfo,
-                             ReduceVarTilingData* varTilingData)
-        : context_(context)
+                             ReduceVarTilingData* varTilingData, std::optional<int64_t> correction = std::nullopt,
+                             std::optional<bool> isMeanOut = std::nullopt)
+        : context_(context), correctionOverride_(correction), isMeanOutOverride_(isMeanOut)
     {
         reduceVarTilingData_ = varTilingData;
         reduceVarComileInfo_ = varCompileInfo;
@@ -124,6 +126,8 @@ private:
     uint8_t isInvert_ = 0; // cached during SetTilingData, written to tiling data
     double varFactor_ = 1.0;
     double meanFactor_ = 1.0;
+    std::optional<int64_t> correctionOverride_;
+    std::optional<bool> isMeanOutOverride_;
 };
 
 } // namespace optiling

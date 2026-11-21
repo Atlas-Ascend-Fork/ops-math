@@ -1768,6 +1768,16 @@
   </tr>
   <tr>
     <td>math</td>
+    <td><a href="../../math/reduce_std/README.md">reduce_std</a></td>
+    <td>√</td>
+    <td>√</td>
+    <td>×</td>
+    <td>√</td>
+    <td>AI Core</td>
+    <td>计算指定维度的标准差和均值。</td>
+  </tr>
+  <tr>
+    <td>math</td>
     <td><a href="../../math/reduce_std_v2/README.md">reduce_std_v2</a></td>
     <td>√</td>
     <td>√</td>
