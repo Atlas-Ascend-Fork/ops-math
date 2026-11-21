@@ -157,7 +157,7 @@ ge::graphStatus PowTensorTensorTiling::DoOpTiling()
     BroadcastTilingData broadcastTilingData;
     ge::graphStatus status = BroadcastTiling(broadcastTilingParams, broadcastTilingData);
     if (status != ge::GRAPH_SUCCESS) {
-        OP_LOGE(context_->GetNodeName(), "broadcast tiling failed.");
+        OP_LOGE_WITHOUT_REPORT(context_->GetNodeName(), "broadcast tiling failed.");
         return ge::GRAPH_FAILED;
     }
 

@@ -61,7 +61,8 @@ ge::graphStatus DoGerTiling(gert::TilingContext* context, uint64_t& tilingKey, i
 
     brcBaseTiling.SetOpInputStorageShapes(inputShapes);
     OP_CHECK_IF((brcBaseTiling.DoTiling(extraSize, extraBufferNum) != ge::GRAPH_SUCCESS),
-                OP_LOGE(context->GetNodeName(), "Broadcast template do base tiling failed."), return ge::GRAPH_FAILED);
+                OP_LOGE_WITHOUT_REPORT(context->GetNodeName(), "Broadcast template do base tiling failed."),
+                return ge::GRAPH_FAILED);
     tilingKey = GET_TPL_TILING_KEY(brcBaseTiling.GetSchMode());
     return ge::GRAPH_SUCCESS;
 }

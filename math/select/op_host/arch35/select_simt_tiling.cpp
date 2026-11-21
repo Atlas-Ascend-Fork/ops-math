@@ -50,11 +50,12 @@ static constexpr int64_t USER_DEF = 1;
 ge::graphStatus SelectSimtTiling::GetShapeAttrsInfo()
 {
     OP_CHECK_IF(SelectCheckInputDtype(context_) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context_->GetNodeName(), "SelectCheckInputDtype error!"), return ge::GRAPH_FAILED);
+                OP_LOGE_WITHOUT_REPORT(context_->GetNodeName(), "SelectCheckInputDtype error!"),
+                return ge::GRAPH_FAILED);
 
     vector<gert::Shape> inputShapes;
     OP_CHECK_IF(InferSelectShape(context_, inputShapes) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context_->GetNodeName(), "InferSelectShape error!"), return ge::GRAPH_FAILED);
+                OP_LOGE_WITHOUT_REPORT(context_->GetNodeName(), "InferSelectShape error!"), return ge::GRAPH_FAILED);
 
     conditionShape_ = inputShapes[CONDITION_IDX];
     x1Shape_ = inputShapes[X1_IDX];
