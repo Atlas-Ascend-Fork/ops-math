@@ -984,11 +984,27 @@ VC5@ops-math:
         - ops/ops-math/conversion/transpose_v2/op_kernel/arch35/
         # transpose
         - ops/ops-math/conversion/transpose/op_graph/
-        - ops/ops-math/conversion/transpose/op_host/
-        - ops/ops-math/conversion/transpose/op_kernel/
+        - ops/ops-math/conversion/transpose/op_host/arch35/
+        - ops/ops-math/conversion/transpose/op_kernel/arch35/
         # expand
         - ops/ops-math/math/expand/op_host/
         - ops/ops-math/math/expand/op_kernel/
+        # erfc
+        - ops/ops-math/math/erfc/op_graph/
+        - ops/ops-math/math/erfc/op_host/
+        - ops/ops-math/math/erfc/op_kernel/
+        # get_shape
+        - ops/ops-math/math/get_shape/op_graph/
+        - ops/ops-math/math/get_shape/op_host/
+        - ops/ops-math/math/get_shape/op_kernel/
+        # histogram_fixed_width
+        - ops/ops-math/math/histogram_fixed_width/op_graph/
+        - ops/ops-math/math/histogram_fixed_width/op_host/
+        - ops/ops-math/math/histogram_fixed_width/op_kernel/
+        # rint
+        - ops/ops-math/math/rint/op_graph/
+        - ops/ops-math/math/rint/op_host/
+        - ops/ops-math/math/rint/op_kernel/
         # sinc
         - ops/ops-math/math/sinc/op_graph/
         - ops/ops-math/math/sinc/op_host/
@@ -1066,6 +1082,19 @@ VC5@ops-math:
         # expand
         - ops/ops-math/math/expand/examples/
         - ops/ops-math/math/expand/tests/
+        # erfc
+        - ops/ops-math/math/erfc/examples/*.cpp
+        - ops/ops-math/math/erfc/tests/**/*.cpp
+        - ops/ops-math/math/erfc/tests/**/*.py
+        # get_shape
+        - ops/ops-math/math/get_shape/examples/
+        - ops/ops-math/math/get_shape/tests/
+        # histogram_fixed_width
+        - ops/ops-math/math/histogram_fixed_width/examples/
+        - ops/ops-math/math/histogram_fixed_width/tests/
+        # rint
+        - ops/ops-math/math/rint/examples/
+        - ops/ops-math/math/rint/tests/
         # sinc
         - ops/ops-math/math/sinc/examples/
         - ops/ops-math/math/sinc/tests/
