@@ -12,6 +12,7 @@
 #include <iostream>
 #include "infershape_context_faker.h"
 #include "infershape_case_executor.h"
+#include "experiment/metadef/common/util/error_manager/error_manager.h"
 
 namespace {
 
@@ -57,6 +58,17 @@ protected:
     static void SetUpTestCase() { std::cout << "ReduceStdWithMeanInferShapeTest SetUp" << std::endl; }
     static void TearDownTestCase() { std::cout << "ReduceStdWithMeanInferShapeTest TearDown" << std::endl; }
 };
+
+static void InfershapeExpectError(gert::InfershapeContextPara& para, const char* errorCode)
+{
+    auto& errors = ErrorManager::GetInstance();
+    ASSERT_EQ(errors.Init(), 0);
+    (void)errors.GetRawErrorMessages();
+    ExecuteTestCase(para, ge::GRAPH_FAILED);
+    const auto reports = errors.GetRawErrorMessages();
+    ASSERT_EQ(reports.size(), 1U);
+    EXPECT_EQ(reports[0].error_id, errorCode);
+}
 
 // 2D float32，dim=[1]，keepdim=false → 删除归约轴
 TEST_F(ReduceStdWithMeanInferShapeTest, test_keepdim_false)
@@ -156,4 +168,23 @@ TEST_F(ReduceStdWithMeanInferShapeTest, test_rank_9_rejected)
 {
     gert::InfershapeContextPara para = MakePara({1, 1, 1, 1, 1, 1, 1, 1, 2}, ge::DT_FLOAT, {8});
     ExecuteTestCase(para, ge::GRAPH_FAILED);
+}
+
+// mean shape 与 x shape 不一致 → GRAPH_FAILED（FR-08）
+TEST_F(ReduceStdWithMeanInferShapeTest, test_mean_shape_mismatch_rejected)
+{
+    gert::InfershapeContextPara para(
+        "ReduceStdWithMean",
+        {gert::InfershapeContextPara::TensorDescription(ToStorageShape({4, 8}), ge::DT_FLOAT, ge::FORMAT_ND),
+         gert::InfershapeContextPara::TensorDescription(ToStorageShape({4, 4}), ge::DT_FLOAT, ge::FORMAT_ND)},
+        {gert::InfershapeContextPara::TensorDescription(ToStorageShape({}), ge::DT_FLOAT, ge::FORMAT_ND)},
+        MakeAttrs({1}, true, false, false, 0.001f, 1));
+    InfershapeExpectError(para, "EZ0010");
+}
+
+// rank=0 输入下 dim 只能为 0/-1，取值 1 越界 → GRAPH_FAILED
+TEST_F(ReduceStdWithMeanInferShapeTest, test_scalar_dim_nonzero_rejected)
+{
+    gert::InfershapeContextPara para = MakePara({}, ge::DT_FLOAT, {1});
+    InfershapeExpectError(para, "EZ0026");
 }

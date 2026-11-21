@@ -14,6 +14,7 @@
 #include <gtest/gtest.h>
 #include "tiling_context_faker.h"
 #include "tiling_case_executor.h"
+#include "experiment/metadef/common/util/error_manager/error_manager.h"
 #include "../../../../op_kernel/arch35/asin_grad_tiling_data.h"
 
 namespace optiling {
@@ -57,6 +58,18 @@ protected:
     static void SetUpTestCase() { std::cout << "AsinGradTilingTest SetUp" << std::endl; }
     static void TearDownTestCase() { std::cout << "AsinGradTilingTest TearDown" << std::endl; }
 };
+
+static void ExpectTilingError(const gert::TilingContextPara& context, const char* errorCode)
+{
+    auto& errors = ErrorManager::GetInstance();
+    ASSERT_EQ(errors.Init(), 0);
+    (void)errors.GetRawErrorMessages();
+    TilingInfo tilingInfo;
+    EXPECT_FALSE(ExecuteTiling(context, tilingInfo));
+    const auto reports = errors.GetRawErrorMessages();
+    ASSERT_EQ(reports.size(), 1U);
+    EXPECT_EQ(reports[0].error_id, errorCode);
+}
 
 TEST_F(AsinGradTilingTest, asin_grad_tiling_fp32_basic)
 {
@@ -174,4 +187,18 @@ TEST_F(AsinGradTilingTest, asin_grad_tiling_rejects_output_shape_mismatch)
     gert::TilingContextPara context("AsinGrad", inputs, outputs, {}, &g_compileInfo);
     TilingInfo tilingInfo;
     EXPECT_FALSE(ExecuteTiling(context, tilingInfo));
+}
+
+// kernel 以 y 的 StorageT 统一读写 z，z 的 dtype 必须与 y 一致
+TEST_F(AsinGradTilingTest, asin_grad_tiling_rejects_z_dtype_mismatch)
+{
+    std::vector<gert::TilingContextPara::TensorDescription> inputs = {
+        {MakeStorageShape({8, 128}), ge::DT_FLOAT, ge::FORMAT_ND},
+        {MakeStorageShape({8, 128}), ge::DT_FLOAT, ge::FORMAT_ND},
+    };
+    std::vector<gert::TilingContextPara::TensorDescription> outputs = {
+        {MakeStorageShape({8, 128}), ge::DT_FLOAT16, ge::FORMAT_ND},
+    };
+    gert::TilingContextPara context("AsinGrad", inputs, outputs, {}, &g_compileInfo);
+    ExpectTilingError(context, "EZ0021");
 }

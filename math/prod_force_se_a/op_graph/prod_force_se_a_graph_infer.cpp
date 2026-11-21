@@ -23,14 +23,14 @@ using namespace ge;
 
 static constexpr int64_t IDX_0 = 0;
 
-static ge::graphStatus InferDataTypeProdForceSeA(gert::InferDataTypeContext* context)
+ge::graphStatus InferDataTypeProdForceSeA(gert::InferDataTypeContext* context)
 {
     OP_LOGD(context->GetNodeName(), "Begin to do InferDataTypeProdForceSeA");
 
     // output dtype = net_deriv dtype (SE 5.6), validate it must be float32
     ge::DataType dtype = context->GetInputDataType(IDX_0);
     if (dtype != ge::DT_FLOAT) {
-        OP_LOGE(context->GetNodeName(), "net_deriv dtype must be float32, got %s", Ops::Base::ToString(dtype).c_str());
+        OP_LOGE_FOR_INVALID_DTYPE(context->GetNodeName(), "net_deriv", Ops::Base::ToString(dtype).c_str(), "FLOAT32");
         return GRAPH_FAILED;
     }
     context->SetOutputDataType(IDX_0, dtype);

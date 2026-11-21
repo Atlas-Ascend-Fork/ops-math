@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 #include "tiling_context_faker.h"
 #include "tiling_case_executor.h"
+#include "experiment/metadef/common/util/error_manager/error_manager.h"
 
 using namespace std;
 
@@ -27,6 +28,17 @@ protected:
 
     static void TearDownTestCase() { std::cout << "ComplexAbsTilingTest TearDown" << std::endl; }
 };
+
+static void TilingExpectError(const gert::TilingContextPara& para, const char* errorCode)
+{
+    auto& errors = ErrorManager::GetInstance();
+    ASSERT_EQ(errors.Init(), 0);
+    (void)errors.GetRawErrorMessages();
+    ExecuteTestCase(para, ge::GRAPH_FAILED, 0, "", {0});
+    const auto reports = errors.GetRawErrorMessages();
+    ASSERT_EQ(reports.size(), 1U);
+    EXPECT_EQ(reports[0].error_id, errorCode);
+}
 
 TEST_F(ComplexAbsTilingTest, test_tiling_complex64_001)
 {
@@ -73,10 +85,8 @@ TEST_F(ComplexAbsTilingTest, test_tiling_failed_complex64_output_fp16_003)
                                                   {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_FLOAT16, ge::FORMAT_ND},
                                               },
                                               &compileInfo);
-    uint64_t expectTilingKey = 0;
-    string expectTilingData = "";
-    std::vector<size_t> expectWorkspaces = {0};
-    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED, expectTilingKey, expectTilingData, expectWorkspaces);
+    // COMPLEX64 输入要求 y 为 FLOAT，fp16 应上报 EZ0020（INVALID_DTYPE_WITH_REASON）
+    TilingExpectError(tilingContextPara, "EZ0020");
 }
 
 TEST_F(ComplexAbsTilingTest, test_tiling_failed_complex32_output_fp32_004)
@@ -90,10 +100,8 @@ TEST_F(ComplexAbsTilingTest, test_tiling_failed_complex32_output_fp32_004)
                                                   {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_FLOAT, ge::FORMAT_ND},
                                               },
                                               &compileInfo);
-    uint64_t expectTilingKey = 0;
-    string expectTilingData = "";
-    std::vector<size_t> expectWorkspaces = {0};
-    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED, expectTilingKey, expectTilingData, expectWorkspaces);
+    // COMPLEX32 输入要求 y 为 FLOAT16，fp32 应上报 EZ0020（INVALID_DTYPE_WITH_REASON）
+    TilingExpectError(tilingContextPara, "EZ0020");
 }
 
 TEST_F(ComplexAbsTilingTest, test_tiling_failed_empty_tensor_005)
@@ -124,10 +132,8 @@ TEST_F(ComplexAbsTilingTest, test_tiling_failed_unsupported_dtype_006)
                                                   {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_FLOAT, ge::FORMAT_ND},
                                               },
                                               &compileInfo);
-    uint64_t expectTilingKey = 0;
-    string expectTilingData = "";
-    std::vector<size_t> expectWorkspaces = {0};
-    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED, expectTilingKey, expectTilingData, expectWorkspaces);
+    // x 不在 COMPLEX64/COMPLEX32 白名单，应上报 EZ0019（INVALID_DTYPE）
+    TilingExpectError(tilingContextPara, "EZ0019");
 }
 
 TEST_F(ComplexAbsTilingTest, test_tiling_complex64_small_shape_007)

@@ -11,6 +11,7 @@
 #include <gtest/gtest.h>
 #include <vector>
 #include "base/context_builder/op_infer_datatype_context_builder.h"
+#include "experiment/metadef/common/util/error_manager/error_manager.h"
 
 namespace ops {
 ge::graphStatus InferDataTypeCast(gert::InferDataTypeContext* context);
@@ -46,7 +47,11 @@ TEST(CastInferDataTypeInvalidTest, cast_inferdatatype_invalid_dst_type_test)
 
     const std::vector<int64_t> invalidDstTypes = {static_cast<int64_t>(-1), static_cast<int64_t>(ge::DT_UNDEFINED),
                                                   static_cast<int64_t>(ge::DT_MAX), 999, 4294967301LL};
+    auto& errors = ErrorManager::GetInstance();
+    ASSERT_EQ(errors.Init(), 0);
     for (const int64_t invalidDstType : invalidDstTypes) {
+        // GetRawErrorMessages 为消费式接口，逐轮清空避免上一轮报错串入本轮断言
+        (void)errors.GetRawErrorMessages();
         gert::OpInferDataTypeContextBuilder builder;
         builder.OpType("Cast").OpName("cast_invalid").IONum(1, 1);
         builder.InputTensorDesc(0, ge::DT_FLOAT16, ge::FORMAT_ND, ge::FORMAT_ND);
@@ -56,5 +61,9 @@ TEST(CastInferDataTypeInvalidTest, cast_inferdatatype_invalid_dst_type_test)
         ASSERT_NE(holder.GetContext(), nullptr);
         ASSERT_EQ(holder.GetContext()->SetOutputDataType(0, ge::DT_UNDEFINED), ge::GRAPH_SUCCESS);
         EXPECT_EQ(inferDataTypeFunc(holder.GetContext()), ge::GRAPH_FAILED);
+        // dst_type 属性值非法应上报 EZ0026（INVALID_VALUE_WITH_REASON）
+        const auto reports = errors.GetRawErrorMessages();
+        ASSERT_EQ(reports.size(), 1U);
+        EXPECT_EQ(reports[0].error_id, "EZ0026");
     }
 }

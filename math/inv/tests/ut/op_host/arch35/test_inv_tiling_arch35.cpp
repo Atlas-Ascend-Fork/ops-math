@@ -27,11 +27,23 @@
 #include <gtest/gtest.h>
 #include "tiling_context_faker.h"
 #include "tiling_case_executor.h"
+#include "experiment/metadef/common/util/error_manager/error_manager.h"
 
 using namespace std;
 
 namespace {
 struct InvCompileInfoStub {};
+
+static void TilingExpectError(const gert::TilingContextPara& para, const char* errorCode)
+{
+    auto& errors = ErrorManager::GetInstance();
+    ASSERT_EQ(errors.Init(), 0);
+    (void)errors.GetRawErrorMessages();
+    ExecuteTestCase(para, ge::GRAPH_FAILED, 0, "", {0});
+    const auto reports = errors.GetRawErrorMessages();
+    ASSERT_EQ(reports.size(), 1U);
+    EXPECT_EQ(reports[0].error_id, errorCode);
+}
 } // namespace
 
 class InvTilingTest : public testing::Test {
@@ -171,7 +183,8 @@ TEST_F(InvTilingTest, test_tiling_failed_unsupported_dtype_007)
                                                   {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT8, ge::FORMAT_ND},
                                               },
                                               &compileInfo);
-    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED, 0, "", {0});
+    // DT_INT8 不在白名单，应上报 EZ0019（INVALID_DTYPE）
+    TilingExpectError(tilingContextPara, "EZ0019");
 }
 
 // Tiling_008: coreNum=0 异常 → GetPlatformInfo 返回 GRAPH_FAILED
@@ -771,7 +784,8 @@ TEST_F(InvTilingTest, test_tiling_failed_unsupported_int64_036)
                                                   {{{32}, {32}}, ge::DT_INT64, ge::FORMAT_ND},
                                               },
                                               &compileInfo);
-    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED, 0, "", {0});
+    // DT_INT64 不在白名单，应上报 EZ0019（INVALID_DTYPE）
+    TilingExpectError(tilingContextPara, "EZ0019");
 }
 
 // ====================================================================
@@ -792,7 +806,8 @@ TEST_F(InvTilingTest, test_tiling_failed_rank9_037)
             {{{2, 2, 2, 2, 2, 2, 2, 2, 2}, {2, 2, 2, 2, 2, 2, 2, 2, 2}}, ge::DT_FLOAT, ge::FORMAT_ND},
         },
         &compileInfo);
-    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED, 0, "", {0});
+    // rank=9 越界，应上报 EZ0012（INVALID_SHAPEDIM_WITH_REASON）
+    TilingExpectError(tilingContextPara, "EZ0012");
 }
 
 // Tiling_failed_rank12_038: 12 维输入（明显越界）→ 同一校验拒绝，覆盖各 dtype 共用路径
@@ -812,5 +827,6 @@ TEST_F(InvTilingTest, test_tiling_failed_rank12_038)
              ge::FORMAT_ND},
         },
         &compileInfo);
-    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED, 0, "", {0});
+    // rank=12 越界，应上报 EZ0012（INVALID_SHAPEDIM_WITH_REASON）
+    TilingExpectError(tilingContextPara, "EZ0012");
 }

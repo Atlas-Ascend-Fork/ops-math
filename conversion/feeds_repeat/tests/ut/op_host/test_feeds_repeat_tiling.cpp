@@ -16,6 +16,7 @@
 
 #include "tiling_context_faker.h"
 #include "tiling_case_executor.h"
+#include "experiment/metadef/common/util/error_manager/error_manager.h"
 
 using namespace std;
 using namespace gert;
@@ -27,6 +28,17 @@ protected:
 
     static void TearDownTestCase() { std::cout << "FeedsRepeat Tiling TearDown" << std::endl; }
 };
+
+static void ExecuteTilingExpectError(const gert::TilingContextPara& para, const char* errorCode)
+{
+    auto& errors = ErrorManager::GetInstance();
+    ASSERT_EQ(errors.Init(), 0);
+    (void)errors.GetRawErrorMessages();
+    ExecuteTestCase(para, ge::GRAPH_FAILED);
+    const auto reports = errors.GetRawErrorMessages();
+    ASSERT_EQ(reports.size(), 1U);
+    EXPECT_EQ(reports[0].error_id, errorCode);
+}
 
 TEST_F(FeedsRepeatTiling, test_tiling_fp16_int32)
 {
@@ -369,6 +381,52 @@ TEST_F(FeedsRepeatTiling, test_tiling_rank_zero_rejected)
         &compileInfo);
     // rank-0 输入必须在读取 GetDim(0) 之前被秩校验拒绝，不得发生越界读
     ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
+}
+TEST_F(FeedsRepeatTiling, test_tiling_neg_dim_rejected)
+{
+    optiling::FeedsRepeatCompileInfo compileInfo = {48, 196608};
+
+    gert::TilingContextPara tilingContextPara(
+        "FeedsRepeat",
+        {{{{2, -2, 4}, {2, -2, 4}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+         {{{
+               2,
+           },
+           {
+               2,
+           }},
+          ge::DT_INT32,
+          ge::FORMAT_ND}},
+        {
+            {{{15, -2, 4}, {15, -2, 4}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+        },
+        {gert::TilingContextPara::OpAttr("output_feeds_size", Ops::Math::AnyValue::CreateFrom<int64_t>(15))},
+        &compileInfo);
+    // 非首维出现负值，无法计算每行元素数，应报 EZ0015（shape size）
+    ExecuteTilingExpectError(tilingContextPara, "EZ0015");
+}
+TEST_F(FeedsRepeatTiling, test_tiling_neg_feeds_dtype_invalid)
+{
+    optiling::FeedsRepeatCompileInfo compileInfo = {48, 196608};
+
+    gert::TilingContextPara tilingContextPara(
+        "FeedsRepeat",
+        {{{{2, 4}, {2, 4}}, ge::DT_INT32, ge::FORMAT_ND},
+         {{{
+               2,
+           },
+           {
+               2,
+           }},
+          ge::DT_INT32,
+          ge::FORMAT_ND}},
+        {
+            {{{15, 4}, {15, 4}}, ge::DT_INT32, ge::FORMAT_ND},
+        },
+        {gert::TilingContextPara::OpAttr("output_feeds_size", Ops::Math::AnyValue::CreateFrom<int64_t>(15))},
+        &compileInfo);
+    // feeds 仅支持 fp32/fp16/bf16，int32 应报 EZ0019（dtype）
+    ExecuteTilingExpectError(tilingContextPara, "EZ0019");
 }
 TEST_F(FeedsRepeatTiling, test_tiling_times_ub_boundary_rejected)
 {

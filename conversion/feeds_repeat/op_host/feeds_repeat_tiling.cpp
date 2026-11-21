@@ -74,8 +74,10 @@ static ge::graphStatus SetTilingBatch(const gert::TilingContext* context, FeedsR
     // 秩校验必须先于 GetDim(0)：rank-0 输入下直接取第 0 维属于越界读
     OP_CHECK_IF(feeds_shape.GetDimNum() < static_cast<size_t>(FEEDS_RANK_MIN) ||
                     feeds_shape.GetDimNum() > static_cast<size_t>(FEEDS_RANK_MAX),
-                OP_LOGE(context->GetNodeName(), "[FeedsRepeat] the rank of feeds must be in [%ld, %ld], but got %zu",
-                        FEEDS_RANK_MIN, FEEDS_RANK_MAX, feeds_shape.GetDimNum()),
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(
+                    context->GetNodeName(), "feeds", std::to_string(feeds_shape.GetDimNum()).c_str(),
+                    "[FeedsRepeat] the rank of feeds must be in [" + std::to_string(FEEDS_RANK_MIN) + ", " +
+                        std::to_string(FEEDS_RANK_MAX) + "]"),
                 return ge::GRAPH_FAILED);
     int64_t batch_num = feeds_shape.GetDim(0);
     int64_t group = 0;
@@ -116,7 +118,8 @@ static ge::graphStatus SetTilingTimesDtype(const gert::TilingContext* context, u
         tiling_key = TILING_KEY_100; // feeds_repeat_times为int64时tiling_key百位为1
         elem_size = SIZE_OF_INT64;
     } else {
-        OP_LOGE(context->GetNodeName(), "[FeedsRepeat] feeds_repeat_times dtype only support int32, int64");
+        OP_LOGE_FOR_INVALID_DTYPE(context->GetNodeName(), "feeds_repeat_times",
+                                  Ops::Base::ToString(dtype_length).c_str(), "INT32, INT64");
         return ge::GRAPH_FAILED;
     }
     return ge::GRAPH_SUCCESS;
@@ -158,14 +161,19 @@ static ge::graphStatus SetTilingLength(const gert::TilingContext* context, Feeds
     const uint64_t length = static_cast<uint64_t>(feeds_dim0);
     // 先按元素数上界拒绝，再对齐/相乘，避免 length_aligned * elem_size 在 uint64 中回绕后绕过限长校验
     const uint64_t max_length = 0xFFFFFFFFULL / static_cast<uint64_t>(elem_size);
-    OP_CHECK_IF(length > max_length, OP_LOGE(context->GetNodeName(), "[FeedsRepeat] feeds_repeat_times is too large"),
+    OP_CHECK_IF(length > max_length,
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "feeds_repeat_times",
+                                                      std::to_string(length).c_str(),
+                                                      "[FeedsRepeat] length exceeds the supported upper limit"),
                 return ge::GRAPH_FAILED);
     // 按 float32 归约缓冲的 32B 对齐（ALIGN_FP32=8 个元素）统一对齐元素数，
     // 使 T2 缓冲、float 缓冲与 Sum 的 inner 同时满足 32B 对齐（int64 下按 4 元素对齐会出现 32B 非整除）
     const uint64_t length_aligned = (length + ALIGN_FP32 - 1) / ALIGN_FP32 * ALIGN_FP32;
     const uint64_t length_space64 = length_aligned * elem_size;
     OP_CHECK_IF(length_space64 > 0xFFFFFFFFULL,
-                OP_LOGE(context->GetNodeName(), "[FeedsRepeat] feeds_repeat_times is too large"),
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                    context->GetNodeName(), "feeds_repeat_times", std::to_string(length_space64).c_str(),
+                    "[FeedsRepeat] aligned length in bytes exceeds the supported upper limit"),
                 return ge::GRAPH_FAILED);
     length_space = static_cast<uint32_t>(length_space64);
     tiling.set_length(static_cast<uint32_t>(length));
@@ -184,23 +192,30 @@ static ge::graphStatus SetTilingElemRow(const gert::TilingContext* context, Feed
     const int64_t dim_num = feeds_shape.GetDimNum();
     // tiling 需独立拦截秩上下界，避免非法 rank 经 release binary 通路（无编译期 shape 检查）到达执行
     OP_CHECK_IF(dim_num < FEEDS_RANK_MIN || dim_num > FEEDS_RANK_MAX,
-                OP_LOGE(context->GetNodeName(), "[FeedsRepeat] the rank of feeds must be in [%ld, %ld], but got %ld",
-                        FEEDS_RANK_MIN, FEEDS_RANK_MAX, dim_num),
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(
+                    context->GetNodeName(), "feeds", std::to_string(dim_num).c_str(),
+                    "[FeedsRepeat] the rank of feeds must be in [" + std::to_string(FEEDS_RANK_MIN) + ", " +
+                        std::to_string(FEEDS_RANK_MAX) + "]"),
                 return ge::GRAPH_FAILED);
     int64_t elem_row = 1;
     for (int64_t i = 1; i < dim_num; i++) {
         const int64_t dim = feeds_shape.GetDim(i);
-        OP_CHECK_IF(dim < 0,
-                    OP_LOGE(context->GetNodeName(),
-                            "[FeedsRepeat] the dim %ld of feeds must be non-negative, but got %ld", i, dim),
-                    return ge::GRAPH_FAILED);
-        OP_CHECK_IF(dim > 0 && elem_row > INT64_MAX / dim,
-                    OP_LOGE(context->GetNodeName(), "[FeedsRepeat] the element count of one feeds row is too large"),
-                    return ge::GRAPH_FAILED);
+        OP_CHECK_IF(
+            dim < 0,
+            OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(context->GetNodeName(), "feeds", std::to_string(dim).c_str(),
+                                                      "[FeedsRepeat] the dim of feeds must be non-negative"),
+            return ge::GRAPH_FAILED);
+        OP_CHECK_IF(
+            dim > 0 && elem_row > INT64_MAX / dim,
+            OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(context->GetNodeName(), "feeds", std::to_string(elem_row).c_str(),
+                                                      "[FeedsRepeat] the element count of one feeds row is too large"),
+            return ge::GRAPH_FAILED);
         elem_row *= dim;
     }
     OP_CHECK_IF(elem_row < 1,
-                OP_LOGE(context->GetNodeName(), "[FeedsRepeat] the element count of one feeds row must be at least 1"),
+                OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(
+                    context->GetNodeName(), "feeds", std::to_string(elem_row).c_str(),
+                    "[FeedsRepeat] the element count of one feeds row must be at least 1"),
                 return ge::GRAPH_FAILED);
     auto dtype = feeds_desc->GetDataType();
     uint64_t max_ub_size;
@@ -227,7 +242,8 @@ static ge::graphStatus SetTilingElemRow(const gert::TilingContext* context, Feed
         align_data = ALIGN_BF16;
         elem_per_loop = ub_avail / SIZE_OF_BF16 / DOUBLE_BUFFER;
     } else {
-        OP_LOGE(context->GetNodeName(), "[FeedsRepeat] feeds dtype only support fp32, fp16, bf16 for now");
+        OP_LOGE_FOR_INVALID_DTYPE(context->GetNodeName(), "feeds", Ops::Base::ToString(dtype).c_str(),
+                                  "FLOAT32, FLOAT16, BF16");
         return ge::GRAPH_FAILED;
     }
     // elem_row_aligned 的向上对齐含 elem_row + align_data - 1 有符号加法，elem_row 接近 INT64_MAX 时溢出，先行拒绝

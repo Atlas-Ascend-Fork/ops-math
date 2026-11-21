@@ -97,13 +97,17 @@ static ge::graphStatus GetShapeAttrsInfo(gert::TilingContext* context, int64_t& 
 
     // Shape validation: y, dy, z must have exactly the same shape (no broadcast)
     OP_CHECK_IF(!ShapesExactlyEqual(yShape, dyShape),
-                OP_LOGE(context, "AsinGrad: y shape mismatches dy shape: y=%s, dy=%s",
-                        Ops::Base::ToString(yShape).c_str(), Ops::Base::ToString(dyShape).c_str()),
+                OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(
+                    context->GetNodeName(), "y, dy",
+                    (Ops::Base::ToString(yShape) + ", " + Ops::Base::ToString(dyShape)).c_str(),
+                    "The shapes of y and dy must be the same"),
                 return ge::GRAPH_FAILED);
-    OP_CHECK_IF(!ShapesExactlyEqual(yShape, zShape),
-                OP_LOGE(context, "AsinGrad: y shape mismatches z shape: y=%s, z=%s",
-                        Ops::Base::ToString(yShape).c_str(), Ops::Base::ToString(zShape).c_str()),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        !ShapesExactlyEqual(yShape, zShape),
+        OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(
+            context->GetNodeName(), "y, z", (Ops::Base::ToString(yShape) + ", " + Ops::Base::ToString(zShape)).c_str(),
+            "The shapes of y and z must be the same"),
+        return ge::GRAPH_FAILED);
 
     totalNum = yShape.GetShapeSize();
 
@@ -115,21 +119,28 @@ static ge::graphStatus GetShapeAttrsInfo(gert::TilingContext* context, int64_t& 
     OP_CHECK_NULL_WITH_CONTEXT(context, inputDesc);
     dataType = inputDesc->GetDataType();
     if (supportedDtype.count(dataType) == 0) {
-        OP_LOGE(context, "AsinGrad: unsupported dtype %d", static_cast<int>(dataType));
+        OP_LOGE_FOR_INVALID_DTYPE(context->GetNodeName(), "y", Ops::Base::ToString(dataType).c_str(),
+                                  "FLOAT16, FLOAT, BF16");
         return ge::GRAPH_FAILED;
     }
     auto dyDesc = context->GetInputDesc(1);
     OP_CHECK_NULL_WITH_CONTEXT(context, dyDesc);
     OP_CHECK_IF(dyDesc->GetDataType() != dataType,
-                OP_LOGE(context, "AsinGrad: dy dtype %d mismatch with y dtype %d",
-                        static_cast<int>(dyDesc->GetDataType()), static_cast<int>(dataType)),
+                OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(context->GetNodeName(), "dy, y",
+                                                       (std::string(Ops::Base::ToString(dyDesc->GetDataType())) + ", " +
+                                                        std::string(Ops::Base::ToString(dataType)))
+                                                           .c_str(),
+                                                       "The dtypes of dy and y must be the same"),
                 return ge::GRAPH_FAILED);
     // README: z 的数据类型与 y/dy 一致（kernel 以单一 StorageT 读写 z）
     auto zDesc = context->GetOutputDesc(0);
     OP_CHECK_NULL_WITH_CONTEXT(context, zDesc);
     OP_CHECK_IF(zDesc->GetDataType() != dataType,
-                OP_LOGE(context, "AsinGrad: z dtype %d mismatch with y dtype %d",
-                        static_cast<int>(zDesc->GetDataType()), static_cast<int>(dataType)),
+                OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(context->GetNodeName(), "z, y",
+                                                       (std::string(Ops::Base::ToString(zDesc->GetDataType())) + ", " +
+                                                        std::string(Ops::Base::ToString(dataType)))
+                                                           .c_str(),
+                                                       "The dtypes of z and y must be the same"),
                 return ge::GRAPH_FAILED);
     return ge::GRAPH_SUCCESS;
 }
@@ -179,7 +190,7 @@ static ge::graphStatus AsinGradTilingFunc(gert::TilingContext* context)
     int64_t totalNum;
     ge::DataType dataType;
     OP_CHECK_IF(GetShapeAttrsInfo(context, totalNum, dataType) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context, "GetShapeAttrsInfo error"), return ge::GRAPH_FAILED);
+                OP_LOGE_WITHOUT_REPORT(context, "GetShapeAttrsInfo error"), return ge::GRAPH_FAILED);
     // 3. Get workspace size
     OP_CHECK_IF(GetWorkspaceSize(context) != ge::GRAPH_SUCCESS, OP_LOGE(context, "GetWorkspaceSize error"),
                 return ge::GRAPH_FAILED);

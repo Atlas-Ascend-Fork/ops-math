@@ -82,17 +82,18 @@ static ge::graphStatus InferShape4FeedsRepeat(gert::InferShapeContext* context)
 
     const size_t feeds_rank = feeds_shape->GetDimNum();
     OP_CHECK_IF(feeds_rank < 1 || feeds_rank > MAX_FEEDS_RANK,
-                OP_LOGE(context->GetNodeName(), "[FeedsRepeat] feeds rank must be in [1, %zu], but got %zu",
-                        MAX_FEEDS_RANK, feeds_rank),
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(
+                    context->GetNodeName(), "feeds", std::to_string(feeds_rank).c_str(),
+                    "[FeedsRepeat] feeds rank must be in [1, " + std::to_string(MAX_FEEDS_RANK) + "]"),
                 return ge::GRAPH_FAILED);
 
     const int64_t feeds_dim0 = feeds_shape->GetDim(0);
     if (feeds_dim0 >= 0) { // feeds 第 0 维为动态维(-1)时无法做数值校验
-        OP_CHECK_IF(
-            feeds_dim0 < 1,
-            OP_LOGE(context->GetNodeName(),
-                    "[FeedsRepeat] feeds dim0 must be >= 1 (empty tensor is not supported), but got %ld", feeds_dim0),
-            return ge::GRAPH_FAILED);
+        OP_CHECK_IF(feeds_dim0 < 1,
+                    OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(
+                        context->GetNodeName(), "feeds", std::to_string(feeds_dim0).c_str(),
+                        "[FeedsRepeat] feeds dim0 must be >= 1 (empty tensor is not supported)"),
+                    return ge::GRAPH_FAILED);
         // 元素总数是否已知须按逐维判定：GetShapeSize() 对含偶数个 -1 维的 shape 会返回正乘积
         // （如 [-1,-1] 得 1），不能作为"已知"依据；存在任一负维即视为构图期未知，校验顺延至执行阶段
         bool times_count_known = true;
@@ -105,9 +106,10 @@ static ge::graphStatus InferShape4FeedsRepeat(gert::InferShapeContext* context)
         if (times_count_known) {
             const int64_t times_numel = repeat_times_shape->GetShapeSize();
             OP_CHECK_IF(times_numel >= 0 && feeds_dim0 != times_numel,
-                        OP_LOGE(context->GetNodeName(),
-                                "[FeedsRepeat] element count of feeds_repeat_times (%ld) must equal feeds dim0 (%ld)",
-                                times_numel, feeds_dim0),
+                        OP_LOGE_FOR_INVALID_SHAPESIZES_WITH_REASON(
+                            context->GetNodeName(), "feeds, feeds_repeat_times",
+                            (std::to_string(feeds_dim0) + ", " + std::to_string(times_numel)).c_str(),
+                            "[FeedsRepeat] element count of feeds_repeat_times must equal feeds dim0"),
                         return ge::GRAPH_FAILED);
         }
         int64_t elem_row = 1;
@@ -120,14 +122,17 @@ static ge::graphStatus InferShape4FeedsRepeat(gert::InferShapeContext* context)
             }
             // 逐维累乘前做溢出保护，避免有符号乘法回绕后绕过后续 elem_row 合法性判断
             OP_CHECK_IF(dim > 0 && elem_row > INT64_MAX / dim,
-                        OP_LOGE(context->GetNodeName(), "[FeedsRepeat] feeds element count per row is too large"),
+                        OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(
+                            context->GetNodeName(), "feeds", std::to_string(elem_row).c_str(),
+                            "[FeedsRepeat] feeds element count per row is too large"),
                         return ge::GRAPH_FAILED);
             elem_row *= dim;
         }
-        OP_CHECK_IF(!row_shape_dynamic && elem_row < 1,
-                    OP_LOGE(context->GetNodeName(),
-                            "[FeedsRepeat] feeds element count per row must be >= 1, but got %ld", elem_row),
-                    return ge::GRAPH_FAILED);
+        OP_CHECK_IF(
+            !row_shape_dynamic && elem_row < 1,
+            OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(context->GetNodeName(), "feeds", std::to_string(elem_row).c_str(),
+                                                      "[FeedsRepeat] feeds element count per row must be >= 1"),
+            return ge::GRAPH_FAILED);
     }
 
     *y_shape = *feeds_shape;

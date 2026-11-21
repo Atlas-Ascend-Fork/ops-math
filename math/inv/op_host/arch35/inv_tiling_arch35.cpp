@@ -87,7 +87,9 @@ static ge::graphStatus GetShapeInfo(gert::TilingContext* context, int64_t& total
     dataType = inputDesc->GetDataType();
     const std::set<ge::DataType> supportedDtype = {ge::DT_FLOAT, ge::DT_FLOAT16, ge::DT_BF16, ge::DT_INT32};
     OP_CHECK_IF(supportedDtype.count(dataType) == 0,
-                OP_LOGE(context, "Inv: unsupported dtype %d", static_cast<int>(dataType)), return ge::GRAPH_FAILED);
+                OP_LOGE_FOR_INVALID_DTYPE(context->GetNodeName(), "x", Ops::Base::ToString(dataType).c_str(),
+                                          "FLOAT, FLOAT16, BF16, INT32"),
+                return ge::GRAPH_FAILED);
 
     return ge::GRAPH_SUCCESS;
 }
@@ -146,7 +148,7 @@ static ge::graphStatus InvTilingFunc(gert::TilingContext* context)
     int64_t totalElements = 0;
     ge::DataType dataType = ge::DT_FLOAT;
     OP_CHECK_IF(GetShapeInfo(context, totalElements, dataType) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context, "Inv: GetShapeInfo error"), return ge::GRAPH_FAILED);
+                OP_LOGE_WITHOUT_REPORT(context, "Inv: GetShapeInfo error"), return ge::GRAPH_FAILED);
     OP_CHECK_IF(GetWorkspaceSize(context) != ge::GRAPH_SUCCESS, OP_LOGE(context, "Inv: GetWorkspaceSize error"),
                 return ge::GRAPH_FAILED);
     InvTilingData* tiling = context->GetTilingData<InvTilingData>();

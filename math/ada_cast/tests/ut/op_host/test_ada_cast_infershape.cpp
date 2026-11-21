@@ -14,6 +14,7 @@
 #include <iostream>
 #include "infershape_context_faker.h"
 #include "infershape_case_executor.h"
+#include "experiment/metadef/common/util/error_manager/error_manager.h"
 
 using namespace ge;
 
@@ -23,6 +24,17 @@ protected:
 
     static void TearDownTestCase() { std::cout << "AdaCastTest TearDown" << std::endl; }
 };
+
+static void InfershapeExpectError(gert::InfershapeContextPara& para, const char* errorCode)
+{
+    auto& errors = ErrorManager::GetInstance();
+    ASSERT_EQ(errors.Init(), 0);
+    (void)errors.GetRawErrorMessages();
+    ExecuteTestCase(para, ge::GRAPH_FAILED);
+    const auto reports = errors.GetRawErrorMessages();
+    ASSERT_EQ(reports.size(), 1U);
+    EXPECT_EQ(reports[0].error_id, errorCode);
+}
 
 // 1D shape (spec boundary_conditions: 1D shape 输入)
 TEST_F(AdaCastTest, ada_cast_infershape_1d_test)
@@ -87,6 +99,33 @@ TEST_F(AdaCastTest, ada_cast_infershape_4d_test)
         {1, 512, 512, 3},
     };
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+// rank=0（标量）低于 spec rank_range 下界 1，应拒绝
+TEST_F(AdaCastTest, ada_cast_infershape_rank0_rejected)
+{
+    gert::InfershapeContextPara infershapeContextPara("AdaCast",
+                                                      {
+                                                          {{{}, {}}, ge::DT_UINT16, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                      });
+    InfershapeExpectError(infershapeContextPara, "EZ0012");
+}
+
+// rank=5 高于 spec rank_range 上界 4，应拒绝
+TEST_F(AdaCastTest, ada_cast_infershape_rank5_rejected)
+{
+    gert::InfershapeContextPara infershapeContextPara(
+        "AdaCast",
+        {
+            {{{1, 1, 1, 1, 2}, {1, 1, 1, 1, 2}}, ge::DT_UINT16, ge::FORMAT_ND},
+        },
+        {
+            {{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+        });
+    InfershapeExpectError(infershapeContextPara, "EZ0012");
 }
 
 // 空 Tensor: [0, 4] (spec boundary_conditions: 空 Tensor)

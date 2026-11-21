@@ -37,9 +37,11 @@ static ge::graphStatus InferShape4AdaCast(gert::InferShapeContext* context)
     // 图编译期前置拦截，Tiling 侧另有同款防御性校验
     constexpr size_t MIN_PROTO_RANK = 1;
     constexpr size_t MAX_PROTO_RANK = 4;
-    OP_CHECK_IF(input_shape->GetDimNum() < MIN_PROTO_RANK || input_shape->GetDimNum() > MAX_PROTO_RANK,
-                OP_LOGE(context->GetNodeName(), "AdaCast: x rank must be 1~4, got %zu", input_shape->GetDimNum()),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        input_shape->GetDimNum() < MIN_PROTO_RANK || input_shape->GetDimNum() > MAX_PROTO_RANK,
+        OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(
+            context->GetNodeName(), "x", std::to_string(input_shape->GetDimNum()).c_str(), "rank must be in [1, 4]"),
+        return ge::GRAPH_FAILED);
 
     gert::Shape* output_shape = context->GetOutputShape(0);
     OP_CHECK_NULL_WITH_CONTEXT(context, output_shape);

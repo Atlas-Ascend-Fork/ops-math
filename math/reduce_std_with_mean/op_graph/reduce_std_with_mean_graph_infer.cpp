@@ -35,8 +35,9 @@ static ge::graphStatus InferDataType4ReduceStdWithMean(gert::InferDataTypeContex
     const ge::DataType meanDt = context->GetInputDataType(INPUT_MEAN_IDX);
     // [FR-08] x 与 mean 数据类型须一致（README 约束）
     if (xDt != meanDt) {
-        OP_LOGE(context->GetNodeName(), "x dtype[%s] must be identical to mean dtype[%s].", std::to_string(xDt).c_str(),
-                std::to_string(meanDt).c_str());
+        OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(context->GetNodeName(), "x, mean",
+                                               (Ops::Base::ToString(xDt) + ", " + Ops::Base::ToString(meanDt)).c_str(),
+                                               "x dtype must be identical to mean dtype");
         return GRAPH_FAILED;
     }
     context->SetOutputDataType(OUTPUT_Y_IDX, xDt);

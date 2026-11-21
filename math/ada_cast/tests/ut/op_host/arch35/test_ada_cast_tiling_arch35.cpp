@@ -14,6 +14,7 @@
 #include <gtest/gtest.h>
 #include "tiling_context_faker.h"
 #include "tiling_case_executor.h"
+#include "experiment/metadef/common/util/error_manager/error_manager.h"
 
 using namespace std;
 using namespace ge;
@@ -30,6 +31,17 @@ protected:
 
     static void TearDownTestCase() { std::cout << "AdaCastTilingTest TearDown" << std::endl; }
 };
+
+static void TilingExpectError(const gert::TilingContextPara& para, const char* errorCode)
+{
+    auto& errors = ErrorManager::GetInstance();
+    ASSERT_EQ(errors.Init(), 0);
+    (void)errors.GetRawErrorMessages();
+    ExecuteTestCase(para, ge::GRAPH_FAILED);
+    const auto reports = errors.GetRawErrorMessages();
+    ASSERT_EQ(reports.size(), 1U);
+    EXPECT_EQ(reports[0].error_id, errorCode);
+}
 
 // 正常路径: 1D shape [512] pixel=65535
 TEST_F(AdaCastTilingTest, test_tiling_normal_1d_default_pixel)
@@ -107,7 +119,7 @@ TEST_F(AdaCastTilingTest, test_tiling_failed_pixel_zero)
                                                   {"pixel", Ops::Math::AnyValue::CreateFrom<int64_t>(0)},
                                               },
                                               &compileInfo);
-    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
+    TilingExpectError(tilingContextPara, "EZ0026");
 }
 
 // 边界: dim0 接近 INT64_MAX（rank1）→ 多核切分使用 CeilDiv(dim0,2048)，
@@ -147,5 +159,41 @@ TEST_F(AdaCastTilingTest, test_tiling_failed_pixel_negative)
                                                   {"pixel", Ops::Math::AnyValue::CreateFrom<int64_t>(-1)},
                                               },
                                               &compileInfo);
-    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
+    TilingExpectError(tilingContextPara, "EZ0026");
+}
+
+// 异常: rank=0（标量）低于 rank_range 下界 → 报错
+TEST_F(AdaCastTilingTest, test_tiling_failed_rank0)
+{
+    optiling::AdaCastCompileInfo compileInfo;
+    gert::TilingContextPara tilingContextPara("AdaCast",
+                                              {
+                                                  {{{}, {}}, ge::DT_UINT16, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {"pixel", Ops::Math::AnyValue::CreateFrom<int64_t>(65535)},
+                                              },
+                                              &compileInfo);
+    TilingExpectError(tilingContextPara, "EZ0012");
+}
+
+// 异常: rank=5 高于 rank_range 上界 → 报错
+TEST_F(AdaCastTilingTest, test_tiling_failed_rank5)
+{
+    optiling::AdaCastCompileInfo compileInfo;
+    gert::TilingContextPara tilingContextPara("AdaCast",
+                                              {
+                                                  {{{1, 1, 1, 1, 2}, {1, 1, 1, 1, 2}}, ge::DT_UINT16, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{1, 1, 1, 1, 2}, {1, 1, 1, 1, 2}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {"pixel", Ops::Math::AnyValue::CreateFrom<int64_t>(65535)},
+                                              },
+                                              &compileInfo);
+    TilingExpectError(tilingContextPara, "EZ0012");
 }

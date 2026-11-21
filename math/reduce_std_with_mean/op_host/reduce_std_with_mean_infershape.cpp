@@ -152,7 +152,10 @@ static ge::graphStatus InferShape4ReduceStdWithMean(gert::InferShapeContext* con
 
     // [FR-08] mean shape 与 x 一致性校验（unknown rank 时跳过）
     if (!IsUnknownRank(*xShape) && *meanShape != *xShape) {
-        OP_LOGE(context->GetNodeName(), "mean shape must be identical to x shape.");
+        OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(
+            context->GetNodeName(), "x, mean",
+            (Ops::Base::ToString(*xShape) + ", " + Ops::Base::ToString(*meanShape)).c_str(),
+            "mean shape must be identical to x shape");
         return GRAPH_FAILED;
     }
 
@@ -187,7 +190,9 @@ static ge::graphStatus InferShape4ReduceStdWithMean(gert::InferShapeContext* con
             const int64_t* dimData0 = dimVec0->GetData();
             for (int64_t di = 0; di < dimNum0; ++di) {
                 if (dimData0[di] != 0 && dimData0[di] != -1) {
-                    OP_LOGE(context->GetNodeName(), "dim[%ld] out of range for rank=0 input.", dimData0[di]);
+                    OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "dim",
+                                                          std::to_string(dimData0[di]).c_str(),
+                                                          "dim must be 0 or -1 when input rank is 0");
                     return GRAPH_FAILED;
                 }
             }
@@ -195,7 +200,8 @@ static ge::graphStatus InferShape4ReduceStdWithMean(gert::InferShapeContext* con
         // [FR-08] correction 须为非负整数（README 约束）
         const auto* corr = attrs0->GetInt(ATTR_CORRECTION_IDX);
         if (corr != nullptr && *corr < 0) {
-            OP_LOGE(context->GetNodeName(), "correction[%ld] must be non-negative.", *corr);
+            OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "correction", std::to_string(*corr).c_str(),
+                                                  "correction must be non-negative");
             return GRAPH_FAILED;
         }
         return HandleScalarInput(context, xShape, yShape);
@@ -212,7 +218,8 @@ static ge::graphStatus InferShape4ReduceStdWithMean(gert::InferShapeContext* con
     // [FR-08] correction 须为非负整数（README 约束）
     const auto* corrAttr = attrs->GetInt(ATTR_CORRECTION_IDX);
     if (corrAttr != nullptr && *corrAttr < 0) {
-        OP_LOGE(context->GetNodeName(), "correction[%ld] must be non-negative.", *corrAttr);
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "correction", std::to_string(*corrAttr).c_str(),
+                                              "correction must be non-negative");
         return GRAPH_FAILED;
     }
 

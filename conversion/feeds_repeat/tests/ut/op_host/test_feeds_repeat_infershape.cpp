@@ -13,6 +13,7 @@
 #include <iostream>
 #include "infershape_context_faker.h"
 #include "base/registry/op_impl_space_registry_v2.h"
+#include "experiment/metadef/common/util/error_manager/error_manager.h"
 
 class FeedsRepeat : public testing::Test {
 protected:
@@ -35,7 +36,8 @@ static void ExeTestCaseForFeedsRepeat(
     std::vector<std::vector<int64_t> > expectResults,
     const std::vector<gert::StorageShape>& inputShapes, // 存储所有输入StorageShape参数
     const std::vector<ge::DataType>& dtypes,            // 存储所有DataType参数
-    gert::StorageShape& outStorageShape, ge::graphStatus testCaseResult = ge::GRAPH_SUCCESS, int64_t attr = 0)
+    gert::StorageShape& outStorageShape, ge::graphStatus testCaseResult = ge::GRAPH_SUCCESS, int64_t attr = 0,
+    const char* expectErrorId = nullptr)
 {
     // 从vector中取出对应参数（保持原顺序）
     const auto& selfStorageShape = inputShapes[0];
@@ -65,7 +67,17 @@ static void ExeTestCaseForFeedsRepeat(
     ASSERT_NE(inferShapeFunc, nullptr);
 
     /* do infershape */
+    auto& errors = ErrorManager::GetInstance();
+    if (expectErrorId != nullptr) {
+        ASSERT_EQ(errors.Init(), 0);
+        (void)errors.GetRawErrorMessages();
+    }
     EXPECT_EQ(inferShapeFunc(contextHolder.GetContext()), testCaseResult);
+    if (expectErrorId != nullptr) {
+        const auto reports = errors.GetRawErrorMessages();
+        ASSERT_EQ(reports.size(), 1U);
+        EXPECT_EQ(reports[0].error_id, expectErrorId);
+    }
     for (size_t i = 0; i < expectResults.size(); i++) {
         EXPECT_EQ(ToVectorForFeedsRepeat(*contextHolder.GetContext()->GetOutputShape(i)), expectResults[i]);
     }
@@ -149,7 +161,7 @@ TEST_F(FeedsRepeat, FeedsRepeat_infershape_elem_row_product_overflow)
     gert::StorageShape outStorageShape = {};
     int64_t attr = 15;
     // 4 * (INT64_MAX/2) 超出 int64 表示范围，逐维累乘守卫应拒绝而非回绕出伪合法值
-    ExeTestCaseForFeedsRepeat({}, inputShapes, dtypes, outStorageShape, ge::GRAPH_FAILED, attr);
+    ExeTestCaseForFeedsRepeat({}, inputShapes, dtypes, outStorageShape, ge::GRAPH_FAILED, attr, "EZ0015");
 }
 
 TEST_F(FeedsRepeat, FeedsRepeat_infershape_unknown_rank_propagation)
@@ -244,4 +256,64 @@ TEST_F(FeedsRepeat, FeedsRepeat_infershape_unknown_rank_negative_attr_rejected)
     };
     gert::StorageShape outStorageShape = {};
     ExeTestCaseForFeedsRepeat({}, inputShapes, dtypes, outStorageShape, ge::GRAPH_FAILED, -1);
+}
+
+TEST_F(FeedsRepeat, FeedsRepeat_infershape_rank0_rejected)
+{
+    // rank=0 低于下界 1，应报 EZ0012（shape dim）
+    std::vector<gert::StorageShape> inputShapes = {
+        {{}, {}},  // feeds_shape：标量
+        {{1}, {1}} // repeat_times_shape
+    };
+    std::vector<ge::DataType> dtypes = {ge::DT_FLOAT16, ge::DT_INT32, ge::DT_FLOAT16};
+    gert::StorageShape outStorageShape = {};
+    ExeTestCaseForFeedsRepeat({}, inputShapes, dtypes, outStorageShape, ge::GRAPH_FAILED, 1, "EZ0012");
+}
+
+TEST_F(FeedsRepeat, FeedsRepeat_infershape_rank_above_max_rejected)
+{
+    // rank=9 高于 MAX_FEEDS_RANK，应报 EZ0012（shape dim）
+    std::vector<gert::StorageShape> inputShapes = {
+        {{1, 1, 1, 1, 1, 1, 1, 1, 2}, {1, 1, 1, 1, 1, 1, 1, 1, 2}}, // feeds_shape：rank 9
+        {{1}, {1}}                                                  // repeat_times_shape
+    };
+    std::vector<ge::DataType> dtypes = {ge::DT_FLOAT16, ge::DT_INT32, ge::DT_FLOAT16};
+    gert::StorageShape outStorageShape = {};
+    ExeTestCaseForFeedsRepeat({}, inputShapes, dtypes, outStorageShape, ge::GRAPH_FAILED, 1, "EZ0012");
+}
+
+TEST_F(FeedsRepeat, FeedsRepeat_infershape_dim0_lt_one_rejected)
+{
+    // dim0=0 是某一维长度，应报 EZ0015（shape size），不是 EZ0012（rank）
+    std::vector<gert::StorageShape> inputShapes = {
+        {{0, 4}, {0, 4}}, // feeds_shape
+        {{0}, {0}}        // repeat_times_shape
+    };
+    std::vector<ge::DataType> dtypes = {ge::DT_FLOAT16, ge::DT_INT32, ge::DT_FLOAT16};
+    gert::StorageShape outStorageShape = {};
+    ExeTestCaseForFeedsRepeat({}, inputShapes, dtypes, outStorageShape, ge::GRAPH_FAILED, 0, "EZ0015");
+}
+
+TEST_F(FeedsRepeat, FeedsRepeat_infershape_times_count_mismatch_rejected)
+{
+    // feeds dim0=2 与 feeds_repeat_times 元素数 3 不一致，应报 EZ0016（多参数 shape size）
+    std::vector<gert::StorageShape> inputShapes = {
+        {{2, 4}, {2, 4}}, // feeds_shape
+        {{3}, {3}}        // repeat_times_shape
+    };
+    std::vector<ge::DataType> dtypes = {ge::DT_FLOAT16, ge::DT_INT32, ge::DT_FLOAT16};
+    gert::StorageShape outStorageShape = {};
+    ExeTestCaseForFeedsRepeat({}, inputShapes, dtypes, outStorageShape, ge::GRAPH_FAILED, 15, "EZ0016");
+}
+
+TEST_F(FeedsRepeat, FeedsRepeat_infershape_elem_row_lt_one_rejected)
+{
+    // 非首维为 0 导致每行元素数为 0，应报 EZ0015（shape size）
+    std::vector<gert::StorageShape> inputShapes = {
+        {{2, 0, 3}, {2, 0, 3}}, // feeds_shape
+        {{2}, {2}}              // repeat_times_shape
+    };
+    std::vector<ge::DataType> dtypes = {ge::DT_FLOAT16, ge::DT_INT32, ge::DT_FLOAT16};
+    gert::StorageShape outStorageShape = {};
+    ExeTestCaseForFeedsRepeat({}, inputShapes, dtypes, outStorageShape, ge::GRAPH_FAILED, 15, "EZ0015");
 }

@@ -71,17 +71,22 @@ static ge::graphStatus GetShapeAttrsInfo(gert::TilingContext* context, int64_t* 
     // rank 校验（spec shape_constraints.rank_range: [1, 4]）：0-D 标量与 rank>4 均拒绝
     const size_t inputRank = inputX->GetStorageShape().GetDimNum();
     OP_CHECK_IF(inputRank < 1 || inputRank > MAX_PROTO_RANK,
-                OP_LOGE(context, "AdaCast: x rank must be 1~4, got %zu", inputRank), return ge::GRAPH_FAILED);
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "x", std::to_string(inputRank).c_str(),
+                                                         "rank must be in [1, 4]"),
+                return ge::GRAPH_FAILED);
     auto inputShapeX = inputX->GetStorageShape();
     *dim0 = inputShapeX.GetShapeSize();
-    OP_CHECK_IF(*dim0 < 0, OP_LOGE(context, "dim0 < 0, invalid shape"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(*dim0 < 0,
+                OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(context->GetNodeName(), "x", std::to_string(*dim0).c_str(),
+                                                          "shape size must be non-negative"),
+                return ge::GRAPH_FAILED);
 
     auto inputDesc = context->GetInputDesc(0);
     OP_CHECK_NULL_WITH_CONTEXT(context, inputDesc);
     ge::DataType dataType = inputDesc->GetDataType();
     const std::set<ge::DataType> supportedDtypes = {ge::DT_UINT16};
     OP_CHECK_IF(supportedDtypes.count(dataType) == 0,
-                OP_LOGE(context, "AdaCast: x only supports DT_UINT16, got %d", static_cast<int32_t>(dataType)),
+                OP_LOGE_FOR_INVALID_DTYPE(context->GetNodeName(), "x", Ops::Base::ToString(dataType).c_str(), "UINT16"),
                 return ge::GRAPH_FAILED);
 
     // 读取属性 pixel（int64，index 0；OPTIONAL Attr，为空时使用 op_def 声明的默认值 65535）
@@ -115,11 +120,13 @@ static ge::graphStatus AdaCastTilingFunc(gert::TilingContext* context)
     int64_t dim0 = 0;
     int64_t pixel = 0;
     OP_CHECK_IF(GetShapeAttrsInfo(context, &dim0, &pixel) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context, "GetShapeAttrsInfo error"), return ge::GRAPH_FAILED);
+                OP_LOGE_WITHOUT_REPORT(context, "GetShapeAttrsInfo error"), return ge::GRAPH_FAILED);
 
     // 3、pixel 校验（spec attributes.pixel.machine_constraint.lower_inclusive: 1）
     //    L2 已拦截 pixel<=0，此处防御性校验
-    OP_CHECK_IF(pixel <= 0, OP_LOGE(context, "AdaCast: pixel must be positive, got %ld", pixel),
+    OP_CHECK_IF(pixel <= 0,
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "pixel", std::to_string(pixel).c_str(),
+                                                      "pixel must be positive"),
                 return ge::GRAPH_FAILED);
 
     // 4、获取 WorkspaceSize 信息

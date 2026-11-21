@@ -52,13 +52,19 @@ ge::graphStatus ComplexAbsTiling::CalcOutputDtype()
     this->outputDtype = outputDesc->GetDataType();
 
     if (inputDtype == ge::DT_COMPLEX64) {
-        OP_CHECK_IF(this->outputDtype != ge::DT_FLOAT,
-                    OP_LOGE(tilingContext, "ComplexAbs op complex64 input must output float, check fail"),
-                    return ge::GRAPH_FAILED);
+        OP_CHECK_IF(
+            this->outputDtype != ge::DT_FLOAT,
+            OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(tilingContext->GetNodeName(), "y",
+                                                  ge::TypeUtils::DataTypeToSerialString(this->outputDtype).c_str(),
+                                                  "the dtype of y must be FLOAT when the dtype of x is COMPLEX64"),
+            return ge::GRAPH_FAILED);
     } else if (inputDtype == ge::DT_COMPLEX32) {
-        OP_CHECK_IF(this->outputDtype != ge::DT_FLOAT16,
-                    OP_LOGE(tilingContext, "ComplexAbs op complex32 input must output float16, check fail"),
-                    return ge::GRAPH_FAILED);
+        OP_CHECK_IF(
+            this->outputDtype != ge::DT_FLOAT16,
+            OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(tilingContext->GetNodeName(), "y",
+                                                  ge::TypeUtils::DataTypeToSerialString(this->outputDtype).c_str(),
+                                                  "the dtype of y must be FLOAT16 when the dtype of x is COMPLEX32"),
+            return ge::GRAPH_FAILED);
     }
     return ge::GRAPH_SUCCESS;
 }
@@ -66,7 +72,7 @@ ge::graphStatus ComplexAbsTiling::CalcOutputDtype()
 ge::graphStatus ComplexAbsTiling::RunTiling()
 {
     ElewiseBaseTiling elewiseBaseTiling(tilingContext);
-    OP_CHECK_IF(CalcOutputDtype() == ge::GRAPH_FAILED, OP_LOGE(tilingContext, "get output dtype failed"),
+    OP_CHECK_IF(CalcOutputDtype() == ge::GRAPH_FAILED, OP_LOGE_WITHOUT_REPORT(tilingContext, "get output dtype failed"),
                 return ge::GRAPH_FAILED);
 
     ge::graphStatus res = ge::GRAPH_FAILED;
@@ -77,7 +83,9 @@ ge::graphStatus ComplexAbsTiling::RunTiling()
     } else if (this->inputDtype == ge::DT_COMPLEX32) {
         res = elewiseBaseTiling.DoTiling<ComplexAbsOp::ComplexAbsDag<int32_t, half>::OpDag>(tiling->baseTiling);
     } else {
-        OP_LOGE(tilingContext, "data dtype check failed. getype:%u", static_cast<uint32_t>(this->inputDtype));
+        OP_LOGE_FOR_INVALID_DTYPE(tilingContext->GetNodeName(), "x",
+                                  ge::TypeUtils::DataTypeToSerialString(this->inputDtype).c_str(),
+                                  "COMPLEX64, COMPLEX32");
         return ge::GRAPH_FAILED;
     }
 

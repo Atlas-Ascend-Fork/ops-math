@@ -27,10 +27,12 @@ ge::graphStatus InferDataTypeCast(gert::InferDataTypeContext* context)
     const int64_t* dstType = attrs->GetAttrPointer<int64_t>(IDX_0);
     OP_CHECK_NULL_WITH_CONTEXT(context, dstType);
     // int64 域校验: 直接 static_cast 后大值会截断到枚举底层宽度(int32), 可能落入合法区间绕过校验
-    OP_CHECK_IF(*dstType < 0 || *dstType >= static_cast<int64_t>(ge::DT_MAX) ||
-                    *dstType == static_cast<int64_t>(ge::DT_UNDEFINED),
-                OP_LOGE(context->GetNodeName(), "the value of attr [dst_type] is invalid, got [%ld]", *dstType),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        *dstType < 0 || *dstType >= static_cast<int64_t>(ge::DT_MAX) ||
+            *dstType == static_cast<int64_t>(ge::DT_UNDEFINED),
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "dst_type", std::to_string(*dstType).c_str(),
+                                              "the attribute value must be a valid ge::DataType"),
+        return ge::GRAPH_FAILED);
     const auto outputDtype = static_cast<ge::DataType>(*dstType);
     context->SetOutputDataType(IDX_0, outputDtype);
     OP_LOGD(context->GetNodeName(), "CastInferDataType end");
