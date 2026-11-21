@@ -22,6 +22,20 @@
 
 namespace optiling {
 
+/* 展开后的维度数量（成员数组长度） */
+static constexpr int64_t EXPANDED_DIM_NUM = 6;
+
+/**
+ * @brief SpaceToDepth 算子参数
+ */
+struct ParamInfo {
+    gert::Shape xShape;
+    ge::DataType xDtype;
+    int64_t blockSize;
+    const char* modePtr;
+    const char* dataFormatPtr;
+};
+
 ge::graphStatus SpaceToDepthTilingForAscendC(gert::TilingContext* context,
                                              const TransposeCompilerInfo* transposeCompileInfo);
 
@@ -38,8 +52,8 @@ private:
 private:
     gert::TilingContext* tilingContext_ = nullptr;
     ParamInfo paramInfo_{};
-    int64_t nchwPerm_[DIM_SIX] = {0, 1, 3, 5, 2, 4};
-    int64_t nhwcPerm_[DIM_SIX] = {0, 1, 3, 2, 4, 5};
+    int64_t nchwPerm_[EXPANDED_DIM_NUM] = {0, 1, 3, 5, 2, 4};
+    int64_t nhwcPerm_[EXPANDED_DIM_NUM] = {0, 1, 3, 2, 4, 5};
 };
 } // namespace optiling
 #endif

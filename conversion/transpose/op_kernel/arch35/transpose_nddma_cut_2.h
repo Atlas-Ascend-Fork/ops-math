@@ -9,8 +9,8 @@
  */
 
 /*!
- * \file transpose_cut_two_axis.h
- * \brief TilingKey=10003 CUT_TWICE 策略实现
+ * \file transpose_nddma_cut_2.h
+ * \brief TilingKey=10003 NDDMA_CUT_2 策略实现
  *
  * 适用场景：2-5维 NDDMA 场景，DoSplitUB 后 outCutIndex > FindOutIndex(inCutIndex)，
  * 即输出切分轴比输入切分轴"更靠前"，需要同时切2个轴。
@@ -30,8 +30,8 @@
  * 多核区间计算：ProcessBlock() 中，每个核根据自己的 srcOffset_ 和 blkProcessNum_
  * 与4种区间求交集（PorcessOffsetRange），只处理自己负责的区间。
  */
-#ifndef TRANSPOSE_CUT_TWO_AXIS_H
-#define TRANSPOSE_CUT_TWO_AXIS_H
+#ifndef TRANSPOSE_NDDMA_CUT_2_H
+#define TRANSPOSE_NDDMA_CUT_2_H
 
 #include "transpose_base.h"
 
@@ -39,17 +39,17 @@ namespace Transpose {
 using namespace AscendC;
 
 /**
- * @brief CUT_TWICE 策略类，实现 NDDMA 5维搬运 + 双轴切分转置
+ * @brief NDDMA_CUT_2 策略类，实现 NDDMA 5维搬运 + 双轴切分转置
  *
- * 与 CUT_ONCE 的主要区别：需要同时切输入轴和输出轴，产生4种数据区间。
+ * 与 NDDMA_CUT_1 的主要区别：需要同时切输入轴和输出轴，产生4种数据区间。
  * 每种区间使用不同的 NDDMA 参数和地址偏移基准。
  *
  * @tparam T 数据元素类型
  */
 template <typename T>
-class TransposeCutTwoAxis : public TransposeBase<T> {
+class TransposeNddmaCut2 : public TransposeBase<T> {
 public:
-    __aicore__ inline TransposeCutTwoAxis(){};
+    __aicore__ inline TransposeNddmaCut2(){};
     __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, const TransposeOpTilingData* tilingData, TPipe* pipe);
     __aicore__ inline void Process();
 
@@ -126,8 +126,8 @@ private:
 };
 
 template <typename T>
-__aicore__ inline void TransposeCutTwoAxis<T>::Init(GM_ADDR x, GM_ADDR y, const TransposeOpTilingData* tilingData,
-                                                    TPipe* pipe)
+__aicore__ inline void TransposeNddmaCut2<T>::Init(GM_ADDR x, GM_ADDR y, const TransposeOpTilingData* tilingData,
+                                                   TPipe* pipe)
 {
     blockIdx_ = GetBlockIdx();
     tiling_ = tilingData;
@@ -138,7 +138,7 @@ __aicore__ inline void TransposeCutTwoAxis<T>::Init(GM_ADDR x, GM_ADDR y, const 
 }
 
 template <typename T>
-__aicore__ inline void TransposeCutTwoAxis<T>::Process()
+__aicore__ inline void TransposeNddmaCut2<T>::Process()
 {
     if (blockIdx_ >= tiling_->realCoreNum) {
         return;
@@ -157,10 +157,10 @@ __aicore__ inline void TransposeCutTwoAxis<T>::Process()
 }
 
 /**
- * @brief 全局十进制转混合基函数（8维，CUT_TWICE 使用）
+ * @brief 全局十进制转混合基函数（8维，NDDMA_CUT_2 使用）
  *
  * 将线性索引 num 分解到8维混合基，用于计算多维地址偏移。
- * 与 CUT_ONCE 的 DecimalToMixed 类似，但维度上限为 TP_MAX_AXIS_NUM(8)。
+ * 与 NDDMA_CUT_1 的 DecimalToMixed 类似，但维度上限为 TP_MAX_AXIS_NUM(8)。
  *
  * @param num       待分解的十进制数
  * @param bases     各维度的基数数组
@@ -183,7 +183,7 @@ __aicore__ inline void DecimalToMixedBase(int64_t num, int64_t bases[], int64_t 
 /**
  * @brief 计算当前核与指定区间的交集
  *
- * CUT_TWICE 的4种区间（Main/InputTail/OutputTail/Tail）是全局定义的，
+ * NDDMA_CUT_2 的4种区间（Main/InputTail/OutputTail/Tail）是全局定义的，
  * 每个核只负责其中一部分数据。此函数计算当前核的循环范围 [srcOffset_, srcOffset_+blkProcessNum_-1]
  * 与指定区间 [start, end] 的交集，结果写入 offsetRangeRes。
  *
@@ -192,7 +192,7 @@ __aicore__ inline void DecimalToMixedBase(int64_t num, int64_t bases[], int64_t 
  * @param offsetRangeRes [out] 交集结果
  */
 template <typename T>
-__aicore__ inline void TransposeCutTwoAxis<T>::PorcessOffsetRange(int64_t start, int64_t end, Interval_& offsetRangeRes)
+__aicore__ inline void TransposeNddmaCut2<T>::PorcessOffsetRange(int64_t start, int64_t end, Interval_& offsetRangeRes)
 {
     if ((srcOffset_ < start) && (srcOffset_ + blkProcessNum_ - 1 > end)) {
         return;
@@ -213,14 +213,14 @@ __aicore__ inline void TransposeCutTwoAxis<T>::PorcessOffsetRange(int64_t start,
 }
 
 template <typename T>
-__aicore__ inline void TransposeCutTwoAxis<T>::ParseTilingData()
+__aicore__ inline void TransposeNddmaCut2<T>::ParseTilingData()
 {
     expandedOutputCutIndex_ = tiling_->outCutIndex + TP_NDDMA_MAX_DIM_NUM - tiling_->permSize;
     expandedInputCutIndex_ = tiling_->inCutIndex + TP_NDDMA_MAX_DIM_NUM - tiling_->permSize;
 }
 
 template <typename T>
-__aicore__ inline int64_t TransposeCutTwoAxis<T>::FindPermIndex(int64_t j)
+__aicore__ inline int64_t TransposeNddmaCut2<T>::FindPermIndex(int64_t j)
 {
     for (int64_t permIndex = 0; permIndex < TP_NDDMA_MAX_DIM_NUM; permIndex++) {
         if (tiling_->expandedPerm[permIndex] == j) {
@@ -231,11 +231,10 @@ __aicore__ inline int64_t TransposeCutTwoAxis<T>::FindPermIndex(int64_t j)
 }
 
 template <typename T>
-__aicore__ inline void TransposeCutTwoAxis<T>::GetLoopAddressOffsetImpl(bool isSrc, int64_t loopNumArray[],
-                                                                        int64_t loopShapeSizeArray[], int64_t cutIndex1,
-                                                                        int64_t cutIndex2,
-                                                                        const int64_t expandedShape[],
-                                                                        const int64_t inUbShape[])
+__aicore__ inline void TransposeNddmaCut2<T>::GetLoopAddressOffsetImpl(bool isSrc, int64_t loopNumArray[],
+                                                                       int64_t loopShapeSizeArray[], int64_t cutIndex1,
+                                                                       int64_t cutIndex2, const int64_t expandedShape[],
+                                                                       const int64_t inUbShape[])
 {
     int64_t startIndex = TP_NDDMA_MAX_DIM_NUM - 1;
     for (int64_t i = 0; i < TP_NDDMA_MAX_DIM_NUM; i++) {
@@ -263,25 +262,25 @@ __aicore__ inline void TransposeCutTwoAxis<T>::GetLoopAddressOffsetImpl(bool isS
 }
 
 template <typename T>
-__aicore__ inline void TransposeCutTwoAxis<T>::GetMainLoopAddressOffset(bool isSrc, int64_t loopNumArray[],
-                                                                        int64_t loopShapeSizeArray[],
-                                                                        const int64_t expandedShape[],
-                                                                        const int64_t inUbShape[])
+__aicore__ inline void TransposeNddmaCut2<T>::GetMainLoopAddressOffset(bool isSrc, int64_t loopNumArray[],
+                                                                       int64_t loopShapeSizeArray[],
+                                                                       const int64_t expandedShape[],
+                                                                       const int64_t inUbShape[])
 {
     GetLoopAddressOffsetImpl(isSrc, loopNumArray, loopShapeSizeArray, -1, -1, expandedShape, inUbShape);
 }
 
 template <typename T>
-__aicore__ inline void TransposeCutTwoAxis<T>::GetTailLoopAddressOffset(bool isSrc, int64_t loopNumArray[],
-                                                                        int64_t loopShapeSizeArray[], int64_t cutIndex,
-                                                                        const int64_t expandedShape[],
-                                                                        const int64_t inUbShape[])
+__aicore__ inline void TransposeNddmaCut2<T>::GetTailLoopAddressOffset(bool isSrc, int64_t loopNumArray[],
+                                                                       int64_t loopShapeSizeArray[], int64_t cutIndex,
+                                                                       const int64_t expandedShape[],
+                                                                       const int64_t inUbShape[])
 {
     GetLoopAddressOffsetImpl(isSrc, loopNumArray, loopShapeSizeArray, cutIndex, -1, expandedShape, inUbShape);
 }
 
 template <typename T>
-__aicore__ inline void TransposeCutTwoAxis<T>::GetTailTailLoopAddressOffset(
+__aicore__ inline void TransposeNddmaCut2<T>::GetTailTailLoopAddressOffset(
     bool isSrc, int64_t loopNumArray[], int64_t loopShapeSizeArray[], int64_t inputCutIndex, int64_t outputCutIndex,
     const int64_t expandedShape[], const int64_t inUbShape[])
 {
@@ -290,8 +289,8 @@ __aicore__ inline void TransposeCutTwoAxis<T>::GetTailTailLoopAddressOffset(
 }
 
 template <typename T>
-__aicore__ inline NdDmaLoopInfo<TP_NDDMA_MAX_DIM_NUM> TransposeCutTwoAxis<T>::SetupLoopInfo(
-    const int64_t inUbSrcShape[], const int64_t inUbDstShape[])
+__aicore__ inline NdDmaLoopInfo<TP_NDDMA_MAX_DIM_NUM> TransposeNddmaCut2<T>::SetupLoopInfo(const int64_t inUbSrcShape[],
+                                                                                           const int64_t inUbDstShape[])
 {
     NdDmaLoopInfo<TP_NDDMA_MAX_DIM_NUM> loopInfo;
 
@@ -339,7 +338,7 @@ __aicore__ inline NdDmaLoopInfo<TP_NDDMA_MAX_DIM_NUM> TransposeCutTwoAxis<T>::Se
 }
 
 template <typename T>
-__aicore__ inline void TransposeCutTwoAxis<T>::ProcessMain(int64_t loopidxStart, int64_t loopidxEnd)
+__aicore__ inline void TransposeNddmaCut2<T>::ProcessMain(int64_t loopidxStart, int64_t loopidxEnd)
 {
     // main
     T constValue = 0;
@@ -408,7 +407,7 @@ __aicore__ inline void TransposeCutTwoAxis<T>::ProcessMain(int64_t loopidxStart,
 }
 
 template <typename T>
-__aicore__ inline void TransposeCutTwoAxis<T>::ProcessInputTail(int64_t loopidxStart, int64_t loopidxEnd)
+__aicore__ inline void TransposeNddmaCut2<T>::ProcessInputTail(int64_t loopidxStart, int64_t loopidxEnd)
 {
     // NDDMA loopInfo init
     T constValue = 0;
@@ -487,7 +486,7 @@ __aicore__ inline void TransposeCutTwoAxis<T>::ProcessInputTail(int64_t loopidxS
 }
 
 template <typename T>
-__aicore__ inline void TransposeCutTwoAxis<T>::ProcessOutputTail(int64_t loopidxStart, int64_t loopidxEnd)
+__aicore__ inline void TransposeNddmaCut2<T>::ProcessOutputTail(int64_t loopidxStart, int64_t loopidxEnd)
 {
     // NDDMA loopInfo init
     T constValue = 0;
@@ -574,7 +573,7 @@ __aicore__ inline void TransposeCutTwoAxis<T>::ProcessOutputTail(int64_t loopidx
 }
 
 template <typename T>
-__aicore__ inline void TransposeCutTwoAxis<T>::ProcessTail(int64_t loopidxStart, int64_t loopidxEnd)
+__aicore__ inline void TransposeNddmaCut2<T>::ProcessTail(int64_t loopidxStart, int64_t loopidxEnd)
 {
     // NDDMA loopInfo init
     T constValue = 0;
@@ -658,7 +657,7 @@ __aicore__ inline void TransposeCutTwoAxis<T>::ProcessTail(int64_t loopidxStart,
 }
 
 template <typename T>
-__aicore__ inline void TransposeCutTwoAxis<T>::GetCopyOutParams()
+__aicore__ inline void TransposeNddmaCut2<T>::GetCopyOutParams()
 {
     // calculate the main and tail loopSize and loopSrc/DstStirde of copyOut
     int64_t idx = 0;
@@ -719,7 +718,7 @@ __aicore__ inline void TransposeCutTwoAxis<T>::GetCopyOutParams()
 }
 
 template <typename T>
-__aicore__ inline void TransposeCutTwoAxis<T>::GetTailAddressOffsetBase()
+__aicore__ inline void TransposeNddmaCut2<T>::GetTailAddressOffsetBase()
 {
     // inputTail base address offset
     inputTailSrcAddressOffsetBase_ = 1;
@@ -759,7 +758,7 @@ __aicore__ inline void TransposeCutTwoAxis<T>::GetTailAddressOffsetBase()
 }
 
 template <typename T>
-__aicore__ inline void TransposeCutTwoAxis<T>::ProcessBlock()
+__aicore__ inline void TransposeNddmaCut2<T>::ProcessBlock()
 {
     // 初始化四个结果数据区间
     Interval_ offsetRangeMainRes;
@@ -802,7 +801,7 @@ __aicore__ inline void TransposeCutTwoAxis<T>::ProcessBlock()
 }
 
 template <typename T>
-__aicore__ inline void TransposeCutTwoAxis<T>::ProcessPerCore()
+__aicore__ inline void TransposeNddmaCut2<T>::ProcessPerCore()
 {
     // cut two axis
     // 对于输入，输出切分轴的index和对于输出，输入切分轴的index

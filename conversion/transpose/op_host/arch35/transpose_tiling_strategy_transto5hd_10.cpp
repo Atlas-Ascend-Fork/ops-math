@@ -9,54 +9,87 @@
  */
 
 /*!
- * \file transpose_tiling_with_nchwconv_arch35.cpp
- * \brief transpose_tiling_nchwconv_arch35
+ * \file transpose_tiling_strategy_transto5hd_10.cpp
+ * \brief TRANSTO5HD_10(10007) 策略类实现
+ *
+ * 实现 2D perm=[1,0] 的 16bit TransDataTo5HD 转置：分核与 UB 切分、TilingData 回填。
  */
-#include "transpose_tiling_with_nchwconv_arch35.h"
-#include "common/inc/op_host/math_log.h"
+
+#include "transpose_tiling_strategy_transto5hd_10.h"
+#include <cstdint>
+#include "util/math_util.h"
+#include "log/log.h"
 
 namespace optiling {
 using namespace Transpose;
-namespace TransposeWithVCONV {
-static constexpr size_t SYS_WORKSPACE_SIZE = 0;
-static constexpr int64_t TRANSELEM = 16;
-static constexpr int8_t BUFFER_TENSOR_NUM = 2; // 输入输出各1块
 
-void TransposeVCONVTiling::CalcBasicInfo()
+// ===== TRANSTO5HD_10 私有实现 =====
+namespace {
+static constexpr int32_t TRANSTO5HD10_DSIZE = 2;            ///< 16bit
+static constexpr int8_t TRANSTO5HD10_BUFFER_NUM = 2;        ///< 输入/输出双缓冲
+static constexpr int64_t TRANSTO5HD10_TRANSELEM = 16;       ///< TransDataTo5HD 每次处理元素数
+static constexpr int8_t TRANSTO5HD10_BUFFER_TENSOR_NUM = 2; ///< 输入输出各 1 块
+static constexpr int64_t TRANSTO5HD10_DIM_FIVE = 5;
+} // namespace
+
+/**
+ * @brief TRANSTO5HD_10(10007) 准入检查
+ *
+ *   !isRelatedTranspose_ && arch==DAV_5102 && IsPermValue({1, 0})
+ *   && eleLenInBytes==2 && reducedInShape[0]>5。
+ */
+bool TransposeTransTo5HD10Strategy::IsSupport() const
 {
-    AvailableUbSize = platInfo_.ubSize / BUFFER_TENSOR_NUM / BUFFER_NUM;
-    basicInfo_.RLen = shapeInfo_.reducedInShape[0];
-    basicInfo_.CLen = shapeInfo_.reducedInShape[1];
-    basicInfo_.RAlignBlock = Ops::Base::CeilDiv(basicInfo_.RLen, TRANSELEM);
-    basicInfo_.CAlignBlock = Ops::Base::CeilDiv(basicInfo_.CLen, TRANSELEM);
-    basicInfo_.RAlignBlockElem = basicInfo_.RAlignBlock * TRANSELEM;
-    basicInfo_.CAlignBlockElem = basicInfo_.CAlignBlock * TRANSELEM;
+    if (isRelatedTranspose_) {
+        return false; // 融合（related）场景不尝试 TRANSTO5HD_10
+    }
+    if (npuArch_ != Ops::Base::DAV_5102) {
+        return false; // DAV_5102 专用硬件指令路径
+    }
+    if (!IsPermValue({1, 0})) {
+        return false; // dim==2 且 perm=[1,0]（基类统一 perm 判定）
+    }
+    if (shapeInfo_.eleLenInBytes != TRANSTO5HD10_DSIZE) {
+        return false; // 16bit
+    }
+    return shapeInfo_.reducedInShape[0] > TRANSTO5HD10_DIM_FIVE; // shape[0]>5
 }
 
-void TransposeVCONVTiling::CalcRSplitInfo()
+void TransposeTransTo5HD10Strategy::CalcBasicInfo()
 {
-    rCoreSplitInfo_.AlignBlockFactor = Ops::Base::CeilDiv(basicInfo_.RAlignBlock, platInfo_.coreNum);
-    rCoreSplitInfo_.BlockFactor = rCoreSplitInfo_.AlignBlockFactor * TRANSELEM;
+    AvailableUbSize = ubSize_ / TRANSTO5HD10_BUFFER_TENSOR_NUM / TRANSTO5HD10_BUFFER_NUM;
+    basicInfo_.RLen = shapeInfo_.reducedInShape[0];
+    basicInfo_.CLen = shapeInfo_.reducedInShape[1];
+    basicInfo_.RAlignBlock = Ops::Base::CeilDiv(basicInfo_.RLen, TRANSTO5HD10_TRANSELEM);
+    basicInfo_.CAlignBlock = Ops::Base::CeilDiv(basicInfo_.CLen, TRANSTO5HD10_TRANSELEM);
+    basicInfo_.RAlignBlockElem = basicInfo_.RAlignBlock * TRANSTO5HD10_TRANSELEM;
+    basicInfo_.CAlignBlockElem = basicInfo_.CAlignBlock * TRANSTO5HD10_TRANSELEM;
+}
+
+void TransposeTransTo5HD10Strategy::CalcRSplitInfo()
+{
+    rCoreSplitInfo_.AlignBlockFactor = Ops::Base::CeilDiv(basicInfo_.RAlignBlock, coreNum_);
+    rCoreSplitInfo_.BlockFactor = rCoreSplitInfo_.AlignBlockFactor * TRANSTO5HD10_TRANSELEM;
     rCoreSplitInfo_.BlockCount = Ops::Base::CeilDiv(basicInfo_.RAlignBlock, rCoreSplitInfo_.AlignBlockFactor);
     rCoreSplitInfo_.AlignBlockTailFactor = basicInfo_.RAlignBlock -
                                            (rCoreSplitInfo_.BlockCount - 1) * rCoreSplitInfo_.AlignBlockFactor;
-    rCoreSplitInfo_.BlockTailFactor = rCoreSplitInfo_.AlignBlockTailFactor * TRANSELEM;
+    rCoreSplitInfo_.BlockTailFactor = rCoreSplitInfo_.AlignBlockTailFactor * TRANSTO5HD10_TRANSELEM;
     basicInfo_.UsedCoreNum = rCoreSplitInfo_.BlockCount;
     basicInfo_.IsRSplit = true;
 }
 
-void TransposeVCONVTiling::CalcCSplitInfo()
+void TransposeTransTo5HD10Strategy::CalcCSplitInfo()
 {
-    cCoreSplitInfo_.AlignBlockFactor = Ops::Base::CeilDiv(basicInfo_.CAlignBlock, platInfo_.coreNum);
-    cCoreSplitInfo_.BlockFactor = cCoreSplitInfo_.AlignBlockFactor * TRANSELEM;
+    cCoreSplitInfo_.AlignBlockFactor = Ops::Base::CeilDiv(basicInfo_.CAlignBlock, coreNum_);
+    cCoreSplitInfo_.BlockFactor = cCoreSplitInfo_.AlignBlockFactor * TRANSTO5HD10_TRANSELEM;
     cCoreSplitInfo_.BlockCount = Ops::Base::CeilDiv(basicInfo_.CAlignBlock, cCoreSplitInfo_.AlignBlockFactor);
     cCoreSplitInfo_.AlignBlockTailFactor = basicInfo_.CAlignBlock -
                                            (cCoreSplitInfo_.BlockCount - 1) * cCoreSplitInfo_.AlignBlockFactor;
-    cCoreSplitInfo_.BlockTailFactor = cCoreSplitInfo_.AlignBlockTailFactor * TRANSELEM;
+    cCoreSplitInfo_.BlockTailFactor = cCoreSplitInfo_.AlignBlockTailFactor * TRANSTO5HD10_TRANSELEM;
     basicInfo_.UsedCoreNum = cCoreSplitInfo_.BlockCount;
 }
 
-void TransposeVCONVTiling::FillBlockPara(CoreSplitPara& coreSplitPara, CoreSplitInfo& corePara)
+void TransposeTransTo5HD10Strategy::FillBlockPara(CoreSplitPara& coreSplitPara, TransTo5HD10CoreSplitInfo& corePara)
 {
     coreSplitPara.AlignBlockFactor = corePara.AlignBlockFactor;
     coreSplitPara.BlockFactor = corePara.BlockFactor;
@@ -65,7 +98,7 @@ void TransposeVCONVTiling::FillBlockPara(CoreSplitPara& coreSplitPara, CoreSplit
     coreSplitPara.BlockTailFactor = corePara.BlockTailFactor;
 }
 
-void TransposeVCONVTiling::FillUbPara(UbSplitPara& ubSplitPara, UbParamInfo& ubPara)
+void TransposeTransTo5HD10Strategy::FillUbPara(UbSplitPara& ubSplitPara, TransTo5HD10UbParamInfo& ubPara)
 {
     ubSplitPara.MainCoreUbAlignFactor = ubPara.MainCoreUbAlignFactor;
     ubSplitPara.MainCoreUbFactor = ubPara.MainCoreUbFactor;
@@ -79,12 +112,12 @@ void TransposeVCONVTiling::FillUbPara(UbSplitPara& ubSplitPara, UbParamInfo& ubP
     ubSplitPara.TailCoreTailUbFactor = ubPara.TailCoreTailUbFactor;
 }
 
-ge::graphStatus TransposeVCONVTiling::WriteTilingData()
+bool TransposeTransTo5HD10Strategy::SetTilingData()
 {
-    TransposeVCONVTilingData* tiling = context_->GetTilingData<TransposeVCONVTilingData>();
+    TransposeTransTo5HD10TilingData* tiling = context_->GetTilingData<TransposeTransTo5HD10TilingData>();
     if (tiling == nullptr) {
         OP_LOGE(context_->GetNodeName(), "get tiling data failed, capacity is not enough!");
-        return ge::GRAPH_FAILED;
+        return false;
     }
 
     tiling->AvailableUbSize = AvailableUbSize;
@@ -103,10 +136,10 @@ ge::graphStatus TransposeVCONVTiling::WriteTilingData()
     FillBlockPara(tiling->cSplitPara, cCoreSplitInfo_);
     FillUbPara(tiling->rUbSplitPara, rUbParamInfo_);
     FillUbPara(tiling->cUbSplitPara, cUbParamInfo_);
-    return ge::GRAPH_SUCCESS;
+    return true;
 }
 
-void TransposeVCONVTiling::PrintTilingData()
+void TransposeTransTo5HD10Strategy::LogTilingData()
 {
     OP_LOGD(context_->GetNodeName(), "Entering PrintTilingData.");
     OP_LOGD(context_->GetNodeName(),
@@ -143,21 +176,7 @@ void TransposeVCONVTiling::PrintTilingData()
             cUbParamInfo_.TailCoreTailUbAlignFactor, cUbParamInfo_.TailCoreTailUbFactor);
 }
 
-ge::graphStatus TransposeVCONVTiling::SetTilingKeyAndCore()
-{
-    tilingKey_ = static_cast<uint64_t>(SplitMode::VCONV_TRANSPOSE);
-    context_->SetTilingKey(tilingKey_);
-    OP_CHECK_IF(context_->SetBlockDim(basicInfo_.UsedCoreNum) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context_->GetNodeName(), "Set used core num failed!"), return ge::GRAPH_FAILED);
-
-    size_t* workspaces = context_->GetWorkspaceSizes(1);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, workspaces);
-    workspaces[0] = SYS_WORKSPACE_SIZE;
-
-    return ge::GRAPH_SUCCESS;
-}
-
-ge::graphStatus TransposeVCONVTiling::CalcCFullLoadRUbSplitInfo()
+ge::graphStatus TransposeTransTo5HD10Strategy::CalcCFullLoadRUbSplitInfo()
 {
     SetCFullLoadCUbSplitInfo();
     if (rCoreSplitInfo_.BlockFactor * basicInfo_.CAlignBlockElem * shapeInfo_.eleLenInBytes <= AvailableUbSize) {
@@ -168,25 +187,25 @@ ge::graphStatus TransposeVCONVTiling::CalcCFullLoadRUbSplitInfo()
     } else {
         OP_LOGD(context_->GetNodeName(), "Entering CalcCFullLoadRUbSplitInfo else branch");
         rUbParamInfo_.MainCoreUbAlignFactor = AvailableUbSize / shapeInfo_.eleLenInBytes / basicInfo_.CAlignBlockElem /
-                                              TRANSELEM;
-        rUbParamInfo_.MainCoreUbFactor = rUbParamInfo_.MainCoreUbAlignFactor * TRANSELEM;
+                                              TRANSTO5HD10_TRANSELEM;
+        rUbParamInfo_.MainCoreUbFactor = rUbParamInfo_.MainCoreUbAlignFactor * TRANSTO5HD10_TRANSELEM;
         rUbParamInfo_.MainCoreUbCount = Ops::Base::CeilDiv(rCoreSplitInfo_.BlockFactor, rUbParamInfo_.MainCoreUbFactor);
         rUbParamInfo_.MainCoreTailUbAlignFactor = rCoreSplitInfo_.AlignBlockFactor -
                                                   (rUbParamInfo_.MainCoreUbCount - 1) *
                                                       rUbParamInfo_.MainCoreUbAlignFactor;
-        rUbParamInfo_.MainCoreTailUbFactor = rUbParamInfo_.MainCoreTailUbAlignFactor * TRANSELEM;
+        rUbParamInfo_.MainCoreTailUbFactor = rUbParamInfo_.MainCoreTailUbAlignFactor * TRANSTO5HD10_TRANSELEM;
 
         rUbParamInfo_.TailCoreUbAlignFactor = (rUbParamInfo_.MainCoreUbAlignFactor >=
                                                rCoreSplitInfo_.AlignBlockTailFactor) ?
                                                   rCoreSplitInfo_.AlignBlockTailFactor :
                                                   rUbParamInfo_.MainCoreUbAlignFactor;
-        rUbParamInfo_.TailCoreUbFactor = rUbParamInfo_.TailCoreUbAlignFactor * TRANSELEM;
+        rUbParamInfo_.TailCoreUbFactor = rUbParamInfo_.TailCoreUbAlignFactor * TRANSTO5HD10_TRANSELEM;
         rUbParamInfo_.TailCoreUbCount = Ops::Base::CeilDiv(rCoreSplitInfo_.BlockTailFactor,
                                                            rUbParamInfo_.TailCoreUbFactor);
         rUbParamInfo_.TailCoreTailUbAlignFactor = rCoreSplitInfo_.AlignBlockTailFactor -
                                                   (rUbParamInfo_.TailCoreUbCount - 1) *
                                                       rUbParamInfo_.TailCoreUbAlignFactor;
-        rUbParamInfo_.TailCoreTailUbFactor = rUbParamInfo_.TailCoreTailUbAlignFactor * TRANSELEM;
+        rUbParamInfo_.TailCoreTailUbFactor = rUbParamInfo_.TailCoreTailUbAlignFactor * TRANSTO5HD10_TRANSELEM;
 
         basicInfo_.MainCoreLoopCount = rUbParamInfo_.MainCoreUbCount;
         basicInfo_.TailCoreLoopCount = rUbParamInfo_.TailCoreUbCount;
@@ -194,7 +213,7 @@ ge::graphStatus TransposeVCONVTiling::CalcCFullLoadRUbSplitInfo()
     return ge::GRAPH_SUCCESS;
 }
 
-void TransposeVCONVTiling::SetCFullLoadCUbSplitInfo()
+void TransposeTransTo5HD10Strategy::SetCFullLoadCUbSplitInfo()
 {
     cUbParamInfo_.MainCoreUbAlignFactor = basicInfo_.CAlignBlock;
     cUbParamInfo_.MainCoreUbFactor = basicInfo_.CAlignBlockElem;
@@ -214,7 +233,7 @@ void TransposeVCONVTiling::SetCFullLoadCUbSplitInfo()
     cCoreSplitInfo_.BlockTailFactor = cCoreSplitInfo_.BlockFactor;
 }
 
-ge::graphStatus TransposeVCONVTiling::CalcRFullLoadCUbSplitInfo()
+ge::graphStatus TransposeTransTo5HD10Strategy::CalcRFullLoadCUbSplitInfo()
 {
     SetRFullLoadCUbSplitInfo();
     if (cCoreSplitInfo_.BlockFactor * basicInfo_.RAlignBlockElem * shapeInfo_.eleLenInBytes <= AvailableUbSize) {
@@ -235,25 +254,25 @@ ge::graphStatus TransposeVCONVTiling::CalcRFullLoadCUbSplitInfo()
     } else {
         OP_LOGD(context_->GetNodeName(), "Entering CalcRFullLoadCUbSplitInfo else branch");
         cUbParamInfo_.MainCoreUbAlignFactor = AvailableUbSize / shapeInfo_.eleLenInBytes / basicInfo_.RAlignBlockElem /
-                                              TRANSELEM;
-        cUbParamInfo_.MainCoreUbFactor = cUbParamInfo_.MainCoreUbAlignFactor * TRANSELEM;
+                                              TRANSTO5HD10_TRANSELEM;
+        cUbParamInfo_.MainCoreUbFactor = cUbParamInfo_.MainCoreUbAlignFactor * TRANSTO5HD10_TRANSELEM;
         cUbParamInfo_.MainCoreUbCount = Ops::Base::CeilDiv(cCoreSplitInfo_.BlockFactor, cUbParamInfo_.MainCoreUbFactor);
         cUbParamInfo_.MainCoreTailUbAlignFactor = cCoreSplitInfo_.AlignBlockFactor -
                                                   (cUbParamInfo_.MainCoreUbCount - 1) *
                                                       cUbParamInfo_.MainCoreUbAlignFactor;
-        cUbParamInfo_.MainCoreTailUbFactor = cUbParamInfo_.MainCoreTailUbAlignFactor * TRANSELEM;
+        cUbParamInfo_.MainCoreTailUbFactor = cUbParamInfo_.MainCoreTailUbAlignFactor * TRANSTO5HD10_TRANSELEM;
 
         cUbParamInfo_.TailCoreUbAlignFactor = (cUbParamInfo_.MainCoreUbAlignFactor >=
                                                cCoreSplitInfo_.AlignBlockTailFactor) ?
                                                   cCoreSplitInfo_.AlignBlockTailFactor :
                                                   cUbParamInfo_.MainCoreUbAlignFactor;
-        cUbParamInfo_.TailCoreUbFactor = cUbParamInfo_.TailCoreUbAlignFactor * TRANSELEM;
+        cUbParamInfo_.TailCoreUbFactor = cUbParamInfo_.TailCoreUbAlignFactor * TRANSTO5HD10_TRANSELEM;
         cUbParamInfo_.TailCoreUbCount = Ops::Base::CeilDiv(cCoreSplitInfo_.BlockTailFactor,
                                                            cUbParamInfo_.TailCoreUbFactor);
         cUbParamInfo_.TailCoreTailUbAlignFactor = cCoreSplitInfo_.AlignBlockTailFactor -
                                                   (cUbParamInfo_.TailCoreUbCount - 1) *
                                                       cUbParamInfo_.TailCoreUbAlignFactor;
-        cUbParamInfo_.TailCoreTailUbFactor = cUbParamInfo_.TailCoreTailUbAlignFactor * TRANSELEM;
+        cUbParamInfo_.TailCoreTailUbFactor = cUbParamInfo_.TailCoreTailUbAlignFactor * TRANSTO5HD10_TRANSELEM;
 
         basicInfo_.MainCoreLoopCount = cUbParamInfo_.MainCoreUbCount;
         basicInfo_.TailCoreLoopCount = cUbParamInfo_.TailCoreUbCount;
@@ -261,7 +280,7 @@ ge::graphStatus TransposeVCONVTiling::CalcRFullLoadCUbSplitInfo()
     return ge::GRAPH_SUCCESS;
 }
 
-void TransposeVCONVTiling::SetRFullLoadCUbSplitInfo()
+void TransposeTransTo5HD10Strategy::SetRFullLoadCUbSplitInfo()
 {
     rUbParamInfo_.MainCoreUbAlignFactor = basicInfo_.RAlignBlock;
     rUbParamInfo_.MainCoreUbFactor = basicInfo_.RAlignBlockElem;
@@ -282,9 +301,9 @@ void TransposeVCONVTiling::SetRFullLoadCUbSplitInfo()
     rCoreSplitInfo_.BlockTailFactor = rCoreSplitInfo_.BlockFactor;
 }
 
-ge::graphStatus TransposeVCONVTiling::CalcRCNotFullLoadUbSplitInfo()
+ge::graphStatus TransposeTransTo5HD10Strategy::CalcRCNotFullLoadUbSplitInfo()
 {
-    if (rCoreSplitInfo_.BlockFactor * TRANSELEM * shapeInfo_.eleLenInBytes > AvailableUbSize) {
+    if (rCoreSplitInfo_.BlockFactor * TRANSTO5HD10_TRANSELEM * shapeInfo_.eleLenInBytes > AvailableUbSize) {
         OP_LOGD(context_->GetNodeName(), "BlockFactor * 16 > AvailableUbSize!");
         return ge::GRAPH_FAILED;
     } else {
@@ -293,12 +312,12 @@ ge::graphStatus TransposeVCONVTiling::CalcRCNotFullLoadUbSplitInfo()
         SetRBlockFactorUbFullLoadSplitInfo();
 
         cUbParamInfo_.MainCoreUbAlignFactor = AvailableUbSize / shapeInfo_.eleLenInBytes / rCoreSplitInfo_.BlockFactor /
-                                              TRANSELEM;
-        cUbParamInfo_.MainCoreUbFactor = cUbParamInfo_.MainCoreUbAlignFactor * TRANSELEM;
+                                              TRANSTO5HD10_TRANSELEM;
+        cUbParamInfo_.MainCoreUbFactor = cUbParamInfo_.MainCoreUbAlignFactor * TRANSTO5HD10_TRANSELEM;
         cUbParamInfo_.MainCoreUbCount = Ops::Base::CeilDiv(basicInfo_.CAlignBlockElem, cUbParamInfo_.MainCoreUbFactor);
         cUbParamInfo_.MainCoreTailUbAlignFactor = basicInfo_.CAlignBlock - (cUbParamInfo_.MainCoreUbCount - 1) *
                                                                                cUbParamInfo_.MainCoreUbAlignFactor;
-        cUbParamInfo_.MainCoreTailUbFactor = cUbParamInfo_.MainCoreTailUbAlignFactor * TRANSELEM;
+        cUbParamInfo_.MainCoreTailUbFactor = cUbParamInfo_.MainCoreTailUbAlignFactor * TRANSTO5HD10_TRANSELEM;
 
         cUbParamInfo_.TailCoreUbAlignFactor = cUbParamInfo_.MainCoreUbAlignFactor;
         cUbParamInfo_.TailCoreUbFactor = cUbParamInfo_.MainCoreUbFactor;
@@ -318,7 +337,7 @@ ge::graphStatus TransposeVCONVTiling::CalcRCNotFullLoadUbSplitInfo()
     }
 }
 
-void TransposeVCONVTiling::SetRBlockFactorUbFullLoadSplitInfo()
+void TransposeTransTo5HD10Strategy::SetRBlockFactorUbFullLoadSplitInfo()
 {
     rUbParamInfo_.MainCoreUbAlignFactor = rCoreSplitInfo_.AlignBlockFactor;
     rUbParamInfo_.MainCoreUbFactor = rCoreSplitInfo_.BlockFactor;
@@ -333,13 +352,13 @@ void TransposeVCONVTiling::SetRBlockFactorUbFullLoadSplitInfo()
     rUbParamInfo_.TailCoreTailUbFactor = rUbParamInfo_.TailCoreUbFactor;
 }
 
-ge::graphStatus TransposeVCONVTiling::CalcBlockAndUbSplitInfo()
+ge::graphStatus TransposeTransTo5HD10Strategy::CalcBlockAndUbSplitInfo()
 {
-    if (TRANSELEM * basicInfo_.CAlignBlockElem * shapeInfo_.eleLenInBytes <= AvailableUbSize) {
+    if (TRANSTO5HD10_TRANSELEM * basicInfo_.CAlignBlockElem * shapeInfo_.eleLenInBytes <= AvailableUbSize) {
         CalcRSplitInfo();
         return CalcCFullLoadRUbSplitInfo();
     } else {
-        if (TRANSELEM * basicInfo_.RAlignBlockElem * shapeInfo_.eleLenInBytes <= AvailableUbSize) {
+        if (TRANSTO5HD10_TRANSELEM * basicInfo_.RAlignBlockElem * shapeInfo_.eleLenInBytes <= AvailableUbSize) {
             CalcCSplitInfo();
             return CalcRFullLoadCUbSplitInfo();
         } else {
@@ -349,17 +368,17 @@ ge::graphStatus TransposeVCONVTiling::CalcBlockAndUbSplitInfo()
     }
 }
 
-ge::graphStatus TransposeVCONVTiling::DoTiling()
+/**
+ * @brief 主体切分（不写 TilingData、不打印）
+ */
+TilingStatus TransposeTransTo5HD10Strategy::DoExecute()
 {
     CalcBasicInfo();
-    OP_CHECK_IF(CalcBlockAndUbSplitInfo() != ge::GRAPH_SUCCESS,
-                OP_LOGD(context_->GetNodeName(), "Stop to run vconv tiling, block_factor need split!"),
-                return ge::GRAPH_FAILED);
-
-    CHECK_RET_SUCC(WriteTilingData());
-    PrintTilingData();
-    return SetTilingKeyAndCore();
+    if (CalcBlockAndUbSplitInfo() != ge::GRAPH_SUCCESS) {
+        OP_LOGD(context_->GetNodeName(), "Stop to run transto5hd_10 tiling, block_factor need split!");
+        return TilingStatus::FALLBACK;
+    }
+    return TilingStatus::SUCCESS;
 }
 
-} // namespace TransposeWithVCONV
 } // namespace optiling

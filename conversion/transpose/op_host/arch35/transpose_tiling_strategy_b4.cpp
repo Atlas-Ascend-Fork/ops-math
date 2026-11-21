@@ -9,23 +9,46 @@
  */
 
 /*!
- * \file transpose_tiling_b4_dual_cut_arch35.cpp
- * \brief HIF4 dual-cut tiling implementationi */
+ * \file transpose_tiling_strategy_b4.cpp
+ * \brief B4(10009) 策略类实现
+ *
+ * 实现 4bit（HIF4）尾轴转置的双切分计算、TilingData 回填与打印。
+ */
 
-#include "transpose_tiling_b4_dual_cut_arch35.h"
-#include <cmath>
+#include "transpose_tiling_strategy_b4.h"
 #include <algorithm>
+#include <cmath>
+#include <cstdint>
+#include <sstream>
+#include <vector>
+#include "util/math_util.h"
+#include "log/log.h"
 
 namespace optiling {
 using namespace Transpose;
-namespace TransHIF4DualCut {
 
+// 4bit 类型判定常量（is4bit_ = eleLenInBytes == kDataTypeSizeBitOffset + 4）
+static constexpr int64_t B4_STRATEGY_BIT_SIZE = 4;
+
+/**
+ * @brief B4(10009) 准入检查
+ *
+ * 准入条件：is4bit_ && shapeInfo_.isLastAxisTranspose（不受 related 门控）。
+ */
+bool TransposeB4Strategy::IsSupport() const
+{
+    const bool is4bit = (shapeInfo_.eleLenInBytes == ge::kDataTypeSizeBitOffset + B4_STRATEGY_BIT_SIZE);
+    // dim>=1 为切分前准入（主类前置已保证，此处保留防御性校验）
+    return is4bit && shapeInfo_.isLastAxisTranspose && shapeInfo_.dim >= 1;
+}
+
+// ===== B4 双切分私有实现 =====
 // ---------------------------------------------------------------------------
-// AxisCutter::FindCutAxis
+// B4AxisCutter::FindCutAxis
 //   Scan from innermost axis outward, accumulating product.
 //   The first axis whose cumulative product exceeds ubBound is the cut axis.
 // ---------------------------------------------------------------------------
-void AxisCutter::FindCutAxis(int64_t ubBound)
+void B4AxisCutter::FindCutAxis(int64_t ubBound)
 {
     // Handle empty axis list (all axes already in UB)
     if (axisList_.empty()) {
@@ -60,7 +83,7 @@ void AxisCutter::FindCutAxis(int64_t ubBound)
         return;
     }
 
-    AxisInf* cutAxisPtr = &axisList_[cutIdx_];
+    B4AxisInf* cutAxisPtr = &axisList_[cutIdx_];
     // cutFinal_ = true only if the cut axis is THIS VIEW's final axis.
     // finalAxisIdx_ is set to axes.back().idx in the constructor,
     // which is the original input index of the view's last axis.
@@ -80,11 +103,11 @@ void AxisCutter::FindCutAxis(int64_t ubBound)
 
     int64_t innerDim = ubBound / prod;
     // For HIF4: ensure even and at least 2 only for last axis
-    if (cutFinal_ && (innerDim % NUM_TWO != 0)) {
-        innerDim = (innerDim / NUM_TWO) * NUM_TWO;
+    if (cutFinal_ && (innerDim % B4_NUM_TWO != 0)) {
+        innerDim = (innerDim / B4_NUM_TWO) * B4_NUM_TWO;
     }
     if (innerDim == 0) {
-        innerDim = cutFinal_ ? NUM_TWO : 1;
+        innerDim = cutFinal_ ? B4_NUM_TWO : 1;
     }
     // innerDim cannot exceed the original (non-aligned) dimension
     if (innerDim > effectiveCutDim) {
@@ -98,12 +121,12 @@ void AxisCutter::FindCutAxis(int64_t ubBound)
 }
 
 // ---------------------------------------------------------------------------
-// AxisCutter::RemoveAxis
+// B4AxisCutter::RemoveAxis
 //   Remove axes whose bitmask intersects setCode from axisList_.
 // ---------------------------------------------------------------------------
-void AxisCutter::RemoveAxis(uint32_t setCode)
+void B4AxisCutter::RemoveAxis(uint32_t setCode)
 {
-    std::vector<AxisInf> tmp;
+    std::vector<B4AxisInf> tmp;
     for (auto& a : axisList_) {
         if ((a.code & setCode) == 0) {
             tmp.push_back(a);
@@ -113,31 +136,33 @@ void AxisCutter::RemoveAxis(uint32_t setCode)
 }
 
 // ---------------------------------------------------------------------------
-// DualCutAxisSeeker::Init
+// B4DualCutAxisSeeker::Init
 //   inShape:  input tensor shape (original order, in HIF4 elements)
 //   outShape: output tensor shape (transposed order, in HIF4 elements)
 //   Both views use the same axis indices, no sorting needed.
 //   alignedFactor = 64 HIF4 elements (32 bytes alignment)
 // ---------------------------------------------------------------------------
-void DualCutAxisSeeker::Init(const std::vector<int64_t>& inShape, const std::vector<int64_t>& outShape,
-                             const std::vector<int64_t>& perm, int32_t dimNums, gert::TilingContext* context)
+void B4DualCutAxisSeeker::Init(const std::vector<int64_t>& inShape, const std::vector<int64_t>& outShape,
+                               const std::vector<int64_t>& perm, int32_t dimNums, gert::TilingContext* context,
+                               int32_t ubBlockSize)
 {
     context_ = context;
     dimNums_ = dimNums;
+    ubBlockSize_ = ubBlockSize;
     outShape_ = outShape;
     perm_ = perm;
     // For HIF4: alignedFactor = 64 elements (32 bytes)
-    alignedFactor_ = HIF4_ALIGN_ELEMENTS;
+    alignedFactor_ = B4_HIF4_ALIGN_ELEMENTS;
 
     // Build input strides (row-major, element units)
     std::vector<int64_t> inStrides(dimNums, 1);
-    for (int32_t i = dimNums - NUM_TWO; i >= 0; i--) {
+    for (int32_t i = dimNums - B4_NUM_TWO; i >= 0; i--) {
         inStrides[i] = inStrides[i + 1] * inShape[i + 1];
     }
 
     // Build output strides (row-major, element units)
     std::vector<int64_t> outStrides(dimNums, 1);
-    for (int32_t i = dimNums - NUM_TWO; i >= 0; i--) {
+    for (int32_t i = dimNums - B4_NUM_TWO; i >= 0; i--) {
         outStrides[i] = outStrides[i + 1] * outShape[i + 1];
     }
 
@@ -160,13 +185,13 @@ void DualCutAxisSeeker::Init(const std::vector<int64_t>& inShape, const std::vec
     inputCutter_.Init(inputAxis_, alignedFactor_);
     outputCutter_.Init(outputAxis_, alignedFactor_);
 
-    OP_LOGD(context_, "[HIF4DualCut] DualCutAxisSeeker: dimNums=%d, alignedFactor=%d", dimNums_, alignedFactor_);
+    OP_LOGD(context_, "[HIF4DualCut] B4DualCutAxisSeeker: dimNums=%d, alignedFactor=%d", dimNums_, alignedFactor_);
 }
 
 // ---------------------------------------------------------------------------
-// DualCutAxisSeeker::ComputeSetAxisProd
+// B4DualCutAxisSeeker::ComputeSetAxisProd
 // ---------------------------------------------------------------------------
-int64_t DualCutAxisSeeker::ComputeSetAxisProd(uint32_t axisSet) const
+int64_t B4DualCutAxisSeeker::ComputeSetAxisProd(uint32_t axisSet) const
 {
     int64_t factor = 1;
     for (const auto& a : outputAxis_) {
@@ -182,12 +207,12 @@ int64_t DualCutAxisSeeker::ComputeSetAxisProd(uint32_t axisSet) const
 }
 
 // ---------------------------------------------------------------------------
-// DualCutAxisSeeker::ComputeRemainUB
+// B4DualCutAxisSeeker::ComputeRemainUB
 //   Compute remaining UB space after placing axes in axisSet.
 //   IMPORTANT: Must consider alignment for BOTH input and output final axes.
 //   For transpose, input final axis and output final axis are different axes.
 // ---------------------------------------------------------------------------
-int64_t DualCutAxisSeeker::ComputeRemainUB(int64_t ubNum, uint32_t axisSet) const
+int64_t B4DualCutAxisSeeker::ComputeRemainUB(int64_t ubNum, uint32_t axisSet) const
 {
     // Identify input and output final axes
     uint32_t inFinalCode = inputAxis_[dimNums_ - 1].code;   // input axis (dimNums-1)
@@ -217,9 +242,9 @@ int64_t DualCutAxisSeeker::ComputeRemainUB(int64_t ubNum, uint32_t axisSet) cons
 }
 
 // ---------------------------------------------------------------------------
-// DualCutAxisSeeker::FindCommonUbAxis / UpdateCommonAxis
+// B4DualCutAxisSeeker::FindCommonUbAxis / UpdateCommonAxis
 // ---------------------------------------------------------------------------
-uint32_t DualCutAxisSeeker::FindCommonUbAxis(const AxisCutter* c1, const AxisCutter* c2) const
+uint32_t B4DualCutAxisSeeker::FindCommonUbAxis(const B4AxisCutter* c1, const B4AxisCutter* c2) const
 {
     uint32_t commonUb = c1->ubSet_ & c2->ubSet_;
     uint32_t cutCommon1 = c1->cutSet_ & c2->ubSet_;
@@ -227,30 +252,30 @@ uint32_t DualCutAxisSeeker::FindCommonUbAxis(const AxisCutter* c1, const AxisCut
     return commonUb | cutCommon1 | cutCommon2;
 }
 
-void DualCutAxisSeeker::UpdateCommonAxis(uint32_t commonSet)
+void B4DualCutAxisSeeker::UpdateCommonAxis(uint32_t commonSet)
 {
     outputCutter_.RemoveAxis(commonSet);
     inputCutter_.RemoveAxis(commonSet);
 }
 
 // ---------------------------------------------------------------------------
-// DualCutAxisSeeker::FindDualCutAxis
+// B4DualCutAxisSeeker::FindDualCutAxis
 //   Main loop: iteratively find common axes between output/input cutters,
 //   absorb them into ubAxisSet, then call CutAxis to finalize gmAxis_/ubAxis_.
 //   For HIF4: ubSize is in bytes, shapes are in HIF4 elements (2 elements per byte)
 // ---------------------------------------------------------------------------
-bool DualCutAxisSeeker::FindDualCutAxis(int32_t ubSize, int32_t bufferNum)
+bool B4DualCutAxisSeeker::FindDualCutAxis(int32_t ubSize, int32_t bufferNum)
 {
     ubSize_ = ubSize;
 
     if (bufferNum == 0) {
         OP_LOGW(context_, "[HIF4DualCut] bufferNum == 0, reset to 2");
-        bufferNum = NUM_TWO;
+        bufferNum = B4_NUM_TWO;
     }
 
     // ubNum: available UB in HIF4 elements
     // ubSize is in bytes, 2 HIF4 elements per byte
-    int64_t ubNum = static_cast<int64_t>(ubSize) * HIF4_ELEMENTS_PER_BYTE / bufferNum;
+    int64_t ubNum = static_cast<int64_t>(ubSize) * B4_HIF4_ELEMENTS_PER_BYTE / bufferNum;
     OP_LOGD(context_,
             "[HIF4DualCut] FindDualCutAxis start: ubSize=%d bytes, bufferNum=%d, ubNum=%ld HIF4 elements, "
             "alignedFactor=%d, lastDim=%ld",
@@ -295,13 +320,13 @@ bool DualCutAxisSeeker::FindDualCutAxis(int32_t ubSize, int32_t bufferNum)
 }
 
 // ---------------------------------------------------------------------------
-// DualCutAxisSeeker::CutAxis
+// B4DualCutAxisSeeker::CutAxis
 //   Orchestrate the cut, then build gmAxis_ / ubAxis_.
 // ---------------------------------------------------------------------------
-bool DualCutAxisSeeker::CutAxis(uint32_t ubAxisSet, int64_t remainNums)
+bool B4DualCutAxisSeeker::CutAxis(uint32_t ubAxisSet, int64_t remainNums)
 {
-    std::vector<AxisInf> innerAxis;
-    std::vector<AxisInf> outerAxis;
+    std::vector<B4AxisInf> innerAxis;
+    std::vector<B4AxisInf> outerAxis;
 
     uint32_t cutAxisSet = inputCutter_.cutSet_ | outputCutter_.cutSet_;
     DispatchCut(ubAxisSet, remainNums, cutAxisSet, innerAxis, outerAxis);
@@ -330,8 +355,8 @@ bool DualCutAxisSeeker::CutAxis(uint32_t ubAxisSet, int64_t remainNums)
 }
 
 // Dispatch to CutTwoAxis/CutOneAxis, falling back to a 0-axis cut on failure.
-void DualCutAxisSeeker::DispatchCut(uint32_t& ubAxisSet, int64_t remainNums, uint32_t cutAxisSet,
-                                    std::vector<AxisInf>& innerAxis, std::vector<AxisInf>& outerAxis)
+void B4DualCutAxisSeeker::DispatchCut(uint32_t& ubAxisSet, int64_t remainNums, uint32_t cutAxisSet,
+                                      std::vector<B4AxisInf>& innerAxis, std::vector<B4AxisInf>& outerAxis)
 {
     bool ok = true;
     if (cutAxisSet == 0) {
@@ -361,11 +386,11 @@ void DualCutAxisSeeker::DispatchCut(uint32_t& ubAxisSet, int64_t remainNums, uin
 }
 
 // Drop "fake" cuts where outerDim == 1 (the axis is essentially uncut).
-void DualCutAxisSeeker::FilterFakeCuts(uint32_t& ubAxisSet, std::vector<AxisInf>& innerAxis,
-                                       std::vector<AxisInf>& outerAxis)
+void B4DualCutAxisSeeker::FilterFakeCuts(uint32_t& ubAxisSet, std::vector<B4AxisInf>& innerAxis,
+                                         std::vector<B4AxisInf>& outerAxis)
 {
-    std::vector<AxisInf> filteredInner;
-    std::vector<AxisInf> filteredOuter;
+    std::vector<B4AxisInf> filteredInner;
+    std::vector<B4AxisInf> filteredOuter;
     for (size_t i = 0; i < innerAxis.size(); i++) {
         if (outerAxis[i].dim == 1) {
             // Fake cut: outer=1 means the axis is essentially uncut
@@ -383,7 +408,7 @@ void DualCutAxisSeeker::FilterFakeCuts(uint32_t& ubAxisSet, std::vector<AxisInf>
 }
 
 // Partition outputAxis_ into UB axes (ubAxisSet) and GM axes (not cut).
-void DualCutAxisSeeker::FillGmUbAxis(uint32_t ubAxisSet, uint32_t cutAxisSet)
+void B4DualCutAxisSeeker::FillGmUbAxis(uint32_t ubAxisSet, uint32_t cutAxisSet)
 {
     for (const auto& a : outputAxis_) {
         if ((a.code & ubAxisSet) != 0) {
@@ -396,7 +421,7 @@ void DualCutAxisSeeker::FillGmUbAxis(uint32_t ubAxisSet, uint32_t cutAxisSet)
 
 // If ub axes + inner cut axes exceed the MOVE_ALIGN limit, move axes to gm.
 // Priority: evict non-final axes first; always keep the output final axis in UB.
-void DualCutAxisSeeker::EvictExcessUbAxis(const std::vector<AxisInf>& innerAxis)
+void B4DualCutAxisSeeker::EvictExcessUbAxis(const std::vector<B4AxisInf>& innerAxis)
 {
     if (ubAxis_.size() + innerAxis.size() <= static_cast<size_t>(TP_B4_UB_LEN)) {
         return;
@@ -408,8 +433,8 @@ void DualCutAxisSeeker::EvictExcessUbAxis(const std::vector<AxisInf>& innerAxis)
     int32_t excess = static_cast<int32_t>(ubAxis_.size() + innerAxis.size()) - TP_B4_UB_LEN;
 
     // Separate non-final and final axes
-    std::vector<AxisInf> nonFinal;
-    std::vector<AxisInf> finals;
+    std::vector<B4AxisInf> nonFinal;
+    std::vector<B4AxisInf> finals;
     for (auto& a : ubAxis_) {
         if ((a.code == inFinalCode) || (a.code == outFinalCode)) {
             finals.push_back(a);
@@ -419,7 +444,7 @@ void DualCutAxisSeeker::EvictExcessUbAxis(const std::vector<AxisInf>& innerAxis)
     }
 
     // Evict non-final axes first (largest stride first to keep small strides in UB)
-    std::sort(nonFinal.begin(), nonFinal.end(), [](const AxisInf& a, const AxisInf& b) {
+    std::sort(nonFinal.begin(), nonFinal.end(), [](const B4AxisInf& a, const B4AxisInf& b) {
         return (a.stride == b.stride) ? (a.dim > b.dim) : (a.stride < b.stride);
     });
     int32_t evicted = 0;
@@ -442,7 +467,8 @@ void DualCutAxisSeeker::EvictExcessUbAxis(const std::vector<AxisInf>& innerAxis)
     ubAxis_.insert(ubAxis_.end(), finals.begin(), finals.end());
 }
 
-void DualCutAxisSeeker::AppendCutAxes(const std::vector<AxisInf>& innerAxis, const std::vector<AxisInf>& outerAxis)
+void B4DualCutAxisSeeker::AppendCutAxes(const std::vector<B4AxisInf>& innerAxis,
+                                        const std::vector<B4AxisInf>& outerAxis)
 {
     for (const auto& a : innerAxis) {
         ubAxis_.push_back(a);
@@ -452,11 +478,11 @@ void DualCutAxisSeeker::AppendCutAxes(const std::vector<AxisInf>& innerAxis, con
     }
 }
 
-void DualCutAxisSeeker::SortGmUbAxis()
+void B4DualCutAxisSeeker::SortGmUbAxis()
 {
     // Sort both gmAxis_ and ubAxis_ by input axis index (inShape order)
-    std::sort(gmAxis_.begin(), gmAxis_.end(), [](const AxisInf& a, const AxisInf& b) { return a.idx < b.idx; });
-    std::sort(ubAxis_.begin(), ubAxis_.end(), [](const AxisInf& a, const AxisInf& b) { return a.idx < b.idx; });
+    std::sort(gmAxis_.begin(), gmAxis_.end(), [](const B4AxisInf& a, const B4AxisInf& b) { return a.idx < b.idx; });
+    std::sort(ubAxis_.begin(), ubAxis_.end(), [](const B4AxisInf& a, const B4AxisInf& b) { return a.idx < b.idx; });
 }
 
 // Validate the actual UB footprint with final-axis alignment; shrink inner
@@ -464,9 +490,9 @@ void DualCutAxisSeeker::SortGmUbAxis()
 //   ND-DMA requires both input and output innermost axes to be aligned to
 //   alignedFactor_.  Fake-cut axes that end up in UB must also use their
 //   aligned dims when checking capacity.
-void DualCutAxisSeeker::ShrinkInnerCutDims(std::vector<AxisInf>& innerAxis, std::vector<AxisInf>& outerAxis)
+void B4DualCutAxisSeeker::ShrinkInnerCutDims(std::vector<B4AxisInf>& innerAxis, std::vector<B4AxisInf>& outerAxis)
 {
-    int64_t ubNum = static_cast<int64_t>(ubSize_) * HIF4_ELEMENTS_PER_BYTE / HIF4_BUFFER_NUM;
+    int64_t ubNum = static_cast<int64_t>(ubSize_) * B4_HIF4_ELEMENTS_PER_BYTE / B4_HIF4_BUFFER_NUM;
     int64_t alignedProd = ComputeAlignedUbProd();
     if (alignedProd <= ubNum) {
         return;
@@ -477,8 +503,8 @@ void DualCutAxisSeeker::ShrinkInnerCutDims(std::vector<AxisInf>& innerAxis, std:
             "shrinking inner cut dims",
             alignedProd, ubNum);
     int64_t ratio = (alignedProd + ubNum - 1) / ubNum; // ceil
-    if (ratio < NUM_TWO) {
-        ratio = NUM_TWO;
+    if (ratio < B4_NUM_TWO) {
+        ratio = B4_NUM_TWO;
     }
 
     for (size_t i = 0; i < innerAxis.size(); i++) {
@@ -487,7 +513,7 @@ void DualCutAxisSeeker::ShrinkInnerCutDims(std::vector<AxisInf>& innerAxis, std:
 }
 
 // Aligned product of UB dims (final axes rounded up to alignedFactor_).
-int64_t DualCutAxisSeeker::ComputeAlignedUbProd() const
+int64_t B4DualCutAxisSeeker::ComputeAlignedUbProd() const
 {
     int64_t alignedProd = 1;
     for (const auto& a : ubAxis_) {
@@ -503,8 +529,8 @@ int64_t DualCutAxisSeeker::ComputeAlignedUbProd() const
 }
 
 // Shrink one inner cut axis by ratio and sync its dim into ubAxis_ / gmAxis_.
-void DualCutAxisSeeker::ShrinkSingleCutAxis(size_t i, int64_t ratio, std::vector<AxisInf>& innerAxis,
-                                            std::vector<AxisInf>& outerAxis)
+void B4DualCutAxisSeeker::ShrinkSingleCutAxis(size_t i, int64_t ratio, std::vector<B4AxisInf>& innerAxis,
+                                              std::vector<B4AxisInf>& outerAxis)
 {
     int64_t newDim = innerAxis[i].dim / ratio;
     if (newDim < 1) {
@@ -514,11 +540,11 @@ void DualCutAxisSeeker::ShrinkSingleCutAxis(size_t i, int64_t ratio, std::vector
     bool isInFinal = (innerAxis[i].code == inputAxis_[dimNums_ - 1].code);
     bool isOutFinal = (innerAxis[i].code == outputAxis_[dimNums_ - 1].code);
     if (isInFinal || isOutFinal) {
-        if (newDim % NUM_TWO != 0) {
-            newDim = (newDim / NUM_TWO) * NUM_TWO;
+        if (newDim % B4_NUM_TWO != 0) {
+            newDim = (newDim / B4_NUM_TWO) * B4_NUM_TWO;
         }
-        if (newDim < NUM_TWO) {
-            newDim = NUM_TWO;
+        if (newDim < B4_NUM_TWO) {
+            newDim = B4_NUM_TWO;
         }
     }
     innerAxis[i].dim = newDim;
@@ -561,22 +587,22 @@ void DualCutAxisSeeker::ShrinkSingleCutAxis(size_t i, int64_t ratio, std::vector
 }
 
 // ---------------------------------------------------------------------------
-// DualCutAxisSeeker::CutTwoAxis
+// B4DualCutAxisSeeker::CutTwoAxis
 // ---------------------------------------------------------------------------
-bool DualCutAxisSeeker::CutTwoAxis(uint32_t ubAxisSet, int64_t remainNums, std::vector<AxisInf>& innerAxis,
-                                   std::vector<AxisInf>& outerAxis)
+bool B4DualCutAxisSeeker::CutTwoAxis(uint32_t ubAxisSet, int64_t remainNums, std::vector<B4AxisInf>& innerAxis,
+                                     std::vector<B4AxisInf>& outerAxis)
 {
     (void)ubAxisSet;
-    AxisInf outInner = outputCutter_.innerCutAxis_;
-    AxisInf outOuter = outputCutter_.outerCutAxis_;
-    AxisInf inInner = inputCutter_.innerCutAxis_;
-    AxisInf inOuter = inputCutter_.outerCutAxis_;
+    B4AxisInf outInner = outputCutter_.innerCutAxis_;
+    B4AxisInf outOuter = outputCutter_.outerCutAxis_;
+    B4AxisInf inInner = inputCutter_.innerCutAxis_;
+    B4AxisInf inOuter = inputCutter_.outerCutAxis_;
 
     int32_t inCutAxisIdx = (inputCutter_.cutIdx_ >= 0) ? inputCutter_.axisList_[inputCutter_.cutIdx_].idx : -1;
     int32_t outCutAxisIdx = (outputCutter_.cutIdx_ >= 0) ? outputCutter_.axisList_[outputCutter_.cutIdx_].idx : -1;
 
     // Pre-compute original dimensions (use originFinalDim_ for final axis because
-    // AxisCutter aligns the final axis up to alignedFactor_)
+    // B4AxisCutter aligns the final axis up to alignedFactor_)
     int64_t inOrigDim = GetCutterOrigDim(&inputCutter_);
     int64_t outOrigDim = GetCutterOrigDim(&outputCutter_);
     if (inOrigDim == 0) {
@@ -611,7 +637,7 @@ bool DualCutAxisSeeker::CutTwoAxis(uint32_t ubAxisSet, int64_t remainNums, std::
 }
 
 // True when axisIdx is the last axis or the axis transposed to last position.
-bool DualCutAxisSeeker::NeedEvenDim(int32_t axisIdx) const
+bool B4DualCutAxisSeeker::NeedEvenDim(int32_t axisIdx) const
 {
     int32_t lastAxis = dimNums_ - 1;
     int32_t transposedLastAxis = static_cast<int32_t>(perm_[lastAxis]);
@@ -619,14 +645,14 @@ bool DualCutAxisSeeker::NeedEvenDim(int32_t axisIdx) const
 }
 
 // Ensure even and >= 2 only for the last axis / transposed-last axis.
-void DualCutAxisSeeker::FixEvenMin2IfNeeded(int64_t& v, int32_t axisIdx) const
+void B4DualCutAxisSeeker::FixEvenMin2IfNeeded(int64_t& v, int32_t axisIdx) const
 {
     if (NeedEvenDim(axisIdx)) {
-        if (v % NUM_TWO != 0) {
-            v = (v / NUM_TWO) * NUM_TWO;
+        if (v % B4_NUM_TWO != 0) {
+            v = (v / B4_NUM_TWO) * B4_NUM_TWO;
         }
         if (v <= 0) {
-            v = NUM_TWO;
+            v = B4_NUM_TWO;
         }
     } else {
         if (v <= 0) {
@@ -636,7 +662,7 @@ void DualCutAxisSeeker::FixEvenMin2IfNeeded(int64_t& v, int32_t axisIdx) const
 }
 
 // Original (non-aligned) dim of the cutter's cut axis.
-int64_t DualCutAxisSeeker::GetCutterOrigDim(const AxisCutter* cutter) const
+int64_t B4DualCutAxisSeeker::GetCutterOrigDim(const B4AxisCutter* cutter) const
 {
     if (cutter->cutIdx_ < 0) {
         return 0;
@@ -648,8 +674,8 @@ int64_t DualCutAxisSeeker::GetCutterOrigDim(const AxisCutter* cutter) const
 }
 
 // Align the inner dim for a final axis, guarding against fake cut / overflow.
-void DualCutAxisSeeker::AlignInnerDimIfNeeded(int64_t& inner, int64_t orig, int32_t axisIdx, bool isFinal,
-                                              int64_t remainNums) const
+void B4DualCutAxisSeeker::AlignInnerDimIfNeeded(int64_t& inner, int64_t orig, int32_t axisIdx, bool isFinal,
+                                                int64_t remainNums) const
 {
     if (!isFinal) {
         FixEvenMin2IfNeeded(inner, axisIdx);
@@ -657,7 +683,7 @@ void DualCutAxisSeeker::AlignInnerDimIfNeeded(int64_t& inner, int64_t orig, int3
     }
     if (inner >= alignedFactor_) {
         inner = (inner / alignedFactor_) * alignedFactor_;
-    } else if (orig >= alignedFactor_ && remainNums >= static_cast<int64_t>(alignedFactor_) * NUM_TWO) {
+    } else if (orig >= alignedFactor_ && remainNums >= static_cast<int64_t>(alignedFactor_) * B4_NUM_TWO) {
         inner = alignedFactor_;
     }
     FixEvenMin2IfNeeded(inner, axisIdx);
@@ -669,15 +695,16 @@ void DualCutAxisSeeker::AlignInnerDimIfNeeded(int64_t& inner, int64_t orig, int3
 }
 
 // Compute inInner/outInner dims for CutTwoAxis, honoring which cut axes are final.
-void DualCutAxisSeeker::ComputeCutInnerDims(AxisInf& inInner, AxisInf& outInner, int64_t inOrigDim, int64_t outOrigDim,
-                                            int32_t inCutAxisIdx, int32_t outCutAxisIdx, int64_t remainNums)
+void B4DualCutAxisSeeker::ComputeCutInnerDims(B4AxisInf& inInner, B4AxisInf& outInner, int64_t inOrigDim,
+                                              int64_t outOrigDim, int32_t inCutAxisIdx, int32_t outCutAxisIdx,
+                                              int64_t remainNums)
 {
     if (inputCutter_.cutFinal_ || outputCutter_.cutFinal_) {
         if (inputCutter_.cutFinal_) {
             AlignInnerDimIfNeeded(inInner.dim, inOrigDim, inCutAxisIdx, true, remainNums);
             outInner.dim = remainNums / inInner.dim;
             if (outInner.dim <= 0) {
-                outInner.dim = NUM_TWO;
+                outInner.dim = B4_NUM_TWO;
                 inInner.dim = remainNums / outInner.dim;
                 AlignInnerDimIfNeeded(inInner.dim, inOrigDim, inCutAxisIdx, true, remainNums);
             }
@@ -694,7 +721,7 @@ void DualCutAxisSeeker::ComputeCutInnerDims(AxisInf& inInner, AxisInf& outInner,
             AlignInnerDimIfNeeded(outInner.dim, outOrigDim, outCutAxisIdx, true, remainNums);
             inInner.dim = remainNums / outInner.dim;
             if (inInner.dim <= 0) {
-                inInner.dim = NUM_TWO;
+                inInner.dim = B4_NUM_TWO;
                 outInner.dim = remainNums / inInner.dim;
                 AlignInnerDimIfNeeded(outInner.dim, outOrigDim, outCutAxisIdx, true, remainNums);
             }
@@ -714,16 +741,16 @@ void DualCutAxisSeeker::ComputeCutInnerDims(AxisInf& inInner, AxisInf& outInner,
 }
 
 // ---------------------------------------------------------------------------
-// DualCutAxisSeeker::CutOneAxis
+// B4DualCutAxisSeeker::CutOneAxis
 // ---------------------------------------------------------------------------
-bool DualCutAxisSeeker::CutOneAxis(uint32_t ubAxisSet, int64_t remainNums, std::vector<AxisInf>& innerAxis,
-                                   std::vector<AxisInf>& outerAxis)
+bool B4DualCutAxisSeeker::CutOneAxis(uint32_t ubAxisSet, int64_t remainNums, std::vector<B4AxisInf>& innerAxis,
+                                     std::vector<B4AxisInf>& outerAxis)
 {
     (void)ubAxisSet;
     int64_t innerDim = inputCutter_.cutFinal_ ? (remainNums / alignedFactor_ * alignedFactor_) : remainNums;
 
-    AxisInf* cutPtr = (inputCutter_.cutIdx_ >= 0) ? &inputCutter_.axisList_[inputCutter_.cutIdx_] :
-                                                    &inputCutter_.axisList_[0];
+    B4AxisInf* cutPtr = (inputCutter_.cutIdx_ >= 0) ? &inputCutter_.axisList_[inputCutter_.cutIdx_] :
+                                                      &inputCutter_.axisList_[0];
 
     int32_t axisIdx = cutPtr->idx;
     int32_t lastAxis = dimNums_ - 1;
@@ -731,12 +758,12 @@ bool DualCutAxisSeeker::CutOneAxis(uint32_t ubAxisSet, int64_t remainNums, std::
     bool needEven = (axisIdx == lastAxis) || (axisIdx == transposedLastAxis);
 
     // For HIF4: ensure even number only for last axis or transposed-last axis
-    if (needEven && (innerDim % NUM_TWO != 0)) {
-        innerDim = (innerDim / NUM_TWO) * NUM_TWO;
+    if (needEven && (innerDim % B4_NUM_TWO != 0)) {
+        innerDim = (innerDim / B4_NUM_TWO) * B4_NUM_TWO;
     }
     // Ensure minimum value
     if (innerDim <= 0) {
-        innerDim = needEven ? NUM_TWO : 1;
+        innerDim = needEven ? B4_NUM_TWO : 1;
     }
 
     // Get original dim (originFinalDim_ for final axis because constructor aligns it)
@@ -757,11 +784,11 @@ bool DualCutAxisSeeker::CutOneAxis(uint32_t ubAxisSet, int64_t remainNums, std::
 }
 
 // ---------------------------------------------------------------------------
-// DualCutAxisSeeker::SetCutAxisIdx
+// B4DualCutAxisSeeker::SetCutAxisIdx
 //   After gmAxis_/ubAxis_ are finalized, find which ubAxis slot corresponds
 //   to each cut axis and compute the tail size.
 // ---------------------------------------------------------------------------
-void DualCutAxisSeeker::SetCutAxisIdx()
+void B4DualCutAxisSeeker::SetCutAxisIdx()
 {
     int32_t cutAxisIdx[2] = {-1, -1};
     int32_t cutAxisTail[2] = {-1, -1};
@@ -789,14 +816,14 @@ void DualCutAxisSeeker::SetCutAxisIdx()
 }
 
 // ---------------------------------------------------------------------------
-// DualCutAxisSeeker::GenTilingData
+// B4DualCutAxisSeeker::GenTilingData
 //   Populate gmShape_/gmInStride_/gmOutStride_ and ubShape_/ubInStride_/ubOutStride_.
 //   IMPORTANT: All UB arrays must be in INPUT AXIS ORDER for ND-DMA to work correctly:
 //   - ubShape: UB axes in input axis order
 //   - ubInStride: input stride for each input axis
 //   - ubOutStride: output stride for each input axis (where it appears in output)
 // ---------------------------------------------------------------------------
-void DualCutAxisSeeker::GenTilingData()
+void B4DualCutAxisSeeker::GenTilingData()
 {
     outerAxisNums_ = static_cast<int32_t>(gmAxis_.size());
     innerAxisNums_ = static_cast<int32_t>(ubAxis_.size());
@@ -812,7 +839,7 @@ void DualCutAxisSeeker::GenTilingData()
 }
 
 // Output position (index in output order) of the given input axis, or -1.
-int32_t DualCutAxisSeeker::FindOutputPos(int32_t axisIdx) const
+int32_t B4DualCutAxisSeeker::FindOutputPos(int32_t axisIdx) const
 {
     for (int32_t j = 0; j < dimNums_; j++) {
         if (static_cast<int32_t>(perm_[j]) == axisIdx) {
@@ -823,7 +850,7 @@ int32_t DualCutAxisSeeker::FindOutputPos(int32_t axisIdx) const
 }
 
 // Fill gmShape_ / gmInStride_ / gmOutStride_ (right-aligned).
-void DualCutAxisSeeker::FillGmArrays()
+void B4DualCutAxisSeeker::FillGmArrays()
 {
     int32_t gmBaseIdx = TP_B4_GM_LEN - outerAxisNums_;
     for (int32_t i = 0; i < outerAxisNums_; i++) {
@@ -840,7 +867,7 @@ void DualCutAxisSeeker::FillGmArrays()
 }
 
 // Fill ubShape_ (input axis order) and ubShapeId_ (-1 for unused slots).
-void DualCutAxisSeeker::FillUbShapeAndId()
+void B4DualCutAxisSeeker::FillUbShapeAndId()
 {
     int32_t baseIdx = TP_B4_UB_LEN - innerAxisNums_;
     for (int32_t i = 0; i < innerAxisNums_; i++) {
@@ -855,7 +882,7 @@ void DualCutAxisSeeker::FillUbShapeAndId()
 }
 
 // Fill ubInStride_ / ubOutStride_ aligned with ubShape_.
-void DualCutAxisSeeker::FillUbStrides()
+void B4DualCutAxisSeeker::FillUbStrides()
 {
     int32_t baseIdx = TP_B4_UB_LEN - innerAxisNums_;
     for (int32_t i = 0; i < innerAxisNums_; i++) {
@@ -879,7 +906,7 @@ void DualCutAxisSeeker::FillUbStrides()
 }
 
 // Fill ubPerm_ / moveUbStride_: ub axes reordered by output position.
-void DualCutAxisSeeker::FillUbPermAndMoveStride()
+void B4DualCutAxisSeeker::FillUbPermAndMoveStride()
 {
     int32_t baseIdx = TP_B4_UB_LEN - innerAxisNums_;
     std::vector<std::pair<int32_t, int32_t>> ubOutOrder; // (outPos, ubAxisIndex)
@@ -918,7 +945,7 @@ void DualCutAxisSeeker::FillUbPermAndMoveStride()
 }
 
 // Fill outCutId_ / inCutId_ (position within gmAxis_).
-void DualCutAxisSeeker::FillCutIds()
+void B4DualCutAxisSeeker::FillCutIds()
 {
     // Collect all real cut axes from gmAxis_ (those whose code also appears in ubAxis_).
     std::vector<int32_t> cutAxisPositions;
@@ -938,7 +965,7 @@ void DualCutAxisSeeker::FillCutIds()
             outCutId_ = cutAxisPositions[0];
             inCutId_ = cutAxisPositions[0];
         }
-    } else if (cutAxisNums_ == NUM_TWO) {
+    } else if (cutAxisNums_ == B4_NUM_TWO) {
         // Two real cut axes: match by cutter cutSet_ bitmask
         for (int32_t pos : cutAxisPositions) {
             if ((gmAxis_[pos].code & outputCutter_.cutSet_) != 0) {
@@ -952,7 +979,7 @@ void DualCutAxisSeeker::FillCutIds()
 }
 
 // Multiply gmOutStride_ of cut outer axes by the corresponding inner dim.
-void DualCutAxisSeeker::FixGmOutStrideForCuts()
+void B4DualCutAxisSeeker::FixGmOutStrideForCuts()
 {
     int32_t gmBaseIdx = TP_B4_GM_LEN - outerAxisNums_;
     for (int32_t k = 0; k < outerAxisNums_; k++) {
@@ -968,12 +995,12 @@ void DualCutAxisSeeker::FixGmOutStrideForCuts()
 }
 
 // ---------------------------------------------------------------------------
-// DualCutAxisSeeker::ComputeOutputStride
+// B4DualCutAxisSeeker::ComputeOutputStride
 //   Compute output stride for a given axis (similar to as_strided's ComputeOutputShape).
 //   For transpose: find the output position of this input axis, then compute stride
 //   as the product of all output dims to the right of that position.
 // ---------------------------------------------------------------------------
-int64_t DualCutAxisSeeker::ComputeOutputStride(const AxisInf& axis) const
+int64_t B4DualCutAxisSeeker::ComputeOutputStride(const B4AxisInf& axis) const
 {
     // Find output position of this input axis
     int32_t outPos = FindOutputPos(axis.idx);
@@ -991,10 +1018,10 @@ int64_t DualCutAxisSeeker::ComputeOutputStride(const AxisInf& axis) const
 }
 
 // ---------------------------------------------------------------------------
-// DualCutAxisSeeker::ComputeBlockTiling
+// B4DualCutAxisSeeker::ComputeBlockTiling
 //   NK10: distribute total outer iterations across coreNum cores.
 // ---------------------------------------------------------------------------
-void DualCutAxisSeeker::ComputeBlockTiling(int32_t coreNum)
+void B4DualCutAxisSeeker::ComputeBlockTiling(int32_t coreNum)
 {
     int64_t totalOuter = 1;
     for (const auto& a : gmAxis_) {
@@ -1021,7 +1048,7 @@ void AppendArray(std::ostringstream& oss, const char* name, const T* data, int32
 }
 
 // Append "\n  <name>  (idx,dim,stride) ..." for an axis list.
-void AppendAxisList(std::ostringstream& oss, const char* name, const std::vector<AxisInf>& axes)
+void AppendAxisList(std::ostringstream& oss, const char* name, const std::vector<B4AxisInf>& axes)
 {
     oss << "\n  " << name << "  (idx,dim,stride): ";
     for (const auto& a : axes) {
@@ -1032,13 +1059,13 @@ void AppendAxisList(std::ostringstream& oss, const char* name, const std::vector
 } // namespace
 
 // ---------------------------------------------------------------------------
-// DualCutAxisSeeker::PrintTilingData  (debug helper)
+// B4DualCutAxisSeeker::PrintTilingData  (debug helper)
 // ---------------------------------------------------------------------------
-void DualCutAxisSeeker::PrintTilingData() const
+void B4DualCutAxisSeeker::PrintTilingData() const
 {
-    int32_t ubSizePerBuf = (ubSize_ / HIF4_BUFFER_NUM) / HIF4_BLOCK_BYTES * HIF4_BLOCK_BYTES;
+    int32_t ubSizePerBuf = (ubSize_ / B4_HIF4_BUFFER_NUM) / ubBlockSize_ * ubBlockSize_;
     if (ubSizePerBuf <= 0) {
-        ubSizePerBuf = HIF4_BLOCK_BYTES;
+        ubSizePerBuf = ubBlockSize_;
     }
     std::ostringstream oss;
 
@@ -1089,26 +1116,23 @@ void DualCutAxisSeeker::PrintTilingData() const
 }
 
 // ===========================================================================
-// TransposeTilingHIF4DualCut
+// TransposeB4Strategy
 // ===========================================================================
 
 // ---------------------------------------------------------------------------
-// TransposeTilingHIF4DualCut constructor
+// TransposeB4Strategy constructor
 //   Prepare inShape_/outShape_ from shapeInfo_ and initialize the seeker.
 //   For HIF4: use b4 view (HIF4 element count), shapes are NOT divided by 2.
 // ---------------------------------------------------------------------------
-TransposeTilingHIF4DualCut::TransposeTilingHIF4DualCut(gert::TilingContext* context, const ShapeInfo& shapeInfo,
-                                                       int64_t coreNum, int64_t ubSize)
-    : context_(context),
-      shapeInfo_(shapeInfo),
-      coreNum_(static_cast<int32_t>(coreNum)),
-      ubSize_(static_cast<int32_t>(ubSize))
+/**
+ * @brief 由精简 shape 生成输入/输出轴视图，并初始化双切分搜索器（原构造函数逻辑）
+ */
+void TransposeB4Strategy::PrepareShape()
 {
-    int32_t dim = static_cast<int32_t>(shapeInfo_.dim);
+    const int32_t dim = static_cast<int32_t>(shapeInfo_.dim);
     if (dim < 1) {
         return;
     }
-
     inShape_.resize(dim);
     outShape_.resize(dim);
     std::vector<int64_t> reducedPerm(dim);
@@ -1117,19 +1141,7 @@ TransposeTilingHIF4DualCut::TransposeTilingHIF4DualCut(gert::TilingContext* cont
         reducedPerm[i] = shapeInfo_.reducedPerm[i];
         outShape_[i] = shapeInfo_.reducedInShape[reducedPerm[i]];
     }
-    seeker_.Init(inShape_, outShape_, reducedPerm, dim, context_);
-}
-
-// ---------------------------------------------------------------------------
-// BuildAxisInfo
-//   Validate the reduced shape prepared by the constructor.
-// ---------------------------------------------------------------------------
-ge::graphStatus TransposeTilingHIF4DualCut::BuildAxisInfo()
-{
-    int32_t dim = static_cast<int32_t>(shapeInfo_.dim);
-    OP_CHECK_IF(dim < 1, OP_LOGE(context_, "[HIF4DualCut] Invalid dim=%d", dim), return ge::GRAPH_FAILED);
-    OP_LOGD(context_, "[HIF4DualCut] BuildAxisInfo: dim=%d, inShape and outShape prepared.", dim);
-    return ge::GRAPH_SUCCESS;
+    seeker_.Init(inShape_, outShape_, reducedPerm, dim, context_, static_cast<int32_t>(ubBlockSize_));
 }
 
 // ---------------------------------------------------------------------------
@@ -1139,25 +1151,25 @@ ge::graphStatus TransposeTilingHIF4DualCut::BuildAxisInfo()
 //   Each buffer holds HIF4 elements, 2 elements per byte
 //   Alignment: 64 HIF4 elements = 32 bytes
 // ---------------------------------------------------------------------------
-ge::graphStatus TransposeTilingHIF4DualCut::RunDualCut()
+ge::graphStatus TransposeB4Strategy::RunDualCut()
 {
     int32_t dim = static_cast<int32_t>(shapeInfo_.dim);
 
     static constexpr int32_t HIF4_TOTAL_BUFFER_NUM = 5; // 2 input + 2 output + 1 workspace
-    int32_t perBufUbSize = (ubSize_ / (HIF4_TOTAL_BUFFER_NUM * HIF4_BUFFER_NUM)) / HIF4_BLOCK_BYTES * HIF4_BLOCK_BYTES;
+    int32_t perBufUbSize = (ubSize_ / (HIF4_TOTAL_BUFFER_NUM * B4_HIF4_BUFFER_NUM)) / ubBlockSize_ * ubBlockSize_;
     if (perBufUbSize <= 0) {
-        perBufUbSize = HIF4_BLOCK_BYTES;
+        perBufUbSize = ubBlockSize_;
     }
-    int32_t effectiveUbSize = perBufUbSize * HIF4_BUFFER_NUM;
+    int32_t effectiveUbSize = perBufUbSize * B4_HIF4_BUFFER_NUM;
 
     OP_LOGD(context_,
             "[HIF4DualCut] RunDualCut: dim=%d, ubSize=%d, perBufUbSize=%d (aligned), "
             "effectiveUbSize=%d bytes (%ld HIF4 elements), coreNum=%d",
             dim, ubSize_, perBufUbSize, effectiveUbSize,
-            static_cast<int64_t>(effectiveUbSize) * HIF4_ELEMENTS_PER_BYTE / HIF4_BUFFER_NUM, coreNum_);
+            static_cast<int64_t>(effectiveUbSize) * B4_HIF4_ELEMENTS_PER_BYTE / B4_HIF4_BUFFER_NUM, coreNum_);
 
     // The seeker is initialized in the constructor; run the dual-cut search here.
-    bool ok = seeker_.FindDualCutAxis(effectiveUbSize, HIF4_BUFFER_NUM);
+    bool ok = seeker_.FindDualCutAxis(effectiveUbSize, B4_HIF4_BUFFER_NUM);
     if (!ok) {
         OP_LOGE(context_, "[HIF4DualCut] FindDualCutAxis failed — "
                           "last dim too small or UB budget exhausted.");
@@ -1167,19 +1179,19 @@ ge::graphStatus TransposeTilingHIF4DualCut::RunDualCut()
     OP_LOGD(context_, "[HIF4DualCut] FindDualCutAxis success, generating tiling data.");
     seeker_.GenTilingData();
     seeker_.ComputeBlockTiling(coreNum_);
-    seeker_.PrintTilingData();
     return ge::GRAPH_SUCCESS;
 }
 
 // ---------------------------------------------------------------------------
 // FillTilingData
 // ---------------------------------------------------------------------------
-ge::graphStatus TransposeTilingHIF4DualCut::FillTilingData()
+bool TransposeB4Strategy::SetTilingData()
 {
-    OP_LOGD(context_, "[HIF4DualCut] FillTilingData start.");
-
-    HIF4DualCutTilingData* tilingData = context_->GetTilingData<HIF4DualCutTilingData>();
-    OP_CHECK_NULL_WITH_CONTEXT(context_, tilingData);
+    TransposeB4TilingData* tilingData = context_->GetTilingData<TransposeB4TilingData>();
+    if (tilingData == nullptr) {
+        OP_LOGE(context_->GetNodeName(), "get tiling data failed, capacity is not enough!");
+        return false;
+    }
 
     std::copy(seeker_.gmShape_, seeker_.gmShape_ + TP_B4_GM_LEN, tilingData->gmShape);
     std::copy(seeker_.gmInStride_, seeker_.gmInStride_ + TP_B4_GM_LEN, tilingData->gmInStride);
@@ -1201,9 +1213,9 @@ ge::graphStatus TransposeTilingHIF4DualCut::FillTilingData()
     tilingData->dimsPerCore = seeker_.dimsPerCore_;
     tilingData->useCoreNum = seeker_.useCoreNum_;
     tilingData->dimsPerCoreTail = seeker_.dimsPerCoreTail_;
-    int32_t ubSizePerBuf = (seeker_.ubSize_ / HIF4_BUFFER_NUM) / HIF4_BLOCK_BYTES * HIF4_BLOCK_BYTES;
+    int32_t ubSizePerBuf = (seeker_.ubSize_ / B4_HIF4_BUFFER_NUM) / ubBlockSize_ * ubBlockSize_;
     if (ubSizePerBuf <= 0) {
-        ubSizePerBuf = HIF4_BLOCK_BYTES;
+        ubSizePerBuf = ubBlockSize_;
     }
     tilingData->ubSize = ubSizePerBuf;
 
@@ -1214,40 +1226,29 @@ ge::graphStatus TransposeTilingHIF4DualCut::FillTilingData()
         tilingData->perm[i] = (i < permSize) ? shapeInfo_.reducedPerm[i] : 0;
     }
 
-    size_t* workspaces = context_->GetWorkspaceSizes(1);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, workspaces);
-    workspaces[0] = 0;
-
-    context_->SetBlockDim(static_cast<uint32_t>(seeker_.useCoreNum_));
-    context_->SetTilingKey(static_cast<uint64_t>(SplitMode::B4_DOUBLE_SPLIT));
-
-    OP_LOGD(context_,
-            "[HIF4DualCut] FillTilingData done: "
-            "TilingKey=%lu, BlockDim=%d",
-            static_cast<uint64_t>(SplitMode::B4_DOUBLE_SPLIT), seeker_.useCoreNum_);
-    return ge::GRAPH_SUCCESS;
+    return true;
 }
 
 // ---------------------------------------------------------------------------
-// DoTiling: BuildAxisInfo -> RunDualCut -> FillTilingData
-//           Dual-cut only (no sole-cut fallback)
+// DoExecute: PrepareShape -> RunDualCut（仅双切分，无单切分回退）
 // ---------------------------------------------------------------------------
-ge::graphStatus TransposeTilingHIF4DualCut::DoTiling()
+/**
+ * @brief 主体切分（失败即硬错误）
+ */
+TilingStatus TransposeB4Strategy::DoExecute()
 {
-    OP_LOGD(context_, "[HIF4DualCut] DoTiling start.");
-
-    OP_CHECK_IF(BuildAxisInfo() != ge::GRAPH_SUCCESS, OP_LOGE(context_, "[HIF4DualCut] BuildAxisInfo failed."),
-                return ge::GRAPH_FAILED);
-
+    PrepareShape();
     // Dual-cut only (no sole-cut fallback)
-    OP_CHECK_IF(RunDualCut() != ge::GRAPH_SUCCESS, OP_LOGE(context_, "[HIF4DualCut] RunDualCut failed."),
-                return ge::GRAPH_FAILED);
-    OP_CHECK_IF(FillTilingData() != ge::GRAPH_SUCCESS, OP_LOGE(context_, "[HIF4DualCut] FillTilingData failed."),
-                return ge::GRAPH_FAILED);
-
-    OP_LOGD(context_, "[HIF4DualCut] DoTiling success.");
-    return ge::GRAPH_SUCCESS;
+    if (RunDualCut() != ge::GRAPH_SUCCESS) {
+        OP_LOGE(context_->GetNodeName(), "[HIF4DualCut] RunDualCut failed.");
+        return TilingStatus::FAILURE;
+    }
+    return TilingStatus::SUCCESS;
 }
 
-} // namespace TransHIF4DualCut
+/**
+ * @brief 打印 TilingData
+ */
+void TransposeB4Strategy::LogTilingData() { seeker_.PrintTilingData(); }
+
 } // namespace optiling

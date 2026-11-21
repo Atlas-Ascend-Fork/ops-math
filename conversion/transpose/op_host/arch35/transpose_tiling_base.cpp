@@ -25,20 +25,12 @@
  *   3. 重新排列合并后的 perm 和 shape
  *   4. 计算新的 reducedInShape 和 reducedOutShape
  */
-#include "transpose_tiling_arch35.h"
 #include "transpose_tiling_base.h"
 
-#include <cstdio>
-#include <cstdlib>
-#include <string>
 #include <vector>
-#include <memory>
 #include <algorithm>
-#include <iostream>
-#include <climits>
 
 using namespace std;
-using namespace gert;
 
 namespace optiling {
 using namespace Transpose;

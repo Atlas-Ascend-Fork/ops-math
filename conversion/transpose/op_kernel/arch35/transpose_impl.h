@@ -28,12 +28,12 @@
 
 #include "transpose_base.h"
 #include "transpose_tensor_move.h"
-#include "transpose_cut_one_axis.h"
-#include "transpose_cut_two_axis.h"
+#include "transpose_nddma_cut_1.h"
+#include "transpose_nddma_cut_2.h"
 #ifdef __CCE_AICORE_SUPPORT_SIMT__
 #include "transpose_small_shape.h"
 #endif
-#include "transpose_big_dim.h"
+#include "transpose_nddma_big_dim.h"
 #include "transpose_n_last.h"
 #include "transpose_tiling_key.h"
 
@@ -54,29 +54,29 @@ __aicore__ inline void TransposeImpl(GM_ADDR x, GM_ADDR y, GM_ADDR tiling)
     GET_TILING_DATA_WITH_STRUCT(Transpose::TransposeOpTilingData, tilingData, tiling);
     AscendC::TPipe pipe;
 
-    if (TILING_KEY_IS(TENSOR_MOVE)) {
+    if (TILING_KEY_IS(TK_TENSOR_MOVE)) {
         TransposeTensorMove<T> op;
         op.Init(x, y, &tilingData, &pipe);
         op.Process();
 #ifdef __CCE_AICORE_SUPPORT_SIMT__
-    } else if (TILING_KEY_IS(SMALL_SHAPE)) {
+    } else if (TILING_KEY_IS(TK_SMALL_SHAPE)) {
         TransposeSmallShape<T> op;
         op.Init(x, y, &tilingData);
         op.Process();
 #endif
-    } else if (TILING_KEY_IS(CUT_ONCE)) {
-        TransposeCutOneAxis<T> op;
+    } else if (TILING_KEY_IS(TK_NDDMA_CUT_1)) {
+        TransposeNddmaCut1<T> op;
         op.Init(x, y, &tilingData, &pipe);
         op.Process();
-    } else if (TILING_KEY_IS(CUT_TWICE)) {
-        TransposeCutTwoAxis<T> op;
+    } else if (TILING_KEY_IS(TK_NDDMA_CUT_2)) {
+        TransposeNddmaCut2<T> op;
         op.Init(x, y, &tilingData, &pipe);
         op.Process();
-    } else if (TILING_KEY_IS(BIG_DIM)) {
-        TransposeBigDim<T> op;
+    } else if (TILING_KEY_IS(TK_NDDMA_BIG_DIM)) {
+        TransposeNddmaBigDim<T> op;
         op.Init(x, y, &tilingData, &pipe);
         op.Process();
-    } else if (TILING_KEY_IS(N_LAST_TRANSPOSE)) {
+    } else if (TILING_KEY_IS(TK_N_LAST)) {
         TransposeNLast<T> op;
         op.Init(x, y, &tilingData, &pipe);
         op.Process();

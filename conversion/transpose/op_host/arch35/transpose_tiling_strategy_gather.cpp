@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -9,20 +9,49 @@
  */
 
 /*!
- * \file transpose_tiling_with_gather_arch35.cpp
- * \brief
+ * \file transpose_tiling_strategy_gather.cpp
+ * \brief GATHER(10006) 策略类实现
+ *
+ * 实现尾轴转置的 DataCopyGather 路径：UB 切分、分核、TilingData 回填与 tilingKey/blockDim 输出。
+ * UB 效率不足、bank 冲突或块数太少时返回 FALLBACK；TilingData 写回失败时返回 FAILURE。
  */
-#include "transpose_tiling_with_gather_arch35.h"
-#include "common/inc/op_host/math_log.h"
+
+#include "transpose_tiling_strategy_gather.h"
+#include <algorithm>
+#include <cmath>
+#include <cstdint>
+#include <set>
+#include <string>
+#include "util/math_util.h"
+#include "log/log.h"
 
 namespace optiling {
 using namespace Transpose;
-namespace TransWithGather {
-static constexpr int8_t NUM_TWO = 2;
-static constexpr int8_t NUM_THREE = 3;
-static constexpr int64_t NUM_FOUR = 4;
-static constexpr int64_t NUM_EIGHT = 8;
-static constexpr size_t SYS_WORKSPACE_SIZE = 0;
+
+// ===== Gather 路径私有实现 =====
+namespace {
+static constexpr int32_t GATHER_MTE_GATE = 16 * 1024;
+static constexpr int8_t GATHER_NUM_TWO = 2;
+static constexpr int8_t GATHER_NUM_THREE = 3;
+static constexpr int64_t GATHER_NUM_FOUR = 4;
+static constexpr int64_t GATHER_NUM_EIGHT = 8;
+// 4bit 类型判定常量（is4bit_ = eleLenInBytes == kDataTypeSizeBitOffset + 4）
+static constexpr int64_t GATHER_B4_BIT_SIZE = 4;
+} // namespace
+
+/**
+ * @brief GATHER(10006) 准入检查
+ *
+ * 准入条件：
+ *   !isRelatedTranspose_ && shapeInfo_.isLastAxisTranspose && !is4bit_。
+ * is4bit_ 门控为注册序安全冗余：B4(10009) 注册序在 GATHER 之前，
+ * 4bit+尾轴转置必由 B4 模板处理；GATHER 显式拒绝 4bit 避免误接管。
+ */
+bool TransposeGatherStrategy::IsSupport() const
+{
+    bool is4bit = (shapeInfo_.eleLenInBytes == ge::kDataTypeSizeBitOffset + GATHER_B4_BIT_SIZE);
+    return !isRelatedTranspose_ && shapeInfo_.isLastAxisTranspose && !is4bit;
+}
 
 /**
  * @brief 计算 Gather 路径 UB 预算（dataTensorSize / indexTensorSize）
@@ -36,20 +65,21 @@ static constexpr size_t SYS_WORKSPACE_SIZE = 0;
  *   - 8B（64bit）：data 占 ub/(2*2*8+4)*8；索引 32bit → index = data/2
  *   - 其他（2/4B）：data 占 ub/(2*2+1)=ub/5；索引同宽 → index = data
  */
-void TransposeGatherTiling::CalcTensorSize()
+void TransposeGatherStrategy::CalcTensorSize()
 {
     // ping pong, input and output
     if (shapeInfo_.eleLenInBytes == 1L) {
-        dataTensorSize_ = static_cast<uint32_t>(platInfo_.ubSize / (NUM_TWO * NUM_TWO + NUM_TWO) /
-                                                platInfo_.ubBlockSize * platInfo_.ubBlockSize);
-        indexTensorSize_ = dataTensorSize_ * static_cast<uint32_t>(NUM_TWO);
-    } else if (shapeInfo_.eleLenInBytes == NUM_EIGHT) {
-        dataTensorSize_ = static_cast<uint32_t>((platInfo_.ubSize / (NUM_TWO * NUM_TWO * NUM_EIGHT + NUM_FOUR) *
-                                                 NUM_EIGHT / platInfo_.ubBlockSize * platInfo_.ubBlockSize));
-        indexTensorSize_ = dataTensorSize_ / static_cast<uint32_t>(NUM_TWO);
+        dataTensorSize_ = static_cast<uint32_t>(ubSize_ / (GATHER_NUM_TWO * GATHER_NUM_TWO + GATHER_NUM_TWO) /
+                                                ubBlockSize_ * ubBlockSize_);
+        indexTensorSize_ = dataTensorSize_ * static_cast<uint32_t>(GATHER_NUM_TWO);
+    } else if (shapeInfo_.eleLenInBytes == GATHER_NUM_EIGHT) {
+        dataTensorSize_ = static_cast<uint32_t>(
+            (ubSize_ / (GATHER_NUM_TWO * GATHER_NUM_TWO * GATHER_NUM_EIGHT + GATHER_NUM_FOUR) * GATHER_NUM_EIGHT /
+             ubBlockSize_ * ubBlockSize_));
+        indexTensorSize_ = dataTensorSize_ / static_cast<uint32_t>(GATHER_NUM_TWO);
     } else {
-        dataTensorSize_ = static_cast<uint32_t>(platInfo_.ubSize / (NUM_TWO * NUM_TWO + 1) / platInfo_.ubBlockSize *
-                                                platInfo_.ubBlockSize);
+        dataTensorSize_ = static_cast<uint32_t>(ubSize_ / (GATHER_NUM_TWO * GATHER_NUM_TWO + 1) / ubBlockSize_ *
+                                                ubBlockSize_);
         indexTensorSize_ = dataTensorSize_;
     }
 }
@@ -62,7 +92,8 @@ void TransposeGatherTiling::CalcTensorSize()
  * @param end   结束索引（不含）
  * @return 区间内各轴长度乘积
  */
-int64_t TransposeGatherTiling::CalcShapeSize(const std::vector<int64_t>& shape, int64_t beg, int64_t end)
+int64_t TransposeGatherStrategy::CalcShapeSize(const std::array<int64_t, TP_MAX_AXIS_NUM>& shape, int64_t beg,
+                                               int64_t end)
 {
     int64_t res = 1;
     for (auto idx = beg; idx < end; ++idx) {
@@ -74,19 +105,19 @@ int64_t TransposeGatherTiling::CalcShapeSize(const std::vector<int64_t>& shape, 
 /**
  * @brief 选择进入 UB 的输入轴（inUbPerm）
  *
- * 从输入最末轴（最连续）向前收集轴索引，最多 UB_MAX_BRW_NUM=3 根，
+ * 从输入最末轴（最连续）向前收集轴索引，最多 GATHER_UB_MAX_BRW_NUM=3 根，
  * 直到已收集轴的元素容量乘积超过 sqrtedTensor（正方形 block 边长预算）：
  *   inUbPerm_[0..cnt-1] = [最末轴, 次末轴, ...]
  *
  * @param sqrtedTensor block 边长预算（元素数）
  */
-void TransposeGatherTiling::CalcInUbPerm(int64_t sqrtedTensor)
+void TransposeGatherStrategy::CalcInUbPerm(int64_t sqrtedTensor)
 {
     for (int64_t i = shapeInfo_.dim - 1; i >= 0; --i) {
         inUbPerm_.perm[inUbPerm_.cnt++] = i;
         inUbPermSet_.insert(i);
         allUbPerm_.insert(i);
-        if (inUbPerm_.cnt >= UB_MAX_BRW_NUM ||
+        if (inUbPerm_.cnt >= GATHER_UB_MAX_BRW_NUM ||
             CalcShapeSize(shapeInfo_.reducedInShape, i, shapeInfo_.dim) > sqrtedTensor) {
             break;
         }
@@ -97,17 +128,17 @@ void TransposeGatherTiling::CalcInUbPerm(int64_t sqrtedTensor)
  * @brief 选择进入 UB 的输出轴（outUbPerm）
  *
  * 从输出最末轴向前收集输出轴对应的输入轴索引（reducedPerm[i]），
- * 最多 UB_MAX_BRW_NUM=3 根，直到乘积超过 sqrtedTensor。
+ * 最多 GATHER_UB_MAX_BRW_NUM=3 根，直到乘积超过 sqrtedTensor。
  * 与 CalcInUbPerm 的结果合并为 allUbPerm（真正进入 UB 循环的轴集合）。
  *
  * @param sqrtedTensor block 边长预算（元素数）
  */
-void TransposeGatherTiling::CalcOutUbPerm(int64_t sqrtedTensor)
+void TransposeGatherStrategy::CalcOutUbPerm(int64_t sqrtedTensor)
 {
     for (int64_t i = shapeInfo_.dim - 1; i >= 0; --i) {
         outUbPerm_.perm[outUbPerm_.cnt++] = shapeInfo_.reducedPerm[i];
         allUbPerm_.insert(shapeInfo_.reducedPerm[i]);
-        if (outUbPerm_.cnt >= UB_MAX_BRW_NUM ||
+        if (outUbPerm_.cnt >= GATHER_UB_MAX_BRW_NUM ||
             CalcShapeSize(shapeInfo_.reducedOutShape, i, shapeInfo_.dim) > sqrtedTensor) {
             break;
         }
@@ -134,7 +165,7 @@ void TransposeGatherTiling::CalcOutUbPerm(int64_t sqrtedTensor)
  * @param axisFlag   0=同轴; 1=输出轴; 2=输入轴; 3=输出轴(计入输入因子后)
  * @param elemInTensor 数据 tensor 的元素容量上限
  */
-void TransposeGatherTiling::AdjustUbCutAxisFactor(int32_t& axisFactor, int8_t axisFlag, int64_t elemInTensor)
+void TransposeGatherStrategy::AdjustUbCutAxisFactor(int32_t& axisFactor, int8_t axisFlag, int64_t elemInTensor)
 {
     int64_t srcInUbAxesSize = 1;
     int64_t srcOutUbAxesSize = 1;
@@ -148,17 +179,17 @@ void TransposeGatherTiling::AdjustUbCutAxisFactor(int32_t& axisFactor, int8_t ax
     // src 侧输出贡献：outUbPerm 中还未被 inUbPerm 占用的轴
     CalcUbAxesSizes(inUbPerm_, outUbPerm_, srcInUbAxesSize, srcOutUbAxesSize);
 
-    int64_t elemPerBlock = platInfo_.ubBlockSize / shapeInfo_.eleLenInBytes;
+    int64_t elemPerBlock = ubBlockSize_ / shapeInfo_.eleLenInBytes;
     // in and out ub cut same axis
     if (axisFlag == 0) {
         AdjustUbCutFactorSameAxis(axisFactor, dstInUbAxesSize, dstOutUbAxesSize, srcInUbAxesSize, srcOutUbAxesSize,
                                   elemInTensor, elemPerBlock);
         // out ub cut axis
-    } else if (axisFlag == 1 || axisFlag == NUM_THREE) {
+    } else if (axisFlag == 1 || axisFlag == GATHER_NUM_THREE) {
         AdjustUbCutFactorOutAxis(axisFactor, dstInUbAxesSize, dstOutUbAxesSize, srcInUbAxesSize, srcOutUbAxesSize,
                                  elemInTensor, elemPerBlock, axisFlag);
         // in ub cut axis
-    } else if (axisFlag == NUM_TWO) {
+    } else if (axisFlag == GATHER_NUM_TWO) {
         AdjustUbCutFactorInAxis(axisFactor, dstInUbAxesSize, dstOutUbAxesSize, srcInUbAxesSize, srcOutUbAxesSize,
                                 elemInTensor, elemPerBlock);
     }
@@ -177,8 +208,8 @@ void TransposeGatherTiling::AdjustUbCutAxisFactor(int32_t& axisFactor, int8_t ax
  * @param mainUbAxesSize [in,out] main 侧轴乘积（传入初始值 1）
  * @param viceUbAxesSize [in,out] vice 侧轴乘积（传入初始值 1）
  */
-void TransposeGatherTiling::CalcUbAxesSizes(const UbPermInfo& mainUbPerm, const UbPermInfo& viceUbPerm,
-                                            int64_t& mainUbAxesSize, int64_t& viceUbAxesSize)
+void TransposeGatherStrategy::CalcUbAxesSizes(const GatherUbPermInfo& mainUbPerm, const GatherUbPermInfo& viceUbPerm,
+                                              int64_t& mainUbAxesSize, int64_t& viceUbAxesSize)
 {
     std::set<int8_t> viceUbPermLeft(allUbPerm_);
     for (int8_t i = 0; i < mainUbPerm.cnt - 1; ++i) {
@@ -196,10 +227,10 @@ void TransposeGatherTiling::CalcUbAxesSizes(const UbPermInfo& mainUbPerm, const 
  * @brief AdjustUbCutAxisFactor 的 axisFlag==0 场景：in/out 切同一条轴
  * @param axisFactor [in,out] 待回调的切分因子
  */
-void TransposeGatherTiling::AdjustUbCutFactorSameAxis(int32_t& axisFactor, int64_t dstInUbAxesSize,
-                                                      int64_t dstOutUbAxesSize, int64_t srcInUbAxesSize,
-                                                      int64_t srcOutUbAxesSize, int64_t elemInTensor,
-                                                      int64_t elemPerBlock)
+void TransposeGatherStrategy::AdjustUbCutFactorSameAxis(int32_t& axisFactor, int64_t dstInUbAxesSize,
+                                                        int64_t dstOutUbAxesSize, int64_t srcInUbAxesSize,
+                                                        int64_t srcOutUbAxesSize, int64_t elemInTensor,
+                                                        int64_t elemPerBlock)
 {
     int64_t dstFactor = 0;
     int64_t srcFactor = 0;
@@ -215,18 +246,18 @@ void TransposeGatherTiling::AdjustUbCutFactorSameAxis(int32_t& axisFactor, int64
 }
 
 /**
- * @brief AdjustUbCutAxisFactor 的 axisFlag==1/NUM_THREE 场景：切输出轴
+ * @brief AdjustUbCutAxisFactor 的 axisFlag==1/GATHER_NUM_THREE 场景：切输出轴
  *        （1 与 3 仅差预调整两行，故传 axisFlag 区分）
  * @param axisFactor [in,out] 待回调的切分因子
  */
-void TransposeGatherTiling::AdjustUbCutFactorOutAxis(int32_t& axisFactor, int64_t dstInUbAxesSize,
-                                                     int64_t dstOutUbAxesSize, int64_t srcInUbAxesSize,
-                                                     int64_t srcOutUbAxesSize, int64_t elemInTensor,
-                                                     int64_t elemPerBlock, int8_t axisFlag)
+void TransposeGatherStrategy::AdjustUbCutFactorOutAxis(int32_t& axisFactor, int64_t dstInUbAxesSize,
+                                                       int64_t dstOutUbAxesSize, int64_t srcInUbAxesSize,
+                                                       int64_t srcOutUbAxesSize, int64_t elemInTensor,
+                                                       int64_t elemPerBlock, int8_t axisFlag)
 {
     int64_t dstFactor = 0;
     int64_t srcFactor = 0;
-    if (axisFlag == NUM_THREE) {
+    if (axisFlag == GATHER_NUM_THREE) {
         dstInUbAxesSize *= ubSplitInfo_.inUbCutAxisFactor;
     }
     if (axisFlag == 1) {
@@ -247,13 +278,13 @@ void TransposeGatherTiling::AdjustUbCutFactorOutAxis(int32_t& axisFactor, int64_
 }
 
 /**
- * @brief AdjustUbCutAxisFactor 的 axisFlag==NUM_TWO 场景：切输入轴
+ * @brief AdjustUbCutAxisFactor 的 axisFlag==GATHER_NUM_TWO 场景：切输入轴
  * @param axisFactor [in,out] 待回调的切分因子
  */
-void TransposeGatherTiling::AdjustUbCutFactorInAxis(int32_t& axisFactor, int64_t dstInUbAxesSize,
-                                                    int64_t dstOutUbAxesSize, int64_t srcInUbAxesSize,
-                                                    int64_t srcOutUbAxesSize, int64_t elemInTensor,
-                                                    int64_t elemPerBlock)
+void TransposeGatherStrategy::AdjustUbCutFactorInAxis(int32_t& axisFactor, int64_t dstInUbAxesSize,
+                                                      int64_t dstOutUbAxesSize, int64_t srcInUbAxesSize,
+                                                      int64_t srcOutUbAxesSize, int64_t elemInTensor,
+                                                      int64_t elemPerBlock)
 {
     int64_t dstFactor = 0;
     int64_t srcFactor = 0;
@@ -281,15 +312,15 @@ void TransposeGatherTiling::AdjustUbCutFactorInAxis(int32_t& axisFactor, int64_t
  *
  *   1) 两 last 都剩余（∈viceAllUbPerm）：转 CalcUbCutFactorBothLeft
  *      - last 轴不同：转 CalcUbCutFactorDiffLastAxis（无重叠取 sqrtedTensor/savedElems；
- *        有重叠按共用轴算 newSqrtedTensor 后回调 flag NUM_THREE）
+ *        有重叠按共用轴算 newSqrtedTensor 后回调 flag GATHER_NUM_THREE）
  *      - last 轴相同：取 min(inUbCutAxisSize, maxCutAxisSize, maxOutCutAxisSize) 并
  *        让 outUbCutAxisFactor = inUbCutAxisFactor（同轴同切，flag 0）
  *   2) 都不剩余：取完整 cutAxisSize（该轴全量进 UB，无需切）
  *   3) 只剩输入 last：转 CalcUbCutFactorInLeftOnly（outCutAxisFactor 取完整，
- *      inCutAxisFactor 取 min(inUbCutAxisSize, maxCutAxisSize) 并回调 flag NUM_TWO）
+ *      inCutAxisFactor 取 min(inUbCutAxisSize, maxCutAxisSize) 并回调 flag GATHER_NUM_TWO）
  *   4) 只剩输出 last：转 CalcUbCutFactorOutLeftOnly（对称处理，回调 flag 1）
  *
- * maxOutCutAxisSize 额外限制：为 gather 索引预留 1/4 UB（NUM_FOUR 分母）。
+ * maxOutCutAxisSize 额外限制：为 gather 索引预留 1/4 UB（GATHER_NUM_FOUR 分母）。
  *
  * @param elemInTensor    数据 tensor 元素容量上限
  * @param sqrtedTensor    block 边长预算
@@ -297,8 +328,8 @@ void TransposeGatherTiling::AdjustUbCutFactorInAxis(int32_t& axisFactor, int64_t
  * @param isLastOutPermLeft 输出 last 轴是否∈viceAllUbPerm
  * @param viceAllUbPerm    已分配轴集合（in/out 非切分轴已从 allUbPerm 移除）
  */
-void TransposeGatherTiling::CalcUbAxisCutFactor(int64_t elemInTensor, int64_t sqrtedTensor, bool isLastInPermLeft,
-                                                bool isLastOutPermLeft, const std::set<int8_t>& viceAllUbPerm)
+void TransposeGatherStrategy::CalcUbAxisCutFactor(int64_t elemInTensor, int64_t sqrtedTensor, bool isLastInPermLeft,
+                                                  bool isLastOutPermLeft, const std::set<int8_t>& viceAllUbPerm)
 {
     int64_t allSavedElems = 1;
     for (int8_t idx : allUbPerm_) {
@@ -310,8 +341,8 @@ void TransposeGatherTiling::CalcUbAxisCutFactor(int64_t elemInTensor, int64_t sq
     int64_t outSavedElems = CalcShapeSize(shapeInfo_.reducedOutShape, dim - outUbPerm_.cnt + 1, dim);
     int64_t inSavedElems = CalcShapeSize(shapeInfo_.reducedInShape, dim - inUbPerm_.cnt + 1, dim);
     // to save ub for gather index
-    int64_t elemPerBlock = platInfo_.ubBlockSize / shapeInfo_.eleLenInBytes;
-    int64_t maxOutCutAxisSize = elemInTensor / NUM_FOUR / elemPerBlock * elemPerBlock /
+    int64_t elemPerBlock = ubBlockSize_ / shapeInfo_.eleLenInBytes;
+    int64_t maxOutCutAxisSize = elemInTensor / GATHER_NUM_FOUR / elemPerBlock * elemPerBlock /
                                 Ops::Base::CeilAlign(outSavedElems, elemPerBlock);
     int64_t maxCutAxisSize = elemInTensor / allSavedElems;
 
@@ -333,7 +364,7 @@ void TransposeGatherTiling::CalcUbAxisCutFactor(int64_t elemInTensor, int64_t sq
 /**
  * @brief CalcUbAxisCutFactor 的 isLastInPermLeft && isLastOutPermLeft 场景：两 last 轴都剩余
  *
- * 原函数 both-left 分支逐行搬移：last 轴不同转 CalcUbCutFactorDiffLastAxis，
+ * last 轴不同转 CalcUbCutFactorDiffLastAxis，
  * last 轴相同则按 maxCutAxisSize/maxOutCutAxisSize 取因子并同轴同切（flag 0）。
  *
  * @param elemInTensor    数据 tensor 元素容量上限
@@ -344,9 +375,9 @@ void TransposeGatherTiling::CalcUbAxisCutFactor(int64_t elemInTensor, int64_t sq
  * @param maxCutAxisSize  最大切分尺寸（受 allSavedElems 约束）
  * @param maxOutCutAxisSize 最大输出切分尺寸（为 gather 索引预留 1/4 UB）
  */
-void TransposeGatherTiling::CalcUbCutFactorBothLeft(int64_t elemInTensor, int64_t sqrtedTensor, int64_t outSavedElems,
-                                                    int64_t inSavedElems, int64_t elemPerBlock, int64_t maxCutAxisSize,
-                                                    int64_t maxOutCutAxisSize)
+void TransposeGatherStrategy::CalcUbCutFactorBothLeft(int64_t elemInTensor, int64_t sqrtedTensor, int64_t outSavedElems,
+                                                      int64_t inSavedElems, int64_t elemPerBlock,
+                                                      int64_t maxCutAxisSize, int64_t maxOutCutAxisSize)
 {
     if (inUbPerm_.perm[inUbPerm_.cnt - 1] != outUbPerm_.perm[outUbPerm_.cnt - 1]) {
         CalcUbCutFactorDiffLastAxis(elemInTensor, sqrtedTensor, outSavedElems, inSavedElems, elemPerBlock);
@@ -361,9 +392,8 @@ void TransposeGatherTiling::CalcUbCutFactorBothLeft(int64_t elemInTensor, int64_
 /**
  * @brief CalcUbAxisCutFactor 的 both-left 且 last 轴不同场景
  *
- * 原函数 both-left/diff-last 分支逐行搬移：
  *   - 无重叠（cnt 之和 == ubAxesCnt）：两因子各取 sqrtedTensor / savedElems
- *   - 有重叠：先按共用轴算 newSqrtedTensor 再分别除以非共用轴乘积，回调 flag NUM_THREE
+ *   - 有重叠：先按共用轴算 newSqrtedTensor 再分别除以非共用轴乘积，回调 flag GATHER_NUM_THREE
  *
  * @param elemInTensor    数据 tensor 元素容量上限
  * @param sqrtedTensor    block 边长预算
@@ -371,9 +401,9 @@ void TransposeGatherTiling::CalcUbCutFactorBothLeft(int64_t elemInTensor, int64_
  * @param inSavedElems    输入侧已分配元素数
  * @param elemPerBlock    每个 block 的元素数
  */
-void TransposeGatherTiling::CalcUbCutFactorDiffLastAxis(int64_t elemInTensor, int64_t sqrtedTensor,
-                                                        int64_t outSavedElems, int64_t inSavedElems,
-                                                        int64_t elemPerBlock)
+void TransposeGatherStrategy::CalcUbCutFactorDiffLastAxis(int64_t elemInTensor, int64_t sqrtedTensor,
+                                                          int64_t outSavedElems, int64_t inSavedElems,
+                                                          int64_t elemPerBlock)
 {
     if (outUbPerm_.cnt + inUbPerm_.cnt == ubSplitInfo_.ubAxesCnt) {
         ubSplitInfo_.inUbCutAxisFactor = std::min(ubSplitInfo_.inUbCutAxisSize, sqrtedTensor / inSavedElems);
@@ -391,22 +421,22 @@ void TransposeGatherTiling::CalcUbCutFactorDiffLastAxis(int64_t elemInTensor, in
         int64_t outLeft = outSavedElems / comSavedElems;
         ubSplitInfo_.inUbCutAxisFactor = std::min(ubSplitInfo_.inUbCutAxisSize, newSqrtedTensor / inLeft);
         ubSplitInfo_.outUbCutAxisFactor = std::min(ubSplitInfo_.outUbCutAxisSize, newSqrtedTensor / outLeft);
-        AdjustUbCutAxisFactor(ubSplitInfo_.outUbCutAxisFactor, NUM_THREE, elemInTensor);
+        AdjustUbCutAxisFactor(ubSplitInfo_.outUbCutAxisFactor, GATHER_NUM_THREE, elemInTensor);
     }
 }
 
 /**
  * @brief CalcUbAxisCutFactor 的只剩输出 last 场景（isLastOutPermLeft && !isLastInPermLeft）
  *
- * 原函数 single-left/out 分支逐行搬移：输入因子取完整尺寸，输出因子受
+ * 输入因子取完整尺寸，输出因子受
  * maxCutAxisSize/maxOutCutAxisSize 约束并回调 flag 1。
  *
  * @param elemInTensor     数据 tensor 元素容量上限
  * @param maxCutAxisSize   最大切分尺寸
  * @param maxOutCutAxisSize 最大输出切分尺寸
  */
-void TransposeGatherTiling::CalcUbCutFactorOutLeftOnly(int64_t elemInTensor, int64_t maxCutAxisSize,
-                                                       int64_t maxOutCutAxisSize)
+void TransposeGatherStrategy::CalcUbCutFactorOutLeftOnly(int64_t elemInTensor, int64_t maxCutAxisSize,
+                                                         int64_t maxOutCutAxisSize)
 {
     ubSplitInfo_.inUbCutAxisFactor = ubSplitInfo_.inUbCutAxisSize;
     ubSplitInfo_.outUbCutAxisFactor = std::min(std::min(ubSplitInfo_.outUbCutAxisSize, maxCutAxisSize),
@@ -417,17 +447,17 @@ void TransposeGatherTiling::CalcUbCutFactorOutLeftOnly(int64_t elemInTensor, int
 /**
  * @brief CalcUbAxisCutFactor 的只剩输入 last 场景（isLastInPermLeft && !isLastOutPermLeft）
  *
- * 原函数 single-left/in 分支逐行搬移：输出因子取完整尺寸，输入因子受
- * maxCutAxisSize 约束并回调 flag NUM_TWO。
+ * 输出因子取完整尺寸，输入因子受
+ * maxCutAxisSize 约束并回调 flag GATHER_NUM_TWO。
  *
  * @param elemInTensor   数据 tensor 元素容量上限
  * @param maxCutAxisSize 最大切分尺寸
  */
-void TransposeGatherTiling::CalcUbCutFactorInLeftOnly(int64_t elemInTensor, int64_t maxCutAxisSize)
+void TransposeGatherStrategy::CalcUbCutFactorInLeftOnly(int64_t elemInTensor, int64_t maxCutAxisSize)
 {
     ubSplitInfo_.outUbCutAxisFactor = ubSplitInfo_.outUbCutAxisSize;
     ubSplitInfo_.inUbCutAxisFactor = std::min(ubSplitInfo_.inUbCutAxisSize, maxCutAxisSize);
-    AdjustUbCutAxisFactor(ubSplitInfo_.inUbCutAxisFactor, NUM_TWO, elemInTensor);
+    AdjustUbCutAxisFactor(ubSplitInfo_.inUbCutAxisFactor, GATHER_NUM_TWO, elemInTensor);
 }
 
 /**
@@ -441,7 +471,7 @@ void TransposeGatherTiling::CalcUbCutFactorInLeftOnly(int64_t elemInTensor, int6
  *   - indexStep：gather 索引的步进
  *
  * 硬件约束（不满足则返回失败回退 NDDMA）：
- *   - totalSizeInUb ≥ MTE_GATE(0x8000)：MTE 搬运效率门槛
+ *   - totalSizeInUb ≥ GATHER_MTE_GATE(0x8000)：MTE 搬运效率门槛
  *   - CheckBC(indexStep) 为 false：避免 gather 索引在 UB bank 上的冲突
  *
  * 同时把输入侧切分轴位置 inUbInCutPos/inUbOutCutPos 映射到输出侧
@@ -449,9 +479,9 @@ void TransposeGatherTiling::CalcUbCutFactorInLeftOnly(int64_t elemInTensor, int6
  *
  * @return GRAPH_SUCCESS 校验通过；GRAPH_FAILED MTE 效率不足或 bank 冲突
  */
-ge::graphStatus TransposeGatherTiling::CalcUbAxesInfo(const int64_t (&tmpInAxes)[TP_GATHER_MAX_AXIS_NUM],
-                                                      const int64_t (&tmpOutAxes)[TP_GATHER_MAX_AXIS_NUM],
-                                                      const int8_t (&tmpOutPerm)[TP_GATHER_MAX_AXIS_NUM])
+ge::graphStatus TransposeGatherStrategy::CalcUbAxesInfo(const int64_t (&tmpInAxes)[TP_GATHER_MAX_AXIS_NUM],
+                                                        const int64_t (&tmpOutAxes)[TP_GATHER_MAX_AXIS_NUM],
+                                                        const int8_t (&tmpOutPerm)[TP_GATHER_MAX_AXIS_NUM])
 {
     CompactUbAxes(tmpInAxes, tmpOutAxes, tmpOutPerm);
     if (CheckUbHwConstraint() == ge::GRAPH_FAILED) {
@@ -464,13 +494,13 @@ ge::graphStatus TransposeGatherTiling::CalcUbAxesInfo(const int64_t (&tmpInAxes)
 /**
  * @brief CalcUbAxesInfo 的压实段：把 tmpInAxes/tmpOutAxes/tmpOutPerm 压实为 UB 轴信息
  *
- * 原函数首个 for 循环逐行搬移：遍历 TP_GATHER_MAX_AXIS_NUM，非零 tmpOutAxes[j] 填入
+ * 遍历 TP_GATHER_MAX_AXIS_NUM，非零 tmpOutAxes[j] 填入
  * outUbAxes[outIdx] 并按 allUbPerm 序号填 ubPerm[outIdx]；非零 tmpInAxes[j] 填入
- * inUbAxes[inIdx]。inIdx/outIdx 为本段局部变量（原函数对应分支逐行同名同形）。
+ * inUbAxes[inIdx]。inIdx/outIdx 为本段局部变量。
  */
-void TransposeGatherTiling::CompactUbAxes(const int64_t (&tmpInAxes)[TP_GATHER_MAX_AXIS_NUM],
-                                          const int64_t (&tmpOutAxes)[TP_GATHER_MAX_AXIS_NUM],
-                                          const int8_t (&tmpOutPerm)[TP_GATHER_MAX_AXIS_NUM])
+void TransposeGatherStrategy::CompactUbAxes(const int64_t (&tmpInAxes)[TP_GATHER_MAX_AXIS_NUM],
+                                            const int64_t (&tmpOutAxes)[TP_GATHER_MAX_AXIS_NUM],
+                                            const int8_t (&tmpOutPerm)[TP_GATHER_MAX_AXIS_NUM])
 {
     int8_t inIdx = 0;
     int8_t outIdx = 0;
@@ -491,13 +521,13 @@ void TransposeGatherTiling::CompactUbAxes(const int64_t (&tmpInAxes)[TP_GATHER_M
 /**
  * @brief CalcUbAxesInfo 的硬件校验段：MTE 效率门槛 + gather 索引 bank 冲突
  *
- * 原函数中段逐行搬移：totalSizeInUb = eleLenInBytes × inUbAxes 乘积；
- * indexStep = ubPerm 末轴右侧 inUbAxes 乘积。totalSizeInUb < MTE_GATE 或
+ * totalSizeInUb = eleLenInBytes × inUbAxes 乘积；
+ * indexStep = ubPerm 末轴右侧 inUbAxes 乘积。totalSizeInUb < GATHER_MTE_GATE 或
  * CheckBC(indexStep) 为真则返回 GRAPH_FAILED。totalSizeInUb/indexStep 为本段局部变量。
  *
  * @return GRAPH_SUCCESS 校验通过；GRAPH_FAILED MTE 效率不足或 bank 冲突
  */
-ge::graphStatus TransposeGatherTiling::CheckUbHwConstraint()
+ge::graphStatus TransposeGatherStrategy::CheckUbHwConstraint()
 {
     int32_t totalSizeInUb = static_cast<int32_t>(shapeInfo_.eleLenInBytes);
     for (int8_t i = 0; i < ubSplitInfo_.ubAxesCnt; ++i) {
@@ -508,7 +538,7 @@ ge::graphStatus TransposeGatherTiling::CheckUbHwConstraint()
         indexStep *= ubSplitInfo_.inUbAxes[i];
     }
     // MTE size must be >= gate
-    if (totalSizeInUb < MTE_GATE) {
+    if (totalSizeInUb < GATHER_MTE_GATE) {
         OP_LOGD(context_, "total size too small, totalSizeInUb=%ld", totalSizeInUb);
         return ge::GRAPH_FAILED;
     }
@@ -522,10 +552,10 @@ ge::graphStatus TransposeGatherTiling::CheckUbHwConstraint()
 /**
  * @brief CalcUbAxesInfo 的映射段：输入侧切分轴位置映射到输出侧
  *
- * 原函数末段 for 循环逐行搬移：扫描 ubPerm[0..allUbPerm.size()-1]，
+ * 扫描 ubPerm[0..allUbPerm.size()-1]，
  * ubPerm[k]==inUbInCutPos 记 outUbInCutPos=k，==inUbOutCutPos 记 outUbOutCutPos=k。
  */
-void TransposeGatherTiling::MapUbCutPosToOut()
+void TransposeGatherStrategy::MapUbCutPosToOut()
 {
     for (int8_t k = 0; k < static_cast<int8_t>(allUbPerm_.size()); ++k) {
         if (ubSplitInfo_.ubPerm[k] == ubSplitInfo_.inUbInCutPos) {
@@ -559,7 +589,7 @@ void TransposeGatherTiling::MapUbCutPosToOut()
  * @param sqrtedTensor block 边长预算
  * @return GRAPH_SUCCESS 成功；GRAPH_FAILED 校验失败回退 NDDMA
  */
-ge::graphStatus TransposeGatherTiling::CalcUbSplitInfo4Gather(int64_t elemInTensor, int64_t sqrtedTensor)
+ge::graphStatus TransposeGatherStrategy::CalcUbSplitInfo4Gather(int64_t elemInTensor, int64_t sqrtedTensor)
 {
     int8_t tmpOutPerm[TP_GATHER_MAX_AXIS_NUM] = {0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf};
     int64_t tmpInAxes[TP_GATHER_MAX_AXIS_NUM] = {0, 0, 0, 0, 0, 0, 0, 0};
@@ -633,7 +663,7 @@ ge::graphStatus TransposeGatherTiling::CalcUbSplitInfo4Gather(int64_t elemInTens
  * kernel 端 SetCopyInParams/SetCopyOutParams 用这些 stride 构建
  * DataCopyPad 的 blockCount/blockLen/stride 与 LoopMode 参数。
  */
-void TransposeGatherTiling::CalcUbSplitInfo4MTE()
+void TransposeGatherStrategy::CalcUbSplitInfo4MTE()
 {
     auto dim = shapeInfo_.dim;
     int8_t axisIdx = 0;
@@ -651,13 +681,13 @@ void TransposeGatherTiling::CalcUbSplitInfo4MTE()
 /**
  * @brief CalcUbSplitInfo4MTE 的 if 分支：输出末维 < 输入切轴（连续搬入）
  *
- * 原函数 if 分支逐行搬移：预置 axis0InSrcStride 为输出末维右侧乘积，
+ * 预置 axis0InSrcStride 为输出末维右侧乘积，
  * 再从输入切轴向前扫描 UB 内轴（跳过输出末维），填 axis1/axis2InSrcStride。
  *
  * @param dim     简化后维度数
  * @param axisIdx [in,out] 循环内轴序号计数器
  */
-void TransposeGatherTiling::CalcInSrcStrideConsecutive(int64_t dim, int8_t& axisIdx)
+void TransposeGatherStrategy::CalcInSrcStrideConsecutive(int64_t dim, int8_t& axisIdx)
 {
     // to make sure output last dim and move in cube are consecutive
     ubSplitInfo_.axis0InSrcStride = CalcShapeSize(shapeInfo_.reducedInShape, outUbPerm_.perm[0] + 1, dim);
@@ -674,12 +704,12 @@ void TransposeGatherTiling::CalcInSrcStrideConsecutive(int64_t dim, int8_t& axis
 /**
  * @brief CalcUbSplitInfo4MTE 的 else 分支：默认顺序搬入
  *
- * 原函数 else 分支逐行搬移：从输入切轴向前扫描 UB 内轴，填 axis0/1InSrcStride。
+ * 从输入切轴向前扫描 UB 内轴，填 axis0/1InSrcStride。
  *
  * @param dim     简化后维度数
  * @param axisIdx [in,out] 循环内轴序号计数器
  */
-void TransposeGatherTiling::CalcInSrcStrideDefault(int64_t dim, int8_t& axisIdx)
+void TransposeGatherStrategy::CalcInSrcStrideDefault(int64_t dim, int8_t& axisIdx)
 {
     for (int8_t i = inUbPerm_.perm[inUbPerm_.cnt - 1] - 1; i >= 0; --i) {
         if (allUbPerm_.find(i) != allUbPerm_.end() && axisIdx == 0) {
@@ -694,13 +724,13 @@ void TransposeGatherTiling::CalcInSrcStrideDefault(int64_t dim, int8_t& axisIdx)
 /**
  * @brief CalcUbSplitInfo4MTE 的搬出跨步段：计算 OutDstStride
  *
- * 原函数 OutDstStride 循环逐行搬移：从输出侧向前扫描 UB 内轴，
+ * 从输出侧向前扫描 UB 内轴，
  * 填 axis0/1/2OutDstStride。
  *
  * @param dim     简化后维度数
  * @param axisIdx [in,out] 循环内轴序号计数器
  */
-void TransposeGatherTiling::CalcOutDstStride(int64_t dim, int8_t& axisIdx)
+void TransposeGatherStrategy::CalcOutDstStride(int64_t dim, int8_t& axisIdx)
 {
     for (int8_t j = dim - outUbPerm_.cnt - 1; j >= 0; --j) {
         if (allUbPerm_.find(shapeInfo_.reducedPerm[j]) != allUbPerm_.end() && axisIdx == 0) {
@@ -726,7 +756,7 @@ void TransposeGatherTiling::CalcOutDstStride(int64_t dim, int8_t& axisIdx)
  * 同时修正 ubPerm 顺序，使 gather 索引生成阶段（GenIndex4OneDim/TwoDim/ThreeDim）
  * 按新的轴顺序枚举输出维度，并适配 outUbPerm.cnt==2/3 时的轴排列。
  */
-void TransposeGatherTiling::AdjustInUbAxesPosition()
+void TransposeGatherStrategy::AdjustInUbAxesPosition()
 {
     int8_t outLastDimInPos = ubSplitInfo_.ubPerm[ubSplitInfo_.ubAxesCnt - 1];
     int8_t axis0Gap = ubSplitInfo_.inUbInCutPos - 1 - outLastDimInPos;
@@ -734,9 +764,9 @@ void TransposeGatherTiling::AdjustInUbAxesPosition()
     if (axis0Gap > 0) {
         ShiftInUbAxes4Borrow(outLastDimInPos, axis0Gap);
 
-        if (outUbPerm_.cnt == NUM_TWO) {
+        if (outUbPerm_.cnt == GATHER_NUM_TWO) {
             AdjustUbPerm4BorrowCntTwo();
-        } else if (outUbPerm_.cnt == NUM_THREE) {
+        } else if (outUbPerm_.cnt == GATHER_NUM_THREE) {
             AdjustUbPerm4BorrowCntThree();
         }
     }
@@ -745,13 +775,13 @@ void TransposeGatherTiling::AdjustInUbAxesPosition()
 /**
  * @brief AdjustInUbAxesPosition 的 axis0Gap>0 共享段：借轴位移 inUbAxes
  *
- * 原函数 shift 段逐行搬移：把 inUbAxes 中元素向左移位 axis0Gap 格，
+ * 把 inUbAxes 中元素向左移位 axis0Gap 格，
  * 把输出末维那根轴（outUbAxes 末项）搬到 axis0 位置，并修正 inUbOutCutPos。
  *
  * @param outLastDimInPos 输出末维在 UB 轴序列中的位置
  * @param axis0Gap        需左移的格数（inUbInCutPos - 1 - outLastDimInPos）
  */
-void TransposeGatherTiling::ShiftInUbAxes4Borrow(int8_t outLastDimInPos, int8_t axis0Gap)
+void TransposeGatherStrategy::ShiftInUbAxes4Borrow(int8_t outLastDimInPos, int8_t axis0Gap)
 {
     for (int8_t i = 0; i < axis0Gap; ++i) {
         ubSplitInfo_.inUbAxes[outLastDimInPos + i] = ubSplitInfo_.inUbAxes[outLastDimInPos + i + 1];
@@ -763,23 +793,23 @@ void TransposeGatherTiling::ShiftInUbAxes4Borrow(int8_t outLastDimInPos, int8_t 
 }
 
 /**
- * @brief AdjustInUbAxesPosition 的 outUbPerm_.cnt==NUM_TWO 场景：ubPerm 重排
+ * @brief AdjustInUbAxesPosition 的 outUbPerm_.cnt==GATHER_NUM_TWO 场景：ubPerm 重排
  *
- * 原函数 cnt==2 分支体逐行搬移：末两位置为 [0, 1]。
+ * 末两位置为 [0, 1]。
  */
-void TransposeGatherTiling::AdjustUbPerm4BorrowCntTwo()
+void TransposeGatherStrategy::AdjustUbPerm4BorrowCntTwo()
 {
-    ubSplitInfo_.ubPerm[ubSplitInfo_.ubAxesCnt - NUM_TWO] = 0;
+    ubSplitInfo_.ubPerm[ubSplitInfo_.ubAxesCnt - GATHER_NUM_TWO] = 0;
     ubSplitInfo_.ubPerm[ubSplitInfo_.ubAxesCnt - 1] = 1;
 }
 
 /**
- * @brief AdjustInUbAxesPosition 的 outUbPerm_.cnt==NUM_THREE 场景：ubPerm 重排分发
+ * @brief AdjustInUbAxesPosition 的 outUbPerm_.cnt==GATHER_NUM_THREE 场景：ubPerm 重排分发
  *
- * 原函数 cnt==3 分支逐行搬移：按 in/out 轴是否无重叠（cnt 之和 == ubAxesCnt）
+ * 按 in/out 轴是否无重叠（cnt 之和 == ubAxesCnt）
  * 分发到 NoOverlap / Overlap 两个子函数。
  */
-void TransposeGatherTiling::AdjustUbPerm4BorrowCntThree()
+void TransposeGatherStrategy::AdjustUbPerm4BorrowCntThree()
 {
     /*           no overlap: 2 1 0 -> 1 0 2
      *                       2 0 1 -> 1 0 2
@@ -798,33 +828,33 @@ void TransposeGatherTiling::AdjustUbPerm4BorrowCntThree()
 /**
  * @brief cnt==3 无重叠场景（inUbPerm_.cnt + outUbPerm_.cnt == ubAxesCnt）
  *
- * 原函数 cnt==3 / no-overlap 分支体逐行搬移：末三轴 perm 中含 2 的位置决定重排。
+ * 末三轴 perm 中含 2 的位置决定重排。
  */
-void TransposeGatherTiling::AdjustUbPermCntThreeNoOverlap()
+void TransposeGatherStrategy::AdjustUbPermCntThreeNoOverlap()
 {
-    if (ubSplitInfo_.ubPerm[ubSplitInfo_.ubAxesCnt - NUM_THREE] == NUM_TWO) {
-        ubSplitInfo_.ubPerm[ubSplitInfo_.ubAxesCnt - NUM_THREE] = 1;
-        ubSplitInfo_.ubPerm[ubSplitInfo_.ubAxesCnt - NUM_TWO] = 0;
-        ubSplitInfo_.ubPerm[ubSplitInfo_.ubAxesCnt - 1] = NUM_TWO;
-    } else if (ubSplitInfo_.ubPerm[ubSplitInfo_.ubAxesCnt - NUM_TWO] == NUM_TWO) {
-        ubSplitInfo_.ubPerm[ubSplitInfo_.ubAxesCnt - NUM_THREE] = 0;
-        ubSplitInfo_.ubPerm[ubSplitInfo_.ubAxesCnt - NUM_TWO] = 1;
-        ubSplitInfo_.ubPerm[ubSplitInfo_.ubAxesCnt - 1] = NUM_TWO;
+    if (ubSplitInfo_.ubPerm[ubSplitInfo_.ubAxesCnt - GATHER_NUM_THREE] == GATHER_NUM_TWO) {
+        ubSplitInfo_.ubPerm[ubSplitInfo_.ubAxesCnt - GATHER_NUM_THREE] = 1;
+        ubSplitInfo_.ubPerm[ubSplitInfo_.ubAxesCnt - GATHER_NUM_TWO] = 0;
+        ubSplitInfo_.ubPerm[ubSplitInfo_.ubAxesCnt - 1] = GATHER_NUM_TWO;
+    } else if (ubSplitInfo_.ubPerm[ubSplitInfo_.ubAxesCnt - GATHER_NUM_TWO] == GATHER_NUM_TWO) {
+        ubSplitInfo_.ubPerm[ubSplitInfo_.ubAxesCnt - GATHER_NUM_THREE] = 0;
+        ubSplitInfo_.ubPerm[ubSplitInfo_.ubAxesCnt - GATHER_NUM_TWO] = 1;
+        ubSplitInfo_.ubPerm[ubSplitInfo_.ubAxesCnt - 1] = GATHER_NUM_TWO;
     }
 }
 
 /**
  * @brief cnt==3 有重叠场景（inUbPerm_.cnt + outUbPerm_.cnt != ubAxesCnt）
  *
- * 原函数 cnt==3 / overlap 分支体逐行搬移：末三轴 perm 中 >= 2 的位置决定重排。
+ * 末三轴 perm 中 >= 2 的位置决定重排。
  */
-void TransposeGatherTiling::AdjustUbPermCntThreeOverlap()
+void TransposeGatherStrategy::AdjustUbPermCntThreeOverlap()
 {
-    if (ubSplitInfo_.ubPerm[ubSplitInfo_.ubAxesCnt - NUM_THREE] >= NUM_TWO) {
-        ubSplitInfo_.ubPerm[ubSplitInfo_.ubAxesCnt - NUM_TWO] = 0;
+    if (ubSplitInfo_.ubPerm[ubSplitInfo_.ubAxesCnt - GATHER_NUM_THREE] >= GATHER_NUM_TWO) {
+        ubSplitInfo_.ubPerm[ubSplitInfo_.ubAxesCnt - GATHER_NUM_TWO] = 0;
         ubSplitInfo_.ubPerm[ubSplitInfo_.ubAxesCnt - 1] = 1;
-    } else if (ubSplitInfo_.ubPerm[ubSplitInfo_.ubAxesCnt - NUM_TWO] >= NUM_TWO) {
-        ubSplitInfo_.ubPerm[ubSplitInfo_.ubAxesCnt - NUM_THREE] = 0;
+    } else if (ubSplitInfo_.ubPerm[ubSplitInfo_.ubAxesCnt - GATHER_NUM_TWO] >= GATHER_NUM_TWO) {
+        ubSplitInfo_.ubPerm[ubSplitInfo_.ubAxesCnt - GATHER_NUM_THREE] = 0;
         ubSplitInfo_.ubPerm[ubSplitInfo_.ubAxesCnt - 1] = 1;
     }
 }
@@ -839,13 +869,13 @@ void TransposeGatherTiling::AdjustUbPermCntThreeOverlap()
  * @param steps 索引步进（元素数）
  * @return true 存在 bank 冲突（应回退 NDDMA）；false 安全
  */
-bool TransposeGatherTiling::CheckBC(int32_t steps)
+bool TransposeGatherStrategy::CheckBC(int32_t steps)
 {
     int32_t bytesPerSubBank = 8;
     int32_t bytesPerBank = 128;
     int32_t stepBytes = steps * shapeInfo_.eleLenInBytes;
     int32_t stepBytesAlign = Ops::Base::CeilAlign(stepBytes, bytesPerSubBank);
-    return (stepBytesAlign % bytesPerBank / bytesPerSubBank % NUM_TWO == 0);
+    return (stepBytesAlign % bytesPerBank / bytesPerSubBank % GATHER_NUM_TWO == 0);
 }
 
 /**
@@ -858,12 +888,12 @@ bool TransposeGatherTiling::CheckBC(int32_t steps)
  * @param elemInTensor 数据 tensor 元素容量
  * @return block 边长预算（元素数）
  */
-int64_t TransposeGatherTiling::CalcSqrtedTensor(int64_t elemInTensor)
+int64_t TransposeGatherStrategy::CalcSqrtedTensor(int64_t elemInTensor)
 {
-    int64_t elemPerBlock = platInfo_.ubBlockSize / shapeInfo_.eleLenInBytes;
+    int64_t elemPerBlock = ubBlockSize_ / shapeInfo_.eleLenInBytes;
     int64_t sqrtedTensor = static_cast<int64_t>(std::sqrt(elemInTensor)) / elemPerBlock * elemPerBlock;
-    if (sqrtedTensor * shapeInfo_.eleLenInBytes > platInfo_.cacheLineSize) {
-        sqrtedTensor = (sqrtedTensor * shapeInfo_.eleLenInBytes / platInfo_.cacheLineSize * platInfo_.cacheLineSize /
+    if (sqrtedTensor * shapeInfo_.eleLenInBytes > cacheLineSize_) {
+        sqrtedTensor = (sqrtedTensor * shapeInfo_.eleLenInBytes / cacheLineSize_ * cacheLineSize_ /
                         shapeInfo_.eleLenInBytes);
     }
     int32_t bytesPerSubBank = 8;
@@ -890,7 +920,7 @@ int64_t TransposeGatherTiling::CalcSqrtedTensor(int64_t elemInTensor)
  *
  * @return GRAPH_SUCCESS 切轴完成；GRAPH_FAILED MTE 效率不足或 bank 冲突
  */
-ge::graphStatus TransposeGatherTiling::CalcUbSplitInfo()
+ge::graphStatus TransposeGatherStrategy::CalcUbSplitInfo()
 {
     int64_t elemInTensor = static_cast<int64_t>(dataTensorSize_ / shapeInfo_.eleLenInBytes);
     int64_t sqrtedTensor = CalcSqrtedTensor(elemInTensor);
@@ -925,12 +955,12 @@ ge::graphStatus TransposeGatherTiling::CalcUbSplitInfo()
  *
  * @return GRAPH_SUCCESS 分核完成；GRAPH_FAILED 块数太少回退 NDDMA
  */
-ge::graphStatus TransposeGatherTiling::CalcBlockSplitInfo()
+ge::graphStatus TransposeGatherStrategy::CalcBlockSplitInfo()
 {
     int64_t totalElems = 1;
     CollectBlkAxes(totalElems);
-    blkSplitInfo_.usedCoreCnt = Ops::Base::CeilDiv(totalElems, Ops::Base::CeilDiv(totalElems, platInfo_.coreNum));
-    if (blkSplitInfo_.usedCoreCnt < static_cast<uint32_t>(platInfo_.coreNum / NUM_TWO)) {
+    blkSplitInfo_.usedCoreCnt = Ops::Base::CeilDiv(totalElems, Ops::Base::CeilDiv(totalElems, coreNum_));
+    if (blkSplitInfo_.usedCoreCnt < static_cast<uint32_t>(coreNum_ / GATHER_NUM_TWO)) {
         return ge::GRAPH_FAILED;
     }
     blkSplitInfo_.blkFactor = Ops::Base::CeilDiv(totalElems, static_cast<int64_t>(blkSplitInfo_.usedCoreCnt));
@@ -940,14 +970,14 @@ ge::graphStatus TransposeGatherTiling::CalcBlockSplitInfo()
 }
 
 /**
- * @brief 逐轴收集块级循环轴（CollectBlkAxes，从 CalcBlockSplitInfo 循环体提取）
+ * @brief 逐轴收集块级循环轴（CollectBlkAxes）
  *
- * 循环体与原函数逐行同名：4 分支 dispatch 决定 axisFactor / 是否跳过；
+ * 循环体按 4 分支 dispatch 决定 axisFactor / 是否跳过；
  * in/out 切尾段对称参数化为 CalcBlkUbCutAxis（调用两次），共享偏移计算落入 CalcBlkAxesOffset。
  *
- * @param totalElems [in,out] 块级循环总块数乘积（初值 1，与原函数局部变量同名同序）
+ * @param totalElems [in,out] 块级循环总块数乘积（初值 1）
  */
-void TransposeGatherTiling::CollectBlkAxes(int64_t& totalElems)
+void TransposeGatherStrategy::CollectBlkAxes(int64_t& totalElems)
 {
     int8_t dim = shapeInfo_.dim;
     int64_t axisFactor = 1;
@@ -972,7 +1002,6 @@ void TransposeGatherTiling::CollectBlkAxes(int64_t& totalElems)
 /**
  * @brief 设置块级切分轴因子并记录尾块位置（in/out 镜像段参数化，调用两次）
  *
- * 与原函数 in/out 分支逐行同名：
  *   axisFactor = cutAxisFactor;
  *   if (cutAxisSize % cutAxisFactor != 0) cutPos = blkAxesCnt;
  * 类型提升保留：cutAxisSize 为 int64_t、cutAxisFactor 为 int32_t（与 ubSplitInfo_ 字段同型）。
@@ -983,8 +1012,8 @@ void TransposeGatherTiling::CollectBlkAxes(int64_t& totalElems)
  * @param cutPos         [in,out] 块级切尾位置（blkIn/OutUbCutPos）
  * @param blkAxesCnt     当前块级轴计数（blkAxesCnt）
  */
-void TransposeGatherTiling::CalcBlkUbCutAxis(int64_t& axisFactor, int64_t cutAxisSize, int32_t cutAxisFactor,
-                                             int8_t& cutPos, int8_t blkAxesCnt)
+void TransposeGatherStrategy::CalcBlkUbCutAxis(int64_t& axisFactor, int64_t cutAxisSize, int32_t cutAxisFactor,
+                                               int8_t& cutPos, int8_t blkAxesCnt)
 {
     axisFactor = cutAxisFactor;
     if (cutAxisSize % cutAxisFactor != 0) {
@@ -993,17 +1022,17 @@ void TransposeGatherTiling::CalcBlkUbCutAxis(int64_t& axisFactor, int64_t cutAxi
 }
 
 /**
- * @brief 计算单轴块级循环次数与输入/输出地址跨步（从 CalcBlockSplitInfo 偏移尾段提取）
+ * @brief 计算单轴块级循环次数与输入/输出地址跨步
  *
- * 与原函数 if-else-if 之后的共享尾段逐行同名：axisLpSize、blkAxes/InAOffset/OutAOffset、
- * ++blkAxesCnt、totalElems 累乘，算式（CeilDiv 参数、CalcShapeSize 区间、std::find 距离）逐字保留。
+ * 尾段计算 axisLpSize、blkAxes/InAOffset/OutAOffset、++blkAxesCnt、totalElems 累乘，
+ * 其中 CeilDiv 参数、CalcShapeSize 区间与 std::find 距离按上述语义取值。
  *
  * @param i          当前轴索引
- * @param dim        简化后维度数（原函数局部变量 dim）
+ * @param dim        简化后维度数
  * @param axisFactor 当前轴块级循环因子
  * @param totalElems [in,out] 块级循环总块数乘积
  */
-void TransposeGatherTiling::CalcBlkAxesOffset(int8_t i, int8_t dim, int64_t axisFactor, int64_t& totalElems)
+void TransposeGatherStrategy::CalcBlkAxesOffset(int8_t i, int8_t dim, int64_t axisFactor, int64_t& totalElems)
 {
     int64_t axisLpSize = Ops::Base::CeilDiv(shapeInfo_.reducedInShape[i], axisFactor);
     blkSplitInfo_.blkAxes[blkSplitInfo_.blkAxesCnt] = axisLpSize;
@@ -1018,26 +1047,12 @@ void TransposeGatherTiling::CalcBlkAxesOffset(int8_t i, int8_t dim, int64_t axis
     totalElems *= axisLpSize;
 }
 
-ge::graphStatus TransposeGatherTiling::SetTilingKeyAndCore()
+bool TransposeGatherStrategy::SetTilingData()
 {
-    OP_CHECK_IF(context_->SetTilingKey(tilingKey_) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context_->GetNodeName(), "Set tiling key failed!"), return ge::GRAPH_FAILED);
-    OP_CHECK_IF(context_->SetBlockDim(blkSplitInfo_.usedCoreCnt) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context_->GetNodeName(), "Set used core size failed!"), return ge::GRAPH_FAILED);
-
-    size_t* workspaces = context_->GetWorkspaceSizes(1);
-    OP_CHECK_NULL_WITH_CONTEXT(context_, workspaces);
-    workspaces[0] = SYS_WORKSPACE_SIZE;
-
-    return ge::GRAPH_SUCCESS;
-}
-
-ge::graphStatus TransposeGatherTiling::WriteTilingData()
-{
-    GatherTransposeTilingData* tiling = context_->GetTilingData<GatherTransposeTilingData>();
+    TransposeGatherTilingData* tiling = context_->GetTilingData<TransposeGatherTilingData>();
     if (tiling == nullptr) {
         OP_LOGE(context_->GetNodeName(), "get tiling data failed, capacity is not enough!");
-        return ge::GRAPH_FAILED;
+        return false;
     }
 
     tiling->tilingKey = tilingKey_;
@@ -1073,13 +1088,13 @@ ge::graphStatus TransposeGatherTiling::WriteTilingData()
     std::copy(ubSplitInfo_.inUbAxes, ubSplitInfo_.inUbAxes + TP_GATHER_UB_MAX_DIM_NUM, tiling->inUbAxes);
     std::copy(ubSplitInfo_.outUbAxes, ubSplitInfo_.outUbAxes + TP_GATHER_UB_MAX_DIM_NUM, tiling->outUbAxes);
     std::copy(ubSplitInfo_.ubPerm, ubSplitInfo_.ubPerm + TP_GATHER_UB_MAX_DIM_NUM, tiling->ubPerm);
-    return ge::GRAPH_SUCCESS;
+    return true;
 }
 
-std::string TransposeGatherTiling::PrintTilingData()
+void TransposeGatherStrategy::LogTilingData()
 {
     std::string tdStr;
-    tdStr += std::to_string(static_cast<int64_t>(tilingKey_)) + ",";
+    tdStr += std::to_string(tilingKey_) + ",";
     tdStr += std::to_string(static_cast<int32_t>(dataTensorSize_)) + ",";
     tdStr += std::to_string(static_cast<int32_t>(indexTensorSize_)) + ",";
     tdStr += std::to_string(static_cast<int32_t>(blkSplitInfo_.usedCoreCnt)) + ",";
@@ -1127,33 +1142,26 @@ std::string TransposeGatherTiling::PrintTilingData()
     for (int8_t i = 0; i < TP_GATHER_UB_MAX_DIM_NUM; ++i) {
         tdStr += std::to_string(ubSplitInfo_.ubPerm[i]) + " ";
     }
-    return tdStr;
+    OP_LOGI(context_->GetNodeName(), "The tiling data is: %s", tdStr.c_str());
 }
 
 /**
- * @brief Gather Tiling 主流程入口
+ * @brief 主体切分：UB 预算 → 切轴 → 分核（不写 TilingData、不打印）
  *
- * 依次执行：UB 预算 → 切轴（UB 内轴+切分因子）→ 分核 → 写 TilingData →
- * 设置 tilingKey 与 blockDim。
- *
- * 任一步失败（MTE 效率不足 / bank 冲突 / 块数太少）均返回 GRAPH_FAILED，
- * 上层 RunTranposelTiling 会继续走 NDDMA 决策树（EntryTilingTemplate）兜底。
- *
- * @return GRAPH_SUCCESS gather Tiling 完成；GRAPH_FAILED 回退 NDDMA
+ * UB 效率不足、bank 冲突或块数太少时返回 FALLBACK，由调度器尝试后续策略。
  */
-ge::graphStatus TransposeGatherTiling::DoTiling()
+TilingStatus TransposeGatherStrategy::DoExecute()
 {
     CalcTensorSize();
-    OP_CHECK_IF(CalcUbSplitInfo() != ge::GRAPH_SUCCESS,
-                OP_LOGD(context_->GetNodeName(), "Stop to run gather tiling, mte size is too small!"),
-                return ge::GRAPH_FAILED);
-    OP_CHECK_IF(CalcBlockSplitInfo() != ge::GRAPH_SUCCESS,
-                OP_LOGD(context_->GetNodeName(), "Stop to run gather tiling, block count is too small!"),
-                return ge::GRAPH_FAILED);
-    CHECK_RET_SUCC(WriteTilingData());
-    OP_LOGI(context_->GetNodeName(), "The tiling data is: %s", PrintTilingData().c_str());
-    return SetTilingKeyAndCore();
+    if (CalcUbSplitInfo() != ge::GRAPH_SUCCESS) {
+        OP_LOGD(context_->GetNodeName(), "Stop to run gather tiling, mte size is too small!");
+        return TilingStatus::FALLBACK;
+    }
+    if (CalcBlockSplitInfo() != ge::GRAPH_SUCCESS) {
+        OP_LOGD(context_->GetNodeName(), "Stop to run gather tiling, block count is too small!");
+        return TilingStatus::FALLBACK;
+    }
+    return TilingStatus::SUCCESS;
 }
 
-} // namespace TransWithGather
 } // namespace optiling

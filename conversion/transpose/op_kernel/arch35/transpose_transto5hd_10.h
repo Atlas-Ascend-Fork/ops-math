@@ -9,8 +9,8 @@
  */
 
 /*!
- * \file transpose_transdata_5hd.h
- * \brief TilingKey=10007 VCONV_TRANSPOSE 策略实现
+ * \file transpose_transto5hd_10.h
+ * \brief TilingKey=10007 TRANSTO5HD_10 策略实现
  *
  * 适用场景：DAV_5102(Ascend950) + 2D perm=[1,0] + 16bit 数据类型(fp16/bf16) + shape[0]>5
  *
@@ -50,7 +50,7 @@ using namespace AscendC;
 static constexpr int64_t TRANSELEM = 16; ///< TransDataTo5HD 每次处理的元素数（16×16块转置）
 
 /**
- * @brief VCONV_TRANSPOSE 策略类，使用 TransDataTo5HD 实现2D矩阵转置
+ * @brief TRANSTO5HD_10 策略类，使用 TransDataTo5HD 实现2D矩阵转置
  *
  * 仅实例化 int16_t 模板（对应 fp16/bf16）。TransDataTo5HD 硬件指令
  * 以16行为单位进行行列互换，是2D转置的高效硬件加速方案。
@@ -58,10 +58,10 @@ static constexpr int64_t TRANSELEM = 16; ///< TransDataTo5HD 每次处理的元�
  * @tparam T 数据元素类型（实际仅使用 int16_t）
  */
 template <typename T>
-class KernelTransDataTo5HD {
+class TransposeTransTo5HD10 {
 public:
-    __aicore__ inline KernelTransDataTo5HD(){};
-    __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, const TransposeVCONVTilingData* tilingData, TPipe* pipe);
+    __aicore__ inline TransposeTransTo5HD10(){};
+    __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, const TransposeTransTo5HD10TilingData* tilingData, TPipe* pipe);
     __aicore__ inline void Process();
 
 private:
@@ -82,7 +82,7 @@ private:
     __aicore__ inline void BaseCopyOut(uint32_t process);
 
 private:
-    const TransposeVCONVTilingData* tiling_ = nullptr;
+    const TransposeTransTo5HD10TilingData* tiling_ = nullptr;
     TQue<TPosition::VECIN, 1> inQueueSrc;
     TQue<TPosition::VECOUT, 1> outQueueDst;
     GlobalTensor<T> srcGlobal, dstGlobal;
@@ -100,8 +100,8 @@ private:
 };
 
 template <typename T>
-__aicore__ inline void KernelTransDataTo5HD<T>::Init(GM_ADDR x, GM_ADDR y, const TransposeVCONVTilingData* tilingData,
-                                                     TPipe* pipe)
+__aicore__ inline void TransposeTransTo5HD10<T>::Init(GM_ADDR x, GM_ADDR y,
+                                                      const TransposeTransTo5HD10TilingData* tilingData, TPipe* pipe)
 {
     tiling_ = tilingData;
     blockIdx_ = GetBlockIdx();
@@ -126,7 +126,7 @@ __aicore__ inline void KernelTransDataTo5HD<T>::Init(GM_ADDR x, GM_ADDR y, const
  * @param cAlign  列数对齐值（用于 srcRepStride 计算）
  */
 template <typename T>
-__aicore__ inline void KernelTransDataTo5HD<T>::ComputeRConv(int r, int c, int cAlign)
+__aicore__ inline void TransposeTransTo5HD10<T>::ComputeRConv(int r, int c, int cAlign)
 {
     LocalTensor<T> srcLocal = inQueueSrc.DeQue<T>();
     LocalTensor<T> dstLocal = outQueueDst.AllocTensor<T>();
@@ -166,7 +166,7 @@ __aicore__ inline void KernelTransDataTo5HD<T>::ComputeRConv(int r, int c, int c
  * @param rAlign  行数对齐值（用于 dstRepStride 计算）
  */
 template <typename T>
-__aicore__ inline void KernelTransDataTo5HD<T>::ComputeCConv(int r, int c, int rAlign)
+__aicore__ inline void TransposeTransTo5HD10<T>::ComputeCConv(int r, int c, int rAlign)
 {
     LocalTensor<T> srcLocal = inQueueSrc.DeQue<T>();
     LocalTensor<T> dstLocal = outQueueDst.AllocTensor<T>();
@@ -196,7 +196,7 @@ __aicore__ inline void KernelTransDataTo5HD<T>::ComputeCConv(int r, int c, int r
 }
 
 template <typename T>
-__aicore__ inline void KernelTransDataTo5HD<T>::Process()
+__aicore__ inline void TransposeTransTo5HD10<T>::Process()
 {
     if (blockIdx_ >= tiling_->UsedCoreNum) {
         return;
@@ -231,7 +231,7 @@ __aicore__ inline void KernelTransDataTo5HD<T>::Process()
 }
 
 template <typename T>
-__aicore__ inline void KernelTransDataTo5HD<T>::SetBasePocessData(uint32_t process, bool rSplit, bool rcSplit)
+__aicore__ inline void TransposeTransTo5HD10<T>::SetBasePocessData(uint32_t process, bool rSplit, bool rcSplit)
 {
     if (rSplit) {
         if (rcSplit) {
@@ -254,8 +254,8 @@ __aicore__ inline void KernelTransDataTo5HD<T>::SetBasePocessData(uint32_t proce
 }
 
 template <typename T>
-__aicore__ inline void KernelTransDataTo5HD<T>::BaseProcess(uint32_t process, uint32_t r, uint32_t c, uint32_t rAlign,
-                                                            uint32_t cAlign)
+__aicore__ inline void TransposeTransTo5HD10<T>::BaseProcess(uint32_t process, uint32_t r, uint32_t c, uint32_t rAlign,
+                                                             uint32_t cAlign)
 {
     BaseCopyIn(process);
     BaseCompute(r, c, rAlign, cAlign);
@@ -263,7 +263,7 @@ __aicore__ inline void KernelTransDataTo5HD<T>::BaseProcess(uint32_t process, ui
 }
 
 template <typename T>
-__aicore__ inline void KernelTransDataTo5HD<T>::BaseCopyIn(uint32_t process)
+__aicore__ inline void TransposeTransTo5HD10<T>::BaseCopyIn(uint32_t process)
 {
     LocalTensor<T> srcLocal = inQueueSrc.AllocTensor<T>();
     SetCopyInParams(process);
@@ -276,7 +276,7 @@ __aicore__ inline void KernelTransDataTo5HD<T>::BaseCopyIn(uint32_t process)
 }
 
 template <typename T>
-__aicore__ inline void KernelTransDataTo5HD<T>::BaseCompute(uint32_t r, uint32_t c, uint32_t rAlign, uint32_t cAlign)
+__aicore__ inline void TransposeTransTo5HD10<T>::BaseCompute(uint32_t r, uint32_t c, uint32_t rAlign, uint32_t cAlign)
 {
     if (r >= c) {
         ComputeRConv(r, c, cAlign);
@@ -286,7 +286,7 @@ __aicore__ inline void KernelTransDataTo5HD<T>::BaseCompute(uint32_t r, uint32_t
 }
 
 template <typename T>
-__aicore__ inline void KernelTransDataTo5HD<T>::BaseCopyOut(uint32_t process)
+__aicore__ inline void TransposeTransTo5HD10<T>::BaseCopyOut(uint32_t process)
 {
     LocalTensor<T> dstLocal = outQueueDst.DeQue<T>();
     SetCopyOutParams(process);
@@ -295,7 +295,7 @@ __aicore__ inline void KernelTransDataTo5HD<T>::BaseCopyOut(uint32_t process)
 }
 
 template <typename T>
-__aicore__ inline void KernelTransDataTo5HD<T>::SetCopyInParams(uint32_t process)
+__aicore__ inline void TransposeTransTo5HD10<T>::SetCopyInParams(uint32_t process)
 {
     if (isRCSplit) {
         SetRCSplitCopyInParams(process);
@@ -307,7 +307,7 @@ __aicore__ inline void KernelTransDataTo5HD<T>::SetCopyInParams(uint32_t process
 }
 
 template <typename T>
-__aicore__ inline void KernelTransDataTo5HD<T>::SetRCSplitCopyInParams(uint32_t process)
+__aicore__ inline void TransposeTransTo5HD10<T>::SetRCSplitCopyInParams(uint32_t process)
 {
     if (blockIdx_ < fullCoreNum) {
         if (process < loopCount - 1) {
@@ -334,7 +334,7 @@ __aicore__ inline void KernelTransDataTo5HD<T>::SetRCSplitCopyInParams(uint32_t 
 }
 
 template <typename T>
-__aicore__ inline void KernelTransDataTo5HD<T>::SetRSplitCopyInParams(uint32_t process)
+__aicore__ inline void TransposeTransTo5HD10<T>::SetRSplitCopyInParams(uint32_t process)
 {
     if (tiling_->CLen % TRANSELEM == 0) {
         Params.blockCount = 1;
@@ -380,7 +380,7 @@ __aicore__ inline void KernelTransDataTo5HD<T>::SetRSplitCopyInParams(uint32_t p
 }
 
 template <typename T>
-__aicore__ inline void KernelTransDataTo5HD<T>::SetCSplitCopyInParams(uint32_t process)
+__aicore__ inline void TransposeTransTo5HD10<T>::SetCSplitCopyInParams(uint32_t process)
 {
     if (blockIdx_ < fullCoreNum) {
         if (process < loopCount - 1) {
@@ -411,7 +411,7 @@ __aicore__ inline void KernelTransDataTo5HD<T>::SetCSplitCopyInParams(uint32_t p
 }
 
 template <typename T>
-__aicore__ inline void KernelTransDataTo5HD<T>::SetCopyOutParams(uint32_t process)
+__aicore__ inline void TransposeTransTo5HD10<T>::SetCopyOutParams(uint32_t process)
 {
     if (isRCSplit) {
         SetRCSplitCopyOutParams(process);
@@ -423,7 +423,7 @@ __aicore__ inline void KernelTransDataTo5HD<T>::SetCopyOutParams(uint32_t proces
 }
 
 template <typename T>
-__aicore__ inline void KernelTransDataTo5HD<T>::SetRCSplitCopyOutParams(uint32_t process)
+__aicore__ inline void TransposeTransTo5HD10<T>::SetRCSplitCopyOutParams(uint32_t process)
 {
     if (blockIdx_ < fullCoreNum) {
         if (process < loopCount - 1) {
@@ -453,7 +453,7 @@ __aicore__ inline void KernelTransDataTo5HD<T>::SetRCSplitCopyOutParams(uint32_t
 }
 
 template <typename T>
-__aicore__ inline void KernelTransDataTo5HD<T>::SetRSplitCopyOutParams(uint32_t process)
+__aicore__ inline void TransposeTransTo5HD10<T>::SetRSplitCopyOutParams(uint32_t process)
 {
     if (blockIdx_ < fullCoreNum) {
         if (process < loopCount - 1) {
@@ -487,7 +487,7 @@ __aicore__ inline void KernelTransDataTo5HD<T>::SetRSplitCopyOutParams(uint32_t 
 }
 
 template <typename T>
-__aicore__ inline void KernelTransDataTo5HD<T>::SetCSplitCopyOutParams(uint32_t process)
+__aicore__ inline void TransposeTransTo5HD10<T>::SetCSplitCopyOutParams(uint32_t process)
 {
     if (blockIdx_ < fullCoreNum) {
         if (process < loopCount - 1) {

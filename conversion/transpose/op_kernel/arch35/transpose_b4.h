@@ -12,7 +12,7 @@
  * \file transpose_b4.h
  * \brief transpose template for HIF4 (b4/fp4) data type — dual-cut tiling (TilingKey 10009)
  *
- * TilingData layout (HIF4DualCutTilingData, must match host side exactly):
+ * TilingData layout (TransposeB4TilingData, must match host side exactly):
  *   gmShape[8] / gmInStride[8] / gmOutStride[8]  — outer loop axes
  *   ubShape[4] / ubInStride[4] / ubOutStride[4]  — inner (UB) loop axes
  *   cutAxisIdx01/02 + cutAxisTail01/02            — tail handling for cut axes
@@ -72,12 +72,12 @@ constexpr int32_t MAIN_TWO = 2;
 constexpr int32_t MAIN_THREE = 3;
 
 // =========================================================================
-// TransposeHIF4 — dual-cut kernel class
+// TransposeB4 — dual-cut kernel class
 // =========================================================================
-class TransposeHIF4 {
+class TransposeB4 {
 public:
-    __aicore__ inline TransposeHIF4(){};
-    __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, const HIF4DualCutTilingData* tilingData, TPipe* pipe);
+    __aicore__ inline TransposeB4(){};
+    __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, const TransposeB4TilingData* tilingData, TPipe* pipe);
     __aicore__ inline void Process();
 
 private:
@@ -126,7 +126,7 @@ private:
                                                     Reg::MaskMergeMode::ZEROING, AscendC::RoundMode::CAST_RINT};
     GlobalTensor<int8_t> xGM_;
     GlobalTensor<int8_t> yGM_;
-    const HIF4DualCutTilingData* tiling_;
+    const TransposeB4TilingData* tiling_;
     TPipe* pipe_;
     TQue<QuePosition::VECIN, TQUE_DEPTH> inputQue_;
     TBuf<QuePosition::VECCALC> castBuf_;
@@ -143,7 +143,7 @@ private:
     int32_t baseIdx_ = 0;
 };
 
-__aicore__ inline void TransposeHIF4::Init(GM_ADDR x, GM_ADDR y, const HIF4DualCutTilingData* tilingData, TPipe* pipe)
+__aicore__ inline void TransposeB4::Init(GM_ADDR x, GM_ADDR y, const TransposeB4TilingData* tilingData, TPipe* pipe)
 {
     blockIdx_ = GetBlockIdx();
     tiling_ = tilingData;
@@ -191,7 +191,7 @@ __aicore__ inline void TransposeHIF4::Init(GM_ADDR x, GM_ADDR y, const HIF4DualC
     baseIdx_ = TP_B4_UB_LEN - innerAxisNums_;
 }
 
-__aicore__ inline void TransposeHIF4::Process()
+__aicore__ inline void TransposeB4::Process()
 {
     if (blockIdx_ >= tiling_->useCoreNum) {
         return;
@@ -210,7 +210,7 @@ __aicore__ inline void TransposeHIF4::Process()
 }
 
 // Compute the [startIter, endIter) gm-iteration window handled by this core.
-__aicore__ inline void TransposeHIF4::ComputeIterRange(int32_t& startIter, int32_t& endIter)
+__aicore__ inline void TransposeB4::ComputeIterRange(int32_t& startIter, int32_t& endIter)
 {
     startIter = blockIdx_ * tiling_->dimsPerCore;
     if (blockIdx_ == tiling_->useCoreNum - 1) {
@@ -221,7 +221,7 @@ __aicore__ inline void TransposeHIF4::ComputeIterRange(int32_t& startIter, int32
 }
 
 // Unflatten the linear gm-iteration index into a multi-dim gmIdx (gmBaseIdx offsets the active axes).
-__aicore__ inline void TransposeHIF4::UnflattenGmIdx(int32_t iter, int32_t gmBaseIdx, int32_t* gmIdx)
+__aicore__ inline void TransposeB4::UnflattenGmIdx(int32_t iter, int32_t gmBaseIdx, int32_t* gmIdx)
 {
     int32_t tmp = iter;
     for (int32_t i = tiling_->outerAxisNums - 1; i >= 0; i--) {
@@ -231,8 +231,8 @@ __aicore__ inline void TransposeHIF4::UnflattenGmIdx(int32_t iter, int32_t gmBas
 }
 
 // Compute the GM input/output byte offsets (HIF4 packs 2 elements per byte).
-__aicore__ inline void TransposeHIF4::ComputeGmByteOffsets(const int32_t* gmIdx, int32_t gmBaseIdx,
-                                                           int64_t& gmInByteOffset, int64_t& gmOutByteOffset)
+__aicore__ inline void TransposeB4::ComputeGmByteOffsets(const int32_t* gmIdx, int32_t gmBaseIdx,
+                                                         int64_t& gmInByteOffset, int64_t& gmOutByteOffset)
 {
     int64_t inOffset = 0;
     int64_t outOffset = 0;
@@ -245,8 +245,8 @@ __aicore__ inline void TransposeHIF4::ComputeGmByteOffsets(const int32_t* gmIdx,
 }
 
 // Determine the actual ubShape for this iteration, applying cut-axis tail replacement.
-__aicore__ inline void TransposeHIF4::ComputeUpdatedUbShape(const int32_t* gmIdx, int32_t gmBaseIdx,
-                                                            int32_t* updatedUbInShape, int32_t* updatedUbOutShape)
+__aicore__ inline void TransposeB4::ComputeUpdatedUbShape(const int32_t* gmIdx, int32_t gmBaseIdx,
+                                                          int32_t* updatedUbInShape, int32_t* updatedUbOutShape)
 {
     for (int32_t i = baseIdx_; i < TP_B4_UB_LEN; i++) {
         updatedUbInShape[i] = tiling_->ubShape[i];
@@ -269,10 +269,10 @@ __aicore__ inline void TransposeHIF4::ComputeUpdatedUbShape(const int32_t* gmIdx
 }
 
 // Compute per-tile element counts (tileB16Elem/planeEleBf16/validBf16Elem) and the UB-out / GM-in strides.
-__aicore__ inline void TransposeHIF4::ComputeTileStrides(const int32_t* updatedUbInShape,
-                                                         const int32_t* updatedUbOutShape, int64_t& tileB16Elem,
-                                                         int64_t& planeEleBf16, int64_t& validBf16Elem,
-                                                         int64_t* updatedUbOutStride, int64_t* updatedGmInStride)
+__aicore__ inline void TransposeB4::ComputeTileStrides(const int32_t* updatedUbInShape,
+                                                       const int32_t* updatedUbOutShape, int64_t& tileB16Elem,
+                                                       int64_t& planeEleBf16, int64_t& validBf16Elem,
+                                                       int64_t* updatedUbOutStride, int64_t* updatedGmInStride)
 {
     int64_t probStride = 1;
     for (int32_t i = TP_B4_UB_LEN - 1; i >= baseIdx_; i--) {
@@ -310,9 +310,9 @@ __aicore__ inline void TransposeHIF4::ComputeTileStrides(const int32_t* updatedU
 
 // Align the stride of the 3rd-largest (and, for 4 inner axes, 4th-largest) UB-out dimension to UB_BLOCK,
 // and derive the element count to cast bf16 -> b4.
-__aicore__ inline void TransposeHIF4::AlignOutStrideForB4(const int32_t* updatedUbInShape, int64_t* updatedUbOutStride,
-                                                          int64_t* updatedGmInStride, int64_t validBf16Elem,
-                                                          int64_t& validBf16ToB4Elem)
+__aicore__ inline void TransposeB4::AlignOutStrideForB4(const int32_t* updatedUbInShape, int64_t* updatedUbOutStride,
+                                                        int64_t* updatedGmInStride, int64_t validBf16Elem,
+                                                        int64_t& validBf16ToB4Elem)
 {
     // 找出updatedUbOutStride中第3大的位置，对齐UB_BLOCK
     if (innerAxisNums_ < INNNER_AXIS_NUMS_THREE) {
@@ -358,8 +358,8 @@ __aicore__ inline void TransposeHIF4::AlignOutStrideForB4(const int32_t* updated
 }
 
 // Compute the UB->UB transpose srcStride.
-__aicore__ inline void TransposeHIF4::ComputeUbInStride(const int32_t* updatedUbInShape, int64_t planeEleBf16,
-                                                        int64_t* updatedUbInStride)
+__aicore__ inline void TransposeB4::ComputeUbInStride(const int32_t* updatedUbInShape, int64_t planeEleBf16,
+                                                      int64_t* updatedUbInStride)
 {
     updatedUbInStride[TP_B4_UB_LEN - 1] = 1;
     updatedUbInStride[TP_B4_UB_LEN - TAIL_TWO] = updatedUbInShape[TP_B4_UB_LEN - 1];
@@ -372,8 +372,8 @@ __aicore__ inline void TransposeHIF4::ComputeUbInStride(const int32_t* updatedUb
 }
 
 // Process a single gm-iteration: derive all tile descriptors, then run the copy/compute pipeline.
-__aicore__ inline void TransposeHIF4::ProcessOneIteration(int32_t iter, const LocalTensor<bfloat16_t>& castLocal,
-                                                          const LocalTensor<bfloat16_t>& transposeLocal)
+__aicore__ inline void TransposeB4::ProcessOneIteration(int32_t iter, const LocalTensor<bfloat16_t>& castLocal,
+                                                        const LocalTensor<bfloat16_t>& transposeLocal)
 {
     int32_t gmBaseIdx = TP_B4_GM_LEN - tiling_->outerAxisNums;
 
@@ -413,11 +413,13 @@ __aicore__ inline void TransposeHIF4::ProcessOneIteration(int32_t iter, const Lo
 }
 
 // CopyIn -> Cast fp4->bf16 -> transpose -> Cast bf16->fp4 -> CopyOut, with pipe syncs.
-__aicore__ inline void TransposeHIF4::RunTilePipeline(
-    int64_t gmInByteOffset, int64_t gmOutByteOffset, const int32_t* updatedUbInShape, const int32_t* updatedUbOutShape,
-    const int64_t* updatedUbInStride, const int64_t* updatedUbOutStride, const int64_t* updatedGmInStride,
-    int64_t tileB16Elem, int64_t validBf16Elem, int64_t validBf16ToB4Elem, const LocalTensor<bfloat16_t>& castLocal,
-    const LocalTensor<bfloat16_t>& transposeLocal)
+__aicore__ inline void TransposeB4::RunTilePipeline(int64_t gmInByteOffset, int64_t gmOutByteOffset,
+                                                    const int32_t* updatedUbInShape, const int32_t* updatedUbOutShape,
+                                                    const int64_t* updatedUbInStride, const int64_t* updatedUbOutStride,
+                                                    const int64_t* updatedGmInStride, int64_t tileB16Elem,
+                                                    int64_t validBf16Elem, int64_t validBf16ToB4Elem,
+                                                    const LocalTensor<bfloat16_t>& castLocal,
+                                                    const LocalTensor<bfloat16_t>& transposeLocal)
 {
     // copyIn
     CopyIn(gmInByteOffset, updatedUbInShape);
@@ -447,9 +449,8 @@ __aicore__ inline void TransposeHIF4::RunTilePipeline(
     WaitFlag<HardEvent::MTE3_S>(eventId3);
 }
 
-__aicore__ inline void TransposeHIF4::CopyOut(int64_t gmOutByteOffset, const int32_t* updatedUbOutShape,
-                                              const int64_t* updatedGmInStride,
-                                              const LocalTensor<bfloat16_t>& castLocal)
+__aicore__ inline void TransposeB4::CopyOut(int64_t gmOutByteOffset, const int32_t* updatedUbOutShape,
+                                            const int64_t* updatedGmInStride, const LocalTensor<bfloat16_t>& castLocal)
 {
     LocalTensor<int8_t> tmp = (LocalTensor<int8_t>&)castLocal;
     LoopModeParams loopParams;
@@ -473,7 +474,7 @@ __aicore__ inline void TransposeHIF4::CopyOut(int64_t gmOutByteOffset, const int
     ResetLoopModePara(DataCopyMVType::UB_TO_OUT);
 }
 
-__aicore__ inline void TransposeHIF4::CopyIn(int64_t gmInByteOffset, const int32_t* updatedUbInShape)
+__aicore__ inline void TransposeB4::CopyIn(int64_t gmInByteOffset, const int32_t* updatedUbInShape)
 {
     LocalTensor<int8_t> inputLocal = inputQue_.AllocTensor<int8_t>();
 
@@ -504,7 +505,7 @@ __aicore__ inline void TransposeHIF4::CopyIn(int64_t gmInByteOffset, const int32
     inputQue_.EnQue(inputLocal);
 }
 
-__aicore__ inline void TransposeHIF4::CastFp4ToBf16(int64_t elemCount, const LocalTensor<bfloat16_t>& castLocal)
+__aicore__ inline void TransposeB4::CastFp4ToBf16(int64_t elemCount, const LocalTensor<bfloat16_t>& castLocal)
 {
     LocalTensor<int8_t> inputLocal = inputQue_.DeQue<int8_t>();
     __ubuf__ fp4x2_e2m1_t* inputAddr = reinterpret_cast<__ubuf__ fp4x2_e2m1_t*>(inputLocal.GetPhyAddr());
@@ -531,8 +532,8 @@ __aicore__ inline void TransposeHIF4::CastFp4ToBf16(int64_t elemCount, const Loc
     inputQue_.FreeTensor(inputLocal);
 }
 
-__aicore__ inline void TransposeHIF4::CastBf16ToFp4(int64_t elemCount, const LocalTensor<bfloat16_t>& castLocal,
-                                                    const LocalTensor<bfloat16_t>& transposeLocal)
+__aicore__ inline void TransposeB4::CastBf16ToFp4(int64_t elemCount, const LocalTensor<bfloat16_t>& castLocal,
+                                                  const LocalTensor<bfloat16_t>& transposeLocal)
 {
     __ubuf__ bfloat16_t* transposeAddr = reinterpret_cast<__ubuf__ bfloat16_t*>(transposeLocal.GetPhyAddr());
     __ubuf__ fp4x2_e2m1_t* castAddr = reinterpret_cast<__ubuf__ fp4x2_e2m1_t*>(castLocal.GetPhyAddr());
@@ -557,10 +558,10 @@ __aicore__ inline void TransposeHIF4::CastBf16ToFp4(int64_t elemCount, const Loc
     }
 }
 
-__aicore__ inline void TransposeHIF4::SimtTranspose(int64_t elemCount, const int32_t* updatedUbInShape,
-                                                    const int64_t* updatedUbInStride, const int64_t* updatedUbOutStride,
-                                                    const LocalTensor<bfloat16_t>& castLocal,
-                                                    const LocalTensor<bfloat16_t>& transposeLocal)
+__aicore__ inline void TransposeB4::SimtTranspose(int64_t elemCount, const int32_t* updatedUbInShape,
+                                                  const int64_t* updatedUbInStride, const int64_t* updatedUbOutStride,
+                                                  const LocalTensor<bfloat16_t>& castLocal,
+                                                  const LocalTensor<bfloat16_t>& transposeLocal)
 {
     int32_t shape[TP_B4_UB_LEN] = {1, 1, 1, 1};
     int64_t srcStride[TP_B4_UB_LEN] = {0, 0, 0, 0};

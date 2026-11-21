@@ -9,15 +9,15 @@
  */
 
 /*!
- * \file transpose_2d_transdata.h
- * \brief tilingKey 10011 TRANSPOSE_2D_TRANSDATA: TransDataTo5HD 全 full-tile 转置
+ * \file transpose_transto5hd_10_perf.h
+ * \brief TilingKey=10017 TRANSTO5HD_10_PERF 策略实现（TransDataTo5HD 全 tile 转置）
  *
  * 适用场景：2D perm=[1,0]，dtype 为 16bit/32bit，且 m/n 均 16 对齐。
  * 核心机制：按 tile 搬入 UB 后使用 TransDataTo5HD 硬件指令完成 16x16 块转置，
  * 再按列搬出到输出 GM，MTE2/V/MTE3 通过 Mutex credit 组成三流水。
  */
-#ifndef TRANSPOSE_2D_TRANSDATA_H
-#define TRANSPOSE_2D_TRANSDATA_H
+#ifndef TRANSPOSE_TRANSTO5HD_10_PERF_H
+#define TRANSPOSE_TRANSTO5HD_10_PERF_H
 
 #include "transpose_base.h"
 
@@ -27,16 +27,17 @@ using namespace AscendC;
 static constexpr uint32_t TD_TRANSELEM = 16;
 
 template <typename T>
-class Transpose2DTransData {
+class TransposeTransTo5HD10Perf {
 public:
-    __aicore__ inline Transpose2DTransData(){};
-    __aicore__ inline ~Transpose2DTransData()
+    __aicore__ inline TransposeTransTo5HD10Perf(){};
+    __aicore__ inline ~TransposeTransTo5HD10Perf()
     {
         ReleaseMutexID(mutexIn0_);
         ReleaseMutexID(mutexOut0_);
         ReleaseMutexID(mutexOut1_);
     }
-    __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, __tiling_data_ptr__ Transpose2DTilingData* tilingData);
+    __aicore__ inline void Init(GM_ADDR x, GM_ADDR y,
+                                __tiling_data_ptr__ TransposeTransTo5HD10PerfTilingData* tilingData);
     __aicore__ inline void Process();
 
 private:
@@ -57,7 +58,7 @@ private:
     int32_t m_;
     int32_t n_;
     int32_t coreNum_;
-    __tiling_data_ptr__ Transpose2DTilingData* tiling_;
+    __tiling_data_ptr__ TransposeTransTo5HD10PerfTilingData* tiling_;
 
     // 静态Tensor: LocalMemAllocator分配, 不通过TPipe (in 单缓冲, out 双缓冲)
     LocalTensor<T> inPing;
@@ -81,8 +82,8 @@ private:
 };
 
 template <typename T>
-__aicore__ inline void Transpose2DTransData<T>::Init(GM_ADDR x, GM_ADDR y,
-                                                     __tiling_data_ptr__ Transpose2DTilingData* tilingData)
+__aicore__ inline void TransposeTransTo5HD10Perf<T>::Init(
+    GM_ADDR x, GM_ADDR y, __tiling_data_ptr__ TransposeTransTo5HD10PerfTilingData* tilingData)
 {
     AscendC::InitSocState();
     blockIdx_ = GetBlockIdx();
@@ -142,8 +143,8 @@ __aicore__ inline void Transpose2DTransData<T>::Init(GM_ADDR x, GM_ADDR y,
 }
 
 template <typename T>
-__aicore__ inline void Transpose2DTransData<T>::ComputeTranspose(LocalTensor<T>& src, LocalTensor<T>& dst,
-                                                                 uint32_t rows, uint32_t cols)
+__aicore__ inline void TransposeTransTo5HD10Perf<T>::ComputeTranspose(LocalTensor<T>& src, LocalTensor<T>& dst,
+                                                                      uint32_t rows, uint32_t cols)
 {
     if constexpr (sizeof(T) <= sizeof(int32_t)) {
         constexpr uint32_t S = sizeof(T);
@@ -246,9 +247,9 @@ __aicore__ inline void Transpose2DTransData<T>::ComputeTranspose(LocalTensor<T>&
 }
 
 template <typename T>
-__aicore__ inline void Transpose2DTransData<T>::ProcessTile(uint32_t inRow, uint32_t inCol, uint32_t rows,
-                                                            uint32_t cols, LocalTensor<T>& tin, LocalTensor<T>& tout,
-                                                            MutexID mIn, MutexID mOut)
+__aicore__ inline void TransposeTransTo5HD10Perf<T>::ProcessTile(uint32_t inRow, uint32_t inCol, uint32_t rows,
+                                                                 uint32_t cols, LocalTensor<T>& tin,
+                                                                 LocalTensor<T>& tout, MutexID mIn, MutexID mOut)
 {
     constexpr uint32_t S = sizeof(T);
     DataCopyPadExtParams<T> padParams{false, 0, 0, 0};
@@ -297,7 +298,7 @@ __aicore__ inline void Transpose2DTransData<T>::ProcessTile(uint32_t inRow, uint
 }
 
 template <typename T>
-__aicore__ inline void Transpose2DTransData<T>::Process()
+__aicore__ inline void TransposeTransTo5HD10Perf<T>::Process()
 {
     uint32_t bid = static_cast<uint32_t>(blockIdx_);
     uint32_t bnum = static_cast<uint32_t>(coreNum_);
@@ -340,4 +341,4 @@ __aicore__ inline void Transpose2DTransData<T>::Process()
 
 } // namespace Transpose
 
-#endif // TRANSPOSE_2D_TRANSDATA_H
+#endif // TRANSPOSE_TRANSTO5HD_10_PERF_H

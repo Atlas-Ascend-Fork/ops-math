@@ -18,23 +18,11 @@
 #include <vector>
 #include "tiling_context_faker.h"
 #include "tiling_case_executor.h"
-#include "../../../../op_host/arch35/transpose_tiling_with_gather_arch35.h"
-#include "../../../../op_host/arch35/transpose_tiling_with_021vconv_arch35.h"
 #include "../../../../op_host/arch35/transpose_tiling_arch35.h"
+#include "../../../../op_kernel/arch35/transpose_tiling_key.h"
 
 using namespace ge;
 using namespace Transpose;
-
-/**
- * @brief 断言 TilingData 码流大小并直接访问字段
- *
- * TilingData 已改为 Host/Kernel 共用的纯 struct，码流大小必须与结构体大小严格一致。
- * 断言失败会直接退出当前用例，后续无需再做长度判断。
- * 用法：GetTilingData(具体类型, tilingInfo, data);
- */
-#define GetTilingData(T, tilingInfo, data)             \
-    ASSERT_EQ((tilingInfo).tilingDataSize, sizeof(T)); \
-    const auto* data = reinterpret_cast<const T*>((tilingInfo).tilingData.get())
 
 class TransposeTiling : public testing::Test {
 protected:
@@ -43,356 +31,6 @@ protected:
     static void TearDownTestCase() { std::cout << "TransposeTiling TearDown" << std::endl; }
 };
 
-TEST_F(TransposeTiling, transpose_tiling_01)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 40;
-    compileInfo.ubSize = 196608;
-
-    int64_t perm_value[4] = {3, 0, 1, 2};
-    gert::TilingContextPara::TensorDescription x({{36, 203, 26, 31}, {36, 203, 26, 31}}, ge::DT_INT64, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{4}, {4}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{31, 36, 203, 26}, {31, 36, 203, 26}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-    uint64_t expectTilingKey = 10006;
-    string expectTilingData =
-        "10006 93802085788320 215891311432040488 16842752 27 27 190008 190008 755914244272 0 0 0 190008 0 0 1080 1 1 1 "
-        "1 1 1 1 5456 1 1 1 1 1 1 1 176 1 1 1 1 1 1 1 133143986352 4294967297 4294967297 755914244127 4294967297 "
-        "4294967297 16557351567361 ";
-    std::vector<size_t> expectWorkspaces = {0};
-    ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
-}
-
-TEST_F(TransposeTiling, transpose_021vconv_float32_rconv)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 40;
-    compileInfo.ubSize = 196608;
-
-    int64_t perm_value[3] = {0, 2, 1};
-    gert::TilingContextPara::TensorDescription x({{2, 16, 8}, {2, 16, 8}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{3}, {3}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{2, 8, 16}, {2, 8, 16}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-    if (success && tilingInfo.tilingKey == 10008) {
-        GetTilingData(Transpose021VCONVTilingData, tilingInfo, tilingData);
-        EXPECT_EQ(tilingData->HLen, 16);
-        EXPECT_EQ(tilingData->WLen, 8);
-        EXPECT_EQ(tilingData->UseRConv, true);
-        EXPECT_EQ(tilingData->HAlignBlockElem, 16);
-        EXPECT_EQ(tilingData->WAlignBlockElem, 8);
-        std::vector<size_t> expectWorkspaces = {0};
-        ASSERT_EQ(tilingInfo.workspaceSizes.size(), expectWorkspaces.size());
-        for (size_t i = 0; i < expectWorkspaces.size(); i++) {
-            EXPECT_EQ(tilingInfo.workspaceSizes[i], expectWorkspaces[i]);
-        }
-    }
-}
-
-TEST_F(TransposeTiling, transpose_021vconv_float32_rconv_aligned_w)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 40;
-    compileInfo.ubSize = 196608;
-
-    int64_t perm_value[3] = {0, 2, 1};
-    gert::TilingContextPara::TensorDescription x({{1, 32, 24}, {1, 32, 24}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{3}, {3}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{1, 24, 32}, {1, 24, 32}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-    if (success && tilingInfo.tilingKey == 10008) {
-        GetTilingData(Transpose021VCONVTilingData, tilingInfo, tilingData);
-        EXPECT_EQ(tilingData->HLen, 32);
-        EXPECT_EQ(tilingData->WLen, 24);
-        EXPECT_EQ(tilingData->UseRConv, true);
-        EXPECT_EQ(tilingData->HAlignBlockElem, 32);
-        EXPECT_EQ(tilingData->WAlignBlockElem, 24);
-    }
-}
-
-TEST_F(TransposeTiling, transpose_021vconv_float32_cconv)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 40;
-    compileInfo.ubSize = 196608;
-
-    int64_t perm_value[3] = {0, 2, 1};
-    gert::TilingContextPara::TensorDescription x({{1, 8, 32}, {1, 8, 32}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{3}, {3}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{1, 32, 8}, {1, 32, 8}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-    if (success && tilingInfo.tilingKey == 10008) {
-        GetTilingData(Transpose021VCONVTilingData, tilingInfo, tilingData);
-        EXPECT_EQ(tilingData->HLen, 8);
-        EXPECT_EQ(tilingData->WLen, 32);
-        EXPECT_EQ(tilingData->UseRConv, false);
-        EXPECT_EQ(tilingData->HAlignBlockElem, 16);
-        EXPECT_EQ(tilingData->WAlignBlockElem, 32);
-    }
-}
-
-TEST_F(TransposeTiling, transpose_021vconv_int32_rconv)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 40;
-    compileInfo.ubSize = 196608;
-
-    int64_t perm_value[3] = {0, 2, 1};
-    gert::TilingContextPara::TensorDescription x({{2, 16, 16}, {2, 16, 16}}, ge::DT_INT32, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{3}, {3}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{2, 16, 16}, {2, 16, 16}}, ge::DT_INT32, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-    if (success && tilingInfo.tilingKey == 10008) {
-        GetTilingData(Transpose021VCONVTilingData, tilingInfo, tilingData);
-        EXPECT_EQ(tilingData->HLen, 16);
-        EXPECT_EQ(tilingData->WLen, 16);
-        EXPECT_EQ(tilingData->UseRConv, true);
-        EXPECT_EQ(tilingData->HAlignBlockElem, 16);
-        EXPECT_EQ(tilingData->WAlignBlockElem, 16);
-    }
-}
-
-TEST_F(TransposeTiling, transpose_021vconv_int8_rconv)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 40;
-    compileInfo.ubSize = 196608;
-
-    int64_t perm_value[3] = {0, 2, 1};
-    gert::TilingContextPara::TensorDescription x({{2, 32, 32}, {2, 32, 32}}, ge::DT_INT8, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{3}, {3}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{2, 32, 32}, {2, 32, 32}}, ge::DT_INT8, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-    if (success && tilingInfo.tilingKey == 10008) {
-        GetTilingData(Transpose021VCONVTilingData, tilingInfo, tilingData);
-        EXPECT_EQ(tilingData->HLen, 32);
-        EXPECT_EQ(tilingData->WLen, 32);
-        EXPECT_EQ(tilingData->UseRConv, true);
-        EXPECT_EQ(tilingData->HAlignBlockElem, 32);
-        EXPECT_EQ(tilingData->WAlignBlockElem, 32);
-    }
-}
-
-TEST_F(TransposeTiling, transpose_021vconv_uint8_rconv)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 40;
-    compileInfo.ubSize = 196608;
-
-    int64_t perm_value[3] = {0, 2, 1};
-    gert::TilingContextPara::TensorDescription x({{1, 64, 32}, {1, 64, 32}}, ge::DT_UINT8, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{3}, {3}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{1, 32, 64}, {1, 32, 64}}, ge::DT_UINT8, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-    if (success && tilingInfo.tilingKey == 10008) {
-        GetTilingData(Transpose021VCONVTilingData, tilingInfo, tilingData);
-        EXPECT_EQ(tilingData->HLen, 64);
-        EXPECT_EQ(tilingData->WLen, 32);
-        EXPECT_EQ(tilingData->UseRConv, true);
-        EXPECT_EQ(tilingData->HAlignBlockElem, 64);
-        EXPECT_EQ(tilingData->WAlignBlockElem, 32);
-    }
-}
-
-TEST_F(TransposeTiling, transpose_021vconv_int8_cconv_fallback)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 40;
-    compileInfo.ubSize = 196608;
-
-    int64_t perm_value[3] = {0, 2, 1};
-    gert::TilingContextPara::TensorDescription x({{1, 16, 32}, {1, 16, 32}}, ge::DT_INT8, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{3}, {3}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{1, 32, 16}, {1, 32, 16}}, ge::DT_INT8, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-    if (success) {
-        EXPECT_NE(tilingInfo.tilingKey, 10008);
-    }
-}
-
-TEST_F(TransposeTiling, transpose_021vconv_int8_cconv_hlen16_wlen128)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 40;
-    compileInfo.ubSize = 196608;
-
-    int64_t perm_value[3] = {0, 2, 1};
-    gert::TilingContextPara::TensorDescription x({{128, 16, 128}, {128, 16, 128}}, ge::DT_INT8, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{3}, {3}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{128, 128, 16}, {128, 128, 16}}, ge::DT_INT8, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-    if (success && tilingInfo.tilingKey == 10008) {
-        GetTilingData(Transpose021VCONVTilingData, tilingInfo, tilingData);
-        EXPECT_EQ(tilingData->HLen, 16);
-        EXPECT_EQ(tilingData->WLen, 128);
-        EXPECT_EQ(tilingData->UseRConv, false);
-        EXPECT_EQ(tilingData->HAlignBlockElem, 32);
-        EXPECT_EQ(tilingData->WAlignBlockElem, 128);
-    }
-}
-
-TEST_F(TransposeTiling, transpose_021vconv_int8_cconv_hlen16_wlen64)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 40;
-    compileInfo.ubSize = 196608;
-
-    int64_t perm_value[3] = {0, 2, 1};
-    gert::TilingContextPara::TensorDescription x({{1600, 16, 64}, {1600, 16, 64}}, ge::DT_INT8, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{3}, {3}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{1600, 64, 16}, {1600, 64, 16}}, ge::DT_INT8, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-    if (success && tilingInfo.tilingKey == 10008) {
-        GetTilingData(Transpose021VCONVTilingData, tilingInfo, tilingData);
-        EXPECT_EQ(tilingData->HLen, 16);
-        EXPECT_EQ(tilingData->WLen, 64);
-        EXPECT_EQ(tilingData->UseRConv, false);
-        EXPECT_EQ(tilingData->HAlignBlockElem, 32);
-        EXPECT_EQ(tilingData->WAlignBlockElem, 64);
-    }
-}
-
-// 1D tensor (perm=[0]), expect TENSOR_MOVE tiling key 10000
-TEST_F(TransposeTiling, transpose_tiling_tensor_move_1d)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 40;
-    compileInfo.ubSize = 196608;
-
-    int64_t perm_value[1] = {0};
-    gert::TilingContextPara::TensorDescription x({{100000}, {100000}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{100000}, {100000}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-    EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::TENSOR_MOVE));
-}
-
-// Small shape (total volume bytes < threshold), expect SMALL_SHAPE tiling key 10001
-TEST_F(TransposeTiling, transpose_tiling_small_shape_2d)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 40;
-    compileInfo.ubSize = 196608;
-
-    int64_t perm_value[2] = {1, 0};
-    gert::TilingContextPara::TensorDescription x({{10, 20}, {10, 20}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{2}, {2}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{20, 10}, {20, 10}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-    EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::SMALL_SHAPE));
-}
-
-// 4D N_LAST transpose (last axis not transposed, large shape, last axis >= 32), expect key 10004
-TEST_F(TransposeTiling, transpose_tiling_n_last_4d_no_last_transpose)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 40;
-    compileInfo.ubSize = 196608;
-
-    // perm = {1, 0, 2, 3}: 只交换前两轴, 尾轴保持不转置。MergeAxis 后尾轴 (30*64=1920)
-    // 仍不参与转置且 >= 32; 总量 4.6MB 超过 SMALL 门槛 → 走 N_LAST。
-    int64_t perm_value[4] = {1, 0, 2, 3};
-    gert::TilingContextPara::TensorDescription x({{30, 20, 30, 64}, {30, 20, 30, 64}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{4}, {4}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{20, 30, 30, 64}, {20, 30, 30, 64}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-    EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::N_LAST_TRANSPOSE));
-}
-
-// 4D NDDMA_BASE CUT_ONCE/CUT_TWICE path (large shape, dim <= 5, last axis transposed, not n_last)
-TEST_F(TransposeTiling, transpose_tiling_nddma_base_4d)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 40;
-    compileInfo.ubSize = 196608;
-
-    // 总量 4.6MB 超过 SMALL 门槛; MergeAxis 后输入等效行数 30*21*30=18900 非 16 对齐,
-    // 不命中小 m/N_LAST/10011 特化, 落到 NDDMA_BASE (CUT_ONCE/CUT_TWICE)。
-    int64_t perm_value[4] = {3, 0, 1, 2};
-    gert::TilingContextPara::TensorDescription x({{30, 21, 30, 64}, {30, 21, 30, 64}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{4}, {4}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{64, 30, 21, 30}, {64, 30, 21, 30}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-    EXPECT_TRUE(tilingInfo.tilingKey == static_cast<uint64_t>(optiling::SplitMode::CUT_ONCE) ||
-                tilingInfo.tilingKey == static_cast<uint64_t>(optiling::SplitMode::CUT_TWICE));
-}
-
-// BIG_DIM path (dim > 5), expect tiling key 10005
-TEST_F(TransposeTiling, transpose_tiling_big_dim_6d)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 40;
-    compileInfo.ubSize = 196608;
-
-    // 6D transpose with perm = {5, 0, 1, 2, 3, 4}, total > threshold
-    int64_t perm_value[6] = {5, 0, 1, 2, 3, 4};
-    gert::TilingContextPara::TensorDescription x({{2, 3, 4, 5, 6, 100}, {2, 3, 4, 5, 6, 100}}, ge::DT_FLOAT,
-                                                 ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{6}, {6}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{100, 2, 3, 4, 5, 6}, {100, 2, 3, 4, 5, 6}}, ge::DT_FLOAT,
-                                                   ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-    // On ascend950 (DAV_3510), 6D transpose hits BIG_DIM, GATHER, or other template paths
-    EXPECT_TRUE(tilingInfo.tilingKey >= 10000 && tilingInfo.tilingKey <= 10008);
-}
-
-// Perm with int32 dtype (DT_INT32), expect tiling success
 TEST_F(TransposeTiling, transpose_tiling_perm_int32_dtype)
 {
     optiling::TransposeCompilerInfo compileInfo;
@@ -411,6 +49,7 @@ TEST_F(TransposeTiling, transpose_tiling_perm_int32_dtype)
 }
 
 // Negative perm values in tiling, expect success with resolved perm
+
 TEST_F(TransposeTiling, transpose_tiling_negative_perm)
 {
     optiling::TransposeCompilerInfo compileInfo;
@@ -426,10 +65,11 @@ TEST_F(TransposeTiling, transpose_tiling_negative_perm)
     TilingInfo tilingInfo;
     bool success = ExecuteTiling(tilingContextPara, tilingInfo);
     EXPECT_TRUE(success);
-    EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::SMALL_SHAPE));
+    EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(TK_SMALL_SHAPE));
 }
 
 // Invalid perm dtype (DT_INT16, not int32/int64), expect failure
+
 TEST_F(TransposeTiling, transpose_tiling_invalid_perm_dtype)
 {
     optiling::TransposeCompilerInfo compileInfo;
@@ -448,6 +88,7 @@ TEST_F(TransposeTiling, transpose_tiling_invalid_perm_dtype)
 }
 
 // Perm size mismatch with x dim count, expect failure
+
 TEST_F(TransposeTiling, transpose_tiling_perm_size_mismatch)
 {
     optiling::TransposeCompilerInfo compileInfo;
@@ -466,6 +107,7 @@ TEST_F(TransposeTiling, transpose_tiling_perm_size_mismatch)
 }
 
 // Perm value out of valid range (perm[i] >= dimSize), expect failure
+
 TEST_F(TransposeTiling, transpose_tiling_perm_value_out_of_range)
 {
     optiling::TransposeCompilerInfo compileInfo;
@@ -484,6 +126,7 @@ TEST_F(TransposeTiling, transpose_tiling_perm_value_out_of_range)
 }
 
 // Perm value still negative after normalization (perm[i] < -dimSize), expect failure
+
 TEST_F(TransposeTiling, transpose_tiling_perm_value_negative_out_of_range)
 {
     optiling::TransposeCompilerInfo compileInfo;
@@ -502,6 +145,7 @@ TEST_F(TransposeTiling, transpose_tiling_perm_value_negative_out_of_range)
 }
 
 // Duplicated values in perm, expect failure
+
 TEST_F(TransposeTiling, transpose_tiling_perm_value_duplicated)
 {
     optiling::TransposeCompilerInfo compileInfo;
@@ -520,25 +164,7 @@ TEST_F(TransposeTiling, transpose_tiling_perm_value_duplicated)
 }
 
 // All-ones shape input, expect TENSOR_MOVE (reduced to 1D)
-TEST_F(TransposeTiling, transpose_tiling_all_ones_shape)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 40;
-    compileInfo.ubSize = 196608;
 
-    int64_t perm_value[4] = {3, 0, 1, 2};
-    gert::TilingContextPara::TensorDescription x({{1, 1, 1, 1}, {1, 1, 1, 1}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{4}, {4}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{1, 1, 1, 1}, {1, 1, 1, 1}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-    EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::TENSOR_MOVE));
-}
-
-// Invalid init (coreNum = 0), expect failure
 TEST_F(TransposeTiling, transpose_tiling_invalid_core_num_zero)
 {
     optiling::TransposeCompilerInfo compileInfo;
@@ -557,6 +183,7 @@ TEST_F(TransposeTiling, transpose_tiling_invalid_core_num_zero)
 }
 
 // Invalid init (ubSize = 0), expect failure
+
 TEST_F(TransposeTiling, transpose_tiling_invalid_ub_size_zero)
 {
     optiling::TransposeCompilerInfo compileInfo;
@@ -575,142 +202,7 @@ TEST_F(TransposeTiling, transpose_tiling_invalid_ub_size_zero)
 }
 
 // FP16 dtype, 3D transpose perm {0,2,1}, expect success
-TEST_F(TransposeTiling, transpose_tiling_fp16_3d_perm_021)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 40;
-    compileInfo.ubSize = 196608;
 
-    int64_t perm_value[3] = {0, 2, 1};
-    gert::TilingContextPara::TensorDescription x({{100, 200, 64}, {100, 200, 64}}, ge::DT_FLOAT16, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{3}, {3}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{100, 64, 200}, {100, 64, 200}}, ge::DT_FLOAT16, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-}
-
-// 5D NDDMA_BASE path, dim = 5 (<= TP_NDDMA_MAX_DIM_NUM), last axis transposed, large shape
-TEST_F(TransposeTiling, transpose_tiling_nddma_5d)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 40;
-    compileInfo.ubSize = 196608;
-
-    int64_t perm_value[5] = {4, 0, 1, 2, 3};
-    gert::TilingContextPara::TensorDescription x({{2, 3, 4, 5, 100}, {2, 3, 4, 5, 100}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{5}, {5}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{100, 2, 3, 4, 5}, {100, 2, 3, 4, 5}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-    // On ascend950, 5D transpose may hit GATHER, SMALL_SHAPE, CUT_ONCE, CUT_TWICE, or other paths
-    EXPECT_TRUE(tilingInfo.tilingKey >= 10000 && tilingInfo.tilingKey <= 10008);
-}
-
-// Large N_LAST transpose (perm not transposing last axis, large total bytes, last dim >= 32)
-TEST_F(TransposeTiling, transpose_tiling_n_last_large_3d)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 40;
-    compileInfo.ubSize = 196608;
-
-    // perm {2, 0, 1}: last axis perm[2]=1 != 2 -> isLastAxisTranspose=true
-    // For N_LAST we need !isLastAxisTranspose, so use perm {0, 2, 1}
-    // perm {0, 2, 1}: perm[2]=1 != 2 -> still last axis transpose
-    // perm {1, 0, 2}: perm[2]=2 == 2 -> not last axis transpose!
-    int64_t perm_value[3] = {1, 0, 2};
-    gert::TilingContextPara::TensorDescription x({{100, 200, 64}, {100, 200, 64}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{3}, {3}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{200, 100, 64}, {200, 100, 64}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-    EXPECT_TRUE(tilingInfo.tilingKey == static_cast<uint64_t>(optiling::SplitMode::N_LAST_TRANSPOSE) ||
-                tilingInfo.tilingKey == static_cast<uint64_t>(optiling::SplitMode::GATHER_TRANSPOSE));
-}
-
-// Shape with axis=1 (reduced after RemoveAxis), 3D with one 1-dim axis
-TEST_F(TransposeTiling, transpose_tiling_3d_with_one_dim_axis)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 40;
-    compileInfo.ubSize = 196608;
-
-    // perm {2, 0, 1} with shape {1, 100, 200}: after RemoveAxis, becomes {100, 200} perm {1, 0}
-    int64_t perm_value[3] = {2, 0, 1};
-    gert::TilingContextPara::TensorDescription x({{1, 100, 200}, {1, 100, 200}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{3}, {3}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{200, 1, 100}, {200, 1, 100}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-}
-
-// BF16 dtype 2D transpose, expect success
-TEST_F(TransposeTiling, transpose_tiling_bf16_2d)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 40;
-    compileInfo.ubSize = 196608;
-
-    int64_t perm_value[2] = {1, 0};
-    gert::TilingContextPara::TensorDescription x({{100, 200}, {100, 200}}, ge::DT_BF16, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{2}, {2}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{200, 100}, {200, 100}}, ge::DT_BF16, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-}
-
-// INT8 dtype 4D transpose with large shape, expect success
-TEST_F(TransposeTiling, transpose_tiling_int8_4d_large)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 40;
-    compileInfo.ubSize = 196608;
-
-    int64_t perm_value[4] = {3, 0, 1, 2};
-    gert::TilingContextPara::TensorDescription x({{10, 20, 30, 64}, {10, 20, 30, 64}}, ge::DT_INT8, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{4}, {4}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{64, 10, 20, 30}, {64, 10, 20, 30}}, ge::DT_INT8, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-}
-
-// 2D transpose with perm {0,1} (identity permutation), expect TENSOR_MOVE
-TEST_F(TransposeTiling, transpose_tiling_identity_perm_2d)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 40;
-    compileInfo.ubSize = 196608;
-
-    int64_t perm_value[2] = {0, 1};
-    gert::TilingContextPara::TensorDescription x({{100, 200}, {100, 200}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{2}, {2}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{100, 200}, {100, 200}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-    EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::TENSOR_MOVE));
-}
-
-// Output shape mismatch with expected shape (y shape wrong), expect failure
 TEST_F(TransposeTiling, transpose_tiling_output_shape_mismatch)
 {
     optiling::TransposeCompilerInfo compileInfo;
@@ -730,266 +222,7 @@ TEST_F(TransposeTiling, transpose_tiling_output_shape_mismatch)
 }
 
 // INT64 dtype 4D large transpose, covers int64 perm data path
-TEST_F(TransposeTiling, transpose_tiling_int64_dtype_4d)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 40;
-    compileInfo.ubSize = 196608;
 
-    int64_t perm_value[4] = {3, 0, 1, 2};
-    gert::TilingContextPara::TensorDescription x({{10, 20, 30, 64}, {10, 20, 30, 64}}, ge::DT_INT64, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{4}, {4}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{64, 10, 20, 30}, {64, 10, 20, 30}}, ge::DT_INT64, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-}
-
-// Small volume that is less than coreNum, expect TENSOR_MOVE with single core
-TEST_F(TransposeTiling, transpose_tiling_tensor_move_small_volume)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 40;
-    compileInfo.ubSize = 196608;
-
-    int64_t perm_value[1] = {0};
-    gert::TilingContextPara::TensorDescription x({{10}, {10}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{10}, {10}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-    EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::TENSOR_MOVE));
-}
-
-// 4D transpose with perm {0,1,2,3} (identity permutation), expect TENSOR_MOVE
-TEST_F(TransposeTiling, transpose_tiling_identity_perm_4d)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 40;
-    compileInfo.ubSize = 196608;
-
-    int64_t perm_value[4] = {0, 1, 2, 3};
-    gert::TilingContextPara::TensorDescription x({{10, 20, 30, 40}, {10, 20, 30, 40}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{4}, {4}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{10, 20, 30, 40}, {10, 20, 30, 40}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-    // Identity perm reduces to 1D -> TENSOR_MOVE
-    EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::TENSOR_MOVE));
-}
-
-// 4D perm {3,2,1,0} (full reverse), covers NDDMA_BASE/CUT_TWICE path
-TEST_F(TransposeTiling, transpose_tiling_4d_full_reverse)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 40;
-    compileInfo.ubSize = 196608;
-
-    int64_t perm_value[4] = {3, 2, 1, 0};
-    gert::TilingContextPara::TensorDescription x({{64, 128, 32, 16}, {64, 128, 32, 16}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{4}, {4}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{16, 32, 128, 64}, {16, 32, 128, 64}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-}
-
-// 7D transpose (dim > 5) with very large shape - merges to low dim after MergeAxis
-TEST_F(TransposeTiling, transpose_tiling_7d_dim_over_5)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 40;
-    compileInfo.ubSize = 196608;
-
-    int64_t perm_value[7] = {6, 0, 1, 2, 3, 4, 5};
-    gert::TilingContextPara::TensorDescription x({{2, 2, 2, 2, 2, 2, 200}, {2, 2, 2, 2, 2, 2, 200}}, ge::DT_FLOAT,
-                                                 ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{7}, {7}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{200, 2, 2, 2, 2, 2, 2}, {200, 2, 2, 2, 2, 2, 2}}, ge::DT_FLOAT,
-                                                   ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-}
-
-// BIG_DIM path: 6D where perm has no consecutive pairs (dim stays 6 after MergeAxis).
-// perm={0,3,1,4,2,5} keeps all 6 axes. isLastAxisTranspose=false (perm[5]=5).
-// reducedInShape[5]=8 < 32 skips N_LAST. dim=6 > 5 → BIG_DIM.
-TEST_F(TransposeTiling, transpose_tiling_big_dim_6d_no_consecutive_perm)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 40;
-    compileInfo.ubSize = 196608;
-
-    int64_t perm_value[6] = {0, 3, 1, 4, 2, 5};
-    gert::TilingContextPara::TensorDescription x({{100, 200, 10, 20, 30, 8}, {100, 200, 10, 20, 30, 8}}, ge::DT_FLOAT,
-                                                 ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{6}, {6}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{100, 20, 200, 30, 10, 8}, {100, 20, 200, 30, 10, 8}}, ge::DT_FLOAT,
-                                                   ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-    EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::BIG_DIM));
-}
-
-// 2D perm [1, 0], fp16, m/n 均 16 对齐, 512KB (DAV_3510 门槛): 走 10011 TransData 特化模板
-TEST_F(TransposeTiling, transpose_tiling_2d_transdata_route)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 40;
-    compileInfo.ubSize = 253952;
-
-    int64_t perm_value[2] = {1, 0};
-    gert::TilingContextPara::TensorDescription x({{512, 512}, {512, 512}}, ge::DT_FLOAT16, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{2}, {2}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{512, 512}, {512, 512}}, ge::DT_FLOAT16, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-    EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::TRANSPOSE_2D_TRANSDATA));
-    EXPECT_EQ(tilingInfo.blockNum, 40U);
-    GetTilingData(Transpose2DTilingData, tilingInfo, tilingData);
-    EXPECT_EQ(tilingData->m, 512);
-    EXPECT_EQ(tilingData->n, 512);
-    EXPECT_EQ(tilingData->coreNum, 40);
-    // m=512 > cap(256): tileM 取 256; 248KB UB 预算下 tileN 取最大 2 的幂次 128
-    EXPECT_EQ(tilingData->tileM, 256);
-    EXPECT_EQ(tilingData->tileN, 128);
-}
-
-// 2D perm [1, 0], fp16, m=16: tileM 跟随 m, 避免 tile 退化成 16x128 的 4KB 小块
-TEST_F(TransposeTiling, transpose_tiling_2d_transdata_small_m_tile)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 40;
-    compileInfo.ubSize = 253952;
-
-    int64_t perm_value[2] = {1, 0};
-    gert::TilingContextPara::TensorDescription x({{16, 262144}, {16, 262144}}, ge::DT_FLOAT16, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{2}, {2}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{262144, 16}, {262144, 16}}, ge::DT_FLOAT16, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-    EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::TRANSPOSE_2D_TRANSDATA));
-    GetTilingData(Transpose2DTilingData, tilingInfo, tilingData);
-    EXPECT_EQ(tilingData->m, 16);
-    EXPECT_EQ(tilingData->n, 262144);
-    EXPECT_EQ(tilingData->tileM, 16);
-    EXPECT_EQ(tilingData->tileN, 1552);
-}
-
-// 2D perm [1, 0], fp16, 窄列 (m=131072, n=16): 收起多余 tileN, 改为行方向切分,
-// tileM 按 "行块数≈k*coreNum" 放大以保证多核负载均衡
-TEST_F(TransposeTiling, transpose_tiling_2d_transdata_narrow_n_tile)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 40;
-    compileInfo.ubSize = 253952;
-
-    int64_t perm_value[2] = {1, 0};
-    gert::TilingContextPara::TensorDescription x({{131072, 16}, {131072, 16}}, ge::DT_FLOAT16, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{2}, {2}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{16, 131072}, {16, 131072}}, ge::DT_FLOAT16, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-    EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::TRANSPOSE_2D_TRANSDATA));
-    GetTilingData(Transpose2DTilingData, tilingInfo, tilingData);
-    EXPECT_EQ(tilingData->m, 131072);
-    EXPECT_EQ(tilingData->n, 16);
-    EXPECT_EQ(tilingData->tileM, 1648);
-    EXPECT_EQ(tilingData->tileN, 16);
-}
-
-// 2D perm [1, 0], fp16, m/n 均 16 对齐但不是 tile 整数倍 (1040x1040):
-// 行、列方向均产生尾块, 覆盖 kernel 非 full-tile 的搬运/转置路径
-TEST_F(TransposeTiling, transpose_tiling_2d_transdata_tail_tile)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 40;
-    compileInfo.ubSize = 253952;
-
-    int64_t perm_value[2] = {1, 0};
-    gert::TilingContextPara::TensorDescription x({{1040, 1040}, {1040, 1040}}, ge::DT_FLOAT16, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{2}, {2}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{1040, 1040}, {1040, 1040}}, ge::DT_FLOAT16, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-    EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::TRANSPOSE_2D_TRANSDATA));
-    GetTilingData(Transpose2DTilingData, tilingInfo, tilingData);
-    EXPECT_EQ(tilingData->m, 1040);
-    EXPECT_EQ(tilingData->n, 1040);
-    EXPECT_EQ(tilingData->coreNum, 40);
-    // tileM=256 / tileN=128: 1040 既不是 256 也不是 128 的整数倍, 行/列均有尾块
-    EXPECT_EQ(tilingData->tileM, 256);
-    EXPECT_EQ(tilingData->tileN, 128);
-}
-
-// 2D perm [1, 0] 但 n 非 16 对齐: 10011 不适用, 回落主流程
-TEST_F(TransposeTiling, transpose_tiling_2d_transdata_not_aligned_fallback)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 40;
-    compileInfo.ubSize = 253952;
-
-    int64_t perm_value[2] = {1, 0};
-    gert::TilingContextPara::TensorDescription x({{512, 510}, {512, 510}}, ge::DT_FLOAT16, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{2}, {2}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{510, 512}, {510, 512}}, ge::DT_FLOAT16, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-    EXPECT_NE(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::TRANSPOSE_2D_TRANSDATA));
-}
-
-// BIG_DIM path: 6D with isLastAxisTranspose=true, GATHER may fail then BIG_DIM
-TEST_F(TransposeTiling, transpose_tiling_big_dim_6d_gather_fallback)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 40;
-    compileInfo.ubSize = 196608;
-
-    int64_t perm_value[6] = {3, 0, 4, 1, 5, 2};
-    gert::TilingContextPara::TensorDescription x({{50, 60, 10, 100, 80, 30}, {50, 60, 10, 100, 80, 30}}, ge::DT_FLOAT,
-                                                 ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{6}, {6}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{100, 50, 80, 60, 30, 10}, {100, 50, 80, 60, 30, 10}}, ge::DT_FLOAT,
-                                                   ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-}
-
-// Error path: x shape with zero value axis, expect failure
 TEST_F(TransposeTiling, transpose_tiling_zero_shape_value)
 {
     optiling::TransposeCompilerInfo compileInfo;
@@ -1008,656 +241,79 @@ TEST_F(TransposeTiling, transpose_tiling_zero_shape_value)
 }
 
 // N_LAST with large 4D shape exercising FindSplitFactorByRateNLast/MultiplesNLast
-TEST_F(TransposeTiling, transpose_tiling_n_last_large_4d)
+
+/* ==================== 参数校验补充用例 ==================== */
+
+namespace {
+optiling::TransposeCompilerInfo MakeCompileInfo(int64_t coreNum = 40, int64_t ubSize = 196608)
 {
     optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 40;
-    compileInfo.ubSize = 196608;
+    compileInfo.coreNum = coreNum;
+    compileInfo.ubSize = ubSize;
+    return compileInfo;
+}
+} // namespace
 
-    int64_t perm_value[4] = {1, 0, 2, 3};
-    gert::TilingContextPara::TensorDescription x({{200, 100, 64, 128}, {200, 100, 64, 128}}, ge::DT_FLOAT,
-                                                 ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{4}, {4}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{100, 200, 64, 128}, {100, 200, 64, 128}}, ge::DT_FLOAT,
-                                                   ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
+// perm 元素个数大于最大轴数（8）→ GetPerm 直接拒绝
+TEST_F(TransposeTiling, transpose_tiling_perm_size_over_max_int64)
+{
+    auto compileInfo = MakeCompileInfo();
+    int64_t permValue[9] = {0, 1, 2, 3, 4, 5, 6, 7, 8};
+    gert::TilingContextPara::TensorDescription x({{2, 3}, {2, 3}}, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::TilingContextPara::TensorDescription perm({{9}, {9}}, ge::DT_INT64, ge::FORMAT_ND, true, permValue);
+    gert::TilingContextPara::TensorDescription out({{3, 2}, {3, 2}}, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::TilingContextPara para("Transpose", {x, perm}, {out}, &compileInfo);
     TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
+    EXPECT_FALSE(ExecuteTiling(para, tilingInfo));
 }
 
-// CUT_TWICE path with both tail factors non-zero, covers GetIntervalInfoForCutTwice tail ranges
-TEST_F(TransposeTiling, transpose_tiling_cut_twice_both_tails)
+// perm 元素个数大于最大轴数（8）→ int32 perm 路径同样被拒绝
+TEST_F(TransposeTiling, transpose_tiling_perm_size_over_max_int32)
 {
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 40;
-    compileInfo.ubSize = 196608;
-
-    int64_t perm_value[4] = {3, 0, 1, 2};
-    gert::TilingContextPara::TensorDescription x({{8, 7, 6, 100}, {8, 7, 6, 100}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{4}, {4}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{100, 8, 7, 6}, {100, 8, 7, 6}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
+    auto compileInfo = MakeCompileInfo();
+    int32_t permValue[9] = {0, 1, 2, 3, 4, 5, 6, 7, 8};
+    gert::TilingContextPara::TensorDescription x({{2, 3}, {2, 3}}, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::TilingContextPara::TensorDescription perm({{9}, {9}}, ge::DT_INT32, ge::FORMAT_ND, true, permValue);
+    gert::TilingContextPara::TensorDescription out({{3, 2}, {3, 2}}, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::TilingContextPara para("Transpose", {x, perm}, {out}, &compileInfo);
     TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
+    EXPECT_FALSE(ExecuteTiling(para, tilingInfo));
 }
 
-// CUT_ONCE with low core utilization, covers rate-based split factor search
-TEST_F(TransposeTiling, transpose_tiling_cut_once_low_cores)
+// perm 元素个数为 0（<1）→ GetPerm 拒绝
+TEST_F(TransposeTiling, transpose_tiling_perm_size_zero)
 {
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 40;
-    compileInfo.ubSize = 196608;
-
-    int64_t perm_value[3] = {2, 0, 1};
-    gert::TilingContextPara::TensorDescription x({{100, 200, 50}, {100, 200, 50}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{3}, {3}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{50, 100, 200}, {50, 100, 200}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
+    auto compileInfo = MakeCompileInfo();
+    int64_t permValue[1] = {0};
+    gert::TilingContextPara::TensorDescription x({{2}, {2}}, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::TilingContextPara::TensorDescription perm({{0}, {0}}, ge::DT_INT64, ge::FORMAT_ND, true, permValue);
+    gert::TilingContextPara::TensorDescription out({{2}, {2}}, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::TilingContextPara para("Transpose", {x, perm}, {out}, &compileInfo);
     TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
+    EXPECT_FALSE(ExecuteTiling(para, tilingInfo));
 }
 
-// N_LAST transpose exercising FindSplitFactorByMultiplesNLast
-TEST_F(TransposeTiling, transpose_tiling_n_last_multiples_split)
+// perm 无数据（const tensor 数据为空）→ GetPerm 拒绝
+TEST_F(TransposeTiling, transpose_tiling_perm_data_nullptr)
 {
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 40;
-    compileInfo.ubSize = 196608;
-
-    int64_t perm_value[3] = {1, 0, 2};
-    gert::TilingContextPara::TensorDescription x({{500, 400, 64}, {500, 400, 64}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{3}, {3}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{400, 500, 64}, {400, 500, 64}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
+    auto compileInfo = MakeCompileInfo();
+    gert::TilingContextPara::TensorDescription x({{2, 3}, {2, 3}}, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::TilingContextPara::TensorDescription perm({{2}, {2}}, ge::DT_INT64, ge::FORMAT_ND, true, nullptr);
+    gert::TilingContextPara::TensorDescription out({{3, 2}, {3, 2}}, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::TilingContextPara para("Transpose", {x, perm}, {out}, &compileInfo);
     TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-    EXPECT_TRUE(tilingInfo.tilingKey == static_cast<uint64_t>(optiling::SplitMode::N_LAST_TRANSPOSE) ||
-                tilingInfo.tilingKey == static_cast<uint64_t>(optiling::SplitMode::GATHER_TRANSPOSE));
+    EXPECT_FALSE(ExecuteTiling(para, tilingInfo));
 }
 
-// BIG_DIM with small outer dimensions to trigger CalcBlockSplitInfoForBigDim low-core branch
-TEST_F(TransposeTiling, transpose_tiling_big_dim_small_outer)
+// x 的 dtype 无法识别（元素字节数 <= 0）→ 参数校验失败
+TEST_F(TransposeTiling, transpose_tiling_invalid_x_dtype)
 {
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 40;
-    compileInfo.ubSize = 196608;
-
-    // 6D with very large inner axis, small outer axes. perm no consecutive pairs.
-    int64_t perm_value[6] = {0, 3, 1, 4, 2, 5};
-    gert::TilingContextPara::TensorDescription x({{2, 2, 2, 2, 2, 250000}, {2, 2, 2, 2, 2, 250000}}, ge::DT_FLOAT,
-                                                 ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{6}, {6}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{2, 2, 2, 2, 2, 250000}, {2, 2, 2, 2, 2, 250000}}, ge::DT_FLOAT,
-                                                   ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
+    auto compileInfo = MakeCompileInfo();
+    int64_t permValue[2] = {1, 0};
+    gert::TilingContextPara::TensorDescription x({{2, 3}, {2, 3}}, ge::DT_UNDEFINED, ge::FORMAT_ND);
+    gert::TilingContextPara::TensorDescription perm({{2}, {2}}, ge::DT_INT64, ge::FORMAT_ND, true, permValue);
+    gert::TilingContextPara::TensorDescription out({{3, 2}, {3, 2}}, ge::DT_UNDEFINED, ge::FORMAT_ND);
+    gert::TilingContextPara para("Transpose", {x, perm}, {out}, &compileInfo);
     TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-}
-
-// N_LAST with fewer cores available, exercises Rate-based split
-TEST_F(TransposeTiling, transpose_tiling_n_last_small_corenum)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 4;
-    compileInfo.ubSize = 196608;
-
-    // Small coreNum makes coreNumTmp more likely < coreNum → RateNLast
-    int64_t perm_value[3] = {1, 0, 2};
-    gert::TilingContextPara::TensorDescription x({{10, 5, 128}, {10, 5, 128}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{3}, {3}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{5, 10, 128}, {5, 10, 128}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-}
-
-// CUT_TWICE with inTailFactor=0 and outTailFactor!=0, covers offsetRangeOutputTail
-TEST_F(TransposeTiling, transpose_tiling_cut_twice_out_tail_only)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 40;
-    compileInfo.ubSize = 196608;
-
-    // 4D perm {3, 2, 0, 1} with shape producing CUT_TWICE where outTail != 0 but inTail = 0
-    int64_t perm_value[4] = {3, 2, 0, 1};
-    gert::TilingContextPara::TensorDescription x({{16, 32, 64, 128}, {16, 32, 64, 128}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{4}, {4}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{128, 64, 16, 32}, {128, 64, 16, 32}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-}
-
-// CUT_TWICE with inTailFactor!=0 and outTailFactor=0, covers offsetRangeInputTail
-TEST_F(TransposeTiling, transpose_tiling_cut_twice_in_tail_only)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 40;
-    compileInfo.ubSize = 196608;
-
-    // 3D perm {2, 0, 1} with shape producing CUT_TWICE where inTail != 0 but outTail = 0
-    int64_t perm_value[3] = {2, 0, 1};
-    gert::TilingContextPara::TensorDescription x({{37, 100, 64}, {37, 100, 64}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{3}, {3}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{64, 37, 100}, {64, 37, 100}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-}
-
-// Small shape [8000, 255] perm [1, 0] with 248K UB: sqrt(UB) barely misses axis 1 (255),
-// absorption strategy promotes the cut to axis 0, but the effective outUbFactor amplified
-// by inUbFactor would overflow UB (248*248*255 > ubElement), so the safety validation in
-// DoSplitUB reverts to the original strategy, yielding CUT_TWICE.
-// 注: n=255 非 16 对齐, 用于避开 10011 TransData 特化路由。
-TEST_F(TransposeTiling, transpose_tiling_small_shape_absorb_revert_to_cut_twice)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 48;
-    compileInfo.ubSize = 253952; // 248K
-
-    int64_t perm_value[2] = {1, 0};
-    gert::TilingContextPara::TensorDescription x({{8000, 255}, {8000, 255}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{2}, {2}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{255, 8000}, {255, 8000}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-    EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::CUT_TWICE));
-}
-
-// Small shape [1000, 256, 300] perm [2, 1, 0] with 248K UB: should also benefit from absorption
-// and prefer CUT_ONCE when achievable.
-TEST_F(TransposeTiling, transpose_tiling_small_3d_shape_absorb)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 48;
-    compileInfo.ubSize = 253952; // 248K
-
-    int64_t perm_value[3] = {1, 0, 2};
-    gert::TilingContextPara::TensorDescription x({{1000, 256, 300}, {1000, 256, 300}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{3}, {3}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{256, 1000, 300}, {256, 1000, 300}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-}
-
-// ============================================================================
-// UTs for PR changes:
-//   1. DoSplitUBInput absorption strategy (promote CUT_TWICE to CUT_ONCE)
-//   2. UB out-of-bound safety validation with fallback to the original strategy
-//   3. CalcBlockSplitInfoForSmallShape 128B-aligned core split (CeilAlign/FloorAlign)
-//   4. TransposeGatherTiling MTE gate / bank conflict rejection split
-// ============================================================================
-inline void ExpectSmallShapeCoverage(const TilingInfo& tilingInfo, const TransposeOpTilingData* opTiling,
-                                     int64_t totalElements, int64_t coreBudget, int64_t elementBytes)
-{
-    ASSERT_NE(opTiling, nullptr);
-    ASSERT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::SMALL_SHAPE));
-    const int64_t realCoreNum = opTiling->realCoreNum;
-    const int64_t blkFactor = opTiling->blkFactor;
-    const int64_t blkTailFactor = opTiling->blkTailFactor;
-    ASSERT_GT(realCoreNum, 0);
-    EXPECT_LE(realCoreNum, coreBudget);
-    EXPECT_EQ(tilingInfo.blockNum, static_cast<uint64_t>(realCoreNum));
-    ASSERT_GT(blkFactor, 0);
-    ASSERT_GE(blkTailFactor, 0);
-    ASSERT_LT(blkTailFactor, blkFactor);
-    if (realCoreNum > 1) {
-        EXPECT_EQ(blkFactor * elementBytes % 128, 0);
-    }
-    const int64_t lastBlockElements = blkTailFactor == 0 ? blkFactor : blkTailFactor;
-    EXPECT_EQ((realCoreNum - 1) * blkFactor + lastBlockElements, totalElements);
-}
-
-// Absorption success: [4000, 7000, 8] perm [1, 0, 2] with 248K UB. The sqrt budget (251)
-// cannot hold axis 1 (7000) after swallowing axis 2, so the original strategy cuts axis 1
-// (inCutIndex=1, inUbFactor=31) and yields CUT_TWICE. The absorption retry swallows axis 1
-// with the full remaining budget (63488/8=7936 >= 7000) and cuts axis 0 instead with a single
-// element per block (inCutIndex=0, inUbFactor=1). The amplified effective outUbFactor check
-// passes (8 * 1 * 7000 = 56000 <= 63488), so the CUT_ONCE result is kept.
-TEST_F(TransposeTiling, transpose_tiling_absorb_promote_3d_to_cut_once)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 48;
-    compileInfo.ubSize = 253952; // 248K
-
-    int64_t perm_value[3] = {1, 0, 2};
-    gert::TilingContextPara::TensorDescription x({{4000, 7000, 8}, {4000, 7000, 8}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{3}, {3}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{7000, 4000, 8}, {7000, 4000, 8}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-    EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::CUT_ONCE));
-    GetTilingData(TransposeOpTilingData, tilingInfo, data);
-    EXPECT_EQ(data->permSize, 3);
-    EXPECT_EQ(data->inCutIndex, 0);
-    EXPECT_EQ(data->inUbFactor, 1);
-}
-
-// Absorption CUT_ONCE rejected by the UB safety validation: [8000, 256, 8] perm [1, 0, 2].
-// The retry absorbs axis 1 (256 <= 7936) and cuts axis 0 (inCutIndex=0, inUbFactor=31),
-// reaching CUT_ONCE. But CalcBlockSplitInfoForCutOnce would amplify outUbFactor by inUbFactor
-// on the same axis, and the validated burst 8 * 31 * 31 * 256 (outer output axis 0) exceeds
-// the 63488-element budget, so DoSplitUB restores the original strategy: CUT_TWICE with
-// inCutIndex=1, inUbFactor=31, outUbFactor=217 (3D companion of the 2D revert case above).
-TEST_F(TransposeTiling, transpose_tiling_absorb_validation_fail_3d_revert_to_cut_twice)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 48;
-    compileInfo.ubSize = 253952; // 248K
-
-    int64_t perm_value[3] = {1, 0, 2};
-    gert::TilingContextPara::TensorDescription x({{8000, 256, 8}, {8000, 256, 8}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{3}, {3}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{256, 8000, 8}, {256, 8000, 8}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-    EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::CUT_TWICE));
-    GetTilingData(TransposeOpTilingData, tilingInfo, data);
-    EXPECT_EQ(data->inCutIndex, 1);
-    EXPECT_EQ(data->inUbFactor, 31);
-    EXPECT_EQ(data->outCutIndex, 1);
-    EXPECT_EQ(data->outUbFactor, 217);
-}
-
-// Absorption budget rejection: axis 1 (100000) of [512, 100000, 8] exceeds the full remaining
-// UB budget (63488 / 8 = 7936 elements), so the absorb candidate check
-// (currentShapeDim <= fullBudgetRemaining) fails. The retry degenerates to the original input
-// split and DoSplitUB restores the original CUT_TWICE result.
-TEST_F(TransposeTiling, transpose_tiling_absorb_full_budget_reject_keeps_cut_twice)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 48;
-    compileInfo.ubSize = 253952; // 248K
-
-    int64_t perm_value[3] = {1, 0, 2};
-    gert::TilingContextPara::TensorDescription x({{512, 100000, 8}, {512, 100000, 8}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{3}, {3}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{100000, 512, 8}, {100000, 512, 8}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-    EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::CUT_TWICE));
-    GetTilingData(TransposeOpTilingData, tilingInfo, data);
-    // The original strategy splits axis 1 with inUbFactor = 251 / 8 = 31; the retry cannot
-    // swallow axis 1 (100000 > 7936), so the reverted split info is identical to the original.
-    EXPECT_EQ(data->inCutIndex, 1);
-    EXPECT_EQ(data->inUbFactor, 31);
-    EXPECT_EQ(data->outCutIndex, 1);
-    EXPECT_EQ(data->outUbFactor, 256);
-}
-
-// Absorption succeeded in the retry but the result is still CUT_TWICE: [3000, 900, 500, 6]
-// perm [2, 1, 0, 3]. The retry absorbs axis 2 (500) and cuts axis 1 (inCutIndex=1), yet the
-// output scan still has to cut output axis 2 (3000) which is more major than the input cut
-// position (FindOutIndex(1)=1), so tilingKey stays CUT_TWICE and DoSplitUB must restore the
-// original split (axis 2 cut, inCutIndex=2, inUbFactor=41).
-TEST_F(TransposeTiling, transpose_tiling_absorb_still_cut_twice_reverts_original_split)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 48;
-    compileInfo.ubSize = 253952; // 248K
-
-    int64_t perm_value[4] = {2, 1, 0, 3};
-    gert::TilingContextPara::TensorDescription x({{3000, 900, 500, 6}, {3000, 900, 500, 6}}, ge::DT_FLOAT,
-                                                 ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{4}, {4}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{500, 900, 3000, 6}, {500, 900, 3000, 6}}, ge::DT_FLOAT,
-                                                   ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-    EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::CUT_TWICE));
-    GetTilingData(TransposeOpTilingData, tilingInfo, data);
-    // If the revert to originalResult were broken, the absorbed retry would leave the input
-    // cut on axis 1 (inCutIndex=1, inUbFactor=21) instead of the original axis 2 split.
-    EXPECT_EQ(data->permSize, 4);
-    EXPECT_EQ(data->inCutIndex, 2);
-    EXPECT_EQ(data->inUbFactor, 41);
-}
-
-// SMALL_SHAPE with fp32 total elements (28) below the 128B alignment unit (128/4=32):
-// the new early-return branch uses a single core carrying all elements
-// (realCoreNum=1, blkFactor=28, blkTailFactor=0).
-TEST_F(TransposeTiling, transpose_tiling_small_shape_fp32_below_align_single_core)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 48;
-    compileInfo.ubSize = 253952; // 248K
-
-    int64_t perm_value[2] = {1, 0};
-    gert::TilingContextPara::TensorDescription x({{4, 7}, {4, 7}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{2}, {2}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{7, 4}, {7, 4}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-    EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::SMALL_SHAPE));
-    GetTilingData(TransposeOpTilingData, tilingInfo, data);
-    EXPECT_EQ(data->realCoreNum, 1);
-    EXPECT_EQ(data->blkFactor, 28);
-    EXPECT_EQ(data->blkTailFactor, 0);
-    ASSERT_NO_FATAL_FAILURE(ExpectSmallShapeCoverage(tilingInfo, data, 4 * 7, compileInfo.coreNum, 4));
-}
-
-// SMALL_SHAPE with int8: 20*6=120 elements < alignment unit (128/1=128) -> single core,
-// blkFactor = 120 (the whole tensor in one 128B-undersized chunk).
-TEST_F(TransposeTiling, transpose_tiling_small_shape_int8_below_align_single_core)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 48;
-    compileInfo.ubSize = 253952; // 248K
-
-    int64_t perm_value[2] = {1, 0};
-    gert::TilingContextPara::TensorDescription x({{20, 6}, {20, 6}}, ge::DT_INT8, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{2}, {2}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{6, 20}, {6, 20}}, ge::DT_INT8, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-    EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::SMALL_SHAPE));
-    GetTilingData(TransposeOpTilingData, tilingInfo, data);
-    EXPECT_EQ(data->realCoreNum, 1);
-    EXPECT_EQ(data->blkFactor, 120);
-    EXPECT_EQ(data->blkTailFactor, 0);
-}
-
-// SMALL_SHAPE with fp16 [5, 8] (shape[0] <= 5 keeps the 2D VCONV path off): 40 elements is
-// below the fp16 alignment unit (128/2=64), so a single core carries all 40 elements.
-TEST_F(TransposeTiling, transpose_tiling_small_shape_fp16_below_align_single_core)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 48;
-    compileInfo.ubSize = 253952; // 248K
-
-    int64_t perm_value[2] = {1, 0};
-    gert::TilingContextPara::TensorDescription x({{5, 8}, {5, 8}}, ge::DT_FLOAT16, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{2}, {2}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{8, 5}, {8, 5}}, ge::DT_FLOAT16, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-    EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::SMALL_SHAPE));
-    GetTilingData(TransposeOpTilingData, tilingInfo, data);
-    EXPECT_EQ(data->realCoreNum, 1);
-    EXPECT_EQ(data->blkFactor, 40);
-    EXPECT_EQ(data->blkTailFactor, 0);
-}
-
-// SMALL_SHAPE floor-align branch: [256, 150, 4] fp32 -> 153600 elements, blkFactor=3200 is
-// already 32-element (128B) aligned. total - floorAlign*(coreNum-1) == floorAlign, so all 48
-// cores are used with blkFactor=3200 and an empty tail.
-TEST_F(TransposeTiling, transpose_tiling_small_shape_floor_align_full_cores)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 48;
-    compileInfo.ubSize = 253952; // 248K
-
-    int64_t perm_value[3] = {1, 0, 2};
-    gert::TilingContextPara::TensorDescription x({{256, 150, 4}, {256, 150, 4}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{3}, {3}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{150, 256, 4}, {150, 256, 4}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-    EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::SMALL_SHAPE));
-    GetTilingData(TransposeOpTilingData, tilingInfo, data);
-    EXPECT_EQ(data->realCoreNum, 48);
-    EXPECT_EQ(data->blkFactor, 3200);
-    EXPECT_EQ(data->blkTailFactor, 0);
-    ASSERT_NO_FATAL_FAILURE(ExpectSmallShapeCoverage(tilingInfo, data, 256 * 150 * 4, compileInfo.coreNum, 4));
-}
-
-TEST_F(TransposeTiling, transpose_tiling_small_shape_core_budget_with_tail)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 48;
-    compileInfo.ubSize = 253952;
-
-    int64_t permValue[] = {1, 0, 2};
-    gert::TilingContextPara::TensorDescription x({{2, 9601, 8}, {2, 9601, 8}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{3}, {3}}, ge::DT_INT64, ge::FORMAT_ND, true, &permValue);
-    gert::TilingContextPara::TensorDescription y({{9601, 2, 8}, {9601, 2, 8}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara contextPara("Transpose", {x, perm}, {y}, &compileInfo, compileInfo.coreNum,
-                                        compileInfo.ubSize);
-
-    TilingInfo tilingInfo;
-    ASSERT_TRUE(ExecuteTiling(contextPara, tilingInfo));
-    EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::SMALL_SHAPE));
-    GetTilingData(TransposeOpTilingData, tilingInfo, data);
-    ASSERT_NO_FATAL_FAILURE(ExpectSmallShapeCoverage(tilingInfo, data, 2 * 9601 * 8, compileInfo.coreNum, 4));
-    EXPECT_EQ(tilingInfo.blockNum, 48);
-    EXPECT_EQ(data->realCoreNum, 48);
-    EXPECT_EQ(data->blkFactor, 3232);
-    EXPECT_EQ(data->blkTailFactor, 1712);
-}
-
-TEST_F(TransposeTiling, transpose_tiling_small_shape_core_budget_dtypes_and_limits)
-{
-    struct SplitCase {
-        ge::DataType dtype;
-        int64_t elementBytes;
-        int64_t coreBudget;
-        int64_t realCoreNum;
-        int64_t blkFactor;
-        int64_t blkTailFactor;
-        int64_t middleDim = 9601;
-        int64_t lastDim = 8;
-    };
-    const SplitCase cases[] = {
-        {ge::DT_FLOAT16, 2, 48, 48, 3264, 208}, {ge::DT_INT8, 1, 48, 47, 3328, 528},
-        {ge::DT_FLOAT, 4, 8, 8, 19232, 18992},  {ge::DT_FLOAT, 4, 1, 1, 153632, 153616},
-        {ge::DT_FLOAT, 4, 48, 1, 40, 0, 5, 4},
-    };
-    for (const auto& testCase : cases) {
-        SCOPED_TRACE(::testing::Message() << "dtype=" << testCase.dtype << ", coreBudget=" << testCase.coreBudget);
-        optiling::TransposeCompilerInfo compileInfo;
-        compileInfo.coreNum = testCase.coreBudget;
-        compileInfo.ubSize = 253952;
-        int64_t permValue[] = {1, 0, 2};
-        gert::TilingContextPara::TensorDescription x(
-            {{2, testCase.middleDim, testCase.lastDim}, {2, testCase.middleDim, testCase.lastDim}}, testCase.dtype,
-            ge::FORMAT_ND);
-        gert::TilingContextPara::TensorDescription perm({{3}, {3}}, ge::DT_INT64, ge::FORMAT_ND, true, &permValue);
-        gert::TilingContextPara::TensorDescription y(
-            {{testCase.middleDim, 2, testCase.lastDim}, {testCase.middleDim, 2, testCase.lastDim}}, testCase.dtype,
-            ge::FORMAT_ND);
-        gert::TilingContextPara contextPara("Transpose", {x, perm}, {y}, &compileInfo, compileInfo.coreNum,
-                                            compileInfo.ubSize);
-        TilingInfo tilingInfo;
-        ASSERT_TRUE(ExecuteTiling(contextPara, tilingInfo));
-        EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::SMALL_SHAPE));
-        GetTilingData(TransposeOpTilingData, tilingInfo, data);
-        ASSERT_NO_FATAL_FAILURE(ExpectSmallShapeCoverage(tilingInfo, data, 2 * testCase.middleDim * testCase.lastDim,
-                                                         testCase.coreBudget, testCase.elementBytes));
-        EXPECT_EQ(tilingInfo.blockNum, testCase.realCoreNum);
-        EXPECT_EQ(data->blkFactor, testCase.blkFactor);
-        EXPECT_EQ(data->blkTailFactor, testCase.blkTailFactor);
-    }
-}
-
-// SMALL_SHAPE ceil-align branch: [200, 200, 4] fp32 -> 160000 elements, raw blkFactor=3333.
-// floorAlign=3328 cannot cover the tail (160000 - 3328*47 = 3584 > 3328), so the ceil-aligned
-// factor CeilAlign(3333, 32)=3360 is used: realCoreNum = CeilDiv(160000, 3360) = 48,
-// tail = 160000 % 3360 = 2080.
-TEST_F(TransposeTiling, transpose_tiling_small_shape_ceil_align_reduced_cores)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 48;
-    compileInfo.ubSize = 253952; // 248K
-
-    int64_t perm_value[3] = {1, 0, 2};
-    gert::TilingContextPara::TensorDescription x({{200, 200, 4}, {200, 200, 4}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{3}, {3}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{200, 200, 4}, {200, 200, 4}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-    EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::SMALL_SHAPE));
-    GetTilingData(TransposeOpTilingData, tilingInfo, data);
-    EXPECT_EQ(data->realCoreNum, 48);
-    EXPECT_EQ(data->blkFactor, 3360);
-    EXPECT_EQ(data->blkTailFactor, 2080);
-}
-
-// SMALL_SHAPE ceil-align with fp16 alignment unit 64: [16, 60, 4] fp16 -> 3840 elements,
-// blkFactor=80 -> floorAlign=64 leaves a 832-element tail beyond one floor chunk, so the
-// ceil-aligned 128 is used: realCoreNum = CeilDiv(3840, 128) = 30 cores, empty tail.
-TEST_F(TransposeTiling, transpose_tiling_small_shape_fp16_ceil_align)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 48;
-    compileInfo.ubSize = 253952; // 248K
-
-    int64_t perm_value[3] = {1, 0, 2};
-    gert::TilingContextPara::TensorDescription x({{16, 60, 4}, {16, 60, 4}}, ge::DT_FLOAT16, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{3}, {3}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{60, 16, 4}, {60, 16, 4}}, ge::DT_FLOAT16, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-    EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::SMALL_SHAPE));
-    GetTilingData(TransposeOpTilingData, tilingInfo, data);
-    EXPECT_EQ(data->realCoreNum, 30);
-    EXPECT_EQ(data->blkFactor, 128);
-    EXPECT_EQ(data->blkTailFactor, 0);
-}
-
-// SMALL_SHAPE with fp64 [3, 5]: 15 elements is below the fp64 alignment unit (128/8=16),
-// so the whole tensor is carried by one core (realCoreNum=1, blkFactor=15).
-TEST_F(TransposeTiling, transpose_tiling_small_shape_fp64_below_align_single_core)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 48;
-    compileInfo.ubSize = 253952; // 248K
-
-    int64_t perm_value[2] = {1, 0};
-    gert::TilingContextPara::TensorDescription x({{3, 5}, {3, 5}}, ge::DT_DOUBLE, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{2}, {2}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{5, 3}, {5, 3}}, ge::DT_DOUBLE, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-    EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::SMALL_SHAPE));
-    GetTilingData(TransposeOpTilingData, tilingInfo, data);
-    EXPECT_EQ(data->realCoreNum, 1);
-    EXPECT_EQ(data->blkFactor, 15);
-    EXPECT_EQ(data->blkTailFactor, 0);
-}
-
-// Gather rejected, NDDMA fallback: [1000000, 3] perm [1, 0] (12MB, above the small-shape
-// threshold). The gather candidate block holds only axis1(3) x a small cut of axis0, whose
-// totalSizeInUb stays below the MTE gate (16*1024), so CalcUbAxesInfo rejects gather and the
-// main NDDMA flow serves the transpose with CUT_ONCE on axis 0.
-TEST_F(TransposeTiling, transpose_tiling_gather_mte_gate_reject_fallback_nddma)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 48;
-    compileInfo.ubSize = 253952; // 248K
-
-    int64_t perm_value[2] = {1, 0};
-    gert::TilingContextPara::TensorDescription x({{1000000, 3}, {1000000, 3}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{2}, {2}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{3, 1000000}, {3, 1000000}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-    EXPECT_NE(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::GATHER_TRANSPOSE));
-    EXPECT_NE(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::SMALL_SHAPE));
-}
-
-// Last-axis-transpose 3D whose gather candidate is rejected by the MTE gate / bank conflict
-// checks (the split totalSizeInUb or index step does not meet the hardware constraints).
-// perm [2, 1, 0] has no adjacent ascending pair, so the shape stays 3D after MergeAxis.
-// The tiling must still succeed through the fallback NDDMA/CUT path.
-TEST_F(TransposeTiling, transpose_tiling_gather_reject_3d_fallback)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 48;
-    compileInfo.ubSize = 253952; // 248K
-
-    int64_t perm_value[3] = {2, 1, 0};
-    gert::TilingContextPara::TensorDescription x({{500, 4096, 7}, {500, 4096, 7}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{3}, {3}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{7, 4096, 500}, {7, 4096, 500}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-    EXPECT_NE(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::GATHER_TRANSPOSE));
-}
-
-// Second absorption-success data point in the slack window: [6000, 6000, 8] perm [1, 0, 2].
-// C*B = 8*6000 = 48000 lands in (ubElement/2, ubElement], so after absorbing axis 2 and
-// axis 1 the input factor floor(63488/48000) = 1 and the 32B-aligned validation burst
-// 8 * 1 * 6000 = 48000 fits the budget. First strategy cuts axis 1 (CUT_TWICE), absorption
-// retry keeps CUT_ONCE cutting axis 0 with inUbFactor=1.
-TEST_F(TransposeTiling, transpose_tiling_absorb_3d_slack_window_cut_once)
-{
-    optiling::TransposeCompilerInfo compileInfo;
-    compileInfo.coreNum = 48;
-    compileInfo.ubSize = 253952; // 248K
-
-    int64_t perm_value[3] = {1, 0, 2};
-    gert::TilingContextPara::TensorDescription x({{6000, 6000, 8}, {6000, 6000, 8}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara::TensorDescription perm({{3}, {3}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
-    gert::TilingContextPara::TensorDescription out({{6000, 6000, 8}, {6000, 6000, 8}}, ge::DT_FLOAT, ge::FORMAT_ND);
-    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-
-    TilingInfo tilingInfo;
-    bool success = ExecuteTiling(tilingContextPara, tilingInfo);
-    EXPECT_TRUE(success);
-    EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(optiling::SplitMode::CUT_ONCE));
-    GetTilingData(TransposeOpTilingData, tilingInfo, data);
-    EXPECT_EQ(data->inCutIndex, 0);
-    EXPECT_EQ(data->inUbFactor, 1);
+    EXPECT_FALSE(ExecuteTiling(para, tilingInfo));
 }

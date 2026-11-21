@@ -9,8 +9,8 @@
  */
 
 /*!
- * \file transpose_with_gather.h
- * \brief TilingKey=10006 GATHER_TRANSPOSE 策略实现
+ * \file transpose_gather.h
+ * \brief TilingKey=10006 GATHER 策略实现
  *
  * 适用场景：尾轴转置（isLastAxisTranspose==true）+ 大shape（非小shape场景）。
  *
@@ -59,7 +59,7 @@ constexpr int8_t NUM_TWO = 2;
 constexpr int8_t NUM_THREE = 3;
 
 /**
- * @brief GATHER_TRANSPOSE 策略类，使用 Gather 硬件指令实现尾轴转置
+ * @brief GATHER 策略类，使用 Gather 硬件指令实现尾轴转置
  *
  * 执行流程：
  * 1. InitAxes: 初始化 UB 轴尺寸
@@ -75,10 +75,10 @@ constexpr int8_t NUM_THREE = 3;
  * @tparam T 数据元素类型
  */
 template <typename T>
-class TransposeWithGather {
+class TransposeGather {
 public:
-    __aicore__ inline TransposeWithGather(){};
-    __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, const GatherTransposeTilingData* tilingData, TPipe* pipe);
+    __aicore__ inline TransposeGather(){};
+    __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, const TransposeGatherTilingData* tilingData, TPipe* pipe);
     __aicore__ inline void Process();
 
 private:
@@ -103,7 +103,7 @@ private:
 
 private:
     int64_t blockIdx_ = 0;
-    const GatherTransposeTilingData* td_ = nullptr;
+    const TransposeGatherTilingData* td_ = nullptr;
     TQue<QuePosition::VECIN, 1> xInQue_;
     TQue<QuePosition::VECOUT, 1> xOutQue_;
     TBuf<QuePosition::VECCALC> idxBuf_;
@@ -156,8 +156,8 @@ private:
 };
 
 template <typename T>
-__aicore__ inline void TransposeWithGather<T>::Init(GM_ADDR x, GM_ADDR y, const GatherTransposeTilingData* tilingData,
-                                                    TPipe* pipe)
+__aicore__ inline void TransposeGather<T>::Init(GM_ADDR x, GM_ADDR y, const TransposeGatherTilingData* tilingData,
+                                                TPipe* pipe)
 {
     blockIdx_ = GetBlockIdx();
     td_ = tilingData;
@@ -172,7 +172,7 @@ __aicore__ inline void TransposeWithGather<T>::Init(GM_ADDR x, GM_ADDR y, const 
 }
 
 template <typename T>
-__aicore__ inline void TransposeWithGather<T>::Process()
+__aicore__ inline void TransposeGather<T>::Process()
 {
     if (blockIdx_ >= td_->usedCoreCnt) {
         return;
@@ -191,7 +191,7 @@ __aicore__ inline void TransposeWithGather<T>::Process()
 }
 
 template <typename T>
-__aicore__ inline void TransposeWithGather<T>::GetCoreLoopRange()
+__aicore__ inline void TransposeGather<T>::GetCoreLoopRange()
 {
     blkBeg_ = blockIdx_ * td_->blkFactor;
     if (blockIdx_ != td_->usedCoreCnt - 1) {
@@ -202,7 +202,7 @@ __aicore__ inline void TransposeWithGather<T>::GetCoreLoopRange()
 }
 
 template <typename T>
-__aicore__ inline void TransposeWithGather<T>::InitAxes()
+__aicore__ inline void TransposeGather<T>::InitAxes()
 {
     for (int8_t i = 0; i < td_->ubAxesCnt; ++i) {
         inUbAxes_[i] = td_->inUbAxes[i];
@@ -219,7 +219,7 @@ __aicore__ inline void TransposeWithGather<T>::InitAxes()
 }
 
 template <typename T>
-__aicore__ inline void TransposeWithGather<T>::UpdateUbAxes(int64_t blkLpIdx)
+__aicore__ inline void TransposeGather<T>::UpdateUbAxes(int64_t blkLpIdx)
 {
     bool isInSwitch = false;
     bool isOutSwitch = false;
@@ -263,7 +263,7 @@ __aicore__ inline void TransposeWithGather<T>::UpdateUbAxes(int64_t blkLpIdx)
 }
 
 template <typename T>
-__aicore__ inline int32_t TransposeWithGather<T>::CalcUbAxesInOffset(int8_t begIdx)
+__aicore__ inline int32_t TransposeGather<T>::CalcUbAxesInOffset(int8_t begIdx)
 {
     int32_t res = 1;
 
@@ -286,7 +286,7 @@ __aicore__ inline int32_t TransposeWithGather<T>::CalcUbAxesInOffset(int8_t begI
 }
 
 template <typename T>
-__aicore__ inline int32_t TransposeWithGather<T>::CalcUbAxesOutOffset(int8_t begIdx)
+__aicore__ inline int32_t TransposeGather<T>::CalcUbAxesOutOffset(int8_t begIdx)
 {
     int32_t res = 1;
     for (int8_t i = begIdx + 1; i < td_->ubAxesCnt; ++i) {
@@ -296,7 +296,7 @@ __aicore__ inline int32_t TransposeWithGather<T>::CalcUbAxesOutOffset(int8_t beg
 }
 
 template <typename T>
-__aicore__ inline int64_t TransposeWithGather<T>::CalcBlkAxesOffset(int8_t begIdx)
+__aicore__ inline int64_t TransposeGather<T>::CalcBlkAxesOffset(int8_t begIdx)
 {
     int32_t res = 1;
     for (int8_t i = begIdx + 1; i < td_->blkAxesCnt; ++i) {
@@ -323,7 +323,7 @@ __aicore__ inline int64_t TransposeWithGather<T>::CalcBlkAxesOffset(int8_t begId
  * 5. 8bit 类型特殊处理：使用 DIST_PACK_B16 存储模式
  */
 template <typename T>
-__aicore__ inline void TransposeWithGather<T>::GatherData()
+__aicore__ inline void TransposeGather<T>::GatherData()
 {
     uint32_t outLen = static_cast<uint32_t>(CalcUbAxesOutOffset(td_->outUbOutCutPos - 1));
     uint32_t outLenAlign = Ops::Base::CeilAlign(outLen, static_cast<uint32_t>(elemPerBlock_));
@@ -380,7 +380,7 @@ __aicore__ inline void TransposeWithGather<T>::GatherData()
 }
 
 template <typename T>
-__aicore__ inline void TransposeWithGather<T>::GenIndex4OneDim(int32_t goffset)
+__aicore__ inline void TransposeGather<T>::GenIndex4OneDim(int32_t goffset)
 {
     int8_t lastPerm = td_->ubPerm[td_->ubAxesCnt - 1];
     uint32_t lastDimSize = static_cast<uint32_t>(outUbAxes_[td_->ubAxesCnt - 1]);
@@ -406,7 +406,7 @@ __aicore__ inline void TransposeWithGather<T>::GenIndex4OneDim(int32_t goffset)
 }
 
 template <typename T>
-__aicore__ inline void TransposeWithGather<T>::GenIndex4TwoDim(int32_t goffset)
+__aicore__ inline void TransposeGather<T>::GenIndex4TwoDim(int32_t goffset)
 {
     int8_t lastPerm = td_->ubPerm[td_->ubAxesCnt - 1];
     uint32_t lastDimSize = static_cast<uint32_t>(outUbAxes_[td_->ubAxesCnt - 1]);
@@ -483,7 +483,7 @@ __aicore__ inline void TransposeWithGather<T>::GenIndex4TwoDim(int32_t goffset)
 }
 
 template <typename T>
-__aicore__ inline void TransposeWithGather<T>::GenIndex4ThreeDim(int32_t goffset)
+__aicore__ inline void TransposeGather<T>::GenIndex4ThreeDim(int32_t goffset)
 {
     int8_t lastPerm = td_->ubPerm[td_->ubAxesCnt - 1];
     uint32_t lastDimSize = static_cast<uint32_t>(outUbAxes_[td_->ubAxesCnt - 1]);
@@ -589,7 +589,7 @@ __aicore__ inline void TransposeWithGather<T>::GenIndex4ThreeDim(int32_t goffset
 }
 
 template <typename T>
-__aicore__ inline void TransposeWithGather<T>::GenGatherIndex(int32_t goffset)
+__aicore__ inline void TransposeGather<T>::GenGatherIndex(int32_t goffset)
 {
     int8_t dimNum = td_->ubAxesCnt - td_->outUbOutCutPos;
     // max borrowed axes count is 3
@@ -603,7 +603,7 @@ __aicore__ inline void TransposeWithGather<T>::GenGatherIndex(int32_t goffset)
 }
 
 template <typename T>
-__aicore__ inline void TransposeWithGather<T>::GenGatherIndex4AllPhase()
+__aicore__ inline void TransposeGather<T>::GenGatherIndex4AllPhase()
 {
     GenGatherIndex(0);
     gIdxOffset_ = Ops::Base::CeilAlign(CalcUbAxesOutOffset(td_->outUbOutCutPos - 1), gElemPerBlock_);
@@ -638,7 +638,7 @@ __aicore__ inline void TransposeWithGather<T>::GenGatherIndex4AllPhase()
 }
 
 template <typename T>
-__aicore__ inline void TransposeWithGather<T>::CalcBlkAddr(int64_t idx)
+__aicore__ inline void TransposeGather<T>::CalcBlkAddr(int64_t idx)
 {
     int64_t tmpIdx = 0;
     blkInAddr_ = 0;
@@ -651,7 +651,7 @@ __aicore__ inline void TransposeWithGather<T>::CalcBlkAddr(int64_t idx)
 }
 
 template <typename T>
-__aicore__ inline void TransposeWithGather<T>::SetCopyInParams()
+__aicore__ inline void TransposeGather<T>::SetCopyInParams()
 {
     int32_t inUbAxis0 = 1;
     int32_t inUbAxis1 = 1;
@@ -682,7 +682,7 @@ __aicore__ inline void TransposeWithGather<T>::SetCopyInParams()
 }
 
 template <typename T>
-__aicore__ inline void TransposeWithGather<T>::CopyDataIn()
+__aicore__ inline void TransposeGather<T>::CopyDataIn()
 {
     SetCopyInParams();
     DataCopyPadExtParams<T> padParams{false, 0, 0, 0};
@@ -698,7 +698,7 @@ __aicore__ inline void TransposeWithGather<T>::CopyDataIn()
 }
 
 template <typename T>
-__aicore__ inline void TransposeWithGather<T>::GetOutLoopAxes()
+__aicore__ inline void TransposeGather<T>::GetOutLoopAxes()
 {
     if (td_->outUbOutCutPos == 1) {
         outUbAxis0_ = outUbAxes_[0];
@@ -719,7 +719,7 @@ __aicore__ inline void TransposeWithGather<T>::GetOutLoopAxes()
 }
 
 template <typename T>
-__aicore__ inline void TransposeWithGather<T>::SetCopyOutParams()
+__aicore__ inline void TransposeGather<T>::SetCopyOutParams()
 {
     uint32_t outCube = static_cast<size_t>(CalcUbAxesOutOffset(td_->outUbOutCutPos - 1)) * sizeof(T);
     uint32_t outCubeAlign = Ops::Base::CeilAlign(outCube, static_cast<uint32_t>(BLOCK_SIZE_BYTE));
@@ -736,7 +736,7 @@ __aicore__ inline void TransposeWithGather<T>::SetCopyOutParams()
 }
 
 template <typename T>
-__aicore__ inline void TransposeWithGather<T>::CopyDataOut()
+__aicore__ inline void TransposeGather<T>::CopyDataOut()
 {
     SetCopyOutParams();
     auto xOutLocal = xOutQue_.DeQue<T>();

@@ -17,6 +17,21 @@
 namespace optiling {
 
 namespace DepthToSpace {
+namespace {
+static constexpr int64_t INPUT_IDX = 0;
+static constexpr int64_t OUTPUT_IDX = 0;
+static constexpr int64_t ATTR_BLOCK_SIZE_IDX = 0;
+static constexpr int64_t ATTR_MODE_IDX = 1;
+static constexpr int64_t ATTR_DEPTH_DATA_FORMAT_IDX = 2;
+static constexpr int64_t DIM_NUM = 4;
+static constexpr int64_t DIM_ZERO = 0;
+static constexpr int64_t DIM_ONE = 1;
+static constexpr int64_t DIM_TWO = 2;
+static constexpr int64_t DIM_THREE = 3;
+static constexpr int64_t DIM_FOUR = 4;
+static constexpr int64_t DIM_FIVE = 5;
+} // namespace
+
 ge::graphStatus DepthToSpaceTiling::ParametersVerifying()
 {
     OP_LOGD(tilingContext_->GetNodeName(), "Start DepthToSpaceTiling ParametersVerifying.");
@@ -133,7 +148,7 @@ ge::graphStatus DepthToSpaceTiling::CheckAttrValues(ge::Format xFormat)
 
 void DepthToSpaceTiling::SetPermAndOutShape(ShapeInfo& shapeInfo, const int64_t* perm)
 {
-    for (int64_t i = 0; i < DIM_SIX; i++) {
+    for (int64_t i = 0; i < EXPANDED_DIM_NUM; i++) {
         shapeInfo.perm[i] = perm[i];
         shapeInfo.outShape[i] = shapeInfo.inShape[shapeInfo.perm[i]];
     }
@@ -205,12 +220,12 @@ void DepthToSpaceTiling::BuildInShapeByFormatMode(ShapeInfo& shapeInfo)
 void DepthToSpaceTiling::ProcessShapeInfo(ShapeInfo& shapeInfo)
 {
     OP_LOGD(tilingContext_->GetNodeName(), "Start DepthToSpaceTiling ProcessShapeInfo.");
-    shapeInfo.permSize = DIM_SIX;
+    shapeInfo.permSize = EXPANDED_DIM_NUM;
     shapeInfo.eleLenInBytes = ge::GetSizeByDataType(paramInfo_.xDtype);
-    shapeInfo.inShapeSize = DIM_SIX;
-    shapeInfo.outShapeSize = DIM_SIX;
-    shapeInfo.dim = DIM_SIX;
-    shapeInfo.origDim = DIM_SIX;
+    shapeInfo.inShapeSize = EXPANDED_DIM_NUM;
+    shapeInfo.outShapeSize = EXPANDED_DIM_NUM;
+    shapeInfo.dim = EXPANDED_DIM_NUM;
+    shapeInfo.origDim = EXPANDED_DIM_NUM;
     BuildInShapeByFormatMode(shapeInfo);
 }
 

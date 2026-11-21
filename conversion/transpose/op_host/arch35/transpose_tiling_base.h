@@ -33,7 +33,7 @@
 #include <queue>
 #include <memory>
 
-#include "../../op_kernel/arch35/transpose_tiling_data.h"
+#include "conversion/transpose/op_kernel/arch35/transpose_tiling_data.h"
 
 namespace optiling {
 using namespace Transpose;
@@ -82,6 +82,40 @@ struct ShapeInfo {
         totalVolumeActual = 0;
         eleLenInBytes = 0;
         isLastAxisTranspose = false;
+    }
+};
+
+/**
+ * @brief 策略侧 Shape 信息（策略实际消费的精简结构）
+ *
+ * 由主类在调用策略前从完整 ShapeInfo 转换得到，只保留策略实际使用的字段：
+ * dim / totalVolumeActual / eleLenInBytes / isLastAxisTranspose
+ * + 简化后 shape/perm。完整 ShapeInfo 仅用于主类前置（解析/轴消除/轴合并/校验），
+ * 不下发给策略。
+ */
+struct StrategyShapeInfo {
+    int64_t dim = 0;                                        ///< 简化后的维度数
+    int64_t totalVolumeActual = 0;                          ///< 总元素数（简化后 shape 的乘积）
+    int64_t eleLenInBytes = 0;                              ///< 每个元素的字节数
+    bool isLastAxisTranspose = false;                       ///< 最后一维是否参与转置
+    std::array<int64_t, TP_MAX_AXIS_NUM> reducedInShape{};  ///< 简化后的输入 shape（定长，未用轴为 0）
+    std::array<int64_t, TP_MAX_AXIS_NUM> reducedOutShape{}; ///< 简化后的输出 shape（定长，未用轴为 0）
+    std::array<int64_t, TP_MAX_AXIS_NUM> reducedPerm{};     ///< 简化后的 perm 数组（定长，未用轴为 0）
+
+    StrategyShapeInfo() = default;
+
+    /// 主类调用策略前从完整 ShapeInfo 裁剪转换
+    explicit StrategyShapeInfo(const ShapeInfo& shapeInfo)
+    {
+        dim = shapeInfo.dim;
+        totalVolumeActual = shapeInfo.totalVolumeActual;
+        eleLenInBytes = shapeInfo.eleLenInBytes;
+        isLastAxisTranspose = shapeInfo.isLastAxisTranspose;
+        for (int64_t i = 0; i < TP_MAX_AXIS_NUM; i++) {
+            reducedInShape[i] = shapeInfo.reducedInShape[i];
+            reducedOutShape[i] = shapeInfo.reducedOutShape[i];
+            reducedPerm[i] = shapeInfo.reducedPerm[i];
+        }
     }
 };
 

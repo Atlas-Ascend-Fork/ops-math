@@ -10,7 +10,7 @@
 
 /*!
  * \file transpose_n_last.h
- * \brief TilingKey=10004 N_LAST_TRANSPOSE 策略实现
+ * \brief TilingKey=10004 N_LAST 策略实现
  *
  * 适用场景：尾轴不转置（reducedPerm[dim-1]==dim-1）且尾轴大小 ≥ 32（MOVEALIGN_LAST_MIN_ELE），
  * 即输入的最后一维在输出中保持连续，可以按连续行进行搬移。
@@ -37,7 +37,7 @@ namespace Transpose {
 using namespace AscendC;
 
 /**
- * @brief N_LAST_TRANSPOSE 策略类，实现尾轴不转置的连续行搬移
+ * @brief N_LAST 策略类，实现尾轴不转置的连续行搬移
  *
  * 利用尾轴连续的特性，按行搬运数据，双缓冲流水线加速。
  * 支持8维循环展开，适用于 2-8 维输入。

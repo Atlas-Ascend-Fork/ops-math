@@ -9,13 +9,13 @@
  */
 
 /*!
- * \file transpose_transdata_5hd_021.h
- * \brief TilingKey=10008 VCONV_021_TRANSPOSE 策略实现
+ * \file transpose_transto5hd_021.h
+ * \brief TilingKey=10008 TRANSTO5HD_021 策略实现
  *
  * 适用场景：DAV_5102(Ascend950) + 3D perm=[0,2,1]（H↔W转置，N维不变）+ 8/16/32bit + H>8,W>8,HW≥448
  *
  * 核心机制：使用 TransDataTo5HD 硬件指令实现3D [N,H,W]→[N,W,H] 转置。
- * 与 VCONV_TRANSPOSE(10007) 的区别：
+ * 与 TRANSTO5HD_10(10007) 的区别：
  *   - 支持3种位宽：8bit(int8/uint8) / 16bit(fp16/bf16) / 32bit(fp32/int32)
  *   - 多了一个 N 维循环（按 batch 处理）
  *   - 支持 HSplit 模式（按 H 维切分到不同核）
@@ -53,7 +53,7 @@ static constexpr int64_t DST_STRIDE_FACTOR_16BIT = 1; ///< 16bit dstStride 因�
 static constexpr int64_t DST_STRIDE_FACTOR_32BIT = 2; ///< 32bit dstStride 因子（步长需×2）
 
 /**
- * @brief VCONV_021_TRANSPOSE 策略类，使用 TransDataTo5HD 实现3D [N,H,W]→[N,W,H] 转置
+ * @brief TRANSTO5HD_021 策略类，使用 TransDataTo5HD 实现3D [N,H,W]→[N,W,H] 转置
  *
  * 支持 8bit/16bit/32bit 三种位宽。8bit 需要高低半分别处理，32bit dstStride 需加倍。
  * 支持 HSplit 模式（按 H 维切分到不同核）和 NSplit 模式（按 N 维切分）。
@@ -61,10 +61,10 @@ static constexpr int64_t DST_STRIDE_FACTOR_32BIT = 2; ///< 32bit dstStride 因�
  * @tparam T 数据元素类型（int8_t/int16_t/int32_t）
  */
 template <typename T>
-class KernelTransDataTo5HD021 {
+class TransposeTransTo5HD021 {
 public:
-    __aicore__ inline KernelTransDataTo5HD021(){};
-    __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, const Transpose021VCONVTilingData* tilingData, TPipe* pipe);
+    __aicore__ inline TransposeTransTo5HD021(){};
+    __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, const TransposeTransTo5HD021TilingData* tilingData, TPipe* pipe);
     __aicore__ inline void Process();
 
 private:
@@ -93,7 +93,7 @@ private:
                                                                   :
                                                                   DST_STRIDE_FACTOR_16BIT; ///< 其他: 标准步长
 
-    const Transpose021VCONVTilingData* tiling_ = nullptr;
+    const TransposeTransTo5HD021TilingData* tiling_ = nullptr;
     TQue<TPosition::VECIN, 1> inQueueSrc;
     TQue<TPosition::VECOUT, 1> outQueueDst;
     GlobalTensor<T> srcGlobal, dstGlobal;
@@ -110,8 +110,8 @@ private:
 };
 
 template <typename T>
-__aicore__ inline void KernelTransDataTo5HD021<T>::Init(GM_ADDR x, GM_ADDR y,
-                                                        const Transpose021VCONVTilingData* tilingData, TPipe* pipe)
+__aicore__ inline void TransposeTransTo5HD021<T>::Init(GM_ADDR x, GM_ADDR y,
+                                                       const TransposeTransTo5HD021TilingData* tilingData, TPipe* pipe)
 {
     tiling_ = tilingData;
     blockIdx_ = GetBlockIdx();
@@ -145,8 +145,7 @@ __aicore__ inline void KernelTransDataTo5HD021<T>::Init(GM_ADDR x, GM_ADDR y,
 }
 
 template <typename T>
-__aicore__ inline void KernelTransDataTo5HD021<T>::ComputeRConv(uint32_t r, uint32_t c, uint32_t rAlign,
-                                                                uint32_t cAlign)
+__aicore__ inline void TransposeTransTo5HD021<T>::ComputeRConv(uint32_t r, uint32_t c, uint32_t rAlign, uint32_t cAlign)
 {
     if constexpr (sizeof(T) == 1) {
         Compute8BitCore(r, c, rAlign);
@@ -172,7 +171,7 @@ __aicore__ inline void KernelTransDataTo5HD021<T>::ComputeRConv(uint32_t r, uint
  * 4. 使用 PipeBarrier<PIPE_V>() 确保硬件流水线同步
  */
 template <typename T>
-__aicore__ inline void KernelTransDataTo5HD021<T>::Compute8BitCore(uint32_t r, uint32_t c, uint32_t rAlign)
+__aicore__ inline void TransposeTransTo5HD021<T>::Compute8BitCore(uint32_t r, uint32_t c, uint32_t rAlign)
 {
     LocalTensor<T> srcLocal = inQueueSrc.DeQue<T>();
     LocalTensor<T> dstLocal = outQueueDst.AllocTensor<T>();
@@ -223,8 +222,8 @@ __aicore__ inline void KernelTransDataTo5HD021<T>::Compute8BitCore(uint32_t r, u
 }
 
 template <typename T>
-__aicore__ inline void KernelTransDataTo5HD021<T>::ComputeRConvGeneric(uint32_t r, uint32_t c, uint32_t rAlign,
-                                                                       uint32_t cAlign)
+__aicore__ inline void TransposeTransTo5HD021<T>::ComputeRConvGeneric(uint32_t r, uint32_t c, uint32_t rAlign,
+                                                                      uint32_t cAlign)
 {
     LocalTensor<T> srcLocal = inQueueSrc.DeQue<T>();
     LocalTensor<T> dstLocal = outQueueDst.AllocTensor<T>();
@@ -261,7 +260,7 @@ __aicore__ inline void KernelTransDataTo5HD021<T>::ComputeRConvGeneric(uint32_t 
 }
 
 template <typename T>
-__aicore__ inline void KernelTransDataTo5HD021<T>::ComputeCConv(uint32_t r, uint32_t c, uint32_t rAlign)
+__aicore__ inline void TransposeTransTo5HD021<T>::ComputeCConv(uint32_t r, uint32_t c, uint32_t rAlign)
 {
     if constexpr (sizeof(T) == 1) {
         Compute8BitCore(r, c, rAlign);
@@ -271,7 +270,7 @@ __aicore__ inline void KernelTransDataTo5HD021<T>::ComputeCConv(uint32_t r, uint
 }
 
 template <typename T>
-__aicore__ inline void KernelTransDataTo5HD021<T>::ComputeCConvGeneric(uint32_t r, uint32_t c, uint32_t rAlign)
+__aicore__ inline void TransposeTransTo5HD021<T>::ComputeCConvGeneric(uint32_t r, uint32_t c, uint32_t rAlign)
 {
     LocalTensor<T> srcLocal = inQueueSrc.DeQue<T>();
     LocalTensor<T> dstLocal = outQueueDst.AllocTensor<T>();
@@ -308,7 +307,7 @@ __aicore__ inline void KernelTransDataTo5HD021<T>::ComputeCConvGeneric(uint32_t 
 }
 
 template <typename T>
-__aicore__ inline void KernelTransDataTo5HD021<T>::Compute(uint32_t r, uint32_t c, uint32_t rAlign, uint32_t cAlign)
+__aicore__ inline void TransposeTransTo5HD021<T>::Compute(uint32_t r, uint32_t c, uint32_t rAlign, uint32_t cAlign)
 {
     if (tiling_->UseRConv) {
         ComputeRConv(r, c, rAlign, cAlign);
@@ -318,7 +317,7 @@ __aicore__ inline void KernelTransDataTo5HD021<T>::Compute(uint32_t r, uint32_t 
 }
 
 template <typename T>
-__aicore__ inline void KernelTransDataTo5HD021<T>::CopyIn(int64_t nIdx, uint32_t ubLoop, uint32_t r, uint32_t c)
+__aicore__ inline void TransposeTransTo5HD021<T>::CopyIn(int64_t nIdx, uint32_t ubLoop, uint32_t r, uint32_t c)
 {
     LocalTensor<T> srcLocal = inQueueSrc.AllocTensor<T>();
 
@@ -355,7 +354,7 @@ __aicore__ inline void KernelTransDataTo5HD021<T>::CopyIn(int64_t nIdx, uint32_t
 }
 
 template <typename T>
-__aicore__ inline void KernelTransDataTo5HD021<T>::CopyInWAligned(uint32_t actualValidRows, uint32_t r, uint32_t c)
+__aicore__ inline void TransposeTransTo5HD021<T>::CopyInWAligned(uint32_t actualValidRows, uint32_t r, uint32_t c)
 {
     if (tiling_->UseRConv) {
         copyInParams_.blockCount = 1;
@@ -376,8 +375,8 @@ __aicore__ inline void KernelTransDataTo5HD021<T>::CopyInWAligned(uint32_t actua
 }
 
 template <typename T>
-__aicore__ inline void KernelTransDataTo5HD021<T>::CopyInWUnaligned(uint32_t actualValidRows, uint32_t r, uint32_t c,
-                                                                    uint32_t ubLoop)
+__aicore__ inline void TransposeTransTo5HD021<T>::CopyInWUnaligned(uint32_t actualValidRows, uint32_t r, uint32_t c,
+                                                                   uint32_t ubLoop)
 {
     if (tiling_->UseRConv) {
         copyInParams_.blockCount = actualValidRows;
@@ -395,7 +394,7 @@ __aicore__ inline void KernelTransDataTo5HD021<T>::CopyInWUnaligned(uint32_t act
 }
 
 template <typename T>
-__aicore__ inline void KernelTransDataTo5HD021<T>::CopyOut(int64_t nIdx, uint32_t ubLoop, uint32_t r, uint32_t c)
+__aicore__ inline void TransposeTransTo5HD021<T>::CopyOut(int64_t nIdx, uint32_t ubLoop, uint32_t r, uint32_t c)
 {
     LocalTensor<T> dstLocal = outQueueDst.DeQue<T>();
 
@@ -419,7 +418,7 @@ __aicore__ inline void KernelTransDataTo5HD021<T>::CopyOut(int64_t nIdx, uint32_
 }
 
 template <typename T>
-__aicore__ inline void KernelTransDataTo5HD021<T>::CopyOutAligned(uint32_t r, uint32_t c)
+__aicore__ inline void TransposeTransTo5HD021<T>::CopyOutAligned(uint32_t r, uint32_t c)
 {
     if (tiling_->UseRConv) {
         if (r == tiling_->HLen) {
@@ -442,7 +441,7 @@ __aicore__ inline void KernelTransDataTo5HD021<T>::CopyOutAligned(uint32_t r, ui
 }
 
 template <typename T>
-__aicore__ inline void KernelTransDataTo5HD021<T>::CopyOutUnaligned(uint32_t r, uint32_t c, uint32_t ubLoop)
+__aicore__ inline void TransposeTransTo5HD021<T>::CopyOutUnaligned(uint32_t r, uint32_t c, uint32_t ubLoop)
 {
     if (tiling_->UseRConv) {
         int32_t hOffset = ubLoop * tiling_->rUbSplitPara.UbAlignFactor * TRANSELEM_021;
@@ -464,7 +463,7 @@ __aicore__ inline void KernelTransDataTo5HD021<T>::CopyOutUnaligned(uint32_t r, 
 }
 
 template <typename T>
-__aicore__ inline void KernelTransDataTo5HD021<T>::ProcessOneBatch(int64_t nIdx)
+__aicore__ inline void TransposeTransTo5HD021<T>::ProcessOneBatch(int64_t nIdx)
 {
     for (uint32_t i = 0; i < tiling_->UbLoopCount; i++) {
         uint32_t r, c, rAlign, cAlign;
@@ -486,7 +485,7 @@ __aicore__ inline void KernelTransDataTo5HD021<T>::ProcessOneBatch(int64_t nIdx)
 }
 
 template <typename T>
-__aicore__ inline void KernelTransDataTo5HD021<T>::CopyInHSplit(int64_t nIdx, uint32_t ubLoop, uint32_t r, uint32_t c)
+__aicore__ inline void TransposeTransTo5HD021<T>::CopyInHSplit(int64_t nIdx, uint32_t ubLoop, uint32_t r, uint32_t c)
 {
     LocalTensor<T> srcLocal = inQueueSrc.AllocTensor<T>();
 
@@ -529,7 +528,7 @@ __aicore__ inline void KernelTransDataTo5HD021<T>::CopyInHSplit(int64_t nIdx, ui
 }
 
 template <typename T>
-__aicore__ inline void KernelTransDataTo5HD021<T>::CopyOutHSplit(int64_t nIdx, uint32_t ubLoop, uint32_t r, uint32_t c)
+__aicore__ inline void TransposeTransTo5HD021<T>::CopyOutHSplit(int64_t nIdx, uint32_t ubLoop, uint32_t r, uint32_t c)
 {
     LocalTensor<T> dstLocal = outQueueDst.DeQue<T>();
 
@@ -549,7 +548,7 @@ __aicore__ inline void KernelTransDataTo5HD021<T>::CopyOutHSplit(int64_t nIdx, u
 }
 
 template <typename T>
-__aicore__ inline void KernelTransDataTo5HD021<T>::ProcessOneBatchHSplit(int64_t nIdx)
+__aicore__ inline void TransposeTransTo5HD021<T>::ProcessOneBatchHSplit(int64_t nIdx)
 {
     int64_t hAlignUnit = (sizeof(T) == 1) ? blockElem : TRANSELEM_021;
     uint32_t rAlign = (hCount_ + hAlignUnit - 1) / hAlignUnit;
@@ -570,7 +569,7 @@ __aicore__ inline void KernelTransDataTo5HD021<T>::ProcessOneBatchHSplit(int64_t
 }
 
 template <typename T>
-__aicore__ inline void KernelTransDataTo5HD021<T>::Process()
+__aicore__ inline void TransposeTransTo5HD021<T>::Process()
 {
     if (blockIdx_ >= tiling_->UsedCoreNum) {
         return;

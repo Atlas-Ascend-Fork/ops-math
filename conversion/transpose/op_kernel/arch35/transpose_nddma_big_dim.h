@@ -9,8 +9,8 @@
  */
 
 /*!
- * \file transpose_big_dim.h
- * \brief TilingKey=10005 BIG_DIM 策略实现
+ * \file transpose_nddma_big_dim.h
+ * \brief TilingKey=10005 NDDMA_BIG_DIM 策略实现
  *
  * 适用场景：维度 > 5（超过 NDDMA 5维限制），需要将原始 shape 压缩到5维 NDDMA 格式。
  *
@@ -24,10 +24,10 @@
  *     = 0  → 该维大小为1（位于输出切分轴之前，已合并到更高级别）
  *
  * 数据流：GM → DataCopy<T,5>(UB, NDDMA) → DataCopyPad(GM, 整块写出)
- * Main/Tail 判断同 CUT_ONCE，按 outCutLoopSize 判断。
+ * Main/Tail 判断同 NDDMA_CUT_1，按 outCutLoopSize 判断。
  */
-#ifndef TRANSPOSE_BIG_DIM_H
-#define TRANSPOSE_BIG_DIM_H
+#ifndef TRANSPOSE_NDDMA_BIG_DIM_H
+#define TRANSPOSE_NDDMA_BIG_DIM_H
 
 #include "transpose_base.h"
 
@@ -35,14 +35,14 @@ namespace Transpose {
 using namespace AscendC;
 
 /**
- * @brief BIG_DIM 策略类，实现 >5维压缩到5维 NDDMA 的转置
+ * @brief NDDMA_BIG_DIM 策略类，实现 >5维压缩到5维 NDDMA 的转置
  *
  * @tparam T 数据元素类型
  */
 template <typename T>
-class TransposeBigDim : public TransposeBase<T> {
+class TransposeNddmaBigDim : public TransposeBase<T> {
 public:
-    __aicore__ inline TransposeBigDim(){};
+    __aicore__ inline TransposeNddmaBigDim(){};
     __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, const TransposeOpTilingData* tilingData, TPipe* pipe);
     __aicore__ inline void Process();
 
@@ -82,8 +82,8 @@ private:
 };
 
 template <typename T>
-__aicore__ inline void TransposeBigDim<T>::Init(GM_ADDR x, GM_ADDR y, const TransposeOpTilingData* tilingData,
-                                                TPipe* pipe)
+__aicore__ inline void TransposeNddmaBigDim<T>::Init(GM_ADDR x, GM_ADDR y, const TransposeOpTilingData* tilingData,
+                                                     TPipe* pipe)
 {
     blockIdx_ = GetBlockIdx();
     tiling_ = tilingData;
@@ -94,7 +94,7 @@ __aicore__ inline void TransposeBigDim<T>::Init(GM_ADDR x, GM_ADDR y, const Tran
 }
 
 template <typename T>
-__aicore__ inline void TransposeBigDim<T>::DecimalToMixed(int64_t num, int64_t bases[], int64_t mixedBase[])
+__aicore__ inline void TransposeNddmaBigDim<T>::DecimalToMixed(int64_t num, int64_t bases[], int64_t mixedBase[])
 {
     if (num == 0) {
         return;
@@ -118,7 +118,7 @@ __aicore__ inline void TransposeBigDim<T>::DecimalToMixed(int64_t num, int64_t b
  *   - nddmaFlag[i] == 0：该维在输出切分轴之前，大小为1（不参与循环）
  */
 template <typename T>
-__aicore__ inline void TransposeBigDim<T>::SetLoopInfo(NdDmaLoopInfo<TP_NDDMA_MAX_DIM_NUM>& loopInfo)
+__aicore__ inline void TransposeNddmaBigDim<T>::SetLoopInfo(NdDmaLoopInfo<TP_NDDMA_MAX_DIM_NUM>& loopInfo)
 {
     int64_t nddmaFlag[TP_NDDMA_MAX_DIM_NUM] = {0};
     for (int64_t i = 0; i < TP_NDDMA_MAX_DIM_NUM; i++) {
@@ -154,7 +154,7 @@ __aicore__ inline void TransposeBigDim<T>::SetLoopInfo(NdDmaLoopInfo<TP_NDDMA_MA
 }
 
 template <typename T>
-__aicore__ inline void TransposeBigDim<T>::Process()
+__aicore__ inline void TransposeNddmaBigDim<T>::Process()
 {
     if (!ParseMultiCoreRange(blockIdx_, tiling_->realCoreNum, tiling_->blkFactor, tiling_->blkTailFactor,
                              blkProcessNum_, blkProcessIdxStart_, blkProcessIdxEnd_)) {
@@ -182,7 +182,7 @@ __aicore__ inline void TransposeBigDim<T>::Process()
 }
 
 template <typename T>
-__aicore__ inline void TransposeBigDim<T>::CopyIn(int64_t loopIdx, NdDmaParams<T, TP_NDDMA_MAX_DIM_NUM>& params)
+__aicore__ inline void TransposeNddmaBigDim<T>::CopyIn(int64_t loopIdx, NdDmaParams<T, TP_NDDMA_MAX_DIM_NUM>& params)
 {
     int64_t srcAddressOffset = 0;
     DecimalToMixed(loopIdx, dstAddressOffsetMixedBase_, dstAddressOffsetMixedBaseRes_);
@@ -200,7 +200,7 @@ __aicore__ inline void TransposeBigDim<T>::CopyIn(int64_t loopIdx, NdDmaParams<T
 }
 
 template <typename T>
-__aicore__ inline void TransposeBigDim<T>::CopyOut(int64_t loopIdx, DataCopyExtParams& copyOutParams)
+__aicore__ inline void TransposeNddmaBigDim<T>::CopyOut(int64_t loopIdx, DataCopyExtParams& copyOutParams)
 {
     int64_t dstAddressOffset = 0;
     for (int64_t i = 0; i < tiling_->permSize; i++) {
@@ -212,10 +212,10 @@ __aicore__ inline void TransposeBigDim<T>::CopyOut(int64_t loopIdx, DataCopyExtP
 }
 
 template <typename T>
-__aicore__ inline void TransposeBigDim<T>::ProcessPerCore(NdDmaParams<T, TP_NDDMA_MAX_DIM_NUM>& paramsMain,
-                                                          NdDmaParams<T, TP_NDDMA_MAX_DIM_NUM>& paramsTail,
-                                                          DataCopyExtParams& copyOutParamsMain,
-                                                          DataCopyExtParams& copyOutParamsTail)
+__aicore__ inline void TransposeNddmaBigDim<T>::ProcessPerCore(NdDmaParams<T, TP_NDDMA_MAX_DIM_NUM>& paramsMain,
+                                                               NdDmaParams<T, TP_NDDMA_MAX_DIM_NUM>& paramsTail,
+                                                               DataCopyExtParams& copyOutParamsMain,
+                                                               DataCopyExtParams& copyOutParamsTail)
 {
     int64_t outCutLoopSize = Ops::Base::CeilDiv(tiling_->outputShape[tiling_->outCutIndex], tiling_->outUbFactor);
     const int64_t permSize = tiling_->permSize;
@@ -248,4 +248,4 @@ __aicore__ inline void TransposeBigDim<T>::ProcessPerCore(NdDmaParams<T, TP_NDDM
 
 } // namespace Transpose
 
-#endif // TRANSPOSE_BIG_DIM_H
+#endif // TRANSPOSE_NDDMA_BIG_DIM_H

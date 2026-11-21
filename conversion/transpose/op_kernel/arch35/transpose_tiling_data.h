@@ -18,11 +18,11 @@
  *
  * TilingKey 与结构体对应关系：
  *   10000 - 10005 : TransposeOpTilingData
- *   10006         : GatherTransposeTilingData
- *   10007         : TransposeVCONVTilingData
- *   10008         : Transpose021VCONVTilingData
- *   10009         : HIF4DualCutTilingData
- *   10011         : Transpose2DTilingData
+ *   10006         : TransposeGatherTilingData
+ *   10007         : TransposeTransTo5HD10TilingData
+ *   10008         : TransposeTransTo5HD021TilingData
+ *   10009         : TransposeB4TilingData
+ *   10017         : TransposeTransTo5HD10PerfTilingData
  */
 
 #ifndef _TRANSPOSE_TILING_DATA_ARCH35_H_
@@ -115,7 +115,7 @@ struct UbSplitPara {
 /**
  * @brief TransDataTo5HD 2D 转置 Tiling 数据（TilingKey 10007）
  */
-struct TransposeVCONVTilingData {
+struct TransposeTransTo5HD10TilingData {
     int64_t AvailableUbSize = 0;   ///< 可用 UB 大小（单位：Block）
     int64_t UsedCoreNum = 0;       ///< 实际使用核数
     int64_t MainCoreLoopCount = 0; ///< 主核循环次数
@@ -137,7 +137,7 @@ struct TransposeVCONVTilingData {
 /**
  * @brief TransDataTo5HD 3D 021 转置（TilingKey 10008）UB 切分参数
  */
-struct Transpose021UbSplitPara {
+struct TransposeTransTo5HD021UbSplitPara {
     int64_t UbAlignFactor = 0;     ///< UB 对齐因子
     int64_t UbFactor = 0;          ///< UB 切分因子
     int64_t UbCount = 0;           ///< UB 循环次数
@@ -148,29 +148,29 @@ struct Transpose021UbSplitPara {
 /**
  * @brief TransDataTo5HD 3D 021 转置 Tiling 数据（TilingKey 10008）
  */
-struct Transpose021VCONVTilingData {
-    int64_t AvailableUbSize = 0;          ///< 可用 UB 大小（单位：Block）
-    int64_t UsedCoreNum = 0;              ///< 实际使用核数
-    int64_t NLen = 0;                     ///< N 维长度
-    int64_t HLen = 0;                     ///< H 维长度
-    int64_t WLen = 0;                     ///< W 维长度
-    int64_t HAlignBlockElem = 0;          ///< H 维 Block 对齐后的元素数
-    int64_t WAlignBlockElem = 0;          ///< W 维 Block 对齐后的元素数
-    int64_t NPerCore = 0;                 ///< 每核处理的 N 数量
-    int64_t NTailCore = 0;                ///< N 方向尾核数量
-    int64_t UbLoopCount = 0;              ///< UB 循环次数
-    bool UseRConv = false;                ///< 是否使用 R 方向转换
-    bool UseHSplit = false;               ///< 是否按 H 切分
-    int64_t HPerCore = 0;                 ///< 每核处理的 H 数量
-    int64_t HTailCore = 0;                ///< H 方向尾核数量
-    Transpose021UbSplitPara rUbSplitPara; ///< R 方向 UB 切分参数
-    Transpose021UbSplitPara cUbSplitPara; ///< C 方向 UB 切分参数
+struct TransposeTransTo5HD021TilingData {
+    int64_t AvailableUbSize = 0;                    ///< 可用 UB 大小（单位：Block）
+    int64_t UsedCoreNum = 0;                        ///< 实际使用核数
+    int64_t NLen = 0;                               ///< N 维长度
+    int64_t HLen = 0;                               ///< H 维长度
+    int64_t WLen = 0;                               ///< W 维长度
+    int64_t HAlignBlockElem = 0;                    ///< H 维 Block 对齐后的元素数
+    int64_t WAlignBlockElem = 0;                    ///< W 维 Block 对齐后的元素数
+    int64_t NPerCore = 0;                           ///< 每核处理的 N 数量
+    int64_t NTailCore = 0;                          ///< N 方向尾核数量
+    int64_t UbLoopCount = 0;                        ///< UB 循环次数
+    bool UseRConv = false;                          ///< 是否使用 R 方向转换
+    bool UseHSplit = false;                         ///< 是否按 H 切分
+    int64_t HPerCore = 0;                           ///< 每核处理的 H 数量
+    int64_t HTailCore = 0;                          ///< H 方向尾核数量
+    TransposeTransTo5HD021UbSplitPara rUbSplitPara; ///< R 方向 UB 切分参数
+    TransposeTransTo5HD021UbSplitPara cUbSplitPara; ///< C 方向 UB 切分参数
 };
 
 /**
  * @brief DataCopyGather 路径 Tiling 数据（TilingKey 10006）
  */
-struct GatherTransposeTilingData {
+struct TransposeGatherTilingData {
     uint64_t tilingKey = 0;                                 ///< TilingKey
     uint32_t dataTensorSize = 0;                            ///< 数据 Tensor 大小（单位：B）
     uint32_t indexTensorSize = 0;                           ///< 索引 Tensor 大小（单位：B）
@@ -206,7 +206,7 @@ struct GatherTransposeTilingData {
 /**
  * @brief HIF4 双切分 Tiling 数据（TilingKey 10009）
  */
-struct HIF4DualCutTilingData {
+struct TransposeB4TilingData {
     // --- 多核（GM）循环 ---
     int32_t gmShape[TP_B4_GM_LEN] = {};     ///< 外层循环 shape
     int64_t gmInStride[TP_B4_GM_LEN] = {};  ///< 每个 gm 轴的输入跨步
@@ -241,12 +241,12 @@ struct HIF4DualCutTilingData {
 };
 
 /**
- * @brief 2D perm=[1,0] 特化模板的精简 Tiling 数据（TilingKey 10011）
+ * @brief 2D perm=[1,0] 特化模板的精简 Tiling 数据（TilingKey 10017）
  *
  * TransDataTo5HD 全 tile 转置路径：m x n 的二维转置，按 tileM x tileN 的 tile 搬入 UB
  * 后用 16x16 块转置指令处理，再按列搬出。字段类型为 int32_t，下发前 Host 侧已保证不越界。
  */
-struct Transpose2DTilingData {
+struct TransposeTransTo5HD10PerfTilingData {
     int32_t m = 0;       ///< 输入行数
     int32_t n = 0;       ///< 输入列数
     int32_t coreNum = 0; ///< 使用核数

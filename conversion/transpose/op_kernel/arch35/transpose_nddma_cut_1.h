@@ -9,8 +9,8 @@
  */
 
 /*!
- * \file transpose_cut_one_axis.h
- * \brief TilingKey=10002 CUT_ONCE 策略实现
+ * \file transpose_nddma_cut_1.h
+ * \brief TilingKey=10002 NDDMA_CUT_1 策略实现
  *
  * 适用场景：2-5维 NDDMA 场景，DoSplitUB 后 outCutIndex ≤ FindOutIndex(inCutIndex)，
  * 即输出切分轴不比输入切分轴"更靠前"，只需切1个轴。
@@ -38,8 +38,8 @@
  *   - loop2Size/loop2SrcStride/loop2DstStride 处理第4维
  *   - 第5维(loop4)手动循环展开
  */
-#ifndef TRANSPOSE_CUT_ONE_AXIS_H
-#define TRANSPOSE_CUT_ONE_AXIS_H
+#ifndef TRANSPOSE_NDDMA_CUT_1_H
+#define TRANSPOSE_NDDMA_CUT_1_H
 
 #include "transpose_base.h"
 
@@ -47,7 +47,7 @@ namespace Transpose {
 using namespace AscendC;
 
 /**
- * @brief CUT_ONCE 策略类，实现 NDDMA 5维搬运 + 单轴切分转置
+ * @brief NDDMA_CUT_1 策略类，实现 NDDMA 5维搬运 + 单轴切分转置
  *
  * 数据流：GM → DataCopy<T,5>(UB, NDDMA自动转置) → DataCopyPad(GM, LoopMode展开写出)
  * 支持多核并行（ParseMultiCoreRange）和 Main/Tail 尾块处理。
@@ -55,9 +55,9 @@ using namespace AscendC;
  * @tparam T 数据元素类型
  */
 template <typename T>
-class TransposeCutOneAxis : public TransposeBase<T> {
+class TransposeNddmaCut1 : public TransposeBase<T> {
 public:
-    __aicore__ inline TransposeCutOneAxis(){};
+    __aicore__ inline TransposeNddmaCut1(){};
     __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, const TransposeOpTilingData* tilingData, TPipe* pipe);
     __aicore__ inline void Process();
 
@@ -78,7 +78,7 @@ private:
     int64_t blockIdx_;
 
     // buffer
-    TQueBind<QuePosition::VECIN, QuePosition::VECOUT, 1> vecQue_; // 单缓冲队列（CUT_ONCE 无需双缓冲）
+    TQueBind<QuePosition::VECIN, QuePosition::VECOUT, 1> vecQue_; // 单缓冲队列（NDDMA_CUT_1 无需双缓冲）
     GlobalTensor<T> inputGM_;                                     // 输入 GM 张量
     GlobalTensor<T> outputGM_;                                    // 输出 GM 张量
 
@@ -112,8 +112,8 @@ private:
 };
 
 template <typename T>
-__aicore__ inline void TransposeCutOneAxis<T>::Init(GM_ADDR x, GM_ADDR y, const TransposeOpTilingData* tilingData,
-                                                    TPipe* pipe)
+__aicore__ inline void TransposeNddmaCut1<T>::Init(GM_ADDR x, GM_ADDR y, const TransposeOpTilingData* tilingData,
+                                                   TPipe* pipe)
 {
     blockIdx_ = GetBlockIdx();
     tiling_ = tilingData;
@@ -124,7 +124,7 @@ __aicore__ inline void TransposeCutOneAxis<T>::Init(GM_ADDR x, GM_ADDR y, const 
 }
 
 template <typename T>
-__aicore__ inline void TransposeCutOneAxis<T>::Process()
+__aicore__ inline void TransposeNddmaCut1<T>::Process()
 {
     if (!ParseMultiCoreRange(blockIdx_, tiling_->realCoreNum, tiling_->blkFactor, tiling_->blkTailFactor,
                              blkProcessNum_, blkProcessIdxStart_, blkProcessIdxEnd_)) {
@@ -134,7 +134,7 @@ __aicore__ inline void TransposeCutOneAxis<T>::Process()
 }
 
 template <typename T>
-__aicore__ inline void TransposeCutOneAxis<T>::ParseTilingData()
+__aicore__ inline void TransposeNddmaCut1<T>::ParseTilingData()
 {
     expandedOutputCutIndex_ = tiling_->outCutIndex + TP_NDDMA_MAX_DIM_NUM - tiling_->permSize;
     // 整切检测：UB 内 dst shape 与完整输出 shape 完全一致，说明该块没有被实际切分。
@@ -168,8 +168,8 @@ __aicore__ inline void TransposeCutOneAxis<T>::ParseTilingData()
  * @return NDDMA 搬运参数
  */
 template <typename T>
-__aicore__ inline NdDmaLoopInfo<TP_NDDMA_MAX_DIM_NUM> TransposeCutOneAxis<T>::SetupLoopInfo(
-    const int64_t inUbSrcShape[], const int64_t inUbDstShape[])
+__aicore__ inline NdDmaLoopInfo<TP_NDDMA_MAX_DIM_NUM> TransposeNddmaCut1<T>::SetupLoopInfo(const int64_t inUbSrcShape[],
+                                                                                           const int64_t inUbDstShape[])
 {
     NdDmaLoopInfo<TP_NDDMA_MAX_DIM_NUM> loopInfo;
     int64_t loopDstStrideTmp[TP_NDDMA_MAX_DIM_NUM] = {0};
@@ -233,7 +233,7 @@ __aicore__ inline NdDmaLoopInfo<TP_NDDMA_MAX_DIM_NUM> TransposeCutOneAxis<T>::Se
  * @param mixedBase [out] 混合基分解结果
  */
 template <typename T>
-__aicore__ inline void TransposeCutOneAxis<T>::DecimalToMixed(int64_t num, int64_t bases[], int64_t mixedBase[])
+__aicore__ inline void TransposeNddmaCut1<T>::DecimalToMixed(int64_t num, int64_t bases[], int64_t mixedBase[])
 {
     if (num == 0) {
         return;
@@ -248,7 +248,7 @@ __aicore__ inline void TransposeCutOneAxis<T>::DecimalToMixed(int64_t num, int64
 }
 
 template <typename T>
-__aicore__ inline void TransposeCutOneAxis<T>::GetLoopParams(int64_t n)
+__aicore__ inline void TransposeNddmaCut1<T>::GetLoopParams(int64_t n)
 {
     const int64_t reverseIdx = TP_NDDMA_MAX_DIM_NUM - 1 - n;
     // main and tail loopSize
@@ -285,7 +285,7 @@ __aicore__ inline void TransposeCutOneAxis<T>::GetLoopParams(int64_t n)
 }
 
 template <typename T>
-__aicore__ inline void TransposeCutOneAxis<T>::GetLoopAndStride()
+__aicore__ inline void TransposeNddmaCut1<T>::GetLoopAndStride()
 {
     // calculate the loopSize and stride of src and dst
     expandedInputCutIndex_ = tiling_->expandedPerm[expandedOutputCutIndex_];
@@ -306,7 +306,7 @@ __aicore__ inline void TransposeCutOneAxis<T>::GetLoopAndStride()
 }
 
 template <typename T>
-__aicore__ inline void TransposeCutOneAxis<T>::CopyIn(int64_t loopIdx, NdDmaParams<T, TP_NDDMA_MAX_DIM_NUM>& params)
+__aicore__ inline void TransposeNddmaCut1<T>::CopyIn(int64_t loopIdx, NdDmaParams<T, TP_NDDMA_MAX_DIM_NUM>& params)
 {
     int64_t srcAddressOffset = 0;
     DecimalToMixed(loopIdx, dstLoopSize_, dstAddressOffsetMixedBase_);
@@ -325,8 +325,8 @@ __aicore__ inline void TransposeCutOneAxis<T>::CopyIn(int64_t loopIdx, NdDmaPara
 }
 
 template <typename T>
-__aicore__ inline void TransposeCutOneAxis<T>::CopyOut(int64_t loopIdx, int64_t loopSize[], int64_t loopSrcStride[],
-                                                       int64_t loopDstStride[])
+__aicore__ inline void TransposeNddmaCut1<T>::CopyOut(int64_t loopIdx, int64_t loopSize[], int64_t loopSrcStride[],
+                                                      int64_t loopDstStride[])
 {
     int64_t dstAddressOffset = 0;
     for (int64_t i = 0; i < TP_NDDMA_MAX_DIM_NUM; i++) {
@@ -391,7 +391,7 @@ __aicore__ inline void TransposeCutOneAxis<T>::CopyOut(int64_t loopIdx, int64_t 
 }
 
 template <typename T>
-__aicore__ inline void TransposeCutOneAxis<T>::ProcessPerCore()
+__aicore__ inline void TransposeNddmaCut1<T>::ProcessPerCore()
 {
     for (int64_t i = 0; i < tiling_->permSize; i++) {
         GetLoopParams(i);

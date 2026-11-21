@@ -12,7 +12,7 @@
  * \file transpose_small_shape.h
  * \brief TilingKey=10001 SMALL_SHAPE 策略实现
  *
- * 适用场景：总数据量（字节）< SMALL_SHAPE_BYTES_THRESHOLD，且非 TENSOR_MOVE/VCONV/GATHER 场景。
+ * 适用场景：总数据量（字节）< 阈值，且非 TENSOR_MOVE/TRANS_TO_5HD/GATHER 场景。
  *
  * 核心机制：SIMT（Single Instruction Multiple Thread）模式
  *   - 利用 DAV_3510 的 SIMT 硬件能力，每个线程独立计算输出位置
