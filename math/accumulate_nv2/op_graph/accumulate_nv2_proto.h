@@ -47,4 +47,4 @@ REG_OP(AccumulateNV2)
 
 } // namespace ge
 
-#endif // ARG_MAX_V2_PROTO_H_
+#endif // ACCUMULATE_NV2_PROTO_H_
