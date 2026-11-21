@@ -165,3 +165,67 @@ TEST_F(PackInferTest, pack_infer_test_8)
                                                       {1}, {1});
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED);
 }
+
+// 动态混合场景: 已知维与未知维(-1)通配, 对齐 rt1.0 JoinShapes, 不拦截
+TEST_F(PackInferTest, pack_infer_test_9)
+{
+    gert::InfershapeContextPara infershapeContextPara("Pack",
+                                                      {
+                                                          {{{2, 2562}, {2, 2562}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                          {{{-1, -1}, {-1, -1}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                          {{{2, 2562}, {2, 2562}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {"axis", Ops::Math::AnyValue::CreateFrom<int64_t>(0)},
+                                                          {"N", Ops::Math::AnyValue::CreateFrom<int64_t>(3)},
+                                                      },
+                                                      {3}, {1});
+    std::vector<std::vector<int64_t>> expectOutputShape = {
+        {3, 2, 2562},
+    };
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+// 基底未知维由后续已知输入回填(合并取已知)
+TEST_F(PackInferTest, pack_infer_test_10)
+{
+    gert::InfershapeContextPara infershapeContextPara("Pack",
+                                                      {
+                                                          {{{-1, -1}, {-1, -1}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                          {{{2, 2562}, {2, 2562}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {"axis", Ops::Math::AnyValue::CreateFrom<int64_t>(1)},
+                                                          {"N", Ops::Math::AnyValue::CreateFrom<int64_t>(2)},
+                                                      },
+                                                      {2}, {1});
+    std::vector<std::vector<int64_t>> expectOutputShape = {
+        {2, 2, 2562},
+    };
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+// 同一维出现两个不同的已知值仍需拦截
+TEST_F(PackInferTest, pack_infer_test_11)
+{
+    gert::InfershapeContextPara infershapeContextPara("Pack",
+                                                      {
+                                                          {{{2, 2562}, {2, 2562}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                          {{{2, 2563}, {2, 2563}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {"axis", Ops::Math::AnyValue::CreateFrom<int64_t>(0)},
+                                                          {"N", Ops::Math::AnyValue::CreateFrom<int64_t>(2)},
+                                                      },
+                                                      {2}, {1});
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED);
+}

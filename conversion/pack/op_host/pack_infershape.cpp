@@ -23,10 +23,16 @@ using namespace ge;
 namespace ops {
 constexpr size_t INDEX_AXIS = 0;
 constexpr size_t INDEX_N = 1;
+// 仓库约定(对齐 tile_with_axis/circular_pad): -1 为未知维标记
+constexpr int64_t UNKNOWN_DIM = -1;
 
 static ge::graphStatus CheckInputsShapeConsistent(gert::InferShapeContext* context, const int64_t dynamic_input_idx,
-                                                  int64_t pack_num, const gert::Shape* base_shape, int64_t base_index)
+                                                  int64_t pack_num, const gert::Shape* base_shape, int64_t base_index,
+                                                  gert::Shape* out_shape)
 {
+    // 对等 rt1.0 动态路径 JoinShapes: 未知维(-1)视为通配, 未知维与已知维合并取已知;
+    // 仅当秩不一致或同一维出现两个不同的已知值时才校验失败(如 [2,2562] 与 [-1,-1] 混合不拦截)。
+    const int64_t rank = static_cast<int64_t>(base_shape->GetDimNum());
     for (int64_t relative_index = 0; relative_index < pack_num; relative_index++) {
         const gert::Shape* input_i_shape = context->GetDynamicInputShape(dynamic_input_idx, relative_index);
         OP_CHECK_NULL_WITH_CONTEXT(context, input_i_shape);
@@ -34,11 +40,28 @@ static ge::graphStatus CheckInputsShapeConsistent(gert::InferShapeContext* conte
             // 未知秩输入通配, 跳过一致性校验
             continue;
         }
-        if (*input_i_shape != *base_shape) {
+        if (static_cast<int64_t>(input_i_shape->GetDimNum()) != rank) {
             // input shape i is not equal base shape
             OP_LOGE(context->GetNodeName(), "input shape[%" PRId64 "] %s, must be equal to shape[%" PRId64 "] %s!",
                     relative_index, Ops::Base::ToString(*input_i_shape).c_str(), base_index,
                     Ops::Base::ToString(*base_shape).c_str());
+            return ge::GRAPH_FAILED;
+        }
+        for (int64_t dim_idx = 0; dim_idx < rank; dim_idx++) {
+            const int64_t dim_value = input_i_shape->GetDim(static_cast<uint32_t>(dim_idx));
+            const int64_t base_dim = out_shape->GetDim(static_cast<uint32_t>(dim_idx));
+            if (dim_value == UNKNOWN_DIM || base_dim == dim_value) {
+                continue;
+            }
+            if (base_dim == UNKNOWN_DIM) {
+                // -1 与已知值合并取已知
+                out_shape->SetDim(static_cast<uint32_t>(dim_idx), dim_value);
+                continue;
+            }
+            // input shape i is not equal base shape
+            OP_LOGE(context->GetNodeName(), "input shape[%" PRId64 "] %s, must be equal to shape[%" PRId64 "] %s!",
+                    relative_index, Ops::Base::ToString(*input_i_shape).c_str(), base_index,
+                    Ops::Base::ToString(*out_shape).c_str());
             return ge::GRAPH_FAILED;
         }
     }
@@ -70,7 +93,8 @@ static ge::graphStatus PackInferShapeCommon(gert::InferShapeContext* context, co
     }
     *out_shape = *base_shape;
 
-    if (CheckInputsShapeConsistent(context, dynamic_input_idx, pack_num, base_shape, base_index) != ge::GRAPH_SUCCESS) {
+    if (CheckInputsShapeConsistent(context, dynamic_input_idx, pack_num, base_shape, base_index, out_shape) !=
+        ge::GRAPH_SUCCESS) {
         return ge::GRAPH_FAILED;
     }
 
