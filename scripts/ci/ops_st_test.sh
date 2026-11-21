@@ -348,7 +348,7 @@ setup_cann_env() {
 # Find the source directory of an op by name
 find_op_code_path() {
     local op_name="$1"
-    local code_path=$(find "${framework_path}" -type d -name "${op_name}" -not -path "*/build/*" -not -path "*/.git/*" -not -path "*/build_out/*"  -not -path "*/third_party/*" -not -path "*/st/*" | head -1)
+    local code_path=$(find "${framework_path}" -type d -name "${op_name}" -not -path "*/build/*" -not -path "*/.git/*" -not -path "*/build_out/*"  -not -path "*/third_party/*" -not -path "*/st/*" -not -path "*/examples/*" | head -1)
 
     if [[ -z "${code_path}" ]]; then
         return 1
@@ -403,7 +403,7 @@ find_test_cases() {
 
     # Common cases: st/ttk_<type>_*.csv
     for prefix in "${search_prefixes[@]}"; do
-        local csv_files=$(find "${st_path}" -maxdepth 1 -name "${prefix}_*.csv" -type f 2>/dev/null)
+        local csv_files=$(find "${st_path}" -maxdepth 1 -name "${prefix}_*.csv" -type f ! -name "*_result.csv" 2>/dev/null)
         for csv_file in ${csv_files}; do
             local test_type="${prefix#ttk_}"
             test_case_files+=("${test_type}:${csv_file}")
@@ -411,18 +411,35 @@ find_test_cases() {
     done
 
     # Arch-specific cases: st/<arch>/ttk_<type>_*.csv
+    local arch_dirs=()
     if [[ -n "${arch}" ]]; then
-        local arch_path="${st_path}/${arch}"
-        if [[ -d "${arch_path}" ]]; then
-            for prefix in "${search_prefixes[@]}"; do
-                local csv_files=$(find "${arch_path}" -maxdepth 1 -name "${prefix}_*.csv" -type f 2>/dev/null)
-                for csv_file in ${csv_files}; do
-                    local test_type="${prefix#ttk_}"
-                    test_case_files+=("${test_type}:${csv_file}")
-                done
-            done
-        fi
+        arch_dirs+=("${st_path}/${arch}")
     fi
+    # With --case_path the case directory is provided by the caller. The csv itself
+    # carries no arch field, so any archNN/ subdir under it is a valid case source.
+    if [[ -n "${case_path}" ]]; then
+        local d
+        for d in "${st_path}"/arch[0-9]*; do
+            [[ -d "${d}" ]] || continue
+            [[ "${d}" == "${st_path}/${arch}" ]] && continue
+            arch_dirs+=("${d}")
+        done
+    fi
+
+    local arch_path
+    for arch_path in "${arch_dirs[@]}"; do
+        [[ -d "${arch_path}" ]] || continue
+        if [[ -n "${arch}" && "$(basename "${arch_path}")" != "${arch}" ]]; then
+            echo "[WARNING] ${op_name}: 用例目录 $(basename "${arch_path}") 与当前 arch ${arch} 不一致，按 --case_path 照常执行" >&2
+        fi
+        for prefix in "${search_prefixes[@]}"; do
+            local csv_files=$(find "${arch_path}" -maxdepth 1 -name "${prefix}_*.csv" -type f ! -name "*_result.csv" 2>/dev/null)
+            for csv_file in ${csv_files}; do
+                local test_type="${prefix#ttk_}"
+                test_case_files+=("${test_type}:${csv_file}")
+            done
+        done
+    done
 
     echo "${test_case_files[*]}"
 }
@@ -738,14 +755,24 @@ print_reproduction_commands() {
             result_basename=$(basename "${f_csv}")
             csv_basename="${result_basename%_result.csv}"
             if [[ -n "${csv_basename}" ]]; then
-                input_csv=$(find "${framework_path}" -name "${csv_basename}.csv" -type f 2>/dev/null | head -1)
+                # Case csv lives under --case_path when specified, otherwise in the repo
+                local csv_search_root="${case_path:-${framework_path}}"
+                input_csv=$(find "${csv_search_root}" -name "${csv_basename}.csv" -type f 2>/dev/null | head -1)
+                if [[ -z "${input_csv}" && "${csv_basename}" =~ ^arch[0-9]+_(.+)$ ]]; then
+                    # Arch-specific cases carry an arch<N>_ prefix in the testcase name only
+                    input_csv=$(find "${csv_search_root}" -name "${BASH_REMATCH[1]}.csv" -type f 2>/dev/null | head -1)
+                fi
             fi
 
             local repro_cmd
             local arch_path="${framework_path}/${op_type}/${f_op}/tests/st/${arch}"
+            local arch_case_path="${arch_path}"
+            if [[ -n "${case_path}" ]]; then
+                arch_case_path="${case_path}/${op_type}/${f_op}/${arch}"
+            fi
             if [[ -n "${arch}" && -f "${arch_path}/st_test.sh" ]]; then
                 # Override op: framework ran st_test.sh directly, print that command
-                repro_cmd="bash ${arch_path}/st_test.sh --test_path ${arch_path} --ttk_path ${ttk_path} --output_path ${log_path}/${f_op}"
+                repro_cmd="bash ${arch_path}/st_test.sh --test_path ${arch_case_path} --ttk_path ${ttk_path} --output_path ${log_path}/${f_op}"
             else
                 local ttk_mode extra_flags
                 case "${test_type}" in
@@ -833,13 +860,25 @@ run_single_op_test() {
 
     print_msg "=== Testing op: ${op_name} ==="
 
-    local code_path=$(find_op_code_path "${op_name}") || true
-    if [[ -z "${code_path}" ]]; then
-        print_warning "Cannot find op directory for ${op_name}"
-        return 0
+    local op_type=""
+
+    if [[ -n "${case_path}" ]]; then
+        local case_op_dir
+        case_op_dir=$(find "${case_path}" -maxdepth 2 -type d -name "${op_name}" 2>/dev/null | head -1)
+        if [[ -n "${case_op_dir}" ]]; then
+            op_type=$(basename "$(dirname "${case_op_dir}")")
+        fi
     fi
 
-    local op_type=$(get_op_type "${code_path}")
+    if [[ -z "${op_type}" ]]; then
+        local code_path=$(find_op_code_path "${op_name}") || true
+        if [[ -z "${code_path}" ]]; then
+            print_warning "Cannot find op directory for ${op_name}"
+            return 0
+        fi
+        op_type=$(get_op_type "${code_path}")
+    fi
+
     print_msg "op_type: ${op_type}, op_name: ${op_name}"
 
     local arch="${SOC_TO_ST_ARCH[${soc_version}]:-}"
@@ -856,10 +895,16 @@ run_single_op_test() {
     # Override: run the arch-specific st_test.sh directly when present
     local override_st_test_sh=""
     local arch_path=""
+    local arch_case_path=""
     if [[ -n "${arch}" ]]; then
         arch_path="${framework_path}/${op_type}/${op_name}/tests/st/${arch}"
         if [[ -f "${arch_path}/st_test.sh" ]]; then
             override_st_test_sh="${arch_path}/st_test.sh"
+        fi
+        # Case directory follows --case_path when specified, same convention as find_test_cases
+        arch_case_path="${arch_path}"
+        if [[ -n "${case_path}" ]]; then
+            arch_case_path="${case_path}/${op_type}/${op_name}/${arch}"
         fi
     fi
 
@@ -874,7 +919,7 @@ run_single_op_test() {
     if [[ -n "${override_st_test_sh}" ]]; then
         local override_ret=0
         local override_results
-        override_results=$(run_override_st_test "${op_name}" "${override_st_test_sh}" "${arch_path}") || override_ret=1
+        override_results=$(run_override_st_test "${op_name}" "${override_st_test_sh}" "${arch_case_path}") || override_ret=1
 
         if [[ ${override_ret} -ne 0 ]]; then
             op_error_flag=1
