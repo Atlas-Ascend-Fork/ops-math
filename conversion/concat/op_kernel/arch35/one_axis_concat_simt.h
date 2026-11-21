@@ -26,34 +26,47 @@ using namespace AscendC;
 constexpr uint32_t MAX_THREAD_NUM = 1024;
 
 template <typename T>
-__simt_vf__ __aicore__ LAUNCH_BOUND(MAX_THREAD_NUM) inline void ConcatSimt(
-    GM_ADDR x, GM_ADDR y, uint32_t tensorIdx, uint32_t colsSize, uint32_t colsOffset, uint32_t m, uint32_t n,
-    uint32_t magic, uint32_t shift);
+__simt_vf__ __aicore__ LAUNCH_BOUND(MAX_THREAD_NUM) inline void ConcatSimt(GM_ADDR x, GM_ADDR y, uint32_t tensorIdx,
+                                                                           uint32_t colsSize, uint32_t colsOffset,
+                                                                           uint32_t m, uint32_t n, uint32_t magic,
+                                                                           uint32_t shift);
 
 template <typename T>
 class OneAxisConcatSimt {
 public:
-    __aicore__ inline OneAxisConcatSimt(const ConcatTilingDataForSimt& tilingData) : tilingData_(tilingData){};
+    __aicore__ inline OneAxisConcatSimt(__tiling_data_ptr__ ConcatTilingDataForSimt* tilingData)
+        : tilingData_(tilingData)
+    {
+        tensorNumPerCore_ = tilingData_->tensorNumPerCore;
+        tensorNum_ = tilingData_->tensorNum;
+        catDim0_ = tilingData_->catDim0;
+        catDim1_ = tilingData_->catDim1;
+    };
     __aicore__ inline void ProcessForSimt(GM_ADDR x, GM_ADDR dst);
-    __aicore__ inline __gm__ T *GetTensorSimtAddr(uint16_t index, GM_ADDR tensorPtr);
+    __aicore__ inline __gm__ T* GetTensorSimtAddr(uint16_t index, GM_ADDR tensorPtr);
 
 private:
-    const ConcatTilingDataForSimt& tilingData_;
+    __tiling_data_ptr__ ConcatTilingDataForSimt* tilingData_;
+    int32_t tensorNumPerCore_{0};
+    int32_t tensorNum_{0};
+    int32_t catDim0_{0};
+    int32_t catDim1_{0};
 };
 
 template <typename T>
-__simt_callee__ __aicore__ inline __gm__ T *GetTensorSimtAddr(uint16_t index, GM_ADDR tensorPtr)
+__simt_callee__ __aicore__ inline __gm__ T* GetTensorSimtAddr(uint16_t index, GM_ADDR tensorPtr)
 {
-    __gm__ uint64_t *dataAddr = reinterpret_cast<__gm__ uint64_t *>(tensorPtr);
+    __gm__ uint64_t* dataAddr = reinterpret_cast<__gm__ uint64_t*>(tensorPtr);
     uint64_t tensorPtrOffset = *dataAddr;
-    __gm__ uint64_t *retPtr = dataAddr + (tensorPtrOffset >> 3);
-    return reinterpret_cast<__gm__ T *>(*(retPtr + index));
+    __gm__ uint64_t* retPtr = dataAddr + (tensorPtrOffset >> 3);
+    return reinterpret_cast<__gm__ T*>(*(retPtr + index));
 }
 
 template <typename T>
-__simt_vf__ __aicore__ LAUNCH_BOUND(MAX_THREAD_NUM) inline void ConcatSimt(
-    GM_ADDR x, GM_ADDR y, uint32_t tensorIdx, uint32_t colsSize, uint32_t colsOffset, uint32_t m, uint32_t n,
-    uint32_t magic, uint32_t shift)
+__simt_vf__ __aicore__ LAUNCH_BOUND(MAX_THREAD_NUM) inline void ConcatSimt(GM_ADDR x, GM_ADDR y, uint32_t tensorIdx,
+                                                                           uint32_t colsSize, uint32_t colsOffset,
+                                                                           uint32_t m, uint32_t n, uint32_t magic,
+                                                                           uint32_t shift)
 {
     auto src = GetTensorSimtAddr<T>(tensorIdx, x);
     __gm__ T* dst = (__gm__ T*)y;
@@ -68,20 +81,19 @@ __simt_vf__ __aicore__ LAUNCH_BOUND(MAX_THREAD_NUM) inline void ConcatSimt(
 template <typename T>
 __aicore__ inline void OneAxisConcatSimt<T>::ProcessForSimt(GM_ADDR x, GM_ADDR y)
 {
-    for (uint32_t i = 0; i < tilingData_.tensorNumPerCore; i++) {
+    for (uint32_t i = 0; i < tensorNumPerCore_; i++) {
         uint32_t tensorIdx = i * GetBlockNum() + GetBlockIdx();
-        if (tensorIdx >= tilingData_.tensorNum) {
+        if (tensorIdx >= tensorNum_) {
             return;
         }
-        uint32_t colsOffset = tensorIdx == 0 ? 0 : tilingData_.arrays.tensorColsOffset[tensorIdx - 1];
-        uint32_t colsSize = tilingData_.arrays.tensorColsOffset[tensorIdx] - colsOffset;
+        uint32_t colsOffset = tensorIdx == 0 ? 0 : tilingData_->arrays.tensorColsOffset[tensorIdx - 1];
+        uint32_t colsSize = tilingData_->arrays.tensorColsOffset[tensorIdx] - colsOffset;
         uint32_t magic = 0;
         uint32_t shift = 0;
 
         GetUintDivMagicAndShift(magic, shift, colsSize);
-        asc_vf_call<ConcatSimt<T>>(
-            dim3(MAX_THREAD_NUM), x, y, tensorIdx, colsSize, colsOffset, tilingData_.catDim0, tilingData_.catDim1,
-            magic, shift);
+        asc_vf_call<ConcatSimt<T>>(dim3(MAX_THREAD_NUM), x, y, tensorIdx, colsSize, colsOffset, catDim0_, catDim1_,
+                                   magic, shift);
     }
 }
 } // namespace Concat

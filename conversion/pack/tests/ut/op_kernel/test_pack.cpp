@@ -22,10 +22,14 @@ static inline unsigned int __umulhi(unsigned int x, unsigned int y)
     return static_cast<unsigned int>((static_cast<unsigned long long>(x) * y) >> 32);
 }
 
+// mergedInfo 交错布局（与 op_host/arch35/concat_tiling_arch35.h 保持同步）：
+// [2t]/[2t+1] = tensor t 的 stride/concatDim；数组变体在 CORE_INFO_BASE(=128) 之后
+// 按核交错存放 {endTensorIdx, endTensorOffset}
+constexpr int64_t UT_TENSOR_PAIR_WORDS = 128;
+constexpr int64_t UT_MERGED_INFO_WORDS = UT_TENSOR_PAIR_WORDS + 72 * 2;
+
 struct ConcatTilingDataNoArrArrays {
-    int64_t preLoadDim1[2];
-    uint32_t strideList[32];
-    uint32_t concatDimList[32];
+    uint64_t mergedInfo[UT_TENSOR_PAIR_WORDS];
 };
 
 struct ConcatTilingDataNoArray {
@@ -34,21 +38,19 @@ struct ConcatTilingDataNoArray {
     int16_t tensorNum;
     int16_t dtypeSize;
     int16_t isNonContiguous;
-    uint8_t ubFactorDim0PH[2];
+    int16_t isFP4Type;
     int32_t ubFactorDim0;
     int32_t ubFactorDim1;
     int32_t tailUbFactorDim0;
     int32_t tailUbFactorDim1;
     int32_t bufferSize;
-    int32_t dataPtrOffset;
-    uint8_t blockFactorPH[4];
     int64_t blockFactor;
     int64_t tailBlockFactor;
     int64_t uoDim0;
     int64_t uoDim1;
     int64_t catDim1;
     int64_t sameShapeTensorDim1;
-    int16_t isFP4Type;
+    int64_t preLoadDim1[2];
     ConcatTilingDataNoArrArrays arrays;
 };
 
@@ -65,11 +67,8 @@ struct ConcatTilingDataForSimt {
 };
 
 struct ConcatTilingDataArraysCompact {
-    int16_t endTensorIdx[72];
-    uint32_t endTensorOffset[72];
     uint32_t preLoadDim1[2];
-    uint32_t strideList[32];
-    uint32_t concatDimList[32];
+    uint32_t mergedInfo[UT_MERGED_INFO_WORDS];
 };
 
 struct ConcatTilingDataCompact {
@@ -96,8 +95,7 @@ struct ConcatTilingDataCompact {
 
 struct ConcatTilingDataNoArrArraysCompact {
     uint32_t preLoadDim1[2];
-    uint32_t strideList[32];
-    uint32_t concatDimList[32];
+    uint32_t mergedInfo[UT_TENSOR_PAIR_WORDS];
 };
 
 struct ConcatTilingDataNoArrayCompact {
@@ -165,7 +163,6 @@ TEST_F(PackTest, test_pure_copy_split_dim1_float32)
     tilingData->tailUbFactorDim0 = static_cast<int32_t>(BATCH);
     tilingData->tailUbFactorDim1 = static_cast<int32_t>(OUT_DIM1);
     tilingData->bufferSize = static_cast<int32_t>(BATCH * OUT_DIM1 * sizeof(float));
-    tilingData->dataPtrOffset = 0;
     tilingData->blockFactor = 1;
     tilingData->tailBlockFactor = 1;
     tilingData->uoDim0 = BATCH;
@@ -173,11 +170,11 @@ TEST_F(PackTest, test_pure_copy_split_dim1_float32)
     tilingData->catDim1 = OUT_DIM1;
     tilingData->sameShapeTensorDim1 = DIM1_PER_TENSOR;
     for (int i = 0; i < 2; i++) {
-        tilingData->arrays.preLoadDim1[i] = DIM1_PER_TENSOR;
+        tilingData->preLoadDim1[i] = DIM1_PER_TENSOR;
     }
     for (int i = 0; i < 32; i++) {
-        tilingData->arrays.strideList[i] = 0;
-        tilingData->arrays.concatDimList[i] = (i < TENSOR_NUM) ? DIM1_PER_TENSOR : 0;
+        tilingData->arrays.mergedInfo[2 * i] = 0;
+        tilingData->arrays.mergedInfo[2 * i + 1] = (i < TENSOR_NUM) ? DIM1_PER_TENSOR : 0;
     }
 
     uint32_t numBlocks = 1;

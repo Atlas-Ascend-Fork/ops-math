@@ -35,13 +35,18 @@ const int64_t TILING_PRELOAD_DIM1_LENGTH = 2;
 const int32_t TILING_COLS_OFFSET_LENGTH = 128;
 constexpr size_t MAX_CONCAT_NUM = 64;
 constexpr int64_t NON_CON_TENSOR_SIZE = 64;
+// ===== mergedInfo 交错布局（与 op_kernel/arch35/concat_base.h 保持同步）=====
+// 将原 strideList/concatDimList/endTensorIdx/endTensorOffset 4 个独立数组合并为 1 个交错数组，
+// kernel 侧每个 tensor/每个核的属性落在连续地址，减少多核读 tiling data 时的 dcache line 争用：
+//   [2t]/[2t+1]               tensor t 的 stride/concatDim（所有变体共用，基址 0）
+//   [CORE_INFO_BASE + 2i]     核 i 的 endTensorIdx（仅数组变体）
+//   [CORE_INFO_BASE + 2i + 1] 核 i 的 endTensorOffset（核 i 与核 i-1 的定界对相邻，连续 32B）
+constexpr int64_t TENSOR_PAIR_WORDS = NON_CON_TENSOR_SIZE * 2;
+constexpr int64_t CORE_INFO_BASE = TENSOR_PAIR_WORDS;
+constexpr int64_t MERGED_INFO_WORDS = CORE_INFO_BASE + TILING_ARRAY_LENGTH * 2;
 
 BEGIN_TILING_DATA_DEF(ConcatTilingDataArrays)
-TILING_DATA_FIELD_DEF_ARR(int16_t, TILING_ARRAY_LENGTH, endTensorIdx);
-TILING_DATA_FIELD_DEF_ARR(int64_t, TILING_ARRAY_LENGTH, endTensorOffset);
-TILING_DATA_FIELD_DEF_ARR(int64_t, TILING_PRELOAD_DIM1_LENGTH, preLoadDim1);
-TILING_DATA_FIELD_DEF_ARR(uint64_t, NON_CON_TENSOR_SIZE, strideList);
-TILING_DATA_FIELD_DEF_ARR(uint64_t, NON_CON_TENSOR_SIZE, concatDimList);
+TILING_DATA_FIELD_DEF_ARR(int64_t, MERGED_INFO_WORDS, mergedInfo);
 END_TILING_DATA_DEF;
 REGISTER_TILING_DATA_CLASS(ConcatTilingDataArraysOp, ConcatTilingDataArrays)
 
@@ -53,6 +58,7 @@ TILING_DATA_FIELD_DEF(int16_t, dtypeSize);
 TILING_DATA_FIELD_DEF(int16_t, isNonContiguous);
 TILING_DATA_FIELD_DEF(int16_t, isGather);
 TILING_DATA_FIELD_DEF(int16_t, isRowConcat);
+TILING_DATA_FIELD_DEF(int16_t, isFP4Type);
 TILING_DATA_FIELD_DEF(int64_t, gatherSeg);
 TILING_DATA_FIELD_DEF(int64_t, rowConcatSegNum);
 TILING_DATA_FIELD_DEF(int32_t, ubFactorDim0); // dim0轴切分数据量
@@ -60,22 +66,19 @@ TILING_DATA_FIELD_DEF(int32_t, ubFactorDim1); // dim1轴切分数据量
 TILING_DATA_FIELD_DEF(int32_t, tailUbFactorDim0);
 TILING_DATA_FIELD_DEF(int32_t, tailUbFactorDim1);
 TILING_DATA_FIELD_DEF(int32_t, bufferSize);
-TILING_DATA_FIELD_DEF(int32_t, dataPtrOffset);
 TILING_DATA_FIELD_DEF(int64_t, blockFactor);     // 单核循环次数
 TILING_DATA_FIELD_DEF(int64_t, tailBlockFactor); // 尾核循环次数
 TILING_DATA_FIELD_DEF(int64_t, uoDim0);
 TILING_DATA_FIELD_DEF(int64_t, uoDim1);
 TILING_DATA_FIELD_DEF(int64_t, catDim1); // 输出1轴大小
 TILING_DATA_FIELD_DEF(int64_t, sameShapeTensorDim1);
-TILING_DATA_FIELD_DEF(int16_t, isFP4Type);
+TILING_DATA_FIELD_DEF_ARR(int64_t, TILING_PRELOAD_DIM1_LENGTH, preLoadDim1);
 TILING_DATA_FIELD_DEF_STRUCT(ConcatTilingDataArrays, arrays);
 END_TILING_DATA_DEF;
 REGISTER_TILING_DATA_CLASS(Concat, ConcatTilingData)
 
 BEGIN_TILING_DATA_DEF(ConcatTilingDataNoArrArrays)
-TILING_DATA_FIELD_DEF_ARR(int64_t, TILING_PRELOAD_DIM1_LENGTH, preLoadDim1);
-TILING_DATA_FIELD_DEF_ARR(uint64_t, NON_CON_TENSOR_SIZE, strideList);
-TILING_DATA_FIELD_DEF_ARR(uint64_t, NON_CON_TENSOR_SIZE, concatDimList);
+TILING_DATA_FIELD_DEF_ARR(uint64_t, TENSOR_PAIR_WORDS, mergedInfo);
 END_TILING_DATA_DEF;
 REGISTER_TILING_DATA_CLASS(ConcatTilingDataNoArrArraysOp, ConcatTilingDataNoArrArrays)
 
@@ -87,6 +90,7 @@ TILING_DATA_FIELD_DEF(int16_t, dtypeSize);
 TILING_DATA_FIELD_DEF(int16_t, isNonContiguous);
 TILING_DATA_FIELD_DEF(int16_t, isGather);
 TILING_DATA_FIELD_DEF(int16_t, isRowConcat);
+TILING_DATA_FIELD_DEF(int16_t, isFP4Type);
 TILING_DATA_FIELD_DEF(int64_t, gatherSeg);
 TILING_DATA_FIELD_DEF(int64_t, rowConcatSegNum);
 TILING_DATA_FIELD_DEF(int32_t, ubFactorDim0); // dim0轴切分数据量
@@ -94,14 +98,13 @@ TILING_DATA_FIELD_DEF(int32_t, ubFactorDim1); // dim1轴切分数据量
 TILING_DATA_FIELD_DEF(int32_t, tailUbFactorDim0);
 TILING_DATA_FIELD_DEF(int32_t, tailUbFactorDim1);
 TILING_DATA_FIELD_DEF(int32_t, bufferSize);
-TILING_DATA_FIELD_DEF(int32_t, dataPtrOffset);
 TILING_DATA_FIELD_DEF(int64_t, blockFactor);     // 单核循环次数
 TILING_DATA_FIELD_DEF(int64_t, tailBlockFactor); // 尾核循环次数
 TILING_DATA_FIELD_DEF(int64_t, uoDim0);
 TILING_DATA_FIELD_DEF(int64_t, uoDim1);
 TILING_DATA_FIELD_DEF(int64_t, catDim1); // 输出1轴大小
 TILING_DATA_FIELD_DEF(int64_t, sameShapeTensorDim1);
-TILING_DATA_FIELD_DEF(int16_t, isFP4Type);
+TILING_DATA_FIELD_DEF_ARR(int64_t, TILING_PRELOAD_DIM1_LENGTH, preLoadDim1);
 TILING_DATA_FIELD_DEF_STRUCT(ConcatTilingDataNoArrArrays, arrays);
 END_TILING_DATA_DEF;
 
@@ -132,13 +135,10 @@ REGISTER_TILING_DATA_CLASS(Concat_21116, ConcatTilingData)
 REGISTER_TILING_DATA_CLASS(Concat_21216, ConcatTilingData)
 REGISTER_TILING_DATA_CLASS(Concat_30016, ConcatTilingDataNoArray)
 
-// compact 版本数组结构: endTensorOffset/preLoadDim1/strideList/concatDimList 改为 uint32
+// compact 版本数组结构: 定界/tensor 信息合并为交错的 uint32 mergedInfo
 BEGIN_TILING_DATA_DEF(ConcatTilingDataArraysCompact)
-TILING_DATA_FIELD_DEF_ARR(int16_t, TILING_ARRAY_LENGTH, endTensorIdx);
-TILING_DATA_FIELD_DEF_ARR(uint32_t, TILING_ARRAY_LENGTH, endTensorOffset);
 TILING_DATA_FIELD_DEF_ARR(uint32_t, TILING_PRELOAD_DIM1_LENGTH, preLoadDim1);
-TILING_DATA_FIELD_DEF_ARR(uint32_t, NON_CON_TENSOR_SIZE, strideList);
-TILING_DATA_FIELD_DEF_ARR(uint32_t, NON_CON_TENSOR_SIZE, concatDimList);
+TILING_DATA_FIELD_DEF_ARR(uint32_t, MERGED_INFO_WORDS, mergedInfo);
 END_TILING_DATA_DEF;
 REGISTER_TILING_DATA_CLASS(ConcatTilingDataArraysCompactOp, ConcatTilingDataArraysCompact)
 
@@ -152,9 +152,9 @@ TILING_DATA_FIELD_DEF(int16_t, dtypeSize);
 TILING_DATA_FIELD_DEF(int16_t, isNonContiguous);
 TILING_DATA_FIELD_DEF(int16_t, isGather);
 TILING_DATA_FIELD_DEF(int16_t, isRowConcat);
+TILING_DATA_FIELD_DEF(int16_t, isFP4Type);
 TILING_DATA_FIELD_DEF(int64_t, gatherSeg);
 TILING_DATA_FIELD_DEF(int64_t, rowConcatSegNum);
-TILING_DATA_FIELD_DEF(int16_t, isFP4Type);
 TILING_DATA_FIELD_DEF(int32_t, ubFactorDim0);
 TILING_DATA_FIELD_DEF(int32_t, ubFactorDim1);
 TILING_DATA_FIELD_DEF(int32_t, tailUbFactorDim0);
@@ -172,8 +172,7 @@ END_TILING_DATA_DEF;
 
 BEGIN_TILING_DATA_DEF(ConcatTilingDataNoArrArraysCompact)
 TILING_DATA_FIELD_DEF_ARR(uint32_t, TILING_PRELOAD_DIM1_LENGTH, preLoadDim1);
-TILING_DATA_FIELD_DEF_ARR(uint32_t, NON_CON_TENSOR_SIZE, strideList);
-TILING_DATA_FIELD_DEF_ARR(uint32_t, NON_CON_TENSOR_SIZE, concatDimList);
+TILING_DATA_FIELD_DEF_ARR(uint32_t, TENSOR_PAIR_WORDS, mergedInfo);
 END_TILING_DATA_DEF;
 REGISTER_TILING_DATA_CLASS(ConcatTilingDataNoArrArraysCompactOp, ConcatTilingDataNoArrArraysCompact)
 
@@ -185,9 +184,9 @@ TILING_DATA_FIELD_DEF(int16_t, dtypeSize);
 TILING_DATA_FIELD_DEF(int16_t, isNonContiguous);
 TILING_DATA_FIELD_DEF(int16_t, isGather);
 TILING_DATA_FIELD_DEF(int16_t, isRowConcat);
+TILING_DATA_FIELD_DEF(int16_t, isFP4Type);
 TILING_DATA_FIELD_DEF(int64_t, gatherSeg);
 TILING_DATA_FIELD_DEF(int64_t, rowConcatSegNum);
-TILING_DATA_FIELD_DEF(int16_t, isFP4Type);
 TILING_DATA_FIELD_DEF(int32_t, ubFactorDim0);
 TILING_DATA_FIELD_DEF(int32_t, ubFactorDim1);
 TILING_DATA_FIELD_DEF(int32_t, tailUbFactorDim0);

@@ -26,16 +26,20 @@ using namespace AscendC;
 template <typename TILINGDATA = ConcatTilingData>
 class OneAxisConcatPureCopy {
 public:
-    __aicore__ inline OneAxisConcatPureCopy(const TILINGDATA& tilingData, TPipe& pipe)
-        : tilingData_(tilingData), pipe_(pipe){};
+    __aicore__ inline OneAxisConcatPureCopy(__tiling_data_ptr__ TILINGDATA* tilingData) : tilingData_(tilingData){};
+    static __aicore__ inline void PreloadTiling(__tiling_data_ptr__ TILINGDATA* tilingData)
+    {
+        PreloadMergedInfo(tilingData);
+    }
     __aicore__ inline void Init(GM_ADDR x, GM_ADDR dst);
     __aicore__ inline void Process();
 
 private:
     __aicore__ inline __gm__ int8_t* GetTensorAddr(uint32_t index, int64_t offset);
     __aicore__ inline void CopyInSingleTensor(const GlobalTensor<int8_t> srcGm, int64_t copyRows, int64_t copyCols,
-                                              int64_t srcOffset, int64_t tensorDim1);
-    __aicore__ inline void CopyOutSingleTensor(int64_t copyRows, int64_t copyCols, int64_t dstOffset);
+                                              int64_t srcOffset, int64_t tensorDim1, LocalTensor<int8_t>& srcLocal);
+    __aicore__ inline void CopyOutSingleTensor(int64_t copyRows, int64_t copyCols, int64_t dstOffset,
+                                               LocalTensor<int8_t>& dstLocal);
     __aicore__ inline void ProcessSingleTensor(int64_t tensorIdx, int64_t tensorDim1, int64_t totalRows,
                                                int64_t totalCols, int64_t globalSrcOffset, int64_t globalDstOffset);
     __aicore__ inline void ProcessNoSplitDim1();
@@ -45,11 +49,12 @@ private:
     __aicore__ inline void UpdateSplitInfo();
 
 private:
-    TPipe& pipe_;
-    TQueBind<QuePosition::VECIN, QuePosition::VECOUT, BUFFER_NUM> inQueue_;
+    constexpr static event_t EVT_ID0 = static_cast<event_t>(0);
+    constexpr static event_t EVT_ID1 = static_cast<event_t>(1);
+
     GlobalTensor<int8_t> dstGlobal_;
     GlobalTensor<int8_t> srcGlobal_;
-    const TILINGDATA& tilingData_;
+    __tiling_data_ptr__ TILINGDATA* tilingData_;
     uint32_t blockIdx_{0};
     int64_t blockOffset_{0};
 
@@ -67,6 +72,20 @@ private:
     ListTensorDesc inputList_;
     uint64_t buf_[ARRAY_SIZE];
     TensorDesc<int8_t> desc_;
+
+    uint32_t bufSize_{0};
+
+    int16_t tensorNum_{0};
+    int16_t isNonContiguous_{0};
+    int16_t isFP4Type_{0};
+    int32_t ubFactorDim0_{0};
+    int32_t tailUbFactorDim0_{0};
+    int32_t bufferSize_{0};
+    int32_t dtypeSize_{0};
+    int64_t uoDim0_{0};
+    int64_t uoDim1_{0};
+    int64_t catDim1_{0};
+    int64_t sameShapeTensorDim1_{0};
 };
 
 template <typename TILINGDATA>
@@ -74,30 +93,42 @@ __aicore__ inline void OneAxisConcatPureCopy<TILINGDATA>::Init(GM_ADDR x, GM_ADD
 {
     blockIdx_ = GetBlockIdx();
     if constexpr (IsSame<TILINGDATA, ConcatTilingData>::value || IsSame<TILINGDATA, ConcatTilingDataCompact>::value) {
-        rowsUsedCoreNum_ = tilingData_.uoDim0;
-        colsUsedCoreNum_ = tilingData_.uoDim1;
+        rowsUsedCoreNum_ = tilingData_->uoDim0;
+        colsUsedCoreNum_ = tilingData_->uoDim1;
         blockIdxInCol_ = blockIdx_ % colsUsedCoreNum_;
         blockIdxInRow_ = blockIdx_ / colsUsedCoreNum_;
         if (blockIdxInCol_ != 0) {
-            startTensorIdx_ = tilingData_.arrays.endTensorIdx[blockIdx_ - 1];
-            startTensorOffset_ = tilingData_.arrays.endTensorOffset[blockIdx_ - 1];
+            startTensorIdx_ = tilingData_->arrays.mergedInfo[CORE_INFO_BASE + 2 * (blockIdx_ - 1)];
+            startTensorOffset_ = tilingData_->arrays.mergedInfo[CORE_INFO_BASE + 2 * (blockIdx_ - 1) + 1];
         }
-        endTensorOffset_ = tilingData_.arrays.endTensorOffset[blockIdx_];
-        endTensorIdx_ = tilingData_.arrays.endTensorIdx[blockIdx_];
+        endTensorOffset_ = tilingData_->arrays.mergedInfo[CORE_INFO_BASE + 2 * blockIdx_ + 1];
+        endTensorIdx_ = tilingData_->arrays.mergedInfo[CORE_INFO_BASE + 2 * blockIdx_];
     }
     if constexpr (IsSame<TILINGDATA, ConcatTilingDataNoArray>::value ||
                   IsSame<TILINGDATA, ConcatTilingDataNoArrayCompact>::value) {
-        blockOffset_ = static_cast<int64_t>(blockIdx_) * tilingData_.ubFactorDim0;
+        blockOffset_ = static_cast<int64_t>(blockIdx_) * tilingData_->ubFactorDim0;
         dstGlobal_.SetGlobalBuffer((__gm__ int8_t*)dst +
-                                   tilingData_.catDim1 * tilingData_.dtypeSize * static_cast<int64_t>(blockOffset_));
+                                   tilingData_->catDim1 * tilingData_->dtypeSize * static_cast<int64_t>(blockOffset_));
     } else {
-        blockOffset_ = blockIdxInRow_ * tilingData_.ubFactorDim0;
-        int64_t colOffset = static_cast<int64_t>(blockIdxInCol_) * tilingData_.ubFactorDim1 * tilingData_.dtypeSize;
-        dstGlobal_.SetGlobalBuffer((__gm__ int8_t*)dst + blockOffset_ * tilingData_.catDim1 * tilingData_.dtypeSize +
+        blockOffset_ = blockIdxInRow_ * tilingData_->ubFactorDim0;
+        int64_t colOffset = static_cast<int64_t>(blockIdxInCol_) * tilingData_->ubFactorDim1 * tilingData_->dtypeSize;
+        dstGlobal_.SetGlobalBuffer((__gm__ int8_t*)dst + blockOffset_ * tilingData_->catDim1 * tilingData_->dtypeSize +
                                    colOffset);
     }
 
-    pipe_.InitBuffer(inQueue_, BUFFER_NUM, tilingData_.bufferSize * tilingData_.dtypeSize);
+    bufSize_ = static_cast<uint32_t>(tilingData_->bufferSize * tilingData_->dtypeSize);
+
+    tensorNum_ = tilingData_->tensorNum;
+    isNonContiguous_ = tilingData_->isNonContiguous;
+    isFP4Type_ = tilingData_->isFP4Type;
+    ubFactorDim0_ = tilingData_->ubFactorDim0;
+    tailUbFactorDim0_ = tilingData_->tailUbFactorDim0;
+    bufferSize_ = tilingData_->bufferSize;
+    dtypeSize_ = tilingData_->dtypeSize;
+    uoDim0_ = tilingData_->uoDim0;
+    uoDim1_ = tilingData_->uoDim1;
+    catDim1_ = tilingData_->catDim1;
+    sameShapeTensorDim1_ = tilingData_->sameShapeTensorDim1;
 
     inputList_ = ListTensorDesc(reinterpret_cast<__gm__ void*>(x));
     desc_.SetShapeAddr(&buf_[0]);
@@ -137,12 +168,12 @@ __aicore__ inline void OneAxisConcatPureCopy<TILINGDATA>::Process()
 template <typename TILINGDATA>
 __aicore__ inline void OneAxisConcatPureCopy<TILINGDATA>::ProcessNoSplitDim1()
 {
-    int64_t totalRows = tilingData_.ubFactorDim0;
+    int64_t totalRows = ubFactorDim0_;
     if (blockIdx_ == GetBlockNum() - 1) {
-        totalRows = tilingData_.tailUbFactorDim0;
+        totalRows = tailUbFactorDim0_;
     }
     int64_t totalColOffset = 0;
-    for (int64_t i = 0; i < tilingData_.tensorNum; i++) {
+    for (int64_t i = 0; i < tensorNum_; i++) {
         int64_t dim1 = GetTensorDim1(i);
         int64_t dim0stride = GetTensorDim0Stride<TILINGDATA>(tilingData_, i, dim1);
         int64_t globalSrcOffset = blockOffset_ * dim0stride;
@@ -154,9 +185,9 @@ __aicore__ inline void OneAxisConcatPureCopy<TILINGDATA>::ProcessNoSplitDim1()
 template <typename TILINGDATA>
 __aicore__ inline void OneAxisConcatPureCopy<TILINGDATA>::ProcessSplitDim1()
 {
-    int64_t totalRows = tilingData_.ubFactorDim0;
+    int64_t totalRows = ubFactorDim0_;
     if (blockIdxInRow_ == rowsUsedCoreNum_ - 1) {
-        totalRows = tilingData_.tailUbFactorDim0;
+        totalRows = tailUbFactorDim0_;
     }
     int64_t totalColOffset = 0;
     int64_t globalSrcOffset = 0;
@@ -193,9 +224,9 @@ __aicore__ inline void OneAxisConcatPureCopy<TILINGDATA>::ProcessSingleTensor(in
     if (totalRows == 0 || totalCols == 0) {
         return;
     }
-    srcGlobal_.SetGlobalBuffer(GetTensorAddr(tensorIdx, globalSrcOffset * tilingData_.dtypeSize));
-    int64_t colFactor = min(totalCols, static_cast<int64_t>(tilingData_.bufferSize));
-    int64_t rowFactor = tilingData_.bufferSize / colFactor;
+    srcGlobal_.SetGlobalBuffer(GetTensorAddr(tensorIdx, globalSrcOffset * dtypeSize_));
+    int64_t colFactor = min(totalCols, static_cast<int64_t>(bufferSize_));
+    int64_t rowFactor = bufferSize_ / colFactor;
     if (rowFactor > UINT16_MAX) {
         rowFactor = UINT16_MAX; // blockCount 为 uint16
     }
@@ -205,51 +236,67 @@ __aicore__ inline void OneAxisConcatPureCopy<TILINGDATA>::ProcessSingleTensor(in
     int64_t tailRowFactor = totalRows - (rowLoopSize - 1) * rowFactor;
     int64_t srcOffset = 0;
     int64_t dstOffset = 0;
+    SetFlag<HardEvent::MTE3_MTE2>(EVT_ID0);
+    SetFlag<HardEvent::MTE3_MTE2>(EVT_ID1);
+    uint16_t bufId = 0;
     for (int64_t m = 0; m < rowLoopSize; m++) {
         int64_t copyRows = m == rowLoopSize - 1 ? tailRowFactor : rowFactor;
-        dstOffset = globalDstOffset + m * rowFactor * tilingData_.catDim1;
+        dstOffset = globalDstOffset + m * rowFactor * catDim1_;
         for (int64_t n = 0; n < colLoopSize - 1; n++) {
             srcOffset = m * rowFactor * tensorDim1 + n * colFactor;
-            CopyInSingleTensor(srcGlobal_, copyRows, colFactor, srcOffset, tensorDim1);
-            CopyOutSingleTensor(copyRows, colFactor, dstOffset);
+            event_t evt = (bufId == 0) ? EVT_ID0 : EVT_ID1;
+            WaitFlag<HardEvent::MTE3_MTE2>(evt);
+            LocalTensor<int8_t> srcLocal(TPosition::VECIN, bufId * bufSize_, static_cast<uint32_t>(bufferSize_));
+            CopyInSingleTensor(srcGlobal_, copyRows, colFactor, srcOffset, tensorDim1, srcLocal);
+            SetFlag<HardEvent::MTE2_MTE3>(evt);
+            WaitFlag<HardEvent::MTE2_MTE3>(evt);
+            CopyOutSingleTensor(copyRows, colFactor, dstOffset, srcLocal);
+            SetFlag<HardEvent::MTE3_MTE2>(evt);
+            bufId ^= 1;
             dstOffset += colFactor;
         }
         srcOffset = m * rowFactor * tensorDim1 + (colLoopSize - 1) * colFactor;
-        CopyInSingleTensor(srcGlobal_, copyRows, tailColFactor, srcOffset, tensorDim1);
-        CopyOutSingleTensor(copyRows, tailColFactor, dstOffset);
+        event_t evt = (bufId == 0) ? EVT_ID0 : EVT_ID1;
+        WaitFlag<HardEvent::MTE3_MTE2>(evt);
+        LocalTensor<int8_t> srcLocal(TPosition::VECIN, bufId * bufSize_, static_cast<uint32_t>(bufferSize_));
+        CopyInSingleTensor(srcGlobal_, copyRows, tailColFactor, srcOffset, tensorDim1, srcLocal);
+        SetFlag<HardEvent::MTE2_MTE3>(evt);
+        WaitFlag<HardEvent::MTE2_MTE3>(evt);
+        CopyOutSingleTensor(copyRows, tailColFactor, dstOffset, srcLocal);
+        SetFlag<HardEvent::MTE3_MTE2>(evt);
+        bufId ^= 1;
     }
+    WaitFlag<HardEvent::MTE3_MTE2>(EVT_ID0);
+    WaitFlag<HardEvent::MTE3_MTE2>(EVT_ID1);
 }
 
 template <typename TILINGDATA>
 __aicore__ inline void OneAxisConcatPureCopy<TILINGDATA>::CopyInSingleTensor(const GlobalTensor<int8_t> srcGm,
                                                                              int64_t copyRows, int64_t copyCols,
-                                                                             int64_t srcOffset, int64_t tensorDim1)
+                                                                             int64_t srcOffset, int64_t tensorDim1,
+                                                                             LocalTensor<int8_t>& srcLocal)
 {
-    LocalTensor<int8_t> srcLocal = inQueue_.AllocTensor<int8_t>();
     DataCopyPadExtParams<int8_t> padParam{false, 0, 0, 0};
     SetCopyInparam(copyRows, copyCols, tensorDim1 - copyCols, 0);
 #if defined(__DAV_920R1__) || defined(__DAV_920R2__)
-    DataCopyPad<int8_t, PaddingMode::Compact>(srcLocal, srcGm[srcOffset * tilingData_.dtypeSize], copyInParam_,
-                                              padParam, true);
+    DataCopyPad<int8_t, PaddingMode::Compact>(srcLocal, srcGm[srcOffset * dtypeSize_], copyInParam_, padParam, true);
+
 #else
-    DataCopyPad<int8_t, PaddingMode::Compact>(srcLocal, srcGm[srcOffset * tilingData_.dtypeSize], copyInParam_,
-                                              padParam);
+    DataCopyPad<int8_t, PaddingMode::Compact>(srcLocal, srcGm[srcOffset * dtypeSize_], copyInParam_, padParam);
 #endif
-    inQueue_.EnQue(srcLocal);
 }
 
 template <typename TILINGDATA>
 __aicore__ inline void OneAxisConcatPureCopy<TILINGDATA>::CopyOutSingleTensor(int64_t copyRows, int64_t copyCols,
-                                                                              int64_t dstOffset)
+                                                                              int64_t dstOffset,
+                                                                              LocalTensor<int8_t>& dstLocal)
 {
-    LocalTensor<int8_t> dstLocal = inQueue_.DeQue<int8_t>();
     DataCopyExtParams copyOutParam{0, 0, 0, 0, 0};
     copyOutParam.blockCount = copyRows;
-    copyOutParam.blockLen = copyCols * tilingData_.dtypeSize;
-    copyOutParam.dstStride = (tilingData_.catDim1 - copyCols) * tilingData_.dtypeSize;
+    copyOutParam.blockLen = copyCols * dtypeSize_;
+    copyOutParam.dstStride = (catDim1_ - copyCols) * dtypeSize_;
     copyOutParam.srcStride = 0;
-    DataCopyPad<int8_t, PaddingMode::Compact>(dstGlobal_[dstOffset * tilingData_.dtypeSize], dstLocal, copyOutParam);
-    inQueue_.FreeTensor(dstLocal);
+    DataCopyPad<int8_t, PaddingMode::Compact>(dstGlobal_[dstOffset * dtypeSize_], dstLocal, copyOutParam);
 }
 
 template <typename TILINGDATA>
@@ -257,8 +304,8 @@ __aicore__ inline void OneAxisConcatPureCopy<TILINGDATA>::SetCopyInparam(int64_t
                                                                          int64_t dstStride)
 {
     copyInParam_.blockCount = rows;
-    copyInParam_.blockLen = cols * tilingData_.dtypeSize;
-    copyInParam_.srcStride = srcStride * tilingData_.dtypeSize;
+    copyInParam_.blockLen = cols * dtypeSize_;
+    copyInParam_.srcStride = srcStride * dtypeSize_;
     copyInParam_.dstStride = dstStride;
 }
 
@@ -266,11 +313,15 @@ template <typename TILINGDATA>
 __aicore__ inline int64_t OneAxisConcatPureCopy<TILINGDATA>::GetTensorDim1(int64_t idx)
 {
     if (idx < PRELOAD_DIM1_SIZE) {
-        return tilingData_.arrays.preLoadDim1[idx];
+        if constexpr (IsSame<TILINGDATA, ConcatTilingData>::value ||
+                      IsSame<TILINGDATA, ConcatTilingDataNoArray>::value) {
+            return tilingData_->preLoadDim1[idx];
+        } else {
+            return tilingData_->arrays.preLoadDim1[idx];
+        }
     }
-    int64_t dim1 = GetNonConDimSize<TILINGDATA, int8_t>(tilingData_, idx, inputList_, desc_) *
-                   tilingData_.sameShapeTensorDim1;
-    if (tilingData_.isFP4Type) {
+    int64_t dim1 = GetNonConDimSize<TILINGDATA, int8_t>(tilingData_, idx, inputList_, desc_) * sameShapeTensorDim1_;
+    if (isFP4Type_) {
         dim1 /= 2;
     }
     return dim1;

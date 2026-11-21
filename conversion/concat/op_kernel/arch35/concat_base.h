@@ -32,6 +32,25 @@ constexpr int64_t PRELOAD_DIM1_SIZE = 2;
 constexpr int32_t DIGIT_TWO = 2;
 constexpr int32_t DIGIT_THREE = 3;
 constexpr int32_t DIGIT_FOUR = 4;
+// ===== mergedInfo 交错布局（与 op_host/arch35/concat_tiling_arch35.h 保持同步）=====
+// [2t]/[2t+1] = tensor t 的 stride/concatDim（所有变体共用，基址 0）；
+// 数组变体在 CORE_INFO_BASE 之后按核交错存放 {endTensorIdx, endTensorOffset}，
+// 核 i 与核 i-1 的定界对相邻（连续 32B），一次窗口读取即可拿到 start/end 定界
+constexpr int64_t TENSOR_PAIR_WORDS = 128; // NON_CON_TENSOR_SIZE(64) * 2
+constexpr int64_t CORE_INFO_BASE = TENSOR_PAIR_WORDS;
+
+// CONST_TILING（静态 shape 编译）时 tiling 为编译期常量（无 GM 地址），预取无意义，
+// 守卫放在 DcPreloadRange 源头即可覆盖入口调用与全部 PreloadTiling 调用点
+__aicore__ inline void DcPreloadRange(uint64_t tilingAddr, uint64_t startByte, uint64_t endByte)
+{
+#ifndef CONST_TILING
+    __gm__ uint64_t* ptr = (__gm__ uint64_t*)tilingAddr;
+    for (uint64_t off = startByte; off < endByte; off += 64) {
+        dc_preload(ptr, static_cast<int64_t>(off));
+    }
+#endif
+}
+
 using SplitInfo = struct {
     int64_t startIdx;
     int64_t startOffset;
@@ -69,6 +88,32 @@ template <typename, typename>
 struct IsSame : public falseType {};
 template <typename Tp>
 struct IsSame<Tp, Tp> : public trueType {};
+
+// 预取本核与上一核在 mergedInfo 中的定界对（一次 32B 窗口覆盖 start/end 定界）。
+// CONST_TILING（静态 shape）时 tiling 编译期常量折叠，预取无意义；且 offsetof 对
+// cst 生成器的 constexpr 成员形态非法，故函数体整体不参与编译。
+// 各 one_axis_* 模板的 PreloadTiling 统一转发到这里，避免逐类重复实现。
+template <typename TILINGDATA>
+__aicore__ inline void PreloadMergedInfo(__tiling_data_ptr__ TILINGDATA* tilingData)
+{
+#ifndef CONST_TILING
+    uint32_t blockIdx = GetBlockIdx();
+    if constexpr (IsSame<TILINGDATA, ConcatTilingData>::value) {
+        constexpr uint64_t coreInfoOff = offsetof(ConcatTilingData, arrays.mergedInfo) +
+                                         CORE_INFO_BASE * sizeof(int64_t);
+        // 本核与上一核定界对在 mergedInfo 中相邻，预取 32B 窗口（首核仅本核定界对）
+        uint64_t start = blockIdx > 0 ? coreInfoOff + (blockIdx * 2 - 2) * sizeof(int64_t) : coreInfoOff;
+        uint64_t len = blockIdx > 0 ? sizeof(int64_t) * 4 : sizeof(int64_t) * 2;
+        DcPreloadRange((uint64_t)tilingData, start, start + len);
+    } else if constexpr (IsSame<TILINGDATA, ConcatTilingDataCompact>::value) {
+        constexpr uint64_t coreInfoOff = offsetof(ConcatTilingDataCompact, arrays.mergedInfo) +
+                                         CORE_INFO_BASE * sizeof(uint32_t);
+        uint64_t start = blockIdx > 0 ? coreInfoOff + (blockIdx * 2 - 2) * sizeof(uint32_t) : coreInfoOff;
+        uint64_t len = blockIdx > 0 ? sizeof(uint32_t) * 4 : sizeof(uint32_t) * 2;
+        DcPreloadRange((uint64_t)tilingData, start, start + len);
+    }
+#endif
+}
 
 template <typename T>
 __aicore__ inline void Copy(const LocalTensor<T>& dstLocal, const LocalTensor<T>& srcLocal, uint32_t rows,
@@ -179,25 +224,25 @@ __aicore__ inline void ScatterConcat(const LocalTensor<T>& dstLocal, const Local
 }
 
 template <typename TILINGDATA>
-__aicore__ inline int64_t GetTensorDim0Stride(const TILINGDATA& tilingData_, int64_t idx, int64_t dim1)
+__aicore__ inline int64_t GetTensorDim0Stride(__tiling_data_ptr__ TILINGDATA* tilingData_, int64_t idx, int64_t dim1)
 {
     int64_t dim0stride = dim1;
-    if (tilingData_.isNonContiguous) {
-        dim0stride = static_cast<int64_t>(tilingData_.arrays.strideList[idx]);
+    if (tilingData_->isNonContiguous) {
+        dim0stride = static_cast<int64_t>(tilingData_->arrays.mergedInfo[2 * idx]);
     }
     return dim0stride;
 }
 
 template <typename TILINGDATA, typename T>
-__aicore__ inline int64_t GetNonConDimSize(const TILINGDATA& tilingData_, int64_t idx, ListTensorDesc inputList_,
-                                           TensorDesc<T> desc_)
+__aicore__ inline int64_t GetNonConDimSize(__tiling_data_ptr__ TILINGDATA* tilingData_, int64_t idx,
+                                           ListTensorDesc inputList_, TensorDesc<T> desc_)
 {
     int64_t concatDimSize_ = 0;
-    if (tilingData_.isNonContiguous) {
-        concatDimSize_ = static_cast<int64_t>(tilingData_.arrays.concatDimList[idx]);
+    if (tilingData_->isNonContiguous) {
+        concatDimSize_ = static_cast<int64_t>(tilingData_->arrays.mergedInfo[2 * idx + 1]);
     } else {
         inputList_.GetDesc(desc_, idx);
-        concatDimSize_ = desc_.GetShape(tilingData_.dim);
+        concatDimSize_ = desc_.GetShape(tilingData_->dim);
     }
     return concatDimSize_;
 }

@@ -106,11 +106,11 @@ inline static ge::graphStatus ConcatSetTilingData(gert::TilingContext* context, 
 template <typename T>
 static inline void PrintTilingDataList(T& tilingData)
 {
-    auto strideList = tilingData.arrays.get_strideList();
-    auto concatDimList = tilingData.arrays.get_concatDimList();
+    auto mergedInfo = tilingData.arrays.get_mergedInfo();
     for (int32_t i = 0; i < tilingData.get_tensorNum(); i++) {
         OP_LOGI("[Concat list]", "tensor: %d, stride: %ld, concatDim: %ld, segNum: %ld, isRowConcat: %d", i,
-                strideList[i], concatDimList[i], tilingData.get_rowConcatSegNum(), tilingData.get_isRowConcat());
+                static_cast<int64_t>(mergedInfo[2 * i]), static_cast<int64_t>(mergedInfo[2 * i + 1]),
+                tilingData.get_rowConcatSegNum(), tilingData.get_isRowConcat());
     }
 }
 
@@ -726,6 +726,12 @@ static ge::graphStatus TilingUb(gert::TilingContext* context, ConcatTilingParam&
         maxAvaliableUb = maxAvaliableUb / BUFFER_NUM;
         // 非对齐场景scatter/gather索引为u16/u32,需确保ub内每个tensor的元素个数不超过U16上限
         maxAvaliableUb = std::min(maxAvaliableUb, static_cast<int64_t>(std::numeric_limits<uint16_t>::max()));
+        // u16 上限 65535 非 32B 倍数: 钳制一旦生效(UB 增大/常量调整), bufferSize*sizeof(T)
+        // 将破坏 kernel 侧 UB 4 slot 偏移的 32B 对齐(DataCopyPad 源/目的地址要求),
+        // 故向下取整到 32B 对应的元素粒度
+        constexpr int64_t UB_ALIGN_BYTES = 32;
+        int64_t alignElems = UB_ALIGN_BYTES / param.dtypeSize;
+        maxAvaliableUb = maxAvaliableUb / alignElems * alignElems;
     }
     param.bufferSize = maxAvaliableUb;
     int64_t realFactorDim1 = maxAvaliableUb / std::min(LEAST_ROWS, param.catDim0);
@@ -862,11 +868,12 @@ inline static ge::graphStatus TilingBlock(gert::TilingContext* context, ConcatTi
 
 inline static void SetTensorListTilingData(ConcatTilingData& tilingData, ConcatTilingParam& param)
 {
-    std::copy(param.endTensorIdx.begin(), param.endTensorIdx.end(), param.endIdxArr);
-    tilingData.arrays.set_endTensorIdx(param.endIdxArr);
-
-    std::copy(param.endTensorOffset.begin(), param.endTensorOffset.end(), param.endOffsetArr);
-    tilingData.arrays.set_endTensorOffset(param.endOffsetArr);
+    // 核定界对按核交错写入 mergedInfo 尾部，核 i 与核 i-1 的定界对相邻
+    auto* mergedInfo = tilingData.arrays.get_mergedInfo();
+    for (int64_t i = 0; i < TILING_ARRAY_LENGTH; i++) {
+        mergedInfo[CORE_INFO_BASE + 2 * i] = param.endTensorIdx[i];
+        mergedInfo[CORE_INFO_BASE + 2 * i + 1] = param.endTensorOffset[i];
+    }
 }
 
 template <typename T>
@@ -892,31 +899,31 @@ inline static void SetTilingData(T& tilingData, ConcatTilingParam& param)
 
     int64_t preLoadSize = std::min(TILING_PRELOAD_DIM1_LENGTH, static_cast<int64_t>(param.tensorListDim1.size()));
     std::copy(param.tensorListDim1.begin(), param.tensorListDim1.begin() + preLoadSize, param.preLoadDim1Arr);
-    tilingData.arrays.set_preLoadDim1(param.preLoadDim1Arr);
+    tilingData.set_preLoadDim1(param.preLoadDim1Arr);
     tilingData.set_isNonContiguous(static_cast<int16_t>(param.isNonContiguous ? 1 : 0));
     tilingData.set_isGather(param.isGather);
     tilingData.set_isRowConcat(param.isRowConcat);
     tilingData.set_gatherSeg(param.gatherSeg);
     tilingData.set_rowConcatSegNum(param.rowConcatSegNum);
     if (param.isNonContiguous) {
-        uint64_t strideList[NON_CON_TENSOR_SIZE];
-        std::copy(param.strideList.begin(), param.strideList.end(), strideList);
-        tilingData.arrays.set_strideList(strideList);
-        std::copy(param.concatDimList.begin(), param.concatDimList.end(), strideList);
-        tilingData.arrays.set_concatDimList(strideList);
+        // tensor 信息对 {stride, concatDim} 交错写入 mergedInfo 头部（所有变体共用基址 0）
+        auto* mergedInfo = tilingData.arrays.get_mergedInfo();
+        for (int64_t t = 0; t < NON_CON_TENSOR_SIZE; t++) {
+            mergedInfo[2 * t] = static_cast<int64_t>(param.strideList[t]);
+            mergedInfo[2 * t + 1] = static_cast<int64_t>(param.concatDimList[t]);
+        }
     }
 }
 
 // compact 版 SetTensorListTilingData
 inline static void SetTensorListTilingData(ConcatTilingDataCompact& tilingData, ConcatTilingParam& param)
 {
-    std::copy(param.endTensorIdx.begin(), param.endTensorIdx.end(), param.endIdxArr);
-    tilingData.arrays.set_endTensorIdx(param.endIdxArr);
-
-    for (size_t i = 0; i < param.endTensorOffset.size() && i < TILING_ARRAY_LENGTH; i++) {
-        param.endOffsetArrCompact[i] = static_cast<uint32_t>(param.endTensorOffset[i]);
+    // 核定界对按核交错写入 mergedInfo 尾部，核 i 与核 i-1 的定界对相邻
+    auto* mergedInfo = tilingData.arrays.get_mergedInfo();
+    for (int64_t i = 0; i < TILING_ARRAY_LENGTH; i++) {
+        mergedInfo[CORE_INFO_BASE + 2 * i] = static_cast<uint32_t>(param.endTensorIdx[i]);
+        mergedInfo[CORE_INFO_BASE + 2 * i + 1] = static_cast<uint32_t>(param.endTensorOffset[i]);
     }
-    tilingData.arrays.set_endTensorOffset(param.endOffsetArrCompact);
 }
 
 // compact 版 SetTilingData 特化
@@ -951,14 +958,11 @@ void SetTilingData<ConcatTilingDataCompact>(ConcatTilingDataCompact& tilingData,
     tilingData.set_gatherSeg(param.gatherSeg);
     tilingData.set_rowConcatSegNum(param.rowConcatSegNum);
     if (param.isNonContiguous) {
-        for (size_t i = 0; i < std::min(param.strideList.size(), static_cast<size_t>(NON_CON_TENSOR_SIZE)); i++) {
-            param.strideListCompact[i] = static_cast<uint32_t>(param.strideList[i]);
+        auto* mergedInfo = tilingData.arrays.get_mergedInfo();
+        for (int64_t t = 0; t < NON_CON_TENSOR_SIZE; t++) {
+            mergedInfo[2 * t] = static_cast<uint32_t>(param.strideList[t]);
+            mergedInfo[2 * t + 1] = static_cast<uint32_t>(param.concatDimList[t]);
         }
-        tilingData.arrays.set_strideList(param.strideListCompact);
-        for (size_t i = 0; i < std::min(param.concatDimList.size(), static_cast<size_t>(NON_CON_TENSOR_SIZE)); i++) {
-            param.concatDimListCompact[i] = static_cast<uint32_t>(param.concatDimList[i]);
-        }
-        tilingData.arrays.set_concatDimList(param.concatDimListCompact);
     }
 }
 
@@ -993,14 +997,11 @@ void SetTilingData<ConcatTilingDataNoArrayCompact>(ConcatTilingDataNoArrayCompac
     tilingData.set_gatherSeg(param.gatherSeg);
     tilingData.set_rowConcatSegNum(param.rowConcatSegNum);
     if (param.isNonContiguous) {
-        for (size_t i = 0; i < std::min(param.strideList.size(), static_cast<size_t>(NON_CON_TENSOR_SIZE)); i++) {
-            param.strideListCompact[i] = static_cast<uint32_t>(param.strideList[i]);
+        auto* mergedInfo = tilingData.arrays.get_mergedInfo();
+        for (int64_t t = 0; t < NON_CON_TENSOR_SIZE; t++) {
+            mergedInfo[2 * t] = static_cast<uint32_t>(param.strideList[t]);
+            mergedInfo[2 * t + 1] = static_cast<uint32_t>(param.concatDimList[t]);
         }
-        tilingData.arrays.set_strideList(param.strideListCompact);
-        for (size_t i = 0; i < std::min(param.concatDimList.size(), static_cast<size_t>(NON_CON_TENSOR_SIZE)); i++) {
-            param.concatDimListCompact[i] = static_cast<uint32_t>(param.concatDimList[i]);
-        }
-        tilingData.arrays.set_concatDimList(param.concatDimListCompact);
     }
 }
 
