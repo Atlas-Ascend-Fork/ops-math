@@ -13,6 +13,7 @@
  */
 #include "op_common/op_host/util/op_const_def.h"
 #include <cmath>
+#include <functional>
 #include "aclnn_kernels/cast.h"
 #include "aclnn_kernels/contiguous.h"
 #include "aclnn_histc.h"
@@ -37,6 +38,17 @@ extern "C" {
 #endif
 
 constexpr size_t MAX_DIM = 8;
+
+static constexpr double kInt8Lo = -128.0;
+static constexpr double kInt8Hi = 127.0;
+static constexpr double kUint8Lo = 0.0;
+static constexpr double kUint8Hi = 255.0;
+static constexpr double kInt16Lo = -32768.0;
+static constexpr double kInt16Hi = 32767.0;
+static constexpr double kInt32Lo = -2147483648.0;
+static constexpr double kInt32Hi = 2147483647.0;
+static constexpr double kInt64Lower = -9223372036854775808.0; // -2^63
+static constexpr double kInt64Upper = 9223372036854775808.0;  // 2^63
 
 // 910b 等旧芯片无 bf16 kernel（def 仅 950/960DT/350 注册 bf16），bf16 只允许 regbase 平台通过校验，
 // 旧芯片保持"aclnn 层干净拒绝 161002"的既有行为
@@ -140,8 +152,6 @@ static op::DataType WidenIntDtypeForScalars(const aclScalar* min, const aclScala
     if (!ScalarOutOfIntRange(min, xLo, xHi) && !ScalarOutOfIntRange(max, xLo, xHi)) {
         return op::DataType::DT_UNDEFINED; // 标量在 x 值域内, 无需提升
     }
-    constexpr double kInt32Lo = -2147483648.0;
-    constexpr double kInt32Hi = 2147483647.0;
     if (!ScalarOutOfIntRange(min, kInt32Lo, kInt32Hi) && !ScalarOutOfIntRange(max, kInt32Lo, kInt32Hi)) {
         return op::DataType::DT_INT32;
     }
@@ -152,13 +162,13 @@ static op::DataType WidenDtypeForScalars(op::DataType xDtype, const aclScalar* m
 {
     switch (xDtype) {
         case op::DataType::DT_INT8:
-            return WidenIntDtypeForScalars(min, max, -128.0, 127.0);
+            return WidenIntDtypeForScalars(min, max, kInt8Lo, kInt8Hi);
         case op::DataType::DT_UINT8:
-            return WidenIntDtypeForScalars(min, max, 0.0, 255.0);
+            return WidenIntDtypeForScalars(min, max, kUint8Lo, kUint8Hi);
         case op::DataType::DT_INT16:
-            return WidenIntDtypeForScalars(min, max, -32768.0, 32767.0);
+            return WidenIntDtypeForScalars(min, max, kInt16Lo, kInt16Hi);
         case op::DataType::DT_INT32:
-            return WidenIntDtypeForScalars(min, max, -2147483648.0, 2147483647.0);
+            return WidenIntDtypeForScalars(min, max, kInt32Lo, kInt32Hi);
         case op::DataType::DT_FLOAT16: {
             // fp16 是 NPU 扩展支持(CUDA 不支持), 标量超 fp16 值域(65504)时提升到 fp32
             constexpr double kFp16Max = 65504.0;
@@ -201,7 +211,7 @@ static bool CheckScalarConvertibleToInt64(const aclScalar* scalar)
             break; // 其余(含 DT_BFLOAT16)统一走 ToDouble 检查, 避免绕过 checked_convert 语义
     }
     double value = scalar->ToDouble();
-    if (std::isnan(value) || value >= 9223372036854775808.0 || value < -9223372036854775808.0) {
+    if (std::isnan(value) || value >= kInt64Upper || value < kInt64Lower) {
         OP_LOGE(ACLNN_ERR_PARAM_INVALID, "value cannot be converted to type int64_t without overflow");
         return false;
     }
@@ -289,7 +299,7 @@ static bool NeedComputeMinMax(const aclScalar* min, const aclScalar* max, op::Da
     // CUDA 语义: 标量转换到 acc_type 后按精确相等判断重算; RegBase 上与 CUDA 对齐。
     // 910b(DAV_2201) 保持原有 1e-6 epsilon 判断不变。
     if (IsRegBase(npuArch)) {
-        return minValue == maxValue;
+        return std::equal_to<float>()(minValue, maxValue);
     }
     return maxValue - minValue < static_cast<float>(1e-6) && maxValue - minValue > static_cast<float>(-1e-6);
 }
