@@ -9,40 +9,31 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # ----------------------------------------------------------------------------
- 	 
+
 import numpy as np
- 	 
-__golden__ = {
-  	"kernel": {
-  	    "adjacent_difference": "adjacent_difference_golden"
-  	}
-}
- 	 
- 	 
-def adjacent_difference_golden(x, 
-                               y_dtype: int=3, 
-                               **kwargs):
-    '''
+
+__golden__ = {"kernel": {"adjacent_difference": "adjacent_difference_golden"}}
+
+
+def adjacent_difference_golden(x, y_dtype: int = 3, **kwargs):
+    """
     Kernel golden for adjacent_difference.
     All the parameters follow @adjacent_difference_def.cpp without outputs.
     All the input Tensors are numpy.ndarray.
-    kwargs may contain: short_soc_version, input_ori_shapes, output_ori_shapes, 
- 	    input_formats, output_formats, input_ori_formats, output_ori_formats,
- 	    input_dtypes, output_dtypes.
- 	'''      
-    import torch
-    
+    kwargs may contain: short_soc_version, input_ori_shapes, output_ori_shapes,
+             input_formats, output_formats, input_ori_formats, output_ori_formats,
+             input_dtypes, output_dtypes.
+    """
+
+    original_shape = x.shape
     x = x.flatten()
     total_size = np.prod(x.shape)
-    ret = np.zeros(x.shape, np.int32)
+    ret = np.zeros(x.shape, np.int64 if y_dtype == 9 else np.int32)
 
     if total_size == 0:
-        return ret
+        return ret.reshape(original_shape)
 
     ret[0] = 0
     ret[1:] = (x[1:] != x[0:-1]).astype(np.int32)
 
-    if (y_dtype == 9):
-        ret = ret.astype(np.int64)
-    return ret
-    
+    return ret.reshape(original_shape)
