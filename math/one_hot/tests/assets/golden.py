@@ -94,6 +94,9 @@ def aclnn_one_hot_golden(self, numClasses, onValue, offValue, axis, out, **kwarg
         out_dtype = torch.get_default_dtype()
 
     depth = max(int(numClasses), 0)
+    if numClasses == 0 and idx.numel() != 0:
+        result = torch.empty((*idx.shape, 0), dtype=out_dtype, device=idx.device)
+        return torch.movedim(result, -1, int(axis))
     idx_long = idx.long()
     # NPU kernel treats out-of-range indices (< 0 or >= depth) as off_value.
     # torch.nn.functional.one_hot raises on out-of-range, so mark invalid
