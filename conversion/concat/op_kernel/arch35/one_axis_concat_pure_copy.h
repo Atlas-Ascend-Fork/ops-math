@@ -246,7 +246,7 @@ __aicore__ inline void OneAxisConcatPureCopy<TILINGDATA>::ProcessSingleTensor(in
             srcOffset = m * rowFactor * tensorDim1 + n * colFactor;
             event_t evt = (bufId == 0) ? EVT_ID0 : EVT_ID1;
             WaitFlag<HardEvent::MTE3_MTE2>(evt);
-            LocalTensor<int8_t> srcLocal(TPosition::VECIN, bufId * bufSize_, static_cast<uint32_t>(bufferSize_));
+            LocalTensor<int8_t> srcLocal(TPosition::VECIN, bufId * bufSize_, bufSize_);
             CopyInSingleTensor(srcGlobal_, copyRows, colFactor, srcOffset, tensorDim1, srcLocal);
             SetFlag<HardEvent::MTE2_MTE3>(evt);
             WaitFlag<HardEvent::MTE2_MTE3>(evt);
@@ -258,7 +258,7 @@ __aicore__ inline void OneAxisConcatPureCopy<TILINGDATA>::ProcessSingleTensor(in
         srcOffset = m * rowFactor * tensorDim1 + (colLoopSize - 1) * colFactor;
         event_t evt = (bufId == 0) ? EVT_ID0 : EVT_ID1;
         WaitFlag<HardEvent::MTE3_MTE2>(evt);
-        LocalTensor<int8_t> srcLocal(TPosition::VECIN, bufId * bufSize_, static_cast<uint32_t>(bufferSize_));
+        LocalTensor<int8_t> srcLocal(TPosition::VECIN, bufId * bufSize_, bufSize_);
         CopyInSingleTensor(srcGlobal_, copyRows, tailColFactor, srcOffset, tensorDim1, srcLocal);
         SetFlag<HardEvent::MTE2_MTE3>(evt);
         WaitFlag<HardEvent::MTE2_MTE3>(evt);

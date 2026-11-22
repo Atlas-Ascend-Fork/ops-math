@@ -218,9 +218,13 @@ __aicore__ inline void OneAxisConcatNoAlignDiffShape<T, U, TILINGDATA>::Process(
         return;
     }
     // gather/rowConcat 的中转 work 槽位（复用 in 双 buffer）依赖 MTE3_MTE2 事件保护复用：
-    // 此处预挂两个槽位的 MTE3_MTE2 标志，使首次 MTE2 写入前的 WaitFlag 不阻塞
-    SetFlag<HardEvent::MTE3_MTE2>(EVT_ID0);
-    SetFlag<HardEvent::MTE3_MTE2>(EVT_ID1);
+    // 预挂两槽标志使首次 MTE2 写入前不阻塞。普通/Scatter 路径不消费该事件, 须按路径
+    // 条件预挂, 否则形成未配对 SetFlag(计数残留会在 super-kernel 拼接场景被后续算子
+    // 的 WaitFlag 误消费, 造成假放行)
+    if (isGather_ || isRowConcat_) {
+        SetFlag<HardEvent::MTE3_MTE2>(EVT_ID0);
+        SetFlag<HardEvent::MTE3_MTE2>(EVT_ID1);
+    }
     if constexpr (IsSame<TILINGDATA, ConcatTilingData>::value || IsSame<TILINGDATA, ConcatTilingDataCompact>::value) {
         ProcessBlockSplitDim1();
     } else {
@@ -229,6 +233,11 @@ __aicore__ inline void OneAxisConcatNoAlignDiffShape<T, U, TILINGDATA>::Process(
         } else {
             ProcessBlockSplitDim0NoSplitDim1();
         }
+    }
+    // 收尾成对清零: 逐片路径每 chunk Wait/Set 净零, 末态每槽各残留 1 次归还的许可
+    if (isGather_ || isRowConcat_) {
+        WaitFlag<HardEvent::MTE3_MTE2>(EVT_ID0);
+        WaitFlag<HardEvent::MTE3_MTE2>(EVT_ID1);
     }
 }
 
