@@ -129,7 +129,7 @@
 
     ```bash
     # 卸载命令
-    ./${install_path}/cann/share/info/ops_math/script/uninstall.sh
+    "${install_path}/cann/share/info/ops_math/script/uninstall.sh"
     ```
 
 #### ops-math静态库
@@ -258,7 +258,7 @@
 
     ```bash
     # 卸载命令
-    ./${install_path}/cann/share/info/ops_math/script/uninstall.sh
+    "${install_path}/cann/share/info/ops_math/script/uninstall.sh"
     ```
 
 #### ops-math静态库
