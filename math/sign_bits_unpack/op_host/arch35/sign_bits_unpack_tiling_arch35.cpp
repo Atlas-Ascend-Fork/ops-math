@@ -52,13 +52,18 @@ static ge::graphStatus GetShapeAttrsInfo(gert::TilingContext* context, uint64_t*
     auto inputX = context->GetInputShape(0);
     OP_CHECK_NULL_WITH_CONTEXT(context, inputX);
     auto inShape = inputX->GetStorageShape();
-    OP_CHECK_IF(inShape.GetDimNum() != 1, OP_LOGE(context, "input x must be 1D, got rank=%zu", inShape.GetDimNum()),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        inShape.GetDimNum() != 1,
+        OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(
+            context->GetNodeName(), "x", std::to_string(inShape.GetDimNum()).c_str(), "The rank of x must be 1"),
+        return ge::GRAPH_FAILED);
     int64_t totalNum64 = inShape.GetShapeSize();
     constexpr int64_t UNPACK_FACTOR_I64 = static_cast<int64_t>(UNPACK_FACTOR);
-    OP_CHECK_IF(totalNum64 < 0 || totalNum64 > std::numeric_limits<int64_t>::max() / UNPACK_FACTOR_I64,
-                OP_LOGE(context, "input x element count %ld is invalid or overflows", totalNum64),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        totalNum64 < 0 || totalNum64 > std::numeric_limits<int64_t>::max() / UNPACK_FACTOR_I64,
+        OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(context->GetNodeName(), "x", std::to_string(totalNum64).c_str(),
+                                                  "The element count of x is invalid or overflows"),
+        return ge::GRAPH_FAILED);
     int64_t totalBits = totalNum64 * UNPACK_FACTOR_I64;
 
     auto attrs = context->GetAttrs();
@@ -75,15 +80,22 @@ static ge::graphStatus GetShapeAttrsInfo(gert::TilingContext* context, uint64_t*
     auto outputY = context->GetOutputShape(0);
     OP_CHECK_NULL_WITH_CONTEXT(context, outputY);
     auto outShape = outputY->GetStorageShape();
-    OP_CHECK_IF(outShape.GetDimNum() != 2, OP_LOGE(context, "output must be 2D, got rank=%zu", outShape.GetDimNum()),
-                return ge::GRAPH_FAILED);
-    OP_CHECK_IF(outShape.GetDim(0) != *sizePtr,
-                OP_LOGE(context, "output dim0 %ld must equal size %ld", outShape.GetDim(0), *sizePtr),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        outShape.GetDimNum() != 2,
+        OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(
+            context->GetNodeName(), "y", std::to_string(outShape.GetDimNum()).c_str(), "The rank of y must be 2"),
+        return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        outShape.GetDim(0) != *sizePtr,
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "y", std::to_string(outShape.GetDim(0)).c_str(),
+                                              "The dim 0 of y must equal attr size"),
+        return ge::GRAPH_FAILED);
     int64_t expectCol = totalBits / *sizePtr;
-    OP_CHECK_IF(outShape.GetDim(1) >= 0 && outShape.GetDim(1) != expectCol,
-                OP_LOGE(context, "output dim1 %ld must equal %ld", outShape.GetDim(1), expectCol),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        outShape.GetDim(1) >= 0 && outShape.GetDim(1) != expectCol,
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "y", std::to_string(outShape.GetDim(1)).c_str(),
+                                              "The dim 1 of y must equal x element count * 8 / size"),
+        return ge::GRAPH_FAILED);
 
     auto outputDesc = context->GetOutputDesc(0);
     OP_CHECK_NULL_WITH_CONTEXT(context, outputDesc);

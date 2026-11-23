@@ -32,18 +32,22 @@ static ge::graphStatus FusedMulAddNL2lossInferShape(gert::InferShapeContext* con
     constexpr size_t kMaxNdrRank = 8;
     size_t dimNum = x1Shape->GetDimNum();
     OP_CHECK_IF(dimNum > kMaxNdrRank,
-                OP_LOGE(context->GetNodeName(), "invalid x1 rank %zu: ND format supports rank 0..8", dimNum),
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "x1", std::to_string(dimNum).c_str(),
+                                                         "The rank of x1 must be in [0, 8] for ND format"),
                 return ge::GRAPH_FAILED);
 
     // README 约束：x2 与 x1 shape 必须一致（逐维相等；未知维 -1/-2 视为通配）
     OP_CHECK_IF(x2Shape->GetDimNum() != dimNum,
-                OP_LOGE(context->GetNodeName(), "x2 rank %zu must equal x1 rank %zu", x2Shape->GetDimNum(), dimNum),
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "x1, x2",
+                                                         std::to_string(x2Shape->GetDimNum()).c_str(),
+                                                         "The rank of x2 must equal the rank of x1"),
                 return ge::GRAPH_FAILED);
     for (size_t i = 0; i < dimNum; i++) {
         const int64_t d1 = x1Shape->GetDim(i);
         const int64_t d2 = x2Shape->GetDim(i);
         OP_CHECK_IF(d1 >= 0 && d2 >= 0 && d1 != d2,
-                    OP_LOGE(context->GetNodeName(), "x2 dim[%zu]=%ld must equal x1 dim[%zu]=%ld", i, d2, i, d1),
+                    OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "x2", std::to_string(d2).c_str(),
+                                                          "Each dim of x2 must equal the corresponding dim of x1"),
                     return ge::GRAPH_FAILED);
     }
 

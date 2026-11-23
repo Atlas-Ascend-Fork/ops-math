@@ -94,8 +94,10 @@ static ge::graphStatus CalcOutDims(gert::TilingContext* context, int64_t diagona
     constexpr int64_t MAX_OUT_WIDTH = 3037000499;
     int64_t absDiagonal = diagonal >= 0 ? diagonal : -diagonal;
     OP_CHECK_IF(absDiagonal > MAX_OUT_WIDTH || numInput < 0 || numInput > MAX_OUT_WIDTH - absDiagonal,
-                OP_LOGE(context, "output width %ld + %ld exceeds the supported bound %ld.", numInput, absDiagonal,
-                        MAX_OUT_WIDTH),
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                    context->GetNodeName(), "diagonal",
+                    (std::to_string(numInput) + " + " + std::to_string(absDiagonal)).c_str(),
+                    "The output width exceeds the supported bound " + std::to_string(MAX_OUT_WIDTH)),
                 return ge::GRAPH_FAILED);
     outWidth = numInput + absDiagonal;
     outTotal = outWidth * outWidth;
@@ -147,7 +149,11 @@ ge::graphStatus TilingDiagFlatArch35(gert::TilingContext* context, DiagFlatTilin
     }
 
     // 8. tileLength
-    OP_CHECK_IF(dtypeSize <= 0, OP_LOGE(context, "invalid dtypeSize %ld", dtypeSize), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        dtypeSize <= 0,
+        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "x", Ops::Base::ToString(dataType).c_str(),
+                                              "The dtype of x is not supported"),
+        return ge::GRAPH_FAILED);
     int64_t ubPerBuf = (ubSize - SIMT_DCACHE_SIZE) / DIAG_FLAT_BUFFER_NUM;
     int64_t tileLength = std::min<int64_t>({ubPerBuf / dtypeSize, outPerCore});
 

@@ -83,15 +83,18 @@ ge::graphStatus FusedMulAddNL2lossTiling::DoTiling()
     ge::DataType x3Dtype = inputX3Desc->GetDataType();
     OP_CHECK_IF(
         x1Dtype != ge::DT_FLOAT && x1Dtype != ge::DT_FLOAT16,
-        OP_LOGE(context_, "unsupported x1 dtype %d: only FLOAT and FLOAT16 are supported", static_cast<int>(x1Dtype)),
+        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context_->GetNodeName(), "x1", Ops::Base::ToString(x1Dtype).c_str(),
+                                              "The dtype of x1 must be FLOAT or FLOAT16"),
         return ge::GRAPH_FAILED);
     OP_CHECK_IF(
         x2Dtype != x1Dtype,
-        OP_LOGE(context_, "x2 dtype %d must equal x1 dtype %d", static_cast<int>(x2Dtype), static_cast<int>(x1Dtype)),
+        OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(context_->GetNodeName(), "x1, x2", Ops::Base::ToString(x2Dtype).c_str(),
+                                               "The dtype of x2 must match the dtype of x1"),
         return ge::GRAPH_FAILED);
     OP_CHECK_IF(
         x3Dtype != x1Dtype,
-        OP_LOGE(context_, "x3 dtype %d must equal x1 dtype %d", static_cast<int>(x3Dtype), static_cast<int>(x1Dtype)),
+        OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(context_->GetNodeName(), "x1, x3", Ops::Base::ToString(x3Dtype).c_str(),
+                                               "The dtype of x3 must match the dtype of x1"),
         return ge::GRAPH_FAILED);
 
     // 取 x1 shape，展平为 N
@@ -119,7 +122,11 @@ ge::graphStatus FusedMulAddNL2lossTiling::DoTiling()
     OP_CHECK_NULL_WITH_CONTEXT(context_, inputX3Shape);
     auto shapeX3 = inputX3Shape->GetStorageShape();
     int64_t totalX3 = shapeX3.GetShapeSize();
-    OP_CHECK_IF(totalX3 < 0, OP_LOGE(context_, "invalid x3 storage shape size %ld", totalX3), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        totalX3 < 0,
+        OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(context_->GetNodeName(), "x3", std::to_string(totalX3).c_str(),
+                                                  "The shape size of x3 must be non-negative"),
+        return ge::GRAPH_FAILED);
     OP_CHECK_IF(totalX3 > 0 && totalX3 != 1,
                 OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(
                     context_->GetNodeName(), "x3", std::to_string(totalX3).c_str(), "must be a single-element tensor"),

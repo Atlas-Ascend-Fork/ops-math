@@ -95,21 +95,29 @@ static ge::graphStatus GetShapeAttrsInfo(gert::TilingContext* context, int64_t* 
     OP_CHECK_NULL_WITH_CONTEXT(context, inputX);
     const auto& inputStorageShape = inputX->GetStorageShape();
     OP_CHECK_IF(inputStorageShape.GetDimNum() > MAX_DIM_NUM,
-                OP_LOGE(context, "Cosh: input rank must be <= 8, got %zu", inputStorageShape.GetDimNum()),
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "x",
+                                                         std::to_string(inputStorageShape.GetDimNum()).c_str(),
+                                                         "The rank of x must be <= 8"),
                 return ge::GRAPH_FAILED);
     auto inputShapeX = EnsureNotScalar(inputStorageShape);
     *totalNum = inputShapeX.GetShapeSize();
     // 外部输入 shape 合法性：元素总数不得为负（畸形 shape 防护，避免负值进入后续切分链）
-    OP_CHECK_IF(*totalNum < 0, OP_LOGE(context, "Cosh: invalid negative shape size %ld", static_cast<long>(*totalNum)),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        *totalNum < 0,
+        OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(context->GetNodeName(), "x", std::to_string(*totalNum).c_str(),
+                                                  "The shape size of x must be non-negative"),
+        return ge::GRAPH_FAILED);
 
     // dtype 白名单校验：全 3 dtype
     const std::set<ge::DataType> supportedDtype = {ge::DT_FLOAT, ge::DT_FLOAT16, ge::DT_BF16};
     auto inputDesc = context->GetInputDesc(0);
     OP_CHECK_NULL_WITH_CONTEXT(context, inputDesc);
     *dataType = inputDesc->GetDataType();
-    OP_CHECK_IF(supportedDtype.count(*dataType) == 0,
-                OP_LOGE(context, "Cosh: invalid dtype %d", static_cast<int>(*dataType)), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        supportedDtype.count(*dataType) == 0,
+        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "x", Ops::Base::ToString(*dataType).c_str(),
+                                              "The dtype of x must be FLOAT, FLOAT16 or BF16"),
+        return ge::GRAPH_FAILED);
 
     auto output = context->GetOutputShape(0);
     auto outputDesc = context->GetOutputDesc(0);
@@ -117,16 +125,22 @@ static ge::graphStatus GetShapeAttrsInfo(gert::TilingContext* context, int64_t* 
     OP_CHECK_NULL_WITH_CONTEXT(context, outputDesc);
     const auto& outputStorageShape = output->GetStorageShape();
     OP_CHECK_IF(outputStorageShape.GetDimNum() > MAX_DIM_NUM,
-                OP_LOGE(context, "Cosh: output rank must be <= 8, got %zu", outputStorageShape.GetDimNum()),
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "y",
+                                                         std::to_string(outputStorageShape.GetDimNum()).c_str(),
+                                                         "The rank of y must be <= 8"),
                 return ge::GRAPH_FAILED);
     auto outputShapeY = EnsureNotScalar(outputStorageShape);
     // rank-0 标量输入在 GE 侧会被归一化为 {1} 而输出描述符保持 rank-0：
     // 两侧统一经 EnsureNotScalar 折算后再比较，避免 () 与 (1,) 的存储形态差异误判为形状不一致。
-    OP_CHECK_IF(inputShapeX != outputShapeY, OP_LOGE(context, "Cosh: input and output shapes must be identical"),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        inputShapeX != outputShapeY,
+        OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(context->GetNodeName(), "x, y", Ops::Base::ToString(inputShapeX).c_str(),
+                                               "The storage shapes of x and y must be identical"),
+        return ge::GRAPH_FAILED);
     OP_CHECK_IF(outputDesc->GetDataType() != *dataType,
-                OP_LOGE(context, "Cosh: output dtype must match input dtype: input=%d, output=%d",
-                        static_cast<int>(*dataType), static_cast<int>(outputDesc->GetDataType())),
+                OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(context->GetNodeName(), "x, y",
+                                                       Ops::Base::ToString(outputDesc->GetDataType()).c_str(),
+                                                       "The dtype of y must match the dtype of x"),
                 return ge::GRAPH_FAILED);
     return ge::GRAPH_SUCCESS;
 }

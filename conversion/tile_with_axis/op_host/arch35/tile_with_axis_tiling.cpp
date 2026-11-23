@@ -154,7 +154,9 @@ static ge::graphStatus HandleScalarInput(gert::TilingContext* context, int64_t t
 static ge::graphStatus NormalizeAxis(gert::TilingContext* context, int64_t& axis, int64_t rank)
 {
     if (axis < -rank || axis >= rank) {
-        OP_LOGE(context, "axis=%ld out of range [-%ld, %ld)", axis, rank, rank);
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+            context->GetNodeName(), "axis", std::to_string(axis).c_str(),
+            "The value of axis must be in [-" + std::to_string(rank) + ", " + std::to_string(rank) + ")");
         return ge::GRAPH_FAILED;
     }
     if (axis < 0) {
@@ -335,9 +337,11 @@ static ge::graphStatus TileWithAxisTilingFunc(gert::TilingContext* context)
     // 3. 标量输入特殊处理
     if (rank == 0) {
         int64_t scalarDtypeSize = static_cast<int64_t>(ge::GetSizeByDataType(dataType));
-        OP_CHECK_IF(scalarDtypeSize <= 0,
-                    OP_LOGE(context, "unsupported dtype, GetSizeByDataType returned %ld", scalarDtypeSize),
-                    return ge::GRAPH_FAILED);
+        OP_CHECK_IF(
+            scalarDtypeSize <= 0,
+            OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "x", Ops::Base::ToString(dataType).c_str(),
+                                                  "The dtype of x is not supported"),
+            return ge::GRAPH_FAILED);
         return HandleScalarInput(context, tiles, ubSize, scalarDtypeSize, coreNum);
     }
 
@@ -373,8 +377,11 @@ static ge::graphStatus TileWithAxisTilingFunc(gert::TilingContext* context)
 
     // 7. UB 切分
     int64_t dtypeSize = static_cast<int64_t>(ge::GetSizeByDataType(dataType));
-    OP_CHECK_IF(dtypeSize <= 0, OP_LOGE(context, "unsupported dtype, GetSizeByDataType returned %ld", dtypeSize),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        dtypeSize <= 0,
+        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "x", Ops::Base::ToString(dataType).c_str(),
+                                              "The dtype of x is not supported"),
+        return ge::GRAPH_FAILED);
     int64_t bufferSizeElements = (static_cast<int64_t>(ubSize) / 2) / dtypeSize;
     OP_CHECK_IF(CheckMulNoOverflow(context, tiles, rowLength, "rowOutElements") != ge::GRAPH_SUCCESS,
                 OP_LOGE(context, "rowOutElements overflow"), return ge::GRAPH_FAILED);

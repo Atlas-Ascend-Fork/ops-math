@@ -35,7 +35,8 @@ static ge::graphStatus InferDataType4SignBitsUnpack(gert::InferDataTypeContext* 
     } else if (*dtype == static_cast<int64_t>(ge::DT_FLOAT16)) {
         outputDtype = ge::DT_FLOAT16;
     } else {
-        OP_LOGE(context->GetNodeName(), "dtype must be DT_FLOAT(0) or DT_FLOAT16(1)!");
+        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "dtype", std::to_string(*dtype).c_str(),
+                                              "The dtype attr must be DT_FLOAT(0) or DT_FLOAT16(1)");
         return ge::GRAPH_FAILED;
     }
 

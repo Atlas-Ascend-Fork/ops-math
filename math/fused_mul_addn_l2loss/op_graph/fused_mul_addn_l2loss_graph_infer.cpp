@@ -25,17 +25,20 @@ static ge::graphStatus InferDataTypeForFusedMulAddNL2loss(gert::InferDataTypeCon
     const ge::DataType x3DataType = context->GetInputDataType(2);
 
     // README 约束：x1/x2/x3/y1/y2 dtype 必须一致，且仅支持 FLOAT/FLOAT16
-    OP_CHECK_IF(x1DataType != ge::DT_FLOAT && x1DataType != ge::DT_FLOAT16,
-                OP_LOGE(context->GetNodeName(), "unsupported x1 dtype %d: only FLOAT and FLOAT16 are supported",
-                        static_cast<int>(x1DataType)),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        x1DataType != ge::DT_FLOAT && x1DataType != ge::DT_FLOAT16,
+        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "x1", Ops::Base::ToString(x1DataType).c_str(),
+                                              "The dtype of x1 must be FLOAT or FLOAT16"),
+        return ge::GRAPH_FAILED);
     OP_CHECK_IF(x2DataType != x1DataType,
-                OP_LOGE(context->GetNodeName(), "x2 dtype %d must equal x1 dtype %d", static_cast<int>(x2DataType),
-                        static_cast<int>(x1DataType)),
+                OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(context->GetNodeName(), "x1, x2",
+                                                       Ops::Base::ToString(x2DataType).c_str(),
+                                                       "The dtype of x2 must match the dtype of x1"),
                 return ge::GRAPH_FAILED);
     OP_CHECK_IF(x3DataType != x1DataType,
-                OP_LOGE(context->GetNodeName(), "x3 dtype %d must equal x1 dtype %d", static_cast<int>(x3DataType),
-                        static_cast<int>(x1DataType)),
+                OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(context->GetNodeName(), "x1, x3",
+                                                       Ops::Base::ToString(x3DataType).c_str(),
+                                                       "The dtype of x3 must match the dtype of x1"),
                 return ge::GRAPH_FAILED);
 
     context->SetOutputDataType(0, x1DataType); // y1 = x1 * x3 + x2，dtype 同 x1

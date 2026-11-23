@@ -107,12 +107,14 @@ static ge::graphStatus ValidateInput(gert::TilingContext* context, int64_t* tota
     const ge::Format outputOriginFormat = outputDesc->GetOriginFormat();
     const ge::Format outputStorageFormat = outputDesc->GetStorageFormat();
     OP_CHECK_IF(IsPrivateFormat(inputOriginFormat) || IsPrivateFormat(inputStorageFormat),
-                OP_LOGE(context, "Asinh: unsupported private input format, origin=%d, storage=%d",
-                        static_cast<int>(inputOriginFormat), static_cast<int>(inputStorageFormat)),
+                OP_LOGE_FOR_INVALID_FORMAT_WITH_REASON(context->GetNodeName(), "x",
+                                                       Ops::Base::ToString(inputStorageFormat).c_str(),
+                                                       "Private formats are not supported"),
                 return ge::GRAPH_FAILED);
     OP_CHECK_IF(IsPrivateFormat(outputOriginFormat) || IsPrivateFormat(outputStorageFormat),
-                OP_LOGE(context, "Asinh: unsupported private output format, origin=%d, storage=%d",
-                        static_cast<int>(outputOriginFormat), static_cast<int>(outputStorageFormat)),
+                OP_LOGE_FOR_INVALID_FORMAT_WITH_REASON(context->GetNodeName(), "y",
+                                                       Ops::Base::ToString(outputStorageFormat).c_str(),
+                                                       "Private formats are not supported"),
                 return ge::GRAPH_FAILED);
 
     auto inputShape = context->GetInputShape(0);
@@ -121,28 +123,41 @@ static ge::graphStatus ValidateInput(gert::TilingContext* context, int64_t* tota
     const size_t inputRank = inputStorageShape.GetDimNum();
     OP_CHECK_IF(inputRank == 0, OP_LOGE(context, "Asinh: input rank must be >= 1, scalar (rank-0) is not supported"),
                 return ge::GRAPH_FAILED);
-    OP_CHECK_IF(inputRank > MAX_DIM_NUM, OP_LOGE(context, "Asinh: input rank must be <= 8, but got %zu", inputRank),
+    OP_CHECK_IF(inputRank > MAX_DIM_NUM,
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "x", std::to_string(inputRank).c_str(),
+                                                         "The rank of x must be <= 8"),
                 return ge::GRAPH_FAILED);
 
     auto outputShape = context->GetOutputShape(0);
     OP_CHECK_NULL_WITH_CONTEXT(context, outputShape);
     const gert::Shape& outputStorageShape = outputShape->GetStorageShape();
     OP_CHECK_IF(outputStorageShape.GetDimNum() > MAX_DIM_NUM,
-                OP_LOGE(context, "Asinh: output rank must be <= 8, but got %zu", outputStorageShape.GetDimNum()),
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "y",
+                                                         std::to_string(outputStorageShape.GetDimNum()).c_str(),
+                                                         "The rank of y must be <= 8"),
                 return ge::GRAPH_FAILED);
     OP_CHECK_IF(inputStorageShape != outputStorageShape,
-                OP_LOGE(context, "Asinh: input and output storage shapes must be the same"), return ge::GRAPH_FAILED);
-    *totalNum = inputStorageShape.GetShapeSize();
-    OP_CHECK_IF(*totalNum < 0, OP_LOGE(context, "Asinh: invalid totalNum=%ld (negative shape size)", *totalNum),
+                OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(context->GetNodeName(), "x, y",
+                                                       Ops::Base::ToString(inputStorageShape).c_str(),
+                                                       "The storage shapes of x and y must be the same"),
                 return ge::GRAPH_FAILED);
+    *totalNum = inputStorageShape.GetShapeSize();
+    OP_CHECK_IF(
+        *totalNum < 0,
+        OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(context->GetNodeName(), "x", std::to_string(*totalNum).c_str(),
+                                                  "The shape size of x must be non-negative"),
+        return ge::GRAPH_FAILED);
 
     *dtype = inputDesc->GetDataType();
     const std::set<ge::DataType> supported = {ge::DT_FLOAT, ge::DT_FLOAT16, ge::DT_BF16};
-    OP_CHECK_IF(supported.count(*dtype) == 0, OP_LOGE(context, "Asinh: unsupported dtype %d", static_cast<int>(*dtype)),
+    OP_CHECK_IF(supported.count(*dtype) == 0,
+                OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "x", Ops::Base::ToString(*dtype).c_str(),
+                                                      "The dtype of x must be FLOAT, FLOAT16 or BF16"),
                 return ge::GRAPH_FAILED);
     OP_CHECK_IF(outputDesc->GetDataType() != *dtype,
-                OP_LOGE(context, "Asinh: output dtype must match input dtype: input=%d, output=%d",
-                        static_cast<int>(*dtype), static_cast<int>(outputDesc->GetDataType())),
+                OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(context->GetNodeName(), "x, y",
+                                                       Ops::Base::ToString(outputDesc->GetDataType()).c_str(),
+                                                       "The dtype of y must match the dtype of x"),
                 return ge::GRAPH_FAILED);
     return ge::GRAPH_SUCCESS;
 }

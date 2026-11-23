@@ -44,7 +44,8 @@ static Status ParseParamsNpuSignBitsUnpack(const Message* op_src, ge::Operator& 
 
     // Node must have required attribute size and dtype.
     if (req_attr_count != REQ_ATTR_NUM) {
-        OP_LOGE(op_name.GetString(), "Node must have attr size and dtype.");
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(op_name.GetString(), "size, dtype", "missing",
+                                              "The node must have both attr size and dtype");
         return FAILED;
     }
 
@@ -54,15 +55,12 @@ static Status ParseParamsNpuSignBitsUnpack(const Message* op_src, ge::Operator& 
 // register SignBitsUnpack op info to GE
 REGISTER_CUSTOM_OP("SignBitsUnpack")
     .FrameworkType(ONNX)
-    .OriginOpType({ge::AscendString("npu::1::NPUSignBitsUnpack"), 
-                   ge::AscendString("ai.onnx::11::NPUSignBitsUnpack"), 
-                   ge::AscendString("ai.onnx::12::NPUSignBitsUnpack"),
-                   ge::AscendString("ai.onnx::13::NPUSignBitsUnpack"), 
-                   ge::AscendString("ai.onnx::14::NPUSignBitsUnpack"), 
-                   ge::AscendString("ai.onnx::15::NPUSignBitsUnpack"),
-                   ge::AscendString("ai.onnx::16::NPUSignBitsUnpack"), 
-                   ge::AscendString("ai.onnx::17::NPUSignBitsUnpack"),
-                   ge::AscendString("ai.onnx::18::NPUSignBitsUnpack")})
+    .OriginOpType(
+        {ge::AscendString("npu::1::NPUSignBitsUnpack"), ge::AscendString("ai.onnx::11::NPUSignBitsUnpack"),
+         ge::AscendString("ai.onnx::12::NPUSignBitsUnpack"), ge::AscendString("ai.onnx::13::NPUSignBitsUnpack"),
+         ge::AscendString("ai.onnx::14::NPUSignBitsUnpack"), ge::AscendString("ai.onnx::15::NPUSignBitsUnpack"),
+         ge::AscendString("ai.onnx::16::NPUSignBitsUnpack"), ge::AscendString("ai.onnx::17::NPUSignBitsUnpack"),
+         ge::AscendString("ai.onnx::18::NPUSignBitsUnpack")})
     .ParseParamsFn(ParseParamsNpuSignBitsUnpack)
     .ImplyType(ImplyType::TVM);
-}  // namespace domi
+} // namespace domi

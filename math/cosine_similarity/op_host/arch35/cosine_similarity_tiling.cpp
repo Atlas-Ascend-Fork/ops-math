@@ -55,12 +55,14 @@ static ge::graphStatus ValidateDtypes(gert::TilingContext* context)
     const auto* x2Desc = context->GetInputDesc(1);
     OP_CHECK_NULL_WITH_CONTEXT(context, x2Desc);
     OP_CHECK_IF(x1Desc->GetDataType() != ge::DT_FLOAT,
-                OP_LOGE(context, "input_x1 dtype %d is invalid; allowed dtypes: {FLOAT}",
-                        static_cast<int32_t>(x1Desc->GetDataType())),
+                OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "input_x1",
+                                                      Ops::Base::ToString(x1Desc->GetDataType()).c_str(),
+                                                      "The dtype of input_x1 must be FLOAT"),
                 return ge::GRAPH_FAILED);
     OP_CHECK_IF(x2Desc->GetDataType() != ge::DT_FLOAT,
-                OP_LOGE(context, "input_x2 dtype %d is invalid; allowed dtypes: {FLOAT}",
-                        static_cast<int32_t>(x2Desc->GetDataType())),
+                OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "input_x2",
+                                                      Ops::Base::ToString(x2Desc->GetDataType()).c_str(),
+                                                      "The dtype of input_x2 must be FLOAT"),
                 return ge::GRAPH_FAILED);
     return ge::GRAPH_SUCCESS;
 }
