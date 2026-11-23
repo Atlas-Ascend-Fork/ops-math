@@ -52,6 +52,11 @@ static const std::initializer_list<DataType> REGBASE_DTYPE_SUPPORT_LIST = {
     DataType::DT_INT8,   DataType::DT_INT16,  DataType::DT_INT32,  DataType::DT_INT64, DataType::DT_UINT8,
     DataType::DT_UINT16, DataType::DT_UINT32, DataType::DT_UINT64, DataType::DT_BOOL};
 
+static const std::initializer_list<DataType> ASCEND910B_OUT_DTYPE_SUPPORT_LIST = {
+    DataType::DT_BOOL,  DataType::DT_INT8,   DataType::DT_INT16,  DataType::DT_INT32,     DataType::DT_INT64,
+    DataType::DT_UINT8, DataType::DT_UINT16, DataType::DT_UINT32, DataType::DT_UINT64,    DataType::DT_FLOAT16,
+    DataType::DT_FLOAT, DataType::DT_DOUBLE, DataType::DT_BF16,   DataType::DT_COMPLEX64, DataType::DT_COMPLEX128};
+
 static DataType GetPromoteDType(const aclTensor* self, const aclScalar* other)
 {
     auto promoteType = DataType::DT_UNDEFINED;
@@ -82,6 +87,10 @@ static inline bool CheckDtypeValid(const aclTensor* self, const aclScalar* other
 
     // 检查other的数据类型是否在LogicalOr或者BitwiseOr算子的支持列表内
     OP_CHECK_DTYPE_NOT_SUPPORT(other, supportList, return false);
+
+    if (GetCurrentPlatformInfo().GetCurNpuArch() == NpuArch::DAV_2201) {
+        OP_CHECK_DTYPE_NOT_SUPPORT(out, ASCEND910B_OUT_DTYPE_SUPPORT_LIST, return false);
+    }
 
     // 检查self和other能否做数据类型推导
     promoteType = GetPromoteDType(self, other);

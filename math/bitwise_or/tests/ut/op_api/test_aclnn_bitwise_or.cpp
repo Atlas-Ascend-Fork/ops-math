@@ -131,6 +131,27 @@ TEST_F(l2_bitwise_or_test, case_bitwise_or_scalar_int64)
     EXPECT_EQ(ut.TestGetWorkspaceSize(&workspace_size), ACL_SUCCESS);
 }
 
+TEST_F(l2_bitwise_or_test, case_bitwise_or_scalar_int4_output)
+{
+    const auto originalSoc = op::GetCurrentPlatformInfo().GetSocVersion();
+    for (auto soc : {op::SocVersion::ASCEND910B, op::SocVersion::ASCEND910_93, op::SocVersion::ASCEND950}) {
+        op::SetPlatformSocVersion(soc);
+        for (int64_t size : {1, 0}) {
+            auto self_desc = TensorDesc({size}, ACL_INT32, ACL_FORMAT_ND);
+            auto scalar_desc = ScalarDesc(int64_t(1));
+            auto out_desc = TensorDesc({size}, ACL_INT4, ACL_FORMAT_ND);
+            auto ut = OP_API_UT(aclnnBitwiseOrScalar, INPUT(self_desc, scalar_desc), OUTPUT(out_desc));
+            uint64_t workspace_size = 0;
+            if (soc == op::SocVersion::ASCEND950) {
+                EXPECT_NE(ut.TestGetWorkspaceSize(&workspace_size), ACLNN_ERR_PARAM_INVALID);
+            } else {
+                EXPECT_EQ(ut.TestGetWorkspaceSize(&workspace_size), ACLNN_ERR_PARAM_INVALID);
+            }
+        }
+    }
+    op::SetPlatformSocVersion(originalSoc);
+}
+
 // === Error cases ===
 TEST_F(l2_bitwise_or_test, case_bitwise_or_tensor_nullptr)
 {
