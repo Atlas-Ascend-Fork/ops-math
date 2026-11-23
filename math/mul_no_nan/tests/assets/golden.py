@@ -55,7 +55,11 @@ def mul_no_nan_golden(x1, x2, **kwargs):
     """
     import torch
 
-    output_dtype = np.asarray(x1).dtype
+    # Older TF EagerTensor.__array__ rejects dtype and may return a scalar.
+    # Convert through numpy() first, then wrap rank-zero values as arrays.
+    x1 = np.asarray(x1.numpy() if hasattr(x1, "numpy") else x1)
+    x2 = np.asarray(x2.numpy() if hasattr(x2, "numpy") else x2)
+    output_dtype = x1.dtype
     is_integer = np.issubdtype(output_dtype, np.integer)
     compute_dtype = output_dtype if is_integer else np.float64
     x = torch.from_numpy(np.array(x1, dtype=compute_dtype, copy=True))
