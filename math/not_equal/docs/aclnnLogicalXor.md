@@ -88,7 +88,7 @@ aclnnStatus aclnnLogicalXor(
       <td>shape需要与other满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>。</td>
       <td>FLOAT、FLOAT16、DOUBLE、INT32、INT64、INT16、INT8、UINT8、BOOL、COMPLEX64、COMPLEX128、BFLOAT16</td>
       <td>ND</td>
-      <td>0-8</td>
+      <td>0-8；self和other均非空时，COMPLEX64、COMPLEX128为0-7。</td>
       <td>√</td>
     </tr>
     <tr>
@@ -98,7 +98,7 @@ aclnnStatus aclnnLogicalXor(
       <td>shape需要与self满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>。</td>
       <td>FLOAT、FLOAT16、DOUBLE、INT32、INT64、INT16、INT8、UINT8、BOOL、COMPLEX64、COMPLEX128、BFLOAT16</td>
       <td>ND</td>
-      <td>0-8</td>
+      <td>0-8；self和other均非空时，COMPLEX64、COMPLEX128为0-7。</td>
       <td>√</td>
     </tr>
     <tr>
@@ -166,10 +166,10 @@ aclnnStatus aclnnLogicalXor(
       <td>self和other的数据类型不在支持的范围之内。</td>
     </tr>
     <tr>
-      <td>self和other的shape无法做broadcast。</td>
+      <td>self和other的shape无法做broadcast，或out的shape不等于broadcast之后的shape。</td>
     </tr>
     <tr>
-      <td>self或other的shape大于8维，complex64/complex128大于7维度。</td>
+      <td>self或other的shape大于8维；或self和other均非空，且其中COMPLEX64、COMPLEX128输入的shape大于7维。</td>
     </tr>
   </tbody>
   </table>

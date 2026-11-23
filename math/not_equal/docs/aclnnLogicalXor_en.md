@@ -90,7 +90,7 @@ aclnnStatus aclnnLogicalXor(
       <td class="tg-0pky">The shape must satisfy the <a href="../../../docs/en/context/broadcast_relationship.md" target="_blank">broadcast relationship</a> with other.</td>
       <td class="tg-0pky">FLOAT, FLOAT16, DOUBLE, INT32, INT64, INT16, INT8, UINT8, BOOL, COMPLEX64, COMPLEX128, BFLOAT16</td>
       <td class="tg-0pky">ND</td>
-      <td class="tg-0pky">0-8</td>
+      <td class="tg-0pky">0-8; 0-7 for COMPLEX64 and COMPLEX128 when both self and other are nonempty.</td>
       <td class="tg-0pky">√</td>
     </tr>
     <tr>
@@ -100,7 +100,7 @@ aclnnStatus aclnnLogicalXor(
       <td class="tg-0pky">shape must satisfy the <a href="../../../docs/en/context/broadcast_relationship.md" target="_blank">broadcast relationship</a> with self.</td>
       <td class="tg-0pky">FLOAT, FLOAT16, DOUBLE, INT32, INT64, INT16, INT8, UINT8, BOOL, COMPLEX64, COMPLEX128, BFLOAT16</td>
       <td class="tg-0pky">ND</td>
-      <td class="tg-0pky">0-8</td>
+      <td class="tg-0pky">0-8; 0-7 for COMPLEX64 and COMPLEX128 when both self and other are nonempty.</td>
       <td class="tg-0pky">√</td>
     </tr>
     <tr>
@@ -168,10 +168,10 @@ aclnnStatus aclnnLogicalXor(
       <td>The data types of self and other are not in the supported range.</td>
     </tr>
     <tr>
-      <td>The shapes of self and other cannot be broadcast.</td>
+      <td>The shapes of self and other cannot be broadcast, or the shape of out does not match the broadcast shape.</td>
     </tr>
     <tr>
-      <td>The shape of self or other exceeds 8 dimensions, or the shape of complex64/complex128 exceeds 7 dimensions.</td>
+      <td>self or other exceeds 8 dimensions; or both inputs are nonempty and a COMPLEX64 or COMPLEX128 input exceeds 7 dimensions.</td>
     </tr>
   </tbody>
   </table>
