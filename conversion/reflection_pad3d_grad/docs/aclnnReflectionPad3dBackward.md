@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-计算[aclnnReflectionPad3d](../../mirror_pad/docs/aclnnReflectionPad3d.md)api的反向传播。
+接口功能：计算[aclnnReflectionPad3d](../../mirror_pad/docs/aclnnReflectionPad3d.md)的反向传播。
 
 ## 函数原型
 
@@ -227,6 +227,7 @@ aclnnStatus aclnnReflectionPad3dBackward(
 
 - 确定性计算：
   - aclnnReflectionPad3dBackward默认确定性实现。
+
 当gradOutput中元素个数大于300\*1024\*1024有运行超时风险。
 
 ## 调用示例

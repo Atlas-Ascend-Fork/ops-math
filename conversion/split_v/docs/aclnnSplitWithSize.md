@@ -88,7 +88,7 @@ aclnnStatus aclnnSplitWithSize(
       <td>输入</td>
       <td>表示需要split的各块大小。</td>
       <td>所有块的大小总和需要等于self在dim维度上的shape大小。</td>
-      <td>INT64和INT32</td>
+      <td>INT64、INT32</td>
       <td>-</td>
       <td>-</td>
       <td>-</td>

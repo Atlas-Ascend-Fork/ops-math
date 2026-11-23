@@ -35,7 +35,7 @@ x_i \cdot \log(1 + y_i),          & x_i \neq 0
 \end{cases}
 $$
 
-- x与y支持broadcast，输出shape为广播后的最大值shape。
+- x与y支持broadcast，输出shape为broadcast后的shape。
 - y为NaN时输出y原值。
 
 ## 函数原型

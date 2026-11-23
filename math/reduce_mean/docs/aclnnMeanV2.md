@@ -102,7 +102,7 @@ aclnnStatus aclnnMeanV2(
     <tr>
       <td>keepDim（bool）</td>
       <td>输入</td>
-      <td>reduce轴的维度是否保留。</td>
+      <td>归约轴的维度是否保留。</td>
       <td>-</td>
       <td>BOOL</td>
       <td>-</td>

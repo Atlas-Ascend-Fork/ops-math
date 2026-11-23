@@ -219,7 +219,7 @@ aclnnStatus aclnnSelectTopK(
     <tr><td>workspace（void*）</td><td>输入</td><td>按第一段接口查询结果分配的Device侧内存；大小为0时可为nullptr，须保持有效直到流执行完成。</td></tr>
     <tr><td>workspaceSize（uint64_t）</td><td>输入</td><td>第一段接口返回的workspace大小，单位为字节。</td></tr>
     <tr><td>executor（aclOpExecutor*）</td><td>输入</td><td>第一段接口返回的执行器，包含本次输入、输出及计算流程。</td></tr>
-    <tr><td>stream（aclrtStream）</td><td>输入</td><td>执行计算的Stream。读取输出或释放相关内存前须等待流执行完成。</td></tr>
+    <tr><td>stream（aclrtStream）</td><td>输入</td><td>执行计算的Stream。读取输出或释放相关内存前须等待Stream执行完成。</td></tr>
   </tbody></table>
 - **返回值**
 
@@ -248,7 +248,7 @@ aclnnStatus aclnnSelectTopK(
 ```mermaid
 flowchart LR
     X[输入] --> P[Contiguous / 非末轴交换排序轴与末轴]
-    P --> T[l0op::Topk：sorted 对应 order]
+    P --> T[l0op::Topk:sorted 对应 order]
     T --> R[配套 math 门控选择 RadixTopK]
     R --> D{order=1?}
     D -->|是| S[SortWithIndex：同时排序值和原轴索引]

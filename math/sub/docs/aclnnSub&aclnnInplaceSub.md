@@ -149,7 +149,7 @@ aclnnStatus aclnnInplaceSub(
       <td>
         <ul>
           <li>数据类型需要是self与other推导之后可转换的数据类型（参见<a href="../../../docs/zh/context/conversion_relationship.md" target="_blank">互转换关系</a>）。</li>
-          <li>shape需要是self与other<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast</a>之后的shape。</li>
+          <li>shape需要是self与other<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>之后的shape。</li>
         </ul>
       </td>
       <td>FLOAT、FLOAT16、DOUBLE、INT32、INT64、INT16、INT8、UINT8、BOOL、COMPLEX128、COMPLEX64、BFLOAT16</td>

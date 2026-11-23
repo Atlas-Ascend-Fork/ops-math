@@ -141,7 +141,7 @@ aclnnStatus aclnnSlice(
     <tr>
       <td>step（int64_t）</td>
       <td>输入</td>
-      <td>公式中的张量step，指定切片的步长。</td>
+      <td>公式中的参数step，指定切片的步长。</td>
       <td>取值范围必须大于0。</td>
       <td>INT64</td>
       <td>ND</td>

@@ -96,7 +96,7 @@ aclnnStatus aclnnLinalgCholesky(
     <tr>
       <td>upper（bool）</td>
       <td>输入</td>
-      <td>选择cholesky上三角分解还是下三角分解。</td>
+      <td>选择Cholesky上三角分解还是下三角分解。</td>
       <td><ul><li>True：实现上三角cholesky分解。</li><li>False：实现下三角cholesky分解。</li></ul></td>
       <td>BOOL</td>
       <td>-</td>

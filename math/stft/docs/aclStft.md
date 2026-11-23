@@ -113,7 +113,7 @@ aclnnStatus aclStft(
     <tr>
       <td>windowOptional</td>
       <td>输入</td>
-      <td>要求是一个1D的Tensor，对应公式中的`window`。</td>
+      <td>要求是一个1维的Tensor，对应公式中的`window`。</td>
       <td><ul><li>不支持空Tensor。</li><li>数据类型与`self`保持一致。</li><li>shape为[winLength]，winLength为STFT窗函数的长度。</li></ul></td>
       <td>FLOAT32、DOUBLE、COMPLEX64、COMPLEX128</td>
       <td>ND</td>
@@ -312,7 +312,7 @@ aclnnStatus aclStft(
 
 - nFft <= L。
 - winLength <= nFft。
-- 当normalized=True时，
+- 当normalized=True时。
 
   $$
   STFT(w,m)=\frac{1}{\sqrt{N}}X[w,m]

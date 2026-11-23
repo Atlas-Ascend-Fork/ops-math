@@ -370,7 +370,7 @@ aclnnStatus aclnnInplaceLerps(
       <td>selfRef和end的数据类型不在支持的范围之内。</td>
     </tr>
     <tr>
-      <td>selfRef与end的数据类型不一致。</td>
+      <td>selfRef和end的数据类型不一致。</td>
     </tr>
     <tr>
       <td>selfRef和end无法做broadcast。</td>

@@ -335,7 +335,7 @@ aclnnStatus aclnnScale(
 - y的shape必须与x完全一致，包含维数及每一维的长度。
 - bias不为nullptr时，其shape必须与scale完全一致。
 - scale的shape必须满足[功能说明](#功能说明)中的广播窗口规则。
-- 支持[非连续的Tensor](../../../docs/zh/context/non_contiguous_tensor.md)，维数不超过8。
+- 支持[非连续Tensor](../../../docs/zh/context/non_contiguous_tensor.md)，维数不超过8。
 - 参数表中的ND为公开保证的数据格式。接口不对所有非ND格式统一报错；非ND描述可能由框架转换后执行，不代表任意非ND格式组合均受支持。
 - 可执行的Tensor规模受设备可用内存及框架资源限制；本接口未规定统一的2³¹元素或4GiB上限。
 

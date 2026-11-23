@@ -234,7 +234,7 @@ aclnnStatus aclnnCast(
 
 <!-- npu="A3,910b,910,310p" id9 -->
 - <term>Atlas推理系列产品</term>、<term>Atlas训练系列产品</term>、<term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>：
-  - 针对数据类型从int32转换为int8的场景：只能保证输入数据在(-2048, 1920)范围内精度无误差。
+  - 针对数据类型从INT32转换为INT8的场景：只能保证输入数据在(-2048, 1920)范围内精度无误差。
   - 针对数据类型从float64/complex64/complex128转换为uint8的场景：只能保证输入数据为非负数精度无误差。
 <!-- end id9 -->
 <!-- npu="310p" id10 -->

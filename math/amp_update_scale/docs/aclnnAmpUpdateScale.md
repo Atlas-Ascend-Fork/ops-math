@@ -157,7 +157,7 @@ aclnnStatus aclnnAmpUpdateScale(
       <td>growthInterval（int64_t）</td>
       <td>输入</td>
       <td>触发scale增长的间隔步数。</td>
-      <td>即连续多少步未检测到Inf/NaN后将增大scale。取值范围 >= 1。</td>
+      <td>即连续多少步未检测到Inf/NaN后将增大scale。取值范围[1, 2147483647]。</td>
       <td>-</td>
       <td>-</td>
       <td>-</td>

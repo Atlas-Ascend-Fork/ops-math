@@ -139,7 +139,7 @@ aclnnStatus aclnnReflectionPad1d(
   - <term>Atlas推理系列产品</term>、<term>Atlas训练系列产品</term>：数据类型不支持BFLOAT16、UINT16、UINT32、UINT64、COMPLEX64、COMPLEX128、HIFLOAT8、FLOAT8_E5M2、FLOAT8_E4M3FN、FLOAT8_E8M0。
   <!-- end id8 -->
 
-- **返回值**
+- **返回值：**
 
   aclnnStatus：返回状态码，具体参见[aclnn返回码](../../../docs/zh/context/aclnn_return_code.md)。
 
@@ -170,7 +170,7 @@ aclnnStatus aclnnReflectionPad1d(
       <td>self、padding和out的输入shape在支持范围之外。</td>
     </tr>
     <tr>
-      <td>self为空tensor且存在非第一维度的值为0。</td>
+      <td>self为空Tensor且存在非第一维度的值为0。</td>
     </tr>
     <tr>
       <td>二维self不支持为空Tensor。</td>

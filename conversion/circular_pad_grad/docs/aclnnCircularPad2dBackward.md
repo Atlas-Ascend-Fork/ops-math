@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-- 接口功能：circular_pad2d的反向传播，前向计算参考[aclnnCircularPad2d](../../circular_pad/docs/aclnnCircularPad2d.md)。
+- 接口功能：circular_pad2d的反向传播，正向计算参考[aclnnCircularPad2d](../../circular_pad/docs/aclnnCircularPad2d.md)。
 - 示例：
 
   ```text

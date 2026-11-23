@@ -87,7 +87,7 @@ aclnnStatus aclnnSvd(
       <td>input</td>
       <td>输入</td>
       <td>需要进行奇异值分解的张量，对应公式中的input。</td>
-      <td>不支持空Tensor。<br>shape维度至少为2。</td>
+      <td>不支持空张量。<br>shape维度至少为2。</td>
       <td>FLOAT、DOUBLE、COMPLEX64、COMPLEX128</td>
       <td>ND</td>
       <td>2-8</td>

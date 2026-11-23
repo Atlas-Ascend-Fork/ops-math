@@ -114,7 +114,7 @@ aclnnStatus aclnnStd(
     <tr>
       <td>keepdim（bool）</td>
       <td>输入</td>
-      <td>是否在输出张量中保留输入张量的维度，计算公式中的`keepdim`值。</td>
+      <td>是否在输出张量中保留输入张量的维度，计算公式中的<code>keepdim</code>值。</td>
       <td>-</td>
       <td>-</td>
       <td>-</td>

@@ -102,10 +102,10 @@ aclnnStatus aclnnEqual(
       <td>输出</td>
       <td>表示输出。输出一个数据类型为BOOL，一维包含一个元素的Tensor。</td>
       <td>-</td>
-      <td>-</td>
-      <td>-</td>
-      <td>-</td>
-      <td>-</td>
+      <td>BOOL</td>
+      <td>ND</td>
+      <td>[1]</td>
+      <td>√</td>
     </tr>
     <tr>
       <td>workspaceSize</td>

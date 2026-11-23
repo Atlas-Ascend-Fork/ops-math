@@ -46,7 +46,7 @@
 
   - angle(aclTensor*，计算输入)：输入的tensor，公式中的`angle`，数据类型必须与input相同，支持[非连续的Tensor](../../../docs/zh/context/non_contiguous_tensor.md)，[数据格式](../../../docs/zh/context/data_format.md)支持ND，维度与input保持一致。
 
-  - out(aclTensor*，计算输出)：输出的tensor，公式中的`out`，数据类型支持COMPLEX64，支持[非连续的Tensor](../../../docs/zh/context/non_contiguous_tensor.md)，[数据格式](../../../docs/zh/context/data_format.md)支持ND，维度与input保持一致。
+  - out(aclTensor*，计算输出)：输出的Tensor，公式中的`out`，数据类型支持COMPLEX64，支持[非连续的Tensor](../../../docs/zh/context/non_contiguous_tensor.md)，[数据格式](../../../docs/zh/context/data_format.md)支持ND，维度与input保持一致。
   - workspaceSize(uint64_t*，出参)：返回需要在Device侧申请的workspace大小。
 
   - executor(aclOpExecutor**，出参)：返回op执行器，包含了算子计算流程。

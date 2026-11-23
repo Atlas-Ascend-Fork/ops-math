@@ -340,7 +340,7 @@ aclnnStatus aclnnInplaceGeTensor(
       <td>selfRef和other的数据类型不在支持的范围之内。</td>
     </tr>
     <tr>
-      <td>selfRef和other的数据类型无法进行<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">推导</a>。</td>
+      <td>selfRef和other的数据类型无法进行<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">数据类型推导规则</a>。</td>
     </tr>
     <tr>
       <td>selfRef和other的shape无法做broadcast。</td>

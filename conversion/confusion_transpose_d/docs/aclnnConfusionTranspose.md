@@ -244,6 +244,8 @@ aclnnStatus aclnnConfusionTranspose(
 
 - 确定性说明：aclnnConfusionTranspose默认确定性实现。
 
+- reshape形状约束：括号表示该维度须整体保留，不可与相邻维度重新组合。
+
   例如：
 
   设shape_before为reshape操作前的数据形状，shape_after为reshape操作后的数据形状。

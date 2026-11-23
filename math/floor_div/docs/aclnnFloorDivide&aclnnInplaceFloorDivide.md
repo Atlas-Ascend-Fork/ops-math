@@ -126,7 +126,7 @@ aclnnStatus aclnnInplaceFloorDivide(
       <td>out（aclTensor*）</td>
       <td>输出</td>
       <td>-</td>
-      <td>数据类型需要是self与other推导之后可转换的数据类型，shape需要是self与other <a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast</a>之后的shape。</td>
+      <td>数据类型需要是self与other推导之后可转换的数据类型，shape需要是self与other <a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>之后的shape。</td>
       <td>FLOAT、FLOAT16、DOUBLE、INT32、INT64、INT16、INT8、UINT8、COMPLEX64、COMPLEX128</td>
       <td>ND</td>
       <td>不超过8维</td>
@@ -348,7 +348,7 @@ aclnnStatus aclnnInplaceFloorDivide(
       <td>selfRef和other不满足数据类型推导规则。</td>
     </tr>
     <tr>
-      <td>selfRef和other的shape无法做broadcast，或广播后的shape与selfRef的shape不一致。</td>
+      <td>selfRef和other的shape无法做broadcast，或broadcast后的shape与selfRef的shape不一致。</td>
     </tr>
     <tr>
       <td>selfRef和other的维度大于8。</td>

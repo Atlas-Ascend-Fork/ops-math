@@ -56,7 +56,7 @@ aclnnStatus aclnnCalculateConvolutionWeightSize(
   <tr>
   <td>tensorShape（aclIntArray*）</td>
   <td>输入</td>
-  <td>用于表达该次Convolution载入权重矩阵的Shape。</td>
+  <td>用于表达该次Convolution载入weight的Shape。</td>
   <td>仅支持NCHW格式的4维shape，且各维度需&gt;=0。支持空Tensor，返回weightTensorSize为0。</td>
   <td>INT64</td>
   <td>NCHW</td>

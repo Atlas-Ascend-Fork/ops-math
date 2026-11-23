@@ -103,7 +103,7 @@ aclnnStatus aclnnReflectionPad3d(
       <td>self（aclTensor*）</td>
       <td>输入</td>
       <td>待填充的原输入数据。</td>
-      <td>维度支持四维或五维，在最后三维做pad。</td>
+      <td>维度支持四维或五维，在最后三维做填充。</td>
       <td>BOOL、INT8、UINT8、INT16、UINT16、FLOAT16、BFLOAT16、INT32、UINT32、FLOAT32、INT64、UINT64、DOUBLE、COMPLEX64、COMPLEX128、HIFLOAT8、FLOAT8_E5M2、FLOAT8_E4M3FN、FLOAT8_E8M0</td>
       <td>ND</td>
       <td>4-5</td>

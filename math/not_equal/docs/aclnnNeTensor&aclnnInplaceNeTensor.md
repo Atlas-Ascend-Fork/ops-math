@@ -124,7 +124,7 @@ aclnnStatus aclnnInplaceNeTensor(
       <td>out（aclTensor*）</td>
       <td>输出</td>
       <td>公式中的out。</td>
-      <td>数据类型需要是BOOL可转换的<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">数据类型</a>，shape与self、other广播之后的shape（参见<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>）。</td>
+      <td>数据类型需要是BOOL可转换的<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">数据类型推导规则</a>，shape与self、other广播之后的shape（参见<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>）。</td>
       <td>DOUBLE、FLOAT16、FLOAT、BFLOAT16、INT64、INT32、INT8、UINT8、BOOL、INT16、COMPLEX64、COMPLEX128、UINT64、UINT32、UINT16</td>
       <td>ND</td>
       <td>0-8</td>

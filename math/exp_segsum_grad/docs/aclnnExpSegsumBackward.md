@@ -46,7 +46,7 @@
      $$
      out\_cumsum_{i} = out\_flip_{1} + out\_flip_{2} + out\_flip_{3} + ...... + out\_flip_{i}
      $$
-  6. 对$out\_cumsum$的-2维进行倒序生成out_flip2。
+  6. 对$out\_cumsum$的倒数第二维进行倒序生成out_flip2。
   7. 生成（N4,N4）类型为bool的三角矩阵B，上三角为True，下三角为False，对角线为True。
   8. 用0填充$out\_flip2$里面与矩阵B中值为True的位置相对应的元素。
 

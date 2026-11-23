@@ -112,7 +112,7 @@ aclnnStatus aclnnInplaceTan(
       <td>self（aclTensor*）</td>
       <td>输入</td>
       <td>公式中的输入self。</td>
-      <td>shape需要与out一致，数据类型组合支持关系参见约束说明的转换路径表。</td>
+      <td>shape需要与out一致，数据类型组合支持关系参见约束说明中的转换路径表。</td>
       <td>FLOAT、FLOAT16、DOUBLE、INT8、INT16、INT32、INT64、UINT8、BOOL、COMPLEX64、COMPLEX128、BFLOAT16</td>
       <td>ND</td>
       <td>-</td>
@@ -122,7 +122,7 @@ aclnnStatus aclnnInplaceTan(
       <td>out（aclTensor*）</td>
       <td>输出</td>
       <td>公式中的out。</td>
-      <td>shape需要与self一致，数据类型组合支持关系参见约束说明的转换路径表。</td>
+      <td>shape需要与self一致，数据类型组合支持关系参见约束说明中的转换路径表。</td>
       <td>FLOAT、FLOAT16、DOUBLE、COMPLEX64、COMPLEX128、BFLOAT16</td>
       <td>ND</td>
       <td>-</td>

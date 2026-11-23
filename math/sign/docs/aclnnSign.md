@@ -82,7 +82,7 @@
 
 - **参数说明：**
 
-  - self(const aclTensor，计算输入)：Device侧的tensor，支持1维~8维。支持非连续Tensor，[数据格式](../../../docs/zh/context/data_format.md)支持ND。
+  - self(const aclTensor，计算输入)：Device侧的Tensor，支持1维~8维。支持非连续Tensor，[数据格式](../../../docs/zh/context/data_format.md)支持ND。
 
     <!-- npu="A3,910b" id7 -->
     - <term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>：数据类型支持DOUBLE、FLOAT、FLOAT16、INT32、INT64、COMPLEX64、COMPLEX128、BOOL、BFLOAT16。

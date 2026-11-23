@@ -150,7 +150,7 @@ aclnnStatus aclnnReduceLogSum(
   - <term>Atlas推理系列产品</term>、<term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>：`data`、`reduce`不支持BFLOAT16。
   <!-- end id7 -->
 
-- **返回值：**
+- **返回值**：
 
   aclnnStatus：返回状态码，具体参见[aclnn返回码](../../../docs/zh/context/aclnn_return_code.md)。
 

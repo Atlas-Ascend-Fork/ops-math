@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-- 接口功能：使用输入边界的反射填充输入tensor。
+- 接口功能：使用输入边界的反射填充输入Tensor。
 - 示例：
 
   ```text
@@ -179,7 +179,7 @@ aclnnStatus aclnnReflectionPad2d(
       <td>self、padding和out的输入shape在支持范围之外。</td>
     </tr>
     <tr>
-      <td>self为空tensor且存在非第一维度的值为0。</td>
+      <td>self为空Tensor且存在非第一维度的值为0。</td>
     </tr>
     <tr>
       <td>三维self不支持为空tensor。</td>
@@ -235,7 +235,7 @@ aclnnStatus aclnnReflectionPad2d(
   </tbody>
   </table>
 
-- **返回值：**
+- **返回值**
 
   aclnnStatus：返回状态码，具体参见[aclnn返回码](../../../docs/zh/context/aclnn_return_code.md)。
 

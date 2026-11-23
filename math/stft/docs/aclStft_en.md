@@ -312,7 +312,7 @@ aclnnStatus aclStft(
 
 - nFft <= L.
 - winLength <= nFft.
-- When normalized=True,
+- When normalized=True。
 
   $$
   STFT(w,m)=\frac{1}{\sqrt{N}}X[w,m]

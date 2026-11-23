@@ -29,7 +29,7 @@
 
   - 如果当前输入`val`为inf/nan，或val超过绝对阈值`cThreshL1`，或跳变超过相对阈值`cCoeffL1`，则识别为L1故障；若环境变量`npuAsdDetect`为2，则打印日志并触发断点续训；若环境变量`npuAsdDetect`为1，则更新`sfdaRef`与`stepRef`后正常返回。
   - 如果当前输入`val`超过绝对阈值`cThreshL2`，或跳变超过相对阈值`cCoeffL2`，则识别为L2故障；打印告警并更新`sfdaRef`与`stepRef`后正常返回。
-  - 如果既没有触发L1故障，又没有触发L2告警，则为正常情况：若`npuAsdDetect`为3，则打印特征值；否则更新`sfdaRef`与`stepRef`后正常返回。
+  - 如果既没有触发L1故障，又没有触发L2故障，则为正常情况：若`npuAsdDetect`为3，则打印特征值；否则更新`sfdaRef`与`stepRef`后正常返回。
   - 其中`sfdaRef`为[pre_val, min_val, max_val]，代表[上次检测val、历史最小val、历史最大val]；`stepRef`为检测次数，每次检测加一。
 
 ## 函数原型
@@ -83,7 +83,7 @@ aclnnStatus aclnnSilentCheck(
       <th>数据类型</th>
       <th>数据格式</th>
       <th>维度(shape)</th>
-      <th>非连续tensor</th>
+      <th>非连续Tensor</th>
     </tr></thead>
   <tbody>
     <tr>

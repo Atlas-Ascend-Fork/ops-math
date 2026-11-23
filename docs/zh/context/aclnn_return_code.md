@@ -21,7 +21,7 @@
 | ----- | ----- | ------ |
 | ACLNN_ERR_INNER               |   561000     |    内部异常：API发生内部异常。     |
 | ACLNN_ERR_INNER_INFERSHAPE_ERROR     |  561001      |  内部异常：API内部进行输出shape推导发生错误。       |
-| ACLNN_ERR_INNER_TILING_ERROR     |   561002     |   内部异常：API内部做npu kernel的tiling时发生异常。     |
+| ACLNN_ERR_INNER_TILING_ERROR     |   561002     |   内部异常：API内部做NPU kernel的tiling时发生异常。     |
 | ACLNN_ERR_INNER_FIND_KERNEL_ERROR   |   561003  |  内部异常：API内部查找npu kernel异常（可能因为算子二进制包未安装）。    |
 | ACLNN_ERR_INNER_CREATE_EXECUTOR     |    561101    |   内部异常：API内部创建aclOpExecutor失败（可能因为操作系统异常）。      |
 | ACLNN_ERR_INNER_NOT_TRANS_EXECUTOR     |  561102      |   内部异常：API内部未调用uniqueExecutor ReleaseTo。      |

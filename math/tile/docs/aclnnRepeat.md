@@ -75,7 +75,7 @@
 
 ## 函数原型
 
-每个算子分为[两段式接口](../../../docs/zh/context//two_phase_api.md)，必须先调用“aclnnRepeatGetWorkspaceSize”接口获取计算所需workspace大小以及包含了算子计算流程的执行器，再调用“aclnnRepeat”接口执行计算。
+每个算子分为[两段式接口](../../../docs/zh/context/two_phase_api.md)，必须先调用“aclnnRepeatGetWorkspaceSize”接口获取计算所需workspace大小以及包含了算子计算流程的执行器，再调用“aclnnRepeat”接口执行计算。
 
 ```cpp
 aclnnStatus aclnnRepeatGetWorkspaceSize(
@@ -211,7 +211,7 @@ aclnnStatus aclnnRepeat(
       <td>self和out的type不匹配。</td>
     </tr>
     <tr>
-      <td>参数repeats的参数个数小于输入tensor的维度。</td>
+      <td>参数repeats的参数个数小于输入Tensor的维度。</td>
     </tr>
     <tr>
       <td>参数repeats中含有小于0的值。</td>

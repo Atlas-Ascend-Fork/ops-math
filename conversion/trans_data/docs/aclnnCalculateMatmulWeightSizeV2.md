@@ -39,7 +39,7 @@
   $$
 
   $$
-  INT8：
+  INT8:
   result = Align(Shapesize[0], 16) * Align(Shapesize[1], 32)
   $$
 

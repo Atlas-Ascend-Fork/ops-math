@@ -188,7 +188,7 @@ aclnnStatus aclnnInplaceGtTensor(
       <td>self和other的shape无法进行broadcast。</td>
     </tr>
     <tr>
-      <td>out的shape与<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast</a>后的shape不一致。</td>
+      <td>out的shape与<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>后的shape不一致。</td>
     </tr>
   </tbody>
   </table>
@@ -341,10 +341,10 @@ aclnnStatus aclnnInplaceGtTensor(
       <td>selfRef和other的数据类型无法进行推导。</td>
     </tr>
     <tr>
-      <td>selfRef和other的shape无法做<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast</a>。</td>
+      <td>selfRef和other的shape无法做<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>。</td>
     </tr>
     <tr>
-      <td>selfRef和other做<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast</a>后的shape不等于selfRef的shape。</td>
+      <td>selfRef和other做<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>后的shape不等于selfRef的shape。</td>
     </tr>
     <tr>
       <td>selfRef、other的维度大于8。</td>

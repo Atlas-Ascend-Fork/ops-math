@@ -77,7 +77,7 @@ aclnnStatus aclnnInplaceFillDiagonal(
       <td>selfRef（aclTensor*）</td>
       <td>输入/输出</td>
       <td>表示需要填充的输入、输出Tensor。</td>
-      <td>selfRef维度必须大于等于2且不超过8，当selfRef的维度大于2时，各维度的长度必须相同；支持零元素空Tensor（不执行填充，直接返回成功），不支持0维标量Tensor；当selfRef的总字节数超过2^31字节时（即超过2GB时），会触发算子执行超时。</td>
+      <td>selfRef维度必须大于等于2且不超过8，当selfRef的维度大于2时，各维度的长度必须相同；支持零元素空Tensor（不执行填充，直接返回成功），不支持0维标量Tensor；当selfRef的总字节数超过2GB时，会触发算子执行超时。</td>
       <td>FLOAT、FLOAT16、DOUBLE、INT32、INT64、INT16、INT8、UINT8、BOOL、BFLOAT16。</td>
       <td>ND</td>
       <td>2~8</td>

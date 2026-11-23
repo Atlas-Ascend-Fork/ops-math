@@ -111,7 +111,7 @@ aclnnStatus aclnnReplicationPad2d(
       <td>out（aclTensor*）</td>
       <td>输出</td>
       <td>填充后的输出结果。</td>
-      <td>输出shape中，除被填充的最后一维外，需要与self一致，out最后一维度的数值等于self最后一维度的数值加padding前两个值。</td>
+      <td>输出shape中，除被填充的最后两维外，需要与self一致，out后两维度的数值分别等于self后两维度的数值加padding中对应方向的值。</td>
       <td>与self一致</td>
       <td>ND</td>
       <td>维度与self保持一致</td>

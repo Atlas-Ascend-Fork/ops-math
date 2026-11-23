@@ -273,7 +273,7 @@ aclnnStatus aclnnStridedSlice(
       <td>strides存在等于0的元素。</td>
     </tr>
     <tr>
-      <td>out的数据维度与inferShape的维度不相同。</td>
+      <td>out的数据维度与InferShape的维度不相同。</td>
     </tr>
     <tr>
       <td>产品型号不在支持的范围之内。</td>

@@ -30,7 +30,7 @@
   考虑一个形状为（N, C, H, W）或(C, H, W)的批处理input张量，其中N是批处理维度， C是通道维度，而H, W表示图像大小，此操作将input的空间维度内的每个滑动kernel_size大小的块展平为（N, C $\times \prod$（kernel_size）, L）的3-D或（C $\times \prod$（kernel_size）, L）的2-D的output张量的列（即最后一维），而L是这些块的总数。
 - 计算公式：
 
-  $L = \prod_{d} \lfloor \frac{spatial\_size[d] + 2 \times padding[d] - dilation[d] \times （kernel\_size[d] -1）-1}{stride[d]} + 1 \rfloor$，其中spatial_size由上述input张量的H,W构成。
+  $L = \prod_{d} \lfloor \frac{spatial\_size[d] + 2 \times padding[d] - dilation[d] \times (kernel\_size[d] -1)-1}{stride[d]} + 1 \rfloor$，其中spatial_size由上述input张量的H,W构成。
 
 ## 函数原型
 
@@ -209,7 +209,7 @@ aclnnStatus aclnnIm2col(
       <td>padding存在小于0的元素。</td>
     </tr>
     <tr>
-      <td>out的数据维度与参数infershape的维度不相同</td>
+      <td>out的数据维度与参数InferShape的维度不相同</td>
     </tr>
   </tbody>
   </table>

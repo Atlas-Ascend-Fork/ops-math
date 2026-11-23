@@ -68,7 +68,7 @@ aclnnStatus aclnnTransMatmulWeight(
       <th>数据类型</th>
       <th>数据格式</th>
       <th>维度(shape)</th>
-      <th>非连续tensor</th>
+      <th>非连续Tensor</th>
     </tr></thead>
   <tbody>
     <tr>
@@ -83,7 +83,7 @@ aclnnStatus aclnnTransMatmulWeight(
     </tr>
     <tr>
       <td>workspaceSize</td>
-      <td>出参</td>
+      <td>输出</td>
       <td>返回需要在Device侧申请的workspace大小。</td>
       <td>-</td>
       <td>-</td>
@@ -93,7 +93,7 @@ aclnnStatus aclnnTransMatmulWeight(
     </tr>
     <tr>
       <td>executor</td>
-      <td>出参</td>
+      <td>输出</td>
       <td>返回op执行器，包含了算子计算流程。</td>
       <td>-</td>
       <td>-</td>

@@ -145,7 +145,7 @@ aclnnStatus aclnnDropoutV3(
       <td>maskOut</td>
       <td>输出</td>
       <td>bit类型并使用UINT8类型存储的mask数据。</td>
-      <td>元素个数需要为(align(input的元素个数,128)/8)；当p=0或p=1场景下，不对传入的maskOut做任何处理；其它场景下以给定的p为置零概率生成mask。</td>
+      <td>元素个数需要为(align(input的元素个数,128)/8)；当p=0或p=1场景下，不对传入的maskOut做任何处理;其它场景下以给定的p为置零概率生成mask。</td>
       <td>UINT8</td>
       <td>ND</td>
       <td>1</td>

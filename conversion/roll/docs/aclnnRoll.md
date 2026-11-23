@@ -206,7 +206,7 @@ aclnnStatus aclnnRoll(
       <td>x的维度超过8维。</td>
     </tr>
     <tr>
-      <td>out和x的shape不一致</td>
+      <td>out和x的shape不一致。</td>
     </tr>
   </tbody>
   </table>

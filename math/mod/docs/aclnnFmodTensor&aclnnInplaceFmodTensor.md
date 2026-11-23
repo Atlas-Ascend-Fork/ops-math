@@ -337,7 +337,7 @@ aclnnStatus aclnnInplaceFmodTensor(
       <td>selfRef和other的数据类型和数据格式和维度不在支持的范围之内。</td>
     </tr>
     <tr>
-      <td>selfRef和other的dtype不满足数据类型推导规则。</td>
+      <td>selfRef和other的数据类型不满足数据类型推导规则。</td>
     </tr>
     <tr>
       <td>推导出的数据类型无法转换为指定输出out的类型。</td>

@@ -405,12 +405,12 @@ int main()
       logOutShape, stream);
   CHECK_RET(ret == ACL_SUCCESS, return ret);
 
-  // 6.释放aclTensor
+  // 4.释放aclTensor
   aclDestroyTensor(self);
   aclDestroyTensor(signOut);
   aclDestroyTensor(logOut);
 
-  // 7.释放device资源
+  // 5.释放device资源
   aclrtFree(selfDeviceAddr);
   aclrtFree(signOutDeviceAddr);
   aclrtFree(logOutDeviceAddr);

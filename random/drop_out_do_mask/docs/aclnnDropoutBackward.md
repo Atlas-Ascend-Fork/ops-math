@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-- 接口功能：训练过程中，根据mask中对应bit位的值，将输入中的元素置零，并按照scale放大或者置零。若mask对应比特位为1，则gradOutput相应的元素放大。若mask中比特位为0，则gradOutput相应的元素置零。特别地，若scale为0，则将所有元素置为0；若scale为1，则不改变gradOutput的元素。建议与aclnnDropoutGenMask或者aclnnDropoutGenMaskV2组合使用。
+- 接口功能：训练过程中，根据mask中对应比特位的值，将输入中的元素置零，并按照scale放大或者置零。若mask对应比特位为1，则gradOutput相应的元素放大。若mask中比特位为0，则gradOutput相应的元素置零。特别地，若scale为0，则将所有元素置为0；若scale为1，则不改变gradOutput的元素。建议与aclnnDropoutGenMask或者aclnnDropoutGenMaskV2组合使用。
 
 - 计算公式：
   $$

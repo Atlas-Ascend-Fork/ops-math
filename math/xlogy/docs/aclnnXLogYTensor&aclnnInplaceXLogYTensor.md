@@ -196,7 +196,7 @@ aclnnStatus aclnnInplaceXLogYTensor(
 
 ## aclnnXLogYTensor
 
-- **参数说明：**
+- **参数说明**
 
   <table style="table-layout: fixed; width: 1149px"><colgroup>
   <col style="width: 167px">

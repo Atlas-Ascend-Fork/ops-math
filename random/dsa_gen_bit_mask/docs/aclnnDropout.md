@@ -145,7 +145,7 @@ aclnnStatus aclnnDropout(
       <td>maskOut（aclTensor*）</td>
       <td>输出</td>
       <td>bit类型并使用UINT8类型存储的mask数据。</td>
-      <td><ul><li>不支持空Tensor。</li><li>当p=0、p=1或train=false场景下，不对传入的maskOut做任何处理；其他场景下以给定的p为置零概率生成mask。</li><li>shape需要为(align(input的元素个数, 128)/8)，表示比特数需要与128对齐，其中，align表示将input的元素个数向上对齐为128的倍数，如align(1111, 128)的结果为1152。</li></ul></td>
+      <td><ul><li>不支持空Tensor。</li><li>当p=0、p=1或train=false场景下,不对传入的maskOut做任何处理；其他场景下以给定的p为置零概率生成mask。</li><li>shape需要为(align(input的元素个数, 128)/8)，表示比特数需要与128对齐，其中，align表示将input的元素个数向上对齐为128的倍数，如align(1111, 128)的结果为1152。</li></ul></td>
       <td>UINT8</td>
       <td>ND</td>
       <td>1</td>
@@ -164,7 +164,7 @@ aclnnStatus aclnnDropout(
     <tr>
       <td>executor（aclOpExecutor**）</td>
       <td>输出</td>
-      <td>返回op执行器，包括了算子计算流程。</td>
+      <td>返回OP执行器，包含了算子计算流程。</td>
       <td>-</td>
       <td>-</td>
       <td>-</td>
