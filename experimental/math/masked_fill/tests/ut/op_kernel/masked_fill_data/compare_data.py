@@ -1,10 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # Copyright (c) 2025 Huawei Technologies Co., Ltd.
-# Licensed under CANN Open Software License Agreement Version 2.0.
+# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+# CANN Open Software License Agreement Version 2.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
 
 import sys
 import numpy as np
+
 
 def compare_data(dtype):
     """
@@ -14,9 +20,9 @@ def compare_data(dtype):
     # 映射数据类型和形状
     dtype_map = {
         "float32": (np.float32, 1e-3),  # 浮点误差容忍
-        "int32": (np.int32, 0),         # 整数精确匹配
-        "bfloat16": (np.uint16, 0),     # bfloat16用uint16_t精确匹配
-        "uint8": (np.uint8, 0)          # uint8精确匹配
+        "int32": (np.int32, 0),  # 整数精确匹配
+        "bfloat16": (np.uint16, 0),  # bfloat16用uint16_t存储，解码后比较
+        "uint8": (np.uint8, 0),  # uint8精确匹配
     }
     np_dtype, atol = dtype_map[dtype]
 
@@ -32,8 +38,8 @@ def compare_data(dtype):
     # 验证数值一致
     if dtype == "bfloat16":
         # bfloat16需转换为float32后比较（避免uint16_t直接比较的误差）
-        output_float = output.view(np.float32)
-        golden_float = golden.view(np.float32)
+        output_float = (output.astype(np.uint32) << 16).view(np.float32)
+        golden_float = (golden.astype(np.uint32) << 16).view(np.float32)
         match = np.allclose(output_float, golden_float, atol=1e-3)
     else:
         match = np.allclose(output, golden, atol=atol)
@@ -48,6 +54,7 @@ def compare_data(dtype):
         for idx in diff_idx:
             print(f"Index {idx}: output={output[idx]}, golden={golden[idx]}")
         return False
+
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
