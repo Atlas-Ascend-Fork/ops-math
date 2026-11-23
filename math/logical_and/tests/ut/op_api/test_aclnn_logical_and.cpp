@@ -654,3 +654,28 @@ TEST_F(l2_logical_and_test, aclnnLogicalAnd_inplace_testcase031)
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
     EXPECT_EQ(aclRet, ACL_SUCCESS);
 }
+
+TEST_F(l2_logical_and_test, complex_truthiness_issue_3901)
+{
+    op::SetPlatformNpuArch(Ops::Base::DAV_3510);
+    auto selfTensorDesc = TensorDesc({2}, ACL_COMPLEX64, ACL_FORMAT_ND);
+    auto otherTensorDesc = TensorDesc({2}, ACL_COMPLEX64, ACL_FORMAT_ND);
+    auto outTensorDesc = TensorDesc({2}, ACL_COMPLEX64, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnLogicalAnd, INPUT(selfTensorDesc, otherTensorDesc), OUTPUT(outTensorDesc));
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACL_SUCCESS);
+}
+
+TEST_F(l2_logical_and_test, complex_truthiness_inplace_issue_3901)
+{
+    op::SetPlatformNpuArch(Ops::Base::DAV_3510);
+    auto selfTensorDesc = TensorDesc({2}, ACL_COMPLEX64, ACL_FORMAT_ND);
+    auto otherTensorDesc = TensorDesc({2}, ACL_COMPLEX64, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnInplaceLogicalAnd, INPUT(selfTensorDesc, otherTensorDesc), OUTPUT());
+    uint64_t workspaceSize = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
+    EXPECT_EQ(aclRet, ACL_SUCCESS);
+}

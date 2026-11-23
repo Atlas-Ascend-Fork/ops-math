@@ -14,6 +14,7 @@
  */
 #include "aclnn_logical_and.h"
 #include "logical_and.h"
+#include "math/not_equal/op_api/not_equal.h"
 #include "aclnn_kernels/cast.h"
 #include "aclnn_kernels/contiguous.h"
 #include "aclnn/aclnn_base.h"
@@ -114,6 +115,21 @@ static void CheckFormat(const aclTensor* self, const aclTensor* other)
     }
 }
 
+static const aclTensor* ConvertToBool(const aclTensor* input, aclOpExecutor* executor)
+{
+    if (!IsComplexType(input->GetDataType())) {
+        return (input->GetDataType() == op::DataType::DT_BOOL) ? input :
+                                                                 l0op::Cast(input, op::DataType::DT_BOOL, executor);
+    }
+
+    // 复数转BOOL需对比实部和虚部
+    aclScalar* zeroScalar = executor->AllocScalar(0);
+    CHECK_RET(zeroScalar != nullptr, nullptr);
+    auto zeroTensor = executor->ConvertToTensor(zeroScalar, input->GetDataType());
+    CHECK_RET(zeroTensor != nullptr, nullptr);
+    return l0op::NotEqual(input, zeroTensor, executor);
+}
+
 static aclnnStatus CalculateResult(const aclTensor* self, const aclTensor* other, aclTensor* out,
                                    aclOpExecutor* executor)
 {
@@ -133,9 +149,7 @@ static aclnnStatus CalculateResult(const aclTensor* self, const aclTensor* other
     CHECK_RET(selfContiguous != nullptr, ACLNN_ERR_INNER_NULLPTR);
 
     // 将输入self的数据类型转换成DT_BOOL类型
-    auto selfCasted = (selfContiguous->GetDataType() == op::DataType::DT_BOOL) ?
-                          selfContiguous :
-                          l0op::Cast(selfContiguous, op::DataType::DT_BOOL, executor);
+    auto selfCasted = ConvertToBool(selfContiguous, executor);
     CHECK_RET(selfCasted != nullptr, ACLNN_ERR_INNER_NULLPTR);
 
     // 将输入other转换成连续的tensor
@@ -143,9 +157,7 @@ static aclnnStatus CalculateResult(const aclTensor* self, const aclTensor* other
     CHECK_RET(otherContiguous != nullptr, ACLNN_ERR_INNER_NULLPTR);
 
     // 将输入other的数据类型转换成DT_BOOL类型
-    auto otherCasted = (otherContiguous->GetDataType() == op::DataType::DT_BOOL) ?
-                           otherContiguous :
-                           l0op::Cast(otherContiguous, op::DataType::DT_BOOL, executor);
+    auto otherCasted = ConvertToBool(otherContiguous, executor);
     CHECK_RET(otherCasted != nullptr, ACLNN_ERR_INNER_NULLPTR);
 
     // 进行LogicalAnd计算
