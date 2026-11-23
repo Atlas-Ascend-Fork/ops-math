@@ -53,7 +53,7 @@ static bool CheckDtypeValid(const aclTensor* gradOutput, const aclTensor* gradSe
     return true;
 }
 
-static bool CheckDtypeEqual(const aclTensor* gradOutput, aclTensor* gradInput)
+static bool CheckDtypeEqual(const aclTensor* gradOutput, const aclTensor* gradInput)
 {
     OP_CHECK_DTYPE_NOT_MATCH(gradOutput, gradInput->GetDataType(), return false);
     return true;
@@ -70,7 +70,7 @@ static bool CheckShape(const aclTensor* gradOutput, const aclTensor* gradSelf, a
     auto gradInputDimNum = gradInputShape.GetDimNum();
     if (gradOutputDimNum != FOURDIMS && gradOutputDimNum != FIVEDIMS) {
         OP_LOGE(ACLNN_ERR_PARAM_INVALID, "It is expected dimNum of gradOutput equals to %zu or %zu, but got sizes %zu.",
-                FOURDIMS, FIVEDIMS, gradSelfDimNum);
+                FOURDIMS, FIVEDIMS, gradOutputDimNum);
         return false;
     }
     if (gradOutputDimNum != gradSelfDimNum) {
@@ -145,13 +145,16 @@ static aclnnStatus CheckParams(const aclTensor* gradOutput, const aclTensor* gra
     // 2. 检查输入的数据类型是否在API支持的数据类型范围之内
     CHECK_RET(CheckDtypeValid(gradOutput, gradSelf), ACLNN_ERR_PARAM_INVALID);
 
-    // 3. 检查self和out数据类型是否相同
+    // 3. 检查gradSelf和gradOutput数据类型是否相同
+    CHECK_RET(CheckDtypeEqual(gradOutput, gradSelf), ACLNN_ERR_PARAM_INVALID);
+
+    // 4. 检查gradInput和gradOutput数据类型是否相同
     CHECK_RET(CheckDtypeEqual(gradOutput, gradInput), ACLNN_ERR_PARAM_INVALID);
 
-    // 4. 检查shape是否支持
+    // 5. 检查shape是否支持
     CHECK_RET(CheckShape(gradOutput, gradSelf, gradInput), ACLNN_ERR_PARAM_INVALID);
 
-    // 5. 检查format是否支持
+    // 6. 检查format是否支持
     CHECK_RET(CheckFormat(gradOutput, gradSelf, gradInput), ACLNN_ERR_PARAM_INVALID);
 
     return ACLNN_SUCCESS;
