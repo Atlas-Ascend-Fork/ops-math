@@ -27,7 +27,7 @@ English | [简体中文](./README.md)
 
 ## Constraint Description
 
-None
+- The input `x` and output `y` cannot be empty tensors, that is, all dimensions must be greater than 0.
 
 ## Invocation Description
 
