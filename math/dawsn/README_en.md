@@ -15,11 +15,13 @@ English | [简体中文](./README.md)
 
 ## Function Description
 
-- Operator function: computes the Dawson integral F(x) = exp(-x^2) * integral_0^x exp(t^2) dt.
+- Operator function: computes the Dawson integral $F(x)$ element-wise.
 
 - Computation formula:
 
 $$F(x) = e^{-x^{2}} \int_{0}^{x} e^{t^{2}} \mathrm{d}t$$
+
+## Parameter Description
 
 ## Parameter Description
 
@@ -42,14 +44,14 @@ $$F(x) = e^{-x^{2}} \int_{0}^{x} e^{t^{2}} \mathrm{d}t$$
     <tr>
       <td>x</td>
       <td>Input</td>
-      <td>Input parameter for the Dawson integral computation, which is x in the formula.</td>
+      <td>Input tensor for the Dawson integral computation, i.e. x in the formula.</td>
       <td>BFLOAT16, FLOAT16, FLOAT</td>
       <td>ND</td>
     </tr>
     <tr>
       <td>y</td>
       <td>Output</td>
-      <td>Output parameter for the Dawson integral computation, which is F(x) in the formula.</td>
+      <td>Output tensor for the Dawson integral computation, i.e. F(x) in the formula.</td>
       <td>BFLOAT16, FLOAT16, FLOAT</td>
       <td>ND</td>
     </tr>
@@ -57,10 +59,14 @@ $$F(x) = e^{-x^{2}} \int_{0}^{x} e^{t^{2}} \mathrm{d}t$$
 
 ## Constraint Description
 
-- The DOUBLE (FP64) data type is not supported.
+- The rank of x ranges from 0 to 8; 0-d scalar input is supported, and out-of-range inputs are rejected by the framework layer.
+- Only the ND storage format is supported; other formats are rejected during Host-side tiling validation.
+- Empty tensors (0 elements) are supported; the output is an empty tensor with the same shape.
+- The total number of input elements must not exceed 288230376151710720 (approximately $2.88\times10^{17}$); otherwise the operator reports an error and rejects the request.
+- Dynamic shape (-1 unknown dimension) and dynamic rank (-2 unknown rank) are supported.
 
 ## Invocation Description
 
-| Invocation Method | Invocation Sample                                                                   | Description                                                           |
-|--------------|------------------------------------------------------------------------|--------------------------------------------------------------|
-| Graph-mode invocation | [test_geir_dawsn](./examples/test_geir_dawsn.cpp) | Invokes the Dawsn operator in graph mode. |
+| Invocation Method | Sample Code | Description |
+|---------|----------------------------------------------------|------|
+| GE graph mode | [test_geir_dawsn](./examples/test_geir_dawsn.cpp) | Invokes the Dawsn operator in GE graph mode. |

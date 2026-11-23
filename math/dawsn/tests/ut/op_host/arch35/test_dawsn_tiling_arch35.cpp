@@ -40,116 +40,249 @@ struct DawsnTestParam {
 };
 
 // Dawsn tiling test cases
-// Tiling key mapping (from dawsn_tiling_key.h ASCENDC_TPL_SEL):
-//   FP32 -> key = DT_FLOAT(0), FP16 -> key = DT_FLOAT16(1), BF16 -> key = DT_BF16(27)
+// 单一 TilingKey = 0：dtype 差异由构建系统生成的 DTYPE_X 宏在 kernel 模板实例化时分发，
+// 不以 TilingKey 区分（KERNEL-6 整改后与同仓 spence 模式一致）
 // UB size for DAV_3510 (Ascend950) = 253952 (248KB)
 // Core num for Ascend950 = 48
 static DawsnTestParam testCases[] = {
     // === 正常场景 - 不同数据类型 ===
     {"dawsn_tiling_0_small_2d_fp32",
-     {2, 3}, ge::DT_FLOAT, ge::FORMAT_ND,
-     {2, 3}, ge::DT_FLOAT, ge::FORMAT_ND,
-     ge::GRAPH_SUCCESS, {0}, 48, 253952, 4096},
+     {2, 3},
+     ge::DT_FLOAT,
+     ge::FORMAT_ND,
+     {2, 3},
+     ge::DT_FLOAT,
+     ge::FORMAT_ND,
+     ge::GRAPH_SUCCESS,
+     {0},
+     48,
+     253952,
+     4096},
 
     {"dawsn_tiling_1_1d_fp16",
-     {1024}, ge::DT_FLOAT16, ge::FORMAT_ND,
-     {1024}, ge::DT_FLOAT16, ge::FORMAT_ND,
-     ge::GRAPH_SUCCESS, {0}, 48, 253952, 4096},
+     {1024},
+     ge::DT_FLOAT16,
+     ge::FORMAT_ND,
+     {1024},
+     ge::DT_FLOAT16,
+     ge::FORMAT_ND,
+     ge::GRAPH_SUCCESS,
+     {0},
+     48,
+     253952,
+     4096},
 
     {"dawsn_tiling_2_4d_bf16",
-     {2, 3, 4, 5}, ge::DT_BF16, ge::FORMAT_ND,
-     {2, 3, 4, 5}, ge::DT_BF16, ge::FORMAT_ND,
-     ge::GRAPH_SUCCESS, {0}, 48, 253952, 4096},
+     {2, 3, 4, 5},
+     ge::DT_BF16,
+     ge::FORMAT_ND,
+     {2, 3, 4, 5},
+     ge::DT_BF16,
+     ge::FORMAT_ND,
+     ge::GRAPH_SUCCESS,
+     {0},
+     48,
+     253952,
+     4096},
 
     // === 正常场景 - 不同形状 ===
     {"dawsn_tiling_3_large_1d_fp32",
-     {1000000}, ge::DT_FLOAT, ge::FORMAT_ND,
-     {1000000}, ge::DT_FLOAT, ge::FORMAT_ND,
-     ge::GRAPH_SUCCESS, {0}, 48, 253952, 4096},
+     {1000000},
+     ge::DT_FLOAT,
+     ge::FORMAT_ND,
+     {1000000},
+     ge::DT_FLOAT,
+     ge::FORMAT_ND,
+     ge::GRAPH_SUCCESS,
+     {0},
+     48,
+     253952,
+     4096},
 
     {"dawsn_tiling_4_scalar_fp32",
-     {1}, ge::DT_FLOAT, ge::FORMAT_ND,
-     {1}, ge::DT_FLOAT, ge::FORMAT_ND,
-     ge::GRAPH_SUCCESS, {0}, 48, 253952, 4096},
+     {1},
+     ge::DT_FLOAT,
+     ge::FORMAT_ND,
+     {1},
+     ge::DT_FLOAT,
+     ge::FORMAT_ND,
+     ge::GRAPH_SUCCESS,
+     {0},
+     48,
+     253952,
+     4096},
 
     {"dawsn_tiling_5_8d_fp16",
-     {1, 1, 2, 2, 2, 2, 2, 2}, ge::DT_FLOAT16, ge::FORMAT_ND,
-     {1, 1, 2, 2, 2, 2, 2, 2}, ge::DT_FLOAT16, ge::FORMAT_ND,
-     ge::GRAPH_SUCCESS, {0}, 48, 253952, 4096},
+     {1, 1, 2, 2, 2, 2, 2, 2},
+     ge::DT_FLOAT16,
+     ge::FORMAT_ND,
+     {1, 1, 2, 2, 2, 2, 2, 2},
+     ge::DT_FLOAT16,
+     ge::FORMAT_ND,
+     ge::GRAPH_SUCCESS,
+     {0},
+     48,
+     253952,
+     4096},
 
     {"dawsn_tiling_6_3d_fp32_medium",
-     {32, 32, 32}, ge::DT_FLOAT, ge::FORMAT_ND,
-     {32, 32, 32}, ge::DT_FLOAT, ge::FORMAT_ND,
-     ge::GRAPH_SUCCESS, {0}, 48, 253952, 4096},
+     {32, 32, 32},
+     ge::DT_FLOAT,
+     ge::FORMAT_ND,
+     {32, 32, 32},
+     ge::DT_FLOAT,
+     ge::FORMAT_ND,
+     ge::GRAPH_SUCCESS,
+     {0},
+     48,
+     253952,
+     4096},
 
     // === 边界场景 - 空Tensor ===
     {"dawsn_tiling_7_empty_tensor",
-     {0, 3}, ge::DT_FLOAT, ge::FORMAT_ND,
-     {0, 3}, ge::DT_FLOAT, ge::FORMAT_ND,
-     ge::GRAPH_SUCCESS, {0}, 48, 253952, 4096},
+     {0, 3},
+     ge::DT_FLOAT,
+     ge::FORMAT_ND,
+     {0, 3},
+     ge::DT_FLOAT,
+     ge::FORMAT_ND,
+     ge::GRAPH_SUCCESS,
+     {0},
+     48,
+     253952,
+     4096},
 
     // === 异常场景 - 不支持的数据类型 ===
     {"dawsn_tiling_8_unsupport_double",
-     {2, 3}, ge::DT_DOUBLE, ge::FORMAT_ND,
-     {2, 3}, ge::DT_DOUBLE, ge::FORMAT_ND,
-     ge::GRAPH_FAILED, {0}, 48, 253952, 4096},
+     {2, 3},
+     ge::DT_DOUBLE,
+     ge::FORMAT_ND,
+     {2, 3},
+     ge::DT_DOUBLE,
+     ge::FORMAT_ND,
+     ge::GRAPH_FAILED,
+     {0},
+     48,
+     253952,
+     4096},
 
     {"dawsn_tiling_9_unsupport_int32",
-     {2, 3}, ge::DT_INT32, ge::FORMAT_ND,
-     {2, 3}, ge::DT_INT32, ge::FORMAT_ND,
-     ge::GRAPH_FAILED, {0}, 48, 253952, 4096},
+     {2, 3},
+     ge::DT_INT32,
+     ge::FORMAT_ND,
+     {2, 3},
+     ge::DT_INT32,
+     ge::FORMAT_ND,
+     ge::GRAPH_FAILED,
+     {0},
+     48,
+     253952,
+     4096},
+
+    // === 异常场景 - 不支持的存储格式 ===
+    {"dawsn_tiling_10_unsupport_format_nchw",
+     {2, 3},
+     ge::DT_FLOAT,
+     ge::FORMAT_NCHW,
+     {2, 3},
+     ge::DT_FLOAT,
+     ge::FORMAT_NCHW,
+     ge::GRAPH_FAILED,
+     {0},
+     48,
+     253952,
+     4096},
+
+    {"dawsn_tiling_11_unsupport_format_fractal_nz",
+     {256, 128},
+     ge::DT_FLOAT16,
+     ge::FORMAT_FRACTAL_NZ,
+     {256, 128},
+     ge::DT_FLOAT16,
+     ge::FORMAT_FRACTAL_NZ,
+     ge::GRAPH_FAILED,
+     {0},
+     48,
+     253952,
+     4096},
+
+    // === 异常场景 - 非法 shape size（负维度乘积） ===
+    {"dawsn_tiling_12_negative_shape_size",
+     {-1, 3},
+     ge::DT_FLOAT,
+     ge::FORMAT_ND,
+     {-1, 3},
+     ge::DT_FLOAT,
+     ge::FORMAT_ND,
+     ge::GRAPH_FAILED,
+     {0},
+     48,
+     253952,
+     4096},
+
+    // === 异常场景 - 元素总数超出 int64 溢出防护上界（600000000^2 = 3.6e17 > 2.88e17） ===
+    {"dawsn_tiling_13_total_idx_over_bound",
+     {600000000, 600000000},
+     ge::DT_FLOAT,
+     ge::FORMAT_ND,
+     {600000000, 600000000},
+     ge::DT_FLOAT,
+     ge::FORMAT_ND,
+     ge::GRAPH_FAILED,
+     {0},
+     48,
+     253952,
+     4096},
+
+    // === 边界场景 - 元素总数恰好在上界内（2e17 < 2.88e17，正常切分） ===
+    {"dawsn_tiling_14_total_idx_near_bound",
+     {200000000, 1000000},
+     ge::DT_FLOAT,
+     ge::FORMAT_ND,
+     {200000000, 1000000},
+     ge::DT_FLOAT,
+     ge::FORMAT_ND,
+     ge::GRAPH_SUCCESS,
+     {0},
+     48,
+     253952,
+     4096},
 };
 
 class DawsnTilingTest : public testing::TestWithParam<DawsnTestParam> {
 protected:
-    static void SetUpTestCase()
-    {
-        std::cout << "DawsnTilingTest SetUp." << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "DawsnTilingTest SetUp." << std::endl; }
 
-    static void TearDownTestCase()
-    {
-        std::cout << "DawsnTilingTest TearDown." << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "DawsnTilingTest TearDown." << std::endl; }
 };
 
 static DawsnCompileInfo compileInfo;
 
 static uint64_t GetExpectedTilingKey(ge::DataType dtype)
 {
-    return static_cast<uint64_t>(dtype);
+    (void)dtype;
+    return 0;
 }
 
-static void TestOneParamCase(const DawsnTestParam &param)
+static void TestOneParamCase(const DawsnTestParam& param)
 {
     std::cout << "[TEST_CASE] " << param.caseName << std::endl;
     gert::StorageShape xShape = {param.xShape, param.xShape};
     gert::StorageShape yShape = {param.yShape, param.yShape};
-    std::vector<gert::TilingContextPara::TensorDescription> inputTensorDesc_(
-        {{xShape, param.xDtype, param.xFormat}});
-    std::vector<gert::TilingContextPara::TensorDescription> outputTensorDesc_(
-        {{yShape, param.yDtype, param.yFormat}});
-    gert::TilingContextPara tilingContextPara(
-        OP_NAME,
-        inputTensorDesc_,
-        outputTensorDesc_,
-        &compileInfo,
-        param.maxAIVNum,
-        param.ubSize,
-        param.tilingDataMaxSize);
+    std::vector<gert::TilingContextPara::TensorDescription> inputTensorDesc_({{xShape, param.xDtype, param.xFormat}});
+    std::vector<gert::TilingContextPara::TensorDescription> outputTensorDesc_({{yShape, param.yDtype, param.yFormat}});
+    gert::TilingContextPara tilingContextPara(OP_NAME, inputTensorDesc_, outputTensorDesc_, &compileInfo,
+                                              param.maxAIVNum, param.ubSize, param.tilingDataMaxSize);
     uint64_t expectedKey = GetExpectedTilingKey(param.xDtype);
     ExecuteTestCase(tilingContextPara, param.status, expectedKey, EMPTY_EXPECT_TILING_DATA, param.expectWorkspaces);
 }
 
 TEST_P(DawsnTilingTest, tiling_test)
 {
-    const DawsnTestParam &param = GetParam();
+    const DawsnTestParam& param = GetParam();
     TestOneParamCase(param);
 }
 
-INSTANTIATE_TEST_SUITE_P(
-    DawsnTilingTests,
-    DawsnTilingTest,
-    testing::ValuesIn(testCases));
+INSTANTIATE_TEST_SUITE_P(DawsnTilingTests, DawsnTilingTest, testing::ValuesIn(testCases));
 
 } // namespace DawsnUT

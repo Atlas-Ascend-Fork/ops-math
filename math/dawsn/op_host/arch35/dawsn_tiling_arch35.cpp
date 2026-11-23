@@ -19,6 +19,7 @@
 #include "op_common/log/log.h"
 #include "op_common/op_host/util/math_util.h"
 #include "op_common/op_host/util/platform_util.h"
+#include <limits>
 #include "../../op_kernel/arch35/dawsn_tiling_data.h"
 #include "../../op_kernel/arch35/dawsn_tiling_key.h"
 
@@ -38,7 +39,11 @@ constexpr int64_t MIN_TILING_BITS = 32768; // 4KB per core minimum, in bits
 constexpr int64_t ELEM_ALIGN_FACTOR = 512; // multi-core element alignment
 constexpr int64_t ALIGN_256_BYTES = 256;   // UB alignment in bytes
 constexpr int64_t BITS_PER_BYTE = 8;       // bits per byte
-constexpr size_t MAX_DIM_NUM = 8;          // max supported dim num
+// Largest supported element bit width (FP32 = 32 bits); bounds totalIdx so that
+// totalIdx * minDtypeBits + MIN_TILING_BITS - 1 cannot overflow int64 in
+// ComputeTilingParams.
+constexpr int64_t MAX_ELEM_BITS = 4 * BITS_PER_BYTE;
+constexpr int64_t MAX_TOTAL_IDX = (std::numeric_limits<int64_t>::max() - MIN_TILING_BITS + 1) / MAX_ELEM_BITS;
 
 // Buffer planning constants for GetBufferDivisor
 constexpr int64_t FP32_REG_BUF_COUNT = 7;  // FP32 path: 6 RegTensor buffers + x/y buffers
@@ -76,8 +81,11 @@ static ge::graphStatus GetShapeAttrsInfo(gert::TilingContext* context, int64_t* 
     auto inputShapeX = EnsureNotScalar(inputX->GetStorageShape());
     *totalIdx = inputShapeX.GetShapeSize();
 
-    OP_CHECK_IF(inputShapeX.GetDimNum() > MAX_DIM_NUM,
-                OP_LOGE(context, "Dawsn: x dim num %zu must be less than or equal to 8.", inputShapeX.GetDimNum()),
+    // Negative product (negative dim or shape size overflow) and element counts
+    // beyond MAX_TOTAL_IDX must be rejected before the tiling arithmetic; the
+    // latter would overflow the int64 multi-core split below.
+    OP_CHECK_IF(*totalIdx < 0 || *totalIdx > MAX_TOTAL_IDX,
+                OP_LOGE(context, "invalid input shape size %ld (negative dim or size overflow)", *totalIdx),
                 return ge::GRAPH_FAILED);
 
     auto inputDesc = context->GetInputDesc(0);
@@ -86,8 +94,13 @@ static ge::graphStatus GetShapeAttrsInfo(gert::TilingContext* context, int64_t* 
 
     const std::set<ge::DataType> supportedDtypes = {ge::DT_FLOAT, ge::DT_FLOAT16, ge::DT_BF16};
     OP_CHECK_IF(supportedDtypes.count(*dataType) == 0,
-                OP_LOGE(context, "Dawsn: x has incorrect dtype %s. It should be DT_FLOAT, DT_FLOAT16, DT_BF16.",
+                OP_LOGE(context, "x has incorrect dtype %s. It should be DT_FLOAT, DT_FLOAT16, DT_BF16.",
                         ToString(*dataType).c_str()),
+                return ge::GRAPH_FAILED);
+
+    auto inputFormat = inputDesc->GetFormat().GetStorageFormat();
+    OP_CHECK_IF(inputFormat != ge::FORMAT_ND,
+                OP_LOGE_FOR_INVALID_FORMAT(context->GetNodeName(), "x", ge::GetFormatName(inputFormat), "ND"),
                 return ge::GRAPH_FAILED);
 
     return ge::GRAPH_SUCCESS;
@@ -152,6 +165,14 @@ static void ComputeTilingParams(int64_t totalIdx, int64_t availableCoreNum, uint
     if (ubFormer <= 0) {
         ubFormer = alignFactor;
     }
+    // DataCopyParams.blockLen is uint16: keep per-loop byte size within 65535 so the
+    // kernel-side `blockLen = currentNum * sizeof(T)` narrowing can never truncate.
+    // Align the limit down to alignFactor so the clamp never breaks the 256B alignment contract.
+    constexpr int64_t BLOCK_LEN_BYTES_LIMIT = 65535;
+    int64_t ubFormerByteLimit = BLOCK_LEN_BYTES_LIMIT / elemBytes / alignFactor * alignFactor;
+    if (ubFormer > ubFormerByteLimit) {
+        ubFormer = ubFormerByteLimit;
+    }
 
     // Loop counts
     int64_t ubLoopOfFormerBlock = (blockFormer + ubFormer - 1) / ubFormer;
@@ -200,7 +221,7 @@ static ge::graphStatus DawsnTilingFunc(gert::TilingContext* context)
     // Empty tensor check
     if (totalIdx == 0) {
         context->SetBlockDim(1);
-        ASCENDC_TPL_SEL_PARAM(context, static_cast<uint32_t>(dataType));
+        context->SetTilingKey(0);
         return ge::GRAPH_SUCCESS;
     }
 
@@ -210,10 +231,9 @@ static ge::graphStatus DawsnTilingFunc(gert::TilingContext* context)
             tiling->dim0, tiling->coreNum, tiling->blockFormer, tiling->blockNum, tiling->ubFormer);
 
     context->SetBlockDim(tiling->blockNum);
-
-    // 9. Set TilingKey (template parameter selection)
-    uint32_t dTypeX = static_cast<uint32_t>(dataType);
-    ASCENDC_TPL_SEL_PARAM(context, dTypeX);
+    // 单一 TilingKey：dtype 差异由构建系统生成的 DTYPE_X 宏在 kernel 模板实例化时分发，
+    // 不以 TilingKey 区分（KERNEL-6：禁止以 ASCENDC_TPL 声明算子运算 dtype）
+    context->SetTilingKey(0);
 
     return ge::GRAPH_SUCCESS;
 }
