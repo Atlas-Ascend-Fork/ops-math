@@ -165,7 +165,9 @@ static inline int64_t CeilDivInt64(int64_t x, int64_t y)
 {
     if (y != 0 && x != 0) {
         const int64_t quotient = x / y;
-        return (x % y != 0 && ((x ^ y) >= 0)) ? (quotient + 1) : quotient;
+        // 同号时商为正、需要向上取整；符号位比较用无符号异或，避免对有符号整数做按位异或（G.EXP.27）
+        const bool sameSign = ((static_cast<uint64_t>(x) ^ static_cast<uint64_t>(y)) & (1ULL << 63U)) == 0ULL;
+        return (x % y != 0 && sameSign) ? (quotient + 1) : quotient;
     }
     return x;
 }

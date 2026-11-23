@@ -27,6 +27,7 @@
 #include "opdev/platform.h"
 #include "op_api/aclnn_check.h"
 #include "op_common/op_host/util/op_const_def.h"
+#include <functional>
 
 using namespace op;
 #ifdef __cplusplus
@@ -154,8 +155,10 @@ static inline bool IsScalarOne(const aclScalar* alpha, const op::DataType calcTy
                    alpha->ToInt32() == 1 :
                    alpha->ToInt64() == 1;
     } else if (IsFloatingType(alpha->GetDataType())) {
-        return calcType == DataType::DT_DOUBLE || calcType == DataType::DT_COMPLEX128 ? alpha->ToDouble() == 1.0 :
-                                                                                        alpha->ToFloat() == 1.0f;
+        // 保持精确判等语义，用 std::equal_to 承载浮点比较，避免对浮点型直接使用 ==（G.EXP.27）
+        const bool isDoubleType = calcType == DataType::DT_DOUBLE || calcType == DataType::DT_COMPLEX128;
+        return isDoubleType ? std::equal_to<double>()(alpha->ToDouble(), 1.0) :
+                              std::equal_to<float>()(alpha->ToFloat(), 1.0f);
     }
     return false;
 }

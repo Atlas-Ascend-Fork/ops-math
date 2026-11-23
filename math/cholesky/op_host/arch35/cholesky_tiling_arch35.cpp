@@ -161,7 +161,7 @@ ge::graphStatus CholeskyTilingArch35::Init()
         blockNum = (matSizeN + blockSize - 1) / blockSize;
     }
 
-    auto compileInfo = reinterpret_cast<const CholeskyCompileInfo*>(tilingContext->GetCompileInfo());
+    auto compileInfo = tilingContext->GetCompileInfo<CholeskyCompileInfo>();
     if (compileInfo == nullptr) {
         OP_LOGE(tilingContext->GetNodeName(), "Get compile info failed.");
         return ge::GRAPH_FAILED;
