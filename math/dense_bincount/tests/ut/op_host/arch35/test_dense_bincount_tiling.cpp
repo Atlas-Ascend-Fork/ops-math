@@ -115,7 +115,8 @@ DenseBincountTilingResult ExecuteTiling(gert::ContextHolder<gert::TilingContext>
     return result;
 }
 
-DenseBincountTilingResult RunTiling(const DenseBincountTilingCase& testCase)
+DenseBincountTilingResult RunTiling(const DenseBincountTilingCase& testCase, int32_t missingInput = -1,
+                                    uint64_t tilingDataSize = TILING_DATA_SIZE)
 {
     int64_t sizeData = testCase.size;
     const auto inputShape = MakeShape(testCase.inputShape);
@@ -131,7 +132,7 @@ DenseBincountTilingResult RunTiling(const DenseBincountTilingCase& testCase)
     gert::Tensor weightsTensor(weightsShape, format, gert::TensorPlacement::kOnHost, testCase.weightsDtype, nullptr);
     gert::Tensor outputTensor(outputShape, format, gert::TensorPlacement::kOnHost, testCase.outputDtype, nullptr);
     auto platform = MakePlatform(testCase.coreNum, testCase.ubSize);
-    auto data = gert::TilingData::CreateCap(TILING_DATA_SIZE);
+    auto data = gert::TilingData::CreateCap(tilingDataSize);
     auto workspace = gert::ContinuousVector::Create<size_t>(1);
     DenseBincountCompileInfo compileInfo;
     int32_t deterministic = testCase.deterministic;
@@ -149,9 +150,30 @@ DenseBincountTilingResult RunTiling(const DenseBincountTilingCase& testCase)
         holderBuilder.Attr("binary_output", testCase.binaryOutput);
     }
     auto holder = holderBuilder.Build();
+    if (missingInput >= 0) {
+        // Keep tensor descriptors intact while removing the runtime input shape.
+        auto* context = reinterpret_cast<gert::KernelContext*>(holder.GetContext());
+        context->MutableInput(static_cast<size_t>(missingInput))->Set(nullptr, nullptr);
+    }
     return ExecuteTiling(holder);
 }
 } // namespace
+
+TEST(DenseBincountTiling, missing_input_shapes_are_rejected)
+{
+    DenseBincountTilingCase testCase;
+    ASSERT_EQ(RunTiling(testCase).status, ge::GRAPH_SUCCESS);
+    for (int32_t input = 0; input < 3; ++input) {
+        SCOPED_TRACE(input);
+        EXPECT_EQ(RunTiling(testCase, input).status, ge::GRAPH_FAILED);
+    }
+}
+
+TEST(DenseBincountTiling, insufficient_tiling_capacity_is_rejected)
+{
+    // GetTilingData returns nullptr when the buffer cannot hold the tiling struct.
+    EXPECT_EQ(RunTiling(DenseBincountTilingCase{}, -1, sizeof(DenseBincountTilingData) - 1).status, ge::GRAPH_FAILED);
+}
 
 TEST(DenseBincountTiling, optional_binary_output_defaults_to_false)
 {

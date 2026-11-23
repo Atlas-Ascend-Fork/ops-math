@@ -154,13 +154,24 @@ static bool ValidateDenseBincountInputs(gert::TilingContext* context)
     auto sizeDesc = context->GetInputDesc(IDX_SIZE);
     auto weightsDesc = context->GetInputDesc(IDX_WEIGHTS);
     auto outputDesc = context->GetOutputDesc(IDX_OUTPUT);
-    OP_CHECK_NULL_WITH_CONTEXT(context, inputShape);
-    OP_CHECK_NULL_WITH_CONTEXT(context, sizeShape);
-    OP_CHECK_NULL_WITH_CONTEXT(context, weightsShape);
-    OP_CHECK_NULL_WITH_CONTEXT(context, inputDesc);
-    OP_CHECK_NULL_WITH_CONTEXT(context, sizeDesc);
-    OP_CHECK_NULL_WITH_CONTEXT(context, weightsDesc);
-    OP_CHECK_NULL_WITH_CONTEXT(context, outputDesc);
+    OP_CHECK_IF(inputShape == nullptr,
+                OP_LOGE_FOR_INVALID_VALUE(context->GetNodeName(), "inputShape", "nullptr", "not nullptr"),
+                return false);
+    OP_CHECK_IF(sizeShape == nullptr,
+                OP_LOGE_FOR_INVALID_VALUE(context->GetNodeName(), "sizeShape", "nullptr", "not nullptr"), return false);
+    OP_CHECK_IF(weightsShape == nullptr,
+                OP_LOGE_FOR_INVALID_VALUE(context->GetNodeName(), "weightsShape", "nullptr", "not nullptr"),
+                return false);
+    OP_CHECK_IF(inputDesc == nullptr,
+                OP_LOGE_FOR_INVALID_VALUE(context->GetNodeName(), "inputDesc", "nullptr", "not nullptr"), return false);
+    OP_CHECK_IF(sizeDesc == nullptr,
+                OP_LOGE_FOR_INVALID_VALUE(context->GetNodeName(), "sizeDesc", "nullptr", "not nullptr"), return false);
+    OP_CHECK_IF(weightsDesc == nullptr,
+                OP_LOGE_FOR_INVALID_VALUE(context->GetNodeName(), "weightsDesc", "nullptr", "not nullptr"),
+                return false);
+    OP_CHECK_IF(outputDesc == nullptr,
+                OP_LOGE_FOR_INVALID_VALUE(context->GetNodeName(), "outputDesc", "nullptr", "not nullptr"),
+                return false);
     const auto rank = inputShape->GetStorageShape().GetDimNum();
     const auto& sizeStorageShape = Ops::Base::EnsureNotScalar(sizeShape->GetStorageShape());
     const auto weightsRank = weightsShape->GetStorageShape().GetDimNum();
@@ -211,7 +222,8 @@ static bool SetDenseBincountTilingData(gert::TilingContext* context, const gert:
         return false;
     }
     auto* tiling = context->GetTilingData<DenseBincountTilingData>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, tiling);
+    OP_CHECK_IF(tiling == nullptr,
+                OP_LOGE_FOR_INVALID_VALUE(context->GetNodeName(), "tiling", "nullptr", "not nullptr"), return false);
     tiling->numValues = numValues;
     tiling->inputRows = rows;
     tiling->inputCols = cols;
