@@ -15,59 +15,30 @@
 
 - **算子功能**：将输入Tensor基于给定的axis扁平化为一个2D的Tensor。
 - **计算公式**：
-  - 若输入self的shape为(d₀, d₁, ..., dₙ)，则输出out的shape为(d₀×d₁×...×dₐₓᵢₛ₋₁, dₐₓᵢₛ×dₐₓᵢₛ₊₁×...×dₙ)
-  - 若axis取值为0，则输出out的shape为(1, d₀×d₁×...×dₙ)
+  - 若输入x的shape为(d₀, d₁, ..., dₙ)，则输出y的shape为(d₀×d₁×...×dₐₓᵢₛ₋₁, dₐₓᵢₛ×dₐₓᵢₛ₊₁×...×dₙ)
+  - 若axis取值为0，则输出y的shape为(1, d₀×d₁×...×dₙ)
+  - 若axis取值为rank(x)，则输出y的shape为(d₀×d₁×...×dₙ, 1)
 
 ## 参数说明
 
-<table style="table-layout: fixed; width: 949px"><colgroup>
-<col style="width: 144px">
-<col style="width: 166px">
-<col style="width: 202px">
-<col style="width: 335px">
-<col style="width: 102px">
-</colgroup>
-<thead>
-  <tr>
-    <th>参数名</th>
-    <th>输入/输出/属性</th>
-    <th>描述</th>
-    <th>数据类型</th>
-    <th>数据格式</th>
-  </tr></thead>
-<tbody>
-  <tr>
-    <td>self</td>
-    <td>输入张量</td>
-    <td>输入张量，支持非连续的Tensor，2D~8D。</td>
-    <td>INT8、INT16、INT32、INT64、UINT8、UINT16、UINT32、UINT64、BOOL、BFLOAT16、FLOAT、FLOAT16</td>
-    <td>ND</td>
-  </tr>
-  <tr>
-    <td>axis</td>
-    <td>输入属性</td>
-    <td>flatten计算的基准轴，取值范围为[-self.dim(), self.dim()-1]，目前仅支持axis = 1。</td>
-    <td>INT64</td>
-    <td>-</td>
-  </tr>
-  <tr>
-    <td>out</td>
-    <td>输出张量</td>
-    <td>输出2D张量，支持非连续的Tensor。</td>
-    <td>INT8、INT16、INT32、INT64、UINT8、UINT16、UINT32、UINT64、BOOL、BFLOAT16、FLOAT、FLOAT16</td>
-    <td>ND</td>
-  </tr>
-</tbody>
-</table>
+| 参数名 | 输入/输出/属性 | 描述 | 数据类型 | 数据格式 |
+| :--- | :--- | :--- | :--- | :--- |
+| x | 输入 | 输入张量。 | ALL | ND |
+| axis | 可选属性 | 扁平化基准轴，取值范围为[-rank(x), rank(x)]，默认值为1。 | INT | - |
+| y | 输出 | 扁平化后的2D张量，数据类型与 `x` 一致。 | 与 `x` 相同 | ND |
 
 ## 约束说明
 
-- 输入张量的维度不能大于8。
-- axis必须在有效的维度范围内。
-- 输入和输出的数据类型必须一致。
+- `axis` 必须在 `[-rank(x), rank(x)]` 范围内（两端均包含），超出范围时推导失败。
+- 输入为未知rank（-2）时，输出shape同样为-2。
+- 参与乘积的维度中存在未知维度（-1）时，对应输出维度为-1。
+- 输入为1维且该维为未知维度（-1）时，输出保持1维（-1）。
+- aclnn接口当前仅支持axis = 1，输入维度范围为2D~8D。
+- 支持的数据类型以 [`flatten_proto.h`](op_graph/flatten_proto.h) 中的IR定义为准。
 
 ## 调用说明
 
 | 调用方式  | 样例代码                                                | 说明                                                         |
 | --------- | ------------------------------------------------------- | ------------------------------------------------------------ |
+| 图模式调用 | [test_geir_flatten](./examples/test_geir_flatten.cpp) | 通过[算子IR](./op_graph/flatten_proto.h)构图方式调用Flatten算子。 |
 | aclnn接口 | [test_aclnn_flatten](./examples/test_aclnn_flatten.cpp) | 通过[aclnnFlatten](docs/aclnnFlatten.md)接口方式调用Flatten算子。 |

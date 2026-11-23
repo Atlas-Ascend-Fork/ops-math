@@ -2920,11 +2920,11 @@
     <td>conversion</td>
     <td><a href="../../conversion/flatten/README.md">flatten</a></td>
     <td>×</td>
-    <td>×</td>
-    <td>×</td>
-    <td>×</td>
-    <td>AI Core</td>
-    <td>该算子暂无Ascend C代码实现，欢迎开发者补充贡献，贡献方式参考<a href="../../CONTRIBUTING.md">贡献指南</a>。</td>
+    <td>√</td>
+    <td>√</td>
+    <td>√</td>
+    <td>AI Core/Host CPU</td>
+    <td>将输入张量基于axis扁平化为一个2D张量，不改变底层数据。</td>
   </tr>
   <tr>
     <td>conversion</td>
