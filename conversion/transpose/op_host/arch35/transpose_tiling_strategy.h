@@ -70,14 +70,6 @@ struct TransposeOpParam {
 };
 
 /**
- * @brief 取注册 TilingData（10000-10005 模板共用 TransposeOpTilingData）
- *
- * 各 10000-10005 策略子类共用本工具函数取码流指针：容量不足时记录错误并返回 nullptr。
- * 只做取址/校验，不包含任何模板专属字段映射。
- */
-TransposeOpTilingData* GetTransposeOpTilingDataBuffer(gert::TilingContext* context);
-
-/**
  * @brief Transpose 策略基类（继承通用策略基类模板）
  *
  * 只承载所有 transpose 模板共有的内容：
@@ -112,6 +104,14 @@ protected:
      * @return true 维数等于 perm 长度且各轴取值逐一相等
      */
     bool IsPermValue(std::initializer_list<int64_t> perm) const;
+
+    /**
+     * @brief 将字节数向上对齐到 UB block 大小
+     *
+     * @param bytes 待对齐的字节数
+     * @return 对齐后的字节数（>= bytes，且为 ubBlockSize_ 的整数倍）
+     */
+    int64_t CeilAlignUBBlkBytes(int64_t bytes) const;
 
     // 策略实际执行逻辑（纯虚，子类实现）
     TilingStatus DoExecute() override = 0;

@@ -43,7 +43,7 @@ template <typename T>
 class TransposeNddmaBigDim : public TransposeBase<T> {
 public:
     __aicore__ inline TransposeNddmaBigDim(){};
-    __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, const TransposeOpTilingData* tilingData, TPipe* pipe);
+    __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, const TransposeNddmaBigDimTilingData* data);
     __aicore__ inline void Process();
 
 private:
@@ -59,12 +59,12 @@ private:
     int64_t blockIdx_;
 
     // buffer
-    TQueBind<QuePosition::VECIN, QuePosition::VECOUT, 1> vecQue_;
+    LocalTensor<T> local_[2];
     GlobalTensor<T> inputGM_;
     GlobalTensor<T> outputGM_;
 
     // tiling params
-    const TransposeOpTilingData* tiling_;
+    const TransposeNddmaBigDimTilingData* tiling_;
 
     // core params
     int64_t blkProcessNum_ = 0;
@@ -78,19 +78,21 @@ private:
     int64_t srcLoopStride_[TP_MAX_AXIS_NUM] = {1, 1, 1, 1, 1, 1, 1, 1};
 
     int64_t cutIdx_ = 0;
-    int64_t bufferNum_ = 2;
+    uint32_t bufferNum_ = 2;
 };
 
 template <typename T>
-__aicore__ inline void TransposeNddmaBigDim<T>::Init(GM_ADDR x, GM_ADDR y, const TransposeOpTilingData* tilingData,
-                                                     TPipe* pipe)
+__aicore__ inline void TransposeNddmaBigDim<T>::Init(GM_ADDR x, GM_ADDR y, const TransposeNddmaBigDimTilingData* data)
 {
     blockIdx_ = GetBlockIdx();
-    tiling_ = tilingData;
-    bufferNum_ = tiling_->bigDimBufferNum;
+    tiling_ = data;
+    bufferNum_ = data->bufferNum == 0 ? 1 : data->bufferNum;
     inputGM_.SetGlobalBuffer((__gm__ T*)x);
     outputGM_.SetGlobalBuffer((__gm__ T*)y);
-    pipe->InitBuffer(vecQue_, bufferNum_, tiling_->ubSize / bufferNum_);
+    const uint32_t ubBytes = data->ubBytes;
+    for (uint32_t i = 0; i < bufferNum_; ++i) {
+        local_[i] = LocalTensor<T>(TPosition::VECIN, i * ubBytes, ubBytes / sizeof(T));
+    }
 }
 
 template <typename T>
@@ -156,7 +158,7 @@ __aicore__ inline void TransposeNddmaBigDim<T>::SetLoopInfo(NdDmaLoopInfo<TP_NDD
 template <typename T>
 __aicore__ inline void TransposeNddmaBigDim<T>::Process()
 {
-    if (!ParseMultiCoreRange(blockIdx_, tiling_->realCoreNum, tiling_->blkFactor, tiling_->blkTailFactor,
+    if (!ParseMultiCoreRange(blockIdx_, static_cast<int64_t>(GetBlockNum()), tiling_->blkFactor, tiling_->blkTailFactor,
                              blkProcessNum_, blkProcessIdxStart_, blkProcessIdxEnd_)) {
         return;
     }
@@ -190,13 +192,15 @@ __aicore__ inline void TransposeNddmaBigDim<T>::CopyIn(int64_t loopIdx, NdDmaPar
         srcAddressOffset += dstAddressOffsetMixedBaseRes_[i] *
                             srcLoopStride_[tiling_->permSize - 1 - tiling_->perm[tiling_->permSize - 1 - i]];
     }
-    LocalTensor<T> bindLocalIn = vecQue_.AllocTensor<T>();
+    const uint32_t bufIdx = static_cast<uint32_t>(loopIdx % static_cast<int64_t>(bufferNum_));
+    LocalTensor<T> bindLocalIn = local_[bufIdx];
+    Mutex::Lock<PIPE_MTE2>(static_cast<MutexID>(bufIdx));
 #if defined(__DAV_920R1__) || defined(__DAV_920R2__)
     DataCopy<T, TP_NDDMA_MAX_DIM_NUM, config>(bindLocalIn, inputGM_[srcAddressOffset], params, true);
 #else
     DataCopy<T, TP_NDDMA_MAX_DIM_NUM, config>(bindLocalIn, inputGM_[srcAddressOffset], params);
 #endif
-    vecQue_.EnQue(bindLocalIn);
+    Mutex::Unlock<PIPE_MTE2>(static_cast<MutexID>(bufIdx));
 }
 
 template <typename T>
@@ -206,9 +210,11 @@ __aicore__ inline void TransposeNddmaBigDim<T>::CopyOut(int64_t loopIdx, DataCop
     for (int64_t i = 0; i < tiling_->permSize; i++) {
         dstAddressOffset += dstAddressOffsetMixedBaseRes_[i] * dstLoopStride_[i];
     }
-    LocalTensor<T> bindLocalOut = vecQue_.DeQue<T>();
+    const uint32_t bufIdx = static_cast<uint32_t>(loopIdx % static_cast<int64_t>(bufferNum_));
+    LocalTensor<T> bindLocalOut = local_[bufIdx];
+    Mutex::Lock<PIPE_MTE3>(static_cast<MutexID>(bufIdx));
     DataCopyPad(outputGM_[dstAddressOffset], bindLocalOut, copyOutParams);
-    vecQue_.FreeTensor(bindLocalOut);
+    Mutex::Unlock<PIPE_MTE3>(static_cast<MutexID>(bufIdx));
 }
 
 template <typename T>
@@ -217,7 +223,8 @@ __aicore__ inline void TransposeNddmaBigDim<T>::ProcessPerCore(NdDmaParams<T, TP
                                                                DataCopyExtParams& copyOutParamsMain,
                                                                DataCopyExtParams& copyOutParamsTail)
 {
-    int64_t outCutLoopSize = Ops::Base::CeilDiv(tiling_->outputShape[tiling_->outCutIndex], tiling_->outUbFactor);
+    int64_t outCutLoopSize = Ops::Base::CeilDiv(tiling_->outputShape[tiling_->outCutIndex],
+                                                static_cast<int64_t>(tiling_->outUbFactor));
     const int64_t permSize = tiling_->permSize;
     for (int64_t i = 0; i < permSize; i++) {
         if (permSize - 1 - i == tiling_->outCutIndex) {

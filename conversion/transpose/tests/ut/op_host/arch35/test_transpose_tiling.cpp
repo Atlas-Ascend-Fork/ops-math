@@ -31,6 +31,76 @@ protected:
     static void TearDownTestCase() { std::cout << "TransposeTiling TearDown" << std::endl; }
 };
 
+// 1D 纯搬运：普通入口使用 24B 紧凑 TilingData（与 kernel 紧凑布局一致）
+TEST_F(TransposeTiling, transpose_tiling_tensor_move_compact_tiling_data)
+{
+    optiling::TransposeCompilerInfo compileInfo;
+    compileInfo.coreNum = 40;
+    compileInfo.ubSize = 196608;
+
+    int64_t perm_value[1] = {0};
+    gert::TilingContextPara::TensorDescription x({{100000}, {100000}}, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::TilingContextPara::TensorDescription perm({{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
+    gert::TilingContextPara::TensorDescription out({{100000}, {100000}}, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
+
+    TilingInfo tilingInfo;
+    ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
+    EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(TK_TENSOR_MOVE));
+    EXPECT_EQ(tilingInfo.blockNum, 25U);
+    ASSERT_EQ(tilingInfo.tilingDataSize, sizeof(TransposeTensorMoveTilingData));
+    const auto* data = reinterpret_cast<const TransposeTensorMoveTilingData*>(tilingInfo.tilingData.get());
+    // 动态主块分核：coreNum=25, mainBlockElements=4096, extraBlockCores=24, tail=1696
+    EXPECT_EQ(data->mainBlockElements, 4096U);
+    EXPECT_EQ(data->mainBlocksPerCore, 0U);
+    EXPECT_EQ(data->extraBlockCores, 24U);
+    EXPECT_EQ(data->tailElements, 1696U);
+}
+
+// 3D 尾轴不变：普通入口走 10014，72B 紧凑 TilingData
+TEST_F(TransposeTiling, transpose_tiling_n_last_small_compact_tiling_data)
+{
+    optiling::TransposeCompilerInfo compileInfo;
+    compileInfo.coreNum = 40;
+    compileInfo.ubSize = 196608;
+
+    int64_t perm_value[3] = {1, 0, 2};
+    gert::TilingContextPara::TensorDescription x({{30, 20, 64}, {30, 20, 64}}, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::TilingContextPara::TensorDescription perm({{3}, {3}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
+    gert::TilingContextPara::TensorDescription out({{20, 30, 64}, {20, 30, 64}}, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
+
+    TilingInfo tilingInfo;
+    ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
+    EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(TK_N_LAST_SMALL));
+    ASSERT_EQ(tilingInfo.tilingDataSize, sizeof(TransposeNLastSmallTilingData));
+    const auto* data = reinterpret_cast<const TransposeNLastSmallTilingData*>(tilingInfo.tilingData.get());
+    EXPECT_EQ(data->rowBytes, 64U * 4U);
+}
+
+// 5D 尾轴不变：普通入口走 10004 紧凑 TilingData
+TEST_F(TransposeTiling, transpose_tiling_n_last_regular_compact_tiling_data)
+{
+    optiling::TransposeCompilerInfo compileInfo;
+    compileInfo.coreNum = 40;
+    compileInfo.ubSize = 196608;
+
+    int64_t perm_value[5] = {1, 0, 3, 2, 4};
+    gert::TilingContextPara::TensorDescription x({{10, 10, 10, 10, 128}, {10, 10, 10, 10, 128}}, ge::DT_FLOAT,
+                                                 ge::FORMAT_ND);
+    gert::TilingContextPara::TensorDescription perm({{5}, {5}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
+    gert::TilingContextPara::TensorDescription out({{10, 10, 10, 10, 128}, {10, 10, 10, 10, 128}}, ge::DT_FLOAT,
+                                                   ge::FORMAT_ND);
+    gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
+
+    TilingInfo tilingInfo;
+    ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
+    EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(TK_N_LAST));
+    ASSERT_EQ(tilingInfo.tilingDataSize, sizeof(TransposeNLastTilingData));
+    const auto* data = reinterpret_cast<const TransposeNLastTilingData*>(tilingInfo.tilingData.get());
+    EXPECT_EQ(data->permSize, 5);
+}
+
 TEST_F(TransposeTiling, transpose_tiling_perm_int32_dtype)
 {
     optiling::TransposeCompilerInfo compileInfo;
@@ -65,7 +135,16 @@ TEST_F(TransposeTiling, transpose_tiling_negative_perm)
     TilingInfo tilingInfo;
     bool success = ExecuteTiling(tilingContextPara, tilingInfo);
     EXPECT_TRUE(success);
-    EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(TK_SMALL_SHAPE));
+    EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(TK_SMALL_SHAPE_23D));
+    EXPECT_EQ(tilingInfo.blockNum, 1U);
+    ASSERT_EQ(tilingInfo.tilingDataSize, sizeof(TransposeSmallShape23DTilingData));
+    const auto* data = reinterpret_cast<const TransposeSmallShape23DTilingData*>(tilingInfo.tilingData.get());
+    EXPECT_EQ(data->dim, 2);
+    EXPECT_EQ(data->inputShape[0], 10);
+    EXPECT_EQ(data->inputShape[1], 20);
+    EXPECT_EQ(data->perm[0], 1);
+    EXPECT_EQ(data->perm[1], 0);
+    // 200 元素 x fp32 = 800B < 1024B 对齐单元，Host 分核退化为单核。
 }
 
 // Invalid perm dtype (DT_INT16, not int32/int64), expect failure
@@ -239,8 +318,6 @@ TEST_F(TransposeTiling, transpose_tiling_zero_shape_value)
     bool success = ExecuteTiling(tilingContextPara, tilingInfo);
     EXPECT_FALSE(success);
 }
-
-// N_LAST with large 4D shape exercising FindSplitFactorByRateNLast/MultiplesNLast
 
 /* ==================== 参数校验补充用例 ==================== */
 

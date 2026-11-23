@@ -17,16 +17,19 @@
 #ifndef TRANSPOSE_TILING_KEY_H
 #define TRANSPOSE_TILING_KEY_H
 
-#define TK_TENSOR_MOVE 10000    // 融合后仅1维，等价于纯数据搬运
-#define TK_SMALL_SHAPE 10001    // 小数据量(<阈值字节)，SIMT模式GM→GM直读直写
-#define TK_NDDMA_CUT_1 10002    // NDDMA 5维搬运，切1个轴（输出切分轴≤输入切分轴映射）
-#define TK_NDDMA_CUT_2 10003    // NDDMA 5维搬运，切2个轴（4种数据区间：Main/InputTail/OutputTail/Tail）
-#define TK_N_LAST 10004         // 尾轴不转置 + 尾轴≥32元素，双缓冲流水线连续行搬移
-#define TK_NDDMA_BIG_DIM 10005  // 维度>5，压缩到5维NDDMA格式进行搬运
-#define TK_GATHER 10006         // 尾轴转置+大shape，使用DataCopyGather硬件指令(RegBase路径)
-#define TK_TRANSTO5HD_10 10007  // 2D perm=[1,0]+16bit(DAV_5102)，TransDataTo5HD硬件指令
-#define TK_TRANSTO5HD_021 10008 // 3D perm=[0,2,1]+8/16/32bit(DAV_5102)，TransDataTo5HD硬件指令
-#define TK_B4 10009             // B4 双切分
+#define TK_TENSOR_MOVE 10000     // 融合后仅1维，等价于纯数据搬运
+#define TK_SMALL_SHAPE 10001     // 小数据量(<阈值字节)，SIMT模式GM→GM直读直写
+#define TK_NDDMA_CUT_1 10002     // NDDMA 5维搬运，切1个轴（输出切分轴≤输入切分轴映射）
+#define TK_NDDMA_CUT_2 10003     // NDDMA 5维搬运，切2个轴（4种数据区间：Main/InputTail/OutputTail/Tail）
+#define TK_N_LAST 10004          // 尾轴不转置 + 尾轴≥32元素，双缓冲流水线连续行搬移
+#define TK_NDDMA_BIG_DIM 10005   // 维度>5，压缩到5维NDDMA格式进行搬运
+#define TK_GATHER 10006          // 尾轴转置+大shape，使用DataCopyGather硬件指令(RegBase路径)
+#define TK_TRANSTO5HD_10 10007   // 2D perm=[1,0]+16bit(DAV_5102)，TransDataTo5HD硬件指令
+#define TK_TRANSTO5HD_021 10008  // 3D perm=[0,2,1]+8/16/32bit(DAV_5102)，TransDataTo5HD硬件指令
+#define TK_B4 10009              // B4 双切分
+#define TK_SMALL_SHAPE_23D 10011 // 二/三维 SIMT 小shape（24B 精简 TilingData）
+#define TK_SMALL_SHAPE_2D 10012  // 2D perm=[1,0] UB中转 4x4 SIMT（64KB~小shape阈值）
+#define TK_N_LAST_SMALL 10014    // 三/四维尾轴不变统一搬运
 #define TK_TRANSTO5HD_10_PERF 10017 // 2D perm=[1,0] 特化，TransDataTo5HD 全 tile 转置
 
 #endif // TRANSPOSE_TILING_KEY_H

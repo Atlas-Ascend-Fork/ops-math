@@ -107,12 +107,12 @@ __aicore__ inline void TransposeTransTo5HD10<T>::Init(GM_ADDR x, GM_ADDR y,
     blockIdx_ = GetBlockIdx();
     srcGlobal.SetGlobalBuffer((__gm__ T*)x);
     dstGlobal.SetGlobalBuffer((__gm__ T*)y);
-    fullCoreNum = tiling_->UsedCoreNum - 1;
+    fullCoreNum = static_cast<int64_t>(GetBlockNum()) - 1;
     loopCount = (blockIdx_ <= fullCoreNum - 1) ? tiling_->MainCoreLoopCount : tiling_->TailCoreLoopCount;
     isRsplit = tiling_->IsRSplit;
     isRCSplit = tiling_->IsRCSplit;
-    pipe->InitBuffer(inQueueSrc, BUFFER_NUM, tiling_->AvailableUbSize);
-    pipe->InitBuffer(outQueueDst, BUFFER_NUM, tiling_->AvailableUbSize);
+    pipe->InitBuffer(inQueueSrc, BUFFER_NUM, static_cast<uint32_t>(tiling_->AvailableUbSize));
+    pipe->InitBuffer(outQueueDst, BUFFER_NUM, static_cast<uint32_t>(tiling_->AvailableUbSize));
 }
 
 /**
@@ -198,7 +198,7 @@ __aicore__ inline void TransposeTransTo5HD10<T>::ComputeCConv(int r, int c, int 
 template <typename T>
 __aicore__ inline void TransposeTransTo5HD10<T>::Process()
 {
-    if (blockIdx_ >= tiling_->UsedCoreNum) {
+    if (blockIdx_ >= static_cast<int64_t>(GetBlockNum())) {
         return;
     }
     if (blockIdx_ < fullCoreNum) {
@@ -241,7 +241,7 @@ __aicore__ inline void TransposeTransTo5HD10<T>::SetBasePocessData(uint32_t proc
             ubOffset = process * tiling_->RLen * tiling_->cUbSplitPara.MainCoreUbFactor;
         } else {
             copyInCoreOffset = blockIdx_ * tiling_->CLen * tiling_->rSplitPara.BlockFactor;
-            gmOffset = process * tiling_->rUbSplitPara.MainCoreUbFactor * tiling_->CLen;
+            gmOffset = process * static_cast<int64_t>(tiling_->rUbSplitPara.MainCoreUbFactor) * tiling_->CLen;
             copyOutCoreOffset = blockIdx_ * tiling_->rSplitPara.BlockFactor;
             ubOffset = process * tiling_->rUbSplitPara.MainCoreUbFactor;
         }
@@ -342,16 +342,16 @@ __aicore__ inline void TransposeTransTo5HD10<T>::SetRSplitCopyInParams(uint32_t 
         Params.dstStride = 0;
         if (blockIdx_ < fullCoreNum) {
             if (process < loopCount - 1) {
-                Params.blockLen = tiling_->rUbSplitPara.MainCoreUbFactor * tiling_->cUbSplitPara.MainCoreUbFactor *
-                                  sizeof(T);
+                Params.blockLen = static_cast<int64_t>(tiling_->rUbSplitPara.MainCoreUbFactor) *
+                                  tiling_->cUbSplitPara.MainCoreUbFactor * sizeof(T);
             } else {
-                Params.blockLen = tiling_->rUbSplitPara.MainCoreTailUbFactor *
+                Params.blockLen = static_cast<int64_t>(tiling_->rUbSplitPara.MainCoreTailUbFactor) *
                                   tiling_->cUbSplitPara.MainCoreTailUbFactor * sizeof(T);
             }
         } else {
             if (process < loopCount - 1) {
-                Params.blockLen = tiling_->rUbSplitPara.TailCoreUbFactor * tiling_->cUbSplitPara.TailCoreUbFactor *
-                                  sizeof(T);
+                Params.blockLen = static_cast<int64_t>(tiling_->rUbSplitPara.TailCoreUbFactor) *
+                                  tiling_->cUbSplitPara.TailCoreUbFactor * sizeof(T);
             } else {
                 Params.blockLen = (tiling_->RLen - (blockIdx_ * tiling_->rSplitPara.BlockFactor +
                                                     process * tiling_->rUbSplitPara.TailCoreUbFactor)) *
@@ -428,12 +428,12 @@ __aicore__ inline void TransposeTransTo5HD10<T>::SetRCSplitCopyOutParams(uint32_
     if (blockIdx_ < fullCoreNum) {
         if (process < loopCount - 1) {
             Params.blockCount = tiling_->cUbSplitPara.MainCoreUbFactor;
-            Params.blockLen = tiling_->rUbSplitPara.MainCoreUbFactor * sizeof(T);
+            Params.blockLen = static_cast<int64_t>(tiling_->rUbSplitPara.MainCoreUbFactor) * sizeof(T);
             Params.srcStride = 0;
             Params.dstStride = (tiling_->RLen - tiling_->rUbSplitPara.MainCoreUbFactor) * sizeof(T);
         } else {
             Params.blockCount = (tiling_->CLen - process * tiling_->cUbSplitPara.MainCoreUbFactor);
-            Params.blockLen = tiling_->rUbSplitPara.MainCoreTailUbFactor * sizeof(T);
+            Params.blockLen = static_cast<int64_t>(tiling_->rUbSplitPara.MainCoreTailUbFactor) * sizeof(T);
             Params.srcStride = 0;
             Params.dstStride = (tiling_->RLen - tiling_->rUbSplitPara.MainCoreTailUbFactor) * sizeof(T);
         }
@@ -458,19 +458,19 @@ __aicore__ inline void TransposeTransTo5HD10<T>::SetRSplitCopyOutParams(uint32_t
     if (blockIdx_ < fullCoreNum) {
         if (process < loopCount - 1) {
             Params.blockCount = tiling_->CLen;
-            Params.blockLen = tiling_->rUbSplitPara.MainCoreUbFactor * sizeof(T);
+            Params.blockLen = static_cast<int64_t>(tiling_->rUbSplitPara.MainCoreUbFactor) * sizeof(T);
             Params.srcStride = 0;
             Params.dstStride = (tiling_->RLen - tiling_->rUbSplitPara.MainCoreUbFactor) * sizeof(T);
         } else {
             Params.blockCount = tiling_->CLen;
-            Params.blockLen = tiling_->rUbSplitPara.MainCoreTailUbFactor * sizeof(T);
+            Params.blockLen = static_cast<int64_t>(tiling_->rUbSplitPara.MainCoreTailUbFactor) * sizeof(T);
             Params.srcStride = 0;
             Params.dstStride = (tiling_->RLen - tiling_->rUbSplitPara.MainCoreTailUbFactor) * sizeof(T);
         }
     } else {
         if (process < loopCount - 1) {
             Params.blockCount = tiling_->CLen;
-            Params.blockLen = tiling_->rUbSplitPara.TailCoreUbFactor * sizeof(T);
+            Params.blockLen = static_cast<int64_t>(tiling_->rUbSplitPara.TailCoreUbFactor) * sizeof(T);
             Params.srcStride = 0;
             Params.dstStride = (tiling_->RLen - tiling_->rUbSplitPara.TailCoreUbFactor) * sizeof(T);
         } else {
@@ -493,15 +493,15 @@ __aicore__ inline void TransposeTransTo5HD10<T>::SetCSplitCopyOutParams(uint32_t
         if (process < loopCount - 1) {
             Params.blockCount = (tiling_->RLen % TRANSELEM == 0) ? 1 : tiling_->cUbSplitPara.MainCoreUbFactor;
             Params.blockLen = (tiling_->RLen % TRANSELEM == 0) ?
-                                  tiling_->rUbSplitPara.MainCoreUbFactor * tiling_->cUbSplitPara.MainCoreUbFactor *
-                                      sizeof(T) :
+                                  static_cast<int64_t>(tiling_->rUbSplitPara.MainCoreUbFactor) *
+                                      tiling_->cUbSplitPara.MainCoreUbFactor * sizeof(T) :
                                   tiling_->RLen * sizeof(T);
             Params.srcStride = 0;
             Params.dstStride = 0;
         } else {
             Params.blockCount = (tiling_->RLen % TRANSELEM == 0) ? 1 : tiling_->cUbSplitPara.MainCoreTailUbFactor;
             Params.blockLen = (tiling_->RLen % TRANSELEM == 0) ?
-                                  tiling_->rUbSplitPara.MainCoreTailUbFactor *
+                                  static_cast<int64_t>(tiling_->rUbSplitPara.MainCoreTailUbFactor) *
                                       tiling_->cUbSplitPara.MainCoreTailUbFactor * sizeof(T) :
                                   tiling_->RLen * sizeof(T);
             Params.srcStride = 0;
@@ -511,8 +511,8 @@ __aicore__ inline void TransposeTransTo5HD10<T>::SetCSplitCopyOutParams(uint32_t
         if (process < loopCount - 1) {
             Params.blockCount = (tiling_->RLen % TRANSELEM == 0) ? 1 : tiling_->cUbSplitPara.TailCoreUbFactor;
             Params.blockLen = (tiling_->RLen % TRANSELEM == 0) ?
-                                  tiling_->rUbSplitPara.TailCoreUbFactor * tiling_->cUbSplitPara.TailCoreUbFactor *
-                                      sizeof(T) :
+                                  static_cast<int64_t>(tiling_->rUbSplitPara.TailCoreUbFactor) *
+                                      tiling_->cUbSplitPara.TailCoreUbFactor * sizeof(T) :
                                   tiling_->RLen * sizeof(T);
             Params.srcStride = 0;
             Params.dstStride = 0;
@@ -522,7 +522,7 @@ __aicore__ inline void TransposeTransTo5HD10<T>::SetCSplitCopyOutParams(uint32_t
                                     (tiling_->CLen - blockIdx_ * tiling_->cSplitPara.BlockFactor -
                                      process * tiling_->cUbSplitPara.TailCoreUbFactor);
             Params.blockLen = (tiling_->RLen % TRANSELEM == 0) ?
-                                  tiling_->rUbSplitPara.TailCoreTailUbFactor *
+                                  static_cast<int64_t>(tiling_->rUbSplitPara.TailCoreTailUbFactor) *
                                       (tiling_->CLen - blockIdx_ * tiling_->cSplitPara.BlockFactor -
                                        process * tiling_->cUbSplitPara.TailCoreUbFactor) *
                                       sizeof(T) :

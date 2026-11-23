@@ -13,6 +13,7 @@
  * \brief NDDMA_BIG_DIM(10005) 策略类
  *
  * 适用场景：dim>5，将多维 shape 压缩为 5 维 NDDMA 格式进行搬运，仅切输出侧一根轴。
+ * TilingData 使用紧凑 TransposeNddmaBigDimTilingData，仅下发 kernel 实际消费的字段。
  */
 
 #ifndef AIR_CXX_RUNTIME_V2_OP_IMPL_TRANSPOSE_TILING_STRATEGY_NDDMA_BIG_DIM_H
@@ -35,7 +36,7 @@ protected:
     TilingStatus DoExecute() override;
 
     uint32_t GetUsedCoreNum() const override { return static_cast<uint32_t>(realCoreNum_); }
-    uint64_t GetTilingKey() const override { return tilingKey_; }
+    uint64_t GetTilingKey() const override { return static_cast<uint64_t>(TK_NDDMA_BIG_DIM); }
 
     bool SetTilingData() override;
     void LogTilingData() override;
@@ -57,7 +58,6 @@ private:
     int64_t realCoreNum_ = 0;                    ///< 实际使用核数
     int64_t blkFactor_ = 0;                      ///< 分核：每核基础 block 数
     int64_t blkTailFactor_ = 0;                  ///< 分核：尾核额外 block 数
-    uint64_t tilingKey_ = 0;                     ///< 当前策略 tilingKey
     int64_t bigDimBufferNum_ = 1;                ///< NDDMA_BIG_DIM 缓冲数（默认单缓冲，DAV_9201/9202=2）
     int64_t totalNddmaNum_ = 1;                  ///< NDDMA 循环总次数
     int64_t baseInShape_[TP_MAX_AXIS_NUM] = {0}; ///< 基础输入 shape（地址基数）

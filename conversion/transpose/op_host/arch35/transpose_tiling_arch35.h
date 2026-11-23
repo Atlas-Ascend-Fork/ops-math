@@ -73,7 +73,7 @@ private:
 private:
     gert::TilingContext* tilingContext_ = nullptr;
 
-    ShapeInfo shapeInfo_;
+    ShapeInfo shapeInfo_{};
     int64_t coreNum_ = 0;
     int64_t ubSize_ = 0;
     int64_t cacheLineSize_ = 0;

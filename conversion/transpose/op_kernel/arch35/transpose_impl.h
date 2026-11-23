@@ -19,8 +19,9 @@
  *
  *   Transpose::TransposeImpl<DTYPE_X>(x, y, tiling);
  *
- * 支持的 TilingKey（见 transpose_tiling_key.h）：10000-10005，其中 10001(SIMT) 仅在
- * 支持 SIMT 的架构上编译。
+ * 支持的 TilingKey（见 transpose_tiling_key.h）：10000-10005、10014、10011 与 10012，其中
+ * 10001/10011/10012(SIMT) 仅在支持 SIMT 的架构上编译；均已迁移为普通/关联入口统一的精简
+ * TilingData：10000/10002/10003/10004/10005/10014/10001/10011/10012。
  */
 
 #ifndef TRANSPOSE_IMPL_H
@@ -32,9 +33,12 @@
 #include "transpose_nddma_cut_2.h"
 #ifdef __CCE_AICORE_SUPPORT_SIMT__
 #include "transpose_small_shape.h"
+#include "transpose_small_shape_23d.h"
+#include "transpose_small_shape_2d.h"
 #endif
 #include "transpose_nddma_big_dim.h"
 #include "transpose_n_last.h"
+#include "transpose_n_last_small.h"
 #include "transpose_tiling_key.h"
 
 namespace Transpose {
@@ -44,42 +48,80 @@ namespace Transpose {
  * @tparam T      数据类型（由 DTYPE_X 实例化，策略类均为按字节搬运，不感知具体数值类型）
  * @param x       输入张量 GM 地址
  * @param y       输出张量 GM 地址
- * @param tiling  Tiling 数据 GM 地址（内容为 TransposeOpTilingData）
+ * @param tiling  Tiling 数据 GM 地址（10000/10002/10003/10004/10005/10014/10001/10011 均为
+ *                普通/关联入口统一的精简结构）
  */
 template <typename T>
 __aicore__ inline void TransposeImpl(GM_ADDR x, GM_ADDR y, GM_ADDR tiling)
 {
     KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_AIV_ONLY); // 纯 Vector 核任务
-    REGISTER_TILING_DEFAULT(Transpose::TransposeOpTilingData);
-    GET_TILING_DATA_WITH_STRUCT(Transpose::TransposeOpTilingData, tilingData, tiling);
-    AscendC::TPipe pipe;
+    REGISTER_NONE_TILING;
 
-    if (TILING_KEY_IS(TK_TENSOR_MOVE)) {
+    if (TILING_KEY_IS(TK_TENSOR_MOVE)) { // 10000: 普通/关联入口统一紧凑 TilingData
+        GET_TILING_DATA_PTR_WITH_STRUCT(TransposeTensorMoveTilingData, data, tiling);
+        AscendC::InitSocState();
         TransposeTensorMove<T> op;
-        op.Init(x, y, &tilingData, &pipe);
+        op.Init(x, y, data);
         op.Process();
+        return;
 #ifdef __CCE_AICORE_SUPPORT_SIMT__
-    } else if (TILING_KEY_IS(TK_SMALL_SHAPE)) {
+    } else if (TILING_KEY_IS(TK_SMALL_SHAPE_2D)) { // 10012: 2D perm=[1,0] UB 4x4 SIMT
+        GET_TILING_DATA_PTR_WITH_STRUCT(TransposeSmallShape2DTilingData, tilingDataPtr, tiling);
+        AscendC::InitSocState();
+        TransposeSmallShape2D<T> op;
+        op.Init(x, y, tilingDataPtr);
+        op.Process();
+        return;
+    } else if (TILING_KEY_IS(TK_SMALL_SHAPE_23D)) { // 10011: 普通/关联入口统一二/三维 24B 精简 TilingData
+        GET_TILING_DATA_PTR_WITH_STRUCT(TransposeSmallShape23DTilingData, tilingDataPtr, tiling);
+        AscendC::InitSocState();
+        TransposeSmallShape23D<T> op;
+        op.Init(x, y, tilingDataPtr);
+        op.Process();
+        return;
+    } else if (TILING_KEY_IS(TK_SMALL_SHAPE)) { // 10001: 普通/关联入口统一 4-8D 精简 TilingData
+        GET_TILING_DATA_PTR_WITH_STRUCT(TransposeSmallShape48DTilingData, tilingDataPtr, tiling);
+        AscendC::InitSocState();
         TransposeSmallShape<T> op;
+        op.Init(x, y, tilingDataPtr);
+        op.Process();
+        return;
+#endif
+    } else if (TILING_KEY_IS(TK_NDDMA_CUT_1)) { // 10002: 普通/关联入口统一紧凑 TilingData
+        GET_TILING_DATA_WITH_STRUCT(TransposeNddmaCut1TilingData, tilingData, tiling);
+        AscendC::InitSocState();
+        TransposeNddmaCut1<T> op;
         op.Init(x, y, &tilingData);
         op.Process();
-#endif
-    } else if (TILING_KEY_IS(TK_NDDMA_CUT_1)) {
-        TransposeNddmaCut1<T> op;
-        op.Init(x, y, &tilingData, &pipe);
-        op.Process();
-    } else if (TILING_KEY_IS(TK_NDDMA_CUT_2)) {
+        return;
+    } else if (TILING_KEY_IS(TK_NDDMA_CUT_2)) { // 10003: 普通/关联入口统一紧凑 TilingData
+        GET_TILING_DATA_WITH_STRUCT(TransposeNddmaCut2TilingData, tilingData, tiling);
+        AscendC::InitSocState();
         TransposeNddmaCut2<T> op;
-        op.Init(x, y, &tilingData, &pipe);
+        op.Init(x, y, &tilingData);
         op.Process();
-    } else if (TILING_KEY_IS(TK_NDDMA_BIG_DIM)) {
+        return;
+    } else if (TILING_KEY_IS(TK_NDDMA_BIG_DIM)) { // 10005: 普通/关联入口统一紧凑 TilingData，静态 Tensor 无需 TPipe
+        GET_TILING_DATA_WITH_STRUCT(TransposeNddmaBigDimTilingData, tilingData, tiling);
+        AscendC::InitSocState();
         TransposeNddmaBigDim<T> op;
-        op.Init(x, y, &tilingData, &pipe);
+        op.Init(x, y, &tilingData);
         op.Process();
-    } else if (TILING_KEY_IS(TK_N_LAST)) {
+        return;
+    } else if (TILING_KEY_IS(TK_N_LAST)) { // 10004: 普通/关联入口统一紧凑 TilingData
+        GET_TILING_DATA_WITH_STRUCT(TransposeNLastTilingData, tilingData, tiling);
+        AscendC::InitSocState();
         TransposeNLast<T> op;
-        op.Init(x, y, &tilingData, &pipe);
+        op.Init(x, y, &tilingData);
         op.Process();
+        return;
+    } else if (TILING_KEY_IS(TK_N_LAST_SMALL)) { // 10014: 普通/关联入口统一紧凑 TilingData
+        GET_TILING_DATA_WITH_STRUCT(TransposeNLastSmallTilingData, tilingData, tiling);
+        AscendC::InitSocState();
+        TransposeNLastSmall op;
+        op.Init(x, y, &tilingData);
+        op.Process();
+        return;
     }
 }
 

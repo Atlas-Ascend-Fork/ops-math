@@ -36,7 +36,7 @@ protected:
     TilingStatus DoExecute() override;
 
     uint32_t GetUsedCoreNum() const override { return static_cast<uint32_t>(realCoreNum_); }
-    uint64_t GetTilingKey() const override { return tilingKey_; }
+    uint64_t GetTilingKey() const override { return static_cast<uint64_t>(TK_N_LAST); }
 
     bool SetTilingData() override;
     void LogTilingData() override;
@@ -45,7 +45,6 @@ private:
     void CalcUBSplitInfo();    ///< 双缓冲，ubElement = ubSize/2/eleBytes
     void CalcBlockSplitInfo(); ///< N_LAST 分核
     void CalcBlockSplitInfoForNLastTranspose();
-    void NDDMADimExpand(); ///< 5 维扩展（仅 dim<=5 调用）
     void SetRealCoreNumAndBlkFactor(int64_t coreNum);
     bool UbOutOfBoundCheckNLast(int64_t currentSplitIndex, int64_t currentSplitValue);
     void FindSplitFactorByRateNLast(int64_t currentSplitIndex, int64_t currentInShapeDim, int64_t remainingTotalElment);
@@ -57,19 +56,14 @@ private:
     // UB 切分结果
     int64_t ubElement_ = 1;    ///< UB 元素预算
     int64_t inUbElement_ = 1;  ///< 输入侧剩余预算
-    int64_t inUbActual_ = 1;   ///< 输入侧已吞入轴容量乘积
     int64_t inCutIndex_ = 0;   ///< 输入切分轴索引
     int64_t inUbFactor_ = 0;   ///< 输入主块切分因子
     int64_t inTailFactor_ = 0; ///< 输入尾块元素数
 
     // N_LAST 私有中间状态（仅本模板使用）
-    int64_t realCoreNum_ = 0;                                             ///< 实际使用核数
-    int64_t blkFactor_ = 0;                                               ///< 分核：每核基础 block 数
-    int64_t blkTailFactor_ = 0;                                           ///< 分核：尾核额外 block 数
-    uint64_t tilingKey_ = 0;                                              ///< 当前策略 tilingKey
-    int64_t expandedPerm_[TP_NDDMA_MAX_DIM_NUM] = {0, 1, 2, 3, 4};        ///< 5 维扩展 perm
-    int64_t expandedInputShape_[TP_NDDMA_MAX_DIM_NUM] = {1, 1, 1, 1, 1};  ///< 5 维扩展输入 shape
-    int64_t expandedOutputShape_[TP_NDDMA_MAX_DIM_NUM] = {1, 1, 1, 1, 1}; ///< 5 维扩展输出 shape
+    int64_t realCoreNum_ = 0;   ///< 实际使用核数
+    int64_t blkFactor_ = 0;     ///< 分核：每核基础 block 数
+    int64_t blkTailFactor_ = 0; ///< 分核：尾核额外 block 数
 };
 
 } // namespace optiling

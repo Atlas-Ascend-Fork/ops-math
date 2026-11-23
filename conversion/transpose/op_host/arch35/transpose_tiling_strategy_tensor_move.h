@@ -12,7 +12,11 @@
  * \file transpose_tiling_strategy_tensor_move.h
  * \brief TENSOR_MOVE(10000) 策略类
  *
- * 适用场景：退化为 1 维的纯数据搬运（无需处理转置轴）。
+ * 适用场景：dim==1 一维纯搬运（Permute 退化为 Copy）。
+ *
+ * IsSupport()：shapeInfo_.dim == 1。
+ * DoExecute()：动态主块划分，主块按 cache line 对齐，完整块在参与核间均分，
+ *   末核额外处理唯一尾块，普通/关联入口统一使用紧凑 TilingData（同布局）。
  */
 
 #ifndef AIR_CXX_RUNTIME_V2_OP_IMPL_TRANSPOSE_TILING_STRATEGY_TENSOR_MOVE_H
@@ -25,8 +29,7 @@ namespace optiling {
 /**
  * @brief TENSOR_MOVE(10000) 策略
  *
- * 1 维纯搬运：数据线性排布、无需处理转置。双缓冲流水线：
- * ubElement = ubSize/2/eleBytes（一半 CopyIn、一半 CopyOut）。
+ * 1 维纯搬运：数据线性排布、无需处理转置。统一紧凑 TilingData（普通/关联同布局）。
  */
 class TransposeTensorMoveStrategy : public TransposeTilingStrategy {
 public:
@@ -40,28 +43,18 @@ protected:
     TilingStatus DoExecute() override;
 
     uint32_t GetUsedCoreNum() const override { return static_cast<uint32_t>(realCoreNum_); }
-    uint64_t GetTilingKey() const override { return tilingKey_; }
+    uint64_t GetTilingKey() const override { return static_cast<uint64_t>(TK_TENSOR_MOVE); }
 
     bool SetTilingData() override;
     void LogTilingData() override;
 
 private:
-    void CalcUBSplitInfo();    ///< ubElement = ubSize/2/eleBytes（双缓冲）
-    void CalcBlockSplitInfo(); ///< 一维均分分核
-    void NDDMADimExpand();     ///< 5 维扩展（仅 dim<=5 调用）
-
-    // UB 切分结果
-    int64_t ubElement_ = 1;  ///< UB 元素预算
-    int64_t inUbFactor_ = 0; ///< 输入主块切分因子
-
-    // TENSOR_MOVE 私有中间状态（仅本模板使用）
-    int64_t realCoreNum_ = 0;                                             ///< 实际使用核数
-    int64_t blkFactor_ = 0;                                               ///< 分核：每核基础 block 数
-    int64_t blkTailFactor_ = 0;                                           ///< 分核：尾核额外 block 数
-    uint64_t tilingKey_ = 0;                                              ///< 当前策略 tilingKey
-    int64_t expandedPerm_[TP_NDDMA_MAX_DIM_NUM] = {0, 1, 2, 3, 4};        ///< 5 维扩展 perm
-    int64_t expandedInputShape_[TP_NDDMA_MAX_DIM_NUM] = {1, 1, 1, 1, 1};  ///< 5 维扩展输入 shape
-    int64_t expandedOutputShape_[TP_NDDMA_MAX_DIM_NUM] = {1, 1, 1, 1, 1}; ///< 5 维扩展输出 shape
+    // TENSOR_MOVE 私有中间状态（仅本策略使用），与 TilingData 字段一一对应
+    uint64_t mainBlocksPerCore_ = 0; ///< 每核基础完整主块数
+    uint32_t mainBlockElements_ = 0; ///< 单个主块元素数
+    uint32_t extraBlockCores_ = 0;   ///< 额外多分一个主块的核数
+    uint32_t tailElements_ = 0;      ///< 末核唯一尾块元素数
+    int64_t realCoreNum_ = 0;        ///< 实际使用核数（对应 TilingData.coreNum）
 };
 
 } // namespace optiling

@@ -33,7 +33,6 @@ bool TransposeNddmaBigDimStrategy::IsSupport() const { return shapeInfo_.dim > T
  */
 TilingStatus TransposeNddmaBigDimStrategy::DoExecute()
 {
-    tilingKey_ = TK_NDDMA_BIG_DIM;
     CalcUBSplitInfo();
     CalcBlockSplitInfoForBigDim();
     return TilingStatus::SUCCESS;
@@ -242,38 +241,40 @@ void TransposeNddmaBigDimStrategy::SetRealCoreNumAndBlkFactor(int64_t coreNum)
  */
 
 /**
- * @brief 填写 NDDMA_BIG_DIM 消费的注册 TilingData 字段
+ * @brief 填写 NDDMA_BIG_DIM 消费的紧凑 TilingData 字段
  *
- * kernel（transpose_nddma_big_dim.h）消费：ubSize / realCoreNum / blkFactor / blkTailFactor /
- * bigDimBufferNum / outCutIndex / outUbFactor / outTailFactor / permSize /
+ * kernel（transpose_nddma_big_dim.h）消费：ubBytes / bufferNum / realCoreNum / blkFactor /
+ * blkTailFactor / outCutIndex / outUbFactor / outTailFactor / permSize /
  * inputShape/outputShape/perm / baseInShape / baseNddmaShape / nddmaIdx / totalNddmaNum。
  */
 bool TransposeNddmaBigDimStrategy::SetTilingData()
 {
     OP_LOGD(context_->GetNodeName(), "Entering SetTilingData.");
-    TransposeOpTilingData* tilingData = GetTransposeOpTilingDataBuffer(context_);
-    if (tilingData == nullptr) {
+    auto* data = context_->GetTilingData<TransposeNddmaBigDimTilingData>();
+    if (data == nullptr) {
+        OP_LOGE(context_->GetNodeName(), "get tiling data failed, capacity is not enough!");
         return false;
     }
-    *tilingData = TransposeOpTilingData{};
-    tilingData->permSize = shapeInfo_.dim;
-    tilingData->outCutIndex = outCutIndex_;
-    tilingData->outUbFactor = outUbFactor_;
-    tilingData->outTailFactor = outTailFactor_;
-    tilingData->realCoreNum = realCoreNum_;
-    tilingData->blkFactor = blkFactor_;
-    tilingData->blkTailFactor = blkTailFactor_;
-    tilingData->ubSize = ubSize_;
-    tilingData->bigDimBufferNum = bigDimBufferNum_;
-    tilingData->totalNddmaNum = totalNddmaNum_;
+    *data = TransposeNddmaBigDimTilingData{};
+    data->permSize = static_cast<int8_t>(shapeInfo_.dim);
+    data->outCutIndex = static_cast<int8_t>(outCutIndex_);
+    data->outUbFactor = static_cast<uint32_t>(outUbFactor_);
+    data->outTailFactor = static_cast<uint32_t>(outTailFactor_);
+    data->blkFactor = blkFactor_;
+    data->blkTailFactor = blkTailFactor_;
+    data->ubBytes = static_cast<uint32_t>(ubSize_ / bigDimBufferNum_);
+    data->bufferNum = static_cast<uint32_t>(bigDimBufferNum_);
+    data->totalNddmaNum = totalNddmaNum_;
     for (int64_t i = 0; i < shapeInfo_.dim; i++) {
-        tilingData->inputShape[i] = shapeInfo_.reducedInShape[i];
-        tilingData->outputShape[i] = shapeInfo_.reducedOutShape[i];
-        tilingData->perm[i] = shapeInfo_.reducedPerm[i];
+        data->inputShape[i] = shapeInfo_.reducedInShape[i];
+        data->outputShape[i] = shapeInfo_.reducedOutShape[i];
+        data->perm[i] = static_cast<int8_t>(shapeInfo_.reducedPerm[i]);
     }
-    std::copy(baseInShape_, baseInShape_ + TP_MAX_AXIS_NUM, tilingData->baseInShape);
-    std::copy(baseNddmaShape_, baseNddmaShape_ + TP_NDDMA_MAX_DIM_NUM, tilingData->baseNddmaShape);
-    std::copy(nddmaIdx_, nddmaIdx_ + TP_NDDMA_MAX_DIM_NUM, tilingData->nddmaIdx);
+    std::copy(baseInShape_, baseInShape_ + TP_MAX_AXIS_NUM, data->baseInShape);
+    std::copy(baseNddmaShape_, baseNddmaShape_ + TP_NDDMA_MAX_DIM_NUM, data->baseNddmaShape);
+    for (int64_t i = 0; i < TP_NDDMA_MAX_DIM_NUM; i++) {
+        data->nddmaIdx[i] = static_cast<int8_t>(nddmaIdx_[i]);
+    }
     return true;
 }
 
@@ -290,10 +291,10 @@ void TransposeNddmaBigDimStrategy::LogTilingData()
     }
     OP_LOGI(context_->GetNodeName(),
             "tilingData is permSize:%ld, outCutIndex:%ld, outUbFactor:%ld, outTailFactor:%ld, realCoreNum:%ld, "
-            "blkFactor:%ld, blkTailFactor:%ld, ubSize:%ld, bigDimBufferNum:%ld, totalNddmaNum:%ld, "
+            "blkFactor:%ld, blkTailFactor:%ld, ubBytes:%ld, bufferNum:%ld, totalNddmaNum:%ld, "
             "Tiling4Transpose ends. ",
             shapeInfo_.dim, outCutIndex_, outUbFactor_, outTailFactor_, realCoreNum_, blkFactor_, blkTailFactor_,
-            ubSize_, bigDimBufferNum_, totalNddmaNum_);
+            ubSize_ / bigDimBufferNum_, bigDimBufferNum_, totalNddmaNum_);
 }
 
 } // namespace optiling

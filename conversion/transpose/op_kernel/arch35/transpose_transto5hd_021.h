@@ -119,29 +119,29 @@ __aicore__ inline void TransposeTransTo5HD021<T>::Init(GM_ADDR x, GM_ADDR y,
     dstGlobal.SetGlobalBuffer((__gm__ T*)y);
 
     if (tiling_->UseHSplit) {
-        fullCoreNum_ = tiling_->UsedCoreNum - 1;
+        fullCoreNum_ = static_cast<int64_t>(GetBlockNum()) - 1;
         if (blockIdx_ < fullCoreNum_) {
             hStart_ = blockIdx_ * tiling_->HPerCore;
             hCount_ = tiling_->HPerCore;
-        } else if (blockIdx_ < tiling_->UsedCoreNum) {
+        } else if (blockIdx_ < static_cast<int64_t>(GetBlockNum())) {
             hStart_ = fullCoreNum_ * tiling_->HPerCore;
             hCount_ = tiling_->HTailCore;
         }
         nStart_ = 0;
         nCount_ = tiling_->NLen;
     } else {
-        fullCoreNum_ = tiling_->UsedCoreNum - 1;
+        fullCoreNum_ = static_cast<int64_t>(GetBlockNum()) - 1;
         if (blockIdx_ < fullCoreNum_) {
             nStart_ = blockIdx_ * tiling_->NPerCore;
             nCount_ = tiling_->NPerCore;
-        } else if (blockIdx_ < tiling_->UsedCoreNum) {
+        } else if (blockIdx_ < static_cast<int64_t>(GetBlockNum())) {
             nStart_ = fullCoreNum_ * tiling_->NPerCore;
             nCount_ = tiling_->NTailCore;
         }
     }
 
-    pipe->InitBuffer(inQueueSrc, BUFFER_NUM, tiling_->AvailableUbSize);
-    pipe->InitBuffer(outQueueDst, BUFFER_NUM, tiling_->AvailableUbSize);
+    pipe->InitBuffer(inQueueSrc, BUFFER_NUM, static_cast<uint32_t>(tiling_->AvailableUbSize));
+    pipe->InitBuffer(outQueueDst, BUFFER_NUM, static_cast<uint32_t>(tiling_->AvailableUbSize));
 }
 
 template <typename T>
@@ -384,7 +384,8 @@ __aicore__ inline void TransposeTransTo5HD021<T>::CopyInWUnaligned(uint32_t actu
         copyInParams_.srcStride = 0;
         copyInParams_.dstStride = (tiling_->WAlignBlockElem - tiling_->WLen) * sizeof(T) / BLOCK_SIZE_BYTE;
     } else {
-        int32_t wOffset = ubLoop * tiling_->cUbSplitPara.UbAlignFactor * TRANSELEM_021;
+        int32_t wOffset = static_cast<int32_t>(static_cast<int64_t>(ubLoop) * tiling_->cUbSplitPara.UbAlignFactor *
+                                               TRANSELEM_021);
         int32_t validW = (tiling_->WLen - wOffset < c) ? tiling_->WLen - wOffset : c;
         copyInParams_.blockCount = actualValidRows;
         copyInParams_.blockLen = validW * sizeof(T);
@@ -444,7 +445,8 @@ template <typename T>
 __aicore__ inline void TransposeTransTo5HD021<T>::CopyOutUnaligned(uint32_t r, uint32_t c, uint32_t ubLoop)
 {
     if (tiling_->UseRConv) {
-        int32_t hOffset = ubLoop * tiling_->rUbSplitPara.UbAlignFactor * TRANSELEM_021;
+        int32_t hOffset = static_cast<int32_t>(static_cast<int64_t>(ubLoop) * tiling_->rUbSplitPara.UbAlignFactor *
+                                               TRANSELEM_021);
         uint32_t validLen = (tiling_->HLen - hOffset < r) ? tiling_->HLen - hOffset : r;
         uint32_t validCount = (tiling_->WLen < c) ? tiling_->WLen : c;
         copyOutParams_.blockCount = validCount;
@@ -453,7 +455,8 @@ __aicore__ inline void TransposeTransTo5HD021<T>::CopyOutUnaligned(uint32_t r, u
         copyOutParams_.dstStride = (tiling_->HLen - validLen) * sizeof(T);
     } else {
         uint32_t validLen = tiling_->HLen;
-        int32_t wOffset = ubLoop * tiling_->cUbSplitPara.UbAlignFactor * TRANSELEM_021;
+        int32_t wOffset = static_cast<int32_t>(static_cast<int64_t>(ubLoop) * tiling_->cUbSplitPara.UbAlignFactor *
+                                               TRANSELEM_021);
         uint32_t validCount = (tiling_->WLen - wOffset < c) ? tiling_->WLen - wOffset : c;
         copyOutParams_.blockCount = validCount;
         copyOutParams_.blockLen = validLen * sizeof(T);
@@ -533,7 +536,7 @@ __aicore__ inline void TransposeTransTo5HD021<T>::CopyOutHSplit(int64_t nIdx, ui
     LocalTensor<T> dstLocal = outQueueDst.DeQue<T>();
 
     int64_t nDstOffset = nIdx * tiling_->WLen * tiling_->HLen;
-    int64_t ubDstOffset = ubLoop * tiling_->cUbSplitPara.UbFactor * tiling_->HLen;
+    int64_t ubDstOffset = static_cast<int64_t>(ubLoop) * tiling_->cUbSplitPara.UbFactor * tiling_->HLen;
     int32_t validH = (tiling_->HLen - hStart_ < hCount_) ? tiling_->HLen - hStart_ : hCount_;
 
     int32_t validW = (tiling_->WLen - (ubLoop * tiling_->cUbSplitPara.UbFactor) < c) ?
@@ -571,7 +574,7 @@ __aicore__ inline void TransposeTransTo5HD021<T>::ProcessOneBatchHSplit(int64_t 
 template <typename T>
 __aicore__ inline void TransposeTransTo5HD021<T>::Process()
 {
-    if (blockIdx_ >= tiling_->UsedCoreNum) {
+    if (blockIdx_ >= static_cast<int64_t>(GetBlockNum())) {
         return;
     }
     if (tiling_->UseHSplit) {

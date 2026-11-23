@@ -1133,15 +1133,15 @@ void TransposeB4Strategy::PrepareShape()
     if (dim < 1) {
         return;
     }
-    inShape_.resize(dim);
-    outShape_.resize(dim);
+    std::vector<int64_t> inShape(dim);
+    std::vector<int64_t> outShape(dim);
     std::vector<int64_t> reducedPerm(dim);
     for (int32_t i = 0; i < dim; i++) {
-        inShape_[i] = shapeInfo_.reducedInShape[i];
+        inShape[i] = shapeInfo_.reducedInShape[i];
         reducedPerm[i] = shapeInfo_.reducedPerm[i];
-        outShape_[i] = shapeInfo_.reducedInShape[reducedPerm[i]];
+        outShape[i] = shapeInfo_.reducedInShape[reducedPerm[i]];
     }
-    seeker_.Init(inShape_, outShape_, reducedPerm, dim, context_, static_cast<int32_t>(ubBlockSize_));
+    seeker_.Init(inShape, outShape, reducedPerm, dim, context_, static_cast<int32_t>(ubBlockSize_));
 }
 
 // ---------------------------------------------------------------------------
@@ -1200,18 +1200,19 @@ bool TransposeB4Strategy::SetTilingData()
     std::copy(seeker_.ubInStride_, seeker_.ubInStride_ + TP_B4_UB_LEN, tilingData->ubInStride);
     std::copy(seeker_.ubOutStride_, seeker_.ubOutStride_ + TP_B4_UB_LEN, tilingData->ubOutStride);
     std::copy(seeker_.moveUbStride_, seeker_.moveUbStride_ + TP_B4_UB_LEN, tilingData->moveUbStride);
-    std::copy(seeker_.ubPerm_, seeker_.ubPerm_ + TP_B4_UB_LEN, tilingData->ubPerm);
-    std::copy(seeker_.ubShapeId_, seeker_.ubShapeId_ + TP_B4_UB_LEN, tilingData->ubShapeId);
-    tilingData->cutAxisIdx01 = seeker_.cutAxisIdx01_;
-    tilingData->cutAxisIdx02 = seeker_.cutAxisIdx02_;
+    for (int32_t i = 0; i < TP_B4_UB_LEN; i++) {
+        tilingData->ubPerm[i] = static_cast<int8_t>(seeker_.ubPerm_[i]);
+        tilingData->ubShapeId[i] = static_cast<int8_t>(seeker_.ubShapeId_[i]);
+    }
+    tilingData->cutAxisIdx01 = static_cast<int8_t>(seeker_.cutAxisIdx01_);
+    tilingData->cutAxisIdx02 = static_cast<int8_t>(seeker_.cutAxisIdx02_);
     tilingData->cutAxisTail01 = seeker_.cutAxisTail01_;
     tilingData->cutAxisTail02 = seeker_.cutAxisTail02_;
-    tilingData->outCutId = seeker_.outCutId_;
-    tilingData->inCutId = seeker_.inCutId_;
-    tilingData->outerAxisNums = seeker_.outerAxisNums_;
-    tilingData->innerAxisNums = seeker_.innerAxisNums_;
+    tilingData->outCutId = static_cast<int8_t>(seeker_.outCutId_);
+    tilingData->inCutId = static_cast<int8_t>(seeker_.inCutId_);
+    tilingData->outerAxisNums = static_cast<int8_t>(seeker_.outerAxisNums_);
+    tilingData->innerAxisNums = static_cast<int8_t>(seeker_.innerAxisNums_);
     tilingData->dimsPerCore = seeker_.dimsPerCore_;
-    tilingData->useCoreNum = seeker_.useCoreNum_;
     tilingData->dimsPerCoreTail = seeker_.dimsPerCoreTail_;
     int32_t ubSizePerBuf = (seeker_.ubSize_ / B4_HIF4_BUFFER_NUM) / ubBlockSize_ * ubBlockSize_;
     if (ubSizePerBuf <= 0) {
@@ -1220,10 +1221,10 @@ bool TransposeB4Strategy::SetTilingData()
     tilingData->ubSize = ubSizePerBuf;
 
     // Fill perm info for kernel
-    int32_t permSize = static_cast<int32_t>(shapeInfo_.dim);
-    tilingData->permSize = permSize;
+    const int32_t permSize = static_cast<int32_t>(shapeInfo_.dim);
+    tilingData->permSize = static_cast<int8_t>(permSize);
     for (int32_t i = 0; i < TP_MAX_AXIS_NUM; i++) {
-        tilingData->perm[i] = (i < permSize) ? shapeInfo_.reducedPerm[i] : 0;
+        tilingData->perm[i] = (i < permSize) ? static_cast<int8_t>(shapeInfo_.reducedPerm[i]) : 0;
     }
 
     return true;

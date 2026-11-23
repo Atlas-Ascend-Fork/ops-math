@@ -69,7 +69,7 @@ public:
     void Init(const std::vector<B4AxisInf>& axes, int32_t alignedFactor)
     {
         alignedFactor_ = alignedFactor;
-        initDimNums_ = static_cast<int32_t>(axes.size());
+        const int32_t dimNums = static_cast<int32_t>(axes.size());
         // The final axis of THIS view is the LAST element in the axes array.
         // For inputAxis_ it's the original final axis; for outputAxis_ it's
         // the axis that appears last in output order (perm[dimNums-1]).
@@ -80,7 +80,7 @@ public:
         cutIdx_ = -1;
         cutFinal_ = false;
         axisList_.clear();
-        for (int32_t i = 0; i < initDimNums_; i++) {
+        for (int32_t i = 0; i < dimNums; i++) {
             // Align ONLY the final axis of this view (DMA access boundary).
             if (axes[i].idx == finalAxisIdx_) {
                 int64_t alignedDim = ((axes[i].dim + alignedFactor_ - 1) / alignedFactor_) * alignedFactor_;
@@ -100,7 +100,6 @@ public:
     // Remove axes whose bitmask intersects setCode from axisList_
     void RemoveAxis(uint32_t setCode);
 
-    int32_t initDimNums_ = 0;
     int32_t alignedFactor_ = 32;
     int32_t finalAxisIdx_ = -1; // original idx of THIS view's final axis
     int32_t originFinalDim_ = 0;
@@ -108,9 +107,9 @@ public:
     uint32_t cutSet_ = 0;   // bitmask of the cut axis
     int32_t cutIdx_ = -1;   // index in axisList_ of the cut axis
     bool cutFinal_ = false; // true if the cut axis is the final axis
-    B4AxisInf innerCutAxis_;
-    B4AxisInf outerCutAxis_;
-    std::vector<B4AxisInf> axisList_;
+    B4AxisInf innerCutAxis_{};
+    B4AxisInf outerCutAxis_{};
+    std::vector<B4AxisInf> axisList_{};
 };
 
 // -----------------------------------------------------------------------
@@ -143,20 +142,20 @@ public:
 public:
     gert::TilingContext* context_ = nullptr;
 
-    std::vector<B4AxisInf> inputAxis_;  // axes in input order (for input view)
-    std::vector<B4AxisInf> outputAxis_; // axes in output order (for output view)
-    std::vector<B4AxisInf> gmAxis_;     // outer (multi-core) axes
-    std::vector<B4AxisInf> ubAxis_;     // inner (UB) axes
+    std::vector<B4AxisInf> inputAxis_{};  // axes in input order (for input view)
+    std::vector<B4AxisInf> outputAxis_{}; // axes in output order (for output view)
+    std::vector<B4AxisInf> gmAxis_{};     // outer (multi-core) axes
+    std::vector<B4AxisInf> ubAxis_{};     // inner (UB) axes
 
-    B4AxisCutter inputCutter_;
-    B4AxisCutter outputCutter_;
+    B4AxisCutter inputCutter_{};
+    B4AxisCutter outputCutter_{};
 
     int32_t alignedFactor_ = B4_HIF4_ALIGN_ELEMENTS; // 64 HIF4 elements
     int32_t dimNums_ = 0;
 
     // Original shapes for stride calculation
-    std::vector<int64_t> outShape_;
-    std::vector<int64_t> perm_;
+    std::vector<int64_t> outShape_{};
+    std::vector<int64_t> perm_{};
 
     // Tiling data arrays (written by GenTilingData, read by FillTilingData)
     int32_t gmShape_[TP_B4_GM_LEN] = {1, 1, 1, 1, 1, 1, 1, 1};
@@ -279,9 +278,7 @@ private:
     void PrepareShape();
     ge::graphStatus RunDualCut();
 
-    std::vector<int64_t> inShape_;  // reduced input shape (element view)
-    std::vector<int64_t> outShape_; // reduced output shape (element view)
-    B4DualCutAxisSeeker seeker_;    // 双切分搜索器（原内部类）
+    B4DualCutAxisSeeker seeker_{}; // 双切分搜索器（原内部类）
 };
 
 } // namespace optiling

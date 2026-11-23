@@ -112,12 +112,46 @@ TEST(TransposeTransTo5HD10Strategy, direct_success_unreachable_by_e2e)
     ASSERT_TRUE(strategy.IsSupport());
     EXPECT_EQ(strategy.Execute(), TilingStatus::SUCCESS);
     EXPECT_EQ(bundle.context->GetTilingKey(), static_cast<uint64_t>(TK_TRANSTO5HD_10));
-    EXPECT_GT(bundle.context->GetBlockDim(), 0U);
+    EXPECT_EQ(bundle.context->GetBlockDim(), 1);
     const auto* data = GetTilingData<TransposeTransTo5HD10TilingData>(bundle.context);
     ASSERT_NE(data, nullptr);
-    ASSERT_NE(data, nullptr);
-    EXPECT_GT(data->UsedCoreNum, 0);
-    EXPECT_GT(data->AvailableUbSize, 0);
+    EXPECT_EQ(data->AvailableUbSize, 63488);
     EXPECT_EQ(data->RLen, 16);
     EXPECT_EQ(data->CLen, 8);
+}
+
+/* ============================================================================
+ * TRANSTO5HD_10(10007)：DAV_5102 16bit 2D，超 uint32 行数 + UB 占用
+ * ========================================================================== */
+TEST(TransposeTransTo5HD10Strategy, transto5hd_10_large_shape_and_ub_budget)
+{
+    auto compileInfo = MakeCompilerInfo();
+    auto para = MakeDummyPara(compileInfo);
+    const int64_t arch = static_cast<int64_t>(Ops::Base::DAV_5102);
+    const int64_t eleLen = 2;
+
+    // 边界：shape[0]>5 才命中（16bit、perm=[1,0]、DAV_5102）
+    auto boundaryBundle = BuildTilingContext(para);
+    ShapeInfo r5 = MakeShape({5, 8}, {1, 0}, eleLen);
+    optiling::TransposeTransTo5HD10Strategy r5Strategy(boundaryBundle.context, MakePlatformInfo(arch), MakeOpParam(r5));
+    EXPECT_FALSE(r5Strategy.IsSupport());
+    ShapeInfo r6 = MakeShape({6, 8}, {1, 0}, eleLen);
+    optiling::TransposeTransTo5HD10Strategy r6Strategy(boundaryBundle.context, MakePlatformInfo(arch), MakeOpParam(r6));
+    EXPECT_TRUE(r6Strategy.IsSupport());
+
+    // 超大：RLen > uint32，CLen 保持可整块入 UB。
+    auto bundle = BuildTilingContext(para);
+    ShapeInfo si = MakeShape({kHugeDim, 64}, {1, 0}, eleLen);
+    optiling::TransposeTransTo5HD10Strategy strategy(bundle.context, MakePlatformInfo(arch), MakeOpParam(si));
+    ASSERT_TRUE(strategy.IsSupport());
+    ASSERT_EQ(strategy.Execute(), TilingStatus::SUCCESS);
+    const auto* data = GetTilingData<TransposeTransTo5HD10TilingData>(bundle.context);
+    ASSERT_NE(data, nullptr);
+    EXPECT_EQ(data->RLen, kHugeDim);
+    EXPECT_EQ(data->CLen, 64);
+    EXPECT_GT(data->RLen, static_cast<int64_t>(kUint32Max));
+    EXPECT_GT(data->AvailableUbSize, 0);
+
+    // kernel：输入/输出各 2 个 buffer，每个 AvailableUbSize。
+    EXPECT_LE(static_cast<int64_t>(data->AvailableUbSize) * 4, kUbSize);
 }

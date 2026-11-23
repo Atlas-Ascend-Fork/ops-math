@@ -51,7 +51,8 @@ constexpr int64_t NDDMA_BUFFER_NUM = 1;
 /**
  * @brief Transpose 算子 Kernel 侧基类
  *
- * 所有 9 种转置策略类（TransposeTensorMove、TransposeSmallShape 等）均继承此基类。
+ * 需要 NDDMA 5维参数逆序的转置策略类（TransposeSmallShape 等）继承此基类；
+ * TransposeTensorMove 使用静态 Tensor 双缓冲，不依赖基类工具。
  * 基类仅提供 reverseArray 工具方法，用于将 NDDMA 5维参数数组逆序排列。
  * NDDMA 硬件要求 loopSize/loopSrcStride/loopDstStride 以逆序排列（dim4→dim0），
  * 而 Host 侧 Tiling 计算以正序（dim0→dim4）生成，因此需要 Kernel 侧逆序。

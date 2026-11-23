@@ -90,7 +90,7 @@ __aicore__ inline void TransposeTransTo5HD10Perf<T>::Init(
     tiling_ = tilingData;
     m_ = tiling_->m;
     n_ = tiling_->n;
-    coreNum_ = tiling_->coreNum;
+    coreNum_ = static_cast<int32_t>(GetBlockNum());
     tileM_ = tiling_->tileM;
     tileN_ = tiling_->tileN;
     // 窄列且列宽为奇数个 32B block 时无需源侧 padding 即可避免 bank 冲突,

@@ -18,10 +18,10 @@
  *   Gather 根据预计算的索引数组从 UB 中按任意跨步读取数据，
  *   实现尾轴转置。索引数组在 Init 阶段预生成，最多4组覆盖4种 main/tail 组合。
  *
- * Buffer 规划：
- *   - xInQue_：输入 Queue（双缓冲），存放 CopyIn 的数据
- *   - xOutQue_：输出 Queue（双缓冲），存放 Gather 后的数据
- *   - idxBuf_：Gather 索引缓冲，存放预计算的4组索引
+ * Buffer 规划（静态 Tensor，不使用 TPipe/TQue，Mutex 做流水同步）：
+ *   - xInLocal_[2]：输入静态双缓冲，存放 CopyIn 的数据
+ *   - xOutLocal_[2]：输出静态双缓冲，存放 Gather 后的数据
+ *   - idxLocal_：Gather 索引缓冲，存放预计算的4组索引
  *
  * Gather 索引生成算法：
  *   支持1/2/3维索引（GenIndex4OneDim / GenIndex4TwoDim / GenIndex4ThreeDim）
@@ -78,7 +78,7 @@ template <typename T>
 class TransposeGather {
 public:
     __aicore__ inline TransposeGather(){};
-    __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, const TransposeGatherTilingData* tilingData, TPipe* pipe);
+    __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, const TransposeGatherTilingData* tilingData);
     __aicore__ inline void Process();
 
 private:
@@ -94,19 +94,16 @@ private:
     __aicore__ inline void GenGatherIndex4AllPhase();
     __aicore__ inline void CalcBlkAddr(int64_t idx);
     __aicore__ inline void SetCopyInParams();
-    __aicore__ inline void CopyDataIn();
+    __aicore__ inline void CopyDataIn(uint32_t bufId);
     __aicore__ inline void GetOutLoopAxes();
     __aicore__ inline void SetCopyOutParams();
-    __aicore__ inline void CopyDataOut();
+    __aicore__ inline void CopyDataOut(uint32_t bufId);
     __aicore__ inline void UpdateUbAxes(int64_t blkLpIdx);
-    __aicore__ inline void GatherData();
+    __aicore__ inline void GatherData(uint32_t bufId);
 
 private:
     int64_t blockIdx_ = 0;
     const TransposeGatherTilingData* td_ = nullptr;
-    TQue<QuePosition::VECIN, 1> xInQue_;
-    TQue<QuePosition::VECOUT, 1> xOutQue_;
-    TBuf<QuePosition::VECCALC> idxBuf_;
     GlobalTensor<T> xGM_;
     GlobalTensor<T> yGM_;
 
@@ -136,7 +133,10 @@ private:
     uint32_t vlSize_ = static_cast<uint32_t>(Ops::Base::GetVRegSize() / sizeof(CastType_)); ///< 向量寄存器元素数
     uint32_t idxVLSize_ = static_cast<uint32_t>(Ops::Base::GetVRegSize() /
                                                 sizeof(RangeType_)); ///< 索引向量寄存器元素数
-    LocalTensor<RangeType_> idxLocal_;                               ///< Gather 索引的 Local Tensor
+    // 静态 Tensor：输入/输出各双缓冲 + Gather 索引缓冲；不使用 TPipe/TQue。
+    LocalTensor<T> xInLocal_[BUFFER_NUM];  ///< 输入静态双缓冲
+    LocalTensor<T> xOutLocal_[BUFFER_NUM]; ///< 输出静态双缓冲
+    LocalTensor<RangeType_> idxLocal_;     ///< Gather 索引的 Local Tensor
     int32_t gElemPerBlock_ = static_cast<int32_t>(BLOCK_SIZE_BYTE / sizeof(RangeType_)); ///< 索引每 Block 元素数
     int32_t elemPerBlock_ = static_cast<int32_t>(BLOCK_SIZE_BYTE / sizeof(T));           ///< 数据每 Block 元素数
     int32_t gIdxOffset_ = 0; ///< 每组 Gather 索引的偏移量（字节数）
@@ -156,16 +156,19 @@ private:
 };
 
 template <typename T>
-__aicore__ inline void TransposeGather<T>::Init(GM_ADDR x, GM_ADDR y, const TransposeGatherTilingData* tilingData,
-                                                TPipe* pipe)
+__aicore__ inline void TransposeGather<T>::Init(GM_ADDR x, GM_ADDR y, const TransposeGatherTilingData* tilingData)
 {
     blockIdx_ = GetBlockIdx();
     td_ = tilingData;
 
-    pipe->InitBuffer(xInQue_, BUFFER_NUM, td_->dataTensorSize);
-    pipe->InitBuffer(xOutQue_, BUFFER_NUM, td_->dataTensorSize);
-    pipe->InitBuffer(idxBuf_, td_->indexTensorSize);
-    idxLocal_ = idxBuf_.Get<RangeType_>();
+    // 静态 UB 布局：in0 | in1 | out0 | out1 | index（各段按 ubBlockSize 块对齐）
+    const uint32_t dataSize = td_->dataTensorSize;
+    for (uint32_t i = 0; i < BUFFER_NUM; ++i) {
+        xInLocal_[i] = LocalTensor<T>(TPosition::VECIN, i * dataSize, dataSize / sizeof(T));
+        xOutLocal_[i] = LocalTensor<T>(TPosition::VECOUT, (BUFFER_NUM + i) * dataSize, dataSize / sizeof(T));
+    }
+    idxLocal_ = LocalTensor<RangeType_>(TPosition::VECCALC, BUFFER_NUM * 2 * dataSize,
+                                        td_->indexTensorSize / sizeof(RangeType_));
 
     xGM_.SetGlobalBuffer((__gm__ T*)x);
     yGM_.SetGlobalBuffer((__gm__ T*)y);
@@ -174,19 +177,20 @@ __aicore__ inline void TransposeGather<T>::Init(GM_ADDR x, GM_ADDR y, const Tran
 template <typename T>
 __aicore__ inline void TransposeGather<T>::Process()
 {
-    if (blockIdx_ >= td_->usedCoreCnt) {
+    if (blockIdx_ >= static_cast<int64_t>(GetBlockNum())) {
         return;
     }
     GetCoreLoopRange();
     InitAxes();
     GenGatherIndex4AllPhase();
     for (int64_t blkLpIdx = blkBeg_; blkLpIdx < blkEnd_; ++blkLpIdx) {
+        const uint32_t bufId = static_cast<uint32_t>(blkLpIdx - blkBeg_) & 1U;
         CalcBlkAddr(blkLpIdx);
         UpdateUbAxes(blkLpIdx);
-        CopyDataIn();
+        CopyDataIn(bufId);
         GetOutLoopAxes();
-        GatherData();
-        CopyDataOut();
+        GatherData(bufId);
+        CopyDataOut(bufId);
     }
 }
 
@@ -194,7 +198,7 @@ template <typename T>
 __aicore__ inline void TransposeGather<T>::GetCoreLoopRange()
 {
     blkBeg_ = blockIdx_ * td_->blkFactor;
-    if (blockIdx_ != td_->usedCoreCnt - 1) {
+    if (blockIdx_ != static_cast<int64_t>(GetBlockNum()) - 1) {
         blkEnd_ = blkBeg_ + td_->blkFactor;
     } else {
         blkEnd_ = blkBeg_ + td_->blkTailFactor;
@@ -323,7 +327,7 @@ __aicore__ inline int64_t TransposeGather<T>::CalcBlkAxesOffset(int8_t begIdx)
  * 5. 8bit 类型特殊处理：使用 DIST_PACK_B16 存储模式
  */
 template <typename T>
-__aicore__ inline void TransposeGather<T>::GatherData()
+__aicore__ inline void TransposeGather<T>::GatherData(uint32_t bufId)
 {
     uint32_t outLen = static_cast<uint32_t>(CalcUbAxesOutOffset(td_->outUbOutCutPos - 1));
     uint32_t outLenAlign = Ops::Base::CeilAlign(outLen, static_cast<uint32_t>(elemPerBlock_));
@@ -333,13 +337,19 @@ __aicore__ inline void TransposeGather<T>::GatherData()
         maskValue *= sizeof(int16_t);
     }
 
-    auto xInLocal = xInQue_.DeQue<T>();
-    auto xOutLocal = xOutQue_.AllocTensor<T>();
+    LocalTensor<T> xInLocal = xInLocal_[bufId];
+    LocalTensor<T> xOutLocal = xOutLocal_[bufId];
     __ubuf__ T* xInAddr = (__ubuf__ T*)xInLocal.GetPhyAddr();
     __ubuf__ T* xOutAddr = (__ubuf__ T*)xOutLocal.GetPhyAddr();
     __ubuf__ RangeType_* idxAddr = (__ubuf__ RangeType_*)idxLocal_.GetPhyAddr();
     idxAddr += static_cast<uint32_t>(gIndexId_ * gIdxOffset_);
 
+    // V 转置：mIn 门控本轮搬入完成（buf 复用由 MTE2/V 同一 mutex 保证），
+    // mOut 门控外输出缓冲空闲（上一轮 MTE3 已搬出归还）。
+    const MutexID mIn = static_cast<MutexID>(bufId);
+    const MutexID mOut = static_cast<MutexID>(BUFFER_NUM + bufId);
+    Mutex::Lock<PIPE_V>(mIn);
+    Mutex::Lock<PIPE_V>(mOut);
     __VEC_SCOPE__
     {
         RegTensor<T> xReg;
@@ -375,8 +385,8 @@ __aicore__ inline void TransposeGather<T>::GatherData()
             }
         }
     }
-    xInQue_.FreeTensor(xInLocal);
-    xOutQue_.EnQue(xOutLocal);
+    Mutex::Unlock<PIPE_V>(mIn);  // 输入缓冲读完即归还，MTE2(i+2) 可继续搬入
+    Mutex::Unlock<PIPE_V>(mOut); // 输出缓冲写完，MTE3(i) 可搬出
 }
 
 template <typename T>
@@ -682,11 +692,14 @@ __aicore__ inline void TransposeGather<T>::SetCopyInParams()
 }
 
 template <typename T>
-__aicore__ inline void TransposeGather<T>::CopyDataIn()
+__aicore__ inline void TransposeGather<T>::CopyDataIn(uint32_t bufId)
 {
     SetCopyInParams();
     DataCopyPadExtParams<T> padParams{false, 0, 0, 0};
-    auto xInLocal = xInQue_.AllocTensor<T>();
+    LocalTensor<T> xInLocal = xInLocal_[bufId];
+    const MutexID mIn = static_cast<MutexID>(bufId);
+    // mIn 门控 inbuf 复用：上一轮读者 V(i-2) 已归还才可重新搬入
+    Mutex::Lock<PIPE_MTE2>(mIn);
     SetLoopModePara(lpModeInParams_, DataCopyMVType::OUT_TO_UB);
 #if defined(__DAV_920R1__) || defined(__DAV_920R2__)
     DataCopyPad<T, PaddingMode::Compact>(xInLocal, xGM_[blkInAddr_], copyInParams_, padParams, true);
@@ -694,7 +707,7 @@ __aicore__ inline void TransposeGather<T>::CopyDataIn()
     DataCopyPad<T, PaddingMode::Compact>(xInLocal, xGM_[blkInAddr_], copyInParams_, padParams);
 #endif
     ResetLoopModePara(DataCopyMVType::OUT_TO_UB);
-    xInQue_.EnQue(xInLocal);
+    Mutex::Unlock<PIPE_MTE2>(mIn);
 }
 
 template <typename T>
@@ -736,14 +749,17 @@ __aicore__ inline void TransposeGather<T>::SetCopyOutParams()
 }
 
 template <typename T>
-__aicore__ inline void TransposeGather<T>::CopyDataOut()
+__aicore__ inline void TransposeGather<T>::CopyDataOut(uint32_t bufId)
 {
     SetCopyOutParams();
-    auto xOutLocal = xOutQue_.DeQue<T>();
+    LocalTensor<T> xOutLocal = xOutLocal_[bufId];
+    const MutexID mOut = static_cast<MutexID>(BUFFER_NUM + bufId);
+    // mOut 门控数据就绪与 outbuf 复用：V(i) 写完才可搬出，搬出完 V(i+2) 才可再写
+    Mutex::Lock<PIPE_MTE3>(mOut);
     SetLoopModePara(lpModeOutParams_, DataCopyMVType::UB_TO_OUT);
     DataCopyPad(yGM_[blkOutAddr_], xOutLocal, copyOutParams_);
     ResetLoopModePara(DataCopyMVType::UB_TO_OUT);
-    xOutQue_.FreeTensor(xOutLocal);
+    Mutex::Unlock<PIPE_MTE3>(mOut);
 }
 
 } // namespace Transpose

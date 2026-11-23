@@ -46,26 +46,12 @@ bool TransposeNLastStrategy::IsSupport() const
 
 TilingStatus TransposeNLastStrategy::DoExecute()
 {
-    tilingKey_ = TK_N_LAST;
     CalcUBSplitInfo();
     CalcBlockSplitInfo();
-    if (shapeInfo_.dim <= TP_NDDMA_MAX_DIM_NUM) {
-        NDDMADimExpand();
-    }
     return TilingStatus::SUCCESS;
 }
 
 void TransposeNLastStrategy::CalcBlockSplitInfo() { CalcBlockSplitInfoForNLastTranspose(); }
-
-void TransposeNLastStrategy::NDDMADimExpand()
-{
-    int64_t offset = (shapeInfo_.dim < TP_NDDMA_MAX_DIM_NUM) ? (TP_NDDMA_MAX_DIM_NUM - shapeInfo_.dim) : 0;
-    for (int64_t i = 0; i < shapeInfo_.dim; i++) {
-        expandedPerm_[i + offset] = shapeInfo_.reducedPerm[i] + offset;
-        expandedInputShape_[i + offset] = shapeInfo_.reducedInShape[i];
-        expandedOutputShape_[i + offset] = shapeInfo_.reducedOutShape[i];
-    }
-}
 
 /**
  * @brief N_LAST UB 切分：双缓冲，ubElement = ubSize/2/eleBytes
@@ -178,7 +164,6 @@ void TransposeNLastStrategy::FindSplitFactorByRateNLast(int64_t currentSplitInde
         if ((rate >= N_LAST_VEC_CORE_USED_THRES_HOLD) && !UbOutOfBoundCheckNLast(currentSplitIndex, i)) {
             inUbFactor_ = i;
             inTailFactor_ = currentInShapeDim % i;
-            inUbActual_ *= i;
             break;
         }
     }
@@ -197,7 +182,6 @@ void TransposeNLastStrategy::FindSplitFactorByMultiplesNLast(int64_t currentSpli
         if (!UbOutOfBoundCheckNLast(currentSplitIndex, i)) {
             inUbFactor_ = i;
             inTailFactor_ = currentInShapeDim % i;
-            inUbActual_ *= i;
             break;
         }
     }
@@ -209,7 +193,6 @@ void TransposeNLastStrategy::FindSplitFactorByMultiplesNLast(int64_t currentSpli
             !UbOutOfBoundCheckNLast(currentSplitIndex, i)) {
             inUbFactor_ = i;
             inTailFactor_ = currentInShapeDim % i;
-            inUbActual_ = inUbActual_ / inUbElement_ * i;
             break;
         }
     }
@@ -259,7 +242,7 @@ void TransposeNLastStrategy::SetRealCoreNumAndBlkFactor(int64_t coreNum)
 }
 
 /**
- * @brief 填写 N_LAST 消费的注册 TilingData 字段
+ * @brief 填写 N_LAST(10004) 消费的紧凑 TilingData 字段
  *
  * kernel（transpose_n_last.h）消费：ubSize / realCoreNum / blkFactor / blkTailFactor /
  * inCutIndex / inTailFactor / inUbFactor / permSize + inputShape/perm。
@@ -267,30 +250,23 @@ void TransposeNLastStrategy::SetRealCoreNumAndBlkFactor(int64_t coreNum)
 bool TransposeNLastStrategy::SetTilingData()
 {
     OP_LOGD(context_->GetNodeName(), "Entering SetTilingData.");
-    TransposeOpTilingData* tilingData = GetTransposeOpTilingDataBuffer(context_);
+    auto* tilingData = context_->GetTilingData<Transpose::TransposeNLastTilingData>();
     if (tilingData == nullptr) {
+        OP_LOGE(context_->GetNodeName(), "get tiling data failed, capacity is not enough!");
         return false;
     }
-    *tilingData = TransposeOpTilingData{};
-    tilingData->permSize = shapeInfo_.dim;
-    tilingData->inCutIndex = inCutIndex_;
-    tilingData->inTailFactor = inTailFactor_;
-    tilingData->inUbFactor = inUbFactor_;
-    tilingData->realCoreNum = realCoreNum_;
+    *tilingData = Transpose::TransposeNLastTilingData{};
+    tilingData->permSize = static_cast<int8_t>(shapeInfo_.dim);
+    tilingData->inCutIndex = static_cast<int8_t>(inCutIndex_);
+    tilingData->inTailFactor = static_cast<int32_t>(inTailFactor_);
+    tilingData->inUbFactor = static_cast<int32_t>(inUbFactor_);
     tilingData->blkFactor = blkFactor_;
     tilingData->blkTailFactor = blkTailFactor_;
-    tilingData->ubSize = ubSize_;
-    tilingData->bigDimBufferNum = 1;
-    tilingData->totalNddmaNum = 1;
-    tilingData->nddmaIdx[0] = -1;
+    tilingData->ubSize = static_cast<int32_t>(ubSize_);
     for (int64_t i = 0; i < shapeInfo_.dim; i++) {
         tilingData->inputShape[i] = shapeInfo_.reducedInShape[i];
-        tilingData->outputShape[i] = shapeInfo_.reducedOutShape[i];
-        tilingData->perm[i] = shapeInfo_.reducedPerm[i];
+        tilingData->perm[i] = static_cast<int8_t>(shapeInfo_.reducedPerm[i]);
     }
-    std::copy(expandedPerm_, expandedPerm_ + TP_NDDMA_MAX_DIM_NUM, tilingData->expandedPerm);
-    std::copy(expandedInputShape_, expandedInputShape_ + TP_NDDMA_MAX_DIM_NUM, tilingData->expandedInputShape);
-    std::copy(expandedOutputShape_, expandedOutputShape_ + TP_NDDMA_MAX_DIM_NUM, tilingData->expandedOutputShape);
     return true;
 }
 

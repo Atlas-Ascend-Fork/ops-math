@@ -12,7 +12,8 @@
  * \file transpose_tiling_strategy_nddma.cpp
  * \brief NDDMA 策略类实现（NDDMA_CUT_1(10002)/NDDMA_CUT_2(10003) 共用）
  *
- * 实现 NDDMA 单/双轴切分的切轴判定、分核、UB 内 shape 与区间边界计算。
+ * 实现 NDDMA 单/双轴切分的切轴判定、分核、UB 内 shape 与区间边界计算；
+ * 普通/关联入口分别写入 TransposeNddmaCut1/Cut2TilingData 紧凑结构。
  */
 
 #include "transpose_tiling_strategy_nddma.h"
@@ -200,12 +201,10 @@ void TransposeNddmaStrategy::DoSplitUBOutputScan(int64_t remainingTotalElment)
                 splitInfo_.outCutIndex = currentSplitIndex;
                 splitInfo_.outUbFactor = splitInfo_.outUbElement;
                 splitInfo_.outTailFactor = currentShapeDim % splitInfo_.outUbElement;
-                splitInfo_.outUbActual *= splitInfo_.outUbElement;
             }
             break;
         } else {
             splitInfo_.outUbElement /= currentShapeDim;
-            splitInfo_.outUbActual *= currentShapeDim;
             splitInfo_.outCutIndex = currentSplitIndex;
             splitInfo_.outUbFactor = currentShapeDim;
         }
@@ -285,7 +284,6 @@ void TransposeNddmaStrategy::FindSplitFactorByMultiplesLast(int64_t currentSplit
             !UbOutOfBoundCheck(currentSplitIndex, i, true)) {
             splitInfo_.outUbFactor = i;
             splitInfo_.outTailFactor = currentInShapeDim % i;
-            splitInfo_.outUbActual *= i;
             return;
         }
         if (!UbOutOfBoundCheck(currentSplitIndex, i, true)) {
@@ -294,7 +292,6 @@ void TransposeNddmaStrategy::FindSplitFactorByMultiplesLast(int64_t currentSplit
     }
     splitInfo_.outUbFactor = bestI;
     splitInfo_.outTailFactor = currentInShapeDim % bestI;
-    splitInfo_.outUbActual *= bestI;
 }
 /**
  * @brief NDDMA_CUT_1 分核逻辑
@@ -664,62 +661,82 @@ void TransposeNddmaStrategy::GetIntervalInfoForCutTwice()
     }
 }
 
-/**
- * @brief 填写 NDDMA_CUT_1/NDDMA_CUT_2 消费的注册 TilingData 字段
- *
- * kernel（transpose_nddma_cut_1.h / transpose_nddma_cut_2.h）消费：
- * permSize / inCutIndex / outCutIndex / inUbFactor / outUbFactor / inTailFactor /
- * outTailFactor / realCoreNum / blkFactor / blkTailFactor / ubSize / totalNddmaNum /
- * range* / expanded* / inUb*。
- */
 bool TransposeNddmaStrategy::SetTilingData()
 {
     OP_LOGD(context_->GetNodeName(), "Entering SetTilingData.");
-    TransposeOpTilingData* tilingData = GetTransposeOpTilingDataBuffer(context_);
-    if (tilingData == nullptr) {
-        return false;
+    if (tilingKey_ == TK_NDDMA_CUT_1) {
+        auto* tilingData = context_->GetTilingData<Transpose::TransposeNddmaCut1TilingData>();
+        if (tilingData == nullptr) {
+            OP_LOGE(context_->GetNodeName(), "get cut once tiling data failed, capacity is not enough!");
+            return false;
+        }
+        *tilingData = Transpose::TransposeNddmaCut1TilingData{};
+        tilingData->permSize = static_cast<int8_t>(shapeInfo_.dim);
+        tilingData->outCutIndex = static_cast<int8_t>(splitInfo_.outCutIndex);
+        tilingData->outUbFactor = static_cast<int32_t>(splitInfo_.outUbFactor);
+        tilingData->outTailFactor = static_cast<int32_t>(splitInfo_.outTailFactor);
+        tilingData->blkFactor = blkFactor_;
+        tilingData->blkTailFactor = blkTailFactor_;
+        tilingData->ubSize = static_cast<int32_t>(ubSize_);
+        for (int64_t i = 0; i < TP_NDDMA_MAX_DIM_NUM; i++) {
+            tilingData->expandedPerm[i] = static_cast<int8_t>(expandedPerm_[i]);
+        }
+        std::copy(expandedInputShape_, expandedInputShape_ + TP_NDDMA_MAX_DIM_NUM, tilingData->expandedInputShape);
+        std::copy(expandedOutputShape_, expandedOutputShape_ + TP_NDDMA_MAX_DIM_NUM, tilingData->expandedOutputShape);
+        std::copy(inUbMainSrcShape_, inUbMainSrcShape_ + TP_NDDMA_MAX_DIM_NUM, tilingData->inUbMainSrcShape);
+        std::copy(inUbMainDstShape_, inUbMainDstShape_ + TP_NDDMA_MAX_DIM_NUM, tilingData->inUbMainDstShape);
+        std::copy(inUbTailSrcShape_, inUbTailSrcShape_ + TP_NDDMA_MAX_DIM_NUM, tilingData->inUbTailSrcShape);
+        std::copy(inUbTailDstShape_, inUbTailDstShape_ + TP_NDDMA_MAX_DIM_NUM, tilingData->inUbTailDstShape);
+        return true;
     }
-    *tilingData = TransposeOpTilingData{};
-    tilingData->permSize = shapeInfo_.dim;
-    tilingData->inCutIndex = splitInfo_.inCutIndex;
-    tilingData->outCutIndex = splitInfo_.outCutIndex;
-    tilingData->inUbFactor = splitInfo_.inUbFactor;
-    tilingData->outUbFactor = splitInfo_.outUbFactor;
-    tilingData->inTailFactor = splitInfo_.inTailFactor;
-    tilingData->outTailFactor = splitInfo_.outTailFactor;
-    tilingData->realCoreNum = realCoreNum_;
-    tilingData->blkFactor = blkFactor_;
-    tilingData->blkTailFactor = blkTailFactor_;
-    tilingData->ubSize = ubSize_;
-    tilingData->bigDimBufferNum = 1;
-    tilingData->totalNddmaNum = 1;
-    tilingData->nddmaIdx[0] = -1;
-    tilingData->rangeMainEnd = offsetRangeMain_.end;
-    tilingData->rangeInputTailStart = offsetRangeInputTail_.start;
-    tilingData->rangeInputTailEnd = offsetRangeInputTail_.end;
-    tilingData->rangeOutputTailStart = offsetRangeOutputTail_.start;
-    tilingData->rangeOutputTailEnd = offsetRangeOutputTail_.end;
-    tilingData->rangeTailStart = offsetRangeTail_.start;
-    tilingData->rangeTailEnd = offsetRangeTail_.end;
-    for (int64_t i = 0; i < shapeInfo_.dim; i++) {
-        tilingData->inputShape[i] = shapeInfo_.reducedInShape[i];
-        tilingData->outputShape[i] = shapeInfo_.reducedOutShape[i];
-        tilingData->perm[i] = shapeInfo_.reducedPerm[i];
+    if (tilingKey_ == TK_NDDMA_CUT_2) {
+        auto* tilingData = context_->GetTilingData<Transpose::TransposeNddmaCut2TilingData>();
+        if (tilingData == nullptr) {
+            OP_LOGE(context_->GetNodeName(), "get cut twice tiling data failed, capacity is not enough!");
+            return false;
+        }
+        *tilingData = Transpose::TransposeNddmaCut2TilingData{};
+        tilingData->permSize = static_cast<int8_t>(shapeInfo_.dim);
+        tilingData->inCutIndex = static_cast<int8_t>(splitInfo_.inCutIndex);
+        tilingData->outCutIndex = static_cast<int8_t>(splitInfo_.outCutIndex);
+        tilingData->inUbFactor = static_cast<int32_t>(splitInfo_.inUbFactor);
+        tilingData->outUbFactor = static_cast<int32_t>(splitInfo_.outUbFactor);
+        tilingData->inTailFactor = static_cast<int32_t>(splitInfo_.inTailFactor);
+        tilingData->outTailFactor = static_cast<int32_t>(splitInfo_.outTailFactor);
+        tilingData->blkFactor = blkFactor_;
+        tilingData->blkTailFactor = blkTailFactor_;
+        tilingData->ubSize = static_cast<int32_t>(ubSize_);
+        tilingData->rangeMainEnd = offsetRangeMain_.end;
+        tilingData->rangeInputTailStart = offsetRangeInputTail_.start;
+        tilingData->rangeInputTailEnd = offsetRangeInputTail_.end;
+        tilingData->rangeOutputTailStart = offsetRangeOutputTail_.start;
+        tilingData->rangeOutputTailEnd = offsetRangeOutputTail_.end;
+        tilingData->rangeTailStart = offsetRangeTail_.start;
+        tilingData->rangeTailEnd = offsetRangeTail_.end;
+        for (int64_t i = 0; i < TP_NDDMA_MAX_DIM_NUM; i++) {
+            tilingData->expandedPerm[i] = static_cast<int8_t>(expandedPerm_[i]);
+        }
+        std::copy(expandedInputShape_, expandedInputShape_ + TP_NDDMA_MAX_DIM_NUM, tilingData->expandedInputShape);
+        std::copy(expandedOutputShape_, expandedOutputShape_ + TP_NDDMA_MAX_DIM_NUM, tilingData->expandedOutputShape);
+        std::copy(inUbMainSrcShape_, inUbMainSrcShape_ + TP_NDDMA_MAX_DIM_NUM, tilingData->inUbMainSrcShape);
+        std::copy(inUbMainDstShape_, inUbMainDstShape_ + TP_NDDMA_MAX_DIM_NUM, tilingData->inUbMainDstShape);
+        std::copy(inUbInputTailSrcShape_, inUbInputTailSrcShape_ + TP_NDDMA_MAX_DIM_NUM,
+                  tilingData->inUbInputTailSrcShape);
+        std::copy(inUbInputTailDstShape_, inUbInputTailDstShape_ + TP_NDDMA_MAX_DIM_NUM,
+                  tilingData->inUbInputTailDstShape);
+        std::copy(inUbOutputTailSrcShape_, inUbOutputTailSrcShape_ + TP_NDDMA_MAX_DIM_NUM,
+                  tilingData->inUbOutputTailSrcShape);
+        std::copy(inUbOutputTailDstShape_, inUbOutputTailDstShape_ + TP_NDDMA_MAX_DIM_NUM,
+                  tilingData->inUbOutputTailDstShape);
+        std::copy(inUbTailSrcShape_, inUbTailSrcShape_ + TP_NDDMA_MAX_DIM_NUM, tilingData->inUbTailSrcShape);
+        std::copy(inUbTailDstShape_, inUbTailDstShape_ + TP_NDDMA_MAX_DIM_NUM, tilingData->inUbTailDstShape);
+        return true;
     }
-    std::copy(expandedPerm_, expandedPerm_ + TP_NDDMA_MAX_DIM_NUM, tilingData->expandedPerm);
-    std::copy(expandedInputShape_, expandedInputShape_ + TP_NDDMA_MAX_DIM_NUM, tilingData->expandedInputShape);
-    std::copy(expandedOutputShape_, expandedOutputShape_ + TP_NDDMA_MAX_DIM_NUM, tilingData->expandedOutputShape);
-    std::copy(inUbMainSrcShape_, inUbMainSrcShape_ + TP_NDDMA_MAX_DIM_NUM, tilingData->inUbMainSrcShape);
-    std::copy(inUbMainDstShape_, inUbMainDstShape_ + TP_NDDMA_MAX_DIM_NUM, tilingData->inUbMainDstShape);
-    std::copy(inUbInputTailSrcShape_, inUbInputTailSrcShape_ + TP_NDDMA_MAX_DIM_NUM, tilingData->inUbInputTailSrcShape);
-    std::copy(inUbInputTailDstShape_, inUbInputTailDstShape_ + TP_NDDMA_MAX_DIM_NUM, tilingData->inUbInputTailDstShape);
-    std::copy(inUbOutputTailSrcShape_, inUbOutputTailSrcShape_ + TP_NDDMA_MAX_DIM_NUM,
-              tilingData->inUbOutputTailSrcShape);
-    std::copy(inUbOutputTailDstShape_, inUbOutputTailDstShape_ + TP_NDDMA_MAX_DIM_NUM,
-              tilingData->inUbOutputTailDstShape);
-    std::copy(inUbTailSrcShape_, inUbTailSrcShape_ + TP_NDDMA_MAX_DIM_NUM, tilingData->inUbTailSrcShape);
-    std::copy(inUbTailDstShape_, inUbTailDstShape_ + TP_NDDMA_MAX_DIM_NUM, tilingData->inUbTailDstShape);
-    return true;
+    // DoSplitUB 之后 tilingKey 必为 10002/10003，本策略不产生其他分支
+    // LCOV_EXCL_START
+    OP_LOGE(context_->GetNodeName(), "unexpected tiling key %lu for nddma strategy", tilingKey_);
+    return false;
+    // LCOV_EXCL_STOP
 }
 
 void TransposeNddmaStrategy::LogTilingData()

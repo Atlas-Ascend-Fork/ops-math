@@ -157,7 +157,6 @@ bool TransposeTransTo5HD10PerfStrategy::SetTilingData()
     *tilingData = TransposeTransTo5HD10PerfTilingData{};
     tilingData->m = static_cast<int32_t>(m_);
     tilingData->n = static_cast<int32_t>(n_);
-    tilingData->coreNum = static_cast<int32_t>(coreNum_);
     tilingData->tileM = static_cast<int32_t>(tileM_);
     tilingData->tileN = static_cast<int32_t>(tileN_);
     return true;

@@ -286,11 +286,10 @@ ge::graphStatus TransposeTransTo5HD021Strategy::CalcUbSplitCConv()
 void TransposeTransTo5HD021Strategy::FillUbPara(TransposeTransTo5HD021UbSplitPara& ubSplitPara,
                                                 TransTo5HD021UbParamInfo& ubPara)
 {
-    ubSplitPara.UbAlignFactor = ubPara.UbAlignFactor;
-    ubSplitPara.UbFactor = ubPara.UbFactor;
-    ubSplitPara.UbCount = ubPara.UbCount;
-    ubSplitPara.UbTailAlignFactor = ubPara.UbTailAlignFactor;
-    ubSplitPara.UbTailFactor = ubPara.UbTailFactor;
+    ubSplitPara.UbAlignFactor = static_cast<int32_t>(ubPara.UbAlignFactor);
+    ubSplitPara.UbFactor = static_cast<int32_t>(ubPara.UbFactor);
+    ubSplitPara.UbTailAlignFactor = static_cast<int32_t>(ubPara.UbTailAlignFactor);
+    ubSplitPara.UbTailFactor = static_cast<int32_t>(ubPara.UbTailFactor);
 }
 
 bool TransposeTransTo5HD021Strategy::SetTilingData()
@@ -301,8 +300,7 @@ bool TransposeTransTo5HD021Strategy::SetTilingData()
         return false;
     }
 
-    tiling->AvailableUbSize = basicInfo_.AvailableUbSize;
-    tiling->UsedCoreNum = basicInfo_.UsedCoreNum;
+    tiling->AvailableUbSize = static_cast<int32_t>(basicInfo_.AvailableUbSize);
     tiling->NLen = basicInfo_.NLen;
     tiling->HLen = basicInfo_.HLen;
     tiling->WLen = basicInfo_.WLen;

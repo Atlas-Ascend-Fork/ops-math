@@ -48,14 +48,17 @@ TEST(TransposeTilingAxis, RemoveSingletonAxes)
 
     TilingInfo tilingInfo;
     ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
-    ASSERT_EQ(tilingInfo.tilingKey, 10001);
-    // TilingData 为 Host/Kernel 共用的纯 struct，可直接按结构体解读码流。
-    ASSERT_EQ(tilingInfo.tilingDataSize, sizeof(optiling::TransposeOpTilingData));
-    const auto* data = reinterpret_cast<const optiling::TransposeOpTilingData*>(tilingInfo.tilingData.get());
-    ASSERT_EQ(data->permSize, 3);
-    EXPECT_THAT(Shape2Vec(data->inputShape, data->permSize), ::testing::ElementsAreArray({2, 3, 4}));
-    EXPECT_THAT(Shape2Vec(data->outputShape, data->permSize), ::testing::ElementsAreArray({3, 2, 4}));
-    EXPECT_THAT(Shape2Vec(data->perm, data->permSize), ::testing::ElementsAreArray({1, 0, 2}));
+    // 简化后 dim=3 → 10011 二/三维 24B 精简 TilingData
+    ASSERT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(10011));
+    const auto* data = reinterpret_cast<const optiling::TransposeSmallShape23DTilingData*>(tilingInfo.tilingData.get());
+    ASSERT_EQ(tilingInfo.tilingDataSize, sizeof(optiling::TransposeSmallShape23DTilingData));
+    EXPECT_EQ(data->dim, 3);
+    EXPECT_EQ(data->inputShape[0], 2);
+    EXPECT_EQ(data->inputShape[1], 3);
+    EXPECT_EQ(data->inputShape[2], 4);
+    EXPECT_EQ(data->perm[0], 1);
+    EXPECT_EQ(data->perm[1], 0);
+    EXPECT_EQ(data->perm[2], 2);
 }
 
 TEST(TransposeTilingAxis, MergeContinuousAxes)
@@ -73,13 +76,17 @@ TEST(TransposeTilingAxis, MergeContinuousAxes)
 
     TilingInfo tilingInfo;
     ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
-    ASSERT_EQ(tilingInfo.tilingKey, 10001);
-    ASSERT_EQ(tilingInfo.tilingDataSize, sizeof(optiling::TransposeOpTilingData));
-    const auto* data = reinterpret_cast<const optiling::TransposeOpTilingData*>(tilingInfo.tilingData.get());
-    ASSERT_EQ(data->permSize, 3);
-    EXPECT_THAT(Shape2Vec(data->inputShape, data->permSize), ::testing::ElementsAreArray({6, 20, 6}));
-    EXPECT_THAT(Shape2Vec(data->outputShape, data->permSize), ::testing::ElementsAreArray({20, 6, 6}));
-    EXPECT_THAT(Shape2Vec(data->perm, data->permSize), ::testing::ElementsAreArray({1, 0, 2}));
+    // 简化后 dim=3 → 10011 二/三维 24B 精简 TilingData
+    ASSERT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(10011));
+    const auto* data = reinterpret_cast<const optiling::TransposeSmallShape23DTilingData*>(tilingInfo.tilingData.get());
+    ASSERT_EQ(tilingInfo.tilingDataSize, sizeof(optiling::TransposeSmallShape23DTilingData));
+    EXPECT_EQ(data->dim, 3);
+    EXPECT_EQ(data->inputShape[0], 6);
+    EXPECT_EQ(data->inputShape[1], 20);
+    EXPECT_EQ(data->inputShape[2], 6);
+    EXPECT_EQ(data->perm[0], 1);
+    EXPECT_EQ(data->perm[1], 0);
+    EXPECT_EQ(data->perm[2], 2);
 }
 
 using Shape = std::vector<int64_t>;

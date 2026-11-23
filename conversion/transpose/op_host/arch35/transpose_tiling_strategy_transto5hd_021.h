@@ -97,9 +97,9 @@ private:
     ge::graphStatus CalcUbSplitCConv();
     void FillUbPara(Transpose::TransposeTransTo5HD021UbSplitPara& ubSplitPara, TransTo5HD021UbParamInfo& ubPara);
 
-    TransTo5HD021BasicInfo basicInfo_;
-    TransTo5HD021UbParamInfo rUbParamInfo_;
-    TransTo5HD021UbParamInfo cUbParamInfo_;
+    TransTo5HD021BasicInfo basicInfo_{};
+    TransTo5HD021UbParamInfo rUbParamInfo_{};
+    TransTo5HD021UbParamInfo cUbParamInfo_{};
 };
 
 } // namespace optiling

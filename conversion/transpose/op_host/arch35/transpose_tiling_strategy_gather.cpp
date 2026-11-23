@@ -1055,10 +1055,8 @@ bool TransposeGatherStrategy::SetTilingData()
         return false;
     }
 
-    tiling->tilingKey = tilingKey_;
     tiling->dataTensorSize = dataTensorSize_;
     tiling->indexTensorSize = indexTensorSize_;
-    tiling->usedCoreCnt = blkSplitInfo_.usedCoreCnt;
     tiling->blkAxesCnt = blkSplitInfo_.blkAxesCnt;
     tiling->blkInUbCutPos = blkSplitInfo_.blkInUbCutPos;
     tiling->blkOutUbCutPos = blkSplitInfo_.blkOutUbCutPos;
@@ -1094,7 +1092,7 @@ bool TransposeGatherStrategy::SetTilingData()
 void TransposeGatherStrategy::LogTilingData()
 {
     std::string tdStr;
-    tdStr += std::to_string(tilingKey_) + ",";
+    tdStr += std::to_string(static_cast<uint64_t>(TK_GATHER)) + ",";
     tdStr += std::to_string(static_cast<int32_t>(dataTensorSize_)) + ",";
     tdStr += std::to_string(static_cast<int32_t>(indexTensorSize_)) + ",";
     tdStr += std::to_string(static_cast<int32_t>(blkSplitInfo_.usedCoreCnt)) + ",";

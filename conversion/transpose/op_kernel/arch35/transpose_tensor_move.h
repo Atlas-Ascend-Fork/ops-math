@@ -16,11 +16,14 @@
  * 等价于纯数据搬运，无需任何转置操作。
  *
  * 核心设计：
- *   - 使用 TQueBind<VECIN, VECOUT, 1> 双缓冲队列（BUFFER_NUM=2），UB 分两半交替使用
- *   - 每次 CopyIn 从 GM 搬运 inUbFactor 个元素到 UB，再 CopyOut 原样写回 GM
- *   - 双缓冲流水线：CopyIn 和 CopyOut 可重叠执行，提高带宽利用率
+ *   - 普通/关联入口统一使用紧凑 TransposeTensorMoveTilingData
+ *   - 使用静态 Tensor 双缓冲，沿用逐块搬运循环
+ *   - 每次搬入 inUbFactor 个元素到 UB，再原样写回 GM
+ *   - 使用 Mutex 管理搬入、搬出与缓冲复用
  *
  * 数据流：GM → DataCopyPad(UB) → DataCopyPad(GM)，纯顺序搬运无转置
+ *
+ * 注：保持"类定义 + 类外函数体定义"结构，便于与重构前版本对比差异。
  */
 #ifndef TRANSPOSE_TENSOR_MOVE_H
 #define TRANSPOSE_TENSOR_MOVE_H
@@ -33,93 +36,75 @@ using namespace AscendC;
 /**
  * @brief TENSOR_MOVE 策略类，实现纯数据搬运
  *
- * 当 Transpose 经过轴消除和轴合并后只剩1维时，无需转置，只需将数据从
- * 输入 GM 搬运到输出 GM。使用双缓冲队列实现搬运流水线。
- *
  * @tparam T 数据元素类型（int8_t/int16_t/int32_t/int64_t 或复合类型）
  */
 template <typename T>
-class TransposeTensorMove : public TransposeBase<T> {
+class TransposeTensorMove {
 public:
-    __aicore__ inline TransposeTensorMove(){};
-    __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, const TransposeOpTilingData* tilingData, TPipe* pipe);
+    __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, __tiling_data_ptr__ TransposeTensorMoveTilingData* data);
     __aicore__ inline void Process();
 
 private:
-    __aicore__ inline void ProcessPerCore();
+    __aicore__ inline void CopyBlock(LocalTensor<T>& local, int64_t offset, uint32_t copyNum, MutexID mutexId);
 
-private:
-    int64_t blockIdx_;
-
-    // buffer
-    TQueBind<QuePosition::VECIN, QuePosition::VECOUT, 1> vecQue_; // 双缓冲绑定队列，VECIN→VECOUT 自动配对
-    GlobalTensor<T> inputGM_;                                     // 输入 GM 张量
-    GlobalTensor<T> outputGM_;                                    // 输出 GM 张量
-
-    // tiling params
-    const TransposeOpTilingData* tiling_;
-    int64_t inputTailFactor_ = 0; // 最后一次 UB 循环的尾块元素数（不满 inUbFactor 时）
-    int64_t blockLoopNum_ = 0;    // 当前核需要执行的 UB 循环总次数
-    int64_t inLoopNum_ = 0;       // UB 循环次数（= CeilDiv(blockLoopNum_, inUbFactor)）
-    int64_t srcOffset_ = 0;       // 当前核在全局数据中的起始偏移（元素数）
-
-    // Datacopy params
-    DataCopyPadExtParams<T> padParams_{false, 0, 0, 0};  // Pad 扩展参数（不使用 Padding）
-    DataCopyExtParams copyOutParamsMain_{1, 0, 0, 0, 0}; // CopyOut 参数：blockCount=1, blockLen 动态设置
+    GlobalTensor<T> inputGM_;          ///< 输入 GM 张量
+    GlobalTensor<T> outputGM_;         ///< 输出 GM 张量
+    LocalTensor<T> local_[BUFFER_NUM]; ///< 静态双缓冲
+    uint32_t inUbFactor_ = 0;          ///< 单次 UB 搬运块长（元素数）
+    uint32_t tailElements_ = 0;        ///< 末核尾块元素数（非末核为 0）
+    uint64_t fullBlocks_ = 0;          ///< 当前核需搬运的完整主块数
+    int64_t srcOffset_ = 0;            ///< 当前核在全局数据中的起始偏移（元素数）
 };
 
 template <typename T>
-__aicore__ inline void TransposeTensorMove<T>::Init(GM_ADDR x, GM_ADDR y, const TransposeOpTilingData* tilingData,
-                                                    TPipe* pipe)
+__aicore__ inline void TransposeTensorMove<T>::Init(GM_ADDR x, GM_ADDR y,
+                                                    __tiling_data_ptr__ TransposeTensorMoveTilingData* data)
 {
-    blockIdx_ = GetBlockIdx();
-    tiling_ = tilingData;
-    inputGM_.SetGlobalBuffer((__gm__ T*)x);
-    outputGM_.SetGlobalBuffer((__gm__ T*)y);
-    pipe->InitBuffer(vecQue_, BUFFER_NUM, tiling_->ubSize / BUFFER_NUM);
+    const uint64_t blockIdx = GetBlockIdx();
+    const uint64_t extra = data->extraBlockCores;
+    const uint64_t mainBlocksPerCore = data->mainBlocksPerCore;
+    const uint64_t startBlock = blockIdx * mainBlocksPerCore + (blockIdx < extra ? blockIdx : extra);
+    inUbFactor_ = data->mainBlockElements;
+    srcOffset_ = startBlock * inUbFactor_;
+    fullBlocks_ = mainBlocksPerCore + (blockIdx < extra ? 1 : 0);
+    tailElements_ = blockIdx + 1 == static_cast<uint64_t>(GetBlockNum()) ? data->tailElements : 0;
+    inputGM_.SetGlobalBuffer(reinterpret_cast<__gm__ T*>(x));
+    outputGM_.SetGlobalBuffer(reinterpret_cast<__gm__ T*>(y));
+    local_[0] = LocalTensor<T>(TPosition::VECIN, 0, inUbFactor_);
+    // 第二个静态缓冲额外错开 BANK_OFFSET_BYTES，避免同 bank 冲突。
+    local_[1] = LocalTensor<T>(TPosition::VECIN,
+                               inUbFactor_ * sizeof(T) + TransposeTensorMoveTilingData::BANK_OFFSET_BYTES, inUbFactor_);
 }
 
 template <typename T>
 __aicore__ inline void TransposeTensorMove<T>::Process()
 {
-    if (blockIdx_ >= tiling_->realCoreNum) {
-        return;
+    const uint64_t loopNum = fullBlocks_ + (tailElements_ != 0);
+    for (uint64_t loopIdx = 0; loopIdx < loopNum; ++loopIdx) {
+        const uint32_t copyNum = loopIdx < fullBlocks_ ? inUbFactor_ : tailElements_;
+        const uint32_t bufferIndex = loopIdx % BUFFER_NUM;
+        CopyBlock(local_[bufferIndex], srcOffset_ + loopIdx * inUbFactor_, copyNum, static_cast<MutexID>(bufferIndex));
     }
-    blockLoopNum_ = tiling_->blkFactor;
-    srcOffset_ = blockIdx_ * tiling_->blkFactor;
-    if (blockIdx_ < tiling_->blkTailFactor) {
-        blockLoopNum_ += 1;
-        srcOffset_ += blockIdx_;
-    } else {
-        srcOffset_ += tiling_->blkTailFactor;
-    }
-    inLoopNum_ = Ops::Base::CeilDiv(blockLoopNum_, tiling_->inUbFactor);
-    inputTailFactor_ = blockLoopNum_ % tiling_->inUbFactor;
-    ProcessPerCore();
 }
 
 template <typename T>
-__aicore__ inline void TransposeTensorMove<T>::ProcessPerCore()
+__aicore__ inline void TransposeTensorMove<T>::CopyBlock(LocalTensor<T>& local, int64_t offset, uint32_t copyNum,
+                                                         MutexID mutexId)
 {
-    int64_t copyNum = tiling_->inUbFactor;
-    for (int64_t loopIdx = 0; loopIdx < inLoopNum_; loopIdx++) {
-        if (loopIdx == inLoopNum_ - 1 && inputTailFactor_ != 0) {
-            copyNum = inputTailFactor_;
-        }
-        copyOutParamsMain_.blockLen = copyNum * sizeof(T);
-        LocalTensor<T> bindLocalIn = vecQue_.AllocTensor<T>();
+    DataCopyExtParams params{1, static_cast<uint32_t>(copyNum * sizeof(T)), 0, 0, 0};
+    DataCopyPadExtParams<T> pad{false, 0, 0, 0};
+    Mutex::Lock<PIPE_MTE2>(mutexId);
 #if defined(__DAV_920R1__) || defined(__DAV_920R2__)
-        DataCopyPad(bindLocalIn, inputGM_[srcOffset_ + loopIdx * tiling_->inUbFactor], copyOutParamsMain_, padParams_,
-                    true);
+    DataCopyPad(local, inputGM_[offset], params, pad, true);
 #else
-        DataCopyPad(bindLocalIn, inputGM_[srcOffset_ + loopIdx * tiling_->inUbFactor], copyOutParamsMain_, padParams_);
+    DataCopyPad(local, inputGM_[offset], params, pad);
 #endif
-        vecQue_.EnQue(bindLocalIn);
-        LocalTensor<T> bindLocalOut = vecQue_.DeQue<T>();
-        DataCopyPad(outputGM_[srcOffset_ + loopIdx * tiling_->inUbFactor], bindLocalOut, copyOutParamsMain_);
-        vecQue_.FreeTensor(bindLocalOut);
-    }
+    Mutex::Unlock<PIPE_MTE2>(mutexId);
+    Mutex::Lock<PIPE_MTE3>(mutexId);
+    DataCopyPad(outputGM_[offset], local, params);
+    Mutex::Unlock<PIPE_MTE3>(mutexId);
 }
+
 } // namespace Transpose
 
 #endif // TRANSPOSE_TENSOR_MOVE_H

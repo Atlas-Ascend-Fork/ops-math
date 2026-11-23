@@ -48,11 +48,11 @@ TEST(TransposeNddmaBigDimStrategy, e2e_hits_this_strategy)
     TilingInfo e2e;
     ASSERT_TRUE(ExecuteTiling(para, e2e));
     EXPECT_EQ(e2e.tilingKey, TK_NDDMA_BIG_DIM);
-    const auto* data = GetTilingData<TransposeOpTilingData>(e2e);
+    EXPECT_EQ(e2e.blockNum, 48);
+    const auto* data = GetTilingData<TransposeNddmaBigDimTilingData>(e2e);
     ASSERT_NE(data, nullptr);
     EXPECT_EQ(data->permSize, 6);
-    EXPECT_GT(data->realCoreNum, 0);
-    EXPECT_GT(data->totalNddmaNum, 0);
+    EXPECT_EQ(data->totalNddmaNum, 60000);
 }
 
 // Perm with int32 dtype (DT_INT32), expect tiling success
@@ -100,7 +100,7 @@ TEST(TransposeNddmaBigDimStrategy, transpose_tiling_big_dim_6d_no_consecutive_pe
     EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(TK_NDDMA_BIG_DIM));
 }
 
-// 2D perm [1, 0], fp16, m/n 均 16 对齐, 512KB (DAV_3510 门槛): 走 TRANSTO5HD_10_PERF(10017) TransData 特化模板
+// 2D perm [1, 0], fp16, m/n 均 16 对齐, 512KB (DAV_3510 门槛): 走 10017 TransData 特化模板
 
 TEST(TransposeNddmaBigDimStrategy, transpose_tiling_big_dim_6d_gather_fallback)
 {
@@ -165,7 +165,8 @@ TEST(TransposeNddmaBigDimStrategy, transpose_tiling_big_dim_6d)
     ASSERT_TRUE(strategy.IsSupport());
     ASSERT_EQ(strategy.Execute(), TilingStatus::SUCCESS);
     EXPECT_EQ(bundle.context->GetTilingKey(), static_cast<uint64_t>(TK_NDDMA_BIG_DIM));
-    const auto* data = GetTilingData<TransposeOpTilingData>(bundle.context);
+    EXPECT_EQ(bundle.context->GetBlockDim(), 48);
+    const auto* data = GetTilingData<TransposeNddmaBigDimTilingData>(bundle.context);
     ASSERT_NE(data, nullptr);
     EXPECT_EQ(data->permSize, 6);
 }
@@ -184,11 +185,12 @@ TEST(TransposeNddmaBigDimStrategy, direct_double_buffer_fallback_unreachable_by_
     optiling::TransposeNddmaBigDimStrategy strategy(bundle.context, platform, MakeOpParam(si));
     ASSERT_EQ(strategy.Execute(), TilingStatus::SUCCESS);
     EXPECT_EQ(bundle.context->GetTilingKey(), static_cast<uint64_t>(TK_NDDMA_BIG_DIM));
-    const auto* data = GetTilingData<TransposeOpTilingData>(bundle.context);
+    EXPECT_EQ(bundle.context->GetBlockDim(), 48);
+    const auto* data = GetTilingData<TransposeNddmaBigDimTilingData>(bundle.context);
     ASSERT_NE(data, nullptr);
     ASSERT_NE(data, nullptr);
     EXPECT_EQ(data->permSize, 6);
-    EXPECT_EQ(data->bigDimBufferNum, 1); // 双缓冲 fallback 单缓冲
+    EXPECT_EQ(data->bufferNum, 1); // 双缓冲 fallback 单缓冲
 }
 
 // ubElement == outShape 且 5 维预算尚未耗尽：ternary 取 ubElement
@@ -201,11 +203,12 @@ TEST(TransposeNddmaBigDimStrategy, direct_ub_equal_shape_in_budget_unreachable_b
     optiling::TransposeNddmaBigDimStrategy strategy(bundle.context, MakeBigDimPlatform(16), MakeOpParam(si));
     ASSERT_EQ(strategy.Execute(), TilingStatus::SUCCESS);
     EXPECT_EQ(bundle.context->GetTilingKey(), static_cast<uint64_t>(TK_NDDMA_BIG_DIM));
-    const auto* data = GetTilingData<TransposeOpTilingData>(bundle.context);
+    EXPECT_EQ(bundle.context->GetBlockDim(), 8);
+    const auto* data = GetTilingData<TransposeNddmaBigDimTilingData>(bundle.context);
     ASSERT_NE(data, nullptr);
     ASSERT_NE(data, nullptr);
     EXPECT_EQ(data->permSize, 6);
-    EXPECT_EQ(data->ubSize, 16);
+    EXPECT_EQ(data->ubBytes, 16);
 }
 
 // 5 维预算耗尽 + 块数不足：dimSize==0 分支与 bestI 回退/每核 1 block
@@ -218,8 +221,8 @@ TEST(TransposeNddmaBigDimStrategy, direct_dims_zero_and_low_core_unreachable_by_
     optiling::TransposeNddmaBigDimStrategy strategy(bundle.context, MakeBigDimPlatform(100000), MakeOpParam(si));
     ASSERT_EQ(strategy.Execute(), TilingStatus::SUCCESS);
     EXPECT_EQ(bundle.context->GetTilingKey(), static_cast<uint64_t>(TK_NDDMA_BIG_DIM));
-    EXPECT_GT(bundle.context->GetBlockDim(), 0U);
-    const auto* data = GetTilingData<TransposeOpTilingData>(bundle.context);
+    EXPECT_EQ(bundle.context->GetBlockDim(), 48);
+    const auto* data = GetTilingData<TransposeNddmaBigDimTilingData>(bundle.context);
     ASSERT_NE(data, nullptr);
     ASSERT_NE(data, nullptr);
     EXPECT_EQ(data->permSize, 6);
@@ -250,9 +253,68 @@ TEST(TransposeNddmaBigDimStrategy, direct_ub_equal_shape_unreachable_by_e2e)
     optiling::TransposeNddmaBigDimStrategy strategy(bundle.context, MakeBigDimPlatform(8), MakeOpParam(si));
     ASSERT_EQ(strategy.Execute(), TilingStatus::SUCCESS);
     EXPECT_EQ(bundle.context->GetTilingKey(), static_cast<uint64_t>(TK_NDDMA_BIG_DIM));
-    const auto* data = GetTilingData<TransposeOpTilingData>(bundle.context);
+    EXPECT_EQ(bundle.context->GetBlockDim(), 8);
+    const auto* data = GetTilingData<TransposeNddmaBigDimTilingData>(bundle.context);
     ASSERT_NE(data, nullptr);
     ASSERT_NE(data, nullptr);
     EXPECT_EQ(data->permSize, 6);
-    EXPECT_EQ(data->ubSize, 8);
+    EXPECT_EQ(data->ubBytes, 8);
+}
+
+/* ============================================================================
+ * NDDMA_BIG_DIM(10005)：超 uint32 压缩 + buffer/单块 UB 占用
+ * ========================================================================== */
+TEST(TransposeNddmaBigDimStrategy, nddma_big_dim_large_shape_and_ub_budget)
+{
+    auto compileInfo = MakeCompilerInfo();
+    auto para = MakeDummyPara(compileInfo);
+    const std::vector<int64_t> in = {1000, 1000, 1000, 100, 10, 10};
+    const std::vector<int64_t> perm = {5, 0, 1, 2, 3, 4};
+    ShapeInfo si = MakeShape(in, perm, 4);
+
+    auto bundle = BuildTilingContext(para);
+    optiling::TransposeNddmaBigDimStrategy strategy(bundle.context, MakePlatformInfo(), MakeOpParam(si));
+    ASSERT_TRUE(strategy.IsSupport());
+    ASSERT_EQ(strategy.Execute(), TilingStatus::SUCCESS);
+    EXPECT_EQ(bundle.context->GetTilingKey(), static_cast<uint64_t>(TK_NDDMA_BIG_DIM));
+    const auto* data = GetTilingData<TransposeNddmaBigDimTilingData>(bundle.context);
+    ASSERT_NE(data, nullptr);
+
+    EXPECT_EQ(data->permSize, 6);
+    EXPECT_EQ(data->inputShape[0], 1000);
+    EXPECT_EQ(data->inputShape[2], 1000);
+    ASSERT_GE(data->outCutIndex, 0);
+    ASSERT_LT(data->outCutIndex, data->permSize);
+    // totalNddmaNum 只统计 outCutIndex 及其右侧轴（切分轴取 outUbFactor）。
+    const int64_t expectedNddmaNum = static_cast<int64_t>(data->outUbFactor) *
+                                     Product(data->outputShape, data->outCutIndex + 1, data->permSize);
+    EXPECT_EQ(data->totalNddmaNum, expectedNddmaNum);
+    // 超大 shape 必须完整保留在 int64 字段中（首轴基数 = 右侧所有输入轴乘积）。
+    EXPECT_GT(data->baseInShape[0], static_cast<int64_t>(kUint32Max));
+    ASSERT_GT(data->bufferNum, 0U);
+    ASSERT_GT(data->ubBytes, 0U);
+    // kernel：bufferNum 个 ubBytes 的静态 Tensor。
+    EXPECT_LE(static_cast<uint64_t>(data->ubBytes) * data->bufferNum, static_cast<uint64_t>(kUbSize));
+
+    // 单块 UB 数据量 = outUbFactor × 输出切分轴右侧所有轴乘积。
+    const int64_t innerElems = Product(data->outputShape, data->outCutIndex + 1, data->permSize);
+    const int64_t blockElems = static_cast<int64_t>(data->outUbFactor) * innerElems;
+    EXPECT_GT(blockElems, 0);
+    EXPECT_LE(blockElems * 4, static_cast<int64_t>(data->ubBytes));
+}
+
+// 维度边界：dim>5 命中 NDDMA_BIG_DIM，dim<=5 交给 NDDMA
+TEST(TransposeNddmaBigDimStrategy, nddma_big_dim_dim_boundary)
+{
+    auto compileInfo = MakeCompilerInfo();
+    auto para = MakeDummyPara(compileInfo);
+    auto bundle = BuildTilingContext(para);
+
+    ShapeInfo dim6 = MakeShape({2, 2, 2, 2, 2, 32}, {0, 1, 2, 3, 4, 5}, 4);
+    optiling::TransposeNddmaBigDimStrategy hit(bundle.context, MakePlatformInfo(), MakeOpParam(dim6));
+    EXPECT_TRUE(hit.IsSupport());
+
+    ShapeInfo dim5 = MakeShape({2, 2, 2, 2, 32}, {0, 1, 2, 3, 4}, 4);
+    optiling::TransposeNddmaBigDimStrategy miss(bundle.context, MakePlatformInfo(), MakeOpParam(dim5));
+    EXPECT_FALSE(miss.IsSupport());
 }

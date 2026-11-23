@@ -116,7 +116,7 @@ protected:
     // 打印 TilingData
     void LogTilingData() override;
     uint32_t GetUsedCoreNum() const override { return blkSplitInfo_.usedCoreCnt; }
-    uint64_t GetTilingKey() const override { return tilingKey_; }
+    uint64_t GetTilingKey() const override { return static_cast<uint64_t>(TK_GATHER); }
 
 private:
     int64_t CalcShapeSize(const std::array<int64_t, Transpose::TP_MAX_AXIS_NUM>& shape, int64_t beg, int64_t end);
@@ -172,15 +172,14 @@ private:
     void CalcBlkAxesOffset(int8_t i, int8_t dim, int64_t axisFactor, int64_t& totalElems);
     bool CheckBC(int32_t steps);
 
-    uint64_t tilingKey_ = static_cast<uint64_t>(TK_GATHER);
     uint32_t dataTensorSize_ = 0;
     uint32_t indexTensorSize_ = 0;
-    GatherUbSplitInfo ubSplitInfo_;
-    GatherBlockSplitInfo blkSplitInfo_;
-    GatherUbPermInfo inUbPerm_;
-    GatherUbPermInfo outUbPerm_;
-    std::set<int8_t> inUbPermSet_;
-    std::set<int8_t> allUbPerm_;
+    GatherUbSplitInfo ubSplitInfo_{};
+    GatherBlockSplitInfo blkSplitInfo_{};
+    GatherUbPermInfo inUbPerm_{};
+    GatherUbPermInfo outUbPerm_{};
+    std::set<int8_t> inUbPermSet_{};
+    std::set<int8_t> allUbPerm_{};
 };
 
 } // namespace optiling

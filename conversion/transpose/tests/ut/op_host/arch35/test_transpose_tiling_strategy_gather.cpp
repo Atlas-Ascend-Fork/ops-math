@@ -13,6 +13,8 @@
  * \brief GATHER(10006) 策略 UT：直调策略（逐字段断言）+ 端到端命中
  */
 
+#include <utility>
+
 #include <gmock/gmock.h>
 #include "test_transpose_tiling_strategy_common.h"
 #include "../../../../op_host/arch35/transpose_tiling_strategy_gather.h"
@@ -41,17 +43,22 @@ TEST(TransposeGatherStrategy, related_mode_support_false)
     EXPECT_FALSE(strategy.IsSupport());
 }
 
-TEST(TransposeGatherStrategy, e2e_hits_this_strategy)
+// 2D [8192,62] fp32 的全量调度现由注册在前的 SMALL_SHAPE_2D(10012) 承接；
+// 本用例直调 Gather，保留 Gather 路径自身的端到端校验。
+TEST(TransposeGatherStrategy, direct_hits_this_strategy)
 {
     auto compileInfo = MakeCompilerInfo();
     auto para = MakePara(compileInfo);
-    TilingInfo e2e;
-    ASSERT_TRUE(ExecuteTiling(para, e2e));
-    EXPECT_EQ(e2e.tilingKey, TK_GATHER);
-    const auto* data = GetTilingData<TransposeGatherTilingData>(e2e);
+    ShapeInfo si = MakeShape({8192, 62}, {1, 0}, 4);
+    auto bundle = BuildTilingContext(para);
+    optiling::TransposeGatherStrategy strategy(bundle.context, MakePlatformInfo(), MakeOpParam(si));
+    ASSERT_TRUE(strategy.IsSupport());
+    ASSERT_EQ(strategy.Execute(), TilingStatus::SUCCESS);
+    EXPECT_EQ(bundle.context->GetTilingKey(), static_cast<uint64_t>(TK_GATHER));
+    EXPECT_EQ(bundle.context->GetBlockDim(), 41U);
+    const auto* data = GetTilingData<TransposeGatherTilingData>(bundle.context);
     ASSERT_NE(data, nullptr);
-    EXPECT_GT(data->usedCoreCnt, 0U);
-    EXPECT_GT(data->dataTensorSize, 0U);
+    EXPECT_EQ(data->dataTensorSize, 50784);
 }
 
 TEST(TransposeGatherStrategy, transpose_tiling_01)
@@ -70,14 +77,13 @@ TEST(TransposeGatherStrategy, transpose_tiling_01)
     TilingInfo tilingInfo;
     ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
     EXPECT_EQ(tilingInfo.tilingKey, expectTilingKey);
+    EXPECT_EQ(tilingInfo.blockNum, 40U);
     ASSERT_EQ(tilingInfo.workspaceSizes.size(), 1U);
     EXPECT_EQ(tilingInfo.workspaceSizes[0], 0);
     const auto* tilingData = GetTilingData<Transpose::TransposeGatherTilingData>(tilingInfo);
     ASSERT_NE(tilingData, nullptr);
-    EXPECT_EQ(tilingData->tilingKey, 10006);
     EXPECT_EQ(tilingData->dataTensorSize, 43680);
     EXPECT_EQ(tilingData->indexTensorSize, 21840);
-    EXPECT_EQ(tilingData->usedCoreCnt, 40);
     EXPECT_EQ(tilingData->blkAxesCnt, 1);
     EXPECT_EQ(tilingData->blkInUbCutPos, 0);
     EXPECT_EQ(tilingData->blkOutUbCutPos, -1);
@@ -108,10 +114,8 @@ TEST(TransposeGatherStrategy, transpose_tiling_01)
     EXPECT_THAT(tilingData->ubPerm, ::testing::ElementsAreArray(std::vector<int64_t>{1, 0, 15, 15, 15, 15}));
 }
 
-// Gather 因 MTE gate / bank 冲突被拒（DoExecute → FALLBACK），由 NDDMA 兜底。
-// NDDMA 单/双切由 UB 预算（随 npuArch 的缓冲数变化）决定，故直调策略并固定 DAV_3510
-// （单缓冲），tilingKey 确定为 NDDMA_CUT_1(10002)。
-TEST(TransposeGatherStrategy, direct_gather_reject_then_nddma_cut_once)
+// [1000000,3] fp32：尾轴仅 3 列，Gather 因 MTE gate/块数约束被拒（DoExecute → FALLBACK）。
+TEST(TransposeGatherStrategy, direct_gather_reject_mte_gate)
 {
     auto compileInfo = MakeCompilerInfo();
     int64_t perm_value[2] = {1, 0};
@@ -125,25 +129,11 @@ TEST(TransposeGatherStrategy, direct_gather_reject_then_nddma_cut_once)
     optiling::TransposeGatherStrategy gather(gatherBundle.context, MakePlatformInfo(), MakeOpParam(si));
     ASSERT_TRUE(gather.IsSupport());
     EXPECT_EQ(gather.Execute(), TilingStatus::FALLBACK);
-
-    auto nddmaBundle = BuildTilingContext(tilingContextPara);
-    optiling::TransposeNddmaStrategy nddma(nddmaBundle.context, MakePlatformInfo(), MakeOpParam(si));
-    ASSERT_TRUE(nddma.IsSupport());
-    ASSERT_EQ(nddma.Execute(), TilingStatus::SUCCESS);
-    EXPECT_EQ(nddmaBundle.context->GetTilingKey(), static_cast<uint64_t>(TK_NDDMA_CUT_1));
-    const auto* data = GetTilingData<TransposeOpTilingData>(nddmaBundle.context);
-    ASSERT_NE(data, nullptr);
-    EXPECT_EQ(data->permSize, 2);
 }
 
-// Last-axis-transpose 3D whose gather candidate is rejected by the MTE gate / bank conflict
-// checks (the split totalSizeInUb or index step does not meet the hardware constraints).
-// perm [2, 1, 0] has no adjacent ascending pair, so the shape stays 3D after MergeAxis.
-// The tiling must still succeed through the fallback NDDMA/CUT path.
-
-// 同上（3D perm [2,1,0]）：Gather 被拒后由 NDDMA 兜底，DAV_3510 单缓冲下 tilingKey 确定为
-// NDDMA_CUT_2(10003)。
-TEST(TransposeGatherStrategy, direct_gather_reject_then_nddma_cut_twice)
+// [500,4096,7] perm [2,1,0]：3D 尾轴转置，perm 无相邻升序对（MergeAxis 后仍为 3D）；
+// Gather 因 bank conflict/MTE 约束被拒（FALLBACK）。
+TEST(TransposeGatherStrategy, direct_gather_reject_bank_conflict)
 {
     auto compileInfo = MakeCompilerInfo();
     int64_t perm_value[3] = {2, 1, 0};
@@ -157,19 +147,68 @@ TEST(TransposeGatherStrategy, direct_gather_reject_then_nddma_cut_twice)
     optiling::TransposeGatherStrategy gather(gatherBundle.context, MakePlatformInfo(), MakeOpParam(si));
     ASSERT_TRUE(gather.IsSupport());
     EXPECT_EQ(gather.Execute(), TilingStatus::FALLBACK);
-
-    auto nddmaBundle = BuildTilingContext(tilingContextPara);
-    optiling::TransposeNddmaStrategy nddma(nddmaBundle.context, MakePlatformInfo(), MakeOpParam(si));
-    ASSERT_TRUE(nddma.IsSupport());
-    ASSERT_EQ(nddma.Execute(), TilingStatus::SUCCESS);
-    EXPECT_EQ(nddmaBundle.context->GetTilingKey(), static_cast<uint64_t>(TK_NDDMA_CUT_2));
-    const auto* data = GetTilingData<TransposeOpTilingData>(nddmaBundle.context);
-    ASSERT_NE(data, nullptr);
-    EXPECT_EQ(data->permSize, 3);
 }
 
-// Second absorption-success data point in the slack window: [6000, 6000, 8] perm [1, 0, 2].
-// C*B = 8*6000 = 48000 lands in (ubElement/2, ubElement], so after absorbing axis 2 and
-// axis 1 the input factor floor(63488/48000) = 1 and the 32B-aligned validation burst
-// 8 * 1 * 6000 = 48000 fits the budget. First strategy cuts axis 1 (NDDMA_CUT_2), absorption
-// retry keeps NDDMA_CUT_1 cutting axis 0 with inUbFactor=1.
+/* ============================================================================
+ * GATHER(10006)：4B/8B 的 4×data + index UB 占用 + 超 uint32 shape
+ *
+ * 1B/2B 的 data buffer 更小（ub/6、ub/5），而 Gather 索引需预留 1/4 UB 且
+ * MTE 效率门槛为 16KB，当前 shape 下会被硬件约束拒绝并回落 NDDMA；这里只对
+ * 可命中的 4B（索引同宽）与 8B（索引 32bit）分支校验 UB 公式。
+ * ========================================================================== */
+TEST(TransposeGatherStrategy, gather_ub_budget_4b_8b)
+{
+    auto compileInfo = MakeCompilerInfo();
+    auto para = MakeDummyPara(compileInfo);
+
+    std::vector<std::pair<int64_t, ShapeInfo>> cases;
+    cases.push_back({4, MakeShape({8192, 62}, {1, 0}, 4)});
+    cases.push_back({8, MakeShape({36, 203, 26, 31}, {3, 0, 1, 2}, 8)});
+    for (const auto& item : cases) {
+        const int64_t eleLen = item.first;
+        auto bundle = BuildTilingContext(para);
+        optiling::TransposeGatherStrategy strategy(bundle.context, MakePlatformInfo(), MakeOpParam(item.second));
+        ASSERT_TRUE(strategy.IsSupport()) << "eleLen=" << eleLen;
+        ASSERT_EQ(strategy.Execute(), TilingStatus::SUCCESS) << "eleLen=" << eleLen;
+        const auto* data = GetTilingData<TransposeGatherTilingData>(bundle.context);
+        ASSERT_NE(data, nullptr) << "eleLen=" << eleLen;
+        EXPECT_GT(data->dataTensorSize, 0U) << "eleLen=" << eleLen;
+        EXPECT_GT(data->indexTensorSize, 0U) << "eleLen=" << eleLen;
+        // kernel：in0 | in1 | out0 | out1 | index。
+        const uint64_t ubUsage = static_cast<uint64_t>(data->dataTensorSize) * 4U + data->indexTensorSize;
+        EXPECT_LE(ubUsage, static_cast<uint64_t>(kUbSize)) << "eleLen=" << eleLen;
+    }
+}
+
+TEST(TransposeGatherStrategy, gather_large_shape_and_boundary)
+{
+    auto compileInfo = MakeCompilerInfo();
+    auto para = MakeDummyPara(compileInfo);
+
+    auto bundle = BuildTilingContext(para);
+    ShapeInfo si = MakeShape({kHugeDim, 62}, {1, 0}, 4);
+    optiling::TransposeGatherStrategy strategy(bundle.context, MakePlatformInfo(), MakeOpParam(si));
+    ASSERT_TRUE(strategy.IsSupport());
+    ASSERT_EQ(strategy.Execute(), TilingStatus::SUCCESS);
+    const auto* data = GetTilingData<TransposeGatherTilingData>(bundle.context);
+    ASSERT_NE(data, nullptr);
+    EXPECT_EQ(data->inUbCutAxisSize, kHugeDim);
+    EXPECT_GT(data->inUbCutAxisSize, static_cast<int64_t>(kUint32Max));
+    EXPECT_EQ(data->outUbCutAxisSize, kHugeDim);
+    EXPECT_LE(static_cast<uint64_t>(data->dataTensorSize) * 4U + data->indexTensorSize, static_cast<uint64_t>(kUbSize));
+
+    // 边界：related / 尾轴不转置 / 4bit 均不命中。
+    auto missBundle = BuildTilingContext(para);
+    ShapeInfo notLast = MakeShape({128, 64}, {0, 1}, 4);
+    optiling::TransposeGatherStrategy notLastStrategy(missBundle.context, MakePlatformInfo(), MakeOpParam(notLast));
+    EXPECT_FALSE(notLastStrategy.IsSupport());
+
+    ShapeInfo b4 = MakeShape({128, 64}, {1, 0}, ge::kDataTypeSizeBitOffset + 4);
+    optiling::TransposeGatherStrategy b4Strategy(missBundle.context, MakePlatformInfo(), MakeOpParam(b4));
+    EXPECT_FALSE(b4Strategy.IsSupport());
+
+    ShapeInfo related = MakeShape({128, 64}, {1, 0}, 4);
+    optiling::TransposeGatherStrategy relatedStrategy(missBundle.context, MakePlatformInfo(),
+                                                      MakeOpParam(related, true));
+    EXPECT_FALSE(relatedStrategy.IsSupport());
+}

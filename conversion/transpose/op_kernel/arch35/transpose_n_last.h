@@ -48,7 +48,7 @@ template <typename T>
 class TransposeNLast : public TransposeBase<T> {
 public:
     __aicore__ inline TransposeNLast(){};
-    __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, const TransposeOpTilingData* tilingData, TPipe* pipe);
+    __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, const TransposeNLastTilingData* tilingData);
     __aicore__ inline void Process();
 
 private:
@@ -67,13 +67,13 @@ private:
 private:
     int64_t blockIdx_;
 
-    // buffer
-    TQueBind<QuePosition::VECIN, QuePosition::VECOUT, 1> vecQue_; // 双缓冲绑定队列（BUFFER_NUM=2）
-    GlobalTensor<T> inputGM_;                                     // 输入 GM 张量
-    GlobalTensor<T> outputGM_;                                    // 输出 GM 张量
+    // buffer：静态双缓冲（Mutex 同步）
+    LocalTensor<T> local_[BUFFER_NUM];
+    GlobalTensor<T> inputGM_;  // 输入 GM 张量
+    GlobalTensor<T> outputGM_; // 输出 GM 张量
 
     // tiling params
-    const TransposeOpTilingData* tiling_;
+    const TransposeNLastTilingData* tiling_;
     int64_t reducedInputShape_[TP_MAX_AXIS_NUM] = {0, 0, 0, 0, 0, 0, 0, 0};   ///< 简化后的输入 shape
     int64_t reducedOutputShape_[TP_MAX_AXIS_NUM] = {0, 0, 0, 0, 0, 0, 0, 0};  ///< 简化后的输出 shape
     int64_t inUbInputShapeMain_[TP_MAX_AXIS_NUM] = {0, 0, 0, 0, 0, 0, 0, 0};  ///< Main 块输入 UB shape
@@ -99,21 +99,23 @@ private:
 };
 
 template <typename T>
-__aicore__ inline void TransposeNLast<T>::Init(GM_ADDR x, GM_ADDR y, const TransposeOpTilingData* tilingData,
-                                               TPipe* pipe)
+__aicore__ inline void TransposeNLast<T>::Init(GM_ADDR x, GM_ADDR y, const TransposeNLastTilingData* tilingData)
 {
     blockIdx_ = GetBlockIdx();
     tiling_ = tilingData;
     ParseTilingData();
     inputGM_.SetGlobalBuffer((__gm__ T*)x);
     outputGM_.SetGlobalBuffer((__gm__ T*)y);
-    pipe->InitBuffer(vecQue_, BUFFER_NUM, tiling_->ubSize / BUFFER_NUM);
+    const uint32_t ubBytes = static_cast<uint32_t>(tiling_->ubSize / BUFFER_NUM);
+    for (int64_t i = 0; i < BUFFER_NUM; ++i) {
+        local_[i] = LocalTensor<T>(TPosition::VECIN, i * ubBytes, ubBytes / sizeof(T));
+    }
 }
 
 template <typename T>
 __aicore__ inline void TransposeNLast<T>::Process()
 {
-    if (!ParseMultiCoreRange(blockIdx_, tiling_->realCoreNum, tiling_->blkFactor, tiling_->blkTailFactor,
+    if (!ParseMultiCoreRange(blockIdx_, static_cast<int64_t>(GetBlockNum()), tiling_->blkFactor, tiling_->blkTailFactor,
                              blkProcessNum_, blkProcessIdxStart_, blkProcessIdxEnd_)) {
         return;
     }
@@ -263,7 +265,9 @@ __aicore__ inline void TransposeNLast<T>::CopyIn(int64_t loopIdx, int64_t inputB
         blockLen = inputBlockLenTail;
         lastAxisLen = inUbInputShapeTail_[permSize - 1];
     }
-    LocalTensor<T> bindLocalIn = vecQue_.AllocTensor<T>();
+    const uint32_t bufIdx = static_cast<uint32_t>(loopIdx % BUFFER_NUM);
+    LocalTensor<T> bindLocalIn = local_[bufIdx];
+    Mutex::Lock<PIPE_MTE2>(static_cast<MutexID>(bufIdx));
     DataCopyExtParams copyInParams{1, 0, 0, 0, 0};
     DataCopyPadExtParams<T> padParams{false, 0, 0, 0};
 
@@ -278,7 +282,7 @@ __aicore__ inline void TransposeNLast<T>::CopyIn(int64_t loopIdx, int64_t inputB
 #else
     DataCopyPad(bindLocalIn, inputGM_[srcAddressOffset], copyInParams, padParams);
 #endif
-    vecQue_.EnQue(bindLocalIn);
+    Mutex::Unlock<PIPE_MTE2>(static_cast<MutexID>(bufIdx));
 }
 
 template <typename T>
@@ -309,7 +313,9 @@ __aicore__ inline void TransposeNLast<T>::CopyOut(int64_t loopIdx, int64_t loopS
     loopParams.loop2SrcStride = loopSrcStride[3] * sizeof(T);
     loopParams.loop2DstStride = loopDstStride[3] * sizeof(T);
 
-    LocalTensor<T> bindLocalOut = vecQue_.DeQue<T>();
+    const uint32_t bufIdx = static_cast<uint32_t>(loopIdx % BUFFER_NUM);
+    LocalTensor<T> bindLocalOut = local_[bufIdx];
+    Mutex::Lock<PIPE_MTE3>(static_cast<MutexID>(bufIdx));
     // Move SetLoopModePara outside the loop: loopParams is constant across all iterations
     SetLoopModePara(loopParams, DataCopyMVType::UB_TO_OUT);
     for (int64_t loop7Idx = 0; loop7Idx < ls7; loop7Idx++) {
@@ -325,7 +331,7 @@ __aicore__ inline void TransposeNLast<T>::CopyOut(int64_t loopIdx, int64_t loopS
         }
     }
     ResetLoopModePara(DataCopyMVType::UB_TO_OUT);
-    vecQue_.FreeTensor(bindLocalOut);
+    Mutex::Unlock<PIPE_MTE3>(static_cast<MutexID>(bufIdx));
 }
 
 template <typename T>

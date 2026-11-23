@@ -49,11 +49,15 @@ TEST(TransposeTensorMoveStrategy, e2e_hits_this_strategy)
     TilingInfo e2e;
     ASSERT_TRUE(ExecuteTiling(para, e2e));
     EXPECT_EQ(e2e.tilingKey, TK_TENSOR_MOVE);
-    const auto* data = GetTilingData<TransposeOpTilingData>(e2e);
+    EXPECT_EQ(e2e.blockNum, 25U);
+    ASSERT_EQ(e2e.tilingDataSize, sizeof(TransposeTensorMoveTilingData));
+    const auto* data = GetTilingData<TransposeTensorMoveTilingData>(e2e);
     ASSERT_NE(data, nullptr);
-    EXPECT_EQ(data->permSize, 1);
-    EXPECT_GT(data->realCoreNum, 0);
-    EXPECT_GT(data->inUbFactor, 0);
+    // 普通入口动态主块分核：total=100000, eleLen=4, coreNum=48, ubSize=253952。
+    EXPECT_EQ(data->mainBlockElements, 4096U);
+    EXPECT_EQ(data->mainBlocksPerCore, 0U);
+    EXPECT_EQ(data->extraBlockCores, 24U);
+    EXPECT_EQ(data->tailElements, 1696U);
 }
 
 TEST(TransposeTensorMoveStrategy, transpose_tiling_tensor_move_1d)
@@ -155,6 +159,26 @@ TEST(TransposeTensorMoveStrategy, transpose_tiling_identity_perm_4d)
     EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(TK_TENSOR_MOVE));
 }
 
+// 关联算子入口统一使用 24B 紧凑 TransposeTensorMoveTilingData
+TEST(TransposeTensorMoveStrategy, related_entry_uses_compact_tiling)
+{
+    auto compileInfo = MakeCompilerInfo();
+    auto para = MakePara(compileInfo);
+    auto bundle = BuildTilingContext(para);
+    ShapeInfo si = MakeShape({100000}, {0}, 4);
+    optiling::TransposeTensorMoveStrategy strategy(bundle.context, MakePlatformInfo(), MakeOpParam(si, true));
+    ASSERT_EQ(strategy.Execute(), TilingStatus::SUCCESS);
+    EXPECT_EQ(bundle.context->GetTilingKey(), static_cast<uint64_t>(TK_TENSOR_MOVE));
+    EXPECT_EQ(bundle.context->GetBlockDim(), 25U);
+    const auto* data = GetTilingData<TransposeTensorMoveTilingData>(bundle.context);
+    ASSERT_NE(data, nullptr);
+    // 与普通入口一致：动态主块分核，coreNum=25, mainBlockElements=4096, extraBlockCores=24, tail=1696。
+    EXPECT_EQ(data->mainBlockElements, 4096U);
+    EXPECT_EQ(data->mainBlocksPerCore, 0U);
+    EXPECT_EQ(data->extraBlockCores, 24U);
+    EXPECT_EQ(data->tailElements, 1696U);
+}
+
 // TilingData 容量不足：SetTilingData 无法取得 TilingData，不写码流但 tiling 本身成功
 TEST(TransposeTensorMoveStrategy, direct_tiling_data_insufficient)
 {
@@ -169,4 +193,54 @@ TEST(TransposeTensorMoveStrategy, direct_tiling_data_insufficient)
     // 码流容量不足：SetTilingData 返回 FAILURE，整体 tiling 失败且不产出 TilingData
     EXPECT_FALSE(ExecuteTiling(para, tilingInfo));
     EXPECT_EQ(tilingInfo.tilingDataSize, 0U);
+}
+
+/* ============================================================================
+ * TENSOR_MOVE(10000)：超大一维 shape + 双缓冲（含 bank 错位）UB 占用
+ * ========================================================================== */
+TEST(TransposeTensorMoveStrategy, tensor_move_large_shape_ub_budget)
+{
+    auto compileInfo = MakeCompilerInfo();
+    auto para = MakeDummyPara(compileInfo);
+    const int64_t eleLen = 1;
+    const int64_t totalElements = kHugeDim;
+    ShapeInfo si = MakeShape({totalElements}, {0}, eleLen);
+
+    auto bundle = BuildTilingContext(para);
+    optiling::TransposeTensorMoveStrategy strategy(bundle.context, MakePlatformInfo(), MakeOpParam(si));
+    ASSERT_TRUE(strategy.IsSupport());
+    ASSERT_EQ(strategy.Execute(), TilingStatus::SUCCESS);
+    const auto* data = GetTilingData<TransposeTensorMoveTilingData>(bundle.context);
+    ASSERT_NE(data, nullptr);
+
+    const uint64_t blockDim = bundle.context->GetBlockDim();
+    EXPECT_GT(blockDim, 0U);
+    EXPECT_GT(data->mainBlockElements, 0U);
+    EXPECT_LT(data->tailElements, data->mainBlockElements);
+
+    // kernel：静态双缓冲，第二块额外错开 BANK_OFFSET_BYTES。
+    const uint64_t ubUsage = static_cast<uint64_t>(data->mainBlockElements) * static_cast<uint64_t>(eleLen) * 2U +
+                             TransposeTensorMoveTilingData::BANK_OFFSET_BYTES;
+    EXPECT_LE(ubUsage, static_cast<uint64_t>(kUbSize));
+
+    // kernel 实际处理元素数必须与 shape 完全一致（超大 shape 走 uint64 分块/偏移）。
+    const uint64_t fullBlocks = data->mainBlocksPerCore * blockDim + static_cast<uint64_t>(data->extraBlockCores);
+    EXPECT_EQ(fullBlocks * data->mainBlockElements + data->tailElements, static_cast<uint64_t>(totalElements));
+    EXPECT_GT(data->mainBlocksPerCore, 0U);
+}
+
+// 边界：dim==1 命中，dim==2 不命中（TENSOR_MOVE 只承接纯搬运）
+TEST(TransposeTensorMoveStrategy, tensor_move_dim_boundary)
+{
+    auto compileInfo = MakeCompilerInfo();
+    auto para = MakeDummyPara(compileInfo);
+    auto bundle = BuildTilingContext(para);
+
+    ShapeInfo dim1 = MakeShape({1024}, {0}, 4);
+    optiling::TransposeTensorMoveStrategy hit(bundle.context, MakePlatformInfo(), MakeOpParam(dim1));
+    EXPECT_TRUE(hit.IsSupport());
+
+    ShapeInfo dim2 = MakeShape({32, 32}, {0, 1}, 4);
+    optiling::TransposeTensorMoveStrategy miss(bundle.context, MakePlatformInfo(), MakeOpParam(dim2));
+    EXPECT_FALSE(miss.IsSupport());
 }

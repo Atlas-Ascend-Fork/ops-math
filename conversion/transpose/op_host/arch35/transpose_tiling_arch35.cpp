@@ -39,8 +39,10 @@
 #include "transpose_tiling_strategy_transto5hd_021.h"
 #include "transpose_tiling_strategy_b4.h"
 #include "transpose_tiling_strategy_gather.h"
+#include "transpose_tiling_strategy_small_shape_2d.h"
 #include "transpose_tiling_strategy_tensor_move.h"
 #include "transpose_tiling_strategy_n_last.h"
+#include "transpose_tiling_strategy_n_last_small.h"
 #include "transpose_tiling_strategy_nddma.h"
 #include "transpose_tiling_strategy_nddma_big_dim.h"
 #include "transpose_tiling_strategy_small_shape.h"
@@ -58,13 +60,15 @@ static constexpr uint64_t INPUT_IDX_PERM = 1; ///< 输入 perm 的索引
  * @brief Transpose 策略列表
  */
 using TransposeStrategyList = Ops::Math::OpTiling::StrategyTypeList<
+    TransposeTensorMoveStrategy, // 1 维纯数据搬运
+    TransposeNLastSmallStrategy, // 三/四维尾轴不变统一搬运
+    TransposeNLastStrategy, // 尾轴不转置且尾轴元素数不少于 32（自身逻辑保持 refactor-tp 原样）
     TransposeTransTo5HD10PerfStrategy, // 2D perm=[1,0] 全 tile 转置（DAV_3510/DAV_5102）
     TransposeTransTo5HD10Strategy,     // DAV_5102、2D perm=[1,0] 且 16bit
     TransposeTransTo5HD021Strategy,    // DAV_5102、3D perm=[0,2,1]
     TransposeB4Strategy,               // 4bit 类型且尾轴转置
+    TransposeSmallShape2DStrategy,     // 2D perm=[1,0] UB 4x4 SIMT（64KB~小 shape 阈值）
     TransposeGatherStrategy,           // 非融合内联的尾轴转置（非 4bit）
-    TransposeTensorMoveStrategy,       // 1 维纯数据搬运
-    TransposeNLastStrategy,            // 尾轴不转置且尾轴元素数不少于 32
     TransposeSmallShapeStrategy,       // SIMT 小 shape
     TransposeNddmaStrategy,            // dim<=5，NDDMA 单轴/双轴切分
     TransposeNddmaBigDimStrategy       // dim>5，压缩为 5 维 NDDMA

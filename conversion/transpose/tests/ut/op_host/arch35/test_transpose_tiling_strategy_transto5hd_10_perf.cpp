@@ -13,6 +13,8 @@
  * \brief TRANSTO5HD_10_PERF(10017) 策略 UT：端到端命中 + tile 几何/回落
  */
 
+#include <limits>
+
 #include "test_transpose_tiling_strategy_common.h"
 #include "../../../../op_host/arch35/transpose_tiling_strategy_transto5hd_10_perf.h"
 
@@ -142,7 +144,6 @@ TEST(TransposeTransTo5HD10PerfStrategy, transto5hd_10_perf_route)
     ASSERT_NE(tilingData, nullptr);
     EXPECT_EQ(tilingData->m, 512);
     EXPECT_EQ(tilingData->n, 512);
-    EXPECT_EQ(tilingData->coreNum, 40);
     // m=512 > cap(256): tileM 取 256; 248KB UB 预算下 tileN 取最大 2 的幂次 128
     EXPECT_EQ(tilingData->tileM, 256);
     EXPECT_EQ(tilingData->tileN, 128);
@@ -217,11 +218,11 @@ TEST(TransposeTransTo5HD10PerfStrategy, transto5hd_10_perf_tail_tile)
     bool success = ExecuteTiling(tilingContextPara, tilingInfo);
     EXPECT_TRUE(success);
     EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(TK_TRANSTO5HD_10_PERF));
+    EXPECT_EQ(tilingInfo.blockNum, 40U);
     const auto* tilingData = GetTilingData<TransposeTransTo5HD10PerfTilingData>(tilingInfo);
     ASSERT_NE(tilingData, nullptr);
     EXPECT_EQ(tilingData->m, 1040);
     EXPECT_EQ(tilingData->n, 1040);
-    EXPECT_EQ(tilingData->coreNum, 40);
     // tileM=256 / tileN=128: 1040 既不是 256 也不是 128 的整数倍, 行/列均有尾块
     EXPECT_EQ(tilingData->tileM, 256);
     EXPECT_EQ(tilingData->tileN, 128);
@@ -240,13 +241,11 @@ TEST(TransposeTransTo5HD10PerfStrategy, transto5hd_10_perf_not_aligned_fallback)
     gert::TilingContextPara::TensorDescription out({{510, 512}, {510, 512}}, ge::DT_FLOAT16, ge::FORMAT_ND);
     gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
 
-    TilingInfo tilingInfo;
-    ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
-    // 10017 因 n 非 16 对齐被拒 → 尾轴转置交由 GATHER(10006)
-    EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(TK_GATHER));
-    const auto* gatherData = GetTilingData<TransposeGatherTilingData>(tilingInfo);
-    ASSERT_NE(gatherData, nullptr);
-    EXPECT_GT(gatherData->usedCoreCnt, 0U);
+    // n=510 非 16 对齐 → 10017 准入拒绝（不再验证其他模板兜底）。
+    ShapeInfo si = MakeShape({512, 510}, {1, 0}, 2);
+    auto bundle = BuildTilingContext(tilingContextPara);
+    optiling::TransposeTransTo5HD10PerfStrategy strategy(bundle.context, MakePlatformInfo(), MakeOpParam(si));
+    EXPECT_FALSE(strategy.IsSupport());
 }
 
 // UB 预算不足以容纳一个 16x16 tile → 回落
@@ -274,4 +273,50 @@ TEST(TransposeTransTo5HD10PerfStrategy, direct_tiling_data_insufficient)
     optiling::TransposeTransTo5HD10PerfStrategy strategy(bundle.context, MakePlatformInfo(), MakeOpParam(si));
     ASSERT_TRUE(strategy.IsSupport());
     EXPECT_EQ(strategy.Execute(), TilingStatus::FAILURE);
+}
+
+/* ============================================================================
+ * TRANSTO5HD_10_PERF(10017)：512KB / int32 边界 + tile 几何 UB 占用
+ * ========================================================================== */
+TEST(TransposeTransTo5HD10PerfStrategy, transto5hd_10_perf_boundary_and_ub_budget)
+{
+    auto compileInfo = MakeCompilerInfo();
+    auto para = MakeDummyPara(compileInfo);
+    auto bundle = BuildTilingContext(para);
+    const int64_t arch = static_cast<int64_t>(Ops::Base::DAV_3510);
+    const int64_t eleLen = 2;
+
+    ShapeInfo hit = MakeShape({512, 512}, {1, 0}, eleLen); // 512KB
+    optiling::TransposeTransTo5HD10PerfStrategy hitStrategy(bundle.context, MakePlatformInfo(arch), MakeOpParam(hit));
+    EXPECT_TRUE(hitStrategy.IsSupport());
+
+    ShapeInfo below = MakeShape({496, 512}, {1, 0}, eleLen); // 496KB
+    optiling::TransposeTransTo5HD10PerfStrategy belowStrategy(bundle.context, MakePlatformInfo(arch),
+                                                              MakeOpParam(below));
+    EXPECT_FALSE(belowStrategy.IsSupport());
+
+    // m 超出 int32：tiling data 的 m/n 为 int32，必须拒绝而不是静默截断。
+    ShapeInfo overInt32 = MakeShape({static_cast<int64_t>(std::numeric_limits<int32_t>::max()) + 16, 16}, {1, 0},
+                                    eleLen);
+    optiling::TransposeTransTo5HD10PerfStrategy overStrategy(bundle.context, MakePlatformInfo(arch),
+                                                             MakeOpParam(overInt32));
+    EXPECT_FALSE(overStrategy.IsSupport());
+
+    ShapeInfo shape = MakeShape({512, 512}, {1, 0}, eleLen);
+    auto runBundle = BuildTilingContext(para);
+    optiling::TransposeTransTo5HD10PerfStrategy strategy(runBundle.context, MakePlatformInfo(arch), MakeOpParam(shape));
+    ASSERT_TRUE(strategy.IsSupport());
+    ASSERT_EQ(strategy.Execute(), TilingStatus::SUCCESS);
+    const auto* data = GetTilingData<TransposeTransTo5HD10PerfTilingData>(runBundle.context);
+    ASSERT_NE(data, nullptr);
+    EXPECT_EQ(data->m, 512);
+    EXPECT_EQ(data->n, 512);
+    EXPECT_GT(data->tileM, 0);
+    EXPECT_GT(data->tileN, 0);
+
+    // kernel：tileM×(tileN+pad) + 2×tileN×(tileM+pad)，UB 另预留 4096B。
+    const int64_t pad = kUbBlockSize / eleLen;
+    const int64_t ubElems = static_cast<int64_t>(data->tileM) * (data->tileN + pad) +
+                            2LL * data->tileN * (data->tileM + pad);
+    EXPECT_LE(ubElems * eleLen + 4096, kUbSize);
 }

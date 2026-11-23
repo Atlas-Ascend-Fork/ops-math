@@ -100,16 +100,14 @@ void TransposeTransTo5HD10Strategy::FillBlockPara(CoreSplitPara& coreSplitPara, 
 
 void TransposeTransTo5HD10Strategy::FillUbPara(UbSplitPara& ubSplitPara, TransTo5HD10UbParamInfo& ubPara)
 {
-    ubSplitPara.MainCoreUbAlignFactor = ubPara.MainCoreUbAlignFactor;
-    ubSplitPara.MainCoreUbFactor = ubPara.MainCoreUbFactor;
-    ubSplitPara.MainCoreUbCount = ubPara.MainCoreUbCount;
-    ubSplitPara.MainCoreTailUbAlignFactor = ubPara.MainCoreTailUbAlignFactor;
-    ubSplitPara.MainCoreTailUbFactor = ubPara.MainCoreTailUbFactor;
-    ubSplitPara.TailCoreUbAlignFactor = ubPara.TailCoreUbAlignFactor;
-    ubSplitPara.TailCoreUbFactor = ubPara.TailCoreUbFactor;
-    ubSplitPara.TailCoreUbCount = ubPara.TailCoreUbCount;
-    ubSplitPara.TailCoreTailUbAlignFactor = ubPara.TailCoreTailUbAlignFactor;
-    ubSplitPara.TailCoreTailUbFactor = ubPara.TailCoreTailUbFactor;
+    ubSplitPara.MainCoreUbAlignFactor = static_cast<int32_t>(ubPara.MainCoreUbAlignFactor);
+    ubSplitPara.MainCoreUbFactor = static_cast<int32_t>(ubPara.MainCoreUbFactor);
+    ubSplitPara.MainCoreTailUbAlignFactor = static_cast<int32_t>(ubPara.MainCoreTailUbAlignFactor);
+    ubSplitPara.MainCoreTailUbFactor = static_cast<int32_t>(ubPara.MainCoreTailUbFactor);
+    ubSplitPara.TailCoreUbAlignFactor = static_cast<int32_t>(ubPara.TailCoreUbAlignFactor);
+    ubSplitPara.TailCoreUbFactor = static_cast<int32_t>(ubPara.TailCoreUbFactor);
+    ubSplitPara.TailCoreTailUbAlignFactor = static_cast<int32_t>(ubPara.TailCoreTailUbAlignFactor);
+    ubSplitPara.TailCoreTailUbFactor = static_cast<int32_t>(ubPara.TailCoreTailUbFactor);
 }
 
 bool TransposeTransTo5HD10Strategy::SetTilingData()
@@ -120,8 +118,7 @@ bool TransposeTransTo5HD10Strategy::SetTilingData()
         return false;
     }
 
-    tiling->AvailableUbSize = AvailableUbSize;
-    tiling->UsedCoreNum = basicInfo_.UsedCoreNum;
+    tiling->AvailableUbSize = static_cast<int32_t>(AvailableUbSize);
     tiling->MainCoreLoopCount = basicInfo_.MainCoreLoopCount;
     tiling->TailCoreLoopCount = basicInfo_.TailCoreLoopCount;
     tiling->RLen = basicInfo_.RLen;
@@ -143,33 +140,34 @@ void TransposeTransTo5HD10Strategy::LogTilingData()
 {
     OP_LOGD(context_->GetNodeName(), "Entering PrintTilingData.");
     OP_LOGD(context_->GetNodeName(),
-            "AvailableUbSize: %d, UsedCoreNum: %d, MainCoreLoopCount: %d, TailCoreLoopCount: %d, RLen: %d, \
-        CLen: %d, RAlignBlock: %d, CAlignBlock: %d, RAlignBlockElem: %d, \
-        CAlignBlockElem: %d, IsRSplit: %d, IsRCSplit: %d",
+            "AvailableUbSize: %ld, UsedCoreNum: %ld, MainCoreLoopCount: %ld, TailCoreLoopCount: %ld, RLen: %ld, \
+        CLen: %ld, RAlignBlock: %ld, CAlignBlock: %ld, RAlignBlockElem: %ld, \
+        CAlignBlockElem: %ld, IsRSplit: %d, IsRCSplit: %d",
             AvailableUbSize, basicInfo_.UsedCoreNum, basicInfo_.MainCoreLoopCount, basicInfo_.TailCoreLoopCount,
             basicInfo_.RLen, basicInfo_.CLen, basicInfo_.RAlignBlock, basicInfo_.CAlignBlock,
             basicInfo_.RAlignBlockElem, basicInfo_.CAlignBlockElem, basicInfo_.IsRSplit, basicInfo_.IsRCSplit);
-    OP_LOGD(context_->GetNodeName(),
-            "core split info is: rAlignBlockFactor: %d, rBlockFactor: %d, rBlockCount: %d, rAlignBlockTailFactor: %d, \
-        rBlockTailFactor: %d, cAlignBlockFactor: %d, cBlockFactor: %d, cBlockCount: %d, cAlignBlockTailFactor: %d, \
-        cBlockTailFactor: %d",
-            rCoreSplitInfo_.AlignBlockFactor, rCoreSplitInfo_.BlockFactor, rCoreSplitInfo_.BlockCount,
-            rCoreSplitInfo_.AlignBlockTailFactor, rCoreSplitInfo_.BlockTailFactor, cCoreSplitInfo_.AlignBlockFactor,
-            cCoreSplitInfo_.BlockFactor, cCoreSplitInfo_.BlockCount, cCoreSplitInfo_.AlignBlockTailFactor,
-            cCoreSplitInfo_.BlockTailFactor);
+    OP_LOGD(
+        context_->GetNodeName(),
+        "core split info is: rAlignBlockFactor: %ld, rBlockFactor: %ld, rBlockCount: %ld, rAlignBlockTailFactor: %ld, \
+        rBlockTailFactor: %ld, cAlignBlockFactor: %ld, cBlockFactor: %ld, cBlockCount: %ld, cAlignBlockTailFactor: %ld, \
+        cBlockTailFactor: %ld",
+        rCoreSplitInfo_.AlignBlockFactor, rCoreSplitInfo_.BlockFactor, rCoreSplitInfo_.BlockCount,
+        rCoreSplitInfo_.AlignBlockTailFactor, rCoreSplitInfo_.BlockTailFactor, cCoreSplitInfo_.AlignBlockFactor,
+        cCoreSplitInfo_.BlockFactor, cCoreSplitInfo_.BlockCount, cCoreSplitInfo_.AlignBlockTailFactor,
+        cCoreSplitInfo_.BlockTailFactor);
 
     OP_LOGD(context_->GetNodeName(),
-            "r ub params info is: rMainCoreUbAlignFactor: %d, rMainCoreUbFactor: %d, rMainCoreUbCount: %d, \
-        rMainCoreTailUbAlignFactor: %d, rMainCoreTailUbFactor: %d, rTailCoreUbAlignFactor: %d, rTailCoreUbFactor: %d, \
-        rTailCoreUbCount: %d, rTailCoreTailUbAlignFactor: %d, rTailCoreTailUbFactor: %d",
+            "r ub params info is: rMainCoreUbAlignFactor: %ld, rMainCoreUbFactor: %ld, rMainCoreUbCount: %ld, \
+        rMainCoreTailUbAlignFactor: %ld, rMainCoreTailUbFactor: %ld, rTailCoreUbAlignFactor: %ld, rTailCoreUbFactor: %ld, \
+        rTailCoreUbCount: %ld, rTailCoreTailUbAlignFactor: %ld, rTailCoreTailUbFactor: %ld",
             rUbParamInfo_.MainCoreUbAlignFactor, rUbParamInfo_.MainCoreUbFactor, rUbParamInfo_.MainCoreUbCount,
             rUbParamInfo_.MainCoreTailUbAlignFactor, rUbParamInfo_.MainCoreTailUbFactor,
             rUbParamInfo_.TailCoreUbAlignFactor, rUbParamInfo_.TailCoreUbFactor, rUbParamInfo_.TailCoreUbCount,
             rUbParamInfo_.TailCoreTailUbAlignFactor, rUbParamInfo_.TailCoreTailUbFactor);
     OP_LOGD(context_->GetNodeName(),
-            "c ub params info is :cMainCoreUbAlignFactor: %d, cMainCoreUbFactor: %d, cMainCoreUbCount: %d, \
-        cMainCoreTailUbAlignFactor: %d, cMainCoreTailUbFactor: %d, cTailCoreUbAlignFactor: %d, cTailCoreUbFactor: %d, \
-        cTailCoreUbCount: %d, cTailCoreTailUbAlignFactor: %d, cTailCoreTailUbFactor: %d",
+            "c ub params info is :cMainCoreUbAlignFactor: %ld, cMainCoreUbFactor: %ld, cMainCoreUbCount: %ld, \
+        cMainCoreTailUbAlignFactor: %ld, cMainCoreTailUbFactor: %ld, cTailCoreUbAlignFactor: %ld, cTailCoreUbFactor: %ld, \
+        cTailCoreUbCount: %ld, cTailCoreTailUbAlignFactor: %ld, cTailCoreTailUbFactor: %ld",
             cUbParamInfo_.MainCoreUbAlignFactor, cUbParamInfo_.MainCoreUbFactor, cUbParamInfo_.MainCoreUbCount,
             cUbParamInfo_.MainCoreTailUbAlignFactor, cUbParamInfo_.MainCoreTailUbFactor,
             cUbParamInfo_.TailCoreUbAlignFactor, cUbParamInfo_.TailCoreUbFactor, cUbParamInfo_.TailCoreUbCount,

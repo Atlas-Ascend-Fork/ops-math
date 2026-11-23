@@ -15,8 +15,10 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <array>
 #include <iostream>
 #include <vector>
+#include <cstring>
 #include "tiling_context_faker.h"
 #include "tiling_case_executor.h"
 #include "../../../../op_host/arch35/transpose_tiling_arch35.h"
@@ -51,6 +53,7 @@ TEST_F(TransposeB4Tiling, b4_4d_perm_1032)
     TilingInfo tilingInfo;
     ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
     EXPECT_EQ(tilingInfo.tilingKey, expectTilingKey);
+    EXPECT_EQ(tilingInfo.blockNum, 63);
     ASSERT_EQ(tilingInfo.workspaceSizes.size(), 1U);
     EXPECT_EQ(tilingInfo.workspaceSizes[0], 0);
     ASSERT_EQ(tilingInfo.tilingDataSize, sizeof(Transpose::TransposeB4TilingData));
@@ -75,7 +78,6 @@ TEST_F(TransposeB4Tiling, b4_4d_perm_1032)
     EXPECT_EQ(tilingData->outerAxisNums, 2);
     EXPECT_EQ(tilingData->innerAxisNums, 4);
     EXPECT_EQ(tilingData->dimsPerCore, 13);
-    EXPECT_EQ(tilingData->useCoreNum, 63);
     EXPECT_EQ(tilingData->dimsPerCoreTail, 10);
     EXPECT_EQ(tilingData->ubSize, 25376);
     EXPECT_EQ(tilingData->permSize, 4);
@@ -101,6 +103,7 @@ TEST_F(TransposeB4Tiling, b4_4d_perm_1032_tiny)
     TilingInfo tilingInfo;
     ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
     EXPECT_EQ(tilingInfo.tilingKey, expectTilingKey);
+    EXPECT_EQ(tilingInfo.blockNum, 1);
     ASSERT_EQ(tilingInfo.workspaceSizes.size(), 1U);
     EXPECT_EQ(tilingInfo.workspaceSizes[0], 0);
     ASSERT_EQ(tilingInfo.tilingDataSize, sizeof(Transpose::TransposeB4TilingData));
@@ -123,7 +126,6 @@ TEST_F(TransposeB4Tiling, b4_4d_perm_1032_tiny)
     EXPECT_EQ(tilingData->outerAxisNums, 1);
     EXPECT_EQ(tilingData->innerAxisNums, 4);
     EXPECT_EQ(tilingData->dimsPerCore, 1);
-    EXPECT_EQ(tilingData->useCoreNum, 1);
     EXPECT_EQ(tilingData->dimsPerCoreTail, 1);
     EXPECT_EQ(tilingData->ubSize, 25376);
     EXPECT_EQ(tilingData->permSize, 4);
@@ -149,6 +151,7 @@ TEST_F(TransposeB4Tiling, b4_4d_perm_1032_batch_large)
     TilingInfo tilingInfo;
     ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
     EXPECT_EQ(tilingInfo.tilingKey, expectTilingKey);
+    EXPECT_EQ(tilingInfo.blockNum, 53);
     ASSERT_EQ(tilingInfo.workspaceSizes.size(), 1U);
     EXPECT_EQ(tilingInfo.workspaceSizes[0], 0);
     ASSERT_EQ(tilingInfo.tilingDataSize, sizeof(Transpose::TransposeB4TilingData));
@@ -171,7 +174,6 @@ TEST_F(TransposeB4Tiling, b4_4d_perm_1032_batch_large)
     EXPECT_EQ(tilingData->outerAxisNums, 1);
     EXPECT_EQ(tilingData->innerAxisNums, 4);
     EXPECT_EQ(tilingData->dimsPerCore, 2);
-    EXPECT_EQ(tilingData->useCoreNum, 53);
     EXPECT_EQ(tilingData->dimsPerCoreTail, 1);
     EXPECT_EQ(tilingData->ubSize, 25376);
     EXPECT_EQ(tilingData->permSize, 4);
@@ -197,6 +199,7 @@ TEST_F(TransposeB4Tiling, b4_2d_perm_10)
     TilingInfo tilingInfo;
     ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
     EXPECT_EQ(tilingInfo.tilingKey, expectTilingKey);
+    EXPECT_EQ(tilingInfo.blockNum, 1);
     ASSERT_EQ(tilingInfo.workspaceSizes.size(), 1U);
     EXPECT_EQ(tilingInfo.workspaceSizes[0], 0);
     ASSERT_EQ(tilingInfo.tilingDataSize, sizeof(Transpose::TransposeB4TilingData));
@@ -219,7 +222,6 @@ TEST_F(TransposeB4Tiling, b4_2d_perm_10)
     EXPECT_EQ(tilingData->outerAxisNums, 1);
     EXPECT_EQ(tilingData->innerAxisNums, 2);
     EXPECT_EQ(tilingData->dimsPerCore, 1);
-    EXPECT_EQ(tilingData->useCoreNum, 1);
     EXPECT_EQ(tilingData->dimsPerCoreTail, 1);
     EXPECT_EQ(tilingData->ubSize, 25376);
     EXPECT_EQ(tilingData->permSize, 2);
@@ -247,6 +249,7 @@ TEST_F(TransposeB4Tiling, b4_6d_perm_103254)
     TilingInfo tilingInfo;
     ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
     EXPECT_EQ(tilingInfo.tilingKey, expectTilingKey);
+    EXPECT_EQ(tilingInfo.blockNum, 50);
     ASSERT_EQ(tilingInfo.workspaceSizes.size(), 1U);
     EXPECT_EQ(tilingInfo.workspaceSizes[0], 0);
     ASSERT_EQ(tilingInfo.tilingDataSize, sizeof(Transpose::TransposeB4TilingData));
@@ -271,7 +274,6 @@ TEST_F(TransposeB4Tiling, b4_6d_perm_103254)
     EXPECT_EQ(tilingData->outerAxisNums, 2);
     EXPECT_EQ(tilingData->innerAxisNums, 4);
     EXPECT_EQ(tilingData->dimsPerCore, 4);
-    EXPECT_EQ(tilingData->useCoreNum, 50);
     EXPECT_EQ(tilingData->dimsPerCoreTail, 4);
     EXPECT_EQ(tilingData->ubSize, 25376);
     EXPECT_EQ(tilingData->permSize, 6);
@@ -279,7 +281,7 @@ TEST_F(TransposeB4Tiling, b4_6d_perm_103254)
 }
 
 // 场景：B4 4D 输入 [36,204,26,50]，perm={1,0,2,3}，尾轴不转置且后两轴合并后尾轴较大，输出 [204,36,26,50]。
-// 期望：走尾轴不转置的连续行搬移模板，tiling key=10004（N_LAST）；
+// 期望：走三/四维尾轴不变搬移模板，tiling key=10014（N_LAST_SMALL）；
 //       tiling 成功。
 TEST_F(TransposeB4Tiling, b4_4d_perm_1023_n_last)
 {
@@ -294,53 +296,17 @@ TEST_F(TransposeB4Tiling, b4_4d_perm_1023_n_last)
     gert::TilingContextPara::TensorDescription out({{204, 36, 26, 50}, {204, 36, 26, 50}}, ge::DT_FLOAT4_E2M1,
                                                    ge::FORMAT_ND);
     gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-    uint64_t expectTilingKey = 10004;
-    std::vector<size_t> expectWorkspaces = {0};
     TilingInfo tilingInfo;
     ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
-    EXPECT_EQ(tilingInfo.tilingKey, expectTilingKey);
-    ASSERT_EQ(tilingInfo.workspaceSizes.size(), 1U);
-    EXPECT_EQ(tilingInfo.workspaceSizes[0], 0);
-    ASSERT_EQ(tilingInfo.tilingDataSize, sizeof(Transpose::TransposeOpTilingData));
-    const auto* tilingData = reinterpret_cast<const Transpose::TransposeOpTilingData*>(tilingInfo.tilingData.get());
-    EXPECT_EQ(tilingData->permSize, 3);
-    EXPECT_EQ(tilingData->inCutIndex, 1);
-    EXPECT_EQ(tilingData->outCutIndex, 0);
-    EXPECT_EQ(tilingData->inUbFactor, 68);
-    EXPECT_EQ(tilingData->outUbFactor, 0);
-    EXPECT_EQ(tilingData->inTailFactor, 0);
-    EXPECT_EQ(tilingData->outTailFactor, 0);
-    EXPECT_EQ(tilingData->realCoreNum, 64);
-    EXPECT_EQ(tilingData->blkFactor, 1);
-    EXPECT_EQ(tilingData->blkTailFactor, 44);
-    EXPECT_EQ(tilingData->ubSize, 253952);
-    EXPECT_EQ(tilingData->totalNddmaNum, 1);
-    EXPECT_EQ(tilingData->rangeMainEnd, 0);
-    EXPECT_EQ(tilingData->rangeInputTailStart, 0);
-    EXPECT_EQ(tilingData->rangeInputTailEnd, 0);
-    EXPECT_EQ(tilingData->rangeOutputTailStart, 0);
-    EXPECT_EQ(tilingData->rangeOutputTailEnd, 0);
-    EXPECT_EQ(tilingData->rangeTailStart, 0);
-    EXPECT_EQ(tilingData->rangeTailEnd, 0);
-    EXPECT_EQ(tilingData->bigDimBufferNum, 1);
-    EXPECT_THAT(tilingData->inputShape, ::testing::ElementsAreArray(std::vector<int64_t>{36, 204, 650, 0, 0, 0, 0, 0}));
-    EXPECT_THAT(tilingData->outputShape,
-                ::testing::ElementsAreArray(std::vector<int64_t>{204, 36, 650, 0, 0, 0, 0, 0}));
-    EXPECT_THAT(tilingData->perm, ::testing::ElementsAreArray(std::vector<int64_t>{1, 0, 2, 0, 0, 0, 0, 0}));
-    EXPECT_THAT(tilingData->baseInShape, ::testing::ElementsAreArray(std::vector<int64_t>{0, 0, 0, 0, 0, 0, 0, 0}));
-    EXPECT_THAT(tilingData->baseNddmaShape, ::testing::ElementsAreArray(std::vector<int64_t>{0, 0, 0, 0, 0}));
-    EXPECT_THAT(tilingData->nddmaIdx, ::testing::ElementsAreArray(std::vector<int64_t>{-1, 0, 0, 0, 0}));
-    EXPECT_THAT(tilingData->expandedPerm, ::testing::ElementsAreArray(std::vector<int64_t>{0, 1, 3, 2, 4}));
-    EXPECT_THAT(tilingData->expandedInputShape, ::testing::ElementsAreArray(std::vector<int64_t>{1, 1, 36, 204, 650}));
-    EXPECT_THAT(tilingData->expandedOutputShape, ::testing::ElementsAreArray(std::vector<int64_t>{1, 1, 204, 36, 650}));
-    EXPECT_THAT(tilingData->inUbMainSrcShape, ::testing::ElementsAreArray(std::vector<int64_t>{0, 0, 0, 0, 0}));
-    EXPECT_THAT(tilingData->inUbMainDstShape, ::testing::ElementsAreArray(std::vector<int64_t>{0, 0, 0, 0, 0}));
-    EXPECT_THAT(tilingData->inUbInputTailSrcShape, ::testing::ElementsAreArray(std::vector<int64_t>{0, 0, 0, 0, 0}));
-    EXPECT_THAT(tilingData->inUbInputTailDstShape, ::testing::ElementsAreArray(std::vector<int64_t>{0, 0, 0, 0, 0}));
-    EXPECT_THAT(tilingData->inUbOutputTailSrcShape, ::testing::ElementsAreArray(std::vector<int64_t>{0, 0, 0, 0, 0}));
-    EXPECT_THAT(tilingData->inUbOutputTailDstShape, ::testing::ElementsAreArray(std::vector<int64_t>{0, 0, 0, 0, 0}));
-    EXPECT_THAT(tilingData->inUbTailSrcShape, ::testing::ElementsAreArray(std::vector<int64_t>{0, 0, 0, 0, 0}));
-    EXPECT_THAT(tilingData->inUbTailDstShape, ::testing::ElementsAreArray(std::vector<int64_t>{0, 0, 0, 0, 0}));
+    EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(10014));
+    EXPECT_EQ(tilingInfo.blockNum, 64);
+    ASSERT_EQ(tilingInfo.tilingDataSize, sizeof(Transpose::TransposeNLastSmallTilingData));
+    EXPECT_EQ(tilingInfo.workspaceSizes, std::vector<int64_t>{0});
+    Transpose::TransposeNLastSmallTilingData data{};
+    std::memcpy(&data, tilingInfo.tilingData.get(), sizeof(data));
+    EXPECT_EQ(data.rowBytes, 26 * 50 / 2);
+    EXPECT_EQ(data.outDstStrideBytes, (36 - 1) * data.rowBytes);
+    EXPECT_EQ(data.aTiles * data.bTiles * data.cTiles, data.blocksPerCore * tilingInfo.blockNum + data.extraBlocks);
 }
 
 // 场景：B4 4D 大 shape 输入 [36,204,2600,3020]，perm={1,0,3,2}，交换最后两轴，输出 [204,36,3020,2600]。
@@ -364,6 +330,7 @@ TEST_F(TransposeB4Tiling, b4_4d_perm_1032_huge)
     TilingInfo tilingInfo;
     ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
     EXPECT_EQ(tilingInfo.tilingKey, expectTilingKey);
+    EXPECT_EQ(tilingInfo.blockNum, 64);
     ASSERT_EQ(tilingInfo.workspaceSizes.size(), 1U);
     EXPECT_EQ(tilingInfo.workspaceSizes[0], 0);
     ASSERT_EQ(tilingInfo.tilingDataSize, sizeof(Transpose::TransposeB4TilingData));
@@ -388,7 +355,6 @@ TEST_F(TransposeB4Tiling, b4_4d_perm_1032_huge)
     EXPECT_EQ(tilingData->outerAxisNums, 4);
     EXPECT_EQ(tilingData->innerAxisNums, 2);
     EXPECT_EQ(tilingData->dimsPerCore, 73440);
-    EXPECT_EQ(tilingData->useCoreNum, 64);
     EXPECT_EQ(tilingData->dimsPerCoreTail, 73440);
     EXPECT_EQ(tilingData->ubSize, 25376);
     EXPECT_EQ(tilingData->permSize, 4);
@@ -416,6 +382,7 @@ TEST_F(TransposeB4Tiling, b4_4d_perm_3210_reverse)
     TilingInfo tilingInfo;
     ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
     EXPECT_EQ(tilingInfo.tilingKey, expectTilingKey);
+    EXPECT_EQ(tilingInfo.blockNum, 64);
     ASSERT_EQ(tilingInfo.workspaceSizes.size(), 1U);
     EXPECT_EQ(tilingInfo.workspaceSizes[0], 0);
     ASSERT_EQ(tilingInfo.tilingDataSize, sizeof(Transpose::TransposeB4TilingData));
@@ -440,7 +407,6 @@ TEST_F(TransposeB4Tiling, b4_4d_perm_3210_reverse)
     EXPECT_EQ(tilingData->outerAxisNums, 3);
     EXPECT_EQ(tilingData->innerAxisNums, 3);
     EXPECT_EQ(tilingData->dimsPerCore, 33150);
-    EXPECT_EQ(tilingData->useCoreNum, 64);
     EXPECT_EQ(tilingData->dimsPerCoreTail, 33150);
     EXPECT_EQ(tilingData->ubSize, 25376);
     EXPECT_EQ(tilingData->permSize, 4);
@@ -448,7 +414,7 @@ TEST_F(TransposeB4Tiling, b4_4d_perm_3210_reverse)
 }
 
 // 场景：B4 4D 输入 [36,204,26,66]，perm={1,0,2,3}，尾轴不转置且后两轴合并后尾轴较大，输出 [204,36,26,66]。
-// 期望：走尾轴不转置的连续行搬移模板，tiling key=10004（N_LAST）；
+// 期望：走三/四维尾轴不变搬移模板，tiling key=10014（N_LAST_SMALL）；
 //       tiling 成功。
 TEST_F(TransposeB4Tiling, b4_4d_perm_1023_n_last_tail66)
 {
@@ -463,53 +429,17 @@ TEST_F(TransposeB4Tiling, b4_4d_perm_1023_n_last_tail66)
     gert::TilingContextPara::TensorDescription out({{204, 36, 26, 66}, {204, 36, 26, 66}}, ge::DT_FLOAT4_E2M1,
                                                    ge::FORMAT_ND);
     gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-    uint64_t expectTilingKey = 10004;
-    std::vector<size_t> expectWorkspaces = {0};
     TilingInfo tilingInfo;
     ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
-    EXPECT_EQ(tilingInfo.tilingKey, expectTilingKey);
-    ASSERT_EQ(tilingInfo.workspaceSizes.size(), 1U);
-    EXPECT_EQ(tilingInfo.workspaceSizes[0], 0);
-    ASSERT_EQ(tilingInfo.tilingDataSize, sizeof(Transpose::TransposeOpTilingData));
-    const auto* tilingData = reinterpret_cast<const Transpose::TransposeOpTilingData*>(tilingInfo.tilingData.get());
-    EXPECT_EQ(tilingData->permSize, 3);
-    EXPECT_EQ(tilingData->inCutIndex, 1);
-    EXPECT_EQ(tilingData->outCutIndex, 0);
-    EXPECT_EQ(tilingData->inUbFactor, 68);
-    EXPECT_EQ(tilingData->outUbFactor, 0);
-    EXPECT_EQ(tilingData->inTailFactor, 0);
-    EXPECT_EQ(tilingData->outTailFactor, 0);
-    EXPECT_EQ(tilingData->realCoreNum, 64);
-    EXPECT_EQ(tilingData->blkFactor, 1);
-    EXPECT_EQ(tilingData->blkTailFactor, 44);
-    EXPECT_EQ(tilingData->ubSize, 253952);
-    EXPECT_EQ(tilingData->totalNddmaNum, 1);
-    EXPECT_EQ(tilingData->rangeMainEnd, 0);
-    EXPECT_EQ(tilingData->rangeInputTailStart, 0);
-    EXPECT_EQ(tilingData->rangeInputTailEnd, 0);
-    EXPECT_EQ(tilingData->rangeOutputTailStart, 0);
-    EXPECT_EQ(tilingData->rangeOutputTailEnd, 0);
-    EXPECT_EQ(tilingData->rangeTailStart, 0);
-    EXPECT_EQ(tilingData->rangeTailEnd, 0);
-    EXPECT_EQ(tilingData->bigDimBufferNum, 1);
-    EXPECT_THAT(tilingData->inputShape, ::testing::ElementsAreArray(std::vector<int64_t>{36, 204, 858, 0, 0, 0, 0, 0}));
-    EXPECT_THAT(tilingData->outputShape,
-                ::testing::ElementsAreArray(std::vector<int64_t>{204, 36, 858, 0, 0, 0, 0, 0}));
-    EXPECT_THAT(tilingData->perm, ::testing::ElementsAreArray(std::vector<int64_t>{1, 0, 2, 0, 0, 0, 0, 0}));
-    EXPECT_THAT(tilingData->baseInShape, ::testing::ElementsAreArray(std::vector<int64_t>{0, 0, 0, 0, 0, 0, 0, 0}));
-    EXPECT_THAT(tilingData->baseNddmaShape, ::testing::ElementsAreArray(std::vector<int64_t>{0, 0, 0, 0, 0}));
-    EXPECT_THAT(tilingData->nddmaIdx, ::testing::ElementsAreArray(std::vector<int64_t>{-1, 0, 0, 0, 0}));
-    EXPECT_THAT(tilingData->expandedPerm, ::testing::ElementsAreArray(std::vector<int64_t>{0, 1, 3, 2, 4}));
-    EXPECT_THAT(tilingData->expandedInputShape, ::testing::ElementsAreArray(std::vector<int64_t>{1, 1, 36, 204, 858}));
-    EXPECT_THAT(tilingData->expandedOutputShape, ::testing::ElementsAreArray(std::vector<int64_t>{1, 1, 204, 36, 858}));
-    EXPECT_THAT(tilingData->inUbMainSrcShape, ::testing::ElementsAreArray(std::vector<int64_t>{0, 0, 0, 0, 0}));
-    EXPECT_THAT(tilingData->inUbMainDstShape, ::testing::ElementsAreArray(std::vector<int64_t>{0, 0, 0, 0, 0}));
-    EXPECT_THAT(tilingData->inUbInputTailSrcShape, ::testing::ElementsAreArray(std::vector<int64_t>{0, 0, 0, 0, 0}));
-    EXPECT_THAT(tilingData->inUbInputTailDstShape, ::testing::ElementsAreArray(std::vector<int64_t>{0, 0, 0, 0, 0}));
-    EXPECT_THAT(tilingData->inUbOutputTailSrcShape, ::testing::ElementsAreArray(std::vector<int64_t>{0, 0, 0, 0, 0}));
-    EXPECT_THAT(tilingData->inUbOutputTailDstShape, ::testing::ElementsAreArray(std::vector<int64_t>{0, 0, 0, 0, 0}));
-    EXPECT_THAT(tilingData->inUbTailSrcShape, ::testing::ElementsAreArray(std::vector<int64_t>{0, 0, 0, 0, 0}));
-    EXPECT_THAT(tilingData->inUbTailDstShape, ::testing::ElementsAreArray(std::vector<int64_t>{0, 0, 0, 0, 0}));
+    EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(10014));
+    EXPECT_EQ(tilingInfo.blockNum, 64);
+    ASSERT_EQ(tilingInfo.tilingDataSize, sizeof(Transpose::TransposeNLastSmallTilingData));
+    EXPECT_EQ(tilingInfo.workspaceSizes, std::vector<int64_t>{0});
+    Transpose::TransposeNLastSmallTilingData data{};
+    std::memcpy(&data, tilingInfo.tilingData.get(), sizeof(data));
+    EXPECT_EQ(data.rowBytes, 26 * 66 / 2);
+    EXPECT_EQ(data.outDstStrideBytes, (36 - 1) * data.rowBytes);
+    EXPECT_EQ(data.aTiles * data.bTiles * data.cTiles, data.blocksPerCore * tilingInfo.blockNum + data.extraBlocks);
 }
 
 // 场景：B4 3D 输入 [8,38,4]，perm={0,2,1}，仅交换后两轴（尾轴转置），输出 [8,4,38]。
@@ -531,6 +461,7 @@ TEST_F(TransposeB4Tiling, b4_3d_perm_021)
     TilingInfo tilingInfo;
     ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
     EXPECT_EQ(tilingInfo.tilingKey, expectTilingKey);
+    EXPECT_EQ(tilingInfo.blockNum, 1);
     ASSERT_EQ(tilingInfo.workspaceSizes.size(), 1U);
     EXPECT_EQ(tilingInfo.workspaceSizes[0], 0);
     ASSERT_EQ(tilingInfo.tilingDataSize, sizeof(Transpose::TransposeB4TilingData));
@@ -553,7 +484,6 @@ TEST_F(TransposeB4Tiling, b4_3d_perm_021)
     EXPECT_EQ(tilingData->outerAxisNums, 1);
     EXPECT_EQ(tilingData->innerAxisNums, 3);
     EXPECT_EQ(tilingData->dimsPerCore, 1);
-    EXPECT_EQ(tilingData->useCoreNum, 1);
     EXPECT_EQ(tilingData->dimsPerCoreTail, 1);
     EXPECT_EQ(tilingData->ubSize, 25376);
     EXPECT_EQ(tilingData->permSize, 3);
@@ -597,6 +527,7 @@ TEST_F(TransposeB4Tiling, b4_3d_e1m2_perm_201)
     TilingInfo tilingInfo;
     ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
     EXPECT_EQ(tilingInfo.tilingKey, expectTilingKey);
+    EXPECT_EQ(tilingInfo.blockNum, 58);
     ASSERT_EQ(tilingInfo.workspaceSizes.size(), 1U);
     EXPECT_EQ(tilingInfo.workspaceSizes[0], 0);
     ASSERT_EQ(tilingInfo.tilingDataSize, sizeof(Transpose::TransposeB4TilingData));
@@ -619,7 +550,6 @@ TEST_F(TransposeB4Tiling, b4_3d_e1m2_perm_201)
     EXPECT_EQ(tilingData->outerAxisNums, 1);
     EXPECT_EQ(tilingData->innerAxisNums, 2);
     EXPECT_EQ(tilingData->dimsPerCore, 5);
-    EXPECT_EQ(tilingData->useCoreNum, 58);
     EXPECT_EQ(tilingData->dimsPerCoreTail, 4);
     EXPECT_EQ(tilingData->ubSize, 25376);
     EXPECT_EQ(tilingData->permSize, 2);
@@ -645,6 +575,7 @@ TEST_F(TransposeB4Tiling, b4_3d_e2m1_perm_021)
     TilingInfo tilingInfo;
     ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
     EXPECT_EQ(tilingInfo.tilingKey, expectTilingKey);
+    EXPECT_EQ(tilingInfo.blockNum, 62);
     ASSERT_EQ(tilingInfo.workspaceSizes.size(), 1U);
     EXPECT_EQ(tilingInfo.workspaceSizes[0], 0);
     ASSERT_EQ(tilingInfo.tilingDataSize, sizeof(Transpose::TransposeB4TilingData));
@@ -669,7 +600,6 @@ TEST_F(TransposeB4Tiling, b4_3d_e2m1_perm_021)
     EXPECT_EQ(tilingData->outerAxisNums, 2);
     EXPECT_EQ(tilingData->innerAxisNums, 2);
     EXPECT_EQ(tilingData->dimsPerCore, 2);
-    EXPECT_EQ(tilingData->useCoreNum, 62);
     EXPECT_EQ(tilingData->dimsPerCoreTail, 1);
     EXPECT_EQ(tilingData->ubSize, 25376);
     EXPECT_EQ(tilingData->permSize, 3);
@@ -697,6 +627,7 @@ TEST_F(TransposeB4Tiling, b4_4d_perm_1320_large)
     TilingInfo tilingInfo;
     ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
     EXPECT_EQ(tilingInfo.tilingKey, expectTilingKey);
+    EXPECT_EQ(tilingInfo.blockNum, 64);
     ASSERT_EQ(tilingInfo.workspaceSizes.size(), 1U);
     EXPECT_EQ(tilingInfo.workspaceSizes[0], 0);
     ASSERT_EQ(tilingInfo.tilingDataSize, sizeof(Transpose::TransposeB4TilingData));
@@ -721,7 +652,6 @@ TEST_F(TransposeB4Tiling, b4_4d_perm_1320_large)
     EXPECT_EQ(tilingData->outerAxisNums, 4);
     EXPECT_EQ(tilingData->innerAxisNums, 2);
     EXPECT_EQ(tilingData->dimsPerCore, 7425600);
-    EXPECT_EQ(tilingData->useCoreNum, 64);
     EXPECT_EQ(tilingData->dimsPerCoreTail, 7425600);
     EXPECT_EQ(tilingData->ubSize, 25376);
     EXPECT_EQ(tilingData->permSize, 4);
@@ -749,6 +679,7 @@ TEST_F(TransposeB4Tiling, b4_4d_perm_1302_tall)
     TilingInfo tilingInfo;
     ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
     EXPECT_EQ(tilingInfo.tilingKey, expectTilingKey);
+    EXPECT_EQ(tilingInfo.blockNum, 64);
     ASSERT_EQ(tilingInfo.workspaceSizes.size(), 1U);
     EXPECT_EQ(tilingInfo.workspaceSizes[0], 0);
     ASSERT_EQ(tilingInfo.tilingDataSize, sizeof(Transpose::TransposeB4TilingData));
@@ -772,7 +703,6 @@ TEST_F(TransposeB4Tiling, b4_4d_perm_1302_tall)
     EXPECT_EQ(tilingData->outerAxisNums, 2);
     EXPECT_EQ(tilingData->innerAxisNums, 3);
     EXPECT_EQ(tilingData->dimsPerCore, 1589);
-    EXPECT_EQ(tilingData->useCoreNum, 64);
     EXPECT_EQ(tilingData->dimsPerCoreTail, 1575);
     EXPECT_EQ(tilingData->ubSize, 25376);
     EXPECT_EQ(tilingData->permSize, 4);
@@ -794,62 +724,23 @@ TEST_F(TransposeB4Tiling, b4_3d_perm_102_cut_twice)
     gert::TilingContextPara::TensorDescription out({{8112, 630, 40}, {8112, 630, 40}}, ge::DT_FLOAT4_E2M1,
                                                    ge::FORMAT_ND);
     gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-    uint64_t expectTilingKey = 10003;
-    std::vector<size_t> expectWorkspaces = {0};
-    TilingInfo tilingInfo;
-    ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
-    EXPECT_EQ(tilingInfo.tilingKey, expectTilingKey);
-    ASSERT_EQ(tilingInfo.workspaceSizes.size(), 1U);
-    EXPECT_EQ(tilingInfo.workspaceSizes[0], 0);
-    ASSERT_EQ(tilingInfo.tilingDataSize, sizeof(Transpose::TransposeOpTilingData));
-    const auto* tilingData = reinterpret_cast<const Transpose::TransposeOpTilingData*>(tilingInfo.tilingData.get());
-    EXPECT_EQ(tilingData->permSize, 3);
-    EXPECT_EQ(tilingData->inCutIndex, 1);
-    EXPECT_EQ(tilingData->outCutIndex, 1);
-    EXPECT_EQ(tilingData->inUbFactor, 25);
-    EXPECT_EQ(tilingData->outUbFactor, 315);
-    EXPECT_EQ(tilingData->inTailFactor, 12);
-    EXPECT_EQ(tilingData->outTailFactor, 0);
-    EXPECT_EQ(tilingData->realCoreNum, 64);
-    EXPECT_EQ(tilingData->blkFactor, 10);
-    EXPECT_EQ(tilingData->blkTailFactor, 10);
-    EXPECT_EQ(tilingData->ubSize, 253952);
-    EXPECT_EQ(tilingData->totalNddmaNum, 1);
-    EXPECT_EQ(tilingData->rangeMainEnd, 647);
-    EXPECT_EQ(tilingData->rangeInputTailStart, 648);
-    EXPECT_EQ(tilingData->rangeInputTailEnd, 649);
-    EXPECT_EQ(tilingData->rangeOutputTailStart, 0);
-    EXPECT_EQ(tilingData->rangeOutputTailEnd, 0);
-    EXPECT_EQ(tilingData->rangeTailStart, 0);
-    EXPECT_EQ(tilingData->rangeTailEnd, 0);
-    EXPECT_EQ(tilingData->bigDimBufferNum, 1);
-    EXPECT_THAT(tilingData->inputShape,
-                ::testing::ElementsAreArray(std::vector<int64_t>{630, 8112, 20, 0, 0, 0, 0, 0}));
-    EXPECT_THAT(tilingData->outputShape,
-                ::testing::ElementsAreArray(std::vector<int64_t>{8112, 630, 20, 0, 0, 0, 0, 0}));
-    EXPECT_THAT(tilingData->perm, ::testing::ElementsAreArray(std::vector<int64_t>{1, 0, 2, 0, 0, 0, 0, 0}));
-    EXPECT_THAT(tilingData->baseInShape, ::testing::ElementsAreArray(std::vector<int64_t>{0, 0, 0, 0, 0, 0, 0, 0}));
-    EXPECT_THAT(tilingData->baseNddmaShape, ::testing::ElementsAreArray(std::vector<int64_t>{0, 0, 0, 0, 0}));
-    EXPECT_THAT(tilingData->nddmaIdx, ::testing::ElementsAreArray(std::vector<int64_t>{-1, 0, 0, 0, 0}));
-    EXPECT_THAT(tilingData->expandedPerm, ::testing::ElementsAreArray(std::vector<int64_t>{0, 1, 3, 2, 4}));
-    EXPECT_THAT(tilingData->expandedInputShape, ::testing::ElementsAreArray(std::vector<int64_t>{1, 1, 630, 8112, 20}));
-    EXPECT_THAT(tilingData->expandedOutputShape,
-                ::testing::ElementsAreArray(std::vector<int64_t>{1, 1, 8112, 630, 20}));
-    EXPECT_THAT(tilingData->inUbMainSrcShape, ::testing::ElementsAreArray(std::vector<int64_t>{1, 1, 315, 25, 20}));
-    EXPECT_THAT(tilingData->inUbMainDstShape, ::testing::ElementsAreArray(std::vector<int64_t>{1, 1, 25, 315, 20}));
-    EXPECT_THAT(tilingData->inUbInputTailSrcShape,
-                ::testing::ElementsAreArray(std::vector<int64_t>{1, 1, 315, 12, 20}));
-    EXPECT_THAT(tilingData->inUbInputTailDstShape,
-                ::testing::ElementsAreArray(std::vector<int64_t>{1, 1, 12, 315, 20}));
-    EXPECT_THAT(tilingData->inUbOutputTailSrcShape, ::testing::ElementsAreArray(std::vector<int64_t>{1, 1, 0, 25, 20}));
-    EXPECT_THAT(tilingData->inUbOutputTailDstShape, ::testing::ElementsAreArray(std::vector<int64_t>{1, 1, 25, 0, 20}));
-    EXPECT_THAT(tilingData->inUbTailSrcShape, ::testing::ElementsAreArray(std::vector<int64_t>{1, 1, 0, 12, 20}));
-    EXPECT_THAT(tilingData->inUbTailDstShape, ::testing::ElementsAreArray(std::vector<int64_t>{1, 1, 12, 0, 20}));
+    TilingInfo info;
+    ASSERT_TRUE(ExecuteTiling(tilingContextPara, info));
+    ASSERT_EQ(info.tilingKey, 10003);
+    EXPECT_EQ(info.blockNum, static_cast<uint64_t>(compileInfo.coreNum));
+    ASSERT_EQ(info.tilingDataSize, sizeof(Transpose::TransposeNddmaCut2TilingData));
+    Transpose::TransposeNddmaCut2TilingData data{};
+    std::memcpy(&data, info.tilingData.get(), sizeof(data));
+    EXPECT_EQ(info.workspaceSizes, std::vector<int64_t>{0});
+    EXPECT_EQ(data.blkFactor, 10);
+    EXPECT_EQ(data.blkTailFactor, 10);
+    EXPECT_EQ(data.inUbFactor, 25);
+    EXPECT_EQ(data.outUbFactor, 315);
 }
 
 // 场景：B4 3D 小 shape 输入 [456,848,8]，perm={1,0,2}，尾轴不转置，输出 [848,456,8]。
-// 期望：数据量低于小 shape 阈值，走 SIMT 兜底模板，tiling key=10001（SMALL_SHAPE）；
-//       tiling 成功。
+// 期望：B4 双切分不适用（尾轴不转置），4bit 按 int8 视图后数据量低于小 shape 阈值，
+//       走 10011 二/三维 SIMT 24B 精简 TilingData。
 TEST_F(TransposeB4Tiling, b4_3d_perm_102_small_shape)
 {
     optiling::TransposeCompilerInfo compileInfo;
@@ -861,52 +752,24 @@ TEST_F(TransposeB4Tiling, b4_3d_perm_102_small_shape)
     gert::TilingContextPara::TensorDescription perm({{3}, {3}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
     gert::TilingContextPara::TensorDescription out({{848, 456, 8}, {848, 456, 8}}, ge::DT_FLOAT4_E2M1, ge::FORMAT_ND);
     gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
-    uint64_t expectTilingKey = 10001;
-    std::vector<size_t> expectWorkspaces = {0};
+
     TilingInfo tilingInfo;
     ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
-    EXPECT_EQ(tilingInfo.tilingKey, expectTilingKey);
+    EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(10011));
+    EXPECT_EQ(tilingInfo.blockNum, 63U);
     ASSERT_EQ(tilingInfo.workspaceSizes.size(), 1U);
     EXPECT_EQ(tilingInfo.workspaceSizes[0], 0);
-    ASSERT_EQ(tilingInfo.tilingDataSize, sizeof(Transpose::TransposeOpTilingData));
-    const auto* tilingData = reinterpret_cast<const Transpose::TransposeOpTilingData*>(tilingInfo.tilingData.get());
-    EXPECT_EQ(tilingData->permSize, 3);
-    EXPECT_EQ(tilingData->inCutIndex, 0);
-    EXPECT_EQ(tilingData->outCutIndex, 0);
-    EXPECT_EQ(tilingData->inUbFactor, 0);
-    EXPECT_EQ(tilingData->outUbFactor, 0);
-    EXPECT_EQ(tilingData->inTailFactor, 0);
-    EXPECT_EQ(tilingData->outTailFactor, 0);
-    EXPECT_EQ(tilingData->realCoreNum, 64);
-    EXPECT_EQ(tilingData->blkFactor, 24192);
-    EXPECT_EQ(tilingData->blkTailFactor, 22656);
-    EXPECT_EQ(tilingData->ubSize, 253952);
-    EXPECT_EQ(tilingData->totalNddmaNum, 1);
-    EXPECT_EQ(tilingData->rangeMainEnd, 0);
-    EXPECT_EQ(tilingData->rangeInputTailStart, 0);
-    EXPECT_EQ(tilingData->rangeInputTailEnd, 0);
-    EXPECT_EQ(tilingData->rangeOutputTailStart, 0);
-    EXPECT_EQ(tilingData->rangeOutputTailEnd, 0);
-    EXPECT_EQ(tilingData->rangeTailStart, 0);
-    EXPECT_EQ(tilingData->rangeTailEnd, 0);
-    EXPECT_EQ(tilingData->bigDimBufferNum, 1);
-    EXPECT_THAT(tilingData->inputShape, ::testing::ElementsAreArray(std::vector<int64_t>{456, 848, 4, 0, 0, 0, 0, 0}));
-    EXPECT_THAT(tilingData->outputShape, ::testing::ElementsAreArray(std::vector<int64_t>{848, 456, 4, 0, 0, 0, 0, 0}));
-    EXPECT_THAT(tilingData->perm, ::testing::ElementsAreArray(std::vector<int64_t>{1, 0, 2, 0, 0, 0, 0, 0}));
-    EXPECT_THAT(tilingData->baseInShape, ::testing::ElementsAreArray(std::vector<int64_t>{0, 0, 0, 0, 0, 0, 0, 0}));
-    EXPECT_THAT(tilingData->baseNddmaShape, ::testing::ElementsAreArray(std::vector<int64_t>{0, 0, 0, 0, 0}));
-    EXPECT_THAT(tilingData->nddmaIdx, ::testing::ElementsAreArray(std::vector<int64_t>{-1, 0, 0, 0, 0}));
-    EXPECT_THAT(tilingData->expandedPerm, ::testing::ElementsAreArray(std::vector<int64_t>{0, 1, 3, 2, 4}));
-    EXPECT_THAT(tilingData->expandedInputShape, ::testing::ElementsAreArray(std::vector<int64_t>{1, 1, 456, 848, 4}));
-    EXPECT_THAT(tilingData->expandedOutputShape, ::testing::ElementsAreArray(std::vector<int64_t>{1, 1, 848, 456, 4}));
-    EXPECT_THAT(tilingData->inUbMainSrcShape, ::testing::ElementsAreArray(std::vector<int64_t>{1, 1, 456, 0, 4}));
-    EXPECT_THAT(tilingData->inUbMainDstShape, ::testing::ElementsAreArray(std::vector<int64_t>{1, 1, 0, 456, 4}));
-    EXPECT_THAT(tilingData->inUbInputTailSrcShape, ::testing::ElementsAreArray(std::vector<int64_t>{0, 0, 0, 0, 0}));
-    EXPECT_THAT(tilingData->inUbInputTailDstShape, ::testing::ElementsAreArray(std::vector<int64_t>{0, 0, 0, 0, 0}));
-    EXPECT_THAT(tilingData->inUbOutputTailSrcShape, ::testing::ElementsAreArray(std::vector<int64_t>{0, 0, 0, 0, 0}));
-    EXPECT_THAT(tilingData->inUbOutputTailDstShape, ::testing::ElementsAreArray(std::vector<int64_t>{0, 0, 0, 0, 0}));
-    EXPECT_THAT(tilingData->inUbTailSrcShape, ::testing::ElementsAreArray(std::vector<int64_t>{1, 1, 456, 0, 4}));
-    EXPECT_THAT(tilingData->inUbTailDstShape, ::testing::ElementsAreArray(std::vector<int64_t>{1, 1, 0, 456, 4}));
+    ASSERT_EQ(tilingInfo.tilingDataSize, sizeof(Transpose::TransposeSmallShape23DTilingData));
+    const auto* tilingData = reinterpret_cast<const Transpose::TransposeSmallShape23DTilingData*>(
+        tilingInfo.tilingData.get());
+    EXPECT_EQ(tilingData->dim, 3);
+    // 4bit 视为 int8, 尾轴元素数按 2 个一字节折半: 8 -> 4
+    EXPECT_EQ(tilingData->inputShape[0], 456);
+    EXPECT_EQ(tilingData->inputShape[1], 848);
+    EXPECT_EQ(tilingData->inputShape[2], 4);
+    EXPECT_EQ(tilingData->perm[0], 1);
+    EXPECT_EQ(tilingData->perm[1], 0);
+    EXPECT_EQ(tilingData->perm[2], 2);
 }
 
 // 场景：B4 3D 输入 [456,847,8]，perm={0,2,1}，首轴为偶、中间轴为奇的尾轴转置，输出 [456,8,847]。
@@ -946,6 +809,7 @@ TEST_F(TransposeB4Tiling, b4_3d_perm_021_odd_first_dim)
     TilingInfo tilingInfo;
     ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
     EXPECT_EQ(tilingInfo.tilingKey, expectTilingKey);
+    EXPECT_EQ(tilingInfo.blockNum, 63);
     ASSERT_EQ(tilingInfo.workspaceSizes.size(), 1U);
     EXPECT_EQ(tilingInfo.workspaceSizes[0], 0);
     ASSERT_EQ(tilingInfo.tilingDataSize, sizeof(Transpose::TransposeB4TilingData));
@@ -970,7 +834,6 @@ TEST_F(TransposeB4Tiling, b4_3d_perm_021_odd_first_dim)
     EXPECT_EQ(tilingData->outerAxisNums, 2);
     EXPECT_EQ(tilingData->innerAxisNums, 2);
     EXPECT_EQ(tilingData->dimsPerCore, 22);
-    EXPECT_EQ(tilingData->useCoreNum, 63);
     EXPECT_EQ(tilingData->dimsPerCoreTail, 7);
     EXPECT_EQ(tilingData->ubSize, 25376);
     EXPECT_EQ(tilingData->permSize, 3);
@@ -998,6 +861,7 @@ TEST_F(TransposeB4Tiling, b4_4d_perm_1302_tall_batch17)
     TilingInfo tilingInfo;
     ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
     EXPECT_EQ(tilingInfo.tilingKey, expectTilingKey);
+    EXPECT_EQ(tilingInfo.blockNum, 64);
     ASSERT_EQ(tilingInfo.workspaceSizes.size(), 1U);
     EXPECT_EQ(tilingInfo.workspaceSizes[0], 0);
     ASSERT_EQ(tilingInfo.tilingDataSize, sizeof(Transpose::TransposeB4TilingData));
@@ -1021,7 +885,6 @@ TEST_F(TransposeB4Tiling, b4_4d_perm_1302_tall_batch17)
     EXPECT_EQ(tilingData->outerAxisNums, 2);
     EXPECT_EQ(tilingData->innerAxisNums, 3);
     EXPECT_EQ(tilingData->dimsPerCore, 1501);
-    EXPECT_EQ(tilingData->useCoreNum, 64);
     EXPECT_EQ(tilingData->dimsPerCoreTail, 1470);
     EXPECT_EQ(tilingData->ubSize, 25376);
     EXPECT_EQ(tilingData->permSize, 4);
@@ -1049,6 +912,7 @@ TEST_F(TransposeB4Tiling, b4_4d_perm_1032_small_batch)
     TilingInfo tilingInfo;
     ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
     EXPECT_EQ(tilingInfo.tilingKey, expectTilingKey);
+    EXPECT_EQ(tilingInfo.blockNum, 64);
     ASSERT_EQ(tilingInfo.workspaceSizes.size(), 1U);
     EXPECT_EQ(tilingInfo.workspaceSizes[0], 0);
     ASSERT_EQ(tilingInfo.tilingDataSize, sizeof(Transpose::TransposeB4TilingData));
@@ -1073,7 +937,6 @@ TEST_F(TransposeB4Tiling, b4_4d_perm_1032_small_batch)
     EXPECT_EQ(tilingData->outerAxisNums, 2);
     EXPECT_EQ(tilingData->innerAxisNums, 4);
     EXPECT_EQ(tilingData->dimsPerCore, 212);
-    EXPECT_EQ(tilingData->useCoreNum, 64);
     EXPECT_EQ(tilingData->dimsPerCoreTail, 198);
     EXPECT_EQ(tilingData->ubSize, 25376);
     EXPECT_EQ(tilingData->permSize, 4);
@@ -1101,6 +964,7 @@ TEST_F(TransposeB4Tiling, b4_5d_perm_32140)
     TilingInfo tilingInfo;
     ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
     EXPECT_EQ(tilingInfo.tilingKey, expectTilingKey);
+    EXPECT_EQ(tilingInfo.blockNum, 64);
     ASSERT_EQ(tilingInfo.workspaceSizes.size(), 1U);
     EXPECT_EQ(tilingInfo.workspaceSizes[0], 0);
     ASSERT_EQ(tilingInfo.tilingDataSize, sizeof(Transpose::TransposeB4TilingData));
@@ -1125,7 +989,6 @@ TEST_F(TransposeB4Tiling, b4_5d_perm_32140)
     EXPECT_EQ(tilingData->outerAxisNums, 3);
     EXPECT_EQ(tilingData->innerAxisNums, 3);
     EXPECT_EQ(tilingData->dimsPerCore, 510);
-    EXPECT_EQ(tilingData->useCoreNum, 64);
     EXPECT_EQ(tilingData->dimsPerCoreTail, 462);
     EXPECT_EQ(tilingData->ubSize, 25376);
     EXPECT_EQ(tilingData->permSize, 5);
@@ -1152,6 +1015,7 @@ TEST_F(TransposeB4Tiling, b4_4d_perm_2130)
     TilingInfo tilingInfo;
     ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
     EXPECT_EQ(tilingInfo.tilingKey, expectTilingKey);
+    EXPECT_EQ(tilingInfo.blockNum, 63);
     ASSERT_EQ(tilingInfo.workspaceSizes.size(), 1U);
     EXPECT_EQ(tilingInfo.workspaceSizes[0], 0);
     ASSERT_EQ(tilingInfo.tilingDataSize, sizeof(Transpose::TransposeB4TilingData));
@@ -1175,7 +1039,6 @@ TEST_F(TransposeB4Tiling, b4_4d_perm_2130)
     EXPECT_EQ(tilingData->outerAxisNums, 2);
     EXPECT_EQ(tilingData->innerAxisNums, 4);
     EXPECT_EQ(tilingData->dimsPerCore, 1);
-    EXPECT_EQ(tilingData->useCoreNum, 63);
     EXPECT_EQ(tilingData->dimsPerCoreTail, 1);
     EXPECT_EQ(tilingData->ubSize, 25376);
     EXPECT_EQ(tilingData->permSize, 4);
@@ -1203,6 +1066,7 @@ TEST_F(TransposeB4Tiling, b4_4d_perm_3021)
     TilingInfo tilingInfo;
     ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
     EXPECT_EQ(tilingInfo.tilingKey, expectTilingKey);
+    EXPECT_EQ(tilingInfo.blockNum, 51);
     ASSERT_EQ(tilingInfo.workspaceSizes.size(), 1U);
     EXPECT_EQ(tilingInfo.workspaceSizes[0], 0);
     ASSERT_EQ(tilingInfo.tilingDataSize, sizeof(Transpose::TransposeB4TilingData));
@@ -1225,7 +1089,6 @@ TEST_F(TransposeB4Tiling, b4_4d_perm_3021)
     EXPECT_EQ(tilingData->outerAxisNums, 1);
     EXPECT_EQ(tilingData->innerAxisNums, 4);
     EXPECT_EQ(tilingData->dimsPerCore, 4);
-    EXPECT_EQ(tilingData->useCoreNum, 51);
     EXPECT_EQ(tilingData->dimsPerCoreTail, 2);
     EXPECT_EQ(tilingData->ubSize, 25376);
     EXPECT_EQ(tilingData->permSize, 4);
@@ -1253,6 +1116,7 @@ TEST_F(TransposeB4Tiling, b4_5d_perm_32140_wide)
     TilingInfo tilingInfo;
     ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
     EXPECT_EQ(tilingInfo.tilingKey, expectTilingKey);
+    EXPECT_EQ(tilingInfo.blockNum, 64);
     ASSERT_EQ(tilingInfo.workspaceSizes.size(), 1U);
     EXPECT_EQ(tilingInfo.workspaceSizes[0], 0);
     ASSERT_EQ(tilingInfo.tilingDataSize, sizeof(Transpose::TransposeB4TilingData));
@@ -1276,7 +1140,6 @@ TEST_F(TransposeB4Tiling, b4_5d_perm_32140_wide)
     EXPECT_EQ(tilingData->outerAxisNums, 2);
     EXPECT_EQ(tilingData->innerAxisNums, 4);
     EXPECT_EQ(tilingData->dimsPerCore, 808);
-    EXPECT_EQ(tilingData->useCoreNum, 64);
     EXPECT_EQ(tilingData->dimsPerCoreTail, 804);
     EXPECT_EQ(tilingData->ubSize, 25376);
     EXPECT_EQ(tilingData->permSize, 5);
@@ -1304,6 +1167,7 @@ TEST_F(TransposeB4Tiling, b4_5d_perm_24103)
     TilingInfo tilingInfo;
     ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
     EXPECT_EQ(tilingInfo.tilingKey, expectTilingKey);
+    EXPECT_EQ(tilingInfo.blockNum, 64);
     ASSERT_EQ(tilingInfo.workspaceSizes.size(), 1U);
     EXPECT_EQ(tilingInfo.workspaceSizes[0], 0);
     ASSERT_EQ(tilingInfo.tilingDataSize, sizeof(Transpose::TransposeB4TilingData));
@@ -1327,7 +1191,6 @@ TEST_F(TransposeB4Tiling, b4_5d_perm_24103)
     EXPECT_EQ(tilingData->outerAxisNums, 2);
     EXPECT_EQ(tilingData->innerAxisNums, 4);
     EXPECT_EQ(tilingData->dimsPerCore, 1103);
-    EXPECT_EQ(tilingData->useCoreNum, 64);
     EXPECT_EQ(tilingData->dimsPerCoreTail, 1071);
     EXPECT_EQ(tilingData->ubSize, 25376);
     EXPECT_EQ(tilingData->permSize, 5);
@@ -1355,6 +1218,7 @@ TEST_F(TransposeB4Tiling, b4_5d_perm_32140_huge)
     TilingInfo tilingInfo;
     ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
     EXPECT_EQ(tilingInfo.tilingKey, expectTilingKey);
+    EXPECT_EQ(tilingInfo.blockNum, 64);
     ASSERT_EQ(tilingInfo.workspaceSizes.size(), 1U);
     EXPECT_EQ(tilingInfo.workspaceSizes[0], 0);
     ASSERT_EQ(tilingInfo.tilingDataSize, sizeof(Transpose::TransposeB4TilingData));
@@ -1379,7 +1243,6 @@ TEST_F(TransposeB4Tiling, b4_5d_perm_32140_huge)
     EXPECT_EQ(tilingData->outerAxisNums, 3);
     EXPECT_EQ(tilingData->innerAxisNums, 3);
     EXPECT_EQ(tilingData->dimsPerCore, 101798);
-    EXPECT_EQ(tilingData->useCoreNum, 64);
     EXPECT_EQ(tilingData->dimsPerCoreTail, 101766);
     EXPECT_EQ(tilingData->ubSize, 25376);
     EXPECT_EQ(tilingData->permSize, 5);

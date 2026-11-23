@@ -13,7 +13,7 @@
  * \brief Transpose 算子 Kernel 层主入口文件
  *
  * 本文件是 Transpose 算子 Kernel 侧的唯一入口，负责根据 TilingKey 将执行流分发到
- * 11 种具体的转置策略类。所有策略共享同一套 Tiling 数据结构，但使用不同的硬件加速路径。
+ * 13 种具体的转置策略类。所有策略各自使用紧凑 Tiling 数据结构，但使用不同的硬件加速路径。
  *
  * 分发机制：
  *   - transpose() 为全局 Kernel 入口函数，通过 TILING_KEY_IS 宏判断当前 TilingKey；
@@ -34,6 +34,7 @@
 #include <type_traits>
 #include "arch35/transpose_gather.h"
 #include "arch35/transpose_n_last.h"
+#include "arch35/transpose_n_last_small.h"
 #include "arch35/transpose_nddma_big_dim.h"
 #include "arch35/transpose_nddma_cut_1.h"
 #include "arch35/transpose_nddma_cut_2.h"
@@ -45,6 +46,8 @@
 #ifdef __CCE_AICORE_SUPPORT_SIMT__
 #include "arch35/transpose_b4.h"
 #include "arch35/transpose_small_shape.h"
+#include "arch35/transpose_small_shape_23d.h"
+#include "arch35/transpose_small_shape_2d.h"
 #endif
 
 using namespace Transpose;
@@ -65,14 +68,14 @@ using DTYPE_X_ = std::conditional_t<
  *
  * @param x      输入张量 GM 地址
  * @param y      输出张量 GM 地址
- * @param tiling Tiling 数据 GM 地址（TransposeOpTilingData 结构）
+ * @param tiling Tiling 数据 GM 地址（TransposeTensorMoveTilingData 结构）
  */
 extern "C" __aicore__ inline void TransposeTensorMoveProcess(GM_ADDR x, GM_ADDR y, GM_ADDR tiling)
 {
-    TPipe pipe;
-    GET_TILING_DATA_WITH_STRUCT(TransposeOpTilingData, tilingData, tiling);
+    GET_TILING_DATA_PTR_WITH_STRUCT(TransposeTensorMoveTilingData, tilingDataPtr, tiling);
+    AscendC::InitSocState();
     Transpose::TransposeTensorMove<DTYPE_X_> op;
-    op.Init(x, y, &tilingData, &pipe);
+    op.Init(x, y, tilingDataPtr);
     op.Process();
 }
 
@@ -85,13 +88,38 @@ extern "C" __aicore__ inline void TransposeTensorMoveProcess(GM_ADDR x, GM_ADDR 
  *
  * @param x      输入张量 GM 地址
  * @param y      输出张量 GM 地址
- * @param tiling Tiling 数据 GM 地址（TransposeOpTilingData 结构）
+ * @param tiling Tiling 数据 GM 地址（TransposeSmallShape48DTilingData 结构）
  */
 extern "C" __aicore__ inline void TransposeSmallShapeProcess(GM_ADDR x, GM_ADDR y, GM_ADDR tiling)
 {
-    GET_TILING_DATA_WITH_STRUCT(TransposeOpTilingData, tilingData, tiling);
+    GET_TILING_DATA_PTR_WITH_STRUCT(TransposeSmallShape48DTilingData, tilingDataPtr, tiling);
+    AscendC::InitSocState();
     Transpose::TransposeSmallShape<DTYPE_X_> op;
-    op.Init(x, y, &tilingData);
+    op.Init(x, y, tilingDataPtr);
+    op.Process();
+}
+
+extern "C" __aicore__ inline void TransposeSmallShape23DProcess(GM_ADDR x, GM_ADDR y, GM_ADDR tiling)
+{
+    GET_TILING_DATA_PTR_WITH_STRUCT(TransposeSmallShape23DTilingData, tilingDataPtr, tiling);
+    AscendC::InitSocState();
+    Transpose::TransposeSmallShape23D<DTYPE_X_> op;
+    op.Init(x, y, tilingDataPtr);
+    op.Process();
+}
+
+/**
+ * @brief SMALL_SHAPE_2D(10012) 策略的 Process 函数
+ * 2D perm=[1,0] 且 64KB <= 数据量 < 小 shape 阈值：UB 双缓冲 + MTE2/MTE3 + 4x4 SIMT。
+ *
+ * @param tiling Tiling 数据 GM 地址（TransposeSmallShape2DTilingData 结构）
+ */
+extern "C" __aicore__ inline void TransposeSmallShape2DProcess(GM_ADDR x, GM_ADDR y, GM_ADDR tiling)
+{
+    GET_TILING_DATA_PTR_WITH_STRUCT(TransposeSmallShape2DTilingData, tilingDataPtr, tiling);
+    AscendC::InitSocState();
+    Transpose::TransposeSmallShape2D<DTYPE_X_> op;
+    op.Init(x, y, tilingDataPtr);
     op.Process();
 }
 
@@ -115,20 +143,19 @@ extern "C" __aicore__ inline void TransposeB4Process(GM_ADDR x, GM_ADDR y, GM_AD
 #endif
 
 /**
- * @brief NDDMA_CUT_1(10002) 策略的 Process 函数
- * NDDMA 5维搬运，单轴切分。适用于 outCutIndex ≤ FindOutIndex(inCutIndex) 的场景。
- * 通过 DataCopy<T, TP_NDDMA_MAX_DIM_NUM> 5维NDDMA自动转置，硬件完成维度重排。
+ * @brief NDDMA_CUT_1(10002) 普通/关联入口的 Process 函数
+ * NDDMA 5维搬运，单轴切分，直接消费紧凑 TilingData 的静态实现。
  *
  * @param x      输入张量 GM 地址
  * @param y      输出张量 GM 地址
- * @param tiling Tiling 数据 GM 地址（TransposeOpTilingData 结构）
+ * @param tiling Tiling 数据 GM 地址（TransposeNddmaCut1TilingData 结构）
  */
 extern "C" __aicore__ inline void TransposeNddmaCut1Process(GM_ADDR x, GM_ADDR y, GM_ADDR tiling)
 {
-    TPipe pipe;
-    GET_TILING_DATA_WITH_STRUCT(TransposeOpTilingData, tilingData, tiling);
+    GET_TILING_DATA_WITH_STRUCT(TransposeNddmaCut1TilingData, tilingData, tiling);
+    AscendC::InitSocState();
     Transpose::TransposeNddmaCut1<DTYPE_X_> op;
-    op.Init(x, y, &tilingData, &pipe);
+    op.Init(x, y, &tilingData);
     op.Process();
 }
 
@@ -139,14 +166,14 @@ extern "C" __aicore__ inline void TransposeNddmaCut1Process(GM_ADDR x, GM_ADDR y
  *
  * @param x      输入张量 GM 地址
  * @param y      输出张量 GM 地址
- * @param tiling Tiling 数据 GM 地址（TransposeOpTilingData 结构）
+ * @param tiling Tiling 数据 GM 地址（TransposeNddmaCut2TilingData 结构）
  */
 extern "C" __aicore__ inline void TransposeNddmaCut2Process(GM_ADDR x, GM_ADDR y, GM_ADDR tiling)
 {
-    TPipe pipe;
-    GET_TILING_DATA_WITH_STRUCT(TransposeOpTilingData, tilingData, tiling);
+    GET_TILING_DATA_WITH_STRUCT(TransposeNddmaCut2TilingData, tilingData, tiling);
+    AscendC::InitSocState();
     Transpose::TransposeNddmaCut2<DTYPE_X_> op;
-    op.Init(x, y, &tilingData, &pipe);
+    op.Init(x, y, &tilingData);
     op.Process();
 }
 
@@ -158,14 +185,31 @@ extern "C" __aicore__ inline void TransposeNddmaCut2Process(GM_ADDR x, GM_ADDR y
  *
  * @param x      输入张量 GM 地址
  * @param y      输出张量 GM 地址
- * @param tiling Tiling 数据 GM 地址（TransposeOpTilingData 结构）
+ * @param tiling Tiling 数据 GM 地址（TransposeNLastTilingData 结构）
  */
 extern "C" __aicore__ inline void TransposeNLastProcess(GM_ADDR x, GM_ADDR y, GM_ADDR tiling)
 {
-    TPipe pipe;
-    GET_TILING_DATA_WITH_STRUCT(TransposeOpTilingData, tilingData, tiling);
+    GET_TILING_DATA_WITH_STRUCT(TransposeNLastTilingData, tilingData, tiling);
+    AscendC::InitSocState();
     Transpose::TransposeNLast<DTYPE_X_> op;
-    op.Init(x, y, &tilingData, &pipe);
+    op.Init(x, y, &tilingData);
+    op.Process();
+}
+
+/**
+ * @brief N_LAST_SMALL(10014) 策略的 Process 函数
+ * 三/四维尾轴不变场景，静态 Tensor + Mutex 双缓冲统一搬运。
+ *
+ * @param x      输入张量 GM 地址
+ * @param y      输出张量 GM 地址
+ * @param tiling Tiling 数据 GM 地址（TransposeNLastSmallTilingData 结构）
+ */
+extern "C" __aicore__ inline void TransposeNLastSmallProcess(GM_ADDR x, GM_ADDR y, GM_ADDR tiling)
+{
+    GET_TILING_DATA_WITH_STRUCT(TransposeNLastSmallTilingData, tilingData, tiling);
+    AscendC::InitSocState();
+    Transpose::TransposeNLastSmall op;
+    op.Init(x, y, &tilingData);
     op.Process();
 }
 
@@ -176,14 +220,14 @@ extern "C" __aicore__ inline void TransposeNLastProcess(GM_ADDR x, GM_ADDR y, GM
  *
  * @param x      输入张量 GM 地址
  * @param y      输出张量 GM 地址
- * @param tiling Tiling 数据 GM 地址（TransposeOpTilingData 结构）
+ * @param tiling Tiling 数据 GM 地址（TransposeNddmaBigDimTilingData 结构）
  */
 extern "C" __aicore__ inline void TransposeNddmaBigDimProcess(GM_ADDR x, GM_ADDR y, GM_ADDR tiling)
 {
-    TPipe pipe;
-    GET_TILING_DATA_WITH_STRUCT(TransposeOpTilingData, tilingData, tiling);
+    GET_TILING_DATA_WITH_STRUCT(TransposeNddmaBigDimTilingData, tilingData, tiling);
+    AscendC::InitSocState();
     Transpose::TransposeNddmaBigDim<DTYPE_X_> op;
-    op.Init(x, y, &tilingData, &pipe);
+    op.Init(x, y, &tilingData);
     op.Process();
 }
 
@@ -199,10 +243,10 @@ extern "C" __aicore__ inline void TransposeNddmaBigDimProcess(GM_ADDR x, GM_ADDR
  */
 extern "C" __aicore__ inline void TransposeGatherProcess(GM_ADDR x, GM_ADDR y, GM_ADDR tiling)
 {
-    TPipe pipe;
     GET_TILING_DATA_WITH_STRUCT(TransposeGatherTilingData, tilingData, tiling);
+    AscendC::InitSocState();
     Transpose::TransposeGather<DTYPE_X_> op;
-    op.Init(x, y, &tilingData, &pipe);
+    op.Init(x, y, &tilingData);
     op.Process();
 }
 
@@ -292,6 +336,10 @@ extern "C" __global__ __aicore__ void transpose(GM_ADDR x, GM_ADDR perm, GM_ADDR
     if (TILING_KEY_IS(TK_TENSOR_MOVE)) { // 10000: 纯数据搬运
         TransposeTensorMoveProcess(x, y, tiling);
 #ifdef __CCE_AICORE_SUPPORT_SIMT__
+    } else if (TILING_KEY_IS(TK_SMALL_SHAPE_2D)) { // 10012: 2D perm=[1,0] UB 4x4 SIMT
+        TransposeSmallShape2DProcess(x, y, tiling);
+    } else if (TILING_KEY_IS(TK_SMALL_SHAPE_23D)) { // 10011: 二/三维 SIMT 小shape（24B 统一结构）
+        TransposeSmallShape23DProcess(x, y, tiling);
     } else if (TILING_KEY_IS(TK_SMALL_SHAPE)) { // 10001: SIMT 小shape直读直写
         TransposeSmallShapeProcess(x, y, tiling);
     } else if (TILING_KEY_IS(TK_B4)) { // 10009: 4bit 双切分转置
@@ -303,6 +351,8 @@ extern "C" __global__ __aicore__ void transpose(GM_ADDR x, GM_ADDR perm, GM_ADDR
         TransposeNddmaCut2Process(x, y, tiling);
     } else if (TILING_KEY_IS(TK_N_LAST)) { // 10004: 尾轴不转置+连续行搬移
         TransposeNLastProcess(x, y, tiling);
+    } else if (TILING_KEY_IS(TK_N_LAST_SMALL)) { // 10014: 三/四维尾轴不变统一搬运
+        TransposeNLastSmallProcess(x, y, tiling);
     } else if (TILING_KEY_IS(TK_NDDMA_BIG_DIM)) { // 10005: >5维压缩到5维NDDMA
         TransposeNddmaBigDimProcess(x, y, tiling);
     } else if (TILING_KEY_IS(TK_GATHER)) { // 10006: DataCopyGather硬件加速

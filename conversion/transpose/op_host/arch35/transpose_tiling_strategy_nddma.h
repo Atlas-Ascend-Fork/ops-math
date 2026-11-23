@@ -37,7 +37,6 @@ private:
         int64_t inUbElement = 1;   ///< 输入侧剩余预算
         int64_t outUbElement = 1;  ///< 输出侧剩余预算
         int64_t inUbActual = 1;    ///< 输入侧已吞入轴容量乘积
-        int64_t outUbActual = 1;   ///< 输出侧已吞入轴容量乘积
         int64_t inCutIndex = 0;    ///< 输入切分轴索引
         int64_t outCutIndex = 0;   ///< 输出切分轴索引
         int64_t inUbFactor = 0;    ///< 输入主块切分因子
@@ -89,7 +88,7 @@ private:
     void GetIntervalInfoForCutTwice();
 
     // NDDMA 私有中间状态（仅本模板使用）
-    SplitInfo splitInfo_;       ///< UB 切分信息
+    SplitInfo splitInfo_{};     ///< UB 切分信息
     int64_t realCoreNum_ = 0;   ///< 实际使用核数
     int64_t blkFactor_ = 0;     ///< 分核：每核基础 block 数
     int64_t blkTailFactor_ = 0; ///< 分核：尾核额外 block 数
@@ -105,10 +104,10 @@ private:
     int64_t inUbOutputTailDstShape_[TP_NDDMA_MAX_DIM_NUM] = {0};          ///< 输出尾块 UB 内输出 shape
     int64_t inUbTailSrcShape_[TP_NDDMA_MAX_DIM_NUM] = {0};                ///< 全尾块 UB 内输入 shape
     int64_t inUbTailDstShape_[TP_NDDMA_MAX_DIM_NUM] = {0};                ///< 全尾块 UB 内输出 shape
-    Interval offsetRangeMain_;                                            ///< NDDMA_CUT_2 区间边界
-    Interval offsetRangeInputTail_;                                       ///< NDDMA_CUT_2 输入尾块区间
-    Interval offsetRangeOutputTail_;                                      ///< NDDMA_CUT_2 输出尾块区间
-    Interval offsetRangeTail_;                                            ///< NDDMA_CUT_2 全尾块区间
+    Interval offsetRangeMain_{};                                          ///< NDDMA_CUT_2 区间边界
+    Interval offsetRangeInputTail_{};                                     ///< NDDMA_CUT_2 输入尾块区间
+    Interval offsetRangeOutputTail_{};                                    ///< NDDMA_CUT_2 输出尾块区间
+    Interval offsetRangeTail_{};                                          ///< NDDMA_CUT_2 全尾块区间
 };
 
 } // namespace optiling

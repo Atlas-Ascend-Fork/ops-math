@@ -193,7 +193,7 @@ __aicore__ inline void TransposeB4::Init(GM_ADDR x, GM_ADDR y, const TransposeB4
 
 __aicore__ inline void TransposeB4::Process()
 {
-    if (blockIdx_ >= tiling_->useCoreNum) {
+    if (blockIdx_ >= static_cast<int32_t>(GetBlockNum())) {
         return;
     }
 
@@ -213,7 +213,7 @@ __aicore__ inline void TransposeB4::Process()
 __aicore__ inline void TransposeB4::ComputeIterRange(int32_t& startIter, int32_t& endIter)
 {
     startIter = blockIdx_ * tiling_->dimsPerCore;
-    if (blockIdx_ == tiling_->useCoreNum - 1) {
+    if (blockIdx_ == static_cast<int32_t>(GetBlockNum()) - 1) {
         endIter = startIter + tiling_->dimsPerCoreTail;
     } else {
         endIter = startIter + tiling_->dimsPerCore;

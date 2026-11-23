@@ -50,17 +50,17 @@ template <typename T>
 class TransposeNddmaCut2 : public TransposeBase<T> {
 public:
     __aicore__ inline TransposeNddmaCut2(){};
-    __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, const TransposeOpTilingData* tilingData, TPipe* pipe);
+    __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, const TransposeNddmaCut2TilingData* tilingData);
     __aicore__ inline void Process();
 
 private:
     int64_t blockIdx_;
-    TQueBind<QuePosition::VECIN, QuePosition::VECOUT, 1> vecQue_;
+    LocalTensor<T> local_[NDDMA_BUFFER_NUM];
     GlobalTensor<T> inputGM_;
     GlobalTensor<T> outputGM_;
 
     // tiling params
-    const TransposeOpTilingData* tiling_;
+    const TransposeNddmaCut2TilingData* tiling_;
 
     // expand input and output init
     int64_t expandedInputCutIndex_;  ///< 输入切分轴在5维扩展后的索引
@@ -126,21 +126,23 @@ private:
 };
 
 template <typename T>
-__aicore__ inline void TransposeNddmaCut2<T>::Init(GM_ADDR x, GM_ADDR y, const TransposeOpTilingData* tilingData,
-                                                   TPipe* pipe)
+__aicore__ inline void TransposeNddmaCut2<T>::Init(GM_ADDR x, GM_ADDR y, const TransposeNddmaCut2TilingData* tilingData)
 {
     blockIdx_ = GetBlockIdx();
     tiling_ = tilingData;
     ParseTilingData();
     inputGM_.SetGlobalBuffer((__gm__ T*)x);
     outputGM_.SetGlobalBuffer((__gm__ T*)y);
-    pipe->InitBuffer(vecQue_, NDDMA_BUFFER_NUM, tiling_->ubSize / NDDMA_BUFFER_NUM);
+    const uint32_t ubBytes = static_cast<uint32_t>(tiling_->ubSize / NDDMA_BUFFER_NUM);
+    for (int64_t i = 0; i < NDDMA_BUFFER_NUM; ++i) {
+        local_[i] = LocalTensor<T>(TPosition::VECIN, i * ubBytes, ubBytes / sizeof(T));
+    }
 }
 
 template <typename T>
 __aicore__ inline void TransposeNddmaCut2<T>::Process()
 {
-    if (blockIdx_ >= tiling_->realCoreNum) {
+    if (blockIdx_ >= static_cast<int64_t>(GetBlockNum())) {
         return;
     }
 
@@ -388,21 +390,24 @@ __aicore__ inline void TransposeNddmaCut2<T>::ProcessMain(int64_t loopidxStart, 
             srcAddressOffset += srcAddressOffsetMixedBase[i] * srcLoopShapeSizeArray[i];
             dstAddressOffset += dstAddressOffsetMixedBase[i] * dstLoopShapeSizeArray[i];
         }
-        LocalTensor<T> bindLocalIn = vecQue_.AllocTensor<T>();
+        const uint32_t bufIdx = static_cast<uint32_t>(loopidx % NDDMA_BUFFER_NUM);
+        LocalTensor<T> bindLocalIn = local_[bufIdx];
+        Mutex::Lock<PIPE_MTE2>(static_cast<MutexID>(bufIdx));
 #if defined(__DAV_920R1__) || defined(__DAV_920R2__)
         DataCopy<T, TP_NDDMA_MAX_DIM_NUM, config>(bindLocalIn, inputGM_[srcAddressOffset], paramsMain, true);
 #else
         DataCopy<T, TP_NDDMA_MAX_DIM_NUM, config>(bindLocalIn, inputGM_[srcAddressOffset], paramsMain);
 #endif
-        vecQue_.EnQue(bindLocalIn);
+        Mutex::Unlock<PIPE_MTE2>(static_cast<MutexID>(bufIdx));
         SetLoopModePara(loopParams, DataCopyMVType::UB_TO_OUT);
-        LocalTensor<T> bindLocalOut = vecQue_.DeQue<T>();
+        LocalTensor<T> bindLocalOut = local_[bufIdx];
+        Mutex::Lock<PIPE_MTE3>(static_cast<MutexID>(bufIdx));
         for (int64_t i = 0; i < mainLoopSize_[4]; i++) {
             DataCopyPad(outputGM_[dstAddressOffset + i * loopDstStride_[4]], bindLocalOut[i * mainLoopSrcStride_[4]],
                         copyOutParamsMain);
         }
         ResetLoopModePara(DataCopyMVType::UB_TO_OUT);
-        vecQue_.FreeTensor(bindLocalOut);
+        Mutex::Unlock<PIPE_MTE3>(static_cast<MutexID>(bufIdx));
     }
 }
 
@@ -467,21 +472,24 @@ __aicore__ inline void TransposeNddmaCut2<T>::ProcessInputTail(int64_t loopidxSt
             srcAddressOffset += srcAddressOffsetMixedBase[i] * inputTailSrcLoopShapeSizeArray[i];
             dstAddressOffset += dstAddressOffsetMixedBase[i] * inputTailDstLoopShapeSizeArray[i];
         }
-        LocalTensor<T> bindLocalIn = vecQue_.AllocTensor<T>();
+        const uint32_t bufIdx = static_cast<uint32_t>(loopidx % NDDMA_BUFFER_NUM);
+        LocalTensor<T> bindLocalIn = local_[bufIdx];
+        Mutex::Lock<PIPE_MTE2>(static_cast<MutexID>(bufIdx));
 #if defined(__DAV_920R1__) || defined(__DAV_920R2__)
         DataCopy<T, TP_NDDMA_MAX_DIM_NUM, config>(bindLocalIn, inputGM_[srcAddressOffset], paramsInputTail, true);
 #else
         DataCopy<T, TP_NDDMA_MAX_DIM_NUM, config>(bindLocalIn, inputGM_[srcAddressOffset], paramsInputTail);
 #endif
-        vecQue_.EnQue(bindLocalIn);
+        Mutex::Unlock<PIPE_MTE2>(static_cast<MutexID>(bufIdx));
         SetLoopModePara(loopParams, DataCopyMVType::UB_TO_OUT);
-        LocalTensor<T> bindLocalOut = vecQue_.DeQue<T>();
+        LocalTensor<T> bindLocalOut = local_[bufIdx];
+        Mutex::Lock<PIPE_MTE3>(static_cast<MutexID>(bufIdx));
         for (int64_t i = 0; i < inputTailLoopSize_[4]; i++) {
             DataCopyPad(outputGM_[dstAddressOffset + i * loopDstStride_[4]],
                         bindLocalOut[i * inputTailLoopSrcStride_[4]], copyOutParamsInputTail);
         }
         ResetLoopModePara(DataCopyMVType::UB_TO_OUT);
-        vecQue_.FreeTensor(bindLocalOut);
+        Mutex::Unlock<PIPE_MTE3>(static_cast<MutexID>(bufIdx));
     }
 }
 
@@ -554,21 +562,24 @@ __aicore__ inline void TransposeNddmaCut2<T>::ProcessOutputTail(int64_t loopidxS
             srcAddressOffset += srcAddressOffsetMixedBase[i] * outputTailSrcLoopShapeSizeArray[i];
             dstAddressOffset += dstAddressOffsetMixedBase[i] * outputTailDstLoopShapeSizeArray[i];
         }
-        LocalTensor<T> bindLocalIn = vecQue_.AllocTensor<T>();
+        const uint32_t bufIdx = static_cast<uint32_t>(loopidx % NDDMA_BUFFER_NUM);
+        LocalTensor<T> bindLocalIn = local_[bufIdx];
+        Mutex::Lock<PIPE_MTE2>(static_cast<MutexID>(bufIdx));
 #if defined(__DAV_920R1__) || defined(__DAV_920R2__)
         DataCopy<T, TP_NDDMA_MAX_DIM_NUM, config>(bindLocalIn, inputGM_[srcAddressOffset], paramsOutputTail, true);
 #else
         DataCopy<T, TP_NDDMA_MAX_DIM_NUM, config>(bindLocalIn, inputGM_[srcAddressOffset], paramsOutputTail);
 #endif
-        vecQue_.EnQue(bindLocalIn);
+        Mutex::Unlock<PIPE_MTE2>(static_cast<MutexID>(bufIdx));
         SetLoopModePara(loopParams, DataCopyMVType::UB_TO_OUT);
-        LocalTensor<T> bindLocalOut = vecQue_.DeQue<T>();
+        LocalTensor<T> bindLocalOut = local_[bufIdx];
+        Mutex::Lock<PIPE_MTE3>(static_cast<MutexID>(bufIdx));
         for (int64_t i = 0; i < outputTailLoopSize_[4]; i++) {
             DataCopyPad(outputGM_[dstAddressOffset + i * loopDstStride_[4]],
                         bindLocalOut[i * outputTailLoopSrcStride_[4]], copyOutParamsOutputTail);
         }
         ResetLoopModePara(DataCopyMVType::UB_TO_OUT);
-        vecQue_.FreeTensor(bindLocalOut);
+        Mutex::Unlock<PIPE_MTE3>(static_cast<MutexID>(bufIdx));
     }
 }
 
@@ -638,21 +649,24 @@ __aicore__ inline void TransposeNddmaCut2<T>::ProcessTail(int64_t loopidxStart, 
             srcAddressOffset += srcAddressOffsetMixedBase[i] * tailSrcLoopShapeSizeArray[i];
             dstAddressOffset += dstAddressOffsetMixedBase[i] * tailDstLoopShapeSizeArray[i];
         }
-        LocalTensor<T> bindLocalIn = vecQue_.AllocTensor<T>();
+        const uint32_t bufIdx = static_cast<uint32_t>(loopidx % NDDMA_BUFFER_NUM);
+        LocalTensor<T> bindLocalIn = local_[bufIdx];
+        Mutex::Lock<PIPE_MTE2>(static_cast<MutexID>(bufIdx));
 #if defined(__DAV_920R1__) || defined(__DAV_920R2__)
         DataCopy<T, TP_NDDMA_MAX_DIM_NUM, config>(bindLocalIn, inputGM_[srcAddressOffset], paramsTail, true);
 #else
         DataCopy<T, TP_NDDMA_MAX_DIM_NUM, config>(bindLocalIn, inputGM_[srcAddressOffset], paramsTail);
 #endif
-        vecQue_.EnQue(bindLocalIn);
+        Mutex::Unlock<PIPE_MTE2>(static_cast<MutexID>(bufIdx));
         SetLoopModePara(loopParams, DataCopyMVType::UB_TO_OUT);
-        LocalTensor<T> bindLocalOut = vecQue_.DeQue<T>();
+        LocalTensor<T> bindLocalOut = local_[bufIdx];
+        Mutex::Lock<PIPE_MTE3>(static_cast<MutexID>(bufIdx));
         for (int64_t i = 0; i < tailLoopSize_[4]; i++) {
             DataCopyPad(outputGM_[dstAddressOffset + i * loopDstStride_[4]], bindLocalOut[i * tailLoopSrcStride_[4]],
                         copyOutParamsTail);
         }
         ResetLoopModePara(DataCopyMVType::UB_TO_OUT);
-        vecQue_.FreeTensor(bindLocalOut);
+        Mutex::Unlock<PIPE_MTE3>(static_cast<MutexID>(bufIdx));
     }
 }
 

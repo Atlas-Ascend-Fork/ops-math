@@ -46,40 +46,40 @@ protected:
 
 private:
     struct TransTo5HD10BasicInfo {
-        int64_t AvailableUbSize;
-        int64_t UsedCoreNum;
-        int64_t MainCoreLoopCount;
-        int64_t TailCoreLoopCount;
-        int64_t RLen;
-        int64_t CLen;
-        int64_t RAlignBlock;
-        int64_t CAlignBlock;
-        int64_t RAlignBlockElem;
-        int64_t CAlignBlockElem;
+        int64_t AvailableUbSize = 0;
+        int64_t UsedCoreNum = 0;
+        int64_t MainCoreLoopCount = 0;
+        int64_t TailCoreLoopCount = 0;
+        int64_t RLen = 0;
+        int64_t CLen = 0;
+        int64_t RAlignBlock = 0;
+        int64_t CAlignBlock = 0;
+        int64_t RAlignBlockElem = 0;
+        int64_t CAlignBlockElem = 0;
         bool IsRSplit = false;
         bool IsRCSplit = false;
     };
     struct TransTo5HD10CoreSplitInfo {
         // r 方向
-        int64_t AlignBlockFactor;
-        int64_t BlockFactor;
-        int64_t BlockCount;
-        int64_t AlignBlockTailFactor;
-        int64_t BlockTailFactor;
+        int64_t AlignBlockFactor = 0;
+        int64_t BlockFactor = 0;
+        int64_t BlockCount = 0;
+        int64_t AlignBlockTailFactor = 0;
+        int64_t BlockTailFactor = 0;
     };
     struct TransTo5HD10UbParamInfo {
         // 主核
-        int64_t MainCoreUbAlignFactor;
-        int64_t MainCoreUbFactor;
-        int64_t MainCoreUbCount;
-        int64_t MainCoreTailUbAlignFactor;
-        int64_t MainCoreTailUbFactor;
+        int64_t MainCoreUbAlignFactor = 0;
+        int64_t MainCoreUbFactor = 0;
+        int64_t MainCoreUbCount = 0;
+        int64_t MainCoreTailUbAlignFactor = 0;
+        int64_t MainCoreTailUbFactor = 0;
         // 尾核
-        int64_t TailCoreUbAlignFactor;
-        int64_t TailCoreUbFactor;
-        int64_t TailCoreUbCount;
-        int64_t TailCoreTailUbAlignFactor;
-        int64_t TailCoreTailUbFactor;
+        int64_t TailCoreUbAlignFactor = 0;
+        int64_t TailCoreUbFactor = 0;
+        int64_t TailCoreUbCount = 0;
+        int64_t TailCoreTailUbAlignFactor = 0;
+        int64_t TailCoreTailUbFactor = 0;
     };
 
     void CalcBasicInfo();

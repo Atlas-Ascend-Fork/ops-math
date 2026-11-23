@@ -10,9 +10,12 @@
 
 /*!
  * \file transpose_tiling_strategy_small_shape.cpp
- * \brief SMALL_SHAPE(10001) 策略类实现
+ * \brief SMALL_SHAPE(10001)/SMALL_SHAPE_23D(10011) 策略类实现
  *
- * 实现 SIMT 小 shape 路径的阈值推导、128B 对齐分核与 TilingData 回填。
+ * 2D/3D 统一走 10011 的 Host 分核精简 TilingData，4-8D 走 10001 的 Host 分核精简 TilingData。
+ * 分核按 1024B 对齐公式（Host 侧一次算好），kernel 侧不再自行分核；
+ * blockDim 精确等于 Host 的 realCoreNum，避免空跑；realCoreNum 不再写入精简码流，
+ * kernel 侧通过 GetBlockNum() 获取实际使用核数。
  */
 
 #include "transpose_tiling_strategy_small_shape.h"
@@ -21,7 +24,7 @@ namespace optiling {
 namespace {
 // SIMT 小 shape 阈值默认值（4MB）
 static constexpr int64_t TRANSPOSE_SMALL_SHAPE_BYTES_THRES_HOLD = 4000000;
-static constexpr int64_t SMALL_SHAPE_SPLIT_BYTES_ALIGN_SIZE = 128;        ///< 128 字节对齐
+static constexpr int64_t SMALL_SHAPE_SPLIT_BYTES_ALIGN_SIZE = 1024;       ///< 1024 字节对齐
 static constexpr int64_t SMALL_SHAPE_BYTES_THRES_HOLD_DAV_5102 = 1000000; ///< DAV_5102 阈值：1MB
 } // namespace
 
@@ -45,108 +48,96 @@ bool TransposeSmallShapeStrategy::IsSupport() const
     return volumeBytes < threshold;
 }
 
+/**
+ * @brief 小 shape 准入后统一填充：一次算好分核、简化 shape/perm 与 tilingKey。
+ *
+ * 2D/3D → 10011（24B 的 <3> 实例）；4-8D → 10001（<TP_MAX_AXIS_NUM> 实例，perm 未用槽位 -1）。
+ * 普通/关联入口统一走本实现。
+ */
 TilingStatus TransposeSmallShapeStrategy::DoExecute()
 {
-    tilingKey_ = TK_SMALL_SHAPE;
+    OP_LOGD(context_->GetNodeName(), "Entering DoExecute.");
+    const int64_t dim = shapeInfo_.dim;
+    // Host 侧统一按 SMALL_SHAPE 1024B 对齐公式分核
     CalcBlockSplitInfo();
-    if (shapeInfo_.dim <= TP_NDDMA_MAX_DIM_NUM) {
-        NDDMADimExpand();
-        CalcInUbShapeInfoForNoNeedCut();
+    dim_ = static_cast<uint8_t>(dim);
+    for (int64_t i = 0; i < TP_MAX_AXIS_NUM; i++) {
+        inputShape_[i] = 0;
+        perm_[i] = -1;
     }
+    for (int64_t i = 0; i < dim; i++) {
+        inputShape_[i] = static_cast<int32_t>(shapeInfo_.reducedInShape[i]);
+        perm_[i] = static_cast<int8_t>(shapeInfo_.reducedPerm[i]);
+    }
+    // 2/3D 走 24B 的 <3> 实例，4-8D 走 <TP_MAX_AXIS_NUM> 实例
+    tilingKey_ = (dim <= 3) ? TK_SMALL_SHAPE_23D : TK_SMALL_SHAPE;
     return TilingStatus::SUCCESS;
 }
 
+/**
+ * @brief 小 shape 分核（1024B 对齐）
+ *
+ * 先按核数向上均分，再按 1024B 对齐上取整得到每核主块元素数，最后用主块元素数反推
+ * 实际核数，保证 realCoreNum * blkFactor >= totalElements：
+ *   blkFactor      = CeilDiv(totalElements, coreNum)
+ *   ceilAlignFactor= CeilAlign(blkFactor, 1024 / eleLen)
+ *   realCoreNum    = CeilDiv(totalElements, ceilAlignFactor)
+ *   blkFactor_     = ceilAlignFactor
+ *   blkTailFactor_ = totalElements % ceilAlignFactor
+ * 该公式与原 Host 逻辑逐字一致，kernel 只消费 blkFactor/blkTailFactor；
+ * 实际核数通过 blockDim 下发，kernel 侧用 GetBlockNum() 获取。
+ */
 void TransposeSmallShapeStrategy::CalcBlockSplitInfo()
 {
     OP_LOGD(context_->GetNodeName(), "Entering CalcBlockSplitInfoForSmallShape.");
-    int64_t totalElements = shapeInfo_.totalVolumeActual;
-    int64_t alignElements = SMALL_SHAPE_SPLIT_BYTES_ALIGN_SIZE / shapeInfo_.eleLenInBytes;
+    const int64_t alignElements = SMALL_SHAPE_SPLIT_BYTES_ALIGN_SIZE / shapeInfo_.eleLenInBytes;
+    const int64_t totalElements = shapeInfo_.totalVolumeActual;
     if (totalElements < alignElements || totalElements < coreNum_) {
         realCoreNum_ = 1;
         blkFactor_ = totalElements;
         blkTailFactor_ = 0;
         return;
     }
-    // 先向上均分再对齐，确保可用核数能够覆盖全部元素。
-    int64_t blkFactor = Ops::Base::CeilDiv(totalElements, coreNum_);
-    int64_t ceilAlignFactor = Ops::Base::CeilAlign(blkFactor, alignElements);
+    const int64_t blkFactor = Ops::Base::CeilDiv(totalElements, coreNum_);
+    const int64_t ceilAlignFactor = Ops::Base::CeilAlign(blkFactor, alignElements);
     realCoreNum_ = Ops::Base::CeilDiv(totalElements, ceilAlignFactor);
     blkFactor_ = ceilAlignFactor;
-    blkTailFactor_ = ceilAlignFactor == 0 ? 0 : totalElements % ceilAlignFactor;
-}
-
-void TransposeSmallShapeStrategy::NDDMADimExpand()
-{
-    int64_t offset = (shapeInfo_.dim < TP_NDDMA_MAX_DIM_NUM) ? (TP_NDDMA_MAX_DIM_NUM - shapeInfo_.dim) : 0;
-    for (int64_t i = 0; i < shapeInfo_.dim; i++) {
-        expandedPerm_[i + offset] = shapeInfo_.reducedPerm[i] + offset;
-        expandedInputShape_[i + offset] = shapeInfo_.reducedInShape[i];
-        expandedOutputShape_[i + offset] = shapeInfo_.reducedOutShape[i];
-    }
+    blkTailFactor_ = totalElements % ceilAlignFactor;
 }
 
 /**
- * @brief 计算"无需切分"场景的 UB 内 shape（SMALL_SHAPE 直读直写路径）
+ * @brief 按 TilingDataT 写入精简码流（23D/48D 共用同一套代码）
  *
- * 只有一个切分轴（outCutIndex）需要以 outUbFactor/outTailFactor 切分，
- * 其余进入 block 的轴要么取完整输出 shape、要么置 1（外层循环负责）。
+ * TilingDataT::AXIS_NUM 为实例容量（<3> 或 <TP_MAX_AXIS_NUM>），写入全部槽位。
  */
-void TransposeSmallShapeStrategy::CalcInUbShapeInfoForNoNeedCut()
+template <typename TilingDataT>
+bool TransposeSmallShapeStrategy::SetTilingDataImpl()
 {
-    int64_t outCutIndexExpand = outCutIndex_ + TP_NDDMA_MAX_DIM_NUM - shapeInfo_.dim;
-    for (int64_t i = 0; i < TP_NDDMA_MAX_DIM_NUM; i++) {
-        if (i > outCutIndexExpand) {
-            inUbMainDstShape_[i] = expandedOutputShape_[i];
-            inUbTailDstShape_[i] = expandedOutputShape_[i];
-        } else if (i == outCutIndexExpand) {
-            inUbMainDstShape_[i] = outUbFactor_;
-            inUbTailDstShape_[i] = outTailFactor_;
-        } else {
-            inUbMainDstShape_[i] = 1;
-            inUbTailDstShape_[i] = 1;
-        }
+    auto* data = context_->GetTilingData<TilingDataT>();
+    if (data == nullptr) {
+        OP_LOGE(context_->GetNodeName(), "get tiling data failed, capacity is not enough!");
+        return false;
     }
-    for (int64_t i = 0; i < TP_NDDMA_MAX_DIM_NUM; i++) {
-        inUbMainSrcShape_[expandedPerm_[i]] = inUbMainDstShape_[i];
-        inUbTailSrcShape_[expandedPerm_[i]] = inUbTailDstShape_[i];
+    data->blkFactor = static_cast<uint32_t>(blkFactor_);
+    data->blkTailFactor = static_cast<uint32_t>(blkTailFactor_);
+    data->dim = dim_;
+    for (int64_t i = 0; i < TilingDataT::AXIS_NUM; i++) {
+        data->inputShape[i] = inputShape_[i];
+        data->perm[i] = perm_[i];
     }
+    return true;
 }
 
 /**
- * @brief 填写 SMALL_SHAPE 消费的注册 TilingData 字段
- *
- * kernel（transpose_small_shape.h）消费：permSize / realCoreNum / blkFactor /
- * blkTailFactor + inputShape/outputShape/perm。
+ * @brief 按 tilingKey_ 选择 23D/48D 的 TilingData 类型，复用同一套写入逻辑
  */
 bool TransposeSmallShapeStrategy::SetTilingData()
 {
     OP_LOGD(context_->GetNodeName(), "Entering SetTilingData.");
-    TransposeOpTilingData* tilingData = GetTransposeOpTilingDataBuffer(context_);
-    if (tilingData == nullptr) {
-        return false;
+    if (tilingKey_ == TK_SMALL_SHAPE_23D) {
+        return SetTilingDataImpl<TransposeSmallShape23DTilingData>();
     }
-    *tilingData = TransposeOpTilingData{};
-    tilingData->permSize = shapeInfo_.dim;
-    tilingData->realCoreNum = realCoreNum_;
-    tilingData->blkFactor = blkFactor_;
-    tilingData->blkTailFactor = blkTailFactor_;
-    tilingData->ubSize = ubSize_;
-    tilingData->bigDimBufferNum = 1;
-    tilingData->totalNddmaNum = 1;
-    tilingData->nddmaIdx[0] = -1;
-    for (int64_t i = 0; i < shapeInfo_.dim; i++) {
-        tilingData->inputShape[i] = shapeInfo_.reducedInShape[i];
-        tilingData->outputShape[i] = shapeInfo_.reducedOutShape[i];
-        tilingData->perm[i] = shapeInfo_.reducedPerm[i];
-    }
-    std::copy(expandedPerm_, expandedPerm_ + TP_NDDMA_MAX_DIM_NUM, tilingData->expandedPerm);
-    std::copy(expandedInputShape_, expandedInputShape_ + TP_NDDMA_MAX_DIM_NUM, tilingData->expandedInputShape);
-    std::copy(expandedOutputShape_, expandedOutputShape_ + TP_NDDMA_MAX_DIM_NUM, tilingData->expandedOutputShape);
-    std::copy(inUbMainSrcShape_, inUbMainSrcShape_ + TP_NDDMA_MAX_DIM_NUM, tilingData->inUbMainSrcShape);
-    std::copy(inUbMainDstShape_, inUbMainDstShape_ + TP_NDDMA_MAX_DIM_NUM, tilingData->inUbMainDstShape);
-    std::copy(inUbTailSrcShape_, inUbTailSrcShape_ + TP_NDDMA_MAX_DIM_NUM, tilingData->inUbTailSrcShape);
-    std::copy(inUbTailDstShape_, inUbTailDstShape_ + TP_NDDMA_MAX_DIM_NUM, tilingData->inUbTailDstShape);
-    return true;
+    return SetTilingDataImpl<TransposeSmallShape48DTilingData>();
 }
 
 void TransposeSmallShapeStrategy::LogTilingData()
@@ -157,8 +148,8 @@ void TransposeSmallShapeStrategy::LogTilingData()
                 i, shapeInfo_.reducedInShape[i], i, shapeInfo_.reducedOutShape[i], i, shapeInfo_.reducedPerm[i]);
     }
     OP_LOGI(context_->GetNodeName(),
-            "tilingData is permSize:%ld, realCoreNum:%ld, blkFactor:%ld, blkTailFactor:%ld, Tiling4Transpose ends. ",
-            shapeInfo_.dim, realCoreNum_, blkFactor_, blkTailFactor_);
+            "Small tilingData is blkFactor:%ld, blkTailFactor:%ld, dim:%u, Tiling4Transpose ends.", blkFactor_,
+            blkTailFactor_, static_cast<unsigned>(dim_));
 }
 
 } // namespace optiling

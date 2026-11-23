@@ -10,10 +10,10 @@
 
 /*!
  * \file transpose_tiling_strategy_small_shape.h
- * \brief SMALL_SHAPE(10001) 策略类
+ * \brief SMALL_SHAPE(10001)/SMALL_SHAPE_23D(10011) 策略类
  *
  * 适用场景：平台支持 SIMT，且输入数据量小于 SIMT 小 shape 阈值。
- * 数据在 GM 之间直读直写，不经过 UB。
+ * 数据在 GM 之间直读直写，不经过 UB；2D/3D 统一走 24B 精简 TilingData，4-8D 走 52B。
  */
 
 #ifndef AIR_CXX_RUNTIME_V2_OP_IMPL_TRANSPOSE_TILING_STRATEGY_SMALL_SHAPE_H
@@ -24,7 +24,7 @@
 namespace optiling {
 
 /**
- * @brief SMALL_SHAPE(10001) 策略
+ * @brief SMALL_SHAPE(10001)/SMALL_SHAPE_23D(10011) 策略
  *
  * 准入：平台支持 SIMT 且 totalVolumeActual*eleLenInBytes < 本模板小 shape 阈值。
  * 尾轴不转置场景由注册在前的 N_LAST 优先处理；本模板注册在 NDDMA/NDDMA_BIG_DIM 之前，
@@ -40,6 +40,7 @@ public:
 protected:
     TilingStatus DoExecute() override;
 
+    // 分核完全由 Host 算好，blockDim 精确等于 realCoreNum_（不再空跑）
     uint32_t GetUsedCoreNum() const override { return static_cast<uint32_t>(realCoreNum_); }
     uint64_t GetTilingKey() const override { return tilingKey_; }
 
@@ -47,28 +48,23 @@ protected:
     void LogTilingData() override;
 
 private:
-    void CalcBlockSplitInfo();
-    void NDDMADimExpand();                ///< 5 维扩展（仅 dim<=5 调用）
-    void CalcInUbShapeInfoForNoNeedCut(); ///< 无需切分的 UB 内 shape
-
-    // UB 切分结果
-    int64_t outCutIndex_ = 0;   ///< 输出切分轴索引
-    int64_t outUbFactor_ = 0;   ///< 输出主块切分因子
-    int64_t outTailFactor_ = 0; ///< 输出尾块元素数
+    /**
+     * @brief 按 TilingDataT 写入精简码流（23D/48D 共用同一套代码）
+     * @tparam TilingDataT TransposeSmallShapeTilingData<DIM> 的具体实例
+     */
+    template <typename TilingDataT>
+    bool SetTilingDataImpl();
+    void CalcBlockSplitInfo(); ///< 1024B 对齐 Host 分核
 
     // SMALL_SHAPE 私有中间状态（仅本模板使用）
-    int64_t realCoreNum_ = 0;                                             ///< 实际使用核数
-    int64_t blkFactor_ = 0;                                               ///< 分核：每核基础 block 数
-    int64_t blkTailFactor_ = 0;                                           ///< 分核：尾核额外 block 数
-    uint64_t tilingKey_ = 0;                                              ///< 当前策略 tilingKey
-    int64_t expandedPerm_[TP_NDDMA_MAX_DIM_NUM] = {0, 1, 2, 3, 4};        ///< 5 维扩展 perm
-    int64_t expandedInputShape_[TP_NDDMA_MAX_DIM_NUM] = {1, 1, 1, 1, 1};  ///< 5 维扩展输入 shape
-    int64_t expandedOutputShape_[TP_NDDMA_MAX_DIM_NUM] = {1, 1, 1, 1, 1}; ///< 5 维扩展输出 shape
-    // SMALL_SHAPE 的 UB 内 shape（无需切分场景）
-    int64_t inUbMainSrcShape_[TP_NDDMA_MAX_DIM_NUM] = {0}; ///< 主块 UB 内输入 5 维 shape
-    int64_t inUbMainDstShape_[TP_NDDMA_MAX_DIM_NUM] = {0}; ///< 主块 UB 内输出 5 维 shape
-    int64_t inUbTailSrcShape_[TP_NDDMA_MAX_DIM_NUM] = {0}; ///< 全尾块 UB 内输入 5 维 shape
-    int64_t inUbTailDstShape_[TP_NDDMA_MAX_DIM_NUM] = {0}; ///< 全尾块 UB 内输出 5 维 shape
+    int64_t realCoreNum_ = 0;   ///< 实际使用核数（= blockDim；不下发，kernel 用 GetBlockNum() 获取）
+    int64_t blkFactor_ = 0;     ///< 分核：每核基础元素数（1024B 对齐）
+    int64_t blkTailFactor_ = 0; ///< 分核：末核元素数
+    uint64_t tilingKey_ = 0;    ///< 当前策略 tilingKey
+    // 精简码流字段（2-8D 共用；按 dim 选择 <3> 或 <TP_MAX_AXIS_NUM> 实例）
+    uint8_t dim_ = 0;                          ///< 实际简化后维数（2-8）
+    int32_t inputShape_[TP_MAX_AXIS_NUM] = {}; ///< 简化后输入 shape
+    int8_t perm_[TP_MAX_AXIS_NUM] = {};        ///< 简化后 perm，未用槽位 -1
 };
 
 } // namespace optiling

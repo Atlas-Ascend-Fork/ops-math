@@ -259,14 +259,12 @@ TEST(TransposeTransTo5HD021Strategy, transpose_021vconv_int8_cconv_fallback)
     gert::TilingContextPara::TensorDescription out({{1, 32, 16}, {1, 32, 16}}, ge::DT_INT8, ge::FORMAT_ND);
     gert::TilingContextPara tilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
 
-    TilingInfo tilingInfo;
-    ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
-    // 体积 512B < 021 准入的 70KB 门槛 → 021 不命中，由 SMALL_SHAPE(10001) 兜底。
-    // 首轴 size=1 被 RemoveAxis 消除，简化后 dim=2（16,32）/ perm=[1,0]
-    EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(TK_SMALL_SHAPE));
-    const auto* tilingData = GetTilingData<TransposeOpTilingData>(tilingInfo);
-    ASSERT_NE(tilingData, nullptr);
-    EXPECT_EQ(tilingData->permSize, 2);
+    // 体积 512B < 021 准入的 70KB 门槛 → 021 不命中（不再验证其他模板兜底）。
+    ShapeInfo si = MakeShape({1, 16, 32}, {0, 2, 1}, 1);
+    auto bundle = BuildTilingContext(tilingContextPara);
+    optiling::TransposeTransTo5HD021Strategy strategy(
+        bundle.context, MakePlatformInfo(static_cast<int64_t>(Ops::Base::DAV_5102)), MakeOpParam(si));
+    EXPECT_FALSE(strategy.IsSupport());
 }
 
 // 1D tensor (perm=[0]), expect TENSOR_MOVE tiling key 10000
@@ -308,6 +306,7 @@ TEST(TransposeTransTo5HD021Strategy, transpose_021vconv_int8_cconv_hlen16_wlen12
     ASSERT_TRUE(strategy.IsSupport());
     ASSERT_EQ(strategy.Execute(), TilingStatus::SUCCESS);
     EXPECT_EQ(bundle.context->GetTilingKey(), static_cast<uint64_t>(TK_TRANSTO5HD_021));
+    EXPECT_EQ(bundle.context->GetBlockDim(), 43);
     const auto* tilingData = GetTilingData<TransposeTransTo5HD021TilingData>(bundle.context);
     ASSERT_NE(tilingData, nullptr);
     EXPECT_EQ(tilingData->HLen, 16);
@@ -338,6 +337,7 @@ TEST(TransposeTransTo5HD021Strategy, transpose_021vconv_int8_cconv_hlen16_wlen64
     ASSERT_TRUE(strategy.IsSupport());
     ASSERT_EQ(strategy.Execute(), TilingStatus::SUCCESS);
     EXPECT_EQ(bundle.context->GetTilingKey(), static_cast<uint64_t>(TK_TRANSTO5HD_021));
+    EXPECT_EQ(bundle.context->GetBlockDim(), 48);
     const auto* tilingData = GetTilingData<TransposeTransTo5HD021TilingData>(bundle.context);
     ASSERT_NE(tilingData, nullptr);
     EXPECT_EQ(tilingData->HLen, 16);
@@ -373,12 +373,49 @@ TEST(TransposeTransTo5HD021Strategy, direct_success_unreachable_by_e2e)
     ASSERT_TRUE(strategy.IsSupport());
     EXPECT_EQ(strategy.Execute(), TilingStatus::SUCCESS);
     EXPECT_EQ(bundle.context->GetTilingKey(), static_cast<uint64_t>(TK_TRANSTO5HD_021));
-    EXPECT_GT(bundle.context->GetBlockDim(), 0U);
+    EXPECT_EQ(bundle.context->GetBlockDim(), 1);
     const auto* data = GetTilingData<TransposeTransTo5HD021TilingData>(bundle.context);
     ASSERT_NE(data, nullptr);
-    ASSERT_NE(data, nullptr);
-    EXPECT_GT(data->UsedCoreNum, 0);
-    EXPECT_GT(data->AvailableUbSize, 0);
+    EXPECT_EQ(data->AvailableUbSize, 63488);
     EXPECT_EQ(data->HLen, 300);
     EXPECT_EQ(data->WLen, 300);
+}
+
+/* ============================================================================
+ * TRANSTO5HD_021(10008)：DAV_5102 3D，超 uint32 N + UB 占用
+ * ========================================================================== */
+TEST(TransposeTransTo5HD021Strategy, transto5hd_021_large_shape_and_ub_budget)
+{
+    auto compileInfo = MakeCompilerInfo();
+    auto para = MakeDummyPara(compileInfo);
+    const int64_t arch = static_cast<int64_t>(Ops::Base::DAV_5102);
+    const int64_t eleLen = 2;
+
+    // 边界：H/W 必须 > 8。
+    auto boundaryBundle = BuildTilingContext(para);
+    ShapeInfo h8 = MakeShape({1, 8, 64}, {0, 2, 1}, eleLen);
+    optiling::TransposeTransTo5HD021Strategy h8Strategy(boundaryBundle.context, MakePlatformInfo(arch),
+                                                        MakeOpParam(h8));
+    EXPECT_FALSE(h8Strategy.IsSupport());
+    ShapeInfo h9 = MakeShape({1024, 9, 64}, {0, 2, 1}, eleLen);
+    optiling::TransposeTransTo5HD021Strategy h9Strategy(boundaryBundle.context, MakePlatformInfo(arch),
+                                                        MakeOpParam(h9));
+    EXPECT_TRUE(h9Strategy.IsSupport());
+
+    // 超大：N > uint32。
+    auto bundle = BuildTilingContext(para);
+    ShapeInfo si = MakeShape({kHugeDim, 16, 64}, {0, 2, 1}, eleLen);
+    optiling::TransposeTransTo5HD021Strategy strategy(bundle.context, MakePlatformInfo(arch), MakeOpParam(si));
+    ASSERT_TRUE(strategy.IsSupport());
+    ASSERT_EQ(strategy.Execute(), TilingStatus::SUCCESS);
+    const auto* data = GetTilingData<TransposeTransTo5HD021TilingData>(bundle.context);
+    ASSERT_NE(data, nullptr);
+    EXPECT_EQ(data->NLen, kHugeDim);
+    EXPECT_GT(data->NLen, static_cast<int64_t>(kUint32Max));
+    EXPECT_EQ(data->HLen, 16);
+    EXPECT_EQ(data->WLen, 64);
+    EXPECT_GT(data->AvailableUbSize, 0);
+
+    // kernel：输入/输出各 2 个 buffer，每个 AvailableUbSize。
+    EXPECT_LE(static_cast<int64_t>(data->AvailableUbSize) * 4, kUbSize);
 }

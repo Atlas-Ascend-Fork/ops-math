@@ -20,7 +20,9 @@
 #ifndef TEST_TRANSPOSE_TILING_STRATEGY_COMMON_H
 #define TEST_TRANSPOSE_TILING_STRATEGY_COMMON_H
 
+#include <cstdint>
 #include <cstring>
+#include <limits>
 #include <map>
 #include <memory>
 #include <string>
@@ -78,6 +80,8 @@ constexpr int64_t kUbSize = 253952; // 248K（与存量 UT 默认档一致）
 constexpr int64_t kCacheLineSize = 256;
 constexpr int64_t kUbBlockSize = 32;
 constexpr int64_t kDefaultThreshold = 4000000;
+constexpr uint64_t kUint32Max = std::numeric_limits<uint32_t>::max();
+constexpr int64_t kHugeDim = 5000000000LL; ///< > uint32 的单个轴长度
 
 using ShapeInfo = optiling::StrategyShapeInfo;
 using TilingStatus = optiling::TilingStatus;
@@ -139,6 +143,27 @@ inline optiling::TransposeCompilerInfo MakeCompilerInfo(int64_t coreNum = kCoreN
     compileInfo.coreNum = coreNum;
     compileInfo.ubSize = ubSize;
     return compileInfo;
+}
+
+inline int64_t AlignUp(int64_t value, int64_t align) { return (value + align - 1) / align * align; }
+
+inline int64_t Product(const int64_t* shape, int64_t beg, int64_t end)
+{
+    int64_t product = 1;
+    for (int64_t i = beg; i < end; ++i) {
+        product *= shape[i];
+    }
+    return product;
+}
+
+// 策略直调用例的占位上下文：shapeInfo 由调用方注入，context 仅提供 TilingData/Workspace 载体。
+inline gert::TilingContextPara MakeDummyPara(optiling::TransposeCompilerInfo& compileInfo)
+{
+    static int64_t permValue[1] = {0};
+    gert::TilingContextPara::TensorDescription x({{1}, {1}}, ge::DT_UINT8, ge::FORMAT_ND);
+    gert::TilingContextPara::TensorDescription perm({{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, &permValue);
+    gert::TilingContextPara::TensorDescription out({{1}, {1}}, ge::DT_UINT8, ge::FORMAT_ND);
+    return gert::TilingContextPara("Transpose", {x, perm}, {out}, &compileInfo);
 }
 
 } // namespace transpose_strategy_ut

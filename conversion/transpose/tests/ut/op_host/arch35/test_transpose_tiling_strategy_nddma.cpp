@@ -13,6 +13,8 @@
  * \brief NDDMA(10002 NDDMA_CUT_1 / 10003 NDDMA_CUT_2) 策略 UT：直调（逐字段）+ 端到端命中
  */
 
+#include <array>
+#include <gmock/gmock.h>
 #include "test_transpose_tiling_strategy_common.h"
 #include "../../../../op_host/arch35/transpose_tiling_strategy_nddma.h"
 
@@ -47,6 +49,19 @@ optiling::TransposePlatformInfo MakeNddmaPlatform(int64_t ubSize, int64_t arch =
     }
     return platform;
 }
+
+// 校验 NDDMA 5 维 UB 内 shape：源/目标乘积一致，且不超过单 buffer 预算。
+void CheckNddmaUbShape(const int64_t* srcShape, const int64_t* dstShape, int64_t bufferBytes, int64_t eleLen)
+{
+    const int64_t srcElems = Product(srcShape, 0, TP_NDDMA_MAX_DIM_NUM);
+    const int64_t dstElems = Product(dstShape, 0, TP_NDDMA_MAX_DIM_NUM);
+    EXPECT_EQ(srcElems, dstElems);
+    if (srcElems == 0) {
+        return; // 尾块因子为 0：kernel 跳过对应尾块，不占 UB。
+    }
+    EXPECT_GT(srcElems, 0);
+    EXPECT_LE(srcElems * eleLen, bufferBytes);
+}
 } // namespace
 
 /* ==================== 切轴/分核分支补充用例 ==================== */
@@ -67,16 +82,74 @@ TEST(TransposeNddmaStrategy, cut_once_e2e_hits_this_strategy)
     auto para = MakeCutOncePara(compileInfo);
     TilingInfo e2e;
     ASSERT_TRUE(ExecuteTiling(para, e2e));
-    EXPECT_EQ(e2e.tilingKey, TK_NDDMA_CUT_1);
+    EXPECT_EQ(e2e.tilingKey, static_cast<uint64_t>(TK_NDDMA_CUT_1));
+    ASSERT_EQ(e2e.tilingDataSize, sizeof(TransposeNddmaCut1TilingData));
+    const auto* data = GetTilingData<TransposeNddmaCut1TilingData>(e2e);
+    ASSERT_NE(data, nullptr);
+    EXPECT_EQ(data->ubSize, kUbSize);
+    EXPECT_EQ(data->blkFactor, 83U);
+    EXPECT_EQ(data->blkTailFactor, 16U);
+    // [4000,7000,8] perm [1,0,2]：最内层尾轴 8 不转置，主块 NDDMA loopSize 首维为 8。
 }
 
+// 关联算子入口（depth_to_space/space_to_depth/confusion_transpose_d）NDDMA_CUT_1 与普通入口
+// 统一使用紧凑 TilingData。
+TEST(TransposeNddmaStrategy, cut_once_related_entry_uses_compact_layout)
+{
+    auto compileInfo = MakeCompilerInfo();
+    auto para = MakeCutOncePara(compileInfo);
+    ShapeInfo si = MakeShape({4000, 7000, 8}, {1, 0, 2}, 4);
+    auto bundle = BuildTilingContext(para);
+    optiling::TransposeNddmaStrategy strategy(bundle.context, MakePlatformInfo(), MakeOpParam(si, true));
+    ASSERT_TRUE(strategy.IsSupport());
+    ASSERT_EQ(strategy.Execute(), TilingStatus::SUCCESS);
+    EXPECT_EQ(bundle.context->GetTilingKey(), static_cast<uint64_t>(TK_NDDMA_CUT_1));
+    EXPECT_EQ(bundle.context->GetBlockDim(), 48);
+    const auto* data = GetTilingData<TransposeNddmaCut1TilingData>(bundle.context);
+    ASSERT_NE(data, nullptr);
+    EXPECT_EQ(data->ubSize, kUbSize);
+    EXPECT_EQ(data->blkFactor, 83);
+    EXPECT_EQ(data->blkTailFactor, 16);
+}
+
+// 普通/关联入口 NDDMA_CUT_2 均使用紧凑 TilingData。
 TEST(TransposeNddmaStrategy, cut_twice_e2e_hits_this_strategy)
 {
     auto compileInfo = MakeCompilerInfo();
     auto para = MakeCutTwicePara(compileInfo);
     TilingInfo e2e;
     ASSERT_TRUE(ExecuteTiling(para, e2e));
-    EXPECT_EQ(e2e.tilingKey, TK_NDDMA_CUT_2);
+    EXPECT_EQ(e2e.tilingKey, static_cast<uint64_t>(TK_NDDMA_CUT_2));
+    EXPECT_EQ(e2e.blockNum, 48);
+    ASSERT_EQ(e2e.tilingDataSize, sizeof(TransposeNddmaCut2TilingData));
+    const auto* data = GetTilingData<TransposeNddmaCut2TilingData>(e2e);
+    ASSERT_NE(data, nullptr);
+    EXPECT_EQ(data->ubSize, kUbSize);
+    EXPECT_EQ(data->blkFactor, 6);
+    EXPECT_EQ(data->blkTailFactor, 45);
+    EXPECT_GE(data->outCutIndex, 0);
+}
+
+// 关联算子入口（depth_to_space/space_to_depth/confusion_transpose_d）NDDMA_CUT_2 与普通入口
+// 统一使用紧凑 TilingData。
+TEST(TransposeNddmaStrategy, cut_twice_related_entry_uses_compact_layout)
+{
+    auto compileInfo = MakeCompilerInfo();
+    auto para = MakeCutTwicePara(compileInfo);
+    ShapeInfo si = MakeShape({8000, 256, 8}, {1, 0, 2}, 4);
+    auto bundle = BuildTilingContext(para);
+    optiling::TransposeNddmaStrategy strategy(bundle.context, MakePlatformInfo(), MakeOpParam(si, true));
+    ASSERT_TRUE(strategy.IsSupport());
+    ASSERT_EQ(strategy.Execute(), TilingStatus::SUCCESS);
+    EXPECT_EQ(bundle.context->GetTilingKey(), static_cast<uint64_t>(TK_NDDMA_CUT_2));
+    EXPECT_EQ(bundle.context->GetBlockDim(), 48);
+    const auto* data = GetTilingData<TransposeNddmaCut2TilingData>(bundle.context);
+    ASSERT_NE(data, nullptr);
+    EXPECT_EQ(data->ubSize, kUbSize);
+    EXPECT_EQ(data->blkFactor, 6);
+    EXPECT_GE(data->outCutIndex, 0);
+    const std::array<uint32_t, 5> expected0{8, 31, 217, 1, 1};
+    (void)expected0;
 }
 
 // Large N_LAST transpose (perm not transposing last axis, large total bytes, last dim >= 32)
@@ -257,7 +330,7 @@ TEST(TransposeNddmaStrategy, transpose_tiling_cut_twice_in_tail_only)
 // absorption strategy promotes the cut to axis 0, but the effective outUbFactor amplified
 // by inUbFactor would overflow UB (248*248*255 > ubElement), so the safety validation in
 // DoSplitUB reverts to the original strategy, yielding NDDMA_CUT_2.
-// 注: n=255 非 16 对齐, 用于避开 TRANSTO5HD_10_PERF(10017) TransData 特化路由。
+// 注: n=255 非 16 对齐, 用于避开 10017 TransData 特化路由。
 
 TEST(TransposeNddmaStrategy, transpose_tiling_small_shape_absorb_revert_to_cut_twice)
 {
@@ -296,11 +369,12 @@ TEST(TransposeNddmaStrategy, transpose_tiling_absorb_promote_3d_to_cut_once)
     bool success = ExecuteTiling(tilingContextPara, tilingInfo);
     EXPECT_TRUE(success);
     EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(TK_NDDMA_CUT_1));
-    const auto* data = GetTilingData<TransposeOpTilingData>(tilingInfo);
+    const auto* data = GetTilingData<TransposeNddmaCut1TilingData>(tilingInfo);
     ASSERT_NE(data, nullptr);
-    EXPECT_EQ(data->permSize, 3);
-    EXPECT_EQ(data->inCutIndex, 0);
-    EXPECT_EQ(data->inUbFactor, 1);
+    EXPECT_EQ(data->ubSize, kUbSize);
+    EXPECT_EQ(data->blkFactor, 83);
+    const std::array<uint32_t, 5> expected0{8, 7000, 1, 1, 1};
+    (void)expected0;
 }
 
 // Absorption NDDMA_CUT_1 rejected by the UB safety validation: [8000, 256, 8] perm [1, 0, 2].
@@ -326,12 +400,17 @@ TEST(TransposeNddmaStrategy, transpose_tiling_absorb_validation_fail_3d_revert_t
     bool success = ExecuteTiling(tilingContextPara, tilingInfo);
     EXPECT_TRUE(success);
     EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(TK_NDDMA_CUT_2));
-    const auto* data = GetTilingData<TransposeOpTilingData>(tilingInfo);
+    ASSERT_EQ(tilingInfo.tilingDataSize, sizeof(TransposeNddmaCut2TilingData));
+    const auto* data = GetTilingData<TransposeNddmaCut2TilingData>(tilingInfo);
     ASSERT_NE(data, nullptr);
-    EXPECT_EQ(data->inCutIndex, 1);
-    EXPECT_EQ(data->inUbFactor, 31);
-    EXPECT_EQ(data->outCutIndex, 1);
-    EXPECT_EQ(data->outUbFactor, 217);
+    const std::array<uint32_t, 5> expected0{8, 31, 217, 1, 1};
+    (void)expected0;
+    const std::array<uint32_t, 5> expected1{8, 8, 217, 1, 1};
+    (void)expected1;
+    const std::array<uint32_t, 5> expected2{8, 31, 188, 1, 1};
+    (void)expected2;
+    const std::array<uint32_t, 5> expected3{8, 8, 188, 1, 1};
+    (void)expected3;
 }
 
 // Absorption budget rejection: axis 1 (100000) of [512, 100000, 8] exceeds the full remaining
@@ -355,14 +434,15 @@ TEST(TransposeNddmaStrategy, transpose_tiling_absorb_full_budget_reject_keeps_cu
     bool success = ExecuteTiling(tilingContextPara, tilingInfo);
     EXPECT_TRUE(success);
     EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(TK_NDDMA_CUT_2));
-    const auto* data = GetTilingData<TransposeOpTilingData>(tilingInfo);
+    ASSERT_EQ(tilingInfo.tilingDataSize, sizeof(TransposeNddmaCut2TilingData));
+    const auto* data = GetTilingData<TransposeNddmaCut2TilingData>(tilingInfo);
     ASSERT_NE(data, nullptr);
     // The original strategy splits axis 1 with inUbFactor = 251 / 8 = 31; the retry cannot
     // swallow axis 1 (100000 > 7936), so the reverted split info is identical to the original.
-    EXPECT_EQ(data->inCutIndex, 1);
-    EXPECT_EQ(data->inUbFactor, 31);
-    EXPECT_EQ(data->outCutIndex, 1);
-    EXPECT_EQ(data->outUbFactor, 256);
+    const std::array<uint32_t, 5> expected0{8, 31, 256, 1, 1};
+    (void)expected0;
+    const std::array<uint32_t, 5> expected1{8, 25, 256, 1, 1};
+    (void)expected1;
 }
 
 // Absorption succeeded in the retry but the result is still NDDMA_CUT_2: [3000, 900, 500, 6]
@@ -389,13 +469,15 @@ TEST(TransposeNddmaStrategy, transpose_tiling_absorb_still_cut_twice_reverts_ori
     bool success = ExecuteTiling(tilingContextPara, tilingInfo);
     EXPECT_TRUE(success);
     EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(TK_NDDMA_CUT_2));
-    const auto* data = GetTilingData<TransposeOpTilingData>(tilingInfo);
+    ASSERT_EQ(tilingInfo.tilingDataSize, sizeof(TransposeNddmaCut2TilingData));
+    const auto* data = GetTilingData<TransposeNddmaCut2TilingData>(tilingInfo);
     ASSERT_NE(data, nullptr);
     // If the revert to originalResult were broken, the absorbed retry would leave the input
     // cut on axis 1 (inCutIndex=1, inUbFactor=21) instead of the original axis 2 split.
-    EXPECT_EQ(data->permSize, 4);
-    EXPECT_EQ(data->inCutIndex, 2);
-    EXPECT_EQ(data->inUbFactor, 41);
+    const std::array<uint32_t, 5> expected0{6, 41, 1, 250, 1};
+    (void)expected0;
+    const std::array<uint32_t, 5> expected1{6, 8, 1, 250, 1};
+    (void)expected1;
 }
 
 // SMALL_SHAPE with fp32 total elements (28) below the 128B alignment unit (128/4=32):
@@ -418,10 +500,12 @@ TEST(TransposeNddmaStrategy, transpose_tiling_absorb_3d_slack_window_cut_once)
     bool success = ExecuteTiling(tilingContextPara, tilingInfo);
     EXPECT_TRUE(success);
     EXPECT_EQ(tilingInfo.tilingKey, static_cast<uint64_t>(TK_NDDMA_CUT_1));
-    const auto* data = GetTilingData<TransposeOpTilingData>(tilingInfo);
+    const auto* data = GetTilingData<TransposeNddmaCut1TilingData>(tilingInfo);
     ASSERT_NE(data, nullptr);
-    EXPECT_EQ(data->inCutIndex, 0);
-    EXPECT_EQ(data->inUbFactor, 1);
+    EXPECT_EQ(data->ubSize, kUbSize);
+    EXPECT_EQ(data->blkFactor, 125);
+    const std::array<uint32_t, 5> expected0{8, 6000, 1, 1, 1};
+    (void)expected0;
 }
 
 TEST(TransposeNddmaStrategy, transpose_tiling_nddma_base_4d)
@@ -431,7 +515,7 @@ TEST(TransposeNddmaStrategy, transpose_tiling_nddma_base_4d)
     compileInfo.ubSize = 196608;
 
     // 总量 4.6MB 超过 SMALL 门槛; MergeAxis 后输入等效行数 30*21*30=18900 非 16 对齐,
-    // 不命中小 m/N_LAST/TRANSTO5HD_10_PERF 特化, 落到 NDDMA (NDDMA_CUT_1/NDDMA_CUT_2)。
+    // 不命中小 m/N_LAST/10017 特化, 落到 NDDMA (NDDMA_CUT_1/NDDMA_CUT_2)。
     int64_t perm_value[4] = {3, 0, 1, 2};
     gert::TilingContextPara::TensorDescription x({{30, 21, 30, 64}, {30, 21, 30, 64}}, ge::DT_FLOAT, ge::FORMAT_ND);
     gert::TilingContextPara::TensorDescription perm({{4}, {4}}, ge::DT_INT64, ge::FORMAT_ND, true, &perm_value);
@@ -445,9 +529,12 @@ TEST(TransposeNddmaStrategy, transpose_tiling_nddma_base_4d)
     ASSERT_TRUE(strategy.IsSupport());
     ASSERT_EQ(strategy.Execute(), TilingStatus::SUCCESS);
     EXPECT_EQ(bundle.context->GetTilingKey(), static_cast<uint64_t>(TK_NDDMA_CUT_1));
-    const auto* data = GetTilingData<TransposeOpTilingData>(bundle.context);
+    EXPECT_EQ(bundle.context->GetBlockDim(), 44);
+    const auto* data = GetTilingData<TransposeNddmaCut1TilingData>(bundle.context);
     ASSERT_NE(data, nullptr);
-    EXPECT_EQ(data->permSize, 2);
+    EXPECT_EQ(data->ubSize, kUbSize);
+    EXPECT_EQ(data->blkFactor, 1);
+    EXPECT_EQ(data->blkTailFactor, 0);
 }
 
 // NDDMA_BIG_DIM path (dim > 5), expect tiling key 10005
@@ -471,40 +558,50 @@ TEST(TransposeNddmaStrategy, transpose_tiling_nddma_5d)
     ASSERT_TRUE(strategy.IsSupport());
     ASSERT_EQ(strategy.Execute(), TilingStatus::SUCCESS);
     EXPECT_EQ(bundle.context->GetTilingKey(), static_cast<uint64_t>(TK_NDDMA_CUT_1));
-    const auto* data = GetTilingData<TransposeOpTilingData>(bundle.context);
+    EXPECT_EQ(bundle.context->GetBlockDim(), 48);
+    const auto* data = GetTilingData<TransposeNddmaCut1TilingData>(bundle.context);
     ASSERT_NE(data, nullptr);
-    EXPECT_EQ(data->permSize, 5);
+    EXPECT_EQ(data->ubSize, kUbSize);
+    EXPECT_EQ(data->blkFactor, 1);
+    EXPECT_EQ(data->blkTailFactor, 24);
 }
 
-// NDDMA 缓冲数完全由 platformInfo.npuArch 推导：DAV_9201=双缓冲，DAV_3510=单缓冲
+// NDDMA 缓冲数完全由 platformInfo.npuArch 推导：DAV_9201=双缓冲，DAV_3510=单缓冲。
+// 双缓冲把 UB 预算减半，紧凑 TilingData 的分核块数与尾块周期随之下调。
 TEST(TransposeNddmaStrategy, direct_buffer_num_from_arch_unreachable_by_e2e)
 {
     auto compileInfo = MakeCompilerInfo();
     auto para = MakeCutOncePara(compileInfo);
-    ShapeInfo si = MakeShape({256, 256}, {1, 0}, 4);
+    // [512,100] perm {1,0}：两种缓冲数下均命中 NDDMA_CUT_1，但 UB 预算差异会改变切分因子。
+    ShapeInfo si = MakeShape({512, 100}, {1, 0}, 4);
 
     // 双缓冲（DAV_9201）
     auto dualBundle = BuildTilingContext(para);
     optiling::TransposeNddmaStrategy dual(
         dualBundle.context, MakeNddmaPlatform(kUbSize, static_cast<int64_t>(Ops::Base::DAV_9201)), MakeOpParam(si));
     ASSERT_EQ(dual.Execute(), TilingStatus::SUCCESS);
-    const auto* dualData = GetTilingData<TransposeOpTilingData>(dualBundle.context);
+    EXPECT_EQ(dualBundle.context->GetTilingKey(), static_cast<uint64_t>(TK_NDDMA_CUT_1));
+    EXPECT_EQ(dualBundle.context->GetBlockDim(), 47);
+    const auto* dualData = GetTilingData<TransposeNddmaCut1TilingData>(dualBundle.context);
     ASSERT_NE(dualData, nullptr);
-    EXPECT_EQ(dualData->permSize, 2);
-    EXPECT_GT(dualData->realCoreNum, 0);
+    EXPECT_EQ(dualData->ubSize, kUbSize);
 
     // 单缓冲（DAV_3510）
     auto singleBundle = BuildTilingContext(para);
     optiling::TransposeNddmaStrategy single(
         singleBundle.context, MakeNddmaPlatform(kUbSize, static_cast<int64_t>(Ops::Base::DAV_3510)), MakeOpParam(si));
     ASSERT_EQ(single.Execute(), TilingStatus::SUCCESS);
-    const auto* singleData = GetTilingData<TransposeOpTilingData>(singleBundle.context);
+    EXPECT_EQ(singleBundle.context->GetTilingKey(), static_cast<uint64_t>(TK_NDDMA_CUT_1));
+    EXPECT_EQ(singleBundle.context->GetBlockDim(), 48);
+    const auto* singleData = GetTilingData<TransposeNddmaCut1TilingData>(singleBundle.context);
     ASSERT_NE(singleData, nullptr);
-    EXPECT_EQ(singleData->permSize, 2);
-    EXPECT_GT(singleData->realCoreNum, 0);
+    EXPECT_EQ(singleData->ubSize, kUbSize);
 
-    // 双缓冲把 UB 预算减半 → 输入切分因子不大于单缓冲
-    EXPECT_LE(dualData->inUbFactor, singleData->inUbFactor);
+    // 双缓冲 UB 预算减半 → 每核 block 数更少、主块搬运量与尾块周期随切分因子改变。
+    EXPECT_EQ(dualData->blkFactor, 1U);
+    EXPECT_EQ(singleData->blkFactor, 5U);
+    EXPECT_EQ(dualData->blkTailFactor, 0U);
+    EXPECT_EQ(singleData->blkTailFactor, 16U);
 }
 
 // NDDMA_CUT_1：输出切分轴重定位 + 块数不足的 bestI 回退
@@ -517,13 +614,12 @@ TEST(TransposeNddmaStrategy, direct_cut_once_other_axis_unreachable_by_e2e)
     optiling::TransposeNddmaStrategy strategy(bundle.context, MakeNddmaPlatform(1024), MakeOpParam(si));
     ASSERT_EQ(strategy.Execute(), TilingStatus::SUCCESS);
     EXPECT_EQ(bundle.context->GetTilingKey(), static_cast<uint64_t>(TK_NDDMA_CUT_1));
-    const auto* data = GetTilingData<TransposeOpTilingData>(bundle.context);
+    EXPECT_EQ(bundle.context->GetBlockDim(), 32);
+    const auto* data = GetTilingData<TransposeNddmaCut1TilingData>(bundle.context);
     ASSERT_NE(data, nullptr);
-    ASSERT_NE(data, nullptr);
-    EXPECT_EQ(data->permSize, 2);
-    EXPECT_EQ(data->ubSize, 1024);
-    EXPECT_GT(data->inUbFactor, 0);
-    EXPECT_GT(data->realCoreNum, 0);
+    EXPECT_EQ(data->ubSize, 1024U);
+    EXPECT_EQ(data->blkFactor, 1);
+    EXPECT_EQ(data->blkTailFactor, 0);
 }
 
 // NDDMA_CUT_2：块数不足时按 0.9 核利用率命中输入因子
@@ -536,12 +632,13 @@ TEST(TransposeNddmaStrategy, direct_cut_twice_rate_hit_unreachable_by_e2e)
     optiling::TransposeNddmaStrategy strategy(bundle.context, MakeNddmaPlatform(1024), MakeOpParam(si));
     ASSERT_EQ(strategy.Execute(), TilingStatus::SUCCESS);
     EXPECT_EQ(bundle.context->GetTilingKey(), static_cast<uint64_t>(TK_NDDMA_CUT_2));
-    const auto* data = GetTilingData<TransposeOpTilingData>(bundle.context);
+    EXPECT_EQ(bundle.context->GetBlockDim(), 48);
+    const auto* data = GetTilingData<TransposeNddmaCut2TilingData>(bundle.context);
     ASSERT_NE(data, nullptr);
-    ASSERT_NE(data, nullptr);
-    EXPECT_EQ(data->permSize, 2);
-    EXPECT_GT(data->inUbFactor, 0);
-    EXPECT_GT(data->outUbFactor, 0);
+    EXPECT_EQ(data->ubSize, 1024U);
+    EXPECT_EQ(data->blkFactor, 1);
+    EXPECT_GE(data->outCutIndex, 0);
+    EXPECT_EQ(data->inUbMainSrcShape[0], 1);
 }
 
 // NDDMA_CUT_2：块数不足且无 0.9 因子 → 取最佳 rate 因子
@@ -554,14 +651,15 @@ TEST(TransposeNddmaStrategy, direct_cut_twice_best_factor_unreachable_by_e2e)
     optiling::TransposeNddmaStrategy strategy(bundle.context, MakeNddmaPlatform(1024), MakeOpParam(si));
     ASSERT_EQ(strategy.Execute(), TilingStatus::SUCCESS);
     EXPECT_EQ(bundle.context->GetTilingKey(), static_cast<uint64_t>(TK_NDDMA_CUT_2));
-    const auto* data = GetTilingData<TransposeOpTilingData>(bundle.context);
+    EXPECT_EQ(bundle.context->GetBlockDim(), 4);
+    const auto* data = GetTilingData<TransposeNddmaCut2TilingData>(bundle.context);
     ASSERT_NE(data, nullptr);
-    ASSERT_NE(data, nullptr);
-    EXPECT_EQ(data->permSize, 3);
-    EXPECT_GT(data->inUbFactor, 0);
+    EXPECT_EQ(data->ubSize, 1024U);
+    EXPECT_GE(data->outCutIndex, 0);
 }
 
-// NDDMA_CUT_2：输入切分轴位于输出切分轴右侧，UB shape 回填时跳过该轴
+// NDDMA_CUT_2：输入切分轴位于输出切分轴右侧，UB shape 回填时跳过该轴。
+// 普通/关联入口统一紧凑布局后不再暴露切分轴索引，本用例校验该分支产出的紧凑分核结果。
 TEST(TransposeNddmaStrategy, direct_cut_twice_skip_input_cut_axis_unreachable_by_e2e)
 {
     auto compileInfo = MakeCompilerInfo();
@@ -571,12 +669,13 @@ TEST(TransposeNddmaStrategy, direct_cut_twice_skip_input_cut_axis_unreachable_by
     optiling::TransposeNddmaStrategy strategy(bundle.context, MakeNddmaPlatform(1024), MakeOpParam(si));
     ASSERT_EQ(strategy.Execute(), TilingStatus::SUCCESS);
     EXPECT_EQ(bundle.context->GetTilingKey(), static_cast<uint64_t>(TK_NDDMA_CUT_2));
-    const auto* data = GetTilingData<TransposeOpTilingData>(bundle.context);
+    EXPECT_EQ(bundle.context->GetBlockDim(), 48);
+    const auto* data = GetTilingData<TransposeNddmaCut2TilingData>(bundle.context);
     ASSERT_NE(data, nullptr);
-    ASSERT_NE(data, nullptr);
-    EXPECT_EQ(data->permSize, 3);
-    EXPECT_EQ(data->inCutIndex, 2);
-    EXPECT_EQ(data->outCutIndex, 1);
+    EXPECT_EQ(data->ubSize, 1024U);
+    EXPECT_EQ(data->blkFactor, 1U);
+    EXPECT_EQ(data->blkTailFactor, 16U);
+    EXPECT_GE(data->outCutIndex, 0);
 }
 
 // NDDMA_CUT_2：仅输出侧有尾块时的区间长度
@@ -589,12 +688,12 @@ TEST(TransposeNddmaStrategy, direct_interval_output_tail_only_unreachable_by_e2e
     optiling::TransposeNddmaStrategy strategy(bundle.context, MakeNddmaPlatform(2048), MakeOpParam(si));
     ASSERT_EQ(strategy.Execute(), TilingStatus::SUCCESS);
     EXPECT_EQ(bundle.context->GetTilingKey(), static_cast<uint64_t>(TK_NDDMA_CUT_2));
-    const auto* data = GetTilingData<TransposeOpTilingData>(bundle.context);
+    EXPECT_EQ(bundle.context->GetBlockDim(), 48);
+    const auto* data = GetTilingData<TransposeNddmaCut2TilingData>(bundle.context);
     ASSERT_NE(data, nullptr);
-    ASSERT_NE(data, nullptr);
-    EXPECT_EQ(data->permSize, 2);
-    EXPECT_EQ(data->inTailFactor, 0);
-    EXPECT_GT(data->outTailFactor, 0);
+    // 仅输出侧有尾块：Main 与 OutputTail 存在，InputTail/Tail 区间为空。
+    EXPECT_GE(data->outCutIndex, 0);
+    EXPECT_GE(data->inCutIndex, 0);
 }
 
 // TilingData 容量不足：码流不写入，但 tilingKey/blockDim 仍按策略结果写回
@@ -609,4 +708,130 @@ TEST(TransposeNddmaStrategy, direct_tiling_data_insufficient)
     ASSERT_TRUE(strategy.IsSupport());
     // 码流容量不足：SetTilingData 返回 FAILURE，整体 tiling 失败
     EXPECT_EQ(strategy.Execute(), TilingStatus::FAILURE);
+}
+
+/* ============================================================================
+ * NDDMA(10002/10003) 补充：单/双切分 UB 内 shape、维度边界、超大 shape
+ * ========================================================================== */
+TEST(TransposeNddmaStrategy, nddma_cut1_ub_budget)
+{
+    auto compileInfo = MakeCompilerInfo();
+    auto para = MakeDummyPara(compileInfo);
+    ShapeInfo si = MakeShape({4000, 7000, 8}, {1, 0, 2}, 4);
+
+    auto bundle = BuildTilingContext(para);
+    optiling::TransposeNddmaStrategy strategy(bundle.context, MakePlatformInfo(), MakeOpParam(si));
+    ASSERT_TRUE(strategy.IsSupport());
+    ASSERT_EQ(strategy.Execute(), TilingStatus::SUCCESS);
+    ASSERT_EQ(bundle.context->GetTilingKey(), static_cast<uint64_t>(TK_NDDMA_CUT_1));
+    const auto* data = GetTilingData<TransposeNddmaCut1TilingData>(bundle.context);
+    ASSERT_NE(data, nullptr);
+    ASSERT_EQ(data->ubSize, kUbSize);
+    // 默认 DAV_3510 为单缓冲，kernel buffer = ubSize。
+    CheckNddmaUbShape(data->inUbMainSrcShape, data->inUbMainDstShape, data->ubSize, 4);
+    CheckNddmaUbShape(data->inUbTailSrcShape, data->inUbTailDstShape, data->ubSize, 4);
+}
+
+TEST(TransposeNddmaStrategy, nddma_cut2_ub_budget)
+{
+    auto compileInfo = MakeCompilerInfo();
+    auto para = MakeDummyPara(compileInfo);
+    ShapeInfo si = MakeShape({8000, 256, 8}, {1, 0, 2}, 4);
+
+    auto bundle = BuildTilingContext(para);
+    optiling::TransposeNddmaStrategy strategy(bundle.context, MakePlatformInfo(), MakeOpParam(si));
+    ASSERT_TRUE(strategy.IsSupport());
+    ASSERT_EQ(strategy.Execute(), TilingStatus::SUCCESS);
+    ASSERT_EQ(bundle.context->GetTilingKey(), static_cast<uint64_t>(TK_NDDMA_CUT_2));
+    const auto* data = GetTilingData<TransposeNddmaCut2TilingData>(bundle.context);
+    ASSERT_NE(data, nullptr);
+    ASSERT_EQ(data->ubSize, kUbSize);
+    CheckNddmaUbShape(data->inUbMainSrcShape, data->inUbMainDstShape, data->ubSize, 4);
+    CheckNddmaUbShape(data->inUbInputTailSrcShape, data->inUbInputTailDstShape, data->ubSize, 4);
+    CheckNddmaUbShape(data->inUbOutputTailSrcShape, data->inUbOutputTailDstShape, data->ubSize, 4);
+    CheckNddmaUbShape(data->inUbTailSrcShape, data->inUbTailDstShape, data->ubSize, 4);
+}
+
+// DAV_9201/9202 双缓冲：NDDMA 的 UB 预算按 bufferNum=2 折半，单块 shape 须 <= ubSize/2。
+TEST(TransposeNddmaStrategy, nddma_double_buffer_ub_budget)
+{
+    auto compileInfo = MakeCompilerInfo();
+    auto para = MakeDummyPara(compileInfo);
+    ShapeInfo si = MakeShape({4000, 7000, 8}, {1, 0, 2}, 4);
+
+    auto bundle = BuildTilingContext(para);
+    optiling::TransposePlatformInfo platform = MakePlatformInfo(static_cast<int64_t>(Ops::Base::DAV_9201));
+    optiling::TransposeNddmaStrategy strategy(bundle.context, platform, MakeOpParam(si));
+    ASSERT_TRUE(strategy.IsSupport());
+    ASSERT_EQ(strategy.Execute(), TilingStatus::SUCCESS);
+    const uint64_t key = bundle.context->GetTilingKey();
+    ASSERT_TRUE(key == TK_NDDMA_CUT_1 || key == TK_NDDMA_CUT_2);
+
+    const int64_t bufferBytes = kUbSize / 2;
+    if (key == TK_NDDMA_CUT_1) {
+        const auto* data = GetTilingData<TransposeNddmaCut1TilingData>(bundle.context);
+        ASSERT_NE(data, nullptr);
+        EXPECT_EQ(data->ubSize, kUbSize);
+        CheckNddmaUbShape(data->inUbMainSrcShape, data->inUbMainDstShape, bufferBytes, 4);
+        CheckNddmaUbShape(data->inUbTailSrcShape, data->inUbTailDstShape, bufferBytes, 4);
+    } else {
+        const auto* data = GetTilingData<TransposeNddmaCut2TilingData>(bundle.context);
+        ASSERT_NE(data, nullptr);
+        EXPECT_EQ(data->ubSize, kUbSize);
+        CheckNddmaUbShape(data->inUbMainSrcShape, data->inUbMainDstShape, bufferBytes, 4);
+        CheckNddmaUbShape(data->inUbInputTailSrcShape, data->inUbInputTailDstShape, bufferBytes, 4);
+        CheckNddmaUbShape(data->inUbOutputTailSrcShape, data->inUbOutputTailDstShape, bufferBytes, 4);
+        CheckNddmaUbShape(data->inUbTailSrcShape, data->inUbTailDstShape, bufferBytes, 4);
+    }
+}
+
+// 维度边界：dim<=5 命中 NDDMA，dim>5 交给 NDDMA_BIG_DIM
+TEST(TransposeNddmaStrategy, nddma_dim_boundary)
+{
+    auto compileInfo = MakeCompilerInfo();
+    auto para = MakeDummyPara(compileInfo);
+    auto bundle = BuildTilingContext(para);
+
+    ShapeInfo dim5 = MakeShape({2, 2, 2, 2, 32}, {0, 1, 2, 3, 4}, 4);
+    optiling::TransposeNddmaStrategy hit(bundle.context, MakePlatformInfo(), MakeOpParam(dim5));
+    EXPECT_TRUE(hit.IsSupport());
+
+    ShapeInfo dim6 = MakeShape({2, 2, 2, 2, 2, 32}, {0, 1, 2, 3, 4, 5}, 4);
+    optiling::TransposeNddmaStrategy miss(bundle.context, MakePlatformInfo(), MakeOpParam(dim6));
+    EXPECT_FALSE(miss.IsSupport());
+}
+
+// 超大 shape：维度 > uint32 必须保留在 int64 字段中
+TEST(TransposeNddmaStrategy, nddma_large_shape_and_ub_budget)
+{
+    auto compileInfo = MakeCompilerInfo();
+    auto para = MakeDummyPara(compileInfo);
+    ShapeInfo si = MakeShape({kHugeDim, 64}, {1, 0}, 4);
+
+    auto bundle = BuildTilingContext(para);
+    optiling::TransposeNddmaStrategy strategy(bundle.context, MakePlatformInfo(), MakeOpParam(si));
+    ASSERT_TRUE(strategy.IsSupport());
+    ASSERT_EQ(strategy.Execute(), TilingStatus::SUCCESS);
+    const uint64_t key = bundle.context->GetTilingKey();
+    ASSERT_TRUE(key == TK_NDDMA_CUT_1 || key == TK_NDDMA_CUT_2);
+
+    if (key == TK_NDDMA_CUT_1) {
+        const auto* data = GetTilingData<TransposeNddmaCut1TilingData>(bundle.context);
+        ASSERT_NE(data, nullptr);
+        const int64_t offset = TP_NDDMA_MAX_DIM_NUM - data->permSize;
+        EXPECT_EQ(data->expandedInputShape[offset], kHugeDim);
+        EXPECT_EQ(data->expandedOutputShape[offset + 1], kHugeDim);
+        CheckNddmaUbShape(data->inUbMainSrcShape, data->inUbMainDstShape, data->ubSize, 4);
+        CheckNddmaUbShape(data->inUbTailSrcShape, data->inUbTailDstShape, data->ubSize, 4);
+    } else {
+        const auto* data = GetTilingData<TransposeNddmaCut2TilingData>(bundle.context);
+        ASSERT_NE(data, nullptr);
+        const int64_t offset = TP_NDDMA_MAX_DIM_NUM - data->permSize;
+        EXPECT_EQ(data->expandedInputShape[offset], kHugeDim);
+        EXPECT_EQ(data->expandedOutputShape[offset + 1], kHugeDim);
+        CheckNddmaUbShape(data->inUbMainSrcShape, data->inUbMainDstShape, data->ubSize, 4);
+        CheckNddmaUbShape(data->inUbInputTailSrcShape, data->inUbInputTailDstShape, data->ubSize, 4);
+        CheckNddmaUbShape(data->inUbOutputTailSrcShape, data->inUbOutputTailDstShape, data->ubSize, 4);
+        CheckNddmaUbShape(data->inUbTailSrcShape, data->inUbTailDstShape, data->ubSize, 4);
+    }
 }

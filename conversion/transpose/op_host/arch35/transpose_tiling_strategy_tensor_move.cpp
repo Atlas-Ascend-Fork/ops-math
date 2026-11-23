@@ -12,13 +12,20 @@
  * \file transpose_tiling_strategy_tensor_move.cpp
  * \brief TENSOR_MOVE(10000) 策略类实现
  *
- * 实现 1 维纯搬运路径的 UB 切分、分核、5 维扩展与 TilingData 回填。
+ * 准入条件、分核与 TilingData 回填均使用紧凑 TransposeTensorMoveTilingData，
+ * 普通入口与关联算子入口共用同一布局，不再调用通用 NDDMA 5 维扩展。
  */
 
 #include "transpose_tiling_strategy_tensor_move.h"
 
+#include <algorithm>
+
 namespace optiling {
 namespace {
+static constexpr int64_t TENSOR_MOVE_ALIGN_BYTES = TransposeTensorMoveTilingData::CACHE_LINE_BYTES;
+static constexpr uint64_t TENSOR_MOVE_MIN_TILE_BYTES = 16 * 1024;
+static constexpr uint64_t TENSOR_MOVE_PREFERRED_TILE_BYTES = 32 * 1024;
+static constexpr uint64_t TENSOR_MOVE_MAX_OVERLAP_ROUNDS = 8;
 static constexpr uint64_t TENSOR_MOVE_BUFFER_NUM = 2; ///< 双缓冲
 } // namespace
 
@@ -26,78 +33,61 @@ bool TransposeTensorMoveStrategy::IsSupport() const { return shapeInfo_.dim == 1
 
 TilingStatus TransposeTensorMoveStrategy::DoExecute()
 {
-    tilingKey_ = TK_TENSOR_MOVE;
-    CalcUBSplitInfo();
-    CalcBlockSplitInfo();
-    NDDMADimExpand();
+    OP_LOGD(context_->GetNodeName(), "Entering DoExecute of TENSOR_MOVE.");
+    // 动态主块划分（普通/关联统一）：主块按 cache line 对齐，完整块在参与核间均分，
+    // 末核额外处理唯一尾块；UB 双缓冲错位后按对齐粒度取可用上限。
+    const int64_t maxTileBytes = Ops::Base::FloorAlign(
+        (ubSize_ - TransposeTensorMoveTilingData::BANK_OFFSET_BYTES) / static_cast<int64_t>(TENSOR_MOVE_BUFFER_NUM),
+        TENSOR_MOVE_ALIGN_BYTES);
+    if (maxTileBytes < TENSOR_MOVE_ALIGN_BYTES) {
+        OP_LOGE(context_->GetNodeName(), "Insufficient UB for TensorMove.");
+        return TilingStatus::FAILURE;
+    }
+    const uint64_t elementBytes = static_cast<uint64_t>(shapeInfo_.eleLenInBytes);
+    const uint64_t totalElements = static_cast<uint64_t>(shapeInfo_.totalVolumeActual);
+    const uint64_t maxTileElements = static_cast<uint64_t>(maxTileBytes) / elementBytes;
+    const uint64_t minTileElements = std::min(TENSOR_MOVE_MIN_TILE_BYTES / elementBytes, maxTileElements);
+    const uint64_t alignElements = static_cast<uint64_t>(TENSOR_MOVE_ALIGN_BYTES) / elementBytes;
+    const uint64_t perCoreElements = Ops::Base::CeilDiv(totalElements, static_cast<uint64_t>(coreNum_));
+    const uint64_t requiredRounds = Ops::Base::CeilDiv(perCoreElements, maxTileElements);
+    const uint64_t overlapRounds = std::min(
+        TENSOR_MOVE_MAX_OVERLAP_ROUNDS,
+        Ops::Base::CeilDiv(perCoreElements, TENSOR_MOVE_PREFERRED_TILE_BYTES / elementBytes));
+    const uint64_t rounds = std::max<uint64_t>(1, std::max(requiredRounds, overlapRounds));
+    // 按目标轮数分摊标准块，避免少量核多搬一个大块。
+    const uint64_t alignedTileElements = Ops::Base::CeilAlign(Ops::Base::CeilDiv(perCoreElements, rounds),
+                                                              alignElements);
+    const uint64_t tileElements = std::clamp(alignedTileElements, minTileElements, maxTileElements);
+    const uint64_t fullBlocks = totalElements / tileElements;
+    const uint64_t tail = totalElements % tileElements;
+    const uint64_t copyBlocks = fullBlocks + (tail != 0);
+    const uint64_t usedCores = std::min<uint64_t>(static_cast<uint64_t>(coreNum_), std::max<uint64_t>(1, copyBlocks));
+    mainBlocksPerCore_ = fullBlocks / usedCores;
+    mainBlockElements_ = static_cast<uint32_t>(tileElements);
+    realCoreNum_ = static_cast<int64_t>(usedCores);
+    extraBlockCores_ = static_cast<uint32_t>(fullBlocks % usedCores);
+    tailElements_ = static_cast<uint32_t>(tail);
     return TilingStatus::SUCCESS;
 }
 
-void TransposeTensorMoveStrategy::CalcUBSplitInfo()
-{
-    ubElement_ = ubSize_ / TENSOR_MOVE_BUFFER_NUM / shapeInfo_.eleLenInBytes;
-}
-
-void TransposeTensorMoveStrategy::CalcBlockSplitInfo()
-{
-    OP_LOGD(context_->GetNodeName(), "Entering CalcBlockSplitInfoForTensorMove.");
-    if (shapeInfo_.totalVolumeActual < coreNum_) {
-        realCoreNum_ = 1;
-        blkFactor_ = shapeInfo_.totalVolumeActual;
-        blkTailFactor_ = 0;
-        inUbFactor_ = ubElement_;
-    } else {
-        realCoreNum_ = coreNum_;
-        blkFactor_ = shapeInfo_.totalVolumeActual / coreNum_;
-        blkTailFactor_ = shapeInfo_.totalVolumeActual % coreNum_;
-        inUbFactor_ = ubElement_;
-    }
-}
-
 /**
- * @brief 5 维扩展（TENSOR_MOVE dim==1，低维左侧补 1）
- */
-void TransposeTensorMoveStrategy::NDDMADimExpand()
-{
-    int64_t offset = (shapeInfo_.dim < TP_NDDMA_MAX_DIM_NUM) ? (TP_NDDMA_MAX_DIM_NUM - shapeInfo_.dim) : 0;
-    for (int64_t i = 0; i < shapeInfo_.dim; i++) {
-        expandedPerm_[i + offset] = shapeInfo_.reducedPerm[i] + offset;
-        expandedInputShape_[i + offset] = shapeInfo_.reducedInShape[i];
-        expandedOutputShape_[i + offset] = shapeInfo_.reducedOutShape[i];
-    }
-}
-
-/**
- * @brief 填写 TENSOR_MOVE 消费的注册 TilingData 字段
+ * @brief 回填 TENSOR_MOVE 消费的 TilingData
  *
- * kernel（transpose_tensor_move.h）消费：ubSize / realCoreNum / blkFactor /
- * blkTailFactor / inUbFactor + 通用 shape/perm（permSize）。
+ * 普通/关联入口统一写紧凑 TransposeTensorMoveTilingData。
  */
 bool TransposeTensorMoveStrategy::SetTilingData()
 {
     OP_LOGD(context_->GetNodeName(), "Entering SetTilingData.");
-    TransposeOpTilingData* tilingData = GetTransposeOpTilingDataBuffer(context_);
-    if (tilingData == nullptr) {
+    auto* data = context_->GetTilingData<TransposeTensorMoveTilingData>();
+    if (data == nullptr) {
+        OP_LOGE(context_->GetNodeName(), "get tiling data failed, capacity is not enough!");
         return false;
     }
-    *tilingData = TransposeOpTilingData{};
-    tilingData->permSize = shapeInfo_.dim;
-    tilingData->realCoreNum = realCoreNum_;
-    tilingData->blkFactor = blkFactor_;
-    tilingData->blkTailFactor = blkTailFactor_;
-    tilingData->ubSize = ubSize_;
-    tilingData->inUbFactor = inUbFactor_;
-    tilingData->bigDimBufferNum = 1;
-    tilingData->totalNddmaNum = 1;
-    tilingData->nddmaIdx[0] = -1;
-    for (int64_t i = 0; i < shapeInfo_.dim; i++) {
-        tilingData->inputShape[i] = shapeInfo_.reducedInShape[i];
-        tilingData->outputShape[i] = shapeInfo_.reducedOutShape[i];
-        tilingData->perm[i] = shapeInfo_.reducedPerm[i];
-    }
-    std::copy(expandedPerm_, expandedPerm_ + TP_NDDMA_MAX_DIM_NUM, tilingData->expandedPerm);
-    std::copy(expandedInputShape_, expandedInputShape_ + TP_NDDMA_MAX_DIM_NUM, tilingData->expandedInputShape);
-    std::copy(expandedOutputShape_, expandedOutputShape_ + TP_NDDMA_MAX_DIM_NUM, tilingData->expandedOutputShape);
+    *data = TransposeTensorMoveTilingData{};
+    data->mainBlocksPerCore = mainBlocksPerCore_;
+    data->mainBlockElements = mainBlockElements_;
+    data->extraBlockCores = extraBlockCores_;
+    data->tailElements = tailElements_;
     return true;
 }
 
@@ -109,9 +99,10 @@ void TransposeTensorMoveStrategy::LogTilingData()
                 i, shapeInfo_.reducedInShape[i], i, shapeInfo_.reducedOutShape[i], i, shapeInfo_.reducedPerm[i]);
     }
     OP_LOGI(context_->GetNodeName(),
-            "tilingData is permSize:%ld, realCoreNum:%ld, blkFactor:%ld, blkTailFactor:%ld, ubSize:%ld, "
-            "inUbFactor:%ld, Tiling4Transpose ends. ",
-            shapeInfo_.dim, realCoreNum_, blkFactor_, blkTailFactor_, ubSize_, inUbFactor_);
+            "tilingData is mainBlocksPerCore:%lu, mainBlockElements:%u, coreNum:%u, extraBlockCores:%u, "
+            "tailElements:%u, Tiling4Transpose ends. ",
+            mainBlocksPerCore_, mainBlockElements_, static_cast<uint32_t>(realCoreNum_), extraBlockCores_,
+            tailElements_);
 }
 
 } // namespace optiling

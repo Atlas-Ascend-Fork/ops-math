@@ -14,8 +14,7 @@
  *
  * 实现算子侧策略基类：
  *   - TransposeTilingStrategy：通用上下文注入（3 参构造），不含模板专属逻辑；
- *   - TransposeNddmaGroupStrategy：NDDMA 模板族专属缓冲数推导（仅 NDDMA/NDDMA_BIG_DIM）；
- *   - GetTransposeOpTilingDataBuffer：10000-10005 模板共用的注册 TilingData 取址工具。
+ *   - TransposeNddmaGroupStrategy：NDDMA 模板族专属缓冲数推导（仅 NDDMA/NDDMA_BIG_DIM）。
  * 收尾（SetTilingData/SetContext/LogTilingData）由通用基类 Execute() 模板方法统一完成。
  */
 
@@ -59,6 +58,14 @@ bool TransposeTilingStrategy::IsPermValue(std::initializer_list<int64_t> perm) c
     return true;
 }
 
+/**
+ * @brief 将字节数向上对齐到 UB block 大小
+ */
+int64_t TransposeTilingStrategy::CeilAlignUBBlkBytes(int64_t bytes) const
+{
+    return Ops::Base::CeilAlign(bytes, ubBlockSize_);
+}
+
 TransposeNddmaGroupStrategy::TransposeNddmaGroupStrategy(gert::TilingContext* context,
                                                          const TransposePlatformInfo& platform,
                                                          const TransposeOpParam& opParam)
@@ -74,19 +81,6 @@ int64_t TransposeNddmaGroupStrategy::GetNddmaBufferNum() const
         return NDDMA_GROUP_BUFFER_NUM_DOUBLE_BUF;
     }
     return NDDMA_GROUP_BUFFER_NUM_SINGLE_BUF;
-}
-
-/**
- * @brief 取注册 TilingData（10000-10005 模板共用），容量不足时记录错误并返回 nullptr
- */
-TransposeOpTilingData* GetTransposeOpTilingDataBuffer(gert::TilingContext* context)
-{
-    TransposeOpTilingData* tilingData = context->GetTilingData<TransposeOpTilingData>();
-    if (tilingData == nullptr) {
-        OP_LOGE(context->GetNodeName(), "get tiling data failed, capacity is not enough!");
-        return nullptr;
-    }
-    return tilingData;
 }
 
 } // namespace optiling
