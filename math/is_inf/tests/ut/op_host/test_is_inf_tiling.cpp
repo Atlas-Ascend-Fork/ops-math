@@ -49,3 +49,55 @@ TEST_F(IsInfTiling, is_inf_test_tiling_case0)
     std::vector<size_t> expectWorkspaces = {0};
     // ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
+
+TEST_F(IsInfTiling, is_inf_tiling_float32_zero_workspace)
+{
+    optiling::IsInfCompileInfo compileInfo = {};
+    gert::TilingContextPara tilingContextPara("IsInf",
+                                              {
+                                                  {{{3, 6, 5}, {3, 6, 5}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{3, 6, 5}, {3, 6, 5}}, ge::DT_BOOL, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
+    TilingInfo tilingInfo;
+    ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
+    ASSERT_EQ(tilingInfo.workspaceSizes.size(), 1U);
+    // IsInf 的 kernel 不使用 workspace，tiling 申报 0，kernel 需支持零 workspace 执行。
+    EXPECT_EQ(tilingInfo.workspaceSizes[0], 0);
+}
+
+TEST_F(IsInfTiling, is_inf_tiling_float16_zero_workspace)
+{
+    optiling::IsInfCompileInfo compileInfo = {};
+    gert::TilingContextPara tilingContextPara("IsInf",
+                                              {
+                                                  {{{3, 6, 5}, {3, 6, 5}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{3, 6, 5}, {3, 6, 5}}, ge::DT_BOOL, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
+    TilingInfo tilingInfo;
+    ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
+    ASSERT_EQ(tilingInfo.workspaceSizes.size(), 1U);
+    EXPECT_EQ(tilingInfo.workspaceSizes[0], 0);
+}
+
+TEST_F(IsInfTiling, is_inf_tiling_bfloat16_zero_workspace)
+{
+    optiling::IsInfCompileInfo compileInfo = {};
+    gert::TilingContextPara tilingContextPara("IsInf",
+                                              {
+                                                  {{{3, 6, 5}, {3, 6, 5}}, ge::DT_BF16, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{3, 6, 5}, {3, 6, 5}}, ge::DT_BOOL, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
+    TilingInfo tilingInfo;
+    ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
+    ASSERT_EQ(tilingInfo.workspaceSizes.size(), 1U);
+    EXPECT_EQ(tilingInfo.workspaceSizes[0], 0);
+}
