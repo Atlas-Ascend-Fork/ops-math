@@ -22,6 +22,7 @@
 #include "aclnn_kernels/transdata.h"
 
 #include "aclnn_kernels/common/op_error_check.h"
+#include "opdev/format_utils.h"
 #include "opdev/op_dfx.h"
 #include "opdev/op_executor.h"
 #include "op_common/op_host/util/op_const_def.h"
@@ -528,6 +529,14 @@ aclnnStatus ExecRemainderTensorTensorGetWorkspaceSize(const aclTensor* self, con
 {
     auto uniqueExecutor = CREATE_EXECUTOR();
     CHECK_RET(uniqueExecutor.get() != nullptr, ACLNN_ERR_INNER_CREATE_EXECUTOR);
+
+    if (GetCurrentPlatformInfo().GetSocVersion() == SocVersion::ASCEND910B &&
+        (IsPrivateFormat(self->GetStorageFormat()) || IsPrivateFormat(other->GetStorageFormat()) ||
+         IsPrivateFormat(out->GetStorageFormat()))) {
+        OP_LOGW("Format of self is [%s], other is [%s] and out is [%s], this format may lead to precision failure.",
+                ToString(self->GetStorageFormat()).GetString(), ToString(other->GetStorageFormat()).GetString(),
+                ToString(out->GetStorageFormat()).GetString());
+    }
 
     // self / other为空tensor，返回空tensor
     if (self->IsEmpty() || other->IsEmpty()) {

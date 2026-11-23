@@ -182,7 +182,7 @@ aclnnStatus aclnnInplaceFloorDivide(
     <tr>
       <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
       <td rowspan="5">161002</td>
-      <td>The data type and data format of self and other are not within the supported range.</td>
+      <td>The data types of self and other are not within the supported range.</td>
     </tr>
     <tr>
       <td>self and other do not satisfy the type inference rule.</td>
@@ -340,7 +340,7 @@ aclnnStatus aclnnInplaceFloorDivide(
     <tr>
       <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
       <td rowspan="4">161002</td>
-      <td>The data type and data format of selfRef and other are not within the supported range.</td>
+      <td>The data types of selfRef and other are not within the supported range.</td>
     </tr>
     <tr>
       <td>selfRef and other do not satisfy the data type inference rule.</td>

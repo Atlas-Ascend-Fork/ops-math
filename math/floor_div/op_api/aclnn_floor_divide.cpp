@@ -237,6 +237,14 @@ static aclnnStatus CalcFloorDivide(const aclTensor* self, const aclTensor* other
     auto ret = CheckParams(self, other, out);
     CHECK_RET(ret == ACLNN_SUCCESS, ret);
 
+    if (GetCurrentPlatformInfo().GetSocVersion() == SocVersion::ASCEND910B &&
+        (IsPrivateFormat(self->GetStorageFormat()) || IsPrivateFormat(other->GetStorageFormat()) ||
+         IsPrivateFormat(out->GetStorageFormat()))) {
+        OP_LOGW("Format of self is [%s], other is [%s] and out is [%s], this format may lead to precision failure.",
+                ToString(self->GetStorageFormat()).GetString(), ToString(other->GetStorageFormat()).GetString(),
+                ToString(out->GetStorageFormat()).GetString());
+    }
+
     if (self->IsEmpty() || other->IsEmpty()) {
         return ACLNN_SUCCESS;
     }
