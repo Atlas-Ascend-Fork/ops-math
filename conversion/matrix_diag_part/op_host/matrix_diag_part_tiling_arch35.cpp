@@ -164,13 +164,20 @@ static ge::graphStatus ValidateInputAndComputeDims(gert::TilingContext* context,
     auto inputShapeX = Ops::Base::EnsureNotScalar(rawShape);
     auto rank = inputShapeX.GetDimNum();
 
-    OP_CHECK_IF(CheckRank(context, originalRank, rank) != ge::GRAPH_SUCCESS, OP_LOGE(context, "CheckRank error"),
+    const auto rankRet = CheckRank(context, originalRank, rank);
+    OP_CHECK_IF(rankRet != ge::GRAPH_SUCCESS,
+                OP_LOGE_WITHOUT_REPORT(context, "ValidateInputAndComputeDims: CheckRank failed, rc=%u", rankRet),
                 return ge::GRAPH_FAILED);
-    OP_CHECK_IF(CheckDimsConcrete(context, inputShapeX, rank) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context, "CheckDimsConcrete error"), return ge::GRAPH_FAILED);
+    const auto dimsRet = CheckDimsConcrete(context, inputShapeX, rank);
     OP_CHECK_IF(
-        ComputeElementCounts(context, inputShapeX, rank, d, n, matrixSize, totalOutputElements) != ge::GRAPH_SUCCESS,
-        OP_LOGE(context, "ComputeElementCounts error"), return ge::GRAPH_FAILED);
+        dimsRet != ge::GRAPH_SUCCESS,
+        OP_LOGE_WITHOUT_REPORT(context, "ValidateInputAndComputeDims: CheckDimsConcrete failed, rc=%u", dimsRet),
+        return ge::GRAPH_FAILED);
+    const auto countsRet = ComputeElementCounts(context, inputShapeX, rank, d, n, matrixSize, totalOutputElements);
+    OP_CHECK_IF(
+        countsRet != ge::GRAPH_SUCCESS,
+        OP_LOGE_WITHOUT_REPORT(context, "ValidateInputAndComputeDims: ComputeElementCounts failed, rc=%u", countsRet),
+        return ge::GRAPH_FAILED);
     return ValidateOutputShape(context, inputShapeX, rank, d);
 }
 
@@ -231,9 +238,14 @@ static ge::graphStatus MatrixDiagPartTilingFunc(gert::TilingContext* context)
     int64_t n = 0;
     int64_t matrixSize = 0;
     int64_t totalOutputElements = 0;
-    OP_CHECK_IF(ValidateInputAndComputeDims(context, d, n, matrixSize, totalOutputElements) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context, "ValidateInputAndComputeDims error"), return ge::GRAPH_FAILED);
-    OP_CHECK_IF(CheckDtype(context) != ge::GRAPH_SUCCESS, OP_LOGE(context, "CheckDtype error"),
+    const auto dimsRet = ValidateInputAndComputeDims(context, d, n, matrixSize, totalOutputElements);
+    OP_CHECK_IF(
+        dimsRet != ge::GRAPH_SUCCESS,
+        OP_LOGE_WITHOUT_REPORT(context, "MatrixDiagPartTilingFunc: ValidateInputAndComputeDims failed, rc=%u", dimsRet),
+        return ge::GRAPH_FAILED);
+    const auto dtypeRet = CheckDtype(context);
+    OP_CHECK_IF(dtypeRet != ge::GRAPH_SUCCESS,
+                OP_LOGE_WITHOUT_REPORT(context, "MatrixDiagPartTilingFunc: CheckDtype failed, rc=%u", dtypeRet),
                 return ge::GRAPH_FAILED);
 
     MatrixDiagPartTilingData* tiling = context->GetTilingData<MatrixDiagPartTilingData>();

@@ -24,6 +24,9 @@
 #include <iostream>
 #include <vector>
 #include <gtest/gtest.h>
+#include <map>
+#include "err_mgr.h"
+#include "graph/utils/type_utils.h"
 #include "tiling_context_faker.h"
 #include "tiling_case_executor.h"
 #include "atvoss/reduce/reduce_tiling_data.h"
@@ -35,6 +38,29 @@ protected:
 
     static void TearDownTestCase() { std::cout << "KLDivTiling TearDown" << std::endl; }
 };
+
+static void CheckParameterFirstError(gert::TilingContextPara& para, const std::string& code,
+                                     const std::map<std::string, std::string>& expected)
+{
+    ASSERT_EQ(error_message::ErrMgrInit(error_message::ErrorMessageMode::INTERNAL_MODE), 0);
+    (void)error_message::GetErrMgrRawErrorMessages();
+    ASSERT_TRUE(error_message::GetErrMgrRawErrorMessages().empty());
+    ExecuteTestCase(para, ge::GRAPH_FAILED);
+    const auto errors = error_message::GetErrMgrRawErrorMessages();
+    ASSERT_EQ(errors.size(), 1U);
+    ASSERT_NE(errors.front().error_id, nullptr);
+    EXPECT_EQ(std::string(errors.front().error_id.get()), code);
+    ASSERT_EQ(errors.front().args_key.size(), 4U);
+    ASSERT_EQ(errors.front().args_value.size(), 4U);
+    std::map<std::string, std::string> actual;
+    for (size_t i = 0; i < errors.front().args_key.size(); ++i) {
+        ASSERT_NE(errors.front().args_key[i], nullptr);
+        ASSERT_NE(errors.front().args_value[i], nullptr);
+        EXPECT_TRUE(actual.emplace(errors.front().args_key[i].get(), errors.front().args_value[i].get()).second);
+    }
+    EXPECT_EQ(actual, expected);
+    EXPECT_TRUE(error_message::GetErrMgrRawErrorMessages().empty());
+}
 
 // KLDivCompileInfo is only null-checked in KLDivTiling; its fields are filled by
 // the TilingParse phase and are not consumed by Tiling4ReduceOp, so typical
@@ -212,7 +238,12 @@ TEST_F(KLDivTiling, kl_div_tiling_UT_mismatch_dtype_rejected)
                                                   {"reduction", Ops::Math::AnyValue::CreateFrom<std::string>("sum")},
                                               },
                                               &compileInfo);
-    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
+    CheckParameterFirstError(tilingContextPara, "EZ0021",
+                             {{"param_names", "input x and target"},
+                              {"op_name", "KLDiv"},
+                              {"incorrect_dtypes", ge::TypeUtils::DataTypeToSerialString(ge::DT_FLOAT) + " and " +
+                                                       ge::TypeUtils::DataTypeToSerialString(ge::DT_FLOAT16)},
+                              {"reason", "The dtypes of input x and target must be the same"}});
 }
 
 // x and target must have the same shape (tiling CheckShape, aligned with the v1
@@ -234,7 +265,11 @@ TEST_F(KLDivTiling, kl_div_tiling_UT_mismatch_shape_rejected)
                                                   {"reduction", Ops::Math::AnyValue::CreateFrom<std::string>("none")},
                                               },
                                               &compileInfo);
-    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
+    CheckParameterFirstError(tilingContextPara, "EZ0010",
+                             {{"param_names", "x and target"},
+                              {"op_name", "KLDiv"},
+                              {"incorrect_shapes", "[10, 10] and [10]"},
+                              {"reason", "The shapes of input x and target must be the same"}});
 }
 
 // invalid reduction value: STR_2_INT whitelist rejects "foo" -> GRAPH_FAILED

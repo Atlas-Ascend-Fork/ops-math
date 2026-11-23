@@ -15,8 +15,10 @@
 
 #include <gtest/gtest.h>
 #include <iostream>
+#include <map>
 #include "infershape_context_faker.h"
 #include "infershape_case_executor.h"
+#include "base/err_mgr.h"
 
 using namespace std;
 
@@ -148,7 +150,26 @@ TEST_F(StatelessBernoulliInfershape, rank_zero_shape_rejects_float_dtype)
                                         {{{}, {}}, ge::DT_INT64, ge::FORMAT_ND},
                                         {{{}, {}}, ge::DT_INT64, ge::FORMAT_ND}},
                                        {{{{}, {}}, ge::DT_UINT8, ge::FORMAT_ND}});
+    ASSERT_EQ(error_message::ErrMgrInit(error_message::ErrorMessageMode::INTERNAL_MODE), 0);
+    error_message::GetErrMgrRawErrorMessages();
     ExecuteTestCase(params, ge::GRAPH_FAILED, {});
+    auto reports = error_message::GetErrMgrRawErrorMessages();
+    ASSERT_EQ(reports.size(), 1U);
+    ASSERT_NE(reports[0].error_id.get(), nullptr);
+    ASSERT_EQ(reports[0].args_key.size(), 4U);
+    ASSERT_EQ(reports[0].args_value.size(), 4U);
+    EXPECT_STREQ(reports[0].error_id.get(), "EZ0020");
+    std::map<std::string, std::string> args;
+    for (size_t i = 0; i < reports[0].args_key.size(); ++i) {
+        ASSERT_NE(reports[0].args_key[i].get(), nullptr);
+        ASSERT_NE(reports[0].args_value[i].get(), nullptr);
+        args.emplace(reports[0].args_key[i].get(), reports[0].args_value[i].get());
+    }
+    ASSERT_EQ(args.size(), 4U);
+    EXPECT_EQ(args.at("param_name"), "shape");
+    EXPECT_EQ(args.at("op_name"), "StatelessBernoulli");
+    EXPECT_EQ(args.at("incorrect_dtype"), "DT_FLOAT");
+    EXPECT_EQ(args.at("reason"), "shape input must be int32 or int64.");
 }
 
 TEST_F(StatelessBernoulliInfershape, promoted_scalar_shape_uses_origin_rank)

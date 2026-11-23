@@ -159,9 +159,13 @@ static ge::graphStatus Tiling4KLDivAscendC(gert::TilingContext* context, const K
         OP_CHECK_IF((ReduceOpTmpl::GetInputParam(context, opInput, 0, 1, 0) == ge::GRAPH_FAILED),
                     OP_LOGE(context->GetNodeName(), "ReduceOp get x input param failed"), return ge::GRAPH_FAILED);
     }
-    OP_CHECK_IF(CheckDtype(context) == ge::GRAPH_FAILED, OP_LOGE(context, "check dtype failed"),
+    OP_CHECK_IF(CheckDtype(context) == ge::GRAPH_FAILED,
+                OP_LOGE_WITHOUT_REPORT(context, "callee=CheckDtype rc=%u; preserve first error",
+                                       static_cast<uint32_t>(ge::GRAPH_FAILED)),
                 return ge::GRAPH_FAILED);
-    OP_CHECK_IF(CheckShape(context) == ge::GRAPH_FAILED, OP_LOGE(context, "check shape failed"),
+    OP_CHECK_IF(CheckShape(context) == ge::GRAPH_FAILED,
+                OP_LOGE_WITHOUT_REPORT(context, "callee=CheckShape rc=%u; preserve first error",
+                                       static_cast<uint32_t>(ge::GRAPH_FAILED)),
                 return ge::GRAPH_FAILED);
 
     ReduceTilingKey key;

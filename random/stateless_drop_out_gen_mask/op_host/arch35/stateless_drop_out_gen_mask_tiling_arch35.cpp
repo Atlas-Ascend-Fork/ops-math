@@ -72,7 +72,11 @@ OpTilingConfig StatelessDropOutGenMaskTiling::BuildOpConfig()
         gert::Shape constShape;
         auto ret = ExtractTensorValue(ctx, 0, constShape);
         if (ret != ge::GRAPH_SUCCESS) {
-            OP_LOGE(ctx->GetNodeName(), "GetOutputSize failed");
+            // ExtractTensorValue has already reported the first error on every reachable
+            // failure path (null tensor/desc/data via OP_CHECK_NULL_WITH_CONTEXT); the bad
+            // dtype path is unreachable here because CheckInputsOutputsAndAttrs formally
+            // reports EZ0020 first. Keep the PLOG context only, avoid duplicate EZ9999.
+            OP_LOGE_WITHOUT_REPORT(ctx->GetNodeName(), "GetOutputSize failed");
             return ret;
         }
         shapeSize = 1;

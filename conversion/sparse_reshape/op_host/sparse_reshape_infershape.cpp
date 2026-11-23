@@ -30,24 +30,37 @@ static ge::graphStatus ValidateInputs(gert::InferShapeContext* context, const ge
                                       const gert::Shape* shapeShape, const gert::Shape* newShapeShape)
 {
     OP_CHECK_IF(indicesShape->GetDimNum() != INDICES_TENSOR_RANK,
-                OP_LOGE(context, "indices must be a matrix, got rank %zu", indicesShape->GetDimNum()),
+                OP_LOGE_FOR_INVALID_SHAPEDIM(context->GetNodeName(), "indices",
+                                             (std::to_string(indicesShape->GetDimNum()) + "D").c_str(), "2D"),
                 return GRAPH_FAILED);
     OP_CHECK_IF(shapeShape->GetDimNum() != 1,
-                OP_LOGE(context, "shape must be a vector, got rank %zu", shapeShape->GetDimNum()), return GRAPH_FAILED);
+                OP_LOGE_FOR_INVALID_SHAPEDIM(context->GetNodeName(), "shape",
+                                             (std::to_string(shapeShape->GetDimNum()) + "D").c_str(), "1D"),
+                return GRAPH_FAILED);
     OP_CHECK_IF(newShapeShape->GetDimNum() != 1,
-                OP_LOGE(context, "new_shape must be a vector, got rank %zu", newShapeShape->GetDimNum()),
+                OP_LOGE_FOR_INVALID_SHAPEDIM(context->GetNodeName(), "new_shape",
+                                             (std::to_string(newShapeShape->GetDimNum()) + "D").c_str(), "1D"),
                 return GRAPH_FAILED);
     int64_t inputRank = indicesShape->GetDim(1);
     int64_t outputRank = newShapeShape->GetDim(0);
     int64_t shapeRank = shapeShape->GetDim(0);
-    OP_CHECK_IF(inputRank > MAX_RANK, OP_LOGE(context, "input_rank %ld > MAX_RANK %ld", inputRank, MAX_RANK),
+    OP_CHECK_IF(inputRank > MAX_RANK,
+                OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON(context->GetNodeName(), "indices",
+                                                      Ops::Base::ToString(*indicesShape).c_str(),
+                                                      "indices dimension 1 must not exceed 8"),
                 return GRAPH_FAILED);
-    OP_CHECK_IF(outputRank > MAX_RANK, OP_LOGE(context, "output_rank %ld > MAX_RANK %ld", outputRank, MAX_RANK),
+    OP_CHECK_IF(outputRank > MAX_RANK,
+                OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(context->GetNodeName(), "new_shape",
+                                                          std::to_string(outputRank).c_str(),
+                                                          "new_shape length must not exceed 8"),
                 return GRAPH_FAILED);
     // 维度值未知(-1) 时跳过该维一致性校验
     constexpr int64_t UNKNOWN_DIM = -1;
     OP_CHECK_IF(inputRank != UNKNOWN_DIM && shapeRank != UNKNOWN_DIM && inputRank != shapeRank,
-                OP_LOGE(context, "indices.shape[1] (%ld) != shape.shape[0] (%ld)", inputRank, shapeRank),
+                OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(
+                    context->GetNodeName(), "indices, shape",
+                    (Ops::Base::ToString(*indicesShape) + ", " + Ops::Base::ToString(*shapeShape)).c_str(),
+                    "indices dimension 1 must equal shape dimension 0"),
                 return GRAPH_FAILED);
     return GRAPH_SUCCESS;
 }
@@ -81,7 +94,8 @@ static ge::graphStatus InferShapeSparseReshape(gert::InferShapeContext* context)
     }
 
     OP_CHECK_IF(ValidateInputs(context, indicesShape, shapeShape, newShapeShape) != GRAPH_SUCCESS,
-                OP_LOGE(context, "ValidateInputs failed"), return GRAPH_FAILED);
+                OP_LOGE_WITHOUT_REPORT(context, "ValidateInputs failed; preserve the parameter first error"),
+                return GRAPH_FAILED);
     int64_t nnz = indicesShape->GetDim(0);
     int64_t outputRank = newShapeShape->GetDim(0);
     gert::Shape* yIndicesShape = context->GetOutputShape(IDX_0);

@@ -92,6 +92,7 @@ target_link_libraries(${OP_HOST_UT_EXE} PRIVATE
     graph
     graph_base
     platform
+    error_manager
     dl
     GTest::gtest
 )

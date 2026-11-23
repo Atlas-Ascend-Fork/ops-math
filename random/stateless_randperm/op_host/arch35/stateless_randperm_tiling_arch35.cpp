@@ -284,12 +284,16 @@ ge::graphStatus StatelessRandpermTiling::GetOutputY()
 // 2、获取INPUT/OUTPUT/ATTR信息
 ge::graphStatus StatelessRandpermTiling::GetShapeAttrsInfo()
 {
-    OP_CHECK_IF(GetAttrs(), OP_LOGE(opName_, "GetAttrs failed!"), return ge::GRAPH_FAILED);
-    OP_CHECK_IF(GetInputN() != ge::GRAPH_SUCCESS, OP_LOGE(opName_, "GetInputN failed!"), return ge::GRAPH_FAILED);
-    OP_CHECK_IF(GetInputSeed() != ge::GRAPH_SUCCESS, OP_LOGE(opName_, "GetInputSeed failed!"), return ge::GRAPH_FAILED);
-    OP_CHECK_IF(GetInputOffset() != ge::GRAPH_SUCCESS, OP_LOGE(opName_, "GetInputOffset failed!"),
+    OP_CHECK_IF(GetAttrs() != ge::GRAPH_SUCCESS, OP_LOGE_WITHOUT_REPORT(opName_, "GetAttrs failed!"),
                 return ge::GRAPH_FAILED);
-    OP_CHECK_IF(GetOutputY() != ge::GRAPH_SUCCESS, OP_LOGE(opName_, "GetOutputY failed!"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(GetInputN() != ge::GRAPH_SUCCESS, OP_LOGE_WITHOUT_REPORT(opName_, "GetInputN failed!"),
+                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(GetInputSeed() != ge::GRAPH_SUCCESS, OP_LOGE_WITHOUT_REPORT(opName_, "GetInputSeed failed!"),
+                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(GetInputOffset() != ge::GRAPH_SUCCESS, OP_LOGE_WITHOUT_REPORT(opName_, "GetInputOffset failed!"),
+                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(GetOutputY() != ge::GRAPH_SUCCESS, OP_LOGE_WITHOUT_REPORT(opName_, "GetOutputY failed!"),
+                return ge::GRAPH_FAILED);
 
     return ge::GRAPH_SUCCESS;
 }

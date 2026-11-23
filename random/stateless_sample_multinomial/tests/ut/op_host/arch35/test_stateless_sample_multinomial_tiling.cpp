@@ -15,9 +15,33 @@
 
 #include <gtest/gtest.h>
 #include <iostream>
+#include <map>
+#include <string>
 #include <vector>
+#include "err_mgr.h"
 #include "tiling_case_executor.h"
 #include "../../../../op_host/arch35/stateless_sample_multinomial_tiling.h"
+
+namespace {
+// 校验根因层正式首报:第一条为算子侧正式宏上报(EZ0012/EZ0010),
+// 第二条为共享 RandomTilingArch35::DoTiling 外层对 UniqueProcess 失败的既有 EZ9999 重复日志。
+void ExpectFormalFirstError(const char* code, const std::map<std::string, std::string>& expectArgs)
+{
+    auto reports = error_message::GetErrMgrRawErrorMessages();
+    ASSERT_EQ(reports.size(), 2U);
+    ASSERT_NE(reports[0].error_id.get(), nullptr);
+    EXPECT_STREQ(reports[0].error_id.get(), code);
+    std::map<std::string, std::string> args;
+    for (size_t i = 0; i < reports[0].args_key.size(); ++i) {
+        ASSERT_NE(reports[0].args_key[i].get(), nullptr);
+        ASSERT_NE(reports[0].args_value[i].get(), nullptr);
+        args.emplace(reports[0].args_key[i].get(), reports[0].args_value[i].get());
+    }
+    EXPECT_EQ(args, expectArgs);
+    ASSERT_NE(reports[1].error_id.get(), nullptr);
+    EXPECT_STREQ(reports[1].error_id.get(), "EZ9999");
+}
+} // namespace
 
 class StatelessSampleMultinomialTilingTest : public testing::Test {
 protected:
@@ -50,6 +74,68 @@ TEST_F(StatelessSampleMultinomialTilingTest, one_dim_float)
     uint64_t expectTilingKey = 100;
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
+}
+
+// x 为 3D 时应失败并正式上报 EZ0012(x rank 必须为 1D/2D),首错为根因层正式码
+TEST_F(StatelessSampleMultinomialTilingTest, three_dim_x_reports_formal_shapedim)
+{
+    optiling::RandomOperatorCompileInfo compileInfo = {40, 196608};
+    int64_t seedValue = 12345;
+    int64_t offsetValue = 0;
+
+    gert::TilingContextPara tilingContextPara("StatelessSampleMultinomial",
+                                              {
+                                                  {{{3, 4, 5}, {3, 4, 5}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                  {{{3, 4, 5}, {3, 4, 5}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                  {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, &seedValue},
+                                                  {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, &offsetValue},
+                                              },
+                                              {
+                                                  {{{8}, {8}}, ge::DT_INT64, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {"num_samples", Ops::Math::AnyValue::CreateFrom<int64_t>(8)},
+                                              },
+                                              &compileInfo);
+
+    ASSERT_EQ(error_message::ErrMgrInit(error_message::ErrorMessageMode::INTERNAL_MODE), 0);
+    error_message::GetErrMgrRawErrorMessages();
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
+    ExpectFormalFirstError("EZ0012", {{"param_name", "input tensor x"},
+                                      {"op_name", "StatelessSampleMultinomial"},
+                                      {"incorrect_dim", "3D"},
+                                      {"reason", "x must be 1D or 2D"}});
+}
+
+// norm_probs 与 x shape 不一致时应失败并正式上报 EZ0010(双 tensor shape 必须一致)
+TEST_F(StatelessSampleMultinomialTilingTest, norm_probs_shape_mismatch_reports_formal_shapes)
+{
+    optiling::RandomOperatorCompileInfo compileInfo = {40, 196608};
+    int64_t seedValue = 7;
+    int64_t offsetValue = 4;
+
+    gert::TilingContextPara tilingContextPara("StatelessSampleMultinomial",
+                                              {
+                                                  {{{3, 10}, {3, 10}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                  {{{3, 11}, {3, 11}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                  {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, &seedValue},
+                                                  {{{1}, {1}}, ge::DT_INT64, ge::FORMAT_ND, true, &offsetValue},
+                                              },
+                                              {
+                                                  {{{3, 5}, {3, 5}}, ge::DT_INT64, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {"num_samples", Ops::Math::AnyValue::CreateFrom<int64_t>(5)},
+                                              },
+                                              &compileInfo);
+
+    ASSERT_EQ(error_message::ErrMgrInit(error_message::ErrorMessageMode::INTERNAL_MODE), 0);
+    error_message::GetErrMgrRawErrorMessages();
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
+    ExpectFormalFirstError("EZ0010", {{"param_names", "x and norm_probs"},
+                                      {"op_name", "StatelessSampleMultinomial"},
+                                      {"incorrect_shapes", "[3, 10] and [3, 11]"},
+                                      {"reason", "the shapes of x and norm_probs must be the same"}});
 }
 
 TEST_F(StatelessSampleMultinomialTilingTest, two_dim_float16)

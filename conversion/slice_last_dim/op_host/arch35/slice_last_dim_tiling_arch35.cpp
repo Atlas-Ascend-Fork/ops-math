@@ -358,14 +358,17 @@ ge::graphStatus SliceLastDimTiling::DoTiling()
 {
     auto ret = GetSocInfo();
     OP_CHECK_IF(ret != ge::GRAPH_SUCCESS,
-                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context_->GetNodeName(), "GetSocInfo", "failed", ""), return ret);
+                OP_LOGE_WITHOUT_REPORT(context_->GetNodeName(), "SliceLastDim GetSocInfo failed; stage rc=%u", ret),
+                return ret);
     ret = GetParams();
     OP_CHECK_IF(ret != ge::GRAPH_SUCCESS,
-                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context_->GetNodeName(), "GetParams", "failed", ""), return ret);
-    ret = ComputeAndSetTiling();
-    OP_CHECK_IF(ret != ge::GRAPH_SUCCESS,
-                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context_->GetNodeName(), "ComputeAndSetTiling", "failed", ""),
+                OP_LOGE_WITHOUT_REPORT(context_->GetNodeName(), "SliceLastDim GetParams failed; stage rc=%u", ret),
                 return ret);
+    ret = ComputeAndSetTiling();
+    OP_CHECK_IF(
+        ret != ge::GRAPH_SUCCESS,
+        OP_LOGE_WITHOUT_REPORT(context_->GetNodeName(), "SliceLastDim ComputeAndSetTiling failed; stage rc=%u", ret),
+        return ret);
 
     size_t* workSpaceSize = context_->GetWorkspaceSizes(1);
     OP_CHECK_NULL_WITH_CONTEXT(context_, workSpaceSize);

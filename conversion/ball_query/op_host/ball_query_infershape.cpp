@@ -21,6 +21,7 @@
  */
 
 #include <cmath>
+#include "graph/utils/type_utils.h"
 
 #include "register/op_impl_registry.h"
 #include "log/log.h"
@@ -52,12 +53,14 @@ static ge::graphStatus InferShape4BallQuery(gert::InferShapeContext* context)
 
     // xyz 布局 (B,3,N)，坐标在中间维；unknownRank 时跳过维数校验
     if (!isXyzUnknownRank && xyzShape->GetDimNum() != 3) {
-        OP_LOGE(context, "xyz must be (B, 3, N), but got dimNum=%zu", xyzShape->GetDimNum());
+        OP_LOGE_FOR_INVALID_SHAPEDIM(context->GetNodeName(), "xyz",
+                                     (std::to_string(xyzShape->GetDimNum()) + "D").c_str(), "3D");
         return GRAPH_FAILED;
     }
     // center_xyz 布局 (M,B,3)，坐标在末维；unknownRank 时跳过维数校验
     if (!isCenterXyzUnknownRank && centerXyzShape->GetDimNum() != 3) {
-        OP_LOGE(context, "center_xyz must be (M, B, 3), but got dimNum=%zu", centerXyzShape->GetDimNum());
+        OP_LOGE_FOR_INVALID_SHAPEDIM(context->GetNodeName(), "center_xyz",
+                                     (std::to_string(centerXyzShape->GetDimNum()) + "D").c_str(), "3D");
         return GRAPH_FAILED;
     }
     // B 一致校验：unknownRank 或动态 shape(-1) 场景下不参与等值校验
@@ -65,7 +68,10 @@ static ge::graphStatus InferShape4BallQuery(gert::InferShapeContext* context)
         int64_t xyzBatch = xyzShape->GetDim(0);
         int64_t centerXyzBatch = centerXyzShape->GetDim(1);
         if (xyzBatch != -1 && centerXyzBatch != -1 && xyzBatch != centerXyzBatch) {
-            OP_LOGE(context, "batch size of xyz(%ld) and center_xyz(%ld) must match", xyzBatch, centerXyzBatch);
+            OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(
+                context->GetNodeName(), "xyz, center_xyz",
+                (Ops::Base::ToString(*xyzShape) + ", " + Ops::Base::ToString(*centerXyzShape)).c_str(),
+                "xyz dimension 0 must equal center_xyz dimension 1 (batch size)");
             return GRAPH_FAILED;
         }
     }
@@ -76,12 +82,17 @@ static ge::graphStatus InferShape4BallQuery(gert::InferShapeContext* context)
     const auto* centerXyzDesc = context->GetInputDesc(INDEX_CENTER_XYZ);
     OP_CHECK_NULL_WITH_CONTEXT(context, centerXyzDesc);
     if (xyzDesc->GetDataType() != centerXyzDesc->GetDataType()) {
-        OP_LOGE(context, "dtype of xyz and center_xyz must match");
+        OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(context->GetNodeName(), "xyz, center_xyz",
+                                               (ge::TypeUtils::DataTypeToSerialString(xyzDesc->GetDataType()) + ", " +
+                                                ge::TypeUtils::DataTypeToSerialString(centerXyzDesc->GetDataType()))
+                                                   .c_str(),
+                                               "The dtypes of xyz and center_xyz must be the same");
         return GRAPH_FAILED;
     }
     ge::DataType xyzDtype = xyzDesc->GetDataType();
     if (xyzDtype != ge::DT_FLOAT && xyzDtype != ge::DT_FLOAT16) {
-        OP_LOGE(context, "xyz dtype must be DT_FLOAT or DT_FLOAT16, but got %d", static_cast<int32_t>(xyzDtype));
+        OP_LOGE_FOR_INVALID_DTYPE(context->GetNodeName(), "xyz",
+                                  ge::TypeUtils::DataTypeToSerialString(xyzDtype).c_str(), "DT_FLOAT, DT_FLOAT16");
         return GRAPH_FAILED;
     }
 
@@ -113,7 +124,8 @@ static ge::graphStatus InferShape4BallQuery(gert::InferShapeContext* context)
     OP_CHECK_NULL_WITH_CONTEXT(context, sampleNumPtr);
     int64_t sampleNum = *sampleNumPtr;
     if (sampleNum < 1) {
-        OP_LOGE(context, "sample_num must >= 1, but got %ld", sampleNum);
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "sample_num", std::to_string(sampleNum).c_str(),
+                                              "sample_num must be >= 1");
         return GRAPH_FAILED;
     }
 

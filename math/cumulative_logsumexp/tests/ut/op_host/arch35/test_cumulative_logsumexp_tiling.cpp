@@ -10,6 +10,8 @@
 
 #include <gtest/gtest.h>
 #include <iostream>
+#include <map>
+#include "err_mgr.h"
 #include "tiling_case_executor.h"
 #include "tiling_context_faker.h"
 #include "math/cumulative_logsumexp/op_kernel/arch35/cumulative_logsumexp_tiling_key.h"
@@ -100,6 +102,27 @@ TEST_F(CumulativeLogsumexpTiling, int16_axis_scalar_supported)
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
+static void CheckRootRaw(const std::string& code, const std::map<std::string, std::string>& expected)
+{
+    auto messages = error_message::GetErrMgrRawErrorMessages();
+    ASSERT_EQ(messages.size(), 1U);
+    ASSERT_NE(messages[0].error_id, nullptr);
+    EXPECT_EQ(std::string(messages[0].error_id.get()), code);
+    ASSERT_EQ(messages[0].args_key.size(), expected.size() + 1U);
+    ASSERT_EQ(messages[0].args_value.size(), messages[0].args_key.size());
+    std::map<std::string, std::string> args;
+    for (size_t i = 0; i < messages[0].args_key.size(); ++i) {
+        ASSERT_NE(messages[0].args_key[i], nullptr);
+        ASSERT_NE(messages[0].args_value[i], nullptr);
+        EXPECT_TRUE(args.emplace(messages[0].args_key[i].get(), messages[0].args_value[i].get()).second);
+    }
+    EXPECT_FALSE(args.at("op_name").empty());
+    for (const auto& p : expected) {
+        EXPECT_EQ(args.at(p.first), p.second);
+    }
+    EXPECT_TRUE(error_message::GetErrMgrRawErrorMessages().empty());
+}
+
 TEST_F(CumulativeLogsumexpTiling, unsupported_x_dtype_failed)
 {
     int32_t axisValue = 0;
@@ -119,7 +142,12 @@ TEST_F(CumulativeLogsumexpTiling, unsupported_x_dtype_failed)
         },
         &compileInfo);
 
+    ASSERT_EQ(error_message::ErrMgrInit(error_message::ErrorMessageMode::INTERNAL_MODE), 0);
+    (void)error_message::GetErrMgrRawErrorMessages();
     ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED, 0, std::vector<size_t>{});
+    CheckRootRaw(
+        "EZ0020",
+        {{"param_name", "x"}, {"incorrect_dtype", "DT_DOUBLE"}, {"reason", "x dtype must be float32 or float16."}});
 }
 
 TEST_F(CumulativeLogsumexpTiling, axis_out_of_range_failed)
@@ -141,5 +169,9 @@ TEST_F(CumulativeLogsumexpTiling, axis_out_of_range_failed)
         },
         &compileInfo);
 
+    ASSERT_EQ(error_message::ErrMgrInit(error_message::ErrorMessageMode::INTERNAL_MODE), 0);
+    (void)error_message::GetErrMgrRawErrorMessages();
     ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED, 0, std::vector<size_t>{});
+    CheckRootRaw("EZ0026",
+                 {{"param_name", "axis"}, {"incorrect_value", "2"}, {"reason", "axis must be in range [-2, 1]."}});
 }

@@ -16,6 +16,8 @@
 #include <gtest/gtest.h>
 #include <iostream>
 #include <vector>
+#include <map>
+#include "err_mgr.h"
 #include "../../../../op_host/arch35/drop_out_v3_grad_tiling.h"
 #include "tiling_context_faker.h"
 #include "tiling_case_executor.h"
@@ -183,5 +185,23 @@ TEST_F(DropOutV3GradTilingTest, drop_out_v3_grad_tiling_invalid_scale_not_scalar
     gert::TilingContextPara::TensorDescription grad_x({{256}, {256}}, ge::DT_FLOAT, ge::FORMAT_ND);
     gert::TilingContextPara tilingContextPara("DropOutV3Grad", {grad_y, mask, scale}, {grad_x}, &compileInfo);
 
+    ASSERT_EQ(error_message::ErrMgrInit(error_message::ErrorMessageMode::PROCESS_MODE), 0);
+    error_message::GetErrMgrRawErrorMessages();
     ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
+    const auto errors = error_message::GetErrMgrRawErrorMessages();
+    ASSERT_EQ(errors.size(), 1U);
+    ASSERT_NE(errors[0].error_id, nullptr);
+    EXPECT_EQ(std::string(errors[0].error_id.get()), "EZ0015");
+    ASSERT_EQ(errors[0].args_key.size(), errors[0].args_value.size());
+    ASSERT_EQ(errors[0].args_key.size(), 4U);
+    std::map<std::string, std::string> args;
+    for (size_t i = 0; i < errors[0].args_key.size(); ++i) {
+        ASSERT_NE(errors[0].args_key[i], nullptr);
+        ASSERT_NE(errors[0].args_value[i], nullptr);
+        args[errors[0].args_key[i].get()] = errors[0].args_value[i].get();
+    }
+    EXPECT_EQ(args["op_name"], "DropOutV3Grad");
+    EXPECT_EQ(args["param_name"], "input scale");
+    EXPECT_EQ(args["incorrect_size"], "2");
+    EXPECT_EQ(args["reason"], "size of scale has to be 1");
 }

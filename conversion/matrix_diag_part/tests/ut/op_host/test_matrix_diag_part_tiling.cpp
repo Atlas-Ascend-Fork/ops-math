@@ -12,6 +12,9 @@
 
 #include <iostream>
 #include <limits>
+#include <map>
+#include "err_mgr.h"
+#include "log/log.h"
 #include <gtest/gtest.h>
 #include "tiling_context_faker.h"
 #include "tiling_case_executor.h"
@@ -24,10 +27,48 @@ class MatrixDiagPartTiling : public testing::Test {
 protected:
     static void SetUpTestCase() { std::cout << "MatrixDiagPartTiling SetUp" << std::endl; }
 
+    void SetUp() override
+    {
+        ASSERT_EQ(error_message::ErrMgrInit(error_message::ErrorMessageMode::INTERNAL_MODE), 0);
+        (void)error_message::GetErrMgrRawErrorMessages();
+        ASSERT_TRUE(error_message::GetErrMgrRawErrorMessages().empty());
+    }
+
     static void TearDownTestCase() { std::cout << "MatrixDiagPartTiling TearDown" << std::endl; }
 };
 
 static std::map<std::string, std::string> soc_version_infos = {{"Short_SoC_version", "Ascend950"}};
+
+static void AssertSingleRootError(const std::string& code, const std::string& actualKey, const std::string& actual,
+                                  const std::string& reason)
+{
+    auto messages = error_message::GetErrMgrRawErrorMessages();
+    ASSERT_EQ(messages.size(), 1U);
+    const auto& message = messages.front();
+    ASSERT_NE(message.error_id, nullptr);
+    EXPECT_EQ(std::string(message.error_id.get()), code);
+    ASSERT_EQ(message.args_key.size(), 4U);
+    ASSERT_EQ(message.args_value.size(), 4U);
+    std::map<std::string, std::string> arguments;
+    for (size_t i = 0; i < message.args_key.size(); ++i) {
+        ASSERT_NE(message.args_key[i], nullptr);
+        ASSERT_NE(message.args_value[i], nullptr);
+        EXPECT_TRUE(arguments.emplace(message.args_key[i].get(), message.args_value[i].get()).second);
+    }
+    EXPECT_EQ(arguments.at("param_name"), "x");
+    EXPECT_FALSE(arguments.at("op_name").empty());
+    EXPECT_EQ(arguments.at(actualKey), actual);
+    EXPECT_EQ(arguments.at("reason"), reason);
+    EXPECT_TRUE(error_message::GetErrMgrRawErrorMessages().empty());
+}
+
+TEST_F(MatrixDiagPartTiling, root_error_registration_probe)
+{
+    ASSERT_EQ(error_message::ErrMgrInit(error_message::ErrorMessageMode::INTERNAL_MODE), 0);
+    (void)error_message::GetErrMgrRawErrorMessages();
+    OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON("MatrixDiagPart", "x", "probe", "registration probe");
+    AssertSingleRootError("EZ0020", "incorrect_dtype", "probe", "registration probe");
+}
 
 TEST_F(MatrixDiagPartTiling, matrix_diag_part_tiling_float16)
 {
@@ -150,6 +191,7 @@ TEST_F(MatrixDiagPartTiling, matrix_diag_part_tiling_rank_lt_2)
                                               },
                                               {}, &compileInfo, 64, 262144, 4096);
     ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
+    AssertSingleRootError("EZ0015", "incorrect_size", "1", "input rank must be >= 2");
 }
 
 TEST_F(MatrixDiagPartTiling, matrix_diag_part_tiling_rank_gt_8)
@@ -199,6 +241,8 @@ TEST_F(MatrixDiagPartTiling, matrix_diag_part_tiling_diagLen_lt_0)
                                               },
                                               {}, &compileInfo, 64, 262144, 4096);
     ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
+    AssertSingleRootError("EZ0026", "incorrect_value", "-1",
+                          "all dimensions of x must be concrete and non-negative at tiling");
 }
 
 TEST_F(MatrixDiagPartTiling, matrix_diag_part_tiling_unsupported_dtype)
@@ -210,10 +254,12 @@ TEST_F(MatrixDiagPartTiling, matrix_diag_part_tiling_unsupported_dtype)
                                                   {{{1, 1, 4, 6}, {1, 1, 4, 6}}, ge::DT_DOUBLE, ge::FORMAT_ND},
                                               },
                                               {
-                                                  {{{}, {}}, ge::DT_DOUBLE, ge::FORMAT_ND},
+                                                  {{{1, 1, 4}, {1, 1, 4}}, ge::DT_DOUBLE, ge::FORMAT_ND},
                                               },
                                               {}, &compileInfo, 64, 262144, 4096);
     ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
+    AssertSingleRootError("EZ0020", "incorrect_dtype", "DT_DOUBLE",
+                          "only support float16, float32, int32, int8, uint8");
 }
 
 TEST_F(MatrixDiagPartTiling, matrix_diag_part_tiling_matrix_size_overflow)
@@ -231,6 +277,8 @@ TEST_F(MatrixDiagPartTiling, matrix_diag_part_tiling_matrix_size_overflow)
         },
         {}, &compileInfo, 64, 262144, 4096);
     ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
+    AssertSingleRootError("EZ0026", "incorrect_value", "1099511627776x1099511627776",
+                          "the product of the last two dimensions of x overflows int64");
 }
 
 TEST_F(MatrixDiagPartTiling, matrix_diag_part_tiling_batch_dim_negative)

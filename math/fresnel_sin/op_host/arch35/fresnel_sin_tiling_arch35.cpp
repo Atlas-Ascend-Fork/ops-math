@@ -99,10 +99,11 @@ static ge::graphStatus GetShapeAttrsInfo(gert::TilingContext* context, int64_t* 
 
     // Element counts beyond uint32 range would silently truncate the uint32
     // per-core split lengths below; reject them explicitly.
-    OP_CHECK_IF(*totalIdx > static_cast<int64_t>(UINT32_MAX),
-                OP_LOGE(context, "FresnelSin: total element count %lld exceeds UINT32_MAX, not supported",
-                        static_cast<long long>(*totalIdx)),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        *totalIdx > static_cast<int64_t>(UINT32_MAX),
+        OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(context->GetNodeName(), "x", std::to_string(*totalIdx).c_str(),
+                                                  "total element count must not exceed UINT32_MAX(4294967295)"),
+        return ge::GRAPH_FAILED);
 
     OP_CHECK_IF(inputShapeX.GetDimNum() > MAX_DIM_NUM,
                 OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "x",
@@ -142,8 +143,11 @@ static ge::graphStatus FresnelSinTilingFunc(gert::TilingContext* context)
     OP_LOGD(context->GetNodeName(), "Begin the tiling process for Arch35 architecture");
     uint64_t ubSize;
     int64_t coreNum;
+    // GetPlatformInfo reports its own first error (null platform info via
+    // OP_CHECK_NULL_WITH_CONTEXT, zero coreNum/ubSize); log without reporting
+    // again so the inner report is not diluted by a generic EZ9999 wrapper.
     OP_CHECK_IF(GetPlatformInfo(context, &ubSize, &coreNum) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context, "GetPlatformInfo error"), return ge::GRAPH_FAILED);
+                OP_LOGE_WITHOUT_REPORT(context, "GetPlatformInfo error"), return ge::GRAPH_FAILED);
 
     int64_t totalIdx;
     ge::DataType dataType;
@@ -153,8 +157,10 @@ static ge::graphStatus FresnelSinTilingFunc(gert::TilingContext* context)
     OP_CHECK_IF(GetShapeAttrsInfo(context, &totalIdx, &dataType) != ge::GRAPH_SUCCESS,
                 OP_LOGE_WITHOUT_REPORT(context, "GetShapeAttrsInfo error"), return ge::GRAPH_FAILED);
 
-    OP_CHECK_IF(GetWorkspaceSize(context) != ge::GRAPH_SUCCESS, OP_LOGE(context, "GetWorkspaceSize error"),
-                return ge::GRAPH_FAILED);
+    // GetWorkspaceSize reports its own first error via OP_CHECK_NULL_WITH_CONTEXT;
+    // log without reporting again for the same reason as above.
+    OP_CHECK_IF(GetWorkspaceSize(context) != ge::GRAPH_SUCCESS,
+                OP_LOGE_WITHOUT_REPORT(context, "GetWorkspaceSize error"), return ge::GRAPH_FAILED);
 
     FresnelSinTilingData* tiling = context->GetTilingData<FresnelSinTilingData>();
     OP_CHECK_NULL_WITH_CONTEXT(context, tiling);

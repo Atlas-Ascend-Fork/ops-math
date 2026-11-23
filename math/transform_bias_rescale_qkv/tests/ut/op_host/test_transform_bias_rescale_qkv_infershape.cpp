@@ -10,6 +10,9 @@
 
 #include <gtest/gtest.h>
 #include <iostream>
+#include <map>
+#include <string>
+#include "base/err_mgr.h"
 #include "infershape_context_faker.h"
 #include "base/registry/op_impl_space_registry_v2.h"
 
@@ -138,7 +141,28 @@ TEST_F(TransformBiasRescaleQkv, TransformBiasRescaleQkv_infershape_num_heads_zer
     auto inferShapeFunc = spaceRegistry->GetOpImpl("TransformBiasRescaleQkv")->infer_shape;
     ASSERT_NE(inferShapeFunc, nullptr);
 
-    EXPECT_EQ(inferShapeFunc(contextHolder.GetContext()), ge::GRAPH_FAILED);
+    ASSERT_EQ(error_message::ErrMgrInit(error_message::ErrorMessageMode::INTERNAL_MODE), 0);
+    error_message::GetErrMgrRawErrorMessages();
+    ASSERT_EQ(inferShapeFunc(contextHolder.GetContext()), ge::GRAPH_FAILED);
+    auto reports = error_message::GetErrMgrRawErrorMessages();
+    ASSERT_EQ(reports.size(), 1U);
+    ASSERT_NE(reports[0].error_id.get(), nullptr);
+    ASSERT_EQ(reports[0].args_key.size(), 4U);
+    ASSERT_EQ(reports[0].args_value.size(), 4U);
+    ASSERT_NE(reports[0].args_value[0].get(), nullptr);
+    ASSERT_NE(reports[0].args_value[1].get(), nullptr);
+    ASSERT_NE(reports[0].args_value[2].get(), nullptr);
+    ASSERT_NE(reports[0].args_value[3].get(), nullptr);
+    std::map<std::string, std::string> args;
+    for (size_t i = 0; i < reports[0].args_key.size(); ++i) {
+        ASSERT_NE(reports[0].args_key[i].get(), nullptr);
+        args.emplace(reports[0].args_key[i].get(), reports[0].args_value[i].get());
+    }
+    EXPECT_EQ(args["param_name"], "num_heads");
+    EXPECT_EQ(args["op_name"], "TransformBiasRescaleQkv");
+    EXPECT_EQ(args["incorrect_value"], "0");
+    EXPECT_EQ(args["reason"], "num_heads must be greater than 0");
+    EXPECT_EQ(std::string(reports[0].error_id.get()), "EZ0026");
 }
 
 TEST_F(TransformBiasRescaleQkv, TransformBiasRescaleQkv_infershape_num_heads_negative_failed)
@@ -175,5 +199,26 @@ TEST_F(TransformBiasRescaleQkv, TransformBiasRescaleQkv_infershape_num_heads_neg
     auto inferShapeFunc = spaceRegistry->GetOpImpl("TransformBiasRescaleQkv")->infer_shape;
     ASSERT_NE(inferShapeFunc, nullptr);
 
-    EXPECT_EQ(inferShapeFunc(contextHolder.GetContext()), ge::GRAPH_FAILED);
+    ASSERT_EQ(error_message::ErrMgrInit(error_message::ErrorMessageMode::INTERNAL_MODE), 0);
+    error_message::GetErrMgrRawErrorMessages();
+    ASSERT_EQ(inferShapeFunc(contextHolder.GetContext()), ge::GRAPH_FAILED);
+    auto reports = error_message::GetErrMgrRawErrorMessages();
+    ASSERT_EQ(reports.size(), 1U);
+    ASSERT_NE(reports[0].error_id.get(), nullptr);
+    ASSERT_EQ(reports[0].args_key.size(), 4U);
+    ASSERT_EQ(reports[0].args_value.size(), 4U);
+    ASSERT_NE(reports[0].args_value[0].get(), nullptr);
+    ASSERT_NE(reports[0].args_value[1].get(), nullptr);
+    ASSERT_NE(reports[0].args_value[2].get(), nullptr);
+    ASSERT_NE(reports[0].args_value[3].get(), nullptr);
+    std::map<std::string, std::string> args;
+    for (size_t i = 0; i < reports[0].args_key.size(); ++i) {
+        ASSERT_NE(reports[0].args_key[i].get(), nullptr);
+        args.emplace(reports[0].args_key[i].get(), reports[0].args_value[i].get());
+    }
+    EXPECT_EQ(args["param_name"], "num_heads");
+    EXPECT_EQ(args["op_name"], "TransformBiasRescaleQkv");
+    EXPECT_EQ(args["incorrect_value"], "-1");
+    EXPECT_EQ(args["reason"], "num_heads must be greater than 0");
+    EXPECT_EQ(std::string(reports[0].error_id.get()), "EZ0026");
 }

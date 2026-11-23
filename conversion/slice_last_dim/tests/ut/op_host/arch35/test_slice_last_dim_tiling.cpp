@@ -12,6 +12,8 @@
 #include <cstdint>
 #include <cstring>
 #include <iostream>
+#include <map>
+#include "err_mgr.h"
 #include "tiling_context_faker.h"
 #include "tiling_case_executor.h"
 #include "conversion/slice_last_dim/op_kernel/arch35/slice_last_dim_tiling_data.h"
@@ -304,7 +306,26 @@ TEST_F(SliceLastDimTilingTest, slice_last_dim_tiling_dtype_bool_reject)
                                               },
                                               &compileInfo);
     TilingInfo tilingInfo;
+    ASSERT_EQ(error_message::ErrMgrInit(error_message::ErrorMessageMode::PROCESS_MODE), 0);
+    error_message::GetErrMgrRawErrorMessages();
     ASSERT_FALSE(ExecuteTiling(tilingContextPara, tilingInfo));
+    const auto errors = error_message::GetErrMgrRawErrorMessages();
+    ASSERT_EQ(errors.size(), 1U);
+    ASSERT_NE(errors[0].error_id, nullptr);
+    EXPECT_EQ(std::string(errors[0].error_id.get()), "EZ0020");
+    ASSERT_EQ(errors[0].args_key.size(), errors[0].args_value.size());
+    ASSERT_EQ(errors[0].args_key.size(), 4U);
+    std::map<std::string, std::string> args;
+    for (size_t i = 0; i < errors[0].args_key.size(); ++i) {
+        ASSERT_NE(errors[0].args_key[i], nullptr);
+        ASSERT_NE(errors[0].args_value[i], nullptr);
+        args[errors[0].args_key[i].get()] = errors[0].args_value[i].get();
+    }
+    EXPECT_EQ(args["op_name"], "SliceLastDim");
+    EXPECT_EQ(args["param_name"], "x");
+    EXPECT_EQ(args["incorrect_dtype"], "DT_BOOL");
+    EXPECT_EQ(args["reason"], "The dtype of x must be within the range [DT_INT8, DT_INT16, DT_INT32, DT_INT64, "
+                              "DT_FLOAT16, DT_FLOAT].");
 }
 
 // BF16 support has been removed and must be rejected at the tiling entry.
@@ -340,7 +361,26 @@ TEST_F(SliceLastDimTilingTest, slice_last_dim_tiling_dtype_complex128_reject)
                                               },
                                               &compileInfo);
     TilingInfo tilingInfo;
+    ASSERT_EQ(error_message::ErrMgrInit(error_message::ErrorMessageMode::PROCESS_MODE), 0);
+    error_message::GetErrMgrRawErrorMessages();
     ASSERT_FALSE(ExecuteTiling(tilingContextPara, tilingInfo));
+    const auto errors = error_message::GetErrMgrRawErrorMessages();
+    ASSERT_EQ(errors.size(), 1U);
+    ASSERT_NE(errors[0].error_id, nullptr);
+    EXPECT_EQ(std::string(errors[0].error_id.get()), "EZ0020");
+    ASSERT_EQ(errors[0].args_key.size(), errors[0].args_value.size());
+    ASSERT_EQ(errors[0].args_key.size(), 4U);
+    std::map<std::string, std::string> args;
+    for (size_t i = 0; i < errors[0].args_key.size(); ++i) {
+        ASSERT_NE(errors[0].args_key[i], nullptr);
+        ASSERT_NE(errors[0].args_value[i], nullptr);
+        args[errors[0].args_key[i].get()] = errors[0].args_value[i].get();
+    }
+    EXPECT_EQ(args["op_name"], "SliceLastDim");
+    EXPECT_EQ(args["param_name"], "x");
+    EXPECT_EQ(args["incorrect_dtype"], "DT_COMPLEX128");
+    EXPECT_EQ(args["reason"], "The dtype of x must be within the range [DT_INT8, DT_INT16, DT_INT32, DT_INT64, "
+                              "DT_FLOAT16, DT_FLOAT].");
 }
 
 // Optional-stride contract — a missing stride attribute defaults to 1 and tiling succeeds.

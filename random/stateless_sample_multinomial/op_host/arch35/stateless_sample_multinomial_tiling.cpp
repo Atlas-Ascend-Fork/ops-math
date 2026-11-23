@@ -75,17 +75,19 @@ ge::graphStatus StatelessSampleMultinomialTiling::CheckXRankAndNormProbsShape()
     const auto& xShape = xShapePtr->GetStorageShape();
     auto xDimNum = xShape.GetDimNum();
     OP_CHECK_IF(xDimNum != 1 && xDimNum != 2,
-                OP_LOGE(context_->GetNodeName(), "x must be 1D or 2D, but got %zuD", xDimNum), return ge::GRAPH_FAILED);
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context_->GetNodeName(), "input tensor x",
+                                                         (std::to_string(xDimNum) + "D").c_str(), "x must be 1D or 2D"),
+                return ge::GRAPH_FAILED);
 
     auto normProbsShapePtr = context_->GetOptionalInputShape(INPUT_IDX_NORM_PROBS);
     if (normProbsShapePtr != nullptr) {
         const auto& normProbsShape = normProbsShapePtr->GetStorageShape();
-        OP_CHECK_IF(
-            normProbsShape != xShape,
-            OP_LOGE(context_->GetNodeName(),
-                    "the shapes of x and norm_probs must be the same, x shape size: %ld, norm_probs shape size: %ld.",
-                    xShape.GetShapeSize(), normProbsShape.GetShapeSize()),
-            return ge::GRAPH_FAILED);
+        OP_CHECK_IF(normProbsShape != xShape,
+                    OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(
+                        context_->GetNodeName(), "x and norm_probs",
+                        (Ops::Base::ToString(xShape) + " and " + Ops::Base::ToString(normProbsShape)).c_str(),
+                        "the shapes of x and norm_probs must be the same"),
+                    return ge::GRAPH_FAILED);
     }
     return ge::GRAPH_SUCCESS;
 }

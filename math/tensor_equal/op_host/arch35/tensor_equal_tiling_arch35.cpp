@@ -51,7 +51,15 @@ ge::graphStatus TensorEqualTiling::GetPlatformInfo()
 
     totalCoreNum_ = compileInfo->totalCoreNum;
     ubSize_ = compileInfo->ubSizePlatForm;
-    OP_CHECK_IF((ubSize_ <= 0), OP_LOGE(opName_, "ub size is invalid."), return ge::GRAPH_FAILED);
+    if (ubSize_ <= 0) {
+        const std::vector<const char*> keys = {"opName", "reason"};
+        const std::string reason = "Failed to get valid UB size from platform information: actual=" +
+                                   std::to_string(ubSize_) + ", expected>0.";
+        const std::vector<const char*> values = {opName_.c_str(), reason.c_str()};
+        REPORT_PREDEFINED_ERR_MSG("EZ1008", keys, values);
+        OP_LOGE_WITHOUT_REPORT(opName_, "%s", reason.c_str());
+        return ge::GRAPH_FAILED;
+    }
 
     return ge::GRAPH_SUCCESS;
 }

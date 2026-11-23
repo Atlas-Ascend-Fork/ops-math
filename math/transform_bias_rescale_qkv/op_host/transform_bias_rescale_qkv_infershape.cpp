@@ -14,6 +14,7 @@
  */
 
 #include "log/log.h"
+#include <string>
 #include "register/op_impl_registry.h"
 #include "util/shape_util.h"
 
@@ -57,7 +58,8 @@ static ge::graphStatus InferShape4TransformBiasRescaleQkv(gert::InferShapeContex
     OP_CHECK_NULL_WITH_CONTEXT(context, num_heads_ptr);
     auto num_heads = *num_heads_ptr;
     if (num_heads <= 0) {
-        OP_LOGE("InferShape4TransformBiasRescaleQkv", "num_heads must be greater than 0, check failed.");
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "num_heads", std::to_string(num_heads),
+                                              "num_heads must be greater than 0");
         return GRAPH_FAILED;
     }
 

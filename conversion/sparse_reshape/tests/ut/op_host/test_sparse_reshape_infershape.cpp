@@ -17,6 +17,8 @@
 
 #include <gtest/gtest.h>
 #include <iostream>
+#include <map>
+#include "base/err_mgr.h"
 #include "infershape_context_faker.h"
 #include "infershape_case_executor.h"
 
@@ -182,4 +184,119 @@ TEST_F(SparseReshapeInfershape, sparse_reshape_infershape_unknown_rank_mixed)
         {-1},
     };
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+namespace {
+struct ParameterErrorCase {
+    gert::StorageShape indices;
+    gert::StorageShape shape;
+    gert::StorageShape newShape;
+    const char* code;
+    std::map<std::string, std::string> expected;
+};
+class SparseReshapeParameterError : public testing::TestWithParam<ParameterErrorCase> {};
+
+TEST_P(SparseReshapeParameterError, reports_single_formal_error)
+{
+    const auto& test = GetParam();
+    ASSERT_EQ(error_message::ErrMgrInit(error_message::ErrorMessageMode::INTERNAL_MODE), 0);
+    (void)error_message::GetErrMgrRawErrorMessages();
+    ASSERT_TRUE(error_message::GetErrMgrRawErrorMessages().empty());
+    gert::InfershapeContextPara para(
+        "SparseReshape",
+        {{test.indices, ge::DT_INT64, ge::FORMAT_ND},
+         {test.shape, ge::DT_INT64, ge::FORMAT_ND},
+         {test.newShape, ge::DT_INT64, ge::FORMAT_ND}},
+        {{{{}, {}}, ge::DT_INT64, ge::FORMAT_ND}, {{{}, {}}, ge::DT_INT64, ge::FORMAT_ND}});
+    ExecuteTestCase(para, ge::GRAPH_FAILED);
+    const auto errors = error_message::GetErrMgrRawErrorMessages();
+    ASSERT_EQ(errors.size(), 1U);
+    const auto& error = errors.front();
+    ASSERT_NE(error.error_id, nullptr);
+    EXPECT_EQ(std::string(error.error_id.get()), test.code);
+    ASSERT_EQ(error.args_key.size(), 4U);
+    ASSERT_EQ(error.args_value.size(), 4U);
+    std::map<std::string, std::string> actual;
+    for (size_t i = 0; i < error.args_key.size(); ++i) {
+        ASSERT_NE(error.args_key[i], nullptr);
+        ASSERT_NE(error.args_value[i], nullptr);
+        EXPECT_TRUE(actual.emplace(error.args_key[i].get(), error.args_value[i].get()).second);
+    }
+    auto expected = test.expected;
+    expected.emplace("op_name", "SparseReshape");
+    EXPECT_EQ(actual, expected);
+    EXPECT_TRUE(error_message::GetErrMgrRawErrorMessages().empty());
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    InvalidInputs, SparseReshapeParameterError,
+    testing::Values(ParameterErrorCase{{{4}, {4}},
+                                       {{2}, {2}},
+                                       {{2}, {2}},
+                                       "EZ0011",
+                                       {{"param_name", "indices"}, {"incorrect_dim", "1D"}, {"correct_dim", "2D"}}},
+                    ParameterErrorCase{{{4, 2}, {4, 2}},
+                                       {{1, 2}, {1, 2}},
+                                       {{2}, {2}},
+                                       "EZ0011",
+                                       {{"param_name", "shape"}, {"incorrect_dim", "2D"}, {"correct_dim", "1D"}}},
+                    ParameterErrorCase{{{4, 2}, {4, 2}},
+                                       {{2}, {2}},
+                                       {{1, 2}, {1, 2}},
+                                       "EZ0011",
+                                       {{"param_name", "new_shape"}, {"incorrect_dim", "2D"}, {"correct_dim", "1D"}}},
+                    ParameterErrorCase{{{4, 9}, {4, 9}},
+                                       {{9}, {9}},
+                                       {{2}, {2}},
+                                       "EZ0009",
+                                       {{"param_name", "indices"},
+                                        {"incorrect_shape", "[4, 9]"},
+                                        {"reason", "indices dimension 1 must not exceed 8"}}},
+                    ParameterErrorCase{{{4, 2}, {4, 2}},
+                                       {{2}, {2}},
+                                       {{9}, {9}},
+                                       "EZ0015",
+                                       {{"param_name", "new_shape"},
+                                        {"incorrect_size", "9"},
+                                        {"reason", "new_shape length must not exceed 8"}}},
+                    ParameterErrorCase{{{4, 2}, {4, 2}},
+                                       {{3}, {3}},
+                                       {{2}, {2}},
+                                       "EZ0010",
+                                       {{"param_names", "indices, shape"},
+                                        {"incorrect_shapes", "[4, 2], [3]"},
+                                        {"reason", "indices dimension 1 must equal shape dimension 0"}}}));
+} // namespace
+
+TEST_F(SparseReshapeInfershape, rank_eight_boundary_stays_valid)
+{
+    gert::InfershapeContextPara para(
+        "SparseReshape",
+        {{{{4, 8}, {4, 8}}, ge::DT_INT64, ge::FORMAT_ND},
+         {{{8}, {8}}, ge::DT_INT64, ge::FORMAT_ND},
+         {{{8}, {8}}, ge::DT_INT64, ge::FORMAT_ND}},
+        {{{{}, {}}, ge::DT_INT64, ge::FORMAT_ND}, {{{}, {}}, ge::DT_INT64, ge::FORMAT_ND}});
+    ExecuteTestCase(para, ge::GRAPH_SUCCESS, {{4, 8}, {8}});
+}
+
+TEST_F(SparseReshapeInfershape, unknown_input_rank_dimension_skips_relation)
+{
+    gert::InfershapeContextPara para(
+        "SparseReshape",
+        {{{{4, -1}, {4, -1}}, ge::DT_INT64, ge::FORMAT_ND},
+         {{{3}, {3}}, ge::DT_INT64, ge::FORMAT_ND},
+         {{{2}, {2}}, ge::DT_INT64, ge::FORMAT_ND}},
+        {{{{}, {}}, ge::DT_INT64, ge::FORMAT_ND}, {{{}, {}}, ge::DT_INT64, ge::FORMAT_ND}});
+    ExecuteTestCase(para, ge::GRAPH_SUCCESS, {{4, 2}, {2}});
+}
+
+TEST_F(SparseReshapeInfershape, unknown_shape_length_skips_relation)
+{
+    gert::InfershapeContextPara para(
+        "SparseReshape",
+        {{{{4, 2}, {4, 2}}, ge::DT_INT64, ge::FORMAT_ND},
+         {{{-1}, {-1}}, ge::DT_INT64, ge::FORMAT_ND},
+         {{{2}, {2}}, ge::DT_INT64, ge::FORMAT_ND}},
+        {{{{}, {}}, ge::DT_INT64, ge::FORMAT_ND}, {{{}, {}}, ge::DT_INT64, ge::FORMAT_ND}});
+    ExecuteTestCase(para, ge::GRAPH_SUCCESS, {{4, 2}, {2}});
 }

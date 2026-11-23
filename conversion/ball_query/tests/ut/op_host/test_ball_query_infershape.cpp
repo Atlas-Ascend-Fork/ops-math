@@ -21,6 +21,10 @@
 #include <cmath>
 #include <gtest/gtest.h>
 #include <iostream>
+#include <map>
+#include "base/err_mgr.h"
+#include "graph/utils/type_utils.h"
+#include "log/log.h"
 #include "infershape_context_faker.h"
 #include "infershape_case_executor.h"
 
@@ -186,3 +190,126 @@ TEST_F(BallQueryInfershape, ball_query_infershape_unknown_rank_xyz_only)
     };
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
+
+namespace {
+struct ParameterErrorCase {
+    std::vector<int64_t> xyz;
+    std::vector<int64_t> center;
+    ge::DataType xyzType;
+    ge::DataType centerType;
+    int64_t sampleNum;
+    std::string code;
+    std::map<std::string, std::string> fields;
+};
+
+class BallQueryParameterError : public testing::TestWithParam<ParameterErrorCase> {};
+
+TEST_P(BallQueryParameterError, reports_one_formal_error)
+{
+    const auto& test = GetParam();
+    ASSERT_EQ(error_message::ErrMgrInit(error_message::ErrorMessageMode::INTERNAL_MODE), 0);
+    (void)error_message::GetErrMgrRawErrorMessages();
+    ASSERT_TRUE(error_message::GetErrMgrRawErrorMessages().empty());
+    gert::Shape xyz;
+    gert::Shape center;
+    for (int64_t dim : test.xyz) {
+        xyz.AppendDim(dim);
+    }
+    for (int64_t dim : test.center) {
+        center.AppendDim(dim);
+    }
+    gert::StorageShape xyzStorage;
+    xyzStorage.MutableOriginShape() = xyz;
+    xyzStorage.MutableStorageShape() = xyz;
+    gert::StorageShape centerStorage;
+    centerStorage.MutableOriginShape() = center;
+    centerStorage.MutableStorageShape() = center;
+    gert::InfershapeContextPara para(
+        "BallQuery", {{xyzStorage, test.xyzType, ge::FORMAT_ND}, {centerStorage, test.centerType, ge::FORMAT_ND}},
+        {{{{}, {}}, ge::DT_INT32, ge::FORMAT_ND}},
+        {gert::InfershapeContextPara::OpAttr("min_radius", Ops::Math::AnyValue::CreateFrom<float>(0.1f)),
+         gert::InfershapeContextPara::OpAttr("max_radius", Ops::Math::AnyValue::CreateFrom<float>(0.2f)),
+         gert::InfershapeContextPara::OpAttr("sample_num", Ops::Math::AnyValue::CreateFrom<int64_t>(test.sampleNum))});
+    ExecuteTestCase(para, ge::GRAPH_FAILED);
+    const auto messages = error_message::GetErrMgrRawErrorMessages();
+    ASSERT_EQ(messages.size(), 1U);
+    const auto& message = messages.front();
+    ASSERT_NE(message.error_id, nullptr);
+    EXPECT_EQ(std::string(message.error_id.get()), test.code);
+    ASSERT_EQ(message.args_key.size(), 4U);
+    ASSERT_EQ(message.args_value.size(), 4U);
+    std::map<std::string, std::string> actual;
+    for (size_t i = 0; i < message.args_key.size(); ++i) {
+        ASSERT_NE(message.args_key[i], nullptr);
+        ASSERT_NE(message.args_value[i], nullptr);
+        EXPECT_TRUE(actual.emplace(message.args_key[i].get(), message.args_value[i].get()).second);
+    }
+    EXPECT_EQ(actual.at("op_name"), "BallQuery");
+    for (const auto& field : test.fields) {
+        EXPECT_EQ(actual.at(field.first), field.second);
+    }
+    EXPECT_TRUE(error_message::GetErrMgrRawErrorMessages().empty());
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    UserInputs, BallQueryParameterError,
+    testing::Values(
+        ParameterErrorCase{{5, 15},
+                           {20, 5, 3},
+                           ge::DT_FLOAT,
+                           ge::DT_FLOAT,
+                           4,
+                           "EZ0011",
+                           {{"param_name", "xyz"}, {"incorrect_dim", "2D"}, {"correct_dim", "3D"}}},
+        ParameterErrorCase{{5, 3, 15},
+                           {20, 5},
+                           ge::DT_FLOAT,
+                           ge::DT_FLOAT,
+                           4,
+                           "EZ0011",
+                           {{"param_name", "center_xyz"}, {"incorrect_dim", "2D"}, {"correct_dim", "3D"}}},
+        ParameterErrorCase{{5, 3, 15},
+                           {20, 6, 3},
+                           ge::DT_FLOAT,
+                           ge::DT_FLOAT,
+                           4,
+                           "EZ0010",
+                           {{"param_names", "xyz, center_xyz"},
+                            {"incorrect_shapes", "[5, 3, 15], [20, 6, 3]"},
+                            {"reason", "xyz dimension 0 must equal center_xyz dimension 1 (batch size)"}}},
+        ParameterErrorCase{{5, 3, 15},
+                           {20, 5, 3},
+                           ge::DT_FLOAT,
+                           ge::DT_FLOAT16,
+                           4,
+                           "EZ0021",
+                           {{"param_names", "xyz, center_xyz"},
+                            {"incorrect_dtypes", ge::TypeUtils::DataTypeToSerialString(ge::DT_FLOAT) + ", " +
+                                                     ge::TypeUtils::DataTypeToSerialString(ge::DT_FLOAT16)},
+                            {"reason", "The dtypes of xyz and center_xyz must be the same"}}},
+        ParameterErrorCase{{5, 3, 15},
+                           {20, 5, 3},
+                           ge::DT_INT32,
+                           ge::DT_INT32,
+                           4,
+                           "EZ0019",
+                           {{"param_name", "xyz"},
+                            {"incorrect_dtype", ge::TypeUtils::DataTypeToSerialString(ge::DT_INT32)},
+                            {"correct_dtype", "DT_FLOAT, DT_FLOAT16"}}},
+        ParameterErrorCase{
+            {5, 3, 15},
+            {20, 5, 3},
+            ge::DT_FLOAT,
+            ge::DT_FLOAT,
+            0,
+            "EZ0026",
+            {{"param_name", "sample_num"}, {"incorrect_value", "0"}, {"reason", "sample_num must be >= 1"}}},
+        ParameterErrorCase{
+            {5, 3, 15},
+            {20, 5, 3},
+            ge::DT_FLOAT,
+            ge::DT_FLOAT,
+            -1,
+            "EZ0026",
+            {{"param_name", "sample_num"}, {"incorrect_value", "-1"}, {"reason", "sample_num must be >= 1"}}}));
+} // namespace

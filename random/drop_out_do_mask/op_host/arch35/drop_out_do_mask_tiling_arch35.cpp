@@ -112,7 +112,9 @@ ge::graphStatus DropOutDoMaskTiling::GetShapeAttrsInfo()
         return ge::GRAPH_FAILED;
     }
 
-    OP_CHECK_IF(CheckInputShape() != ge::GRAPH_SUCCESS, OP_LOGE(context_->GetNodeName(), "input shape check failed."),
+    OP_CHECK_IF(CheckInputShape() != ge::GRAPH_SUCCESS,
+                OP_LOGE_WITHOUT_REPORT(context_->GetNodeName(), "DropOutDoMask CheckInputShape failed; stage rc=%u",
+                                       ge::GRAPH_FAILED),
                 return ge::GRAPH_FAILED);
     return ge::GRAPH_SUCCESS;
 }

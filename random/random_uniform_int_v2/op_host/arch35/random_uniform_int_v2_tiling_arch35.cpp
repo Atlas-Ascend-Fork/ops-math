@@ -132,9 +132,15 @@ ge::graphStatus RandomUniformIntV2Tiling::GetPlatformInfo()
 ge::graphStatus RandomUniformIntV2Tiling::GetShapeAttrsInfo()
 {
     OP_LOGI(opName_, "RandomUniformIntV2Tiling::GetShapeAttrsInfo begin.");
-    OP_CHECK_IF(GetInputInfo(), OP_LOGE(opName_, "GetInputInfo failed!"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        GetInputInfo(),
+        OP_LOGE_WITHOUT_REPORT(opName_, "stage=GetShapeAttrsInfo callee=GetInputInfo failed; return GRAPH_FAILED"),
+        return ge::GRAPH_FAILED);
 
-    OP_CHECK_IF(GetOutputInfo(), OP_LOGE(opName_, "GetOutputInfo failed!"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        GetOutputInfo(),
+        OP_LOGE_WITHOUT_REPORT(opName_, "stage=GetShapeAttrsInfo callee=GetOutputInfo failed; return GRAPH_FAILED"),
+        return ge::GRAPH_FAILED);
 
     if (shapeSize_ != outputSize_) {
         OP_LOGE_FOR_INVALID_SHAPESIZES_WITH_REASON(
@@ -143,7 +149,10 @@ ge::graphStatus RandomUniformIntV2Tiling::GetShapeAttrsInfo()
         return ge::GRAPH_FAILED;
     }
 
-    OP_CHECK_IF(GetAttrInfo(), OP_LOGE(opName_, "GetAttrInfo failed!"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        GetAttrInfo(),
+        OP_LOGE_WITHOUT_REPORT(opName_, "stage=GetShapeAttrsInfo callee=GetAttrInfo failed; return GRAPH_FAILED"),
+        return ge::GRAPH_FAILED);
     OP_LOGI(opName_, "RandomUniformIntV2Tiling::GetShapeAttrsInfo end.");
     return ge::GRAPH_SUCCESS;
 }
@@ -206,7 +215,9 @@ ge::graphStatus RandomUniformIntV2Tiling::GetInputInfo()
     }
 
     ret = GetMinAndMaxValue();
-    OP_CHECK_IF(ret != ge::GRAPH_SUCCESS, OP_LOGE(opName_, "GetMinAndMaxValue failed."), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(ret != ge::GRAPH_SUCCESS,
+                OP_LOGE_WITHOUT_REPORT(opName_, "stage=GetInputInfo callee=GetMinAndMaxValue failed; rc=%u", ret),
+                return ge::GRAPH_FAILED);
     OP_LOGI(opName_, "RandomUniformIntV2Tiling::GetInputInfo end.");
 
     return ge::GRAPH_SUCCESS;

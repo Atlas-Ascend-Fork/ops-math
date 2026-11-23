@@ -156,10 +156,11 @@ static ge::graphStatus CumulativeLogsumexpTilingFunc(gert::TilingContext* contex
         return ge::GRAPH_FAILED);
 
     ge::DataType dataType = ge::DT_FLOAT;
-    OP_CHECK_IF(ParseShapeAndAttrs(context, tiling, dataType) != ge::GRAPH_SUCCESS,
-                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "shapeOrAttr", "invalid",
-                                                      "failed to parse input shape or attributes."),
-                return ge::GRAPH_FAILED);
+    const auto parseRet = ParseShapeAndAttrs(context, tiling, dataType);
+    OP_CHECK_IF(
+        parseRet != ge::GRAPH_SUCCESS,
+        OP_LOGE_WITHOUT_REPORT(context, "CumulativeLogsumexpTilingFunc: ParseShapeAndAttrs failed, rc=%u", parseRet),
+        return ge::GRAPH_FAILED);
 
     int64_t usedCoreNum = Ops::Base::CeilDiv(tiling->totalNum, coreNum);
     if (usedCoreNum > coreNum) {

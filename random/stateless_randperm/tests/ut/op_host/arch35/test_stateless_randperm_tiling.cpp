@@ -11,7 +11,9 @@
 #include <iostream>
 #include <type_traits>
 #include <utility>
+#include <map>
 #include <gtest/gtest.h>
+#include "err_mgr.h"
 #include "tiling_context_faker.h"
 #include "tiling_case_executor.h"
 #include "../../../../op_host/arch35/stateless_randperm_tiling_arch35.h"
@@ -21,6 +23,48 @@
 
 using namespace std;
 using namespace ge;
+
+static void ExpectRawError(const char* code, const char* value)
+{
+    auto reports = error_message::GetErrMgrRawErrorMessages();
+    ASSERT_EQ(reports.size(), 1U);
+    ASSERT_NE(reports[0].error_id.get(), nullptr);
+    EXPECT_STREQ(reports[0].error_id.get(), code);
+    ASSERT_EQ(reports[0].args_key.size(), 4U);
+    ASSERT_EQ(reports[0].args_value.size(), 4U);
+    std::map<std::string, std::string> args;
+    for (size_t i = 0; i < reports[0].args_key.size(); ++i) {
+        ASSERT_NE(reports[0].args_key[i].get(), nullptr);
+        ASSERT_NE(reports[0].args_value[i].get(), nullptr);
+        args.emplace(reports[0].args_key[i].get(), reports[0].args_value[i].get());
+    }
+    ASSERT_EQ(args.size(), 4U);
+    EXPECT_EQ(args.at("op_name"), "StatelessRandperm");
+    EXPECT_EQ(args.at("param_name"), "output tensor y");
+    EXPECT_EQ(args.at("incorrect_value"), value);
+    EXPECT_EQ(args.at("reason"), "the max permuted value (n-1) must not be greater than max value of y dtype");
+}
+
+static void ExpectRawDtype(const char* param, const char* dtype, const char* reason)
+{
+    auto reports = error_message::GetErrMgrRawErrorMessages();
+    ASSERT_EQ(reports.size(), 1U);
+    ASSERT_NE(reports[0].error_id.get(), nullptr);
+    EXPECT_STREQ(reports[0].error_id.get(), "EZ0020");
+    ASSERT_EQ(reports[0].args_key.size(), 4U);
+    ASSERT_EQ(reports[0].args_value.size(), 4U);
+    std::map<std::string, std::string> args;
+    for (size_t i = 0; i < reports[0].args_key.size(); ++i) {
+        ASSERT_NE(reports[0].args_key[i].get(), nullptr);
+        ASSERT_NE(reports[0].args_value[i].get(), nullptr);
+        args.emplace(reports[0].args_key[i].get(), reports[0].args_value[i].get());
+    }
+    ASSERT_EQ(args.size(), 4U);
+    EXPECT_EQ(args.at("op_name"), "StatelessRandperm");
+    EXPECT_EQ(args.at("param_name"), param);
+    EXPECT_EQ(args.at("incorrect_dtype"), dtype);
+    EXPECT_EQ(args.at("reason"), reason);
+}
 
 template <typename StructType, std::size_t Index>
 struct StructMemberType;
@@ -163,13 +207,61 @@ struct RandpermBoundaryCase {
     {}
 };
 
+static gert::TilingContextPara MakeNegativeCase(ge::DataType nType, ge::DataType seedType, ge::DataType offsetType,
+                                                int64_t attrDtype)
+{
+    static int64_t n = 7;
+    static int64_t seed = 1;
+    static int64_t offset = 0;
+    static optiling::StatelessRandpermCompileInfo info{64, 196608};
+    return gert::TilingContextPara(
+        "StatelessRandperm",
+        {{gert::StorageShape({1}, {1}), nType, ge::FORMAT_ND, true, &n},
+         {gert::StorageShape({1}, {1}), seedType, ge::FORMAT_ND, true, &seed},
+         {gert::StorageShape({1}, {1}), offsetType, ge::FORMAT_ND, true, &offset}},
+        {{gert::StorageShape({7}, {7}), ge::DT_INT64, ge::FORMAT_ND}},
+        {gert::TilingContextPara::OpAttr("layout", Ops::Math::AnyValue::CreateFrom<int64_t>(0)),
+         gert::TilingContextPara::OpAttr("dtype", Ops::Math::AnyValue::CreateFrom<int64_t>(attrDtype))},
+        &info);
+}
+
+TEST_F(StatelessRandpermTiling, stateless_randperm_raw_formal_failures)
+{
+    struct Case {
+        gert::TilingContextPara para;
+        const char* param;
+        const char* dtype;
+        const char* reason;
+    };
+    static const char*
+        attrReason = "[attr]dtype only supports int64, int32, int16, uint8, int8, float32, float16, bfloat16";
+    std::vector<Case> cases = {
+        {MakeNegativeCase(ge::DT_INT64, ge::DT_INT64, ge::DT_INT64, static_cast<int64_t>(ge::DT_DOUBLE)), "attr dtype",
+         "DT_DOUBLE", attrReason},
+        {MakeNegativeCase(ge::DT_FLOAT, ge::DT_INT64, ge::DT_INT64, static_cast<int64_t>(ge::DT_INT64)),
+         "input tensor n", "DT_FLOAT", "input n dtype should be int64"},
+        {MakeNegativeCase(ge::DT_INT64, ge::DT_FLOAT, ge::DT_INT64, static_cast<int64_t>(ge::DT_INT64)),
+         "input tensor seed", "DT_FLOAT", "input seed dtype should be int64"},
+        {MakeNegativeCase(ge::DT_INT64, ge::DT_INT64, ge::DT_FLOAT, static_cast<int64_t>(ge::DT_INT64)),
+         "input tensor offset", "DT_FLOAT", "input offset dtype should be int64"}};
+    for (auto& item : cases) {
+        ASSERT_EQ(error_message::ErrMgrInit(error_message::ErrorMessageMode::INTERNAL_MODE), 0);
+        error_message::GetErrMgrRawErrorMessages();
+        ExecuteTestCase(item.para, ge::GRAPH_FAILED);
+        ExpectRawDtype(item.param, item.dtype, item.reason);
+    }
+}
+
 // 输出为0..n-1的排列，最大输出值为n-1：n-1可被dtype表示时应放行，n-1溢出时应拒绝
 TEST_F(StatelessRandpermTiling, stateless_randperm_tiling_950_int8_boundary)
 {
     RandpermBoundaryCase acceptCase(128, ge::DT_INT8);
     RandpermBoundaryCase rejectCase(129, ge::DT_INT8);
     ExecuteTestCase(acceptCase.para, ge::GRAPH_SUCCESS, 16843010, std::vector<size_t>{16779264});
+    ASSERT_EQ(error_message::ErrMgrInit(error_message::ErrorMessageMode::INTERNAL_MODE), 0);
+    error_message::GetErrMgrRawErrorMessages();
     ExecuteTestCase(rejectCase.para, ge::GRAPH_FAILED);
+    ExpectRawError("EZ0026", "129");
 }
 
 TEST_F(StatelessRandpermTiling, stateless_randperm_tiling_950_uint8_boundary)
@@ -177,7 +269,10 @@ TEST_F(StatelessRandpermTiling, stateless_randperm_tiling_950_uint8_boundary)
     RandpermBoundaryCase acceptCase(256, ge::DT_UINT8);
     RandpermBoundaryCase rejectCase(257, ge::DT_UINT8);
     ExecuteTestCase(acceptCase.para, ge::GRAPH_SUCCESS, 16843010, std::vector<size_t>{16781312});
+    ASSERT_EQ(error_message::ErrMgrInit(error_message::ErrorMessageMode::INTERNAL_MODE), 0);
+    error_message::GetErrMgrRawErrorMessages();
     ExecuteTestCase(rejectCase.para, ge::GRAPH_FAILED);
+    ExpectRawError("EZ0026", "257");
 }
 
 TEST_F(StatelessRandpermTiling, stateless_randperm_tiling_950_int16_boundary)
@@ -185,7 +280,10 @@ TEST_F(StatelessRandpermTiling, stateless_randperm_tiling_950_int16_boundary)
     RandpermBoundaryCase acceptCase(32768, ge::DT_INT16);
     RandpermBoundaryCase rejectCase(32769, ge::DT_INT16);
     ExecuteTestCase(acceptCase.para, ge::GRAPH_SUCCESS, 16908547, std::vector<size_t>{18292736});
+    ASSERT_EQ(error_message::ErrMgrInit(error_message::ErrorMessageMode::INTERNAL_MODE), 0);
+    error_message::GetErrMgrRawErrorMessages();
     ExecuteTestCase(rejectCase.para, ge::GRAPH_FAILED);
+    ExpectRawError("EZ0026", "32769");
 }
 
 // 浮点类型按连续整数精确表示上限校验：最大输出值n-1超出精度范围（会舍入产生重复值）时应拒绝
@@ -194,7 +292,10 @@ TEST_F(StatelessRandpermTiling, stateless_randperm_tiling_950_float16_boundary)
     RandpermBoundaryCase acceptCase(2049, ge::DT_FLOAT16);
     RandpermBoundaryCase rejectCase(2050, ge::DT_FLOAT16);
     ExecuteTestCase(acceptCase.para, ge::GRAPH_SUCCESS, 16843010, std::vector<size_t>{16810000});
+    ASSERT_EQ(error_message::ErrMgrInit(error_message::ErrorMessageMode::INTERNAL_MODE), 0);
+    error_message::GetErrMgrRawErrorMessages();
     ExecuteTestCase(rejectCase.para, ge::GRAPH_FAILED);
+    ExpectRawError("EZ0026", "2050");
 }
 
 TEST_F(StatelessRandpermTiling, stateless_randperm_tiling_950_bfloat16_boundary)
@@ -202,7 +303,10 @@ TEST_F(StatelessRandpermTiling, stateless_randperm_tiling_950_bfloat16_boundary)
     RandpermBoundaryCase acceptCase(257, ge::DT_BF16);
     RandpermBoundaryCase rejectCase(258, ge::DT_BF16);
     ExecuteTestCase(acceptCase.para, ge::GRAPH_SUCCESS, 16843010, std::vector<size_t>{16781328});
+    ASSERT_EQ(error_message::ErrMgrInit(error_message::ErrorMessageMode::INTERNAL_MODE), 0);
+    error_message::GetErrMgrRawErrorMessages();
     ExecuteTestCase(rejectCase.para, ge::GRAPH_FAILED);
+    ExpectRawError("EZ0026", "258");
 }
 
 TEST_F(StatelessRandpermTiling, stateless_randperm_tiling_950_float_boundary)
@@ -213,5 +317,8 @@ TEST_F(StatelessRandpermTiling, stateless_randperm_tiling_950_float_boundary)
     TilingInfo info;
     EXPECT_TRUE(ExecuteTiling(acceptCase.para, info));
     EXPECT_EQ(info.tilingKey, 16908547);
+    ASSERT_EQ(error_message::ErrMgrInit(error_message::ErrorMessageMode::INTERNAL_MODE), 0);
+    error_message::GetErrMgrRawErrorMessages();
     ExecuteTestCase(rejectCase.para, ge::GRAPH_FAILED);
+    ExpectRawError("EZ0026", "16777218");
 }

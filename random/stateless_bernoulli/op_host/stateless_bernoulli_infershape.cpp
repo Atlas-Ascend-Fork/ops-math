@@ -14,6 +14,7 @@
  */
 #include "log/log.h"
 #include "register/op_impl_registry.h"
+#include "graph/utils/type_utils.h"
 #include "op_host/util/math_util.h"
 #include "op_host/util/const_util.h"
 #include "random/random_common/op_host/random_infershape_base.h"
@@ -45,7 +46,10 @@ static graphStatus InferShapeStatelessBernoulli(gert::InferShapeContext* context
         OP_CHECK_NULL_WITH_CONTEXT(context, shapeDesc);
         const auto shapeDtype = shapeDesc->GetDataType();
         OP_CHECK_IF(shapeDtype != ge::DT_INT32 && shapeDtype != ge::DT_INT64,
-                    OP_LOGE(context->GetNodeName(), "shape input must be int32 or int64."), return ge::GRAPH_FAILED);
+                    OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "shape",
+                                                          ge::TypeUtils::DataTypeToSerialString(shapeDtype).c_str(),
+                                                          "shape input must be int32 or int64."),
+                    return ge::GRAPH_FAILED);
         for (size_t index = STATELESS_BERNOULLI_SHAPE; index <= STATELESS_BERNOULLI_OFFSET; ++index) {
             const auto* inputShape = context->GetInputShape(index);
             OP_CHECK_NULL_WITH_CONTEXT(context, inputShape);

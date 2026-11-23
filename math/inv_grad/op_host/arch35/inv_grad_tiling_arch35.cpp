@@ -41,6 +41,7 @@
 #include "op_common/log/log.h"
 #include "op_common/op_host/util/math_util.h"
 #include "op_common/op_host/util/platform_util.h"
+#include "graph/utils/type_utils.h"
 #include "inv_grad_tiling_arch35.h"
 #include "../../op_kernel/arch35/inv_grad_tiling_data.h"
 
@@ -104,8 +105,8 @@ static ge::graphStatus GetShapeInfo(gert::TilingContext* context, int64_t& total
     const std::set<ge::DataType> supportedDtype = {ge::DT_FLOAT, ge::DT_FLOAT16, ge::DT_BF16, ge::DT_INT32,
                                                    ge::DT_INT8};
     if (supportedDtype.count(dataType) == 0) {
-        OP_LOGE(context, "InvGrad: unsupported x dtype %d (supported: fp16, bf16, fp32, int32, int8)",
-                static_cast<int>(dataType));
+        OP_LOGE_FOR_INVALID_DTYPE(context->GetNodeName(), "x", ge::TypeUtils::DataTypeToSerialString(dataType).c_str(),
+                                  "DT_FLOAT, DT_FLOAT16, DT_BF16, DT_INT32, DT_INT8");
         return ge::GRAPH_FAILED;
     }
 
@@ -125,25 +126,30 @@ static ge::graphStatus GetShapeInfo(gert::TilingContext* context, int64_t& total
 
     // dtype must match
     if (gradDataType != dataType) {
-        OP_LOGE(context, "InvGrad: x dtype %d != grad dtype %d", static_cast<int>(dataType),
-                static_cast<int>(gradDataType));
+        OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(context->GetNodeName(), "x,grad",
+                                               (std::string(ge::TypeUtils::DataTypeToSerialString(dataType)) + "," +
+                                                ge::TypeUtils::DataTypeToSerialString(gradDataType))
+                                                   .c_str(),
+                                               "grad dtype must be the same as x dtype");
         return ge::GRAPH_FAILED;
     }
 
     // shape must match exactly: broadcast is not supported, pre-broadcast externally if needed
     if (gradShape.GetDimNum() != xShape.GetDimNum()) {
-        OP_LOGE(context,
-                "InvGrad: x.dimNum %zu != grad.dimNum %zu, InvGrad does not support broadcast, x and grad "
-                "must have the same shape, pre-broadcast externally if needed",
-                xShape.GetDimNum(), gradShape.GetDimNum());
+        OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(
+            context->GetNodeName(), "x,grad",
+            (Ops::Base::ToString(xShape) + "," + Ops::Base::ToString(gradShape)).c_str(),
+            "grad shape must be the same as x shape, broadcast is not supported, pre-broadcast externally "
+            "if needed (rank mismatch)");
         return ge::GRAPH_FAILED;
     }
     for (size_t i = 0; i < xShape.GetDimNum(); ++i) {
         if (xShape.GetDim(i) != gradShape.GetDim(i)) {
-            OP_LOGE(context,
-                    "InvGrad: x.shape[%zu] %ld != grad.shape[%zu] %ld, InvGrad does not support broadcast, "
-                    "x and grad must have the same shape, pre-broadcast externally if needed",
-                    i, xShape.GetDim(i), i, gradShape.GetDim(i));
+            OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(
+                context->GetNodeName(), "x,grad",
+                (Ops::Base::ToString(xShape) + "," + Ops::Base::ToString(gradShape)).c_str(),
+                "grad shape must be the same as x shape, broadcast is not supported");
+
             return ge::GRAPH_FAILED;
         }
     }
@@ -265,16 +271,20 @@ static ge::graphStatus InvGradTilingFunc(gert::TilingContext* context)
     OP_LOGD(context->GetNodeName(), "Begin the tiling process for Arch35 architecture");
     uint64_t ubSize = 0;
     int64_t coreNum = 0;
+    // GetPlatformInfo / GetShapeInfo / GetWorkspaceSize / GetDtypeTypeSize /
+    // ComputeTilingParams each report their own first error on every failure
+    // path; log without reporting again so the inner report is not diluted by
+    // a generic EZ9999 wrapper.
     OP_CHECK_IF(GetPlatformInfo(context, ubSize, coreNum) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context, "GetPlatformInfo error"), return ge::GRAPH_FAILED);
+                OP_LOGE_WITHOUT_REPORT(context, "GetPlatformInfo error"), return ge::GRAPH_FAILED);
 
     int64_t totalElements = 0;
     ge::DataType dataType = ge::DT_FLOAT;
     OP_CHECK_IF(GetShapeInfo(context, totalElements, dataType) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context, "GetShapeInfo error"), return ge::GRAPH_FAILED);
+                OP_LOGE_WITHOUT_REPORT(context, "GetShapeInfo error"), return ge::GRAPH_FAILED);
 
-    OP_CHECK_IF(GetWorkspaceSize(context) != ge::GRAPH_SUCCESS, OP_LOGE(context, "GetWorkspaceSize error"),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(GetWorkspaceSize(context) != ge::GRAPH_SUCCESS,
+                OP_LOGE_WITHOUT_REPORT(context, "GetWorkspaceSize error"), return ge::GRAPH_FAILED);
 
     InvGradTilingData* tiling = context->GetTilingData<InvGradTilingData>();
     OP_CHECK_NULL_WITH_CONTEXT(context, tiling);
@@ -283,7 +293,7 @@ static ge::graphStatus InvGradTilingFunc(gert::TilingContext* context)
 
     int64_t typeSize = 4;
     OP_CHECK_IF(GetDtypeTypeSize(context, dataType, typeSize) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context, "GetDtypeTypeSize error"), return ge::GRAPH_FAILED);
+                OP_LOGE_WITHOUT_REPORT(context, "GetDtypeTypeSize error"), return ge::GRAPH_FAILED);
 
     if (totalElements == 0) {
         context->SetBlockDim(1);
@@ -293,7 +303,7 @@ static ge::graphStatus InvGradTilingFunc(gert::TilingContext* context)
     int64_t usedCoreNum = 0;
     OP_CHECK_IF(ComputeTilingParams(context, totalElements, coreNum, ubSize, typeSize, tiling, usedCoreNum) !=
                     ge::GRAPH_SUCCESS,
-                OP_LOGE(context, "ComputeTilingParams error"), return ge::GRAPH_FAILED);
+                OP_LOGE_WITHOUT_REPORT(context, "ComputeTilingParams error"), return ge::GRAPH_FAILED);
 
     context->SetBlockDim(usedCoreNum);
     OP_LOGI(context, "[TilingData] totalElements=%ld, blockFactor=%ld, ubFactor=%ld", tiling->totalElements,
