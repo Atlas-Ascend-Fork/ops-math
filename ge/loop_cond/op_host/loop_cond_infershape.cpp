@@ -17,6 +17,8 @@
 #include "exe_graph/runtime/infer_datatype_context.h"
 #include "log/log.h"
 
+#include <vector>
+
 using namespace ge;
 
 namespace ops {
@@ -39,10 +41,8 @@ static ge::graphStatus InferShape4LoopCond(gert::InferShapeContext* context)
     OP_CHECK_NULL_WITH_CONTEXT(context, outShape);
 
     if (!IsUnknownRank(inShape) && (inShape->GetDimNum() != 0U)) {
-        OP_LOGE(context->GetNodeName(),
-                "[InferShape][Check] Check shape rank failed, input x should be a scalar, "
-                "actually rank=%zu",
-                inShape->GetDimNum());
+        OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(
+            context->GetNodeName(), "x", std::to_string(inShape->GetDimNum()).c_str(), "input x should be a scalar");
         return ge::GRAPH_FAILED;
     }
     *outShape = *inShape;
@@ -53,10 +53,8 @@ static ge::graphStatus InferDataType4LoopCond(gert::InferDataTypeContext* contex
 {
     const ge::DataType inDtype = context->GetInputDataType(kInputIndex);
     if (inDtype != ge::DT_BOOL) {
-        OP_LOGE(context->GetNodeName(),
-                "[InferDataType][Check] Check dtype failed, input x should be DT_BOOL, "
-                "actually is %d",
-                static_cast<int32_t>(inDtype));
+        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "x", Ops::Base::ToString(inDtype).c_str(),
+                                              "input x should be DT_BOOL");
         return ge::GRAPH_FAILED;
     }
     return context->SetOutputDataType(kOutputIndex, inDtype);

@@ -19,6 +19,8 @@
 #include "exe_graph/runtime/continuous_vector.h"
 #include "log/log.h"
 
+#include <vector>
+
 using namespace ge;
 
 namespace ops {
@@ -50,7 +52,10 @@ static ge::graphStatus InferShape4QueueData(gert::InferShapeContext* context)
     auto shapes_num = output_shapes_vec->GetSize();
 
     if (types_num != shapes_num) {
-        OP_LOGE(context->GetNodeName(), "attr[output_types] and attr[output_shapes] should be the same length");
+        OP_LOGE_FOR_INVALID_VALUES_WITH_REASON(
+            context->GetNodeName(), "output_types and output_shapes",
+            (std::to_string(types_num) + " and " + std::to_string(shapes_num)).c_str(),
+            "output_types and output_shapes must have the same length");
         return ge::GRAPH_FAILED;
     }
 

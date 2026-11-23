@@ -76,10 +76,12 @@ static ge::graphStatus InferShapeForPhonySplit(gert::InferShapeContext* context)
     const int64_t dimNum = static_cast<int64_t>(xShape->GetDimNum());
     std::vector<int64_t> splitDims(splitDim->GetData(), splitDim->GetData() + splitDim->GetSize());
     for (size_t i = 0; i < splitDims.size(); ++i) {
-        OP_CHECK_IF(
-            (splitDims[i] < -dimNum) || (splitDims[i] >= dimNum),
-            OP_LOGE(context, "split_dim[%zu] is %ld, must be in range [-%ld, %ld).", i, splitDims[i], dimNum, dimNum),
-            return ge::GRAPH_FAILED);
+        OP_CHECK_IF((splitDims[i] < -dimNum) || (splitDims[i] >= dimNum),
+                    OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                        context->GetNodeName(), "split_dim", std::to_string(splitDims[i]).c_str(),
+                        ("split_dim must be in range [-" + std::to_string(dimNum) + ", " + std::to_string(dimNum) + ")")
+                            .c_str()),
+                    return ge::GRAPH_FAILED);
         OP_CHECK_IF(
             numSplit->GetData()[i] < 1,
             OP_LOGE(context, "num_split[%zu] is %ld, must be greater than or equal to 1.", i, numSplit->GetData()[i]),
@@ -98,8 +100,11 @@ static ge::graphStatus InferShapeForPhonySplit(gert::InferShapeContext* context)
             continue;
         }
         OP_CHECK_IF(outShape.GetDim(dimIdx) % numSplit->GetData()[i] != 0,
-                    OP_LOGE(context, "The dim[%zu] of input is %ld, should be divisible by num_split[%zu]=%ld.", dimIdx,
-                            outShape.GetDim(dimIdx), i, numSplit->GetData()[i]),
+                    OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(
+                        context->GetNodeName(), "x", std::to_string(outShape.GetDim(dimIdx)).c_str(),
+                        ("the dim of x on each split_dim must be divisible by num_split " +
+                         std::to_string(numSplit->GetData()[i]))
+                            .c_str()),
                     return ge::GRAPH_FAILED);
         outShape.SetDim(dimIdx, outShape.GetDim(dimIdx) / numSplit->GetData()[i]);
     }

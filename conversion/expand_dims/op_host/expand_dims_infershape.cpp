@@ -15,6 +15,8 @@
 #include "register/op_impl_registry.h"
 #include "runtime/infer_shape_context.h"
 #include "log/log.h"
+
+#include <vector>
 #include "op_host/util/shape_util.h"
 
 namespace ops {
@@ -61,10 +63,11 @@ static ge::graphStatus InferShapeForExpandDims(gert::InferShapeContext* context)
     OP_CHECK_NULL_WITH_CONTEXT(context, axisTensor);
 
     const ge::DataType axisDtype = axisTensor->GetDataType();
-    OP_CHECK_IF((axisDtype != ge::DT_INT32) && (axisDtype != ge::DT_INT64),
-                OP_LOGE(context, "The dtype of axis must be DT_INT32 or DT_INT64, actually is %d.",
-                        static_cast<int32_t>(axisDtype)),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        (axisDtype != ge::DT_INT32) && (axisDtype != ge::DT_INT64),
+        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "axis", Ops::Base::ToString(axisDtype).c_str(),
+                                              "supported dtypes are DT_INT32 and DT_INT64"),
+        return ge::GRAPH_FAILED);
 
     // unknown rank input keeps unknown rank output, regardless of axis data availability (RT1.0 v1 semantics:
     // inserting a dim into an unknown-rank shape is meaningless, so the output rank stays unknown)
@@ -76,10 +79,9 @@ static ge::graphStatus InferShapeForExpandDims(gert::InferShapeContext* context)
     // axis input must be a scalar or a tensor with a single value (checked before the compile-phase
     // branch, same as RT1.0 v1: the axis shape is known even when its value is not)
     OP_CHECK_IF(axisTensor->GetShapeSize() != 1,
-                OP_LOGE(context,
-                        "ExpandDims failed, axis input must be a tensor with a single value, "
-                        "actually shape size is %ld.",
-                        axisTensor->GetShapeSize()),
+                OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(context->GetNodeName(), "axis",
+                                                          std::to_string(axisTensor->GetShapeSize()).c_str(),
+                                                          "the axis input must be a tensor with a single value"),
                 return ge::GRAPH_FAILED);
 
     // axis tensor data addr is nullptr, means the axis value is unknown (compile phase)

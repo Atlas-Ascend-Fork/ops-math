@@ -17,6 +17,8 @@
 #include "exe_graph/runtime/infer_datatype_context.h"
 #include "log/log.h"
 
+#include <vector>
+
 using namespace ge;
 
 namespace ops {
@@ -37,7 +39,8 @@ static ge::graphStatus InferShape4RefSwitch(gert::InferShapeContext* context)
     OP_CHECK_NULL_WITH_CONTEXT(context, pred_shape);
 
     if (!IsUnknownRankShape(*pred_shape) && pred_shape->GetDimNum() != 0U) {
-        OP_LOGE(context->GetNodeName(), "input pred should be a scalar, but its rank is %zu", pred_shape->GetDimNum());
+        OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(
+            context->GetNodeName(), "pred", std::to_string(pred_shape->GetDimNum()).c_str(), "pred should be a scalar");
         return ge::GRAPH_FAILED;
     }
 
@@ -55,7 +58,8 @@ static ge::graphStatus InferDataType4RefSwitch(gert::InferDataTypeContext* conte
 {
     const auto pred_dtype = context->GetInputDataType(1);
     if (pred_dtype != ge::DT_BOOL) {
-        OP_LOGE(context->GetNodeName(), "input pred should be DT_BOOL, but got %d", static_cast<int>(pred_dtype));
+        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "pred", Ops::Base::ToString(pred_dtype).c_str(),
+                                              "pred should be DT_BOOL");
         return ge::GRAPH_FAILED;
     }
     const auto data_dtype = context->GetInputDataType(0);

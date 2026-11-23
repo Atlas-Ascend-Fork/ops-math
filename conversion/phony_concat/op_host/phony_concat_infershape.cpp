@@ -58,10 +58,10 @@ static ge::graphStatus InferShapeForPhonyConcat(gert::InferShapeContext* context
         nTotalNum *= numConcat->GetData()[i];
     }
     OP_CHECK_IF(nTotalNum != static_cast<int64_t>(context->GetComputeNodeInputNum()),
-                OP_LOGE(context,
-                        "The product of N must be equal to the number of inputs, product of N is %ld, "
-                        "input num is %zu.",
-                        nTotalNum, context->GetComputeNodeInputNum()),
+                OP_LOGE_FOR_INVALID_TENSORNUMS_WITH_REASON(
+                    context->GetNodeName(), "N and x",
+                    (std::to_string(nTotalNum) + " and " + std::to_string(context->GetComputeNodeInputNum())).c_str(),
+                    "the product of N must be equal to the number of inputs"),
                 return ge::GRAPH_FAILED);
 
     // input shape is unknown rank (-2), output keeps unknown rank
@@ -76,7 +76,10 @@ static ge::graphStatus InferShapeForPhonyConcat(gert::InferShapeContext* context
     for (size_t i = 0; i < concatDims.size(); ++i) {
         OP_CHECK_IF(
             (concatDims[i] < -dimNum) || (concatDims[i] >= dimNum),
-            OP_LOGE(context, "concat_dim[%zu] is %ld, must be in range [-%ld, %ld).", i, concatDims[i], dimNum, dimNum),
+            OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                context->GetNodeName(), "concat_dim", std::to_string(concatDims[i]).c_str(),
+                ("concat_dim must be in range [-" + std::to_string(dimNum) + ", " + std::to_string(dimNum) + ")")
+                    .c_str()),
             return ge::GRAPH_FAILED);
         OP_CHECK_IF(numConcat->GetData()[i] < 1,
                     OP_LOGE(context, "N[%zu] is %ld, must be greater than or equal to 1.", i, numConcat->GetData()[i]),
@@ -105,10 +108,13 @@ static ge::graphStatus InferDataTypeForPhonyConcat(gert::InferDataTypeContext* c
     const ge::DataType xDtype = context->GetInputDataType(PHONY_CONCAT_IDX_IN_X);
     const size_t inputNum = context->GetComputeNodeInputNum();
     for (size_t i = 1; i < inputNum; i++) {
-        OP_CHECK_IF(context->GetInputDataType(i) != xDtype,
-                    OP_LOGE(context, "The dtype of input[%zu] is %d, must be the same as input[0] which is %d.", i,
-                            static_cast<int32_t>(context->GetInputDataType(i)), static_cast<int32_t>(xDtype)),
-                    return ge::GRAPH_FAILED);
+        OP_CHECK_IF(
+            context->GetInputDataType(i) != xDtype,
+            OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(
+                context->GetNodeName(), "x",
+                (Ops::Base::ToString(context->GetInputDataType(i)) + " and " + Ops::Base::ToString(xDtype)).c_str(),
+                "all inputs must have the same dtype as the first input"),
+            return ge::GRAPH_FAILED);
     }
     return context->SetOutputDataType(PHONY_CONCAT_IDX_OUT_Y, xDtype);
 }

@@ -15,6 +15,8 @@
 #include "register/op_impl_registry.h"
 #include "runtime/infer_shape_context.h"
 #include "log/log.h"
+
+#include <vector>
 #include "op_host/util/shape_util.h"
 
 namespace ops {
@@ -41,7 +43,9 @@ static ge::graphStatus InferShapeForFlattenV2(gert::InferShapeContext* context)
     OP_CHECK_NULL_WITH_CONTEXT(context, attrEndAxis);
 
     // input shape is unknown rank (-2): rejected (RT1.0 verifier semantics)
-    OP_CHECK_IF(Ops::Base::IsUnknownRank(*xShape), OP_LOGE(context, "Input shape is unknown rank, not supported."),
+    OP_CHECK_IF(Ops::Base::IsUnknownRank(*xShape),
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "x", "-2",
+                                                         "input of unknown rank is not supported"),
                 return ge::GRAPH_FAILED);
 
     const int64_t dimNum = static_cast<int64_t>(xShape->GetDimNum());
@@ -55,11 +59,15 @@ static ge::graphStatus InferShapeForFlattenV2(gert::InferShapeContext* context)
         endAxis += dimNum;
     }
 
-    OP_CHECK_IF((axis < 0) || (axis >= dimNum),
-                OP_LOGE(context, "axis[%ld] is invalid, must be in range [0, %ld).", axis, dimNum),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        (axis < 0) || (axis >= dimNum),
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "axis", std::to_string(axis).c_str(),
+                                              ("axis must be in range [0, " + std::to_string(dimNum) + ")").c_str()),
+        return ge::GRAPH_FAILED);
     OP_CHECK_IF((endAxis < 0) || (endAxis >= dimNum),
-                OP_LOGE(context, "end_axis[%ld] is invalid, must be in range [0, %ld).", endAxis, dimNum),
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                    context->GetNodeName(), "end_axis", std::to_string(endAxis).c_str(),
+                    ("end_axis must be in range [0, " + std::to_string(dimNum) + ")").c_str()),
                 return ge::GRAPH_FAILED);
     OP_CHECK_IF(axis > endAxis, OP_LOGE(context, "axis[%ld] is greater than end_axis[%ld]!", axis, endAxis),
                 return ge::GRAPH_FAILED);

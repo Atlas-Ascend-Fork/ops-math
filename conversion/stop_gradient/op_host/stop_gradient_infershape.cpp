@@ -16,6 +16,8 @@
 #include "runtime/infer_shape_context.h"
 #include "log/log.h"
 
+#include <vector>
+
 namespace ops {
 const std::string OP_NAME = "StopGradient";
 static ge::graphStatus InferShapeForStopGradient(gert::InferShapeContext* context)
@@ -25,8 +27,11 @@ static ge::graphStatus InferShapeForStopGradient(gert::InferShapeContext* contex
         return ge::GRAPH_FAILED;
     }
     if (context->GetComputeNodeInputNum() != 1U || context->GetComputeNodeOutputNum() != 1U) {
-        OP_LOGE(OP_NAME, "Only support 1 input and 1 output, but got input num %zu, output num %zu.",
-                context->GetComputeNodeInputNum(), context->GetComputeNodeOutputNum());
+        OP_LOGE_FOR_INVALID_TENSORNUMS_WITH_REASON(OP_NAME, "x and y",
+                                                   (std::to_string(context->GetComputeNodeInputNum()) + " and " +
+                                                    std::to_string(context->GetComputeNodeOutputNum()))
+                                                       .c_str(),
+                                                   "only supports 1 input and 1 output");
         return ge::GRAPH_FAILED;
     }
     const auto* input_shape = context->GetInputShape(0U);

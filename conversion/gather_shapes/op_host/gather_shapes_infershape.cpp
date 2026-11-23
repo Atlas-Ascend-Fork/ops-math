@@ -17,6 +17,8 @@
 #include "exe_graph/runtime/infer_datatype_context.h"
 #include "runtime/storage_shape.h"
 #include "log/log.h"
+
+#include <vector>
 #include "util/shape_util.h"
 
 using namespace ge;
@@ -51,17 +53,19 @@ static ge::graphStatus CheckAxesForGatherShapes(gert::InferShapeContext* context
         const int64_t input_idx = axis_data[0];
         const int64_t dim_idx = axis_data[1];
         if ((input_idx < 0) || (static_cast<uint64_t>(input_idx) >= input_num)) {
-            OP_LOGE(context->GetNodeName(),
-                    "Attr [axes] value is invalid: axes[%ld, %ld] input index is out of range, input num is %zu",
-                    input_idx, dim_idx, input_num);
+            OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                context->GetNodeName(), "axes",
+                ("[" + std::to_string(input_idx) + ", " + std::to_string(dim_idx) + "]").c_str(),
+                ("the input index in axes is out of range, input num is " + std::to_string(input_num)).c_str());
             return ge::GRAPH_FAILED;
         }
         const auto* x_shape = context->GetInputShape(static_cast<size_t>(input_idx));
         OP_CHECK_NULL_WITH_CONTEXT(context, x_shape);
         if ((dim_idx < 0) || (static_cast<uint64_t>(dim_idx) >= x_shape->GetDimNum())) {
-            OP_LOGE(context->GetNodeName(),
-                    "Attr [axes] value is invalid: axes[%ld, %ld] dim index is out of range, dim num is %zu", input_idx,
-                    dim_idx, x_shape->GetDimNum());
+            OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                context->GetNodeName(), "axes",
+                ("[" + std::to_string(input_idx) + ", " + std::to_string(dim_idx) + "]").c_str(),
+                ("the dim index in axes is out of range, dim num is " + std::to_string(x_shape->GetDimNum())).c_str());
             return ge::GRAPH_FAILED;
         }
     }

@@ -42,7 +42,7 @@ static ge::graphStatus InferShape4Merge(gert::InferShapeContext* context)
     OP_CHECK_NULL_WITH_CONTEXT(context, in_info);
     const size_t in_num = in_info->GetInstanceNum();
     if (in_num < 1U) {
-        OP_LOGE(context->GetNodeName(), "input num of Merge should be >= 1, but got %zu", in_num);
+        OP_LOGE_FOR_INVALID_TENSORNUM(context->GetNodeName(), "x", in_num, "at least 1");
         return ge::GRAPH_FAILED;
     }
 

@@ -78,8 +78,9 @@ ge::graphStatus InferShapeForEmptyTensorX(const gert::Shape& x_shape, const T* r
         if (reshape_data[i] == 0) {
             target_has_zero = true;
         } else if (reshape_data[i] < 0) {
-            OP_LOGE("Reshape", "shape dim[%zu] must be -1 or non-negative, but got %ld!", i,
-                    static_cast<int64_t>(reshape_data[i]));
+            OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON("Reshape", "shape",
+                                                  std::to_string(static_cast<int64_t>(reshape_data[i])).c_str(),
+                                                  "each dim of the target shape must be -1 or non-negative");
             return ge::GRAPH_FAILED;
         } else {
             if (MulOverflow(shape_des_size, static_cast<int64_t>(reshape_data[i]))) {
@@ -184,8 +185,9 @@ ge::graphStatus ReshapeInferShapeImpl(const gert::Shape& x_shape, const T* resha
                 infer_index = i;
             }
         } else if (reshape_dims[i] < 0) {
-            OP_LOGE("Reshape", "shape dim[%zu] must be -1 or non-negative, but got %ld!", i,
-                    static_cast<int64_t>(reshape_dims[i]));
+            OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON("Reshape", "shape",
+                                                  std::to_string(static_cast<int64_t>(reshape_dims[i])).c_str(),
+                                                  "each dim of the target shape must be -1 or non-negative");
             return ge::GRAPH_FAILED;
         } else {
             y_shape->SetDim(i, reshape_dims[i]);
@@ -288,7 +290,9 @@ static ge::graphStatus InferShapeForReshape(gert::InferShapeContext* context)
         OP_CHECK_NULL_WITH_CONTEXT(context, shape_input_shape);
         OP_LOGD(context, "Shape data is not got on compile stage. Infer output rank from the shape of shape input.");
         if (shape_input_shape->GetDimNum() > 1U) {
-            OP_LOGE(context, "Shape input rank is %zu, should be not larger than 1!", shape_input_shape->GetDimNum());
+            OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "shape",
+                                                     std::to_string(shape_input_shape->GetDimNum()).c_str(),
+                                                     "the rank of the shape input must not be larger than 1");
             return ge::GRAPH_FAILED;
         }
         const auto y_rank = (shape_input_shape->GetDimNum() == 0U) ? 0 : shape_input_shape->GetDim(0U);
@@ -312,7 +316,8 @@ static ge::graphStatus InferShapeForReshape(gert::InferShapeContext* context)
     const auto reshape_size = shape_tensor->GetShapeSize();
     // case 2: element num of shape input is invalid
     if (reshape_size < 0) {
-        OP_LOGE(context, "Element num of shape input is %ld, cannot be less than 0!", reshape_size);
+        OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(context->GetNodeName(), "shape", std::to_string(reshape_size).c_str(),
+                                                  "the element num of the shape input cannot be less than 0");
         return ge::GRAPH_FAILED;
     }
     // case 3: shape input contains no element, output is scalar; x must be a scalar or dynamic
@@ -329,8 +334,8 @@ static ge::graphStatus InferShapeForReshape(gert::InferShapeContext* context)
         }
         const auto x_size = x_shape->GetShapeSize();
         if (has_zero_dim || (!has_unknown_dim && (x_size != 1))) {
-            OP_LOGE(context, "Shape input contains no element, x shape size is %ld, must be 1 to reshape to scalar!",
-                    x_size);
+            OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(context->GetNodeName(), "x", std::to_string(x_size).c_str(),
+                                                      "reshaping to scalar requires the x shape size to be 1");
             return ge::GRAPH_FAILED;
         }
         OP_LOGD(context, "Shape input contains no element. Set output shape as scalar.");
@@ -347,8 +352,8 @@ static ge::graphStatus InferShapeForReshape(gert::InferShapeContext* context)
     // the data is about to be read, other dtypes would be misread as int64 or read out of range
     const auto shape_dtype = shape_tensor->GetDataType();
     if ((shape_dtype != ge::DT_INT32) && (shape_dtype != ge::DT_INT64)) {
-        OP_LOGE(context, "Data type of shape input is %d, must be DT_INT32 or DT_INT64!",
-                static_cast<int32_t>(shape_dtype));
+        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "shape", Ops::Base::ToString(shape_dtype).c_str(),
+                                              "supported dtypes are DT_INT32 and DT_INT64");
         return ge::GRAPH_FAILED;
     }
 

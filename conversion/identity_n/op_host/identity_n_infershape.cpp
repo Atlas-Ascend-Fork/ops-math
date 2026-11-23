@@ -17,6 +17,8 @@
 #include "runtime/storage_shape.h"
 #include "log/log.h"
 
+#include <vector>
+
 using namespace gert;
 namespace ops {
 const std::string OP_NAME = "IdentityN";
@@ -28,8 +30,10 @@ static ge::graphStatus InferShapeForIdentityN(InferShapeContext* context)
     }
     auto input_num = context->GetComputeNodeInputNum();
     if (input_num != context->GetComputeNodeOutputNum()) {
-        OP_LOGE(OP_NAME, "Input num must be equal to output num, but got input num %zu, output num %zu.", input_num,
-                context->GetComputeNodeOutputNum());
+        OP_LOGE_FOR_INVALID_TENSORNUMS_WITH_REASON(
+            OP_NAME, "x and y",
+            (std::to_string(input_num) + " and " + std::to_string(context->GetComputeNodeOutputNum())).c_str(),
+            "the number of inputs must be equal to the number of outputs");
         return ge::GRAPH_FAILED;
     }
     for (size_t num = 0U; num < input_num; ++num) {
@@ -52,8 +56,10 @@ static ge::graphStatus InferDataTypeForIdentityN(InferDataTypeContext* context)
     }
     const auto input_num = context->GetComputeNodeInputNum();
     if (input_num != context->GetComputeNodeOutputNum()) {
-        OP_LOGE(OP_NAME, "Input num must be equal to output num, but got input num %zu, output num %zu.", input_num,
-                context->GetComputeNodeOutputNum());
+        OP_LOGE_FOR_INVALID_TENSORNUMS_WITH_REASON(
+            OP_NAME, "x and y",
+            (std::to_string(input_num) + " and " + std::to_string(context->GetComputeNodeOutputNum())).c_str(),
+            "the number of inputs must be equal to the number of outputs");
         return ge::GRAPH_FAILED;
     }
     for (size_t num = 0U; num < input_num; ++num) {
