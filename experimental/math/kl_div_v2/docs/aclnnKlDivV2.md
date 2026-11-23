@@ -31,9 +31,9 @@
   aclnnStatus aclnnKlDivGetWorkspaceSize(
     const aclTensor* x,
     const aclTensor* target,
-    const char* reduction,
+    int64_t reduction,
     bool logTarget,
-    const aclTensor* out,
+    aclTensor* out,
     uint64_t* workspaceSize,
     aclOpExecutor** executor);
   ```
@@ -54,9 +54,9 @@
 | ------------ | --------- | -------------------------------------------------------------------- |
 | x            | 输入      | 公式中的输入x，数据类型支持FLOAT16、FLOAT、BF16，数据格式支持ND。   |
 | target       | 输入      | 公式中的target，数据类型支持FLOAT16、FLOAT、BF16，数据格式支持ND。  |
-| reduction    | 输入      | 归约方式，支持"none"、"mean"、"sum"、"batchmean"，默认"mean"。       |
-| logTarget    | 输入      | target是否已取对数，默认false。                                      |
-| out          | 输出      | 输出张量。reduction为"none"时shape与x相同，否则为标量[1]。           |
+| reduction    | 输入      | 归约方式，int64_t类型：0为none，1为mean，2为sum，3为batchmean；需显式传入。       |
+| logTarget    | 输入      | target是否已取对数，bool类型，需显式传入。                                      |
+| out          | 输出      | 输出张量。reduction为0时shape为x与target的广播结果，否则为归约后的标量。           |
 | workspaceSize| 输出      | 返回需要在Device侧申请的workspace大小。                              |
 | executor     | 输出      | 返回op执行器。                                                       |
 
