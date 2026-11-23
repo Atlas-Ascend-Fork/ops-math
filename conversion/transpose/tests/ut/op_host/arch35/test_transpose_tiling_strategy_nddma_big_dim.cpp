@@ -281,8 +281,9 @@ TEST(TransposeNddmaBigDimStrategy, nddma_big_dim_large_shape_and_ub_budget)
     ASSERT_NE(data, nullptr);
 
     EXPECT_EQ(data->permSize, 6);
-    EXPECT_EQ(data->inputShape[0], 1000);
-    EXPECT_EQ(data->inputShape[2], 1000);
+    // 未用槽位补 0；各轴取值不同，便于发现轴序错误
+    EXPECT_THAT(data->inputShape,
+                ::testing::ElementsAreArray(std::vector<int64_t>{1000, 1000, 1000, 100, 10, 10, 0, 0}));
     ASSERT_GE(data->outCutIndex, 0);
     ASSERT_LT(data->outCutIndex, data->permSize);
     // totalNddmaNum 只统计 outCutIndex 及其右侧轴（切分轴取 outUbFactor）。

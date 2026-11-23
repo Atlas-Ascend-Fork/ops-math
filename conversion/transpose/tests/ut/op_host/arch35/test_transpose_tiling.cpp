@@ -13,7 +13,9 @@
  * \brief transpose tiling ut test
  */
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <cstdint>
 #include <iostream>
 #include <vector>
 #include "tiling_context_faker.h"
@@ -140,10 +142,9 @@ TEST_F(TransposeTiling, transpose_tiling_negative_perm)
     ASSERT_EQ(tilingInfo.tilingDataSize, sizeof(TransposeSmallShape23DTilingData));
     const auto* data = reinterpret_cast<const TransposeSmallShape23DTilingData*>(tilingInfo.tilingData.get());
     EXPECT_EQ(data->dim, 2);
-    EXPECT_EQ(data->inputShape[0], 10);
-    EXPECT_EQ(data->inputShape[1], 20);
-    EXPECT_EQ(data->perm[0], 1);
-    EXPECT_EQ(data->perm[1], 0);
+    // 未用槽位：inputShape 补 0，perm 补 -1
+    EXPECT_THAT(data->inputShape, ::testing::ElementsAreArray(std::vector<int32_t>{10, 20, 0}));
+    EXPECT_THAT(data->perm, ::testing::ElementsAreArray(std::vector<int8_t>{1, 0, -1}));
     // 200 元素 x fp32 = 800B < 1024B 对齐单元，Host 分核退化为单核。
 }
 

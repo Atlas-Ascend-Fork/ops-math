@@ -53,12 +53,8 @@ TEST(TransposeTilingAxis, RemoveSingletonAxes)
     const auto* data = reinterpret_cast<const optiling::TransposeSmallShape23DTilingData*>(tilingInfo.tilingData.get());
     ASSERT_EQ(tilingInfo.tilingDataSize, sizeof(optiling::TransposeSmallShape23DTilingData));
     EXPECT_EQ(data->dim, 3);
-    EXPECT_EQ(data->inputShape[0], 2);
-    EXPECT_EQ(data->inputShape[1], 3);
-    EXPECT_EQ(data->inputShape[2], 4);
-    EXPECT_EQ(data->perm[0], 1);
-    EXPECT_EQ(data->perm[1], 0);
-    EXPECT_EQ(data->perm[2], 2);
+    EXPECT_THAT(data->inputShape, ::testing::ElementsAreArray(std::vector<int32_t>{2, 3, 4}));
+    EXPECT_THAT(data->perm, ::testing::ElementsAreArray(std::vector<int8_t>{1, 0, 2}));
 }
 
 TEST(TransposeTilingAxis, MergeContinuousAxes)
@@ -81,12 +77,8 @@ TEST(TransposeTilingAxis, MergeContinuousAxes)
     const auto* data = reinterpret_cast<const optiling::TransposeSmallShape23DTilingData*>(tilingInfo.tilingData.get());
     ASSERT_EQ(tilingInfo.tilingDataSize, sizeof(optiling::TransposeSmallShape23DTilingData));
     EXPECT_EQ(data->dim, 3);
-    EXPECT_EQ(data->inputShape[0], 6);
-    EXPECT_EQ(data->inputShape[1], 20);
-    EXPECT_EQ(data->inputShape[2], 6);
-    EXPECT_EQ(data->perm[0], 1);
-    EXPECT_EQ(data->perm[1], 0);
-    EXPECT_EQ(data->perm[2], 2);
+    EXPECT_THAT(data->inputShape, ::testing::ElementsAreArray(std::vector<int32_t>{6, 20, 6}));
+    EXPECT_THAT(data->perm, ::testing::ElementsAreArray(std::vector<int8_t>{1, 0, 2}));
 }
 
 using Shape = std::vector<int64_t>;

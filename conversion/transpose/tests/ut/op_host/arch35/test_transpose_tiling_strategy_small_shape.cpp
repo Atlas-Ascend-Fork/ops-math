@@ -68,10 +68,9 @@ TEST(TransposeSmallShapeStrategy, e2e_hits_this_strategy)
     const auto* data = GetTilingData<TransposeSmallShape23DTilingData>(e2e);
     ASSERT_NE(data, nullptr);
     EXPECT_EQ(data->dim, 2);
-    EXPECT_EQ(data->inputShape[0], 4);
-    EXPECT_EQ(data->inputShape[1], 7);
-    EXPECT_EQ(data->perm[0], 1);
-    EXPECT_EQ(data->perm[1], 0);
+    // 未用槽位：inputShape 补 0，perm 补 -1
+    EXPECT_THAT(data->inputShape, ::testing::ElementsAreArray(std::vector<int32_t>{4, 7, 0}));
+    EXPECT_THAT(data->perm, ::testing::ElementsAreArray(std::vector<int8_t>{1, 0, -1}));
 }
 
 // SIMT 不受支持的平台：SMALL_SHAPE 不命中（由 NDDMA/NDDMA_BIG_DIM 兜底）
@@ -97,10 +96,8 @@ TEST(TransposeSmallShapeStrategy, transpose_tiling_small_shape_2d)
     const auto* data = GetTilingData<TransposeSmallShape23DTilingData>(tilingInfo);
     ASSERT_NE(data, nullptr);
     EXPECT_EQ(data->dim, 2);
-    EXPECT_EQ(data->inputShape[0], 10);
-    EXPECT_EQ(data->inputShape[1], 20);
-    EXPECT_EQ(data->perm[0], 1);
-    EXPECT_EQ(data->perm[1], 0);
+    EXPECT_THAT(data->inputShape, ::testing::ElementsAreArray(std::vector<int32_t>{10, 20, 0}));
+    EXPECT_THAT(data->perm, ::testing::ElementsAreArray(std::vector<int8_t>{1, 0, -1}));
     // 200 元素 x fp32 = 800B < 1024B 对齐单元，Host 分核退化为单核。
 }
 
@@ -156,8 +153,7 @@ TEST(TransposeSmallShapeStrategy, transpose_tiling_small_shape_fp32_below_align_
     const auto* data = GetTilingData<TransposeSmallShape23DTilingData>(tilingInfo);
     ASSERT_NE(data, nullptr);
     EXPECT_EQ(data->dim, 2);
-    EXPECT_EQ(data->inputShape[0], 4);
-    EXPECT_EQ(data->inputShape[1], 7);
+    EXPECT_THAT(data->inputShape, ::testing::ElementsAreArray(std::vector<int32_t>{4, 7, 0}));
 }
 
 // 2D 小 shape int8: 20*6=120 元素 < 对齐单元 (128/1=128) -> Host 分核单核承载整块。
@@ -181,8 +177,7 @@ TEST(TransposeSmallShapeStrategy, transpose_tiling_small_shape_int8_below_align_
     const auto* data = GetTilingData<TransposeSmallShape23DTilingData>(tilingInfo);
     ASSERT_NE(data, nullptr);
     EXPECT_EQ(data->dim, 2);
-    EXPECT_EQ(data->inputShape[0], 20);
-    EXPECT_EQ(data->inputShape[1], 6);
+    EXPECT_THAT(data->inputShape, ::testing::ElementsAreArray(std::vector<int32_t>{20, 6, 0}));
 }
 
 // 2D 小 shape fp16 [5, 8]: 40 元素 < fp16 对齐单元 (128/2=64) -> Host 分核单核承载全部元素。
@@ -206,8 +201,7 @@ TEST(TransposeSmallShapeStrategy, transpose_tiling_small_shape_fp16_below_align_
     const auto* data = GetTilingData<TransposeSmallShape23DTilingData>(tilingInfo);
     ASSERT_NE(data, nullptr);
     EXPECT_EQ(data->dim, 2);
-    EXPECT_EQ(data->inputShape[0], 5);
-    EXPECT_EQ(data->inputShape[1], 8);
+    EXPECT_THAT(data->inputShape, ::testing::ElementsAreArray(std::vector<int32_t>{5, 8, 0}));
 }
 
 // 3 维小 shape floor-align 分支 (10011 精简 TilingData): [256, 150, 4] fp32 -> 153600 元素，
@@ -232,12 +226,8 @@ TEST(TransposeSmallShapeStrategy, transpose_tiling_small_shape_floor_align_full_
     const auto* data = GetTilingData<TransposeSmallShape23DTilingData>(tilingInfo);
     ASSERT_NE(data, nullptr);
     EXPECT_EQ(data->dim, 3);
-    EXPECT_EQ(data->inputShape[0], 256);
-    EXPECT_EQ(data->inputShape[1], 150);
-    EXPECT_EQ(data->inputShape[2], 4);
-    EXPECT_EQ(data->perm[0], 1);
-    EXPECT_EQ(data->perm[1], 0);
-    EXPECT_EQ(data->perm[2], 2);
+    EXPECT_THAT(data->inputShape, ::testing::ElementsAreArray(std::vector<int32_t>{256, 150, 4}));
+    EXPECT_THAT(data->perm, ::testing::ElementsAreArray(std::vector<int8_t>{1, 0, 2}));
 }
 
 // 回归：Host 分核（1024B 对齐）与 blockDim 一致
@@ -267,12 +257,8 @@ TEST(TransposeSmallShapeStrategy, regression_compact_split_matches_kernel_3d_odd
     const auto* data = GetTilingData<TransposeSmallShape23DTilingData>(tilingInfo);
     ASSERT_NE(data, nullptr);
     EXPECT_EQ(data->dim, 3);
-    EXPECT_EQ(data->inputShape[0], 9);
-    EXPECT_EQ(data->inputShape[1], 9);
-    EXPECT_EQ(data->inputShape[2], 19);
-    EXPECT_EQ(data->perm[0], 1);
-    EXPECT_EQ(data->perm[1], 0);
-    EXPECT_EQ(data->perm[2], 2);
+    EXPECT_THAT(data->inputShape, ::testing::ElementsAreArray(std::vector<int32_t>{9, 9, 19}));
+    EXPECT_THAT(data->perm, ::testing::ElementsAreArray(std::vector<int8_t>{1, 0, 2}));
     // blockDim 必须等于 Host 的 realCoreNum
 }
 
@@ -320,9 +306,7 @@ TEST(TransposeSmallShapeStrategy, transpose_tiling_small_shape_core_budget_with_
     const auto* data = GetTilingData<TransposeSmallShape23DTilingData>(tilingInfo);
     ASSERT_NE(data, nullptr);
     EXPECT_EQ(data->dim, 3);
-    EXPECT_EQ(data->inputShape[0], 2);
-    EXPECT_EQ(data->inputShape[1], 9601);
-    EXPECT_EQ(data->inputShape[2], 8);
+    EXPECT_THAT(data->inputShape, ::testing::ElementsAreArray(std::vector<int32_t>{2, 9601, 8}));
     // Host 分核：[2,9601,8] fp32 total=153616, blkFactor=CeilDiv(153616,48)=3201,
     // ceilAlign=CeilAlign(3201,256)=3328 -> realCoreNum=CeilDiv(153616,3328)=47。
 }
@@ -363,9 +347,9 @@ TEST(TransposeSmallShapeStrategy, transpose_tiling_small_shape_core_budget_dtype
         const auto* data = GetTilingData<TransposeSmallShape23DTilingData>(tilingInfo);
         ASSERT_NE(data, nullptr);
         EXPECT_EQ(data->dim, 3);
-        EXPECT_EQ(data->inputShape[0], 2);
-        EXPECT_EQ(data->inputShape[1], testCase.middleDim);
-        EXPECT_EQ(data->inputShape[2], testCase.lastDim);
+        EXPECT_THAT(data->inputShape,
+                    ::testing::ElementsAreArray(std::vector<int32_t>{2, static_cast<int32_t>(testCase.middleDim),
+                                                                     static_cast<int32_t>(testCase.lastDim)}));
         EXPECT_EQ(tilingInfo.blockNum, static_cast<uint64_t>(testCase.realCoreNum));
     }
 }
@@ -391,9 +375,7 @@ TEST(TransposeSmallShapeStrategy, transpose_tiling_small_shape_ceil_align_reduce
     const auto* data = GetTilingData<TransposeSmallShape23DTilingData>(tilingInfo);
     ASSERT_NE(data, nullptr);
     EXPECT_EQ(data->dim, 3);
-    EXPECT_EQ(data->inputShape[0], 200);
-    EXPECT_EQ(data->inputShape[1], 200);
-    EXPECT_EQ(data->inputShape[2], 4);
+    EXPECT_THAT(data->inputShape, ::testing::ElementsAreArray(std::vector<int32_t>{200, 200, 4}));
 }
 
 // 3 维小 shape ceil-align (10011, fp16): [16, 60, 4] fp16 -> 3840 元素，host 分核 8 核。
@@ -417,9 +399,7 @@ TEST(TransposeSmallShapeStrategy, transpose_tiling_small_shape_fp16_ceil_align)
     const auto* data = GetTilingData<TransposeSmallShape23DTilingData>(tilingInfo);
     ASSERT_NE(data, nullptr);
     EXPECT_EQ(data->dim, 3);
-    EXPECT_EQ(data->inputShape[0], 16);
-    EXPECT_EQ(data->inputShape[1], 60);
-    EXPECT_EQ(data->inputShape[2], 4);
+    EXPECT_THAT(data->inputShape, ::testing::ElementsAreArray(std::vector<int32_t>{16, 60, 4}));
 }
 
 // 4 维小 shape (last axis 不转置, 尾轴 <32 不进 N_LAST, 总量 < SMALL 阈值) -> 4D 起走 10001 精简 TilingData
@@ -445,18 +425,8 @@ TEST(TransposeSmallShapeStrategy, transpose_tiling_small_shape_4d_route)
     ASSERT_NE(data, nullptr);
     EXPECT_EQ(data->dim, 4);
     // 120 元素 x fp32 = 480B < 1024B 对齐单元，Host 分核退化为单核。
-    EXPECT_EQ(data->inputShape[0], 2);
-    EXPECT_EQ(data->inputShape[1], 3);
-    EXPECT_EQ(data->inputShape[2], 4);
-    EXPECT_EQ(data->inputShape[3], 5);
-    EXPECT_EQ(data->perm[0], 0);
-    EXPECT_EQ(data->perm[1], 2);
-    EXPECT_EQ(data->perm[2], 1);
-    EXPECT_EQ(data->perm[3], 3);
-    EXPECT_EQ(data->perm[4], -1);
-    EXPECT_EQ(data->perm[5], -1);
-    EXPECT_EQ(data->perm[6], -1);
-    EXPECT_EQ(data->perm[7], -1);
+    EXPECT_THAT(data->inputShape, ::testing::ElementsAreArray(std::vector<int32_t>{2, 3, 4, 5, 0, 0, 0, 0}));
+    EXPECT_THAT(data->perm, ::testing::ElementsAreArray(std::vector<int8_t>{0, 2, 1, 3, -1, -1, -1, -1}));
 }
 
 // 5 维小 shape (不可合并, 尾轴 <32 不进 N_LAST) -> 10001 精简 TilingData, perm 未用槽位补 -1
@@ -479,19 +449,8 @@ TEST(TransposeSmallShapeStrategy, transpose_tiling_small_shape_5d_compact_tiling
     EXPECT_EQ(tilingInfo.blockNum, 3U);
     const auto* data = GetTilingData<TransposeSmallShape48DTilingData>(tilingInfo);
     ASSERT_NE(data, nullptr);
-    EXPECT_EQ(data->inputShape[0], 2);
-    EXPECT_EQ(data->inputShape[1], 3);
-    EXPECT_EQ(data->inputShape[2], 4);
-    EXPECT_EQ(data->inputShape[3], 5);
-    EXPECT_EQ(data->inputShape[4], 6);
-    EXPECT_EQ(data->perm[0], 1);
-    EXPECT_EQ(data->perm[1], 0);
-    EXPECT_EQ(data->perm[2], 3);
-    EXPECT_EQ(data->perm[3], 2);
-    EXPECT_EQ(data->perm[4], 4);
-    EXPECT_EQ(data->perm[5], -1);
-    EXPECT_EQ(data->perm[6], -1);
-    EXPECT_EQ(data->perm[7], -1);
+    EXPECT_THAT(data->inputShape, ::testing::ElementsAreArray(std::vector<int32_t>{2, 3, 4, 5, 6, 0, 0, 0}));
+    EXPECT_THAT(data->perm, ::testing::ElementsAreArray(std::vector<int8_t>{1, 0, 3, 2, 4, -1, -1, -1}));
 }
 
 // 关联算子入口 2D：统一走 10011 精简 TilingData（不再下发历史通用 TilingData）
@@ -509,10 +468,8 @@ TEST(TransposeSmallShapeStrategy, related_entry_uses_compact_23d)
     const auto* data = GetTilingData<TransposeSmallShape23DTilingData>(bundle.context);
     ASSERT_NE(data, nullptr);
     EXPECT_EQ(data->dim, 2);
-    EXPECT_EQ(data->inputShape[0], 4);
-    EXPECT_EQ(data->inputShape[1], 7);
-    EXPECT_EQ(data->perm[0], 1);
-    EXPECT_EQ(data->perm[1], 0);
+    EXPECT_THAT(data->inputShape, ::testing::ElementsAreArray(std::vector<int32_t>{4, 7, 0}));
+    EXPECT_THAT(data->perm, ::testing::ElementsAreArray(std::vector<int8_t>{1, 0, -1}));
 }
 
 // 关联算子入口 4-8D：统一走 10001 精简 TilingData，perm 未用槽位 -1
@@ -529,19 +486,8 @@ TEST(TransposeSmallShapeStrategy, related_entry_uses_compact_small)
     EXPECT_EQ(bundle.context->GetBlockDim(), 3U);
     const auto* data = GetTilingData<TransposeSmallShape48DTilingData>(bundle.context);
     ASSERT_NE(data, nullptr);
-    EXPECT_EQ(data->inputShape[0], 2);
-    EXPECT_EQ(data->inputShape[1], 3);
-    EXPECT_EQ(data->inputShape[2], 4);
-    EXPECT_EQ(data->inputShape[3], 5);
-    EXPECT_EQ(data->inputShape[4], 6);
-    EXPECT_EQ(data->perm[0], 1);
-    EXPECT_EQ(data->perm[1], 0);
-    EXPECT_EQ(data->perm[2], 3);
-    EXPECT_EQ(data->perm[3], 2);
-    EXPECT_EQ(data->perm[4], 4);
-    EXPECT_EQ(data->perm[5], -1);
-    EXPECT_EQ(data->perm[6], -1);
-    EXPECT_EQ(data->perm[7], -1);
+    EXPECT_THAT(data->inputShape, ::testing::ElementsAreArray(std::vector<int32_t>{2, 3, 4, 5, 6, 0, 0, 0}));
+    EXPECT_THAT(data->perm, ::testing::ElementsAreArray(std::vector<int8_t>{1, 0, 3, 2, 4, -1, -1, -1}));
 }
 
 // 2D 小 shape fp64 [3, 5]: 15 元素 < fp64 对齐单元 (1024/8=128) -> Host 分核单核承载整块。
@@ -565,8 +511,7 @@ TEST(TransposeSmallShapeStrategy, transpose_tiling_small_shape_fp64_below_align_
     const auto* data = GetTilingData<TransposeSmallShape23DTilingData>(tilingInfo);
     ASSERT_NE(data, nullptr);
     EXPECT_EQ(data->dim, 2);
-    EXPECT_EQ(data->inputShape[0], 3);
-    EXPECT_EQ(data->inputShape[1], 5);
+    EXPECT_THAT(data->inputShape, ::testing::ElementsAreArray(std::vector<int32_t>{3, 5, 0}));
 }
 
 /* ==================== 阈值分支补充用例 ==================== */

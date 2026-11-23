@@ -27,6 +27,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "platform/platform_info.h"
 #include "tiling_context_faker.h"

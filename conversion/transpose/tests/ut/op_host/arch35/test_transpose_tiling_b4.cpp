@@ -764,12 +764,8 @@ TEST_F(TransposeB4Tiling, b4_3d_perm_102_small_shape)
         tilingInfo.tilingData.get());
     EXPECT_EQ(tilingData->dim, 3);
     // 4bit 视为 int8, 尾轴元素数按 2 个一字节折半: 8 -> 4
-    EXPECT_EQ(tilingData->inputShape[0], 456);
-    EXPECT_EQ(tilingData->inputShape[1], 848);
-    EXPECT_EQ(tilingData->inputShape[2], 4);
-    EXPECT_EQ(tilingData->perm[0], 1);
-    EXPECT_EQ(tilingData->perm[1], 0);
-    EXPECT_EQ(tilingData->perm[2], 2);
+    EXPECT_THAT(tilingData->inputShape, ::testing::ElementsAreArray(std::vector<int32_t>{456, 848, 4}));
+    EXPECT_THAT(tilingData->perm, ::testing::ElementsAreArray(std::vector<int8_t>{1, 0, 2}));
 }
 
 // 场景：B4 3D 输入 [456,847,8]，perm={0,2,1}，首轴为偶、中间轴为奇的尾轴转置，输出 [456,8,847]。
