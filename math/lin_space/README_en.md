@@ -12,8 +12,8 @@ English | [简体中文](./README.md)
 | <term>Atlas 200I/500 A2 inference products</term>                      |    ×     |
 | <term>Atlas inference products</term>                             |    √     |
 | <term>Atlas training products</term>                              |    √     |
-| <term>Kirin X90 processor series products</term>                      | √ |
-| <term>Kirin 9030 processor series products</term>                       | √ |
+| <term>KirinX90 processor series products</term>                      | √ |
+| <term>Kirin9030 processor series products</term>                       | √ |
 
 ## Function Description
 
@@ -73,7 +73,7 @@ $$
     </tr>
   </tbody></table>
 
-- Kirin X90/Kirin 9030 processor series products, Atlas training products, and Atlas inference products: BFLOAT16 and INT16 are not supported.
+- KirinX90/Kirin9030 processor series products, Atlas training products, and Atlas inference products: BFLOAT16 and INT16 are not supported.
 
 ## Constraint Description
 

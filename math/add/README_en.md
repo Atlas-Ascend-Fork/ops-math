@@ -12,8 +12,8 @@ English | [简体中文](./README.md)
 | <term>Atlas 200I/500 A2 inference products</term>  |    ×    |
 | <term>Atlas inference products</term>          |    ×    |
 | <term>Atlas training products</term>          |    √    |
-| <term>Kirin X90 processor series products</term>    |    √    |
-| <term>Kirin 9030 processor series products</term>   |    √    |
+| <term>KirinX90 processor series products</term>    |    √    |
+| <term>Kirin9030 processor series products</term>   |    √    |
 
 ## Function Description
 
@@ -68,7 +68,7 @@ English | [简体中文](./README.md)
 
 - The STRING data type is not supported. Registering DT\_STRING in the operator IR (add\_proto.h) is only for compatibility with the TensorFlow Add operator. Although the graph-mode (GEIR) invocation path can pass type inference, no corresponding kernel implementation exists, and execution fails at runtime.
 - COMPLEX32 is supported only by the kernel implementation of Ascend 950. Neither the aclnnAdd / aclnnInplaceAdd APIs nor the graph-mode path supports it. Use COMPLEX64 / COMPLEX128 instead.
-- Kirin X90/Kirin 9030 processor series products support the INT8, UINT8, INT32, FLOAT16, and FLOAT32 data types
+- KirinX90/Kirin9030 processor series products support the INT8, UINT8, INT32, FLOAT16, and FLOAT32 data types
 
 ## Invocation Description
 

@@ -12,8 +12,8 @@ English | [简体中文](./README.md)
 | <term>Atlas 200I/500 A2 inference products</term>                      |     ×     |
 | <term>Atlas inference products</term>                             | ×        |
 | <term>Atlas training products</term>                              | √        |
-| Kirin X90 processor series products|√|
-| Kirin 9030 processor series products|√|
+| KirinX90 processor series products|√|
+| Kirin9030 processor series products|√|
 
 ## Function Description
 

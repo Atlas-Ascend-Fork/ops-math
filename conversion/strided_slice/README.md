@@ -10,8 +10,8 @@
 | <term>Atlas 200I/500 A2推理产品</term>  |    √    |
 | <term>Atlas推理系列产品</term>          |    √    |
 | <term>Atlas训练系列产品</term>          |    √    |
-| <term>Kirin X90处理器系列产品</term>    |    √    |
-| <term>Kirin 9030处理器系列产品</term>   |    √    |
+| <term>KirinX90处理器系列产品</term>    |    √    |
+| <term>Kirin9030处理器系列产品</term>   |    √    |
 
 ## 功能说明
 
@@ -109,7 +109,7 @@
 
 ## 约束说明
 
-Kirin X90/Kirin 9030系列 x/y 仅支持INT8、UINT8、INT16、UINT16、INT32、FLOAT16、FLOAT32数据类型；begin/end/strides 仅支持INT32数据类型
+KirinX90/Kirin9030系列 x/y 仅支持INT8、UINT8、INT16、UINT16、INT32、FLOAT16、FLOAT32数据类型；begin/end/strides 仅支持INT32数据类型
 
 ## 调用说明
 

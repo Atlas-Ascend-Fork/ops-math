@@ -12,8 +12,8 @@ English | [简体中文](./README.md)
 | <term>Atlas 200I/500 A2 inference products</term>  |    √    |
 | <term>Atlas inference products</term>          |    √    |
 | <term>Atlas training products</term>          |    √    |
-| <term>Kirin X90 processor series products</term>    |    √    |
-| <term>Kirin 9030 processor series products</term>   |    √    |
+| <term>KirinX90 processor series products</term>    |    √    |
+| <term>Kirin9030 processor series products</term>   |    √    |
 
 ## Function Description
 
@@ -111,7 +111,7 @@ English | [简体中文](./README.md)
 
 ## Constraint Description
 
-For Kirin X90/Kirin 9030 products, x/y supports only the INT8, UINT8, INT16, UINT16, INT32, FLOAT16, and FLOAT32 data types; begin/end/strides supports only the INT32 data type
+For KirinX90/Kirin9030 products, x/y supports only the INT8, UINT8, INT16, UINT16, INT32, FLOAT16, and FLOAT32 data types; begin/end/strides supports only the INT32 data type
 
 ## Invocation Description
 

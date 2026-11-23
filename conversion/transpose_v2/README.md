@@ -10,8 +10,8 @@
 | <term>Atlas 200I/500 A2推理产品</term>             |    ×     |
 | <term>Atlas推理系列产品</term>                       |    ×     |
 | <term>Atlas训练系列产品</term>                       |    ×     |
-| <term>Kirin X90处理器系列产品</term> | √ |
-| <term>Kirin 9030处理器系列产品</term> | √ |
+| <term>KirinX90处理器系列产品</term> | √ |
+| <term>Kirin9030处理器系列产品</term> | √ |
 
 ## 功能说明
 
@@ -26,7 +26,7 @@
 | out    | 输出           | 维度最大不超过8维，shape由dims和原self的shape共同决定，dtype需要与self一致。 | 同self   | ND       |
 
 - <term>Atlas A3系列产品</term>：数据类型支持FLOAT、FLOAT16、BFLOAT16。
-- Kirin X90处理器系列产品、Kirin 9030处理器系列产品：数据类型支持FLOAT、FLOAT16。
+- KirinX90处理器系列产品、Kirin9030处理器系列产品：数据类型支持FLOAT、FLOAT16。
 
 ## 约束说明
 

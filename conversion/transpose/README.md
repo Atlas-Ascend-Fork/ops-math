@@ -10,8 +10,8 @@
 | <term>Atlas 200I/500 A2推理产品</term>             |    √     |
 | <term>Atlas推理系列产品</term>                       |    √     |
 | <term>Atlas训练系列产品</term>                       |    √     |
-| <term>Kirin X90处理器系列产品</term>                       |    √     |
-| <term>Kirin 9030处理器系列产品</term>                       |    √     |
+| <term>KirinX90处理器系列产品</term>                       |    √     |
+| <term>Kirin9030处理器系列产品</term>                       |    √     |
 
 ## 功能说明
 
@@ -26,7 +26,7 @@
 | y    | 输出           | 维度不超过8维，shape由perm和x的shape共同决定（y.shape[i] = x.shape[perm[i]]），dtype需要与x一致。 | 同x   | ND       |
 
 - <term>Ascend 950PR&950DT系列产品</term>、<term>Atlas A3系列产品</term>、<term>Atlas A2系列产品</term>、<term>Atlas 200I/500 A2推理产品</term>、<term>Atlas推理系列产品</term>、<term>Atlas训练系列产品</term>：数据类型不支持FLOAT4_E2M1、FLOAT4_E1M2、HIFLOAT4、HIFLOAT4_SCALE。
-- <term>Kirin X90处理器系列产品</term>、<term>Kirin 9030处理器系列产品</term>：数据类型不支持INT16、UINT16、UINT32、INT64、UINT64、BFLOAT16、BOOL、HIFLOAT8、FLOAT8_E5M2、FLOAT8_E4M3FN、FLOAT4_E2M1、FLOAT4_E1M2、HIFLOAT4、HIFLOAT4_SCALE。
+- <term>KirinX90处理器系列产品</term>、<term>Kirin9030处理器系列产品</term>：数据类型不支持INT16、UINT16、UINT32、INT64、UINT64、BFLOAT16、BOOL、HIFLOAT8、FLOAT8_E5M2、FLOAT8_E4M3FN、FLOAT4_E2M1、FLOAT4_E1M2、HIFLOAT4、HIFLOAT4_SCALE。
 
 ## 约束说明
 

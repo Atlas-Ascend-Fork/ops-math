@@ -12,8 +12,8 @@ English | [简体中文](./README.md)
 | <term>Atlas 200I/500 A2 inference products</term>                      |    ×     |
 | <term>Atlas inference products</term>                               |    ×     |
 | <term>Atlas training products</term>                               |    ×     |
-| <term>Kirin X90 processor series products</term>                          |    √     |
-| <term>Kirin 9030 processor series products</term>                         |    √     |
+| <term>KirinX90 processor series products</term>                          |    √     |
+| <term>Kirin9030 processor series products</term>                         |    √     |
 
 ## Function Description
 
@@ -108,7 +108,7 @@ The length of the i-th dimension of the slice is $sliceLen[i] = \max(0, \lceil\f
 - This operator is a pure data movement operator. The result is bit-exact, with no precision loss.
 - Atlas A2/A3 and Kirin products: strides must be positive (negative strides are not supported), and the strides corresponding to the innermost dimension (the last dimension) must be 1.
 - Ascend 950 products: strides can be negative, negative-stride reverse slicing is supported, and the strides of axes can be a mix of positive and negative values. These products do not require the innermost-dimension strides to be 1.
-- Kirin X90/Kirin 9030 processor series products: BFLOAT16 is not supported.
+- KirinX90/Kirin9030 processor series products: BFLOAT16 is not supported.
 
 ## Invocation Description
 

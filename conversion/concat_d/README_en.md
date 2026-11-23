@@ -12,8 +12,8 @@ English | [简体中文](./README.md)
 | Atlas 200I/500 A2 inference products                      |    √     |
 | Atlas inference products                              |    √     |
 | Atlas training products                              |    √     |
-| Kirin X90 processor series products                       |    √     |
-| Kirin 9030 processor series products                       |    √     |
+| KirinX90 processor series products                       |    √     |
+| Kirin9030 processor series products                       |    √     |
 
 ## Function Description
 
@@ -69,7 +69,7 @@ English | [简体中文](./README.md)
 
 - Atlas training products, Atlas inference products, and Atlas 200I/500 A2 inference products: BFLOAT16 is not supported.
 - Atlas A2 products and Atlas A3 products: UINT16, UINT32, UINT64, FLOAT4_E1M2, and FLOAT4_E2M1 are not supported.
-- Kirin X90/9030 processor series products: The data types FLOAT, FLOAT16, INT32, INT64, INT16, INT8, UINT8, UINT16, UINT32, and UINT64 are supported; 1 to 32 non-empty ND inputs are supported, the input rank is known at compile time and is 1 to 8, and each dimension must be resolved to a positive number before tiling at runtime.
+- KirinX90/9030 processor series products: The data types FLOAT, FLOAT16, INT32, INT64, INT16, INT8, UINT8, UINT16, UINT32, and UINT64 are supported; 1 to 32 non-empty ND inputs are supported, the input rank is known at compile time and is 1 to 8, and each dimension must be resolved to a positive number before tiling at runtime.
 
 ## Constraint Description
 

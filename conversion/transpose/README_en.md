@@ -12,8 +12,8 @@ English | [简体中文](./README.md)
 | <term>Atlas 200I/500 A2 inference products</term>             |    √     |
 | <term>Atlas inference products</term>                       |    √     |
 | <term>Atlas training products</term>                       |    √     |
-| <term>Kirin X90 processor series products</term>                       |    √     |
-| <term>Kirin 9030 processor series products</term>                       |    √     |
+| <term>KirinX90 processor series products</term>                       |    √     |
+| <term>Kirin9030 processor series products</term>                       |    √     |
 
 ## Function Description
 
@@ -28,7 +28,7 @@ English | [简体中文](./README.md)
 | y    | Output           | Has no more than 8 dimensions. The shape is jointly determined by perm and the shape of x (y.shape[i] = x.shape[perm[i]]), and the dtype must be the same as that of x. | Same as x   | ND       |
 
 - <term>Ascend 950PR&950DT products</term>, <term>Atlas A3 products</term>, <term>Atlas A2 products</term>, <term>Atlas 200I/500 A2 inference products</term>, <term>Atlas inference products</term>, <term>Atlas training products</term>: FLOAT4_E2M1, FLOAT4_E1M2, HIFLOAT4, and HIFLOAT4_SCALE are not supported.
-- <term>Kirin X90 processor series products</term>, <term>Kirin 9030 processor series products</term>: INT16, UINT16, UINT32, INT64, UINT64, BFLOAT16, BOOL, HIFLOAT8, FLOAT8_E5M2, FLOAT8_E4M3FN, FLOAT4_E2M1, FLOAT4_E1M2, HIFLOAT4, and HIFLOAT4_SCALE are not supported.
+- <term>KirinX90 processor series products</term>, <term>Kirin9030 processor series products</term>: INT16, UINT16, UINT32, INT64, UINT64, BFLOAT16, BOOL, HIFLOAT8, FLOAT8_E5M2, FLOAT8_E4M3FN, FLOAT4_E2M1, FLOAT4_E1M2, HIFLOAT4, and HIFLOAT4_SCALE are not supported.
 
 ## Constraint Description
 
