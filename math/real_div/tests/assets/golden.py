@@ -11,8 +11,8 @@
 # ----------------------------------------------------------------------------
 """RealDiv 算子测试规范（TTK TestSpec）。
 
-kernel/GEIR = real_div（numpy 入/出）：真值 x1 / x2（float64 中间精度，按输出
-dtype 回转，bfloat16 采用 round-to-nearest-even）；
+kernel/GEIR = real_div（numpy 入/出）：真值 x1 / x2（整数输入做精确截断除法；
+其余 float64 中间精度，按输出 dtype 回转，bfloat16 采用 round-to-nearest-even）；
 aclnn = aclnnDiv / aclnnInplaceDiv / aclnnDivs / aclnnInplaceDivs /
 aclnnDivMod / aclnnInplaceDivMod / aclnnDivMods / aclnnInplaceDivMods
 （torch 入/出）：out = self / other（Divs/DivMods 的 other 为标量；DivMod 系列
@@ -25,6 +25,7 @@ import torch
 
 __spec__ = {
     "real_div": "RealDivTestSpec",
+    "tf.raw_ops.RealDiv": "RealDivTensorFlowTestSpec",
     "aclnnDiv": "AclnnDivTestSpec",
     "aclnnInplaceDiv": "AclnnInplaceDivTestSpec",
     "aclnnDivs": "AclnnDivTestSpec",
@@ -85,6 +86,8 @@ def _cast_output(value, dtype_name):
         return numpy.asarray(value).astype(numpy.uint8)
     if dtype_name == "int16":
         return numpy.asarray(value).astype(numpy.int16)
+    if dtype_name == "uint16":
+        return numpy.asarray(value).astype(numpy.uint16)
     if dtype_name == "int32":
         return numpy.asarray(value).astype(numpy.int32)
     if dtype_name == "int64":
@@ -94,6 +97,21 @@ def _cast_output(value, dtype_name):
     if dtype_name == "complex128":
         return numpy.asarray(value, dtype=numpy.complex128)
     return numpy.asarray(value)
+
+
+def _integer_divide(a, b):
+    """整数输入的精确截断除法（向 0 舍入），匹配 NPU 整型 Div 语义。
+
+    以 floor_divide + 符号修正实现 C 风格截断除法，避免 float64 中间精度在
+    |int64| 超过 2^53 时丢失低位。
+    """
+    a = numpy.asarray(a)
+    b = numpy.asarray(b)
+    with numpy.errstate(divide="ignore", invalid="ignore", over="ignore"):
+        q = numpy.floor_divide(a, b)
+        rem = numpy.remainder(a, b)
+        adjust = ((a < 0) != (b < 0)) & (rem != 0)
+        return q + adjust
 
 
 def _cast_torch(result, out_dtype):
@@ -175,7 +193,7 @@ class RealDivTestSpec:
 
     @staticmethod
     def golden(x1, x2, **kwargs):
-        """kernel/GEIR golden：float64 中间精度相除后按输出 dtype 回转。"""
+        """kernel/GEIR golden：整数输入精确截断除法，其余 float64 中间精度相除后按输出 dtype 回转。"""
         out_dtypes = tuple(kwargs.get("output_dtypes") or ())
         out_dtype = str(out_dtypes[0]).lower() if out_dtypes else None
 
@@ -183,6 +201,10 @@ class RealDivTestSpec:
         rhs = numpy.asarray(x2)
         if numpy.iscomplexobj(lhs) or numpy.iscomplexobj(rhs):
             res = lhs.astype(numpy.complex128) / rhs.astype(numpy.complex128)
+        elif numpy.issubdtype(lhs.dtype, numpy.integer) and numpy.issubdtype(
+            rhs.dtype, numpy.integer
+        ):
+            res = _integer_divide(lhs, rhs)
         else:
             res = numpy.asarray(x1, dtype=numpy.float64) / numpy.asarray(
                 x2, dtype=numpy.float64
@@ -192,9 +214,23 @@ class RealDivTestSpec:
     third_party = {"torch": ThirdPartyImpl}
 
 
+class RealDivTensorFlowTestSpec:
+    """TF golden_api 路由（golden_api=tf.raw_ops.RealDiv，GEIR 流程 numpy 入/出）。
+
+    TF 2.6.5 的 RealDiv CPU kernel 仅注册浮点/复数类型（bfloat16/half/float/double/
+    complex64/complex128），整数 dtype 走"同 API CPU 复算"会因无 CPU kernel 报
+    GOLDEN_FAILURE、比对未完成。此处复用 kernel golden 的 numpy 精确整数除法兜底
+    整数 dtype，浮点/复数保持 float64/complex128 中间精度语义。
+    """
+
+    golden = staticmethod(RealDivTestSpec.golden)
+    third_party = {"torch": ThirdPartyImpl}
+
+
 class AclnnDivTestSpec:
     """aclnnDiv / aclnnDivs 流程：out = self / other（other 张量或标量）。"""
 
+    @staticmethod
     def golden(self, other, out, **kwargs):
         """参数跟随 aclnnDiv/aclnnDivs：self 张量、other 张量/标量、out 张量。"""
         return [_cast_torch(torch.div(self, other), _out_torch_dtype(kwargs))]
@@ -205,6 +241,7 @@ class AclnnDivTestSpec:
 class AclnnInplaceDivTestSpec:
     """aclnnInplaceDiv / aclnnInplaceDivs 流程：selfRef /= other。"""
 
+    @staticmethod
     def golden(selfRef, other, **kwargs):
         """参数跟随 aclnnInplaceDiv/aclnnInplaceDivs：selfRef 张量、other 张量/标量。"""
         return [_cast_torch(torch.div(selfRef, other), selfRef.dtype)]
@@ -215,6 +252,7 @@ class AclnnInplaceDivTestSpec:
 class AclnnDivModTestSpec:
     """aclnnDivMod / aclnnDivMods 流程：out = self / other（带 mode 舍入）。"""
 
+    @staticmethod
     def golden(self, other, mode=0, out=None, **kwargs):
         """参数跟随 aclnnDivMod/aclnnDivMods：self 张量、other 张量/标量、mode 属性、out 张量。"""
         rounding = _ROUNDING_MODE_MAP.get(mode, None)
@@ -227,6 +265,7 @@ class AclnnDivModTestSpec:
 class AclnnInplaceDivModTestSpec:
     """aclnnInplaceDivMod / aclnnInplaceDivMods 流程：selfRef /= other（带 mode 舍入）。"""
 
+    @staticmethod
     def golden(selfRef, other, mode=0, **kwargs):
         """参数跟随 aclnnInplaceDivMod/aclnnInplaceDivMods：selfRef 张量、other 张量/标量、mode 属性。"""
         rounding = _ROUNDING_MODE_MAP.get(mode, None)
@@ -239,6 +278,7 @@ class AclnnInplaceDivModTestSpec:
 class TorchRealDivTestSpec:
     """e2e 流程：torch 入/出。"""
 
+    @staticmethod
     def golden(input, other, **kwargs):
         """参数跟随 torch.div：input/other 位置张量（真值除法）。"""
         return [torch.div(input, other)]

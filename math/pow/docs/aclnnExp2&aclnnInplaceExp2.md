@@ -97,27 +97,27 @@ aclnnStatus aclnnInplaceExp2(
     </tr></thead>
   <tbody>
     <tr>
-      <td>self</td>
+      <td>self（aclTensor*）</td>
       <td>输入</td>
       <td>公式中的输入self。</td>
       <td>-</td>
       <td>BOOL、INT8、UINT8、INT16、INT32、INT64、FLOAT、FLOAT16、BFLOAT16、DOUBLE</td>
       <td>ND</td>
-      <td>-</td>
+      <td>0-8</td>
       <td>√</td>
     </tr>
     <tr>
-      <td>out</td>
+      <td>out（aclTensor*）</td>
       <td>输出</td>
       <td>公式中的输出out。</td>
-      <td>数据类型需要是self可转换的数据类型。</td>
+      <td>数据类型需要是self可转换的数据类型，shape与self保持一致。</td>
       <td>FLOAT、FLOAT16、BFLOAT16、DOUBLE</td>
       <td>ND</td>
-      <td>与self一致</td>
+      <td>0-8</td>
       <td>√</td>
     </tr>
     <tr>
-      <td>workspaceSize</td>
+      <td>workspaceSize（uint64_t*）</td>
       <td>输出</td>
       <td>返回需要在Device侧申请的workspace大小。</td>
       <td>-</td>
@@ -127,7 +127,7 @@ aclnnStatus aclnnInplaceExp2(
       <td>-</td>
     </tr>
     <tr>
-      <td>executor</td>
+      <td>executor（aclOpExecutor**）</td>
       <td>输出</td>
       <td>返回op执行器，包含了算子计算流程。</td>
       <td>-</td>
@@ -178,7 +178,7 @@ aclnnStatus aclnnInplaceExp2(
       <td>参数self或者out的维度超过8维。</td>
     </tr>
     <tr>
-      <td>参数self或者out的shape不一致。</td>
+      <td>参数self与out的shape不一致。</td>
     </tr>
   </tbody>
   </table>
@@ -253,17 +253,17 @@ aclnnStatus aclnnInplaceExp2(
     </tr></thead>
   <tbody>
     <tr>
-      <td>selfRef</td>
+      <td>selfRef（aclTensor*）</td>
       <td>输入/输出</td>
       <td>输入输出tensor，即公式中的输入self与out。</td>
       <td>-</td>
       <td>FLOAT、FLOAT16、BFLOAT16、DOUBLE</td>
       <td>ND</td>
-      <td>-</td>
+      <td>0-8</td>
       <td>√</td>
     </tr>
     <tr>
-      <td>workspaceSize</td>
+      <td>workspaceSize（uint64_t*）</td>
       <td>输出</td>
       <td>返回需要在Device侧申请的workspace大小。</td>
       <td>-</td>
@@ -273,7 +273,7 @@ aclnnStatus aclnnInplaceExp2(
       <td>-</td>
     </tr>
     <tr>
-      <td>executor</td>
+      <td>executor（aclOpExecutor**）</td>
       <td>输出</td>
       <td>返回op执行器，包含了算子计算流程。</td>
       <td>-</td>

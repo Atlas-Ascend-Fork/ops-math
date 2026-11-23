@@ -181,8 +181,8 @@ aclnnStatus aclnnInplaceMul(
       <td>Returned when self, other, or out is a null pointer.</td>
     </tr>
     <tr>
-      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="4">161002</td>
+      <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="5">161002</td>
       <td>Returned when the data type of self, other, or out is not in the supported range.</td>
     </tr>
     <tr>
@@ -193,6 +193,9 @@ aclnnStatus aclnnInplaceMul(
     </tr>
     <tr>
       <td>The shapes of self and other cannot be broadcast.</td>
+    </tr>
+    <tr>
+      <td>The shape of self and other after broadcast is not equal to the shape of out.</td>
     </tr>
   </tbody>
   </table>
@@ -336,12 +339,15 @@ aclnnStatus aclnnInplaceMul(
       <td>selfRef or other is a null pointer.</td>
     </tr>
     <tr>
-      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="4">161002</td>
+      <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="5">161002</td>
       <td>The data types of selfRef and other are out of the supported range.</td>
     </tr>
     <tr>
       <td>The data types of selfRef and other do not meet the data type derivation rule.</td>
+    </tr>
+    <tr>
+      <td>The derived data type cannot be converted to the type of the specified output selfRef.</td>
     </tr>
     <tr>
       <td>The shapes of selfRef and other cannot be broadcast.</td>

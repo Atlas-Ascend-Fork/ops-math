@@ -29,7 +29,7 @@ extern "C" {
  * shape需要与other满足broadcast关系。支持非连续的Tensor，数据格式支持ND。
  * @param [in] other: host侧的aclScalar，数据类型支持整型，浮点类型，复数，且数据类型需要与self构成互相推导关系。
  * @param [in] alpha: host侧的aclScalar，数据类型需要可转换成self与other推导后的数据类型。
- * @param [in] out: npu device侧的aclTensor，数据类型支持整型，浮点类型，复数，
+ * @param [out] out: npu device侧的aclTensor，数据类型支持整型，浮点类型，复数，
  * 且数据类型需要是self与other推导之后可转换的数据类型，shape与self一致。支持非连续的Tensor，数据格式支持ND。
  * @param [out] workspaceSize: 返回用户需要在npu device侧申请的workspace大小。
  * @param [out] executor: 返回op执行器，包含算子计算流程。
@@ -66,7 +66,7 @@ ACLNN_API aclnnStatus aclnnRsubs(void* workspace, uint64_t workspaceSize, aclOpE
  * @param [in] other: npu device侧的aclTensor，数据类型支持整型，浮点类型，复数，且数据类型需要与self构成互相推导关系，
  * shape需要与self满足broadcast关系。支持非连续的Tensor，数据格式支持ND。
  * @param [in] alpha: host侧的aclScalar，数据类型需要可转换成self与other推导后的数据类型。
- * @param [in] out: npu device侧的aclTensor，数据类型支持整型，浮点类型，复数，
+ * @param [out] out: npu device侧的aclTensor，数据类型支持整型，浮点类型，复数，
  * 且数据类型需要是self与other推导之后可转换的数据类型，shape需要是self与other broadcast之后的shape。
  * 支持非连续的Tensor，数据格式支持ND。
  * @param [out] workspaceSize: 返回用户需要在npu device侧申请的workspace大小。
@@ -79,7 +79,7 @@ ACLNN_API aclnnStatus aclnnRsubGetWorkspaceSize(const aclTensor* self, const acl
 /**
  * @brief aclnnRsub的第二段接口，用于执行计算。
  *
- * 算子功能：完成加法计算
+ * 算子功能：完成减法计算
  * 计算公式：
  * $$ out_i = other_i - self_i * alpha $$
  *

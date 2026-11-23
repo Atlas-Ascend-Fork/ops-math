@@ -170,9 +170,12 @@ aclnnStatus aclnnPowScalarTensor(
       <td>The self, exponent, and out are null pointers.</td>
       </tr>
       <tr>
-      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="4">161002</td>
-      <td>The data type of exponent is not within the supported range.</td>
+      <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="5">161002</td>
+      <td>The data type of self, exponent is not within the supported range.</td>
+      </tr>
+      <tr>
+      <td>The shape of exponent exceed 8 dimensions.</td>
       </tr>
       <tr>
       <td>self and exponent do not comply with the data type deduction rules.</td>

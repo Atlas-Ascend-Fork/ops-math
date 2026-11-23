@@ -12,7 +12,7 @@
 """Mul 算子测试规范（TTK TestSpec）。
 
 kernel/GEIR = mul（numpy 入/出）：真值经 numpy_to_torch_tensor 转 torch 计算
-torch.mul（bool 走 logical_and，complex32 拆实虚部分别计算再拼回），再经
+torch.mul（bool 走 logical_and，complex32 抬 complex64 后复数相乘再拼回），再经
 torch_to_numpy_tensor 回转 numpy；
 aclnn = aclnnMul / aclnnMuls / aclnnInplaceMul / aclnnInplaceMuls（torch 入/出）：
 out = self * other（Muls/InplaceMuls 的 other 为标量；Inplace 写回 selfRef）；
@@ -80,23 +80,24 @@ class MulTestSpec:
         out_dtypes = tuple(kwargs.get("output_dtypes") or ())
         out_dtype = str(out_dtypes[0]).lower() if out_dtypes else None
 
-        if out_dtype == "complex32":
-            import numpy
-
-            xreal = x1[..., 0].astype(numpy.float32)
-            yreal = x2[..., 0].astype(numpy.float32)
-            ximag = x1[..., 1].astype(numpy.float32)
-            yimag = x2[..., 1].astype(numpy.float32)
-            zreal = xreal * yreal - ximag * yimag
-            zimag = xreal * yimag + ximag * yreal
-            return [
-                numpy.stack(
-                    (zreal.astype(numpy.float16), zimag.astype(numpy.float16)), axis=-1
-                )
-            ]
-
         t1 = numpy_to_torch_tensor(x1)
         t2 = numpy_to_torch_tensor(x2)
+
+        if out_dtype == "complex32":
+            a = torch.complex(
+                t1[..., 0].to(torch.float32),
+                t1[..., 1].to(torch.float32),
+            )
+            b = torch.complex(
+                t2[..., 0].to(torch.float32),
+                t2[..., 1].to(torch.float32),
+            )
+            res = torch.mul(a, b)
+            res_torch = torch.stack(
+                (res.real.to(torch.float16), res.imag.to(torch.float16)), dim=-1
+            )
+            return [torch_to_numpy_tensor(res_torch)]
+
         if out_dtype == "bool":
             return [torch_to_numpy_tensor(torch.logical_and(t1, t2))]
         return [torch_to_numpy_tensor(torch.mul(t1, t2))]
@@ -114,6 +115,7 @@ def _cast_to_out(result, out):
 class AclnnMulTestSpec:
     """aclnnMul / aclnnMuls 流程：out = self * other（other 张量或标量）。"""
 
+    @staticmethod
     def golden(self, other, out, **kwargs):
         """参数跟随 aclnnMul/aclnnMuls：self 张量、other 张量/标量、out 张量。"""
         return [_cast_to_out(torch.mul(self, other), out)]
@@ -124,9 +126,10 @@ class AclnnMulTestSpec:
 class AclnnInplaceMulTestSpec:
     """aclnnInplaceMul / aclnnInplaceMuls 流程：selfRef *= other。"""
 
+    @staticmethod
     def golden(selfRef, other, **kwargs):
         """参数跟随 aclnnInplaceMul/aclnnInplaceMuls：selfRef 张量、other 张量/标量。"""
-        return [torch.mul(selfRef, other)]
+        return [_cast_to_out(torch.mul(selfRef, other), selfRef)]
 
     third_party = {"torch": ThirdPartyImpl}
 
@@ -134,6 +137,7 @@ class AclnnInplaceMulTestSpec:
 class TorchMulTestSpec:
     """e2e 流程：torch 入/出。"""
 
+    @staticmethod
     def golden(input, other, **kwargs):
         """参数跟随 torch.mul：input/other 位置张量。"""
         return [torch.mul(input, other)]

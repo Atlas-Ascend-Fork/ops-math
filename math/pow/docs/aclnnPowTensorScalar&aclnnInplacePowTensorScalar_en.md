@@ -109,7 +109,7 @@ aclnnStatus aclnnInplacePowTensorScalar(
       <td>The data type must be convertible to the derived data type of exponent.</td>
       <td>FLOAT, FLOAT16, DOUBLE, INT8, INT16, INT32, INT64, BOOL, UINT8, COMPLEX64, COMPLEX128, BFLOAT16</td>
       <td>ND</td>
-      <td>-</td>
+      <td>0-8</td>
       <td>√</td>
     </tr>
     <tr>
@@ -127,9 +127,9 @@ aclnnStatus aclnnInplacePowTensorScalar(
       <td>Output</td>
       <td>Output out in the formula.</td>
       <td>The shape must be the same as that of self, and the data type must be convertible from the data type derived from the data types of self and exponent.</td>
-      <td>FLOAT, FLOAT16, DOUBLE, BOOL, INT16, INT32, INT64, INT8, UINT8, COMPLEX64, COMPLEX128, BFLOAT16, UINT16, UINT32, UINT64</td>
+      <td>FLOAT, FLOAT16, DOUBLE, INT16, INT32, INT64, INT8, UINT8, COMPLEX64, COMPLEX128, BFLOAT16, UINT16, UINT32, UINT64</td>
       <td>ND</td>
-      <td>-</td>
+      <td>0-8</td>
       <td>-</td>
     </tr>
     <tr>
@@ -276,19 +276,19 @@ aclnnStatus aclnnInplacePowTensorScalar(
     <tbody>
       <tr>
         <td>self (const aclTensor*)</td>
-        <td>Input</td>
+        <td>Input/Output</td>
         <td>Input self/out in the formula.</td>
         <td>None.</td>
         <td>FLOAT, FLOAT16, DOUBLE, INT32, INT64, INT8, UINT8, COMPLEX64, COMPLEX128, INT16, BFLOAT16</td>
         <td>ND</td>
-        <td>-</td>
+        <td>0-8</td>
         <td>√</td>
       </tr>
       <tr>
         <td>exponent (aclScalar*)</td>
         <td>Input</td>
         <td>Input exponent in the formula.</td>
-        <td>When the derived data types of selfRef and exponent are integer, exponent must be greater than or equal to 0.<br>The value of exponent must be within the value range of the derived data types of selfRef and exponent. (See <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">deduction relationship</a>)</td>
+        <td>When the derived data types of self and exponent are integer, exponent must be greater than or equal to 0.<br>The value of exponent must be within the value range of the derived data types of self and exponent. (See <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">deduction relationship</a>)</td>
         <td>FLOAT, FLOAT16, DOUBLE, INT32, INT64, INT8, UINT8, COMPLEX64, COMPLEX128, INT16, BFLOAT16</td>
         <td>-</td>
         <td>-</td>
@@ -338,21 +338,21 @@ aclnnStatus aclnnInplacePowTensorScalar(
     <tr>
       <td>ACLNN_ERR_PARAM_NULLPTR</td>
       <td>161001</td>
-      <td>The input selfRef or exponent is a null pointer.</td>
+      <td>The input self or exponent is a null pointer.</td>
     </tr>
     <tr>
       <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
       <td rowspan="5">161002</td>
-      <td>The data types of selfRef and exponent are not within the supported range.</td>
+      <td>The data types of self and exponent are not within the supported range.</td>
     </tr>
     <tr>
-      <td>The shape of selfRef has more than 8 dimensions.</td>
+      <td>The shape of self has more than 8 dimensions.</td>
     </tr>
     <tr>
-      <td>selfRef and exponent do not meet the data type derivation rules.</td>
+      <td>self and exponent do not meet the data type derivation rules.</td>
     </tr>
     <tr>
-      <td>The derived data type cannot be converted to the type of selfRef.</td>
+      <td>The derived data type cannot be converted to the type of self.</td>
     </tr>
     <tr>
       <td>The value of exponent is not within the supported range.</td>

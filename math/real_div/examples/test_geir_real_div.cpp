@@ -9,7 +9,7 @@
  */
 
 /*
- * test_geir_round.cpp
+ * test_geir_real_div.cpp
  */
 
 #include <iostream>

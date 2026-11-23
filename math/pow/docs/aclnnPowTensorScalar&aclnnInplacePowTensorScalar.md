@@ -107,7 +107,7 @@ aclnnStatus aclnnInplacePowTensorScalar(
       <td>数据类型需要是与exponent的数据类型推导之后可转换的数据类型。</td>
       <td>FLOAT、FLOAT16、DOUBLE、INT8、INT16、INT32、INT64、BOOL、UINT8、COMPLEX64、COMPLEX128、BFLOAT16</td>
       <td>ND</td>
-      <td>-</td>
+      <td>0-8</td>
       <td>√</td>
     </tr>
     <tr>
@@ -125,9 +125,9 @@ aclnnStatus aclnnInplacePowTensorScalar(
       <td>输出</td>
       <td>公式中的输出out</td>
       <td>shape需要与self一致，数据类型需要是self的数据类型与exponent的数据类型推导之后可转换的数据类型</td>
-      <td>FLOAT、FLOAT16、DOUBLE、BOOL、INT16、INT32、INT64、INT8、UINT8、COMPLEX64、COMPLEX128、BFLOAT16、UINT16、UINT32、UINT64</td>
+      <td>FLOAT、FLOAT16、DOUBLE、INT16、INT32、INT64、INT8、UINT8、COMPLEX64、COMPLEX128、BFLOAT16、UINT16、UINT32、UINT64</td>
       <td>ND</td>
-      <td>-</td>
+      <td>0-8</td>
       <td>√</td>
     </tr>
     <tr>
@@ -274,19 +274,19 @@ aclnnStatus aclnnInplacePowTensorScalar(
     <tbody>
       <tr>
         <td>self（const aclTensor*）</td>
-        <td>输入</td>
+        <td>输入/输出</td>
         <td>公式中的输入self/out</td>
         <td>无</td>
         <td>FLOAT、FLOAT16、DOUBLE、INT32、INT64、INT8、UINT8、COMPLEX64、COMPLEX128、INT16、BFLOAT16</td>
         <td>ND</td>
-        <td>-</td>
+        <td>0-8</td>
         <td>√</td>
       </tr>
       <tr>
         <td>exponent（aclScalar*）</td>
         <td>输入</td>
         <td>公式中的输入exponent</td>
-        <td>selfRef和exponent推导后的数据类型为整型时，exponent需要大于等于0。<br>exponent的值需要在selfRef和exponent推导后的数据类型的取值范围内。（参见<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>）</td>
+        <td>self和exponent推导后的数据类型为整型时，exponent需要大于等于0。<br>exponent的值需要在self和exponent推导后的数据类型的取值范围内。（参见<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>）</td>
         <td>FLOAT、FLOAT16、DOUBLE、INT32、INT64、INT8、UINT8、COMPLEX64、COMPLEX128、INT16、BFLOAT16</td>
         <td>-</td>
         <td>-</td>
@@ -336,21 +336,21 @@ aclnnStatus aclnnInplacePowTensorScalar(
     <tr>
       <td>ACLNN_ERR_PARAM_NULLPTR</td>
       <td>161001</td>
-      <td>传入的selfRef或exponent是空指针。</td>
+      <td>传入的self或exponent是空指针。</td>
     </tr>
     <tr>
       <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
       <td rowspan="5">161002</td>
-      <td>selfRef和exponent的数据类型不在支持的范围之内。</td>
+      <td>self和exponent的数据类型不在支持的范围之内。</td>
     </tr>
     <tr>
-      <td>selfRef的shape大于8维。</td>
+      <td>self的shape大于8维。</td>
     </tr>
     <tr>
-      <td>selfRef和exponent无法满足数据类型推导规则。</td>
+      <td>self和exponent无法满足数据类型推导规则。</td>
     </tr>
     <tr>
-      <td>推导出的数据类型无法转换为selfRef的类型。</td>
+      <td>推导出的数据类型无法转换为self的类型。</td>
     </tr>
     <tr>
       <td>exponent的取值不在支持范围内。</td>

@@ -285,7 +285,7 @@ aclnnStatus aclnnInplaceSubs(
   <tbody>
     <tr>
       <td>selfRef（aclTensor*）</td>
-      <td>输入</td>
+      <td>输入/输出</td>
       <td>公式中的selfRef。</td>
       <td>数据类型与other的数据类型需满足数据类型推导规则（参见<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>），且需要是推导之后可转换的数据类型（参见<a href="../../../docs/zh/context/conversion_relationship.md" target="_blank">互转换关系</a>）。</td>
       <td>FLOAT、FLOAT16、DOUBLE、INT32、INT64、INT16、INT8、UINT8、BOOL、COMPLEX128、COMPLEX64、BFLOAT16</td>

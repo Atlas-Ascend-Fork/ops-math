@@ -527,11 +527,11 @@ aclnnStatus aclnnSubsGetWorkspaceSize(const aclTensor* self, const aclScalar* ot
 
 static inline aclnnStatus CheckInplace(const aclTensor* selfRef, const aclTensor* other)
 {
-    OP_CHECK_NULL(selfRef, return false);
-    OP_CHECK_NULL(other, return false);
+    OP_CHECK_NULL(selfRef, return ACLNN_ERR_PARAM_NULLPTR);
+    OP_CHECK_NULL(other, return ACLNN_ERR_PARAM_NULLPTR);
     op::Shape broadcastShape;
-    OP_CHECK_BROADCAST_AND_INFER_SHAPE(selfRef, other, broadcastShape, return false);
-    OP_CHECK_BROADCAST_WITH_SHAPE(selfRef, broadcastShape, return false);
+    OP_CHECK_BROADCAST_AND_INFER_SHAPE(selfRef, other, broadcastShape, return ACLNN_ERR_PARAM_INVALID);
+    OP_CHECK_BROADCAST_WITH_SHAPE(selfRef, broadcastShape, return ACLNN_ERR_PARAM_INVALID);
     return ACLNN_SUCCESS;
 }
 

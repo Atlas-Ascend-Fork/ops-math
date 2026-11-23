@@ -121,7 +121,7 @@ aclnnStatus aclnnInplacePowTensorTensor(
       <td>self和exponent数据类型不支持同时为BOOL，shape需要与self满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>。</td>
       <td>FLOAT、FLOAT16、DOUBLE、INT16、BOOL、INT32、INT64、INT8、UINT8、COMPLEX64、COMPLEX128、BFLOAT16</td>
       <td>ND</td>
-      <td>-</td>
+      <td>0-8</td>
       <td>√</td>
     </tr>
     <tr>
@@ -129,9 +129,9 @@ aclnnStatus aclnnInplacePowTensorTensor(
       <td>输出</td>
       <td>公式中的out，存储计算结果。</td>
       <td>数据类型需要是self与exponent推导之后可转换的数据类型（参见<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>），shape需要是self与exponent <a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast</a>之后的shape。</td>
-      <td>FLOAT、FLOAT16、DOUBLE、BOOL、INT16、INT32、INT64、INT8、UINT8、COMPLEX64、COMPLEX128、BFLOAT16、UINT16、UINT32、UINT64</td>
+      <td>FLOAT、FLOAT16、DOUBLE、INT16、INT32、INT64、INT8、UINT8、COMPLEX64、COMPLEX128、BFLOAT16、UINT16、UINT32、UINT64</td>
       <td>ND</td>
-      <td>-</td>
+      <td>0-8</td>
       <td>√</td>
     </tr>
     <tr>
@@ -185,9 +185,12 @@ aclnnStatus aclnnInplacePowTensorTensor(
       <td>传入的self、exponent、out是空指针。</td>
     </tr>
     <tr>
-      <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="5">161002</td>
+      <td rowspan="7">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="7">161002</td>
       <td>self和exponent的数据类型不在支持的范围之内。</td>
+    </tr>
+    <tr>
+      <td>self和exponent的shape大于8维。</td>
     </tr>
     <tr>
       <td>self和exponent无法做数据类型推导。</td>
@@ -197,6 +200,9 @@ aclnnStatus aclnnInplacePowTensorTensor(
     </tr>
     <tr>
       <td>self和exponent的shape无法做broadcast。</td>
+    </tr>
+    <tr>
+      <td>self和exponent进行broadcast后的shape不等于out的shape。</td>
     </tr>
     <tr>
       <td>self和exponent同时为bool数据类型。</td>
@@ -280,7 +286,7 @@ aclnnStatus aclnnInplacePowTensorTensor(
       <td>数据类型是self与exponent推导之后可转换的数据类型，shape需要与exponent满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>。</td>
       <td>FLOAT、FLOAT16、DOUBLE、INT32、INT64、INT8、UINT8、COMPLEX64、COMPLEX128、INT16、BFLOAT16</td>
       <td>ND</td>
-      <td>-</td>
+      <td>0-8</td>
       <td>√</td>
     </tr>
     <tr>
@@ -290,7 +296,7 @@ aclnnStatus aclnnInplacePowTensorTensor(
       <td>数据类型是self与exponent推导之后可转换的数据类型（参见<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>），shape需要与self满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>。</td>
       <td>FLOAT、FLOAT16、DOUBLE、INT32、INT64、INT8、UINT8、COMPLEX64、COMPLEX128、INT16、BFLOAT16</td>
       <td>ND</td>
-      <td>-</td>
+      <td>0-8</td>
       <td>√</td>
     </tr>
     <tr>
@@ -344,8 +350,8 @@ aclnnStatus aclnnInplacePowTensorTensor(
       <td>传入的self、exponent空指针。</td>
     </tr>
     <tr>
-      <td rowspan="6">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="6">161002</td>
+      <td rowspan="7">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="7">161002</td>
       <td>self和exponent的数据类型不在支持的范围之内。</td>
     </tr>
     <tr>
@@ -353,6 +359,9 @@ aclnnStatus aclnnInplacePowTensorTensor(
     </tr>
     <tr>
       <td>self和exponent无法满足数据类型推导规则。</td>
+    </tr>
+    <tr>
+      <td>推导出的数据类型无法转换为指定输出self的类型。</td>
     </tr>
     <tr>
       <td>self和exponent的shape无法做broadcast。</td>

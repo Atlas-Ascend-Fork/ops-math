@@ -91,7 +91,9 @@ static const aclTensor* RealDivAiCore(const aclTensor* self, const aclTensor* ot
     L0_DFX(RealDivAiCore, self, other, divOut);
     // 使用框架宏ADD_TO_LAUNCHER_LIST_AICORE，将AiCore RealDiv算子加入任务队列
     // RealDiv是算子的OpType，self、other是算子的输入，divOut是算子的输出
-    ADD_TO_LAUNCHER_LIST_AICORE(RealDiv, OP_INPUT(self, other), OP_OUTPUT(divOut));
+    auto ret = ADD_TO_LAUNCHER_LIST_AICORE(RealDiv, OP_INPUT(self, other), OP_OUTPUT(divOut));
+    OP_CHECK(ret == ACLNN_SUCCESS, OP_LOGE(ACLNN_ERR_INNER, "RealDivAiCore ADD_TO_LAUNCHER_LIST_AICORE failed."),
+             return nullptr);
     return divOut;
 }
 
@@ -102,7 +104,8 @@ static const aclTensor* RealDivAiCpu(const aclTensor* self, const aclTensor* oth
     L0_DFX(RealDivAiCpu);
     static internal::AicpuTaskSpace space("RealDiv");
     auto ret = ADD_TO_LAUNCHER_LIST_AICPU(RealDiv, OP_ATTR_NAMES(), OP_INPUT(self, other), OP_OUTPUT(divOut));
-    CHECK_RET(ret == ACLNN_SUCCESS, nullptr);
+    OP_CHECK(ret == ACLNN_SUCCESS, OP_LOGE(ACLNN_ERR_INNER, "RealDivAiCpu ADD_TO_LAUNCHER_LIST_AICPU failed."),
+             return nullptr);
     return divOut;
 }
 

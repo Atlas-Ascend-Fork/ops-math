@@ -27,9 +27,9 @@
 
 - 计算公式：
 
-$$
-out_i = self^{exponent_i}
-$$
+  $$
+  out_i = self^{exponent_i}
+  $$
 
 - 算子约束：INT32整型计算在如下范围以外的场景，会出现超时。
 
@@ -168,9 +168,12 @@ aclnnStatus aclnnPowScalarTensor(
       <td>传入的self、exponent、out是空指针。</td>
       </tr>
       <tr>
-      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="4">161002</td>
-      <td>exponent的数据类型不在支持的范围之内。</td>
+      <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="5">161002</td>
+      <td>self、exponent的数据类型不在支持的范围之内。</td>
+      </tr>
+      <tr>
+      <td>exponent的shape大于8维。</td>
       </tr>
       <tr>
       <td>self和exponent不满足数据类型推导规则。</td>

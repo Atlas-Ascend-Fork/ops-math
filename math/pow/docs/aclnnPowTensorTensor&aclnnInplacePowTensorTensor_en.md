@@ -123,7 +123,7 @@ aclnnStatus aclnnInplacePowTensorTensor(
       <td>The data types of self and exponent cannot be BOOL at the same time, and the shape must satisfy the <a href="../../../docs/en/context/broadcast_relationship.md" target="_blank">broadcast relationship</a> with self.</td>
       <td>FLOAT, FLOAT16, DOUBLE, INT16, BOOL, INT32, INT64, INT8, UINT8, COMPLEX64, COMPLEX128, BFLOAT16</td>
       <td>ND</td>
-      <td>-</td>
+      <td>0-8</td>
       <td>√</td>
     </tr>
     <tr>
@@ -131,9 +131,9 @@ aclnnStatus aclnnInplacePowTensorTensor(
       <td>Output</td>
       <td>out in the formula. Stores the computation result.</td>
       <td>The data type must be a data type that self and exponent can be deduced and converted to (see the <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">deduction relationship</a>). The shape must be the shape after self and exponent <a href="../../../docs/en/context/broadcast_relationship.md" target="_blank">broadcast</a>.</td>
-      <td>FLOAT, FLOAT16, DOUBLE, BOOL, INT16, INT32, INT64, INT8, UINT8, COMPLEX64, COMPLEX128, BFLOAT16, UINT16, UINT32, UINT64</td>
+      <td>FLOAT, FLOAT16, DOUBLE, INT16, INT32, INT64, INT8, UINT8, COMPLEX64, COMPLEX128, BFLOAT16, UINT16, UINT32, UINT64</td>
       <td>ND</td>
-      <td>-</td>
+      <td>0-8</td>
       <td>√</td>
     </tr>
     <tr>
@@ -187,9 +187,12 @@ aclnnStatus aclnnInplacePowTensorTensor(
       <td>self, exponent, or out is a null pointer.</td>
     </tr>
     <tr>
-      <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="5">161002</td>
+      <td rowspan="7">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="7">161002</td>
       <td>The data types of self and exponent are out of the supported range.</td>
+    </tr>
+    <tr>
+      <td>The shapes of self and exponent exceed 8 dimensions.</td>
     </tr>
     <tr>
       <td>Data type deduction fails for self and exponent.</td>
@@ -199,6 +202,9 @@ aclnnStatus aclnnInplacePowTensorTensor(
     </tr>
     <tr>
       <td>The shapes of self and exponent cannot be broadcast.</td>
+    </tr>
+    <tr>
+      <td>The shape of self and exponent after broadcast is not equal to the shape of out.</td>
     </tr>
     <tr>
       <td>self and exponent are both of the bool data type.</td>
@@ -282,7 +288,7 @@ aclnnStatus aclnnInplacePowTensorTensor(
       <td>The data type is the type that self and exponent can be converted to after deduction. The shape must satisfy the <a href="../../../docs/en/context/broadcast_relationship.md" target="_blank">broadcast relationship</a> with exponent.</td>
       <td>FLOAT, FLOAT16, DOUBLE, INT32, INT64, INT8, UINT8, COMPLEX64, COMPLEX128, INT16, BFLOAT16</td>
       <td>ND</td>
-      <td>-</td>
+      <td>0-8</td>
       <td>√</td>
     </tr>
     <tr>
@@ -292,7 +298,7 @@ aclnnStatus aclnnInplacePowTensorTensor(
       <td>The data type must be a data type that self and exponent can be converted to after deduction (see <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">deduction relationship</a>), and the shape must satisfy the <a href="../../../docs/en/context/broadcast_relationship.md" target="_blank">broadcast relationship</a> with self.</td>
       <td>FLOAT, FLOAT16, DOUBLE, INT32, INT64, INT8, UINT8, COMPLEX64, COMPLEX128, INT16, BFLOAT16</td>
       <td>ND</td>
-      <td>-</td>
+      <td>0-8</td>
       <td>√</td>
     </tr>
     <tr>
@@ -346,8 +352,8 @@ aclnnStatus aclnnInplacePowTensorTensor(
       <td>self or exponent is a null pointer.</td>
     </tr>
     <tr>
-      <td rowspan="6">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="6">161002</td>
+      <td rowspan="7">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="7">161002</td>
       <td>The data types of self and exponent are not in the supported range.</td>
     </tr>
     <tr>
@@ -355,6 +361,9 @@ aclnnStatus aclnnInplacePowTensorTensor(
     </tr>
     <tr>
       <td>self and exponent do not meet the data type deduction rules.</td>
+    </tr>
+    <tr>
+      <td>The deduced data type cannot be converted to the type of the specified output self.</td>
     </tr>
     <tr>
       <td>The shapes of self and exponent cannot be broadcast.</td>

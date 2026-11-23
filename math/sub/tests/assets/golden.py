@@ -130,6 +130,27 @@ class ThirdPartyImpl:
         return [_torch_sub(x, y, self.alpha)]
 
 
+class ThirdPartyRsubImpl:
+    """torch 三方标杆（Rsub 专用）：out = other - alpha * self。
+
+    Rsub 与 Sub 方向相反，且 bool 且 alpha 为 falsy 时返回 other 而非 self。
+    """
+
+    def __init__(self, *, alpha=1.0, **kwargs):
+        self.alpha = alpha
+
+    def __call__(self, *args, **kwargs):
+        x, y = _third_party_inputs(args, kwargs)
+        if x.dtype == torch.bool:
+            a = _to_scalar(self.alpha)
+            if bool(a):
+                return [_bool_xor(x, y)]
+            if torch.is_tensor(y):
+                return [y.clone()]
+            return [torch.full_like(x, bool(y))]
+        return [_torch_rsub(x, y, self.alpha)]
+
+
 class SubTestSpec:
     """kernel/GEIR 流程：numpy 入/出。"""
 
@@ -142,17 +163,21 @@ class SubTestSpec:
         out_dtype = str(out_dtypes[0]).lower() if out_dtypes else None
 
         if out_dtype == "complex32":
-            import numpy
-
-            a = x1[..., 0].astype(numpy.float32) + 1j * x1[..., 1].astype(numpy.float32)
-            b = x2[..., 0].astype(numpy.float32) + 1j * x2[..., 1].astype(numpy.float32)
-            res = a - b
-            return [
-                numpy.stack(
-                    (res.real.astype(numpy.float16), res.imag.astype(numpy.float16)),
-                    axis=-1,
-                )
-            ]
+            x1_torch = numpy_to_torch_tensor(x1)
+            x2_torch = numpy_to_torch_tensor(x2)
+            a = torch.complex(
+                x1_torch[..., 0].to(torch.float32),
+                x1_torch[..., 1].to(torch.float32),
+            )
+            b = torch.complex(
+                x2_torch[..., 0].to(torch.float32),
+                x2_torch[..., 1].to(torch.float32),
+            )
+            res = torch.sub(a, b)
+            res_torch = torch.stack(
+                (res.real.to(torch.float16), res.imag.to(torch.float16)), dim=-1
+            )
+            return [torch_to_numpy_tensor(res_torch)]
 
         t1 = numpy_to_torch_tensor(x1)
         t2 = numpy_to_torch_tensor(x2)
@@ -166,6 +191,7 @@ class SubTestSpec:
 class AclnnSubTestSpec:
     """aclnnSub / aclnnSubs 流程：out = self - alpha * other（other 张量或标量）。"""
 
+    @staticmethod
     def golden(self, other, alpha, out, **kwargs):
         """参数跟随 aclnnSub/aclnnSubs：self 张量、other 张量/标量、alpha 标量、out 张量。"""
         if self.dtype == torch.bool:
@@ -181,6 +207,7 @@ class AclnnSubTestSpec:
 class AclnnInplaceSubTestSpec:
     """aclnnInplaceSub / aclnnInplaceSubs 流程：selfRef -= alpha * other。"""
 
+    @staticmethod
     def golden(selfRef, other, alpha, **kwargs):
         """参数跟随 aclnnInplaceSub/aclnnInplaceSubs：selfRef 张量、other 张量/标量、alpha 标量。"""
         if selfRef.dtype == torch.bool:
@@ -196,6 +223,7 @@ class AclnnInplaceSubTestSpec:
 class AclnnRsubTestSpec:
     """aclnnRsub / aclnnRsubs 流程：out = other - alpha * self（other 张量或标量）。"""
 
+    @staticmethod
     def golden(self, other, alpha, out, **kwargs):
         """参数跟随 aclnnRsub/aclnnRsubs：self 张量、other 张量/标量、alpha 标量、out 张量。"""
         if self.dtype == torch.bool:
@@ -207,12 +235,13 @@ class AclnnRsubTestSpec:
             return [torch.full_like(self, bool(other))]
         return [_cast_to_out(_torch_rsub(self, other, _to_scalar(alpha)), out)]
 
-    third_party = {"torch": ThirdPartyImpl}
+    third_party = {"torch": ThirdPartyRsubImpl}
 
 
 class TorchSubTestSpec:
     """e2e 流程：torch 入/出。"""
 
+    @staticmethod
     def golden(input, other, alpha=1.0, **kwargs):
         """参数跟随 torch.sub：input/other 位置张量，alpha 标量属性。"""
         return [_torch_sub(input, other, alpha)]

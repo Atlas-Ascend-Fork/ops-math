@@ -179,8 +179,8 @@ aclnnStatus aclnnInplaceMul(
       <td>传入的self、other、out是空指针时。</td>
     </tr>
     <tr>
-      <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="5">161002</td>
+      <td rowspan="6">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="6">161002</td>
       <td>self、other、out的数据类型不在支持的范围内时。</td>
     </tr>
     <tr>
@@ -194,6 +194,9 @@ aclnnStatus aclnnInplaceMul(
     </tr>
     <tr>
       <td>self、other的维度大于8。</td>
+    </tr>
+    <tr>
+      <td>self和other进行broadcast后的shape不等于out的shape。</td>
     </tr>
   </tbody>
   </table>
@@ -337,12 +340,15 @@ aclnnStatus aclnnInplaceMul(
       <td>传入的selfRef、other是空指针。</td>
     </tr>
     <tr>
-      <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="5">161002</td>
+      <td rowspan="6">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="6">161002</td>
       <td>selfRef和other的数据类型不在支持的范围内。</td>
     </tr>
     <tr>
       <td>selfRef和other的数据类型无法满足数据类型推导规则。</td>
+    </tr>
+    <tr>
+      <td>推导出的数据类型无法转换为指定输出selfRef的类型。</td>
     </tr>
     <tr>
       <td>selfRef和other的shape无法做broadcast。</td>

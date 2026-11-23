@@ -26,7 +26,7 @@ extern "C" {
  * 参数描述：
  * @param [in]   input
  * 输入Tensor，数据类型支持FLOAT16、FLOAT、UINT8、INT8、INT16、INT32、INT64、BFLOAT16（在Atlas训练系列产品上不支持该数据类型）。支持非连续Tensor，数据格式支持ND。
- * @param [in]   out
+ * @param [out]   out
  * 输出Tensor，数据类型支持FLOAT16、FLOAT、UINT8、INT8、INT16、INT32、INT64、BFLOAT16（在Atlas训练系列产品上不支持该数据类型）。支持非连续Tensor，数据格式支持ND。
  * @param [out]  workspaceSize   返回用户需要在npu device侧申请的workspace大小。
  * @param [out]  executor         返回op执行器，包含了算子计算流程。
@@ -65,7 +65,7 @@ ACLNN_API aclnnStatus aclnnFrac(void* workspace, uint64_t workspaceSize, aclOpEx
  * @domain aclnn_math
  * 功能描述：计算输入Tensor中每个元素的小数部分。
  * 参数描述：
- * @param [in]   inputRef
+ * @param [in/out]   inputRef
  * 输入Tensor，数据类型支持FLOAT16、FLOAT、UINT8、INT8、INT16、INT32、INT64、BFLOAT16（在Atlas训练系列产品上不支持该数据类型）。支持非连续Tensor，数据格式支持ND。
  * @param [out]  workspaceSize   返回用户需要在npu device侧申请的workspace大小。
  * @param [out]  executor         返回op执行器，包含了算子计算流程。

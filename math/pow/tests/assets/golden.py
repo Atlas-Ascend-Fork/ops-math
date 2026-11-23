@@ -11,7 +11,7 @@
 # ----------------------------------------------------------------------------
 """Pow 算子测试规范（TTK TestSpec）。
 
-kernel/GEIR = pow（numpy 入/出）：真值 x1 ** x2（bfloat16 抬 fp32 计算后回转）；
+kernel/GEIR = pow（numpy 入/出）：真值 x1 ** x2；
 aclnn = aclnnPowTensorScalar / aclnnInplacePowTensorScalar /
 aclnnPowScalarTensor / aclnnPowTensorTensor / aclnnInplacePowTensorTensor /
 aclnnExp2 / aclnnInplaceExp2（torch 入/出）：out = self ** exponent
@@ -73,6 +73,13 @@ def _cast_result(result, out_dtype):
         return result
 
 
+def _cpu_exp2(x):
+    """torch CPU exp2 缺少 Half/BFloat16 核；半精度、整型与布尔统一抬 fp32 计算，float32/float64 走原生精度。"""
+    if x.dtype in (torch.float32, torch.float64):
+        return torch.exp2(x)
+    return torch.exp2(x.float())
+
+
 def _third_party_inputs(
     args,
     kwargs,
@@ -113,6 +120,18 @@ class ThirdPartyImpl:
         return [torch.pow(a, b)]
 
 
+class Exp2ThirdPartyImpl:
+    """torch 三方标杆（Exp2 单输入）：out = 2 ** self（Inplace 输入名 selfRef）。"""
+
+    def __call__(self, *args, **kwargs):
+        x = (
+            args[0]
+            if args
+            else kwargs.get("self", kwargs.get("input", kwargs.get("selfRef")))
+        )
+        return [_cpu_exp2(x)]
+
+
 class PowTestSpec:
     """kernel/GEIR 流程：numpy 入/出。"""
 
@@ -131,6 +150,7 @@ class PowTestSpec:
 class AclnnPowTensorScalarTestSpec:
     """aclnnPowTensorScalar 流程：out = self ** exponent（exponent 标量）。"""
 
+    @staticmethod
     def golden(self, exponent, out, **kwargs):
         """参数跟随 aclnnPowTensorScalar：self 张量、exponent 标量、out 张量。"""
         return [
@@ -145,6 +165,7 @@ class AclnnPowTensorScalarTestSpec:
 class AclnnInplacePowTensorScalarTestSpec:
     """aclnnInplacePowTensorScalar 流程：selfRef **= exponent（exponent 标量）。"""
 
+    @staticmethod
     def golden(selfRef, exponent, **kwargs):
         """参数跟随 aclnnInplacePowTensorScalar：selfRef 张量、exponent 标量。"""
         return [_cast_result(torch.pow(selfRef, _to_scalar(exponent)), selfRef.dtype)]
@@ -155,6 +176,7 @@ class AclnnInplacePowTensorScalarTestSpec:
 class AclnnPowScalarTensorTestSpec:
     """aclnnPowScalarTensor 流程：out = self ** exponent（self 标量）。"""
 
+    @staticmethod
     def golden(self, exponent, out, **kwargs):
         """参数跟随 aclnnPowScalarTensor：self 标量、exponent 张量、out 张量。"""
         return [
@@ -169,6 +191,7 @@ class AclnnPowScalarTensorTestSpec:
 class AclnnPowTensorTensorTestSpec:
     """aclnnPowTensorTensor 流程：out = self ** exponent（exponent 张量）。"""
 
+    @staticmethod
     def golden(self, exponent, out, **kwargs):
         """参数跟随 aclnnPowTensorTensor：self 张量、exponent 张量、out 张量。"""
         return [_cast_result(torch.pow(self, exponent), _out_torch_dtype(kwargs))]
@@ -179,6 +202,7 @@ class AclnnPowTensorTensorTestSpec:
 class AclnnInplacePowTensorTensorTestSpec:
     """aclnnInplacePowTensorTensor 流程：selfRef **= exponent（exponent 张量）。"""
 
+    @staticmethod
     def golden(selfRef, exponent, **kwargs):
         """参数跟随 aclnnInplacePowTensorTensor：selfRef 张量、exponent 张量。"""
         return [_cast_result(torch.pow(selfRef, exponent), selfRef.dtype)]
@@ -189,26 +213,29 @@ class AclnnInplacePowTensorTensorTestSpec:
 class AclnnExp2TestSpec:
     """aclnnExp2 流程：out = 2 ** self。"""
 
+    @staticmethod
     def golden(self, out, **kwargs):
         """参数跟随 aclnnExp2：self 张量、out 张量。"""
-        return [_cast_result(torch.exp2(self.float()), _out_torch_dtype(kwargs))]
+        return [_cast_result(_cpu_exp2(self), _out_torch_dtype(kwargs))]
 
-    third_party = {"torch": ThirdPartyImpl}
+    third_party = {"torch": Exp2ThirdPartyImpl}
 
 
 class AclnnInplaceExp2TestSpec:
     """aclnnInplaceExp2 流程：selfRef = 2 ** selfRef。"""
 
+    @staticmethod
     def golden(selfRef, **kwargs):
         """参数跟随 aclnnInplaceExp2：selfRef 张量。"""
-        return [_cast_result(torch.exp2(selfRef.float()), selfRef.dtype)]
+        return [_cast_result(_cpu_exp2(selfRef), selfRef.dtype)]
 
-    third_party = {"torch": ThirdPartyImpl}
+    third_party = {"torch": Exp2ThirdPartyImpl}
 
 
 class TorchPowTestSpec:
     """e2e 流程：torch 入/出。"""
 
+    @staticmethod
     def golden(input, exponent, **kwargs):
         """参数跟随 torch.pow：input/exponent 位置张量。"""
         return [torch.pow(input, exponent)]

@@ -287,7 +287,7 @@ aclnnStatus aclnnInplaceSubs(
   <tbody>
     <tr>
       <td class="tg-0pky">selfRef (aclTensor*)</td>
-      <td class="tg-0pky">Input</td>
+      <td class="tg-0pky">Input/Output</td>
       <td class="tg-0pky">selfRef in the formula.</td>
       <td class="tg-0pky">The data type and the data type of other must satisfy the data type derivation rules (see <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">deduction relationship</a>), and must be convertible after derivation (see <a href="../../../docs/en/context/conversion_relationship.md" target="_blank">conversion relationship</a>).</td>
       <td class="tg-0pky">FLOAT, FLOAT16, DOUBLE, INT32, INT64, INT16, INT8, UINT8, BOOL, COMPLEX128, COMPLEX64, BFLOAT16</td>

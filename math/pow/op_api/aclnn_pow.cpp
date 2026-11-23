@@ -28,6 +28,7 @@
 #include "opdev/platform.h"
 #include "opdev/op_log.h"
 #include <cmath>
+#include <cstring>
 #include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
@@ -44,6 +45,14 @@ const float NEGTIVE_ONE_EXP = -1.0;
 const float NEGTIVE_SQUARE_EXP = -2.0;
 
 constexpr float EXP_EPSILON = 1e-6f;
+
+// RegBase（A5）上优化路径（square/fill(1)）只在标量值精确等于特殊常量时命中，
+// 不能用容差匹配，否则会把邻近的合法输入误判为特殊值并产生无界精度偏差。
+// 这里按位比较，既满足G.EXP.27禁止浮点直接==的要求，又保证语义精确。
+static inline bool IsExactlyEqual(const double value, const double expected)
+{
+    return std::memcmp(&value, &expected, sizeof(double)) == 0;
+}
 
 static const std::initializer_list<op::DataType> DTYPE_SUPPORT_LIST = {
     op::DataType::DT_FLOAT, op::DataType::DT_INT32,     op::DataType::DT_INT64,      op::DataType::DT_FLOAT16,
@@ -464,7 +473,10 @@ aclnnStatus aclnnPowTensorScalarGetWorkspaceSize(const aclTensor* self, const ac
     CHECK_RET(selfCast != nullptr, ACLNN_ERR_INNER_NULLPTR);
 
     const aclTensor* powOut = nullptr;
-    bool canUseSquare = std::abs(exponent->ToFloat() - SQUARE_EXP) < EXP_EPSILON &&
+    // RegBase（A5）使用精确匹配，其余芯片保持原容差匹配逻辑不变
+    bool isSquareExp = IsRegBase() ? IsExactlyEqual(exponent->ToDouble(), SQUARE_EXP) :
+                                     (std::abs(exponent->ToFloat() - SQUARE_EXP) < EXP_EPSILON);
+    bool canUseSquare = isSquareExp &&
                         (!IsRegBase() || (IsRegBase() && (selfCast->GetDataType() == op::DataType::DT_FLOAT ||
                                                           selfCast->GetDataType() == op::DataType::DT_BF16 ||
                                                           selfCast->GetDataType() == op::DataType::DT_FLOAT16 ||
@@ -614,7 +626,7 @@ aclnnStatus aclnnPowScalarTensorGetWorkspaceSize(const aclScalar* self, const ac
     }
 
     // fill(1) 分支
-    if (IsRegBase() && std::abs(self->ToFloat() - 1.0f) < EXP_EPSILON && !IsComplexType(exponent->GetDataType()) &&
+    if (IsRegBase() && IsExactlyEqual(self->ToDouble(), 1.0) && !IsComplexType(exponent->GetDataType()) &&
         !IsComplexType(out->GetDataType())) {
         CHECK_RET(BuildPowScalarTensorFillOne(out, uniqueExecutor.get()) == ACLNN_SUCCESS, ACLNN_ERR_INNER);
         *workspaceSize = uniqueExecutor->GetWorkspaceSize();

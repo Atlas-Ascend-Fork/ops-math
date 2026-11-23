@@ -99,27 +99,27 @@ aclnnStatus aclnnInplaceExp2(
     </tr></thead>
   <tbody>
     <tr>
-      <td>self</td>
+      <td>self (aclTensor*)</td>
       <td>Input</td>
       <td>Input self in the formula.</td>
       <td>-</td>
       <td>BOOL, INT8, UINT8, INT16, INT32, INT64, FLOAT, FLOAT16, BFLOAT16, DOUBLE</td>
       <td>ND</td>
-      <td>-</td>
+      <td>0-8</td>
       <td>√</td>
     </tr>
     <tr>
-      <td>out</td>
+      <td>out (aclTensor*)</td>
       <td>Output</td>
       <td>Output out in the formula.</td>
-      <td>The data type must be a data type to which self can be converted.</td>
+      <td>The data type must be a data type to which self can be converted.Shape is consistent with self.</td>
       <td>FLOAT, FLOAT16, BFLOAT16, DOUBLE</td>
       <td>ND</td>
-      <td>Same as self</td>
+      <td>0-8</td>
       <td>√</td>
     </tr>
     <tr>
-      <td>workspaceSize</td>
+      <td>workspaceSize (uint64_t*)</td>
       <td>Output</td>
       <td>Returns the size of the workspace that needs to be requested on the Device side.</td>
       <td>-</td>
@@ -129,7 +129,7 @@ aclnnStatus aclnnInplaceExp2(
       <td>-</td>
     </tr>
     <tr>
-      <td>executor</td>
+      <td>executor (aclOpExecutor**)</td>
       <td>Output</td>
       <td>Returns the op executor, which contains the operator computation flow.</td>
       <td>-</td>
@@ -180,7 +180,7 @@ aclnnStatus aclnnInplaceExp2(
       <td>The number of dimensions of self or out exceeds 8.</td>
     </tr>
     <tr>
-      <td>The shapes of self or out are inconsistent.</td>
+      <td>The shapes of self and out are inconsistent.</td>
     </tr>
   </tbody>
   </table>
@@ -255,17 +255,17 @@ aclnnStatus aclnnInplaceExp2(
     </tr></thead>
   <tbody>
     <tr>
-      <td>selfRef</td>
+      <td>selfRef (aclTensor*)</td>
       <td>Input/Output</td>
       <td>Input and output tensor, corresponding to input self and out in the formula.</td>
       <td>-</td>
       <td>FLOAT, FLOAT16, BFLOAT16, DOUBLE</td>
       <td>ND</td>
-      <td>-</td>
+      <td>0-8</td>
       <td>√</td>
     </tr>
     <tr>
-      <td>workspaceSize</td>
+      <td>workspaceSize (uint64_t*)</td>
       <td>Output</td>
       <td>Returns the size of the workspace to be requested on the Device.</td>
       <td>-</td>
@@ -275,7 +275,7 @@ aclnnStatus aclnnInplaceExp2(
       <td>-</td>
     </tr>
     <tr>
-      <td>executor</td>
+      <td>executor (aclOpExecutor**)</td>
       <td>Output</td>
       <td>Returns the op executor, which contains the operator computation process.</td>
       <td>-</td>
