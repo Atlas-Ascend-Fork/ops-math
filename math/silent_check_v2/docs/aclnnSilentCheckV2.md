@@ -269,7 +269,7 @@ aclnnStatus aclnnSilentCheckV2(
     <tr>
       <td rowspan="3">ACLNN_ERR_PARAM_INVALID</td>
       <td rowspan="3">161002</td>
-      <td>传入的val, max, avgRef, inputGradRef, stepRef, dstSize, dstStride, dstOffset的数据类型不在支持的范围内。</td>
+      <td>传入的val、max、avgRef、inputGradRef、stepRef、dstSize、dstStride、dstOffset的数据类型不在支持的范围内。</td>
     </tr>
     <tr>
       <td>传入的val, max, avgRef, inputGradRef, stepRef, dstSize, dstStride, dstOffset的shape不满足要求；其中stepRef的shape必须为[1]。</td>

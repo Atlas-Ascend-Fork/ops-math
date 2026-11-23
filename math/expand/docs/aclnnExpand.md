@@ -34,8 +34,8 @@ Y_{i_1,\dots,i_k,\dots,i_n}
 X_{i_1,\dots,\lfloor i_k / m \rfloor,\dots,i_n}
 $$
 公式说明：
-Y：expand后的张量；
-m：第k维的扩展倍数
+Y：expand后的张量。
+m：第k维的扩展倍数。
 
 ## 函数原型
 
@@ -231,7 +231,7 @@ aclnnStatus aclnnExpand(
 
 示例代码如下，仅供参考，具体编译和执行过程请参考[编译与运行样例](../../../docs/zh/context/compile_and_run_sample.md)。
 
-```Cpp
+```cpp
 #include <iostream>
 #include <vector>
 #include "acl/acl.h"

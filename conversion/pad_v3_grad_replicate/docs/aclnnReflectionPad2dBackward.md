@@ -94,7 +94,7 @@ aclnnStatus aclnnReflectionPad2dBackward(
     <tr>
       <td>self</td>
       <td>输入</td>
-      <td>正向计算时需要进行填充的tensor</td>
+      <td>正向计算时需要进行填充的Tensor</td>
       <td>-</td>
       <td>BFLOAT16、FLOAT16、FLOAT、DOUBLE、COMPLEX64、COMPLEX128</td>
       <td>ND</td>

@@ -207,7 +207,7 @@ aclnnStatus aclnnLogSumExp(
       <td>self的数据类型不能转换为out的数据类型。</td>
     </tr>
     <tr>
-      <td>out的shape不等于由self，dim，keepDim推导得到的shape。</td>
+      <td>out的shape不等于由self、dim、keepDim推导得到的shape。</td>
     </tr>
   </tbody>
   </table>

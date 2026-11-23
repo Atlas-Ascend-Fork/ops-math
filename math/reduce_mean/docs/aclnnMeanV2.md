@@ -116,7 +116,7 @@ aclnnStatus aclnnMeanV2(
       <td>
         <ul>
           <li>为false时，dim为[]会reduce所有轴。</li>
-          <li>为true时，dim为[]时会保留所有轴，输出tensor与输入tensor一致。</li>
+          <li>为true时，dim为[]时会保留所有轴，输出Tensor与输入Tensor一致。</li>
         </ul>
       </td>
       <td>BOOL</td>

@@ -37,7 +37,11 @@ aclnnFloorDivide和aclnnInplaceFloorDivide实现相同的功能，使用区别�
 - aclnnFloorDivide：需新建一个输出张量对象存储计算结果。
 - aclnnInplaceFloorDivide：无需新建输出张量对象，直接在输入张量的内存中存储计算结果。
 
+<<<<<<< HEAD
+每个算子分为[两段式接口](../../../docs/zh/context/two_phase_api.md)，必须先调用“aclnnFloorDivideGetWorkspaceSize”或者“aclnnInplaceFloorDivideGetWorkspaceSize”接口获取计算所需workspace大小以及包含了算子计算流程的执行器，再调用“aclnnFloorDivide”或者“aclnnInplaceFloorDivide”接口执行计算。
+=======
 每个算子分为[两段式接口](../../../docs/zh/context/two_phase_api.md)，必须先调用"aclnnFloorDivideGetWorkspaceSize"或者“aclnnInplaceFloorDivideGetWorkspaceSize”接口获取计算所需workspace大小以及包含了算子计算流程的执行器，再调用"aclnnFloorDivide"或者"aclnnInplaceFloorDivide"接口执行计算。
+>>>>>>> f08c8ac829813a7c0549a1b14b4d8f23cd9dd82b
 
 ```Cpp
 aclnnStatus aclnnFloorDivideGetWorkspaceSize(

@@ -183,7 +183,7 @@ aclnnStatus aclnnInplaceLeScalar(
     <tr>
       <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
       <td rowspan="4">161002</td>
-      <td>self，other或out的数据类型不在支持的范围之内。</td>
+      <td>self、other或out的数据类型不在支持的范围之内。</td>
     </tr>
     <tr>
       <td>self和other数据类型不满足数据类型推导规则。</td>
@@ -269,7 +269,7 @@ aclnnStatus aclnnInplaceLeScalar(
     <tr>
       <td>selfRef（aclTensor*）</td>
       <td>输入/输出</td>
-      <td>输入输出tensor，即公式中的self与out。</td>
+      <td>输入输出Tensor，即公式中的self与out。</td>
       <td>-</td>
       <td>INT8、UINT8、INT16、INT32、INT64、FLOAT16、UINT16、BFLOAT16、FLOAT、DOUBLE、BOOL、UINT64</td>
       <td>ND</td>

@@ -182,7 +182,7 @@ aclnnStatus aclnnReduceLogSum(
       <td>reduce shape与实际不匹配。</td>
     </tr>
     <tr>
-      <td>axes数组中的维度超出输入tensor的维度范围。</td>
+      <td>axes数组中的维度超出输入Tensor的维度范围。</td>
     </tr>
     <tr>
       <td>axes数组中的轴重复。</td>

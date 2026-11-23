@@ -205,7 +205,7 @@ aclnnStatus aclnnInplaceClampMax(
 
 ## aclnnClampMax
 
-- **参数说明**
+- **参数说明：**
   <table style="table-layout: fixed; width: 1150px"><colgroup>
   <col style="width: 184px">
   <col style="width: 134px">
@@ -356,7 +356,7 @@ aclnnStatus aclnnInplaceClampMax(
 
 ## aclnnInplaceClampMax
 
-- **参数说明**
+- **参数说明：**
   <table style="table-layout: fixed; width: 1150px"><colgroup>
   <col style="width: 184px">
   <col style="width: 134px">

@@ -209,7 +209,7 @@ aclnnStatus aclnnInplaceAddr(
     <tr>
       <td>ACLNN_ERR_PARAM_NULLPTR</td>
       <td>161001</td>
-      <td>传入的tensor或out是空指针。</td>
+      <td>传入的Tensor或out是空指针。</td>
     </tr>
     <tr>
       <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
@@ -260,7 +260,7 @@ aclnnStatus aclnnInplaceAddr(
       <tr>
         <td>executor</td>
         <td>输入</td>
-        <td>op执行器，包含了算子计算流程。</td>
+        <td>OP执行器，包含了算子计算流程。</td>
       </tr>
       <tr>
         <td>stream</td>
@@ -448,7 +448,7 @@ aclnnStatus aclnnInplaceAddr(
       <tr>
         <td>executor</td>
         <td>输入</td>
-        <td>op执行器，包含了算子计算流程。</td>
+        <td>OP执行器，包含了算子计算流程。</td>
       </tr>
       <tr>
         <td>stream</td>

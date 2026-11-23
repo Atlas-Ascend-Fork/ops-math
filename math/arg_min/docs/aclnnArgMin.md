@@ -96,7 +96,7 @@ aclnnStatus aclnnArgMin(
     <tr>
       <td>keepdim</td>
       <td>输入</td>
-      <td>输出张量shape的维度是否与输入tensor的保持一致。</td>
+      <td>输出张量shape的维度是否与输入Tensor的保持一致。</td>
       <td>-</td>
       <td>BOOL</td>
       <td>-</td>

@@ -38,7 +38,7 @@ aclnnAtan2和aclnnInplaceAtan2实现相同的功能，使用区别如下，请�
 - aclnnAtan2：需新建一个输出张量对象存储计算结果。
 - aclnnInplaceAtan2：无需新建输出张量对象，直接在输入张量的内存中存储计算结果。
 
-每个算子分为[两段式接口](../../../docs/zh/context/two_phase_api.md)，必须先调用"aclnnAtan2GetWorkspaceSize"或者"aclnnInplaceAtan2GetWorkspaceSize"接口获取计算所需workspace大小以及包含了算子计算流程的执行器，再调用"aclnnAtan2"或者"aclnnInplaceAtan2"接口执行计算。
+每个算子分为[两段式接口](../../../docs/zh/context/two_phase_api.md)，必须先调用“aclnnAtan2GetWorkspaceSize”或者“aclnnInplaceAtan2GetWorkspaceSize”接口获取计算所需workspace大小以及包含了算子计算流程的执行器，再调用“aclnnAtan2”或者“aclnnInplaceAtan2”接口执行计算。
 
 ```Cpp
 aclnnStatus aclnnAtan2GetWorkspaceSize(
@@ -122,7 +122,7 @@ aclnnStatus aclnnInplaceAtan2(
     <tr>
       <td>out（aclTensor*）</td>
       <td>输出</td>
-      <td>输出tensor，存储计算结果。</td>
+      <td>输出Tensor，存储计算结果。</td>
       <td>shape是self与other broadcast之后的shape。</td>
       <td>FLOAT、FLOAT16、DOUBLE、BFLOAT16</td>
       <td>ND</td>

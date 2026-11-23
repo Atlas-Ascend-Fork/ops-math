@@ -64,7 +64,7 @@ aclnnStatus aclnnStdMeanCorrection(
 
 ## aclnnStdMeanCorrectionGetWorkspaceSize
 
-- **参数说明**
+- **参数说明：**
 
   <table style="table-layout: fixed; width: 1540px"><colgroup>
   <col style="width: 248px">
@@ -220,7 +220,7 @@ aclnnStatus aclnnStdMeanCorrection(
 
 ## aclnnStdMeanCorrection
 
-- **参数说明**
+- **参数说明：**
 
   <table style="table-layout: fixed; width: 1149px"><colgroup>
   <col style="width: 167px">

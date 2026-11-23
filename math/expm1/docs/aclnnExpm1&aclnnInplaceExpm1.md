@@ -109,7 +109,7 @@ aclnnStatus aclnnInplaceExpm1(
     <tr>
       <td>out（aclTensor*）</td>
       <td>输出</td>
-      <td>公式中输入out。</td>
+      <td>公式中输出out。</td>
       <td>shape需要与self一致。</td>
       <td>FLOAT、FLOAT16、FLOAT64、BFLOAT16</td>
       <td>ND</td>

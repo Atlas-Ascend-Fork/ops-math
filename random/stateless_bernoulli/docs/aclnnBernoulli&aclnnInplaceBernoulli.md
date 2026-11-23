@@ -106,7 +106,7 @@ aclnnStatus aclnnInplaceBernoulli(
     <tr>
       <td>self（aclTensor*）</td>
       <td>输入</td>
-      <td>输入tensor。</td>
+      <td>输入Tensor。</td>
       <td><ul><li>支持空Tensor。</li><li>数据类型需要与out一致。</li><li>shape需要与out的一致。</li></ul></td>
       <td>FLOAT16、FLOAT、DOUBLE、UINT8、INT8、INT16、INT32、INT64、BOOL、BFLOAT16</td>
       <td>ND</td>

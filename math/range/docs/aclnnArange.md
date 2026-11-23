@@ -228,7 +228,7 @@ aclnnStatus aclnnArange(
 - 确定性计算：
   - aclnnArange默认确定性实现。
 
-- 整型输出语义：out 为 INT32/INT64 时，start、step 会先按 out 的数据类型转换（向零取整）后再参与取值计算，因此 start/step 的小数部分会被丢弃。例如 start=0、end=9、step=1.5、out=INT32 且 out 元素个数为 6 时，输出为 0、1、2、3、4、5。
+- 整型输出语义：out为INT32/INT64时，start、step会先按out的数据类型转换（向零取整）后再参与取值计算，因此start/step的小数部分会被丢弃。例如start=0、end=9、step=1.5、out=INT32且out元素个数为6时，输出为0、1、2、3、4、5。
 
 Warning：输入数据类型为float时，受限于数据类型本身的精度误差，对out的输出大小计算请采用float。如果用户采用double计算输出，double结果可能小于float结果，此时Tiling侧会进行校验告警。
 

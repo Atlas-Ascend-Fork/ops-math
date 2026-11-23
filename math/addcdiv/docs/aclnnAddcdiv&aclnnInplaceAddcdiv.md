@@ -237,7 +237,7 @@
       <td>self或tensor1、tensor2的shape超过8维。</td>
     </tr>
     <tr>
-      <td>self和tensor1、tensor2的shape不满足broadcast推导关系。</td>
+      <td>self和tensor1、tensor2的shape不满足broadcast关系。</td>
     </tr>
     <tr>
       <td>out的shape与self和tensor1、tensor2做broadcast后的shape不一致。</td>

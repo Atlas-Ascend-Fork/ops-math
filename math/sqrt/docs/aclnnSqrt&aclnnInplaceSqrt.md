@@ -176,7 +176,7 @@ aclnnStatus aclnnInplaceSqrt(
     <tr>
       <td rowspan="2">ACLNN_ERR_PARAM_INVALID</td>
       <td rowspan="2">161002</td>
-      <td>self和out的数据类型和数据格式和维度不在支持的范围之内。</td>
+      <td>self和out的数据类型、数据格式和维度不在支持的范围之内。</td>
     </tr>
     <tr>
       <td>self和out的shape不匹配。</td>

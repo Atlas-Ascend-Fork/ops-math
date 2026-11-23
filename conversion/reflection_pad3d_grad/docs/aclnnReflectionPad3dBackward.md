@@ -88,7 +88,7 @@ aclnnStatus aclnnReflectionPad3dBackward(
       <td>输入</td>
       <td>正向的输入张量。</td>
       <td>-</td>
-      <td>BFLOAT16、FLOAT16、FLOAT32、DOUBLE、 COMPLEX64、COMPLEX128。</td>
+      <td>BFLOAT16、FLOAT16、FLOAT32、DOUBLE、COMPLEX64、COMPLEX128。</td>
       <td>ND</td>
       <td>4/5</td>
       <td>√</td>

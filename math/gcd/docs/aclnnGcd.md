@@ -27,7 +27,11 @@
 
 ## 函数原型
 
+<<<<<<< HEAD
+每个算子分为[两段式接口](../../../docs/zh/context/two_phase_api.md)，必须先调用“aclnnGcdGetWorkspaceSize”接口获取计算所需workspace大小以及包含了算子计算流程的执行器，再调用“aclnnGcd”接口执行计算。
+=======
 每个算子分为[两段式接口](../../../docs/zh/context/two_phase_api.md)，必须先调用“aclnnGcdGetWorkspaceSize”接口获取计算所需workspace大小以及包含了算子计算流程的执行器，再调用"aclnnGcd"接口执行计算。
+>>>>>>> f08c8ac829813a7c0549a1b14b4d8f23cd9dd82b
 
 ```Cpp
 aclnnStatus aclnnGcdGetWorkspaceSize(

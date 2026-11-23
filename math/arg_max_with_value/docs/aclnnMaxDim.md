@@ -152,7 +152,7 @@ aclnnStatus aclnnMaxDim(
     - indices不支持BFLOAT16数据类型。
   <!-- end id7 -->
   <!-- npu="A3,910b" id8 -->
-  - <term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>：self和out不支持INT32数据类型
+  - <term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>：self和out不支持INT32数据类型。
   <!-- end id8 -->
 
 - **返回值：**

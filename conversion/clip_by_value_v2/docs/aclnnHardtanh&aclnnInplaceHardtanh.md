@@ -103,7 +103,7 @@ aclnnStatus aclnnInplaceHardtanh(
     <tr>
       <td>self（aclTensor*）</td>
       <td>输入</td>
-      <td>输入tensor，需要进行限制的张量，即公式中的x。</td>
+      <td>输入Tensor，需要进行限制的张量，即公式中的x。</td>
       <td>数据类型与clipValueMin和clipValueMax的数据类型需满足数据类型转换规则（参见<a href="../../../docs/zh/context/conversion_relationship.md" target="_blank">互转换关系</a>）。</td>
       <td>FLOAT16、FLOAT、DOUBLE、INT8、UINT8、INT16、INT32、INT64、BFLOAT16</td>
       <td>ND</td>
@@ -271,7 +271,7 @@ aclnnStatus aclnnInplaceHardtanh(
     <tr>
       <td>selfRef（aclTensor*）</td>
       <td>输入/输出</td>
-      <td>输入tensor，需要进行限制的张量，即公式中的x。</td>
+      <td>输入Tensor，需要进行限制的张量，即公式中的x。</td>
       <td>数据类型与clipValueMin和clipValueMax的数据类型需满足数据类型转换规则（参见<a href="../../../docs/zh/context/conversion_relationship.md" target="_blank">互转换关系</a>）。</td>
       <td>FLOAT16、FLOAT、DOUBLE、INT8、UINT8、INT16、INT32、INT64、BFLOAT16</td>
       <td>ND</td>

@@ -88,7 +88,7 @@ const aclrtStream stream)
         <td>dim</td>
         <td>输入</td>
         <td>需要reduce的维度。</td>
-        <td>值需要在输入Tensor范围内，支持负数，范围[-self.dim(), self.dim() - 1]。<br>如果dim为[]时，对所有维度做reduce。</td>
+        <td>值需要在输入Tensor范围内，支持负数，范围[-self.dim(), self.dim() - 1]。<br>如果dim为[]，则对所有维度做reduce。</td>
         <td>INT</td>
         <td>-</td>
         <td>-</td>

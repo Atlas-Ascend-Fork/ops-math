@@ -135,7 +135,7 @@ aclnnStatus aclnnReplicationPad3dBackward(
     </tr>
   </tbody></table>
 
-> 说明：FLOAT16、FLOAT32、BFLOAT16 由 AscendC 实现；DOUBLE、COMPLEX64、COMPLEX128 由AI CPU回退执行，是否可用取决于对应产品的AI CPU内核交付情况；AI CPU路径性能可能低于AI Core路径。
+> 说明：FLOAT16、FLOAT32、BFLOAT16由AscendC实现；DOUBLE、COMPLEX64、COMPLEX128 由 AICPU 回退执行，是否可用取决于对应产品的 CANN AICPU 内核交付情况；AICPU 路径性能可能低于 AI Core 路径。
 
   <!-- npu="910" id7 -->
   - <term>Atlas训练系列产品</term>：数据类型不支持BFLOAT16。
@@ -244,7 +244,7 @@ aclnnStatus aclnnReplicationPad3dBackward(
 
 示例代码如下，仅供参考，具体编译和执行过程请参考[编译与运行样例](../../../docs/zh/context/compile_and_run_sample.md)。
 
-```Cpp
+```cpp
 #include "acl/acl.h"
 #include "aclnnop/aclnn_replication_pad3d_backward.h"
 #include <iostream>

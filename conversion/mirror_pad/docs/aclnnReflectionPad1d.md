@@ -173,7 +173,7 @@ aclnnStatus aclnnReflectionPad1d(
       <td>self为空tensor且存在非第一维度的值为0。</td>
     </tr>
     <tr>
-      <td>二维self不支持为空tensor。</td>
+      <td>二维self不支持为空Tensor。</td>
     </tr>
     <tr>
       <td>padding的数值大于等于self最后一维度的值。</td>

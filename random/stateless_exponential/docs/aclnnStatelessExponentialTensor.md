@@ -108,7 +108,7 @@ aclnnStatus aclnnStatelessExponentialTensor(
       <td>offsetTensor</td>
       <td>输入</td>
       <td>随机数生成器的偏移量，以Tensor形式传入，影响生成的随机数序列的位置。</td>
-      <td>维度为1，元素个数为1，取值约束：offset % 4 == 0，例如可以取0、4、8 ...，不满足约束会导致精度无法对标竞品。</td>
+      <td>维度为1，元素个数为1，取值约束：offset % 4 == 0，例如可以取0、4、8……，不满足约束会导致精度无法对标竞品。</td>
       <td>INT64</td>
       <td>ND</td>
       <td>1</td>
@@ -189,7 +189,7 @@ aclnnStatus aclnnStatelessExponentialTensor(
       <td>seedTensor、offsetTensor的数据类型不是INT64。</td>
     </tr>
     <tr>
-      <td>lambd的值小于等于0，或为fp32无法表示的极小值（double转fp32后下溢为0）。</td>
+      <td>lambd的值小于等于0，或为FP32无法表示的极小值（double转FP32后下溢为0）。</td>
     </tr>
     <tr>
       <td>seedTensor、offsetTensor的维度不为1。</td>

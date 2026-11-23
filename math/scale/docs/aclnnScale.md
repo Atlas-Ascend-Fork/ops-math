@@ -39,7 +39,7 @@
   y=x*scale + bias
   $$
 
-  说明：scale/bias支持跟X的broadcast，scale/bias的shape规则如下
+  说明：scale/bias支持跟X的广播，scale/bias的shape规则如下：
 
   - 当scaleFromBlob为True时（axis转换为正数，numAxes为-1时表示到最后轴）：
 
@@ -62,7 +62,7 @@
 
       xShape = [a, b, c, d, e, f] axis = 3 numAxes = 2 --> scaleShape = [d, e]
 
-      xShape = [a, b, c, d, e, f] axis = 3 numAxes = 3  --> scaleShape = [d, e, f]
+      xShape = [a, b, c, d, e, f] axis = 3 numAxes = 3 --> scaleShape = [d, e, f]
 
       xShape = [a, b, c, d, e, f] axis = 3 numAxes = -1 --> scaleShape = [d, e, f]
 
@@ -78,7 +78,7 @@
 
 每个算子分为[两段式接口](../../../docs/zh/context/two_phase_api.md)，必须先调用“aclnnScaleGetWorkspaceSize”接口获取计算所需workspace大小以及包含了算子计算流程的执行器，再调用“aclnnScale”接口执行计算。
 
-```Cpp
+```cpp
 aclnnStatus aclnnScaleGetWorkspaceSize(
   const aclTensor* x,
   const aclTensor* scale,
@@ -91,7 +91,7 @@ aclnnStatus aclnnScaleGetWorkspaceSize(
   aclOpExecutor**  executor)
 ```
 
-```Cpp
+```cpp
 aclnnStatus aclnnScale(
   void*          workspace,
   uint64_t       workspaceSize,

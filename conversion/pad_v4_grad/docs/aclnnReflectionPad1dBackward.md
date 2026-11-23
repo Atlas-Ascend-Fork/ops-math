@@ -94,7 +94,7 @@ aclnnStatus aclnnReflectionPad1dBackward(
     <tr>
       <td>self（aclTensor*）</td>
       <td>输入</td>
-      <td>需要进行填充的tensor</td>
+      <td>需要进行填充的Tensor</td>
       <td>shape支持2-3维且维度需要与gradOutput和gradInput一致，shape与gradInput一致。</td>
       <td>BFLOAT16、FLOAT16、FLOAT32、DOUBLE、COMPLEX64、COMPLEX128</td>
       <td>ND</td>

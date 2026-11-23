@@ -220,7 +220,7 @@ aclnnStatus aclnnOneHot(
       <td>out的维度不比self的维度多1维。</td>
     </tr>
     <tr>
-      <td>out的shape与在self的shape在axis轴插入numClasses后的shape不一致。</td>
+      <td>out的shape与self的shape在axis轴插入numClasses后的shape不一致。</td>
     </tr>
     <tr>
       <td>self、onValue、offValue或out的维度超过8维。</td>

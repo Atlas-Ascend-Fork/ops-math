@@ -27,7 +27,7 @@
 
 ## 函数原型
 
-每个算子分为[两段式接口](../../../docs/zh/context/two_phase_api.md)，必须先调用“aclnnSignBitsUnpackGetWorkspaceSize”接口获取计算所需workspace大小以及包含了算子计算流程的执行器，再调用"aclnnSignBitsUnpack"接口执行计算。
+每个算子分为[两段式接口](../../../docs/zh/context/two_phase_api.md)，必须先调用“aclnnSignBitsUnpackGetWorkspaceSize”接口获取计算所需workspace大小以及包含了算子计算流程的执行器，再调用“aclnnSignBitsUnpack”接口执行计算。
 
 ```Cpp
 aclnnStatus aclnnSignBitsUnpackGetWorkspaceSize(
@@ -161,7 +161,7 @@ aclnnStatus aclnnSignBitsUnpack(
     <tr>
       <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
       <td rowspan="5">161002</td>
-      <td>self、out的数据类型\数据格式不在支持的范围内。</td>
+      <td>self、out的数据类型、数据格式不在支持的范围内。</td>
     </tr>
     <tr>
       <td>size小于等于0或者（self的元素个数）* 8 % size != 0。</td>

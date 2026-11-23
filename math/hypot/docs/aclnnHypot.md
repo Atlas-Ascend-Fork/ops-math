@@ -255,7 +255,7 @@ aclnnStatus aclnnHypot(
 - 空Tensor约束：支持空Tensor，输出为广播后shape的空Tensor，不执行计算且不报错。
 - 非连续Tensor约束：self、other、out均支持[非连续的Tensor](../../../docs/zh/context/non_contiguous_tensor.md)。
 - 数值范围与溢出约束：采用以较大量级为基准的稳定算法，避免计算过程中因平方提前上溢或下溢；仅当数学结果本身超出输出dtype的可表示范围时输出inf。
-- 特殊值约束：输出恒为非负值，各输入取值组合的输出语义如下。
+- 特殊值约束：输出恒为非负值，各输入取值组合的输出语义如下：
 
   | self | other | 输出out | 说明 |
   |----|----|-------|------|

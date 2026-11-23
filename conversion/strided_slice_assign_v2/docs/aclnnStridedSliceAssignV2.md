@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-StridedSliceAssignV2是一种张量切片赋值操作，它可以将张量inputValue的内容，赋值给目标张量varRef中由begin、end、strides指定的切片位置，切片以外的区域保持varRef原值不变。本算子为in-place语义，输出与输入varRef同名，shape与输入varRef相同。
+StridedSliceAssignV2是一种张量切片赋值操作，它可以将张量inputValue的内容赋值给目标张量varRef中由begin、end、strides指定的切片位置，切片以外的区域保持varRef原值不变。本算子为in-place语义，输出与输入varRef同名，shape与输入varRef相同。
 
 <!-- npu="950" id7 -->
 - <term>Ascend 950PR&950DT系列产品</term>：支持负stride反向切片。
@@ -249,7 +249,7 @@ aclnnStatus aclnnStridedSliceAssignV2(
 
 示例代码如下，仅供参考，具体编译和执行过程请参考[编译与运行样例](../../../docs/zh/context/compile_and_run_sample.md)。
 
-```Cpp
+```cpp
 #include <iostream>
 #include <vector>
 #include "acl/acl.h"

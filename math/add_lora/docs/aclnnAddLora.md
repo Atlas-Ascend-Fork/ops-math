@@ -25,7 +25,7 @@
 
 - 接口功能：
 
-  将输入x根据输入索引indices，分别和对应的weightA，weightB相乘，然后将结果累加到输入y上并输出。
+  将输入x根据输入索引indices，分别和对应的weightA、weightB相乘，然后将结果累加到输入y上并输出。
 
 - 计算公式：
 

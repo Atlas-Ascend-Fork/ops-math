@@ -117,7 +117,7 @@ aclnnStatus aclnnReduceSum(
     <tr>
       <td>out（aclTensor*）</td>
       <td>输出</td>
-      <td>输出tensor。</td>
+      <td>输出Tensor。</td>
       <td>支持空Tensor。<br>shape需要是self经过计算后的shape。</td>
       <td>FLOAT16、FLOAT32、INT8、INT16、INT32、INT64、UINT8、BOOL、DOUBLE、COMPLEX64、COMPLEX128、BFLOAT16</td>
       <td>ND</td>

@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-对输入的inputTensor的指数位所在字节实现PDF统计【可选】，按照PDF分布统计进行无损压缩，压缩后的结果可存储在device的HBM上或offload到Host侧。
+对输入的inputTensor的指数位所在字节实现PDF统计【可选】，按照PDF分布统计进行无损压缩，压缩后的结果可存储在Device的HBM上或offload到Host侧。
 
 ## 函数原型
 

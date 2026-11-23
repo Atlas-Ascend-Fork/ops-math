@@ -82,7 +82,7 @@ aclnnStatus aclnnAddN(
       <td>输入</td>
       <td>输入TensorList，对输入tensors进行逐元素相加求和操作。</td>
       <td><li>支持空TensorList，此时输出为空Tensor。</li><li>tensors中的Tensor需要满足shape一致。</li></td>
-      <td>INT32，INT64，FLOAT16，BFLOAT16，FLOAT32</td>
+      <td>INT32、INT64、FLOAT16、BFLOAT16、FLOAT32</td>
       <td>ND</td>
       <td>1~8</td>
       <td>√</td>

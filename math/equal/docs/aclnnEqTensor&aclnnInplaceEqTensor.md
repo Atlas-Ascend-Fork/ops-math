@@ -121,8 +121,8 @@ aclnnStatus aclnnInplaceEqTensor(
     <tr>
       <td>out（aclTensor*）</td>
       <td>输出</td>
-      <td>输出Tensor。</td>
-      <td><ul><li>数据类型需要是BOOL可转换的数据类型<a href="../../../docs/zh/context/conversion_relationship.md" target="_blank">互转换关系</a>。</li><li>shape与self、other广播之后的shape（参见<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>）一致。</li></ul></td>
+      <td>输出tensor。</td>
+      <td><ul><li>数据类型需要是BOOL可转换的数据类型（参见<a href="../../../docs/zh/context/conversion_relationship.md" target="_blank">互转换关系</a>）。</li><li>shape与self、other广播之后的shape（参见<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>）一致。</li></ul></td>
       <td>DOUBLE、FLOAT16、FLOAT、BFLOAT16、INT64、INT32、INT8、UINT8、BOOL、INT16、COMPLEX64、COMPLEX128、UINT64、UINT32、UINT16</td>
       <td>ND</td>
       <td>不高于8维</td>
@@ -280,7 +280,7 @@ aclnnStatus aclnnInplaceEqTensor(
     <tr>
       <td>selfRef</td>
       <td>输入/输出</td>
-      <td>输入输出tensor，即公式中的self与out。</td>
+      <td>输入输出Tensor，即公式中的self与out。</td>
       <td><ul><li>数据类型与other的数据类型需满足数据类型推导规则（参见<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>）。</li><li>shape需要与other满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>。</li></ul></td>
       <td>DOUBLE、FLOAT16、FLOAT、BFLOAT16、INT64、INT32、INT8、UINT8、BOOL、INT16、COMPLEX64、COMPLEX128、UINT32、UINT64</td>
       <td>ND</td>

@@ -183,7 +183,7 @@ aclnnStatus aclnnAffineGrid(
       <td>size的大小是4时，out的shape不是(N, H, W, 2)；size的大小是5时，out的shape不是(N, D, H, W, 3)。</td>
     </tr>
     <tr>
-      <td>theta为空tensor（元素数为0）。</td>
+      <td>theta为空Tensor（元素数为0）。</td>
     </tr>
     <tr>
       <td>size中的N、H或W不在(0, 100000]范围内，或size的大小为5时D不为正数。</td>

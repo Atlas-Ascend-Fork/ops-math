@@ -31,7 +31,7 @@
 
 ## 函数原型
 
-每个算子分为[两段式接口](../../../docs/zh/context/two_phase_api.md)，必须先调用“aclnnSignBitsPackGetWorkspaceSize”接口获取计算所需workspace大小以及包含了算子计算流程的执行器，再调用"aclnnSignBitsPack"接口执行计算。
+每个算子分为[两段式接口](../../../docs/zh/context/two_phase_api.md)，必须先调用“aclnnSignBitsPackGetWorkspaceSize”接口获取计算所需workspace大小以及包含了算子计算流程的执行器，再调用“aclnnSignBitsPack”接口执行计算。
 
 ```cpp
 aclnnStatus aclnnSignBitsPackGetWorkspaceSize(
@@ -100,7 +100,7 @@ aclnnStatus aclnnSignBitsPack(
       <td>out（aclTensor*）</td>
       <td>输出</td>
       <td>表示符号位打包结果。</td>
-      <td><li>支持空Tensor。</li><li>输出第一维必须等于size。</li><li>输出总长度在self元素个数不被8整除时为（self元素个数 // 8） + 1，在被8整除时为（self元素个数 / 8）。</li></td>
+      <td><li>支持空Tensor。</li><li>输出第一维必须等于size。</li><li>输出总长度在self元素个数不被8整除时为（self元素个数 // 8）+ 1，在被8整除时为（self元素个数 / 8）。</li></td>
       <td>UINT8</td>
       <td>ND</td>
       <td>2</td>

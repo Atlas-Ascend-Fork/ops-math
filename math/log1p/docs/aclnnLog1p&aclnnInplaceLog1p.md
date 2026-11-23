@@ -37,7 +37,7 @@ $$
   - aclnnLog1p：需新建一个输出张量对象存储计算结果。
   - aclnnInplaceLog1p：无需新建输出张量对象，直接在输入张量的内存中存储计算结果。
 
-- 每个算子分为[两段式接口](../../../docs/zh/context/two_phase_api.md)，必须先调用“aclnnLog1pGetWorkspaceSize”或者"aclnnInplaceLog1pGetWorkspaceSize"接口获取计算所需workspace大小以及包含了算子计算流程的执行器，再调用"aclnnLog1p"或者“aclnnInplaceLog1p”接口执行计算。
+- 每个算子分为[两段式接口](../../../docs/zh/context/two_phase_api.md)，必须先调用“aclnnLog1pGetWorkspaceSize”或者“aclnnInplaceLog1pGetWorkspaceSize”接口获取计算所需workspace大小以及包含了算子计算流程的执行器，再调用“aclnnLog1p”或者“aclnnInplaceLog1p”接口执行计算。
 
 ```Cpp
 aclnnStatus aclnnLog1pGetWorkspaceSize(
@@ -254,7 +254,7 @@ aclnnStatus aclnnInplaceLog1p(
     <tr>
       <td>selfRef（aclTensor*）</td>
       <td>输入/输出</td>
-      <td>输入输出tensor，即公式中的self与out。</td>
+      <td>输入输出Tensor，即公式中的self与out。</td>
       <td>-</td>
       <td>FLOAT、FLOAT16、DOUBLE、BFLOAT16</td>
       <td>ND</td>

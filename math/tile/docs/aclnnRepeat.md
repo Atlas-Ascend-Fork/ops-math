@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-- 接口功能：对输入tensor沿着repeats中对每个维度指定的复制次数进行复制。
+- 接口功能：对输入Tensor按照repeats中每个维度指定的复制次数进行复制。
 - 示例：假设输入Tensor为[[a,b],[c,d],[e,f]]，即shape为[3,2]，repeats为(2,4)，则生成的Tensor的shape为[6,8]，值如下所示：
 
   ```text
@@ -225,7 +225,7 @@ aclnnStatus aclnnRepeat(
     <tr>
       <td rowspan="2">ACLNN_ERR_INNER_NULLPTR</td>
       <td rowspan="2">561103</td>
-      <td>kernel执行失败，中间结果为null。</td>
+      <td>Kernel执行失败，中间结果为null。</td>
     </tr>
     <tr>
       <td>同时对超过4个维度做repeat。</td>
@@ -300,7 +300,7 @@ repeat功能内部broadcast的kernel有最大8维度的限制，暂不支持扩�
 
 示例代码如下，仅供参考，具体编译和执行过程请参考[编译与运行样例](../../../docs/zh/context/compile_and_run_sample.md)。
 
-```Cpp
+```cpp
 #include <iostream>
 #include <vector>
 #include "acl/acl.h"

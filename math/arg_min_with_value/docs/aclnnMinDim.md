@@ -87,7 +87,7 @@ aclnnStatus aclnnMinDim(
     <tr>
       <td>self（aclTensor*）</td>
       <td>输入</td>
-      <td>待转换的目标张量。</td>
+      <td>待求最小值的目标张量。</td>
       <td>数据类型与out一致。</td>
       <td>FLOAT、FLOAT16、INT64、BOOL、BFLOAT16、INT32</td>
       <td>ND</td>

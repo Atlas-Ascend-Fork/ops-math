@@ -71,7 +71,7 @@ aclnnStatus aclnnDropoutGenMask(
       <th>数据类型</th>
       <th>数据格式</th>
       <th>维度(shape)</th>
-      <th>非连续tensor</th>
+      <th>非连续Tensor</th>
     </tr></thead>
   <tbody>
     <tr>
@@ -117,7 +117,7 @@ aclnnStatus aclnnDropoutGenMask(
     <tr>
       <td>out（aclTensor*）</td>
       <td>输出</td>
-      <td>输出的tensor。bit类型并使用UINT8类型存储的mask数据。</td>
+      <td>输出的tensor，bit类型并使用UINT8类型存储的mask数据。</td>
       <td>shape需要为(align(input的元素个数, 128)/8)。</td>
       <td>UINT8</td>
       <td>ND</td>

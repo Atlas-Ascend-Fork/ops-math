@@ -106,7 +106,7 @@ aclnnStatus aclnnAmin(
     <tr>
       <td>out</td>
       <td>输入</td>
-      <td>输出tensor。</td>
+      <td>输出Tensor。</td>
       <td>需要与self数据类型相同。</td>
       <td>FLOAT、BFLOAT16、FLOAT16、DOUBLE、INT8、INT16、INT32、INT64、UINT8、BOOL</td>
       <td>ND</td>

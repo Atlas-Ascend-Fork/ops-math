@@ -109,7 +109,7 @@ aclnnStatus aclnnSort(
       <td>dim</td>
       <td>输入</td>
       <td>用来作为排序标准的维度。</td>
-      <td>范围为 [-self.dim(), self.dim()-1]，self.dim()为输入tensor的维度。</td>
+      <td>范围为 [-self.dim(), self.dim()-1]，self.dim()为输入Tensor的维度。</td>
       <td>INT64</td>
       <td>-</td>
       <td>-</td>
@@ -204,7 +204,7 @@ aclnnStatus aclnnSort(
     <tr>
       <td rowspan="2">ACLNN_ERR_PARAM_INVALID</td>
       <td rowspan="2">161002</td>
-      <td>self、valuesOut或indicesOut的数据类型不在支持的范围之内,或shape不相互匹配。</td>
+      <td>self、valuesOut或indicesOut的数据类型不在支持的范围之内，或shape不相互匹配。</td>
     </tr>
     <tr>
       <td>dim的取值不在输入tensor self的维度范围中。</td>
@@ -260,7 +260,7 @@ aclnnStatus aclnnSort(
 - 确定性计算：
   - aclnnSort默认确定性实现。
 
-- self的数据类型不为FLOAT、FLOAT16、BFLOAT16时，tensor size过大可能会导致算子执行超时（aicpu error类型报错，报错reason=[aicpu timeout]），具体类型最大size（与机器具体剩余内存强相关）限制如下：
+- self的数据类型不为FLOAT、FLOAT16、BFLOAT16时，Tensor size过大可能会导致算子执行超时（aicpu error类型报错，报错reason=[aicpu timeout]），具体类型最大size（与机器具体剩余内存强相关）限制如下：
   - INT64类型：150000000
   - UINT8、INT8、INT16、INT32类型：725000000
 

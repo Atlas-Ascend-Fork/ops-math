@@ -97,7 +97,7 @@ aclnnStatus aclnnInplaceSin(
     <tr>
       <td>self（aclTensor*）</td>
       <td>输入</td>
-      <td>输入tensor。</td>
+      <td>输入Tensor。</td>
       <td>shape需要与out一致，计算结果的数据类型需满足可转换为out数据类型的<a href="../../../docs/zh/context/conversion_relationship.md" target="_blank">互转换关系</a>。当输入的数据类型为INT8、INT16、INT32、INT64、UINT8、BOOL时，会转换为FLOAT（float32）数据类型做计算；其余支持的数据类型保持self的数据类型调用Sin。计算结果转换成out的数据类型。</td>
       <td>INT8、INT16、INT32、INT64、UINT8、BOOL、FLOAT、FLOAT16、DOUBLE、COMPLEX64、COMPLEX128、BFLOAT16</td>
       <td>ND</td>

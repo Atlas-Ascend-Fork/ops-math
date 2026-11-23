@@ -75,7 +75,7 @@ aclnnStatus aclnnInplaceMaskedFillTensor(
     <tr>
       <td>selfRef（aclTensor*）</td>
       <td>输入/输出</td>
-      <td>输入输出tensor</td>
+      <td>输入输出Tensor</td>
       <td>被填充的张量。shape需等于selfRef与mask进行broadcast后的shape。</td>
       <td>BOOL、INT8、INT16、INT32、INT64、FLOAT、FLOAT16、BFLOAT16</td>
       <td>ND</td>

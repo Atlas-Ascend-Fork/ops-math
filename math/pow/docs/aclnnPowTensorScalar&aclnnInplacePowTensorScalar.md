@@ -50,7 +50,7 @@ aclnnStatus aclnnPowTensorScalarGetWorkspaceSize(
   aclOpExecutor**   executor)
 ```
 
-```Cpp
+```cpp
 aclnnStatus aclnnPowTensorScalar(
   void*                workspace,
   uint64_t             workspaceSize,
@@ -58,7 +58,7 @@ aclnnStatus aclnnPowTensorScalar(
   const aclrtStream    stream)
 ```
 
-```Cpp
+```cpp
 aclnnStatus aclnnInplacePowTensorScalarGetWorkspaceSize(
   const aclTensor*  self,
   const aclScalar*  exponent,
@@ -66,7 +66,7 @@ aclnnStatus aclnnInplacePowTensorScalarGetWorkspaceSize(
   aclOpExecutor**   executor)
 ```
 
-```Cpp
+```cpp
 aclnnStatus aclnnInplacePowTensorScalar(
   void*                workspace,
   uint64_t             workspaceSize,
@@ -407,10 +407,10 @@ aclnnStatus aclnnInplacePowTensorScalar(
 
   | shape  | exponent_value|
   |----|----|
-  |<=100000（十万） |-200000000~200000000(两亿)|
+  |<=100000（十万） |-200000000~200000000（两亿）|
   |<=1000000（百万） |-20000000~20000000（两千万）|
-  |<=10000000（千万） |-2000000~2000000(两百万)|
-  |<=100000000（亿） |-200000~200000(二十万)|
+  |<=10000000（千万） |-2000000~2000000（两百万）|
+  |<=100000000（亿） |-200000~200000（二十万）|
   |<=1000000000（十亿） |-20000~20000（两万）|
 
 - 确定性计算：aclnnPowTensorScalar&aclnnInplacePowTensorScalar默认确定性实现。
@@ -425,7 +425,7 @@ aclnnStatus aclnnInplacePowTensorScalar(
 
 示例代码如下，仅供参考，具体编译和执行过程请参考[编译与运行样例](../../../docs/zh/context/compile_and_run_sample.md)。
 
-```Cpp
+```cpp
 #include <iostream>
 #include <vector>
 #include "acl/acl.h"

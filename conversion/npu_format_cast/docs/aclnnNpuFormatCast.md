@@ -41,7 +41,7 @@
 
   `aclnnNpuFormatCastCalculateSizeAndFormat`根据输入张量srcTensor、数据类型`additionalDtype`和目标张量的数据格式dstFormat计算出转换后目标张量dstTensor的shape和实际数据格式，用于构造dstTensor，然后调用`aclnnNpuFormatCast`把srcTensor转换为实际数据格式的目标张量dstTensor。
 
-- **ND→FRACTAL_NZ 存储排布**：记 view shape 最后两维为 `[..., M, N]`（前导维不变）。`C0` 由 `additionalDtype` 决定（见下文 C0 表；`-1` 表示使用源类型）；内层两轴为固定的 `16`（M 方向）与 `C0`（N 方向），不能写成两个 `C0`。表外类型或 `actualFormat` 带 `C0_xx` 后缀时，以 `aclnnNpuFormatCastCalculateSizeAndFormat` 返回的 storage shape 末维为准。
+- **ND→FRACTAL_NZ存储排布**：记 view shape 最后两维为 `[..., M, N]`（前导维不变）。`C0` 由 `additionalDtype` 决定（见下文 C0 表；`-1` 表示使用源类型）；内层两轴为固定的 `16`（M 方向）与 `C0`（N 方向），不能写成两个 `C0`。表外类型或 `actualFormat` 带 `C0_xx` 后缀时，以 `aclnnNpuFormatCastCalculateSizeAndFormat` 返回的 storage shape 末维为准。
   - storage shape：`[..., ceil(N/C0), ceil(M/16), 16, C0]`
   - 有效元素：`NZ[..., n1, m1, m0, n0] = ND[..., 16*m1+m0, C0*n1+n0]`（仅当 `16*m1+m0 < M` 且 `C0*n1+n0 < N`）。未对齐产生的补齐区不纳入正确性判定。
   - 示例（FP16，`C0=16`）：`4×4`/`16×16` → `[1,1,16,16]`，`17×17` → `[2,2,16,16]`。FLOAT8_E8M0 MX scale 场景不适用本通式。
@@ -488,7 +488,7 @@ aclnnStatus aclnnNpuFormatCast(
     - srcTensor数据类型为FLOAT8_E8M0，srcTensor格式为ND/NCL/NCHW，dstFormat为FRACTAL_NZ时，仅支持3维或4维scale输入。转换后的storage shape分别为`(ceil(N/16), ceil(K/64), 16, 2)`或`(g, ceil(N/16), ceil(K/64), 16, 2)`。
     - FLOAT8_E8M0 scale转换为昇腾亲和存储shape的能力不支持图模式，仅支持单算子模式和aclnn直调场景。
 
-  - 当前不支持的特殊场景:
+  - 当前不支持的特殊场景：
     - srcTensor的数据类型和additionalDtype相同，srcTensor格式为ND且类型为FLOAT16或BFLOAT16时，若维度表示为[k, n]，则k为1场景暂不支持。
     - 不支持调用当前接口转昇腾亲和[数据格式](../../../docs/zh/context/data_format.md)FRACTAL_NZ后，进行任何能修改张量的操作，如contiguous、pad、slice等;
     - 当srcTensor的shape后两维任意一维度shape等于1场景，也不允许转昇腾亲和[数据格式](../../../docs/zh/context/data_format.md)FRACTAL_NZ后再进行任何修改张量的操作，包括transpose。
@@ -552,7 +552,7 @@ aclnnStatus aclnnNpuFormatCast(
       | ACL_FLOAT16(1)、ACL_BF16(27)  | 16 |
       | ACL_INT8(2)、ACL_UINT8(4)、ACL_HIFLOAT8(34)    | 32 |
 
-  - 当前不支持的特殊场景:
+  - 当前不支持的特殊场景：
     - 不支持调用当前接口转昇腾亲和[数据格式](../../../docs/zh/context/data_format.md)FRACTAL_NZ后,进行任何能修改张量的操作，如contiguous、pad、slice等;
     - 不允许转昇腾亲和[数据格式](../../../docs/zh/context/data_format.md)FRACTAL_NZ后再进行任何修改张量的操作，包括transpose。
   </details>
@@ -565,7 +565,7 @@ aclnnStatus aclnnNpuFormatCast(
 
   示例代码如下，仅供参考，具体编译和执行过程请参考[编译与运行样例](../../../docs/zh/context/compile_and_run_sample.md)。
 
-  ```Cpp
+  ```cpp
   #include <iostream>
   #include <vector>
   #include "acl/acl.h"

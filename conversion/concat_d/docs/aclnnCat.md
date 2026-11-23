@@ -224,8 +224,8 @@ aclnnStatus aclnnCat(
 - 确定性计算：
   - aclnnCat默认确定性实现。
 
-- 输入数据类型为FLOAT4_E1M2、FLOAT4_E2M1时，暂不支持与其他数据类型混合输入，且各Tensor在级联维度及之后各维度大小的乘积须为偶数。
-- 输入数据类型为FLOAT4_E1M2、FLOAT4_E2M1、FLOAT8_E8M0 时，暂不支持非连续输入场景。
+- 输入数据类型为FLOAT4_E1M2、FLOAT4_E2M1时，暂不支持与其他数据类型混合输入，且各tensor在concat轴及之后各维度大小的乘积须为偶数。
+- 输入数据类型为FLOAT4_E1M2、FLOAT4_E2M1、FLOAT8_E8M0时，暂不支持非连续输入场景。
 
 ## 调用示例
 

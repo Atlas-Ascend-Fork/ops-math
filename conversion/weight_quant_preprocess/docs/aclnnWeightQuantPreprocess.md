@@ -172,7 +172,7 @@ aclnnStatus aclnnWeightQuantPreprocess(
       <td>输出</td>
       <td>预处理后的weight</td>
       <td>-</td>
-      <td>int8/int4/fp8_e4m3/hif8/fp4_e2m1</td>
+      <td>int8/int4/fp8_e4m3/hifloat8/fp4_e2m1</td>
       <td>ND/NZ</td>
       <td>2-5</td>
       <td>仅转置场景支持</td>
@@ -340,7 +340,7 @@ aclnnStatus aclnnWeightQuantPreprocess(
   - 不支持空tensor（若提供）
 
 - **kGroupSize**
-  - 必须等于 32
+  - 必须等于32
 
 - **xDtype**
   - FLOAT8_E4M3FN
@@ -400,7 +400,7 @@ aclnnStatus aclnnWeightQuantPreprocess(
   - 不支持空tensor（若提供）
 
 - **kGroupSize**
-  - 必须等于 32
+  - 必须等于32
 
 - **xDtype**
   - FLOAT8_E4M3FN
@@ -634,7 +634,7 @@ aclnnStatus aclnnWeightQuantPreprocess(
   - 不支持空tensor（若提供）
 
 - **kGroupSize**
-  - 必须等于 32（取值及与weightScale量化粒度的匹配约束由下游QuantBatchMatmulV4校验，本算子不拦截）
+  - 必须等于32（取值及与weightScale量化粒度的匹配约束由下游QuantBatchMatmulV4校验，本算子不拦截）
 
 - **xDtype**
   - FLOAT8_E4M3FN
@@ -748,7 +748,7 @@ aclnnStatus aclnnWeightQuantPreprocess(
   - 不支持空tensor（若提供）
 
 - **kGroupSize**
-  - 必须等于 32
+  - 必须等于32
 
 - **xDtype**
   - FLOAT16/BFLOAT16

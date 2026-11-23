@@ -168,7 +168,7 @@ aclnnStatus aclnnComplex(
       <td>real和imag的维度大于8。</td>
     </tr>
     <tr>
-      <td>real和imag的数据类型不一样。</td>
+      <td>real和imag的数据类型不一致。</td>
     </tr>
   </tbody>
   </table>

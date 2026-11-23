@@ -53,7 +53,7 @@
     $$
 
   - 例子1：
-    (pad数组长度等于self维度的两倍的情况)
+    （pad数组长度等于self维度的两倍的情况）
 
     $$
     \begin{aligned}
@@ -65,7 +65,7 @@
     $$
 
   - 例子2：
-    (pad数组长度小于self维度的两倍的情况)
+    （pad数组长度小于self维度的两倍的情况）
 
     $$
     \begin{aligned}
@@ -230,7 +230,7 @@
         <td>self与out的数据类型不一致。</td>
       </tr>
       <tr>
-        <td>self的shape和pad的输入推导出的shape与out的shape不一致。</td>
+        <td>self的shape和pad推导出的shape与out的shape不一致。</td>
       </tr>
       <tr>
         <td>pad中元素不为偶数或超过了self维度的两倍。</td>

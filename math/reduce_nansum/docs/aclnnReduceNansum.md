@@ -107,7 +107,7 @@ aclnnStatus aclnnReduceNansum(
     <tr>
       <td>dtype（aclDataType）</td>
       <td>输入</td>
-      <td>返回张量的所需数据类型。</td>
+      <td>返回张量所需的数据类型。</td>
       <td>-</td>
       <td>FLOAT16、FLOAT32、INT8、INT16、INT32、INT64、UINT8、BOOL、BFLOAT16</td>
       <td>-</td>
@@ -182,7 +182,7 @@ aclnnStatus aclnnReduceNansum(
       <td>self或out的数据类型不在支持范围内。</td>
     </tr>
     <tr>
-      <td>dim数组中的维度超出输入tensor的维度范围。</td>
+      <td>dim数组中的维度超出输入Tensor的维度范围。</td>
     </tr>
     <tr>
       <td>dim指定的轴重复。</td>

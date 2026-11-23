@@ -77,7 +77,7 @@ aclnnStatus aclnnAminmaxDim(
       <tr>
         <td>self</td>
         <td>输入</td>
-        <td>输入tensor。</td>
+        <td>输入Tensor。</td>
         <td>-</td>
         <td>FLOAT、BFLOAT16、FLOAT16、DOUBLE、INT8、INT16、INT32、INT64、UINT8、BOOL</td>
         <td>ND</td>
@@ -196,7 +196,7 @@ aclnnStatus aclnnAminmaxDim(
 
 ## aclnnAminmaxDim
 
-- **参数说明**
+- **参数说明：**
 
     <table style="table-layout: fixed; width: 1149px"><colgroup>
     <col style="width: 153px">

@@ -33,7 +33,7 @@ $$
 
 ### 示例
 
-假设self为 {1, 2, 3, 4} 则out = {10, 0, -2, 2, -2, 0} = {10 + 0j, -2 + 2j, -2 + 0j}（自定义）
+假设self为 {1, 2, 3, 4} 则out = {10, 0, -2, 2, -2, 0} = {10 + 0j, -2 + 2j, -2 + 0j}（自定义）。
 
 ## 函数原型
 
@@ -81,7 +81,7 @@ aclnnStatus aclRfft1D(
           <th>数据类型</th>
           <th>格式</th>
           <th>shape</th>
-          <th>非连续tensor</th>
+          <th>非连续Tensor</th>
         </tr></thead>
       <tbody>
         <tr>
@@ -222,7 +222,7 @@ aclnnStatus aclRfft1D(
           <th>数据类型</th>
           <th>格式</th>
           <th>shape</th>
-          <th>非连续tensor</th>
+          <th>非连续Tensor</th>
         </tr></thead>
       <tbody>
         <tr>

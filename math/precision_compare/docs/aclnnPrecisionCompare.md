@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-- 接口功能：计算两个Tensor元素是否相同，进行精度比对，返回算子执行的状态码，不会触发管理面故障上报。
+- 接口功能：比较两个Tensor元素是否相同，进行精度比对，返回算子执行的状态码，不会触发管理面故障上报。
 
 - 计算公式：
 
@@ -76,7 +76,7 @@ aclnnStatus aclnnPrecisionCompare(
       <th>使用说明</th>
       <th>数据类型</th>
       <th>数据格式</th>
-      <th>维度(shape)</th>
+      <th>维度（shape）</th>
       <th>非连续Tensor</th>
     </tr></thead>
   <tbody>
@@ -230,7 +230,7 @@ aclnnStatus aclnnPrecisionCompare(
 
 示例代码如下，仅供参考，具体编译和执行过程请参考[编译与运行样例](../../../docs/zh/context/compile_and_run_sample.md)。
 
-```Cpp
+```cpp
 #include <iostream>
 #include <vector>
 #include <cmath>

@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-- 算子功能：激活函数。返回与输入tensor shape相同的tensor，对输入tensor进行elementwise的计算。
+- 算子功能：激活函数。返回与输入Tensor shape相同的Tensor，对输入Tensor进行elementwise的计算。
 
 - 计算公式：
 
@@ -289,7 +289,7 @@ aclnnStatus aclnnInplaceTanh(
 
 - **返回值：**
 
-  aclnnStatus，返回状态码，具体参见[aclnn返回码](../../../docs/zh/context/aclnn_return_code.md)。
+  aclnnStatus：返回状态码，具体参见[aclnn返回码](../../../docs/zh/context/aclnn_return_code.md)。
 
   第一段接口完成入参校验，出现以下场景时报错：
 

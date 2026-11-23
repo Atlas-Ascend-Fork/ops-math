@@ -169,7 +169,7 @@ aclnnStatus aclnnLogicalXor(
       <td>self和other的shape无法做broadcast。</td>
     </tr>
     <tr>
-      <td>self或other的shape大于8维, complex64/complex128大于7维度。</td>
+      <td>self或other的shape大于8维，complex64/complex128大于7维度。</td>
     </tr>
   </tbody>
   </table>

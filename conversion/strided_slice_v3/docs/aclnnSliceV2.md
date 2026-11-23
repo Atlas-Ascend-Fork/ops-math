@@ -42,7 +42,7 @@ ends[i] = \begin{cases}
 \end{cases}
 $$
 
-$out.shape$与$self.shape$在axes中的轴上不一致，其他轴一致:
+$out.shape$与$self.shape$在axes中的轴上不一致，其他轴一致：
 
 $$
 out.shape[axes[i]] = ⌊\frac{ends[i] - starts[i] + steps[i] - 1}{steps[i]}⌋

@@ -33,7 +33,7 @@ $$
 
 ### Example
 
-Assume that self is {1, 2, 3, 4}. Then out = {10, 0, -2, 2, -2, 0} = {10 + 0j, -2 + 2j, -2 + 0j} (customized)
+Assume that self is {1, 2, 3, 4}. Then out = {10, 0, -2, 2, -2, 0} = {10 + 0j, -2 + 2j, -2 + 0j} (customized).
 
 ## Function Prototype
 
@@ -81,7 +81,7 @@ aclnnStatus aclRfft1D(
           <th>Data Type</th>
           <th>Format</th>
           <th>shape</th>
-          <th>Non-contiguous tensor</th>
+          <th>Non-contiguous Tensor</th>
         </tr></thead>
       <tbody>
         <tr>
@@ -222,7 +222,7 @@ aclnnStatus aclRfft1D(
           <th>Data Type</th>
           <th>Format</th>
           <th>shape</th>
-          <th>Non-contiguous tensor</th>
+          <th>Non-contiguous Tensor</th>
         </tr></thead>
       <tbody>
         <tr>

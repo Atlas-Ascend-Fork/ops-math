@@ -8,7 +8,7 @@
 
   调用算子API时，需引用依赖的头文件和库文件，一般头文件默认在`${INSTALL_DIR}/include/aclnnop`，库文件默认在`${INSTALL_DIR}/lib64`，具体文件如下：
 
-  - 头文件：①方式1 （推荐）：引用算子仓总头文件aclnn\_ops\_\$\{ops\_project\}.h。②方式2：引用单个算子API的头文件aclnn\_\*.h。
+  - 头文件：①方式1（推荐）：引用算子仓总头文件aclnn\_ops\_\$\{ops\_project\}.h。②方式2：引用单个算子API的头文件aclnn\_\*.h。
   - 库文件：引用算子仓对应的库文件libopapi_${ops_project}.so。注意，原所有算子仓总库文件libopapi.so后续会废弃，不推荐使用，也不支持与单个算子仓库文件同时使用。
 
   ${INSTALL_DIR}表示CANN安装后文件路径；\$\{ops\_project\}表示算子仓名（如math、nn、cv、transformer），请改为实际算子仓名。
@@ -131,8 +131,8 @@
 | [aclnnEye](../../math/eye/docs/aclnnEye.md)                     | 返回一个二维张量，该张量的对角线上元素值为1，其余元素值为0。 | 默认确定性实现| 默认确定性实现  |
 | [aclnnFlatten](../../conversion/flatten/docs/aclnnFlatten.md)   | 将输入Tensor，基于给定的axis，扁平化为一个2D的Tensor。       | 默认确定性实现| 默认确定性实现|
 | [aclnnFloor&aclnnInplaceFloor](../../math/floor/docs/aclnnFloor&aclnnInplaceFloor.md) | 返回输入Tensor中每个元素向下取整，并将结果回填到输入Tensor中。 | 默认确定性实现| 默认确定性实现|
-| [aclnnFloorDivide&aclnnInplaceFloorDivide](../../math/floor_div/docs/aclnnFloorDivide&aclnnInplaceFloorDivide.md) |  完成除法计算，对余数向下取整。                                                            | 默认确定性实现| 默认确定性实现 |
-| [aclnnFloorDivides&aclnnInplaceFloorDivides](../../math/floor_div/docs/aclnnFloorDivides&aclnnInplaceFloorDivides.md) | 完成除法计算，对余数向下取整。                               | 默认确定性实现| 默认确定性实现 |
+| [aclnnFloorDivide&aclnnInplaceFloorDivide](../../math/floor_div/docs/aclnnFloorDivide&aclnnInplaceFloorDivide.md) |  完成除法计算，对结果向下取整。                                                            | 默认确定性实现| 默认确定性实现 |
+| [aclnnFloorDivides&aclnnInplaceFloorDivides](../../math/floor_div/docs/aclnnFloorDivides&aclnnInplaceFloorDivides.md) | 完成除法计算，对结果向下取整。                               | 默认确定性实现| 默认确定性实现 |
 | [aclnnFmodScalar&aclnnInplaceFmodScalar](../../math/mod/docs/aclnnFmodScalar&aclnnInplaceFmodScalar.md) | 返回self除以other的余数。                                   | 默认确定性实现| 默认确定性实现 |
 | [aclnnFmodTensor&aclnnInplaceFmodTensor](../../math/mod/docs/aclnnFmodTensor&aclnnInplaceFmodTensor.md) | 返回self除以other的余数。                                    | 默认确定性实现| 默认确定性实现 |
 | [aclnnFrac&aclnnInplaceFrac](../../math/sub/docs/aclnnFrac&aclnnInplaceFrac.md) | 计算输入Tensor中每个元素的小数部分后输出。                   | 默认确定性实现|  默认确定性实现 |
@@ -165,7 +165,7 @@
 | [aclnnInplaceOne](../../math/ones_like/docs/aclnnInplaceOne.md) | 返回形状和类型相同的张量，所有元素都设置为1。                | 默认确定性实现| 默认确定性实现|
 | [aclnnInplaceRandom](../../random/dsa_random_uniform/docs/aclnnInplaceRandom.md) | 从[from, to-1]的离散均匀分布中采样的数填充selfRef张量。                | 默认确定性实现| 默认确定性实现  |
 | [aclnnInplaceRandomTensor](../../random/dsa_random_uniform/docs/aclnnInplaceRandomTensor.md) | 从[from, to-1]的离散均匀分布中采样的数填充selfRef张量。                | 默认确定性实现| 默认确定性实现  |
-| [aclnnInplaceUniform](../../random/dsa_random_uniform/docs/aclnnInplaceUniform.md) | 生成[from, to)区间内离散均匀分布的随机数，并将其填充到selfRef张量中。(该接口的BOOL类型已废弃，如需使用，建议采用aclnnBernoulli或者aclnnInplaceBernoulli接口)     | 默认确定性实现|  默认确定性实现 |
+| [aclnnInplaceUniform](../../random/dsa_random_uniform/docs/aclnnInplaceUniform.md) | 生成[from, to)区间内离散均匀分布的随机数，并将其填充到selfRef张量中。（该接口的BOOL类型已废弃，如需使用，建议采用aclnnBernoulli或者aclnnInplaceBernoulli接口）     | 默认确定性实现|  默认确定性实现 |
 | [aclnnInplaceUniformTensor](../../random/dsa_random_uniform/docs/aclnnInplaceUniformTensor.md) | 生成[from, to)区间内离散均匀分布的随机数，并将其填充到selfRef张量中。                | 默认确定性实现| 默认确定性实现  |
 | [aclnnInplaceZero](../../math/zero_op/docs/aclnnInplaceZero.md) | 将selfRef张量填充为全零。                                    | 默认确定性实现| 默认确定性实现|
 | [aclnnIsClose](../../math/is_close/docs/aclnnIsClose.md)        | 返回一个带有布尔元素的新张量，判断给定的self和other是否彼此接近，如果值接近，则返回True，否则返回False。 | 默认确定性实现| 默认确定性实现|
@@ -187,9 +187,9 @@
 | [aclnnLinalgCross](../../math/cross/docs/aclnnLinalgCross.md)     | 对输入Tensor完成linear_cross运算。             | 默认确定性实现| 默认确定性实现 |
 | [aclnnLinalgQr](../../math/qr/docs/aclnnLinalgQr.md)     | 对输入Tensor进行正交分解。             | 默认确定性实现| 默认确定性实现 |
 | [aclnnLinspace](../../math/lin_space/docs/aclnnLinspace.md)     | 生成一个等间隔数值序列。                                     | 默认确定性实现| 默认确定性实现 |
-| [aclnnLog&aclnnInplaceLog](../../math/log/docs/aclnnLog&aclnnInplaceLog.md) | 完成自然对数的计算                                           | 默认确定性实现| 默认确定性实现|
-| [aclnnLog2&aclnnInplaceLog2](../../math/log/docs/aclnnLog2&aclnnInplaceLog2.md) | 完成以2为底的对数计算。                                        | 默认确定性实现| 默认确定性实现|
-| [aclnnLog10&aclnnInplaceLog10](../../math/log/docs/aclnnLog10&aclnnInplaceLog10.md) | 完成输入以10为底的对数计算                                   | 默认确定性实现| 默认确定性实现|
+| [aclnnLog&aclnnInplaceLog](../../math/log/docs/aclnnLog&aclnnInplaceLog.md) | 完成自然对数的计算。                                           | 默认确定性实现| 默认确定性实现|
+| [aclnnLog2&aclnnInplaceLog2](../../math/log/docs/aclnnLog2&aclnnInplaceLog2.md) | 完成以2为底的对数计算。                                       | 默认确定性实现| 默认确定性实现|
+| [aclnnLog10&aclnnInplaceLog10](../../math/log/docs/aclnnLog10&aclnnInplaceLog10.md) | 完成输入以10为底的对数计算。                                   | 默认确定性实现| 默认确定性实现|
 | [aclnnLog1p&aclnnInplaceLog1p](../../math/log1p/docs/aclnnLog1p&aclnnInplaceLog1p.md) | 对输入Tensor完成log1p运算。                                  | 默认确定性实现| 默认确定性实现|
 | [aclnnLogAddExp](../../math/log_add_exp/docs/aclnnLogAddExp.md) | 对输入的tensor计算幂和的对数（以e为底）。                                           | 默认确定性实现| 默认确定性实现 |
 | [aclnnLogAddExp2](../../math/log_add_exp/docs/aclnnLogAddExp2.md) | 对输入的tensor计算幂和的对数（以2为底）。                                           | 默认确定性实现| 默认确定性实现 |
@@ -198,7 +198,7 @@
 | [aclnnLogicalNot&aclnnInplaceLogicalNot](../../math/logical_not/docs/aclnnLogicalNot&aclnnInplaceLogicalNot.md) | 计算给定输入Tensor的逐元素逻辑非。如果未指定输出类型，输出Tensor是bool类型。 | 默认确定性实现| 默认确定性实现|
 | [aclnnLogicalOr&aclnnInplaceLogicalOr](../../math/logical_or/docs/aclnnLogicalOr&aclnnInplaceLogicalOr.md) | 完成给定输入张量元素的逻辑或运算。当两个输入张量为非bool类型时，0被视为False，非0被视为True。 | 默认确定性实现| 默认确定性实现 |
 | [aclnnLogicalXor](../../math/not_equal/docs/aclnnLogicalXor.md) | 完成给定输入张量元素的逻辑异或运算。当self和other为非bool类型时，0被视为False，非0被视为True。 | 默认确定性实现| 默认确定性实现 |
-| [aclnnLogSpace](../../math/logspace/docs/aclnnLogSpace.md) | 创建一个大小为$\text{steps}$的一维张量，其值在$\text{base}^\text{start}$到$\text{base}^\text{end}$上对数尺度上均匀间隔，包含端点，以$\text{base}$为底。                                      | 默认确定性实现| 默认确定性实现 |
+| [aclnnLogSpace](../../math/logspace/docs/aclnnLogSpace.md) | 创建一个大小为$\text{steps}$的一维张量，其值在$\text{base}^\text{start}$到$\text{base}^\text{end}$上以对数尺度均匀间隔，包含端点，以$\text{base}$为底。                                      | 默认确定性实现| 默认确定性实现 |
 | [aclnnLogSumExp](../../math/reduce_log_sum_exp/docs/aclnnLogSumExp.md) | 返回输入tensor指定维度上的指数之和的对数。                   | 默认确定性实现| 默认确定性实现|
 | [aclnnLtScalar&aclnnInplaceLtScalar](../../math/less/docs/aclnnLtScalar&aclnnInplaceLtScalar.md) | 判断输入self中的每个元素是否小于输入other的值，返回一个Bool类型的Tensor。 | 默认确定性实现| 默认确定性实现 |
 | [aclnnLtTensor&aclnnInplaceLtTensor](../../math/less/docs/aclnnLtTensor&aclnnInplaceLtTensor.md) | 判断输入self中的每个元素是否小于输入other中的元素，返回一个Bool类型的Tensor。 | 默认确定性实现| 默认确定性实现 |

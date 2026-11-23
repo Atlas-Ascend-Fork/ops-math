@@ -127,7 +127,7 @@ aclnnStatus aclnnMean(
     <tr>
       <td>out（aclTensor*）</td>
       <td>输出</td>
-      <td>输出tensor。</td>
+      <td>输出Tensor。</td>
       <td>-</td>
       <td>FLOAT、FLOAT16、BFLOAT16、DOUBLE、INT32、INT64、INT16、INT8、UINT8、COMPLEX64、COMPLEX128</td>
       <td>ND</td>

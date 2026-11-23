@@ -242,13 +242,13 @@ aclnnStatus aclnnReplicationPad2dBackward(
 - 确定性计算：
   - aclnnReplicationPad2dBackward默认确定性实现。
 
-当gradOutput中元素个数大于300\*1024\*1024有运行超时风险。
+当gradOutput中元素个数大于300\*1024\*1024时有运行超时风险。
 
 ## 调用示例
 
 示例代码如下，仅供参考，具体编译和执行过程请参考[编译与运行样例](../../../docs/zh/context/compile_and_run_sample.md)。
 
-```Cpp
+```cpp
 #include "acl/acl.h"
 #include "aclnnop/aclnn_pad2d_backward.h"
 #include <iostream>

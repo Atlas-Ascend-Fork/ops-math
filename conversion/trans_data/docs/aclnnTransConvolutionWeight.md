@@ -95,7 +95,7 @@ aclnnStatus aclnnTransConvolutionWeight(
   <tr>
   <td>weightOut（aclTensor*）</td>
   <td>输出</td>
-  <td>表示输入weight转换为私有格式后的tensor。</td>
+  <td>表示输入weight转换为私有格式后的Tensor。</td>
   <td>支持空Tensor输出；当weightOut为空Tensor时，weightIn也必须为空Tensor。</td>
   <td>FLOAT16</td>
   <td>NCHW</td>

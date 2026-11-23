@@ -112,7 +112,7 @@ aclnnStatus aclnnClamp(
     <tr>
       <td>out（aclTensor*）</td>
       <td>输出</td>
-      <td>输出tensor，shape和self保持一致。</td>
+      <td>输出Tensor，shape和self保持一致。</td>
       <td>-</td>
       <td>FLOAT16、FLOAT、FLOAT64、INT8、UINT8、INT16、INT32、INT64、BOOL、BFLOAT16</td>
       <td>ND</td>

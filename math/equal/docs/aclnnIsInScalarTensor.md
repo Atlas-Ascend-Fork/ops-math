@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-检查element中的元素是否等于testElement。
+检查element中的元素是否等于testElements。
 
 ## 函数原型
 
