@@ -19,8 +19,8 @@
      截断（与算子/README 语义一致，原版切片越界直接报错）；
   2. __spec__ 双键注册（feeds_repeat 与 FeedsRepeat），兼容按接口名与算子注册名
      两种 TTK SpecResolver 查找路径；
-  3. tolerance 采用 mix_tolerance（无 XPU/GPU 端点的比对标准），third_party（torch）
-     保留供 cross-check / 三方通路使用。
+  3. 浮点 dtype 容差口径对齐测试标准（Issue #95）：cross_check L1，third_party（torch）
+     支撑三方比对；变量名 _MIX 沿用历史命名，语义为 cross_check L1。
 """
 
 import torch
@@ -35,9 +35,9 @@ __spec__ = {
 }
 
 _MIX = {
-    "float16": {"standard": "mix_tolerance"},
-    "bfloat16": {"standard": "mix_tolerance"},
-    "float32": {"standard": "mix_tolerance"},
+    "float16": {"standard": "cross_check", "level": "L1"},
+    "bfloat16": {"standard": "cross_check", "level": "L1"},
+    "float32": {"standard": "cross_check", "level": "L1"},
 }
 
 
