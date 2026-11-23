@@ -37,7 +37,7 @@
 
   ```text
   self = tensor([[-1, -2],
-                 [-3, -4]]).type(int32)
+                 [-3, -4]]).type(float32)
   other = 3.5   # float
   result = remainder(self, other)
 
@@ -292,7 +292,7 @@
       <td>selfRef (aclTensor*)</td>
       <td>Input/Output</td>
       <td>Input/output tensor.</td>
-      <td>Supports empty tensors.<br>The data type and the data type of other must satisfy the data type derivation rule (see <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">TensorScalar deduction relationship</a>/<a href="../../../docs/en/context/deduction_relationship.md" target="_blank">deduction relationship</a>), and must be convertible after deduction.<br>When the derived computation type is a floating-point type, integer data types are not supported for selfRef.</td>
+      <td>Supports empty tensors.<br>The data type and the data type of other must satisfy the data type derivation rule (see <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">TensorScalar deduction relationship</a>/<a href="../../../docs/en/context/deduction_relationship.md" target="_blank">deduction relationship</a>), and must be convertible after deduction.<br>When selfRef is INT32 or INT64, other must have an integer type. Passing a floating-point scalar returns 161002.</td>
       <td>INT32, INT64, FLOAT16, FLOAT, DOUBLE, BFLOAT16</td>
       <td>ND</td>
       <td>0-8</td>
@@ -423,6 +423,9 @@
   - aclnnRemainderTensorScalar&aclnnInplaceRemainderTensorScalar default to a deterministic implementation.
 
 - When the data type of self is INT32, functionality and precision within the range [-2^24, 2^24] are prioritized.
+<!-- npu="910b" id9 -->
+- <term>Atlas A2 series products</term>: FLOAT and BFLOAT16 self (selfRef for the in-place API) use FLOAT intermediate calculations. Using actual values after other is converted to the data type of self, the intermediate remainder is exact if self = a × 2^k and other = b × 2^k, where a and b are integers, b ≠ 0, |a| + |b| ≤ 2^24, and -126 ≤ k ≤ 103. A BFLOAT16 result still requires rounding. Outside this range, precision may be lost if quotient rounding changes floor or the product cannot be represented exactly in FLOAT.
+<!-- end id9 -->
 - When other is 0 and the data type of self is an integer type, the result in out is self.
 
 ## Example

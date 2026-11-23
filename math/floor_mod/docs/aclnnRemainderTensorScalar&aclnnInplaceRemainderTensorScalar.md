@@ -35,7 +35,7 @@
 
   ```text
   self = tensor([[-1, -2],
-                 [-3, -4]]).type(int32)
+                 [-3, -4]]).type(float32)
   other = 3.5   # float
   result = remainder(self, other)
 
@@ -290,7 +290,7 @@
       <td>selfRef（aclTensor*）</td>
       <td>输入/输出</td>
       <td>输入输出tensor。</td>
-      <td>支持空Tensor。<br>数据类型与other的数据类型需满足数据类型推导规则（参见<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">TensorScalar互推导关系</a>/<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>），且需要是推导之后可转换的数据类型。<br>当推导出的计算类型为浮点类型时，selfRef不支持整型数据类型。</td>
+      <td>支持空Tensor。<br>数据类型与other的数据类型需满足数据类型推导规则（参见<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">TensorScalar互推导关系</a>/<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>），且需要是推导之后可转换的数据类型。<br>当selfRef为INT32或INT64时，other必须为整型，传入浮点标量会返回161002。</td>
       <td>INT32、INT64、FLOAT16、FLOAT、DOUBLE、BFLOAT16</td>
       <td>ND</td>
       <td>0-8</td>
@@ -421,6 +421,9 @@
   - aclnnRemainderTensorScalar&aclnnInplaceRemainderTensorScalar默认确定性实现。
 
 - 当self的数据类型为INT32时，优先保障在范围[-2^24, 2^24]内的功能和精度。
+<!-- npu="910b" id9 -->
+- <term>Atlas A2系列产品</term>：当self（原地为selfRef）为FLOAT或BFLOAT16时，使用FLOAT中间计算。以other转换为self类型后的实际值为准，self = a × 2^k、other = b × 2^k满足以下条件时，中间余数可精确计算：a、b为整数，b ≠ 0，|a| + |b| ≤ 2^24，-126 ≤ k ≤ 103。BFLOAT16结果仍需舍入。范围外，商舍入改变floor结果或乘积不能由FLOAT精确表示时，可能损失精度。
+<!-- end id9 -->
 - 当other为0，且self的数据类型为整型时，out的结果为self。
 
 ## 调用示例
