@@ -33,3 +33,14 @@ class MethodTorchClipApi(BaseApi):
         output = torch.clip(input_tensor, min=clip_value_min, max=clip_value_max)
 
         return output
+
+
+@register("ascend_method_torch_clip_int64_cast")
+class MethodTorchClipInt64CastApi(MethodTorchClipApi):
+    """A2 regression: keep the floating scalar input and produce an INT64 output."""
+
+    def __call__(self, input_data: InputDataset, with_output: bool = False):
+        # torch.clip promotes the result to floating point for a floating bound.
+        # Cast only the reference output; ATK must pass the original scalar to ACLNN.
+        output = super().__call__(input_data, with_output)
+        return output.to(dtype=input_data.kwargs["self"].dtype)

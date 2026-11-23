@@ -227,57 +227,6 @@ const aclTensor* ScalarToTensor(const aclScalar* other, const op::DataType dataT
     return otherTensor;
 }
 
-static bool GetIntegralTypeRange(const op::DataType dataType, int64_t& minValue, int64_t& maxValue)
-{
-    switch (dataType) {
-        case DataType::DT_INT8:
-            minValue = NPU_S8_MIN;
-            maxValue = NPU_S8_MAX;
-            return true;
-        case DataType::DT_UINT8:
-            minValue = NPU_U8_MIN;
-            maxValue = NPU_U8_MAX;
-            return true;
-        case DataType::DT_INT16:
-            minValue = NPU_S16_MIN;
-            maxValue = NPU_S16_MAX;
-            return true;
-        case DataType::DT_INT32:
-            minValue = INT_MIN;
-            maxValue = INT_MAX;
-            return true;
-        case DataType::DT_INT64:
-            minValue = NPU_S64_MIN;
-            maxValue = NPU_S64_MAX;
-            return true;
-        default:
-            return false;
-    }
-}
-
-// 仅校验整型标量转换为整型计算类型时的环绕溢出。
-// 允许降精度 cast：浮点标量不参与此范围校验，保留原有类型转换行为（包括小数截断和精度损失）。
-static bool CheckIntegralScalarInRange(const aclScalar* scalar, const op::DataType dataType, const char* argName)
-{
-    if (scalar == nullptr || !IsIntegralType(dataType, true) || !IsIntegralType(scalar->GetDataType(), true)) {
-        return true;
-    }
-
-    int64_t minValue = 0;
-    int64_t maxValue = 0;
-    if (!GetIntegralTypeRange(dataType, minValue, maxValue)) {
-        return true;
-    }
-
-    int64_t value = scalar->ToInt64();
-    if (value < minValue || value > maxValue) {
-        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "%s value %ld cannot be converted to type %s without overflow.", argName,
-                value, op::ToString(dataType).GetString());
-        return false;
-    }
-    return true;
-}
-
 const aclScalar* NormalizeMaxScalar(const aclScalar* valueMax, const op::DataType dataType, aclOpExecutor* executor)
 {
     if (valueMax != nullptr) {
@@ -403,8 +352,6 @@ aclnnStatus aclnnClampCommon(const aclTensor* self, const aclScalar* clipValueMi
 
     auto value_max = NormalizeMaxScalar(clipValueMax, promoteType, uniqueExecutor.get());
     auto value_min = NormalizeMinScalar(clipValueMin, promoteType, uniqueExecutor.get());
-    CHECK_RET(CheckIntegralScalarInRange(clipValueMin, promoteType, "clipValueMin"), ACLNN_ERR_PARAM_INVALID);
-    CHECK_RET(CheckIntegralScalarInRange(clipValueMax, promoteType, "clipValueMax"), ACLNN_ERR_PARAM_INVALID);
 
     auto selfContiguous = l0op::Contiguous(self, uniqueExecutor.get());
     CHECK_RET(selfContiguous != nullptr, ACLNN_ERR_INNER_NULLPTR);
