@@ -134,7 +134,7 @@ aclnnStatus aclnnSearchSorteds(
       <td>sorter（aclTensor*）</td>
       <td>输入</td>
       <td>指定<code>sortedSequence</code>元素顺序。</td>
-      <td><ul><li>数据类型必须为INT64。</li><li>shape需与<code>sortedSequence</code>一致。</li><li>传入<code>sorter</code>时，公式中的<code>sortedSequence<sub>j</sub></code>按<code>sorter</code>指定顺序取值。</li></ul></td>
+      <td><ul><li>可选输入，可为<code>nullptr</code> ；不传时按<code>sortedSequence</code> 原始顺序计算。</li><li>数据类型必须为INT64。</li><li>shape需与<code>sortedSequence</code>一致。</li><li>传入<code>sorter</code>时，公式中的<code>sortedSequence<sub>j</sub></code>按<code>sorter</code>指定顺序取值。</li></ul></td>
       <td>INT64</td>
       <td>ND</td>
       <td>与sortedSequence一致</td>

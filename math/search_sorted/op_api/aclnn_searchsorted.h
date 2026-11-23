@@ -24,13 +24,13 @@ extern "C" {
  *
  * 算子功能： 在一个已排序的张量（sortedSequence）中查找给定值（self）应该插入的位置。
  * @param [in] sortedSequence: npu device侧的aclTensor, 数据类型支持FLOAT16, FLOAT32, INT32, INT8, UINT8, INT16, INT64,
- * 支持非连续的Tensor，数据格式支持ND。
- * @param [in] self: npu device侧的aclTensor, 数据类型支持FLOAT16, FLOAT32, INT32, INT8, UINT8, INT16, INT64,
+ * DOUBLE, 支持非连续的Tensor，数据格式支持ND。
+ * @param [in] self: npu device侧的aclTensor, 数据类型支持FLOAT16, FLOAT32, INT32, INT8, UINT8, INT16, INT64, DOUBLE,
  * 支持非连续的Tensor，数据格式支持ND。
  * @param [in] outInt32: host侧的BOOL类型，指定输出Tensor是否维INT32类型。
  * @param [in] right: host侧的BOOL类型，如果找到的是相同值，是否返回右侧位置。
  * @param [in] sorter: npu device侧的aclTensor, 数据类型支持INT64, 指定sortedSequence中元素的顺序。
- * @param [in] out: npu device侧的aclTensor, 数据类型支持FLOAT16, FLOAT32, INT32, INT8, UINT8, INT16, INT64,
+ * @param [in] out: npu device侧的aclTensor, 数据类型支持INT32, INT64,
  * 支持非连续的Tensor，数据格式支持ND。
  * @param [out] workspaceSize: 返回用户需要在npu device侧申请的workspace大小。
  * @param [out] executor: 返回op执行器，包含算子计算流程。
@@ -60,12 +60,12 @@ ACLNN_API aclnnStatus aclnnSearchSorted(void* workspace, uint64_t workspaceSize,
  *
  * 算子功能： 在一个已排序的张量（sortedSequence）中查找给定值（self）应该插入的位置。
  * @param [in] sortedSequence: npu device侧的aclTensor, 数据类型支持FLOAT16, FLOAT32, INT32, INT8, UINT8, INT16, INT64,
- * 支持非连续的Tensor，数据格式支持ND。
- * @param [in] self: npu device侧的aclScalar, 数据类型支持FLOAT16, FLOAT32, INT32, INT8, UINT8, INT16, INT64。
+ * DOUBLE, 支持非连续的Tensor，数据格式支持ND。
+ * @param [in] self: npu device侧的aclScalar, 数据类型支持FLOAT16, FLOAT32, INT32, INT8, UINT8, INT16, INT64, DOUBLE。
  * @param [in] outInt32: host侧的BOOL类型，指定输出Tensor是否维INT32类型。
  * @param [in] right: host侧的BOOL类型，如果找到的是相同值，是否返回右侧位置。
  * @param [in] sorter: npu device侧的aclTensor, 数据类型支持INT64, 指定sortedSequence中元素的顺序。
- * @param [in] out: npu device侧的aclTensor, 数据类型支持FLOAT16, FLOAT32, INT32, INT8, UINT8, INT16, INT64,
+ * @param [in] out: npu device侧的aclTensor, 数据类型支持INT32, INT64,
  * 支持非连续的Tensor，数据格式支持ND。
  * @param [out] workspaceSize: 返回用户需要在npu device侧申请的workspace大小。
  * @param [out] executor: 返回op执行器，包含算子计算流程。
