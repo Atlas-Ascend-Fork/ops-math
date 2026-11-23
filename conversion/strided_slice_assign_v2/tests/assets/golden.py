@@ -11,12 +11,13 @@
 # ----------------------------------------------------------------------------
 
 
-"""strided_slice_assign_v2 在 kernel/geir 测试路径下的 golden（多通路 TestSpec 风格）。
+"""strided_slice_assign_v2 在 kernel/geir/aclnn 测试路径下的 golden（多通路 TestSpec 风格）。
 
 Kernel/GEIR 的 golden 收到 numpy.ndarray：将 axes 稀疏切片 spec 稠密化（未列轴 = 整轴切片，
 与算子 Host 侧 NormalizeIndices 同口径）后，转 tf tensor 调 tf.raw_ops.StridedSliceAssign 计算，
 结果转回 numpy；GEIR 通路复用 Kernel 类。third_party 的 tf vendor 收到 tf.Tensor
 （框架按 vendor 自动转换），直接调同一 ref 接口。
+aclnn 通路 golden 收到 torch.Tensor：torch 转 numpy（bf16 按 uint16 位级承载）后独立调同一 TF 标杆。
 StridedSliceAssign 为 TF ref 算子（eager/tf.function 不支持），golden 与三方标杆统一用
 独立 tf.Graph + compat.v1.Session + use_resource=False 旧式 ref Variable 承载 in-place 语义；
 V2 无 mask 属性（对应 V1 的 begin/end/ellipsis/new_axis/shrink 掩码由 axes 输入替代），
@@ -78,17 +79,19 @@ class StridedSliceAssignV2KernelSpec:
     """Kernel / GEIR 流程 — golden 收到 numpy.ndarray，third_party 收到 tf.Tensor"""
 
     def golden(self, var, input_value, begin, end, strides, axes=None, **kwargs):
-        """
-        计算方式: axes 稠密化后直接调用 TF 的 tf.raw_ops.StridedSliceAssign
-                 （TF 兼容负索引 / clamp / 负 stride 语义，即算子对齐的权威标杆；
-                   算子侧附加校验由 Host 承担，测试用例全部落在 TF 与 Ascend 语义交集内）
+        """计算 axes 稠密化后的切片赋值标杆。
+
+        调 TF 的 tf.raw_ops.StridedSliceAssign 计算（TF 兼容负索引 / clamp / 负 stride
+        语义，即算子对齐的权威标杆；算子侧附加校验由 Host 承担，测试用例全部落在
+        TF 与 Ascend 语义交集内）。
 
         参数:
-            var:          numpy.ndarray，目标张量（ref/in-place 语义）
-            input_value:  numpy.ndarray，待写入数据（shape 必须等于切片 final shape）
+            var: numpy.ndarray，目标张量（ref/in-place 语义）
+            input_value: numpy.ndarray，待写入数据（shape 必须等于切片 final shape）
             begin/end/strides: 1 维 int64 数组（稀疏切片 spec，const 输入）
-            axes:         1 维 int64 数组或 None（可选，切片轴；None = 前 len(begin) 轴）
-            **kwargs:     {input,output}_{dtypes,ori_shapes,formats,ori_formats} 等框架元信息
+            axes: 1 维 int64 数组或 None（可选，切片轴；None = 前 len(begin) 轴）
+            **kwargs: {input,output}_{dtypes,ori_shapes,formats,ori_formats} 等框架元信息
+
         返回:
             [切片赋值后的 var]（列表，与输入 var 同 shape 同 dtype）
         """
@@ -99,7 +102,7 @@ class StridedSliceAssignV2KernelSpec:
         in_dtype = var.dtype
 
         # ---- bfloat16 兼容处理（TF 原生支持 bf16，位级承载，无需升降精度）----
-        is_bf16_u16 = in_dtype == np.uint16  # uint16 位级承载 bf16
+        is_bf16_u16 = in_dtype == np.uint16
         if in_dtype.name == "bfloat16" or is_bf16_u16:
             import ml_dtypes
 
@@ -147,7 +150,7 @@ class StridedSliceAssignV2KernelSpec:
                 result.view(np.uint16)
             ]  # bf16 位级读回 uint16，由框架按 bf16 解释比对
         if result.dtype.name == "bfloat16":
-            return [result]  # ml_dtypes bfloat16 原样返回
+            return [result]
         return [np.asarray(result, dtype=in_dtype)]
 
     class ThirdPartyImpl:
@@ -250,11 +253,22 @@ def aclnn_strided_slice_assign_v2_golden(
     (var, inputValue) 为 torch.Tensor，(begin, end, strides, axesOptional) 为
     aclIntArray 属性对应的 Python list（axesOptional 缺省为 None）。
     语义：var 原地赋值 var[begin:end:strides(axes)] = inputValue，返回 [新 var 张量]。
-    接口约束（stride 全正、末维 stride==1）下用例均为在界切片，numpy 切片语义
-    与 kernel 通路 TF ref 标杆一致；bfloat16 按 uint16 位级承载保证 binary_equal
-    （框架 Promote 上下文若已升 fp32 则走普通分支，升精度无损，同样位级精确）。
+    计算独立调 TF ref 标杆 tf.raw_ops.StridedSliceAssign（ref 算子承载方式同 kernel 通路）：
+    torch 输入转 numpy 后完成 axes 稠密化再调 TF，接口约束
+    （stride 全正、末维 stride==1）下用例均为在界切片，TF 语义与算子一致；
+    bfloat16 按 uint16 位级承载（ml_dtypes 位级解释），保证 binary_equal
+    （框架 Promote 上下文若已升 fp32 则走普通分支，升精度无损）。
     """
     import torch
+    import tensorflow as tf
+
+    def _to_np(t):
+        if isinstance(t, torch.Tensor):
+            t = t.detach().cpu()
+            if t.dtype == torch.bfloat16:
+                t = t.view(torch.uint16)
+            t = t.numpy()
+        return np.asarray(t)
 
     def _flat(v):
         if isinstance(v, torch.Tensor):
@@ -262,26 +276,67 @@ def aclnn_strided_slice_assign_v2_golden(
         return np.asarray(v).flatten().tolist()
 
     is_bf16 = isinstance(var, torch.Tensor) and var.dtype == torch.bfloat16
-    if is_bf16:
-        var_np = np.array(var.detach().cpu().view(torch.uint16).numpy(), copy=True)
-        val_np = np.array(
-            inputValue.detach().cpu().view(torch.uint16).numpy(), copy=True
-        )
-    else:
-        var_np = np.array(var.detach().cpu().numpy(), copy=True)
-        val_np = np.array(inputValue.detach().cpu().numpy(), copy=True)
+    var_np = _to_np(var)
+    value_np = _to_np(inputValue)
 
-    ndim = var_np.ndim
-    axes = list(range(len(begin))) if axesOptional is None else _flat(axesOptional)
-    slices = [slice(None)] * ndim
-    for i, axis in enumerate(axes):
-        if axis < 0:
-            axis += ndim
-        slices[axis] = slice(
-            int(_flat(begin)[i]), int(_flat(end)[i]), int(_flat(strides)[i])
-        )
-    var_np[tuple(slices)] = val_np
+    # bf16 以 uint16 位级到达时用 ml_dtypes 位级解释
+    if var_np.dtype == np.uint16 or value_np.dtype == np.uint16:
+        import ml_dtypes
 
+    var_in = np.ascontiguousarray(var_np)
+    val_in = np.ascontiguousarray(value_np)
+    if var_np.dtype == np.uint16:
+        var_in = var_in.view(ml_dtypes.bfloat16)
+    if value_np.dtype == np.uint16:
+        val_in = val_in.view(ml_dtypes.bfloat16)
+
+    dense_b, dense_e, dense_s = _dense_spec(
+        var_in.shape,
+        _flat(begin),
+        _flat(end),
+        _flat(strides),
+        None if axesOptional is None else _flat(axesOptional),
+    )
+
+    graph = tf.Graph()
+    with graph.as_default():
+        tf_var = tf.compat.v1.Variable(var_in, use_resource=False)
+        tf_value = tf.convert_to_tensor(val_in, dtype=tf_var.dtype.base_dtype)
+        out = tf.raw_ops.StridedSliceAssign(
+            ref=tf_var,
+            begin=np.asarray(dense_b, dtype=np.int64),
+            end=np.asarray(dense_e, dtype=np.int64),
+            strides=np.asarray(dense_s, dtype=np.int64),
+            value=tf_value,
+        )
+        with tf.compat.v1.Session() as sess:
+            sess.run(tf_var.initializer)
+            result = sess.run(out)
+
+    result = np.ascontiguousarray(result)
+    if result.dtype.name == "bfloat16":
+        result = result.view(np.uint16)
     if is_bf16:
-        return [torch.from_numpy(np.ascontiguousarray(var_np)).view(torch.bfloat16)]
-    return [torch.from_numpy(var_np)]
+        return [torch.from_numpy(result).view(torch.bfloat16)]
+    return [torch.from_numpy(result)]
+
+
+__spec__ = {
+    "strided_slice_assign_v2": "StridedSliceAssignV2TestSpec",
+    "aclnnStridedSliceAssignV2": "AclnnStridedSliceAssignV2TestSpec",
+}
+
+
+class StridedSliceAssignV2TestSpec:
+    """TTK TestSpec 注册壳（kernel/geir 通路）：golden 用 staticmethod 保持
+    普通函数形态（规避实例方法 self 首参在 TTK 位置传参下的左移）。"""
+
+    golden = staticmethod(strided_slice_assign_v2_golden)
+    third_party = StridedSliceAssignV2KernelSpec.third_party
+    tolerance = StridedSliceAssignV2KernelSpec.tolerance
+
+
+class AclnnStridedSliceAssignV2TestSpec:
+    """TTK TestSpec 注册壳（aclnn 通路）：golden 同上。"""
+
+    golden = staticmethod(aclnn_strided_slice_assign_v2_golden)
