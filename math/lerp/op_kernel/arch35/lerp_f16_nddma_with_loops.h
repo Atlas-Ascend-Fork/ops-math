@@ -138,6 +138,7 @@ private:
             RegTensor<float> vreg8;
             RegTensor<float> vreg9;
             RegTensor<half> vreg10;
+            RegTensor<float> vregAbsWeight;
             MaskReg preg0;
             uint32_t size = ubSplitSize * tilingDataPtr_->outputStrides[tilingDataPtr_->ubSplitAxis];
             MaskReg preg2;
@@ -156,7 +157,9 @@ private:
                 AscendC::Reg::LoadAlign<half, AscendC::Reg::LoadDist::DIST_UNPACK_B16>(
                     vreg0, bufferIn0Addr + i * (AscendC::VECTOR_REG_WIDTH / 4));
                 AscendC::Reg::Cast<float, half, castTrait0>(vreg1, vreg0, preg0);
-                AscendC::Reg::Compares<float, AscendC::CMPMODE::LT>(preg2, vreg1, static_cast<float>(0.5), preg0);
+                AscendC::Reg::Abs<float, AscendC::Reg::MaskMergeMode::ZEROING>(vregAbsWeight, vreg1, preg0);
+                AscendC::Reg::Compares<float, AscendC::CMPMODE::LT>(preg2, vregAbsWeight, static_cast<float>(0.5),
+                                                                    preg0);
                 AscendC::Reg::LoadAlign<half, AscendC::Reg::LoadDist::DIST_UNPACK_B16>(
                     vreg2, bufferIn1Addr + i * (AscendC::VECTOR_REG_WIDTH / 4));
                 AscendC::Reg::Cast<float, half, castTrait0>(vreg3, vreg2, preg0);
