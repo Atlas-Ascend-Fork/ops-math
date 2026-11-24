@@ -24,8 +24,8 @@ using namespace op;
 extern "C" {
 #endif
 
-aclnnStatus aclnnContiguousGetWorkspaceSize(
-    const aclTensorList* self, uint64_t* workspaceSize, aclOpExecutor** executor)
+aclnnStatus aclnnContiguousGetWorkspaceSize(const aclTensorList* self, uint64_t* workspaceSize,
+                                            aclOpExecutor** executor)
 {
     L2_DFX_PHASE_1(aclnnContiguous, DFX_IN(self), DFX_OUT());
     CHECK_NOT_NULL(self, workspaceSize, executor);
@@ -62,8 +62,8 @@ aclnnStatus aclnnContiguous(void* workspace, uint64_t workspaceSize, aclOpExecut
     return CommonOpExecutorRun(workspace, workspaceSize, executor, stream);
 }
 
-aclnnStatus aclnnViewCopyGetWorkspaceSize(
-    const aclTensorList* in, const aclTensorList* out, uint64_t* workspaceSize, aclOpExecutor** executor)
+aclnnStatus aclnnViewCopyGetWorkspaceSize(const aclTensorList* in, const aclTensorList* out, uint64_t* workspaceSize,
+                                          aclOpExecutor** executor)
 {
     L2_DFX_PHASE_1(aclnnViewCopy, DFX_IN(in), DFX_OUT(out));
 
@@ -80,6 +80,7 @@ aclnnStatus aclnnViewCopyGetWorkspaceSize(
     const uint64_t count = in->Size();
     CHECK_RET(count == out->Size(), ACLNN_ERR_PARAM_INVALID);
     for (uint64_t i = 0U; i < count; ++i) {
+        CHECK_NOT_NULL((*in)[i], (*out)[i]);
         // 如果出参out是非连续Tensor，需要把计算完的连续Tensor转非连续
         auto viewCopyResult = l0op::ViewCopy((*in)[i], (*out)[i], uniqueExecutor.get());
         CHECK_RET(viewCopyResult != nullptr, ACLNN_ERR_INNER_NULLPTR);
