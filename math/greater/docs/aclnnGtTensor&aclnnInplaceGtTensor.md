@@ -107,7 +107,7 @@ aclnnStatus aclnnInplaceGtTensor(
       <td>other（aclTensor*）</td>
       <td>输入</td>
       <td>参与greater大小比较计算的输入张量，公式中的other。</td>
-      <td>Tensor类型，数据类型需要与self满足<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">数据类型推导规则</a>，shape需要与self的shape满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>。</td>
+      <td>Tensor类型，数据类型需要与self满足<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>，shape需要与self的shape满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>。</td>
       <td>DOUBLE、FLOAT16、FLOAT32、INT32、UINT32、INT64、UINT64、INT16、UINT16、INT8、UINT8、BOOL、BFLOAT16</td>
       <td>ND</td>
       <td>0-8</td>

@@ -77,7 +77,7 @@ aclnnStatus aclnnReduceSum(
     <tr>
       <td>self（aclTensor*）</td>
       <td>输入</td>
-      <td>输入tensor。</td>
+      <td>输入Tensor。</td>
       <td>支持空Tensor。<br>输入为空Tensor时，输出类型不能是复数类型COMPLEX64和COMPLEX128。</td>
       <td>FLOAT16、FLOAT32、INT8、INT16、INT32、INT64、UINT8、BOOL、DOUBLE、COMPLEX64、COMPLEX128、BFLOAT16</td>
       <td>ND</td>
@@ -182,7 +182,7 @@ aclnnStatus aclnnReduceSum(
       <td>out shape与实际不匹配。</td>
     </tr>
     <tr>
-      <td>dims数组中的维度超出输入tensor的维度范围。</td>
+      <td>dims数组中的维度超出输入Tensor的维度范围。</td>
     </tr>
     <tr>
       <td>dims数组中的轴重复。</td>

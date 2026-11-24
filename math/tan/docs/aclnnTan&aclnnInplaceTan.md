@@ -394,7 +394,7 @@ aclnnStatus aclnnInplaceTan(
 
 **aclnnTan接口调用示例：**
 
-```Cpp
+```cpp
 #include <iostream>
 #include <vector>
 #include "acl/acl.h"
@@ -527,7 +527,7 @@ int main() {
 
 **aclnnInplaceTan接口调用示例：**
 
-```Cpp
+```cpp
 #include <iostream>
 #include <vector>
 #include "acl/acl.h"

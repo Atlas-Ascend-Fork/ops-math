@@ -100,7 +100,7 @@ aclnnStatus aclnnOneHot(
       <td>numClasses（int）</td>
       <td>输入</td>
       <td>表示类别数。</td>
-      <td><ul><li>当self为空Tensor时，numClasses的值需大于0；</li><li>当self不为空Tensor时，numClasses需大于等于0。</li><li>若numClasses的值为0，则返回空Tensor。</li><li>如果self存在元素大于numClasses，这些元素会被编码成全offValue。</li></ul></td>
+      <td><ul><li>当self为空Tensor时，numClasses的值需大于0。</li><li>当self不为空Tensor时，numClasses需大于等于0。</li><li>若numClasses的值为0，则返回空Tensor。</li><li>如果self存在元素大于numClasses，这些元素会被编码成全offValue。</li></ul></td>
       <td>INT64</td>
       <td>-</td>
       <td>-</td>

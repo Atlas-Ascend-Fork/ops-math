@@ -101,7 +101,7 @@ aclnnStatus aclnnTanhBackward(
     <tr>
       <td>gradInput（aclTensor*）</td>
       <td>输出</td>
-      <td>公式中的<code>gradInput</code>。</td>
+      <td>公式中的输出<code>gradInput</code>。</td>
       <td><ul><li>与gradOutput、output的数据格式一致。</li><li>与gradOutput、output的shape一致或是gradOutput与output broadcast之后的shape。</li><li>与gradOutput、output的数据类型一致。</li></ul></td>
       <td>FLOAT、FLOAT16、DOUBLE、BFLOAT16</td>
       <td>ND</td>

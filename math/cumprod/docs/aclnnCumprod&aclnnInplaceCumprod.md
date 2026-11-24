@@ -38,7 +38,7 @@
 
       用数学公式表示$y_i=\prod_{j=1}^ix_j，其中i=1,2...,n$。
 
-  - **高维张量情况（以二维张量为例， dim=0沿行方向）**
+  - **高维张量情况（以二维张量为例，dim=0沿行方向）**
     对于二维张量：
 
     $$
@@ -79,7 +79,7 @@ aclnnCumprod和aclnnInplaceCumprod实现相同的功能，使用区别如下，�
 - aclnnCumprod：需新建一个输出张量对象存储计算结果。
 - aclnnInplaceCumprod：无需新建输出张量对象，直接在输入张量的内存中存储计算结果。
 
-每个算子分为[两段式接口](../../../docs/zh/context/two_phase_api.md)，必须先调用"aclnnCumprodGetWorkspaceSize"或者"aclnnInplaceCumprodGetWorkspaceSize"接口获取计算所需workspace大小以及包含了算子计算流程的执行器，再调用"aclnnCumprod"或者"aclnnInplaceCumprod"接口执行计算。
+每个算子分为[两段式接口](../../../docs/zh/context/two_phase_api.md)，必须先调用“aclnnCumprodGetWorkspaceSize”或者“aclnnInplaceCumprodGetWorkspaceSize”接口获取计算所需workspace大小以及包含了算子计算流程的执行器，再调用“aclnnCumprod”或者“aclnnInplaceCumprod”接口执行计算。
 
 ```Cpp
 aclnnStatus aclnnCumprodGetWorkspaceSize(

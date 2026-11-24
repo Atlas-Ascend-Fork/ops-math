@@ -111,7 +111,7 @@ aclnnStatus aclnnBatchNormStats(
     <tr>
       <td>mean（aclTensor*）</td>
       <td>输出</td>
-      <td>输出均值</td>
+      <td>输出均值。</td>
       <td>-</td>
       <td>FLOAT</td>
       <td>ND</td>

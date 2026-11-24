@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-- 接口功能：计算self中的元素值是否小于等于other的值，将self每个元素与other值的比较结果写入out中。
+- 接口功能：计算self中的元素值是否小于等于other的值，将self的每个元素与other值的比较结果写入out中。
 
 - 计算公式：
 
@@ -38,7 +38,7 @@ $$
   - aclnnLeTensor：需新建一个输出张量对象存储计算结果。
   - aclnnInplaceLeTensor：无需新建输出张量对象，直接在输入张量的内存中存储计算结果。
 
-- 每个算子分为[两段式接口](../../../docs/zh/context/two_phase_api.md)，必须先调用"aclnnLeTensorGetWorkspaceSize"或者"aclnnInplaceLeTensorGetWorkspaceSize"接口获取计算所需workspace大小以及包含了算子计算流程的执行器，再调用"aclnnLeTensor"或者"aclnnInplaceLeTensor"接口执行计算。
+- 每个算子分为[两段式接口](../../../docs/zh/context/two_phase_api.md)，必须先调用aclnnLeTensorGetWorkspaceSize或者aclnnInplaceLeTensorGetWorkspaceSize接口获取计算所需workspace大小以及包含了算子计算流程的执行器，再调用aclnnLeTensor或者aclnnInplaceLeTensor接口执行计算。
 
 ```Cpp
 aclnnStatus aclnnLeTensorGetWorkspaceSize(

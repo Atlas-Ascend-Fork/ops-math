@@ -159,7 +159,7 @@ aclnnStatus aclnnInplaceBitwiseXorTensor(
   <!-- end id7 -->
   <!-- npu="910,310p" id8 -->
   - <term>Atlas推理系列产品</term>、<term>Atlas训练系列产品</term>：
-    - self和other的数据类型不支持UINT16、UINT32、UINT64；
+    - self和other的数据类型不支持UINT16、UINT32、UINT64。
     - out数据类型不支持BFLOAT16、UINT16、UINT32、UINT64、COMPLEX64、COMPLEX128。
 
   <!-- end id8 -->

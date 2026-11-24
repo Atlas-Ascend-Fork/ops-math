@@ -157,12 +157,12 @@ aclnnStatus aclnnInplaceBitwiseOrScalar(
   <!-- end id7 -->
   <!-- npu="A3,910b" id8 -->
   - <term>Atlas A3系列产品</term>、<term>Atlas A2系列产品</term>：
-    - self和other的数据类型不支持UINT32、UINT64；
+    - self和other的数据类型不支持UINT32、UINT64。
     - out数据类型不支持UINT32、UINT64、COMPLEX64、COMPLEX128。
   <!-- end id8 -->
   <!-- npu="910,310p" id9 -->
   - <term>Atlas推理系列产品</term>、<term>Atlas训练系列产品</term>：
-    - self和other的数据类型不支持UINT32、UINT64；
+    - self和other的数据类型不支持UINT32、UINT64。
     - out数据类型不支持BFLOAT16、UINT32、UINT64、COMPLEX64、COMPLEX128。
   <!-- end id9 -->
 

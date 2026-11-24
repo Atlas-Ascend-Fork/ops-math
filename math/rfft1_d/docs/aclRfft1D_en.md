@@ -23,7 +23,7 @@
 
 ## Function
 
-Performs the RFFT (Fourier transform) computation on the input tensor self. The output is a complex tensor that contains non-negative frequencies.
+Performs the RFFT (Fourier fast transform) computation on the input tensor self. The output is a complex tensor that contains non-negative frequencies.
 
 ### Formula
 

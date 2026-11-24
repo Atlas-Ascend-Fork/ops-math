@@ -39,9 +39,9 @@
   y=x*scale + bias
   $$
 
-  说明：scale/bias支持跟X的广播，scale/bias的shape规则如下：
+  说明：scale/bias支持跟x的广播，scale/bias的shape规则如下：
 
-  - 当scaleFromBlob为True时（axis转换为正数，numAxes为-1时表示到最后轴）：
+  - 当scaleFromBlob为True时（axis转换为正数，numAxes为-1时表示到最后一轴）：
 
     numAxes=0时，scale必须包含且仅包含一个元素，rank为0~8，允许`()`、`[1]`、`[1,1]`等单元素形状按标量广播；x的rank为1～8，axis等通用约束仍须满足。
 
@@ -121,7 +121,7 @@ aclnnStatus aclnnScale(
       <th>使用说明</th>
       <th>数据类型</th>
       <th>数据格式</th>
-      <th>维度(shape)</th>
+      <th>维度（shape）</th>
       <th>非连续Tensor</th>
     </tr></thead>
   <tbody>
@@ -265,7 +265,7 @@ aclnnStatus aclnnScale(
       <td>bias指针非空时，bias与scale的shape不一致。</td>
     </tr>
     <tr>
-      <td>x的秩不在1～8范围内，scale或bias的秩大于8，或者x、scale、bias、y的shape包含负维度长度。</td>
+      <td>x的秩不在1~8范围内，scale或bias的秩大于8，或者x、scale、bias、y的shape包含负维度长度。</td>
     </tr>
     <tr>
       <td>axis的取值不在[-x_rank, x_rank)范围内。</td>

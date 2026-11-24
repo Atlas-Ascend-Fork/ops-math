@@ -239,7 +239,7 @@ aclnnStatus aclnnSelectTopK(
 ## RadixTopK调用路径
 
 在当前支持的轴长范围 `N≤INT32_MAX` 内，全轴（begin/end均为空）、双输出、offset=0、
-`K≤N` 的 FP16/BF16 请求采用以下门控：`K≥8`，且 `12000000≤N<100000000` 时
+`K≤N` 的FP16/BF16请求采用以下门控：`K≥8`，且 `12000000≤N<100000000` 时
 `N>100K`，或 `N≥100000000` 时 `N>50K`。
 区间、偏移、单输出、需要填充及不满足门控的请求继续走SelectTopK。
 
@@ -256,15 +256,15 @@ flowchart LR
     D -->|否：直接使用值和索引| U
 ```
 
-该分流保持输入原维数，不额外 Reshape，也不从原输入回读值。按值排序时调用
+该分流保持输入原维数，不额外Reshape，也不从原输入回读值。按值排序时调用
 `SortWithIndex(values, indices, lastDim, largest, true)`，同时重排值和原轴索引；
 只有 order=1 执行此排序，
 order=0直接使用Radix的值和原轴索引，不保证输出顺序，相同值的索引选择不保证稳定。
-INT64 中间索引直接透传；当前接口轴长上限内实际使用 INT32 中间索引。
+INT64中间索引直接透传；当前接口轴长上限内实际使用INT32中间索引。
 
 该路径要求配套的Topk/RadixTopK实现支持上述 K≥8 门控；有序分流还要求
 SortWithIndex在A2/A3上支持FP16/BF16值和原轴索引的同步排序。
-NaN 输出沿用 aclnnTopk 的规范化行为（FP16/BF16 为 0x7fff），不保留其原始载荷和符号；
+NaN输出沿用aclnnTopk的规范化行为（FP16/BF16为0x7fff），不保留其原始载荷和符号；
 非 NaN 值和未命中此分流的 SelectTopK 路径保持原值位模式。
 所有准备、选择、SortWithIndex、Cast和输出恢复均计入完整L2成本。
 

@@ -261,7 +261,7 @@ aclnnStatus aclnnAddLora(
     <tr>
       <td rowspan="2">ACLNN_ERR_INNER_TILING_ERROR</td>
       <td rowspan="2">561002</td>
-      <td>多个输入tensor之间的shape信息不匹配（详见参数说明）。</td>
+      <td>多个输入Tensor之间的shape信息不匹配（详见参数说明）。</td>
     </tr>
     <tr>
       <td>输入tensor的shape信息暂不支持（详见参数说明）。</td>

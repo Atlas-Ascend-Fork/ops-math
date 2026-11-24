@@ -115,7 +115,7 @@ aclnnStatus aclnnVarCorrection(
     <tr>
       <td>keepdim（bool）</td>
       <td>输入</td>
-      <td>reduce轴的维度是否保留。</td>
+      <td>Reduce轴的维度是否保留。</td>
       <td>-</td>
       <td>-</td>
       <td>-</td>

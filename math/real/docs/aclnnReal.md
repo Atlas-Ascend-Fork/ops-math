@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-- 接口功能：为输入张量的每一个元素取实数部分。
+- 接口功能：为输入张量的每一个元素取实部。
 
 - 计算公式：
 
@@ -145,7 +145,7 @@ aclnnStatus aclnnReal(
     <tr>
       <td>ACLNN_ERR_PARAM_NULLPTR</td>
       <td>161001</td>
-      <td>传入的tensor或out是空指针。</td>
+      <td>传入的张量或out是空指针。</td>
     </tr>
     <tr>
       <td>ACLNN_ERR_PARAM_INVALID</td>
@@ -203,7 +203,7 @@ aclnnStatus aclnnReal(
 - 确定性计算：
   - aclnnReal默认确定性实现。
 
-<p id="表-1-输入输出数据类型对应关系"><strong>表1</strong>  输入/输出数据类型对应关系</p>
+<p id="表-1-输入输出数据类型对应关系"><strong>表1</strong> 输入/输出数据类型对应关系</p>
 
 <table>
   <thead>

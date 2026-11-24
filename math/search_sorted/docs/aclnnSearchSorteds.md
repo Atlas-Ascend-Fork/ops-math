@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-- 算子功能：在一个已排序的一维张量（sortedSequence）中查找给定Scalar值（self）应该插入的位置。返回shape为[1]的张量，表示给定Scalar值在原始张量中应该插入的位置。如果self为Tensor类型，请参考文档[aclnnSearchSorted](./aclnnSearchSorted.md)。
+- 算子功能：在一个已排序的一维张量（sortedSequence）中查找给定标量值（self）应该插入的位置。返回shape为[1]的张量，表示给定标量值在原始张量中应该插入的位置。如果self为Tensor类型，请参考文档[aclnnSearchSorted](./aclnnSearchSorted.md)。
 - 计算公式：设待检索序列长度为 $N$，标量输入为 $x=self$：
   - 当`right=false`时，返回左插入点：
 

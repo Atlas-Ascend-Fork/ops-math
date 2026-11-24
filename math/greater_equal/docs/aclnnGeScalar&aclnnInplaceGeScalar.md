@@ -272,7 +272,7 @@ aclnnStatus aclnnInplaceGeScalar(
       <td>other（aclScalar*）</td>
       <td>输入</td>
       <td>参与GreaterEqual大小比较计算的输入标量，公式中的other。</td>
-      <td>数据类型需要与selfRef的数据类型满足数据类型推导规则。</td>
+      <td>数据类型需要与selfRef的数据类型满足<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">数据类型推导规则</a>。</td>
       <td>DOUBLE、BFLOAT16、FLOAT16、FLOAT、INT32、UINT32、INT64、UINT64、INT16、UINT16、INT8、UINT8、BOOL</td>
       <td>-</td>
       <td>-</td>

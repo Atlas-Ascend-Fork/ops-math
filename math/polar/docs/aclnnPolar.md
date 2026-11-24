@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-- 算子功能：对输入input做绝对值和angle对应的极坐标求笛卡尔坐标，得到一个复数张量out
+- 算子功能：对输入input的绝对值和angle对应的极坐标求笛卡尔坐标，得到一个复数张量out
 
 - 计算公式：
 
@@ -44,7 +44,7 @@
 
   - input(aclTensor*，计算输入)：输入的tensor，公式中的`abs`，数据类型支持FLOAT，支持[非连续的Tensor](../../../docs/zh/context/non_contiguous_tensor.md)，[数据格式](../../../docs/zh/context/data_format.md)支持ND，维度最大不超过8维。
 
-  - angle(aclTensor*，计算输入)：输入的tensor，公式中的`angle`，数据类型必须与input相同，支持[非连续的Tensor](../../../docs/zh/context/non_contiguous_tensor.md)，[数据格式](../../../docs/zh/context/data_format.md)支持ND，维度与input保持一致。
+  - angle(aclTensor*，计算输入)：输入的Tensor，公式中的`angle`，数据类型必须与input相同，支持[非连续的Tensor](../../../docs/zh/context/non_contiguous_tensor.md)，[数据格式](../../../docs/zh/context/data_format.md)支持ND，维度与input保持一致。
 
   - out(aclTensor*，计算输出)：输出的Tensor，公式中的`out`，数据类型支持COMPLEX64，支持[非连续的Tensor](../../../docs/zh/context/non_contiguous_tensor.md)，[数据格式](../../../docs/zh/context/data_format.md)支持ND，维度与input保持一致。
   - workspaceSize(uint64_t*，出参)：返回需要在Device侧申请的workspace大小。

@@ -128,7 +128,7 @@ aclnnStatus aclnnSort(
     <tr>
       <td>valuesOut</td>
       <td>输出</td>
-      <td>表示tensor在指定维度上排序的结果。</td>
+      <td>表示Tensor在指定维度上排序的结果。</td>
       <td>-</td>
       <td>BFLOAT16、FLOAT16、FLOAT32、DOUBLE、INT8、INT16、INT32、INT64、UINT8、BOOL、UINT16、UINT32、UINT64</td>
       <td>ND</td>
@@ -180,7 +180,7 @@ aclnnStatus aclnnSort(
 
 - **返回值**：
 
-  aclnnStatus：返回状态码，具体参见[aclnn返回码](../../../docs/zh/context/aclnn_return_code.md)
+  aclnnStatus：返回状态码，具体参见[aclnn返回码](../../../docs/zh/context/aclnn_return_code.md)。
 
   第一段接口完成入参校验，出现以下场景时报错：
 
@@ -258,9 +258,9 @@ aclnnStatus aclnnSort(
 ## 约束说明
 
 - 确定性计算：
-  - aclnnSort默认确定性实现。
+  - aclnnSort默认确定性实现
 
-- self的数据类型不为FLOAT、FLOAT16、BFLOAT16时，Tensor size过大可能会导致算子执行超时（aicpu error类型报错，报错reason=[aicpu timeout]），具体类型最大size（与机器具体剩余内存强相关）限制如下：
+- self的数据类型不为FLOAT、FLOAT16、BFLOAT16时，Tensor size过大可能会导致算子执行超时（AI CPU error类型报错，报错reason=[aicpu timeout]），具体类型最大size（与机器具体剩余内存强相关）限制如下：
   - INT64类型：150000000
   - UINT8、INT8、INT16、INT32类型：725000000
 

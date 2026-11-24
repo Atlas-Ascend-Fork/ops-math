@@ -33,7 +33,7 @@
   out_{ij} = \sum_{k=0}^{M-1}||self_{in}-self_{jn}||_p =  (\sum_{k=0}^{M-1}|self_{in}-self_{jn}|^p)^\frac{1}{p}
   $$
 
-  out的shape为[$\frac{1}{2}N(N-1)$]，其中元素的排列顺序为$out_{01}$, ..., $out_{0,N-1}$,$out_{1,2}$, ... $out_{1,N-1}$, ..., $out_{N-2,N-1}$
+  out的shape为[$\frac{1}{2}N(N-1)$]，其中元素的排列顺序为$out_{01}$, ..., $out_{0,N-1}$,$out_{1,2}$, ... $out_{1,N-1}$, ..., $out_{N-2,N-1}$。
 
 - p=0时的语义：$out_{ij}$为self第i行与第j行对应位置元素不相等的个数，即$out_{ij}=\sum_{k=0}^{M-1}(self_{in} \ne self_{jn})$；输入中任一元素为NaN时，NaN与任意值（包括NaN）均判定为不相等并计入个数，输出中不含NaN。
 

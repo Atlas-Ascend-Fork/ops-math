@@ -101,7 +101,7 @@ aclnnStatus aclnnInplaceEqTensor(
     <tr>
       <td>self（aclTensor*）</td>
       <td>输入</td>
-      <td>输入tensor。</td>
+      <td>输入Tensor。</td>
       <td><ul><li>数据类型需要与other满足数据类型推导规则（参见<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>）。</li><li>shape需要与other满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>。</li></ul></td>
       <td>DOUBLE、FLOAT16、FLOAT、BFLOAT16、INT64、INT32、INT8、UINT8、BOOL、INT16、COMPLEX64、COMPLEX128、UINT32、UINT64</td>
       <td>ND</td>
@@ -111,7 +111,7 @@ aclnnStatus aclnnInplaceEqTensor(
     <tr>
       <td>other（aclTensor*）</td>
       <td>输入</td>
-      <td>输入tensor。</td>
+      <td>输入Tensor。</td>
       <td><ul><li>数据类型需要与self满足数据类型推导规则（参见<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>）。</li><li>shape需要与self的shape满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>。</li></ul></td>
       <td>DOUBLE、FLOAT16、FLOAT、BFLOAT16、INT64、INT32、INT8、UINT8、BOOL、INT16、COMPLEX64、COMPLEX128、UINT32、UINT64</td>
       <td>ND</td>

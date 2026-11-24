@@ -84,7 +84,7 @@ aclnnStatus aclnnGroupedBiasAddGradV2(
 
 ## aclnnGroupedBiasAddGradV2GetWorkspaceSize
 
-- **参数说明**
+- **参数说明：**
 
   <table style="table-layout: fixed; width: 1692px"><colgroup>
   <col style="width: 232px">
@@ -130,7 +130,7 @@ aclnnStatus aclnnGroupedBiasAddGradV2(
     </tr>
     <tr>
       <td>groupIdxType</td>
-      <td>groupIdxType</td>
+      <td>输入</td>
       <td>表示groupIdx的类型。</td>
       <td>0：表示groupIdxOptional中的值为每个group的结束索引。<br>1：表示groupIdxOptional中的值为每个group的大小。</td>
       <td>-</td>

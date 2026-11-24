@@ -362,7 +362,7 @@ aclnnStatus aclnnInplaceLog(
 - 确定性计算：
   - aclnnLog&aclnnInplaceLog默认确定性实现。
 
-如果输入shape超过1000000可能会导致算子执行超时（aicore error类型报错，errorStr为：timeout or trap error），场景为最后2轴各轴相乘的积小于16，前面的轴各轴相乘的积过大。
+如果输入shape超过1000000可能会导致算子执行超时（AI Core error类型报错，errorStr为：timeout or trap error），场景为最后2轴各轴相乘的积小于16，前面的轴各轴相乘的积过大。
 
 ## 调用示例
 

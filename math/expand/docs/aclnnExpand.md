@@ -88,7 +88,7 @@ aclnnStatus aclnnExpand(
         <td>self</td>
         <td>输入</td>
         <td>表示待广播的目标张量，公式中的self</td>
-        <td>shape与size满足broadcast关系</td>
+        <td>shape与size满足广播关系</td>
         <td>FLOAT16、FLOAT、UINT8、INT8、INT32、INT64、BOOL、BF16。</td>
         <td>ND</td>
         <td>0-8</td>
@@ -108,7 +108,7 @@ aclnnStatus aclnnExpand(
         <td>out</td>
         <td>输出</td>
         <td>广播后的张量</td>
-        <td>shape需要满足self的shape根据size的推导结果。</td>
+        <td>shape需要满足根据self的shape和size推导出的结果。</td>
         <td>与self一致</td>
         <td>ND</td>
         <td>-</td>

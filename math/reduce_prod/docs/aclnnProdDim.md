@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-- 接口功能：返回输入tensor给定维度上每行的乘积。
+- 接口功能：返回输入Tensor给定维度上每行的乘积。
 
 - 计算公式：
 
@@ -85,7 +85,7 @@ aclnnStatus aclnnProdDim(
     <tr>
       <td>self（aclTensor*）</td>
       <td>输入</td>
-      <td>输入tensor，计算给定维度上的乘积。</td>
+      <td>输入Tensor，计算给定维度上的乘积。</td>
       <td>输入为空tensor时，输出类型不能是复数类型COMPLEX64和COMPLEX128。</td>
       <td>FLOAT16、FLOAT、DOUBLE、INT8、UINT8、INT16、INT32、INT64、BOOL、COMPLEX64、COMPLEX128、BFLOAT16</td>
       <td>ND</td>

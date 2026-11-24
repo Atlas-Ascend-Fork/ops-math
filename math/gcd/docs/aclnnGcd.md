@@ -72,7 +72,7 @@ aclnnStatus aclnnGcd(
       <th>使用说明</th>
       <th>数据类型</th>
       <th>数据格式</th>
-      <th>维度(shape)</th>
+      <th>维度（shape）</th>
       <th>非连续Tensor</th>
     </tr></thead>
   <tbody>
@@ -89,7 +89,7 @@ aclnnStatus aclnnGcd(
     <tr>
       <td>other（aclTensor*）</td>
       <td>输入</td>
-      <td>表示待转换的目标张量。</td>
+      <td>表示待计算最大公约数的输入张量。</td>
       <td>数据类型与self的数据类型需满足数据类型推导规则。shape需要与self满足broadcast关系。</td>
       <td>UINT8、INT8、INT16、INT32、INT64</td>
       <td>ND</td>
@@ -100,7 +100,7 @@ aclnnStatus aclnnGcd(
       <td>out（aclTensor*）</td>
       <td>输出</td>
       <td>self和other求最大公约数的结果。</td>
-      <td>数据类型是self与other推导之后可转换的数据类型。shape需要与self和other做<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast</a>后的shape一致。</td>
+      <td>数据类型是self与other推导之后可转换的数据类型。shape需要与self和other做<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>后的shape一致。</td>
       <td>UINT8、INT8、UINT16、INT16、INT32、UINT32、INT64、UINT64</td>
       <td>ND</td>
       <td>1-8</td>
@@ -170,7 +170,7 @@ aclnnStatus aclnnGcd(
       <td>self和other的shape不满足broadcast规则。</td>
     </tr>
     <tr>
-      <td>self和other进行<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast</a>后的shape与out不一样。</td>
+      <td>self和other进行<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>后的shape与out不一样。</td>
     </tr>
   </tbody>
   </table>

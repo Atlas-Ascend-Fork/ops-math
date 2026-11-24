@@ -196,7 +196,7 @@
     - <term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>、<term>Ascend 950PR&950DT系列产品</term>：互推导后的数据类型为INT32、INT64、FLOAT16、FLOAT、DOUBLE、BFLOAT16。
     <!-- end id13 -->
     <!-- npu="910,310p" id14 -->
-    - <term>Atlas推理系列产品</term>、<term>Atlas训练系列产品</term>：数据类型支持INT32、INT64、FLOAT16、FLOAT、DOUBLE。
+    - <term>Atlas推理系列产品</term>、<term>Atlas训练系列产品</term>：互推导后的数据类型为INT32、INT64、FLOAT16、FLOAT、DOUBLE。
     <!-- end id14 -->
 
   - other(aclTensor*，计算输入)：公式中的输入`other`，selfRef的数据类型与other的数据类型需满足数据类型推导规则（参见[互推导关系](../../../docs/zh/context/deduction_relationship.md)）。shape需要与selfRef满足[broadcast关系](../../../docs/zh/context/broadcast_relationship.md)。支持[非连续的Tensor](../../../docs/zh/context/non_contiguous_tensor.md)，[数据格式](../../../docs/zh/context/data_format.md)支持ND，数据维度不支持8维以上。
@@ -205,7 +205,7 @@
     - <term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>、<term>Ascend 950PR&950DT系列产品</term>：互推导后的数据类型为INT32、INT64、FLOAT16、FLOAT、DOUBLE、BFLOAT16。
     <!-- end id15 -->
     <!-- npu="910,310p" id16 -->
-    - <term>Atlas推理系列产品</term>、<term>Atlas训练系列产品</term>：数据类型支持INT32、INT64、FLOAT16、FLOAT、DOUBLE。
+    - <term>Atlas推理系列产品</term>、<term>Atlas训练系列产品</term>：互推导后的数据类型为INT32、INT64、FLOAT16、FLOAT、DOUBLE。
     <!-- end id16 -->
 
   - workspaceSize(uint64_t *，出参)：返回需要在Device侧申请的workspace大小。
@@ -305,7 +305,7 @@
 - 确定性计算：
   - aclnnRemainderTensorTensor&aclnnInplaceRemainderTensorTensor默认确定性实现。
 
-- 当 self（aclnnRemainderTensorTensor）/ selfRef（aclnnInplaceRemainderTensorTensor）的数据类型为 INT32 时，优先保障在范围 [-2^24, 2^24] 内的功能和精度；
+- 当 self（aclnnRemainderTensorTensor）/ selfRef（aclnnInplaceRemainderTensorTensor）的数据类型为 INT32 时，优先保障在范围 [-2^24, 2^24] 内的功能和精度。
 - 当 other 为 0，且 self（aclnnRemainderTensorTensor）/ selfRef（aclnnInplaceRemainderTensorTensor）的数据类型为整型时，aclnnRemainderTensorTensor 的 out 结果等于 self，aclnnInplaceRemainderTensorTensor 的结果写回 selfRef。
 
 - 精度约束：在<term>Atlas A3系列产品</term>、<term>Atlas A2系列产品</term>、<term>Atlas推理系列产品</term>、<term>Atlas训练系列产品</term>上，当self、other的数据类型为FLOAT32或FLOAT16时（BFLOAT16仅适用于<term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>），余数通过“浮点除法-向下取整-乘减”近似计算（中间计算类型为FLOAT32），结果的低位精度受浮点表示能力限制，可能出现不满足上文“结果绝对值小于other绝对值”的情况：

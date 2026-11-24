@@ -134,7 +134,7 @@ aclnnStatus aclnnInplaceLtTensor(
       <td>输出张量。</td>
       <td>
         <ul>
-          <li>shape与self、other广播之后的shape一致。</li>
+          <li>shape与self、other broadcast之后的shape一致。</li>
           <li>数据类型要求为BOOL可转换的数据类型（参见<a href="../../../docs/zh/context/conversion_relationship.md" target="_blank">互转换关系</a>）。</li>
         </ul>
       </td>

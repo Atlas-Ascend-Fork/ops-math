@@ -189,7 +189,7 @@ aclnnStatus aclnnInplaceLtScalar(
     <tr>
       <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
       <td rowspan="4">161002</td>
-      <td>self，other或out的数据类型不在支持的范围之内。</td>
+      <td>self、other或out的数据类型不在支持的范围之内。</td>
     </tr>
     <tr>
       <td>self和other数据类型不满足数据类型推导规则。</td>

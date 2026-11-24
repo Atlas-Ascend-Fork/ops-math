@@ -123,7 +123,7 @@ aclnnStatus aclnnInplaceBitwiseOrTensor(
     <tr>
       <td>out（aclTensor*）</td>
       <td>输出</td>
-      <td>输出tensor，存储计算结果。</td>
+      <td>输出Tensor，存储计算结果。</td>
       <td>数据类型需要是self与other推导之后可转换的数据类型（参见<a href="../../../docs/zh/context/conversion_relationship.md" target="_blank">互转换关系</a>）。shape是self与other broadcast之后的shape。</td>
       <td>BOOL、INT8、INT16、INT32、INT64、UINT8、UINT16、UINT32、UINT64、FLOAT、FLOAT16、DOUBLE、BFLOAT16、COMPLEX64、COMPLEX128</td>
       <td>ND</td>

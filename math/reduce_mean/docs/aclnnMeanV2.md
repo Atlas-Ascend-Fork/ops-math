@@ -253,7 +253,7 @@ aclnnStatus aclnnMeanV2(
 
 ## 调用示例
 
-示例编译和执行请参考[编译与运行样例](../../../docs/zh/context/compile_and_run_sample.md)。
+示例代码如下，仅供参考，具体编译和执行过程请参考[编译与运行样例](../../../docs/zh/context/compile_and_run_sample.md)。
 
 ```Cpp
 #include <iostream>

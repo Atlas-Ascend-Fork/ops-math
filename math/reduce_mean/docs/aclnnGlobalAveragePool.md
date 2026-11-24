@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-传入一个输入张量X，并在同一通道中的值上应用平均池化
+传入一个输入张量X，并在同一通道中的值上应用平均池化。
 
 ## 函数原型
 
@@ -85,7 +85,7 @@ aclnnStatus aclnnGlobalAveragePool(
       <td>out（aclTensor*）</td>
       <td>输出</td>
       <td>输出张量，公式中的out。</td>
-      <td>数据类型和数据格式需要跟self相同。<br>shape维度与self相同，前两维和self的一致，后边的维度为1。</td>
+      <td>数据类型和数据格式需要跟self相同。<br>shape维度与self相同，前两维和self的一致，后面的维度为1。</td>
       <td>FLOAT、FLOAT16、DOUBLE、BFLOAT16</td>
       <td>ND、NCHW、NCDHW</td>
       <td>4-8</td>

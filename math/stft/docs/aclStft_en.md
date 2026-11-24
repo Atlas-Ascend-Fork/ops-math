@@ -43,7 +43,7 @@
   - $w$ is the frequency point of the FFT.
   - $m$ is the index of the sliding window.
   - $self$ is a 1D or 2D Tensor. If $self$ is 1D, it is a time-series sampling sequence. If $self$ is 2D, it is multiple time-series sampling sequences.
-  - $hopLength$ is the sliding window size.
+  - $hopLength$ is the hop length (stride) of the sliding window.
   - $window$ is a 1D Tensor and the window function of the STFT (for example, hann_window), whose length is $winLength$.
   - $exp(-j*\frac{2{\pi}wk}{nFft})$ is the twiddle factor.
 

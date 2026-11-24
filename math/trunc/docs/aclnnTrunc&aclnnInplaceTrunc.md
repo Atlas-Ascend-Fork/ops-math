@@ -255,7 +255,7 @@ aclnnStatus aclnnInplaceTrunc(
     <tr>
       <td>selfRef（aclTensor*）</td>
       <td>输入|输出</td>
-      <td>输入|输出张量。</td>
+      <td>输入/输出张量。</td>
       <td>-</td>
       <td>FLOAT、FLOAT16、BFLOAT16</td>
       <td>ND</td>

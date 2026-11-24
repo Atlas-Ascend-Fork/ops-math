@@ -74,7 +74,7 @@ aclnnStatus aclnnRightShift(
       <th>数据类型</th>
       <th>数据格式</th>
       <th>维度</th>
-      <th>非连续tensor</th>
+      <th>非连续Tensor</th>
     </tr></thead>
   <tbody>
     <tr>

@@ -303,7 +303,7 @@
     <tr>
       <td>selfRef</td>
       <td>输入/输出</td>
-      <td>输入输出tensor，即公式中的self与out。</td>
+      <td>输入输出Tensor，即公式中的self与out。</td>
       <td>
         <ul>
           <li>shape需要与other满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>，且广播后的shape必须等于selfRef的shape。</li>

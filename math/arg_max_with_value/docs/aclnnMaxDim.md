@@ -98,7 +98,7 @@ aclnnStatus aclnnMaxDim(
       <td>keepdim（bool）</td>
       <td>输入</td>
       <td>是否保留reduce轴的维度。</td>
-      <td><ul><li>如果keepdim为false，则不保留对应的轴</li><li>如果为true，则保留指定轴的维度值为1。</li></ul></td>
+      <td><ul><li>如果keepdim为false，则不保留对应的轴。</li><li>如果为true，则保留指定轴的维度值为1。</li></ul></td>
       <td>-</td>
       <td>-</td>
       <td>-</td>
@@ -108,7 +108,7 @@ aclnnStatus aclnnMaxDim(
       <td>out（aclTensor*）</td>
       <td>输出</td>
       <td>最大值输出张量。</td>
-      <td><ul><li>数据类型和self一致</li><li>如果keepdim为false，则输出维度为self维度减1</li><li>如果keepdim为true，则输出维度等于self维度</li></ul></td>
+      <td><ul><li>数据类型和self一致。</li><li>如果keepdim为false，则输出维度为self维度减1。</li><li>如果keepdim为true，则输出维度等于self维度。</li></ul></td>
       <td>FLOAT、FLOAT16、INT64、BOOL、BFLOAT16、INT32</td>
       <td>ND</td>
       <td>-</td>

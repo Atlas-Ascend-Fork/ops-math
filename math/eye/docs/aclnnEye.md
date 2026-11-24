@@ -95,7 +95,7 @@ aclnnStatus aclnnEye(
       <tr>
         <td>out (aclTensor*)</td>
         <td>输出</td>
-        <td>对角线为1其余为0的二维tensor。</td>
+        <td>对角线为1其余为0的二维Tensor。</td>
         <td>-</td>
         <td>FLOAT16、FLOAT32、INT32、INT16、INT8、UINT8、INT64、BOOL、BFLOAT16</td>
         <td>ND</td>
@@ -163,7 +163,7 @@ aclnnStatus aclnnEye(
       <td>n或m的值小于0。</td>
     </tr>
     <tr>
-      <td>out的shape不为(n，m)。</td>
+      <td>out的shape不为(n,m)。</td>
     </tr>
   </tbody>
   </table>

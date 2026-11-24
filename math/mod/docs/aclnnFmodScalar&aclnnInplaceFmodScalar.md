@@ -99,7 +99,7 @@ aclnnStatus aclnnInplaceFmodScalar(
     <tr>
       <td>self（aclTensor*）</td>
       <td>输入</td>
-      <td>待进行Fmod的入参，公式中的self。</td>
+      <td>待进行Fmod计算的入参，公式中的self。</td>
       <td>-</td>
       <td>DOUBLE、BFLOAT16、FLOAT16、FLOAT32、INT32、INT64、INT8、UINT8</td>
       <td>ND</td>

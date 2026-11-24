@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-将FLOAT16类型或者FLOAT32类型的1位Adam打包为UINT8。
+将FLOAT16类型或者FLOAT类型的1位Adam打包为UINT8。
 
 - 每 8 个输入元素的符号位打包为一个 `UINT8` 字节，按最高有效位优先（MSB-first）排列。组内第一个元素对应 `bit7`，第八个对应 `bit0`。
 - 最后一组不足 8 个元素时，剩余位均填为 `1`。
@@ -72,7 +72,7 @@ aclnnStatus aclnnSignBitsPack(
       <th>使用说明</th>
       <th>数据类型</th>
       <th>数据格式</th>
-      <th>维度(shape)</th>
+      <th>维度（shape）</th>
       <th>非连续Tensor</th>
     </tr></thead>
   <tbody>

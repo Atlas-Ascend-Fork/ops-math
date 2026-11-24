@@ -178,7 +178,7 @@ aclnnStatus aclnnDot(
       <td>参数self、tensor的数据维度不是1维。</td>
     </tr>
     <tr>
-      <td>参数self和tensor的shape不一致。</td>
+      <td>参数self、tensor的shape不一致。</td>
     </tr>
     <tr>
       <td>参数out的数据维度不是0维。</td>

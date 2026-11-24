@@ -575,7 +575,7 @@ int main() {
 }
 ```
 
-**aclnnInplaceNanToNum 接口调用示例代码：**
+**aclnnInplaceNanToNum接口调用示例代码：**
 
 ```Cpp
 #include <iostream>

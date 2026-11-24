@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-- 接口功能：返回输入tensor指定维度上的指数之和的对数。
+- 接口功能：返回输入Tensor指定维度上的指数之和的对数。
 - 计算公式：
   公式中i为dim指定的维度，j为输入在指定维度上的元素索引。
 
@@ -253,7 +253,7 @@ aclnnStatus aclnnLogSumExp(
 
 - **返回值：**
 
-  - aclnnStatus：返回状态码，具体参见[aclnn返回码](../../../docs/zh/context/aclnn_return_code.md)
+  - aclnnStatus：返回状态码，具体参见[aclnn返回码](../../../docs/zh/context/aclnn_return_code.md)。
 
 ## 约束说明
 

@@ -107,7 +107,7 @@ aclnnStatus aclnnInplaceSin(
     <tr>
       <td>out（aclTensor*）</td>
       <td>输出</td>
-      <td>输出tensor。</td>
+      <td>输出Tensor。</td>
       <td>需满足可转换为该数据类型的<a href="../../../docs/zh/context/conversion_relationship.md" target="_blank">互转换关系</a>。</td>
       <td>FLOAT、FLOAT16、DOUBLE、COMPLEX64、COMPLEX128、BFLOAT16</td>
       <td>ND</td>

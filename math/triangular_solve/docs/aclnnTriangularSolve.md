@@ -30,7 +30,7 @@
   AX = b
   $$
 
-  其中$A$是一个上三角方阵（当upper为false时为下三角方阵），其主对角线不含0元素。$b$、$A$为二维矩阵或者二维矩阵的batch，当输入为batch时，返回输出的X也为对应的batch。当$A$的主对角线含有0，或元素非常接近0，且unitriangular为false时，输出结果可能包含$NaN$。
+  其中$A$是一个上三角方阵（当upper为false时为下三角方阵），其主对角线不含0元素。$b$、$A$为二维矩阵或者二维矩阵的batch，当输入为batch时，返回的X也为对应的batch。当$A$的主对角线含有0，或元素非常接近0，且unitriangular为false时，输出结果可能包含$NaN$。
 
 ## 函数原型
 
@@ -236,7 +236,7 @@ aclnnStatus aclnnTriangularSolve(
     <tr>
       <td>workspaceSize</td>
       <td>输入</td>
-      <td>由第一段接口 <code>aclnnTriangularSolveGetWorkspaceSize</code> 获取的workspace大小。</td>
+      <td>由第一段接口<code>aclnnTriangularSolveGetWorkspaceSize</code>获取的workspace大小。</td>
     </tr>
     <tr>
       <td>executor</td>

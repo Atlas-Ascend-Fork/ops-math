@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-- 接口功能：返回输入tensor中每个元素向上取整的结果。
+- 接口功能：返回输入Tensor中每个元素向上取整的结果。
 
 - 计算公式：
 
@@ -100,7 +100,7 @@ aclnnStatus aclnnInplaceCeil(
     <tr>
       <td>self（aclTensor*）</td>
       <td>输入</td>
-      <td>输入tensor，需要向上取整的张量。</td>
+      <td>输入张量，需要向上取整的张量。</td>
       <td>shape和数据类型需要与out一致。</td>
       <td>FLOAT16、FLOAT、DOUBLE、BFLOAT16</td>
       <td>ND</td>

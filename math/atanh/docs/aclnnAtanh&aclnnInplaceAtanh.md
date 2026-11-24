@@ -38,7 +38,7 @@ aclnnAtanh和aclnnInplaceAtanh实现相同的功能，使用区别如下，请�
 - aclnnAtanh：需新建一个输出张量对象存储计算结果。
 - aclnnInplaceAtanh：无需新建输出张量对象，直接在输入张量的内存中存储计算结果。
 
-每个算子分为[两段式接口](../../../docs/zh/context/two_phase_api.md)，必须先调用"aclnnAtanhGetWorkspaceSize"或者"aclnnInplaceAtanhGetWorkspaceSize"接口获取计算所需workspace大小以及包含了算子计算流程的执行器，再调用"aclnnAtanh"或者"aclnnInplaceAtanh"接口执行计算。
+每个算子分为[两段式接口](../../../docs/zh/context/two_phase_api.md)，必须先调用“aclnnAtanhGetWorkspaceSize”或者“aclnnInplaceAtanhGetWorkspaceSize”接口获取计算所需workspace大小以及包含了算子计算流程的执行器，再调用“aclnnAtanh”或者“aclnnInplaceAtanh”接口执行计算。
 
 ```Cpp
 aclnnStatus aclnnAtanhGetWorkspaceSize(
@@ -100,7 +100,7 @@ aclnnStatus aclnnInplaceAtanh(
     <tr>
       <td>input（aclTensor*）</td>
       <td>输入</td>
-      <td>输入tensor，进行反双曲正切运算。</td>
+      <td>输入Tensor，进行反双曲正切运算。</td>
       <td>shape需要与out一致。</td>
       <td>INT8、INT16、INT32、INT64、UINT8、BOOL、FLOAT、FLOAT16、DOUBLE、COMPLEX64、COMPLEX128、BFLOAT16</td>
       <td>ND</td>
@@ -248,7 +248,7 @@ aclnnStatus aclnnInplaceAtanh(
     <tr>
       <td>inputRef（aclTensor*）</td>
       <td>输入/输出</td>
-      <td>输入输出tensor，进行反双曲正切运算，计算结果存储在inputRef中。</td>
+      <td>输入输出Tensor，进行反双曲正切运算，计算结果存储在inputRef中。</td>
       <td>-</td>
       <td>FLOAT、FLOAT16、DOUBLE、COMPLEX64、COMPLEX128、BFLOAT16</td>
       <td>ND</td>

@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-将tensor中NaN处理为0后，返回输入tensor给定维度上的和。
+将Tensor中NaN处理为0后，返回输入Tensor给定维度上的和。
 
 ## 函数原型
 
@@ -77,7 +77,7 @@ aclnnStatus aclnnReduceNansum(
     <tr>
       <td>self（aclTensor*）</td>
       <td>输入</td>
-      <td>输入tensor。</td>
+      <td>输入Tensor。</td>
       <td>支持空Tensor。<br>数据类型需和out的dtype满足可转换关系（参见<a href="../../../docs/zh/context/conversion_relationship.md" target="_blank">互转换关系</a>）。<br>受当前实现限制，不支持将浮点类型转换为INT8、INT16、INT32、INT64、UINT8，也不支持将非BOOL类型转换为BOOL。</td>
       <td>FLOAT16、FLOAT32、INT8、INT16、INT32、INT64、UINT8、BOOL、BFLOAT16</td>
       <td>ND</td>

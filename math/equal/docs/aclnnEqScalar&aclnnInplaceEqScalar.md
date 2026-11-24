@@ -122,7 +122,7 @@ aclnnStatus aclnnInplaceEqScalar(
       <td>out（aclTensor*）</td>
       <td>输出</td>
       <td>公式中的out。</td>
-      <td>数据类型BOOL可转换的数据类型（参见<a href="../../../docs/zh/context/conversion_relationship.md" target="_blank">互转换关系</a>）。</td>
+      <td>数据类型需要是BOOL可转换的数据类型（参见<a href="../../../docs/zh/context/conversion_relationship.md" target="_blank">互转换关系</a>）。</td>
       <td>DOUBLE、FLOAT16、FLOAT、BFLOAT16、INT64、INT32、INT8、UINT8、BOOL、INT16、COMPLEX64、COMPLEX128、UINT64、UINT32、UINT16</td>
       <td>ND</td>
       <td>与self的shape一致</td>
@@ -159,7 +159,7 @@ aclnnStatus aclnnInplaceEqScalar(
   <!-- npu="A3,910b" id8 -->
   - <term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>：
     - self与other满足[TensorScalar互推导关系](../../../docs/zh/context/deduction_relationship.md)。
-    - self、other不支持UINT32、UINT64数据类型
+    - self、other不支持UINT32、UINT64数据类型。
     - out不支持UINT64、UINT32、UINT16数据类型。
   <!-- end id8 -->
   <!-- npu="910" id9 -->

@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-- 算子功能：根据条件选取self或other中元素并返回（支持广播）。
+- 算子功能：根据条件选取self或other中的元素并返回（支持广播）。
 - 计算公式如下：
 
 $$
@@ -73,7 +73,7 @@ $$
     <!-- end id12 -->
 
   - workspaceSize（uint64_t \*，出参）：返回需要在Device侧申请的workspace大小。
-  - executor(aclOpExecutor\*\*，出参): 返回op执行器，包含了算子计算流程。
+  - executor（aclOpExecutor\*\*，出参）：返回op执行器，包含了算子计算流程。
 
 - **返回值**：
 

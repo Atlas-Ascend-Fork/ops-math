@@ -241,7 +241,7 @@ aclnnStatus aclnnRemainderScalarTensor(
 - 确定性计算：
   - aclnnRemainderScalarTensor默认确定性实现。
 
-- 当self的数据类型为INT32时，优先保障在范围[-2^24, 2^24]内的功能和精度；
+- 当self的数据类型为INT32时，优先保障在范围[-2^24, 2^24]内的功能和精度。
 - 当other为0，且self的数据类型为整型时，out的结果为self。
 
 - 精度约束：在<term>Atlas A3系列产品</term>、<term>Atlas A2系列产品</term>、<term>Atlas训练系列产品</term>上，当self、other的数据类型为FLOAT32或FLOAT16时（BFLOAT16仅适用于<term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>），余数通过“浮点除法-向下取整-乘减”近似计算（中间计算类型为FLOAT32），结果的低位精度受浮点表示能力限制，可能出现不满足上文“结果绝对值小于other绝对值”的情况：

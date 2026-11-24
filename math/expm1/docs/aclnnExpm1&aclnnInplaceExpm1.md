@@ -251,7 +251,7 @@ aclnnStatus aclnnInplaceExpm1(
     <tr>
       <td>selfRef（aclTensor*）</td>
       <td>输入/输出</td>
-      <td>输入输出tensor，即公式中输入self与out。</td>
+      <td>输入输出Tensor，即公式中输入self与out。</td>
       <td>-</td>
       <td>FLOAT、FLOAT16、BFLOAT16</td>
       <td>ND</td>

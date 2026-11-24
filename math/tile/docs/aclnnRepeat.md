@@ -38,7 +38,7 @@
           ])
   ```
 
-- 当repeats为(2,4,2)时，即repeats的元素个数大于Tensor中的维度，则输出Tensor等效为如下操作：先将输入Tensor的shape扩张到和repeats个数相同的维度：[1,3,2]，而后按照对应维度和repeats的值进行扩张，即输出Tensor的shape为[2,12,4]，结果如下：
+- 当repeats为(2,4,2)时，即repeats的元素个数大于Tensor的维度数，则输出Tensor等效为如下操作：先将输入Tensor的shape扩张到和repeats个数相同的维度：[1,3,2]，而后按照对应维度和repeats的值进行扩张，即输出Tensor的shape为[2,12,4]，结果如下：
 
   ```text
   >>> x.repeat(2,4,2)
@@ -134,7 +134,7 @@ aclnnStatus aclnnRepeat(
       <td>repeats（aclIntArray*）</td>
       <td>输入</td>
       <td>-</td>
-      <td>表示沿每个维度重复输入tensor的次数，参数个数不大于8。<br>当前不支持对超过4个维度同时做repeat的场景，详细约束请见约束说明。</td>
+      <td>表示沿每个维度重复输入Tensor的次数，参数个数不大于8。<br>当前不支持对超过4个维度同时做repeat的场景，详细约束请见约束说明。</td>
       <td>INT64</td>
       <td>-</td>
       <td>-</td>
@@ -281,7 +281,7 @@ aclnnStatus aclnnRepeat(
 - 确定性计算：
   - aclnnRepeat默认确定性实现。
 
-repeat功能内部broadcast的kernel有最大8维度的限制，暂不支持扩展维度后超过8维的场景，详细如下：
+repeat功能内部Broadcast的Kernel有最大8维度的限制，暂不支持扩展维度后超过8维的场景，详细如下：
   限制1.当需要对第一根轴进行repeat时，最大支持同时对4个维度进行repeat操作（即repeats的参数非1数据个数不超过4）。
 
   ```text

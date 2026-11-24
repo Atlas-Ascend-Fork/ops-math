@@ -30,7 +30,7 @@
   out = self + value \times tensor1 \times tensor2
   $$
 
-  其中，当使用aclnnAddcmul时，公式中的self对应第一段接口中的self，公式中的out对应第一段接口中的out；当使用aclnnInplaceAddcmul时，公式中的self对应第一段接口中的selfRef，公式中的out对应第一段接口中的selfRef
+  其中，当使用aclnnAddcmul时，公式中的self对应第一段接口中的self，公式中的out对应第一段接口中的out；当使用aclnnInplaceAddcmul时，公式中的self对应第一段接口中的selfRef，公式中的out对应第一段接口中的selfRef。
 
 ## 函数原型
 

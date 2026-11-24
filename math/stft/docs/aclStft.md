@@ -43,7 +43,7 @@
   - $w$为FFT的频点。
   - $m$为滑动窗口的index。
   - $self$为1维或2维Tensor，当$self$是1维时，其为一个时序采样序列，当$self$是2维时，其为多个时序采样序列。
-  - $hopLength$为滑动窗口大小。
+  - $hopLength$为滑动窗口的间隔。
   - $window$为1维Tensor，是STFT的窗函数（例如hann_window），其长度为$winLength$。
   - $exp(-j*\frac{2{\pi}wk}{nFft})$为旋转因子。
 

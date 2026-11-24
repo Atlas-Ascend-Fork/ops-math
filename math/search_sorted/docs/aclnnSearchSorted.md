@@ -243,7 +243,7 @@ aclnnStatus aclnnSearchSorted(
     <tr>
       <td>workspaceSize</td>
       <td>输入</td>
-      <td>由第一段接口 <code>aclnnSearchSortedGetWorkspaceSize</code> 获取的workspace大小。</td>
+      <td>由第一段接口<code>aclnnSearchSortedGetWorkspaceSize</code>获取的workspace大小。</td>
     </tr>
     <tr>
       <td>executor</td>

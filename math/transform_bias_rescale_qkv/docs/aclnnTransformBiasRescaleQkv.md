@@ -287,8 +287,9 @@ aclnnStatus aclnnTransformBiasRescaleQkv(
   - aclnnTransformBiasRescaleQkv默认确定性实现。
 
 - 输入qkv、qkvBias和输出qOut、kOut、vOut的数据类型需要保持一致。
-- 输入值为NaN，输出也为NaN，输入是Inf，输出也是Inf。
-- 输入是-Inf，输出也是-Inf。
+- 输入值为NaN，输出也为NaN。
+- 输入值为Inf，输出也为Inf。
+- 输入值为-Inf，输出也为-Inf。
 - qkv的shape需为三维{B, T, 3 * numHeads * dim_per_head}，即最后一维的大小能被3整除，且除以3之后能被numHeads整除；qkvBias的shape需为一维{3 * numHeads * dim_per_head}。
 - numHeads取值需大于0。
 
