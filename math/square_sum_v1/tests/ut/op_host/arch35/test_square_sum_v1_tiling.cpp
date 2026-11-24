@@ -12,6 +12,7 @@
 #include <gtest/gtest.h>
 #include "tiling_context_faker.h"
 #include "tiling_case_executor.h"
+#include "atvoss/reduce/reduce_tiling_data.h"
 #include "atvoss/elewise/elewise_tiling.h"
 #include "atvoss/reduce/reduce_tiling.h"
 

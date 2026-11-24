@@ -12,23 +12,17 @@
 #include <gtest/gtest.h>
 #include "tiling_context_faker.h"
 #include "tiling_case_executor.h"
+#include "atvoss/reduce/reduce_tiling_data.h"
 #include "atvoss/reduce/reduce_tiling.h"
 
 using namespace std;
 using namespace ge;
 
-class ReduceSumDavidTiling : public testing::Test
-{
+class ReduceSumDavidTiling : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        std::cout << "ReduceSumDavidTiling SetUp" << std::endl;
-    }
+    static void SetUpTestCase() { std::cout << "ReduceSumDavidTiling SetUp" << std::endl; }
 
-    static void TearDownTestCase()
-    {
-        std::cout << "ReduceSumDavidTiling TearDown" << std::endl;
-    }
+    static void TearDownTestCase() { std::cout << "ReduceSumDavidTiling TearDown" << std::endl; }
 };
 
 // TEST_F(ReduceSumDavidTiling, reduce_sum_david_tiling1)
