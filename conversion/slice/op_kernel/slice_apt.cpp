@@ -15,6 +15,10 @@
 
 #include "arch35/slice_arch35.h"
 
+#ifndef __tiling_data_ptr__
+#define __tiling_data_ptr__ __gm__ const
+#endif
+
 using namespace Slice;
 
 #define SLICE_KEY_MOVE_ALIGN 100
@@ -27,38 +31,131 @@ using namespace Slice;
 #define SLICE_KEY_MOVE_UNALIGN_GATHER 301
 #define SLICE_KEY_TWO_DIM_SMALL_SHAPE 400
 
-extern "C" __global__ __aicore__ void slice(
-    GM_ADDR x, GM_ADDR offsets, GM_ADDR size, GM_ADDR y, GM_ADDR workspace, GM_ADDR tiling)
+namespace Slice {
+__aicore__ inline void PreloadCoreTiling(__gm__ const uint8_t* coreTiling, uint32_t tilingSize)
+{
+    GlobalTensor<uint64_t> preloadGm;
+    preloadGm.SetGlobalBuffer(reinterpret_cast<__gm__ uint64_t*>(const_cast<__gm__ uint8_t*>(coreTiling)));
+    const uint32_t misAlign = static_cast<uint32_t>(reinterpret_cast<uint64_t>(coreTiling) %
+                                                    SLICE_TWO_DIM_SMALL_TILING_ALIGN);
+    const uint32_t preloadLineNum = (tilingSize + misAlign + SLICE_TWO_DIM_SMALL_TILING_ALIGN - 1) /
+                                    SLICE_TWO_DIM_SMALL_TILING_ALIGN;
+    for (uint32_t loopDc = 0; loopDc < preloadLineNum; loopDc++) {
+        AscendC::DataCachePreload(preloadGm, int64_t(loopDc * SLICE_TWO_DIM_SMALL_TILING_ALIGN));
+    }
+}
+
+__aicore__ inline void PreloadCoreTiling(const uint8_t* coreTiling, uint32_t tilingSize)
+{
+    (void)coreTiling;
+    (void)tilingSize;
+}
+} // namespace Slice
+
+extern "C" __global__ __aicore__ void slice(GM_ADDR x, GM_ADDR offsets, GM_ADDR size, GM_ADDR y, GM_ADDR workspace,
+                                            GM_ADDR tiling)
 {
     KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_AIV_ONLY);
     REGISTER_NONE_TILING;
     TPipe pipe;
     if (TILING_KEY_IS(SLICE_KEY_MOVE_ALIGN)) {
+#if defined(__NPU_ARCH__) && (__NPU_ARCH__ == 3510)
+        GET_TILING_DATA_PTR_WITH_STRUCT(SliceMoveAlignTilingDataBuffer, tilingDataBuf, tiling);
+        __tiling_data_ptr__ uint8_t* coreTiling = (__tiling_data_ptr__ uint8_t*)tilingDataBuf +
+                                                  GetBlockIdx() * SLICE_MOVE_ALIGN_TILING_STRIDE;
+        PreloadCoreTiling(coreTiling, sizeof(SliceMoveAlignTilingData));
+        COPY_TILING_WITH_STRUCT(SliceMoveAlignTilingData, coreTiling, tilingData);
+        SliceMoveAlignProcess(x, offsets, size, y, tilingData, &pipe);
+#else
         GET_TILING_DATA_WITH_STRUCT(SliceMoveAlignTilingData, tilingData, tiling);
         SliceMoveAlignProcess(x, offsets, size, y, &tilingData, &pipe);
+#endif
     } else if (TILING_KEY_IS(SLICE_KEY_NDDMA)) {
+#if defined(__NPU_ARCH__) && (__NPU_ARCH__ == 3510)
+        GET_TILING_DATA_PTR_WITH_STRUCT(SliceNDDMATilingDataBuffer, tilingDataBuf, tiling);
+        __tiling_data_ptr__ uint8_t* coreTiling = (__tiling_data_ptr__ uint8_t*)tilingDataBuf +
+                                                  GetBlockIdx() * SLICE_NDDMA_TILING_STRIDE;
+        PreloadCoreTiling(coreTiling, sizeof(SliceNDDMATilingData));
+        COPY_TILING_WITH_STRUCT(SliceNDDMATilingData, coreTiling, tilingData);
+        SliceNDDMAProcess(x, offsets, size, y, tilingData, &pipe);
+#else
         GET_TILING_DATA_WITH_STRUCT(SliceNDDMATilingData, tilingData, tiling);
         SliceNDDMAProcess(x, offsets, size, y, &tilingData, &pipe);
+#endif
     } else if (TILING_KEY_IS(SLICE_KEY_MOVE_ALIGN_LAST_DIM)) {
+#if defined(__NPU_ARCH__) && (__NPU_ARCH__ == 3510)
+        GET_TILING_DATA_PTR_WITH_STRUCT(SliceMoveAlignLastDimTilingDataBuffer, tilingDataBuf, tiling);
+        __tiling_data_ptr__ uint8_t* coreTiling = (__tiling_data_ptr__ uint8_t*)tilingDataBuf +
+                                                  GetBlockIdx() * SLICE_MOVE_ALIGN_LAST_DIM_TILING_STRIDE;
+        PreloadCoreTiling(coreTiling, sizeof(SliceMoveAlignLastDimTilingData));
+        COPY_TILING_WITH_STRUCT(SliceMoveAlignLastDimTilingData, coreTiling, tilingData);
+        SliceMoveAlignLastDimProcess(x, offsets, size, y, tilingData, &pipe);
+#else
         GET_TILING_DATA_WITH_STRUCT(SliceMoveAlignLastDimTilingData, tilingData, tiling);
         SliceMoveAlignLastDimProcess(x, offsets, size, y, &tilingData, &pipe);
+#endif
     } else if (TILING_KEY_IS(SLICE_KEY_NDDMA_LAST_DIM)) {
+#if defined(__NPU_ARCH__) && (__NPU_ARCH__ == 3510)
+        GET_TILING_DATA_PTR_WITH_STRUCT(SliceNDDMALastDimTilingDataBuffer, tilingDataBuf, tiling);
+        __tiling_data_ptr__ uint8_t* coreTiling = (__tiling_data_ptr__ uint8_t*)tilingDataBuf +
+                                                  GetBlockIdx() * SLICE_NDDMA_LAST_DIM_TILING_STRIDE;
+        PreloadCoreTiling(coreTiling, sizeof(SliceNDDMALastDimTilingData));
+        COPY_TILING_WITH_STRUCT(SliceNDDMALastDimTilingData, coreTiling, tilingData);
+        SliceNDDMALastDimProcess(x, offsets, size, y, tilingData, &pipe);
+#else
         GET_TILING_DATA_WITH_STRUCT(SliceNDDMALastDimTilingData, tilingData, tiling);
         SliceNDDMALastDimProcess(x, offsets, size, y, &tilingData, &pipe);
+#endif
     } else if (TILING_KEY_IS(SLICE_KEY_MOVE_ALIGN_TWO_DIM)) {
+#if defined(__NPU_ARCH__) && (__NPU_ARCH__ == 3510)
+        GET_TILING_DATA_PTR_WITH_STRUCT(SliceMoveAlignLast2DimTilingDataBuffer, tilingDataBuf, tiling);
+        __tiling_data_ptr__ uint8_t* coreTiling = (__tiling_data_ptr__ uint8_t*)tilingDataBuf +
+                                                  GetBlockIdx() * SLICE_MOVE_ALIGN_TWO_DIM_TILING_STRIDE;
+        PreloadCoreTiling(coreTiling, sizeof(SliceMoveAlignLast2DimTilingData));
+        COPY_TILING_WITH_STRUCT(SliceMoveAlignLast2DimTilingData, coreTiling, tilingData);
+        SliceMoveAlignTwoDimProcess(x, offsets, size, y, tilingData, &pipe);
+#else
         GET_TILING_DATA_WITH_STRUCT(SliceMoveAlignLast2DimTilingData, tilingData, tiling);
         SliceMoveAlignTwoDimProcess(x, offsets, size, y, &tilingData, &pipe);
+#endif
     } else if (TILING_KEY_IS(SLICE_KEY_SIMT)) {
         GET_TILING_DATA_WITH_STRUCT(SliceTilingData, tilingData, tiling);
         // 空tenseor处理
     } else if (TILING_KEY_IS(SLICE_KEY_MOVE_ALIGN_GATHER)) {
+#if defined(__NPU_ARCH__) && (__NPU_ARCH__ == 3510)
+        GET_TILING_DATA_PTR_WITH_STRUCT(SliceMoveAlignGatherTilingDataBuffer, tilingDataBuf, tiling);
+        __tiling_data_ptr__ uint8_t* coreTiling = (__tiling_data_ptr__ uint8_t*)tilingDataBuf +
+                                                  GetBlockIdx() * SLICE_MOVE_ALIGN_GATHER_TILING_STRIDE;
+        PreloadCoreTiling(coreTiling, sizeof(SliceMoveAlignGatherTilingData));
+        COPY_TILING_WITH_STRUCT(SliceMoveAlignGatherTilingData, coreTiling, tilingData);
+        SliceMoveAlignGatherProcess(x, offsets, size, y, tilingData, &pipe);
+#else
         GET_TILING_DATA_WITH_STRUCT(SliceMoveAlignGatherTilingData, tilingData, tiling);
         SliceMoveAlignGatherProcess(x, offsets, size, y, &tilingData, &pipe);
+#endif
     } else if (TILING_KEY_IS(SLICE_KEY_MOVE_UNALIGN_GATHER)) {
+#if defined(__NPU_ARCH__) && (__NPU_ARCH__ == 3510)
+        GET_TILING_DATA_PTR_WITH_STRUCT(SliceMoveAlignGatherTilingDataBuffer, tilingDataBuf, tiling);
+        __tiling_data_ptr__ uint8_t* coreTiling = (__tiling_data_ptr__ uint8_t*)tilingDataBuf +
+                                                  GetBlockIdx() * SLICE_MOVE_ALIGN_GATHER_TILING_STRIDE;
+        PreloadCoreTiling(coreTiling, sizeof(SliceMoveAlignGatherTilingData));
+        COPY_TILING_WITH_STRUCT(SliceMoveAlignGatherTilingData, coreTiling, tilingData);
+        SliceMoveAlignDataCopyUnalignProcess(x, offsets, size, y, tilingData, &pipe);
+#else
         GET_TILING_DATA_WITH_STRUCT(SliceMoveAlignGatherTilingData, tilingData, tiling);
         SliceMoveAlignDataCopyUnalignProcess(x, offsets, size, y, &tilingData, &pipe);
+#endif
     } else if (TILING_KEY_IS(SLICE_KEY_TWO_DIM_SMALL_SHAPE)) {
+#if defined(__NPU_ARCH__) && (__NPU_ARCH__ == 3510)
+        GET_TILING_DATA_PTR_WITH_STRUCT(SliceTwoDimSmallSapeTilingDataBuffer, tilingDataBuf, tiling);
+        __tiling_data_ptr__ uint8_t* coreTiling = (__tiling_data_ptr__ uint8_t*)tilingDataBuf +
+                                                  GetBlockIdx() * SLICE_TWO_DIM_SMALL_TILING_STRIDE;
+        PreloadCoreTiling(coreTiling, sizeof(SliceTwoDimSmallSapeTilingData));
+        COPY_TILING_WITH_STRUCT(SliceTwoDimSmallSapeTilingData, coreTiling, tilingData);
+        SliceTwoDimSmallShapeProcess(x, offsets, size, y, tilingData, &pipe);
+#else
         GET_TILING_DATA_WITH_STRUCT(SliceTwoDimSmallSapeTilingData, tilingData, tiling);
         SliceTwoDimSmallShapeProcess(x, offsets, size, y, &tilingData, &pipe);
+#endif
     }
 }
