@@ -41,7 +41,7 @@ TEST_F(FloorDivTiling, floor_div_test_0)
                                                   {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_BF16, ge::FORMAT_ND},
                                               },
                                               &compileInfo);
-    uint64_t expectTilingKey = 8;
+    uint64_t expectTilingKey = 9;
     string expectTilingData = "2048 281492156580096 ";
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
@@ -60,7 +60,7 @@ TEST_F(FloorDivTiling, floor_div_test_2)
             {{{8, 11, 12, 14, 6}, {8, 11, 12, 14, 6}}, ge::DT_FLOAT16, ge::FORMAT_ND},
         },
         &compileInfo);
-    uint64_t expectTilingKey = 8;
+    uint64_t expectTilingKey = 9;
     string expectTilingData = "88704 150323856640 ";
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);

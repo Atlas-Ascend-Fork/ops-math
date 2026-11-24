@@ -29,7 +29,7 @@ using namespace ge;
 //                     (1,2,101,102,103,104,109,201,202,301,302,303,304,305,999) 里的序号；
 //   第 16 位 = userDef = 1。
 // 常规通路是 userDef = 0，所以高位为 0，原有用例的 key 不受影响（仍为 8）。
-static constexpr uint64_t ADD_V2_UT_EMPTY_TILING_KEY = 65550;
+static constexpr uint64_t ADD_V2_UT_EMPTY_TILING_KEY = 65551;
 static constexpr uint64_t ADD_V2_UT_CORE_NUM = 64;
 static constexpr uint64_t ADD_V2_UT_UB_SIZE = 245760;
 static constexpr uint64_t ADD_V2_UT_WORKSPACE_SIZE = 16777216;
@@ -78,7 +78,7 @@ TEST_F(AddV2Tiling, add_v2_tiling_fp32)
                                                   {{{8, 8}, {8, 8}}, ge::DT_FLOAT, ge::FORMAT_ND},
                                               },
                                               &compileInfo);
-    uint64_t expectTilingKey = 8;
+    uint64_t expectTilingKey = 9;
     std::vector<size_t> expectWorkspaces = {16777216};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
@@ -95,7 +95,7 @@ TEST_F(AddV2Tiling, add_v2_workspace_uses_compile_info_value)
                                      {shape, ge::DT_FLOAT, ge::FORMAT_ND},
                                  },
                                  {{shape, ge::DT_FLOAT, ge::FORMAT_ND}}, &compileInfo);
-    ExecuteTestCase(para, ge::GRAPH_SUCCESS, 8, std::vector<size_t>{customWorkspaceSize});
+    ExecuteTestCase(para, ge::GRAPH_SUCCESS, 9, std::vector<size_t>{customWorkspaceSize});
 }
 
 TEST_F(AddV2Tiling, add_v2_tiling_fp16_broadcast)
@@ -111,7 +111,7 @@ TEST_F(AddV2Tiling, add_v2_tiling_fp16_broadcast)
                                                   {{{8, 8}, {8, 8}}, ge::DT_FLOAT16, ge::FORMAT_ND},
                                               },
                                               &compileInfo);
-    uint64_t expectTilingKey = 8;
+    uint64_t expectTilingKey = 9;
     std::vector<size_t> expectWorkspaces = {16777216};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
@@ -129,7 +129,7 @@ TEST_F(AddV2Tiling, add_v2_tiling_bf16)
                                                   {{{4, 4}, {4, 4}}, ge::DT_BF16, ge::FORMAT_ND},
                                               },
                                               &compileInfo);
-    uint64_t expectTilingKey = 8;
+    uint64_t expectTilingKey = 9;
     std::vector<size_t> expectWorkspaces = {16777216};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
@@ -147,7 +147,7 @@ TEST_F(AddV2Tiling, add_v2_tiling_int64)
                                                   {{{8, 8}, {8, 8}}, ge::DT_INT64, ge::FORMAT_ND},
                                               },
                                               &compileInfo);
-    uint64_t expectTilingKey = 8;
+    uint64_t expectTilingKey = 9;
     std::vector<size_t> expectWorkspaces = {16777216};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
@@ -165,7 +165,7 @@ TEST_F(AddV2Tiling, add_v2_tiling_complex64)
                                                   {{{4, 4}, {4, 4}}, ge::DT_COMPLEX64, ge::FORMAT_ND},
                                               },
                                               &compileInfo);
-    uint64_t expectTilingKey = 8;
+    uint64_t expectTilingKey = 9;
     std::vector<size_t> expectWorkspaces = {16777216};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }

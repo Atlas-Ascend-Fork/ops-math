@@ -300,7 +300,7 @@ TEST_F(FusedMulAddTilingTest, empty_tensor_repro_fp32)
             {{{40, 2, 2, 0, 2613, 86, 2, 2}, {40, 2, 2, 0, 2613, 86, 2, 2}}, ge::DT_FLOAT, ge::FORMAT_ND},
         },
         &compileInfo);
-    ExecuteTestCaseForEle(para, ge::GRAPH_SUCCESS, true, 14, false, "", {16777216});
+    ExecuteTestCaseForEle(para, ge::GRAPH_SUCCESS, true, 15, false, "", {16777216});
 }
 
 // Case 17: empty tensor via broadcast (x1 empty, x2/x3 broadcast up) -> empty branch.
@@ -317,5 +317,5 @@ TEST_F(FusedMulAddTilingTest, empty_tensor_broadcast_fp16)
                                      {{{0, 4}, {0, 4}}, ge::DT_FLOAT16, ge::FORMAT_ND},
                                  },
                                  &compileInfo);
-    ExecuteTestCaseForEle(para, ge::GRAPH_SUCCESS, true, 14, false, "", {16777216});
+    ExecuteTestCaseForEle(para, ge::GRAPH_SUCCESS, true, 15, false, "", {16777216});
 }

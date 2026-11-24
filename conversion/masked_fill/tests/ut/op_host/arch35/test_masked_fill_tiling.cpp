@@ -34,7 +34,7 @@ TEST_F(MaskedFillTiling, masked_fill_test_0)
                                                   {{{16}, {16}}, ge::DT_FLOAT16, ge::FORMAT_ND},
                                               },
                                               &compileInfo);
-    uint64_t expectTilingKey = 8;
+    uint64_t expectTilingKey = 9;
     string expectTilingData = "16 1125904201810432 ";
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
@@ -53,7 +53,7 @@ TEST_F(MaskedFillTiling, masked_fill_test_1)
                                                   {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_FLOAT16, ge::FORMAT_ND},
                                               },
                                               &compileInfo);
-    uint64_t expectTilingKey = 8;
+    uint64_t expectTilingKey = 9;
     string expectTilingData = "2048 1125908496777728 ";
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
@@ -72,7 +72,7 @@ TEST_F(MaskedFillTiling, masked_fill_test_2)
                                                   {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_FLOAT16, ge::FORMAT_ND},
                                               },
                                               &compileInfo);
-    uint64_t expectTilingKey = 0;
+    uint64_t expectTilingKey = 2;
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
@@ -91,7 +91,7 @@ TEST_F(MaskedFillTiling, masked_fill_test_3)
             {{{16, 1, 1, 1, 1, 1, 1, 1}, {16, 1, 1, 1, 1, 1, 1, 1}}, ge::DT_FLOAT16, ge::FORMAT_ND},
         },
         &compileInfo);
-    uint64_t expectTilingKey = 8;
+    uint64_t expectTilingKey = 9;
     string expectTilingData = "16 1125904201810432 ";
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
@@ -110,7 +110,7 @@ TEST_F(MaskedFillTiling, masked_fill_test_4)
                                                   {{{16}, {16}}, ge::DT_INT64, ge::FORMAT_ND},
                                               },
                                               &compileInfo);
-    uint64_t expectTilingKey = 8;
+    uint64_t expectTilingKey = 9;
     string expectTilingData = "16 1125904201810432 ";
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
@@ -129,7 +129,7 @@ TEST_F(MaskedFillTiling, masked_fill_test_5)
                                                   {{{16}, {16}}, ge::DT_INT64, ge::FORMAT_ND},
                                               },
                                               &compileInfo);
-    uint64_t expectTilingKey = 8;
+    uint64_t expectTilingKey = 9;
     string expectTilingData = "16 1125904201810432 ";
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
@@ -148,7 +148,7 @@ TEST_F(MaskedFillTiling, masked_fill_test_6)
                                                   {{{16}, {16}}, ge::DT_INT16, ge::FORMAT_ND},
                                               },
                                               &compileInfo);
-    uint64_t expectTilingKey = 8;
+    uint64_t expectTilingKey = 9;
     string expectTilingData = "16 1125904201810432 ";
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);

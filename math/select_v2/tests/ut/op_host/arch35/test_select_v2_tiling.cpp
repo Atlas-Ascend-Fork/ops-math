@@ -44,7 +44,7 @@ TEST_F(SelectV2Tiling, select_v2_test_0)
     gert::TilingContextPara::TensorDescription x2(x2Shape, ge::DT_BF16, ge::FORMAT_ND);
     gert::TilingContextPara tilingContextPara("SelectV2", {condition, x1, x2}, {{yShape, ge::DT_BF16, ge::FORMAT_ND}},
                                               &compileInfo);
-    uint64_t expectedTilingKey = 8;
+    uint64_t expectedTilingKey = 9;
     std::vector<size_t> expectedWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectedTilingKey, expectedWorkspaces);
 }
@@ -63,7 +63,7 @@ TEST_F(SelectV2Tiling, select_test_1)
     gert::TilingContextPara::TensorDescription x2(x2Shape, ge::DT_UINT8, ge::FORMAT_ND);
     gert::TilingContextPara tilingContextPara("SelectV2", {condition, x1, x2}, {{yShape, ge::DT_UINT8, ge::FORMAT_ND}},
                                               &compileInfo);
-    uint64_t expectedTilingKey = 8;
+    uint64_t expectedTilingKey = 9;
     std::vector<size_t> expectedWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectedTilingKey, expectedWorkspaces);
 }
@@ -82,7 +82,7 @@ TEST_F(SelectV2Tiling, select_test_2)
     gert::TilingContextPara::TensorDescription x2(x2Shape, ge::DT_FLOAT16, ge::FORMAT_ND);
     gert::TilingContextPara tilingContextPara("SelectV2", {condition, x1, x2},
                                               {{yShape, ge::DT_FLOAT16, ge::FORMAT_ND}}, &compileInfo);
-    uint64_t expectedTilingKey = 8;
+    uint64_t expectedTilingKey = 9;
     std::vector<size_t> expectedWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectedTilingKey, expectedWorkspaces);
 }

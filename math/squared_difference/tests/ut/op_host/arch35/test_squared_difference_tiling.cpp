@@ -40,7 +40,7 @@ TEST_F(SquaredDifferenceTiling, squared_difference_test_0)
                                                   {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_BF16, ge::FORMAT_ND},
                                               },
                                               &compileInfo);
-    uint64_t expectTilingKey = 8;
+    uint64_t expectTilingKey = 9;
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
@@ -76,7 +76,7 @@ TEST_F(SquaredDifferenceTiling, squared_difference_test_2)
             {{{8, 11, 12, 14, 6}, {8, 11, 12, 14, 6}}, ge::DT_BF16, ge::FORMAT_ND},
         },
         &compileInfo);
-    uint64_t expectTilingKey = 8;
+    uint64_t expectTilingKey = 9;
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
@@ -111,7 +111,7 @@ TEST_F(SquaredDifferenceTiling, squared_difference_test_4)
                                                   {{{15, 5}, {15, 5}}, ge::DT_BF16, ge::FORMAT_ND},
                                               },
                                               &compileInfo);
-    uint64_t expectTilingKey = 0;
+    uint64_t expectTilingKey = 2;
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
@@ -146,7 +146,7 @@ TEST_F(SquaredDifferenceTiling, squared_difference_test_6)
                                                   {{{15, 2, 1}, {15, 2, 1}}, ge::DT_INT32, ge::FORMAT_ND},
                                               },
                                               &compileInfo);
-    uint64_t expectTilingKey = 8;
+    uint64_t expectTilingKey = 9;
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
@@ -181,7 +181,7 @@ TEST_F(SquaredDifferenceTiling, squared_difference_test_8)
                                                   {{{14, 16}, {14, 16}}, ge::DT_INT64, ge::FORMAT_ND},
                                               },
                                               &compileInfo);
-    uint64_t expectTilingKey = 8;
+    uint64_t expectTilingKey = 9;
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }

@@ -38,7 +38,7 @@ TEST_F(AxpyTiling, axpy_test_float16)
                                                   {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_FLOAT16, ge::FORMAT_ND},
                                               },
                                               {{"alpha", Ops::Math::AnyValue::CreateFrom<float>(1.0f)}}, &compileInfo);
-    uint64_t expectTilingKey = 7;
+    uint64_t expectTilingKey = 8;
     string expectTilingData = "1 137438953696 10 1 1 1065353216 0 ";
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
@@ -56,7 +56,7 @@ TEST_F(AxpyTiling, axpy_test_float32)
                                                   {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_FLOAT, ge::FORMAT_ND},
                                               },
                                               {{"alpha", Ops::Math::AnyValue::CreateFrom<float>(1.0f)}}, &compileInfo);
-    uint64_t expectTilingKey = 7;
+    uint64_t expectTilingKey = 8;
     string expectTilingData = "1 137438953760 8 1 1 1065353216 0 ";
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
@@ -74,7 +74,7 @@ TEST_F(AxpyTiling, axpy_test_int32)
                                                   {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_INT32, ge::FORMAT_ND},
                                               },
                                               {{"alpha", Ops::Math::AnyValue::CreateFrom<float>(1.0f)}}, &compileInfo);
-    uint64_t expectTilingKey = 7;
+    uint64_t expectTilingKey = 8;
     string expectTilingData = "1 137438953696 10 1 1 1065353216 0 ";
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);

@@ -78,7 +78,7 @@ protected:
 TEST_F(MaximumGradTilingTest, tiling_both_fp16)
 {
     auto para = MakeTilingContext({{8, 1024}, {8, 1024}, {8, 1024}}, {{8, 1024}, {8, 1024}}, ge::DT_FLOAT16);
-    uint64_t expectTilingKey = 131079;
+    uint64_t expectTilingKey = 131080;
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(para, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
@@ -87,7 +87,7 @@ TEST_F(MaximumGradTilingTest, tiling_both_fp16)
 TEST_F(MaximumGradTilingTest, tiling_both_fp16_broadcast)
 {
     auto para = MakeTilingContext({{2, 1, 5}, {1, 3, 1}, {5}}, {{2, 3, 5}, {2, 3, 5}}, ge::DT_FLOAT16);
-    uint64_t expectTilingKey = 131072;
+    uint64_t expectTilingKey = 131074;
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(para, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
@@ -97,7 +97,7 @@ TEST_F(MaximumGradTilingTest, tiling_y1_only_fp16)
 {
     auto para = MakeTilingContext({{8, 1024}, {8, 1024}, {8, 1024}}, {{8, 1024}, {8, 1024}}, ge::DT_FLOAT16, true,
                                   false);
-    uint64_t expectTilingKey = 8;
+    uint64_t expectTilingKey = 9;
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(para, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
@@ -107,7 +107,7 @@ TEST_F(MaximumGradTilingTest, tiling_y2_only_fp16)
 {
     auto para = MakeTilingContext({{8, 1024}, {8, 1024}, {8, 1024}}, {{8, 1024}, {8, 1024}}, ge::DT_FLOAT16, false,
                                   true);
-    uint64_t expectTilingKey = 65544;
+    uint64_t expectTilingKey = 65545;
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(para, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
@@ -116,7 +116,7 @@ TEST_F(MaximumGradTilingTest, tiling_y2_only_fp16)
 TEST_F(MaximumGradTilingTest, tiling_both_fp32)
 {
     auto para = MakeTilingContext({{8, 1024}, {8, 1024}, {8, 1024}}, {{8, 1024}, {8, 1024}}, ge::DT_FLOAT);
-    uint64_t expectTilingKey = 131079;
+    uint64_t expectTilingKey = 131080;
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(para, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
@@ -125,7 +125,7 @@ TEST_F(MaximumGradTilingTest, tiling_both_fp32)
 TEST_F(MaximumGradTilingTest, tiling_both_bf16)
 {
     auto para = MakeTilingContext({{8, 1024}, {8, 1024}, {8, 1024}}, {{8, 1024}, {8, 1024}}, ge::DT_BF16);
-    uint64_t expectTilingKey = 131079;
+    uint64_t expectTilingKey = 131080;
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(para, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
@@ -134,7 +134,7 @@ TEST_F(MaximumGradTilingTest, tiling_both_bf16)
 TEST_F(MaximumGradTilingTest, tiling_both_int32)
 {
     auto para = MakeTilingContext({{8, 1024}, {8, 1024}, {8, 1024}}, {{8, 1024}, {8, 1024}}, ge::DT_INT32);
-    uint64_t expectTilingKey = 131079;
+    uint64_t expectTilingKey = 131080;
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(para, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
@@ -160,7 +160,7 @@ TEST_F(MaximumGradTilingTest, tiling_unsupported_dtype_fail)
 TEST_F(MaximumGradTilingTest, tiling_empty_both)
 {
     auto para = MakeTilingContext({{0}, {0}, {0}}, {{0}, {0}}, ge::DT_FLOAT16);
-    uint64_t expectTilingKey = 131086;
+    uint64_t expectTilingKey = 131087;
     std::vector<size_t> expectWorkspaces = {16777216};
     ExecuteTestCase(para, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
@@ -168,7 +168,7 @@ TEST_F(MaximumGradTilingTest, tiling_empty_both)
 TEST_F(MaximumGradTilingTest, tiling_empty_y1_only)
 {
     auto para = MakeTilingContext({{2, 0}, {2, 0}, {0}}, {{2, 0}, {2, 0}}, ge::DT_FLOAT16, true, false);
-    uint64_t expectTilingKey = 14;
+    uint64_t expectTilingKey = 15;
     std::vector<size_t> expectWorkspaces = {16777216};
     ExecuteTestCase(para, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
@@ -176,7 +176,7 @@ TEST_F(MaximumGradTilingTest, tiling_empty_y1_only)
 TEST_F(MaximumGradTilingTest, tiling_empty_y2_only)
 {
     auto para = MakeTilingContext({{0, 3}, {0, 3}, {3}}, {{0, 3}, {0, 3}}, ge::DT_FLOAT16, false, true);
-    uint64_t expectTilingKey = 65550;
+    uint64_t expectTilingKey = 65551;
     std::vector<size_t> expectWorkspaces = {16777216};
     ExecuteTestCase(para, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
@@ -185,7 +185,7 @@ TEST_F(MaximumGradTilingTest, tiling_empty_broadcast)
 {
     // x2=(0,) 广播到 (2,0), 广播结果元素数为 0
     auto para = MakeTilingContext({{2, 0}, {2, 0}, {0}}, {{2, 0}, {2, 0}}, ge::DT_FLOAT16);
-    uint64_t expectTilingKey = 131086;
+    uint64_t expectTilingKey = 131087;
     std::vector<size_t> expectWorkspaces = {16777216};
     ExecuteTestCase(para, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }

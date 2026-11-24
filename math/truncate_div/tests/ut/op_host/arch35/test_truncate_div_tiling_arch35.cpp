@@ -48,7 +48,7 @@ TEST_F(TruncateDivTilingTest, truncate_div_fp16_fp_scalar)
                                                   {{{8, 128}, {8, 128}}, ge::DT_INT32, ge::FORMAT_ND},
                                               },
                                               &compileInfo);
-    uint64_t expectTilingKey = 0b1'00000000'00000111;
+    uint64_t expectTilingKey = 0b1'00000000'00001000;
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
@@ -67,7 +67,7 @@ TEST_F(TruncateDivTilingTest, truncate_div_fp_fp1)
                                                   {{{5, 5, 64, 128}, {5, 5, 64, 128}}, ge::DT_FLOAT, ge::FORMAT_ND},
                                               },
                                               &compileInfo);
-    uint64_t expectTilingKey = 0b0'00000000'00001000;
+    uint64_t expectTilingKey = 9;
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }

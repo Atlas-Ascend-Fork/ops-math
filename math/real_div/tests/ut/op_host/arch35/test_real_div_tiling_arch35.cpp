@@ -44,7 +44,7 @@ TEST_F(RealDivTiling, real_div_test_bf16)
                                                   {{{16, 1, 4, 4, 8}, {16, 1, 4, 4, 8}}, ge::DT_BF16, ge::FORMAT_ND},
                                               },
                                               &compileInfo);
-    uint64_t expectTilingKey = 8;
+    uint64_t expectTilingKey = 9;
     string expectTilingData = "2048 281492156580096 ";
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
@@ -65,7 +65,7 @@ TEST_F(RealDivTiling, real_div_test_float16)
             {{{8, 11, 12, 14, 6}, {8, 11, 12, 14, 6}}, ge::DT_FLOAT16, ge::FORMAT_ND},
         },
         &compileInfo);
-    uint64_t expectTilingKey = 8;
+    uint64_t expectTilingKey = 9;
     string expectTilingData = "88704 150323856640 ";
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
@@ -85,7 +85,7 @@ TEST_F(RealDivTiling, real_div_test_int32)
                                                   {{{7, 56, 2, 3, 11}, {7, 56, 2, 3, 11}}, ge::DT_INT32, ge::FORMAT_ND},
                                               },
                                               &compileInfo);
-    uint64_t expectTilingKey = 8;
+    uint64_t expectTilingKey = 9;
     string expectTilingData = "25872 146028888448 ";
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
@@ -105,10 +105,10 @@ TEST_F(RealDivTiling, real_div_test_float32)
                                                   {{{3, 5, 789, 5}, {3, 5, 789, 5}}, ge::DT_FLOAT, ge::FORMAT_ND},
                                               },
                                               &compileInfo);
-    uint64_t expectTilingKey = 0;
-    string expectTilingData = "12884901888 8589934592 1 8 1 1 8 10880 8 15 789 5 0 0 0 0 0 3945 5 1 0 0 0 0 0 0 0 0 0 "
-                              "15 1 5 0 0 0 0 0 15 1 5 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 5 0 1 0 0 0 0 0 5 0 1 "
-                              "0 0 0 0 0 0 0 ";
+    uint64_t expectTilingKey = 2;
+    string expectTilingData = "8724153088 46729244180481 8 1 1 8 3388729196559 5 16943645982720 4294967301 0 0 0 0 0 0 "
+                              "0 0 5 1 "
+                              "21474836480 4294967296 0 0 0 ";
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
@@ -127,7 +127,7 @@ TEST_F(RealDivTiling, real_div_test_bool)
                                                   {{{7, 56, 2, 3, 11}, {7, 56, 2, 3, 11}}, ge::DT_FLOAT, ge::FORMAT_ND},
                                               },
                                               &compileInfo);
-    uint64_t expectTilingKey = 8;
+    uint64_t expectTilingKey = 9;
     string expectTilingData = "25872 111669150208 ";
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
