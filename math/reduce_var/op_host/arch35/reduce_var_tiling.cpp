@@ -39,6 +39,7 @@ constexpr static int32_t AXES_STEP = 2; // A轴和R轴循环遍历的步长
 constexpr uint32_t WELFORD_GROUP_NUM = 8;
 constexpr uint32_t GROUP_CACHE_BUF_SIZE = (WELFORD_GROUP_NUM + 1) * MAX_INNER_A;
 constexpr uint32_t MAX_RES_OUT_SIZE = 16 * 1024U;
+constexpr uint64_t MIN_UB_TILE_BYTES = 16UL * 1024UL; // 单次循环搬入量的期望下限(受UB容量约束, 取尽量接近)
 
 static ge::DataType GetPromoteType(ge::DataType dtype)
 {
@@ -573,6 +574,7 @@ void ReduceVarTiling::ComputeCacheLineBlockAndUnit(const uint64_t* shape)
 template <class Pattern>
 void ReduceVarTiling::ComputeUnitA(const uint64_t* shape)
 {
+    constexpr bool isAR = (Pattern::ID == Ops::Base::ReduceOpTmpl::PATTERN_AR); // R全载/16KB下限仅对AR生效
     int32_t axisInCacheLine = cBlock_.axis;
     uint64_t outerA = unitA_.outer;
     uint64_t innerA = unitA_.inner;
@@ -583,6 +585,19 @@ void ReduceVarTiling::ComputeUnitA(const uint64_t* shape)
                                                                              1; // 纯A的步长为4, 减少循环次数
     bool basicSplitA = IsAxisA<Pattern>(axisInCacheLine);
     uint64_t bBlockNum = basicBlock_ * Ratio() / maxInputBytes_;
+    uint64_t outA = 1UL;      // A轴乘积(outSize), 用于估计A块数/核占用
+    uint64_t fullRSize = 0UL; // R轴全部元素(含cacheline外层)
+    uint64_t inputSize = 0UL;
+    if (isAR) {
+        for (int32_t i = 0; i < Pattern::Dim; i++) {
+            if (IsAxisA<Pattern>(i)) {
+                outA *= shape[i];
+            }
+        }
+        // 尾轴R全载: 能否整段装下全R由下方fullCapStep(最大A step)判定; 可装下则取P1(最大A块)
+        fullRSize = cBlock_.rSize * unitR_.outer;
+        inputSize = static_cast<uint64_t>(ge::GetSizeByDataType(opInput_.inputDtype));
+    }
     uint64_t step = 1;
     int32_t iA;
     for (iA = basicSplitA ? axisInCacheLine : axisInCacheLine - 1; iA > -1; iA -= AXES_STEP) {
@@ -590,6 +605,11 @@ void ReduceVarTiling::ComputeUnitA(const uint64_t* shape)
         bool splitHere = false;
         uint64_t maxStep = 0;
         double maxRate = 0.0f;
+        uint64_t fullCapStep = 0;
+        uint64_t fullCapASize = 0;                            // 对应fullCapStep的实际A元素数(含cacheline step)
+        uint64_t bestSaturate = 0;                            // 能喂满核的最大全载A step
+        uint64_t maxFeasibleStep = 0;                         // UB门限允许的最大step
+        uint64_t tileFloorStep = 0;                           // 首个使单次搬入量≥MIN_UB_TILE_BYTES的step
         for (step = 1UL; step <= axisLen / stepLen; step++) { // 从2开始查找，1的切分没有意义
             uint64_t s = step * stepLen;
             uint64_t tmpInnerA = innerA * s;
@@ -599,6 +619,7 @@ void ReduceVarTiling::ComputeUnitA(const uint64_t* shape)
                 aSize = (cBlock_.aSize / cBlock_.cacheLineStep) * std::min(cBlock_.cacheLineStep * s, shape[iA]);
             }
             if (aSize <= maxInnerA && aSize * cBlock_.rSize <= bBlockNum) {
+                maxFeasibleStep = step;
                 uint64_t tempCoreNum = (tmpOuterA * unitR_.outer) /
                                        Ops::Base::CeilDiv(tmpOuterA * unitR_.outer, compileInfo_.vectorCoreNum);
                 tempCoreNum = tempCoreNum > tmpOuterA ? Ops::Base::FloorAlign(tempCoreNum, tmpOuterA) : tempCoreNum;
@@ -607,14 +628,52 @@ void ReduceVarTiling::ComputeUnitA(const uint64_t* shape)
                               (rate > THRES_HOLD_PATTERN_A ? step : maxStep) :
                               ((rate > THRES_HOLD && rate > maxRate) ? step : maxStep);
                 maxRate = rate > maxRate ? rate : maxRate;
+                if (isAR) {
+                    if (aSize * fullRSize <= bBlockNum) {
+                        fullCapStep = step;
+                        fullCapASize = aSize;
+                        if (inputSize != 0UL && aSize * fullRSize * inputSize >= MIN_UB_TILE_BYTES) {
+                            if (tileFloorStep == 0UL) {
+                                tileFloorStep = step; // 首个满足16KB的全载step
+                            }
+                            if (Ops::Base::CeilDiv(outA, aSize) >= compileInfo_.vectorCoreNum) {
+                                bestSaturate = step; // 能喂满核的最大全载step(逐步覆盖)
+                            }
+                        }
+                    } else if (basicSplitA && unitR_.outer == 1UL && tileFloorStep == 0UL && inputSize != 0UL &&
+                               aSize * cBlock_.rSize * inputSize >= MIN_UB_TILE_BYTES) {
+                        tileFloorStep = step;
+                    }
+                }
             } else {
                 splitHere = true;
                 break;
             }
         }
         if (splitHere || maxStep != axisLen / stepLen || iA - AXES_STEP < 0) {
-            // A轴最大、分核最大或者无法继续迭代
-            step = maxStep == 0UL ? 1UL : maxStep * stepLen;
+            uint64_t chosenStep = maxStep;
+            // 仅 AR 场景启用 R 全载 / 16KB 单次搬入下限; 其余 pattern 保持原逻辑
+            if (isAR) {
+                if (fullCapStep != 0UL && fullCapASize != 0UL && inputSize != 0UL &&
+                    fullCapASize * fullRSize * inputSize >= MIN_UB_TILE_BYTES) {
+                    // P1': 全载R前提下优先取"能喂满核的最大A块"; 喂不满则取满足16KB的最小step(核数最多)
+                    if (bestSaturate != 0UL) {
+                        chosenStep = bestSaturate;
+                    } else if (tileFloorStep != 0UL) {
+                        chosenStep = std::min(tileFloorStep, fullCapStep);
+                    } else {
+                        chosenStep = fullCapStep;
+                    }
+                } else if (basicSplitA && unitR_.outer == 1UL) {
+                    // 非全载场景: 保留原16KB单次搬入下限兜底
+                    uint64_t floorStep = tileFloorStep != 0UL ? tileFloorStep : maxFeasibleStep;
+                    uint64_t capStep = maxFeasibleStep;
+                    if (floorStep > chosenStep) {
+                        chosenStep = capStep != 0UL ? std::min(floorStep, capStep) : floorStep;
+                    }
+                }
+            }
+            step = chosenStep != 0UL ? chosenStep * stepLen : 1UL;
             innerA = innerA * step;
             outerA = outerA / axisLen * Ops::Base::CeilDiv(axisLen, step);
             break;
