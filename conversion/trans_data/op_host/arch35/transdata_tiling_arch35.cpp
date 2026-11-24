@@ -63,7 +63,11 @@ bool TransDataTilingAscendC::GetShapeInfo()
     outShape_ = Ops::Base::EnsureNotScalar(yStorage->GetStorageShape());
 
     OP_CHECK_IF(inShape_.GetShapeSize() == 0 || outShape_.GetShapeSize() == 0,
-                OP_LOGE(context_->GetNodeName(), "The input or output shape is empty!"), return false);
+                OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON(
+                    context_->GetNodeName(), "input/output",
+                    (inShape_.GetShapeSize() == 0 ? ToString(inShape_) : ToString(outShape_)).c_str(),
+                    "the input or output shape can not be empty"),
+                return false);
 
     ReshapeInShape();
     return true;
@@ -83,9 +87,14 @@ bool TransDataTilingAscendC::GetTransFormatAndDType()
     std::vector<ge::Format> supportSrcFormat = {ge::FORMAT_ND, ge::FORMAT_NCL, ge::FORMAT_NCHW, ge::FORMAT_NHWC};
     std::vector<ge::Format> supportDstFormat = {ge::FORMAT_FRACTAL_NZ, ge::FORMAT_FRACTAL_NZ_C0_16,
                                                 ge::FORMAT_FRACTAL_NZ_C0_32};
-    OP_CHECK_IF((std::find(supportSrcFormat.begin(), supportSrcFormat.end(), srcFormat) == supportSrcFormat.end() ||
-                 std::find(supportDstFormat.begin(), supportDstFormat.end(), dstFormat_) == supportDstFormat.end()),
-                OP_LOGE(context_->GetNodeName(), "The input or output format is invalid!"), return false);
+    OP_CHECK_IF(
+        (std::find(supportSrcFormat.begin(), supportSrcFormat.end(), srcFormat) == supportSrcFormat.end() ||
+         std::find(supportDstFormat.begin(), supportDstFormat.end(), dstFormat_) == supportDstFormat.end()),
+        OP_LOGE_FOR_INVALID_FORMAT_WITH_REASON(
+            context_->GetNodeName(), "srcFormat/dstFormat", (ToString(srcFormat) + "/" + ToString(dstFormat_)).c_str(),
+            "the input format must be ND, NCL, NCHW or NHWC, and the output format must be FRACTAL_NZ, "
+            "FRACTAL_NZ_C0_16 or FRACTAL_NZ_C0_32"),
+        return false);
     return true;
 }
 
@@ -99,7 +108,10 @@ bool TransDataTilingAscendC::GetTransNz2NdFormatAndDType()
     if (dtypeSize_ == ge::kDataTypeSizeBitOffset + B4_BIT_SIZE) {
         dtypeSize_ = 1;
     }
-    OP_CHECK_IF((dtypeSize_ <= 0), OP_LOGE(context_->GetNodeName(), "The dtypeSize is invalid!"), return false);
+    OP_CHECK_IF((dtypeSize_ <= 0),
+                OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(context_->GetNodeName(), "x", ToString(srcDtype_).c_str(),
+                                                       "the dtype of x is not supported"),
+                return false);
 
     std::vector<ge::Format> supportSrcFormat = {ge::FORMAT_FRACTAL_NZ, ge::FORMAT_FRACTAL_NZ_C0_2,
                                                 ge::FORMAT_FRACTAL_NZ_C0_4, ge::FORMAT_FRACTAL_NZ_C0_16,
@@ -110,7 +122,11 @@ bool TransDataTilingAscendC::GetTransNz2NdFormatAndDType()
                                                {ge::FORMAT_FRACTAL_NZ_C0_16, C0_16},
                                                {ge::FORMAT_FRACTAL_NZ_C0_32, C0_32}};
     auto it = formatMap.find(srcFormat);
-    OP_CHECK_IF((it == formatMap.end()), OP_LOGE(context_->GetNodeName(), "The input format is invalid!"),
+    OP_CHECK_IF((it == formatMap.end()),
+                OP_LOGE_FOR_INVALID_FORMAT_WITH_REASON(
+                    context_->GetNodeName(), "srcFormat", ToString(srcFormat).c_str(),
+                    "the input format must be FRACTAL_NZ, FRACTAL_NZ_C0_2, FRACTAL_NZ_C0_4, FRACTAL_NZ_C0_16 or "
+                    "FRACTAL_NZ_C0_32"),
                 return false);
     // NZ数据类型，fp4 dtypeSize_为1 (实际应该为0.5)，expectC0 = 32，b4当做b8处理，c0理论上需要除2，expectC0不做特殊处理
     // NZ_CX类型，，expectC0固定为CX，expectC0需要除2
@@ -130,17 +146,25 @@ bool TransDataTilingAscendC::CalcNzToNdShapeSize()
     OP_CHECK_NULL_WITH_CONTEXT(context_, yStorage);
     outShape_ = Ops::Base::EnsureNotScalar(yStorage->GetStorageShape());
 
-    OP_CHECK_IF(inShape_.GetDimNum() < nFour, OP_LOGE(context_->GetNodeName(), "The input shape dim is less than 4!"),
+    OP_CHECK_IF(inShape_.GetDimNum() < nFour,
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context_->GetNodeName(), "x",
+                                                         (std::to_string(inShape_.GetDimNum()) + "D").c_str(),
+                                                         "the dim num of x can not be less than 4"),
                 return false);
     OP_CHECK_IF(inShape_.GetDimNum() != outShape_.GetDimNum() + nTwo,
-                OP_LOGE(context_->GetNodeName(), "The input dim must be 2 higher than the output dim."), return false);
+                OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON(context_->GetNodeName(), "x/y",
+                                                      (ToString(inShape_) + "/" + ToString(outShape_)).c_str(),
+                                                      "the input dim must be 2 higher than the output dim"),
+                return false);
 
     auto inputDimCnt = inShape_.GetDimNum();
     c1_ = inShape_.GetDim(inputDimCnt - nFour);
     n1_ = inShape_.GetDim(inputDimCnt - nThree);
     n0_ = inShape_.GetDim(inputDimCnt - nTwo);
     c0_ = inShape_.GetDim(inputDimCnt - 1);
-    OP_CHECK_IF((c1_ * n1_ * n0_ * c0_ == 0), OP_LOGE(context_->GetNodeName(), "All input dim must not be zero"),
+    OP_CHECK_IF((c1_ * n1_ * n0_ * c0_ == 0),
+                OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON(context_->GetNodeName(), "x", ToString(inShape_).c_str(),
+                                                      "all dims of the input shape can not be zero"),
                 return false);
 
     auto outputDimCnt = outShape_.GetDimNum();
@@ -150,14 +174,20 @@ bool TransDataTilingAscendC::CalcNzToNdShapeSize()
     // 输入shape的H维必须和输出shape的H维完全相同
     for (size_t i = 0; i < outputDimCnt - nTwo; i++) {
         OP_CHECK_IF((inShape_.GetDim(i) != outShape_.GetDim(i) || inShape_.GetDim(i) == 0),
-                    OP_LOGE(context_->GetNodeName(), "The input H dim must be same with output dim and not be zero."),
+                    OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON(
+                        context_->GetNodeName(), "x/y", (ToString(inShape_) + "/" + ToString(outShape_)).c_str(),
+                        "the input H dims must be the same as the output dims and can not be zero"),
                     return false);
     }
 
     OP_CHECK_IF((n1_ != CeilDiv(n_, n0_)),
-                OP_LOGE(context_->GetNodeName(), "The dim N1 should be equal CeilDiv(N, N0)"), return false);
+                OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON(context_->GetNodeName(), "x", ToString(inShape_).c_str(),
+                                                      "the dim N1 of x must be equal to CeilDiv(N, N0)"),
+                return false);
     OP_CHECK_IF((c1_ != CeilDiv(c_, c0_)),
-                OP_LOGE(context_->GetNodeName(), "The dim C1 should be equal CeilDiv(C, C0)"), return false);
+                OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON(context_->GetNodeName(), "x", ToString(inShape_).c_str(),
+                                                      "the dim C1 of x must be equal to CeilDiv(C, C0)"),
+                return false);
 
     if (srcDtype_ == ge::DT_FLOAT4_E2M1 || srcDtype_ == ge::DT_FLOAT4_E1M2) {
         // 当作u8处理，c缩小一半
@@ -187,12 +217,16 @@ bool TransDataTilingAscendC::CalcC0Size()
     auto dimCnt = outShape_.GetDimNum();
     auto tmpC0 = outShape_.GetDim(dimCnt - 1);
 
-    OP_CHECK_IF(dstFormat_ == ge::FORMAT_FRACTAL_NZ_C0_16 && tmpC0 != C0_16,
-                OP_LOGE(context_->GetNodeName(), "The c0 should be 16 when dst format is FRACTAL_NZ_C0_16!"),
-                return false);
-    OP_CHECK_IF(dstFormat_ == ge::FORMAT_FRACTAL_NZ_C0_32 && tmpC0 != C0_32,
-                OP_LOGE(context_->GetNodeName(), "The c0 should be 32 when dst format is FRACTAL_NZ_C0_32!"),
-                return false);
+    OP_CHECK_IF(
+        dstFormat_ == ge::FORMAT_FRACTAL_NZ_C0_16 && tmpC0 != C0_16,
+        OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON(context_->GetNodeName(), "y", ToString(outShape_).c_str(),
+                                              "When the format of y is FRACTAL_NZ_C0_16, the last dim of y must be 16"),
+        return false);
+    OP_CHECK_IF(
+        dstFormat_ == ge::FORMAT_FRACTAL_NZ_C0_32 && tmpC0 != C0_32,
+        OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON(context_->GetNodeName(), "y", ToString(outShape_).c_str(),
+                                              "When the format of y is FRACTAL_NZ_C0_32, the last dim of y must be 32"),
+        return false);
 
     int64_t expectC0 = tmpC0;
     if (dtypeSize_ == 1U) {
@@ -202,14 +236,18 @@ bool TransDataTilingAscendC::CalcC0Size()
     }
     OP_CHECK_IF(
         dstFormat_ == ge::FORMAT_FRACTAL_NZ && dtypeSize_ == nTwo * nTwo && C0_8 != expectC0 && C0_16 != expectC0,
-        OP_LOGE(context_->GetNodeName(),
-                "The c0 should be 8 or 16 when dst format is FRACTAL_NZ and dtype size is %zu!", dtypeSize_),
+        OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON(context_->GetNodeName(), "y", ToString(outShape_).c_str(),
+                                              ("When the format of y is FRACTAL_NZ and the dtype size of x is " +
+                                               std::to_string(dtypeSize_) + ", the last dim of y must be 8 or 16")
+                                                  .c_str()),
         return false);
-    OP_CHECK_IF(
-        dstFormat_ == ge::FORMAT_FRACTAL_NZ && tmpC0 != expectC0,
-        OP_LOGE(context_->GetNodeName(), "The c0 should be %ld when dst format is FRACTAL_NZ and dtype size is %zu!",
-                expectC0, dtypeSize_),
-        return false);
+    OP_CHECK_IF(dstFormat_ == ge::FORMAT_FRACTAL_NZ && tmpC0 != expectC0,
+                OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON(
+                    context_->GetNodeName(), "y", ToString(outShape_).c_str(),
+                    ("When the format of y is FRACTAL_NZ and the dtype size of x is " + std::to_string(dtypeSize_) +
+                     ", the last dim of y must be " + std::to_string(expectC0))
+                        .c_str()),
+                return false);
 
     c0_ = tmpC0;
     if (IsDtypeB4()) {
