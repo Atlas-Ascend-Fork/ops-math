@@ -111,7 +111,7 @@ aclnnStatus aclnnInplaceFloorDivide(
     <tr>
       <td>other（aclTensor*）</td>
       <td>输入</td>
-      <td>-</td>
+      <td>公式中的输入other。</td>
       <td>数据类型需要与self满足数据类型推导规则（参见<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>），shape需要与self满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>。</td>
       <td>FLOAT、FLOAT16、DOUBLE、INT32、INT64、INT16、INT8、UINT8、BOOL</td>
       <td>ND</td>
@@ -121,7 +121,7 @@ aclnnStatus aclnnInplaceFloorDivide(
     <tr>
       <td>out（aclTensor*）</td>
       <td>输出</td>
-      <td>-</td>
+      <td>公式中的输出out。</td>
       <td>数据类型需要是self与other推导之后可转换的数据类型，shape需要是self与other <a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>之后的shape。</td>
       <td>FLOAT、FLOAT16、DOUBLE、INT32、INT64、INT16、INT8、UINT8、COMPLEX64、COMPLEX128</td>
       <td>ND</td>
@@ -269,7 +269,7 @@ aclnnStatus aclnnInplaceFloorDivide(
     <tr>
       <td>selfRef（aclTensor*）</td>
       <td>输入/输出</td>
-      <td>-</td>
+      <td>输入输出tensor。</td>
       <td>数据类型需要与other满足数据类型推导规则（参见<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>），shape需要与other满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>，且selfRef的shape必须等于selfRef与other广播后的shape。</td>
       <td>FLOAT、FLOAT16、DOUBLE、INT32、INT64、INT16、INT8、UINT8、BOOL</td>
       <td>ND</td>
@@ -279,7 +279,7 @@ aclnnStatus aclnnInplaceFloorDivide(
     <tr>
       <td>other（aclTensor*）</td>
       <td>输入</td>
-      <td>-</td>
+      <td>公式中的输入other。</td>
       <td>数据类型需要与selfRef满足数据类型推导规则（参见<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>），shape需要与selfRef满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>。</td>
       <td>FLOAT、FLOAT16、DOUBLE、INT32、INT64、INT16、INT8、UINT8、BOOL</td>
       <td>ND</td>

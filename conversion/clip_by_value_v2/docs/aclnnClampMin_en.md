@@ -96,8 +96,8 @@ aclnnStatus aclnnClampMin(
       <td class="tg-0pky">Input scalar, indicating the lower bound of self, that is, min<sub>i</sub> in the formula.</td>
       <td class="tg-0pky">The data type must satisfy the data type conversion rules with the data type of self (see <a href="../../../docs/en/context/conversion_relationship.md" target="_blank">conversion relationship</a>).</td>
       <td class="tg-0pky">FLOAT16, FLOAT, DOUBLE, INT8, UINT8, INT16, INT32, INT64, BFLOAT16, BOOL</td>
-      <td class="tg-0pky">ND</td>
-      <td class="tg-0pky">1-8</td>
+      <td class="tg-0pky">-</td>
+      <td class="tg-0pky">-</td>
       <td class="tg-0pky">-</td>
     </tr>
     <tr>

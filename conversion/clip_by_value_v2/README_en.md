@@ -19,7 +19,7 @@ English | [简体中文](./README.md)
 - Computation formula:
 
 $$
-{y}_{i} = max(min({{x}_{i}},{max\_value}_{i}),{min\_value}_{i})
+{y}_{i} = min(max({{x}_{i}},{min\_value}_{i}),{max\_value}_{i})
 $$
 
 ## Parameter Description
@@ -79,11 +79,11 @@ None
 
 | Invocation Method   | Sample Code           | Description                                         |
 | ---------------- | --------------------------- | --------------------------------------------------- |
-| aclnn invocation | [test_aclnn_clamp](./examples/test_aclnn_clamp.cpp) | Invokes the clip_by_value_v2 operator through the [aclnnClamp](./docs/aclnnClamp_en.md) API.    |
-| aclnn invocation | [test_aclnn_clamp_max](./examples/test_aclnn_clamp_max.cpp) <br> [test_aclnn_inplace_clamp_max](./examples/test_aclnn_inplace_clamp_max.cpp) | Invokes the clip_by_value_v2 operator through the [aclnnClampMax&aclnnInplaceClampMax](./docs/aclnnClampMax&aclnnInplaceClampMax_en.md) API.    |
-| aclnn invocation | [test_aclnn_clamp_max_tensor](./examples/test_aclnn_clamp_max_tensor.cpp) <br> [test_aclnn_inplace_clamp_max_tensor](./examples/test_aclnn_inplace_clamp_max_tensor.cpp) | Invokes the clip_by_value_v2 operator through the [aclnnClampMaxTensor&aclnnInplaceClampMaxTensor](./docs/aclnnClampMaxTensor&aclnnInplaceClampMaxTensor_en.md) API.    |
-| aclnn invocation | [test_aclnn_clamp_min](./examples/test_aclnn_clamp_min.cpp) | Invokes the clip_by_value_v2 operator through the [aclnnClampMin](./docs/aclnnClampMin_en.md) API.    |
-| aclnn invocation | [test_aclnn_clamp_min_tensor](./examples/test_aclnn_clamp_min_tensor.cpp) <br> [test_aclnn_inplace_clamp_min_tensor](./examples/test_aclnn_inplace_clamp_min_tensor.cpp) | Invokes the clip_by_value_v2 operator through the [aclnnClampMinTensor&aclnnInplaceClampMinTensor](./docs/aclnnClampMinTensor&aclnnInplaceClampMinTensor_en.md) API.    |
-| aclnn invocation | [test_aclnn_clamp_tensor](./examples/test_aclnn_clamp_tensor.cpp) | Invokes the clip_by_value_v2 operator through the [aclnnClampTensor](./docs/aclnnClampTensor_en.md) API.    |
-| aclnn invocation | [test_aclnn_hardtanh](./examples/test_aclnn_hardtanh.cpp) <br> [test_aclnn_inplace_hardtanh](./examples/test_aclnn_inplace_hardtanh.cpp) | Invokes the clip_by_value_v2 operator through the [aclnnHardtanh&aclnnInplaceHardtanh](./docs/aclnnHardtanh&aclnnInplaceHardtanh_en.md) API.    |
-| Graph-mode invocation | [test_geir_clip_by_value_v2](./examples/test_geir_clip_by_value_v2.cpp)   | Invokes the clip_by_value_v2 operator by building a graph through the [operator IR](./op_graph/clip_by_value_v2_proto.h). |
+| aclnn API | [test_aclnn_clamp](./examples/test_aclnn_clamp.cpp) | Invokes the clip_by_value_v2 operator through the [aclnnClamp](./docs/aclnnClamp_en.md) API.    |
+| aclnn API | [test_aclnn_clamp_max](./examples/test_aclnn_clamp_max.cpp) <br> [test_aclnn_inplace_clamp_max](./examples/test_aclnn_inplace_clamp_max.cpp) | Invokes the clip_by_value_v2 operator through the [aclnnClampMax&aclnnInplaceClampMax](./docs/aclnnClampMax&aclnnInplaceClampMax_en.md) API.    |
+| aclnn API | [test_aclnn_clamp_max_tensor](./examples/test_aclnn_clamp_max_tensor.cpp) <br> [test_aclnn_inplace_clamp_max_tensor](./examples/test_aclnn_inplace_clamp_max_tensor.cpp) | Invokes the clip_by_value_v2 operator through the [aclnnClampMaxTensor&aclnnInplaceClampMaxTensor](./docs/aclnnClampMaxTensor&aclnnInplaceClampMaxTensor_en.md) API.    |
+| aclnn API | [test_aclnn_clamp_min](./examples/test_aclnn_clamp_min.cpp) | Invokes the clip_by_value_v2 operator through the [aclnnClampMin](./docs/aclnnClampMin_en.md) API.    |
+| aclnn API | [test_aclnn_clamp_min_tensor](./examples/test_aclnn_clamp_min_tensor.cpp) <br> [test_aclnn_inplace_clamp_min_tensor](./examples/test_aclnn_inplace_clamp_min_tensor.cpp) | Invokes the clip_by_value_v2 operator through the [aclnnClampMinTensor&aclnnInplaceClampMinTensor](./docs/aclnnClampMinTensor&aclnnInplaceClampMinTensor_en.md) API.    |
+| aclnn API | [test_aclnn_clamp_tensor](./examples/test_aclnn_clamp_tensor.cpp) | Invokes the clip_by_value_v2 operator through the [aclnnClampTensor](./docs/aclnnClampTensor_en.md) API.    |
+| aclnn API | [test_aclnn_hardtanh](./examples/test_aclnn_hardtanh.cpp) <br> [test_aclnn_inplace_hardtanh](./examples/test_aclnn_inplace_hardtanh.cpp) | Invokes the clip_by_value_v2 operator through the [aclnnHardtanh&aclnnInplaceHardtanh](./docs/aclnnHardtanh&aclnnInplaceHardtanh_en.md) API.    |
+| GE graph mode | [test_geir_clip_by_value_v2](./examples/test_geir_clip_by_value_v2.cpp)   | Invokes the clip_by_value_v2 operator by building a graph through the [operator IR](./op_graph/clip_by_value_v2_proto.h). For compilation and verification, see [Compile and Run Samples](../../docs/en/context/compile_and_run_sample.md). |

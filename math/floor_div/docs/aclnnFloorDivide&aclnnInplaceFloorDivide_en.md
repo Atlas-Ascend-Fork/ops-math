@@ -103,7 +103,7 @@ aclnnStatus aclnnInplaceFloorDivide(
     <tr>
       <td>self (aclTensor*)</td>
       <td>Input</td>
-      <td>-</td>
+      <td>Input self in the formula.</td>
       <td>The data type must satisfy the data type inference rule with other (see <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">deduction relationship</a>). The shape must satisfy the <a href="../../../docs/en/context/broadcast_relationship.md" target="_blank">broadcast relationship</a> with other.</td>
       <td>FLOAT, FLOAT16, DOUBLE, INT32, INT64, INT16, INT8, UINT8, BOOL</td>
       <td>ND</td>
@@ -113,7 +113,7 @@ aclnnStatus aclnnInplaceFloorDivide(
     <tr>
       <td>other (aclTensor*)</td>
       <td>Input</td>
-      <td>-</td>
+      <td>Input other in the formula.</td>
       <td>The data type must satisfy the type inference rule with self (see <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">deduction relationship</a>), and the shape must satisfy the <a href="../../../docs/en/context/broadcast_relationship.md" target="_blank">broadcast relationship</a> with self.</td>
       <td>FLOAT, FLOAT16, DOUBLE, INT32, INT64, INT16, INT8, UINT8, BOOL</td>
       <td>ND</td>
@@ -123,7 +123,7 @@ aclnnStatus aclnnInplaceFloorDivide(
     <tr>
       <td>out (aclTensor*)</td>
       <td>Output</td>
-      <td>-</td>
+      <td>Output out in the formula.</td>
       <td>The data type must be convertible from the data types deduced for self and other, and the shape must be the shape after <a href="../../../docs/en/context/broadcast_relationship.md" target="_blank">broadcast</a> of self and other.</td>
       <td>FLOAT, FLOAT16, DOUBLE, INT32, INT64, INT16, INT8, UINT8, COMPLEX64, COMPLEX128</td>
       <td>ND</td>
@@ -271,7 +271,7 @@ aclnnStatus aclnnInplaceFloorDivide(
     <tr>
       <td>selfRef (aclTensor*)</td>
       <td>Input/Output</td>
-      <td>-</td>
+      <td>Input/Output tensor.</td>
       <td>The data type needs to satisfy the data type inference rule with other (see <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">deduction relationship</a>), and the shape needs to satisfy the <a href="../../../docs/en/context/broadcast_relationship.md" target="_blank">broadcast relationship</a> with other. The shape of selfRef must equal the shape obtained by broadcasting selfRef and other.</td>
       <td>FLOAT, FLOAT16, DOUBLE, INT32, INT64, INT16, INT8, UINT8, BOOL</td>
       <td>ND</td>
@@ -281,7 +281,7 @@ aclnnStatus aclnnInplaceFloorDivide(
     <tr>
       <td>other (aclTensor*)</td>
       <td>Input</td>
-      <td>-</td>
+      <td>Input other in the formula.</td>
       <td>The data type must satisfy the type inference rule with selfRef (see <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">deduction relationship</a>), and the shape must satisfy the <a href="../../../docs/en/context/broadcast_relationship.md" target="_blank">broadcast relationship</a> with selfRef.</td>
       <td>FLOAT, FLOAT16, DOUBLE, INT32, INT64, INT16, INT8, UINT8, BOOL</td>
       <td>ND</td>

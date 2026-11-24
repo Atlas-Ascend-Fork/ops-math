@@ -33,6 +33,8 @@
   out_i = min(input0_i, input1_i,...)
   $$
 
+  In the formula, input0_i and input1_i correspond to the i-th element of the 0th and 1st tensors in the tensors list, respectively, and the same applies to the subsequent inputs.
+
 ## Function Prototype
 
 Each operator uses a [two-phase API](../../../docs/en/context/two_phase_api.md). Call "aclnnMinNGetWorkspaceSize" first to obtain the workspace size required for the computation and the executor that contains the computation process, and then call "aclnnMinN" to execute the computation.
@@ -82,7 +84,7 @@ aclnnStatus aclnnMinN(
     <tr>
       <td>tensors (aclTensorList*)</td>
       <td>Input</td>
-      <td>List of input tensors to compute.</td>
+      <td>List of input tensors to compute. The 0th and 1st tensors in the tensors list correspond to input0 and input1 in the formula, respectively, and the same applies to the subsequent tensors.</td>
       <td>Must be the same as the data type of out. The shape of each tensor in tensors must satisfy the <a href="../../../docs/en/context/broadcast_relationship.md" target="_blank">broadcast relationship</a> with out.</td>
       <td>FLOAT16, FLOAT, INT8, UINT8, INT32, INT64, BFLOAT16</td>
       <td>ND</td>
@@ -152,8 +154,8 @@ aclnnStatus aclnnMinN(
       <td>Returned when tensors or out is a null pointer.</td>
     </tr>
     <tr>
-      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="4">161002</td>
+      <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="5">161002</td>
       <td>The data type of a tensor in the tensors list or out is not within the supported range.</td>
     </tr>
     <tr>
@@ -164,6 +166,9 @@ aclnnStatus aclnnMinN(
     </tr>
     <tr>
       <td>The maximum number of dimensions of a tensor in the tensors list exceeds 8.</td>
+    </tr>
+    <tr>
+      <td>The number of tensor in the tensors list is 0.</td>
     </tr>
   </tbody>
   </table>

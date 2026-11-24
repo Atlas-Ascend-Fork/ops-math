@@ -61,7 +61,7 @@ extern "C" {
  * 分母张量，npu device侧的aclTensor，数据类型支持DT_BFLOAT16、DT_FLOAT16、DT_FLOAT、DT_DOUBLE、DT_INT64，
  * 数据类型要和self、tensor1支持可推导关系，shape要与tensor1满足broadcast关系，支持非连续的Tensor，数据格式支持ND。
  * @param [in] value: host侧的aclScalar，数据类型与self、tensor1、tensor2数据类型保持一致，不一致时需要强转成一致。
- * @param [in] out: npu
+ * @param [out] out: npu
  * 输出张量，npu device侧的aclTensor，数据类型支持DT_FLOAT16、DT_FLOAT、DT_DOUBLE、DT_INT64，
  * 数据类型要满足和self、tensor1、tensor2推导关系，shape是self、tensor1、tensor2
  broadcast之后的shape，支持非连续Tensor，数据格式支持ND。
@@ -101,7 +101,7 @@ ACLNN_API aclnnStatus aclnnAddcdivGetWorkspaceSize(const aclTensor* self, const 
  * ```
  *
  * @param [in] workspace: 在npu device侧申请的workspace内存起址。
- * @param [in] workspace_size: 在npu device侧申请的workspace大小，由第一段接口aclnnAddcdivGetWorkspaceSize获取。
+ * @param [in] workspaceSize: 在npu device侧申请的workspace大小，由第一段接口aclnnAddcdivGetWorkspaceSize获取。
  * @param [in] executor: op执行器，包含了算子计算流程。
  * @param [in] stream: acl stream流。
  * @return aclnnStatus: 返回状态码。
@@ -136,7 +136,7 @@ ACLNN_API aclnnStatus aclnnAddcdiv(void* workspace, uint64_t workspaceSize, aclO
  *  I --> J[(out)]
  * ```
  *
- * @param [in] selfRef: npu
+ * @param [in/out] selfRef: npu
  * 需要累加的张量，npu device侧的aclTensor，数据类型支持DT_BFLOAT16、DT_FLOAT16、DT_FLOAT、DT_DOUBLE、DT_INT64，
  *
  数据类型要和tensor1、tensor2支持可推导关系，shape要与tensor1、tensor2除过之后的tensor满足broadcast关系，支持非连续的Tensor，数据格式支持ND。
@@ -182,7 +182,7 @@ ACLNN_API aclnnStatus aclnnInplaceAddcdivGetWorkspaceSize(const aclTensor* selfR
  * ```
  *
  * @param [in] workspace: 在npu device侧申请的workspace内存起址。
- * @param [in] workspace_size: 在npu device侧申请的workspace大小，由第一段接口aclnnAddcdivGetWorkspaceSize获取。
+ * @param [in] workspaceSize: 在npu device侧申请的workspace大小，由第一段接口aclnnInplaceAddcdivGetWorkspaceSize获取。
  * @param [in] executor: op执行器，包含了算子计算流程。
  * @param [in] stream: acl stream流。
  * @return aclnnStatus: 返回状态码。

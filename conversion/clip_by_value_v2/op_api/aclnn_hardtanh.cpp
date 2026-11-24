@@ -56,26 +56,32 @@ static bool CheckDtypeValid(const aclTensor* self, const aclTensor* out, const a
     return true;
 }
 
+static long double ScalarToLongDouble(const aclScalar* scalar)
+{
+    if (IsFloatingType(scalar->GetDataType())) {
+        return static_cast<long double>(scalar->ToDouble());
+    }
+    return static_cast<long double>(scalar->ToInt64());
+}
+
 static bool CheckMinMaxValue(const aclScalar* min, const aclScalar* max)
 {
-    const auto& supportList = GetDtypeSupportList();
-    // 检查min的数据类型是否在支持列表内
-    OP_CHECK_DTYPE_NOT_SUPPORT(min, supportList, return false);
-
-    if (IsIntegralType(min->GetDataType())) {
+    // min和max各自可取整型或浮点标量，按共同类型比较，避免将浮点窄化到整型造成漏判；
+    // 整型侧绝对值可能超过2^53，用long double比较以避免int64→double的精度丢失
+    if (IsFloatingType(min->GetDataType()) || IsFloatingType(max->GetDataType())) {
+        long double fmin = ScalarToLongDouble(min);
+        long double fmax = ScalarToLongDouble(max);
+        if (fmin > fmax) {
+            OP_LOGE(ACLNN_ERR_PARAM_INVALID, "min must less than max or equal to max, but min is %Lf and max is %Lf.",
+                    fmin, fmax);
+            return false;
+        }
+    } else {
         int64_t imin = min->ToInt64();
         int64_t imax = max->ToInt64();
         if (imin > imax) {
             OP_LOGE(ACLNN_ERR_PARAM_INVALID, "min must less than max or equal to max, but min is %ld and max is %ld.",
                     imin, imax);
-            return false;
-        }
-    } else if (IsFloatingType(min->GetDataType())) {
-        double fmin = min->ToDouble();
-        double fmax = max->ToDouble();
-        if (fmin > fmax) {
-            OP_LOGE(ACLNN_ERR_PARAM_INVALID, "min must less than max or equal to max, but min is %f and max is %f.",
-                    fmin, fmax);
             return false;
         }
     }

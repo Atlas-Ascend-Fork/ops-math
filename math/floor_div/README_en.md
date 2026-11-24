@@ -118,7 +118,8 @@ English | [简体中文](./README.md)
 
 ## Invocation Description
 
-| Invocation Method | Sample Code                                             | Description                                                                                         |
-|---------|----------------------------------------------------|----------------------------------------------------------------------------------------------|
-| aclnn invocation | [test_aclnn_floor_divide](./examples/test_aclnn_floor_divide.cpp) | Invokes the FloorDiv operator through the [aclnnFloorDivide and aclnnInplaceFloorDivide](./docs/aclnnFloorDivide&aclnnInplaceFloorDivide_en.md) APIs  |
-| aclnn invocation | [test\_aclnn\_floor\_divides](./examples/test_aclnn_floor_divides.cpp) | Invokes the floor_div operator through the [aclnnFloorDivides&aclnnInplaceFloorDivides](./docs/aclnnFloorDivides&aclnnInplaceFloorDivides_en.md) APIs |
+| Invocation Method   | Sample Code                                       | Description                                                                                 |
+| ---------- | ---------------------------------------------- | ------------------------------------------------------------------------------------ |
+| aclnn API  | [test\_aclnn\_floor\_divide](./examples/test_aclnn_floor_divide.cpp) <br> [test\_aclnn\_inplace\_floor\_divide](./examples/test_aclnn_inplace_floor_divide.cpp) | Invokes the FloorDiv operator through the [aclnnFloorDivide&aclnnInplaceFloorDivide](./docs/aclnnFloorDivide&aclnnInplaceFloorDivide_en.md) APIs. |
+| aclnn API      | [test\_aclnn\_floor\_divides](./examples/test_aclnn_floor_divides.cpp) <br> [test\_aclnn\_inplace\_floor\_divides](./examples/test_aclnn_inplace_floor_divides.cpp) | Invokes the floor_div operator through the [aclnnFloorDivides&aclnnInplaceFloorDivides](./docs/aclnnFloorDivides&aclnnInplaceFloorDivides_en.md) APIs |
+| GE graph mode | [test\_geir\_floor\_div](./examples/test_geir_floor_div.cpp)   | Invokes the FloorDiv operator by building a graph through the [operator IR](./op_graph/floor_div_proto.h). For compilation and verification, see [Compile and Run Samples](../../docs/en/context/compile_and_run_sample.md). |

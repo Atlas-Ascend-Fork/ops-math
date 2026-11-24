@@ -344,21 +344,18 @@ aclnnStatus aclnnInplaceClampMaxTensor(
       <td>传入的selfRef或max为空指针。</td>
     </tr>
     <tr>
-      <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="5">161002</td>
+      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="4">161002</td>
       <td>selfRef与max的数据类型不在支持范围内。</td>
     </tr>
     <tr>
       <td>selfRef与max的shape不满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast</a>关系。</td>
     </tr>
     <tr>
-      <td>selfRef与max类型推导失败。</td>
+      <td>selfRef与max类型推导失败，或推导类型无法转为selfRef的数据类型。</td>
     </tr>
     <tr>
       <td>selfRef或max的维度超过8维。</td>
-    </tr>
-    <tr>
-      <td>selfRef与max类型推导失败，或推导后的数据类型无法转为selfRef的数据类型。</td>
     </tr>
   </tbody>
   </table>

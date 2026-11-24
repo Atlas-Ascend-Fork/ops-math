@@ -11,7 +11,7 @@
 # ----------------------------------------------------------------------------
 """SelectV2 算子测试规范（TTK TestSpec）。
 
-kernel/GEIR = select_v2（numpy 入/出）：out = condition ? x1 : x2；
+kernel/GEIR = select_v2（numpy 入/出）：out = condition ? then : else；
 aclnn = aclnnSWhere（torch 入/出）：out = condition ? self : other；
 e2e = torch_npu.npu_select_v2 / torch.where（torch 入/出）。
 """
@@ -40,7 +40,11 @@ def _cast_to_out(result, out):
 
 
 def _where(condition, x1, x2):
-    """torch.where 包装，处理 uint32/uint64 等 torch 不支持的原生类型。"""
+    """torch.where 包装，处理 uint32/uint64 等 torch 不支持的原生类型。
+
+    uint32/uint64 经 int64 中转后回写：uint32 在 int64 内值无损；
+    uint64 按位重解释（.to 往返无损），选择结果再 .to 回原 dtype。
+    """
     cond_t = (
         condition.to(torch.bool)
         if isinstance(condition, torch.Tensor)
@@ -53,15 +57,10 @@ def _where(condition, x1, x2):
     promoted = torch.promote_types(x1_t.dtype, x2_t.dtype)
     x1_t = x1_t.to(promoted)
     x2_t = x2_t.to(promoted)
-    if promoted == torch.uint32:
+    if promoted in (torch.uint32, torch.uint64):
         return torch.where(cond_t, x1_t.to(torch.int64), x2_t.to(torch.int64)).to(
-            torch.uint32
+            promoted
         )
-    if promoted == torch.uint64:
-        cn = cond_t.cpu().numpy()
-        x1n = x1_t.cpu().numpy()
-        x2n = x2_t.cpu().numpy()
-        return torch.as_tensor(numpy.where(cn, x1n, x2n), dtype=torch.uint64)
     return torch.where(cond_t, x1_t, x2_t)
 
 
@@ -69,7 +68,7 @@ def _third_party_inputs(
     args,
     kwargs,
     first_names=("condition", "cond"),
-    second_names=("self", "selfT", "x1", "input"),
+    second_names=("self", "x1", "input"),
     third_names=("other", "x2"),
 ):
     """从三方标杆调用参数中提取三个输入张量（位置优先，kwargs 兜底）。"""
@@ -108,17 +107,23 @@ class SelectV2TestSpec:
     """kernel/GEIR 流程：numpy 入/出。"""
 
     @staticmethod
-    def golden(condition, x1, x2, **kwargs):
-        """kernel/GEIR golden：numpy → torch 计算 → numpy 回转。"""
+    def golden(condition, then, else_, **kwargs):
+        """kernel/GEIR golden：numpy → torch 计算 → numpy 回转。
+
+        GEIR 算子 SelectV2 输入为 condition/then/else，else 是 Python
+        关键字，故形参名用 else_。TTK 按位置传递全部输入（condition、then、else）。
+        """
         from ttk.utilities import numpy_to_torch_tensor, torch_to_numpy_tensor
 
-        input_dtype = numpy.asarray(x1).dtype
-        x1_t = numpy_to_torch_tensor(x1)
-        x2_t = numpy_to_torch_tensor(x2)
-        if x1_t.dtype not in (torch.uint32, torch.uint64):
-            x1_t = _to_fp32(x1_t)
-            x2_t = _to_fp32(x2_t)
-        res = _where(torch.as_tensor(numpy.asarray(condition).astype(bool)), x1_t, x2_t)
+        input_dtype = numpy.asarray(then).dtype
+        then_t = numpy_to_torch_tensor(then)
+        else_t = numpy_to_torch_tensor(else_)
+        if then_t.dtype not in (torch.uint32, torch.uint64):
+            then_t = _to_fp32(then_t)
+            else_t = _to_fp32(else_t)
+        res = _where(
+            torch.as_tensor(numpy.asarray(condition).astype(bool)), then_t, else_t
+        )
         return [torch_to_numpy_tensor(res).astype(input_dtype, copy=False)]
 
     third_party = {"torch": ThirdPartyImpl}
@@ -127,9 +132,9 @@ class SelectV2TestSpec:
 class AclnnSWhereTestSpec:
     """aclnnSWhere 流程：out = condition ? self : other。"""
 
-    def golden(condition, selfT, other, out, **kwargs):
+    def golden(condition, self, other, out, **kwargs):
         """参数跟随 aclnnSWhere：condition、self、other 张量，out 张量。"""
-        return [_cast_to_out(_where(condition, selfT, other), out)]
+        return [_cast_to_out(_where(condition, self, other), out)]
 
     third_party = {"torch": ThirdPartyImpl}
 

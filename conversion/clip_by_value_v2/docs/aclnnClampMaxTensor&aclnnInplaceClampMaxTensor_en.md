@@ -346,21 +346,18 @@ aclnnStatus aclnnInplaceClampMaxTensor(
       <td class="tg-0pky">selfRef or max is a null pointer.</td>
     </tr>
     <tr>
-      <td class="tg-0pky" rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
-      <td class="tg-0pky" rowspan="5">161002</td>
+      <td class="tg-0pky" rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
+      <td class="tg-0pky" rowspan="4">161002</td>
       <td class="tg-0pky">The data types of selfRef and max are not in the supported range.</td>
     </tr>
     <tr>
       <td class="tg-0lax">The shapes of selfRef and max do not meet the <a href="../../../docs/en/context/broadcast_relationship.md" target="_blank">broadcast</a> relationship.</td>
     </tr>
     <tr>
-      <td class="tg-0lax">Type inference of selfRef and max fails.</td>
+      <td class="tg-0lax">Type inference of selfRef and max fails, or the inferred data type cannot be converted to the data type of selfRef.</td>
     </tr>
     <tr>
       <td class="tg-0lax">The dimensions of selfRef or max exceed 8.</td>
-    </tr>
-    <tr>
-      <td class="tg-0lax">Type inference of selfRef and max fails, or the inferred data type cannot be converted to the data type of selfRef.</td>
     </tr>
   </tbody>
   </table>

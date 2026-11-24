@@ -80,7 +80,7 @@ aclnnStatus aclnnMaxN(
     </tr></thead>
   <tbody>
     <tr>
-      <td class="tg-0pky">self (aclTensorList*)</td>
+      <td class="tg-0pky">tensors (aclTensorList*)</td>
       <td class="tg-0pky">Input</td>
       <td class="tg-0pky">The input in the formula.</td>
       <td class="tg-0pky">        <ul>
@@ -160,8 +160,8 @@ aclnnStatus aclnnMaxN(
       <td>Null pointer passed for tensors or out.</td>
     </tr>
     <tr>
-      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="4">161002</td>
+      <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="5">161002</td>
       <td>The data type of a tensor in the tensors list or out is not within the supported range.</td>
     </tr>
     <tr>
@@ -172,6 +172,9 @@ aclnnStatus aclnnMaxN(
     </tr>
     <tr>
       <td>The maximum dimension of a tensor in the tensors list exceeds 8.</td>
+    </tr>
+    <tr>
+      <td>The number of tensor in the tensors list is 0.</td>
     </tr>
   </tbody>
   </table>

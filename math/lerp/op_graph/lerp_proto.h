@@ -29,7 +29,8 @@ namespace ge {
  *     float16, float32, bfloat16. \n
  * The shape of start, end and weight should satisfy the broadcast relationship. \n
  * @li end: An ND tensor. The same dtype as start. \n
- * @li weight: An ND tensor. The same dtype as start. \n
+ * @li weight: An ND tensor. The dtype must be the same as start. On Ascend 950 AI\n
+ *     Processor and later, float32 is also supported when start is float16 or bfloat16. \n
 
  * @par Outputs
  * y: An ND tensor with the same dtype as start. \n

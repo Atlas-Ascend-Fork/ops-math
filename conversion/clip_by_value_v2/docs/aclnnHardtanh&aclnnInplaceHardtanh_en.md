@@ -117,9 +117,9 @@ aclnnStatus aclnnInplaceHardtanh(
       <td class="tg-0pky">Input</td>
       <td class="tg-0pky">Input scalar that limits the lower bound of self, that is, clipValueMin in the formula.</td>
       <td class="tg-0pky">and the data type must meet the data type conversion rule together with the data type of self (see also <a href="../../../docs/en/context/conversion_relationship.md" target="_blank">conversion relationship</a>).</td>
-      <td class="tg-0pky">FLOAT16, FLOAT, DOUBLE, INT8, UINT8, INT16, INT32, INT64, BFLOAT16, BOOL</td>
-      <td class="tg-0pky">ND</td>
-      <td class="tg-0pky">1-8</td>
+      <td class="tg-0pky">FLOAT16, FLOAT, DOUBLE, INT8, UINT8, INT16, INT32, INT64, BFLOAT16</td>
+      <td class="tg-0pky">-</td>
+      <td class="tg-0pky">-</td>
       <td class="tg-0pky">-</td>
     </tr>
     <tr>
@@ -127,9 +127,9 @@ aclnnStatus aclnnInplaceHardtanh(
       <td class="tg-0lax">Input</td>
       <td class="tg-0lax">Input scalar that limits the upper bound of self, that is, clipValueMax in the formula.</td>
       <td class="tg-0lax">and the data type must meet the data type conversion rule together with the data type of self (see also <a href="../../../docs/en/context/conversion_relationship.md" target="_blank">conversion relationship</a>).</td>
-      <td class="tg-0lax">FLOAT16, FLOAT, DOUBLE, INT8, UINT8, INT16, INT32, INT64, BFLOAT16, BOOL</td>
-      <td class="tg-0lax">ND</td>
-      <td class="tg-0lax">1-8</td>
+      <td class="tg-0lax">FLOAT16, FLOAT, DOUBLE, INT8, UINT8, INT16, INT32, INT64, BFLOAT16</td>
+      <td class="tg-0lax">-</td>
+      <td class="tg-0lax">-</td>
       <td class="tg-0lax">-</td>
     </tr>
     <tr>
@@ -286,9 +286,9 @@ aclnnStatus aclnnInplaceHardtanh(
       <td class="tg-0pky">Input</td>
       <td class="tg-0pky">Input scalar that limits the lower bound of selfRef, that is, clipValueMin in the formula.</td>
       <td class="tg-0pky">Its data type must conform to the conversion rule of the data type of self (see <a href="../../../docs/en/context/conversion_relationship.md" target="_blank">conversion relationship</a>).</td>
-      <td class="tg-0pky">FLOAT16, FLOAT, DOUBLE, INT8, UINT8, INT16, INT32, INT64, BFLOAT16, BOOL</td>
-      <td class="tg-0pky">ND</td>
-      <td class="tg-0pky">1-8</td>
+      <td class="tg-0pky">FLOAT16, FLOAT, DOUBLE, INT8, UINT8, INT16, INT32, INT64, BFLOAT16</td>
+      <td class="tg-0pky">-</td>
+      <td class="tg-0pky">-</td>
       <td class="tg-0pky">-</td>
     </tr>
     <tr>
@@ -296,9 +296,9 @@ aclnnStatus aclnnInplaceHardtanh(
       <td class="tg-0lax">Input</td>
       <td class="tg-0lax">Input scalar that limits the upper bound of selfRef, that is, clipValueMax in the formula.</td>
       <td class="tg-0lax">Its data type must conform to the conversion rule of the data type of self (see <a href="../../../docs/en/context/conversion_relationship.md" target="_blank">conversion relationship</a>).</td>
-      <td class="tg-0lax">FLOAT16, FLOAT, DOUBLE, INT8, UINT8, INT16, INT32, INT64, BFLOAT16, BOOL</td>
-      <td class="tg-0lax">ND</td>
-      <td class="tg-0lax">1-8</td>
+      <td class="tg-0lax">FLOAT16, FLOAT, DOUBLE, INT8, UINT8, INT16, INT32, INT64, BFLOAT16</td>
+      <td class="tg-0lax">-</td>
+      <td class="tg-0lax">-</td>
       <td class="tg-0lax">-</td>
     </tr>
     <tr>
@@ -401,7 +401,8 @@ aclnnStatus aclnnInplaceHardtanh(
 
 ## Constraints
 
-None.
+- Deterministic computation:
+  - aclnnHardtanh and aclnnInplaceHardtanh default to a deterministic implementation.
 
 ## Example
 

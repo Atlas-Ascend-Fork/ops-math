@@ -27,7 +27,7 @@
 - 计算公式：
 
   $$
-  out_i = floor(\frac{input_i}{other})
+  out_i = floor(\frac{self_i}{other})
   $$
 
 ## 函数原型
@@ -101,7 +101,7 @@ aclnnStatus aclnnInplaceFloorDivides(
     <tr>
       <td>self（aclTensor*）</td>
       <td>输入</td>
-      <td>-</td>
+      <td>公式中的self。</td>
       <td>数据类型需要与other满足数据类型推导规则（参见<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>）。</td>
       <td>FLOAT、FLOAT16、DOUBLE、INT32、INT64、INT16、INT8、UINT8、BOOL</td>
       <td>ND</td>
@@ -111,7 +111,7 @@ aclnnStatus aclnnInplaceFloorDivides(
     <tr>
       <td>other（aclScalar*）</td>
       <td>输入</td>
-      <td>-</td>
+      <td>公式中的other。</td>
       <td>数据类型需要与self满足数据类型推导规则（参见<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>）。</td>
       <td>FLOAT、FLOAT16、DOUBLE、INT32、INT64、INT16、INT8、UINT8、BOOL</td>
       <td>-</td>
@@ -121,7 +121,7 @@ aclnnStatus aclnnInplaceFloorDivides(
     <tr>
       <td>out（aclTensor*）</td>
       <td>输出</td>
-      <td>-</td>
+      <td>公式中的out。</td>
       <td>数据类型需要是self与other推导之后可转换的数据类型，shape需要是self与other broadcast之后的shape。</td>
       <td>FLOAT、FLOAT16、DOUBLE、INT32、INT64、INT16、INT8、UINT8、BOOL、UINT16、UINT32、UINT64、COMPLEX64、COMPLEX128</td>
       <td>ND</td>
@@ -269,7 +269,7 @@ aclnnStatus aclnnInplaceFloorDivides(
     <tr>
       <td>selfRef（aclTensor*）</td>
       <td>输入/输出</td>
-      <td>-</td>
+      <td>输入输出tensor。</td>
       <td>数据类型需要与other满足数据类型推导规则（参见<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>）。</td>
       <td>FLOAT、FLOAT16、DOUBLE、INT32、INT64、INT16、INT8、UINT8、BOOL</td>
       <td>ND</td>
@@ -279,7 +279,7 @@ aclnnStatus aclnnInplaceFloorDivides(
     <tr>
       <td>other（aclScalar*）</td>
       <td>输入</td>
-      <td>-</td>
+      <td>公式中的other。</td>
       <td>数据类型需要与selfRef满足数据类型推导规则（参见<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>）。</td>
       <td>FLOAT、FLOAT16、DOUBLE、INT32、INT64、INT16、INT8、UINT8、BOOL</td>
       <td>-</td>

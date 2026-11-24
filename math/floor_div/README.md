@@ -116,7 +116,8 @@
 
 ## 调用说明
 
-| 调用方式 | 样例代码                                             | 说明                                                                                         |
-|---------|----------------------------------------------------|----------------------------------------------------------------------------------------------|
-| aclnn调用 | [test_aclnn_floor_divide](./examples/test_aclnn_floor_divide.cpp) | 通过[aclnnFloorDivide和aclnnInplaceFloorDivide](./docs/aclnnFloorDivide&aclnnInplaceFloorDivide.md)接口方式调用FloorDiv算子  |
-| aclnn调用 | [test_aclnn_floor_divides.cpp](./examples/test_aclnn_floor_divides.cpp) | 通过[aclnnFloorDivides&aclnnInplaceFloorDivides](./docs/aclnnFloorDivides&aclnnInplaceFloorDivides.md)接口方式调用floor_div算子。 |
+| 调用方式   | 样例代码                                       | 说明                                                                                 |
+| ---------- | ---------------------------------------------- | ------------------------------------------------------------------------------------ |
+| aclnn API  | [test\_aclnn\_floor\_divide](./examples/test_aclnn_floor_divide.cpp) <br> [test\_aclnn\_inplace\_floor\_divide](./examples/test_aclnn_inplace_floor_divide.cpp) | 通过[aclnnFloorDivide&aclnnInplaceFloorDivide](./docs/aclnnFloorDivide&aclnnInplaceFloorDivide.md)接口方式调用FloorDiv算子。 |
+| aclnn API | [test\_aclnn\_floor\_divides](./examples/test_aclnn_floor_divides.cpp) <br> [test\_aclnn\_inplace\_floor\_divides](./examples/test_aclnn_inplace_floor_divides.cpp) | 通过[aclnnFloorDivides&aclnnInplaceFloorDivides](./docs/aclnnFloorDivides&aclnnInplaceFloorDivides.md)接口方式调用floor_div算子。 |
+| GE图模式 | [test\_geir\_floor\_div](./examples/test_geir_floor_div.cpp)   | 通过[算子IR](./op_graph/floor_div_proto.h)构图方式调用FloorDiv算子，参见[算子调用](../../docs/zh/invocation/quick_op_invocation.md)完成编译和验证。 |

@@ -134,7 +134,7 @@ aclnnStatus aclnnInplaceLerps(
     <tr>
       <td>out (aclTensor*)</td>
       <td>Output</td>
-      <td>out in the formula.</td>
+      <td>The output out in the formula.</td>
       <td>The shape must be the same as the shape after broadcasting self and end.</td>
       <td>FLOAT, FLOAT16, BFLOAT16, DOUBLE</td>
       <td>ND</td>
@@ -533,7 +533,7 @@ int main() {
     CHECK_RET(ret == ACL_SUCCESS, return ret);
     // Create the weight aclScalar.
     weight = aclCreateScalar(&weightValue, aclDataType::ACL_FLOAT);
-    CHECK_RET(weight != nullptr, return ret);
+    CHECK_RET(weight != nullptr, LOG_PRINT("aclCreateScalar failed.\n"); return ACL_ERROR_FAILURE);
     // Create the out aclTensor.
     ret = CreateAclTensor(outHostData, outShape, &outDeviceAddr, aclDataType::ACL_FLOAT, &out);
     CHECK_RET(ret == ACL_SUCCESS, return ret);
@@ -680,7 +680,7 @@ int main() {
     CHECK_RET(ret == ACL_SUCCESS, return ret);
     // Create the weight aclScalar.
     weight = aclCreateScalar(&weightValue, aclDataType::ACL_FLOAT);
-    CHECK_RET(weight != nullptr, return ret);
+    CHECK_RET(weight != nullptr, LOG_PRINT("aclCreateScalar failed.\n"); return ACL_ERROR_FAILURE);
     // 3. Call the CANN operator library API.
     uint64_t workspaceSize = 0;
     aclOpExecutor* executor;

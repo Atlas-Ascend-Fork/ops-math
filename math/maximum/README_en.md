@@ -68,7 +68,8 @@ None
 
 ## Invocation Description
 
-| Invocation Method | Sample Code                                                                   | Description                                                           |
-|--------------|------------------------------------------------------------------------|--------------------------------------------------------------|
-| aclnn invocation | [test_aclnn_maximum](./examples/test_aclnn_maximum.cpp) | Invokes the aclnnMaximum operator through the [aclnnMaximum](./docs/aclnnMaximum_en.md) API. |
-| aclnn invocation | [test_aclnn_maxn](./examples/test_aclnn_maxn.cpp) | Invokes the aclnnMaxN operator through the [aclnnMaxN](./docs/aclnnMaxN_en.md) API. |
+| Invocation Method   | Sample Code                                       | Description                                                                                 |
+| ---------- | ---------------------------------------------- | ------------------------------------------------------------------------------------ |
+| aclnn API  | [test\_aclnn\_maximum](./examples/test_aclnn_maximum.cpp) | Invokes the aclnnMaximum operator through the [aclnnMaximum](./docs/aclnnMaximum_en.md) API. |
+| aclnn API  | [test\_aclnn\_maxn](./examples/test_aclnn_maxn.cpp) | Invokes the aclnnMaxN operator through the [aclnnMaxN](./docs/aclnnMaxN_en.md) API. |
+| GE graph mode | [test\_geir\_maximum](./examples/test_geir_maximum.cpp)   | Invokes the Maximum operator by building a graph through the [operator IR](./op_graph/maximum_proto.h). For compilation and verification, see [Compile and Run Samples](../../docs/en/context/compile_and_run_sample.md). |

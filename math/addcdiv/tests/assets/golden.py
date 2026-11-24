@@ -50,6 +50,30 @@ def _cast_to_out(result, out):
     return result
 
 
+def _addcdiv(self, tensor1, tensor2, value):
+    """按公式 out = self + value * (tensor1 / tensor2) 计算参考值。
+
+    先按接口规则把 self/tensor1/tensor2 提升到共同计算类型：
+    - 共同类型为整数（int64）时走截断整数除法（torch 2.x 已移除整型 addcdiv）；
+      注：kernel 仅支持 fp16/bf16/fp32（op_host/addcdiv_def.cpp 与 tiling 均无 int64），
+      该整数分支无对应 kernel 实现、语义暂以 torch legacy trunc 为准，与 kernel 对齐前勿生成 int64 tensor 用例；
+    - 否则走浮点除法；fp16/bf16 中间抬 fp32（匹配 PrecisionReduceFlag）后回写。
+    """
+    promoted = torch.promote_types(tensor1.dtype, tensor2.dtype)
+    promoted = torch.promote_types(self.dtype, promoted)
+    if not promoted.is_floating_point:
+        value = torch.tensor(value, dtype=promoted)
+        return self.to(promoted) + value * torch.div(
+            tensor1.to(promoted), tensor2.to(promoted), rounding_mode="trunc"
+        )
+    res = torch.addcdiv(
+        _to_fp32(self), _to_fp32(tensor1), _to_fp32(tensor2), value=value
+    )
+    if self.dtype in _FP_REDUCE:
+        res = res.to(self.dtype)
+    return res
+
+
 def _third_party_inputs(args, kwargs):
     """从三方标杆调用参数中提取三个输入张量（位置优先，kwargs 兜底）。"""
 
@@ -116,11 +140,7 @@ class AclnnAddcdivTestSpec:
     def golden(self, tensor1, tensor2, value, out, **kwargs):
         """参数跟随 aclnnAddcdiv：self、tensor1、tensor2 张量，value 标量，out 张量。"""
         v = _to_scalar(value)
-        res = torch.addcdiv(
-            _to_fp32(self), _to_fp32(tensor1), _to_fp32(tensor2), value=v
-        )
-        if self.dtype in _FP_REDUCE:
-            res = res.to(self.dtype)
+        res = _addcdiv(self, tensor1, tensor2, v)
         return [_cast_to_out(res, out)]
 
     third_party = {"torch": ThirdPartyImpl}
@@ -132,11 +152,7 @@ class AclnnInplaceAddcdivTestSpec:
     def golden(selfRef, tensor1, tensor2, value, **kwargs):
         """参数跟随 aclnnInplaceAddcdiv：selfRef、tensor1、tensor2 张量，value 标量。"""
         v = _to_scalar(value)
-        res = torch.addcdiv(
-            _to_fp32(selfRef), _to_fp32(tensor1), _to_fp32(tensor2), value=v
-        )
-        if selfRef.dtype in _FP_REDUCE:
-            res = res.to(selfRef.dtype)
+        res = _addcdiv(selfRef, tensor1, tensor2, v)
         return [res]
 
     third_party = {"torch": ThirdPartyImpl}

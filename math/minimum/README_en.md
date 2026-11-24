@@ -68,7 +68,8 @@ None
 
 ## Invocation Description
 
-| Invocation Method | Sample Code                                                                   | Description                                                           |
-|--------------|------------------------------------------------------------------------|--------------------------------------------------------------|
-| aclnn invocation | [test_aclnn_mimimum](./examples/test_aclnn_Minimum.cpp) | Invokes the aclnnMinimum operator through the [aclnnMinimum](./docs/aclnnMinimum_en.md) API. |
-| aclnn invocation | [test_aclnn_minn](./examples/test_aclnn_MinN.cpp) | Invokes the aclnnMinN operator through the [aclnnMinN](./docs/aclnnMinN_en.md) API. |
+| Invocation Method   | Sample Code                                       | Description                                                                                 |
+| ---------- | ---------------------------------------------- | ------------------------------------------------------------------------------------ |
+| aclnn API  | [test\_aclnn\_Minimum](./examples/test_aclnn_Minimum.cpp) | Invokes the aclnnMinimum operator through the [aclnnMinimum](./docs/aclnnMinimum_en.md) API. |
+| aclnn API  | [test\_aclnn\_MinN](./examples/test_aclnn_MinN.cpp) | Invokes the aclnnMinN operator through the [aclnnMinN](./docs/aclnnMinN_en.md) API. |
+| GE graph mode | [test\_geir\_minimum](./examples/test_geir_minimum.cpp)   | Invokes the Minimum operator by building a graph through the [operator IR](./op_graph/minimum_proto.h). For compilation and verification, see [Compile and Run Samples](../../docs/en/context/compile_and_run_sample.md). |

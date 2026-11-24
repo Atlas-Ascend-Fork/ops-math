@@ -160,9 +160,9 @@ aclnnStatus aclnnMinimum(
       <td>When self, other, or out is a null pointer.</td>
     </tr>
     <tr>
-      <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="5">161002</td>
-      <td>The data type of self or other is out of the supported range.</td>
+      <td rowspan="6">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="6">161002</td>
+      <td>The data type of self, other, or out is out of the supported range.</td>
     </tr>
     <tr>
       <td>The data types of self and other cannot be deduced.</td>
@@ -175,6 +175,9 @@ aclnnStatus aclnnMinimum(
     </tr>
     <tr>
       <td>The shapes of self and other do not meet the broadcast restriction: when the broadcast data type (or the deduced data type) is COMPLEX64, COMPLEX128, DOUBLE, INT16, UINT16, or UINT64, consecutive broadcast axes and consecutive non-broadcast axes must be merged, and the number of merged segments must be less than 6.</td>
+    </tr>
+    <tr>
+      <td>The maximum number of dimensions of self and other exceeds 8.</td>
     </tr>
   </tbody>
   </table>

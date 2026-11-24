@@ -39,6 +39,25 @@ def _cast_to_out(result, out):
     return result
 
 
+_UINT_SELECT_TYPES = (torch.uint16, torch.uint32, torch.uint64)
+
+
+def _where(condition, x, y):
+    """torch.where 兜底：where_cpu 未实现 uint16/uint32/uint64，改走 numpy 保持精确。"""
+    cond = condition.to(torch.bool)
+    if x.dtype in _UINT_SELECT_TYPES or y.dtype in _UINT_SELECT_TYPES:
+        return torch.from_numpy(numpy.where(cond.numpy(), x.numpy(), y.numpy())).clone()
+    return torch.where(cond, x, y)
+
+
+def _where_kernel(condition, x1, x2):
+    """Select kernel/GEIR 路径：左对齐广播，condition 维数不足时在尾部补 1 维。"""
+    cond = condition.to(torch.bool)
+    if cond.dim() < x1.dim():
+        cond = cond.reshape(cond.shape + (1,) * (x1.dim() - cond.dim()))
+    return torch.where(cond, x1, x2)
+
+
 def _third_party_inputs(
     args,
     kwargs,
@@ -86,14 +105,15 @@ class SelectTestSpec:
         """kernel/GEIR golden：numpy → torch 计算 → numpy 回转。"""
         from ttk.utilities import numpy_to_torch_tensor, torch_to_numpy_tensor
 
-        input_dtype = numpy.asarray(x1).dtype
-        cond_t = torch.as_tensor(numpy.asarray(condition).astype(bool))
-        x1_t = _to_fp32(numpy_to_torch_tensor(x1))
-        x2_t = _to_fp32(numpy_to_torch_tensor(x2))
-        if cond_t.dim() < x1_t.dim():
-            cond_t = cond_t.reshape(cond_t.shape + (1,) * (x1_t.dim() - cond_t.dim()))
-        res = torch.where(cond_t, x1_t, x2_t)
-        return [torch_to_numpy_tensor(res).astype(input_dtype, copy=False)]
+        cond_t = torch.as_tensor(numpy.asarray(condition))
+        x1_orig = numpy_to_torch_tensor(x1)
+        x2_orig = numpy_to_torch_tensor(x2)
+        x1_t = _to_fp32(x1_orig)
+        x2_t = _to_fp32(x2_orig)
+        res = _where_kernel(cond_t, x1_t, x2_t)
+        if res.dtype != x1_orig.dtype:
+            res = res.to(x1_orig.dtype)
+        return [torch_to_numpy_tensor(res)]
 
     third_party = {"torch": ThirdPartyImpl}
 
@@ -103,7 +123,7 @@ class AclnnSWhereTestSpec:
 
     def golden(condition, selfT, other, out, **kwargs):
         """参数跟随 aclnnSWhere：condition、self、other 张量，out 张量。"""
-        return [_cast_to_out(torch.where(condition.to(torch.bool), selfT, other), out)]
+        return [_cast_to_out(_where(condition, selfT, other), out)]
 
     third_party = {"torch": ThirdPartyImpl}
 

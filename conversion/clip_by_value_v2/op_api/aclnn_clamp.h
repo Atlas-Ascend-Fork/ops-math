@@ -96,7 +96,7 @@ ACLNN_API aclnnStatus aclnnClampTensor(void* workspace, uint64_t workspaceSize, 
  * @param [in] self: 输入tensor，数据类型支持FLOAT16、FLOAT、FLOAT64、INT8、UINT8、INT16、INT32、INT64。
  * 支持[非连续的Tensor](#)，数据格式支持ND（[参考](#)）。
  * @param [in] clipValueMax: 上界，数据类型需要可转换成self的数据类型。
- * @param [in] out: 输出，数据类型支持FLOAT16、FLOAT、FLOAT64、INT8、UINT8、INT16、INT32、INT64，
+ * @param [out] out: 输出，数据类型支持FLOAT16、FLOAT、FLOAT64、INT8、UINT8、INT16、INT32、INT64，
  * 且数据类型和self保持一致，shape和self保持一致，数据格式支持ND（[参考](#)）。
  * @param [out] workspaceSize: 返回用户需要在npu device侧申请的workspace大小。
  * @param [out] executor: 返回op执行器，包含了算子计算流程。
@@ -129,7 +129,7 @@ ACLNN_API aclnnStatus aclnnClampMax(void* workspace, uint64_t workspaceSize, acl
  * 计算公式：
  * $$ {y}_{i} = min({{x}_{i}},max) $$
  *
- * @param [in] selfRef: 输入tensor，数据类型支持FLOAT16、FLOAT、FLOAT64、INT8、UINT8、INT16、INT32、INT64。
+ * @param [in/out] selfRef: 输入tensor，数据类型支持FLOAT16、FLOAT、FLOAT64、INT8、UINT8、INT16、INT32、INT64。
  * 支持[非连续的Tensor](#)，数据格式支持ND（[参考](#)）。
  * @param [in] clipValueMax: 上界，数据类型需要可转换成self的数据类型。
  * @param [out] workspaceSize: 返回用户需要在npu device侧申请的workspace大小。
@@ -165,7 +165,7 @@ ACLNN_API aclnnStatus aclnnInplaceClampMax(void* workspace, uint64_t workspaceSi
  * 且数据类型需要与max的数据类型需满足数据类型推导规则，shape需要与max满足broadcast关系。支持非连续的Tensor，数据格式支持ND。
  * @param [in] max: 输入上限值tensor，数据类型支持FLOAT16、FLOAT、DOUBLE、INT8、UINT8、INT16、INT32、INT64
  * 且数据类型需要与self的数据类型需满足数据类型推导规则，shape需要与max满足broadcast关系。支持非连续的Tensor，数据格式支持ND。
- * @param [in] out: 输出tensor，数据类型支持FLOAT16、FLOAT、DOUBLE、INT8、UINT8、INT16、INT32、INT64，
+ * @param [out] out: 输出tensor，数据类型支持FLOAT16、FLOAT、DOUBLE、INT8、UINT8、INT16、INT32、INT64，
  * 且数据类型需要是self与max推导之后可转换的数据类型，shape需要是self与max
  * broadcast之后的shape。支持非连续的Tensor，数据格式支持ND。
  * @param [out] workspaceSize: 返回用户需要在npu device侧申请的workspace大小。

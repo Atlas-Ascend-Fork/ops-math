@@ -79,6 +79,7 @@ $$
 
 ## 调用说明
 
-| 调用方式 | 样例代码 | 说明 |
-| --- | --- | --- |
-| aclnn调用 | [test_aclnn_s_where.cpp](./examples/test_aclnn_s_where.cpp) | 通过[aclnnSWhere](./docs/aclnnSWhere.md)接口方式调用select算子。 |
+| 调用方式   | 样例代码                                       | 说明                                                                                 |
+| ---------- | ---------------------------------------------- | ------------------------------------------------------------------------------------ |
+| aclnn API  | [test\_aclnn\_s\_where](./examples/test_aclnn_s_where.cpp) | 通过[aclnnSWhere](./docs/aclnnSWhere.md)接口方式调用select算子。 |
+| GE图模式 | [test\_geir\_select](./examples/test_geir_select.cpp)   | 通过[算子IR](./op_graph/select_proto.h)构图方式调用Select算子，参见[算子调用](../../docs/zh/invocation/quick_op_invocation.md)完成编译和验证。 |

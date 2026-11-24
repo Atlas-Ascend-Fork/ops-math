@@ -53,8 +53,8 @@ ge::graphStatus SelectV2Tiling::DoOpTiling()
                                 ge::TypeUtils::DataTypeToSerialString(input2DType) + " and " +
                                 ge::TypeUtils::DataTypeToSerialString(outputDtype);
         OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(
-            context_->GetNodeName(), "condition, x1, x2 and y", dtypesStr.c_str(),
-            "The dtype of condition must be bool, and the dtypes of x1, x2 and y must be the same");
+            context_->GetNodeName(), "condition, then, else and result", dtypesStr.c_str(),
+            "The dtype of condition must be bool, and the dtypes of then, else and result must be the same");
         return ge::GRAPH_FAILED;
     }
 
@@ -85,7 +85,7 @@ ge::graphStatus SelectV2Tiling::DoOpTiling()
         tilingKey = GET_TPL_TILING_KEY(brcBaseTiling.GetSchMode());
     } else {
         std::string dtypeStr = ge::TypeUtils::DataTypeToSerialString(input1DType);
-        OP_LOGE_FOR_INVALID_DTYPE(context_->GetNodeName(), "x1", dtypeStr.c_str(),
+        OP_LOGE_FOR_INVALID_DTYPE(context_->GetNodeName(), "then", dtypeStr.c_str(),
                                   "int64, int32, int8, uint8, float16, bf16 or fp32");
         return ge::GRAPH_FAILED;
     }

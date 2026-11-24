@@ -84,8 +84,7 @@ None
 
 ## Invocation Description
 
-| Invocation Method | Sample Code                                                                   | Description                                                           |
-|--------------|------------------------------------------------------------------------|--------------------------------------------------------------|
-| aclnn invocation | [test_aclnn_addcdiv](./examples/test_aclnn_addcdiv.cpp) | Invokes the Addcdiv operator through the [aclnnAddcdiv](./docs/aclnnAddcdiv&aclnnInplaceAddcdiv_en.md) API. |
-| aclnn invocation | [test\_aclnn\_Inplace\_addcdiv](./examples/test_aclnn_Inplace_addcdiv.cpp) | Invokes the addcdiv operator through the [aclnnAddcdiv&aclnnInplaceAddcdiv](./docs/aclnnAddcdiv&aclnnInplaceAddcdiv.md#aclnninplaceaddcdiv) APIs |
-| Graph-mode invocation | - | Invokes the Addcdiv operator by building a graph through the [operator IR](./op_graph/addcdiv_proto.h). |
+| Invocation Method   | Sample Code                                       | Description                                                                                 |
+| ---------- | ---------------------------------------------- | ------------------------------------------------------------------------------------ |
+| aclnn API  | [test\_aclnn\_addcdiv](./examples/test_aclnn_addcdiv.cpp) <br> [test\_aclnn\_Inplace\_addcdiv](./examples/test_aclnn_Inplace_addcdiv.cpp) | Invokes the Addcdiv operator through the [aclnnAddcdiv&aclnnInplaceAddcdiv](./docs/aclnnAddcdiv&aclnnInplaceAddcdiv_en.md) APIs. |
+| GE graph mode | [test\_geir\_addcdiv](./examples/test_geir_addcdiv.cpp)   | Invokes the Addcdiv operator by building a graph through the [operator IR](./op_graph/addcdiv_proto.h). For compilation and verification, see [Compile and Run Samples](../../docs/en/context/compile_and_run_sample.md). |

@@ -28,7 +28,7 @@
 - 计算公式：
 
 $$
-{y}_{i} = max(min({{x}_{i}},{max\_value}_{i}),{min\_value}_{i})
+{y}_{i} = min(max({{x}_{i}},{min\_value}_{i}),{max\_value}_{i})
 $$
 
 ## 函数原型

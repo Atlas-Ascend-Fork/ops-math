@@ -39,4 +39,4 @@
 | 调用方式   | 样例代码                                  | 说明                                             |
 | :--- | :--- | :--- |
 | aclnn API  | [test_aclnn_gcd](./examples/test_aclnn_gcd.cpp) | 通过[aclnnGcd](./docs/aclnnGcd.md)接口方式调用Gcd算子。 |
-| GE图模式   | -                                        | 通过[算子IR](./op_graph/gcd_proto.h)构图方式调用Gcd算子。 |
+| GE图模式   | [test\_geir\_gcd](./examples/test_geir_gcd.cpp) | 通过[算子IR](./op_graph/gcd_proto.h)构图方式调用Gcd算子，参见[算子调用](../../docs/zh/invocation/quick_op_invocation.md)完成编译和验证。 |

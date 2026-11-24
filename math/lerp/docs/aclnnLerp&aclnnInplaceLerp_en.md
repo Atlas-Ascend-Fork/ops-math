@@ -133,8 +133,8 @@ aclnnStatus aclnnInplaceLerp(
     </tr>
     <tr>
       <td>out (aclTensor*)</td>
-      <td>output.</td>
-      <td>out in the formula.</td>
+      <td>output</td>
+      <td>The output out in the formula.</td>
       <td>The data type must be the same as that of self, end, and weight. The shape must be the same as the shape after self, end, and weight are broadcast.</td>
       <td>FLOAT, FLOAT16, BFLOAT16</td>
       <td>ND</td>

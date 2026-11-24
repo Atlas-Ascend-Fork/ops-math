@@ -27,7 +27,7 @@ extern "C" {
  * @param [in] other: npu
  * device侧的aclTensor，数据类型支持整型，浮点类型，且数据类型需要与self构成互相推导关系，shape需要与self满足broadcast关系。
  * 支持非连续的Tensor，数据格式支持ND，且数据格式需要与self一致。
- * @param [in] out: npu
+ * @param [out] out: npu
  * device侧的aclTensor，数据类型支持整型，浮点类型，且数据类型需要是self与other推导之后可转换的数据类型，shape需要是self与other
  * broadcast之后的shape，数据格式支持ND，且数据格式需要与self一致。
  * @param [out] workspaceSize: 返回用户需要在npu device侧申请的workspace大小。

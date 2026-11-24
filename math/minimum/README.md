@@ -66,7 +66,8 @@ $$out[i] = min(x_1[i], x_2[i])$$
 
 ## 调用说明
 
-| 调用方式 | 样例代码                                                                   | 说明                                                           |
-|--------------|------------------------------------------------------------------------|--------------------------------------------------------------|
-| aclnn调用 | [test_aclnn_mimimum](./examples/test_aclnn_Minimum.cpp) | 通过[aclnnMinimum](./docs/aclnnMinimum.md)接口方式调用aclnnMinimum算子。 |
-| aclnn调用 | [test_aclnn_minn](./examples/test_aclnn_MinN.cpp) | 通过[aclnnMinN](./docs/aclnnMinN.md)接口方式调用aclnnMinN算子。 |
+| 调用方式   | 样例代码                                       | 说明                                                                                 |
+| ---------- | ---------------------------------------------- | ------------------------------------------------------------------------------------ |
+| aclnn API  | [test\_aclnn\_Minimum](./examples/test_aclnn_Minimum.cpp) | 通过[aclnnMinimum](./docs/aclnnMinimum.md)接口方式调用aclnnMinimum算子。 |
+| aclnn API  | [test\_aclnn\_MinN](./examples/test_aclnn_MinN.cpp) | 通过[aclnnMinN](./docs/aclnnMinN.md)接口方式调用aclnnMinN算子。 |
+| GE图模式 | [test\_geir\_minimum](./examples/test_geir_minimum.cpp)   | 通过[算子IR](./op_graph/minimum_proto.h)构图方式调用Minimum算子，参见[算子调用](../../docs/zh/invocation/quick_op_invocation.md)完成编译和验证。 |

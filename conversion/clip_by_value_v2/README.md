@@ -17,7 +17,7 @@
 - 计算公式：
 
 $$
-{y}_{i} = max(min({{x}_{i}},{max\_value}_{i}),{min\_value}_{i})
+{y}_{i} = min(max({{x}_{i}},{min\_value}_{i}),{max\_value}_{i})
 $$
 
 ## 参数说明
@@ -77,11 +77,11 @@ $$
 
 | 调用方式   | 样例代码           | 说明                                         |
 | ---------------- | --------------------------- | --------------------------------------------------- |
-| aclnn调用 | [test_aclnn_clamp](./examples/test_aclnn_clamp.cpp) | 通过[aclnnClamp](./docs/aclnnClamp.md)接口方式调用clip_by_value_v2算子。    |
-| aclnn调用 | [test_aclnn_clamp_max](./examples/test_aclnn_clamp_max.cpp) <br> [test_aclnn_inplace_clamp_max](./examples/test_aclnn_inplace_clamp_max.cpp) | 通过[aclnnClampMax&aclnnInplaceClampMax](./docs/aclnnClampMax&aclnnInplaceClampMax.md)接口方式调用clip_by_value_v2算子。    |
-| aclnn调用 | [test_aclnn_clamp_max_tensor](./examples/test_aclnn_clamp_max_tensor.cpp) <br> [test_aclnn_inplace_clamp_max_tensor](./examples/test_aclnn_inplace_clamp_max_tensor.cpp) | 通过[aclnnClampMaxTensor&aclnnInplaceClampMaxTensor](./docs/aclnnClampMaxTensor&aclnnInplaceClampMaxTensor.md)接口方式调用clip_by_value_v2算子。    |
-| aclnn调用 | [test_aclnn_clamp_min](./examples/test_aclnn_clamp_min.cpp) | 通过[aclnnClampMin](./docs/aclnnClampMin.md)接口方式调用clip_by_value_v2算子。    |
-| aclnn调用 | [test_aclnn_clamp_min_tensor](./examples/test_aclnn_clamp_min_tensor.cpp) <br> [test_aclnn_inplace_clamp_min_tensor](./examples/test_aclnn_inplace_clamp_min_tensor.cpp) | 通过[aclnnClampMinTensor&aclnnInplaceClampMinTensor](./docs/aclnnClampMinTensor&aclnnInplaceClampMinTensor.md)接口方式调用clip_by_value_v2算子。    |
-| aclnn调用 | [test_aclnn_clamp_tensor](./examples/test_aclnn_clamp_tensor.cpp) | 通过[aclnnClampTensor](./docs/aclnnClampTensor.md)接口方式调用clip_by_value_v2算子。    |
-| aclnn调用 | [test_aclnn_hardtanh](./examples/test_aclnn_hardtanh.cpp) <br> [test_aclnn_inplace_hardtanh](./examples/test_aclnn_inplace_hardtanh.cpp) | 通过[aclnnHardtanh&aclnnInplaceHardtanh](./docs/aclnnHardtanh&aclnnInplaceHardtanh.md)接口方式调用clip_by_value_v2算子。    |
-| 图模式调用 | [test_geir_clip_by_value_v2](./examples/test_geir_clip_by_value_v2.cpp)   | 通过[算子IR](./op_graph/clip_by_value_v2_proto.h)构图方式调用clip_by_value_v2算子。 |
+| aclnn API | [test_aclnn_clamp](./examples/test_aclnn_clamp.cpp) | 通过[aclnnClamp](./docs/aclnnClamp.md)接口方式调用clip_by_value_v2算子。    |
+| aclnn API | [test_aclnn_clamp_max](./examples/test_aclnn_clamp_max.cpp) <br> [test_aclnn_inplace_clamp_max](./examples/test_aclnn_inplace_clamp_max.cpp) | 通过[aclnnClampMax&aclnnInplaceClampMax](./docs/aclnnClampMax&aclnnInplaceClampMax.md)接口方式调用clip_by_value_v2算子。    |
+| aclnn API | [test_aclnn_clamp_max_tensor](./examples/test_aclnn_clamp_max_tensor.cpp) <br> [test_aclnn_inplace_clamp_max_tensor](./examples/test_aclnn_inplace_clamp_max_tensor.cpp) | 通过[aclnnClampMaxTensor&aclnnInplaceClampMaxTensor](./docs/aclnnClampMaxTensor&aclnnInplaceClampMaxTensor.md)接口方式调用clip_by_value_v2算子。    |
+| aclnn API | [test_aclnn_clamp_min](./examples/test_aclnn_clamp_min.cpp) | 通过[aclnnClampMin](./docs/aclnnClampMin.md)接口方式调用clip_by_value_v2算子。    |
+| aclnn API | [test_aclnn_clamp_min_tensor](./examples/test_aclnn_clamp_min_tensor.cpp) <br> [test_aclnn_inplace_clamp_min_tensor](./examples/test_aclnn_inplace_clamp_min_tensor.cpp) | 通过[aclnnClampMinTensor&aclnnInplaceClampMinTensor](./docs/aclnnClampMinTensor&aclnnInplaceClampMinTensor.md)接口方式调用clip_by_value_v2算子。    |
+| aclnn API | [test_aclnn_clamp_tensor](./examples/test_aclnn_clamp_tensor.cpp) | 通过[aclnnClampTensor](./docs/aclnnClampTensor.md)接口方式调用clip_by_value_v2算子。    |
+| aclnn API | [test_aclnn_hardtanh](./examples/test_aclnn_hardtanh.cpp) <br> [test_aclnn_inplace_hardtanh](./examples/test_aclnn_inplace_hardtanh.cpp) | 通过[aclnnHardtanh&aclnnInplaceHardtanh](./docs/aclnnHardtanh&aclnnInplaceHardtanh.md)接口方式调用clip_by_value_v2算子。    |
+| GE图模式 | [test_geir_clip_by_value_v2](./examples/test_geir_clip_by_value_v2.cpp)   | 通过[算子IR](./op_graph/clip_by_value_v2_proto.h)构图方式调用clip_by_value_v2算子，参见[算子调用](../../docs/zh/invocation/quick_op_invocation.md)完成编译和验证。 |

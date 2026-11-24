@@ -144,24 +144,6 @@ int main()
     ret = aclnnFloorDivide(workspaceAddr.get(), workspaceSize, executor, stream.get());
     CHECK_RET(ret == ACL_SUCCESS, LOG_PRINT("aclnnFloorDivide failed. ERROR: %d\n", ret); return ret);
 
-    uint64_t inplaceWorkspaceSize = 0;
-    aclOpExecutor* inplaceExecutor;
-    // 调用aclnnInplaceFloorDivide第一段接口
-    ret = aclnnInplaceFloorDivideGetWorkspaceSize(self.get(), other.get(), &inplaceWorkspaceSize, &inplaceExecutor);
-    CHECK_RET(ret == ACL_SUCCESS, LOG_PRINT("aclnnInplaceFloorDivideGetWorkspaceSize failed. ERROR: %d\n", ret);
-              return ret);
-    // 根据第一段接口计算出的workspaceSize申请device内存
-    DeviceMemPtr inplaceWorkspaceAddr(nullptr, &aclrtFree);
-    if (inplaceWorkspaceSize > static_cast<uint64_t>(0)) {
-        void* rawWorkspaceAddr = nullptr;
-        ret = aclrtMalloc(&rawWorkspaceAddr, inplaceWorkspaceSize, ACL_MEM_MALLOC_HUGE_FIRST);
-        CHECK_RET(ret == ACL_SUCCESS, LOG_PRINT("allocate workspace failed. ERROR: %d\n", ret); return ret);
-        inplaceWorkspaceAddr.reset(rawWorkspaceAddr);
-    }
-    // 调用aclnnInplaceFloorDivide第二段接口
-    ret = aclnnInplaceFloorDivide(inplaceWorkspaceAddr.get(), inplaceWorkspaceSize, inplaceExecutor, stream.get());
-    CHECK_RET(ret == ACL_SUCCESS, LOG_PRINT("aclnnInplaceFloorDivide failed. ERROR: %d\n", ret); return ret);
-
     // 4. （固定写法）同步等待任务执行结束
     ret = aclrtSynchronizeStream(stream.get());
     CHECK_RET(ret == ACL_SUCCESS, LOG_PRINT("aclrtSynchronizeStream failed. ERROR: %d\n", ret); return ret);
@@ -174,15 +156,6 @@ int main()
     CHECK_RET(ret == ACL_SUCCESS, LOG_PRINT("copy result from device to host failed. ERROR: %d\n", ret); return ret);
     for (int64_t i = 0; i < size; i++) {
         LOG_PRINT("result[%ld] is: %f\n", i, resultData[i]);
-    }
-
-    auto inplaceSize = GetShapeSize(selfShape);
-    std::vector<float> inplaceResultData(inplaceSize, 0);
-    ret = aclrtMemcpy(inplaceResultData.data(), inplaceResultData.size() * sizeof(inplaceResultData[0]),
-                      selfDeviceAddr.get(), inplaceSize * sizeof(float), ACL_MEMCPY_DEVICE_TO_HOST);
-    CHECK_RET(ret == ACL_SUCCESS, LOG_PRINT("copy result from device to host failed. ERROR: %d\n", ret); return ret);
-    for (int64_t i = 0; i < inplaceSize; i++) {
-        LOG_PRINT("inplaceResult[%ld] is: %f\n", i, inplaceResultData[i]);
     }
 
     return 0;

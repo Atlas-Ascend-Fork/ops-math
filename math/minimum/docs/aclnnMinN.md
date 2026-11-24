@@ -31,6 +31,8 @@
   out_i = min(input0_i, input1_i,...)
   $$
 
+  其中，input0_i、input1_i 分别对应 tensors 列表中第0个、第1个tensor的第 i 个元素，后续输入依次类推。
+
 ## 函数原型
 
 每个算子分为[两段式接口](../../../docs/zh/context/two_phase_api.md)，必须先调用“aclnnMinNGetWorkspaceSize”接口获取计算所需workspace大小以及包含了算子计算流程的执行器，再调用“aclnnMinN”接口执行计算。
@@ -80,7 +82,7 @@ aclnnStatus aclnnMinN(
     <tr>
       <td>tensors（aclTensorList*）</td>
       <td>输入</td>
-      <td>需要计算的输入tensors列表。</td>
+      <td>需要计算的输入tensors列表。tensors列表中第0个、第1个tensor分别对应公式中的input0、input1，其余依次类推。</td>
       <td>需要与out数据类型相同。tensors中各tensor的shape需要与out满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>。</td>
       <td>FLOAT16、FLOAT、INT8、UINT8、INT32、INT64、BFLOAT16</td>
       <td>ND</td>

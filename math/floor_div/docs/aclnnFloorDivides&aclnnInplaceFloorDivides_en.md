@@ -29,7 +29,7 @@
 - Formula:
 
   $$
-  out_i = floor(\frac{input_i}{other})
+  out_i = floor(\frac{self_i}{other})
   $$
 
 ## Function Prototype
@@ -103,7 +103,7 @@ aclnnStatus aclnnInplaceFloorDivides(
     <tr>
       <td>self (aclTensor*)</td>
       <td>Input</td>
-      <td>-</td>
+      <td>Input self in the formula.</td>
       <td>The data type must satisfy the type inference rule with other (see also <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">deduction relationship</a>).</td>
       <td>FLOAT, FLOAT16, DOUBLE, INT32, INT64, INT16, INT8, UINT8, BOOL</td>
       <td>ND</td>
@@ -113,7 +113,7 @@ aclnnStatus aclnnInplaceFloorDivides(
     <tr>
       <td>other (aclScalar*)</td>
       <td>Input</td>
-      <td>-</td>
+      <td>Input other in the formula.</td>
       <td>The data type must satisfy the type inference rule with self (see also <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">deduction relationship</a>).</td>
       <td>FLOAT, FLOAT16, DOUBLE, INT32, INT64, INT16, INT8, UINT8, BOOL</td>
       <td>-</td>
@@ -123,7 +123,7 @@ aclnnStatus aclnnInplaceFloorDivides(
     <tr>
       <td>out (aclTensor*)</td>
       <td>Output</td>
-      <td>-</td>
+      <td>output out in the formula.</td>
       <td>The data type must be convertible from the data types of self and other after type inference, and the shape must be the shape after self and other are broadcast.</td>
       <td>FLOAT, FLOAT16, DOUBLE, INT32, INT64, INT16, INT8, UINT8, BOOL, UINT16, UINT32, UINT64, COMPLEX64, COMPLEX128</td>
       <td>ND</td>
@@ -271,7 +271,7 @@ aclnnStatus aclnnInplaceFloorDivides(
     <tr>
       <td>selfRef (aclTensor*)</td>
       <td>Input/Output</td>
-      <td>-</td>
+      <td>Input/Output tensor.</td>
       <td>The data type must satisfy the type inference rule with other (see also <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">deduction relationship</a>).</td>
       <td>FLOAT, FLOAT16, DOUBLE, INT32, INT64, INT16, INT8, UINT8, BOOL</td>
       <td>ND</td>
@@ -281,7 +281,7 @@ aclnnStatus aclnnInplaceFloorDivides(
     <tr>
       <td>other (aclScalar*)</td>
       <td>Input</td>
-      <td>-</td>
+      <td>Input other in the formula.</td>
       <td>The data type must satisfy the type inference rule with selfRef (see also <a href="../../../docs/en/context/deduction_relationship.md" target="_blank">deduction relationship</a>).</td>
       <td>FLOAT, FLOAT16, DOUBLE, INT32, INT64, INT16, INT8, UINT8, BOOL</td>
       <td>-</td>

@@ -26,7 +26,7 @@ extern "C" {
  *
  * @param [in] tensors: npu device侧的aclTensorList，数据类型支持整型，浮点类型，shape需要与out满足broadcast关系。
  * 支持非连续的Tensor，数据格式支持ND。
- * @param [in] out: npu device侧的aclTensor，数据类型支持整型，浮点类型。支持非连续的Tensor，数据格式支持ND。
+ * @param [out] out: npu device侧的aclTensor，数据类型支持整型，浮点类型。支持非连续的Tensor，数据格式支持ND。
  * @param [out] workspaceSize: 返回用户需要在npu device侧申请的workspace大小。
  * @param [out] executor: 返回op执行器，包含算子计算流程。
  * @return aclnnStatus: 返回状态码。
@@ -40,7 +40,7 @@ ACLNN_API aclnnStatus aclnnMinNGetWorkspaceSize(const aclTensorList* tensors, ac
  * 算子功能：计算输入tensors列表中每个tensor对应元素求min。
  *
  * @param [in] workspace: 在npu device侧申请的workspace内存起址。
- * @param [in] workspace_size: 在npu device侧申请的workspace大小，由第一段接口aclnnSumGetWorkspaceSize获取。
+ * @param [in] workspaceSize: 在npu device侧申请的workspace大小，由第一段接口aclnnMinNGetWorkspaceSize获取。
  * @param [in] executor: op执行器，包含了算子计算流程。
  * @param [in] stream: acl stream流。
  * @return aclnnStatus: 返回状态码。

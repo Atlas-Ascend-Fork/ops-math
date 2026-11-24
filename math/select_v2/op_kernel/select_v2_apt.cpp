@@ -21,10 +21,10 @@
 using namespace AscendC;
 
 template <uint64_t schMode>
-__global__ __aicore__ void select_v2(GM_ADDR condition, GM_ADDR x1, GM_ADDR x2, GM_ADDR y, GM_ADDR workspace,
+__global__ __aicore__ void select_v2(GM_ADDR condition, GM_ADDR then, GM_ADDR else_, GM_ADDR result, GM_ADDR workspace,
                                      GM_ADDR tiling)
 {
-    using OpDag = SelectV2Op::SelectV2<DTYPE_X1>::OpDag;
+    using OpDag = SelectV2Op::SelectV2<DTYPE_THEN>::OpDag;
     Ops::Base::BroadcastSch<schMode, OpDag> sch(tiling);
-    sch.Process(condition, x1, x2, y);
+    sch.Process(condition, then, else_, result);
 }

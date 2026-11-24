@@ -81,6 +81,7 @@ Return 161002 (ACLNN_ERR_PARAM_INVALID): 1. The data type and dimensions of self
 
 ## Invocation Description
 
-| Invocation Method | Sample Code | Description |
-| --- | --- | --- |
-| aclnn invocation | [test\_aclnn\_s\_where](./examples/test_aclnn_s_where.cpp) | Invokes the select operator through the [aclnnSWhere](./docs/aclnnSWhere_en.md) APIs |
+| Invocation Method   | Sample Code                                       | Description                                                                                 |
+| ---------- | ---------------------------------------------- | ------------------------------------------------------------------------------------ |
+| aclnn API  | [test\_aclnn\_s\_where](./examples/test_aclnn_s_where.cpp) | Invokes the select operator through the [aclnnSWhere](./docs/aclnnSWhere_en.md) APIs |
+| GE graph mode | [test\_geir\_select](./examples/test_geir_select.cpp)   | Invokes the Select operator by building a graph through the [operator IR](./op_graph/select_proto.h). For compilation and verification, see [Compile and Run Samples](../../docs/en/context/compile_and_run_sample.md). |

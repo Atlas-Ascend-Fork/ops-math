@@ -66,7 +66,8 @@ $$out[i] = max(x_1[i], x_2[i])$$
 
 ## 调用说明
 
-| 调用方式 | 样例代码                                                                   | 说明                                                           |
-|--------------|------------------------------------------------------------------------|--------------------------------------------------------------|
-| aclnn调用 | [test_aclnn_maximum](./examples/test_aclnn_maximum.cpp) | 通过[aclnnMaximum](./docs/aclnnMaximum.md)接口方式调用aclnnMaximum算子。 |
-| aclnn调用 | [test_aclnn_maxn](./examples/test_aclnn_maxn.cpp) | 通过[aclnnMaxN](./docs/aclnnMaxN.md)接口方式调用aclnnMaxN算子。 |
+| 调用方式   | 样例代码                                       | 说明                                                                                 |
+| ---------- | ---------------------------------------------- | ------------------------------------------------------------------------------------ |
+| aclnn API  | [test\_aclnn\_maximum](./examples/test_aclnn_maximum.cpp) | 通过[aclnnMaximum](./docs/aclnnMaximum.md)接口方式调用aclnnMaximum算子。 |
+| aclnn API  | [test\_aclnn\_maxn](./examples/test_aclnn_maxn.cpp) | 通过[aclnnMaxN](./docs/aclnnMaxN.md)接口方式调用aclnnMaxN算子。 |
+| GE图模式 | [test\_geir\_maximum](./examples/test_geir_maximum.cpp)   | 通过[算子IR](./op_graph/maximum_proto.h)构图方式调用Maximum算子，参见[算子调用](../../docs/zh/invocation/quick_op_invocation.md)完成编译和验证。 |

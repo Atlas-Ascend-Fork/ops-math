@@ -15,7 +15,7 @@ English | [简体中文](./README.md)
 
 ## Function Description
 
-- Operator function: a tensor computation function that performs the combined multiply-divide-add operation and merges tensor multiplication (with scaling) + tensor addition into a single operation.
+- Operator function: a tensor computation function that performs the combined multiply and add operation and merges tensor multiplication (with scaling) + tensor addition into a single operation.
 
 - Computation formula:
 
@@ -84,8 +84,7 @@ None
 
 ## Invocation Description
 
-| Invocation Method | Sample Code                                                                   | Description                                                           |
-|--------------|------------------------------------------------------------------------|--------------------------------------------------------------|
-| aclnn invocation | [test_aclnn_addcmul](./examples/test_aclnn_addcmul.cpp) | Invokes the Addcmul operator through the [aclnnAddcmul](./docs/aclnnAddcmul&aclnnInplaceAddcmul_en.md) API. |
-| aclnn invocation | [test\_aclnn\_inplace\_addcmul](./examples/test_aclnn_inplace_addcmul.cpp) | Invokes the addcmul operator through the [aclnnAddcmul&aclnnInplaceAddcmul](./docs/aclnnAddcmul&aclnnInplaceAddcmul.md#aclnninplaceaddcmul) APIs |
-| Graph-mode invocation | - | Invokes the Addcmul operator by building a graph through the [operator IR](./op_graph/addcmul_proto.h). |
+| Invocation Method   | Sample Code                                       | Description                                                                                 |
+| ---------- | ---------------------------------------------- | ------------------------------------------------------------------------------------ |
+| aclnn API  | [test\_aclnn\_addcmul](./examples/test_aclnn_addcmul.cpp) <br> [test\_aclnn\_inplace\_addcmul](./examples/test_aclnn_inplace_addcmul.cpp) | Invokes the Addcmul operator through the [aclnnAddcmul&aclnnInplaceAddcmul](./docs/aclnnAddcmul&aclnnInplaceAddcmul_en.md) APIs. |
+| GE graph mode | [test\_geir\_addcmul](./examples/test_geir_addcmul.cpp)   | Invokes the Addcmul operator by building a graph through the [operator IR](./op_graph/addcmul_proto.h). For compilation and verification, see [Compile and Run Samples](../../docs/en/context/compile_and_run_sample.md). |

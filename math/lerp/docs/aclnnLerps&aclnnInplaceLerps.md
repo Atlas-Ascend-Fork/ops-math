@@ -531,7 +531,7 @@ int main() {
     CHECK_RET(ret == ACL_SUCCESS, return ret);
     // 创建weight aclScalar
     weight = aclCreateScalar(&weightValue, aclDataType::ACL_FLOAT);
-    CHECK_RET(weight != nullptr, return ret);
+    CHECK_RET(weight != nullptr, LOG_PRINT("aclCreateScalar failed.\n"); return ACL_ERROR_FAILURE);
     // 创建out aclTensor
     ret = CreateAclTensor(outHostData, outShape, &outDeviceAddr, aclDataType::ACL_FLOAT, &out);
     CHECK_RET(ret == ACL_SUCCESS, return ret);
@@ -678,7 +678,7 @@ int main() {
     CHECK_RET(ret == ACL_SUCCESS, return ret);
     // 创建weight aclScalar
     weight = aclCreateScalar(&weightValue, aclDataType::ACL_FLOAT);
-    CHECK_RET(weight != nullptr, return ret);
+    CHECK_RET(weight != nullptr, LOG_PRINT("aclCreateScalar failed.\n"); return ACL_ERROR_FAILURE);
     // 3. 调用CANN算子库API
     uint64_t workspaceSize = 0;
     aclOpExecutor* executor;

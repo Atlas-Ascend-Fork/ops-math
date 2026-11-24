@@ -40,7 +40,7 @@ $$
     </tr></thead>
   <tbody>
     <tr>
-      <td>self</td>
+      <td>start</td>
       <td>输入</td>
       <td>待进行lerp计算的入参，公式中的start_i。</td>
       <td>FLOAT、FLOAT16、BFLOAT16</td>
@@ -49,21 +49,21 @@ $$
     <tr>
       <td>end</td>
       <td>输入</td>
-      <td>待进行lerp计算的入参，公式中的end_i。</td>
+      <td>待进行lerp计算的入参，公式中的end_i。数据类型与start保持一致。</td>
       <td>FLOAT、FLOAT16、BFLOAT16</td>
       <td>ND</td>
     </tr>
     <tr>
       <td>weight</td>
       <td>输入</td>
-      <td>待进行lerp计算的入参，公式中的weight_i。</td>
+      <td>待进行lerp计算的入参，公式中的weight_i。数据类型与start保持一致。</td>
       <td>FLOAT、FLOAT16、BFLOAT16</td>
       <td>ND</td>
     </tr>
     <tr>
       <td>out</td>
       <td>输出</td>
-      <td>待进行lerp计算的出参，公式中的out_i。</td>
+      <td>待进行lerp计算的出参，公式中的out_i。数据类型与start保持一致。</td>
       <td>FLOAT、FLOAT16、BFLOAT16</td>
       <td>ND</td>
     </tr>
@@ -71,11 +71,12 @@ $$
 
 ## 约束说明
 
-end、weight的dtype需要与self一致。
+<term>Ascend 950PR&950DT系列产品</term>：start为float16或bfloat16时weight还支持float32。
 
 ## 调用说明
 
-| 调用方式 | 样例代码                                                                   | 说明                                                           |
-|--------------|------------------------------------------------------------------------|--------------------------------------------------------------|
-| aclnn调用 | [test_aclnn_lerp](./examples/test_aclnn_lerp.cpp) | 通过[aclnnLerp](docs/aclnnLerp&aclnnInplaceLerp.md)接口方式调用Lerp算子。 |
-| aclnn调用 | [test_aclnn_inplace_lerp.cpp](./examples/test_aclnn_inplace_lerp.cpp) | 通过[aclnnLerp&aclnnInplaceLerp](./docs/aclnnLerp&aclnnInplaceLerp.md#aclnninplacelerp)接口方式调用lerp算子。 |
+| 调用方式   | 样例代码                                       | 说明                                                                                 |
+| ---------- | ---------------------------------------------- | ------------------------------------------------------------------------------------ |
+| aclnn API  | [test\_aclnn\_lerp](./examples/test_aclnn_lerp.cpp) <br> [test\_aclnn\_inplace\_lerp](./examples/test_aclnn_inplace_lerp.cpp) | 通过[aclnnLerp&aclnnInplaceLerp](./docs/aclnnLerp&aclnnInplaceLerp.md)接口方式调用Lerp算子。 |
+| aclnn API  | [test\_aclnn\_lerps](./examples/test_aclnn_lerps.cpp) <br> [test\_aclnn\_inplace\_lerps](./examples/test_aclnn_inplace_lerps.cpp) | 通过[aclnnLerps&aclnnInplaceLerps](./docs/aclnnLerps&aclnnInplaceLerps.md)接口方式调用lerp算子。 |
+| GE图模式 | [test\_geir\_lerp](./examples/test_geir_lerp.cpp)   | 通过[算子IR](./op_graph/lerp_proto.h)构图方式调用Lerp算子，参见[算子调用](../../docs/zh/invocation/quick_op_invocation.md)完成编译和验证。 |

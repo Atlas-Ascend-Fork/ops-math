@@ -22,7 +22,7 @@ extern "C" {
  * @brief aclnnHardtanh的第一段接口，根据具体的计算流程，计算workspace大小。
  * @domain aclnn_ops_infer
  * 算子功能：将输入的所有元素限制在[clipValueMin,clipValueMax]范围内，若元素大于max则限制为max，
- * 若元素小于min则限制为min，否则等于元素本身，min默认值为-1.0，max默认值为1.0。
+ * 若元素小于min则限制为min，否则等于元素本身。
  * 计算公式：如下所示
  * $$
  * HardTanh(x) = \left\{\begin{matrix}
@@ -46,10 +46,10 @@ extern "C" {
  *     G --> H[(out)]
  * ```
  *
- * @param [in] self: 待进行erf计算的入参。npu
+ * @param [in] self: npu
  * device侧的aclTensor，数据类型支持FLOAT、BFLOAT16、FLOAT16、INT32、INT64、INT16、INT8、
  * UINT8、FLOAT64，数据格式支持ND，且数据格式需要与out一致，支持非连续的Tensor。
- * @param [in] out: erf计算的出参。npu
+ * @param [out] out: npu
  * device侧的aclTensor，数据类型支持FLOAT、BFLOAT16、FLOAT16、INT32、INT64、INT16、INT8、UINT8、
  * FLOAT64，数据格式支持ND，且数据格式需要与self一致， 支持非连续的Tensor。
  * @param [in] clipValueMin: host侧的aclScalar，数据类型需要可转换成self的数据类型。
@@ -77,7 +77,7 @@ ACLNN_API aclnnStatus aclnnHardtanh(void* workspace, uint64_t workspaceSize, acl
  * @brief aclnnInplaceHardtanh的第一段接口，根据具体的计算流程，计算workspace大小。
  * @domain aclnn_ops_infer
  * 算子功能：将输入的所有元素限制在[clipValueMin,clipValueMax]范围内，若元素大于max则限制为max，
- * 若元素小于min则限制为min，否则等于元素本身，min默认值为-1.0，max默认值为1.0。
+ * 若元素小于min则限制为min，否则等于元素本身。
  * 计算公式：如下所示
  * $$
  * HardTanh(x) = \left\{\begin{matrix}
@@ -101,7 +101,7 @@ ACLNN_API aclnnStatus aclnnHardtanh(void* workspace, uint64_t workspaceSize, acl
  *     G --> H[(out)]
  * ```
  *
- * @param [in] selfRef: 待进行erf计算的入参。npu
+ * @param [in/out] selfRef: npu
  * device侧的aclTensor，数据类型支持FLOAT、FLOAT16、INT32、INT64、INT16、INT8、
  * UINT8、FLOAT64，数据格式支持ND，且数据格式需要与out一致， 支持非连续的Tensor。
  * @param [in] clipValueMin: host侧的aclScalar，数据类型需要可转换成self的数据类型。

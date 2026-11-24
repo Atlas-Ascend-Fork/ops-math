@@ -13,7 +13,7 @@
 
 ## 功能说明
 
-- 算子功能：张量运算函数，用于执行乘除加组合操作，将张量乘法（带缩放）+ 张量加法合并为单个操作。
+- 算子功能：张量运算函数，用于执行乘法与加法的组合操作，将张量乘法（带缩放）+ 张量加法合并为单个操作。
 
 - 计算公式：
 
@@ -82,8 +82,7 @@ $out = self + value × input_1 × input_2$
 
 ## 调用说明
 
-| 调用方式 | 样例代码                                                                   | 说明                                                           |
-|--------------|------------------------------------------------------------------------|--------------------------------------------------------------|
-| aclnn调用 | [test_aclnn_addcmul](./examples/test_aclnn_addcmul.cpp) | 通过[aclnnAddcmul](./docs/aclnnAddcmul&aclnnInplaceAddcmul.md)接口方式调用Addcmul算子。 |
-| aclnn调用 | [test_aclnn_inplace_addcmul.cpp](./examples/test_aclnn_inplace_addcmul.cpp) | 通过[aclnnAddcmul&aclnnInplaceAddcmul](./docs/aclnnAddcmul&aclnnInplaceAddcmul.md#aclnninplaceaddcmul)接口方式调用addcmul算子。 |
-| 图模式调用 | - | 通过[算子IR](./op_graph/addcmul_proto.h)构图方式调用Addcmul算子。 |
+| 调用方式   | 样例代码                                       | 说明                                                                                 |
+| ---------- | ---------------------------------------------- | ------------------------------------------------------------------------------------ |
+| aclnn API  | [test\_aclnn\_addcmul](./examples/test_aclnn_addcmul.cpp) <br> [test\_aclnn\_inplace\_addcmul](./examples/test_aclnn_inplace_addcmul.cpp) | 通过[aclnnAddcmul&aclnnInplaceAddcmul](./docs/aclnnAddcmul&aclnnInplaceAddcmul.md)接口方式调用Addcmul算子。 |
+| GE图模式 | [test\_geir\_addcmul](./examples/test_geir_addcmul.cpp)   | 通过[算子IR](./op_graph/addcmul_proto.h)构图方式调用Addcmul算子，参见[算子调用](../../docs/zh/invocation/quick_op_invocation.md)完成编译和验证。 |

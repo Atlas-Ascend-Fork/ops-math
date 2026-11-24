@@ -37,11 +37,11 @@ public:
             .Format(baseFormat)
             .UnknownShapeFormat(baseFormat);
 
-        this->Input("x1").ParamType(REQUIRED).DataType(dataType).Format(baseFormat).UnknownShapeFormat(baseFormat);
+        this->Input("then").ParamType(REQUIRED).DataType(dataType).Format(baseFormat).UnknownShapeFormat(baseFormat);
 
-        this->Input("x2").ParamType(REQUIRED).DataType(dataType).Format(baseFormat).UnknownShapeFormat(baseFormat);
+        this->Input("else").ParamType(REQUIRED).DataType(dataType).Format(baseFormat).UnknownShapeFormat(baseFormat);
 
-        this->Output("y").ParamType(REQUIRED).DataType(dataType).Format(baseFormat).UnknownShapeFormat(baseFormat);
+        this->Output("result").ParamType(REQUIRED).DataType(dataType).Format(baseFormat).UnknownShapeFormat(baseFormat);
 
         OpAICoreConfig aicoreConfig;
         aicoreConfig.DynamicCompileStaticFlag(true)
