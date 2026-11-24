@@ -15,7 +15,9 @@
 
 - 算子功能：Pdist算子计算行向量两两之间的p-范数距离（pairwise p-norm distances），输出为上三角行优先的一维向量。等价于 `torch.nn.functional.pdist`。
 
-- kernel 实现形态：**PyPTO DSL**（`op_kernel/pdist.py`），经 `enable_pypto_kernel` 在 configure 阶段做 codegen 并以 pypto opc 形式交付（MIX 发射，AIC 空转、计算全部位于 Vector 核）。
+- kernel 实现形态：
+  - Ascend 950PR&950DT系列产品：**PyPTO DSL**（`op_kernel/pdist.py`），经 `enable_pypto_kernel` 在 configure 阶段做 codegen 并以 pypto opc 形式交付（MIX 发射，AIC 空转、计算全部位于 Vector 核）。
+  - Atlas A2/A3系列产品（experimental构建）：**Ascend C**（`experimental/math/pdist/op_kernel`），使用 Vector 核完成分块规约。
 
 - 计算公式：
 
@@ -87,7 +89,7 @@ fp16 输入：片上中间累加一律使用 FP32，出口窄化回 FP16。
   - y的shape必须为(N*(N-1)/2,)。
   - fp16输入的中间累加使用FP32，出口窄化回FP16。
   - 平台差异：
-    - p=+inf且输入含NaN时：Ascend 950PR&950DT系列产品忽略NaN维度（输出非NaN维度的最大绝对差，全NaN行对输出 0），对齐GPU/CUDA语义；其余平台会将NaN传播至输出。
+    - p=+inf且输入含NaN时：Ascend 950PR&950DT系列产品以及Atlas A2/A3系列产品的experimental构建忽略NaN维度（输出非NaN维度的最大绝对差，全NaN行对输出 0），对齐GPU/CUDA语义；其余实现会将NaN传播至输出。
 
   <table style="undefined;table-layout: fixed; width: 909px"><colgroup>
     <col style="width: 125px">

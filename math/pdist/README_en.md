@@ -17,7 +17,9 @@ English | [简体中文](./README.md)
 
 - Operator function: the Pdist operator computes the p-norm distances (pairwise p-norm distances) between each pair of row vectors. The output is a one-dimensional vector in upper-triangular row-major order. It is equivalent to `torch.nn.functional.pdist`.
 
-- Kernel implementation form: **PyPTO DSL** (`op_kernel/pdist.py`). Code generation is performed at the configure stage through `enable_pypto_kernel`, and the result is delivered as a pypto opc (MIX launch, the AIC stays idle, and all computation is performed on the Vector cores).
+- Kernel implementation forms:
+  - Ascend 950PR/950DT products: **PyPTO DSL** (`op_kernel/pdist.py`). Code generation is performed at the configure stage through `enable_pypto_kernel`, and the result is delivered as a pypto opc (MIX launch, the AIC stays idle, and all computation is performed on the Vector cores).
+  - Atlas A2/A3 products in experimental builds: **Ascend C** (`experimental/math/pdist/op_kernel`), using Vector cores for blocked reduction.
 
 - Computation formula:
 
@@ -89,7 +91,7 @@ fp16 input: on-chip intermediate accumulation always uses FP32, and the result i
   - The shape of y must be (N*(N-1)/2,).
   - Intermediate accumulation of fp16 input uses FP32, and the result is narrowed back to FP16 at the output.
   - Platform differences:
-    - When p=+inf and the input contains NaN: on Ascend 950PR/950DT, NaN dimensions are ignored (the maximum absolute difference of non-NaN dimensions is output, and all-NaN row pairs output 0), which is aligned with the GPU/CUDA semantics. On other platforms, NaN is propagated to the output.
+    - When p=+inf and the input contains NaN: on Ascend 950PR/950DT and Atlas A2/A3 products in experimental builds, NaN dimensions are ignored (the maximum absolute difference of non-NaN dimensions is output, and all-NaN row pairs output 0), which is aligned with the GPU/CUDA semantics. Other implementations propagate NaN to the output.
 
   <table style="undefined;table-layout: fixed; width: 909px"><colgroup>
     <col style="width: 125px">
