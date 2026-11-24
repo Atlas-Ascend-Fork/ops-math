@@ -121,7 +121,7 @@ aclnnStatus aclnnHistc(
       <td>out（aclTensor*）</td>
       <td>输出</td>
       <td>直方图统计结果。</td>
-      <td><ul><li>out数据类型需要可转换为self的数据类型（参考<a href="../../../docs/zh/context/conversion_relationship.md" target="_blank">互转换关系</a>）。</li><li>元素个数等于bins。</li></ul></td>
+      <td><ul><li>out数据类型需要可转换为self的数据类型，校验方向为out→self。</li><li>当self为浮点类型（FLOAT16、FLOAT32、BFLOAT16）时，out可为FLOAT16、FLOAT32、BFLOAT16、INT32、INT64、INT16、INT8、UINT8；当self为整型（INT8、UINT8、INT16、INT32、INT64）时，out仅支持整型（INT8、UINT8、INT16、INT32、INT64），传入FLOAT16、FLOAT32或BFLOAT16时返回161002。</li><li>该转换校验较通用互转换规则更严格：浮点类型不允许转换为整型。</li><li>元素个数等于bins。</li></ul></td>
       <td>FLOAT16、FLOAT32、BFLOAT16、INT32、INT64、INT16、INT8、UINT8</td>
       <td>ND</td>
       <td>1</td>
@@ -179,7 +179,7 @@ aclnnStatus aclnnHistc(
       <td>self和out的数据类型和数据格式不在支持的范围之内。</td>
     </tr>
     <tr>
-      <td>self与out的数据类型不满足互转换关系。</td>
+      <td>out的数据类型不可转换为self的数据类型（如self为整型、out为FLOAT16或FLOAT32时）。</td>
     </tr>
     <tr>
       <td>传入的bins小于等于0。</td>

@@ -123,7 +123,7 @@ aclnnStatus aclnnHistc(
       <td>out (aclTensor*)</td>
       <td>Output</td>
       <td>Histogram statistics result.</td>
-      <td><ul><li>The data type of out must be convertible to the data type of self (see <a href="../../../docs/en/context/conversion_relationship.md" target="_blank">conversion relationship</a>).</li><li>The number of elements equals bins.</li></ul></td>
+      <td><ul><li>The data type of out must be convertible to the data type of self, and the check direction is out→self.</li><li>When self is a floating-point type (FLOAT16, FLOAT32, or BFLOAT16), out can be FLOAT16, FLOAT32, BFLOAT16, INT32, INT64, INT16, INT8, or UINT8. When self is an integer type (INT8, UINT8, INT16, INT32, or INT64), out supports only integer types (INT8, UINT8, INT16, INT32, or INT64); FLOAT16, FLOAT32, or BFLOAT16 returns 161002.</li><li>This conversion check is stricter than the general conversion rules: a floating-point type cannot be converted to an integer type.</li><li>The number of elements equals bins.</li></ul></td>
       <td>FLOAT16, FLOAT32, BFLOAT16, INT32, INT64, INT16, INT8, UINT8</td>
       <td>ND</td>
       <td>1</td>
@@ -181,7 +181,7 @@ aclnnStatus aclnnHistc(
       <td>The data type and data format of self and out are not in the supported range.</td>
     </tr>
     <tr>
-      <td>The data types of self and out do not meet the conversion relationship.</td>
+      <td>The data type of out cannot be converted to the data type of self (for example, self is an integer type and out is FLOAT16 or FLOAT32).</td>
     </tr>
     <tr>
       <td>The input bins is less than or equal to 0.</td>
