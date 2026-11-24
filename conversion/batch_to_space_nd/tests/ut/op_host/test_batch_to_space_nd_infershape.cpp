@@ -60,6 +60,26 @@ TEST_F(BatchToSpaceNDInfershapeTest, batch_to_space_nd_unknown_rank)
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
 
+// Non-const block_shape (dynamic input): shape inference cannot be performed, expect unknown rank output
+TEST_F(BatchToSpaceNDInfershapeTest, batch_to_space_nd_dynamic_block_shape_unknown_rank)
+{
+    std::vector<int32_t> cropsValues = {0, 0, 0, 0};
+
+    gert::InfershapeContextPara infershapeContextPara(
+        "BatchToSpaceND",
+        {
+            {{{4, 1, 1, 1}, {4, 1, 1, 1}}, ge::DT_FLOAT, ge::FORMAT_ND},
+            {{{2}, {2}}, ge::DT_INT32, ge::FORMAT_ND},
+            {{{2, 2}, {2, 2}}, ge::DT_INT32, ge::FORMAT_ND, true, cropsValues.data()},
+        },
+        {
+            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        });
+
+    std::vector<std::vector<int64_t>> expectOutputShape = {{-2}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
 TEST_F(BatchToSpaceNDInfershapeTest, batch_to_space_nd_unknown_shape_4d)
 {
     std::vector<int32_t> blockShapeValues = {2, 2};

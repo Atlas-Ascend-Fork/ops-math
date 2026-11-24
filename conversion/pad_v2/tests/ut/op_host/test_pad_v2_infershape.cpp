@@ -13,6 +13,7 @@
 #include "infershape_context_faker.h"
 #include "infershape_case_executor.h"
 #include "base/registry/op_impl_space_registry_v2.h"
+#include "exe_graph/runtime/kernel_run_context.h"
 
 class PadV2InferShapeTest : public testing::Test {
 protected:
@@ -458,4 +459,52 @@ TEST_F(PadV2InferShapeTest, TestNullPaddingsTensor)
         {{{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND}}, noInstanceNum, {}, nullInputIndices);
 
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED);
+}
+
+// x shape is nullptr, expect infershape to fail
+TEST_F(PadV2InferShapeTest, TestNullXShape)
+{
+    gert::StorageShape xShape = {{3, 3}, {3, 3}};
+    gert::StorageShape paddingsShape = {{2, 2}, {2, 2}};
+    std::vector<int32_t> paddingsValues = {1, 1, 1, 1};
+    std::vector<size_t> nullInputIndices = {0};
+
+    gert::InfershapeContextPara infershapeContextPara(
+        "PadV2",
+        {{xShape, ge::DT_FLOAT, ge::FORMAT_ND},
+         {paddingsShape, ge::DT_INT32, ge::FORMAT_ND, true, paddingsValues.data()}},
+        {{{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND}}, {}, {}, nullInputIndices);
+
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED);
+}
+
+// y output shape is nullptr, expect infershape to fail
+TEST_F(PadV2InferShapeTest, TestNullYShape)
+{
+    std::vector<int32_t> paddingsValues = {1, 1, 1, 1};
+    gert::Tensor xTensor(
+        {{{3, 3}, {3, 3}}, {ge::FORMAT_ND, ge::FORMAT_ND, {}}, gert::TensorPlacement::kOnHost, ge::DT_FLOAT, nullptr});
+    gert::Tensor paddingsTensor({{{2, 2}, {2, 2}},
+                                 {ge::FORMAT_ND, ge::FORMAT_ND, {}},
+                                 gert::TensorPlacement::kOnHost,
+                                 ge::DT_INT32,
+                                 paddingsValues.data()});
+    auto holder = gert::InferShapeContextFaker()
+                      .SetOpType("PadV2")
+                      .NodeIoNum(2, 1)
+                      .InputTensors({&xTensor, &paddingsTensor})
+                      .Build();
+    auto spaceRegistry = gert::DefaultOpImplSpaceRegistryV2::GetInstance().GetSpaceRegistry();
+    ASSERT_NE(spaceRegistry, nullptr);
+    auto opImpl = spaceRegistry->GetOpImpl("PadV2");
+    ASSERT_NE(opImpl, nullptr);
+    auto inferShapeFunc = opImpl->infer_shape;
+    ASSERT_NE(inferShapeFunc, nullptr);
+    auto* kernelCtx = reinterpret_cast<KernelRunContext*>(holder.GetContext());
+    ASSERT_NE(kernelCtx, nullptr);
+    auto* ySlot = kernelCtx->values[kernelCtx->input_size];
+    auto* yShapeBackup = ySlot->data.pointer;
+    ySlot->data.pointer = nullptr;
+    EXPECT_EQ(inferShapeFunc(holder.GetContext()), ge::GRAPH_FAILED);
+    ySlot->data.pointer = yShapeBackup;
 }

@@ -174,9 +174,8 @@ static ge::graphStatus InferShape4BroadcastTo(gert::InferShapeContext* context)
     auto shape_tensor = context->GetInputTensor(INPUT_INDEX_SHAPE);
     if (shape_tensor == nullptr || !IsConstTensor(shape_tensor)) {
         auto attrs = context->GetAttrs();
-        const gert::ContinuousVector* shape_attr = (attrs != nullptr) ?
-                                                       attrs->GetAttrPointer<gert::ContinuousVector>(0) :
-                                                       nullptr;
+        OP_CHECK_NULL_WITH_CONTEXT(context, attrs);
+        const gert::ContinuousVector* shape_attr = attrs->GetAttrPointer<gert::ContinuousVector>(0);
         if (shape_attr != nullptr && shape_attr->GetSize() > 0) {
             return BroadcastToInferShapeWithShapeValues(context, x_shape, shape_attr, out_shape);
         }

@@ -40,11 +40,6 @@ static ge::graphStatus PadV2Infershape(const gert::InferShapeContext* context, c
     OP_LOGD(context->GetNodeName(), "Begin to do PadV2Infershape");
     OP_LOGD(context->GetNodeName(), "input x = %s", Ops::Base::ToString(*x_shape).c_str());
 
-    if (paddings_num > 0 && paddings_value == nullptr) {
-        OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "paddings");
-        return ge::GRAPH_FAILED;
-    }
-
     // input shape check
     size_t input_dim_size = x_shape->GetDimNum();
     if (input_dim_size == 0) {

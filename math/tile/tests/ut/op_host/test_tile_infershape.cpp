@@ -226,3 +226,54 @@ TEST_F(TileTest, tile_infershape_multiples_exceed_max_dim)
         });
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED);
 }
+
+// Test scenario: scalar x with empty const multiples (non-null data pointer), expect empty output shape
+TEST_F(TileTest, tile_infershape_scalar_empty_multiples)
+{
+    int32_t dummy = 0;
+    gert::InfershapeContextPara infershapeContextPara(
+        "Tile", {{{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND}, {{{0}, {0}}, ge::DT_INT32, ge::FORMAT_ND, true, &dummy}},
+        {
+            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        });
+    std::vector<std::vector<int64_t>> expectOutputShape = {{}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+// Test scenario: negative multiple value, expect infershape to fail
+TEST_F(TileTest, tile_infershape_negative_multiple)
+{
+    std::vector<int32_t> values = {2, -1};
+    gert::InfershapeContextPara infershapeContextPara("Tile",
+                                                      {{{{2, 3}, {2, 3}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                       {{{2}, {2}}, ge::DT_INT32, ge::FORMAT_ND, true, values.data()}},
+                                                      {
+                                                          {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                      });
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED);
+}
+
+// Test scenario: non-const scalar multiples, expect output rank 1
+TEST_F(TileTest, tile_infershape_non_const_scalar_multiples)
+{
+    gert::InfershapeContextPara infershapeContextPara(
+        "Tile", {{{{2, 3}, {2, 3}}, ge::DT_FLOAT, ge::FORMAT_ND}, {{{}, {}}, ge::DT_INT32, ge::FORMAT_ND}},
+        {
+            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        });
+    std::vector<std::vector<int64_t>> expectOutputShape = {{-1}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
+// Test scenario: INT64 multiples tensor without data, expect fallback to unknown dims
+TEST_F(TileTest, tile_infershape_int64_empty_multiples)
+{
+    gert::InfershapeContextPara infershapeContextPara(
+        "Tile",
+        {{{{2, 3}, {2, 3}}, ge::DT_FLOAT, ge::FORMAT_ND}, {{{0}, {0}}, ge::DT_INT64, ge::FORMAT_ND, true, nullptr}},
+        {
+            {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        });
+    std::vector<std::vector<int64_t>> expectOutputShape = {{-1, -1}};
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}

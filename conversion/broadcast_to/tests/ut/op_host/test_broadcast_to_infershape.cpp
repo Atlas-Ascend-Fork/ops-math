@@ -127,6 +127,24 @@ TEST_F(BroadcastToInferShapeTest, broadcast_to_infershape_attrs_path_001)
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
 
+// Test scenario: non-const shape tensor falls back to the "_shape_values" attribute
+TEST_F(BroadcastToInferShapeTest, broadcast_to_infershape_non_const_tensor_with_attr_001)
+{
+    gert::StorageShape xShape = {{1, 3, 4}, {1, 3, 4}};
+    gert::StorageShape shapeParamShape = {{3}, {3}};
+    std::vector<int64_t> shapeValues = {2, 3, 4};
+    gert::InfershapeContextPara::TensorDescription x(xShape, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::InfershapeContextPara::TensorDescription shapeParams(shapeParamShape, ge::DT_INT64, ge::FORMAT_ND);
+    gert::InfershapeContextPara::TensorDescription y(xShape, ge::DT_FLOAT, ge::FORMAT_ND);
+    gert::InfershapeContextPara::OpAttr shapeAttr("_shape_values",
+                                                  Ops::Math::AnyValue::CreateFrom<std::vector<int64_t>>(shapeValues));
+    gert::InfershapeContextPara infershapeContextPara("BroadcastTo", {x, shapeParams}, {y}, {shapeAttr});
+    std::vector<std::vector<int64_t>> expectOutputShape = {
+        {{2, 3, 4}},
+    };
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
+
 // Test scenario: shape_size < x dimNum to cover the OP_CHECK_IF failure path (lines 69-74)
 TEST_F(BroadcastToInferShapeTest, broadcast_to_infershape_shape_size_less_than_x_001)
 {

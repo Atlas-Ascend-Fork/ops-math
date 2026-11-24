@@ -35,7 +35,7 @@ public:
 
 private:
     ge::graphStatus Init();
-    ge::graphStatus AppendBatchDim();
+    void AppendBatchDim();
     void AppendSpatialDims();
     void AppendRemainDims();
 
@@ -80,7 +80,7 @@ ge::graphStatus BatchToSpaceNDInferShapeHelper::Init()
     return ge::GRAPH_SUCCESS;
 }
 
-ge::graphStatus BatchToSpaceNDInferShapeHelper::AppendBatchDim()
+void BatchToSpaceNDInferShapeHelper::AppendBatchDim()
 {
     // batch
     int64_t batch = xShape_->GetDim(0);
@@ -90,7 +90,6 @@ ge::graphStatus BatchToSpaceNDInferShapeHelper::AppendBatchDim()
         }
     }
     yShape_->AppendDim(batch);
-    return ge::GRAPH_SUCCESS;
 }
 
 void BatchToSpaceNDInferShapeHelper::AppendSpatialDims()
@@ -140,10 +139,7 @@ ge::graphStatus BatchToSpaceNDInferShapeHelper::Inference()
     }
 
     yShape_->SetDimNum(0);
-    auto batchRet = AppendBatchDim();
-    if (batchRet != ge::GRAPH_SUCCESS) {
-        return batchRet;
-    }
+    AppendBatchDim();
     AppendSpatialDims();
     AppendRemainDims();
 

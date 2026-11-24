@@ -727,3 +727,27 @@ TEST_F(PadV3InfershapeTest, pad_v3_infershape_with_paddings_values_wrong_padding
 
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED, {});
 }
+
+// Test scenario: scalar (0-dim) x with const paddings tensor, expect 0-dim output
+TEST_F(PadV3InfershapeTest, pad_v3_infershape_const_scalar_input)
+{
+    gert::StorageShape xShape = {{}, {{}}};
+    gert::StorageShape padShape = {{0}, {0}};
+    std::vector<int32_t> padValues = {};
+    gert::StorageShape constantShape = {{1}, {1}};
+    int32_t constantValue = 0;
+
+    gert::InfershapeContextPara infershapeContextPara(
+        "PadV3",
+        {{xShape, ge::DT_INT32, ge::FORMAT_ND},
+         {padShape, ge::DT_INT32, ge::FORMAT_ND, true, padValues.data()},
+         {constantShape, ge::DT_INT32, ge::FORMAT_ND, true, &constantValue}},
+        {{{{-2}, {-2}}, ge::DT_INT32, ge::FORMAT_ND}},
+        {gert::InfershapeContextPara::OpAttr("mode", Ops::Math::AnyValue::CreateFrom<std::string>("constant")),
+         gert::InfershapeContextPara::OpAttr("paddings_contiguous", Ops::Math::AnyValue::CreateFrom<bool>(true))});
+
+    std::vector<std::vector<int64_t>> expectOutputShape = {
+        {},
+    };
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
+}
