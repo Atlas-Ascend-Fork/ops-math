@@ -12,6 +12,7 @@
 #include "aclnn_kernels/contiguous.h"
 #include "aclnn_kernels/cast.h"
 #include "aclnn_tanh_backward.h"
+#include "conversion/broadcast_to/op_api/broadcast_to.h"
 
 #include "aclnn/aclnn_base.h"
 #include "opdev/common_types.h"
@@ -143,6 +144,20 @@ aclnnStatus aclnnTanhBackwardGetWorkspaceSize(const aclTensor* gradOutput, const
     // 固定写法，将输入output转换成连续的tensor
     auto outputContiguous = l0op::Contiguous(output, uniqueExecutor.get());
     CHECK_RET(outputContiguous != nullptr, ACLNN_ERR_INNER_NULLPTR);
+
+    if (gradOutput->GetDataType() == DataType::DT_DOUBLE && gradOutput->GetViewShape() != output->GetViewShape()) {
+        auto broadcastDims = ToShapeVector(gradInput->GetViewShape());
+        auto broadcastShape = uniqueExecutor->AllocIntArray(broadcastDims.data(), broadcastDims.size());
+        CHECK_RET(broadcastShape != nullptr, ACLNN_ERR_INNER_NULLPTR);
+        if (gradOutputContiguous->GetViewShape() != gradInput->GetViewShape()) {
+            gradOutputContiguous = l0op::BroadcastTo(gradOutputContiguous, broadcastShape, uniqueExecutor.get());
+            CHECK_RET(gradOutputContiguous != nullptr, ACLNN_ERR_INNER_NULLPTR);
+        }
+        if (outputContiguous->GetViewShape() != gradInput->GetViewShape()) {
+            outputContiguous = l0op::BroadcastTo(outputContiguous, broadcastShape, uniqueExecutor.get());
+            CHECK_RET(outputContiguous != nullptr, ACLNN_ERR_INNER_NULLPTR);
+        }
+    }
 
     const aclTensor* tanhBackwardOpOut = nullptr;
     if (IsRegBase()) {
