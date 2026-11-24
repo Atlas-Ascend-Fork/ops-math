@@ -9,13 +9,12 @@
  * - Pei Haobo<@xiaopei-1>
  * - Su Tonghua <@sutonghua>
  *
- * This program is free software: you can redistribute it and/or modify it.
- * Licensed under the CANN Open Software License Agreement Version 2.0 (the "License").
- * You may not use this file except in compliance with the License.
- * See the LICENSE file at the root of the repository for the full text of the License.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTIES OF ANY KIND, EXPRESS OR IMPLIED,
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
  */
 
 /*!
@@ -84,8 +83,8 @@ private:
 };
 
 template <typename T>
-__aicore__ inline void ReduceMinV2<T>::Init(
-    GM_ADDR x, GM_ADDR z, GM_ADDR workspace, const ReduceMinV2TilingData* tilingData)
+__aicore__ inline void ReduceMinV2<T>::Init(GM_ADDR x, GM_ADDR z, GM_ADDR workspace,
+                                            const ReduceMinV2TilingData* tilingData)
 {
     ASSERT(AscendC::GetBlockNum() != 0 && "block dim can not be zero!");
     this->blockIdx = AscendC::GetBlockIdx();
@@ -106,8 +105,8 @@ __aicore__ inline void ReduceMinV2<T>::Init(
         this->coreDataNum = tilingData->smallCoreDataNum;
         this->tileNum = tilingData->finalSmallTileNum;
         this->tailDataNum = tilingData->smallTailDataNum;
-        globalBufferIndex -=
-            (tilingData->bigCoreDataNum - tilingData->smallCoreDataNum) * (this->blockIdx - tilingData->tailBlockNum);
+        globalBufferIndex -= (tilingData->bigCoreDataNum - tilingData->smallCoreDataNum) *
+                             (this->blockIdx - tilingData->tailBlockNum);
     }
 
     uint32_t totalElements = this->rows * this->cols;
@@ -119,6 +118,16 @@ __aicore__ inline void ReduceMinV2<T>::Init(
         uint32_t bindLen = (available < this->coreDataNum) ? available : this->coreDataNum;
         xGm.SetGlobalBuffer((__gm__ T*)x + globalBufferIndex, bindLen);
         this->coreDataNum = bindLen;
+    }
+    if (this->axes != 0 && this->axes != 1) {
+        // Tiling partitions aligned storage; only logical elements participate in a full reduction.
+        this->tileNum = this->coreDataNum / this->tileDataNum;
+        this->tailDataNum = this->coreDataNum % this->tileDataNum;
+        if (this->tailDataNum != 0) {
+            ++this->tileNum;
+        } else if (this->tileNum != 0) {
+            this->tailDataNum = this->tileDataNum;
+        }
     }
     uint32_t outputSize = 0;
     if (axes == 0) {
@@ -159,7 +168,13 @@ __aicore__ inline void ReduceMinV2<T>::CopyIn(int32_t progress)
 {
     uint32_t curTileLen = (progress == tileNum - 1) ? tailDataNum : tileDataNum;
     AscendC::LocalTensor<T> xLocal = inQueueInput.AllocTensor<T>();
-    AscendC::DataCopy(xLocal, xGm[progress * this->tileDataNum], curTileLen);
+    if (curTileLen * sizeof(T) % 32 != 0) {
+        AscendC::DataCopyExtParams copyParams{1, static_cast<uint32_t>(curTileLen * sizeof(T)), 0, 0, 0};
+        AscendC::DataCopyPadExtParams<T> padParams{false, 0, 0, static_cast<T>(0)};
+        AscendC::DataCopyPad(xLocal, xGm[progress * this->tileDataNum], copyParams, padParams);
+    } else {
+        AscendC::DataCopy(xLocal, xGm[progress * this->tileDataNum], curTileLen);
+    }
     inQueueInput.EnQue(xLocal);
 }
 template <typename T>
@@ -319,9 +334,7 @@ __aicore__ inline void ReduceMinV2<T>::ReduceMinV2AxesAll()
 {
     const uint32_t loopCount = this->tileNum;
     const uint32_t tileLen = this->tileDataNum;
-    const uint32_t blockLen = this->coreDataNum;
     const uint32_t lastTileLen = this->tailDataNum;
-    const uint32_t globalOffset = this->globalOffset;
 
     AscendC::LocalTensor<float> localMin = tmpBase.Get<float>();
     float initVal = std::numeric_limits<float>::infinity();

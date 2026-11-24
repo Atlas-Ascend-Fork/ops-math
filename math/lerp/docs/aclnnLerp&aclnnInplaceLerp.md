@@ -106,7 +106,7 @@ aclnnStatus aclnnInplaceLerp(
       <td>数据类型与end、weight、out一致。shape需要与end、weight满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>。</td>
       <td>FLOAT、FLOAT16、BFLOAT16</td>
       <td>ND</td>
-      <td>0-8</td>
+      <td>0-8（非连续路径）</td>
       <td>√</td>
     </tr>
     <tr>
@@ -116,7 +116,7 @@ aclnnStatus aclnnInplaceLerp(
       <td>数据类型与self、weight、out一致。shape需要与self、weight满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>。</td>
       <td>FLOAT、FLOAT16、BFLOAT16</td>
       <td>ND</td>
-      <td>0-8</td>
+      <td>0-8（非连续路径）</td>
       <td>√</td>
     </tr>
     <tr>
@@ -126,7 +126,7 @@ aclnnStatus aclnnInplaceLerp(
       <td>数据类型与self、end、out一致。shape需要与self、end满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>。</td>
       <td>FLOAT、FLOAT16、BFLOAT16</td>
       <td>ND</td>
-      <td>0-8</td>
+      <td>0-8（非连续路径）</td>
       <td>√</td>
     </tr>
     <tr>
@@ -136,7 +136,7 @@ aclnnStatus aclnnInplaceLerp(
       <td>数据类型与self、end、weight一致。shape需要与self、end、weight broadcast后的shape一致。</td>
       <td>FLOAT、FLOAT16、BFLOAT16</td>
       <td>ND</td>
-      <td>0-8</td>
+      <td>0-8（非连续路径）</td>
       <td>√</td>
     </tr>
     <tr>
@@ -160,6 +160,8 @@ aclnnStatus aclnnInplaceLerp(
       <td>-</td>
     </tr>
   </tbody></table>
+
+  - 当self、end、weight、out中任一Tensor非连续时，self、end、weight的维度均不能超过8维，否则返回ACLNN_ERR_PARAM_INVALID（161002）。全部连续时，该维度检查允许超过8维；self超过8维时会打印警告。
 
   <!-- npu="910,310p" id7 -->
   - <term>Atlas推理系列产品</term>、<term>Atlas训练系列产品</term>：不支持BFLOAT16。
@@ -189,8 +191,8 @@ aclnnStatus aclnnInplaceLerp(
       <td>传入的self、end、weight和out是空指针。</td>
     </tr>
     <tr>
-      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="4">161002</td>
+      <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="5">161002</td>
       <td>self、end、weight和out的数据类型不在支持的范围之内。</td>
     </tr>
     <tr>
@@ -201,6 +203,9 @@ aclnnStatus aclnnInplaceLerp(
     </tr>
     <tr>
       <td>self、end和weight做broadcast后的shape与out的shape不一致。</td>
+    </tr>
+    <tr>
+      <td>self、end、weight、out中任一Tensor非连续，且self、end、weight中任一Tensor超过8维。</td>
     </tr>
   </tbody>
   </table>
@@ -281,7 +286,7 @@ aclnnStatus aclnnInplaceLerp(
       <td>数据类型与end、weight一致。shape需要与end、weight满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>，且broadcast后的shape与selfRef一致。</td>
       <td>FLOAT、FLOAT16、BFLOAT16</td>
       <td>ND</td>
-      <td>0-8</td>
+      <td>0-8（非连续路径）</td>
       <td>√</td>
     </tr>
     <tr>
@@ -291,7 +296,7 @@ aclnnStatus aclnnInplaceLerp(
       <td>数据类型与selfRef、weight一致。shape需要与selfRef、weight满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>。</td>
       <td>FLOAT、FLOAT16、BFLOAT16</td>
       <td>ND</td>
-      <td>0-8</td>
+      <td>0-8（非连续路径）</td>
       <td>√</td>
     </tr>
     <tr>
@@ -301,7 +306,7 @@ aclnnStatus aclnnInplaceLerp(
       <td>数据类型与selfRef、end一致。shape需要与selfRef、end满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>。</td>
       <td>FLOAT、FLOAT16、BFLOAT16</td>
       <td>ND</td>
-      <td>0-8</td>
+      <td>0-8（非连续路径）</td>
       <td>√</td>
     </tr>
     <tr>
@@ -325,6 +330,8 @@ aclnnStatus aclnnInplaceLerp(
       <td>-</td>
     </tr>
   </tbody></table>
+
+  - 当selfRef、end、weight中任一Tensor非连续时，三者的维度均不能超过8维，否则返回ACLNN_ERR_PARAM_INVALID（161002）。全部连续时，该维度检查允许超过8维；selfRef超过8维时会打印警告。
 
   <!-- npu="910,310p" id8 -->
   - <term>Atlas推理系列产品</term>、<term>Atlas训练系列产品</term>：不支持BFLOAT16。
@@ -354,8 +361,8 @@ aclnnStatus aclnnInplaceLerp(
       <td>传入的selfRef、end和weight是空指针。</td>
     </tr>
     <tr>
-      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="4">161002</td>
+      <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="5">161002</td>
       <td>selfRef、end和weight的数据类型不在支持的范围之内。</td>
     </tr>
     <tr>
@@ -366,6 +373,9 @@ aclnnStatus aclnnInplaceLerp(
     </tr>
     <tr>
       <td>selfRef、end和weight做broadcast后的shape与selfRef的shape不一致。</td>
+    </tr>
+    <tr>
+      <td>selfRef、end、weight中任一Tensor非连续，且任一Tensor超过8维。</td>
     </tr>
   </tbody>
   </table>

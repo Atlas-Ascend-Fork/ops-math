@@ -28,7 +28,7 @@
 (1)有可选输入groupIdxOptional，且groupIdxType为0时：
 
 $$
-out(G,H) = \begin{cases} \sum_{i=groupIdxOptional(j-1)}^{groupIdxOptional(j)}  gradY(i, H), & 1 \leq j \leq G-1 \\  \sum_{i=0}^{groupIdxOptional(j)}  gradY(i, H), & j = 0 \end{cases}
+out(G,H) = \begin{cases} \sum_{i=groupIdxOptional(j-1)}^{groupIdxOptional(j)-1}  gradY(i, H), & 1 \leq j \leq G-1 \\  \sum_{i=0}^{groupIdxOptional(j)-1}  gradY(i, H), & j = 0 \end{cases}
 $$
 
 &emsp;&emsp;(2)有可选输入groupIdxOptional，且groupIdxType为1时：
@@ -38,8 +38,10 @@ groupIdx(j) = \sum_{i=0}^{j} groupIdxOptional(i), j=0,...,G-1
 $$
 
 $$
-out(G,H) = \begin {cases} \sum_{i=groupIdx(j-1)}^{groupIdx(j)} gradY(i,H), & 1 \leq j \leq G-1 \\ \sum_{i=0}^{groupIdx(j)} gradY(i, H), & j=0 \end {cases}
+out(G,H) = \begin {cases} \sum_{i=groupIdx(j-1)}^{groupIdx(j)-1} gradY(i,H), & 1 \leq j \leq G-1 \\ \sum_{i=0}^{groupIdx(j)-1} gradY(i, H), & j=0 \end {cases}
 $$
+
+&emsp;&emsp;上述两个分支均按左闭右开区间累加：第0组为 `[0, groupIdx(0))`，其余各组为 `[groupIdx(j-1), groupIdx(j))`；groupIdxType为0时，groupIdx即groupIdxOptional。区间为空时，该组输出为0。<br>
 
 &emsp;&emsp;其中，gradY共2维，H表示gradY最后一维的大小，G表示groupIdxOptional第0维的大小，即groupIdxOptional有G个数，groupIdxOptional(j)表示第j个数的大小，计算后out为2维，shape为(G, H)。<br>
 &emsp;&emsp;(3)无可选输入groupIdxOptional时：

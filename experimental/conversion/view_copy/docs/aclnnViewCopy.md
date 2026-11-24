@@ -10,6 +10,12 @@
 
 `aclnnViewCopy` 提供 ViewCopy 算子的两段式 ACLNN L2 接口。该接口将 `src` 的逻辑视图拷贝到 `dst` 的逻辑视图位置，输出 Tensor 仍命名为 `dst`，shape 与输入 `dst` 一致。
 
+## 头文件与构建来源
+
+本页描述 `experimental/conversion/view_copy` 的实验接口，需要启用 `--experimental` 并选择 `--ops=view_copy` 构建。头文件为 [aclnn_view_copy.h](../op_api/aclnn_view_copy.h)，应与同次构建的算子库配套使用；自定义包安装后位于 `vendors/<vendor_name>_math/op_api/include/`，内置包位于 `<架构>-linux/include/aclnnop/`。构建和安装步骤参见[算子调用](../../../../docs/zh/install/compile.md)。
+
+常规构建的同名接口由 `conversion/contiguous/op_host/op_api/aclnn_contiguous.cpp` 实现，其第一段接收 `const aclTensorList* in`、`const aclTensorList* out`、`uint64_t* workspaceSize`、`aclOpExecutor** executor` 四个参数，声明见[常规接口头文件](../../../../conversion/contiguous/op_host/op_api/aclnn_view_copy.h)。它与本页的多 Tensor 参数接口签名不同。动态库中存在同名符号不能证明其使用本页签名，请使用与实际构建来源匹配的头文件和库。
+
 ## 函数原型
 
 ```cpp
