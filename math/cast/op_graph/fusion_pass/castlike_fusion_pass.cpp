@@ -114,10 +114,12 @@ static bool IsTargetPlatform()
         return false;
     }
     const std::string soc = platform_info.str_info.short_soc_version;
-    bool is_platform950 = (soc == "Ascend950" || soc == "Ascend960DT" || soc == "Ascend960PR");
+    bool is_supported_platform = (soc == "Ascend950" || soc == "Ascend350" || soc == "Ascend960DT" ||
+                                  soc == "Ascend960PR");
     OP_LOGD(kPassName.c_str(), "Platform short soc: %s", soc.c_str());
-    if (!is_platform950) {
-        OP_LOGD(kPassName.c_str(), "Platform is not support, only work on Ascend950.");
+    if (!is_supported_platform) {
+        OP_LOGD(kPassName.c_str(), "Platform %s is not supported, only Ascend950/Ascend350/Ascend960DT/Ascend960PR.",
+                soc.c_str());
         return false;
     }
     return true;
