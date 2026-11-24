@@ -179,8 +179,8 @@ aclnnStatus aclnnInplaceFmodScalar(
       <td>The input self, other, or out is a null pointer.</td>
     </tr>
     <tr>
-      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="4">161002</td>
+      <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="5">161002</td>
       <td>The data types and dimensions of self and other are not within the supported range.</td>
     </tr>
     <tr>
@@ -191,6 +191,9 @@ aclnnStatus aclnnInplaceFmodScalar(
     </tr>
     <tr>
       <td>The shape of self is inconsistent with that of out.</td>
+    </tr>
+    <tr>
+      <td><term>Atlas A2 products</term>, <term>Atlas A3 products</term>: self is nonempty, the inferred computation type is INT64, and other is 0.</td>
     </tr>
   </tbody>
   </table>
@@ -335,8 +338,8 @@ aclnnStatus aclnnInplaceFmodScalar(
       <td>The input selfRef or other is a null pointer.</td>
     </tr>
     <tr>
-      <td rowspan="3">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="3">161002</td>
+      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="4">161002</td>
       <td>The data types and dimensions of selfRef and other are out of the supported range.</td>
     </tr>
     <tr>
@@ -344,6 +347,9 @@ aclnnStatus aclnnInplaceFmodScalar(
     </tr>
     <tr>
       <td>The deduced data type cannot be converted to the type of selfRef.</td>
+    </tr>
+    <tr>
+      <td><term>Atlas A2 products</term>, <term>Atlas A3 products</term>: selfRef is nonempty, the inferred computation type is INT64, and other is 0.</td>
     </tr>
   </tbody>
   </table>

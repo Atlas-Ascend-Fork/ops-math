@@ -177,8 +177,8 @@ aclnnStatus aclnnInplaceFmodScalar(
       <td>传入的self、other或out是空指针。</td>
     </tr>
     <tr>
-      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="4">161002</td>
+      <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="5">161002</td>
       <td>self和other的数据类型和维度不在支持的范围之内。</td>
     </tr>
     <tr>
@@ -189,6 +189,9 @@ aclnnStatus aclnnInplaceFmodScalar(
     </tr>
     <tr>
       <td>self和out的shape不一致。</td>
+    </tr>
+    <tr>
+      <td><term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>：self非空、推导出的计算类型为INT64且other为0。</td>
     </tr>
   </tbody>
   </table>
@@ -333,8 +336,8 @@ aclnnStatus aclnnInplaceFmodScalar(
       <td>传入的selfRef、other是空指针。</td>
     </tr>
     <tr>
-      <td rowspan="3">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="3">161002</td>
+      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="4">161002</td>
       <td>selfRef和other的数据类型和维度不在支持的范围之内。</td>
     </tr>
     <tr>
@@ -342,6 +345,9 @@ aclnnStatus aclnnInplaceFmodScalar(
     </tr>
     <tr>
       <td>推导出的数据类型无法转换为selfRef的类型。</td>
+    </tr>
+    <tr>
+      <td><term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>：selfRef非空、推导出的计算类型为INT64且other为0。</td>
     </tr>
   </tbody>
   </table>

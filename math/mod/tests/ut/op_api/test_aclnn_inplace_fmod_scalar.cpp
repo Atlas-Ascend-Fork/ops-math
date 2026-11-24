@@ -16,6 +16,7 @@
 #include "op_api_ut_common/op_api_ut.h"
 #include "op_api_ut_common/scalar_desc.h"
 #include "op_api_ut_common/tensor_desc.h"
+#include "opdev/platform.h"
 
 using namespace std;
 
@@ -104,6 +105,23 @@ TEST_F(l2_inplace_fmod_scalar_test, aclnnInplaceFmodScalar_null_scalar)
     uint64_t workspaceSize = 0;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
     EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_NULLPTR);
+}
+
+TEST_F(l2_inplace_fmod_scalar_test, aclnnFmodScalar_int64_zero_divisor)
+{
+    auto originalSoc = op::GetCurrentPlatformInfo().GetSocVersion();
+    for (auto soc : {op::SocVersion::ASCEND910B, op::SocVersion::ASCEND910_93}) {
+        op::SetPlatformSocVersion(soc);
+        auto self = TensorDesc({4}, ACL_INT64, ACL_FORMAT_ND).ValueRange(1, 10);
+        auto other = ScalarDesc(int64_t{0});
+        auto out = TensorDesc({4}, ACL_INT64, ACL_FORMAT_ND);
+        uint64_t workspaceSize = 0;
+        auto inplaceUt = OP_API_UT(aclnnInplaceFmodScalar, INPUT(self, other), OUTPUT());
+        EXPECT_EQ(inplaceUt.TestGetWorkspaceSize(&workspaceSize), ACLNN_ERR_PARAM_INVALID);
+        auto ut = OP_API_UT(aclnnFmodScalar, INPUT(self, other), OUTPUT(out));
+        EXPECT_EQ(ut.TestGetWorkspaceSize(&workspaceSize), ACLNN_ERR_PARAM_INVALID);
+    }
+    op::SetPlatformSocVersion(originalSoc);
 }
 
 TEST_F(l2_inplace_fmod_scalar_test, aclnnInplaceFmodScalar_int8_uint8_scalar_nd_3)

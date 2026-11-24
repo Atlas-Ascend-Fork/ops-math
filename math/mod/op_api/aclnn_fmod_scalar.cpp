@@ -221,6 +221,13 @@ static aclnnStatus GetWorkspaceSizeCommon(const aclTensor* self, const aclScalar
     // Mod算子需要对self和otherTensor两个输入做隐式数据类型转换，根据具体算子语义按需调用
     auto promoteType = PromoteTypeScalar(self->GetDataType(), other->GetDataType());
 
+    auto socVersion = GetCurrentPlatformInfo().GetSocVersion();
+    if ((socVersion == SocVersion::ASCEND910B || socVersion == SocVersion::ASCEND910_93) &&
+        promoteType == DataType::DT_INT64 && other->ToInt64() == 0) {
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "INT64 FmodScalar does not support a zero divisor on this platform.");
+        return ACLNN_ERR_PARAM_INVALID;
+    }
+
     // 固定写法，将输入self转换成连续的tensor
     auto selfContiguous = l0op::Contiguous(self, uniqueExecutor.get());
     CHECK_RET(selfContiguous != nullptr, ACLNN_ERR_INNER_NULLPTR);
