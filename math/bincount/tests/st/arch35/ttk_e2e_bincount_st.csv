@@ -1,0 +1,11 @@
+testcase_name,api_name,tensor_view_shapes,tensor_dtypes,tensor_formats,attributes,output_tensor_indexes,golden_api,input_data_ranges
+bincount_e2e_unweighted_dynamic,torch.bincount,"((64,),)","('int64',)",,,,,"((0,5),)"
+bincount_e2e_unweighted_minlength,torch.bincount,"((64,),)","('int64',)",,"{'minlength': 32}",,,"((0,5),)"
+bincount_e2e_weighted_f32,torch.bincount,"((64,),(64,))","('int64','float32')",,"{'minlength': 16}",,,"((0,5),(0,1))"
+bincount_e2e_weighted_i32,torch.bincount,"((64,),(64,))","('int64','int32')",,"{'minlength': 16}",,,"((0,5),(0,10))"
+bincount_e2e_int32_input,torch.bincount,"((32,),)","('int32',)",,"{'minlength': 8}",,,"((0,5),)"
+bincount_e2e_single_elem,torch.bincount,"((1,),)","('int64',)",,"{'minlength': 4}",,,"((0,0),)"
+bincount_e2e_zero_weights_f32,torch.bincount,"((64,),(64,))","('int64','float32')",,"{'minlength': 16}",,,"((0,5),(0,0))"
+bincount_e2e_empty_input,torch.bincount,"((0,),)","('int64',)",,,,,"((0,0),)"
+bincount_e2e_empty_input_minlength,torch.bincount,"((0,),)","('int64',)",,"{'minlength': 8}",,,"((0,0),)"
+bincount_e2e_empty_input_empty_weights,torch.bincount,"((0,),(0,))","('int64','float32')",,"{'minlength': 8}",,,"((0,0),(0,0))"
