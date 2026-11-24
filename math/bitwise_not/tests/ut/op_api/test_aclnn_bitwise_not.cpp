@@ -198,7 +198,7 @@ TEST_F(l2_bitwise_not_test, case_nullptr)
     // SAMPLE: only test GetWorkspaceSize
     uint64_t workspace_size = 0;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
-    EXPECT_EQ(aclRet, ACLNN_ERR_INNER_NULLPTR);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_NULLPTR);
 }
 
 TEST_F(l2_bitwise_not_test, case_empty)
@@ -236,13 +236,13 @@ TEST_F(l2_bitwise_not_test, case_nullptr2)
     // SAMPLE: only test GetWorkspaceSize
     uint64_t workspace_size = 0;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
-    EXPECT_EQ(aclRet, ACLNN_ERR_INNER_NULLPTR);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_NULLPTR);
 
     auto ut_1 = OP_API_UT(aclnnBitwiseNot, INPUT(tensor_desc), OUTPUT(nullptr));
     // SAMPLE: only test GetWorkspaceSize
     workspace_size = 0;
     aclRet = ut_1.TestGetWorkspaceSize(&workspace_size);
-    EXPECT_EQ(aclRet, ACLNN_ERR_INNER_NULLPTR);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_NULLPTR);
 }
 
 // CheckDataVaild
@@ -317,4 +317,13 @@ TEST_F(l2_bitwise_not_test, case_uncontiguous)
     uint64_t workspace_size = 0;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
     EXPECT_EQ(aclRet, ACL_SUCCESS);
+}
+
+// null pointer: docs require ACLNN_ERR_PARAM_NULLPTR (161001)
+TEST_F(l2_bitwise_not_test, case_null_input)
+{
+    uint64_t workspace_size = 0;
+    aclOpExecutor* executor = nullptr;
+    aclnnStatus aclRet = aclnnBitwiseNotGetWorkspaceSize(nullptr, nullptr, &workspace_size, &executor);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_NULLPTR);
 }

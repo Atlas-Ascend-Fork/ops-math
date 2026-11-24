@@ -137,19 +137,19 @@ TEST_F(l2_linalg_qr_test, case_nullptr)
     // SAMPLE: only test GetWorkspaceSize
     uint64_t workspaceSize1 = 0;
     aclnnStatus aclRet1 = ut1.TestGetWorkspaceSize(&workspaceSize1);
-    EXPECT_EQ(aclRet1, ACLNN_ERR_INNER_NULLPTR);
+    EXPECT_EQ(aclRet1, ACLNN_ERR_PARAM_NULLPTR);
 
     auto ut2 = OP_API_UT(aclnnLinalgQr, INPUT(self_desc, mode), OUTPUT(nullptr, r_desc));
     // SAMPLE: only test GetWorkspaceSize
     uint64_t workspaceSize2 = 0;
     aclnnStatus aclRet2 = ut2.TestGetWorkspaceSize(&workspaceSize2);
-    EXPECT_EQ(aclRet2, ACLNN_ERR_INNER_NULLPTR);
+    EXPECT_EQ(aclRet2, ACLNN_ERR_PARAM_NULLPTR);
 
     auto ut3 = OP_API_UT(aclnnLinalgQr, INPUT(self_desc, mode), OUTPUT(q_desc, nullptr));
     // SAMPLE: only test GetWorkspaceSize
     uint64_t workspaceSize3 = 0;
     aclnnStatus aclRet3 = ut3.TestGetWorkspaceSize(&workspaceSize3);
-    EXPECT_EQ(aclRet3, ACLNN_ERR_INNER_NULLPTR);
+    EXPECT_EQ(aclRet3, ACLNN_ERR_PARAM_NULLPTR);
 }
 
 // check dtype valid
@@ -336,4 +336,13 @@ TEST_F(l2_linalg_qr_test, case_shape_mode_r)
     uint64_t workspaceSize2 = 0;
     aclnnStatus aclRet2 = ut2.TestGetWorkspaceSize(&workspaceSize2);
     EXPECT_EQ(aclRet2, ACLNN_SUCCESS);
+}
+
+// null pointer: docs require ACLNN_ERR_PARAM_NULLPTR (161001)
+TEST_F(l2_linalg_qr_test, case_null_input)
+{
+    uint64_t workspaceSize = 0;
+    aclOpExecutor* executor = nullptr;
+    aclnnStatus aclRet = aclnnLinalgQrGetWorkspaceSize(nullptr, 0, nullptr, nullptr, &workspaceSize, &executor);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_NULLPTR);
 }

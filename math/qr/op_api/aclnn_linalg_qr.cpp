@@ -109,7 +109,7 @@ static bool CheckShape(const aclTensor* self, int64_t mode, const aclTensor* Q, 
 static aclnnStatus CheckParams(const aclTensor* self, int64_t mode, const aclTensor* Q, const aclTensor* R)
 {
     // 1. 检查参数是否为空指针
-    CHECK_RET(CheckNotNull(self, Q, R), ACLNN_ERR_INNER_NULLPTR);
+    CHECK_RET(CheckNotNull(self, Q, R), ACLNN_ERR_PARAM_NULLPTR);
 
     // 2. 检查输入的数据类型是否在API支持的数据类型范围之内，需要根据api定义校验
     CHECK_RET(CheckDtypeValid(self, Q, R), ACLNN_ERR_PARAM_INVALID);
