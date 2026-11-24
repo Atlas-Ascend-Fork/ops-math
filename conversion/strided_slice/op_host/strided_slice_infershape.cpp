@@ -36,6 +36,10 @@ template <typename T>
 static void GetConstValueToShape(const gert::Tensor* tensor, size_t size, gert::Shape* shape)
 {
     const T* value = tensor->GetData<T>();
+    if (value == nullptr) {
+        OP_LOGD(OP_NAME, "this input is not const tensor, return!");
+        return;
+    }
     shape->SetDimNum(size);
     for (size_t i = 0; i < size; i++) {
         shape->SetDim(i, value[i]);
@@ -127,13 +131,6 @@ static ge::graphStatus InferShape4StridedSlice(gert::InferShapeContext* context)
     OP_CHECK_IF(shape_x == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "x"), return ge::GRAPH_FAILED);
     auto shape_y = context->GetOutputShape(IDX_Y);
     OP_CHECK_NULL_WITH_CONTEXT(context, shape_y);
-
-    if (Ops::Base::IsUnknownRank(*shape_x)) {
-        Ops::Base::SetUnknownRank(*shape_y);
-        OP_LOGI(context->GetNodeName(), "[InferShape] output shape=%s.", Ops::Base::ToString(*shape_y).c_str());
-        return GRAPH_SUCCESS;
-    }
-
     auto shape_begin = context->GetInputShape(IDX_BEGIN);
     OP_CHECK_IF(shape_begin == nullptr, OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "begin"),
                 return ge::GRAPH_FAILED);
@@ -164,8 +161,13 @@ static ge::graphStatus InferShape4StridedSlice(gert::InferShapeContext* context)
     if (!CheckInputValid(shape_max, valid_strides)) {
         shape_y->SetDimNum(0);
         shape_y->AppendDim(UNKNOWN_DIM_NUM);
-        OP_LOGI(context->GetNodeName(), "[InferShape] output shape=%s.", Ops::Base::ToString(*shape_y).c_str());
         return GRAPH_SUCCESS;
+    }
+
+    // input shape is unknown rank([-2]), set output shape to unknown rank([-2])
+    if (Ops::Base::IsUnknownRank(*shape_x)) {
+        Ops::Base::SetUnknownRank(*shape_y);
+        return ge::GRAPH_SUCCESS;
     }
 
     // make (begin, end, strides) same lenght
@@ -228,7 +230,6 @@ static ge::graphStatus InferShape4StridedSlice(gert::InferShapeContext* context)
     }
 
     OP_LOGD(context, "output_shape:%s", Ops::Base::ToString(*shape_y).c_str());
-    OP_LOGI(context->GetNodeName(), "[InferShape] output shape=%s.", Ops::Base::ToString(*shape_y).c_str());
     return GRAPH_SUCCESS;
 }
 

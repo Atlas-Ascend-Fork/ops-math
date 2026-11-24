@@ -114,7 +114,7 @@ TEST_F(StridedSliceV3Infershape, strided_slice_infershape_test4)
         {
             {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
         });
-    std::vector<std::vector<int64_t>> expectOutputShape = {{1, 10}};
+    std::vector<std::vector<int64_t>> expectOutputShape = {{-1, -1}};
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
 
@@ -181,7 +181,7 @@ TEST_F(StridedSliceV3Infershape, strided_slice_infershape_test7)
         {
             {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
         });
-    std::vector<std::vector<int64_t>> expectOutputShape = {{1, 10}};
+    std::vector<std::vector<int64_t>> expectOutputShape = {{-1, -1}};
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
 
@@ -367,7 +367,7 @@ TEST_F(StridedSliceV3Infershape, strided_slice_v3_non_const_axes)
         {
             {{{}, {}}, ge::DT_FLOAT, ge::FORMAT_ND},
         });
-    std::vector<std::vector<int64_t>> expectOutputShape = {{1, 4}};
+    std::vector<std::vector<int64_t>> expectOutputShape = {{-1, -1}};
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, expectOutputShape);
 }
 
