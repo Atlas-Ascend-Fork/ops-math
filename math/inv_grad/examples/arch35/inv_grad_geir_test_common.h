@@ -259,11 +259,13 @@ inline bool BuildGraph(ge::Graph& graph, const std::vector<int64_t>& declaredSha
     ge::TensorDesc xDesc(ge::Shape(declaredShape), ge::FORMAT_ND, dtype);
     xDesc.SetPlacement(ge::kPlacementHost);
     x.update_input_desc_x(xDesc);
+    x.update_output_desc_y(xDesc);
 
     auto grad = ge::op::Data(gradName.c_str()).set_attr_index(1);
     ge::TensorDesc gradDesc(ge::Shape(declaredShape), ge::FORMAT_ND, dtype);
     gradDesc.SetPlacement(ge::kPlacementHost);
     grad.update_input_desc_x(gradDesc);
+    grad.update_output_desc_y(gradDesc);
 
     auto invGrad = ge::op::InvGrad(opName.c_str());
     invGrad.set_input_x(x);
