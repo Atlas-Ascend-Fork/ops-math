@@ -27,6 +27,11 @@ constexpr int64_t PER_CORE_MIN_ELEMENTS = 1024;
 constexpr int64_t PRECISE_WEIGHTED_MAX_VALUES = 1024;
 constexpr int64_t PRECISE_WEIGHTED_MAX_OUTPUTS = 64;
 constexpr int64_t PRECISE_WEIGHTED_MAX_WORK = 4096;
+// Deterministic mode gets wider bounds: the ordered path avoids the partial
+// workspace write/merge overhead for small-to-medium workloads where the
+// exact-reduction infrastructure costs more than the scan itself.
+constexpr int64_t PRECISE_WEIGHTED_MAX_OUTPUTS_DET = 4096;
+constexpr int64_t PRECISE_WEIGHTED_MAX_WORK_DET = 1048576;
 constexpr int64_t MAX_PRIVATE_HIST_TILES = 8;
 constexpr int64_t GM_ATOMIC_CONTENTION_FACTOR = 200;
 constexpr uint64_t DCACHE_SIZE = 128U * 1024U;
@@ -113,16 +118,22 @@ static void ConfigurePrivateHistogram(int64_t rank, int64_t outputElements, int6
     }
 }
 
-static bool UsePreciseWeightedPath(int64_t numValues, int64_t outputElements)
+static bool UsePreciseWeightedPath(int64_t numValues, int64_t outputElements, bool deterministic)
 {
     // The output-owner path scans the input once for every output element. Bound
     // both axes and their product so the automatic precision fallback cannot
     // turn a normal launch into an unbounded quadratic workload.
-    if (numValues <= 0 || numValues > PRECISE_WEIGHTED_MAX_VALUES || outputElements <= 0 ||
-        outputElements > PRECISE_WEIGHTED_MAX_OUTPUTS) {
+    // Non-deterministic mode keeps the tight bounds (the atomic scatter is
+    // faster for anything beyond tiny inputs); deterministic mode widens them
+    // because the ordered path avoids the partial workspace round trip.
+    if (numValues <= 0 || numValues > PRECISE_WEIGHTED_MAX_VALUES || outputElements <= 0) {
         return false;
     }
-    return numValues <= PRECISE_WEIGHTED_MAX_WORK / outputElements;
+    if (deterministic) {
+        return outputElements <= PRECISE_WEIGHTED_MAX_OUTPUTS_DET &&
+               numValues <= PRECISE_WEIGHTED_MAX_WORK_DET / outputElements;
+    }
+    return outputElements <= PRECISE_WEIGHTED_MAX_OUTPUTS && numValues <= PRECISE_WEIGHTED_MAX_WORK / outputElements;
 }
 
 static uint32_t GetDeterministicPartitions(int64_t numValues, int64_t outputElements, uint32_t coreNum)
@@ -243,7 +254,10 @@ static ge::graphStatus ConfigureDenseBincountSchedule(gert::TilingContext* conte
                                               "platform AIV core count must be positive");
         return ge::GRAPH_FAILED;
     }
-    const int64_t workload = ordered ? outputElements : std::max(tiling->numValues, outputElements);
+    // The ordered path scans the full input for every output bin, so its
+    // real workload is the comparison count, not the output size. Using only
+    // outputElements would pin tiny-but-wide cases to a single core.
+    const int64_t workload = ordered ? tiling->numValues * outputElements : std::max(tiling->numValues, outputElements);
     const int64_t usedCoreNum = GetRequiredCoreNum(workload, maxCoreNum);
     uint64_t ubSize = 0U;
     platform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSize);
@@ -381,8 +395,9 @@ static ge::graphStatus DenseBincountTilingFunc(gert::TilingContext* context)
     // The ordered kernel scans all input values for each output bin. Keep this
     // bounded; deterministic requests outside that range use bounded workspace
     // reductions instead of falling back to unordered FP32 atomics.
-    const bool ordered = weighted && UsePreciseWeightedPath(tiling->numValues, outputElements);
-    const bool deterministic = weighted && !ordered && outputElements > 0 && context->GetDeterministic() == 1;
+    const bool deterministicRequested = context->GetDeterministic() == 1;
+    const bool ordered = weighted && UsePreciseWeightedPath(tiling->numValues, outputElements, deterministicRequested);
+    const bool deterministic = weighted && !ordered && outputElements > 0 && deterministicRequested;
     if (ConfigureDenseBincountSchedule(context, platform, rank, shape, binary, ordered, deterministic, tiling) !=
         ge::GRAPH_SUCCESS) {
         return ge::GRAPH_FAILED;

@@ -215,14 +215,16 @@ TEST(DenseBincountTiling, ordered_key_is_limited_to_bounded_weighted_accumulatio
     deterministic.deterministic = 1;
     result = RunTiling(deterministic);
     ASSERT_EQ(result.status, ge::GRAPH_SUCCESS);
-    EXPECT_EQ(result.key, ND_DETERMINISTIC_TILING_KEY);
-    EXPECT_EQ(result.deterministicMode, 1U);
+    // With deterministic mode the ordered bounds are wider, so 256 values x 256
+    // bins now takes the ordered path instead of falling into partial.
+    EXPECT_EQ(result.key, ND_ORDERED_TILING_KEY);
+    EXPECT_EQ(result.deterministicMode, 0U);
 
     deterministic.inputShape = {8};
     deterministic.weightsShape = {8};
     result = RunTiling(deterministic);
     ASSERT_EQ(result.status, ge::GRAPH_SUCCESS);
-    EXPECT_EQ(result.key, ONE_D_DETERMINISTIC_TILING_KEY);
+    EXPECT_EQ(result.key, ONE_D_ORDERED_TILING_KEY);
 
     deterministic.inputShape = {2, 4};
     deterministic.weightsShape = {0};
@@ -372,6 +374,9 @@ TEST(DenseBincountTiling, bounded_weighted_work_uses_ordered_reduction)
     ASSERT_EQ(result.status, ge::GRAPH_SUCCESS);
     EXPECT_EQ(result.key, ONE_D_ORDERED_TILING_KEY);
     EXPECT_EQ(result.privateHistElems, 0U);
+    // Guard: even with the tight non-det bounds, the workload formula
+    // gives 2 cores for 512 values x 4 bins, not a single core.
+    EXPECT_EQ(result.usedCoreNum, 2U);
 
     precise.deterministic = 1;
     result = RunTiling(precise);
@@ -428,6 +433,50 @@ TEST(DenseBincountTiling, bounded_weighted_work_uses_ordered_reduction)
     result = RunTiling(precise);
     ASSERT_EQ(result.status, ge::GRAPH_SUCCESS);
     EXPECT_EQ(result.key, SCH_MODE_1D_COUNT_WEIGHT);
+}
+
+TEST(DenseBincountTiling, deterministic_ordered_path_covers_medium_outputs)
+{
+    // In deterministic mode the ordered path gets wider bounds: a small
+    // workload like 921 values x 307 bins previously fell into the partial
+    // path whose workspace write/merge dominates tiny inputs.
+    DenseBincountTilingCase det;
+    det.inputShape = {307, 3};
+    det.weightsShape = {307, 3};
+    det.size = 1;
+    det.deterministic = 1;
+    const auto result = RunTiling(det);
+    ASSERT_EQ(result.status, ge::GRAPH_SUCCESS);
+    EXPECT_EQ(result.key, ND_ORDERED_TILING_KEY);
+    EXPECT_EQ(result.deterministicMode, 0U);
+    // Guard the multi-core workload formula: ordered path must use all
+    // available cores, not fall back to a single core.
+    EXPECT_EQ(result.usedCoreNum, 64U);
+
+    DenseBincountTilingCase medium;
+    medium.inputShape = {512};
+    medium.weightsShape = {512};
+    medium.size = 2048;
+    medium.deterministic = 1;
+    const auto mediumResult = RunTiling(medium);
+    ASSERT_EQ(mediumResult.status, ge::GRAPH_SUCCESS);
+    EXPECT_EQ(mediumResult.key, ONE_D_ORDERED_TILING_KEY);
+
+    // Deterministic ordered boundary: 256 values x 4096 bins = 1M (exact work limit).
+    DenseBincountTilingCase bound;
+    bound.inputShape = {256};
+    bound.weightsShape = {256};
+    bound.size = 4096;
+    bound.deterministic = 1;
+    const auto atBound = RunTiling(bound);
+    ASSERT_EQ(atBound.status, ge::GRAPH_SUCCESS);
+    EXPECT_EQ(atBound.key, ONE_D_ORDERED_TILING_KEY);
+
+    // Output exceeds MAX_OUTPUTS_DET (4096) falls to deterministic partial.
+    bound.size = 4097;
+    const auto beyondBound = RunTiling(bound);
+    ASSERT_EQ(beyondBound.status, ge::GRAPH_SUCCESS);
+    EXPECT_EQ(beyondBound.key, ONE_D_DETERMINISTIC_TILING_KEY);
 }
 
 TEST(DenseBincountTiling, binary_row_private_histogram_is_selected_when_full_output_is_too_expensive)
