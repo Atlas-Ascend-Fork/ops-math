@@ -428,6 +428,12 @@
 <!-- end id9 -->
 - When other is 0 and the data type of self is an integer type, the result in out is self.
 
+- Precision constraints: On <term>Atlas A3 products</term>, <term>Atlas A2 products</term>, and <term>Atlas training products</term>, when the data type of self and other is FLOAT32 or FLOAT16 (BFLOAT16 applies only to <term>Atlas A2 products</term> and <term>Atlas A3 products</term>), the remainder is approximately calculated by "floating-point division - floor - multiply and subtract" (with FLOAT32 as the intermediate computation type). The low-order bits of the result are limited by the floating-point representation, so the following cases may not satisfy the statement above that the absolute value of the result is less than the absolute value of other:
+  - The rounding error of the quotient is amplified in the remainder, and the relative error is about |self/other| x 2^-24. When |self/other| reaches the order of 2^20, the relative error may exceed 1e-2.
+  - When the absolute value of the remainder is smaller than the floating-point resolution of self (about |self| x 2^-24), the corresponding low-order bits are rounded away by the multiply-and-subtract operation, so out becomes 0 or differs from the exact value by a few floating-point steps, and this occurs more easily as |self/other| grows. For example, with FLOAT32, self=2^25 and other=3, the exact result is 2 but the output is 0; with BFLOAT16, self=1.0e8 and other=7, the exact result is 4 but the output is 0.
+  - When self is close to the maximum value of its data type and other has the opposite sign, the intermediate product floor(self/other)*other may exceed the range of the data type, and out becomes ±INF. For example, with FLOAT32, self=3.4e38 and other=-1.2e38, the exact result is -2.0e37 but the output is -INF.
+- If an exact remainder is required, convert self and other to DOUBLE (DOUBLE is processed by an exact implementation).
+
 ## Example
 
 The following example code is for reference only. For the compilation and execution procedure, see [Compile and Run Samples](../../../docs/en/context/compile_and_run_sample.md).

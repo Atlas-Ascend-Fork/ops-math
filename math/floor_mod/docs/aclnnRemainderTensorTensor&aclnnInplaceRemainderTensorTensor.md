@@ -308,6 +308,12 @@
 - 当 self（aclnnRemainderTensorTensor）/ selfRef（aclnnInplaceRemainderTensorTensor）的数据类型为 INT32 时，优先保障在范围 [-2^24, 2^24] 内的功能和精度；
 - 当 other 为 0，且 self（aclnnRemainderTensorTensor）/ selfRef（aclnnInplaceRemainderTensorTensor）的数据类型为整型时，aclnnRemainderTensorTensor 的 out 结果等于 self，aclnnInplaceRemainderTensorTensor 的结果写回 selfRef。
 
+- 精度约束：在<term>Atlas A3系列产品</term>、<term>Atlas A2系列产品</term>、<term>Atlas推理系列产品</term>、<term>Atlas训练系列产品</term>上，当self、other的数据类型为FLOAT32或FLOAT16时（BFLOAT16仅适用于<term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>），余数通过“浮点除法-向下取整-乘减”近似计算（中间计算类型为FLOAT32），结果的低位精度受浮点表示能力限制，可能出现不满足上文“结果绝对值小于other绝对值”的情况：
+  - 商的舍入误差会被放大到余数上，相对误差约为|self/other|×2^-24；当|self/other|达到2^20量级时，相对误差可超过1e-2；
+  - 当余数的绝对值小于self的浮点分辨率（约为|self|×2^-24）时，相应位段在乘减过程中被舍去，out为0或与精确值相差数个浮点精度，且|self/other|越大越容易触发。例如FLOAT32下self=2^25、other=3时，精确结果为2，实际输出为0；BFLOAT16下self=1.0e8、other=7时，精确结果为4，实际输出为0；
+  - 当self接近该数据类型最大值且other与self异号时，中间乘积floor(self/other)*other可能超出该数据类型的表示范围，out为±INF。例如FLOAT32下self=3.4e38、other=-1.2e38时，精确结果为-2.0e37，实际输出为-INF。
+- 若需要精确的余数结果，建议将self、other转换为DOUBLE数据类型（DOUBLE由精确实现处理）。
+
 ## 调用示例
 
 示例代码如下，仅供参考，具体编译和执行过程请参考[编译与运行样例](../../../docs/zh/context/compile_and_run_sample.md)。
