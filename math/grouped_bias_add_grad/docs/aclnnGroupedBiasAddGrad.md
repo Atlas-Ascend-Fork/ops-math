@@ -116,7 +116,7 @@ aclnnStatus aclnnGroupedBiasAddGrad(
     <tr>
       <td>out（aclTensor*）</td>
       <td>输出</td>
-      <td>bias的梯度，公式中的out。</td>
+      <td>偏置的梯度，公式中的out。</td>
       <td>数据类型必须与gradY的数据类型一致，shape仅支持2维。<br> 如果输入为三维(G, C, H)，则输出shape为(G, H)；<br>如果输入为二维(GB, H)，group_idx为(G)，则输出shape为(G, H)。</td>
       <td>FLOAT、FLOAT16、BFLOAT16</td>
       <td>ND</td>

@@ -121,7 +121,7 @@ aclnnStatus aclnnSlice(
     <tr>
       <td>start（int64_t）</td>
       <td>输入</td>
-      <td>公式中的张量start，切片位置的起始索引。</td>
+      <td>公式中的参数start，切片位置的起始索引。</td>
       <td>-</td>
       <td>INT64</td>
       <td>ND</td>

@@ -122,7 +122,7 @@ aclnnStatus aclnnInplaceNanToNum(
     <tr>
       <td>nan（float）</td>
       <td>输入</td>
-      <td>替换tensor元素中NaN的值。</td>
+      <td>替换Tensor元素中NaN的值。</td>
       <td>-</td>
       <td>FLOAT</td>
       <td>-</td>
@@ -303,7 +303,7 @@ aclnnStatus aclnnInplaceNanToNum(
     <tr>
       <td>nan（float）</td>
       <td>输入</td>
-      <td>替换tensor元素中NaN的值。</td>
+      <td>替换Tensor元素中NaN的值。</td>
       <td>-</td>
       <td>FLOAT</td>
       <td>-</td>

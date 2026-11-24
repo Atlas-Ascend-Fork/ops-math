@@ -92,7 +92,7 @@ aclnnStatus aclnnStridedSliceAssignV2(
     <tr>
       <td>inputValue（aclTensor*）</td>
       <td>输入</td>
-      <td>替换切片内容的tensor。</td>
+      <td>替换切片内容的Tensor。</td>
       <td>shape与rank需要与varRef计算得出的切片shape保持一致。</td>
       <td>FLOAT16、FLOAT、BFLOAT16、INT32、INT64、DOUBLE、INT8</td>
       <td>ND</td>
@@ -150,7 +150,7 @@ aclnnStatus aclnnStridedSliceAssignV2(
       <td>-</td>
     </tr>
     <tr>
-      <td>（aclOpExecutor**）</td>
+      <td>executor（aclOpExecutor**）</td>
       <td>输出</td>
       <td>返回op执行器，包含了算子计算流程。</td>
       <td>-</td>

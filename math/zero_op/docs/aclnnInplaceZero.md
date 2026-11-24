@@ -63,7 +63,7 @@ aclnnStatus aclnnInplaceZero(
 
 ## aclnnInplaceZeroGetWorkspaceSize
 
-- **参数说明**
+- **参数说明：**
 
   <table style="table-layout: fixed; width: 1248px"><colgroup>
   <col style="width: 126px">
@@ -129,7 +129,7 @@ aclnnStatus aclnnInplaceZero(
 <!-- npu="950" id9 -->
 - <term>Ascend 950PR&950DT系列产品</term>：数据类型支持INT8、INT32、INT64、UINT8、FLOAT16、FLOAT32、BOOL、DOUBLE、INT16、UINT16、COMPLEX128、COMPLEX64、BFLOAT16、FLOAT8_E5M2、FLOAT8_E4M3FN、HIFLOAT8、FLOAT4_E1M2、FLOAT4_E2M1。
 <!-- end id9 -->
-- **返回值**
+- **返回值：**
 
   aclnnStatus：返回状态码，具体参见[aclnn返回码](../../../docs/zh/context/aclnn_return_code.md)。
 
@@ -162,7 +162,7 @@ aclnnStatus aclnnInplaceZero(
 
 ## aclnnInplaceZero
 
-- **参数说明**
+- **参数说明：**
 
   <table style="table-layout: fixed; width: 1136px"><colgroup>
   <col style="width: 157px">
@@ -199,7 +199,7 @@ aclnnStatus aclnnInplaceZero(
   </tbody>
   </table>
 
-- **返回值**：
+- **返回值：**
 
   aclnnStatus：返回状态码，具体参见[aclnn返回码](../../../docs/zh/context/aclnn_return_code.md)。
 

@@ -96,7 +96,7 @@ aclnnStatus aclnnSplitTensor(
     <tr>
       <td>dim（int64_t）</td>
       <td>输入</td>
-      <td>表示输入self被split的维度，取值范围在[-self.dim(), self.dim())<br></td>
+      <td>表示输入self被split的维度，取值范围在[-self.dim(), self.dim())</td>
       <td>-</td>
       <td>INT64</td>
       <td>-</td>

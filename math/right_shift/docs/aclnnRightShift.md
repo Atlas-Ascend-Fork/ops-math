@@ -68,7 +68,7 @@ aclnnStatus aclnnRightShift(
   <thead>
     <tr>
       <th>参数名</th>
-      <th>输入输出</th>
+      <th>输入/输出</th>
       <th>描述</th>
       <th>使用说明</th>
       <th>数据类型</th>

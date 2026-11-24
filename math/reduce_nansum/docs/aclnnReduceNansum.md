@@ -97,7 +97,7 @@ aclnnStatus aclnnReduceNansum(
     <tr>
       <td>keepDim（bool）</td>
       <td>输入</td>
-      <td>是否在输出张量中保留要缩减的维度。</td>
+      <td>是否在输出Tensor中保留要缩减的维度。</td>
       <td>-</td>
       <td>-</td>
       <td>-</td>

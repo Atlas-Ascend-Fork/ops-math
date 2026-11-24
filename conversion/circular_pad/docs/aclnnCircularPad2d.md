@@ -89,7 +89,7 @@ aclnnStatus aclnnCircularPad2d(
     <tr>
       <td>self（aclTensor*）</td>
       <td>输入</td>
-      <td>待填充的原输入数据</td>
+      <td>待填充的原输入数据。</td>
       <td>-</td>
       <td>FLOAT16、BFLOAT16、FLOAT32、INT8、INT32</td>
       <td>ND</td>

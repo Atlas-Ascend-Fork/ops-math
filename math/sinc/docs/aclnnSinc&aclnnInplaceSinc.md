@@ -114,7 +114,7 @@ aclnnStatus aclnnInplaceSinc(
     <tr>
       <td>out（aclTensor*）</td>
       <td>输出</td>
-      <td>输出tensor。</td>
+      <td>输出Tensor。</td>
       <td>数据类型由out指定，self的计算结果会转换为out的数据类型。</td>
       <td>FLOAT、FLOAT16、DOUBLE、BFLOAT16</td>
       <td>ND</td>

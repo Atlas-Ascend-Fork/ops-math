@@ -33,7 +33,7 @@
 - 示例：
   - 若 x = [9, 6, 3]，isinf(x) 的结果是 [False, False, False]。
   - 若 x = [[-3.14, inf], [2.7183, nan]]，isinf(x) 的结果是 [[False, True], [False, False]]。
-  注意整型、布尔都是有界的。
+  因此，整型、布尔类型的数据都是有界的，其判定结果不会为True。
 
 ## 函数原型
 

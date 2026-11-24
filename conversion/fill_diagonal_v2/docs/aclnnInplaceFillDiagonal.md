@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-- 接口功能：以fillValue填充tensor对角线。
+- 接口功能：以fillValue填充Tensor对角线。
 - 计算公式：以二维为例，`wrap`为False时，填充位置为`[r, r]`，其中`0 <= r < m`，`m = min(col, row)`，`col`为列的长度，`row`为行的长度。`wrap`为True时，按展开后的一维索引填充：对于满足`(col + 1) * i < row * col`的非负整数`i`，填充位置为`[floor((col + 1) * i / col), ((col + 1) * i) % col]`。
 
 ## 函数原型

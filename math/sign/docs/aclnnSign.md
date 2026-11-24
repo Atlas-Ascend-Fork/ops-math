@@ -91,7 +91,7 @@
     - <term>Ascend 950PR&950DT系列产品</term>：数据类型支持DOUBLE、FLOAT、FLOAT16、INT32、INT64、COMPLEX64、COMPLEX128、BOOL、BFLOAT16。
     <!-- end id10 -->
 
-  - result(aclTensor，计算输出)：Device侧的tensor，支持1维~8维。支持非连续Tensor，[数据格式](../../../docs/zh/context/data_format.md)支持ND，且类型与shape需要与self一致。
+  - result(aclTensor，计算输出)：Device侧的Tensor，支持1维~8维。支持非连续Tensor，[数据格式](../../../docs/zh/context/data_format.md)支持ND，且类型与shape需要与self一致。
 
     <!-- npu="A3,910b" id8 -->
     - <term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>：数据类型支持DOUBLE、FLOAT、FLOAT16、INT32、INT64、COMPLEX64、COMPLEX128、BOOL、BFLOAT16。

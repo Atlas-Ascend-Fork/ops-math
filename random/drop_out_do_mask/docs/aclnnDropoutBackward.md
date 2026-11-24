@@ -94,7 +94,7 @@ aclnnStatus aclnnDropoutBackward(
     <tr>
       <td>mask（aclTensor*）</td>
       <td>输入</td>
-      <td>bit类型并使用UINT8类型存储的mask数据。</td>
+      <td>比特类型并使用UINT8类型存储的mask数据。</td>
       <td><ul><li>不支持空Tensor。</li><li>数据类型支持UINT8。</li><li>shape需要为(align(gradOutput的元素个数,128)/8)，表示比特数需要与128对齐，其中，align表示将input的元素个数向上对齐为128的倍数，如align(1111, 128)的结果为1152。</li></ul></td>
       <td>UINT8</td>
       <td>ND</td>

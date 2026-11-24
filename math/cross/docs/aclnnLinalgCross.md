@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-- 接口功能：对输入Tensor完成linear_cross运算。
+- 接口功能：对输入Tensor完成LinalgCross运算。
 
 - 计算公式：
 

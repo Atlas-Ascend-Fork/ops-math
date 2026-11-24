@@ -229,7 +229,7 @@ aclnnStatus aclnnMaskedSelect(
 - 确定性计算：
   - aclnnMaskedSelect默认确定性实现。
 
-- broadcast场景功能支持，但是不保证性能，broadcast场景是通过额外插入BroadcastTo算子解决。
+- 广播场景功能支持，但是不保证性能，广播场景是通过额外插入BroadcastTo算子解决。
 
 ## 调用示例
 

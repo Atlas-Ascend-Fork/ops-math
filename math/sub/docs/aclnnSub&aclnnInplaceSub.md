@@ -302,7 +302,7 @@ aclnnStatus aclnnInplaceSub(
   <tbody>
     <tr>
       <td>selfRef（aclTensor*）</td>
-      <td>输入|输出</td>
+      <td>输入/输出</td>
       <td>公式中的selfRef。</td>
       <td>
         <ul>

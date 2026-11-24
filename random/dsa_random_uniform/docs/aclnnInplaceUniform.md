@@ -238,7 +238,7 @@ aclnnStatus aclnnInplaceUniform(
 - <term>Ascend 950PR&950DT系列产品</term>：
   - 通过aclnnSetPytorchRandom设置对标PyTorch模式时，offset必须为4的倍数。
   - from和to的值不能超出self数据类型的表示范围。
-  - to - from的值不能超出self数据类型的表示范围。
+  - to - from的值不能超出selfRef数据类型的表示范围。
 
 <!-- end id8 -->
 

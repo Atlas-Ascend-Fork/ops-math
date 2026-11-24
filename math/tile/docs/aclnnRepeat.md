@@ -173,7 +173,7 @@ aclnnStatus aclnnRepeat(
   </tbody></table>
 
   <!-- npu="A3,910b" id7 -->
-  - <term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>：数据类型不支持HIFLOAT8、FLOAT8_E5M2、FLOAT8_E4M3FN
+  - <term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>：数据类型不支持HIFLOAT8、FLOAT8_E5M2、FLOAT8_E4M3FN。
   <!-- end id7 -->
   <!-- npu="910,310p" id8 -->
   - <term>Atlas训练系列产品</term>、<term>Atlas推理系列产品</term>：数据类型不支持BFLOAT16、HIFLOAT8、FLOAT8_E5M2、FLOAT8_E4M3FN。

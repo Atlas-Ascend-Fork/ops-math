@@ -207,7 +207,7 @@ aclnnStatus aclnnAmpUpdateScale(
 
 - **返回值：**
 
-  aclnnStatus: 返回状态码，具体参见[aclnn返回码](../../../docs/zh/context/aclnn_return_code.md)。
+  aclnnStatus： 返回状态码，具体参见[aclnn返回码](../../../docs/zh/context/aclnn_return_code.md)。
 
   第一段接口完成入参校验，出现以下场景时报错：
 
@@ -301,7 +301,7 @@ aclnnStatus aclnnAmpUpdateScale(
 - 确定性计算：
   - aclnnAmpUpdateScale默认确定性实现。
 
-- **数据类型约束**：current_scale与found_inf的数据类型必须一致；updated_scale的数据类型必须与current_scale一致。
+- **数据类型约束**：currentScale与foundInf的数据类型必须一致；updatedScale的数据类型必须与currentScale一致。
 - **shape约束**：所有输入输出张量均为标量，shape为 [1]。
 - **growthInterval约束**：growthInterval取值范围为[1, 2147483647]。
 - **Inf/NaN优先级**：found_inf不为0时，直接执行回退逻辑，忽略growth_tracker状态。

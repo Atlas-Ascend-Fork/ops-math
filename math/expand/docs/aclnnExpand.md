@@ -137,7 +137,7 @@ aclnnStatus aclnnExpand(
     </tbody></table>
 
   <!-- npu="910,310p" id7 -->
-  - <term>Atlas训练系列产品</term>、<term>Atlas推理系列产品</term>：数据类型不支持BFLOAT16。
+  - <term>Atlas训练系列产品</term>、<term>Atlas推理系列产品</term>：数据类型不支持BF16。
   <!-- end id7 -->
 
 - **返回值**

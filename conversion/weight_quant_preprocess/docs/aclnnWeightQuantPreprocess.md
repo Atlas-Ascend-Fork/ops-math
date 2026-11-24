@@ -25,7 +25,7 @@
 
 ## 功能说明
 
-完成伪量化Matmul（包括QuantBatchMatmulV5、GroupedMatmul-伪量化、WeightQuantBatchMatmulV2）的参数预处理，支持的数据流如下：
+完成伪量化Matmul（包括QuantBatchMatmulV4、GroupedMatmul-伪量化、WeightQuantBatchMatmulV2）的参数预处理，支持的数据流如下：
 
 - MM_MX_A8W4数据流：QuantBatchMatmulV4算子的MX量化场景（x为FLOAT8_E4M3FN，weight为FLOAT4_E2M1紧凑4-bit），weight由ND转换为FRACTAL_NZ格式，weightScale由ND转换为FRACTAL_NZ_C0_2格式（ScaleNZ）。
 - GMM_MX_A8W4数据流：GroupedMatmul算子的MX量化场景（x为FLOAT8_E4M3FN，weight为FLOAT4_E2M1紧凑4-bit），weight由ND转换为FRACTAL_NZ格式。
@@ -721,7 +721,7 @@ aclnnStatus aclnnWeightQuantPreprocess(
 </details>
 
 <details>
-<summary><strong>MM_A16MXF4数据流</strong>（MM表示Matmul；A16MXF4表示x的数据类型为FLOAT16/BFLOAT16，weight的数据类型为FLOAT4_E2M1（紧凑4-bit，每字节打包2个值），MX（MicroScaling）量化模式）</summary>
+<summary><strong>MM_A16MXF4数据流</strong>（MM表示Matmul；A16MXF4表示x的数据类型为FLOAT16/BFLOAT16，weight的数据类型为FLOAT4_E2M1（紧凑4-bit，每字节打包2个值），MX（Microscaling）量化模式）</summary>
 
 - **weight**
   - 数据类型：FLOAT4_E2M1

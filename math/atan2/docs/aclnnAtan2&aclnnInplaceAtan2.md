@@ -186,7 +186,7 @@ aclnnStatus aclnnInplaceAtan2(
       <td>self、other或out的维数大于8。</td>
     </tr>
     <tr>
-      <td>self、other broadcast之后得到的shape和out不一致时。</td>
+      <td>self、other broadcast之后得到的shape和out不一致。</td>
     </tr>
   </tbody>
   </table>

@@ -277,7 +277,7 @@ aclnnStatus aclnnInplaceBitwiseOrTensor(
     <tr>
       <td>other（aclTensor*）</td>
       <td>输入</td>
-      <td>输入tensor，与selfRef进行按位或运算。</td>
+      <td>输入Tensor，与selfRef进行按位或运算。</td>
       <td>shape需要与selfRef满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>。</td>
       <td>BOOL、INT8、INT16、INT32、INT64、UINT8、UINT16、UINT32、UINT64</td>
       <td>ND</td>

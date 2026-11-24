@@ -278,7 +278,7 @@ aclnnStatus aclnnInplaceEqTensor(
     </tr></thead>
   <tbody>
     <tr>
-      <td>selfRef</td>
+      <td>selfRef（aclTensor*）</td>
       <td>输入/输出</td>
       <td>输入输出Tensor，即公式中的self与out。</td>
       <td><ul><li>数据类型与other的数据类型需满足数据类型推导规则（参见<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>）。</li><li>shape需要与other满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>。</li></ul></td>

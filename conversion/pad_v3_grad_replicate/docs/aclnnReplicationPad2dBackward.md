@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-- 接口功能：replication_pad2d的反向传播，前向计算参考[[aclnnReplicationPad2d](../../pad_v3/docs/aclnnReplicationPad2d.md)]。
+- 接口功能：replication_pad2d的反向传播，前向计算参考[aclnnReplicationPad2d](../../pad_v3/docs/aclnnReplicationPad2d.md)。
 - 示例：
 
   ```text

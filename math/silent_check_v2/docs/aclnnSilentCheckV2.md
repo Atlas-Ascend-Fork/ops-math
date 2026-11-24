@@ -186,7 +186,7 @@ aclnnStatus aclnnSilentCheckV2(
     <tr>
       <td>cThreshL2</td>
       <td>输入</td>
-      <td>绝对数值触发L2故障阈值。</td>
+      <td>绝对数值触发L2级告警阈值。</td>
       <td>当前建议取值10000且cThreshL1>cThreshL2</td>
       <td>FLOAT</td>
       <td>-</td>

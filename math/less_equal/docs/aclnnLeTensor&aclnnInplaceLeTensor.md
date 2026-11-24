@@ -35,7 +35,7 @@ $$
 
 - aclnnLeTensor和aclnnInplaceLeTensor实现相同的功能，使用区别如下，请根据自身实际场景选择合适的算子。
 
-  - aclnnLeTensor：需新建一个输出张量对象存储计算结果。
+  - aclnnLeTensor：需新建一个输出Tensor对象存储计算结果。
   - aclnnInplaceLeTensor：无需新建输出张量对象，直接在输入张量的内存中存储计算结果。
 
 - 每个算子分为[两段式接口](../../../docs/zh/context/two_phase_api.md)，必须先调用aclnnLeTensorGetWorkspaceSize或者aclnnInplaceLeTensorGetWorkspaceSize接口获取计算所需workspace大小以及包含了算子计算流程的执行器，再调用aclnnLeTensor或者aclnnInplaceLeTensor接口执行计算。
@@ -273,7 +273,7 @@ aclnnStatus aclnnInplaceLeTensor(
     <tr>
       <td>selfRef（aclTensor*）</td>
       <td>输入/输出</td>
-      <td>输入输出tensor，即公式中的self与out。</td>
+      <td>输入输出Tensor，即公式中的self与out。</td>
       <td>数据类型需要与other满足数据类型推导规则（参见<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>），需与other满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>，且broadcast后的shape需要与selfRef的shape一致。</td>
       <td>INT8、UINT8、INT16、INT32、INT64、FLOAT16、UINT16、BFLOAT16、FLOAT、DOUBLE、BOOL、UINT64</td>
       <td>ND</td>

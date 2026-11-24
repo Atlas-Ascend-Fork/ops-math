@@ -291,7 +291,7 @@ aclnnStatus aclnnInplaceBitwiseXorScalar(
     <tr>
       <td>other（aclScalar*）</td>
       <td>输入</td>
-      <td>输入scalar，与selfRef进行按位异或运算。</td>
+      <td>输入标量，与selfRef进行按位异或运算。</td>
        <td>数据类型需要与selfRef满足数据类型推导规则（参见<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>）。</td>
       <td>BOOL、INT8、INT16、INT32、INT64、UINT8、UINT16、UINT32、UINT64</td>
       <td>-</td>

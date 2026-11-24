@@ -172,7 +172,7 @@ aclnnStatus aclnnDot(
       <td>参数self、tensor、out的数据类型不在支持范围内。</td>
     </tr>
     <tr>
-      <td>参数self、tensor和out的数据类型不一致。</td>
+      <td>参数self、tensor、out的数据类型不一致。</td>
     </tr>
     <tr>
       <td>参数self、tensor的数据维度不是1维。</td>

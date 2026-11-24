@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-- 接口功能：输入两个Shape满足broadcast关系、Dtype一致的Tensor。
+- 接口功能：输入两个Shape满足broadcast关系、数据类型一致的Tensor。
 - 计算公式：
 
   $$

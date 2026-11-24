@@ -183,7 +183,7 @@ aclnnStatus aclnnReflectionPad2dBackward(
       <td>padding里的数值大于等于对应self的维度大小。</td>
     </tr>
     <tr>
-      <td>self的数据类型为bf16时，padding的数值大于7。</td>
+      <td>self的数据类型为BFLOAT16时，padding的数值大于7。</td>
     </tr>
     <tr>
       <td>gradOutput shape需要与reflection_pad2d正向传播的output一致。</td>

@@ -1,4 +1,4 @@
-# aclnnAdds
+# aclnnAdds&aclnnInplaceAdds
 
 ## 产品支持情况
 
@@ -445,7 +445,7 @@ aclnnStatus aclnnInplaceAdds(
 - 确定性计算：
   - aclnnAdds&aclnnInplaceAdds默认确定性实现。
 
-  other参数对于float无精度损失，int32、int64数据类型在other参数大于2^24时可能存在精度损失，推荐使用[aclnnAdd](./aclnnAdd&aclnnInplaceAdd.md)。
+- other参数对于float无精度损失，int32、int64数据类型在other参数大于2^24时可能存在精度损失，推荐使用[aclnnAdd](./aclnnAdd&aclnnInplaceAdd.md)。
 
 ## 调用示例
 

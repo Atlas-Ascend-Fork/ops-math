@@ -128,7 +128,7 @@ aclnnStatus aclnnInplacePowTensorTensor(
       <td>out（aclTensor*）</td>
       <td>输出</td>
       <td>公式中的out，存储计算结果。</td>
-      <td>数据类型需要是self与exponent推导之后可转换的数据类型（参见<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>），shape需要是self与exponent <a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast</a>之后的shape。</td>
+      <td>数据类型需要是self与exponent推导之后可转换的数据类型（参见<a href="../../../docs/zh/context/deduction_relationship.md" target="_blank">互推导关系</a>），shape需要是self与exponent <a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>之后的shape。</td>
       <td>FLOAT、FLOAT16、DOUBLE、INT16、INT32、INT64、INT8、UINT8、COMPLEX64、COMPLEX128、BFLOAT16、UINT16、UINT32、UINT64</td>
       <td>ND</td>
       <td>0-8</td>
@@ -239,7 +239,7 @@ aclnnStatus aclnnInplacePowTensorTensor(
     <tr>
       <td>executor</td>
       <td>输入</td>
-      <td>op执行器，包含了算子计算流程。</td>
+      <td>算子执行器，包含了算子计算流程。</td>
     </tr>
     <tr>
       <td>stream</td>
@@ -404,7 +404,7 @@ aclnnStatus aclnnInplacePowTensorTensor(
       <tr>
         <td>executor</td>
         <td>输入</td>
-        <td>op执行器，包含了算子计算流程。</td>
+        <td>算子执行器，包含了算子计算流程。</td>
       </tr>
       <tr>
         <td>stream</td>

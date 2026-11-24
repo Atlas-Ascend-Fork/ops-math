@@ -233,9 +233,9 @@ aclnnStatus aclnnCircularPad3dBackward(
 - 确定性计算：
   - aclnnCircularPad3dBackward默认确定性实现。
 
-gradOutput的最后一维在不同类型下的大小需满足如下约束：
-float16/bfloat16：(0, 16384)
-float32：(0, 24576)
+gradOutput的最后一维在不同数据类型下的大小需满足如下约束：
+- FLOAT16、BFLOAT16：(0, 16384)
+- FLOAT32：(0, 24576)
 
 ## 调用示例
 

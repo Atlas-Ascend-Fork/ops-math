@@ -97,7 +97,7 @@
 | [aclnnCosh&aclnnInplaceCosh](../../math/cosh/docs/aclnnCosh&aclnnInplaceCosh.md) | 双曲函数，根据公式返回一个新的tensor。结果的形状与输入tensor相同。 | 默认确定性实现| 默认确定性实现 |
 | [aclnnCummax](../../math/cummax/docs/aclnnCummax.md)            | 计算self中的累积最大值，并返回最大值以及对应的索引。         | 默认确定性实现| - |
 | [aclnnCummin](../../math/cummin/docs/aclnnCummin.md)            | 计算self中的累积最小值，并返回最小值以及对应的索引。         | 默认确定性实现| 默认确定性实现  |
-| [aclnnCumprod&aclnnInplaceCumprod](../../math/cumprod/docs/aclnnCumprod&aclnnInplaceCumprod.md) | 新增aclnnCumprod接口，cumprod函数用于计算输入张量在指定维度上的累积乘积。 | 默认确定性实现| - |
+| [aclnnCumprod&aclnnInplaceCumprod](../../math/cumprod/docs/aclnnCumprod&aclnnInplaceCumprod.md) | 计算输入张量在指定维度上的累积乘积。 | 默认确定性实现| - |
 | [aclnnCumsum](../../math/cumsum/docs/aclnnCumsum.md)            | 对输入张量self的元素，按照指定维度dim依次进行累加，并将结果保存到输出张量out中。 | 默认确定性实现| 默认确定性实现|
 | [aclnnCumsumV2](../../math/cumsum/docs/aclnnCumsumV2.md)        | 对输入张量self的元素，按照指定维度dim依次进行累加，并将结果保存到输出张量out中。 | 默认确定性实现| 默认确定性实现|
 | [aclnnDiag](../../conversion/diag_v2/docs/aclnnDiag.md) | 如果输入是向量（一维向量），则返回二维矩阵张量，其中input元素为对角线；如果输入是二维张量，则输出一维向量，取值为diagonal指定的输入矩阵的对角线元素。 | 默认确定性实现|  默认确定性实现 |
@@ -329,6 +329,6 @@
 | [aclnnXLogYScalarOther&aclnnInplaceXLogYScalarOther](../../math/xlogy/docs/aclnnXLogYScalarOther&aclnnInplaceXLogYScalarOther.md) | 计算self * log(other)的结果。                                | 默认确定性实现| 默认确定性实现 |
 | [aclnnXLogYScalarSelf](../../math/xlogy/docs/aclnnXLogYScalarSelf.md) | 计算self * log(other)的结果。                                | 默认确定性实现| 默认确定性实现 |
 | [aclnnXLogYTensor&aclnnInplaceXLogYTensor](../../math/xlogy/docs/aclnnXLogYTensor&aclnnInplaceXLogYTensor.md) | 计算self * log(other)的结果。                                | 默认确定性实现| 默认确定性实现 |
-| [aclRfft1D](../../math/rfft1_d/docs/aclRfft1D.md)               | 对输入张量self进行RFFT（傅里叶变换）计算，输出是一个包含非负频率的复数张量。 | 默认确定性实现| 默认确定性实现 |
+| [aclRfft1D](../../math/rfft1_d/docs/aclRfft1D.md)               | 对输入张量self进行RFFT（Real Fast Fourier Transform，实数快速傅里叶变换）计算，输出是一个包含非负频率的复数张量。 | 默认确定性实现| 默认确定性实现 |
 | [aclStft](../../math/stft/docs/aclStft.md)                      | 计算输入在滑动窗口内的傅里叶变换。                           | 默认确定性实现| 默认确定性实现 |
 | [aclnnStatelessExponentialTensor](../../random/stateless_exponential/docs/aclnnStatelessExponentialTensor.md)                      | 生成服从指数分布的随机数。                           | - | 默认确定性实现 |
