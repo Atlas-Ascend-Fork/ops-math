@@ -13,11 +13,14 @@
  * \brief bernoulli fusion pass (StatelessBernoulliV2 --> StatelessBernoulli)
  */
 
+#include <cstdlib>
 #include <vector>
 #include <string>
 #include <algorithm>
+#include <set>
 #include "es_math_ops.h"
 #include "platform/platform_info.h"
+#include "platform/soc_spec.h"
 #include "ge/ge_utils.h"
 #include "log/log.h"
 #include "version/ge-compiler_version.h"
@@ -30,6 +33,11 @@ using namespace fe;
 // D1 scenario: uses kCompatibleInherited stage (9.0.0+).
 // Strategy: compile-time macro guard + runtime version check + overall silence.
 #define GE_COMPILER_VERSION_900 90000000
+
+extern "C" {
+static const int32_t RT_ERROR_NONE = 0;
+int32_t rtGetSocSpec(const char* label, const char* key, char* val, const uint32_t maxLen);
+}
 
 namespace {
 #if GE_COMPILER_VERSION_NUM >= GE_COMPILER_VERSION_900
@@ -86,9 +94,25 @@ void UpdateNodeOutputDesc(es::EsTensorHolder& tensor, DataType dtype, const Shap
     tensor.GetProducer()->UpdateOutputDesc(0, desc);
 }
 
-bool CheckPlatform(const std::string& soc)
+// 平台门控改用 NpuArch 判别:
+// Ascend910_93 上报 NpuArch 为 DAV_2201; Ascend950 与 Ascend350 同为 DAV_3510;
+// Ascend960DT/Ascend960PR 为 DAV_9201/DAV_9202。
+bool CheckPlatform()
 {
-    return (soc == "Ascend910_93" || soc == "Ascend950" || soc == "Ascend960DT" || soc == "Ascend960PR");
+    char npuArchVal[32] = {0};
+    if (rtGetSocSpec("version", "NpuArch", npuArchVal, sizeof(npuArchVal)) != RT_ERROR_NONE) {
+        OP_LOGW(kPassName.c_str(), "Get NpuArch from soc spec failed, skip whole graph.");
+        return false;
+    }
+    const auto npuArch = static_cast<NpuArch>(std::strtol(npuArchVal, nullptr, 10));
+    static const std::set<NpuArch> supportedArch = {NpuArch::DAV_2201, NpuArch::DAV_3510, NpuArch::DAV_9201,
+                                                    NpuArch::DAV_9202};
+    const bool isSupported = (supportedArch.count(npuArch) > 0);
+    if (!isSupported) {
+        OP_LOGI(kPassName.c_str(), "Platform NpuArch %u is not supported(DAV_2201/DAV_3510/DAV_9201/DAV_9202), skip.",
+                static_cast<uint32_t>(npuArch));
+    }
+    return isSupported;
 }
 
 bool CheckDtype(DataType dtype, const std::vector<DataType>& validTypes)
@@ -134,13 +158,7 @@ bool BernoulliFusionPass::MeetRequirements(const std::unique_ptr<MatchResult>& m
         return false;
     }
 
-    PlatformInfo platformInfo;
-    OptionalInfo optionalInfo;
-    if (PlatformInfoManager::Instance().GetPlatformInfoWithOutSocVersion(platformInfo, optionalInfo) != SUCCESS) {
-        OP_LOGE(kPassName.c_str(), "Failed to get platform info for StatelessBernoulliV2 fusion pass.");
-        return false;
-    }
-    if (!CheckPlatform(platformInfo.str_info.short_soc_version)) {
+    if (!CheckPlatform()) {
         return false;
     }
 

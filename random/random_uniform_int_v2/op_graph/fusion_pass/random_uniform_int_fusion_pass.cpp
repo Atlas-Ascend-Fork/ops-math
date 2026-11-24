@@ -19,11 +19,13 @@
  *              y                                   y           offset
  */
 
+#include <cstdlib>
 #include <vector>
 #include <string>
 #include <set>
 #include "es_math_ops.h"
 #include "platform/platform_info.h"
+#include "platform/soc_spec.h"
 #include "ge/ge_utils.h"
 #include "log/log.h"
 // 版本兼容: 编译宏头(GE_COMPILER_VERSION_NUM), 用于判断 toolkit 版本
@@ -41,6 +43,8 @@ namespace ops {
 //   - UT 可执行文件: 弱符号允许链接期未解析(地址为 NULL), 调用前判空, NULL 时跳过。
 extern "C" {
 __attribute__((weak)) int32_t aclsysGetVersionNum(char* pkgName, int32_t* versionNum);
+static const int32_t RT_ERROR_NONE = 0;
+int32_t rtGetSocSpec(const char* label, const char* key, char* val, const uint32_t maxLen);
 }
 
 static const std::string kPassName = "RandomUniformIntFusionPass";
@@ -71,6 +75,28 @@ CustomPassStage GetRandomUniformIntFusionPassStage()
     return CustomPassStage::kBeforeInferShape;
 }
 #endif
+} // namespace
+
+namespace {
+// 平台门控改用 NpuArch 判别:
+// Ascend950 与 Ascend350 上报的 NpuArch 同为 DAV_3510, 按 arch 判断可同时覆盖两档芯片;
+// Ascend960DT/Ascend960PR 上报的 NpuArch 为 DAV_9201/DAV_9202。
+bool IsTargetPlatform()
+{
+    char npuArchVal[32] = {0};
+    if (rtGetSocSpec("version", "NpuArch", npuArchVal, sizeof(npuArchVal)) != RT_ERROR_NONE) {
+        OP_LOGW(kPassName.c_str(), "Get NpuArch from soc spec failed, skip whole graph.");
+        return false;
+    }
+    const auto npuArch = static_cast<NpuArch>(std::strtol(npuArchVal, nullptr, 10));
+    static const std::set<NpuArch> supportedArch = {NpuArch::DAV_3510, NpuArch::DAV_9201, NpuArch::DAV_9202};
+    const bool isSupported = (supportedArch.count(npuArch) > 0);
+    if (!isSupported) {
+        OP_LOGI(kPassName.c_str(), "Platform NpuArch %u is not supported(DAV_3510/DAV_9201/DAV_9202), skip.",
+                static_cast<uint32_t>(npuArch));
+    }
+    return isSupported;
+}
 } // namespace
 
 std::vector<PatternUniqPtr> RandomUniformIntFusionPass::Patterns()
@@ -108,16 +134,7 @@ bool RandomUniformIntFusionPass::MeetRequirements(const std::unique_ptr<MatchRes
         return false;
     }
 
-    PlatformInfo platformInfo;
-    OptionalInfo optionalInfo;
-    if (PlatformInfoManager::Instance().GetPlatformInfoWithOutSocVersion(platformInfo, optionalInfo) != SUCCESS) {
-        OP_LOGE(kPassName.c_str(), "Get platformInfo failed.");
-        return false;
-    }
-    const std::string soc = platformInfo.str_info.short_soc_version;
-    if (soc != "Ascend950" && soc != "Ascend960DT" && soc != "Ascend960PR") {
-        OP_LOGD(kPassName.c_str(), "Platform %s is not supported, only Ascend950, Ascend960DT and Ascend960PR.",
-                soc.c_str());
+    if (!IsTargetPlatform()) {
         return false;
     }
 
