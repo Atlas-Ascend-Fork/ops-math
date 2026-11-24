@@ -90,6 +90,7 @@ private:
             .ExtendCfgInfo("opFile.value", "tensor_move_apt");
         opbase::ArchConfigHelper::AddConfigByArch(this->AICore(), Ops::Base::DAV_3510, aicoreConfig);
         opbase::ArchConfigHelper::AddConfigByArch(this->AICore(), Ops::Base::DAV_9202, aicoreConfig);
+        this->AICore().AddConfig("ascend5162", aicoreConfig);
     }
 
     void SetArch92Config(OpAICoreConfig& CONFIG_ARCH92)
