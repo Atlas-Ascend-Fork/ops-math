@@ -145,8 +145,14 @@ static bool CheckGroupDim(const std::vector<std::vector<int64_t>>& group, int64_
         if (ref == -1) {
             ref = v;
         } else if (v != ref) {
-            OP_LOGE("PadAndSqueeze", "dim %d broadcast incompatible: %s[%d] size %d != %d", (int)d, tag, (int)i, (int)v,
-                    (int)ref);
+            gert::Shape shape;
+            for (int64_t dim : group[i]) {
+                shape.AppendDim(dim);
+            }
+            OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(
+                "Scale", tag, Ops::Base::ToString(shape),
+                "Dimension " + std::to_string(d) + " of tensor " + std::to_string(i) + " has size " +
+                    std::to_string(v) + " and must be 1 or match the broadcast size " + std::to_string(ref));
             return false;
         }
     }
@@ -246,7 +252,7 @@ bool FindSplitAxis(const std::vector<int64_t>& max_bro_shape, int64_t /*dtype_si
                    int64_t phys_nodes, SplitResult& out)
 {
     if (phys_nodes <= 0) { // 除 0 保护：phys_nodes 异常直接判失败
-        OP_LOGE("FindSplitAxis", "phys_nodes(%ld) must be > 0", phys_nodes);
+        OP_LOGE_WITHOUT_REPORT("FindSplitAxis", "phys_nodes(%ld) must be > 0", phys_nodes);
         return false;
     }
     int64_t per_buf_bytes = (ub_per_core / phys_nodes) & ~31LL; // 32B 对齐
@@ -467,7 +473,8 @@ private:
         else if (dtype == ge::DT_FLOAT)
             dtype_size_ = 4;
         else {
-            OP_LOGE(ctx_->GetNodeName(), "Unsupported dtype");
+            OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON("Scale", "x", Ops::Base::ToString(dtype),
+                                                  "The supported data types are FLOAT16, BF16 and FLOAT");
             return ge::GRAPH_FAILED;
         }
         const auto* scaleDesc = ctx_->GetInputDesc(1);
@@ -578,7 +585,31 @@ private:
             return ge::GRAPH_FAILED;
         ReadAttrs();
         if (!ValidateShapes()) {
-            OP_LOGE(ctx_->GetNodeName(), "Invalid Scale rank, shape window or attributes");
+            std::vector<const gert::Shape*> shapes = {&ctx_->GetInputShape(0)->GetStorageShape(),
+                                                      &ctx_->GetInputShape(1)->GetStorageShape()};
+            if (has_bias_) {
+                shapes.push_back(&ctx_->GetOptionalInputShape(2)->GetStorageShape());
+            }
+            const auto invalidRank = std::find_if(shapes.begin(), shapes.end(), [](const gert::Shape* shape) {
+                return shape->GetDimNum() > scale_shape::MAX_GEIR_RANK;
+            });
+            if (invalidRank != shapes.end()) {
+                constexpr const char* names[] = {"x", "scale", "bias"};
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(
+                    "Scale", names[invalidRank - shapes.begin()], std::to_string((*invalidRank)->GetDimNum()),
+                    "The input rank must be at most " + std::to_string(scale_shape::MAX_GEIR_RANK));
+            } else {
+                std::string names = has_bias_ ? "x, scale, bias" : "x, scale";
+                if (raw_output_shapes_.size() == 1) {
+                    shapes.push_back(&ctx_->GetOutputShape(0)->GetStorageShape());
+                    names += ", y";
+                }
+                OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(
+                    "Scale", names, Ops::Base::ToString(shapes),
+                    "Check the scaling window (axis=" + std::to_string(axis_) + ", num_axes=" +
+                        std::to_string(num_axes_) + ", scale_from_blob=" + (scale_from_blob_ ? "true)" : "false)") +
+                        ". The shape of bias must match scale and the shape of y must match x");
+            }
             return ge::GRAPH_FAILED;
         }
         if (std::find(raw_output_shapes_[0].begin(), raw_output_shapes_[0].end(), 0) != raw_output_shapes_[0].end()) {
@@ -589,14 +620,15 @@ private:
 
         if (!scale::PadAndSqueeze(raw_input_shapes_, raw_output_shapes_, max_bro_shape_, normal_input_shapes_,
                                   normal_output_shapes_)) {
-            OP_LOGE(ctx_->GetNodeName(), "scale/bias shape cannot broadcast to x");
+            OP_LOGE_WITHOUT_REPORT(ctx_->GetNodeName(), "scale/bias shape cannot broadcast to x");
             return ge::GRAPH_FAILED;
         }
         rank_ = (int64_t)max_bro_shape_.size();
 
         // Protect the fixed-size TilingData slots.
         if (rank_ > 8) {
-            OP_LOGE(ctx_->GetNodeName(), "rank(%ld) exceeds max supported dim 8", rank_);
+            OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON("Scale", "broadcast shape", std::to_string(rank_),
+                                                     "The broadcast rank must be at most 8");
             return ge::GRAPH_FAILED;
         }
 

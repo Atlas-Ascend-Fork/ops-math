@@ -117,9 +117,13 @@ ge::graphStatus GetSafeElementCount(const gert::TilingContext* context, const ge
             elementCount = 0;
             continue;
         }
-        OP_CHECK_IF(elementCount > std::numeric_limits<int64_t>::max() / dim,
-                    OP_LOGE(context->GetNodeName(), "%s element count overflows int64.", inputName),
-                    return ge::GRAPH_FAILED);
+        OP_CHECK_IF(
+            elementCount > std::numeric_limits<int64_t>::max() / dim,
+            OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(Ops::Base::GetOpInfo(context->GetNodeType()),
+                                                  std::string(inputName) + ".shape", Ops::Base::ToString(shape),
+                                                  "The product of the dimensions must be less than or equal to " +
+                                                      std::to_string(std::numeric_limits<int64_t>::max())),
+            return ge::GRAPH_FAILED);
         elementCount *= dim;
     }
     return ge::GRAPH_SUCCESS;
@@ -143,13 +147,9 @@ ge::graphStatus CheckWeightsShape(const gert::TilingContext* context, const gert
     int64_t valuesCount = 0;
     int64_t weightsCount = 0;
     OP_CHECK_IF(GetSafeElementCount(context, valuesShape, "values", valuesCount) != ge::GRAPH_SUCCESS,
-                OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON(context->GetNodeName(), "values", Ops::Base::ToString(values),
-                                                      "values element count validation failed"),
-                return ge::GRAPH_FAILED);
+                OP_LOGE_WITHOUT_REPORT(context, "Failed to count elements in values."), return ge::GRAPH_FAILED);
     OP_CHECK_IF(GetSafeElementCount(context, weightsShape, "weights", weightsCount) != ge::GRAPH_SUCCESS,
-                OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON(context->GetNodeName(), "weights", Ops::Base::ToString(weights),
-                                                      "weights element count validation failed"),
-                return ge::GRAPH_FAILED);
+                OP_LOGE_WITHOUT_REPORT(context, "Failed to count elements in weights."), return ge::GRAPH_FAILED);
 
     // Zero elements is the contract for "no weights"; every bin then accumulates 1.0 per value.
     if (weightsCount == 0) {
@@ -298,16 +298,13 @@ ge::graphStatus ResolveCounts(gert::TilingContext* context, const InputShapes& s
     problem.numRows = problem.numSplits - 1;
 
     OP_CHECK_IF(GetSafeElementCount(context, shapes.values, "values", problem.numValues) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context->GetNodeName(), "Failed to calculate the values element count safely."),
-                return ge::GRAPH_FAILED);
+                OP_LOGE_WITHOUT_REPORT(context, "Failed to count elements in values."), return ge::GRAPH_FAILED);
     OP_CHECK_IF(CheckWeightsShape(context, shapes.values, shapes.weights, problem.hasWeights) != ge::GRAPH_SUCCESS,
-                OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON(context->GetNodeName(), "weights",
-                                                      Ops::Base::ToString(shapes.weights->GetStorageShape()),
-                                                      "weights shape validation failed"),
-                return ge::GRAPH_FAILED);
+                OP_LOGE_WITHOUT_REPORT(context, "CheckWeightsShape failed."), return ge::GRAPH_FAILED);
 
     OP_CHECK_IF(!Ops::Base::GetConstInt(context, INPUT_SIZE, problem.numBins),
-                OP_LOGE(context->GetNodeName(), "Failed to get the value-dependent input size."),
+                OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(Ops::Base::GetOpInfo(context->GetNodeType()), "size",
+                                                         "Tiling requires a readable integer value for size"),
                 return ge::GRAPH_FAILED);
     OP_CHECK_IF(problem.numBins < 0,
                 OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "size", std::to_string(problem.numBins),
@@ -325,7 +322,13 @@ ge::graphStatus ResolveOutputExtent(const gert::TilingContext* context, const In
     problem.outputElements = problem.numRows * problem.numBins;
     OP_CHECK_IF(static_cast<uint64_t>(problem.outputElements) >
                     static_cast<uint64_t>(std::numeric_limits<size_t>::max() / OUTPUT_ELEMENT_BYTES),
-                OP_LOGE(context->GetNodeName(), "The output byte size overflows size_t."), return ge::GRAPH_FAILED);
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                    Ops::Base::GetOpInfo(context->GetNodeType()), "size", std::to_string(problem.numBins),
+                    "With a row count of " + std::to_string(problem.numRows) + ", the value of size must be in [0, " +
+                        std::to_string(std::numeric_limits<size_t>::max() / OUTPUT_ELEMENT_BYTES /
+                                       static_cast<uint64_t>(problem.numRows)) +
+                        "] for the float32 output byte count to fit in size_t"),
+                return ge::GRAPH_FAILED);
 
     const gert::Shape& outputStorageShape = shapes.output->GetStorageShape();
     OP_CHECK_IF(
@@ -552,11 +555,9 @@ ge::graphStatus RaggedBinCountTilingFunc(gert::TilingContext* context)
 
     ProblemSize problem;
     OP_CHECK_IF(ResolveCounts(context, shapes, problem) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context->GetNodeName(), "RaggedBinCount input count resolution failed."),
-                return ge::GRAPH_FAILED);
+                OP_LOGE_WITHOUT_REPORT(context, "ResolveCounts failed."), return ge::GRAPH_FAILED);
     OP_CHECK_IF(ResolveOutputExtent(context, shapes, problem) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context->GetNodeName(), "RaggedBinCount output extent resolution failed."),
-                return ge::GRAPH_FAILED);
+                OP_LOGE_WITHOUT_REPORT(context, "ResolveOutputExtent failed."), return ge::GRAPH_FAILED);
 
     PlatformBudget budget;
     OP_CHECK_IF(ResolvePlatformBudget(context, budget) != ge::GRAPH_SUCCESS,

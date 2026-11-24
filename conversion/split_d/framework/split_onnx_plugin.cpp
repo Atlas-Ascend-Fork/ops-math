@@ -9,6 +9,7 @@
  */
 
 #include "onnx_common.h"
+#include "nlohmann/json.hpp"
 #include "op_math_proto_extend.h"
 #include "conversion/split_v/op_graph/split_v_proto.h"
 #include "conversion/split/op_graph/split_proto.h"
@@ -137,8 +138,11 @@ Status SingleSizeParse(const ge::Operator& op, const SplitNewProp& prop, ge::Ope
             int64_t split_size = dim_size / prop.num_split;
             std::vector<int64_t> size_splits_num(prop.num_split, split_size);
             if (dim_size % prop.num_split != 0) {
-                OP_LOGE(GetOpName(op).c_str(), "dim_size[%ld] can not be evenly divided by split_size[%ld].", dim_size,
-                        split_size);
+                OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON(
+                    GetOpName(op).c_str(), "input", nlohmann::json(input_dim).dump(),
+                    "This Split conversion requires the length of axis " + std::to_string(prop.split_dim) + " (" +
+                        std::to_string(dim_size) + ") to be divisible by the number of outputs (" +
+                        std::to_string(prop.num_split) + ")");
                 return FAILED;
             }
             std::vector<int64_t> dims = {(int64_t)size_splits_num.size()};

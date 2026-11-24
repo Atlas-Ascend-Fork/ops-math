@@ -133,7 +133,17 @@ static ge::graphStatus InferShape4Scale(gert::InferShapeContext* context)
     const auto* blob = attrs ? attrs->GetBool(2) : nullptr;
     const auto xd = dims(*x), sd = dims(*scaleShape);
     if (!scale_shape::ValidScaleRuntimeWindow(xd, sd, axis ? *axis : 1, axes ? *axes : 1, blob ? *blob : true)) {
-        OP_LOGE(context->GetNodeName(), "Invalid Scale shape window or attributes");
+        const bool xRankTooLarge = xd.size() > scale_shape::MAX_GEIR_RANK;
+        if (xRankTooLarge || sd.size() > scale_shape::MAX_GEIR_RANK) {
+            OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(
+                "Scale", xRankTooLarge ? "x" : "scale", std::to_string(xRankTooLarge ? xd.size() : sd.size()),
+                "The input rank must be at most " + std::to_string(scale_shape::MAX_GEIR_RANK));
+        } else {
+            OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(
+                "Scale", "x, scale", Ops::Base::ToString({x, scaleShape}),
+                "The shapes must match the scaling window (axis=" + std::to_string(axis ? *axis : 1) + ", num_axes=" +
+                    std::to_string(axes ? *axes : 1) + ", scale_from_blob=" + (blob && !*blob ? "false)" : "true)"));
+        }
         return ge::GRAPH_FAILED;
     }
     // An empty output may be eliminated before Tiling can validate a nonempty bias.
@@ -144,12 +154,16 @@ static ge::graphStatus InferShape4Scale(gert::InferShapeContext* context)
             if (!scale_shape::UnknownRank(sd) &&
                 std::all_of(bd.begin(), bd.end(), [](int64_t dim) { return dim > 0; })) {
                 if (bd.size() != sd.size()) {
-                    OP_LOGE(context->GetNodeName(), "Nonempty bias must match scale for an empty output");
+                    OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON("Scale", "scale, bias",
+                                                           Ops::Base::ToString({scaleShape, biasShape}),
+                                                           "The shape of bias must match scale for an empty output");
                     return ge::GRAPH_FAILED;
                 }
                 for (size_t i = 0; i < sd.size(); ++i) {
                     if (sd[i] >= 0 && bd[i] >= 0 && sd[i] != bd[i]) {
-                        OP_LOGE(context->GetNodeName(), "Nonempty bias must match scale for an empty output");
+                        OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(
+                            "Scale", "scale, bias", Ops::Base::ToString({scaleShape, biasShape}),
+                            "The shape of bias must match scale for an empty output");
                         return ge::GRAPH_FAILED;
                     }
                 }
