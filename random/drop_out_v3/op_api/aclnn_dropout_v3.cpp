@@ -228,10 +228,10 @@ aclnnStatus aclnnDropoutV3GetWorkspaceSize(const aclTensor* input, const aclTens
     // 进行dropoutv3计算
     const aclTensor* outResult = nullptr;
     const aclTensor* maskResult = nullptr;
-    if (p == 0.0) {
+    if (p <= 0.0) {
         outResult = inputContiguous;
         maskResult = FillScalar(maskOut, MAX_MASK_NUM, uniqueExecutor.get());
-    } else if (p == 1.0) {
+    } else if (p >= 1.0) {
         outResult = l0op::ZerosLike(inputContiguous, uniqueExecutor.get());
         maskResult = FillScalar(maskOut, 0, uniqueExecutor.get());
     } else {
@@ -345,10 +345,10 @@ ACLNN_API aclnnStatus aclnnDropoutV3TensorGetWorkspaceSize(const aclTensor* inpu
     const aclTensor* outResult = nullptr;
     const aclTensor* maskResult = nullptr;
 
-    if (p == 0.0) {
+    if (p <= 0.0) {
         outResult = inputContiguous;
         maskResult = FillScalar(maskOut, MAX_MASK_NUM, uniqueExecutor.get());
-    } else if (p == 1.0) {
+    } else if (p >= 1.0) {
         outResult = l0op::ZerosLike(inputContiguous, uniqueExecutor.get());
         maskResult = FillScalar(maskOut, 0, uniqueExecutor.get());
     } else {

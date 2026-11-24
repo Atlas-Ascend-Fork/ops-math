@@ -282,9 +282,13 @@ __aicore__ inline void StatelessRandomNormalV2<T>::BoxMullerMul(LocalTensor<floa
     LocalTensor<float> u2Result = philoxQueBufY_.Get<float>();
     LocalTensor<float> yOutput = outQue_.AllocTensor<float>();
 
-    Cos<float, false>(yOutputTmp, v1Result);
-    Sin<float, false>(yOutput, v1Result);
-    uint32_t repeatTimes = CeilDiv(calCount / DOUBLE_UNIFORM_RESULT, static_cast<uint32_t>(INT32_FLOAT32_ONE_REPEAT));
+    // Only calCount / DOUBLE_UNIFORM_RESULT valid angles are produced by BoxMullerFloat.
+    // Passing an explicit count avoids computing Cos/Sin over the whole UB buffer
+    // (the 2-arg overload uses srcTensor.GetSize()).
+    uint32_t pairCount = calCount / DOUBLE_UNIFORM_RESULT;
+    Cos<float, false>(yOutputTmp, v1Result, pairCount);
+    Sin<float, false>(yOutput, v1Result, pairCount);
+    uint32_t repeatTimes = CeilDiv(pairCount, static_cast<uint32_t>(INT32_FLOAT32_ONE_REPEAT));
 
     __ubuf__ float* ubSinResult = (__ubuf__ float*)yOutput.GetPhyAddr();
     __ubuf__ float* ubCosResult = (__ubuf__ float*)yOutputTmp.GetPhyAddr();
@@ -301,7 +305,7 @@ __aicore__ inline void StatelessRandomNormalV2<T>::BoxMullerMul(LocalTensor<floa
         Reg::RegTensor<float> vreg5;
         Reg::MaskReg mask;
 
-        uint32_t sreg1 = static_cast<uint32_t>(calCount);
+        uint32_t sreg1 = pairCount;
         int32_t offset = static_cast<int32_t>(INT32_FLOAT32_ONE_REPEAT);
         for (uint16_t i = 0; i < static_cast<uint16_t>(repeatTimes); ++i) {
             mask = Reg::UpdateMask<float>(sreg1);
