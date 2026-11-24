@@ -123,7 +123,7 @@ aclnnStatus aclnnHistc(
       <td>out (aclTensor*)</td>
       <td>Output</td>
       <td>Histogram statistics result.</td>
-      <td><ul><li>The data type of out must be convertible to the data type of self, and the check direction is out→self.</li><li>When self is a floating-point type (FLOAT16, FLOAT32, or BFLOAT16), out can be FLOAT16, FLOAT32, BFLOAT16, INT32, INT64, INT16, INT8, or UINT8. When self is an integer type (INT8, UINT8, INT16, INT32, or INT64), out supports only integer types (INT8, UINT8, INT16, INT32, or INT64); FLOAT16, FLOAT32, or BFLOAT16 returns 161002.</li><li>This conversion check is stricter than the general conversion rules: a floating-point type cannot be converted to an integer type.</li><li>The number of elements equals bins.</li></ul></td>
+      <td><ul><li>The data type of out must be convertible to the data type of self, and the check direction is out→self.</li><li>When self is a floating-point type (FLOAT16, FLOAT32, or BFLOAT16), out can be FLOAT16, FLOAT32, BFLOAT16, INT32, INT64, INT16, INT8, or UINT8. When self is an integer type (INT8, UINT8, INT16, INT32, or INT64), out supports only integer types (INT8, UINT8, INT16, INT32, or INT64); FLOAT16, FLOAT32, or BFLOAT16 returns 161002.</li><li>This conversion check is stricter than the general conversion rules: a floating-point type cannot be converted to an integer type.</li><li>When out is INT8 or UINT8 and the count of a bin exceeds the range of the type ([-128, 127] for INT8 and [0, 255] for UINT8), the output is truncated to the bit width of the target type and wraps around (for example, a count of 300 outputs 44 for UINT8, and a count of 515 outputs 3 for INT8). It is not saturated and no error is returned. In this case, the sum of the bin counts may be less than the number of elements of self within the [min, max] range. To obtain complete counts, use INT32 as out.</li><li>The number of elements equals bins.</li></ul></td>
       <td>FLOAT16, FLOAT32, BFLOAT16, INT32, INT64, INT16, INT8, UINT8</td>
       <td>ND</td>
       <td>1</td>
@@ -253,6 +253,7 @@ aclnnStatus aclnnHistc(
 - Value ranges: `bins` must be greater than 0 and no greater than 2147483647; `min` must not be greater than `max`; `min`/`max` must be finite (only both being +inf or both being -inf is allowed).
 - When `min == max`, the statistical bounds are first recomputed from the minimum/maximum element of self; if they are still equal, they are expanded to the adjacent representable values.
 - The number of elements in `out` must equal `bins`, and the data type of `out` must be convertible to the data type of self.
+- Count range: When out is INT8 or UINT8 and the count of a bin exceeds the range of the type ([-128, 127] for INT8 and [0, 255] for UINT8), the output is truncated to the bit width of the target type and wraps around. It is not saturated and no error is returned. For example, a count of 300 outputs 44 for UINT8, and a count of 515 outputs 3 for INT8. To obtain complete counts, use INT32 as out.
 - Deterministic computation:
 
   <!-- npu="A3,910b,910,310p" id7 -->

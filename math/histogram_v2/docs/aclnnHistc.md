@@ -121,7 +121,7 @@ aclnnStatus aclnnHistc(
       <td>out（aclTensor*）</td>
       <td>输出</td>
       <td>直方图统计结果。</td>
-      <td><ul><li>out数据类型需要可转换为self的数据类型，校验方向为out→self。</li><li>当self为浮点类型（FLOAT16、FLOAT32、BFLOAT16）时，out可为FLOAT16、FLOAT32、BFLOAT16、INT32、INT64、INT16、INT8、UINT8；当self为整型（INT8、UINT8、INT16、INT32、INT64）时，out仅支持整型（INT8、UINT8、INT16、INT32、INT64），传入FLOAT16、FLOAT32或BFLOAT16时返回161002。</li><li>该转换校验较通用互转换规则更严格：浮点类型不允许转换为整型。</li><li>元素个数等于bins。</li></ul></td>
+      <td><ul><li>out数据类型需要可转换为self的数据类型，校验方向为out→self。</li><li>当self为浮点类型（FLOAT16、FLOAT32、BFLOAT16）时，out可为FLOAT16、FLOAT32、BFLOAT16、INT32、INT64、INT16、INT8、UINT8；当self为整型（INT8、UINT8、INT16、INT32、INT64）时，out仅支持整型（INT8、UINT8、INT16、INT32、INT64），传入FLOAT16、FLOAT32或BFLOAT16时返回161002。</li><li>该转换校验较通用互转换规则更严格：浮点类型不允许转换为整型。</li><li>out为INT8或UINT8时，若某桶计数超出该类型可表示范围（INT8为[-128, 127]，UINT8为[0, 255]），输出结果按目标类型位宽截断并发生回绕（例如UINT8下计数300输出44，INT8下计数515输出3），不做饱和处理，也不返回错误；此时各桶计数之和可能小于self中落入[min, max]区间的元素个数。需要完整计数时请使用INT32作为out。</li><li>元素个数等于bins。</li></ul></td>
       <td>FLOAT16、FLOAT32、BFLOAT16、INT32、INT64、INT16、INT8、UINT8</td>
       <td>ND</td>
       <td>1</td>
@@ -251,6 +251,7 @@ aclnnStatus aclnnHistc(
 - 取值范围：`bins`需大于0且不超过2147483647；`min`不得大于`max`；`min`/`max`需为有限值（仅允许两者同为+inf或同为-inf）。
 - `min == max`时，先按self元素的最小值/最大值重算统计上下限；重算后仍相等时，按邻接可表示值向两侧展开后统计。
 - `out`的元素个数必须等于`bins`，且数据类型需可转换为self的数据类型。
+- 计数范围：当out为INT8或UINT8时，若某桶计数超出该类型可表示范围（INT8为[-128, 127]，UINT8为[0, 255]），输出按目标类型位宽截断并发生回绕，不做饱和处理且不返回错误，例如UINT8下计数300输出44、INT8下计数515输出3。需要完整计数时请使用INT32作为out。
 - 确定性计算：
 
   <!-- npu="A3,910b,910,310p" id7 -->
