@@ -129,6 +129,14 @@ static inline bool CheckTensorDimSize(const aclTensor* x)
     return true;
 }
 
+static void CheckFormat(const aclTensor* x, const aclTensor* out)
+{
+    // 检查format，非ND格式仅添加告警，不拦截执行，与同族算子保持一致
+    if (x->GetStorageFormat() != Format::FORMAT_ND || out->GetStorageFormat() != Format::FORMAT_ND) {
+        OP_LOGW("aclnnRoll only supports format ND.");
+    }
+}
+
 static aclnnStatus CheckParams(const aclTensor* x, const aclIntArray* shifts, const aclIntArray* dims,
                                const aclTensor* out)
 {
@@ -141,10 +149,13 @@ static aclnnStatus CheckParams(const aclTensor* x, const aclIntArray* shifts, co
     // 3. 检查x和out的shape是否一致
     CHECK_RET(CheckShape(x, out), ACLNN_ERR_PARAM_INVALID);
 
-    // 4. 检查shifts和dims的大小一致情况
+    // 4. 检查x和out的格式，非ND格式仅打印告警
+    CheckFormat(x, out);
+
+    // 5. 检查shifts和dims的大小一致情况
     CHECK_RET(CheckArraySize(shifts, dims), ACLNN_ERR_PARAM_INVALID);
 
-    // 5. 检查x不能超过8维
+    // 6. 检查x不能超过8维
     CHECK_RET(CheckTensorDimSize(x), ACLNN_ERR_PARAM_INVALID);
 
     return ACLNN_SUCCESS;
