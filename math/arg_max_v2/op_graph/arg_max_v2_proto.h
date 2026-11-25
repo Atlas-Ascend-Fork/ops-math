@@ -25,14 +25,17 @@ namespace ge {
 
 *@par Inputs:
 * Two inputs, including:
-*@li x: A ND and multi-dimensional tensor of type float16, float32, int32, or int16.
-*@li dimension: A Scalar of type int32, specifying the index with the largest value.
+*@li x: A ND and multi-dimensional tensor of numeric type (TensorType::NumberType()), such as float16, float32,
+*int32, int64 and other numeric types.
+*@li dimension: A Scalar of type int32 or int64, specifying the dimension (axis) along which the maximum
+*value is computed.
 
 *@par Attributes:
 *dtype: The output type, either "int32" or "int64". Defaults to "int64".
 
 *@par Outputs:
-*y: A ND tensor of type int32 or int64, specifying the index with the largest value. The dimension is one less than that of "x".
+*y: A ND tensor of type int32 or int64, specifying the index with the largest value. The dimension is one less than that
+of "x".
 
 *@attention Constraints:
 *@li x: If there are multiple maximum values, the index of the first maximum value is used.
@@ -51,4 +54,3 @@ REG_OP(ArgMaxV2)
 } // namespace ge
 
 #endif // OPS_OP_PROTO_INC_ARG_MAX_V2_H_
-

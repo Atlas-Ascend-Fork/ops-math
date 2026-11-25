@@ -35,7 +35,7 @@
 ```cpp
 aclnnStatus aclnnPdistGetWorkspaceSize(
     const aclTensor  *self,
-    double            p,
+    float             p,
     aclTensor        *out,
     uint64_t         *workspaceSize,
     aclOpExecutor   **executor)
@@ -56,7 +56,7 @@ aclnnStatus aclnnPdist(
 | 参数名 | 输入/输出 | 描述 | 数据类型 | 数据格式 | 维度(shape) |
 |--------|---------|------|---------|---------|------------|
 | self（const aclTensor*） | 输入 | 输入二维tensor，对应公式中x。 | FLOAT、FLOAT16 | ND | 2维 (N, M)，N≥2, M≥1 |
-| p（double） | 输入 | 距离参数，对应公式中p。p≥0，含inf。 | - | - | - |
+| p（float） | 输入 | 距离参数，对应公式中p。p≥0，含inf。 | - | - | - |
 | out（aclTensor*） | 输出 | 输出一维tensor，对应公式中dist。 | FLOAT、FLOAT16 | ND | 1维 (N*(N-1)/2,) |
 | workspaceSize（uint64_t*） | 输出 | 返回需要在Device侧申请的workspace大小。 | - | - | - |
 | executor（aclOpExecutor**） | 输出 | 返回op执行器，包含了算子计算流程。 | - | - | - |

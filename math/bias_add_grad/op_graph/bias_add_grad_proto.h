@@ -30,7 +30,7 @@ namespace ge {
 * x: A Tensor of type NumberType . \n
 
 * @par Attributes:
-* data_format: A required attr. Data format. Defaults to "NHWC" . \n
+* data_format: An optional attribute of type string. Data format. Defaults to "NHWC" . \n
 
 * @par Outputs:
 * y: A Tensor.Has the same type as "x" . \n

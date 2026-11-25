@@ -51,7 +51,7 @@ $$z_i = \begin{cases} 0 & \text{if } y_i = 0 \\ x_i \times y_i & \text{otherwise
 aclnnStatus aclnnMulNoNanGetWorkspaceSize(
     const aclTensor *x,
     const aclTensor *y,
-    aclTensor *z,
+    const aclTensor *z,
     uint64_t *workspaceSize,
     aclOpExecutor **executor);
 

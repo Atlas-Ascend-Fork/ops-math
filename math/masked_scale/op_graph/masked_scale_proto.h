@@ -21,14 +21,14 @@
 namespace ge {
 
 /**
- * @brief Calculates x * maske * value.
+ * @brief Calculates x * mask * value.
  *
  * @par Inputs:
  * @li x: An tensor of type float16 or float32, specifying the input to the data layer.
  * @li mask: An tensor of type int8 or float16 or float32, be same shape with x. \n
  *
  * @par Attributes:
- * value: An optional float, default value is 1.0. \n
+ * value: A required float attribute, specifying the scale factor. There is no default value. \n
  *
  * @par Outputs:
  * y: The output tensor of type float16 or float32. Same dtype and shape as x.
@@ -44,4 +44,3 @@ REG_OP(MaskedScale)
 } // namespace ge
 
 #endif // OPS_OP_PROTO_INC_MASKED_SCALE_H_
-

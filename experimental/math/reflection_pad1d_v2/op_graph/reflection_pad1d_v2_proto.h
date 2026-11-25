@@ -9,13 +9,12 @@
  * - Zhou Jiamin <@zhou-jiamin-666>
  * - Su Tonghua <@sutonghua>
  *
- * This program is free software: you can redistribute it and/or modify it.
- * Licensed under the CANN Open Software License Agreement Version 2.0 (the "License").
- * You may not use this file except in compliance with the License.
- * See the LICENSE file at the root of the repository for the full text of the License.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTIES OF ANY KIND, EXPRESS OR IMPLIED,
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
  */
 
 /*!
@@ -42,8 +41,7 @@ namespace ge {
  *@li paddings: A Tensor. Specifies the padding size for each dimension of the input tensor.
  * The shape of `paddings` must be [num_dims, 2], where `num_dims` is the rank of input `x`.
  * Each row [pad_left, pad_right] indicates the number of elements to pad on the left (before) and right (after)
- * the corresponding dimension of `x`. Type must be one of the following types: float16 (DT_FLOAT16), float32
- * (DT_FLOAT), bfloat16 (DT_BF16). \n
+ * the corresponding dimension of `x`. Type must be int64 (DT_INT64). \n
  *
  *@par Outputs:
  *y: A Tensor. The padded output tensor with the same data type as input `x`.

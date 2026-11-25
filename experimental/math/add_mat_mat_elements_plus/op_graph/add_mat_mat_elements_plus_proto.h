@@ -23,13 +23,13 @@
 namespace ge {
 
 /**
-*@brief Calculates the reversed outputs of the function "AddMatMatElementsPlus"
+*@brief Calculates the element-wise weighted multiply-add
 *  c = c * beta + alpha * a * b
 
 *@par Inputs:
-*Three inputs, including:
+*Five inputs, including:
 * @li c: A mutable Tensor. Must be one of the following types:
-*     float16, float32.
+*     float16, float32, bfloat16.
 * @li a: A mutable Tensor of the same dtype as "c".
 * @li b: A mutable Tensor of the same dtype as "c".
 * @li beta: A mutable scalar of the same dtype as "c".

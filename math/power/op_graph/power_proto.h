@@ -21,20 +21,24 @@
 namespace ge {
 
 /**
-* @brief Computes y = exp(power * log(x * scale + shift)) element-wise.
-*
-* @par Inputs:
-* One input:
-* x: An ND tensor. Must be one of the following types: bfloat16, float16, float32.
-*
-* @par Attributes:
-* @li power: A required attribute of type float32, specifying the exponent.
-* @li scale: An optional attribute of type float32, specifying the scale factor. Defaults to "1.0".
-* @li shift: An optional attribute of type float32, specifying the shift bias. Defaults to "0.0".
-*
-* @par Outputs:
-* y: A ND tensor of the same dtype as "x".
-*/
+ * @brief Computes y = base ^ power element-wise, where base = scale * x + shift.
+ *        power == 0 outputs 1; power 1, 2 and 3 are computed as linear, square and cube respectively.
+ *        For other powers the kernel evaluates exp(power * log(|base|)): an integer power keeps the
+ *        sign (-1)^power for a negative base, while a non-integer power is undefined (NaN) for a
+ *        negative base. When base is 0, the result is 0 for power > 0 and +inf for power < 0.
+ *
+ * @par Inputs:
+ * One input:
+ * x: An ND tensor. Must be one of the following types: bfloat16, float16, float32.
+ *
+ * @par Attributes:
+ * @li power: An optional attribute of type float32, specifying the exponent. Defaults to "1.0".
+ * @li scale: An optional attribute of type float32, specifying the scale factor. Defaults to "1.0".
+ * @li shift: An optional attribute of type float32, specifying the shift bias. Defaults to "0.0".
+ *
+ * @par Outputs:
+ * y: A ND tensor of the same dtype as "x".
+ */
 REG_OP(Power)
     .INPUT(x, TensorType({DT_BF16, DT_FLOAT16, DT_FLOAT}))
     .OUTPUT(y, TensorType({DT_BF16, DT_FLOAT16, DT_FLOAT}))

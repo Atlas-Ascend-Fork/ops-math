@@ -9,13 +9,12 @@
  * - Tu Yuanhang <@TuYHAAAAAA>
  * - Su Tonghua <@sutonghua>
  *
- * This program is free software: you can redistribute it and/or modify it.
- * Licensed under the CANN Open Software License Agreement Version 2.0 (the "License").
- * You may not use this file except in compliance with the License.
- * See the LICENSE file at the root of the repository for the full text of the License.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTIES OF ANY KIND, EXPRESS OR IMPLIED,
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
  */
 
 /*!
@@ -31,16 +30,15 @@
 namespace ge {
 
 /**
-*@brief Returns tanx1.
+*@brief Returns tan(x).
 *@par Inputs:
-*Two inputs, including:
-* @li x: A NCHW or NHWC Tensor. Must be one of the following types: float32,float16.
-* @li y: A NCHW or NHWC Tensor. Must be one of the following types: float32,float16. \n
+*One input, including:
+* @li x: An ND Tensor. Must be one of the following types: float32, float16. \n
 
 *@par Outputs:
-*y: A NCHW or NHWC Tensor. Must be one of the following types: float32.
+*y: An ND Tensor with the same shape as "x". Must be one of the following types: float32, float16.
 *@par Third-party framework compatibility
-*Compatible with the TensorFlow operator TanV2.
+*Compatible with the TensorFlow operator Tan.
 */
 REG_OP(TanV2)
     .INPUT(x, TensorType({DT_FLOAT, DT_FLOAT16}))

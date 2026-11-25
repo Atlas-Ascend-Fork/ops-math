@@ -9,13 +9,12 @@
  * - Li Wen <@liwenkkklll>
  * - Su Tonghua <@sutonghua>
  *
- * This program is free software: you can redistribute it and/or modify it.
- * Licensed under the CANN Open Software License Agreement Version 2.0 (the "License").
- * You may not use this file except in compliance with the License.
- * See the LICENSE file at the root of the repository for the full text of the License.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTIES OF ANY KIND, EXPRESS OR IMPLIED,
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
  */
 
 /*!
@@ -34,11 +33,11 @@ namespace ge {
 *@brief Returns x1 + x2.
 *@par Inputs:
 *Two inputs, including:
-* @li x1: A NCHW or NHWC Tensor. Must be one of the following types: float32.
-* @li x2: A NCHW or NHWC Tensor. Must be one of the following types: float32. \n
+* @li x1: An ND Tensor. Must be one of the following types: float32, float16, int16, int32.
+* @li x2: An ND Tensor. Must be one of the following types: float32, float16, int16, int32. \n
 
 *@par Outputs:
-*y: A NCHW or NHWC Tensor. Must be one of the following types: float32.
+*y: An ND Tensor. Must be one of the following types: float32, float16, int16, int32.
 *@par Third-party framework compatibility
 *Compatible with the TensorFlow operator AddV2.
 */

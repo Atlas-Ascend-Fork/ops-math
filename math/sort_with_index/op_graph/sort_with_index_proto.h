@@ -27,7 +27,7 @@ namespace ge {
 *Inputs include:
 * x: A Tensor, data reday for sort. Dtype support: float16, float, bfloat16, int16, int8, int32, int64, uint8, uint32,
         uint16, uint64, support format: [ND].
-* index: A Tensor, indices of input x. Dtype support: int32, support format: [ND].
+* index: A Tensor, indices of input x. Dtype support: int32, int64, support format: [ND].
 *
 *@par Attributes:
 * @li axis: An optional attribute indicates the sorting axis. Defaults to "-1".
@@ -36,7 +36,8 @@ namespace ge {
 *
 *@par Outputs:
 * @li y: A Tensor, sorted value. Must have the same type as x, support format: [ND].
-* @li sorted_index: sorted indices premuted by sorted x's indices. Dtype must be int32, support format: [ND].
+* @li sorted_index: sorted indices premuted by sorted x's indices. Dtype must be int32 or int64 and be the same as that
+of the input index, support format: [ND].
 *
 *@par Restrictions:
 * Warning:THIS FUNCTION IS EXPERIMENTAL. Please do not use.
@@ -45,11 +46,11 @@ namespace ge {
 * The shapes of input x and index must be the same.
 */
 REG_OP(SortWithIndex)
-    .INPUT(x, TensorType({DT_FLOAT16, DT_FLOAT, DT_BF16, DT_INT8, DT_INT16, DT_INT32, DT_INT64,
-                          DT_UINT8, DT_UINT16, DT_UINT32, DT_UINT64}))
+    .INPUT(x, TensorType({DT_FLOAT16, DT_FLOAT, DT_BF16, DT_INT8, DT_INT16, DT_INT32, DT_INT64, DT_UINT8, DT_UINT16,
+                          DT_UINT32, DT_UINT64}))
     .INPUT(index, TensorType({DT_INT32, DT_INT64}))
-    .OUTPUT(y, TensorType({DT_FLOAT16, DT_FLOAT, DT_BF16, DT_INT8, DT_INT16, DT_INT32, DT_INT64,
-                          DT_UINT8, DT_UINT16, DT_UINT32, DT_UINT64}))
+    .OUTPUT(y, TensorType({DT_FLOAT16, DT_FLOAT, DT_BF16, DT_INT8, DT_INT16, DT_INT32, DT_INT64, DT_UINT8, DT_UINT16,
+                           DT_UINT32, DT_UINT64}))
     .OUTPUT(sorted_index, TensorType({DT_INT32, DT_INT64}))
     .ATTR(axis, Int, -1)
     .ATTR(descending, Bool, false)
@@ -59,4 +60,3 @@ REG_OP(SortWithIndex)
 } // namespace ge
 
 #endif // OPS_MATH_SORT_WITH_INDEX_GRAPH_PLUGIN_SORT_WITH_INDEX_PROTO_H_
-

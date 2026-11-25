@@ -28,7 +28,7 @@ $$
 ```Cpp
 aclnnStatus aclnnSignGetWorkspaceSize(
   const aclTensor *self,
-  const aclTensor *result,
+  aclTensor       *result,
   uint64_t        *workspaceSize,
   aclOpExecutor  **executor)
 ```

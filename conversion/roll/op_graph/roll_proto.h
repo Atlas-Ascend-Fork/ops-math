@@ -24,7 +24,7 @@ namespace ge {
 *@par Inputs:
 *One input, including:
 * x: A tensor. Must be one of the following types:
-*     float16, bfloat16, float32, int32, uint32, int8, uint8, int64. \n
+*     float16, bfloat16, float32, int32, uint32, int8, uint8, int64, complex64. \n
 
 *@par Attributes:
 * @li shifts: A required listInt. The number of places by which the elements of the tensor are shifted.

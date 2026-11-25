@@ -33,7 +33,7 @@ uint8 \n
 * by a lock; otherwise the behavior is undefined, but may exhibit less contention.
 *
 * @par Outputs:
-* y: A tensor. Has the same dtype as "var".
+* var: The updated tensor, which has the same dtype as the input "var".
 *
 * @par Third-party framework compatibility
 * Compatible with the TensorFlow operator AssignSub.

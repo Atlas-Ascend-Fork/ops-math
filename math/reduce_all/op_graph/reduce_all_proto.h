@@ -21,7 +21,7 @@
 namespace ge {
 
 /**
-*@brief Calculates the "logical sum" of elements of a tensor in a dimension .
+*@brief Calculates the "logical AND" of elements of a tensor along the specified axes .
 
 *@attention Constraints:
 * Support bool, fp32, fp16, bf16
@@ -29,7 +29,7 @@ namespace ge {
 *@par Inputs:
 *Two inputs, including:
 *@li x: The tensor to reduce.
-*@li axis: A mutable Tensor with int dtype, The dimensions to reduce.
+*@li axes: A mutable Tensor with int dtype, The dimensions to reduce.
 *If None, reduces all dimensions.
 *Must be in the range [- rank (input_sensor), rank (input_sensor)) .
 
@@ -53,4 +53,3 @@ REG_OP(ReduceAll)
 } // namespace ge
 
 #endif // OPS_OP_PROTO_INC_REDUCE_ALL_H_
-
