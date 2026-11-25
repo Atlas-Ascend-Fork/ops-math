@@ -91,8 +91,11 @@ ge::graphStatus ConcatInferShapeCommon(gert::InferShapeContext* context, const i
         }
         if (input_i_shape->GetDimNum() != output_dim) {
             // input shape size is not equal output
-            OP_LOGE(context->GetNodeName(), "shape[%" PRId64 "].GetDimNum %zu, must be equal to %zu!", relative_index,
-                    input_i_shape->GetDimNum(), output_dim);
+            OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "input_tensors",
+                                                     std::to_string(input_i_shape->GetDimNum()).c_str(),
+                                                     ("The rank of shape[" + std::to_string(relative_index) +
+                                                      "] must be equal to " + std::to_string(output_dim) + ".")
+                                                         .c_str());
             return ge::GRAPH_FAILED;
         }
         // check whether the non concat dim is equal, unknown dim is treated as wildcard
@@ -178,8 +181,11 @@ ge::graphStatus InferShapeForConcatAndConcatV2(gert::InferShapeContext* context,
             if (knownRank < 0) {
                 knownRank = dimNum;
             } else if (dimNum != knownRank) {
-                OP_LOGE(context->GetNodeName(), "shape[%" PRId64 "] rank is %" PRId64 ", must be equal to %" PRId64 "!",
-                        relativeIndex, dimNum, knownRank);
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "input_tensors",
+                                                         std::to_string(dimNum).c_str(),
+                                                         ("The rank of shape[" + std::to_string(relativeIndex) +
+                                                          "] must be equal to " + std::to_string(knownRank) + ".")
+                                                             .c_str());
                 return ge::GRAPH_FAILED;
             }
         }

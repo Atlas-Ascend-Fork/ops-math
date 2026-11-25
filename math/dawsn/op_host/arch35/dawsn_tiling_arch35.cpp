@@ -85,7 +85,9 @@ static ge::graphStatus GetShapeAttrsInfo(gert::TilingContext* context, int64_t* 
     // beyond MAX_TOTAL_IDX must be rejected before the tiling arithmetic; the
     // latter would overflow the int64 multi-core split below.
     OP_CHECK_IF(*totalIdx < 0 || *totalIdx > MAX_TOTAL_IDX,
-                OP_LOGE(context, "invalid input shape size %ld (negative dim or size overflow)", *totalIdx),
+                OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(
+                    context->GetNodeName(), "x", std::to_string(*totalIdx).c_str(),
+                    "The shape size must not be negative or exceed the supported maximum."),
                 return ge::GRAPH_FAILED);
 
     auto inputDesc = context->GetInputDesc(0);
@@ -200,7 +202,7 @@ static ge::graphStatus DawsnTilingFunc(gert::TilingContext* context)
     uint64_t ubSize;
     int64_t availableCoreNum;
     OP_CHECK_IF(GetPlatformInfo(context, &ubSize, &availableCoreNum) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context, "GetPlatformInfo error"), return ge::GRAPH_FAILED);
+                OP_LOGE_WITHOUT_REPORT(context, "GetPlatformInfo error"), return ge::GRAPH_FAILED);
 
     // 2. Get shape and dtype info
     int64_t totalIdx;
@@ -209,8 +211,8 @@ static ge::graphStatus DawsnTilingFunc(gert::TilingContext* context)
                 OP_LOGE_WITHOUT_REPORT(context, "GetShapeAttrsInfo error"), return ge::GRAPH_FAILED);
 
     // 3. Set workspace
-    OP_CHECK_IF(GetWorkspaceSize(context) != ge::GRAPH_SUCCESS, OP_LOGE(context, "GetWorkspaceSize error"),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(GetWorkspaceSize(context) != ge::GRAPH_SUCCESS,
+                OP_LOGE_WITHOUT_REPORT(context, "GetWorkspaceSize error"), return ge::GRAPH_FAILED);
 
     // 4. Get tiling data pointer
     DawsnTilingData* tiling = context->GetTilingData<DawsnTilingData>();

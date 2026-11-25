@@ -65,11 +65,11 @@ static graphStatus CheckSplitParams(const gert::InferShapeContext* context, cons
     }
 
     OP_CHECK_IF((x_shape->GetDim(split_dim) % num_split != 0) && (x_shape->GetDim(split_dim) != -1),
-                OP_LOGE(context->GetNodeName(), "%s",
-                        ConcatString("the split_dim dimension of x_shape must be divisible by num_split.",
-                                     " x_shape is ", ToString(*x_shape), ", x_shape on split_dim is ",
-                                     x_shape->GetDim(split_dim), ", num_split is ", num_split)
-                            .c_str()),
+                OP_LOGE_FOR_INVALID_SHAPEDIMS_WITH_REASON(
+                    context->GetNodeName(), "x", std::to_string(x_shape->GetDim(split_dim)).c_str(),
+                    ConcatString("The split_dim dimension of x must be divisible by num_split, x shape is ",
+                                 ToString(*x_shape), ", num_split is ", num_split, ".")
+                        .c_str()),
                 return GRAPH_FAILED);
 
     return GRAPH_SUCCESS;
