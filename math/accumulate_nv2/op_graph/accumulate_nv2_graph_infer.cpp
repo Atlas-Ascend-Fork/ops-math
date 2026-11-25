@@ -9,6 +9,7 @@
  */
 
 #include <cstdint>
+#include <string>
 
 #include "exe_graph/runtime/infer_datatype_context.h"
 #include "register/op_impl_registry.h"
@@ -19,19 +20,24 @@ namespace ops {
 
 static ge::graphStatus InferDataType4AccumulateNV2(gert::InferDataTypeContext* context)
 {
+    if (context == nullptr) {
+        OP_LOGE("AccumulateNV2", "InferDataType context is nullptr");
+        return ge::GRAPH_FAILED;
+    }
     const size_t inputNum = context->GetComputeNodeInputNum();
     if (inputNum == 0U) {
-        OP_LOGE("AccumulateNV2", "input count must not be zero");
+        OP_LOGE_FOR_INVALID_TENSORNUMS_WITH_REASON("AccumulateNV2", "x", "0",
+                                                   "the input tensor list must not be empty");
         return ge::GRAPH_FAILED;
     }
     const ge::DataType firstDtype = context->GetInputDataType(0);
     for (size_t i = 1U; i < inputNum; ++i) {
         const ge::DataType dtype = context->GetInputDataType(i);
         if (dtype != firstDtype) {
-            OP_LOGE("AccumulateNV2",
-                    "all input dtypes must be the same as the first input, but input[%zu] dtype %d differs from "
-                    "input[0] dtype %d",
-                    i, static_cast<int32_t>(dtype), static_cast<int32_t>(firstDtype));
+            const std::string incorrectDtypes = Ops::Base::ToString(dtype) + " and " + Ops::Base::ToString(firstDtype);
+            const std::string inputNames = "x[" + std::to_string(i) + "] and x[0]";
+            OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON("AccumulateNV2", inputNames.c_str(), incorrectDtypes.c_str(),
+                                                   "all input tensors must have the same dtype");
             return ge::GRAPH_FAILED;
         }
     }

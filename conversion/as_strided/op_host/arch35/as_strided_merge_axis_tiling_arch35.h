@@ -28,9 +28,13 @@ constexpr size_t IN_OFFSET = 3;
 static bool GetSizeAndStride(gert::TilingContext* context, AsStridedRunInfo& runInfo)
 {
     OP_CHECK_IF(!Ops::Base::GetConstIntToShape(context, IN_SIZE, runInfo.outputSize),
-                OP_LOGE(context, "get const of size failed"), return false);
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "size", "not constant",
+                                                      "must be available as a compile-time constant."),
+                return false);
     OP_CHECK_IF(!Ops::Base::GetConstIntToShape(context, IN_STRIDE, runInfo.outputStride),
-                OP_LOGE(context, "get const of stride failed"), return false);
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "stride", "not constant",
+                                                      "must be available as a compile-time constant."),
+                return false);
 
     OP_CHECK_IF(
         runInfo.outputSize.GetDimNum() != runInfo.outputStride.GetDimNum(),
