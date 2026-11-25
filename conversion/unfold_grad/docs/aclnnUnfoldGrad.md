@@ -219,8 +219,8 @@ aclnnStatus aclnnUnfoldGrad(
         <td>step小于等于0。</td>
       </tr>
       <tr>
-        <td rowspan="2">ACLNN_ERR_INNER_TILING_ERROR</td>
-        <td rowspan="2">561002</td>
+        <td rowspan="2">ACLNN_ERR_INNER_NULLPTR</td>
+        <td rowspan="2">561103</td>
         <td>gradOut的第dim维不等于(inputSizes[dim]-size)/step+1。</td>
       </tr>
       <tr>

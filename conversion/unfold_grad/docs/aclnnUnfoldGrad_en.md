@@ -204,35 +204,29 @@ aclnnStatus aclnnUnfoldGrad(
       <tr>
         <td class="tg-0pky">ACLNN_ERR_PARAM_NULLPTR</td>
         <td class="tg-0pky">161001</td>
-        <td class="tg-0pky">The input or output tensor is a null pointer.</td>
+        <td class="tg-0pky">gradOut, gradIn, or inputSizes is a null pointer.</td>
       </tr>
       <tr>
-        <td class="tg-0pky">ACLNN_ERR_PARAM_INVALID</td>
-        <td class="tg-0pky">161002</td>
-        <td class="tg-0pky">The data type or data format of the input or output is not within the supported range.</td>
+        <td class="tg-0pky" rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
+        <td class="tg-0pky" rowspan="4">161002</td>
+        <td class="tg-0pky">The data type of the input or output is not within the supported range, or the data format of gradOut is FRACTAL_NZ, or dim is less than 0 or greater than or equal to len(inputSizes).</td>
       </tr>
       <tr>
-        <td class="tg-0lax" rowspan="7">ACLNN_ERR_INNER_TILING_ERROR</td>
-        <td class="tg-0lax" rowspan="7">561002</td>
-        <td class="tg-0lax">The dim-th dimension of gradOut is not equal to (inputSizes[dim]-size)/step+1.</td>
+        <td class="tg-0lax">The number of dimensions of gradOut is not equal to the number of elements in inputSizes plus 1.</td>
       </tr>
       <tr>
-        <td class="tg-0lax">The size of gradOut is not equal to the size of inputSizes plus 1.</td>
-      </tr>
-      <tr>
-        <td class="tg-0lax">size is less than or equal to 0 or size is greater than the dim-th dimension of inputSizes.</td>
+        <td class="tg-0lax">size is less than or equal to 0.</td>
       </tr>
       <tr>
         <td class="tg-0lax">step is less than or equal to 0.</td>
       </tr>
       <tr>
-        <td class="tg-0lax">dim is not equal to the len(inputSizes)-1 axis and dim is not equal to the len(inputSizes)-2 axis.</td>
+        <td class="tg-0lax" rowspan="2">ACLNN_ERR_INNER_NULLPTR</td>
+        <td class="tg-0lax" rowspan="2">561103</td>
+        <td class="tg-0lax">The dim-th dimension of gradOut is not equal to (inputSizes[dim]-size)/step+1.</td>
       </tr>
       <tr>
-        <td class="tg-0lax">If dim is equal to len(inputSizes)-1 and the data type is fp32, step or size is greater than 49088. If the data type is fp16, step or size is greater than 32720.</td>
-      </tr>
-      <tr>
-        <td class="tg-0lax">If dim is equal to len(inputSizes)-2 and the data type is fp32, step or size is greater than 88. If the data type is fp16, step or size is greater than 72.</td>
+        <td class="tg-0lax">size is greater than the dim-th dimension of inputSizes.</td>
       </tr>
     </tbody>
     </table>
