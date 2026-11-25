@@ -687,7 +687,7 @@ bool ComputeMergeSortPlan(int64_t axisLen, int64_t unsortedDim, uint32_t blockUb
                           uint32_t maxCoreNum, MergeSortPlan& plan)
 {
     uint64_t alignNum64 = Ops::Base::CeilAlign(static_cast<uint64_t>(axisLen), static_cast<uint64_t>(blockUbSize));
-    if (alignNum64 > static_cast<uint64_t>(std::numeric_limits<uint32_t>::max()) || alignNum64 == 0U) {
+    if (alignNum64 == 0U || alignNum64 > MERGE_SORT_MAX_REPEAT_ELEMENTS) {
         return false;
     }
     plan.alignNum = static_cast<uint32_t>(alignNum64);
@@ -989,7 +989,7 @@ bool ComputeMergeMoreCoreTiling(gert::TilingContext* context, SortKthTileInfo& i
 uint32_t ComputeMergeIntraCoreBlockSortSize(uint32_t ubSize)
 {
     constexpr uint32_t PHASE2_BYTES_PER_ELEM = MERGE_SORT_LIST_NUM * 2 * SORT_STRUCT_BYTES;
-    uint32_t blockSortSize = ubSize / PHASE2_BYTES_PER_ELEM;
+    uint32_t blockSortSize = std::min(ubSize / PHASE2_BYTES_PER_ELEM, MERGE_SORT_MAX_LIST_LENGTH);
     return (blockSortSize / MERGE_INTRA_CORE_SORT_ALIGN) * MERGE_INTRA_CORE_SORT_ALIGN;
 }
 
@@ -1010,7 +1010,7 @@ uint32_t ComputeMergeIntraCoreExtractChunkSize(uint32_t ubSize)
 {
     constexpr uint32_t PHASE3_BYTES_PER_ELEM = (SORT_STRUCT_BYTES + sizeof(float) + sizeof(int32_t) + sizeof(int64_t)) *
                                                2;
-    uint32_t extractChunkSize = ubSize / PHASE3_BYTES_PER_ELEM;
+    uint32_t extractChunkSize = std::min(ubSize / PHASE3_BYTES_PER_ELEM, MERGE_SORT_MAX_REPEAT_ELEMENTS);
     return (extractChunkSize / MERGE_INTRA_CORE_SORT_ALIGN) * MERGE_INTRA_CORE_SORT_ALIGN;
 }
 

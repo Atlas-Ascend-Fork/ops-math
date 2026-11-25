@@ -156,8 +156,42 @@ TEST_F(SortTilingTest, test_sort_merge_intra_core_precedes_radix_one_core_fp32_1
     auto tilingContextPara = MakeSortTilingContext({{128, 8192}, {128, 8192}}, ge::DT_FLOAT, ge::DT_INT64);
 
     uint64_t expectTilingKey = 260;
-    std::vector<size_t> expectWorkspaces = {25165824};
+    std::vector<size_t> expectWorkspaces = {29261824};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
+}
+
+TEST_F(SortTilingTest, test_sort_fp32_whole_row_merge_repeat_boundary)
+{
+    auto atLimit = MakeSortTilingContext({{240, 8160}, {240, 8160}}, ge::DT_FLOAT, ge::DT_INT32);
+    auto aboveLimit = MakeSortTilingContext({{240, 8161}, {240, 8161}}, ge::DT_FLOAT, ge::DT_INT32);
+    atLimit.ubSize_ = 512 * 1024;
+    aboveLimit.ubSize_ = atLimit.ubSize_;
+
+    TilingInfo wholeRowInfo;
+    ASSERT_TRUE(ExecuteTiling(atLimit, wholeRowInfo));
+    EXPECT_EQ(wholeRowInfo.tilingKey, 256U);
+
+    TilingInfo splitRowInfo;
+    ASSERT_TRUE(ExecuteTiling(aboveLimit, splitRowInfo));
+    EXPECT_EQ(splitRowInfo.tilingKey, 260U);
+}
+
+TEST_F(SortTilingTest, test_sort_fp32_8x30x11325_large_ub_uses_bounded_merge_blocks)
+{
+    auto tilingContextPara = MakeSortTilingContext({{8, 30, 11325}, {8, 30, 11325}}, ge::DT_FLOAT, ge::DT_INT32, -1,
+                                                   false, true);
+    tilingContextPara.coreNum_ = 56;
+    tilingContextPara.ubSize_ = 768 * 1024;
+
+    TilingInfo tilingInfo;
+    ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
+    EXPECT_EQ(tilingInfo.tilingKey, 260U);
+    EXPECT_EQ(tilingInfo.blockNum, 48U);
+    ASSERT_GE(tilingInfo.tilingDataSize, sizeof(SortRegBaseTilingData));
+    const auto* tilingData = reinterpret_cast<const SortRegBaseTilingData*>(tilingInfo.tilingData.get());
+    EXPECT_EQ(tilingData->numTileDataSize, 4064U);
+    EXPECT_EQ(tilingData->lastDimTileNum, 3U);
+    EXPECT_EQ(tilingData->keyParams4, 8160U);
 }
 
 TEST_F(SortTilingTest, test_sort_falls_back_to_sync_merge_when_radix_plan_is_unavailable)
@@ -187,10 +221,10 @@ TEST_F(SortTilingTest, test_sort_prefers_row_parallel_merge_over_multi_round_mer
     ASSERT_GE(tilingInfo.tilingDataSize, sizeof(SortRegBaseTilingData));
     const auto* tilingData = reinterpret_cast<const SortRegBaseTilingData*>(tilingInfo.tilingData.get());
     EXPECT_EQ(tilingData->keyParams0, 2U);
-    EXPECT_EQ(tilingData->numTileDataSize, 4096U);
+    EXPECT_EQ(tilingData->numTileDataSize, 4064U);
     EXPECT_EQ(tilingData->unsortedDimParallel, 33U);
     ASSERT_EQ(tilingInfo.workspaceSizes.size(), 1);
-    EXPECT_EQ(tilingInfo.workspaceSizes[0], 34078720);
+    EXPECT_EQ(tilingInfo.workspaceSizes[0], 36089344);
 }
 
 TEST_F(SortTilingTest, test_sort_keeps_row_parallel_merge_across_multi_round_plan_boundary)
@@ -212,7 +246,7 @@ TEST_F(SortTilingTest, test_sort_merge_intra_core_fp32_64x16384)
     auto tilingContextPara = MakeSortTilingContext({{64, 16384}, {64, 16384}}, ge::DT_FLOAT, ge::DT_INT64);
 
     uint64_t expectTilingKey = 260;
-    std::vector<size_t> expectWorkspaces = {33554432};
+    std::vector<size_t> expectWorkspaces = {37584896};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectWorkspaces);
 }
 

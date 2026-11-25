@@ -475,12 +475,11 @@ ge::graphStatus SetMergeIntraCoreTiling(gert::TilingContext* context, SortKthTil
         constexpr uint32_t proposalBytes = sizeof(float) + sizeof(uint32_t);
         constexpr uint32_t scratchBytes = sizeof(float) + sizeof(uint32_t) + proposalBytes;
         constexpr uint32_t residentBytes = 2U * SORT_RESIDENT_MERGE_MIN_BLOCKS * proposalBytes + scratchBytes;
-        constexpr uint32_t maxSortElements = std::numeric_limits<uint8_t>::max() * SORT32_SMALL_AXIS_THRESHOLD;
         uint64_t blockSize = Ops::Base::CeilAlign(
             Ops::Base::CeilDiv(static_cast<uint64_t>(info.lastAxis),
                                static_cast<uint64_t>(SORT_RESIDENT_MERGE_MIN_BLOCKS)),
             static_cast<uint64_t>(SORT32_SMALL_AXIS_THRESHOLD));
-        if (blockSize > 0 && blockSize <= maxSortElements && blockSize * residentBytes <= info.ubSize) {
+        if (blockSize > 0 && blockSize <= MERGE_SORT_MAX_LIST_LENGTH && blockSize * residentBytes <= info.ubSize) {
             // Resident two-list merging permits larger initial blocks; the old workspace remains an upper bound.
             info.numTileDataSize = static_cast<uint32_t>(blockSize);
             info.lastDimTileNum = SORT_RESIDENT_MERGE_MIN_BLOCKS;
@@ -918,8 +917,7 @@ bool TryMerge(gert::TilingContext* context, SortKthTileInfo& sortTileInfo, uint6
         }
     }
 
-    // Preserve the large-FP32 policy and more-core priority, but keep every schId 0
-    // candidate here. Fitting in UB is necessary; it does not replace the throughput policy.
+    // Large FP32 rows can use whole-row merge when the batch policy, UB and API limits allow it.
     if (IsMergeIntraCoreSupported(sortTileInfo.dataType, sortTileInfo.lastAxis, sortTileInfo.unsortedDim,
                                   sortTileInfo.maxCoreNum, sortTileInfo.ubSize)) {
         SortKthTileInfo candidate = sortTileInfo;

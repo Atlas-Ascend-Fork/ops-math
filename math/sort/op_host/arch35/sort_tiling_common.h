@@ -272,6 +272,9 @@ constexpr uint32_t MULTI_CORE_MERGE_SORT_MAX_AXIS = 32768;
 // can occupy at least eight cores per row; smaller horizontal splits fall back to a route with less barrier overhead.
 constexpr uint32_t MERGE_MORE_CORE_MIN_CORES_PER_ROW_FOR_MULTI_ROUND = 8;
 constexpr uint32_t MERGE_INTRA_CORE_SORT_ALIGN = 32; // Sort/Extract API alignment requirement (elements)
+constexpr uint32_t MERGE_SORT_MAX_REPEAT_ELEMENTS = std::numeric_limits<uint8_t>::max() *
+                                                    MERGE_INTRA_CORE_SORT_ALIGN; // Sort32 and Extract
+constexpr uint32_t MERGE_SORT_MAX_LIST_LENGTH = 4095;                            // MrgSort elements per input list
 // Beyond 4 merge rounds (>256 blocks), radix sort has little performance disadvantage.
 constexpr uint32_t MERGE_INTRA_CORE_MAX_BLOCKS = 256;
 
