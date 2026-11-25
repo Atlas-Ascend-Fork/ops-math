@@ -106,7 +106,9 @@ static ge::graphStatus GetInputInfo(gert::TilingContext* context, uint32_t& inpu
     auto computeNodeInfo = context->GetComputeNodeInfo();
     OP_CHECK_NULL_WITH_CONTEXT(context, computeNodeInfo);
     inputNum = static_cast<uint32_t>(computeNodeInfo->GetInputsNum());
-    OP_CHECK_IF(inputNum == 0 || inputNum > MAX_INPUT_NUM, OP_LOGE(context, "Eltwise: invalid inputNum %u", inputNum),
+    OP_CHECK_IF(inputNum == 0 || inputNum > MAX_INPUT_NUM,
+                OP_LOGE_FOR_INVALID_TENSORNUM(context->GetNodeName(), "inputs", static_cast<int64_t>(inputNum),
+                                              "in range [1, " + std::to_string(MAX_INPUT_NUM) + "]"),
                 return ge::GRAPH_FAILED);
 
     auto inputDesc = context->GetInputDesc(0);
@@ -117,7 +119,9 @@ static ge::graphStatus GetInputInfo(gert::TilingContext* context, uint32_t& inpu
     OP_CHECK_NULL_WITH_CONTEXT(context, inputShape0);
     auto shape = EnsureNotScalar(inputShape0->GetStorageShape());
     totalNum = shape.GetShapeSize();
-    OP_CHECK_IF(totalNum < 0, OP_LOGE(context, "Eltwise: invalid totalNum %ld (negative shape)", totalNum),
+    OP_CHECK_IF(totalNum < 0,
+                OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(context->GetNodeName(), "inputs", std::to_string(totalNum),
+                                                          "input shape size must be non-negative"),
                 return ge::GRAPH_FAILED);
 
     // proto.h requires all inputs to share shape and dtype. Validate inputs
@@ -127,16 +131,20 @@ static ge::graphStatus GetInputInfo(gert::TilingContext* context, uint32_t& inpu
         auto desc = context->GetInputDesc(i);
         OP_CHECK_NULL_WITH_CONTEXT(context, desc);
         OP_CHECK_IF(desc->GetDataType() != dtype,
-                    OP_LOGE(context, "Eltwise: input %u dtype mismatch (%d vs %d)", i,
-                            static_cast<int>(desc->GetDataType()), static_cast<int>(dtype)),
+                    OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(
+                        context->GetNodeName(), "input0, " + std::to_string(i),
+                        Ops::Base::ToString(dtype) + ", " + Ops::Base::ToString(desc->GetDataType()),
+                        "all inputs must share the same dtype"),
                     return ge::GRAPH_FAILED);
         auto inputShape = context->GetInputShape(i);
         OP_CHECK_NULL_WITH_CONTEXT(context, inputShape);
         auto shapeI = EnsureNotScalar(inputShape->GetStorageShape());
-        OP_CHECK_IF(
-            shapeI.GetShapeSize() != totalNum,
-            OP_LOGE(context, "Eltwise: input %u shape size mismatch (%ld vs %ld)", i, shapeI.GetShapeSize(), totalNum),
-            return ge::GRAPH_FAILED);
+        OP_CHECK_IF(shapeI.GetShapeSize() != totalNum,
+                    OP_LOGE_FOR_INVALID_SHAPESIZES_WITH_REASON(
+                        context->GetNodeName(), "input0, " + std::to_string(i),
+                        std::to_string(totalNum) + ", " + std::to_string(shapeI.GetShapeSize()),
+                        "all inputs must share the same shape size"),
+                    return ge::GRAPH_FAILED);
     }
     return ge::GRAPH_SUCCESS;
 }
@@ -172,7 +180,10 @@ static ge::graphStatus GetModeAttr(gert::TilingContext* context, int64_t& mode)
     if (modePtr != nullptr) {
         mode = *modePtr;
     }
-    OP_CHECK_IF(mode < MODE_PRODUCT || mode > MODE_MAX, OP_LOGE(context, "Eltwise: invalid mode %ld", mode),
+    OP_CHECK_IF(mode < MODE_PRODUCT || mode > MODE_MAX,
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                    context->GetNodeName(), "mode", std::to_string(mode),
+                    "mode must be in range [" + std::to_string(MODE_PRODUCT) + ", " + std::to_string(MODE_MAX) + "]"),
                 return ge::GRAPH_FAILED);
     return ge::GRAPH_SUCCESS;
 }
@@ -190,7 +201,8 @@ static ge::graphStatus GetTypeSize(gert::TilingContext* context, ge::DataType dt
             typeSize = BF16_BYTES;
             return ge::GRAPH_SUCCESS;
         default:
-            OP_LOGE(context, "Eltwise: unsupported dtype %d", static_cast<int>(dtype));
+            OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "inputs", Ops::Base::ToString(dtype),
+                                                  "only DT_FLOAT, DT_FLOAT16 and DT_BF16 are supported");
             return ge::GRAPH_FAILED;
     }
 }

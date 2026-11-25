@@ -13,6 +13,29 @@
 #include <gtest/gtest.h>
 #include "tiling_context_faker.h"
 #include "tiling_case_executor.h"
+
+#include <map>
+#include <string>
+#include "experiment/metadef/common/util/error_manager/error_manager.h"
+
+namespace {
+namespace errmsg_test {
+inline void ClearErrorMessages() { (void)ErrorManager::GetInstance().GetRawErrorMessages(); }
+
+inline void ExpectFirstError(const std::string& expectedCode, const std::map<std::string, std::string>& expectedArgs)
+{
+    auto errors = ErrorManager::GetInstance().GetRawErrorMessages();
+    ASSERT_FALSE(errors.empty());
+    EXPECT_EQ(errors.front().error_id, expectedCode);
+    for (const auto& expected : expectedArgs) {
+        const auto actual = errors.front().args_map.find(expected.first);
+        ASSERT_NE(actual, errors.front().args_map.end());
+        EXPECT_EQ(actual->second, expected.second);
+    }
+}
+} // namespace errmsg_test
+} // namespace
+
 #include "../../../../op_kernel/arch35/reduce_std_v2_update_tiling_data.h"
 
 using namespace std;
@@ -586,4 +609,84 @@ TEST_F(ReduceStdV2UpdateTiling, tiling_normal_non_positive_denominator_uses_nan_
     ASSERT_GE(tilingInfo.tilingDataSize, sizeof(ReduceStdV2UpdateTilingData));
     const auto* tilingData = reinterpret_cast<const ReduceStdV2UpdateTilingData*>(tilingInfo.tilingData.get());
     EXPECT_TRUE(std::isnan(tilingData->cof));
+}
+
+// Negative cases: assert the first structured error id reported by error_manager.
+
+TEST_F(ReduceStdV2UpdateTiling, errmsg_x_dtype_unsupported_ez0020)
+{
+    ReduceStdV2UpdateCompileInfo compileInfo;
+    gert::TilingContextPara tilingContextPara(
+        "ReduceStdV2Update",
+        {
+            {{{4, 8}, {4, 8}}, ge::DT_INT32, ge::FORMAT_ND},
+            {{{4, 8}, {4, 8}}, ge::DT_INT32, ge::FORMAT_ND},
+        },
+        {
+            {{{4}, {4}}, ge::DT_INT32, ge::FORMAT_ND},
+        },
+        {gert::TilingContextPara::OpAttr("dim", Ops::Math::AnyValue::CreateFrom<std::vector<int64_t>>({1})),
+         gert::TilingContextPara::OpAttr("if_std", Ops::Math::AnyValue::CreateFrom<bool>(false)),
+         gert::TilingContextPara::OpAttr("unbiased", Ops::Math::AnyValue::CreateFrom<bool>(true)),
+         gert::TilingContextPara::OpAttr("keepdim", Ops::Math::AnyValue::CreateFrom<bool>(false)),
+         gert::TilingContextPara::OpAttr("correction", Ops::Math::AnyValue::CreateFrom<int64_t>(1))},
+        &compileInfo);
+    errmsg_test::ClearErrorMessages();
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED, 0U, std::vector<size_t>{});
+    errmsg_test::ExpectFirstError("EZ0020", {{"param_name", "x"},
+                                             {"op_name", "ReduceStdV2Update"},
+                                             {"incorrect_dtype", "DT_INT32"},
+                                             {"reason", "x only supports DT_FLOAT16, DT_BF16 and DT_FLOAT"}});
+}
+
+TEST_F(ReduceStdV2UpdateTiling, errmsg_dim_out_of_range_ez0026)
+{
+    ReduceStdV2UpdateCompileInfo compileInfo;
+    gert::TilingContextPara tilingContextPara(
+        "ReduceStdV2Update",
+        {
+            {{{4, 8}, {4, 8}}, ge::DT_FLOAT, ge::FORMAT_ND},
+            {{{4, 8}, {4, 8}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        {
+            {{{4}, {4}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        {gert::TilingContextPara::OpAttr("dim", Ops::Math::AnyValue::CreateFrom<std::vector<int64_t>>({9})),
+         gert::TilingContextPara::OpAttr("if_std", Ops::Math::AnyValue::CreateFrom<bool>(false)),
+         gert::TilingContextPara::OpAttr("unbiased", Ops::Math::AnyValue::CreateFrom<bool>(true)),
+         gert::TilingContextPara::OpAttr("keepdim", Ops::Math::AnyValue::CreateFrom<bool>(false)),
+         gert::TilingContextPara::OpAttr("correction", Ops::Math::AnyValue::CreateFrom<int64_t>(1))},
+        &compileInfo);
+    errmsg_test::ClearErrorMessages();
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED, 0U, std::vector<size_t>{});
+    errmsg_test::ExpectFirstError("EZ0026", {{"param_name", "dim"},
+                                             {"op_name", "ReduceStdV2Update"},
+                                             {"incorrect_value", "9"},
+                                             {"reason", "dim[0] must be in range [-2, 2)"}});
+}
+
+TEST_F(ReduceStdV2UpdateTiling, errmsg_x_format_not_nd_ez0035)
+{
+    ReduceStdV2UpdateCompileInfo compileInfo;
+    gert::TilingContextPara tilingContextPara(
+        "ReduceStdV2Update",
+        {
+            {{{4, 8}, {4, 8}}, ge::DT_FLOAT, ge::FORMAT_NCHW},
+            {{{4, 8}, {4, 8}}, ge::DT_FLOAT, ge::FORMAT_NCHW},
+        },
+        {
+            {{{4}, {4}}, ge::DT_FLOAT, ge::FORMAT_NCHW},
+        },
+        {gert::TilingContextPara::OpAttr("dim", Ops::Math::AnyValue::CreateFrom<std::vector<int64_t>>({1})),
+         gert::TilingContextPara::OpAttr("if_std", Ops::Math::AnyValue::CreateFrom<bool>(false)),
+         gert::TilingContextPara::OpAttr("unbiased", Ops::Math::AnyValue::CreateFrom<bool>(true)),
+         gert::TilingContextPara::OpAttr("keepdim", Ops::Math::AnyValue::CreateFrom<bool>(false)),
+         gert::TilingContextPara::OpAttr("correction", Ops::Math::AnyValue::CreateFrom<int64_t>(1))},
+        &compileInfo);
+    errmsg_test::ClearErrorMessages();
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED, 0U, std::vector<size_t>{});
+    errmsg_test::ExpectFirstError("EZ0035", {{"param_name", "x"},
+                                             {"op_name", "ReduceStdV2Update"},
+                                             {"incorrect_format", "NCHW"},
+                                             {"reason", "only ND is supported"}});
 }

@@ -88,8 +88,8 @@ static ge::graphStatus GetShapeAttrsInfo(gert::TilingContext* context, int64_t* 
 
     for (size_t i = 0; i < inputShapeX.GetDimNum(); ++i) {
         OP_CHECK_IF(inputShapeX.GetDim(i) < 0,
-                    OP_LOGE(context->GetNodeName(), "The %zu-th dim of x must be non-negative, got %ld", i,
-                            inputShapeX.GetDim(i)),
+                    OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON(context->GetNodeName(), "x", Ops::Base::ToString(inputShapeX),
+                                                          "each dim of x must be non-negative"),
                     return ge::GRAPH_FAILED);
     }
 
@@ -106,8 +106,11 @@ static ge::graphStatus GetShapeAttrsInfo(gert::TilingContext* context, int64_t* 
     const ge::Format inputStorageFormat = inputDesc->GetStorageFormat();
     OP_CHECK_IF(IsPrivateFormat(inputOriginFormat) || IsPrivateFormat(inputStorageFormat) ||
                     inputStorageFormat != ge::FORMAT_ND,
-                OP_LOGE(context->GetNodeName(), "The format of x must be ND, origin=%d, storage=%d",
-                        static_cast<int32_t>(inputOriginFormat), static_cast<int32_t>(inputStorageFormat)),
+                OP_LOGE_FOR_INVALID_FORMAT_WITH_REASON(
+                    context->GetNodeName(), "x",
+                    ("origin=" + Ops::Base::ToString(inputOriginFormat) +
+                     ", storage=" + Ops::Base::ToString(inputStorageFormat)),
+                    "the origin and storage formats of x must be ND and must not be a private format"),
                 return ge::GRAPH_FAILED);
 
     *dataType = inputDesc->GetDataType();

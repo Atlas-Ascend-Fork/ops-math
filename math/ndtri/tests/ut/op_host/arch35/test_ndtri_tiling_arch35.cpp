@@ -42,6 +42,28 @@
 #include "tiling_context_faker.h"
 #include "tiling_case_executor.h"
 
+#include <map>
+#include <string>
+#include "experiment/metadef/common/util/error_manager/error_manager.h"
+
+namespace {
+namespace errmsg_test {
+inline void ClearErrorMessages() { (void)ErrorManager::GetInstance().GetRawErrorMessages(); }
+
+inline void ExpectFirstError(const std::string& expectedCode, const std::map<std::string, std::string>& expectedArgs)
+{
+    auto errors = ErrorManager::GetInstance().GetRawErrorMessages();
+    ASSERT_FALSE(errors.empty());
+    EXPECT_EQ(errors.front().error_id, expectedCode);
+    for (const auto& expected : expectedArgs) {
+        const auto actual = errors.front().args_map.find(expected.first);
+        ASSERT_NE(actual, errors.front().args_map.end());
+        EXPECT_EQ(actual->second, expected.second);
+    }
+}
+} // namespace errmsg_test
+} // namespace
+
 namespace optiling {
 // Ndtri 的 TilingParse 不读取任何字段（NdtriCompileInfo 是空 struct）。
 // 这里定义一个本地占位类型，方便 UT 提供 compileInfo 指针。
@@ -321,4 +343,25 @@ TEST_F(NdtriTilingTest, AcceptEightDimensions)
     const std::vector<gert::TilingContextPara::TensorDescription> inputs = {{shape, ge::DT_FLOAT, ge::FORMAT_ND}};
     gert::TilingContextPara context("Ndtri", inputs, inputs, &compileInfo);
     ExecuteTestCase(context, ge::GRAPH_SUCCESS, 0, "1 1 2560 ", {16777216});
+}
+
+// Negative cases: assert the first structured error id reported by error_manager.
+
+TEST_F(NdtriTilingTest, errmsg_x_dtype_unsupported_ez0020)
+{
+    optiling::NdtriCompileInfoStub compileInfo;
+    gert::TilingContextPara tilingContextPara("Ndtri",
+                                              {
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT32, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT32, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo);
+    errmsg_test::ClearErrorMessages();
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
+    errmsg_test::ExpectFirstError("EZ0020", {{"param_name", "x"},
+                                             {"op_name", "Ndtri"},
+                                             {"incorrect_dtype", "DT_INT32"},
+                                             {"reason", "x only supports DT_FLOAT, DT_FLOAT16 and DT_BF16"}});
 }

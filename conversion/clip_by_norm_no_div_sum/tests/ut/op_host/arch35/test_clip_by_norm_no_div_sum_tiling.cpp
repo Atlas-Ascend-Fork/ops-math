@@ -16,6 +16,28 @@
 #include "tiling_context_faker.h"
 #include "tiling_case_executor.h"
 
+#include <map>
+#include <string>
+#include "experiment/metadef/common/util/error_manager/error_manager.h"
+
+namespace {
+namespace errmsg_test {
+inline void ClearErrorMessages() { (void)ErrorManager::GetInstance().GetRawErrorMessages(); }
+
+inline void ExpectFirstError(const std::string& expectedCode, const std::map<std::string, std::string>& expectedArgs)
+{
+    auto errors = ErrorManager::GetInstance().GetRawErrorMessages();
+    ASSERT_FALSE(errors.empty());
+    EXPECT_EQ(errors.front().error_id, expectedCode);
+    for (const auto& expected : expectedArgs) {
+        const auto actual = errors.front().args_map.find(expected.first);
+        ASSERT_NE(actual, errors.front().args_map.end());
+        EXPECT_EQ(actual->second, expected.second);
+    }
+}
+} // namespace errmsg_test
+} // namespace
+
 using namespace std;
 using namespace ge;
 
@@ -29,13 +51,12 @@ class ClipByNormNoDivSumTilingTest : public testing::Test {};
 TEST_F(ClipByNormNoDivSumTilingTest, case1_same_shape_2d)
 {
     optiling::ClipByNormNoDivSumCompileInfo ci = {56, 256 * 1024};
-    gert::TilingContextPara ctx(
-        "ClipByNormNoDivSum",
-        {{{{{4, 8}, {4, 8}}, DT_FLOAT, FORMAT_ND},
-          {{{4, 8}, {4, 8}}, DT_FLOAT, FORMAT_ND},
-          {{{4, 8}, {4, 8}}, DT_FLOAT, FORMAT_ND},
-          {{{4, 8}, {4, 8}}, DT_FLOAT, FORMAT_ND}}},
-        {{{{{4, 8}, {4, 8}}, DT_FLOAT, FORMAT_ND}}}, &ci);
+    gert::TilingContextPara ctx("ClipByNormNoDivSum",
+                                {{{{{4, 8}, {4, 8}}, DT_FLOAT, FORMAT_ND},
+                                  {{{4, 8}, {4, 8}}, DT_FLOAT, FORMAT_ND},
+                                  {{{4, 8}, {4, 8}}, DT_FLOAT, FORMAT_ND},
+                                  {{{4, 8}, {4, 8}}, DT_FLOAT, FORMAT_ND}}},
+                                {{{{{4, 8}, {4, 8}}, DT_FLOAT, FORMAT_ND}}}, &ci);
     string expect = "2 4 1 4 1 1 1 0 2 52416 1 1 4 8 4 1 1 1 4 8 1 1 4 8 1 1 4 8 1 1 4 8 0 0 8 1 0 0 8 1 0 0 8 1 0 0 8 "
                     "1 1 1 4 8 0 0 8 1 ";
     ExecuteTestCase(ctx, GRAPH_SUCCESS, 0, expect, {{16777216}});
@@ -45,13 +66,12 @@ TEST_F(ClipByNormNoDivSumTilingTest, case1_same_shape_2d)
 TEST_F(ClipByNormNoDivSumTilingTest, case2_broadcast_2d)
 {
     optiling::ClipByNormNoDivSumCompileInfo ci = {56, 256 * 1024};
-    gert::TilingContextPara ctx(
-        "ClipByNormNoDivSum",
-        {{{{{4, 1}, {4, 1}}, DT_FLOAT, FORMAT_ND},
-          {{{1, 8}, {1, 8}}, DT_FLOAT, FORMAT_ND},
-          {{{4, 1}, {4, 1}}, DT_FLOAT, FORMAT_ND},
-          {{{1, 8}, {1, 8}}, DT_FLOAT, FORMAT_ND}}},
-        {{{{{4, 8}, {4, 8}}, DT_FLOAT, FORMAT_ND}}}, &ci);
+    gert::TilingContextPara ctx("ClipByNormNoDivSum",
+                                {{{{{4, 1}, {4, 1}}, DT_FLOAT, FORMAT_ND},
+                                  {{{1, 8}, {1, 8}}, DT_FLOAT, FORMAT_ND},
+                                  {{{4, 1}, {4, 1}}, DT_FLOAT, FORMAT_ND},
+                                  {{{1, 8}, {1, 8}}, DT_FLOAT, FORMAT_ND}}},
+                                {{{{{4, 8}, {4, 8}}, DT_FLOAT, FORMAT_ND}}}, &ci);
     string expect = "2 4 1 4 1 1 1 0 2 52416 1 1 4 8 4 1 1 1 4 1 1 1 1 8 1 1 4 1 1 1 1 8 0 0 1 0 0 0 0 1 0 0 1 0 0 0 0 "
                     "1 1 1 4 8 0 0 8 1 ";
     ExecuteTestCase(ctx, GRAPH_SUCCESS, 0, expect, {{16777216}});
@@ -65,13 +85,12 @@ TEST_F(ClipByNormNoDivSumTilingTest, case2_broadcast_2d)
 TEST_F(ClipByNormNoDivSumTilingTest, case3_last_dim_split_fp32)
 {
     optiling::ClipByNormNoDivSumCompileInfo ci = {56, 256 * 1024};
-    gert::TilingContextPara ctx(
-        "ClipByNormNoDivSum",
-        {{{{{100000}, {100000}}, DT_FLOAT, FORMAT_ND},
-          {{{100000}, {100000}}, DT_FLOAT, FORMAT_ND},
-          {{{100000}, {100000}}, DT_FLOAT, FORMAT_ND},
-          {{{100000}, {100000}}, DT_FLOAT, FORMAT_ND}}},
-        {{{{{100000}, {100000}}, DT_FLOAT, FORMAT_ND}}}, &ci);
+    gert::TilingContextPara ctx("ClipByNormNoDivSum",
+                                {{{{{100000}, {100000}}, DT_FLOAT, FORMAT_ND},
+                                  {{{100000}, {100000}}, DT_FLOAT, FORMAT_ND},
+                                  {{{100000}, {100000}}, DT_FLOAT, FORMAT_ND},
+                                  {{{100000}, {100000}}, DT_FLOAT, FORMAT_ND}}},
+                                {{{{{100000}, {100000}}, DT_FLOAT, FORMAT_ND}}}, &ci);
     string expect = "3 13104 8 8272 8 8 1 0 1 52416 1 1 1 100000 4 1 1 1 1 100000 1 1 1 100000 1 1 1 100000 1 1 1 "
                     "100000 0 0 0 1 0 0 0 1 0 0 0 1 0 0 0 1 1 1 1 100000 0 0 0 1 ";
     ExecuteTestCase(ctx, GRAPH_SUCCESS, 0, expect, {{16777216}});
@@ -81,16 +100,15 @@ TEST_F(ClipByNormNoDivSumTilingTest, case3_last_dim_split_fp32)
 TEST_F(ClipByNormNoDivSumTilingTest, case4_mid_dim_split_fp32)
 {
     optiling::ClipByNormNoDivSumCompileInfo ci = {56, 256 * 1024};
-    gert::TilingContextPara ctx(
-        "ClipByNormNoDivSum",
-        {{{{{64, 32, 8}, {64, 32, 8}}, DT_FLOAT, FORMAT_ND},
-          {{{64, 32, 8}, {64, 32, 8}}, DT_FLOAT, FORMAT_ND},
-          {{{64, 32, 8}, {64, 32, 8}}, DT_FLOAT, FORMAT_ND},
-          {{{64, 32, 8}, {64, 32, 8}}, DT_FLOAT, FORMAT_ND}}},
-        {{{{{64, 32, 8}, {64, 32, 8}}, DT_FLOAT, FORMAT_ND}}}, &ci);
-    string expect =
-        "1 51 2 13 2 2 1 0 3 52416 1 64 32 8 4 1 1 64 32 8 1 64 32 8 1 64 32 8 1 64 32 8 0 256 8 1 0 256 8 1 "
-        "0 256 8 1 0 256 8 1 1 64 32 8 0 256 8 1 ";
+    gert::TilingContextPara ctx("ClipByNormNoDivSum",
+                                {{{{{64, 32, 8}, {64, 32, 8}}, DT_FLOAT, FORMAT_ND},
+                                  {{{64, 32, 8}, {64, 32, 8}}, DT_FLOAT, FORMAT_ND},
+                                  {{{64, 32, 8}, {64, 32, 8}}, DT_FLOAT, FORMAT_ND},
+                                  {{{64, 32, 8}, {64, 32, 8}}, DT_FLOAT, FORMAT_ND}}},
+                                {{{{{64, 32, 8}, {64, 32, 8}}, DT_FLOAT, FORMAT_ND}}}, &ci);
+    string
+        expect = "1 51 2 13 2 2 1 0 3 52416 1 64 32 8 4 1 1 64 32 8 1 64 32 8 1 64 32 8 1 64 32 8 0 256 8 1 0 256 8 1 "
+                 "0 256 8 1 0 256 8 1 1 64 32 8 0 256 8 1 ";
     ExecuteTestCase(ctx, GRAPH_SUCCESS, 0, expect, {{16777216}});
 }
 
@@ -102,13 +120,12 @@ TEST_F(ClipByNormNoDivSumTilingTest, case4_mid_dim_split_fp32)
 TEST_F(ClipByNormNoDivSumTilingTest, case5_multi_core)
 {
     optiling::ClipByNormNoDivSumCompileInfo ci = {56, 256 * 1024};
-    gert::TilingContextPara ctx(
-        "ClipByNormNoDivSum",
-        {{{{{7, 13, 200, 100}, {7, 13, 200, 100}}, DT_FLOAT, FORMAT_ND},
-          {{{7, 13, 200, 100}, {7, 13, 200, 100}}, DT_FLOAT, FORMAT_ND},
-          {{{7, 13, 200, 100}, {7, 13, 200, 100}}, DT_FLOAT, FORMAT_ND},
-          {{{7, 13, 200, 100}, {7, 13, 200, 100}}, DT_FLOAT, FORMAT_ND}}},
-        {{{{{7, 13, 200, 100}, {7, 13, 200, 100}}, DT_FLOAT, FORMAT_ND}}}, &ci);
+    gert::TilingContextPara ctx("ClipByNormNoDivSum",
+                                {{{{{7, 13, 200, 100}, {7, 13, 200, 100}}, DT_FLOAT, FORMAT_ND},
+                                  {{{7, 13, 200, 100}, {7, 13, 200, 100}}, DT_FLOAT, FORMAT_ND},
+                                  {{{7, 13, 200, 100}, {7, 13, 200, 100}}, DT_FLOAT, FORMAT_ND},
+                                  {{{7, 13, 200, 100}, {7, 13, 200, 100}}, DT_FLOAT, FORMAT_ND}}},
+                                {{{{{7, 13, 200, 100}, {7, 13, 200, 100}}, DT_FLOAT, FORMAT_ND}}}, &ci);
     string expect =
         "2 131 2 69 56 182 3 14 4 52416 7 13 200 100 4 1 7 13 200 100 7 13 200 100 7 13 200 100 7 13 200 100 260000 "
         "20000 100 1 260000 20000 100 1 260000 20000 100 1 260000 20000 100 1 7 13 200 100 260000 20000 100 1 ";
@@ -123,13 +140,12 @@ TEST_F(ClipByNormNoDivSumTilingTest, case5_multi_core)
 TEST_F(ClipByNormNoDivSumTilingTest, case6_fp16_split)
 {
     optiling::ClipByNormNoDivSumCompileInfo ci = {56, 256 * 1024};
-    gert::TilingContextPara ctx(
-        "ClipByNormNoDivSum",
-        {{{{{50000}, {50000}}, DT_FLOAT16, FORMAT_ND},
-          {{{50000}, {50000}}, DT_FLOAT16, FORMAT_ND},
-          {{{50000}, {50000}}, DT_FLOAT16, FORMAT_ND},
-          {{{50000}, {50000}}, DT_FLOAT16, FORMAT_ND}}},
-        {{{{{50000}, {50000}}, DT_FLOAT16, FORMAT_ND}}}, &ci);
+    gert::TilingContextPara ctx("ClipByNormNoDivSum",
+                                {{{{{50000}, {50000}}, DT_FLOAT16, FORMAT_ND},
+                                  {{{50000}, {50000}}, DT_FLOAT16, FORMAT_ND},
+                                  {{{50000}, {50000}}, DT_FLOAT16, FORMAT_ND},
+                                  {{{50000}, {50000}}, DT_FLOAT16, FORMAT_ND}}},
+                                {{{{{50000}, {50000}}, DT_FLOAT16, FORMAT_ND}}}, &ci);
     string expect = "3 26208 2 23792 2 2 1 0 1 52416 1 1 1 50000 4 1 1 1 1 50000 1 1 1 50000 1 1 1 50000 1 1 1 50000 0 "
                     "0 0 1 0 0 0 1 0 0 0 1 0 0 0 1 1 1 1 50000 0 0 0 1 ";
     ExecuteTestCase(ctx, GRAPH_SUCCESS, 0, expect, {{16777216}});
@@ -139,13 +155,12 @@ TEST_F(ClipByNormNoDivSumTilingTest, case6_fp16_split)
 TEST_F(ClipByNormNoDivSumTilingTest, case7_scalar_broadcast)
 {
     optiling::ClipByNormNoDivSumCompileInfo ci = {56, 256 * 1024};
-    gert::TilingContextPara ctx(
-        "ClipByNormNoDivSum",
-        {{{{{}, {}}, DT_FLOAT, FORMAT_ND},
-          {{{100}, {100}}, DT_FLOAT, FORMAT_ND},
-          {{{}, {}}, DT_FLOAT, FORMAT_ND},
-          {{{100}, {100}}, DT_FLOAT, FORMAT_ND}}},
-        {{{{{100}, {100}}, DT_FLOAT, FORMAT_ND}}}, &ci);
+    gert::TilingContextPara ctx("ClipByNormNoDivSum",
+                                {{{{{}, {}}, DT_FLOAT, FORMAT_ND},
+                                  {{{100}, {100}}, DT_FLOAT, FORMAT_ND},
+                                  {{{}, {}}, DT_FLOAT, FORMAT_ND},
+                                  {{{100}, {100}}, DT_FLOAT, FORMAT_ND}}},
+                                {{{{{100}, {100}}, DT_FLOAT, FORMAT_ND}}}, &ci);
     string expect = "3 100 1 100 1 1 1 0 1 52416 1 1 1 100 4 1 1 1 1 1 1 1 1 100 1 1 1 1 1 1 1 100 0 0 0 0 0 0 0 1 0 "
                     "0 0 0 0 0 0 1 1 1 1 100 0 0 0 1 ";
     ExecuteTestCase(ctx, GRAPH_SUCCESS, 0, expect, {{16777216}});
@@ -159,16 +174,15 @@ TEST_F(ClipByNormNoDivSumTilingTest, case7_scalar_broadcast)
 TEST_F(ClipByNormNoDivSumTilingTest, case8_4d_broadcast)
 {
     optiling::ClipByNormNoDivSumCompileInfo ci = {56, 256 * 1024};
-    gert::TilingContextPara ctx(
-        "ClipByNormNoDivSum",
-        {{{{{4, 1, 1, 1}, {4, 1, 1, 1}}, DT_FLOAT, FORMAT_ND},
-          {{{1, 8, 1, 1}, {1, 8, 1, 1}}, DT_FLOAT, FORMAT_ND},
-          {{{1, 1, 16, 1}, {1, 1, 16, 1}}, DT_FLOAT, FORMAT_ND},
-          {{{1, 1, 1, 32}, {1, 1, 1, 32}}, DT_FLOAT, FORMAT_ND}}},
-        {{{{{4, 8, 16, 32}, {4, 8, 16, 32}}, DT_FLOAT, FORMAT_ND}}}, &ci);
-    string expect =
-        "0 3 2 1 2 2 1 0 4 52416 4 8 16 32 4 1 4 1 1 1 1 8 1 1 1 1 16 1 1 1 1 32 1 0 0 0 0 1 0 0 0 0 1 0 0 0 "
-        "0 1 4 8 16 32 4096 512 32 1 ";
+    gert::TilingContextPara ctx("ClipByNormNoDivSum",
+                                {{{{{4, 1, 1, 1}, {4, 1, 1, 1}}, DT_FLOAT, FORMAT_ND},
+                                  {{{1, 8, 1, 1}, {1, 8, 1, 1}}, DT_FLOAT, FORMAT_ND},
+                                  {{{1, 1, 16, 1}, {1, 1, 16, 1}}, DT_FLOAT, FORMAT_ND},
+                                  {{{1, 1, 1, 32}, {1, 1, 1, 32}}, DT_FLOAT, FORMAT_ND}}},
+                                {{{{{4, 8, 16, 32}, {4, 8, 16, 32}}, DT_FLOAT, FORMAT_ND}}}, &ci);
+    string
+        expect = "0 3 2 1 2 2 1 0 4 52416 4 8 16 32 4 1 4 1 1 1 1 8 1 1 1 1 16 1 1 1 1 32 1 0 0 0 0 1 0 0 0 0 1 0 0 0 "
+                 "0 1 4 8 16 32 4096 512 32 1 ";
     ExecuteTestCase(ctx, GRAPH_SUCCESS, 0, expect, {{16777216}});
 }
 
@@ -176,16 +190,34 @@ TEST_F(ClipByNormNoDivSumTilingTest, case8_4d_broadcast)
 TEST_F(ClipByNormNoDivSumTilingTest, case9_rank8_5d)
 {
     optiling::ClipByNormNoDivSumCompileInfo ci = {56, 256 * 1024};
-    gert::TilingContextPara ctx(
-        "ClipByNormNoDivSum",
-        {{{{{3, 5, 7, 11, 13}, {3, 5, 7, 11, 13}}, DT_FLOAT, FORMAT_ND},
-          {{{3, 5, 7, 11, 13}, {3, 5, 7, 11, 13}}, DT_FLOAT, FORMAT_ND},
-          {{{3, 5, 7, 11, 13}, {3, 5, 7, 11, 13}}, DT_FLOAT, FORMAT_ND},
-          {{{3, 5, 7, 11, 13}, {3, 5, 7, 11, 13}}, DT_FLOAT, FORMAT_ND}}},
-        {{{{{3, 5, 7, 11, 13}, {3, 5, 7, 11, 13}}, DT_FLOAT, FORMAT_ND}}}, &ci);
-    string expect =
-        "3 2 2 1 2 2 1 0 5 52416 1 1 1 3 5 7 11 13 4 1 1 1 1 3 5 7 11 13 1 1 1 3 5 7 11 13 1 1 1 3 5 7 11 13 "
-        "1 1 1 3 5 7 11 13 0 0 0 5005 1001 143 13 1 0 0 0 5005 1001 143 13 1 0 0 0 5005 1001 143 13 1 0 0 0 "
-        "5005 1001 143 13 1 1 1 1 3 5 7 11 13 0 0 0 5005 1001 143 13 1 ";
+    gert::TilingContextPara ctx("ClipByNormNoDivSum",
+                                {{{{{3, 5, 7, 11, 13}, {3, 5, 7, 11, 13}}, DT_FLOAT, FORMAT_ND},
+                                  {{{3, 5, 7, 11, 13}, {3, 5, 7, 11, 13}}, DT_FLOAT, FORMAT_ND},
+                                  {{{3, 5, 7, 11, 13}, {3, 5, 7, 11, 13}}, DT_FLOAT, FORMAT_ND},
+                                  {{{3, 5, 7, 11, 13}, {3, 5, 7, 11, 13}}, DT_FLOAT, FORMAT_ND}}},
+                                {{{{{3, 5, 7, 11, 13}, {3, 5, 7, 11, 13}}, DT_FLOAT, FORMAT_ND}}}, &ci);
+    string
+        expect = "3 2 2 1 2 2 1 0 5 52416 1 1 1 3 5 7 11 13 4 1 1 1 1 3 5 7 11 13 1 1 1 3 5 7 11 13 1 1 1 3 5 7 11 13 "
+                 "1 1 1 3 5 7 11 13 0 0 0 5005 1001 143 13 1 0 0 0 5005 1001 143 13 1 0 0 0 5005 1001 143 13 1 0 0 0 "
+                 "5005 1001 143 13 1 1 1 1 3 5 7 11 13 0 0 0 5005 1001 143 13 1 ";
     ExecuteTestCase(ctx, GRAPH_SUCCESS, 1, expect, {{16777216}});
+}
+
+// Negative cases: assert the first structured error id reported by error_manager.
+
+TEST_F(ClipByNormNoDivSumTilingTest, errmsg_x_dtype_unsupported_ez0020)
+{
+    optiling::ClipByNormNoDivSumCompileInfo ci = {56, 256 * 1024};
+    gert::TilingContextPara ctx("ClipByNormNoDivSum",
+                                {{{{{4, 8}, {4, 8}}, DT_INT32, FORMAT_ND},
+                                  {{{4, 8}, {4, 8}}, DT_INT32, FORMAT_ND},
+                                  {{{4, 8}, {4, 8}}, DT_INT32, FORMAT_ND},
+                                  {{{4, 8}, {4, 8}}, DT_INT32, FORMAT_ND}}},
+                                {{{{{4, 8}, {4, 8}}, DT_INT32, FORMAT_ND}}}, &ci);
+    errmsg_test::ClearErrorMessages();
+    ExecuteTestCase(ctx, GRAPH_FAILED);
+    errmsg_test::ExpectFirstError("EZ0020", {{"param_name", "x"},
+                                             {"op_name", "ClipByNormNoDivSum"},
+                                             {"incorrect_dtype", "DT_INT32"},
+                                             {"reason", "x only supports DT_FLOAT16 and DT_FLOAT"}});
 }

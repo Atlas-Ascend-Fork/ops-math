@@ -18,6 +18,29 @@
 #include "securec.h"
 
 #include "tiling_case_executor.h"
+
+#include <map>
+#include <string>
+#include "experiment/metadef/common/util/error_manager/error_manager.h"
+
+namespace {
+namespace errmsg_test {
+inline void ClearErrorMessages() { (void)ErrorManager::GetInstance().GetRawErrorMessages(); }
+
+inline void ExpectFirstError(const std::string& expectedCode, const std::map<std::string, std::string>& expectedArgs)
+{
+    auto errors = ErrorManager::GetInstance().GetRawErrorMessages();
+    ASSERT_FALSE(errors.empty());
+    EXPECT_EQ(errors.front().error_id, expectedCode);
+    for (const auto& expected : expectedArgs) {
+        const auto actual = errors.front().args_map.find(expected.first);
+        ASSERT_NE(actual, errors.front().args_map.end());
+        EXPECT_EQ(actual->second, expected.second);
+    }
+}
+} // namespace errmsg_test
+} // namespace
+
 #include "tiling_context_faker.h"
 #include "../../../../op_host/arch35/sub_mul_concat_tiling_arch35.h"
 
@@ -230,3 +253,31 @@ TEST(SubMulConcatTilingArch35, RejectsZeroRawTilingCapacity)
     TilingInfo info;
     EXPECT_FALSE(ExecuteTiling(context, info));
 }
+
+// Negative cases: assert the first structured error id reported by error_manager.
+
+namespace SubMulConcatUT {
+
+TEST(SubMulConcatTilingArch35, errmsg_x_rank_not_3_ez0012)
+{
+    auto context = MakeContext({4, 8}, {4, 8});
+    errmsg_test::ClearErrorMessages();
+    TilingInfo info;
+    ASSERT_FALSE(ExecuteTiling(context, info));
+    errmsg_test::ExpectFirstError(
+        "EZ0012",
+        {{"param_name", "x"}, {"op_name", "SubMulConcat"}, {"incorrect_dim", "2"}, {"reason", "rank of x must be 3"}});
+}
+
+TEST(SubMulConcatTilingArch35, errmsg_x_y_shape_mismatch_ez0010)
+{
+    auto context = MakeContext({2, 8, 4}, {2, 8, 5});
+    errmsg_test::ClearErrorMessages();
+    TilingInfo info;
+    ASSERT_FALSE(ExecuteTiling(context, info));
+    errmsg_test::ExpectFirstError("EZ0010", {{"param_names", "x, y"},
+                                             {"op_name", "SubMulConcat"},
+                                             {"incorrect_shapes", "[2, 8, 4], [2, 8, 5]"},
+                                             {"reason", "x and y shapes must be identical"}});
+}
+} // namespace SubMulConcatUT

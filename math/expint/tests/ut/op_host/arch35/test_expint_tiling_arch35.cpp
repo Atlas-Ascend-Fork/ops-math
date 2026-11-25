@@ -13,6 +13,29 @@
 #include <gtest/gtest.h>
 #include "tiling_context_faker.h"
 #include "tiling_case_executor.h"
+
+#include <map>
+#include <string>
+#include "experiment/metadef/common/util/error_manager/error_manager.h"
+
+namespace {
+namespace errmsg_test {
+inline void ClearErrorMessages() { (void)ErrorManager::GetInstance().GetRawErrorMessages(); }
+
+inline void ExpectFirstError(const std::string& expectedCode, const std::map<std::string, std::string>& expectedArgs)
+{
+    auto errors = ErrorManager::GetInstance().GetRawErrorMessages();
+    ASSERT_FALSE(errors.empty());
+    EXPECT_EQ(errors.front().error_id, expectedCode);
+    for (const auto& expected : expectedArgs) {
+        const auto actual = errors.front().args_map.find(expected.first);
+        ASSERT_NE(actual, errors.front().args_map.end());
+        EXPECT_EQ(actual->second, expected.second);
+    }
+}
+} // namespace errmsg_test
+} // namespace
+
 #include "exe_graph/runtime/storage_format.h"
 #include "exe_graph/runtime/storage_shape.h"
 
@@ -270,4 +293,25 @@ TEST_F(ExpintTiling, expint_tiling_zero_ub_size_reject)
                                               },
                                               &g_dummyCompileInfo, 64, 0);
     ExpectTilingReject(tilingContextPara);
+}
+
+// Negative cases: assert the first structured error id reported by error_manager.
+
+TEST_F(ExpintTiling, errmsg_x_dtype_unsupported_ez0020)
+{
+    gert::TilingContextPara tilingContextPara("Expint",
+                                              {
+                                                  {{{16}, {16}}, ge::DT_INT32, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{16}, {16}}, ge::DT_INT32, ge::FORMAT_ND},
+                                              },
+                                              &g_dummyCompileInfo);
+    errmsg_test::ClearErrorMessages();
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
+    errmsg_test::ExpectFirstError("EZ0020",
+                                  {{"param_name", "x"},
+                                   {"op_name", "Expint"},
+                                   {"incorrect_dtype", "DT_INT32"},
+                                   {"reason", "The dtype of x must be DT_FLOAT16, DT_FLOAT, or DT_BFLOAT16"}});
 }
