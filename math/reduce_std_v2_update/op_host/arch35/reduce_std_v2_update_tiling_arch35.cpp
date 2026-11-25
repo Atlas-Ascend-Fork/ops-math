@@ -195,7 +195,9 @@ static ge::graphStatus GetShapeDtypeAndAttrs(gert::TilingContext* context, Reduc
     OP_CHECK_NULL_WITH_CONTEXT(context, xShapePtr);
     const gert::Shape& xS = xShapePtr->GetStorageShape();
     const size_t rank = xS.GetDimNum();
-    OP_CHECK_IF(rank > kMaxSupportedRank, OP_LOGE(context, "x rank=%zu exceeds supported range [0, 8]", rank),
+    OP_CHECK_IF(rank > kMaxSupportedRank,
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "x", std::to_string(rank),
+                                                         "x rank must be in range [0, 8]"),
                 return ge::GRAPH_FAILED);
     ctx.xShape.clear();
     if (rank == 0) {
@@ -203,10 +205,10 @@ static ge::graphStatus GetShapeDtypeAndAttrs(gert::TilingContext* context, Reduc
         ctx.xShape.push_back(1);
     } else {
         for (size_t i = 0; i < rank; ++i) {
-            OP_CHECK_IF(
-                xS.GetDim(i) < 0,
-                OP_LOGE(context, "x dim[%zu]=%ld is negative; input name=x, legal range=[0, +inf)", i, xS.GetDim(i)),
-                return ge::GRAPH_FAILED);
+            OP_CHECK_IF(xS.GetDim(i) < 0,
+                        OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON(context->GetNodeName(), "x", Ops::Base::ToString(xS),
+                                                              "each dim of x must be non-negative"),
+                        return ge::GRAPH_FAILED);
             ctx.xShape.push_back(xS.GetDim(i));
         }
     }
@@ -216,16 +218,16 @@ static ge::graphStatus GetShapeDtypeAndAttrs(gert::TilingContext* context, Reduc
     OP_CHECK_NULL_WITH_CONTEXT(context, meanShapePtr);
     const gert::Shape& meanS = meanShapePtr->GetStorageShape();
     if (meanS.GetDimNum() != rank) {
-        OP_LOGE(context, "mean rank=%zu != x rank=%zu; input name=mean, legal relation=mean rank must equal x rank",
-                meanS.GetDimNum(), rank);
+        OP_LOGE_FOR_INVALID_SHAPEDIMS_WITH_REASON(context->GetNodeName(), "mean, x",
+                                                  std::to_string(meanS.GetDimNum()) + ", " + std::to_string(rank),
+                                                  "mean rank must equal x rank");
         return ge::GRAPH_FAILED;
     }
     for (size_t i = 0; i < rank; ++i) {
         if (meanS.GetDim(i) != xS.GetDim(i)) {
-            OP_LOGE(context,
-                    "mean dim[%zu]=%ld != x dim[%zu]=%ld (shape_mismatch, mean 须已 Expand 广播); input name=mean, "
-                    "legal relation=mean shape must equal x shape",
-                    i, meanS.GetDim(i), i, xS.GetDim(i));
+            OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(
+                context->GetNodeName(), "mean, x", Ops::Base::ToString(meanS) + ", " + Ops::Base::ToString(xS),
+                "mean shape must equal x shape (mean is expected to be broadcast by Expand beforehand)");
             return ge::GRAPH_FAILED;
         }
     }
@@ -234,12 +236,14 @@ static ge::graphStatus GetShapeDtypeAndAttrs(gert::TilingContext* context, Reduc
     OP_CHECK_NULL_WITH_CONTEXT(context, xDesc);
     const auto xFormat = xDesc->GetFormat().GetStorageFormat();
     OP_CHECK_IF(xFormat != ge::FORMAT_ND,
-                OP_LOGE(context, "x format %d is unsupported; only ND is supported", static_cast<int>(xFormat)),
+                OP_LOGE_FOR_INVALID_FORMAT_WITH_REASON(context->GetNodeName(), "x", Ops::Base::ToString(xFormat),
+                                                       "only ND is supported"),
                 return ge::GRAPH_FAILED);
     ctx.xDtype = xDesc->GetDataType();
     const std::set<ge::DataType> kSupported = {ge::DT_FLOAT16, ge::DT_BF16, ge::DT_FLOAT};
     OP_CHECK_IF(kSupported.count(ctx.xDtype) == 0,
-                OP_LOGE(context, "unsupported x dtype %d (expect fp16/bf16/fp32)", static_cast<int>(ctx.xDtype)),
+                OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "x", Ops::Base::ToString(ctx.xDtype),
+                                                      "x only supports DT_FLOAT16, DT_BF16 and DT_FLOAT"),
                 return ge::GRAPH_FAILED);
 
     // mean dtype 须在支持集合内，且与 x dtype 一致
@@ -247,24 +251,28 @@ static ge::graphStatus GetShapeDtypeAndAttrs(gert::TilingContext* context, Reduc
     OP_CHECK_NULL_WITH_CONTEXT(context, meanDesc);
     const auto meanFormat = meanDesc->GetFormat().GetStorageFormat();
     OP_CHECK_IF(meanFormat != ge::FORMAT_ND,
-                OP_LOGE(context, "mean format %d is unsupported; only ND is supported", static_cast<int>(meanFormat)),
+                OP_LOGE_FOR_INVALID_FORMAT_WITH_REASON(context->GetNodeName(), "mean", Ops::Base::ToString(meanFormat),
+                                                       "only ND is supported"),
                 return ge::GRAPH_FAILED);
     const auto meanDtype = meanDesc->GetDataType();
     OP_CHECK_IF(kSupported.count(meanDtype) == 0,
-                OP_LOGE(context, "unsupported mean dtype %d (expect fp16/bf16/fp32)", static_cast<int>(meanDtype)),
+                OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "mean", Ops::Base::ToString(meanDtype),
+                                                      "mean only supports DT_FLOAT16, DT_BF16 and DT_FLOAT"),
                 return ge::GRAPH_FAILED);
-    OP_CHECK_IF(meanDtype != ctx.xDtype,
-                OP_LOGE(context, "mean dtype %d != x dtype %d; legal relation=mean dtype must equal x dtype",
-                        static_cast<int>(meanDtype), static_cast<int>(ctx.xDtype)),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        meanDtype != ctx.xDtype,
+        OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(context->GetNodeName(), "mean, x",
+                                               Ops::Base::ToString(meanDtype) + ", " + Ops::Base::ToString(ctx.xDtype),
+                                               "mean dtype must equal x dtype"),
+        return ge::GRAPH_FAILED);
 
     auto outputDesc = context->GetOutputDesc(kOutputIdx);
     OP_CHECK_NULL_WITH_CONTEXT(context, outputDesc);
     const auto outputFormat = outputDesc->GetFormat().GetStorageFormat();
-    OP_CHECK_IF(
-        outputFormat != ge::FORMAT_ND,
-        OP_LOGE(context, "output_var format %d is unsupported; only ND is supported", static_cast<int>(outputFormat)),
-        return ge::GRAPH_FAILED);
+    OP_CHECK_IF(outputFormat != ge::FORMAT_ND,
+                OP_LOGE_FOR_INVALID_FORMAT_WITH_REASON(context->GetNodeName(), "output_var",
+                                                       Ops::Base::ToString(outputFormat), "only ND is supported"),
+                return ge::GRAPH_FAILED);
     ctx.dtypeSize = static_cast<int64_t>(ge::GetSizeByDataType(ctx.xDtype));
 
     // 属性解析
@@ -286,9 +294,12 @@ static ge::graphStatus GetShapeDtypeAndAttrs(gert::TilingContext* context, Reduc
         std::set<int64_t> seen;
         for (int64_t i = 0; i < dimNum; ++i) {
             int64_t v = dimData[i];
-            OP_CHECK_IF(v < -xRank || v >= xRank,
-                        OP_LOGE(context, "dim[%ld]=%ld out of range [-%ld, %ld)", i, v, xRank, xRank),
-                        return ge::GRAPH_FAILED);
+            OP_CHECK_IF(
+                v < -xRank || v >= xRank,
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "dim", std::to_string(v),
+                                                      "dim[" + std::to_string(i) + "] must be in range [-" +
+                                                          std::to_string(xRank) + ", " + std::to_string(xRank) + ")"),
+                return ge::GRAPH_FAILED);
             int64_t norm = (v < 0) ? (v + xRank) : v;
             seen.insert(norm);
         }
@@ -305,9 +316,11 @@ static ge::graphStatus GetShapeDtypeAndAttrs(gert::TilingContext* context, Reduc
     const int64_t* correctionPtr = attrs->GetAttrPointer<int64_t>(kAttrCorrectionIdx);
     ctx.correction = (correctionPtr != nullptr) ? *correctionPtr : 1;
     // 对齐基线取值域与 torch.var 路由：correction 为任意非负整数，N-correction<=0 时 cof=NaN（ComputeCof 处理）
-    OP_CHECK_IF(ctx.correction < 0,
-                OP_LOGE(context, "correction=%ld is negative; legal range=[0, +inf)", ctx.correction),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        ctx.correction < 0,
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "correction", std::to_string(ctx.correction),
+                                              "correction must be a non-negative integer"),
+        return ge::GRAPH_FAILED);
     // unbiased=false 强制有偏（分母 N，等价 correction=0）；unbiased=true 保留 correction 原值（两属性互斥）
     if (!ctx.unbiased) {
         ctx.correction = 0;

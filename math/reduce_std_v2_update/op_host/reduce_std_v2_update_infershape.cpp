@@ -64,8 +64,10 @@ static ge::graphStatus ParseAndNormalizeDim(const gert::InferShapeContext* conte
     for (int64_t i = 0; i < dimNum; ++i) {
         int64_t v = dimData[i];
         OP_CHECK_IF(v < -effectiveRank || v >= effectiveRank,
-                    OP_LOGE(context->GetNodeName(), "dim[%ld]=%ld out of range [-%ld, %ld)", i, v, effectiveRank,
-                            effectiveRank),
+                    OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "dim", std::to_string(v),
+                                                          "dim[" + std::to_string(i) + "] must be in range [-" +
+                                                              std::to_string(effectiveRank) + ", " +
+                                                              std::to_string(effectiveRank) + ")"),
                     return ge::GRAPH_FAILED);
         if (v < 0) {
             v += effectiveRank;
@@ -93,7 +95,8 @@ static ge::graphStatus InferShape4ReduceStdV2Update(gert::InferShapeContext* con
     if (!xUnknownRank) {
         const size_t xRank = xShape->GetDimNum();
         OP_CHECK_IF(xRank > kMaxSupportedRank,
-                    OP_LOGE(context->GetNodeName(), "x rank=%zu exceeds supported range [0, 8]", xRank),
+                    OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "x", std::to_string(xRank),
+                                                             "x rank must be in range [0, 8]"),
                     return ge::GRAPH_FAILED);
     }
     if (!xUnknownRank && !meanUnknownRank) {

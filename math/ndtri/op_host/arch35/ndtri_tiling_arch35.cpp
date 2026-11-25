@@ -16,6 +16,7 @@
  */
 
 #include "register/op_def_registry.h"
+#include <string>
 #include "log/log.h"
 #include "util/math_util.h"
 #include "util/platform_util.h"
@@ -37,6 +38,7 @@ constexpr int64_t RESERVED_UB = 48 * 1024;
 // FP32 合计 ≈ 68.5 → 取 80（保留余量）
 // FP16/BF16 合计 ≈ 60.5 → 取 64
 constexpr int64_t BYTE_PER_ELEM_FP32 = 80;
+constexpr int64_t kMaxRank = 8;
 constexpr int64_t BYTE_PER_ELEM_FP16_BF16 = 64;
 constexpr int64_t TILE_ALIGN = 256;
 
@@ -72,7 +74,9 @@ static ge::graphStatus CheckDtype(gert::TilingContext* context, ge::DataType& dt
     OP_CHECK_NULL_WITH_CONTEXT(context, selfDesc);
     dtype = selfDesc->GetDataType();
     const std::set<ge::DataType> supported = {ge::DT_FLOAT, ge::DT_FLOAT16, ge::DT_BF16};
-    OP_CHECK_IF(supported.count(dtype) == 0, OP_LOGE(context, "Ndtri: unsupported dtype %d", static_cast<int>(dtype)),
+    OP_CHECK_IF(supported.count(dtype) == 0,
+                OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "x", Ops::Base::ToString(dtype),
+                                                      "x only supports DT_FLOAT, DT_FLOAT16 and DT_BF16"),
                 return ge::GRAPH_FAILED);
     return ge::GRAPH_SUCCESS;
 }
@@ -83,13 +87,14 @@ static ge::graphStatus GetTotalNum(gert::TilingContext* context, int64_t& totalN
     auto selfShapePtr = context->GetInputShape(IDX_SELF);
     OP_CHECK_NULL_WITH_CONTEXT(context, selfShapePtr);
     auto selfShape = EnsureNotScalar(selfShapePtr->GetStorageShape());
-    OP_CHECK_IF(selfShape.GetDimNum() > 8,
-                OP_LOGE(context, "Ndtri: input dimensions %zu exceeds platform limit 8", selfShape.GetDimNum()),
+    OP_CHECK_IF(selfShape.GetDimNum() > kMaxRank,
+                OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON(context->GetNodeName(), "x", Ops::Base::ToString(selfShape),
+                                                      ("input dimensions must not exceed " + std::to_string(kMaxRank))),
                 return ge::GRAPH_FAILED);
     for (size_t i = 0; i < selfShape.GetDimNum(); ++i) {
         OP_CHECK_IF(selfShape.GetDim(i) < 0,
-                    OP_LOGE(context, "Ndtri: runtime input dimension %zu must be non-negative, got %ld", i,
-                            selfShape.GetDim(i)),
+                    OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON(context->GetNodeName(), "x", Ops::Base::ToString(selfShape),
+                                                          "each input dimension must be non-negative"),
                     return ge::GRAPH_FAILED);
     }
     totalNum = selfShape.GetShapeSize();

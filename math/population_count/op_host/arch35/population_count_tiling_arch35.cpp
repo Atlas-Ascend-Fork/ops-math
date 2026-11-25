@@ -86,10 +86,10 @@ static ge::graphStatus GetShapeAttrsInfo(gert::TilingContext* context, int64_t& 
     }
 
     auto inputFormat = inputDesc->GetFormat().GetStorageFormat();
-    OP_CHECK_IF(
-        inputFormat != ge::FORMAT_ND,
-        OP_LOGE(context->GetNodeName(), "The format of x must be ND, got %d", static_cast<int32_t>(inputFormat)),
-        return ge::GRAPH_FAILED);
+    OP_CHECK_IF(inputFormat != ge::FORMAT_ND,
+                OP_LOGE_FOR_INVALID_FORMAT_WITH_REASON(context->GetNodeName(), "x", Ops::Base::ToString(inputFormat),
+                                                       "the format of x must be ND"),
+                return ge::GRAPH_FAILED);
     return ge::GRAPH_SUCCESS;
 }
 

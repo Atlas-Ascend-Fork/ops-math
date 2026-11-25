@@ -44,7 +44,8 @@ ge::graphStatus CheckInputShape(gert::InferShapeContext* context, const gert::Sh
 {
     size_t dimNum = shape->GetDimNum();
     if (dimNum != INPUT_DIMNUM) {
-        OP_LOGE(context->GetNodeName(), "Invalid %s shape: expected rank 3, but got %zu.", name, dimNum);
+        OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), name, std::to_string(dimNum),
+                                                 "rank must be 3");
         return ge::GRAPH_FAILED;
     }
     for (size_t i = 0; i < dimNum; ++i) {
@@ -98,7 +99,8 @@ static ge::graphStatus InferShapeForSubMulConcat(gert::InferShapeContext* contex
     *z_shape = *x_shape;
     if (lastDim != ge::UNKNOWN_DIM) {
         if (lastDim > std::numeric_limits<int64_t>::max() / CONCAT_INPUTS_NUM) {
-            OP_LOGE(context->GetNodeName(), "Input last dimension cannot be multiplied by 4 without overflow.");
+            OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(context->GetNodeName(), "x", std::to_string(lastDim),
+                                                      "the last dimension cannot be multiplied by 4 without overflow");
             return ge::GRAPH_FAILED;
         }
         z_shape->SetDim(INPUT_DIMNUM - 1, CONCAT_INPUTS_NUM * lastDim);

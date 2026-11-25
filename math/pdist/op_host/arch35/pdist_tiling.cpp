@@ -98,9 +98,11 @@ static ge::graphStatus PdistTilingFunc(gert::TilingContext* context)
     // Input x: [N, M], 2-D, fp32/fp16; output y: [N*(N-1)/2].
     auto xShape = context->GetInputShape(0);
     OP_CHECK_NULL_WITH_CONTEXT(context, xShape);
-    OP_CHECK_IF(xShape->GetStorageShape().GetDimNum() != 2,
-                OP_LOGE(context, "x must be 2-D [N, M], but got %zuD.", xShape->GetStorageShape().GetDimNum()),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        xShape->GetStorageShape().GetDimNum() != 2,
+        OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON(context->GetNodeName(), "x",
+                                              Ops::Base::ToString(xShape->GetStorageShape()), "x must be 2-D [N, M]"),
+        return ge::GRAPH_FAILED);
     int64_t nSize = xShape->GetStorageShape().GetDim(0);
     int64_t mSize = xShape->GetStorageShape().GetDim(1);
 
@@ -108,7 +110,8 @@ static ge::graphStatus PdistTilingFunc(gert::TilingContext* context)
     OP_CHECK_NULL_WITH_CONTEXT(context, xDesc);
     auto xDType = xDesc->GetDataType();
     OP_CHECK_IF(xDType != ge::DT_FLOAT && xDType != ge::DT_FLOAT16,
-                OP_LOGE(context, "x dtype must be float32 or float16, but got %d.", static_cast<int32_t>(xDType)),
+                OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "x", Ops::Base::ToString(xDType),
+                                                      "x only supports DT_FLOAT and DT_FLOAT16"),
                 return ge::GRAPH_FAILED);
 
     auto outputShape = context->GetOutputShape(0);

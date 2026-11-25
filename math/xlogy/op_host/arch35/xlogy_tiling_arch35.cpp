@@ -249,7 +249,8 @@ ge::graphStatus XlogyTiling::GetShapeInfo()
         dtype_size_ = 2;
         phys_nodes_ = kPhysNodesFp16;
     } else {
-        OP_LOGE(ctx_->GetNodeName(), "Xlogy unsupported dtype");
+        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(ctx_->GetNodeName(), "x1", Ops::Base::ToString(dtype),
+                                              "x1 only supports DT_FLOAT, DT_FLOAT16 and DT_BF16");
         return GRAPH_FAILED;
     }
 

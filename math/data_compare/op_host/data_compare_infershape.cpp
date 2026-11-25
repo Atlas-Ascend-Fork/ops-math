@@ -47,18 +47,27 @@ static ge::graphStatus InferShape4DataCompare(gert::InferShapeContext* context)
 
     // rank 校验 ≤ 8
     OP_CHECK_IF(x1Rank > static_cast<int64_t>(kMaxRank),
-                OP_LOGE(context->GetNodeName(), "x1 rank %ld exceeds max %zu", x1Rank, kMaxRank), return GRAPH_FAILED);
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "x1", std::to_string(x1Rank),
+                                                         "rank must not exceed " + std::to_string(kMaxRank)),
+                return GRAPH_FAILED);
     OP_CHECK_IF(x2Rank > static_cast<int64_t>(kMaxRank),
-                OP_LOGE(context->GetNodeName(), "x2 rank %ld exceeds max %zu", x2Rank, kMaxRank), return GRAPH_FAILED);
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "x2", std::to_string(x2Rank),
+                                                         "rank must not exceed " + std::to_string(kMaxRank)),
+                return GRAPH_FAILED);
 
     // shape 一致性校验
-    OP_CHECK_IF(x1Rank != x2Rank, OP_LOGE(context->GetNodeName(), "x1 rank %ld != x2 rank %ld", x1Rank, x2Rank),
+    OP_CHECK_IF(x1Rank != x2Rank,
+                OP_LOGE_FOR_INVALID_SHAPEDIMS_WITH_REASON(context->GetNodeName(), "x1, x2",
+                                                          std::to_string(x1Rank) + ", " + std::to_string(x2Rank),
+                                                          "x1 rank must equal x2 rank"),
                 return GRAPH_FAILED);
     for (int64_t i = 0; i < x1Rank; ++i) {
-        OP_CHECK_IF(x1Shape->GetDim(static_cast<size_t>(i)) != x2Shape->GetDim(static_cast<size_t>(i)),
-                    OP_LOGE(context->GetNodeName(), "x1 dim[%ld]=%ld != x2 dim[%ld]=%ld", i,
-                            x1Shape->GetDim(static_cast<size_t>(i)), i, x2Shape->GetDim(static_cast<size_t>(i))),
-                    return GRAPH_FAILED);
+        OP_CHECK_IF(
+            x1Shape->GetDim(static_cast<size_t>(i)) != x2Shape->GetDim(static_cast<size_t>(i)),
+            OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(context->GetNodeName(), "x1, x2",
+                                                   Ops::Base::ToString(*x1Shape) + ", " + Ops::Base::ToString(*x2Shape),
+                                                   "x1 and x2 must have identical shapes"),
+            return GRAPH_FAILED);
     }
 
     // 输出固定为标量（0 维）

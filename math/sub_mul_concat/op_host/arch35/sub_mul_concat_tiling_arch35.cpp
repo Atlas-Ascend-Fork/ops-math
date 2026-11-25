@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <limits>
+#include <string>
 
 #include "log/log.h"
 #include "platform/platform_ascendc.h"
@@ -51,10 +52,12 @@ ge::graphStatus GetPlatformInfo(gert::TilingContext* context, uint64_t& coreNum,
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
 
     coreNum = ascendcPlatform.GetCoreNumAiv();
-    OP_CHECK_IF(coreNum == 0, OP_LOGE(context, "SubMulConcat: failed to get AIV core count"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(coreNum == 0, OP_LOGE(context, "failed to get the AIV core count; check the platform configuration"),
+                return ge::GRAPH_FAILED);
 
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSize);
-    OP_CHECK_IF(ubSize == 0, OP_LOGE(context, "SubMulConcat: failed to get UB size"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(ubSize == 0, OP_LOGE(context, "failed to get the UB size; check the platform configuration"),
+                return ge::GRAPH_FAILED);
     return ge::GRAPH_SUCCESS;
 }
 
@@ -68,28 +71,42 @@ ge::graphStatus GetShapeInfo(gert::TilingContext* context, int64_t& rowCount, in
     const auto& shapeX = inputX->GetStorageShape();
     const auto& shapeY = inputY->GetStorageShape();
     OP_CHECK_IF(shapeX.GetDimNum() != INPUT_RANK,
-                OP_LOGE(context, "SubMulConcat: input x rank must be 3, but got %zu", shapeX.GetDimNum()),
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "x",
+                                                         std::to_string(shapeX.GetDimNum()), "rank of x must be 3"),
                 return ge::GRAPH_FAILED);
-    OP_CHECK_IF(shapeX != shapeY, OP_LOGE(context, "SubMulConcat: input x and y shapes must be identical"),
+    OP_CHECK_IF(shapeX != shapeY,
+                OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(context->GetNodeName(), "x, y",
+                                                       Ops::Base::ToString(shapeX) + ", " + Ops::Base::ToString(shapeY),
+                                                       "x and y shapes must be identical"),
                 return ge::GRAPH_FAILED);
 
     const int64_t dimN = shapeX.GetDim(0);
     const int64_t dimH = shapeX.GetDim(1);
     const int64_t dimW = shapeX.GetDim(2);
     OP_CHECK_IF(dimN < 0 || dimH < 0 || dimW < 0,
-                OP_LOGE(context, "SubMulConcat: negative dimensions are not supported"), return ge::GRAPH_FAILED);
+                OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON(context->GetNodeName(), "x", Ops::Base::ToString(shapeX),
+                                                      "negative dimensions are not supported"),
+                return ge::GRAPH_FAILED);
 
     rowLength = dimW;
-    OP_CHECK_IF(!SafeMultiply(dimN, dimH, rowCount), OP_LOGE(context, "SubMulConcat: N * H overflows int64_t"),
+    OP_CHECK_IF(!SafeMultiply(dimN, dimH, rowCount),
+                OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(context->GetNodeName(), "x",
+                                                          std::to_string(dimN) + " * " + std::to_string(dimH),
+                                                          "N * H overflows int64_t"),
                 return ge::GRAPH_FAILED);
 
     int64_t outputRowLength = 0;
     int64_t outputElementCount = 0;
     OP_CHECK_IF(!SafeMultiply(rowLength, static_cast<int64_t>(UB_TILE_COUNT), outputRowLength),
-                OP_LOGE(context, "SubMulConcat: output row length overflows int64_t"), return ge::GRAPH_FAILED);
+                OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(context->GetNodeName(), "x", std::to_string(rowLength),
+                                                          "output row length overflows int64_t"),
+                return ge::GRAPH_FAILED);
     OP_CHECK_IF(!SafeMultiply(rowCount, outputRowLength, outputElementCount),
-                OP_LOGE(context, "SubMulConcat: output element count overflows int64_t"), return ge::GRAPH_FAILED);
-    OP_LOGD(context, "SubMulConcat: validated output element count=%ld", outputElementCount);
+                OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(
+                    context->GetNodeName(), "x", std::to_string(rowCount) + " * " + std::to_string(outputRowLength),
+                    "output element count overflows int64_t"),
+                return ge::GRAPH_FAILED);
+    OP_LOGD(context, "validated output element count=%ld", outputElementCount);
     static_cast<void>(outputElementCount);
     return ge::GRAPH_SUCCESS;
 }

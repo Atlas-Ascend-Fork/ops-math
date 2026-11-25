@@ -14,6 +14,29 @@
 #include <gtest/gtest.h>
 #include "tiling_context_faker.h"
 #include "tiling_case_executor.h"
+
+#include <map>
+#include <string>
+#include "experiment/metadef/common/util/error_manager/error_manager.h"
+
+namespace {
+namespace errmsg_test {
+inline void ClearErrorMessages() { (void)ErrorManager::GetInstance().GetRawErrorMessages(); }
+
+inline void ExpectFirstError(const std::string& expectedCode, const std::map<std::string, std::string>& expectedArgs)
+{
+    auto errors = ErrorManager::GetInstance().GetRawErrorMessages();
+    ASSERT_FALSE(errors.empty());
+    EXPECT_EQ(errors.front().error_id, expectedCode);
+    for (const auto& expected : expectedArgs) {
+        const auto actual = errors.front().args_map.find(expected.first);
+        ASSERT_NE(actual, errors.front().args_map.end());
+        EXPECT_EQ(actual->second, expected.second);
+    }
+}
+} // namespace errmsg_test
+} // namespace
+
 #include "../../../../op_host/arch35/bessel_i0e_tiling_arch35.h"
 
 namespace BesselI0eUT {
@@ -734,4 +757,50 @@ TEST_F(BesselI0eTilingTest, tiling_unsupported_format)
     }
 }
 
+} // namespace BesselI0eUT
+
+// Negative cases: assert the first structured error id reported by error_manager.
+
+namespace BesselI0eUT {
+
+TEST_F(BesselI0eTilingTest, errmsg_x_dtype_unsupported_ez0019)
+{
+    BesselI0eCompileInfo compileInfo;
+    gert::TilingContextPara tilingContextPara(OP_NAME,
+                                              {
+                                                  {{{2048}, {2048}}, ge::DT_INT32, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{2048}, {2048}}, ge::DT_INT32, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo, 64, 262144, 4096);
+    errmsg_test::ClearErrorMessages();
+    TilingInfo tilingInfo;
+    ASSERT_FALSE(ExecuteTiling(tilingContextPara, tilingInfo));
+    errmsg_test::ExpectFirstError("EZ0019", {{"param_name", "x"},
+                                             {"op_name", "BesselI0e"},
+                                             {"incorrect_dtype", "DT_INT32"},
+                                             {"correct_dtype", "DT_FLOAT16, DT_FLOAT, DT_BF16"}});
+}
+
+TEST_F(BesselI0eTilingTest, errmsg_x_format_not_nd_ez0035)
+{
+    BesselI0eCompileInfo compileInfo;
+    gert::TilingContextPara tilingContextPara(OP_NAME,
+                                              {
+                                                  {{{2048}, {2048}}, ge::DT_FLOAT, ge::FORMAT_NCHW},
+                                              },
+                                              {
+                                                  {{{2048}, {2048}}, ge::DT_FLOAT, ge::FORMAT_NCHW},
+                                              },
+                                              &compileInfo, 64, 262144, 4096);
+    errmsg_test::ClearErrorMessages();
+    TilingInfo tilingInfo;
+    ASSERT_FALSE(ExecuteTiling(tilingContextPara, tilingInfo));
+    errmsg_test::ExpectFirstError(
+        "EZ0035", {{"param_name", "x"},
+                   {"op_name", "BesselI0e"},
+                   {"incorrect_format", "origin=NCHW, storage=NCHW"},
+                   {"reason", "the origin and storage formats of x must be ND and must not be a private format"}});
+}
 } // namespace BesselI0eUT

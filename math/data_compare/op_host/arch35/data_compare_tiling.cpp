@@ -80,13 +80,20 @@ static ge::graphStatus GetShapeAttrsInfo(gert::TilingContext* context, ShapeAttr
 
     int64_t x1Rank = static_cast<int64_t>(x1Shape.GetDimNum());
     int64_t x2Rank = static_cast<int64_t>(x2Shape.GetDimNum());
-    OP_CHECK_IF(x1Rank != x2Rank, OP_LOGE(context, "x1 rank %ld != x2 rank %ld", x1Rank, x2Rank),
+    OP_CHECK_IF(x1Rank != x2Rank,
+                OP_LOGE_FOR_INVALID_SHAPEDIMS_WITH_REASON(context->GetNodeName(), "x1, x2",
+                                                          std::to_string(x1Rank) + ", " + std::to_string(x2Rank),
+                                                          "x1 rank must equal x2 rank"),
                 return ge::GRAPH_FAILED);
     for (int64_t i = 0; i < x1Rank; ++i) {
         int64_t d1 = x1Shape.GetDim(static_cast<size_t>(i));
         int64_t d2 = x2Shape.GetDim(static_cast<size_t>(i));
-        OP_CHECK_IF(d1 != d2, OP_LOGE(context, "x1 dim[%ld]=%ld != x2 dim[%ld]=%ld", i, d1, i, d2),
-                    return ge::GRAPH_FAILED);
+        OP_CHECK_IF(
+            d1 != d2,
+            OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(context->GetNodeName(), "x1, x2",
+                                                   Ops::Base::ToString(x1Shape) + ", " + Ops::Base::ToString(x2Shape),
+                                                   "x1 and x2 must have identical shapes"),
+            return ge::GRAPH_FAILED);
     }
 
     auto inputDesc = context->GetInputDesc(0);
@@ -99,14 +106,16 @@ static ge::graphStatus GetShapeAttrsInfo(gert::TilingContext* context, ShapeAttr
                         static_cast<int>(inputDescX2->GetDataType())),
                 return ge::GRAPH_FAILED);
     // format 兜底校验（注册白名单仅 FORMAT_ND；图模式下显式声明的非 ND format 此处拦截）
-    OP_CHECK_IF(inputDesc->GetOriginFormat() != ge::FORMAT_ND,
-                OP_LOGE(context, "x1 format %d is not supported, only ND is supported",
-                        static_cast<int>(inputDesc->GetOriginFormat())),
-                return ge::GRAPH_FAILED);
-    OP_CHECK_IF(inputDescX2->GetOriginFormat() != ge::FORMAT_ND,
-                OP_LOGE(context, "x2 format %d is not supported, only ND is supported",
-                        static_cast<int>(inputDescX2->GetOriginFormat())),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        inputDesc->GetOriginFormat() != ge::FORMAT_ND,
+        OP_LOGE_FOR_INVALID_FORMAT_WITH_REASON(
+            context->GetNodeName(), "x1", Ops::Base::ToString(inputDesc->GetOriginFormat()), "only ND is supported"),
+        return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        inputDescX2->GetOriginFormat() != ge::FORMAT_ND,
+        OP_LOGE_FOR_INVALID_FORMAT_WITH_REASON(
+            context->GetNodeName(), "x2", Ops::Base::ToString(inputDescX2->GetOriginFormat()), "only ND is supported"),
+        return ge::GRAPH_FAILED);
 
     auto attrs = context->GetAttrs();
     OP_CHECK_NULL_WITH_CONTEXT(context, attrs);
@@ -152,7 +161,9 @@ static ge::graphStatus GetShapeAttrsInfo(gert::TilingContext* context, ShapeAttr
             info->typeSize = 4;
             break;
         default:
-            OP_LOGE(context, "Unsupported dtype: %d", static_cast<int>(dataType));
+            OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "x1", Ops::Base::ToString(dataType),
+                                                  "x1 only supports DT_FLOAT, DT_FLOAT16, DT_BF16, DT_INT8, "
+                                                  "DT_UINT8 and DT_INT32");
             return ge::GRAPH_FAILED;
     }
 

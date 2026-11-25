@@ -19,6 +19,28 @@
 #include "tiling_context_faker.h"
 #include "tiling_case_executor.h"
 
+#include <map>
+#include <string>
+#include "experiment/metadef/common/util/error_manager/error_manager.h"
+
+namespace {
+namespace errmsg_test {
+inline void ClearErrorMessages() { (void)ErrorManager::GetInstance().GetRawErrorMessages(); }
+
+inline void ExpectFirstError(const std::string& expectedCode, const std::map<std::string, std::string>& expectedArgs)
+{
+    auto errors = ErrorManager::GetInstance().GetRawErrorMessages();
+    ASSERT_FALSE(errors.empty());
+    EXPECT_EQ(errors.front().error_id, expectedCode);
+    for (const auto& expected : expectedArgs) {
+        const auto actual = errors.front().args_map.find(expected.first);
+        ASSERT_NE(actual, errors.front().args_map.end());
+        EXPECT_EQ(actual->second, expected.second);
+    }
+}
+} // namespace errmsg_test
+} // namespace
+
 using namespace std;
 
 class XlogyTilingTest : public testing::Test {
@@ -163,4 +185,27 @@ TEST_F(XlogyTilingTest, test_tiling_unsupported_dtype_failed)
                                               },
                                               {}, &compileInfo);
     ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
+}
+
+// Negative cases: assert the first structured error id reported by error_manager.
+
+TEST_F(XlogyTilingTest, errmsg_x1_dtype_unsupported_ez0020)
+{
+    optiling::XlogyCompileInfo compileInfo = {64, 262144};
+    gert::TilingContextPara tilingContextPara("Xlogy",
+                                              {
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT32, ge::FORMAT_ND},
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT32, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{1, 64, 2, 64}, {1, 64, 2, 64}}, ge::DT_INT32, ge::FORMAT_ND},
+                                              },
+                                              {}, &compileInfo);
+    errmsg_test::ClearErrorMessages();
+    TilingInfo tilingInfo;
+    ASSERT_FALSE(ExecuteTiling(tilingContextPara, tilingInfo));
+    errmsg_test::ExpectFirstError("EZ0020", {{"param_name", "x1"},
+                                             {"op_name", "Xlogy"},
+                                             {"incorrect_dtype", "DT_INT32"},
+                                             {"reason", "x1 only supports DT_FLOAT, DT_FLOAT16 and DT_BF16"}});
 }

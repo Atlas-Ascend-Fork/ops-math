@@ -26,6 +26,29 @@
 #include <gtest/gtest.h>
 #include "tiling_context_faker.h"
 #include "tiling_case_executor.h"
+
+#include <map>
+#include <string>
+#include "experiment/metadef/common/util/error_manager/error_manager.h"
+
+namespace {
+namespace errmsg_test {
+inline void ClearErrorMessages() { (void)ErrorManager::GetInstance().GetRawErrorMessages(); }
+
+inline void ExpectFirstError(const std::string& expectedCode, const std::map<std::string, std::string>& expectedArgs)
+{
+    auto errors = ErrorManager::GetInstance().GetRawErrorMessages();
+    ASSERT_FALSE(errors.empty());
+    EXPECT_EQ(errors.front().error_id, expectedCode);
+    for (const auto& expected : expectedArgs) {
+        const auto actual = errors.front().args_map.find(expected.first);
+        ASSERT_NE(actual, errors.front().args_map.end());
+        EXPECT_EQ(actual->second, expected.second);
+    }
+}
+} // namespace errmsg_test
+} // namespace
+
 #include "../../../../op_kernel/arch35/data_compare_tiling_data.h"
 
 namespace DataCompareUT {
@@ -470,4 +493,50 @@ TEST_F(DataCompareTilingTest, normal_max_rank_8d)
         {"normal_max_rank8", {2, 2, 2, 2, 2, 2, 2, 2}, ge::DT_FLOAT, 1e-5f, 1e-3f, ge::GRAPH_SUCCESS, 32, 248 * 1024});
 }
 
+} // namespace DataCompareUT
+
+// Negative cases: assert the first structured error id reported by error_manager.
+
+namespace DataCompareUT {
+
+TEST_F(DataCompareTilingTest, errmsg_rank_mismatch_ez0013)
+{
+    gert::StorageShape x1Shape = {{4, 8}, {4, 8}};
+    gert::StorageShape x2Shape = {{8}, {8}};
+    gert::StorageShape numShape = {{}, {}};
+    std::vector<gert::TilingContextPara::TensorDescription> inputs = {{x1Shape, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                                      {x2Shape, ge::DT_FLOAT, ge::FORMAT_ND}};
+    std::vector<gert::TilingContextPara::TensorDescription> outputs = {{numShape, ge::DT_FLOAT, ge::FORMAT_ND}};
+    std::vector<gert::TilingContextPara::OpAttr> attrs = {{"atol", Ops::Math::AnyValue::CreateFrom<float>(1e-5f)},
+                                                          {"rtol", Ops::Math::AnyValue::CreateFrom<float>(1e-8f)}};
+    gert::TilingContextPara para(OP_NAME, inputs, outputs, attrs, &compileInfo, 64, 262144, 4096);
+    errmsg_test::ClearErrorMessages();
+    TilingInfo tilingInfo;
+    ASSERT_FALSE(ExecuteTiling(para, tilingInfo));
+    errmsg_test::ExpectFirstError("EZ0013", {{"param_names", "x1, x2"},
+                                             {"op_name", "DataCompare"},
+                                             {"incorrect_dims", "2, 1"},
+                                             {"reason", "x1 rank must equal x2 rank"}});
+}
+
+TEST_F(DataCompareTilingTest, errmsg_x_dtype_unsupported_ez0020)
+{
+    gert::StorageShape x1Shape = {{4, 8}, {4, 8}};
+    gert::StorageShape x2Shape = {{4, 8}, {4, 8}};
+    gert::StorageShape numShape = {{}, {}};
+    std::vector<gert::TilingContextPara::TensorDescription> inputs = {{x1Shape, ge::DT_DOUBLE, ge::FORMAT_ND},
+                                                                      {x2Shape, ge::DT_DOUBLE, ge::FORMAT_ND}};
+    std::vector<gert::TilingContextPara::TensorDescription> outputs = {{numShape, ge::DT_FLOAT, ge::FORMAT_ND}};
+    std::vector<gert::TilingContextPara::OpAttr> attrs = {{"atol", Ops::Math::AnyValue::CreateFrom<float>(1e-5f)},
+                                                          {"rtol", Ops::Math::AnyValue::CreateFrom<float>(1e-8f)}};
+    gert::TilingContextPara para(OP_NAME, inputs, outputs, attrs, &compileInfo, 64, 262144, 4096);
+    errmsg_test::ClearErrorMessages();
+    TilingInfo tilingInfo;
+    ASSERT_FALSE(ExecuteTiling(para, tilingInfo));
+    errmsg_test::ExpectFirstError("EZ0020", {{"param_name", "x1"},
+                                             {"op_name", "DataCompare"},
+                                             {"incorrect_dtype", "DT_DOUBLE"},
+                                             {"reason", "x1 only supports DT_FLOAT, DT_FLOAT16, DT_BF16, DT_INT8, "
+                                                        "DT_UINT8 and DT_INT32"}});
+}
 } // namespace DataCompareUT

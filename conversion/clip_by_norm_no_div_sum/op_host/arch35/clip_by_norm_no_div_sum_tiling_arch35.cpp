@@ -30,10 +30,10 @@ using namespace ge;
 
 namespace clip_by_norm_no_div_sum {
 
-bool PadAndSqueeze(
-    const std::vector<std::vector<int64_t>>& input_shapes, const std::vector<std::vector<int64_t>>& output_shapes,
-    std::vector<int64_t>& maximum_bro_shape, std::vector<std::vector<int64_t>>& normal_input_shapes,
-    std::vector<std::vector<int64_t>>& normal_output_shapes)
+bool PadAndSqueeze(const std::vector<std::vector<int64_t>>& input_shapes,
+                   const std::vector<std::vector<int64_t>>& output_shapes, std::vector<int64_t>& maximum_bro_shape,
+                   std::vector<std::vector<int64_t>>& normal_input_shapes,
+                   std::vector<std::vector<int64_t>>& normal_output_shapes)
 {
     int64_t num_inputs = (int64_t)input_shapes.size();   // 4: x, greater_zeros, select_ones, maximum_ones
     int64_t num_outputs = (int64_t)output_shapes.size(); // 1: y
@@ -87,9 +87,8 @@ bool PadAndSqueeze(
     return true;
 }
 
-bool FindSplitAxis(
-    const std::vector<int64_t>& max_bro_shape, int64_t dtype_size, int64_t ub_per_core, int64_t phys_nodes,
-    SplitResult& out)
+bool FindSplitAxis(const std::vector<int64_t>& max_bro_shape, int64_t dtype_size, int64_t ub_per_core,
+                   int64_t phys_nodes, SplitResult& out)
 {
     int64_t per_buf_bytes = (ub_per_core / phys_nodes) & ~31LL; // 32B 对齐
     int64_t per_buf_elems = per_buf_bytes / dtype_size;
@@ -116,14 +115,17 @@ bool FindSplitAxis(
     return true;
 }
 
-bool MultiCoreSplit(
-    const std::vector<int64_t>& max_bro_shape, const SplitResult& ub_split, int64_t max_cores, MultiCoreResult& out)
+bool MultiCoreSplit(const std::vector<int64_t>& max_bro_shape, const SplitResult& ub_split, int64_t max_cores,
+                    MultiCoreResult& out)
 {
     int64_t k = ub_split.axis, outer_prod = 1;
     for (int64_t j = 0; j < k; j++)
         outer_prod *= max_bro_shape[j];
     out.total_tiles = outer_prod * ub_split.a_o;
     out.num_cores = (out.total_tiles < max_cores) ? out.total_tiles : max_cores;
+    if (out.num_cores <= 0) {
+        out.num_cores = 1;
+    }
     out.tiles_main = out.total_tiles / out.num_cores;
     out.cores_tail = out.total_tiles % out.num_cores;
     return true;
@@ -221,16 +223,16 @@ ge::graphStatus ClipByNormNoDivSumTiling::GetShapeInfo()
     else if (dtype == ge::DT_FLOAT)
         dtype_size_ = 4;
     else {
-        OP_LOGE(ctx_->GetNodeName(), "Unsupported dtype");
+        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(ctx_->GetNodeName(), "x", Ops::Base::ToString(dtype),
+                                              "x only supports DT_FLOAT16 and DT_FLOAT");
         return GRAPH_FAILED;
     }
 
     PadAndSqueeze(raw_input_shapes_, raw_output_shapes_, max_bro_shape_, normal_input_shapes_, normal_output_shapes_);
     rank_ = (int64_t)max_bro_shape_.size();
 
-    OP_LOGI(
-        ctx_->GetNodeName(), "GetShapeInfo done rank %ld dtype %ld ub %lu core %lu", rank_, dtype_size_,
-        compileInfo->ubSize, compileInfo->coreNum);
+    OP_LOGI(ctx_->GetNodeName(), "GetShapeInfo done rank %ld dtype %ld ub %lu core %lu", rank_, dtype_size_,
+            compileInfo->ubSize, compileInfo->coreNum);
 
     return GRAPH_SUCCESS;
 }
@@ -310,24 +312,23 @@ ge::graphStatus ClipByNormNoDivSumTiling::DoTilingAndSet()
 
     ctx_->SetBlockDim(tiling->multicore.num_cores);
 
-    OP_LOGI(
-        ctx_->GetNodeName(),
-        "TilingData: per_buf_bytes=%ld rank=%ld->R=%d "
-        "max_bro_shape=%s "
-        "split(axis=%ld a_i=%ld a_o=%ld a_i_tail=%ld) "
-        "multi(cores=%ld tiles=%ld main=%ld core_tail=%ld) num_in=%ld num_out=%ld",
-        tiling->per_buf_bytes, rank_, (int)R, Arr2String(tiling->max_bro_shape, R).c_str(), tiling->split.axis,
-        tiling->split.a_i, tiling->split.a_o, tiling->split.a_i_tail, tiling->multicore.num_cores,
-        tiling->multicore.total_tiles, tiling->multicore.tiles_main, tiling->multicore.cores_tail, num_in, num_out);
+    OP_LOGI(ctx_->GetNodeName(),
+            "TilingData: per_buf_bytes=%ld rank=%ld->R=%d "
+            "max_bro_shape=%s "
+            "split(axis=%ld a_i=%ld a_o=%ld a_i_tail=%ld) "
+            "multi(cores=%ld tiles=%ld main=%ld core_tail=%ld) num_in=%ld num_out=%ld",
+            tiling->per_buf_bytes, rank_, (int)R, Arr2String(tiling->max_bro_shape, R).c_str(), tiling->split.axis,
+            tiling->split.a_i, tiling->split.a_o, tiling->split.a_i_tail, tiling->multicore.num_cores,
+            tiling->multicore.total_tiles, tiling->multicore.tiles_main, tiling->multicore.cores_tail, num_in, num_out);
 
-    for (int64_t i = 0; i < num_in; i++)
-        OP_LOGI(
-            ctx_->GetNodeName(), "TilingData input[%ld]: shape=%s stride=%s", i,
-            Arr2String(tiling->input_shapes[i], R).c_str(), Arr2String(tiling->input_strides[i], R).c_str());
-    for (int64_t i = 0; i < num_out; i++)
-        OP_LOGI(
-            ctx_->GetNodeName(), "TilingData output[%ld]: shape=%s stride=%s", i,
-            Arr2String(tiling->output_shapes[i], R).c_str(), Arr2String(tiling->output_strides[i], R).c_str());
+    for (int64_t i = 0; i < num_in; i++) {
+        OP_LOGI(ctx_->GetNodeName(), "TilingData input[%ld]: shape=%s stride=%s", i,
+                Arr2String(tiling->input_shapes[i], R).c_str(), Arr2String(tiling->input_strides[i], R).c_str());
+    }
+    for (int64_t i = 0; i < num_out; i++) {
+        OP_LOGI(ctx_->GetNodeName(), "TilingData output[%ld]: shape=%s stride=%s", i,
+                Arr2String(tiling->output_shapes[i], R).c_str(), Arr2String(tiling->output_strides[i], R).c_str());
+    }
 
     return GRAPH_SUCCESS;
 }
