@@ -3578,6 +3578,16 @@
   </tr>
   <tr>
     <td>random</td>
+    <td><a href="../../random/rrelu_with_noise_train/README.md">rrelu_with_noise_train</a></td>
+    <td>√</td>
+    <td>√</td>
+    <td>×</td>
+    <td>√</td>
+    <td>AI Core</td>
+    <td>随机化Leaky ReLU激活函数，训练时输出激活结果与随机斜率噪声。</td>
+  </tr>
+  <tr>
+    <td>random</td>
     <td><a href="../../random/sim_thread_exponential/README.md">sim_thread_exponential</a></td>
     <td> </td>
     <td> </td>
