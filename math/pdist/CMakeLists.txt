@@ -15,8 +15,8 @@
 # PyPTO算子接入两步（参照 examples/add_example_pypto，仅 950 生效）：
 #   1) require_pypto_pro：环境中没有pypto_pro时告警并跳过本算子，避免configure失败
 #   2) enable_pypto_kernel：configure阶段对op_kernel/pdist.py做codegen，生成tiling/tilingkey
-#      头文件并force-include到本算子的tiling源文件；同时把本算子登记为PyPTO算子，
-#      使其wrapper改为调用pypto_compile_op
+#      头文件，其目录经 pypto_include_tiling_gen() 注入tiling目标的include路径，由tiling
+#      源文件显式include；同时把本算子登记为PyPTO算子，使其wrapper改为调用pypto_compile_op
 # 注意 enable_pypto_kernel 必须在 add_all_modules_sources 之前调用
 if("${ASCEND_COMPUTE_UNIT}" STREQUAL "ascend950")
     require_pypto_pro(pdist)

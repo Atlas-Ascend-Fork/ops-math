@@ -15,13 +15,17 @@
  * Tiling/kernel correspondence follows DenseLILseV2Tiling in
  * attention/dense_lightning_indexer_softmax_lse_v2: the PdistTiling struct filled
  * via GetTilingData<PdistTiling>() comes from the pypto codegen header
- * (force-included by enable_pypto_kernel); the tiling key is encoded with
+ * (explicitly included below); the tiling key is encoded with
  * GET_TPL_TILING_KEY from the codegen PdistTilingKey_tilingkey.h, whose bit
  * layout (PBranch, bits 0-2, values 0-5) matches the Python TilingKeyField.
  */
 
 #include "pdist_tiling.h"
 #include "log/log.h"
+
+// PyPTO 生成的头文件（顺序：tilingkey 在前，tiling 在后），路径由 pypto_include_tiling_gen() 注入
+#include "PdistTilingKey_tilingkey.h"
+#include "PdistTiling_tiling.h"
 
 #include <algorithm>
 #include <cmath>
@@ -158,7 +162,7 @@ static ge::graphStatus PdistTilingFunc(gert::TilingContext* context)
     uint32_t blockDim = ascendcPlatform.CalcTschBlockDim(aivNum, aicNum, aivNum);
     context->SetBlockDim(blockDim);
 
-    // PdistTiling comes from the pypto kernel (.py dataclass) via force-include.
+    // PdistTiling comes from the pypto kernel (.py dataclass), explicitly included above.
     PdistTiling* tilingData = context->GetTilingData<PdistTiling>();
     OP_CHECK_NULL_WITH_CONTEXT(context, tilingData);
     tilingData->N = nSize;

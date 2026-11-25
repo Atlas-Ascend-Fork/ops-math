@@ -31,6 +31,11 @@ This project provides development and invocation samples of AI Core operators an
 │   │   ├── op_graph               # Directory related to operator graph building
 │   │   ├── op_host                # Implementations related to the operator information library and InferShape
 │   │   └── op_kernel_aicpu        # Operator kernel directory
+│   ├── add_example_pypto          # PyPTO operator name (kernel developed using the PyPTO DSL)
+│   │   ├── CMakeLists.txt         # Operator compilation configuration file. Keep the original file.
+│   │   ├── examples               # Operator usage examples
+│   │   ├── op_host                # Implementations related to the operator information library, tiling, and InferShape
+│   │   └── op_kernel              # Operator kernel directory (Python files written in the PyPTO DSL)
 │   ├── fast_kernel_launch_example # Sample of fast end-to-end operator development in the PyTorch scenario
 │   ├── CMakeLists.txt             # Operator compilation configuration file. Keep the original file.
 │   └── README.md                  # Operator description document
@@ -44,4 +49,5 @@ This project provides development and invocation samples of AI Core operators an
 | add_example |Operator that implements the addition of two tensors.| For the end-to-end operator development process, see [AI Core Operator Development Guide](../docs/zh/develop/aicore_develop_guide.md). |For the invocation, see [README](add_example/README_en.md).|
  |add_example_c_api|Operator that implements the addition of two tensors. The kernel is developed in the C API (asc_simd) mode.|For the end-to-end operator development process, see [AI Core Operator Development Guide](../docs/zh/develop/aicore_develop_guide.md).|For the invocation, see [README](add_example_c_api/README_en.md).|
  |add_example_aicpu|Operator that implements the addition of two tensors.|For the end-to-end operator development process, see [AI CPU Operator Development Guide](../docs/zh/develop/aicpu_develop_guide.md).| For the invocation, see [README](add_example_aicpu/README_en.md). |
+ |add_example_pypto|Operator that implements the addition of two tensors. The kernel is developed in the PyPTO DSL mode.|For the PyPTO operator integration method, see [README](add_example_pypto/README_en.md).| For the invocation, see [README](add_example_pypto/README_en.md). |
 |fast_kernel_launch_example|Sample of fast end-to-end operator development in the PyTorch scenario.|For the end-to-end operator development process, see [PyTorch Operator Quick Development Guide](./fast_kernel_launch_example/README_en.md).| For the invocation, see [README](fast_kernel_launch_example/README_en.md). |

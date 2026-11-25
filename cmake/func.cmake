@@ -406,8 +406,9 @@ macro(add_modules_sources)
   file(GLOB OPTILING_SRCS ${SOURCE_DIR}/*_tiling*.cpp)
   if(OPTILING_SRCS)
     add_tiling_modules()
+    # 注入 PyPTO codegen 头文件的 include 路径（CMake 3.16 兼容；源文件显式 include）
+    pypto_include_tiling_gen()
     target_sources(${OPHOST_NAME}_tiling_obj PRIVATE ${OPTILING_SRCS})
-    pypto_force_include_tiling("${OPTILING_SRCS}")
   endif()
 
   file(GLOB AICPU_SRCS ${SOURCE_DIR}/*_aicpu.cpp)
@@ -696,13 +697,12 @@ endfunction()
 
 # ------------------------------------------------------------------------------------------------------------
 # pypto_soc_to_arch(<soc> <out_var>)
+#   soc -> pypto arch token (__NPU_ARCH__ version). pypto-pro only supports dav-3510 ("3510").
 # ------------------------------------------------------------------------------------------------------------
 function(pypto_soc_to_arch soc out_var)
   string(TOLOWER "${soc}" _soc)
-  if(_soc STREQUAL "ascend910b" OR _soc STREQUAL "ascend910c")
-    set(${out_var} "a3" PARENT_SCOPE)
-  elseif(_soc STREQUAL "ascend950")
-    set(${out_var} "a5" PARENT_SCOPE)
+  if(_soc STREQUAL "ascend950")
+    set(${out_var} "3510" PARENT_SCOPE)
   else()
     set(${out_var} "" PARENT_SCOPE)
   endif()
@@ -719,36 +719,27 @@ function(pypto_jit_arch_env soc out_var)
   endif()
   pypto_soc_to_arch("${soc}" _arch)
   if(NOT _arch)
-    message(WARNING "pypto: no arch mapping for soc '${soc}'; leaving PYPTO_JIT_ARCH unset.")
+    message(WARNING "pypto: no arch mapping for soc '${soc}'; leaving PYPTOPRO_JIT_ARCH unset.")
     return()
   endif()
-  set(${out_var} export PYPTO_JIT_ARCH=${_arch} && PARENT_SCOPE)
+  set(${out_var} export PYPTOPRO_JIT_ARCH=${_arch} && PARENT_SCOPE)
 endfunction()
 
 # ------------------------------------------------------------------------------------------------------------
-# pypto_force_include_tiling(<tiling_srcs>)
+# pypto_include_tiling_gen()
+#   将 PyPTO codegen 目录(PYPTO_GEN_DIR)以 target_include_directories 的方式注入
+#   tiling 目标的 include 路径。目标级 include 跨目录安全（CMake targets 全局可见），
+#   仅要求 CMake 3.16；tiling 源文件需显式 include 生成的 *_tilingkey.h / *_tiling.h。
+#   替代旧方案（set_source_files_properties + TARGET_DIRECTORY，需 CMake >= 3.18）。
 # ------------------------------------------------------------------------------------------------------------
-function(pypto_force_include_tiling tiling_srcs)
+function(pypto_include_tiling_gen)
   if(NOT DEFINED PYPTO_GEN_DIR)
     return()
   endif()
-  if(CMAKE_VERSION VERSION_LESS 3.18)
-    message(WARNING "pypto force-include of generated tiling headers needs CMake >= 3.18 "
-                    "(TARGET_DIRECTORY); got ${CMAKE_VERSION}. Tiling sources must include them explicitly.")
+  if(NOT TARGET ${OPHOST_NAME}_tiling_obj)
     return()
   endif()
-  file(GLOB _pypto_key_h ${PYPTO_GEN_DIR}/*_tilingkey.h)
-  file(GLOB _pypto_data_h ${PYPTO_GEN_DIR}/*_tiling.h)
-  set(_pypto_force_opts "")
-  foreach(_h ${_pypto_key_h} ${_pypto_data_h})
-    list(APPEND _pypto_force_opts -include ${_h})
-  endforeach()
-  if(NOT _pypto_force_opts)
-    return()
-  endif()
-  set_source_files_properties(${tiling_srcs}
-                              TARGET_DIRECTORY ${OPHOST_NAME}_tiling_obj
-                              PROPERTIES COMPILE_OPTIONS "${_pypto_force_opts}")
+  target_include_directories(${OPHOST_NAME}_tiling_obj PRIVATE ${PYPTO_GEN_DIR})
 endfunction()
 
 function(add_tiling_sources tiling_dir disable_in_opp)
@@ -773,8 +764,9 @@ function(add_tiling_sources tiling_dir disable_in_opp)
 
   if(OPTILING_SRCS)
     add_tiling_modules()
+    # 注入 PyPTO codegen 头文件的 include 路径（CMake 3.16 兼容；源文件显式 include）
+    pypto_include_tiling_gen()
     target_sources(${OPHOST_NAME}_tiling_obj PRIVATE ${OPTILING_SRCS})
-    pypto_force_include_tiling("${OPTILING_SRCS}")
   endif()
 endfunction()
 

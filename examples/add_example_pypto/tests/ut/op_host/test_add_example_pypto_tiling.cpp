@@ -34,7 +34,7 @@ TEST_F(AddExamplePyptoTiling, shape_ok)
                                               {
                                                   {{{32, 64}, {32, 64}}, ge::DT_FLOAT16, ge::FORMAT_ND},
                                               },
-                                              {}, &compileInfo, "Ascend950", 16, 262144, 4096);
+                                              {}, &compileInfo, 16, 262144, 4096);
     uint64_t expectTilingKey = 0;
     string expectTilingData = "32 64 ";
     vector<size_t> expectWorkspaces = {0};
@@ -52,7 +52,7 @@ TEST_F(AddExamplePyptoTiling, shape_mismatch)
                                               {
                                                   {{{32, 64}, {32, 64}}, ge::DT_FLOAT16, ge::FORMAT_ND},
                                               },
-                                              {}, &compileInfo, "Ascend950", 16, 262144, 4096);
+                                              {}, &compileInfo, 16, 262144, 4096);
     ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
 }
 
@@ -67,6 +67,6 @@ TEST_F(AddExamplePyptoTiling, dim_mismatch)
                                               {
                                                   {{{32, 64}, {32, 64}}, ge::DT_FLOAT16, ge::FORMAT_ND},
                                               },
-                                              {}, &compileInfo, "Ascend950", 16, 262144, 4096);
+                                              {}, &compileInfo, 16, 262144, 4096);
     ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
 }

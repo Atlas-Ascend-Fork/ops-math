@@ -10,7 +10,7 @@
 """AddExamplePypto kernel — the PyPTO counterpart of examples/add_example.
 
 Elementwise add/sub over a 2D FP16 tensor, written in the PyPTO DSL instead of AscendC C++.
-The build picks this file up because op_host/CMakeLists.txt calls enable_pypto_kernel(add_example_pypto):
+The build picks this file up because the operator's CMakeLists.txt calls enable_pypto_kernel(add_example_pypto):
 cmake runs scripts/util/pypto_codegen.py over it at configure time, which emits
 
   * AddExamplePyptoTiling_tiling.h        -- the tiling struct the host tiling fills in
