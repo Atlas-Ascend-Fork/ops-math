@@ -189,7 +189,7 @@ aclnnStatus aclnnInplaceUniform(
 
 ## aclnnInplaceUniform
 
-- **参数描述**：
+- **参数说明**：
 
   <table style="table-layout: fixed; width: 1149px"><colgroup>
   <col style="width: 153px">

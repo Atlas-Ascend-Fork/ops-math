@@ -86,7 +86,7 @@ aclnnStatus aclnnInplaceRandomWithoutFromTo(
     <tr>
       <td>seed（int64_t）</td>
       <td>输入</td>
-      <td>随机数生成器的种子，它影响生成的随机数序列。</td>
+      <td>随机数生成器的种子，它影响生成的随机数序列；取INT64范围内的整数，与offset共同决定随机数序列的起始位置，取值相同时生成的随机数序列可复现。</td>
       <td>-</td>
       <td>INT64</td>
       <td>-</td>

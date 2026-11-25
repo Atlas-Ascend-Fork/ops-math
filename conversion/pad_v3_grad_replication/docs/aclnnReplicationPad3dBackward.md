@@ -97,7 +97,7 @@ aclnnStatus aclnnReplicationPad3dBackward(
       <td>padding（aclIntArray*）</td>
       <td>输入</td>
       <td>-</td>
-      <td>长度为6，数值依次代表左右上下前后需要填充的值。FLOAT16、FLOAT32、BFLOAT16 时各元素须大于等于0；DOUBLE、COMPLEX64、COMPLEX128 走 AICPU 路径。且需满足：gradOutput最后一维 = self最后一维 + 前两个数值之和，gradOutput 倒数第二维 = self 倒数第二维 + 中间两个数值之和，gradOutput 倒数第三维 = self 倒数第三维 + 后两个数值之和。</td>
+      <td>长度为6，数值依次代表左右上下前后需要填充的值。FLOAT16、FLOAT32、BFLOAT16时各元素须大于等于0；DOUBLE、COMPLEX64、COMPLEX128走AICPU路径。且需满足：gradOutput最后一维 = self最后一维 + 前两个数值之和，gradOutput 倒数第二维 = self 倒数第二维 + 中间两个数值之和，gradOutput 倒数第三维 = self 倒数第三维 + 后两个数值之和。</td>
       <td>INT64</td>
       <td>-</td>
       <td>-</td>
@@ -135,7 +135,7 @@ aclnnStatus aclnnReplicationPad3dBackward(
     </tr>
   </tbody></table>
 
-> 说明：FLOAT16、FLOAT32、BFLOAT16由AscendC实现；DOUBLE、COMPLEX64、COMPLEX128 由 AICPU 回退执行，是否可用取决于对应产品的 CANN AICPU 内核交付情况；AICPU 路径性能可能低于 AI Core 路径。
+> 说明：FLOAT16、FLOAT32、BFLOAT16由AscendC实现；DOUBLE、COMPLEX64、COMPLEX128 由AICPU回退执行，是否可用取决于对应产品的CANN AICPU内核交付情况；AICPU路径性能可能低于AI Core路径。
 
   <!-- npu="910" id7 -->
   - <term>Atlas训练系列产品</term>：数据类型不支持BFLOAT16。
@@ -176,7 +176,7 @@ aclnnStatus aclnnReplicationPad3dBackward(
       <td>gradOutput、self、padding和gradInput的输入shape在支持范围之外。</td>
     </tr>
     <tr>
-      <td>self为空tensor且后4维存在维度大小为0。</td>
+      <td>self为空Tensor且后4维存在维度大小为0。</td>
     </tr>
     <tr>
       <td>padding的size不等于6。</td>

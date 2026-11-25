@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-对tensor的任意维度进行调换。如输入self是shape为[2, 3, 5]的tensor，dims为(2, 0, 1)，则输出是shape为[5, 2, 3]的tensor。
+对Tensor的任意维度进行调换。如输入self是shape为[2, 3, 5]的Tensor，dims为(2, 0, 1)，则输出是shape为[5, 2, 3]的Tensor。
 
 ## 函数原型
 

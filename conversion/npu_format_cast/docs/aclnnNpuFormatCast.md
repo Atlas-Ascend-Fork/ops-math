@@ -34,7 +34,7 @@
   <!-- npu="A3,910b" id8 -->
   - <term>Atlas A3系列产品</term>、<term>Atlas A2系列产品</term>：
     - 完成ND←→[NZ](../../../docs/zh/context/data_format.md)、NCL←→[NZ](../../../docs/zh/context/data_format.md)、NCHW←→[NZ](../../../docs/zh/context/data_format.md)、NCDHW←→[NZ](../../../docs/zh/context/data_format.md)的转换功能。C0是[NZ](../../../docs/zh/context/data_format.md)数据格式最后一维的大小。计算方法C0 = 32Byte / `ge::GetSizeByDataType(static_cast<op::DataType>(additionalDtype))`。
-    - 完成NCDHW←→[NDC1HWC0](../../../docs/zh/context/data_format.md)、NCDHW←→[FRACTAL_Z_3D](../../../docs/zh/context/data_format.md)、NCHW←→[NC1HWC0](../../../docs/zh/context/data_format.md)、NHWC←→[NC1HWC0](../../../docs/zh/context/data_format.md)、NCHW←→[FRACTAL_Z](../../../docs/zh/context/data_format.md)、HWCN←→[FRACTAL_Z](../../../docs/zh/context/data_format.md)、NDHWC←→[NDC1HWC0](../../../docs/zh/context/data_format.md)、DHWCN←→[FRACTAL_Z_3D](../../../docs/zh/context/data_format.md)的转换功能。其中，C0与微架构强相关，该值等于cube单元的size，例如16。C1是将C维度按照C0切分：C1=C/C0，若结果不整除，最后一份数据需要padding到C0。计算方法C0 = 32Byte / `ge::GetSizeByDataType(static_cast<op::DataType>(additionalDtype))`（例如FP16的additionalDtype枚举值为1，对应的数据FP16为2 Byte）。
+    - 完成NCDHW←→[NDC1HWC0](../../../docs/zh/context/data_format.md)、NCDHW←→[FRACTAL_Z_3D](../../../docs/zh/context/data_format.md)、NCHW←→[NC1HWC0](../../../docs/zh/context/data_format.md)、NHWC←→[NC1HWC0](../../../docs/zh/context/data_format.md)、NCHW←→[FRACTAL_Z](../../../docs/zh/context/data_format.md)、HWCN←→[FRACTAL_Z](../../../docs/zh/context/data_format.md)、NDHWC←→[NDC1HWC0](../../../docs/zh/context/data_format.md)、DHWCN←→[FRACTAL_Z_3D](../../../docs/zh/context/data_format.md)的转换功能。其中，C0与微架构强相关，该值等于Cube单元的size，例如16。C1是将C维度按照C0切分：C1=C/C0，若结果不整除，最后一份数据需要padding到C0。计算方法C0 = 32Byte / `ge::GetSizeByDataType(static_cast<op::DataType>(additionalDtype))`（例如FP16的additionalDtype枚举值为1，对应的数据FP16为2 Byte）。
   <!-- end id8 -->
 
 - **计算流程**：
@@ -44,7 +44,7 @@
 - **ND→FRACTAL_NZ存储排布**：记 view shape 最后两维为 `[..., M, N]`（前导维不变）。`C0` 由 `additionalDtype` 决定（见下文 C0 表；`-1` 表示使用源类型）；内层两轴为固定的 `16`（M 方向）与 `C0`（N 方向），不能写成两个 `C0`。表外类型或 `actualFormat` 带 `C0_xx` 后缀时，以 `aclnnNpuFormatCastCalculateSizeAndFormat` 返回的 storage shape 末维为准。
   - storage shape：`[..., ceil(N/C0), ceil(M/16), 16, C0]`。
   - 有效元素：`NZ[..., n1, m1, m0, n0] = ND[..., 16*m1+m0, C0*n1+n0]`（仅当 `16*m1+m0 < M` 且 `C0*n1+n0 < N`）。未对齐产生的补齐区不纳入正确性判定。
-  - 示例（FP16，`C0=16`）：`4×4`/`16×16` → `[1,1,16,16]`，`17×17` → `[2,2,16,16]`。FLOAT8_E8M0 MX scale 场景不适用本通式。
+  - 示例（FP16，`C0=16`）：`4×4`/`16×16` → `[1,1,16,16]`，`17×17` → `[2,2,16,16]`。FLOAT8_E8M0 MX scale场景不适用本通式。
 
 ## 函数原型
 
@@ -239,7 +239,7 @@ aclnnStatus aclnnNpuFormatCast(
           <th>参数名</th>
           <th>输入/输出</th>
           <th>描述</th>
-          <td>使用说明</td>
+          <th>使用说明</th>
           <th>数据类型</th>
           <th>数据格式</th>
           <th>维度(shape)</th>
@@ -490,7 +490,7 @@ aclnnStatus aclnnNpuFormatCast(
 
   - 当前不支持的特殊场景：
     - srcTensor的数据类型和additionalDtype相同，srcTensor格式为ND且类型为FLOAT16或BFLOAT16时，若维度表示为[k, n]，则k为1场景暂不支持。
-    - 不支持调用当前接口转昇腾亲和[数据格式](../../../docs/zh/context/data_format.md)FRACTAL_NZ后，进行任何能修改张量的操作，如contiguous、pad、slice等;
+    - 不支持调用当前接口转昇腾亲和[数据格式](../../../docs/zh/context/data_format.md)FRACTAL_NZ后，进行任何能修改张量的操作，如contiguous、pad、slice等。
     - 当srcTensor的shape后两维任意一维度shape等于1场景，也不允许转昇腾亲和[数据格式](../../../docs/zh/context/data_format.md)FRACTAL_NZ后再进行任何修改张量的操作，包括transpose。
   </details>
   <!-- end id15 -->
@@ -553,7 +553,7 @@ aclnnStatus aclnnNpuFormatCast(
       | ACL_INT8(2)、ACL_UINT8(4)、ACL_HIFLOAT8(34)    | 32 |
 
   - 当前不支持的特殊场景：
-    - 不支持调用当前接口转昇腾亲和[数据格式](../../../docs/zh/context/data_format.md)FRACTAL_NZ后,进行任何能修改张量的操作，如contiguous、pad、slice等;
+    - 不支持调用当前接口转昇腾亲和[数据格式](../../../docs/zh/context/data_format.md)FRACTAL_NZ后，进行任何能修改张量的操作，如contiguous、pad、slice等。
     - 不允许转昇腾亲和[数据格式](../../../docs/zh/context/data_format.md)FRACTAL_NZ后再进行任何修改张量的操作，包括transpose。
   </details>
   <!-- end id16 -->

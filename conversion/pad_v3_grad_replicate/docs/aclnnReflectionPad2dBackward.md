@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-- 接口功能：reflection_pad2d的反向传播，前向计算参考[[aclnnReflectionPad2d](../../mirror_pad/docs/aclnnReflectionPad2d.md)]。
+- 接口功能：reflection_pad2d的反向传播，前向计算参考[aclnnReflectionPad2d](../../mirror_pad/docs/aclnnReflectionPad2d.md)。
 - 示例：
 
   ```text
@@ -134,7 +134,7 @@ aclnnStatus aclnnReflectionPad2dBackward(
     <tr>
       <td>executor</td>
       <td>输出</td>
-      <td>返回op执行器，包含了算子计算流程。</td>
+      <td>返回OP执行器，包含了算子计算流程。</td>
       <td>-</td>
       <td>-</td>
       <td>-</td>

@@ -169,7 +169,7 @@ aclnnStatus aclnnReplicationPad1d(
       <td>self、padding和out的输入shape在支持范围之外。</td>
     </tr>
     <tr>
-      <td>self或out为空tensor，且self最后两个维度的值存在0。</td>
+      <td>self或out为空Tensor，且self最后两个维度的值存在0。</td>
     </tr>
     <tr>
       <td>out最后一维的值不等于self最后一维的值加padding的两个值。</td>

@@ -177,7 +177,7 @@ aclnnStatus aclnnReplicationPad1dBackward(
       <td>padding的size不等于2。</td>
     </tr>
     <tr>
-      <td>self为空tensor且存在非batch size维度的值为0。</td>
+      <td>self为空Tensor且存在非batch size维度的值为0。</td>
     </tr>
     <tr>
       <td>gradOutput shape需要与replication_pad1d正向传播的output一致。</td>
@@ -233,7 +233,7 @@ aclnnStatus aclnnReplicationPad1dBackward(
 - 确定性计算：
   - aclnnReplicationPad1dBackward默认确定性实现。
 
-当gradOutput中元素个数大于300\*1024\*1024有运行超时风险。
+- 性能约束：当gradOutput中元素个数大于300\*1024\*1024时，存在运行超时风险。
 
 ## 调用示例
 

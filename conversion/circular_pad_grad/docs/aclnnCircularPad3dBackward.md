@@ -166,7 +166,7 @@ aclnnStatus aclnnCircularPad3dBackward(
       <td>gradOutput、self、padding和gradInput的输入shape在支持范围之外。</td>
     </tr>
     <tr>
-      <td>self为4D时，self为空；当self为5D为空tensor时，且存在非第一维度的大小为0。</td>
+      <td>self为4D时，self为空；当self为5D且为空tensor时，且存在非第一维度的大小为0。</td>
     </tr>
     <tr>
       <td>padding的size不等于6。</td>

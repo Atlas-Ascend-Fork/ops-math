@@ -282,7 +282,7 @@ aclnnStatus aclnnInplaceTriu(
     <tr>
       <td>selfRef (aclTensor*)</td>
       <td>输入</td>
-      <td>表示输入张量</td>
+      <td>表示输入张量。</td>
       <td>-</td>
       <td>UINT64、INT64、UINT32、INT32、UINT16、INT16、UINT8、 INT8、FLOAT16、FLOAT32、DOUBLE、BOOL、BFLOAT16、COMPLEX32、COMPLEX64</td>
       <td>ND、NCHW、NHWC、HWCN、NDHWC、NCDHW</td>

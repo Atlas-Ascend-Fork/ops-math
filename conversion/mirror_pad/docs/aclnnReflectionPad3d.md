@@ -190,7 +190,7 @@ aclnnStatus aclnnReflectionPad3d(
       <td>self、padding和out的输入shape在支持范围之外。</td>
     </tr>
     <tr>
-      <td>五维self为空tensor且存在非batch size维度的大小为0。</td>
+      <td>五维self为空Tensor且存在非batch size维度的大小为0。</td>
     </tr>
     <tr>
       <td>四维self不支持为空tensor。</td>
@@ -255,8 +255,8 @@ aclnnStatus aclnnReflectionPad3d(
 - 确定性计算：
   - aclnnReflectionPad3d默认确定性实现。
 
-- 如果计算量过大可能会导致算子执行超时（aicore error类型报错，errorStr为:timeout or trap error），场景为最后2轴合轴小于16，前面的轴合轴超大。
-- 五维self为空tensor且存在非batch size维度的大小为0。四维self不支持为空tensor。
+- 如果计算量过大可能会导致算子执行超时（AI Core error类型报错，errorStr为:timeout or trap error），场景为最后2轴合轴小于16，前面的轴合轴超大。
+- 五维self为空Tensor且存在非batch size维度的大小为0。四维self不支持为空tensor。
 
 ## 调用示例
 

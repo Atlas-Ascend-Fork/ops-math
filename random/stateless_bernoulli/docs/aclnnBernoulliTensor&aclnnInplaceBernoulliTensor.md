@@ -303,7 +303,7 @@ aclnnStatus aclnnInplaceBernoulliTensor(
     <tr>
       <td>prob</td>
       <td>输入</td>
-      <td>公式中的prob，Host侧的aclTensor</td>
+      <td>公式中的prob，Device侧的aclTensor</td>
       <td><ul><li>满足0≤prob≤1</li></ul></td>
       <td>FLOAT16、FLOAT、DOUBLE、BFLOAT16</td>
       <td>ND</td>

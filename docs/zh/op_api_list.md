@@ -157,7 +157,7 @@
 | [aclnnInplaceCopy](../../conversion/view_copy/docs/aclnnInplaceCopy.md) | 将src中的元素复制到selfRef张量中并返回selfRef。              | 默认确定性实现| 默认确定性实现|
 | [aclnnInplaceFillDiagonal](../../conversion/fill_diagonal_v2/docs/aclnnInplaceFillDiagonal.md) | 以fillValue填充tensor对角线。                                | 默认确定性实现| 默认确定性实现 |
 | [aclnnInplaceFillScalar](../../conversion/fill/docs/aclnnInplaceFillScalar.md) | 对tensor填充指定标量。                                       | 默认确定性实现| 默认确定性实现|
-| [aclnnInplaceFillTensor](../../conversion/fill/docs/aclnnInplaceFillTensor.md) | 对selfRef张量填充value， value是张量。                       | 默认确定性实现| 默认确定性实现|
+| [aclnnInplaceFillTensor](../../conversion/fill/docs/aclnnInplaceFillTensor.md) | 对selfRef张量填充value，value是张量。                       | 默认确定性实现| 默认确定性实现|
 | [aclnnInplaceMaskedFillScalar](../../conversion/masked_fill/docs/aclnnInplaceMaskedFillScalar.md) | 用value填充selfRef里面与mask矩阵中值为true的位置相对应的元素。 | 默认确定性实现| 默认确定性实现|
 | [aclnnInplaceMaskedFillTensor](../../conversion/masked_fill/docs/aclnnInplaceMaskedFillTensor.md) | 用value填充selfRef里面与mask矩阵中值为true的位置相对应的元素。 | 默认确定性实现| 默认确定性实现|
 | [aclnnInplaceNormal](../../random/dsa_random_normal/docs/aclnnInplaceNormal.md) | 使用mean和std的参数正态分布的元素进行填充张量。从给定的均值mean和标准差std的离散正态分布中抽取随机数，用于填充selfRef张量。其中，均值mean是一个基础类型float，包含每个输出元素相关的正态分布均值。std是一个基础类型float，包含每个输出元素相关的正态分布的标准差。                | 默认确定性实现|  默认确定性实现 |
@@ -240,7 +240,7 @@
 | [aclnnProd](../../math/reduce_prod/docs/aclnnProd.md)           | 返回输入tensor中所有元素的乘积。                               | 默认确定性实现| 默认确定性实现|
 | [aclnnProdDim](../../math/reduce_prod/docs/aclnnProdDim.md)     | 返回输入tensor给定维度上每行的乘积。                         | 默认确定性实现| 默认确定性实现|
 | [aclnnQr](../../math/qr/docs/aclnnQr.md)     | 对输入Tensor进行正交分解。                         | 默认确定性实现| 默认确定性实现 |
-| [aclnnInplaceRandomWithoutFromTo](../../random/dsa_random_uniform/docs/aclnnInplaceRandomWithoutFromTo.md)     | 给定seed/offset(int64),默认从 [0, DTYPE_MAX_VALUE] 的离散均匀分布中采样整数填充selfRef张量。                         | - |  默认确定性实现 |
+| [aclnnInplaceRandomWithoutFromTo](../../random/dsa_random_uniform/docs/aclnnInplaceRandomWithoutFromTo.md)     | 给定seed/offset(int64)，默认从 [0, DTYPE_MAX_VALUE] 的离散均匀分布中采样整数填充selfRef张量。                         | - |  默认确定性实现 |
 | [aclnnInplaceRandomWithoutFromToTensor](../../random/dsa_random_uniform/docs/aclnnInplaceRandomWithoutFromToTensor.md)     | 给定seed/offset(Tensor)，默认从 [0, DTYPE_MAX_VALUE] 的离散均匀分布中采样整数填充selfRef张量。                         | - |  默认确定性实现 |
 | [aclnnRandperm](../../random/stateless_randperm/docs/aclnnRandperm.md)     | 返回从0到n-1的整数随机排列。                         | 默认确定性实现|  默认确定性实现 |
 | [aclnnRange](../../math/range/docs/aclnnRange.md)               | 从start起始到end结束按照step的间隔取值。                     | 默认确定性实现| 默认确定性实现 |
@@ -280,7 +280,7 @@
 | [aclnnSignbit](../../math/signbit/docs/aclnnSignbit.md)            | 判断输入中的每个元素符号位是否为1，返回一个tensor。 | 默认确定性实现| 默认确定性实现 |
 | [aclnnSignBitsPack](../../math/sign_bits_pack/docs/aclnnSignBitsPack.md) | 将float16类型或者float32类型的1位Adam打包为uint8。           | 默认确定性实现| 默认确定性实现 |
 | [aclnnSignBitsUnpack](../../math/sign_bits_unpack/docs/aclnnSignBitsUnpack.md) | 将uint8类型1位Adam拆包为float32或者float16。                 | 默认确定性实现| 默认确定性实现 |
-| [aclnnSilentCheck](../../math/silent_check/docs/aclnnSilentCheck.md) | SilentCheckV2算子功能主要根据输入特征值（val），与绝对阈值、相对阈值比较，来识别是否触发静默检测故障。 | 默认确定性实现| - |
+| [aclnnSilentCheck](../../math/silent_check/docs/aclnnSilentCheck.md) | SilentCheck算子功能主要根据输入特征值（val），与绝对阈值、相对阈值比较，来识别是否触发静默检测故障。 | 默认确定性实现| - |
 | [aclnnSilentCheckV2](../../math/silent_check_v2/docs/aclnnSilentCheckV2.md) | 根据stepRef参数与马尔可夫不等式阈值来识别是否触发静默检测故障。 | 默认确定性实现| - |
 | [aclnnSimThreadExponential](../../random/sim_thread_exponential/docs/aclnnSimThreadExponential.md) | 生成服从参数为lambda的指数分布随机数，并将其填充到selfRef张量中。                                    | 默认确定性实现| 默认确定性实现 |
 | [aclnnSin&aclnnInplaceSin](../../math/sin/docs/aclnnSin&aclnnInplaceSin.md) | 对输入Tensor完成sin运算。                                    | 默认确定性实现| 默认确定性实现|
@@ -325,7 +325,7 @@
 | [aclnnVarMean](../../math/reduce_var/docs/aclnnVarMean.md)      | 返回输入Tensor指定维度的值求得的均值及方差。                 | 默认确定性实现| 默认确定性实现|
 | [aclnnWeightQuantPreprocess](../../conversion/weight_quant_preprocess/docs/aclnnWeightQuantPreprocess.md) | 完成伪量化Matmul的参数预处理。 | - | 默认确定性实现 |
 | [aclnnXlog1py](../../math/xlog1py/docs/aclnnXlog1py.md) | 计算x * log(1 + y)，当x == 0时结果为0。支持broadcast。 | - | 默认确定性实现 |
-| [aclnnAmpUpdateScale](../../math/amp_update_scale/docs/aclnnAmpUpdateScale.md) | 实现AMP训练中的动态Scale更新逻辑。 | 默认确定性实现 | 默认确定性实现 |
+| [aclnnAmpUpdateScale](../../math/amp_update_scale/docs/aclnnAmpUpdateScale.md) | 实现AMP（Automatic Mixed Precision）训练中的动态Scale更新逻辑。 | 默认确定性实现 | 默认确定性实现 |
 | [aclnnXLogYScalarOther&aclnnInplaceXLogYScalarOther](../../math/xlogy/docs/aclnnXLogYScalarOther&aclnnInplaceXLogYScalarOther.md) | 计算self * log(other)的结果。                                | 默认确定性实现| 默认确定性实现 |
 | [aclnnXLogYScalarSelf](../../math/xlogy/docs/aclnnXLogYScalarSelf.md) | 计算self * log(other)的结果。                                | 默认确定性实现| 默认确定性实现 |
 | [aclnnXLogYTensor&aclnnInplaceXLogYTensor](../../math/xlogy/docs/aclnnXLogYTensor&aclnnInplaceXLogYTensor.md) | 计算self * log(other)的结果。                                | 默认确定性实现| 默认确定性实现 |

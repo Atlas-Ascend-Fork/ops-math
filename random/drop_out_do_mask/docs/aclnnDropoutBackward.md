@@ -115,7 +115,7 @@ aclnnStatus aclnnDropoutBackward(
       <td>out（aclTensor*）</td>
       <td>输出</td>
       <td>输出<code>out</code>。</td>
-      <td><ul><li>不支持空Tensor。</li><li>数据类型需要满足是gradOutput可转换的数据类型。</li><li>shape需要与gradOutput一致。</li></ul></td>
+      <td><ul><li>不支持空Tensor。</li><li>数据类型需要是gradOutput可转换的数据类型。</li><li>shape需要与gradOutput一致。</li></ul></td>
       <td>FLOAT、FLOAT16、BFLOAT16</td>
       <td>ND</td>
       <td>1-8</td>

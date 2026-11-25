@@ -86,7 +86,7 @@ aclnnStatus aclnnCalculateMatmulWeightSize(
     <tr>
       <td>weightTensorSize（uint64_t*）</td>
       <td>输出</td>
-      <td>根据MatMul内部处理逻辑，计算该输入下weight需要多少个元素的数据量，公式中的result。</td>
+      <td>根据Matmul内部处理逻辑，计算该输入下weight需要多少个元素的数据量，公式中的result。</td>
       <td>-</td>
       <td>-</td>
       <td>-</td>

@@ -3,7 +3,7 @@
 ## 前提说明
 
 - 如需编译执行算子API，请确保基础环境已搭建完成，包括驱动、固件、CANN软件包、ops包等。
-- 算子API的调用流程和编译运行操作详情请参见[《应用开发（C&C++）》](https://hiascend.com/document/redirect/CannCommunityadevguide)中“单算子调用>单算子API执行>调用aclnn接口示例代码”。
+- 算子API的调用流程和编译运行操作详情请参见《[应用开发（C&C++）](https://hiascend.com/document/redirect/CannCommunityadevguide)》中“单算子调用>单算子API执行>调用aclnn接口示例代码”。
 
 ## 编译前准备
 
@@ -60,7 +60,7 @@
     install(TARGETS opapi_test DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
     ```
 
-    对于集合通信和MatMul计算融合、并行的算子，统称为通算融合算子（简称MC2算子），包括AllGatherMatmul、AlltoAllAllGatherBatchMatMul、BatchMatMulReduceScatterAlltoAll、MatmulAllReduce、MatmulAllReduceAddRmsNorm、MatmulReduceScatter等。调用该类算子API时，一般会涉及多线程和HCCL（Huawei Collective Communication Library，集合通信库），因此CMake文件需要额外导入如下内容，否则无法成功编译。
+    对于集合通信和MatMul计算融合、并行的算子，统称为通算融合算子（简称MC2算子），包括AllGatherMatmul、AlltoAllAllGatherBatchMatMul、BatchMatMulReduceScatterAlltoAll、MatmulAllReduce、MatmulAllReduceAddRmsNorm、MatmulReduceScatter等。调用该类算子API时，一般会涉及多线程和HCCL（Huawei Collective Communication Library，华为集合通信库），因此CMake文件需要额外导入如下内容，否则无法成功编译。
 
   ```cmake
   # 设置链接的库文件路径

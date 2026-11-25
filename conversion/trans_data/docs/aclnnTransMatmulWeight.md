@@ -75,7 +75,7 @@ aclnnStatus aclnnTransMatmulWeight(
       <td>mmWeightRef</td>
       <td>输入</td>
       <td>表示一个待处理的Matmul的weight Tensor。</td>
-      <td>经过此接口后刷新成预处理后的Matmul weightTensor，格式根据亲和性进行ND或私有格式的转换。</td>
+      <td>经过此接口后刷新成预处理后的Matmul weight Tensor，格式根据亲和性进行ND或私有格式的转换。</td>
       <td>FLOAT16、BFLOAT16、INT8</td>
       <td>ND</td>
       <td>2-6</td>

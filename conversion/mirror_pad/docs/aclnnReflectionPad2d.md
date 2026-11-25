@@ -182,7 +182,7 @@ aclnnStatus aclnnReflectionPad2d(
       <td>self为空Tensor且存在非第一维度的值为0。</td>
     </tr>
     <tr>
-      <td>三维self不支持为空tensor。</td>
+      <td>三维self不支持为空Tensor。</td>
     </tr>
     <tr>
       <td>padding的数值大于等于self对应维度的值。</td>
@@ -244,7 +244,7 @@ aclnnStatus aclnnReflectionPad2d(
 - 确定性计算：
   - aclnnReflectionPad2d默认确定性实现。
 
-  如果计算量过大可能会导致算子执行超时（aicore error类型报错，errorStr为:timeout or trap error），场景为最后2轴合轴小于16，前面的轴合轴超大。
+  此外，计算量过大可能导致算子执行超时（aicore error类型报错，errorStr为:timeout or trap error），该场景为最后2轴合轴小于16且前面的轴合轴超大。
 
 ## 调用示例
 

@@ -96,7 +96,7 @@ aclnnStatus aclnnInplaceCopy(
       <td>selfRef（aclTensor *）</td>
       <td>输入/输出</td>
       <td>公式中的selfRef。</td>
-      <td>注意目前只有selfRef为连续时，才支持复数间的拷贝，shape需要与src满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>。</td>
+      <td>注意目前只有selfRef为连续时，才支持复数间的复制，shape需要与src满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>。</td>
       <td>INT8、INT16、INT32、INT64、UINT8、FLOAT16、FLOAT32、BOOL、DOUBLE、COMPLEX64、COMPLEX128、UINT16、UINT32、UINT64、BFLOAT16</td>
       <td>ND</td>
       <td>1-8</td>

@@ -163,7 +163,7 @@ aclnnStatus aclnnReplicationPad2dBackward(
     <tr>
       <td>ACLNN_ERR_PARAM_NULLPTR</td>
       <td>161001</td>
-      <td>gradOutput, self, padding, gradInput任何一个为空指针。</td>
+      <td>gradOutput、self、padding、gradInput任何一个为空指针。</td>
     </tr>
     <tr>
       <td rowspan="8">ACLNN_ERR_PARAM_INVALID</td>
@@ -183,7 +183,7 @@ aclnnStatus aclnnReplicationPad2dBackward(
       <td>数据类型为BFLOAT16时，padding的数值大于7。</td>
     </tr>
     <tr>
-      <td>self为空tensor且存在非第一维度的值为0。</td>
+      <td>self为空Tensor且存在非第一维度的值为0。</td>
     </tr>
     <tr>
       <td>self为3维空Tensor（3维输入不支持空Tensor，仅4维输入支持第一维度batch size为0）。</td>

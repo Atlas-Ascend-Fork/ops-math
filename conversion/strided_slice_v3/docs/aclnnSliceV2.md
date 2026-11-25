@@ -152,7 +152,7 @@ aclnnStatus aclnnSliceV2(
       <td>out（aclTensor*）</td>
       <td>输出</td>
       <td>公式中的out。</td>
-      <td>shape满足计算公式中的推导规则</td>
+      <td>shape满足计算公式中的推导规则。</td>
       <td>FLOAT、FLOAT16、INT32、INT64、INT8、UINT8、BOOL、BFLOAT16</td>
       <td>ND</td>
       <td>0-8</td>

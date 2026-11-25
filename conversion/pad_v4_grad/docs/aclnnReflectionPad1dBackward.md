@@ -163,7 +163,7 @@ aclnnStatus aclnnReflectionPad1dBackward(
     <tr>
       <td>ACLNN_ERR_PARAM_NULLPTR</td>
       <td>161001</td>
-      <td>gradOutput、 self、 padding、 gradInput任何一个为空指针。</td>
+      <td>gradOutput、self、padding、gradInput任何一个为空指针。</td>
     </tr>
     <tr>
       <td rowspan="6">ACLNN_ERR_PARAM_INVALID</td>
@@ -174,7 +174,7 @@ aclnnStatus aclnnReflectionPad1dBackward(
       <td>gradOutput、self、padding和gradInput的输入shape在支持范围之外。</td>
     </tr>
     <tr>
-      <td>self为空tensor且存在非batch size维度的值为0。</td>
+      <td>self为空Tensor且存在非batch size维度的值为0。</td>
     </tr>
     <tr>
       <td>padding的size不等于2。</td>

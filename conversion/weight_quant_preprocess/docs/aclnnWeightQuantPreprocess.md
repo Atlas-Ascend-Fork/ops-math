@@ -172,7 +172,7 @@ aclnnStatus aclnnWeightQuantPreprocess(
       <td>输出</td>
       <td>预处理后的weight</td>
       <td>-</td>
-      <td>int8/int4/fp8_e4m3/hifloat8/fp4_e2m1</td>
+      <td>int8/int4/float8_e4m3fn/hifloat8/float4_e2m1</td>
       <td>ND/NZ</td>
       <td>2-5</td>
       <td>仅转置场景支持</td>
@@ -310,7 +310,7 @@ aclnnStatus aclnnWeightQuantPreprocess(
 - 确定性说明：aclnnWeightQuantPreprocess默认确定性实现。
 
 <details>
-<summary><strong>MM_MX_A8W4数据流</strong>（MM表示Matmul；MX_A8W4表示x的数据类型为FLOAT8_E4M3FN，weight的数据类型为FLOAT4_E2M1，Mx量化模式）</summary>
+<summary><strong>MM_MX_A8W4数据流</strong>（MM表示Matmul；MX_A8W4表示x的数据类型为FLOAT8_E4M3FN，weight的数据类型为FLOAT4_E2M1，MX量化模式）</summary>
 
 - **weight**
   - 数据类型：FLOAT4_E2M1
@@ -370,7 +370,7 @@ aclnnStatus aclnnWeightQuantPreprocess(
 </details>
 
 <details>
-<summary><strong>GMM_MX_A8W4数据流</strong>（GMM表示GroupedMatmul；MX_A8W4表示x的数据类型为FLOAT8_E4M3FN，weight的数据类型为FLOAT4_E2M1，Mx量化模式）</summary>
+<summary><strong>GMM_MX_A8W4数据流</strong>（GMM表示GroupedMatmul；MX_A8W4表示x的数据类型为FLOAT8_E4M3FN，weight的数据类型为FLOAT4_E2M1，MX量化模式）</summary>
 
 - **weight**
   - 数据类型：FLOAT4_E2M1
@@ -1961,7 +1961,7 @@ MM_A8F4_TCG数据流调用示例如下（共2个场景：转置 × ND直拷，�
 
 - 转置场景：outWeight为ND直拷（物理透传），与输入weight保持相同的view shape/strides，format为`ACL_FORMAT_ND`
 - 非转置场景：outWeight format为`ACL_FORMAT_FRACTAL_NZ_C0_32`，storageShape为`{ceildiv(N, 32), ceildiv(K, 16), 16, 32}`（N块在前，区别于MM_MX_A8W4转置NZ的K块在前）
-- weight为紧凑4-bit（FLOAT4_E2M1），内存按numel/2字节申请；非转置时N须为偶数，转置时K须为偶数
+- weight为紧凑4比特（FLOAT4_E2M1），内存按numel/2字节申请；非转置时N须为偶数，转置时K须为偶数
 - T-CG数据流无xScale语义，xScaleDtype固定传`ACL_DT_UNDEFINED`；kGroupSize固定为32
 
 ```cpp

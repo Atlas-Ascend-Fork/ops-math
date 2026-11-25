@@ -237,7 +237,7 @@ aclnnStatus aclnnCircularPad2d(
 - <term>Atlas A3系列产品</term>、<term>Atlas A2系列产品</term>：padding可为负：负值表示裁剪，裁剪后该维度大小必须大于0；每侧正padding不超过对应维度大小（允许等于）。
 <!-- end id8 -->
 <!-- npu="A3,910b" id9 -->
-- <term>Atlas A3系列产品</term>、<term>Atlas A2系列产品</term>：out的最后一维在不同类型下的大小需满足如下上限约束：int8为(0, 98304)、float16/bfloat16为(0, 49152)、int32/float32为(0, 24576)。
+- <term>Atlas A3系列产品</term>、<term>Atlas A2系列产品</term>：out的最后一维在不同类型下的大小需满足如下上限约束：INT8为(0, 98304)、FLOAT16/BFLOAT16为(0, 49152)、INT32/FLOAT32为(0, 24576)。
 <!-- end id9 -->
 <!-- npu="950" id10 -->
 - <term>Ascend 950PR&950DT系列产品</term>：out的最后一维无此上限约束。

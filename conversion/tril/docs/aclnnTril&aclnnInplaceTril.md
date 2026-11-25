@@ -351,7 +351,7 @@ aclnnStatus aclnnInplaceTril(
         <td>selfRef的数据类型不在支持的范围之内。</td>
       </tr>
       <tr>
-        <td>self维度大于8，或小于2且不是0。</td>
+        <td>selfRef维度大于8，或小于2。</td>
       </tr>
     </tbody>
     </table>

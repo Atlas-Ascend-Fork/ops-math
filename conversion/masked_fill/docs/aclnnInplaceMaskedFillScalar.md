@@ -94,7 +94,7 @@ aclnnStatus aclnnInplaceMaskedFillScalar(
       <td>mask（aclTensor*）</td>
       <td>输入</td>
       <td>输入selfRef中需要被填充的mask标记。</td>
-      <td>shape与selfRef满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast</a>关系</td>
+      <td>shape与selfRef满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast</a>关系。</td>
       <td>BOOL</td>
       <td>ND</td>
       <td>0-8</td>
@@ -230,7 +230,7 @@ aclnnStatus aclnnInplaceMaskedFillScalar(
 
 示例代码如下，仅供参考，具体编译和执行过程请参考[编译与运行样例](../../../docs/zh/context/compile_and_run_sample.md)。
 
-```Cpp
+```cpp
 #include <iostream>
 #include <vector>
 #include "acl/acl.h"

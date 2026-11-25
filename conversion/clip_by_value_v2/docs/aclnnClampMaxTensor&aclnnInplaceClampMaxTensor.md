@@ -201,7 +201,7 @@ aclnnStatus aclnnInplaceClampMaxTensor(
 
 ## aclnnClampMaxTensor
 
-- **参数说明**
+- **参数说明：**
   <table style="table-layout: fixed; width: 1150px"><colgroup>
   <col style="width: 184px">
   <col style="width: 134px">
@@ -362,7 +362,7 @@ aclnnStatus aclnnInplaceClampMaxTensor(
 
 ## aclnnInplaceClampMaxTensor
 
-- **参数说明**
+- **参数说明：**
   <table style="table-layout: fixed; width: 1150px"><colgroup>
   <col style="width: 184px">
   <col style="width: 134px">

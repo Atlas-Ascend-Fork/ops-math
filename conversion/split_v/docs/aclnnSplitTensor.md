@@ -107,7 +107,7 @@ aclnnStatus aclnnSplitTensor(
       <td>out（aclTensorList*）</td>
       <td>输出</td>
       <td>表示被split后的输出tensor的列表。</td>
-      <td>每个输出的dtype需要保持一致。TensorList中每个输出tensor的维度与self的维度一致。</td>
+      <td>每个输出的数据类型需要保持一致。TensorList中每个输出tensor的维度与self的维度一致。</td>
       <td>FLOAT、FLOAT16、DOUBLE、INT32、UINT32、INT64、UINT64、INT16、UINT16、INT8、UINT8、BOOL、COMPLEX128、COMPLEX64、BFLOAT16</td>
       <td>ND</td>
       <td>-</td>

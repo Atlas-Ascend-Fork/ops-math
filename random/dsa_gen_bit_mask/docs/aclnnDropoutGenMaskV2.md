@@ -78,7 +78,7 @@ aclnnStatus aclnnDropoutGenMaskV2(
     <tr>
       <td>shape（aclIntArray*）</td>
       <td>输入</td>
-      <td>表示待处理的数据量。</td>
+      <td>表示待处理输入数据的形状，其元素个数为待生成mask的元素总数，输出out的shape需为align(该元素个数,128)/8。</td>
       <td>-</td>
       <td>-</td>
       <td>-</td>
@@ -128,7 +128,7 @@ aclnnStatus aclnnDropoutGenMaskV2(
     <tr>
       <td>out（aclTensor*）</td>
       <td>输出</td>
-      <td>输出的tensor。bit类型并使用UINT8类型存储的mask数据。</td>
+      <td>输出的tensor，bit类型并使用UINT8类型存储的mask数据。</td>
       <td>shape需要为(align(input的元素个数,128)/8)。</td>
       <td>UINT8</td>
       <td>ND</td>

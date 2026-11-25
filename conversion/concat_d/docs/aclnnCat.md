@@ -125,7 +125,7 @@ aclnnStatus aclnnCat(
   </tbody></table>
 
   <!-- npu="910,310p" id7 -->
-  - <term>Atlas推理系列产品</term>、<term>Atlas训练系列产品</term> : 不支持BFLOAT16数据类型。
+  - <term>Atlas推理系列产品</term>、<term>Atlas训练系列产品</term>：不支持BFLOAT16数据类型。
   <!-- end id7 -->
   <!-- npu="A3,910b" id8 -->
   - <term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>：不支持UINT16、UINT32、UINT64、HIFLOAT8、FLOAT8_E5M2、FLOAT8_E4M3FN、FLOAT8_E8M0、FLOAT4_E1M2、FLOAT4_E2M1。
@@ -231,7 +231,7 @@ aclnnStatus aclnnCat(
 
 示例代码如下，仅供参考，具体编译和执行过程请参考[编译与运行样例](../../../docs/zh/context/compile_and_run_sample.md)。
 
-```Cpp
+```cpp
 #include <iostream>
 #include <vector>
 #include "acl/acl.h"

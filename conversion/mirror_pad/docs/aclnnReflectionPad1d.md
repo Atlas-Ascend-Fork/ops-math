@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-- 接口功能：使用输入边界的反射填充输入tensor。
+- 接口功能：使用输入边界的反射填充输入Tensor。
 - 示例：
 
   ```text
@@ -235,7 +235,7 @@ aclnnStatus aclnnReflectionPad1d(
 - 确定性计算：
   - aclnnReflectionPad1d默认确定性实现。
 
-如果计算量过大可能会导致算子执行超时（aicore error类型报错，errorStr为:timeout or trap error），场景为最后2轴合轴小于16，前面的轴合轴超大。
+如果计算量过大，可能会导致算子执行超时（aicore error类型报错，errorStr为:timeout or trap error）；该场景通常出现在最后2个轴合轴后小于16、而前面各轴合轴后数值超大的情况。
 
 ## 调用示例
 

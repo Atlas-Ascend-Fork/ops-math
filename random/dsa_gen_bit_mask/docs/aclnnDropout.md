@@ -84,7 +84,7 @@ aclnnStatus aclnnDropout(
     <tr>
       <td>input（aclTensor*）</td>
       <td>输入</td>
-      <td>表示待处理的张量，公式中的input。</td>
+      <td>表示待处理的tensor，公式中的input。</td>
       <td>不支持空Tensor。</td>
       <td>BFLOAT16、FLOAT16、FLOAT32</td>
       <td>ND</td>

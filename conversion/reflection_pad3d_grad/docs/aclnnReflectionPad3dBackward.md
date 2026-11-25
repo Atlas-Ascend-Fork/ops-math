@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-接口功能：计算[aclnnReflectionPad3d](../../mirror_pad/docs/aclnnReflectionPad3d.md)的反向传播。
+接口功能：计算[aclnnReflectionPad3d](../../mirror_pad/docs/aclnnReflectionPad3d.md)API的反向传播。
 
 ## 函数原型
 

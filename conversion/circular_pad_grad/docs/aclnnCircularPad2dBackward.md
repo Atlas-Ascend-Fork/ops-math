@@ -57,7 +57,7 @@ aclnnStatus aclnnCircularPad2dBackward(
 
 ## aclnnCircularPad2dBackwardGetWorkspaceSize
 
-- **参数说明**
+- **参数说明：**
 
   <table style="table-layout: fixed; width: 1550px"><colgroup>
   <col style="width: 211px">

@@ -233,7 +233,7 @@
         <td>self的shape和pad推导出的shape与out的shape不一致。</td>
       </tr>
       <tr>
-        <td>pad中元素不为偶数或超过了self维度的两倍。</td>
+        <td>pad中元素个数不为偶数或超过了self维度的两倍。</td>
       </tr>
       <tr>
         <td>self或out的维度大于8。</td>
@@ -271,7 +271,7 @@
     <tr>
       <td>workspace</td>
       <td>输入</td>
-      <td>在Device侧申请的workspace内存地址。</td>
+      <td>在Device侧申请的workspace存储地址。</td>
     </tr>
     <tr>
       <td>workspaceSize</td>
