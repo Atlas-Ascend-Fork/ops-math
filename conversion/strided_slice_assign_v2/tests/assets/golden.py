@@ -128,11 +128,23 @@ class StridedSliceAssignV2KernelSpec:
             axes,
         )
 
+        # 归一化仅用于构造回填 mask（必须按 range 语义展开：负 stride 时 stop 会被
+        # slice.indices 钳到 -1，而 -1 作为 numpy 切片被解释成 dim-1，会选空区间）。
+        # TF 仍直接收原始 dense spec：TF 的负索引/-dim-1 约定与算子一致，由其自行 clamp。
+        norm_axes = []
+        for d, dim in enumerate(var_in.shape):
+            start, stop, step = slice(dense_b[d], dense_e[d], dense_s[d]).indices(dim)
+            norm_axes.append(np.arange(start, stop, step))
+
         # ---- 独立 Graph + compat.v1.Session 执行 ref 算子（eager/tf.function 不支持）----
+        # var/value 用 placeholder + feed_dict 喂入：绕开图常量序列化成 TensorProto 的
+        # 2GB 上限（大 shape 用例 tf.Variable(var_in)/tf.constant 会抛 make_tensor_proto 越界）。
         graph = tf.Graph()
         with graph.as_default():
-            tf_var = tf.compat.v1.Variable(var_in, use_resource=False)
-            tf_value = tf.convert_to_tensor(val_in, dtype=tf_var.dtype.base_dtype)
+            var_ph = tf.compat.v1.placeholder(var_in.dtype, var_in.shape)
+            val_ph = tf.compat.v1.placeholder(val_in.dtype, val_in.shape)
+            tf_var = tf.compat.v1.Variable(var_ph, use_resource=False)
+            tf_value = tf.cast(val_ph, tf_var.dtype.base_dtype)
             out = tf.raw_ops.StridedSliceAssign(
                 ref=tf_var,
                 begin=np.asarray(dense_b, dtype=np.int64),
@@ -141,8 +153,15 @@ class StridedSliceAssignV2KernelSpec:
                 value=tf_value,
             )
             with tf.compat.v1.Session() as sess:
-                sess.run(tf_var.initializer)
-                result = sess.run(out)
+                sess.run(tf_var.initializer, feed_dict={var_ph: var_in})
+                result = sess.run(out, feed_dict={val_ph: val_in})
+
+        # TF 对 rank>=3 的 StridedSliceAssign 会把非切片区域的 -0.0 归一化成 +0.0；
+        # 纯搬运算子非切片区域应 bit-exact 等于 var 原值，这里按切片坐标回填恢复。
+        result = np.array(result, copy=True)
+        non_slice = np.ones(var_in.shape, dtype=bool)
+        non_slice[np.ix_(*norm_axes)] = False
+        result[non_slice] = var_in[non_slice]
 
         # ---- 输出 dtype 还原 ----
         if is_bf16_u16:
@@ -183,12 +202,28 @@ class StridedSliceAssignV2KernelSpec:
                 np.asarray(strides.numpy(), dtype=np.int64).flatten().tolist(),
                 axes_np,
             )
+            # 归一化仅用于构造回填 mask（range 语义展开，见 golden 主通路说明）；
+            # TF 仍直接收原始 dense spec，由其自行 clamp。
+            self.norm_axes = []
+            for d, dim in enumerate(var_np.shape):
+                start, stop, step = slice(dense_b[d], dense_e[d], dense_s[d]).indices(
+                    dim
+                )
+                self.norm_axes.append(np.arange(start, stop, step))
+            self.var_ref = var_np
+            if self.bf16_bit_carry:
+                import ml_dtypes
+
+                self.var_ref = np.ascontiguousarray(var_np).view(ml_dtypes.bfloat16)
             self.graph = tf.Graph()
             with self.graph.as_default():
-                var_c = tf.constant(var_np)
-                if self.bf16_bit_carry:
-                    var_c = tf.bitcast(var_c, tf.bfloat16)
-                value_c = tf.constant(value_np)
+                # var/value 用 placeholder + feed_dict 喂入：绕开 TensorProto 2GB 上限
+                var_ph = tf.compat.v1.placeholder(var_np.dtype, var_np.shape)
+                var_c = (
+                    tf.bitcast(var_ph, tf.bfloat16) if self.bf16_bit_carry else var_ph
+                )
+                val_ph = tf.compat.v1.placeholder(value_np.dtype, value_np.shape)
+                value_c = val_ph
                 if value_c.dtype != var_c.dtype:
                     value_c = (
                         tf.bitcast(value_c, tf.bfloat16)
@@ -213,11 +248,20 @@ class StridedSliceAssignV2KernelSpec:
                     value=value_c,
                 )
                 self.sess = tf.compat.v1.Session()
-                self.sess.run(self.tf_var.initializer)
+                self.sess.run(self.tf_var.initializer, feed_dict={var_ph: var_np})
+                self.val_ph = val_ph
+                self.feed_val = value_np
 
         def __call__(self, **kwargs):
-            result = self.sess.run(self.out)  # graph 模式 sess.run 返回 numpy
+            result = self.sess.run(
+                self.out, feed_dict={self.val_ph: self.feed_val}
+            )  # graph 模式 sess.run 返回 numpy
             self.sess.close()
+            # TF 对 rank>=3 会把非切片区域 -0.0 归一化成 +0.0，回填恢复
+            result = np.array(result, copy=True)
+            non_slice = np.ones(self.var_ref.shape, dtype=bool)
+            non_slice[np.ix_(*self.norm_axes)] = False
+            result[non_slice] = self.var_ref[non_slice]
             # bf16 位级读回 uint16（与 golden 输出形态一致；result 为 ml_dtypes bfloat16 numpy）
             return [result.view(np.uint16) if self.bf16_bit_carry else result]
 
@@ -298,10 +342,20 @@ def aclnn_strided_slice_assign_v2_golden(
         None if axesOptional is None else _flat(axesOptional),
     )
 
+    # 归一化仅用于构造回填 mask（range 语义展开，见 kernel golden 主通路说明）；
+    # TF 仍直接收原始 dense spec，由其自行 clamp。
+    norm_axes = []
+    for d, dim in enumerate(var_in.shape):
+        start, stop, step = slice(dense_b[d], dense_e[d], dense_s[d]).indices(dim)
+        norm_axes.append(np.arange(start, stop, step))
+
     graph = tf.Graph()
     with graph.as_default():
-        tf_var = tf.compat.v1.Variable(var_in, use_resource=False)
-        tf_value = tf.convert_to_tensor(val_in, dtype=tf_var.dtype.base_dtype)
+        # var/value 用 placeholder + feed_dict 喂入：绕开 TensorProto 2GB 上限
+        var_ph = tf.compat.v1.placeholder(var_in.dtype, var_in.shape)
+        val_ph = tf.compat.v1.placeholder(val_in.dtype, val_in.shape)
+        tf_var = tf.compat.v1.Variable(var_ph, use_resource=False)
+        tf_value = tf.cast(val_ph, tf_var.dtype.base_dtype)
         out = tf.raw_ops.StridedSliceAssign(
             ref=tf_var,
             begin=np.asarray(dense_b, dtype=np.int64),
@@ -310,8 +364,14 @@ def aclnn_strided_slice_assign_v2_golden(
             value=tf_value,
         )
         with tf.compat.v1.Session() as sess:
-            sess.run(tf_var.initializer)
-            result = sess.run(out)
+            sess.run(tf_var.initializer, feed_dict={var_ph: var_in})
+            result = sess.run(out, feed_dict={val_ph: val_in})
+
+    # TF 对 rank>=3 的 StridedSliceAssign 会把非切片区域的 -0.0 归一化成 +0.0，回填恢复
+    result = np.array(result, copy=True)
+    non_slice = np.ones(var_in.shape, dtype=bool)
+    non_slice[np.ix_(*norm_axes)] = False
+    result[non_slice] = var_in[non_slice]
 
     result = np.ascontiguousarray(result)
     if result.dtype.name == "bfloat16":
@@ -340,3 +400,5 @@ class AclnnStridedSliceAssignV2TestSpec:
     """TTK TestSpec 注册壳（aclnn 通路）：golden 同上。"""
 
     golden = staticmethod(aclnn_strided_slice_assign_v2_golden)
+    third_party = StridedSliceAssignV2KernelSpec.third_party
+    tolerance = StridedSliceAssignV2KernelSpec.tolerance
