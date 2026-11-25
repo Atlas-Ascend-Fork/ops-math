@@ -461,3 +461,60 @@ TEST_F(SplitInfershape, split_infer_shape_range_not_const_multi_dim)
         EXPECT_EQ(ShapeToVec(*(yRange->GetMax())), std::vector<int64_t>({4, 8}));
     }
 }
+
+// Test: Split infershape with num_split less than 1
+TEST_F(SplitInfershape, split_infershape_num_split_less_than_one)
+{
+    int32_t split_dim = 0;
+    gert::InfershapeContextPara infershapeContextPara("Split",
+                                                      {
+                                                          {{{1}, {1}}, ge::DT_INT32, ge::FORMAT_ND, true, &split_dim},
+                                                          {{{4}, {4}}, ge::DT_INT32, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_INT32, ge::FORMAT_ND},
+                                                          {{{}, {}}, ge::DT_INT32, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {"num_split", Ops::Math::AnyValue::CreateFrom<int64_t>(0)},
+                                                      });
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED);
+}
+
+// Test: Split infershape with split_dim out of range
+TEST_F(SplitInfershape, split_infershape_split_dim_out_of_range)
+{
+    int32_t split_dim = 2;
+    gert::InfershapeContextPara infershapeContextPara("Split",
+                                                      {
+                                                          {{{1}, {1}}, ge::DT_INT32, ge::FORMAT_ND, true, &split_dim},
+                                                          {{{4}, {4}}, ge::DT_INT32, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_INT32, ge::FORMAT_ND},
+                                                          {{{}, {}}, ge::DT_INT32, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {"num_split", Ops::Math::AnyValue::CreateFrom<int64_t>(2)},
+                                                      });
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED);
+}
+
+// Test: Split infershape with split_dim dimension not divisible by num_split
+TEST_F(SplitInfershape, split_infershape_dim_not_divisible_by_num_split)
+{
+    int32_t split_dim = 0;
+    gert::InfershapeContextPara infershapeContextPara("Split",
+                                                      {
+                                                          {{{1}, {1}}, ge::DT_INT32, ge::FORMAT_ND, true, &split_dim},
+                                                          {{{3}, {3}}, ge::DT_INT32, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {{{}, {}}, ge::DT_INT32, ge::FORMAT_ND},
+                                                          {{{}, {}}, ge::DT_INT32, ge::FORMAT_ND},
+                                                      },
+                                                      {
+                                                          {"num_split", Ops::Math::AnyValue::CreateFrom<int64_t>(2)},
+                                                      });
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED);
+}

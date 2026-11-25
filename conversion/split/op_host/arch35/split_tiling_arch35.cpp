@@ -32,7 +32,8 @@ graphStatus Tiling4Split(TilingContext* context)
                 return GRAPH_FAILED);
     int32_t isSameLen = 1;
     OP_CHECK_IF(SplitVTilingAscendC(context, maxCoreNum, ubSizePlatform, isSameLen) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context->GetNodeName(), "AscendC split tiling function call failed"), return ge::GRAPH_FAILED);
+                OP_LOGE_WITHOUT_REPORT(context->GetNodeName(), "AscendC split tiling function call failed"),
+                return ge::GRAPH_FAILED);
     return ge::GRAPH_SUCCESS;
 }
 

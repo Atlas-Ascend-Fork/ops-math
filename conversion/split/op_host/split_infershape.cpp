@@ -44,15 +44,20 @@ static graphStatus UpdatetAllUnknownDim(gert::InferShapeContext* context, const 
 static graphStatus CheckSplitParams(const gert::InferShapeContext* context, const gert::Shape*& x_shape,
                                     int64_t split_dim, const int64_t num_split)
 {
-    OP_CHECK_IF(num_split <= 0,
-                OP_LOGE(context->GetNodeName(), "%s",
-                        ConcatString("num_split must be greater than 0, but it's ", num_split).c_str()),
-                return GRAPH_FAILED);
+    OP_CHECK_IF(
+        num_split <= 0,
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "num_split", std::to_string(num_split).c_str(),
+                                              "The value of num_split must be greater than 0."),
+        return GRAPH_FAILED);
 
     int64_t x_shape_dim = x_shape->GetDimNum();
 
     OP_CHECK_IF(!IsDimValid(x_shape_dim, split_dim),
-                OP_LOGE(context->GetNodeName(), "%s", GenInvalidDimMsg("split_dim", x_shape_dim, split_dim).c_str()),
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                    context->GetNodeName(), "split_dim", std::to_string(split_dim).c_str(),
+                    ("The value of split_dim must be within the range [-" + std::to_string(x_shape_dim) + ", " +
+                     std::to_string(x_shape_dim - 1) + "].")
+                        .c_str()),
                 return GRAPH_FAILED);
 
     if (split_dim < 0) {
@@ -105,7 +110,7 @@ static graphStatus InferShape4Split(gert::InferShapeContext* context)
     }
 
     OP_CHECK_IF(CheckSplitParams(context, x_shape, split_dim, num_split) == GRAPH_FAILED,
-                OP_LOGE(context->GetNodeName(), "check split params failed."), return GRAPH_FAILED);
+                OP_LOGE_WITHOUT_REPORT(context->GetNodeName(), "check split params failed."), return GRAPH_FAILED);
 
     split_dim = split_dim < 0 ? split_dim + x_shape->GetDimNum() : split_dim;
     if (x_shape->GetDim(split_dim) == -1) {

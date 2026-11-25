@@ -318,7 +318,7 @@ inline static ge::graphStatus CalcBaseTilingParam(const gert::TilingContext* con
     // FP4 预处理：在对齐判断之前，将 FP4(4bit) 转换为 B8(1byte) 视角
     param.isFP4Type = (param.orgDtypeSize == B4_BYTES) ? 1 : 0;
     OP_CHECK_IF(ConvertFP4DimsToB8(param) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context->GetNodeName(), "ConvertFP4DimsToB8 failed."), return ge::GRAPH_FAILED);
+                OP_LOGE_WITHOUT_REPORT(context->GetNodeName(), "ConvertFP4DimsToB8 failed."), return ge::GRAPH_FAILED);
     param.isAllTensorAlign = CheckCatDimAlign(param.mergeTensorList, param.dtypeSize) ? 1 : 0;
     param.isDim1AllAlign = CheckDim1Align(param.mergeTensorList, param.dtypeSize) ? 1 : 0;
     OP_CHECK_IF(
@@ -520,6 +520,10 @@ inline static ge::graphStatus IsDimValid(const gert::TilingContext* context, int
     int64_t minDim = shapeSize * static_cast<int64_t>(-1);
     int64_t maxDim = shapeSize - 1;
     if (!(dim >= minDim && dim <= maxDim)) {
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "concat_dim", std::to_string(dim).c_str(),
+                                              ("The value of concat_dim must be within the range [" +
+                                               std::to_string(minDim) + ", " + std::to_string(maxDim) + "].")
+                                                  .c_str());
         return ge::GRAPH_FAILED;
     }
     // convert negative dim to positive dim
@@ -759,7 +763,7 @@ static ge::graphStatus TilingUb(gert::TilingContext* context, ConcatTilingParam&
     } else {
         OP_CHECK_IF(
             TilingUbForSplitDim1(context, maxAvaliableUb, storageAlignUsed, realFactorDim1, param) != ge::GRAPH_SUCCESS,
-            OP_LOGE(context->GetNodeName(), "TilingUbForSplitDim1 failed"), return ge::GRAPH_FAILED);
+            OP_LOGE_WITHOUT_REPORT(context->GetNodeName(), "TilingUbForSplitDim1 failed"), return ge::GRAPH_FAILED);
     }
     return ge::GRAPH_SUCCESS;
 }
@@ -1466,7 +1470,7 @@ inline static ge::graphStatus DoTiling(gert::TilingContext* context, ConcatTilin
     }
     // ub切分,不切列
     OP_CHECK_IF(TilingUb(context, param) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context->GetNodeName(), "check tiling_ub failed"), return ge::GRAPH_FAILED);
+                OP_LOGE_WITHOUT_REPORT(context->GetNodeName(), "check tiling_ub failed"), return ge::GRAPH_FAILED);
     // block切分
     OP_CHECK_IF(TilingBlock(context, param) != ge::GRAPH_SUCCESS,
                 OP_LOGE(context->GetNodeName(), "check tiling_block failed"), return ge::GRAPH_FAILED);
@@ -1496,6 +1500,10 @@ inline static ge::graphStatus IsPackDimValid(gert::TilingContext* context, int64
     int64_t minAxis = (shapeSize + PACK_AXIS_DEFAULT_VALUE) * (-1);
     int64_t maxAxis = shapeSize;
     if (!(dim >= minAxis && dim <= maxAxis)) {
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "pack_axis", std::to_string(dim).c_str(),
+                                              ("The value of pack_axis must be within the range [" +
+                                               std::to_string(minAxis) + ", " + std::to_string(maxAxis) + "].")
+                                                  .c_str());
         return ge::GRAPH_FAILED;
     }
     // convert negative dim to positive dim
@@ -1572,7 +1580,7 @@ ge::graphStatus Tiling4PackToConcatForAscendC(gert::TilingContext* context)
     ConcatTilingParam param;
     param.dim = GetAxis<int64_t>(context);
     OP_CHECK_IF(IsPackDimValid(context, param.dim) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context->GetNodeName(), "check pack_axis failed, please check pack_axis."),
+                OP_LOGE_WITHOUT_REPORT(context->GetNodeName(), "check pack_axis failed, please check pack_axis."),
                 return ge::GRAPH_FAILED);
     OP_CHECK_IF(CheckInputShapeSameForPack(context) != ge::GRAPH_SUCCESS,
                 OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(context->GetNodeName(), "input_tensors", "different_shapes",
@@ -1593,9 +1601,9 @@ ge::graphStatus Tiling4PackToConcatForAscendC(gert::TilingContext* context)
                 OP_LOGE(context->GetNodeName(), "GetDtypeSize failed."), return ge::GRAPH_FAILED);
     GetTensorListForPack(context, param);
     OP_CHECK_IF(CalcBaseTilingParam(context, param) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context->GetNodeName(), "CalcBaseTilingParam failed."), return ge::GRAPH_FAILED);
-    OP_CHECK_IF(DoTiling(context, param) != ge::GRAPH_SUCCESS, OP_LOGE(context->GetNodeName(), "DoTiling failed."),
-                return ge::GRAPH_FAILED);
+                OP_LOGE_WITHOUT_REPORT(context->GetNodeName(), "CalcBaseTilingParam failed."), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(DoTiling(context, param) != ge::GRAPH_SUCCESS,
+                OP_LOGE_WITHOUT_REPORT(context->GetNodeName(), "DoTiling failed."), return ge::GRAPH_FAILED);
     context->SetTilingKey(param.tilingKey);
     context->SetBlockDim(param.usedCoreNum);
     // set workspace
@@ -2009,7 +2017,7 @@ ge::graphStatus TilingCommon(gert::TilingContext* context, int64_t inputIdx, int
                 OP_LOGE(context->GetNodeName(), "get concat_dim failed."), return ge::GRAPH_FAILED);
     param.isNonContiguous = !(IsAllContiguous(context, param, inputIdx));
     OP_CHECK_IF(IsDimValid(context, param.dim, inputIdx, param.isNonContiguous, param.strideDim) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context->GetNodeName(), "check concat_dim failed, please check concat_dim."),
+                OP_LOGE_WITHOUT_REPORT(context->GetNodeName(), "check concat_dim failed, please check concat_dim."),
                 return ge::GRAPH_FAILED);
     auto inputDesc = context->GetDynamicInputDesc(inputIdx, 0);
     OP_CHECK_NULL_WITH_CONTEXT(context, inputDesc);
@@ -2032,7 +2040,7 @@ ge::graphStatus TilingCommon(gert::TilingContext* context, int64_t inputIdx, int
     OP_CHECK_IF(IsShapeValid(context, param.tensorList, param.dim) != ge::GRAPH_SUCCESS,
                 OP_LOGE(context->GetNodeName(), "check input shape failed."), return ge::GRAPH_FAILED);
     OP_CHECK_IF(CalcBaseTilingParam(context, param) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context->GetNodeName(), "CalcBaseTilingParam failed."), return ge::GRAPH_FAILED);
+                OP_LOGE_WITHOUT_REPORT(context->GetNodeName(), "CalcBaseTilingParam failed."), return ge::GRAPH_FAILED);
     if (param.isNonContiguous) {
         OP_CHECK_IF(CheckNonContiguous(context, param, inputIdx) != ge::GRAPH_SUCCESS,
                     OP_LOGE(context->GetNodeName(), "input tensor non contiguous validation failed."),
@@ -2047,8 +2055,8 @@ ge::graphStatus TilingCommon(gert::TilingContext* context, int64_t inputIdx, int
     if (Ops::Math::OpTiling::IsSimtSupported(context) && IsEnableUsedSimt(param)) {
         return TilingForConcatDSimt(context, param);
     }
-    OP_CHECK_IF(DoTiling(context, param) != ge::GRAPH_SUCCESS, OP_LOGE(context->GetNodeName(), "DoTiling failed."),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(DoTiling(context, param) != ge::GRAPH_SUCCESS,
+                OP_LOGE_WITHOUT_REPORT(context->GetNodeName(), "DoTiling failed."), return ge::GRAPH_FAILED);
     context->SetTilingKey(param.tilingKey);
     context->SetBlockDim(param.usedCoreNum);
     // set workspace

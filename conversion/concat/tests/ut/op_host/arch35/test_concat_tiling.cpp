@@ -212,3 +212,22 @@ TEST_F(ConcatForTilingTest, Concat_tiling_UT_one_axis_same_shape_no_align_float)
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED, expectTilingKey, expectWorkspaces);
 }
+
+// Test: Concat tiling with concat_dim out of range
+TEST_F(ConcatForTilingTest, Concat_tiling_UT_concat_dim_out_of_range)
+{
+    optiling::ConcatDCompileInfo compileInfo = {64, 253952};
+    int32_t concatDim = 10;
+    gert::TilingContextPara tilingContextPara("Concat",
+                                              {
+                                                  {{{1}, {1}}, ge::DT_INT32, ge::FORMAT_ND, true, &concatDim},
+                                                  {{{31, 3, 2560}, {31, 3, 2560}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                  {{{31, 3, 1280}, {31, 3, 1280}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{31, 3, 3840}, {31, 3, 3840}}, ge::DT_INT32, ge::FORMAT_ND},
+                                              },
+                                              {{"N", Ops::Math::AnyValue::CreateFrom<int64_t>(2)}}, &compileInfo);
+    std::vector<size_t> expectWorkspaces = {0};
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED, 0, expectWorkspaces);
+}

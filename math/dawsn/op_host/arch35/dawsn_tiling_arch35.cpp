@@ -94,8 +94,8 @@ static ge::graphStatus GetShapeAttrsInfo(gert::TilingContext* context, int64_t* 
 
     const std::set<ge::DataType> supportedDtypes = {ge::DT_FLOAT, ge::DT_FLOAT16, ge::DT_BF16};
     OP_CHECK_IF(supportedDtypes.count(*dataType) == 0,
-                OP_LOGE(context, "x has incorrect dtype %s. It should be DT_FLOAT, DT_FLOAT16, DT_BF16.",
-                        ToString(*dataType).c_str()),
+                OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "x", ToString(*dataType).c_str(),
+                                                      "It should be DT_FLOAT, DT_FLOAT16, DT_BF16."),
                 return ge::GRAPH_FAILED);
 
     auto inputFormat = inputDesc->GetFormat().GetStorageFormat();
@@ -206,7 +206,7 @@ static ge::graphStatus DawsnTilingFunc(gert::TilingContext* context)
     int64_t totalIdx;
     ge::DataType dataType = ge::DT_FLOAT;
     OP_CHECK_IF(GetShapeAttrsInfo(context, &totalIdx, &dataType) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context, "GetShapeAttrsInfo error"), return ge::GRAPH_FAILED);
+                OP_LOGE_WITHOUT_REPORT(context, "GetShapeAttrsInfo error"), return ge::GRAPH_FAILED);
 
     // 3. Set workspace
     OP_CHECK_IF(GetWorkspaceSize(context) != ge::GRAPH_SUCCESS, OP_LOGE(context, "GetWorkspaceSize error"),

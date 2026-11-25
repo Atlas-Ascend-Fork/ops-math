@@ -62,7 +62,11 @@ ge::graphStatus ConcatInferShapeCommon(gert::InferShapeContext* context, const i
 
     size_t output_dim = out_shape->GetDimNum();
     OP_CHECK_IF(!IsDimValid(output_dim, axis),
-                OP_LOGE(context->GetNodeName(), "%s", GenInvalidDimMsg("concat_dim", output_dim, axis).c_str()),
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                    context->GetNodeName(), "concat_dim", std::to_string(axis).c_str(),
+                    ("The value of concat_dim must be within the range [-" + std::to_string(output_dim) + ", " +
+                     std::to_string(output_dim - 1) + "].")
+                        .c_str()),
                 return ge::GRAPH_FAILED);
     if (axis < 0) {
         axis += output_dim;
@@ -99,9 +103,11 @@ ge::graphStatus ConcatInferShapeCommon(gert::InferShapeContext* context, const i
             const int64_t input_dim = input_i_shape->GetDim(check_dim);
             const int64_t output_dim_value = out_shape->GetDim(check_dim);
             if (input_dim != kUnknownDim && output_dim_value != kUnknownDim && input_dim != output_dim_value) {
-                OP_LOGE(context->GetNodeName(),
-                        "shape[%" PRId64 "][%" PRId64 "] is %" PRId64 ", must be equal to %" PRId64 "!", relative_index,
-                        check_dim, input_dim, output_dim_value);
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(
+                    context->GetNodeName(), "input_tensors", std::to_string(input_dim).c_str(),
+                    ("The dim[" + std::to_string(check_dim) + "] of shape[" + std::to_string(relative_index) +
+                     "] must be equal to " + std::to_string(output_dim_value) + ".")
+                        .c_str());
                 return ge::GRAPH_FAILED;
             }
             if (output_dim_value == kUnknownDim && input_dim != kUnknownDim) {

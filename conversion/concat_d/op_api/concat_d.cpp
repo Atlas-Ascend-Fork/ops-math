@@ -97,7 +97,7 @@ aclTensor* ConcatD(const aclTensorList* inputs, int64_t dim, aclOpExecutor* exec
     }
 
     if (inputs->Size() == 0 || inputs->Size() > catMaxInputSize) {
-        OP_LOGE(ACLNN_ERR_INNER, "Inputs tensor list's size should be (0, %zu]) but current size is %zu.",
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "Inputs tensor list's size should be in (0, %zu] but current size is %zu.",
                 catMaxInputSize, inputs->Size());
         return nullptr;
     }
