@@ -33,6 +33,8 @@ extern "C" {
 #endif
 
 constexpr size_t MAX_DIM_LEN = 8;
+// 特定数据类型下，广播轴与连续非广播轴合并后允许的最大段数
+constexpr int64_t MAX_BROADCAST_SEGMENT_NUM = 5;
 
 // 根据API定义，需要列出所能支持的所有dtype
 static const std::initializer_list<op::DataType> ASCEND910_DTYPE_SUPPORT_LIST = {
@@ -106,7 +108,8 @@ static bool CheckShape(const aclTensor* self, const aclTensor* other, const aclT
 }
 
 // 参考 docs/zh/context/broadcast_relationship.md 的限制：当参与广播的数据类型（或推导后的数据类型）为
-// COMPLEX64、COMPLEX128、DOUBLE、INT16、UINT16、UINT64 时，连续广播轴与连续非广播轴合并后的段数需小于 6
+// COMPLEX64、COMPLEX128、DOUBLE、INT16、UINT16、UINT64 时，连续广播轴与连续非广播轴合并后的段数需不超过
+// MAX_BROADCAST_SEGMENT_NUM
 static const std::initializer_list<op::DataType> BROADCAST_SEGMENT_LIMIT_DTYPE_LIST = {
     op::DataType::DT_COMPLEX64, op::DataType::DT_COMPLEX128, op::DataType::DT_DOUBLE,
     op::DataType::DT_INT16,     op::DataType::DT_UINT16,     op::DataType::DT_UINT64};
@@ -149,11 +152,11 @@ static bool CheckBroadcastSegmentLimit(const aclTensor* self, const aclTensor* o
         return true;
     }
     int64_t segments = CountBroadcastSegments(self, other);
-    if (segments >= 6) {
+    if (segments > MAX_BROADCAST_SEGMENT_NUM) {
         OP_LOGE(ACLNN_ERR_PARAM_INVALID,
-                "Broadcast segments of self and other is %ld after merging adjacent axes, exceeds the limit 5 "
+                "Broadcast segments of self and other is %ld after merging adjacent axes, exceeds the limit %ld "
                 "for dtype %s.",
-                segments, op::ToString(computeType).GetString());
+                segments, MAX_BROADCAST_SEGMENT_NUM, op::ToString(computeType).GetString());
         return false;
     }
     return true;
