@@ -34,10 +34,9 @@ __global__ __aicore__ void reduce_all(GM_ADDR x, GM_ADDR axes, GM_ADDR y, GM_ADD
     if (userWS == nullptr) {
         return;
     }
-    REGISTER_TILING_DEFAULT(ReduceOpTilingDataNonContiguous);
+    REGISTER_NONE_TILING;
     TPipe pipe;
     if constexpr (IsContiguous && !BatchInvariant) {
-        REGISTER_TILING_FOR_TILINGKEY("IsContiguous == 1 && BatchInvariant == 0", ReduceOpTilingDataContiguous);
         GET_TILING_DATA_WITH_STRUCT(ReduceOpTilingDataContiguous, tilingData, tiling);
         if constexpr (IsSameType<DTYPE_X, float>::value) {
             using Op = ReduceSch<REDUCE_TPL_VALUE, ReduceAll::ReduceAllDagFloat<DTYPE_X, int32_t>::OpDag>;

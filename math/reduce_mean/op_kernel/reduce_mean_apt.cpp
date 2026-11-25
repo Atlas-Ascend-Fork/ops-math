@@ -34,10 +34,9 @@ __global__ __aicore__ void reduce_mean(GM_ADDR x, GM_ADDR axes, GM_ADDR y, GM_AD
     if (userWS == nullptr) {
         return;
     }
-    REGISTER_TILING_DEFAULT(ReduceOpTilingDataNonContiguous);
+    REGISTER_NONE_TILING;
     TPipe pipe;
     if constexpr (IsContiguous && !BatchInvariant) {
-        REGISTER_TILING_FOR_TILINGKEY("IsContiguous == 1 && BatchInvariant == 0", ReduceOpTilingDataContiguous);
         GET_TILING_DATA_WITH_STRUCT(ReduceOpTilingDataContiguous, tilingData, tiling);
         using PromoteType = __reduceType::GetPromoteType<DTYPE_X>::T;
         using Op = ReduceSch<REDUCE_TPL_VALUE, ReduceMean::ReduceMeanDag<DTYPE_X, PromoteType>::OpDag>;

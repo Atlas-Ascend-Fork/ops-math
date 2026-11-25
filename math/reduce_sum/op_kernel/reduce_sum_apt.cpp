@@ -34,7 +34,7 @@ __global__ __aicore__ void reduce_sum(GM_ADDR x, GM_ADDR axes, GM_ADDR y, GM_ADD
     if (userWS == nullptr) {
         return;
     }
-    REGISTER_TILING_DEFAULT(ReduceOpTilingDataNonContiguous);
+    REGISTER_NONE_TILING;
     TPipe pipe;
     using PromoteType = std::conditional_t<std::is_same_v<DTYPE_X, bool>, int64_t,
                                            __reduceType::GetPromoteType<DTYPE_X>::T>;
@@ -46,7 +46,6 @@ __global__ __aicore__ void reduce_sum(GM_ADDR x, GM_ADDR axes, GM_ADDR y, GM_ADD
                                             typename ReduceSum::ReduceSumDag<DTYPE_X, PromoteType>::OpDag> >;
 
     if constexpr (IsContiguous && !BatchInvariant) {
-        REGISTER_TILING_FOR_TILINGKEY("IsContiguous == 1 && BatchInvariant == 0", ReduceOpTilingDataContiguous);
         GET_TILING_DATA_WITH_STRUCT(ReduceOpTilingDataContiguous, tilingData, tiling);
         Op op(&tilingData);
         op.Init(&pipe, x, y, userWS);
