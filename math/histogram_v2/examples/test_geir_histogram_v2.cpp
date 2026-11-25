@@ -36,7 +36,7 @@ using namespace ge;
 using std::map;
 using std::string;
 using std::vector;
-#define ADD_INPUT(intputIndex, intputName, intputDtype, inputShape)                                                 \
+#define ADD_INPUT(intputIndex, intputName, intputDtype, inputShape, inputValue)                                     \
     vector<int64_t> placeholder##intputIndex##_shape = inputShape;                                                  \
     auto placeholder##intputIndex = op::Data("placeholder" + intputIndex).set_attr_index(0);                        \
     TensorDesc placeholder##intputIndex##_desc = TensorDesc(ge::Shape(placeholder##intputIndex##_shape), FORMAT_ND, \
@@ -45,7 +45,7 @@ using std::vector;
     placeholder##intputIndex##_desc.SetFormat(FORMAT_ND);                                                           \
     Tensor tensor_placeholder##intputIndex;                                                                         \
     ret = GenOnesDataFloat32(placeholder##intputIndex##_shape, tensor_placeholder##intputIndex,                     \
-                             placeholder##intputIndex##_desc, 2);                                                   \
+                             placeholder##intputIndex##_desc, inputValue);                                          \
     if (ret != SUCCESS) {                                                                                           \
         printf("%s - ERROR - [XIR]: Generate input data failed\n", GetTime().c_str());                              \
         return FAILED;                                                                                              \
@@ -168,11 +168,14 @@ int CreateOppInGraph(DataType inDtype, std::vector<ge::Tensor>& input, std::vect
     // 自定义代码：添加单算子定义到图中
 
     auto add1 = op::HistogramV2("add1");
-    std::vector<int64_t> xShape = {9, 9, 10, 10, 9, 8, 8, 0};
+    std::vector<int64_t> xShape = {2, 3, 4};
     std::vector<int64_t> rShape = {1};
-    ADD_INPUT(1, x, inDtype, xShape);
-    ADD_INPUT(2, min, inDtype, rShape);
-    ADD_INPUT(3, max, inDtype, rShape);
+    ADD_INPUT(1, x, inDtype, xShape, 2.0f);
+    ADD_INPUT(2, min, inDtype, rShape, 0.0f);
+    ADD_INPUT(3, max, inDtype, rShape, 10.0f);
+
+    add1.set_attr_bins(100);
+    add1.set_attr_y_dtype(inDtype == DT_FLOAT ? DT_FLOAT : DT_INT32);
 
     outputs.push_back(add1);
     // 添加完毕
