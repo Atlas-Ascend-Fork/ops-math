@@ -6,12 +6,14 @@ English | [简体中文](./README.md)
 
 | Product                                              | Supported |
 |:------------------------------------------------| :------: |
-| <term>Ascend 950PR&950DT products</term>          |    √     |
+| <term>Ascend 950PR&950DT products</term>          |    ×     |
 | <term>Atlas A3 products</term>    |    √     |
 | <term>Atlas A2 products</term>    |    √     |
 | <term>Atlas 200I/500 A2 inference products</term>             |    √     |
 | <term>Atlas inference products</term>                       |    √     |
 | <term>Atlas training products</term>                       |    √     |
+
+- <term>Ascend 950PR&950DT products</term>: support in this directory depends on the API. Only [aclnnTransMatmulWeight](./docs/aclnnTransMatmulWeight_en.md), [aclnnCalculateMatmulWeightSize](./docs/aclnnCalculateMatmulWeightSize_en.md), and [aclnnCalculateMatmulWeightSizeV2](./docs/aclnnCalculateMatmulWeightSizeV2_en.md) are supported; [aclnnTransConvolutionWeight](./docs/aclnnTransConvolutionWeight_en.md) and [aclnnCalculateConvolutionWeightSize](./docs/aclnnCalculateConvolutionWeightSize_en.md) are not supported.
 
 ## Function Description
 

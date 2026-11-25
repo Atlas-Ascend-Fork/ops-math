@@ -4,12 +4,14 @@
 
 | 产品                                              | 是否支持 |
 |:------------------------------------------------| :------: |
-| <term>Ascend 950PR&950DT系列产品</term>          |    √     |
+| <term>Ascend 950PR&950DT系列产品</term>          |    ×     |
 | <term>Atlas A3系列产品</term>    |    √     |
 | <term>Atlas A2系列产品</term>    |    √     |
 | <term>Atlas 200I/500 A2推理产品</term>             |    √     |
 | <term>Atlas推理系列产品</term>                       |    √     |
 | <term>Atlas训练系列产品</term>                       |    √     |
+
+- <term>Ascend 950PR&950DT系列产品</term>：本目录 950 支持情况按接口区分，仅支持[aclnnTransMatmulWeight](./docs/aclnnTransMatmulWeight.md)、[aclnnCalculateMatmulWeightSize](./docs/aclnnCalculateMatmulWeightSize.md)、[aclnnCalculateMatmulWeightSizeV2](./docs/aclnnCalculateMatmulWeightSizeV2.md)，不支持[aclnnTransConvolutionWeight](./docs/aclnnTransConvolutionWeight.md)、[aclnnCalculateConvolutionWeightSize](./docs/aclnnCalculateConvolutionWeightSize.md)。
 
 ## 功能说明
 

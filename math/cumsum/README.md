@@ -43,7 +43,7 @@ $$
       <td>输入</td>
       <td>输入Tensor。</td>
       <td>INT8、INT16、INT32、INT64、UINT8、UINT16、UINT32、UINT64<br>
-      FLOAT16、FLOAT、DOUBLE、COMPLEX64、COMPLEX128</td>
+      FLOAT16、FLOAT、DOUBLE、COMPLEX64、COMPLEX128、BFLOAT16</td>
       <td>ND</td>
     </tr>
     <tr>
@@ -78,6 +78,8 @@ $$
     </tr>
 
   </tbody></table>
+
+- <term>Atlas推理系列产品</term>、<term>Atlas 200I/500 A2推理产品</term>、<term>Atlas训练系列产品</term>：不支持BFLOAT16数据类型。
 
 ## 约束说明
 

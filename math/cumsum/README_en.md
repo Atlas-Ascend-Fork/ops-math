@@ -45,7 +45,7 @@ $$
       <td>Input</td>
       <td>Input Tensor.</td>
       <td>INT8, INT16, INT32, INT64, UINT8, UINT16, UINT32, UINT64<br>
-      FLOAT16, FLOAT, DOUBLE, COMPLEX64, COMPLEX128</td>
+      FLOAT16, FLOAT, DOUBLE, COMPLEX64, COMPLEX128, BFLOAT16</td>
       <td>ND</td>
     </tr>
     <tr>
@@ -80,6 +80,8 @@ $$
     </tr>
 
   </tbody></table>
+
+- <term>Atlas inference products</term>, <term>Atlas 200I/500 A2 inference products</term>, <term>Atlas training products</term>: BFLOAT16 is not supported.
 
 ## Constraint Description
 
