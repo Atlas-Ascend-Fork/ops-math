@@ -10,6 +10,8 @@
 
 #include <iostream>
 #include <gtest/gtest.h>
+#include "base/err_msg.h"
+#include "experiment/metadef/common/util/error_manager/error_manager.h"
 #include "tiling_context_faker.h"
 #include "tiling_case_executor.h"
 #include "../../../../op_kernel/arch35/reciprocal_grad_tiling_data.h"
@@ -18,6 +20,19 @@
 using namespace std;
 using namespace ge;
 using optiling::ReciprocalGradCompileInfo;
+
+namespace {
+// 安装包 error_code.json 未登记 EZ1008，但目标 libnnopbase.so 内嵌了该定义；Math Host UT 入口
+// 未加载 nnopbase 注册配置。参照 ops-nn 的夹具做法，仅在本用例内注册同一 ErrMessage/Arglist，
+// 使断言读取 ErrorManager 的正式记录，而不是只凭 stdout 证明调用。
+constexpr const char kEz1008ErrorMessage[] = R"json({"error_info_list":[
+    {"errClass":"Nnopbase Errors","errTitle":"Execution_Error",
+     "ErrCode":"EZ1008",
+     "ErrMessage":"Failed to execute operator %s. Reason: %s.",
+     "Arglist":"opName, reason",
+     "suggestion":{"Possible Cause":"N/A","Solution":"1.If the tiling function does not exist, check whether the tiling function is registered successfully. 2.If the tiling function fails to be executed, check the implementation logic of the tiling function."}}
+]})json";
+} // namespace
 
 class ReciprocalGradTilingTest : public testing::Test {
 protected:
@@ -341,4 +356,65 @@ TEST_F(ReciprocalGradTilingTest, reciprocal_grad_unsupported_dtype)
                                               {}, &compileInfo, 40, 196608, 4096);
 
     ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
+}
+
+// DoTiling 失败边界：合法输入下 opbase 内部 tiling 失败时，算子层用正式 EZ1008 上报并保留原返回。
+// ubSize=0 使 ElewiseTiling 的 ubFormer 为 0，稳定触发该分支。EZ1008 定义来自目标 libnnopbase.so，
+// 本用例内注册后由 ErrorManager 正式记录，断言唯一正式码、参数与不再追加的包装 EZ9999。
+TEST_F(ReciprocalGradTilingTest, reciprocal_grad_dotiling_failure_reports_ez1008)
+{
+    ReciprocalGradCompileInfo compileInfo;
+    compileInfo.coreNum = 40;
+    compileInfo.ubSize = 196608;
+
+    gert::TilingContextPara tilingContextPara("ReciprocalGrad",
+                                              {
+                                                  {{{1024, 1024}, {1024, 1024}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                  {{{1024, 1024}, {1024, 1024}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{1024, 1024}, {1024, 1024}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              {}, &compileInfo, 40, 0, 4096);
+
+    ASSERT_EQ(error_message::RegisterFormatErrorMessage(kEz1008ErrorMessage, sizeof(kEz1008ErrorMessage) - 1), 0);
+
+    auto& errors = ErrorManager::GetInstance();
+    ASSERT_EQ(errors.Init(), 0);
+    (void)errors.GetRawErrorMessages();
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
+    const auto reports = errors.GetRawErrorMessages();
+
+    size_t ez1008Count = 0;
+    size_t ez9999Count = 0;
+    size_t ez1008Index = reports.size();
+    for (size_t i = 0; i < reports.size(); ++i) {
+        const auto& report = reports[i];
+        if (report.error_id == "EZ1008") {
+            ++ez1008Count;
+            ez1008Index = i;
+        } else if (report.error_id == "EZ9999") {
+            ++ez9999Count;
+        }
+        // 旧 OP_LOGE 包装会追加带此文本的 EZ9999；改用 WITHOUT_REPORT 后不得再出现。
+        EXPECT_EQ(report.error_message.find("ReciprocalGrad: ElewiseBaseTiling DoTiling failed"), std::string::npos)
+            << report.error_id << ": " << report.error_message;
+    }
+
+    ASSERT_EQ(ez1008Count, 1U);
+    ASSERT_LT(ez1008Index, reports.size());
+    const auto& ez1008 = reports[ez1008Index];
+    const auto opName = ez1008.args_map.find("opName");
+    ASSERT_NE(opName, ez1008.args_map.end());
+    EXPECT_EQ(opName->second, "ReciprocalGrad");
+    const auto reason = ez1008.args_map.find("reason");
+    ASSERT_NE(reason, ez1008.args_map.end());
+    EXPECT_NE(reason->second.find("stage=ReciprocalGradTiling::RunTiling"), std::string::npos) << reason->second;
+    // ge::graphStatus 为 uint32_t，GRAPH_FAILED 在此记为 4294967295，证明 reason 保留了原始返回。
+    EXPECT_NE(reason->second.find("ret=4294967295"), std::string::npos) << reason->second;
+    EXPECT_NE(reason->second.find("outputDtype=DT_FLOAT"), std::string::npos) << reason->second;
+
+    // 共享 opbase Elewise 基线的 3 条 EZ9999（ubFormer==0 首报 + 两层 DoTiling 包装）照实保留，
+    // 不是当前算子追加；本算子唯一正式上报为上方的 EZ1008。
+    EXPECT_EQ(ez9999Count, 3U);
 }

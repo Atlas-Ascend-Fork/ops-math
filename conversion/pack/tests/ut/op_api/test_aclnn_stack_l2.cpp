@@ -18,33 +18,73 @@
 #include "op_api_ut_common/scalar_desc.h"
 #include "op_api_ut_common/tensor_desc.h"
 #include "opdev/platform.h"
+#include "experiment/metadef/common/util/error_manager/error_manager.h"
 
 using namespace std;
 
 class l2_stack_test : public testing::Test {
 protected:
-    static void SetUpTestCase() { cout << "l2_stack_test SetUp" << endl; }
+    static void SetUpTestCase()
+    {
+        cout << "l2_stack_test SetUp" << endl;
+        ASSERT_EQ(ErrorManager::GetInstance().Init(), 0);
+    }
 
     static void TearDownTestCase() { cout << "l2_stack_test TearDown" << endl; }
 
     void TearDown() override { op::SetPlatformNpuArch(NpuArch::DAV_2201); }
 };
 
-// 输入为空指针
+static void ExpectSingleStackEz0004(const std::vector<ErrorManager::ErrorItem>& reports, const std::string& param_name,
+                                    bool both_null = false)
+{
+    uint32_t ez0004_count = 0U;
+    for (const auto& report : reports) {
+        EXPECT_NE(report.error_id, "EZ9999");
+        if (report.error_id != "EZ0004") {
+            continue;
+        }
+        ++ez0004_count;
+        auto op_it = report.args_map.find("op_name");
+        if (op_it != report.args_map.end() && !op_it->second.empty()) {
+            EXPECT_EQ(op_it->second, "aclnnStack") << report.error_message;
+        }
+        auto param_it = report.args_map.find("param_name");
+        if (param_it != report.args_map.end() && !param_it->second.empty()) {
+            EXPECT_EQ(param_it->second, param_name) << report.error_message;
+        }
+        EXPECT_NE(report.error_message.find("aclnnStack"), std::string::npos) << report.error_message;
+        EXPECT_NE(report.error_message.find(param_name), std::string::npos) << report.error_message;
+        if (both_null) {
+            EXPECT_EQ(report.error_message.find("out"), std::string::npos) << report.error_message;
+        }
+    }
+    EXPECT_EQ(ez0004_count, 1U);
+}
+
+// 输入为空指针：返回 161001，且只上报一条参数名为 tensors 的 EZ0004
 TEST_F(l2_stack_test, l2_stack_test_nullptr_input)
 {
+    auto& manager = ErrorManager::GetInstance();
+    (void)manager.GetRawErrorMessages();
+
     int64_t dim = 0;
     auto out_tensor_desc = TensorDesc({2, 2, 1}, ACL_FLOAT, ACL_FORMAT_ND);
 
     auto ut = OP_API_UT(aclnnStack, INPUT(nullptr, dim), OUTPUT(out_tensor_desc));
     uint64_t workspace_size = 0;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
-    EXPECT_EQ(aclRet, ACLNN_ERR_INNER_NULLPTR);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_NULLPTR);
+
+    ExpectSingleStackEz0004(manager.GetRawErrorMessages(), "tensors");
 }
 
-// out为空指针
+// out为空指针：返回 161001，且只上报一条参数名为 out 的 EZ0004
 TEST_F(l2_stack_test, l2_stack_test_nullptr_out)
 {
+    auto& manager = ErrorManager::GetInstance();
+    (void)manager.GetRawErrorMessages();
+
     auto tensor_1_desc = TensorDesc({2, 2, 1}, ACL_FLOAT, ACL_FORMAT_ND);
     auto tensor_2_desc = TensorDesc({2, 2, 1}, ACL_FLOAT, ACL_FORMAT_ND);
 
@@ -54,7 +94,26 @@ TEST_F(l2_stack_test, l2_stack_test_nullptr_out)
     auto ut = OP_API_UT(aclnnStack, INPUT(tensor_list_desc, dim), OUTPUT(nullptr));
     uint64_t workspace_size = 0;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
-    EXPECT_EQ(aclRet, ACLNN_ERR_INNER_NULLPTR);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_NULLPTR);
+
+    ExpectSingleStackEz0004(manager.GetRawErrorMessages(), "out");
+}
+
+// tensors 与 out 同时为空：按先 tensors 后 out 的顺序短路，只上报一条参数名为 tensors 的 EZ0004
+TEST_F(l2_stack_test, l2_stack_test_nullptr_both)
+{
+    auto& manager = ErrorManager::GetInstance();
+    (void)manager.GetRawErrorMessages();
+
+    int64_t dim = 0;
+    aclTensorList* null_tensors = nullptr;
+    aclTensor* null_out = nullptr;
+    auto ut = OP_API_UT(aclnnStack, INPUT(null_tensors, dim), OUTPUT(null_out));
+    uint64_t workspace_size = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_NULLPTR);
+
+    ExpectSingleStackEz0004(manager.GetRawErrorMessages(), "tensors", true);
 }
 
 // 空tensors

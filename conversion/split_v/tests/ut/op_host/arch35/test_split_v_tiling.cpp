@@ -17,6 +17,7 @@
 #include <gtest/gtest.h>
 #include "tiling_context_faker.h"
 #include "tiling_case_executor.h"
+#include "experiment/metadef/common/util/error_manager/error_manager.h"
 #include "../../../../op_host/arch35/split_v_tiling_arch35.h"
 
 using namespace std;
@@ -27,6 +28,20 @@ protected:
 
     static void TearDownTestCase() {}
 };
+
+namespace {
+// 断言一次 tiling 失败只产生目标正式码一条 ErrorManager 记录，且不会被中间层追加 EZ9999。
+void TilingExpectSingleError(const gert::TilingContextPara& para, const char* errorCode)
+{
+    auto& errors = ErrorManager::GetInstance();
+    ASSERT_EQ(errors.Init(), 0);
+    (void)errors.GetRawErrorMessages();
+    ExecuteTestCase(para, ge::GRAPH_FAILED, 0, "", {0});
+    const auto reports = errors.GetRawErrorMessages();
+    ASSERT_EQ(reports.size(), 1U);
+    EXPECT_EQ(reports[0].error_id, errorCode) << reports[0].error_message;
+}
+} // namespace
 
 TEST_F(SplitVTiling, SplitV_test_tiling_001)
 {
@@ -345,4 +360,88 @@ TEST_F(SplitVTiling, SplitV_test_tiling_huge_split_large_m_force_m2)
     EXPECT_EQ(mBlockCount, 2);
     // 其余核全给 N 轴, 充分分核。
     EXPECT_GT(nBlockCount, 4);
+}
+
+// InitParams 包装回归：num_split 与 size_splits 元素数不一致时只保留内层 EZ0026，
+// 外层 DoSplitVTiling 的 "InitParams Failed" 不再追加 EZ9999。
+TEST_F(SplitVTiling, SplitV_test_tiling_error_num_split_mismatch)
+{
+    optiling::SplitVCompileInfo compileInfo = {32, 0, 253952};
+    int32_t sizeSplits[2] = {2, 2};
+    int32_t split_dim = 1;
+    gert::TilingContextPara tilingContextPara(
+        "SplitV",
+        {
+            {{{4, 4}, {4, 4}}, ge::DT_FLOAT, ge::FORMAT_ND},
+            {{{2}, {2}}, ge::DT_INT32, ge::FORMAT_ND, true, sizeSplits},
+            {{{1}, {1}}, ge::DT_INT32, ge::FORMAT_ND, true, &split_dim},
+        },
+        {
+            {{{4, 2}, {4, 2}}, ge::DT_FLOAT, ge::FORMAT_ND},
+            {{{4, 2}, {4, 2}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        {gert::TilingContextPara::OpAttr("num_split", Ops::Math::AnyValue::CreateFrom<int64_t>(3))}, &compileInfo);
+    TilingExpectSingleError(tilingContextPara, "EZ0026");
+}
+
+// ModifySizeSplitList 包装回归：size_splits 之和与 split_dim 维长不一致时只保留内层 EZ0026。
+TEST_F(SplitVTiling, SplitV_test_tiling_error_size_splits_sum_mismatch)
+{
+    optiling::SplitVCompileInfo compileInfo = {32, 0, 253952};
+    int32_t sizeSplits[2] = {1, 2};
+    int32_t split_dim = 1;
+    gert::TilingContextPara tilingContextPara(
+        "SplitV",
+        {
+            {{{4, 4}, {4, 4}}, ge::DT_FLOAT, ge::FORMAT_ND},
+            {{{2}, {2}}, ge::DT_INT32, ge::FORMAT_ND, true, sizeSplits},
+            {{{1}, {1}}, ge::DT_INT32, ge::FORMAT_ND, true, &split_dim},
+        },
+        {
+            {{{4, 1}, {4, 1}}, ge::DT_FLOAT, ge::FORMAT_ND},
+            {{{4, 2}, {4, 2}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        {gert::TilingContextPara::OpAttr("num_split", Ops::Math::AnyValue::CreateFrom<int64_t>(2))}, &compileInfo);
+    TilingExpectSingleError(tilingContextPara, "EZ0026");
+}
+
+// split_dim dtype 不支持：GetConstInt 只写警告日志，由 GetInputParams 报 EZ0019 一条正式码。
+TEST_F(SplitVTiling, SplitV_test_tiling_error_split_dim_dtype)
+{
+    optiling::SplitVCompileInfo compileInfo = {32, 0, 253952};
+    int32_t sizeSplits[2] = {2, 2};
+    gert::TilingContextPara tilingContextPara(
+        "SplitV",
+        {
+            {{{4, 4}, {4, 4}}, ge::DT_FLOAT, ge::FORMAT_ND},
+            {{{2}, {2}}, ge::DT_INT32, ge::FORMAT_ND, true, sizeSplits},
+            {{{1}, {1}}, ge::DT_FLOAT, ge::FORMAT_ND, false},
+        },
+        {
+            {{{4, 2}, {4, 2}}, ge::DT_FLOAT, ge::FORMAT_ND},
+            {{{4, 2}, {4, 2}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        {gert::TilingContextPara::OpAttr("num_split", Ops::Math::AnyValue::CreateFrom<int64_t>(2))}, &compileInfo);
+    TilingExpectSingleError(tilingContextPara, "EZ0019");
+}
+
+// size_splits 非 const：GetData 失败由 GetSizeSplitsList 报 EZ0037 一条正式码，
+// GetInputParams 的透传包装不再追加 EZ9999。
+TEST_F(SplitVTiling, SplitV_test_tiling_error_size_splits_not_const)
+{
+    optiling::SplitVCompileInfo compileInfo = {32, 0, 253952};
+    int32_t split_dim = 1;
+    gert::TilingContextPara tilingContextPara(
+        "SplitV",
+        {
+            {{{4, 4}, {4, 4}}, ge::DT_FLOAT, ge::FORMAT_ND},
+            {{{2}, {2}}, ge::DT_INT32, ge::FORMAT_ND, false},
+            {{{1}, {1}}, ge::DT_INT32, ge::FORMAT_ND, true, &split_dim},
+        },
+        {
+            {{{4, 2}, {4, 2}}, ge::DT_FLOAT, ge::FORMAT_ND},
+            {{{4, 2}, {4, 2}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        {gert::TilingContextPara::OpAttr("num_split", Ops::Math::AnyValue::CreateFrom<int64_t>(2))}, &compileInfo);
+    TilingExpectSingleError(tilingContextPara, "EZ0037");
 }

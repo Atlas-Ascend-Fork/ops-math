@@ -118,7 +118,9 @@ graphStatus CalcSplitVOut(gert::InferShapeContext* context, const gert::Tensor* 
         if (split_size_value[i] == -1) {
             dynamic_value_num = dynamic_value_num + 1;
             OP_CHECK_IF(dynamic_value_num > 1,
-                        OP_LOGE(context->GetNodeName(), "value of split_size can only have one -1"),
+                        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "size_splits",
+                                                              std::to_string(dynamic_value_num).c_str(),
+                                                              "at most one element of size_splits may be -1"),
                         return GRAPH_FAILED);
 
             dynamic_value_idx = i;
@@ -152,20 +154,20 @@ static graphStatus InferShape4SplitV(gert::InferShapeContext* context)
     const gert::Tensor* size_splits_desc = context->GetInputTensor(SPLIT_V_IDX_IN_SIZE_SPLITS);
     if (size_splits_desc == nullptr) {
         // size_splits is not const, degrade the dim on split_dim to -1
-        OP_CHECK_IF(
-            CalcSplitVOut<int64_t>(context, nullptr) == GRAPH_FAILED,
-            OP_LOGE(context->GetNodeName(), "Failed to calculate the output of split_v (size_splits not const)"),
-            return GRAPH_FAILED);
+        OP_CHECK_IF(CalcSplitVOut<int64_t>(context, nullptr) == GRAPH_FAILED,
+                    OP_LOGE_WITHOUT_REPORT(context->GetNodeName(),
+                                           "Failed to calculate the output of split_v (size_splits not const)"),
+                    return GRAPH_FAILED);
         return GRAPH_SUCCESS;
     }
     DataType size_splits_dtype = size_splits_desc->GetDataType();
     if (size_splits_dtype == DT_INT32) {
         OP_CHECK_IF(CalcSplitVOut<int32_t>(context, size_splits_desc) == GRAPH_FAILED,
-                    OP_LOGE(context->GetNodeName(), "Failed to calculate the output of split_v (int32)"),
+                    OP_LOGE_WITHOUT_REPORT(context->GetNodeName(), "Failed to calculate the output of split_v (int32)"),
                     return GRAPH_FAILED);
     } else {
         OP_CHECK_IF(CalcSplitVOut<int64_t>(context, size_splits_desc) == GRAPH_FAILED,
-                    OP_LOGE(context->GetNodeName(), "Failed to calculate the output of split_v (int64)"),
+                    OP_LOGE_WITHOUT_REPORT(context->GetNodeName(), "Failed to calculate the output of split_v (int64)"),
                     return GRAPH_FAILED);
     }
 

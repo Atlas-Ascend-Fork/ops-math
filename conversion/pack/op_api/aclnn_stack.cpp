@@ -10,6 +10,8 @@
 
 #include "aclnn_stack.h"
 
+#include "log/log.h"
+
 #include "aclnn_kernels/cast.h"
 #include "aclnn_kernels/common/op_error_check.h"
 #include "aclnn_kernels/contiguous.h"
@@ -28,6 +30,11 @@
 #include "op_common/op_host/util/op_const_def.h"
 
 using namespace op;
+
+namespace {
+constexpr const char* kOpName = "aclnnStack";
+} // namespace
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -58,13 +65,16 @@ constexpr uint32_t SINGLE_CORE_PROCESS_SIZE = 8192;
 constexpr uint32_t MAX_TENSOR_NUM = 64;
 constexpr int32_t DIM_TWO = 2;
 
-static bool CheckNotNull(const aclTensorList* tensors, const int64_t* realDim, const aclTensor* out)
+static bool CheckNotNull(const aclTensorList* tensors, const aclTensor* out)
 {
-    if (tensors == nullptr || realDim == nullptr) {
-        OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "Input of aclnnStack should not be null.");
+    if (tensors == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(kOpName, "tensors");
         return false;
     }
-    OP_CHECK_NULL(out, return false);
+    if (out == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(kOpName, "out");
+        return false;
+    }
     return true;
 }
 static const std::initializer_list<DataType>& GetDtypeSupportList()
@@ -146,7 +156,9 @@ static bool CheckShape(const aclTensorList* tensors, int64_t* realDim)
 
 static aclnnStatus CheckParams(const aclTensorList* tensors, int64_t* realDim, const aclTensor* out)
 {
-    CHECK_RET(CheckNotNull(tensors, realDim, out), ACLNN_ERR_INNER_NULLPTR);
+    if (!CheckNotNull(tensors, out)) {
+        return ACLNN_ERR_PARAM_NULLPTR;
+    }
     CHECK_RET(CheckDtypeValid(tensors, out), ACLNN_ERR_PARAM_INVALID);
     CHECK_RET(CheckPromoteType(tensors, out), ACLNN_ERR_PARAM_INVALID);
     CHECK_RET(CheckShape(tensors, realDim), ACLNN_ERR_PARAM_INVALID);
