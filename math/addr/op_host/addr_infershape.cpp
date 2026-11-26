@@ -73,8 +73,10 @@ static ge::graphStatus InferShape4Addr(gert::InferShapeContext* context)
     size_t x3_dim = x3_shape->GetDimNum();
 
     OP_CHECK_IF((x1_dim != DIM_NUM_TWO && x1_dim != 1) || x2_dim != 1 || x3_dim != 1,
-                OP_LOGE(context->GetNodeName(), "check input dim failed. x1: %s, x2: %s, x3: %s",
-                        ToString(*x1_shape).c_str(), ToString(*x2_shape).c_str(), ToString(*x3_shape).c_str()),
+                OP_LOGE_FOR_INVALID_SHAPEDIMS_WITH_REASON(
+                    context->GetNodeName(), "x1, x2, x3",
+                    (std::to_string(x1_dim) + ", " + std::to_string(x2_dim) + ", " + std::to_string(x3_dim)).c_str(),
+                    "x1 rank must be 1 or 2, and x2 and x3 ranks must each be 1."),
                 return ge::GRAPH_FAILED);
     out_shape->SetDimNum(DIM_NUM_TWO);
     out_shape->SetDim(0, x2_shape->GetDim(0));

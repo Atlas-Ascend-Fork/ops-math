@@ -287,17 +287,41 @@ static ge::graphStatus GetSizeAndStrideValue(const gert::TilingContext* context,
     tilingParam.length = dstSizeTensor->GetStorageShape().GetDim(0);
 
     const T* dstSizeVal = dstSizeTensor->GetData<T>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, dstSizeVal);
+    OP_CHECK_IF(dstSizeVal == nullptr,
+                OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(
+                    context->GetNodeName(), "dst_size",
+                    "The input value must be available at compile time for ViewCopy tiling."),
+                return ge::GRAPH_FAILED);
     const T* dstStrideVal = dstStrideTensor->GetData<T>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, dstStrideVal);
+    OP_CHECK_IF(dstStrideVal == nullptr,
+                OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(
+                    context->GetNodeName(), "dst_stride",
+                    "The input value must be available at compile time for ViewCopy tiling."),
+                return ge::GRAPH_FAILED);
     const T* dstOffsetVal = dstOffsetTensor->GetData<T>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, dstOffsetVal);
+    OP_CHECK_IF(dstOffsetVal == nullptr,
+                OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(
+                    context->GetNodeName(), "dst_storage_offset",
+                    "The input value must be available at compile time for ViewCopy tiling."),
+                return ge::GRAPH_FAILED);
     const T* srcSizeVal = srcSizeTensor->GetData<T>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, srcSizeVal);
+    OP_CHECK_IF(srcSizeVal == nullptr,
+                OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(
+                    context->GetNodeName(), "src_size",
+                    "The input value must be available at compile time for ViewCopy tiling."),
+                return ge::GRAPH_FAILED);
     const T* srcStrideVal = srcStrideTensor->GetData<T>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, srcStrideVal);
+    OP_CHECK_IF(srcStrideVal == nullptr,
+                OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(
+                    context->GetNodeName(), "src_stride",
+                    "The input value must be available at compile time for ViewCopy tiling."),
+                return ge::GRAPH_FAILED);
     const T* srcOffsetVal = srcOffsetTensor->GetData<T>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, srcOffsetVal);
+    OP_CHECK_IF(srcOffsetVal == nullptr,
+                OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(
+                    context->GetNodeName(), "src_storage_offset",
+                    "The input value must be available at compile time for ViewCopy tiling."),
+                return ge::GRAPH_FAILED);
 
     auto dstTensorPtr = context->GetInputTensor(INDEX_INPUT_DST);
     OP_CHECK_NULL_WITH_CONTEXT(context, dstTensorPtr);
@@ -1119,8 +1143,9 @@ static ge::graphStatus ViewCopyTilingForAscendC(gert::TilingContext* context)
 {
     OP_LOGD(context->GetNodeName(), "ViewCopyTilingForAscendC running begin.");
 
-    OP_CHECK_IF(CheckInputDtype(context) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context->GetNodeName(), "input dtype check failed."), return ge::GRAPH_FAILED);
+    if (CheckInputDtype(context) != ge::GRAPH_SUCCESS) {
+        return ge::GRAPH_FAILED;
+    }
 
     OP_CHECK_IF(CheckInputShape(context) != ge::GRAPH_SUCCESS,
                 OP_LOGE(context->GetNodeName(), "input shape check failed."), return ge::GRAPH_FAILED);
@@ -1148,10 +1173,12 @@ static ge::graphStatus ViewCopyTilingForAscendC(gert::TilingContext* context)
     } else {
         resOfGetValue = GetSizeAndStrideValue<int64_t>(context, tilingParam);
     }
-    OP_CHECK_IF(resOfGetValue != ge::GRAPH_SUCCESS, OP_LOGE(context->GetNodeName(), "get size or stride fail."),
-                return ge::GRAPH_FAILED);
-    OP_CHECK_IF(CheckSizeAndStrideValue(context, tilingParam) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context->GetNodeName(), "check size and stride fail."), return ge::GRAPH_FAILED);
+    if (resOfGetValue != ge::GRAPH_SUCCESS) {
+        return ge::GRAPH_FAILED;
+    }
+    if (CheckSizeAndStrideValue(context, tilingParam) != ge::GRAPH_SUCCESS) {
+        return ge::GRAPH_FAILED;
+    }
     OP_CHECK_IF(SetBaseTilingInfo(context, tilingParam) != ge::GRAPH_SUCCESS,
                 OP_LOGE(context->GetNodeName(), "set base tiling info fail."), return ge::GRAPH_FAILED);
 

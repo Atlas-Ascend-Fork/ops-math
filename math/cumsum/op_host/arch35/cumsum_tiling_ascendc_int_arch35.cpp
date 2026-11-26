@@ -55,7 +55,9 @@ ge::graphStatus Cumsum4IntTiling::GetInputDims()
     constexpr int64_t inputIdxAxis = 1;
     int64_t axisAttr = static_cast<int64_t>(-1);
     OP_CHECK_IF(!Ops::Base::GetConstInt(context_, inputIdxAxis, axisAttr),
-                OP_LOGE(context_->GetNodeName(), "Failed to get the const value of axis."), return ge::GRAPH_FAILED);
+                OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(
+                    context_->GetNodeName(), "axis", "The axis value must be available as a compile-time constant."),
+                return ge::GRAPH_FAILED);
 
     auto xStorage = context_->GetInputShape(0);
     OP_CHECK_NULL_WITH_CONTEXT(context_, xStorage);

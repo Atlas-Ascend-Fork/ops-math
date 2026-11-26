@@ -13,6 +13,7 @@
  * \brief infershape func of DynamicPartition
  */
 #include <climits>
+#include <string>
 
 #include "register/op_impl_registry.h"
 #include "log/log.h"
@@ -40,9 +41,11 @@ static graphStatus GetNumPartitions(const T* context, int64_t& numParts)
         OP_CHECK_NULL_WITH_CONTEXT(context, ptrNumParts);
         numParts = *ptrNumParts;
     }
-    OP_CHECK_IF(numParts < 1,
-                OP_LOGE(context->GetNodeName(), "num_partitions must be greater than 0, got %ld", numParts),
-                return GRAPH_FAILED);
+    OP_CHECK_IF(
+        numParts < 1,
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "num_partitions",
+                                              std::to_string(numParts).c_str(), "The value must be greater than 0."),
+        return GRAPH_FAILED);
     return GRAPH_SUCCESS;
 }
 
@@ -52,9 +55,12 @@ static graphStatus InferFirstOutputRange(gert::InferShapeRangeContext* context, 
 {
     auto xDimNum = ptrXMaxShape->GetDimNum();
     auto pDimNum = ptrPartMaxShape->GetDimNum();
-    OP_CHECK_IF(pDimNum > xDimNum,
-                OP_LOGE(context->GetNodeName(), "The partitions dim num %zu is larger than x's %zu!", pDimNum, xDimNum),
-                return GRAPH_FAILED);
+    OP_CHECK_IF(
+        pDimNum > xDimNum,
+        OP_LOGE_FOR_INVALID_SHAPEDIMS_WITH_REASON(context->GetNodeName(), "x, partitions",
+                                                  (std::to_string(xDimNum) + ", " + std::to_string(pDimNum)).c_str(),
+                                                  "The partitions rank must not exceed the x rank."),
+        return GRAPH_FAILED);
 
     auto yDimNum = xDimNum - pDimNum + 1;
     ptrYMaxShape->SetDimNum(yDimNum);
@@ -91,8 +97,9 @@ static graphStatus InferShapeRange4DynamicPartition(gert::InferShapeRangeContext
     OP_CHECK_NULL_WITH_CONTEXT(context, ptrYShapeRange);
 
     int64_t numParts = 1;
-    OP_CHECK_IF(GetNumPartitions<gert::InferShapeRangeContext>(context, numParts) != GRAPH_SUCCESS,
-                OP_LOGE(context->GetNodeName(), "Failed to get attr num_partitions!"), return GRAPH_FAILED);
+    if (GetNumPartitions<gert::InferShapeRangeContext>(context, numParts) != GRAPH_SUCCESS) {
+        return GRAPH_FAILED;
+    }
 
     auto ptrXMaxShape = ptrXShapeRange->GetMax();
     auto ptrXMinShape = ptrXShapeRange->GetMin();
@@ -134,8 +141,9 @@ static graphStatus InferShape4DynamicPartition(gert::InferShapeContext* context)
     OP_CHECK_NULL_WITH_CONTEXT(context, partShape);
 
     int64_t numParts = 1;
-    OP_CHECK_IF(GetNumPartitions<gert::InferShapeContext>(context, numParts) != GRAPH_SUCCESS,
-                OP_LOGE(context->GetNodeName(), "Failed to get attr num_partitions!"), return GRAPH_FAILED);
+    if (GetNumPartitions<gert::InferShapeContext>(context, numParts) != GRAPH_SUCCESS) {
+        return GRAPH_FAILED;
+    }
 
     if (Ops::Base::IsUnknownRank(*xShape) || Ops::Base::IsUnknownRank(*partShape)) {
         OP_LOGD(context->GetNodeName(), "input x or partitions is unknown rank, set all output unknown rank.");
@@ -149,9 +157,12 @@ static graphStatus InferShape4DynamicPartition(gert::InferShapeContext* context)
 
     auto xDimNum = xShape->GetDimNum();
     auto pDimNum = partShape->GetDimNum();
-    OP_CHECK_IF(pDimNum > xDimNum,
-                OP_LOGE(context->GetNodeName(), "The partitions dim num %zu is larger than x's %zu!", pDimNum, xDimNum),
-                return GRAPH_FAILED);
+    OP_CHECK_IF(
+        pDimNum > xDimNum,
+        OP_LOGE_FOR_INVALID_SHAPEDIMS_WITH_REASON(context->GetNodeName(), "x, partitions",
+                                                  (std::to_string(xDimNum) + ", " + std::to_string(pDimNum)).c_str(),
+                                                  "The partitions rank must not exceed the x rank."),
+        return GRAPH_FAILED);
 
     auto yDimNum = xDimNum - pDimNum + 1;
     for (int64_t oIdx = 0; oIdx < numParts; ++oIdx) {
