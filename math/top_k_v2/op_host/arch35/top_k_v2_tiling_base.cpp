@@ -1002,7 +1002,7 @@ uint32_t ConfigureSingleBlockInputSelect(gert::TilingContext* context, TopKV2Til
                                          const topkV2DataInfo::TopkComputeNowTileSizeInfo& info, uint32_t rows,
                                          uint32_t parallel)
 {
-    if (tiling.get_modeType() != topkV2DataInfo::LEGACY_ROW_MODE || tiling.get_lastDimNeedCore() != 1U ||
+    if (tiling.get_modeType() != topkV2DataInfo::SINGLE_BLOCK_MODE ||
         !IsBitonicSmallTopkMode(info.kValue, tiling.get_sortPolicy(), info.isSort)) {
         return rows;
     }

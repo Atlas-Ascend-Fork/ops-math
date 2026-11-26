@@ -321,6 +321,7 @@ void TileModeSmallSize(gert::TilingContext* context, TopKV2TilingDataSimd& topkT
     // Single-block rows need no cross-core cooperation; omit idle cores.
     const uint32_t coreNumNeed = static_cast<uint32_t>(
         std::min<uint64_t>(computeInfo.maxCoreNum, std::max<uint64_t>(unsortedDimNum, 1)));
+    topkTilingData.set_modeType(topkV2DataInfo::SINGLE_BLOCK_MODE);
     topkTilingData.set_unsortedDimParallel(coreNumNeed);
     topkTilingData.set_numTileDataSize(lastAxisNum);
     topkTilingData.set_lastDimTileNum(1);

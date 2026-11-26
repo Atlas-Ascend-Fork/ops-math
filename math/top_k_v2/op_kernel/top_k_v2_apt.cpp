@@ -68,6 +68,7 @@ using namespace SortAndTopK;
 #define TOPK_BITONIC_MERGE_SORT_TILING_KEY_BF16 64002
 
 const uint32_t SINGLE_CORE_MODE = 1;
+const uint32_t SINGLE_BLOCK_MODE = 3;
 const uint32_t MULT_CORE_OPTIM_MODE = 4;
 const uint32_t SORT_AND_TOP_K_MODE = 5;
 const uint32_t NON_LAST_SMALL_AXIS_MODE = 8;
@@ -326,7 +327,7 @@ __aicore__ inline void generateOpObject(GM_ADDR x, GM_ADDR k, GM_ADDR values, GM
     GET_TILING_DATA(tilingData, tiling);
     bool isLargest = (tilingData.isLargest > 0) ? true : false;
     bool isSort = (tilingData.isSort > 0) ? true : false;
-    bool isSingleBlock = (tilingData.lastDimNeedCore == 1) ? true : false;
+    bool isSingleBlock = (tilingData.modeType == SINGLE_BLOCK_MODE);
     bool isSingleCore = (tilingData.modeType == SINGLE_CORE_MODE) ? true : false;
     bool isSortAndTopK = (tilingData.modeType == SORT_AND_TOP_K_MODE) ? true : false;
     bool isInInt32Range = (tilingData.isInInt32Range > 0) ? true : false;

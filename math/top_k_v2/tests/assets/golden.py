@@ -432,10 +432,31 @@ def top_k_v2_golden(
 
 
 def top_k_v2_input(x, k, *, dim=-1, testcase_name="", **kwargs):
-    """Inject deterministic tie and floating-point special-value inputs."""
+    """Inject deterministic regression, tie and floating-point special-value inputs."""
     tensor = _as_tensor(x)
     axis = _normalize_axis(dim, tensor.ndim)
     name = str(testcase_name)
+    if name.endswith(("_multi_tile_last", "_multi_tile_last_wide")):
+        # Queue/dispatch regressions: unique selected values are all in the last
+        # tile, so accidentally selecting the single-block template loses them.
+        # Wide ranges also exercise native TopK instead of threshold selection.
+        if tensor.dtype not in (torch.int64, torch.uint64):
+            raise ValueError(
+                "multi-tile queue regressions require int64 or uint64 inputs"
+            )
+        length = tensor.shape[axis]
+        largest = bool(kwargs.get("largest", True))
+        axis_values = (
+            torch.arange(length, dtype=torch.int64)
+            if largest
+            else torch.arange(length, 0, -1, dtype=torch.int64)
+        )
+        if name.endswith("_multi_tile_last_wide"):
+            axis_values *= 100003
+        shape = [1] * tensor.ndim
+        shape[axis] = length
+        tensor.copy_(axis_values.to(tensor.dtype).reshape(shape).expand(tensor.shape))
+        return [_to_array(tensor), k]
     if name.endswith("_sparse_threshold"):
         # Place strictly better values across tiles, the remaining selected values tie.
         import numpy as np

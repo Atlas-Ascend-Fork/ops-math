@@ -326,8 +326,6 @@ RadixSortTopKMultiCoreOptimization<T, IS_LARGEST, IS_SORT, T_INDEX_TO, IS_BITONI
     uint64_t outOffset = outPutInterLineOffset + outPutInlineOffset;
     CopyIndexOutWithOffset(tempSortResultDataGm_, outOffset, tempSortIndexDataGm_, outOffset);
     inQueueX_.FreeTensor(xLocal);
-    topkOutValueQueue_.FreeTensor(topkOutValue);
-    topkOutIndexQueue_.FreeTensor(topkOutIndexValue);
 }
 
 template <typename T, bool IS_LARGEST, bool IS_SORT, typename T_INDEX_TO, bool IS_BITONIC_SORT>
@@ -417,7 +415,11 @@ __aicore__ inline void RadixSortTopKMultiCoreOptimization<T, IS_LARGEST, IS_SORT
         // convert index from int32_t to int64_t if needed
         LocalTensor<T_INDEX_TO> tempConversionLocal = ConvertIndexType(topkOutIndexValue);
         topkOutValueQueue_.EnQue<T>(topkOutValue);
-        tempIndexConversionQueue_.EnQue<T_INDEX_TO>(tempConversionLocal);
+        if constexpr (IsSameType<T_INDEX_TO, int64_t>::value) {
+            tempIndexConversionQueue_.EnQue<T_INDEX_TO>(tempConversionLocal);
+        } else {
+            topkOutIndexQueue_.EnQue<T_INDEX_TO>(tempConversionLocal);
+        }
 
         // copy final result to gm
         uint64_t timesLoopOffset = sortLoopRound * unsortedDimParallel_ * topkValueInput_;
@@ -426,8 +428,9 @@ __aicore__ inline void RadixSortTopKMultiCoreOptimization<T, IS_LARGEST, IS_SORT
 
         inQueueX_.FreeTensor(xLocal);
         inQueueIndexX_.FreeTensor(xIndexLocal);
-        topkOutValueQueue_.FreeTensor(topkOutValue);
-        topkOutIndexQueue_.FreeTensor(topkOutIndexValue);
+        if constexpr (IsSameType<T_INDEX_TO, int64_t>::value) {
+            topkOutIndexQueue_.FreeTensor(topkOutIndexValue);
+        }
     }
 }
 
@@ -545,14 +548,23 @@ RadixSortTopKMultiCoreOptimization<T, IS_LARGEST, IS_SORT, T_INDEX_TO, IS_BITONI
     topkOutValueQueue_.FreeTensor(valuesLocal);
 
     // copy index to gm
-    AscendC::LocalTensor<T_INDEX_TO> indexLocal = tempIndexConversionQueue_.DeQue<T_INDEX_TO>();
+    AscendC::LocalTensor<T_INDEX_TO> indexLocal;
+    if constexpr (IsSameType<T_INDEX_TO, int64_t>::value) {
+        indexLocal = tempIndexConversionQueue_.DeQue<T_INDEX_TO>();
+    } else {
+        indexLocal = topkOutIndexQueue_.DeQue<T_INDEX_TO>();
+    }
     DataCopyExtParams dataCopyParamIndex;
     dataCopyParamIndex.blockCount = 1;
     dataCopyParamIndex.blockLen = topkValueInput_ * sizeof(T_INDEX_TO);
     dataCopyParamIndex.srcStride = 0;
     dataCopyParamIndex.dstStride = 0;
     AscendC::DataCopyPad(indexGm[indexOffset], indexLocal, dataCopyParamIndex);
-    tempIndexConversionQueue_.FreeTensor(indexLocal);
+    if constexpr (IsSameType<T_INDEX_TO, int64_t>::value) {
+        tempIndexConversionQueue_.FreeTensor(indexLocal);
+    } else {
+        topkOutIndexQueue_.FreeTensor(indexLocal);
+    }
 }
 
 /**
