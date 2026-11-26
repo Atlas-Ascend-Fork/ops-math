@@ -8,39 +8,40 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ----------------------------------------------------------------------------
 
-import sys
 import os
+import sys
+
 import numpy as np
-import re
 
 
 def parse_str_to_shape_list(shape_str):
-    shape_str = shape_str.strip('(').strip(')')
+    shape_str = shape_str.strip("(").strip(")")
     shape_list = [int(x) for x in shape_str.split(",")]
     return np.array(shape_list)
 
 
 def gen_data_and_golden(shape_str, d_type="float16"):
-    d_type_dict = {
-        "float16": np.float16,
-        "float32": np.float32,
-        "int32": np.int32
-    }
+    d_type_dict = {"float16": np.float16, "float32": np.float32, "int32": np.int32}
     np_type = d_type_dict[d_type]
     shape = parse_str_to_shape_list(shape_str)
 
-    input_x = np.random.randn(*shape).astype(np_type)
+    if d_type == "int32":
+        input_x = np.random.randint(-100, 100, size=shape).astype(np_type)
+    else:
+        input_x = np.random.uniform(-10, 10, shape).astype(np_type)
 
-    # diag_part: extract diagonal from 2D matrix [N,N] -> [N]
     golden = np.diag(input_x).astype(np_type)
 
-    input_x.astype(np_type).tofile(f"{d_type}_input_x_diag_part.bin")
-    golden.astype(np_type).tofile(f"{d_type}_golden_diag_part.bin")
+    input_x.tofile(f"{d_type}_input_x_diag_part.bin")
+    golden.tofile(f"{d_type}_golden_diag_part.bin")
 
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
         print("Param num must be 3.")
-        exit(1)
-    os.system("rm -rf *.bin")
+        sys.exit(1)
+    # 仅清理当前数据类型前缀的历史数据，避免误删并行或同目录其他 dtype 文件
+    for fname in os.listdir("."):
+        if fname.startswith(f"{sys.argv[2]}_") and fname.endswith(".bin"):
+            os.remove(fname)
     gen_data_and_golden(sys.argv[1], sys.argv[2])

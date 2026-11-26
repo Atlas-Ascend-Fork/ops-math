@@ -8,51 +8,58 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ----------------------------------------------------------------------------
 
-import sys
-import numpy as np
 import glob
 import os
+import sys
+
+import numpy as np
 
 curr_dir = os.path.dirname(os.path.realpath(__file__))
 
 
 def compare_data(golden_file_lists, output_file_lists, d_type):
-    dtype_map = {
-        "float16": np.float16,
-        "float32": np.float32,
-        "int32": np.int32
-    }
+    dtype_map = {"float16": np.float16, "float32": np.float32, "int32": np.int32}
     np_dtype = dtype_map[d_type]
+
+    # 禁止空目录或文件数量不匹配时默认返回 True 造成假绿
+    if not golden_file_lists or len(golden_file_lists) != len(output_file_lists):
+        print("FAILED! empty or mismatched bin file list.")
+        return False
 
     data_same = True
     for gold, out in zip(golden_file_lists, output_file_lists):
         tmp_out = np.fromfile(out, np_dtype)
         tmp_gold = np.fromfile(gold, np_dtype)
-        diff_res = np.isclose(tmp_out, tmp_gold, 0, 0, True)
-        diff_idx = np.where(diff_res != True)[0]
+        if tmp_out.size == 0 or tmp_out.shape != tmp_gold.shape:
+            print(
+                f"FAILED! empty or shape mismatch: out={tmp_out.shape}, golden={tmp_gold.shape}"
+            )
+            data_same = False
+            continue
+        diff_res = np.isclose(tmp_out, tmp_gold, 0, 0, False)
+        diff_idx = np.where(~diff_res)[0]
         if len(diff_idx) == 0:
             print("PASSED!")
         else:
-            print("FAILED!")
-            for idx in diff_idx[:5]:
-                print(f"index: {idx}, output: {tmp_out[idx]}, golden: {tmp_gold[idx]}")
+            print("FAILED! diff count:", len(diff_idx))
+            print("output:", tmp_out[diff_idx[:10]])
+            print("golden:", tmp_gold[diff_idx[:10]])
             data_same = False
     return data_same
 
 
 def get_file_lists(dtype):
-    golden_file_lists = sorted(glob.glob(curr_dir + "/*golden*.bin"))
-    output_file_lists = sorted(glob.glob(curr_dir + "/*output*.bin"))
+    # 按当前测试数据类型精确过滤文件，防止不同 dtype 残留文件串用
+    golden_file_lists = sorted(glob.glob(f"{curr_dir}/{dtype}*golden*.bin"))
+    output_file_lists = sorted(glob.glob(f"{curr_dir}/{dtype}*output*.bin"))
     return golden_file_lists, output_file_lists
 
 
 def process(d_type):
     golden_file_lists, output_file_lists = get_file_lists(d_type)
-    result = compare_data(golden_file_lists, output_file_lists, d_type)
-    print("compare result:", result)
-    return result
+    return compare_data(golden_file_lists, output_file_lists, d_type)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     ret = process(sys.argv[1])
-    exit(0 if ret else 1)
+    sys.exit(0 if ret else 1)
