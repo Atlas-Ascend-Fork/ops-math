@@ -360,13 +360,15 @@ public:
         __ubuf__ DataType* outVarAddr = (__ubuf__ DataType*)outVarTensor.GetPhyAddr();
 
         float varScale = tiling_->correctionInvalid == 1 ? (*((float*)&FLOAT32_INF)) : tiling_->varFactor;
+        bool correctionInvalid = tiling_->correctionInvalid == 1;
         float meanScale = tiling_->meanFactor;
 
         if constexpr (!InnerPattern::TailA) {
             if (tiling_->isInvert == 1) {
                 // AR→RA: UB data is transposed, call RA VF with swapped shape
                 VFMeanVarTwoPassRA<DataType, isStd>(xLocal, tDichAddTensor_, tMeanTensor_, tVarTensor_, outMeanTensor,
-                                                    outVarTensor, shape.value[1], shape.value[0], varScale);
+                                                    outVarTensor, shape.value[1], shape.value[0], varScale,
+                                                    correctionInvalid);
             } else {
                 bool useARBranch = (tiling_->useNddma == 1) ||
                                    (lastRAxisLen_ % (BLOCK_SIZE_BYTE / sizeof(DataType)) == 0) ||
@@ -382,13 +384,14 @@ public:
                         realRLen = (uint32_t)shape.value[1];
                     }
                     // AR 两趟路径不使用 welford 缓存, 借 tMeanTensor_ 作 Common 的 partial scratch
-                    VFMeanVarTwoPassAR<DataType, isStd>(xLocal, dichotomyAddAddr,
-                                                        (__ubuf__ float*)tMeanTensor_.GetPhyAddr(), outMeanAddr,
-                                                        outVarAddr, shape.value[0], shape.value[1], realRLen, varScale);
+                    VFMeanVarTwoPassAR<DataType, isStd>(
+                        xLocal, dichotomyAddAddr, (__ubuf__ float*)tMeanTensor_.GetPhyAddr(), outMeanAddr, outVarAddr,
+                        shape.value[0], shape.value[1], realRLen, varScale, correctionInvalid);
                 } else {
-                    VFMeanVarTwoPassARPad<DataType, isStd>(
-                        xLocal, dichotomyAddAddr, outMeanAddr, outVarAddr, shape.value[0], shape.value[1],
-                        lastRAxisLen_ * loopLastRCnt_, varScale, lastRAxisLen_, lastRAxisLenAlign_, loopLastRCnt_);
+                    VFMeanVarTwoPassARPad<DataType, isStd>(xLocal, dichotomyAddAddr, outMeanAddr, outVarAddr,
+                                                           shape.value[0], shape.value[1],
+                                                           lastRAxisLen_ * loopLastRCnt_, varScale, lastRAxisLen_,
+                                                           lastRAxisLenAlign_, loopLastRCnt_, correctionInvalid);
                 }
             }
         } else {
@@ -396,12 +399,13 @@ public:
                 // RA→AR: UB data is transposed, call AR VF with swapped shape
                 uint32_t realRLen = ubRealRBundle_;
                 // AR 两趟路径不使用 welford 缓存, 借 tMeanTensor_ 作 Common 的 partial scratch
-                VFMeanVarTwoPassAR<DataType, isStd>(xLocal, dichotomyAddAddr,
-                                                    (__ubuf__ float*)tMeanTensor_.GetPhyAddr(), outMeanAddr, outVarAddr,
-                                                    shape.value[0], shape.value[1], realRLen, varScale);
+                VFMeanVarTwoPassAR<DataType, isStd>(
+                    xLocal, dichotomyAddAddr, (__ubuf__ float*)tMeanTensor_.GetPhyAddr(), outMeanAddr, outVarAddr,
+                    shape.value[0], shape.value[1], realRLen, varScale, correctionInvalid);
             } else {
                 VFMeanVarTwoPassRA<DataType, isStd>(xLocal, tDichAddTensor_, tMeanTensor_, tVarTensor_, outMeanTensor,
-                                                    outVarTensor, shape.value[1], shape.value[0], varScale);
+                                                    outVarTensor, shape.value[1], shape.value[0], varScale,
+                                                    correctionInvalid);
             }
         }
 
@@ -718,11 +722,11 @@ public:
                 LocalTensor<float> dstGroupVarRA = groupVarTensor[entryGroupIdx * MAX_INNER_A_NUM];
                 VFWelfordFinalizeRA<float, isStd, true>(RNumRA, ANumRA, tMeanTensor, tVarTensor, tmpCountLocal,
                                                         dstGroupMeanRA, dstGroupVarRA, dichotomyAddLocal, meanScaleRA,
-                                                        1.0f);
+                                                        1.0f, 1.0f);
             } else {
                 VFWelfordParallelFinalizeARAlign<float, isStd, true>(meanBufAddr, varBufAddr, dichotomyAddLocal,
                                                                      groupMeanBufAddr, groupVarBufAddr, aNum, rNum,
-                                                                     rStride, 1.0f, meanScale, updateCycleCnt);
+                                                                     rStride, 1.0f, 1.0f, meanScale, updateCycleCnt);
             }
         } else {
             int64_t realR = lastRAxisLen_ * loopLastRCnt_;
@@ -741,7 +745,7 @@ public:
             // 带pad
             VFWelfordParallelFinalizeARAlignPad<float, isStd, true>(
                 meanBufAddr, varBufAddr, dichotomyAddLocal, groupMeanBufAddr, groupVarBufAddr, aNum, rNum, rStride,
-                1.0f, meanScale, updateCycleCnt, lastRAxisLen_, lastRAxisLenAlign_, lastRLoops);
+                1.0f, 1.0f, meanScale, updateCycleCnt, lastRAxisLen_, lastRAxisLenAlign_, lastRLoops);
         }
     }
 
@@ -768,7 +772,7 @@ public:
 
             VFWelfordParallelFinalizeARAlign<float, isStd, true>(meanBufAddr, varBufAddr, dichotomyAddLocal,
                                                                  dstGroupMeanAddrInv, dstGroupVarAddrInv, aNum, rNum,
-                                                                 rStride, 1.0f, meanScale, updateCycleCnt);
+                                                                 rStride, 1.0f, 1.0f, meanScale, updateCycleCnt);
         } else {
             // dichotomyAddLocal RA场景下空间分配
             __ubuf__ float* tmpCountLocal = (__ubuf__ float*)tCountTensor_.GetPhyAddr();
@@ -784,7 +788,7 @@ public:
             LocalTensor<float> dstGroupMean = groupMeanTensor[rCntGroupIdx_ * MAX_INNER_A_NUM];
             LocalTensor<float> dstGroupVar = groupVarTensor[rCntGroupIdx_ * MAX_INNER_A_NUM];
             VFWelfordFinalizeRA<float, isStd, true>(RNum, ANum, tMeanTensor, tVarTensor, tmpCountLocal, dstGroupMean,
-                                                    dstGroupVar, dichotomyAddLocal, meanScale, 1.0f);
+                                                    dstGroupVar, dichotomyAddLocal, meanScale, 1.0f, 1.0f);
 
             rCntGroupWelford_[rCntGroupIdx_] = static_cast<uint32_t>(RNum * updateCycleCnt);
             rCntGroupIdx_ = isInvert_ ? (rCntGroupIdx_ - 1) : (rCntGroupIdx_ + 1);
@@ -825,7 +829,7 @@ public:
             LocalTensor<float> dstGroupMean = groupMeanTensor[dstIdx * MAX_INNER_A_NUM];
             LocalTensor<float> dstGroupVar = groupVarTensor[dstIdx * MAX_INNER_A_NUM];
             VFWelfordFinalizeRA<float, isStd, true>(RNum, ANum, srcGroupMean, srcGroupVar, tmpCountLocal, dstGroupMean,
-                                                    dstGroupVar, dichotomyAddLocal, meanScale, 1.0f);
+                                                    dstGroupVar, dichotomyAddLocal, meanScale, 1.0f, 1.0f);
 
             rCntGroupWelford_[dstIdx] = totalCnt;
             rCntGroupIdx_ = isInvert_ ? 1 : (WELFORD_GROUP_NUM - 1);
@@ -843,10 +847,9 @@ public:
 
         __ubuf__ float* dichotomyAddLocal = (__ubuf__ float*)tDichAddTensor_.GetPhyAddr();
 
-        float varScale = tiling_->varFactor;
-        if (tiling_->correctionInvalid == 1) {
-            varScale = *((float*)&FLOAT32_INF);
-        }
+        bool correctionInvalid = tiling_->correctionInvalid == 1;
+        float varScale = correctionInvalid ? 1.0f : tiling_->varFactor;
+        float postScale = correctionInvalid ? (*((float*)&FLOAT32_INF)) : 1.0f;
 
         float meanScale = tiling_->meanFactor;
         if constexpr (SchLoopInfo.loopRCount > 0) {
@@ -877,7 +880,7 @@ public:
         LocalTensor<float> srcGroupVar = tGroupVarTensor_[startIdx * MAX_INNER_A_NUM];
 
         VFWelfordFinalizeRA<T, isStd, isM2Out>(RNum, ANum, srcGroupMean, srcGroupVar, tmpCountLocal, outMeanTensor,
-                                               outVarTensor, dichotomyAddLocal, meanScale, varScale);
+                                               outVarTensor, dichotomyAddLocal, meanScale, varScale, postScale);
         outQueue_.EnQue(outMeanTensor);
     }
 
@@ -889,18 +892,17 @@ public:
         LocalTensor<T> outMeanTensor = outQueue_.AllocTensor<T>();
         LocalTensor<T> outVarTensor = outMeanTensor[tiling_->resultBlock / sizeof(T)];
 
-        float varScale = tiling_->varFactor;
-        if (tiling_->correctionInvalid == 1) {
-            varScale = *((float*)&FLOAT32_INF);
-        }
+        bool correctionInvalid = tiling_->correctionInvalid == 1;
+        float varScale = correctionInvalid ? 1.0f : tiling_->varFactor;
+        float postScale = correctionInvalid ? (*((float*)&FLOAT32_INF)) : 1.0f;
 
         bool enqueued = false;
         if constexpr (!InnerPattern::TailA) {
             enqueued = WelfordFinalizeNonTailA<T, isM2Out>(shape, count, tailsNum, tMeanTensor, tVarTensor,
-                                                           outMeanTensor, outVarTensor, varScale);
+                                                           outMeanTensor, outVarTensor, varScale, postScale);
         } else {
             enqueued = WelfordFinalizeTailA<T, isM2Out>(shape, count, tailsNum, tMeanTensor, tVarTensor, outMeanTensor,
-                                                        outVarTensor, varScale);
+                                                        outVarTensor, varScale, postScale);
         }
         if (!enqueued) {
             outQueue_.EnQue(outMeanTensor);
@@ -912,7 +914,7 @@ public:
     __aicore__ inline bool WelfordFinalizeNonTailA(Ops::Base::ReduceOpTmpl::Shape<InnerPattern::Dim>& shape,
                                                    int64_t count, int64_t& tailsNum, LocalTensor<float>& tMeanTensor,
                                                    LocalTensor<float>& tVarTensor, LocalTensor<T>& outMeanTensor,
-                                                   LocalTensor<T>& outVarTensor, float varScale)
+                                                   LocalTensor<T>& outVarTensor, float varScale, float postScale)
     {
         __ubuf__ float* dichotomyAddLocal = (__ubuf__ float*)tDichAddTensor_.GetPhyAddr();
         __ubuf__ float* meanBufAddr = (__ubuf__ float*)tMeanTensor.GetPhyAddr();
@@ -938,7 +940,7 @@ public:
                 meanScale = 1.0f / static_cast<float>(groupReduceCnt_);
             }
             VFWelfordFinalizeRA<T, isStd, isM2Out>(RNum, ANum, tMeanTensor, tVarTensor, tmpCountLocal, outMeanTensor,
-                                                   outVarTensor, dichotomyAddLocal, meanScale, varScale);
+                                                   outVarTensor, dichotomyAddLocal, meanScale, varScale, postScale);
             outQueue_.EnQue(outMeanTensor);
             return true;
         }
@@ -974,12 +976,12 @@ public:
                 // 不带pad
                 VFWelfordParallelFinalizeARAlign<T, isStd, isM2Out>(meanBufAddr, varBufAddr, dichotomyAddLocal,
                                                                     outMeanAddr, outVarAddr, aNum, rNum, rStride,
-                                                                    varScale, meanScale, count);
+                                                                    varScale, postScale, meanScale, count);
             } else {
                 // 带pad
                 VFWelfordParallelFinalizeARAlignPad<T, isStd, isM2Out>(
                     meanBufAddr, varBufAddr, dichotomyAddLocal, outMeanAddr, outVarAddr, aNum, rNum, rStride, varScale,
-                    meanScale, count, lastRAxisLen_, lastRAxisLenAlign_, loopLastRCnt_);
+                    postScale, meanScale, count, lastRAxisLen_, lastRAxisLenAlign_, loopLastRCnt_);
             }
         } else if (isLastAlign) {
             meanScale = tiling_->meanFactor;
@@ -988,7 +990,7 @@ public:
             }
             VFWelfordParallelFinalizeARNonAlign<T, isStd, isM2Out>(
                 meanBufAddr, varBufAddr, dichotomyAddLocal, outMeanAddr, outVarAddr, aNum, rNum, rStride, varScale,
-                meanScale, count - tailsNum, count, lastReduceTailR_);
+                postScale, meanScale, count - tailsNum, count, lastReduceTailR_);
         } else {
             meanScale = tiling_->meanFactor;
             if constexpr (SchLoopInfo.loopRCount > 0) {
@@ -996,7 +998,7 @@ public:
             }
             VFWelfordParallelFinalizeARNonAlignPad<T, isStd, isM2Out>(
                 tMeanTensor, tVarTensor, tDichAddTensor_, outMeanTensor, outVarTensor, aNum, rNum, rStride, varScale,
-                meanScale, count - tailsNum, count, lastReduceTailR_, loopWelfTailRCnt_, lastRAxisLen_,
+                postScale, meanScale, count - tailsNum, count, lastReduceTailR_, loopWelfTailRCnt_, lastRAxisLen_,
                 lastRAxisLenAlign_, loopLastRCnt_);
         }
         return false;
@@ -1007,7 +1009,7 @@ public:
     __aicore__ inline bool WelfordFinalizeTailA(Ops::Base::ReduceOpTmpl::Shape<InnerPattern::Dim>& shape, int64_t count,
                                                 int64_t& tailsNum, LocalTensor<float>& tMeanTensor,
                                                 LocalTensor<float>& tVarTensor, LocalTensor<T>& outMeanTensor,
-                                                LocalTensor<T>& outVarTensor, float varScale)
+                                                LocalTensor<T>& outVarTensor, float varScale, float postScale)
     {
         __ubuf__ float* dichotomyAddLocal = (__ubuf__ float*)tDichAddTensor_.GetPhyAddr();
         __ubuf__ float* meanBufAddr = (__ubuf__ float*)tMeanTensor.GetPhyAddr();
@@ -1033,7 +1035,7 @@ public:
                 }
                 VFWelfordParallelFinalizeARAlign<T, isStd, isM2Out>(meanBufAddr, varBufAddr, dichotomyAddLocal,
                                                                     outMeanAddr, outVarAddr, aNum, rNum, rStride,
-                                                                    varScale, meanScale, count);
+                                                                    varScale, postScale, meanScale, count);
             } else {
                 meanScale = tiling_->meanFactor;
                 if constexpr (SchLoopInfo.loopRCount > 0) {
@@ -1041,7 +1043,7 @@ public:
                 }
                 VFWelfordParallelFinalizeARNonAlign<T, isStd, isM2Out>(
                     meanBufAddr, varBufAddr, dichotomyAddLocal, outMeanAddr, outVarAddr, aNum, rNum, rStride, varScale,
-                    meanScale, count - tailsNum, count, lastReduceTailR_);
+                    postScale, meanScale, count - tailsNum, count, lastReduceTailR_);
             }
             outQueue_.EnQue(outMeanTensor);
             return true;
@@ -1064,7 +1066,7 @@ public:
             meanScale = 1.0f / static_cast<float>(groupReduceCnt_);
         }
         VFWelfordFinalizeRA<T, isStd, isM2Out>(RNum, ANum, tMeanTensor, tVarTensor, tmpCountLocal, outMeanTensor,
-                                               outVarTensor, dichotomyAddLocal, meanScale, varScale);
+                                               outVarTensor, dichotomyAddLocal, meanScale, varScale, postScale);
         return false;
     }
 
@@ -1111,7 +1113,9 @@ public:
 
         uint64_t asize = Ops::Base::CeilAlign(tiling_->outSize, static_cast<uint64_t>(ELEMENT_ONE_REPEAT_COMPUTE));
         uint64_t varOffset = static_cast<uint64_t>(tiling_->workSpaceSize) / sizeof(PromoteDataType);
-        float varScale = (tiling_->correctionInvalid == 1) ? (*((float*)&FLOAT32_INF)) : tiling_->varFactor;
+        bool correctionInvalid = tiling_->correctionInvalid == 1;
+        float varScale = correctionInvalid ? 1.0f : tiling_->varFactor;
+        float postScale = correctionInvalid ? (*((float*)&FLOAT32_INF)) : 1.0f;
 
         Ops::Base::ReduceOpTmpl::SetEvent<HardEvent::V_S>(HardEvent::V_S);
         __ubuf__ float* groupCountBufAddr = (__ubuf__ float*)tCountTensor_.GetPhyAddr();
@@ -1135,7 +1139,7 @@ public:
 
         VFWelfordFinalizeRA<DataType, isStd, false>(
             static_cast<uint32_t>(tiling_->groupR), static_cast<uint32_t>(ubFactorA_), tMeanTensor_, tVarTensor_,
-            groupCountBufAddr, outMeanTensor, outVarTensor, dichotomyAddAddr, tiling_->meanFactor, varScale);
+            groupCountBufAddr, outMeanTensor, outVarTensor, dichotomyAddAddr, tiling_->meanFactor, varScale, postScale);
 
         outQueue_.EnQue(outMeanTensor);
         outMeanTensor = outQueue_.DeQue<DataType>();
