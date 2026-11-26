@@ -20,6 +20,8 @@
 #include "op_host/tiling_base_util.h"
 #include "op_host/tiling_util.h"
 #include "log/log.h"
+#include "platform/platform_ascendc.h"
+#include "platform/platform_infos_def.h"
 
 using namespace gert;
 using namespace ge;
@@ -760,6 +762,7 @@ void SplitVTiling::FillSIMTSplitVTilingData()
     simtSplitVTilingData_.set_sizeAfterSplit(static_cast<int32_t>(simtSizeAfterSplit_));
     simtSplitVTilingData_.set_splitNum(static_cast<int32_t>(numSplit_));
     simtSplitVTilingData_.set_realCoreNum(static_cast<int32_t>(realCoreNum_));
+    simtSplitVTilingData_.set_dtypeSize(static_cast<int32_t>(simtDtypeSize_));
     simtSplitVTilingData_.set_colOffset(colOffset_);
 
     OP_LOGI(context_->GetNodeName(), "TilingData mSize:%d nSize:%d sizeAfterSplit:%d splitNum:%d realCoreNum:%d ",
@@ -840,6 +843,7 @@ int64_t SplitVTiling::CalInputDataSize()
 
 void SplitVTiling::DoDiffLenModeSplitVSIMTTiling(int32_t maxCoreNum)
 {
+    DoSimtDtypeImprove();
     if (numSplit_ <= static_cast<int64_t>(maxCoreNum / BASE_TWO) &&
         static_cast<int64_t>(mSimtSize_ * maxFuseSizeAfterSplit_) > SIMT_THREAD_NUM) {
         int32_t perBlkSize = static_cast<int32_t>(maxCoreNum / numSplit_);
@@ -1412,6 +1416,60 @@ void SplitVTiling::FuseInputShapeSameLen()
     OP_LOGI(context_->GetNodeName(), "After SameLen fused shape, fusedShape_:%ld %ld", fusedShape_[0], fusedShape_[1]);
 }
 
+// 增强架构判定（ascend960）
+static bool IsEnhanceArch(const gert::TilingContext* context)
+{
+    auto platformInfo = context->GetPlatformInfo();
+    if (platformInfo == nullptr) {
+        return false;
+    }
+    auto arch = platform_ascendc::PlatformAscendC(platformInfo).GetCurNpuArch();
+    return arch == NpuArch::DAV_9201 || arch == NpuArch::DAV_9202;
+}
+
+// SIMT 访存粒度提升(数据类型提升至 16B/8B/4B/2B 宽访存)的平台准入
+static bool IsSimtDtypePromoEnabled(const gert::TilingContext* context) { return IsEnhanceArch(context); }
+
+// 多核填核调整(切 G / M 轴兜底)的平台准入
+static bool IsMultiCoreFillEnabled(const gert::TilingContext* context) { return IsEnhanceArch(context); }
+
+// SIMT 访存粒度提升（板测机理: SIMT 单次访存性能与粒度正相关 B64>B32>B16>B8, DV121 额外增强 B128）。
+// 合轴后 last 轴(afterDim×dtype)整除目标宽度时, 把全部计数缩放进宽型索引空间, kernel 按提升后
+// 宽度访存, 访存条数等比下降。整除性由 afterDim 传导: nCurLen=splitSize×afterDim、preSumN、
+// nLen 均为 afterDim 的倍数, afterDim%ratio==0 时所有边界自动对齐, 输入输出两侧同时可合并。
+// 仅 ascend960 生效; 分档 16B→8B→4B→2B 逐级回退(lastAxisBytes 整除才可用)。
+void SplitVTiling::DoSimtDtypeImprove()
+{
+    simtDtypeSize_ = xDtypeSize_;
+    if (!IsSimtDtypePromoEnabled(context_)) {
+        return;
+    }
+    constexpr int64_t SIMT_B128_BYTES = 16;
+    constexpr int64_t SIMT_B64_BYTES = 8;
+    constexpr int64_t SIMT_B32_BYTES = 4;
+    constexpr int64_t SIMT_B16_BYTES = 2;
+    int64_t lastAxisBytes = simtSizeAfterSplit_ * xDtypeSize_;
+    int64_t target = xDtypeSize_;
+    if (lastAxisBytes % SIMT_B128_BYTES == 0 && xDtypeSize_ < SIMT_B128_BYTES) {
+        target = SIMT_B128_BYTES;
+    } else if (lastAxisBytes % SIMT_B64_BYTES == 0 && xDtypeSize_ < SIMT_B64_BYTES) {
+        target = SIMT_B64_BYTES;
+    } else if (lastAxisBytes % SIMT_B32_BYTES == 0 && xDtypeSize_ < SIMT_B32_BYTES) {
+        target = SIMT_B32_BYTES;
+    } else if (lastAxisBytes % SIMT_B16_BYTES == 0 && xDtypeSize_ < SIMT_B16_BYTES) {
+        target = SIMT_B16_BYTES;
+    }
+    if (target <= xDtypeSize_) {
+        return;
+    }
+    int64_t ratio = target / xDtypeSize_;
+    simtSizeAfterSplit_ /= ratio;
+    nSimtSize_ /= ratio;
+    simtDtypeSize_ = target;
+    OP_LOGI(context_->GetNodeName(), "SIMT dtype improve: %ldB->%ldB, afterDim:%ld->%ld, nSize:%ld->%ld", xDtypeSize_,
+            target, simtSizeAfterSplit_ * ratio, simtSizeAfterSplit_, nSimtSize_ * ratio, nSimtSize_);
+}
+
 void SplitVTiling::CalcSameLenTilingInfo()
 {
     OP_LOGD(context_->GetNodeName(), "Entering SplitTiling CalcSameLenTilingInfo.");
@@ -1449,6 +1507,88 @@ void SplitVTiling::CalcSameLenTilingInfo()
     blockDim_ = realCoreNum_;
     blockFactor_ = ubOutSize / realCoreNum_;
     blockFactorTail_ = ubOutSize % realCoreNum_;
+
+    // ascend960(64核)多核调整：碎片搬运场景(等长 UB split)下, 大 UB 会把 tile 数压到低于核数,
+    // 导致 blockDim < coreNum, 核欠利用。通过"先切核、再切UB"两级解耦: 当 tile 数不足时
+    // 主动收紧块参数以用满所有核。纯搬运(大连续 N, key=100)分支带宽受限, 多核无益, 不参与。
+    // 数据量门槛（950 实测）：< 600KB 时 kernel 耗时被 launch 底噪(~4μs)淹没,
+    // 开满核不缩短关键路径反而增加调度开销 → 仅在数据量足够时才填核。
+    // 仅 ascend960平台生效, 其他平台保持原始行为。
+    // 填核策略（板测迭代）: gUBCount==1 时优先切 G（收紧 gUBFactor）而非切 M ——
+    // 总输出写次数 = mBlockCount × G, 切 M 填核会把 mBlockCount 翻倍、写次数等比膨胀
+    // ([128,39,128]FP32 实测 5376→8192); 切 G 保持 mBlockCount 不增（写次数不膨胀）,
+    // 且每核 g 循环长度随 gUBCount 等比缩短（kernel 逐 g SetFlag/WaitFlag 串行链随之
+    // 减半, 不依赖 kernel 改动即可短于 A5 自然 tiling 的链长）。tile 工作集 = mBF×gBF
+    // 由乘积守卫保证只缩不增, 必然满足 UB 容量。
+    // 111/112(small_g/deinterleave)的准入前提是 g 全载(gUBCount==1), 切G打破该契约会触发精度问题→ 切G仅限 101
+    // M 兜底不碰 g 轴,契约保持, 对 101/111/112 均安全。
+    if (IsMultiCoreFillEnabled(context_) && tilingKey_ != SPLIT_KEY_PURE_MOVE && realCoreNum_ < coreNum_ &&
+        fusedShape_[0] > 0 && gUBCount_ * nBlockCount_ > 0) {
+        constexpr int64_t MIN_DATA_BYTES_FOR_FILL = 614400; // 600KB
+        int64_t totalDataBytes = fusedShape_[0] * fusedShape_[1] * numSplit_ * xDtypeSize_;
+        if (totalDataBytes >= MIN_DATA_BYTES_FOR_FILL) {
+            if (gUBCount_ == 1 && gUBFactor_ > 1 && tilingKey_ == SPLIT_KEY_UB_SPLIT) {
+                // 切 G(仅 key=101): gUBCount 1→k 填满核数; M 轴同步对齐 coreNum 整数分块, 避免 66/64 类尾部失衡
+                int64_t targetGUBCount = (coreNum_ + mBlockCount_ * nBlockCount_ - 1) / (mBlockCount_ * nBlockCount_);
+                int64_t newGUBFactor = (numSplit_ + targetGUBCount - 1) / targetGUBCount;
+                // bank 冲突避让 当 gBF×N×dtype 为 128B整倍数时, gather 源跨步逐行命中同 bank → 向量 gather 串行化。当
+                // +1 不改变 gUBCount （尾部吸收: gBF 64→65 → 跨步 256B→260B, g tile 64+64→65+63, tile
+                // 数不变）时错开一位。
+                constexpr int64_t UB_BANK_ALIGN_BYTES = 128;
+                int64_t gStrideBytes = newGUBFactor * fusedShape_[1] * xDtypeSize_;
+                if (gStrideBytes > 0 && gStrideBytes % UB_BANK_ALIGN_BYTES == 0 &&
+                    CeilDiv(numSplit_, newGUBFactor + 1) == CeilDiv(numSplit_, newGUBFactor) &&
+                    newGUBFactor + 1 < gUBFactor_) {
+                    newGUBFactor += 1;
+                }
+                if (newGUBFactor >= 1 && newGUBFactor < gUBFactor_) {
+                    int64_t newGUBCount = CeilDiv(numSplit_, newGUBFactor);
+                    int64_t alignedMBlockCount = (coreNum_ + newGUBCount * nBlockCount_ - 1) /
+                                                 (newGUBCount * nBlockCount_);
+                    int64_t newMBlockFactor = (fusedShape_[0] + alignedMBlockCount - 1) / alignedMBlockCount;
+                    if (newMBlockFactor * newGUBFactor <= mBlockFactor_ * gUBFactor_) {
+                        gUBFactor_ = newGUBFactor;
+                        gUBCount_ = newGUBCount;
+                        gUBFactorTail_ = numSplit_ % gUBFactor_ == 0 ? gUBFactor_ : numSplit_ % gUBFactor_;
+                        mBlockFactor_ = newMBlockFactor;
+                        mBlockCount_ = CeilDiv(fusedShape_[0], mBlockFactor_);
+                        mBlockFactorTail_ = fusedShape_[0] % mBlockFactor_ == 0 ? mBlockFactor_ :
+                                                                                  fusedShape_[0] % mBlockFactor_;
+                        ubOutSize = mBlockCount_ * gUBCount_ * nBlockCount_;
+                        realCoreNum_ = ubOutSize < coreNum_ ? ubOutSize : coreNum_;
+                        blockDim_ = realCoreNum_;
+                        blockFactor_ = ubOutSize / realCoreNum_;
+                        blockFactorTail_ = ubOutSize % realCoreNum_;
+                        OP_LOGI(
+                            context_->GetNodeName(),
+                            "Split G to fill cores: gUBFactor_:%ld gUBCount_:%ld mBlockFactor_:%ld mBlockCount_:%ld "
+                            "blockDim_:%ld ubOutSize:%ld totalDataBytes:%ld",
+                            gUBFactor_, gUBCount_, mBlockFactor_, mBlockCount_, blockDim_, ubOutSize, totalDataBytes);
+                    }
+                }
+            }
+            // M 轴兜底: G 轴切完仍不满核时收紧 mBlockFactor
+            int64_t targetMBlockCount = (coreNum_ + gUBCount_ * nBlockCount_ - 1) / (gUBCount_ * nBlockCount_);
+            if (targetMBlockCount > mBlockCount_) {
+                int64_t newMBlockFactor = (fusedShape_[0] + targetMBlockCount - 1) / targetMBlockCount;
+                if (newMBlockFactor >= 1 && newMBlockFactor < mBlockFactor_) {
+                    mBlockFactor_ = newMBlockFactor;
+                    mBlockCount_ = CeilDiv(fusedShape_[0], mBlockFactor_);
+                    mBlockFactorTail_ = fusedShape_[0] % mBlockFactor_ == 0 ? mBlockFactor_ :
+                                                                              fusedShape_[0] % mBlockFactor_;
+                    ubOutSize = mBlockCount_ * gUBCount_ * nBlockCount_;
+                    realCoreNum_ = ubOutSize < coreNum_ ? ubOutSize : coreNum_;
+                    blockDim_ = realCoreNum_;
+                    blockFactor_ = ubOutSize / realCoreNum_;
+                    blockFactorTail_ = ubOutSize % realCoreNum_;
+                    OP_LOGI(context_->GetNodeName(),
+                            "Expand M blocks to fill cores: mBlockCount_:%ld mBlockFactor_:%ld gUBCount_:%ld "
+                            "blockDim_:%ld ubOutSize:%ld totalDataBytes:%ld",
+                            mBlockCount_, mBlockFactor_, gUBCount_, blockDim_, ubOutSize, totalDataBytes);
+                }
+            }
+        }
+    }
 }
 
 void SplitVTiling::CalcSameLenCopyTilingInfo(int64_t halfUbEleNum, int64_t blockEleNum)

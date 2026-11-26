@@ -139,7 +139,12 @@ __aicore__ inline void SplitVPureCopyMode<T, S>::Init(GM_ADDR x, GM_ADDR y, GM_A
     copyParams.blockLen = numSplit_ * sizeof(S);
     copyParams.srcStride = 0;
     copyParams.dstStride = 0;
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
+    // ascend960 pre-allocation: 允许 MTE2 载入在前序指令未完成时提前下发(同 ub_split.h sizeSplits 载入先例)
+    DataCopyPad(splitOffsetLocal_, sizeSplitsGm_, copyParams, padParamsIdx, true);
+#else
     DataCopyPad(splitOffsetLocal_, sizeSplitsGm_, copyParams, padParamsIdx);
+#endif
     SetFlag<HardEvent::MTE2_V>(EVT_SCALAR);
     WaitFlag<HardEvent::MTE2_V>(EVT_SCALAR);
     AscendC::Muls(splitOffsetLocal_, splitOffsetLocal_, tilingData_->sizeAfterSplitDim, numSplit_);

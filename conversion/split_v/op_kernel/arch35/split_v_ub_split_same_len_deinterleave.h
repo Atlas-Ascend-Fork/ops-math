@@ -189,7 +189,12 @@ __aicore__ inline void SplitVUbSplitSameLenDeinterleave<T>::CopyIn(int64_t block
 {
     DataCopyExtParams copyInParam{1, static_cast<uint32_t>(blockLen * DTYPE_SIZE), 0, 0, 0};
     DataCopyPadExtParams<T> padParam{false, 0, 0, 0};
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
+    // DV121 pre-allocation: 允许 MTE2 载入在前序指令未完成时提前下发, 填满 outstanding 消除请求间隙
+    DataCopyPad(xUb, xGm_[srcOffset], copyInParam, padParam, true);
+#else
     DataCopyPad(xUb, xGm_[srcOffset], copyInParam, padParam);
+#endif
 }
 
 template <typename T>

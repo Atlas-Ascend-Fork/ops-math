@@ -61,8 +61,28 @@ __simt_vf__ LAUNCH_BOUND(THREAD_DIM_SIT) __aicore__
         int32_t col = idx - row * nCurLen;
         int32_t inputIndex = row * nLen + col + preSumN;
         int32_t outputIndex = row * partLen + col + partOffset;
-        outputGM[outputIndex] = inputGM[inputIndex];
+        if constexpr (sizeof(T) == 16) {
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
+            // B128(数据类型提升至 16B, ascend960 增强): 显式 128 位访存内建, 单次访存粒度最大化
+            asc_stcg(const_cast<__gm__ T*>(&outputGM[outputIndex]), asc_ldcg((__gm__ T*)&inputGM[inputIndex]));
+#else
+            // 非增强架构无 B128 内建: 不应到达(tiling 侧 IsSimtDtypePromoEnabled 门控保证), 防御性拆为窄访存
+            outputGM[outputIndex] = inputGM[inputIndex];
+#endif
+        } else {
+            outputGM[outputIndex] = inputGM[inputIndex];
+        }
     }
+}
+
+// 按提升后访存宽度 W 发起 VF 拷贝(tiling 已把全部计数缩放进 W 宽度的索引空间)
+template <typename W, typename PTR>
+__aicore__ inline void LaunchProcessSplitTensor(PTR xPhy, PTR yPhy, uint32_t outputSize, int32_t nCurLen, int32_t nLen,
+                                                int32_t preSumN, int32_t partLen, int32_t partOffset, uint32_t shift,
+                                                uint32_t m)
+{
+    asc_vf_call<ProcessSplitTensor<W>>(dim3(THREAD_DIM_SIT), (__gm__ W*)xPhy, (__gm__ volatile W*)yPhy, outputSize,
+                                       nCurLen, nLen, preSumN, partLen, partOffset, shift, m);
 }
 
 template <typename T>
@@ -107,9 +127,34 @@ __aicore__ inline void SplitVSIMTInTensor<T>::Process()
 
     yGm_.SetGlobalBuffer(GetTensorAddr(blockIdx_ / coreNumPerTensor));
 
-    asc_vf_call<ProcessSplitTensor<T>>(dim3(THREAD_DIM_SIT), (__gm__ T*)(xGm_.GetPhyAddr()),
-                                       (__gm__ volatile T*)(yGm_.GetPhyAddr()), outputSize, nCurLen, nLen_, colOffset,
-                                       partLen, partOffset, shift, m);
+    // 访存宽度取数据类型提升后的值(tiling 已缩放全部计数); 0 兼容未提升场景
+    uint32_t accSize = tilingData_->dtypeSize == 0 ? sizeof(T) : static_cast<uint32_t>(tilingData_->dtypeSize);
+    auto xPhy = xGm_.GetPhyAddr();
+    auto yPhy = yGm_.GetPhyAddr();
+    switch (accSize) {
+        case 2U:
+            LaunchProcessSplitTensor<uint16_t>(xPhy, yPhy, outputSize, nCurLen, nLen_, colOffset, partLen, partOffset,
+                                               shift, m);
+            break;
+        case 4U:
+            LaunchProcessSplitTensor<uint32_t>(xPhy, yPhy, outputSize, nCurLen, nLen_, colOffset, partLen, partOffset,
+                                               shift, m);
+            break;
+        case 8U:
+            LaunchProcessSplitTensor<uint64_t>(xPhy, yPhy, outputSize, nCurLen, nLen_, colOffset, partLen, partOffset,
+                                               shift, m);
+            break;
+#if defined(__DAV_920R1__) || defined(__DAV_920R2__)
+        case 16U:
+            LaunchProcessSplitTensor<uint4>(xPhy, yPhy, outputSize, nCurLen, nLen_, colOffset, partLen, partOffset,
+                                            shift, m);
+            break;
+#endif
+        default:
+            LaunchProcessSplitTensor<T>(xPhy, yPhy, outputSize, nCurLen, nLen_, colOffset, partLen, partOffset, shift,
+                                        m);
+            break;
+    }
 }
 
 template <typename T>

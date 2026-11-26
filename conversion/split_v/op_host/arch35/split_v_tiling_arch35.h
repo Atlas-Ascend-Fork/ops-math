@@ -174,6 +174,7 @@ TILING_DATA_FIELD_DEF(int32_t, nSize); // split轴之后所有shape的乘积, �
 TILING_DATA_FIELD_DEF(int32_t, sizeAfterSplit);
 TILING_DATA_FIELD_DEF(int32_t, splitNum);
 TILING_DATA_FIELD_DEF(int32_t, realCoreNum); // 真实使用的核数
+TILING_DATA_FIELD_DEF(int32_t, dtypeSize); // kernel 访存宽度(字节), 数据类型提升后的值; 0 视为原始 dtype
 TILING_DATA_FIELD_DEF_ARR(uint32_t, MAX_COL_OFFSET_COUNT, colOffset);
 END_TILING_DATA_DEF;
 REGISTER_TILING_DATA_CLASS(SplitV_200, SplitVSIMTTilingData)
@@ -307,6 +308,7 @@ private:
     void CalcSameLenSplitTilingInfo(int64_t halfUbEleNum, int64_t blockEleNum);
     void CalcSameLenTilingInfo();
     void FillSIMTSplitVTilingData();
+    void DoSimtDtypeImprove();
     int64_t CalInputDataSize();
     void CountSplitPrefix();
     int64_t SplitPrefix(int64_t i);
@@ -327,7 +329,8 @@ private:
     int64_t simtSizeAfterSplit_ = 0;
     int64_t maxFuseSizeAfterSplit_ = 0;
     int64_t minFuseSizeAfterSplit_ = 0;
-    int64_t realCoreNum_ = 0; // 处理空tensor需要两个变量，realCoreNum_ 和 blockDim_分开赋值
+    int64_t simtDtypeSize_ = 0; // SIMT 访存宽度(字节), 数据类型提升后的值
+    int64_t realCoreNum_ = 0;   // 处理空tensor需要两个变量，realCoreNum_ 和 blockDim_分开赋值
     int64_t blockDim_ = 0;
     int64_t blockFactor_ = 0;
     int64_t blockFactorTail_ = 0;
