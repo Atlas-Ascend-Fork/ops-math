@@ -41,6 +41,7 @@
 #include "log/log.h"
 #include "op_common/op_host/util/math_util.h"
 #include "op_common/op_host/util/platform_util.h"
+#include "op_common/op_host/tiling_base_util.h"
 #include "tiling/platform/platform_ascendc.h"
 #include "tiling/math/log_tiling.h"
 #include "../../op_kernel/arch35/asinh_tiling_data.h"
@@ -49,6 +50,7 @@ namespace optiling {
 
 using Ops::Base::CeilAlign;
 using Ops::Base::CeilDiv;
+using Ops::Base::EnsureNotScalar;
 using Ops::Base::FloorAlign;
 using Ops::Base::FloorDiv;
 using Ops::Base::GetUbBlockSize;
@@ -119,10 +121,8 @@ static ge::graphStatus ValidateInput(gert::TilingContext* context, int64_t* tota
 
     auto inputShape = context->GetInputShape(0);
     OP_CHECK_NULL_WITH_CONTEXT(context, inputShape);
-    const gert::Shape& inputStorageShape = inputShape->GetStorageShape();
+    const gert::Shape& inputStorageShape = EnsureNotScalar(inputShape->GetStorageShape());
     const size_t inputRank = inputStorageShape.GetDimNum();
-    OP_CHECK_IF(inputRank == 0, OP_LOGE(context, "Asinh: input rank must be >= 1, scalar (rank-0) is not supported"),
-                return ge::GRAPH_FAILED);
     OP_CHECK_IF(inputRank > MAX_DIM_NUM,
                 OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "x", std::to_string(inputRank).c_str(),
                                                          "The rank of x must be <= 8"),
@@ -130,7 +130,7 @@ static ge::graphStatus ValidateInput(gert::TilingContext* context, int64_t* tota
 
     auto outputShape = context->GetOutputShape(0);
     OP_CHECK_NULL_WITH_CONTEXT(context, outputShape);
-    const gert::Shape& outputStorageShape = outputShape->GetStorageShape();
+    const gert::Shape& outputStorageShape = EnsureNotScalar(outputShape->GetStorageShape());
     OP_CHECK_IF(outputStorageShape.GetDimNum() > MAX_DIM_NUM,
                 OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "y",
                                                          std::to_string(outputStorageShape.GetDimNum()).c_str(),

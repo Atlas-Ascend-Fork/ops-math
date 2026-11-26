@@ -47,7 +47,7 @@ $$
   <tr>
     <td>x</td>
     <td>Input</td>
-    <td>Input x in the formula, whose dtype is the same as that of y. The shape is arbitrary (1 to 8 dimensions). Empty Tensors are supported, and non-contiguous Tensors are supported.</td>
+    <td>Input x in the formula, whose dtype is the same as that of y. The shape is arbitrary (0 to 8 dimensions). Empty Tensors are supported, and non-contiguous Tensors are supported.</td>
     <td>FLOAT, FLOAT16, BFLOAT16</td>
     <td>ND</td>
   </tr>

@@ -45,7 +45,7 @@ $$
   <tr>
     <td>x</td>
     <td>输入</td>
-    <td>公式中的输入x，dtype与y一致，shape任意（1~8维），支持空Tensor，支持非连续Tensor。</td>
+    <td>公式中的输入x，dtype与y一致，shape任意（0~8维），支持空Tensor，支持非连续Tensor。</td>
     <td>FLOAT、FLOAT16、BFLOAT16</td>
     <td>ND</td>
   </tr>
