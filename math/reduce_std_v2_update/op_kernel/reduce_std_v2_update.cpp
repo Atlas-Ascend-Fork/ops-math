@@ -14,12 +14,9 @@
  * \file reduce_std_v2_update_arch35.cpp
  * \brief ReduceStdV2Update 算子 Kernel 入口（arch35 / DAV_3510 架构）
  *
- * 模板参数 templateType / isEmptyTensor / isTailR（由 TilingKey TPL_BOOL_DECL 编译期展开）
- *   + 输入 dtype（由 DTYPE_X 编译期实例化，框架按 fp16/bf16/fp32 自动生成 3 份实例）
- *   normal 模板：templateType=0, isEmptyTensor=0, isTailR ∈ {0,1} → 3 × 2 = 6 份
- *   empty  模板：templateType=0, isEmptyTensor=1, isTailR 固定 0      → 3 × 1 = 3 份
- *   group  模板：templateType=1, isEmptyTensor=0, isTailR ∈ {0,1} → 3 × 2 = 6 份
- *   合计 15 份 binary。
+ * 六个 bool 模板参数由 TilingKey 在编译期选择。原 normal/empty/group
+ * 共 15 份 dtype 变体保持原实现；splitAR/denseR/denseA 各增加 3 份，
+ * 合计 24 份。denseR/denseA 分别处理长 R 和长 A 的连续分块。
  *
  * 双输入：x + mean（mean.shape == x.shape，已 Expand 广播）。
  * 输入顺序 = REG_OP 输入输出顺序：x, mean, output_var, workspace, tiling。
@@ -27,8 +24,10 @@
 
 #include "arch35/reduce_std_v2_update.h"
 #include "arch35/reduce_std_v2_update_empty.h"
+#include "arch35/reduce_std_v2_update_split.h"
+#include "arch35/reduce_std_v2_update_dense.h"
 
-template <bool templateType, bool isEmptyTensor, bool isTailR>
+template <bool templateType, bool isEmptyTensor, bool isTailR, bool splitAR, bool denseR, bool denseA>
 __global__ __aicore__ void reduce_std_v2_update(GM_ADDR x, GM_ADDR mean, GM_ADDR output_var, GM_ADDR workspace,
                                                 GM_ADDR tiling)
 {
@@ -36,7 +35,18 @@ __global__ __aicore__ void reduce_std_v2_update(GM_ADDR x, GM_ADDR mean, GM_ADDR
     KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_MIX_AIV_1_0);
     GET_TILING_DATA_WITH_STRUCT(ReduceStdV2UpdateTilingData, tilingData, tiling);
 
-    if constexpr (isEmptyTensor) {
+#if __NPU_ARCH__ == 3510
+    if constexpr (denseR || denseA) {
+        NsReduceStdV2Update::ReduceStdV2UpdateDenseKernel<DTYPE_X, denseR> op;
+        op.Init(x, mean, output_var, workspace, &tilingData);
+        op.Process();
+    } else if constexpr (splitAR) {
+        NsReduceStdV2Update::ReduceStdV2UpdateSplitKernel<DTYPE_X> op;
+        op.Init(x, mean, output_var, &tilingData);
+        op.Process();
+    } else
+#endif
+        if constexpr (isEmptyTensor) {
         NsReduceStdV2Update::ReduceStdV2UpdateEmptyKernel<DTYPE_X> op;
         op.Init(x, mean, output_var, &tilingData);
         op.Process();
