@@ -92,7 +92,7 @@ The values in repeats must be greater than or equal to 0.
     <tr>
       <td>self</td>
       <td>Input</td>
-      <td>-</td>
+      <td>The input tensor to repeat along its dimensions.</td>
       <td>-</td>
       <td>FLOAT, DOUBLE, FLOAT16, COMPLEX64, COMPLEX128, UINT8, INT8, INT16, INT32, INT64, UINT16, UINT32, UINT64, BOOL, BFLOAT16, HIFLOAT8, FLOAT8_E5M2, FLOAT8_E4M3FN</td>
       <td>ND</td>
@@ -103,7 +103,7 @@ The values in repeats must be greater than or equal to 0.
       <td>repeats</td>
       <td>Input</td>
       <td>-</td>
-      <td>Indicates the number of times to repeat the input tensor along each dimension. The number of parameters is not greater than 8. Currently, the scenario of repeating more than 4 dimensions at the same time is not supported. For details about the constraints, see Constraint Description.</td>
+      <td>The number of times to repeat the input along each dimension, with at most 8 entries. On Atlas A2 and Atlas A3 products, at most 3 entries can differ from 1 if the first entry is 1, or at most 4 if it is not. See the <a href="./docs/aclnnRepeat_en.md#constraints">aclnnRepeat constraints</a> for details.</td>
       <td>INT64</td>
       <td>-</td>
       <td>-</td>
@@ -112,7 +112,7 @@ The values in repeats must be greater than or equal to 0.
     <tr>
       <td>out</td>
       <td>Output</td>
-      <td>-</td>
+      <td>The tensor produced by repeating self according to repeats. If self has fewer dimensions than repeats has entries, prepend ones to the shape of self until their lengths match, then multiply each aligned dimension by its corresponding repeats entry.</td>
       <td>-</td>
       <td>Same as self</td>
       <td>ND</td>

@@ -90,7 +90,7 @@ repeats中的值必须大于等于0。
     <tr>
       <td>self</td>
       <td>输入</td>
-      <td>-</td>
+      <td>要按各维度重复的输入Tensor。</td>
       <td>-</td>
       <td>FLOAT、DOUBLE、FLOAT16、COMPLEX64、COMPLEX128、UINT8、INT8、INT16、INT32、INT64、UINT16、UINT32、UINT64、BOOL、BFLOAT16、HIFLOAT8、FLOAT8_E5M2、FLOAT8_E4M3FN</td>
       <td>ND</td>
@@ -101,7 +101,7 @@ repeats中的值必须大于等于0。
       <td>repeats</td>
       <td>输入</td>
       <td>-</td>
-      <td>表示沿每个维度重复输入tensor的次数，参数个数不大于8，当前不支持对超过4个维度同时做repeat的场景，详细约束请见约束说明。</td>
+      <td>沿各维度重复输入Tensor的次数，参数个数不大于8。在Atlas A2和Atlas A3系列产品上，首个值为1时，非1值最多3个；首个值不为1时，非1值最多4个。详见<a href="./docs/aclnnRepeat.md#约束说明">aclnnRepeat的约束说明</a>。</td>
       <td>INT64</td>
       <td>-</td>
       <td>-</td>
@@ -110,7 +110,7 @@ repeats中的值必须大于等于0。
     <tr>
       <td>out</td>
       <td>输出</td>
-      <td>-</td>
+      <td>按repeats逐维重复self后得到的Tensor。若self的维度数少于repeats的元素个数，先在self的形状左侧补1至等长，再对齐各维度，将维度大小乘以对应的repeats值。</td>
       <td>-</td>
       <td>与self一致</td>
       <td>ND</td>
