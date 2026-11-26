@@ -19,6 +19,8 @@
 
 #include <vector>
 #include <string>
+#include <utility>
+#include <algorithm>
 #include "ge/es_graph_builder.h"
 #include "ge/compliant_node_builder.h"
 #include "es_math_ops.h"
@@ -27,6 +29,7 @@
 #include "log/log.h"
 #include "version/ge-compiler_version.h"
 #include "permute_fusion_pass.h"
+#include "conversion/transpose/op_graph/permute_order_util.h"
 
 using namespace ge;
 using namespace fe;
@@ -83,18 +86,39 @@ static bool IsTransposeDPlatform()
     return kTransposeDPlatformList.count(soc) > 0;
 }
 
-static bool GetPermutePermAttr(const GNode& permuteNode, std::vector<int64_t>& permList)
+static bool IsUnknownRankShape(const std::vector<int64_t>& dims) { return dims.size() == 1 && dims[0] == -2; }
+
+static bool GetPermutePermAttr(const GNode& permuteNode, size_t rank, std::vector<int64_t>& permList)
 {
-    if (permuteNode.GetAttr("perm", permList) == GRAPH_SUCCESS) {
+    std::vector<int64_t> order;
+    if (permuteNode.GetAttr("order", order) != GRAPH_SUCCESS) {
+        if (permuteNode.GetAttr("perm", order) != GRAPH_SUCCESS) {
+            OP_LOGE(kFusionPassName.c_str(), "Failed to get perm/order attr from Permute node.");
+            return false;
+        }
+    }
+    if (rank == 0) {
+        permList = std::move(order);
         return true;
     }
-    // Try the "order" attribute as fallback (Permute IR uses "order")
-    if (permuteNode.GetAttr("order", permList) == GRAPH_SUCCESS) {
-        OP_LOGD(kFusionPassName.c_str(), "Using 'order' attr as perm.");
-        return true;
+    if (!NormalizePermuteOrder(order, rank, permList)) {
+        if (order.size() > rank) {
+            std::vector<int64_t> prefix(order.begin(), order.begin() + static_cast<int64_t>(rank));
+            std::vector<int64_t> suffix(order.begin() + static_cast<int64_t>(rank), order.end());
+            std::vector<int64_t> missing;
+            for (size_t i = 0; i < rank; ++i) {
+                if (std::find(prefix.begin(), prefix.end(), static_cast<int64_t>(i)) == prefix.end()) {
+                    missing.push_back(static_cast<int64_t>(i));
+                }
+            }
+            if (suffix == missing && NormalizePermuteOrder(prefix, rank, permList)) {
+                return true;
+            }
+        }
+        OP_LOGE(kFusionPassName.c_str(), "Permute order is not a valid permutation of input rank %zu.", rank);
+        return false;
     }
-    OP_LOGE(kFusionPassName.c_str(), "Failed to get perm/order attr from Permute node.");
-    return false;
+    return true;
 }
 
 // Resolve the TensorDesc of a subgraph input's first matched input.
@@ -292,12 +316,6 @@ GraphUniqPtr PermuteFusionPass::Replacement(const std::unique_ptr<MatchResult>& 
         return nullptr;
     }
 
-    std::vector<int64_t> permList;
-    if (!GetPermutePermAttr(permuteNodeIo.node, permList)) {
-        OP_LOGE(kFusionPassName.c_str(), "Cannot extract perm attribute, skip.");
-        return nullptr;
-    }
-
     // Get platform info
     bool isTransposeDPlatform = IsTransposeDPlatform();
 
@@ -310,6 +328,11 @@ GraphUniqPtr PermuteFusionPass::Replacement(const std::unique_ptr<MatchResult>& 
     GetInputsInfo(subgraphInputs, inputShapes, inputDtypes, inputFormats);
 
     auto inDims = inputShapes[0].GetDims();
+    const size_t rank = IsUnknownRankShape(inDims) ? 0 : inDims.size();
+    std::vector<int64_t> permList;
+    if (!GetPermutePermAttr(permuteNodeIo.node, rank, permList)) {
+        return nullptr;
+    }
 
     // Note: In the old framework, a special case (4D input with perm=[0,3,2,1])
     // was split into two consecutive TransposeD/Transpose nodes as an optimization.

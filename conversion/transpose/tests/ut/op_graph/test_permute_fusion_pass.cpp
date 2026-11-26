@@ -68,7 +68,7 @@ protected:
     // Helper to build a Permute node and return the graph with pass applied
     std::shared_ptr<Graph> BuildPermuteGraphAndRunPass(const std::vector<int64_t>& inputDims,
                                                        const std::vector<int64_t>& permAttr, DataType dtype = DT_FLOAT,
-                                                       Format format = FORMAT_ND)
+                                                       Format format = FORMAT_ND, const std::string& attrName = "perm")
     {
         Shape shapeX(inputDims);
 
@@ -84,7 +84,7 @@ protected:
                                .IrDefInputs({{"x", es::CompliantNodeBuilder::kEsIrInputRequired, ""}})
                                .IrDefOutputs({{"y", es::CompliantNodeBuilder::kEsIrOutputRequired, ""}})
                                .IrDefAttrs({
-                                   {"perm", es::CompliantNodeBuilder::kEsAttrOptional, "ListInt",
+                                   {attrName.c_str(), es::CompliantNodeBuilder::kEsAttrOptional, "ListInt",
                                     es::CreateFrom(permAttr)},
                                })
                                .Build();
@@ -225,6 +225,50 @@ TEST_F(PermuteFusionPassTest, fusionSuccess950Special)
     // Exactly 1 Transpose node (not split), no TransposeD
     EXPECT_EQ(CountNodeType(resultGraph, "Transpose"), 1);
     EXPECT_EQ(CountNodeType(resultGraph, "TransposeD"), 0);
+}
+
+TEST_F(PermuteFusionPassTest, fusionOrderAttrFull)
+{
+    SetPlatform("Ascend950");
+
+    auto resultGraph = BuildPermuteGraphAndRunPass(std::vector<int64_t>{2, 3, 4, 5}, std::vector<int64_t>{0, 2, 3, 1},
+                                                   DT_FLOAT, FORMAT_ND, "order");
+
+    EXPECT_TRUE(HasNodeType(resultGraph, "Transpose"));
+    EXPECT_FALSE(HasNodeType(resultGraph, "Permute"));
+}
+
+TEST_F(PermuteFusionPassTest, fusionOrderAttrPartial)
+{
+    SetPlatform("Ascend950");
+
+    auto resultGraph = BuildPermuteGraphAndRunPass(std::vector<int64_t>{2, 3, 4, 5}, std::vector<int64_t>{1, 0},
+                                                   DT_FLOAT, FORMAT_ND, "order");
+
+    EXPECT_TRUE(HasNodeType(resultGraph, "Transpose"));
+    EXPECT_FALSE(HasNodeType(resultGraph, "Permute"));
+}
+
+TEST_F(PermuteFusionPassTest, fusionOrderAttrUnknownRank)
+{
+    SetPlatform("Ascend950");
+
+    auto resultGraph = BuildPermuteGraphAndRunPass(std::vector<int64_t>{-2}, std::vector<int64_t>{0, 2, 3, 1}, DT_FLOAT,
+                                                   FORMAT_ND, "order");
+
+    EXPECT_TRUE(HasNodeType(resultGraph, "Transpose"));
+    EXPECT_FALSE(HasNodeType(resultGraph, "Permute"));
+}
+
+TEST_F(PermuteFusionPassTest, fusionOrderAttrDefault)
+{
+    SetPlatform("Ascend950");
+
+    auto resultGraph = BuildPermuteGraphAndRunPass(std::vector<int64_t>{2, 3, 4, 5}, std::vector<int64_t>{0}, DT_FLOAT,
+                                                   FORMAT_ND, "order");
+
+    EXPECT_TRUE(HasNodeType(resultGraph, "Transpose"));
+    EXPECT_FALSE(HasNodeType(resultGraph, "Permute"));
 }
 
 // ==================== Different shape / dtype tests ====================
