@@ -31,12 +31,12 @@
 
 - Formula:
 
-  1. When transposeFirst is False:
+  1. When transpose_first is False:
 
      $$
      y=transpose(reshape(x,shape),perm)
      $$
-  2. When transposeFirst is True:
+  2. When transpose_first is True:
 
      $$
      y=reshape(transpose(x,perm),shape)
@@ -51,7 +51,7 @@ aclnnStatus aclnnConfusionTransposeGetWorkspaceSize(
     const aclTensor    *x,
     const aclIntArray  *perm,
     const aclIntArray  *shape,
-    bool                transposeFirst,
+    bool                transpose_first,
     aclTensor          *out,
     uint64_t           *workspaceSize,
     aclOpExecutor      **executor)
@@ -105,7 +105,7 @@ aclnnStatus aclnnConfusionTranspose(
       <td class="tg-0pky">perm (aclIntArray*)</td>
       <td class="tg-0pky">Input</td>
       <td class="tg-0pky">Index of the axis before transposition corresponding to each axis after transposition, corresponding to perm in the formula.</td>
-      <td class="tg-0pky">1. Elements in this input must be unique and in the range [0, dim(perm)-1].<br>2. When transposeFirst is True, the length of perm must be the same as the length of the shape of x, that is, len(perm)=len(x_shape). <br>3. When transposeFirst is False, the length of perm must be the same as the length of the shape attribute input, that is, len(perm)=len(shape).</td>
+      <td class="tg-0pky">1. Elements in this input must be unique and in the range [0, dim(perm)-1].<br>2. When transpose_first is True, the length of perm must be the same as the length of the shape of x, that is, len(perm)=len(x_shape). <br>3. When transpose_first is False, the length of perm must be the same as the length of the shape attribute input, that is, len(perm)=len(shape).</td>
       <td class="tg-0pky">INT64</td>
       <td class="tg-0pky">-</td>
       <td class="tg-0pky">-</td>
@@ -122,7 +122,7 @@ aclnnStatus aclnnConfusionTranspose(
       <td class="tg-0lax">-</td>
     </tr>
     <tr>
-      <td class="tg-0lax">transposeFirst (bool)</td>
+      <td class="tg-0lax">transpose_first (bool)</td>
       <td class="tg-0lax">Input</td>
       <td class="tg-0lax">Determines whether the transpose operation is executed first.</td>
       <td class="tg-0lax">If the value is True, transpose is executed first; otherwise, reshape is executed first.</td>
