@@ -13,6 +13,7 @@
 
 #include "graph/operator_reg.h"
 
+namespace ge {
 /**
 * @brief Zeros-pads and then permutes blocks of spatial data into batch.
 * The values from the height and width dimensions are moved in spatial blocks to the batch dimension.
@@ -37,5 +38,6 @@ REG_OP(SpaceToBatchND)
     .INPUT(paddings, TensorType::IndexNumberType())
     .OUTPUT(y, TensorType::BasicType())
     .OP_END_FACTORY_REG(SpaceToBatchND)
+} // namespace ge
 
 #endif
