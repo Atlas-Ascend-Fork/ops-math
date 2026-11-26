@@ -336,6 +336,40 @@ TEST_F(TEST_SearchSorted_UTest, DOUBLE_INT32_TRUE_SUCC)
                                            output_exp_int32_t_data);
 }
 
+TEST_F(TEST_SearchSorted_UTest, INT64_LARGE_VALUE_FALSE_SUCC)
+{
+    const int64_t p53 = 9007199254740992LL;
+    const int64_t seqLen = 1024;
+    vector<int64_t> sequence(seqLen);
+    for (int64_t i = 0; i < seqLen; ++i) {
+        sequence[i] = p53 + 1024LL * i;
+    }
+    vector<int64_t> values = {p53 + 1047552LL};
+    const int64_t output_exp_data[] = {1023};
+
+    bool right = false;
+    vector<DataType> data_type = {DT_INT64, DT_INT64};
+    vector<vector<int64_t>> shapes = {{seqLen}, {1}, {1}};
+    RunSearchSortedKernel<int64_t, int64_t>(data_type, shapes, right, sequence.data(), values.data(), output_exp_data);
+}
+
+TEST_F(TEST_SearchSorted_UTest, DOUBLE_LARGE_VALUE_FALSE_SUCC)
+{
+    const double p53 = 9007199254740992.0;
+    const int64_t seqLen = 1024;
+    vector<double> sequence(seqLen);
+    for (int64_t i = 0; i < seqLen; ++i) {
+        sequence[i] = p53 + 1024.0 * static_cast<double>(i);
+    }
+    vector<double> values = {p53 + 1047552.0};
+    const int64_t output_exp_data[] = {1023};
+
+    bool right = false;
+    vector<DataType> data_type = {DT_DOUBLE, DT_INT64};
+    vector<vector<int64_t>> shapes = {{seqLen}, {1}, {1}};
+    RunSearchSortedKernel<double, int64_t>(data_type, shapes, right, sequence.data(), values.data(), output_exp_data);
+}
+
 TEST_F(TEST_SearchSorted_UTest, SORTER_DTYPE_ERROR)
 {
     vector<DataType> data_type = {DT_INT32, DT_INT32};

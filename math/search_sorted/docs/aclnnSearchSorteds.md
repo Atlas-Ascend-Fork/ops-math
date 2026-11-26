@@ -134,7 +134,7 @@ aclnnStatus aclnnSearchSorteds(
       <td>sorter（aclTensor*）</td>
       <td>输入</td>
       <td>指定<code>sortedSequence</code>元素顺序。</td>
-      <td><ul><li>可选输入，可为<code>nullptr</code> ；不传时按<code>sortedSequence</code> 原始顺序计算。</li><li>数据类型必须为INT64。</li><li>shape需与<code>sortedSequence</code>一致。</li><li>传入<code>sorter</code>时，公式中的<code>sortedSequence<sub>j</sub></code>按<code>sorter</code>指定顺序取值。</li></ul></td>
+      <td><ul><li>可选输入，可为<code>nullptr</code> ；不传时按<code>sortedSequence</code> 原始顺序计算。</li><li>数据类型必须为INT64。</li><li>shape需与<code>sortedSequence</code>一致。</li><li><code>sorter</code>必须是<code>sortedSequence</code>的索引排列，元素值域为<code>[0, N)</code>（<code>N</code>为<code>sortedSequence</code>长度）。该值域由调用方保证，第一段接口不做取值校验，元素越界时错误将在任务同步阶段以设备侧异常（如507018）暴露。</li><li>传入<code>sorter</code>时，公式中的<code>sortedSequence<sub>j</sub></code>按<code>sorter</code>指定顺序取值。</li></ul></td>
       <td>INT64</td>
       <td>ND</td>
       <td>与sortedSequence一致</td>
@@ -176,7 +176,7 @@ aclnnStatus aclnnSearchSorteds(
 
   aclnnStatus：返回状态码，具体参见[aclnn返回码](../../../docs/zh/context/aclnn_return_code.md)。
 
-  第一段接口完成入参校验，出现以下场景时报错：
+  第一段接口完成dtype、shape等可在host侧判定的入参校验，出现以下场景时报错：
 
   <table style="table-layout: fixed; width: 1000px"><colgroup>
   <col style="width: 300px">
@@ -265,6 +265,7 @@ aclnnStatus aclnnSearchSorteds(
 ## 约束说明
 
 - 确定性说明：`aclnnSearchSorteds`默认确定性实现。
+- `sorter`必须是`sortedSequence`的索引排列，元素值域为`[0, N)`（`N`为`sortedSequence`长度），该值域由调用方保证，第一段接口不做取值校验；元素越界时，错误将在任务同步阶段以设备侧异常（如507018）暴露。
 
 ## 调用示例
 

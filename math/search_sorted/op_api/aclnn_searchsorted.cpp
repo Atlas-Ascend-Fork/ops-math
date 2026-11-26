@@ -223,7 +223,7 @@ aclnnStatus aclnnSearchSortedsGetWorkspaceSize(const aclTensor* sortedSequence, 
 
     const aclTensor* selfTensor = nullptr;
     try {
-        float selfValue = self->ToFloat();
+        double selfValue = self->ToDouble();
         selfTensor = uniqueExecutor.get()->ConvertToTensor(&selfValue, 1, sortedSequence->GetDataType());
     } catch (std::invalid_argument& e) {
         OP_LOGE(ACLNN_ERR_PARAM_INVALID,
