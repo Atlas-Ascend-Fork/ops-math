@@ -96,7 +96,7 @@ public:
                                      const ReduceStdV2UpdateTilingData* td);
     __aicore__ inline void ProcessGroup();
 
-private:
+protected:
     // ─── 索引解码 ───
     __aicore__ inline void UnravelALoop(int64_t aLoopIdx, int64_t& aSplitChunkIdx, int64_t& chunkGmOff,
                                         int64_t& chunkOutOff);
@@ -136,6 +136,32 @@ private:
     __aicore__ inline uint64_t FindNearestPower2(uint64_t v) const;
     __aicore__ inline uint64_t CalLog2(uint64_t v) const;
 
+    // ─── fast-contig 快速路径（round1 新增；仅 __NPU_ARCH__==3510 编译，契约 f5）───
+#if __NPU_ARCH__ == 3510
+    __aicore__ inline void FastProcessNormal(); // f2/f3/f4：AR 连续大 burst + 紧凑规约（normal/tail-R）
+    __aicore__ inline void FastPhase1Group();   // f8：RA 快速 Phase1（group/tail-A，骨架/Phase2 不变）
+    __aicore__ inline void FastReduceRowsRAFlat(AscendC::LocalTensor<float>& dst, AscendC::LocalTensor<float>& src,
+                                                uint32_t rows,
+                                                uint32_t lanes); // f9：行界二分平折（lanes×4B%32≠0 分支）
+    __aicore__ inline void FastPhase1GroupFlatDb(int64_t chunkGmOff, int64_t chunkOutOff, int64_t aLen,
+                                                 int64_t rChunkIdx, int64_t rowStart,
+                                                 int64_t rowEnd); // f10：depth-2 DB 预取流水（fastDb==1 分支）
+    __aicore__ inline void FastSubSquareCompact(AscendC::LocalTensor<D_T>& preInX, AscendC::LocalTensor<D_T>& preInMean,
+                                                uint32_t elems);
+    __aicore__ inline void FastReduceInnerAR(AscendC::LocalTensor<float>& dst, AscendC::LocalTensor<float>& src,
+                                             uint32_t rows, uint32_t innerR);
+    __aicore__ inline void FastReduceRowsRA(AscendC::LocalTensor<float>& dst, AscendC::LocalTensor<float>& src,
+                                            uint32_t rows, uint32_t lanes);
+    __aicore__ inline void FastAccumLanes(AscendC::LocalTensor<float>& acc, AscendC::LocalTensor<float>& src,
+                                          uint32_t lanes);
+    __aicore__ inline void FastZeroLanes(AscendC::LocalTensor<float>& dst, uint32_t lanes);
+    __aicore__ inline void FastStageCacheLanes(AscendC::LocalTensor<float>& cacheLocal,
+                                               AscendC::LocalTensor<float>& acc, int64_t cacheOff, uint32_t lanes);
+    __aicore__ inline void FastPostOut(AscendC::LocalTensor<float>& src, int64_t outElemOff, uint32_t lanes);
+    __aicore__ inline void FastCopyContig(AscendC::LocalTensor<D_T>& dst, AscendC::GlobalTensor<D_T>& gm,
+                                          int64_t startElem, int64_t nElems);
+#endif
+
     // ─── tilingdata 镜像 ───
     int32_t axisNum_ = 0;
     int64_t axisShape_[MAX_PATTERN_RANK] = {0};
@@ -167,6 +193,16 @@ private:
     float cof_ = 0.0f;
     int32_t ifStd_ = 0;
 
+    // ─── fast-contig tiling 字段镜像（round1 新增；默认 0 = 不启用）───
+#if __NPU_ARCH__ == 3510
+    int32_t fastContig_ = 0;
+    int64_t fastLaneElems_ = 0;
+    int64_t fastRowsPerTile_ = 0;
+    int64_t fastUnitCnt_ = 0;
+    int64_t fastUnitOutLanes_ = 0;
+    int32_t fastDb_ = 0; // round2 f10/f11：RA flat-fold+DB 子分支（062）=1，其余 case 恒 0
+#endif
+
     // 输出端 stride（A 轴 dense 排列）
     int64_t outStride_[MAX_PATTERN_RANK] = {0};
 
@@ -175,8 +211,8 @@ private:
     GlobalTensor<D_T> meanGm_;
     GlobalTensor<D_T> outputGm_;
     TPipe pipe_;
-    TQue<QuePosition::VECIN, 1> preInXQue_;    // x 输入并行槽（不开 DB）
-    TQue<QuePosition::VECIN, 1> preInMeanQue_; // mean 输入并行槽（不开 DB）
+    TQue<QuePosition::VECIN, 1> preInXQue_;    // depth is 1; InitBuffer selects the physical buffer count
+    TQue<QuePosition::VECIN, 1> preInMeanQue_; // depth is independent of double buffering
     TBuf<QuePosition::VECCALC> tmpBuf_;        // fp32 reduce scratch（2 份主+尾）
     TBuf<QuePosition::VECCALC> cacheBuf_;      // fp32 缓存树（固定 16KB）
     TQue<QuePosition::VECOUT, 1> outQue_;      // 输出（不开 DB）
@@ -312,6 +348,16 @@ __aicore__ inline void ReduceStdV2UpdateKernel<DType, isTailR>::Init(GM_ADDR x, 
     cof_ = td->cof;
     ifStd_ = td->ifStd;
 
+    // fast-contig 字段镜像拷贝（round1 新增；不改任何既有 InitBuffer/缓冲逻辑）
+#if __NPU_ARCH__ == 3510
+    fastContig_ = td->fastContig;
+    fastLaneElems_ = td->fastLaneElems;
+    fastRowsPerTile_ = td->fastRowsPerTile;
+    fastUnitCnt_ = td->fastUnitCnt;
+    fastUnitOutLanes_ = td->fastUnitOutLanes;
+    fastDb_ = td->fastDb; // round2 f10/f11：RA flat-fold+DB 子分支标志
+#endif
+
     bisectionPos_ = static_cast<int64_t>(FindNearestPower2(static_cast<uint64_t>(rLoopCntTotal_)));
     bisectionTail_ = rLoopCntTotal_ - bisectionPos_;
     cacheCount_ = static_cast<int64_t>(CalLog2(static_cast<uint64_t>(bisectionPos_))) + 1;
@@ -333,8 +379,20 @@ __aicore__ inline void ReduceStdV2UpdateKernel<DType, isTailR>::Init(GM_ADDR x, 
 
     // 双输入并行载入（策略 B）：x 和 mean 各一份 preInBuf，不开 DB（depth=1）
     // preReduceUbSize 已含 ×2（x+mean 各一份），每路分配 preReduceUbSize/2
-    pipe_.InitBuffer(preInXQue_, /*bufNum=*/1, td->preReduceUbSize / 2);
-    pipe_.InitBuffer(preInMeanQue_, /*bufNum=*/1, td->preReduceUbSize / 2);
+    // f10（round2，仅替换下方两行 preIn InitBuffer 的字面深度）：fastContig_==2 && fastDb_==1（062 分支）
+    //   时 depth=2 双缓冲——每路 2 个物理槽、单槽字节 = preReduceUbSize/2/depth（每路总字节仍为
+    //   preReduceUbSize/2）；其余 case（fastDb=0）depth=1、单槽字节 = preReduceUbSize/2，与基线/round1
+    //   逐字节等价。MTE2→V 跨槽顺序由框架 TQue per-slot 事件（EnQue/DeQue/FreeTensor 的 get_buf/rls_buf
+    //   协议，kernel_tpipe.h/kernel_event.h）保障，无手动同步原语（f8）。
+#if __NPU_ARCH__ == 3510
+    const uint32_t fastPreInBufferCount = (fastContig_ == 2 && fastDb_ == 1) ? 2U : 1U;
+#else
+    const uint32_t fastPreInBufferCount = 1U; // f5：非 3510 恒 depth=1（与基线逐字节等价）
+#endif
+    pipe_.InitBuffer(preInXQue_, static_cast<uint8_t>(fastPreInBufferCount),
+                     td->preReduceUbSize / 2 / fastPreInBufferCount);
+    pipe_.InitBuffer(preInMeanQue_, static_cast<uint8_t>(fastPreInBufferCount),
+                     td->preReduceUbSize / 2 / fastPreInBufferCount);
     pipe_.InitBuffer(tmpBuf_, td->tmpBufUbSize * 2); // N_tmp=2（主+尾）
     pipe_.InitBuffer(cacheBuf_, td->cacheBufUbSize);
     pipe_.InitBuffer(outQue_, /*bufNum=*/1, td->postReduceUbSize);
@@ -372,6 +430,15 @@ __aicore__ inline void ReduceStdV2UpdateKernel<DType, isTailR>::Process()
     if (blockIdx >= static_cast<int64_t>(usedCoreNum_)) {
         return;
     }
+
+    // fast-contig 运行时路由（round1 新增）：fastContig==0 走下方原路径（逐行为不变，f1）；
+    //   仅 __NPU_ARCH__==3510 编译（f5），非目标 SoC 的 host tiling 恒不下发 fastContig≠0。
+#if __NPU_ARCH__ == 3510
+    if (fastContig_ == 1) {
+        FastProcessNormal();
+        return;
+    }
+#endif
 
     int64_t aLoopStart;
     int64_t aLoopEnd;
@@ -700,7 +767,7 @@ __aicore__ inline void ReduceStdV2UpdateKernel<DType, isTailR>::DoCopyInTile(Glo
         ResetLoopModePara(DataCopyMVType::OUT_TO_UB); // ★ 调用后 reset，成对出现
     }
 #else
-#error "非 Ascend950/960DT 平台不支持 LoopMode 硬件特性，须重写 DoCopyInTile 用全 host for 拆所有 K>=3 的轴"
+#error "当前编译目标不支持 LoopMode 硬件特性，请使用兼容的分块拷贝路径"
 #endif
 }
 
@@ -1057,6 +1124,598 @@ __aicore__ inline void ReduceStdV2UpdateKernel<DType, isTailR>::CopyOut(int64_t 
     outQue_.FreeTensor(outDeq);
 }
 
+// fast-contig 快速路径实现（round1 新增，仅 __NPU_ARCH__==3510 编译，契约 f5）
+//   机制：短内轴 MTE 逐行 32B 块风暴 → GM 连续大 burst DataCopy（≥16KB/tile，无逐行
+//   DataCopyPad，f2）+ UB 内紧凑 VF sub/square（fp32）+ 紧凑 ReduceSum srcInnerPad=false（f3）
+//   + 参与 buffer 尾部 ≥64 fp32 整 VL 粒度余量（f4）；跳过缓存树/MergeTmpBuf/ClearChunkExtension。
+//   同步：仅复用既有队列 EnQue/DeQue 语义与既有 V↔MTE3 fence（Phase1OutputToWorkspace 内），
+//   不新增任何跨核同步原语（f8）；ReduceSum 后的 PipeBarrier<PIPE_ALL> 为核内 V→V 依赖
+//   屏障（沿用已验证参考模板 euclidean_norm_interleaved_contiguous_tailr 同一惯用法）。
+#if __NPU_ARCH__ == 3510
+
+// fp32 元素数向上取整到 8（=32B，LoadAlign/StoreAlign 与 MTE 32B 粒度；参考模板 CeilAlign32 同一惯用法）：
+//   快速路径所有 tmp 子缓冲偏移与 host 侧 slot 公式必须同用此量化，否则子缓冲基址非 32B 对齐 → 设备 340
+static __aicore__ inline int64_t FastCeil8Elems(int64_t elems) { return (elems + 7) / 8 * 8; }
+
+// 连续拷入（f2）：起止字节均 32B 对齐时用单条大 burst DataCopy；否则（group 行区间起点/尾 tile 等）
+//   退化为单块 1D DataCopyPad（blockCount=1，按需 UB 侧补 0 到 32B）——正确性优先，大数据量仍走
+//   对齐大 burst。两分支都保持"块数 = 行数无关的少数大块"，不产生逐行 32B padded 块风暴。
+template <typename DType, bool isTailR>
+__aicore__ inline void ReduceStdV2UpdateKernel<DType, isTailR>::FastCopyContig(AscendC::LocalTensor<D_T>& dst,
+                                                                               AscendC::GlobalTensor<D_T>& gm,
+                                                                               int64_t startElem, int64_t nElems)
+{
+    const int64_t startBytes = startElem * static_cast<int64_t>(sizeof(D_T));
+    const int64_t lenBytes = nElems * static_cast<int64_t>(sizeof(D_T));
+    if ((startBytes % static_cast<int64_t>(kBlockBytes)) == 0 && (lenBytes % static_cast<int64_t>(kBlockBytes)) == 0) {
+        DataCopy(dst, gm[startElem], static_cast<uint32_t>(nElems));
+        return;
+    }
+    const int64_t padBytes = (lenBytes + kBlockBytes - 1) / kBlockBytes * kBlockBytes - lenBytes;
+    DataCopyExtParams ext;
+    ext.blockLen = static_cast<uint32_t>(lenBytes);
+    ext.blockCount = 1;
+    ext.srcStride = 0;
+    ext.dstStride = 0;
+    DataCopyPadExtParams<D_T> padParams{true, 0, static_cast<uint8_t>(padBytes / static_cast<int64_t>(sizeof(D_T))),
+                                        static_cast<D_T>(0)};
+    DataCopyPad(dst, gm[startElem], ext, padParams);
+}
+
+// 紧凑 sub/square：x/mean 双输入 Cast(b16→fp32) + Sub + Mul，紧凑 elems 个元素（无 padding 放大）
+template <typename DType, bool isTailR>
+__aicore__ inline void ReduceStdV2UpdateKernel<DType, isTailR>::FastSubSquareCompact(
+    AscendC::LocalTensor<D_T>& preInX, AscendC::LocalTensor<D_T>& preInMean, uint32_t elems)
+{
+    auto tmpAll = tmpBuf_.Get<float>();
+    __ubuf__ float* dstPtr = reinterpret_cast<__ubuf__ float*>(tmpAll.GetPhyAddr()); // slot0（+64 余量，f4）
+    __ubuf__ D_T* xPtr = reinterpret_cast<__ubuf__ D_T*>(preInX.GetPhyAddr());
+    __ubuf__ D_T* meanPtr = reinterpret_cast<__ubuf__ D_T*>(preInMean.GetPhyAddr());
+
+    const uint16_t repeatTime = static_cast<uint16_t>((elems + kRepF32U - 1) / kRepF32U);
+    __VEC_SCOPE__
+    {
+        AscendC::Reg::RegTensor<float> xF32, mF32, diff, sq;
+        AscendC::Reg::MaskReg mask;
+        uint32_t remaining = elems;
+        for (uint16_t i = 0; i < repeatTime; ++i) {
+            const int32_t off = static_cast<int32_t>(i) * static_cast<int32_t>(kRepF32);
+            mask = AscendC::Reg::UpdateMask<float>(remaining);
+            if constexpr (kIsFp32) {
+                AscendC::Reg::LoadAlign(xF32, reinterpret_cast<__ubuf__ float*>(xPtr) + off);
+                AscendC::Reg::LoadAlign(mF32, reinterpret_cast<__ubuf__ float*>(meanPtr) + off);
+            } else {
+                AscendC::Reg::RegTensor<D_T> xB16, mB16;
+                AscendC::Reg::LoadAlign<D_T, AscendC::Reg::LoadDist::DIST_UNPACK_B16>(xB16, xPtr + off);
+                AscendC::Reg::LoadAlign<D_T, AscendC::Reg::LoadDist::DIST_UNPACK_B16>(mB16, meanPtr + off);
+                AscendC::Reg::Cast<float, D_T, kCastTraitToFp32>(xF32, xB16, mask);
+                AscendC::Reg::Cast<float, D_T, kCastTraitToFp32>(mF32, mB16, mask);
+            }
+            AscendC::Reg::Sub(diff, xF32, mF32, mask); // diff = x - mean
+            AscendC::Reg::Mul(sq, diff, diff, mask);   // sq  = diff × diff
+            AscendC::Reg::StoreAlign(dstPtr + off, sq, mask);
+        }
+    }
+}
+
+// 紧凑 AR 规约：src [rows, innerR]（最内轴连续未 pad，srcInnerPad=false）→ dst[rows]；
+//   innerR==64 时改 VF/标量加法链（f3：已知 adv_api AR 在 dimR==vlSize(64) 边界结果偏大的护栏；
+//   host 门控已排除 innerR==64，本分支为防御性正确性覆盖）。
+template <typename DType, bool isTailR>
+__aicore__ inline void ReduceStdV2UpdateKernel<DType, isTailR>::FastReduceInnerAR(AscendC::LocalTensor<float>& dst,
+                                                                                  AscendC::LocalTensor<float>& src,
+                                                                                  uint32_t rows, uint32_t innerR)
+{
+    if (innerR != 64u) {
+        uint32_t srcShape[2] = {rows, innerR};
+        // isReuseSource=true：与基线 ReduceRPattern 同一已验证用法（src 为 scratch 槽，dst 独立槽）；
+        //   false 会迫使 adv_api 对齐路径把整个 src tile 复制进 PopStackBuffer 小栈缓冲（溢出→设备 259）
+        AscendC::ReduceSum<float, AscendC::Pattern::Reduce::AR, /*isReuseSource=*/true>(dst, src, srcShape,
+                                                                                        /*srcInnerPad=*/false);
+        AscendC::PipeBarrier<PIPE_ALL>();
+        return;
+    }
+    __ubuf__ float* s = reinterpret_cast<__ubuf__ float*>(src.GetPhyAddr());
+    __ubuf__ float* d = reinterpret_cast<__ubuf__ float*>(dst.GetPhyAddr());
+    for (uint32_t r = 0; r < rows; ++r) {
+        float acc = 0.0f;
+        for (uint32_t k = 0; k < 64u; ++k) {
+            acc += s[r * 64u + k];
+        }
+        d[r] = acc;
+    }
+    AscendC::PipeBarrier<PIPE_ALL>();
+}
+
+// 紧凑 RA 规约：src [rows, lanes]（最内 lanes 连续未 pad，规约外轴 rows，srcInnerPad=false）
+//   → dst[lanes]；rows==64 时改 VF 加法链（f3 护栏：尾 tile rowsThis==64 可达，正确性必须覆盖）。
+template <typename DType, bool isTailR>
+__aicore__ inline void ReduceStdV2UpdateKernel<DType, isTailR>::FastReduceRowsRA(AscendC::LocalTensor<float>& dst,
+                                                                                 AscendC::LocalTensor<float>& src,
+                                                                                 uint32_t rows, uint32_t lanes)
+{
+    if (rows != 64u) {
+        uint32_t srcShape[2] = {rows, lanes};
+        // isReuseSource=true：同上（对齐路径避免栈缓冲整 tile 复制）
+        AscendC::ReduceSum<float, AscendC::Pattern::Reduce::RA, /*isReuseSource=*/true>(dst, src, srcShape,
+                                                                                        /*srcInnerPad=*/false);
+        AscendC::PipeBarrier<PIPE_ALL>();
+        return;
+    }
+    __ubuf__ float* s = reinterpret_cast<__ubuf__ float*>(src.GetPhyAddr());
+    __ubuf__ float* d = reinterpret_cast<__ubuf__ float*>(dst.GetPhyAddr());
+    const uint16_t repeatTime = static_cast<uint16_t>((lanes + kRepF32U - 1) / kRepF32U);
+    // rows==64 VF 加法链：累加器 aReg 寄存器驻留，仅在末尾写回 d——消除 V 内同名地址 store→load
+    // （ascendc-sync-audit SYNC-02 红线修正；对照 atvoss reduce_operator.h 以 LocalMemBar 覆盖的
+    //   同类 V store→V load 读-算-写链，此处直接重构为寄存器驻留，无 barrier 开销且无依赖）
+    uint32_t remaining = lanes;
+    __VEC_SCOPE__
+    {
+        AscendC::Reg::RegTensor<float> aReg, sReg;
+        AscendC::Reg::MaskReg mask;
+        for (uint16_t i = 0; i < repeatTime; ++i) {
+            const int32_t off = static_cast<int32_t>(i) * static_cast<int32_t>(kRepF32);
+            mask = AscendC::Reg::UpdateMask<float>(remaining);
+            AscendC::Reg::LoadAlign(aReg, s + off); // r=0 载入累加器
+            const uint16_t rowsU16 = static_cast<uint16_t>(rows);
+            for (uint16_t r = 1; r < rowsU16; ++r) {
+                AscendC::Reg::LoadAlign(sReg, s + static_cast<int32_t>(static_cast<uint32_t>(r) * lanes) + off);
+                AscendC::Reg::Add(aReg, aReg, sReg, mask);
+            }
+            AscendC::Reg::StoreAlign(d + off, aReg, mask);
+        }
+    }
+    AscendC::PipeBarrier<PIPE_ALL>();
+}
+
+// acc[lanes] += src[lanes]（fp32，VF；跨 tile 部分和累加）
+template <typename DType, bool isTailR>
+__aicore__ inline void ReduceStdV2UpdateKernel<DType, isTailR>::FastAccumLanes(AscendC::LocalTensor<float>& acc,
+                                                                               AscendC::LocalTensor<float>& src,
+                                                                               uint32_t lanes)
+{
+    __ubuf__ float* aPtr = reinterpret_cast<__ubuf__ float*>(acc.GetPhyAddr());
+    __ubuf__ float* sPtr = reinterpret_cast<__ubuf__ float*>(src.GetPhyAddr());
+    const uint16_t repeatTime = static_cast<uint16_t>((lanes + kRepF32U - 1) / kRepF32U);
+    __VEC_SCOPE__
+    {
+        AscendC::Reg::RegTensor<float> aReg, sReg;
+        AscendC::Reg::MaskReg mask;
+        uint32_t remaining = lanes;
+        for (uint16_t i = 0; i < repeatTime; ++i) {
+            const int32_t off = static_cast<int32_t>(i) * static_cast<int32_t>(kRepF32);
+            mask = AscendC::Reg::UpdateMask<float>(remaining);
+            AscendC::Reg::LoadAlign(aReg, aPtr + off);
+            AscendC::Reg::LoadAlign(sReg, sPtr + off);
+            AscendC::Reg::Add(aReg, aReg, sReg, mask);
+            AscendC::Reg::StoreAlign(aPtr + off, aReg, mask);
+        }
+    }
+    // SYNC-02 修正：acc 写回后立即对 V store→V load 建立顺序，覆盖紧随其后的 acc 读者
+    // （下一 tile FastAccumLanes / FastStageCacheLanes / FastPostOut；部分调用点之间虽有 ReduceSum
+    //   尾部 PipeBarrier，此处收敛在唯一写者出口保证全部读者可见性）。
+    // 实测修正：AscendC::Reg::LocalMemBar<VEC_STORE,VEC_LOAD>（mem_bar(VST_VLD)）在本平台 AIV 上
+    //   触发设备 259 Illegal instruction（B3b 二分定位），改用 PipeBarrier<PIPE_ALL>（核内 V→V
+    //   屏障，与 ReduceSum 尾部同一惯用法；每 tile 一次，开销可忽略）。
+    AscendC::PipeBarrier<PIPE_ALL>();
+}
+
+// dst[lanes] = 0.0f（Reducer::identity；acc 初始化）
+template <typename DType, bool isTailR>
+__aicore__ inline void ReduceStdV2UpdateKernel<DType, isTailR>::FastZeroLanes(AscendC::LocalTensor<float>& dst,
+                                                                              uint32_t lanes)
+{
+    __ubuf__ float* dPtr = reinterpret_cast<__ubuf__ float*>(dst.GetPhyAddr());
+    const uint16_t repeatTime = static_cast<uint16_t>((lanes + kRepF32U - 1) / kRepF32U);
+    __VEC_SCOPE__
+    {
+        AscendC::Reg::RegTensor<float> zReg;
+        AscendC::Reg::MaskReg mask;
+        uint32_t remaining = lanes;
+        for (uint16_t i = 0; i < repeatTime; ++i) {
+            const int32_t off = static_cast<int32_t>(i) * static_cast<int32_t>(kRepF32);
+            mask = AscendC::Reg::UpdateMask<float>(remaining);
+            AscendC::Reg::Duplicate(zReg, 0.0f);
+            AscendC::Reg::StoreAlign(dPtr + off, zReg, mask);
+        }
+    }
+}
+
+// acc[lanes] → cacheLocal[cacheOff .. cacheOff+lanes)：staging 进基线 cache 布局（f8 写路径复用）
+template <typename DType, bool isTailR>
+__aicore__ inline void ReduceStdV2UpdateKernel<DType, isTailR>::FastStageCacheLanes(
+    AscendC::LocalTensor<float>& cacheLocal, AscendC::LocalTensor<float>& acc, int64_t cacheOff, uint32_t lanes)
+{
+    __ubuf__ float* cPtr = reinterpret_cast<__ubuf__ float*>(cacheLocal.GetPhyAddr()) + static_cast<int32_t>(cacheOff);
+    __ubuf__ float* aPtr = reinterpret_cast<__ubuf__ float*>(acc.GetPhyAddr());
+    const uint16_t repeatTime = static_cast<uint16_t>((lanes + kRepF32U - 1) / kRepF32U);
+    __VEC_SCOPE__
+    {
+        AscendC::Reg::RegTensor<float> aReg;
+        AscendC::Reg::MaskReg mask;
+        uint32_t remaining = lanes;
+        for (uint16_t i = 0; i < repeatTime; ++i) {
+            const int32_t off = static_cast<int32_t>(i) * static_cast<int32_t>(kRepF32);
+            mask = AscendC::Reg::UpdateMask<float>(remaining);
+            AscendC::Reg::LoadAlign(aReg, aPtr + off);
+            AscendC::Reg::StoreAlign(cPtr + off, aReg, mask);
+        }
+    }
+}
+
+// post_op + 输出：src[lanes]（fp32）→ ×cof（[max(var,0)+Sqrt if if_std]）→ Cast→D_T → CopyOut
+//   （与 PostElewiseVar/Std + CopyOut 逐语义一致，仅数据源为快速路径规约结果）
+template <typename DType, bool isTailR>
+__aicore__ inline void ReduceStdV2UpdateKernel<DType, isTailR>::FastPostOut(AscendC::LocalTensor<float>& src,
+                                                                            int64_t outElemOff, uint32_t lanes)
+{
+    __ubuf__ float* srcPtr = reinterpret_cast<__ubuf__ float*>(src.GetPhyAddr());
+    auto outLocal = outQue_.AllocTensor<D_T>();
+    __ubuf__ D_T* outPtr = reinterpret_cast<__ubuf__ D_T*>(outLocal.GetPhyAddr());
+
+    const uint16_t repeatTime = static_cast<uint16_t>((lanes + kRepF32U - 1) / kRepF32U);
+    __VEC_SCOPE__
+    {
+        AscendC::Reg::RegTensor<float> f32Reg, zeroReg;
+        AscendC::Reg::MaskReg mask;
+        uint32_t remaining = lanes;
+        for (uint16_t i = 0; i < repeatTime; ++i) {
+            const int32_t off = static_cast<int32_t>(i) * static_cast<int32_t>(kRepF32);
+            mask = AscendC::Reg::UpdateMask<float>(remaining);
+            AscendC::Reg::LoadAlign(f32Reg, srcPtr + off);
+            AscendC::Reg::Muls(f32Reg, f32Reg, cof_, mask); // post_op: var = sq_sum × cof
+            if (ifStd_ != 0) {
+                AscendC::Reg::Duplicate(zeroReg, 0.0f);
+                AscendC::Reg::Max(f32Reg, f32Reg, zeroReg, mask); // max(var,0) 保护
+                AscendC::Reg::Sqrt(f32Reg, f32Reg, mask);         // std = sqrt(var)
+            }
+            if constexpr (kIsFp32) {
+                AscendC::Reg::StoreAlign(outPtr + off, f32Reg, mask);
+            } else {
+                AscendC::Reg::RegTensor<D_T> b16Reg;
+                AscendC::Reg::Cast<D_T, float, kCastTraitFromFp32>(b16Reg, f32Reg, mask);
+                AscendC::Reg::StoreAlign<D_T, AscendC::Reg::StoreDist::DIST_PACK_B32>(outPtr + off, b16Reg, mask);
+            }
+        }
+    }
+    outQue_.EnQue(outLocal);
+
+    auto outDeq = outQue_.DeQue<D_T>();
+    DataCopyExtParams outParams;
+    outParams.blockLen = static_cast<uint32_t>(lanes * static_cast<int64_t>(sizeof(D_T)));
+    outParams.blockCount = 1;
+    outParams.srcStride = 0;
+    outParams.dstStride = 0;
+    DataCopyPad(outputGm_[outElemOff], outDeq, outParams);
+    outQue_.FreeTensor(outDeq);
+}
+
+// fast-contig AR 主流程（normal 模板，tail-R，fastContig==1）：
+//   2 轴 [rows, R]：本核行区间整段连续，tile = [rowsPerTile × R] 连续大 burst → AR {rows, R}
+//                  → 逐 tile post→CopyOut（无跨 tile 状态）。
+//   4 轴 [A0, R0, A1, R1]：单位 = 1 个 a0 列（数据 [R0 × A1 × R1] 连续），tile = [rowsPerTile ×
+//                  A1×R1] 连续 → 两步链式 AR {rows×A1, R1} → RA {rows, A1}（f3）→ acc[A1] 跨
+//                  tile fp32 累加 → 单位末 post→CopyOut。
+template <typename DType, bool isTailR>
+__aicore__ inline void ReduceStdV2UpdateKernel<DType, isTailR>::FastProcessNormal()
+{
+    const bool twoAxis = (axisNum_ == 2);
+    const int64_t midA = twoAxis ? 1 : axisShape_[axisNum_ - 2]; // 2 轴=1；4 轴=A1
+    const int64_t innerR = axisShape_[axisNum_ - 1];             // 2 轴=R；4 轴=R1
+    const int64_t laneElems = fastLaneElems_;                    // == midA × innerR
+    const int64_t rowsPerTile = fastRowsPerTile_;
+    const int64_t unitCnt = fastUnitCnt_;                 // 2 轴=总行数；4 轴=A0
+    const int64_t unitRows = twoAxis ? 1 : axisShape_[1]; // 4 轴=每 a0 的 R0 行数
+    const int64_t unitStride = axisStride_[0];            // 2 轴=R；4 轴=R0×A1×R1
+
+    const int64_t blockIdx = static_cast<int64_t>(GetBlockIdx());
+    const int64_t unitsPerCore = (unitCnt + usedCoreNum_ - 1) / usedCoreNum_;
+    const int64_t uBegin = blockIdx * unitsPerCore;
+    const int64_t uEnd = (uBegin + unitsPerCore < unitCnt) ? (uBegin + unitsPerCore) : unitCnt;
+
+    auto tmpAll = tmpBuf_.Get<float>();
+    auto sq = tmpAll;                                        // slot0：fp32 sub/square tile
+    auto dst1 = tmpAll[static_cast<int32_t>(tmpSlotElems_)]; // slot1 起点：AR step1 结果
+    if (twoAxis) {
+        // ── 2 轴 [rows, R]：tile 连续大 burst（f2），紧凑 AR 规约直出 ──
+        for (int64_t row = uBegin; row < uEnd; row += rowsPerTile) {
+            const int64_t rowsThis = (row + rowsPerTile < uEnd) ? rowsPerTile : (uEnd - row);
+            const int64_t n = rowsThis * laneElems;
+            auto preInX = preInXQue_.AllocTensor<D_T>();
+            auto preInMean = preInMeanQue_.AllocTensor<D_T>();
+            FastCopyContig(preInX, xGm_, row * laneElems, n);
+            FastCopyContig(preInMean, meanGm_, row * laneElems, n);
+            preInXQue_.EnQue(preInX);
+            preInMeanQue_.EnQue(preInMean);
+            auto deqX = preInXQue_.DeQue<D_T>();
+            auto deqMean = preInMeanQue_.DeQue<D_T>();
+            FastSubSquareCompact(deqX, deqMean, static_cast<uint32_t>(n));
+            preInXQue_.FreeTensor(deqX);
+            preInMeanQue_.FreeTensor(deqMean);
+            FastReduceInnerAR(dst1, sq, static_cast<uint32_t>(rowsThis), static_cast<uint32_t>(innerR));
+            FastPostOut(dst1, row, static_cast<uint32_t>(rowsThis)); // 每 tile rowsThis 个输出
+        }
+        return;
+    }
+    // ── 4 轴 [A0, R0, A1, R1]：两步链式 + acc（f3）──
+    // slot1 子缓冲偏移全部 32B 量化（FastCeil8Elems），与 host slot 公式一致（设备 340 修正）
+    const int64_t dst1Elems = FastCeil8Elems(rowsPerTile * midA + 64);
+    const int64_t dst2Elems = FastCeil8Elems(midA + 64);
+    auto dst2 = tmpAll[static_cast<int32_t>(tmpSlotElems_) + static_cast<int32_t>(dst1Elems)];
+    auto acc = tmpAll[static_cast<int32_t>(tmpSlotElems_) + static_cast<int32_t>(dst1Elems + dst2Elems)];
+    for (int64_t u = uBegin; u < uEnd; ++u) {
+        const int64_t gmUnitBase = u * unitStride;
+        const int64_t outUnitBase = u * fastUnitOutLanes_; // == u × A1（输出 dense A 布局）
+        FastZeroLanes(acc, static_cast<uint32_t>(midA));
+        for (int64_t r0 = 0; r0 < unitRows; r0 += rowsPerTile) {
+            const int64_t rowsThis = (r0 + rowsPerTile < unitRows) ? rowsPerTile : (unitRows - r0);
+            const int64_t n = rowsThis * laneElems;
+            auto preInX = preInXQue_.AllocTensor<D_T>();
+            auto preInMean = preInMeanQue_.AllocTensor<D_T>();
+            FastCopyContig(preInX, xGm_, gmUnitBase + r0 * laneElems, n);
+            FastCopyContig(preInMean, meanGm_, gmUnitBase + r0 * laneElems, n);
+            preInXQue_.EnQue(preInX);
+            preInMeanQue_.EnQue(preInMean);
+            auto deqX = preInXQue_.DeQue<D_T>();
+            auto deqMean = preInMeanQue_.DeQue<D_T>();
+            FastSubSquareCompact(deqX, deqMean, static_cast<uint32_t>(n));
+            preInXQue_.FreeTensor(deqX);
+            preInMeanQue_.FreeTensor(deqMean);
+            // step1：{rowsThis×A1, R1} 紧凑 AR → dst1[rowsThis×A1]
+            FastReduceInnerAR(dst1, sq, static_cast<uint32_t>(rowsThis * midA), static_cast<uint32_t>(innerR));
+            // step2：{rowsThis, A1} 紧凑 RA → dst2[A1]（dimR=rowsThis≠64 护栏在 FastReduceRowsRA 内）
+            FastReduceRowsRA(dst2, dst1, static_cast<uint32_t>(rowsThis), static_cast<uint32_t>(midA));
+            FastAccumLanes(acc, dst2, static_cast<uint32_t>(midA));
+        }
+        FastPostOut(acc, outUnitBase, static_cast<uint32_t>(midA)); // 每 a0 单元 A1 个输出
+    }
+}
+
+// fast-contig RA 快速 Phase1（group 模板，tail-A，fastContig==2，axisNum==3 [A0, R, A_lanes]）：
+//   复用既有 2D 分核（aChunkIdx × rChunkIdx）与 workspace 布局（f8：Phase1→SyncAll→Phase2
+//   骨架不变，Phase2 原样复用）。单 R 轴（门控保证）下把本核 r-chunk 区间线性化为连续行区间，
+//   每 a0 子块 [rows × lanes] 连续大 burst 载入 + 紧凑 RA {rows, lanes} → 每 tile [lanes] 部分和
+//   fp32 acc 累加（UB 常驻）→ staging 进 cacheBuf 基线布局 → 既有 Phase1OutputToWorkspace 写出
+//   （V↔MTE3 fence 在其内部，沿用现状；不新增跨核同步原语）。
+template <typename DType, bool isTailR>
+__aicore__ inline void ReduceStdV2UpdateKernel<DType, isTailR>::FastPhase1Group()
+{
+    const int64_t blockIdx = static_cast<int64_t>(GetBlockIdx());
+    // —— 与既有 Phase1Process 相同的 2D 分核解码（f8 骨架保持）——
+    const int64_t rOuter = rLoopCntTotal_;
+    const int64_t aChunkIdx = blockIdx / rGroupCnt_;
+    const int64_t rChunkIdx = blockIdx % rGroupCnt_;
+    const int64_t rSmallGroupLoopCnt = rOuter / rGroupCnt_;
+    const int64_t rBigGroupCnt = rOuter % rGroupCnt_;
+    const int64_t rBigGroupLoopCnt = rSmallGroupLoopCnt + (rBigGroupCnt > 0 ? 1 : 0);
+    int64_t rStart = 0;
+    int64_t rCount = 0;
+    if (rChunkIdx < rBigGroupCnt) {
+        rStart = rChunkIdx * rBigGroupLoopCnt;
+        rCount = rBigGroupLoopCnt;
+    } else {
+        rStart = rBigGroupCnt * rBigGroupLoopCnt + (rChunkIdx - rBigGroupCnt) * rSmallGroupLoopCnt;
+        rCount = rSmallGroupLoopCnt;
+    }
+    if (rStart >= rOuter) {
+        return; // 防御性早退（与基线一致）
+    }
+    const int64_t rEnd = rStart + rCount;
+
+    int64_t aSplitChunkIdx;
+    int64_t chunkGmOff;
+    int64_t chunkOutOff;
+    UnravelALoop(aChunkIdx, aSplitChunkIdx, chunkGmOff, chunkOutOff);
+    const int64_t aSplitAxisSize = axisShape_[aSplit_];
+    const int64_t aSplitStride = axisStride_[aSplit_];
+    const int64_t aSplitOutStr = outStride_[aSplit_];
+    const int64_t aChunkStart = aSplitChunkIdx * aUbFactor_;
+    const int64_t aEndVal = aChunkStart + aUbFactor_;
+    const int64_t aLen = (aEndVal > aSplitAxisSize) ? (aSplitAxisSize - aChunkStart) : aUbFactor_;
+    if (aLen <= 0) {
+        return;
+    }
+    chunkGmOff += aChunkStart * aSplitStride;
+    chunkOutOff += aChunkStart * aSplitOutStr;
+
+    // —— fast 分支：单 R 轴（axisNum==3 门控保证），r-chunk 区间线性化为连续行区间 ——
+    const int64_t lanes = innerAProd_;              // 最内 A 轴 lanes（axisNum==3 时 = axisShape[2]）
+    const int64_t rRowsTotal = axisShape_[rSplit_]; // R 轴总行数
+    const int64_t rowStart = rStart * rUbFactor_;
+    const int64_t rowEnd = (rEnd * rUbFactor_ < rRowsTotal) ? (rEnd * rUbFactor_) : rRowsTotal;
+
+    // f10（round2）：fastDb==1 子分支（062，host f11 在 lanes×4B%32≠0 且 UB 预算可容纳时下发）
+    //   → depth-2 preIn 双缓冲流水（MTE2 载入 tile i+1 与 VEC 计算 tile i 重叠，框架 TQue
+    //   per-slot 事件反压）；骨架/Phase2/workspace 语义不变（f8），由 FlatDb 变体承载后返回。
+    if (fastDb_ == 1) {
+        FastPhase1GroupFlatDb(chunkGmOff, chunkOutOff, aLen, rChunkIdx, rowStart, rowEnd);
+        return;
+    }
+    // —— fastDb==0（037 库对齐 / UB 装不下回退）：round1 单缓冲路径（InitBuffer depth=1 逐字节等价）——
+    auto tmpAll = tmpBuf_.Get<float>();
+    auto sq = tmpAll;                                        // slot0：fp32 sub/square tile
+    auto dstL = tmpAll[static_cast<int32_t>(tmpSlotElems_)]; // slot1 起点：RA 结果 [lanes+64]
+    // accL 偏移 32B 量化（FastCeil8Elems），与 host slot 公式一致（设备 340 修正）
+    auto accL = tmpAll[static_cast<int32_t>(tmpSlotElems_) + static_cast<int32_t>(FastCeil8Elems(lanes + 64))]; // acc
+    auto cacheLocal = cacheBuf_.Get<float>();
+
+    for (int64_t a0 = 0; a0 < aLen; ++a0) {
+        const int64_t gmA = chunkGmOff + a0 * aSplitStride; // 每 a0：[rows × lanes] 连续块（f2）
+        FastZeroLanes(accL, static_cast<uint32_t>(lanes));
+        for (int64_t row = rowStart; row < rowEnd; row += fastRowsPerTile_) {
+            const int64_t rowsThis = (row + fastRowsPerTile_ < rowEnd) ? fastRowsPerTile_ : (rowEnd - row);
+            const int64_t n = rowsThis * lanes;
+            auto preInX = preInXQue_.AllocTensor<D_T>();
+            auto preInMean = preInMeanQue_.AllocTensor<D_T>();
+            FastCopyContig(preInX, xGm_, gmA + row * lanes, n);
+            FastCopyContig(preInMean, meanGm_, gmA + row * lanes, n);
+            preInXQue_.EnQue(preInX);
+            preInMeanQue_.EnQue(preInMean);
+            auto deqX = preInXQue_.DeQue<D_T>();
+            auto deqMean = preInMeanQue_.DeQue<D_T>();
+            FastSubSquareCompact(deqX, deqMean, static_cast<uint32_t>(n));
+            preInXQue_.FreeTensor(deqX);
+            preInMeanQue_.FreeTensor(deqMean);
+            // 紧凑 RA {rowsThis, lanes}（f3 round2 收紧）：仅 lanes%8==0（行距 32B 对齐，037）允许
+            //   调库 ReduceSum<RA>；lanes×4B%32≠0 一律走 f9 核内行界二分平折（062；fastDb=0 回退
+            //   场景同样不调库）。规约外轴 rowsThis 的 ≠64 护栏在 FastReduceRowsRA 内。
+            if (((lanes * 4) % 32) == 0) {
+                FastReduceRowsRA(dstL, sq, static_cast<uint32_t>(rowsThis), static_cast<uint32_t>(lanes));
+            } else {
+                FastReduceRowsRAFlat(dstL, sq, static_cast<uint32_t>(rowsThis), static_cast<uint32_t>(lanes));
+            }
+            FastAccumLanes(accL, dstL, static_cast<uint32_t>(lanes));
+        }
+        // staging 进基线 cache 布局（[a0_local × innerAProdAlign_ + a1]），写路径复用（f8）
+        FastStageCacheLanes(cacheLocal, accL, a0 * innerAProdAlign_, static_cast<uint32_t>(lanes));
+    }
+    // workspace 写出：复用既有 Phase1OutputToWorkspace（rCount=1 → cacheCount=1 → rootOff=0，
+    //   读取 cacheBuf[0] 的基线块结构；V↔MTE3 fence 与 DataCopyPad 语义均沿用现状，f8）
+    Phase1OutputToWorkspace(chunkOutOff, aLen, rChunkIdx, 1);
+}
+
+// f9（round2）：核内行界二分平折 FastReduceRowsRAFlat(dst[lanes], src, rows, lanes)。
+//   仅 fastContig==2 且 lanes×4B%32≠0 分支调用（062；替代库 ReduceRAReuseSourceUnAligned 的
+//   逐行 LoadUnAlign 折叠链）。把 [rows, lanes] 紧凑 fp32 平面在行数 8 倍数边界对半折叠：
+//     主循环 rows≥16：h = ⌊rows/2⌋ 向下取 8 的倍数（h×lanes×4B%32==0 → 两侧 LoadAlign/Add/
+//     StoreAlign 全对齐整 VL，尾块 UpdateMask），sq[i] += sq[i+h×lanes]（i < h×lanes）；
+//     每级 1 次 AscendC::PipeBarrier<PIPE_ALL>()（V store→下一级 V load 顺序，round1 板上惯用法）；
+//     (rows/2)%8≠0 时上方剩余行 [2h, rows)（= rows mod 16 ≤ 15 行）逐行 peel 进标量累加器；
+//     r ← h。rows<16 末段逐行标量累加后写 dst[lanes]（末段前 1 次 PipeBarrier 覆盖
+//     V store→标量 load 顺序；无折叠级时覆盖 FastSubSquareCompact 写→标量读）。求和顺序=fp32
+//     二分树（与库对齐 Concat 实现同构，037 板上 8.40× 同构验证）。f4：sq 槽尾部 ≥64 fp32 余量
+//     （host 槽公式 Ceil8(r×lanes+64)）覆盖 masked 尾块整 VL 读写。返回前 1 次 PipeBarrier
+//     覆盖 dst 标量写→后续 FastAccumLanes VF 读（与 round1 FastReduceRowsRA 尾部同一惯用法）。
+template <typename DType, bool isTailR>
+__aicore__ inline void ReduceStdV2UpdateKernel<DType, isTailR>::FastReduceRowsRAFlat(AscendC::LocalTensor<float>& dst,
+                                                                                     AscendC::LocalTensor<float>& src,
+                                                                                     uint32_t rows, uint32_t lanes)
+{
+    __ubuf__ float* s = reinterpret_cast<__ubuf__ float*>(src.GetPhyAddr());
+    __ubuf__ float* d = reinterpret_cast<__ubuf__ float*>(dst.GetPhyAddr());
+    // 标量累加器（peel 行 + <16 行末段）：host 门控保证本分支最内行 ≤96B → lanes ≤ 48（b16），64 为护栏
+    float acc[64];
+    for (uint32_t l = 0; l < lanes; ++l) {
+        acc[l] = 0.0f;
+    }
+    uint32_t r = rows;
+    while (r >= 16u) {
+        const uint32_t h = (r / 2u) & 0xFFFFFFF8u; // ⌊r/2⌋ 向下取 8 的倍数（r≥16 → h≥8）
+        const uint32_t n = h * lanes;              // 折半元素数（h×lanes×4B%32==0，全对齐）
+        const uint16_t rep = static_cast<uint16_t>((n + kRepF32U - 1) / kRepF32U);
+        __VEC_SCOPE__
+        {
+            AscendC::Reg::RegTensor<float> lo, hi;
+            AscendC::Reg::MaskReg mask;
+            uint32_t remaining = n; // UpdateMask 按引用自减，调用方不得重复递减
+            for (uint16_t i = 0; i < rep; ++i) {
+                const int32_t off = static_cast<int32_t>(i) * static_cast<int32_t>(kRepF32);
+                mask = AscendC::Reg::UpdateMask<float>(remaining);
+                AscendC::Reg::LoadAlign(lo, s + off);                           // 下半 [0, h)
+                AscendC::Reg::LoadAlign(hi, s + off + static_cast<int32_t>(n)); // 上半 [h, 2h)
+                AscendC::Reg::Add(lo, lo, hi, mask);
+                AscendC::Reg::StoreAlign(s + off, lo, mask);
+            }
+        }
+        AscendC::PipeBarrier<PIPE_ALL>(); // 每级 1 次：本级 store→下级 load 的 V→V 顺序
+        const uint32_t p = r - 2u * h;    // peel 行数 = r mod 16（(r/2)%8≠0 或 r 奇数时 >0）
+        for (uint32_t j = 0; j < p; ++j) {
+            __ubuf__ float* rowp = s + (2u * h + j) * lanes;
+            for (uint32_t l = 0; l < lanes; ++l) {
+                acc[l] += rowp[l];
+            }
+        }
+        r = h;
+    }
+    AscendC::PipeBarrier<PIPE_ALL>(); // 末段前屏障：V store→标量 load 顺序（多级时冗余但无害）
+    for (uint32_t j = 0; j < r; ++j) {
+        __ubuf__ float* rowj = s + j * lanes;
+        for (uint32_t l = 0; l < lanes; ++l) {
+            acc[l] += rowj[l];
+        }
+    }
+    for (uint32_t l = 0; l < lanes; ++l) {
+        d[l] = acc[l];
+    }
+    AscendC::PipeBarrier<PIPE_ALL>(); // 尾部屏障：dst 标量写→FastAccumLanes VF 读
+}
+
+// f10（round2）：RA flat-fold + depth-2 输入双缓冲流水（仅 fastContig==2 && fastDb==1 分支，062）。
+//   流水结构（软件提交序）：prologue 载入 tile 0 → 每代 { DeQue(tile i) → sub/square → Free →
+//   f9 平折 → acc 累加 → Alloc/Copy/EnQue(tile i+1) }——tile i+1 的 MTE2 载入与 tile i 的 VEC
+//   计算重叠。深度 2 物理槽由 InitBuffer num=2 提供（每路 2 槽），软件 outstanding ≤1（EnQue 后
+//   立即 DeQue），队列 FIFO 语义与 TQue depth=1 模板一致；MTE2→V 与 V→MTE2（槽复用）顺序由框架
+//   TQue per-slot 事件（get_buf/rls_buf）保障，无手动 SetFlag/WaitFlag/SyncAll 原语（f8）。
+//   sq/dstL/accL 单缓冲（V-pipe 程序序 + f9 每级 PipeBarrier + FastAccumLanes 尾部 PipeBarrier）。
+//   Phase1→SyncAll→Phase2 骨架与 workspace 读写语义不变（f8）：末尾沿用既有 Phase1OutputToWorkspace。
+template <typename DType, bool isTailR>
+__aicore__ inline void ReduceStdV2UpdateKernel<DType, isTailR>::FastPhase1GroupFlatDb(int64_t chunkGmOff,
+                                                                                      int64_t chunkOutOff, int64_t aLen,
+                                                                                      int64_t rChunkIdx,
+                                                                                      int64_t rowStart, int64_t rowEnd)
+{
+    const int64_t lanes = innerAProd_; // == fastLaneElems_（axisNum==3 门控保证）
+    const int64_t rpt = fastRowsPerTile_;
+    const int64_t aSplitStride = axisStride_[aSplit_];
+    auto tmpAll = tmpBuf_.Get<float>();
+    auto sq = tmpAll;                                        // slot0：fp32 sub/square tile（+64 余量，f4）
+    auto dstL = tmpAll[static_cast<int32_t>(tmpSlotElems_)]; // slot1 起点：f9 平折结果 [lanes+64]
+    // accL 偏移 32B 量化（FastCeil8Elems），与 host slot 公式一致（设备 340 修正）
+    auto accL = tmpAll[static_cast<int32_t>(tmpSlotElems_) +
+                       static_cast<int32_t>(FastCeil8Elems(lanes + 64))]; // 跨 tile fp32 acc
+    auto cacheLocal = cacheBuf_.Get<float>();
+
+    for (int64_t a0 = 0; a0 < aLen; ++a0) {
+        const int64_t gmA = chunkGmOff + a0 * aSplitStride; // 每 a0：[rows × lanes] 连续块（f2）
+        FastZeroLanes(accL, static_cast<uint32_t>(lanes));
+        const int64_t rowSpan = rowEnd - rowStart;
+        const int64_t tileCnt = (rowSpan + rpt - 1) / rpt;
+        // prologue：tile 0 载入（MTE2），此后每代先消费再预取
+        {
+            const int64_t rowsThis = (rpt < rowSpan) ? rpt : rowSpan;
+            const int64_t n = rowsThis * lanes;
+            auto preInX = preInXQue_.AllocTensor<D_T>();
+            auto preInMean = preInMeanQue_.AllocTensor<D_T>();
+            FastCopyContig(preInX, xGm_, gmA + rowStart * lanes, n);
+            FastCopyContig(preInMean, meanGm_, gmA + rowStart * lanes, n);
+            preInXQue_.EnQue(preInX);
+            preInMeanQue_.EnQue(preInMean);
+        }
+        for (int64_t t = 0; t < tileCnt; ++t) {
+            const int64_t row = rowStart + t * rpt;
+            const int64_t rowsThis = (row + rpt < rowEnd) ? rpt : (rowEnd - row);
+            auto deqX = preInXQue_.DeQue<D_T>();
+            auto deqMean = preInMeanQue_.DeQue<D_T>();
+            // The current tile is dequeued: at most one next tile is queued.
+            // Use the other physical buffer for DMA before issuing current arithmetic.
+            if (t + 1 < tileCnt) {
+                const int64_t rowN = row + rpt;
+                const int64_t rowsN = (rowN + rpt < rowEnd) ? rpt : (rowEnd - rowN);
+                const int64_t nN = rowsN * lanes;
+                auto preInX = preInXQue_.AllocTensor<D_T>();
+                auto preInMean = preInMeanQue_.AllocTensor<D_T>();
+                FastCopyContig(preInX, xGm_, gmA + rowN * lanes, nN);
+                FastCopyContig(preInMean, meanGm_, gmA + rowN * lanes, nN);
+                preInXQue_.EnQue(preInX);
+                preInMeanQue_.EnQue(preInMean);
+            }
+            FastSubSquareCompact(deqX, deqMean, static_cast<uint32_t>(rowsThis * lanes));
+            preInXQue_.FreeTensor(deqX);
+            preInMeanQue_.FreeTensor(deqMean);
+            // f9 平折（f3：本分支 lanes×4B%32≠0，无库 RA 调用）
+            FastReduceRowsRAFlat(dstL, sq, static_cast<uint32_t>(rowsThis), static_cast<uint32_t>(lanes));
+            FastAccumLanes(accL, dstL, static_cast<uint32_t>(lanes));
+        }
+        // staging 进基线 cache 布局（[a0_local × innerAProdAlign_ + a1]），写路径复用（f8）
+        FastStageCacheLanes(cacheLocal, accL, a0 * innerAProdAlign_, static_cast<uint32_t>(lanes));
+    }
+    // workspace 写出：复用既有 Phase1OutputToWorkspace（rCount=1 → cacheCount=1 → rootOff=0，
+    //   读取 cacheBuf[0] 的基线块结构；V↔MTE3 fence 与 DataCopyPad 语义均沿用现状，f8）
+    Phase1OutputToWorkspace(chunkOutOff, aLen, rChunkIdx, 1);
+}
+
+#endif // __NPU_ARCH__ == 3510
+
 // ════════════════════════════════════════════════════════════════════════════
 // Group 模板：A×R 2D 分核 Phase 1 → SyncAll → Phase 2 RA mini-kernel
 // ════════════════════════════════════════════════════════════════════════════
@@ -1097,6 +1756,16 @@ __aicore__ inline void ReduceStdV2UpdateKernel<DType, isTailR>::Phase1Process()
     if (blockIdx >= static_cast<int64_t>(usedCoreNum_)) {
         return;
     }
+
+    // fast-contig 运行时路由（round1 新增）：fastContig==0 走下方原 Phase1（逐行为不变）；
+    //   RA 快速 Phase1 保持 Phase1→SyncAll→Phase2 骨架与 workspace 读写语义（契约 f8），
+    //   仅 __NPU_ARCH__==3510 编译（f5）。
+#if __NPU_ARCH__ == 3510
+    if (fastContig_ == 2) {
+        FastPhase1Group();
+        return;
+    }
+#endif
 
     const int64_t aOuter = aLoopCntTotal_;
     const int64_t rOuter = rLoopCntTotal_;

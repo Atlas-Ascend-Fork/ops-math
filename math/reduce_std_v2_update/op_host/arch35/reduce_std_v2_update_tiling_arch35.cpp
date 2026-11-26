@@ -839,6 +839,417 @@ static void ComputeGroupSplit(ReduceStdV2UpdateCtx& ctx)
     ctx.isGroup = true;
 }
 
+// 10.5) fast-contig 快速路径判定与字段下发（round1 新增，契约 f1/f5 门控）
+//   机制：短内轴（最内 GM 行 <32B，或 pad 放大 ≥1.10 且最内行 ≤96B）的 MTE 逐行 32B 块风暴，
+//         改为 GM 连续大 burst（≥16KB/tile，契约 f2）+ UB 内紧凑规约（srcInnerPad=false，契约 f3）。
+//   门控全部命中才下发 fastContig≠0；未命中时新字段全 0，其余 tiling 字段与基线逐字段一致。
+//   仅在本函数内追加写入 tilingdata 的 fast 字段（及门控命中的 AR 快速路径 UB 尺寸），
+//         不改任何既有 tiling 决策函数。
+// f5：host 侧平台门控——仅支持目标硬件特性的平台（arch35/DAV_3510）下发；
+//     ascend350 / ascend960dt 等非目标 SoC 恒不命中（fastContig=0，kernel 走原路径）。
+static bool FastContigSocAllowed(gert::TilingContext* context)
+{
+    fe::PlatFormInfos* platformInfoPtr = context->GetPlatformInfo();
+    if (platformInfoPtr == nullptr) {
+        return false;
+    }
+    return platform_ascendc::PlatformAscendC(platformInfoPtr).GetSocVersion() ==
+           platform_ascendc::SocVersion::ASCEND950;
+}
+
+// f1 门控第二因子：最内 GM 行字节数（<32B 块风暴家族）或（pad 放大 ≥1.10 且最内行 ≤96B，015 家族）
+static bool FastContigShapeTriggered(const ReduceStdV2UpdateCtx& ctx, int64_t innerElems)
+{
+    const int64_t innerBytes = innerElems * ctx.dtypeSize;
+    const int64_t bsElem = ctx.blockSize / ctx.dtypeSize;
+    const int64_t padded = (innerElems + bsElem - 1) / bsElem * bsElem;
+    const int64_t padRatioX10 = (innerElems > 0) ? (padded * 10) / innerElems : 0; // ×10 定点比较，避免浮点
+    if (innerBytes < 32) {
+        return true;
+    }
+    return padRatioX10 >= 11 && innerBytes <= 96;
+}
+
+static int64_t FastCeil32(int64_t bytes) { return (bytes + 31) / 32 * 32; }
+
+// fp32 元素数向上取整到 8（=32B）：与 kernel FastCeil8Elems 同一量化。
+// 快速路径 tmp 子缓冲（dst1/dst2/acc/dstL/accL）基址偏移与 slot 公式必须同用此量化，
+// 否则子缓冲基址非 32B 对齐 → VF LoadAlign/StoreAlign 触发设备 340（UB 地址未对齐）。
+static int64_t FastCeil8Elems(int64_t elems) { return (elems + 7) / 8 * 8; }
+
+static int64_t FastNextPow2(int64_t v)
+{
+    int64_t r = 1;
+    while (r < v) {
+        r *= 2;
+    }
+    return r;
+}
+
+// AR（normal/tail-R）rowsPerTile 求解：最小二幂起步使 tile ≥16KB，逐次翻倍，
+//   上限 tile ≤64KB 且整体 UB 预算（2×preIn 槽 + 2×tmp 槽 + cache 16KB + outQue）内可容纳；
+//   返回 0 表示预算内无法容纳 16KB tile（不下发）。
+// UB 布局（与 kernel FastProcessNormal 的 tmp 槽布局一致，f4：参与 adv_api ReduceSum 的
+//   buffer 尾部各留 ≥64 fp32 整 VL 粒度余量；全部子缓冲偏移按 FastCeil8Elems 32B 量化）：
+//   preIn x/mean 各 = Ceil32(tileBytes)；tmp slot0 = Ceil8(r×laneElems+64)×4（fp32 sub/square tile）；
+//   tmp slot1 = (Ceil8(r×midA+64) + 2×Ceil8(midA+64))×4（dst1 + dst2 + acc）；outQue = max(r,midA)×dt。
+static int64_t FastSolveRowsPerTileAR(int64_t laneElems, int64_t midA, int64_t dtypeSize, int64_t ubSize)
+{
+    constexpr int64_t kMinTileBytes = 16 * 1024;
+    constexpr int64_t kMaxTileBytes = 64 * 1024;
+    const int64_t laneBytes = laneElems * dtypeSize;
+    int64_t r = FastNextPow2((kMinTileBytes + laneBytes - 1) / laneBytes);
+    int64_t best = 0;
+    while (true) {
+        const int64_t tileBytes = r * laneBytes;
+        if (tileBytes > kMaxTileBytes) {
+            break;
+        }
+        const int64_t slot0 = FastCeil8Elems(r * laneElems + 64) * kFp32Bytes;
+        const int64_t slot1 = (FastCeil8Elems(r * midA + 64) + 2 * FastCeil8Elems(midA + 64)) * kFp32Bytes;
+        const int64_t total = 2 * FastCeil32(tileBytes) + 2 * FastCeil32(std::max(slot0, slot1)) +
+                              std::max(FastCeil32(std::max(r, midA) * dtypeSize), int64_t(32)) + kCacheBufBytes;
+        if (total > ubSize) {
+            break;
+        }
+        best = r;
+        r *= 2;
+    }
+    return best;
+}
+
+// RA（group/tail-A）rowsPerTile 求解：group 快速路径复用基线 UB 布局（f8：不改既有字段/骨架），
+//   tile 与 fp32 中转必须装进基线 preIn 槽（preReduceUbSize/2）与 tmp 槽（tmpBufUbSize）。
+static int64_t FastSolveRowsPerTileRA(int64_t lanes, int64_t dtypeSize, int64_t preInSlotBytes, int64_t tmpSlotBytes)
+{
+    constexpr int64_t kMinTileBytes = 16 * 1024;
+    constexpr int64_t kMaxTileBytes = 64 * 1024;
+    const int64_t laneBytes = lanes * dtypeSize;
+    int64_t r = FastNextPow2((kMinTileBytes + laneBytes - 1) / laneBytes);
+    int64_t best = 0;
+    while (true) {
+        const int64_t tileBytes = r * laneBytes;
+        if (tileBytes > kMaxTileBytes) {
+            break;
+        }
+        const int64_t slot0 = FastCeil8Elems(r * lanes + 64) * kFp32Bytes; // fp32 sub/square tile
+        const int64_t slot1 = 2 * FastCeil8Elems(lanes + 64) * kFp32Bytes; // RA 结果 dst + 跨 tile acc
+        if (FastCeil32(tileBytes) > preInSlotBytes || FastCeil32(std::max(slot0, slot1)) > tmpSlotBytes) {
+            break;
+        }
+        best = r;
+        r *= 2;
+    }
+    return best;
+}
+
+// RA flat-fold + DB rowsPerTile 求解（round2 f11，062 家族专用：lanes×4B%32≠0）：
+//   16KB≤tile≤64KB；UB 预算 = 4×Ceil32(tileBytes)（x/mean 各 depth=2 槽 preIn）
+//   + 2×Ceil32(FastCeil8Elems(r×lanes+64)×4)（tmpBuf 主+尾两槽，kernel 按 N_tmp=2 分配）
+//   + cacheBuf 16KB + outQue（基线 postReduceUbSize）≤ GetCoreMemSize(UB)；
+//   返回 0 表示预算内无法容纳 depth-2 双缓冲（不下发 fastDb，回退 round1 行为，graceful）。
+//   sq 槽尾部 ≥64 fp32 余量（f4）覆盖 f9 平折 masked 尾块的整 VL 读写。
+static int64_t FastSolveRowsPerTileRAFlatDb(int64_t lanes, int64_t dtypeSize, int64_t outQueBytes, int64_t ubSize)
+{
+    constexpr int64_t kMinTileBytes = 16 * 1024;
+    constexpr int64_t kMaxTileBytes = 64 * 1024;
+    const int64_t laneBytes = lanes * dtypeSize;
+    int64_t r = FastNextPow2((kMinTileBytes + laneBytes - 1) / laneBytes);
+    int64_t best = 0;
+    while (true) {
+        const int64_t tileBytes = r * laneBytes;
+        if (tileBytes > kMaxTileBytes) {
+            break;
+        }
+        const int64_t sqSlotBytes = FastCeil8Elems(r * lanes + 64) * kFp32Bytes;
+        const int64_t total = 4 * FastCeil32(tileBytes) + 2 * FastCeil32(sqSlotBytes) + kCacheBufBytes + outQueBytes;
+        if (total > ubSize) {
+            break;
+        }
+        best = r;
+        r *= 2;
+    }
+    return best;
+}
+
+// fast-contig 主判定（调用点：主入口 FillAndLogTilingData 之后；其 memset 已把新字段清 0）
+static void TryFillFastContigTiling(gert::TilingContext* context, ReduceStdV2UpdateCtx& ctx)
+{
+    if (ctx.dtypeSize != 2 && ctx.dtypeSize != 4) {
+        return; // f1：dtype ∈ {fp16, bf16, fp32}（本算子公开契约仅此三类，显式护栏）
+    }
+    if (!FastContigSocAllowed(context)) {
+        return; // f5：其他平台恒 fastContig=0
+    }
+    ReduceStdV2UpdateTilingData* td = context->GetTilingData<ReduceStdV2UpdateTilingData>();
+    if (td == nullptr) {
+        return;
+    }
+    if (!ctx.isGroup && ctx.isTailR) {
+        // AR 快速路径候选：normal 模板 + tail-R，axisNum ∈ {2, 4}（[A,R] / [A,R,A,R]）
+        if (ctx.axisNum != 2 && ctx.axisNum != 4) {
+            return;
+        }
+        const int64_t midA = (ctx.axisNum == 2) ? 1 : ctx.axisShape[2]; // 2 轴=1；4 轴=A1
+        const int64_t innerR = ctx.axisShape[ctx.axisNum - 1];          // 最内 R（2 轴=R；4 轴=R1）
+        const int64_t laneElems = midA * innerR;
+        const int64_t rowParallel = (ctx.axisNum == 2) ? ctx.axisShape[0] : ctx.axisShape[0] * midA;
+        if (rowParallel < 8 || innerR == 64) {
+            return; // f1：行并行度 ≥8；f3：参与 adv_api ReduceSum 的规约维 ≠64 护栏
+        }
+        if (!FastContigShapeTriggered(ctx, innerR)) {
+            return;
+        }
+        const int64_t originalRows = FastSolveRowsPerTileAR(laneElems, midA, ctx.dtypeSize, ctx.ubSize);
+        // The PR's rows==64 RA fallback uses aligned vector loads. An A1
+        // stride not divisible by eight floats is invalid, including a final
+        // 64-row tile. The split specialization keeps complete rows aligned.
+        const bool unalignedRA64 = ctx.axisNum == 4 && originalRows > 0 && midA % 8 != 0 &&
+                                   ((originalRows == 64 && ctx.axisShape[1] >= 64) ||
+                                    ctx.axisShape[1] % originalRows == 64);
+        int64_t alignedLanes = 1;
+        while ((alignedLanes * innerR * ctx.dtypeSize) % 32 != 0) {
+            alignedLanes *= 2;
+        }
+        const bool serialTiles = ctx.axisNum == 4 && originalRows > 0 && ctx.axisShape[0] < 8 &&
+                                 ctx.axisShape[1] > originalRows;
+        if (unalignedRA64 && midA < alignedLanes) {
+            return; // The legacy general reduction has no invalid aligned RA load.
+        }
+        if (ctx.axisNum == 4 && originalRows > 0 && midA >= alignedLanes && (serialTiles || unalignedRA64)) {
+            const int64_t chunksWanted = (ctx.coreNum + ctx.axisShape[0] - 1) / ctx.axisShape[0];
+            const int64_t desired = std::max(alignedLanes, midA / chunksWanted);
+            int64_t lanes = alignedLanes;
+            while (lanes < desired && lanes * 2 <= 64 && lanes * 2 <= midA) {
+                lanes *= 2;
+            }
+            // A small padding allowance can expose more independent outputs
+            // without padding each R1 reduction separately.
+            int64_t chunks = (midA + lanes - 1) / lanes;
+            const int64_t balancedChunks = std::min(midA, std::max(int64_t(1), ctx.coreNum / ctx.axisShape[0]));
+            const int64_t balanced = (midA + balancedChunks - 1) / balancedChunks;
+            const int64_t validBytes = balanced * innerR * ctx.dtypeSize;
+            if (ctx.dtypeSize == 4 && balanced > 0 && balanced < lanes &&
+                FastCeil32(validBytes) * 10 <= validBytes * 11) {
+                lanes = balanced;
+                chunks = balancedChunks;
+                td->fastDb = 2; // balanced output ranges; input queues remain depth 1
+            }
+            int64_t rows = 0;
+            const int64_t rowBytes = FastCeil32(lanes * innerR * ctx.dtypeSize);
+            const int64_t rowElems = rowBytes / ctx.dtypeSize;
+            const int64_t rowStep = FastNextPow2((16 * 1024 + rowBytes - 1) / rowBytes);
+            for (int64_t n = rowStep; n * rowBytes <= 64 * 1024; n += rowStep) {
+                const int64_t sqBytes = FastCeil8Elems(n * rowElems + 64) * kFp32Bytes;
+                const int64_t sumsBytes = 3 * FastCeil8Elems(rowElems + 64) * kFp32Bytes;
+                const int64_t total = 2 * FastCeil32(n * rowBytes) + sqBytes + sumsBytes + kCacheBufBytes +
+                                      FastCeil32(std::max(n, lanes) * ctx.dtypeSize);
+                if (total > ctx.ubSize) {
+                    break;
+                }
+                rows = n;
+            }
+            if (rows <= 0) {
+                return;
+            }
+            td->fastContig = 3;
+            td->fastLaneElems = rowElems;
+            td->fastRowsPerTile = rows;
+            td->fastUnitCnt = ctx.axisShape[0] * chunks;
+            ctx.usedCoreNum = std::min(static_cast<int64_t>(ctx.coreNum), td->fastUnitCnt);
+            td->usedCoreNum = ctx.usedCoreNum;
+            td->fastUnitOutLanes = lanes;
+            const int64_t tileBytes = FastCeil32(rows * rowBytes);
+            const int64_t slot0 = FastCeil8Elems(rows * rowElems + 64) * kFp32Bytes;
+
+            td->preReduceUbSize = 2 * tileBytes;
+            td->tmpBufUbSize = slot0;
+            td->postReduceUbSize = std::max(FastCeil32(std::max(rows, lanes) * ctx.dtypeSize), int64_t(32));
+            OP_LOGI(context, "  fastContig=3(AR-split): lanes=%ld rows=%ld units=%ld cores=%ld", lanes, rows,
+                    td->fastUnitCnt, static_cast<int64_t>(ctx.usedCoreNum));
+            return;
+        }
+        const int64_t rowsPerTile = FastSolveRowsPerTileAR(laneElems, midA, ctx.dtypeSize, ctx.ubSize);
+        if (rowsPerTile <= 0) {
+            return;
+        }
+        td->fastContig = 1;
+        td->fastLaneElems = laneElems;
+        td->fastRowsPerTile = rowsPerTile;
+        td->fastUnitCnt = ctx.axisShape[0];
+        td->fastUnitOutLanes = midA;
+        // 门控命中 case 的快速路径 UB 尺寸（复用既有 InitBuffer 语义；12 条对照 case 不进入本分支；
+        //   子缓冲偏移与 kernel FastCeil8Elems 同一 32B 量化）
+        const int64_t tileBytes = FastCeil32(rowsPerTile * laneElems * ctx.dtypeSize);
+        const int64_t slot0 = FastCeil8Elems(rowsPerTile * laneElems + 64) * kFp32Bytes;
+        const int64_t slot1 = (FastCeil8Elems(rowsPerTile * midA + 64) + 2 * FastCeil8Elems(midA + 64)) * kFp32Bytes;
+        td->preReduceUbSize = 2 * tileBytes;
+        td->tmpBufUbSize = FastCeil32(std::max(slot0, slot1));
+        td->postReduceUbSize = std::max(FastCeil32(std::max(rowsPerTile, midA) * ctx.dtypeSize), int64_t(32));
+        OP_LOGI(context,
+                "  fastContig=1(AR): laneElems=%ld rowsPerTile=%ld unitCnt=%ld unitOut=%ld | preRed=%ld tmp=%ld "
+                "postRed=%ld",
+                td->fastLaneElems, td->fastRowsPerTile, td->fastUnitCnt, td->fastUnitOutLanes, td->preReduceUbSize,
+                td->tmpBufUbSize, td->postReduceUbSize);
+    } else if (ctx.isGroup && !ctx.isTailR) {
+        // RA 快速路径候选：group 模板 + tail-A，axisNum == 3（[A0, R, A_lanes]）
+        if (ctx.axisNum != 3) {
+            return;
+        }
+        const int64_t lanes = ctx.axisShape[2]; // 最内 A 轴（= innerAProd）
+        if (ctx.axisShape[1] < 8) {
+            return; // f1：行并行度（R 行数）≥8
+        }
+        if (!FastContigShapeTriggered(ctx, lanes)) {
+            return;
+        }
+        if ((lanes * kFp32Bytes) % 32 != 0) {
+            // round2 f11：RA 非对齐行距（lanes×4B%32≠0，062 家族）→ flat-fold + DB 子分支。
+            //   求解 rowsPerTile 并下发 fastDb=1 + DB UB 尺寸（preReduce=4×Ceil32(tile)、
+            //   tmpBuf=Ceil32(Ceil8(r×lanes+64)×4)）；postReduce 沿用基线值（Phase2 的
+            //   aUbFactorP2 恒被 aTotal 截断，行为与 round1 逐值一致）。UB 预算装不下则
+            //   fastDb=0 回退下方 round1 行为（graceful）。
+            const int64_t rowsPerTile = FastSolveRowsPerTileRAFlatDb(lanes, ctx.dtypeSize, ctx.postReduceUbSize,
+                                                                     ctx.ubSize);
+            if (rowsPerTile > 0) {
+                const int64_t tileBytes = FastCeil32(rowsPerTile * lanes * ctx.dtypeSize);
+                td->fastContig = 2;
+                td->fastLaneElems = lanes;
+                td->fastRowsPerTile = rowsPerTile;
+                td->fastUnitCnt = ctx.axisShape[0];
+                td->fastUnitOutLanes = lanes;
+                td->fastDb = 1;
+                td->preReduceUbSize = 4 * tileBytes; // x/mean 各 depth=2 槽 × Ceil32(tileBytes)
+                td->tmpBufUbSize = FastCeil32(FastCeil8Elems(rowsPerTile * lanes + 64) * kFp32Bytes);
+                OP_LOGI(context,
+                        "  fastContig=2(RA-flat-db): lanes=%ld rowsPerTile=%ld | preRed=%ld tmp=%ld "
+                        "postRed=%ld(baseline)",
+                        td->fastLaneElems, td->fastRowsPerTile, td->preReduceUbSize, td->tmpBufUbSize,
+                        td->postReduceUbSize);
+                return;
+            }
+            // 深度 2 UB 预算装不下 → 不下发 fastDb（回退 round1 行为）
+        }
+        // 037 家族（lanes%8==0，行距 32B 对齐，库对齐 RA）与 fastDb=0 回退：round1 语义，
+        //   复用基线 UB 布局与 workspace 布局（f8），不改任何既有字段（fastDb 恒 0）
+        const int64_t rowsPerTile = FastSolveRowsPerTileRA(lanes, ctx.dtypeSize, ctx.preReduceUbSize / 2,
+                                                           ctx.tmpBufUbSize);
+        if (rowsPerTile <= 0) {
+            return; // 基线 UB 布局装不下 16KB tile → 不下发（保持基线路径）
+        }
+        td->fastContig = 2;
+        td->fastLaneElems = lanes;
+        td->fastRowsPerTile = rowsPerTile;
+        td->fastUnitCnt = ctx.axisShape[0];
+        td->fastUnitOutLanes = lanes;
+        OP_LOGI(context, "  fastContig=2(RA): lanes=%ld rowsPerTile=%ld (baseline UB layout reused)", td->fastLaneElems,
+                td->fastRowsPerTile);
+    }
+}
+
+// Compact contiguous tiles for previously unoptimized alternating patterns.
+// The first form partitions a long R axis with a small retained output. The
+// second partitions a long A axis with a small, power-of-two inner pattern.
+static ge::graphStatus TryFillDensePattern(gert::TilingContext* context, ReduceStdV2UpdateCtx& ctx)
+{
+    auto* td = context->GetTilingData<ReduceStdV2UpdateTilingData>();
+    if (td == nullptr || td->fastContig != 0 || ctx.dtypeSize != 2 || !FastContigSocAllowed(context)) {
+        return ge::GRAPH_SUCCESS;
+    }
+    int64_t aTotal = 1;
+    int32_t longestR = 1;
+    int32_t longestA = 0;
+    for (int32_t i = 0; i < ctx.axisNum; ++i) {
+        if (i % 2 == 0) {
+            aTotal *= ctx.axisShape[i];
+            if (ctx.axisShape[i] > ctx.axisShape[longestA])
+                longestA = i;
+        } else if (ctx.axisShape[i] > ctx.axisShape[longestR]) {
+            longestR = i;
+        }
+    }
+    int32_t axis = -1;
+    int32_t mode = 0;
+    int64_t prefixes = 1, block = 1, innerOut = 1, chunks = 1;
+    if (ctx.axisNum >= 4 && aTotal <= 16 && ctx.axisShape[longestR] >= 65536) {
+        for (int32_t i = 0; i < longestR; ++i)
+            prefixes *= ctx.axisShape[i];
+        for (int32_t i = longestR + 1; i < ctx.axisNum; ++i) {
+            block *= ctx.axisShape[i];
+            if (i % 2 == 0)
+                innerOut *= ctx.axisShape[i];
+        }
+        if (prefixes <= ctx.coreNum && block >= 2 && block <= 64) {
+            axis = longestR;
+            mode = 4;
+            chunks = std::min(ctx.axisShape[axis], ctx.coreNum / prefixes);
+        }
+    }
+    if (axis < 0 && ctx.axisNum >= 3 && ctx.axisShape[longestA] >= 4096) {
+        prefixes = 1;
+        block = 1;
+        innerOut = 1;
+        int64_t prefixA = 1;
+        for (int32_t i = 0; i < longestA; ++i) {
+            prefixes *= ctx.axisShape[i];
+            if (i % 2 == 0)
+                prefixA *= ctx.axisShape[i];
+        }
+        for (int32_t i = longestA + 1; i < ctx.axisNum; ++i) {
+            block *= ctx.axisShape[i];
+            if (i % 2 == 0)
+                innerOut *= ctx.axisShape[i];
+        }
+        const bool innerPower2 = innerOut > 0 && (innerOut & (innerOut - 1)) == 0;
+        if (prefixA == 1 && prefixes <= 8 && block <= 256 && innerOut <= 16 && innerPower2 && block / innerOut >= 2 &&
+            prefixes * (block / innerOut) <= 64) {
+            axis = longestA;
+            mode = 5;
+        }
+    }
+    if (axis < 0)
+        return ge::GRAPH_SUCCESS;
+    const int64_t rowBytes = block * ctx.dtypeSize;
+    const int64_t step = FastNextPow2((16 * 1024 + rowBytes - 1) / rowBytes);
+    const int64_t aAligned = FastCeil8Elems(aTotal);
+    int64_t rows = 0, sqBytes = 0, outBytes = 0;
+    for (int64_t n = step; n * rowBytes <= 64 * 1024; n += step) {
+        const int64_t sq = FastCeil8Elems(n * block + 64) * kFp32Bytes;
+        const int64_t extra = mode == 4 ? 3 * FastCeil8Elems(std::max(block, aAligned) + 64) * kFp32Bytes :
+                                          FastCeil8Elems(n * innerOut + 64) * kFp32Bytes;
+        const int64_t output = FastCeil32(std::max(int64_t(64), mode == 4 ? aAligned : n * innerOut) * ctx.dtypeSize);
+        const int64_t total = 2 * FastCeil32(n * rowBytes) + sq + extra + output + 256 + kCacheBufBytes;
+        if (total > ctx.ubSize)
+            break;
+        rows = n;
+        sqBytes = sq;
+        outBytes = output;
+    }
+    if (rows == 0)
+        return ge::GRAPH_SUCCESS;
+    td->fastContig = mode;
+    td->fastDb = axis;
+    td->fastLaneElems = block;
+    td->fastRowsPerTile = rows;
+    td->fastUnitCnt = prefixes;
+    td->fastUnitOutLanes = innerOut;
+    td->rGroupCnt = chunks;
+    td->preReduceUbSize = 2 * FastCeil32(rows * rowBytes);
+    td->tmpBufUbSize = sqBytes;
+    td->postReduceUbSize = outBytes;
+    ctx.usedCoreNum = mode == 4 ? prefixes * chunks : std::min(ctx.coreNum, ctx.axisShape[axis]);
+    td->usedCoreNum = ctx.usedCoreNum;
+    if (mode == 5)
+        ctx.isGroup = false;
+    else {
+        OP_CHECK_IF(context->SetScheduleMode(1) != ge::GRAPH_SUCCESS,
+                    OP_LOGE(context, "Failed to set ScheduleMode for compact reduction"), return ge::GRAPH_FAILED);
+    }
+    OP_LOGI(context, "compact pattern mode=%d axis=%d block=%ld rows=%ld prefixes=%ld cores=%d", mode, axis, block,
+            rows, prefixes, ctx.usedCoreNum);
+    return ge::GRAPH_SUCCESS;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 11) workspace 大小设置
 // ─────────────────────────────────────────────────────────────────────────────
@@ -847,7 +1258,13 @@ static ge::graphStatus SetWorkspaceSize(gert::TilingContext* context, const Redu
     size_t* ws = context->GetWorkspaceSizes(1);
     OP_CHECK_NULL_WITH_CONTEXT(context, ws);
     size_t usrSize = 0;
-    if (ctx.isGroup) {
+    const auto* fastTd = context->GetTilingData<ReduceStdV2UpdateTilingData>();
+    if (fastTd != nullptr && fastTd->fastContig == 4) {
+        int64_t outputs = 1;
+        for (int32_t i = 0; i < ctx.axisNum; i += 2)
+            outputs *= ctx.axisShape[i];
+        usrSize = static_cast<size_t>(ctx.usedCoreNum) * FastCeil8Elems(outputs) * sizeof(float);
+    } else if (ctx.isGroup) {
         int64_t aTotal = 1;
         for (int32_t i = 0; i < ctx.axisNum; ++i) {
             if (!ctx.isReduceAxis[static_cast<size_t>(i)]) {
@@ -1019,9 +1436,10 @@ static ge::graphStatus HandleEmptyTensor(gert::TilingContext* context, ReduceStd
     }
     OP_CHECK_IF(FillEmptyTilingData(context, ctx) != ge::GRAPH_SUCCESS, , return ge::GRAPH_FAILED);
 
-    const uint64_t tilingKey = GET_TPL_TILING_KEY(static_cast<uint64_t>(0U),  // templateType=0
-                                                  static_cast<uint64_t>(1U),  // isEmptyTensor=1
-                                                  static_cast<uint64_t>(0U)); // isTailR=0（empty 不读）
+    const uint64_t tilingKey = GET_TPL_TILING_KEY(static_cast<uint64_t>(0U), // templateType=0
+                                                  static_cast<uint64_t>(1U), // isEmptyTensor=1
+                                                  static_cast<uint64_t>(0U), static_cast<uint64_t>(0U),
+                                                  static_cast<uint64_t>(0U), static_cast<uint64_t>(0U)); // empty
     context->SetTilingKey(tilingKey);
     const uint32_t blockDim = static_cast<uint32_t>(std::max(ctx.usedCoreNum, 1));
     context->SetBlockDim(blockDim);
@@ -1196,9 +1614,17 @@ static ge::graphStatus ReduceStdV2UpdateTilingFunc(gert::TilingContext* context)
 
     OP_CHECK_IF(FillAndLogTilingData(context, ctx) != ge::GRAPH_SUCCESS, , return ge::GRAPH_FAILED);
 
-    const uint64_t tilingKey = GET_TPL_TILING_KEY(static_cast<uint64_t>(ctx.isGroup ? 1U : 0U),  // templateType
-                                                  static_cast<uint64_t>(0U),                     // isEmptyTensor=0
-                                                  static_cast<uint64_t>(ctx.isTailR ? 1U : 0U)); // isTailR
+    // fast-contig 快速路径判定（round1 新增）：在 memset 清 0 与既有字段填充之后追加 fast 字段；
+    //   未命中门控时字段全 0，下方流程与基线逐字段一致（含 TilingKey/BlockDim/workspace 决策）。
+    TryFillFastContigTiling(context, ctx);
+    OP_CHECK_IF(TryFillDensePattern(context, ctx) != ge::GRAPH_SUCCESS, , return ge::GRAPH_FAILED);
+
+    const auto* fastTd = context->GetTilingData<ReduceStdV2UpdateTilingData>();
+    const bool dense = fastTd->fastContig == 4 || fastTd->fastContig == 5;
+    const uint64_t tilingKey = GET_TPL_TILING_KEY(
+        static_cast<uint64_t>(fastTd->fastContig >= 3 ? 0U : (ctx.isGroup ? 1U : 0U)), static_cast<uint64_t>(0U),
+        static_cast<uint64_t>(dense ? 0U : (ctx.isTailR ? 1U : 0U)), static_cast<uint64_t>(fastTd->fastContig == 3),
+        static_cast<uint64_t>(fastTd->fastContig == 4), static_cast<uint64_t>(fastTd->fastContig == 5));
     context->SetTilingKey(tilingKey);
     context->SetBlockDim(static_cast<uint32_t>(std::max(ctx.usedCoreNum, 1)));
 

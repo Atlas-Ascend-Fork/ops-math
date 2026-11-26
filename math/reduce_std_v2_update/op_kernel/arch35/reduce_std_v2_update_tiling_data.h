@@ -72,11 +72,23 @@ struct ReduceStdV2UpdateTilingData {
     int64_t cacheBufUbSize = 0;   // 固定 16 KB
 
     // ─── group 模板 ───
-    int64_t rGroupCnt = 0; // Phase 1 分组数 = Phase 2 workspace R 维大小
+    int64_t rGroupCnt = 0; // group模式的R分组数；模式4为主R轴的分块数
 
     // ─── 算子专属扩展（post_op 标量 + if_std 分支）───
     float cof = 0.0f;  // post_op 缩放因子 = 1/(N-correction)
     int32_t ifStd = 0; // 0=输出方差，1=输出标准差（控制 Sqrt 分支）
+
+    // ─── fast-contig 快速路径运行时字段（round1 新增；默认全 0 = 不启用，非门控 shape 与基线逐字段一致）───
+    int32_t fastContig = 0;       // 0=off；1=AR；2=RA；3=A1分块；4=长R连续分块；5=长A连续分块
+    int32_t fastReserved = 0;     // 结构体对齐保留位（恒 0，不承载语义）
+    int64_t fastLaneElems = 0;    // tile单行连续元素数；模式4/5为主轴之后的完整内层块
+    int64_t fastRowsPerTile = 0;  // 单tile行数；尾tile使用实际剩余行数
+    int64_t fastUnitCnt = 0;      // 模式1/3为输出单元数；模式4/5为主轴之前的前缀元素数
+    int64_t fastUnitOutLanes = 0; // 模式1/3为每单元输出lane数；模式4/5为主轴之后的保留A乘积
+
+    // ─── round2 新增（f10/f11，aligned-ra-compact-reduce-v2）：RA flat-fold + DB 子分支字段（默认 0 = 未启用）───
+    int32_t fastDb = 0; // 模式2：DB开关；模式3：2表示均衡输出分区；模式4/5：主分块轴下标
+    int32_t fastReserved2 = 0; // 结构体对齐保留位（恒 0，不承载语义）
 };
 
 #endif // OPS_REDUCE_STD_V2_UPDATE_TILING_DATA_H_

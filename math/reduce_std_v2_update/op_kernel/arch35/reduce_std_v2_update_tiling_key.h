@@ -14,7 +14,7 @@
  * \file reduce_std_v2_update_tiling_key.h
  * \brief ReduceStdV2Update TilingKey 模板参数声明
  *
- * 三个 bool —— templateType / isEmptyTensor / isTailR。
+ * 六个 bool：templateType / isEmptyTensor / isTailR / splitAR / denseR / denseA。
  *   templateType == 0：
  *     isEmptyTensor == 0 → normal 模板：
  *       isTailR == 1 → 偶数轴 pattern，UB 内是 AR（尾 R）  [TilingKey_1 主线]
@@ -24,7 +24,7 @@
  *     isEmptyTensor 固定 0（group 与 empty 互斥），isTailR ∈ {0,1}。
  *
  * dtype 走 DTYPE_X 编译期实例化（fp16 / bf16 / fp32 共 3 份），
- * 与 tilingkey 的 5 个组合（normal×2 + empty×1 + group×2）相乘 ⇒ 共 15 份 binary。
+ * 原 5 个组合（normal×2 + empty×1 + group×2）保留；3 个独立新分支各选一个 key，共 24 份 binary。
  */
 #ifndef OPS_REDUCE_STD_V2_UPDATE_TILING_KEY_H_
 #define OPS_REDUCE_STD_V2_UPDATE_TILING_KEY_H_
@@ -33,18 +33,30 @@
 
 ASCENDC_TPL_ARGS_DECL(ReduceStdV2Update, ASCENDC_TPL_BOOL_DECL(templateType, 0, 1), // 0=normal/empty, 1=group
                       ASCENDC_TPL_BOOL_DECL(isEmptyTensor, 0, 1),                   // 空 tensor 模板
-                      ASCENDC_TPL_BOOL_DECL(isTailR, 0, 1)                          // 尾轴类型：1=tail-R, 0=tail-A
-);
+                      ASCENDC_TPL_BOOL_DECL(isTailR, 0, 1), ASCENDC_TPL_BOOL_DECL(splitAR, 0, 1),
+                      ASCENDC_TPL_BOOL_DECL(denseR, 0, 1), ASCENDC_TPL_BOOL_DECL(denseA, 0, 1));
 
 ASCENDC_TPL_SEL(
     // normal 模板：两种 tail 类型
     ASCENDC_TPL_ARGS_SEL(ASCENDC_TPL_BOOL_SEL(templateType, 0), ASCENDC_TPL_BOOL_SEL(isEmptyTensor, 0),
-                         ASCENDC_TPL_BOOL_SEL(isTailR, 0, 1)),
+                         ASCENDC_TPL_BOOL_SEL(isTailR, 0, 1), ASCENDC_TPL_BOOL_SEL(splitAR, 0),
+                         ASCENDC_TPL_BOOL_SEL(denseR, 0), ASCENDC_TPL_BOOL_SEL(denseA, 0)),
     // 空 tensor 模板：isTailR 固定 0（kernel 不读）
     ASCENDC_TPL_ARGS_SEL(ASCENDC_TPL_BOOL_SEL(templateType, 0), ASCENDC_TPL_BOOL_SEL(isEmptyTensor, 1),
-                         ASCENDC_TPL_BOOL_SEL(isTailR, 0)),
+                         ASCENDC_TPL_BOOL_SEL(isTailR, 0), ASCENDC_TPL_BOOL_SEL(splitAR, 0),
+                         ASCENDC_TPL_BOOL_SEL(denseR, 0), ASCENDC_TPL_BOOL_SEL(denseA, 0)),
     // group 模板：isEmptyTensor 固定 0（group 与 empty 互斥）
     ASCENDC_TPL_ARGS_SEL(ASCENDC_TPL_BOOL_SEL(templateType, 1), ASCENDC_TPL_BOOL_SEL(isEmptyTensor, 0),
-                         ASCENDC_TPL_BOOL_SEL(isTailR, 0, 1)));
+                         ASCENDC_TPL_BOOL_SEL(isTailR, 0, 1), ASCENDC_TPL_BOOL_SEL(splitAR, 0),
+                         ASCENDC_TPL_BOOL_SEL(denseR, 0), ASCENDC_TPL_BOOL_SEL(denseA, 0)),
+    ASCENDC_TPL_ARGS_SEL(ASCENDC_TPL_BOOL_SEL(templateType, 0), ASCENDC_TPL_BOOL_SEL(isEmptyTensor, 0),
+                         ASCENDC_TPL_BOOL_SEL(isTailR, 1), ASCENDC_TPL_BOOL_SEL(splitAR, 1),
+                         ASCENDC_TPL_BOOL_SEL(denseR, 0), ASCENDC_TPL_BOOL_SEL(denseA, 0)),
+    ASCENDC_TPL_ARGS_SEL(ASCENDC_TPL_BOOL_SEL(templateType, 0), ASCENDC_TPL_BOOL_SEL(isEmptyTensor, 0),
+                         ASCENDC_TPL_BOOL_SEL(isTailR, 0), ASCENDC_TPL_BOOL_SEL(splitAR, 0),
+                         ASCENDC_TPL_BOOL_SEL(denseR, 1), ASCENDC_TPL_BOOL_SEL(denseA, 0)),
+    ASCENDC_TPL_ARGS_SEL(ASCENDC_TPL_BOOL_SEL(templateType, 0), ASCENDC_TPL_BOOL_SEL(isEmptyTensor, 0),
+                         ASCENDC_TPL_BOOL_SEL(isTailR, 0), ASCENDC_TPL_BOOL_SEL(splitAR, 0),
+                         ASCENDC_TPL_BOOL_SEL(denseR, 0), ASCENDC_TPL_BOOL_SEL(denseA, 1)));
 
 #endif // OPS_REDUCE_STD_V2_UPDATE_TILING_KEY_H_
