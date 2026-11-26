@@ -202,7 +202,7 @@ TEST_F(l2_hypot_test, case_12_x1_null)
 
     uint64_t workspaceSize = 0;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
-    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_NULLPTR);
 }
 
 TEST_F(l2_hypot_test, case_13_x2_null)
@@ -217,7 +217,7 @@ TEST_F(l2_hypot_test, case_13_x2_null)
 
     uint64_t workspaceSize = 0;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
-    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_NULLPTR);
 }
 
 TEST_F(l2_hypot_test, case_14_out_null)
@@ -232,7 +232,7 @@ TEST_F(l2_hypot_test, case_14_out_null)
 
     uint64_t workspaceSize = 0;
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspaceSize);
-    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_NULLPTR);
 }
 
 TEST_F(l2_hypot_test, case_15_dim_gt_8)
