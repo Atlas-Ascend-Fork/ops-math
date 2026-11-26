@@ -25,7 +25,6 @@
 #include "simt_api/device_sync_functions.h"
 #include "op_kernel/math_util.h"
 #include "circular_pad_tiling_data.h"
-#include "circular_pad_tiling_key.h"
 #include "circular_pad_kern_common.h"
 
 namespace NsCircularPad {

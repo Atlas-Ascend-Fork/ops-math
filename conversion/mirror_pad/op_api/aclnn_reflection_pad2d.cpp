@@ -179,7 +179,7 @@ aclnnStatus aclnnReflectionPad2dGetWorkspaceSize(const aclTensor* self, const ac
     }
 
     // 如果非连续，需要转连续
-    auto selfContiguous = l0op::Contiguous(self, uniqueExecutor.get());
+    auto selfContiguous = PrepareMirrorPadInput(self, uniqueExecutor.get());
     CHECK_RET(selfContiguous != nullptr, ACLNN_ERR_INNER_NULLPTR);
 
     // 调用l0算子进行计算

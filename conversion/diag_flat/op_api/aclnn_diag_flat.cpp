@@ -58,6 +58,38 @@ static const std::initializer_list<DataType>& GetDtypeSupportList()
     }
 }
 
+static aclnnStatus FillScalar(aclTensor* out, float val, aclOpExecutor* executor)
+{
+    OP_CHECK_DTYPE_NOT_SUPPORT(out, EMPTY_INPUT_DTYPE_SUPPORT_LIST, return ACLNN_ERR_PARAM_INVALID);
+    FVector<int64_t> shape;
+    size_t dimNum = out->GetViewShape().GetDimNum();
+    for (size_t idx = 0; idx < dimNum; idx++) {
+        int64_t tmpVal = out->GetViewShape().GetDim(idx);
+        shape.push_back(tmpVal);
+    }
+    auto dims = executor->ConvertToTensor(shape.data(), shape.size(), DataType::DT_INT64);
+    auto shapeArray = executor->AllocIntArray(shape.data(), shape.size());
+
+    op::DataType outDtype = out->GetDataType();
+    FVector<float> valVector = {val};
+    if (outDtype == op::DataType::DT_COMPLEX64) {
+        auto valTensor = executor->ConvertToTensor(valVector.data(), valVector.size(), DataType::DT_FLOAT);
+        auto fillOut = l0op::Fill(dims, valTensor, shapeArray, executor);
+        CHECK_RET(fillOut != nullptr, ACLNN_ERR_INNER_NULLPTR);
+        auto castOut = l0op::Cast(fillOut, outDtype, executor);
+        CHECK_RET(castOut != nullptr, ACLNN_ERR_INNER_NULLPTR);
+        auto viewCopyResult = l0op::ViewCopy(castOut, out, executor);
+        CHECK_RET(viewCopyResult != nullptr, ACLNN_ERR_INNER_NULLPTR);
+    } else {
+        auto valTensor = executor->ConvertToTensor(valVector.data(), valVector.size(), outDtype);
+        auto fillOut = l0op::Fill(dims, valTensor, shapeArray, executor);
+        CHECK_RET(fillOut != nullptr, ACLNN_ERR_INNER_NULLPTR);
+        auto viewCopyResult = l0op::ViewCopy(fillOut, out, executor);
+        CHECK_RET(viewCopyResult != nullptr, ACLNN_ERR_INNER_NULLPTR);
+    }
+    return ACLNN_SUCCESS;
+}
+
 static bool CheckNotNull(const aclTensor* self, const aclTensor* out)
 {
     OP_CHECK_NULL(self, return false);
@@ -133,38 +165,6 @@ static aclnnStatus CheckParams(const aclTensor* self, aclTensor* out, int64_t di
     return ACLNN_SUCCESS;
 }
 
-static aclnnStatus FillScalar(aclTensor* out, float val, aclOpExecutor* executor)
-{
-    OP_CHECK_DTYPE_NOT_SUPPORT(out, EMPTY_INPUT_DTYPE_SUPPORT_LIST, return ACLNN_ERR_PARAM_INVALID);
-    FVector<int64_t> shape;
-    size_t dimNum = out->GetViewShape().GetDimNum();
-    for (size_t idx = 0; idx < dimNum; idx++) {
-        int64_t tmpVal = out->GetViewShape().GetDim(idx);
-        shape.push_back(tmpVal);
-    }
-    auto dims = executor->ConvertToTensor(shape.data(), shape.size(), DataType::DT_INT64);
-    auto shapeArray = executor->AllocIntArray(shape.data(), shape.size());
-
-    op::DataType outDtype = out->GetDataType();
-    FVector<float> valVector = {val};
-    if (outDtype == op::DataType::DT_COMPLEX64) {
-        auto valTensor = executor->ConvertToTensor(valVector.data(), valVector.size(), DataType::DT_FLOAT);
-        auto fillOut = l0op::Fill(dims, valTensor, shapeArray, executor);
-        CHECK_RET(fillOut != nullptr, ACLNN_ERR_INNER_NULLPTR);
-        auto castOut = l0op::Cast(fillOut, outDtype, executor);
-        CHECK_RET(castOut != nullptr, ACLNN_ERR_INNER_NULLPTR);
-        auto viewCopyResult = l0op::ViewCopy(castOut, out, executor);
-        CHECK_RET(viewCopyResult != nullptr, ACLNN_ERR_INNER_NULLPTR);
-    } else {
-        auto valTensor = executor->ConvertToTensor(valVector.data(), valVector.size(), outDtype);
-        auto fillOut = l0op::Fill(dims, valTensor, shapeArray, executor);
-        CHECK_RET(fillOut != nullptr, ACLNN_ERR_INNER_NULLPTR);
-        auto viewCopyResult = l0op::ViewCopy(fillOut, out, executor);
-        CHECK_RET(viewCopyResult != nullptr, ACLNN_ERR_INNER_NULLPTR);
-    }
-    return ACLNN_SUCCESS;
-}
-
 aclnnStatus aclnnDiagFlatGetWorkspaceSize(const aclTensor* self, int64_t diagonal, aclTensor* out,
                                           uint64_t* workspaceSize, aclOpExecutor** executor)
 {
@@ -178,7 +178,9 @@ aclnnStatus aclnnDiagFlatGetWorkspaceSize(const aclTensor* self, int64_t diagona
     CHECK_RET(ret == ACLNN_SUCCESS, ret);
 
     if (self->IsEmpty()) {
-        if (std::abs(diagonal) > 0) {
+        // RegBase 架构(arch35)：有偏移时输出全 0 对角阵，交给 DiagFlat kernel 生成，避免 int16/fp64 的
+        // Fill 回落到 AICPU（~50us）；其他架构（如 A2/A3）保持原 Fill 捷径不变
+        if (std::abs(diagonal) > 0 && !IsRegBase()) {
             ret = FillScalar(out, 0, uniqueExecutor.get());
             if (ret == ACLNN_SUCCESS) {
                 *workspaceSize = uniqueExecutor->GetWorkspaceSize();
@@ -186,9 +188,11 @@ aclnnStatus aclnnDiagFlatGetWorkspaceSize(const aclTensor* self, int64_t diagona
             }
             return ret;
         }
-        *workspaceSize = 0;
-        uniqueExecutor.ReleaseTo(executor);
-        return ACLNN_SUCCESS;
+        if (std::abs(diagonal) == 0) {
+            *workspaceSize = 0;
+            uniqueExecutor.ReleaseTo(executor);
+            return ACLNN_SUCCESS;
+        }
     }
 
     // 固定写法，将输入self转换成连续的tensor

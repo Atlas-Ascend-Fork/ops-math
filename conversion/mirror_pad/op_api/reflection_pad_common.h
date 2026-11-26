@@ -15,8 +15,13 @@
 #include "conversion/unsqueeze/op_host/op_api/unsqueeze.h"
 #include "conversion/squeeze/op_host/op_api/squeeze.h"
 #include "aclnn_kernels/reshape.h"
+#include "aclnn_kernels/contiguous.h"
 #include "aclnn_kernels/common/op_error_check.h"
 #include "opdev/op_dfx.h"
+
+namespace l0op {
+const aclTensor* AsStridedToContiguous(const aclTensor* x, aclOpExecutor* executor);
+}
 
 namespace op {
 const string REFLECTION_MODE = "REFLECT";
@@ -87,6 +92,22 @@ inline aclnnStatus ProcessPadV3(const aclTensor* selfContiguous, const aclIntArr
         CHECK_RET(padResult != nullptr, ACLNN_ERR_INNER_NULLPTR);
     }
     return ACLNN_SUCCESS;
+}
+
+// PadV3 的 SIMT 模板在尾轴无 pad 时会把元素类型加宽到 int32/int64 访存（见
+// pad_v3_tiling_arch35 的 XDtypeImproveSimt），要求输入 GM 基址按加宽宽度对齐。
+// 带 storage_offset 的连续视图会被 l0op::Contiguous 透传（op::IsContiguous 只看 stride），
+// 基址可能未对齐，触发 aivec 340（VEC 访存地址未对齐）。此处统一物化到 offset=0 的缓冲，
+// 供 ReflectionPad1d/2d/3d 共用。
+// AsStridedToContiguous 定义在 conversion/contiguous/op_host/op_api/contiguous.cpp，
+// 是 l0op::Contiguous 在非连续场景实际使用的物化实现（输出 offset=0）。
+
+inline const aclTensor* PrepareMirrorPadInput(const aclTensor* self, aclOpExecutor* executor)
+{
+    if (self->GetViewOffset() == 0) {
+        return l0op::Contiguous(self, executor);
+    }
+    return l0op::AsStridedToContiguous(self, executor);
 }
 
 inline aclnnStatus ProcessMirrorPad(const aclTensor* selfContiguous, const aclIntArray* padding,
