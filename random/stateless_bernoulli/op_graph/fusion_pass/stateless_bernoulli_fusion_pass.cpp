@@ -13,11 +13,8 @@
  * \brief bernoulli fusion pass (StatelessBernoulliV2 --> StatelessBernoulli)
  */
 
-#include <cstdlib>
 #include <vector>
 #include <string>
-#include <algorithm>
-#include <set>
 #include "es_math_ops.h"
 #include "platform/platform_info.h"
 #include "platform/soc_spec.h"
@@ -26,34 +23,10 @@
 #include "version/ge-compiler_version.h"
 #include "stateless_bernoulli_fusion_pass.h"
 #include "common/inc/op_graph/fusion_pass/fusion_pass_common.h"
+#include "random/random_common/op_graph/random_fusion_pass_common.h"
 
 using namespace ge;
 using namespace fe;
-
-// D1 scenario: uses kCompatibleInherited stage (9.0.0+).
-// Strategy: compile-time macro guard + runtime version check + overall silence.
-#define GE_COMPILER_VERSION_900 90000000
-
-extern "C" {
-static const int32_t RT_ERROR_NONE = 0;
-int32_t rtGetSocSpec(const char* label, const char* key, char* val, const uint32_t maxLen);
-}
-
-namespace {
-#if GE_COMPILER_VERSION_NUM >= GE_COMPILER_VERSION_900
-CustomPassStage GetBernoulliFusionPassStage()
-{
-    int32_t version = 0;
-    if (aclsysGetVersionNum) {
-        aclsysGetVersionNum(const_cast<char*>("ge_compiler"), &version);
-    }
-    if (version >= GE_COMPILER_VERSION_900) {
-        return CustomPassStage::kCompatibleInherited;
-    }
-    return CustomPassStage::kBeforeInferShape;
-}
-#endif
-} // namespace
 
 namespace ge::fusion {
 
@@ -64,26 +37,6 @@ constexpr int64_t kCaptureIdxV2Node = 0l;
 constexpr size_t kIdxProb = 0;
 constexpr size_t kIdxSeed = 1;
 constexpr size_t kIdxOffset = 2;
-std::vector<int64_t> GetShapeDims(const Shape& shape)
-{
-    std::vector<int64_t> dims;
-    for (size_t i = 0; i < shape.GetDimNum(); i++) {
-        dims.push_back(shape.GetDim(i));
-    }
-    return dims;
-}
-
-Status InferShape(const GraphUniqPtr& replaceGraph, const std::vector<SubgraphInput>& subgraphInputs)
-{
-    std::vector<Shape> inputShapes;
-    for (const auto& subgraphInput : subgraphInputs) {
-        auto matchNode = subgraphInput.GetAllInputs().at(0);
-        TensorDesc tensorDesc;
-        matchNode.node.GetInputDesc(matchNode.index, tensorDesc);
-        inputShapes.emplace_back(tensorDesc.GetShape());
-    }
-    return GeUtils::InferShape(*replaceGraph, inputShapes);
-}
 
 void UpdateNodeOutputDesc(es::EsTensorHolder& tensor, DataType dtype, const Shape& shape, Format fmt)
 {
@@ -92,32 +45,6 @@ void UpdateNodeOutputDesc(es::EsTensorHolder& tensor, DataType dtype, const Shap
     desc.SetShape(shape);
     desc.SetFormat(fmt);
     tensor.GetProducer()->UpdateOutputDesc(0, desc);
-}
-
-// 平台门控改用 NpuArch 判别:
-// Ascend910_93 上报 NpuArch 为 DAV_2201; Ascend950 与 Ascend350 同为 DAV_3510;
-// Ascend960DT/Ascend960PR 为 DAV_9201/DAV_9202。
-bool CheckPlatform()
-{
-    char npuArchVal[32] = {0};
-    if (rtGetSocSpec("version", "NpuArch", npuArchVal, sizeof(npuArchVal)) != RT_ERROR_NONE) {
-        OP_LOGW(kPassName.c_str(), "Get NpuArch from soc spec failed, skip whole graph.");
-        return false;
-    }
-    const auto npuArch = static_cast<NpuArch>(std::strtol(npuArchVal, nullptr, 10));
-    static const std::set<NpuArch> supportedArch = {NpuArch::DAV_2201, NpuArch::DAV_3510, NpuArch::DAV_9201,
-                                                    NpuArch::DAV_9202};
-    const bool isSupported = (supportedArch.count(npuArch) > 0);
-    if (!isSupported) {
-        OP_LOGI(kPassName.c_str(), "Platform NpuArch %u is not supported(DAV_2201/DAV_3510/DAV_9201/DAV_9202), skip.",
-                static_cast<uint32_t>(npuArch));
-    }
-    return isSupported;
-}
-
-bool CheckDtype(DataType dtype, const std::vector<DataType>& validTypes)
-{
-    return std::find(validTypes.begin(), validTypes.end(), dtype) != validTypes.end();
 }
 } // namespace
 
@@ -150,15 +77,13 @@ bool BernoulliFusionPass::MeetRequirements(const std::unique_ptr<MatchResult>& m
     OP_LOGI(kPassName.c_str(), "Enter MeetRequirements");
 
     int32_t version = 0;
-    if (aclsysGetVersionNum) {
-        aclsysGetVersionNum(const_cast<char*>("ge_compiler"), &version);
-    }
-    if (version < GE_COMPILER_VERSION_900) {
+    if (!random_fusion_pass_common::IsVersion900(version)) {
         OP_LOGD(kPassName.c_str(), "GE runtime version %d < 9.0.0, skip pass.", version);
         return false;
     }
 
-    if (!CheckPlatform()) {
+    if (!random_fusion_pass_common::IsTargetPlatformNpuArch(
+            kPassName, {NpuArch::DAV_2201, NpuArch::DAV_3510, NpuArch::DAV_9201, NpuArch::DAV_9202})) {
         return false;
     }
 
@@ -176,7 +101,7 @@ bool BernoulliFusionPass::MeetRequirements(const std::unique_ptr<MatchResult>& m
 
     TensorDesc inputDesc;
     v2NodeIo.node.GetInputDesc(0, inputDesc);
-    if (!CheckDtype(inputDesc.GetDataType(), {DT_FLOAT16, DT_FLOAT})) {
+    if (!random_fusion_pass_common::CheckDtype(inputDesc.GetDataType(), {DT_FLOAT16, DT_FLOAT})) {
         return false;
     }
 
@@ -213,16 +138,17 @@ std::unique_ptr<Graph> BernoulliFusionPass::Replacement(const std::unique_ptr<Ma
 
     auto replaceGraphBuilder = es::EsGraphBuilder("replacement");
     auto rProb = replaceGraphBuilder.CreateInput(kIdxProb, "prob", probDesc.GetDataType(), probDesc.GetFormat(),
-                                                 GetShapeDims(probDesc.GetShape()));
+                                                 random_fusion_pass_common::GetShapeDims(probDesc.GetShape()));
     rProb.SetFormat(probDesc.GetFormat());
     auto rSeed = replaceGraphBuilder.CreateInput(kIdxSeed, "seed", seedDesc.GetDataType(), seedDesc.GetFormat(),
-                                                 GetShapeDims(seedDesc.GetShape()));
+                                                 random_fusion_pass_common::GetShapeDims(seedDesc.GetShape()));
     rSeed.SetFormat(seedDesc.GetFormat());
     auto rOffset = replaceGraphBuilder.CreateInput(kIdxOffset, "offset", offsetDesc.GetDataType(),
-                                                   offsetDesc.GetFormat(), GetShapeDims(offsetDesc.GetShape()));
+                                                   offsetDesc.GetFormat(),
+                                                   random_fusion_pass_common::GetShapeDims(offsetDesc.GetShape()));
     rOffset.SetFormat(offsetDesc.GetFormat());
 
-    std::vector<int64_t> shapeValue = GetShapeDims(probDesc.GetShape());
+    std::vector<int64_t> shapeValue = random_fusion_pass_common::GetShapeDims(probDesc.GetShape());
     std::vector<int64_t> shapeDims = {static_cast<int64_t>(shapeValue.size())};
     auto rShape = replaceGraphBuilder.CreateConst(shapeValue, shapeDims);
 
@@ -236,7 +162,7 @@ std::unique_ptr<Graph> BernoulliFusionPass::Replacement(const std::unique_ptr<Ma
     std::vector<SubgraphInput> subgraphInputs;
     matchResult->ToSubgraphBoundary()->GetAllInputs(subgraphInputs);
     GraphUniqPtr replaceGraph = replaceGraphBuilder.BuildAndReset({output});
-    if (InferShape(replaceGraph, subgraphInputs) != SUCCESS) {
+    if (random_fusion_pass_common::InferShape(replaceGraph, subgraphInputs) != SUCCESS) {
         OP_LOGE(kPassName.c_str(), "Failed to infer shape for StatelessBernoulliV2 replacement graph.");
         return nullptr;
     }
@@ -244,7 +170,7 @@ std::unique_ptr<Graph> BernoulliFusionPass::Replacement(const std::unique_ptr<Ma
 }
 
 #if GE_COMPILER_VERSION_NUM >= GE_COMPILER_VERSION_900
-REG_FUSION_PASS(BernoulliFusionPass).Stage(GetBernoulliFusionPassStage());
+REG_FUSION_PASS(BernoulliFusionPass).Stage(random_fusion_pass_common::GetRandomFusionPassStage());
 #else
 REG_FUSION_PASS(BernoulliFusionPass).Stage(CustomPassStage::kBeforeInferShape);
 #endif

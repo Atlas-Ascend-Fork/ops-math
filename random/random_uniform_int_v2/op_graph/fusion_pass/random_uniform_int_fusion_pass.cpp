@@ -19,18 +19,17 @@
  *              y                                   y           offset
  */
 
-#include <cstdlib>
 #include <vector>
 #include <string>
 #include <set>
 #include "es_math_ops.h"
 #include "platform/platform_info.h"
-#include "platform/soc_spec.h"
 #include "ge/ge_utils.h"
 #include "log/log.h"
 // 版本兼容: 编译宏头(GE_COMPILER_VERSION_NUM), 用于判断 toolkit 版本
 #include "version/ge-compiler_version.h"
 #include "random_uniform_int_fusion_pass.h"
+#include "random/random_common/op_graph/random_fusion_pass_common.h"
 
 using namespace ge;
 using namespace fe;
@@ -38,66 +37,9 @@ using namespace fusion;
 
 namespace ops {
 
-// 弱声明 aclsysGetVersionNum, 避免对 libacl_rt(libascendcl) 的硬链接依赖(对齐 transpose/reduce_mean):
-//   - 生产 .so: 共享库, 运行时符号正常解析。
-//   - UT 可执行文件: 弱符号允许链接期未解析(地址为 NULL), 调用前判空, NULL 时跳过。
-extern "C" {
-__attribute__((weak)) int32_t aclsysGetVersionNum(char* pkgName, int32_t* versionNum);
-static const int32_t RT_ERROR_NONE = 0;
-int32_t rtGetSocSpec(const char* label, const char* key, char* val, const uint32_t maxLen);
-}
-
 static const std::string kPassName = "RandomUniformIntFusionPass";
 static const int64_t kCaptureIdxNode = 0L;
 static const std::set<DataType> kAicoreDtypeSupportList = {DT_INT32, DT_INT64};
-
-// 版本兼容(D1: 仅使用新增 Stage 枚举值 kCompatibleInherited, 出生版本 9.0.0)
-// kCompatibleInherited 在 8.5.0 不存在; 采用整体静默策略:
-//   - 编译态: 编译宏保护枚举值, 老 toolkit 降级到 8.5.0 已有的 kBeforeInferShape, 保证能编过
-//   - 运行态: 运行时查 ge_compiler 版本, <9.0.0 注册到老 stage 并在 MeetRequirements 空跑
-static const int32_t kGeCompilerVersion900 = 90000000;
-
-namespace {
-// 运行时按 ge_compiler 版本选择注册 stage:
-//   >=9.0.0 -> kCompatibleInherited(目标 stage); <9.0.0 -> kBeforeInferShape(老 stage, 空跑)
-// 注意: 引用了 9.0.0 才有的 kCompatibleInherited, 必须用编译宏保护,
-//       否则老 8.5.0 toolkit 编译时该枚举不存在会编译失败。
-#if GE_COMPILER_VERSION_NUM >= 90000000
-CustomPassStage GetRandomUniformIntFusionPassStage()
-{
-    int32_t version = 0;
-    if (aclsysGetVersionNum) {
-        aclsysGetVersionNum(const_cast<char*>("ge_compiler"), &version);
-    }
-    if (version >= kGeCompilerVersion900) {
-        return CustomPassStage::kCompatibleInherited;
-    }
-    return CustomPassStage::kBeforeInferShape;
-}
-#endif
-} // namespace
-
-namespace {
-// 平台门控改用 NpuArch 判别:
-// Ascend950 与 Ascend350 上报的 NpuArch 同为 DAV_3510, 按 arch 判断可同时覆盖两档芯片;
-// Ascend960DT/Ascend960PR 上报的 NpuArch 为 DAV_9201/DAV_9202。
-bool IsTargetPlatform()
-{
-    char npuArchVal[32] = {0};
-    if (rtGetSocSpec("version", "NpuArch", npuArchVal, sizeof(npuArchVal)) != RT_ERROR_NONE) {
-        OP_LOGW(kPassName.c_str(), "Get NpuArch from soc spec failed, skip whole graph.");
-        return false;
-    }
-    const auto npuArch = static_cast<NpuArch>(std::strtol(npuArchVal, nullptr, 10));
-    static const std::set<NpuArch> supportedArch = {NpuArch::DAV_3510, NpuArch::DAV_9201, NpuArch::DAV_9202};
-    const bool isSupported = (supportedArch.count(npuArch) > 0);
-    if (!isSupported) {
-        OP_LOGI(kPassName.c_str(), "Platform NpuArch %u is not supported(DAV_3510/DAV_9201/DAV_9202), skip.",
-                static_cast<uint32_t>(npuArch));
-    }
-    return isSupported;
-}
-} // namespace
 
 std::vector<PatternUniqPtr> RandomUniformIntFusionPass::Patterns()
 {
@@ -126,15 +68,12 @@ bool RandomUniformIntFusionPass::MeetRequirements(const std::unique_ptr<MatchRes
     // 版本兼容(D1 整体静默): 9.x 编出的包跑在 8.5.0 运行时上时,
     // pass 被注册到老 stage kBeforeInferShape, 此处空跑, 不发生融合。
     int32_t version = 0;
-    if (aclsysGetVersionNum) {
-        aclsysGetVersionNum(const_cast<char*>("ge_compiler"), &version);
-    }
-    if (version < kGeCompilerVersion900) {
+    if (!random_fusion_pass_common::IsVersion900(version)) {
         OP_LOGD(kPassName.c_str(), "ge_compiler runtime version %d < 9.0.0, skip fusion.", version);
         return false;
     }
 
-    if (!IsTargetPlatform()) {
+    if (!random_fusion_pass_common::IsTargetPlatformNpuArch(kPassName)) {
         return false;
     }
 
@@ -170,7 +109,7 @@ std::unique_ptr<Graph> RandomUniformIntFusionPass::Replacement(const std::unique
     std::vector<Shape> inputShapes;
     std::vector<DataType> inputDtypes;
     std::vector<Format> inputFormats;
-    GetInputsInfo(subgraphInputs, inputShapes, inputDtypes, inputFormats);
+    random_fusion_pass_common::GetInputsInfo(subgraphInputs, inputShapes, inputDtypes, inputFormats);
 
     NodeIo nodeIo;
     if (matchResult->GetCapturedTensor(kCaptureIdxNode, nodeIo) != SUCCESS) {
@@ -198,13 +137,7 @@ std::unique_ptr<Graph> RandomUniformIntFusionPass::Replacement(const std::unique
     TensorDesc offsetDesc(Shape({1}), FORMAT_ND, DT_INT64);
 
     auto rOffset = replaceGraphBuilder.CreateVariable(3, varName.c_str());
-    auto varNodePtr = rOffset.GetProducer();
-    if (varNodePtr != nullptr) {
-        varNodePtr->UpdateOutputDesc(0, offsetDesc);
-        int64_t initValue = 0;
-        Tensor initTensor(offsetDesc, reinterpret_cast<uint8_t*>(&initValue), sizeof(int64_t));
-        varNodePtr->SetAttr("init_value", initTensor);
-    }
+    random_fusion_pass_common::InitOffsetVariable(rOffset, offsetDesc);
 
     auto v2Output = es::RandomUniformIntV2(rShape, rMin, rMax, rOffset, seed, seed2);
     GNode v2NodePtr = *v2Output.y.GetProducer();
@@ -226,24 +159,11 @@ std::unique_ptr<Graph> RandomUniformIntFusionPass::Replacement(const std::unique
     return replaceGraph;
 }
 
-static void GetInputsInfo(const std::vector<SubgraphInput>& subgraphInputs, std::vector<Shape>& inputShapes,
-                          std::vector<DataType>& inputDtypes, std::vector<Format>& inputFormats)
-{
-    for (const auto& subgraphInput : subgraphInputs) {
-        auto matchNode = subgraphInput.GetAllInputs().at(0);
-        TensorDesc tensorDesc;
-        matchNode.node.GetInputDesc(matchNode.index, tensorDesc);
-        inputShapes.emplace_back(tensorDesc.GetShape());
-        inputDtypes.emplace_back(tensorDesc.GetDataType());
-        inputFormats.emplace_back(tensorDesc.GetFormat());
-    }
-}
-
 // 版本兼容(D1 整体静默): 注册 stage 编译宏保护
 //   - GE_COMPILER_VERSION_NUM >= 9.0.0: 头文件含 kCompatibleInherited, 运行时再按版本选 stage
 //   - 老 8.5.0 toolkit: 枚举不存在, 降级注册到 8.5.0 已有的 kBeforeInferShape(运行时 MeetRequirements 空跑)
 #if GE_COMPILER_VERSION_NUM >= 90000000
-REG_FUSION_PASS(RandomUniformIntFusionPass).Stage(GetRandomUniformIntFusionPassStage());
+REG_FUSION_PASS(RandomUniformIntFusionPass).Stage(random_fusion_pass_common::GetRandomFusionPassStage());
 #else
 REG_FUSION_PASS(RandomUniformIntFusionPass).Stage(CustomPassStage::kBeforeInferShape);
 #endif

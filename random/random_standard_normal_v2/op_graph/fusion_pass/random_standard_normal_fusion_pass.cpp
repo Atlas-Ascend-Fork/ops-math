@@ -38,11 +38,7 @@
 #include "version/ge-compiler_version.h"
 #include "random_standard_normal_fusion_pass.h"
 #include "common/inc/op_graph/fusion_pass/fusion_pass_common.h"
-
-extern "C" {
-static const int32_t RT_ERROR_NONE = 0;
-int32_t rtGetSocSpec(const char* label, const char* key, char* val, const uint32_t maxLen);
-}
+#include "random/random_common/op_graph/random_fusion_pass_common.h"
 
 using namespace ge;
 using namespace ge::fusion;
@@ -50,76 +46,9 @@ using namespace fe;
 
 namespace ops {
 
-// D1 scenario: uses kCompatibleInherited stage (9.0.0+).
-// Strategy: compile-time macro guard + runtime version check + overall silence.
-#define GE_COMPILER_VERSION_900 90000000
-
-namespace {
-#if GE_COMPILER_VERSION_NUM >= GE_COMPILER_VERSION_900
-CustomPassStage GetRandomStandardNormalFusionPassStage()
-{
-    int32_t version = 0;
-    if (aclsysGetVersionNum) {
-        aclsysGetVersionNum(const_cast<char*>("ge_compiler"), &version);
-    }
-    if (version >= GE_COMPILER_VERSION_900) {
-        return CustomPassStage::kCompatibleInherited;
-    }
-    return CustomPassStage::kBeforeInferShape;
-}
-#endif
-} // namespace
-
 static const std::string kPassName = "RandomStandardNormalFusionPass";
 static const int64_t kCaptureIdx = 0L;
-
-namespace {
-// 平台门控改用 NpuArch 判别(参考 concat_to_concatd_fusion_pass):
-// Ascend950 与 Ascend350 上报的 NpuArch 同为 DAV_3510, 按 arch 判断可同时覆盖两档芯片;
-// Ascend960DT/Ascend960PR (A6) 上报 DAV_9201/DAV_9202, 与 A5 共用 arch35 实现路径。
-bool IsTargetPlatform()
-{
-    char npuArchVal[32] = {0};
-    if (rtGetSocSpec("version", "NpuArch", npuArchVal, sizeof(npuArchVal)) != RT_ERROR_NONE) {
-        OP_LOGW(kPassName.c_str(), "Get NpuArch from soc spec failed, skip whole graph.");
-        return false;
-    }
-    const auto npuArch = static_cast<NpuArch>(std::strtol(npuArchVal, nullptr, 10));
-    static const std::set<NpuArch> supportedArch = {NpuArch::DAV_3510, NpuArch::DAV_9201, NpuArch::DAV_9202};
-    const bool isSupported = (supportedArch.count(npuArch) > 0);
-    if (!isSupported) {
-        OP_LOGI(kPassName.c_str(), "Platform NpuArch %u is not supported(DAV_3510/DAV_9201/DAV_9202), skip.",
-                static_cast<uint32_t>(npuArch));
-    }
-    return isSupported;
-}
-} // namespace
-
 static const std::set<ge::DataType> kSupportedDtypes = {ge::DT_FLOAT, ge::DT_FLOAT16, ge::DT_BF16};
-
-static void InitOffsetVariable(const es::EsTensorHolder& rOffset, const TensorDesc& offsetDesc)
-{
-    auto varNode = rOffset.GetProducer();
-    if (varNode != nullptr) {
-        varNode->UpdateOutputDesc(0, offsetDesc);
-        int64_t initValue = 0;
-        Tensor initTensor(offsetDesc, reinterpret_cast<uint8_t*>(&initValue), sizeof(int64_t));
-        varNode->SetAttr("init_value", initTensor);
-    }
-}
-
-static void GetInputsInfo(const std::vector<SubgraphInput>& subgraphInputs, std::vector<Shape>& inputShapes,
-                          std::vector<DataType>& inputDtypes, std::vector<Format>& inputFormats)
-{
-    for (const auto& subgraphInput : subgraphInputs) {
-        auto matchNode = subgraphInput.GetAllInputs().at(0);
-        TensorDesc tensorDesc;
-        matchNode.node.GetInputDesc(matchNode.index, tensorDesc);
-        inputShapes.emplace_back(tensorDesc.GetShape());
-        inputDtypes.emplace_back(tensorDesc.GetDataType());
-        inputFormats.emplace_back(tensorDesc.GetFormat());
-    }
-}
 
 std::vector<PatternUniqPtr> RandomStandardNormalFusionPass::Patterns()
 {
@@ -148,16 +77,13 @@ bool RandomStandardNormalFusionPass::MeetRequirements(const std::unique_ptr<Matc
     OP_LOGD(kPassName.c_str(), "Enter MeetRequirements for RandomStandardNormalFusionPass");
 
     int32_t version = 0;
-    if (aclsysGetVersionNum) {
-        aclsysGetVersionNum(const_cast<char*>("ge_compiler"), &version);
-    }
-    if (version < GE_COMPILER_VERSION_900) {
+    if (!random_fusion_pass_common::IsVersion900(version)) {
         OP_LOGD(kPassName.c_str(), "GE runtime version %d < 9.0.0, skip pass.", version);
         return false;
     }
 
     // 1. Platform check - NpuArch based (DAV_3510: Ascend950/Ascend350; DAV_9201/DAV_9202: Ascend960DT/Ascend960PR)
-    if (!IsTargetPlatform()) {
+    if (!random_fusion_pass_common::IsTargetPlatformNpuArch(kPassName)) {
         return false;
     }
 
@@ -199,7 +125,7 @@ std::unique_ptr<Graph> RandomStandardNormalFusionPass::Replacement(const std::un
     std::vector<Shape> inputShapes;
     std::vector<DataType> inputDtypes;
     std::vector<Format> inputFormats;
-    GetInputsInfo(subgraphInputs, inputShapes, inputDtypes, inputFormats);
+    random_fusion_pass_common::GetInputsInfo(subgraphInputs, inputShapes, inputDtypes, inputFormats);
 
     NodeIo nodeIo;
     if (matchResult->GetCapturedTensor(kCaptureIdx, nodeIo) != SUCCESS) {
@@ -234,7 +160,7 @@ std::unique_ptr<Graph> RandomStandardNormalFusionPass::Replacement(const std::un
     TensorDesc offsetDesc(Shape({1}), FORMAT_ND, DT_INT64);
 
     auto rOffset = replaceGraphBuilder.CreateVariable(1, varName.c_str());
-    InitOffsetVariable(rOffset, offsetDesc);
+    random_fusion_pass_common::InitOffsetVariable(rOffset, offsetDesc);
 
     auto v2Output = es::RandomStandardNormalV2(rShape, rOffset, dtypeInt, seed, seed2);
     GNode v2NodePtr = *v2Output.y.GetProducer();
@@ -253,7 +179,7 @@ std::unique_ptr<Graph> RandomStandardNormalFusionPass::Replacement(const std::un
 }
 
 #if GE_COMPILER_VERSION_NUM >= GE_COMPILER_VERSION_900
-REG_FUSION_PASS(RandomStandardNormalFusionPass).Stage(GetRandomStandardNormalFusionPassStage());
+REG_FUSION_PASS(RandomStandardNormalFusionPass).Stage(random_fusion_pass_common::GetRandomFusionPassStage());
 #else
 REG_FUSION_PASS(RandomStandardNormalFusionPass).Stage(CustomPassStage::kBeforeInferShape);
 #endif

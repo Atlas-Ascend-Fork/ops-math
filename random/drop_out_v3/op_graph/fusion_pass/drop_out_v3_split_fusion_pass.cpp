@@ -25,35 +25,12 @@
 #include "log/log.h"
 #include "version/ge-compiler_version.h"
 #include "drop_out_v3_split_fusion_pass.h"
+#include "random/random_common/op_graph/random_fusion_pass_common.h"
 
 namespace ge::fusion {
 
 using namespace ge;
 using namespace fe;
-
-// D1 scenario: uses kCompatibleInherited stage (9.0.0+).
-// Strategy: compile-time macro guard + runtime version check + overall silence.
-#define GE_COMPILER_VERSION_900 90000000
-
-extern "C" {
-__attribute__((weak)) int32_t aclsysGetVersionNum(char* pkgName, int32_t* versionNum);
-}
-
-namespace {
-#if GE_COMPILER_VERSION_NUM >= GE_COMPILER_VERSION_900
-CustomPassStage GetDropOutV3SplitFusionPassStage()
-{
-    int32_t version = 0;
-    if (aclsysGetVersionNum) {
-        aclsysGetVersionNum(const_cast<char*>("ge_compiler"), &version);
-    }
-    if (version >= GE_COMPILER_VERSION_900) {
-        return CustomPassStage::kCompatibleInherited;
-    }
-    return CustomPassStage::kBeforeInferShape;
-}
-#endif
-} // namespace
 
 namespace {
 const std::string kPassName = "DropOutV3SplitFusionPass";
@@ -312,10 +289,7 @@ Status DropOutV3SplitFusionPass::Run(GraphPtr& graph, [[maybe_unused]] CustomPas
     OP_LOGI(kPassName.c_str(), "Enter DropOutV3SplitFusionPass");
 
     int32_t version = 0;
-    if (aclsysGetVersionNum) {
-        aclsysGetVersionNum(const_cast<char*>("ge_compiler"), &version);
-    }
-    if (version < GE_COMPILER_VERSION_900) {
+    if (!random_fusion_pass_common::IsVersion900(version)) {
         OP_LOGD(kPassName.c_str(), "GE runtime version %d < 9.0.0, skip pass.", version);
         return GRAPH_NOT_CHANGED;
     }
@@ -370,7 +344,7 @@ Status DropOutV3SplitFusionPass::Run(GraphPtr& graph, [[maybe_unused]] CustomPas
 }
 
 #if GE_COMPILER_VERSION_NUM >= GE_COMPILER_VERSION_900
-REG_FUSION_PASS(DropOutV3SplitFusionPass).Stage(GetDropOutV3SplitFusionPassStage());
+REG_FUSION_PASS(DropOutV3SplitFusionPass).Stage(random_fusion_pass_common::GetRandomFusionPassStage());
 #else
 REG_FUSION_PASS(DropOutV3SplitFusionPass).Stage(CustomPassStage::kBeforeInferShape);
 #endif

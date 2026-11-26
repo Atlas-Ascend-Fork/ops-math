@@ -28,59 +28,15 @@
 #include "version/ge-compiler_version.h"
 #include "drop_out_v3_fusion_pass.h"
 #include "common/inc/op_graph/fusion_pass/fusion_pass_common.h"
-
-extern "C" {
-static const int32_t RT_ERROR_NONE = 0;
-int32_t rtGetSocSpec(const char* label, const char* key, char* val, const uint32_t maxLen);
-}
+#include "random/random_common/op_graph/random_fusion_pass_common.h"
 
 namespace ge::fusion {
 
 using namespace ge;
 using namespace fe;
 
-// D1 scenario: uses kCompatibleInherited stage (9.0.0+).
-// Strategy: compile-time macro guard + runtime version check + overall silence.
-#define GE_COMPILER_VERSION_900 90000000
-
-namespace {
-#if GE_COMPILER_VERSION_NUM >= GE_COMPILER_VERSION_900
-CustomPassStage GetDropOutV3FusionPassStage()
-{
-    int32_t version = 0;
-    if (aclsysGetVersionNum) {
-        aclsysGetVersionNum(const_cast<char*>("ge_compiler"), &version);
-    }
-    if (version >= GE_COMPILER_VERSION_900) {
-        return CustomPassStage::kCompatibleInherited;
-    }
-    return CustomPassStage::kBeforeInferShape;
-}
-#endif
-} // namespace
-
 namespace {
 const std::string kPassName = "DropOutV3FusionPass";
-
-// 平台门控改用 NpuArch 判别(参考 concat_to_concatd_fusion_pass):
-// Ascend950 与 Ascend350 上报的 NpuArch 同为 DAV_3510;
-// Ascend960dt 与 Ascend960pr 上报的 NpuArch 分别为 DAV_9201 与 DAV_9202。
-bool IsTargetPlatform()
-{
-    char npuArchVal[32] = {0};
-    if (rtGetSocSpec("version", "NpuArch", npuArchVal, sizeof(npuArchVal)) != RT_ERROR_NONE) {
-        OP_LOGW(kPassName.c_str(), "Get NpuArch from soc spec failed, skip whole graph.");
-        return false;
-    }
-    const auto npuArch = static_cast<NpuArch>(std::strtol(npuArchVal, nullptr, 10));
-    static const std::set<NpuArch> supportedArch = {NpuArch::DAV_3510, NpuArch::DAV_9201, NpuArch::DAV_9202};
-    const bool isSupported = (supportedArch.count(npuArch) > 0);
-    if (!isSupported) {
-        OP_LOGI(kPassName.c_str(), "Platform NpuArch %u is not supported(DAV_3510/DAV_9201/DAV_9202), skip.",
-                static_cast<uint32_t>(npuArch));
-    }
-    return isSupported;
-}
 
 constexpr int64_t kGenMaskCaptureIdx = 0;
 constexpr int64_t kDoMaskCaptureIdx = 1;
@@ -139,31 +95,6 @@ Format GetInputFormat(const std::vector<Format>& inputFormats, size_t idx)
 DataType GetInputDtype(const std::vector<DataType>& inputDtypes, size_t idx)
 {
     return (idx < inputDtypes.size()) ? inputDtypes[idx] : DT_FLOAT;
-}
-
-void GetInputsInfo(const std::vector<SubgraphInput>& subgraphInputs, std::vector<Shape>& inputShapes,
-                   std::vector<DataType>& inputDtypes, std::vector<Format>& inputFormats)
-{
-    for (const auto& subgraphInput : subgraphInputs) {
-        auto matchNode = subgraphInput.GetAllInputs().at(0);
-        TensorDesc tensorDesc;
-        matchNode.node.GetInputDesc(matchNode.index, tensorDesc);
-        inputShapes.emplace_back(tensorDesc.GetShape());
-        inputDtypes.emplace_back(tensorDesc.GetDataType());
-        inputFormats.emplace_back(tensorDesc.GetFormat());
-    }
-}
-
-Status InferShape(const GraphUniqPtr& replaceGraph, const std::vector<SubgraphInput>& subgraphInputs)
-{
-    std::vector<Shape> inputShapes;
-    for (const auto& subgraphInput : subgraphInputs) {
-        auto matchNode = subgraphInput.GetAllInputs().at(0);
-        TensorDesc tensorDesc;
-        matchNode.node.GetInputDesc(matchNode.index, tensorDesc);
-        inputShapes.emplace_back(tensorDesc.GetShape());
-    }
-    return GeUtils::InferShape(*replaceGraph, inputShapes);
 }
 
 void UpdateNodeOutputDesc(es::EsTensorHolder& tensor, DataType dtype, const std::vector<int64_t>& dims, Format fmt)
@@ -268,16 +199,13 @@ bool DropOutV3FusionPass::MeetRequirements(const std::unique_ptr<MatchResult>& m
     OP_LOGI(kPassName.c_str(), "Enter MeetRequirements");
 
     int32_t version = 0;
-    if (aclsysGetVersionNum) {
-        aclsysGetVersionNum(const_cast<char*>("ge_compiler"), &version);
-    }
-    if (version < GE_COMPILER_VERSION_900) {
+    if (!random_fusion_pass_common::IsVersion900(version)) {
         OP_LOGD(kPassName.c_str(), "GE runtime version %d < 9.0.0, skip pass.", version);
         return false;
     }
 
     // Platform check - NpuArch based (DAV_3510 covers Ascend950/Ascend350, DAV_9201/DAV_9202 cover Ascend960dt/960pr)
-    if (!IsTargetPlatform()) {
+    if (!random_fusion_pass_common::IsTargetPlatformNpuArch(kPassName)) {
         return false;
     }
     return CheckGenMaskNode(matchResult) && CheckDoMaskNode(matchResult);
@@ -379,14 +307,14 @@ GraphUniqPtr DropOutV3FusionPass::Replacement(const std::unique_ptr<MatchResult>
     std::vector<Shape> inputShapes;
     std::vector<DataType> inputDtypes;
     std::vector<Format> inputFormats;
-    GetInputsInfo(subgraphInputs, inputShapes, inputDtypes, inputFormats);
+    random_fusion_pass_common::GetInputsInfo(subgraphInputs, inputShapes, inputDtypes, inputFormats);
 
     auto params = GetInputParams(inputShapes, inputDtypes, inputFormats);
     auto builder = es::EsGraphBuilder("replacement");
     auto output = CreateDropOutV3Node(builder, params);
 
     GraphUniqPtr replaceGraph = builder.BuildAndReset({output.y});
-    if (InferShape(replaceGraph, subgraphInputs) != SUCCESS) {
+    if (random_fusion_pass_common::InferShape(replaceGraph, subgraphInputs) != SUCCESS) {
         OP_LOGE(kPassName.c_str(), "InferShape failed.");
         return nullptr;
     }
@@ -394,7 +322,7 @@ GraphUniqPtr DropOutV3FusionPass::Replacement(const std::unique_ptr<MatchResult>
 }
 
 #if GE_COMPILER_VERSION_NUM >= GE_COMPILER_VERSION_900
-REG_FUSION_PASS(DropOutV3FusionPass).Stage(GetDropOutV3FusionPassStage());
+REG_FUSION_PASS(DropOutV3FusionPass).Stage(random_fusion_pass_common::GetRandomFusionPassStage());
 #else
 REG_FUSION_PASS(DropOutV3FusionPass).Stage(CustomPassStage::kBeforeInferShape);
 #endif

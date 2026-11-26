@@ -26,9 +26,6 @@ protected:
     std::unique_ptr<Graph> Replacement(const std::unique_ptr<MatchResult>& matchResult) override;
 };
 
-static void GetInputsInfo(const std::vector<SubgraphInput>& subgraphInputs, std::vector<Shape>& inputShapes,
-                          std::vector<DataType>& inputDtypes, std::vector<Format>& inputFormats);
-
 } // namespace ops
 
 #endif // OPS_MATH_RANDOM_UNIFORM_V2_FUSION_PASS_H_
