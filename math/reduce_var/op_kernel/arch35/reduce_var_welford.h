@@ -151,7 +151,7 @@ template <typename T, bool isStd = false, bool isM2Out = false>
 __aicore__ inline void VFWelfordParallelFinalizeAlignLessVL(__ubuf__ float* tmpMeanLocal, __ubuf__ float* tmpVarLocal,
                                                             __ubuf__ T* outMeanLocal, __ubuf__ T* outVarLocal,
                                                             uint32_t ANum, uint32_t RNum, uint32_t RStride,
-                                                            float varScale, float meanScale, float cnt)
+                                                            float varScale, float postScale, float meanScale, float cnt)
 {
     uint16_t aLoopNum = static_cast<uint16_t>(ANum);
     __VEC_SCOPE__
@@ -187,6 +187,9 @@ __aicore__ inline void VFWelfordParallelFinalizeAlignLessVL(__ubuf__ float* tmpM
                 Muls(tmpVarReg, tmpVarReg, varScale, pregLoop);
             }
             MicroAPI::Reduce<MicroAPI::ReduceType::SUM>(var, tmpVarReg, pregLoop);
+            if constexpr (!isM2Out) {
+                Muls(var, var, postScale, pregMerge);
+            }
 
             if constexpr (isStd == true && isM2Out == false) {
                 Sqrt(var, var, pregMerge);
@@ -202,11 +205,13 @@ template <typename T, bool isStd = false, bool isM2Out = false>
 __aicore__ inline void VFWelfordParallelFinalizeARAlign(__ubuf__ float* tmpMeanLocal, __ubuf__ float* tmpVarLocal,
                                                         __ubuf__ float* dichotomyAddLocal, __ubuf__ T* outMeanLocal,
                                                         __ubuf__ T* outVarLocal, uint32_t ANum, uint32_t RNum,
-                                                        uint32_t RStride, float varScale, float meanScale, float cnt)
+                                                        uint32_t RStride, float varScale, float postScale,
+                                                        float meanScale, float cnt)
 {
     if (RNum <= VL_FP32) {
         VFWelfordParallelFinalizeAlignLessVL<T, isStd, isM2Out>(tmpMeanLocal, tmpVarLocal, outMeanLocal, outVarLocal,
-                                                                ANum, RNum, RStride, varScale, meanScale, cnt);
+                                                                ANum, RNum, RStride, varScale, postScale, meanScale,
+                                                                cnt);
         return;
     }
 
@@ -330,6 +335,9 @@ __aicore__ inline void VFWelfordParallelFinalizeARAlign(__ubuf__ float* tmpMeanL
             }
 
             DichotomyAdd(var, dichotomyAddLocal, outerLoop, innerLoopCountOrigin, dichotomyAddLastNum);
+            if constexpr (!isM2Out) {
+                Muls(var, var, postScale, pregMerge);
+            }
 
             // var out
             if constexpr (isStd == true && isM2Out == false) {
@@ -354,7 +362,7 @@ __aicore__ inline void VFWelfordParallelFinalizeARAlign(__ubuf__ float* tmpMeanL
 template <typename T, bool isStd = false, bool isM2Out = false>
 __aicore__ inline void VFWelfordParallelFinalizeAlignLessVLPad(
     __ubuf__ float* tmpMeanLocal, __ubuf__ float* tmpVarLocal, __ubuf__ T* outMeanLocal, __ubuf__ T* outVarLocal,
-    uint16_t ANum, uint32_t RNum, uint32_t RStride, float varScale, float meanScale, float cnt,
+    uint16_t ANum, uint32_t RNum, uint32_t RStride, float varScale, float postScale, float meanScale, float cnt,
     uint32_t lastRAxisLen,      // lastRAxisLen: 尾轴R的实际大小
     uint32_t lastRAxisLenAlign, // lastRAxisLen block对齐后的大小
     uint16_t loopLastRNum)      // 有多少个lastR
@@ -411,6 +419,9 @@ __aicore__ inline void VFWelfordParallelFinalizeAlignLessVLPad(
             MicroAPI::LoadAlign(tmpVarReg, tmpVarLocal + j * RStride);
             Muls(tmpVarReg, tmpVarReg, float(1.0), pregLoop);
             MicroAPI::Reduce<MicroAPI::ReduceType::SUM>(var, tmpVarReg, pregLoop);
+            if constexpr (!isM2Out) {
+                Muls(var, var, postScale, pregMerge);
+            }
 
             if constexpr (isStd == true && isM2Out == false) {
                 Sqrt(var, var, pregMerge);
@@ -426,15 +437,16 @@ template <typename T, bool isStd = false, bool isM2Out = false>
 __aicore__ inline void VFWelfordParallelFinalizeARAlignPad(__ubuf__ float* tmpMeanLocal, __ubuf__ float* tmpVarLocal,
                                                            __ubuf__ float* dichotomyAddLocal, __ubuf__ T* outMeanLocal,
                                                            __ubuf__ T* outVarLocal, uint16_t ANum, uint32_t RNum,
-                                                           uint32_t RStride, float varScale, float meanScale, float cnt,
+                                                           uint32_t RStride, float varScale, float postScale,
+                                                           float meanScale, float cnt,
                                                            uint32_t lastRAxisLen, // lastRAxisLen: 尾轴R的实际大小
                                                            uint32_t lastRAxisLenAlign, // lastRAxisLen block对齐后的大小
                                                            uint16_t loopLastRNum) // 有多少个lastR
 {
     if (RNum <= VL_FP32) {
         VFWelfordParallelFinalizeAlignLessVLPad<T, isStd, isM2Out>(tmpMeanLocal, tmpVarLocal, outMeanLocal, outVarLocal,
-                                                                   ANum, RNum, RStride, varScale, meanScale, cnt,
-                                                                   lastRAxisLen, lastRAxisLenAlign, loopLastRNum);
+                                                                   ANum, RNum, RStride, varScale, postScale, meanScale,
+                                                                   cnt, lastRAxisLen, lastRAxisLenAlign, loopLastRNum);
         return;
     }
 
@@ -560,6 +572,9 @@ __aicore__ inline void VFWelfordParallelFinalizeARAlignPad(__ubuf__ float* tmpMe
                     dichotomyAddLocal + dichotomyAddReminderLoopCount + i, var, pregMerge);
             }
             DichotomyAdd(var, dichotomyAddLocal, outerLoop, innerLoopCountOrigin, dichotomyAddLastNum);
+            if constexpr (!isM2Out) {
+                Muls(var, var, postScale, pregMerge);
+            }
 
             if constexpr (isStd == true && isM2Out == false) {
                 Sqrt(std, var, pregMerge);
@@ -599,9 +614,9 @@ template <typename T, bool isStd = false, bool isM2Out = false>
 __aicore__ inline void VFWelfordParallelFinalizeARNonAlign1(__ubuf__ float* tmpMeanLocal, __ubuf__ float* tmpVarLocal,
                                                             __ubuf__ float* dichotomyAddLocal, __ubuf__ T* outMeanLocal,
                                                             __ubuf__ T* outVarLocal, uint32_t ANum, uint32_t RNum,
-                                                            uint32_t RStride, float varScale, float meanScale,
-                                                            float cnt, float tailCnt, uint32_t tailSize,
-                                                            uint32_t dichotomyAddPower)
+                                                            uint32_t RStride, float varScale, float postScale,
+                                                            float meanScale, float cnt, float tailCnt,
+                                                            uint32_t tailSize, uint32_t dichotomyAddPower)
 {
     // cnt  是不带尾块的累加次数
     // tailCnt 是带尾块的累加次数， tailCnt >= cnt
@@ -847,6 +862,9 @@ __aicore__ inline void VFWelfordParallelFinalizeARNonAlign1(__ubuf__ float* tmpM
             }
 
             DichotomyAdd(var, dichotomyAddLocal, outerLoop, innerLoopCountOrigin, dichotomyAddLastNum);
+            if constexpr (!isM2Out) {
+                Muls(var, var, postScale, pregMerge);
+            }
 
             // var out
             if constexpr (isStd == true && isM2Out == false) {
@@ -866,9 +884,9 @@ template <typename T, bool isStd = false, bool isM2Out = false>
 __aicore__ inline void VFWelfordParallelFinalizeARNonAlign2(__ubuf__ float* tmpMeanLocal, __ubuf__ float* tmpVarLocal,
                                                             __ubuf__ float* dichotomyAddLocal, __ubuf__ T* outMeanLocal,
                                                             __ubuf__ T* outVarLocal, uint32_t ANum, uint32_t RNum,
-                                                            uint32_t RStride, float varScale, float meanScale,
-                                                            float cnt, float tailCnt, uint32_t tailSize,
-                                                            uint32_t dichotomyAddPower)
+                                                            uint32_t RStride, float varScale, float postScale,
+                                                            float meanScale, float cnt, float tailCnt,
+                                                            uint32_t tailSize, uint32_t dichotomyAddPower)
 {
     float coeff = tailCnt / cnt;
     float tailMeanCountScale = tailCnt * meanScale;
@@ -1114,6 +1132,9 @@ __aicore__ inline void VFWelfordParallelFinalizeARNonAlign2(__ubuf__ float* tmpM
             }
 
             DichotomyAdd(var, dichotomyAddLocal, outerLoop, innerLoopCountOrigin, dichotomyAddLastNum);
+            if constexpr (!isM2Out) {
+                Muls(var, var, postScale, pregMerge);
+            }
             // var out
             if constexpr (isStd == true && isM2Out == false) {
                 Sqrt(std, var, pregMerge);
@@ -1132,9 +1153,9 @@ template <typename T, bool isStd = false, bool isM2Out = false>
 __aicore__ inline void VFWelfordParallelFinalizeARNonAlign3(__ubuf__ float* tmpMeanLocal, __ubuf__ float* tmpVarLocal,
                                                             __ubuf__ float* dichotomyAddLocal, __ubuf__ T* outMeanLocal,
                                                             __ubuf__ T* outVarLocal, uint32_t ANum, uint32_t RNum,
-                                                            uint32_t RStride, float varScale, float meanScale,
-                                                            float cnt, float tailCnt, uint32_t tailSize,
-                                                            uint32_t dichotomyAddPower)
+                                                            uint32_t RStride, float varScale, float postScale,
+                                                            float meanScale, float cnt, float tailCnt,
+                                                            uint32_t tailSize, uint32_t dichotomyAddPower)
 {
     float coeff = tailCnt / cnt;
     float tailMeanCountScale = tailCnt * meanScale;
@@ -1337,6 +1358,9 @@ __aicore__ inline void VFWelfordParallelFinalizeARNonAlign3(__ubuf__ float* tmpM
             }
 
             DichotomyAdd(var, dichotomyAddLocal, outerLoop, innerLoopCountOrigin, dichotomyAddLastNum);
+            if constexpr (!isM2Out) {
+                Muls(var, var, postScale, pregMerge);
+            }
             // var out
             if constexpr (isStd == true && isM2Out == false) {
                 Sqrt(std, var, pregMerge);
@@ -1354,8 +1378,9 @@ template <typename T, bool isStd = false, bool isM2Out = false>
 __aicore__ inline void VFWelfordParallelFinalizeARNonAlignLessVL(__ubuf__ float* tmpMeanLocal,
                                                                  __ubuf__ float* tmpVarLocal, __ubuf__ T* outMeanLocal,
                                                                  __ubuf__ T* outVarLocal, uint32_t ANum, uint32_t RNum,
-                                                                 uint32_t RStride, float varScale, float meanScale,
-                                                                 float cnt, float tailCnt, uint32_t tailSize)
+                                                                 uint32_t RStride, float varScale, float postScale,
+                                                                 float meanScale, float cnt, float tailCnt,
+                                                                 uint32_t tailSize)
 {
     uint16_t aLoopNum = static_cast<uint16_t>(ANum);
     // cnt  是不带尾块的累加次数
@@ -1405,6 +1430,9 @@ __aicore__ inline void VFWelfordParallelFinalizeARNonAlignLessVL(__ubuf__ float*
                 Muls(tmpVarReg, tmpVarReg, varScale, pregLoop);
             }
             MicroAPI::Reduce<MicroAPI::ReduceType::SUM>(var, tmpVarReg, pregLoop);
+            if constexpr (!isM2Out) {
+                Muls(var, var, postScale, pregMerge);
+            }
 
             if constexpr (isStd == true && isM2Out == false) {
                 Sqrt(var, var, pregMerge);
@@ -1423,13 +1451,13 @@ template <typename T, bool isStd = false, bool isM2Out = false>
 __aicore__ inline void VFWelfordParallelFinalizeARNonAlign(__ubuf__ float* tmpMeanLocal, __ubuf__ float* tmpVarLocal,
                                                            __ubuf__ float* dichotomyAddLocal, __ubuf__ T* outMeanLocal,
                                                            __ubuf__ T* outVarLocal, uint32_t ANum, uint32_t RNum,
-                                                           uint32_t RStride, float varScale, float meanScale, float cnt,
-                                                           float tailCnt, uint32_t tailSize)
+                                                           uint32_t RStride, float varScale, float postScale,
+                                                           float meanScale, float cnt, float tailCnt, uint32_t tailSize)
 {
     if (RNum <= VL_FP32) {
         VFWelfordParallelFinalizeARNonAlignLessVL<T, isStd, isM2Out>(tmpMeanLocal, tmpVarLocal, outMeanLocal,
                                                                      outVarLocal, ANum, RNum, RStride, varScale,
-                                                                     meanScale, cnt, tailCnt, tailSize);
+                                                                     postScale, meanScale, cnt, tailCnt, tailSize);
         return;
     }
 
@@ -1441,25 +1469,25 @@ __aicore__ inline void VFWelfordParallelFinalizeARNonAlign(__ubuf__ float* tmpMe
     if (tailSize >= dichotomyAddPower) {
         VFWelfordParallelFinalizeARNonAlign1<T, isStd, isM2Out>(
             tmpMeanLocal, tmpVarLocal, dichotomyAddLocal, outMeanLocal, outVarLocal, ANum, RNum, RStride, varScale,
-            meanScale, cnt, tailCnt, tailSize, dichotomyAddPower);
+            postScale, meanScale, cnt, tailCnt, tailSize, dichotomyAddPower);
         return;
     }
     if (tailSize < dichotomyAddReminderRoundUp) {
         VFWelfordParallelFinalizeARNonAlign2<T, isStd, isM2Out>(
             tmpMeanLocal, tmpVarLocal, dichotomyAddLocal, outMeanLocal, outVarLocal, ANum, RNum, RStride, varScale,
-            meanScale, cnt, tailCnt, tailSize, dichotomyAddPower);
+            postScale, meanScale, cnt, tailCnt, tailSize, dichotomyAddPower);
         return;
     }
     VFWelfordParallelFinalizeARNonAlign3<T, isStd, isM2Out>(tmpMeanLocal, tmpVarLocal, dichotomyAddLocal, outMeanLocal,
-                                                            outVarLocal, ANum, RNum, RStride, varScale, meanScale, cnt,
-                                                            tailCnt, tailSize, dichotomyAddPower);
+                                                            outVarLocal, ANum, RNum, RStride, varScale, postScale,
+                                                            meanScale, cnt, tailCnt, tailSize, dichotomyAddPower);
 }
 
 template <typename T, bool isStd = false, bool isM2Out = false>
 __aicore__ inline void VFWelfordParallelFinalizeARNonAlignPad(
     LocalTensor<float>& tMeanTensor, LocalTensor<float>& tVarTensor, LocalTensor<float>& tDichTensor,
     LocalTensor<T>& outMeanTensor, LocalTensor<T>& outVarTensor, uint32_t ANum, uint32_t RNum, uint32_t RStride,
-    float varScale, float meanScale, float cnt, float tailCnt, uint32_t tailSize,
+    float varScale, float postScale, float meanScale, float cnt, float tailCnt, uint32_t tailSize,
     uint32_t loopWelfTailRCnt,  // 单次ub内，welford尾块包含多少个lastR
     uint32_t lastRAxisLen,      // lastRAxisLen: 尾轴R的实际大小
     uint32_t lastRAxisLenAlign, // lastRAxisLen block对齐后的大小
@@ -1591,6 +1619,9 @@ __aicore__ inline void VFWelfordParallelFinalizeARNonAlignPad(
 
     if constexpr (IsSameType<T, float>::value) {
         AscendC::ReduceSum<float, AscendC::Pattern::Reduce::AR, true>(outVarTensor, tVarTensor, srcShape, false);
+        if constexpr (!isM2Out) {
+            AscendC::Muls(outVarTensor, outVarTensor, postScale, ANum);
+        }
         if constexpr (isStd == true && isM2Out == false) {
             AscendC::Sqrt(outVarTensor, outVarTensor, ANum);
         }
@@ -1598,6 +1629,9 @@ __aicore__ inline void VFWelfordParallelFinalizeARNonAlignPad(
         LocalTensor<float> outVarFp32 = outVarTensor.template ReinterpretCast<float>();
 
         AscendC::ReduceSum<float, AscendC::Pattern::Reduce::AR, true>(outVarFp32, tVarTensor, srcShape, false);
+        if constexpr (!isM2Out) {
+            AscendC::Muls(outVarFp32, outVarFp32, postScale, ANum);
+        }
 
         if constexpr (isStd == true && isM2Out == false) {
             AscendC::Sqrt(outVarFp32, outVarFp32, ANum);
@@ -1681,7 +1715,8 @@ __aicore__ inline void CalcFinalizeMean(uint32_t RNum, uint32_t ANum, LocalTenso
 template <typename T, bool isM2Out = false>
 __aicore__ inline void CalcFinalizeVar(uint32_t RNum, uint32_t ANum, LocalTensor<float>& updateVarTensor,
                                        __ubuf__ float* tmpCountLocal, __ubuf__ float* dichotomyAddAddr,
-                                       LocalTensor<T>& outMeanTensor, LocalTensor<T>& outVarTensor, float varFactor)
+                                       LocalTensor<T>& outMeanTensor, LocalTensor<T>& outVarTensor, float varFactor,
+                                       float postScale)
 {
     uint32_t srcShape[DICHOTOMY_ADD_COEFF] = {RNum, ANum};
 
@@ -1725,9 +1760,15 @@ __aicore__ inline void CalcFinalizeVar(uint32_t RNum, uint32_t ANum, LocalTensor
 
     if constexpr (IsSameType<T, float>::value) {
         AscendC::ReduceSum<float, AscendC::Pattern::Reduce::RA, true>(outVarTensor, updateVarTensor, srcShape, false);
+        if constexpr (!isM2Out) {
+            AscendC::Muls(outVarTensor, outVarTensor, postScale, ANum);
+        }
     } else {
         LocalTensor<float> outVarFp32 = outVarTensor.template ReinterpretCast<float>();
         AscendC::ReduceSum<float, AscendC::Pattern::Reduce::RA, true>(outVarFp32, updateVarTensor, srcShape, false);
+        if constexpr (!isM2Out) {
+            AscendC::Muls(outVarFp32, outVarFp32, postScale, ANum);
+        }
     }
 }
 
@@ -1735,11 +1776,12 @@ template <typename T, bool isStd = false, bool isM2Out = false>
 __aicore__ inline void VFWelfordFinalizeRA(uint32_t RNum, uint32_t ANum, LocalTensor<float>& updateMeanTensor,
                                            LocalTensor<float>& updateVarTensor, __ubuf__ float* tmpCountLocal,
                                            LocalTensor<T>& outMeanTensor, LocalTensor<T>& outVarTensor,
-                                           __ubuf__ float* dichotomyAddAddr, float meanFactor, float varFactor)
+                                           __ubuf__ float* dichotomyAddAddr, float meanFactor, float varFactor,
+                                           float postScale)
 {
     CalcFinalizeMean<T>(RNum, ANum, updateMeanTensor, tmpCountLocal, outMeanTensor, dichotomyAddAddr, meanFactor);
     CalcFinalizeVar<T, isM2Out>(RNum, ANum, updateVarTensor, tmpCountLocal, dichotomyAddAddr, outMeanTensor,
-                                outVarTensor, varFactor);
+                                outVarTensor, varFactor, postScale);
 
     if constexpr (IsSameType<T, float>::value) {
         if constexpr (isStd == true && isM2Out == false) {

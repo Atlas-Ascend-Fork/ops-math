@@ -21,7 +21,7 @@
 namespace ReduceOpTmpl {
 using namespace AscendC;
 
-template <typename T, bool isStd = false>
+template <typename T, bool isStd = false, bool correctionInvalid>
 __aicore__ inline void VFMeanVarTwoPassARLessVL(__ubuf__ T* xInUb, __ubuf__ float* dichotomyAddLocal,
                                                 __ubuf__ T* outMeanLocal, __ubuf__ T* outVarLocal, uint32_t ANum,
                                                 uint32_t RStride, uint32_t RNum, float varScale)
@@ -58,10 +58,17 @@ __aicore__ inline void VFMeanVarTwoPassARLessVL(__ubuf__ T* xInUb, __ubuf__ floa
             Duplicate(mean, mean, pregMain);
 
             Sub(y1, x, mean, pregLoop);
-            // 先乘以系数，防止平方溢出
-            Muls(y1Scale, y1, varScale, pregLoop);
-            Mul(y1Pow, y1Scale, y1, pregLoop);
-            MicroAPI::Reduce<MicroAPI::ReduceType::SUM>(var, y1Pow, pregLoop);
+            if constexpr (correctionInvalid) {
+                // correction>=N时varScale为+Inf，先平方求和再施加缩放，防止0*Inf=NaN污染整组
+                Mul(y1Pow, y1, y1, pregLoop);
+                MicroAPI::Reduce<MicroAPI::ReduceType::SUM>(var, y1Pow, pregLoop);
+                Muls(var, var, varScale, pregMerge);
+            } else {
+                // 先乘以系数，防止平方溢出
+                Muls(y1Scale, y1, varScale, pregLoop);
+                Mul(y1Pow, y1Scale, y1, pregLoop);
+                MicroAPI::Reduce<MicroAPI::ReduceType::SUM>(var, y1Pow, pregLoop);
+            }
             // var out
             if constexpr (isStd == true) {
                 Sqrt(var, var, pregMerge);
@@ -73,7 +80,7 @@ __aicore__ inline void VFMeanVarTwoPassARLessVL(__ubuf__ T* xInUb, __ubuf__ floa
     }
 }
 
-template <typename T, bool isStd = false>
+template <typename T, bool isStd = false, bool correctionInvalid>
 __aicore__ inline void VFMeanVarTwoPassARLessTwoVL(__ubuf__ T* xInUb, __ubuf__ T* outMeanLocal, __ubuf__ T* outVarLocal,
                                                    uint32_t ANum, uint32_t RStride, uint32_t RNum, float varScale)
 {
@@ -119,13 +126,23 @@ __aicore__ inline void VFMeanVarTwoPassARLessTwoVL(__ubuf__ T* xInUb, __ubuf__ T
 
             Sub(y1, x1, meanBrc, pregMain);
             Sub(y2, x2, meanBrc, pregTail);
-            // 先乘以系数，防止平方溢出
-            Muls(y1Scale, y1, varScale, pregMain);
-            Muls(y2Scale, y2, varScale, pregTail);
-            Mul(y1, y1Scale, y1, pregMain);
-            Mul(y2, y2Scale, y2, pregTail);
+            if constexpr (correctionInvalid) {
+                // correction>=N时varScale为+Inf，先平方求和再施加缩放，防止0*Inf=NaN污染整组
+                Mul(y1, y1, y1, pregMain);
+                Mul(y2, y2, y2, pregTail);
+            } else {
+                // 先乘以系数，防止平方溢出
+                Muls(y1Scale, y1, varScale, pregMain);
+                Muls(y2Scale, y2, varScale, pregTail);
+                Mul(y1, y1Scale, y1, pregMain);
+                Mul(y2, y2Scale, y2, pregTail);
+            }
             Add(varSum, y1, y2, pregMain);
             MicroAPI::Reduce<MicroAPI::ReduceType::SUM>(var, varSum, pregMain);
+            if constexpr (correctionInvalid) {
+                // correction>=N时varScale为+Inf，先平方求和再施加缩放，防止0*Inf=NaN污染整组
+                Muls(var, var, varScale, pregMerge);
+            }
             if constexpr (isStd == true) {
                 Sqrt(var, var, pregMerge);
             }
@@ -138,7 +155,7 @@ __aicore__ inline void VFMeanVarTwoPassARLessTwoVL(__ubuf__ T* xInUb, __ubuf__ T
 // 满足 pow2 >= 4*VL、quotient = pow2/2 >= 2*VL、tail = RNum - quotient ∈ (0, quotient]，
 // 从而 quotLoop = quotient/VL >= tailCeil，单块循环上界 (quotLoop - tailCeil) 非负；
 // 若绕过该前提（如 RNum <= VL），quotLoop - tailCeil 会在 uint16_t 下溢，禁止直接复用本函数。
-template <typename T, bool isStd = false>
+template <typename T, bool isStd = false, bool correctionInvalid>
 __aicore__ inline void VFMeanVarTwoPassARCommon(__ubuf__ T* xInUb, __ubuf__ float* dichotomyAddLocal,
                                                 __ubuf__ float* partBufLocal, __ubuf__ T* outMeanLocal,
                                                 __ubuf__ T* outVarLocal, uint32_t ANum, uint32_t RStride, uint32_t RNum,
@@ -249,11 +266,17 @@ __aicore__ inline void VFMeanVarTwoPassARCommon(__ubuf__ T* xInUb, __ubuf__ floa
                                        (quotient + r * VL_FP32 + a * RStride));
                 Sub(x1, x1, meanBrc, pregMain);
                 Sub(x2, x2, meanBrc, pregTail);
-                // 先乘以系数，防止平方溢出
-                Muls(x1Scale, x1, varScale, pregMain);
-                Muls(x2Scale, x2, varScale, pregTail);
-                Mul(x1, x1Scale, x1, pregMain);
-                Mul(x2, x2Scale, x2, pregTail);
+                if constexpr (correctionInvalid) {
+                    // correction>=N时varScale为+Inf，先平方求和再施加缩放，防止0*Inf=NaN污染整组
+                    Mul(x1, x1, x1, pregMain);
+                    Mul(x2, x2, x2, pregTail);
+                } else {
+                    // 先乘以系数，防止平方溢出
+                    Muls(x1Scale, x1, varScale, pregMain);
+                    Muls(x2Scale, x2, varScale, pregTail);
+                    Mul(x1, x1Scale, x1, pregMain);
+                    Mul(x2, x2Scale, x2, pregTail);
+                }
                 Add(sumReg, x1, x2, pregMain);
                 MicroAPI::Reduce<MicroAPI::ReduceType::SUM>(var, sumReg, pregMain);
                 MicroAPI::StoreAlign<float, StoreDist::DIST_FIRST_ELEMENT_B32>(partBuf + a * partStride + r, var,
@@ -262,9 +285,14 @@ __aicore__ inline void VFMeanVarTwoPassARCommon(__ubuf__ T* xInUb, __ubuf__ floa
             for (uint16_t r = 0; r < static_cast<uint16_t>(quotLoop - tailCeil); r++) {
                 LoadOneTensorForDtypeT(xInUb, x1, pregMain, ((tailCeil + r) * VL_FP32 + a * RStride));
                 Sub(x1, x1, meanBrc, pregMain);
-                // 先乘以系数，防止平方溢出
-                Muls(x1Scale, x1, varScale, pregMain);
-                Mul(x1, x1Scale, x1, pregMain);
+                if constexpr (correctionInvalid) {
+                    // correction>=N时varScale为+Inf，先平方求和再施加缩放，防止0*Inf=NaN污染整组
+                    Mul(x1, x1, x1, pregMain);
+                } else {
+                    // 先乘以系数，防止平方溢出
+                    Muls(x1Scale, x1, varScale, pregMain);
+                    Mul(x1, x1Scale, x1, pregMain);
+                }
                 MicroAPI::Reduce<MicroAPI::ReduceType::SUM>(var, x1, pregMain);
                 MicroAPI::StoreAlign<float, StoreDist::DIST_FIRST_ELEMENT_B32>(partBuf + a * partStride + tailCeil + r,
                                                                                var, pregMerge);
@@ -290,6 +318,9 @@ __aicore__ inline void VFMeanVarTwoPassARCommon(__ubuf__ T* xInUb, __ubuf__ floa
         for (uint16_t a = 0; a < aLoopNum; a++) {
             MicroAPI::LoadAlign(sumReg, partBuf + a * partStride);
             MicroAPI::Reduce<MicroAPI::ReduceType::SUM>(var, sumReg, pregLast);
+            if constexpr (correctionInvalid) {
+                Muls(var, var, varScale, pregMerge);
+            }
             if constexpr (isStd == true) {
                 Sqrt(var, var, pregMerge);
             }
@@ -298,26 +329,42 @@ __aicore__ inline void VFMeanVarTwoPassARCommon(__ubuf__ T* xInUb, __ubuf__ floa
     }
 }
 
+template <typename T, bool isStd = false, bool correctionInvalid>
+__aicore__ inline void VFMeanVarTwoPassARImpl(__ubuf__ T* xInUb, __ubuf__ float* dichotomyAddLocal,
+                                              __ubuf__ float* partBufLocal, __ubuf__ T* outMeanLocal,
+                                              __ubuf__ T* outVarLocal, uint32_t ANum, uint32_t RStride, uint32_t RNum,
+                                              float varScale)
+{
+    if (RNum <= VL_FP32) {
+        VFMeanVarTwoPassARLessVL<T, isStd, correctionInvalid>(xInUb, dichotomyAddLocal, outMeanLocal, outVarLocal, ANum,
+                                                              RStride, RNum, varScale);
+        return;
+    }
+    if (RNum <= 2 * VL_FP32) {
+        VFMeanVarTwoPassARLessTwoVL<T, isStd, correctionInvalid>(xInUb, outMeanLocal, outVarLocal, ANum, RStride, RNum,
+                                                                 varScale);
+        return;
+    }
+    VFMeanVarTwoPassARCommon<T, isStd, correctionInvalid>(xInUb, dichotomyAddLocal, partBufLocal, outMeanLocal,
+                                                          outVarLocal, ANum, RStride, RNum, varScale);
+}
+
 template <typename T, bool isStd = false>
 __aicore__ inline void VFMeanVarTwoPassAR(__ubuf__ T* xInUb, __ubuf__ float* dichotomyAddLocal,
                                           __ubuf__ float* partBufLocal, __ubuf__ T* outMeanLocal,
                                           __ubuf__ T* outVarLocal, uint32_t ANum, uint32_t RStride, uint32_t RNum,
-                                          float varScale)
+                                          float varScale, bool correctionInvalid)
 {
-    if (RNum <= VL_FP32) {
-        VFMeanVarTwoPassARLessVL<T, isStd>(xInUb, dichotomyAddLocal, outMeanLocal, outVarLocal, ANum, RStride, RNum,
-                                           varScale);
-        return;
+    if (correctionInvalid) {
+        VFMeanVarTwoPassARImpl<T, isStd, true>(xInUb, dichotomyAddLocal, partBufLocal, outMeanLocal, outVarLocal, ANum,
+                                               RStride, RNum, varScale);
+    } else {
+        VFMeanVarTwoPassARImpl<T, isStd, false>(xInUb, dichotomyAddLocal, partBufLocal, outMeanLocal, outVarLocal, ANum,
+                                                RStride, RNum, varScale);
     }
-    if (RNum <= 2 * VL_FP32) {
-        VFMeanVarTwoPassARLessTwoVL<T, isStd>(xInUb, outMeanLocal, outVarLocal, ANum, RStride, RNum, varScale);
-        return;
-    }
-    VFMeanVarTwoPassARCommon<T, isStd>(xInUb, dichotomyAddLocal, partBufLocal, outMeanLocal, outVarLocal, ANum, RStride,
-                                       RNum, varScale);
 }
 
-template <typename T, bool isStd = false>
+template <typename T, bool isStd = false, bool correctionInvalid>
 __aicore__ inline void VFMeanVarTwoPassARPadLessVL(__ubuf__ T* xInUb, __ubuf__ float* dichotomyAddLocal,
                                                    __ubuf__ T* outMeanLocal, __ubuf__ T* outVarLocal, uint16_t ANum,
                                                    uint16_t RStride, uint32_t RealRNum, float varScale,
@@ -367,8 +414,14 @@ __aicore__ inline void VFMeanVarTwoPassARPadLessVL(__ubuf__ T* xInUb, __ubuf__ f
                 // 用 lastRAxisLenAlign, 将 lastRAxisLen -> lastRAxisLenAlign 之间的数据清零
                 LoadOneTensorForDtypeT(xInUb, tmpMeanReg, pregLoop2, j * RStride + ro * lastRAxisLenAlign);
                 Sub(delta, tmpMeanReg, mean, pregLoop2);
-                Muls(deltaScale, delta, varScale, pregLoop2);
-                Mul(deltaPow, deltaScale, delta, pregLoop2);
+                if constexpr (correctionInvalid) {
+                    // correction>=N时varScale为+Inf，先平方求和再施加缩放，防止0*Inf=NaN污染整组
+                    Mul(deltaPow, delta, delta, pregLoop2);
+                } else {
+                    // 先乘以系数，防止平方溢出
+                    Muls(deltaScale, delta, varScale, pregLoop2);
+                    Mul(deltaPow, deltaScale, delta, pregLoop2);
+                }
                 MicroAPI::StoreAlign(((__ubuf__ float*)dichotomyAddLocal + j * RStride + ro * lastRAxisLenAlign),
                                      deltaPow, pregLoop1);
             }
@@ -378,6 +431,9 @@ __aicore__ inline void VFMeanVarTwoPassARPadLessVL(__ubuf__ T* xInUb, __ubuf__ f
             MicroAPI::LoadAlign(tmpVarReg, dichotomyAddLocal + j * RStride);
             Muls(tmpVarReg, tmpVarReg, float(1.0), pregLoop);
             MicroAPI::Reduce<MicroAPI::ReduceType::SUM>(var, tmpVarReg, pregLoop);
+            if constexpr (correctionInvalid) {
+                Muls(var, var, varScale, pregMerge);
+            }
 
             if constexpr (isStd == true) {
                 Sqrt(var, var, pregMerge);
@@ -389,15 +445,17 @@ __aicore__ inline void VFMeanVarTwoPassARPadLessVL(__ubuf__ T* xInUb, __ubuf__ f
     }
 }
 
-template <typename T, bool isStd = false>
-__aicore__ inline void VFMeanVarTwoPassARPad(__ubuf__ T* xInUb, __ubuf__ float* dichotomyAddLocal,
-                                             __ubuf__ T* outMeanLocal, __ubuf__ T* outVarLocal, uint16_t ANum,
-                                             uint16_t RStride, uint32_t RealRNum, float varScale, uint32_t lastRAxisLen,
-                                             uint32_t lastRAxisLenAlign, uint16_t loopLastRNum)
+template <typename T, bool isStd = false, bool correctionInvalid>
+__aicore__ inline void VFMeanVarTwoPassARPadImpl(__ubuf__ T* xInUb, __ubuf__ float* dichotomyAddLocal,
+                                                 __ubuf__ T* outMeanLocal, __ubuf__ T* outVarLocal, uint16_t ANum,
+                                                 uint16_t RStride, uint32_t RealRNum, float varScale,
+                                                 uint32_t lastRAxisLen, uint32_t lastRAxisLenAlign,
+                                                 uint16_t loopLastRNum)
 {
     if (RStride <= VL_FP32) {
-        VFMeanVarTwoPassARPadLessVL<T, isStd>(xInUb, dichotomyAddLocal, outMeanLocal, outVarLocal, ANum, RStride,
-                                              RealRNum, varScale, lastRAxisLen, lastRAxisLenAlign, loopLastRNum);
+        VFMeanVarTwoPassARPadLessVL<T, isStd, correctionInvalid>(xInUb, dichotomyAddLocal, outMeanLocal, outVarLocal,
+                                                                 ANum, RStride, RealRNum, varScale, lastRAxisLen,
+                                                                 lastRAxisLenAlign, loopLastRNum);
         return;
     }
 
@@ -497,9 +555,14 @@ __aicore__ inline void VFMeanVarTwoPassARPad(__ubuf__ T* xInUb, __ubuf__ float* 
                     pregLoop = UpdateMask<float>(sreg0);
                     LoadOneTensorForDtypeT(xInUb, x1, pregLoop, j * RStride + ro * lastRAxisLenAlign + ri * VL_FP32);
                     Sub(x1, x1, mean, pregLoop);
-                    // 先乘以系数，防止平方溢出
-                    Muls(x1Scale, x1, varScale, pregLoop);
-                    Mul(x1Pow, x1Scale, x1, pregLoop);
+                    if constexpr (correctionInvalid) {
+                        // correction>=N时varScale为+Inf，先平方求和再施加缩放，防止0*Inf=NaN污染整组
+                        Mul(x1Pow, x1, x1, pregLoop);
+                    } else {
+                        // 先乘以系数，防止平方溢出
+                        Muls(x1Scale, x1, varScale, pregLoop);
+                        Mul(x1Pow, x1Scale, x1, pregLoop);
+                    }
                     MicroAPI::StoreAlign(
                         ((__ubuf__ float*)dichotomyAddLocal + j * RStride + ro * lastRAxisLenAlign + ri * VL_FP32),
                         x1Pow, pregLoop);
@@ -509,8 +572,14 @@ __aicore__ inline void VFMeanVarTwoPassARPad(__ubuf__ T* xInUb, __ubuf__ float* 
                     LoadOneTensorForDtypeT(xInUb, x1, pregLoop,
                                            j * RStride + ro * lastRAxisLenAlign + lastRAxisLoopNumT * VL_FP32);
                     Sub(x1, x1, mean, pregLoop);
-                    Muls(x1Scale, x1, varScale, pregLoop);
-                    Mul(x1Pow, x1Scale, x1, pregLoop);
+                    if constexpr (correctionInvalid) {
+                        // correction>=N时varScale为+Inf，先平方求和再施加缩放，防止0*Inf=NaN污染整组
+                        Mul(x1Pow, x1, x1, pregLoop);
+                    } else {
+                        // 先乘以系数，防止平方溢出
+                        Muls(x1Scale, x1, varScale, pregLoop);
+                        Mul(x1Pow, x1Scale, x1, pregLoop);
+                    }
                     MicroAPI::StoreAlign(((__ubuf__ float*)dichotomyAddLocal + j * RStride + ro * lastRAxisLenAlign +
                                           lastRAxisLoopNumT * VL_FP32),
                                          x1Pow, pregLoop1);
@@ -543,6 +612,9 @@ __aicore__ inline void VFMeanVarTwoPassARPad(__ubuf__ T* xInUb, __ubuf__ float* 
                     dichotomyAddLocal + dichotomyAddReminderLoopCount + i, var, pregMerge);
             }
             DichotomyAdd(var, dichotomyAddLocal, outerLoop, innerLoopCountOrigin, dichotomyAddLastNum);
+            if constexpr (correctionInvalid) {
+                Muls(var, var, varScale, pregMerge);
+            }
 
             if constexpr (isStd == true) {
                 Sqrt(std, var, pregMerge);
@@ -557,6 +629,21 @@ __aicore__ inline void VFMeanVarTwoPassARPad(__ubuf__ T* xInUb, __ubuf__ float* 
 }
 
 template <typename T, bool isStd = false>
+__aicore__ inline void VFMeanVarTwoPassARPad(__ubuf__ T* xInUb, __ubuf__ float* dichotomyAddLocal,
+                                             __ubuf__ T* outMeanLocal, __ubuf__ T* outVarLocal, uint16_t ANum,
+                                             uint16_t RStride, uint32_t RealRNum, float varScale, uint32_t lastRAxisLen,
+                                             uint32_t lastRAxisLenAlign, uint16_t loopLastRNum, bool correctionInvalid)
+{
+    if (correctionInvalid) {
+        VFMeanVarTwoPassARPadImpl<T, isStd, true>(xInUb, dichotomyAddLocal, outMeanLocal, outVarLocal, ANum, RStride,
+                                                  RealRNum, varScale, lastRAxisLen, lastRAxisLenAlign, loopLastRNum);
+    } else {
+        VFMeanVarTwoPassARPadImpl<T, isStd, false>(xInUb, dichotomyAddLocal, outMeanLocal, outVarLocal, ANum, RStride,
+                                                   RealRNum, varScale, lastRAxisLen, lastRAxisLenAlign, loopLastRNum);
+    }
+}
+
+template <typename T, bool isStd = false, bool correctionInvalid>
 __aicore__ inline void VFMeanVarTwoPassRAFp32(__ubuf__ T* xInUb, LocalTensor<float>& dichotomyAddLocal,
                                               LocalTensor<float>& tmpMeanTensor, LocalTensor<float>& tmpVarTensor,
                                               LocalTensor<T>& outMeanTensor, LocalTensor<T>& outVarTensor,
@@ -616,19 +703,28 @@ __aicore__ inline void VFMeanVarTwoPassRAFp32(__ubuf__ T* xInUb, LocalTensor<flo
                 LoadOneTensorForDtypeT(xInUb, x1, pregLoop, aIndex * VL_FP32 + rIndx * ANum);
 
                 Sub(delta, x1, mean, pregLoop);
-                Muls(deltaScale, delta, varScale, pregLoop);
-                Mul(deltaPow, deltaScale, delta, pregLoop);
+                if constexpr (correctionInvalid) {
+                    // correction>=N时varScale为+Inf，先平方求和再施加缩放，防止0*Inf=NaN污染整组
+                    Mul(deltaPow, delta, delta, pregLoop);
+                } else {
+                    // 先乘以系数，防止平方溢出
+                    Muls(deltaScale, delta, varScale, pregLoop);
+                    Mul(deltaPow, deltaScale, delta, pregLoop);
+                }
                 MicroAPI::StoreAlign(tmpVarAddr + aIndex * VL_FP32 + rIndx * ANum, deltaPow, pregLoop);
             }
         }
     }
     AscendC::ReduceSum<float, AscendC::Pattern::Reduce::RA, true>(outVarTensor, tmpVarTensor, srcShape, false);
+    if constexpr (correctionInvalid) {
+        AscendC::Muls(outVarTensor, outVarTensor, varScale, ANum);
+    }
     if constexpr (isStd == true) {
         AscendC::Sqrt(outVarTensor, outVarTensor, ANum);
     }
 }
 
-template <typename T, bool isStd = false>
+template <typename T, bool isStd = false, bool correctionInvalid>
 __aicore__ inline void VFMeanVarTwoPassRAB16(__ubuf__ T* xInUb, LocalTensor<float>& dichotomyAddLocal,
                                              LocalTensor<float>& tmpMeanTensor, LocalTensor<float>& tmpVarTensor,
                                              LocalTensor<T>& outMeanTensor, LocalTensor<T>& outVarTensor, uint32_t ANum,
@@ -689,13 +785,22 @@ __aicore__ inline void VFMeanVarTwoPassRAB16(__ubuf__ T* xInUb, LocalTensor<floa
                 LoadOneTensorForDtypeT(xInUb, x1, pregLoop, aIndex * VL_FP32 + rIndx * ANum);
 
                 Sub(delta, x1, mean, pregLoop);
-                Muls(deltaScale, delta, varScale, pregLoop);
-                Mul(deltaPow, deltaScale, delta, pregLoop);
+                if constexpr (correctionInvalid) {
+                    // correction>=N时varScale为+Inf，先平方求和再施加缩放，防止0*Inf=NaN污染整组
+                    Mul(deltaPow, delta, delta, pregLoop);
+                } else {
+                    // 先乘以系数，防止平方溢出
+                    Muls(deltaScale, delta, varScale, pregLoop);
+                    Mul(deltaPow, deltaScale, delta, pregLoop);
+                }
                 MicroAPI::StoreAlign(dichotomyAddAddr + aIndex * VL_FP32 + rIndx * ANum, deltaPow, pregLoop);
             }
         }
     }
     AscendC::ReduceSum<float, AscendC::Pattern::Reduce::RA, true>(tmpVarTensor, dichotomyAddLocal, srcShape, false);
+    if constexpr (correctionInvalid) {
+        AscendC::Muls(tmpVarTensor, tmpVarTensor, varScale, ANum);
+    }
 
     // 优化： 合并成一个VF
     if constexpr (isStd == true) {
@@ -709,15 +814,25 @@ template <typename T, bool isStd = false>
 __aicore__ inline void VFMeanVarTwoPassRA(__ubuf__ T* xInUb, LocalTensor<float>& dichotomyAddLocal,
                                           LocalTensor<float>& tmpMeanTensor, LocalTensor<float>& tmpVarTensor,
                                           LocalTensor<T>& outMeanTensor, LocalTensor<T>& outVarTensor, uint32_t ANum,
-                                          uint32_t RNum, float varScale)
+                                          uint32_t RNum, float varScale, bool correctionInvalid)
 {
     if constexpr (IsSameType<T, float>::value) {
         // 直接输出到outbuf上
-        VFMeanVarTwoPassRAFp32<T, isStd>(xInUb, dichotomyAddLocal, tmpMeanTensor, tmpVarTensor, outMeanTensor,
-                                         outVarTensor, ANum, RNum, varScale);
+        if (correctionInvalid) {
+            VFMeanVarTwoPassRAFp32<T, isStd, true>(xInUb, dichotomyAddLocal, tmpMeanTensor, tmpVarTensor, outMeanTensor,
+                                                   outVarTensor, ANum, RNum, varScale);
+        } else {
+            VFMeanVarTwoPassRAFp32<T, isStd, false>(xInUb, dichotomyAddLocal, tmpMeanTensor, tmpVarTensor,
+                                                    outMeanTensor, outVarTensor, ANum, RNum, varScale);
+        }
     } else {
-        VFMeanVarTwoPassRAB16<T, isStd>(xInUb, dichotomyAddLocal, tmpMeanTensor, tmpVarTensor, outMeanTensor,
-                                        outVarTensor, ANum, RNum, varScale);
+        if (correctionInvalid) {
+            VFMeanVarTwoPassRAB16<T, isStd, true>(xInUb, dichotomyAddLocal, tmpMeanTensor, tmpVarTensor, outMeanTensor,
+                                                  outVarTensor, ANum, RNum, varScale);
+        } else {
+            VFMeanVarTwoPassRAB16<T, isStd, false>(xInUb, dichotomyAddLocal, tmpMeanTensor, tmpVarTensor, outMeanTensor,
+                                                   outVarTensor, ANum, RNum, varScale);
+        }
     }
 }
 
