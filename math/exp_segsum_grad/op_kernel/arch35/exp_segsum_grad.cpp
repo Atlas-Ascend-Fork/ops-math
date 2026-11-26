@@ -15,6 +15,7 @@
  */
 
 #include "exp_segsum_grad_arch35.h"
+#include "exp_segsum_grad_short_batches.h"
 
 using namespace ExpSegsumGradArch35;
 
@@ -42,6 +43,10 @@ extern "C" __global__ __aicore__ void exp_segsum_grad(GM_ADDR grad_output, GM_AD
     } else if (TILING_KEY_IS(1)) {
         ExpSegsumGrad<DTYPE_GRAD_OUTPUT, 1> op;
         op.Init(grad_output, grad_self, grad_input, userWS, &tilingData);
+        op.Process();
+    } else if (TILING_KEY_IS(2)) {
+        ExpSegsumGradShortBatches<DTYPE_GRAD_OUTPUT> op;
+        op.Init(grad_output, grad_self, grad_input, &tilingData);
         op.Process();
     } else {
         return;

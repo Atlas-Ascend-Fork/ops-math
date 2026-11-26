@@ -33,8 +33,9 @@ public:
 
 private:
     ge::graphStatus ParseInputAttrs();
-    void GetNeedCoreNum(uint32_t coreNumPlatform);
+    void GetNeedCoreNum(uint32_t coreNumPlatform, int64_t batchAlign);
     void GetTilingKey(uint64_t ubSizePlatform);
+    int64_t GetShortBatchTileSize(uint64_t ubSizePlatform, uint32_t coreNumPlatform) const;
     uint8_t GetDataTypeSize() const;
     void FillTilingData(ExpSegsumGradTilingDataArch35* tiling);
 

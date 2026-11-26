@@ -27,7 +27,7 @@ struct ExpSegsumGradTilingDataArch35 {
     int64_t needCoreNum = 0;
     int64_t batches = 0;
     int64_t tailDimLength = 0;
-    int64_t slideSize = 0;
+    int64_t slideSize = 0; // Batch count for tiling key 2, element count for the other keys.
     int32_t batchStart[EXP_SEGSUM_GRAD_MAX_CORE_ARCH35] = {0};
     int32_t batchEnd[EXP_SEGSUM_GRAD_MAX_CORE_ARCH35] = {0};
 };

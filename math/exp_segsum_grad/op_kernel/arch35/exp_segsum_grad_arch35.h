@@ -55,6 +55,33 @@ private:
     __aicore__ inline void ClearGM();
     __aicore__ inline void ComputeBase();
     __aicore__ inline void ComputeBatches();
+
+    // Split each FP32 operand into a short significand and an exact residual.
+    // This limits cancellation error in the two row reductions without extra UB.
+    static __simd_vf__ inline void SplitSumOperands(__ubuf__ float* high, __ubuf__ float* low, uint16_t groups)
+    {
+        Reg::MaskReg full = Reg::CreateMask<float, Reg::MaskPattern::ALL>();
+        Reg::RegTensor<uint32_t> keep;
+        Reg::RegTensor<float> zero;
+        Reg::Duplicate(keep, static_cast<uint32_t>(0xfffff000U), full);
+        Reg::Duplicate(zero, 0.0f, full);
+        for (uint16_t group = 0; group < groups; ++group) {
+            const uint32_t offset = static_cast<uint32_t>(group) * 64;
+            Reg::RegTensor<float> value, hi, lo, magnitude;
+            Reg::MaskReg finite;
+            Reg::LoadAlign(value, low + offset);
+            Reg::And(reinterpret_cast<Reg::RegTensor<uint32_t>&>(hi),
+                     reinterpret_cast<Reg::RegTensor<uint32_t>&>(value), keep, full);
+            Reg::Abs(magnitude, value, full);
+            Reg::Compares<float, CMPMODE::LE>(finite, magnitude, 3.4028234663852886e38f, full);
+            Reg::Select(hi, hi, value, finite);
+            Reg::Sub(lo, value, hi, full);
+            Reg::Select(lo, lo, zero, finite);
+            Reg::StoreAlign(high + offset, hi, full);
+            Reg::StoreAlign(low + offset, lo, full);
+        }
+    }
+
     __aicore__ inline void ComputeMul(int64_t num, LocalTensor<float> currentRow, LocalTensor<float> castRow);
     __aicore__ inline void ComputeSum(int64_t colLoopTimes, LocalTensor<float> currentRow, LocalTensor<float> castRow,
                                       LocalTensor<T> yTensor);
@@ -305,13 +332,15 @@ __aicore__ inline void ExpSegsumGrad<T, MODE>::ComputeBatches()
     int64_t calNumAlign = CeilA2B(calCount, blockSize) * blockSize;
     int64_t rowNum = slideSize / calNumAlign;
     for (int64_t batchIdx = batchStart; batchIdx < batchEnd; batchIdx++) {
-        Duplicate(lastRow, ZERO_FLOAT, slideSize);
+        Duplicate(lastRow, ZERO_FLOAT, calNumAlign);
         for (int64_t rowIdx = tailDimLength - 1; rowIdx >= 0; rowIdx -= rowNum) {
             int64_t row = Min(rowIdx + 1, rowNum);
             int64_t inOffset = batchIdx * tailDimLength * tailDimLength + (rowIdx - row + 1) * tailDimLength;
             CopyInBatch(inOffset, row, tailDimLength * sizeof(T));
 
-            Duplicate(currentRow, ZERO_FLOAT, slideSize);
+            // Only the rows participating in this chunk are read by the scan and reduction.
+            const int64_t activeElements = row * calNumAlign;
+            Duplicate(currentRow, ZERO_FLOAT, activeElements);
             PipeBarrier<PIPE_V>();
             ComputeMulBatches(row, calNumAlign, rowIdx, currentRow, castRow);
             for (int64_t i = 0; i < row; i++) {
@@ -321,7 +350,7 @@ __aicore__ inline void ExpSegsumGrad<T, MODE>::ComputeBatches()
                 DataCopy(lastRow, currentRow[offset], calNumAlign);
                 PipeBarrier<PIPE_V>();
             }
-            Duplicate(castRow, ZERO_FLOAT, slideSize);
+            Duplicate(castRow, ZERO_FLOAT, activeElements);
             PipeBarrier<PIPE_V>();
 
             for (int64_t i = 0; i < row; i++) {
@@ -332,7 +361,24 @@ __aicore__ inline void ExpSegsumGrad<T, MODE>::ComputeBatches()
             LocalTensor<T> yTensor = gradInQueue.AllocTensor<T>();
             uint32_t shape[] = {static_cast<uint32_t>(row), static_cast<uint32_t>(calNumAlign)};
             if constexpr (std::is_same<T, bfloat16_t>::value || std::is_same<T, half>::value) {
-                ReduceSum<float, Pattern::Reduce::AR, false>(currentRow, castRow, shape, true);
+                if constexpr (std::is_same<T, bfloat16_t>::value) {
+                    if (calNumAlign >= 64 && calNumAlign % 64 == 0) {
+                        asc_vf_call<SplitSumOperands>(reinterpret_cast<__ubuf__ float*>(currentRow.GetPhyAddr()),
+                                                      reinterpret_cast<__ubuf__ float*>(castRow.GetPhyAddr()),
+                                                      static_cast<uint16_t>(activeElements / 64));
+                        PipeBarrier<PIPE_V>();
+                        LocalTensor<float> sumHigh = yTensor.template ReinterpretCast<float>();
+                        ReduceSum<float, Pattern::Reduce::AR, false>(sumHigh, currentRow, shape, true);
+                        PipeBarrier<PIPE_V>();
+                        ReduceSum<float, Pattern::Reduce::AR, false>(currentRow, castRow, shape, true);
+                        PipeBarrier<PIPE_V>();
+                        Add(currentRow, currentRow, sumHigh, row);
+                    } else {
+                        ReduceSum<float, Pattern::Reduce::AR, false>(currentRow, castRow, shape, true);
+                    }
+                } else {
+                    ReduceSum<float, Pattern::Reduce::AR, false>(currentRow, castRow, shape, true);
+                }
                 PipeBarrier<PIPE_V>();
                 Cast(yTensor, currentRow, RoundMode::CAST_RINT, row);
             } else if constexpr (std::is_same<T, float>::value) {
