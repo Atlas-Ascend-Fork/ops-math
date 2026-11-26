@@ -121,6 +121,7 @@ aclnnStatus aclnnInplaceFillTensor(
   <!-- end id7 -->
   <!-- npu="A3,910b" id8 -->
   - <term>Atlas A3 products</term>, <term>Atlas A2 products</term>: The data types FLOAT8_E4M3FN, FLOAT8_E5M2, FLOAT8_E8M0, and HIFLOAT8 are not supported.
+  - <term>Atlas A3 products</term>, <term>Atlas A2 products</term>: selfRef and value support UINT16, UINT32, and UINT64.
   <!-- end id8 -->
   - For CANN 9.0.0, the data types FLOAT8_E4M3FN, FLOAT8_E5M2, FLOAT8_E8M0, and HIFLOAT8 are not supported for selfRef.
 

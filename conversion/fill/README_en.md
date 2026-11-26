@@ -78,14 +78,14 @@ English | [简体中文](./README.md)
     <td>selfRef</td>
     <td>Input/Output tensor</td>
     <td>Input and output tensor. Non-contiguous Tensors are supported, and data dimensions above 8 are not supported.</td>
-    <td>FLOAT, FLOAT16, UINT8, INT8, INT16, INT32, INT64, DOUBLE, COMPLEX64, COMPLEX128, BOOL, BFLOAT16, FLOAT8_E4M3FN, FLOAT8_E5M2, FLOAT8_E8M0, HIFLOAT8</td>
+    <td>FLOAT, FLOAT16, UINT8, INT8, INT16, INT32, INT64, DOUBLE, COMPLEX64, COMPLEX128, BOOL, BFLOAT16, UINT16, UINT32, UINT64, FLOAT8_E4M3FN, FLOAT8_E5M2, FLOAT8_E8M0, HIFLOAT8</td>
     <td>ND</td>
   </tr>
   <tr>
     <td>value</td>
     <td>Input tensor</td>
     <td>Fill value tensor. It must be a 0-dimensional tensor or a 1-dimensional tensor with size=1.</td>
-    <td>FLOAT, FLOAT16, UINT8, INT8, INT16, INT32, INT64, DOUBLE, COMPLEX64, COMPLEX128, BOOL, BFLOAT16, FLOAT8_E4M3FN, FLOAT8_E5M2, FLOAT8_E8M0, HIFLOAT8</td>
+    <td>FLOAT, FLOAT16, UINT8, INT8, INT16, INT32, INT64, DOUBLE, COMPLEX64, COMPLEX128, BOOL, BFLOAT16, UINT16, UINT32, UINT64, FLOAT8_E4M3FN, FLOAT8_E5M2, FLOAT8_E8M0, HIFLOAT8</td>
     <td>ND</td>
   </tr>
 </tbody>
@@ -95,6 +95,7 @@ English | [简体中文](./README.md)
 
 - Data dimensions above 8 are not supported for the input tensor.
 - The value parameter of InplaceFillTensor must be a 0-dimensional tensor or a 1-dimensional tensor with size=1.
+- InplaceFillTensor supports UINT16, UINT32, and UINT64 on <term>Atlas A2 products</term> and <term>Atlas A3 products</term>.
 - Data types must satisfy the mutual inference relationship.
 - The FLOAT8_E4M3FN, FLOAT8_E5M2, FLOAT8_E8M0, and HIFLOAT8 data types are supported only on <term>Ascend 950PR&950DT products</term> and are not supported on other products.
 - For CANN 9.0.0, the FLOAT8_E4M3FN, FLOAT8_E5M2, FLOAT8_E8M0, and HIFLOAT8 data types are not supported.

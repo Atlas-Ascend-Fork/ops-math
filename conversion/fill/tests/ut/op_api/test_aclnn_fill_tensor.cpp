@@ -22,15 +22,9 @@ using namespace op;
 
 class l2_fill_tensor_test : public testing::Test {
 protected:
-    static void SetUpTestCase()
-    {
-        cout << "fill_tensor_test SetUp" << endl;
-    }
+    static void SetUpTestCase() { cout << "fill_tensor_test SetUp" << endl; }
 
-    static void TearDownTestCase()
-    {
-        cout << "fill_tensor_test TearDown" << endl;
-    }
+    static void TearDownTestCase() { cout << "fill_tensor_test TearDown" << endl; }
 };
 
 TEST_F(l2_fill_tensor_test, case_001_FLOAT)
@@ -383,8 +377,8 @@ TEST_F(l2_fill_tensor_test, case_029_VALUE_DIM_ERROR)
 
 TEST_F(l2_fill_tensor_test, case_030_NOT_SUPPORT_DTYPE)
 {
-    auto self_tensor_desc = TensorDesc({8, 9}, ACL_UINT32, ACL_FORMAT_ND).ValueRange(-10, 10);
-    auto value_tensor_desc = TensorDesc({}, ACL_UINT32, ACL_FORMAT_ND).ValueRange(8, 9);
+    auto self_tensor_desc = TensorDesc({8, 9}, ACL_COMPLEX32, ACL_FORMAT_ND).ValueRange(0, 10);
+    auto value_tensor_desc = TensorDesc({}, ACL_COMPLEX32, ACL_FORMAT_ND).ValueRange(8, 9);
 
     auto ut = OP_API_UT(aclnnInplaceFillTensor, INPUT(self_tensor_desc, value_tensor_desc), OUTPUT());
 
@@ -426,3 +420,76 @@ TEST_F(l2_fill_tensor_test, case_033_DTYPE_CAST)
     aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
     EXPECT_EQ(aclRet, ACL_SUCCESS);
 }
+
+class l2_fill_tensor_unsigned_test : public l2_fill_tensor_test, public testing::WithParamInterface<aclDataType> {};
+
+TEST_P(l2_fill_tensor_unsigned_test, normal_scalar_and_single_element)
+{
+    for (const auto& valueShape : std::vector<std::vector<int64_t>>{{}, {1}}) {
+        auto self = TensorDesc({8, 9}, GetParam(), ACL_FORMAT_ND).ValueRange(0, 10);
+        auto value = TensorDesc(valueShape, GetParam(), ACL_FORMAT_ND).ValueRange(7, 7);
+        auto ut = OP_API_UT(aclnnInplaceFillTensor, INPUT(self, value), OUTPUT());
+        uint64_t workspaceSize = 0;
+        EXPECT_EQ(ut.TestGetWorkspaceSize(&workspaceSize), ACLNN_SUCCESS);
+    }
+}
+
+TEST_P(l2_fill_tensor_unsigned_test, empty_tensor)
+{
+    auto self = TensorDesc({2, 0, 3}, GetParam(), ACL_FORMAT_ND).ValueRange(0, 10);
+    auto value = TensorDesc({1}, GetParam(), ACL_FORMAT_ND).ValueRange(7, 7);
+    auto ut = OP_API_UT(aclnnInplaceFillTensor, INPUT(self, value), OUTPUT());
+    uint64_t workspaceSize = 123;
+    EXPECT_EQ(ut.TestGetWorkspaceSize(&workspaceSize), ACLNN_SUCCESS);
+    EXPECT_EQ(workspaceSize, 0U);
+}
+
+TEST_P(l2_fill_tensor_unsigned_test, int32_value_conversion)
+{
+    auto self = TensorDesc({33}, GetParam(), ACL_FORMAT_ND).ValueRange(0, 10);
+    auto value = TensorDesc({}, ACL_INT32, ACL_FORMAT_ND).ValueRange(7, 7);
+    auto ut = OP_API_UT(aclnnInplaceFillTensor, INPUT(self, value), OUTPUT());
+    uint64_t workspaceSize = 0;
+    EXPECT_EQ(ut.TestGetWorkspaceSize(&workspaceSize), ACLNN_SUCCESS);
+}
+
+TEST_P(l2_fill_tensor_unsigned_test, strided_offset_preserves_caller_metadata)
+{
+    auto self = TensorDesc({3, 5}, GetParam(), ACL_FORMAT_ND, {26, 2}, 11, {90}).ToAclTypeRawPtr();
+    auto value = TensorDesc({1}, GetParam(), ACL_FORMAT_ND, {7}, 5, {18}).ToAclTypeRawPtr();
+    const auto selfDtype = self->GetDataType();
+    const auto selfShape = self->GetViewShape();
+    const auto selfStorage = self->GetStorageShape();
+    const auto selfOriginal = self->GetOriginalShape();
+    const auto selfStride = self->GetViewStrides();
+    const auto selfOffset = self->GetViewOffset();
+    const auto selfStorageOffset = self->GetStorageOffset();
+    const auto valueDtype = value->GetDataType();
+    const auto valueShape = value->GetViewShape();
+    const auto valueStorage = value->GetStorageShape();
+    const auto valueOriginal = value->GetOriginalShape();
+    const auto valueStride = value->GetViewStrides();
+    const auto valueOffset = value->GetViewOffset();
+    const auto valueStorageOffset = value->GetStorageOffset();
+    // OpApiUt owns these ACL tensors and releases its executor after phase one.
+    auto ut = OP_API_UT(aclnnInplaceFillTensor, INPUT(self, value), OUTPUT());
+    uint64_t workspaceSize = 0;
+    ASSERT_EQ(ut.TestGetWorkspaceSize(&workspaceSize), ACLNN_SUCCESS);
+    EXPECT_EQ(self->GetDataType(), selfDtype);
+    EXPECT_EQ(self->GetViewShape(), selfShape);
+    EXPECT_EQ(self->GetStorageShape(), selfStorage);
+    EXPECT_EQ(self->GetOriginalShape(), selfOriginal);
+    EXPECT_EQ(self->GetViewStrides(), selfStride);
+    EXPECT_EQ(self->GetViewOffset(), selfOffset);
+    EXPECT_EQ(self->GetStorageOffset(), selfStorageOffset);
+    EXPECT_EQ(value->GetDataType(), valueDtype);
+    EXPECT_EQ(value->GetViewShape(), valueShape);
+    EXPECT_EQ(value->GetStorageShape(), valueStorage);
+    EXPECT_EQ(value->GetOriginalShape(), valueOriginal);
+    EXPECT_EQ(value->GetViewStrides(), valueStride);
+    EXPECT_EQ(value->GetViewOffset(), valueOffset);
+    EXPECT_EQ(value->GetStorageOffset(), valueStorageOffset);
+}
+
+INSTANTIATE_TEST_SUITE_P(UnsignedDtypes, l2_fill_tensor_unsigned_test,
+                         testing::Values(ACL_UINT16, ACL_UINT32, ACL_UINT64));

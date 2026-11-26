@@ -38,9 +38,9 @@ static const std::initializer_list<DataType> DTYPE_SUPPORT_LIST_910 = {
     DataType::DT_BOOL,  DataType::DT_COMPLEX64, DataType::DT_COMPLEX128};
 
 static const std::initializer_list<DataType> DTYPE_SUPPORT_LIST_910B = {
-    DataType::DT_FLOAT, DataType::DT_INT32,     DataType::DT_INT64,      DataType::DT_FLOAT16,
-    DataType::DT_INT16, DataType::DT_INT8,      DataType::DT_UINT8,      DataType::DT_DOUBLE,
-    DataType::DT_BOOL,  DataType::DT_COMPLEX64, DataType::DT_COMPLEX128, DataType::DT_BF16};
+    DataType::DT_FLOAT,      DataType::DT_INT32, DataType::DT_INT64,  DataType::DT_FLOAT16, DataType::DT_INT16,
+    DataType::DT_INT8,       DataType::DT_UINT8, DataType::DT_DOUBLE, DataType::DT_BOOL,    DataType::DT_COMPLEX64,
+    DataType::DT_COMPLEX128, DataType::DT_BF16,  DataType::DT_UINT16, DataType::DT_UINT32,  DataType::DT_UINT64};
 
 static const std::initializer_list<DataType> DTYPE_SUPPORT_LIST_REGBASE = {
     DataType::DT_FLOAT,         DataType::DT_INT32,       DataType::DT_INT64,       DataType::DT_FLOAT16,
@@ -117,6 +117,21 @@ static inline FVector<int64_t> getShape(const aclTensor* self)
     return shape;
 }
 
+// Reinterpret equal-width types only for the copy path; preserve caller metadata.
+static aclTensor* CreateCopyView(const aclTensor* tensor, DataType dtype, aclOpExecutor* executor)
+{
+    auto view = executor->CreateView(tensor, tensor->GetViewShape(), tensor->GetViewOffset());
+    if (view != nullptr) {
+        // Preserve the entire backing storage and its original shape. The
+        // five-argument overload shrinks storage and resets the original shape.
+        view->SetStorageShape(tensor->GetStorageShape());
+        view->SetViewStrides(tensor->GetViewStrides());
+        view->SetOriginalShape(tensor->GetOriginalShape());
+        view->SetDataType(dtype);
+    }
+    return view;
+}
+
 aclnnStatus aclnnInplaceFillTensorGetWorkspaceSize(aclTensor* selfRef, const aclTensor* value, size_t* workspaceSize,
                                                    aclOpExecutor** executor)
 {
@@ -156,7 +171,25 @@ aclnnStatus aclnnInplaceFillTensorGetWorkspaceSize(aclTensor* selfRef, const acl
     auto fillOut = l0op::Fill(dims, castValue, shapeArray, executorP);
     CHECK_RET(fillOut != nullptr, ACLNN_ERR_INNER_NULLPTR);
 
-    auto viewCopyResult = l0op::ViewCopy(fillOut, selfRef, executorP);
+    // Convert value numerically before Fill. Reinterpret only the final copy so
+    // UINT16/UINT32/UINT64 retain every bit, including values above signed maxima.
+    DataType copyDtype = selfRef->GetDataType();
+    if (copyDtype == DataType::DT_UINT16) {
+        copyDtype = DataType::DT_INT16;
+    } else if (copyDtype == DataType::DT_UINT32) {
+        copyDtype = DataType::DT_INT32;
+    } else if (copyDtype == DataType::DT_UINT64) {
+        copyDtype = DataType::DT_INT64;
+    }
+    const aclTensor* copySource = fillOut;
+    const aclTensor* copyTarget = selfRef;
+    if (copyDtype != selfRef->GetDataType()) {
+        copySource = CreateCopyView(fillOut, copyDtype, executorP);
+        CHECK_RET(copySource != nullptr, ACLNN_ERR_INNER_NULLPTR);
+        copyTarget = CreateCopyView(selfRef, copyDtype, executorP);
+        CHECK_RET(copyTarget != nullptr, ACLNN_ERR_INNER_NULLPTR);
+    }
+    auto viewCopyResult = l0op::ViewCopy(copySource, copyTarget, executorP);
     CHECK_RET(viewCopyResult != nullptr, ACLNN_ERR_INNER_NULLPTR);
 
     // 固定写法，获取计算过程中需要使用的workspace大小
