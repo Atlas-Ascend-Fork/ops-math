@@ -283,6 +283,7 @@
 - [aclnnTanh&aclnnInplaceTanh](../../math/tanh/docs/aclnnTanh&aclnnInplaceTanh.md)
 - [aclnnTanhBackward](../../math/tanh_grad/docs/aclnnTanhBackward.md)
 - [aclnnTopk](../../math/topk/docs/aclnnTopk.md)
+- [aclnnTopkV2](../../math/topk/docs/aclnnTopkV2.md)
 - [aclnnTrace](../../math/trace/docs/aclnnTrace.md)
 - [aclnnTransConvolutionWeight](../../conversion/trans_data/docs/aclnnTransConvolutionWeight.md)
 - [aclnnTransformBiasRescaleQkv](../../math/transform_bias_rescale_qkv/docs/aclnnTransformBiasRescaleQkv.md)
