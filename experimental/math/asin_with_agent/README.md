@@ -64,46 +64,26 @@ aclnnStatus aclnnAsinWithAgent(
 - CANN 版本：9.0.0 及以上
 - 已正确配置 `ASCEND_HOME_PATH`、`ASCEND_OPP_PATH` 等环境变量
 
-### 一键编译并安装
+### 在仓库根目录编译算子
+
+本算子通过 `ops-math` 根目录 `build.sh` 与 `--experimental` 参数构建（算子目录位于 `experimental/math/asin_with_agent`）：
 
 ```bash
-cd ops/asin_with_agent
-bash build.sh
+# 在 ops-math 仓库根目录下执行
+bash build.sh --pkg --experimental --soc=ascend910b --ops=asin_with_agent
 ```
-
-编译产物为自定义算子包，`build.sh` 会自动将算子包安装到 `$ASCEND_OPP_PATH/vendors/` 下。
 
 ---
 
-## 测试方法
+## 测试与调用示例
 
 ### UT（单元测试）
 
-UT 覆盖 op_host 的 InferShape 和 Tiling 逻辑，无需真实 NPU。
+本算子在 `experimental/math/asin_with_agent/tests/ut/op_host/test_asin_with_agent_infershape.cpp` 中提供 Host 侧 InferShape 单元测试，可通过仓库根目录统一 UT 构建流程运行。
 
-```bash
-cd ops/asin_with_agent/tests
-# 编译并运行 UT
-cmake -B build_ut -DTEST_TYPE=UT && cmake --build build_ut
-./build_ut/ut_asin_with_agent
-```
+### 调用示例
 
-最终版本 UT 通过情况：**28/28 通过**（含 arch22 + arch35，覆盖 9 种 dtype 的 InferShape/Tiling 分支）。
-
-### ST（系统测试，需真实 NPU）
-
-ST 通过 aclnn 接口在真实 NPU 上验证算子精度。
-
-```bash
-cd ops/asin_with_agent/tests
-# 编译并运行 ST（Mock 模式，CPU Golden 自测，无需 NPU）
-cmake -B build_st -DTEST_TYPE=ST -DRUN_MODE=MOCK && cmake --build build_st
-./build_st/st_asin_with_agent
-
-# 真实 NPU 模式
-cmake -B build_st -DTEST_TYPE=ST -DRUN_MODE=NPU && cmake --build build_st
-./build_st/st_asin_with_agent
-```
+本算子随仓提供了 aclnn C++ 调用示例 `experimental/math/asin_with_agent/examples/test_aclnn_asin_with_agent.cpp`，可结合已编译安装的实验算子包参考调用与精度验证。
 
 精度验收结果：**28/28 通过（100%）**，覆盖 9 种 dtype、多种 shape（最小 1 元素，最大 1M 元素）、边界值、NaN 场景。
 
