@@ -230,7 +230,7 @@ static ge::graphStatus InferShape4StridedSliceV2(gert::InferShapeContext* contex
     if (!all_const) {
         shape_y->SetDimNum(0);
         for (int32_t i = 0; i < input_dim_num; ++i) {
-            shape_y->AppendDim(UNKNOWN_DIM_NUM);
+            shape_y->AppendDim(UNKNOWN_DIM);
         }
         OP_LOGD(OP_NAME, "begin/end/axes/strides is not all const, set output shape to unknown.");
         return GRAPH_SUCCESS;
