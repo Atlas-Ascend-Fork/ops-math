@@ -12,23 +12,20 @@
  * \file diag_flat_simd.h
  * \brief DiagFlat SIMD outer shell + SIMT kernel (arch35, DAV_3510)
  *
- * Design: DESIGN.md v2.1 Sec 3.4
- *
  * Execution flow (per tile):
- *   AllocTensor → asc_vf_call (SIMT: fill UB — diagonal=input, rest=0)
- *               → EnQue → DeQue → DataCopyPad (UB → GM, continuous burst) → FreeTensor
+ *   大宽度(outWidth >= DIAG_FLAT_SPARSE_MIN_WIDTH, 对角稀疏):
+ *     AllocTensor → Duplicate(0) → 标量 scatter 对角线元素 → EnQue → DeQue → DataCopyPad
+ *   其余(小宽度，对角线稠密):
+ *     AllocTensor → asc_vf_call (SIMT 全量填充) → EnQue → DeQue → DataCopyPad
  *
- * Note: SIMT kernel writes to EVERY UB position (even non-diagonal), matching diag_v2's
- * unconditional-write pattern, to ensure compiler emits full-vector stores with
- * 32B-aligned addresses. Conditional "scatter" writes would produce masked partial-vector
- * stores whose start address may not be 32B-aligned → VEC_ERROR 340 (ub addr misaligned).
- *
- * (ref: diag_v2/op_kernel/arch35/diag_v2.h)
+ * 稀疏路径把「每元素 UintDiv + 非对角 GM 读」替换为「向量 Duplicate + 每行一次标量 GM 读」，
+ * 主体变成纯 N×N 向量写。
  */
 
 #ifndef __DIAG_FLAT_ARCH35_SIMD_H__
 #define __DIAG_FLAT_ARCH35_SIMD_H__
 
+#include <type_traits>
 #include "kernel_operator.h"
 #include "simt_api/asc_simt.h"
 #include "diag_flat_tiling_data.h" // kept for backward compat; fields now in DiagV2Arch35TilingData
@@ -37,11 +34,12 @@ using namespace AscendC;
 
 constexpr int32_t DIAG_FLAT_BUFFER_NUM = 2;
 constexpr uint32_t DIAG_FLAT_THREAD_NUM = 1024;
+// outWidth 小于该值时对角线较稠密，标量 scatter 不划算，保留 SIMT 全量填充
+constexpr int64_t DIAG_FLAT_SPARSE_MIN_WIDTH = 64;
 
 // ================================================================
 // SIMT kernel: fill UB buffer (diagonal ← xGm, non-diagonal ← 0)
 // Every thread always writes — no divergent UB store.
-// (ref: batch_to_space_nd_simt.h HALF_THREAD_NUM_LAUNCH_BOUND=1024 for arch35)
 // ================================================================
 
 template <typename T>
@@ -59,8 +57,6 @@ LAUNCH_BOUND(DIAG_FLAT_THREAD_NUM) void SimtDiagFlat(__gm__ T* xGm,      // inpu
     for (int64_t pos = threadIdx.x; pos < tileElems; pos += blockDim.x) {
         int64_t globalPos = tileOffset + pos;
 
-        // Fast unsigned division replaces slow int64_t / and %
-        // (ref: batch_to_space_nd_simt.h Simt::UintDiv pattern)
         uint64_t row = Simt::UintDiv(static_cast<uint64_t>(globalPos), outWidthMagic, outWidthShift);
         uint64_t col = static_cast<uint64_t>(globalPos) - row * static_cast<uint64_t>(outWidth);
 
@@ -69,10 +65,6 @@ LAUNCH_BOUND(DIAG_FLAT_THREAD_NUM) void SimtDiagFlat(__gm__ T* xGm,      // inpu
         bool inRange = (inputIdx >= 0) && (inputIdx < numInput);
         bool doRead = onDiag && inRange;
 
-        // Always read from GM (non-divergent), then branchless select.
-        // Guard the load with numInput, which is uniform across threads, so an
-        // empty input never dereferences xGm[0] out of bounds; the non-diagonal
-        // fill still writes the required zeros for the |diagonal| x |diagonal| case.
         T gmVal = static_cast<T>(0);
         if (numInput > 0) {
             gmVal = xGm[doRead ? inputIdx : 0];
@@ -82,7 +74,7 @@ LAUNCH_BOUND(DIAG_FLAT_THREAD_NUM) void SimtDiagFlat(__gm__ T* xGm,      // inpu
 }
 
 // ================================================================
-// SIMD outer shell: pipe/buffer management + SIMT launch + DMA output
+// SIMD outer shell: pipe/buffer management + fill + DMA output
 // ================================================================
 
 template <typename T>
@@ -98,12 +90,10 @@ public:
         tileOffset_ = blockIdx * td_->outPerCore;
         remaining_ = min(td_->outPerCore, td_->outTotal - tileOffset_);
 
-        // InitBuffer 3rd arg = per-buffer bytes (ref: diag_v2, batch_to_space_nd).
         uint32_t bufBytes = static_cast<uint32_t>(
             ((td_->tileLength + DIAG_FLAT_THREAD_NUM - 1) / DIAG_FLAT_THREAD_NUM) * DIAG_FLAT_THREAD_NUM * sizeof(T));
         pipe_.InitBuffer(outQueue_, DIAG_FLAT_BUFFER_NUM, bufBytes);
 
-        // Pre-compute fast division magic for outWidth (ref: batch_to_space_nd pattern)
         GetUintDivMagicAndShift(outWidthMagic_, outWidthShift_, static_cast<uint64_t>(td_->outWidth));
     }
 
@@ -116,30 +106,64 @@ public:
         int64_t curTileLen;
         for (int64_t curStart = tileOffset_; curStart < end; curStart += td_->tileLength) {
             curTileLen = min(td_->tileLength, end - curStart);
-            // 1. Allocate UB buffer
             auto outBuf = outQueue_.AllocTensor<T>();
-            auto yUb = reinterpret_cast<__ubuf__ T*>(outBuf.GetPhyAddr());
 
-            // 2. SIMT: fill UB (diagonal ← input, non-diagonal ← 0)
-            // Always use fixed threadNum, same as batch_to_space_nd pattern.
-            // Loop condition `pos < tileElems` naturally filters idle threads.
-            asc_vf_call<SimtDiagFlat<T>>(dim3(DIAG_FLAT_THREAD_NUM), (__gm__ T*)xGm_.GetPhyAddr(), curStart, curTileLen,
-                                         td_->outWidth, outWidthMagic_, outWidthShift_, td_->diagonal, td_->numInput,
-                                         yUb);
+            bool sparse = (td_->outWidth >= DIAG_FLAT_SPARSE_MIN_WIDTH);
+            if (sparse) {
+                // 向量整块写 0，再只把对角线元素 scatter 进 UB。
+                // 8 字节 dtype(fp64/int64/complex64) 按 32 bit 位宽写 0，避免 64 bit Duplicate 被模拟拖慢
+                using ZeroT = typename std::conditional<sizeof(T) <= 4, T, uint32_t>::type;
+                constexpr int32_t ZERO_FACTOR = (sizeof(T) <= 4) ? 1 :
+                                                                   static_cast<int32_t>(sizeof(T) / sizeof(uint32_t));
+                LocalTensor<ZeroT> zeroBuf = outBuf.template ReinterpretCast<ZeroT>();
+                Duplicate<ZeroT>(zeroBuf, static_cast<ZeroT>(0), static_cast<int32_t>(curTileLen) * ZERO_FACTOR);
+                PipeBarrier<PIPE_ALL>();
+                FillDiagSparse(outBuf, curStart, curTileLen);
+                PipeBarrier<PIPE_ALL>();
+            } else {
+                auto yUb = reinterpret_cast<__ubuf__ T*>(outBuf.GetPhyAddr());
+                asc_vf_call<SimtDiagFlat<T>>(dim3(DIAG_FLAT_THREAD_NUM), (__gm__ T*)xGm_.GetPhyAddr(), curStart,
+                                             curTileLen, td_->outWidth, outWidthMagic_, outWidthShift_, td_->diagonal,
+                                             td_->numInput, yUb);
+            }
 
-            // 3. EnQue → DeQue (sync)
             outQueue_.EnQue(outBuf);
             LocalTensor<T> readyBuf = outQueue_.DeQue<T>();
-
-            // 4. DMA: continuous burst output
             DataCopyPad(yGm_[curStart], readyBuf, {1, static_cast<uint32_t>(curTileLen * sizeof(T)), 0, 0, 0});
-
-            // 5. Free UB buffer
             outQueue_.FreeTensor(outBuf);
         }
     }
 
 private:
+    // 仅处理落在 [curStart, curStart+curTileLen) 内的对角线元素；每行最多一个。
+    __aicore__ inline void FillDiagSparse(const LocalTensor<T>& yUb, int64_t curStart, int64_t curTileLen)
+    {
+        const int64_t width = td_->outWidth;
+        const int64_t diagonal = td_->diagonal;
+        const int64_t numInput = td_->numInput;
+        if (width <= 0 || curTileLen <= 0) {
+            return;
+        }
+        const int64_t tileEnd = curStart + curTileLen;
+        const int64_t rowStart = curStart / width;
+        const int64_t rowEnd = (tileEnd - 1) / width;
+        for (int64_t row = rowStart; row <= rowEnd; ++row) {
+            const int64_t col = row + diagonal;
+            if (col < 0 || col >= width) {
+                continue;
+            }
+            const int64_t globalPos = row * width + col;
+            if (globalPos < curStart || globalPos >= tileEnd) {
+                continue;
+            }
+            const int64_t inputIdx = (diagonal >= 0) ? row : col;
+            if (inputIdx < 0 || inputIdx >= numInput) {
+                continue;
+            }
+            yUb.SetValue(static_cast<uint32_t>(globalPos - curStart), xGm_.GetValue(static_cast<uint64_t>(inputIdx)));
+        }
+    }
+
     const DiagFlatArch35TilingData* td_;
     GlobalTensor<T> xGm_;
     GlobalTensor<T> yGm_;

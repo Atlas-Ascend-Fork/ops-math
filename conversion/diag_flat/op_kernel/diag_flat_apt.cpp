@@ -30,7 +30,12 @@ __aicore__ inline void LaunchKernel(GM_ADDR x, GM_ADDR y, const DiagFlatArch35Ti
     // 8-byte types (complex64/float64/int64/uint64): alias through int64_t
     // because SIMT kernel cannot directly dereference __gm__ Complex<float>* or
     // __gm__ double*, nor static_cast<Complex<float>>(0) / static_cast<double>(0) in SIMT.
-    if constexpr (sizeof(DTYPE_X) == sizeof(int64_t)) {
+    if constexpr (std::is_same_v<DTYPE_X, bool>) {
+        // bool 1 字节，按 uint8_t 处理以支持向量 Duplicate / 标量 SetValue
+        DiagFlatSimd<uint8_t> op;
+        op.Init(x, y, td);
+        op.Process();
+    } else if constexpr (sizeof(DTYPE_X) == sizeof(int64_t)) {
         DiagFlatSimd<int64_t> op;
         op.Init(x, y, td);
         op.Process();
