@@ -25,7 +25,7 @@
 
 ## Function
 
-- Description: Performs the linear_cross operation on the input tensors.
+- Description: Performs the LinalgCross operation on the input tensors.
 
 - Formula:
 
@@ -104,7 +104,7 @@ aclnnStatus aclnnLinalgCross(
     <tr>
       <td>dim(int64_t)</td>
       <td>Input</td>
-      <td>Specifies the dimension of self for linear_cross computation.</td>
+      <td>Specifies the dimension of self for LinalgCross computation.</td>
       <td>Defaults to -1 if not specified, in the range [-number of dimensions of self, number of dimensions of self - 1].</td>
       <td>-</td>
       <td>-</td>
@@ -185,7 +185,7 @@ aclnnStatus aclnnLinalgCross(
       <td>The shape of self and other after broadcast is inconsistent with out.</td>
     </tr>
     <tr>
-      <td>The shape of self along the dim dimension is not 3.</td>
+      <td>The shape of self along the dim dimension is not 3 after broadcasting.</td>
     </tr>
     <tr>
       <td>The value of dim is not in the range of [-dimensions of self, dimensions of self - 1].</td>

@@ -403,7 +403,7 @@ int main()
     ret = CreateAclTensor(outHostData, outShape, &outDeviceAddr, aclDataType::ACL_FLOAT, &out);
     CHECK_RET(ret == ACL_SUCCESS, return ret);
 
-    // 3. Call the CANN operator library API. Replace it with the specific API name.
+    // 3. Call the CANN operator library API.
     uint64_t workspaceSize = 0;
     aclOpExecutor *executor;
     // Call the first-phase API of aclnnCdistBackward.
@@ -432,11 +432,11 @@ int main()
         size * sizeof(resultData[0]),
         ACL_MEMCPY_DEVICE_TO_HOST);
     CHECK_RET(ret == ACL_SUCCESS, LOG_PRINT("copy result from device to host failed. ERROR: %d\n", ret); return ret);
-    for (int64_t i = 0; i < 10; i++) {
+    for (int64_t i = 0; i < size; i++) {
         LOG_PRINT("result[%ld] is: %f\n", i, resultData[i]);
     }
 
-    // 6. Release the aclTensor and aclScalar. Modify them according to the specific API definition.
+    // 6. Release the aclTensor. Modify it according to the specific API definition.
     aclDestroyTensor(x1);
     aclDestroyTensor(x2);
     aclDestroyTensor(cdist);

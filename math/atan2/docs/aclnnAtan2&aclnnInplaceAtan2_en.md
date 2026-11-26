@@ -267,7 +267,7 @@ aclnnStatus aclnnInplaceAtan2(
       <td>Input/Output</td>
       <td>Indicates the y coordinate. Performs element-wise arctangent computation with other. The result is stored in selfRef.</td>
       <td>The shape needs to satisfy the <a href="../../../docs/en/context/broadcast_relationship.md" target="_blank">broadcast relationship</a> with other.</td>
-      <td>INT8, INT16, INT32, INT64, UINT8, BOOL, FLOAT, FLOAT16, DOUBLE, BFLOAT16</td>
+      <td>INT8, INT16, INT32, INT64, UINT8, BOOL (for integer inputs, the floating-point result is truncated to the corresponding integer type), FLOAT, FLOAT16, DOUBLE, BFLOAT16</td>
       <td>ND</td>
       <td>Not more than 8 dimensions</td>
       <td>√</td>
