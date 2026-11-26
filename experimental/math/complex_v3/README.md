@@ -60,8 +60,8 @@ ops/complex_v3/
 ## 编译
 
 ```bash
-cd ops/complex
-bash build.sh
+# 在 ops-math 仓库根目录执行（算子目录为 experimental/math/complex_v3）
+bash build.sh --pkg --experimental --soc=ascend910b --ops=complex_v3
 ```
 
 编译成功后生成安装包 `build/custom_opp_ubuntu_aarch64.run`。

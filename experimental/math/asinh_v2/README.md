@@ -37,17 +37,13 @@ y = asinh(x) = ln(x + sqrt(x^2 + 1))
 
 ### 编译步骤
 
-#### 第一步：进入算子目录
+#### 第一步：在仓库根目录执行实验算子编译
+
+`asinh_v2` 位于 `experimental/math/asinh_v2`，需在 `ops-math` 仓库根目录启用 `--experimental` 构建：
 
 ```bash
-cd ops/asinh_v2
-```
-
-#### 第二步：执行编译
-
-```bash
-# 编译 arch35（Ascend950，可选）
-bash build.sh --soc=ascend950
+# 在 ops-math 仓库根目录下编译（目标 SoC：Ascend950）
+bash build.sh --pkg --experimental --soc=ascend950 --ops=asinh_v2
 ```
 
 #### 第三步：查看编译产物

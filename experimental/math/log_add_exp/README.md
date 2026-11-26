@@ -116,8 +116,8 @@ aclTensor* tensor = aclCreateTensor(
 ### 编译自定义算子包
 
 ```bash
-cd ops/log_add_exp
-bash build.sh
+# 在 ops-math 仓库根目录执行（算子目录为 experimental/math/log_add_exp）
+bash build.sh --pkg --experimental --soc=ascend910b --ops=log_add_exp
 ```
 
 编译成功后，算子包位于 `build/custom_opp_ubuntu_aarch64.run`。
@@ -144,34 +144,16 @@ make -j4
 
 预期结果：40/40 PASS
 
-### 运行 ST（系统测试）
+### 运行 UT 测试提示
 
-```bash
-cd tests/st
-bash run.sh
-```
-
-默认运行 59 条测试用例。
-
-ST 测试支持两种模式：
-
-- **Mock 模式**（CPU Golden）：无需 NPU，用于开发验证
-- **真实 NPU 模式**：需要 NPU 设备，验证实际精度
-
-### 运行性能测试
-
-```bash
-cd tests/st
-bash run_performance.sh
-```
+当前 `experimental/math/log_add_exp/tests/` 下已提供 `ut/op_kernel` 核函数单元测试代码（`log_add_exp_kernel_inst.cpp`、`test_log_add_exp.cpp`），可通过仓库根部统一 UT 构建框架执行；目录下暂未提供独立 `tests/st` 运行脚本。
 
 ## 目录结构
 
 ```text
-ops/log_add_exp/
+experimental/math/log_add_exp/
 ├── README.md                          # 本文档
-├── CMakeLists.txt                     # 顶层构建脚本
-├── build.sh                           # 编译脚本
+├── CMakeLists.txt                     # 算子 CMake 构建脚本
 ├── op_host/                           # Host 侧实现
 │   ├── log_add_exp_def.cpp            # 算子定义（aclnn API 注册）
 │   ├── log_add_exp_infershape.cpp     # InferShape（广播规则实现）
