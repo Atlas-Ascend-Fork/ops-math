@@ -10,15 +10,15 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ----------------------------------------------------------------------------
 
-import sys
 import os
+import sys
+
 import numpy as np
-import re
 import tensorflow as tf
 
 
 def parse_str_to_shape_list(shape_str):
-    shape_str = shape_str.strip('(').strip(')')
+    shape_str = shape_str.strip("(").strip(")")
     shape_list = [int(x) for x in shape_str.split(",")]
     return np.array(shape_list)
 
@@ -27,33 +27,30 @@ def gen_data_and_golden(shape_str, d_type="float32"):
     d_type_dict = {
         "float32": np.float32,
         "float16": np.float16,
-        "bfloat16": tf.bfloat16.as_numpy_dtype
+        "bfloat16": tf.bfloat16.as_numpy_dtype,
     }
     np_type = d_type_dict[d_type]
     shape = parse_str_to_shape_list(shape_str)
     size = np.prod(shape)
-    
+
     input_cond = np.random.choice([True, False], size=size)
     input_cond = input_cond.reshape(shape).astype(np.uint8)
 
     input_x1 = np.random.uniform(-10, 0, shape).astype(np_type)
     input_x2 = np.random.uniform(0, 10, shape).astype(np_type)
 
-    golden = np.where(condition, input_x1, input_x2).astype(np_type)
+    golden = np.where(input_cond.astype(bool), input_x1, input_x2).astype(np_type)
 
     input_cond.astype(np.uint8).tofile(f"{d_type}_input_c_select_v2.bin")
     input_x1.astype(np_type).tofile(f"{d_type}_input_t1_select_v2.bin")
     input_x2.astype(np_type).tofile(f"{d_type}_input_t2_select_v2.bin")
-    golden.astype(np_type).tofile(f"{d_type}_golden_t_select_v2.bin")
+    golden.tofile(f"{d_type}_golden_select_v2.bin")
 
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
         print("Param num must be 3.")
-        exit(1)
+        sys.exit(1)
     # 清理bin文件
     os.system("rm -rf *.bin")
     gen_data_and_golden(sys.argv[1], sys.argv[2])
-
-
-

@@ -14,7 +14,6 @@
 #include "opdev/make_op_executor.h"
 #include "opdev/shape_utils.h"
 #include "opdev/aicpu/aicpu_task.h"
-#include "opdev/shape_utils.h"
 #include "opdev/op_def.h"
 #include "opdev/op_dfx.h"
 
@@ -51,28 +50,27 @@ static bool CanBroadcast(const aclTensor* t1, const aclTensor* t2, const aclTens
 }
 
 // AICORE算子kernel
-static const aclTensor* SelectV2AiCore(
-    const aclTensor* condition, const aclTensor* self, const aclTensor* other, aclTensor* selectOut,
-    aclOpExecutor* executor)
+static const aclTensor* SelectV2AiCore(const aclTensor* condition, const aclTensor* self, const aclTensor* other,
+                                       aclTensor* selectOut, aclOpExecutor* executor)
 {
     L0_DFX(SelectV2AiCore, condition, self, other);
     // 使用框架宏ADD_TO_LAUNCHER_LIST_AICORE，将AiCore Select算子加入任务队列
     // Select是算子的OpType，self、other是算子的输入，selectOut是算子的输出
-    ADD_TO_LAUNCHER_LIST_AICORE(SelectV2, OP_INPUT(condition, self, other), OP_OUTPUT(selectOut));
+    auto ret = ADD_TO_LAUNCHER_LIST_AICORE(SelectV2, OP_INPUT(condition, self, other), OP_OUTPUT(selectOut));
+    CHECK_RET(ret == ACLNN_SUCCESS, nullptr);
     return selectOut;
 }
 
 // AICPU算子kernel
-static const aclTensor* SelectV2AiCpu(
-    const aclTensor* condition, const aclTensor* self, const aclTensor* other, aclTensor* selectOut,
-    aclOpExecutor* executor)
+static const aclTensor* SelectV2AiCpu(const aclTensor* condition, const aclTensor* self, const aclTensor* other,
+                                      aclTensor* selectOut, aclOpExecutor* executor)
 {
     // 使用框架宏ADD_TO_LAUNCHER_LIST_AICPU，将AiCpu Select算子加入任务队列
     // SelectV2是算子的OpType，self、other是算子的输入，selectOut是算子的输出
     L0_DFX(SelectV2AiCpu, condition, self, other);
     static internal::AicpuTaskSpace space("SelectV2");
-    auto ret =
-        ADD_TO_LAUNCHER_LIST_AICPU(SelectV2, OP_ATTR_NAMES(), OP_INPUT(condition, self, other), OP_OUTPUT(selectOut));
+    auto ret = ADD_TO_LAUNCHER_LIST_AICPU(SelectV2, OP_ATTR_NAMES(), OP_INPUT(condition, self, other),
+                                          OP_OUTPUT(selectOut));
     CHECK_RET(ret == ACLNN_SUCCESS, nullptr);
     return selectOut;
 }
@@ -81,10 +79,9 @@ const aclTensor* SelectV2(const aclTensor* condition, const aclTensor* x1, const
 {
     op::Shape broadcastShape;
     if (!CanBroadcast(condition, x1, x2, broadcastShape)) {
-        OP_LOGE(
-            ACL_ERROR_INVALID_PARAM, "broadcast condition: %s, x1: %s, x2: %s failed.",
-            op::ToString(condition->GetViewShape()).GetString(), op::ToString(x1->GetViewShape()).GetString(),
-            op::ToString(x2->GetViewShape()).GetString());
+        OP_LOGE(ACL_ERROR_INVALID_PARAM, "broadcast condition: %s, x1: %s, x2: %s failed.",
+                op::ToString(condition->GetViewShape()).GetString(), op::ToString(x1->GetViewShape()).GetString(),
+                op::ToString(x2->GetViewShape()).GetString());
         return nullptr;
     }
     auto selectOut = executor->AllocTensor(broadcastShape, x1->GetDataType());
