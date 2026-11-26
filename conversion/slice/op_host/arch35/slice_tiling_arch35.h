@@ -31,7 +31,6 @@ struct SliceCompileParam {
     int64_t ub_size{0};
     uint32_t cacheLineSize{0};
     bool isAscendc{false};
-    bool isDav3510{false};
 };
 
 struct SliceParasRuntime2 {
@@ -48,8 +47,6 @@ struct SliceParasRuntime2 {
 class SliceTiling : public StrideSliceTiling {
 public:
     explicit SliceTiling(gert::TilingContext* context) : StrideSliceTiling(context) {};
-    ge::graphStatus fillStatus_ = ge::GRAPH_SUCCESS;
-    void CapCoreNumByTilingCapacity();
 
 protected:
     void CalMaxSplitDim() override;
@@ -85,9 +82,6 @@ protected:
     void SliceGatherUbSplitLastFourDim();
     void SetMoveAlignParamsSlice(StridedSliceMoveAlignParams2& params, const MoveAlignV2Info& actInfo);
     void SetRowsStepsParamsSlice(StridedSliceTilingData2& tilingData);
-    ge::graphStatus LimitCoreNumByTilingCapacity();
-    void ReDeriveSliceSplit();
-    void ResetSplitState();
 
 private:
     SliceTilingData sliceTilingData_;

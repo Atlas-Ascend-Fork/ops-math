@@ -15,7 +15,6 @@
 #include "slice_tiling_arch35.h"
 #include "atvoss/broadcast/broadcast_tiling.h"
 #include "common/inc/op_host/op_const_def_math.h"
-#include "op_common/op_host/util/op_const_def.h"
 
 namespace optiling {
 
@@ -299,28 +298,11 @@ void SliceTiling::FillSliceTilingData150()
     SetShortMoveAlignParams(sliceMoveAlignLast2DimTilingData_.moveAlignParams, mainMoveAlignV2Info_);
     SetRowsStepsParamsFor150(sliceMoveAlignLast2DimTilingData_);
 
-    const auto compileInfo = reinterpret_cast<const SliceCompileParam*>(tilingContext_->GetCompileInfo());
-    if (compileInfo != nullptr && compileInfo->isDav3510) {
-        auto rawTilingData = tilingContext_->GetRawTilingData();
-        size_t tilingDataTotalSize = static_cast<size_t>(realCoreNum_) * SLICE_MOVE_ALIGN_TWO_DIM_TILING_STRIDE;
-        auto tilingData = reinterpret_cast<uint8_t*>(rawTilingData->GetData());
-        for (int64_t i = 0; i < realCoreNum_; i++) {
-            errno_t ret = memcpy_s(tilingData + i * SLICE_MOVE_ALIGN_TWO_DIM_TILING_STRIDE,
-                                   SLICE_MOVE_ALIGN_TWO_DIM_TILING_STRIDE,
-                                   reinterpret_cast<void*>(&sliceMoveAlignLast2DimTilingData_), tilingDataSize);
-            if (ret != EOK) {
-                OP_LOGE(tilingContext_->GetNodeName(), "memcpy_s failed, ret=%d", ret);
-                break;
-            }
-        }
-        rawTilingData->SetDataSize(tilingDataTotalSize);
-    } else {
-        auto tilingData = tilingContext_->GetTilingData<SliceMoveAlignLast2DimTilingData>();
-        errno_t ret = memcpy_s(tilingData, tilingDataSize, reinterpret_cast<void*>(&sliceMoveAlignLast2DimTilingData_),
-                               tilingDataSize);
-        if (ret != EOK) {
-            OP_LOGE(tilingContext_->GetNodeName(), "memcpy_s failed, ret=%d", ret);
-        }
+    auto tilingData = tilingContext_->GetTilingData<SliceMoveAlignLast2DimTilingData>();
+    errno_t ret = memcpy_s(tilingData, tilingDataSize, reinterpret_cast<void*>(&sliceMoveAlignLast2DimTilingData_),
+                           tilingDataSize);
+    if (ret != EOK) {
+        OP_LOGE(tilingContext_->GetNodeName(), "memcpy_s failed, ret=%d", ret);
     }
 }
 
@@ -358,28 +340,11 @@ void SliceTiling::FillSliceTilingData100()
 
     sliceMoveAlignTilingData_.ubOutLoopSteps = outLoopSteps_;
     SetMoveAlignParamsSlice(sliceMoveAlignTilingData_.moveAlignParams, mainMoveAlignV2Info_);
-
-    const auto compileInfo = reinterpret_cast<const SliceCompileParam*>(tilingContext_->GetCompileInfo());
-    if (compileInfo != nullptr && compileInfo->isDav3510) {
-        auto rawTilingData = tilingContext_->GetRawTilingData();
-        size_t tilingDataTotalSize = static_cast<size_t>(realCoreNum_) * SLICE_MOVE_ALIGN_TILING_STRIDE;
-        auto tilingData = reinterpret_cast<uint8_t*>(rawTilingData->GetData());
-        for (int64_t i = 0; i < realCoreNum_; i++) {
-            errno_t ret = memcpy_s(tilingData + i * SLICE_MOVE_ALIGN_TILING_STRIDE, SLICE_MOVE_ALIGN_TILING_STRIDE,
-                                   reinterpret_cast<void*>(&sliceMoveAlignTilingData_), tilingDataSize);
-            if (ret != EOK) {
-                OP_LOGE(tilingContext_->GetNodeName(), "memcpy_s failed, ret=%d", ret);
-                break;
-            }
-        }
-        rawTilingData->SetDataSize(tilingDataTotalSize);
-    } else {
-        auto tilingData = tilingContext_->GetTilingData<SliceMoveAlignTilingData>();
-        errno_t ret = memcpy_s(tilingData, tilingDataSize, reinterpret_cast<void*>(&sliceMoveAlignTilingData_),
-                               tilingDataSize);
-        if (ret != EOK) {
-            OP_LOGE(tilingContext_->GetNodeName(), "memcpy_s failed, ret=%d", ret);
-        }
+    auto tilingData = tilingContext_->GetTilingData<SliceMoveAlignTilingData>();
+    errno_t ret = memcpy_s(tilingData, tilingDataSize, reinterpret_cast<void*>(&sliceMoveAlignTilingData_),
+                           tilingDataSize);
+    if (ret != EOK) {
+        OP_LOGE(tilingContext_->GetNodeName(), "memcpy_s failed, ret=%d", ret);
     }
 }
 
@@ -388,29 +353,11 @@ void SliceTiling::FillSliceTilingData101()
     size_t tilingDataSize = sizeof(SliceMoveAlignLastDimTilingData);
     OP_LOGD(tilingContext_->GetNodeName(), "Entering FillTilingData101.");
     FillSliceBaseTilingData(sliceMoveAlignLastDimTilingData_.sliceBaseTilingData);
-
-    const auto compileInfo = reinterpret_cast<const SliceCompileParam*>(tilingContext_->GetCompileInfo());
-    if (compileInfo != nullptr && compileInfo->isDav3510) {
-        auto rawTilingData = tilingContext_->GetRawTilingData();
-        size_t tilingDataTotalSize = static_cast<size_t>(realCoreNum_) * SLICE_MOVE_ALIGN_LAST_DIM_TILING_STRIDE;
-        auto tilingData = reinterpret_cast<uint8_t*>(rawTilingData->GetData());
-        for (int64_t i = 0; i < realCoreNum_; i++) {
-            errno_t ret = memcpy_s(tilingData + i * SLICE_MOVE_ALIGN_LAST_DIM_TILING_STRIDE,
-                                   SLICE_MOVE_ALIGN_LAST_DIM_TILING_STRIDE,
-                                   reinterpret_cast<void*>(&sliceMoveAlignLastDimTilingData_), tilingDataSize);
-            if (ret != EOK) {
-                OP_LOGE(tilingContext_->GetNodeName(), "memcpy_s failed, ret=%d", ret);
-                break;
-            }
-        }
-        rawTilingData->SetDataSize(tilingDataTotalSize);
-    } else {
-        auto tilingData = tilingContext_->GetTilingData<SliceMoveAlignLastDimTilingData>();
-        errno_t ret = memcpy_s(tilingData, tilingDataSize, reinterpret_cast<void*>(&sliceMoveAlignLastDimTilingData_),
-                               tilingDataSize);
-        if (ret != EOK) {
-            OP_LOGE(tilingContext_->GetNodeName(), "memcpy_s failed, ret=%d", ret);
-        }
+    auto tilingData = tilingContext_->GetTilingData<SliceMoveAlignLastDimTilingData>();
+    errno_t ret = memcpy_s(tilingData, tilingDataSize, reinterpret_cast<void*>(&sliceMoveAlignLastDimTilingData_),
+                           tilingDataSize);
+    if (ret != EOK) {
+        OP_LOGE(tilingContext_->GetNodeName(), "memcpy_s failed, ret=%d", ret);
     }
 }
 
@@ -427,28 +374,10 @@ void SliceTiling::FillSliceTilingData102()
         sliceNDDMATilingData_.nddmaLoopSrcStride[i] = nddmaLoopSrcStride_[i];
         sliceNDDMATilingData_.nddmaLoopDstStride[i] = nddmaLoopDstStride_[i];
     }
-
-    const auto compileInfo = reinterpret_cast<const SliceCompileParam*>(tilingContext_->GetCompileInfo());
-    if (compileInfo != nullptr && compileInfo->isDav3510) {
-        auto rawTilingData = tilingContext_->GetRawTilingData();
-        size_t tilingDataTotalSize = static_cast<size_t>(realCoreNum_) * SLICE_NDDMA_TILING_STRIDE;
-        auto tilingData = reinterpret_cast<uint8_t*>(rawTilingData->GetData());
-        for (int64_t i = 0; i < realCoreNum_; i++) {
-            errno_t ret = memcpy_s(tilingData + i * SLICE_NDDMA_TILING_STRIDE, SLICE_NDDMA_TILING_STRIDE,
-                                   reinterpret_cast<void*>(&sliceNDDMATilingData_), tilingDataSize);
-            if (ret != EOK) {
-                OP_LOGE(tilingContext_->GetNodeName(), "memcpy_s failed, ret=%d", ret);
-                break;
-            }
-        }
-        rawTilingData->SetDataSize(tilingDataTotalSize);
-    } else {
-        auto tilingData = tilingContext_->GetTilingData<SliceNDDMATilingData>();
-        errno_t ret = memcpy_s(tilingData, tilingDataSize, reinterpret_cast<void*>(&sliceNDDMATilingData_),
-                               tilingDataSize);
-        if (ret != EOK) {
-            OP_LOGE(tilingContext_->GetNodeName(), "memcpy_s failed, ret=%d", ret);
-        }
+    auto tilingData = tilingContext_->GetTilingData<SliceNDDMATilingData>();
+    errno_t ret = memcpy_s(tilingData, tilingDataSize, reinterpret_cast<void*>(&sliceNDDMATilingData_), tilingDataSize);
+    if (ret != EOK) {
+        OP_LOGE(tilingContext_->GetNodeName(), "memcpy_s failed, ret=%d", ret);
     }
 }
 
@@ -462,29 +391,11 @@ void SliceTiling::FillSliceTilingData103()
         sliceNDDMALastDimTilingData_.nddmaLoopSrcStride[i] = nddmaLoopSrcStride_[i];
         sliceNDDMALastDimTilingData_.nddmaLoopDstStride[i] = nddmaLoopDstStride_[i];
     }
-
-    const auto compileInfo = reinterpret_cast<const SliceCompileParam*>(tilingContext_->GetCompileInfo());
-    if (compileInfo != nullptr && compileInfo->isDav3510) {
-        auto rawTilingData = tilingContext_->GetRawTilingData();
-        size_t tilingDataTotalSize = static_cast<size_t>(realCoreNum_) * SLICE_NDDMA_LAST_DIM_TILING_STRIDE;
-        auto tilingData = reinterpret_cast<uint8_t*>(rawTilingData->GetData());
-        for (int64_t i = 0; i < realCoreNum_; i++) {
-            errno_t ret = memcpy_s(tilingData + i * SLICE_NDDMA_LAST_DIM_TILING_STRIDE,
-                                   SLICE_NDDMA_LAST_DIM_TILING_STRIDE,
-                                   reinterpret_cast<void*>(&sliceNDDMALastDimTilingData_), tilingDataSize);
-            if (ret != EOK) {
-                OP_LOGE(tilingContext_->GetNodeName(), "memcpy_s failed, ret=%d", ret);
-                break;
-            }
-        }
-        rawTilingData->SetDataSize(tilingDataTotalSize);
-    } else {
-        auto tilingData = tilingContext_->GetTilingData<SliceNDDMALastDimTilingData>();
-        errno_t ret = memcpy_s(tilingData, tilingDataSize, reinterpret_cast<void*>(&sliceNDDMALastDimTilingData_),
-                               tilingDataSize);
-        if (ret != EOK) {
-            OP_LOGE(tilingContext_->GetNodeName(), "memcpy_s failed, ret=%d", ret);
-        }
+    auto tilingData = tilingContext_->GetTilingData<SliceNDDMALastDimTilingData>();
+    errno_t ret = memcpy_s(tilingData, tilingDataSize, reinterpret_cast<void*>(&sliceNDDMALastDimTilingData_),
+                           tilingDataSize);
+    if (ret != EOK) {
+        OP_LOGE(tilingContext_->GetNodeName(), "memcpy_s failed, ret=%d", ret);
     }
 }
 
@@ -500,29 +411,11 @@ void SliceTiling::FillSliceTilingData300()
     sliceMoveAlignGatherTilingData_.ubOutLoopSteps = outLoopSteps_;
 
     SetMoveAlignParamsSlice(sliceMoveAlignGatherTilingData_.moveAlignParams, mainMoveAlignV2Info_);
-
-    const auto compileInfo = reinterpret_cast<const SliceCompileParam*>(tilingContext_->GetCompileInfo());
-    if (compileInfo != nullptr && compileInfo->isDav3510) {
-        auto rawTilingData = tilingContext_->GetRawTilingData();
-        size_t tilingDataTotalSize = static_cast<size_t>(realCoreNum_) * SLICE_MOVE_ALIGN_GATHER_TILING_STRIDE;
-        auto tilingData = reinterpret_cast<uint8_t*>(rawTilingData->GetData());
-        for (int64_t i = 0; i < realCoreNum_; i++) {
-            errno_t ret = memcpy_s(tilingData + i * SLICE_MOVE_ALIGN_GATHER_TILING_STRIDE,
-                                   SLICE_MOVE_ALIGN_GATHER_TILING_STRIDE,
-                                   reinterpret_cast<void*>(&sliceMoveAlignGatherTilingData_), tilingDataSize);
-            if (ret != EOK) {
-                OP_LOGE(tilingContext_->GetNodeName(), "memcpy_s failed, ret=%d", ret);
-                break;
-            }
-        }
-        rawTilingData->SetDataSize(tilingDataTotalSize);
-    } else {
-        auto tilingData = tilingContext_->GetTilingData<SliceMoveAlignGatherTilingData>();
-        errno_t ret = memcpy_s(tilingData, tilingDataSize, reinterpret_cast<void*>(&sliceMoveAlignGatherTilingData_),
-                               tilingDataSize);
-        if (ret != EOK) {
-            OP_LOGE(tilingContext_->GetNodeName(), "memcpy_s failed, ret=%d", ret);
-        }
+    auto tilingData = tilingContext_->GetTilingData<SliceMoveAlignGatherTilingData>();
+    errno_t ret = memcpy_s(tilingData, tilingDataSize, reinterpret_cast<void*>(&sliceMoveAlignGatherTilingData_),
+                           tilingDataSize);
+    if (ret != EOK) {
+        OP_LOGE(tilingContext_->GetNodeName(), "memcpy_s failed, ret=%d", ret);
     }
 }
 
@@ -541,28 +434,11 @@ void SliceTiling::FillSliceTilingData400()
     int8_t isConstBegin = sliceParam_.isBeginConst ? 1 : 0;
     sliceTwoDimSmallSapeTilingData_.isBeginConst = isConstBegin;
 
-    const auto compileInfo = reinterpret_cast<const SliceCompileParam*>(tilingContext_->GetCompileInfo());
-    if (compileInfo != nullptr && compileInfo->isDav3510) {
-        auto rawTilingData = tilingContext_->GetRawTilingData();
-        size_t tilingDataTotalSize = static_cast<size_t>(realCoreNum_) * SLICE_TWO_DIM_SMALL_TILING_STRIDE;
-        auto tilingData = reinterpret_cast<uint8_t*>(rawTilingData->GetData());
-        for (int64_t i = 0; i < realCoreNum_; i++) {
-            errno_t ret = memcpy_s(tilingData + i * SLICE_TWO_DIM_SMALL_TILING_STRIDE,
-                                   SLICE_TWO_DIM_SMALL_TILING_STRIDE,
-                                   reinterpret_cast<void*>(&sliceTwoDimSmallSapeTilingData_), tilingDataSize);
-            if (ret != EOK) {
-                OP_LOGE(tilingContext_->GetNodeName(), "memcpy_s failed, ret=%d", ret);
-                break;
-            }
-        }
-        rawTilingData->SetDataSize(tilingDataTotalSize);
-    } else {
-        auto tilingData = tilingContext_->GetTilingData<SliceTwoDimSmallSapeTilingData>();
-        errno_t ret = memcpy_s(tilingData, tilingDataSize, reinterpret_cast<void*>(&sliceTwoDimSmallSapeTilingData_),
-                               tilingDataSize);
-        if (ret != EOK) {
-            OP_LOGE(tilingContext_->GetNodeName(), "memcpy_s failed, ret=%d", ret);
-        }
+    auto tilingData = tilingContext_->GetTilingData<SliceTwoDimSmallSapeTilingData>();
+    errno_t ret = memcpy_s(tilingData, tilingDataSize, reinterpret_cast<void*>(&sliceTwoDimSmallSapeTilingData_),
+                           tilingDataSize);
+    if (ret != EOK) {
+        OP_LOGE(tilingContext_->GetNodeName(), "memcpy_s failed, ret=%d", ret);
     }
 }
 
@@ -619,74 +495,6 @@ void SliceTiling::FillTilingData()
         end_[i] = sliceParam_.endList.GetDim(i);
         inputShape_[i] = sliceParam_.inputShape.GetDim(i);
         outputShape_[i] = sliceParam_.outputShape.GetDim(i);
-    }
-    const auto compileInfo = reinterpret_cast<const SliceCompileParam*>(tilingContext_->GetCompileInfo());
-    if (compileInfo != nullptr && compileInfo->isDav3510) {
-        auto rawTilingData = tilingContext_->GetRawTilingData();
-        if (rawTilingData == nullptr) {
-            OP_LOGE(tilingContext_->GetNodeName(), "rawTilingData is nullptr, tilingKey=%ld.", tilingKey_);
-            fillStatus_ = ge::GRAPH_FAILED;
-            return;
-        }
-        size_t tilingStride = 0;
-        if (LimitCoreNumByTilingCapacity() != ge::GRAPH_SUCCESS) {
-            fillStatus_ = ge::GRAPH_FAILED;
-            return;
-        }
-
-        switch (tilingKey_) {
-            case STRIDED_SLICE_KEY_MOVE_ALIGN:
-                tilingStride = SLICE_MOVE_ALIGN_TILING_STRIDE;
-                break;
-            case STRIDED_SLICE_KEY_MOVE_ALIGN_LAST_DIM:
-                tilingStride = SLICE_MOVE_ALIGN_LAST_DIM_TILING_STRIDE;
-                break;
-            case STRIDED_SLICE_KEY_NDDMA:
-                tilingStride = SLICE_NDDMA_TILING_STRIDE;
-                break;
-            case STRIDED_SLICE_KEY_NDDMA_LAST_DIM:
-                tilingStride = SLICE_NDDMA_LAST_DIM_TILING_STRIDE;
-                break;
-            case STRIDED_SLICE_KEY_MOVE_ALIGN_TWO_DIM:
-                tilingStride = SLICE_MOVE_ALIGN_TWO_DIM_TILING_STRIDE;
-                break;
-            case STRIDED_SLICE_KEY_MOVE_ALIGN_GATHER:
-            case SLICE_KEY_MOVE_UNALIGN_GATHER:
-                tilingStride = SLICE_MOVE_ALIGN_GATHER_TILING_STRIDE;
-                break;
-            case SLICE_KEY_TWO_DIM_SMALL_SHAPE:
-                tilingStride = SLICE_TWO_DIM_SMALL_TILING_STRIDE;
-                break;
-            default:
-                break;
-        }
-        if (tilingStride != 0U) {
-            const size_t capacity = rawTilingData->GetCapacity();
-            const size_t needSize = static_cast<size_t>(realCoreNum_) * tilingStride;
-            const int64_t maxCoreNum = static_cast<int64_t>(compileInfo->block_dim);
-            if (realCoreNum_ > maxCoreNum) {
-                OP_LOGE(tilingContext_->GetNodeName(),
-                        "tiling data capacity is not enough, tilingKey=%ld, coreNum=%ld, need=%zu, real=%zu.",
-                        tilingKey_, realCoreNum_, needSize, capacity);
-                fillStatus_ = ge::GRAPH_FAILED;
-                return;
-            }
-            if (capacity < tilingStride) {
-                OP_LOGE(tilingContext_->GetNodeName(),
-                        "tiling struct size %zu exceeds tiling data capacity %zu, tilingKey=%ld.", tilingStride,
-                        capacity, tilingKey_);
-                fillStatus_ = ge::GRAPH_FAILED;
-                return;
-            }
-            if (capacity < needSize) {
-                const int64_t coreLimit = static_cast<int64_t>(capacity / tilingStride);
-                OP_LOGW(tilingContext_->GetNodeName(),
-                        "core num limited by tiling data capacity, tilingKey=%ld, coreNum %ld -> %ld, "
-                        "capacity=%zu, stride=%zu.",
-                        tilingKey_, realCoreNum_, coreLimit, capacity, tilingStride);
-                realCoreNum_ = coreLimit;
-            }
-        }
     }
     switch (tilingKey_) {
         case STRIDED_SLICE_KEY_MOVE_ALIGN:
@@ -890,142 +698,6 @@ void SliceTiling::SetBlockDimAndTilingKey()
     tilingContext_->SetBlockDim(realCoreNum_);
     tilingContext_->SetTilingKey(tilingKey_);
 }
-void SliceTiling::ResetSplitState()
-{
-    ubIndex_ = -1L;
-    ubFactor_ = -1L;
-    ubTailFactor_ = 0;
-    ubTailTailFactor_ = 0;
-    blkIndex_ = -1L;
-    blkFactor_ = 0;
-    blkTailFactor_ = 0;
-    realCoreNum_ = 1;
-    nddmaTotalNum_ = 1;
-    for (int32_t i = 0; i < MAX_NDDMA_UB_SPLIT_AXIS_NUM; i++) {
-        nddmaLoopSize_[i] = 0;
-        nddmaLoopSrcStride_[i] = 0;
-        nddmaLoopDstStride_[i] = 0;
-    }
-    mainMoveAlignV2Info_ = MoveAlignV2Info{};
-    outBlockLen_ = 0;
-    isSliceGather_ = false;
-    isUnalignCopy_ = false;
-    useGather_ = false;
-    isNddma_ = false;
-}
-
-void SliceTiling::ReDeriveSliceSplit()
-{
-    if (isEmptyTensor_) {
-        SetSIMTTilingMode();
-    } else if (isStrideNeg_) {
-        CalMaxSplitDimNeg();
-        if (maxSplitDim_ != MAX_SIMT_UB_SPLIT_AXIS_NUM) {
-            CalcBlockSplitInfo();
-            CalcUbSplitInfoNeg();
-        }
-        SetTilingModeNeg();
-    } else {
-        CalMaxSplitDim();
-        if (maxSplitDim_ == MAX_TWO_DIM_UB_SPLIT_AXIS_NUM) {
-            SetTwoDimTilingInfo();
-        } else if (totalOutputSize_ <= LAST_DIM_MIN_DATA_SIZE && dimNum_ <= maxSplitDim_) {
-            SetAllInUbSplitInfo();
-        } else {
-            CalcBlockSplitInfo();
-            if (!useGather_) {
-                CalcUbSplitInfo();
-            } else {
-                CalcUbSplitInfoNeg();
-            }
-        }
-        SetTilingMode();
-    }
-}
-
-void SliceTiling::CapCoreNumByTilingCapacity()
-{
-    const auto compileInfo = reinterpret_cast<const SliceCompileParam*>(tilingContext_->GetCompileInfo());
-    if (compileInfo == nullptr || !compileInfo->isDav3510) {
-        return;
-    }
-    auto rawTilingData = tilingContext_->GetRawTilingData();
-    if (rawTilingData == nullptr) {
-        return;
-    }
-    int64_t coreLimit = static_cast<int64_t>(rawTilingData->GetCapacity() / SLICE_TILING_MAX_STRIDE);
-    coreLimit = std::min(coreLimit, static_cast<int64_t>(compileInfo->block_dim));
-    if (coreLimit > 0 && coreNum_ > coreLimit) {
-        coreNum_ = coreLimit;
-    }
-}
-
-ge::graphStatus SliceTiling::LimitCoreNumByTilingCapacity()
-{
-    const auto compileInfo = reinterpret_cast<const SliceCompileParam*>(tilingContext_->GetCompileInfo());
-    if (compileInfo == nullptr || !compileInfo->isDav3510) {
-        return ge::GRAPH_SUCCESS;
-    }
-    auto rawTilingData = tilingContext_->GetRawTilingData();
-    if (rawTilingData == nullptr) {
-        OP_LOGE(tilingContext_->GetNodeName(), "rawTilingData is nullptr, tilingKey=%ld.", tilingKey_);
-        return ge::GRAPH_FAILED;
-    }
-    const size_t capacity = rawTilingData->GetCapacity();
-    for (int32_t pass = 0; pass < NUMBER_THREE; pass++) {
-        size_t tilingStride = 0;
-        switch (tilingKey_) {
-            case STRIDED_SLICE_KEY_MOVE_ALIGN:
-                tilingStride = SLICE_MOVE_ALIGN_TILING_STRIDE;
-                break;
-            case STRIDED_SLICE_KEY_MOVE_ALIGN_LAST_DIM:
-                tilingStride = SLICE_MOVE_ALIGN_LAST_DIM_TILING_STRIDE;
-                break;
-            case STRIDED_SLICE_KEY_NDDMA:
-                tilingStride = SLICE_NDDMA_TILING_STRIDE;
-                break;
-            case STRIDED_SLICE_KEY_NDDMA_LAST_DIM:
-                tilingStride = SLICE_NDDMA_LAST_DIM_TILING_STRIDE;
-                break;
-            case STRIDED_SLICE_KEY_MOVE_ALIGN_TWO_DIM:
-                tilingStride = SLICE_MOVE_ALIGN_TWO_DIM_TILING_STRIDE;
-                break;
-            case STRIDED_SLICE_KEY_MOVE_ALIGN_GATHER:
-            case SLICE_KEY_MOVE_UNALIGN_GATHER:
-                tilingStride = SLICE_MOVE_ALIGN_GATHER_TILING_STRIDE;
-                break;
-            case SLICE_KEY_TWO_DIM_SMALL_SHAPE:
-                tilingStride = SLICE_TWO_DIM_SMALL_TILING_STRIDE;
-                break;
-            default:
-                break;
-        }
-        if (tilingStride == 0U) {
-            return ge::GRAPH_SUCCESS;
-        }
-        const int64_t coreLimit = std::min(static_cast<int64_t>(capacity / tilingStride),
-                                           static_cast<int64_t>(compileInfo->block_dim));
-        if (realCoreNum_ <= coreLimit) {
-            return ge::GRAPH_SUCCESS;
-        }
-        if (coreLimit <= 0 || pass == NUMBER_THREE - 1) {
-            OP_LOGE(tilingContext_->GetNodeName(),
-                    "tiling data capacity is not enough, tilingKey=%ld, need=%zu, real=%zu, realCoreNum=%ld.",
-                    tilingKey_, static_cast<size_t>(realCoreNum_) * tilingStride, capacity, realCoreNum_);
-            coreNum_ = 1;
-            ResetSplitState();
-            ReDeriveSliceSplit();
-            return ge::GRAPH_SUCCESS;
-        }
-        OP_LOGW(tilingContext_->GetNodeName(),
-                "tiling data capacity is not enough, limit coreNum to %ld, tilingKey=%ld, need=%zu, real=%zu.",
-                coreLimit, tilingKey_, static_cast<size_t>(realCoreNum_) * tilingStride, capacity);
-        coreNum_ = std::min(coreNum_, coreLimit);
-        ResetSplitState();
-        ReDeriveSliceSplit();
-    }
-    return ge::GRAPH_SUCCESS;
-}
 
 ge::graphStatus SliceTilingForAscendC(gert::TilingContext* context, int64_t coreNum, int64_t ubSize,
                                       int64_t cacheLineSize, SliceParasRuntime2& param, const ge::DataType dtype)
@@ -1046,11 +718,7 @@ ge::graphStatus SliceTilingForAscendC(gert::TilingContext* context, int64_t core
         OP_LOGE(context->GetNodeName(), "SliceTilingForAscendC init failed.");
         return ge::GRAPH_FAILED;
     }
-    tilingImpl.CapCoreNumByTilingCapacity();
-    if (tilingImpl.RunStrideSliceTiling() != ge::GRAPH_SUCCESS || tilingImpl.fillStatus_ != ge::GRAPH_SUCCESS) {
-        return ge::GRAPH_FAILED;
-    }
-    return ge::GRAPH_SUCCESS;
+    return tilingImpl.RunStrideSliceTiling();
 }
 
 template <typename T>
@@ -1327,14 +995,11 @@ static ge::graphStatus TilingPrepare4Slice(gert::TilingParseContext* context)
                 return ge::GRAPH_FAILED);
 
     compileInfo->isAscendc = true;
-    compileInfo->isDav3510 = ascendcPlatform.GetCurNpuArch() == Ops::Base::DAV_3510;
     compileInfo->cacheLineSize = Ops::Base::GetCacheLineSize(context);
     OP_CHECK_IF((compileInfo->cacheLineSize == static_cast<uint32_t>(0)),
                 OP_LOGE(context->GetNodeName(), "Failed to get cacheLineSize."), return ge::GRAPH_FAILED);
     return ge::GRAPH_SUCCESS;
 }
 
-IMPL_OP_OPTILING(Slice)
-    .Tiling(Tiling4Slice, SLICE_TILING_DATA_SIZE)
-    .TilingParse<SliceCompileParam>(TilingPrepare4Slice);
+IMPL_OP_OPTILING(Slice).Tiling(Tiling4Slice).TilingParse<SliceCompileParam>(TilingPrepare4Slice);
 } // namespace optiling
