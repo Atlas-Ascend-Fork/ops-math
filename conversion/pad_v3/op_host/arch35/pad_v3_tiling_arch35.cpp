@@ -1087,6 +1087,16 @@ ge::graphStatus PadACTiling::CheckSymmetricParam(int64_t inShapeV, int64_t padFr
 
 ge::graphStatus PadACTiling::CheckCircularParam(int64_t inShapeV, int64_t padFront, int64_t padBack)
 {
+    if (isCircularPad_ && (padFront < 0 || padBack < 0)) {
+        // CircularPad 文档：负裁剪后该维度大小必须 > 0。
+        // 正 pad 上界不在此处收紧，统一走下方 [-inShape, inShape]（与 pad_v3 proto 及 CircularPad 文档一致）。
+        int64_t effective = inShapeV + (padFront < 0 ? padFront : 0) + (padBack < 0 ? padBack : 0);
+        if (effective <= 0) {
+            return LogPadParamCheckFailed(
+                padFront, padBack, inShapeV,
+                "When the mode is circular_pad, effective size after negative padding must be greater than 0");
+        }
+    }
     int64_t leftsubin = padFront - inShapeV;
     int64_t rightsubin = padBack - inShapeV;
     if (padMode_ == ModeNum::CIRCULAR && (0 < leftsubin || 0 < rightsubin)) {
@@ -1237,6 +1247,25 @@ void PadACTiling::GetPaddingsToShape(const gert::Tensor* paddingsTensor)
     const T* paddingsValue = paddingsTensor->GetData<T>();
     const size_t paddingsNum = paddingsTensor->GetShapeSize();
 
+    // CircularPad 原生格式：4/6 个值仅覆盖末 2/3 维 [left,right,top,bottom(,front,back)]。
+    // 映射到 W/H/L 维并将前导维补 0；aclnn 展开格式为 2*rank，走下方通用分支。
+    if (isCircularPad_ && paddingsNum != PAIR * static_cast<size_t>(dimNum_)) {
+        const size_t rank = static_cast<size_t>(dimNum_);
+        const size_t padDim = paddingsNum / PAIR;
+        paddings_.padFront.SetDimNum(rank);
+        paddings_.padBack.SetDimNum(rank);
+        for (size_t i = 0; i < rank; ++i) {
+            paddings_.padFront.SetDim(i, 0);
+            paddings_.padBack.SetDim(i, 0);
+        }
+        for (size_t j = 0; j < padDim && j < rank; ++j) {
+            const size_t dimIdx = rank - 1 - j;
+            paddings_.padFront.SetDim(dimIdx, static_cast<int64_t>(paddingsValue[PAIR * j]));
+            paddings_.padBack.SetDim(dimIdx, static_cast<int64_t>(paddingsValue[PAIR * j + 1]));
+        }
+        return;
+    }
+
     size_t inputDimNum = paddingsNum / PAIR;
     paddings_.padFront.SetDimNum(inputDimNum);
     paddings_.padBack.SetDimNum(inputDimNum);
@@ -1371,6 +1400,12 @@ ge::graphStatus PadACTiling::ValidateMirrorPadMode(const char* mode)
 
 ge::graphStatus PadACTiling::ParseModeAndContiguousAttrs()
 {
+    if (isCircularPad_) {
+        // CircularPad 算子固定 circular 模式，且无 mode/paddings_contiguous 属性
+        padMode_ = ModeNum::CIRCULAR;
+        paddingContiguous_ = true;
+        return ge::GRAPH_SUCCESS;
+    }
     if (isPadV3_) {
         auto const attrs = context_->GetAttrs();
         OP_CHECK_NULL_WITH_CONTEXT(context_, attrs);

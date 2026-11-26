@@ -12,36 +12,83 @@
 
 /*!
  * \file circular_pad_apt.cpp
- * \brief Kernel entry for circular_pad operator
+ * \brief CircularPad arch35 kernel: 复用 pad_v3 的 circular / slice kernel 模板
  *
- * 模板参数 schMode 编码 2D/3D 模式，isSimt 编码执行路径，均由 host TilingKey 路由:
- *   schMode = 0 (CIRCULAR_PAD_SCH_MODE_2D): 2D 模式
- *   schMode = 1 (CIRCULAR_PAD_SCH_MODE_3D): 3D 模式
- *   isSimt = 0 (CIRCULAR_PAD_IS_MTE): MTE 条带直拷主路径（circular_pad_simd.h，大输出）
- *   isSimt = 1 (CIRCULAR_PAD_IS_SIMT): VF 行级直拷旁路（circular_pad_simt.h，小输出/窄行）
- * dtype 由 DTYPE_X 宏自动实例化，不在 TilingKey 中枚举
+ * TilingKey 由 pad_v3 的 PadACTiling（circular 模式）产生：
+ *   1xxxx  -> slice（全负 pad 裁剪）
+ *   24000/24001 -> circular SIMT
+ *   34010/34021/34031/34041 -> circular 大尾轴 / 切尾轴
+ *   34022/34032/34042 -> circular gather
  */
 
-#include "arch35/circular_pad_simd.h"
+#include "../pad_v3/arch35/pad_circular.h"
+#include "../pad_v3/arch35/pad_slice.h"
+#include "../pad_v3/arch35/pad_tilingkey.h"
 #include "arch35/circular_pad_simt.h"
+#include "arch35/circular_pad_tiling_data.h"
 
-template <uint32_t schMode, bool isSimt>
-__global__ __aicore__ void circular_pad(GM_ADDR x, GM_ADDR paddings, GM_ADDR y, GM_ADDR workspace, GM_ADDR tiling)
+using namespace PadV3;
+
+extern "C" __global__ __aicore__ void circular_pad(GM_ADDR x, GM_ADDR paddings, GM_ADDR y, GM_ADDR workspace,
+                                                   GM_ADDR tiling)
 {
-    REGISTER_TILING_DEFAULT(CircularPadTilingData);
-    GET_TILING_DATA_WITH_STRUCT(CircularPadTilingData, tilingData, tiling);
+    KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_AIV_ONLY);
+    REGISTER_NONE_TILING;
 
-    if constexpr (schMode == CIRCULAR_PAD_SCH_MODE_2D) {
-        if constexpr (isSimt) {
-            NsCircularPad::ProcessSimt<DTYPE_X, 0>(x, y, workspace, &tilingData);
-        } else {
-            NsCircularPad::ProcessSimd<DTYPE_X, 0>(x, y, workspace, &tilingData);
-        }
-    } else if constexpr (schMode == CIRCULAR_PAD_SCH_MODE_3D) {
-        if constexpr (isSimt) {
-            NsCircularPad::ProcessSimt<DTYPE_X, 1>(x, y, workspace, &tilingData);
-        } else {
-            NsCircularPad::ProcessSimd<DTYPE_X, 1>(x, y, workspace, &tilingData);
-        }
+#ifdef __CCE_AICORE_SUPPORT_SIMT__
+    // 混合正负：走裁剪后绕回的 SIMT 分支
+    if (TILING_KEY_IS(40004)) { // mixed 2D
+        GET_TILING_DATA_WITH_STRUCT(CircularPadTilingData, legacyData, tiling);
+        NsCircularPad::ProcessSimt<DTYPE_X, 0>(x, y, workspace, &legacyData);
+        return;
     }
+    if (TILING_KEY_IS(40005)) { // mixed 3D
+        GET_TILING_DATA_WITH_STRUCT(CircularPadTilingData, legacyData, tiling);
+        NsCircularPad::ProcessSimt<DTYPE_X, 1>(x, y, workspace, &legacyData);
+        return;
+    }
+    if (TILING_KEY_IS(CIRCULAR_SIMT_BRANCH)) { // 24000
+        PadV3::LaunchKernelPadCircularSimt<DTYPE_X>(x, paddings, y, tiling);
+        return;
+    }
+    if (TILING_KEY_IS(CIRCULAR_SIMT_BIG_SIZE_BRANCH)) { // 24001
+        PadV3::LaunchKernelPadCircularSimtHuge<DTYPE_X>(x, paddings, y, tiling);
+        return;
+    }
+#endif
+    if (TILING_KEY_IS(CIRCULAR_CUT_LAST_DIM_BRANCH)) { // 34010
+        PadV3::LaunchKernelPadCircularWithHugeWidth<DTYPE_X>(x, paddings, y, tiling);
+        return;
+    }
+    if (TILING_KEY_IS(CIRCULAR_BIG_LAST_DIM_BRANCH_DIM2)) { // 34021
+        PadV3::LaunchKernelPadCircularWithNormalWidth<DTYPE_X, CIRCULAR_BIG_LAST_DIM_BRANCH_DIM2>(x, paddings, y,
+                                                                                                  tiling);
+        return;
+    }
+    if (TILING_KEY_IS(CIRCULAR_BIG_LAST_DIM_BRANCH_DIM3)) { // 34031
+        PadV3::LaunchKernelPadCircularWithNormalWidth<DTYPE_X, CIRCULAR_BIG_LAST_DIM_BRANCH_DIM3>(x, paddings, y,
+                                                                                                  tiling);
+        return;
+    }
+    if (TILING_KEY_IS(CIRCULAR_BIG_LAST_DIM_BRANCH_DIM4)) { // 34041
+        PadV3::LaunchKernelPadCircularWithNormalWidth<DTYPE_X, CIRCULAR_BIG_LAST_DIM_BRANCH_DIM4>(x, paddings, y,
+                                                                                                  tiling);
+        return;
+    }
+    if (TILING_KEY_IS(CIRCULAR_SMALL_LAST_DIM_GATHER_BRANCH_DIM2)) { // 34022
+        PadV3::LaunchKernelPadCircularGather<DTYPE_X, CIRCULAR_SMALL_LAST_DIM_GATHER_BRANCH_DIM2>(x, paddings, y,
+                                                                                                  tiling);
+        return;
+    }
+    if (TILING_KEY_IS(CIRCULAR_SMALL_LAST_DIM_GATHER_BRANCH_DIM3)) { // 34032
+        PadV3::LaunchKernelPadCircularGather<DTYPE_X, CIRCULAR_SMALL_LAST_DIM_GATHER_BRANCH_DIM3>(x, paddings, y,
+                                                                                                  tiling);
+        return;
+    }
+    if (TILING_KEY_IS(CIRCULAR_SMALL_LAST_DIM_GATHER_BRANCH_DIM4)) { // 34042
+        PadV3::LaunchKernelPadCircularGather<DTYPE_X, CIRCULAR_SMALL_LAST_DIM_GATHER_BRANCH_DIM4>(x, paddings, y,
+                                                                                                  tiling);
+        return;
+    }
+    RunPadSliceProcess(x, y, tiling);
 }

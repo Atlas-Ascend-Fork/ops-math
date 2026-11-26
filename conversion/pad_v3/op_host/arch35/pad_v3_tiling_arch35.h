@@ -165,6 +165,7 @@ private:
 public:
     bool isPadV3_{false};
     bool isMirrorPad_{false};
+    bool isCircularPad_{false};
 
 private:
     gert::TilingContext* context_ = nullptr;

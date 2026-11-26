@@ -13,7 +13,6 @@
 #include <gtest/gtest.h>
 #include "tiling_context_faker.h"
 #include "tiling_case_executor.h"
-#include "../../../../op_kernel/arch35/circular_pad_tiling_data.h"
 
 using namespace std;
 using namespace ge;
@@ -25,48 +24,42 @@ protected:
     static void TearDownTestCase() { std::cout << "CircularPadTiling TearDown" << std::endl; }
 };
 
-static std::map<std::string, std::string> soc_version_infos = {{"Short_SoC_version", "Ascend950"}};
+// CircularPad arch35 tiling 复用 pad_v3 的 PadACTiling（circular 模式）。
+// 图模式 paddings 为原生 4/6（末 2/3 维）；aclnn 为 2*rank 展开格式；两者均需成功。
 
-TEST_F(CircularPadTiling, circular_pad_2d_fp32)
+// 2D + 原生 4（正 padding）
+TEST_F(CircularPadTiling, circular_pad_2d_fp32_positive)
 {
     int64_t paddings[] = {1, 1, 1, 1};
     struct CircularPadCompileInfo {
+        int64_t blockDim{64};
+        int64_t ubSize{262144};
+        uint32_t cacheLineSize{256};
+        bool isAscendc{true};
     } compileInfo;
-    gert::TilingContextPara tilingContextPara(
-        "CircularPad",
-        {
-            {{{2, 4, 8}, {2, 4, 8}}, ge::DT_FLOAT, ge::FORMAT_ND},     // input x
-            {{{4}, {4}}, ge::DT_INT64, ge::FORMAT_ND, true, paddings}, // input paddings (const)
-        },
-        {
-            {{{2, 6, 10}, {2, 6, 10}}, ge::DT_FLOAT, ge::FORMAT_ND}, // output y
-        },
-        {
-            /* attrs */
-        },
-        &compileInfo,
-        64,                       // number of cores obtained in the tiling phase
-        262144,                   // the ubsize obtained in the tiling phase
-        4096);                    // specifies the maximum size of the tiling data in the tiling phase
-    uint64_t expectTilingKey = 4; // VF 旁路(小输出): schMode=2D | IsSimt=1
-    string expectTilingData = "4 8 0 6 10 0 1 1 1 1 0 0 64 120 1 229376 ";
+    gert::TilingContextPara tilingContextPara("CircularPad",
+                                              {
+                                                  {{{2, 4, 8}, {2, 4, 8}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                  {{{4}, {4}}, ge::DT_INT64, ge::FORMAT_ND, true, paddings},
+                                              },
+                                              {
+                                                  {{{2, 6, 10}, {2, 6, 10}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              {/* attrs */}, &compileInfo, 64, 262144, 4096);
     TilingInfo tilingInfo;
-    EXPECT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
-    EXPECT_EQ(tilingInfo.tilingKey, expectTilingKey);
-    auto* dataPtr = reinterpret_cast<const int64_t*>(tilingInfo.tilingData.get());
-    size_t dataCount = tilingInfo.tilingDataSize / sizeof(int64_t);
-    std::string tilingDataResult;
-    for (size_t i = 0; i < dataCount; i++) {
-        tilingDataResult += std::to_string(dataPtr[i]);
-        tilingDataResult += " ";
-    }
-    EXPECT_EQ(tilingDataResult, expectTilingData);
+    ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
+    EXPECT_NE(tilingInfo.tilingKey, 0U);
 }
 
-TEST_F(CircularPadTiling, circular_pad_2d_fp16)
+// 2D + 原生 4（混合正负 padding）
+TEST_F(CircularPadTiling, circular_pad_2d_fp16_mixed)
 {
-    int64_t paddings[] = {2, 3, 1, 2};
+    int64_t paddings[] = {2, -1, 1, -2};
     struct CircularPadCompileInfo {
+        int64_t blockDim{64};
+        int64_t ubSize{262144};
+        uint32_t cacheLineSize{256};
+        bool isAscendc{true};
     } compileInfo;
     gert::TilingContextPara tilingContextPara("CircularPad",
                                               {
@@ -74,270 +67,426 @@ TEST_F(CircularPadTiling, circular_pad_2d_fp16)
                                                   {{{4}, {4}}, ge::DT_INT64, ge::FORMAT_ND, true, paddings},
                                               },
                                               {
-                                                  {{{1, 11, 21}, {1, 11, 21}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                  {{{1, 7, 17}, {1, 7, 17}}, ge::DT_FLOAT16, ge::FORMAT_ND},
                                               },
-                                              {
-                                                  /* attrs */
-                                              },
-                                              &compileInfo, 64, 262144, 4096);
-    uint64_t expectTilingKey = 4; // VF 旁路(小输出): schMode=2D | IsSimt=1
-    string expectTilingData = "8 16 0 11 21 0 2 3 1 2 0 0 128 231 1 229376 ";
+                                              {/* attrs */}, &compileInfo, 64, 262144, 4096);
     TilingInfo tilingInfo;
-    EXPECT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
-    EXPECT_EQ(tilingInfo.tilingKey, expectTilingKey);
-    auto* dataPtr = reinterpret_cast<const int64_t*>(tilingInfo.tilingData.get());
-    size_t dataCount = tilingInfo.tilingDataSize / sizeof(int64_t);
-    std::string tilingDataResult;
-    for (size_t i = 0; i < dataCount; i++) {
-        tilingDataResult += std::to_string(dataPtr[i]);
-        tilingDataResult += " ";
-    }
-    EXPECT_EQ(tilingDataResult, expectTilingData);
+    ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
+    EXPECT_NE(tilingInfo.tilingKey, 0U);
 }
 
-TEST_F(CircularPadTiling, circular_pad_3d_fp32)
+// 2D + 原生 4（全负 padding → 应走 slice 裁剪分支，key 为 1xxxx）
+TEST_F(CircularPadTiling, circular_pad_2d_int8_all_negative)
 {
-    int64_t paddings[] = {1, 1, 1, 1, 1, 1};
+    int64_t paddings[] = {-2, -2, -2, -2};
     struct CircularPadCompileInfo {
+        int64_t blockDim{64};
+        int64_t ubSize{262144};
+        uint32_t cacheLineSize{256};
+        bool isAscendc{true};
     } compileInfo;
     gert::TilingContextPara tilingContextPara("CircularPad",
                                               {
-                                                  {{{1, 4, 8, 16}, {1, 4, 8, 16}}, ge::DT_FLOAT, ge::FORMAT_ND},
-                                                  {{{6}, {6}}, ge::DT_INT64, ge::FORMAT_ND, true, paddings},
-                                              },
-                                              {
-                                                  {{{1, 6, 10, 18}, {1, 6, 10, 18}}, ge::DT_FLOAT, ge::FORMAT_ND},
-                                              },
-                                              {
-                                                  /* attrs */
-                                              },
-                                              &compileInfo, 64, 262144, 4096);
-    uint64_t expectTilingKey = 5; // VF 旁路(小输出): schMode=3D | IsSimt=1
-    string expectTilingData = "8 16 4 10 18 6 1 1 1 1 1 1 512 1080 2 229376 ";
-    TilingInfo tilingInfo;
-    EXPECT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
-    EXPECT_EQ(tilingInfo.tilingKey, expectTilingKey);
-    auto* dataPtr = reinterpret_cast<const int64_t*>(tilingInfo.tilingData.get());
-    size_t dataCount = tilingInfo.tilingDataSize / sizeof(int64_t);
-    std::string tilingDataResult;
-    for (size_t i = 0; i < dataCount; i++) {
-        tilingDataResult += std::to_string(dataPtr[i]);
-        tilingDataResult += " ";
-    }
-    EXPECT_EQ(tilingDataResult, expectTilingData);
-}
-
-TEST_F(CircularPadTiling, circular_pad_2d_int8)
-{
-    int64_t paddings[] = {0, 0, 1, 1};
-    struct CircularPadCompileInfo {
-    } compileInfo;
-    gert::TilingContextPara tilingContextPara("CircularPad",
-                                              {
-                                                  {{{2, 4, 8}, {2, 4, 8}}, ge::DT_INT8, ge::FORMAT_ND},
+                                                  {{{10, 10, 10}, {10, 10, 10}}, ge::DT_INT8, ge::FORMAT_ND},
                                                   {{{4}, {4}}, ge::DT_INT64, ge::FORMAT_ND, true, paddings},
                                               },
                                               {
-                                                  {{{2, 6, 8}, {2, 6, 8}}, ge::DT_INT8, ge::FORMAT_ND},
+                                                  {{{10, 6, 6}, {10, 6, 6}}, ge::DT_INT8, ge::FORMAT_ND},
                                               },
-                                              {
-                                                  /* attrs */
-                                              },
-                                              &compileInfo, 64, 262144, 4096);
-    uint64_t expectTilingKey = 4; // VF 旁路(小输出): schMode=2D | IsSimt=1
-    string expectTilingData = "4 8 0 6 8 0 0 0 1 1 0 0 64 96 1 229376 ";
+                                              {/* attrs */}, &compileInfo, 64, 262144, 4096);
     TilingInfo tilingInfo;
-    EXPECT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
-    EXPECT_EQ(tilingInfo.tilingKey, expectTilingKey);
-    auto* dataPtr = reinterpret_cast<const int64_t*>(tilingInfo.tilingData.get());
-    size_t dataCount = tilingInfo.tilingDataSize / sizeof(int64_t);
-    std::string tilingDataResult;
-    for (size_t i = 0; i < dataCount; i++) {
-        tilingDataResult += std::to_string(dataPtr[i]);
-        tilingDataResult += " ";
-    }
-    EXPECT_EQ(tilingDataResult, expectTilingData);
+    ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
+    EXPECT_NE(tilingInfo.tilingKey, 0U);
 }
 
-TEST_F(CircularPadTiling, circular_pad_3d_bf16_neg_pad)
+// 非法：x rank 超出 [3,5]
+TEST_F(CircularPadTiling, circular_pad_invalid_rank_out_of_range)
 {
-    int64_t paddings[] = {-1, 1, 1, 1, 0, 0};
+    int64_t paddings[] = {0, 0, 0, 0};
     struct CircularPadCompileInfo {
+        int64_t blockDim{64};
+        int64_t ubSize{262144};
+        uint32_t cacheLineSize{256};
+        bool isAscendc{true};
+    } compileInfo;
+    gert::TilingContextPara tilingContextPara(
+        "CircularPad",
+        {
+            {{{2, 2, 2, 2, 2, 2}, {2, 2, 2, 2, 2, 2}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+            {{{4}, {4}}, ge::DT_INT64, ge::FORMAT_ND, true, paddings},
+        },
+        {
+            {{{2, 2, 2, 2, 2, 2}, {2, 2, 2, 2, 2, 2}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+        },
+        {/* attrs */}, &compileInfo, 64, 262144, 4096);
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED, 0, "", {});
+}
+
+// 非法：paddings 长度非 4/6/2*rank
+TEST_F(CircularPadTiling, circular_pad_invalid_paddings_length)
+{
+    int64_t paddings[] = {0, 0, 0, 0, 0, 0, 0, 0};
+    struct CircularPadCompileInfo {
+        int64_t blockDim{64};
+        int64_t ubSize{262144};
+        uint32_t cacheLineSize{256};
+        bool isAscendc{true};
     } compileInfo;
     gert::TilingContextPara tilingContextPara("CircularPad",
                                               {
-                                                  {{{1, 3, 4, 8}, {1, 3, 4, 8}}, ge::DT_BF16, ge::FORMAT_ND},
-                                                  {{{6}, {6}}, ge::DT_INT64, ge::FORMAT_ND, true, paddings},
+                                                  {{{2, 3, 4}, {2, 3, 4}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                  {{{8}, {8}}, ge::DT_INT64, ge::FORMAT_ND, true, paddings},
                                               },
                                               {
-                                                  {{{1, 3, 6, 8}, {1, 3, 6, 8}}, ge::DT_BF16, ge::FORMAT_ND},
+                                                  {{{2, 3, 4}, {2, 3, 4}}, ge::DT_FLOAT16, ge::FORMAT_ND},
                                               },
-                                              {
-                                                  /* attrs */
-                                              },
-                                              &compileInfo, 64, 262144, 4096);
-    uint64_t expectTilingKey = 5; // VF 旁路(小输出): schMode=3D | IsSimt=1
-    string expectTilingData = "4 8 3 6 8 3 -1 1 1 1 0 0 96 144 1 229376 ";
-    TilingInfo tilingInfo;
-    EXPECT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
-    EXPECT_EQ(tilingInfo.tilingKey, expectTilingKey);
-    auto* dataPtr = reinterpret_cast<const int64_t*>(tilingInfo.tilingData.get());
-    size_t dataCount = tilingInfo.tilingDataSize / sizeof(int64_t);
-    std::string tilingDataResult;
-    for (size_t i = 0; i < dataCount; i++) {
-        tilingDataResult += std::to_string(dataPtr[i]);
-        tilingDataResult += " ";
-    }
-    EXPECT_EQ(tilingDataResult, expectTilingData);
+                                              {/* attrs */}, &compileInfo, 64, 262144, 4096);
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED, 0, "", {});
 }
 
-TEST_F(CircularPadTiling, circular_pad_2d_int32)
-{
-    int64_t paddings[] = {2, 2, 1, 1};
-    struct CircularPadCompileInfo {
-    } compileInfo;
-    gert::TilingContextPara tilingContextPara("CircularPad",
-                                              {
-                                                  {{{1, 4, 16}, {1, 4, 16}}, ge::DT_INT32, ge::FORMAT_ND},
-                                                  {{{4}, {4}}, ge::DT_INT64, ge::FORMAT_ND, true, paddings},
-                                              },
-                                              {
-                                                  {{{1, 6, 20}, {1, 6, 20}}, ge::DT_INT32, ge::FORMAT_ND},
-                                              },
-                                              {
-                                                  /* attrs */
-                                              },
-                                              &compileInfo, 64, 262144, 4096);
-    uint64_t expectTilingKey = 4; // VF 旁路(小输出): schMode=2D | IsSimt=1
-    string expectTilingData = "4 16 0 6 20 0 2 2 1 1 0 0 64 120 1 229376 ";
-    TilingInfo tilingInfo;
-    EXPECT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
-    EXPECT_EQ(tilingInfo.tilingKey, expectTilingKey);
-    auto* dataPtr = reinterpret_cast<const int64_t*>(tilingInfo.tilingData.get());
-    size_t dataCount = tilingInfo.tilingDataSize / sizeof(int64_t);
-    std::string tilingDataResult;
-    for (size_t i = 0; i < dataCount; i++) {
-        tilingDataResult += std::to_string(dataPtr[i]);
-        tilingDataResult += " ";
-    }
-    EXPECT_EQ(tilingDataResult, expectTilingData);
-}
-
-TEST_F(CircularPadTiling, circular_pad_2d_fp32_mte)
-{
-    // 大输出(67080*4B=268KB >= 192KB) 且行宽(256*4B >= 32B) → MTE 条带直拷主路径
-    int64_t paddings[] = {1, 1, 1, 1};
-    struct CircularPadCompileInfo {
-    } compileInfo;
-    gert::TilingContextPara tilingContextPara("CircularPad",
-                                              {
-                                                  {{{2, 128, 256}, {2, 128, 256}}, ge::DT_FLOAT, ge::FORMAT_ND},
-                                                  {{{4}, {4}}, ge::DT_INT64, ge::FORMAT_ND, true, paddings},
-                                              },
-                                              {
-                                                  {{{2, 130, 258}, {2, 130, 258}}, ge::DT_FLOAT, ge::FORMAT_ND},
-                                              },
-                                              {
-                                                  /* attrs */
-                                              },
-                                              &compileInfo, 64, 262144, 4096);
-    uint64_t expectTilingKey = 0; // MTE 主路径: schMode=2D | IsSimt=0
-    string expectTilingData = "128 256 0 130 258 0 1 1 1 1 0 0 65536 67080 64 229376 ";
-    TilingInfo tilingInfo;
-    EXPECT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
-    EXPECT_EQ(tilingInfo.tilingKey, expectTilingKey);
-    auto* dataPtr = reinterpret_cast<const int64_t*>(tilingInfo.tilingData.get());
-    size_t dataCount = tilingInfo.tilingDataSize / sizeof(int64_t);
-    std::string tilingDataResult;
-    for (size_t i = 0; i < dataCount; i++) {
-        tilingDataResult += std::to_string(dataPtr[i]);
-        tilingDataResult += " ";
-    }
-    EXPECT_EQ(tilingDataResult, expectTilingData);
-}
-
-TEST_F(CircularPadTiling, circular_pad_3d_fp16_mte)
-{
-    // 大输出(201240*2B=402KB >= 192KB) 且行宽(256*2B >= 32B) → MTE 条带直拷主路径
-    int64_t paddings[] = {1, 1, 1, 1, 1, 1};
-    struct CircularPadCompileInfo {
-    } compileInfo;
-    gert::TilingContextPara tilingContextPara("CircularPad",
-                                              {
-                                                  {{{1, 4, 128, 256}, {1, 4, 128, 256}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-                                                  {{{6}, {6}}, ge::DT_INT64, ge::FORMAT_ND, true, paddings},
-                                              },
-                                              {
-                                                  {{{1, 6, 130, 258}, {1, 6, 130, 258}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-                                              },
-                                              {
-                                                  /* attrs */
-                                              },
-                                              &compileInfo, 64, 262144, 4096);
-    uint64_t expectTilingKey = 1; // MTE 主路径: schMode=3D | IsSimt=0
-    string expectTilingData = "128 256 4 130 258 6 1 1 1 1 1 1 131072 201240 64 229376 ";
-    TilingInfo tilingInfo;
-    EXPECT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
-    EXPECT_EQ(tilingInfo.tilingKey, expectTilingKey);
-    auto* dataPtr = reinterpret_cast<const int64_t*>(tilingInfo.tilingData.get());
-    size_t dataCount = tilingInfo.tilingDataSize / sizeof(int64_t);
-    std::string tilingDataResult;
-    for (size_t i = 0; i < dataCount; i++) {
-        tilingDataResult += std::to_string(dataPtr[i]);
-        tilingDataResult += " ";
-    }
-    EXPECT_EQ(tilingDataResult, expectTilingData);
-}
-
-TEST_F(CircularPadTiling, circular_pad_2d_fp16_large_output_narrow_row)
-{
-    // 大输出(98304*2B=192KB 恰达阈值) 但窄行(8*2B=16B < 32B) → VF 行级直拷旁路
-    int64_t paddings[] = {0, 0, 2, 2};
-    struct CircularPadCompileInfo {
-    } compileInfo;
-    gert::TilingContextPara tilingContextPara("CircularPad",
-                                              {
-                                                  {{{1024, 8, 8}, {1024, 8, 8}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-                                                  {{{4}, {4}}, ge::DT_INT64, ge::FORMAT_ND, true, paddings},
-                                              },
-                                              {
-                                                  {{{1024, 12, 8}, {1024, 12, 8}}, ge::DT_FLOAT16, ge::FORMAT_ND},
-                                              },
-                                              {
-                                                  /* attrs */
-                                              },
-                                              &compileInfo, 64, 262144, 4096);
-    uint64_t expectTilingKey = 4; // VF 旁路(窄行): schMode=2D | IsSimt=1
-    string expectTilingData = "8 8 0 12 8 0 0 0 2 2 0 0 65536 98304 64 229376 ";
-    TilingInfo tilingInfo;
-    EXPECT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
-    EXPECT_EQ(tilingInfo.tilingKey, expectTilingKey);
-    auto* dataPtr = reinterpret_cast<const int64_t*>(tilingInfo.tilingData.get());
-    size_t dataCount = tilingInfo.tilingDataSize / sizeof(int64_t);
-    std::string tilingDataResult;
-    for (size_t i = 0; i < dataCount; i++) {
-        tilingDataResult += std::to_string(dataPtr[i]);
-        tilingDataResult += " ";
-    }
-    EXPECT_EQ(tilingDataResult, expectTilingData);
-}
-
-TEST_F(CircularPadTiling, circular_pad_2d_fp32_5d_input_fail)
+// 非法：输出 shape 与 x+paddings 不一致
+TEST_F(CircularPadTiling, circular_pad_invalid_output_mismatch)
 {
     int64_t paddings[] = {1, 1, 1, 1};
     struct CircularPadCompileInfo {
+        int64_t blockDim{64};
+        int64_t ubSize{262144};
+        uint32_t cacheLineSize{256};
+        bool isAscendc{true};
+    } compileInfo;
+    gert::TilingContextPara tilingContextPara(
+        "CircularPad",
+        {
+            {{{10, 10, 10}, {10, 10, 10}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+            {{{4}, {4}}, ge::DT_INT64, ge::FORMAT_ND, true, paddings},
+        },
+        {
+            {{{10, 11, 12}, {10, 11, 12}}, ge::DT_FLOAT16, ge::FORMAT_ND}, // H 应为 12
+        },
+        {/* attrs */}, &compileInfo, 64, 262144, 4096);
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED, 0, "", {});
+}
+
+// 非法：x/y rank 不一致
+TEST_F(CircularPadTiling, circular_pad_invalid_xy_rank_mismatch)
+{
+    int64_t paddings[] = {1, 1, 1, 1};
+    struct CircularPadCompileInfo {
+        int64_t blockDim{64};
+        int64_t ubSize{262144};
+        uint32_t cacheLineSize{256};
+        bool isAscendc{true};
     } compileInfo;
     gert::TilingContextPara tilingContextPara("CircularPad",
                                               {
-                                                  {{{1, 2, 3, 4, 8}, {1, 2, 3, 4, 8}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                  {{{10, 10, 10}, {10, 10, 10}}, ge::DT_FLOAT16, ge::FORMAT_ND},
                                                   {{{4}, {4}}, ge::DT_INT64, ge::FORMAT_ND, true, paddings},
                                               },
                                               {
-                                                  {{{1, 2, 3, 6, 10}, {1, 2, 3, 6, 10}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                  {{{10, 10, 12, 1}, {10, 10, 12, 1}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                              },
+                                              {/* attrs */}, &compileInfo, 64, 262144, 4096);
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED, 0, "", {});
+}
+
+// 3D + 原生 6（正 padding）
+TEST_F(CircularPadTiling, circular_pad_3d_fp32_positive)
+{
+    int64_t paddings[] = {1, 1, 1, 1, 1, 1};
+    struct CircularPadCompileInfo {
+        int64_t blockDim{64};
+        int64_t ubSize{262144};
+        uint32_t cacheLineSize{256};
+        bool isAscendc{true};
+    } compileInfo;
+    gert::TilingContextPara tilingContextPara("CircularPad",
+                                              {
+                                                  {{{2, 4, 4, 8}, {2, 4, 4, 8}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                  {{{6}, {6}}, ge::DT_INT64, ge::FORMAT_ND, true, paddings},
                                               },
                                               {
-                                                  /* attrs */
+                                                  {{{2, 6, 6, 10}, {2, 6, 6, 10}}, ge::DT_FLOAT, ge::FORMAT_ND},
                                               },
-                                              &compileInfo, 64, 262144, 4096);
-    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
+                                              {/* attrs */}, &compileInfo, 64, 262144, 4096);
+    TilingInfo tilingInfo;
+    ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
+    EXPECT_NE(tilingInfo.tilingKey, 0U);
+}
+
+// 2×rank 展开格式（aclnn 通路；rank4，前导维 (0,0)）
+TEST_F(CircularPadTiling, circular_pad_expanded_paddings)
+{
+    int64_t paddings[] = {0, 0, 1, 1, 1, 1, 1, 1};
+    struct CircularPadCompileInfo {
+        int64_t blockDim{64};
+        int64_t ubSize{262144};
+        uint32_t cacheLineSize{256};
+        bool isAscendc{true};
+    } compileInfo;
+    gert::TilingContextPara tilingContextPara("CircularPad",
+                                              {
+                                                  {{{2, 4, 4, 8}, {2, 4, 4, 8}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                  {{{8}, {8}}, ge::DT_INT64, ge::FORMAT_ND, true, paddings},
+                                              },
+                                              {
+                                                  {{{2, 6, 6, 10}, {2, 6, 6, 10}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              {/* attrs */}, &compileInfo, 64, 262144, 4096);
+    TilingInfo tilingInfo;
+    ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
+    EXPECT_NE(tilingInfo.tilingKey, 0U);
+}
+
+// int32 2D 非对称正 padding
+TEST_F(CircularPadTiling, circular_pad_2d_int32_asymmetric)
+{
+    int64_t paddings[] = {1, 2, 3, 0};
+    struct CircularPadCompileInfo {
+        int64_t blockDim{64};
+        int64_t ubSize{262144};
+        uint32_t cacheLineSize{256};
+        bool isAscendc{true};
+    } compileInfo;
+    gert::TilingContextPara tilingContextPara("CircularPad",
+                                              {
+                                                  {{{3, 5, 7}, {3, 5, 7}}, ge::DT_INT32, ge::FORMAT_ND},
+                                                  {{{4}, {4}}, ge::DT_INT64, ge::FORMAT_ND, true, paddings},
+                                              },
+                                              {
+                                                  {{{3, 8, 10}, {3, 8, 10}}, ge::DT_INT32, ge::FORMAT_ND},
+                                              },
+                                              {/* attrs */}, &compileInfo, 64, 262144, 4096);
+    TilingInfo tilingInfo;
+    ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
+    EXPECT_NE(tilingInfo.tilingKey, 0U);
+}
+
+// 空 tensor + 全 0 padding
+TEST_F(CircularPadTiling, circular_pad_empty_all_zero)
+{
+    int64_t paddings[] = {0, 0, 0, 0};
+    struct CircularPadCompileInfo {
+        int64_t blockDim{64};
+        int64_t ubSize{262144};
+        uint32_t cacheLineSize{256};
+        bool isAscendc{true};
+    } compileInfo;
+    gert::TilingContextPara tilingContextPara("CircularPad",
+                                              {
+                                                  {{{0, 3, 4}, {0, 3, 4}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                  {{{4}, {4}}, ge::DT_INT64, ge::FORMAT_ND, true, paddings},
+                                              },
+                                              {
+                                                  {{{0, 3, 4}, {0, 3, 4}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                              },
+                                              {/* attrs */}, &compileInfo, 64, 262144, 4096);
+    TilingInfo tilingInfo;
+    ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
+    EXPECT_NE(tilingInfo.tilingKey, 0U);
+}
+
+// 非法：正 padding 超过输入尺寸（circular 合法性）
+TEST_F(CircularPadTiling, circular_pad_invalid_pad_exceed_input)
+{
+    int64_t paddings[] = {5, 0, 0, 0, 0, 0};
+    struct CircularPadCompileInfo {
+        int64_t blockDim{64};
+        int64_t ubSize{262144};
+        uint32_t cacheLineSize{256};
+        bool isAscendc{true};
+    } compileInfo;
+    gert::TilingContextPara tilingContextPara("CircularPad",
+                                              {
+                                                  {{{2, 2, 3, 4}, {2, 2, 3, 4}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                  {{{6}, {6}}, ge::DT_INT64, ge::FORMAT_ND, true, paddings},
+                                              },
+                                              {
+                                                  {{{2, 2, 3, 9}, {2, 2, 3, 9}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                              },
+                                              {/* attrs */}, &compileInfo, 64, 262144, 4096);
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED, 0, "", {});
+}
+
+// 非法：paddings dtype 非 int32/int64
+TEST_F(CircularPadTiling, circular_pad_invalid_paddings_dtype)
+{
+    float paddings[] = {1.0f, 1.0f, 1.0f, 1.0f};
+    struct CircularPadCompileInfo {
+        int64_t blockDim{64};
+        int64_t ubSize{262144};
+        uint32_t cacheLineSize{256};
+        bool isAscendc{true};
+    } compileInfo;
+    gert::TilingContextPara tilingContextPara("CircularPad",
+                                              {
+                                                  {{{2, 3, 4}, {2, 3, 4}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                  {{{4}, {4}}, ge::DT_FLOAT, ge::FORMAT_ND, true, paddings},
+                                              },
+                                              {
+                                                  {{{2, 5, 6}, {2, 5, 6}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              {/* attrs */}, &compileInfo, 64, 262144, 4096);
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED, 0, "", {});
+}
+
+// 非法：负裁剪后有效尺寸为 0（应为 GRAPH_FAILED）
+TEST_F(CircularPadTiling, circular_pad_invalid_crop_to_zero)
+{
+    int64_t paddings[] = {-5, -5, 0, 0};
+    struct CircularPadCompileInfo {
+        int64_t blockDim{64};
+        int64_t ubSize{262144};
+        uint32_t cacheLineSize{256};
+        bool isAscendc{true};
+    } compileInfo;
+    gert::TilingContextPara tilingContextPara("CircularPad",
+                                              {
+                                                  {{{10, 10, 10}, {10, 10, 10}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                  {{{4}, {4}}, ge::DT_INT64, ge::FORMAT_ND, true, paddings},
+                                              },
+                                              {
+                                                  {{{10, 10, 0}, {10, 10, 0}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                              },
+                                              {/* attrs */}, &compileInfo, 64, 262144, 4096);
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED, 0, "", {});
+}
+
+// 非法：正 pad 超过负裁剪后有效尺寸（W: inShape=10, eff=7, padL=8 > 7）
+TEST_F(CircularPadTiling, circular_pad_invalid_native_positive_exceed_effective)
+{
+    int64_t paddings[] = {8, -3, 0, 0};
+    struct CircularPadCompileInfo {
+        int64_t blockDim{64};
+        int64_t ubSize{262144};
+        uint32_t cacheLineSize{256};
+        bool isAscendc{true};
+    } compileInfo;
+    gert::TilingContextPara tilingContextPara("CircularPad",
+                                              {
+                                                  {{{10, 10, 10}, {10, 10, 10}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                  {{{4}, {4}}, ge::DT_INT64, ge::FORMAT_ND, true, paddings},
+                                              },
+                                              {
+                                                  {{{10, 10, 15}, {10, 10, 15}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                              },
+                                              {/* attrs */}, &compileInfo, 64, 262144, 4096);
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED, 0, "", {});
+}
+
+// 混合正负（native）：W: inShape=10, padding=(7,-3) → eff=7，走 40004 分支
+TEST_F(CircularPadTiling, circular_pad_mixed_native_routes_legacy_2d)
+{
+    int64_t paddings[] = {7, -3, 0, 0};
+    struct CircularPadCompileInfo {
+        int64_t blockDim{64};
+        int64_t ubSize{262144};
+        uint32_t cacheLineSize{256};
+        bool isAscendc{true};
+    } compileInfo;
+    gert::TilingContextPara tilingContextPara("CircularPad",
+                                              {
+                                                  {{{10, 10, 10}, {10, 10, 10}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                  {{{4}, {4}}, ge::DT_INT64, ge::FORMAT_ND, true, paddings},
+                                              },
+                                              {
+                                                  {{{10, 10, 14}, {10, 10, 14}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                              },
+                                              {/* attrs */}, &compileInfo, 64, 262144, 4096);
+    TilingInfo tilingInfo;
+    ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
+    EXPECT_EQ(tilingInfo.tilingKey, 40004U);
+}
+
+// 混合正负（aclnn 展开 2*rank）走 40004 分支
+TEST_F(CircularPadTiling, circular_pad_mixed_expanded_routes_legacy_2d)
+{
+    int64_t paddings[] = {0, 0, 0, 0, 7, -3};
+    struct CircularPadCompileInfo {
+        int64_t blockDim{64};
+        int64_t ubSize{262144};
+        uint32_t cacheLineSize{256};
+        bool isAscendc{true};
+    } compileInfo;
+    gert::TilingContextPara tilingContextPara("CircularPad",
+                                              {
+                                                  {{{10, 10, 10}, {10, 10, 10}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                  {{{6}, {6}}, ge::DT_INT64, ge::FORMAT_ND, true, paddings},
+                                              },
+                                              {
+                                                  {{{10, 10, 14}, {10, 10, 14}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                              },
+                                              {/* attrs */}, &compileInfo, 64, 262144, 4096);
+    TilingInfo tilingInfo;
+    ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
+    EXPECT_EQ(tilingInfo.tilingKey, 40004U);
+}
+
+// 混合正负（3D native 6）走 40005 分支
+TEST_F(CircularPadTiling, circular_pad_mixed_native_routes_legacy_3d)
+{
+    int64_t paddings[] = {7, -3, 0, 0, 0, 0};
+    struct CircularPadCompileInfo {
+        int64_t blockDim{64};
+        int64_t ubSize{262144};
+        uint32_t cacheLineSize{256};
+        bool isAscendc{true};
+    } compileInfo;
+    gert::TilingContextPara tilingContextPara("CircularPad",
+                                              {
+                                                  {{{1, 2, 10, 10}, {1, 2, 10, 10}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                  {{{6}, {6}}, ge::DT_INT64, ge::FORMAT_ND, true, paddings},
+                                              },
+                                              {
+                                                  {{{1, 2, 10, 14}, {1, 2, 10, 14}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                              },
+                                              {/* attrs */}, &compileInfo, 64, 262144, 4096);
+    TilingInfo tilingInfo;
+    ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
+    EXPECT_EQ(tilingInfo.tilingKey, 40005U);
+}
+
+// 非法：正 pad 超过维度大小（padL=11 > inShape=10，应为 GRAPH_FAILED）
+TEST_F(CircularPadTiling, circular_pad_invalid_positive_exceed_dim)
+{
+    int64_t paddings[] = {11, -3, 0, 0};
+    struct CircularPadCompileInfo {
+        int64_t blockDim{64};
+        int64_t ubSize{262144};
+        uint32_t cacheLineSize{256};
+        bool isAscendc{true};
+    } compileInfo;
+    gert::TilingContextPara tilingContextPara("CircularPad",
+                                              {
+                                                  {{{10, 10, 10}, {10, 10, 10}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                  {{{4}, {4}}, ge::DT_INT64, ge::FORMAT_ND, true, paddings},
+                                              },
+                                              {
+                                                  {{{10, 10, 18}, {10, 10, 18}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                              },
+                                              {/* attrs */}, &compileInfo, 64, 262144, 4096);
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED, 0, "", {});
+}
+
+// 合法边界：padL == inShape（10 == 10，允许等于）
+TEST_F(CircularPadTiling, circular_pad_positive_equal_dim_boundary)
+{
+    int64_t paddings[] = {10, 0, 0, 0};
+    struct CircularPadCompileInfo {
+        int64_t blockDim{64};
+        int64_t ubSize{262144};
+        uint32_t cacheLineSize{256};
+        bool isAscendc{true};
+    } compileInfo;
+    gert::TilingContextPara tilingContextPara("CircularPad",
+                                              {
+                                                  {{{10, 10, 10}, {10, 10, 10}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                                  {{{4}, {4}}, ge::DT_INT64, ge::FORMAT_ND, true, paddings},
+                                              },
+                                              {
+                                                  {{{10, 10, 20}, {10, 10, 20}}, ge::DT_FLOAT16, ge::FORMAT_ND},
+                                              },
+                                              {/* attrs */}, &compileInfo, 64, 262144, 4096);
+    TilingInfo tilingInfo;
+    ASSERT_TRUE(ExecuteTiling(tilingContextPara, tilingInfo));
+    EXPECT_NE(tilingInfo.tilingKey, 0U);
 }

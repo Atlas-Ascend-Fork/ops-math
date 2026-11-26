@@ -12,444 +12,251 @@
 
 /*!
  * \file circular_pad_tiling.cpp
- * \brief Tiling implementation for circular_pad operator
+ * \brief CircularPad arch35 tiling: 复用 pad_v3 的 PadACTiling（circular 模式）
  *
- * Tiling 数据结构设计与输入校验
+ * CircularPad 保持原有 paddings 契约（图模式原生 4/6；aclnn 展开 2*rank），
+ * 由 PadACTiling 内部的 isCircularPad_ 分支统一归一化后复用 pad_v3 tiling。
+ * CircularPad 契约专属校验放在算子侧，尽量少改 pad_v3。
  */
 
+#include "conversion/pad_v3/op_host/arch35/pad_v3_tiling_arch35.h"
+#include "conversion/circular_pad/op_kernel/arch35/circular_pad_tiling_data.h"
 #include "log/log.h"
-#include "register/op_def_registry.h"
 #include "platform/platform_ascendc.h"
 #include "util/math_util.h"
 #include "util/platform_util.h"
-#include "op_host/math_tiling_templates_registry.h"
-#include "../../op_kernel/arch35/circular_pad_tiling_data.h"
-#include "../../op_kernel/arch35/circular_pad_tiling_key.h"
 
 namespace optiling {
 
-using namespace Ops::Math::OpTiling;
-
-constexpr int64_t PER_CORE_MIN = 1024;      // 单核最小元素数下限保护，对齐到 32
-constexpr uint32_t DCACHE_SIZE = 32 * 1024; // DCache 32KB
-constexpr uint32_t STATIC_UB_ESTIMATE = 0;  // 无静态 UB 占用
-
-struct CircularPadCompileInfo {};
-
-// 输入索引常量
-static constexpr int32_t kXIdx = 0;
-static constexpr int32_t kPaddingsIdx = 1;
-
-// x 维度数约束: 总范围 [3,5]，kXDimNum3DBoundary 为 2D 模式上限与 3D 模式下限的分界
-static constexpr size_t kMinXDimNum = 3;
-static constexpr size_t kMaxXDimNum = 5;
-static constexpr size_t kXDimNum3DBoundary = 4;
-
-// paddings 元素数: 每维 2 个值，2D 模式共 4 个（left/right/top/bottom），3D 模式共 6 个（含 front/back）
-static constexpr size_t kPaddingsPerDim = 2;
-static constexpr int64_t kPaddingsNum2D = 4;
-static constexpr int64_t kPaddingsNum3D = 6;
-
-// 维度距 shape 末尾的偏移（shape 布局 [..., (L), H, W]，W/H/L 分别为倒数第 1/2/3 维）
-static constexpr size_t kWDimOffsetFromEnd = 1;
-static constexpr size_t kHDimOffsetFromEnd = 2;
-static constexpr size_t kLDimOffsetFromEnd = 3;
-
-static ge::graphStatus GetPlatformInfo(gert::TilingContext* context, uint64_t& ubSize, int64_t& coreNum)
-{
-    fe::PlatFormInfos* platformInfoPtr = context->GetPlatformInfo();
-    OP_CHECK_NULL_WITH_CONTEXT(context, platformInfoPtr);
-    auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfoPtr);
-    coreNum = ascendcPlatform.GetCoreNumAiv();
-    OP_CHECK_IF(coreNum == 0, OP_LOGE(context, "coreNum is 0"), return ge::GRAPH_FAILED);
-    ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSize);
-    OP_CHECK_IF(ubSize == 0, OP_LOGE(context, "ubSize is 0"), return ge::GRAPH_FAILED);
-    return ge::GRAPH_SUCCESS;
-}
-
-// ValidateDtype（dtype 单参数约束 + 跨参数关系
-static ge::graphStatus ValidateDtype(gert::TilingContext* context, ge::DataType& dataType)
-{
-    // 单参数约束: x dtype ∈ {INT8, FLOAT16, BF16, FLOAT, INT32}
-    auto xDesc = context->GetInputDesc(kXIdx);
-    OP_CHECK_NULL_WITH_CONTEXT(context, xDesc);
-    dataType = xDesc->GetDataType();
-    OP_CHECK_IF(
-        dataType != ge::DT_INT8 && dataType != ge::DT_FLOAT16 && dataType != ge::DT_BF16 && dataType != ge::DT_FLOAT &&
-            dataType != ge::DT_INT32,
-        OP_LOGE_FOR_INVALID_DTYPE(context->GetNodeName(), "x", ge::TypeUtils::DataTypeToSerialString(dataType).c_str(),
-                                  "int8/fp16/bf16/fp32/int32"),
-        return ge::GRAPH_FAILED);
-    // 单参数约束: paddings dtype == INT64
-    auto paddingsDesc = context->GetInputDesc(kPaddingsIdx);
-    OP_CHECK_NULL_WITH_CONTEXT(context, paddingsDesc);
-    OP_CHECK_IF(
-        paddingsDesc->GetDataType() != ge::DT_INT64,
-        OP_LOGE_FOR_INVALID_DTYPE(context->GetNodeName(), "paddings",
-                                  ge::TypeUtils::DataTypeToSerialString(paddingsDesc->GetDataType()).c_str(), "int64"),
-        return ge::GRAPH_FAILED);
-    // 跨参数约束: y dtype == x dtype
-    auto yDesc = context->GetOutputDesc(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context, yDesc);
-    OP_CHECK_IF(yDesc->GetDataType() != dataType,
-                OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(context->GetNodeName(), "x, y",
-                                                       (ge::TypeUtils::DataTypeToSerialString(dataType) + ", " +
-                                                        ge::TypeUtils::DataTypeToSerialString(yDesc->GetDataType()))
-                                                           .c_str(),
-                                                       "y dtype must match x dtype"),
-                return ge::GRAPH_FAILED);
-    return ge::GRAPH_SUCCESS;
-}
-
-// ValidateShape（shape 单参数约束 + 跨参数关系）
-static ge::graphStatus ValidateShape(gert::TilingContext* context)
-{
-    // 单参数约束: x 维度数 ∈ [3, 5]
-    auto xShape = context->GetInputShape(kXIdx);
-    OP_CHECK_NULL_WITH_CONTEXT(context, xShape);
-    auto xStorage = xShape->GetStorageShape();
-    OP_CHECK_IF(xStorage.GetDimNum() < kMinXDimNum || xStorage.GetDimNum() > kMaxXDimNum,
-                OP_LOGE_FOR_INVALID_SHAPEDIM(context->GetNodeName(), "x", std::to_string(xStorage.GetDimNum()).c_str(),
-                                             "[3,5]"),
-                return ge::GRAPH_FAILED);
-    // 跨参数约束: x/y 维度数一致
-    auto yShape = context->GetOutputShape(0);
-    OP_CHECK_NULL_WITH_CONTEXT(context, yShape);
-    auto yStorage = yShape->GetStorageShape();
-    OP_CHECK_IF(xStorage.GetDimNum() != yStorage.GetDimNum(),
-                OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(
-                    context->GetNodeName(), "x, y",
-                    (std::to_string(xStorage.GetDimNum()) + ", " + std::to_string(yStorage.GetDimNum())).c_str(),
-                    "x/y ndim must match"),
-                return ge::GRAPH_FAILED);
-    // 单参数约束: paddings 元素数 >= 4
-    auto paddingsShape = context->GetInputShape(kPaddingsIdx);
-    OP_CHECK_NULL_WITH_CONTEXT(context, paddingsShape);
-    int64_t paddingsNum = paddingsShape->GetStorageShape().GetShapeSize();
-    OP_CHECK_IF(
-        paddingsNum < kPaddingsNum2D,
-        OP_LOGE_FOR_INVALID_SHAPESIZE(context->GetNodeName(), "paddings", std::to_string(paddingsNum).c_str(), ">= 4"),
-        return ge::GRAPH_FAILED);
-    return ge::GRAPH_SUCCESS;
-}
-
-// ValidateInputs 调度器
-static ge::graphStatus ValidateInputs(gert::TilingContext* context, ge::DataType& dataType)
-{
-    OP_CHECK_IF(ValidateDtype(context, dataType) != ge::GRAPH_SUCCESS, OP_LOGE(context, "ValidateDtype failed"),
-                return ge::GRAPH_FAILED);
-    OP_CHECK_IF(ValidateShape(context) != ge::GRAPH_SUCCESS, OP_LOGE(context, "ValidateShape failed"),
-                return ge::GRAPH_FAILED);
-    return ge::GRAPH_SUCCESS;
-}
-
-// Padding 约束检查（与 arch22/A2/A3 官方合法域对齐: 单圈绕回内合法，多圈拒绝）
-static ge::graphStatus CheckPadPair(gert::TilingContext* context, int64_t padL, int64_t padR, int64_t inputSize,
-                                    const char* dimName)
-{
-    const std::string val = std::to_string(padL) + ", " + std::to_string(padR);
-    // 负 padding 后有效尺寸必须 > 0（裁剪不能裁空; 蕴含 -padL-padR < inputSize）
-    int64_t inOutputSize = inputSize + (padL < 0 ? padL : 0) + (padR < 0 ? padR : 0);
-    OP_CHECK_IF(inOutputSize <= 0,
-                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
-                    context->GetNodeName(), dimName, val.c_str(),
-                    ("effective size after negative padding is " + std::to_string(inOutputSize) +
-                     ", should be greater than 0 (input size " + std::to_string(inputSize) + ")")
-                        .c_str()),
-                return ge::GRAPH_FAILED);
-    // 正 padding 不超过裁剪后有效尺寸（多圈绕回拒绝; 恰 1 圈 <= 合法）
-    // padL > 0 时 inOutputSize = inputSize + padR（padR<0 已裁）, 条件 padL > inOutputSize 即多圈
-    OP_CHECK_IF(padL > 0 && padL > inOutputSize,
-                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
-                    context->GetNodeName(), dimName, val.c_str(),
-                    ("padL " + std::to_string(padL) + " should not be greater than effective input size " +
-                     std::to_string(inOutputSize) + " (circular wrapping more than once is not supported)")
-                        .c_str()),
-                return ge::GRAPH_FAILED);
-    OP_CHECK_IF(padR > 0 && padR > inOutputSize,
-                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
-                    context->GetNodeName(), dimName, val.c_str(),
-                    ("padR " + std::to_string(padR) + " should not be greater than effective input size " +
-                     std::to_string(inOutputSize) + " (circular wrapping more than once is not supported)")
-                        .c_str()),
-                return ge::GRAPH_FAILED);
-    return ge::GRAPH_SUCCESS;
-}
-
-// ══ 读取 paddings 值并确定 2D/3D 模式 ══
-// 两种 padding tensor 格式：
-//   原生格式（图模式/TTK）: [left, right, top, bottom, (front, back)]
-//   aclnn 展开格式: [0,0,..., front, back, top, bottom, left, right]（2*dimNum 个元素）
-// 判据: paddingsNum == 2 * xDimNum → aclnn 展开，从末尾读；否则原生，从头读
-static ge::graphStatus ReadPaddings(gert::TilingContext* context, int64_t& left, int64_t& right, int64_t& top,
-                                    int64_t& bottom, int64_t& front, int64_t& back, bool& is3D)
-{
-    auto paddingsShape = context->GetInputShape(kPaddingsIdx);
-    OP_CHECK_NULL_WITH_CONTEXT(context, paddingsShape);
-    int64_t paddingsNum = paddingsShape->GetStorageShape().GetShapeSize();
-    OP_CHECK_IF(
-        paddingsNum < kPaddingsNum2D,
-        OP_LOGE_FOR_INVALID_SHAPESIZE(context->GetNodeName(), "paddings", std::to_string(paddingsNum).c_str(), ">= 4"),
-        return ge::GRAPH_FAILED);
-    auto paddingsTensor = context->GetInputTensor(kPaddingsIdx);
-    OP_CHECK_NULL_WITH_CONTEXT(context, paddingsTensor);
-    const int64_t* padValues = paddingsTensor->GetData<int64_t>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, padValues);
-
-    auto xShape = context->GetInputShape(kXIdx);
-    OP_CHECK_NULL_WITH_CONTEXT(context, xShape);
-    size_t xDimNum = xShape->GetStorageShape().GetDimNum();
-    bool isAclnnExpanded = (paddingsNum == static_cast<int64_t>(kPaddingsPerDim * xDimNum));
-
-    front = 0;
-    back = 0;
-    if (isAclnnExpanded) {
-        // aclnn 展开格式：从末尾读取（高维→低维: ..., top, bottom, left, right）
-        int64_t paddingDim = paddingsNum - kPaddingsNum2D;
-        top = padValues[paddingDim];
-        bottom = padValues[paddingDim + 1];
-        left = padValues[paddingDim + 2];
-        right = padValues[paddingDim + 3];
-        if (paddingsNum >= kPaddingsNum3D) {
-            front = padValues[paddingDim - 2];
-            back = padValues[paddingDim - 1];
-        }
-        // aclnn 可达性: CircularPad2d 允许 3/4 维输入（pad 末 2 维），CircularPad3d 允许 4/5 维输入（pad 末 3 维）。
-        // 4 维输入时 paddings 内容无法区分两个入口，统一按 3D 处理。
-        is3D = (xDimNum >= kXDimNum3DBoundary);
-    } else {
-        // 原生格式：从头读取（left, right, top, bottom, (front, back)）
-        left = padValues[0];
-        right = padValues[1];
-        top = padValues[2];
-        bottom = padValues[3];
-        if (paddingsNum >= kPaddingsNum3D) {
-            front = padValues[4];
-            back = padValues[5];
-        }
-        // 原生格式：paddings 含 6 个元素即 3D 模式（front/back 为 0 也是）
-        is3D = (paddingsNum >= kPaddingsNum3D);
-    }
-    return ge::GRAPH_SUCCESS;
-}
-
-// 填充 TilingData
-static void FillTilingData(CircularPadTilingData* tiling, int64_t inputH, int64_t inputW, int64_t inputL,
-                           int64_t outputH, int64_t outputW, int64_t outputL, int64_t left, int64_t right, int64_t top,
-                           int64_t bottom, int64_t front, int64_t back, int64_t totalInputElements,
-                           int64_t totalOutputElements, int64_t needCoreNum, int64_t availUbBytes)
-{
-    tiling->inputH = inputH;
-    tiling->inputW = inputW;
-    tiling->inputL = inputL;
-    tiling->outputH = outputH;
-    tiling->outputW = outputW;
-    tiling->outputL = outputL;
-    tiling->left = left;
-    tiling->right = right;
-    tiling->top = top;
-    tiling->bottom = bottom;
-    tiling->front = front;
-    tiling->back = back;
-    tiling->totalInputElements = totalInputElements;
-    tiling->totalOutputElements = totalOutputElements;
-    tiling->needCoreNum = needCoreNum;
-    tiling->ubSize = availUbBytes;
-}
-
-static void DumpTilingData(gert::TilingContext* context, const CircularPadTilingData* tiling)
-{
-    OP_LOGD(context,
-            "CircularPadTilingData: inputH=%ld, inputW=%ld, inputL=%ld, "
-            "outputH=%ld, outputW=%ld, outputL=%ld, "
-            "left=%ld, right=%ld, top=%ld, bottom=%ld, front=%ld, back=%ld, "
-            "totalInputElements=%ld, totalOutputElements=%ld, needCoreNum=%ld, ubSize=%ld",
-            tiling->inputH, tiling->inputW, tiling->inputL, tiling->outputH, tiling->outputW, tiling->outputL,
-            tiling->left, tiling->right, tiling->top, tiling->bottom, tiling->front, tiling->back,
-            tiling->totalInputElements, tiling->totalOutputElements, tiling->needCoreNum, tiling->ubSize);
-}
-
-struct CircularPadParams {
-    int64_t left, right, top, bottom, front, back;
-    int64_t inputH, inputW, inputL;
-    int64_t outputH, outputW, outputL;
-    int64_t totalInputElements;
-    int64_t totalOutputElements;
-    bool is3D;
+// 与 slice 的 SliceCompileParam 保持相同布局：slice tiling 通过 GetCompiledInfo<SliceCompileParam>()
+// 读取 blockDim/ubSize/cacheLineSize 做核数上限与容量判断，未填充会导致 blockDim=0 误报。
+struct CircularPadCompileInfo {
+    int64_t blockDim{64};
+    int64_t ubSize{262144};
+    uint32_t cacheLineSize{256};
+    // 全负分支走 slice tiling，slice 会读取该字段，需保留
+    bool isAscendc{true};
 };
 
-static bool IsSimtPath(const CircularPadParams& p, int64_t dtypeSize)
-{
-    auto pos = [](int64_t v) { return v > 0 ? v : 0; };
-    auto neg = [](int64_t v) { return v < 0 ? v : 0; };
-    const int64_t inOW = p.inputW + neg(p.left) + neg(p.right); // 裁剪后 W 有效宽
-    const int64_t inOH = p.inputH + neg(p.top) + neg(p.bottom);
-    const int64_t inOL = p.inputL + neg(p.front) + neg(p.back); // 2D 时恒为 0
-    const bool multiWrap = pos(p.left) > inOW || pos(p.right) > inOW || pos(p.top) > inOH || pos(p.bottom) > inOH ||
-                           pos(p.front) > inOL || pos(p.back) > inOL;
-    if (multiWrap) {
-        return true;
-    }
-    if (static_cast<uint64_t>(p.totalOutputElements) * static_cast<uint64_t>(dtypeSize) <
-        CIRCULAR_PAD_MTE_MIN_OUTPUT_BYTES) {
-        return true;
-    }
-    if (inOW * dtypeSize < CIRCULAR_PAD_MTE_MIN_BLOCK_BYTES) {
-        return true;
-    }
-    return false;
-}
+static constexpr size_t PAIR = 2;
 
-static ge::graphStatus GetWorkspaceSize(gert::TilingContext* context)
-{
-    size_t* ws = context->GetWorkspaceSizes(1);
-    OP_CHECK_NULL_WITH_CONTEXT(context, ws);
-    ws[0] = 0;
-    return ge::GRAPH_SUCCESS;
-}
+// 混合正负场景 SIMT 分支所需的几何参数（tiling 尾部追加下发）
+struct CircularPadLegacyInfo {
+    bool mixed{false};
+    bool is3D{false};
+    int64_t padFront[3]{0, 0, 0}; // W, H, D
+    int64_t padBack[3]{0, 0, 0};  // W, H, D
+    int64_t inSize[3]{0, 0, 0};   // W, H, D
+    int64_t outSize[3]{0, 0, 0};  // W, H, D
+    int64_t totalIn{0};
+    int64_t totalOut{0};
+};
 
-static ge::graphStatus CheckOutputShape(gert::TilingContext* context, const CircularPadParams& p)
+// CircularPad 契约专属校验：x dtype / y==x / paddings int64 / rank[3,5] / 2D/3D 子界 /
+// paddings 长度 4/6/2*rank / 值域（负裁剪后 eff>0、正 pad<=eff）/
+// 输出 shape（末 2/3 维）一致性；并输出混合正负标记供路由。
+static ge::graphStatus ValidateCircularPadInputs(gert::TilingContext* context, CircularPadLegacyInfo& info)
 {
-    OP_CHECK_IF(
-        p.outputH != p.inputH + p.top + p.bottom,
-        OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(context->GetNodeName(), "x, y",
-                                               (std::to_string(p.inputH) + " + " + std::to_string(p.top) + " + " +
-                                                std::to_string(p.bottom) + " != " + std::to_string(p.outputH))
-                                                   .c_str(),
-                                               "outputH must equal inputH + top + bottom"),
-        return ge::GRAPH_FAILED);
-    OP_CHECK_IF(
-        p.outputW != p.inputW + p.left + p.right,
-        OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(context->GetNodeName(), "x, y",
-                                               (std::to_string(p.inputW) + " + " + std::to_string(p.left) + " + " +
-                                                std::to_string(p.right) + " != " + std::to_string(p.outputW))
-                                                   .c_str(),
-                                               "outputW must equal inputW + left + right"),
-        return ge::GRAPH_FAILED);
-    if (p.is3D) {
-        OP_CHECK_IF(
-            p.outputL != p.inputL + p.front + p.back,
-            OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(context->GetNodeName(), "x, y",
-                                                   (std::to_string(p.inputL) + " + " + std::to_string(p.front) + " + " +
-                                                    std::to_string(p.back) + " != " + std::to_string(p.outputL))
-                                                       .c_str(),
-                                                   "outputL must equal inputL + front + back"),
-            return ge::GRAPH_FAILED);
-    }
-    return ge::GRAPH_SUCCESS;
-}
+    auto xDesc = context->GetInputDesc(0);
+    OP_CHECK_NULL_WITH_CONTEXT(context, xDesc);
+    auto xDtype = xDesc->GetDataType();
+    OP_CHECK_IF(xDtype != ge::DT_INT8 && xDtype != ge::DT_FLOAT16 && xDtype != ge::DT_BF16 && xDtype != ge::DT_FLOAT &&
+                    xDtype != ge::DT_INT32,
+                OP_LOGE_FOR_INVALID_DTYPE(context->GetNodeName(), "x", Ops::Base::ToString(xDtype).c_str(),
+                                          "int8/float16/bfloat16/float32/int32"),
+                return ge::GRAPH_FAILED);
+    auto yDesc = context->GetOutputDesc(0);
+    OP_CHECK_NULL_WITH_CONTEXT(context, yDesc);
+    OP_CHECK_IF(yDesc->GetDataType() != xDtype,
+                OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(
+                    context->GetNodeName(), "x, y",
+                    (Ops::Base::ToString(xDtype) + ", " + Ops::Base::ToString(yDesc->GetDataType())).c_str(),
+                    "y dtype must match x dtype"),
+                return ge::GRAPH_FAILED);
+    auto padDesc = context->GetInputDesc(1);
+    OP_CHECK_NULL_WITH_CONTEXT(context, padDesc);
+    OP_CHECK_IF(padDesc->GetDataType() != ge::DT_INT64,
+                OP_LOGE_FOR_INVALID_DTYPE(context->GetNodeName(), "paddings",
+                                          Ops::Base::ToString(padDesc->GetDataType()).c_str(), "int64"),
+                return ge::GRAPH_FAILED);
 
-static ge::graphStatus ReadAndCheckParams(gert::TilingContext* context, [[maybe_unused]] ge::DataType dataType,
-                                          CircularPadParams& p)
-{
-    OP_CHECK_IF(ReadPaddings(context, p.left, p.right, p.top, p.bottom, p.front, p.back, p.is3D) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context, "ReadPaddings failed"), return ge::GRAPH_FAILED);
-    auto xShape = context->GetInputShape(kXIdx)->GetStorageShape();
-    auto yShape = context->GetOutputShape(0)->GetStorageShape();
-    // 校验 x 维度数: 2D 模式 [3,4] 维, 3D 模式 [4,5] 维（5 维输入必须用 6 元素 paddings）
-    size_t xDimNum = xShape.GetDimNum();
-    if (p.is3D) {
-        OP_CHECK_IF(xDimNum < kXDimNum3DBoundary || xDimNum > kMaxXDimNum,
-                    OP_LOGE_FOR_INVALID_SHAPEDIM(context->GetNodeName(), "x", std::to_string(xDimNum).c_str(),
-                                                 "[4,5] (3D mode)"),
-                    return ge::GRAPH_FAILED);
+    auto xShapePtr = context->GetInputShape(0);
+    OP_CHECK_NULL_WITH_CONTEXT(context, xShapePtr);
+    auto xShape = xShapePtr->GetStorageShape();
+    size_t rank = xShape.GetDimNum();
+    OP_CHECK_IF(rank < 3 || rank > 5,
+                OP_LOGE_FOR_INVALID_SHAPEDIM(context->GetNodeName(), "x", std::to_string(rank).c_str(), "[3,5]"),
+                return ge::GRAPH_FAILED);
+    auto yShapePtr = context->GetOutputShape(0);
+    OP_CHECK_NULL_WITH_CONTEXT(context, yShapePtr);
+    auto yShape = yShapePtr->GetStorageShape();
+    OP_CHECK_IF(yShape.GetDimNum() != rank,
+                OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(
+                    context->GetNodeName(), "x, y",
+                    (std::to_string(rank) + ", " + std::to_string(yShape.GetDimNum())).c_str(), "x/y ndim must match"),
+                return ge::GRAPH_FAILED);
+
+    const gert::Tensor* padTensor = context->GetInputTensor(1);
+    OP_CHECK_NULL_WITH_CONTEXT(context, padTensor);
+    size_t padNum = padTensor->GetShapeSize();
+    bool expanded = (padNum == PAIR * rank);
+    bool is3D = false;
+    if (expanded) {
+        // aclnn 展开格式：2*rank，rank>=4 视为 3D
+        is3D = (rank >= 4);
     } else {
-        OP_CHECK_IF(xDimNum < kMinXDimNum || xDimNum > kXDimNum3DBoundary,
-                    OP_LOGE_FOR_INVALID_SHAPEDIM(context->GetNodeName(), "x", std::to_string(xDimNum).c_str(),
-                                                 "[3,4] (2D mode, 5D input requires 6-element paddings)"),
+        OP_CHECK_IF(padNum != 4 && padNum != 6,
+                    OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(
+                        context->GetNodeName(), "paddings", std::to_string(padNum).c_str(),
+                        "paddings size must be 4 or 6 (native) or 2*rank (aclnn expanded)"),
                     return ge::GRAPH_FAILED);
-    }
-    p.inputH = xShape.GetDim(xShape.GetDimNum() - kHDimOffsetFromEnd);
-    p.inputW = xShape.GetDim(xShape.GetDimNum() - kWDimOffsetFromEnd);
-    p.outputH = yShape.GetDim(yShape.GetDimNum() - kHDimOffsetFromEnd);
-    p.outputW = yShape.GetDim(yShape.GetDimNum() - kWDimOffsetFromEnd);
-    p.inputL = 0;
-    p.outputL = 0;
-    if (p.is3D) {
-        p.inputL = xShape.GetDim(xShape.GetDimNum() - kLDimOffsetFromEnd);
-        p.outputL = yShape.GetDim(yShape.GetDimNum() - kLDimOffsetFromEnd);
-    }
-    // 校验 padding 值域约束
-    OP_CHECK_IF(CheckPadPair(context, p.left, p.right, p.inputW, "W") != ge::GRAPH_SUCCESS,
-                OP_LOGE(context, "CheckPadPair W failed"), return ge::GRAPH_FAILED);
-    OP_CHECK_IF(CheckPadPair(context, p.top, p.bottom, p.inputH, "H") != ge::GRAPH_SUCCESS,
-                OP_LOGE(context, "CheckPadPair H failed"), return ge::GRAPH_FAILED);
-    if (p.is3D) {
-        OP_CHECK_IF(CheckPadPair(context, p.front, p.back, p.inputL, "D") != ge::GRAPH_SUCCESS,
-                    OP_LOGE(context, "CheckPadPair D failed"), return ge::GRAPH_FAILED);
-    }
-    // 校验输出 shape 一致性（shape 推导关系）
-    OP_CHECK_IF(CheckOutputShape(context, p) != ge::GRAPH_SUCCESS, OP_LOGE(context, "CheckOutputShape failed"),
+        is3D = (padNum == 6);
+        if (is3D) {
+            OP_CHECK_IF(
+                rank < 4,
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "x", std::to_string(rank).c_str(),
+                                                         "3D paddings require x rank in [4,5]"),
                 return ge::GRAPH_FAILED);
-    // 注: 输出最后一维无上限约束（SIMT kernel 逐元素 GM 访问，行宽不受 UB 限制；
-    // 索引位宽按输入/输出总元素数共同选择 uint32_t/uint64_t 路径）
-    p.totalInputElements = xShape.GetShapeSize();
-    p.totalOutputElements = yShape.GetShapeSize();
+        } else {
+            OP_CHECK_IF(
+                rank > 4,
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "x", std::to_string(rank).c_str(),
+                                                         "2D paddings require x rank in [3,4]"),
+                return ge::GRAPH_FAILED);
+        }
+    }
+    const int64_t* padValues = padTensor->GetData<int64_t>();
+    OP_CHECK_NULL_WITH_CONTEXT(context, padValues);
+
+    // 值域校验（负裁剪后 eff>0；正 pad <= eff）+ 输出 shape 一致性
+    static const char* const kDimNames[] = {"W", "H", "D"};
+    size_t lastK = is3D ? 3 : 2;
+    bool hasPos = false;
+    bool hasNeg = false;
+    info.is3D = is3D;
+    for (size_t j = 0; j < lastK; ++j) {
+        size_t dim = rank - 1 - j;
+        int64_t padFront = expanded ? padValues[PAIR * dim] : padValues[PAIR * j];
+        int64_t padBack = expanded ? padValues[PAIR * dim + 1] : padValues[PAIR * j + 1];
+        int64_t inSize = static_cast<int64_t>(xShape.GetDim(dim));
+        int64_t outSize = static_cast<int64_t>(yShape.GetDim(dim));
+        int64_t effective = inSize + (padFront < 0 ? padFront : 0) + (padBack < 0 ? padBack : 0);
+        const std::string padVal = std::to_string(padFront) + ", " + std::to_string(padBack);
+        OP_CHECK_IF(effective <= 0,
+                    OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                        context->GetNodeName(), kDimNames[j], padVal.c_str(),
+                        ("effective size after negative padding is " + std::to_string(effective) +
+                         ", should be greater than 0 (input size " + std::to_string(inSize) + ")")
+                            .c_str()),
+                    return ge::GRAPH_FAILED);
+        OP_CHECK_IF(padFront > 0 && padFront > effective,
+                    OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                        context->GetNodeName(), kDimNames[j], padVal.c_str(),
+                        ("padFront " + std::to_string(padFront) + " should not be greater than " +
+                         std::to_string(effective) + " (circular padding must not wrap more than once)")
+                            .c_str()),
+                    return ge::GRAPH_FAILED);
+        OP_CHECK_IF(padBack > 0 && padBack > effective,
+                    OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                        context->GetNodeName(), kDimNames[j], padVal.c_str(),
+                        ("padBack " + std::to_string(padBack) + " should not be greater than " +
+                         std::to_string(effective) + " (circular padding must not wrap more than once)")
+                            .c_str()),
+                    return ge::GRAPH_FAILED);
+        int64_t expect = inSize + padFront + padBack;
+        OP_CHECK_IF(
+            outSize != expect,
+            OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(
+                context->GetNodeName(), "y", std::to_string(outSize).c_str(),
+                ("y dim " + std::to_string(dim) + " must equal x dim + paddings = " + std::to_string(expect)).c_str()),
+            return ge::GRAPH_FAILED);
+        info.padFront[j] = padFront;
+        info.padBack[j] = padBack;
+        info.inSize[j] = inSize;
+        info.outSize[j] = outSize;
+        hasPos = hasPos || padFront > 0 || padBack > 0;
+        hasNeg = hasNeg || padFront < 0 || padBack < 0;
+    }
+    info.mixed = hasPos && hasNeg;
+    auto shapeSize = [](const gert::Shape& shape) {
+        uint64_t total = 1;
+        for (size_t i = 0; i < shape.GetDimNum(); ++i) {
+            total *= static_cast<uint64_t>(shape.GetDim(i));
+        }
+        return static_cast<int64_t>(total);
+    };
+    info.totalIn = shapeSize(xShape);
+    info.totalOut = shapeSize(yShape);
     return ge::GRAPH_SUCCESS;
 }
 
-static ge::graphStatus CircularPadTilingFunc(gert::TilingContext* context)
+static ge::graphStatus CircularPadTiling(gert::TilingContext* context)
 {
+    OP_LOGD(context->GetNodeName(), "CircularPadTiling running begin");
+    CircularPadLegacyInfo info;
+    OP_CHECK_IF(ValidateCircularPadInputs(context, info) == ge::GRAPH_FAILED,
+                OP_LOGD(context->GetNodeName(), "CircularPad validate failed"), return ge::GRAPH_FAILED);
+    PadACTiling tilingObject(context);
+    tilingObject.isPadV3_ = true;
+    tilingObject.isCircularPad_ = true;
+    auto ret = tilingObject.DoTiling();
+    if (ret != ge::GRAPH_SUCCESS) {
+        return ret;
+    }
+    if (!info.mixed) {
+        return ge::GRAPH_SUCCESS;
+    }
+
+    // 混合正负：改为 SIMT 分支的 tiling 数据与 tilingKey(40004/40005)
+    auto* legacy = context->GetTilingData<CircularPadTilingData>();
+    OP_CHECK_NULL_WITH_CONTEXT(context, legacy);
+    legacy->inputW = info.inSize[0];
+    legacy->inputH = info.inSize[1];
+    legacy->inputL = info.is3D ? info.inSize[2] : 0;
+    legacy->outputW = info.outSize[0];
+    legacy->outputH = info.outSize[1];
+    legacy->outputL = info.is3D ? info.outSize[2] : 0;
+    legacy->left = info.padFront[0];
+    legacy->right = info.padBack[0];
+    legacy->top = info.padFront[1];
+    legacy->bottom = info.padBack[1];
+    legacy->front = info.is3D ? info.padFront[2] : 0;
+    legacy->back = info.is3D ? info.padBack[2] : 0;
+    legacy->totalInputElements = info.totalIn;
+    legacy->totalOutputElements = info.totalOut;
+    legacy->needCoreNum = static_cast<int64_t>(context->GetBlockDim());
+    OP_CHECK_IF(legacy->needCoreNum <= 0,
+                OP_LOGE(context->GetNodeName(), "mixed needCoreNum invalid: %ld", legacy->needCoreNum),
+                return ge::GRAPH_FAILED);
+    context->SetTilingKey(info.is3D ? 40005U : 40004U);
+    return ge::GRAPH_SUCCESS;
+}
+
+static ge::graphStatus TilingPrepareForCircularPad(gert::TilingParseContext* context)
+{
+    auto compileInfo = context->GetCompiledInfo<CircularPadCompileInfo>();
+    OP_CHECK_NULL_WITH_CONTEXT(context, compileInfo);
+    auto platformInfo = context->GetPlatformInfo();
+    OP_CHECK_NULL_WITH_CONTEXT(context, platformInfo);
+    auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
+    compileInfo->blockDim = ascendcPlatform.GetCoreNumAiv();
+    OP_CHECK_IF(compileInfo->blockDim <= 0, OP_LOGE(context->GetNodeName(), "blockDim invalid."),
+                return ge::GRAPH_FAILED);
     uint64_t ubSize = 0;
-    int64_t coreNum = 0;
-    OP_CHECK_IF(GetPlatformInfo(context, ubSize, coreNum) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context, "GetPlatformInfo failed"), return ge::GRAPH_FAILED);
-    ge::DataType dataType = ge::DT_UNDEFINED;
-    OP_CHECK_IF(ValidateInputs(context, dataType) != ge::GRAPH_SUCCESS, OP_LOGE(context, "ValidateInputs failed"),
+    ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSize);
+    compileInfo->ubSize = static_cast<int64_t>(ubSize);
+    OP_CHECK_IF(compileInfo->ubSize <= 0, OP_LOGE(context->GetNodeName(), "ubSize invalid."), return ge::GRAPH_FAILED);
+    compileInfo->isAscendc = true;
+    compileInfo->cacheLineSize = Ops::Base::GetCacheLineSize(context);
+    OP_CHECK_IF(compileInfo->cacheLineSize == 0U, OP_LOGE(context->GetNodeName(), "Failed to get cacheLineSize."),
                 return ge::GRAPH_FAILED);
-    CircularPadParams p;
-    OP_CHECK_IF(ReadAndCheckParams(context, dataType, p) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context, "ReadAndCheckParams failed"), return ge::GRAPH_FAILED);
-    // 计算核数（两步法）
-    int64_t perCoreElements = (p.totalOutputElements > 0) ? Ops::Base::CeilDiv(p.totalOutputElements, coreNum) :
-                                                            PER_CORE_MIN;
-    if (perCoreElements < PER_CORE_MIN) {
-        perCoreElements = PER_CORE_MIN;
-    }
-    int64_t needCoreNum = (p.totalOutputElements > 0) ? Ops::Base::CeilDiv(p.totalOutputElements, perCoreElements) : 1;
-    if (needCoreNum > coreNum) {
-        needCoreNum = coreNum;
-    }
-    if (needCoreNum <= 0) {
-        needCoreNum = 1;
-    }
-    // 可用 UB = 平台 UB - DCache - 静态占用
-    const int64_t availUbBytes = static_cast<int64_t>(ubSize) - DCACHE_SIZE - STATIC_UB_ESTIMATE;
-    OP_CHECK_IF(availUbBytes <= 0, OP_LOGE(context, "available ubSize %ld too small", availUbBytes),
-                return ge::GRAPH_FAILED);
-    // 填充 TilingData
-    CircularPadTilingData* tiling = context->GetTilingData<CircularPadTilingData>();
-    OP_CHECK_NULL_WITH_CONTEXT(context, tiling);
-    OP_CHECK_IF(memset_s(tiling, sizeof(CircularPadTilingData), 0, sizeof(CircularPadTilingData)) != EOK,
-                OP_LOGE(context, "memset_s failed"), return ge::GRAPH_FAILED);
-    FillTilingData(tiling, p.inputH, p.inputW, p.inputL, p.outputH, p.outputW, p.outputL, p.left, p.right, p.top,
-                   p.bottom, p.front, p.back, p.totalInputElements, p.totalOutputElements, needCoreNum, availUbBytes);
-    DumpTilingData(context, tiling);
-
-    OP_CHECK_IF(GetWorkspaceSize(context) != ge::GRAPH_SUCCESS, OP_LOGE(context, "GetWorkspaceSize failed"),
-                return ge::GRAPH_FAILED);
-    // 设置 blockDim / tilingKey / localMemory
-    context->SetBlockDim(needCoreNum);
-    // 执行路径路由: schMode(2D/3D) × IsSimt(MTE 主路径/VF 旁路)，判据见 IsSimtPath
-    const bool isSimt = IsSimtPath(p, static_cast<int64_t>(ge::GetSizeByDataType(dataType)));
-    OP_LOGD(context, "CircularPad kernel path: %s", isSimt ? "VF(simt)" : "MTE(simd)");
-    const uint64_t schModeKey = p.is3D ? CIRCULAR_PAD_SCH_MODE_3D : CIRCULAR_PAD_SCH_MODE_2D;
-    const uint64_t pathKey = isSimt ? CIRCULAR_PAD_IS_SIMT : CIRCULAR_PAD_IS_MTE;
-    context->SetTilingKey(GET_TPL_TILING_KEY(schModeKey, pathKey));
-    auto res = context->SetLocalMemorySize(static_cast<uint32_t>(availUbBytes));
-    OP_CHECK_IF(res != ge::GRAPH_SUCCESS, OP_LOGE(context, "SetLocalMemorySize failed"), return ge::GRAPH_FAILED);
     return ge::GRAPH_SUCCESS;
 }
 
-static ge::graphStatus TilingParseForCircularPad([[maybe_unused]] gert::TilingParseContext* context)
-{
-    return ge::GRAPH_SUCCESS;
-}
-
-// tiling 需读取 paddings 输入的实际值（值依赖）
+// register tiling interface of the CircularPad op.
 IMPL_OP_OPTILING(CircularPad)
-    .Tiling(CircularPadTilingFunc)
-    .TilingParse<CircularPadCompileInfo>(TilingParseForCircularPad)
-    .TilingInputsDataDependency({1});
+    .Tiling(CircularPadTiling)
+    .TilingInputsDataDependency({1})
+    .TilingParse<CircularPadCompileInfo>(TilingPrepareForCircularPad);
 
 } // namespace optiling
