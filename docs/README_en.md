@@ -1,5 +1,7 @@
 # Documentation Center
 
+English | [简体中文](./README.md)
+
 <!-- md-trans-meta sourceCommit=unknown translatedAt=2026-11-18T08:28:17.663Z pushedAt=2026-11-18T08:43:54.614Z nl=2 -->
 
 ## Directory Structure
@@ -25,7 +27,16 @@ The `docs` directory structure is described as follows:
 │    ├── invocation                         # Operator call guide document (including aclnn call, graph mode call, etc.)
 │    │   ├── quick_op_invocation.md
 │    │   ├── ...
-│    ├── ops_precision_standard             # Operator precision standard
+│    ├── menu_aclnn_api.md                  # Full aclnn API index file
+│    ├── op_api_list.md                     # aclnn API list
+│    ├── op_list.md                         # Full operator list
+├── en                                     # English documents, structure mirrors zh
+│    ├── context                            # Common documents, such as terminology and basic concepts
+│    ├── debug                              # Operator debugging guide document
+│    ├── develop                            # Operator development guide document
+│    ├── figures                            # Image directory
+│    ├── install                            # Environment installation and compilation guide document
+│    ├── invocation                         # Operator call guide document
 │    ├── menu_aclnn_api.md                  # Full aclnn API index file
 │    ├── op_api_list.md                     # aclnn API list
 │    ├── op_list.md                         # Full operator list
@@ -35,6 +46,8 @@ The `docs` directory structure is described as follows:
 ```
 
 ## Advanced Tutorials
+
+> Chinese readers can go to the [中文文档中心](./README.md) directly; it mirrors this page section by section.
 
 ### Guide Documentation
 

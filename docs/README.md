@@ -1,5 +1,7 @@
 # 文档中心
 
+[English](./README_en.md) | 简体中文
+
 ## 目录结构
 
 Docs目录结构说明如下：
@@ -27,12 +29,24 @@ Docs目录结构说明如下：
 │    ├── menu_aclnn_api.md                  # 全量aclnn接口索引文件
 │    ├── op_api_list.md                     # aclnn接口列表
 │    ├── op_list.md                         # 全量算子列表
+├── en                                     # 英文文档，目录结构与 zh 一一对应
+│    ├── context                            # 公共文档，如术语、基础概念等
+│    ├── debug                              # 算子调试指导文档
+│    ├── develop                            # 算子开发指导文档
+│    ├── figures                            # 图片目录
+│    ├── install                            # 环境安装和编译指导文档
+│    ├── invocation                         # 算子调用指导文档
+│    ├── menu_aclnn_api.md                  # 全量aclnn接口索引文件
+│    ├── op_api_list.md                     # aclnn接口列表
+│    ├── op_list.md                         # 全量算子列表
 ├── CONTRIBUTING_DOCS.md                 # 文档贡献说明
 ├── QUICKSTART.md                        # 快速入门
 └── README.md
 ```
 
 ## 进阶教程
+
+> 英文读者请直接访问 [English documentation](./README_en.md)，内容与本页逐节对应。
 
 ### 指南类文档
 

@@ -52,6 +52,7 @@ git clone -b 9.0.0 https://gitcode.com/cann/ops-math.git
 
 - [快速入门](docs/QUICKSTART.md)：从零开始快速体验项目核心基础能力，涵盖源码编译、算子调用、开发与调试等操作。
 - [进阶教程](docs/README.md)：如需深入了解项目编译部署、算子调用、开发、调试调优等能力，请查阅文档中心获取详细指引。
+- [English 文档中心](docs/README_en.md)：英文文档入口，与中文文档中心目录结构一一对应。
 
 ## 💬相关信息
 
