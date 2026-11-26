@@ -250,7 +250,7 @@ aclnnStatus aclnnHypot(
 - 确定性说明：aclnnHypot默认确定性实现。
 - 数据类型约束：self、other、out仅支持FLOAT、FLOAT16、BFLOAT16。
 - 数据类型推导约束：self与other的数据类型允许不一致，接口按[互推导关系](../../../docs/zh/context/deduction_relationship.md)推导出计算类型。
-- shape与broadcast约束：self与other的shape必须满足[broadcast关系](../../../docs/zh/context/broadcast_relationship.md)，输出shape为逐维取两个输入该维较大值的结果。
+- shape与broadcast约束：self与other的shape必须满足[broadcast关系](../../../docs/zh/context/broadcast_relationship.md)，out的shape必须等于self与other广播后的shape。
 - 维度约束：输入支持0-8维ND Tensor，0维标量参与广播。
 - 空Tensor约束：支持空Tensor，输出为广播后shape的空Tensor，不执行计算且不报错。
 - 非连续Tensor约束：self、other、out均支持[非连续Tensor](../../../docs/zh/context/non_contiguous_tensor.md)。

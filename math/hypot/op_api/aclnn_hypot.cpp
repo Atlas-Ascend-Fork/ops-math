@@ -91,8 +91,7 @@ static bool CheckShape(const aclTensor* self, const aclTensor* other, const aclT
 
 static aclnnStatus CheckParams(const aclTensor* self, const aclTensor* other, const aclTensor* out)
 {
-    // null pointer check failure reports ACLNN_ERR_PARAM_INVALID (161002)
-    CHECK_RET(CheckNotNull(self, other, out), ACLNN_ERR_PARAM_INVALID);
+    CHECK_RET(CheckNotNull(self, other, out), ACLNN_ERR_PARAM_NULLPTR);
     CHECK_RET(CheckDtypeValid(self, other, out), ACLNN_ERR_PARAM_INVALID);
     CHECK_RET(CheckComputeDtype(self, other, out), ACLNN_ERR_PARAM_INVALID);
     CHECK_RET(CheckShape(self, other, out), ACLNN_ERR_PARAM_INVALID);

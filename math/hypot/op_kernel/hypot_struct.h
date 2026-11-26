@@ -821,6 +821,9 @@ private:
                 LocalTensor<float> mx = bufMx.Get<float>();
                 LocalTensor<float> denom = bufDenom.Get<float>();
                 LocalTensor<float> yF = mx;
+                if constexpr (OUT_FP32) {
+                    yF = yOut;
+                }
                 Cast(full, raw, RoundMode::CAST_NONE, count);
                 if (scalarIsInf) {
                     Duplicate(yF, infU.f, count);
@@ -838,17 +841,13 @@ private:
                     Mul(full, full, full, count);
                     Adds(full, full, 1.0f, count);
                     Sqrt(full, full, count);
-                    Mul(yF, yF, full, count);
+                    Mul(yF, mx, full, count);
                     if (scalarIsNan) {
                         Duplicate(denom, infU.f, count);
                         Select(yF, infMask, denom, yF, SELMODE::VSEL_TENSOR_TENSOR_MODE, count);
                     }
                 }
-                if constexpr (OUT_FP32) {
-                    // mixed launch: yF already holds the FP32 result; count is 64-element aligned
-                    CopyRepeatParams outRep{1, 1, static_cast<uint16_t>(count / HYPOT_BLK_ELEMS), 0};
-                    Copy<float>(yOut, yF, static_cast<uint64_t>(count), 1, outRep);
-                } else {
+                if constexpr (!OUT_FP32) {
                     Cast(yOut, yF, CAST_BACK_MODE, count);
                 }
                 fullQueue.FreeTensor(raw);
@@ -1099,7 +1098,7 @@ private:
         LocalTensor<float> y = ws[5 * HYPOT_VECIDX_SLOT];
         LocalTensor<float> constBuf = tmpF;
         if constexpr (OUT_FP32) {
-            ComputeChainFast(expA, expB, scratch, y, constBuf, constBuf, n);
+            ComputeChainFastInf(expA, expB, scratch, y, constBuf, constBuf, n);
             PipeBarrier<PIPE_ALL>();
             DataCopyParams copyOut;
             copyOut.blockCount = 1;
@@ -1489,11 +1488,7 @@ private:
             LocalTensor<float> srcRow = innerSrc[r * np];
             RepeatBlocks(aPlane, srcRow, 1, A, np);
             PipeBarrier<PIPE_V>();
-            if constexpr (IS_FP32) {
-                ComputeChainFast(aPlane, bPlane, scratch, y, mx, mx, count);
-            } else {
-                ComputeChainFastInf(aPlane, bPlane, scratch, y, mx, mx, count);
-            }
+            ComputeChainFastInf(aPlane, bPlane, scratch, y, mx, mx, count);
             PipeBarrier<PIPE_V>();
             LocalTensor<T1> out;
             if constexpr (IS_FP32) {
@@ -3324,7 +3319,7 @@ private:
             LocalTensor<T3> yOut = outQueueY.template AllocTensor<T3>();
             if constexpr (OUT_FP32) {
                 LocalTensor<float> yF = yOut;
-                ComputeChainFast(a, b, chain, yF, mx, yF, count);
+                ComputeChainFastInf(a, b, chain, yF, mx, mx, count);
             } else {
                 LocalTensor<float> denom = bufDenom.Get<float>();
                 ComputeChainFastInf(a, b, chain, denom, mx, mx, count);
