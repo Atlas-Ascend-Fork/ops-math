@@ -104,7 +104,7 @@ aclnnStatus aclnnInplaceAsinh(
         <td>The shape must be the same as that of out.</td>
         <td>FLOAT, FLOAT16, DOUBLE, INT8, INT16, INT32, INT64, UINT8, BOOL</td>
         <td>ND</td>
-        <td>1 to 8 dimensions</td>
+        <td>0 to 8 dimensions</td>
         <td>√</td>
       </tr>
       <tr>
@@ -114,7 +114,7 @@ aclnnStatus aclnnInplaceAsinh(
         <td>The shape must be the same as that of input.</td>
         <td>FLOAT, FLOAT16, DOUBLE</td>
         <td>ND</td>
-        <td>1 to 8 dimensions</td>
+        <td>0 to 8 dimensions</td>
         <td>√</td>
       </tr>
       <tr>
@@ -265,7 +265,7 @@ aclnnStatus aclnnInplaceAsinh(
         <td>-</td>
         <td>FLOAT, FLOAT16, DOUBLE</td>
         <td>ND</td>
-        <td>1 to 8 dimensions</td>
+        <td>0 to 8 dimensions</td>
         <td>√</td>
       </tr>
       <tr>

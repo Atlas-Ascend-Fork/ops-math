@@ -102,7 +102,7 @@ aclnnStatus aclnnInplaceAsinh(
         <td>shape需要与out一致。</td>
         <td>FLOAT、FLOAT16、DOUBLE、INT8、INT16、INT32、INT64、UINT8、BOOL</td>
         <td>ND</td>
-        <td>1~8维</td>
+        <td>0~8维</td>
         <td>√</td>
       </tr>
       <tr>
@@ -112,7 +112,7 @@ aclnnStatus aclnnInplaceAsinh(
         <td>shape需要与input一致。</td>
         <td>FLOAT、FLOAT16、DOUBLE</td>
         <td>ND</td>
-        <td>1~8维</td>
+        <td>0~8维</td>
         <td>√</td>
       </tr>
       <tr>
@@ -263,7 +263,7 @@ aclnnStatus aclnnInplaceAsinh(
         <td>-</td>
         <td>FLOAT、FLOAT16、DOUBLE</td>
         <td>ND</td>
-        <td>1~8维</td>
+        <td>0~8维</td>
         <td>√</td>
       </tr>
       <tr>

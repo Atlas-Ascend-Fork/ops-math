@@ -21,7 +21,7 @@ namespace ge {
 
 *
 *@par Inputs:
-* x: An ND tensor. Support 1D~8D. Must be one of the following types:
+* x: An ND tensor. Support 0D~8D. Must be one of the following types:
 * bfloat16, float16, float32, float64, complex64, complex128.
 *
 *@par Outputs:
