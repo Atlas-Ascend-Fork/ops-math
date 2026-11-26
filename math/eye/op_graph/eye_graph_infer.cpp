@@ -16,7 +16,7 @@ namespace ops {
 constexpr size_t EYE_ATTR_DTYPE = 3;
 constexpr size_t EYE_OUTPUT_Y = 0;
 using namespace Ops::Base;
-ge::graphStatus InferDataTypeForEye(gert::InferDataTypeContext *context)
+ge::graphStatus InferDataTypeForEye(gert::InferDataTypeContext* context)
 {
     OP_LOGD(context->GetNodeName(), "InferDataTypeForEye start");
     auto attrPtr = context->GetAttrs();
@@ -24,13 +24,13 @@ ge::graphStatus InferDataTypeForEye(gert::InferDataTypeContext *context)
     auto dTypePtr = attrPtr->GetAttrPointer<int64_t>(EYE_ATTR_DTYPE);
     OP_CHECK_NULL_WITH_CONTEXT(context, dTypePtr);
     ge::DataType outDtype = static_cast<ge::DataType>(*dTypePtr);
-    std::set<ge::DataType> supportedDtype = {ge::DT_FLOAT, ge::DT_FLOAT16, ge::DT_UINT8,
-                                            ge::DT_INT8, ge::DT_INT32, ge::DT_INT16,
-                                            ge::DT_BOOL, ge::DT_INT64, ge::DT_BF16};
+    std::set<ge::DataType> supportedDtype = {ge::DT_FLOAT, ge::DT_FLOAT16, ge::DT_UINT8, ge::DT_INT8, ge::DT_INT32,
+                                             ge::DT_INT16, ge::DT_BOOL,    ge::DT_INT64, ge::DT_BF16};
     auto it = supportedDtype.find(outDtype);
     if (it == supportedDtype.end()) {
-        OP_LOGE(context->GetNodeName(), "unsupported dtype[%s].",
-                ge::TypeUtils::DataTypeToSerialString(outDtype).c_str());
+        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "y",
+                                              ge::TypeUtils::DataTypeToSerialString(outDtype).c_str(),
+                                              "dtype is not supported by Eye.");
         return ge::GRAPH_FAILED;
     }
     context->SetOutputDataType(EYE_OUTPUT_Y, outDtype);
@@ -39,4 +39,4 @@ ge::graphStatus InferDataTypeForEye(gert::InferDataTypeContext *context)
 }
 
 IMPL_OP(Eye).InferDataType(InferDataTypeForEye);
-}  // namespace ops
+} // namespace ops

@@ -9,6 +9,7 @@
  */
 
 #include "onnx_common.h"
+#include <string>
 
 namespace domi {
 using NodeProto = ge::onnx::NodeProto;
@@ -21,7 +22,8 @@ static Status ParseParamsSum(const Message* op_src, ge::Operator& op_dest)
     }
     uint32_t input_num = node->input_size();
     if (input_num < 1) {
-        OP_LOGE(GetOpName(op_dest).c_str(), "input_num must be 1");
+        OP_LOGE_FOR_INVALID_TENSORNUMS_WITH_REASON(GetOpName(op_dest).c_str(), "x", std::to_string(input_num).c_str(),
+                                                   "the input tensor list must contain at least one tensor");
         return FAILED;
     }
     op_dest.DynamicInputRegister("x", input_num);

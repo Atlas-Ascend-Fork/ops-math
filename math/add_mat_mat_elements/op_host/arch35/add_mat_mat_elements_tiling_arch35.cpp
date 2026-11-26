@@ -22,6 +22,7 @@
 
 #include <algorithm>
 #include <set>
+#include <string>
 
 namespace optiling {
 
@@ -171,15 +172,21 @@ static ge::graphStatus ValidateInputDtypes(gert::TilingContext* context)
         OP_CHECK_NULL_WITH_CONTEXT(context, desc);
         auto dtype = desc->GetDataType();
         if (supportedDtypes.count(dtype) == 0) {
-            OP_LOGE(context, "AddMatMatElements: input %zu dtype %d not supported (FP16/FP32 only)", i,
-                    static_cast<int>(dtype));
+            const std::string paramName = (i == 0 ? "c" :
+                                                    (i == 1 ? "a" : (i == 2 ? "b" : (i == 3 ? "beta" : "alpha"))));
+            OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), paramName.c_str(),
+                                                  Ops::Base::ToString(dtype).c_str(),
+                                                  "only FLOAT16 and FLOAT are supported");
             return ge::GRAPH_FAILED;
         }
         if (i == 0) {
             refDtype = dtype;
         } else if (dtype != refDtype) {
-            OP_LOGE(context, "AddMatMatElements: input %zu dtype mismatch (%d vs %d)", i, static_cast<int>(dtype),
-                    static_cast<int>(refDtype));
+            const std::string paramName = (i == 1 ? "a and c" :
+                                                    (i == 2 ? "b and c" : (i == 3 ? "beta and c" : "alpha and c")));
+            const std::string dtypes = Ops::Base::ToString(dtype) + " and " + Ops::Base::ToString(refDtype);
+            OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(context->GetNodeName(), paramName.c_str(), dtypes.c_str(),
+                                                   "all inputs must have the same dtype");
             return ge::GRAPH_FAILED;
         }
     }
@@ -192,7 +199,8 @@ static ge::graphStatus ValidateInputShapes(gert::TilingContext* context)
     OP_CHECK_NULL_WITH_CONTEXT(context, cShape);
     int64_t cRank = cShape->GetStorageShape().GetDimNum();
     if (cRank < MIN_RANK || cRank > MAX_RANK) {
-        OP_LOGE(context, "AddMatMatElements: rank(c)=%ld out of range [1,8]", cRank);
+        OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "c", std::to_string(cRank).c_str(),
+                                                 "rank must be in [1, 8]");
         return ge::GRAPH_FAILED;
     }
 
@@ -203,12 +211,17 @@ static ge::graphStatus ValidateInputShapes(gert::TilingContext* context)
     OP_CHECK_NULL_WITH_CONTEXT(context, cOutShape);
     int64_t cOutRank = cOutShape->GetStorageShape().GetDimNum();
     OP_CHECK_IF(cOutRank != cRank,
-                OP_LOGE(context, "AddMatMatElements: rank(cOut)=%ld != rank(c)=%ld", cOutRank, cRank),
+                OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(context->GetNodeName(), "c and output c",
+                                                       Ops::Base::ToString(cShape->GetStorageShape()) + " and " +
+                                                           Ops::Base::ToString(cOutShape->GetStorageShape()),
+                                                       "output shape must equal the input c shape"),
                 return ge::GRAPH_FAILED);
     for (int64_t d = 0; d < cRank; d++) {
         OP_CHECK_IF(cOutShape->GetStorageShape().GetDim(d) != cShape->GetStorageShape().GetDim(d),
-                    OP_LOGE(context, "AddMatMatElements: cOut dim %ld=%ld != c dim=%ld", d,
-                            cOutShape->GetStorageShape().GetDim(d), cShape->GetStorageShape().GetDim(d)),
+                    OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(context->GetNodeName(), "c and output c",
+                                                           Ops::Base::ToString(cShape->GetStorageShape()) + " and " +
+                                                               Ops::Base::ToString(cOutShape->GetStorageShape()),
+                                                           "output shape must equal the input c shape"),
                     return ge::GRAPH_FAILED);
     }
 
@@ -216,7 +229,9 @@ static ge::graphStatus ValidateInputShapes(gert::TilingContext* context)
     OP_CHECK_NULL_WITH_CONTEXT(context, aShape);
     int64_t aRank = aShape->GetStorageShape().GetDimNum();
     if (aRank > cRank) {
-        OP_LOGE(context, "AddMatMatElements: rank(a)=%ld > rank(c)=%ld", aRank, cRank);
+        OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(
+            context->GetNodeName(), "a", std::to_string(aRank).c_str(),
+            ("rank must be no greater than c rank " + std::to_string(cRank)).c_str());
         return ge::GRAPH_FAILED;
     }
 
@@ -224,7 +239,9 @@ static ge::graphStatus ValidateInputShapes(gert::TilingContext* context)
     OP_CHECK_NULL_WITH_CONTEXT(context, bShape);
     int64_t bRank = bShape->GetStorageShape().GetDimNum();
     if (bRank > cRank) {
-        OP_LOGE(context, "AddMatMatElements: rank(b)=%ld > rank(c)=%ld", bRank, cRank);
+        OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(
+            context->GetNodeName(), "b", std::to_string(bRank).c_str(),
+            ("rank must be no greater than c rank " + std::to_string(cRank)).c_str());
         return ge::GRAPH_FAILED;
     }
 
@@ -232,7 +249,9 @@ static ge::graphStatus ValidateInputShapes(gert::TilingContext* context)
     OP_CHECK_NULL_WITH_CONTEXT(context, betaShape);
     int64_t betaRank = betaShape->GetStorageShape().GetDimNum();
     if (betaRank != 1 || betaShape->GetStorageShape().GetDim(0) != 1) {
-        OP_LOGE(context, "AddMatMatElements: beta shape must be (1,)");
+        OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON(context->GetNodeName(), "beta",
+                                              Ops::Base::ToString(betaShape->GetStorageShape()).c_str(),
+                                              "shape must be (1,)");
         return ge::GRAPH_FAILED;
     }
 
@@ -240,7 +259,9 @@ static ge::graphStatus ValidateInputShapes(gert::TilingContext* context)
     OP_CHECK_NULL_WITH_CONTEXT(context, alphaShape);
     int64_t alphaRank = alphaShape->GetStorageShape().GetDimNum();
     if (alphaRank != 1 || alphaShape->GetStorageShape().GetDim(0) != 1) {
-        OP_LOGE(context, "AddMatMatElements: alpha shape must be (1,)");
+        OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON(context->GetNodeName(), "alpha",
+                                              Ops::Base::ToString(alphaShape->GetStorageShape()).c_str(),
+                                              "shape must be (1,)");
         return ge::GRAPH_FAILED;
     }
 
@@ -249,8 +270,9 @@ static ge::graphStatus ValidateInputShapes(gert::TilingContext* context)
 
 static ge::graphStatus ValidateInputs(gert::TilingContext* context)
 {
-    OP_CHECK_IF(ValidateInputDtypes(context) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context, "AddMatMatElements: dtype validation failed"), return ge::GRAPH_FAILED);
+    if (ValidateInputDtypes(context) != ge::GRAPH_SUCCESS) {
+        return ge::GRAPH_FAILED;
+    }
     return ValidateInputShapes(context);
 }
 
@@ -346,25 +368,38 @@ static int64_t CalcTotalTiles(const AddMatMatElementsSplitResult& split, const i
 
 ge::graphStatus AddMatMatElementsTilingFunc(gert::TilingContext* context)
 {
+    if (context == nullptr) {
+        OP_LOGE("AddMatMatElements", "tiling context is nullptr");
+        return ge::GRAPH_FAILED;
+    }
     OP_LOGD(context->GetNodeName(), "Begin the tiling process for Arch35 architecture");
-    OP_CHECK_IF(ValidateInputs(context) != ge::GRAPH_SUCCESS, OP_LOGE(context, "AddMatMatElements: validation failed"),
-                return ge::GRAPH_FAILED);
+    if (ValidateInputs(context) != ge::GRAPH_SUCCESS) {
+        return ge::GRAPH_FAILED;
+    }
 
     int64_t coreNum = 0;
     uint64_t ubSize = 0;
-    OP_CHECK_IF(GetPlatformParams(context, coreNum, ubSize) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context, "AddMatMatElements: get platform info failed"), return ge::GRAPH_FAILED);
+    if (GetPlatformParams(context, coreNum, ubSize) != ge::GRAPH_SUCCESS) {
+        return ge::GRAPH_FAILED;
+    }
 
     int64_t inShapes[ADD_MAT_MAT_ELEMENTS_MAX_INPUT_SLOTS][RANK_MAX];
     int64_t maxBroShape[RANK_MAX];
     int64_t cRank = 0;
     int64_t totalElems = 0;
-    OP_CHECK_IF(PrepareInputShapes(context, inShapes, maxBroShape, cRank, totalElems) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context, "AddMatMatElements: prepare input shapes failed"), return ge::GRAPH_FAILED);
+    if (PrepareInputShapes(context, inShapes, maxBroShape, cRank, totalElems) != ge::GRAPH_SUCCESS) {
+        return ge::GRAPH_FAILED;
+    }
     int64_t effectiveRank = (cRank <= RANK_4) ? RANK_4 : RANK_8;
 
     OP_CHECK_IF(CheckBroadcastShape(inShapes, effectiveRank) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context, "AddMatMatElements: a/b cannot broadcast to c.shape"), return ge::GRAPH_FAILED);
+                OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(
+                    context->GetNodeName(), "a, b and c",
+                    Ops::Base::ToString(context->GetInputShape(1)->GetStorageShape()) + ", " +
+                        Ops::Base::ToString(context->GetInputShape(2)->GetStorageShape()) + ", " +
+                        Ops::Base::ToString(context->GetInputShape(0)->GetStorageShape()),
+                    "a and b must each broadcast to c.shape; output shape is fixed to c.shape"),
+                return ge::GRAPH_FAILED);
 
     auto cDesc = context->GetInputDesc(0);
     OP_CHECK_NULL_WITH_CONTEXT(context, cDesc);

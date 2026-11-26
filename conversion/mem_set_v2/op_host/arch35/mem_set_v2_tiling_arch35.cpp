@@ -74,7 +74,10 @@ ge::graphStatus SetDtypesList(T& tilingData, gert::TilingContext* context, int64
         } else if (g_floatDtypesSet.find(dtypeInt) != g_floatDtypesSet.end()) {
             valuesFloatSizeInDtypesList++;
         } else {
-            OP_CHECK_IF(true, OP_LOGE(context->GetNodeName(), "dtype should be int, float or bool."),
+            OP_CHECK_IF(true,
+                        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "x",
+                                                              std::to_string(static_cast<int>(dtypeInt)).c_str(),
+                                                              "must be an integer, floating-point, or boolean dtype."),
                         return ge::GRAPH_FAILED);
         }
         dtypesArray[i] = dtypeInt;
@@ -107,12 +110,14 @@ ge::graphStatus SetValuesLists(T& tilingData, gert::TilingContext* context, cons
     int64_t valuesIntArraySize = valuesIntArrayInAttrs->GetCapacity();
     int64_t valuesFloatArraySize = valuesFloatArrayInAttrs->GetCapacity();
     OP_CHECK_IF(valuesIntArraySize != 0 && valuesIntArraySize != valuesIntSizeInDtypesList,
-                OP_LOGE(context->GetNodeName(),
-                        "ValuesInt size should be zero or the same as integer type num in tensor list."),
+                OP_LOGE_FOR_INVALID_LISTSIZE_WITH_REASON(
+                    context->GetNodeName(), "values_int", std::to_string(valuesIntArraySize).c_str(),
+                    "must be zero or equal to the number of integer and boolean tensors in x."),
                 return ge::GRAPH_FAILED);
     OP_CHECK_IF(valuesFloatArraySize != 0 && valuesFloatArraySize != valuesFloatSizeInDtypesList,
-                OP_LOGE(context->GetNodeName(),
-                        "ValuesFloat size should be zero or the same as float type num in tensor list."),
+                OP_LOGE_FOR_INVALID_LISTSIZE_WITH_REASON(
+                    context->GetNodeName(), "values_float", std::to_string(valuesFloatArraySize).c_str(),
+                    "must be zero or equal to the number of floating-point tensors in x."),
                 return ge::GRAPH_FAILED);
     if (valuesIntArraySize == 0 && valuesIntSizeInDtypesList > 0) {
         OP_LOGW("Mem set v2 tilingData", "valuesIntArraySize is 0, fill with value 0.");
@@ -159,9 +164,7 @@ ge::graphStatus SetBlockInfoList(T& tilingData, gert::TilingContext* context, co
         if (i == 0U) {
             startIndexList[i] = 0;
         } else {
-            OP_CHECK_IF(coreNum == 0,
-                        OP_LOGE(context->GetNodeName(),
-                                "ValuesFloat size should be zero or the same as float type num in tensor list."),
+            OP_CHECK_IF(coreNum == 0, OP_LOGE(context->GetNodeName(), "core number must be positive."),
                         return ge::GRAPH_FAILED);
             startIndexList[i] = (startIndexList[i - 1] + blockNumList[i - 1]) % coreNum;
         }
@@ -239,7 +242,8 @@ ge::graphStatus Tiling4MemSetV2(gert::TilingContext* context)
     // 根据input判断tilingkey和tilingData
     int64_t inputXNum = context->GetIrInputInstanceInfo(0)->GetInstanceNum();
     OP_CHECK_IF(inputXNum <= 0 || inputXNum > 256,
-                OP_LOGE(context->GetNodeName(), "dynamic input num should in [1, 256]."), return ge::GRAPH_FAILED);
+                OP_LOGE_FOR_INVALID_TENSORNUM(context->GetNodeName(), "x", inputXNum, "[1, 256]"),
+                return ge::GRAPH_FAILED);
     if (inputXNum <= TENSOR_LIST_SIZE_2) {
         return DoTiling<MemSetV2List2TilingData>(context, TILINGKEY_10002, inputXNum);
     }

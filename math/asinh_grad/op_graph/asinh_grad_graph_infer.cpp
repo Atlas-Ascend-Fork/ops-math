@@ -16,15 +16,18 @@
 #include "op_common/log/log.h"
 #include "log/log.h"
 
+#include <string>
+
 namespace ge {
 IMPLEMT_VERIFIER(AsinhGrad, AsinhGradVerify)
 {
     const DataType yDataType = op.GetInputDescByName("y").GetDataType();
     const DataType dyDataType = op.GetInputDescByName("dy").GetDataType();
     if (yDataType != dyDataType) {
-        OP_LOGE("AsinhGrad", "y and dy must have the same dtype, got y=%s, dy=%s",
-                TypeUtils::DataTypeToSerialString(yDataType).c_str(),
-                TypeUtils::DataTypeToSerialString(dyDataType).c_str());
+        const std::string dtypes = TypeUtils::DataTypeToSerialString(yDataType) + " and " +
+                                   TypeUtils::DataTypeToSerialString(dyDataType);
+        OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON("AsinhGrad", "y and dy", dtypes.c_str(),
+                                               "both inputs must have the same dtype");
         return GRAPH_FAILED;
     }
     return GRAPH_SUCCESS;

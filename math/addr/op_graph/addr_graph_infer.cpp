@@ -27,10 +27,18 @@ static ge::graphStatus InferDataType4Addr(gert::InferDataTypeContext* context)
     auto beta_data_type = context->GetInputDataType(INPUT_NUM_THREE);
     auto alpha_data_type = context->GetInputDataType(INPUT_NUM_FOUR);
 
-    OP_CHECK_IF(x1_data_type != x2_data_type || x1_data_type != x3_data_type || x1_data_type != beta_data_type ||
-                    x1_data_type != alpha_data_type,
-                OP_LOGE(context->GetNodeName(), "[InferDataType4Addr] Failed, input datatype must be the same."),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        x1_data_type != x2_data_type || x1_data_type != x3_data_type || x1_data_type != beta_data_type ||
+            x1_data_type != alpha_data_type,
+        OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(context->GetNodeName(), "x1, x2, x3, beta, alpha",
+                                               (std::to_string(static_cast<int32_t>(x1_data_type)) + ", " +
+                                                std::to_string(static_cast<int32_t>(x2_data_type)) + ", " +
+                                                std::to_string(static_cast<int32_t>(x3_data_type)) + ", " +
+                                                std::to_string(static_cast<int32_t>(beta_data_type)) + ", " +
+                                                std::to_string(static_cast<int32_t>(alpha_data_type)))
+                                                   .c_str(),
+                                               "All input tensors and scalar parameters must use the same dtype."),
+        return ge::GRAPH_FAILED);
 
     context->SetOutputDataType(0, x1_data_type);
     OP_LOGD(context->GetNodeName(), "InferDataType4Addr end");

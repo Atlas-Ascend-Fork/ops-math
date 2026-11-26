@@ -23,6 +23,8 @@
 #include "infershape_broadcast_util.h"
 #include "log/log.h"
 
+#include <string>
+
 using namespace ge;
 using namespace Ops::Base;
 
@@ -45,10 +47,12 @@ static ge::graphStatus InferShape4AddMatMatElements(gert::InferShapeContext* con
 
     // 广播 N-input 一次推完：a + b + c → out（beta/alpha 为标量 tensor，不参与 shape 推导）
     std::vector<const gert::Shape*> inShapes = {aShape, bShape, cShape};
-    OP_CHECK_IF(!BroadcastShape(inShapes, outShape),
-                OP_LOGE(context->GetNodeName(), "shape a (%s), b (%s), c (%s) cannot broadcast!",
-                        ToString(*aShape).c_str(), ToString(*bShape).c_str(), ToString(*cShape).c_str()),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        !BroadcastShape(inShapes, outShape),
+        OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(context->GetNodeName(), "a, b and c",
+                                               ToString(*aShape) + ", " + ToString(*bShape) + ", " + ToString(*cShape),
+                                               "the input shapes must be broadcast-compatible"),
+        return ge::GRAPH_FAILED);
 
     OP_LOGD(context->GetNodeName(), "End to do InferShape4AddMatMatElements");
     OP_LOGI(context->GetNodeName(), "[InferShape] output0 shape=%s", Ops::Base::ToString(*outShape).c_str());

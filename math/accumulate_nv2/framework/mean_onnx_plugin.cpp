@@ -9,6 +9,7 @@
  */
 
 #include "onnx_common.h"
+#include <string>
 #include "math/accumulate_nv2/op_graph/accumulate_nv2_proto.h"
 #include "math/muls/op_graph/muls_proto.h"
 
@@ -51,7 +52,8 @@ static Status ParseOpToGraphMean(const ge::Operator& op, Graph& graph)
     std::vector<ge::Operator> inputs;
     std::vector<std::pair<Operator, std::vector<size_t>>> output_indexs;
     if (n_num == 0) {
-        OP_LOGE("ParseOpToGraphMean", "input size must greater than 1");
+        OP_LOGE_FOR_INVALID_TENSORNUMS_WITH_REASON("ParseOpToGraphMean", "x", std::to_string(n_num).c_str(),
+                                                   "the input tensor list must contain at least one tensor");
         return FAILED;
     } else {
         auto acc = op::AccumulateNV2((ori_name + "_AccumulateNV2").c_str())

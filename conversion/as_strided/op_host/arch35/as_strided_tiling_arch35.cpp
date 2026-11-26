@@ -1489,7 +1489,10 @@ bool CheckInputInfo(gert::TilingContext* context, gert::Shape outSize, gert::Sha
     uint64_t maxAccessIndex = 0;
     OP_CHECK_IF(!CheckedAdd(static_cast<uint64_t>(tilingParam.storageOffset), requiredStorageSize, maxAccessIndex) ||
                     maxAccessIndex >= originalTensorStorageSize,
-                OP_LOGE(context, "The output element is out of input range!"), return false);
+                OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(context->GetNodeName(), "x, size, stride, storage_offset",
+                                                       std::to_string(maxAccessIndex).c_str(),
+                                                       "the output view must stay within the input storage range."),
+                return false);
 
     tilingParam.inputSize = originalTensorStorageSize;
     return true;
@@ -1604,8 +1607,9 @@ static ge::graphStatus TilingForAsStridedArch35(gert::TilingContext* context)
     }
 
     AsStridedRunInfo runInfo;
-    OP_CHECK_IF(!GetSizeAndStride(context, runInfo), OP_LOGE(context, "get const of Size/Stride failed"),
-                return ge::GRAPH_FAILED);
+    if (!GetSizeAndStride(context, runInfo)) {
+        return ge::GRAPH_FAILED;
+    }
 
     OP_LOGI("AsStridedOutSizeInfoMath", "the out size is:[%s].", Ops::Base::ToString(runInfo.outputSize).c_str());
     OP_LOGI("AsStridedOutStridedInfoMath", "the out strided is:[%s].",

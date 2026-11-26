@@ -116,8 +116,9 @@ ge::graphStatus TilingForUnpack(gert::TilingContext* context)
                 OP_LOGE(context->GetNodeName(), "Failed to get ubSize, ubSize must be greater than 0."),
                 return GRAPH_FAILED);
 
-    OP_CHECK_IF(tilingUnpack.DoSplitTiling(maxCoreNum, ubSizePlatform) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context->GetNodeName(), "AscendC split tiling function call failed"), return ge::GRAPH_FAILED);
+    if (tilingUnpack.DoSplitTiling(maxCoreNum, ubSizePlatform) != ge::GRAPH_SUCCESS) {
+        return ge::GRAPH_FAILED;
+    }
     return ge::GRAPH_SUCCESS;
 }
 

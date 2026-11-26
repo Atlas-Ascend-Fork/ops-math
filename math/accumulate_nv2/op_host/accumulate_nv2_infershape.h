@@ -12,6 +12,7 @@
 #define ACCUMULATE_NV2_INFERSHAPE_H_
 
 #include <cstdint>
+#include <string>
 #include <vector>
 
 #include "graph/ge_error_codes.h"
@@ -43,19 +44,20 @@ inline ge::graphStatus AccumulateNV2ResolveShape(const char* opName, int64_t att
                                                  std::vector<int64_t>& outputDims)
 {
     if (attrN < 1) {
-        OP_LOGE(opName, "attr N must be >= 1, but got %ld", attrN);
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(opName, "N", std::to_string(attrN).c_str(), "must be at least 1");
         return ge::GRAPH_FAILED;
     }
     const size_t inputNum = inputDimsList.size();
     if (inputNum == 0U || static_cast<int64_t>(inputNum) != attrN) {
-        OP_LOGE(opName, "attr N must be equal to the actual input count, but got N: %ld, input count: %zu", attrN,
-                inputNum);
+        const std::string reason = "must equal the actual x input count " + std::to_string(inputNum);
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(opName, "N", std::to_string(attrN).c_str(), reason.c_str());
         return ge::GRAPH_FAILED;
     }
 
     outputDims = inputDimsList[0];
     const bool firstUnknownRank = outputDims.size() == 1U && outputDims[0] == -2;
     std::vector<int64_t>& resolved = outputDims;
+    std::vector<size_t> resolvedFrom(outputDims.size(), 0U);
     for (size_t i = 1; i < inputNum; ++i) {
         const std::vector<int64_t>& inputDims = inputDimsList[i];
         if (firstUnknownRank) {
@@ -65,8 +67,11 @@ inline ge::graphStatus AccumulateNV2ResolveShape(const char* opName, int64_t att
             continue;
         }
         if (inputDims.size() != outputDims.size()) {
-            OP_LOGE(opName, "input[%zu] rank %zu differs from input[0] rank %zu, broadcast is not supported", i,
-                    inputDims.size(), outputDims.size());
+            const std::string inputNames = "x[" + std::to_string(i) + "] and x[0]";
+            const std::string incorrectDims = std::to_string(inputDims.size()) + " and " +
+                                              std::to_string(outputDims.size());
+            OP_LOGE_FOR_INVALID_SHAPEDIMS_WITH_REASON(opName, inputNames.c_str(), incorrectDims.c_str(),
+                                                      "input ranks must match; broadcasting is not supported");
             return ge::GRAPH_FAILED;
         }
         for (size_t d = 0; d < outputDims.size(); ++d) {
@@ -75,12 +80,16 @@ inline ge::graphStatus AccumulateNV2ResolveShape(const char* opName, int64_t att
             }
             if (resolved[d] == -1) {
                 resolved[d] = inputDims[d];
+                resolvedFrom[d] = i;
                 continue;
             }
             if (inputDims[d] != resolved[d]) {
-                OP_LOGE(opName,
-                        "input[%zu] dim[%zu] is %ld, differs from resolved dim[%zu] %ld, broadcast is not supported", i,
-                        d, inputDims[d], d, resolved[d]);
+                const std::string inputNames = "x[" + std::to_string(i) + "] and x[" + std::to_string(resolvedFrom[d]) +
+                                               "]";
+                const std::string incorrectDims = std::to_string(inputDims[d]) + " and " + std::to_string(resolved[d]);
+                OP_LOGE_FOR_INVALID_SHAPEDIMS_WITH_REASON(
+                    opName, inputNames.c_str(), incorrectDims.c_str(),
+                    ("dimension " + std::to_string(d) + " must match; broadcasting is not supported").c_str());
                 return ge::GRAPH_FAILED;
             }
         }

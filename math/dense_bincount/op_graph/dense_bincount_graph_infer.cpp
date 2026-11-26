@@ -8,6 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+#include <string>
+
 #include "register/op_impl_registry.h"
 #include "dense_bincount_proto.h"
 #include "log/log.h"
@@ -43,7 +45,8 @@ IMPLEMT_VERIFIER(DenseBincount, VerifyDenseBincount)
 
     const auto weightsShape = op.GetInputDesc(WEIGHTS_INDEX).GetShape();
     if (!IsRankAtMost(weightsShape, MAX_INPUT_RANK)) {
-        OP_LOGE("DenseBincount", "weights rank must be at most 2.");
+        OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(
+            "DenseBincount", "weights", std::to_string(weightsShape.GetDimNum()) + "D", "rank must be at most 2D");
         return GRAPH_FAILED;
     }
 

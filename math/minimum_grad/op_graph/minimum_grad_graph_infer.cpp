@@ -64,10 +64,11 @@ ge::graphStatus InferDataTypeForMinimumGrad(gert::InferDataTypeContext* context)
     for (size_t i = 1U; i < INPUT_NUM; ++i) {
         const ge::DataType dt = context->GetInputDataType(i);
         if (dt != dtype0) {
-            OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(nodeName, i == 1U ? "x1" : "x2",
-                                                  std::to_string(static_cast<int>(dt)).c_str(),
-                                                  "The dtype of x1/x2 must be identical to grads (no promotion)");
-            return ge::GRAPH_FAILED; // dtype_not_supported
+            const std::string inputNames = i == 1U ? "grads and x1" : "grads and x2";
+            const std::string dtypes = Ops::Base::ToString(dtype0) + " and " + Ops::Base::ToString(dt);
+            OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(nodeName, inputNames.c_str(), dtypes.c_str(),
+                                                   "all inputs must have the same dtype; promotion is not supported");
+            return ge::GRAPH_FAILED; // dtype_mismatch
         }
     }
 

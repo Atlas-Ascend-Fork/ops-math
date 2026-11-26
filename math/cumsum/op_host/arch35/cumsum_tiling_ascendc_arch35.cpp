@@ -313,7 +313,9 @@ ge::graphStatus CumsumAscendcTilingImpl::Init(const CumsumCompileInfo* compileIn
 
     int64_t axis = 0;
     OP_CHECK_IF(!Ops::Base::GetConstInt(context_, INPUT_AXIS_INDEX, axis),
-                OP_LOGE(context_->GetNodeName(), "Failed to get the const value of axis."), return ge::GRAPH_FAILED);
+                OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(
+                    context_->GetNodeName(), "axis", "The axis value must be available as a compile-time constant."),
+                return ge::GRAPH_FAILED);
     auto xStorage = context_->GetInputShape(INPUT_X_INDEX);
     OP_CHECK_NULL_WITH_CONTEXT(context_, xStorage);
     const gert::Shape& xShape = Ops::Base::EnsureNotScalar(xStorage->GetStorageShape());

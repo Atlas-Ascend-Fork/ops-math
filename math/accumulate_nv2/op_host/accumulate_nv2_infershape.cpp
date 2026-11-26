@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <utility>
+#include <string>
 #include <vector>
 
 #include "util/shape_util.h"
@@ -30,11 +31,19 @@ namespace ops {
 // and writes the resolved dims back to OutputShape.
 static ge::graphStatus InferShape4AccumulateNV2(gert::InferShapeContext* context)
 {
+    if (context == nullptr) {
+        OP_LOGE("AccumulateNV2", "InferShape context is nullptr");
+        return ge::GRAPH_FAILED;
+    }
+    const size_t inputNum = context->GetComputeNodeInputNum();
+    OP_CHECK_IF(inputNum == 0U,
+                OP_LOGE_FOR_INVALID_TENSORNUMS_WITH_REASON("AccumulateNV2", "x", "0",
+                                                           "the input tensor list must not be empty"),
+                return ge::GRAPH_FAILED);
     auto attrs = context->GetAttrs();
     OP_CHECK_NULL_WITH_CONTEXT(context, attrs);
     const int64_t* attrN = attrs->GetAttrPointer<int64_t>(0);
     OP_CHECK_NULL_WITH_CONTEXT(context, attrN);
-    const size_t inputNum = context->GetComputeNodeInputNum();
 
     auto firstShape = context->GetInputShape(0);
     OP_CHECK_NULL_WITH_CONTEXT(context, firstShape);
@@ -74,8 +83,9 @@ static ge::graphStatus InferShapeRange4AccumulateNV2(gert::InferShapeRangeContex
     OP_CHECK_NULL_WITH_CONTEXT(context, attrN);
     const size_t inputNum = context->GetComputeNodeInputNum();
     OP_CHECK_IF(static_cast<int64_t>(inputNum) != *attrN,
-                OP_LOGE(context, "attr N must be equal to the actual input count, but got N: %ld, input count: %zu",
-                        *attrN, inputNum),
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                    context->GetNodeName(), "N", std::to_string(*attrN).c_str(),
+                    ("must equal the actual x input count " + std::to_string(inputNum)).c_str()),
                 return ge::GRAPH_FAILED);
 
     // Find the first input with a concrete (non-empty, non-unknown-rank) shape

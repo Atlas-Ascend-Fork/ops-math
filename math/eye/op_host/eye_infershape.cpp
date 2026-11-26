@@ -41,8 +41,9 @@ ge::graphStatus InferShapeForEye(gert::InferShapeContext* context)
     std::vector<int64_t> output_shape_vec;
     for (size_t i = 0; i < batch_shape_ptr->GetSize(); ++i) {
         if (batch_shape_array[i] <= 0) {
-            OP_LOGE(context->GetNodeName(), "value of batch_shape must be greater than 0, but got %ld",
-                    batch_shape_array[i]);
+            OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "batch_shape",
+                                                  std::to_string(batch_shape_array[i]).c_str(),
+                                                  "each dimension must be greater than 0.");
             return ge::GRAPH_FAILED;
         }
         output_shape_vec.push_back(batch_shape_array[i]);
@@ -51,7 +52,8 @@ ge::graphStatus InferShapeForEye(gert::InferShapeContext* context)
     auto num_rows = *num_rows_ptr;
     auto num_columns = *num_columns_ptr;
     if (num_rows <= 0) {
-        OP_LOGE(context->GetNodeName(), "num_rows must be greater than 0, but got %ld", num_rows);
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "num_rows", std::to_string(num_rows).c_str(),
+                                              "must be greater than 0.");
         return ge::GRAPH_FAILED;
     }
     if (num_columns <= 0) {

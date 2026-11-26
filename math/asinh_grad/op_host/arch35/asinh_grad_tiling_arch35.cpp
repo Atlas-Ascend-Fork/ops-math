@@ -31,6 +31,8 @@
 #include "../../op_kernel/arch35/asinh_grad_sech_tiling_key.h"
 #include "asinh_grad_sech_host_route.h"
 
+#include <string>
+
 namespace optiling {
 
 using Ops::Base::CeilAlign;
@@ -78,12 +80,27 @@ static ge::graphStatus GetShapeAttrsInfo(gert::TilingContext* context, int64_t& 
     OP_CHECK_NULL_WITH_CONTEXT(context, outZ);
     auto outShapeZ = EnsureNotScalar(outZ->GetStorageShape());
 
-    OP_CHECK_IF(inputY->GetStorageShape().GetDimNum() > 8 || inputDy->GetStorageShape().GetDimNum() > 8 ||
-                    outZ->GetStorageShape().GetDimNum() > 8,
-                OP_LOGE(context, "AsinhGrad: rank must not exceed 8"), return ge::GRAPH_FAILED);
+    const size_t rankY = inputY->GetStorageShape().GetDimNum();
+    const size_t rankDy = inputDy->GetStorageShape().GetDimNum();
+    const size_t rankZ = outZ->GetStorageShape().GetDimNum();
+    OP_CHECK_IF(rankY > 8,
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "y", std::to_string(rankY).c_str(),
+                                                         "rank must not exceed 8"),
+                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(rankDy > 8,
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "dy", std::to_string(rankDy).c_str(),
+                                                         "rank must not exceed 8"),
+                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(rankZ > 8,
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "z", std::to_string(rankZ).c_str(),
+                                                         "rank must not exceed 8"),
+                return ge::GRAPH_FAILED);
     OP_CHECK_IF(inputShapeY != inputShapeDy || inputShapeY != outShapeZ,
-                OP_LOGE(context, "AsinhGrad: shape mismatch: y=%ld, dy=%ld, z=%ld", inputShapeY.GetShapeSize(),
-                        inputShapeDy.GetShapeSize(), outShapeZ.GetShapeSize()),
+                OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(
+                    context->GetNodeName(), "y, dy and z",
+                    Ops::Base::ToString(inputShapeY) + ", " + Ops::Base::ToString(inputShapeDy) + ", " +
+                        Ops::Base::ToString(outShapeZ),
+                    "y and dy shapes must match after scalar normalization; z must match y"),
                 return ge::GRAPH_FAILED);
 
     totalIdx = inputShapeY.GetShapeSize();
@@ -95,14 +112,19 @@ static ge::graphStatus GetShapeAttrsInfo(gert::TilingContext* context, int64_t& 
     // Iteration 3: support DT_FLOAT, DT_FLOAT16 and DT_BF16
     const std::set<ge::DataType> supportedDtype = {ge::DT_FLOAT, ge::DT_FLOAT16, ge::DT_BF16};
     if (supportedDtype.count(dataType) == 0) {
-        OP_LOGE(context, "AsinhGrad: unsupported dtype %d", static_cast<int>(dataType));
+        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "y", Ops::Base::ToString(dataType).c_str(),
+                                              "only FLOAT, FLOAT16 and BF16 are supported");
         return ge::GRAPH_FAILED;
     }
 
     // Verify y and dy have same dtype
     auto inputDescDy = context->GetInputDesc(1);
     OP_CHECK_NULL_WITH_CONTEXT(context, inputDescDy);
-    OP_CHECK_IF(inputDescDy->GetDataType() != dataType, OP_LOGE(context, "AsinhGrad: y/dy dtype mismatch"),
+    const ge::DataType dyDataType = inputDescDy->GetDataType();
+    const std::string dtypes = Ops::Base::ToString(dataType) + " and " + Ops::Base::ToString(dyDataType);
+    OP_CHECK_IF(dyDataType != dataType,
+                OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(context->GetNodeName(), "y and dy", dtypes.c_str(),
+                                                       "both inputs must have the same dtype"),
                 return ge::GRAPH_FAILED);
 
     return ge::GRAPH_SUCCESS;
@@ -118,22 +140,29 @@ static ge::graphStatus GetWorkspaceSize(gert::TilingContext* context)
 
 static ge::graphStatus AsinhGradTilingFunc(gert::TilingContext* context)
 {
+    if (context == nullptr) {
+        OP_LOGE("AsinhGrad", "tiling context is nullptr");
+        return ge::GRAPH_FAILED;
+    }
     OP_LOGD(context->GetNodeName(), "Begin the tiling process for Arch35 architecture");
     // 1. Get platform info
     uint64_t ubSize;
     int64_t coreNum;
-    OP_CHECK_IF(GetPlatformInfo(context, ubSize, coreNum) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context, "GetPlatformInfo error"), return ge::GRAPH_FAILED);
+    if (GetPlatformInfo(context, ubSize, coreNum) != ge::GRAPH_SUCCESS) {
+        return ge::GRAPH_FAILED;
+    }
 
     // 2. Get shape and dtype info
     int64_t totalIdx;
     ge::DataType dataType;
-    OP_CHECK_IF(GetShapeAttrsInfo(context, totalIdx, dataType) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context, "GetShapeAttrsInfo error"), return ge::GRAPH_FAILED);
+    if (GetShapeAttrsInfo(context, totalIdx, dataType) != ge::GRAPH_SUCCESS) {
+        return ge::GRAPH_FAILED;
+    }
 
     // 3. Get workspace size
-    OP_CHECK_IF(GetWorkspaceSize(context) != ge::GRAPH_SUCCESS, OP_LOGE(context, "GetWorkspaceSize error"),
-                return ge::GRAPH_FAILED);
+    if (GetWorkspaceSize(context) != ge::GRAPH_SUCCESS) {
+        return ge::GRAPH_FAILED;
+    }
 
     // 4. Calculate tiling parameters
     AsinhGradTilingData* tiling = context->GetTilingData<AsinhGradTilingData>();

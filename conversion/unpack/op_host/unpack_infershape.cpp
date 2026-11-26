@@ -14,6 +14,8 @@
 #include "op_api/op_util.h"
 #include "util/const_util.h"
 
+#include <string>
+
 using namespace ge;
 using namespace Ops::Base;
 
@@ -27,6 +29,11 @@ static graphStatus InferShapeForUnpack(gert::InferShapeContext* context)
     OP_CHECK_NULL_WITH_CONTEXT(context, num);
     const int64_t* axis = attrs->GetAttrPointer<int64_t>(1);
     OP_CHECK_NULL_WITH_CONTEXT(context, axis);
+    if (*num <= 0) {
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "num", std::to_string(*num).c_str(),
+                                              "the number of output tensors must be greater than 0");
+        return GRAPH_FAILED;
+    }
     if (!context->GetOutputShape(*num - 1) || context->GetOutputShape(*num)) {
         OP_LOGE(context->GetNodeName(), "Failed to get num value.");
         return GRAPH_FAILED;
@@ -46,10 +53,12 @@ static graphStatus InferShapeForUnpack(gert::InferShapeContext* context)
     size_t input_x_dim_num = input_x_shape->GetDimNum();
     int64_t real_axis = (*axis >= 0) ? *axis : *axis + input_x_dim_num;
     if (real_axis < 0 || real_axis >= static_cast<int64_t>(input_x_dim_num)) {
-        OP_LOGE(context->GetNodeName(), "%s",
-                ConcatString("Axis exceeds the prescribed range. Axis is ", real_axis, " and x_shape's size is ",
-                             input_x_dim_num)
-                    .c_str());
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+            context->GetNodeName(), "axis", std::to_string(*axis).c_str(),
+            ("must be within [" + std::to_string(-static_cast<int64_t>(input_x_dim_num)) + ", " +
+             std::to_string(static_cast<int64_t>(input_x_dim_num) - 1) + "] for input rank " +
+             std::to_string(input_x_dim_num))
+                .c_str());
         return GRAPH_FAILED;
     }
 

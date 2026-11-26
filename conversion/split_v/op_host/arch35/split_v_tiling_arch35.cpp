@@ -1503,8 +1503,11 @@ int64_t SplitVTiling::AdjustUbFactor(int64_t factor, int64_t alignFactor) const
 ge::graphStatus SplitVTiling::DoSplitTiling(int32_t maxCoreNum, uint32_t ubSize)
 {
     OP_LOGD("SplitTilingForAscendC", "DoSplitTiling start");
-    OP_CHECK_IF((InitParamsSameLen(maxCoreNum, ubSize) != ge::GRAPH_SUCCESS),
-                OP_LOGE(context_->GetNodeName(), "SplitTiling InitParams Failed."), return ge::GRAPH_FAILED);
+    // InitParamsSameLen reports validation failures at their source. Do not add
+    // a generic EZ9999 here, which would hide the public error code.
+    if (InitParamsSameLen(maxCoreNum, ubSize) != ge::GRAPH_SUCCESS) {
+        return ge::GRAPH_FAILED;
+    }
 
     // Reshape to [M G N]
     FuseInputShapeSameLen();
