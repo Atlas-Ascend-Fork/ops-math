@@ -13,8 +13,8 @@
  * \brief 把桩头编入 libopgraph_math.so，并在满足条件时登记 fe 融合 pass 名字。
  */
 
-// 仅当编译 soc 为 ascend950 时，当前 cpp 中的打桩注册内容才编入
-#if defined(OP_GRAPH_MATH_ASCEND950)
+// 仅当编译 soc 属于 legacy 平台（ascend950/ascend350/ascend960dt/ascend960pr）时，当前 cpp 中的打桩注册内容才编入
+#if defined(OP_GRAPH_MATH_LEGACY)
 
 #include "version/ge-compiler_version.h"
 #include "fe_fusion_pass_registry_stub.h"
@@ -46,4 +46,4 @@ STUB_REG_PASS("TopKFusionPass", fe::BUILT_IN_GRAPH_PASS, 0x04);
 STUB_REG_PASS("Globalavgpoolpass", fe::BUILT_IN_GRAPH_PASS, 0x01);
 
 #endif // GE_COMPILER_VERSION_NUM >= GE_COMPILER_VERSION_900
-#endif // OP_GRAPH_MATH_ASCEND950
+#endif // OP_GRAPH_MATH_LEGACY
