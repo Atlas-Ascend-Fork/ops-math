@@ -170,16 +170,12 @@ protected:
     void SetMoveAlignParams(StridedSliceMoveAlignParams& params, const MoveAlignV2Info& actInfo);
     void SetShortMoveAlignParams(StridedSliceShortMoveAlignParams& params, const MoveAlignV2Info& actInfo);
     void SetTwoDimTilingInfo();
-    void CalMaxSplitDimNeg();
-    void CalcUbSplitInfoNeg();
-    void SetTilingModeNeg();
-    void SetAllInUbSplitInfo();
-    void CalcUbSplitInfo();
-    void CalcBlockSplitInfo();
-    void SetSIMTTilingMode();
     ge::graphStatus CheckPlatformParam();
 
 private:
+    void CalMaxSplitDimNeg();
+    void CalcUbSplitInfoNeg();
+    void SetTilingModeNeg();
     int64_t GetValidNumInCacheLine();
     int64_t GetDimStartPosition(int32_t idx);
     int64_t GetDimEndPosition(int32_t idx);
@@ -188,10 +184,14 @@ private:
     void CalMaxSplitDimLastStridePositive();
     void SetMovAlignV2TilingModeNeg();
     void SetNddmaTilingModeNeg();
+    void SetAllInUbSplitInfo();
+    void CalcUbSplitInfo();
+    void CalcBlockSplitInfo();
     void MovAlignV2UbSplitLastOneDim();
     void MovAlignV2UbSplitLastTwoDim();
     void MovAlignV2UbSplitLastThreeDim();
     void MovAlignV2UbSplitLastFourDim();
+    void SetSIMTTilingMode();
     void CalSimtPackFactor();
     void CalcThreadNum();
     void ResetMovAlignV2Para(int64_t newUbfactor);
