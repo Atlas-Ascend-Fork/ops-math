@@ -92,7 +92,7 @@ English | [简体中文](./README.md)
 | --- | --- | --- |
 | Computation graph prototype | `op_graph/fused_mul_add_add_proto.h` | `REG_OP(FusedMulAddAdd)`, four inputs and one output |
 | Operator definition | `op_host/fused_mul_add_add_def.cpp` | `OpDef::AddConfig("ascend950", ...)` |
-| InferShape | `op_host/fused_mul_add_add_infershape.cpp` | Reuses `Ops::Base::InferShape4Broadcast(ctx, 4)` |
+| InferShape | `op_host/fused_mul_add_add_infershape.cpp` | Custom `InferShape4FusedMulAddAdd`: rejects unknown shape/rank and sets the output shape directly from x1 (`*yShape = *x1Shape`), without broadcasting |
 | Tiling | `op_host/arch35/fused_mul_add_add_tiling_arch35.{h,cpp}` | Calls `Ops::Base::BroadcastBaseTiling<OpDag>` in branches by dtype |
 | DAG | `op_kernel/arch35/fused_mul_add_add_dag.h` | The fp32/fp16 path uses `Vec::Mul + Vec::Add + Vec::Add` with fp32 intermediate precision; the int32 path uses `Vec::Mul + Vec::Add + Vec::Add` |
 | Struct | `op_kernel/arch35/fused_mul_add_add_struct.h` | `BRC_TEMP_SCH_MODE_KEY_DECL/SEL` |

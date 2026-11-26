@@ -46,9 +46,9 @@ Each operator uses a [two-phase API](../../../docs/en/context/two_phase_api.md).
 
   - input(aclTensor*, calculation input): Input tensor, which is `abs` in the formula. The data type supports FLOAT. [Non-contiguous tensor](../../../docs/en/context/non_contiguous_tensor.md) is supported. The [data format](../../../docs/en/context/data_format.md) supports ND. The number of dimensions cannot exceed 8.
 
-  - angle(aclTensor*, calculation input): Input tensor, which is `angle` in the formula. Its data type must be the same as that of input. [Non-contiguous tensor](../../../docs/en/context/non_contiguous_tensor.md) is supported. The [data format](../../../docs/en/context/data_format.md) supports ND. The dimensions must be the same as those of input.
+  - angle(aclTensor*, calculation input): Input tensor, which is `angle` in the formula. Its data type must be the same as that of input. [Non-contiguous tensor](../../../docs/en/context/non_contiguous_tensor.md) is supported. The [data format](../../../docs/en/context/data_format.md) supports ND. Broadcast is supported, and the dimensions must be broadcastable with those of input.
 
-  - out(aclTensor*, calculation output): Output tensor, which is `out` in the formula. The data type supports COMPLEX64. [Non-contiguous tensor](../../../docs/en/context/non_contiguous_tensor.md) is supported. The [data format](../../../docs/en/context/data_format.md) supports ND. The dimensions must be the same as those of input.
+  - out(aclTensor*, calculation output): Output tensor, which is `out` in the formula. The data type supports COMPLEX64. [Non-contiguous tensor](../../../docs/en/context/non_contiguous_tensor.md) is supported. The [data format](../../../docs/en/context/data_format.md) supports ND. The dimensions are the broadcast shape of input and angle.
   - workspaceSize (uint64_t*, output parameter): Returns the workspace size to be allocated on the Device side.
 
   - executor (aclOpExecutor**, output parameter): Returns the op executor, which includes computation.
@@ -63,7 +63,7 @@ Returns 161001 (ACLNN_ERR_PARAM_NULLPTR): 1. The input, angle, or out is a null 
 Returns 161002 (ACLNN_ERR_PARAM_INVALID): 1. The data types of input and angle are not within the supported range.
                                       2. The data types of input and angle are inconsistent.
                                       3. The data type of out is not COMPLEX64.
-                                      4. The dimensions of input, angle, and out exceed 8 or are inconsistent.
+                                      4. The dimensions of input, angle, or out exceed 8, or the shape of out is inconsistent with the broadcast shape of input and angle.
 ```
 
 ## aclnnPolar

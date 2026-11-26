@@ -26,8 +26,8 @@
   - keepDims（bool，计算输入）：Host侧的BOOL值，指定是否在输出张量中保留输入张量的维度。
 
   - dtype（aclDataType，计算输入）：Device侧的aclDataType，指定输出张量的数据类型。
-    - <term>Atlas推理系列产品</term>、<term>Atlas训练系列产品</term>：数据类型支持FLOAT16、FLOAT32、INT8、 INT16、 INT32、 INT64、UINT8、BOOL、DOUBLE、COMPLEX64、COMPLEX128。
-    - <term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>、<term>Ascend 950PR&950DT系列产品</term>：数据类型支持FLOAT16、FLOAT32、INT8、 INT16、 INT32、 INT64、UINT8、BOOL、DOUBLE、COMPLEX64、COMPLEX128、BFLOAT16。
+    - <term>Atlas推理系列产品</term>、<term>Atlas训练系列产品</term>：数据类型支持FLOAT16、FLOAT32、INT8、INT16、INT32、INT64、UINT8、BOOL、DOUBLE、COMPLEX64、COMPLEX128。
+    - <term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>、<term>Ascend 950PR&950DT系列产品</term>：数据类型支持FLOAT16、FLOAT32、INT8、INT16、INT32、INT64、UINT8、BOOL、DOUBLE、COMPLEX64、COMPLEX128、BFLOAT16。
 
   - out（aclTensor*，计算输出）：Device侧的aclTensor，支持[非连续的Tensor](../../docs/zh/context/non_contiguous_tensor.md)，[数据格式](../../docs/zh/context/data_format.md)支持ND。
     - <term>Atlas推理系列产品</term>、<term>Atlas训练系列产品</term>：数据类型支持FLOAT16、FLOAT32、INT8、INT16、INT32、INT64、UINT8、BOOL、DOUBLE、COMPLEX64、COMPLEX128。

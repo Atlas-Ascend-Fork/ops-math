@@ -27,6 +27,8 @@
 
 Returns the index of the minimum value along a specified axis in a tensor and saves it to out. If keepdim is false, the corresponding axis is not retained; if true, the dimension of the specified axis is retained as 1.
 
+If there are multiple equal minimum values, the index of the first occurrence is returned.
+
 ## Function Prototype
 
 Each operator uses a [two-phase API](../../../docs/en/context/two_phase_api.md). You must first call the "aclnnArgMinGetWorkspaceSize" API to obtain the workspace size required for the computation and the executor containing the computation process, and then call the "aclnnArgMin" API to perform the computation.
@@ -169,8 +171,8 @@ aclnnStatus aclnnArgMin(
       <td>Null pointer passed for self or out.</td>
     </tr>
     <tr>
-      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="4">161002</td>
+      <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="5">161002</td>
       <td>The data type and data format of self or out are not within the supported range.</td>
     </tr>
     <tr>
@@ -181,6 +183,9 @@ aclnnStatus aclnnArgMin(
     </tr>
     <tr>
       <td>The shape of the passed-in out does not satisfy inferShape.</td>
+    </tr>
+    <tr>
+      <td>The length of the selected reduction axis is 0.</td>
     </tr>
   </tbody>
   </table>
@@ -233,7 +238,7 @@ aclnnStatus aclnnArgMin(
 - Deterministic computation:
   - aclnnArgMin defaults to a deterministic implementation.
 
-- The input self does not support the scenario where the reduction axis is 0.
+- The input self does not support the scenario where the length of the reduction axis is 0 (empty axis).
 
 ## Example
 

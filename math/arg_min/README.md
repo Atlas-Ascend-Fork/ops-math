@@ -153,8 +153,8 @@ aclnnStatus aclnnArgMin(
       <td>传入的self或out是空指针。</td>
     </tr>
     <tr>
-      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="4">161002</td>
+      <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="5">161002</td>
       <td>self、out的数据类型和数据格式不在支持的范围之内。</td>
     </tr>
     <tr>
@@ -165,6 +165,9 @@ aclnnStatus aclnnArgMin(
     </tr>
     <tr>
       <td>传入的out的shape不满足InferShape。</td>
+    </tr>
+    <tr>
+      <td>所选归约轴的长度为0。</td>
     </tr>
   </tbody>
   </table>
@@ -217,7 +220,7 @@ aclnnStatus aclnnArgMin(
 - 确定性计算：
   - aclnnArgMin默认确定性实现。
 
-- 输入self，不支持reduce轴为0的场景
+- 输入self，不支持归约轴长度为0（空轴）的场景
 
 ## 调用说明
 

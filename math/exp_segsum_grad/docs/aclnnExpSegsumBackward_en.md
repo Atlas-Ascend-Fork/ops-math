@@ -129,7 +129,7 @@ aclnnStatus aclnnExpSegsumBackward(
     </tr>
     <tr>
       <td>gradInput</td>
-      <td>Input</td>
+      <td>Output</td>
       <td>Represents the output of the backward computation. Corresponds to `gradInput` in the corresponding formula.</td>
       <td><ul><li>Supports empty tensors.</li><li>The data type is the same as that of the input `gradOutput`.</li><li>The output dimension must be one less than the input dimension. 3D or 4D is supported. When the input `gradOutput` is 4D, the output dimension size is the same as the first 3 dimensions of `gradOutput`. When the input `gradOutput` is 5D, the output dimension size is the same as the first 4 dimensions of `gradOutput`.</li></ul></td>
       <td>FLOAT32, FLOAT16, BFLOAT16</td>

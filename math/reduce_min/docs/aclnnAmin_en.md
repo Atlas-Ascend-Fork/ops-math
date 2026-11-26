@@ -107,7 +107,7 @@ aclnnStatus aclnnAmin(
     </tr>
     <tr>
       <td>out</td>
-      <td>Input</td>
+      <td>Output</td>
       <td>Output tensor.</td>
       <td>Requires the same data type as self.</td>
       <td>FLOAT, BFLOAT16, FLOAT16, DOUBLE, INT8, INT16, INT32, INT64, UINT8, BOOL</td>

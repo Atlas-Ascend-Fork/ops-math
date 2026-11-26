@@ -98,7 +98,7 @@ aclnnStatus aclnnExpand(
         <td>size</td>
         <td>输入</td>
         <td>广播时指定的size</td>
-        <td>-</td>
+        <td>元素必须为非负整数，不支持torch风格的-1占位（传入-1返回161002）；size长度不得小于self的维度数；size与self右对齐后，self的每一维必须等于size对应值或为1。</td>
         <td>INT</td>
         <td>-</td>
         <td>-</td>
@@ -226,6 +226,7 @@ aclnnStatus aclnnExpand(
 ## 约束说明
 
 - 确定性计算：aclnnExpand默认确定性实现。
+- size的取值域：元素必须为非负整数，不支持torch风格的-1占位（传入-1返回161002）；size长度不得小于self的维度数，多出的前导维度直接作为广播后的维度；size与self右对齐后，self的每一维必须等于size对应值或为1。
 
 ## 调用示例
 

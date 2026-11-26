@@ -40,7 +40,7 @@ English | [简体中文](./README.md)
       <td>x</td>
       <td>Input</td>
       <td>Input tensor.</td>
-      <td>BFLOAT16, FLOAT16,  FLOAT32,  DOUBLE,  INT32,  INT64</td>
+      <td>BFLOAT16, FLOAT16, FLOAT32, DOUBLE, INT32, INT64</td>
       <td>ND</td>
     </tr>
     <tr>

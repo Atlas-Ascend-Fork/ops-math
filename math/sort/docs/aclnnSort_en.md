@@ -131,7 +131,7 @@ aclnnStatus aclnnSort(
       <td>valuesOut</td>
       <td>Output</td>
       <td>Sorting result of the tensor along the specified dimension.</td>
-      <td>-</td>
+      <td>When self is INT32 and valuesOut is INT8, the cast precision is guaranteed only for input elements in the range (-2048, 1920). Conversion results for out-of-range elements are defined by the Cast operator (see <a href="../../../math/cast/docs/aclnnCast_en.md" target="_blank">aclnnCast</a>).</td>
       <td>BFLOAT16, FLOAT16, FLOAT32, DOUBLE, INT8, INT16, INT32, INT64, UINT8, BOOL, UINT16, UINT32, UINT64</td>
       <td>ND</td>
       <td>Same as self</td>

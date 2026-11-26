@@ -413,6 +413,7 @@ aclnnStatus aclnnInplaceTriu(
 
 - Deterministic computation:
   - aclnnTriu&aclnnInplaceTriu default to a deterministic implementation.
+- Empty tensors (numel is 0) are not subject to the dimension lower bound (the upper bound of 8 and shape consistency are still checked), so a 1-D empty tensor (for example, shape [0]) is valid for both aclnnTriu and aclnnInplaceTriu. For non-empty tensors, the number of dimensions must be in the range [2, 8].
 
 ## Example
 

@@ -400,6 +400,8 @@ aclnnStatus aclnnInplaceTril(
 
 ## 约束说明
 
+- 空Tensor：当self为2~8维且任一维为0（numel==0）时，接口返回成功且不修改out，out的内容由调用方负责（aclnnInplaceTril中out即selfRef）；1维空Tensor（例如shape为[0]）不满足维度下限，返回161002。
+- 数据格式：仅支持ND，调用方必须保证self与out均为ND；当前实现仅校验self与out的数据格式是否一致，未显式拦截非ND格式。
 - 确定性计算：
   - aclnnTril&aclnnInplaceTril默认确定性实现。
 

@@ -151,12 +151,18 @@ aclnnStatus aclnnAngleV2(
       <td>The input tensor is a null pointer.</td>
     </tr>
     <tr>
-      <td rowspan="3">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="3">161002</td>
+      <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="5">161002</td>
       <td>The data type of x is not in the supported range.</td>
     </tr>
     <tr>
       <td>The number of dimensions of x exceeds 8.</td>
+    </tr>
+    <tr>
+      <td>The data type of out is not in the supported range.</td>
+    </tr>
+    <tr>
+      <td>The number of dimensions of out exceeds 8.</td>
     </tr>
     <tr>
       <td>The shapes of x and out are inconsistent.</td>

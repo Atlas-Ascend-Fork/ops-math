@@ -114,7 +114,7 @@ aclnnStatus aclnnUnfoldGrad(
       <td>inputSizes（aclIntArray*）</td>
       <td>输入</td>
       <td>表示输出张量的形状。</td>
-      <td>值为(..., sizedim)，inputSizes的size小于等于8。</td>
+      <td>值为(..., sizedim)，inputSizes的size小于等于7（gradOut的秩为1-8，且gradOut的秩等于inputSizes的size加1）。</td>
       <td>INT64</td>
       <td>-</td>
       <td>-</td>
@@ -156,7 +156,7 @@ aclnnStatus aclnnUnfoldGrad(
       <td>表示Unfold的对应梯度。</td>
       <td>shape为inputSizes。</td>
       <td>与gradOut保持一致</td>
-      <td>ND</td>
+      <td>ND（不校验gradIn的数据格式，非ND格式按ND解释）</td>
       <td>1-8</td>
       <td>-</td>
     </tr>
@@ -219,12 +219,15 @@ aclnnStatus aclnnUnfoldGrad(
         <td>step小于等于0。</td>
       </tr>
       <tr>
-        <td rowspan="2">ACLNN_ERR_INNER_NULLPTR</td>
-        <td rowspan="2">561103</td>
+        <td rowspan="3">ACLNN_ERR_INNER_NULLPTR</td>
+        <td rowspan="3">561103</td>
         <td>gradOut的第dim维不等于(inputSizes[dim]-size)/step+1。</td>
       </tr>
       <tr>
         <td>size大于inputSizes的第dim维。</td>
+      </tr>
+      <tr>
+        <td>gradIn与gradOut的数据类型不一致。</td>
       </tr>
     </tbody>
     </table>

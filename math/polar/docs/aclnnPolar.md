@@ -44,9 +44,9 @@
 
   - input(aclTensor*，计算输入)：输入的Tensor，公式中的`abs`，数据类型支持FLOAT，支持[非连续的Tensor](../../../docs/zh/context/non_contiguous_tensor.md)，[数据格式](../../../docs/zh/context/data_format.md)支持ND，维度最大不超过8维。
 
-  - angle(aclTensor*，计算输入)：输入的Tensor，公式中的`angle`，数据类型必须与input相同，支持[非连续的Tensor](../../../docs/zh/context/non_contiguous_tensor.md)，[数据格式](../../../docs/zh/context/data_format.md)支持ND，维度与input保持一致。
+  - angle(aclTensor*，计算输入)：输入的Tensor，公式中的`angle`，数据类型必须与input相同，支持[非连续的Tensor](../../../docs/zh/context/non_contiguous_tensor.md)，[数据格式](../../../docs/zh/context/data_format.md)支持ND，支持broadcast，维度需能与input广播。
 
-  - out(aclTensor*，计算输出)：输出的Tensor，公式中的`out`，数据类型支持COMPLEX64，支持[非连续的Tensor](../../../docs/zh/context/non_contiguous_tensor.md)，[数据格式](../../../docs/zh/context/data_format.md)支持ND，维度与input保持一致。
+  - out(aclTensor*，计算输出)：输出的Tensor，公式中的`out`，数据类型支持COMPLEX64，支持[非连续的Tensor](../../../docs/zh/context/non_contiguous_tensor.md)，[数据格式](../../../docs/zh/context/data_format.md)支持ND，维度为input和angle广播后的形状。
   - workspaceSize(uint64_t*，出参)：返回需要在Device侧申请的workspace大小。
 
   - executor(aclOpExecutor**，出参)：返回op执行器，包含了算子计算流程。
@@ -61,7 +61,7 @@
 返回161002 (ACLNN_ERR_PARAM_INVALID): 1. input和angle的数据类型不在支持的范围之内。
                                       2. input和angle的数据类型不一致。
                                       3. out数据类型不为COMPLEX64。
-                                      4. input、angle、out维度超过8维或不一致。
+                                      4. input、angle、out维度超过8维，或out的数据形状与input、angle广播后的形状不一致。
 ```
 
 ## aclnnPolar

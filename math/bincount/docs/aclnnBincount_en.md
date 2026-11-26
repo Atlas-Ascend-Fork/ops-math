@@ -31,7 +31,7 @@
 
 - Formula:
 
-  If n is the value of self at position i, and weights is specified, then
+  If self_i is the value of self at position i, and weights is specified, then
 
   $$
   out[self_i] = out[self_i] + weights_i

@@ -405,6 +405,8 @@ aclnnStatus aclnnInplaceTril(
 
 ## Constraints
 
+- Empty Tensor: if self has 2 to 8 dimensions and any dimension is 0 (numel==0), the API returns success without modifying out; the content of out is the caller's responsibility (for aclnnInplaceTril, out is selfRef). A 1-D empty tensor (for example, shape [0]) does not meet the lower rank bound and returns 161002.
+- Data format: only ND is supported, and the caller must ensure that both self and out are ND; the current implementation only checks whether the data formats of self and out are consistent, and does not explicitly reject non-ND formats.
 - Deterministic computation:
   - aclnnTril&aclnnInplaceTril default to a deterministic implementation.
 

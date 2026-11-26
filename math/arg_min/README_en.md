@@ -155,8 +155,8 @@ aclnnStatus aclnnArgMin(
       <td>The passed-in self or out is a null pointer.</td>
     </tr>
     <tr>
-      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="4">161002</td>
+      <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="5">161002</td>
       <td>The data types and data formats of self and out are not within the supported range.</td>
     </tr>
     <tr>
@@ -167,6 +167,9 @@ aclnnStatus aclnnArgMin(
     </tr>
     <tr>
       <td>The shape of the passed-in out does not satisfy InferShape.</td>
+    </tr>
+    <tr>
+      <td>The length of the selected reduction axis is 0.</td>
     </tr>
   </tbody>
   </table>
@@ -219,7 +222,7 @@ aclnnStatus aclnnArgMin(
 - Deterministic computation:
   - aclnnArgMin uses a deterministic implementation by default.
 
-- For the input self, the scenario where the reduce axis is 0 is not supported
+- For the input self, the scenario where the length of the reduce axis is 0 (empty axis) is not supported
 
 ## Invocation Description
 

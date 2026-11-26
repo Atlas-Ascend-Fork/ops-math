@@ -21,13 +21,13 @@ English | [简体中文](./README.md)
   - When normalized=false:
 
     $$
-    X[w,m]=\sum_{k=0}^{winLength-1}window[k]*self[m*hopLength+k]*exp(-j*\frac{2{\pi}wk}{nFft})
+    X[w,m]=\sum_{k=0}^{nFft-1}window_{pad}[k]*self[m*hopLength+k]*exp(-j*\frac{2{\pi}wk}{nFft})
     $$
 
   - When normalized=true:
 
     $$
-    X[w,m]=\frac{1}{\sqrt{nFft}}(\sum_{k=0}^{winLength-1}window[k]*self[m*hopLength+k]*exp(-j*\frac{2{\pi}wk}{nFft}))
+    X[w,m]=\frac{1}{\sqrt{nFft}}(\sum_{k=0}^{nFft-1}window_{pad}[k]*self[m*hopLength+k]*exp(-j*\frac{2{\pi}wk}{nFft}))
     $$
 
   Here:
@@ -36,7 +36,9 @@ English | [简体中文](./README.md)
   - $m$ is the index of the sliding window.
   - $self$ is a 1D or 2D Tensor. If $self$ is 1D, it is a time-series sampling sequence. If $self$ is 2D, it is multiple time-series sampling sequences.
   - $hopLength$ is the sliding window size.
-  - $window$ is a 1D Tensor and the window function of the STFT (for example, hann_window), whose length is $winLength$.
+  - $window$ is a 1D Tensor and the window function of the STFT (for example, hann_window), whose length is $winLength$. When $winLength$ is less than $nFft$, $window$ is first center-padded with zeros to the length $nFft$ (denoted as $window_{pad}$): $left=\lfloor(nFft-winLength)/2\rfloor$, and $window_{pad}[k]=window[k-left]$ when $left \le k < left+winLength$, and 0 otherwise.
+  - $k$ is the sample index within the window, ranging from 0 to nFft-1.
+  - $nFft$ is the FFT size (the window length after zero padding).
   - $exp(-j*\frac{2{\pi}wk}{nFft})$ is the twiddle factor.
 
 ## Parameter Description

@@ -29,19 +29,19 @@
   $$
   \begin{aligned}
   out&=grad \cdot y' \\
-  &= grad \cdot \left( \sqrt[p]{\sum (x_1 - x_2)^p} \right)' \\
-  &= grad \cdot \frac{1}{p} \times \left( \sum (x_1 - x_2)^p \right)^{\frac{1}{p}-1} \times p \times (x_1 - x_2)^{p-1} \\
-  &= grad \cdot \left( \sum (x_1 - x_2)^p \right)^{\frac{-(p-1)}{p}} \times (x_1 - x_2)^{p-1} \\
-  &= grad \cdot \left( \sum (x_1 - x_2)^p \right)^{\frac{1}{p} \times (-(p-1))} \times (x_1 - x_2)^{p-1} \\
+  &= grad \cdot \left( \sqrt[p]{\sum (x1 - x2)^p} \right)' \\
+  &= grad \cdot \frac{1}{p} \times \left( \sum (x1 - x2)^p \right)^{\frac{1}{p}-1} \times p \times (x1 - x2)^{p-1} \\
+  &= grad \cdot \left( \sum (x1 - x2)^p \right)^{\frac{-(p-1)}{p}} \times (x1 - x2)^{p-1} \\
+  &= grad \cdot \left( \sum (x1 - x2)^p \right)^{\frac{1}{p} \times (-(p-1))} \times (x1 - x2)^{p-1} \\
   &= grad \cdot \frac{diff^{p-1}}{cdist^{p-1}} \\
   &= grad \cdot \frac{diff \times |diff|^{p-2}}{cdist^{p-1}}
   \end{aligned}
   $$
 
-  - $\mathrm{diff} = x_1 - x_2$：变量差值
-  - $\mathrm{cdist} = \sqrt[p]{\sum (x_1 - x_2)^p}$：$p$ -范数距离
+  - $\mathrm{diff} = x1 - x2$：变量差值
+  - $\mathrm{cdist} = \sqrt[p]{\sum (x1 - x2)^p}$：$p$ -范数距离
 
-  上述闭式仅在 $cdist > 0$ 时适用。对于接口支持的各个 $p$ 模式，当 $cdist = 0$（$x_1$ 与 $x_2$ 在该点对上完全重合）时，该点对 $x_1$ 的梯度贡献按0处理。
+  上述闭式仅在 $cdist > 0$ 时适用。对于接口支持的各个 $p$ 模式，当 $cdist = 0$（x1 与 x2 在该点对上完全重合）时，该点对 x1 的梯度贡献按0处理。
 
 ## 函数原型
 

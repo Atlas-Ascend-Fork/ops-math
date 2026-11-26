@@ -27,6 +27,8 @@
 
 例如：输入Tensor的shape是$(A\times B \times C \times D)$，`dim`值为[0, 2]，则输出Tensor的shape是$(B \times D)$，输出Tensor比输入少两维。
 
+按非零判真：整型非0视为True；浮点NaN、Inf、次正规数及非0值视为True，±0.0视为False。
+
 ## 函数原型
 
 每个算子分为[两段式接口](../../../docs/zh/context/two_phase_api.md)，必须先调用“aclnnAnyGetWorkspaceSize”接口获取入参并根据流程计算所需workspace大小，再调用“aclnnAny”接口执行计算。
@@ -89,7 +91,7 @@ aclnnStatus aclnnAny(
         <td>dim</td>
         <td>输入</td>
         <td>需要压缩的维度。</td>
-        <td>值需要在输入Tensor范围内，支持负数，范围[-self.dim(), self.dim() - 1]。</td>
+        <td>值需要在输入Tensor范围内，支持负数，范围[-self.dim(), self.dim() - 1]。dim数组长度为0时，对所有轴做ReduceAny计算；dim中出现重复值（含负索引归一化后重复）时按去重处理。</td>
         <td>INT64</td>
         <td>-</td>
         <td>-</td>
@@ -166,12 +168,15 @@ aclnnStatus aclnnAny(
         <td>传入的self、out或dim是空指针。</td>
       </tr>
       <tr>
-        <td rowspan="2">ACLNN_ERR_PARAM_INVALID</td>
-        <td rowspan="2">161002</td>
+        <td rowspan="3">ACLNN_ERR_PARAM_INVALID</td>
+        <td rowspan="3">161002</td>
         <td>self、out的数据类型不在支持的范围之内。</td>
       </tr>
       <tr>
         <td>dim指定的维度不在合法范围内。</td>
+      </tr>
+      <tr>
+        <td>self或out的维度大于8。</td>
       </tr>
     </tbody>
     </table>

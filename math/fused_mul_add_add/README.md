@@ -90,7 +90,7 @@
 | --- | --- | --- |
 | 计算图原型 | `op_graph/fused_mul_add_add_proto.h` | `REG_OP(FusedMulAddAdd)`，四输入一输出 |
 | 算子定义 | `op_host/fused_mul_add_add_def.cpp` | `OpDef::AddConfig("ascend950", ...)` |
-| InferShape | `op_host/fused_mul_add_add_infershape.cpp` | 复用`Ops::Base::InferShape4Broadcast(ctx, 4)` |
+| InferShape | `op_host/fused_mul_add_add_infershape.cpp` | 自定义`InferShape4FusedMulAddAdd`：拒绝未知shape/rank，输出shape直接继承x1（`*yShape = *x1Shape`），不做广播 |
 | Tiling | `op_host/arch35/fused_mul_add_add_tiling_arch35.{h,cpp}` | 按dtype分支调用`Ops::Base::BroadcastBaseTiling<OpDag>` |
 | DAG | `op_kernel/arch35/fused_mul_add_add_dag.h` | fp32/fp16通路在fp32中间精度下用`Vec::Mul + Vec::Add + Vec::Add`；int32通路用`Vec::Mul + Vec::Add + Vec::Add` |
 | Struct | `op_kernel/arch35/fused_mul_add_add_struct.h` | `BRC_TEMP_SCH_MODE_KEY_DECL/SEL` |

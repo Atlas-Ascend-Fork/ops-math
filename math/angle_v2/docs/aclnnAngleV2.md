@@ -149,12 +149,18 @@ aclnnStatus aclnnAngleV2(
       <td>传入的tensor是空指针。</td>
     </tr>
     <tr>
-      <td rowspan="3">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="3">161002</td>
+      <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="5">161002</td>
       <td>x的数据类型不在支持的范围之内。</td>
     </tr>
     <tr>
       <td>x的数据维度超过了8维。</td>
+    </tr>
+    <tr>
+      <td>out的数据类型不在支持的范围之内。</td>
+    </tr>
+    <tr>
+      <td>out的数据维度超过了8维。</td>
     </tr>
     <tr>
       <td>x和out的数据形状不一致。</td>

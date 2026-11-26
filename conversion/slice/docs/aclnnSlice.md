@@ -276,7 +276,12 @@ aclnnStatus aclnnSlice(
 
 ## 约束说明
 
-无。
+- self的维度数（rank）范围为1~8，超出范围返回161002。
+- dim取值范围为[-self.dim(), self.dim() - 1]，超出范围返回161002。
+- step必须为正整数，step小于或等于0时返回161002。
+- out的数据类型必须与self一致；out的shape必须与功能说明中公式推导出的shape一致，当start大于或等于end时对应轴长度为0（空切片合法，此时out在该轴的长度必须为0）。
+- start/end允许为负值，负值按对应轴长度归一化（加上dim_size）；归一化后超出[0, dim_size]的取值按边界截断，越界不报错；若end小于start，则该轴为空切片。
+- 当self或out为空Tensor（numel为0）时不执行计算，直接返回成功。
 
 ## 调用示例
 

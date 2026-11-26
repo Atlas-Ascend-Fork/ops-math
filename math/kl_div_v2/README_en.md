@@ -66,7 +66,7 @@ English | [简体中文](./README.md)
     <tr>
       <td>target</td>
       <td>Input</td>
-      <td>Input tensor x in the formula.</td>
+      <td>Input tensor target in the formula.</td>
       <td>FLOAT, FLOAT16, BFLOAT16</td>
       <td>ND</td>
     </tr>

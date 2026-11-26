@@ -116,7 +116,7 @@ aclnnStatus aclnnUnfoldGrad(
       <td class="tg-0lax">inputSizes (aclIntArray*)</td>
       <td class="tg-0lax">Input</td>
       <td class="tg-0lax">Indicates the shape of the output tensor.</td>
-      <td class="tg-0lax">The value is (..., sizedim), and the size of inputSizes must be less than or equal to 8.</td>
+      <td class="tg-0lax">The value is (..., sizedim), and the size of inputSizes must be less than or equal to 7 (the rank of gradOut is 1-8 and must be equal to the size of inputSizes plus 1).</td>
       <td class="tg-0lax">INT64</td>
       <td class="tg-0lax">-</td>
       <td class="tg-0lax">-</td>
@@ -158,7 +158,7 @@ aclnnStatus aclnnUnfoldGrad(
       <td class="tg-0lax">Represents the corresponding gradient of Unfold.</td>
       <td class="tg-0lax">The shape is inputSizes.</td>
       <td class="tg-0lax">Same as gradOut</td>
-      <td class="tg-0lax">ND</td>
+      <td class="tg-0lax">ND (the format of gradIn is not validated; non-ND formats are treated as ND)</td>
       <td class="tg-0lax">1-8</td>
       <td class="tg-0lax">-</td>
     </tr>
@@ -221,12 +221,15 @@ aclnnStatus aclnnUnfoldGrad(
         <td class="tg-0lax">step is less than or equal to 0.</td>
       </tr>
       <tr>
-        <td class="tg-0lax" rowspan="2">ACLNN_ERR_INNER_NULLPTR</td>
-        <td class="tg-0lax" rowspan="2">561103</td>
+        <td class="tg-0lax" rowspan="3">ACLNN_ERR_INNER_NULLPTR</td>
+        <td class="tg-0lax" rowspan="3">561103</td>
         <td class="tg-0lax">The dim-th dimension of gradOut is not equal to (inputSizes[dim]-size)/step+1.</td>
       </tr>
       <tr>
         <td class="tg-0lax">size is greater than the dim-th dimension of inputSizes.</td>
+      </tr>
+      <tr>
+        <td class="tg-0lax">The data type of gradIn is inconsistent with that of gradOut.</td>
       </tr>
     </tbody>
     </table>

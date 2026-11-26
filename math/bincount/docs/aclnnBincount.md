@@ -29,7 +29,7 @@
 
 - 计算公式：
 
-  如果n是self在位置i上的值，如果指定了weights，则
+  如果self_i是self在位置i上的值，如果指定了weights，则
 
   $$
   out[self_i] = out[self_i] + weights_i

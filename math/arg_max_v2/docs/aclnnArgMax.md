@@ -25,6 +25,8 @@
 
 返回张量在指定维度（dim）上的最大值的索引，并保存到out张量中。
 
+当存在多个相同的最大值时，返回第一个出现的索引。
+
 ## 函数原型
 
 每个算子分为[两段式接口](../../../docs/zh/context/two_phase_api.md)，必须先调用“aclnnArgMaxGetWorkspaceSize”接口获取计算所需workspace大小以及包含了算子计算流程的执行器，再调用“aclnnArgMax”接口执行计算。

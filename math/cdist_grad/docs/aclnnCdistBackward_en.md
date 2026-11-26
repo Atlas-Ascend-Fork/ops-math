@@ -31,19 +31,19 @@
   $$
   \begin{aligned}
   out&=grad \cdot y' \\
-  &= grad \cdot \left( \sqrt[p]{\sum (x_1 - x_2)^p} \right)' \\
-  &= grad \cdot \frac{1}{p} \times \left( \sum (x_1 - x_2)^p \right)^{\frac{1}{p}-1} \times p \times (x_1 - x_2)^{p-1} \\
-  &= grad \cdot \left( \sum (x_1 - x_2)^p \right)^{\frac{-(p-1)}{p}} \times (x_1 - x_2)^{p-1} \\
-  &= grad \cdot \left( \sum (x_1 - x_2)^p \right)^{\frac{1}{p} \times (-(p-1))} \times (x_1 - x_2)^{p-1} \\
+  &= grad \cdot \left( \sqrt[p]{\sum (x1 - x2)^p} \right)' \\
+  &= grad \cdot \frac{1}{p} \times \left( \sum (x1 - x2)^p \right)^{\frac{1}{p}-1} \times p \times (x1 - x2)^{p-1} \\
+  &= grad \cdot \left( \sum (x1 - x2)^p \right)^{\frac{-(p-1)}{p}} \times (x1 - x2)^{p-1} \\
+  &= grad \cdot \left( \sum (x1 - x2)^p \right)^{\frac{1}{p} \times (-(p-1))} \times (x1 - x2)^{p-1} \\
   &= grad \cdot \frac{diff^{p-1}}{cdist^{p-1}} \\
   &= grad \cdot \frac{diff \times |diff|^{p-2}}{cdist^{p-1}}
   \end{aligned}
   $$
 
-  - $\mathrm{diff} = x_1 - x_2$ : variable difference
-  - $\mathrm{cdist} = \sqrt[p]{\sum (x_1 - x_2)^p}$ : $p$-norm distance
+  - $\mathrm{diff} = x1 - x2$ : variable difference
+  - $\mathrm{cdist} = \sqrt[p]{\sum (x1 - x2)^p}$ : $p$-norm distance
 
-  The closed-form expression above applies only when $cdist > 0$. For each supported $p$ mode, when $cdist = 0$ ($x_1$ and $x_2$ coincide for that pair), the pair's contribution to the gradient of $x_1$ is defined as 0.
+  The closed-form expression above applies only when $cdist > 0$. For each supported $p$ mode, when $cdist = 0$ (x1 and x2 coincide for that pair), the pair's contribution to the gradient of x1 is defined as 0.
 
 ## Function Prototype
 

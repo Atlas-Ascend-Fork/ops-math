@@ -141,8 +141,8 @@ aclnnStatus aclnnGlobalAveragePool(
       <td>传入的self和out是空指针。</td>
     </tr>
     <tr>
-      <td rowspan="3">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="3">161002</td>
+      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="4">161002</td>
       <td>self和out的数据类型不在支持的范围内或不一致。</td>
     </tr>
     <tr>
@@ -150,6 +150,9 @@ aclnnStatus aclnnGlobalAveragePool(
     </tr>
     <tr>
       <td>self和out的shape的维度不在支持的范围内。<br>1) self和out最大维度不超过8维；<br>2) self和out最小维度为4维；<br>3) self和out维度数相同。</td>
+    </tr>
+    <tr>
+      <td>out的shape与self不匹配（前两维需与self一致，其余维度需为1）。</td>
     </tr>
   </tbody></table>
 

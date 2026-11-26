@@ -104,10 +104,10 @@ aclnnStatus aclnnEqual(
       <td>Output</td>
       <td>Represents the output. The output is a one-dimensional tensor with one element of the BOOL data type.</td>
       <td>-</td>
-      <td>-</td>
-      <td>-</td>
-      <td>-</td>
-      <td>-</td>
+      <td>BOOL</td>
+      <td>ND</td>
+      <td>[1]</td>
+      <td>√</td>
     </tr>
     <tr>
       <td>workspaceSize</td>
@@ -157,12 +157,15 @@ aclnnStatus aclnnEqual(
     <tr>
       <td>ACLNN_ERR_PARAM_NULLPTR</td>
       <td>161001</td>
-      <td>The self or other parameter is a null pointer.</td>
+      <td>The self, other, or out parameter is a null pointer.</td>
     </tr>
     <tr>
-      <td rowspan="3">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="3">161002</td>
+      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="4">161002</td>
       <td>The deduced data type of self or other is not within the supported range.</td>
+    </tr>
+    <tr>
+      <td>The data type of out is not BOOL.</td>
     </tr>
     <tr>
       <td>The dimension of self, other, or out is greater than 8.</td>

@@ -235,6 +235,7 @@ aclnnStatus aclnnClamp(
 
 - Deterministic computation:
   - aclnnClamp defaults to a deterministic implementation.
+- When clipValueMin is greater than clipValueMax, the output equals clipValueMax, as determined by the operation order in min(max(x_i, min_value_i), max_value_i). This is consistent with torch.clamp.
 
 ## Example
 

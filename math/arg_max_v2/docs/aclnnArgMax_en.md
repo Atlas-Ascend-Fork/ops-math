@@ -27,6 +27,8 @@
 
 Returns the index of the maximum value of the tensor along the specified dimension (dim) and stores it in the out tensor.
 
+If there are multiple equal maximum values, the index of the first occurrence is returned.
+
 ## Function Prototype
 
 Each operator is divided into [two-phase API](../../../docs/en/context/two_phase_api.md). You must first call the "aclnnArgMaxGetWorkspaceSize" API to obtain the workspace size required for the computation and the executor that contains the operator computation process, and then call the "aclnnArgMax" API to perform the computation.

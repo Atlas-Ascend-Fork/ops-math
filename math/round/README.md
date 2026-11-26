@@ -38,7 +38,7 @@
       <td>x</td>
       <td>输入</td>
       <td>输入张量</td>
-      <td>BFLOAT16、FLOAT16、 FLOAT32、 DOUBLE、 INT32、 INT64</td>
+      <td>BFLOAT16、FLOAT16、FLOAT32、DOUBLE、INT32、INT64</td>
       <td>ND</td>
     </tr>
     <tr>

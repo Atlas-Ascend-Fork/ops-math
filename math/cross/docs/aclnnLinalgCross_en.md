@@ -168,7 +168,7 @@ aclnnStatus aclnnLinalgCross(
     <tr>
       <td>ACLNN_ERR_PARAM_NULLPTR</td>
       <td>161001</td>
-      <td>The input self or out is a null pointer.</td>
+      <td>The input self, other, or out is a null pointer.</td>
     </tr>
     <tr>
       <td rowspan="6">ACLNN_ERR_PARAM_INVALID</td>

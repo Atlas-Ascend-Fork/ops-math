@@ -102,9 +102,9 @@ aclnnStatus aclnnInplaceAcosh(
         <td>Input</td>
         <td>-</td>
         <td>If the input is a complex tensor, the output must be a complex tensor.</td>
-        <td>FLOAT16, FLOAT, DOUBLE</td>
+        <td>FLOAT16, FLOAT, DOUBLE, INT8, INT16, INT32, INT64, UINT8, BOOL, COMPLEX64, COMPLEX128, BFLOAT16</td>
         <td>ND</td>
-        <td>-</td>
+        <td>0-8</td>
         <td>√</td>
       </tr>
       <tr>
@@ -112,9 +112,9 @@ aclnnStatus aclnnInplaceAcosh(
         <td>Output</td>
         <td>-</td>
         <td>-</td>
-        <td>FLOAT16, FLOAT, DOUBLE</td>
+        <td>FLOAT16, FLOAT, DOUBLE, COMPLEX64, COMPLEX128, BFLOAT16</td>
         <td>ND</td>
-        <td>-</td>
+        <td>0-8, same as self</td>
         <td>√</td>
       </tr>
       <tr>
@@ -139,10 +139,8 @@ aclnnStatus aclnnInplaceAcosh(
       </tr>
     </tbody></table>
 
-  <!-- npu="A3" id7 -->
-  - <term>Atlas A3 products</term>:
-    - The self data type additionally supports INT8, INT16, INT32, INT64, UINT8, BOOL, COMPLEX64, COMPLEX128, and BFLOAT16.
-    - The out data type additionally supports COMPLEX64, COMPLEX128, and BFLOAT16.
+  <!-- npu="910,310p" id7 -->
+  - <term>Atlas training products</term> and <term>Atlas inference products</term>: the self and out data types do not support BFLOAT16.
   <!-- end id7 -->
 
 - **Return value**
@@ -256,9 +254,9 @@ aclnnStatus aclnnInplaceAcosh(
         <td>Input/Output</td>
         <td>-</td>
         <td>-</td>
-        <td>FLOAT16, FLOAT, DOUBLE</td>
+        <td>FLOAT16, FLOAT, DOUBLE, COMPLEX64, COMPLEX128, BFLOAT16</td>
         <td>ND</td>
-        <td>-</td>
+        <td>0-8</td>
         <td>√</td>
       </tr>
       <tr>
@@ -283,9 +281,8 @@ aclnnStatus aclnnInplaceAcosh(
       </tr>
     </tbody></table>
 
-  <!-- npu="A3" id8 -->
-  - <term>Atlas A3 products</term>: selfRef additionally supports the COMPLEX64, COMPLEX128, and BFLOAT16 data types.
-
+  <!-- npu="910,310p" id8 -->
+  - <term>Atlas training products</term> and <term>Atlas inference products</term>: selfRef does not support the BFLOAT16 data type.
   <!-- end id8 -->
 
 - **Return value**

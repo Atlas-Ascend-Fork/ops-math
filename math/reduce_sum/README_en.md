@@ -28,8 +28,8 @@ Operator function: returns the sum of each row of the input tensor over the give
   - keepDims (bool, compute input): BOOL value on the host. It specifies whether to retain the dimensions of the input tensor in the output tensor.
 
   - dtype (aclDataType, compute input): aclDataType on the device. It specifies the data type of the output tensor.
-    - <term>Atlas inference products</term> and <term>Atlas training products</term>: The data types support FLOAT16, FLOAT32, INT8,  INT16,  INT32,  INT64, UINT8, BOOL, DOUBLE, COMPLEX64, and COMPLEX128.
-    - <term>Atlas A2 products</term>, <term>Atlas A3 products</term>, and <term>Ascend 950PR&950DT products</term>: The data types support FLOAT16, FLOAT32, INT8,  INT16,  INT32,  INT64, UINT8, BOOL, DOUBLE, COMPLEX64, COMPLEX128, and BFLOAT16.
+    - <term>Atlas inference products</term> and <term>Atlas training products</term>: The data types support FLOAT16, FLOAT32, INT8, INT16, INT32, INT64, UINT8, BOOL, DOUBLE, COMPLEX64, and COMPLEX128.
+    - <term>Atlas A2 products</term>, <term>Atlas A3 products</term>, and <term>Ascend 950PR&950DT products</term>: The data types support FLOAT16, FLOAT32, INT8, INT16, INT32, INT64, UINT8, BOOL, DOUBLE, COMPLEX64, COMPLEX128, and BFLOAT16.
 
   - out (aclTensor*, compute output): aclTensor on the device. [Non-contiguous tensors](../../docs/en/context/non_contiguous_tensor.md) are supported. The supported [data format](../../docs/en/context/data_format.md) is ND.
     - <term>Atlas inference products</term> and <term>Atlas training products</term>: The data types support FLOAT16, FLOAT32, INT8, INT16, INT32, INT64, UINT8, BOOL, DOUBLE, COMPLEX64, and COMPLEX128.

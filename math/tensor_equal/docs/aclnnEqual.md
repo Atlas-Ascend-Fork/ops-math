@@ -155,12 +155,15 @@ aclnnStatus aclnnEqual(
     <tr>
       <td>ACLNN_ERR_PARAM_NULLPTR</td>
       <td>161001</td>
-      <td>传入的self、other是空指针时。</td>
+      <td>传入的self、other、out是空指针时。</td>
     </tr>
     <tr>
-      <td rowspan="3">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="3">161002</td>
+      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="4">161002</td>
       <td>self和other推导后的数据类型不在支持的范围之内。</td>
+    </tr>
+    <tr>
+      <td>out的数据类型不是BOOL。</td>
     </tr>
     <tr>
       <td>self、other、out的维度大于8。</td>

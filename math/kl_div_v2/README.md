@@ -64,7 +64,7 @@
     <tr>
       <td>target</td>
       <td>输入</td>
-      <td>公式中的输入张量x。</td>
+      <td>公式中的输入张量target。</td>
       <td>FLOAT、FLOAT16、BFLOAT16</td>
       <td>ND</td>
     </tr>

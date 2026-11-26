@@ -278,7 +278,12 @@ aclnnStatus aclnnSlice(
 
 ## Constraints
 
-None.
+- The rank of self must be in the range [1, 8]; otherwise 161002 is returned.
+- dim must be in the range [-self.dim(), self.dim() - 1]; otherwise 161002 is returned.
+- step must be a positive integer; if step is less than or equal to 0, 161002 is returned.
+- The data type of out must be the same as that of self. The shape of out must equal the shape derived by the formula in the Function section; when start is greater than or equal to end, the length of the corresponding axis is 0 (an empty slice is valid, and out must have length 0 on that axis).
+- start and end may be negative; a negative value is normalized by adding the corresponding axis length (dim_size). After normalization, values outside [0, dim_size] are clamped to the boundary without reporting an error; if end is less than start, the axis is an empty slice.
+- If self or out is an empty tensor (numel is 0), no computation is performed and the API returns success.
 
 ## Example
 

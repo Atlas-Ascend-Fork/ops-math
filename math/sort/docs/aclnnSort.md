@@ -129,7 +129,7 @@ aclnnStatus aclnnSort(
       <td>valuesOut</td>
       <td>输出</td>
       <td>表示Tensor在指定维度上排序的结果。</td>
-      <td>-</td>
+      <td>当self为INT32且valuesOut为INT8时，仅保证输入元素在(-2048, 1920)范围内的Cast精度；越界元素的转换结果由Cast算子定义（参见<a href="../../../math/cast/docs/aclnnCast.md" target="_blank">aclnnCast</a>）。</td>
       <td>BFLOAT16、FLOAT16、FLOAT32、DOUBLE、INT8、INT16、INT32、INT64、UINT8、BOOL、UINT16、UINT32、UINT64</td>
       <td>ND</td>
       <td>与self一致</td>

@@ -29,13 +29,13 @@
   - 当normalized=False时：
 
     $$
-    X[w,m]=\sum_{k=0}^{winLength-1}window[k]*self[m*hopLength+k]*exp(-j*\frac{2{\pi}wk}{nFft})
+    X[w,m]=\sum_{k=0}^{nFft-1}window_{pad}[k]*self[m*hopLength+k]*exp(-j*\frac{2{\pi}wk}{nFft})
     $$
 
   - 当normalized=True时：
 
     $$
-    X[w,m]=\frac{1}{\sqrt{nFft}}(\sum_{k=0}^{winLength-1}window[k]*self[m*hopLength+k]*exp(-j*\frac{2{\pi}wk}{nFft}))
+    X[w,m]=\frac{1}{\sqrt{nFft}}(\sum_{k=0}^{nFft-1}window_{pad}[k]*self[m*hopLength+k]*exp(-j*\frac{2{\pi}wk}{nFft}))
     $$
 
   其中：
@@ -44,7 +44,9 @@
   - $m$为滑动窗口的index。
   - $self$为1维或2维Tensor，当$self$是1维时，其为一个时序采样序列，当$self$是2维时，其为多个时序采样序列。
   - $hopLength$为滑动窗口的间隔。
-  - $window$为1维Tensor，是STFT的窗函数（例如hann_window），其长度为$winLength$。
+  - $window$为1维Tensor，是STFT的窗函数（例如hann_window），其长度为$winLength$；当$winLength$小于$nFft$时，$window$先居中补零至长度$nFft$（记为$window_{pad}$）：$left=\lfloor(nFft-winLength)/2\rfloor$，当$left \le k < left+winLength$时$window_{pad}[k]=window[k-left]$，其余位置为0。
+  - $k$为窗内采样下标，取值范围为$0 \le k < nFft$。
+  - $nFft$为FFT点数（窗补零后的长度）。
   - $exp(-j*\frac{2{\pi}wk}{nFft})$为旋转因子。
 
 ## 函数原型

@@ -127,7 +127,7 @@ aclnnStatus aclnnExpSegsumBackward(
     </tr>
     <tr>
       <td>gradInput</td>
-      <td>输入</td>
+      <td>输出</td>
       <td>表示反向计算的输出。对应公式中的`gradInput`。</td>
       <td><ul><li>支持空Tensor。</li><li>数据类型与输入`gradOutput`保持一致。</li><li>输出维度必须比输入维度少一维，支持3D或4D。当输入`gradOutput`为4D时，输出的维度大小与`gradOutput`的前3维保持一致。当输入`gradOutput`为5D时，输出的维度大小与`gradOutput`的前4维保持一致。</li></ul></td>
       <td>FLOAT32、FLOAT16、BFLOAT16</td>

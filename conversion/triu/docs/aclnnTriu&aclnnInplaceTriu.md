@@ -27,7 +27,7 @@
 - 计算公式：下面用i表示遍历倒数第二维元素的序号（i是行索引），用j表示遍历最后一维元素的序号（j是列索引），用d表示diagonal，在(i, j)对应的二维坐标图中，i+d==j表示在对角线上。
 
   $$
-  对角线及其右上方，即i+d<=j，保留原值： out_{i, j} = self_{i, j}\\
+  对角线及其右上方，即i+d<=j，保留原值：out_{i, j} = self_{i, j}\\
   而位于对角线左下方的情况，即i+d>j，置零（不含对角线）：out_{i, j} = 0
   $$
 
@@ -111,7 +111,7 @@ aclnnStatus aclnnInplaceTriu(
       <td>输入</td>
       <td>公式中的self。</td>
       <td> - </td>
-      <td>UINT64、INT64、UINT32、INT32、UINT16、INT16、UINT8、 INT8、FLOAT16、FLOAT32、DOUBLE、BOOL、BFLOAT16、COMPLEX32、COMPLEX64</td>
+      <td>UINT64、INT64、UINT32、INT32、UINT16、INT16、UINT8、INT8、FLOAT16、FLOAT32、DOUBLE、BOOL、BFLOAT16、COMPLEX32、COMPLEX64</td>
       <td>ND、NCHW、NHWC、HWCN、NDHWC、NCDHW</td>
       <td>2-8维</td>
       <td>√</td>
@@ -131,7 +131,7 @@ aclnnStatus aclnnInplaceTriu(
       <td>输出</td>
       <td>表示输出张量。</td>
       <td>-</td>
-      <td>UINT64、INT64、UINT32、INT32、UINT16、INT16、UINT8、 INT8、FLOAT16、FLOAT32、DOUBLE、BOOL、BFLOAT16、COMPLEX32、COMPLEX64</td>
+      <td>UINT64、INT64、UINT32、INT32、UINT16、INT16、UINT8、INT8、FLOAT16、FLOAT32、DOUBLE、BOOL、BFLOAT16、COMPLEX32、COMPLEX64</td>
       <td>ND、NCHW、NHWC、HWCN、NDHWC、NCDHW</td>
       <td>2-8维和0维</td>
       <td>√</td>
@@ -284,7 +284,7 @@ aclnnStatus aclnnInplaceTriu(
       <td>输入</td>
       <td>表示输入张量。</td>
       <td>-</td>
-      <td>UINT64、INT64、UINT32、INT32、UINT16、INT16、UINT8、 INT8、FLOAT16、FLOAT32、DOUBLE、BOOL、BFLOAT16、COMPLEX32、COMPLEX64</td>
+      <td>UINT64、INT64、UINT32、INT32、UINT16、INT16、UINT8、INT8、FLOAT16、FLOAT32、DOUBLE、BOOL、BFLOAT16、COMPLEX32、COMPLEX64</td>
       <td>ND、NCHW、NHWC、HWCN、NDHWC、NCDHW</td>
       <td>2-8维和0维</td>
       <td>√</td>
@@ -411,6 +411,7 @@ aclnnStatus aclnnInplaceTriu(
 
 - 确定性计算：
   - aclnnTriu&aclnnInplaceTriu默认确定性实现。
+- 空Tensor（numel为0）不校验维度下限（仍校验维度上限8与shape一致）：因此1维空Tensor（如shape为[0]）合法，aclnnTriu与aclnnInplaceTriu均正常返回；非空Tensor的维度必须为2~8。
 
 ## 调用示例
 

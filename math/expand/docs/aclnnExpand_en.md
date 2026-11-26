@@ -100,7 +100,7 @@ aclnnStatus aclnnExpand(
         <td>size</td>
         <td>Input</td>
         <td>Size specified for broadcasting.</td>
-        <td>-</td>
+        <td>Each element must be a non-negative integer. The torch-style -1 placeholder is not supported (passing -1 returns 161002). The length of size must not be less than the rank of self. After size is right-aligned with self, each dimension of self must equal the corresponding value in size or be 1.</td>
         <td>INT</td>
         <td>-</td>
         <td>-</td>
@@ -229,9 +229,7 @@ aclnnStatus aclnnExpand(
 
 - Deterministic computation: aclnnExpand defaults to a deterministic implementation.
 
-## Constraints
-
-None.
+- Value range of size: each element must be a non-negative integer. The torch-style -1 placeholder is not supported (passing -1 returns 161002). The length of size must not be less than the rank of self, and extra leading dimensions become dimensions of the broadcast result. After size is right-aligned with self, each dimension of self must equal the corresponding value in size or be 1.
 
 ## Example
 

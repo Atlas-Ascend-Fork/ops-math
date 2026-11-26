@@ -52,7 +52,7 @@ English | [简体中文](./README.md)
   <tr>
     <td>padding</td>
     <td>Input</td>
-    <td>The length of padding is 6, indicating the values to be padded on the left, right, top, bottom, front, and back of the 3D tensor. The first two values must be less than the size of the last dimension of self; the third and fourth values must be less than the size of the second-to-last dimension of self; the fifth and sixth values must be less than the size of the third-to-last dimension of self.</td>
+    <td>The length of padding is 6, indicating the values to be padded on the left/right, top/bottom, and front/back of the 3D tensor (left/right correspond to the last dimension, top/bottom to the second-to-last dimension, and front/back to the third-to-last dimension). When the data type is FLOAT16, FLOAT32, or BFLOAT16, each element of padding must be greater than or equal to 0.</td>
     <td>INT64</td>
     <td>-</td>
   </tr>

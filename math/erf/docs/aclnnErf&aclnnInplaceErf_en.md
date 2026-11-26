@@ -101,7 +101,7 @@ aclnnStatus aclnnInplaceErf(
     <tr>
       <td>self (aclTensor*)</td>
       <td>Input</td>
-      <td>-</td>
+      <td>Input tensor.</td>
       <td>shape must be the same as out.</td>
       <td>DOUBLE, FLOAT32, FLOAT16, BOOL, INT64</td>
       <td>ND</td>
@@ -111,7 +111,7 @@ aclnnStatus aclnnInplaceErf(
     <tr>
       <td>out (aclTensor*)</td>
       <td>Output</td>
-      <td>-</td>
+      <td>Output tensor.</td>
       <td>The shape must be the same as that of self.</td>
       <td>DOUBLE, FLOAT32, FLOAT16</td>
       <td>ND</td>

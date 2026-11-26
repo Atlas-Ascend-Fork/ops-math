@@ -91,4 +91,4 @@ None
 
 | Invocation Method | Invocation Sample                                                                   | Description                                                           |
 |--------------|------------------------------------------------------------------------|--------------------------------------------------------------|
-| aclnn invocation | [test_aclnn_var](./examples/test_aclnn_var.cpp) | Invokes the ReduceVar operator through the [aclnnVar](../reduce_std_v2/docs/aclnnStd_en.md) API. |
+| aclnn invocation | [test_aclnn_var](./examples/test_aclnn_var.cpp) | Invokes the ReduceVar operator through the [aclnnVar](./docs/aclnnVar_en.md) API. |

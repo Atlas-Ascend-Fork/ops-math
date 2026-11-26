@@ -236,6 +236,7 @@ aclnnStatus aclnnClamp(
 
 - 确定性计算：
   - aclnnClamp默认确定性实现。
+- 当clipValueMin大于clipValueMax时，输出结果等于clipValueMax（由公式 min(max(x_i, min_value_i), max_value_i) 的运算顺序决定，与PyTorch torch.clamp 行为一致）。
 
 ## 调用示例
 

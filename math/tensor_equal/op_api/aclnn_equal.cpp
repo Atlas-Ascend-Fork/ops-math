@@ -125,7 +125,7 @@ static bool CheckOutShape(const aclTensor* out)
 
 static aclnnStatus CheckParams(const aclTensor* self, const aclTensor* other, const aclTensor* out)
 {
-    // 1. 检查两个入参参数是否为空指针；out为空指针时不报错，结果输出None(python中的空指针)
+    // 1. 检查入参self、other及出参out是否为空指针
     CHECK_RET(CheckNotNull(self, other, out), ACLNN_ERR_PARAM_NULLPTR);
 
     // 2. 检查输入的数据类型是否在API支持的数据类型范围之内，需要根据api定义校验

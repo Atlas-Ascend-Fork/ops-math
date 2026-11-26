@@ -143,8 +143,8 @@ aclnnStatus aclnnGlobalAveragePool(
       <td>self or out is a null pointer.</td>
     </tr>
     <tr>
-      <td rowspan="3">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="3">161002</td>
+      <td rowspan="4">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="4">161002</td>
       <td>The data types of self and out are not in the supported range or are inconsistent.</td>
     </tr>
     <tr>
@@ -152,6 +152,9 @@ aclnnStatus aclnnGlobalAveragePool(
     </tr>
     <tr>
       <td>The dimensions of the shapes of self and out are not in the supported range.<br>1) self and out have at most 8 dimensions;<br>2) self and out have at least 4 dimensions;<br>3) self and out have the same number of dimensions.</td>
+    </tr>
+    <tr>
+      <td>The shape of out does not match that of self (the first two dimensions must be the same as those of self, and the remaining dimensions must be 1).</td>
     </tr>
   </tbody></table>
 

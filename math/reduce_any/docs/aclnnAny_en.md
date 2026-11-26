@@ -29,6 +29,8 @@ For each dimension in the given `dim`, if any element corresponding to that dime
 
 For example: if the input tensor has a shape of $(A\times B \times C \times D)$ and `dim` is [0, 2], the output tensor has a shape of $(B \times D)$, with two fewer dimensions than the input.
 
+Truthiness is evaluated as non-zero: non-zero integers are True; for floating-point values, NaN, Inf, subnormal and other non-zero values are True, while +0.0 and -0.0 are False.
+
 ## Function Prototype
 
 Each operator uses a [two-phase API](../../../docs/en/context/two_phase_api.md). You must call the "aclnnAnyGetWorkspaceSize" API first to obtain the input parameters and calculate the required workspace size based on the process, and then call the "aclnnAny" API to perform the computation.
@@ -91,7 +93,7 @@ aclnnStatus aclnnAny(
         <td>dim</td>
         <td>Input</td>
         <td>Dimension to reduce.</td>
-        <td>The value must be within the range of the input tensor dimensions. Negative values are supported. Range: [-self.dim(), self.dim() - 1].</td>
+        <td>The value must be within the range of the input tensor dimensions. Negative values are supported. Range: [-self.dim(), self.dim() - 1]. If the length of dim is 0, reduce over all axes. Duplicate values in dim (including duplicates after negative-index normalization) are deduplicated.</td>
         <td>INT64</td>
         <td>-</td>
         <td>-</td>
@@ -168,12 +170,15 @@ aclnnStatus aclnnAny(
         <td>self, out, or dim is a null pointer.</td>
       </tr>
       <tr>
-        <td rowspan="2">ACLNN_ERR_PARAM_INVALID</td>
-        <td rowspan="2">161002</td>
+        <td rowspan="3">ACLNN_ERR_PARAM_INVALID</td>
+        <td rowspan="3">161002</td>
         <td>The data type of self or out is not in the supported range.</td>
       </tr>
       <tr>
         <td>The dimension specified by dim is out of the valid range.</td>
+      </tr>
+      <tr>
+        <td>The number of dimensions of self or out is greater than 8.</td>
       </tr>
     </tbody>
     </table>

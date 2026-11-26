@@ -17,7 +17,7 @@
 - 计算公式：下面用i表示遍历倒数第二维元素的序号（i是行索引），用j表示遍历最后一维元素的序号（j是列索引），用d表示diagonal，在(i, j)对应的二维坐标图中，i+d==j表示在对角线上。
 
   $$
-  对角线及其右上方，即i+d<=j，保留原值： out_{i, j} = self_{i, j}\\
+  对角线及其右上方，即i+d<=j，保留原值：out_{i, j} = self_{i, j}\\
   而位于对角线左下方的情况，即i+d>j，置零（不含对角线）：out_{i, j} = 0
   $$
 
@@ -72,9 +72,9 @@
     </tr>
   </tbody></table>
 
-  - <term>Atlas推理系列产品</term>、<term>Atlas训练系列产品</term>：数据类型支持UINT64、INT64、UINT32、 INT32、UINT16、INT16、UINT8、 INT8、FLOAT16、FLOAT32、DOUBLE、BOOL。
-  - <term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>：数据类型支持UINT64、INT64、UINT32、 INT32、UINT16、INT16、UINT8、 INT8、FLOAT16、FLOAT32、DOUBLE、BOOL、BFLOAT16。
-  - <term>Ascend 950PR&950DT系列产品</term>：数据类型支持UINT64、INT64、UINT32、 INT32、UINT16、INT16、UINT8、 INT8、FLOAT16、FLOAT32、DOUBLE、BOOL、BFLOAT16、COMPLEX32、COMPLEX64。
+  - <term>Atlas推理系列产品</term>、<term>Atlas训练系列产品</term>：数据类型支持UINT64、INT64、UINT32、INT32、UINT16、INT16、UINT8、INT8、FLOAT16、FLOAT32、DOUBLE、BOOL。
+  - <term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>：数据类型支持UINT64、INT64、UINT32、INT32、UINT16、INT16、UINT8、INT8、FLOAT16、FLOAT32、DOUBLE、BOOL、BFLOAT16。
+  - <term>Ascend 950PR&950DT系列产品</term>：数据类型支持UINT64、INT64、UINT32、INT32、UINT16、INT16、UINT8、INT8、FLOAT16、FLOAT32、DOUBLE、BOOL、BFLOAT16、COMPLEX32、COMPLEX64。
 
 ## 约束说明
 
