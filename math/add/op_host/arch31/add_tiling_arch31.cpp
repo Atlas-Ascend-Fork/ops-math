@@ -16,8 +16,8 @@
 #include "op_host/math_tiling_templates_registry.h"
 #include "log/log.h"
 #include "atvoss/broadcast/broadcast_tiling.h"
-#include "math/add/op_kernel/arch31/add_dag.h"
-#include "math/add/op_kernel/arch31/add_struct.h"
+#include "math/add/op_kernel/arch31/add_dag_arch31.h"
+#include "math/add/op_kernel/arch31/add_struct_arch31.h"
 #include "add_tiling_arch31.h"
 
 namespace optiling {

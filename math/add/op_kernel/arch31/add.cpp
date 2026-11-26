@@ -14,8 +14,8 @@
  */
 
 #include "kernel_operator.h"
-#include "add_dag.h"
-#include "add_struct.h"
+#include "add_dag_arch31.h"
+#include "add_struct_arch31.h"
 #include "atvoss/broadcast/broadcast_sch.h"
 
 using namespace Ops::Base;

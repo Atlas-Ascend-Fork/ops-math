@@ -21,7 +21,7 @@
 #include "atvoss/broadcast/broadcast_tiling.h"
 #include "log/log.h"
 #include "math/mul/op_kernel/arch31/mul_dag_arch31.h"
-#include "math/mul/op_kernel/arch31/mul_struct.h"
+#include "math/mul/op_kernel/arch31/mul_struct_arch31.h"
 
 namespace optiling {
 using namespace AscendC;

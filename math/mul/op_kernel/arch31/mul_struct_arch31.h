@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file mul_struct.h
+ * \file mul_struct_arch31.h
  * \brief mul struct
  */
 #ifndef MUL_ARCH31_STRUCT_H_

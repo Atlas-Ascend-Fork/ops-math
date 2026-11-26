@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file add_struct.h
+ * \file add_struct_arch31.h
  * \brief add struct
  */
 #ifndef ADD_STRUCT_H_

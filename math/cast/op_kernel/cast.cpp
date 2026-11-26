@@ -14,7 +14,7 @@
 #include "kernel_operator.h"
 #include "kernel_tiling/kernel_tiling.h"
 #include "arch31/cast_struct_arch31.h"
-#include "arch31/cast_impl.h"
+#include "arch31/cast_impl_arch31.h"
 
 namespace AscendcCast {
 #if 0 // KirinX90不使用MicroAPI的LoadDist/StoreDist，DIRECT_CAST和TWO_CAST不需要这些

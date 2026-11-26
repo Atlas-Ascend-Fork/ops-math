@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file add_dag.h
+ * \file add_dag_arch31.h
  * \brief add dag
  */
 
