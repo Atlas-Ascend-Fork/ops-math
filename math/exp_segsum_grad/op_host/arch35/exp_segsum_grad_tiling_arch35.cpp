@@ -13,6 +13,8 @@
  * \brief arch35 / Ascend950 tiling implementation for ExpSegsumGrad.
  */
 #include <algorithm>
+#include <limits>
+#include <numeric>
 #include "exp_segsum_grad_tiling_arch35.h"
 #include "log/log.h"
 #include "tiling/tiling_api.h"
@@ -28,10 +30,18 @@ constexpr int32_t BLOCK = 32;
 constexpr int32_t TAILNUM = 2;
 constexpr uint32_t COMMON_TILING_KEY = 0;
 constexpr uint32_t SMALL_SIZE_TILING_KEY = 1;
+constexpr uint32_t SHORT_BATCH_TILING_KEY = 2;
+// Workload threshold only; output alignment and tile capacity are computed independently.
+constexpr int64_t SHORT_BATCH_MIN_PER_CORE = 64;
+constexpr int64_t SHORT_BATCH_MAX_LENGTH = 16;
 constexpr uint32_t TENSOR_NUM = 6;
 constexpr uint32_t INPUT_OUTPUT_TENSOR_NUM = 3;
 constexpr uint32_t FP32_TENSOR_NUM = 3;
 constexpr uint8_t SCHEDULE_MODE = 1; // batchmode模式，核间同步算子需要设置该模式
+int64_t GetShortBatchAlignment(int64_t length, int64_t dtypeSize)
+{
+    return BLOCK / std::gcd<int64_t>(BLOCK, length * dtypeSize);
+}
 } // namespace
 
 uint8_t ExpSegsumGradTilingArch35::GetDataTypeSize() const
@@ -111,9 +121,45 @@ void ExpSegsumGradTilingArch35::GetTilingKey(uint64_t ubSizePlatform)
     slideSize = maxSlideSize;
 }
 
-void ExpSegsumGradTilingArch35::GetNeedCoreNum(uint32_t coreNumPlatform)
+int64_t ExpSegsumGradTilingArch35::GetShortBatchTileSize(uint64_t ubSizePlatform, uint32_t coreNumPlatform) const
 {
-    int64_t averageBatches = CeilA2B(batches, coreNumPlatform);
+    if (tailDimLength <= 0 || tailDimLength > SHORT_BATCH_MAX_LENGTH ||
+        batches < coreNumPlatform * SHORT_BATCH_MIN_PER_CORE || batches > std::numeric_limits<int32_t>::max()) {
+        return 0;
+    }
+
+    const int64_t dtypeSize = GetDataTypeSize();
+    const int64_t batchAlign = GetShortBatchAlignment(tailDimLength, dtypeSize);
+    const int64_t batchesPerCore = CeilA2B(CeilA2B(batches, coreNumPlatform), batchAlign) * batchAlign;
+    const int64_t ubBytes = static_cast<int64_t>(ubSizePlatform);
+    if (tailDimLength == 1) {
+        // The lower triangle is empty, so this path allocates only an output buffer.
+        return std::min(ubBytes / dtypeSize, batchesPerCore) / batchAlign * batchAlign;
+    }
+    const int64_t elementsPerBlock = BLOCK / dtypeSize;
+    const int64_t alignedLength = CeilA2B(tailDimLength, elementsPerBlock) * elementsPerBlock;
+    const int64_t inputBytes = 2 * tailDimLength * tailDimLength * dtypeSize;
+    const int64_t prefixBytes = tailDimLength * alignedLength * BYTE_LEN_4;
+    const int64_t outBytes = tailDimLength * (BYTE_LEN_4 + (dtypeSize == BYTE_LEN_4 ? 0 : dtypeSize));
+    const int64_t bytesPerBatch = inputBytes + prefixBytes + outBytes;
+    const int64_t capacity = std::min(ubBytes / bytesPerBatch, batchesPerCore);
+    for (int64_t tileBatches = capacity / batchAlign * batchAlign; tileBatches > 0; tileBatches -= batchAlign) {
+        const auto shape = ge::Shape({tileBatches * tailDimLength, alignedLength});
+        uint32_t maxTmpSize = 0;
+        uint32_t minTmpSize = 0;
+        AscendC::GetReduceSumMaxMinTmpSize(shape, ge::DataType::DT_FLOAT, AscendC::ReducePattern::AR, true, false,
+                                           maxTmpSize, minTmpSize);
+        const int64_t alignedTmpSize = CeilA2B(static_cast<int64_t>(minTmpSize), BLOCK) * BLOCK;
+        if (tileBatches * bytesPerBatch + alignedTmpSize <= ubBytes) {
+            return tileBatches;
+        }
+    }
+    return 0;
+}
+
+void ExpSegsumGradTilingArch35::GetNeedCoreNum(uint32_t coreNumPlatform, int64_t batchAlign)
+{
+    const int64_t averageBatches = CeilA2B(CeilA2B(batches, coreNumPlatform), batchAlign) * batchAlign;
     needCoreNum = CeilA2B(batches, averageBatches);
     for (int64_t coreIndex = 0; coreIndex < needCoreNum; coreIndex++) {
         batchStart[coreIndex] = coreIndex * averageBatches;
@@ -176,8 +222,15 @@ ge::graphStatus ExpSegsumGradTilingArch35::RunTiling()
         tilingKey = SMALL_SIZE_TILING_KEY;
         slideSize = 0;
     } else {
-        GetNeedCoreNum(coreNumPlatform);
-        GetTilingKey(ubSizePlatform);
+        slideSize = GetShortBatchTileSize(ubSizePlatform, coreNumPlatform);
+        if (slideSize > 0) {
+            tilingKey = SHORT_BATCH_TILING_KEY;
+            // Keep neighboring cores' output writes in different 32-byte blocks.
+            GetNeedCoreNum(coreNumPlatform, GetShortBatchAlignment(tailDimLength, GetDataTypeSize()));
+        } else {
+            GetNeedCoreNum(coreNumPlatform, 1);
+            GetTilingKey(ubSizePlatform);
+        }
     }
 
     auto tiling = tilingContext->GetTilingData<ExpSegsumGradTilingDataArch35>();

@@ -103,29 +103,30 @@ def _numpy_dtype(dtype):
 
 def _compute(grad_output_t, grad_self_t):
     out_dtype = grad_output_t.dtype
-    if out_dtype in (torch.float16, torch.bfloat16):
-        grad_output_t = grad_output_t.to(torch.float32)
-        grad_self_t = grad_self_t.to(torch.float32)
+    compute_dtype = (
+        torch.float64 if grad_output_t.device.type == "cpu" else torch.float32
+    )
+    grad_output_t = grad_output_t.to(compute_dtype)
+    grad_self_t = grad_self_t.to(compute_dtype)
     t_dim = grad_output_t.shape[-1]
 
     tril_mask = torch.tril(
         torch.ones(t_dim, t_dim, dtype=torch.bool, device=grad_output_t.device),
         diagonal=0,
     )
-    zero = torch.zeros((), dtype=torch.float32, device=grad_output_t.device)
+    zero = torch.zeros((), dtype=compute_dtype, device=grad_output_t.device)
     y = torch.where(tril_mask, grad_output_t * grad_self_t, zero)
     y = torch.flip(y, dims=[-2])
-    y = torch.cumsum(y, dim=-2, dtype=torch.float32)
+    y = torch.cumsum(y, dim=-2, dtype=compute_dtype)
     y = torch.flip(y, dims=[-2])
     strict_tril = torch.tril(
         torch.ones(t_dim, t_dim, dtype=torch.bool, device=grad_output_t.device),
         diagonal=-1,
     )
     y = torch.where(strict_tril, y, zero)
-    grad_input = torch.sum(y, dim=-1, dtype=torch.float32)
-    if out_dtype in (torch.float16, torch.bfloat16):
-        grad_input = grad_input.to(out_dtype)
-    return [grad_input]
+    grad_input = torch.sum(y, dim=-1, dtype=compute_dtype)
+    # Keep the dtype supplied by TTK, including float64 inputs in Promote mode.
+    return [grad_input.to(out_dtype)]
 
 
 def exp_segsum_grad_golden(grad_output, grad_self, **kwargs):
@@ -161,6 +162,20 @@ class _ExpSegsumGradCompose:
             grad_output = gradOutput if gradOutput is not None else tensors[0]
         if grad_self is None:
             grad_self = gradSelf if gradSelf is not None else tensors[1]
+        # Leading batches are independent. Bound temporary FP32 storage on large inputs.
+        if grad_output.device.type == "cuda" and grad_output.numel() > 134217728:
+            n = grad_output.shape[-1]
+            batch = grad_output.numel() // (n * n)
+            rows = max(1, (1024**3) // (8 * 4 * n * n))
+            a = grad_output.reshape(batch, n, n)
+            b = grad_self.reshape(batch, n, n)
+            result = torch.empty(
+                (batch, n), dtype=grad_output.dtype, device=grad_output.device
+            )
+            for start in range(0, batch, rows):
+                stop = min(start + rows, batch)
+                result[start:stop] = _compute(a[start:stop], b[start:stop])[0]
+            return [result.reshape(grad_output.shape[:-1])]
         return _compute(grad_output, grad_self)
 
 

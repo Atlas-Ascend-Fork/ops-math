@@ -35,6 +35,7 @@ using optiling::ExpSegsumGradCompileInfoArch35;
 
 namespace {
 constexpr uint64_t EXP_SEGSUM_GRAD_ARCH35_TILING_KEY_SMALL = 1;
+constexpr uint64_t EXP_SEGSUM_GRAD_ARCH35_TILING_KEY_SHORT = 2;
 constexpr size_t EXP_SEGSUM_GRAD_A2_WORKSPACE_SIZE = 32 * 1024 * 1024;
 constexpr size_t EXP_SEGSUM_GRAD_ARCH35_SYS_WORKSPACE_SIZE = 16 * 1024 * 1024;
 constexpr int64_t EXP_SEGSUM_GRAD_ARCH35_FP32_SLIDE_SIZE = 10912;
@@ -175,4 +176,104 @@ TEST_F(ExpSegsumGradTilingArch35Test, empty_batch_keeps_valid_block_dim)
     EXPECT_EQ(tiling->tailDimLength, 12);
     EXPECT_EQ(tiling->slideSize, 0);
     ExpectBatchBounds(*tiling, 0, 1);
+}
+
+namespace {
+void ExpectAlignedBatchBounds(const ExpSegsumGradTilingDataArch35& tiling, int64_t batches, int64_t length,
+                              int64_t dtypeSize, int64_t expectedCores)
+{
+    ASSERT_EQ(tiling.needCoreNum, expectedCores);
+    int64_t next = 0;
+    for (int64_t core = 0; core < tiling.needCoreNum; ++core) {
+        EXPECT_EQ(tiling.batchStart[core], next);
+        EXPECT_EQ(tiling.batchStart[core] * length * dtypeSize % 32, 0);
+        EXPECT_GT(tiling.batchEnd[core], tiling.batchStart[core]);
+        next = tiling.batchEnd[core];
+        if (core + 1 < tiling.needCoreNum) {
+            EXPECT_EQ(next * length * dtypeSize % 32, 0);
+        }
+    }
+    EXPECT_EQ(next, batches);
+    for (int64_t core = tiling.needCoreNum; core < EXP_SEGSUM_GRAD_MAX_CORE_ARCH35; ++core) {
+        EXPECT_EQ(tiling.batchStart[core], 0);
+        EXPECT_EQ(tiling.batchEnd[core], 0);
+    }
+}
+} // namespace
+
+TEST_F(ExpSegsumGradTilingArch35Test, short_fp32_does_not_round_each_core_to_64_batches)
+{
+    ExpSegsumGradCompileInfoArch35 compileInfo = {};
+    auto para = MakeTilingPara({4097, 1, 16, 16}, ge::DT_FLOAT, &compileInfo);
+    TilingInfo info;
+    ASSERT_TRUE(ExecuteTiling(para, info));
+    EXPECT_EQ(info.tilingKey, EXP_SEGSUM_GRAD_ARCH35_TILING_KEY_SHORT);
+    EXPECT_EQ(info.blockNum, 64);
+    auto tiling = GetArch35TilingData(info);
+    ASSERT_NE(tiling, nullptr);
+    EXPECT_GT(tiling->slideSize, 0);
+    ExpectAlignedBatchBounds(*tiling, 4097, 16, 4, 64);
+}
+
+TEST_F(ExpSegsumGradTilingArch35Test, short_fp32_length16_fits_192_kib_ub)
+{
+    ExpSegsumGradCompileInfoArch35 compileInfo = {};
+    auto para = MakeTilingPara({4097, 1, 16, 16}, ge::DT_FLOAT, &compileInfo);
+    para.ubSize_ = 192 * 1024;
+    TilingInfo info;
+    ASSERT_TRUE(ExecuteTiling(para, info));
+    EXPECT_EQ(info.tilingKey, EXP_SEGSUM_GRAD_ARCH35_TILING_KEY_SHORT);
+    auto tiling = GetArch35TilingData(info);
+    ASSERT_NE(tiling, nullptr);
+    // For FP32 AR with 16 columns on Ascend 950, ReduceSum needs zero temporary bytes.
+    // The two inputs, prefix and output use 3136 bytes per batch: 62 fit in 192 KiB, 63 do not.
+    EXPECT_EQ(tiling->slideSize, 62);
+    ExpectAlignedBatchBounds(*tiling, 4097, 16, 4, 64);
+}
+
+TEST_F(ExpSegsumGradTilingArch35Test, short_fp32_odd_length_uses_eight_batch_alignment)
+{
+    ExpSegsumGradCompileInfoArch35 compileInfo = {};
+    auto para = MakeTilingPara({4097, 1, 3, 3}, ge::DT_FLOAT, &compileInfo);
+    TilingInfo info;
+    ASSERT_TRUE(ExecuteTiling(para, info));
+    EXPECT_EQ(info.tilingKey, EXP_SEGSUM_GRAD_ARCH35_TILING_KEY_SHORT);
+    auto tiling = GetArch35TilingData(info);
+    ASSERT_NE(tiling, nullptr);
+    EXPECT_GT(tiling->slideSize, 0);
+    EXPECT_EQ(tiling->slideSize % 8, 0);
+    ExpectAlignedBatchBounds(*tiling, 4097, 3, 4, 57);
+}
+
+TEST_F(ExpSegsumGradTilingArch35Test, short_bf16_odd_length_uses_sixteen_batch_alignment)
+{
+    ExpSegsumGradCompileInfoArch35 compileInfo = {};
+    auto para = MakeTilingPara({4097, 1, 3, 3}, ge::DT_BF16, &compileInfo);
+    TilingInfo info;
+    ASSERT_TRUE(ExecuteTiling(para, info));
+    EXPECT_EQ(info.tilingKey, EXP_SEGSUM_GRAD_ARCH35_TILING_KEY_SHORT);
+    auto tiling = GetArch35TilingData(info);
+    ASSERT_NE(tiling, nullptr);
+    EXPECT_GT(tiling->slideSize, 0);
+    EXPECT_EQ(tiling->slideSize % 16, 0);
+    ExpectAlignedBatchBounds(*tiling, 4097, 3, 2, 52);
+}
+
+TEST_F(ExpSegsumGradTilingArch35Test, short_path_starts_at_64_batches_per_core)
+{
+    ExpSegsumGradCompileInfoArch35 compileInfo = {};
+    auto para = MakeTilingPara({4096, 1, 16, 16}, ge::DT_FLOAT, &compileInfo);
+    TilingInfo info;
+    ASSERT_TRUE(ExecuteTiling(para, info));
+    EXPECT_EQ(info.tilingKey, EXP_SEGSUM_GRAD_ARCH35_TILING_KEY_SHORT);
+    EXPECT_EQ(info.blockNum, 64);
+}
+
+TEST_F(ExpSegsumGradTilingArch35Test, short_path_keeps_small_workloads_on_existing_kernel)
+{
+    ExpSegsumGradCompileInfoArch35 compileInfo = {};
+    auto para = MakeTilingPara({4095, 1, 16, 16}, ge::DT_FLOAT, &compileInfo);
+    TilingInfo info;
+    ASSERT_TRUE(ExecuteTiling(para, info));
+    EXPECT_EQ(info.tilingKey, EXP_SEGSUM_GRAD_ARCH35_TILING_KEY_SMALL);
 }
