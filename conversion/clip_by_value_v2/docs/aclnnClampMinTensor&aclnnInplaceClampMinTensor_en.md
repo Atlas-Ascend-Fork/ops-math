@@ -141,7 +141,7 @@ aclnnStatus aclnnInplaceClampMinTensor(
       <td class="tg-0pky">-</td>
     </tr>
     <tr>
-      <td class="tg-0pky">(aclOpExecutor**)</td>
+      <td class="tg-0pky">executor (aclOpExecutor**)</td>
       <td class="tg-0pky">Output</td>
       <td class="tg-0pky">Returns the op executor containing the operator computation flow.</td>
       <td class="tg-0pky">-</td>
@@ -293,7 +293,7 @@ aclnnStatus aclnnInplaceClampMinTensor(
       <td class="tg-0pky">-</td>
     </tr>
     <tr>
-      <td class="tg-0pky">(aclOpExecutor**)</td>
+      <td class="tg-0pky">executor (aclOpExecutor**)</td>
       <td class="tg-0pky">Output</td>
       <td class="tg-0pky">Returns the op executor containing the operator computation flow.</td>
       <td class="tg-0pky">-</td>
