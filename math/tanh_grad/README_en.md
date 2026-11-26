@@ -82,5 +82,5 @@ None
 
 | Invocation Method | Sample Code                                                                   | Description                                                           |
 |--------------|------------------------------------------------------------------------|--------------------------------------------------------------|
-| aclnn invocation | [test_aclnn_tanh_backward](./examples/test_aclnn_tanh_backward.cpp) | Invokes the Abs operator through the [aclnnTanhBackward](./docs/aclnnTanhBackward_en.md) API. |
+| aclnn invocation | [test_aclnn_tanh_backward](./examples/test_aclnn_tanh_backward.cpp) | Invokes the TanhGrad operator through the [aclnnTanhBackward](./docs/aclnnTanhBackward_en.md) API. |
 | Graph-mode invocation | [test\_geir\_tanh\_grad](./examples/test_geir_tanh_grad.cpp) | Invokes the operator by building a graph through the [算子IR](./op_graph/tanh_grad_proto.h) |

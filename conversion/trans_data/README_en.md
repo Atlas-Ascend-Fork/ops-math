@@ -141,4 +141,4 @@ English | [简体中文](./README.md)
 
 | Invocation Method  | Sample Code                                                     | Description                                                         |
 | --------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| aclnn API | [test_aclnn_trans_matmul_weight](examples/arch35/test_aclnn_trans_matmul_weight.cpp) | Invokes the Pack operator through the [aclnnTransMatmulWeight](docs/aclnnTransMatmulWeight_en.md) API. |
+| aclnn API | [test_aclnn_trans_matmul_weight](examples/arch35/test_aclnn_trans_matmul_weight.cpp) | Invokes the TransData operator through the [aclnnTransMatmulWeight](docs/aclnnTransMatmulWeight_en.md) API. |

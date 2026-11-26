@@ -80,5 +80,5 @@ $$
 
 | 调用方式 | 样例代码                                                                   | 说明                                                           |
 |--------------|------------------------------------------------------------------------|--------------------------------------------------------------|
-| aclnn调用 | [test_aclnn_tanh_backward](./examples/test_aclnn_tanh_backward.cpp) | 通过[aclnnTanhBackward](./docs/aclnnTanhBackward.md)接口方式调用Abs算子。 |
+| aclnn调用 | [test_aclnn_tanh_backward](./examples/test_aclnn_tanh_backward.cpp) | 通过[aclnnTanhBackward](./docs/aclnnTanhBackward.md)接口方式调用TanhGrad算子。 |
 | 图模式调用 | [test_geir_tanh_grad.cpp](./examples/test_geir_tanh_grad.cpp) | 通过[算子IR](./op_graph/tanh_grad_proto.h)构图方式调用tanh_grad算子。 |
