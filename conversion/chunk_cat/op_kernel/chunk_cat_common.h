@@ -114,6 +114,12 @@ public:
 
     __aicore__ inline bool IsTensorInRange(int64_t totalCol, const UbLoopInfo& ubLoopInfo, const TensorInfo& tensorInfo)
     {
+        // Zero-column tensors (shape[0]==0 or inner dim 0) must be skipped: tensorCol==0
+        // makes (totalCol + tensorCol > colStart) degrade to (totalCol > colStart), which
+        // falsely reports in-range after a prior non-empty tensor and leads to 0/0 in CopyIn.
+        if (tensorInfo.tensorCol == 0) {
+            return false;
+        }
         return (totalCol < ubLoopInfo.colStart + ubLoopInfo.currentUbColFactor) &&
                (totalCol + tensorInfo.tensorCol > ubLoopInfo.colStart);
     }

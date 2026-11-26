@@ -225,6 +225,26 @@ ge::graphStatus ChunkCatTiling::CalculateOutputInfo()
     return ge::GRAPH_SUCCESS;
 }
 
+bool ChunkCatTiling::IsEmptyOutput() const { return outputRow_ == 0 || outputCol_ == 0; }
+
+void ChunkCatTiling::SetEmptyTiling()
+{
+    // Empty output must not enter DoUbSplit/DoBlockSplit (integer div-by-zero when
+    // outputCol_/outputRow_ is 0). Keep ub factors non-zero so kernel Process() does
+    // GetAlign(0, 1) / 1 == 0 loops and skips work; blockColNum_/blockRowNum_ stay 1
+    // so InitCommon never divides by zero.
+    OP_LOGD(context_, "ChunkCat empty output (outputRow=%ld, outputCol=%ld), skip split", outputRow_, outputCol_);
+    blockRowNum_ = 1;
+    blockColNum_ = 1;
+    blockRowFactor_ = outputRow_;
+    blockColFactor_ = outputCol_;
+    tailBlockRowFactor_ = outputRow_;
+    tailBlockColFactor_ = outputCol_;
+    ubRowFactor_ = 1;
+    ubColFactor_ = 1;
+    usedCoreNum_ = 1;
+}
+
 void ChunkCatTiling::DoUbSplit()
 {
     if (isRegBase) {
@@ -391,12 +411,18 @@ static ge::graphStatus Tiling4ChunkCat(gert::TilingContext* context)
                 return ge::GRAPH_FAILED);
     OP_CHECK_IF(tiling.CalculateOutputInfo() != ge::GRAPH_SUCCESS,
                 OP_LOGE_WITHOUT_REPORT(context, "CalculateOutputInfo error"), return ge::GRAPH_FAILED);
-    if (tiling.IsAscend960()) {
-        tiling.DoBlockSplitFirst();
-        tiling.DoUbSplitByBlock();
+    // Empty output must short-circuit before any split path (both 960 and non-960
+    // divide by derived factors that become 0 when outputRow_/outputCol_ is 0).
+    if (tiling.IsEmptyOutput()) {
+        tiling.SetEmptyTiling();
     } else {
-        tiling.DoUbSplit();
-        tiling.DoBlockSplit();
+        if (tiling.IsAscend960()) {
+            tiling.DoBlockSplitFirst();
+            tiling.DoUbSplitByBlock();
+        } else {
+            tiling.DoUbSplit();
+            tiling.DoBlockSplit();
+        }
     }
 
     ChunkCatTilingData* tilingData = context->GetTilingData<ChunkCatTilingData>();

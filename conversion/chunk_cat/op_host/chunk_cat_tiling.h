@@ -33,6 +33,8 @@ public:
     ge::graphStatus GetPlatformInfo();
     ge::graphStatus GetInputInfo();
     ge::graphStatus CalculateOutputInfo();
+    bool IsEmptyOutput() const;
+    void SetEmptyTiling();
     void DoUbSplit();
     void DoBlockSplit();
     void DoUbSplitByBlock();
