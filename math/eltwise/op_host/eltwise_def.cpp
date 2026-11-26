@@ -61,6 +61,7 @@ public:
             .ExtendCfgInfo("opFile.value", "eltwise");
         this->AICore().AddConfig("ascend950", aiCoreConfig);
         this->AICore().AddConfig("ascend350", aiCoreConfig);
+        this->AICore().AddConfig("ascend5162", aiCoreConfig);
     }
 };
 OP_ADD(Eltwise);
