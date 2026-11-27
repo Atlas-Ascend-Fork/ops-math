@@ -2968,6 +2968,16 @@
   </tr>
   <tr>
     <td>conversion</td>
+    <td><a href="../../conversion/masked_fill_range/README.md">masked_fill_range</a></td>
+    <td>√</td>
+    <td>√</td>
+    <td>×</td>
+    <td>√</td>
+    <td>AI Core</td>
+    <td>按`start`/`end`给出的区间窗口，沿`axis`将输入Tensor`x`的对应段填充为`value`本轮的值。</td>
+  </tr>
+  <tr>
+    <td>conversion</td>
     <td><a href="../../conversion/mirror_pad/README.md">mirror_pad</a></td>
     <td>√</td>
     <td>√</td>

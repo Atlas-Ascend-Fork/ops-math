@@ -2950,6 +2950,16 @@ All operator categories and operators provided by the project are as follows:
   </tr>
   <tr>
     <td>conversion</td>
+    <td><a href="../../conversion/masked_fill_range/README_en.md">masked_fill_range</a></td>
+    <td>√</td>
+    <td>√</td>
+    <td>×</td>
+    <td>√</td>
+    <td>AI Core</td>
+    <td>Fills the segment of the input tensor `x` within the interval windows given by `start`/`end` along `axis` with the per-round value from `value`.</td>
+  </tr>
+  <tr>
+    <td>conversion</td>
     <td><a href="../../conversion/mirror_pad/README_en.md">mirror_pad</a></td>
     <td>√</td>
     <td>√</td>
