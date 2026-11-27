@@ -563,8 +563,13 @@ static ge::graphStatus Tiling4StridedSliceAssign(gert::TilingContext* context)
 
     StridedSliceAssignTilingData* tiling = context->GetTilingData<StridedSliceAssignTilingData>();
     OP_CHECK_NULL_WITH_CONTEXT(context, tiling);
-    OP_CHECK_IF(memset_s(tiling, sizeof(StridedSliceAssignTilingData), 0, sizeof(StridedSliceAssignTilingData)) != EOK,
-                OP_LOGE(context, "set tiling data error"), return ge::GRAPH_FAILED);
+    const errno_t memsetRet = memset_s(tiling, sizeof(StridedSliceAssignTilingData), 0,
+                                       sizeof(StridedSliceAssignTilingData));
+    OP_CHECK_IF(
+        memsetRet != EOK,
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "tiling data", std::to_string(memsetRet).c_str(),
+                                              "memset_s failed to initialize StridedSliceAssignTilingData"),
+        return ge::GRAPH_FAILED);
     OP_CHECK_IF(FillTilingData(context, attrs, specBegin, specEnd, specStrides, coreNum, tiling) != ge::GRAPH_SUCCESS,
                 OP_LOGE(context, "FillTilingData failed"), return ge::GRAPH_FAILED);
     DumpTilingData(context, tiling);

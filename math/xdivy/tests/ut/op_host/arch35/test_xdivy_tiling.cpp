@@ -16,11 +16,25 @@
 #include <gtest/gtest.h>
 #include "tiling_context_faker.h"
 #include "tiling_case_executor.h"
+#include "experiment/metadef/common/util/error_manager/error_manager.h"
 
 using namespace std;
 using namespace ge;
 
 class XdivyTilingTest : public testing::Test {};
+
+// 断言 tiling 失败且 ErrorManager 恰好产生一条指定错误码的首报（首错唯一性）。
+static void ExpectTilingError(const gert::TilingContextPara& context, const char* errorCode)
+{
+    auto& errors = ErrorManager::GetInstance();
+    ASSERT_EQ(errors.Init(), 0);
+    (void)errors.GetRawErrorMessages();
+    TilingInfo tilingInfo;
+    EXPECT_FALSE(ExecuteTiling(context, tilingInfo));
+    const auto reports = errors.GetRawErrorMessages();
+    ASSERT_EQ(reports.size(), 1U);
+    EXPECT_EQ(reports[0].error_id, errorCode);
+}
 
 // ============================================================
 // PadAndSqueeze (2 cases)
@@ -210,4 +224,30 @@ TEST_F(XdivyTilingTest, case15_incompatible_broadcast_rejected)
                                 {{{{{4, 2}, {4, 2}}, DT_FLOAT, FORMAT_ND}, {{{3, 2}, {3, 2}}, DT_FLOAT, FORMAT_ND}}},
                                 {{{{{4, 2}, {4, 2}}, DT_FLOAT, FORMAT_ND}}}, &ci);
     ExecuteTestCase(ctx, GRAPH_FAILED);
+}
+
+// ============================================================
+// 错误码负向用例（Excel 筛选行 6678/6680 对应整改）
+// ============================================================
+
+// case16: 不支持 dtype — x1/x2/y=DT_DOUBLE：CheckDtype（整改行 396 的同码兜底前置于此）
+// 以 OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON 首报 EZ0020，全链路仅一条正式首错。
+TEST_F(XdivyTilingTest, case16_unsupported_dtype_reports_ez0020)
+{
+    optiling::XdivyCompileInfo ci = {56, 256 * 1024};
+    gert::TilingContextPara ctx("Xdivy",
+                                {{{{{4, 8}, {4, 8}}, DT_DOUBLE, FORMAT_ND}, {{{4, 8}, {4, 8}}, DT_DOUBLE, FORMAT_ND}}},
+                                {{{{{4, 8}, {4, 8}}, DT_DOUBLE, FORMAT_ND}}}, &ci);
+    ExpectTilingError(ctx, "EZ0020");
+}
+
+// case17: 编译信息 UB 配置无效 — ubSize=0 时 per_buf_bytes 对齐后为 0，
+// FindSplitAxis 无法形成有效缓冲，以 OP_LOGE_FOR_INVALID_CONFIG_WITH_REASON 首报 EZ0033。
+TEST_F(XdivyTilingTest, case17_invalid_ub_config_reports_ez0033)
+{
+    optiling::XdivyCompileInfo ci = {56, 0};
+    gert::TilingContextPara ctx("Xdivy",
+                                {{{{{4, 8}, {4, 8}}, DT_FLOAT, FORMAT_ND}, {{{4, 8}, {4, 8}}, DT_FLOAT, FORMAT_ND}}},
+                                {{{{{4, 8}, {4, 8}}, DT_FLOAT, FORMAT_ND}}}, &ci);
+    ExpectTilingError(ctx, "EZ0033");
 }

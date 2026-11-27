@@ -393,7 +393,9 @@ ge::graphStatus XdivyTiling::GetShapeInfo()
         dtype_size_ = 2;
         phys_nodes_ = kPhysNodesFp16;
     } else {
-        OP_LOGE(ctx_->GetNodeName(), "Xdivy unsupported dtype");
+        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(ctx_->GetNodeName(), "x1",
+                                              ge::TypeUtils::DataTypeToSerialString(dtype).c_str(),
+                                              "supported dtypes are fp16, fp32 and bf16");
         return GRAPH_FAILED;
     }
 
@@ -429,7 +431,10 @@ ge::graphStatus XdivyTiling::DoTilingAndSet()
     tiling->per_buf_bytes = per_buf_bytes;
 
     if (!FindSplitAxis(max_bro_shape_, kBufDtypeSize, ub_per_core, phys_nodes_, tiling->split)) {
-        OP_LOGE(ctx_->GetNodeName(), "Xdivy FindSplitAxis failed: ub config invalid or shape product overflows");
+        OP_LOGE_FOR_INVALID_CONFIG_WITH_REASON(
+            ctx_->GetNodeName(), "XdivyCompileInfo", "ubSize", std::to_string(ub_per_core).c_str(),
+            "Xdivy FindSplitAxis failed: the per-core UB size cannot form a valid 32-byte-aligned buffer for "
+            "the current dtype");
         return GRAPH_FAILED;
     }
     if (!MultiCoreSplit(max_bro_shape_, tiling->split, (int64_t)compileInfo->coreNum, tiling->multicore)) {

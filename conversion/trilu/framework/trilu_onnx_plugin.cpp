@@ -35,7 +35,10 @@ static Status ParseParamsTrilu(const Message* op_src, ge::Operator& op_dest)
     }
     int node_input_size = node->input_size();
     if (!(node_input_size == 1 || node_input_size == DIGIT_TWO)) {
-        OP_LOGE(GetOpName(op_dest).c_str(), "now only support one or two input");
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(GetOpName(op_dest).c_str(), "input count",
+                                              std::to_string(node_input_size).c_str(),
+                                              "Trilu supports one input (x) or two inputs (x and k)");
+        return FAILED;
     }
     op_dest.SetAttr("name", node->name());
     op_dest.SetAttr("upper", upper);

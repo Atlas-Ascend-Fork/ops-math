@@ -307,14 +307,23 @@ ge::graphStatus WriteTilingResult(gert::TilingContext* context, int64_t totalEle
     tilingData->tileElements = plan.tileElements;
     const uint64_t userWorkspaceSize = static_cast<uint64_t>(plan.userWorkspaceBytes);
     OP_CHECK_IF(systemWorkspaceSize > std::numeric_limits<size_t>::max() - userWorkspaceSize,
-                OP_LOGE(context, "workspace size overflows size_t"), return ge::GRAPH_FAILED);
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                    context->GetNodeName(), "workspace size",
+                    ("system " + std::to_string(systemWorkspaceSize) + " + user " + std::to_string(userWorkspaceSize) +
+                     " overflows size_t")
+                        .c_str(),
+                    "reduce the input size of SquareSumAll so that the total workspace size stays within size_t"),
+                return ge::GRAPH_FAILED);
     size_t* workspaceSizes = context->GetWorkspaceSizes(WORKSPACE_COUNT);
     OP_CHECK_NULL_WITH_CONTEXT(context, workspaceSizes);
     workspaceSizes[0] = static_cast<size_t>(systemWorkspaceSize + userWorkspaceSize);
 
     OP_CHECK_IF(context->SetBlockDim(static_cast<uint32_t>(plan.usedCoreNum)) != ge::GRAPH_SUCCESS,
                 OP_LOGE(context, "SetBlockDim failed for %ld cores", plan.usedCoreNum), return ge::GRAPH_FAILED);
-    OP_CHECK_IF(context->SetScheduleMode(1) != ge::GRAPH_SUCCESS, OP_LOGE(context, "SetScheduleMode failed"),
+    OP_CHECK_IF(context->SetScheduleMode(1) != ge::GRAPH_SUCCESS,
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                    context->GetNodeName(), "schedule mode", "1",
+                    "SetScheduleMode failed on the TilingContext when enabling the GPU-aligned kernel plan"),
                 return ge::GRAPH_FAILED);
     ASCENDC_TPL_SEL_PARAM(context, plan.tilingKey);
 
