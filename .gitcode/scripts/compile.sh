@@ -69,7 +69,14 @@ if [[ "${task_name}" == "Check_Example" ]]; then
 fi
 
 rm -rf /home/jenkins/opensource/json
-echo $(grep -E "^VERSION_ID=" /etc/os-release | cut -d'"' -f2)
+grep -E '^VERSION_ID=' /etc/os-release | cut -d'"' -f2 || {
+    version_status=("${PIPESTATUS[@]}")
+    if [[ "${version_status[0]}" -eq 1 && "${version_status[1]}" -eq 0 ]]; then
+        echo '[INFO] VERSION_ID is missing from /etc/os-release'
+    else
+        echo "[WARN] Could not read VERSION_ID (grep=${version_status[0]}, cut=${version_status[1]})" >&2
+    fi
+}
 export PATH=/opt/buildtools/python-3.10.2/bin:$PATH
 if [[ "${task_name}" == *ubuntu24* ]]; then
     if sudo update-alternatives --set gcc /usr/bin/gcc-16 2>/dev/null; then

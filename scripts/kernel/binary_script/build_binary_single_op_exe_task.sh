@@ -40,12 +40,17 @@ main() {
   echo "[INFO]exe_task: out_cmd_file = ${out_cmd_file}"
   echo "[INFO]exe_task: compile_thread_num = ${compile_thread_num}"
 
-  CURRENT_DIR=$(dirname $(readlink -f ${BASH_SOURCE[0]}))
-  local topdir=$(readlink -f ${workdir}/../../..)
+  CURRENT_DIR=$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")
+  local topdir=$(readlink -f -- "${workdir:-${CURRENT_DIR}}/../../..")
   local op_cache_dir=${topdir}/vendor/hisi/build/scripts/op_cache
-  if [ -d "${op_cache_dir}" ] && [ "${OP_CACHE_ENABLE}" == "true" ]; then # not exist
-    exist_op_cache=true
-    python3 ${op_cache_dir}/op_make_hash.py make_public_hash
+  local exist_op_cache=false
+  if [ -d "${op_cache_dir}" ] && [ "${OP_CACHE_ENABLE}" == "true" ]; then
+    if [[ -r "${op_cache_dir}/op_make_hash.py" && -r "${op_cache_dir}/op_cache.py" ]] &&
+      timeout 7200 python3 "${op_cache_dir}/op_make_hash.py" make_public_hash; then
+      exist_op_cache=true
+    else
+      echo "[WARNING] Could not initialize op cache, compiling directly" >&2
+    fi
   fi
   local error_flag_file="${output_path}/build_logs/.compile_error"
   rm -f "${error_flag_file}"
@@ -80,23 +85,31 @@ main() {
       start_time=$(date +%s)
       # avoid the opc processe from hanging
 
+      local build_log="${output_path}/build_logs/${key}.log"
+      local retry_rc=0
       if [ "${exist_op_cache}" == "true" ]; then
-        echo "python3 ${op_cache_dir}/op_cache.py -- ${cmd_task}" > "${output_path}/build_logs/${key}.log"
-        python3 ${op_cache_dir}/op_cache.py -- ${cmd_task} >> "${output_path}/build_logs/${key}.log" 2>&1
+        local cache_rc=0
+        echo "python3 ${op_cache_dir}/op_cache.py -- ${cmd_task}" > "${build_log}"
+        timeout 7200 python3 "${op_cache_dir}/op_cache.py" -- ${cmd_task} >> "${build_log}" 2>&1 || cache_rc=$?
+        if [ "${cache_rc}" -ne 0 ] || grep -qi 'error:' "${build_log}"; then
+          echo "[WARNING] Op cache failed for ${key} (status ${cache_rc}), retrying directly" >&2
+          echo "${cmd_task}" > "${build_log}"
+          timeout 7200 ${cmd_task} >> "${build_log}" 2>&1 || retry_rc=$?
+        fi
       else
-        echo ${cmd_task} > "${output_path}/build_logs/${key}.log"
-        timeout 7200 ${cmd_task} >> "${output_path}/build_logs/${key}.log" 2>&1
+        echo ${cmd_task} > "${build_log}"
+        timeout 7200 ${cmd_task} >> "${build_log}" 2>&1
       fi
 
-      if grep -qi 'error:' "${output_path}/build_logs/${key}.log"; then
+      if [ "${retry_rc}" -ne 0 ] || grep -qi 'error:' "${build_log}"; then
         # 标记编译失败
         touch "${error_flag_file}"
 
         echo "[ERROR]exe_task: ${cmd_task}"
-        echo "[ERROR]exe_task error log: ${output_path}/build_logs/${key}.log"
+        echo "[ERROR]exe_task error log: ${build_log}"
         echo "[ERROR]exe_task error detail:"
         echo "------------------------------------------------------------"
-        cat "${output_path}/build_logs/${key}.log"
+        cat "${build_log}"
         echo "============================================================"
 
         echo >&8

@@ -54,7 +54,14 @@ function DP_ASSERT_EQUAL() {
 
 REPOSITORY_NAME="ops-math"
 
-echo $(grep -E "^VERSION_ID=" /etc/os-release | cut -d'"' -f2)
+grep -E '^VERSION_ID=' /etc/os-release | cut -d'"' -f2 || {
+    version_status=("${PIPESTATUS[@]}")
+    if [[ "${version_status[0]}" -eq 1 && "${version_status[1]}" -eq 0 ]]; then
+        echo '[INFO] VERSION_ID is missing from /etc/os-release'
+    else
+        echo "[WARN] Could not read VERSION_ID (grep=${version_status[0]}, cut=${version_status[1]})" >&2
+    fi
+}
 if sudo update-alternatives --set gcc /usr/bin/gcc-16 2>/dev/null; then
     echo "Switched to gcc-16"
 elif sudo update-alternatives --set gcc /usr/bin/gcc-15 2>/dev/null; then

@@ -16,43 +16,6 @@ FILE_NAME="$(basename $0)"
 source get_threadnum_with_op.sh
 source build_env.sh
 
-function get_binary_config_file() {
-  if [ $# -ne 4 ]; then
-    echo "error invalid param number:$#, must be 4" >&2
-    return 1
-  fi
-  local workdir="$1"
-  local soc_version_lower="$2"
-  local op_type="$3"
-  local op_file_name="$4"
-  local topdir=$(readlink -f ${workdir}/../../..)
-  local binary_config_dir=${topdir}/build/tbe/config #build dir
-
-  # 检查并处理以 "_apt" 结尾的 op_file_name
-  if [[ "$op_file_name" == *_apt ]]; then
-    op_file_name="${op_file_name%_apt}"
-  fi
-
-  # 优先级1：build/tbe/config路径下，带_binary后缀
-  local primary_pattern="${binary_config_dir}/${soc_version_lower}/${op_file_name}/${op_file_name}_binary.json"
-  if [ -f "${primary_pattern}" ]; then
-    echo "${primary_pattern}"
-    return 0
-  fi
-  # 优先级2：math/{op_file_name}/op_host/config路径下，带_binary后缀
-  local binary_config_file=""
-  for item in ${OP_CATEGORY_LIST}; do
-    local cmd="find ${topdir}/${item} -name ${op_file_name}_binary.json | grep -w ${soc_version_lower}"
-    binary_config_file=$(${cmd})
-    if [! -z "${binary_config_file}"]; then
-      echo "${binary_config_file[0]}"
-      return 0
-    fi
-  done
-  echo "${binary_config_file}"
-  return 0
-}
-
 function get_kernel_option_config_file() {
   if [ $# -ne 2 ]; then
     echo "error invalid param number:$#, must be 2" >&2
@@ -177,7 +140,8 @@ main() {
   # step 3: get binary_config_file, file with _binary.json suffix
   local op_file_name=${op_python_path##*/}
   local op_file_name_prefix=${op_file_name%.*}
-  local binary_config_file=$(get_binary_config_file ${workdir} ${soc_version_lower} ${op_type} ${op_file_name_prefix})
+  local binary_config_file
+  binary_config_file=$(get_binary_config_file "${workdir}" "${soc_version_lower}" "${op_file_name_prefix}") || exit 1
   local binary_bin_path="${output_path}/${soc_version_lower}/${op_file_name_prefix}/"
   local binary_compile_json_file="${output_path}/config/${soc_version_lower}/${op_file_name_prefix}.json"
   local binary_compile_json_path="${output_path}/config/${soc_version_lower}"
@@ -198,10 +162,7 @@ main() {
     echo "[INFO] op:${op_type} create binary json path ${binary_compile_json_path}"
     mkdir -p ${binary_compile_json_path}
   fi
-  if [ -f "${binary_compile_json_file}" ]; then
-    echo "[WARNING] op:${op_type} will clean ${binary_compile_json_file}"
-    rm -f {binary_compile_json_file}
-  fi
+  reset_binary_compile_json "${op_type}" "${binary_compile_json_file}" || exit 1
 
   # step 4: get simplified_key_mode from binary_simplified_key_mode.ini
   local kernel_config_file=$(get_kernel_option_config_file ${workdir} ${soc_version_lower})
@@ -280,6 +241,17 @@ main() {
     val="high_performance"
   fi
 
+  # Isolate source fallback outputs from previous runs.
+  local binary_config_new_path="${binary_config_file%/*}"
+  local source_fallback=false
+  if [[ "${binary_config_file}" != "${binary_param_dir}/config/"* ]]; then
+    source_fallback=true
+    binary_config_new_path=$(mktemp -d \
+      "${binary_temp_conf_dir}/${op_file_name_prefix}_${soc_version_lower}.XXXXXXXX") || exit 1
+    opc_task_cmd_file="${binary_config_new_path}/${OPC_TASK_NAME}"
+    out_task_cmd_file="${binary_config_new_path}/${OUT_TASK_NAME}"
+  fi
+
   # step 6: do opc compile all kernel
   var_array=(${val//,/ })
   impl_list_array=(${impl_list//,/ })
@@ -300,12 +272,19 @@ main() {
       impl_mode_name="all"
     fi
     # gen new json file for impl_mode from ${binary_config_file}
-    local binary_config_new_path=${binary_config_file%/*}
     local binary_config_name=${binary_config_file##*/}
     local binary_config_name_prefix=${binary_config_name%.*}
     local binary_config_new_full_path="${binary_config_new_path}/${binary_config_name_prefix}_${impl_mode_name}.json"
-    ${python_arg} gen_opc_json_with_impl_mode.py ${binary_config_file} ${binary_config_new_full_path} ${impl_mode_name}
-    ${python_arg} gen_opc_json_with_threadnum.py ${binary_config_new_full_path} ${thread_num}
+    if [[ "${source_fallback}" == "true" ]]; then
+      generate_source_binary_config "${python_arg}" "${binary_config_file}" "${binary_config_new_full_path}" \
+        "${impl_mode_name}" "${thread_num}" || {
+        echo "[ERROR] op:${op_type} failed to generate source binary config for ${impl_mode_name}" >&2
+        exit 1
+      }
+    else
+      ${python_arg} gen_opc_json_with_impl_mode.py ${binary_config_file} ${binary_config_new_full_path} ${impl_mode_name}
+      ${python_arg} gen_opc_json_with_threadnum.py ${binary_config_new_full_path} ${thread_num}
+    fi
     # get new file with thread
 
     for ((i = 0; i < ${thread_num}; i = i + 1)); do
@@ -358,6 +337,12 @@ main() {
       }
     done
   done
+  local task_status=$?
+  if [[ "${source_fallback}" == "true" && -f "${opc_task_cmd_file}" ]]; then
+    cat -- "${out_task_cmd_file}" >> "${task_path}/${OUT_TASK_NAME}" || exit 1
+    cat -- "${opc_task_cmd_file}" >> "${task_path}/${OPC_TASK_NAME}" || exit 1
+  fi
+  return "${task_status}"
 }
 set -o pipefail
 main "$@"
