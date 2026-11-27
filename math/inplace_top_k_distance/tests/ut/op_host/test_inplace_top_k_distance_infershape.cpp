@@ -13,6 +13,8 @@
 #include <string>
 #include "infershape_context_faker.h"
 #include "infershape_case_executor.h"
+#include "op_infer_datatype_context_builder.h"
+#include "base/registry/op_impl_space_registry_v2.h"
 
 // InplaceTopKDistance declares no output and updates its inputs in place, so its infershape is an empty
 // registration (mirroring the empty COMMON_INFER_FUNC in the canndev source). These cases only assert that the
@@ -79,4 +81,32 @@ TEST_F(InplaceTopKDistanceInfershape, inplace_top_k_distance_infershape_dynamic)
             {"order", Ops::Math::AnyValue::CreateFrom<std::string>("asc")},
         });
     ExecuteTestCase(infershapeContextPara, ge::GRAPH_SUCCESS, {});
+}
+
+// ===== InferDataType：无输出原位算子，仅要求已注册且返回成功（issue #5215） =====
+
+TEST_F(InplaceTopKDistanceInfershape, inplace_top_k_distance_inferdatatype_registered_and_succ)
+{
+    auto registry = gert::DefaultOpImplSpaceRegistryV2::GetInstance().GetSpaceRegistry();
+    ASSERT_NE(registry, nullptr);
+    const auto* opImpl = registry->GetOpImpl("InplaceTopKDistance");
+    ASSERT_NE(opImpl, nullptr);
+    ASSERT_NE(opImpl->infer_datatype, nullptr);
+
+    gert::OpInferDataTypeContextBuilder builder;
+    builder.OpType("InplaceTopKDistance").OpName("InplaceTopKDistance");
+    // 原位算子无输出；builder 需要 1 个输出槽位才能构造 context，占位描述不会被读写
+    builder.IONum(6, 1);
+    builder.InputTensorDesc(0, ge::DT_FLOAT, ge::FORMAT_ND, ge::FORMAT_ND);
+    builder.InputTensorDesc(1, ge::DT_INT32, ge::FORMAT_ND, ge::FORMAT_ND);
+    builder.InputTensorDesc(2, ge::DT_INT32, ge::FORMAT_ND, ge::FORMAT_ND);
+    builder.InputTensorDesc(3, ge::DT_FLOAT, ge::FORMAT_ND, ge::FORMAT_ND);
+    builder.InputTensorDesc(4, ge::DT_INT32, ge::FORMAT_ND, ge::FORMAT_ND);
+    builder.InputTensorDesc(5, ge::DT_INT32, ge::FORMAT_ND, ge::FORMAT_ND);
+    builder.OutputTensorDesc(0, ge::FORMAT_ND, ge::FORMAT_ND);
+    auto holder = builder.Build();
+    auto* context = holder.GetContext();
+    ASSERT_NE(context, nullptr);
+
+    EXPECT_EQ(opImpl->infer_datatype(context), ge::GRAPH_SUCCESS);
 }

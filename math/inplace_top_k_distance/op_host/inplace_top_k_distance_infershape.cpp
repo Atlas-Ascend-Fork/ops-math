@@ -16,6 +16,7 @@
  */
 
 #include "register/op_impl_registry.h"
+#include "exe_graph/runtime/infer_datatype_context.h"
 
 using namespace ge;
 
@@ -25,5 +26,13 @@ ge::graphStatus InferShape4InplaceTopKDistance([[maybe_unused]] gert::InferShape
     return ge::GRAPH_SUCCESS;
 }
 
-IMPL_OP_INFERSHAPE(InplaceTopKDistance).InferShape(InferShape4InplaceTopKDistance);
+// 原位算子无输出，无 dtype 需要推导；注册以满足 GE V2 InferDataType 调用（issue #5215）
+ge::graphStatus InferDataType4InplaceTopKDistance([[maybe_unused]] gert::InferDataTypeContext* context)
+{
+    return ge::GRAPH_SUCCESS;
+}
+
+IMPL_OP_INFERSHAPE(InplaceTopKDistance)
+    .InferShape(InferShape4InplaceTopKDistance)
+    .InferDataType(InferDataType4InplaceTopKDistance);
 } // namespace ops
