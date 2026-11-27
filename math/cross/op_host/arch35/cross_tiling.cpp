@@ -49,9 +49,18 @@ ge::graphStatus CrossTiling::CheckBaseShapeAndAttrs()
     auto attrs = context_->GetAttrs();
     OP_CHECK_IF((attrs == nullptr), OP_LOGE(context_, "Get attrs Failed."), return ge::GRAPH_FAILED);
 
-    int64_t dim = *(attrs->GetAttrPointer<int64_t>(DIM));
+    const int64_t* dimPtr = attrs->GetAttrPointer<int64_t>(DIM);
+    // "dim" is an optional attribute whose IR default is -1 (see cross_def.cpp), so a node
+    // without this attribute falls back to the last axis instead of failing the tiling.
+    int64_t dim = (dimPtr == nullptr) ? -1 : *dimPtr;
     dimNum1_ = s1.GetDimNum();
     dimNum2_ = s2.GetDimNum();
+
+    OP_CHECK_IF((dimNum1_ > MAX_DIM || dimNum2_ > MAX_DIM),
+                OP_LOGE_FOR_INVALID_SHAPEDIMS_WITH_REASON(
+                    context_->GetNodeName(), "x1, x2", std::to_string(dimNum1_) + ", " + std::to_string(dimNum2_),
+                    "dim num must not be greater than " + std::to_string(MAX_DIM)),
+                return ge::GRAPH_FAILED);
 
     for (int64_t i = 0; i < dimNum1_; i++) {
         x1Dims_[i] = s1.GetDim(i);
