@@ -197,8 +197,8 @@
       <td>self, other, or out is a null pointer.</td>
     </tr>
     <tr>
-      <td rowspan="6">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="6">161002</td>
+      <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="5">161002</td>
       <td>The shapes of self and out are different.</td>
     </tr>
     <tr>
@@ -212,9 +212,6 @@
     </tr>
     <tr>
       <td>The number of dimensions of self and out is greater than 8.</td>
-    </tr>
-    <tr>
-      <td>The data formats of self and out are inconsistent.</td>
     </tr>
   </tbody>
   </table>

@@ -195,8 +195,8 @@
       <td>传入的self、other、out是空指针。</td>
     </tr>
     <tr>
-      <td rowspan="6">ACLNN_ERR_PARAM_INVALID</td>
-      <td rowspan="6">161002</td>
+      <td rowspan="5">ACLNN_ERR_PARAM_INVALID</td>
+      <td rowspan="5">161002</td>
       <td>self、out的shape不一样。</td>
     </tr>
     <tr>
@@ -210,9 +210,6 @@
     </tr>
     <tr>
       <td>self、out的维度数大于8维。</td>
-    </tr>
-    <tr>
-      <td>self和out的数据格式不一致。</td>
     </tr>
   </tbody>
   </table>

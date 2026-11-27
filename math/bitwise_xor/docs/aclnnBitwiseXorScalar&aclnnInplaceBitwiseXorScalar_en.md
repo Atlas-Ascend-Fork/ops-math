@@ -159,8 +159,7 @@ aclnnStatus aclnnInplaceBitwiseXorScalar(
   <!-- end id7 -->
   <!-- npu="A3,910b" id8 -->
   - x1 is INT8, x2 is INT8, x1Scale is FLOAT32, and x2Scale is FLOAT32.
-    - The data types of self and other do not support UINT16, UINT32, or UINT64;
-    - The data type of out does not support UINT16, UINT32, UINT64, COMPLEX64, or COMPLEX128.
+    - The data types of self and other do not support UINT16, UINT32, or UINT64.
   <!-- end id8 -->
   <!-- npu="910,310p" id9 -->
   - <term>Atlas inference products</term>, <term>Atlas training products</term>:
