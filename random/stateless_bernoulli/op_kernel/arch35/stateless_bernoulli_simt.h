@@ -160,14 +160,18 @@ __simt_vf__ __aicore__ LAUNCH_BOUND(PHILOX_THREAD_LAUNCH) inline void PhiloxBern
 
 // 标量语义 launcher: 交织映射, 经 ProcessWithSplitBlocks 消费 tiling 下发的 splitBlocks 执行参数
 // prob 在此一次性读取并转 float, 按值传递给 transform
+// tiling 端 seed/offset 恒填 0 占位, 真实值由 ProcessScalar 从 GM 读出后经本 launcher
+// 按值下发; splitBlocks 的 kernelOffset 是纯相对增量(以 tiling offset=0 为基准),
+// 与 GM 读出的真实 offset 相加即恢复"以用户 offset 为 counter 起点"的语义
 template <typename Tp, typename To>
 struct BernoulliScalarLauncher {
     int64_t seed_;
+    int64_t realOffset_;
     GM_ADDR prob_;
     GM_ADDR baseAddr_;
 
-    __aicore__ BernoulliScalarLauncher(int64_t seed, GM_ADDR prob, GM_ADDR baseAddr)
-        : seed_(seed), prob_(prob), baseAddr_(baseAddr)
+    __aicore__ BernoulliScalarLauncher(int64_t seed, int64_t realOffset, GM_ADDR prob, GM_ADDR baseAddr)
+        : seed_(seed), realOffset_(realOffset), prob_(prob), baseAddr_(baseAddr)
     {}
 
     __aicore__ inline float ReadProb()
@@ -201,21 +205,31 @@ private:
     {
         __gm__ volatile To* gmPtr = (__gm__ volatile To*)baseAddr_ + gmOffset;
         asc_vf_call<RandomKernelBase::PhiloxSimtKernelDiscontinuous<To, BernoulliScalarTransform<To>>>(
-            dim3(PHILOX_THREAD_LAUNCH), gmPtr, kernelOffset, seed_, numel, policy.magic, policy.shift, totalThreads,
-            transform);
+            dim3(PHILOX_THREAD_LAUNCH), gmPtr, realOffset_ + kernelOffset, seed_, numel, policy.magic, policy.shift,
+            totalThreads, transform);
     }
 };
+
+// 从 GM 读取真实 seed/offset(tiling 端恒填 0 占位: torchair 图模式静态场景下 tiling 期
+// 该输入是数据未物化的 unpacked tensor, host 侧读不到用户值, 用例 offset 被丢)。
+// 各核读同一 GM 地址天然一致; 每核仅各一次 8 字节标量读, 与 stateless_uniform 同模式
+__aicore__ inline void ReadSeedAndOffset(GM_ADDR seed, GM_ADDR offset, int64_t& realSeed, int64_t& realOffset)
+{
+    realSeed = *(reinterpret_cast<__gm__ int64_t*>(seed));
+    realOffset = *(reinterpret_cast<__gm__ int64_t*>(offset));
+}
 
 template <typename Tp, typename To>
 class StatelessBernoulliKernel {
 public:
     __aicore__ inline StatelessBernoulliKernel(){};
-    // 场景化入口, 与 tilingKey 一一对应(100/101/102), kernel 内不再做语义分支判断
-    __aicore__ inline void ProcessScalar(GM_ADDR prob, GM_ADDR out,
+    // 场景化入口, 与 tilingKey 一一对应(100/101/102), kernel 内不再做语义分支判断;
+    // seed/offset 输入的 GM 地址经入口透传, 各路径运行时读真实值(tiling 期恒 0 占位)
+    __aicore__ inline void ProcessScalar(GM_ADDR seed, GM_ADDR offset, GM_ADDR prob, GM_ADDR out,
                                          const RandomUnifiedSimtTilingDataStruct* __restrict tilingData);
-    __aicore__ inline void ProcessTensorDense(GM_ADDR prob, GM_ADDR out,
+    __aicore__ inline void ProcessTensorDense(GM_ADDR seed, GM_ADDR offset, GM_ADDR prob, GM_ADDR out,
                                               const RandomUnifiedSimtTilingDataStruct* __restrict tilingData);
-    __aicore__ inline void ProcessTensorBcast(GM_ADDR prob, GM_ADDR out,
+    __aicore__ inline void ProcessTensorBcast(GM_ADDR seed, GM_ADDR offset, GM_ADDR prob, GM_ADDR out,
                                               const RandomUnifiedSimtTilingDataStruct* __restrict tilingData);
 
 private:
@@ -227,12 +241,19 @@ private:
 // tilingKey=100 标量语义: 交织映射, 经 splitBlocks 取执行参数
 template <typename Tp, typename To>
 __aicore__ inline void StatelessBernoulliKernel<Tp, To>::ProcessScalar(
-    GM_ADDR prob, GM_ADDR out, const RandomUnifiedSimtTilingDataStruct* __restrict tilingData)
+    GM_ADDR seed, GM_ADDR offset, GM_ADDR prob, GM_ADDR out,
+    const RandomUnifiedSimtTilingDataStruct* __restrict tilingData)
 {
     if (AscendC::GetBlockIdx() >= static_cast<uint32_t>(tilingData->usedCoreNum)) {
         return;
     }
-    BernoulliScalarLauncher<Tp, To> launcher(tilingData->seed, prob, out);
+    // tiling 端 seed/offset 恒 0 占位, 此处从 GM 读真实值(每核各读一次, 同一地址)
+    int64_t realSeed = 0;
+    int64_t realOffset = 0;
+    ReadSeedAndOffset(seed, offset, realSeed, realOffset);
+    // splitBlocks.kernelOffset 是以 tiling offset=0 为基准的纯相对增量,
+    // 真实 offset 在 launcher 内与 kernelOffset 相加, 恢复 counter 起点 = f(offset) 语义
+    BernoulliScalarLauncher<Tp, To> launcher(realSeed, realOffset, prob, out);
     RandomKernelBase::ProcessWithSplitBlocks(tilingData, launcher);
 }
 
@@ -250,11 +271,16 @@ __aicore__ inline void StatelessBernoulliKernel<Tp, To>::CalcTensorPolicy(
 // tilingKey=101 张量语义非广播: prob 与输出同 shape, 直接索引零寻址开销
 template <typename Tp, typename To>
 __aicore__ inline void StatelessBernoulliKernel<Tp, To>::ProcessTensorDense(
-    GM_ADDR prob, GM_ADDR out, const RandomUnifiedSimtTilingDataStruct* __restrict tilingData)
+    GM_ADDR seed, GM_ADDR offset, GM_ADDR prob, GM_ADDR out,
+    const RandomUnifiedSimtTilingDataStruct* __restrict tilingData)
 {
     if (AscendC::GetBlockIdx() >= static_cast<uint32_t>(tilingData->usedCoreNum)) {
         return;
     }
+    // tiling 端 seed/offset 恒 0 占位, 此处从 GM 读真实值(每核各读一次, 同一地址)
+    int64_t realSeed = 0;
+    int64_t realOffset = 0;
+    ReadSeedAndOffset(seed, offset, realSeed, realOffset);
     uint64_t totalThreads = 0;
     uint64_t magic = 0;
     uint64_t shift = 0;
@@ -262,23 +288,28 @@ __aicore__ inline void StatelessBernoulliKernel<Tp, To>::ProcessTensorDense(
 
     if (tilingData->outputSize <= GPU_GRID_SIZE) {
         asc_vf_call<PhiloxBernoulliTensorDense<Tp, To, uint32_t>>(
-            dim3(PHILOX_THREAD_LAUNCH), (__gm__ To*)out, (__gm__ Tp*)prob, tilingData->offset, tilingData->seed,
+            dim3(PHILOX_THREAD_LAUNCH), (__gm__ To*)out, (__gm__ Tp*)prob, realOffset, realSeed,
             static_cast<uint32_t>(tilingData->outputSize), magic, shift, totalThreads);
     } else {
-        asc_vf_call<PhiloxBernoulliTensorDense<Tp, To, uint64_t>>(
-            dim3(PHILOX_THREAD_LAUNCH), (__gm__ To*)out, (__gm__ Tp*)prob, tilingData->offset, tilingData->seed,
-            tilingData->outputSize, magic, shift, totalThreads);
+        asc_vf_call<PhiloxBernoulliTensorDense<Tp, To, uint64_t>>(dim3(PHILOX_THREAD_LAUNCH), (__gm__ To*)out,
+                                                                  (__gm__ Tp*)prob, realOffset, realSeed,
+                                                                  tilingData->outputSize, magic, shift, totalThreads);
     }
 }
 
 // tilingKey=102 张量语义广播: stride 与快除参数经 UB 传递给 VF（各核写各自 UB, 无跨核可见性问题）
 template <typename Tp, typename To>
 __aicore__ inline void StatelessBernoulliKernel<Tp, To>::ProcessTensorBcast(
-    GM_ADDR prob, GM_ADDR out, const RandomUnifiedSimtTilingDataStruct* __restrict tilingData)
+    GM_ADDR seed, GM_ADDR offset, GM_ADDR prob, GM_ADDR out,
+    const RandomUnifiedSimtTilingDataStruct* __restrict tilingData)
 {
     if (AscendC::GetBlockIdx() >= static_cast<uint32_t>(tilingData->usedCoreNum)) {
         return;
     }
+    // tiling 端 seed/offset 恒 0 占位, 此处从 GM 读真实值(每核各读一次, 同一地址)
+    int64_t realSeed = 0;
+    int64_t realOffset = 0;
+    ReadSeedAndOffset(seed, offset, realSeed, realOffset);
     uint64_t totalThreads = 0;
     uint64_t magic = 0;
     uint64_t shift = 0;
@@ -305,13 +336,13 @@ __aicore__ inline void StatelessBernoulliKernel<Tp, To>::ProcessTensorBcast(
     AscendC::DataSyncBarrier<AscendC::MemDsbT::UB>(); // 确保 UB 写入对 VF 可见后再下发任务
     if (tilingData->outputSize <= GPU_GRID_SIZE) {
         asc_vf_call<PhiloxBernoulliTensorBcast<Tp, To, uint32_t>>(
-            dim3(PHILOX_THREAD_LAUNCH), (__gm__ To*)out, (__gm__ Tp*)prob, tilingData->offset, tilingData->seed,
+            dim3(PHILOX_THREAD_LAUNCH), (__gm__ To*)out, (__gm__ Tp*)prob, realOffset, realSeed,
             static_cast<uint32_t>(tilingData->outputSize), magic, shift, totalThreads,
             (__ubuf__ const int64_t*)(strideLocal.GetPhyAddr()));
     } else {
         asc_vf_call<PhiloxBernoulliTensorBcast<Tp, To, uint64_t>>(
-            dim3(PHILOX_THREAD_LAUNCH), (__gm__ To*)out, (__gm__ Tp*)prob, tilingData->offset, tilingData->seed,
-            tilingData->outputSize, magic, shift, totalThreads, (__ubuf__ const int64_t*)(strideLocal.GetPhyAddr()));
+            dim3(PHILOX_THREAD_LAUNCH), (__gm__ To*)out, (__gm__ Tp*)prob, realOffset, realSeed, tilingData->outputSize,
+            magic, shift, totalThreads, (__ubuf__ const int64_t*)(strideLocal.GetPhyAddr()));
     }
 }
 } // namespace StatelessBernoulli

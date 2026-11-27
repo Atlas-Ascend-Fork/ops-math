@@ -106,24 +106,33 @@ class BernoulliE2EGeneratorTest(unittest.TestCase):
                 self._result({"seed": 42, "offset": 4}, **extra)
 
     def test_invalid_specs_fail_in_golden(self):
+        # seed/offset 的取值域与对齐约束由调用方保证, golden 不再校验(接口不做校验:
+        # 不满足约束时不报错, 生成的随机数序列不保证符合预期); 仅保留"非 dict 形态"拦截
         invalid = (
             603,
             True,
-            {},
-            {"seed": True},
-            {"seed": 1.5},
-            {"seed": -(2**63) - 1},
-            {"seed": 2**64},
-            {"seed": 42, "offset": -4},
-            {"seed": 42, "offset": 1},
-            {"seed": 42, "offset": True},
-            {"seed": 42, "offset": 4.0},
-            {"seed": 42, "extra": 1},
         )
         for spec in invalid:
             with self.subTest(spec=spec):
                 with self.assertRaises(ValueError):
                     self._result(spec)
+
+    def test_offset_and_seed_domain_are_not_rejected(self):
+        # 竞品支持负 offset(philox counter 按 uint64 回绕)与任意 seed 域:
+        # seed/offset 均归一化到 uint64 全域后透传(与 _seed_generator 的
+        # struct.pack 语义对称, 消除负值 np.uint64 换算崩溃与差 1)
+        for offset in (-8, -4, 1, 2, 2**64, 2**64 + 4):
+            with self.subTest(offset=offset):
+                seed_v, offset_v = golden._e2e_generator_seed_offset(
+                    {"seed": 42, "offset": offset}
+                )
+                self.assertEqual((seed_v, offset_v), (42, offset % 2**64))
+        for seed in (-(2**63) - 1, 2**64, -(2**64)):
+            with self.subTest(seed=seed):
+                seed_v, _ = golden._e2e_generator_seed_offset(
+                    {"seed": seed, "offset": 4}
+                )
+                self.assertEqual(seed_v, seed % 2**64)
 
     def test_golden_does_not_materialize_or_advance_a_generator(self):
         before = torch.random.get_rng_state().clone()

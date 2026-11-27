@@ -121,6 +121,19 @@ protected:
         SetNpuArch(kSupportedArchDav9202);
     }
 
+    // Ascend350 与 Ascend950 的 NpuArch 同为 DAV_3510 (摘自 !7874 增量)
+    void SetPlatform350()
+    {
+        PlatformInfo platformInfo;
+        OptionalInfo optiCompilationInfo;
+        platformInfo.soc_info.ai_core_cnt = 64;
+        platformInfo.str_info.short_soc_version = "Ascend350";
+        optiCompilationInfo.soc_version = "Ascend350";
+        PlatformInfoManager::Instance().platform_info_map_["Ascend350"] = platformInfo;
+        PlatformInfoManager::Instance().SetOptionalCompilationInfo(optiCompilationInfo);
+        SetNpuArch(kSupportedArchDav3510);
+    }
+
     void SetUnsupportedPlatform()
     {
         PlatformInfo platformInfo;
@@ -307,6 +320,22 @@ TEST_F(RandomUniformIntFusionPassTest, fusionSuccessOn960pr)
     SetPlatform960pr();
 
     auto graph = BuildTestGraph("test_960pr", DT_INT64, {3});
+
+    CustomPassContext passContext;
+    RandomUniformIntFusionPass pass;
+    Status status = pass.Run(graph, passContext);
+
+    EXPECT_EQ(status, SUCCESS);
+    EXPECT_TRUE(HasNodeType(graph, "RandomUniformIntV2"));
+}
+
+// Ascend350 与 Ascend950 的 NpuArch 同为 DAV_3510, 平台门控按 arch 判断后 350 上融合必须生效
+// (摘自 !7874 增量: pass 侧门控修复已由 !7937 合入, 此处补齐 350 正面回归锚点)
+TEST_F(RandomUniformIntFusionPassTest, fusionSuccessOn350)
+{
+    SetPlatform350();
+
+    auto graph = BuildTestGraph("test_350", DT_INT32, {10});
 
     CustomPassContext passContext;
     RandomUniformIntFusionPass pass;

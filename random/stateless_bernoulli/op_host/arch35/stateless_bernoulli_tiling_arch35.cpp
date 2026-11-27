@@ -29,7 +29,6 @@ static constexpr uint16_t OUTPUT_IDX_Y = 0;
 static constexpr uint16_t ATTR_IDX_PROB_MODE = 1; // def 属性声明顺序：dtype(0), probMode(1)
 static constexpr int64_t DCACHE_SIZE = 128 * 1024;
 static constexpr int64_t CORE_MINIEST_NUM = 256;
-static constexpr int64_t OFFSET_MULTIPLE = 4;
 static constexpr int64_t PROB_MODE_TENSOR = 0;
 static constexpr int64_t PROB_MODE_SCALAR = 1;
 constexpr uint64_t TILING_KEY_SCALAR = 100;
@@ -82,24 +81,13 @@ OpTilingConfig StatelessBernoulliTiling::BuildOpConfig()
         return RandomUtils::GetAndCheckOutputSize<INPUT_IDX_SHAPE, OUTPUT_IDX_Y, false>(ctx, size);
     };
 
-    config.getSeedAndOffset = [](gert::TilingContext* ctx, int64_t& seed, int64_t& offset) {
-        auto seedTensor = ctx->GetRequiredInputTensor(INPUT_IDX_SEED);
-        OP_CHECK_NULL_WITH_CONTEXT(ctx, seedTensor);
-        const int64_t* seedVal = seedTensor->GetData<int64_t>();
-        OP_CHECK_NULL_WITH_CONTEXT(ctx, seedVal);
-        seed = *seedVal;
-        auto offsetTensor = ctx->GetRequiredInputTensor(INPUT_IDX_OFFSET);
-        OP_CHECK_NULL_WITH_CONTEXT(ctx, offsetTensor);
-        const int64_t* offsetVal = offsetTensor->GetData<int64_t>();
-        OP_CHECK_NULL_WITH_CONTEXT(ctx, offsetVal);
-        offset = *offsetVal;
-        if (offset % OFFSET_MULTIPLE != 0) {
-            std::string valueStr = std::to_string(offset);
-            std::string reasonMsg = "offset value must be a multiple of 4";
-            OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(ctx->GetNodeName(), "input offset", valueStr.c_str(),
-                                                  reasonMsg.c_str());
-            return ge::GRAPH_FAILED;
-        }
+    config.getSeedAndOffset = [](gert::TilingContext* /*ctx*/, int64_t& seed, int64_t& offset) {
+        // 填0占位: torchair 图模式静态场景下 tiling 执行时 seed/offset 输入是数据未物化的
+        // unpacked tensor, host 侧读取必得空值(用例配置的 offset 被丢); 参照
+        // stateless_uniform/stateless_normal 等随机数算子, 真实 seed/offset 由 kernel
+        // 运行时从 GM 动态读取。offset % 4 == 0 约束由调用方保证, tiling/kernel 不做校验
+        seed = 0;
+        offset = 0;
         return ge::GRAPH_SUCCESS;
     };
 
@@ -278,5 +266,7 @@ static ge::graphStatus TilingPrepare4StatelessBernoulli(gert::TilingParseContext
 IMPL_OP_OPTILING(StatelessBernoulli)
     .Tiling(Tiling4StatelessBernoulli)
     .TilingParse<RandomOperatorCompileInfo>(TilingPrepare4StatelessBernoulli)
-    .TilingInputsDataDependency({INPUT_IDX_SHAPE, INPUT_IDX_SEED, INPUT_IDX_OFFSET});
+    // seed/offset 由 kernel 从 GM 动态读取, tiling 期不再消费其数据, 移出数据依赖;
+    // shape 输入的 host 值(GetAndCheckOutputSize 经 ExtractTensorValue 读值)仍需保留
+    .TilingInputsDataDependency({INPUT_IDX_SHAPE});
 } // namespace optiling

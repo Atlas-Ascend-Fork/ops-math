@@ -882,30 +882,19 @@ def _e2e_generator_seed_offset(generator):
             "attributes={'generator': {'seed': 42, 'offset': 4}}; "
             "use ops-test-kit with PR #578 support, not a materialized Generator."
         )
-    unknown = set(generator) - {"seed", "offset"}
+    # seed/offset 的取值域与对齐约束由调用方保证, 接口不做校验: 不满足约束时不报错,
+    # 生成的随机数序列不保证符合预期(与 aclnn 文档口径一致)。
+    # 竞品支持负 offset(philox counter 按 uint64 回绕), 与 _seed_generator 的
+    # struct.pack("<Q", offset & 0xFFFFFFFFFFFFFFFF) 打包语义对称, 此处对 offset
+    # 同样做 uint64 归一化: 避免负值直传 _scalar/_tensor_stream 的 np.uint64 换算
+    # 崩溃(numpy>=2.0 OverflowError), 且归一化后 (offset+3)//4 为非负地板除,
+    # 与 kernel PhiloxAlgParsInit 截断除法一致(消除负值下的差 1)。
+    # seed 负值经下方 remap 对齐 torch.Generator 的 uint64 全域语义。
     seed = generator.get("seed")
     offset = generator.get("offset", 0)
-    if (
-        unknown
-        or not isinstance(seed, int)
-        or isinstance(seed, bool)
-        or not -(2**63) <= seed < 2**64
-    ):
-        raise ValueError(
-            "GENERATOR_SPEC_INVALID: expected seed int in [-2^63, 2^64), keys {seed, offset}"
-        )
-    if (
-        not isinstance(offset, int)
-        or isinstance(offset, bool)
-        or offset < 0
-        or offset % 4
-    ):
-        raise ValueError(
-            "GENERATOR_SPEC_INVALID: offset must be a non-negative int multiple of 4"
-        )
     # torch.Generator accepts the full uint64 seed domain and remaps negative seeds.
     # Do not narrow through np.int64: seeds >= 2^63 are valid under PR #578.
-    return seed & 0xFFFFFFFFFFFFFFFF, offset
+    return seed & 0xFFFFFFFFFFFFFFFF, offset & 0xFFFFFFFFFFFFFFFF
 
 
 def e2e_bernoulli_golden(self, p=None, generator=None, **kwargs):

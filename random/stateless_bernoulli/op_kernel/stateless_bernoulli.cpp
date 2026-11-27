@@ -26,25 +26,30 @@ using namespace StatelessBernoulli;
 
 // 场景化入口的分发型辅助: 与 tilingKey 分支一一对应, 保持每个 tilingKey 的
 // kernel symbol 只编对应路径(kernel 内不做语义分支判断); bool 输出以 int8 承载
+// seed/offset 为数据未物化的 unpacked tensor 时 tiling 期读不到值, 由各路径
+// 运行时从 GM 动态读取真实值(参考 stateless_uniform)
 template <typename Tp, typename To>
-__aicore__ inline void RunScalar(GM_ADDR prob, GM_ADDR y, const RandomUnifiedSimtTilingDataStruct* tilingData)
+__aicore__ inline void RunScalar(GM_ADDR seed, GM_ADDR offset, GM_ADDR prob, GM_ADDR y,
+                                 const RandomUnifiedSimtTilingDataStruct* tilingData)
 {
     StatelessBernoulliKernel<Tp, To> op;
-    op.ProcessScalar(prob, y, tilingData);
+    op.ProcessScalar(seed, offset, prob, y, tilingData);
 }
 
 template <typename Tp, typename To>
-__aicore__ inline void RunTensorDense(GM_ADDR prob, GM_ADDR y, const RandomUnifiedSimtTilingDataStruct* tilingData)
+__aicore__ inline void RunTensorDense(GM_ADDR seed, GM_ADDR offset, GM_ADDR prob, GM_ADDR y,
+                                      const RandomUnifiedSimtTilingDataStruct* tilingData)
 {
     StatelessBernoulliKernel<Tp, To> op;
-    op.ProcessTensorDense(prob, y, tilingData);
+    op.ProcessTensorDense(seed, offset, prob, y, tilingData);
 }
 
 template <typename Tp, typename To>
-__aicore__ inline void RunTensorBcast(GM_ADDR prob, GM_ADDR y, const RandomUnifiedSimtTilingDataStruct* tilingData)
+__aicore__ inline void RunTensorBcast(GM_ADDR seed, GM_ADDR offset, GM_ADDR prob, GM_ADDR y,
+                                      const RandomUnifiedSimtTilingDataStruct* tilingData)
 {
     StatelessBernoulliKernel<Tp, To> op;
-    op.ProcessTensorBcast(prob, y, tilingData);
+    op.ProcessTensorBcast(seed, offset, prob, y, tilingData);
 }
 
 __global__ __aicore__ void stateless_bernoulli(GM_ADDR shape, GM_ADDR prob, GM_ADDR seed, GM_ADDR offset, GM_ADDR y,
@@ -58,27 +63,27 @@ __global__ __aicore__ void stateless_bernoulli(GM_ADDR shape, GM_ADDR prob, GM_A
     using To = typename AscendC::Conditional<AscendC::IsSameType<DTYPE_Y, bool>::value, int8_t, DTYPE_Y>::type;
     if (TILING_KEY_IS(STATELESS_BERNOULLI_SCALAR_KEY)) {
         if constexpr (AscendC::IsSameType<DTYPE_PROB, float>::value) {
-            RunScalar<float, To>(prob, y, &tilingData);
+            RunScalar<float, To>(seed, offset, prob, y, &tilingData);
         } else if constexpr (AscendC::IsSameType<DTYPE_PROB, half>::value) {
-            RunScalar<half, To>(prob, y, &tilingData);
+            RunScalar<half, To>(seed, offset, prob, y, &tilingData);
         } else if constexpr (AscendC::IsSameType<DTYPE_PROB, bfloat16_t>::value) {
-            RunScalar<bfloat16_t, To>(prob, y, &tilingData);
+            RunScalar<bfloat16_t, To>(seed, offset, prob, y, &tilingData);
         }
     } else if (TILING_KEY_IS(STATELESS_BERNOULLI_TENSOR_DENSE_KEY)) {
         if constexpr (AscendC::IsSameType<DTYPE_PROB, float>::value) {
-            RunTensorDense<float, To>(prob, y, &tilingData);
+            RunTensorDense<float, To>(seed, offset, prob, y, &tilingData);
         } else if constexpr (AscendC::IsSameType<DTYPE_PROB, half>::value) {
-            RunTensorDense<half, To>(prob, y, &tilingData);
+            RunTensorDense<half, To>(seed, offset, prob, y, &tilingData);
         } else if constexpr (AscendC::IsSameType<DTYPE_PROB, bfloat16_t>::value) {
-            RunTensorDense<bfloat16_t, To>(prob, y, &tilingData);
+            RunTensorDense<bfloat16_t, To>(seed, offset, prob, y, &tilingData);
         }
     } else if (TILING_KEY_IS(STATELESS_BERNOULLI_TENSOR_BCAST_KEY)) {
         if constexpr (AscendC::IsSameType<DTYPE_PROB, float>::value) {
-            RunTensorBcast<float, To>(prob, y, &tilingData);
+            RunTensorBcast<float, To>(seed, offset, prob, y, &tilingData);
         } else if constexpr (AscendC::IsSameType<DTYPE_PROB, half>::value) {
-            RunTensorBcast<half, To>(prob, y, &tilingData);
+            RunTensorBcast<half, To>(seed, offset, prob, y, &tilingData);
         } else if constexpr (AscendC::IsSameType<DTYPE_PROB, bfloat16_t>::value) {
-            RunTensorBcast<bfloat16_t, To>(prob, y, &tilingData);
+            RunTensorBcast<bfloat16_t, To>(seed, offset, prob, y, &tilingData);
         }
     }
 }

@@ -33,7 +33,10 @@ namespace ge {
 * @li seed: If seed is set to be -1, and offset is set to be 0, the random number \n
 * generator is seeded by a random seed. Otherwise, it is seeded by the given seed. \n
 * A tensor of type int64.
-* @li offset: To avoid seed collision. A tensor of type int64, must be a multiple of 4.
+* @li offset: To avoid seed collision. A tensor of type int64. \n
+* The constraint offset % 4 == 0 is guaranteed by the caller and is not validated \n
+* by this operator: when the constraint is not met, no error is reported and the \n
+* generated random number sequence is not guaranteed to be as expected.
 
 * @par Attributes:
 * @li dtype: Output data type. Must be one of the following types: int8, uint8, int16, uint16, int32, uint32,
