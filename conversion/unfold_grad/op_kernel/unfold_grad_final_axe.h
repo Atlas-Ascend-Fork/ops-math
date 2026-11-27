@@ -19,13 +19,12 @@
 #include "unfold_grad.h"
 
 template <typename T1, typename T2, bool ISCAST = false>
-class UnfoldGradFinalAxe : public UnfoldGrad<T1, T2, ISCAST>
-{
+class UnfoldGradFinalAxe : public UnfoldGrad<T1, T2, ISCAST> {
 public:
     __aicore__ inline UnfoldGradFinalAxe(AscendC::TPipe* pipe) : UnfoldGrad<T1, T2, ISCAST>(pipe){};
 
-    __aicore__ inline void InitFinalAxe(
-        GM_ADDR srcGm, GM_ADDR dstGm, GM_ADDR workspace, const UnfoldGradTilingData* tiling_data)
+    __aicore__ inline void InitFinalAxe(GM_ADDR srcGm, GM_ADDR dstGm, GM_ADDR workspace,
+                                        const UnfoldGradTilingData* tiling_data)
     {
         this->Init(tiling_data);
 
@@ -101,8 +100,8 @@ public:
 private:
     __aicore__ inline void CopyInFinalAxes(int64_t curSrcStart, int64_t index, int64_t curHandleNum)
     {
-        AscendC::LocalTensor<T1> srcLocal =
-            ISCAST ? this->inQueueSrc.template AllocTensor<T1>() : this->computeInQueueSrc.template AllocTensor<T1>();
+        AscendC::LocalTensor<T1> srcLocal = ISCAST ? this->inQueueSrc.template AllocTensor<T1>() :
+                                                     this->computeInQueueSrc.template AllocTensor<T1>();
         AscendC::DataCopyPadExtParams<T1> padParams{false, 0, 0, 0};
         AscendC::PipeBarrier<PIPE_V>();
         PipeSync<AscendC::HardEvent::MTE3_V>();
@@ -117,26 +116,27 @@ private:
         uint16_t blockCount = (curHandleNum + colHandleNum - 1) / colHandleNum;
         uint32_t blockLen = colHandleNum * this->typeSizeT1;
         uint32_t srcStride = 0;
-        uint32_t dstStride =
-            (colNumSpace - (colHandleNum * this->typeSizeT1 + BLOCK_SIZE - 1) / BLOCK_SIZE * BLOCK_SIZE) / BLOCK_SIZE;
+        uint32_t dstStride = (colNumSpace -
+                              (colHandleNum * this->typeSizeT1 + BLOCK_SIZE - 1) / BLOCK_SIZE * BLOCK_SIZE) /
+                             BLOCK_SIZE;
         PipeSync<AscendC::HardEvent::V_MTE2>();
-        AscendC::DataCopyExtParams copyParamsIn{
-            static_cast<uint16_t>(blockCount - 1), blockLen, srcStride, dstStride, 0};
+        AscendC::DataCopyExtParams copyParamsIn{static_cast<uint16_t>(blockCount - 1), blockLen, srcStride, dstStride,
+                                                0};
         if (blockCount > 1) {
             padParams.isPad = true;
-            padParams.rightPadding =
-                ((copyParamsIn.blockLen + BLOCK_SIZE - 1) / BLOCK_SIZE * BLOCK_SIZE - copyParamsIn.blockLen) /
-                this->typeSizeT1;
+            padParams.rightPadding = ((copyParamsIn.blockLen + BLOCK_SIZE - 1) / BLOCK_SIZE * BLOCK_SIZE -
+                                      copyParamsIn.blockLen) /
+                                     this->typeSizeT1;
             padParams.paddingValue = 0;
-            AscendC::DataCopyPad(
-                srcLocal, this->srcGlobal[curSrcStart + index * this->tasksOnceMaxPerCore], copyParamsIn, padParams);
+            AscendC::DataCopyPad(srcLocal, this->srcGlobal[curSrcStart + index * this->tasksOnceMaxPerCore],
+                                 copyParamsIn, padParams);
             AscendC::PipeBarrier<PIPE_MTE2>();
         }
         copyParamsIn.blockCount = 1;
         copyParamsIn.blockLen = (curHandleNum - (blockCount - 1) * colHandleNum) * this->typeSizeT1;
-        padParams.rightPadding =
-            ((copyParamsIn.blockLen + BLOCK_SIZE - 1) / BLOCK_SIZE * BLOCK_SIZE - copyParamsIn.blockLen) /
-            this->typeSizeT1;
+        padParams.rightPadding = ((copyParamsIn.blockLen + BLOCK_SIZE - 1) / BLOCK_SIZE * BLOCK_SIZE -
+                                  copyParamsIn.blockLen) /
+                                 this->typeSizeT1;
         AscendC::DataCopyPad(
             srcLocal[(blockCount - 1) * (colNumSpace / this->typeSizeT1)],
             this->srcGlobal[curSrcStart + index * this->tasksOnceMaxPerCore + (blockCount - 1) * colHandleNum],
@@ -149,8 +149,8 @@ private:
             srcLocal = this->inQueueSrc.template DeQue<T1>();
             AscendC::LocalTensor<T2> computeSrcLocal = this->computeInQueueSrc.template AllocTensor<T2>();
             AscendC::PipeBarrier<PIPE_V>();
-            AscendC::Cast(
-                computeSrcLocal, srcLocal, AscendC::RoundMode::CAST_NONE, colNumSpace * blockCount / this->typeSizeT1);
+            AscendC::Cast(computeSrcLocal, srcLocal, AscendC::RoundMode::CAST_NONE,
+                          colNumSpace * blockCount / this->typeSizeT1);
             this->computeInQueueSrc.template EnQue(computeSrcLocal);
             this->inQueueSrc.template FreeTensor(srcLocal);
         } else { // T1与T2为相同类型
@@ -158,39 +158,37 @@ private:
         }
     }
 
-    __aicore__ inline void TransDataTo5HDInTranspose1(
-        AscendC::LocalTensor<T2>& srcLocal, AscendC::LocalTensor<T2>& dstLocal,
-        const TransDataTo5HDParams& transDataTo5HDParams)
+    __aicore__ inline void TransDataTo5HDInTranspose1(AscendC::LocalTensor<T2>& srcLocal,
+                                                      AscendC::LocalTensor<T2>& dstLocal,
+                                                      const TransDataTo5HDParams& transDataTo5HDParams)
     {
         uint64_t dstLocalList[TRANS_BLOCK];
         uint64_t srcLocalList[TRANS_BLOCK];
         for (int i = 0; i < TRANS_BLOCK; i++) {
             if (i % DOUBLE == 0) {
                 dstLocalList[i] = reinterpret_cast<uint64_t>(
-                    dstLocal
-                        [transDataTo5HDParams.idxH * MAX_REPEATTIME * TRANS_BLOCK * this->width +
-                         TRANS_BLOCK * (i / DOUBLE)]
-                            .GetPhyAddr());
+                    dstLocal[transDataTo5HDParams.idxH * MAX_REPEATTIME * TRANS_BLOCK * this->width +
+                             TRANS_BLOCK * (i / DOUBLE)]
+                        .GetPhyAddr());
             } else {
                 dstLocalList[i] = reinterpret_cast<uint64_t>(
-                    dstLocal
-                        [transDataTo5HDParams.idxH * MAX_REPEATTIME * TRANS_BLOCK * this->width +
-                         TRANS_BLOCK * (i / DOUBLE) + this->width]
-                            .GetPhyAddr());
+                    dstLocal[transDataTo5HDParams.idxH * MAX_REPEATTIME * TRANS_BLOCK * this->width +
+                             TRANS_BLOCK * (i / DOUBLE) + this->width]
+                        .GetPhyAddr());
             }
         }
         for (int i = 0; i < TRANS_BLOCK; i++) {
             srcLocalList[i] = reinterpret_cast<uint64_t>(
-                srcLocal
-                    [transDataTo5HDParams.idxH * MAX_REPEATTIME * this->width + transDataTo5HDParams.rowLengthSrc * i]
-                        .GetPhyAddr());
+                srcLocal[transDataTo5HDParams.idxH * MAX_REPEATTIME * this->width +
+                         transDataTo5HDParams.rowLengthSrc * i]
+                    .GetPhyAddr());
         }
         AscendC::TransDataTo5HD<T2>(dstLocalList, srcLocalList, transDataTo5HDParams.transDataParams);
         AscendC::PipeBarrier<PIPE_V>();
     }
 
-    __aicore__ inline void TransDataForUnfold1(
-        AscendC::LocalTensor<T2>& srcLocal, AscendC::LocalTensor<T2>& dstLocal, int64_t curHandleNum)
+    __aicore__ inline void TransDataForUnfold1(AscendC::LocalTensor<T2>& srcLocal, AscendC::LocalTensor<T2>& dstLocal,
+                                               int64_t curHandleNum)
     {
         uint16_t dstStride = TRANS_BLOCK;
         uint16_t srcStride = 1;
@@ -221,9 +219,9 @@ private:
         }
     }
 
-    __aicore__ inline void TransDataTo5HDInTranspose2(
-        AscendC::LocalTensor<T2>& srcLocal, AscendC::LocalTensor<T2>& dstLocal,
-        const TransDataTo5HDParams& transDataTo5HDParams)
+    __aicore__ inline void TransDataTo5HDInTranspose2(AscendC::LocalTensor<T2>& srcLocal,
+                                                      AscendC::LocalTensor<T2>& dstLocal,
+                                                      const TransDataTo5HDParams& transDataTo5HDParams)
     {
         uint64_t dstLocalList[TRANS_BLOCK];
         uint64_t srcLocalList[TRANS_BLOCK];
@@ -231,32 +229,29 @@ private:
             int row = transDataTo5HDParams.rowLengthDst * (i / DOUBLE);
             if (i % DOUBLE == 0) {
                 dstLocalList[i] = reinterpret_cast<uint64_t>(
-                    dstLocal
-                        [transDataTo5HDParams.idxW * transDataTo5HDParams.rowLengthDst * this->width +
-                         transDataTo5HDParams.idxH * MAX_REPEATTIME * DOUBLE * this->width + row]
-                            .GetPhyAddr());
+                    dstLocal[transDataTo5HDParams.idxW * transDataTo5HDParams.rowLengthDst * this->width +
+                             transDataTo5HDParams.idxH * MAX_REPEATTIME * DOUBLE * this->width + row]
+                        .GetPhyAddr());
             } else {
                 dstLocalList[i] = reinterpret_cast<uint64_t>(
-                    dstLocal
-                        [transDataTo5HDParams.idxW * transDataTo5HDParams.rowLengthDst * this->width +
-                         transDataTo5HDParams.idxH * MAX_REPEATTIME * DOUBLE * this->width + row + this->width]
-                            .GetPhyAddr());
+                    dstLocal[transDataTo5HDParams.idxW * transDataTo5HDParams.rowLengthDst * this->width +
+                             transDataTo5HDParams.idxH * MAX_REPEATTIME * DOUBLE * this->width + row + this->width]
+                        .GetPhyAddr());
             }
         }
         for (int i = 0; i < TRANS_BLOCK; i++) {
             srcLocalList[i] = reinterpret_cast<uint64_t>(
-                srcLocal
-                    [transDataTo5HDParams.idxW * this->width +
-                     transDataTo5HDParams.idxH * MAX_REPEATTIME * DOUBLE * this->width * TRANS_BLOCK +
-                     DOUBLE * this->width * i]
-                        .GetPhyAddr());
+                srcLocal[transDataTo5HDParams.idxW * this->width +
+                         transDataTo5HDParams.idxH * MAX_REPEATTIME * DOUBLE * this->width * TRANS_BLOCK +
+                         DOUBLE * this->width * i]
+                    .GetPhyAddr());
         }
         AscendC::TransDataTo5HD<T2>(dstLocalList, srcLocalList, transDataTo5HDParams.transDataParams);
         AscendC::PipeBarrier<PIPE_V>();
     }
 
-    __aicore__ inline void TransDataForUnfold2(
-        AscendC::LocalTensor<T2>& srcLocal, AscendC::LocalTensor<T2>& dstLocal, int64_t curHandleNum)
+    __aicore__ inline void TransDataForUnfold2(AscendC::LocalTensor<T2>& srcLocal, AscendC::LocalTensor<T2>& dstLocal,
+                                               int64_t curHandleNum)
     {
         uint16_t dstStride = DOUBLE;
         uint16_t srcStride = DOUBLE * TRANS_BLOCK;
@@ -301,8 +296,8 @@ private:
         }
     }
 
-    __aicore__ inline void AccumulateFinalAxes(
-        AscendC::LocalTensor<T2>& srcLocal, AscendC::LocalTensor<T2>& dstLocal, int64_t curHandleNum)
+    __aicore__ inline void AccumulateFinalAxes(AscendC::LocalTensor<T2>& srcLocal, AscendC::LocalTensor<T2>& dstLocal,
+                                               int64_t curHandleNum)
     {
         int64_t realSize = this->step < this->size ? this->size : this->step;
         int64_t colHandleNum = this->ubSizeT2 / (TRANS_BLOCK * FP32_TYPESIZE) / realSize * this->size;
@@ -347,8 +342,8 @@ private:
     }
 
     template <typename T>
-    __aicore__ inline void SumFP32ResInGMFinalAxes(
-        int64_t curDstStart, int64_t index, int64_t curHandleNum, AscendC::GlobalTensor<T> dstGlobal)
+    __aicore__ inline void SumFP32ResInGMFinalAxes(int64_t curDstStart, int64_t index, int64_t curHandleNum,
+                                                   AscendC::GlobalTensor<T> dstGlobal)
     {
         AscendC::LocalTensor<T> dstLocal = this->computeOutQueueDst.template DeQue<T>();
         uint64_t stepNumOnceMax = this->tasksOnceMaxPerCore / TRANS_BLOCK / this->size;
@@ -359,48 +354,41 @@ private:
         int64_t tailBlockLen = curHandleNum - (blockCount - 1) * rowHandleNum;
         uint64_t blockDstNum = this->step * (rowHandleNum / this->size - 1) + this->size;
         uint64_t tailBlockDstNum = this->step * (tailBlockLen / this->size - 1) + this->size;
-        uint32_t srcStride =
-            (rowNumSpace - (blockDstNum * FP32_TYPESIZE + BLOCK_SIZE - 1) / BLOCK_SIZE * BLOCK_SIZE) / BLOCK_SIZE;
+        uint32_t srcStride = (rowNumSpace - (blockDstNum * FP32_TYPESIZE + BLOCK_SIZE - 1) / BLOCK_SIZE * BLOCK_SIZE) /
+                             BLOCK_SIZE;
         uint32_t dstStride = (this->step - this->size) * FP32_TYPESIZE;
 
         if (this->step >= this->size) {
             if (blockCount > 1) {
-                AscendC::DataCopyExtParams copyParamsOut{
-                    static_cast<uint16_t>(blockCount - 1), static_cast<uint32_t>(blockDstNum * FP32_TYPESIZE),
-                    srcStride, dstStride, 0};
+                AscendC::DataCopyExtParams copyParamsOut{static_cast<uint16_t>(blockCount - 1),
+                                                         static_cast<uint32_t>(blockDstNum * FP32_TYPESIZE), srcStride,
+                                                         dstStride, 0};
                 AscendC::SetAtomicAdd<T>();
-                AscendC::DataCopyPad(
-                    dstGlobal[curDstStart + index * TRANS_BLOCK * stepNumOnceMax * this->step], dstLocal,
-                    copyParamsOut);
+                AscendC::DataCopyPad(dstGlobal[curDstStart + index * TRANS_BLOCK * stepNumOnceMax * this->step],
+                                     dstLocal, copyParamsOut);
                 AscendC::SetAtomicNone();
             }
-            AscendC::DataCopyExtParams copyParamsOut{
-                1, static_cast<uint32_t>(tailBlockDstNum * FP32_TYPESIZE), 0, 0, 0};
+            AscendC::DataCopyExtParams copyParamsOut{1, static_cast<uint32_t>(tailBlockDstNum * FP32_TYPESIZE), 0, 0,
+                                                     0};
             AscendC::SetAtomicAdd<T>();
-            AscendC::DataCopyPad(
-                dstGlobal
-                    [curDstStart + index * TRANS_BLOCK * stepNumOnceMax * this->step +
-                     (blockCount - 1) * stepNumOnceMax * this->step],
-                dstLocal[rowNumSpace / FP32_TYPESIZE * (blockCount - 1)], copyParamsOut);
+            AscendC::DataCopyPad(dstGlobal[curDstStart + index * TRANS_BLOCK * stepNumOnceMax * this->step +
+                                           (blockCount - 1) * stepNumOnceMax * this->step],
+                                 dstLocal[rowNumSpace / FP32_TYPESIZE * (blockCount - 1)], copyParamsOut);
             AscendC::SetAtomicNone();
         } else {
             AscendC::DataCopyExtParams copyParamsOut{1, static_cast<uint32_t>(blockDstNum * FP32_TYPESIZE), 0, 0, 0};
             for (int i = 0; i < blockCount - 1; i++) {
                 AscendC::SetAtomicAdd<T>();
-                AscendC::DataCopyPad(
-                    dstGlobal
-                        [curDstStart + index * TRANS_BLOCK * stepNumOnceMax * this->step +
-                         i * stepNumOnceMax * this->step],
-                    dstLocal[rowNumSpace / FP32_TYPESIZE * i], copyParamsOut);
+                AscendC::DataCopyPad(dstGlobal[curDstStart + index * TRANS_BLOCK * stepNumOnceMax * this->step +
+                                               i * stepNumOnceMax * this->step],
+                                     dstLocal[rowNumSpace / FP32_TYPESIZE * i], copyParamsOut);
                 AscendC::SetAtomicNone();
             }
             copyParamsOut.blockLen = static_cast<uint32_t>(tailBlockDstNum * FP32_TYPESIZE);
             AscendC::SetAtomicAdd<T>();
-            AscendC::DataCopyPad(
-                dstGlobal
-                    [curDstStart + index * TRANS_BLOCK * stepNumOnceMax * this->step +
-                     (blockCount - 1) * stepNumOnceMax * this->step],
-                dstLocal[rowNumSpace / FP32_TYPESIZE * (blockCount - 1)], copyParamsOut);
+            AscendC::DataCopyPad(dstGlobal[curDstStart + index * TRANS_BLOCK * stepNumOnceMax * this->step +
+                                           (blockCount - 1) * stepNumOnceMax * this->step],
+                                 dstLocal[rowNumSpace / FP32_TYPESIZE * (blockCount - 1)], copyParamsOut);
             AscendC::SetAtomicNone();
         }
 
@@ -409,8 +397,8 @@ private:
 
 private:
     uint32_t blockIdx;
-    uint32_t gradOutBlockOffset;
-    uint32_t gradInBlockOffset;
+    int64_t gradOutBlockOffset;
+    int64_t gradInBlockOffset;
     uint32_t curCoreBatchNum{0};
     int srcStart = 0;
     int dstStart = 0;
