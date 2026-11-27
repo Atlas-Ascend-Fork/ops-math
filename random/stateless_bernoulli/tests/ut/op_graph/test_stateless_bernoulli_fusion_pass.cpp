@@ -28,10 +28,11 @@ using namespace fusion;
 
 namespace {
 const std::string kPassName = "BernoulliFusionPass";
-const char* const kSupportedArchDav2201 = "2201"; // Ascend910_93
-const char* const kSupportedArchDav3510 = "3510"; // Ascend950/Ascend350
-const char* const kSupportedArchDav9201 = "9201"; // Ascend960DT
-const char* const kSupportedArchDav9202 = "9202"; // Ascend960PR
+const char* const kSupportedArchDav2201 = "2201";   // Ascend910_93
+const char* const kSupportedArchDav3510 = "3510";   // Ascend950/Ascend350
+const char* const kSupportedArchDav9201 = "9201";   // Ascend960DT
+const char* const kSupportedArchDav9202 = "9202";   // Ascend960PR
+const char* const kUnsupportedArchDav2003 = "2003"; // 不支持 arch 兜底
 
 // UT stub for rtGetSocSpec: the UT executable does not link the runtime lib, while the pass gates
 // on NpuArch via this API. The stub feeds the arch from the ASCEND_NPU_ARCH env variable.
@@ -68,6 +69,26 @@ __attribute__((weak)) int32_t aclsysGetVersionNum(char* pkgName, int32_t* versio
 }
 
 static void SetNpuArch(const char* arch) { (void)setenv("ASCEND_NPU_ARCH", arch, 1); }
+
+// soc 字符串到 NpuArch 的映射(对齐真实平台上报): Ascend350 与 Ascend950 同为 DAV_3510
+// (摘自 !7874 增量: CheckFusionOnPlatform 原硬编码三元仅覆盖 960DT/960PR,
+//  无法承载 350/950 成功用例)
+static const char* ArchFromSoc(const std::string& soc)
+{
+    if (soc == "Ascend910_93") {
+        return kSupportedArchDav2201;
+    }
+    if (soc == "Ascend950" || soc == "Ascend350") {
+        return kSupportedArchDav3510;
+    }
+    if (soc == "Ascend960DT") {
+        return kSupportedArchDav9201;
+    }
+    if (soc == "Ascend960PR") {
+        return kSupportedArchDav9202;
+    }
+    return kUnsupportedArchDav2003;
+}
 } // namespace
 
 class BernoulliFusionPassTest : public testing::Test {
@@ -117,7 +138,7 @@ protected:
         optiCompilationInfo.soc_version = soc;
         PlatformInfoManager::Instance().platform_info_map_[soc] = platformInfo;
         PlatformInfoManager::Instance().SetOptionalCompilationInfo(optiCompilationInfo);
-        SetNpuArch(soc == "Ascend960DT" ? kSupportedArchDav9201 : kSupportedArchDav9202);
+        SetNpuArch(ArchFromSoc(soc));
 
         const std::vector<int64_t> dimsX{-1, 3, 5, 4};
         const std::vector<int64_t> dimsSeed{2};
@@ -290,6 +311,12 @@ TEST_F(BernoulliFusionPassTest, fusionSuccessFp32On960DT) { CheckFusionOnPlatfor
 TEST_F(BernoulliFusionPassTest, fusionSuccessFp16On960PR) { CheckFusionOnPlatform("Ascend960PR", DT_FLOAT16); }
 
 TEST_F(BernoulliFusionPassTest, fusionSuccessFp32On960PR) { CheckFusionOnPlatform("Ascend960PR", DT_FLOAT); }
+
+// Ascend350 与 Ascend950 的 NpuArch 同为 DAV_3510, 平台门控按 arch 判断后 350 上融合必须生效
+// (摘自 !7874 增量: pass 侧门控修复已由 !7937 合入, 此处补齐 350 正面回归锚点)
+TEST_F(BernoulliFusionPassTest, fusionSuccessFp16On350) { CheckFusionOnPlatform("Ascend350", DT_FLOAT16); }
+
+TEST_F(BernoulliFusionPassTest, fusionSuccessFp32On350) { CheckFusionOnPlatform("Ascend350", DT_FLOAT); }
 
 TEST_F(BernoulliFusionPassTest, fusionSuccessFp16On950)
 {

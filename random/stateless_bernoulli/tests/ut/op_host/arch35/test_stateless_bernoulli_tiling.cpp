@@ -27,7 +27,11 @@ protected:
 };
 
 // 期望 tilingData 为 RandomUnifiedSimtTilingDataStruct 按 int64 逐词内存序列化（共 68 词）：
-// [0..5] usedCoreNum/outputSize/seed/offset/ubSize/extraInt64Param1（场景标志不落盘, 恒 0），
+// [0..5] usedCoreNum/outputSize/seed/offset/ubSize/extraInt64Param1（场景标志不落盘, 恒 0）。
+// seed/offset tiling 端恒填 0 占位（不再读取输入 tensor 值，真实值由 kernel 从 GM 动态
+// 读取；torchair 图模式静态场景下 tiling 期该输入为数据未物化的 unpacked tensor）：
+// 用例输入里 seed=2/offset=8 仅模拟 GM 真实数据，期望序列化中 [2]=seed=0、[3]=offset=0，
+// 标量路径 splitBlocks.kernelOffset 以 offset=0 为基准（纯相对增量），原 8 变 0。
 // [6] prob+extraF32 打包，[7] from，[8] range，[9] fromFp32+toFp32 打包，[10] splitBlockCount，
 // [11..50] splitBlocks[8]（numel/gmOffset/grid/totalThreads/kernelOffset），
 // [51] probDims（int32+padding），[52..59] probSizes，[60..67] probStrides。
@@ -54,7 +58,7 @@ TEST_F(StatelessBernoulliTiling, stateless_bernoulli_tensor_default)
 
     uint64_t expectTilingKey = 101; // 缺省张量语义 + prob 同 shape（dense）→ 101
     // probDims=1([51])，probSizes=[1,0..]([52])，probStrides=[1,0..]([60])
-    string expectTilingData = "1 1 2 8 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 "
+    string expectTilingData = "1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 "
                               "0 0 0 0 0 0 0 1 1 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 ";
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
@@ -81,9 +85,10 @@ TEST_F(StatelessBernoulliTiling, stateless_bernoulli_scalar_probmode)
                                               &compileInfo);
 
     uint64_t expectTilingKey = 100;
-    // splitBlocks[0] = {numel=1, gmOffset=0, grid=1, totalThreads=256, kernelOffset=8(单块无双重消费)}；
+    // splitBlocks[0] = {numel=1, gmOffset=0, grid=1, totalThreads=256, kernelOffset=0(单块纯相对
+    // 增量, 以 tiling offset=0 为基准, 真实 offset 由 kernel 从 GM 读出后相加)}；
     // 标量语义不填写 probDims/probSizes/probStrides（[51..67] 全 0）
-    string expectTilingData = "1 1 2 8 0 0 0 0 0 0 1 1 0 1 256 8 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 "
+    string expectTilingData = "1 1 0 0 0 0 0 0 0 0 1 1 0 1 256 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 "
                               "0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ";
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
@@ -109,7 +114,7 @@ TEST_F(StatelessBernoulliTiling, stateless_bernoulli_tensor_broadcast)
 
     uint64_t expectTilingKey = 102; // 张量语义 + prob[8]→out[4,8] 广播 → 102
     // probDims=2([51])，probSizes=[4,8,0..]([52,53])，probStrides=[0,1,0..]（[61]=1 尾维连续，前导广播 stride=0）
-    string expectTilingData = "1 32 2 8 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 "
+    string expectTilingData = "1 32 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 "
                               "0 0 0 0 0 0 0 0 2 4 8 0 0 0 0 0 0 0 1 0 0 0 0 0 0 ";
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
@@ -139,8 +144,9 @@ TEST_F(StatelessBernoulliTiling, stateless_bernoulli_scalar_empty_shape_tensor)
 
     uint64_t expectTilingKey = 100;
     // outputSize=1（rank 0 的 shapeSize 为 1），splitBlocks[0] = {numel=1, gmOffset=0, grid=1,
-    // totalThreads=256, kernelOffset=8}；标量语义不填写 prob 广播字段（[51..67] 全 0）
-    string expectTilingData = "1 1 2 8 0 0 0 0 0 0 1 1 0 1 256 8 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 "
+    // totalThreads=256, kernelOffset=0(纯相对增量, 真实 offset 由 kernel 从 GM 读取相加)}；
+    // 标量语义不填写 prob 广播字段（[51..67] 全 0）
+    string expectTilingData = "1 1 0 0 0 0 0 0 0 0 1 1 0 1 256 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 "
                               "0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ";
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
@@ -192,8 +198,9 @@ TEST_F(StatelessBernoulliTiling, stateless_bernoulli_scalar_zero_dim_shape_tenso
 
     uint64_t expectTilingKey = 100;
     // 与空 shape tensor 用例一致：outputSize=1，splitBlocks[0] = {numel=1, gmOffset=0, grid=1,
-    // totalThreads=256, kernelOffset=8}；标量语义不填写 prob 广播字段（[51..67] 全 0）
-    string expectTilingData = "1 1 2 8 0 0 0 0 0 0 1 1 0 1 256 8 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 "
+    // totalThreads=256, kernelOffset=0(纯相对增量, 真实 offset 由 kernel 从 GM 读取相加)}；
+    // 标量语义不填写 prob 广播字段（[51..67] 全 0）
+    string expectTilingData = "1 1 0 0 0 0 0 0 0 0 1 1 0 1 256 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 "
                               "0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ";
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
