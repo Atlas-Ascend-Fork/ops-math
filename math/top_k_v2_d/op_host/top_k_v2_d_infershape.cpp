@@ -13,6 +13,7 @@
  * \brief InferShape for TopKV2D operator: output shape = input shape with dim-th axis replaced by k
  */
 #include "register/op_impl_registry.h"
+#include "exe_graph/runtime/infer_datatype_context.h"
 #include "util/shape_util.h"
 #include <string>
 
@@ -81,6 +82,20 @@ static graphStatus InferShapeForTopKV2D(gert::InferShapeContext* context)
     return InferShapeForTopKV2DCommon(context, *k, dim);
 }
 
-IMPL_OP_INFERSHAPE(TopKV2D).InferShape(InferShapeForTopKV2D).InputsDataDependency({1});
+// 与 V1 TopKInferCommon 行为对齐：values 跟随输入 x 的 dtype，indices 固定为 DT_INT32
+static graphStatus InferDataTypeForTopKV2D(gert::InferDataTypeContext* context)
+{
+    if (context == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
+    context->SetOutputDataType(OUTPUT_VALUES_INDEX, context->GetInputDataType(INPUT_X_INDEX));
+    context->SetOutputDataType(OUTPUT_INDICES_INDEX, ge::DT_INT32);
+    return ge::GRAPH_SUCCESS;
+}
+
+IMPL_OP_INFERSHAPE(TopKV2D)
+    .InferShape(InferShapeForTopKV2D)
+    .InputsDataDependency({1})
+    .InferDataType(InferDataTypeForTopKV2D);
 
 } // namespace ops
