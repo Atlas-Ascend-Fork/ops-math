@@ -45,7 +45,9 @@ ge::graphStatus TileInferShapeCommon(gert::InferShapeContext* context, const T* 
         return GRAPH_SUCCESS;
     }
     OP_CHECK_IF(multiples_len > MAXDIMNUM,
-                OP_LOGE(context->GetNodeName(), "the tile multiples len is more than MaxDimNum 8"),
+                OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(context->GetNodeName(), "multiples",
+                                                          std::to_string(multiples_len).c_str(),
+                                                          "The element count of multiples must not be more than 8"),
                 return ge::GRAPH_FAILED);
     // align shape for input
     gert::Shape in_shape_new;
@@ -113,7 +115,9 @@ static ge::graphStatus TileInferShapeWithUnknownMultiples(gert::InferShapeContex
     const auto* multiples_shape = context->GetInputShape(INPUT_INDEX_MULTIPLES);
     OP_CHECK_NULL_WITH_CONTEXT(context, multiples_shape);
     OP_CHECK_IF(multiples_shape->GetDimNum() > 1,
-                OP_LOGE(context->GetNodeName(), "the rank of multiples should not be more than 1"),
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "multiples",
+                                                         std::to_string(multiples_shape->GetDimNum()).c_str(),
+                                                         "The rank of multiples must not be more than 1"),
                 return ge::GRAPH_FAILED);
     int64_t rank = -1;
     if (multiples_shape->GetDimNum() == 0) {
@@ -145,10 +149,10 @@ static ge::graphStatus InferShape4Tile(gert::InferShapeContext* context)
     auto multiples_size = static_cast<size_t>(multiples_tensor->GetShapeSize());
     OP_LOGD(context->GetNodeName(), "multiples_size is %zu", multiples_size);
     DataType data_type = multiples_tensor->GetDataType();
-    OP_CHECK_IF(
-        (data_type != DT_INT32) && (data_type != DT_INT64),
-        OP_LOGE(context->GetNodeName(), "multiples' dtype %s must be in (int32,int64)!", ToString(data_type).c_str()),
-        return ge::GRAPH_FAILED);
+    OP_CHECK_IF((data_type != DT_INT32) && (data_type != DT_INT64),
+                OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "multiples", ToString(data_type).c_str(),
+                                                      "INT32 or INT64"),
+                return ge::GRAPH_FAILED);
 
     if (data_type == DT_INT32) {
         const int32_t* multiples_data = multiples_tensor->GetData<int32_t>();

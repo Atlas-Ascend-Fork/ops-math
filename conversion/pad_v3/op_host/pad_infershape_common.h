@@ -35,14 +35,16 @@ bool PadInfershape(const gert::InferShapeContext* context, const gert::Shape* x_
     OP_LOGD(context->GetNodeName(), "Begin to do PadInfershape");
     OP_LOGD(context->GetNodeName(), "input x = %s", Ops::Base::ToString(*x_shape).c_str());
     size_t input_dim_size = x_shape->GetDimNum();
-    OP_CHECK_IF(input_dim_size == 0, OP_LOGE(context->GetNodeName(), "input shape cannot empty"), return false);
+    OP_CHECK_IF(
+        input_dim_size == 0,
+        OP_LOGE_FOR_INVALID_SHAPE_WITH_REASON(context->GetNodeName(), "x", "0D", "The shape of x must not be empty"),
+        return false);
     OP_CHECK_IF(paddings_value == nullptr, OP_LOGE(context->GetNodeName(), "paddings tensor GetData is nullptr"),
                 return false);
     if (input_dim_size * PADDINGS_PER_DIM != paddings_size) {
-        OP_LOGE(context->GetNodeName(),
-                "the paddings num must be twice of the input x rank."
-                "but paddings num is %zu, input x rank is %zu",
-                paddings_size, input_dim_size);
+        OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(context->GetNodeName(), "paddings",
+                                                  std::to_string(paddings_size).c_str(),
+                                                  "The element count of paddings must be 2 * the rank of x");
         return false;
     }
     y_shape->SetDimNum(input_dim_size);

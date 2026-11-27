@@ -40,7 +40,9 @@ static ge::graphStatus ExpandInferShapeWithUnknownShape(gert::InferShapeContext*
     const auto* shape_desc = context->GetInputShape(INPUT_INDEX_SHAPE);
     OP_CHECK_NULL_WITH_CONTEXT(context, shape_desc);
     OP_CHECK_IF(shape_desc->GetDimNum() > 1,
-                OP_LOGE(context->GetNodeName(), "the rank of shape should not be more than 1"),
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "shape",
+                                                         std::to_string(shape_desc->GetDimNum()).c_str(),
+                                                         "The rank of shape must not be more than 1"),
                 return ge::GRAPH_FAILED);
     if (Ops::Base::IsUnknownRank(*x_shape)) {
         Ops::Base::SetUnknownRank(*out_shape);
@@ -106,10 +108,9 @@ static ge::graphStatus InferShape4Expand(gert::InferShapeContext* context)
             }
             // Broadcast check: x must be 1 or equal to target dimension
             if (x_dim != 1 && x_dim != -1 && x_dim != out_dim) {
-                OP_LOGE(context->GetNodeName(), "%s",
-                        ConcatString("x dimension ", x_dim, " at axis ", (i - diff), " cannot be broadcast to ",
-                                     out_dim, " at axis ", i)
-                            .c_str());
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                    context->GetNodeName(), "x", std::to_string(x_dim).c_str(),
+                    "Each dim of x must be 1 or equal to the corresponding dim of shape for broadcast");
                 return ge::GRAPH_FAILED;
             }
         } else {
