@@ -38,7 +38,7 @@ $$
 ```Cpp
 aclnnStatus aclnnAngleV2GetWorkspaceSize(
   const aclTensor* x,
-  const aclTensor* out,
+  aclTensor*       out,
   uint64_t*        workspaceSize,
   aclOpExecutor**  executor)
 ```
@@ -78,7 +78,7 @@ aclnnStatus aclnnAngleV2(
     </tr></thead>
   <tbody>
     <tr>
-      <td>x（aclTensor*）</td>
+      <td>x（const aclTensor*）</td>
       <td>输入</td>
       <td>待进行angle计算的入参，公式中的x。</td>
       <td>-</td>
@@ -88,7 +88,7 @@ aclnnStatus aclnnAngleV2(
       <td>√</td>
     </tr>
     <tr>
-      <td>out（const aclTensor*）</td>
+      <td>out（aclTensor*）</td>
       <td>输出</td>
       <td>待进行angle计算的出参，公式中的out。</td>
       <td>shape与x相同。</td>
@@ -250,7 +250,7 @@ void PrintOutResult(std::vector<int64_t> &shape, void** deviceAddr) {
 }
 
 int Init(int32_t deviceId, aclrtStream* stream) {
-  // 固定写法，初始化
+  // 固定写法，资源初始化
   auto ret = aclInit(nullptr);
   CHECK_RET(ret == ACL_SUCCESS, LOG_PRINT("aclInit failed. ERROR: %d\n", ret); return ret);
   ret = aclrtSetDevice(deviceId);

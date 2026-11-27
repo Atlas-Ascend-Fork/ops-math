@@ -102,7 +102,7 @@ aclnnStatus aclnnCummin(
         <td>dim (int64_t)</td>
         <td>Input</td>
         <td>Dimension along which the operation is performed.</td>
-        <td>The value range is [-self.dim(), self.dim()-1).</td>
+        <td>When self.dim()>0, the value range is [-self.dim(), self.dim()-1]; when self.dim()=0, the value range is [-1, 0].</td>
         <td>INT64</td>
         <td>-</td>
         <td>-</td>

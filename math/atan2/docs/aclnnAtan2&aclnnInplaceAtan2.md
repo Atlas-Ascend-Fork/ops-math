@@ -265,7 +265,7 @@ aclnnStatus aclnnInplaceAtan2(
       <td>输入/输出</td>
       <td>表示y坐标，与other进行逐元素的反正切运算，计算结果存储在selfRef中。</td>
       <td>shape需要与other满足<a href="../../../docs/zh/context/broadcast_relationship.md" target="_blank">broadcast关系</a>。</td>
-      <td>INT8、INT16、INT32、INT64、UINT8、BOOL、FLOAT、FLOAT16、DOUBLE、BFLOAT16</td>
+      <td>INT8、INT16、INT32、INT64、UINT8、BOOL（整型输入时浮点结果会被截断为对应整型）、FLOAT、FLOAT16、DOUBLE、BFLOAT16</td>
       <td>ND</td>
       <td>不超过8维</td>
       <td>√</td>

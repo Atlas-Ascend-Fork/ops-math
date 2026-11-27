@@ -136,7 +136,7 @@ aclnnStatus aclnnAmpUpdateScale(
       <td>×</td>
     </tr>
     <tr>
-      <td>growthFactor (float)</td>
+      <td>growthFactor (double)</td>
       <td>Input</td>
       <td>Scale growth factor.</td>
       <td>When no Inf/NaN is detected for consecutive growth_interval steps, scale is multiplied by this factor. Usually set to 2.0.</td>
@@ -146,7 +146,7 @@ aclnnStatus aclnnAmpUpdateScale(
       <td>-</td>
     </tr>
     <tr>
-      <td>backoffFactor (float)</td>
+      <td>backoffFactor (double)</td>
       <td>Input</td>
       <td>Scale backoff factor.</td>
       <td>When Inf/NaN is detected, the scale is multiplied by this factor. Typically set to 0.5.</td>
@@ -421,8 +421,8 @@ int main() {
   CHECK_RET(ret == ACL_SUCCESS, return ret);
 
   // 3. Call the first-phase API to obtain the workspace size and executor.
-  float growthFactor = 2.0f;
-  float backoffFactor = 0.5f;
+  double growthFactor = 2.0;
+  double backoffFactor = 0.5;
   int64_t growthInterval = 1000;
 
   uint64_t workspaceSize = 0;

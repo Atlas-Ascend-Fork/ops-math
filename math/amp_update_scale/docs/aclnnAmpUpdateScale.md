@@ -134,7 +134,7 @@ aclnnStatus aclnnAmpUpdateScale(
       <td>×</td>
     </tr>
     <tr>
-      <td>growthFactor（float）</td>
+      <td>growthFactor（double）</td>
       <td>输入</td>
       <td>scale增长因子。</td>
       <td>当连续growth_interval步未检测到Inf/NaN时，scale将乘以该因子。通常设置为2.0。</td>
@@ -144,7 +144,7 @@ aclnnStatus aclnnAmpUpdateScale(
       <td>-</td>
     </tr>
     <tr>
-      <td>backoffFactor（float）</td>
+      <td>backoffFactor（double）</td>
       <td>输入</td>
       <td>scale回退因子。</td>
       <td>当检测到Inf/NaN时，scale将乘以该因子。通常设置为0.5。</td>
@@ -419,8 +419,8 @@ int main() {
   CHECK_RET(ret == ACL_SUCCESS, return ret);
 
   // 3. 调用第一段接口，获取workspace大小和执行器
-  float growthFactor = 2.0f;
-  float backoffFactor = 0.5f;
+  double growthFactor = 2.0;
+  double backoffFactor = 0.5;
   int64_t growthInterval = 1000;
 
   uint64_t workspaceSize = 0;

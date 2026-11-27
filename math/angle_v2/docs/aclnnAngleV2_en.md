@@ -40,7 +40,7 @@ Each operator uses a [two-phase API](../../../docs/en/context/two_phase_api.md).
 ```Cpp
 aclnnStatus aclnnAngleV2GetWorkspaceSize(
   const aclTensor* x,
-  const aclTensor* out,
+  aclTensor*       out,
   uint64_t*        workspaceSize,
   aclOpExecutor**  executor)
 ```
@@ -80,7 +80,7 @@ aclnnStatus aclnnAngleV2(
     </tr></thead>
   <tbody>
     <tr>
-      <td>x (aclTensor*)</td>
+      <td>x (const aclTensor*)</td>
       <td>input</td>
       <td>Input tensor for the angle computation, which is x in the formula.</td>
       <td>-</td>
@@ -90,7 +90,7 @@ aclnnStatus aclnnAngleV2(
       <td>√</td>
     </tr>
     <tr>
-      <td>out (const aclTensor*)</td>
+      <td>out (aclTensor*)</td>
       <td>Output</td>
       <td>Output tensor for the angle computation, which is out in the formula.</td>
       <td>The shape is the same as that of x.</td>
@@ -252,7 +252,7 @@ void PrintOutResult(std::vector<int64_t> &shape, void** deviceAddr) {
 }
 
 int Init(int32_t deviceId, aclrtStream* stream) {
-  // Boilerplate for initialization.
+  // Boilerplate for resource initialization.
   auto ret = aclInit(nullptr);
   CHECK_RET(ret == ACL_SUCCESS, LOG_PRINT("aclInit failed. ERROR: %d\n", ret); return ret);
   ret = aclrtSetDevice(deviceId);

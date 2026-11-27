@@ -102,7 +102,7 @@ aclnnStatus aclnnLinalgCross(
     <tr>
       <td>dim（int64_t）</td>
       <td>输入</td>
-      <td>指定self进行linear_cross的轴。</td>
+      <td>指定self进行LinalgCross运算的轴。</td>
       <td>若不指定则默认为-1，范围在[-self维度数量，self维度数量-1]。</td>
       <td>-</td>
       <td>-</td>
@@ -166,7 +166,7 @@ aclnnStatus aclnnLinalgCross(
     <tr>
       <td>ACLNN_ERR_PARAM_NULLPTR</td>
       <td>161001</td>
-      <td>传入的self或out是空指针。</td>
+      <td>传入的self、other或out是空指针。</td>
     </tr>
     <tr>
       <td rowspan="6">ACLNN_ERR_PARAM_INVALID</td>
@@ -183,7 +183,7 @@ aclnnStatus aclnnLinalgCross(
       <td>self和other broadcast后的shape与out不一致。</td>
     </tr>
     <tr>
-      <td>self在对应dim维度上的shape不为3。</td>
+      <td>self在对应dim维度上广播后的shape不为3。</td>
     </tr>
     <tr>
       <td>dim的值不在[-self的维度数量，self的维度数量-1]范围内。</td>
