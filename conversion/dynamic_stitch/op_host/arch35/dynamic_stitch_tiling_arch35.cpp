@@ -104,17 +104,22 @@ ge::graphStatus DynamicStitchTilingClass::CheckAndGetIndiceInputList()
 {
     totalTensorSum_ = 0;
     for (int32_t i = 0; i < totalTensorCnt_; i++) {
+        std::string indicesParamMsg = "indices " + std::to_string(i) + "th tensor";
         auto indicesDesc = context_->GetDynamicInputDesc(INPUT_INDICES_IDX, i);
         OP_CHECK_IF(indicesDesc == nullptr,
-                    OP_LOGE(context_->GetNodeName(), "The input indices[%d]'s desc is null.", i),
+                    OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(context_->GetNodeName(), indicesParamMsg.c_str(),
+                                                             "The desc of input indices is unavailable"),
                     return ge::GRAPH_FAILED);
         auto currShape = context_->GetDynamicInputShape(INPUT_INDICES_IDX, i);
-        OP_CHECK_IF(currShape == nullptr, OP_LOGE(context_->GetNodeName(), "The input indices[%d]'s shape is null.", i),
+        OP_CHECK_IF(currShape == nullptr,
+                    OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(context_->GetNodeName(), indicesParamMsg.c_str(),
+                                                             "The shape of input indices is unavailable"),
                     return ge::GRAPH_FAILED);
         if (indicesDesc->GetDataType() != ge::DT_INT32) {
             std::string paramMsg = "indices " + std::to_string(i) + "th tensor";
-            OP_LOGE_FOR_INVALID_DTYPE(context_->GetNodeName(), paramMsg.c_str(),
-                                      Ops::Base::ToString(indicesDesc->GetDataType()).c_str(), "int32");
+            OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context_->GetNodeName(), paramMsg.c_str(),
+                                                  Ops::Base::ToString(indicesDesc->GetDataType()).c_str(),
+                                                  "The dtype of input indices must be int32");
             return ge::GRAPH_FAILED;
         }
 
@@ -140,30 +145,36 @@ ge::graphStatus DynamicStitchTilingClass::CheckAndGetXInputList()
 {
     dataType_ = ge::DT_UNDEFINED;
     for (int32_t i = 0; i < totalTensorCnt_; i++) {
+        std::string xParamMsg = "x " + std::to_string(i) + "th tensor";
         auto tempDesc = context_->GetDynamicInputDesc(INPUT_X_IDX, i);
-        OP_CHECK_IF(tempDesc == nullptr, OP_LOGE(context_->GetNodeName(), "The input x[%d]'s desc is null.", i),
+        OP_CHECK_IF(tempDesc == nullptr,
+                    OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(context_->GetNodeName(), xParamMsg.c_str(),
+                                                             "The desc of input x is unavailable"),
                     return ge::GRAPH_FAILED);
         auto currShape = context_->GetDynamicInputShape(INPUT_X_IDX, i);
-        OP_CHECK_IF(currShape == nullptr, OP_LOGE(context_->GetNodeName(), "The input x[%d]'s shape is null.", i),
+        OP_CHECK_IF(currShape == nullptr,
+                    OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(context_->GetNodeName(), xParamMsg.c_str(),
+                                                             "The shape of input x is unavailable"),
                     return ge::GRAPH_FAILED);
         auto srcDtype = tempDesc->GetDataType();
         if (std::find(X_SUPPORT_DTYPE.begin(), X_SUPPORT_DTYPE.end(), srcDtype) == X_SUPPORT_DTYPE.end()) {
             std::string paramMsg = "x " + std::to_string(i) + "th tensor";
-            OP_LOGE_FOR_INVALID_DTYPE(
+            OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(
                 context_->GetNodeName(), paramMsg.c_str(), Ops::Base::ToString(srcDtype).c_str(),
-                "INT8, UINT8, INT16, UINT16, INT32, UINT32, INT64, UINT64, BOOL, FLOAT16, BF16, FLOAT, DOUBLE and "
-                "COMPLEX64");
+                "The dtype of input x must be one of INT8, UINT8, INT16, UINT16, INT32, UINT32, INT64, UINT64, BOOL, "
+                "FLOAT16, BF16, FLOAT, DOUBLE and COMPLEX64");
             return ge::GRAPH_FAILED;
         }
         if (dataType_ == ge::DT_UNDEFINED) {
             dataType_ = srcDtype;
         } else if (srcDtype != dataType_) {
-            std::string paramMsg = "x " + std::to_string(i) + "th tensor";
+            std::string paramMsg = "x tensors";
             std::string reasonMsg = "The dtypes of all tensors in x must be the same, but dtype of the " +
                                     std::to_string(i) + "th tensor is inconsistent with other dtypes " +
                                     Ops::Base::ToString(dataType_);
-            OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context_->GetNodeName(), paramMsg.c_str(),
-                                                  Ops::Base::ToString(srcDtype).c_str(), reasonMsg.c_str());
+            std::string dtypesMsg = Ops::Base::ToString(srcDtype) + " and " + Ops::Base::ToString(dataType_);
+            OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(context_->GetNodeName(), paramMsg.c_str(), dtypesMsg.c_str(),
+                                                   reasonMsg.c_str());
             return ge::GRAPH_FAILED;
         }
         if (CheckShapeAllNonNeg(currShape->GetStorageShape()) != ge::GRAPH_SUCCESS) {
@@ -240,8 +251,9 @@ ge::graphStatus DynamicStitchTilingClass::CheckAndGetOutput()
     if (outputDtype != dataType_) {
         std::string reasonMsg = "The dtype of output y must be the same as the dtypes " +
                                 Ops::Base::ToString(dataType_) + " of all input x's tensors";
-        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context_->GetNodeName(), "y", Ops::Base::ToString(outputDtype).c_str(),
-                                              reasonMsg.c_str());
+        std::string dtypesMsg = Ops::Base::ToString(outputDtype) + " and " + Ops::Base::ToString(dataType_);
+        OP_LOGE_FOR_INVALID_DTYPES_WITH_REASON(context_->GetNodeName(), "y and x", dtypesMsg.c_str(),
+                                               reasonMsg.c_str());
         return ge::GRAPH_FAILED;
     }
     OP_CHECK_IF(context_->GetOutputShape(OUTPUT_IDX) == nullptr,
@@ -281,8 +293,8 @@ ge::graphStatus DynamicStitchTilingClass::CheckAttr() const
     OP_CHECK_NULL_WITH_CONTEXT(context_, attrNPtr);
     int32_t attrNValue = static_cast<int32_t>(*attrNPtr);
     OP_CHECK_IF(attrNValue < 1,
-                OP_LOGE_FOR_INVALID_VALUE(context_->GetNodeName(), "N", std::to_string(attrNValue).c_str(),
-                                          "greater than or equal to 1"),
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context_->GetNodeName(), "N", std::to_string(attrNValue).c_str(),
+                                                      "The value of attr N must be greater than or equal to 1"),
                 return ge::GRAPH_FAILED);
     if (attrNValue != totalTensorCnt_) {
         std::string reasonMsg = "The value of attr N must be equal to actual tensor count " +

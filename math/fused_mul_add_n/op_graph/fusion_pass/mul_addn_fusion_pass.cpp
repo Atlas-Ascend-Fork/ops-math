@@ -700,7 +700,10 @@ GraphUniqPtr MulAddNPass::Replacement(const std::unique_ptr<MatchResult>& matchR
     // Multi-input path: build MulAddn(x1[0..n-1], x2[0..n-1], N) where x1_i / x2_i are the
     // input-0 / input-1 of the i-th matched Mul, in AddN input order (legacy wiring order).
     if (addnInputNum <= kTwoInputAddNNum || addnInputNum > kMaxMultiInputAddNNum) {
-        OP_LOGE(kPassName.c_str(), "Invalid AddN input num [%ld] in Replacement.", addnInputNum);
+        OP_LOGE_FOR_INVALID_TENSORNUMS_WITH_REASON(
+            kPassName.c_str(), "AddN inputs", std::to_string(addnInputNum),
+            "The number of AddN inputs in the replacement graph must be in the range [" +
+                std::to_string(kTwoInputAddNNum + 1) + ", " + std::to_string(kMaxMultiInputAddNNum) + "]");
         return nullptr;
     }
 

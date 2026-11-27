@@ -93,34 +93,46 @@ ge::graphStatus RangeGetConstValue(gert::TilingContext* context, const gert::Ten
 {
     if (tensor->GetDataType() == ge::DT_INT32) {
         const int32_t* constDataPtr = tensor->GetData<int32_t>();
-        OP_CHECK_NULL_WITH_CONTEXT(context, constDataPtr);
+        if (constDataPtr == nullptr) {
+            return ge::GRAPH_FAILED;
+        }
         value = static_cast<T>(*constDataPtr);
         OP_LOGD(context->GetNodeName(), "range get const value:%d", *constDataPtr);
     } else if (tensor->GetDataType() == ge::DT_FLOAT) {
         const float* constDataPtr = tensor->GetData<float>();
-        OP_CHECK_NULL_WITH_CONTEXT(context, constDataPtr);
+        if (constDataPtr == nullptr) {
+            return ge::GRAPH_FAILED;
+        }
         value = static_cast<T>(*constDataPtr);
         OP_LOGD(context->GetNodeName(), "range get const value:%f", *constDataPtr);
     } else if (tensor->GetDataType() == ge::DT_FLOAT16) {
         const Ops::Base::fp16_t* constDataPtr = tensor->GetData<Ops::Base::fp16_t>();
-        OP_CHECK_NULL_WITH_CONTEXT(context, constDataPtr);
+        if (constDataPtr == nullptr) {
+            return ge::GRAPH_FAILED;
+        }
         float f32 = static_cast<float>(*constDataPtr);
         value = static_cast<T>(f32);
         OP_LOGD(context->GetNodeName(), "range get const value:%f", static_cast<float>(*constDataPtr));
     } else if (tensor->GetDataType() == ge::DT_BF16) {
         const int16_t* constDataPtr = tensor->GetData<int16_t>();
-        OP_CHECK_NULL_WITH_CONTEXT(context, constDataPtr);
+        if (constDataPtr == nullptr) {
+            return ge::GRAPH_FAILED;
+        }
         int32_t f32hex = (static_cast<int32_t>(*constDataPtr)) << INT16_BITS_NUM;
         value = static_cast<T>((reinterpret_cast<float&>(f32hex)));
         OP_LOGD(context->GetNodeName(), "range get const value:%d", f32hex);
     } else if (tensor->GetDataType() == ge::DT_INT64) {
         const int64_t* constDataPtr = tensor->GetData<int64_t>();
-        OP_CHECK_NULL_WITH_CONTEXT(context, constDataPtr);
+        if (constDataPtr == nullptr) {
+            return ge::GRAPH_FAILED;
+        }
         value = static_cast<T>(*constDataPtr);
         OP_LOGD(context->GetNodeName(), "range get const value:%ld", *constDataPtr);
     } else if (tensor->GetDataType() == ge::DT_DOUBLE) {
         const double* constDataPtr = tensor->GetData<double>();
-        OP_CHECK_NULL_WITH_CONTEXT(context, constDataPtr);
+        if (constDataPtr == nullptr) {
+            return ge::GRAPH_FAILED;
+        }
         value = static_cast<T>(*constDataPtr);
         OP_LOGD(context->GetNodeName(), "range get const value:%f", *constDataPtr);
     } else {
@@ -165,11 +177,17 @@ ge::graphStatus CalculateOutputSize(gert::TilingContext* context, const gert::Te
     T limit(0);
     T delta(0);
     OP_CHECK_IF(RangeGetConstValue<T>(context, tensorStart, start) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context->GetNodeName(), "get start const value fail."), return ge::GRAPH_FAILED);
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "start", "unavailable",
+                                                      "The input start must be a readable constant during tiling"),
+                return ge::GRAPH_FAILED);
     OP_CHECK_IF(RangeGetConstValue<T>(context, tensorLimit, limit) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context->GetNodeName(), "get limit const value fail."), return ge::GRAPH_FAILED);
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "limit", "unavailable",
+                                                      "The input limit must be a readable constant during tiling"),
+                return ge::GRAPH_FAILED);
     OP_CHECK_IF(RangeGetConstValue<T>(context, tensorDelta, delta) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context->GetNodeName(), "get delta const value fail."), return ge::GRAPH_FAILED);
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "delta", "unavailable",
+                                                      "The input delta must be a readable constant during tiling"),
+                return ge::GRAPH_FAILED);
     OP_CHECK_IF(CheckStep<T>(context, start, limit, delta) != ge::GRAPH_SUCCESS,
                 OP_LOGE(context->GetNodeName(), "CheckStep fail."), return ge::GRAPH_FAILED);
     OP_CHECK_NULL_WITH_CONTEXT(context, context->GetOutputDesc(0));
@@ -188,12 +206,21 @@ ge::graphStatus CalculateOutputSize(gert::TilingContext* context, const gert::Te
             double startDouble = 0.0;
             double limitDouble = 0.0;
             double deltaDouble = 0.0;
-            OP_CHECK_IF(RangeGetConstValue<double>(context, tensorStart, startDouble) != ge::GRAPH_SUCCESS,
-                        OP_LOGE(context->GetNodeName(), "get start value fail."), return ge::GRAPH_FAILED);
-            OP_CHECK_IF(RangeGetConstValue<double>(context, tensorLimit, limitDouble) != ge::GRAPH_SUCCESS,
-                        OP_LOGE(context->GetNodeName(), "get limit value fail."), return ge::GRAPH_FAILED);
-            OP_CHECK_IF(RangeGetConstValue<double>(context, tensorDelta, deltaDouble) != ge::GRAPH_SUCCESS,
-                        OP_LOGE(context->GetNodeName(), "get delta value fail."), return ge::GRAPH_FAILED);
+            OP_CHECK_IF(
+                RangeGetConstValue<double>(context, tensorStart, startDouble) != ge::GRAPH_SUCCESS,
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "start", "unavailable",
+                                                      "The input start must be a readable constant during tiling"),
+                return ge::GRAPH_FAILED);
+            OP_CHECK_IF(
+                RangeGetConstValue<double>(context, tensorLimit, limitDouble) != ge::GRAPH_SUCCESS,
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "limit", "unavailable",
+                                                      "The input limit must be a readable constant during tiling"),
+                return ge::GRAPH_FAILED);
+            OP_CHECK_IF(
+                RangeGetConstValue<double>(context, tensorDelta, deltaDouble) != ge::GRAPH_SUCCESS,
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "delta", "unavailable",
+                                                      "The input delta must be a readable constant during tiling"),
+                return ge::GRAPH_FAILED);
             outputSize = static_cast<uint64_t>(std::ceil((limitDouble - startDouble) / deltaDouble));
         }
     }
@@ -219,9 +246,13 @@ ge::graphStatus AppendTilingArgs(gert::TilingContext* context, const gert::Tenso
     T start(0);
     T delta(0);
     OP_CHECK_IF(RangeGetConstValue<T>(context, tensorStart, start) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context->GetNodeName(), "get start const value fail."), return ge::GRAPH_FAILED);
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "start", "unavailable",
+                                                      "The input start must be a readable constant during tiling"),
+                return ge::GRAPH_FAILED);
     OP_CHECK_IF(RangeGetConstValue<T>(context, tensorDelta, delta) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context->GetNodeName(), "get delta const value fail."), return ge::GRAPH_FAILED);
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "delta", "unavailable",
+                                                      "The input delta must be a readable constant during tiling"),
+                return ge::GRAPH_FAILED);
 
     auto compileInfo = reinterpret_cast<const RangeCompileInfo*>(context->GetCompileInfo());
     OP_CHECK_NULL_WITH_CONTEXT(context, compileInfo);

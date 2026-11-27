@@ -12,6 +12,8 @@
  * \file one_hot_infershape.cpp
  * \brief
  */
+#include <string>
+
 #include "infershape_broadcast_util.h"
 #include "register/op_impl_registry.h"
 #include "log/log.h"
@@ -48,7 +50,10 @@ static ge::graphStatus InferShape4OneHot(gert::InferShapeContext* context)
     OP_CHECK_NULL_WITH_CONTEXT(context, axis_ptr);
 
     int64_t axis = *axis_ptr;
-    OP_CHECK_IF(axis < -1, OP_LOGE(context->GetNodeName(), "attr axis(%ld) must be >= -1", axis), return GRAPH_FAILED);
+    OP_CHECK_IF(axis < -1,
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "axis", std::to_string(axis),
+                                                      "The value of attr axis must be greater than or equal to -1"),
+                return GRAPH_FAILED);
 
     if (Ops::Base::IsUnknownRank(*x_shape_ptr)) {
         OP_LOGD(context->GetNodeName(), "x shape is unknown rank, set output y shape to unknown rank.");
@@ -57,12 +62,18 @@ static ge::graphStatus InferShape4OneHot(gert::InferShapeContext* context)
     }
 
     int64_t dimnum = static_cast<int64_t>(x_shape_ptr->GetDimNum());
-    OP_CHECK_IF(axis > dimnum, OP_LOGE(context->GetNodeName(), "attr axis(%ld) must be <= %ld", axis, dimnum),
+    OP_CHECK_IF(axis > dimnum,
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                    context->GetNodeName(), "axis", std::to_string(axis),
+                    "The value of attr axis must be less than or equal to the rank of input x (" +
+                        std::to_string(dimnum) + ")"),
                 return GRAPH_FAILED);
 
     int64_t depth_value = -1;
     OP_CHECK_IF(!Ops::Base::GetConstInt(context, INDEX_INPUT_DEPTH, depth_value),
-                OP_LOGE(context->GetNodeName(), "Get depth const tensor failed"), return ge::GRAPH_FAILED);
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "depth", "unavailable",
+                                                      "The input depth must be a readable constant during infer shape"),
+                return ge::GRAPH_FAILED);
 
     // update output shape
     y_shape_ptr->SetDimNum(dimnum + 1);

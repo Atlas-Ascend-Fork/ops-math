@@ -72,35 +72,47 @@ static ge::graphStatus RangeGetConstValue(gert::InferShapeContext* context, cons
 {
     if (tensor->GetDataType() == ge::DT_INT32) {
         const int32_t* constDataPtr = tensor->GetData<int32_t>();
-        OP_CHECK_NULL_WITH_CONTEXT(context, constDataPtr);
+        if (constDataPtr == nullptr) {
+            return ge::GRAPH_FAILED;
+        }
         value.push_back(static_cast<T>(*constDataPtr));
         OP_LOGD(context->GetNodeName(), "range get const value:%d", *constDataPtr);
     } else if (tensor->GetDataType() == ge::DT_FLOAT) {
         const float* constDataPtr = tensor->GetData<float>();
-        OP_CHECK_NULL_WITH_CONTEXT(context, constDataPtr);
+        if (constDataPtr == nullptr) {
+            return ge::GRAPH_FAILED;
+        }
         value.push_back(static_cast<T>(*constDataPtr));
         OP_LOGD(context->GetNodeName(), "range get const value:%f", *constDataPtr);
     } else if (tensor->GetDataType() == ge::DT_FLOAT16) {
         const Ops::Base::fp16_t* constDataPtr = tensor->GetData<Ops::Base::fp16_t>();
-        OP_CHECK_NULL_WITH_CONTEXT(context, constDataPtr);
+        if (constDataPtr == nullptr) {
+            return ge::GRAPH_FAILED;
+        }
         float f32 = static_cast<float>(*constDataPtr);
         value.push_back(static_cast<T>(f32));
         OP_LOGD(context->GetNodeName(), "range get const value:%f", static_cast<float>(*constDataPtr));
     } else if (tensor->GetDataType() == ge::DT_BF16) {
         const int16_t* constDataPtr = tensor->GetData<int16_t>();
-        OP_CHECK_NULL_WITH_CONTEXT(context, constDataPtr);
+        if (constDataPtr == nullptr) {
+            return ge::GRAPH_FAILED;
+        }
         int32_t f32hex = (static_cast<int32_t>(*constDataPtr)) << INT16_BITS_NUM;
         float* f32ptr = reinterpret_cast<float*>(&f32hex);
         value.push_back(static_cast<T>(*f32ptr));
         OP_LOGD(context->GetNodeName(), "range get const value:%d", f32hex);
     } else if (tensor->GetDataType() == ge::DT_INT64) {
         const int64_t* constDataPtr = tensor->GetData<int64_t>();
-        OP_CHECK_NULL_WITH_CONTEXT(context, constDataPtr);
+        if (constDataPtr == nullptr) {
+            return ge::GRAPH_FAILED;
+        }
         value.push_back(static_cast<T>(*constDataPtr));
         OP_LOGD(context->GetNodeName(), "range get const value:%ld", *constDataPtr);
     } else if (tensor->GetDataType() == ge::DT_DOUBLE) {
         const double* constDataPtr = tensor->GetData<double>();
-        OP_CHECK_NULL_WITH_CONTEXT(context, constDataPtr);
+        if (constDataPtr == nullptr) {
+            return ge::GRAPH_FAILED;
+        }
         value.push_back(static_cast<T>(*constDataPtr));
         OP_LOGD(context->GetNodeName(), "range get const value:%lf", *constDataPtr);
         // do nothing, impossible
@@ -134,11 +146,17 @@ static ge::graphStatus CalculateOutputNum(gert::InferShapeContext* context, cons
     std::vector<T> limitMultiples;
     std::vector<T> deltaMultiples;
     OP_CHECK_IF(RangeGetConstValue<T>(context, tensorStart, startMultiples) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context->GetNodeName(), "get start const value fail."), return ge::GRAPH_FAILED);
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "start", "unavailable",
+                                                      "The input start must be a readable constant during infer shape"),
+                return ge::GRAPH_FAILED);
     OP_CHECK_IF(RangeGetConstValue<T>(context, tensorLimit, limitMultiples) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context->GetNodeName(), "get limit const value fail."), return ge::GRAPH_FAILED);
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "limit", "unavailable",
+                                                      "The input limit must be a readable constant during infer shape"),
+                return ge::GRAPH_FAILED);
     OP_CHECK_IF(RangeGetConstValue<T>(context, tensorDelta, deltaMultiples) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context->GetNodeName(), "get delta const value fail."), return ge::GRAPH_FAILED);
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "delta", "unavailable",
+                                                      "The input delta must be a readable constant during infer shape"),
+                return ge::GRAPH_FAILED);
     if (startMultiples.empty() || limitMultiples.empty() || deltaMultiples.empty()) {
         totalNum = -1;
         return ge::GRAPH_SUCCESS;
@@ -165,12 +183,21 @@ static ge::graphStatus CalculateOutputNum(gert::InferShapeContext* context, cons
             std::vector<double> startDouble;
             std::vector<double> limitDouble;
             std::vector<double> deltaDouble;
-            OP_CHECK_IF(RangeGetConstValue<double>(context, tensorStart, startDouble) != ge::GRAPH_SUCCESS,
-                        OP_LOGE(context->GetNodeName(), "get start const value fail."), return ge::GRAPH_FAILED);
-            OP_CHECK_IF(RangeGetConstValue<double>(context, tensorLimit, limitDouble) != ge::GRAPH_SUCCESS,
-                        OP_LOGE(context->GetNodeName(), "get limit const value fail."), return ge::GRAPH_FAILED);
-            OP_CHECK_IF(RangeGetConstValue<double>(context, tensorDelta, deltaDouble) != ge::GRAPH_SUCCESS,
-                        OP_LOGE(context->GetNodeName(), "get delta const value fail."), return ge::GRAPH_FAILED);
+            OP_CHECK_IF(
+                RangeGetConstValue<double>(context, tensorStart, startDouble) != ge::GRAPH_SUCCESS,
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "start", "unavailable",
+                                                      "The input start must be a readable constant during infer shape"),
+                return ge::GRAPH_FAILED);
+            OP_CHECK_IF(
+                RangeGetConstValue<double>(context, tensorLimit, limitDouble) != ge::GRAPH_SUCCESS,
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "limit", "unavailable",
+                                                      "The input limit must be a readable constant during infer shape"),
+                return ge::GRAPH_FAILED);
+            OP_CHECK_IF(
+                RangeGetConstValue<double>(context, tensorDelta, deltaDouble) != ge::GRAPH_SUCCESS,
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "delta", "unavailable",
+                                                      "The input delta must be a readable constant during infer shape"),
+                return ge::GRAPH_FAILED);
             totalNum = static_cast<uint64_t>(std::ceil((limitDouble[0] - startDouble[0]) / deltaDouble[0]));
         }
     }
