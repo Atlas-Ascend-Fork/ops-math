@@ -126,7 +126,9 @@ ge::graphStatus CumminTiling::GetShapeAttrsInfo()
         return ge::GRAPH_FAILED;
     }
 
-    int64_t dim = *(attrs->GetAttrPointer<int64_t>(DIM));
+    const int64_t* dimPtr = attrs->GetAttrPointer<int64_t>(DIM);
+    // "axis" 是可选属性，IR 默认值 -1（见 cummin_def.cpp），缺失时回落最后一维
+    int64_t dim = (dimPtr == nullptr) ? -1 : *dimPtr;
     int64_t dimNum = xShape.GetDimNum();
     if (dim < -dimNum || dim >= dimNum) {
         OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context_->GetNodeName(), "dim", std::to_string(dim).c_str(),
@@ -149,8 +151,19 @@ ge::graphStatus CumminTiling::GetShapeAttrsInfo()
     }
     tilingData_.N = N;
 
-    ge::DataType xDataType = context_->GetInputDesc(INPUT_X)->GetDataType();
-    ge::DataType argminDataType = context_->GetOutputDesc(INPUT_ARGMIN)->GetDataType();
+    auto xDesc = context_->GetInputDesc(INPUT_X);
+    if (xDesc == nullptr) {
+        OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "x");
+        return ge::GRAPH_FAILED;
+    }
+    auto argminDesc = context_->GetOutputDesc(INPUT_ARGMIN);
+    if (argminDesc == nullptr) {
+        OP_LOGE(context_->GetNodeName(), "Get output desc of argmin failed.");
+        return ge::GRAPH_FAILED;
+    }
+
+    ge::DataType xDataType = xDesc->GetDataType();
+    ge::DataType argminDataType = argminDesc->GetDataType();
     dSize_ = ge::GetSizeByDataType(xDataType);
     argminDSize_ = ge::GetSizeByDataType(argminDataType);
     if (dSize_ <= 0) {
