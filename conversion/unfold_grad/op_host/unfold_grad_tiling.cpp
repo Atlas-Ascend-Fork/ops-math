@@ -236,6 +236,13 @@ ge::graphStatus UnfoldGradTiling::GetInputTensorInfo()
         OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(nodeName, "dim", std::to_string(dim).c_str(),
                                               ("dim must be in [0, " + std::to_string(inputSizeLength) + ")").c_str()),
         return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        size > inputSizeArray[dim],
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(nodeName, "size", std::to_string(size).c_str(),
+                                              ("size must be less than or equal to input_sizes[" + std::to_string(dim) +
+                                               "] = " + std::to_string(inputSizeArray[dim]))
+                                                  .c_str()),
+        return ge::GRAPH_FAILED);
 
     // 获取第一个输入gradOut的信息
     auto gradOutShapePtr = context->GetInputShape(INPUT_GRADOUT_IDX);

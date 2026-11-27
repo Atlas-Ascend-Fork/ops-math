@@ -98,6 +98,27 @@ TEST_F(UnfoldGradTilingTest, UnfoldGradTilingData_test_bfloat16_shape_1_8_640_12
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }
 
+// size > inputSizes[dim]：即使 gradOut 的 dim 维与 (inputSizes[dim]-size)/step+1 的截断结果一致，也必须拒掉
+TEST_F(UnfoldGradTilingTest, UnfoldGradTilingData_test_size_greater_than_inputsize_dim_failed)
+{
+    optiling::Tiling4UnfoldGradCompileInfo compileInfo = {};
+    std::vector<int64_t> inputSizeValues = {4, 2};
+    gert::TilingContextPara tilingContextPara(
+        "UnfoldGrad",
+        {
+            {{{4, 1, 3}, {4, 1, 3}}, ge::DT_FLOAT, ge::FORMAT_ND},
+            {{{2}, {2}}, ge::DT_INT64, ge::FORMAT_ND, true, inputSizeValues.data()},
+        },
+        {
+            {{{4, 2}, {4, 2}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        {gert::TilingContextPara::OpAttr("dim", Ops::Math::AnyValue::CreateFrom<int64_t>(1)),
+         gert::TilingContextPara::OpAttr("size", Ops::Math::AnyValue::CreateFrom<int64_t>(3)),
+         gert::TilingContextPara::OpAttr("step", Ops::Math::AnyValue::CreateFrom<int64_t>(2))},
+        &compileInfo);
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED);
+}
+
 // TEST_F(UnfoldGradTilingTest,
 // UnfoldGradTilingData_test_float32_outputshape_1_3_3_658_658_dim_3_size_2_step_20_success_case0) {
 //     optiling::Tiling4UnfoldGradCompileInfo compileInfo = {};
