@@ -378,8 +378,6 @@ aclnnStatus aclnnBernoulliTensorGetWorkspaceSize(const aclTensor* self, const ac
     auto prob_contiguous = l0op::Contiguous(prob, uniqueExecutor.get());
     CHECK_RET(prob_contiguous != nullptr, ACLNN_ERR_INNER_NULLPTR);
 
-    // prob 广播由 tiling/kernel 按 stride 寻址处理，
-    // 不做物化拷贝, tiling 侧做 shape 级可广播校验
     const aclTensor* prob_calc = nullptr;
     if (IsRegBase()) {
         prob_calc = l0op::Cast(prob_contiguous, op::DataType::DT_FLOAT, uniqueExecutor.get());

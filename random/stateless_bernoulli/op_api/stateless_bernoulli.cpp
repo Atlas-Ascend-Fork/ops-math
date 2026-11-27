@@ -14,6 +14,7 @@
  */
 
 #include "stateless_bernoulli.h"
+#include "conversion/broadcast_to/op_api/broadcast_to.h"
 #include "op_api/aclnn_check.h"
 #include "opdev/aicpu/aicpu_task.h"
 #include "opdev/make_op_executor.h"
@@ -51,6 +52,18 @@ static const aclTensor* StatelessBernoulliAiCpu(const aclTensor* shapeTensor, co
                                                 aclOpExecutor* executor)
 {
     L0_DFX(StatelessBernoulliAiCpu, shapeTensor, prob, seed, offset, out);
+
+    // AICPU kernel 按扁平索引读取 prob，不支持隐式广播；仅在确定走 AICPU 时物化广播。
+    if (prob->GetViewShape() != out->GetViewShape()) {
+        auto outShape = op::ToShapeVector(out->GetViewShape());
+        auto outShapeArray = executor->AllocIntArray(outShape.data(), outShape.size());
+        OP_CHECK(outShapeArray != nullptr,
+                 OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "StatelessBernoulli failed to allocate output shape array."),
+                 return nullptr);
+        prob = BroadcastTo(prob, outShapeArray, executor);
+        OP_CHECK(prob != nullptr, OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "StatelessBernoulli failed to broadcast prob."),
+                 return nullptr);
+    }
 
     static internal::AicpuTaskSpace space("StatelessBernoulli");
     ADD_TO_LAUNCHER_LIST_AICPU(StatelessBernoulli, OP_ATTR_NAMES({"dtype"}), OP_INPUT(shapeTensor, prob, seed, offset),
