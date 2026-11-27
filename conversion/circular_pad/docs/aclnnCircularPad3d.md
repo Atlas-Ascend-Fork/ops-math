@@ -340,7 +340,7 @@ int main() {
 
     std::vector<float> selfHostData = {0, 1, 2, 3, 4, 5, 6, 7};
     std::vector<int64_t> paddingData = {1, 1, 1, 1, 1, 1};
-    std::vector<float> outHostData(GetShapeSize(outShape) * 2, 0);
+    std::vector<float> outHostData(GetShapeSize(outShape), 0);
 
     // 创建self aclTensor
     ret = CreateAclTensor(selfHostData, selfShape, &selfDeviceAddr, aclDataType::ACL_FLOAT, &self);

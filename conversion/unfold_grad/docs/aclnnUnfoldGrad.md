@@ -31,7 +31,7 @@
 
 - 示例：
 
-  ```text
+  ```python
   >>> x = torch.arange(1., 8)
   >>> x
   tensor([ 1.,  2.,  3.,  4.,  5.,  6.,  7.])
@@ -46,8 +46,10 @@
   tensor([[ 1.,  2.],
           [ 3.,  4.],
           [ 5.,  6.]])
+  >>> grad = x.unfold(0, 2, 2)
   >>> res = torch.ops.aten.unfold_backward(grad, [7], 0, 2, 2)
-  tensor([1, 2, 3, 4, 5, 6, 0])
+  >>> res
+  tensor([1., 2., 3., 4., 5., 6., 0.])
   ```
 
 ## 函数原型
@@ -103,7 +105,7 @@ aclnnStatus aclnnUnfoldGrad(
     <tr>
       <td>gradOut（aclTensor *）</td>
       <td>输入</td>
-      <td>表示梯度更新系数。</td>
+      <td>表示Unfold正向输出的梯度，shape为Unfold正向输出的shape。</td>
       <td>shape为(..., (sizedim-size)/step+1, size)，要求满足gradOut的第dim维等于(inputSizes[dim]-size)/step+1、gradOut的末维大小等于size和gradOut的size等于inputSizes的size+1。</td>
       <td>FLOAT、FLOAT16、BFLOAT16</td>
       <td>ND</td>
@@ -113,7 +115,7 @@ aclnnStatus aclnnUnfoldGrad(
     <tr>
       <td>inputSizes（aclIntArray*）</td>
       <td>输入</td>
-      <td>表示输出张量的形状。</td>
+      <td>表示Unfold正向输入self的shape。</td>
       <td>值为(..., sizedim)，inputSizes的size小于等于7（gradOut的秩为1-8，且gradOut的秩等于inputSizes的size加1）。</td>
       <td>INT64</td>
       <td>-</td>

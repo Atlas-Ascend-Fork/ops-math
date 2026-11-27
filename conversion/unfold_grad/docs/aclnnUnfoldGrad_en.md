@@ -33,7 +33,7 @@
 
 - Example:
 
-  ```text
+  ```python
   >>> x = torch.arange(1., 8)
   >>> x
   tensor([ 1.,  2.,  3.,  4.,  5.,  6.,  7.])
@@ -48,8 +48,10 @@
   tensor([[ 1.,  2.],
           [ 3.,  4.],
           [ 5.,  6.]])
+  >>> grad = x.unfold(0, 2, 2)
   >>> res = torch.ops.aten.unfold_backward(grad, [7], 0, 2, 2)
-  tensor([1, 2, 3, 4, 5, 6, 0])
+  >>> res
+  tensor([1., 2., 3., 4., 5., 6., 0.])
   ```
 
 ## Function Prototype
@@ -105,7 +107,7 @@ aclnnStatus aclnnUnfoldGrad(
     <tr>
       <td class="tg-0pky">gradOut (aclTensor *)</td>
       <td class="tg-0pky">Input</td>
-      <td class="tg-0pky">Indicates the gradient update coefficient.</td>
+      <td class="tg-0pky">Indicates the gradient of the Unfold forward output, whose shape is the shape of the Unfold forward output.</td>
       <td class="tg-0pky">The shape is (..., (sizedim-size)/step+1, size). The dim-th dimension of gradOut must be equal to (inputSizes[dim]-size)/step+1, and the size of gradOut must be equal to the size of inputSizes plus 1.</td>
       <td class="tg-0pky">FLOAT, FLOAT16, BFLOAT16</td>
       <td class="tg-0pky">ND</td>
@@ -115,7 +117,7 @@ aclnnStatus aclnnUnfoldGrad(
     <tr>
       <td class="tg-0lax">inputSizes (aclIntArray*)</td>
       <td class="tg-0lax">Input</td>
-      <td class="tg-0lax">Indicates the shape of the output tensor.</td>
+      <td class="tg-0lax">Indicates the shape of the Unfold forward input self.</td>
       <td class="tg-0lax">The value is (..., sizedim), and the size of inputSizes must be less than or equal to 7 (the rank of gradOut is 1-8 and must be equal to the size of inputSizes plus 1).</td>
       <td class="tg-0lax">INT64</td>
       <td class="tg-0lax">-</td>
