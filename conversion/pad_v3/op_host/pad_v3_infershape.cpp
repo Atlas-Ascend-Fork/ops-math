@@ -53,9 +53,9 @@ static ge::graphStatus PadV3Infershape(const gert::InferShapeContext* context, c
     }
     // pad size check
     if (input_dim_size * PAIR != paddings_num) {
-        OP_LOGE(context->GetNodeName(),
-                "the paddings num must be twice of the input x rank. but paddings num is %zu, input x rank is %zu",
-                paddings_num, input_dim_size);
+        OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(context->GetNodeName(), "paddings",
+                                                  std::to_string(paddings_num).c_str(),
+                                                  "The element count of paddings must be 2 * the rank of x");
         return ge::GRAPH_FAILED;
     }
     // infer by paddings_contiguous
@@ -112,11 +112,9 @@ static ge::graphStatus PadV3InferShapeWithPaddingsValues(const gert::InferShapeC
     }
     // pad size check
     if (input_dim_size * PAIR != paddings_num) {
-        OP_LOGE(
-            context->GetNodeName(),
-            "PadV3InferShapeWithPaddingsValues the paddings num must be twice of the input x rank. but paddings num is "
-            "%zu, input x rank is %zu",
-            paddings_num, input_dim_size);
+        OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON(context->GetNodeName(), "paddings",
+                                                  std::to_string(paddings_num).c_str(),
+                                                  "The element count of paddings must be 2 * the rank of x");
         return ge::GRAPH_FAILED;
     }
     // infer by paddings_contiguous
