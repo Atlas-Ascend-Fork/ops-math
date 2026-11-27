@@ -130,7 +130,7 @@ aclnnStatus aclnnStack(
   <!-- end id7 -->
 
   <!-- npu="A3,910b" id8 -->
-  - <term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>：数据类型不支持HIFLOAT8、FLOAT8_E5M2、FLOAT8_E4M3FN。
+  - <term>Atlas A2系列产品</term>、<term>Atlas A3系列产品</term>：数据类型不支持HIFLOAT8、FLOAT8_E5M2、FLOAT8_E4M3FN；当tensors列表中tensor的个数大于32时，数据类型不支持COMPLEX128。
   <!-- end id8 -->
 
 - **返回值**

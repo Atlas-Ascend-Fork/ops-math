@@ -131,6 +131,10 @@ aclnnStatus aclnnStack(
   - <term>Atlas inference products</term>, <term>Atlas training products</term>: The BFLOAT16 data type is not supported.
   <!-- end id7 -->
 
+  <!-- npu="A3,910b" id8 -->
+  - <term>Atlas A2 products</term>, <term>Atlas A3 products</term>: The HIFLOAT8, FLOAT8_E5M2, and FLOAT8_E4M3FN data types are not supported; when the number of tensors in the tensors list exceeds 32, the COMPLEX128 data type is not supported.
+  <!-- end id8 -->
+
 - **Return Value**
 
   aclnnStatus: return status code. For details, see [aclnn Return Codes](../../../docs/en/context/aclnn_return_code.md).
