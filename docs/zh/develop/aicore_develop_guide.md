@@ -10,8 +10,8 @@
 
 算子开发前，请先了解如下信息：
 
-- 基础知识：请先学习Ascend C编程语言，了解基本语法和原理，参考[《Ascend C算子开发》](https://hiascend.com/document/redirect/CannCommunityOpdevAscendC)熟悉硬件架构、算子Tiling/Kernel等概念。
-- 开发API：算子开发过程中使用到的接口请参考[《Ascend C算子开发接口》](https://hiascend.com/document/redirect/CannCommunityAscendCApi)、[《基础数据结构和接口》](https://hiascend.com/document/redirect/CannCommunitybasicopapi)。
+- 基础知识：请先学习Ascend C编程语言，了解基本语法和原理，参考《[Ascend C算子开发](https://hiascend.com/document/redirect/CannCommunityOpdevAscendC)》熟悉硬件架构、算子Tiling/Kernel等概念。
+- 开发API：算子开发过程中使用到的接口请参考《[Ascend C算子开发接口](https://hiascend.com/document/redirect/CannCommunityAscendCApi)》、《[基础数据结构和接口](https://hiascend.com/document/redirect/CannCommunitybasicopapi)》。
 - 算子工程迁移：针对[Ascend/samples](https://gitee.com/ascend/samples/tree/master)仓已贡献的算子，请参考[附录 > 算子工程迁移](#算子工程迁移)完成存量算子往本项目工程迁移。
 - 算子跨平台迁移：针对涉及多平台算子实现迁移的场景，例如将Atlas A2上已实现的算子功能迁移到Ascend 950平台，请参考[附录 > 算子跨平台迁移](#算子跨平台迁移)完成适配。
 
@@ -272,7 +272,7 @@ TilingKey是一个算子内为了区分不同的实现而将kernel代码进行�
 
 如需查看详细实现，请参考[add_example_tiling_key.h](../../../examples/add_example/op_kernel/add_example_tiling_key.h)。
 
-> **说明：** 如需实现复杂参数组合完成分支选择（涉及多TilingKey场景），请参考[《Ascend C算子开发接口》](https://hiascend.com/document/redirect/CannCommunityAscendCApi)中“Utils API > Tiling模板编程 > 模板参数含义”。
+> **说明：** 如需实现复杂参数组合完成分支选择（涉及多TilingKey场景），请参考《[Ascend C算子开发接口](https://hiascend.com/document/redirect/CannCommunityAscendCApi)》中“Utils API > Tiling模板编程 > 模板参数含义”。
 
 ```CPP
 // ${op_name}_tiling_key.h
