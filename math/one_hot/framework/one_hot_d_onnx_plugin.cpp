@@ -64,7 +64,8 @@ static Status ParseParamsNpuOneHot(const ge::Operator& op_src, ge::Operator& op_
         }
     }
     if (!has_depth) {
-        OP_LOGE(GetOpName(op_dest).c_str(), "Node must have attr depth");
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(GetOpName(op_dest).c_str(), "depth", "not set",
+                                              "The attribute depth is required for NPUOneHot");
         return FAILED;
     }
 

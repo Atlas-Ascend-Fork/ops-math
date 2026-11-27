@@ -165,22 +165,24 @@ static bool InputTypeIsInvalid(const gert::TilingContext* context)
                            (dStart != ge::DT_BF16) && (dStart != ge::DT_INT8) && (dStart != ge::DT_UINT8) &&
                            (dStart != ge::DT_INT16);
     OP_CHECK_IF(dStartIsInvalid,
-                OP_LOGE_FOR_INVALID_DTYPE(context->GetNodeName(), "start", Ops::Base::ToString(dStart).c_str(),
-                                          "float32, float16, bfloat16, int32, int16, int8 or uint8"),
+                OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(
+                    context->GetNodeName(), "start", Ops::Base::ToString(dStart).c_str(),
+                    "The dtype of input start must be float32, float16, bfloat16, int32, int16, int8 or uint8"),
                 return true);
 
     bool dStopIsInvalid = (dStop != ge::DT_INT32) && (dStop != ge::DT_FLOAT) && (dStop != ge::DT_FLOAT16) &&
                           (dStop != ge::DT_BF16) && (dStop != ge::DT_INT8) && (dStop != ge::DT_UINT8) &&
                           (dStop != ge::DT_INT16);
     OP_CHECK_IF(dStopIsInvalid,
-                OP_LOGE_FOR_INVALID_DTYPE(context->GetNodeName(), "stop", Ops::Base::ToString(dStop).c_str(),
-                                          "float32, float16, bfloat16, int32, int16, int8 or uint8"),
+                OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(
+                    context->GetNodeName(), "stop", Ops::Base::ToString(dStop).c_str(),
+                    "The dtype of input stop must be float32, float16, bfloat16, int32, int16, int8 or uint8"),
                 return true);
     bool dNumIsInvalid = (dNum != ge::DT_INT32) && (dNum != ge::DT_INT64);
-    OP_CHECK_IF(
-        dNumIsInvalid,
-        OP_LOGE_FOR_INVALID_DTYPE(context->GetNodeName(), "num", Ops::Base::ToString(dNum).c_str(), "int32 or int64"),
-        return true);
+    OP_CHECK_IF(dNumIsInvalid,
+                OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "num", Ops::Base::ToString(dNum).c_str(),
+                                                      "The dtype of input num must be int32 or int64"),
+                return true);
     // any input dtype is neither int32 nor float, invalid
     return dStartIsInvalid || dStopIsInvalid || dNumIsInvalid;
 }
@@ -192,7 +194,6 @@ static ge::graphStatus LinSpaceGetConstValue(gert::TilingContext* context, const
     if (dataType == ge::DT_INT64) {
         const int64_t* const_data_ptr = tensor->GetData<int64_t>();
         if (const_data_ptr == nullptr) {
-            OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "const_data_ptr");
             return ge::GRAPH_FAILED;
         }
         // 直接读取 int64_t 数值，经 double 无损保留（16777219 < 2^53，double 精确表示），
@@ -203,7 +204,6 @@ static ge::graphStatus LinSpaceGetConstValue(gert::TilingContext* context, const
     } else if (dataType == ge::DT_INT32) {
         const int32_t* const_data_ptr = tensor->GetData<int32_t>();
         if (const_data_ptr == nullptr) {
-            OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "const_data_ptr");
             return ge::GRAPH_FAILED;
         }
         value = static_cast<T>(*const_data_ptr);
@@ -211,7 +211,6 @@ static ge::graphStatus LinSpaceGetConstValue(gert::TilingContext* context, const
     } else if (dataType == ge::DT_FLOAT) {
         const float* const_data_ptr = tensor->GetData<float>();
         if (const_data_ptr == nullptr) {
-            OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "const_data_ptr");
             return ge::GRAPH_FAILED;
         }
         value = static_cast<T>(*const_data_ptr);
@@ -219,7 +218,6 @@ static ge::graphStatus LinSpaceGetConstValue(gert::TilingContext* context, const
     } else if (dataType == ge::DT_FLOAT16) {
         const Ops::Base::fp16_t* const_data_ptr = tensor->GetData<Ops::Base::fp16_t>();
         if (const_data_ptr == nullptr) {
-            OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "const_data_ptr");
             return ge::GRAPH_FAILED;
         }
         float f32 = static_cast<float>(*const_data_ptr);
@@ -228,7 +226,6 @@ static ge::graphStatus LinSpaceGetConstValue(gert::TilingContext* context, const
     } else if (dataType == ge::DT_INT16) {
         const int16_t* const_data_ptr = tensor->GetData<int16_t>();
         if (const_data_ptr == nullptr) {
-            OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "const_data_ptr");
             return ge::GRAPH_FAILED;
         }
         value = static_cast<T>(*const_data_ptr);
@@ -236,7 +233,6 @@ static ge::graphStatus LinSpaceGetConstValue(gert::TilingContext* context, const
     } else if (dataType == ge::DT_BF16) {
         const int16_t* const_data_ptr = tensor->GetData<int16_t>();
         if (const_data_ptr == nullptr) {
-            OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "const_data_ptr");
             return ge::GRAPH_FAILED;
         }
         int32_t f32hex = (static_cast<int32_t>(*const_data_ptr)) << INT16_BITS_NUM;
@@ -244,7 +240,6 @@ static ge::graphStatus LinSpaceGetConstValue(gert::TilingContext* context, const
     } else if (dataType == ge::DT_INT8) {
         const int8_t* const_data_ptr = tensor->GetData<int8_t>();
         if (const_data_ptr == nullptr) {
-            OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "const_data_ptr");
             return ge::GRAPH_FAILED;
         }
         value = static_cast<T>(*const_data_ptr);
@@ -252,7 +247,6 @@ static ge::graphStatus LinSpaceGetConstValue(gert::TilingContext* context, const
     } else if (dataType == ge::DT_UINT8) {
         const uint8_t* const_data_ptr = tensor->GetData<uint8_t>();
         if (const_data_ptr == nullptr) {
-            OP_LOGE_WITH_INVALID_INPUT(context->GetNodeName(), "const_data_ptr");
             return ge::GRAPH_FAILED;
         }
         value = static_cast<T>(*const_data_ptr);
@@ -277,17 +271,23 @@ static ge::graphStatus GetConstNum(gert::TilingContext* context, const gert::Ten
         case ge::DT_INT32: {
             int32_t num_32(0);
             OP_CHECK_IF(LinSpaceGetConstValue<int32_t>(context, tensor_num, num_32, dataType) != ge::GRAPH_SUCCESS,
-                        OP_LOGE(context->GetNodeName(), "get num const value fail."), return ge::GRAPH_FAILED);
+                        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                            context->GetNodeName(), "num", "unavailable",
+                            "The value of input num must be a readable constant during tiling"),
+                        return ge::GRAPH_FAILED);
             num = (int64_t)num_32;
             break;
         }
         case ge::DT_INT64:
             OP_CHECK_IF(LinSpaceGetConstValue<int64_t>(context, tensor_num, num, dataType) != ge::GRAPH_SUCCESS,
-                        OP_LOGE(context->GetNodeName(), "get const value fail."), return ge::GRAPH_FAILED);
+                        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                            context->GetNodeName(), "num", "unavailable",
+                            "The value of input num must be a readable constant during tiling"),
+                        return ge::GRAPH_FAILED);
             break;
         default:
-            OP_LOGE_FOR_INVALID_DTYPE(context->GetNodeName(), "num", Ops::Base::ToString(dataType).c_str(),
-                                      "int32 or int64");
+            OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "num", Ops::Base::ToString(dataType).c_str(),
+                                                  "The dtype of input num must be int32 or int64");
             return ge::GRAPH_FAILED;
     }
 
@@ -303,46 +303,72 @@ static ge::graphStatus GetConstStartOrStop(gert::TilingContext* context, const g
         return ge::GRAPH_FAILED;
     }
     const ge::DataType dataType = inputDesc->GetDataType();
+    const char* paramName = (input_index == static_cast<int64_t>(INPUT_IDX_START)) ? "start" : "stop";
     switch (dataType) {
         case ge::DT_INT32: {
             int32_t index_32(0);
-            LinSpaceGetConstValue<int32_t>(context, tensor_index, index_32, dataType);
+            OP_CHECK_IF(LinSpaceGetConstValue<int32_t>(context, tensor_index, index_32, dataType) != ge::GRAPH_SUCCESS,
+                        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                            context->GetNodeName(), paramName, "unavailable",
+                            "The value of input start or stop must be a readable constant during tiling"),
+                        return ge::GRAPH_FAILED);
             index = static_cast<float>(index_32);
             break;
         }
         case ge::DT_FLOAT:
         case ge::DT_BF16: {
-            LinSpaceGetConstValue<float>(context, tensor_index, index, dataType);
+            OP_CHECK_IF(LinSpaceGetConstValue<float>(context, tensor_index, index, dataType) != ge::GRAPH_SUCCESS,
+                        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                            context->GetNodeName(), paramName, "unavailable",
+                            "The value of input start or stop must be a readable constant during tiling"),
+                        return ge::GRAPH_FAILED);
             break;
         }
         case ge::DT_FLOAT16: {
             Ops::Base::fp16_t index_16(0);
-            LinSpaceGetConstValue<Ops::Base::fp16_t>(context, tensor_index, index_16, dataType);
+            OP_CHECK_IF(LinSpaceGetConstValue<Ops::Base::fp16_t>(context, tensor_index, index_16, dataType) !=
+                            ge::GRAPH_SUCCESS,
+                        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                            context->GetNodeName(), paramName, "unavailable",
+                            "The value of input start or stop must be a readable constant during tiling"),
+                        return ge::GRAPH_FAILED);
             index = static_cast<float>(index_16);
             break;
         }
         case ge::DT_INT16: {
             int16_t index_16(0);
-            LinSpaceGetConstValue<int16_t>(context, tensor_index, index_16, dataType);
+            OP_CHECK_IF(LinSpaceGetConstValue<int16_t>(context, tensor_index, index_16, dataType) != ge::GRAPH_SUCCESS,
+                        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                            context->GetNodeName(), paramName, "unavailable",
+                            "The value of input start or stop must be a readable constant during tiling"),
+                        return ge::GRAPH_FAILED);
             index = static_cast<float>(index_16);
             break;
         }
         case ge::DT_INT8: {
             int8_t index_8(0);
-            LinSpaceGetConstValue<int8_t>(context, tensor_index, index_8, dataType);
+            OP_CHECK_IF(LinSpaceGetConstValue<int8_t>(context, tensor_index, index_8, dataType) != ge::GRAPH_SUCCESS,
+                        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                            context->GetNodeName(), paramName, "unavailable",
+                            "The value of input start or stop must be a readable constant during tiling"),
+                        return ge::GRAPH_FAILED);
             index = static_cast<float>(index_8);
             break;
         }
         case ge::DT_UINT8: {
             uint8_t index_8(0);
-            LinSpaceGetConstValue<uint8_t>(context, tensor_index, index_8, dataType);
+            OP_CHECK_IF(LinSpaceGetConstValue<uint8_t>(context, tensor_index, index_8, dataType) != ge::GRAPH_SUCCESS,
+                        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                            context->GetNodeName(), paramName, "unavailable",
+                            "The value of input start or stop must be a readable constant during tiling"),
+                        return ge::GRAPH_FAILED);
             index = static_cast<float>(index_8);
             break;
         }
         default:
-            OP_LOGE_FOR_INVALID_DTYPE(
-                context->GetNodeName(), (input_index == static_cast<int64_t>(INPUT_IDX_START)) ? "start" : "stop",
-                Ops::Base::ToString(dataType).c_str(), "float32, float16, bfloat16, int32, int16, int8 or uint8");
+            OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(
+                context->GetNodeName(), paramName, Ops::Base::ToString(dataType).c_str(),
+                "The dtype of input start or stop must be float32, float16, bfloat16, int32, int16, int8 or uint8");
             return ge::GRAPH_FAILED;
     }
 
@@ -410,8 +436,9 @@ static ge::graphStatus SetTilingTilingKeyOneCore(const gert::TilingContext* cont
             tilingData.set_tilingKey(static_cast<int64_t>(LinSpaceTilingKey::TILINGKEY_703));
             break;
         default:
-            OP_LOGE_FOR_INVALID_DTYPE(context->GetNodeName(), "output", Ops::Base::ToString(outDataType).c_str(),
-                                      "float32, float16, bfloat16, int32, int16, int8 or uint8");
+            OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(
+                context->GetNodeName(), "output", Ops::Base::ToString(outDataType).c_str(),
+                "The dtype of output must be float32, float16, bfloat16, int32, int16, int8 or uint8");
             return ge::GRAPH_FAILED;
     }
 
@@ -463,8 +490,9 @@ static ge::graphStatus SetTilingTilingKeyForLinSpace(gert::TilingContext* contex
                                              static_cast<int64_t>(LinSpaceTilingKey::TILINGKEY_702));
                 break;
             default:
-                OP_LOGE_FOR_INVALID_DTYPE(context->GetNodeName(), "output", Ops::Base::ToString(outDataType).c_str(),
-                                          "float32, float16, bfloat16, int32, int16, int8 or uint8");
+                OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(
+                    context->GetNodeName(), "output", Ops::Base::ToString(outDataType).c_str(),
+                    "The dtype of output must be float32, float16, bfloat16, int32, int16, int8 or uint8");
                 return ge::GRAPH_FAILED;
         }
     }
@@ -558,19 +586,19 @@ ge::graphStatus LinSpaceMemBaseTilingClass::DoOpTiling()
         OP_LOGE_WITH_INVALID_INPUT(context_->GetNodeName(), "tensor_num");
         return ge::GRAPH_FAILED;
     }
-    OP_CHECK_IF(InputTypeIsInvalid(context_), OP_LOGE(context_->GetNodeName(), "input dtype is invalid."),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(InputTypeIsInvalid(context_),
+                OP_LOGE_WITHOUT_REPORT(context_->GetNodeName(), "input dtype is invalid."), return ge::GRAPH_FAILED);
 
     LinSpaceTilingData tilingData;
     float start(0);
     float stop(0);
     int64_t num(0);
     OP_CHECK_IF(GetConstNum(context_, tensor_num, num, INPUT_IDX_NUM) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context_->GetNodeName(), "set tilingData num fail."), return ge::GRAPH_FAILED);
+                OP_LOGE_WITHOUT_REPORT(context_->GetNodeName(), "set tilingData num fail."), return ge::GRAPH_FAILED);
     OP_CHECK_IF(GetConstStartOrStop(context_, tensor_start, start, INPUT_IDX_START) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context_->GetNodeName(), "set tilingData start fail."), return ge::GRAPH_FAILED);
+                OP_LOGE_WITHOUT_REPORT(context_->GetNodeName(), "set tilingData start fail."), return ge::GRAPH_FAILED);
     OP_CHECK_IF(GetConstStartOrStop(context_, tensor_stop, stop, INPUT_IDX_STOP) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context_->GetNodeName(), "set tilingData stop fail."), return ge::GRAPH_FAILED);
+                OP_LOGE_WITHOUT_REPORT(context_->GetNodeName(), "set tilingData stop fail."), return ge::GRAPH_FAILED);
     OP_CHECK_IF(SetTilingBasicInfo(context_, tilingData, start, stop, num) != ge::GRAPH_SUCCESS,
                 OP_LOGE(context_->GetNodeName(), "set basic info fail."), return ge::GRAPH_FAILED);
 

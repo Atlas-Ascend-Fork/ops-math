@@ -14,6 +14,7 @@
  */
 #include <algorithm>
 #include <limits>
+#include <string>
 
 #include "log/log.h"
 #include "register/op_impl_registry.h"
@@ -72,10 +73,10 @@ static graphStatus GetNattrValue(gert::InferShapeContext* context, int64_t& numI
     const int64_t* attrN = attrs->GetAttrPointer<int64_t>(DYNAMICSTITCH_IDX_ATTR_N);
     OP_CHECK_NULL_WITH_CONTEXT(context, attrN);
     numIndices = *attrN;
-    OP_CHECK_IF(
-        numIndices < 1,
-        OP_LOGE(context->GetNodeName(), "invalid value [%ld] of attr[N], it should be not less than 1.", numIndices),
-        return GRAPH_FAILED);
+    OP_CHECK_IF(numIndices < 1,
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "N", std::to_string(numIndices),
+                                                      "The value of attr N must be greater than or equal to 1"),
+                return GRAPH_FAILED);
     const auto indicesInfoIndices = context->GetIrInputInstanceInfo(DYNAMICSTITCH_IDX_IN_INDICES);
     OP_CHECK_NULL_WITH_CONTEXT(context, indicesInfoIndices);
     const auto instanceNumIndices = indicesInfoIndices->GetInstanceNum();
@@ -84,13 +85,13 @@ static graphStatus GetNattrValue(gert::InferShapeContext* context, int64_t& numI
     const auto instanceNumX = indicesInfoX->GetInstanceNum();
     bool isInvalid = (static_cast<size_t>(numIndices) != instanceNumIndices ||
                       static_cast<size_t>(numIndices) != instanceNumX || instanceNumIndices != instanceNumX);
-    OP_CHECK_IF(
-        isInvalid,
-        OP_LOGE(context->GetNodeName(),
-                "the tensorList size of indices and x must be the same as the value of N, now indices' size is: %zu, "
-                "x's size is: %zu, N's value is: %ld",
-                instanceNumIndices, instanceNumX, numIndices),
-        return GRAPH_FAILED);
+    std::string tensorNumMsg = std::to_string(instanceNumIndices) + " and " + std::to_string(instanceNumX);
+    OP_CHECK_IF(isInvalid,
+                OP_LOGE_FOR_INVALID_TENSORNUMS_WITH_REASON(
+                    context->GetNodeName(), "indices and x", tensorNumMsg.c_str(),
+                    "The number of tensors in indices and x must be equal to the value of attr N (" +
+                        std::to_string(numIndices) + ")"),
+                return GRAPH_FAILED);
     return GRAPH_SUCCESS;
 }
 
@@ -113,20 +114,23 @@ static graphStatus StartWith(gert::InferShapeContext* context, const gert::Shape
 {
     const size_t indicesDimNum = indicesShape->GetDimNum();
     const size_t xDimNum = xShape->GetDimNum();
+    std::string dimNumMsg = std::to_string(indicesDimNum) + " and " + std::to_string(xDimNum);
     OP_CHECK_IF(indicesDimNum > xDimNum,
-                OP_LOGE(context->GetNodeName(),
-                        "the %ldth input[indices]'s dimNum must be less than or equal to the %ldth input[x]'s dimNum, "
-                        "but now is: %zu and %zu",
-                        i, i, indicesDimNum, xDimNum),
+                OP_LOGE_FOR_INVALID_SHAPEDIMS_WITH_REASON(context->GetNodeName(), "indices and x", dimNumMsg.c_str(),
+                                                          "The shape dim of the " + std::to_string(i) +
+                                                              "th input indices must be less than or equal to " +
+                                                              "that of the corresponding input x"),
                 return GRAPH_FAILED);
     dims.reserve(xDimNum);
     dims.resize(indicesDimNum);
     for (size_t j = 0; j < indicesDimNum; ++j) {
         if (MergeDim(xShape->GetDim(j), indicesShape->GetDim(j), dims[j]) != GRAPH_SUCCESS) {
-            OP_LOGE(context->GetNodeName(),
-                    "failed to call MergeDim function to merge the %ldth input[indices]'s dim[%ld] and the %ldth "
-                    "input[x]'s dim[%ld]",
-                    i, indicesShape->GetDim(j), i, xShape->GetDim(j));
+            std::string mergeDimMsg = std::to_string(indicesShape->GetDim(j)) + " and " +
+                                      std::to_string(xShape->GetDim(j));
+            OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(
+                context->GetNodeName(), "indices and x", mergeDimMsg.c_str(),
+                "The dim[" + std::to_string(j) + "] of the " + std::to_string(i) +
+                    "th input indices must be equal to or compatible with the corresponding dim of input x");
             return GRAPH_FAILED;
         }
     }
@@ -152,8 +156,10 @@ static graphStatus SameExtraShape(gert::InferShapeContext* context, gert::Shape&
             currSuffixShape.SetDim(j, dims[j]);
         }
         OP_CHECK_IF(currSuffixShape != commonShape,
-                    OP_LOGE(context->GetNodeName(),
-                            "the suffixShape must be the same, but now the %ldth suffixShape is not the same.", i),
+                    OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(
+                        context->GetNodeName(), "indices and x",
+                        ("suffix shape of the " + std::to_string(i) + "th tensor").c_str(),
+                        "The suffix shapes of all input indices and x tensors must be the same"),
                     return GRAPH_FAILED);
     }
     return GRAPH_SUCCESS;
@@ -163,11 +169,15 @@ static graphStatus GetInputConstData(gert::InferShapeContext* context, const ger
                                      int32_t& maxIndex, bool& getAllIndicesData, const int64_t i)
 {
     auto indicesTensor = context->GetDynamicInputTensor(DYNAMICSTITCH_IDX_IN_INDICES, i);
-    OP_CHECK_NULL_WITH_CONTEXT(context, indicesTensor);
+    OP_CHECK_IF(indicesTensor == nullptr,
+                OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(context->GetNodeName(), "indices",
+                                                         "The tensor of input indices is unavailable"),
+                return GRAPH_FAILED);
     auto indicesDtype = indicesTensor->GetDataType();
     OP_CHECK_IF(indicesDtype != DT_INT32,
-                OP_LOGE(context->GetNodeName(), "the indices dtype only supports int32, but now get a %s",
-                        Ops::Base::ToString(indicesDtype).c_str()),
+                OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "indices",
+                                                      Ops::Base::ToString(indicesDtype).c_str(),
+                                                      "The dtype of input indices must be int32"),
                 return GRAPH_FAILED);
     const int32_t* indicesTensorData = indicesTensor->GetData<int32_t>();
     if (indicesTensorData) {
@@ -210,9 +220,15 @@ static graphStatus InferAllStitchIndices(gert::InferShapeContext* context, const
     earlyReturn = false;
     for (int64_t i = 0; i < numIndices; i++) {
         auto indicesShape = context->GetDynamicInputShape(DYNAMICSTITCH_IDX_IN_INDICES, i);
-        OP_CHECK_NULL_WITH_CONTEXT(context, indicesShape);
+        OP_CHECK_IF(indicesShape == nullptr,
+                    OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(context->GetNodeName(), "indices",
+                                                             "The shape of input indices is unavailable"),
+                    return GRAPH_FAILED);
         auto xShape = context->GetDynamicInputShape(DYNAMICSTITCH_IDX_IN_X, i);
-        OP_CHECK_NULL_WITH_CONTEXT(context, xShape);
+        OP_CHECK_IF(xShape == nullptr,
+                    OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(context->GetNodeName(), "x",
+                                                             "The shape of input x is unavailable"),
+                    return GRAPH_FAILED);
         if (!CheckValidShapeSize(indicesShape, xShape, state.zeroShapeNum)) {
             continue;
         }
@@ -254,8 +270,9 @@ static graphStatus InferShape4DynamicStitch(gert::InferShapeContext* context)
         return GRAPH_SUCCESS;
     }
     OP_CHECK_IF(state.maxIndex >= std::numeric_limits<int32_t>::max(),
-                OP_LOGE(context->GetNodeName(), "the maxIndex must be less than the maximum value of int32, now got %d",
-                        state.maxIndex),
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "indices", std::to_string(state.maxIndex),
+                                                      "The maximum value of input indices must be less than " +
+                                                          std::to_string(std::numeric_limits<int32_t>::max())),
                 return GRAPH_FAILED);
     SetOuputShape(yShape, state.getAllIndicesData, state.maxIndex, state.commonShape);
     return GRAPH_SUCCESS;
