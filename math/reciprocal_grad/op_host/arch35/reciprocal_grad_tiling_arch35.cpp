@@ -14,6 +14,7 @@
  */
 
 #include "register/op_def_registry.h"
+#include "graph/utils/type_utils.h"
 #include "atvoss/elewise/elewise_tiling.h"
 #include "op_common/op_host/util/platform_util.h"
 #include "op_common/op_host/tiling_base_util.h"
@@ -110,9 +111,9 @@ ge::graphStatus ReciprocalGradTiling::RunTiling()
 
     // 获取输入 desc，确定数据类型
     ElewiseBaseTiling elewiseBaseTiling(tilingContext);
-    OP_CHECK_IF(CalcOutputDtype() == ge::GRAPH_FAILED, OP_LOGE(tilingContext, "get output dtype failed"),
+    OP_CHECK_IF(CalcOutputDtype() == ge::GRAPH_FAILED, OP_LOGE_WITHOUT_REPORT(tilingContext, "get output dtype failed"),
                 return ge::GRAPH_FAILED);
-    OP_CHECK_IF(CheckShape() == ge::GRAPH_FAILED, OP_LOGE(tilingContext, "check shape failed"),
+    OP_CHECK_IF(CheckShape() == ge::GRAPH_FAILED, OP_LOGE_WITHOUT_REPORT(tilingContext, "check shape failed"),
                 return ge::GRAPH_FAILED);
 
     // 根据输入 dtype 选择对应的 OpDag 模板实例化
@@ -129,12 +130,23 @@ ge::graphStatus ReciprocalGradTiling::RunTiling()
                 tiling->baseTiling);
             break;
         default:
-            OP_LOGE(tilingContext, "ReciprocalGrad: Unsupported dtype=%u", static_cast<uint32_t>(this->outputDtype));
+            OP_LOGE_FOR_INVALID_DTYPE(tilingContext->GetNodeName(), "y",
+                                      ge::TypeUtils::DataTypeToSerialString(this->outputDtype).c_str(),
+                                      "FLOAT16, FLOAT, BF16");
             return ge::GRAPH_FAILED;
     }
 
-    OP_CHECK_IF(ret != ge::GRAPH_SUCCESS, OP_LOGE(tilingContext, "ReciprocalGrad: ElewiseBaseTiling DoTiling failed"),
-                return ret);
+    if (ret != ge::GRAPH_SUCCESS) {
+        const char* nodeName = tilingContext->GetNodeName();
+        const std::string opName = nodeName != nullptr ? nodeName : "ReciprocalGrad";
+        const std::string reason = "ElewiseBaseTiling::DoTiling failed; stage=ReciprocalGradTiling::RunTiling; ret=" +
+                                   std::to_string(static_cast<int64_t>(ret)) +
+                                   "; outputDtype=" + ge::TypeUtils::DataTypeToSerialString(this->outputDtype);
+        OP_LOGE_WITHOUT_REPORT(tilingContext, "ReciprocalGrad: ElewiseBaseTiling DoTiling failed");
+        REPORT_PREDEFINED_ERR_MSG("EZ1008", (std::vector<const char*>{"opName", "reason"}),
+                                  (std::vector<const char*>{opName.c_str(), reason.c_str()}));
+        return ret;
+    }
 
     // 设置 TilingKey（仅 schMode，dtype 由编译期宏 DTYPE_X 注入）
     uint64_t tilingKey = GET_TPL_TILING_KEY(static_cast<uint64_t>(tiling->baseTiling.scheMode));

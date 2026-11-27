@@ -48,6 +48,7 @@ target_link_libraries(${OP_API_UT_EXE} PRIVATE
             op_api_ut_common
             ${OPAPI_NAME}_ut
             nnopbase
+            error_manager
             unified_dlog
         -Wl,--no-as-needed
         -Wl,--whole-archive

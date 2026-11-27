@@ -42,9 +42,11 @@ static ge::graphStatus CheckInputsShapeConsistent(gert::InferShapeContext* conte
         }
         if (static_cast<int64_t>(input_i_shape->GetDimNum()) != rank) {
             // input shape i is not equal base shape
-            OP_LOGE(context->GetNodeName(), "input shape[%" PRId64 "] %s, must be equal to shape[%" PRId64 "] %s!",
-                    relative_index, Ops::Base::ToString(*input_i_shape).c_str(), base_index,
-                    Ops::Base::ToString(*base_shape).c_str());
+            OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(
+                context->GetNodeName(), "x", Ops::Base::ToString(*input_i_shape).c_str(),
+                (std::string("all inputs must have the same shape; input ") + std::to_string(relative_index) +
+                 " differs from input " + std::to_string(base_index))
+                    .c_str());
             return ge::GRAPH_FAILED;
         }
         for (int64_t dim_idx = 0; dim_idx < rank; dim_idx++) {
@@ -59,9 +61,11 @@ static ge::graphStatus CheckInputsShapeConsistent(gert::InferShapeContext* conte
                 continue;
             }
             // input shape i is not equal base shape
-            OP_LOGE(context->GetNodeName(), "input shape[%" PRId64 "] %s, must be equal to shape[%" PRId64 "] %s!",
-                    relative_index, Ops::Base::ToString(*input_i_shape).c_str(), base_index,
-                    Ops::Base::ToString(*out_shape).c_str());
+            OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(
+                context->GetNodeName(), "x", Ops::Base::ToString(*input_i_shape).c_str(),
+                (std::string("all inputs must have the same shape; input ") + std::to_string(relative_index) +
+                 " differs from input " + std::to_string(base_index))
+                    .c_str());
             return ge::GRAPH_FAILED;
         }
     }
@@ -107,7 +111,8 @@ static ge::graphStatus PackInferShapeCommon(gert::InferShapeContext* context, co
     size_t output_dim = out_shape->GetDimNum() + 1;
     out_shape->SetDimNum(output_dim);
     OP_CHECK_IF(!IsDimValid(output_dim, axis),
-                OP_LOGE(context->GetNodeName(), "%s", GenInvalidDimMsg("axis", output_dim, axis).c_str()),
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "axis", std::to_string(axis).c_str(),
+                                                      GenInvalidDimMsg("axis", output_dim, axis).c_str()),
                 return ge::GRAPH_FAILED);
     if (axis < 0) {
         axis += output_dim;
@@ -131,7 +136,8 @@ static ge::graphStatus InferShape4Pack(gert::InferShapeContext* context)
     OP_CHECK_NULL_WITH_CONTEXT(context, N);
     const int64_t num = context->GetComputeNodeInputNum();
     OP_CHECK_IF((*N != num && *N != 1),
-                OP_LOGE(context->GetNodeName(), "The N should be equal to input size or default value 1."),
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "N", std::to_string(*N).c_str(),
+                                                      "N must be 1 or equal to the number of input tensors"),
                 return GRAPH_FAILED);
     return PackInferShapeCommon(context, 0, num, *axis);
 }

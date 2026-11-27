@@ -72,6 +72,13 @@ constexpr int64_t SIMT_FORCE_INPUT_DIM0 = 256;
 constexpr int64_t SIMT_FORCE_INPUT_DIM1 = 16;
 constexpr int64_t SIMT_FORCE_MAX_NUM_SPLIT = 16;
 
+namespace {
+bool IsSupportedConstIntDtype(ge::DataType dtype)
+{
+    return dtype == ge::DT_INT32 || dtype == ge::DT_INT64 || dtype == ge::DT_UINT32 || dtype == ge::DT_UINT64;
+}
+} // namespace
+
 template <typename T>
 std::string SplitVTiling::ArrayToString(const T* vec, size_t num) const
 {
@@ -127,20 +134,30 @@ ge::graphStatus SplitVTiling::ModifySizeSplitList()
 
     // 没有负数，sizeSplitsTotal 需要和切分的dim轴大小相等
     OP_CHECK_IF((negNum == 0 && sizeSplitsTotal != splitDimShape),
-                OP_LOGE(context_->GetNodeName(), "sizeSplitsTotal:%ld not equal to splitDimShape:%ld", sizeSplitsTotal,
-                        splitDimShape),
+                OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                    context_->GetNodeName(), "size_splits",
+                    (std::string("sum=") + std::to_string(sizeSplitsTotal) +
+                     ", split_dim size=" + std::to_string(splitDimShape))
+                        .c_str(),
+                    "sum of size_splits must equal the size of x on split_dim when no element is -1"),
                 return ge::GRAPH_FAILED);
 
     // 最多只能有一个负数
-    OP_CHECK_IF(negNum > 1,
-                OP_LOGE(context_->GetNodeName(), "sizeSplits negative num:%d cannot be bigger than 1", negNum),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        negNum > 1,
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context_->GetNodeName(), "size_splits", std::to_string(negNum).c_str(),
+                                              "at most one element of size_splits may be -1"),
+        return ge::GRAPH_FAILED);
 
     if (negNum > 0) {
         // 保证splitSize不能为负数
         OP_CHECK_IF(sizeSplitsTotal > splitDimShape,
-                    OP_LOGE(context_->GetNodeName(), "sizeSplitsTotal:%ld cannot be bigger than splitDimShape:%ld",
-                            sizeSplitsTotal, splitDimShape),
+                    OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                        context_->GetNodeName(), "size_splits",
+                        (std::string("sum=") + std::to_string(sizeSplitsTotal) +
+                         ", split_dim size=" + std::to_string(splitDimShape))
+                            .c_str(),
+                        "sum of non-negative size_splits must not exceed the size of x on split_dim"),
                     return ge::GRAPH_FAILED);
         oriSizeSplits_[negIdx] = splitDimShape - sizeSplitsTotal;
         nonZeroSplitCnt_ = (oriSizeSplits_[negIdx] == 0) ? nonZeroSplitCnt_ : (nonZeroSplitCnt_ + 1);
@@ -180,21 +197,29 @@ bool SplitVTiling::GetSizeSplitsList()
 {
     const gert::Tensor* sizeSplitsT = context_->GetInputTensor(SIZE_SPLIT_INDEX);
     OP_CHECK_NULL_WITH_CONTEXT(context_, sizeSplitsT);
+    bool readSuccess = false;
     if (sizeSplitsT->GetDataType() == ge::DT_INT32) {
         isInt32_ = 1L;
-        return GetData<int32_t>(sizeSplitsT, oriSizeSplits_);
+        readSuccess = GetData<int32_t>(sizeSplitsT, oriSizeSplits_);
     } else if (sizeSplitsT->GetDataType() == ge::DT_INT64) {
-        return GetData<int64_t>(sizeSplitsT, oriSizeSplits_);
+        readSuccess = GetData<int64_t>(sizeSplitsT, oriSizeSplits_);
     } else if (sizeSplitsT->GetDataType() == ge::DT_UINT32) {
         isInt32_ = 1L;
-        return GetData<uint32_t>(sizeSplitsT, oriSizeSplits_);
+        readSuccess = GetData<uint32_t>(sizeSplitsT, oriSizeSplits_);
     } else if (sizeSplitsT->GetDataType() == ge::DT_UINT64) {
-        return GetData<uint64_t>(sizeSplitsT, oriSizeSplits_);
+        readSuccess = GetData<uint64_t>(sizeSplitsT, oriSizeSplits_);
+    } else {
+        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(
+            context_->GetNodeType(), "size_splits", Ops::Base::ToString(sizeSplitsT->GetDataType()).c_str(),
+            "The dtype of size_splits must be within the range [DT_INT32, DT_INT64, DT_UINT32, DT_UINT64].");
+        return false;
     }
-    OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(
-        context_->GetNodeType(), "size_splits", Ops::Base::ToString(sizeSplitsT->GetDataType()).c_str(),
-        "The dtype of size_splits must be within the range [DT_INT32, DT_INT64, DT_UINT32, DT_UINT64].");
-    return false;
+    if (!readSuccess) {
+        OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(
+            context_->GetNodeName(), "size_splits",
+            "the data of size_splits is unavailable; size_splits must be a constant tensor for tiling");
+    }
+    return readSuccess;
 }
 
 ge::graphStatus SplitVTiling::GetInputParams()
@@ -205,11 +230,22 @@ ge::graphStatus SplitVTiling::GetInputParams()
     inputShape_ = xInputShape;
 
     // 不能使用 GetConstIntToShape, gert::Shape最多只能支持25个数，超过25就获取不到了
-    OP_CHECK_IF(!GetSizeSplitsList(), OP_LOGE(context_->GetNodeName(), "SplitV tiling get size_splits failed"),
+    OP_CHECK_IF(!GetSizeSplitsList(),
+                OP_LOGE_WITHOUT_REPORT(context_->GetNodeName(), "SplitV tiling get size_splits failed"),
                 return ge::GRAPH_FAILED);
 
-    OP_CHECK_IF(!Ops::Base::GetConstInt(context_, SPLIT_DIM_INDEX, splitDim_),
-                OP_LOGE(context_->GetNodeName(), "SplitV tiling get split_dim failed"), return ge::GRAPH_FAILED);
+    const gert::Tensor* splitDimTensor = context_->GetInputTensor(SPLIT_DIM_INDEX);
+    if (!Ops::Base::GetConstInt(context_, SPLIT_DIM_INDEX, splitDim_)) {
+        if (splitDimTensor != nullptr && !IsSupportedConstIntDtype(splitDimTensor->GetDataType())) {
+            OP_LOGE_FOR_INVALID_DTYPE(context_->GetNodeName(), "split_dim",
+                                      Ops::Base::ToString(splitDimTensor->GetDataType()).c_str(),
+                                      "DT_INT32, DT_INT64, DT_UINT32, DT_UINT64");
+        } else if (splitDimTensor != nullptr) {
+            OP_LOGE_WITHOUT_REPORT(context_->GetNodeName(),
+                                   "split_dim must be a constant tensor with available data for tiling");
+        }
+        return ge::GRAPH_FAILED;
+    }
 
     int64_t inputXDimNum = static_cast<int64_t>(inputShape_.GetDimNum());
     OP_CHECK_IF((splitDim_ < -inputXDimNum || splitDim_ >= inputXDimNum),
@@ -670,14 +706,16 @@ void SplitVTiling::UpdateMAxisSplitOffset()
     for (int64_t i = 1; i < mBlockCount_; i++) {
         if (memcpy_s(nBlockSplitOffsetStart_ + i * nBlockCount_, (MAX_CORE_COUNT - i * nBlockCount_) * sizeof(int64_t),
                      nBlockSplitOffsetStart_, nBlockCount_ * sizeof(int64_t)) != EOK) {
-            OP_LOGE(context_->GetNodeType(), "memcpy_s offset start failed, i:%ld mBlockCount_:%ld nBlockCount_:%ld", i,
-                    mBlockCount_, nBlockCount_);
+            OP_LOGE_WITHOUT_REPORT(context_->GetNodeType(),
+                                   "memcpy_s offset start failed, i:%ld mBlockCount_:%ld nBlockCount_:%ld", i,
+                                   mBlockCount_, nBlockCount_);
         }
 
         if (memcpy_s(nBlockSplitOffsetEnd_ + i * nBlockCount_, (MAX_CORE_COUNT - i * nBlockCount_) * sizeof(int64_t),
                      nBlockSplitOffsetEnd_, nBlockCount_ * sizeof(int64_t)) != EOK) {
-            OP_LOGE(context_->GetNodeType(), "memcpy_s offset end failed, i:%ld mBlockCount_:%ld nBlockCount_:%ld", i,
-                    mBlockCount_, nBlockCount_);
+            OP_LOGE_WITHOUT_REPORT(context_->GetNodeType(),
+                                   "memcpy_s offset end failed, i:%ld mBlockCount_:%ld nBlockCount_:%ld", i,
+                                   mBlockCount_, nBlockCount_);
         }
     }
 }
@@ -1182,7 +1220,8 @@ void SplitVTiling::SetWorkspaceSize() const
 ge::graphStatus SplitVTiling::DoSplitVTiling(int32_t maxCoreNum, uint32_t ubSize)
 {
     OP_CHECK_IF((InitParams(maxCoreNum, ubSize) != ge::GRAPH_SUCCESS),
-                OP_LOGE(context_->GetNodeName(), "SplitV Tiling InitParams Failed."), return ge::GRAPH_FAILED);
+                OP_LOGE_WITHOUT_REPORT(context_->GetNodeName(), "SplitV Tiling InitParams Failed."),
+                return ge::GRAPH_FAILED);
 
     if (IsDoSplitVSIMT(maxCoreNum)) {
         return DoSplitVSIMTTiling(maxCoreNum);
@@ -1242,7 +1281,7 @@ int64_t SplitVTiling::CeilDiv(int64_t value, int64_t factor) const
 {
     int64_t valueNum = 0;
     if (factor == 0) {
-        OP_LOGE(context_->GetNodeName(), "SplitTiling CeilDiv divideNum is 0!");
+        OP_LOGE_WITHOUT_REPORT(context_->GetNodeName(), "SplitTiling CeilDiv divideNum is 0!");
         return value;
     }
     if (value % factor == 0) {
@@ -1257,7 +1296,7 @@ int64_t SplitVTiling::FloorAlign(int64_t value, int64_t factor) const
 {
     int64_t valueNum = 0;
     if (factor == 0) {
-        OP_LOGE(context_->GetNodeName(), "SplitTiling FloorAlign divideNum is 0!");
+        OP_LOGE_WITHOUT_REPORT(context_->GetNodeName(), "SplitTiling FloorAlign divideNum is 0!");
         return value;
     }
     if (value % factor == 0 || value < factor) {
@@ -1285,8 +1324,18 @@ ge::graphStatus SplitVTiling::GetInputParamsSameLen()
         // 如果不切分, 则默认splitDim为0
         splitDim_ = 0;
     } else {
-        OP_CHECK_IF(!Ops::Base::GetConstInt(context_, SPLIT_DIM_INDEX_SAME_LEN, splitDim_),
-                    OP_LOGE(context_->GetNodeName(), "SplitTiling get split_dim failed"), return ge::GRAPH_FAILED);
+        const gert::Tensor* splitDimTensor = context_->GetInputTensor(SPLIT_DIM_INDEX_SAME_LEN);
+        if (!Ops::Base::GetConstInt(context_, SPLIT_DIM_INDEX_SAME_LEN, splitDim_)) {
+            if (splitDimTensor != nullptr && !IsSupportedConstIntDtype(splitDimTensor->GetDataType())) {
+                OP_LOGE_FOR_INVALID_DTYPE(context_->GetNodeName(), "split_dim",
+                                          Ops::Base::ToString(splitDimTensor->GetDataType()).c_str(),
+                                          "DT_INT32, DT_INT64, DT_UINT32, DT_UINT64");
+            } else if (splitDimTensor != nullptr) {
+                OP_LOGE_WITHOUT_REPORT(context_->GetNodeName(),
+                                       "split_dim must be a constant tensor with available data for tiling");
+            }
+            return ge::GRAPH_FAILED;
+        }
     }
 
     OP_CHECK_IF((splitDim_ < -inputXDimNum || splitDim_ >= inputXDimNum),
@@ -1506,6 +1555,7 @@ ge::graphStatus SplitVTiling::DoSplitTiling(int32_t maxCoreNum, uint32_t ubSize)
     // InitParamsSameLen reports validation failures at their source. Do not add
     // a generic EZ9999 here, which would hide the public error code.
     if (InitParamsSameLen(maxCoreNum, ubSize) != ge::GRAPH_SUCCESS) {
+        OP_LOGE_WITHOUT_REPORT(context_->GetNodeName(), "SplitTiling InitParams Failed.");
         return ge::GRAPH_FAILED;
     }
 
@@ -1555,7 +1605,8 @@ graphStatus Tiling4SplitV(TilingContext* context)
         return GRAPH_FAILED);
     int32_t isSameLen = 0;
     OP_CHECK_IF(SplitVTilingAscendC(context, maxCoreNum, ubSizePlatform, isSameLen) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context->GetNodeName(), "AscendC splitV tiling function call failed"), return ge::GRAPH_FAILED);
+                OP_LOGE_WITHOUT_REPORT(context->GetNodeName(), "AscendC splitV tiling function call failed"),
+                return ge::GRAPH_FAILED);
     return ge::GRAPH_SUCCESS;
 }
 

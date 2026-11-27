@@ -27,7 +27,8 @@ static const aclTensor* CholeskyAiCore(const aclTensor* self, bool upper, aclTen
     L0_DFX(CholeskyAiCore, self, upper, out);
     auto ret = ADD_TO_LAUNCHER_LIST_AICORE(Cholesky, OP_INPUT(self), OP_OUTPUT(out), OP_ATTR(upper));
     OP_CHECK(ret == ACLNN_SUCCESS,
-             OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "CholeskyAiCore ADD_TO_LAUNCHER_LIST_AICORE failed."), return nullptr);
+             OP_LOGE_WITHOUT_REPORT(ACLNN_ERR_INNER_NULLPTR, "CholeskyAiCore ADD_TO_LAUNCHER_LIST_AICORE failed."),
+             return nullptr);
     return out;
 }
 
