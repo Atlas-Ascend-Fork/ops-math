@@ -106,7 +106,12 @@ aclnnStatus aclnnMaskedSelect(
       <td>out（aclTensor*）</td>
       <td>输出</td>
       <td>功能说明中的输出一维张量。</td>
-      <td>shape为一维，且元素个数为mask和self广播后的shape size。</td>
+      <td>
+        <ul>
+          <li>shape为一维，且元素个数为mask和self广播后的shape size。</li>
+          <li>dtype可与self不同，非空路径下实现先将self转换为out的数据类型（Cast）后再选择，跨类型转换可能产生精度损失，并受目标类型可表示范围与Cast规则约束。</li>
+        </ul>
+      </td>
       <td>BFLOAT16、FLOAT16、FLOAT32、DOUBLE、INT8、INT16、INT32、INT64、UINT8、BOOL</td>
       <td>ND</td>
       <td>0-8</td>
@@ -230,6 +235,8 @@ aclnnStatus aclnnMaskedSelect(
   - aclnnMaskedSelect默认确定性实现。
 
 - 广播场景功能支持，但是不保证性能，广播场景是通过额外插入BroadcastTo算子解决。
+
+- 空 Tensor 语义：当 self、mask、out 均为有效 Tensor 指针，且通过第一段接口的参数检查后，若 self、mask 或 out 任一元素数为 0，第一段接口返回 SUCCESS、workspaceSize 为 0，不执行类型转换、选择或 out 写入，即视为合法的 no-op。
 
 ## 调用示例
 
