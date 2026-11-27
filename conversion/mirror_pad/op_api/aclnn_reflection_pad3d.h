@@ -22,8 +22,9 @@ extern "C" {
  * @domain aclnn_ops_infer
  *
  * 算子功能：3D反射填充。
- * @param [in] self: 数据类型支持BFLOAT16,FLOAT16, FLOAT32, DOUBLE, INT8, INT16, INT32, INT64, UINT8, BOOL。
- * 支持非连续的Tensor，数据格式支持ND，维度支持四维或五维，在最后三维做pad。
+ * @param [in] self: 数据类型支持BFLOAT16, FLOAT16, FLOAT32, DOUBLE, INT8, INT16, INT32, INT64, UINT8, BOOL, COMPLEX64,
+ * COMPLEX128。 支持非连续的Tensor，数据格式支持ND，维度支持四维或五维，在最后三维做pad。 Ascend
+ * 950PR&950DT系列产品的扩展数据类型详见资料。
  * @param [in] padding:
  * 数据类型为INT64，长度为6，数值依次代表左右上下前后需要填充的值。前两个数值需小于self最后一维度的数值，
  * 中间两个数值需小于self倒数第二维度的数值，后两个数值需小于self倒数第三维度的数值。

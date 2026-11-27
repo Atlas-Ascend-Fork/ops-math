@@ -26,10 +26,10 @@ namespace ge {
 * @par Inputs:
 * Three inputs, including:
 * @li x1: A ND tensor. Must be one of the following types:int32, int16,
-* bfloat16, float16, float32. x1 is used to compute addn with x2. \n
-* @li x2: A ND tensor of the same dtype and shape as "x1". x2 is used to compute addn with x1. \n
+* bfloat16, float16, float32. x1 is used to compute mul with x3. \n
+* @li x2: A ND tensor of the same dtype and shape as "x1". x2 is added to the result of x1 * x3. \n
 * @li x3: A ND tensor of the same dtype as "x1". The shape size should be 1.
-* x3 is used to compute mul with the result of x1 + x2. \n
+* x3 is used to compute mul with x1. \n
 
 * @par Outputs:
 * y: A ND tensor. Has the same dtype and shape as "x1". \n

@@ -23,7 +23,7 @@ extern "C" {
 /**
  * @brief aclnnDigamma的第一段接口，根据具体的计算流程，计算workspace大小。
  * @domain aclnn_math
- * 算子功能：返回输入Tensor中每个元素绝对值的结果
+ * 算子功能：返回输入Tensor中每个元素的Digamma值
  * 计算公式：
  * $$ out_{i} = digamma(self_{i}) $$
  * @param [in] self: 待进行digamma计算的入参。npu device侧的aclTensor,

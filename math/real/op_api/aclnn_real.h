@@ -23,7 +23,7 @@ extern "C" {
 /**
  * @brief aclnnReal的第一段接口，根据具体的计算流程，计算workspace大小。
  * @domain aclnn_math
- * 算子功能：返回输入Tensor中每个元素绝对值的结果
+ * 算子功能：返回输入Tensor中每个元素的实数部分
  * 计算公式：
  * $$ out_{i} = real(self_{i}) $$
  *

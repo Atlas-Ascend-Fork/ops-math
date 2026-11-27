@@ -30,8 +30,7 @@
 - Formula:
 
 $$
-out_i=\psi(self_i)=\frac{{\rm d}}{{\rm d}self_i}\ln|\Gamma(self_i)|
-=\frac{\Gamma'(self_i)}{\Gamma(self_i)}
+out_i=\psi(self_i)=\frac{\Gamma'(self_i)}{\Gamma(self_i)}
 $$
 
 Here, non-positive integers are poles of the digamma function.

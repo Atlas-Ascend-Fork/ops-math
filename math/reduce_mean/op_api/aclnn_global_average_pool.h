@@ -25,16 +25,16 @@ extern "C" {
  * channel.
  *
  * @param [in] self: npu
- * npu device侧的aclTensor，数据类型支持FLOAT16、FLOAT32、DOUBLE。
+ * npu device侧的aclTensor，数据类型支持FLOAT16、FLOAT32、BFLOAT16、DOUBLE。
  * 支持连续和非连续的Tensor，数据格式支持ND。
  * @param [in] out:
- * npu device侧的aclTensor，数据类型支持FLOAT16、FLOAT32、DOUBLE。支持连续和非连续的Tensor，数据格式支持ND。
+ * npu device侧的aclTensor，数据类型支持FLOAT16、FLOAT32、BFLOAT16、DOUBLE。支持连续和非连续的Tensor，数据格式支持ND。
  * @param [out] workspaceSize: 返回用户需要在npu device侧申请的workspace大小。
  * @param [out] executor: 返回op执行器，包含算子计算流程。
  * @return aclnnStatus: 返回状态码。
  */
-ACLNN_API aclnnStatus aclnnGlobalAveragePoolGetWorkspaceSize(
-    const aclTensor* self, aclTensor* out, uint64_t* workspaceSize, aclOpExecutor** executor);
+ACLNN_API aclnnStatus aclnnGlobalAveragePoolGetWorkspaceSize(const aclTensor* self, aclTensor* out,
+                                                             uint64_t* workspaceSize, aclOpExecutor** executor);
 
 /**
  * @brief aclnnGlobalAveragePool的第二段接口，用于执行计算。
@@ -49,8 +49,8 @@ ACLNN_API aclnnStatus aclnnGlobalAveragePoolGetWorkspaceSize(
  * @param [in] executor: op执行器，包含了算子计算流程。
  * @return aclnnStatus: 返回状态码。
  */
-ACLNN_API aclnnStatus
-aclnnGlobalAveragePool(void* workspace, uint64_t workspaceSize, aclOpExecutor* executor, const aclrtStream stream);
+ACLNN_API aclnnStatus aclnnGlobalAveragePool(void* workspace, uint64_t workspaceSize, aclOpExecutor* executor,
+                                             const aclrtStream stream);
 
 #ifdef __cplusplus
 }

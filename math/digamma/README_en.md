@@ -20,8 +20,7 @@ English | [简体中文](./README.md)
 - Computation formula:
 
 $$
-y_i=\psi(x_i)=\frac{{\rm d}}{{\rm d}x_i}\ln|\Gamma(x_i)|
-=\frac{\Gamma'(x_i)}{\Gamma(x_i)}
+y_i=\psi(x_i)=\frac{\Gamma'(x_i)}{\Gamma(x_i)}
 $$
 
 Here, non-positive integers are poles of the digamma function.

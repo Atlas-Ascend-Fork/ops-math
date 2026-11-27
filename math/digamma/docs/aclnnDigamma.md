@@ -28,8 +28,7 @@
 - 计算公式：
 
 $$
-out_i=\psi(self_i)=\frac{{\rm d}}{{\rm d}self_i}\ln|\Gamma(self_i)|
-=\frac{\Gamma'(self_i)}{\Gamma(self_i)}
+out_i=\psi(self_i)=\frac{\Gamma'(self_i)}{\Gamma(self_i)}
 $$
 
 其中，非正整数是digamma函数的极点。
