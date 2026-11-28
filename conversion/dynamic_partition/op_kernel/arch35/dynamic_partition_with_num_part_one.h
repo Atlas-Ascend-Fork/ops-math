@@ -108,7 +108,14 @@ __aicore__ inline void DynPartWithNumPartOne<T>::CopyProcess()
         int64_t gmOffset = offset + i * tdPtr_->ubFactor;
 
         auto ubX = queBind_.AllocTensor<T>();
+#if defined(__NPU_ARCH__) && (__NPU_ARCH__ == 9201 || __NPU_ARCH__ == 9202)
+        // PreAllocation：MTE2 提前发出，硬件保证数据返回维持依赖顺序。
+        // TQueBind depth=2 下 tile(t+1) 的 MTE2 仅依赖 slot 复用，无同址
+        // 数据依赖，可安全提前发射（参考 PR 7208 模式）
+        DataCopyPad(ubX, xInGM_[gmOffset], mainCopyParams, padParams, true); // MTE2: GM → UB
+#else
         DataCopyPad(ubX, xInGM_[gmOffset], mainCopyParams, padParams); // MTE2: GM → UB
+#endif
         queBind_.EnQue(ubX);
 
         ubX = queBind_.DeQue<T>();
@@ -122,7 +129,11 @@ __aicore__ inline void DynPartWithNumPartOne<T>::CopyProcess()
         DataCopyExtParams tailCopyParams{1, static_cast<uint32_t>(ubTailFactor * sizeof(T)), 0, 0, 0};
 
         auto ubX = queBind_.AllocTensor<T>();
+#if defined(__NPU_ARCH__) && (__NPU_ARCH__ == 9201 || __NPU_ARCH__ == 9202)
+        DataCopyPad(ubX, xInGM_[gmOffset], tailCopyParams, padParams, true); // MTE2: GM → UB
+#else
         DataCopyPad(ubX, xInGM_[gmOffset], tailCopyParams, padParams); // MTE2: GM → UB
+#endif
         queBind_.EnQue(ubX);
 
         ubX = queBind_.DeQue<T>();
