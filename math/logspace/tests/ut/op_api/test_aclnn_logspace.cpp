@@ -100,6 +100,86 @@ TEST_F(l2_logspace_test, aclnnLogSpace_steps_0)
     EXPECT_EQ(aclRet, ACL_SUCCESS);
 }
 
+TEST_F(l2_logspace_test, aclnnLogSpace_steps_0_result_not_empty)
+{
+    auto start = ScalarDesc(static_cast<float>(3));
+    auto end = ScalarDesc(static_cast<float>(15));
+    double base = 10.0;
+    int64_t steps = 0;
+
+    auto outTensor = TensorDesc({5}, ACL_FLOAT, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnLogSpace, INPUT(start, end, steps, base), OUTPUT(outTensor));
+
+    uint64_t workspace_size = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
+}
+
+TEST_F(l2_logspace_test, aclnnLogSpace_positive_steps_result_empty)
+{
+    auto start = ScalarDesc(static_cast<float>(3));
+    auto end = ScalarDesc(static_cast<float>(15));
+    double base = 10.0;
+    int64_t steps = 5;
+
+    auto outTensor = TensorDesc({0}, ACL_FLOAT, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnLogSpace, INPUT(start, end, steps, base), OUTPUT(outTensor));
+
+    uint64_t workspace_size = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
+}
+
+TEST_F(l2_logspace_test, aclnnLogSpace_result_size_less_than_steps)
+{
+    auto start = ScalarDesc(static_cast<float>(3));
+    auto end = ScalarDesc(static_cast<float>(15));
+    double base = 10.0;
+    int64_t steps = 5;
+
+    auto outTensor = TensorDesc({3}, ACL_FLOAT, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnLogSpace, INPUT(start, end, steps, base), OUTPUT(outTensor));
+
+    uint64_t workspace_size = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
+}
+
+TEST_F(l2_logspace_test, aclnnLogSpace_result_size_greater_than_steps)
+{
+    auto start = ScalarDesc(static_cast<float>(3));
+    auto end = ScalarDesc(static_cast<float>(15));
+    double base = 10.0;
+    int64_t steps = 5;
+
+    auto outTensor = TensorDesc({7}, ACL_FLOAT, ACL_FORMAT_ND);
+
+    auto ut = OP_API_UT(aclnnLogSpace, INPUT(start, end, steps, base), OUTPUT(outTensor));
+
+    uint64_t workspace_size = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(aclRet, ACLNN_ERR_PARAM_INVALID);
+}
+
+TEST_F(l2_logspace_test, aclnnLogSpace_non_contiguous_result)
+{
+    auto start = ScalarDesc(static_cast<float>(3));
+    auto end = ScalarDesc(static_cast<float>(15));
+    double base = 10.0;
+    int64_t steps = 5;
+
+    auto outTensor = TensorDesc({5}, ACL_FLOAT, ACL_FORMAT_ND, {2}, 0, {10});
+
+    auto ut = OP_API_UT(aclnnLogSpace, INPUT(start, end, steps, base), OUTPUT(outTensor));
+
+    uint64_t workspace_size = 0;
+    aclnnStatus aclRet = ut.TestGetWorkspaceSize(&workspace_size);
+    EXPECT_EQ(aclRet, ACL_SUCCESS);
+}
+
 // 输入step = 1
 TEST_F(l2_logspace_test, aclnnLogSpace_steps_1)
 {
