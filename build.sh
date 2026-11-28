@@ -37,7 +37,9 @@ main() {
   if [ "$ENABLE_CREATE_LIB" == "TRUE" ]; then
     build_lib
   fi
-  if [[ "$ENABLE_BINARY" == "TRUE" || "$ENABLE_CUSTOM" == "TRUE" ]] && [[ "$ENABLE_JIT" == "FALSE" ]]; then
+  # An ONNX plugin build only needs kernels when a binary build is also requested.
+  if [[ "$ENABLE_JIT" == "FALSE" ]] &&
+     { [[ "$ENABLE_BINARY" == "TRUE" ]] || [[ "$ENABLE_CUSTOM" == "TRUE" && "$ONNX_PLUGIN" != "TRUE" ]]; }; then
     build_binary
   fi
   if [[ "$ENABLE_STATIC" == "TRUE" ]]; then

@@ -14,7 +14,11 @@
 #include "op_infer_datatype_context_builder.h"
 #include "op_kernel_run_context_builder.h"
 #include "exe_graph/runtime/kernel_run_context.h"
+#if __has_include("exe_graph/runtime/runtime_tensor.h")
 #include "exe_graph/runtime/runtime_tensor.h"
+#else
+#include "exe_graph/runtime/tensor.h"
+#endif
 #include "graph/infer_format_context.h"
 #include "base/registry/op_impl_space_registry_v2.h"
 

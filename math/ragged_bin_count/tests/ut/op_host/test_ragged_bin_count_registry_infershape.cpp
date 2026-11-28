@@ -11,7 +11,11 @@
 #include <gtest/gtest.h>
 #include "base/context_builder/op_infer_shape_context_builder.h"
 #include "base/registry/op_impl_space_registry_v2.h"
+#if __has_include("exe_graph/runtime/runtime_tensor.h")
 #include "exe_graph/runtime/runtime_tensor.h"
+#else
+#include "exe_graph/runtime/tensor.h"
+#endif
 
 namespace {
 gert::StorageShape MakeStorageShape(const gert::Shape& shape)

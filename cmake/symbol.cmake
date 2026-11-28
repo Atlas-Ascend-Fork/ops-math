@@ -561,6 +561,9 @@ endfunction()
 
 function(gen_onnx_plugin_symbol)
   if (NOT TARGET ${ONNX_PLUGIN_NAME}_obj)
+    if(ENABLE_ONNX_PLUGIN)
+      message(FATAL_ERROR "ONNX plugin requested, but no ONNX plugin sources were selected.")
+    endif()
     return()
   endif()
 
@@ -670,6 +673,10 @@ function(gen_cust_symbol)
   gen_cust_optiling_symbol()
 
   gen_cust_proto_symbol()
+
+  if(ENABLE_ONNX_PLUGIN)
+    gen_onnx_plugin_symbol()
+  endif()
 
   gen_aicpu_json_symbol(FALSE)
 
