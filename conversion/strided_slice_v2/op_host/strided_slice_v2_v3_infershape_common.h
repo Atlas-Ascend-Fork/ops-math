@@ -301,12 +301,12 @@ inline ge::graphStatus InferShapeAndRangeCore(const char* op_name, const gert::S
     ExpandSparseByAxes(info, shape_x, traits, begin_list, end_list, stride_list, axes_mask, ends_mask);
 
     if (rank_num == 0) {
-        OP_LOGE(op_name, "input x's dimnum must be in [1, 8].");
+        OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(op_name, "x", "input x's dimnum must be in [1, 8]");
         return ge::GRAPH_FAILED;
     }
 
     if (end_list.size() != begin_list.size()) {
-        OP_LOGE(op_name, "end shape, begin shape length mismatch!");
+        OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(op_name, "end, begin", "end shape and begin shape length must match");
         return ge::GRAPH_FAILED;
     }
 

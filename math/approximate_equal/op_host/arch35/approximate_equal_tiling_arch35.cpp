@@ -56,8 +56,9 @@ static bool CheckDtypePair(gert::TilingContext* context, ge::DataType x1Dtype, g
 {
     const std::set<ge::DataType> supported = {ge::DT_FLOAT, ge::DT_FLOAT16, ge::DT_BF16};
     if (supported.count(x1Dtype) == 0) {
-        OP_LOGE(context, "ApproximateEqual: unsupported dtype=%d (allowed: FLOAT/FLOAT16/BF16)",
-                static_cast<int>(x1Dtype));
+        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "input",
+                                              std::to_string(static_cast<int>(x1Dtype)),
+                                              "unsupported dtype (allowed FLOAT/FLOAT16/BF16");
         return false;
     }
     if (x2Dtype != x1Dtype) {
@@ -93,8 +94,12 @@ static ge::graphStatus GetShapeAttrsInfo(gert::TilingContext* context, int64_t& 
     auto shapeY = EnsureNotScalar(outY->GetStorageShape());
 
     OP_CHECK_IF(shapeX1.GetShapeSize() != shapeX2.GetShapeSize() || shapeX1.GetShapeSize() != shapeY.GetShapeSize(),
-                OP_LOGE(context, "ApproximateEqual: shape mismatch: x1=%ld, x2=%ld, y=%ld", shapeX1.GetShapeSize(),
-                        shapeX2.GetShapeSize(), shapeY.GetShapeSize()),
+                OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(
+                    context->GetNodeName(), "x1",
+                    (std::to_string(shapeX1.GetShapeSize()) + ", " + std::to_string(shapeX2.GetShapeSize()) + ", " +
+                     std::to_string(shapeY.GetShapeSize()))
+                        .c_str(),
+                    "shape mismatch"),
                 return ge::GRAPH_FAILED);
 
     totalNum = shapeX1.GetShapeSize();

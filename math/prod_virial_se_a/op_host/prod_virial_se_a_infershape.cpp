@@ -65,9 +65,11 @@ static ge::graphStatus SetAtomVirialShape(gert::InferShapeContext* context, int6
         return ge::GRAPH_SUCCESS;
     }
 
-    OP_CHECK_IF(natomsShape->GetShapeSize() < 3,
-                OP_LOGE(context, "natoms size must be >= 3, got %ld", natomsShape->GetShapeSize()),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        natomsShape->GetShapeSize() < 3,
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "input",
+                                              std::to_string(natomsShape->GetShapeSize()), "natoms size must be >= 3"),
+        return ge::GRAPH_FAILED);
 
     // 读取 natoms 值获取 nall（值依赖）
     // CANN 9.1.0: InferShapeContext 通过 GetInputTensor 获取值依赖数据
@@ -80,7 +82,9 @@ static ge::graphStatus SetAtomVirialShape(gert::InferShapeContext* context, int6
         if (natomsPtr != nullptr) {
             int32_t nall = natomsPtr[1];
             // 校验 nall > 0（910b 兼容）
-            OP_CHECK_IF(nall <= 0, OP_LOGE(context, "nall (natoms[1]) must be > 0, got %d", nall),
+            OP_CHECK_IF(nall <= 0,
+                        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "input", std::to_string(nall),
+                                                              "nall (natoms[1]) must be > 0"),
                         return ge::GRAPH_FAILED);
             atomVirialShape->SetDim(1, static_cast<int64_t>(nall) * VIRIAL_DIM);
             return ge::GRAPH_SUCCESS;
@@ -105,7 +109,9 @@ static ge::graphStatus ValidateDtypeConsistency(gert::InferShapeContext* context
     auto inDerivDtype = inDerivDesc->GetDataType();
     auto rijDtype = rijDesc->GetDataType();
     OP_CHECK_IF(netDerivDtype != inDerivDtype || netDerivDtype != rijDtype,
-                OP_LOGE(context, "net_deriv, in_deriv, rij dtype must be the same"), return ge::GRAPH_FAILED);
+                OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(context->GetNodeName(), "input",
+                                                         "net_deriv, in_deriv, rij dtype must be the same"),
+                return ge::GRAPH_FAILED);
     return ge::GRAPH_SUCCESS;
 }
 
@@ -154,7 +160,9 @@ static ge::graphStatus InferDataTypeProdVirialSeA(gert::InferDataTypeContext* co
 
     // 校验三个浮点输入 dtype 一致（910b 兼容）
     OP_CHECK_IF(netDerivDtype != inDerivDtype || netDerivDtype != rijDtype,
-                OP_LOGE(context, "net_deriv, in_deriv, rij dtype must be the same"), return ge::GRAPH_FAILED);
+                OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(context->GetNodeName(), "input",
+                                                         "net_deriv, in_deriv, rij dtype must be the same"),
+                return ge::GRAPH_FAILED);
 
     // 输出 dtype = net_deriv dtype
     context->SetOutputDataType(IDX_VIRIAL, netDerivDtype);

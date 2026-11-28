@@ -925,14 +925,16 @@ static ge::graphStatus Tiling4Slice(gert::TilingContext* context)
         OP_CHECK_IF(AssignInputValueOpt<int32_t>(context, shape_size_offsets, shape_tensor_offsets,
                                                  sliceparam.begin_list, compile_info->isAscendc,
                                                  sliceparam.is_begin_const, inputDtype) != ge::GRAPH_SUCCESS,
-                    OP_LOGE(context->GetNodeName(), "get offset fail, check input is const or not."),
+                    OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(context->GetNodeName(), "offset",
+                                                             "get offset fail, check input is const or not"),
                     return ge::GRAPH_FAILED);
     } else {
         // Get offset const val
         OP_CHECK_IF(AssignInputValueOpt<int64_t>(context, shape_size_offsets, shape_tensor_offsets,
                                                  sliceparam.begin_list, compile_info->isAscendc,
                                                  sliceparam.is_begin_const, inputDtype) != ge::GRAPH_SUCCESS,
-                    OP_LOGE(context->GetNodeName(), "get offset fail, check input is const or not."),
+                    OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(context->GetNodeName(), "offset",
+                                                             "get offset fail, check input is const or not"),
                     return ge::GRAPH_FAILED);
     }
     ge::DataType sizeDtype = shape_tensor_size->GetDataType();
@@ -940,13 +942,15 @@ static ge::graphStatus Tiling4Slice(gert::TilingContext* context)
         // Get size const val
         OP_CHECK_IF(AssignInputValue<int32_t>(context, shape_size_size, shape_tensor_size, sliceparam.end_list,
                                               inputDtype) != ge::GRAPH_SUCCESS,
-                    OP_LOGE(context->GetNodeName(), "get size fail, check input is const or not."),
+                    OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(context->GetNodeName(), "input",
+                                                             "get size fail, check input is const or not"),
                     return ge::GRAPH_FAILED);
     } else {
         // Get size const val
         OP_CHECK_IF(AssignInputValue<int64_t>(context, shape_size_size, shape_tensor_size, sliceparam.end_list,
                                               inputDtype) != ge::GRAPH_SUCCESS,
-                    OP_LOGE(context->GetNodeName(), "get size fail, check input is const or not."),
+                    OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(context->GetNodeName(), "input",
+                                                             "get size fail, check input is const or not"),
                     return ge::GRAPH_FAILED);
     }
     // calc endlist

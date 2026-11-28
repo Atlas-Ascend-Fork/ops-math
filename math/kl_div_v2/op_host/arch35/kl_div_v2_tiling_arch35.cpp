@@ -148,12 +148,15 @@ static ge::graphStatus Tiling4KLDivV2AscendC(gert::TilingContext* context, const
     ReduceOpInputParam opInput;
     if (reduction == "none") {
         OP_CHECK_IF((ReduceOpTmpl::GetInputParam(context, opInput, 0) == ge::GRAPH_FAILED),
-                    OP_LOGE(context->GetNodeName(), "[None] ReduceOp get x input param failed"),
+                    OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(context->GetNodeName(), "x",
+                                                             "[None] ReduceOp get x input param failed"),
                     return ge::GRAPH_FAILED);
         opInput.axes.clear();
     } else {
-        OP_CHECK_IF((ReduceOpTmpl::GetInputParam(context, opInput, 0, 1, 0) == ge::GRAPH_FAILED),
-                    OP_LOGE(context->GetNodeName(), "ReduceOp get x input param failed"), return ge::GRAPH_FAILED);
+        OP_CHECK_IF(
+            (ReduceOpTmpl::GetInputParam(context, opInput, 0, 1, 0) == ge::GRAPH_FAILED),
+            OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(context->GetNodeName(), "x", "ReduceOp get x input param failed"),
+            return ge::GRAPH_FAILED);
     }
     OP_CHECK_IF(CheckDtype(context) == ge::GRAPH_FAILED, OP_LOGE(context, "check dtype failed"),
                 return ge::GRAPH_FAILED);

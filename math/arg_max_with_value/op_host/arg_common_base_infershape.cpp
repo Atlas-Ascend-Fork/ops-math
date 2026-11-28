@@ -92,12 +92,14 @@ static ge::graphStatus ArgMaxWithValueInfer(const gert::InferShapeContext* conte
         *value_shape = *x_shape;
         OP_CHECK_IF(
             Ops::Base::ReduceDimsWithKeepDims<int64_t>(x_shape, attr_dimension, 1, value_shape) != GRAPH_SUCCESS,
-            OP_LOGE(context->GetNodeName(), "infershape failed"), return ge::GRAPH_FAILED);
+            OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(context->GetNodeName(), "input", "infershape failed"),
+            return ge::GRAPH_FAILED);
     } else {
         value_shape->SetDimNum(0);
         OP_CHECK_IF(
             Ops::Base::ReduceDimsWithoutKeepDims<int64_t>(x_shape, attr_dimension, 1, value_shape) != GRAPH_SUCCESS,
-            OP_LOGE(context->GetNodeName(), "infershape failed"), return ge::GRAPH_FAILED);
+            OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(context->GetNodeName(), "input", "infershape failed"),
+            return ge::GRAPH_FAILED);
     }
     *indice_shape = *value_shape;
     OP_LOGD(context->GetNodeName(), "infershape success");

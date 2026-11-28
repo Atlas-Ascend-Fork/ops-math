@@ -68,13 +68,18 @@ static void ReportTilingError(SignBitsPackTilingStatus status, int64_t n, int64_
 {
     switch (status) {
         case SignBitsPackTilingStatus::kDtypeNotSupported:
-            OP_LOGE(kOpName, "dtype_not_supported: x.dtype=%d", static_cast<int>(dtype));
+            OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(kOpName, "x", std::to_string(static_cast<int>(dtype)),
+                                                  "dtype not supported");
             break;
         case SignBitsPackTilingStatus::kShapeMismatch:
-            OP_LOGE(kOpName, "shape_mismatch: x.rank=%ld, expected rank=1", static_cast<long>(rank));
+            OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(kOpName, "x", std::to_string(static_cast<long>(rank)),
+                                                     "x rank should be 1");
             break;
         case SignBitsPackTilingStatus::kAttrOutOfRange:
-            OP_LOGE(kOpName, "attr_out_of_range: size=%ld, n=%ld", static_cast<long>(sizeAttr), static_cast<long>(n));
+            OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+                kOpName, "input",
+                (std::to_string(static_cast<long>(sizeAttr)) + ", " + std::to_string(static_cast<long>(n))).c_str(),
+                "attr_out_of_range");
             break;
         default:
             OP_LOGE(kOpName, "tiling failed, status=%d", static_cast<int>(status));

@@ -340,19 +340,30 @@ ge::graphStatus Im2ColTiling::ParamCheck()
     inputFormat_ = inputValueDesc->GetStorageFormat();
     auto ret = Ops::Math::GetImgDataDimsByNCHWOrder(context_, "x", storageShape, inputFormat_, input_.N, input_.C,
                                                     input_.H, input_.W);
-    OP_CHECK_IF(ret == ge::GRAPH_FAILED, OP_LOGE(context_, "Check input shape failed"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(ret == ge::GRAPH_FAILED,
+                OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(context_->GetNodeName(), "input", "Check input shape failed"),
+                return ge::GRAPH_FAILED);
 
     // 校验属性值是否合法
     auto attrs = context_->GetAttrs();
     OP_CHECK_NULL_WITH_CONTEXT(context_, attrs);
     ret = CheckKSizes(attrs);
-    OP_CHECK_IF(ret == ge::GRAPH_FAILED, OP_LOGE(context_, "Check ksizes failed"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(ret == ge::GRAPH_FAILED,
+                OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(context_->GetNodeName(), "ksizes", "Check ksizes failed"),
+                return ge::GRAPH_FAILED);
     ret = CheckStrides(attrs);
-    OP_CHECK_IF(ret == ge::GRAPH_FAILED, OP_LOGE(context_, "Check strides failed"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(ret == ge::GRAPH_FAILED,
+                OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(context_->GetNodeName(), "strides", "Check strides failed"),
+                return ge::GRAPH_FAILED);
     ret = CheckDilations(attrs);
-    OP_CHECK_IF(ret == ge::GRAPH_FAILED, OP_LOGE(context_, "Check dilations failed"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        ret == ge::GRAPH_FAILED,
+        OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(context_->GetNodeName(), "dilations", "Check dilations failed"),
+        return ge::GRAPH_FAILED);
     ret = CheckPadding(attrs);
-    OP_CHECK_IF(ret == ge::GRAPH_FAILED, OP_LOGE(context_, "Check padding failed"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(ret == ge::GRAPH_FAILED,
+                OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(context_->GetNodeName(), "input", "Check padding failed"),
+                return ge::GRAPH_FAILED);
     isPadding_ = input_.hPaddingBefore > 0 || input_.hPaddingAfter > 0 || input_.wPaddingBefore > 0 ||
                  input_.wPaddingAfter > 0;
 

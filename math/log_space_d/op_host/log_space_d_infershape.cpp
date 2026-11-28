@@ -50,8 +50,9 @@ graphStatus InferShape(gert::InferShapeContext* context)
         return InferShapeFailure(context->GetNodeName(), "steps attribute is missing");
     }
     if (*stepsAttr < 0) {
-        OP_LOGE(context->GetNodeName(), "LogSpaceD InferShape rejects negative steps=%ld",
-                static_cast<long>(*stepsAttr));
+        OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "input",
+                                                 std::to_string(static_cast<long>(*stepsAttr)),
+                                                 "LogSpaceD InferShape rejects negative");
         return GRAPH_FAILED;
     }
     const float* startAttr = attrs->GetFloat(START_ATTR_INDEX);
@@ -61,22 +62,26 @@ graphStatus InferShape(gert::InferShapeContext* context)
         return InferShapeFailure(context->GetNodeName(), "start, end, or base attribute is missing");
     }
     if (!std::isfinite(*startAttr) || !std::isfinite(*endAttr) || !std::isfinite(*baseAttr)) {
-        OP_LOGE(context->GetNodeName(), "LogSpaceD InferShape requires finite start=%f end=%f base=%f", *startAttr,
-                *endAttr, *baseAttr);
+        OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(
+            context->GetNodeName(), "end",
+            (std::to_string(*startAttr) + ", " + std::to_string(*endAttr) + ", " + std::to_string(*baseAttr)).c_str(),
+            "LogSpaceD InferShape requires finite start end");
         return GRAPH_FAILED;
     }
 
     const bool unknownRank = inputShape->GetDimNum() == 1 && inputShape->GetDim(0) == ge::UNKNOWN_DIM_NUM;
     if (!unknownRank) {
         if (inputShape->GetDimNum() != 1) {
-            OP_LOGE(context->GetNodeName(), "LogSpaceD InferShape supports rank 1, got rank=%zu",
-                    inputShape->GetDimNum());
+            OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "input",
+                                                     std::to_string(inputShape->GetDimNum()),
+                                                     "LogSpaceD InferShape supports rank 1");
             return GRAPH_FAILED;
         }
         const int64_t inputLength = inputShape->GetDim(0);
         if (inputLength != ge::UNKNOWN_DIM && inputLength != 1) {
-            OP_LOGE(context->GetNodeName(), "LogSpaceD InferShape requires input shape [1], got dim0=%ld",
-                    static_cast<long>(inputLength));
+            OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "input",
+                                                     std::to_string(static_cast<long>(inputLength)),
+                                                     "LogSpaceD InferShape requires input shape [1");
             return GRAPH_FAILED;
         }
     }

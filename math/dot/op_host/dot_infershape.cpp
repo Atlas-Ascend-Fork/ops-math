@@ -39,18 +39,23 @@ static ge::graphStatus InferShapeForDot(gert::InferShapeContext* context)
     if (!IsUnknownRank(*inputXShape)) {
         // -2 no need check dim num
         OP_CHECK_IF(inputXShape->GetDimNum() != SUPPORTED_DIM_NUM,
-                    OP_LOGE(context->GetNodeName(), "The input_x dim of input must be 1."), return ge::GRAPH_FAILED);
+                    OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(context->GetNodeName(), "input",
+                                                             "The input_x dim of input must be 1"),
+                    return ge::GRAPH_FAILED);
     }
     if (!IsUnknownRank(*inputYShape)) {
         // -2 no need check dim num
         OP_CHECK_IF(inputYShape->GetDimNum() != SUPPORTED_DIM_NUM,
-                    OP_LOGE(context->GetNodeName(), "The input_y dim of input must be 1."), return ge::GRAPH_FAILED);
+                    OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(context->GetNodeName(), "input",
+                                                             "The input_y dim of input must be 1"),
+                    return ge::GRAPH_FAILED);
     }
     bool isDynamic = (IsUnknownRank(*inputXShape) || IsUnknownRank(*inputYShape) || IsUnknownShape(*inputXShape) ||
                       IsUnknownShape(*inputYShape));
     if (!isDynamic) {
         OP_CHECK_IF(inputXShape->GetDim(0) != inputYShape->GetDim(0),
-                    OP_LOGE(context->GetNodeName(), "The 0-dim of input_x and input_y not match."),
+                    OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(context->GetNodeName(), "input",
+                                                             "The 0-dim of input_x and input_y not match"),
                     return ge::GRAPH_FAILED);
     }
 

@@ -88,7 +88,8 @@ ge::graphStatus ReduceVarTiling::ReduceVarGetInputParams(Ops::Base::ReduceOpInpu
 {
     OP_CHECK_IF(
         (Ops::Base::ReduceOpTmpl::GetInputDtype(context_, INPUT_INDEX_X, inputParam.inputDtype) == ge::GRAPH_FAILED),
-        OP_LOGE(context_->GetNodeName(), "ReduceOp get x input dtype failed"), return ge::GRAPH_FAILED);
+        OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(context_->GetNodeName(), "x", "ReduceOp get x input dtype failed"),
+        return ge::GRAPH_FAILED);
 
     static const std::vector<ge::DataType> supDtypes = {ge::DT_FLOAT16, ge::DT_BF16, ge::DT_FLOAT};
     OP_CHECK_IF((std::find(supDtypes.begin(), supDtypes.end(), inputParam.inputDtype) == supDtypes.end()),
@@ -97,8 +98,10 @@ ge::graphStatus ReduceVarTiling::ReduceVarGetInputParams(Ops::Base::ReduceOpInpu
                     "The dtype of x must be within the range {DT_FLOAT16, DT_BF16, DT_FLOAT}"),
                 return ge::GRAPH_FAILED);
 
-    OP_CHECK_IF((Ops::Base::ReduceOpTmpl::GetInputShape(context_, INPUT_INDEX_X, inputParam.shape) == ge::GRAPH_FAILED),
-                OP_LOGE(context_->GetNodeName(), "ReduceOp get x input shape failed"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        (Ops::Base::ReduceOpTmpl::GetInputShape(context_, INPUT_INDEX_X, inputParam.shape) == ge::GRAPH_FAILED),
+        OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(context_->GetNodeName(), "x", "ReduceOp get x input shape failed"),
+        return ge::GRAPH_FAILED);
 
     inputParam.promoteDtpye = GetPromoteType(inputParam.inputDtype);
 
@@ -892,7 +895,8 @@ void ReduceVarTiling::SetTilingData(const uint64_t* shape)
     }
     OP_CHECK_IF((memcpy_s(reduceVarTilingData_->shape, sizeof(reduceVarTilingData_->shape), shape,
                           sizeof(reduceVarTilingData_->shape)) != EOK),
-                OP_LOGE(context_->GetNodeName(), "memcpy shape failed"), return);
+                OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(context_->GetNodeName(), "input", "memcpy shape failed"),
+                return);
     reduceVarTilingData_->basicBlock = basicBlock_;
     reduceVarTilingData_->resultBlock = resultBlock_;
     reduceVarTilingData_->coreNum = static_cast<int32_t>(compileInfo_.vectorCoreNum);

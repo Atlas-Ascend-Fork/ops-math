@@ -77,18 +77,24 @@ static ge::graphStatus ParseInputAndCheckDtype(gert::TilingContext* context, int
     auto inputShape = context->GetInputShape(0);
     OP_CHECK_NULL_WITH_CONTEXT(context, inputShape);
     const auto& inputStorageShape = inputShape->GetStorageShape();
-    OP_CHECK_IF(inputStorageShape.GetDimNum() > MAX_DIM_NUM,
-                OP_LOGE(context, "Acosh: input rank must be <= 8, got %zu", inputStorageShape.GetDimNum()),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        inputStorageShape.GetDimNum() > MAX_DIM_NUM,
+        OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(
+            context->GetNodeName(), "input", std::to_string(inputStorageShape.GetDimNum()), "input rank must be <= 8"),
+        return ge::GRAPH_FAILED);
     *totalNum = inputStorageShape.GetShapeSize();
-    OP_CHECK_IF(*totalNum < 0, OP_LOGE(context, "Acosh: invalid negative shape size %ld", *totalNum),
+    OP_CHECK_IF(*totalNum < 0,
+                OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(context->GetNodeName(), "negative", std::to_string(*totalNum),
+                                                       "invalid negative shape size"),
                 return ge::GRAPH_FAILED);
 
     auto inputDesc = context->GetInputDesc(0);
     OP_CHECK_NULL_WITH_CONTEXT(context, inputDesc);
     *dtype = inputDesc->GetDataType();
     const std::set<ge::DataType> supported = {ge::DT_FLOAT, ge::DT_FLOAT16, ge::DT_BF16};
-    OP_CHECK_IF(supported.count(*dtype) == 0, OP_LOGE(context, "Acosh: unsupported dtype %d", static_cast<int>(*dtype)),
+    OP_CHECK_IF(supported.count(*dtype) == 0,
+                OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "input",
+                                                      std::to_string(static_cast<int>(*dtype)), "unsupported dtype"),
                 return ge::GRAPH_FAILED);
 
     auto outputShape = context->GetOutputShape(0);
@@ -97,13 +103,20 @@ static ge::graphStatus ParseInputAndCheckDtype(gert::TilingContext* context, int
     OP_CHECK_NULL_WITH_CONTEXT(context, outputDesc);
     const auto& outputStorageShape = outputShape->GetStorageShape();
     OP_CHECK_IF(outputStorageShape.GetDimNum() > MAX_DIM_NUM,
-                OP_LOGE(context, "Acosh: output rank must be <= 8, got %zu", outputStorageShape.GetDimNum()),
+                OP_LOGE_FOR_INVALID_SHAPEDIM_WITH_REASON(context->GetNodeName(), "input",
+                                                         std::to_string(outputStorageShape.GetDimNum()),
+                                                         "output rank must be <= 8"),
                 return ge::GRAPH_FAILED);
     OP_CHECK_IF(inputStorageShape.GetShapeSize() != outputStorageShape.GetShapeSize(),
-                OP_LOGE(context, "Acosh: input and output shape sizes must be equal"), return ge::GRAPH_FAILED);
+                OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(context->GetNodeName(), "input",
+                                                         "input and output shape sizes must be equal"),
+                return ge::GRAPH_FAILED);
     OP_CHECK_IF(outputDesc->GetDataType() != *dtype,
-                OP_LOGE(context, "Acosh: output dtype must match input dtype: input=%d, output=%d",
-                        static_cast<int>(*dtype), static_cast<int>(outputDesc->GetDataType())),
+                OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "input",
+                                                      (std::to_string(static_cast<int>(*dtype)) + ", " +
+                                                       std::to_string(static_cast<int>(outputDesc->GetDataType())))
+                                                          .c_str(),
+                                                      "output dtype must match input dtype"),
                 return ge::GRAPH_FAILED);
     return ge::GRAPH_SUCCESS;
 }
@@ -166,7 +179,10 @@ static ge::graphStatus AcoshTilingFunc(gert::TilingContext* context)
     // （此前把 32 字节直接当 32 元素对齐，FP32 下等效 128B 过对齐，usedCoreNum 被低估损失并行度）
     int64_t ubBlockSize = GetUbBlockSize(context); // 通常 32 字节
     int64_t dtypeSize = ge::GetSizeByDataType(dtype);
-    OP_CHECK_IF(dtypeSize <= 0, OP_LOGE(context, "Acosh: invalid dtype size %ld", dtypeSize), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(dtypeSize <= 0,
+                OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "dtype", std::to_string(dtypeSize),
+                                                      "invalid dtype size"),
+                return ge::GRAPH_FAILED);
     int64_t blockAlignElems = std::max(ubBlockSize / dtypeSize, static_cast<int64_t>(1));
     tiling->totalNum = totalNum;
     tiling->blockFactor = CeilAlign(CeilDiv(totalNum, coreNum), blockAlignElems);

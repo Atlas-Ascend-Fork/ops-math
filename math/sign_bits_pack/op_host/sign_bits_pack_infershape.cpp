@@ -47,8 +47,9 @@ static ge::graphStatus InferShape4SignBitsPack(gert::InferShapeContext* context)
 
     size_t dim_num = input_shape->GetDimNum();
     if (dim_num != 1 || size < 1) {
-        OP_LOGE(context->GetNodeName(), "input dim_num must be 1 and size must be >= 1, but dim_num=%zu, size=%ld.",
-                dim_num, size);
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "input",
+                                              (std::to_string(dim_num) + ", " + std::to_string(size)).c_str(),
+                                              "input dim_num must be 1 and size must be >= 1, but");
         return ge::GRAPH_FAILED;
     }
 
@@ -71,8 +72,10 @@ static ge::graphStatus InferShape4SignBitsPack(gert::InferShapeContext* context)
     int64_t packed_len = (n + 7) / 8;
 
     if (packed_len % size != 0) {
-        OP_LOGE(context->GetNodeName(), "packed_len %ld is not divisible by size %ld, input n=%ld.", packed_len, size,
-                n);
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(
+            context->GetNodeName(), "input",
+            (std::to_string(packed_len) + ", " + std::to_string(size) + ", " + std::to_string(n)).c_str(),
+            "packed_len is not divisible by size , input");
         return ge::GRAPH_FAILED;
     }
 

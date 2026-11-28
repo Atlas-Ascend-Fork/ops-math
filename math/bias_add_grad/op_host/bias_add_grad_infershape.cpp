@@ -45,18 +45,21 @@ static ge::graphStatus InferShape4BiasAddGrad(gert::InferShapeContext* context)
     size_t dim_num = in_shape->GetDimNum();
     if (strcmp(data_format, "NHWC") == 0) {
         OP_CHECK_IF((dim_num < DIM_SIZE2) || (dim_num > DIM_SIZE8),
-                    OP_LOGE(context->GetNodeName(),
-                            "The bias add grad op dimension(%zu) is not supported when format is NHWC!", dim_num),
+                    OP_LOGE_FOR_INVALID_FORMAT_WITH_REASON(
+                        context->GetNodeName(), "bias", std::to_string(dim_num),
+                        "The bias add grad op dimension() is not supported when format is NHWC!"),
                     return GRAPH_FAILED);
         out_shape->SetDim(0, in_shape->GetDim(dim_num - 1));
     } else if (strcmp(data_format, "NCHW") == 0) {
         OP_CHECK_IF(dim_num < DIM_SIZE2,
-                    OP_LOGE(context->GetNodeName(),
-                            "The bias add grad op dimension(%zu) is not supported when format is NCHW!", dim_num),
+                    OP_LOGE_FOR_INVALID_FORMAT_WITH_REASON(
+                        context->GetNodeName(), "bias", std::to_string(dim_num),
+                        "The bias add grad op dimension() is not supported when format is NCHW!"),
                     return GRAPH_FAILED);
         out_shape->SetDim(0, in_shape->GetDim(1));
     } else {
-        OP_LOGE(context->GetNodeName(), "data_format %s must be in (NCHW, NHWC).", data_format);
+        OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(context->GetNodeName(), data_format,
+                                                 "data_format must be in (NCHW, NHWC");
         return GRAPH_FAILED;
     }
 

@@ -48,7 +48,9 @@ static ge::graphStatus InferShape4Im2colCalcOut(gert::InferShapeContext* context
                                                 const std::string_view paddingMode)
 {
     auto [ret, shapeNCHW] = Ops::Math::GetImgDataDimsByNCHWOrder(context, "x", *shapeIn, dataFormat);
-    OP_CHECK_IF(ret != ge::GRAPH_SUCCESS, OP_LOGE(context, "Get input shape failed"), return ret);
+    OP_CHECK_IF(ret != ge::GRAPH_SUCCESS,
+                OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(context->GetNodeName(), "input", "Get input shape failed"),
+                return ret);
 
     auto [inN, inC, inH, inW] = shapeNCHW;
     auto [kernelH, kernelW] = ksizes;
@@ -66,7 +68,9 @@ static ge::graphStatus InferShape4Im2colCalcOut(gert::InferShapeContext* context
         auto attrPads = context->GetAttrs()->GetListInt(ATTR_IDX_PADS);
         auto [ret4, pads] = Ops::Math::UnpackAdaptDimListIntAttr<4>(
             context, "pads", attrPads, [](int64_t val) { return val >= 0; }, "The value of pads cannot be negative");
-        OP_CHECK_IF(ret4 != ge::GRAPH_SUCCESS, OP_LOGE(context, "pads check failed"), return ret4);
+        OP_CHECK_IF(ret4 != ge::GRAPH_SUCCESS,
+                    OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(context->GetNodeName(), "pads", "pads check failed"),
+                    return ret4);
         outH = (inH == -1) ? -1 : (inH + pads[0] + pads[1] - effectiveH) / strideH + 1;
         outW = (inW == -1) ? -1 : (inW + pads[2] + pads[3] - effectiveW) / strideW + 1;
     } else if (paddingMode == "SAME") {
@@ -77,11 +81,11 @@ static ge::graphStatus InferShape4Im2colCalcOut(gert::InferShapeContext* context
         outW = (inW == -1) ? -1 : (inW - effectiveW + strideW) / strideW;
     }
 
-    OP_CHECK_IF(
-        (IsOutShapeInvalid(inH, outH) || IsOutShapeInvalid(inW, outW)),
-        OP_LOGE(context, "The calculated shape of the array of sliding blocks is (%ld, %ld), which must be positive",
-                outH, outW),
-        return ge::GRAPH_FAILED);
+    OP_CHECK_IF((IsOutShapeInvalid(inH, outH) || IsOutShapeInvalid(inW, outW)),
+                OP_LOGE_FOR_INVALID_SHAPES_WITH_REASON(
+                    context->GetNodeName(), "input", (std::to_string(outH) + ", " + std::to_string(outW)).c_str(),
+                    "The calculated shape of the array of sliding blocks is (, ), which must be positive"),
+                return ge::GRAPH_FAILED);
 
     outC = (inC == -1) ? -1 : inC * kernelH * kernelW;
 
@@ -112,27 +116,34 @@ static graphStatus InferShape4Im2col(gert::InferShapeContext* context)
     auto attrKsizes = attrs->GetListInt(ATTR_IDX_KSIZE);
     auto [ret1, ksizes] = Ops::Math::UnpackFixedDimListIntAttr<2>(
         context, "ksizes", attrKsizes, [](int64_t val) { return val > 0; }, "The value of ksizes must be positive");
-    OP_CHECK_IF(ret1 != ge::GRAPH_SUCCESS, OP_LOGE(context, "ksizes check failed"), return ret1);
+    OP_CHECK_IF(ret1 != ge::GRAPH_SUCCESS,
+                OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(context->GetNodeName(), "ksizes", "ksizes check failed"),
+                return ret1);
 
     // Get attr strides
     auto attrStrides = attrs->GetListInt(ATTR_IDX_STRIDES);
     auto [ret2, strides] = Ops::Math::UnpackAdaptDimListIntAttr<2>(
         context, "strides", attrStrides, [](int64_t val) { return val > 0; }, "The value of strides must be positive");
-    OP_CHECK_IF(ret2 != ge::GRAPH_SUCCESS, OP_LOGE(context, "strides check failed"), return ret2);
+    OP_CHECK_IF(ret2 != ge::GRAPH_SUCCESS,
+                OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(context->GetNodeName(), "strides", "strides check failed"),
+                return ret2);
 
     // Get attr dilations
     auto attrDilations = attrs->GetListInt(ATTR_IDX_DILATIONS);
     auto [ret3, dilations] = Ops::Math::UnpackAdaptDimListIntAttr<2>(
         context, "dilations", attrDilations, [](int64_t val) { return val > 0; },
         "The value of dilations must be positive");
-    OP_CHECK_IF(ret3 != ge::GRAPH_SUCCESS, OP_LOGE(context, "dilations check failed"), return ret3);
+    OP_CHECK_IF(ret3 != ge::GRAPH_SUCCESS,
+                OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(context->GetNodeName(), "dilations", "dilations check failed"),
+                return ret3);
 
     // Get attr padding_mode
     const char* attrPaddingMode = attrs->GetStr(ATTR_IDX_PADDING_MODE);
     OP_CHECK_NULL_WITH_CONTEXT(context, attrPaddingMode);
     const std::string_view paddingMode = std::string_view(attrPaddingMode);
     OP_CHECK_IF(paddingMode != "VALID" && paddingMode != "SAME" && paddingMode != "CALCULATED",
-                OP_LOGE(context, "The padding_mode only supports VALID, SAME and CALCULATED."),
+                OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(context->GetNodeName(), "padding_mode",
+                                                         "The padding_mode only supports VALID, SAME and CALCULATED"),
                 return ge::GRAPH_FAILED);
 
     // Get input shape

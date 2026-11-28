@@ -95,7 +95,7 @@ static ge::graphStatus TanTilingFunc(gert::TilingContext* context)
     } else if (dataType == ge::DT_INT32) {
         dataTypeId = 3;
     } else {
-        OP_LOGE(context, "unsupported dtype for Tan");
+        OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(context->GetNodeName(), "input", "unsupported dtype for Tan");
         return ge::GRAPH_FAILED;
     }
     tiling->dataType = dataTypeId;

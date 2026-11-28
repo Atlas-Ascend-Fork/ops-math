@@ -131,8 +131,10 @@ ge::graphStatus MatrixDiagTiling::WriteTilingData()
 {
     OP_CHECK_IF(context_->SetTilingKey(tilingKey_) != ge::GRAPH_SUCCESS,
                 OP_LOGE(context_->GetNodeName(), "Set tiling key failed!"), return ge::GRAPH_FAILED);
-    OP_CHECK_IF(context_->SetBlockDim(static_cast<uint32_t>(compileInfo_->coreNum)) != ge::GRAPH_SUCCESS,
-                OP_LOGE(context_->GetNodeName(), "Set used core size failed!"), return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        context_->SetBlockDim(static_cast<uint32_t>(compileInfo_->coreNum)) != ge::GRAPH_SUCCESS,
+        OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(context_->GetNodeName(), "input", "Set used core size failed!"),
+        return ge::GRAPH_FAILED);
 
     OP_CHECK_IF(SetTilingData() != ge::GRAPH_SUCCESS, OP_LOGE(context_->GetNodeName(), "set tiling data failed!"),
                 return ge::GRAPH_FAILED);

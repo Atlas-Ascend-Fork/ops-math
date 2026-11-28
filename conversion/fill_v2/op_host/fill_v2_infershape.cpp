@@ -86,8 +86,9 @@ static ge::graphStatus InferShape4FillV2(gert::InferShapeContext* context)
             break;
         }
         default: {
-            OP_LOGE(context->GetNodeName(), "dims dtype only support [int16, int32, int64], but is %s",
-                    Ops::Base::ToString(constDtype).c_str());
+            OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "dims",
+                                                  std::string(Ops::Base::ToString(constDtype).c_str()).c_str(),
+                                                  "dims dtype only support [int16, int32, int64], but is");
             return ge::GRAPH_FAILED;
         }
     }

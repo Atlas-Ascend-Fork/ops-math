@@ -65,7 +65,9 @@ static ge::graphStatus InferShape4ReduceWithoutAxes(const gert::Shape* inShape, 
 
     // 轴个数非法（大于输入 rank）时直接失败，避免 dimNum - axesDim0 无符号下溢
     if (static_cast<size_t>(axesDim0) > dimNum) {
-        OP_LOGE("InferShape4ReduceWithoutAxes", "axesDim0 %" PRId32 " is invalid for input rank %zu", axesDim0, dimNum);
+        OP_LOGE_FOR_INVALID_SHAPESIZE_WITH_REASON("InferShape4ReduceWithoutAxes", "for",
+                                                  (std::to_string(axesDim0) + ", " + std::to_string(dimNum)).c_str(),
+                                                  "axesDim0 s invalid for input rank");
         return ge::GRAPH_FAILED;
     }
 
@@ -116,7 +118,8 @@ ge::graphStatus ReduceDimsWithKeepDims(const gert::Shape* xShape, const T* axesD
     dimNum = isScalar ? 1 : dimNum;
     *outputShape = *xShape;
     for (int32_t i = 0; i < axesShapeSize; i++) {
-        OP_CHECK_IF((!CheckAxisBounds<T, T>(dimNum, axesDims[i])), OP_LOGE("reduce", "axesDims is invalid"),
+        OP_CHECK_IF((!CheckAxisBounds<T, T>(dimNum, axesDims[i])),
+                    OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON("reduce", "input", "axesDims is invalid"),
                     return ge::GRAPH_FAILED);
         if (isScalar) {
             // no need to update output shape, when input is scalar
@@ -138,7 +141,8 @@ ge::graphStatus ReduceDimsWithoutKeepDims(const gert::Shape* xShape, const T* ax
     for (T j = 0; j < dimNum; j++) {
         bool reduceFlag = false;
         for (int32_t i = 0; i < axesShapeSize; i++) {
-            OP_CHECK_IF((!CheckAxisBounds<T, T>(dimNum, axesDims[i])), OP_LOGE("reduce", "axesDims is invalid"),
+            OP_CHECK_IF((!CheckAxisBounds<T, T>(dimNum, axesDims[i])),
+                        OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON("reduce", "input", "axesDims is invalid"),
                         return ge::GRAPH_FAILED);
             T dim = axesDims[i] < 0 ? axesDims[i] + dimNum : axesDims[i];
             if (dim == j) {
@@ -218,7 +222,9 @@ static ge::graphStatus DoInferShapeReduce(gert::InferShapeContext* context, cons
     } else if (axesDtype == ge::DT_INT64) {
         ret = ReduceDims<int64_t>(inShape, axesTensor, axesShapeSize, keepDims, outShape);
     } else {
-        OP_LOGE(context->GetNodeName(), "const axes data type %s must in (int32, int64)", ToString(axesDtype).c_str());
+        OP_LOGE_FOR_INVALID_DTYPE_WITH_REASON(context->GetNodeName(), "axes",
+                                              std::string(ToString(axesDtype).c_str()).c_str(),
+                                              "const axes data type must in (int32, int64");
         return ge::GRAPH_FAILED;
     }
     OP_LOGI(context->GetNodeName(), "outShape = %s", ToString(*outShape).c_str());

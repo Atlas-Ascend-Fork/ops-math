@@ -34,7 +34,7 @@ static Status ParseParamsNpuSignBitsPack(const Message* op_src, ge::Operator& op
 
     // Node must have required attribute size.
     if (req_attr_count != REQ_ATTR_NUM) {
-        OP_LOGE(GetOpName(op_dest).c_str(), "Node must have attr size");
+        OP_LOGE_FOR_INVALID_ARGUMENT_WITH_REASON(GetOpName(op_dest).c_str(), "size", "Node must have attr size");
         return FAILED;
     }
 

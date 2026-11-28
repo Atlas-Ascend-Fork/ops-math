@@ -29,10 +29,12 @@ static ge::graphStatus InferShapeCdist(gert::InferShapeContext* context)
     OP_CHECK_NULL_WITH_CONTEXT(context, x2Shape);
     int64_t x1DimNum = x1Shape->GetDimNum();
     int64_t x2DimNum = x2Shape->GetDimNum();
-    OP_CHECK_IF(x1DimNum < MIN_DIM_LEN || x2DimNum < MIN_DIM_LEN,
-                OP_LOGE(context->GetNodeName(),
-                "Only supports at least 2D tensors, X1 got: %ld, X2 got: %ld.", x1DimNum, x2DimNum),
-                return ge::GRAPH_FAILED);
+    OP_CHECK_IF(
+        x1DimNum < MIN_DIM_LEN || x2DimNum < MIN_DIM_LEN,
+        OP_LOGE_FOR_INVALID_VALUE_WITH_REASON(context->GetNodeName(), "input",
+                                              (std::to_string(x1DimNum) + ", " + std::to_string(x2DimNum)).c_str(),
+                                              "Only supports at least 2D tensors, X1 got , X2 got"),
+        return ge::GRAPH_FAILED);
 
     gert::Shape* yShape = context->GetOutputShape(0);
     OP_CHECK_NULL_WITH_CONTEXT(context, yShape);
