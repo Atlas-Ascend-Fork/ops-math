@@ -150,6 +150,17 @@ bool GetRuntimeNpuArch(NpuArch& npuArch)
     return true;
 }
 
+// The EZ0036 node_name of the structured error macros: the matched source node's
+// name, with the pass name as the fallback (an unnamed node or a query failure).
+std::string GetMatchedNodeName(const GNode& topkNode)
+{
+    AscendString nodeName;
+    if (topkNode.GetName(nodeName) != GRAPH_SUCCESS || nodeName.GetString() == nullptr) {
+        return kPassName;
+    }
+    return std::string(nodeName.GetString());
+}
+
 // regbase archs (the legacy IsRegBase() set): the new AscendC op_info registers
 // TopKV2 (x + k) and the two-input Transpose (x + perm const) there.
 bool IsRegbaseArch(NpuArch npuArch)
@@ -548,20 +559,20 @@ es::EsTensorHolder BuildTransposeNode(es::EsGraphBuilder& replaceGraphBuilder, c
                              .IrDefOutputs({{"y", es::CompliantNodeBuilder::kEsIrOutputRequired, ""}})
                              .Build();
     if (es::AddEdgeAndUpdatePeerDesc(*graph, inputNode, inputIndex, transposeNode, 0) != GRAPH_SUCCESS) {
-        OP_LOGE(kPassName.c_str(), "Failed to add edge for Transpose x input.");
+        OP_LOGE_FOR_INVALID_GRAPH_NODE(kPassName.c_str(), "Failed to add edge for Transpose x input");
         return es::EsTensorHolder();
     }
     auto permConst = replaceGraphBuilder.CreateConst(permAttr, {static_cast<int64_t>(permAttr.size())});
     if (es::AddEdgeAndUpdatePeerDesc(*graph, *permConst.GetProducer(), permConst.GetProducerOutIndex(), transposeNode,
                                      1) != GRAPH_SUCCESS) {
-        OP_LOGE(kPassName.c_str(), "Failed to add edge for Transpose perm input.");
+        OP_LOGE_FOR_INVALID_GRAPH_NODE(kPassName.c_str(), "Failed to add edge for Transpose perm input");
         return es::EsTensorHolder();
     }
     auto output = replaceGraphBuilder.GetCGraphBuilder()->GetTensorHolderFromNode(transposeNode, 0);
     GNode transposeGNode = *es::EsTensorHolder(output).GetProducer();
     if (!UpdateNodeInputDescFromNode(transposeGNode, 0, inputNode, inputIndex) ||
         !UpdateNodeInputDesc(transposeGNode, 1, permConst)) {
-        OP_LOGE(kPassName.c_str(), "Failed to update Transpose input descs.");
+        OP_LOGE_FOR_INVALID_GRAPH_NODE(kPassName.c_str(), "Failed to update Transpose input descs");
         return es::EsTensorHolder();
     }
     // Legacy parity: AddDynamicTransposeBefore/AfterNode declare the perm input as
@@ -597,13 +608,13 @@ es::EsTensorHolder BuildTransposeDNode(es::EsGraphBuilder& replaceGraphBuilder, 
                               })
                               .Build();
     if (es::AddEdgeAndUpdatePeerDesc(*graph, inputNode, inputIndex, transposeDNode, 0) != GRAPH_SUCCESS) {
-        OP_LOGE(kPassName.c_str(), "Failed to add edge for TransposeD input.");
+        OP_LOGE_FOR_INVALID_GRAPH_NODE(kPassName.c_str(), "Failed to add edge for TransposeD input");
         return es::EsTensorHolder();
     }
     auto output = replaceGraphBuilder.GetCGraphBuilder()->GetTensorHolderFromNode(transposeDNode, 0);
     GNode transposeDGNode = *es::EsTensorHolder(output).GetProducer();
     if (!UpdateNodeInputDescFromNode(transposeDGNode, 0, inputNode, inputIndex)) {
-        OP_LOGE(kPassName.c_str(), "Failed to update TransposeD input desc.");
+        OP_LOGE_FOR_INVALID_GRAPH_NODE(kPassName.c_str(), "Failed to update TransposeD input desc");
         return es::EsTensorHolder();
     }
     return es::EsTensorHolder(output);
@@ -660,12 +671,12 @@ bool BuildTopKV2Node(es::EsGraphBuilder& builder, const es::EsTensorHolder& x, c
     auto topkV2Node = nodeBuilder.Build();
     if (es::AddEdgeAndUpdatePeerDesc(*graph, *x.GetProducer(), x.GetProducerOutIndex(), topkV2Node, kInputXIdx) !=
         GRAPH_SUCCESS) {
-        OP_LOGE(kPassName.c_str(), "Failed to add edge for TopKV2 x input.");
+        OP_LOGE_FOR_INVALID_GRAPH_NODE(kPassName.c_str(), "Failed to add edge for TopKV2 x input");
         return false;
     }
     if (es::AddEdgeAndUpdatePeerDesc(*graph, *k.GetProducer(), k.GetProducerOutIndex(), topkV2Node, kInputKIdx) !=
         GRAPH_SUCCESS) {
-        OP_LOGE(kPassName.c_str(), "Failed to add edge for TopKV2 k input.");
+        OP_LOGE_FOR_INVALID_GRAPH_NODE(kPassName.c_str(), "Failed to add edge for TopKV2 k input");
         return false;
     }
     valuesHolder = es::EsTensorHolder(
@@ -674,7 +685,7 @@ bool BuildTopKV2Node(es::EsGraphBuilder& builder, const es::EsTensorHolder& x, c
         builder.GetCGraphBuilder()->GetTensorHolderFromNode(topkV2Node, kOutputIndicesIdx));
     GNode topkV2GNode = *valuesHolder.GetProducer();
     if (!UpdateNodeInputDesc(topkV2GNode, kInputXIdx, x) || !UpdateNodeInputDesc(topkV2GNode, kInputKIdx, k)) {
-        OP_LOGE(kPassName.c_str(), "Failed to update TopKV2 input descs.");
+        OP_LOGE_FOR_INVALID_GRAPH_NODE(kPassName.c_str(), "Failed to update TopKV2 input descs");
         return false;
     }
     return true;
@@ -709,12 +720,12 @@ bool BuildTopKDNode(es::EsGraphBuilder& builder, const es::EsTensorHolder& x, co
                          .Build();
     if (es::AddEdgeAndUpdatePeerDesc(*graph, *x.GetProducer(), x.GetProducerOutIndex(), topkDNode, kInputXIdx) !=
         GRAPH_SUCCESS) {
-        OP_LOGE(kPassName.c_str(), "Failed to add edge for TopKD x input.");
+        OP_LOGE_FOR_INVALID_GRAPH_NODE(kPassName.c_str(), "Failed to add edge for TopKD x input");
         return false;
     }
     if (es::AddEdgeAndUpdatePeerDesc(*graph, *assistSeq.GetProducer(), assistSeq.GetProducerOutIndex(), topkDNode, 1) !=
         GRAPH_SUCCESS) {
-        OP_LOGE(kPassName.c_str(), "Failed to add edge for TopKD assist_seq input.");
+        OP_LOGE_FOR_INVALID_GRAPH_NODE(kPassName.c_str(), "Failed to add edge for TopKD assist_seq input");
         return false;
     }
     valuesHolder = es::EsTensorHolder(builder.GetCGraphBuilder()->GetTensorHolderFromNode(topkDNode, kOutputValuesIdx));
@@ -722,7 +733,7 @@ bool BuildTopKDNode(es::EsGraphBuilder& builder, const es::EsTensorHolder& x, co
         builder.GetCGraphBuilder()->GetTensorHolderFromNode(topkDNode, kOutputIndicesIdx));
     GNode topkDGNode = *valuesHolder.GetProducer();
     if (!UpdateNodeInputDesc(topkDGNode, kInputXIdx, x) || !UpdateNodeInputDesc(topkDGNode, 1, assistSeq)) {
-        OP_LOGE(kPassName.c_str(), "Failed to update TopKD input descs.");
+        OP_LOGE_FOR_INVALID_GRAPH_NODE(kPassName.c_str(), "Failed to update TopKD input descs");
         return false;
     }
     return true;
@@ -758,7 +769,8 @@ GraphUniqPtr BuildAicpuTopKReplacement(const std::unique_ptr<MatchResult>& match
     std::vector<Format> inputFormats;
     GetInputsInfo(subgraphInputs, inputShapes, inputDtypes, inputFormats);
     if (inputShapes.size() < 2) {
-        OP_LOGE(kPassName.c_str(), "Subgraph inputs size %zu is less than 2.", inputShapes.size());
+        std::string reason = "Subgraph inputs size " + std::to_string(inputShapes.size()) + " is less than 2";
+        OP_LOGE_FOR_INVALID_GRAPH_NODE(GetMatchedNodeName(topkNode).c_str(), reason.c_str());
         return nullptr;
     }
 
@@ -788,7 +800,8 @@ GraphUniqPtr BuildAicpuTopKReplacement(const std::unique_ptr<MatchResult>& match
         xDesc = TensorDesc(Shape(inputShapes[0]), inputFormats[0], inputDtypes[0]);
     }
     if (topkGNode.UpdateInputDesc(kInputXIdx, xDesc) != GRAPH_SUCCESS) {
-        OP_LOGE(kPassName.c_str(), "Failed to update the degraded TopK x input desc.");
+        OP_LOGE_FOR_INVALID_GRAPH_NODE(GetMatchedNodeName(topkNode).c_str(),
+                                       "Failed to update the degraded TopK x input desc");
         return nullptr;
     }
     // k input desc: the same resolved-desc construction (an unset source k desc
@@ -803,7 +816,8 @@ GraphUniqPtr BuildAicpuTopKReplacement(const std::unique_ptr<MatchResult>& match
         kDesc.SetDataType(DT_INT32);
     }
     if (topkGNode.UpdateInputDesc(kInputKIdx, kDesc) != GRAPH_SUCCESS) {
-        OP_LOGE(kPassName.c_str(), "Failed to update the degraded TopK k input desc.");
+        OP_LOGE_FOR_INVALID_GRAPH_NODE(GetMatchedNodeName(topkNode).c_str(),
+                                       "Failed to update the degraded TopK k input desc");
         return nullptr;
     }
     // Output descs: values carried as-is; indices unconditionally re-declared
@@ -815,7 +829,8 @@ GraphUniqPtr BuildAicpuTopKReplacement(const std::unique_ptr<MatchResult>& match
     // the original desc and never manufactures one).
     TensorDesc valuesDesc;
     if (topkNode.GetOutputDesc(kOutputValuesIdx, valuesDesc) != SUCCESS) {
-        OP_LOGE(kPassName.c_str(), "Failed to get the source values desc for the AICPU TopK degradation.");
+        OP_LOGE_FOR_INVALID_GRAPH_NODE(GetMatchedNodeName(topkNode).c_str(),
+                                       "Failed to get the source values desc for the AICPU TopK degradation");
         return nullptr;
     }
     TensorDesc indicesDesc = valuesDesc;
@@ -826,7 +841,8 @@ GraphUniqPtr BuildAicpuTopKReplacement(const std::unique_ptr<MatchResult>& match
     indicesDesc.SetDataType(DT_INT32);
     if (topkGNode.UpdateOutputDesc(kOutputValuesIdx, valuesDesc) != GRAPH_SUCCESS ||
         topkGNode.UpdateOutputDesc(kOutputIndicesIdx, indicesDesc) != GRAPH_SUCCESS) {
-        OP_LOGE(kPassName.c_str(), "Failed to update the degraded TopK output descs.");
+        OP_LOGE_FOR_INVALID_GRAPH_NODE(GetMatchedNodeName(topkNode).c_str(),
+                                       "Failed to update the degraded TopK output descs");
         return nullptr;
     }
     OP_LOGI(kPassName.c_str(), "TopKFusionPass rebuilt the rejected TopK-family node as an AICPU-dispatchable TopK.");
@@ -926,7 +942,7 @@ std::vector<PatternUniqPtr> TopKFusionPass::Patterns()
         es::EsTensorHolder indicesHolder;
         if (!BuildTopKV2Node(graphBuilder, x, k, true, true, kDefaultDim, static_cast<int64_t>(DT_INT32), true, 0, true,
                              valuesHolder, indicesHolder)) {
-            OP_LOGE(kPassName.c_str(), "Failed to build TopKV2 pattern node.");
+            OP_LOGE_FOR_INVALID_GRAPH_NODE(kPassName.c_str(), "Failed to build TopKV2 pattern node");
             return patternGraphs;
         }
         auto builtGraph = graphBuilder.BuildAndReset({valuesHolder, indicesHolder});
@@ -958,7 +974,7 @@ bool TopKFusionPass::MeetRequirements(const std::unique_ptr<MatchResult>& matchR
     PlatformInfo platformInfo;
     OptionalInfo optionalInfo;
     if (PlatformInfoManager::Instance().GetPlatformInfoWithOutSocVersion(platformInfo, optionalInfo) != SUCCESS) {
-        OP_LOGE(kPassName.c_str(), "Get platform_info failed.");
+        OP_LOGE_FOR_INVALID_GRAPH_NODE(kPassName.c_str(), "Get platform_info failed");
         return false;
     }
 
@@ -993,14 +1009,14 @@ bool TopKFusionPass::MeetRequirements(const std::unique_ptr<MatchResult>& matchR
     // 2. Get the captured TopK/TopKV2 node.
     NodeIo topkNodeIo;
     if (matchResult->GetCapturedTensor(kCaptureTensorIdx, topkNodeIo) != SUCCESS) {
-        OP_LOGE(kPassName.c_str(), "Failed to get captured tensor.");
+        OP_LOGE_FOR_INVALID_GRAPH_NODE(kPassName.c_str(), "Failed to get captured tensor");
         return false;
     }
     GNode topkNode = topkNodeIo.node;
 
     AscendString nodeType;
     if (topkNode.GetType(nodeType) != GRAPH_SUCCESS) {
-        OP_LOGE(kPassName.c_str(), "Failed to get node type.");
+        OP_LOGE_FOR_INVALID_GRAPH_NODE(GetMatchedNodeName(topkNode).c_str(), "Failed to get node type");
         return false;
     }
     if (nodeType != "TopK" && nodeType != "TopKV2") {
@@ -1023,7 +1039,7 @@ bool TopKFusionPass::MeetRequirements(const std::unique_ptr<MatchResult>& matchR
     //    5102 BigGuard 11-dtype); legacy follows the per-soc op_info dtype lists.
     TensorDesc xDesc;
     if (topkNode.GetInputDesc(kInputXIdx, xDesc) != SUCCESS) {
-        OP_LOGE(kPassName.c_str(), "Failed to get input x desc.");
+        OP_LOGE_FOR_INVALID_GRAPH_NODE(GetMatchedNodeName(topkNode).c_str(), "Failed to get input x desc");
         return false;
     }
     DataType xDtype = xDesc.GetDataType();
@@ -1149,7 +1165,6 @@ bool TopKFusionPass::MeetRequirements(const std::unique_ptr<MatchResult>& matchR
     }
 
     // 6. dim check: normalize negative dim and validate it against the x rank.
-    // 6. dim check: normalize negative dim and validate it against the x rank.
     //    Legacy behaviour: the range check is skipped for unknown-rank shapes
     //    (dim_aim >= dim_size && !IsUnknownRankShape(dim_info) in the legacy
     //    pass) - the rank is undecidable there, so the fusion continues.
@@ -1238,7 +1253,7 @@ GraphUniqPtr TopKFusionPass::Replacement(const std::unique_ptr<MatchResult>& mat
     // 1. Get the captured TopK/TopKV2 node and read its attributes.
     NodeIo topkNodeIo;
     if (matchResult->GetCapturedTensor(kCaptureTensorIdx, topkNodeIo) != SUCCESS) {
-        OP_LOGE(kPassName.c_str(), "Failed to get captured tensor in Replacement.");
+        OP_LOGE_FOR_INVALID_GRAPH_NODE(kPassName.c_str(), "Failed to get captured tensor in Replacement");
         return nullptr;
     }
     GNode topkNode = topkNodeIo.node;
@@ -1259,7 +1274,7 @@ GraphUniqPtr TopKFusionPass::Replacement(const std::unique_ptr<MatchResult>& mat
     // intermediate nodes of the replacement graph.
     TensorDesc xDesc;
     if (topkNode.GetInputDesc(kInputXIdx, xDesc) != SUCCESS) {
-        OP_LOGE(kPassName.c_str(), "Failed to get input x desc.");
+        OP_LOGE_FOR_INVALID_GRAPH_NODE(GetMatchedNodeName(topkNode).c_str(), "Failed to get input x desc");
         return nullptr;
     }
 
@@ -1271,7 +1286,8 @@ GraphUniqPtr TopKFusionPass::Replacement(const std::unique_ptr<MatchResult>& mat
     std::vector<Format> inputFormats;
     GetInputsInfo(subgraphInputs, inputShapes, inputDtypes, inputFormats);
     if (inputShapes.size() < 2) {
-        OP_LOGE(kPassName.c_str(), "Subgraph inputs size %zu is less than 2.", inputShapes.size());
+        std::string reason = "Subgraph inputs size " + std::to_string(inputShapes.size()) + " is less than 2";
+        OP_LOGE_FOR_INVALID_GRAPH_NODE(GetMatchedNodeName(topkNode).c_str(), reason.c_str());
         return nullptr;
     }
 
@@ -1283,7 +1299,7 @@ GraphUniqPtr TopKFusionPass::Replacement(const std::unique_ptr<MatchResult>& mat
     const bool isKConst = GetConstKValue(topkNode, kValue);
     NpuArch npuArch = static_cast<NpuArch>(0);
     if (!GetRuntimeNpuArch(npuArch)) {
-        OP_LOGE(kPassName.c_str(), "Get NpuArch from soc spec failed.");
+        OP_LOGE_FOR_INVALID_GRAPH_NODE(GetMatchedNodeName(topkNode).c_str(), "Get NpuArch from soc spec failed");
         return nullptr;
     }
     const bool isRegbase = IsRegbaseArch(npuArch);
@@ -1293,7 +1309,7 @@ GraphUniqPtr TopKFusionPass::Replacement(const std::unique_ptr<MatchResult>& mat
     PlatformInfo platformInfo;
     OptionalInfo optionalInfo;
     if (PlatformInfoManager::Instance().GetPlatformInfoWithOutSocVersion(platformInfo, optionalInfo) != SUCCESS) {
-        OP_LOGE(kPassName.c_str(), "Get platform_info failed.");
+        OP_LOGE_FOR_INVALID_GRAPH_NODE(GetMatchedNodeName(topkNode).c_str(), "Get platform_info failed");
         return nullptr;
     }
     const std::string shortSocVersion = platformInfo.str_info.short_soc_version;
@@ -1369,7 +1385,7 @@ GraphUniqPtr TopKFusionPass::Replacement(const std::unique_ptr<MatchResult>& mat
         // through - the legacy pass aborts here before the swap; mirror it to
         // guard the perm/shape swap indices (otherwise UB on the small vector).
         if (dimAim < 0 || dimAim >= dimSize) {
-            OP_LOGE(kPassName.c_str(), "Dim index is out of shape range.");
+            OP_LOGE_FOR_INVALID_GRAPH_NODE(GetMatchedNodeName(topkNode).c_str(), "Dim index is out of shape range");
             return nullptr;
         }
         perm = GenSwapLastDimPerm(dimSize, dimAim);
@@ -1407,7 +1423,8 @@ GraphUniqPtr TopKFusionPass::Replacement(const std::unique_ptr<MatchResult>& mat
                                           rX.GetProducerOutIndex(), perm);
         }
         if (transIn.GetCTensorHolder() == nullptr) {
-            OP_LOGE(kPassName.c_str(), "Failed to build input transpose node.");
+            OP_LOGE_FOR_INVALID_GRAPH_NODE(GetMatchedNodeName(topkNode).c_str(),
+                                           "Failed to build input transpose node");
             return nullptr;
         }
         TensorDesc transInDesc = xDesc;
@@ -1421,7 +1438,8 @@ GraphUniqPtr TopKFusionPass::Replacement(const std::unique_ptr<MatchResult>& mat
         (void)transInDesc.SetShapeRange(transInRange);
         GNode transInNode = *transIn.GetProducer();
         if (transInNode.UpdateOutputDesc(0, transInDesc) != GRAPH_SUCCESS) {
-            OP_LOGE(kPassName.c_str(), "Failed to update input transpose output desc.");
+            OP_LOGE_FOR_INVALID_GRAPH_NODE(GetMatchedNodeName(topkNode).c_str(),
+                                           "Failed to update input transpose output desc");
             return nullptr;
         }
         fusedInput = transIn;
@@ -1479,7 +1497,7 @@ GraphUniqPtr TopKFusionPass::Replacement(const std::unique_ptr<MatchResult>& mat
         es::EsTensorHolder assistHolder(replaceGraphBuilder.GetCGraphBuilder()->GetTensorHolderFromNode(assistNode, 0));
         if (!BuildTopKDNode(replaceGraphBuilder, fusedInput, assistHolder, kValue, sorted, targetDim, largest,
                             fusedValues, fusedIndices)) {
-            OP_LOGE(kPassName.c_str(), "Failed to build TopKD node.");
+            OP_LOGE_FOR_INVALID_GRAPH_NODE(GetMatchedNodeName(topkNode).c_str(), "Failed to build TopKD node");
             return nullptr;
         }
     } else {
@@ -1492,7 +1510,7 @@ GraphUniqPtr TopKFusionPass::Replacement(const std::unique_ptr<MatchResult>& mat
         if (!BuildTopKV2Node(replaceGraphBuilder, fusedInput, rK, sorted, largest, targetDim,
                              static_cast<int64_t>(fusedIndicesDtype), hasSortPolicy, sortPolicy, isRegbase, fusedValues,
                              fusedIndices)) {
-            OP_LOGE(kPassName.c_str(), "Failed to build TopKV2 node.");
+            OP_LOGE_FOR_INVALID_GRAPH_NODE(GetMatchedNodeName(topkNode).c_str(), "Failed to build TopKV2 node");
             return nullptr;
         }
         // Dynamic int64 k desc fixup (canndev parity, legacy L500-509): the legacy
@@ -1520,7 +1538,8 @@ GraphUniqPtr TopKFusionPass::Replacement(const std::unique_ptr<MatchResult>& mat
             }
             GNode topkV2GNode = *fusedValues.GetProducer();
             if (topkV2GNode.UpdateInputDesc(kInputKIdx, fixedKDesc) != GRAPH_SUCCESS) {
-                OP_LOGE(kPassName.c_str(), "Failed to re-declare the TopKV2 k input desc as int32.");
+                OP_LOGE_FOR_INVALID_GRAPH_NODE(GetMatchedNodeName(topkNode).c_str(),
+                                               "Failed to re-declare the TopKV2 k input desc as int32");
                 return nullptr;
             }
         }
@@ -1584,7 +1603,7 @@ GraphUniqPtr TopKFusionPass::Replacement(const std::unique_ptr<MatchResult>& mat
     GNode fusedNode = *fusedValues.GetProducer();
     if (fusedNode.UpdateOutputDesc(kOutputValuesIdx, fusedValuesDesc) != GRAPH_SUCCESS ||
         fusedNode.UpdateOutputDesc(kOutputIndicesIdx, fusedIndicesDesc) != GRAPH_SUCCESS) {
-        OP_LOGE(kPassName.c_str(), "Failed to update fused op output descs.");
+        OP_LOGE_FOR_INVALID_GRAPH_NODE(GetMatchedNodeName(topkNode).c_str(), "Failed to update fused op output descs");
         return nullptr;
     }
 
@@ -1615,7 +1634,8 @@ GraphUniqPtr TopKFusionPass::Replacement(const std::unique_ptr<MatchResult>& mat
                                                      perm);
             }
             if (transOutValues.GetCTensorHolder() == nullptr) {
-                OP_LOGE(kPassName.c_str(), "Failed to build output transpose node for values.");
+                OP_LOGE_FOR_INVALID_GRAPH_NODE(GetMatchedNodeName(topkNode).c_str(),
+                                               "Failed to build output transpose node for values");
                 return nullptr;
             }
             finalValues = transOutValues;
@@ -1631,7 +1651,8 @@ GraphUniqPtr TopKFusionPass::Replacement(const std::unique_ptr<MatchResult>& mat
                                                       perm);
             }
             if (transOutIndices.GetCTensorHolder() == nullptr) {
-                OP_LOGE(kPassName.c_str(), "Failed to build output transpose node for indices.");
+                OP_LOGE_FOR_INVALID_GRAPH_NODE(GetMatchedNodeName(topkNode).c_str(),
+                                               "Failed to build output transpose node for indices");
                 return nullptr;
             }
             finalIndices = transOutIndices;
@@ -1653,7 +1674,7 @@ GraphUniqPtr TopKFusionPass::Replacement(const std::unique_ptr<MatchResult>& mat
     TensorDesc srcIndicesDesc;
     if (topkNode.GetOutputDesc(kOutputValuesIdx, srcValuesDesc) != SUCCESS ||
         topkNode.GetOutputDesc(kOutputIndicesIdx, srcIndicesDesc) != SUCCESS) {
-        OP_LOGE(kPassName.c_str(), "Failed to get source TopK output descs.");
+        OP_LOGE_FOR_INVALID_GRAPH_NODE(GetMatchedNodeName(topkNode).c_str(), "Failed to get source TopK output descs");
         return nullptr;
     }
     // Legacy int64-k note: the legacy pass converts the indices output desc to
@@ -1671,20 +1692,22 @@ GraphUniqPtr TopKFusionPass::Replacement(const std::unique_ptr<MatchResult>& mat
     GNode finalIndicesNode = *finalIndices.GetProducer();
     if (restoreValuesDesc) {
         if (finalValuesNode.UpdateOutputDesc(finalValues.GetProducerOutIndex(), srcValuesDesc) != GRAPH_SUCCESS) {
-            OP_LOGE(kPassName.c_str(), "Failed to update final values output desc.");
+            OP_LOGE_FOR_INVALID_GRAPH_NODE(GetMatchedNodeName(topkNode).c_str(),
+                                           "Failed to update final values output desc");
             return nullptr;
         }
     }
     if (restoreIndicesDesc) {
         if (finalIndicesNode.UpdateOutputDesc(finalIndices.GetProducerOutIndex(), srcIndicesDesc) != GRAPH_SUCCESS) {
-            OP_LOGE(kPassName.c_str(), "Failed to update final indices output desc.");
+            OP_LOGE_FOR_INVALID_GRAPH_NODE(GetMatchedNodeName(topkNode).c_str(),
+                                           "Failed to update final indices output desc");
             return nullptr;
         }
     }
 
     GraphUniqPtr replaceGraph = replaceGraphBuilder.BuildAndReset({finalValues, finalIndices});
     if (replaceGraph == nullptr) {
-        OP_LOGE(kPassName.c_str(), "Failed to build replacement graph.");
+        OP_LOGE_FOR_INVALID_GRAPH_NODE(GetMatchedNodeName(topkNode).c_str(), "Failed to build replacement graph");
         return nullptr;
     }
 
