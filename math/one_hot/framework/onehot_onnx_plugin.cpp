@@ -17,6 +17,8 @@
 #include "math/cast/op_graph/cast_proto.h"
 #include "conversion/identity/op_graph/identity_proto.h"
 #include "conversion/split/op_graph/split_proto.h"
+#include "platform/soc_spec.h"
+#include <cstdlib>
 
 using namespace std;
 using namespace ge;
@@ -25,6 +27,26 @@ using ge::Operator;
 namespace domi {
 using NodeProto = ge::onnx::NodeProto;
 using OpDesc = std::shared_ptr<ge::OpDesc>;
+
+extern "C" {
+typedef int32_t rtError_t;
+static const int32_t RT_ERROR_NONE = 0;
+rtError_t rtGetSocSpec(const char* label, const char* key, char* val, const uint32_t maxLen);
+}
+
+// OneHot的index_mode属性目前只在A2/A3(DAV_2201)的kernel上生效；
+// A5(DAV_3510/DAV_9201/DAV_9202)等平台仍沿用图上Add/Mod处理负索引。
+static bool IsIndexModeSupported()
+{
+    constexpr uint32_t maxLen = 32;
+    char archStr[maxLen] = {0};
+    if (rtGetSocSpec("version", "NpuArch", archStr, maxLen) != RT_ERROR_NONE) {
+        OP_LOGW("OneHot", "get soc spec failed, keep add+mod graph.");
+        return false;
+    }
+    const auto curArch = static_cast<NpuArch>(std::strtol(archStr, nullptr, 10));
+    return curArch == NpuArch::DAV_2201;
+}
 
 static Status ParseParamsOnehotCall(const Message* op_src, ge::Operator& op_dest)
 {
@@ -80,6 +102,16 @@ static ge::Operator BuildOutputOp(const std::string& ori_name, ge::Operator oneh
     return op::Cast((ori_name + "_Cast_output").c_str()).set_input_x(onehot_op, 0).set_attr_dst_type(ge::DT_BOOL);
 }
 
+// 获取输入的数据类型：为常量(Initializer)时从常量数据获取（此时desc可能未填充），否则从入参desc获取
+static ge::DataType GetInputDataType(const ge::Operator& op, uint32_t index, const char* const_name)
+{
+    ge::Tensor const_data;
+    if (op.GetInputConstData(const_name, const_data) == ge::GRAPH_SUCCESS) {
+        return const_data.GetTensorDesc().GetDataType();
+    }
+    return op.GetDynamicInputDesc("x", index).GetDataType();
+}
+
 static Status ParseOpToGraphOnehot(const ge::Operator& op, Graph& graph)
 {
     std::string ori_name;
@@ -101,8 +133,7 @@ static Status ParseOpToGraphOnehot(const ge::Operator& op, Graph& graph)
     int32_t split_dim = 0;
     ge::Tensor scalar_split_dim = CreateScalar(split_dim, ge::DT_INT32);
     auto split_const_op = op::Const((ori_name + "_split_dim").c_str()).set_attr_value(scalar_split_dim);
-    // In order to solve the problem that the input is negative insert add and mod, becase tbe onehot not support but
-    // onnx support
+    // ONNX的values是[off_value, on_value]的2元素张量，tbe onehot需要单个on_value/off_value，这里按轴0切分
     auto split_d_op = op::Split((ori_name + "_Split").c_str())
                           .create_dynamic_output_y(2)
                           .set_input_x(values_op)
@@ -111,15 +142,62 @@ static Status ParseOpToGraphOnehot(const ge::Operator& op, Graph& graph)
 
     auto identity_data1 = op::Identity((ori_name + "_identity_1").c_str()).set_input_x(data1);
     auto identity_data2 = op::Identity((ori_name + "_identity_2").c_str()).set_input_x(data2);
-    auto add_op = op::Add((ori_name + "_Add").c_str()).set_input_x1(identity_data1, 0).set_input_x2(identity_data2, 0);
-    auto mod_op = op::Mod((ori_name + "_Mod").c_str()).set_input_x1(add_op, 0).set_input_x2(identity_data2, 0);
+    // ONNX允许indices为float16/float/double，NPU上OneHot不支持浮点索引，这里cast成int64；
+    // int8不在OneHot支持的dtype范围内，且参与计算会溢出，先提升到int32；uint8/int32/int64直接透传。
+    const bool index_mode_supported = IsIndexModeSupported();
+    ge::DataType index_dtype = GetInputDataType(op, 0, "x0");
+    ge::DataType calc_dtype = index_dtype;
+    if (index_dtype == ge::DT_INT8) {
+        calc_dtype = ge::DT_INT32;
+    } else if (index_dtype == ge::DT_FLOAT16 || index_dtype == ge::DT_FLOAT || index_dtype == ge::DT_DOUBLE ||
+               index_dtype == ge::DT_BF16) {
+        calc_dtype = ge::DT_INT64;
+    } else if (index_dtype != ge::DT_INT32 && index_dtype != ge::DT_INT64 && index_dtype != ge::DT_UINT8) {
+        OP_LOGE(GetOpName(op).c_str(),
+                "get indices data type failed, only int8/int32/int64/uint8/float16/float/double is supported.");
+        return FAILED;
+    }
+    // A2/A3上int32的indices会被OneHotFusionPass改写成OneHotD，而OneHotD不支持index_mode，
+    // 负索引不回绕；这里把int32/int8统一提升到int64，保持走OneHot，保证ONNX回绕与越界语义。
+    if (index_mode_supported && calc_dtype == ge::DT_INT32) {
+        calc_dtype = ge::DT_INT64;
+    }
+    ge::Operator index_cast_op = identity_data1;
+    if (calc_dtype != index_dtype) {
+        index_cast_op = op::Cast((ori_name + "_Cast_index").c_str())
+                            .set_input_x(identity_data1, 0)
+                            .set_attr_dst_type(calc_dtype);
+    }
+
+    ge::Operator onehot_index_op = index_cast_op;
+    ge::Operator onehot_depth_op = identity_data2;
+    if (index_mode_supported) {
+        // OneHot的depth在部分平台(如910B仅有AICPU kernel时)只支持int32，int64会因dtype不支持导致找不到可用kernel，
+        // 这里在传给OneHot前把int64的depth转成int32。
+        if (GetInputDataType(op, 1, "x1") == ge::DT_INT64) {
+            onehot_depth_op = op::Cast((ori_name + "_Cast_depth_onehot").c_str())
+                                  .set_input_x(identity_data2, 0)
+                                  .set_attr_dst_type(ge::DT_INT32);
+        }
+    } else {
+        // A5等平台：负索引回绕仍在图上处理，保持原有Add/Mod方案。
+        auto add_op = op::Add((ori_name + "_Add").c_str())
+                          .set_input_x1(index_cast_op, 0)
+                          .set_input_x2(identity_data2, 0);
+        onehot_index_op = op::Mod((ori_name + "_Mod").c_str()).set_input_x1(add_op, 0).set_input_x2(identity_data2, 0);
+    }
 
     auto onehot_op = op::OneHot((ori_name + "_OneHot").c_str())
-                         .set_input_x(mod_op, 0)
-                         .set_input_depth(identity_data2, 0)
+                         .set_input_x(onehot_index_op, 0)
+                         .set_input_depth(onehot_depth_op, 0)
                          .set_input_on_value(split_d_op, 1)
                          .set_input_off_value(split_d_op, 0)
                          .set_attr_axis(axis);
+    if (index_mode_supported) {
+        // 负索引回绕与越界处理由OneHot kernel按ONNX语义完成，图上不再插入Add/Mod。
+        ge::Operator onehot_op_holder = onehot_op;
+        onehot_op_holder.SetAttr("index_mode", static_cast<int64_t>(1));
+    }
     ge::Operator output_op = BuildOutputOp(ori_name, onehot_op, is_values_bool);
     std::vector<ge::Operator> inputs{data1, data2, data3};
     std::vector<std::pair<ge::Operator, std::vector<size_t>>> output_indexs;
