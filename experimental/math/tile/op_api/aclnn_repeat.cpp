@@ -129,6 +129,26 @@ static inline aclnnStatus CheckRepeatsZero(const aclIntArray* repeats)
     return false;
 }
 
+static bool CheckEmptyRepeatOutShape(const aclTensor* self, const aclIntArray* repeats, const aclTensor* out)
+{
+    const auto& selfShape = self->GetViewShape();
+    const auto& outShape = out->GetViewShape();
+    if (outShape.GetDimNum() != repeats->Size()) {
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "out rank must match the number of repeats");
+        return false;
+    }
+    const size_t leadingDims = repeats->Size() - selfShape.GetDimNum();
+    for (size_t i = 0; i < repeats->Size(); ++i) {
+        const int64_t inputDim = i < leadingDims ? 1 : selfShape.GetDim(i - leadingDims);
+        int64_t expectedDim;
+        if (__builtin_mul_overflow(inputDim, (*repeats)[i], &expectedDim) || expectedDim != outShape.GetDim(i)) {
+            OP_LOGE(ACLNN_ERR_PARAM_INVALID, "out shape does not match the repeated input at dimension %zu", i);
+            return false;
+        }
+    }
+    return true;
+}
+
 // 校验repeat算子计算后生成的tensor与out的shape一致
 static inline bool CheckRepeatOutShape(const aclTensor* repeatRes, const aclTensor* out)
 {
@@ -198,6 +218,7 @@ aclnnStatus aclnnRepeatGetWorkspaceSize(const aclTensor* self, const aclIntArray
     CHECK_RET(ret == ACLNN_SUCCESS, ret);
 
     if (self->IsEmpty() || out->IsEmpty() || CheckRepeatsZero(repeats)) {
+        CHECK_RET(CheckEmptyRepeatOutShape(self, repeats, out), ACLNN_ERR_PARAM_INVALID);
         *workspaceSize = 0;
         uniqueExecutor.ReleaseTo(executor);
         return ACLNN_SUCCESS;
