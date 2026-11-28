@@ -56,6 +56,19 @@ static bool CheckStepsValid(int64_t steps)
     return true;
 }
 
+static bool CheckResultSizeValid(const aclTensor* result, int64_t steps)
+{
+    const auto& resultShape = result->GetViewShape();
+    const int64_t resultSize = resultShape.GetShapeSize();
+    if (resultSize != steps) {
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID,
+                "LogSpace requires the number of elements in result to equal steps, but got result size %ld, steps %ld",
+                resultSize, steps);
+        return false;
+    }
+    return true;
+}
+
 static aclnnStatus CheckParams(const aclScalar* start, const aclScalar* end, int64_t steps, const aclTensor* result)
 {
     CHECK_RET(CheckNotNull(start, end, result), ACLNN_ERR_PARAM_NULLPTR);
@@ -63,6 +76,8 @@ static aclnnStatus CheckParams(const aclScalar* start, const aclScalar* end, int
     CHECK_RET(CheckDtypeValid(result), ACLNN_ERR_PARAM_INVALID);
     // 检查steps有效性
     CHECK_RET(CheckStepsValid(steps), ACLNN_ERR_PARAM_INVALID);
+    // 检查result元素个数是否与steps一致
+    CHECK_RET(CheckResultSizeValid(result, steps), ACLNN_ERR_PARAM_INVALID);
     return ACLNN_SUCCESS;
 }
 
