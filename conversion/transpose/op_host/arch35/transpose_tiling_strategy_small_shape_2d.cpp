@@ -23,14 +23,13 @@
 namespace optiling {
 namespace {
 // 与 SMALL_SHAPE 一致的阈值口径
-static constexpr int64_t SMALL_SHAPE_2D_BYTES_THRES_HOLD = 4000000;          ///< 默认小 shape 阈值（4MB）
-static constexpr int64_t SMALL_SHAPE_2D_BYTES_THRES_HOLD_DAV_5102 = 1000000; ///< DAV_5102 小 shape 阈值（1MB）
-static constexpr int64_t SMALL_SHAPE_2D_MIN_BYTES = 64 * 1024;               ///< 低于 64KB 交给 SMALL_SHAPE
-static constexpr int64_t SMALL_SHAPE_2D_MIN_COLS = 4;                        ///< cols<=4 交给 SMALL_SHAPE
-static constexpr int64_t SMALL_SHAPE_2D_DCACHE_SIZE = 32 * 1024;             ///< SIMT DCACHE 预留
-static constexpr int64_t SMALL_SHAPE_2D_BLOCK_COUNT_MAX = 4095;              ///< DataCopyPad blockCount 上限
-static constexpr int64_t SMALL_SHAPE_2D_TILE_BYTES = 128;                    ///< 单 tile 基础字节数（128B）
-static constexpr int64_t SMALL_SHAPE_2D_PAD_BYTES = 32;                      ///< 输出行尾额外 pad 字节
+static constexpr int64_t SMALL_SHAPE_2D_BYTES_THRES_HOLD = 4000000; ///< 默认小 shape 阈值（4MB）
+static constexpr int64_t SMALL_SHAPE_2D_MIN_BYTES = 64 * 1024;      ///< 低于 64KB 交给 SMALL_SHAPE
+static constexpr int64_t SMALL_SHAPE_2D_MIN_COLS = 4;               ///< cols<=4 交给 SMALL_SHAPE
+static constexpr int64_t SMALL_SHAPE_2D_DCACHE_SIZE = 32 * 1024;    ///< SIMT DCACHE 预留
+static constexpr int64_t SMALL_SHAPE_2D_BLOCK_COUNT_MAX = 4095;     ///< DataCopyPad blockCount 上限
+static constexpr int64_t SMALL_SHAPE_2D_TILE_BYTES = 128;           ///< 单 tile 基础字节数（128B）
+static constexpr int64_t SMALL_SHAPE_2D_PAD_BYTES = 32;             ///< 输出行尾额外 pad 字节
 static constexpr int64_t SMALL_SHAPE_2D_ROW_BYTES = SMALL_SHAPE_2D_TILE_BYTES + SMALL_SHAPE_2D_PAD_BYTES;
 static constexpr int64_t SMALL_SHAPE_2D_UB_BUFFER_NUM = 4; ///< UB 缓冲数（x0/x1/y0/y1）
 static constexpr int64_t SMALL_SHAPE_2D_MIN_CORE_NUM = 1;  ///< 至少使用 1 核
@@ -51,6 +50,11 @@ bool TransposeSmallShape2DStrategy::IsShapeSupported() const
     if (!isSupportSimt_) {
         return false;
     }
+
+    if (npuArch_ == Ops::Base::DAV_5102) {
+        return false;
+    }
+
     if (!IsPermValue({1, 0})) {
         return false;
     }
@@ -64,11 +68,8 @@ bool TransposeSmallShape2DStrategy::IsShapeSupported() const
         return false;
     }
     const int64_t volumeBytes = shapeInfo_.totalVolumeActual * shapeInfo_.eleLenInBytes;
-    int64_t threshold = SMALL_SHAPE_2D_BYTES_THRES_HOLD;
-    if (!isRelatedTranspose_ && npuArch_ == Ops::Base::DAV_5102) {
-        threshold = SMALL_SHAPE_2D_BYTES_THRES_HOLD_DAV_5102;
-    }
-    return volumeBytes >= SMALL_SHAPE_2D_MIN_BYTES && volumeBytes < threshold;
+
+    return volumeBytes >= SMALL_SHAPE_2D_MIN_BYTES && volumeBytes < SMALL_SHAPE_2D_BYTES_THRES_HOLD;
 }
 
 TilingStatus TransposeSmallShape2DStrategy::DoExecute()
