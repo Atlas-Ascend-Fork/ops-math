@@ -167,6 +167,23 @@ static op::DataType GetScalarDefaultDtype(const op::DataType input)
     return input;
 }
 
+static op::DataType PromoteTypeScalar(const aclTensor* self, const aclScalar* other)
+{
+    auto selfDtype = self->GetDataType();
+    auto otherDtype = other->GetDataType();
+    op::DataType promoteType = op::PromoteType(selfDtype, otherDtype);
+    if (promoteType != op::DataType::DT_UNDEFINED) {
+        return promoteType;
+    }
+    if (IsFloatingType(selfDtype)) {
+        return selfDtype;
+    }
+    if (selfDtype == op::DataType::DT_BOOL || IsFloatingType(otherDtype)) {
+        return op::DataType::DT_UNDEFINED;
+    }
+    return selfDtype;
+}
+
 static bool CheckPromoteType(const aclTensor* self, const aclScalar* other, const aclTensor* out, DataType& promoteType)
 {
     // 类型提升判断，将提升后的数据类型返回
@@ -182,7 +199,7 @@ static bool CheckPromoteType(const aclTensor* self, const aclScalar* other, cons
         // 检查other的数据类型是否合规
         OP_CHECK_RESULT_DTYPE_CAST_FAILED(other->GetDataType(), promoteType, return false);
     } else {
-        promoteType = PromoteType(self->GetDataType(), other->GetDataType());
+        promoteType = PromoteTypeScalar(self, other);
         // 如果有经过评审可以进行的转换，在这里添加并修改promoteType的值
         if (promoteType == DataType::DT_BOOL) {
             promoteType = DataType::DT_INT8;
