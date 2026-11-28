@@ -441,7 +441,13 @@ aclnnStatus aclnnInplaceBernoulliTensor(
 
 - Deterministic computation: aclnnBernoulliTensor&aclnnInplaceBernoulliTensor default to a deterministic implementation.
 - The element values of the input prob must be in the range [0, 1]. This value range must be ensured by the caller and is not validated by the first-phase API. If an element value is out of range (for example, a negative value or a value greater than 1), the error is exposed as a device-side exception (such as 507018) during stream synchronization.
-- The shape of the input prob must be broadcastable to the shape of self/selfRef. If it is not broadcastable, the API reports an error. Broadcasting must not change the shape of self/selfRef.
+<!-- npu="950" id10 -->
+- <term>Ascend 950PR&950DT products</term>: The shape of the input prob must be broadcastable to the shape of self/selfRef. If it is not broadcastable, the API reports an error. Broadcasting must not change the shape of self/selfRef.
+<!-- end id10 -->
+- A non-empty out/selfRef must not have a dimension whose size is greater than 1 and stride is 0. This prevents multiple output elements from being written to the same storage location. Copy the tensor to one without internal overlap before calling this API.
+<!-- npu="A3,910b,910" id11 -->
+- <term>Atlas A3 products</term>, <term>Atlas A2 products</term>, <term>Atlas training products</term>: If the shape of the input prob differs from that of self/selfRef, only the elements that correspond in element order are calculated. The number of calculated elements is the smaller of the element counts of prob and self/selfRef, and the values of the remaining output elements are undefined. This scenario also involves an out-of-bounds read risk, which may cause operator execution to fail. Ensure that prob and self/selfRef have the same shape to avoid undefined results or operator execution failures. For example, when the shape of prob is [4, 2] and the shape of self is [4, 4], only the first 8 elements are calculated, and the output shape is [4, 4]. When the shape of prob is [4, 4, 2] and the shape of self is [4, 4], only the first 16 elements are calculated, and the output shape is [4, 4].
+<!-- end id11 -->
 
 ## Example
 
