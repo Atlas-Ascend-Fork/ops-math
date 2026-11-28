@@ -201,21 +201,6 @@ inline static aclnnStatus CheckParam(const aclTensor* self, const aclIntArray* d
     return ACLNN_SUCCESS;
 }
 
-inline static FVector<int64_t> GetShape(const aclTensor* tensor)
-{
-    FVector<int64_t> shape;
-    if (tensor->GetViewShape().GetDimNum() == 0) {
-        shape.emplace_back(1);
-    } else {
-        size_t dimNum = tensor->GetViewShape().GetDimNum();
-        for (size_t idx = 0; idx < dimNum; idx++) {
-            auto tmpVal = tensor->GetViewShape().GetDim(idx);
-            shape.emplace_back(tmpVal);
-        }
-    }
-    return shape;
-}
-
 static const aclTensor* ProcessEmptyTensor(const aclTensor* self, const aclTensor* out, aclOpExecutor* executor)
 {
     // 获取shape信息
@@ -236,8 +221,9 @@ static const aclTensor* ProcessEmptyTensor(const aclTensor* self, const aclTenso
  * 执行流程：
  * 1. 空 tensor 处理：直接返回空输出
  * 2. 转连续：非连续 Tensor 先调用 l0op::Contiguous 转连续
- * 3. dims 负值转正：perm[i] < 0 → perm[i] + permSize
- * 4. 调用 l0op::Transpose 完成维度交换
+ * 3. 0 维标量处理：shape = []、dims = [] 时直接返回连续张量，交由外层 l0op::ViewCopy 拷贝到 out
+ * 4. dims 负值转正：perm[i] < 0 → perm[i] + permSize
+ * 5. 调用 l0op::Transpose 完成维度交换
  *
  * @param self     输入张量
  * @param dims     维度排列数组
@@ -258,6 +244,11 @@ static const aclTensor* BuildPermuteGraph(const aclTensor* self, const aclIntArr
     // 转连续
     auto selfContiguous = l0op::Contiguous(self, executor);
     CHECK_RET(selfContiguous != nullptr, nullptr);
+
+    // 0维标量（shape = [], dims = []）无需转置，直接返回由外层 l0op::ViewCopy 拷贝到 out
+    if (selfContiguous->GetViewShape().GetDimNum() == 0) {
+        return selfContiguous;
+    }
 
     // dims值转换正值
     auto permSize = (int64_t)(dims->Size());
