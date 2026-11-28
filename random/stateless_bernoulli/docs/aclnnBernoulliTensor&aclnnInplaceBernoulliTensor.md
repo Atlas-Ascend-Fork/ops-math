@@ -439,8 +439,13 @@ aclnnStatus aclnnInplaceBernoulliTensor(
 
 - 确定性计算：aclnnBernoulliTensor&aclnnInplaceBernoulliTensor默认确定性实现。
 - 输入prob的元素值域必须为[0, 1]，该值域由调用方保证，第一段接口不做校验；元素值越界（如为负数或大于1）时，错误将在任务同步阶段以设备侧异常（如507018）暴露。
-- 输入prob的shape须可广播到self/selfRef的shape，不可广播时接口报错。广播不能改变self/selfRef的shape。
+<!-- npu="950" id10 -->
+- <term>Ascend 950PR&950DT系列产品</term>：输入prob的shape须可广播到self/selfRef的shape，不可广播时接口报错。广播不能改变self/selfRef的shape。
+<!-- end id10 -->
 - 非空out/selfRef不允许存在长度大于1且stride为0的维度，以避免多个输出元素写入同一存储位置。请先拷贝为无内部重叠的Tensor后再调用。
+<!-- npu="A3,910b,910" id11 -->
+- <term>Atlas A3系列产品</term>、<term>Atlas A2系列产品</term>、<term>Atlas训练系列产品</term>：若输入prob的shape与输入self/selfRef的shape不一致，则仅按元素顺序计算两者可对应的部分（计算元素个数取二者元素个数中的较小值），其余输出元素的取值未定义；该场景还存在读越界风险，可能导致算子执行报错。请保证prob与self/selfRef的shape一致，避免产生未定义结果或算子执行报错。例如：prob的shape为[4, 2]、self的shape为[4, 4]时，仅计算前8个元素，输出shape为[4, 4]；prob的shape为[4, 4, 2]、self的shape为[4, 4]时，仅计算前16个元素，输出shape为[4, 4]。
+<!-- end id11 -->
 
 ## 调用示例
 
