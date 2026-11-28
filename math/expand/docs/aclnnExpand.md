@@ -87,7 +87,7 @@ aclnnStatus aclnnExpand(
       <tr>
         <td>self</td>
         <td>输入</td>
-        <td>表示待广播的目标张量，公式中的self</td>
+        <td>表示待广播的输入张量，即公式中的X</td>
         <td>shape与size满足广播关系</td>
         <td>FLOAT16、FLOAT、UINT8、INT8、INT32、INT64、BOOL、BF16。</td>
         <td>ND</td>

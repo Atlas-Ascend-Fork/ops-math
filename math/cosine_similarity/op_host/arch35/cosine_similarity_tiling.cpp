@@ -33,6 +33,11 @@ constexpr int64_t WORKSPACE_MARGIN_BYTES = 512;
 constexpr int64_t PARTIAL_ARRAY_NUM = 3;
 constexpr int64_t CORE_SCRATCH_ELEMS = 24;
 constexpr uint32_t STATIC_UB_ESTIMATE = 0;
+constexpr int64_t VEC_REDUCE_MAX = 16;
+constexpr int64_t VEC_MIN_COLS = 64;
+constexpr int64_t VEC_MIN_INNER = 256;
+constexpr int64_t VEC_TARGET_COLS = 2048;
+constexpr int64_t VEC_UB_BUDGET_BYTES = 96 * 1024;
 
 struct CosineSimilarityCompileInfo {};
 
@@ -79,7 +84,7 @@ static void FillCommonShapeAndStrides(const gert::Shape& commonShape, int32_t nd
 }
 
 static ge::graphStatus ComputeCosineSimilarityTiling(gert::TilingContext* context, CosineSimilarityTilingData* tiling,
-                                                     int64_t coreNum)
+                                                     int64_t coreNum, uint64_t ubSize)
 {
     auto x1Input = context->GetInputShape(0);
     OP_CHECK_NULL_WITH_CONTEXT(context, x1Input);
@@ -164,6 +169,82 @@ static ge::graphStatus ComputeCosineSimilarityTiling(gert::TilingContext* contex
     }
     tiling->eps = eps;
 
+    // 向量元素级路径：小 reduce + 大 inner。inner 较大时 load 为 >=1KB 连续/大块跨步搬运，稳定。
+    // inner < VEC_MIN_INNER 的极小 inner 需要 4B 级小块跨步搬运，实测在 950 上不稳定，保持原 SIMT 路径。
+    const bool vecRoute = (tiling->reduceSize >= 1) && (tiling->reduceSize <= VEC_REDUCE_MAX) &&
+                          (tiling->totalOutputElements >= VEC_MIN_COLS) && (tiling->innerSize >= VEC_MIN_INNER);
+    if (vecRoute) {
+        // 按平台实际可用 UB 收紧预算（SetLocalMemorySize 用 ubSize - DCACHE - STATIC）。
+        int64_t availUb = static_cast<int64_t>(ubSize) - static_cast<int64_t>(DCACHE_SIZE) -
+                          static_cast<int64_t>(STATIC_UB_ESTIMATE);
+        if (availUb <= 0) {
+            availUb = VEC_UB_BUDGET_BYTES;
+        }
+        const int64_t vecUbBudget = (availUb < VEC_UB_BUDGET_BYTES) ? availUb : VEC_UB_BUDGET_BYTES;
+        // tileCols 随 reduceSize 缩放；UB 缓冲实际占用 (2R+5) 块（x1/x2 各 R + w1/w2/ta/tb + yQue 的 1 块）。
+        int64_t tileElems = VEC_TARGET_COLS;
+        while (tileElems >= VEC_MIN_COLS) {
+            int64_t candG = 0;
+            int64_t candTI = 0;
+            if (tiling->innerSize <= tileElems) {
+                candTI = tiling->innerSize;
+                candG = tileElems / tiling->innerSize;
+                if (candG < 1) {
+                    candG = 1;
+                }
+                // 多 block 搬运要求每行 blockLen(innerSize*4) 为 32B 整数倍，否则行距错位；
+                // innerSize 非 8 倍数时强制单行搬运（tileOuters=1）。
+                if ((tiling->innerSize % 8) != 0) {
+                    candG = 1;
+                }
+            } else {
+                candG = 1;
+                candTI = tileElems;
+            }
+            const int64_t candCols = candG * candTI;
+            const int64_t candStride = ((candCols + 63) / 64) * 64;
+            if ((2 * tiling->reduceSize + 5) * candStride * static_cast<int64_t>(sizeof(float)) <= vecUbBudget) {
+                break;
+            }
+            tileElems /= 2;
+        }
+        if (tileElems < VEC_MIN_COLS) {
+            tileElems = VEC_MIN_COLS;
+        }
+        int64_t tileOuters = 0;
+        int64_t tileInner = 0;
+        if (tiling->innerSize <= tileElems) {
+            tileInner = tiling->innerSize;
+            tileOuters = tileElems / tiling->innerSize;
+            if (tileOuters < 1) {
+                tileOuters = 1;
+            }
+            if ((tiling->innerSize % 8) != 0) {
+                tileOuters = 1;
+            }
+        } else {
+            tileOuters = 1;
+            tileInner = tileElems;
+        }
+        tiling->useVecPath = 1;
+        tiling->vecTileOuters = tileOuters;
+        tiling->vecTileInner = tileInner;
+        // tile 总数需与 kernel 一致：case A（tileInner==innerSize）按 outer 切，
+        // case B（inner 分段）按 outer*inner 段切，不能用 CeilDiv(totalOut, tileCols)。
+        int64_t totalTiles = 0;
+        if (tileInner == tiling->innerSize) {
+            totalTiles = Ops::Base::CeilDiv(tiling->outerSize, tileOuters);
+        } else {
+            totalTiles = tiling->outerSize * Ops::Base::CeilDiv(tiling->innerSize, tileInner);
+        }
+        int64_t needCoreNum = (coreNum < totalTiles) ? coreNum : totalTiles;
+        if (needCoreNum < 1) {
+            needCoreNum = 1;
+        }
+        tiling->needCoreNum = static_cast<int32_t>(needCoreNum);
+        return ge::GRAPH_SUCCESS;
+    }
+
     int64_t totalOutputs = tiling->totalOutputElements;
     if (tiling->reduceSize <= WARP_PATH_REDUCE_MAX_FEW_OUTPUT ||
         (tiling->reduceSize <= WARP_PATH_REDUCE_MAX_MULTI_OUTPUT && totalOutputs >= coreNum)) {
@@ -210,7 +291,7 @@ static ge::graphStatus GetWorkspaceSize(gert::TilingContext* context)
 {
     const CosineSimilarityTilingData* tiling = context->GetTilingData<CosineSimilarityTilingData>();
     int64_t userWorkspaceSize = WORKSPACE_MARGIN_BYTES;
-    if (tiling != nullptr && tiling->useWarpPath == 0) {
+    if (tiling != nullptr && tiling->useWarpPath == 0 && tiling->useVecPath == 0) {
         int64_t partialBytes = 0;
         if (tiling->chunksPerOutput > 1) {
             partialBytes = PARTIAL_ARRAY_NUM * tiling->totalPairs * static_cast<int64_t>(sizeof(float));
@@ -243,7 +324,7 @@ static ge::graphStatus CosineSimilarityTilingFunc(gert::TilingContext* context)
     OP_CHECK_IF(memset_s(tiling, sizeof(CosineSimilarityTilingData), 0, sizeof(CosineSimilarityTilingData)) != EOK,
                 OP_LOGE(context, "set tiling data error"), return ge::GRAPH_FAILED);
 
-    OP_CHECK_IF(ComputeCosineSimilarityTiling(context, tiling, coreNum) != ge::GRAPH_SUCCESS,
+    OP_CHECK_IF(ComputeCosineSimilarityTiling(context, tiling, coreNum, ubSize) != ge::GRAPH_SUCCESS,
                 OP_LOGE(context, "ComputeCosineSimilarityTiling error"), return ge::GRAPH_FAILED);
 
     OP_CHECK_IF(GetWorkspaceSize(context) != ge::GRAPH_SUCCESS, OP_LOGE(context, "GetWorkspaceSize error"),

@@ -61,7 +61,53 @@ TEST_F(CosineSimilarityTiling, cosine_similarity_float32)
                                               262144, // ubsize
                                               4096);  // max tiling data size
     uint64_t expectTilingKey = 0;                     // 32-bit path
-    string expectTilingData = "4 4 8 1 4 9431665783 4294967297 1 0 4 4 8 0 0 0 0 0 0 8 1 0 0 0 0 0 0 8 1 0 0 0 0 0 0 ";
+    string expectTilingData = "4 4 8 1 4 9431665783 4294967297 1 0 4 4 8 0 0 0 0 0 0 8 1 0 0 0 0 0 0 8 1 0 0 0 0 0 0 0 "
+                              "0 0 "; // 末尾 3 个 0 = useVecPath/vecTileOuters/vecTileInner
+    std::vector<size_t> expectWorkspaces = {16777728};
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
+}
+
+TEST_F(CosineSimilarityTiling, cosine_similarity_vec_path_small_reduce_large_inner)
+{
+    struct CosineSimilarityCompileInfo {
+    } compileInfo;
+    // shape (2, 2, 101711), dim=1(默认) -> outer=2, reduce=2, inner=101711: 走向量元素级路径(case B)
+    gert::TilingContextPara tilingContextPara("CosineSimilarity",
+                                              {
+                                                  {{{2, 2, 101711}, {2, 2, 101711}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                                  {{{2, 2, 101711}, {2, 2, 101711}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{2, 101711}, {2, 101711}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              &compileInfo, 64, 262144, 4096);
+    uint64_t expectTilingKey = 0; // 32-bit path
+    // 末尾字段 useVecPath=1 vecTileOuters=1 vecTileInner=2048
+    string expectTilingData = "64 203422 2 101711 2 13726633079 1 0 0 0 2 2 101711 0 0 0 0 0 "
+                              "203422 101711 1 0 0 0 0 0 203422 101711 1 0 0 0 0 0 1 1 2048 ";
+    std::vector<size_t> expectWorkspaces = {16777728};
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
+}
+
+TEST_F(CosineSimilarityTiling, cosine_similarity_vec_path_large_outer_small_inner)
+{
+    struct CosineSimilarityCompileInfo {
+    } compileInfo;
+    // shape (2, 2, 2, 504142, 3), dim=1(默认) -> outer=2, reduce=2, inner=3024852: 走 inner 分段(case B)
+    gert::TilingContextPara tilingContextPara(
+        "CosineSimilarity",
+        {
+            {{{2, 2, 2, 504142, 3}, {2, 2, 2, 504142, 3}}, ge::DT_FLOAT, ge::FORMAT_ND},
+            {{{2, 2, 2, 504142, 3}, {2, 2, 2, 504142, 3}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        {
+            {{{2, 2, 504142, 3}, {2, 2, 504142, 3}}, ge::DT_FLOAT, ge::FORMAT_ND},
+        },
+        &compileInfo, 64, 262144, 4096);
+    uint64_t expectTilingKey = 0; // 32-bit path
+    // 末尾字段 useVecPath=1 vecTileOuters=1 vecTileInner=2048
+    string expectTilingData = "64 6049704 2 3024852 2 22316567671 1 0 0 0 2 2 2 504142 3 0 0 0 "
+                              "6049704 3024852 1512426 3 1 0 0 0 6049704 3024852 1512426 3 1 0 0 0 1 1 2048 ";
     std::vector<size_t> expectWorkspaces = {16777728};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_SUCCESS, expectTilingKey, expectTilingData, expectWorkspaces);
 }

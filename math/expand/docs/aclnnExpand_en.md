@@ -89,7 +89,7 @@ aclnnStatus aclnnExpand(
       <tr>
         <td>self</td>
         <td>Input</td>
-        <td>Target tensor to be broadcast, self in the formula.</td>
+        <td>Input tensor to be broadcast, X in the formula.</td>
         <td>The shape and size satisfy the broadcast relationship.</td>
         <td>FLOAT16, FLOAT, UINT8, INT8, INT32, INT64, BOOL, BF16.</td>
         <td>ND</td>

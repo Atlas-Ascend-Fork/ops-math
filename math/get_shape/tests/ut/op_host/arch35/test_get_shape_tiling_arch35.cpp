@@ -13,6 +13,7 @@
 #include <gtest/gtest.h>
 #include "tiling_context_faker.h"
 #include "tiling_case_executor.h"
+#include "exe_graph/runtime/kernel_run_context.h"
 
 using namespace std;
 
@@ -50,6 +51,55 @@ TEST_F(GetShapeTilingTest, ScalarInput_Fail)
                                                   {{{0}, {0}}, ge::DT_INT32, ge::FORMAT_ND},
                                               },
                                               {1}, {1}, &compileInfo);
+    uint64_t expectTilingKey = 0;
+    std::vector<size_t> expectWorkspaces = {0};
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED, expectTilingKey, expectWorkspaces);
+}
+
+TEST_F(GetShapeTilingTest, NullInputShape_Fail)
+{
+    optiling::GetShapeCompileInfo compileInfo;
+    gert::TilingContextPara tilingContextPara("GetShape",
+                                              {
+                                                  {{{2, 3}, {2, 3}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{2}, {2}}, ge::DT_INT32, ge::FORMAT_ND},
+                                              },
+                                              {1}, {1}, &compileInfo);
+    auto bundle = BuildTilingContext(tilingContextPara);
+    ASSERT_NE(bundle.context, nullptr);
+    auto* kernelCtx = reinterpret_cast<KernelRunContext*>(bundle.context);
+    kernelCtx->values[0]->data.pointer = nullptr;
+    EXPECT_EQ(RunTiling(bundle, tilingContextPara), ge::GRAPH_FAILED);
+}
+
+TEST_F(GetShapeTilingTest, UnknownRankStorageShape_Fail)
+{
+    optiling::GetShapeCompileInfo compileInfo;
+    gert::TilingContextPara tilingContextPara("GetShape",
+                                              {
+                                                  {{{0}, {-2}}, ge::DT_FLOAT, ge::FORMAT_ND},
+                                              },
+                                              {
+                                                  {{{0}, {0}}, ge::DT_INT32, ge::FORMAT_ND},
+                                              },
+                                              {1}, {1}, &compileInfo);
+    uint64_t expectTilingKey = 0;
+    std::vector<size_t> expectWorkspaces = {0};
+    ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED, expectTilingKey, expectWorkspaces);
+}
+
+TEST_F(GetShapeTilingTest, TotalDimExceed128_Fail)
+{
+    optiling::GetShapeCompileInfo compileInfo;
+    std::vector<gert::TilingContextPara::TensorDescription> inputs;
+    for (int i = 0; i < 17; ++i) {
+        inputs.emplace_back(gert::StorageShape({1, 2, 3, 4, 5, 6, 7, 8}, {1, 2, 3, 4, 5, 6, 7, 8}), ge::DT_FLOAT,
+                            ge::FORMAT_ND);
+    }
+    gert::TilingContextPara tilingContextPara("GetShape", inputs, {{{{136}, {136}}, ge::DT_INT32, ge::FORMAT_ND}}, {17},
+                                              {1}, &compileInfo);
     uint64_t expectTilingKey = 0;
     std::vector<size_t> expectWorkspaces = {0};
     ExecuteTestCase(tilingContextPara, ge::GRAPH_FAILED, expectTilingKey, expectWorkspaces);

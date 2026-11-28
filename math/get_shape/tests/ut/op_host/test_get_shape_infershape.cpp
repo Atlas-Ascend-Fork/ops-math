@@ -12,6 +12,7 @@
 #include <iostream>
 #include <array>
 #include "infershape_context_faker.h"
+#include "infershape_case_executor.h"
 #include "base/registry/op_impl_space_registry_v2.h"
 
 class GetShapeInferShapeTest : public testing::Test {
@@ -145,4 +146,61 @@ TEST_F(GetShapeInferShapeTest, MultipleDtypes)
 
     EXPECT_EQ(inferShapeFunc(holder.GetContext()), ge::GRAPH_SUCCESS);
     EXPECT_EQ(ToVector(*holder.GetContext()->GetOutputShape(0)), std::vector<int64_t>({6}));
+}
+
+// No input instance is provided, GetComputeNodeInputNum() returns 0, expect failure
+TEST_F(GetShapeInferShapeTest, InputNumZero_Fail)
+{
+    gert::InfershapeContextPara infershapeContextPara("GetShape", {}, {{{{0}, {0}}, ge::DT_INT32, ge::FORMAT_ND}},
+                                                      std::vector<uint32_t>{0}, std::vector<uint32_t>{1});
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED);
+}
+
+// The input shape pointer is null, expect failure
+TEST_F(GetShapeInferShapeTest, NullInputShape_Fail)
+{
+    gert::InfershapeContextPara infershapeContextPara(
+        "GetShape", {{{{2, 3}, {2, 3}}, ge::DT_FLOAT, ge::FORMAT_ND}}, {{{{2}, {2}}, ge::DT_INT32, ge::FORMAT_ND}},
+        std::vector<uint32_t>{1}, std::vector<uint32_t>{1}, std::vector<size_t>{0});
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED);
+}
+
+// Input is an unknown rank tensor, expect failure
+TEST_F(GetShapeInferShapeTest, UnknownRank_Fail)
+{
+    gert::InfershapeContextPara infershapeContextPara("GetShape", {{{{-2}, {-2}}, ge::DT_FLOAT, ge::FORMAT_ND}},
+                                                      {{{{0}, {0}}, ge::DT_INT32, ge::FORMAT_ND}},
+                                                      std::vector<uint32_t>{1}, std::vector<uint32_t>{1});
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED);
+}
+
+// A single tensor with 9 dims exceeds the per-tensor dim limit of 8, expect failure
+TEST_F(GetShapeInferShapeTest, DimNumExceed8_Fail)
+{
+    gert::InfershapeContextPara infershapeContextPara(
+        "GetShape", {{{{1, 2, 3, 4, 5, 6, 7, 8, 9}, {1, 2, 3, 4, 5, 6, 7, 8, 9}}, ge::DT_FLOAT, ge::FORMAT_ND}},
+        {{{{9}, {9}}, ge::DT_INT32, ge::FORMAT_ND}}, std::vector<uint32_t>{1}, std::vector<uint32_t>{1});
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED);
+}
+
+// Total dims across 17 tensors (17 * 8 = 136) exceed the limit of 128, expect failure
+TEST_F(GetShapeInferShapeTest, TotalDimExceed128_Fail)
+{
+    std::vector<gert::InfershapeContextPara::TensorDescription> inputs;
+    for (int i = 0; i < 17; ++i) {
+        inputs.emplace_back(gert::StorageShape({1, 2, 3, 4, 5, 6, 7, 8}, {1, 2, 3, 4, 5, 6, 7, 8}), ge::DT_FLOAT,
+                            ge::FORMAT_ND);
+    }
+    gert::InfershapeContextPara infershapeContextPara("GetShape", inputs,
+                                                      {{{{136}, {136}}, ge::DT_INT32, ge::FORMAT_ND}},
+                                                      std::vector<uint32_t>{17}, std::vector<uint32_t>{1});
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED);
+}
+
+// The output shape pointer is null, expect failure
+TEST_F(GetShapeInferShapeTest, OutputShapeNull_Fail)
+{
+    gert::InfershapeContextPara infershapeContextPara("GetShape", {{{{2, 3}, {2, 3}}, ge::DT_FLOAT, ge::FORMAT_ND}}, {},
+                                                      std::vector<uint32_t>{1}, std::vector<uint32_t>{0});
+    ExecuteTestCase(infershapeContextPara, ge::GRAPH_FAILED);
 }

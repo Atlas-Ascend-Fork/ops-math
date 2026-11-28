@@ -29,6 +29,10 @@ struct CosineSimilarityTilingData {
     int64_t broadcastShape[8] = {};
     int64_t x1Strides[8] = {};
     int64_t x2Strides[8] = {};
+    // 向量元素级路径（vector bound 小 reduce 大非 reduce 维度）。追加在末尾，避免影响既有 UT 定长序列化。
+    int32_t useVecPath = 0;
+    int64_t vecTileOuters = 0; // 每个 tile 处理的 outer 个数
+    int64_t vecTileInner = 0;  // 每个 tile 处理的 inner 列数（tileCols = vecTileOuters * vecTileInner）
 };
 
 #endif // COSINE_SIMILARITY_TILING_DATA_H_
