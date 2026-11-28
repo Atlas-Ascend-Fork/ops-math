@@ -112,13 +112,18 @@ aclnnStatus aclnnMinGetWorkspaceSize(const aclTensor* self, aclTensor* out, uint
     auto ret = CheckParams(self, out);
     CHECK_RET(ret == ACLNN_SUCCESS, ret);
 
+    if (self->IsEmpty()) {
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "aclnnMin does not support an empty reduction result.");
+        return ACLNN_ERR_PARAM_INVALID;
+    }
+
     // 创建OpExecutor
     auto uniqueExecutor = CREATE_EXECUTOR();
 
     auto dim = GetMinDimListForTensor(self, uniqueExecutor.get());
 
-    // 空Tensor处理
-    if (self->IsEmpty() || out->IsEmpty()) {
+    // 空输出无需写入，保留零workspace成功路径
+    if (out->IsEmpty()) {
         *workspaceSize = 0;
         uniqueExecutor.ReleaseTo(executor);
         return ACLNN_SUCCESS;

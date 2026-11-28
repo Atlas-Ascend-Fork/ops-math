@@ -132,7 +132,7 @@ TEST_F(l2_aminmax_all_test, l2_aminmax_all_test_empty_self)
 
     uint64_t workspaceSize = 0;
     aclnnStatus getWorkspaceResult = ut.TestGetWorkspaceSize(&workspaceSize);
-    EXPECT_EQ(getWorkspaceResult, ACL_SUCCESS);
+    EXPECT_EQ(getWorkspaceResult, ACLNN_ERR_PARAM_INVALID);
 }
 
 // 用例不支持，最大维度超过8
