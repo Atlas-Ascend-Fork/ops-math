@@ -108,11 +108,10 @@ aclnnStatus aclnnAminmaxAllGetWorkspaceSize(const aclTensor* self, aclTensor* mi
     auto ret = CheckParams(self, minOut, maxOut);
     CHECK_RET(ret == ACLNN_SUCCESS, ret);
 
-    // 空tensor处理
+    // max/min空归约没有可定义的语义值
     if (self->IsEmpty()) {
-        *workspaceSize = 0;
-        uniqueExecutor.ReleaseTo(executor);
-        return ACLNN_SUCCESS;
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID, "aclnnAminmaxAll does not support an empty reduction result.");
+        return ACLNN_ERR_PARAM_INVALID;
     }
 
     // 当输入tensor是0维时，直接将输入tensor作为最大值和最小值返回

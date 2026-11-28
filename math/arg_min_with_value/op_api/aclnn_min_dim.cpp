@@ -137,6 +137,17 @@ aclnnStatus aclnnMinDimGetWorkspaceSize(const aclTensor* self, int64_t dim, bool
     auto uniqueExecutor = CREATE_EXECUTOR();
 
     if (self->IsEmpty()) {
+        auto selfShape = self->GetViewShape();
+        auto dimNum = static_cast<int64_t>(selfShape.GetDimNum());
+        auto realDim = dim >= 0 ? dim : dim + dimNum;
+        if (dimNum > 0 && selfShape.GetDim(realDim) == 0) {
+            OP_LOGE(ACLNN_ERR_PARAM_INVALID, "aclnnMinDim does not support a zero-sized reduction dim.");
+            return ACLNN_ERR_PARAM_INVALID;
+        }
+        if (!out->IsEmpty() || !indices->IsEmpty()) {
+            OP_LOGE(ACLNN_ERR_PARAM_INVALID, "aclnnMinDim does not support an empty reduction result.");
+            return ACLNN_ERR_PARAM_INVALID;
+        }
         *workspaceSize = 0;
         uniqueExecutor.ReleaseTo(executor);
         return ACLNN_SUCCESS;
